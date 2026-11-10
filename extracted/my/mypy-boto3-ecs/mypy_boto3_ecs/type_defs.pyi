@@ -84,6 +84,7 @@ from .literals import (
     InstanceHealthCheckStateType,
     InstanceHealthCheckTypeType,
     IpcModeType,
+    IsolationModeType,
     LaunchTypeType,
     LocalStorageType,
     LocalStorageTypeType,
@@ -603,6 +604,8 @@ __all__ = (
     "TmpfsTypeDef",
     "TmpfsUnionTypeDef",
     "TotalLocalStorageGBRequestTypeDef",
+    "TrustedExecutionConfigurationTypeDef",
+    "TrustedExecutionSummaryTypeDef",
     "UlimitTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateCapacityProviderRequestTypeDef",
@@ -1687,6 +1690,10 @@ TaskDefinitionPlacementConstraintTypeDef = TypedDict(
     },
 )
 
+class TrustedExecutionConfigurationTypeDef(TypedDict):
+    isolationMode: IsolationModeType
+    attestationPolicy: NotRequired[str]
+
 class ServiceRevisionLoadBalancerTypeDef(TypedDict):
     targetGroupArn: NotRequired[str]
     productionListenerRule: NotRequired[str]
@@ -1790,6 +1797,10 @@ class TaskEphemeralStorageTypeDef(TypedDict):
 
 class TaskManagedEBSVolumeTerminationPolicyTypeDef(TypedDict):
     deleteOnTermination: bool
+
+class TrustedExecutionSummaryTypeDef(TypedDict):
+    isolationMode: IsolationModeType
+    attestationPolicyStatus: NotRequired[Literal["CONFIGURED"]]
 
 class TmpfsTypeDef(TypedDict):
     containerPath: str
@@ -2853,6 +2864,7 @@ class InstanceLaunchTemplateOutputTypeDef(TypedDict):
     instanceRequirements: NotRequired[InstanceRequirementsRequestOutputTypeDef]
     fipsEnabled: NotRequired[bool]
     capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
+    nitroEnclavesEnabled: NotRequired[bool]
 
 InstanceRequirementsRequestUnionTypeDef = Union[
     InstanceRequirementsRequestTypeDef, InstanceRequirementsRequestOutputTypeDef
@@ -3224,6 +3236,7 @@ class InstanceLaunchTemplateTypeDef(TypedDict):
     instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
     fipsEnabled: NotRequired[bool]
     capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
+    nitroEnclavesEnabled: NotRequired[bool]
 
 class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
     ec2InstanceProfileArn: NotRequired[str]
@@ -3445,6 +3458,7 @@ class TaskDefinitionTypeDef(TypedDict):
     registeredBy: NotRequired[str]
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
     enableFaultInjection: NotRequired[bool]
+    trustedExecutionConfiguration: NotRequired[TrustedExecutionConfigurationTypeDef]
 
 class TaskOverrideOutputTypeDef(TypedDict):
     containerOverrides: NotRequired[list[ContainerOverrideOutputTypeDef]]
@@ -3668,6 +3682,7 @@ class TaskTypeDef(TypedDict):
     version: NotRequired[int]
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
     fargateEphemeralStorage: NotRequired[TaskEphemeralStorageTypeDef]
+    trustedExecutionSummary: NotRequired[TrustedExecutionSummaryTypeDef]
 
 TaskOverrideUnionTypeDef = Union[TaskOverrideTypeDef, TaskOverrideOutputTypeDef]
 
@@ -3866,6 +3881,7 @@ class RegisterTaskDefinitionRequestTypeDef(TypedDict):
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
     runtimePlatform: NotRequired[RuntimePlatformTypeDef]
     enableFaultInjection: NotRequired[bool]
+    trustedExecutionConfiguration: NotRequired[TrustedExecutionConfigurationTypeDef]
 
 class ServiceTypeDef(TypedDict):
     serviceArn: NotRequired[str]

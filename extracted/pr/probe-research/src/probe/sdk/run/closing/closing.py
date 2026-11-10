@@ -180,6 +180,14 @@ class ClosingMixin:
                 extra={"reason": _preempt.STOPPED_REASON} if stopped else None,
             )
         try:
+            if getattr(self, "_closed_status", None) is None and preempted is None:
+                # Closed `failed` inside an `except`: what it caught is the crash report, filed BEFORE
+                # the close (a span behind the terminal write races a closed run). A verdict a
+                # `set_status` already sent keeps its own; a signal's close carries the signal, and
+                # `sys.exc_info` there is whatever the interrupted frame was handling.
+                from ... import diagnostics
+
+                diagnostics.report_exception_in_flight(self, status)
             result = self._close(
                 status,
                 summary=close_summary,
@@ -415,7 +423,8 @@ class ClosingMixin:
             try:
                 from ... import diagnostics
 
-                diagnostics.report_exception(self, cause)
+                # Marked: finish() below runs while `exc` is still in flight and must not file it twice.
+                diagnostics.report_run_crash(self, cause)
             except BaseException:  # noqa: BLE001 -- even an interrupted report is best effort
                 pass
         try:

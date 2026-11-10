@@ -13,6 +13,7 @@ class SPOFileArchivePolicyReportInfo(ClientValue):
     GBsArchived: float | None = None
     GBsEligibleForArchive: float | None = None
     SiteProcessedCount: int | None = None
+    State: str | None = None
     WhatIfMode: bool | None = None
 
     @property

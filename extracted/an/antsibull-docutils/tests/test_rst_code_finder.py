@@ -25,7 +25,7 @@ from antsibull_docutils.rst_code_finder import (
     mark_antsibull_code_block,
 )
 
-DOCUTILS_VERSION = tuple(
+DOCUTILS_VERSION: tuple[int, ...] = tuple(
     int(part) for part in docutils_version_string.split(".", 2)[:2]
 )
 

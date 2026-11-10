@@ -1,36 +1,59 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from typing import Any
 
 from pyfixest.demeaners import AnyDemeaner
-from pyfixest.estimation.api.utils import _estimation_input_checks
+from pyfixest.estimation.api.utils import (
+    _estimation_input_checks,
+    _resolve_ssc,
+    _resolve_vcov,
+)
+from pyfixest.estimation.config import EstimationConfig
 from pyfixest.estimation.FixestMulti_ import FixestMulti
+from pyfixest.estimation.formula.parse import Formula
 from pyfixest.estimation.internals.demeaner_options import (
     _resolve_demeaner,
-    _warn_if_deprecated_demeaner_backend,
-    _warn_if_deprecated_solver,
     _warn_if_experimental_torch_demeaner,
 )
 from pyfixest.estimation.internals.literals import (
+    EstimationMethod,
+    FamilyOptions,
     FixedRmOptions,
     SolverOptions,
     VcovTypeOptions,
+    WeightsTypeOptions,
+    _validate_literal_argument,
 )
+from pyfixest.estimation.internals.model_state import GlmEstimationOptions
 from pyfixest.estimation.models.feols_ import Feols
 from pyfixest.estimation.models.fepois_ import Fepois
-from pyfixest.utils.dev_utils import DataFrameType
-from pyfixest.utils.utils import capture_context
-from pyfixest.utils.utils import ssc as ssc_func
+from pyfixest.estimation.plan_ import plan_formulas
+from pyfixest.estimation.runner import run_estimation
+from pyfixest.utils.dev_utils import DataFrameType, _find_stack_level
+from pyfixest.utils.utils import Ssc, capture_context
+
+# Poisson goes through the Fepois model class (a Feglm subclass); the other
+# families dispatch to their dedicated model classes.
+_GLM_METHODS: dict[FamilyOptions, EstimationMethod] = {
+    "poisson": "fepois",
+    "logit": "feglm-logit",
+    "probit": "feglm-probit",
+    "gaussian": "feglm-gaussian",
+}
 
 
 def feglm(
     fml: str,
-    data: DataFrameType,  # type: ignore
-    family: str,
+    data: DataFrameType,
+    family: FamilyOptions,
     vcov: VcovTypeOptions | dict[str, str] | None = None,
     vcov_kwargs: dict[str, str | int] | None = None,
-    ssc: dict[str, str | bool] | None = None,
+    weights: str | None = None,
+    weights_type: WeightsTypeOptions = "aweights",
+    offset: str | None = None,
+    ssc: Ssc | Mapping[str, Any] | None = None,
     fixef_rm: FixedRmOptions = "singleton",
     iwls_tol: float = 1e-08,
     iwls_maxiter: int = 25,
@@ -38,9 +61,6 @@ def feglm(
     separation_check: list[str] | None = None,
     solver: SolverOptions = "scipy.linalg.solve",
     demeaner: AnyDemeaner | None = None,
-    demeaner_backend: str | None = None,
-    fixef_tol: float | None = None,
-    fixef_maxiter: int | None = None,
     drop_intercept: bool = False,
     copy_data: bool = True,
     store_data: bool = True,
@@ -53,9 +73,9 @@ def feglm(
     """
     Estimate GLM regression models with fixed effects.
 
-    Supported families: [logit](/reference/estimation.models.felogit_.Felogit.qmd),
-    [probit](/reference/estimation.models.feprobit_.Feprobit.qmd),
-    [gaussian](/reference/estimation.models.fegaussian_.Fegaussian.qmd).
+    Supported families: `logit`, `probit`, and `gaussian` (see
+    [Feglm](/reference/estimation.models.feglm_.Feglm.qmd)), and `poisson`
+    (see [Fepois](/reference/estimation.models.fepois_.Fepois.qmd)).
 
     References
     ----------
@@ -80,14 +100,17 @@ def feglm(
         - Cumulative stepwise regression (csw, csw0)
         - Multiple dependent variables (Y1 + Y2 ~ X)
         - Interaction of variables (i(X1,X2))
-        - Interacted fixed effects (fe1^fe2)
+        - Interacted fixed effects (fe1:fe2)
+        - Varying slopes (fe1[x], fe1[[x]])
         Compatible with formula parsing via the formulaic module.
 
     data : DataFrameType
         A pandas or polars dataframe containing the variables in the formula.
 
     family : str
-        The family of the GLM model. Options include "gaussian", "logit" and "probit".
+        The family of the GLM model. Options include "gaussian", "logit", "probit",
+        and "poisson". Passing "poisson" produces the same result as calling
+        `pyfixest.fepois()`.
 
     vcov : Union[VcovTypeOptions, dict[str, str]]
         Type of variance-covariance matrix for inference. Options include "iid",
@@ -103,6 +126,20 @@ def feglm(
         "time_id" for the time ID used for NW and DK standard errors, and "panel_id" for the panel
          identifier used for NW and DK standard errors. Currently, the the time difference between consecutive time
          periods is always treated as 1. More flexible time-step selection is work in progress.
+
+    weights : Union[None, str], optional
+        Default is None. Name of the column in `data` to be used as observation
+        weights. When supplied, IRLS minimizes the weighted deviance.
+
+    weights_type : WeightsTypeOptions, optional
+        Type of weights variable. Either "aweights" (analytic / precision
+        weights) or "fweights" (frequency weights). Defaults to "aweights".
+
+    offset : str | None, optional
+        Default is None. Formulaic expression that evaluates to one numeric
+        offset column on the link scale. Only supported with
+        `family='poisson'`. For exposure adjustments, use an expression such as
+        `offset="log(population)"`.
 
     ssc : str
         A ssc object specifying the small sample correction for inference.
@@ -126,36 +163,25 @@ def feglm(
     separation_check: list[str], optional
         Methods to identify and drop separated observations.
         Either "fe" or "ir". Executes "fe" by default (when None).
+        "fe" drops fixed-effect groups whose outcomes are all 0, and for logit
+        and probit also groups whose outcomes are all 1. "ir" detects
+        separation by the regressors at outcome 0 and applies only to Poisson;
+        logit and probit fits warn and skip it. Gaussian fits skip both checks.
 
     solver : SolverOptions, optional.
         The solver to use for the regression. Can be "np.linalg.lstsq",
-        "np.linalg.solve", "scipy.linalg.solve", "scipy.sparse.linalg.lsqr" and "jax".
+        "np.linalg.solve", "scipy.linalg.solve" and "scipy.sparse.linalg.lsqr".
         Defaults to "scipy.linalg.solve".
-
-        .. deprecated::
-            ``solver="jax"`` is deprecated and will be removed in a future
-            release. Use one of the NumPy/SciPy solvers instead; for GPU
-            acceleration, see ``LsmrDemeaner(backend="torch", device="cuda")``.
 
     demeaner : AnyDemeaner | None, optional
         Typed demeaner configuration. Controls the fixed-effects demeaning
         backend, tolerance, and iteration limits. Accepts a `MapDemeaner`
         or `LsmrDemeaner` instance. Defaults to
-        `MapDemeaner()` (Rust MAP algorithm, tol=1e-6, maxiter=10_000).
+        `LsmrDemeaner()` (within LSMR, auto preconditioning, tol=1e-8,
+        maxiter=1_000).
         For other options - including the optional Numba backend and the
         torch-based LSMR backends - see the
         [Demeaner Backends vignette](../../how-to/demeaner-backends.qmd).
-
-        .. deprecated::
-            The ``jax`` MAP backend and the ``cupy`` / ``scipy`` LSMR
-            backends are deprecated and will be removed in a future release.
-            Replacements:
-
-            - JAX MAP on CPU → ``MapDemeaner()`` (the default rust MAP).
-            - JAX MAP / cupy LSMR on GPU →
-              ``LsmrDemeaner(backend="torch", device="cuda")``.
-            - Scipy / cupy LSMR on CPU → ``LsmrDemeaner()``
-              (the default within backend).
 
     drop_intercept : bool, optional
         Whether to drop the intercept from the model, by default False.
@@ -175,12 +201,13 @@ def feglm(
         improve performance and save memory. However, it will no longer be possible
         to access the data via the `data` attribute of the model object. This has
         impact on post-estimation capabilities that rely on the data, e.g. `predict()`
-        or `vcov()`.
+        or `vcov()`. Such methods raise a `MissingModelDataError`.
 
     lean: bool, optional
         False by default. If True, then all large objects are removed from the
         returned result: this will save memory but will block the possibility
-        to use many methods. It is recommended to use the argument vcov
+        to use many methods, which raise `MissingModelDataError` when required
+        attributes were removed. It is recommended to use the argument vcov
         to obtain the appropriate standard-errors at estimation time,
         since obtaining different SEs won't be possible afterwards.
 
@@ -208,10 +235,27 @@ def feglm(
     -------
     object
         An instance of the [Feglm](/reference/estimation.models.feglm_.Feglm.qmd) class
-        (or one of its subclasses: [Felogit](/reference/estimation.models.felogit_.Felogit.qmd),
-        [Feprobit](/reference/estimation.models.feprobit_.Feprobit.qmd),
-        [Fegaussian](/reference/estimation.models.fegaussian_.Fegaussian.qmd)) or an instance of
-        class [FixestMulti](/reference/estimation.FixestMulti_.FixestMulti.qmd) for multiple models specified via `fml`.
+        (a family-specific subclass for `logit`, `probit`, or `gaussian`) or an
+        instance of class [FixestMulti](/reference/estimation.FixestMulti_.FixestMulti.qmd) for multiple models specified via `fml`.
+
+    Notes
+    -----
+    `Feglm` inherits from
+    [Feols](/reference/estimation.models.feols_.Feols.qmd). A GLM fit therefore
+    supports the same post-estimation methods as an OLS fit, among them
+    `vcov()`, `tidy()`, `coef()`, `confint()`, `predict()` (with
+    `type="response"` or `"link"`), `fixef()`, `wildboottest()` and `ritest()`.
+    See the Post-Estimation Methods section of the function reference for the
+    full list.
+
+    `predict()` does not support `se_fit=True` for GLMs. Coefficients are on the
+    link scale. For effects on the response scale, see the
+    [marginal effects guide](/how-to/marginaleffects.qmd).
+
+    Varying slopes such as `f1[X2]` and `f1[[X2]]` are supported with the default
+    `within` demeaner, with the same restrictions as in
+    [feols()](/reference/estimation.api.feols.feols.qmd). A slope-only effect
+    like `f1[[X2]]` keeps the model's intercept.
 
     Examples
     --------
@@ -257,35 +301,25 @@ def feglm(
     for a compact post-estimation workflow.
 
     """
-    if family not in ["logit", "probit", "gaussian"]:
+    _validate_literal_argument(family, FamilyOptions)
+    if offset is not None and family != "poisson":
         raise ValueError(
-            f"Only families 'gaussian', 'logit' and 'probit'are supported but you asked for {family}."
+            "The `offset` argument is only supported with `family='poisson'`."
         )
 
     if separation_check is None:
         separation_check = ["fe"]
-    if ssc is None:
-        ssc = ssc_func()
-    # WLS currently not supported for GLM regression
-    weights = None
-    weights_type = "aweights"
+    ssc = _resolve_ssc(ssc)
+    vcov_spec = _resolve_vcov(vcov, vcov_kwargs)
 
     context = {} if context is None else capture_context(context)
-    demeaner = _resolve_demeaner(
-        demeaner=demeaner,
-        demeaner_backend=demeaner_backend,
-        fixef_tol=fixef_tol,
-        fixef_maxiter=fixef_maxiter,
-    )
+    demeaner = _resolve_demeaner(demeaner)
     _warn_if_experimental_torch_demeaner(demeaner)
-    _warn_if_deprecated_demeaner_backend(demeaner)
-    _warn_if_deprecated_solver(solver)
 
     _estimation_input_checks(
         fml=fml,
         data=data,
-        vcov=vcov,
-        vcov_kwargs=vcov_kwargs,
+        vcov=vcov_spec,
         weights=weights,
         ssc=ssc,
         fixef_rm=fixef_rm,
@@ -294,57 +328,52 @@ def feglm(
         store_data=store_data,
         lean=lean,
         weights_type=weights_type,
-        use_compression=False,
         reps=None,
         seed=None,
         split=split,
         fsplit=fsplit,
         separation_check=separation_check,
     )
-
-    fixest = FixestMulti(
-        data=data,
-        copy_data=copy_data,
-        store_data=store_data,
-        lean=lean,
-        weights_type=weights_type,
-        use_compression=False,
-        reps=None,
-        seed=None,
-        split=split,
-        fsplit=fsplit,
-        context=context,
-    )
-
-    # same checks as for Poisson regression
-    fixest._prepare_estimation(
-        estimation=f"feglm-{family}",
-        fml=fml,
-        vcov=vcov,
-        vcov_kwargs=vcov_kwargs,
-        weights=weights,
-        ssc=ssc,
-        fixef_rm=fixef_rm,
-        drop_intercept=drop_intercept,
-    )
-    if fixest._is_iv:
-        raise NotImplementedError(
-            "IV Estimation is not supported for Poisson Regression"
+    if family in ("logit", "probit") and "ir" in separation_check:
+        warnings.warn(
+            "separation_check='ir' is not applied to logit and probit models "
+            "and is ignored.",
+            UserWarning,
+            stacklevel=_find_stack_level(),
         )
+        separation_check = [method for method in separation_check if method != "ir"]
 
-    fixest._estimate_all_models(
-        vcov=vcov,
-        solver=solver,
-        vcov_kwargs=vcov_kwargs,
-        iwls_tol=iwls_tol,
-        iwls_maxiter=iwls_maxiter,
+    options = GlmEstimationOptions(
+        ssc=ssc,
+        drop_singletons=fixef_rm == "singleton",
+        drop_intercept=drop_intercept,
+        weights=weights,
+        weights_type=weights_type,
+        offset=offset,
         collin_tol=collin_tol,
-        separation_check=separation_check,
+        solver=solver,
         demeaner=demeaner,
+        store_data=store_data,
+        copy_data=copy_data,
+        lean=lean,
+        context=context,
+        maxiter=iwls_maxiter,
+        tol=iwls_tol,
+        separation_check=separation_check,
         accelerate=accelerate,
     )
+    config = EstimationConfig(
+        method=_GLM_METHODS[family],
+        data=data,
+        formulas=tuple(Formula.parse(fml)),
+        options=options,
+        vcov=vcov_spec,
+        split=split,
+        fsplit=fsplit,
+    )
 
-    if fixest._is_multiple_estimation:
-        return fixest
-    else:
-        return fixest.fetch_model(0, print_fml=False)
+    plan = plan_formulas(config)
+    if plan.is_iv:
+        raise NotImplementedError("IV estimation is not supported for GLMs.")
+
+    return run_estimation(config, plan, apply_retention=True)

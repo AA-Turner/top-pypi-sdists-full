@@ -753,6 +753,10 @@ class TestSRTModule(unittest.TestCase):
 
 class TestCueColours(unittest.TestCase):
 
+    def colours(self, styles):
+        return [(rule.name, set(rule.classes), rule.priority, rule.colour)
+                for rule in srt._cue_colours(styles)]
+
     def test_cue_colours(self):
         styles = [
             Style(textwrap.dedent('''
@@ -773,11 +777,11 @@ class TestCueColours(unittest.TestCase):
             ]
 
         self.assertEqual(
-            srt._cue_colours(styles),
-            {'magenta': (2, '#ff00ff'),
-             'blue': (4, '#0000ff'),
-             'navy': (4, '#0000ff')
-             }
+            self.colours(styles),
+            [(None, {'magenta'}, (1, 0, 2), '#ff00ff'),
+             ('b', set(), (0, 1, 3), 'peachpuff'),
+             (None, {'blue'}, (1, 0, 4), '#0000ff'),
+             (None, {'navy'}, (1, 0, 4), '#0000ff')]
             )
 
     def test_cue_colours_ignores_comments(self):
@@ -791,7 +795,8 @@ class TestCueColours(unittest.TestCase):
                 ''').strip())
             ]
 
-        self.assertEqual(srt._cue_colours(styles), {'green': (1, 'green')})
+        self.assertEqual(self.colours(styles),
+                         [(None, {'green'}, (1, 0, 1), 'green')])
 
     def test_cue_colours_later_rule_overrides(self):
         styles = [
@@ -799,17 +804,25 @@ class TestCueColours(unittest.TestCase):
             Style('::cue(.title) { color: blue; }')
             ]
 
-        self.assertEqual(srt._cue_colours(styles), {'title': (2, 'blue')})
+        self.assertEqual(
+            [rule[3] for rule in self.colours(styles)], ['red', 'blue']
+            )
+        self.assertEqual(
+            srt._format_cue_text('<c.title>x</c>', srt._cue_colours(styles)),
+            '<font color="blue">x</font>'
+            )
 
     def test_cue_colours_last_declaration_applies(self):
         styles = [Style('::cue(.title) { color: red; COLOR : blue }')]
 
-        self.assertEqual(srt._cue_colours(styles), {'title': (1, 'blue')})
+        self.assertEqual(self.colours(styles),
+                         [(None, {'title'}, (1, 0, 1), 'blue')])
 
     def test_cue_colours_removes_important(self):
         styles = [Style('::cue(.title) { color: red !important; }')]
 
-        self.assertEqual(srt._cue_colours(styles), {'title': (1, 'red')})
+        self.assertEqual(self.colours(styles),
+                         [(None, {'title'}, (1, 0, 1), 'red')])
 
     def test_cue_colours_ignores_values_not_valid_in_font_tag(self):
         styles = [
@@ -817,18 +830,18 @@ class TestCueColours(unittest.TestCase):
             Style('::cue(.b) { color: <x> }')
             ]
 
-        self.assertEqual(srt._cue_colours(styles), {'a': (1, 'red')})
+        self.assertEqual(self.colours(styles),
+                         [(None, {'a'}, (1, 0, 1), 'red')])
 
     def test_cue_colours_without_styles(self):
-        self.assertEqual(srt._cue_colours([]), {})
+        self.assertEqual(srt._cue_colours([]), [])
 
 
 class TestFormatCueText(unittest.TestCase):
 
-    COLOURS = {
-        'magenta': (1, '#ff00ff'),
-        'blue': (2, '#0000ff')
-        }
+    COLOURS = srt._cue_colours([Style(
+        '::cue(.magenta) { color: #ff00ff; } ::cue(.blue) { color: #0000ff; }'
+        )])
 
     def test_text_without_tags(self):
         self.assertEqual(
@@ -933,3 +946,340 @@ class TestStripCSSComments(unittest.TestCase):
 
     def test_comment_end_is_not_in_comment_start(self):
         self.assertEqual(srt._strip_css_comments('a /*/ b */ c'), 'a  c')
+
+
+class TestReadMarkup(unittest.TestCase):
+
+    def parse(self, *texts):
+        lines = []
+        for index, text in enumerate(texts, 1):
+            lines.extend([str(index),
+                          f'00:00:0{index},000 --> 00:00:0{index},500',
+                          *text.split('\n'),
+                          ''])
+        issues = []
+        styles = []
+        captions = srt.parse(lines, issues, styles)
+        return captions, styles, issues
+
+    def test_font_colour_to_class(self):
+        captions, styles, _ = self.parse(
+            '<font color="#FF0000">red</font> <font color=\'blue\'>blue</font>',
+            '<FONT COLOR=#ff0000>red <b>again</b></FONT>'
+            )
+
+        self.assertEqual(
+            [c.raw_text for c in captions],
+            ['<c.color-ff0000>red</c> <c.color-blue>blue</c>',
+             '<c.color-ff0000>red <b>again</b></c>']
+            )
+        self.assertEqual(styles, [Style([
+            '::cue(.color-ff0000) {', '  color: #ff0000;', '}',
+            '::cue(.color-blue) {', '  color: blue;', '}'
+            ])])
+
+    def test_no_style_without_colours(self):
+        captions, styles, _ = self.parse('<b>bold</b>', '<font face="x">y')
+
+        self.assertEqual([c.raw_text for c in captions], ['<b>bold</b>', 'y'])
+        self.assertEqual(styles, [])
+
+    def test_styles_none(self):
+        captions = srt.parse(
+            ['1', '00:00:01,000 --> 00:00:02,000', '<font color=red>x</font>']
+            )
+
+        self.assertEqual(captions[0].raw_text, '<c.color-red>x</c>')
+
+    def test_other_fonts_and_attributes_removed(self):
+        captions, _, _ = self.parse(
+            '<font face="Arial" size="20">a</font> '
+            '<font face="Arial" color="red" size=2>b</font>'
+            )
+
+        self.assertEqual(captions[0].raw_text, 'a <c.color-red>b</c>')
+
+    def test_nested_fonts(self):
+        captions, _, _ = self.parse(
+            '<font color=red>a <font size=2>b <font color=blue>c</font> d'
+            '</font> e</font> f</font>'
+            )
+
+        self.assertEqual(
+            captions[0].raw_text,
+            '<c.color-red>a b <c.color-blue>c</c> d e</c> f'
+            )
+
+    def test_font_across_lines(self):
+        captions, _, _ = self.parse('<font color=red>line 1\nline 2</font>')
+
+        self.assertEqual(captions[0].lines,
+                         ['<c.color-red>line 1', 'line 2</c>'])
+
+    def test_colours_not_written_in_style(self):
+        captions, styles, _ = self.parse(
+            '<font color="red;}x{">a</font> <font color="">b</font> '
+            '<font color="#">c</font> <font color="a<b">d</font>'
+            )
+
+        self.assertEqual(captions[0].raw_text, 'a b c d')
+        self.assertEqual(styles, [])
+
+    def test_colour_functions(self):
+        captions, styles, _ = self.parse(
+            '<font color="rgb(255, 0, 0)">a</font>'
+            )
+
+        self.assertEqual(captions[0].raw_text,
+                         '<c.color-rgb-255-0-0>a</c>')
+        self.assertEqual(styles[0].lines[1], '  color: rgb(255, 0, 0);')
+
+    def test_class_names_of_colours_kept_apart(self):
+        captions, styles, _ = self.parse(
+            '<font color="#ff0000">a</font> <font color="ff0000">b</font>'
+            )
+
+        self.assertEqual(
+            captions[0].raw_text,
+            '<c.color-ff0000>a</c> <c.color-ff0000-2>b</c>'
+            )
+        self.assertEqual(len(styles[0].lines), 6)
+
+    def test_font_word_in_text_or_other_tags(self):
+        captions, _, _ = self.parse('<fontx>a</fontx> font color=red 2 < 3')
+
+        self.assertEqual(captions[0].raw_text,
+                         '<fontx>a</fontx> font color=red 2 < 3')
+
+    def test_bgcolor_is_not_color(self):
+        captions, _, _ = self.parse('<font bgcolor="red">a</font>')
+
+        self.assertEqual(captions[0].raw_text, 'a')
+
+    def test_position_tags(self):
+        expected = {
+            1: 'align:left', 2: '', 3: 'align:right',
+            4: 'line:50%,center align:left', 5: 'line:50%,center',
+            6: 'line:50%,center align:right',
+            7: 'line:0 align:left', 8: 'line:0', 9: 'line:0 align:right',
+            }
+        for number in range(1, 10):
+            with self.subTest(number=number):
+                captions, _, _ = self.parse(f'{{\\an{number}}}Text')
+
+                self.assertEqual(captions[0].raw_text, 'Text')
+                self.assertEqual(str(captions[0].settings),
+                                 expected[number])
+
+    def test_first_position_tag_applies(self):
+        captions, _, _ = self.parse('{\\an8}a {\\an1}b\nc{\\an3}')
+
+        self.assertEqual(captions[0].lines, ['a b', 'c'])
+        self.assertEqual(captions[0].settings.line, '0')
+        self.assertIsNone(captions[0].settings.align)
+
+    def test_other_tags_in_braces_kept(self):
+        captions, _, _ = self.parse('{\\an0}a {\\i1}b {\\an10}')
+
+        self.assertEqual(captions[0].raw_text, '{\\an0}a {\\i1}b {\\an10}')
+        self.assertEqual(str(captions[0].settings), '')
+
+    def test_lines_left_empty_removed(self):
+        captions, _, _ = self.parse(
+            '{\\an8}\n<font color=red>\ntext\n </font>\n</font>'
+            )
+
+        # the unmatched end tag leaves its line empty
+        self.assertEqual(captions[0].lines,
+                         ['<c.color-red>', 'text', ' </c>'])
+
+    def test_cue_left_without_text_skipped(self):
+        captions, _, issues = self.parse('{\\an8}', 'text')
+
+        self.assertEqual([c.text for c in captions], ['text'])
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].line, 1)
+        self.assertTrue(issues[0].message.startswith('Cue without text'))
+
+
+class TestWritePosition(unittest.TestCase):
+
+    def write(self, settings):
+        output = io.StringIO()
+        srt.write(output, [Caption('00:00:01.000', '00:00:02.000', 'Text',
+                                   settings=settings)])
+        return output.getvalue().split('\n')[2]
+
+    def test_positions(self):
+        for settings, line in (
+                ('', 'Text'),
+                ('line:-1', 'Text'),
+                ('align:center', 'Text'),
+                ('align:left', '{\\an1}Text'),
+                ('align:right', '{\\an3}Text'),
+                ('line:50%,center align:left', '{\\an4}Text'),
+                ('line:50%', '{\\an5}Text'),
+                ('line:60% align:right', '{\\an6}Text'),
+                ('line:0 align:left', '{\\an7}Text'),
+                ('line:0', '{\\an8}Text'),
+                ('line:3', '{\\an8}Text'),
+                ('line:10%', '{\\an8}Text'),
+                ('line:0 align:right', '{\\an9}Text'),
+                ('line:90%', 'Text'),
+                ('line:-2 align:right', '{\\an3}Text'),
+                ('align:start', 'Text'),
+                ('line:0 align:end', '{\\an8}Text'),
+                ('line:0 vertical:rl', 'Text'),
+                ('position:10% size:50%', 'Text')):
+            with self.subTest(settings=settings):
+                self.assertEqual(self.write(settings), line)
+
+    def test_position_with_formatting(self):
+        output = io.StringIO()
+        srt.write(output,
+                  [Caption('00:00:01.000', '00:00:02.000',
+                           '\n<b>bold</b>\nline 2', settings='line:0')],
+                  styles=[])
+
+        self.assertEqual(output.getvalue().split('\n')[2:4],
+                         ['{\\an8}<b>bold</b>', 'line 2'])
+
+    def test_round_trip(self):
+        for number in range(1, 10):
+            with self.subTest(number=number):
+                tag = f'{{\\an{number}}}' if number != 2 else ''
+                content = f'1\n00:00:01,000 --> 00:00:02,000\n{tag}Text\n'
+                output = io.StringIO()
+                srt.write(output, srt.parse(content.split('\n')))
+
+                self.assertEqual(output.getvalue(), content)
+
+
+class TestMarkupReviewCases(unittest.TestCase):
+
+    def test_colours_with_unbalanced_parentheses_dropped(self):
+        styles = []
+        captions = srt.parse(
+            ['1', '00:00:01,000 --> 00:00:02,000',
+             '<font color="rgb(1, 2">a</font> <font color="red)">b</font> '
+             '<font color="dark red">c</font> '
+             '<font color="rgba(1 2 3 / 50%)">d</font>'],
+            styles=styles
+            )
+
+        self.assertEqual(captions[0].raw_text,
+                         'a b c <c.color-rgba-1-2-3-50>d</c>')
+        self.assertEqual(styles[0].lines[1], '  color: rgba(1 2 3 / 50%);')
+
+    def test_text_with_position_tag_not_written_twice(self):
+        output = io.StringIO()
+        srt.write(output, [Caption('00:00:01.000', '00:00:02.000',
+                                   '{\\an8}Text', settings='line:0')])
+
+        self.assertEqual(output.getvalue().split('\n')[2], '{\\an8}Text')
+
+
+class TestCueSelectors(unittest.TestCase):
+
+    def format(self, css, text):
+        return srt._format_cue_text(text, srt._cue_colours([Style(css)]))
+
+    def test_class_names_with_any_character(self):
+        css = textwrap.dedent(r'''
+            ::cue(.c\+1) { color: red; }
+            ::cue(.\31 st) { color: blue; }
+            ::cue(.naïve) { color: green; }
+            ::cue(.a\.b) { color: gray; }
+            ::cue(.x\,y) { color: navy; }
+            ::cue(.\1F600) { color: gold; }
+            ''')
+
+        for text, colour in (('<c.c+1>t</c>', 'red'),
+                             ('<c.1st>t</c>', 'blue'),
+                             ('<c.naïve>t</c>', 'green'),
+                             ('<c.x,y>t</c>', 'navy'),
+                             ('<c.😀>t</c>', 'gold')):
+            with self.subTest(text=text):
+                self.assertEqual(self.format(css, text),
+                                 f'<font color="{colour}">t</font>')
+
+        # a class cannot have a dot, which separates classes in cue tags
+        self.assertEqual(self.format(css, '<c.a.b>t</c>'), 't')
+
+    def test_invalid_escapes_replaced(self):
+        self.assertEqual(srt._css_unescape(r'\0 a\D800 b\110000 c'),
+                         '�a�b�c')
+
+    def test_type_and_compound_selectors(self):
+        css = textwrap.dedent('''
+            ::cue(.a.b) { color: red; }
+            ::cue(c.g) { color: green; }
+            ::cue(B) { color: blue; }
+            ::cue(v.loud) { color: purple; }
+            ''')
+
+        for text, expected in (
+                ('<c.a>t</c>', 't'),
+                ('<c.b.a.z>t</c>', '<font color="red">t</font>'),
+                ('<c.g>t</c>', '<font color="green">t</font>'),
+                ('<i.g>t</i>', '<i>t</i>'),
+                ('<b>t</b>', '<b><font color="blue">t</font></b>'),
+                ('<v.loud Joe>t</v>', '<font color="purple">t</font>'),
+                ('<v Joe>t</v>', 't')):
+            with self.subTest(text=text):
+                self.assertEqual(self.format(css, text), expected)
+
+    def test_selectors_not_read(self):
+        css = textwrap.dedent('''
+            ::cue { color: red; }
+            ::cue(#id) { color: red; }
+            ::cue(c > b) { color: red; }
+            ::cue([voice="Joe"]) { color: red; }
+            ::cue(.a:past) { color: red; }
+            ::cue() { color: red; }
+            .a { color: red; }
+            ''')
+
+        self.assertEqual(srt._cue_colours([Style(css)]), [])
+
+    def test_specificity(self):
+        for css, text, colour in (
+                # more classes win over a later rule
+                ('::cue(.a.b) { color: red; } ::cue(.a) { color: blue; }',
+                 '<c.a.b>t</c>', 'red'),
+                # a class wins over a type
+                ('::cue(.a) { color: red; } ::cue(c) { color: blue; }',
+                 '<c.a>t</c>', 'red'),
+                # a type with the class wins over the class
+                ('::cue(c.a) { color: red; } ::cue(.a) { color: blue; }',
+                 '<c.a>t</c>', 'red'),
+                # with the same specificity, the later rule applies
+                ('::cue(.a) { color: red; } ::cue(.b) { color: blue; }',
+                 '<c.b.a>t</c>', 'blue')):
+            with self.subTest(css=css):
+                self.assertEqual(self.format(css, text),
+                                 f'<font color="{colour}">t</font>')
+
+    def test_selector_lists_with_spaces(self):
+        self.assertEqual(
+            self.format('::cue( .a ) , ::cue(i) { color: red; }',
+                        '<c.a>x</c> <i>y</i>'),
+            '<font color="red">x</font> <i><font color="red">y</font></i>'
+            )
+
+    def test_selector_not_matching_fails_fast(self):
+        # each character matched one way, or this backtracks for hours
+        for selector in ('::cue(.' + 'é' * 200 + ' x)',
+                         '::cue(.' + '\\11' * 200 + '!)',
+                         '::cue(.' + 'a' * 200 + '\\'):
+            with self.subTest(selector=selector[:12]):
+                self.assertEqual(
+                    srt._cue_colours([Style(selector + ' { color: red }')]),
+                    []
+                    )
+
+    def test_hex_escape_takes_six_digits(self):
+        self.assertEqual(
+            self.format(r'::cue(.\00004111) { color: red; }', '<c.A11>t</c>'),
+            '<font color="red">t</font>'
+            )

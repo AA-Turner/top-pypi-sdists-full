@@ -28,11 +28,12 @@ class WebhookResponse(BaseModel):
     WebhookResponse
     """ # noqa: E501
     id: UUID = Field(description="The unique identifier of the webhook.")
+    name: Optional[StrictStr] = Field(default=None, description="Name of the webhook.")
     url: Optional[StrictStr] = Field(default=None, description="The url that will listen to notifications (must be https).")
     token: Optional[StrictStr] = Field(default=None, description="Webhook secret token used to sign the webhook's payload.")
     href: Optional[StrictStr] = Field(default=None, description="The API endpoint to retrieve the webhook.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["id", "url", "token", "href"]
+    __properties: ClassVar[List[str]] = ["id", "name", "url", "token", "href"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class WebhookResponse(BaseModel):
 
         _obj = cls.model_validate({
             "id": obj.get("id"),
+            "name": obj.get("name"),
             "url": obj.get("url"),
             "token": obj.get("token"),
             "href": obj.get("href")

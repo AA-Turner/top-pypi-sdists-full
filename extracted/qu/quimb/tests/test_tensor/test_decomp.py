@@ -1,3 +1,5 @@
+import importlib.util
+
 import autoray as ar
 import numpy as np
 import pytest
@@ -13,6 +15,7 @@ from quimb.tensor.decomp import (
 from . import (
     jax_case,
     pytorch_case,
+    requires_symmray,
     tensorflow_case,
 )
 
@@ -21,8 +24,19 @@ def test_parse_split_opts():
     method, opts = parse_split_opts()
     assert method == "svd"
     assert opts["absorb"] == 0
-    assert opts["cutoff"] != 0.0
+    assert opts["cutoff"] == 1e-10
+    assert opts["cutoff_mode"] == 2
     assert opts["max_bond"] == -1
+
+    method, opts = parse_split_opts("svd:rand", max_bond=4)
+    assert method == "svd:rand"
+    assert opts["cutoff"] == 0.0
+    assert opts["cutoff_mode"] == 2
+
+    method, opts = parse_split_opts("svd:rand", max_bond=4, cutoff=1e-6)
+    assert method == "svd:rand"
+    assert opts["cutoff"] == 1e-6
+    assert opts["cutoff_mode"] == 2
 
     method, opts = parse_split_opts("qr", "auto", max_bond=None, cutoff=0.0)
     assert method == "qr"
@@ -47,12 +61,359 @@ def test_parse_split_opts():
     assert opts["absorb"] == -1
 
 
+def test_default_cutoff_mode_is_rel():
+    x = np.diag([1.0, 1e-7])
+
+    _, s_default, _ = array_split(x, absorb=None)
+    _, s_rel, _ = array_split(x, absorb=None, cutoff=1e-10, cutoff_mode="rel")
+    _, s_rsum2, _ = array_split(
+        x, absorb=None, cutoff=1e-10, cutoff_mode="rsum2"
+    )
+
+    assert s_default.shape == s_rel.shape == (2,)
+    assert s_rsum2.shape == (1,)
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("cutoff_mode", ["abs", "rel"])
+@pytest.mark.parametrize("renorm", [True, 1, 2])
+def test_non_cumulative_renorm(batch, cutoff_mode, renorm):
+    x = np.diag([3.0, 2.0, 1.0])
+    if batch:
+        x = np.stack([x, 2 * x, np.zeros_like(x)])
+    _, s, _ = array_split(
+        x,
+        absorb=None,
+        max_bond=1,
+        cutoff=0.1,
+        cutoff_mode=cutoff_mode,
+        renorm=renorm,
+    )
+    power = 2 if renorm is True else renorm
+    expected = np.sum(
+        np.abs(np.diagonal(x, axis1=-2, axis2=-1)) ** power, axis=-1
+    )
+    assert_allclose(np.sum(s**power, axis=-1), expected)
+
+
+@pytest.mark.parametrize("cutoff_mode", ["sum1", "rsum1", "sum2", "rsum2"])
+@pytest.mark.parametrize("power", [1, 2])
+def test_cumulative_renorm_generic(cutoff_mode, power):
+    from quimb.tensor.decomp import (
+        _CUTOFF_MODE_MAP,
+        _trim_and_renorm_svd_result,
+    )
+
+    spectrum = np.array([3.0, 2.0, 1.0])
+    _, s, _ = _trim_and_renorm_svd_result(
+        np.eye(3),
+        spectrum.copy(),
+        np.eye(3),
+        cutoff=0.01,
+        cutoff_mode=_CUTOFF_MODE_MAP[cutoff_mode],
+        max_bond=2,
+        absorb=None,
+        renorm=power,
+    )
+    assert s.shape == (2,)
+    assert_allclose(np.sum(s**power), np.sum(spectrum**power))
+
+
+def test_randomized_mps_default_cutoff_mode():
+    import quimb.tensor as qtn
+    from quimb.tensor.tn1d.core import set_default_compress_mode
+
+    opts = {}
+    set_default_compress_mode(opts)
+    assert opts["cutoff_mode"] == "rsum2"
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    psi.compress(max_bond=3, method="svd:rand")
+    assert psi.max_bond() <= 3
+    with pytest.raises(ValueError, match="Cumulative cutoff modes"):
+        psi.compress(
+            max_bond=2, method="svd:rand", cutoff=1e-10, cutoff_mode="rsum2"
+        )
+
+
+@pytest.mark.parametrize("right,absorb", [(True, "right"), (False, "left")])
+def test_randomized_reduced_cutoff_disables_shortcut(right, absorb):
+    x = np.diag([10.0, 1.0, 0.1, 0.01])
+    left, _, right_factor = array_split(
+        x,
+        method="svd:rand",
+        max_bond=3,
+        oversample=0,
+        absorb=absorb,
+        right=right,
+        seed=42,
+        reduced_opts={"cutoff": 0.2, "cutoff_mode": "rel"},
+    )
+    assert left.shape == (4, 1)
+    assert right_factor.shape == (1, 4)
+
+
+def test_randomized_reduced_auto_cutoff_uses_exact_default(monkeypatch):
+    from quimb.tensor import decomp
+
+    original = decomp.array_split
+    methods = []
+
+    def record(x, *args, **kwargs):
+        methods.append(kwargs.get("method"))
+        return original(x, *args, **kwargs)
+
+    monkeypatch.setattr(decomp, "array_split", record)
+    decomp.svd_rand_truncated(
+        np.eye(5),
+        max_bond=2,
+        absorb="right",
+        oversample=0,
+        num_iterations=0,
+        seed=42,
+        reduced_opts={"cutoff": "auto"},
+    )
+    assert methods == ["qr", "svd"]
+
+
+def test_low_level_default_cutoff_mode_is_rel():
+    from quimb.tensor.decomp import svd_truncated
+
+    x = np.diag([1.0, 0.1, 0.001])
+    _, s_default, _ = svd_truncated(x, cutoff=0.01, absorb=None)
+    _, s_rel, _ = svd_truncated(x, cutoff=0.01, cutoff_mode="rel", absorb=None)
+    _, s_rsum2, _ = svd_truncated(
+        x, cutoff=0.01, cutoff_mode="rsum2", absorb=None
+    )
+
+    assert_allclose(s_default, s_rel)
+    assert s_default.shape == (2,)
+    assert s_rsum2.shape == (1,)
+
+
 def test_trim_singular_vals():
     s = np.array([3.0, 2.0, 1.0, 0.1])
     assert _compute_number_svals_to_keep_numba(s, 0.5, 1) == 3
     assert _compute_number_svals_to_keep_numba(s, 0.5, 2) == 2
     assert _compute_number_svals_to_keep_numba(s, 2, 3) == 2
     assert _compute_number_svals_to_keep_numba(s, 5.02, 3) == 1
+
+
+class TestConjNeeded:
+    @pytest.mark.parametrize(
+        "backend", ["numpy", jax_case, tensorflow_case, pytorch_case]
+    )
+    @pytest.mark.parametrize("complex_first", [False, True])
+    def test_dtype_not_cached(self, backend, complex_first):
+        from quimb.tensor.array_ops import is_conj_needed
+
+        xp = ar.get_namespace(backend)
+        for cplx in (complex_first, not complex_first, complex_first):
+            dtype = "complex64" if cplx else "float32"
+            x = xp.zeros((2, 3), dtype=dtype)
+            assert is_conj_needed(x) is cplx
+
+    def test_lazy(self):
+        from quimb.tensor.array_ops import is_conj_needed
+
+        x = ar.lazy.Variable((2, 3), backend="numpy")
+        assert is_conj_needed(x) is True
+        assert is_conj_needed(ar.lazy.array(np.ones((2, 3)))) is True
+
+    @requires_symmray
+    @pytest.mark.parametrize("fermionic", [False, True])
+    def test_block_sparse(self, fermionic):
+        import symmray as sr
+
+        from quimb.tensor.array_ops import is_conj_needed
+
+        cls = sr.Z2FermionicArray if fermionic else sr.Z2Array
+        inds = [sr.BlockIndex({0: 2, 1: 2}, dual=d) for d in (False, True)]
+        x = cls.random(inds, dtype="float64", seed=42)
+        assert is_conj_needed(x) is True
+
+    @pytest.mark.parametrize(
+        "x, expected", [(1.0, False), (1, False), (True, False), (1j, True)]
+    )
+    def test_scalars(self, x, expected):
+        from quimb.tensor.array_ops import is_conj_needed
+
+        assert is_conj_needed(x) is expected
+
+
+class TestSafeInverse:
+    def test_matches_exact_inverse_away_from_zero(self):
+        from quimb.tensor.decomp import safe_inverse
+
+        x = np.array([3.0, 1.0, 1e-3])
+        assert_allclose(safe_inverse(x), 1 / x, rtol=1e-14)
+        assert_allclose(safe_inverse(x, power=0.5), x**-0.5, rtol=1e-14)
+
+    def test_zeros_map_to_zero(self):
+        from quimb.tensor.decomp import safe_inverse
+
+        x = np.array([2.0, 0.0, 0.0])
+        assert_allclose(safe_inverse(x), [0.5, 0.0, 0.0])
+        assert_allclose(safe_inverse(x, power=0.5), [2**-0.5, 0.0, 0.0])
+        # all zero, no scale to normalize by
+        assert_allclose(safe_inverse(np.zeros(3)), np.zeros(3))
+        assert_allclose(safe_inverse(np.zeros(3), power=0.5), np.zeros(3))
+
+    @pytest.mark.parametrize("dtype", ["float32", "float64"])
+    @pytest.mark.parametrize("scale", [1e-20, 1.0, 1e20])
+    def test_no_overflow_at_extreme_scales(self, dtype, scale):
+        # squaring x directly over- or underflows at these scales
+        from quimb.tensor.decomp import safe_inverse
+
+        x = np.array([1.0, 1e-3, 0.0], dtype=dtype) * scale
+        xinv = safe_inverse(x)
+        assert np.isfinite(xinv).all()
+        assert_allclose(xinv[:2], 1 / x[:2], rtol=1e-5)
+        xisqrt = safe_inverse(x, power=0.5)
+        assert np.isfinite(xisqrt).all()
+        assert_allclose(xisqrt[:2], x[:2] ** -0.5, rtol=1e-5)
+
+    def test_batched_damps_per_vector(self):
+        from quimb.tensor.decomp import safe_inverse
+
+        # second row is tiny only relative to the first, not to itself
+        x = np.array([[1.0, 1e-30], [1e-30, 1e-60]])
+        xinv = safe_inverse(x)
+        # damped rather than 1e30, and bounded by 1 / (2 * eps)
+        assert xinv[0, 1] < 0.5 / np.finfo(x.dtype).eps
+        assert xinv[1, 0] == pytest.approx(1e30)
+
+    @pytest.mark.parametrize("cutoff", [None, 1e-8])
+    def test_numba_matches_generic(self, cutoff):
+        from quimb.tensor.decomp import safe_inverse, safe_inverse_numba
+
+        rng = np.random.default_rng(42)
+        x = np.sort(rng.uniform(size=(3, 4, 5)))[..., ::-1]
+        x[1, 2, 3:] = 0.0
+        assert_allclose(safe_inverse_numba(x, cutoff), safe_inverse(x, cutoff))
+
+    @pytest.mark.parametrize(
+        "backend", ["numpy", jax_case, tensorflow_case, pytorch_case]
+    )
+    def test_backends(self, backend):
+        from quimb.tensor.decomp import safe_inverse
+
+        xp = ar.get_namespace(backend)
+        x = xp.asarray(np.array([2.0, 1e-3, 0.0]))
+        assert_allclose(ar.to_numpy(safe_inverse(x)), [0.5, 1e3, 0.0])
+        assert_allclose(
+            ar.to_numpy(safe_inverse(x, power=0.5)),
+            [2**-0.5, 1e3**0.5, 0.0],
+            rtol=1e-5,
+        )
+
+    @pytest.mark.parametrize("backend", [pytorch_case])
+    def test_backend_specific_dtype(self, backend):
+        # numpy has no bfloat16, the cutoff must come from torch's finfo
+        from quimb.tensor.decomp import safe_inverse
+
+        xp = ar.get_namespace(backend)
+        eps = xp.finfo(xp.bfloat16).eps
+        x = xp.asarray([1.0, eps], dtype=xp.bfloat16)
+        # the entry right at the cutoff is damped to half its inverse
+        xinv = ar.to_numpy(safe_inverse(x).to(xp.float32))
+        assert xinv[1] == pytest.approx(0.5 / eps, rel=0.05)
+
+    def test_lazy(self):
+        # lazy arrays have neither `finfo` nor `keepdims`
+        from quimb.tensor.decomp import safe_inverse
+
+        x = ar.lazy.array(np.array([2.0, 1e-3, 0.0]))
+        assert_allclose(safe_inverse(x).compute(), [0.5, 1e3, 0.0])
+
+    @pytest.mark.skipif(
+        importlib.util.find_spec("symmray") is None,
+        reason="symmray not installed",
+    )
+    @pytest.mark.parametrize("power", [1.0, 0.5])
+    def test_block_sparse(self, power):
+        # block sparse: one vector, no axis aware max, expand_dims or where
+        import symmray as sr
+
+        from quimb.tensor.decomp import safe_inverse
+
+        inds = [sr.BlockIndex({0: 2, 1: 3}, dual=d) for d in (0, 1)]
+        x = sr.Z2Array.random(inds, seed=42)
+        _u, s, _vh = ar.do("linalg.svd", x)
+
+        sinv = safe_inverse(s, power=power)
+        assert_allclose(
+            ar.to_numpy(sinv.to_dense()),
+            safe_inverse(ar.to_numpy(s.to_dense()), power=power),
+        )
+
+
+@pytest.mark.parametrize("absorb", ["both", None, "left", "right"])
+def test_oblique_projectors_exactly_low_rank(absorb):
+    # with cutoff=0.0 the zero singular values are kept, so must not blow up
+    from quimb.tensor.decomp import compute_oblique_projectors
+
+    rng = np.random.default_rng(0)
+    d, rank = 12, 5
+    Rl = np.hstack([rng.standard_normal((d, rank)), np.zeros((d, d - rank))])
+    Rr = np.vstack([rng.standard_normal((rank, d)), np.zeros((d - rank, d))])
+
+    out = compute_oblique_projectors(
+        Rl, Rr, max_bond=None, cutoff=0.0, absorb=absorb
+    )
+    if absorb is None:
+        Pl, s, Pr = out
+        P = (Pl * s) @ Pr
+    else:
+        Pl, Pr = out
+        P = Pl @ Pr
+
+    assert np.isfinite(P).all()
+    # inserting the projectors should be the identity on the non-null space
+    assert_allclose(Rl @ P @ Rr, Rl @ Rr, atol=1e-12)
+
+
+@pytest.mark.parametrize("absorb", ["both", None, "left", "right"])
+def test_oblique_projectors_unfused_bond(absorb):
+    from quimb.tensor.decomp import compute_oblique_projectors
+
+    rng = np.random.default_rng(1)
+    Rl = rng.standard_normal((5, 3, 4))
+    Rr = rng.standard_normal((3, 4, 6))
+    opts = {"max_bond": 4, "cutoff": 0.0, "absorb": absorb}
+
+    fused = compute_oblique_projectors(
+        Rl.reshape(5, 12), Rr.reshape(12, 6), **opts
+    )
+    unfused = compute_oblique_projectors(Rl, Rr, **opts)
+
+    assert unfused[0].shape == (3, 4, 4)
+    assert unfused[-1].shape == (4, 3, 4)
+    assert_allclose(unfused[0].reshape(12, 4), fused[0])
+    assert_allclose(unfused[-1].reshape(4, 12), fused[-1])
+
+
+@requires_symmray
+def test_oblique_projectors_unfused_bond_mismatched_blocks():
+    # the two sides hold different blocks, so fusing each would not match
+    import symmray as sr
+
+    from quimb.tensor.decomp import compute_oblique_projectors
+
+    a = sr.BlockIndex({0: 2, 1: 3}, dual=False)
+    b = sr.BlockIndex({0: 1, 1: 2}, dual=False)
+    k = sr.BlockIndex({0: 3, 1: 4, 2: 3}, dual=True)
+    Rl = sr.U1Array.random([k, a, b], seed=2)
+    Rr = sr.U1Array.random([a.conj(), b.conj(), k.conj()], seed=3)
+    Rl.del_block(next(s for s in Rl.sectors if s[1:] == (0, 1)))
+
+    Pl, Pr = compute_oblique_projectors(Rl, Rr, cutoff=0.0)
+    P = ar.do("tensordot", Pl, Pr, ((2,), (0,)))
+
+    # at full rank inserting the projectors changes nothing
+    RlP = ar.do("tensordot", Rl, P, ((1, 2), (0, 1)))
+    actual = ar.do("tensordot", RlP, Rr, ((1, 2), (0, 1)))
+    expected = ar.do("tensordot", Rl, Rr, ((1, 2), (0, 1)))
+    assert_allclose(actual.to_dense(), expected.to_dense(), atol=1e-12)
 
 
 def test_sgn_convention():
@@ -172,12 +533,14 @@ def test_qr_stabilized_sign_bug(dtype):
     "absorb", ["U", "s", "VH", "Us", "sVH", "U,s,VH", "U,sVH", "Us,VH"]
 )
 @pytest.mark.parametrize("descending", [True, False])
+@pytest.mark.parametrize("dtype", ["float64", "complex128"])
 def test_decomp_svd_via_eig(
     da,
     db,
     k,
     absorb,
     descending,
+    dtype,
 ):
     from quimb.tensor.decomp import svd_via_eig
 
@@ -188,6 +551,8 @@ def test_decomp_svd_via_eig(
 
     rng = np.random.default_rng(seed)
     x = rng.uniform(size=(da, db))
+    if dtype == "complex128":
+        x = x + 1j * rng.uniform(size=(da, db))
     x /= np.linalg.norm(x)
 
     Ux, sx, VHx = np.linalg.svd(x, full_matrices=False)
@@ -247,12 +612,15 @@ def test_decomp_svd_via_eig(
 @pytest.mark.parametrize(
     "absorb", ["U,s,VH", "U,sVH", "Us,VH", "U", "VH", "Us", "sVH", "s"]
 )
-def test_svd_rand(da, db, k, absorb):
+@pytest.mark.parametrize("dtype", ["float64", "complex128"])
+def test_svd_rand(da, db, k, absorb, dtype):
     from quimb.tensor.decomp import svd_rand_truncated
 
     seed = qu.utils.hash_kwargs_to_int(da=da, db=db, k=k, absorb=absorb)
     rng = np.random.default_rng(seed)
     x = rng.uniform(size=(da, db))
+    if dtype == "complex128":
+        x = x + 1j * rng.uniform(size=(da, db))
     x /= np.linalg.norm(x)
 
     rank = min(da, db) if k < 0 else min(da, db, k)
@@ -327,6 +695,36 @@ def test_svd_rand_seed_reproducible():
     assert not np.allclose(U3, U4)
 
 
+@pytest.mark.parametrize("right", [True, False])
+def test_svd_rand_noise_dist(right):
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(7, 6))
+
+    def compute_approx(noise_dist=None):
+        kwargs = {}
+        if noise_dist is not None:
+            kwargs["noise_dist"] = noise_dist
+        U, s, VH = array_split(
+            x,
+            method="svd:rand",
+            absorb=None,
+            max_bond=2,
+            oversample=0,
+            num_iterations=0,
+            right=right,
+            seed=42,
+            **kwargs,
+        )
+        return U @ np.diag(s) @ VH
+
+    default = compute_approx()
+    normal = compute_approx("normal")
+    rademacher = compute_approx("rademacher")
+
+    assert_allclose(default, normal)
+    assert not np.allclose(normal, rademacher)
+
+
 @pytest.mark.parametrize("da,db", [(4, 8), (8, 4), (6, 6)])
 @pytest.mark.parametrize("right", [True, False, None])
 def test_svd_rand_right_param(right, da, db):
@@ -351,6 +749,61 @@ def test_svd_rand_right_param(right, da, db):
     assert np.linalg.norm(x - U @ np.diag(s) @ VH) < 0.5
 
 
+@pytest.mark.parametrize("right", [True, False])
+@pytest.mark.parametrize(
+    "cutoff,cutoff_mode",
+    [
+        (2.0, "abs"),
+        (0.2, "rel"),
+    ],
+)
+def test_svd_rand_cutoff(right, cutoff, cutoff_mode):
+    x = np.diag([10.0, 4.0, 1.0, 0.1, 0.0, 0.0])
+
+    U, s, VH = array_split(
+        x,
+        method="svd:rand",
+        absorb=None,
+        max_bond=3,
+        cutoff=cutoff,
+        cutoff_mode=cutoff_mode,
+        oversample=2,
+        right=right,
+        seed=42,
+    )
+
+    assert U.shape == (6, 2)
+    assert s.shape == (2,)
+    assert VH.shape == (2, 6)
+    assert_allclose(s, [10.0, 4.0])
+
+
+@pytest.mark.parametrize("cutoff_mode", ["sum1", "sum2", "rsum1", "rsum2"])
+def test_svd_rand_rejects_cumulative_cutoff(cutoff_mode):
+    x = np.diag([3.0, 2.0, 1.0])
+
+    with pytest.raises(ValueError, match="Cumulative cutoff modes"):
+        array_split(
+            x,
+            method="svd:rand",
+            max_bond=2,
+            cutoff=0.1,
+            cutoff_mode=cutoff_mode,
+        )
+
+    # a disabled cutoff preserves static truncation behavior
+    _, s, _ = array_split(
+        x,
+        method="svd:rand",
+        absorb=None,
+        max_bond=2,
+        cutoff=0.0,
+        cutoff_mode=cutoff_mode,
+        seed=42,
+    )
+    assert s.shape == (2,)
+
+
 def test_svd_rand_truncated_warns():
     from quimb.tensor.decomp import svd_rand_truncated
 
@@ -365,6 +818,7 @@ QR_METHODS = (
     "qr",
     "lq",
     "qr:cholesky",
+    "qr:auto",
     "svd",
     "svd:eig",
     "svd:rand",
@@ -374,6 +828,7 @@ LQ_METHODS = (
     "lq",
     "qr",
     "lq:cholesky",
+    "lq:auto",
     "svd",
     "svd:eig",
     "svd:rand",
@@ -456,25 +911,25 @@ _PARTIAL_ABSORB_CONFIG = {
     #   null_side: "left" means left output is None
     #   cholesky_skip: "m<n" or "m>n"
     "rfactor": (
-        ["qr:cholesky"],
+        ["qr:cholesky", "qr:auto"],
         "m<n",
         "left",
         False,
     ),
     "lfactor": (
-        ["qr:cholesky", "lq:cholesky"],
+        ["qr:cholesky", "lq:cholesky", "lq:auto"],
         "m>n",
         "right",
         False,
     ),
     "rorthog": (
-        ["qr:cholesky", "lq:cholesky"],
+        ["qr:cholesky", "lq:cholesky", "lq:auto"],
         "m>n",
         "left",
         True,
     ),
     "lorthog": (
-        ["qr:cholesky"],
+        ["qr:cholesky", "qr:auto"],
         "m<n",
         "right",
         True,
@@ -524,6 +979,164 @@ def test_partial_factor_methods(absorb, m, n, dtype):
                 assert_allclose(left.conj().T @ left, np.eye(k), atol=1e-10)
 
 
+def rand_with_cond(m, n, cond, dtype="float64", rank=None, seed=42):
+    """Build random matrices of shape ``(m, n)``. ``m`` must be at least ``n``.
+    Space singular values logarithmically from 1 to ``1 / cond``. If ``rank``
+    is given, set remaining values to zero before forming the matrix.
+    """
+    rng = np.random.default_rng(seed)
+    u = rng.standard_normal((m, n))
+    v = rng.standard_normal((n, n))
+    if dtype == "complex128":
+        u = u + 1j * rng.standard_normal((m, n))
+        v = v + 1j * rng.standard_normal((n, n))
+    u, _ = np.linalg.qr(u)
+    v, _ = np.linalg.qr(v)
+    s = np.logspace(0, -np.log10(cond), n)
+    if rank is not None:
+        s[rank:] = 0.0
+    return (u * s) @ v.conj().T
+
+
+class TestCholeskyQR:
+    @pytest.mark.parametrize(
+        "passes, error",
+        [
+            (0, ValueError),
+            (-1, ValueError),
+            (np.int64(0), ValueError),
+            (1.5, TypeError),
+            (None, TypeError),
+            ("2", TypeError),
+        ],
+    )
+    def test_invalid_passes(self, passes, error):
+        with pytest.raises(error, match="passes must be"):
+            array_split(np.eye(2), method="qr:cholesky", passes=passes)
+
+    def test_numpy_integer_passes(self):
+        q, _, r = array_split(
+            np.eye(2), method="qr:cholesky", passes=np.int64(2)
+        )
+        assert q @ r == pytest.approx(np.eye(2))
+
+    @pytest.mark.parametrize("absorb", ["right", "left"])
+    @pytest.mark.parametrize("dtype", ["float64", "complex128"])
+    def test_lazy(self, absorb, dtype):
+        x = rand_with_cond(40, 4, 1e2, dtype=dtype)
+        if absorb == "left":
+            x = x.T
+        left, _, right = array_split(
+            ar.lazy.array(x),
+            method="qr:cholesky",
+            absorb=absorb,
+            shift=False,
+            solve_triangular=False,
+        )
+        left, right = left.compute(), right.compute()
+        assert left @ right == pytest.approx(x, abs=1e-12)
+        q = left if absorb == "right" else right.conj().T
+        assert q.conj().T @ q == pytest.approx(np.eye(4), abs=1e-10)
+
+    @pytest.mark.parametrize("absorb", ["right", "left"])
+    @pytest.mark.parametrize("dtype", ["float64", "complex128"])
+    @pytest.mark.parametrize(
+        "passes, cond, rank, tol",
+        [
+            (1, 1e2, None, 1e-10),
+            (2, 1e7, None, 1e-12),
+            (3, 1e14, None, 1e-12),
+            (3, 1e2, 10, 1e-9),
+        ],
+    )
+    def test_passes(self, absorb, dtype, passes, cond, rank, tol):
+        from quimb.tensor.decomp import qr_via_cholesky
+
+        x = rand_with_cond(500, 20, cond, dtype, rank=rank)
+        if absorb == "left":
+            x = x.T
+        left, s, right = qr_via_cholesky(x, absorb=absorb, passes=passes)
+        assert s is None
+        assert_allclose(left @ right, x, atol=1e-12)
+        if absorb == "right":
+            q, r = left, right
+        else:
+            q, r = right.conj().T, left.conj().T
+        assert_allclose(q.conj().T @ q, np.eye(20), atol=tol)
+        assert np.all(np.diag(r).real > 0)
+        assert_allclose(np.diag(r).imag, 0.0, atol=1e-12)
+
+    @pytest.mark.parametrize("absorb", ["rfactor", "lfactor"])
+    def test_passes_factor_only(self, absorb):
+        x = rand_with_cond(500, 20, 1e7)
+        if absorb == "lfactor":
+            x = x.T
+        expected = array_split(x, method="qr", absorb=absorb)
+        result = array_split(x, method="qr:cholesky", absorb=absorb, passes=2)
+        for a, b in zip(expected, result):
+            if a is None:
+                assert b is None
+            else:
+                assert_allclose(a, b, atol=1e-10)
+
+    def test_orthog_tol(self):
+        from quimb.tensor.decomp import qr_via_cholesky
+
+        x = rand_with_cond(500, 20, 1e12)
+        with pytest.raises(ValueError, match="lost orthogonality"):
+            qr_via_cholesky(x, absorb="right", passes=2, tol_orthog=1e-3)
+
+    @pytest.mark.parametrize("absorb", ["right", "left"])
+    @pytest.mark.parametrize("dtype", ["float64", "complex128"])
+    @pytest.mark.parametrize(
+        "cond, rank, uses_cholesky",
+        [
+            (1e2, None, True),
+            (1e6, None, True),
+            (1e12, None, False),
+            (1e2, 10, False),
+        ],
+    )
+    def test_qr_auto(
+        self, monkeypatch, absorb, dtype, cond, rank, uses_cholesky
+    ):
+        from quimb.tensor import decomp
+
+        calls = []
+        qr_stabilized = decomp.qr_stabilized
+
+        def record(*args, **kwargs):
+            calls.append(None)
+            return qr_stabilized(*args, **kwargs)
+
+        monkeypatch.setattr(decomp, "qr_stabilized", record)
+
+        x = rand_with_cond(4000, 20, cond, dtype, rank=rank)
+        if absorb == "left":
+            x = x.T
+        left, _, right = array_split(x, method="qr:auto", absorb=absorb)
+        assert (not calls) == uses_cholesky
+        assert_allclose(left @ right, x, atol=1e-12)
+        q = left if absorb == "right" else right.conj().T
+        assert_allclose(q.conj().T @ q, np.eye(20), atol=1e-12)
+
+    def test_qr_auto_small_uses_qr(self, monkeypatch):
+        from quimb.tensor import decomp
+
+        calls = []
+        qr_via_cholesky = decomp.qr_via_cholesky
+
+        def record(*args, **kwargs):
+            calls.append(None)
+            return qr_via_cholesky(*args, **kwargs)
+
+        monkeypatch.setattr(decomp, "qr_via_cholesky", record)
+        x = rand_with_cond(100, 20, 1e2)
+        left, _, right = array_split(x, method="qr:auto", absorb="right")
+        assert not calls
+        assert_allclose(left @ right, x, atol=1e-12)
+
+
 @pytest.mark.parametrize(
     "backend", ["numpy", jax_case, tensorflow_case, pytorch_case]
 )
@@ -535,11 +1148,11 @@ def test_batch_svd(backend, method, max_bond, absorb):
     rng = xp.random.default_rng(42)
     x = rng.uniform(size=(3, 5, 7))
 
-    kwargs = dict(
-        method=method,
-        max_bond=max_bond,
-        absorb=absorb,
-    )
+    kwargs = {
+        "method": method,
+        "max_bond": max_bond,
+        "absorb": absorb,
+    }
     if method == "svd:rand":
         kwargs["seed"] = rng
 
@@ -553,6 +1166,94 @@ def test_batch_svd(backend, method, max_bond, absorb):
     assert left is None or left.shape == (3, 5, k)
     assert s is None or s.shape == (3, k)
     assert right is None or right.shape == (3, k, 7)
+
+
+@pytest.mark.parametrize(
+    "backend", ["numpy", jax_case, tensorflow_case, pytorch_case]
+)
+@pytest.mark.parametrize("method", ["svd", "svd:eig", "svd:rand"])
+def test_batch_svd_relative_cutoff_uses_global_scale(backend, method):
+    xp = ar.get_namespace(backend)
+    x = xp.asarray(
+        np.stack(
+            [
+                np.diag([10.0, 1.0, 0.1]),
+                np.diag([1.0, 0.9, 0.8]),
+            ]
+        )
+    )
+
+    kwargs = {}
+    if method == "svd:rand":
+        kwargs["seed"] = 42
+
+    left, s, right = array_split(
+        x,
+        method=method,
+        absorb=None,
+        max_bond=3,
+        cutoff=0.2,
+        cutoff_mode="rel",
+        **kwargs,
+    )
+
+    assert left.shape == (2, 3, 1)
+    assert s.shape == (2, 1)
+    assert right.shape == (2, 1, 3)
+    assert_allclose(ar.to_numpy(s[:, 0]), [10.0, 1.0], rtol=1e-5)
+
+
+def test_batch_svd_absolute_cutoff_uses_common_rank():
+    x = np.stack(
+        [
+            np.diag([10.0, 1.0, 0.1]),
+            np.diag([1.0, 0.9, 0.8]),
+        ]
+    )
+
+    left, s, right = array_split(
+        x,
+        method="svd",
+        absorb=None,
+        cutoff=0.5,
+        cutoff_mode="abs",
+    )
+
+    assert left.shape == (2, 3, 3)
+    assert s.shape == (2, 3)
+    assert right.shape == (2, 3, 3)
+
+
+@pytest.mark.parametrize("cutoff_mode", ["sum1", "sum2", "rsum1", "rsum2"])
+def test_batch_svd_rejects_cumulative_cutoff(cutoff_mode):
+    x = np.stack([np.eye(3), np.eye(3)])
+
+    with pytest.raises(ValueError, match="Cumulative cutoff modes"):
+        array_split(
+            x,
+            method="svd",
+            cutoff=0.1,
+            cutoff_mode=cutoff_mode,
+        )
+
+
+@pytest.mark.parametrize(
+    "backend", ["numpy", jax_case, tensorflow_case, pytorch_case]
+)
+@pytest.mark.parametrize("dtype", ["float32", "complex64"])
+def test_svd_rand_sketch_matches_dtype_and_device(backend, dtype):
+    # the random sketch must match `x`, a raw generator call gives a real
+    # float array on the default device, which torch refuses to contract
+    xp = ar.get_namespace(backend, dtype=dtype)
+    x = xp.random.array((6, 5), rng=42)
+    expected = ar.infer_backend_device_dtype(x)
+
+    U, _, VH = array_split(x, method="svd:rand", max_bond=5, absorb="both")
+
+    assert ar.infer_backend_device_dtype(U) == expected
+    assert ar.infer_backend_device_dtype(VH) == expected
+    # loose, the sketch is single precision and the point here is the dtype
+    assert_allclose(ar.to_numpy(U @ VH), ar.to_numpy(x), rtol=1e-2, atol=1e-2)
 
 
 @pytest.mark.parametrize(
@@ -572,6 +1273,8 @@ def test_batch_svd(backend, method, max_bond, absorb):
         ("qr:cholesky", (3, 7, 5), ((3, 7, 5), (3, 5), (3, 5, 5))),
         ("lq", (3, 5, 7), ((3, 5, 5), (3, 5), (3, 5, 7))),
         ("lq:cholesky", (3, 5, 7), ((3, 5, 5), (3, 5), (3, 5, 7))),
+        ("qr:auto", (3, 7, 5), ((3, 7, 5), (3, 5), (3, 5, 5))),
+        ("lq:auto", (3, 5, 7), ((3, 5, 5), (3, 5), (3, 5, 7))),
     ],
 )
 def test_batch_qr_lq(backend, method, shape, expected_shapes):

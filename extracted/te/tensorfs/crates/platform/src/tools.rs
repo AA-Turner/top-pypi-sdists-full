@@ -42,6 +42,7 @@ pub enum Install {
     Note(&'static str),
 }
 
+/// One tool: where it matters, whether work needs it, what its absence costs, how it is found.
 pub struct Tool {
     pub name: &'static str,
     pub side: Side,
@@ -53,6 +54,7 @@ pub struct Tool {
     pub probe: fn(tools: &Path, path: &[PathBuf]) -> Option<Found>,
 }
 
+/// A tool a probe found: its path and version.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Found {
     pub path: PathBuf,
@@ -66,6 +68,7 @@ macro_rules! looked_for {
     };
 }
 
+/// Every tool cozy uses, in the order `cozy doctor` lists them.
 pub const TOOLS: &[Tool] = &[
     Tool {
         name: "uv",
@@ -166,7 +169,7 @@ pub fn warn_once(name: &str) -> Option<String> {
 }
 
 /// What a missing tool's warning says.
-pub fn warning(tool: &Tool) -> String {
+pub(crate) fn warning(tool: &Tool) -> String {
     format!("{} not found: {}; see `cozy doctor`", tool.name, tool.cost)
 }
 
@@ -191,7 +194,7 @@ pub struct Archive {
 
 /// Copies `member`, a path inside a `.zip` or `.tar.gz` `archive`, into `out`.
 #[cfg(feature = "fetch")]
-pub fn unpack(
+pub(crate) fn unpack(
     mut archive: impl std::io::Read + std::io::Seek,
     member: &str,
     out: &mut impl std::io::Write,
@@ -200,7 +203,12 @@ pub fn unpack(
     archive.read_exact(&mut magic)?;
     archive.rewind()?;
     if magic == *b"PK" {
-        return std::io::copy(&mut zip::ZipArchive::new(archive)?.by_name(member)?, out);
+        let mut zip = zip::ZipArchive::new(archive)?;
+        let mut entry = zip.by_name(member).map_err(|error| match error {
+            zip::result::ZipError::FileNotFound => std::io::Error::new(std::io::ErrorKind::NotFound, format!("the archive holds no {member}")),
+            other => std::io::Error::other(other),
+        })?;
+        return std::io::copy(&mut entry, out);
     }
     for entry in tar::Archive::new(flate2::read::GzDecoder::new(archive)).entries()? {
         let mut entry = entry?;
@@ -295,7 +303,7 @@ pub fn uv(tools: &Path, path: &[PathBuf]) -> Option<Found> {
 
 /// ffmpeg's pinned static build, one per OS/CPU: each archive held to its sha256, nothing else
 /// trusted at download. Every one has libx264 and the native aac encoder, and ships ffprobe.
-pub const FFMPEG_VERSION: &str = "9.0.2";
+pub(crate) const FFMPEG_VERSION: &str = "9.0.2";
 
 /// This OS/CPU's archives, or none where no build is pinned.
 pub fn ffmpeg_build() -> &'static [Archive] {
@@ -390,6 +398,16 @@ pub fn ffmpeg_encodes(ffmpeg: &Path, encoder: &str) -> bool {
             .lines()
             .any(|line| line.split_whitespace().nth(1) == Some(encoder))
     })
+}
+
+/// The words that install `tool` here.
+pub fn install_hint(tool: &Tool, path: &[PathBuf]) -> String {
+    match tool.install {
+        Install::Fetched => "cozy fetches it when a feature first needs it".into(),
+        Install::System(package) => system_install(package, path)
+            .unwrap_or_else(|| format!("install {package} with this computer's package manager")),
+        Install::Note(text) => format!("install {text}"),
+    }
 }
 
 /// The OS package manager's command for `package`, when this computer has one: `sudo` named where

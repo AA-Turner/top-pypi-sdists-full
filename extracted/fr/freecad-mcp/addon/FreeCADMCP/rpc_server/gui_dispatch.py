@@ -18,8 +18,8 @@ Robustness and performance guarantees:
    mouse buttons are held so MCP tasks cannot interrupt 3D navigation drags,
    for at most ``MOUSE_DEFER_MAX_S`` so a lost mouse-release cannot wedge
    dispatch. A queued call that times out names the guard that held it.
-4. Clean shutdown: the ``_SHUTDOWN`` sentinel sets a flag that suppresses the
-   ``finally`` reschedule, so ``stop_rpc_server`` actually stops the loop.
+4. Clean shutdown: a shutdown flag and heartbeat generation invalidate pending
+   timer callbacks, even if an immediate wake consumes the shutdown sentinel.
 5. Exception isolation: exceptions inside a task are caught, logged, and
    returned as error strings; they never kill the dispatch loop.
 6. Stuck-task fail-fast: once a task that already started times out, later GUI
@@ -51,6 +51,8 @@ _rpc_request_queue: "queue.Queue[Any]" = queue.Queue()
 _SHUTDOWN = object()
 _processing = False  # re-entrancy guard: True while process_gui_tasks is draining
 _processing_since: float = 0.0  # wall-clock time when _processing became True
+_heartbeat_generation = 0
+_shutdown_requested = False
 _task_ids = itertools.count(1)
 _dispatch_health = DispatchHealth()
 
@@ -120,7 +122,7 @@ class _WakeSignal(QtCore.QObject):
         self._sig.emit()
 
     def _on_wake(self) -> None:
-        process_gui_tasks(reschedule=False)
+        process_gui_tasks()
 
 
 _waker: "_WakeSignal | None" = None
@@ -136,6 +138,22 @@ def cleanup_waker() -> None:
     """Release the wake-signal bridge on server stop."""
     global _waker
     _waker = None
+
+
+def log_error(message: str) -> None:
+    """Report View logging that cannot fail on unencodable text.
+
+    PrintError raises for strings holding lone surrogates (an exception text
+    built from undecodable bytes); on an error path that exception would
+    replace the error being reported.
+    """
+    try:
+        FreeCAD.Console.PrintError(message)
+    except Exception:
+        try:
+            FreeCAD.Console.PrintError(message.encode("utf-8", "backslashreplace").decode("utf-8"))
+        except Exception:
+            pass
 
 
 def _flush_gui_events(delay_ms: int = 20) -> None:
@@ -156,22 +174,21 @@ def _flush_gui_events(delay_ms: int = 20) -> None:
         app.processEvents(flags, delay_ms)
 
 
-def process_gui_tasks(reschedule: bool = True) -> None:
-    """Drain queued GUI-thread callables and optionally reschedule.
+def process_gui_tasks() -> None:
+    """Drain queued GUI-thread callables without scheduling heartbeat timers.
 
     Skips the current tick when any mouse button is held (e.g., 3D navigation
     drag) or when already executing a task (re-entrancy guard). The guard
     prevents ``doc.recompute()`` or ``processEvents()`` inside a task from
     triggering a nested ``process_gui_tasks`` call that corrupts FreeCAD state.
 
-    ``reschedule=False`` is used by the immediate-wake path so it does not
-    start a second heartbeat chain alongside the existing 500 ms one.
+    Both immediate wakes and heartbeat ticks use this drain. Only the heartbeat
+    callback owns rescheduling, so immediate wakes cannot create another chain.
     """
     global _processing, _processing_since, _last_defer
     if _processing:
         return  # re-entrant call from processEvents inside a task; skip
 
-    shutdown = False
     try:
         if _rpc_request_queue.empty():
             return  # nothing queued; skip cursor/status-bar churn on idle heartbeat ticks
@@ -201,42 +218,82 @@ def process_gui_tasks(reschedule: bool = True) -> None:
 
         if app is not None:
             app.setOverrideCursor(QtCore.Qt.WaitCursor)
-        if status_bar is not None:
-            status_bar.showMessage("MCP: processing…")
+        # Show our note only on an empty bar and remove only our own note, so
+        # a message shown across calls (an async job's) is left alone.
+        busy_message = "MCP: processing…"
+        if status_bar is not None and not status_bar.currentMessage():
+            status_bar.showMessage(busy_message)
         try:
             while not _rpc_request_queue.empty():
                 task = _rpc_request_queue.get()
                 if task is _SHUTDOWN:
-                    shutdown = True
-                    return
+                    if _shutdown_requested:
+                        return
+                    # A restart may precede consumption of the old sentinel.
+                    continue
                 try:
                     task()
                 except BaseException as e:
                     # Also SystemExit/KeyboardInterrupt: leaving this Qt slot
                     # with one of them quits FreeCAD.
-                    FreeCAD.Console.PrintError(
+                    log_error(
                         f"MCP RPC: unhandled exception in GUI task: {type(e).__name__}: {e}\n"
                         f"{traceback.format_exc()}"
                     )
         finally:
             if app is not None:
                 app.restoreOverrideCursor()
-            if status_bar is not None:
+            if status_bar is not None and status_bar.currentMessage() == busy_message:
                 status_bar.clearMessage()
     finally:
         _processing = False
-        if not shutdown and reschedule:
-            QtCore.QTimer.singleShot(500, process_gui_tasks)
+
+
+def _heartbeat_tick(generation: int) -> None:
+    if generation != _heartbeat_generation or _shutdown_requested:
+        return
+    try:
+        process_gui_tasks()
+    except BaseException as exc:
+        # A cosmetic GUI failure must not permanently remove the fallback timer.
+        log_error(f"MCP RPC: heartbeat failed: {type(exc).__name__}: {exc}\n")
+    finally:
+        if generation == _heartbeat_generation and not _shutdown_requested:
+            QtCore.QTimer.singleShot(500, lambda: _heartbeat_tick(generation))
+
+
+def start_heartbeat() -> None:
+    """Start one fallback timer chain, invalidating old ticks on the GUI thread."""
+    global _heartbeat_generation, _shutdown_requested
+    _heartbeat_generation += 1
+    _shutdown_requested = False
+    generation = _heartbeat_generation
+    QtCore.QTimer.singleShot(500, lambda: _heartbeat_tick(generation))
 
 
 def request_shutdown() -> None:
-    """Post the sentinel so the next dispatch tick exits without rescheduling."""
+    """Invalidate pending heartbeat ticks and ask the current drain to stop."""
+    global _shutdown_requested
+    _shutdown_requested = True
     _rpc_request_queue.put(_SHUTDOWN)
 
 
 def get_dispatch_status() -> dict[str, Any]:
     """Return GUI dispatch health without touching FreeCAD's GUI thread."""
     return _dispatch_health.snapshot()
+
+
+def post_to_gui(task: Callable[[], Any]) -> None:
+    """Queue a short best-effort GUI task without waiting for it to run.
+
+    For cosmetic updates (status-bar text) that must not make the caller wait
+    behind a long GUI task. Queued even while dispatch is stuck, so paired
+    updates (show, then clear) both run in order once the GUI thread is free.
+    Exceptions are logged by ``process_gui_tasks``.
+    """
+    _rpc_request_queue.put(task)
+    if _waker is not None:
+        _waker.wake()
 
 
 def dispatch_to_gui(
@@ -300,11 +357,8 @@ def dispatch_to_gui(
             except BaseException as e:
                 # SystemExit/KeyboardInterrupt from a script (sys.exit() in
                 # execute_code) must fail this call rather than quit FreeCAD.
-                FreeCAD.Console.PrintError(
-                    f"MCP RPC: GUI task raised {type(e).__name__}: {e}\n"
-                    f"{traceback.format_exc()}"
-                )
                 res = f"{type(e).__name__}: {e}"
+                log_error(f"MCP RPC: GUI task raised {res}\n{traceback.format_exc()}")
         finally:
             # Publish completion atomically with clearing health, so a deadline
             # racing with completion cannot report a missing successful result.

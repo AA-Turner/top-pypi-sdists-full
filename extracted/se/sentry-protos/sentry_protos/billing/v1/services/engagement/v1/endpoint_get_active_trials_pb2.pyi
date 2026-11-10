@@ -47,7 +47,10 @@ class Trial(google.protobuf.message.Message):
     START_DATE_FIELD_NUMBER: builtins.int
     END_DATE_FIELD_NUMBER: builtins.int
     PACKAGE_UID_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     package_uid: builtins.str
+    user_id: builtins.int
+    """The user who started the trial. Not set when no user started it."""
     @property
     def config(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TrialConfig]: ...
     @property
@@ -61,10 +64,14 @@ class Trial(google.protobuf.message.Message):
         start_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         end_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         package_uid: builtins.str | None = ...,
+        user_id: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_package_uid", b"_package_uid", "end_date", b"end_date", "package_uid", b"package_uid", "start_date", b"start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_package_uid", b"_package_uid", "config", b"config", "end_date", b"end_date", "package_uid", b"package_uid", "start_date", b"start_date"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_package_uid", b"_package_uid", "_user_id", b"_user_id", "end_date", b"end_date", "package_uid", b"package_uid", "start_date", b"start_date", "user_id", b"user_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_package_uid", b"_package_uid", "_user_id", b"_user_id", "config", b"config", "end_date", b"end_date", "package_uid", b"package_uid", "start_date", b"start_date", "user_id", b"user_id"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_package_uid", b"_package_uid"]) -> typing.Literal["package_uid"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_user_id", b"_user_id"]) -> typing.Literal["user_id"] | None: ...
 
 global___Trial = Trial
 

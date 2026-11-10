@@ -195,6 +195,9 @@ namespace sogen
         emulator_pointer entries_removed_ptr{};
         ULONG max_entries{};
         std::optional<std::chrono::steady_clock::time_point> timeout{};
+        // The worker factory a NtWaitForWorkViaWorkerFactory wait takes work for; none for NtRemoveIoCompletion(Ex).
+        handle worker_factory_handle{};
+        bool timeout_absolute{};
 
         void serialize(utils::buffer_serializer& buffer) const
         {
@@ -207,6 +210,8 @@ namespace sogen
             buffer.write(this->entries_removed_ptr);
             buffer.write(this->max_entries);
             buffer.write_optional(this->timeout);
+            buffer.write(this->worker_factory_handle);
+            buffer.write(this->timeout_absolute);
         }
 
         void deserialize(utils::buffer_deserializer& buffer)
@@ -221,6 +226,8 @@ namespace sogen
             buffer.read(this->entries_removed_ptr);
             buffer.read(this->max_entries);
             buffer.read_optional(this->timeout);
+            buffer.read(this->worker_factory_handle);
+            buffer.read(this->timeout_absolute);
         }
     };
 
@@ -229,12 +236,14 @@ namespace sogen
         handle debug_object{};
         emulator_pointer state_change{};
         std::optional<std::chrono::steady_clock::time_point> timeout{};
+        bool timeout_absolute{};
 
         void serialize(utils::buffer_serializer& buffer) const
         {
             buffer.write(this->debug_object);
             buffer.write(this->state_change);
             buffer.write_optional(this->timeout);
+            buffer.write(this->timeout_absolute);
         }
 
         void deserialize(utils::buffer_deserializer& buffer)
@@ -242,6 +251,7 @@ namespace sogen
             buffer.read(this->debug_object);
             buffer.read(this->state_change);
             buffer.read_optional(this->timeout);
+            buffer.read(this->timeout_absolute);
         }
     };
 
@@ -262,6 +272,12 @@ namespace sogen
         NtUserPeekMessage,
         NtUserWaitMessage,
         NtUserMsgWaitForMultipleObjectsEx,
+        NtUserSetWindowLong,
+        NtUserSetWindowLongPtr,
+        NtUserSetFocus,
+        NtUserGetControlBrush,
+        NtUserGetControlColor,
+        NtUserFillWindow,
     };
 
     struct callback_frame
@@ -366,6 +382,13 @@ namespace sogen
         }
     };
 
+    enum class stack_guard_fault
+    {
+        outside_stack,
+        grown,
+        overflow,
+    };
+
     class emulator_thread : public ref_counted_object
     {
       public:
@@ -380,7 +403,7 @@ namespace sogen
         }
 
         emulator_thread(memory_manager& memory, const process_context& context, uint64_t start_address, uint64_t argument,
-                        uint64_t stack_size, uint32_t create_flags, uint32_t id, bool initial_thread);
+                        uint64_t stack_size, uint32_t create_flags, uint32_t id, bool initial_thread, uint64_t stack_commit_size = 0);
 
         emulator_thread(const emulator_thread&) = delete;
         emulator_thread& operator=(const emulator_thread&) = delete;
@@ -435,6 +458,8 @@ namespace sogen
         uint32_t create_flags{0};
         uint32_t suspended{0};
         std::optional<std::chrono::steady_clock::time_point> await_time{};
+        // Whoever sets await_time sets this too: whether the guest gave it as an absolute system time.
+        bool await_time_absolute{};
         std::optional<pending_msg> await_msg{};
         std::optional<DWORD> await_msg_mask{};
         std::optional<pending_io_completion_wait> await_io_completion{};
@@ -445,8 +470,11 @@ namespace sogen
         // When set, the thread is parked until this host-side predicate returns true. Used by the GPU
         // bridge to wait on a Vulkan semaphore cooperatively (other guest threads run while the GPU works)
         // instead of blocking the single VP. Polled by is_thread_ready and completed via
-        // mark_as_ready(STATUS_SUCCESS). Not serialized: the only user (GPU bridge) is not snapshotable.
+        // mark_as_ready(STATUS_SUCCESS). Idle vCPUs poll it once a millisecond unless woken, so whatever makes it
+        // true calls windows_emulator::credit_idle_wakeup. A predicate cannot be saved: a snapshot keeps only
+        // awaits_restored_host_condition, and the device that set it sets it again once the state is restored.
         std::function<bool()> await_host_condition{};
+        bool awaits_restored_host_condition{false};
 
         bool apc_alertable{false};
         std::vector<pending_apc> pending_apcs{};
@@ -506,6 +534,21 @@ namespace sogen
             return this->await_time.has_value() && this->await_time.value() != infinite && this->await_time.value() < clock.steady_now();
         }
 
+        void move_absolute_deadlines(const std::chrono::steady_clock::duration system_time_ahead)
+        {
+            utils::follow_system_time(this->await_time, this->await_time_absolute, system_time_ahead);
+            if (this->await_io_completion)
+            {
+                utils::follow_system_time(this->await_io_completion->timeout, this->await_io_completion->timeout_absolute,
+                                          system_time_ahead);
+            }
+
+            if (this->await_debug_event)
+            {
+                utils::follow_system_time(this->await_debug_event->timeout, this->await_debug_event->timeout_absolute, system_time_ahead);
+            }
+        }
+
         bool has_pending_alertable_apc() const
         {
             return this->apc_alertable && !this->pending_apcs.empty();
@@ -560,6 +603,10 @@ namespace sogen
 
         void refresh_execution_context(cpu_interface& cpu, uint64_t gdt_base) const;
 
+        stack_guard_fault handle_stack_guard_fault(uint64_t address) const;
+        void grow_stack_for_frame(uint64_t address, uint64_t end) const;
+        void commit_stacks_in_full() const;
+
         void setup_if_necessary(cpu_interface& emu, const process_context& context);
 
         void serialize_object(utils::buffer_serializer& buffer) const override
@@ -595,12 +642,14 @@ namespace sogen
             buffer.write(this->suspended);
             buffer.write(this->ideal_processor);
             buffer.write_optional(this->await_time);
+            buffer.write(this->await_time_absolute);
             buffer.write_optional(this->await_msg);
             buffer.write_optional(this->await_msg_mask);
             buffer.write_optional(this->await_io_completion);
             buffer.write_optional(this->await_debug_event);
             buffer.write_optional(this->await_file_io);
             buffer.write(this->ended_waits);
+            buffer.write(this->await_host_condition || this->awaits_restored_host_condition);
 
             buffer.write(this->apc_alertable);
             buffer.write_vector(this->pending_apcs);
@@ -680,12 +729,15 @@ namespace sogen
             buffer.read(this->suspended);
             buffer.read(this->ideal_processor);
             buffer.read_optional(this->await_time);
+            buffer.read(this->await_time_absolute);
             buffer.read_optional(this->await_msg, [this] { return pending_msg{*this->memory_ptr}; });
             buffer.read_optional(this->await_msg_mask);
             buffer.read_optional(this->await_io_completion, [] { return pending_io_completion_wait{}; });
             buffer.read_optional(this->await_debug_event, [] { return pending_debug_event_wait{}; });
             buffer.read_optional(this->await_file_io);
             buffer.read(this->ended_waits);
+            buffer.read(this->awaits_restored_host_condition);
+            this->await_host_condition = {};
 
             buffer.read(this->apc_alertable);
             buffer.read_vector(this->pending_apcs);

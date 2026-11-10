@@ -85,9 +85,8 @@ def test_every_guarded_config_module_is_imported() -> None:
 
     Since the vocabulary moved to nameparser/vocab/*.toml, whose
     compiler checks it (tests/v2/test_vocab.py), the asserts left are
-    on data still written in Python -- ``_ko_surnames`` today (the
-    Korean census list, ``surnames.py``'s until 2.8.2), which is
-    lazy (imported inside ``_snapshot``/``_default_lexicon``), so its
+    on data still written in Python -- ``_ko_surnames`` today, which is
+    lazy (imported inside ``_default_lexicon``), so its
     guard fires only incidentally, whenever some other test happens to
     build a default Lexicon. Importing them all here makes every guard
     unconditional.
@@ -103,8 +102,8 @@ def test_every_guarded_config_module_is_imported() -> None:
 
     config_dir = pathlib.Path(nameparser.config.__file__).parent
     # _invariants excluded: it DEFINES the guard (the substring hits its
-    # own def) and holds no vocabulary of its own. Private modules are
-    # read, since the data moved to one in 2.8.2
+    # own def) and holds no vocabulary of its own. Every module here is
+    # private since 3.0, so a privacy filter would leave nothing
     guarded = sorted(
         p.stem for p in config_dir.glob("*.py")
         if p.stem != "_invariants"
@@ -120,15 +119,13 @@ def test_every_vocabulary_constant_is_frozen() -> None:
     """A module vocabulary constant must not be mutable (#293).
 
     ``Lexicon.default()`` is ``functools.cache``d and reads these sets
-    once, at its first call, while the v1 shim's ``Constants`` copy
-    from them at every construction. A runtime ``TITLES.add("dean")``
-    was therefore always visible to a freshly built ``Constants``, and
-    visible to the default ``Lexicon`` only when it landed before the
-    first parse -- after that the cache was already built and the same
-    edit was invisible there. Two APIs disagreeing about their own
-    defaults, decided by construction order, and no way from the
-    mutating code to tell which branch it was on. Frozen makes that
-    unrepresentable: the mutation raises where it is written.
+    once, at its first call, so a runtime ``TITLES.add("dean")`` would
+    reach the default ``Lexicon`` only when it landed before the first
+    parse -- after that the cache is already built and the same edit is
+    invisible. Through 2.x the v1 ``Constants`` also copied the sets at
+    every construction, so the two APIs could disagree about their own
+    defaults by construction order. Frozen makes that unrepresentable:
+    the mutation raises where it is written.
 
     It also carries more than it did. ``_default_lexicon()`` used to
     wrap every constant in ``frozenset(...)`` on the way into the
@@ -144,40 +141,28 @@ def test_every_vocabulary_constant_is_frozen() -> None:
     rather than from the day someone notices.
 
     Scope stops at ``nameparser/config``, which is where the hazard is:
-    three consumers read these constants at three different moments
-    (the cached ``Lexicon.default()``, a per-construction ``Constants``,
-    the import-time ``CONSTANTS``), so a mutable one lets two defaults
-    disagree. A locale pack has one consumer and one moment -- the
-    ``Lexicon(...)`` in its own module body, whose fields are frozen
-    copies -- so ``locales/zh.py``'s ``_SURNAMES`` could not desync
+    the constants are module-level, reachable by callers (``surnames``
+    publicly, ``_compiled`` by its private name) as well as read by the
+    cached ``Lexicon.default()``, so a mutable one lets a caller's copy
+    and the default disagree. A locale pack has one consumer and one
+    moment -- the ``Lexicon(...)`` in its own module body, whose fields
+    are frozen copies -- so ``locales/zh.py``'s ``_SURNAMES`` could not desync
     anything even as a plain ``set``. It is a ``frozenset`` anyway.
-
-    The two deprecated alias modules are in the glob too and contribute
-    nothing: the bridge deliberately does not write a resolved value
-    back into their globals (see ``config/_deprecated.py``), so their
-    ``vars()`` never gains a vocabulary name however often it is read,
-    and the roster does not depend on what ran first.
     """
     import importlib
     import pathlib
 
     import nameparser.config
 
-    # The two mapping constants, EXEMPT and named rather than dropped by
-    # the isinstance filter without comment. REGEXES is a compiled-
-    # pattern table rather than vocabulary and was never in #293's
-    # scope. CAPITALIZATION_EXCEPTIONS is vocabulary-shaped and is a
-    # decided, in-scope exemption, which means the split-default hazard
-    # the freeze closes is STILL LIVE for it -- an edit reaches a
-    # freshly built Constants and neither the cached Lexicon.default()
-    # nor the shared CONSTANTS. Written down here, in docs/migrate.rst
-    # and in AGENTS.md so it does not read as covered.
+    # The mapping constant, EXEMPT and named rather than dropped by the
+    # isinstance filter without comment (REGEXES, the other until 3.0,
+    # left with its module, #1008). CAPITALIZATION_EXCEPTIONS is
+    # vocabulary-shaped and is a decided, in-scope exemption, which
+    # means the hazard the freeze closes is STILL LIVE for it -- an edit
+    # after the first parse misses the cached Lexicon.default(). Written
+    # down here and in AGENTS.md so it does not read as covered.
     exempt_mappings = {
-        "capitalization.CAPITALIZATION_EXCEPTIONS",
-        "regexes.REGEXES",
-        # the same dict, by the name the facade reads without the
-        # warning 2.8.1 puts on REGEXES (#1008)
-        "regexes._REGEXES",
+        "_compiled.CAPITALIZATION_EXCEPTIONS",
     }
 
     config_dir = pathlib.Path(nameparser.config.__file__).parent
@@ -186,14 +171,15 @@ def test_every_vocabulary_constant_is_frozen() -> None:
     exempt_seen = set()
     for path in sorted(config_dir.rglob("*.py")):
         relative = path.relative_to(config_dir).with_suffix("")
-        if any(part.startswith("_") for part in relative.parts):
+        # every module but the package's own: all of them are private
+        # since 3.0 (#1007, #1077), so a privacy filter would skip a new
+        # data module by default; _index, _rules and _invariants hold no
+        # upper-case set or mapping, and pass through unchecked
+        if relative.parts[-1] == "__init__":
             continue
         stem = ".".join(relative.parts)
         module = importlib.import_module(f"nameparser.config.{stem}")
-        # since 2.8.1 a constant 3.0 removes is held by the module's
-        # __getattr__ rather than its globals (#1007, #1008)
-        served = getattr(vars(module).get("__getattr__"), "removed_values", {})
-        for name, value in sorted({**vars(module), **served}.items()):
+        for name, value in sorted(vars(module).items()):
             if not name.isupper():
                 continue
             qualified = f"{stem}.{name}"
@@ -215,14 +201,12 @@ def test_every_vocabulary_constant_is_frozen() -> None:
         f"next mutable mapping that inherits the name")
     # A FLOOR, not a presence check: `assert checked` is satisfied by
     # one surviving constant, so a filter or a path change that quietly
-    # dropped twelve of the thirteen would still read as a pass. Thirteen
-    # distinct constants across seven modules (measured 2026-10-18; the
-    # fourteenth entry before then was particles.BOUND_GIVEN_NAMES, an
-    # import for a disjointness assert that became a vocabulary build
-    # check). The private _compiled.py they are assigned from is skipped
-    # with the other private modules: its objects are the same ones.
-    # Raise this when a constant is added; a drop is the regression.
-    assert len(checked) >= 13, (
+    # dropped most of them would still read as a pass. 24 constants:
+    # _compiled's 23 sets and _ko_surnames.KOREAN_SURNAMES (measured
+    # 2026-11-02, when 3.0 removed the modules that re-exported
+    # _compiled's, #1007). Raise this when a constant is added; a drop is
+    # the regression.
+    assert len(checked) >= 24, (
         f"only {len(checked)} vocabulary set constants found under "
         f"{config_dir} ({checked}) -- the derivation shrank, and a "
         f"roster that shrinks silently stops guarding silently")
@@ -231,30 +215,48 @@ def test_every_vocabulary_constant_is_frozen() -> None:
 
 
 def test_the_documented_replacements_for_an_in_place_edit_work() -> None:
-    """``docs/migrate.rst``'s two recipes, as behavior (#293).
+    """``docs/migrate.rst``'s recipe, as behavior (#293).
 
-    Both live there as ``::`` literal blocks, which ``sphinx -b
+    It lived there as a ``::`` literal block, which ``sphinx -b
     doctest`` never runs -- so the page that tells a 1.x caller what to
     do INSTEAD of ``TITLES.add("dean")`` was the one claim about the
     freeze with nothing checking it. "dean" is the canonical example
     for this: a common academic title and a common given name, so it is
-    deliberately absent from the shipped ``TITLES`` and a caller who
-    wants it has to add it themselves.
+    deliberately not a title outside a title phrase in the shipped
+    vocabulary, and a caller who wants it everywhere has to say so.
     """
-    from nameparser import HumanName, Lexicon, Parser
-    from nameparser.config import Constants
-    from nameparser.config.titles import TITLES
+    import importlib
 
-    # what the freeze retired
-    with pytest.raises(AttributeError):
-        TITLES.add("dean")  # type: ignore[attr-defined]
-    assert HumanName("Dean Smith").title == ""
+    from nameparser import Lexicon, Parser, parse
 
-    # recipe 1: a private Constants for the v1 API
-    constants = Constants()
-    constants.titles.add("dean")
-    assert HumanName("Dean Smith", constants=constants).title == "Dean"
+    # what the freeze retired, and since 3.0 the module that exposed it
+    # (#1007)
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("nameparser.config.titles")
+    assert parse("Dean Smith").title == ""
 
-    # recipe 2: an extended Lexicon for the 2.0 API
-    parser = Parser(lexicon=Lexicon.default().add(titles={"dean"}))
+    # the recipe: a configured Lexicon. "dean" holds a title reading
+    # and a given one, so it reads as a title only inside a title
+    # phrase (rules/H9); removing the given reading makes it a title
+    # everywhere
+    parser = Parser(lexicon=Lexicon.default().remove("dean", kind="given"))
     assert parser.parse("Dean Smith").title == "Dean"
+
+
+@pytest.mark.parametrize("code", [
+    "import nameparser",
+    "from nameparser import *",
+    "from nameparser import Lexicon; Lexicon.default().surnames",
+    "from nameparser import parse; parse('John Smith')",
+])
+def test_imports_and_the_core_stay_quiet(code: str) -> None:
+    import subprocess
+    import sys
+
+    # a fresh interpreter, since this one has imported everything
+    result = subprocess.run(
+        [sys.executable, "-W", "error", "-c", code],
+        capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+
+

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.onedrive.workbooks.charts.chart import WorkbookChart
@@ -15,6 +14,7 @@ from office365.onedrive.workbooks.tables.pivot_table_collection import (
 from office365.onedrive.workbooks.worksheets.protection import (
     WorkbookWorksheetProtection,
 )
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.function import FunctionQuery
@@ -32,7 +32,7 @@ class WorkbookWorksheet(Entity):
     def __str__(self):
         return self.name or self.entity_type_name
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def cell(self, row: int, column: int) -> WorkbookRange:
         """Gets the range object containing the single cell based on row and column numbers.
         The cell can be outside the bounds of its parent range, so long as it's stays within the worksheet grid.
@@ -47,7 +47,7 @@ class WorkbookWorksheet(Entity):
         self.context.add_query(qry)
         return return_type
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def range(self, address=None):
         """Gets the range object specified by the address or name."""
         return_type = WorkbookRange(
@@ -57,7 +57,7 @@ class WorkbookWorksheet(Entity):
         self.context.add_query(qry)
         return return_type
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def used_range(self, values_only: bool = False) -> WorkbookRange:
         """Return the used range of the given range object.
 
@@ -70,6 +70,7 @@ class WorkbookWorksheet(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="charts", navigation=True)
     @property
     def charts(self) -> EntityCollection[WorkbookChart]:
         """Returns collection of charts that are part of the worksheet"""
@@ -78,11 +79,13 @@ class WorkbookWorksheet(Entity):
             EntityCollection(self.context, WorkbookChart, ResourcePath("charts", self.resource_path)),
         )
 
+    @odata(name="name")
     @property
     def name(self) -> Optional[str]:
         """The display name of the worksheet."""
         return self.properties.get("name", None)
 
+    @odata(name="names", navigation=True)
     @property
     def names(self) -> EntityCollection[WorkbookNamedItem]:
         """Returns collection of names that are associated with the worksheet"""
@@ -95,6 +98,7 @@ class WorkbookWorksheet(Entity):
             ),
         )
 
+    @odata(name="tables", navigation=True)
     @property
     def tables(self) -> WorkbookTableCollection:
         """Collection of tables that are part of the worksheet."""
@@ -103,7 +107,7 @@ class WorkbookWorksheet(Entity):
             WorkbookTableCollection(self.context, ResourcePath("tables", self.resource_path)),
         )
 
-    @odata(name="pivotTables")
+    @odata(name="pivotTables", navigation=True)
     @property
     def pivot_tables(self) -> WorkbookPivotTableCollection:
         """Collection of PivotTables that are part of the worksheet."""
@@ -115,6 +119,7 @@ class WorkbookWorksheet(Entity):
             ),
         )
 
+    @odata(name="protection", navigation=True)
     @property
     def protection(self) -> WorkbookWorksheetProtection:
         """Returns sheet protection object for a worksheet."""
@@ -123,11 +128,13 @@ class WorkbookWorksheet(Entity):
             WorkbookWorksheetProtection(self.context, ResourcePath("protection", self.resource_path)),
         )
 
+    @odata(name="position")
     @property
     def position(self) -> Optional[int]:
         """Gets the position property"""
         return self.properties.get("position", None)
 
+    @odata(name="visibility")
     @property
     def visibility(self) -> Optional[str]:
         """Gets the visibility property"""

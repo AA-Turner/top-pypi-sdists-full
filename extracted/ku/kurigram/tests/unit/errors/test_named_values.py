@@ -19,8 +19,7 @@
 from __future__ import annotations as _annotations
 
 from importlib import import_module
-from types import ModuleType
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
@@ -40,6 +39,9 @@ from pyrogram.errors import (
 )
 from pyrogram.errors.exceptions.all import exceptions
 from tests.unit.errors import RPC_NAME, raise_it
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 # Every class whose message names its value, counted once. All 32 rows the tables name are reachable:
 # `FILE_MIGRATE_X` is listed under both 303 and 400, and the two compile to `FileMigrate` and
@@ -154,7 +156,8 @@ def test_every_named_value_is_the_value_under_another_name() -> None:
             error_type = getattr(errors, class_name)
 
             if error_type.VALUE_NAME == "value":
-                # `value` is the attribute itself, so nothing may sit on the class under that name.
+                # `value` is `RPCError`'s own property, so nothing may sit on a subclass under
+                #  that name.
                 assert "value" not in vars(error_type)
                 continue
 

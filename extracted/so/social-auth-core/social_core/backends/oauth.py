@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import time
+from time import time as _time
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from oauthlib.oauth1 import SIGNATURE_TYPE_AUTH_HEADER
 from requests_oauthlib import OAuth1
 
+from social_core.backends.base import ResponseT_co
 from social_core.exceptions import (
     AuthCanceled,
     AuthConfigurationError,
@@ -22,7 +23,6 @@ from social_core.utils import (
     constant_time_compare,
     handle_http_errors,
     parse_qs,
-    provider_error,
     url_add_parameters,
     wrap_access_token_error,
 )
@@ -35,8 +35,10 @@ if TYPE_CHECKING:
     from requests import Response
     from requests.auth import AuthBase
 
+    from social_core.storage import UserProtocol
 
-class OAuthAuth(BaseAuth):
+
+class OAuthAuth(BaseAuth[ResponseT_co]):
     """OAuth authentication backend base class.
 
     Settings will be inspected to get more values names that should be
@@ -203,7 +205,7 @@ class OAuthAuth(BaseAuth):
         return None
 
 
-class BaseOAuth1(OAuthAuth):
+class BaseOAuth1(OAuthAuth[ResponseT_co]):
     """Consumer based mechanism OAuth authentication, fill the needed
     parameters to communicate properly with authentication service.
 
@@ -241,7 +243,7 @@ class BaseOAuth1(OAuthAuth):
             )
 
     @handle_http_errors
-    def auth_complete(self, *args, **kwargs):
+    def auth_complete(self, *args, **kwargs) -> UserProtocol | ResponseT_co | None:
         """Return user, might be logged in"""
         # Multiple unauthorized tokens are supported (see #521)
         self.process_error(self.data)
@@ -423,7 +425,7 @@ class BaseOAuth1(OAuthAuth):
         return {}
 
 
-class BaseOAuth2(OAuthAuth):
+class BaseOAuth2(OAuthAuth[ResponseT_co]):
     """Base class for OAuth2 providers.
 
     OAuth2 details at:
@@ -481,7 +483,7 @@ class BaseOAuth2(OAuthAuth):
         if not self.STATE_PARAMETER and not self.REDIRECT_STATE:
             return None
         lifetime = self._state_lifetime()
-        timestamp = int(time.time())
+        timestamp = int(_time())
         active = self._prune_transactions(timestamp, lifetime)
         for _ in range(3):
             state = self.state_token()
@@ -525,7 +527,7 @@ class BaseOAuth2(OAuthAuth):
             raise AuthSessionError(
                 self, "state", code="session_context_missing", stage="callback"
             )
-        now = time.time()
+        now = _time()
         if timestamp > now or now - timestamp > self._state_lifetime():
             raise AuthSessionError(self, code="state_mismatch", stage="callback")
         try:
@@ -656,14 +658,14 @@ class BaseOAuth2(OAuthAuth):
         return response
 
     def process_error(self, data, *, stage: ErrorStage = "callback") -> None:
-        error = provider_error(self, data, stage=stage)
+        error = self.get_provider_error(data, stage=stage)
         if error is not None:
             raise error
         if "denied" in data:
             raise AuthCanceled(self, stage=stage)
 
     @handle_http_errors
-    def auth_complete(self, *args, **kwargs):
+    def auth_complete(self, *args, **kwargs) -> UserProtocol | ResponseT_co | None:
         """Completes login process, must return user instance"""
         state: str | None
         if self.ASSOCIATION_ONLY:
@@ -780,7 +782,7 @@ class BaseOAuth2(OAuthAuth):
         return {}
 
 
-class BaseOAuth2PKCE(BaseOAuth2):
+class BaseOAuth2PKCE(BaseOAuth2[ResponseT_co]):
     """
     Base class for providers using OAuth2 with Proof Key for Code Exchange (PKCE).
 

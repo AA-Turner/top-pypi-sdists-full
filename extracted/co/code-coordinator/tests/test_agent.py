@@ -45,6 +45,7 @@ from coord.agent import (
     default_worker_command,
     is_runtime_ceiling_reason,
     worker_coord_reachable,
+    worker_disallowed_tools,
 )
 
 from .conftest import noop_default_worker_command
@@ -1511,6 +1512,200 @@ def test_free_branch_in_worktrees_still_evicts_a_genuinely_stale_worktree(
     assert not stale_wt.exists()
 
 
+# ── #3912: _git_worktree_add's own collision-retry must never evict a LIVE
+#    sibling either ─────────────────────────────────────────────────────────
+
+
+def test_git_worktree_add_refuses_to_evict_a_live_sibling_on_collision(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """coord#3912: two #3182 fan-out legs racing on one machine for the same
+    branch. The proactive `_free_branch_in_worktrees` call correctly refused
+    to touch the live sibling's worktree — but `_git_worktree_add`'s OWN
+    collision-retry had no liveness check of its own, so `git worktree add`
+    then failed with the resulting collision and this retry path
+    force-removed the live worktree anyway, deleting a sibling leg's
+    checkout out from under its still-running build. A live conflict must
+    now be a hard `_GitError`, never a force-remove-and-retry."""
+    from coord.agent import AgentAssignment, _git_worktree_add, _GitError
+
+    repo = _init_repo(tmp_path / "repo")
+    live_id = "live-sibling-leg"
+    live_wt = tmp_path / "worktrees" / live_id
+    live_wt.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-b", "issue-1-fix", str(live_wt)],
+        cwd=str(repo), check=True, capture_output=True,
+    )
+
+    monkeypatch.setattr(
+        AgentServer, "_tmux_session_alive", staticmethod(lambda aid: False)
+    )
+    running = AgentAssignment(
+        id=live_id, spec=_spec(repo, branch="issue-1-fix"), status=RUNNING,
+    )
+
+    new_wt = tmp_path / "worktrees" / "new-sibling-leg"
+    with pytest.raises(_GitError, match="still live"):
+        _git_worktree_add(
+            repo, [str(new_wt), "issue-1-fix"],
+            assignments={live_id: running},
+        )
+
+    # The live sibling's worktree must survive, untouched.
+    listing = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"], cwd=str(repo),
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert str(live_wt) in listing
+    assert live_wt.exists()
+
+
+def test_git_worktree_add_still_evicts_a_genuinely_stale_collision(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """The flip side: a collision against a worktree whose assignment is
+    terminal (or unknown) must still be force-removed and retried — #3912's
+    liveness guard must not reintroduce the collision #460/#1693 already
+    fixed for the ordinary stale-worktree case."""
+    from coord.agent import AgentAssignment, _git_worktree_add
+
+    repo = _init_repo(tmp_path / "repo")
+    stale_id = "crashed-sibling-leg"
+    stale_wt = tmp_path / "worktrees" / stale_id
+    stale_wt.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-b", "issue-1-fix", str(stale_wt)],
+        cwd=str(repo), check=True, capture_output=True,
+    )
+
+    monkeypatch.setattr(
+        AgentServer, "_tmux_session_alive", staticmethod(lambda aid: False)
+    )
+    done = AgentAssignment(
+        id=stale_id, spec=_spec(repo, branch="issue-1-fix"), status=DONE,
+    )
+
+    new_wt = tmp_path / "worktrees" / "new-sibling-leg"
+    _git_worktree_add(
+        repo, [str(new_wt), "issue-1-fix"],
+        assignments={stale_id: done},
+    )
+
+    listing = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"], cwd=str(repo),
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert str(stale_wt) not in listing
+    assert not stale_wt.exists()
+    assert str(new_wt) in listing
+    assert new_wt.exists()
+
+
+def test_git_worktree_add_still_evicts_its_own_leftover_despite_live_snapshot(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """#3912 review: *assignments* is a snapshot taken while THIS dispatch's
+    own assignment is already PENDING/RUNNING, so a conflicting worktree
+    that is THIS assignment's own leftover (a retry reusing the same id, a
+    self-heal re-add) reads as "live" against its own snapshot entry —
+    never a sibling's build. Passing `assignment_id` must skip the
+    liveness check for exactly that id and force-remove/retry as before
+    #3912, not hard-error on a collision with itself."""
+    from coord.agent import AgentAssignment, _git_worktree_add
+
+    repo = _init_repo(tmp_path / "repo")
+    own_id = "this-dispatch-own-id"
+    own_wt = tmp_path / "worktrees" / own_id
+    own_wt.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-b", "issue-1-fix", str(own_wt)],
+        cwd=str(repo), check=True, capture_output=True,
+    )
+
+    monkeypatch.setattr(
+        AgentServer, "_tmux_session_alive", staticmethod(lambda aid: False)
+    )
+    running = AgentAssignment(
+        id=own_id, spec=_spec(repo, branch="issue-1-fix"), status=RUNNING,
+    )
+
+    # `-B` (force-create-or-reset) against the SAME path it is already
+    # checked out at is exactly git's "Continuation/retry" shape
+    # (`AgentServer._setup_worktree`'s `origin_has_branch` branch) — and git
+    # reports this as "already used by worktree at '<this same path>'", so
+    # the conflicting path IS this add's own target.
+    _git_worktree_add(
+        repo, ["-B", "issue-1-fix", str(own_wt), "HEAD"],
+        assignments={own_id: running},
+        assignment_id=own_id,
+    )
+
+    listing = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"], cwd=str(repo),
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert str(own_wt) in listing
+    assert own_wt.exists()
+
+
+# ── #3912: per-#3182-fan-out-leg cargo target dir suffix ────────────────────
+
+
+def test_fanout_leg_cargo_suffix_none_for_an_ordinary_assignment() -> None:
+    """An ordinary work/review/single-leg-smoke `issue_title` carries no
+    `[smoke:<caps>]` tag, so this must return `None` — the common case keeps
+    the full #1402 shared-cache benefit, completely unaffected by #3912."""
+    from coord.agent import _fanout_leg_cargo_suffix
+
+    assert _fanout_leg_cargo_suffix("fix the frobnicator") is None
+    assert _fanout_leg_cargo_suffix("[smoke] run the suite") is None
+
+
+def test_fanout_leg_cargo_suffix_reads_the_capability_tag() -> None:
+    """A #3182 fan-out leg's own `issue_title` carries its capability-
+    partition tag (`coord.smoke_tags.smoke_leg_issue_title`); the suffix's
+    human-readable prefix must round-trip it exactly, with a short hash
+    appended so sibling partitions never collide on the filesystem."""
+    from coord.agent import _fanout_leg_cargo_suffix
+
+    assert _fanout_leg_cargo_suffix("[smoke:gtk] run the suite").startswith("gtk-")
+    assert (
+        _fanout_leg_cargo_suffix("[smoke:gtk+windows] run the suite")
+        .startswith("gtk+windows-")
+    )
+
+
+def test_fanout_leg_cargo_suffix_is_stable_across_repeat_calls() -> None:
+    """Retries of the SAME partition must land in the SAME directory — the
+    suffix is a pure function of the capability tag, not of anything
+    per-call (a timestamp, an assignment id, ...)."""
+    from coord.agent import _fanout_leg_cargo_suffix
+
+    a = _fanout_leg_cargo_suffix("[smoke:gtk+windows] run the suite")
+    b = _fanout_leg_cargo_suffix("[smoke:gtk+windows] run the suite (retry)")
+    assert a == b
+
+
+def test_fanout_leg_cargo_suffix_disambiguates_ambiguous_remap(tmp_path) -> None:
+    """#3912 review (nit): a single capability literally named
+    `gtk-windows` and the two-capability partition `(gtk, windows)` would
+    collapse to the identical directory name once
+    `coord.cargo_cache.target_dir_for_repo` remaps `+` to `-` for the
+    filesystem — the hash suffix must keep their FULL suffixes distinct,
+    and therefore their resolved target dirs distinct too."""
+    from coord.agent import _fanout_leg_cargo_suffix
+    from coord.cargo_cache import target_dir_for_repo
+
+    one_cap = _fanout_leg_cargo_suffix("[smoke:gtk-windows] run the suite")
+    two_caps = _fanout_leg_cargo_suffix("[smoke:gtk+windows] run the suite")
+    assert one_cap != two_caps
+
+    dir_one = target_dir_for_repo("api", tmp_path, one_cap)
+    dir_two = target_dir_for_repo("api", tmp_path, two_caps)
+    assert dir_one != dir_two
+
+
 def test_clean_worktrees_stashes_orphaned_worktree_with_no_assignment_record(
     tmp_path: Path,
 ) -> None:
@@ -1959,6 +2154,48 @@ def test_worker_system_prompt_tells_partial_investigation_workers_to_use_refs():
     # The prompt must also tell a worker who already wrote the commit the
     # wrong way how to fix it before pushing, not just what not to do.
     assert "git commit --amend" in WORKER_SYSTEM_PROMPT
+
+
+def test_worker_system_prompt_does_not_offer_subagent_fan_out():
+    """#3932: the over-scoping guidance must not tell a worker to fan out
+    via `Task` subagents — a non-opted-in `type="work"` leg (the
+    overwhelming majority; `workflow=False` is the default) never gets
+    `Task` in --allowedTools, so a worker that reached for it would be
+    told to use a tool it does not have, check for it, and then stop
+    anyway. The only sanctioned response to an oversized issue is to stop
+    and report a split, via the `needs-decomposition` WORK_OUTCOME
+    marker."""
+    assert "Agent tool" not in WORKER_SYSTEM_PROMPT
+    assert "spawn narrowly-scoped" not in WORKER_SYSTEM_PROMPT
+    assert "use the Agent" not in WORKER_SYSTEM_PROMPT
+    # The prompt may still explain that fan-out is unavailable (it does, to
+    # head off a worker that checks for the tool and then just stops without
+    # saying why) — what it must never do is instruct spawning one.
+    assert "`Task` is disallowed" in WORKER_SYSTEM_PROMPT
+    assert "needs-decomposition" in WORKER_SYSTEM_PROMPT
+
+
+def test_worker_system_prompt_fan_out_guidance_matches_tool_surface():
+    """#3932: pin the prompt to the real tool surface rather than letting
+    the two drift independently (#2096 — one question, one answer). `Task`
+    is the tool a subagent fan-out would need; confirm it is actually
+    disallowed for a default (non-workflow) work leg — the exact spec
+    shape WORKER_SYSTEM_PROMPT is written for — so the prompt's refusal to
+    offer fan-out is correct, not just convenient wording."""
+    spec = AssignmentSpec(
+        repo_name="api",
+        repo_path="/tmp/repo",
+        issue_number=1,
+        issue_title="t",
+        briefing="b",
+        type="work",
+        workflow=False,
+    )
+    disallowed = worker_disallowed_tools(spec, allowed_tools="Read,Edit,Write,Bash")
+    assert "Task" in disallowed
+    # If this repo ever decides to grant Task to plain work legs, this test
+    # (and the prompt text it pins) must change in the same diff.
+    assert "Agent tool" not in WORKER_SYSTEM_PROMPT
 
 
 def test_mock_author_system_prompt_forbids_the_base_checkout():
@@ -3072,6 +3309,61 @@ def test_stash_artifacts_skips_dot_d_files(tmp_path: Path) -> None:
 
     stash_dir = server.state_dir / "artifacts" / "api" / "issue-1-my-feature"
     assert not (stash_dir / "mybinary.d").exists(), ".d file should have been skipped"
+
+
+def test_stash_artifacts_finds_a_fanout_legs_own_nested_cargo_target(
+    tmp_path: Path,
+) -> None:
+    """#3912 review: a #3182 fan-out leg's assignment carries a
+    `[smoke:<caps>]` `issue_title` tag and builds into its OWN nested cargo
+    target dir (`_fanout_leg_cargo_suffix`), not the bare per-repo cache.
+    `_stash_artifacts` must forward that SAME suffix to the glob-miss
+    fallback — not just the build env — or a fan-out leg's binary silently
+    never reaches the stash."""
+    from coord.agent import DONE, AgentAssignment, AgentServer, AssignmentSpec
+    from coord.cargo_cache import target_dir_for_repo
+
+    state_dir = tmp_path / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    wt_path = state_dir / "worktrees" / "leg-abc123"
+    wt_path.mkdir(parents=True, exist_ok=True)  # worktree exists but has no target/
+
+    server = AgentServer(
+        machine_name="test",
+        repos=["api"],
+        state_dir=state_dir,
+        worker_command=lambda spec: [sys.executable, "-c", "print('ok')"],
+        repo_paths={"api": str(tmp_path / "repo")},
+        artifact_paths={"api": ["target/debug/mybinary"]},
+    )
+
+    spec = AssignmentSpec(
+        repo_name="api",
+        repo_path=str(tmp_path / "repo"),
+        issue_number=1,
+        issue_title="[smoke:gtk] my feature",
+        briefing="b",
+        branch="main",
+    )
+    a = AgentAssignment(
+        id="leg-abc123", spec=spec, status=DONE, branch="issue-1-my-feature",
+    )
+    a.worktree_path = str(wt_path)
+
+    from coord.agent import _fanout_leg_cargo_suffix
+
+    leg_suffix = _fanout_leg_cargo_suffix(spec.issue_title)
+    cargo_dir = target_dir_for_repo("api", state_dir, leg_suffix)
+    (cargo_dir / "debug").mkdir(parents=True, exist_ok=True)
+    (cargo_dir / "debug" / "mybinary").write_bytes(b"\x7fELF" + b"\x00" * 200)
+
+    server._stash_artifacts(a)
+
+    stash_dir = server.state_dir / "artifacts" / "api" / "issue-1-my-feature"
+    assert (stash_dir / "mybinary").exists(), (
+        "a fan-out leg's artifact must be found in its OWN nested cargo "
+        "target dir, not just the bare per-repo cache"
+    )
 
 
 def test_stash_artifacts_noop_for_failed_assignment(tmp_path: Path) -> None:

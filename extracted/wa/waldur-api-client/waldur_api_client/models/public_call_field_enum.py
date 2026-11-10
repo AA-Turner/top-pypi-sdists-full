@@ -21,6 +21,7 @@ class PublicCallFieldEnum(str, Enum):
     PROPOSAL_FIELD_CONFIG = "proposal_field_config"
     PUBLISH_RESULTS = "publish_results"
     RESOURCE_TEMPLATES = "resource_templates"
+    RESOURCE_TEMPLATE_SELECTION_MODE = "resource_template_selection_mode"
     REVIEWER_IDENTITY_VISIBLE_TO_SUBMITTERS = "reviewer_identity_visible_to_submitters"
     REVIEWS_VISIBLE_TO_SUBMITTERS = "reviews_visible_to_submitters"
     ROUNDS = "rounds"

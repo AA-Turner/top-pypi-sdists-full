@@ -74,6 +74,8 @@ class ModelRunOptions(BaseModel):
 
   options: dict[str, RunOptionMetadata]
 
+  priority_options: dict[str, RunOptionMetadata] | None = None
+
 
 class RunOptionsResponse(BaseModel):
   bench_id: str = ""

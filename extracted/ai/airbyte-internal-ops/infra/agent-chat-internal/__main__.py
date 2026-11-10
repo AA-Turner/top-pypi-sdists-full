@@ -68,6 +68,7 @@ MTX_PREVIEW_DOMAIN = (
     config.get("mtx-preview-domain") or "preview.mtx.internal.airbyte.ai"
 )
 MTX_REDIRECT_PATH = config.get("mtx-redirect-path") or "/mtx/"
+MTX_DIRECT_ROUTING = config.get_bool("mtx-direct-routing") or False
 MIN_INSTANCES = int(config.get("min-instances") or "1")
 MAX_INSTANCES = int(config.get("max-instances") or "5")
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
@@ -119,6 +120,19 @@ CHAT_ENABLED = config.get("chat-enabled") or "true"
 MCP_UI = config.get("mcp-ui") or "true"
 PATH_PREFIX = (config.get("path-prefix") or "").strip("/")
 MCP_AUTH_MODE = config.get("mcp-auth-mode") or "bearer"
+MOBILE_IAP_CLIENT_IDS = config.get_object("mobile-iap-client-ids") or []
+MOBILE_REDIRECT_URIS = config.get_object("mobile-redirect-uris") or []
+ALLOWED_EMAIL_DOMAINS = config.get_object("allowed-email-domains") or []
+
+for _key, _values in (
+    ("mobile-iap-client-ids", MOBILE_IAP_CLIENT_IDS),
+    ("mobile-redirect-uris", MOBILE_REDIRECT_URIS),
+    ("allowed-email-domains", ALLOWED_EMAIL_DOMAINS),
+):
+    if not isinstance(_values, list) or any(
+        not isinstance(value, str) or not value.strip() for value in _values
+    ):
+        raise ValueError(f"{_key} must be a list of nonempty strings")
 
 for _config_name, _base_url in (
     ("anthropic-base-url", ANTHROPIC_BASE_URL),
@@ -400,25 +414,42 @@ def _define_neg_and_backend(
         role="roles/iap.httpsResourceAccessor",
         member=f"domain:{AIRBYTE_DOMAIN}",
     )
+    if MOBILE_IAP_CLIENT_IDS and service_name in (
+        SERVER_SERVICE_NAME,
+        SERVER_PREVIEW_SERVICE_NAME,
+        MTX_PLAYGROUND_SERVICE_NAME,
+        MTX_PLAYGROUND_PREVIEW_SERVICE_NAME,
+    ):
+        gcp.iap.Settings(
+            f"{service_name}-mobile-iap-settings",
+            name=pulumi.Output.concat(
+                "projects/", PROJECT_NUMBER, "/iap_web/compute/services/", backend.name
+            ),
+            access_settings=gcp.iap.SettingsAccessSettingsArgs(
+                oauth_settings=gcp.iap.SettingsAccessSettingsOauthSettingsArgs(
+                    programmatic_clients=MOBILE_IAP_CLIENT_IDS,
+                ),
+            ),
+        )
     return backend
 
 
 def define_load_balancer(
     api_services: list[gcp.projects.Service],
+    server_backends: list[gcp.compute.BackendService],
+    workspace_backends: list[gcp.compute.BackendService],
 ) -> gcp.compute.GlobalAddress:
-    """Define the external HTTPS load balancer as a redirect to the primary host.
+    """Define chat redirects and the same-origin mtx workspace routes.
 
     Every request to `chat.internal.airbyte.ai` 301-redirects to
     `ops.internal.airbyte.ai/chat/` (`REDIRECT_HOST` + `REDIRECT_PATH`), and
     `preview.chat.internal.airbyte.ai` redirects to
     `preview.ops.internal.airbyte.ai/chat/` via a host rule on the same map
     (`PREVIEW_DOMAIN` -> `PREVIEW_REDIRECT_HOST`). The preview host needs its
-    own managed cert attached to the HTTPS proxy. `mtx.internal.airbyte.ai` and
-    `preview.mtx.internal.airbyte.ai` redirect the same way to the mtx Builder
-    path (`MTX_REDIRECT_PATH`) on the ops and preview-ops hosts.
-    HTTP traffic redirects to HTTPS first. The backends stay provisioned for
-    the ops-webapp stack's `/chat` path rules, which look them up by name with
-    `gcp.compute.get_backend_service_output`.
+    own managed cert attached to the HTTPS proxy. The mtx hosts serve the
+    existing workspace backends directly, with OAuth routed to ops-webapp
+    and the existing /chat/api routed to agui-server on the same origin.
+    HTTP traffic redirects to HTTPS first.
     """
     ip_address = gcp.compute.GlobalAddress(
         "agent-chat-internal-lb-ip",
@@ -456,6 +487,73 @@ def define_load_balancer(
         ),
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
+    mtx_matchers = []
+    for index, (matcher_name, suffix) in enumerate(
+        (("mtx", ""), ("mtx-preview", "-preview"))
+    ):
+        if not MTX_DIRECT_ROUTING:
+            mtx_matchers.append(
+                gcp.compute.URLMapPathMatcherArgs(
+                    name=matcher_name,
+                    default_url_redirect=gcp.compute.URLMapPathMatcherDefaultUrlRedirectArgs(
+                        host_redirect=PREVIEW_REDIRECT_HOST
+                        if suffix
+                        else REDIRECT_HOST,
+                        path_redirect=MTX_REDIRECT_PATH,
+                        strip_query=False,
+                        redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
+                    ),
+                )
+            )
+            continue
+        ops_backend = gcp.compute.get_backend_service_output(
+            name=f"ops-webapp{suffix}-backend",
+            project=PROJECT,
+        )
+        server_backend = server_backends[index]
+        workspace_backend = workspace_backends[index]
+        mtx_matchers.append(
+            gcp.compute.URLMapPathMatcherArgs(
+                name=matcher_name,
+                default_service=workspace_backend.self_link,
+                path_rules=[
+                    gcp.compute.URLMapPathMatcherPathRuleArgs(
+                        paths=["/chat/api", "/chat/api/*"],
+                        service=server_backend.self_link,
+                    ),
+                    gcp.compute.URLMapPathMatcherPathRuleArgs(
+                        paths=["/oauth/*"],
+                        service=ops_backend.self_link,
+                    ),
+                    gcp.compute.URLMapPathMatcherPathRuleArgs(
+                        paths=["/authorization", "/login"],
+                        service=ops_backend.self_link,
+                        route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
+                            url_rewrite=gcp.compute.URLMapPathMatcherPathRuleRouteActionUrlRewriteArgs(
+                                path_prefix_rewrite="/oauth/login",
+                            ),
+                        ),
+                    ),
+                    gcp.compute.URLMapPathMatcherPathRuleArgs(
+                        paths=["/mtx"],
+                        url_redirect=gcp.compute.URLMapPathMatcherPathRuleUrlRedirectArgs(
+                            path_redirect="/",
+                            strip_query=False,
+                            redirect_response_code="FOUND",
+                        ),
+                    ),
+                    gcp.compute.URLMapPathMatcherPathRuleArgs(
+                        paths=["/mtx/*"],
+                        service=workspace_backend.self_link,
+                        route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
+                            url_rewrite=gcp.compute.URLMapPathMatcherPathRuleRouteActionUrlRewriteArgs(
+                                path_prefix_rewrite="/",
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+        )
     url_map = gcp.compute.URLMap(
         "agent-chat-internal-url-map",
         name="agent-chat-internal-url-map",
@@ -476,11 +574,11 @@ def define_load_balancer(
             ),
             gcp.compute.URLMapHostRuleArgs(
                 hosts=[MTX_DOMAIN],
-                path_matcher="mtx-redirect",
+                path_matcher="mtx",
             ),
             gcp.compute.URLMapHostRuleArgs(
                 hosts=[MTX_PREVIEW_DOMAIN],
-                path_matcher="mtx-preview-redirect",
+                path_matcher="mtx-preview",
             ),
         ],
         path_matchers=[
@@ -494,26 +592,7 @@ def define_load_balancer(
                     redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
                 ),
             ),
-            gcp.compute.URLMapPathMatcherArgs(
-                name="mtx-redirect",
-                default_url_redirect=gcp.compute.URLMapPathMatcherDefaultUrlRedirectArgs(
-                    host_redirect=REDIRECT_HOST,
-                    path_redirect=MTX_REDIRECT_PATH,
-                    https_redirect=False,
-                    strip_query=False,
-                    redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
-                ),
-            ),
-            gcp.compute.URLMapPathMatcherArgs(
-                name="mtx-preview-redirect",
-                default_url_redirect=gcp.compute.URLMapPathMatcherDefaultUrlRedirectArgs(
-                    host_redirect=PREVIEW_REDIRECT_HOST,
-                    path_redirect=MTX_REDIRECT_PATH,
-                    https_redirect=False,
-                    strip_query=False,
-                    redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
-                ),
-            ),
+            *mtx_matchers,
         ],
     )
     https_proxy = gcp.compute.TargetHttpsProxy(
@@ -632,6 +711,12 @@ def _server_envs(
         envs.append(_env("AIRBYTE_AGUI_SERVER_ANTHROPIC_BASE_URL", anthropic_base_url))
     if PATH_PREFIX:
         envs.append(_env("AIRBYTE_AGUI_SERVER_PATH_PREFIX", PATH_PREFIX))
+    for env_name, values in (
+        ("AIRBYTE_AGUI_SERVER_MOBILE_REDIRECT_URIS", MOBILE_REDIRECT_URIS),
+        ("AIRBYTE_AGUI_SERVER_ALLOWED_EMAIL_DOMAINS", ALLOWED_EMAIL_DOMAINS),
+    ):
+        if values:
+            envs.append(_env(env_name, ",".join(values)))
     if iap_audience:
         envs.append(_env("AIRBYTE_AGUI_SERVER_IAP_AUDIENCE", iap_audience))
     if anthropic_secret_id:
@@ -761,11 +846,17 @@ def main() -> None:
         SERVER_PREVIEW_SERVICE_NAME, server_preview_service
     )
     _define_neg_and_backend(PLAYGROUND_PREVIEW_SERVICE_NAME, playground_preview_service)
-    _define_neg_and_backend(MTX_PLAYGROUND_SERVICE_NAME, mtx_playground_service)
-    _define_neg_and_backend(
+    workspace_backend = _define_neg_and_backend(
+        MTX_PLAYGROUND_SERVICE_NAME, mtx_playground_service
+    )
+    workspace_preview_backend = _define_neg_and_backend(
         MTX_PLAYGROUND_PREVIEW_SERVICE_NAME, mtx_playground_preview_service
     )
-    lb_ip = define_load_balancer(api_services)
+    lb_ip = define_load_balancer(
+        api_services,
+        [server_backend, server_preview_backend],
+        [workspace_backend, workspace_preview_backend],
+    )
     dns_record, preview_dns_record = define_dns(lb_ip)
 
     outputs: OutputMap = {

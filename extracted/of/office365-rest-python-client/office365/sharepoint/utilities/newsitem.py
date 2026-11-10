@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class NewsItem(ClientValue):
     backupPictureUrl: Optional[str] = None
     caption: Optional[str] = None

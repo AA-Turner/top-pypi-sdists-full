@@ -233,8 +233,11 @@ const GUARD_FACTORY_METHODS = [
 // surface is called INTERNALLY by playwright/puppeteer (e.g. emit('close')
 // during teardown), so throwing a license error from inside their own event
 // dispatch would crash the driver rather than surface cleanly to the user.
+// Teardown and state queries are skipped too: Playwright's BrowserContext.close()
+// calls page.isClosed() and Puppeteer's Browser.close() ends with disconnect();
+// guarding them made close() throw after a denial. process() is a state query.
 const GUARD_SKIP_METHODS = new Set([
-  "close",
+  "close", "isClosed", "disconnect", "process",
   "on", "off", "once", "emit", "addListener", "removeListener",
   "removeAllListeners", "listeners", "rawListeners", "listenerCount",
   "eventNames", "prependListener", "prependOnceListener",
@@ -245,6 +248,17 @@ const GUARD_SKIP_METHODS = new Set([
 function denialLicenseError(denialPath: string): CloakBrowserLicenseError | null {
   const code = readDenialFile(denialPath);
   return code !== null ? licenseErrorForCode(code) : null;
+}
+
+/**
+ * Why the license refused this browser/context (e.g. "session limit reached"),
+ * or null. Checks now, without a browser call: useful while waiting on something
+ * else, like a CDP endpoint. Works on anything launch(), launchContext(),
+ * launchPersistentContext() or guardBrowser() handed back. Safe to call repeatedly.
+ */
+export function licenseDenial(target: unknown): CloakBrowserLicenseError | null {
+  const denialPath = (target as any)?.__cloakDenialPath as string | undefined;
+  return denialPath ? denialLicenseError(denialPath) : null;
 }
 
 /**

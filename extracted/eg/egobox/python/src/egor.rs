@@ -20,15 +20,15 @@ use crate::trego_config::{TregoConfig, TregoConfigSpec};
 use crate::types::*;
 
 use egobox_ego::{CoegoStatus, EGO_DEFAULT_N_START, InfillObjData, find_best_result_index};
-use egobox_gp::ThetaTuning;
-use egobox_moe::NbClusters;
-use ndarray::{Array1, Array2, ArrayView2, Axis, array, concatenate};
+use egobox_moe::to_continuous_space;
+use ndarray::{Array1, Array2, ArrayView2, Axis, concatenate};
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2, PyReadonlyArrayDyn, ToPyArray};
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::{PyKeyboardInterrupt, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use std::cmp::Ordering;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 fn parse_trego_config(py: Python, value: Py<PyAny>) -> PyResult<TregoConfigSpec> {
     let value = value.bind(py);
@@ -369,6 +369,12 @@ impl Egor {
     ///     y values hold the raw constraint values as returned by `fun` (not transformed
     ///     by `cstr_specs`), so `y_doe` can be given to `best_result` or to `Egor(y_doe=...)`.
     ///
+    /// Notes
+    /// -----
+    /// Ctrl-C (KeyboardInterrupt) stops the optimization after the current iteration and the
+    /// result obtained so far is returned with status.exit == ExitStatus.INTERRUPT.
+    /// An objective evaluation interrupted by Ctrl-C counts as a failed evaluation.
+    ///
     #[pyo3(signature = (fun, fcstrs=None, fcstr_specs=None, max_iters = 20, run_info = None, outdir = None, warm_start = false, hot_start = None, seed = None, timeout = None, verbose = None, stop_on_error = false))]
     #[allow(clippy::too_many_arguments)]
     fn minimize(
@@ -530,7 +536,7 @@ impl Egor {
 
 /// Build the initial DOE given with `x_doe` and optional `y_doe`
 fn initial_doe(
-    nx: usize,
+    xtypes: &[egobox_moe::XType],
     x_doe: Option<PyReadonlyArray2<f64>>,
     y_doe: Option<PyReadonlyArray2<f64>>,
 ) -> PyResult<Option<Array2<f64>>> {
@@ -541,23 +547,44 @@ fn initial_doe(
         return Ok(None);
     };
     let x_doe = x_doe.as_array();
+    let nx = xtypes.len();
     if x_doe.ncols() != nx {
         return Err(PyValueError::new_err(format!(
             "x_doe should be of shape (ns, {nx}), got {:?}",
             x_doe.shape()
         )));
     }
+    check_enum_indices(xtypes, &x_doe)?;
+    // The solver works in the continuous space where an enum takes one column per category
+    let x_doe = to_continuous_space(xtypes, &x_doe);
     match y_doe {
         Some(y_doe) => {
             let y_doe = y_doe.as_array();
-            check_doe(Some(&x_doe), &y_doe)?;
+            check_doe(Some(&x_doe.view()), &y_doe)?;
             Ok(Some(
-                concatenate(Axis(1), &[x_doe, y_doe])
+                concatenate(Axis(1), &[x_doe.view(), y_doe])
                     .map_err(|e| PyValueError::new_err(e.to_string()))?,
             ))
         }
-        None => Ok(Some(x_doe.to_owned())),
+        None => Ok(Some(x_doe)),
     }
+}
+
+/// Check that `x` columns of enum variables hold category indices
+fn check_enum_indices(xtypes: &[egobox_moe::XType], x: &ArrayView2<f64>) -> PyResult<()> {
+    for (i, xtype) in xtypes.iter().enumerate() {
+        if let egobox_moe::XType::Enum(n) = xtype
+            && let Some(v) = x
+                .column(i)
+                .iter()
+                .find(|v| !(v.fract() == 0. && **v >= 0. && **v < *n as f64))
+        {
+            return Err(PyValueError::new_err(format!(
+                "x_doe column {i} (ENUM with {n} categories) should hold category indices in [0, {n}), got {v}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Check (x_doe, y_doe) are non empty with the same number of rows
@@ -643,7 +670,7 @@ impl Egor {
         verbose: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let xtypes = parse(py, xspecs)?;
-        let doe = initial_doe(xtypes.len(), x_doe, y_doe)?;
+        let doe = initial_doe(&xtypes, x_doe, y_doe)?;
         let n_cstr = match cstr_specs.as_ref() {
             Some(specs) if n_cstr != 0 && n_cstr != specs.len() => {
                 return Err(PyValueError::new_err(format!(
@@ -713,6 +740,18 @@ impl Egor {
         let callback_error = &callback_error;
         install_panic_hook();
 
+        // Ctrl-C is handled by Python: a KeyboardInterrupt raised within a user callback,
+        // or a SIGINT received while the optimizer runs, stops the optimization
+        // after the current iteration (see `interrupt_check` below)
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let is_interrupt = |py: Python, e: &PyErr| {
+            let interrupt = e.is_instance_of::<PyKeyboardInterrupt>(py);
+            if interrupt {
+                interrupted.store(true, AtomicOrdering::Relaxed);
+            }
+            interrupt
+        };
+
         let n_obj = moo.map_or(1, |moo| moo.n_obj);
         let ny = n_obj
             + self
@@ -724,6 +763,11 @@ impl Egor {
                 let args = (x.to_owned().into_pyarray(py),);
                 let res = fun.bind(py).call1(args);
                 match res {
+                    // Interrupted evaluation: a failed one, the optimization stops afterwards
+                    Err(e) if is_interrupt(py, &e) => {
+                        log::warn!("Objective function evaluation interrupted");
+                        Err(e.to_string())
+                    }
                     // Python exception in objective function is handled by the optimizer
                     // wrt stop_on_error and failsafe_strategy options
                     Err(e) => {
@@ -765,14 +809,24 @@ impl Egor {
             .map(|cstr| {
                 |x: &[f64], g: Option<&mut [f64]>, _u: &mut InfillObjData<f64>| -> f64 {
                     Python::attach(|py| {
+                        // an interrupted call is made again (cheap function constraints),
+                        // the optimization stops after the current iteration
+                        let call = |grad: bool| {
+                            cstr.call(py, x, grad).or_else(|e| {
+                                if is_interrupt(py, &e) {
+                                    cstr.call(py, x, grad)
+                                } else {
+                                    Err(e)
+                                }
+                            })
+                        };
                         if let Some(g) = g
-                            && let Err(e) = cstr
-                                .call(py, x, true)
-                                .and_then(|res| extract_cstr_gradient(&res, g))
+                            && let Err(e) =
+                                call(true).and_then(|res| extract_cstr_gradient(&res, g))
                         {
                             callback_error.abort(e)
                         }
-                        cstr.call(py, x, false)
+                        call(false)
                             .and_then(|res| extract_cstr_value(&res))
                             .unwrap_or_else(|e| callback_error.abort(e))
                     })
@@ -815,10 +869,17 @@ impl Egor {
             RunInfo::default()
         };
 
-        let mixintegor = mixintegor.run_info(egobox_ego::RunInfo {
-            fname: py_run_info.fname.clone(),
-            num: py_run_info.num,
-        });
+        let interrupted_check = interrupted.clone();
+        let mixintegor = mixintegor
+            .run_info(egobox_ego::RunInfo {
+                fname: py_run_info.fname.clone(),
+                num: py_run_info.num,
+            })
+            // run Python signal handlers: a pending SIGINT raises KeyboardInterrupt
+            .interrupt_check(move || {
+                interrupted_check.load(AtomicOrdering::Relaxed)
+                    || Python::attach(|py| py.check_signals().is_err())
+            });
 
         let pareto = moo.is_some();
         let res = py.detach(|| {
@@ -899,62 +960,6 @@ impl Egor {
         Ok(x_suggested.to_pyarray(py).into())
     }
 
-    fn n_clusters(&self) -> NbClusters {
-        match self.gp_config.n_clusters.cmp(&0) {
-            Ordering::Greater => NbClusters::fixed(self.gp_config.n_clusters as usize),
-            Ordering::Equal => NbClusters::auto(),
-            Ordering::Less => NbClusters::automax(-self.gp_config.n_clusters as usize),
-        }
-    }
-
-    fn infill_strategy(&self) -> egobox_ego::InfillStrategy {
-        match self.infill_strategy {
-            InfillStrategy::Ei => egobox_ego::InfillStrategy::EI,
-            InfillStrategy::Wb2 => egobox_ego::InfillStrategy::WB2,
-            InfillStrategy::Wb2s => egobox_ego::InfillStrategy::WB2S,
-            InfillStrategy::LogEi => egobox_ego::InfillStrategy::LogEI,
-        }
-    }
-
-    fn feasible_infill_strategy(&self) -> egobox_ego::FeasibleInfillStrategy {
-        match self.feasible_infill_strategy {
-            FeasibleInfillStrategy::None => egobox_ego::FeasibleInfillStrategy::None,
-            FeasibleInfillStrategy::EfiP => egobox_ego::FeasibleInfillStrategy::EfiP,
-            FeasibleInfillStrategy::EfiFe => egobox_ego::FeasibleInfillStrategy::EfiFe(0.3),
-        }
-    }
-
-    fn cstr_strategy(&self) -> egobox_ego::ConstraintStrategy {
-        match self.cstr_strategy {
-            ConstraintStrategy::Mc => egobox_ego::ConstraintStrategy::MeanConstraint,
-            ConstraintStrategy::Utb => egobox_ego::ConstraintStrategy::UpperTrustBound,
-        }
-    }
-
-    fn qei_strategy(&self) -> egobox_ego::QEiStrategy {
-        match self.qei_config.strategy {
-            QEiStrategy::Kb => egobox_ego::QEiStrategy::KrigingBeliever,
-            QEiStrategy::Kblb => egobox_ego::QEiStrategy::KrigingBelieverLowerBound,
-            QEiStrategy::Kbub => egobox_ego::QEiStrategy::KrigingBelieverUpperBound,
-            QEiStrategy::Clmin => egobox_ego::QEiStrategy::ConstantLiarMinimum,
-        }
-    }
-
-    fn infill_optimizer(&self) -> egobox_ego::InfillOptimizer {
-        match self.infill_optimizer {
-            InfillOptimizer::Cobyla => egobox_ego::InfillOptimizer::Cobyla,
-            InfillOptimizer::Slsqp => egobox_ego::InfillOptimizer::Slsqp,
-        }
-    }
-
-    fn failsafe_strategy(&self) -> egobox_ego::FailsafeStrategy {
-        match self.failsafe_strategy {
-            FailsafeStrategy::Rejection => egobox_ego::FailsafeStrategy::Rejection,
-            FailsafeStrategy::Imputation => egobox_ego::FailsafeStrategy::Imputation,
-            FailsafeStrategy::Viability => egobox_ego::FailsafeStrategy::Viability,
-        }
-    }
-
     /// Index of the best row of `y_doe` [obj, cstr_1, ... cstr_n_cstr] holding raw constraint values,
     /// interpreted with `cstr_specs` (if any) and their tolerances, as the optimizer does.
     fn best_row_index(&self, y_doe: &ArrayView2<f64>) -> PyResult<usize> {
@@ -1017,28 +1022,12 @@ impl Egor {
         Some(tol)
     }
 
+    /// Experts recombination, with a fixed heaviside factor (optimized at fit by GpMix)
     fn recombination(&self) -> egobox_moe::Recombination<f64> {
         match self.gp_config.recombination {
             Recombination::Hard => egobox_moe::Recombination::Hard,
             Recombination::Smooth => egobox_moe::Recombination::Smooth(Some(1.0)),
         }
-    }
-
-    fn theta_tuning(&self) -> ThetaTuning<f64> {
-        let mut theta_tuning = ThetaTuning::<f64>::default();
-        if let Some(init) = self.gp_config.theta_init.as_ref() {
-            theta_tuning = ThetaTuning::Full {
-                init: Array1::from_vec(init.to_vec()),
-                bounds: array![ThetaTuning::<f64>::DEFAULT_BOUNDS],
-            }
-        }
-        if let Some(bounds) = self.gp_config.theta_bounds.as_ref() {
-            theta_tuning = ThetaTuning::Full {
-                init: theta_tuning.init().to_owned(),
-                bounds: bounds.iter().map(|v| (v[0], v[1])).collect(),
-            }
-        }
-        theta_tuning
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1055,12 +1044,6 @@ impl Egor {
         timeout: Option<f64>,
         stop_on_error: bool,
     ) -> egobox_ego::EgorConfig {
-        let infill_strategy = self.infill_strategy();
-        let feasible_infill_strategy = self.feasible_infill_strategy();
-        let cstr_strategy = self.cstr_strategy();
-        let qei_strategy = self.qei_strategy();
-        let infill_optimizer = self.infill_optimizer();
-        let failsafe_strategy = self.failsafe_strategy();
         let coego_status = if self.coego_n_coop == 0 {
             CoegoStatus::Disabled
         } else {
@@ -1086,33 +1069,31 @@ impl Egor {
 
         let mut config = config
             .configure_gp(|gp| {
-                let regr = RegressionSpec(self.gp_config.regr_spec);
-                let corr = CorrelationSpec(self.gp_config.corr_spec);
-                gp.regression_spec(egobox_moe::RegressionSpec::from_bits(regr.0).unwrap())
-                    .correlation_spec(egobox_moe::CorrelationSpec::from_bits(corr.0).unwrap())
+                gp.regression_spec(self.gp_config.regression_spec())
+                    .correlation_spec(self.gp_config.correlation_spec())
                     .kpls_dim(self.gp_config.kpls_dim)
-                    .n_clusters(self.n_clusters())
+                    .n_clusters(self.gp_config.n_clusters())
                     .recombination(self.recombination())
-                    .theta_tuning(self.theta_tuning())
+                    .theta_tuning(self.gp_config.theta_tuning())
                     .n_start(self.gp_config.theta_n_start)
                     .max_eval(self.gp_config.theta_max_eval)
             })
-            .infill_strategy(infill_strategy)
-            .feasible_infill_strategy(feasible_infill_strategy)
+            .infill_strategy(self.infill_strategy.into())
+            .feasible_infill_strategy(self.feasible_infill_strategy.into())
             .cstr_infill(self.cstr_infill)
-            .cstr_strategy(cstr_strategy)
+            .cstr_strategy(self.cstr_strategy.into())
             .configure_qei(|qei_config| {
                 qei_config
                     .batch(self.qei_config.batch)
-                    .strategy(qei_strategy)
+                    .strategy(self.qei_config.strategy.into())
                     .optmod(self.qei_config.optim_every)
             })
-            .infill_optimizer(infill_optimizer)
+            .infill_optimizer(self.infill_optimizer.into())
             .coego(coego_status)
             .stop_on_error(stop_on_error)
             .warm_start(warm_start)
             .hot_start(hot_start.into())
-            .failsafe_strategy(failsafe_strategy);
+            .failsafe_strategy(self.failsafe_strategy.into());
 
         if let Some(target) = self.target {
             config = config.target(target);

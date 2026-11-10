@@ -1,6 +1,7 @@
 """Ask the person at this terminal which project a run goes in, when nothing names one and no
-coding agent is running it (plan T3). Lists recent projects, takes a number or a slug, can create
-one, and offers to save it as this computer's default (twin: app/projects)."""
+coding agent is running it (plan T3). Lists the filing candidates (projects with runs from this
+git repo first, then the most recently active: D22), takes a number or a slug, can create one, and
+offers to save it as this computer's default (twin: app/projects)."""
 
 from __future__ import annotations
 
@@ -16,10 +17,8 @@ from probe.foundation.process_rank import LAUNCH_SCHEMES, read_env_int
 
 #: How long each question waits for an answer, in seconds; then the run is refused as before.
 PICK_TIMEOUT_S = 60.0
-#: How many projects the list shows, most recently active first.
+#: How many projects the list shows, in the server's filing order.
 SHOWN_PROJECTS = 10
-#: How many projects are fetched to choose those from (the list is creation-ordered).
-FETCHED_PROJECTS = 100
 #: The kinds a person may give a new project, with what each is for (`probe project create --kind`).
 KIND_HINTS = (
     (ProjectKind.training, "weights move"),
@@ -112,19 +111,22 @@ class ProjectPicker:
                 row = self._offer_create(answer)
             if row is not None:
                 self._offer_default(row)
+                # A saved default is read only under FROM_ENV (R22): the script's own line is what sticks.
+                self._say(f'probe: to skip this question, pass project="{row.get("slug")}" to probe.init()')
                 return row
 
     def _list_recent_projects(self) -> list[dict]:
-        """This computer's workspace's projects, most recently active first. A failed list is an
-        empty one: the person can still type a slug."""
+        """The projects this run most likely goes in (`fetch_filing_candidates`): runs from this
+        folder's git repo first, then the most recently active. A failed list is an empty one:
+        the person can still type a slug."""
+        from ....capture.code.git_remote import load_origin_url
+
         try:
-            page = self.client.list_projects(
-                workspace_id=self.client.computer_workspace_id(), limit=FETCHED_PROJECTS)
+            found = self.client.fetch_filing_candidates(remote=load_origin_url(os.getcwd()))
         except Exception:  # noqa: BLE001 -- the prompt still works without the list
             return []
-        rows = [row for row in (page.items or []) if isinstance(row, dict) and row.get("slug")]
-        rows.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
-        return rows[:SHOWN_PROJECTS]
+        rows = found.get("projects") if isinstance(found, dict) else None
+        return [row for row in (rows or []) if isinstance(row, dict) and row.get("slug")][:SHOWN_PROJECTS]
 
     def _find_project(self, answer: str, projects: list[dict]) -> dict | None:
         """The listed project numbered `answer`, else the project slugged `answer`."""

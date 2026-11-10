@@ -3,6 +3,8 @@
 from probe.foundation.harness_registry.harness_registry import (
     FAMILY_EXTENSION,
     FAMILY_HOOK_PLUGIN,
+    WAKE_BY_QUEUE,
+    WAKE_BY_STOP_HOOK,
     Capture,
     Harness,
     Registry,
@@ -14,6 +16,8 @@ from probe.foundation.harness_registry.harness_registry import (
 __all__ = [
     "FAMILY_EXTENSION",
     "FAMILY_HOOK_PLUGIN",
+    "WAKE_BY_QUEUE",
+    "WAKE_BY_STOP_HOOK",
     "Capture",
     "Harness",
     "Registry",

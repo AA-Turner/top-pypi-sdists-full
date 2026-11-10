@@ -18,6 +18,7 @@ import pytest
 
 from numpy_groupies import aggregate, aggregate_numba, aggregate_numpy
 from numpy_groupies.aggregate_numba import averaging, compose, specials
+from numpy_groupies.aggregate_numba.jit import njit_stable
 from numpy_groupies.functions import (
     func_extras,
 )
@@ -41,7 +42,7 @@ BOOL_A = np.array([True, False, True, True, False, True])
 def test_uint64_sum_kernel_keeps_integer_precision(name, large):
     kernel = getattr(aggregate_numba, name)
 
-    @nb.njit
+    @njit_stable
     def compiled(groups, values, size, fill):
         return kernel(groups, values, size, fill)
 
@@ -138,6 +139,7 @@ _FLOAT_OPS = [
     ("nansumofsquares", {}),
     ("nunique", {}),
     ("nannunique", {}),
+    ("mode", {}),
     ("argmin", {}),
     ("nanargmin", {}),
     ("argmax", {}),
@@ -159,6 +161,7 @@ _INT_OPS = [
     ("nanlen", {}),
     ("nunique", {}),
     ("nannunique", {}),
+    ("mode", {}),
     ("min", {}),
     ("max", {}),
     ("first", {}),
@@ -182,6 +185,7 @@ _BOOL_OPS = [
     ("nanall", {}),
     ("any", {}),
     ("nanany", {}),
+    ("mode", {}),
     ("sort", {}),
     ("sort", {"reverse": True}),
     ("topk", {}),
@@ -211,6 +215,10 @@ def _kernel_arguments(name, kwargs):
 # call against the signature of that typing function - and the two have to be
 # the same signature, down to the name of the argument an operation has of its
 # own.  An operation without such an argument has no extra argument at all.
+#
+# The arguments are the same; the return is not: the stub answers with the
+# result of the operation, the typing function with the implementation it
+# hands numba - which numba compiles and whose answer is the one of the stub.
 def test_the_python_and_the_jitted_signature_of_a_kernel_are_one():
     for name, typing_function in compose._TYPING_FUNCTIONS.items():
         stub = getattr(aggregate_numba, name, None)
@@ -224,7 +232,7 @@ def test_the_python_and_the_jitted_signature_of_a_kernel_are_one():
                     stub = pair.nan.stub if name.startswith("nan") else pair.plain.stub
                     break
         assert stub is not None, name
-        assert signature(stub) == signature(typing_function), name
+        assert signature(stub).parameters == signature(typing_function).parameters, name
 
 
 def test_a_kernel_carries_the_arguments_of_its_function_and_no_others():
@@ -272,7 +280,7 @@ def _make_jitted_caller(kernel, name):
         return kernel(group_idx, values, size=size, fill_value=None)
 
     caller.__qualname__ = caller.__name__ = name
-    return nb.njit(caller)
+    return njit_stable(caller)
 
 
 def _make_jitted_caller_with_extra(kernel, extra, name):
@@ -296,7 +304,7 @@ def _make_jitted_caller_with_extra(kernel, extra, name):
             return kernel(group_idx, a, *value, size, fill_value)
 
     caller.__qualname__ = caller.__name__ = name
-    return nb.njit(caller)
+    return njit_stable(caller)
 
 
 @cache
@@ -396,7 +404,7 @@ def test_collecting_kernel_refuses_a_fill_value():
     argument, as no other kernel does.
     """
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a, fill_value):
         return aggregate_numba.array(group_idx, a, -1, fill_value)
 
@@ -407,7 +415,7 @@ def test_collecting_kernel_refuses_a_fill_value():
 def test_njit_composition():
     """Kernels compose within jitted code - the motivating use case."""
 
-    @nb.njit
+    @njit_stable
     def zscore(group_idx, values):
         m = aggregate_numba.mean(group_idx, values)
         s = aggregate_numba.std(group_idx, values)
@@ -529,8 +537,11 @@ _TEMPORAL_KERNELS = frozenset(
         "percentile",
         "nanpercentile",
         # the topk orders the values of a group and leaves the missing ones
-        # out - a NaT is neither the largest nor the smallest value
+        # out - a NaT is neither the largest nor the smallest value.  The
+        # mode counts them and leaves the missing ones out as well - a NaT
+        # is never the most frequent value of a group.
         "topk",
+        "mode",
     }
 )
 # the durations add up (NaT included, which the addition propagates), so the
@@ -649,7 +660,7 @@ def test_every_call_refuses_a_fill_value_the_output_cannot_hold(kernel_name, sty
 
     elif style == 1:
 
-        @nb.njit
+        @njit_stable
         def call_jitted(group_idx, a, fill):
             return kernel(group_idx, a, -1, fill)
 
@@ -674,7 +685,7 @@ def test_the_jitted_call_refuses_a_fill_value_that_is_no_number():
     """
     with pytest.raises(nb.TypingError, match="fill_value must be convertible into int64"):
 
-        @nb.njit
+        @njit_stable
         def caller(group_idx, a, fill):
             return aggregate_numba.sum(group_idx, a, -1, fill)
 
@@ -708,7 +719,7 @@ def test_the_python_call_answers_in_the_dtype_of_the_jitted_one():
 
 def test_the_moments_answer_from_njit_like_the_reference():
     # the skewness and the kurtosis are available inside jitted code as well
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.skew(group_idx, a), aggregate_numba.kurt(group_idx, a)
 
@@ -725,7 +736,7 @@ def test_median_orders_complex_from_njit_like_the_reference():
     # numpy uses - so the kernel compiles for them and answers like the
     # reference does.  The backends themselves are compared against the
     # reference by the generic tests of the suite.
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.median(group_idx, a)
 
@@ -739,7 +750,7 @@ def test_quantile_orders_complex_from_njit_like_the_reference():
     # group with the ordering of the package, which for complex values is the
     # lexicographic order numpy uses - so the kernel compiles for them and
     # answers like the reference does.
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.quantile(group_idx, a, 0.5, "linear", 2, None)
 
@@ -751,7 +762,7 @@ def test_quantile_orders_complex_from_njit_like_the_reference():
 def test_quantile_of_a_complex_group_with_a_nan_poisons_it_from_njit():
     # a nan in either part of a complex value makes the value incomparable, and
     # the whole group answers with a nan - the plain quantile is contagious
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.quantile(group_idx, a, 0.5, "linear", 2, None)
 
@@ -765,7 +776,7 @@ def test_nunique_counts_the_distinct_values_from_njit_like_the_reference():
     # that the values that differ from their predecessor are the distinct
     # ones - for complex values the order is the lexicographic one numpy
     # uses, and the nans are one value among themselves
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.nunique(group_idx, a)
 
@@ -775,7 +786,7 @@ def test_nunique_counts_the_distinct_values_from_njit_like_the_reference():
 
 
 def test_nannunique_leaves_the_nans_out_from_njit_like_the_reference():
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.nannunique(group_idx, a)
 
@@ -789,7 +800,7 @@ def test_sort_orders_complex_from_njit_like_numpy():
     # compares the real part first, the imaginary part on a tie, and leaves a
     # value it cannot compare with - one with a nan in either part, even when
     # the real parts differ - behind everything it is reached by
-    @nb.njit
+    @njit_stable
     def wrapped(group_idx, a):
         return aggregate_numba.sort(group_idx, a)
 
@@ -806,7 +817,7 @@ def test_sum_bool_widens_int64():
     """Documented njit-kernel deviation: bool input widens to int64 instead of
     the python-level length-dependent overflow guesses."""
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a):
         return aggregate_numba.sum(group_idx, a)
 
@@ -817,7 +828,7 @@ def test_min_default_fill_depends_on_output_dtype():
     """An omitted fill_value resolves like DEFAULT_FILL_VALUE: nan for inexact
     outputs, 0 otherwise - never a garbage nan cast into an integer array."""
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a):
         return aggregate_numba.min(group_idx, a)
 
@@ -831,7 +842,7 @@ def test_min_default_fill_depends_on_output_dtype():
 def test_fill_value_passthrough():
     """An explicit fill_value reaches the untouched groups unchanged."""
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a, fill_value):
         return aggregate_numba.sum(group_idx, a, -1, fill_value)
 
@@ -841,7 +852,7 @@ def test_fill_value_passthrough():
 
 def test_size_too_small_raises():
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a, size):
         return aggregate_numba.sum(group_idx, a, size, None)
 
@@ -852,7 +863,7 @@ def test_size_too_small_raises():
 def test_integer_mean_overflow_from_njit():
     """The exactness gates run inside the kernels as well."""
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a):
         return aggregate_numba.mean(group_idx, a)
 
@@ -874,7 +885,7 @@ def test_integer_mean_overflow_from_njit():
 def test_dtype_rules(kernel_name, values, expected_dtype):
     stub = getattr(aggregate_numba, kernel_name)
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a):
         return stub(group_idx, a)
 
@@ -897,7 +908,7 @@ def test_a_float16_input_is_widened_from_python_and_refused_from_jit():
     assert result.dtype == np.float16
     np.testing.assert_array_equal(result, widened.astype(np.float16))
 
-    @nb.njit
+    @njit_stable
     def caller(group_idx, a):
         return aggregate_numba.mean(group_idx, a)
 

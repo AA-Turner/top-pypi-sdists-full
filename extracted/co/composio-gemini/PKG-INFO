@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio-gemini
-Version: 0.31.0
+Version: 0.32.0
 Summary: Use Composio to get an array of tools with your Gemini agent.
 Home-page: https://github.com/ComposioHQ/composio
 Author: Composio

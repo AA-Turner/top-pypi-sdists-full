@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: owasp-depscan
-Version: 6.3.0
+Version: 6.3.1
 Summary: Fully open-source security audit for project dependencies based on known vulnerabilities and advisories.
 Author-email: Team AppThreat <cloud@appthreat.com>
 License-Expression: MIT
@@ -31,22 +31,22 @@ Requires-Dist: Jinja2>=3.1.6
 Requires-Dist: packageurl-python>=0.16.0
 Requires-Dist: cvss>=3.4
 Requires-Dist: tomli>=2.2.1; python_full_version <= "3.11"
-Requires-Dist: ds-xbom-lib
-Requires-Dist: ds-analysis-lib
-Requires-Dist: ds-reporting-lib
+Requires-Dist: ds-xbom-lib>=6.3.1
+Requires-Dist: ds-analysis-lib>=6.3.1
+Requires-Dist: ds-reporting-lib>=6.3.1
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.4; extra == "dev"
 Requires-Dist: pytest-asyncio>=1.2.0; extra == "dev"
 Requires-Dist: pytest-cov>=6.0.0; extra == "dev"
 Provides-Extra: server
-Requires-Dist: ds-server-lib; extra == "server"
+Requires-Dist: ds-server-lib>=6.3.1; extra == "server"
 Provides-Extra: ext
 Requires-Dist: atom-tools>=0.7.8; extra == "ext"
 Requires-Dist: blint>=3.2.3; extra == "ext"
 Provides-Extra: all
 Requires-Dist: atom-tools>=0.7.8; extra == "all"
 Requires-Dist: blint>=3.2.3; extra == "all"
-Requires-Dist: ds-server-lib; extra == "all"
+Requires-Dist: ds-server-lib>=6.3.1; extra == "all"
 Requires-Dist: PyGithub>=2.6.1; extra == "all"
 Dynamic: license-file
 
@@ -71,6 +71,7 @@ OWASP dep-scan is a next-generation security and risk audit tool based on known 
     - [Linux distros](#linux-distros)
 - [Quick Start](#quick-start)
     - [Scanning projects locally (Python version)](#scanning-projects-locally-python-version)
+    - [Homebrew (macOS and Linux)](#homebrew-macos-and-linux)
     - [Standalone binaries (no Python or Node.js required)](#standalone-binaries-no-python-or-nodejs-required)
     - [Scanning containers locally (Python version)](#scanning-containers-locally-python-version)
     - [Scanning projects locally (Docker container)](#scanning-projects-locally-docker-container)
@@ -284,6 +285,17 @@ options:
   -v, --version         Display the version
 ```
 
+### Homebrew (macOS and Linux)
+
+Homebrew installs the [standalone binary](#standalone-binaries-no-python-or-nodejs-required) as `depscan` from the [OWASP dep-scan tap](https://github.com/owasp-dep-scan/homebrew-tap), with cdxgen bundled and no Python or Node.js needed. `brew trust` accepts the tap, which Homebrew requires before loading formulae from a third-party tap when `HOMEBREW_REQUIRE_TAP_TRUST` is set:
+
+```bash
+brew tap owasp-dep-scan/tap
+brew trust --tap owasp-dep-scan/tap
+brew install dep-scan
+depscan --src $PWD --reports-dir $PWD/reports
+```
+
 ### Standalone binaries (no Python or Node.js required)
 
 Pre-built single-file executables are attached to each [GitHub release](https://github.com/owasp-dep-scan/dep-scan/releases). They bundle a matching [cdxgen](https://github.com/cdxgen/cdxgen) SEA binary, so BOM generation works out of the box without installing Python, Node.js, or cdxgen.
@@ -400,6 +412,8 @@ depscan --server --server-host 0.0.0.0 --server-port 7070
 > [!IMPORTANT]
 > dep-scan refuses to bind to a non-local address without either `DEPSCAN_SERVER_API_KEY` or an explicit opt-in via `DEPSCAN_SERVER_ALLOW_UNAUTHENTICATED_BIND=true`.
 
+The server refuses cross-site browser requests (a `Sec-Fetch-Site` of `cross-site` or `same-site`, or an `Origin` that does not match `Host`). Without an API key it also accepts only `localhost`, `*.localhost`, IP addresses and the names in `DEPSCAN_SERVER_TRUSTED_HOST_NAMES` as the `Host` header, which stops DNS rebinding, and when it is reached by a name or address other than `localhost` or loopback, `path` and `url` must be sent in a JSON body.
+
 Use the `/scan` endpoint to perform scans.
 
 > [!NOTE]
@@ -443,7 +457,12 @@ Setup uv by following the official [documentation](https://docs.astral.sh/uv/).
 uv sync --all-extras --all-packages
 uv run depscan --help
 uv run pytest
+uv run pyrefly check
 ```
+
+Type checking uses [pyrefly](https://pyrefly.org) (configuration lives in
+`[tool.pyrefly]` in `pyproject.toml`); the check is expected to report zero
+errors.
 
 ### Local VDB setup
 

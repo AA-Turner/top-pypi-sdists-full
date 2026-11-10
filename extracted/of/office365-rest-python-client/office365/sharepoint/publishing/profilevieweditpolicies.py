@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.publishing.profilepropertyvieweditpolicy import (
@@ -6,7 +6,6 @@ from office365.sharepoint.publishing.profilepropertyvieweditpolicy import (
 )
 
 
-@dataclass
 class ProfileViewEditPolicies(ClientValue):
     AboutMe: ProfilePropertyViewEditPolicy = field(default_factory=ProfilePropertyViewEditPolicy)
     Assistant: ProfilePropertyViewEditPolicy = field(default_factory=ProfilePropertyViewEditPolicy)

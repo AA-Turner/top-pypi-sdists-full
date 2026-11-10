@@ -47,8 +47,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[AffiliateEarnings]:
-    """Earnings summary of this affiliate link: lifetime total, per-month series and the affiliate
-    organization's withdrawable credit balance.
+    """Earnings summary of this affiliate link: lifetime total, per-month series, the affiliate
+    organization's withdrawable credit balance and the fee the current month is expected to earn.
 
     Args:
         uuid (UUID):
@@ -77,8 +77,8 @@ def sync(
     *,
     client: AuthenticatedClient,
 ) -> AffiliateEarnings:
-    """Earnings summary of this affiliate link: lifetime total, per-month series and the affiliate
-    organization's withdrawable credit balance.
+    """Earnings summary of this affiliate link: lifetime total, per-month series, the affiliate
+    organization's withdrawable credit balance and the fee the current month is expected to earn.
 
     Args:
         uuid (UUID):
@@ -102,8 +102,8 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
 ) -> Response[AffiliateEarnings]:
-    """Earnings summary of this affiliate link: lifetime total, per-month series and the affiliate
-    organization's withdrawable credit balance.
+    """Earnings summary of this affiliate link: lifetime total, per-month series, the affiliate
+    organization's withdrawable credit balance and the fee the current month is expected to earn.
 
     Args:
         uuid (UUID):
@@ -130,8 +130,8 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
 ) -> AffiliateEarnings:
-    """Earnings summary of this affiliate link: lifetime total, per-month series and the affiliate
-    organization's withdrawable credit balance.
+    """Earnings summary of this affiliate link: lifetime total, per-month series, the affiliate
+    organization's withdrawable credit balance and the fee the current month is expected to earn.
 
     Args:
         uuid (UUID):

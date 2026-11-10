@@ -28,9 +28,6 @@ from acp import (
     SetSessionModeResponse,
     WriteTextFileResponse,
     spawn_agent_process,
-    start_tool_call,
-    update_agent_message_text,
-    update_tool_call,
 )
 from acp.connection import Connection
 from acp.core import AgentSideConnection, ClientSideConnection
@@ -40,6 +37,7 @@ from acp.schema import (
     AllowedOutcome,
     AudioContentBlock,
     ClientCapabilities,
+    ClientSessionCapabilities,
     DeniedOutcome,
     EmbeddedResourceContentBlock,
     EnvVariable,
@@ -49,9 +47,11 @@ from acp.schema import (
     Implementation,
     ListSessionsResponse,
     McpServerStdio,
+    NoticeCapabilities,
     PermissionOption,
     ResourceContentBlock,
     ResumeSessionResponse,
+    SessionUpdateNotice,
     SseMcpServer,
     TextContentBlock,
     ToolCallLocation,
@@ -143,6 +143,38 @@ async def test_session_notifications_flow(connect, client):
         await asyncio.sleep(0.01)
     assert len(client.notifications) >= 2
     assert client.notifications[0].session_id == "sess"
+
+
+@pytest.mark.asyncio
+async def test_session_notice_reaches_client(connect, client):
+    agent_side, client_side = connect()
+    await client_side.initialize(
+        protocol_version=1,
+        client_capabilities=ClientCapabilities(session=ClientSessionCapabilities(notices=NoticeCapabilities())),
+    )
+    session = await client_side.new_session(cwd="/workspace")
+    await agent_side.session_update(
+        session_id=session.session_id,
+        update=SessionUpdateNotice(
+            severity="warning",
+            title="Context is nearly full",
+            description="Start a new session soon.",
+            field_meta={"source": "context-monitor"},
+        ),
+    )
+    # A completed prompt also waits for earlier updates for this session.
+    await client_side.prompt(session_id=session.session_id, prompt=[TextContentBlock(text="Continue")])
+
+    notification = client.notifications[0]
+    assert notification.session_id == session.session_id
+    assert isinstance(notification.update, SessionUpdateNotice)
+    assert notification.update.model_dump(by_alias=True, exclude_none=True) == {
+        "sessionUpdate": "notice",
+        "severity": "warning",
+        "title": "Context is nearly full",
+        "description": "Start a new session soon.",
+        "_meta": {"source": "context-monitor"},
+    }
 
 
 @pytest.mark.asyncio
@@ -754,14 +786,14 @@ class _ExampleAgent(Agent):
 
         await self._conn.session_update(
             session_id,
-            update_agent_message_text("I'll help you with that."),
+            AgentMessageChunk(content=TextContentBlock(text="I'll help you with that.")),
         )
 
         await self._conn.session_update(
             session_id,
-            start_tool_call(
-                "call_1",
-                "Modifying configuration",
+            ToolCallStart(
+                tool_call_id="call_1",
+                title="Modifying configuration",
                 kind="edit",
                 status="pending",
                 locations=[ToolCallLocation(path="/project/config.json")],
@@ -790,15 +822,15 @@ class _ExampleAgent(Agent):
         if isinstance(response.outcome, AllowedOutcome) and response.outcome.option_id == "allow":
             await self._conn.session_update(
                 session_id,
-                update_tool_call(
-                    "call_1",
+                ToolCallProgress(
+                    tool_call_id="call_1",
                     status="completed",
                     raw_output={"success": True},
                 ),
             )
             await self._conn.session_update(
                 session_id,
-                update_agent_message_text("Done."),
+                AgentMessageChunk(content=TextContentBlock(text="Done.")),
             )
 
         return PromptResponse(stop_reason="end_turn")

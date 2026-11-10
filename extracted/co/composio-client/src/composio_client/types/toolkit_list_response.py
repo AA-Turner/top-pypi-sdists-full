@@ -77,6 +77,8 @@ class Item(BaseModel):
     "URL-friendly unique identifier for the toolkit"
     type: Literal['native', 'custom']
     "Toolkit provenance: \"native\" for Composio-managed toolkits, \"custom\" for a\nproject-registered custom (MCP) toolkit"
+    app: str
+    toolkit_type: Literal["api", "mcp"]
     instant: CurrentItemInstant | None = None
     access: Literal["all", "user"] | None = None
 

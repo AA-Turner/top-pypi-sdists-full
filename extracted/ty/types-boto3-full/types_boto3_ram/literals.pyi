@@ -32,6 +32,7 @@ __all__ = (
     "PaginatorName",
     "PermissionFeatureSetType",
     "PermissionStatusType",
+    "PermissionTemplateParameterTypeType",
     "PermissionTypeFilterType",
     "PermissionTypeType",
     "RAMServiceName",
@@ -48,6 +49,7 @@ __all__ = (
     "ResourceShareStatusType",
     "ResourceStatusType",
     "ServiceName",
+    "UpdatePermissionStatusType",
 )
 
 GetResourcePoliciesPaginatorName = Literal["get_resource_policies"]
@@ -58,7 +60,8 @@ ListPrincipalsPaginatorName = Literal["list_principals"]
 ListResourcesPaginatorName = Literal["list_resources"]
 ListSourceAssociationsPaginatorName = Literal["list_source_associations"]
 PermissionFeatureSetType = Literal["CREATED_FROM_POLICY", "PROMOTING_TO_STANDARD", "STANDARD"]
-PermissionStatusType = Literal["ATTACHABLE", "DELETED", "DELETING", "UNATTACHABLE"]
+PermissionStatusType = Literal["ATTACHABLE", "DELETED", "DELETING", "DEPRECATED", "UNATTACHABLE"]
+PermissionTemplateParameterTypeType = Literal["STRING", "STRING_LIST"]
 PermissionTypeFilterType = Literal["ALL", "AWS_MANAGED", "CUSTOMER_MANAGED"]
 PermissionTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 ReplacePermissionAssociationsWorkStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -82,6 +85,7 @@ ResourceShareStatusType = Literal["ACTIVE", "DELETED", "DELETING", "FAILED", "PE
 ResourceStatusType = Literal[
     "AVAILABLE", "LIMIT_EXCEEDED", "PENDING", "UNAVAILABLE", "ZONAL_RESOURCE_INACCESSIBLE"
 ]
+UpdatePermissionStatusType = Literal["ATTACHABLE", "DEPRECATED"]
 RAMServiceName = Literal["ram"]
 ServiceName = Literal[
     "accessanalyzer",

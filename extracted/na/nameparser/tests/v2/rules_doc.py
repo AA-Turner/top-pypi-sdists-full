@@ -50,10 +50,10 @@ _EXAMPLE_RE = re.compile(
     r'^\s*(?:"(?P<text>[^"]*)"|\[(?P<subject>[a-z][a-z0-9_+-]*)\])'
     r"(?:\s+(?P<annot>[a-z][a-z0-9_+-]*|\[[a-z][a-z0-9_+-]*\]))?"
     r"\s+→\s+"
-    rf"(?P<field>[a-z_]+)=(?P<value>{_VALUE})"
+    rf"(?P<field>[a-z_][a-z0-9_]*)=(?P<value>{_VALUE})"
     r"(?P<boundary>\s+·\s+boundary)?"
     r"(?:\s+deviates:\s+#(?P<issue>\d+)\s+\(today:\s+"
-    rf"(?P<tfield>[a-z_]+)=(?P<today>{_VALUE})\))?"
+    rf"(?P<tfield>[a-z_][a-z0-9_]*)=(?P<today>{_VALUE})\))?"
     r"\s*$")
 #: Any line meant to be a signal line, in any spelling (``signal:``,
 #: ``Signal :``, bold or not): above a rule's footer, or outside any
@@ -64,7 +64,7 @@ NEAR_SIGNAL_RE = re.compile(r"^\s*[*_]*signals?[*_]*\s*[:\uff1a]",
 ASSERTABLE_FIELDS = frozenset({
     "title", "given", "middle", "family", "suffix", "nickname", "maiden",
     "family_base", "family_particles", "surnames", "given_names",
-    "initials", "capitalized", "capitalized_forced",
+    "generation", "credentials", "honorifics", "patronymic", "surname2", "surname1", "surname1_particles", "surname1_base", "initials", "capitalized", "capitalized_forced", "str",
     "ambiguities", "pieces", "warns", "raises"})
 
 
@@ -111,7 +111,9 @@ class Rule:
 
 
 from nameparser._policy import (  # noqa: E402
-    FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, CapsSuffixes, Policy)
+    FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, CapsSuffixes, PatronymicRule,
+    Policy)
+from nameparser._types import Role  # noqa: E402
 
 #: Named policies example annotations may reference. Grown as
 #: extraction demands; each addition is a diff to this dict only.
@@ -131,6 +133,21 @@ POLICIES: dict[str, Policy] = {
         name_order=FAMILY_FIRST_GIVEN_LAST, two_family_names=True),
     "two_family_names+middle_as_family": Policy(
         two_family_names=True, middle_as_family=True),
+    #: rules/O7's switch (#704), named after its field as O6's is,
+    #: with each order, with O6's switch it reads after and with
+    #: middle_as_family, which reads after it.
+    "two_given_names": Policy(two_given_names=True),
+    "family-first+two_given_names": Policy(
+        name_order=FAMILY_FIRST, two_given_names=True),
+    "family-first-given-last+two_given_names": Policy(
+        name_order=FAMILY_FIRST_GIVEN_LAST, two_given_names=True),
+    "two_family_names+two_given_names": Policy(
+        two_family_names=True, two_given_names=True),
+    "two_given_names+middle_as_family": Policy(
+        two_given_names=True, middle_as_family=True),
+    "east-slavic+two_given_names": Policy(
+        patronymic_rules=frozenset({PatronymicRule.EAST_SLAVIC}),
+        two_given_names=True),
     "maiden-parens": Policy(maiden_delimiters=frozenset({("(", ")")})),
     "keep-emoji": Policy(strip_emoji=False),
     "strict-comma-suffixes": Policy(lenient_comma_suffixes=False),
@@ -156,7 +173,34 @@ POLICIES: dict[str, Policy] = {
     #: standing alone built in).
     "extra_suffix_delimiters-pipe": Policy(
         extra_suffix_delimiters=frozenset({" | "})),
+    #: rules/O5's switch (#1111), named after its field with the value
+    #: it is set to, as the caps field's are, alone and with a
+    #: family-first order, which the rule says it does not follow.
+    "lone_name_word-family": Policy(lone_name_word=Role.FAMILY),
+    "family-first+lone_name_word-family": Policy(
+        name_order=FAMILY_FIRST, lone_name_word=Role.FAMILY),
 }
+from nameparser._lexicon import Lexicon  # noqa: E402
+from nameparser.locales._es_given_names import GIVEN_NAMES  # noqa: E402
+
+#: Named policies with a lexicon fragment beside them, for a rule that
+#: reads a Lexicon field the default leaves empty: rules/O6's veto
+#: reads ``given_names``, which a pack carries (#959). The annotation
+#: is the policy's name above plus the fragment's, ``es_given_names``
+#: naming the list ``nameparser/locales/_es_given_names.py`` ships, so
+#: a rule names the data as it names the switch.
+_ES_GIVEN = Lexicon.default() | Lexicon(given_names=GIVEN_NAMES)
+CONFIGS: dict[str, tuple[Policy, Lexicon]] = {
+    "two_family_names+es_given_names": (
+        POLICIES["two_family_names"], _ES_GIVEN),
+    "family-first+two_family_names+es_given_names": (
+        POLICIES["family-first+two_family_names"], _ES_GIVEN),
+    "family-first-given-last+two_family_names+es_given_names": (
+        POLICIES["family-first-given-last+two_family_names"], _ES_GIVEN),
+    "two_family_names+two_given_names+es_given_names": (
+        POLICIES["two_family_names+two_given_names"], _ES_GIVEN),
+}
+
 #: D-section subjects: zero-arg constructions whose diagnostics the
 #: warns=/raises= assertion forms exercise.
 def _segmenterless_ja() -> object:
@@ -189,6 +233,8 @@ _LOCALE_ANNOT_RE = re.compile(r"\[[a-z_]{2,5}\]")
 def resolve_annotation(annot: str) -> tuple[str, object]:
     if annot in POLICIES:
         return "policy", POLICIES[annot]
+    if annot in CONFIGS:
+        return "config", CONFIGS[annot]
     if annot in GATES:
         return "gated_locale", GATES[annot][0]
     if _LOCALE_ANNOT_RE.fullmatch(annot):

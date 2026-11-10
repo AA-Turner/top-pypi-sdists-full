@@ -456,6 +456,20 @@ class TestUnsolvableReason:
         assert scope.author_points("Alice") == 2
         assert scope.author_points("someone") == 0
 
+    def test_author_points_count_alternates(self):
+        scope = self._scope(reviewers=["bob"], alternates=["alice"], author_value=1)
+        assert scope.author_points("Alice") == 1
+
+    def test_author_points_ignore_wildcard(self):
+        scope = self._scope(reviewers=["*"], author_value=1)
+        assert scope.author_points("alice") == 0
+
+    def test_author_value_makes_alternate_author_solvable(self):
+        scope = self._scope(
+            reviewers=["bob"], alternates=["alice"], require=2, author_value=1
+        )
+        assert scope.unsolvable_reason("alice") is None
+
     def test_author_only_reviewer_is_unsolvable(self):
         scope = self._scope(reviewers=["alice"], require=1)
         assert scope.unsolvable_reason("alice") is not None

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class FollowupFlag(ClientValue):
     """Allows setting a flag in an item for the user to follow up on later.
 

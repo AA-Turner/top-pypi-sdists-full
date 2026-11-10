@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,12 +23,11 @@ from pathlib import Path
 import yaml
 from tqdm import tqdm
 
-from .autodoc import autodoc, find_object_in_package, get_source_path, resolve_links_in_text
-from .convert_md_to_mdx import convert_md_to_mdx
+from .autodoc import autodoc_svelte, find_object_in_package, get_source_path, resolve_links_in_text
+from .convert_md_to_mdx import FLOATED_MENU_STYLE, convert_md_to_mdx
 from .convert_rst_to_mdx import convert_rst_to_mdx, find_indent, is_empty_line
 from .convert_to_notebook import generate_notebooks_from_file
 from .utils import get_doc_config, read_doc_config
-
 
 _re_autodoc = re.compile(r"^\s*\[\[autodoc\]\]\s+(\S+)\s*$")
 _re_list_item = re.compile(r"^\s*-\s+(\S+)\s*$")
@@ -38,6 +36,8 @@ _re_list_item = re.compile(r"^\s*-\s+(\S+)\s*$")
 def resolve_open_in_colab(content, page_info):
     """
     Replaces [[open-in-colab]] special markers by the proper svelte component.
+    Places it after the CopyLLMTxtMenu so both buttons float on the heading line,
+    with CopyLLMTxtMenu appearing rightmost.
 
     Args:
         content (`str`): The documentation to treat.
@@ -62,14 +62,39 @@ def resolve_open_in_colab(content, page_info):
     ]
     formatted_links = ['    {label: "' + key + '", value: "' + value + '"},' for key, value in links]
 
-    svelte_component = """<DocNotebookDropdown
-  classNames="absolute z-10 right-0 top-0"
-  options={[
+    svelte_component = f"""<DocNotebookDropdown
+  containerStyle="{FLOATED_MENU_STYLE}"
+  options={{[
 """
     svelte_component += "\n".join(formatted_links)
-    svelte_component += "\n]} />"
+    svelte_component += "\n]} />\n\n"
 
-    return content.replace("[[open-in-colab]]", svelte_component)
+    # Remove the marker first
+    content = content.replace("[[open-in-colab]]\n", "").replace("[[open-in-colab]]", "")
+
+    # Find CopyLLMTxtMenu and place DocNotebookDropdown right after it
+    # Floated elements line up from the end of the line, so placing after makes CopyLLMTxtMenu the outermost
+    copy_menu_match = re.search(r"<CopyLLMTxtMenu\s+containerStyle=[^>]+></CopyLLMTxtMenu>", content)
+
+    if copy_menu_match:
+        # Insert after CopyLLMTxtMenu (so Copy page appears outermost when floated)
+        insert_pos = copy_menu_match.end()
+        # Remove any leading whitespace before CopyLLMTxtMenu and after it
+        prefix = content[: copy_menu_match.start()].lstrip()
+        suffix = content[insert_pos:].lstrip()
+        # Add spacing: CopyLLMTxtMenu + newlines + DocNotebookDropdown (which already ends with \n\n) + suffix
+        content = prefix + content[copy_menu_match.start() : insert_pos] + "\n\n" + svelte_component + suffix
+    else:
+        # No CopyLLMTxtMenu found, look for first heading and place before it
+        heading_match = re.search(r"^#{1,2}\s+.+$", content, re.MULTILINE)
+        if heading_match:
+            insert_pos = heading_match.start()
+            # Remove any leading whitespace before the component
+            prefix = content[:insert_pos].lstrip()
+            content = prefix + svelte_component + content[insert_pos:]
+        # If no heading found either, the component just won't be added (marker already removed)
+
+    return content
 
 
 def resolve_autodoc(content, package, return_anchors=False, page_info=None, version_tag_suffix="src/"):
@@ -120,7 +145,7 @@ def resolve_autodoc(content, package, return_anchors=False, page_info=None, vers
                         break
             else:
                 methods = None
-            doc = autodoc(
+            doc = autodoc_svelte(
                 object_name,
                 package,
                 methods=methods,
@@ -190,7 +215,7 @@ def build_mdx_files(package, doc_folder, output_dir, page_info, version_tag_suff
                 dest_file = output_dir / (file.with_suffix(".mdx").relative_to(doc_folder))
                 page_info["page"] = file.with_suffix(".html").relative_to(doc_folder).as_posix()
                 os.makedirs(dest_file.parent, exist_ok=True)
-                with open(file, "r", encoding="utf-8-sig") as reader:
+                with open(file, encoding="utf-8-sig") as reader:
                     content = reader.read()
                 content = convert_md_to_mdx(content, page_info)
                 content = resolve_open_in_colab(content, page_info)
@@ -207,7 +232,7 @@ def build_mdx_files(package, doc_folder, output_dir, page_info, version_tag_suff
                 dest_file = output_dir / (file.with_suffix(".mdx").relative_to(doc_folder))
                 page_info["page"] = file.with_suffix(".html").relative_to(doc_folder)
                 os.makedirs(dest_file.parent, exist_ok=True)
-                with open(file, "r", encoding="utf-8") as reader:
+                with open(file, encoding="utf-8") as reader:
                     content = reader.read()
                 content = convert_rst_to_mdx(content, page_info)
                 content = resolve_open_in_colab(content, page_info)
@@ -233,7 +258,9 @@ def build_mdx_files(package, doc_folder, output_dir, page_info, version_tag_suff
             page_name = str(file.with_suffix("").relative_to(doc_folder))
             for anchor in new_anchors:
                 if isinstance(anchor, tuple):
-                    anchor_mapping.update({a: f"{page_name}#{anchor[0]}" for a in anchor[1:]})
+                    anchor_mapping.update(
+                        {a: f"{page_name}#{anchor[0]}" for a in anchor[1:] if a not in anchor_mapping}
+                    )
                     anchor = anchor[0]
                 anchor_mapping[anchor] = page_name
 
@@ -262,7 +289,7 @@ def resolve_links(doc_folder, package, mapping, page_info):
     doc_folder = Path(doc_folder)
     all_files = list(doc_folder.glob("**/*.mdx"))
     for file in tqdm(all_files, desc="Resolving internal links"):
-        with open(file, "r", encoding="utf-8") as reader:
+        with open(file, encoding="utf-8") as reader:
             content = reader.read()
         content = resolve_links_in_text(content, package, mapping, page_info)
         with open(file, "w", encoding="utf-8") as writer:
@@ -289,9 +316,9 @@ def build_notebooks(doc_folder, notebook_dir, package=None, mapping=None, page_i
     if "package_name" not in page_info:
         page_info["package_name"] = package.__name__
 
-    mdx_files = list(doc_folder.glob("**/*.mdx"))
-    for file in tqdm(mdx_files, desc="Building the notebooks"):
-        with open(file, "r", encoding="utf-8") as f:
+    md_mdx_files = list(doc_folder.glob("**/*.md")) + list(doc_folder.glob("**/*.mdx"))
+    for file in tqdm(md_mdx_files, desc="Building the notebooks"):
+        with open(file, encoding="utf-8") as f:
             if "[[open-in-colab]]" not in f.read():
                 continue
         try:
@@ -318,6 +345,7 @@ def build_doc(
     version_tag_suffix="src/",
     repo_owner="huggingface",
     repo_name=None,
+    emit_warning=False,
 ):
     """
     Build the documentation of a package.
@@ -347,6 +375,9 @@ def build_doc(
             The owner of the repository on GitHub. In most cases, this is `"huggingface"`. However, for the `timm` library, the owner is `"rwightman"`.
         repo_name (`str`, *optional*, defaults to `package_name`):
             The name of the repository on GitHub. In most cases, this is the same as `package_name`. However, for the `timm` library, the name is `"pytorch-image-models"` instead of `"timm"`.
+        emit_warning (`bool`, *optional*, defaults to `False`):
+            Whether to emit documentation conversion warnings such as bare
+            ``assert`` in runnable code blocks.
     """
     page_info = {
         "version": version,
@@ -355,6 +386,7 @@ def build_doc(
         "package_name": package_name,
         "repo_owner": repo_owner,
         "repo_name": repo_name if repo_name is not None else package_name,
+        "emit_warning": emit_warning,
     }
     if clean and Path(output_dir).exists():
         shutil.rmtree(output_dir)
@@ -368,6 +400,7 @@ def build_doc(
     if not watch_mode:
         sphinx_refs = check_toc_integrity(doc_folder, output_dir)
         sphinx_refs.extend(convert_anchors_mapping_to_sphinx_format(anchors_mapping, package))
+
     if is_python_module:
         if not watch_mode:
             build_sphinx_objects_ref(sphinx_refs, output_dir, page_info)
@@ -379,7 +412,55 @@ def build_doc(
                 os.remove(nb_file)
         build_notebooks(doc_folder, notebook_dir, package=package, mapping=anchors_mapping, page_info=page_info)
 
-    return source_files_mapping
+    if not watch_mode:
+        toctree_renamings(output_dir)
+
+    return source_files_mapping, output_dir
+
+
+def toctree_renamings(output_dir):
+    """
+    If an entry of toctree has field "newlocal", then use "newlocal" rather than field "local" for creating svelte pages paths.
+
+    Args:
+        output_dir (`str` or `os.PathLike`): The folder where the doc is built.
+    """
+    output_dir = Path(output_dir)
+
+    toc_file = output_dir / "_toctree.yml"
+    with open(toc_file, encoding="utf-8") as f:
+        toc = yaml.safe_load(f.read())
+
+    rename_map = {}
+
+    stack = [toc]  # Initialize the stack with the input data
+    while stack:  # While there are items in the stack
+        current = stack.pop()  # Pop the last item for processing
+        if isinstance(current, dict):
+            # If 'newlocal' exists, update 'local' with 'newlocal'
+            if "newlocal" in current:
+                rename_map[current["local"]] = current["newlocal"]
+                current["local"] = current["newlocal"]
+                del current["newlocal"]
+            # Add dictionary values to the stack for further processing
+            for value in current.values():
+                stack.append(value)
+        elif isinstance(current, list):
+            # Add list items to the stack for further processing
+            for item in current:
+                stack.append(item)
+
+    if len(rename_map):
+        with open(toc_file, "w", encoding="utf-8") as f:
+            f.write(yaml.safe_dump(toc))
+
+        doc_files = output_dir.glob("**/*.mdx")
+        for doc_file in doc_files:
+            relative_doc_file = doc_file.relative_to(output_dir)
+            local = str(relative_doc_file.with_suffix(""))
+            if local in rename_map:
+                newlocal = str(doc_file).replace(local, rename_map[local])
+                doc_file.rename(newlocal)
 
 
 def check_toc_integrity(doc_folder, output_dir):
@@ -394,7 +475,7 @@ def check_toc_integrity(doc_folder, output_dir):
     doc_files = [str(f.relative_to(output_dir).with_suffix("")) for f in output_dir.glob("**/*.mdx")]
 
     toc_file = Path(doc_folder) / "_toctree.yml"
-    with open(toc_file, "r", encoding="utf-8") as f:
+    with open(toc_file, encoding="utf-8") as f:
         toc = yaml.safe_load(f.read())
 
     toc_sections = []
@@ -419,7 +500,7 @@ def check_toc_integrity(doc_folder, output_dir):
 
     # normalize paths to current OS
     toc_sections = [str(Path(path)) for path in toc_sections]
-    files_not_in_toc = [f for f in doc_files if f not in toc_sections]
+    files_not_in_toc = [f for f in doc_files if f not in toc_sections and not f.endswith("README")]
     doc_config = get_doc_config()
     disable_toc_check = getattr(doc_config, "disable_toc_check", False)
     if len(files_not_in_toc) > 0 and not disable_toc_check:

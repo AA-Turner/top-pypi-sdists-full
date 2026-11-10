@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify_client"
-version = "3.4.0"
+version = "3.5.0"
 description = "Apify API client for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -58,7 +58,7 @@ Documentation = "https://docs.apify.com/api/client/python/docs/overview/introduc
 [dependency-groups]
 dev = [
     "black>=24.3.0",
-    "datamodel-code-generator[http,ruff]>=0.64.1,<1.0.0",
+    "datamodel-code-generator[http,ruff]>=0.85.0,<1.0.0",
     "griffe<3.0.0",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
@@ -104,7 +104,6 @@ ignore = [
     "D213",
     "D413",
     "EM",
-    "G004",
     "ISC001",
     "FIX",
     "PLR0911",
@@ -156,7 +155,10 @@ ignore = [
     "ERA001",
     "TC003",
 ]
-"src/apify_client/_literals.py" = ["PYI051"]
+"src/apify_client/_literals.py" = [
+    "E501",
+    "PYI051",
+]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
@@ -206,7 +208,7 @@ include = [
 ]
 
 [tool.ty.overrides.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
 
 [tool.coverage.report]
 exclude_lines = [
@@ -247,7 +249,7 @@ disable_timestamp = true
 keep_model_order = true
 
 [tool.apify.openapi-spec]
-version = "v2-2026-10-26T112451Z"
+version = "v2-2026-11-04T151257Z"
 
 [tool.uv]
 exclude-newer = "24 hours"

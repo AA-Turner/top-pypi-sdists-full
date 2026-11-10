@@ -39,6 +39,63 @@ class ZeitAccessor:
         from zeit._series_api import mann_kendall
         return mann_kendall(self._obj, **kwargs)
 
+    def temporal_metrics(self, metrics: Any = ("min", "p25", "median", "p75", "max", "mean", "std"),
+                         **kwargs: Any) -> xr.DataArray:
+        """
+        Statistics of each pixel's series, over all of it or by period: the same as
+        ``zeit.temporal_metrics(cube, metrics, by=..., ...)``.
+        """
+        from zeit._tsa import temporal_metrics
+        return temporal_metrics(self._obj, metrics, **kwargs)
+
+    def standardize(self, method: str = "normalize", **kwargs: Any) -> xr.DataArray:
+        """
+        Centers or normalizes each pixel's series along time: the same as
+        ``zeit.standardize(cube, method, ...)``.
+        """
+        from zeit._tsa import standardize
+        return standardize(self._obj, method, **kwargs)
+
+    def interpolate(self, method: str = "rbf", **kwargs: Any) -> xr.DataArray:
+        """
+        Interpolates each pixel's series to a regular grid of dates or to any dates: the same as
+        ``zeit.interpolate(cube, method, ...)``.
+        """
+        from zeit._tsa import interpolate
+        return interpolate(self._obj, method, **kwargs)
+
+    def linear_trend(self, **kwargs: Any) -> xr.Dataset:
+        """
+        The linear trend of each pixel's series (slope, significance, R-squared, residuals...):
+        the same as ``zeit.linear_trend(cube, ...)``.
+        """
+        from zeit._tsa import linear_trend
+        return linear_trend(self._obj, **kwargs)
+
+    def cat(self, **kwargs: Any) -> xr.Dataset:
+        """
+        The greatest change of each pixel's series and the trend before and after it: the same
+        as ``zeit.cat(cube, ...)``.
+        """
+        from zeit._tsa import cat
+        return cat(self._obj, **kwargs)
+
+    def clear_observations(self, **kwargs: Any) -> xr.DataArray:
+        """
+        The clear observations of each pixel in windows of months and the gaps between them:
+        the same as ``zeit.clear_observations(cube, ...)``.
+        """
+        from zeit._tsa import clear_observations
+        return clear_observations(self._obj, **kwargs)
+
+    def polar_metrics(self, metrics: Any = ("VSS", "VPS", "VES", "VSA", "RMR", "IGS"), **kwargs: Any) -> xr.DataArray:
+        """
+        The polar phenology metrics of each pixel and year of this regular (time, y, x) series (FORCE's POL):
+        the same as ``zeit.polar_metrics(cube, metrics, ...)``.
+        """
+        from zeit._tsa import polar_metrics
+        return polar_metrics(self._obj, metrics, **kwargs)
+
     def ar_trend(self, **kwargs: Any) -> xr.Dataset:
         """
         Fits the AR(1) REML trend of each pixel of this (time, y, x) cube: the same as ``zeit.ar_trend(cube, ...)``.
@@ -111,6 +168,38 @@ class ZeitAccessor:
         """
         from zeit._tmask_api import tmask
         return tmask(self._obj, **kwargs)
+
+    def nbar(self, angles: Any = None, **kwargs: Any) -> Any:
+        """
+        Nadir BRDF-adjusted reflectance of this (time, band, y, x) cube by the c-factor (Roy et al. 2016, 2017): the
+        same as ``zeit.nbar(cube, angles, **kwargs)``.
+        """
+        from zeit._nbar import nbar
+        return nbar(self._obj, angles, **kwargs)
+
+    def spectral_adjust(self, **kwargs: Any) -> xr.DataArray:
+        """
+        FORCE's spectral adjustment of this (time, band, y, x) Landsat or MODIS cube to Sentinel-2A: the same as
+        ``zeit.spectral_adjust(cube, **kwargs)``.
+        """
+        from zeit._specadjust import spectral_adjust
+        return spectral_adjust(self._obj, **kwargs)
+
+    def tasseled_cap(self, components: Any = ("brightness", "greenness", "wetness"), **kwargs: Any) -> xr.DataArray:
+        """
+        Tasseled Cap brightness, greenness and wetness (and FORCE's disturbance) of this (time, band, y, x)
+        reflectance cube: the same as ``zeit.tasseled_cap(cube, components, **kwargs)``.
+        """
+        from zeit._tasseled import tasseled_cap
+        return tasseled_cap(self._obj, components, **kwargs)
+
+    def improphe(self, coarse: Any, **kwargs: Any) -> xr.DataArray:
+        """
+        FORCE's ImproPhe with this (time, band, y, x) fine reflectance cube as the guide: sharpens `coarse` to its
+        pixels, the same as ``zeit.improphe(coarse, cube, **kwargs)``.
+        """
+        from zeit._improphe import improphe
+        return improphe(coarse, self._obj, **kwargs)
 
     def save(self, path: Any, **kwargs: Any) -> Path:
         """

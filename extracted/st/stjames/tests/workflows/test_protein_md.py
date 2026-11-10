@@ -7,6 +7,7 @@ from pytest import fixture
 
 from stjames import REST2Settings
 from stjames.pdb import PDB, read_pdb
+from stjames.solvent import SolventModel
 from stjames.workflows import ProteinMolecularDynamicsWorkflow
 from stjames.workflows.protein_md import Binder, BindingPoseTrajectory, HydrationSite
 
@@ -87,7 +88,7 @@ def test_frame_save_interval_not_multiple_of_timestep(multichain: PDB) -> None:
 @pytest.mark.parametrize(
     ("settings", "temperature", "timestep_fs"),
     [
-        (REST2Settings(), 300, 4),
+        (REST2Settings(), 298.15, 4),
         (REST2Settings(effective_temperatures=[310, 350, 400], exchange_interval_ps=0.0075), 310, 2.5),
     ],
 )
@@ -106,8 +107,52 @@ def test_rest2_ladder_order(temperatures: list[float]) -> None:
         REST2Settings(effective_temperatures=temperatures)
 
 
-@pytest.mark.parametrize(("temperature", "interval"), [(310, 1), (300, 1.001)])
+@pytest.mark.parametrize(("temperature", "interval"), [(310, 1), (298.15, 1.001)])
 def test_rest2_workflow_mismatch(temperature: float, interval: float) -> None:
     """Reject ladders or exchange intervals incompatible with workflow settings."""
     with pytest.raises(ValueError):
         ProteinMolecularDynamicsWorkflow(protein="test-uuid", temperature=temperature, enhanced_sampling=REST2Settings(exchange_interval_ps=interval))
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"save_solvent": True},
+        {"num_solvent_to_save": 10},
+        {"enhanced_sampling": REST2Settings()},
+        {"pressure_atm": 1},
+        {"nonbonded_cutoff": 8},
+        {"water_buffer": 8},
+        {"implicit_solvent": SolventModel.PCM},
+    ],
+)
+def test_invalid_implicit_solvent_options(options: dict[str, bool | int | REST2Settings | SolventModel]) -> None:
+    """Reject incompatible settings and unsupported models for implicit solvent."""
+    with pytest.raises(ValueError):
+        ProteinMolecularDynamicsWorkflow.model_validate(
+            {"protein": "test-uuid", "implicit_solvent": "gbn2", "pressure_atm": None, "nonbonded_cutoff": None, "water_buffer": None, **options}
+        )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {},
+        {"implicit_solvent": SolventModel.GBN2, "pressure_atm": None, "nonbonded_cutoff": None, "water_buffer": None},
+    ],
+)
+def test_solvent_settings_round_trip(options: dict[str, SolventModel | None]) -> None:
+    """Preserve solvent settings when null fields are otherwise excluded."""
+    workflow = ProteinMolecularDynamicsWorkflow.model_validate({"protein": "test-uuid", **options})
+    assert ProteinMolecularDynamicsWorkflow.model_validate(workflow.model_dump(mode="json")) == workflow
+    assert ProteinMolecularDynamicsWorkflow.model_validate_json(workflow.model_dump_json(exclude_none=True)) == workflow
+    assert workflow.model_dump(include={"protein"}) == {"protein": "test-uuid"}
+
+
+@pytest.mark.parametrize("field", ["pressure_atm", "nonbonded_cutoff", "water_buffer"])
+def test_implicit_requires_explicit_nulls(field: str) -> None:
+    """Reject implicit submissions with an omitted explicit-solvent control."""
+    data = {"protein": "test-uuid", "implicit_solvent": "gbn2", "pressure_atm": None, "nonbonded_cutoff": None, "water_buffer": None}
+    del data[field]
+    with pytest.raises(ValueError):
+        ProteinMolecularDynamicsWorkflow.model_validate(data)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +10,6 @@ from office365.sharepoint.search.promotedresults import PromotedResults
 from office365.sharepoint.search.query.condition import QueryCondition
 
 
-@dataclass
 class PromotedResultQueryRule(ClientValue):
     """
     This object contains properties that describe one promoted result for the tenant/Search

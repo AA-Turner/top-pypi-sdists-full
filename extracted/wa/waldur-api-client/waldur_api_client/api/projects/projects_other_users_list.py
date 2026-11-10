@@ -146,7 +146,9 @@ def sync_detailed(
     user_keyword: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
 ) -> Response[list["BasicUser"]]:
-    """A list of users which can be added to the current project from other projects of the same customer.
+    """Users with a role in the caller's other projects of the same organization, whom the caller may add
+    to the current project. The current project must be one the caller can see; otherwise the response
+    is 404. A personal access token lists only the users of projects its bindings reach.
 
     Args:
         project_uuid (UUID):
@@ -229,7 +231,9 @@ def sync(
     user_keyword: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
 ) -> list["BasicUser"]:
-    """A list of users which can be added to the current project from other projects of the same customer.
+    """Users with a role in the caller's other projects of the same organization, whom the caller may add
+    to the current project. The current project must be one the caller can see; otherwise the response
+    is 404. A personal access token lists only the users of projects its bindings reach.
 
     Args:
         project_uuid (UUID):
@@ -307,7 +311,9 @@ async def asyncio_detailed(
     user_keyword: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
 ) -> Response[list["BasicUser"]]:
-    """A list of users which can be added to the current project from other projects of the same customer.
+    """Users with a role in the caller's other projects of the same organization, whom the caller may add
+    to the current project. The current project must be one the caller can see; otherwise the response
+    is 404. A personal access token lists only the users of projects its bindings reach.
 
     Args:
         project_uuid (UUID):
@@ -388,7 +394,9 @@ async def asyncio(
     user_keyword: Union[Unset, str] = UNSET,
     username: Union[Unset, str] = UNSET,
 ) -> list["BasicUser"]:
-    """A list of users which can be added to the current project from other projects of the same customer.
+    """Users with a role in the caller's other projects of the same organization, whom the caller may add
+    to the current project. The current project must be one the caller can see; otherwise the response
+    is 404. A personal access token lists only the users of projects its bindings reach.
 
     Args:
         project_uuid (UUID):

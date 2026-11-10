@@ -1,9 +1,11 @@
 use crate::error::{Error, ErrorKind};
-use crate::utils::{collect_untrusted, untrusted_size_hint};
+use crate::output::Output;
+use crate::utils::{collect_untrusted, untrusted_size_hint, AutoEscape};
 use crate::value::merge_object::MergeSeq;
 use crate::value::{
-    checked, DynObject, MaybeInvalid, ObjectRepr, Tuple, Value, ValueKind, ValueRepr,
+    checked, DynObject, MaybeInvalid, ObjectRepr, StringType, Tuple, Value, ValueKind, ValueRepr,
 };
+use crate::vm::State;
 
 const MIN_I128_AS_POS_U128: u128 = 170141183460469231731687303715884105728;
 const MAX_REPEATED_STRING_LEN: usize = 100_000_000;
@@ -55,13 +57,19 @@ pub(crate) fn as_f64(value: &Value, lossy: bool) -> Option<f64> {
     })
 }
 
+/// Coerces two values to a common type.
+///
+/// Integers are coerced to `i128`.  Integers above `i128::MAX` do not fit,
+/// for those `None` is returned and the caller has to fall back to
+/// [`WideInt`] if it wants exact integer math.
 pub fn coerce<'x>(a: &'x Value, b: &'x Value, lossy: bool) -> Option<CoerceResult<'x>> {
     match (&a.0, &b.0) {
         // equal mappings are trivial
         (ValueRepr::U64(a), ValueRepr::U64(b)) => Some(CoerceResult::I128(*a as i128, *b as i128)),
-        (ValueRepr::U128(a), ValueRepr::U128(b)) => {
-            Some(CoerceResult::I128(a.0 as i128, b.0 as i128))
-        }
+        (ValueRepr::U128(a), ValueRepr::U128(b)) => Some(CoerceResult::I128(
+            some!(i128::try_from(a.0).ok()),
+            some!(i128::try_from(b.0).ok()),
+        )),
         (ValueRepr::String(a, _), ValueRepr::String(b, _)) => Some(CoerceResult::Str(a, b)),
         (ValueRepr::SmallStr(a), ValueRepr::SmallStr(b)) => {
             Some(CoerceResult::Str(a.as_str(), b.as_str()))
@@ -81,6 +89,140 @@ pub fn coerce<'x>(a: &'x Value, b: &'x Value, lossy: bool) -> Option<CoerceResul
             some!(i128::try_from(a.clone()).ok()),
             some!(i128::try_from(b.clone()).ok()),
         )),
+    }
+}
+
+/// An exact integer in the range of integers a value can hold
+/// (`i128::MIN..=u128::MAX`), stored as sign and magnitude.
+///
+/// Integer math is done with `i128` and only falls back to this if an
+/// operand or the result does not fit an `i128`.  This keeps results exact
+/// as long as they can be represented, like Python's arbitrary precision
+/// integers.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) struct WideInt {
+    neg: bool,
+    mag: u128,
+}
+
+impl WideInt {
+    fn new(neg: bool, mag: u128) -> WideInt {
+        // there is no negative zero
+        WideInt {
+            neg: neg && mag != 0,
+            mag,
+        }
+    }
+
+    /// Returns the integer (or boolean) value as wide integer.
+    pub(crate) fn from_value(value: &Value) -> Option<WideInt> {
+        Some(match value.0 {
+            ValueRepr::Bool(x) => WideInt::new(false, x as u128),
+            ValueRepr::U64(x) => WideInt::new(false, x as u128),
+            ValueRepr::U128(x) => WideInt::new(false, x.0),
+            ValueRepr::I64(x) => WideInt::new(x < 0, x.unsigned_abs() as u128),
+            ValueRepr::I128(x) => WideInt::new(x.0 < 0, x.0.unsigned_abs()),
+            _ => return None,
+        })
+    }
+
+    /// Converts the integer into a value if it can be represented.
+    pub(crate) fn into_value(self) -> Option<Value> {
+        if self.neg {
+            // `wrapping_neg` maps 2**127 to `i128::MIN`.
+            (self.mag <= MIN_I128_AS_POS_U128)
+                .then(|| int_as_value((self.mag as i128).wrapping_neg()))
+        } else if let Ok(val) = i128::try_from(self.mag) {
+            Some(int_as_value(val))
+        } else {
+            Some(Value::from(self.mag))
+        }
+    }
+
+    #[cfg(feature = "builtins")]
+    pub(crate) fn is_zero(self) -> bool {
+        self.mag == 0
+    }
+
+    fn neg(self) -> WideInt {
+        WideInt::new(!self.neg, self.mag)
+    }
+
+    fn checked_add(self, other: WideInt) -> Option<WideInt> {
+        Some(if self.neg == other.neg {
+            WideInt::new(self.neg, some!(self.mag.checked_add(other.mag)))
+        } else if self.mag >= other.mag {
+            WideInt::new(self.neg, self.mag - other.mag)
+        } else {
+            WideInt::new(other.neg, other.mag - self.mag)
+        })
+    }
+
+    fn checked_sub(self, other: WideInt) -> Option<WideInt> {
+        self.checked_add(other.neg())
+    }
+
+    fn checked_mul(self, other: WideInt) -> Option<WideInt> {
+        Some(WideInt::new(
+            self.neg != other.neg,
+            some!(self.mag.checked_mul(other.mag)),
+        ))
+    }
+
+    /// Floor division and the matching remainder, like in Python.
+    pub(crate) fn div_rem_floor(self, other: WideInt) -> Option<(WideInt, WideInt)> {
+        let mut quotient = some!(self.mag.checked_div(other.mag));
+        let mut remainder = self.mag % other.mag;
+        if remainder != 0 && self.neg != other.neg {
+            // the divisor is at least 2 here, so this cannot overflow
+            quotient += 1;
+            remainder = other.mag - remainder;
+        }
+        // the remainder has the sign of the divisor
+        Some((
+            WideInt::new(self.neg != other.neg, quotient),
+            WideInt::new(other.neg, remainder),
+        ))
+    }
+
+    fn div_floor(self, other: WideInt) -> Option<WideInt> {
+        self.div_rem_floor(other).map(|x| x.0)
+    }
+
+    fn rem_floor(self, other: WideInt) -> Option<WideInt> {
+        self.div_rem_floor(other).map(|x| x.1)
+    }
+
+    fn checked_pow(self, exp: WideInt) -> Option<WideInt> {
+        if exp.neg {
+            return None;
+        }
+        let exp = some!(u32::try_from(exp.mag).ok());
+        Some(WideInt::new(
+            self.neg && exp % 2 == 1,
+            some!(self.mag.checked_pow(exp)),
+        ))
+    }
+}
+
+/// Performs exact integer math with [`WideInt`]s.
+///
+/// This is the slow path for integer operands or results that do not fit an
+/// `i128`.  It fails if the result cannot be represented and if the operands
+/// are not integers.
+#[cold]
+#[inline(never)]
+fn wide_int_op(
+    op: &str,
+    lhs: &Value,
+    rhs: &Value,
+    f: fn(WideInt, WideInt) -> Option<WideInt>,
+) -> Result<Value, Error> {
+    match (WideInt::from_value(lhs), WideInt::from_value(rhs)) {
+        (Some(a), Some(b)) => f(a, b)
+            .and_then(WideInt::into_value)
+            .ok_or_else(|| failed_op(op, lhs, rhs)),
+        _ => Err(impossible_op(op, lhs, rhs)),
     }
 }
 
@@ -117,26 +259,37 @@ fn range_step_backwards(
     step: usize,
     end: usize,
 ) -> impl Iterator<Item = usize> {
-    let start = match start {
-        None => end.saturating_sub(1),
-        Some(start) if start >= end as i64 => end.saturating_sub(1),
-        Some(start) if start >= 0 => start as usize,
-        Some(start) => (end as i64 + start).max(0) as usize,
+    // Like Python, clamp both bounds to `-1..=end - 1` and walk down from
+    // `start` to `stop`, excluding `stop`.
+    let end = end as i64;
+    let clamp = |idx: i64| {
+        if idx < 0 {
+            (end + idx).max(-1)
+        } else {
+            idx.min(end - 1)
+        }
     };
-    let stop = match stop {
-        None => 0,
-        Some(stop) if stop < 0 => (end as i64 + stop).max(0) as usize,
-        Some(stop) => stop as usize,
-    };
-    let length = if stop == 0 {
-        (start + step) / step
+    let start = start.map_or(end - 1, clamp);
+    let stop = stop.map_or(-1, clamp);
+    let length = if start > stop {
+        ((start - stop - 1) as u64 / step as u64 + 1) as usize
     } else {
-        (start - stop + step - 1) / step
+        0
     };
-    (stop..=start).rev().step_by(step).take(length)
+    (0..length).map(move |i| (start as u64 - i as u64 * step as u64) as usize)
 }
 
-pub fn slice(value: Value, start: Value, stop: Value, step: Value) -> Result<Value, Error> {
+/// Slices a value.
+///
+/// Slicing an iterable backwards needs to consume it.  This happens right
+/// away so that the items are charged against the fuel of the state.
+pub fn slice(
+    state: &State,
+    value: Value,
+    start: Value,
+    stop: Value,
+    step: Value,
+) -> Result<Value, Error> {
     let start = if start.is_none() {
         None
     } else {
@@ -169,7 +322,31 @@ pub fn slice(value: Value, start: Value, stop: Value, step: Value) -> Result<Val
     match value.0 {
         ValueRepr::String(..) | ValueRepr::SmallStr(_) => {
             let s = value.as_str().unwrap();
-            if step > 0 {
+            if step == 1 {
+                // the common case of a contiguous slice can copy the bytes
+                // directly once the char offsets are known.
+                let ascii = s.is_ascii();
+                let (start, len) = get_offset_and_len(start, stop, || {
+                    if ascii {
+                        s.len()
+                    } else {
+                        s.chars().count()
+                    }
+                });
+                let (byte_start, byte_end) = if ascii {
+                    let byte_start = start.min(s.len());
+                    (byte_start, byte_start.saturating_add(len).min(s.len()))
+                } else {
+                    let mut offsets = s.char_indices().map(|x| x.0).chain(Some(s.len()));
+                    let byte_start = offsets.nth(start).unwrap_or(s.len());
+                    let byte_end = match len {
+                        0 => byte_start,
+                        len => offsets.nth(len - 1).unwrap_or(s.len()),
+                    };
+                    (byte_start, byte_end)
+                };
+                Ok(Value::from(&s[byte_start..byte_end]))
+            } else if step > 0 {
                 let (start, len) = get_offset_and_len(start, stop, || s.chars().count());
                 Ok(Value::from(
                     s.chars()
@@ -210,7 +387,7 @@ pub fn slice(value: Value, start: Value, stop: Value, step: Value) -> Result<Val
         ValueRepr::Object(obj) if matches!(obj.repr(), ObjectRepr::Seq | ObjectRepr::Iterable) => {
             if is_tuple {
                 let values = match obj.try_iter() {
-                    Some(iter) => ok!(checked(iter).try_collect_vec()),
+                    Some(iter) => ok!(checked(state.fuel_iter(iter)).try_collect_vec()),
                     None => Vec::new(),
                 };
                 let values: Vec<Value> = if step > 0 {
@@ -239,17 +416,26 @@ pub fn slice(value: Value, start: Value, stop: Value, step: Value) -> Result<Val
                         Box::new(None.into_iter())
                     }
                 }))
+            } else if let (ObjectRepr::Seq, Some(len)) = (obj.repr(), obj.enumerator_len()) {
+                // sequences can be indexed, so they can be sliced lazily
+                Ok(Value::make_object_iterable(obj, move |obj| {
+                    Box::new(
+                        range_step_backwards(start, stop, -step as usize, len)
+                            .map(move |idx| obj.get_value(&Value::from(idx)).unwrap_or_default()),
+                    )
+                }))
             } else {
-                Ok(Value::make_object_iterable(obj.clone(), move |obj| {
-                    if let Some(iter) = obj.try_iter() {
-                        let vec = collect_untrusted(iter);
-                        Box::new(
-                            range_step_backwards(start, stop, -step as usize, vec.len())
-                                .map(move |i| vec[i].clone()),
-                        )
-                    } else {
-                        Box::new(None.into_iter())
-                    }
+                let items = match obj.try_iter() {
+                    Some(iter) => collect_untrusted(state.fuel_iter(iter)),
+                    None => Vec::new(),
+                };
+                if let Some(err) = items.last().and_then(|x| x.check().err()) {
+                    return Err(err);
+                }
+                let indexes = range_step_backwards(start, stop, -step as usize, items.len());
+                let items = collect_untrusted(indexes.map(|idx| items[idx].clone()));
+                Ok(Value::make_object_iterable(items, |items| {
+                    Box::new(items.iter().cloned())
                 }))
             }
         }
@@ -292,10 +478,10 @@ macro_rules! math_binop {
             match coerce(lhs, rhs, true) {
                 Some(CoerceResult::I128(a, b)) => match a.$int(b) {
                     Some(val) => Ok(int_as_value(val)),
-                    None => Err(failed_op(stringify!($float), lhs, rhs))
+                    None => wide_int_op(stringify!($float), lhs, rhs, WideInt::$int),
                 },
                 Some(CoerceResult::F64(a, b)) => Ok((a $float b).into()),
-                _ => Err(impossible_op(stringify!($float), lhs, rhs))
+                _ => wide_int_op(stringify!($float), lhs, rhs, WideInt::$int),
             }
         }
     }
@@ -354,18 +540,20 @@ pub fn add(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
         return Ok(Value::from_object(MergeSeq::new_iterable(values)));
     }
     match coerce(lhs, rhs, true) {
-        Some(CoerceResult::I128(a, b)) => a
-            .checked_add(b)
-            .ok_or_else(|| failed_op("+", lhs, rhs))
-            .map(int_as_value),
+        Some(CoerceResult::I128(a, b)) => match a.checked_add(b) {
+            Some(val) => Ok(int_as_value(val)),
+            None => wide_int_op("+", lhs, rhs, WideInt::checked_add),
+        },
         Some(CoerceResult::F64(a, b)) => Ok((a + b).into()),
-        Some(CoerceResult::Str(a, b)) => Ok(Value::from([a, b].concat())),
-        _ => Err(impossible_op("+", lhs, rhs)),
+        Some(CoerceResult::Str(a, b)) => Ok(concat_result([a, b].concat(), lhs, rhs)),
+        None => wide_int_op("+", lhs, rhs, WideInt::checked_add),
     }
 }
 
 math_binop!(sub, checked_sub, -);
 
+/// Floor division and the matching remainder.  Fails on division by zero and
+/// for `i128::MIN // -1`, which needs [`WideInt`].
 fn int_div_rem_floor(a: i128, b: i128) -> Option<(i128, i128)> {
     let mut quotient = a.checked_div(b)?;
     let mut remainder = a.checked_rem(b)?;
@@ -401,28 +589,24 @@ fn float_div_rem_floor(a: f64, b: f64) -> (f64, f64) {
 
 pub fn rem(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
     match coerce(lhs, rhs, true) {
-        Some(CoerceResult::I128(a, b)) if b != 0 => {
-            if a == i128::MIN && b == -1 {
-                Ok(Value::from(0))
-            } else {
-                int_div_rem_floor(a, b)
-                    .map(|(_, remainder)| int_as_value(remainder))
-                    .ok_or_else(|| failed_op("%", lhs, rhs))
-            }
-        }
+        Some(CoerceResult::I128(a, b)) => match int_div_rem_floor(a, b) {
+            Some((_, remainder)) => Ok(int_as_value(remainder)),
+            None => wide_int_op("%", lhs, rhs, WideInt::rem_floor),
+        },
         Some(CoerceResult::F64(a, b)) if b != 0.0 => Ok(Value::from(float_div_rem_floor(a, b).1)),
-        Some(CoerceResult::I128(..) | CoerceResult::F64(..)) => Err(failed_op("%", lhs, rhs)),
-        _ => Err(impossible_op("%", lhs, rhs)),
+        Some(CoerceResult::F64(..)) => Err(failed_op("%", lhs, rhs)),
+        Some(CoerceResult::Str(..)) => Err(impossible_op("%", lhs, rhs)),
+        None => wide_int_op("%", lhs, rhs, WideInt::rem_floor),
     }
 }
 
 pub fn mul(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
-    if let Some((s, n)) = lhs
+    if let Some((s, safe, n)) = lhs
         .as_str()
-        .map(|s| (s, rhs))
-        .or_else(|| rhs.as_str().map(|s| (s, lhs)))
+        .map(|s| (s, lhs.is_safe(), rhs))
+        .or_else(|| rhs.as_str().map(|s| (s, rhs.is_safe(), lhs)))
     {
-        let n = ok!(n.as_usize().ok_or_else(|| {
+        let n = ok!(repeat_count(n).ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidOperation,
                 "strings can only be multiplied with integers",
@@ -434,7 +618,12 @@ pub fn mul(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
                 "repeated string is too large",
             ));
         }
-        return Ok(Value::from(s.repeat(n)));
+        let repeated = s.repeat(n);
+        return Ok(if safe {
+            Value::from_safe_string(repeated)
+        } else {
+            Value::from(repeated)
+        });
     } else if let Some((seq, n)) = lhs
         .as_object()
         .map(|s| (s, rhs))
@@ -447,15 +636,22 @@ pub fn mul(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
     match coerce(lhs, rhs, true) {
         Some(CoerceResult::I128(a, b)) => match a.checked_mul(b) {
             Some(val) => Ok(int_as_value(val)),
-            None => Err(failed_op(stringify!(*), lhs, rhs)),
+            None => wide_int_op("*", lhs, rhs, WideInt::checked_mul),
         },
         Some(CoerceResult::F64(a, b)) => Ok((a * b).into()),
-        _ => Err(impossible_op(stringify!(*), lhs, rhs)),
+        Some(CoerceResult::Str(..)) => Err(impossible_op("*", lhs, rhs)),
+        None => wide_int_op("*", lhs, rhs, WideInt::checked_mul),
     }
 }
 
+/// Like in Python, a negative count repeats zero times.
+fn repeat_count(n: &Value) -> Option<usize> {
+    let n = i128::try_from(n.clone()).ok()?;
+    Some(usize::try_from(n.max(0)).unwrap_or(usize::MAX))
+}
+
 fn repeat_iterable(n: &Value, seq: &DynObject) -> Result<Value, Error> {
-    let n = ok!(n.as_usize().ok_or_else(|| {
+    let n = ok!(repeat_count(n).ok_or_else(|| {
         Error::new(
             ErrorKind::InvalidOperation,
             "sequences and iterables can only be multiplied with integers",
@@ -532,18 +728,14 @@ pub fn div(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
 
 pub fn int_div(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
     match coerce(lhs, rhs, true) {
-        Some(CoerceResult::I128(a, b)) if b != 0 => {
-            if a == i128::MIN && b == -1 {
-                Ok(Value::from(MIN_I128_AS_POS_U128))
-            } else {
-                int_div_rem_floor(a, b)
-                    .map(|(quotient, _)| int_as_value(quotient))
-                    .ok_or_else(|| failed_op("//", lhs, rhs))
-            }
-        }
+        Some(CoerceResult::I128(a, b)) => match int_div_rem_floor(a, b) {
+            Some((quotient, _)) => Ok(int_as_value(quotient)),
+            None => wide_int_op("//", lhs, rhs, WideInt::div_floor),
+        },
         Some(CoerceResult::F64(a, b)) if b != 0.0 => Ok(Value::from(float_div_rem_floor(a, b).0)),
-        Some(CoerceResult::I128(..) | CoerceResult::F64(..)) => Err(failed_op("//", lhs, rhs)),
-        _ => Err(impossible_op("//", lhs, rhs)),
+        Some(CoerceResult::F64(..)) => Err(failed_op("//", lhs, rhs)),
+        Some(CoerceResult::Str(..)) => Err(impossible_op("//", lhs, rhs)),
+        None => wide_int_op("//", lhs, rhs, WideInt::div_floor),
     }
 }
 
@@ -562,12 +754,22 @@ pub fn pow(lhs: &Value, rhs: &Value) -> Result<Value, Error> {
         Some(CoerceResult::I128(a, b)) => {
             match TryFrom::try_from(b).ok().and_then(|b| a.checked_pow(b)) {
                 Some(val) => Ok(int_as_value(val)),
-                None => Err(failed_op("**", lhs, rhs)),
+                None => wide_int_op("**", lhs, rhs, WideInt::checked_pow),
             }
         }
         Some(CoerceResult::F64(a, b)) if a == 0.0 && b < 0.0 => Err(failed_op("**", lhs, rhs)),
         Some(CoerceResult::F64(a, b)) => Ok((a.powf(b)).into()),
-        _ => Err(impossible_op("**", lhs, rhs)),
+        Some(CoerceResult::Str(..)) => Err(impossible_op("**", lhs, rhs)),
+        None => {
+            // Only a base above `i128::MAX` ends up here, so it is not zero.
+            if WideInt::from_value(lhs).is_some() && WideInt::from_value(rhs).is_some_and(|b| b.neg)
+            {
+                if let (Some(a), Some(b)) = (as_f64(lhs, true), as_f64(rhs, true)) {
+                    return Ok(a.powf(b).into());
+                }
+            }
+            wide_int_op("**", lhs, rhs, WideInt::checked_pow)
+        }
     }
 }
 
@@ -576,20 +778,17 @@ pub fn neg(val: &Value) -> Result<Value, Error> {
     if val.kind() == ValueKind::Number {
         match val.0 {
             ValueRepr::F64(x) => Ok((-x).into()),
-            // special case for the largest i128 that can still be
-            // represented.
-            ValueRepr::U128(x) if x.0 == MIN_I128_AS_POS_U128 => {
-                Ok(Value::from(MIN_I128_AS_POS_U128))
-            }
-            _ => {
-                if let Ok(x) = i128::try_from(val.clone()) {
-                    x.checked_mul(-1)
-                        .ok_or_else(|| Error::new(ErrorKind::InvalidOperation, "overflow"))
-                        .map(int_as_value)
-                } else {
-                    Err(Error::from(ErrorKind::InvalidOperation))
-                }
-            }
+            ValueRepr::I64(x) if x != i64::MIN => Ok((-x).into()),
+            // The integers range from -2**127 to 2**128 - 1, so this works
+            // in both directions for 2**127 but fails above it.
+            _ => WideInt::from_value(val)
+                .and_then(|x| x.neg().into_value())
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::InvalidOperation,
+                        format!("unable to calculate -{val}"),
+                    )
+                }),
         }
     } else {
         Err(Error::from(ErrorKind::InvalidOperation).with_undefined_origin(val))
@@ -597,18 +796,204 @@ pub fn neg(val: &Value) -> Result<Value, Error> {
 }
 
 /// Attempts a string concatenation.
+///
+/// This does not escape anything.  The result is only safe if both sides are
+/// safe; for concatenations where only one side is safe and auto escaping is
+/// enabled, [`markup_concat`] needs to be used instead.
 pub fn string_concat(left: Value, right: &Value) -> Value {
+    // Fast path for the common case of two strings: skip the formatter.
+    if let (Some(l), Some(r)) = (plain_str(&left), plain_str(right)) {
+        let mut rv = String::with_capacity(l.len() + r.len());
+        rv.push_str(l);
+        rv.push_str(r);
+        return concat_result(rv, &left, right);
+    }
     Value::from(format!("{left}{right}"))
 }
 
+/// Wraps the result of a concatenation, keeping it safe if both sides are.
+fn concat_result(rv: String, left: &Value, right: &Value) -> Value {
+    if left.is_safe() && right.is_safe() {
+        Value::from_safe_string(rv)
+    } else {
+        Value::from(rv)
+    }
+}
+
+/// Checks if a concatenation has to escape one of the two sides.
+///
+/// This is the case if auto escaping is enabled and exactly one side is
+/// a safe string.  This mirrors Jinja2's `markup_join`.
+#[inline(always)]
+pub(crate) fn needs_markup_concat(state: &State, left: &Value, right: &Value) -> bool {
+    left.is_safe() != right.is_safe() && !matches!(state.auto_escape(), AutoEscape::None)
+}
+
+/// Concatenates two values into a safe string.
+///
+/// Safe values are copied unchanged, all other values are escaped for the
+/// current auto escape mode with the formatter, like when they are printed.
+pub(crate) fn markup_concat(
+    state: &mut State,
+    left: &Value,
+    right: &Value,
+) -> Result<Value, Error> {
+    let mut rv = String::new();
+    let mut out = Output::new(&mut rv);
+    for value in [left, right] {
+        match value.0 {
+            ValueRepr::String(ref s, StringType::Safe) => {
+                ok!(out.write_str(s).map_err(Error::from))
+            }
+            _ => ok!(state.env().format(value, state, &mut out)),
+        }
+    }
+    Ok(Value::from_safe_string(rv))
+}
+
+fn plain_str(v: &Value) -> Option<&str> {
+    match v.0 {
+        ValueRepr::String(ref s, _) => Some(s),
+        ValueRepr::SmallStr(ref s) => Some(s.as_str()),
+        _ => None,
+    }
+}
+
+/// Estimates how many bytes the result of a binary operation will need.
+///
+/// This only covers operations that create new strings or materialized
+/// sequences and is used to refuse an allocation before it happens.  The
+/// result is in fuel units (bytes, and list slots of
+/// [`SLOT_COST`] bytes).
+pub(crate) fn binop_alloc_estimate(op: &str, lhs: &Value, rhs: &Value) -> u64 {
+    fn str_len(v: &Value) -> Option<u64> {
+        match v.0 {
+            ValueRepr::String(ref s, _) => Some(s.len() as u64),
+            ValueRepr::SmallStr(ref s) => Some(s.as_str().len() as u64),
+            ValueRepr::Bytes(ref b) => Some(b.len() as u64),
+            _ => None,
+        }
+    }
+
+    match op {
+        "mul" => {
+            let (repeated, n) = if lhs.as_usize().is_some() {
+                (rhs, lhs)
+            } else {
+                (lhs, rhs)
+            };
+            let n = n.as_usize().unwrap_or(0) as u64;
+            if let Some(len) = str_len(repeated) {
+                len.saturating_mul(n)
+            } else if repeated.is_tuple() {
+                (repeated.len().unwrap_or(0) as u64)
+                    .saturating_mul(n)
+                    .saturating_mul(SLOT_COST)
+            } else {
+                // repeating lists is lazy
+                0
+            }
+        }
+        "add" | "string_concat" => match (str_len(lhs), str_len(rhs)) {
+            (Some(a), Some(b)) => a.saturating_add(b),
+            (Some(a), None) if op == "string_concat" => a,
+            (None, Some(b)) if op == "string_concat" => b,
+            _ if lhs.is_tuple() && rhs.is_tuple() => (lhs.len().unwrap_or(0) as u64)
+                .saturating_add(rhs.len().unwrap_or(0) as u64)
+                .saturating_mul(SLOT_COST),
+            _ => 0,
+        },
+        _ => 0,
+    }
+}
+
+/// The cost of a slot in a list for the purpose of fuel and size estimates.
+pub(crate) const SLOT_COST: u64 = 32;
+
+/// Checks that there is enough fuel left to perform a binary operation.
+#[inline(always)]
+pub(crate) fn ensure_fuel_for_binop(
+    _state: &State,
+    _op: &str,
+    _lhs: &Value,
+    _rhs: &Value,
+) -> Result<(), Error> {
+    #[cfg(feature = "fuel")]
+    {
+        if _state.fuel_tracker().is_some() {
+            return _state.ensure_fuel(binop_alloc_estimate(_op, _lhs, _rhs));
+        }
+    }
+    Ok(())
+}
+
+/// Charges fuel for comparing two values.
+///
+/// Comparing containers needs to visit their items, so this charges for the
+/// items of the shorter one.
+#[inline(always)]
+pub(crate) fn charge_fuel_for_compare(
+    _state: &State,
+    _lhs: &Value,
+    _rhs: &Value,
+) -> Result<(), Error> {
+    #[cfg(feature = "fuel")]
+    {
+        if _state.fuel_tracker().is_some() {
+            if let (Some(a), Some(b)) = (_lhs.as_object(), _rhs.as_object()) {
+                if !a.is_same_object(b) {
+                    if let (Some(a_len), Some(b_len)) = (a.enumerator_len(), b.enumerator_len()) {
+                        return _state.charge_items(a_len.min(b_len));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Charges fuel for looking up an item by index in an iterable.
+///
+/// Iterables cannot be indexed, so the lookup needs to iterate up to the
+/// index.
+#[inline(always)]
+pub(crate) fn charge_fuel_for_get_item(
+    _state: &State,
+    _container: &Value,
+    _key: &Value,
+) -> Result<(), Error> {
+    #[cfg(feature = "fuel")]
+    {
+        if _state.fuel_tracker().is_some() {
+            if let Some(obj) = _container.as_object() {
+                if obj.repr() == ObjectRepr::Iterable {
+                    if let Some(idx) = _key.as_i64() {
+                        let mut n = usize::try_from(idx.unsigned_abs()).unwrap_or(usize::MAX);
+                        if let Some(len) = obj.enumerator_len() {
+                            n = n.min(len);
+                        }
+                        return _state.charge_items(n);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Implements a containment operation on values.
-pub fn contains(container: &Value, value: &Value) -> Result<Value, Error> {
+///
+/// If a state is passed, the items visited are charged against the fuel.
+pub fn contains(state: Option<&State>, container: &Value, value: &Value) -> Result<Value, Error> {
     // Special case where if the container is undefined, it cannot hold
     // values.  For strict containment checks the vm has a special case.
     if container.is_undefined() {
         return Ok(Value::from(false));
     }
     let rv = if let Some(s) = container.as_str() {
+        if let Some(state) = state {
+            ok!(state.charge_fuel(s.len() as u64));
+        }
         if let Some(s2) = value.as_str() {
             s.contains(s2)
         } else {
@@ -622,6 +1007,9 @@ pub fn contains(container: &Value, value: &Value) -> Result<Value, Error> {
                 let mut found = false;
                 if let Some(iter) = obj.try_iter() {
                     for item in iter {
+                        if let Some(state) = state {
+                            ok!(state.charge_items(1));
+                        }
                         ok!(item.check());
                         if item == *value {
                             found = true;
@@ -649,8 +1037,96 @@ mod tests {
 
     #[test]
     fn test_neg() {
-        let err = neg(&Value::from(i128::MIN)).unwrap_err();
-        assert_eq!(err.to_string(), "invalid operation: overflow");
+        assert_eq!(
+            neg(&Value::from(i64::MIN)).unwrap(),
+            Value::from(1u64 << 63)
+        );
+        assert_eq!(
+            neg(&Value::from(i128::MIN)).unwrap(),
+            Value::from(MIN_I128_AS_POS_U128)
+        );
+        assert_eq!(
+            neg(&Value::from(MIN_I128_AS_POS_U128)).unwrap(),
+            Value::from(i128::MIN)
+        );
+        assert_eq!(
+            neg(&Value::from(MIN_I128_AS_POS_U128)).unwrap().to_string(),
+            "-170141183460469231731687303715884105728"
+        );
+        let err = neg(&Value::from(MIN_I128_AS_POS_U128 + 1)).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "invalid operation: unable to calculate -170141183460469231731687303715884105729"
+        );
+    }
+
+    #[test]
+    fn test_wide_int_math() {
+        let max = Value::from(u128::MAX);
+        let min = Value::from(i128::MIN);
+        let big = Value::from(MIN_I128_AS_POS_U128);
+
+        // results that fit are exact
+        assert_eq!(add(&Value::from(i128::MAX), &Value::from(1)).unwrap(), big);
+        assert_eq!(sub(&big, &big).unwrap(), Value::from(0));
+        assert_eq!(
+            sub(&max, &Value::from(1)).unwrap(),
+            Value::from(u128::MAX - 1)
+        );
+        assert_eq!(sub(&max, &big).unwrap(), Value::from(i128::MAX));
+        assert_eq!(add(&big, &Value::from(i128::MAX)).unwrap(), max);
+        assert_eq!(add(&max, &min).unwrap(), Value::from(i128::MAX));
+        assert_eq!(sub(&Value::from(0), &big).unwrap(), min);
+        assert_eq!(mul(&big, &Value::from(-1)).unwrap(), min);
+        assert_eq!(mul(&max, &Value::from(true)).unwrap(), max);
+        assert_eq!(rem(&max, &Value::from(10)).unwrap(), Value::from(5));
+        assert_eq!(rem(&max, &Value::from(-10)).unwrap(), Value::from(-5));
+        assert_eq!(
+            int_div(&max, &Value::from(2)).unwrap(),
+            Value::from(i128::MAX)
+        );
+        assert_eq!(int_div(&min, &Value::from(-1)).unwrap(), big);
+        assert_eq!(pow(&Value::from(2), &Value::from(127)).unwrap(), big);
+        assert_eq!(pow(&max, &Value::from(1)).unwrap(), max);
+        assert_eq!(
+            pow(&max, &Value::from(-1)).unwrap(),
+            Value::from(1.0 / u128::MAX as f64)
+        );
+        assert_eq!(
+            add(&max, &Value::from(1.0)).unwrap(),
+            Value::from(u128::MAX as f64)
+        );
+
+        // results that do not fit fail instead of wrapping
+        for (op, lhs, rhs) in [
+            (
+                add as fn(&Value, &Value) -> Result<Value, Error>,
+                &max,
+                &Value::from(1),
+            ),
+            (add, &max, &max),
+            (add, &big, &big),
+            (sub, &min, &Value::from(1)),
+            (sub, &Value::from(0), &max),
+            (mul, &max, &Value::from(-1)),
+            (mul, &max, &Value::from(2)),
+            (int_div, &max, &Value::from(-1)),
+            (int_div, &max, &Value::from(0)),
+            (rem, &max, &Value::from(0)),
+            (pow, &Value::from(2), &Value::from(128)),
+        ] {
+            let err = op(lhs, rhs).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::InvalidOperation);
+            assert!(err
+                .to_string()
+                .starts_with("invalid operation: unable to calculate"));
+        }
+
+        let err = add(&max, &Value::from("foo")).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "invalid operation: tried to use + operator on unsupported types number and string"
+        );
     }
 
     #[test]
@@ -712,10 +1188,10 @@ mod tests {
             Value::from("foobar")
         );
 
-        let err = add(&Value::from(i128::MAX), &Value::from(1)).unwrap_err();
+        let err = add(&Value::from(u128::MAX), &Value::from(1)).unwrap_err();
         assert_eq!(
             err.to_string(),
-            "invalid operation: unable to calculate 170141183460469231731687303715884105727 + 1"
+            "invalid operation: unable to calculate 340282366920938463463374607431768211455 + 1"
         );
     }
 
@@ -932,10 +1408,24 @@ mod tests {
             string_concat(Value::from(23), &Value::from(42)),
             Value::from("2342")
         );
+        assert_eq!(
+            string_concat(Value::from("foo"), &Value::from("bar")),
+            Value::from("foobar")
+        );
+        assert_eq!(
+            string_concat(
+                Value::from("x".repeat(40)),
+                &Value::from_safe_string("<y>".into())
+            ),
+            Value::from(format!("{}<y>", "x".repeat(40)))
+        );
     }
 
     #[test]
     fn test_slicing() {
+        let env = crate::Environment::new();
+        let state = env.empty_state();
+        let slice = |value, start, stop, step| super::slice(&state, value, start, stop, step);
         let v = Value::from(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
         // [::] - full slice
@@ -1021,6 +1511,9 @@ mod tests {
 
     #[test]
     fn test_string_slicing() {
+        let env = crate::Environment::new();
+        let state = env.empty_state();
+        let slice = |value, start, stop, step| super::slice(&state, value, start, stop, step);
         let s = Value::from("abcdefghij");
 
         // [::] - full slice
@@ -1068,6 +1561,9 @@ mod tests {
 
     #[test]
     fn test_bytes_slicing() {
+        let env = crate::Environment::new();
+        let state = env.empty_state();
+        let slice = |value, start, stop, step| super::slice(&state, value, start, stop, step);
         let s = Value::from_bytes(b"abcdefghij".to_vec());
 
         // [::] - full slice

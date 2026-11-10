@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
-from tango._telemetry import (
+from tango._internal.telemetry import (
     TelemetryEndpoint,
     TelemetryExporter,
     TelemetryTopic,

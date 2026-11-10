@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -9,7 +9,6 @@ from office365.sharepoint.sharing.links.info import SharingLinkInfo
 from office365.sharepoint.sharing.principal import Principal
 
 
-@dataclass
 class LinkInfo(ClientValue):
     """This class provides metadata for the tokenized sharing link including settings details, inheritance status,
     and an optional array of members.

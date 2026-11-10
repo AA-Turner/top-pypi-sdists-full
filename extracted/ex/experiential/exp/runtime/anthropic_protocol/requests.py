@@ -4,7 +4,8 @@ The decoder is strict and lossless for supported content: text, ``tool_use``,
 ``tool_result``, ``thinking``, and ``redacted_thinking`` blocks translate
 faithfully (thinking history rides the opaque provider-reasoning carrier with
 byte-exact signatures); echoed server-tool output (``server_tool_use``,
-``web_search_tool_result``, and citation-bearing ``text`` blocks) rides the
+``web_search_tool_result``, ``advisor_tool_result``, and citation-bearing
+``text`` blocks) rides the
 verbatim per-block carrier so it round-trips byte-for-byte to native
 Anthropic rungs; ``cache_control`` annotations are validated
 everywhere and carried on the surfaces the Anthropic wire caches natively
@@ -29,7 +30,7 @@ from __future__ import annotations
 import json
 from typing import Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 from exp.common.core.artifacts import JsonObject
 from exp.common.models.content import (
@@ -96,6 +97,7 @@ from exp.runtime.models.providers.cache_policy import (
 )
 from exp.runtime.models.providers.errors import ProviderParameterError
 from exp.runtime.models.providers.openrouter_routing import ProviderRoutingPreferences
+from exp.runtime.openai_protocol.client_field_repairs import accept_messages_stream_options
 from exp.runtime.openai_protocol.errors import invalid_field, unsupported_field
 from exp.runtime.openai_protocol.history_documents import trim_history_documents
 from exp.runtime.openai_protocol.manifest import validate_manifest
@@ -180,11 +182,24 @@ class ServerToolUseBlock(BaseModel):
 
 
 class _WebSearchToolResultBlock(BaseModel):
-    """One server-tool result echoed in history, carried shallowly."""
+    """One server-tool result echoed in history, carried shallowly.
+
+    ``advisor_tool_result`` is the advisor server tool's result (beta
+    ``advisor-tool-2026-03-01``): Anthropic tells callers to round-trip it
+    verbatim, its ``content`` possibly an encrypted ``advisor_redacted_result``
+    the provider decrypts on the next turn, and it stays valid in history after
+    the tool leaves ``tools``. Claude Code resends it on every later turn of a
+    session that consulted the advisor.
+    """
 
     model_config = ConfigDict(extra="allow")
 
-    type: Literal["web_search_tool_result", "tool_search_tool_result", "tool_reference"]
+    type: Literal[
+        "web_search_tool_result",
+        "tool_search_tool_result",
+        "advisor_tool_result",
+        "tool_reference",
+    ]
 
 
 _ContentBlock = (
@@ -348,6 +363,22 @@ class _CountTokensRequest(_MessagesRequest):
     max_tokens: int | None = Field(default=None, gt=0)
 
 
+_STREAM_FLAG = TypeAdapter(bool)
+"""Validator for the ``stream`` flag, coercing exactly as ``_MessagesRequest`` does."""
+
+
+def _asks_for_stream(payload: JsonObject) -> bool:
+    """Whether the body asks for a stream, read the way the wire model reads ``stream``.
+
+    A value the wire model would refuse counts as not streaming here; the wire
+    validation that follows refuses it by name.
+    """
+    try:
+        return _STREAM_FLAG.validate_python(payload.get("stream", False))
+    except ValidationError:
+        return False
+
+
 def decode_messages(
     payload: JsonObject,
     *,
@@ -372,7 +403,12 @@ def decode_messages(
             The HTTP layer renders it in the Anthropic error envelope.
     """
     try:
-        return _decode(payload, _MessagesRequest, anthropic_beta=anthropic_beta)
+        return _decode(
+            payload,
+            _MessagesRequest,
+            anthropic_beta=anthropic_beta,
+            streams=_asks_for_stream(payload),
+        )
     except ProviderParameterError as error:
         raise invalid_field("messages.content.cache_control", str(error)) from error
 
@@ -402,7 +438,7 @@ def decode_messages_count_tokens(
     if "gateway" in payload:
         raise unsupported_field("gateway")
     try:
-        return _decode(payload, _CountTokensRequest, anthropic_beta=anthropic_beta)
+        return _decode(payload, _CountTokensRequest, anthropic_beta=anthropic_beta, streams=False)
     except ProviderParameterError as error:
         raise invalid_field("messages.content.cache_control", str(error)) from error
 
@@ -412,8 +448,13 @@ def _decode(
     wire: type[_MessagesRequest],
     *,
     anthropic_beta: str | None,
+    streams: bool,
 ) -> DecodedGatewayRequest:
-    """Validate ``payload`` against ``wire`` and build the canonical request."""
+    """Validate ``payload`` against ``wire`` and build the canonical request.
+
+    ``streams`` says whether the call answers with a stream; ``count_tokens``
+    never does, whatever its ``stream`` field says.
+    """
     # Clients stamp their own bookkeeping on the turns they replay; a key no
     # turn defines is removed with disclosure rather than failing the whole
     # conversation. Content blocks and top-level fields stay strict.
@@ -421,6 +462,9 @@ def _decode(
     # Media the gateway cannot forward fails every replay of a history that
     # carries it, so history copies degrade to disclosed placeholders.
     payload, media_disclosures = degrade_history_media(payload)
+    # Clients with OpenAI-style extra body fields attach Chat's stream_options;
+    # usage always streams on this surface.
+    payload, stream_disclosures = accept_messages_stream_options(payload, streams=streams)
     validate_manifest(payload, MESSAGES_MANIFEST)
     request = validate_wire(payload, wire)
     require_served_server_tool_types(request.tools)
@@ -527,6 +571,7 @@ def _decode(
                 *media_disclosures,
                 *document_disclosures,
                 *prefill_disclosures,
+                *stream_disclosures,
                 *dropped_beta_disclosures,
                 *tool_change_disclosures,
                 *channels.disclosures,

@@ -26,7 +26,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, subqueryload
 
 from airflow.api_fastapi.app import get_auth_manager
 from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity, DagDetails
@@ -47,6 +47,7 @@ from airflow.api_fastapi.common.db.dag_runs import (
     attach_dag_versions_to_runs,
     eager_load_dag_run_for_list,
 )
+from airflow.api_fastapi.common.db.dags import eager_load_teams
 from airflow.api_fastapi.common.parameters import (
     FilterOptionEnum,
     FilterParam,
@@ -63,6 +64,8 @@ from airflow.api_fastapi.common.parameters import (
     Range,
     RangeFilter,
     SortParam,
+    _DagIdTagsFilter,
+    _DagIdTeamsFilter,
     _PrefixSearchParam,
     _SearchParam,
     datetime_range_filter_factory,
@@ -70,6 +73,8 @@ from airflow.api_fastapi.common.parameters import (
     float_range_filter_factory,
     prefix_search_param_factory,
     search_param_factory,
+    tags_filter_factory,
+    teams_filter_factory,
 )
 from airflow.api_fastapi.common.router import AirflowRouter
 from airflow.api_fastapi.common.types import Mimetype
@@ -97,6 +102,8 @@ from airflow.api_fastapi.core_api.datamodels.task_instances import (
 from airflow.api_fastapi.core_api.openapi.exceptions import create_openapi_http_exception_doc
 from airflow.api_fastapi.core_api.security import (
     GetUserDep,
+    ReadableAssetEventsByAssetFilterDep,
+    ReadableAssetEventsFilterDep,
     ReadableDagRunsFilterDep,
     requires_access_asset,
     requires_access_dag,
@@ -115,9 +122,9 @@ from airflow.api_fastapi.core_api.services.public.dag_run import (
     perform_clear_dag_run,
 )
 from airflow.api_fastapi.logging.decorators import action_logging
-from airflow.exceptions import ParamValidationError
+from airflow.exceptions import DagVersionNotFound, ParamValidationError
 from airflow.models import DagModel, DagRun
-from airflow.models.asset import AssetEvent
+from airflow.models.asset import AssetEvent, association_table as dagrun_asset_event_table
 from airflow.models.dag_version import DagVersion
 from airflow.utils.state import DagRunState
 from airflow.utils.types import DagRunTriggeredByType, DagRunType
@@ -137,7 +144,9 @@ dag_run_at_dag_router = AirflowRouter(tags=["DagRun"], prefix="/dags/{dag_id}")
 )
 def get_dag_run(dag_id: str, dag_run_id: str, session: SessionDep) -> DAGRunResponse:
     dag_run = session.scalar(
-        select(DagRun).filter_by(dag_id=dag_id, run_id=dag_run_id).options(joinedload(DagRun.dag_model))
+        select(DagRun)
+        .filter_by(dag_id=dag_id, run_id=dag_run_id)
+        .options(joinedload(DagRun.dag_model), *eager_load_teams(DagRun.dag_model))
     )
     if dag_run is None:
         raise HTTPException(
@@ -234,7 +243,7 @@ def patch_dag_run(
     if "note" in data:
         updated_dag_run = session.get(DagRun, dag_run.id)
         if updated_dag_run is not None:
-            patch_dag_run_note(dag_run=updated_dag_run, note=data["note"], user=user)
+            patch_dag_run_note(dag_run=updated_dag_run, note=data["note"], user_id=user.get_id())
     if "state" in data and patch_body.state is not None:
         patch_dag_run_state(dag=dag, dag_run=dag_run, state=patch_body.state, session=session)
 
@@ -275,28 +284,38 @@ def bulk_dag_runs(
     ],
 )
 def get_upstream_asset_events(
-    dag_id: str, dag_run_id: str, session: SessionDep
+    dag_id: str,
+    dag_run_id: str,
+    readable_asset_events_filter: ReadableAssetEventsFilterDep,
+    readable_asset_events_by_asset_filter: ReadableAssetEventsByAssetFilterDep,
+    session: SessionDep,
 ) -> AssetEventCollectionResponse:
     """If dag run is asset-triggered, return the asset events that triggered it."""
-    dag_run: DagRun | None = session.scalar(
-        select(DagRun)
-        .where(
+    dag_run_pk = session.scalar(
+        select(DagRun.id).where(
             DagRun.dag_id == dag_id,
             DagRun.run_id == dag_run_id,
         )
-        .options(
-            joinedload(DagRun.consumed_asset_events).joinedload(AssetEvent.asset),
-            joinedload(DagRun.consumed_asset_events).subqueryload(AssetEvent.created_dagruns),
-        )
     )
-    if dag_run is None:
+    if dag_run_pk is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             f"The DagRun with dag_id: `{dag_id}` and run_id: `{dag_run_id}` was not found",
         )
-    events = dag_run.consumed_asset_events
+    # Reading the consuming run must not expose events of assets or source Dags the caller may not read.
+    events_select = apply_filters_to_select(
+        statement=select(AssetEvent)
+        .join(dagrun_asset_event_table, dagrun_asset_event_table.c.event_id == AssetEvent.id)
+        .where(dagrun_asset_event_table.c.dag_run_id == dag_run_pk)
+        .options(joinedload(AssetEvent.asset), subqueryload(AssetEvent.created_dagruns))
+        .order_by(AssetEvent.id),
+        filters=[readable_asset_events_filter, readable_asset_events_by_asset_filter],
+    )
+    events = session.scalars(events_select).unique().all()
     return AssetEventCollectionResponse(
-        asset_events=serialize_asset_events(events, session=session),
+        asset_events=serialize_asset_events(
+            events, readable_dag_ids=readable_asset_events_filter.value, session=session
+        ),
         total_entries=len(events),
     )
 
@@ -501,7 +520,14 @@ def get_dag_runs(
     offset: QueryOffset,
     run_after: Annotated[RangeFilter, Depends(datetime_range_filter_factory("run_after", DagRun))],
     logical_date: Annotated[RangeFilter, Depends(datetime_range_filter_factory("logical_date", DagRun))],
-    start_date_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("start_date", DagRun))],
+    start_date_range: Annotated[
+        RangeFilter,
+        Depends(
+            datetime_range_filter_factory(
+                "start_date", DagRun, null_lower_bound_clause=DagRun.end_date.is_(None)
+            )
+        ),
+    ],
     end_date_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("end_date", DagRun))],
     duration_range: Annotated[RangeFilter, Depends(float_range_filter_factory("duration", DagRun))],
     update_at_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("updated_at", DagRun))],
@@ -515,6 +541,8 @@ def get_dag_runs(
     bundle_version: Annotated[
         FilterParam[str | None], Depends(filter_param_factory(DagRun.bundle_version, str | None))
     ],
+    teams: Annotated[_DagIdTeamsFilter, Depends(teams_filter_factory(DagRun.dag_id))],
+    tags: Annotated[_DagIdTagsFilter, Depends(tags_filter_factory(DagRun.dag_id))],
     order_by: Annotated[
         SortParam,
         Depends(
@@ -671,6 +699,8 @@ def get_dag_runs(
         partition_key_pattern,
         partition_key_prefix_pattern,
         consuming_asset_pattern,
+        teams,
+        tags,
     ]
 
     if use_cursor:
@@ -768,21 +798,55 @@ def trigger_dag_run(
             f"Dag with dag_id: '{dag_id}' has import errors and cannot be triggered",
         )
 
-    if dm.allowed_run_types is not None and DagRunType.MANUAL not in dm.allowed_run_types:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"Dag with dag_id: '{dag_id}' does not allow manual runs",
-        )
-
     referer = request.headers.get("referer")
     if referer:
         triggered_by = DagRunTriggeredByType.UI
     else:
         triggered_by = DagRunTriggeredByType.REST_API
 
-    dag = get_latest_version_of_dag(dag_bag, dag_id, session)
     try:
-        params = body.validate_context(dag)
+        dag = get_latest_version_of_dag(dag_bag, dag_id, session)
+        preloaded_dag_version = None
+        context_dag = dag
+        if body.bundle_version is not None and not dag.disable_bundle_versioning:
+            preloaded_dag_version = DagVersion.get_latest_version(
+                dag_id, bundle_version=body.bundle_version, load_serialized_dag=True, session=session
+            )
+            if not preloaded_dag_version:
+                raise DagVersionNotFound(
+                    f"DAG with dag_id: '{dag_id}' does not have a version for bundle_version '{body.bundle_version}'"
+                )
+            context_dag = preloaded_dag_version.serialized_dag.dag
+
+        if (
+            context_dag.allowed_run_types is not None
+            and DagRunType.MANUAL not in context_dag.allowed_run_types
+        ):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Dag with dag_id: '{dag_id}' does not allow manual runs",
+            )
+
+        params = body.validate_context(context_dag)
+
+        if body.bundle_version is not None:
+            if dag.disable_bundle_versioning:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"DAG with dag_id: '{dag_id}' does not support bundle versioning",
+                )
+
+        if body.drain_dag:
+            if not get_auth_manager().is_authorized_dag(
+                method="PUT",
+                details=DagDetails(id=dag_id, team_name=DagModel.get_team_name(dag_id, session=session)),
+                user=user,
+            ):
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN, f"Draining requires permission to edit Dag: {dag_id}"
+                )
+            DagModel.start_drain(dag_id, session=session)
+
         dag_run = dag.create_dagrun(
             run_id=params["run_id"],
             logical_date=params["logical_date"],
@@ -791,20 +855,25 @@ def trigger_dag_run(
             conf=params["conf"],
             run_type=DagRunType.MANUAL,
             triggered_by=triggered_by,
-            triggering_user_name=user.get_name(),
+            triggering_user_name=user.get_display_name(),
             state=DagRunState.QUEUED,
             partition_key=params["partition_key"],
+            bundle_version=body.bundle_version,
+            dag_version=preloaded_dag_version,
             partition_date=params["partition_date"],
             session=session,
         )
+
+        dag_run_note = body.note
+        if dag_run_note:
+            current_user_id = user.get_id()
+            dag_run.note = (dag_run_note, current_user_id)
+        return dag_run
+
     except (ParamValidationError, ValueError) as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-
-    dag_run_note = body.note
-    if dag_run_note:
-        current_user_id = user.get_id()
-        dag_run.note = (dag_run_note, current_user_id)
-    return dag_run
+    except DagVersionNotFound as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
 
 
 @dag_run_router.get(
@@ -813,7 +882,7 @@ def trigger_dag_run(
     summary="Experimental: Wait for a dag run to complete, and return task results if requested.",
     description="🚧 This is an experimental endpoint and may change or be removed without notice.Successful response are streamed as newline-delimited JSON (NDJSON). Each line is a JSON object representing the Dag run state.",
     responses={
-        **create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
+        **create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND, status.HTTP_409_CONFLICT]),
         status.HTTP_200_OK: {
             "description": "Successful Response",
             "content": {
@@ -836,6 +905,7 @@ def trigger_dag_run(
 def wait_dag_run_until_finished(
     dag_id: str,
     dag_run_id: str,
+    dag_bag: DagBagDep,
     session: SessionDep,
     user: GetUserDep,
     interval: Annotated[float, Query(gt=0.0, description="Seconds to wait between dag run state checks")],
@@ -867,7 +937,8 @@ def wait_dag_run_until_finished(
                 "User is not authorized to read XCom data for this Dag",
             )
         result_task_ids = []  # Explicitly not returning any XCom results.
-    if not session.scalar(select(1).where(DagRun.dag_id == dag_id, DagRun.run_id == dag_run_id)):
+    dag_run = session.scalar(select(DagRun).where(DagRun.dag_id == dag_id, DagRun.run_id == dag_run_id))
+    if dag_run is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             f"The DagRun with dag_id: `{dag_id}` and run_id: `{dag_run_id}` was not found",
@@ -878,6 +949,7 @@ def wait_dag_run_until_finished(
         interval=interval,
         result_task_ids=result_task_ids,
     )
+    waiter.validate_result_selection(dag_run, dag_bag, session=session)
     return StreamingResponse(waiter.wait())
 
 

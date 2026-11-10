@@ -35,13 +35,23 @@ static inline PyObject *captures_for_match(ModuleState *state, TSQuery *query, T
         const char *capture_name = ts_query_capture_name_for_id(query, capture.index, &name_length);
         PyObject *capture_name_obj = PyUnicode_FromStringAndSize(capture_name, name_length);
         if (capture_name_obj == NULL) {
+            Py_DECREF(captures);
             return NULL;
         }
         PyObject *nodes = nodes_for_capture_index(state, capture.index, match, tree);
+        if (nodes == NULL) {
+            Py_DECREF(captures);
+            Py_DECREF(capture_name_obj);
+            return NULL;
+        }
         if (PyDict_SetItem(captures, capture_name_obj, nodes) == -1) {
+            Py_DECREF(captures);
+            Py_DECREF(capture_name_obj);
+            Py_DECREF(nodes);
             return NULL;
         }
         Py_DECREF(capture_name_obj);
+        Py_DECREF(nodes);
     }
     return captures;
 }
@@ -178,7 +188,9 @@ bool query_satisfies_predicates(Query *query, TSQueryMatch match, Tree *tree, Py
 
 static void query_predicate_anyof_dealloc(QueryPredicateAnyOf *self) {
     Py_XDECREF(self->values);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 static PyType_Slot query_predicate_anyof_slots[] = {
@@ -200,7 +212,9 @@ PyType_Spec query_predicate_anyof_type_spec = {
 // QueryPredicateEqCapture {{{
 
 static void query_predicate_eq_capture_dealloc(QueryPredicateEqCapture *self) {
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 static PyType_Slot query_predicate_eq_capture_slots[] = {
@@ -223,7 +237,9 @@ PyType_Spec query_predicate_eq_capture_type_spec = {
 
 static void query_predicate_eq_string_dealloc(QueryPredicateEqString *self) {
     Py_XDECREF(self->string_value);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 static PyType_Slot query_predicate_eq_string_slots[] = {
@@ -246,7 +262,9 @@ PyType_Spec query_predicate_eq_string_type_spec = {
 
 static void query_predicate_match_dealloc(QueryPredicateMatch *self) {
     Py_XDECREF(self->pattern);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 static PyType_Slot query_predicate_match_slots[] = {
@@ -270,7 +288,9 @@ PyType_Spec query_predicate_match_type_spec = {
 static void query_predicate_generic_dealloc(QueryPredicateGeneric *self) {
     Py_XDECREF(self->predicate);
     Py_XDECREF(self->arguments);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 static PyType_Slot query_predicate_generic_slots[] = {

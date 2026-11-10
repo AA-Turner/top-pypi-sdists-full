@@ -150,6 +150,7 @@ class Packer(object):
 
 class WireProtocol(object):
     buffer_length = 1024
+    blob_segment_length = 32767     # Keep response lengths within Firebird 2.5's signed limit
 
     op_connect = 1
     op_exit = 2
@@ -252,7 +253,7 @@ class WireProtocol(object):
             return True
         return False
 
-    def params_to_blr(self, trans_handle, params, input_xsqlda=None):
+    def params_to_blr(self, trans_handle, params, input_xsqlda=None, blob_ids=None):
         "Convert parameter array to BLR and values format."
         from firebirdsql.array import Array, extract_array_elements, encode_slice_elements
         ln = len(params) * 2
@@ -295,7 +296,10 @@ class WireProtocol(object):
                 v = array_id
             elif t == bytes:
                 if len(p) > MAX_CHAR_LENGTH:
-                    v = self._create_blob(trans_handle, p)
+                    if blob_ids and i in blob_ids:
+                        v = blob_ids[i]
+                    else:
+                        v = self._create_blob(trans_handle, p)
                     blr += bytes([9, 0])
                 else:
                     v = p
@@ -706,7 +710,14 @@ class WireProtocol(object):
         self.sock.send(p.get_buffer())
 
     @wire_operation
-    def _op_execute(self, stmt_handle, trans_handle, params, input_xsqlda=None, timeout=None):
+    def _op_execute(self, stmt_handle, trans_handle, params, input_xsqlda=None, timeout=None, blob_ids=None):
+        self.sock.send(self._op_execute_buffer(
+            stmt_handle, trans_handle, params, input_xsqlda, timeout, blob_ids))
+
+    def _op_execute_buffer(self, stmt_handle, trans_handle, params, input_xsqlda=None, timeout=None, blob_ids=None):
+        """Build an op_execute packet without sending it. Large bytes/text and
+        array parameters are uploaded here, each waiting for its reply, so no
+        other reply may be pending when this is called."""
         p = Packer()
         p.pack_int(self.op_execute)
         p.pack_int(stmt_handle)
@@ -718,7 +729,7 @@ class WireProtocol(object):
             p.pack_int(0)
             buf = p.get_buffer()
         else:
-            (blr, values) = self.params_to_blr(trans_handle, params, input_xsqlda)
+            (blr, values) = self.params_to_blr(trans_handle, params, input_xsqlda, blob_ids)
             p.pack_bytes(blr)
             p.pack_int(0)
             p.pack_int(1)
@@ -726,10 +737,10 @@ class WireProtocol(object):
         if self.accept_version >= PROTOCOL_VERSION16:
             timeout_ms = int(timeout * 1000) if timeout else 0
             buf += bint_to_bytes(timeout_ms, 4)
-        self.sock.send(buf)
+        return buf
 
     @wire_operation
-    def _op_execute2(self, stmt_handle, trans_handle, params, output_blr, input_xsqlda=None, timeout=None):
+    def _op_execute2(self, stmt_handle, trans_handle, params, output_blr, input_xsqlda=None, timeout=None, blob_ids=None):
         p = Packer()
         p.pack_int(self.op_execute2)
         p.pack_int(stmt_handle)
@@ -741,7 +752,7 @@ class WireProtocol(object):
             p.pack_int(0)
             p.pack_int(0)
         else:
-            (blr, values) = self.params_to_blr(trans_handle, params, input_xsqlda)
+            (blr, values) = self.params_to_blr(trans_handle, params, input_xsqlda, blob_ids)
             p.pack_bytes(blr)
             p.pack_int(0)
             p.pack_int(1)
@@ -857,7 +868,7 @@ class WireProtocol(object):
         p = Packer()
         p.pack_int(self.op_get_segment)
         p.pack_int(blob_handle)
-        p.pack_int(self.buffer_length)
+        p.pack_int(self.blob_segment_length)
         p.pack_int(0)
         self.sock.send(p.get_buffer())
 

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: pyvista-cad
-Version: 0.1.0
+Version: 0.1.1
 Summary: PyVista accessor and reader-registry plugin for CAD formats (STEP, IGES, BREP, DXF, 3MF, IFC, FCStd) and bridges to build123d, cadquery, and OCP.
-Author-email: The PyVista Developers <info@pyvista.org>
+Author-email: CoDimensional PBC <hello@codimensional.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/pyvista/pyvista-cad
 Project-URL: Documentation, https://pyvista.github.io/pyvista-cad/
@@ -78,16 +78,27 @@ Requires-Dist: hypothesis>=6.100; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
-  <img src="https://github.com/pyvista/pyvista/raw/main/doc/source/_static/pyvista_logo.svg" alt="PyVista" width="400" />
+  <a href="https://codimensional.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://codimensional.com/partners/pyvista-codim-banner-dark.png">
+      <img src="https://codimensional.com/partners/pyvista-codim-banner-light.png" width="516" alt="PyVista and CoDimensional">
+    </picture>
+  </a>
 </p>
 
-# pyvista-cad
+<h1 align="center">pyvista-cad</h1>
 
-[![CI](https://github.com/pyvista/pyvista-cad/actions/workflows/ci.yml/badge.svg)](https://github.com/pyvista/pyvista-cad/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/pyvista-cad.svg)](https://pypi.org/project/pyvista-cad/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<p align="center">
+  CAD format reading, writing, and CAD-style plotting for <a href="https://pyvista.org">PyVista</a>.
+</p>
 
-**CAD format reading, writing, and CAD-style plotting for [PyVista](https://github.com/pyvista/pyvista).**
+<p align="center">
+  <a href="https://pypi.org/project/pyvista-cad/"><img src="https://img.shields.io/pypi/v/pyvista-cad" alt="PyPI"></a>
+  <a href="https://github.com/pyvista/pyvista-cad/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pyvista/pyvista-cad/ci.yml?branch=main" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
+
+Built and maintained by [CoDimensional PBC](https://codimensional.com).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/pyvista/pyvista-cad/main/doc/_static/hero.png" alt="The same flange shown two ways: a generic mesh viewer drawing the raw triangulation on the left, and pyvista-cad drawing smoothly shaded faces with the model's topological edges on the right." width="90%">

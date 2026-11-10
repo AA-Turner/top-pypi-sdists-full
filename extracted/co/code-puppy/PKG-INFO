@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.966
+Version: 0.0.969
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -20,7 +20,7 @@ Requires-Dist: anthropic<2,>=1.0.0
 Requires-Dist: anyio>=4.14.2
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3>=1.43.9
-Requires-Dist: code-puppy-core-plugins>=0.0.104
+Requires-Dist: code-puppy-core-plugins>=0.0.109
 Requires-Dist: cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'
 Requires-Dist: fastmcp-slim[client]<5,>=3.3.0
 Requires-Dist: httpx2>=2.7
@@ -47,7 +47,7 @@ Requires-Dist: websockets>=14.0
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.35.0; extra == 'bedrock'
 Provides-Extra: computer-use
-Requires-Dist: code-puppy-core-plugins[computer-use]>=0.0.104; extra == 'computer-use'
+Requires-Dist: code-puppy-core-plugins[computer-use]>=0.0.109; extra == 'computer-use'
 Provides-Extra: durable
 Requires-Dist: dbos>=2.11.0; extra == 'durable'
 Description-Content-Type: text/markdown

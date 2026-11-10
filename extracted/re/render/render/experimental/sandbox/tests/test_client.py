@@ -13,6 +13,8 @@ from render.experimental.sandbox.client import SandboxClient
 from render.experimental.sandbox.errors import (
     SandboxExecError,
     SandboxExecStreamError,
+    SandboxGroupDefaultNotDeletableError,
+    SandboxGroupSuspendedError,
     SandboxNotFoundError,
 )
 from render.experimental.sandbox.types import (
@@ -22,6 +24,7 @@ from render.experimental.sandbox.types import (
     SandboxExecOutput,
 )
 from render.public_api.client import AuthenticatedClient
+from render.public_api.models.error_code import ErrorCode
 
 SANDBOX_JSON = {
     "id": "sbx-abc",
@@ -156,6 +159,50 @@ def test_sync_create_passes_a_plan_unknown_to_the_sdk_through():
 
 
 @pytest.mark.asyncio
+async def test_create_sends_the_name_and_returns_it():
+    captured = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json={**SANDBOX_JSON, "name": "my-agent"})
+
+    client = _sandbox_client(handler)
+    sandbox = await client.create(name="my-agent")
+
+    assert captured["body"]["name"] == "my-agent"
+    assert sandbox.name == "my-agent"
+
+
+@pytest.mark.asyncio
+async def test_create_omits_the_name_when_none_is_given():
+    captured = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json=SANDBOX_JSON)
+
+    client = _sandbox_client(handler)
+    sandbox = await client.create()
+
+    assert "name" not in captured["body"]
+    assert sandbox.name is None
+
+
+def test_sync_create_sends_the_name_and_returns_it():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(201, json={**SANDBOX_JSON, "name": "my-agent"})
+
+    client = _sync_sandbox_client(handler)
+    sandbox = client.create(name="my-agent")
+
+    assert captured["body"]["name"] == "my-agent"
+    assert sandbox.name == "my-agent"
+
+
+@pytest.mark.asyncio
 async def test_create_sends_env_in_post_body():
     captured = {}
 
@@ -282,6 +329,29 @@ async def test_list_returns_sandboxes_and_cursor():
     assert captured["query"]["limit"] == "50"
     assert [s.id for s in page.sandboxes] == ["sbx-abc", "sbx-def"]
     assert page.next_cursor == "cur-2"
+
+
+@pytest.mark.asyncio
+async def test_list_filters_by_name_and_returns_every_match():
+    captured = {}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        captured["query"] = dict(request.url.params)
+        named = {**SANDBOX_JSON, "name": "my-agent"}
+        body = [
+            {"sandbox": named, "cursor": "cur-1"},
+            {"sandbox": {**named, "id": "sbx-def"}, "cursor": "cur-2"},
+        ]
+        return httpx.Response(200, json=body)
+
+    client = _sandbox_client(handler)
+    page = await client.list(name="my-agent")
+
+    assert captured["query"]["name"] == "my-agent"
+    assert [(s.id, s.name) for s in page.sandboxes] == [
+        ("sbx-abc", "my-agent"),
+        ("sbx-def", "my-agent"),
+    ]
 
 
 @pytest.mark.asyncio
@@ -1241,3 +1311,120 @@ def test_sync_group_selection_and_management():
     assert client.create(sandbox_group_id=group.id).sandbox_group_id == group.id
     assert client.get_group(group.id).id == group.id
     assert client.update_group(group.id, concurrency_limit=200).concurrency_limit == 10
+
+
+@pytest.mark.asyncio
+async def test_delete_group_sends_delete():
+    captured = []
+
+    async def handler(request):
+        captured.append(request)
+        return httpx.Response(204)
+
+    client = _sandbox_client(handler)
+    assert await client.delete_group("sbg-abc") is None
+
+    assert captured[-1].method == "DELETE"
+    assert captured[-1].url.path == "/v1/sandbox-groups/sbg-abc"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("code", "error_type"),
+    [
+        ("default_sandbox_group_not_deletable", SandboxGroupDefaultNotDeletableError),
+        ("sandbox_group_suspended", SandboxGroupSuspendedError),
+    ],
+)
+async def test_delete_group_raises_a_typed_error_for_each_conflict_code(
+    code, error_type
+):
+    async def handler(request):
+        return httpx.Response(409, json={"code": code, "message": "conflict"})
+
+    client = _sandbox_client(handler)
+    with pytest.raises(error_type, match="conflict") as exc:
+        await client.delete_group("sbg-abc")
+    assert exc.value.code == ErrorCode(code)
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_delete_group_raises_client_error_for_an_unknown_conflict_code():
+    async def handler(request):
+        return httpx.Response(409, json={"code": "other", "message": "conflict"})
+
+    client = _sandbox_client(handler)
+    with pytest.raises(ClientError) as exc:
+        await client.delete_group("sbg-abc")
+    assert type(exc.value) is ClientError
+
+
+def test_sync_delete_group_raises_a_typed_error_for_the_default_group():
+    captured = []
+
+    def handler(request):
+        captured.append(request)
+        if request.url.path.endswith("sbg-default"):
+            body = {"code": "default_sandbox_group_not_deletable", "message": "x"}
+            return httpx.Response(409, json=body)
+        return httpx.Response(204)
+
+    client = _sync_sandbox_client(handler)
+    assert client.delete_group("sbg-abc") is None
+    assert captured[-1].method == "DELETE"
+    with pytest.raises(SandboxGroupDefaultNotDeletableError):
+        client.delete_group("sbg-default")
+
+
+@pytest.mark.asyncio
+async def test_set_default_group_returns_the_default_group():
+    captured = []
+
+    async def handler(request):
+        captured.append(request)
+        return httpx.Response(200, json=SANDBOX_GROUP_JSON)
+
+    client = _sandbox_client(handler)
+    group = await client.set_default_group("sbg-abc")
+
+    assert captured[-1].method == "POST"
+    assert captured[-1].url.path == "/v1/sandbox-groups/sbg-abc/set-default"
+    assert group.id == "sbg-abc"
+    assert group.is_default is True
+
+
+@pytest.mark.asyncio
+async def test_set_default_group_raises_sandbox_group_suspended_error():
+    async def handler(request):
+        body = {"code": "sandbox_group_suspended", "message": "group suspended"}
+        return httpx.Response(409, json=body)
+
+    client = _sandbox_client(handler)
+    with pytest.raises(SandboxGroupSuspendedError, match="group suspended") as exc:
+        await client.set_default_group("sbg-abc")
+    assert exc.value.code == ErrorCode.SANDBOX_GROUP_SUSPENDED
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_set_default_group_raises_client_error_for_an_unknown_conflict_code():
+    async def handler(request):
+        return httpx.Response(409, json={"code": "other", "message": "conflict"})
+
+    client = _sandbox_client(handler)
+    with pytest.raises(ClientError) as exc:
+        await client.set_default_group("sbg-abc")
+    assert type(exc.value) is ClientError
+
+
+def test_sync_set_default_group_returns_the_default_group():
+    captured = []
+
+    def handler(request):
+        captured.append(request)
+        return httpx.Response(200, json=SANDBOX_GROUP_JSON)
+
+    client = _sync_sandbox_client(handler)
+    assert client.set_default_group("sbg-abc").is_default is True
+    assert captured[-1].url.path == "/v1/sandbox-groups/sbg-abc/set-default"

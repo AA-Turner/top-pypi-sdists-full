@@ -1,7 +1,7 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define to 1 if you have the `asprintf' function. */
+/* Define to 1 if you have the 'asprintf' function. */
 #define HAVE_ASPRINTF 1
 
 /* define if the compiler supports basic C++17 syntax */
@@ -13,13 +13,13 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
 
-/* Define to 1 if you have the `erand48' function. */
+/* Define to 1 if you have the 'erand48' function. */
 #define HAVE_ERAND48 1
 
 /* Define to 1 if you have the <float.h> header file. */
 #define HAVE_FLOAT_H 1
 
-/* Define to 1 if you have the `floor' function. */
+/* Define to 1 if you have the 'floor' function. */
 #define HAVE_FLOOR 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
@@ -31,19 +31,19 @@
 /* Define to 1 if you have the <lapacke/lapacke.h> header file. */
 /* #undef HAVE_LAPACKE_LAPACKE_H */
 
-/* Define to 1 if you have the `gsl' library (-lgsl). */
+/* Define to 1 if you have the 'gsl' library (-lgsl). */
 /* #undef HAVE_LIBGSL */
 
-/* Define to 1 if you have the `gslcblas' library (-lgslcblas). */
+/* Define to 1 if you have the 'gslcblas' library (-lgslcblas). */
 /* #undef HAVE_LIBGSLCBLAS */
 
-/* Define to 1 if you have the `m' library (-lm). */
+/* Define to 1 if you have the 'm' library (-lm). */
 #define HAVE_LIBM 1
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
 
-/* Define to 1 if your system has a GNU libc compatible `malloc' function, and
+/* Define to 1 if your system has a GNU libc compatible 'malloc' function, and
    to 0 otherwise. */
 #define HAVE_MALLOC 1
 
@@ -53,10 +53,10 @@
 /* Define to 1 if you have the <math.h> header file. */
 #define HAVE_MATH_H 1
 
-/* Define to 1 if you have the `memmove' function. */
+/* Define to 1 if you have the 'memmove' function. */
 #define HAVE_MEMMOVE 1
 
-/* Define to 1 if you have the `memset' function. */
+/* Define to 1 if you have the 'memset' function. */
 #define HAVE_MEMSET 1
 
 /* Define to 1 if you have the <minix/config.h> header file. */
@@ -68,20 +68,20 @@
 /* Define if OpenMP is enabled */
 #define HAVE_OPENMP 1
 
-/* Define to 1 if you have the `pow' function. */
+/* Define to 1 if you have the 'pow' function. */
 #define HAVE_POW 1
 
 /* Have PTHREAD_PRIO_INHERIT. */
 #define HAVE_PTHREAD_PRIO_INHERIT 1
 
-/* Define to 1 if your system has a GNU libc compatible `realloc' function,
+/* Define to 1 if your system has a GNU libc compatible 'realloc' function,
    and to 0 otherwise. */
 #define HAVE_REALLOC 1
 
-/* Define to 1 if you have the `rint' function. */
+/* Define to 1 if you have the 'rint' function. */
 #define HAVE_RINT 1
 
-/* Define to 1 if you have the `sqrt' function. */
+/* Define to 1 if you have the 'sqrt' function. */
 #define HAVE_SQRT 1
 
 /* Define to 1 if you have the <stdarg.h> header file. */
@@ -99,10 +99,10 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
 
-/* Define to 1 if you have the `strchr' function. */
+/* Define to 1 if you have the 'strchr' function. */
 #define HAVE_STRCHR 1
 
-/* Define to 1 if you have the `strdup' function. */
+/* Define to 1 if you have the 'strdup' function. */
 #define HAVE_STRDUP 1
 
 /* Define to 1 if you have the <strings.h> header file. */
@@ -111,16 +111,16 @@
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
-/* Define to 1 if you have the `strrchr' function. */
+/* Define to 1 if you have the 'strrchr' function. */
 #define HAVE_STRRCHR 1
 
-/* Define to 1 if you have the `strstr' function. */
+/* Define to 1 if you have the 'strstr' function. */
 #define HAVE_STRSTR 1
 
-/* Define to 1 if you have the `strtol' function. */
+/* Define to 1 if you have the 'strtol' function. */
 #define HAVE_STRTOL 1
 
-/* Define to 1 if you have the `strtoul' function. */
+/* Define to 1 if you have the 'strtoul' function. */
 #define HAVE_STRTOUL 1
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
@@ -132,13 +132,13 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
-/* Define to 1 if you have the `vasprintf' function. */
+/* Define to 1 if you have the 'vasprintf' function. */
 #define HAVE_VASPRINTF 1
 
 /* Define to 1 if you have the <wchar.h> header file. */
 #define HAVE_WCHAR_H 1
 
-/* Define to 1 if the system has the type `_Bool'. */
+/* Define to 1 if the system has the type '_Bool'. */
 #define HAVE__BOOL 1
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
@@ -154,7 +154,7 @@
 #define PACKAGE_NAME "ViennaRNA"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "ViennaRNA 2.7.2"
+#define PACKAGE_STRING "ViennaRNA 2.8.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "ViennaRNA"
@@ -163,13 +163,13 @@
 #define PACKAGE_URL "https://www.tbi.univie.ac.at/RNA"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.7.2"
+#define PACKAGE_VERSION "2.8.0"
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */
 /* #undef PTHREAD_CREATE_JOINABLE */
 
-/* Define to 1 if all of the C90 standard headers exist (not just the ones
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
    required in a freestanding environment). This macro is provided for
    backward compatibility; new code need not use it. */
 #define STDC_HEADERS 1
@@ -180,7 +180,7 @@
 /* Use floating point precision in partition function computations */
 /* #undef USE_FLOAT_PF */
 
-/* Enable extensions on AIX 3, Interix.  */
+/* Enable extensions on AIX, Interix, z/OS.  */
 #ifndef _ALL_SOURCE
 # define _ALL_SOURCE 1
 #endif
@@ -241,11 +241,15 @@
 #ifndef __STDC_WANT_IEC_60559_DFP_EXT__
 # define __STDC_WANT_IEC_60559_DFP_EXT__ 1
 #endif
+/* Enable extensions specified by C23 Annex F.  */
+#ifndef __STDC_WANT_IEC_60559_EXT__
+# define __STDC_WANT_IEC_60559_EXT__ 1
+#endif
 /* Enable extensions specified by ISO/IEC TS 18661-4:2015.  */
 #ifndef __STDC_WANT_IEC_60559_FUNCS_EXT__
 # define __STDC_WANT_IEC_60559_FUNCS_EXT__ 1
 #endif
-/* Enable extensions specified by ISO/IEC TS 18661-3:2015.  */
+/* Enable extensions specified by C23 Annex H and ISO/IEC TS 18661-3:2015.  */
 #ifndef __STDC_WANT_IEC_60559_TYPES_EXT__
 # define __STDC_WANT_IEC_60559_TYPES_EXT__ 1
 #endif
@@ -269,7 +273,7 @@
 
 
 /* Version number of package */
-#define VERSION "2.7.2"
+#define VERSION "2.8.0"
 
 /* Do not log debug messages within RNAlib code */
 //#define VRNA_LOG_NO_DEBUG_RNALIB 1
@@ -281,7 +285,7 @@
 /* #undef VRNA_NR_SAMPLING_MPFR */
 
 /* version of ViennaRNA Package */
-#define VRNA_VERSION "2.7.2"
+#define VRNA_VERSION "2.8.0"
 
 /* Warn upon usage of deprecated symbols */
 /* #undef VRNA_WARN_DEPRECATED */
@@ -319,16 +323,13 @@
 /* Create the perl interface to RNAlib */
 /* #undef WITH_PERL_INTERFACE */
 
-/* Create the Python 2.x interface to RNAlib */
-/* #undef WITH_PYTHON2_INTERFACE */
-
 /* Create the Python 3.x interface to RNAlib */
 #define WITH_PYTHON_INTERFACE 1
 
-/* Define to empty if `const' does not conform to ANSI C. */
+/* Define to empty if 'const' does not conform to ANSI C. */
 /* #undef const */
 
-/* Define to `__inline__' or `__inline' if that's what the C compiler
+/* Define to '__inline__' or '__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 /* #undef inline */
@@ -340,5 +341,5 @@
 /* Define to rpl_realloc if the replacement function should be used. */
 /* #undef realloc */
 
-/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* Define as 'unsigned int' if <stddef.h> doesn't define. */
 /* #undef size_t */

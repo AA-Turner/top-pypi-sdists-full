@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_almost_equal, assert_array_almost_equal, assert_array_equal
 
-from nibabel import nifti1 as nifti1
+from nibabel import nifti1
 from nibabel.affines import from_matvec
 from nibabel.casting import have_binary128, type_info
 from nibabel.eulerangles import euler2mat
@@ -39,9 +39,10 @@ from nibabel.optpkg import optional_package
 from nibabel.pkg_info import cmp_pkg_version
 from nibabel.spatialimages import HeaderDataError
 from nibabel.tmpdirs import InTemporaryDirectory
+from nibabel.volumeutils import native_code
 
 from ..freesurfer import load as mghload
-from ..orientations import aff2axcodes
+from ..orientations import aff2axcodes, inv_ornt_aff
 from ..testing import (
     bytesio_filemap,
     bytesio_round_trip,
@@ -198,6 +199,7 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
                     assert hdr.get_slope_inter() == out_tup
             assert_array_equal([hdr['scl_slope'], hdr['scl_inter']], raw_values)
 
+    @pytest.mark.thread_unsafe
     def test_nifti_qfac_checks(self):
         # Test qfac is 1 or -1
         hdr = self.header_class()
@@ -212,6 +214,7 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
         assert fhdr['pixdim'][0] == 1
         assert message == 'pixdim[0] (qfac) should be 1 (default) or -1; setting qfac to 1'
 
+    @pytest.mark.thread_unsafe
     def test_nifti_qsform_checks(self):
         # qform, sform checks
         HC = self.header_class
@@ -244,6 +247,7 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
             with pytest.raises(KeyError):
                 hdr.set_sform(affine, bad_code)
 
+    @pytest.mark.thread_unsafe
     def test_magic_offset_checks(self):
         # magic and offset
         HC = self.header_class
@@ -281,9 +285,8 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
         fhdr, message, raiser = self.log_chk(hdr, 40)
         assert fhdr['vox_offset'] == hdr.single_vox_offset
         assert (
-            message == 'vox offset 10 too low for single '
-            'file nifti1; setting to minimum value '
-            'of ' + str(hdr.single_vox_offset)
+            message == 'vox offset 10 too low for single file nifti1; '
+            f'setting to minimum value of {hdr.single_vox_offset}'
         )
 
     def test_freesurfer_large_vector_hack(self):
@@ -345,6 +348,7 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
                 assert hdr.get_data_shape() == shape
 
     @needs_nibabel_data('nitest-freesurfer')
+    @pytest.mark.thread_unsafe
     def test_freesurfer_ico7_hack(self):
         HC = self.header_class
         hdr = HC()
@@ -494,6 +498,9 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
             ehdr['pixdim'][1:4] = dims
             with pytest.raises(HeaderDataError):
                 ehdr.get_qform()
+        # Non-4x4 affines are rejected
+        with pytest.raises(TypeError):
+            ehdr.set_qform(np.eye(5))
 
     def test_sform(self):
         # Test roundtrip case
@@ -507,6 +514,14 @@ class TestNifti1PairHeader(tana.TestAnalyzeHeader, tspm.HeaderScalingMixin):
         assert ehdr['sform_code'] == xfas['scanner']
         ehdr.set_sform(A, xfas['aligned'])
         assert ehdr['sform_code'] == xfas['aligned']
+        # Non-4x4 affines are rejected, matching set_qform behavior.
+        # A (6, 4) array previously slipped through silently, because
+        # set_sform only indexed the first three rows without checking
+        # the overall shape.
+        with pytest.raises(TypeError):
+            ehdr.set_sform(np.eye(5))
+        with pytest.raises(TypeError):
+            ehdr.set_sform(np.zeros((6, 4)))
 
     def test_dim_info(self):
         ehdr = self.header_class()
@@ -994,6 +1009,7 @@ class TestNifti1Pair(tana.TestAnalyzeImage, tspm.ImageScalingMixin):
         img.set_sform(None, img.get_sform(coded=True)[1])
         img.set_qform(None, img.get_qform(coded=True)[1])
 
+    @pytest.mark.thread_unsafe
     def test_hdr_diff(self):
         # Check an offset beyond data does not raise an error
         img = self.image_class(np.zeros((2, 3, 4)), np.eye(4))
@@ -1001,8 +1017,9 @@ class TestNifti1Pair(tana.TestAnalyzeImage, tspm.ImageScalingMixin):
         hdr_len = len(img.header.binaryblock)
         img.header['vox_offset'] = hdr_len + 400
         with InTemporaryDirectory():
-            img.to_filename('another_file' + ext)
+            img.to_filename(f'another_file{ext}')
 
+    @pytest.mark.thread_unsafe
     def test_load_save(self):
         IC = self.image_class
         img_ext = IC.files_types[0][1]
@@ -1018,7 +1035,7 @@ class TestNifti1Pair(tana.TestAnalyzeImage, tspm.ImageScalingMixin):
         assert_array_equal(img2.get_fdata(), data)
         with InTemporaryDirectory() as tmpdir:
             for ext in ('', '.gz', '.bz2'):
-                fname = os.path.join(tmpdir, 'test' + img_ext + ext)
+                fname = os.path.join(tmpdir, f'test{img_ext}{ext}')
                 img.to_filename(fname)
                 img3 = IC.load(fname)
                 assert isinstance(img3, img.__class__)
@@ -1293,6 +1310,16 @@ def test_extension_list():
     assert ext_c0 == ext_c1
 
 
+@pytest.mark.parametrize('esize', [0, -16])
+@pytest.mark.parametrize('endianness', ['<', '>'])
+def test_undersized_extension_does_not_read_payload(esize, endianness):
+    bio = BytesIO(struct.pack(f'{endianness}ii', esize, 6) + b'sentinel')
+    with pytest.raises(HeaderDataError):
+        Nifti1Extensions.from_fileobj(bio, -1, endianness != native_code)
+    assert bio.tell() == 8
+
+
+@pytest.mark.thread_unsafe
 def test_extension_io():
     bio = BytesIO()
     ext1 = Nifti1Extension(6, b'Extra comment')
@@ -1453,6 +1480,7 @@ class TestNifti1General:
     module = nifti1
     example_file = image_file
 
+    @pytest.mark.thread_unsafe
     def test_loadsave_cycle(self):
         nim = self.module.load(self.example_file)
         # ensure we have extensions
@@ -1491,6 +1519,7 @@ class TestNifti1General:
         assert lnim.header.get_slope_inter() == (None, None)
         assert (lnim.dataobj.slope, lnim.dataobj.inter) == (2, 8)
 
+    @pytest.mark.thread_unsafe
     def test_load(self):
         # test module level load.  We try to load a nii and an .img and a .hdr
         # and expect to get a nifti back of single or pair type
@@ -1563,6 +1592,62 @@ class TestNifti1General:
                 # Hokey use of max_miss as a std estimate
                 bias_thresh = np.max([max_miss / np.sqrt(count), eps])
                 assert np.abs(bias) < bias_thresh
+
+    def test_reoriented_preserves_xform_codes(self):
+        # gh-1427: reorienting permutes and flips axes, it does not move the
+        # image into another space, so the sform/qform codes must survive.
+        # dcm2niix writes scanner anat (code 1) for both.
+        affine = np.diag([-2.0, 2, 2, 1])
+        affine[:3, 3] = [10, -20, -30]
+        img = self.single_class(np.zeros((4, 4, 4)), affine)
+        img.header.set_sform(affine, code=1)
+        img.header.set_qform(affine, code=1)
+
+        reoriented = img.as_reoriented([[0, -1], [1, 1], [2, 1]])
+
+        assert int(reoriented.header['sform_code']) == 1
+        assert int(reoriented.header['qform_code']) == 1
+        # The header must still describe the affine the image reports.
+        assert_array_equal(reoriented.affine, reoriented.header.get_best_affine())
+
+    def test_reoriented_keeps_qform_and_sform_in_their_own_spaces(self):
+        # gh-1546 review: a scanner qform (code 1) next to an sform registered
+        # to MNI (code 4).  Each form must be reoriented from its own matrix;
+        # img.affine is the sform here, and copying it into the qform slot
+        # would label MNI coordinates as scanner coordinates.
+        shape = (4, 5, 6)
+        qform = np.diag([-2.0, 2, 2, 1])
+        qform[:3, 3] = [10, -20, -30]
+        sform = np.array([[0, 0, -2.0, 5], [0, 2.0, 0, -7], [2.0, 0, 0, 3], [0, 0, 0, 1]])
+        img = self.single_class(np.zeros(shape), sform)
+        img.header.set_sform(sform, code=4)
+        img.header.set_qform(qform, code=1)
+        ornt = [[1, -1], [0, 1], [2, -1]]
+
+        reoriented = img.as_reoriented(ornt)
+
+        vox_ornt = inv_ornt_aff(ornt, shape)
+        new_sform, new_scode = reoriented.header.get_sform(coded=True)
+        new_qform, new_qcode = reoriented.header.get_qform(coded=True)
+        assert new_scode == 4
+        assert new_qcode == 1
+        assert_almost_equal(new_sform, sform @ vox_ornt)
+        assert_almost_equal(new_qform, qform @ vox_ornt)
+        assert_array_equal(reoriented.affine, reoriented.header.get_best_affine())
+
+    def test_reoriented_leaves_unset_xform_codes_alone(self):
+        # An image with no qform has nothing to preserve there, and clearing
+        # what the affine write-back set could leave it with no valid form.
+        affine = np.diag([-2.0, 2, 2, 1])
+        img = self.single_class(np.zeros((4, 4, 4)), affine)
+        img.header.set_sform(affine, code=4)
+        img.header.set_qform(None, code=0)
+
+        reoriented = img.as_reoriented([[0, -1], [1, 1], [2, 1]])
+
+        assert int(reoriented.header['sform_code']) == 4
+        assert int(reoriented.header['qform_code']) == 0
+        assert_array_equal(reoriented.affine, reoriented.header.get_best_affine())
 
     def test_reoriented_dim_info(self):
         # Check that dim_info is reoriented correctly

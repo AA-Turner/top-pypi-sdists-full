@@ -71,11 +71,10 @@ REVOKE_PATH = "/agent-tap/revoke"
 REVOKE_REASON_UNINSTALL = "uninstall"
 REVOKE_REASON_REPAIR = "repair"
 
-#: Where every message sends a person to set up or repair this device: setup is
-#: wizard-only (Richard 2026-09-29). A copy of probe.sdk.session_marker.WIZARD_HINT,
-#: because this plugin is stdlib-only and cannot import `probe`;
-#: agent/tests/test_wizard_hint_sync.py fails when the two differ.
-WIZARD_HINT = "run the Probe wizard: probe wizard or npx probe-research"
+#: How a missing or rejected credential is fixed from the chat (fixes-1107b). A copy of
+#: probe.sdk.session_marker.SIGN_IN_HINT, because this plugin is stdlib-only and cannot import
+#: `probe`; agent/tests/test_sign_in_hint_sync.py fails when the two differ.
+SIGN_IN_HINT = "run `npx -y probe-research sign-in --json`"
 
 # Env overrides for the credential pair. There is deliberately NO hardcoded
 # base-URL fallback: a baked-in default is exactly what silently broke the
@@ -185,8 +184,10 @@ def heal_marker(session_id: str) -> Path:
     """Rate-limit stamp for a self-heal attempt.
 
     Shared by `tap start`'s callers so the ten-minute bound is one rule and
-    not two: `hooks/ensure-daemon.sh` stats it, `probe`'s `ensure_capture`
-    writes it. The hook resolves this path in bash; if the two ever disagree
+    not two: `hooks/ensure-daemon.sh` stats it and writes its tap version into
+    it (only its own version's marker holds it back, so a tap update heals at
+    once), `probe`'s `ensure_capture` (pi only, which never runs that hook)
+    stamps it. The hook resolves this path in bash; if the two ever disagree
     the bound silently becomes two different bounds, so any change here is a
     change to that script as well.
     """
@@ -365,7 +366,7 @@ def api_base_url() -> str:
     raise APIBaseURLUnset(
         "no backend base URL configured — pair this device with "
         "`python -m tap pair <token>` (the host is read from the token), "
-        f"{WIZARD_HINT}, or set {ENV_BASE_URL}"
+        f"{SIGN_IN_HINT}, or set {ENV_BASE_URL}"
     )
 
 

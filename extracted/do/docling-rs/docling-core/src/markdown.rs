@@ -628,6 +628,11 @@ fn strict_text(text: &str, strict: bool) -> String {
     if !strict {
         return text.to_string();
     }
+    // A list item's leading GFM task box (`[ ] todo`, a docling-JSON check
+    // list item, #1033) is markup, not a stray space inside brackets.
+    if let Some(rest) = text.strip_prefix("[ ] ") {
+        return format!("[ ] {}", strict_text(rest, strict));
+    }
     text.replace("\\_", "_")
         .replace(" ,", ",")
         .replace(" .", ".")
@@ -1139,6 +1144,7 @@ fn render_one(node: &Node, blocks: &mut Vec<String>, ctx: &mut Ctx) {
         | Node::CommentSection { .. }
         | Node::PictureChildren(_)
         | Node::Commented { .. }
+        | Node::ScriptText { .. }
         | Node::Located { .. }
         | Node::Prov { .. }
         | Node::Track { .. }
@@ -1185,8 +1191,11 @@ fn render_item(node: &Node, blocks: &mut Vec<String>, ctx: &mut Ctx) {
             });
         }
         Node::CheckboxItem { checked, text } => {
-            let mark = if *checked { "- [x] " } else { "- [ ] " };
-            blocks.push(ctx.breaks(&ctx.text(&format!("{mark}{text}"))));
+            // docling-core#955: the box needs a space after it, unless the
+            // text brings its own (a DocLang `<checkbox/> y` reads `" y"`).
+            let mark = if *checked { "- [x]" } else { "- [ ]" };
+            let sep = if text.starts_with(' ') { "" } else { " " };
+            blocks.push(ctx.breaks(&ctx.text(&format!("{mark}{sep}{text}"))));
         }
         Node::Code {
             language,
@@ -1235,6 +1244,11 @@ fn render_item(node: &Node, blocks: &mut Vec<String>, ctx: &mut Ctx) {
             if !rendered.is_empty() {
                 blocks.push(rendered);
             }
+            // docling-core#675: the footnotes follow the grid, one paragraph
+            // each (`serialize_footnotes` with a `\n\n` delimiter).
+            for note in table.footnotes.iter().filter(|n| !n.is_empty()) {
+                blocks.push(ctx.text(note));
+            }
         }
         // Classification predictions don't affect docling's Markdown output;
         // a description (the picture-OCR text, #645) prints between the
@@ -1259,13 +1273,22 @@ fn render_item(node: &Node, blocks: &mut Vec<String>, ctx: &mut Ctx) {
                 .as_ref()
                 .filter(|d| d.is_alt_text() && ctx.alt_text && !d.text.is_empty());
             let marker = picture_marker(image.as_ref(), ctx, alt.map(|d| d.text.as_str()));
-            if let Some(desc) = description {
+            // A docling-native `meta.description` (docling#5015) is the
+            // item's meta, which docling-core's serializer appends *after*
+            // the item; the legacy-annotation kinds precede the image.
+            let native = description
+                .as_ref()
+                .filter(|d| d.is_docling_meta() && !d.text.is_empty());
+            if let Some(desc) = description.as_ref().filter(|d| !d.is_docling_meta()) {
                 let shown = !desc.is_alt_text() || (ctx.alt_text && !marker.starts_with("!["));
                 if !desc.text.is_empty() && shown {
                     blocks.push(ctx.breaks(&ctx.text(&desc.text)));
                 }
             }
             blocks.push(marker);
+            if let Some(desc) = native {
+                blocks.push(ctx.breaks(&ctx.text(&desc.text)));
+            }
         }
         // A chart renders as docling's picture-with-meta markdown: the caption,
         // the placeholder, the humanized classification ("line_chart" ->
@@ -1366,6 +1389,9 @@ fn render_item(node: &Node, blocks: &mut Vec<String>, ctx: &mut Ctx) {
             }
         }
         Node::Commented { inner, .. } => render_one(inner, blocks, ctx),
+        // The item's text is already the runs' text (docling's Markdown of
+        // its inline group: the runs joined, no markup — `H2O`).
+        Node::ScriptText { inner, .. } => render_one(inner, blocks, ctx),
         // Layout provenance is DocLang-only; render the wrapped node.
         Node::Located { inner, .. } | Node::Prov { inner, .. } | Node::Track { inner, .. } => {
             render_one(inner, blocks, ctx)
@@ -2260,6 +2286,7 @@ mod tests {
         // the padded GitHub serializer (covered by the regression fixtures).
         doc.compact_tables = true;
         doc.push(Node::Table(Table {
+            footnotes: Vec::new(),
             rows: vec![vec!["a".into(), "b".into()], vec!["1".into(), "2".into()]],
             location: None,
             structure: None,
@@ -2277,6 +2304,7 @@ mod tests {
     fn renders_padded_github_table_by_default() {
         let mut doc = DoclingDocument::new("t");
         doc.push(Node::Table(Table {
+            footnotes: Vec::new(),
             rows: vec![vec!["a".into(), "b".into()], vec!["1".into(), "2".into()]],
             location: None,
             structure: None,
@@ -2399,6 +2427,7 @@ mod tests {
             pretty: None,
         });
         doc.push(Node::Table(Table {
+            footnotes: Vec::new(),
             rows: vec![vec!["a".into(), "b".into()], vec!["1".into(), "2".into()]],
             location: None,
             structure: None,

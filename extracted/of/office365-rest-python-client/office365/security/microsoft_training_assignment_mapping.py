@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 from office365.runtime.client_value import ClientValue
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from office365.security.training import Training
 
 
-@dataclass
 class MicrosoftTrainingAssignmentMapping(ClientValue):
     assignedTo: ClientValueCollection[TrainingAssignedTo] = field(
         default_factory=lambda: ClientValueCollection(TrainingAssignedTo)

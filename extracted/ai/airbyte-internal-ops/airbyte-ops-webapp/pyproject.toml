@@ -5,10 +5,10 @@ description = "FastMCP app for Airbyte internal operations"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "airbyte>=0.45.0,<1.0.0",
+    "airbyte>=1.0.0rc6,<1.0.0rc17",
     "airbyte-internal-ops",
     "cryptography>=44.0.0,<45.0.0",
-    "fastmcp[apps]>=3.2.4,<3.3.0",
+    "fastmcp[apps]>=4.0.9,<5.0",
     "google-auth>=2.0.0,<3.0.0",  # Transitive dependency imported for exception handling
     "prefab-ui>=0.19.2",
     "pydantic>=2.0.0",

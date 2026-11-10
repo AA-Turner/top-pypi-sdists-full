@@ -631,8 +631,8 @@ class TestBetterEmMixedSmart(util.MdCase):
             <p>with spaces: _ _ _</p>
             <p>One char: <em>a</em></p>
             <p><em>a__b__c__d__e__f</em></p>
-            <p><em>a<strong>b</strong></em>c<strong>d</strong>*e<strong>f</strong></p>
-            <p><em>a<strong>b</strong></em>c<strong>d</strong><em>e**f</em></p>
+            <p><em>a<strong>b</strong></em>c<strong>d</strong><em>e</em><em>f</em>*</p>
+            <p><em>a<strong>b</strong></em>c<strong>d</strong><em>e</em><em>f</em></p>
             <p><em><strong>bold and italic<em><strong>bold and italic</strong>bold and italic</em></strong> italic</em></p>
             """,  # noqa: E501
             True
@@ -1187,6 +1187,95 @@ class TestCommonMark(util.MdCase):
         )
 
 
+class TestRuleOfThree(util.MdCase):
+    """Test CommonMark "rule of 3" handling of ambiguous closers."""
+
+    extension = [
+        'pymdownx.betterem'
+    ]
+    extension_configs = {}
+
+    def test_ambiguous_closer_skips_rejected_opener(self):
+        """Test that an ambiguous closer can skip an opener rejected by the rule of 3."""
+
+        self.check_markdown(
+            '__a "_b"__: x',
+            '<p><strong>a "_b"</strong>: x</p>'
+        )
+
+    def test_ambiguous_closer_skips_rejected_opener_asterisk(self):
+        """Test the rule of 3 with asterisks."""
+
+        self.check_markdown(
+            '**a "*b"**: x',
+            '<p><strong>a "*b"</strong>: x</p>'
+        )
+
+    def test_attribute_list_like_content(self):
+        """Test the rule of 3 with a link followed by attribute list like content."""
+
+        self.check_markdown(
+            '__[A](u){target="_blank"}__: x',
+            '<p><strong><a href="u">A</a>{target="_blank"}</strong>: x</p>'
+        )
+
+    def test_rejected_opener_is_original_run_length(self):
+        """Test that the original length of a partially consumed run is used for the rule of 3."""
+
+        self.check_markdown(
+            '__a_ __"_: x',
+            '<p>_<em>a</em> __"_: x</p>'
+        )
+
+    def test_unambiguous_closer_unaffected(self):
+        """Test that an unambiguous closer is not subject to the rule of 3."""
+
+        self.check_markdown(
+            '__a "_b" c__ x',
+            '<p>_<em>a "<em>b" c</em></em> x</p>'
+        )
+
+    def test_remainder_classified_by_original_context(self):
+        """Test that the unused part of a closing run is classified by what preceded the run, not the placeholder."""
+
+        self.check_markdown(
+            '_a__"__"_: x',
+            '<p><em>a</em>_"__"_: x</p>'
+        )
+
+    def test_remainder_classified_by_original_context_three(self):
+        """Test the unused part of a longer closing run."""
+
+        self.check_markdown(
+            '_a___"_"__: x',
+            '<p><em>a</em>__"_"__: x</p>'
+        )
+
+    def test_placeholder_treated_as_punctuation(self):
+        """Test that a placeholder from a different delimiter is still treated as punctuation."""
+
+        self.check_markdown(
+            '*test*_"test"_',
+            '<p><em>test</em><em>"test"</em></p>'
+        )
+
+    def test_ambiguous_closer_pairs_with_partially_consumed_opener(self):
+        """Test that the rule of 3 uses the original run length of a partially consumed opener."""
+
+        self.check_markdown(
+            '**a*_**: x',
+            '<p><em><em>a</em>_</em>*: x</p>'
+        )
+
+    def test_ambiguous_closer_rejected_by_original_run_length(self):
+        """Test that the rule of 3 still rejects a pairing based on the original run lengths."""
+
+        self.check_markdown(
+            '**a*b**: x',
+            '<p>*<em>a<em>b</em></em>: x</p>'
+        )
+
+
 class TestNoPunctuationRules(util.MdCase):
     """Test no punctuation rules."""
 
@@ -1205,6 +1294,59 @@ class TestNoPunctuationRules(util.MdCase):
         self.check_markdown(
             '**단어(설명)**입니다.',
             '<p><strong>단어(설명)</strong>입니다.</p>'
+        )
+
+    def test_ambiguous_closer_skips_rejected_opener(self):
+        """Test that an ambiguous closer can skip an opener rejected by the rule of 3."""
+
+        self.check_markdown(
+            '__a "_b"__: x',
+            '<p><strong>a "_b"</strong>: x</p>'
+        )
+
+    def test_attribute_list_like_content(self):
+        """Test the rule of 3 with a link followed by attribute list like content."""
+
+        self.check_markdown(
+            '__[A](u){target="_blank"}__: x',
+            '<p><strong><a href="u">A</a>{target="_blank"}</strong>: x</p>'
+        )
+
+    def test_remainder_classified_by_original_context(self):
+        """Test that the unused part of a closing run is classified by what preceded the run."""
+
+        self.check_markdown(
+            '_a__"__"_: x',
+            '<p><em>a</em>_"__"_: x</p>'
+        )
+
+    def test_placeholder_treated_as_punctuation(self):
+        """Test that a placeholder from a different delimiter is still treated as punctuation."""
+
+        self.check_markdown(
+            '*test*_"test"_',
+            '<p><em>test</em><em>"test"</em></p>'
+        )
+
+    def test_stray_token_before_cached_region(self):
+        """Test that a stray token between cached regions does not corrupt the cached region's offset."""
+
+        self.check_markdown(
+            '***l* * **e**',
+            '<p>**<em>l</em> * <strong>e</strong></p>'
+        )
+
+        self.check_markdown(
+            '**l* * **e**',
+            '<p>*<em>l</em> * <strong>e</strong></p>'
+        )
+
+    def test_unused_tokens_in_returned_element_tail(self):
+        """Test that tokens inside an element's tail are not processed against regions cached for the parent text."""
+
+        self.check_markdown(
+            '__*)a.* *ab_a_ _)_(*',
+            '<p>_<em><em>)a.</em> *ab_a</em> <em>)</em>(*</p>'
         )
 
 

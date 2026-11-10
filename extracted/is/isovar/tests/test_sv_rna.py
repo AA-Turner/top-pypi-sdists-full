@@ -4,25 +4,31 @@ Synthetic cases place reads on explicit transcript models; no genome sequence
 is needed because reconstruction never reads reference bases. Real cases use
 the pinned, unchanged original records of the fusion corpora.
 """
-from dataclasses import replace
 import gzip
 import json
-from pathlib import Path
 import random
 import time
+from dataclasses import replace
+from pathlib import Path
 
 import pysam
 import pytest
 
-from isovar.sid_data import restore_records
-from isovar import reconstruct_sv_rna
+from isovar import reconstruct_sv_rna, sid_data
 from isovar.cli import commands
-from isovar.fusion import FusionBreakpoint, FusionReference, fusion_from_dict, reconstruct_fusion
-from isovar.read_collector import ReadCollector
 from isovar.dna import reverse_complement_dna as reverse_complement
+from isovar.fusion import (
+    FusionBreakpoint,
+    FusionReference,
+    fusion_from_dict,
+    reconstruct_fusion,
+)
+from isovar.read_collector import ReadCollector
 from isovar.read_end_inference import Adapter, ReadEndProfile
-from isovar.sv_rna import RnaObservation, _extend_both, _ObservationIndex, sv_rna_input_from_dict
-from isovar import sid_data
+from isovar.rna_observation import ObservationIndex, RnaObservation
+from isovar.rna_path_assembly import extend_path_both_directions
+from isovar.sid_data import restore_records
+from isovar.sv_rna import sv_rna_input_from_dict
 from tests.data.osteosarc.expansion.references import translate
 from tests.testing_helpers import complete_umis, fusion_input
 
@@ -167,6 +173,31 @@ def spanning(result, relation=None):
     return [j for p in result["paths"] for j in p["junctions"] if relation in (None, j["relation"])]
 
 
+@pytest.mark.parametrize("deletion", [1, 3])
+def test_ordinary_splicing_and_indels_do_not_support_a_duplication(tmp_path, deletion):
+    s = Scenario()
+    original = s.donor_ref.sequence
+    sequence = original[:150] + original[150 + deletion:]
+    reads = s.tile("ordinary", original, s.donor_positions)
+    reads.append(record("indel", "1", 1000, f"100M900N50M{deletion}D{100-deletion}M850N300M", sequence))
+    result = s.run(write_bam(tmp_path / "ordinary.bam", reads),
+                   donor=FusionBreakpoint("1", 3200, "+"), acceptor=FusionBreakpoint("1", 1050, "+"),
+                   references=[s.donor_ref])
+    assert not result["paths"]
+    assert not result["competing_annotated_junctions"]
+
+
+def test_a_small_deletion_at_its_nominated_breakpoints_remains_event_evidence(tmp_path):
+    s = Scenario()
+    sequence = s.donor_ref.sequence[:50] + s.donor_ref.sequence[53:100]
+    read = record("deletion", "1", 1000, "50M3D47M", sequence)
+    result = s.run(write_bam(tmp_path / "deletion.bam", [read]),
+                   donor=FusionBreakpoint("1", 1050, "+"), acceptor=FusionBreakpoint("1", 1053, "+"),
+                   references=[s.donor_ref])
+    assert result["status"] == "event_linked_candidates"
+    assert any(j["kinds"] == ["D"] for j in spanning(result, "breakpoint_junction"))
+
+
 @pytest.mark.parametrize("acceptor_strand", ["+", "-"])
 def test_reordered_contigs_preserve_reconstruction_and_witnesses(tmp_path, acceptor_strand):
     scenario = Scenario(acceptor_strand)
@@ -275,8 +306,6 @@ def test_two_exon_clips_bridge_an_unplaced_inserted_or_cryptic_exon(tmp_path):
     assert junction["direct_support"]["fragments"] == 0
 
 
-
-
 def test_exon_clips_bridge_a_placed_cryptic_exon_without_reference_padding(tmp_path):
     s = Scenario()
     cryptic = s.random(30)
@@ -346,9 +375,9 @@ def test_sequence_bridge_keeps_repeated_partner_placements_separate():
         reverse_complement=False, query_interval=(0, 30),
         missing_qualities=False, secondary=False)
         for name, contig in (("a", "2"), ("b", "3"))]
-    index = _ObservationIndex(observations)
+    index = ObservationIndex(observations)
     index.sequence_overlaps = True
-    paths = list(_extend_both(sequence, positions, index, 20, (2, 0.1, 0.5), 8, [], set()))
+    paths = list(extend_path_both_directions(sequence, positions, index, 20, (2, 0.1, 0.5), 8, [], set()))
     assert len(paths) == 2
     assert {path[1][20][0] for path in paths} == {"2", "3"}
     assert all(path[0] == sequence + "T" * 10 for path in paths)
@@ -574,7 +603,7 @@ def test_overlap_extension_still_stops_before_revisiting_a_placement():
         sequence=sequence + sequence, positions=positions + positions, breaks=((5, 6, "split"),),
         reverse_complement=False, query_interval=(0, 12), missing_qualities=False, secondary=False)
     notes = set()
-    paths = list(_extend_both(sequence, positions, _ObservationIndex([observation]), 3,
+    paths = list(extend_path_both_directions(sequence, positions, ObservationIndex([observation]), 3,
                               (2, 0.1, 0.5), 8, [], notes))
     assert len(paths) == 1 and paths[0][:2] == (sequence, positions)
     assert notes == {"repeated_genomic_position"}
@@ -1104,7 +1133,9 @@ def test_sa_only_long_reads_do_not_become_a_placed_bcr_abl1_junction(tmp_path):
 @pytest.mark.parametrize("name,fragments,frame_statuses", [
     ("PARD3B--CDKN2B-AS1-CDKN2B-T1", 2, {"no_gene_anchor"}),
     ("FOXO3--STRADA-CCDC47-T1", 5, {"no_gene_anchor"}),
-    ("TPST1--CRCP-T1", 61, {"reference_protein_only", "ambiguous"}),
+    # Removing incidental splice/indel departures can leave noncoding anchor
+    # models unresolved; they do not become an event-linked coding frame.
+    ("TPST1--CRCP-T1", 61, {"reference_protein_only", "ambiguous", "unresolved"}),
 ])
 def test_original_ont_split_reads_recover_the_junction_without_a_coding_frame(tmp_path, name, fragments,
                                                                                 frame_statuses):
@@ -1125,6 +1156,11 @@ def test_original_ont_split_reads_recover_the_junction_without_a_coding_frame(tm
     # The supplied analysis found no coding donor frame; neither does this.
     assert {p["frame_status"] for p in event} <= frame_statuses
     assert not any("breakpoint_junction" in t["departure_relations"] for p in event for t in p["translations"])
+    if name == "TPST1--CRCP-T1":
+        assert not any(j['forward_splice_geometry'] and j['relation'] != 'regional_novel_junction'
+                       for p in result['paths'] for j in p['junctions'])
+        assert not any(c['amino_acids'].startswith('MWQWTKRTQHRRAQLAPAFHEVRRP')
+                       for p in result['paths'] for c in p['exploratory_orfs']['candidates'])
 
 
 LONG_READ = FUSIONS / "long-read"
@@ -1166,6 +1202,10 @@ def test_pacbio_places_homologous_junction_bases_past_the_catalogue_breakpoint(t
     assert complete_umis(junction["direct_support"]) is None
     assert junction["direct_support"]["label_statuses"] == {"unresolved_xm": 20}
     assert result["status"] == "event_linked_candidates"
+    assert not any(j['forward_splice_geometry'] and j['relation'] != 'regional_novel_junction'
+                   for p in result['paths'] for j in p['junctions'])
+    assert not any(c['amino_acids'].startswith(('MPILRF', 'MESRSVTQ'))
+                   for p in result['paths'] for c in p['exploratory_orfs']['candidates'])
 
 
 def test_noisy_ont_reads_count_as_direct_junction_support(tmp_path):

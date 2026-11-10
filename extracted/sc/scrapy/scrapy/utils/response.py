@@ -9,51 +9,77 @@ import mimetypes
 import os
 import re
 import tempfile
+import warnings
 import webbrowser
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from weakref import WeakKeyDictionary
 
+import frostwork
 from twisted.web import http
-from w3lib import html
 
+from scrapy.exceptions import ScrapyDeprecationWarning
 from scrapy.http.headers import Headers
+from scrapy.http.response.body_file import BodyFileResponse
+from scrapy.http.response.text import MetaRefresh
 from scrapy.utils.misc import load_object
-from scrapy.utils.python import to_bytes, to_unicode
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from scrapy.http import Response, TextResponse
 
-_baseurl_cache: WeakKeyDictionary[Response, str] = WeakKeyDictionary()
+
+def _body_size(response: Response) -> int:
+    if isinstance(response, BodyFileResponse):
+        return Path(response.body_file).stat().st_size
+    return len(response.body)
 
 
 def get_base_url(response: TextResponse) -> str:
-    """Return the base url of the given response, joined with the response url"""
-    if response not in _baseurl_cache:
-        text = response.text[0:4096]
-        _baseurl_cache[response] = html.get_base_url(
-            text, response.url, response.encoding
-        )
-    return _baseurl_cache[response]
+    warnings.warn(
+        "scrapy.utils.response.get_base_url() is deprecated, use "
+        "TextResponse.base_url instead.",
+        ScrapyDeprecationWarning,
+        stacklevel=2,
+    )
+    return response.base_url
 
 
-_metaref_cache: WeakKeyDictionary[Response, tuple[None, None] | tuple[float, str]] = (
-    WeakKeyDictionary()
-)
+_IGNORABLE_TAGS = {"script", "noscript", "template"}
+
+
+def _get_meta_refresh(response: TextResponse, *, scripting: bool) -> MetaRefresh | None:
+    if scripting:
+        return response.meta_refresh
+    meta_refresh = frostwork.navigation(
+        response.body,
+        response.url,
+        response.encoding,
+        base_url=False,
+        scripting=False,
+    ).meta_refresh
+    return None if meta_refresh is None else MetaRefresh(*meta_refresh)
 
 
 def get_meta_refresh(
     response: TextResponse,
     ignore_tags: Iterable[str] = ("script", "noscript"),
 ) -> tuple[None, None] | tuple[float, str]:
-    """Parse the http-equiv refresh parameter from the given response"""
-    if response not in _metaref_cache:
-        text = response.text[0:4096]
-        _metaref_cache[response] = html.get_meta_refresh(
-            text, get_base_url(response), response.encoding, ignore_tags=ignore_tags
+    warnings.warn(
+        "scrapy.utils.response.get_meta_refresh() is deprecated, use "
+        "TextResponse.meta_refresh instead.",
+        ScrapyDeprecationWarning,
+        stacklevel=2,
+    )
+    ignore_tags = set(ignore_tags)
+    if not ignore_tags <= _IGNORABLE_TAGS:
+        raise ValueError(
+            f"Unsupported ignore_tags: {sorted(ignore_tags - _IGNORABLE_TAGS)}"
         )
-    return _metaref_cache[response]
+    meta_refresh = _get_meta_refresh(response, scripting="noscript" in ignore_tags)
+    if meta_refresh is None:
+        return None, None
+    return meta_refresh.delay, meta_refresh.url
 
 
 def response_from_dict(d: dict[str, Any]) -> Response:
@@ -83,8 +109,8 @@ def response_from_dict(d: dict[str, Any]) -> Response:
 def response_status_message(status: bytes | float | str) -> str:
     """Return status code plus status text descriptive message"""
     status_int = int(status)
-    message = http.RESPONSES.get(status_int, "Unknown Status")
-    return f"{status_int} {to_unicode(message)}"
+    message = http.RESPONSES.get(status_int, b"Unknown Status").decode()
+    return f"{status_int} {message}"
 
 
 _DOCTYPE_RE = re.compile(rb"\s*<!doctype[^<>]*>", re.IGNORECASE)
@@ -126,15 +152,13 @@ def open_in_browser(
         # any base tag of the response, and matches it when there is one.
         doctype = _DOCTYPE_RE.match(body)
         index = doctype.end() if doctype else 0
-        base_tag = to_bytes(f'<base href="{get_base_url(response)}">')
+        base_tag = f'<base href="{response.base_url}">'.encode()
         body = body[:index] + base_tag + body[index:]
         ext = ".html"
     elif isinstance(response, TextResponse):
         ext = ".txt"
     else:
-        content_type = to_unicode(
-            response.headers.get(b"Content-Type") or b"", encoding="latin-1"
-        )
+        content_type = (response.headers.get(b"Content-Type") or b"").decode("latin-1")
         mimetype = content_type.split(";")[0].strip().lower()
         ext = mimetypes.guess_extension(mimetype) or ""
         if not ext:

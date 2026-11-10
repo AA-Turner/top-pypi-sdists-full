@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <climits>
 #include <cmath>
 #include <cstdint>
@@ -722,6 +723,14 @@ std::string SchemaParser::ComputeCacheKey(const picojson::value& schema) {
       "$comment",
       "$schema",
   };
+  static const std::unordered_set<std::string> kSchemaMapKeys = {
+      "properties",
+      "patternProperties",
+      "$defs",
+      "definitions",
+      "dependentSchemas",
+      "dependencies",
+  };
 
   if (schema.is<picojson::object>()) {
     std::string result = "{";
@@ -740,7 +749,25 @@ std::string SchemaParser::ComputeCacheKey(const picojson::value& schema) {
         result += ",";
       }
       ++idx;
-      result += "\"" + key + "\":" + ComputeCacheKey(value);
+      result += picojson::value(key).serialize(false) + ":";
+      if (kSchemaMapKeys.count(key) && value.is<picojson::object>()) {
+        // Map keys are names, not schema keywords. Keep their order: property
+        // order affects the generated grammar when any_order is false.
+        result += "{";
+        const auto& schemas = value.get<picojson::object>();
+        std::string separator;
+        for (const auto& name : schemas.ordered_keys()) {
+          result += separator + picojson::value(name).serialize(false) + ":" +
+                    ComputeCacheKey(schemas.at(name));
+          separator = ",";
+        }
+        result += "}";
+      } else if (key == "const" || key == "enum") {
+        // Literal data must retain annotation-like names and member order.
+        result += value.serialize(false);
+      } else {
+        result += ComputeCacheKey(value);
+      }
     }
     return result + "}";
   } else if (schema.is<picojson::array>()) {
@@ -777,6 +804,17 @@ Result<SchemaSpecPtr, SchemaError> SchemaParser::Parse(
     std::optional<std::string> default_type
 ) {
   std::string cache_key = ComputeCacheKey(schema);
+  if (default_type.has_value() && schema.is<picojson::object>()) {
+    const auto& schema_obj = schema.get<picojson::object>();
+    // These branches determine interpretation without using default_type.
+    const bool has_explicit_interpretation =
+        schema_obj.count("$ref") || schema_obj.count("const") || schema_obj.count("enum") ||
+        schema_obj.count("anyOf") || schema_obj.count("oneOf") || schema_obj.count("allOf") ||
+        schema_obj.count("type");
+    if (!has_explicit_interpretation) {
+      cache_key = default_type.value() + ":" + cache_key;
+    }
+  }
   if (schema_cache_.count(cache_key)) {
     return ResultOk(schema_cache_[cache_key]);
   }
@@ -1480,6 +1518,32 @@ Result<RefSpec, SchemaError> SchemaParser::ParseRef(const picojson::object& sche
   return ResultOk(std::move(spec));
 }
 
+/*! \brief Decode URI percent-encoding ("%2F" -> "/"); malformed sequences are kept verbatim. */
+static std::string PercentDecode(const std::string& str) {
+  std::string result;
+  for (size_t i = 0; i < str.size(); ++i) {
+    if (str[i] == '%' && i + 2 < str.size() &&
+        std::isxdigit(static_cast<unsigned char>(str[i + 1])) &&
+        std::isxdigit(static_cast<unsigned char>(str[i + 2]))) {
+      result += static_cast<char>(std::stoi(str.substr(i + 1, 2), nullptr, 16));
+      i += 2;
+    } else {
+      result += str[i];
+    }
+  }
+  return result;
+}
+
+/*! \brief Decode the RFC 6901 escapes of one JSON Pointer token: "~1" -> "/", then "~0" -> "~". */
+static std::string UnescapeJSONPointerToken(std::string token) {
+  for (const auto& [from, to] : {std::pair{"~1", "/"}, std::pair{"~0", "~"}}) {
+    for (size_t pos = 0; (pos = token.find(from, pos)) != std::string::npos; ++pos) {
+      token.replace(pos, 2, to);
+    }
+  }
+  return token;
+}
+
 Result<SchemaSpecPtr, SchemaError> SchemaParser::ResolveRef(
     const std::string& uri, const std::string& rule_name_hint
 ) {
@@ -1500,26 +1564,53 @@ Result<SchemaSpecPtr, SchemaError> SchemaParser::ResolveRef(
     return ResultOk(SchemaSpec::Make(AnySpec{}, "", "any"));
   }
 
+  // The fragment is a JSON Pointer (RFC 6901 section 6): undo the URI percent-encoding first,
+  // then split on '/', then decode the per-token escapes "~1" -> "/" and "~0" -> "~". An empty
+  // token is a valid token (the object key ""), so every token is kept, including a trailing
+  // one (std::getline would drop it); the array branch below rejects it as an index.
   std::vector<std::string> parts;
-  std::stringstream ss(uri.substr(2));
-  std::string part;
+  std::string pointer = PercentDecode(uri.substr(2));
   std::string new_rule_name_prefix;
-  while (std::getline(ss, part, '/')) {
-    if (!part.empty()) parts.push_back(part);
+  for (size_t start = 0;;) {
+    size_t end = pointer.find('/', start);
+    std::string part =
+        pointer.substr(start, end == std::string::npos ? std::string::npos : end - start);
+    parts.push_back(UnescapeJSONPointerToken(part));
     if (!new_rule_name_prefix.empty()) new_rule_name_prefix += "_";
     for (const auto& c : part) {
-      if (std::isalpha(c) || c == '_' || c == '-' || c == '.') new_rule_name_prefix += c;
+      if (std::isalpha(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == '.') {
+        new_rule_name_prefix += c;
+      }
     }
+    if (end == std::string::npos) break;
+    start = end + 1;
   }
 
   auto current = std::cref(root_schema_);
   for (const auto& p : parts) {
-    if (!current.get().is<picojson::object>() || !current.get().contains(p)) {
+    if (current.get().is<picojson::object>()) {
+      if (!current.get().contains(p)) {
+        return ResultErr<SchemaError>(
+            SchemaErrorType::kInvalidSchema, "Cannot find field '" + p + "' in " + uri
+        );
+      }
+      current = current.get().get(p);
+    } else if (current.get().is<picojson::array>()) {
+      const auto& array = current.get().get<picojson::array>();
+      size_t index = 0;
+      const auto [end, error] = std::from_chars(p.data(), p.data() + p.size(), index);
+      if (p.empty() || (p.size() > 1 && p[0] == '0') || error != std::errc{} ||
+          end != p.data() + p.size() || index >= array.size()) {
+        return ResultErr<SchemaError>(
+            SchemaErrorType::kInvalidSchema, "Cannot find array index '" + p + "' in " + uri
+        );
+      }
+      current = std::cref(array[index]);
+    } else {
       return ResultErr<SchemaError>(
-          SchemaErrorType::kInvalidSchema, "Cannot find field " + p + " in " + uri
+          SchemaErrorType::kInvalidSchema, "Cannot find field '" + p + "' in " + uri
       );
     }
-    current = current.get().get(p);
   }
 
   auto result = Parse(current, new_rule_name_prefix);
@@ -1774,6 +1865,9 @@ JSONSchemaConverter::JSONSchemaConverter(
       ),
       any_whitespace_(any_whitespace),
       max_whitespace_cnt_(max_whitespace_cnt),
+      compact_separator_(
+          separators.has_value() ? separators->first : (any_whitespace ? "," : ", ")
+      ),
       any_order_(any_order),
       excludes_(std::move(excludes)),
       ref_resolver_(std::move(ref_resolver)) {
@@ -1793,6 +1887,9 @@ Grammar JSONSchemaConverter::Convert(const SchemaSpecPtr& spec) {
   int32_t root_rule_id = builder_.AddEmptyRuleWithHint("root");
   std::string root_rule_name = builder_.GetRule(root_rule_id).name;
   uri_to_rule_id_[RefCacheKey("#")] = root_rule_id;
+  if (const auto* root_ref = std::get_if<RefSpec>(&spec->spec)) {
+    ResolveRefRejectingCycles(*root_ref, root_rule_name);
+  }
 
   // Check if the spec can be directly mapped to an existing rule
   auto cached_rule = GetCache(spec->cache_key);
@@ -1836,7 +1933,7 @@ void JSONSchemaConverter::AddBasicRules(const std::vector<std::string>& addition
   auto saved_indent_manager = indent_manager_;
   indent_manager_ = IndentManager(
       std::nullopt,
-      any_whitespace_ ? "," : ", ",
+      compact_separator_,
       any_whitespace_,
       any_whitespace_ ? max_whitespace_cnt_ : std::nullopt
   );
@@ -2820,6 +2917,25 @@ int32_t JSONSchemaConverter::FormatOtherProperty(
   return Sequence({key_pattern_expr, colon_expr_id_, RuleRef(value_rule_id)});
 }
 
+int32_t JSONSchemaConverter::CreatePatternKeyRule(
+    const std::string& pattern, const std::string& rule_name_hint
+) {
+  // Build a key rule through GenerateString rather than spelling out a JSON string here. At the
+  // JSON root this still produces `"key"`, while XML-style converters override GenerateString to
+  // produce the unquoted key body expected inside their parameter wrappers.
+  StringSpec key_spec;
+  key_spec.pattern = pattern;
+  return CreateRule(
+      SchemaSpec::Make(std::move(key_spec), /*cache_key=*/"", rule_name_hint), rule_name_hint
+  );
+}
+
+int32_t JSONSchemaConverter::CreatePropertyNamesKeyRule(
+    const SchemaSpecPtr& property_names, const std::string& rule_name_hint
+) {
+  return CreateRule(property_names, rule_name_hint);
+}
+
 int32_t JSONSchemaConverter::GetPropertyWithNumberConstraints(
     int32_t pattern,
     int min_properties,
@@ -3202,18 +3318,6 @@ int32_t JSONSchemaConverter::GenerateObject(
   bool could_be_empty = false;
   int32_t content = Empty();
 
-  // Build a key rule through GenerateString rather than spelling out a JSON string here. At the
-  // JSON root this still produces `"key"`, while XML-style converters override GenerateString to
-  // produce the unquoted key body expected inside their parameter wrappers.
-  auto create_pattern_key_rule = [&](const std::string& pattern,
-                                     const std::string& rule_name_hint) -> int32_t {
-    StringSpec key_spec;
-    key_spec.pattern = pattern;
-    return CreateRule(
-        SchemaSpec::Make(std::move(key_spec), /*cache_key=*/"", rule_name_hint), rule_name_hint
-    );
-  };
-
   if (!spec.properties.empty() && (!spec.pattern_properties.empty() || spec.property_names)) {
     // Case 1a: properties coexist with patternProperties and/or propertyNames.
     // Use GetPartialRuleForProperties for named properties, and build
@@ -3228,7 +3332,7 @@ int32_t JSONSchemaConverter::GenerateObject(
       for (size_t index = 0; index < spec.pattern_properties.size(); ++index) {
         const auto& pattern_property = spec.pattern_properties[index];
         std::string pattern_suffix = "pp_" + std::to_string(index);
-        int32_t key_rule_id = create_pattern_key_rule(
+        int32_t key_rule_id = CreatePatternKeyRule(
             pattern_property.pattern, rule_name + "_" + pattern_suffix + "_key"
         );
         int32_t value_rule_id =
@@ -3254,7 +3358,7 @@ int32_t JSONSchemaConverter::GenerateObject(
       // propertyNames constrains keys of additional properties.
       // Only apply when additional properties are allowed - when additionalProperties
       // is false, no extra keys beyond named properties should be permitted.
-      int32_t key_rule_id = CreateRule(spec.property_names, rule_name + "_name");
+      int32_t key_rule_id = CreatePropertyNamesKeyRule(spec.property_names, rule_name + "_name");
       int32_t value_rule_id = CreateRule(effective_additional, rule_name + "_" + effective_suffix);
       additional_override = FormatOtherProperty(
           RuleRef(key_rule_id),
@@ -3287,7 +3391,7 @@ int32_t JSONSchemaConverter::GenerateObject(
         for (size_t index = 0; index < spec.pattern_properties.size(); ++index) {
           const auto& pattern_property = spec.pattern_properties[index];
           std::string pattern_suffix = "prop_" + std::to_string(index);
-          int32_t key_rule_id = create_pattern_key_rule(
+          int32_t key_rule_id = CreatePatternKeyRule(
               pattern_property.pattern, rule_name + "_" + pattern_suffix + "_key"
           );
           int32_t value_rule_id =
@@ -3304,7 +3408,7 @@ int32_t JSONSchemaConverter::GenerateObject(
           ));
         }
       } else {
-        int32_t key_rule_id = CreateRule(spec.property_names, rule_name + "_name");
+        int32_t key_rule_id = CreatePropertyNamesKeyRule(spec.property_names, rule_name + "_name");
         // propertyNames constrains only the key, so a typed additionalProperties
         // schema still applies to the value (issue #826).
         int32_t value_rule_id;
@@ -3440,16 +3544,39 @@ SchemaSpecPtr JSONSchemaConverter::ResolveRefSchema(
 
 std::string JSONSchemaConverter::RefCacheKey(const std::string& uri) const { return uri; }
 
+SchemaSpecPtr JSONSchemaConverter::ResolveRefRejectingCycles(
+    const RefSpec& spec, const std::string& rule_name
+) {
+  // Resolve `spec`, then follow any further pure $ref hops. A chain that returns to a $ref
+  // already on it without passing through any schema content would only yield self-referencing
+  // rules (R ::= R), i.e. a grammar that accepts nothing, so reject it as a schema error instead.
+  SchemaSpecPtr resolved = ResolveRefSchema(spec, rule_name);
+  std::vector<std::string> chain{spec.uri};
+  SchemaSpecPtr target = resolved;
+  while (const auto* next_ref = std::get_if<RefSpec>(&target->spec)) {
+    bool seen = std::find(chain.begin(), chain.end(), next_ref->uri) != chain.end();
+    chain.push_back(next_ref->uri);
+    if (seen) {
+      std::string chain_str;
+      for (const auto& uri : chain) chain_str += (chain_str.empty() ? "" : " -> ") + uri;
+      XGRAMMAR_LOG(FATAL) << "Circular $ref chain with no schema content: " << chain_str;
+    }
+    target = ResolveRefSchema(*next_ref, rule_name);
+  }
+  return resolved;
+}
+
 int32_t JSONSchemaConverter::GenerateRef(const RefSpec& spec, const std::string& rule_name) {
   const std::string cache_key = RefCacheKey(spec.uri);
   // First check if we have a direct URI mapping (for circular references)
   if (uri_to_rule_id_.count(cache_key)) {
     return RuleRef(uri_to_rule_id_[cache_key]);
   }
+  SchemaSpecPtr resolved = ResolveRefRejectingCycles(spec, rule_name);
 
   // Derive rule name from URI path (like original URIToRule) so that the same
-  // $ref always gets the same rule name, and allocate before resolving to prevent
-  // dead recursion when the ref target contains a ref back.
+  // $ref always gets the same rule name, and allocate before generating the body
+  // so that a ref back to this one inside the target resolves to the allocated rule.
   std::string rule_name_hint = "ref";
   if (spec.uri.size() >= 2 && spec.uri[0] == '#' && spec.uri[1] == '/') {
     std::string new_rule_name_prefix;
@@ -3475,7 +3602,6 @@ int32_t JSONSchemaConverter::GenerateRef(const RefSpec& spec, const std::string&
   int32_t allocated_rule_id = builder_.AddEmptyRuleWithHint(rule_name_hint);
   std::string allocated_rule_name = builder_.GetRule(allocated_rule_id).name;
   uri_to_rule_id_[cache_key] = allocated_rule_id;
-  SchemaSpecPtr resolved = ResolveRefSchema(spec, allocated_rule_name);
   builder_.UpdateRuleBody(allocated_rule_id, GenerateFromSpec(resolved, allocated_rule_name));
   if (!resolved->cache_key.empty()) {
     AddCache(resolved->cache_key, allocated_rule_id);
@@ -3525,15 +3651,20 @@ int32_t JSONSchemaConverter::GenerateTypeArray(
 
 // ==================== Static Helper Methods ====================
 
-std::optional<std::string> JSONSchemaConverter::JSONFormatToRegexPattern(const std::string& format
+std::optional<std::string> JSONSchemaConverter::JSONFormatToRegexPattern(
+    const std::string& format, bool raw_string
 ) {
-  static const auto regex_map = []() -> std::unordered_map<std::string, std::string> {
+  static const auto build_regex_map = [](bool raw_string
+                                      ) -> std::unordered_map<std::string, std::string> {
     std::unordered_map<std::string, std::string> m;
 
     std::string atext = "[\\w!#$%&'*+/=?^`{|}~-]";
     std::string dot_string = "(" + atext + "+(\\." + atext + "+)*)";
+    std::string quote = raw_string ? "\"" : "\\\\\"";
+    std::string quoted_pair =
+        raw_string ? R"(\\[\x20-\x7E])" : R"(\\\\([\x20-\x21\x23-\x5B\x5D-\x7E]|\\\"|\\\\))";
     std::string quoted_string =
-        "\\\\\"(\\\\[\\x20-\\x7E]|[\\x20\\x21\\x23-\\x5B\\x5D-\\x7E])*\\\\\"";
+        quote + "(" + quoted_pair + "|[\\x20\\x21\\x23-\\x5B\\x5D-\\x7E])*" + quote;
     std::string domain =
         "([A-Za-z0-9]([\\-A-Za-z0-9]*[A-Za-z0-9])?)((\\.[A-Za-z0-9][\\-A-Za-z0-9]*[A-Za-z0-9])*"
         ")";
@@ -3615,13 +3746,19 @@ std::optional<std::string> JSONSchemaConverter::JSONFormatToRegexPattern(const s
     std::string expression = "\\{(" + op + ")?" + variable_list + "\\}";
     m["uri-template"] = "^(" + literals + "|" + expression + ")*$";
 
-    m["json-pointer"] = "^(/([\\x00-\\x2E]|[\\x30-\\x7D]|[\\x7F-\\U0010FFFF]|~[01])*)*$";
-    m["relative-json-pointer"] =
-        "^(0|[1-9][0-9]*)(#|(/([\\x00-\\x2E]|[\\x30-\\x7D]|[\\x7F-\\U0010FFFF]|~[01])*)*)$";
+    std::string pointer_char =
+        raw_string
+            ? R"(([\x00-\x2E]|[\x30-\x7D]|[\x7F-\U0010FFFF]|~[01]))"
+            : R"(([\x20-\x21\x23-\x2E]|[\x30-\x5B\x5D-\x7D]|[\x7F-\U0010FFFF]|\\[\"\\/bfnrt]|\\u00[01][0-9A-Fa-f]|~[01]))";
+    m["json-pointer"] = "^(/" + pointer_char + "*)*$";
+    m["relative-json-pointer"] = "^(0|[1-9][0-9]*)(#|(/" + pointer_char + "*)*)$";
 
     return m;
-  }();
+  };
 
+  static const auto json_regex_map = build_regex_map(false);
+  static const auto raw_regex_map = build_regex_map(true);
+  const auto& regex_map = raw_string ? raw_regex_map : json_regex_map;
   auto it = regex_map.find(format);
   if (it == regex_map.end()) {
     return std::nullopt;
@@ -3858,7 +3995,7 @@ int32_t XMLToolCallingConverter::GenerateString(
 ) {
   if (nested_object_level_ <= 1) {
     if (spec.format.has_value()) {
-      auto regex = JSONFormatToRegexPattern(*spec.format);
+      auto regex = JSONFormatToRegexPattern(*spec.format, /*raw_string=*/true);
       if (regex.has_value()) {
         return RegexExpression(*regex, false, true);
       }
@@ -4915,6 +5052,7 @@ std::optional<JSONFormat> JSONFormatFromString(const std::string& format) {
       {"glm_xml", JSONFormat::kGlmXML},
       {"cohere_xml", JSONFormat::kCohereXML},
       {"kimi_k3_xml", JSONFormat::kKimiK3XML},
+      {"gemma", JSONFormat::kGemma},
   };
   auto it = kNameToFormat.find(format);
   if (it == kNameToFormat.end()) {
@@ -5009,6 +5147,18 @@ Grammar JSONSchemaToGrammar(
       );
       return converter.Convert(spec);
     }
+    case JSONFormat::kGemma: {
+      GemmaToolCallingConverter converter(
+          indent,
+          std::move(separators),
+          any_whitespace,
+          max_whitespace_cnt,
+          std::move(ref_resolver),
+          any_order,
+          std::move(excludes)
+      );
+      return converter.Convert(spec);
+    }
     default:
       XGRAMMAR_LOG(FATAL) << "Invalid JSON format: " << static_cast<int>(json_format);
   }
@@ -5100,6 +5250,12 @@ std::string JSONSchemaToEBNF(
     }
     case JSONFormat::kCohereXML: {
       CohereXMLToolCallingConverter converter(
+          indent, separators, any_whitespace, max_whitespace_cnt, ref_resolver, any_order
+      );
+      return GrammarNormalizer::Apply(converter.Convert(spec)).ToString();
+    }
+    case JSONFormat::kGemma: {
+      GemmaToolCallingConverter converter(
           indent, separators, any_whitespace, max_whitespace_cnt, ref_resolver, any_order
       );
       return GrammarNormalizer::Apply(converter.Convert(spec)).ToString();

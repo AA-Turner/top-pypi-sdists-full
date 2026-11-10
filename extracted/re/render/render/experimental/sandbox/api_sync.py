@@ -41,6 +41,8 @@ from render.experimental.sandbox.errors import (
     SandboxExecError,
     SandboxExecStreamError,
     SandboxFileNotFoundError,
+    SandboxGroupDefaultNotDeletableError,
+    SandboxGroupSuspendedError,
     SandboxNotFoundError,
     SnapshotNotFoundError,
     SnapshotNotReadyError,
@@ -78,6 +80,7 @@ from render.public_api.api.sandboxes import (
     create_sandbox_build,
     create_sandbox_group,
     create_sandbox_snapshot,
+    delete_sandbox_group,
     delete_sandbox_snapshot,
     list_sandbox_groups,
     list_sandbox_snapshots,
@@ -86,6 +89,7 @@ from render.public_api.api.sandboxes import (
     retrieve_sandbox_build,
     retrieve_sandbox_group,
     retrieve_sandbox_snapshot,
+    set_default_sandbox_group,
     terminate_sandbox,
     update_sandbox_group,
 )
@@ -140,6 +144,10 @@ _SNAPSHOT_PLAN_MISMATCH_CODE = "snapshot_plan_mismatch"
 # The API still calls images builds, in its paths and error codes.
 _IMAGE_NOT_FOUND_CODE = "build_not_found"
 _IMAGE_NOT_SUCCEEDED_CODE = "build_not_succeeded"
+_GROUP_CONFLICT_ERRORS: dict[str, type[ClientError]] = {
+    "default_sandbox_group_not_deletable": SandboxGroupDefaultNotDeletableError,
+    "sandbox_group_suspended": SandboxGroupSuspendedError,
+}
 
 # Aliased at module scope so the annotations on the _api_call methods resolve
 # the builtin list, not the SyncSandboxApi.list method that shadows it in the class body.
@@ -197,6 +205,7 @@ def _to_sandbox(model: GeneratedSandbox) -> Sandbox:
     return Sandbox(
         id=model.id,
         sandbox_group_id=_set_or_none(model.sandbox_group_id),
+        name=_set_or_none(model.name),
         status=model.status.value,
         plan=str(model.plan),
         network_policy=_to_network_policy(model.network_policy),
@@ -327,6 +336,18 @@ def _handle_image_api_error(
     handle_api_error(response, operation)
 
 
+def _handle_group_api_error(response: Response[Any], operation: str) -> None:
+    if response.status_code == 409:
+        error = _error_body(response.content)
+        error_type = _GROUP_CONFLICT_ERRORS.get(error.code or "")
+        if error_type is not None:
+            message = f"{operation} failed"
+            if error.message:
+                message = f"{message}: {error.message}"
+            raise error_type(message, code=error.code, status_code=409)
+    handle_api_error(response, operation)
+
+
 class SyncSandboxApi:
     """Typed wrapper over the generated sandbox endpoints."""
 
@@ -347,10 +368,13 @@ class SyncSandboxApi:
         image_id: str | None = None,
         image_name: str | None = None,
         sandbox_group_id: str | None = None,
+        name: str | None = None,
     ) -> Sandbox:
         body = SandboxPOST(owner_id=owner_id)
         if sandbox_group_id is not None:
             body.sandbox_group_id = sandbox_group_id
+        if name is not None:
+            body.name = name
         if plan is not None:
             body.plan = plan
         if timeout_seconds is not None:
@@ -405,10 +429,11 @@ class SyncSandboxApi:
         cursor: str | None,
         limit: int | None,
         sandbox_group_id: str | None = None,
+        name: str | None = None,
     ) -> SandboxList:
         statuses = _normalize_statuses(status, SandboxStatus)
         response = self._list_api_call(
-            owner_id, statuses, cursor, limit, sandbox_group_id
+            owner_id, statuses, cursor, limit, sandbox_group_id, name
         )
         parsed = response.parsed
         if not isinstance(parsed, list):
@@ -425,6 +450,7 @@ class SyncSandboxApi:
         cursor: str | None,
         limit: int | None,
         sandbox_group_id: str | None = None,
+        name: str | None = None,
     ) -> Response[Error | _SandboxWithCursorList]:
         return list_sandboxes.sync_detailed(
             client=self.client,
@@ -433,6 +459,7 @@ class SyncSandboxApi:
             sandbox_group_id=sandbox_group_id
             if sandbox_group_id is not None
             else UNSET,
+            name=name if name is not None else UNSET,
             cursor=cursor if cursor is not None else UNSET,
             limit=limit if limit is not None else UNSET,
         )
@@ -499,6 +526,25 @@ class SyncSandboxApi:
         if not isinstance(response.parsed, GeneratedSandboxGroup):
             raise RenderError(
                 "Failed to update sandbox group: unexpected response type"
+            )
+        return _to_sandbox_group(response.parsed)
+
+    def delete_group(self, sandbox_group_id: str) -> None:
+        with request_errors("delete sandbox group"):
+            response = delete_sandbox_group.sync_detailed(
+                sandbox_group_id, client=self.client
+            )
+        _handle_group_api_error(response, "delete sandbox group")
+
+    def set_default_group(self, sandbox_group_id: str) -> SandboxGroup:
+        with request_errors("set default sandbox group"):
+            response = set_default_sandbox_group.sync_detailed(
+                sandbox_group_id, client=self.client
+            )
+        _handle_group_api_error(response, "set default sandbox group")
+        if not isinstance(response.parsed, GeneratedSandboxGroup):
+            raise RenderError(
+                "Failed to set default sandbox group: unexpected response type"
             )
         return _to_sandbox_group(response.parsed)
 

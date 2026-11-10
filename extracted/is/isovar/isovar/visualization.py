@@ -4,23 +4,35 @@ The data builder uses the existing protein pipeline without changing its
 defaults. Genomic, cDNA and protein coordinates are deliberately separate.
 """
 
+import re
 from collections import Counter
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
-import re
 
 from .default_parameters import (
-    PLOT_COMPARE_ASSEMBLY, PLOT_DPI, PLOT_MAX_ROWS, PLOT_OVERVIEW_DPI, PLOT_VIEW, PLOT_VIEWS, PLOT_WIDTH,
+    PLOT_COMPARE_ASSEMBLY,
+    PLOT_DPI,
+    PLOT_MAX_ROWS,
+    PLOT_OVERVIEW_DPI,
+    PLOT_VIEW,
+    PLOT_VIEWS,
+    PLOT_WIDTH,
     PROTEIN_SEQUENCE_LENGTH,
 )
-from .json_files import write_json
 from .dna import reverse_complement_dna
 from .effect_prediction import predicted_effects_for_variant
+from .json_files import write_json
+from .protein_reference_comparison import reference_comparison
 from .protein_sequence_creator import ProteinSequenceCreator
 from .protein_sequence_helpers import mutant_peptide_window_count
+from .protein_window_comparison import compare_protein_windows
 from .read_identity import fragment_ids, observation_groups
-from .variant_helpers import base0_interval_for_variant, interbase_range_affected_by_variant_on_transcript
+from .rna_evidence import EvidenceSets
+from .variant_helpers import (
+    base0_interval_for_variant,
+    interbase_range_affected_by_variant_on_transcript,
+)
 
 
 def _transcript_data(transcript, rna_supported=False):
@@ -66,6 +78,14 @@ def _reference_predictions(variant, whitelist, length, transcripts):
                               mutation_end=min(right, altered_end) - left,
                               protein_start_1based=left + 1, anchor_1based=anchor + 1,
                               frameshift=frameshift, ends_with_stop_codon=False)
+        protein = row["protein"]
+        interval = [min(max(0, p), len(protein["amino_acids"])) for p in
+                    (protein["mutation_start"], protein["mutation_end"])]
+        delta = len(variant.ref) - len(variant.alt)
+        reference_end = right + (delta // 3 if not frameshift else 0)
+        protein["comparison"] = compare_protein_windows(
+            transcript.protein_sequence[left:max(left, reference_end)], protein["amino_acids"], interval,
+            allele_length_delta=delta, frameshift=frameshift)
     return sorted(predictions, key=lambda p: (p["transcript_id"], p["description"]))
 
 
@@ -149,8 +169,9 @@ def collect_visualization_data(
         to None in creator_kwargs to inspect every recovered alternative.
         No read names are exported.
     """
-    from . import __version__
     from varcode import __version__ as varcode_version
+
+    from . import __version__
 
     creator_kwargs = dict(creator_kwargs or {})
     requested = ProteinSequenceCreator(**creator_kwargs)
@@ -158,9 +179,23 @@ def collect_visualization_data(
     results, transcripts = [], {}
     for assembly in modes:
         creator = ProteinSequenceCreator(**dict(creator_kwargs, variant_sequence_assembly=assembly))
-        proteins = creator.sorted_protein_sequences_for_variant(
-            variant, read_evidence, transcript_id_whitelist=transcript_id_whitelist)
-        entry = dict(assembly=assembly, settings=creator.settings(), protein=None, proteins=[])
+        assessment = creator.assess_variant_reads(
+            variant, read_evidence.alt_reads, transcript_id_whitelist=transcript_id_whitelist)
+        proteins = creator.protein_sequences_from_assessment(assessment)
+        entry = dict(assembly=assembly, settings=creator.settings(), protein=None, proteins=[],
+                     assembly_state=assessment.assembly.state, frame_state=assessment.frame_state)
+        if not proteins:
+            reasons = {
+                "no_alt_reads": "No ALT reads",
+                "no_coding_reference_context": "No coding reference context",
+                "no_reference_path_compatible_reads": "No RNA compatible with a supplied transcript path",
+                "no_retained_compatible_rna": "No retained RNA context",
+                "no_retained_rna_frame_match": "No retained RNA frame match",
+                "rna_frame_candidates": "No protein retained by the selection settings",
+            }
+            entry["no_protein_reason"] = reasons[assessment.frame_state]
+            if assessment.assembly.state == "no_retained_rna" or assessment.frame_state == "no_retained_compatible_rna":
+                entry["no_protein_reason"] = "No retained RNA context; coverage floor %d" % creator.min_variant_sequence_coverage
         selected_ids = {t.id for p in proteins[:1] for translation in p.translations
                         for t in translation.reference_context.transcripts}
         for protein in proteins:
@@ -196,23 +231,26 @@ def collect_visualization_data(
                 templates=protein.num_supporting_fragments,
                 peptide_windows=mutant_peptide_window_count(protein, creator.protein_context_peptide_length),
                 transcript_ids=sorted(ids), translation_count=len(protein.translations),
-                frames=frames, witness=_witness_data(witness)))
+                frames=frames, witness=_witness_data(witness),
+                comparison=reference_comparison(witness, [])["annotation_comparison"]))
         entry["protein"] = next(iter(entry["proteins"]), None)
         results.append(entry)
     predictions = (_reference_predictions(
         variant, transcript_id_whitelist, requested.protein_sequence_length or PROTEIN_SEQUENCE_LENGTH, transcripts)
         if include_reference_predictions else [])
     start, end = base0_interval_for_variant(variant)
-    counts = {name: dict(observations=len(observation_groups(getattr(read_evidence, name + "_reads"))),
-                        templates=len(fragment_ids(getattr(read_evidence, name + "_reads"))))
-              for name in ("ref", "alt", "other")}
+    allele_reads = {name: list(getattr(read_evidence, name + "_reads")) for name in ("ref", "alt", "other")}
+    allele_support = {name: EvidenceSets.record(reads)[0] for name, reads in allele_reads.items()}
+    counts = {name: dict(observations=len(observation_groups(reads)), templates=allele_support[name]["fragments"])
+              for name, reads in allele_reads.items()}
+    allele_support["total"] = EvidenceSets.record([read for reads in allele_reads.values() for read in reads])[0]
     return dict(
         schema_version=1, isovar_version=__version__,
         result_filters_applied=False,
         variant=dict(contig=variant.contig, start=variant.start, ref=variant.ref, alt=variant.alt,
                      reference=variant.reference_name, interval=[start, end]),
         genes=sorted({t["gene"] for t in transcripts.values()}),
-        counts=counts, modes=results, reference_predictions=predictions,
+        counts=counts, allele_support=allele_support, modes=results, reference_predictions=predictions,
         varcode_version=varcode_version,
         transcript_whitelist=(None if transcript_id_whitelist is None else sorted(transcript_id_whitelist)),
         transcripts=[transcripts[k] for k in sorted(transcripts)],
@@ -242,10 +280,17 @@ def variant_directory_name(data):
     return slug if len(slug) <= 120 else slug[:100] + "-" + sha256(slug.encode()).hexdigest()[:12]
 
 
-def _plot_imports():
+def plot_dependencies():
+    """Load plotting objects only when a figure is requested.
+
+    Returns
+    -------
+    tuple
+        Matplotlib Figure, rc_context and Rectangle constructors.
+    """
     try:
-        from matplotlib.figure import Figure
         from matplotlib import rc_context
+        from matplotlib.figure import Figure
         from matplotlib.patches import Rectangle
     except ImportError as error:
         raise ImportError("Figures require the optional plotting extra: pip install 'isovar[plot]'") from error
@@ -256,7 +301,21 @@ def _plot_imports():
 BLUE, ORANGE, GRAY, INK = "#0072B2", "#D55E00", "#707070", "#202020"
 
 
-def _style_axis(ax, title):
+def style_evidence_axis(ax, title):
+    """Apply the shared evidence-panel axis style.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axis updated in place.
+    title : str
+        Panel title.
+
+    Returns
+    -------
+    None
+        The supplied axis is styled in place.
+    """
     ax.set_facecolor("white")
     ax.set_title(title, loc="left", fontsize=14, fontweight="bold", pad=16)
     ax.spines[["top", "right", "left"]].set_visible(False)
@@ -265,8 +324,25 @@ def _style_axis(ax, title):
     ax.set_yticks([])
 
 
-def _side_note(ax, text, y=1, transform=None):
-    """Reserve the right margin for metadata, outside the plotting area."""
+def draw_side_note(ax, text, y=1, transform=None):
+    """Reserve the right margin for metadata, outside the plotting area.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axis owning the annotation.
+    text : str
+        Visible explanatory metadata.
+    y : float, optional
+        Vertical position in the supplied/default coordinate transform.
+    transform : Transform, optional
+        Coordinate transform; defaults to the axis transform.
+
+    Returns
+    -------
+    matplotlib.text.Text
+        Annotation artist added to the axis.
+    """
     return ax.text(1.035, y, text, transform=transform or ax.transAxes,
                    ha="left", va="top", fontsize=10, color=GRAY, linespacing=1.6)
 
@@ -281,9 +357,22 @@ def _prediction_groups(data):
     return list(groups.values())
 
 
-def _protein_disagreements(proteins):
+def protein_disagreements(proteins):
     """Offsets with different residues/stops in overlapping displayed tracks.
 
+    Parameters
+    ----------
+    proteins : iterable of dict or None
+        Display records with amino_acids, ends_with_stop_codon and mutation_start.
+        None represents an unavailable prediction or reconstruction.
+
+    Returns
+    -------
+    set[int]
+        Edit-relative offsets with differing observed residues/stops.
+
+    Notes
+    -----
     Offsets are relative to each nominated edit, not a protein homology
     alignment. Missing sequence is lack of coverage, never a disagreement.
     """
@@ -301,33 +390,40 @@ def draw_protein_rows(ax, rows, rectangle, differences=None):
     """Shared residue geometry for single-product and paginated comparisons."""
     left, right = -1, 1
     if differences is None:
-        differences = _protein_disagreements(p for _, p, _, _ in rows)
+        differences = protein_disagreements(p for _, p, _, _ in rows)
     for i, (label, p, color, note) in enumerate(rows):
         y = len(rows) - i
         ax.text(-0.025, y, label, transform=ax.get_yaxis_transform(), ha="right", va="center", fontsize=11)
-        _side_note(ax, note, y=y + .15, transform=ax.get_yaxis_transform())
+        draw_side_note(ax, note, y=y + .15, transform=ax.get_yaxis_transform())
         if p is None:
             ax.text(0, y, "No translated protein", va="center", fontsize=10, color=GRAY)
             continue
         a, b = p["mutation_start"], p["mutation_end"]
+        comparison = p.get("comparison", {})
+        changed_positions = set(comparison.get("substituted_positions", ())) | set(
+            comparison.get("inserted_positions", ()))
+        focal_changes = sorted(j for j in changed_positions if a <= j < b)
+        deletions = comparison.get("deleted_reference_positions", ())
         left, right = min(left, -a - 0.7), max(right, len(p["amino_acids"]) - a + 0.7)
         letters = len(p["amino_acids"]) <= 80
         if not letters:
             ax.plot([-a, len(p["amino_acids"]) - a], [y, y], color=color, lw=4)
-            ax.plot([0, b - a], [y, y], color=ORANGE, lw=5)
+            for j in focal_changes:
+                ax.plot([j - a - .4, j - a + .4], [y, y], color=ORANGE, lw=5)
         end = len(p["amino_acids"]) - a + int(p["ends_with_stop_codon"])
         for offset in sorted(differences):
             if -a <= offset < end:
                 ax.plot([offset - .4, offset + .4], [y - .27, y - .27],
                         color="#AA3377", lw=2.5, label="_protein_difference")
         for j, aa in enumerate(p["amino_acids"] if letters else ""):
-            changed = a <= j < b
+            changed = j in focal_changes
             if changed:
                 ax.add_patch(rectangle((j - a - .46, y - .20), .92, .40, color=ORANGE, alpha=.12, lw=0))
             ax.text(j - a, y, aa, ha="center", va="center", fontfamily="DejaVu Sans Mono", fontsize=12,
                     color=ORANGE if changed else color, fontweight="bold" if changed else "normal")
-        if a == b:
-            ax.plot([-.5, -.5], [y - .23, y + .23], color=ORANGE, lw=2)
+        if deletions:
+            boundary = min(deletions) - a - .5
+            ax.plot([boundary, boundary], [y - .23, y + .23], color=ORANGE, lw=2)
         if p["ends_with_stop_codon"]:
             ax.text(len(p["amino_acids"]) - a, y, "*", ha="center", va="center", fontsize=11)
     ax.axvline(-.5, color=ORANGE, alpha=.3, lw=.8, zorder=0)
@@ -336,13 +432,13 @@ def draw_protein_rows(ax, rows, rectangle, differences=None):
 
 
 def _protein_panel(ax, data, rectangle, max_rows):
-    _style_axis(ax, "Protein context")
+    style_evidence_axis(ax, "Protein context")
     rows = []
     for mode in sorted(data["modes"], key=lambda m: m["assembly"]):
         p = mode["protein"]
         note = ("%d aa · %d × %d-mers\n%d templates" % (
             len(p["amino_acids"]), p["peptide_windows"], mode["settings"]["protein_context_peptide_length"],
-            p["templates"]) if p else "%d alternate read objects" % data["counts"]["alt"]["observations"])
+            p["templates"]) if p else mode.get("no_protein_reason", "No retained RNA protein context"))
         if p and len(p["amino_acids"]) > 80:
             note += "\nSequence in evidence.json"
         rows.append(("Isovar\nAssembly " + ("on" if mode["assembly"] else "off"), p,
@@ -361,7 +457,7 @@ def _protein_panel(ax, data, rectangle, max_rows):
         if len(groups) > max_rows:
             label += " (%d/%d sequence groups shown)" % (max_rows, len(groups))
         ax.text(0, 1.005, label, transform=ax.transAxes, fontsize=10, color=GRAY)
-    ax.text(1.035, 1.005, "Orange: mutation\nMagenta: track difference\nBlank: no sequence", transform=ax.transAxes,
+    ax.text(1.035, 1.005, "Orange: focal difference\nMagenta: track difference\nBlank: no sequence", transform=ax.transAxes,
             fontsize=10, color=GRAY, va="bottom")
 
 
@@ -372,9 +468,11 @@ def _selected_witness(data):
 def _coverage_panel(ax, data):
     from matplotlib.ticker import MaxNLocator
 
-    _style_axis(ax, "RNA coverage")
+    style_evidence_axis(ax, "RNA coverage")
     if not any(mode["protein"] for mode in data["modes"]):
-        ax.text(.5, .5, "No reconstructed cDNA meeting the current thresholds", transform=ax.transAxes, ha="center")
+        reasons = list(dict.fromkeys(mode.get("no_protein_reason", "No retained RNA protein context")
+                                     for mode in data["modes"]))
+        ax.text(.5, .5, "\n".join(reasons), transform=ax.transAxes, ha="center")
         ax.set_axis_off()
         return
     for mode in data["modes"]:
@@ -390,14 +488,14 @@ def _coverage_panel(ax, data):
     peak = max([floor, 1] + [max(m["protein"]["witness"]["coverage"], default=0)
                             for m in data["modes"] if m["protein"]])
     ax.set_ylim(0, peak * 1.15)
-    ax.set_ylabel("Read objects", fontsize=11)
+    ax.set_ylabel("Processed read observations", fontsize=11)
     ax.yaxis.set_major_locator(MaxNLocator(3, integer=True))
     ax.legend(frameon=False, fontsize=10, loc="upper left", bbox_to_anchor=(1.025, 1), borderaxespad=0)
     ax.set_xlabel("cDNA offset from alternate allele (nt; 5′ → 3′)")
 
 
 def _assembly_panel(ax, data, max_rows):
-    _style_axis(ax, "Read overlaps")
+    style_evidence_axis(ax, "Read overlaps")
     w = _selected_witness(data)
     if w is None:
         ax.text(.5, .5, "No translated assembly to display", transform=ax.transAxes, ha="center")
@@ -424,7 +522,7 @@ def _assembly_panel(ax, data, max_rows):
         note += "\n%d total read objects" % w["observations"]
     if len(selected) < len(spans):
         note += "\n%d of %d span groups shown" % (len(selected), len(spans))
-    _side_note(ax, note)
+    draw_side_note(ax, note)
     ax.set(xlim=(w["start"] - 2, w["end"] + 9), ylim=(-.7, len(selected) + .6),
            xlabel="cDNA offset from alternate allele (nt; 5′ → 3′)")
 
@@ -465,13 +563,20 @@ def _genomic_projection(data):
 
 
 def _transcript_panel(ax, data, max_rows, rectangle):
-    _style_axis(ax, "Transcript models")
+    style_evidence_axis(ax, "Transcript models")
     if not data["transcripts"]:
         ax.text(.5, .5, "No contributing transcript model", transform=ax.transAxes, ha="center")
         ax.set_axis_off()
         return
     lo, hi, segments, project = _genomic_projection(data)
-    shown = data["transcripts"][:max_rows]
+    start, end = data["variant"]["interval"]
+    def priority(transcript):
+        # An insertion is an interbase boundary: either adjacent exon can
+        # provide context. Do not reorder the retained evidence itself.
+        overlaps = any((a <= start <= b if start == end else a < end and b > start)
+                       for a, b in transcript["exons"])
+        return not transcript.get("rna_supported", False), not overlaps, transcript["id"]
+    shown = sorted(data["transcripts"], key=priority)[:max_rows]
     for i, transcript in enumerate(shown):
         y = len(shown) - i
         exons = [(max(a, lo), min(b, hi)) for a, b in transcript["exons"] if a < hi and b > lo]
@@ -525,7 +630,7 @@ def _transcript_panel(ax, data, max_rows, rectangle):
         note += "\nBlack: contributes RNA protein\nGray: prediction only"
     if any(b - a > x1 - x0 for a, b, x0, x1 in segments):
         note += "\n// compressed genomic gap"
-    _side_note(ax, note)
+    draw_side_note(ax, note)
 
 
 def plot_variant_evidence(data, view=PLOT_VIEW, max_rows=PLOT_MAX_ROWS):
@@ -549,7 +654,7 @@ def plot_variant_evidence(data, view=PLOT_VIEW, max_rows=PLOT_MAX_ROWS):
         raise ValueError("Unknown visualization view: %s" % view)
     if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows < 2:
         raise ValueError("max_rows must be an integer >= 2")
-    Figure, rc_context, rectangle = _plot_imports()
+    Figure, rc_context, rectangle = plot_dependencies()
     witness = _selected_witness(data)
     heights, panels, names = [], [], []
     if view in {"all", "protein"}:
@@ -570,7 +675,7 @@ def plot_variant_evidence(data, view=PLOT_VIEW, max_rows=PLOT_MAX_ROWS):
         panels.append(lambda ax: _transcript_panel(ax, data, max_rows, rectangle))
     with rc_context({"font.family": "DejaVu Sans", "font.size": 12, "text.color": INK,
                      "axes.labelcolor": INK, "svg.fonttype": "none", "axes.formatter.useoffset": False}):
-        height = sum(heights) + 1.7 + .7 * (len(panels) - 1)
+        height = sum(heights) + 1.95 + .7 * (len(panels) - 1)
         figure = Figure(figsize=(PLOT_WIDTH, height), facecolor="white")
         axes = figure.subplots(len(panels), 1, squeeze=False, gridspec_kw={"height_ratios": heights})[:, 0]
         for name, draw, ax in zip(names, panels, axes):
@@ -593,16 +698,24 @@ def plot_variant_evidence(data, view=PLOT_VIEW, max_rows=PLOT_MAX_ROWS):
         if sample:
             title += " · " + sample
         figure.suptitle(title, x=.035, y=1 - .18 / height, ha="left", fontsize=18, fontweight="bold")
+        support = data.get("allele_support")
+        if support:
+            alt, ref, other, total = (support[name] for name in ("alt", "ref", "other", "total"))
+            note = ("Focal RNA: ALT %d/%d fragments (REF %d; other %d) | ALT %d/%d original reads" %
+                    (alt["fragments"], total["fragments"], ref["fragments"], other["fragments"],
+                     alt["reads"], total["reads"]))
+            figure.text(.17, 1 - .65 / height, note, fontsize=9, color=GRAY)
         if view not in {"coverage", "protein", "all"}:
             figure.text(.815, 1 - .7 / height, "Orange: mutation", fontsize=10, color=ORANGE)
-        figure.subplots_adjust(left=.17, right=.79, top=1 - 1.05 / height, bottom=.65 / height, hspace=.5)
+        figure.subplots_adjust(left=.17, right=.79, top=1 - 1.3 / height, bottom=.65 / height, hspace=.5)
     return figure
 
 
 def _figure_caption(data):
     caption = (
         "# Figure notes\n\nReference: " + data["variant"]["reference"] + ".\n\n"
-        "Orange marks the mutation or deletion boundary; blue denotes assembly on, gray assembly off. "
+        "Orange marks the nucleotide edit in RNA tracks and verified focal differences or deletion boundaries "
+        "in protein tracks; blue denotes assembly on, gray assembly off. "
         "Protein tracks are ordered no assembly, assembly, then Varcode. Magenta underlines mark "
         "different residues (or a stop versus a residue) at shared mutation-relative offsets, including "
         "positions outside the mutation. This is an edit-anchored comparison, not a homology alignment. "
@@ -663,7 +776,7 @@ def save_variant_figures(data, output_dir, view=PLOT_VIEW, max_rows=PLOT_MAX_ROW
     directory.mkdir(parents=True, exist_ok=False)
     views = (["all", "protein", "coverage", "reads", "transcripts"] if view == "all" else
              ["assembly", "coverage", "reads"] if view == "assembly" else [view])
-    _, rc_context, _ = _plot_imports()
+    _, rc_context, _ = plot_dependencies()
     from matplotlib.backends.backend_pdf import PdfPages
 
     with rc_context({"svg.fonttype": "none", "svg.hashsalt": "isovar", "pdf.fonttype": 42}), \

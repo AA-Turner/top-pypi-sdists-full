@@ -1,9 +1,6 @@
-from dataclasses import dataclass
-
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass(init=False)
 class FieldMultiChoiceValue(ClientValueCollection[str]):
     """A collection of choice values."""
 

@@ -1,7 +1,7 @@
 """Source codes survive RNA reconstruction and Varcode's ORF interchange (#57)."""
 
-from dataclasses import dataclass, replace
 import json
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,11 +9,13 @@ import pytest
 from varcode import Variant
 
 from isovar.genetic_code import translate_cdna
-from isovar.protein_hypotheses import _check_translation, _translation, _EvidenceSets
+from isovar.protein_hypotheses import _translation, validate_translation_sequence
 from isovar.protein_sequence_creator import ProteinSequenceCreator
-from isovar.reference_context import ReferenceContext
 from isovar.reference_coding_sequence_key import ReferenceCodingSequenceKey
+from isovar.reference_context import ReferenceContext
+from isovar.rna_evidence import ScopedEvidenceSets
 from isovar.variant_sequence import VariantSequence
+
 from .test_protein_hypotheses import Gene, Transcript
 
 
@@ -41,8 +43,8 @@ def test_rna_translation_and_export_use_the_explicit_code(table, protein):
     assert translated.amino_acids == protein
     assert translated.ends_with_stop_codon
     assert translated.reference_context.translation_table == table
-    _check_translation(translated)
-    exported = _translation(translated, "test-event", _EvidenceSets("synthetic-test"), None, None)
+    validate_translation_sequence(translated)
+    exported = _translation(translated, "test-event", ScopedEvidenceSets("synthetic-test"), None, None)
     assert exported["reference_context"]["translation_table"] == table
     assert json.loads(json.dumps(exported))["reference_context"]["translation_table"] == table
 
@@ -67,10 +69,8 @@ def test_unsupported_or_context_dependent_codes_never_fall_back(table):
         translate_cdna("ATGTGA", translation_table=table)
 
 
-def test_legacy_boolean_is_still_explicitly_table_two():
-    assert translate_cdna("ATATGAAGG", mitochondrial=True) == ("MW", True)
-    with pytest.raises(ValueError, match="conflicting"):
-        translate_cdna("ATATGAAGG", mitochondrial=True, translation_table=3)
+def test_distinct_mitochondrial_codes_keep_their_declared_assignments():
+    assert translate_cdna("ATATGAAGG", translation_table=2) == ("MW", True)
     assert translate_cdna("GTGCTGTGAAGATAG", translation_table=3, first_codon_is_start=True) == ("MTWR", True)
 
 
@@ -88,7 +88,8 @@ EXAMPLES = json.loads((Path(__file__).parent / "data/references/mitochondrial.js
 @pytest.fixture(params=EXAMPLES, ids=[e["name"] for e in EXAMPLES])
 def native_orf(request, tmp_path):
     """Pinned native transcript slices, copied unchanged from ORFdata's qualification fixtures."""
-    from orfdata import ORFModel, ORFRecord, ReferenceContext as ORFContext, EvidenceSummary, ORFEvidence
+    from orfdata import EvidenceSummary, ORFEvidence, ORFModel, ORFRecord
+    from orfdata import ReferenceContext as ORFContext
     from pyensembl import Genome
     from pyensembl.species import find_species_by_name
 
@@ -125,9 +126,10 @@ def native_orf(request, tmp_path):
 
 def test_native_reference_and_modified_rna_products_keep_the_code(native_orf):
     from orfdata import ORFCatalog
-    from isovar import annotate_sv_orf_evidence
     from varcode.effect_hypotheses import RealizedTranscriptProduct
     from varcode.orf import annotate_orf_rna_product, annotate_orf_variants
+
+    from isovar import annotate_sv_orf_evidence
 
     example, bound = native_orf
     record, transcript = bound.record, bound.transcript

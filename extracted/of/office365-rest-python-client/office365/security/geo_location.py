@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class GeoLocation(ClientValue):
     city: str | None = None
     countryName: str | None = None

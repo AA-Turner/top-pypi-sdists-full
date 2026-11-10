@@ -2,20 +2,24 @@ import abc
 import copy
 import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Sequence, Union, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, cast
 
 import ormar_rust_utils
 
-import ormar  # noqa:  I100, I202
-from ormar.queryset.clause import QueryClause
+import ormar  # noqa: I100, I202
+from ormar.exceptions import QueryDefinitionError
+from ormar.queryset.actions.filter_action import KeyInFilterAction
+from ormar.queryset.clause import FilterGroup, QueryClause
 from ormar.queryset.queries.query import Query
 from ormar.queryset.utils import translate_list_to_dict
 from ormar.relations.aliases import alias_for
 
 if TYPE_CHECKING:  # pragma: no cover
     from ormar import ForeignKeyField, Model
+    from ormar.fields.link import RelationLink
     from ormar.models.excludable import ExcludableItems
-    from ormar.queryset import FilterAction, OrderAction
+    from ormar.queryset import FilterAction, OrderAction, QuerySet
 
 logger = logging.getLogger(__name__)
 
@@ -37,28 +41,9 @@ class Node(abc.ABC):
         self.table_prefix = ""
         self.rows: list = []
         self.models: list["Model"] = []
-        self.use_alias: bool = False
-
-    @property
-    def target_name(self) -> str:
-        """
-        Return the name of the relation that is used to
-        fetch excludes/includes from the excludable mixin
-        as well as specifying the target to join in m2m relations
-
-        :return: name of the relation
-        :rtype: str
-        """
-        if (
-            self.relation_field.self_reference
-            and self.relation_field.self_reference_primary == self.relation_field.name
-        ):
-            return self.relation_field.default_source_field_name()
-        else:
-            return self.relation_field.default_target_field_name()
 
     @abstractmethod
-    def extract_related_ids(self, column_name: str) -> list:  # pragma: no cover
+    def extract_related_ids(self, link: "RelationLink") -> list:  # pragma: no cover
         pass
 
     @abstractmethod
@@ -73,39 +58,51 @@ class Node(abc.ABC):
         """
         Populates where clause with condition to return only models within the
         set of extracted ids.
+
         If there are no ids for relation the empty list is returned.
 
         :return: list of filter clauses based on original models
         :rtype: list[sqlalchemy.sql.elements.TextClause]
         """
-        column_name = self.relation_field.get_model_relation_fields(
-            self.parent.use_alias
-        )
-
-        ids = self.parent.extract_related_ids(column_name=column_name)
-
+        link = self.relation_field.link
+        ids = self.parent.extract_related_ids(link=link)
         if ids:
-            return self._prepare_filter_clauses(ids=ids)
+            return self._prepare_filter_clauses(link=link, ids=ids)
         return []
 
-    def _prepare_filter_clauses(self, ids: list) -> list["FilterAction"]:
+    def _prepare_filter_clauses(
+        self, link: "RelationLink", ids: list
+    ) -> list["FilterAction"]:
         """
         Gets the list of ids and construct a list of filter queries on
-        extracted appropriate column names
+        the target columns of the relation link.
 
+        :param link: columns connecting the parent models to the queried ones
+        :type link: RelationLink
         :param ids: list of ids that should be used to fetch data
         :type ids: list
         :return: list of filter actions to use in query
         :rtype: list["FilterAction"]
         """
         clause_target = self.relation_field.get_filter_clause_target()
-        filter_column = self.relation_field.get_related_field_alias()
+        target_columns = link.target_columns()
+        if len(target_columns) > 1:
+            return [
+                KeyInFilterAction(
+                    prefix="",
+                    values=list(ids),
+                    model_cls=clause_target,
+                    anchor=link.target_fields()[0],
+                    columns=target_columns,
+                )
+            ]
+        (filter_column,) = target_columns
         qryclause = QueryClause(
             model_cls=clause_target,
             select_related=[],
             filter_clauses=[],
         )
-        kwargs = {f"{cast(str, filter_column)}__in": ids}
+        kwargs = {f"{filter_column}__in": ids}
         filter_clauses, _ = qryclause.prepare_filter(_own_only=False, **kwargs)
         return filter_clauses
 
@@ -117,7 +114,6 @@ class AlreadyLoadedNode(Node):
 
     def __init__(self, relation_field: "ForeignKeyField", parent: "Node") -> None:
         super().__init__(relation_field=relation_field, parent=parent)
-        self.use_alias = False
         self._extract_own_models()
 
     def _extract_own_models(self) -> None:
@@ -146,23 +142,21 @@ class AlreadyLoadedNode(Node):
         for child in self.children:
             child.reload_tree()
 
-    def extract_related_ids(self, column_name: str) -> list:
+    def extract_related_ids(self, link: "RelationLink") -> list:
         """
-        Extracts the selected column(s) values from own models.
+        Extracts the values own models hold for a relation link.
         Those values are used to construct filter clauses and populate child models.
 
-        :param column_name: names of the column(s) that holds the relation info
-        :type column_name: Union[str, list[str]]
+        :param link: link from own models to the prefetched ones
+        :type link: RelationLink
         :return: list of extracted values of relation columns
         :rtype: list
         """
         list_of_ids = UniqueList()
         for model in self.models:
-            child = getattr(model, column_name)
-            if isinstance(child, ormar.Model):
-                list_of_ids.append(child.pk)
-            elif child is not None:
-                list_of_ids.append(child)
+            key = link.key_of(model=model)
+            if key is not None:
+                list_of_ids.append(key)
         return list_of_ids
 
 
@@ -193,13 +187,16 @@ class LoadNode(Node):
         orders_by: list["OrderAction"],
         parent: "Node",
         source_model: type["Model"],
+        queryset: Optional["QuerySet"] = None,
     ) -> None:
         super().__init__(relation_field=relation_field, parent=parent)
+        self.queryset = queryset
+        if queryset is not None:
+            validate_prefetch_queryset(relation_field=relation_field, queryset=queryset)
         self.excludable = excludable
         self.query_excludable = excludable
         self.exclude_prefix: str = ""
         self.orders_by = orders_by
-        self.use_alias = True
         self.grouped_models: dict[Any, list["Model"]] = dict()
         self.source_model = source_model
 
@@ -215,7 +212,9 @@ class LoadNode(Node):
         self._update_excludable_with_related_pks()
         if self.relation_field.is_multi:
             query_target = self.relation_field.through
-            select_related = [self.target_name]
+            select_related = [
+                self.relation_field.through_target_field_name()  # type: ignore
+            ]
             self.query_excludable = self.excludable.with_entry_alias(
                 model_cls=self.relation_field.to,
                 source_alias=self.exclude_prefix,
@@ -228,15 +227,16 @@ class LoadNode(Node):
         filter_clauses = self.get_filter_for_prefetch()
 
         if filter_clauses:
+            parts = self._queryset_parts()
             qry = Query(
                 model_cls=query_target,
-                select_related=select_related,
-                filter_clauses=filter_clauses,
-                exclude_clauses=[],
+                select_related=select_related + parts.select_related,
+                filter_clauses=filter_clauses + parts.filter_clauses,
+                exclude_clauses=parts.exclude_clauses,
                 offset=None,
                 limit_count=None,
                 excludable=self.query_excludable,
-                order_bys=self._extract_own_order_bys(),
+                order_bys=self._extract_own_order_bys() + parts.order_bys,
                 limit_raw_sql=False,
             )
             expr = qry.build_select_expression()
@@ -258,10 +258,13 @@ class LoadNode(Node):
         Makes sure that excludable is populated with own model primary keys values
         if the excludable has the exclude/include clauses
         """
-        related_field_names = self.relation_field.get_related_field_name()
+        related_field_names = self.relation_field.link.target_fields()
         self.exclude_prefix = alias_for(self._build_relation_key())
+        self._merge_queryset_excludable()
         if self.relation_field.is_multi:
-            self.table_prefix = alias_for(self.target_name)
+            self.table_prefix = alias_for(
+                self.relation_field.through_target_field_name()  # type: ignore
+            )
         target_model = self.relation_field.to
         model_excludable = self.excludable.get(
             model_cls=target_model, alias=self.exclude_prefix
@@ -272,6 +275,74 @@ class LoadNode(Node):
                 related_name
             ):
                 model_excludable.set_values({related_name}, slot="include")
+
+    def _merge_queryset_excludable(self) -> None:
+        """
+        Apply ``fields`` / ``exclude_fields`` of a ``Prefetch`` queryset to the
+        prefetched models.
+        """
+        if self.queryset is None:
+            return
+        target_model = self.relation_field.to
+        own = self.queryset._excludable.get(model_cls=target_model, alias="")
+        merged = self.excludable.get(model_cls=target_model, alias=self.exclude_prefix)
+        if own.include:
+            merged.set_values(value=own.include, slot="include")
+        if own.exclude:
+            merged.set_values(value=own.exclude, slot="exclude")
+
+    def _queryset_parts(self) -> "PrefetchQuerysetParts":
+        """
+        Filters, excludes, ordering and joins of a ``Prefetch`` queryset, adapted
+        to the prefetch query: a many-to-many relation is queried through its
+        through model, so the clauses are re-aliased to the joined target table.
+
+        :raises QueryDefinitionError: if a many-to-many prefetch queryset filters
+            or orders through other relations of the target
+        :return: parts to add to the prefetch query
+        :rtype: PrefetchQuerysetParts
+        """
+        queryset = self.queryset
+        if queryset is None:
+            return PrefetchQuerysetParts(
+                filter_clauses=[], exclude_clauses=[], order_bys=[], select_related=[]
+            )
+        filter_clauses = copy.deepcopy(queryset.filter_clauses)
+        exclude_clauses = copy.deepcopy(queryset.exclude_clauses)
+        order_bys = [copy.copy(order) for order in queryset.order_bys]
+        for order in order_bys:
+            order.is_source_model_order = not order.related_str
+        if not self.relation_field.is_multi:
+            return PrefetchQuerysetParts(
+                filter_clauses=filter_clauses,
+                exclude_clauses=exclude_clauses,
+                order_bys=order_bys,
+                select_related=[
+                    *queryset._select_related,
+                    *(order.related_str for order in order_bys if order.related_str),
+                ],
+            )
+        actions = [
+            *iter_filter_actions(clauses=filter_clauses),
+            *iter_filter_actions(clauses=exclude_clauses),
+        ]
+        if any(action.related_parts for action in actions) or any(
+            order.related_str for order in order_bys
+        ):
+            raise QueryDefinitionError(
+                "A Prefetch queryset of a many to many relation can only filter and "
+                "order by fields of the related model itself."
+            )
+        for action in actions:
+            action.table_prefix = self.table_prefix
+        for order in order_bys:
+            order.table_prefix = self.table_prefix
+        return PrefetchQuerysetParts(
+            filter_clauses=filter_clauses,
+            exclude_clauses=exclude_clauses,
+            order_bys=order_bys,
+            select_related=[],
+        )
 
     def _build_relation_string(self) -> str:
         node: Union[LoadNode, Node] = self
@@ -322,37 +393,23 @@ class LoadNode(Node):
             relation_str = f"{node.relation_field.name}__{relation_str}"
         return relation_str
 
-    def extract_related_ids(self, column_name: str) -> list:
+    def extract_related_ids(self, link: "RelationLink") -> list:
         """
-        Extracts the selected column(s) values from own models.
+        Extracts the values own rows hold for a relation link, read from the
+        own table's (prefixed) columns.
         Those values are used to construct filter clauses and populate child models.
 
-        :param column_names: names of the column(s) that holds the relation info
-        :type column_names: Union[str, list[str]]
+        :param link: link from own models to the prefetched ones
+        :type link: RelationLink
         :return: list of extracted values of relation columns
         :rtype: list
         """
-        column_name = self._prefix_column_names_with_table_prefix(
-            column_name=column_name
-        )
-        return self._extract_simple_relation_keys(column_name=column_name)
-
-    def _prefix_column_names_with_table_prefix(self, column_name: str) -> str:
-        return (f"{self.table_prefix}_" if self.table_prefix else "") + column_name
-
-    def _extract_simple_relation_keys(self, column_name: str) -> list:
-        """
-        Extracts simple relation keys values.
-
-        :param column_name: names of the column(s) that holds the relation info
-        :type column_name: str
-        :return: list of extracted values of relation columns
-        :rtype: list
-        """
+        read_key = link.key_getter(side="source", prefix=self.table_prefix)
         list_of_ids = UniqueList()
         for row in self.rows:
-            if row[column_name]:
-                list_of_ids.append(row[column_name])
+            key = read_key(row)
+            if key is not None:
+                list_of_ids.append(key)
         return list_of_ids
 
     def reload_tree(self) -> None:
@@ -390,12 +447,13 @@ class LoadNode(Node):
         for row in self.rows:
             item = self.relation_field.to.apply_row_plan(row_plan, row, {})
             hashable_item = self._hash_item(item)
-            instance = parsed_rows.setdefault(
-                hashable_item,
-                self.relation_field.to._construct_with_excluded(
+            instance = parsed_rows.get(hashable_item)
+            if instance is None:
+                instance = self.relation_field.to._construct_with_excluded(
                     fields_to_exclude, **item
-                ),
-            )
+                )
+                instance.set_persisted(persisted=instance.pk is not None)
+                parsed_rows[hashable_item] = instance
             self.models.append(instance)
 
     def _hash_item(self, item: Union[dict, list]) -> tuple:
@@ -416,55 +474,81 @@ class LoadNode(Node):
         when iterating parent models. Note that order is important as it reflects
         order by issued by the user.
         """
-        relation_key = self.relation_field.get_related_field_alias()
+        read_key = self.relation_field.link.key_getter(side="target")
         for index, row in enumerate(self.rows):
-            key = row[relation_key]
-            current_group = self.grouped_models.setdefault(key, [])
+            current_group = self.grouped_models.setdefault(read_key(row), [])
             current_group.append(self.models[index])
 
     def _populate_parent_models(self) -> None:
         """
         Populate parent node models with own child models from grouped dictionary
         """
-        relation_key = self._get_relation_key_linking_models()
+        link = self.relation_field.link
         for model in self.parent.models:
-            children = self._get_own_models_related_to_parent(
-                model=model, relation_key=relation_key
-            )
-            for child in children:
+            for child in self.grouped_models.get(link.key_of(model=model), []):
                 setattr(model, self.relation_field.name, child)
 
-    def _get_relation_key_linking_models(self) -> tuple[str, str]:
-        """
-        Extract names and aliases of relation columns to use
-        in linking between own models and parent models
 
-        :return: tuple of name and alias of relation columns
-        :rtype: list[tuple[str, str]]
-        """
-        column_name = self.relation_field.get_model_relation_fields(False)
-        column_alias = self.relation_field.get_model_relation_fields(True)
-        return column_name, column_alias
+@dataclass
+class PrefetchQuerysetParts:
+    """
+    Parts of a ``Prefetch`` queryset added to a prefetch query.
 
-    def _get_own_models_related_to_parent(
-        self, model: "Model", relation_key: tuple[str, str]
-    ) -> list["Model"]:
-        """
-        Extracts related column values from parent and based on this key gets the
-        own grouped models.
+    :ivar filter_clauses: filter actions and groups
+    :ivar exclude_clauses: exclude actions and groups
+    :ivar order_bys: order actions
+    :ivar select_related: relations joined for filters and ordering
+    """
 
-        :param model: parent model from parent node
-        :type model: Model
-        :param relation_key: name and aliases linking relations
-        :type relation_key: list[tuple[str, str]]
-        :return: list of own models to set on parent
-        :rtype: list[Model]
-        """
-        column_name, column_alias = relation_key
-        model_value = getattr(model, column_name)
-        if isinstance(model_value, ormar.Model):
-            model_value = model_value.pk
-        return self.grouped_models.get(model_value, [])
+    filter_clauses: list[Any]
+    exclude_clauses: list[Any]
+    order_bys: list["OrderAction"]
+    select_related: list[str]
+
+
+def iter_filter_actions(clauses: list[Any]) -> list["FilterAction"]:
+    """
+    :param clauses: filter actions and filter groups
+    :type clauses: list[Any]
+    :return: every filter action, including those nested in groups
+    :rtype: list[FilterAction]
+    """
+    actions: list["FilterAction"] = []
+    for clause in clauses:
+        if isinstance(clause, FilterGroup):
+            actions.extend(clause._iter())
+        else:
+            actions.append(clause)
+    return actions
+
+
+def validate_prefetch_queryset(
+    relation_field: "ForeignKeyField", queryset: "QuerySet"
+) -> None:
+    """
+    Check that a ``Prefetch`` queryset can be applied to its relation.
+
+    :raises QueryDefinitionError: if the queryset is of another model or uses
+        limit, offset or prefetch_related
+    :param relation_field: prefetched relation
+    :type relation_field: ForeignKeyField
+    :param queryset: queryset passed with ``Prefetch``
+    :type queryset: QuerySet
+    """
+    if queryset.model is not relation_field.to:
+        raise QueryDefinitionError(
+            f"Prefetch of {relation_field.name} needs a queryset of "
+            f"{relation_field.to.__name__}, got {queryset.model.__name__}."
+        )
+    if (
+        queryset.limit_count is not None
+        or queryset.query_offset is not None
+        or queryset._prefetch_related
+    ):
+        raise QueryDefinitionError(
+            "A Prefetch queryset cannot use limit, offset, paginate or "
+            "prefetch_related; prefetch nested relations with their own paths."
+        )
 
 
 class PrefetchQuery:
@@ -481,9 +565,12 @@ class PrefetchQuery:
         prefetch_related: list,
         select_related: list,
         orders_by: list["OrderAction"],
+        prefetch_querysets: Optional[dict[str, "QuerySet"]] = None,
     ) -> None:
         self.model = model_cls
-        self.excludable = excludable
+        self.prefetch_querysets = prefetch_querysets or {}
+        # nodes add their own includes/excludes, keep the queryset's untouched
+        self.excludable = ormar.ExcludableItems.from_excludable(excludable)
         self.select_dict = translate_list_to_dict(select_related, default={})
         self.prefetch_dict = translate_list_to_dict(prefetch_related, default={})
         self.orders_by = orders_by
@@ -494,15 +581,12 @@ class PrefetchQuery:
         Main entry point for prefetch_query.
 
         Receives list of already initialized parent models with all children from
-        select_related already populated. Receives also list of row sql result rows
-        as it's quicker to extract ids that way instead of calling each model.
+        select_related already populated.
 
         Returns list with related models already prefetched and set.
 
         :param models: list of already instantiated models from main query
         :type models: Sequence[Model]
-        :param rows: row sql result of the main query before the prefetch
-        :type rows: list[sqlalchemy.engine.result.RowProxy]
         :return: list of models with children prefetched
         :rtype: list[Model]
         """
@@ -512,6 +596,7 @@ class PrefetchQuery:
             select_dict=self.select_dict,
             parent=parent_task,
             model=self.model,
+            path="",
         )
         await parent_task.load_data()
         parent_task.reload_tree()
@@ -523,6 +608,7 @@ class PrefetchQuery:
         prefetch_dict: dict,
         parent: Node,
         model: type["Model"],
+        path: str,
     ) -> None:
         """
         Build a tree of already loaded nodes and nodes that need
@@ -538,10 +624,16 @@ class PrefetchQuery:
         :type model: Model
         """
         for related in prefetch_dict.keys():
+            relation_path = f"{path}__{related}" if path else related
             relation_field = cast(
                 "ForeignKeyField", model.ormar_config.model_fields[related]
             )
             if related in select_dict:
+                if relation_path in self.prefetch_querysets:
+                    raise QueryDefinitionError(
+                        f"Prefetch of {relation_path} cannot be combined with "
+                        "select_related of the same relation."
+                    )
                 task: Node = AlreadyLoadedNode(
                     relation_field=relation_field, parent=parent
                 )
@@ -552,6 +644,7 @@ class PrefetchQuery:
                     orders_by=self.orders_by,
                     parent=parent,
                     source_model=self.model,
+                    queryset=self.prefetch_querysets.get(relation_path),
                 )
             if prefetch_dict:
                 self._build_load_tree(
@@ -559,4 +652,5 @@ class PrefetchQuery:
                     prefetch_dict=prefetch_dict.get(related, {}),
                     parent=task,
                     model=model.ormar_config.model_fields[related].to,
+                    path=relation_path,
                 )

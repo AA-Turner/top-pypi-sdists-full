@@ -14,28 +14,20 @@ T = TypeVar("T", bound="PatchedProjectServiceAccountRequest")
 class PatchedProjectServiceAccountRequest:
     """
     Attributes:
-        username (Union[Unset, str]):
         description (Union[Unset, str]):
-        error_traceback (Union[Unset, str]):
         email (Union[Unset, str]):
         preferred_identifier (Union[Unset, str]):
         project (Union[None, UUID, Unset]):
     """
 
-    username: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
-    error_traceback: Union[Unset, str] = UNSET
     email: Union[Unset, str] = UNSET
     preferred_identifier: Union[Unset, str] = UNSET
     project: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        username = self.username
-
         description = self.description
-
-        error_traceback = self.error_traceback
 
         email = self.email
 
@@ -52,12 +44,8 @@ class PatchedProjectServiceAccountRequest:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
-        if username is not UNSET:
-            field_dict["username"] = username
         if description is not UNSET:
             field_dict["description"] = description
-        if error_traceback is not UNSET:
-            field_dict["error_traceback"] = error_traceback
         if email is not UNSET:
             field_dict["email"] = email
         if preferred_identifier is not UNSET:
@@ -70,11 +58,7 @@ class PatchedProjectServiceAccountRequest:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        username = d.pop("username", UNSET)
-
         description = d.pop("description", UNSET)
-
-        error_traceback = d.pop("error_traceback", UNSET)
 
         email = d.pop("email", UNSET)
 
@@ -98,9 +82,7 @@ class PatchedProjectServiceAccountRequest:
         project = _parse_project(d.pop("project", UNSET))
 
         patched_project_service_account_request = cls(
-            username=username,
             description=description,
-            error_traceback=error_traceback,
             email=email,
             preferred_identifier=preferred_identifier,
             project=project,

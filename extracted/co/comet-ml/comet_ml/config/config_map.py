@@ -40,6 +40,7 @@ from .config_constants import (
     MESSAGE_BATCH_STDOUT_INTERVAL_SECONDS,
     MESSAGE_BATCH_STDOUT_MAX_BATCH_SIZE,
     MESSAGE_BATCH_USE_COMPRESSION_DEFAULT,
+    S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_DEFAULT,
     S3_MULTIPART_DOWNLOAD_CONCURRENCY_DEFAULT,
     S3_MULTIPART_DOWNLOAD_PART_SIZE_DEFAULT,
     S3_MULTIPART_EXPIRES_IN,
@@ -340,6 +341,16 @@ CONFIG_MAP = {
     # The download counterpart of comet.internal.s3_multipart_total_concurrency:
     # unset, it follows the size of the pool that downloads whole assets.
     "comet.internal.s3_multipart_download_total_concurrency": {"type": int},
+    # Clamped to 64 KiB..64 MiB. How much of a range is read and written at a time;
+    # see S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_DEFAULT for the trade-off.
+    "comet.s3_multipart.download_chunk_size": {
+        "type": int,
+        "default": S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_DEFAULT,
+    },
+    # The HTTP client for direct S3 part uploads and ranged downloads: "requests", or
+    # "pyreqwest" to move the bytes without holding the GIL (needs Python 3.11+ and
+    # comet_ml[fast-transfer]). See docs/DIRECT_S3_TRANSFERS.md.
+    "comet.s3_multipart.http_client": {"type": str, "default": "requests"},
     "comet.s3_direct_multipart.upload_enabled": {
         "type": bool,
         "default": False,

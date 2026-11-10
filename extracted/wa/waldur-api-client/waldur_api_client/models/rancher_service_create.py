@@ -41,11 +41,15 @@ class RancherServiceCreate:
         customer_name (str):
         customer_native_name (str):
         customer_abbreviation (str):
+        error_message (str):
+        error_traceback (str):
         resource_type (str):
         state (CoreStates):
         created (datetime.datetime):
         modified (datetime.datetime):
+        backend_id (str):
         access_url (Union[None, list[str], str]):
+        runtime_state (str):
         namespace_name (str):
         marketplace_offering_uuid (Union[None, str]):
         marketplace_offering_name (Union[None, str]):
@@ -59,12 +63,8 @@ class RancherServiceCreate:
         is_usage_based (Union[None, bool]):
         is_limit_based (Union[None, bool]):
         description (Union[Unset, str]):
-        error_message (Union[Unset, str]):
-        error_traceback (Union[Unset, str]):
-        backend_id (Union[Unset, str]):
-        runtime_state (Union[Unset, str]):
         namespace (Union[Unset, str]):
-        cluster_ip (Union[None, Unset, str]): An IPv4 or IPv6 address.
+        cluster_ip (Union[None, Unset, str]):
         selector (Union['RancherServiceCreateSelectorType0', None, Unset]):
         target_workloads (Union[Unset, list['RancherWorkloadCreate']]):
     """
@@ -85,11 +85,15 @@ class RancherServiceCreate:
     customer_name: str
     customer_native_name: str
     customer_abbreviation: str
+    error_message: str
+    error_traceback: str
     resource_type: str
     state: CoreStates
     created: datetime.datetime
     modified: datetime.datetime
+    backend_id: str
     access_url: Union[None, list[str], str]
+    runtime_state: str
     namespace_name: str
     marketplace_offering_uuid: Union[None, str]
     marketplace_offering_name: Union[None, str]
@@ -103,10 +107,6 @@ class RancherServiceCreate:
     is_usage_based: Union[None, bool]
     is_limit_based: Union[None, bool]
     description: Union[Unset, str] = UNSET
-    error_message: Union[Unset, str] = UNSET
-    error_traceback: Union[Unset, str] = UNSET
-    backend_id: Union[Unset, str] = UNSET
-    runtime_state: Union[Unset, str] = UNSET
     namespace: Union[Unset, str] = UNSET
     cluster_ip: Union[None, Unset, str] = UNSET
     selector: Union["RancherServiceCreateSelectorType0", None, Unset] = UNSET
@@ -151,6 +151,10 @@ class RancherServiceCreate:
 
         customer_abbreviation = self.customer_abbreviation
 
+        error_message = self.error_message
+
+        error_traceback = self.error_traceback
+
         resource_type = self.resource_type
 
         state = self.state.value
@@ -159,12 +163,16 @@ class RancherServiceCreate:
 
         modified = self.modified.isoformat()
 
+        backend_id = self.backend_id
+
         access_url: Union[None, list[str], str]
         if isinstance(self.access_url, list):
             access_url = self.access_url
 
         else:
             access_url = self.access_url
+
+        runtime_state = self.runtime_state
 
         namespace_name = self.namespace_name
 
@@ -207,14 +215,6 @@ class RancherServiceCreate:
         is_limit_based = self.is_limit_based
 
         description = self.description
-
-        error_message = self.error_message
-
-        error_traceback = self.error_traceback
-
-        backend_id = self.backend_id
-
-        runtime_state = self.runtime_state
 
         namespace = self.namespace
 
@@ -259,11 +259,15 @@ class RancherServiceCreate:
                 "customer_name": customer_name,
                 "customer_native_name": customer_native_name,
                 "customer_abbreviation": customer_abbreviation,
+                "error_message": error_message,
+                "error_traceback": error_traceback,
                 "resource_type": resource_type,
                 "state": state,
                 "created": created,
                 "modified": modified,
+                "backend_id": backend_id,
                 "access_url": access_url,
+                "runtime_state": runtime_state,
                 "namespace_name": namespace_name,
                 "marketplace_offering_uuid": marketplace_offering_uuid,
                 "marketplace_offering_name": marketplace_offering_name,
@@ -280,14 +284,6 @@ class RancherServiceCreate:
         )
         if description is not UNSET:
             field_dict["description"] = description
-        if error_message is not UNSET:
-            field_dict["error_message"] = error_message
-        if error_traceback is not UNSET:
-            field_dict["error_traceback"] = error_traceback
-        if backend_id is not UNSET:
-            field_dict["backend_id"] = backend_id
-        if runtime_state is not UNSET:
-            field_dict["runtime_state"] = runtime_state
         if namespace is not UNSET:
             field_dict["namespace"] = namespace
         if cluster_ip is not UNSET:
@@ -340,6 +336,10 @@ class RancherServiceCreate:
 
         customer_abbreviation = d.pop("customer_abbreviation")
 
+        error_message = d.pop("error_message")
+
+        error_traceback = d.pop("error_traceback")
+
         resource_type = d.pop("resource_type")
 
         state = CoreStates(d.pop("state"))
@@ -347,6 +347,8 @@ class RancherServiceCreate:
         created = isoparse(d.pop("created"))
 
         modified = isoparse(d.pop("modified"))
+
+        backend_id = d.pop("backend_id")
 
         def _parse_access_url(data: object) -> Union[None, list[str], str]:
             if data is None:
@@ -362,6 +364,8 @@ class RancherServiceCreate:
             return cast(Union[None, list[str], str], data)
 
         access_url = _parse_access_url(d.pop("access_url"))
+
+        runtime_state = d.pop("runtime_state")
 
         namespace_name = d.pop("namespace_name")
 
@@ -458,14 +462,6 @@ class RancherServiceCreate:
 
         description = d.pop("description", UNSET)
 
-        error_message = d.pop("error_message", UNSET)
-
-        error_traceback = d.pop("error_traceback", UNSET)
-
-        backend_id = d.pop("backend_id", UNSET)
-
-        runtime_state = d.pop("runtime_state", UNSET)
-
         namespace = d.pop("namespace", UNSET)
 
         def _parse_cluster_ip(data: object) -> Union[None, Unset, str]:
@@ -518,11 +514,15 @@ class RancherServiceCreate:
             customer_name=customer_name,
             customer_native_name=customer_native_name,
             customer_abbreviation=customer_abbreviation,
+            error_message=error_message,
+            error_traceback=error_traceback,
             resource_type=resource_type,
             state=state,
             created=created,
             modified=modified,
+            backend_id=backend_id,
             access_url=access_url,
+            runtime_state=runtime_state,
             namespace_name=namespace_name,
             marketplace_offering_uuid=marketplace_offering_uuid,
             marketplace_offering_name=marketplace_offering_name,
@@ -536,10 +536,6 @@ class RancherServiceCreate:
             is_usage_based=is_usage_based,
             is_limit_based=is_limit_based,
             description=description,
-            error_message=error_message,
-            error_traceback=error_traceback,
-            backend_id=backend_id,
-            runtime_state=runtime_state,
             namespace=namespace,
             cluster_ip=cluster_ip,
             selector=selector,

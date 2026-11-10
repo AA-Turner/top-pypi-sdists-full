@@ -15,6 +15,7 @@ from office365.sharepoint.comments.contentanchor import ContentAnchor
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.likes.user_entity import UserEntity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.sharing.principal import Principal
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 
 class Comment(Entity):
+    @site_access(SiteLevel.WRITE)
     def like(self) -> Self:
         """
         The Like method makes the current user a liker of the comment.
@@ -30,6 +32,7 @@ class Comment(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def unlike(self) -> Self:
         """
         The Unlike method removes the current user from the list of likers for the comment.
@@ -38,7 +41,7 @@ class Comment(Entity):
         self.context.add_query(qry)
         return self
 
-    @odata(name="likedBy")
+    @odata(name="likedBy", navigation=True)
     @property
     def liked_by(self) -> EntityCollection[UserEntity]:
         """
@@ -53,86 +56,103 @@ class Comment(Entity):
     def entity_type_name(self) -> str:
         return "Microsoft.SharePoint.Comments.comment"
 
+    @odata(name="author")
     @property
     def author(self) -> Principal:
         """Gets the author property"""
         return self.properties.get("author", Principal())
 
+    @odata(name="contentAnchor", beta=True)
     @property
     def content_anchor(self) -> ContentAnchor:
         """Gets the contentAnchor property"""
         return self.properties.get("contentAnchor", ContentAnchor())
 
+    @odata(name="createdDate")
     @property
     def created_date(self) -> Optional[datetime]:
         """Gets the createdDate property"""
         return self.properties.get("createdDate", datetime.min)
 
+    @odata(name="id")
     @property
     def id_(self) -> Optional[str]:
         """Gets the id property"""
         return self.properties.get("id", None)
 
+    @odata(name="isLikedByUser")
     @property
     def is_liked_by_user(self) -> Optional[bool]:
         """Gets the isLikedByUser property"""
         return self.properties.get("isLikedByUser", None)
 
+    @odata(name="isReply")
     @property
     def is_reply(self) -> Optional[bool]:
         """Gets the isReply property"""
         return self.properties.get("isReply", None)
 
+    @odata(name="itemId")
     @property
     def item_id(self) -> Optional[int]:
         """Gets the itemId property"""
         return self.properties.get("itemId", None)
 
+    @odata(name="likeCount")
     @property
     def like_count(self) -> Optional[int]:
         """Gets the likeCount property"""
         return self.properties.get("likeCount", None)
 
+    @odata(name="listId")
     @property
     def list_id(self) -> Optional[UUID]:
         """Gets the listId property"""
         return self.properties.get("listId", None)
 
+    @odata(name="mentions")
     @property
     def mentions(self) -> ClientValueCollection[Identity]:
         """Gets the mentions property"""
         return self.properties.get("mentions", ClientValueCollection[Identity](Identity))
 
+    @odata(name="modifiedDate")
     @property
     def modified_date(self) -> Optional[datetime]:
         """Gets the modifiedDate property"""
         return self.properties.get("modifiedDate", datetime.min)
 
+    @odata(name="parentId")
     @property
     def parent_id(self) -> Optional[str]:
         """Gets the parentId property"""
         return self.properties.get("parentId", None)
 
+    @odata(name="relativeCreatedDate", beta=True)
     @property
     def relative_created_date(self) -> Optional[str]:
         """Gets the relativeCreatedDate property"""
         return self.properties.get("relativeCreatedDate", None)
 
+    @odata(name="replyCount")
     @property
     def reply_count(self) -> Optional[int]:
         """Gets the replyCount property"""
         return self.properties.get("replyCount", None)
 
+    @odata(name="text")
     @property
     def text(self) -> Optional[str]:
         """Gets the text property"""
         return self.properties.get("text", None)
 
+    @odata(name="id")
     @property
     def id(self) -> Optional[str]:
         """Gets the id property"""
         return self.properties.get("id", None)
 
+    @odata(name="replies", navigation=True)
     @property
     def replies(self) -> EntityCollection[Comment]:
         """Gets the replies property"""

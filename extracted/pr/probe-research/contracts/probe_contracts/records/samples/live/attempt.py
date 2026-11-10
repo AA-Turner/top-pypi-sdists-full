@@ -1,0 +1,85 @@
+"""A live attempt's parts: its kind (start, progress, end) and what each one carries (rl-next W31, DESIGN.md "Live")."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from ....compat import StrEnum
+from ..samples import MAX_KEY_CHARS
+
+#: The activity line, after the credential scrubber: `tool bash: pytest -x tests/test_io.py`.
+MAX_ACTIVITY_CHARS = 512
+
+
+class AttemptKind(StrEnum):
+    """Which attempt part this is. Each kind has its own merge rule (`part.ATTEMPT_KIND_SELECTION`)."""
+
+    START = "start"  # the rollout began: first delivery wins, never changed
+    PROGRESS = "progress"  # a whole snapshot of how it is going: the newest wins
+    END = "end"  # the rollout ended, sent at once (never held for the step's bundles): first delivery wins
+
+
+class AttemptPhase(StrEnum):
+    """What a running attempt is doing now."""
+
+    QUEUED = "queued"
+    GENERATING = "generating"
+    TOOL = "tool"
+    ENVIRONMENT = "environment"
+    SCORING = "scoring"
+
+
+class AttemptOutcome(StrEnum):
+    """How an attempt ended. A canceled attempt's sample, if any, is `result=error`, `error_reason=canceled`."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    ERROR = "error"
+    DROPPED = "dropped"
+    ABORTED = "aborted"  # the engine aborted it (a Miles SGLang abort)
+    CANCELED = "canceled"  # someone asked (`command_id`)
+    #: It ended unbroken with no grade yet (a verl V1 loop, an ART rollout a judge grades later): a clean end, never a
+    #: failure; its sample's `result` says how well once graded.
+    UNGRADED = "ungraded"
+
+
+class AttemptStart(BaseModel):
+    """The `start` part's own facts. Task, host, engine and sandbox ride the part itself; producer and epoch the batch."""
+
+    #: The producer's clock: shown, never judged (the server's receipt time decides elapsed and hung).
+    started_at: datetime | None = None
+    group_key: str | None = Field(default=None, max_length=MAX_KEY_CHARS)
+    scheduled_step: int | None = Field(default=None, ge=0)
+    #: The policy's weight version when the attempt began.
+    weight_version: int | None = Field(default=None, ge=0)
+    #: 1 for the first try at this slot; a retry's is its `retry_of`'s + 1.
+    try_number: int | None = Field(default=None, ge=1)
+    #: The attempt key this one retries, in the same write epoch: that one reads `superseded`.
+    retry_of: str | None = Field(default=None, min_length=1, max_length=MAX_KEY_CHARS)
+    #: The retry command that started it (`SampleCommand.id`).
+    command_id: UUID | None = None
+
+
+class AttemptProgress(BaseModel):
+    """The `progress` part's snapshot, sent whole on every beat (never sparse: the newest replaces the last)."""
+
+    #: When the attempt last made real progress (a model call, a tool call, a phase change), the producer's clock.
+    #: A beat repeating the snapshot never moves it; the server's receipt of a new value is what hung reads.
+    last_progress_at: datetime | None = None
+    phase: AttemptPhase | None = None
+    turns: int | None = Field(default=None, ge=0)
+    tokens: int | None = Field(default=None, ge=0)
+    activity: str | None = Field(default=None, max_length=MAX_ACTIVITY_CHARS)
+
+
+class AttemptEnd(BaseModel):
+    """The `end` part's facts. Why it broke rides the part's `error_reason` and `error_message`."""
+
+    outcome: AttemptOutcome
+    #: The producer's clock: shown, never judged.
+    ended_at: datetime | None = None
+    #: The cancel command that ended it.
+    command_id: UUID | None = None

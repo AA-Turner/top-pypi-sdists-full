@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 from mpp._defaults import DEFAULT_CONFIRMATION_TIMEOUT, DEFAULT_TIMEOUT
 from mpp._typing import is_dict, is_list
-from mpp.errors import BadRequestError, VerificationFailedError
+from mpp.errors import BadRequestError, PaymentSimulationError, VerificationFailedError
 from mpp.methods.tempo.session import _abi as abi
 from mpp.methods.tempo.session._channel import compute_channel_id, expiring_nonce_hash
 from mpp.methods.tempo.session._protocol import (
@@ -48,6 +48,11 @@ STABLECOIN_DEX = "0xdec0000000000000000000000000000000000000"
 
 _APPROVE_SELECTOR = bytes.fromhex("095ea7b3")
 _SWAP_EXACT_AMOUNT_OUT_SELECTOR = bytes.fromhex("f0122b75")
+
+
+class FeePolicyError(ValueError):
+    """A session transaction was refused before signing or broadcasting."""
+
 
 TransactionLabel = Literal["open", "topUp"]
 
@@ -758,12 +763,44 @@ def validate_top_up_credential_transaction(
 
 
 async def _simulate_call(
-    rpc_url: str, request: dict[str, Any], client: httpx.AsyncClient | None
+    rpc_url: str,
+    request: dict[str, Any],
+    client: httpx.AsyncClient | None,
+    *,
+    phase: Literal["sender", "sponsored"] | None = None,
 ) -> None:
+    """Run ``request`` with ``eth_call``; a node error fails verification.
+
+    With ``phase`` (a sponsorship preflight), an execution failure (a revert or
+    running out of gas) is a :class:`~mpp.errors.PaymentSimulationError` naming
+    it, with the same message. Any other node error stays the untagged
+    verification failure, with the tagged error as its cause, as the charge
+    preflight does. Transport errors propagate unwrapped.
+    """
     try:
         await _rpc(rpc_url, "eth_call", [request, "latest"], client)
     except RuntimeError as error:
-        raise VerificationFailedError(f"{error}") from error
+        if phase is None:
+            raise VerificationFailedError(f"{error}") from error
+        from mpp.methods.tempo import _fee_payer
+        from mpp.methods.tempo._rpc import RpcError
+
+        simulation = PaymentSimulationError(
+            f"Payment verification failed: {error}.",
+            phase=phase,
+            sender=request.get("from"),
+            fee_payer=request.get("feePayer") if phase == "sponsored" else None,
+            payment_token=_fee_payer.simulation_payment_token(request),
+        )
+        node_error = error.response.get("error") if isinstance(error, RpcError) else None
+        code = node_error.get("code") if is_dict(node_error) else None
+        message = node_error.get("message") if is_dict(node_error) else None
+        if not isinstance(message, str):
+            message = str(error)
+        if code == 3 or "revert" in message.lower() or _fee_payer.is_out_of_gas_error(error):
+            raise simulation from error
+        simulation.__cause__ = error
+        raise VerificationFailedError(f"{error}") from simulation
 
 
 def _rpc_calls(calls: Sequence[tuple[str, int, bytes]]) -> list[dict[str, str]]:
@@ -792,8 +829,8 @@ async def simulate_credential_transaction(
 sponsored_sends: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
     "sponsored_sends", default=None
 )
-"""When set, collects each fee-payer co-signed transaction handed to the node for broadcast,
-so a caller can tell a sponsored transaction that may have landed from one never sent."""
+"""When set, collects transactions whose sponsor signatures may have reached the node,
+including signed simulations that can be reconstructed and broadcast outside this client."""
 
 
 async def send_credential_transaction(
@@ -808,28 +845,42 @@ async def send_credential_transaction(
     allowed_fee_tokens: Sequence[str] | None = None,
     challenge_expires: str | None = None,
     client: httpx.AsyncClient | None = None,
+    before_sponsor_exposure: Callable[[], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Broadcast a client-signed management transaction and wait for its receipt.
 
-    With `fee_payer`, the 0x78 envelope is co-signed, simulated with
-    `tempo_simulateV1` and checked for remaining validity before broadcast.
+    With `fee_payer`, the transaction is simulated as the sender at its gas
+    limit without fees, then the 0x78 envelope is co-signed, simulated with
+    `eth_call` as the sponsored transaction (a fee payer signed copy with up to
+    `SPONSORED_SIMULATION_GAS_BUFFER` more gas, within the sponsor policy) and
+    checked for remaining validity before broadcast.
     """
     import httpx
 
     from mpp.methods.tempo import _fee_payer
+    from mpp.methods.tempo.fee_payer_policy import get_policy
 
     owns_client = client is None
     http = client or httpx.AsyncClient(timeout=DEFAULT_TIMEOUT)
     try:
         raw = transaction.raw
         if fee_payer is not None:
-            # Like mppx FeePayer.preflightSponsorship: execute the calls as the
-            # sender (no fee fields) before co-signing, then the completed
-            # envelope with its fee payer and fee token.
+            # Like mppx FeePayer.preflightSponsorship: execute the transaction
+            # as the sender at its broadcast gas limit (no fee fields, so no
+            # fee-token balance check) before co-signing, which refuses a gas
+            # limit too low for the mined transaction; then the completed
+            # envelope with its fee payer, fee token and a fee payer signature
+            # (signed only now, after the sender simulation passed), since
+            # Tempo nodes bill the sender of an eth_call that lacks one.
+            decoded, _, _, key_authorization = _fee_payer.decode_sponsored_envelope(raw)
             await _simulate_call(
                 rpc_url,
-                {"from": transaction.sender, "calls": _rpc_calls(transaction.calls)},
+                _fee_payer.sender_simulation_request(
+                    _fee_payer.envelope_transaction(decoded, key_authorization=key_authorization),
+                    transaction.sender,
+                ),
                 http,
+                phase="sender",
             )
             raw, cosigned, sender = _cosign(
                 transaction,
@@ -839,17 +890,28 @@ async def send_credential_transaction(
                 allowed_fee_tokens=allowed_fee_tokens or [expected_currency],
                 challenge_expires=challenge_expires,
             )
-            await _simulate_call(
-                rpc_url,
-                _fee_payer.sponsored_simulation_request(cosigned, sender, fee_payer.address),
-                http,
+            sponsored = _fee_payer.local_sponsored_simulation_request(
+                cosigned, sender, fee_payer, get_policy(chain_id, fee_payer_policy)
             )
-            if transaction.valid_before is not None:
-                _fee_payer.assert_remaining_validity(transaction.valid_before)
-        if fee_payer is not None:
+            if before_sponsor_exposure is not None:
+                await before_sponsor_exposure()
+            # The RPC can combine this signature with the payer's envelope and broadcast.
+            # A simulation error therefore does not prove that sponsorship was unused.
             sends = sponsored_sends.get()
             if sends is not None:
                 sends.append(raw)
+            try:
+                await _simulate_call(rpc_url, sponsored, http, phase="sponsored")
+            except VerificationFailedError as error:
+                # Padding clamped by the sponsor policy may lack the sponsored
+                # eth_call's extra gas; the sender simulation checked the
+                # broadcast gas, so running out of gas alone passes then.
+                padded = int(sponsored["gas"], 16)
+                full = cosigned.gas_limit + _fee_payer.SPONSORED_SIMULATION_GAS_BUFFER
+                if padded >= full or not _fee_payer.is_out_of_gas_error(error):
+                    raise
+            if transaction.valid_before is not None:
+                _fee_payer.assert_remaining_validity(transaction.valid_before)
         tx_hash = await send_raw_transaction(rpc_url, raw, client=http)
         try:
             return await wait_for_successful_receipt(rpc_url, tx_hash, client=http)
@@ -983,6 +1045,7 @@ async def broadcast_top_up_transaction(
     allowed_fee_tokens: Sequence[str] | None = None,
     challenge_expires: str | None = None,
     client: httpx.AsyncClient | None = None,
+    before_sponsor_exposure: Callable[[], Awaitable[None]] | None = None,
 ) -> BroadcastTopUpResult:
     """Validate, broadcast and verify a client-signed `topUp` transaction."""
     validated = validate_top_up_credential_transaction(
@@ -1009,6 +1072,7 @@ async def broadcast_top_up_transaction(
         allowed_fee_tokens=allowed_fee_tokens,
         challenge_expires=challenge_expires,
         client=client,
+        before_sponsor_exposure=before_sponsor_exposure,
     )
     topped_up = get_channel_event(receipt, "TopUp", expected_channel_id, escrow=escrow_contract)
     validate_top_up_receipt(
@@ -1081,12 +1145,13 @@ async def _build_signed_transaction(
     valid_after: int | None,
     client: httpx.AsyncClient | None,
     estimate_required: bool = False,
+    payer_fee_policy: Mapping[str, int] | None = None,
 ) -> tuple[Any, int]:
     """Build and sender-sign an expiring-nonce Tempo transaction; returns (tx, chain_id)."""
     # pytempo ships no type information.
     from pytempo import Call, TempoTransaction  # pyright: ignore[reportMissingTypeStubs]
 
-    from mpp.methods.tempo.fee_payer_policy import get_policy
+    from mpp.methods.tempo.fee_payer_policy import _get_payer_policy, get_policy
 
     sender = root_account or account.address
     chain_hex, gas_hex = await asyncio.gather(
@@ -1097,14 +1162,22 @@ async def _build_signed_transaction(
     if chain_id is not None and rpc_chain_id != chain_id:
         raise ValueError(f"Chain ID mismatch: RPC returned {rpc_chain_id}, expected {chain_id}")
     gas_price = int(gas_hex, 16)
-    priority_fee = gas_price
-    if awaiting_fee_payer:
-        # Keep sponsored envelopes inside the server's default policy.
-        priority_fee = min(gas_price, get_policy(rpc_chain_id).max_priority_fee_per_gas)
+    policy = (
+        get_policy(rpc_chain_id)
+        if awaiting_fee_payer
+        else _get_payer_policy(rpc_chain_id, payer_fee_policy)
+    )
+    if not awaiting_fee_payer and (gas_price < 0 or gas_price > policy.max_fee_per_gas):
+        raise FeePolicyError("RPC gas-price quote exceeds payer fee policy")
+    priority_fee = min(gas_price, policy.max_priority_fee_per_gas)
     valid_before = valid_before or int(time.time()) + EXPIRING_NONCE_VALID_BEFORE_SECS
     gas_limit = await _estimate_gas(
         rpc_url, sender, calls, client, valid_before=valid_before, required=estimate_required
     )
+    if not awaiting_fee_payer and gas_limit * gas_price > policy.max_total_fee:
+        raise FeePolicyError("Transaction exceeds payer total-fee budget")
+    if not awaiting_fee_payer and gas_limit > policy.max_gas:
+        raise FeePolicyError("Transaction exceeds payer gas budget")
     tx = TempoTransaction.create(
         chain_id=rpc_chain_id,
         gas_limit=gas_limit,
@@ -1299,6 +1372,7 @@ async def _send_precompile_transaction(
         client=client,
         # Like viem, a call whose gas estimate fails (it would revert) is never sent.
         estimate_required=True,
+        payer_fee_policy=fee_payer_policy,
     )
     if sponsored:
         assert fee_payer is not None

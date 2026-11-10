@@ -5,6 +5,8 @@ from typing import Union
 from urllib.parse import urljoin, urlsplit
 
 import requests
+from urllib3.exceptions import LocationParseError
+from urllib3.util import parse_url
 
 from .exceptions import (
     BlockedAddressError,
@@ -63,9 +65,24 @@ class LinkGrabber:
         parts = urlsplit(url)
         if parts.scheme not in ("http", "https") or not parts.hostname:
             raise BlockedAddressError("Blocked url scheme")
+        # requests connects to the host urllib3 parses, which differs from
+        # urlsplit for some inputs (e.g. "http://127.0.0.1:80\\@8.8.8.8/"),
+        # so validate urllib3's host and refuse any disagreement
+        try:
+            target = parse_url(url)
+        except LocationParseError:
+            raise BlockedAddressError("Blocked url") from None
+        host = (target.host or "").strip("[]")
+        if (
+            "\\" in url
+            or not host
+            or host.lower() != parts.hostname.lower()
+            or target.port != parts.port
+        ):
+            raise BlockedAddressError("Blocked url")
         # shortcut: resolves before requests resolves again, so DNS rebinding
         # can still slip through; pin the IP in an HTTPAdapter to close it
-        for *_, addr in socket.getaddrinfo(parts.hostname, parts.port):
+        for *_, addr in socket.getaddrinfo(host, target.port):
             ip = ipaddress.ip_address(addr[0].split("%")[0])
             if not ip.is_global:
                 raise BlockedAddressError("Blocked address")

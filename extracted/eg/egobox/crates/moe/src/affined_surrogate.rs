@@ -1,14 +1,11 @@
 use crate::IaeAlphaPlotData;
 use crate::errors::Result;
+use crate::persistence::write_model;
 use crate::surrogates::*;
 use crate::types::*;
 use ndarray::{Array1, Array2, ArrayView2};
 
 use serde::{Deserialize, Serialize};
-
-use crate::MoeError;
-use std::fs;
-use std::io::Write;
 
 /// A wrapper surrogate applying an affine transform to another surrogate's predictions.
 ///
@@ -98,18 +95,7 @@ impl GpSurrogate for AffinedSurrogate {
     }
 
     fn save(&self, path: &str, format: GpFileFormat) -> Result<()> {
-        let mut file = fs::File::create(path).unwrap();
-        let bytes = match format {
-            GpFileFormat::Json => {
-                serde_json::to_vec(self as &dyn GpSurrogate).map_err(MoeError::SaveJsonError)?
-            }
-            GpFileFormat::Binary => {
-                bincode::serde::encode_to_vec(self as &dyn GpSurrogate, bincode::config::standard())
-                    .map_err(MoeError::SaveBinaryError)?
-            }
-        };
-        file.write_all(&bytes)?;
-        Ok(())
+        write_model(path, self as &dyn GpSurrogate, format)
     }
 }
 
@@ -129,6 +115,20 @@ impl GpSurrogateExt for AffinedSurrogate {
     fn predict_valvar_gradients(&self, x: &ArrayView2<f64>) -> Result<(Array2<f64>, Array2<f64>)> {
         let (val_grad, var_grad) = self.inner.predict_valvar_gradients(x)?;
         Ok((val_grad * self.scale, var_grad * (self.scale * self.scale)))
+    }
+
+    fn predict_valvar_with_gradients(
+        &self,
+        x: &ArrayView2<f64>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
+        let (val, var, val_grad, var_grad) = self.inner.predict_valvar_with_gradients(x)?;
+        let scale2 = self.scale * self.scale;
+        Ok((
+            val * self.scale + self.offset,
+            var * scale2,
+            val_grad * self.scale,
+            var_grad * scale2,
+        ))
     }
 
     fn sample(&self, x: &ArrayView2<f64>, n_traj: usize) -> Result<Array2<f64>> {
@@ -213,5 +213,27 @@ impl Clone for AffinedSurrogate {
             offset: self.offset,
             training_data: self.training_data.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{GpMixtureParams, SurrogateBuilder};
+    use ndarray::array;
+
+    #[test]
+    fn test_save_in_missing_dir_is_an_error() {
+        let xt = array![[0.], [1.], [2.], [3.]];
+        let yt = array![0., 1., 4., 9.];
+        let inner = GpMixtureParams::new()
+            .train(xt.view(), yt.view())
+            .expect("GP training");
+        let surrogate = AffinedSurrogate::new(inner, -1., 0.);
+        let res = surrogate.save(
+            "target/test_affined_missing_dir/affined.json",
+            GpFileFormat::Json,
+        );
+        assert!(res.is_err(), "file creation error expected");
     }
 }

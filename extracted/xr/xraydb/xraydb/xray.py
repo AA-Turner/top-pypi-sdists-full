@@ -4,7 +4,10 @@ calculations using XrayDB
 Copyright 2025  Matthew Newville, The University of Chicago, newville@cars.uchicago.edu
 using the MIT license
 """
+import threading
+from warnings import warn
 from collections import namedtuple
+from collections.abc import Iterable
 import numpy as np
 
 from .utils import (R_ELECTRON_CM, AVOGADRO, PLANCK_HC,
@@ -147,6 +150,8 @@ _edge_energies = {'k': np.array([-1.0, 13.6, 24.6, 54.7, 111.5, 188.0,
                                   4127.0])}
 
 _xraydb = None
+_xraydb_lock = threading.Lock()
+
 
 def get_xraydb():
     """return instance of the XrayDB
@@ -160,20 +165,22 @@ def get_xraydb():
 
     """
     global _xraydb
-    if _xraydb is None:
-        _xraydb = XrayDB()
+    with _xraydb_lock:
+        if _xraydb is None:
+            _xraydb = XrayDB()
     return _xraydb
 
-def f0(ion, q):
-    """elastic X-ray scattering factor, f0(q), for an ion.
+
+def f0(ion, k):
+    """elastic X-ray scattering factor, f0(k), for an ion.
 
     Args:
        ion (int or str):  atomic number, atomic symbol or ionic symbol of scatterer
 
-       q  (float, ndarray):  Q value(s)  for scattering
+       k  (float, ndarray):  k value(s)  for scattering
 
     Returns
-       scattering factor for each Q value
+       scattering factor for each k value
 
     Notes:
        1.  from D. Waasmaier and A. Kirfel, Acta Cryst. A51 p416 (1995) and
@@ -181,11 +188,14 @@ def f0(ion, q):
        2.  `ion` can be of the form: 26, `Fe`, `Fe2+`.  For a full list of ions
            use `f0_ions()`
        3. elements supported are from Z = 1 to 98 ('H' to 'Cf')
-       4. q = sin(theta) / lambda, where theta=incident angle, lambda=X-ray wavelength
+       4. k = sin(theta)/lambda, where theta=incident angle, and
+          lambda=X-ray wavelength, in Angstroms. This differs from the usual
+          definition of `q` by a factor of 4*pi
+
 
     """
     xdb = get_xraydb()
-    return xdb.f0(ion, q)
+    return xdb.f0(ion, k)
 
 def f0_ions(element=None):
     """list ion names supported in the f0() calculation from
@@ -275,15 +285,19 @@ def f2_chantler(element, energy):
     return xdb.f2_chantler(element, energy)
 
 
-def mu_chantler(element, energy, incoh=False, photo=False):
+def mu_chantler(element, energy, incoh=False, photo=False,
+                nonphoto=False, kind=None):
     """X-ray mass attenuation coeficient, mu/rho, for an element and
     energy or array of energies.   Data is from the Chantler tables.
 
     Args:
         element (int, str):  atomic number, atomic symbol for element
         energy (float or ndarray):   energy or array of energies
-        incoh (bool): whether to return only the incoherent contribution [False]
+        incoh (bool): whether to return only the incoherent+coherenet contribution [False]
         photo (bool): whether to return only the photo-electric contribution [False]
+        nonphoto (bool): whether to return only the incoherent+cohereent contribution [False]
+        kind (str or None): type of cross-section to use, one of (None,
+                               'total', 'photo', 'nonphoto') [None]
 
     Returns:
         float value or ndarray
@@ -291,6 +305,9 @@ def mu_chantler(element, energy, incoh=False, photo=False):
     Notes:
         1. Values returned are in units of cm^2/gr
         2. The default is to return total attenuation coefficient.
+        3. The Chantler tables do not separate coherent from incoherent scattering
+        4. Using `incoh`, `photo`, `nonphoto` should be considered deprecated and
+           use of `kind` preferred.
     """
     xdb = get_xraydb()
     return xdb.mu_chantler(element, energy, incoh=incoh, photo=photo)
@@ -303,7 +320,7 @@ def mu_elam(element, energy, kind='total'):
         element (int, str):  atomic number, atomic symbol for element
         energy (float or ndarray):   energy or array of energies
         kind (str):  type of cross-section to use, one of ('total',
-                     'photo', 'coh', 'incoh') ['total']
+                     'photo', 'coh', 'incoh', 'nonphoto') ['total']
 
     Returns:
         float value or ndarray
@@ -314,6 +331,16 @@ def mu_elam(element, energy, kind='total'):
 
     """
     xdb = get_xraydb()
+    if isinstance(energy, Iterable):
+        emin, emax = min(energy), max(energy)
+    else:
+        emin, emax = energy, energy
+
+    if emax > 0.8e6:
+        warn('Elam Tables fail above 800 keV')
+    if emin < 800.0:
+        warn('Elam Tables unreliable below 800 eV')
+
     return xdb.mu_elam(element, energy, kind=kind)
 
 
@@ -855,7 +882,7 @@ def mirror_reflectivity(formula, theta, energy, density=None,
     elif output == 'amplitude':
         return r_amp
     else:
-        raise Exception(f"Unknown output type {output}. Use 'intensity' or 'amplitude'.")
+        raise ValueError(f"Unknown output type {output}. Use 'intensity' or 'amplitude'.")
 
 def multilayer_reflectivity(stackup, thickness, substrate, theta, energy, n_periods=1,
                                 density=None, substrate_density=None, substrate_rough=0.0,
@@ -892,11 +919,11 @@ def multilayer_reflectivity(stackup, thickness, substrate, theta, energy, n_peri
     """
 
     if thickness is None:
-        raise Exception('Please provide thicknesses in Angstroms of each layer (exluding substrate)')
+        raise ValueError('Please provide thicknesses in Angstroms of each layer (exluding substrate)')
     if len(stackup) != len(thickness):
-        raise Exception(f'number of materials ({len(stackup)}) should match number of thicknesses ({len(thickness)})')
+        raise ValueError(f'number of materials ({len(stackup)}) should match number of thicknesses ({len(thickness)})')
     if density is not None and len(stackup) != len(density):
-        raise Exception(f"If not None, number of densities ({len(density)}) should match number of materials({len(stackup)})")
+        raise ValueError(f"If not None, number of densities ({len(density)}) should match number of materials({len(stackup)})")
 
     two_dim = False
     if isinstance(theta, (list, np.ndarray)) and isinstance(energy, (list, np.ndarray)):
@@ -920,7 +947,7 @@ def multilayer_reflectivity(stackup, thickness, substrate, theta, energy, n_peri
     for i in range(n_layers):
         if density[i] is None:
             if get_material(stackup[i]) is None:
-                raise Exception(f"{stackup[i]} not found.\n" \
+                raise ValueError(f"{stackup[i]} not found.\n" \
                 "Specify Density or use add_material() to add a custom material")
             stackup[i], density[i] = get_material(stackup[i])
 
@@ -938,7 +965,7 @@ def multilayer_reflectivity(stackup, thickness, substrate, theta, energy, n_peri
     # substrate layer
     if substrate_density is None:
         if get_material(substrate) is None:
-            raise Exception(f"{substrate} not found.\n" \
+            raise ValueError(f"{substrate} not found.\n" \
             "Specify Density or use add_material() to add a custom material")
         substrate, substrate_density= get_material(substrate)
     delta_sub, beta_sub, _ = xray_delta_beta(substrate, substrate_density, energy)
@@ -968,7 +995,7 @@ def multilayer_reflectivity(stackup, thickness, substrate, theta, energy, n_peri
     # surface
         fresnel_r = (kiz - kz[0]/n[0])/(kiz + kz[0]/n[0])
     else:
-        raise Exception("Use either 's' or 'p' polarization")
+        raise ValueError("Use either 's' or 'p' polarization")
 
     p2 = np.exp(2j*t[0]*kz[0])
     r_amp = (fresnel_r + r_amp*(p2))/(1 + fresnel_r*r_amp*(p2))
@@ -984,7 +1011,7 @@ def multilayer_reflectivity(stackup, thickness, substrate, theta, energy, n_peri
     elif output == 'amplitude':
         return r_amp
     else:
-        raise Exception(f"Unknown output type {output}. Use 'intensity' or 'amplitude'.")
+        raise ValueError(f"Unknown output type {output}. Use 'intensity' or 'amplitude'.")
 
 
 def coated_reflectivity(coating, coating_thick, substrate, theta, energy, coating_dens=None, surface_roughness=0.0,
@@ -1023,7 +1050,7 @@ def coated_reflectivity(coating, coating_thick, substrate, theta, energy, coatin
     """
 
     if coating_thick is None:
-        raise Exception('Please provide thickness of the coating in Angstroms')
+        raise ValueError('Please provide thickness of the coating in Angstroms')
 
     stackup = [coating]
     thickness = [coating_thick]
@@ -1031,7 +1058,7 @@ def coated_reflectivity(coating, coating_thick, substrate, theta, energy, coatin
 
     if binder is not None:
         if binder_thick is None:
-            raise Exception('Please provide thickness of binding layer in Angstroms')
+            raise ValueError('Please provide thickness of binding layer in Angstroms')
         stackup.append(binder)
         thickness.append(binder_thick)
         if binder_dens is not None:
@@ -1556,7 +1583,7 @@ def transmission_sample(sample, energy, absorp_total=2.6, area=1,
 
     absorbance_steps = {}
     pre_edge = np.linspace(energy - 200, energy - 60, 100)
-    for el in sample.keys():
+    for el in sample:
         coeffs = np.polyfit(pre_edge, mu_elam(el, pre_edge), 3)
         extrapolated = sum([c * energy ** (len(coeffs) - 1 - i) \
                             for i, c in enumerate(coeffs)])

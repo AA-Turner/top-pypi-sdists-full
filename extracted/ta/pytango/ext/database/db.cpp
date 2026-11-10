@@ -173,8 +173,14 @@ void export_db(py::module &m) {
                                     "DbServerData",
                                     R"doc(
                                         A structure used for moving DS from one tango host to another.
-                                        Create a new instance by: DbServerData(<server name>, <server instance>))doc")
-        .def(py::init<const std::string &, const std::string &>())
+                                        Create a new instance by: DbServerData(<server name>, <server instance>)
+                                    )doc")
+        .def(py::init([](const std::string &server, const std::string &instance) {
+                 py::gil_scoped_release no_gil{};
+                 return new Tango::DbServerData(server, instance);
+             }),
+             py::arg("server"),
+             py::arg("instance"))
         .def("get_name",
              &PyDbServerData::get_name,
              R"doc(
@@ -182,6 +188,7 @@ void export_db(py::module &m) {
              )doc")
         .def("put_in_database",
              &Tango::DbServerData::put_in_database,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Store all the data related to the device server process in the
                 database specified by the input arg.
@@ -192,6 +199,7 @@ void export_db(py::module &m) {
              py::arg("tg_host"))
         .def("already_exist",
              &Tango::DbServerData::already_exist,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Check if any of the device server process device(s) is already
                 defined in the database specified by the tango host given as input arg
@@ -202,6 +210,7 @@ void export_db(py::module &m) {
              py::arg("tg_host"))
         .def("remove",
              py::overload_cast<>(&Tango::DbServerData::remove),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Remove device server process from a database.
 
@@ -210,6 +219,7 @@ void export_db(py::module &m) {
              )doc")
         .def("remove",
              py::overload_cast<const std::string &>(&Tango::DbServerData::remove),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Remove device server process from a database.
 

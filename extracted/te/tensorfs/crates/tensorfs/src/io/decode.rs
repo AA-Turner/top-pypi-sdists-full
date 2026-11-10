@@ -47,7 +47,7 @@ fn invalid<T>(detail: impl Into<String>) -> Result<T> {
 /// Check the existing resident plan/catalog before source I/O, and bound the bytes
 /// requested by its private CUDA allocations. Excludes the output, supplied parts,
 /// shared read staging, driver/module memory and allocation-granularity overhead.
-pub fn device_scratch_bytes(
+pub(crate) fn device_scratch_bytes(
     device: i32,
     encoding: &Encoding,
     dtype: &Dtype,
@@ -316,33 +316,6 @@ fn validate_into<'a>(
     Ok((metadata, device))
 }
 
-/// Prepare the existing device decoder without reading input values or submitting its kernels.
-///
-/// # Safety
-/// Parts and output satisfy `into`'s span contract and remain retained through the decoder
-/// AND every dependent consumer. Enqueue supplies native producer streams or a prior proof
-/// of completion; this object never owns the caller's input/output allocations.
-pub unsafe fn prepare_into(
-    encoding: &Encoding,
-    dtype: &Dtype,
-    shape: &[u64],
-    parts: &[Part<'_>],
-    out: Output<'_>,
-) -> Result<DeviceDecode> {
-    let (metadata, device) = validate_into(encoding, dtype, shape, parts, &out)?;
-    let Some(device) = device else {
-        return invalid("prepared decode requires existing device buffers");
-    };
-    decode::planned_sources(dtype, shape, encoding, &metadata, |plan, geometry| {
-        let count = geometry
-            .rows
-            .checked_mul(geometry.cols)
-            .ok_or_else(|| crate::format::Error::Decode("decode size overflow".into()))?;
-        Ok(device_plan(plan, geometry, dtype, 0, count as u64)
-            .and_then(|launch| prepare_execute(device, &launch, parts, Some(out.dst))))
-    })?
-}
-
 /// Decode a logical element window through the prebuilt CUDA catalog. Host-only plans are
 /// unsupported; logical CPU expansion and upload are never a GPU decode fallback.
 pub fn read(
@@ -414,11 +387,6 @@ fn idle_streams() -> &'static Mutex<BTreeMap<i32, Vec<cuda::Stream>>> {
 
 static STREAMS_CREATED: AtomicU64 = AtomicU64::new(0);
 
-/// Decode streams this process has created: flat once each concurrent decode has one.
-pub fn streams_created() -> u64 {
-    STREAMS_CREATED.load(Ordering::Relaxed)
-}
-
 fn take_stream(device: i32) -> Result<cuda::Stream> {
     let idle = idle_streams()
         .lock()
@@ -487,10 +455,26 @@ fn write(buffer: &DeviceBuffer, bytes: &[u8], stream: usize) -> Result<()> {
     Ok(())
 }
 
-fn bytes<T>(values: &[T]) -> &[u8] {
-    // SAFETY: used only for initialized fixed-width integer/float arrays in the kernel ABI.
-    unsafe { std::slice::from_raw_parts(values.as_ptr().cast(), std::mem::size_of_val(values)) }
+/// A kernel argument array's bytes, in this machine's order, as the device reads them.
+fn bytes<T: Plain>(values: &[T]) -> Vec<u8> {
+    values.iter().flat_map(|value| value.bytes()).collect()
 }
+
+/// A fixed-width number a kernel argument array holds.
+trait Plain: std::marker::Copy {
+    fn bytes(self) -> impl IntoIterator<Item = u8>;
+}
+
+macro_rules! plain {
+    ($($t:ty),*) => {$(
+        impl Plain for $t {
+            fn bytes(self) -> impl IntoIterator<Item = u8> {
+                self.to_ne_bytes()
+            }
+        }
+    )*};
+}
+plain!(f32, i32, u32, u64);
 
 struct Module {
     context: usize,
@@ -631,7 +615,7 @@ fn factor_input(
     parts: &[Part<'_>],
 ) -> Result<u64> {
     let (index, dtype, count) = match factors {
-        Factors::Host(values) => return owned_input(hold, device, bytes(values)),
+        Factors::Host(values) => return owned_input(hold, device, &bytes(values)),
         Factors::Slot {
             index,
             dtype,
@@ -661,8 +645,8 @@ fn factor_input(
     let out = buffer.ptr();
     hold.scratch.push(buffer);
     let table = decode::elem::table(dtype).unwrap_or_else(|| vec![0.0]);
-    let table = owned_input(hold, device, bytes(&table))?;
-    let params = owned_input(hold, device, bytes(&[count as u64, mode]))?;
+    let table = owned_input(hold, device, &bytes(&table))?;
+    let params = owned_input(hold, device, &bytes(&[count as u64, mode]))?;
     let binary = launch
         .stage_binary(family, "cast_metadata")
         .ok_or_else(|| Failure {
@@ -724,7 +708,11 @@ fn execute_into(
     // SAFETY: the producer streams just proved completion and all spans stay owned.
     unsafe { prepared.enqueue_after(&[]) }?;
     prepared.finish()?;
-    Ok(prepared.hold.output.take())
+    let output = prepared.hold.output.take();
+    // SAFETY: this synchronous call has no dependent consumer of its private scratch.
+    // The returned output keeps its separate allocation owner.
+    unsafe { prepared.release_completed() }?;
+    Ok(output)
 }
 
 fn join_producers(parts: &[Part<'_>], destination: Option<Dst>) -> Result<()> {
@@ -771,7 +759,7 @@ impl DeviceDecode {
     /// `streams` names every producer of the retained external spans; each is an explicit
     /// native stream in this device's primary context. Empty means already checked complete.
     /// Retain this instance AND external owners through dependent consumer completion.
-    pub unsafe fn enqueue_after(&mut self, streams: &[usize]) -> Result<(usize, u64)> {
+    pub(crate) unsafe fn enqueue_after(&mut self, streams: &[usize]) -> Result<(usize, u64)> {
         if self.submitted
             || self.released
             || streams.len() > self.dependencies.len()
@@ -796,16 +784,13 @@ impl DeviceDecode {
         }
         Ok((stream.raw(), self.error))
     }
-    pub fn submitted(&self) -> bool {
-        self.submitted
-    }
     /// Release only this decoder's private owners after checked composed completion.
     ///
     /// # Safety
     /// Every dependent consumer is checked complete and actual capture is excluded.
     /// On failure retain this instance until process retirement; partially released
     /// handles are inert and an ambiguous driver release must never be retried.
-    pub unsafe fn release_completed(&mut self) -> Result<()> {
+    pub(crate) unsafe fn release_completed(&mut self) -> Result<()> {
         if self.release_failed {
             return crate::failure::fail(Kind::Io, "decoder release was already unproven");
         }
@@ -837,7 +822,7 @@ impl DeviceDecode {
         Ok(())
     }
     /// Check decoder completion and values. This does not certify a dependent consumer.
-    pub fn finish(&mut self) -> Result<()> {
+    pub(crate) fn finish(&mut self) -> Result<()> {
         if !self.submitted {
             return invalid("enqueue prepared decode before finish");
         }
@@ -911,7 +896,7 @@ fn prepare_execute(
         None => owned_input(&mut hold, device, launch.words.host()?)?,
     };
     let mut stages = Vec::new();
-    let slots = owned_input(&mut hold, device, bytes(&launch.slots))?;
+    let slots = owned_input(&mut hold, device, &bytes(&launch.slots))?;
     let scale = factor_input(
         &mut hold,
         &mut stages,
@@ -957,9 +942,9 @@ fn prepare_execute(
         &launch.post,
         parts,
     )?;
-    let index = owned_input(&mut hold, device, bytes(&launch.index))?;
-    let error = owned_input(&mut hold, device, bytes(&[0i32]))?;
-    let params = owned_input(&mut hold, device, bytes(&launch.params))?;
+    let index = owned_input(&mut hold, device, &bytes(&launch.index))?;
+    let error = owned_input(&mut hold, device, &bytes(&[0i32]))?;
+    let params = owned_input(&mut hold, device, &bytes(&launch.params))?;
     let output = match destination {
         Some(Dst::Device { ptr, .. }) => ptr,
         None => hold.output.as_ref().expect("decode output").ptr(),
@@ -1004,7 +989,7 @@ fn prepare_execute(
             while stride < launch.params[28] {
                 let mut next = launch.params;
                 next[31] = stride;
-                let parameters = owned_input(&mut hold, device, bytes(&next))?;
+                let parameters = owned_input(&mut hold, device, &bytes(&next))?;
                 stages.push(call(
                     "regular_h4",
                     hold.scratch[start + 1 - current].ptr(),

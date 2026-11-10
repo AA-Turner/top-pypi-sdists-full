@@ -54,7 +54,30 @@ class EasyDict(dict):
     >>> d.tpl = (1, 2, 3)
     >>> d.tpl
     (1, 2, 3)
+    >>> d.lst = [{'a': 1}, {'b': 2}]
+    >>> type(d.lst).__name__, type(d.lst[0]).__name__, d.lst[0].a, d.lst[1].b
+    ('list', 'EasyDict', 1, 2)
+    >>> d.tpl = ({'a': 1}, {'b': 2})
+    >>> type(d.tpl).__name__, type(d.tpl[0]).__name__, d.tpl[0].a, d.tpl[1].b
+    ('tuple', 'EasyDict', 1, 2)
 
+    Subclasses of list, tuple and dict are left untouched
+
+    >>> class CustomList(list): pass
+    >>> class CustomTuple(tuple): pass
+    >>> class CustomDict(dict): pass
+    >>> d = EasyDict()
+    >>> d.lst = CustomList([{'a': 1}])
+    >>> type(d.lst).__name__, type(d.lst[0]).__name__
+    ('CustomList', 'dict')
+    >>> d.tpl = CustomTuple(({'a': 1},))
+    >>> type(d.tpl).__name__, type(d.tpl[0]).__name__
+    ('CustomTuple', 'dict')
+    >>> d.dct = CustomDict({'key': 'value'})
+    >>> type(d.dct).__name__
+    'CustomDict'
+    >>> d.dct == {'key': 'value'}
+    True
 
     Values extraction
 
@@ -129,6 +152,48 @@ class EasyDict(dict):
     4
     >>> d
     {'c': 3.0}
+
+    Set defaults through attributes, including nested mappings
+
+    >>> d = EasyDict()
+    >>> d.setdefault('count', 2)
+    2
+    >>> d.count
+    2
+    >>> settings = d.setdefault('settings', {'enabled': True})
+    >>> settings is d.settings
+    True
+    >>> settings.enabled
+    True
+    >>> d.setdefault('count', 9)
+    2
+    >>> d.count
+    2
+    >>> d.setdefault('optional') is None
+    True
+    >>> d.optional is None
+    True
+    >>> sorted(d)
+    ['count', 'optional', 'settings']
+
+    Keys that cannot be ordinary attributes remain dictionary entries
+
+    >>> for key in (1, None, ('item',), '__class__', '__dict__', '__weakref__'):
+    ...     d = EasyDict()
+    ...     value = {'enabled': True}
+    ...     assert d.setdefault(key, value) is value
+    ...     assert d[key] is value
+    ...     assert d.setdefault(key, 'replacement') is value
+    ...     assert type(d) is EasyDict
+    ...     assert vars(d) == {}
+
+    update does not mutate its argument
+
+    >>> src = {'a': 1}
+    >>> d = EasyDict()
+    >>> d.update(src, b=2)
+    >>> src == {'a': 1}
+    True
     """
     def __init__(self, d=None, **kwargs):
         if d is None:
@@ -140,31 +205,38 @@ class EasyDict(dict):
         for k, v in d.items():
             setattr(self, k, v)
         # Class attributes
-        for k in self.__class__.__dict__.keys():
-            if not (k.startswith('__') and k.endswith('__')) and k not in ('update', 'pop'):
+        for k in self.__class__.__dict__:
+            if not (k.startswith('__') and k.endswith('__')) and k not in ('update', 'pop', 'setdefault'):
                 setattr(self, k, getattr(self, k))
 
     def __setattr__(self, name, value):
-        if isinstance(value, (list, tuple)):
+        if type(value) in (list, tuple):
             value = type(value)(self.__class__(x)
                      if isinstance(x, dict) else x for x in value)
-        elif isinstance(value, dict) and not isinstance(value, EasyDict):
+        elif type(value) == dict and not isinstance(value, EasyDict):
             value = EasyDict(value)
-        super(EasyDict, self).__setattr__(name, value)
-        super(EasyDict, self).__setitem__(name, value)
+        super().__setattr__(name, value)
+        super().__setitem__(name, value)
 
     __setitem__ = __setattr__
 
     def update(self, e=None, **f):
-        d = e or dict()
+        d = dict(e) if e else {}
         d.update(f)
         for k in d:
             setattr(self, k, d[k])
 
+    def setdefault(self, key, default=None):
+        if not isinstance(key, str) or (key.startswith('__') and key.endswith('__')):
+            return dict.setdefault(self, key, default)
+        if key not in self:
+            self[key] = default
+        return self[key]
+
     def pop(self, k, *args):
         if hasattr(self, k):
             delattr(self, k)
-        return super(EasyDict, self).pop(k, *args)
+        return super().pop(k, *args)
 
 
 if __name__ == "__main__":

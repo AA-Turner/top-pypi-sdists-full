@@ -30,6 +30,7 @@ from .env import (
     tool,
 )
 from .evaluation import CheckpointSampler, Evaluation, Evaluator, WandbSink
+from .metrics import Metrics
 from .losses import (
     CISPO,
     CustomLoss,
@@ -76,6 +77,7 @@ __all__ = [
     "GroupCompletion",
     "InfrastructureError",
     "KVCache",
+    "Metrics",
     "PolicyRewoundError",
     "RLConfigurationWarning",
     "RolloutEngine",

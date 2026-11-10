@@ -55,7 +55,7 @@ class BucketObjectv2Args:
         :param pulumi.Input[_builtins.str] acl: [Canned ACL](https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl) to apply. Valid values are `private`, `public-read`, `public-read-write`, `aws-exec-read`, `authenticated-read`, `bucket-owner-read`, and `bucket-owner-full-control`.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         :param pulumi.Input[_builtins.str] content: Literal string value to use as the object content, which will be uploaded as UTF-8-encoded text.
         :param pulumi.Input[_builtins.str] content_base64: Base64-encoded data that will be decoded and uploaded as raw bytes for the object content. This allows safely uploading non-UTF8 binary data, but is recommended only for small content such as the result of the `gzipbase64` function with small text strings. For larger objects, use `source` to stream the content from a disk file.
         :param pulumi.Input[_builtins.str] content_disposition: Presentational information for the object. Read [w3c content_disposition](http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.5.1) for further information.
@@ -193,7 +193,7 @@ class BucketObjectv2Args:
     @pulumi.getter(name="checksumAlgorithm")
     def checksum_algorithm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         """
         return pulumi.get(self, "checksum_algorithm")
 
@@ -520,7 +520,7 @@ class _BucketObjectv2State:
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to put the file in. Alternatively, an [S3 access point](https://docs.aws.amazon.com/AmazonS3/latest/dev/using-access-points.html) ARN can be specified.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         :param pulumi.Input[_builtins.str] checksum_crc32: Base64-encoded, 32-bit CRC32 checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc32c: Base64-encoded, 32-bit CRC32C checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc64nvme: Base64-encoded, 64-bit CRC64NVME checksum of the object.
@@ -694,7 +694,7 @@ class _BucketObjectv2State:
     @pulumi.getter(name="checksumAlgorithm")
     def checksum_algorithm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         """
         return pulumi.get(self, "checksum_algorithm")
 
@@ -1257,7 +1257,7 @@ class BucketObjectv2(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to put the file in. Alternatively, an [S3 access point](https://docs.aws.amazon.com/AmazonS3/latest/dev/using-access-points.html) ARN can be specified.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         :param pulumi.Input[_builtins.str] content: Literal string value to use as the object content, which will be uploaded as UTF-8-encoded text.
         :param pulumi.Input[_builtins.str] content_base64: Base64-encoded data that will be decoded and uploaded as raw bytes for the object content. This allows safely uploading non-UTF8 binary data, but is recommended only for small content such as the result of the `gzipbase64` function with small text strings. For larger objects, use `source` to stream the content from a disk file.
         :param pulumi.Input[_builtins.str] content_disposition: Presentational information for the object. Read [w3c content_disposition](http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.5.1) for further information.
@@ -1600,7 +1600,7 @@ class BucketObjectv2(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to put the file in. Alternatively, an [S3 access point](https://docs.aws.amazon.com/AmazonS3/latest/dev/using-access-points.html) ARN can be specified.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether or not to use [Amazon S3 Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-key.html) for SSE-KMS.
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         :param pulumi.Input[_builtins.str] checksum_crc32: Base64-encoded, 32-bit CRC32 checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc32c: Base64-encoded, 32-bit CRC32C checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc64nvme: Base64-encoded, 64-bit CRC64NVME checksum of the object.
@@ -1680,6 +1680,82 @@ class BucketObjectv2(pulumi.CustomResource):
         __props__.__dict__["website_redirect"] = website_redirect
         return BucketObjectv2(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            acl: pulumi.Input[Optional[_builtins.str]] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            bucket: pulumi.Input[Optional[_builtins.str]] = None,
+            bucket_key_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            cache_control: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_crc32: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_crc32c: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_crc64nvme: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_sha1: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_sha256: pulumi.Input[Optional[_builtins.str]] = None,
+            content: pulumi.Input[Optional[_builtins.str]] = None,
+            content_base64: pulumi.Input[Optional[_builtins.str]] = None,
+            content_disposition: pulumi.Input[Optional[_builtins.str]] = None,
+            content_encoding: pulumi.Input[Optional[_builtins.str]] = None,
+            content_language: pulumi.Input[Optional[_builtins.str]] = None,
+            content_type: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            key: pulumi.Input[Optional[_builtins.str]] = None,
+            kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
+            metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            object_lock_legal_hold_status: pulumi.Input[Optional[_builtins.str]] = None,
+            object_lock_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            object_lock_retain_until_date: pulumi.Input[Optional[_builtins.str]] = None,
+            override_provider: pulumi.Input[Optional[Union['BucketObjectv2OverrideProviderArgs', 'BucketObjectv2OverrideProviderArgsDict', 'outputs.BucketObjectv2OverrideProvider']]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            server_side_encryption: pulumi.Input[Optional[_builtins.str]] = None,
+            source: pulumi.Input[Optional[Union[pulumi.Asset, pulumi.Archive]]] = None,
+            source_hash: pulumi.Input[Optional[_builtins.str]] = None,
+            storage_class: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            version_id: pulumi.Input[Optional[_builtins.str]] = None,
+            website_redirect: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["acl"] = acl
+        __props__["arn"] = arn
+        __props__["bucket"] = bucket
+        __props__["bucketKeyEnabled"] = bucket_key_enabled
+        __props__["cacheControl"] = cache_control
+        __props__["checksumAlgorithm"] = checksum_algorithm
+        __props__["checksumCrc32"] = checksum_crc32
+        __props__["checksumCrc32c"] = checksum_crc32c
+        __props__["checksumCrc64nvme"] = checksum_crc64nvme
+        __props__["checksumSha1"] = checksum_sha1
+        __props__["checksumSha256"] = checksum_sha256
+        __props__["content"] = content
+        __props__["contentBase64"] = content_base64
+        __props__["contentDisposition"] = content_disposition
+        __props__["contentEncoding"] = content_encoding
+        __props__["contentLanguage"] = content_language
+        __props__["contentType"] = content_type
+        __props__["etag"] = etag
+        __props__["forceDestroy"] = force_destroy
+        __props__["key"] = key
+        __props__["kmsKeyId"] = kms_key_id
+        __props__["metadata"] = metadata
+        __props__["objectLockLegalHoldStatus"] = object_lock_legal_hold_status
+        __props__["objectLockMode"] = object_lock_mode
+        __props__["objectLockRetainUntilDate"] = object_lock_retain_until_date
+        __props__["overrideProvider"] = override_provider
+        __props__["region"] = region
+        __props__["serverSideEncryption"] = server_side_encryption
+        __props__["source"] = source
+        __props__["sourceHash"] = source_hash
+        __props__["storageClass"] = storage_class
+        __props__["tags"] = tags
+        __props__["tagsAll"] = tags_all
+        __props__["versionId"] = version_id
+        __props__["websiteRedirect"] = website_redirect
+        return pulumi.runtime.exists_resource(None, 'aws:s3/bucketObjectv2:BucketObjectv2', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter
     def acl(self) -> pulumi.Output[_builtins.str]:
@@ -1724,7 +1800,7 @@ class BucketObjectv2(pulumi.CustomResource):
     @pulumi.getter(name="checksumAlgorithm")
     def checksum_algorithm(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`.
+        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`. Validation also accepts `MD5`, `XXHASH64`, `XXHASH3`, and `XXHASH128`, but the AWS SDK for Go does not currently calculate these checksums for uploads.
         """
         return pulumi.get(self, "checksum_algorithm")
 

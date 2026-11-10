@@ -137,14 +137,15 @@ def _home_path(client: Client, create: dict, key: str) -> str:
             # `workspace=` (kept as given) files a NEW project; without it, the
             # syncing computer's workspace (`Client.create_project`).
             workspace = create.get("workspace")
-            # An id-shaped project is resolved, never created (`Client._project_named`).
+            # An id-shaped project is resolved, never created (`Client._project_named`); a new
+            # slug is created as online (R23), unless beside an experiment named without a question.
             by_id, slug = client._project_named(project)
             project_id = (
                 by_id["id"]
                 if by_id is not None
-                else client.ensure_project(slug, **({"workspace_id": workspace} if workspace else {}))["id"]
-                if question is not None
                 else client.resolve_or_raise("project", slug)["id"]
+                if experiment and question is None
+                else client.ensure_project(slug, **({"workspace_id": workspace} if workspace else {}))["id"]
             )
         if experiment:
             if question is not None:

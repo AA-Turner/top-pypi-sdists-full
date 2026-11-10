@@ -290,10 +290,11 @@ class _WorkerEpisode:
         self.started = time.monotonic()
         self.delivered = self.dead_lettered = self.passes = self.waiting_passes = 0
         #: The server's answer per dead letter, keyed as `sdk.delivery.summary` keys it, and how
-        #: many were "run not found": a write naming no run is the sender's mistake, and the
-        #: loss alert must tell it from ours.
+        #: many were "run not found" or the server's refusal of the values sent: those are the
+        #: sender's mistake, and the loss alert must tell them from ours.
         self.dead_lettered_by_status: dict[str, int] = {}
         self.dead_lettered_no_such_run = 0
+        self.dead_lettered_invalid_request = 0
         self.remaining = 0
         self.stalled_reported = False
         from .progress import ProgressTracker
@@ -317,6 +318,7 @@ class _WorkerEpisode:
                 dead_lettered=self.dead_lettered,
                 dead_lettered_by_status=self.dead_lettered_by_status,
                 dead_lettered_no_such_run=self.dead_lettered_no_such_run,
+                dead_lettered_invalid_request=self.dead_lettered_invalid_request,
                 remaining=self.remaining,
                 passes=self.passes,
                 duration_s=time.monotonic() - self.started,
@@ -414,6 +416,7 @@ class _WorkerEpisode:
             code = str(record.get("status") or "none")
             self.dead_lettered_by_status[code] = self.dead_lettered_by_status.get(code, 0) + 1
             self.dead_lettered_no_such_run += bool(record.get("no_such_run"))
+            self.dead_lettered_invalid_request += bool(record.get("invalid_request"))
         self.remaining = report.remaining
 
     def handle_report(self, report, before: set) -> int | None:

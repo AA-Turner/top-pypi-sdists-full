@@ -12,6 +12,7 @@ from nab_provider.policy import (
     BuildPolicy,
     DecisionOrder,
     DistPolicy,
+    MetadataPolicy,
     ResolutionStrategy,
 )
 from nab_provider.records import DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL, IndexConfig
@@ -42,6 +43,7 @@ class ResolveInputs(ValueType):
     __slots__ = __match_args__ = (
         "archive_sources",
         "assume_universal_deps",
+        "assume_consistent_metadata",
         "allow_zip_sdists",
         "base_group",
         "build_group",
@@ -52,6 +54,7 @@ class ResolveInputs(ValueType):
         "decision_order",
         "default_groups",
         "dist_policy",
+        "metadata_policy",
         "index_overrides",
         "indexes",
         "local_sources",
@@ -66,6 +69,7 @@ class ResolveInputs(ValueType):
 
     archive_sources: tuple[ArchiveSource, ...]
     assume_universal_deps: bool
+    assume_consistent_metadata: bool
     allow_zip_sdists: bool
     base_group: str | None
     build_group: str | None
@@ -76,6 +80,7 @@ class ResolveInputs(ValueType):
     decision_order: DecisionOrder
     default_groups: tuple[str, ...]
     dist_policy: DistPolicy
+    metadata_policy: MetadataPolicy
     index_overrides: Mapping[str, IndexOverride]
     indexes: tuple[IndexConfig, ...]
     local_sources: tuple[LocalSource, ...]
@@ -92,6 +97,7 @@ class ResolveInputs(ValueType):
         *,
         archive_sources: tuple[ArchiveSource, ...] = (),
         assume_universal_deps: bool = False,
+        assume_consistent_metadata: bool = False,
         allow_zip_sdists: bool = False,
         base_group: str | None = None,
         build_group: str | None = None,
@@ -99,9 +105,10 @@ class ResolveInputs(ValueType):
         build_requires_depth: int = 0,
         conflicts: tuple[ConflictSet, ...] = (),
         constraints: tuple[str, ...] = (),
-        decision_order: DecisionOrder = DecisionOrder.ARRIVAL,
+        decision_order: DecisionOrder = DecisionOrder.STABLE,
         default_groups: tuple[str, ...] = (),
         dist_policy: DistPolicy = DistPolicy.WHEEL_OR_SDIST,
+        metadata_policy: MetadataPolicy = MetadataPolicy.MATCH_ARTIFACT,
         index_overrides: Mapping[str, IndexOverride] = _NO_INDEX_OVERRIDES,
         indexes: tuple[IndexConfig, ...] = _DEFAULT_INDEXES,
         local_sources: tuple[LocalSource, ...] = (),
@@ -116,6 +123,7 @@ class ResolveInputs(ValueType):
         """Record the settings, each defaulting to what a bare project gets."""
         self.archive_sources = archive_sources
         self.assume_universal_deps = assume_universal_deps
+        self.assume_consistent_metadata = assume_consistent_metadata
         self.allow_zip_sdists = allow_zip_sdists
         self.base_group = base_group
         self.build_group = build_group
@@ -126,6 +134,7 @@ class ResolveInputs(ValueType):
         self.decision_order = decision_order
         self.default_groups = default_groups
         self.dist_policy = dist_policy
+        self.metadata_policy = metadata_policy
         self.index_overrides = index_overrides
         self.indexes = indexes
         self.local_sources = local_sources

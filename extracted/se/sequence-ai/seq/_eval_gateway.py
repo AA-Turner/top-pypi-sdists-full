@@ -30,6 +30,7 @@ DEFAULT_BASE_URL = "https://api.generalsequences.com"
 _TIMEOUT_S = 60.0
 
 
+
 BENCHMARK_WAIT_S = 3600.0
 
 
@@ -99,14 +100,16 @@ class EvalGatewayClient:
         return r
 
 
-    def register(self, request: BenchmarkRegisterRequest, *, override: bool = False) -> Registered:
+    def register(self, request: BenchmarkRegisterRequest, *, override: bool = False,
+                 time_limit_s: float | None = None) -> Registered:
         """POST /v1/benchmarks: every earlier version is kept - or, `override` (seq deploy --override), the one evals run
-        now is deleted once this one has passed its check."""
+        now is deleted once this one has passed its check. `time_limit_s` (--timeout): how long this registration may
+        run, the platform stopping it then."""
 
-        from seq._deploy_gateway import adapters_of
+        from seq._deploy_gateway import _params, adapters_of
 
         r = self._get("POST", "/v1/benchmarks", timeout=_TIMEOUT_S, content=request.model_dump_json(exclude_none=True),
-                      headers={"Content-Type": "application/json"}, params={"override": "true"} if override else None)
+                      headers={"Content-Type": "application/json"}, params=_params(override, time_limit_s))
         return Registered(**BenchmarkStatusResponse.model_validate(r.json()).model_dump(), adapters=adapters_of(r))
 
     def validate(self, path: str, **kwargs: Any) -> dict | None:
@@ -187,8 +190,9 @@ class EvalGatewayClient:
                        on_stall: Callable[[float], None] | None = None,
                        sleep: Callable[[float], None] = time.sleep,
                        now: Callable[[], float] = time.monotonic) -> BenchmarkStatusResponse:
-        """Poll until the build is ready or failed, or `timeout_s` passes (then the last, still-building status). A
-        platform it cannot reach is asked again for RETRY_FOR_S (see `patiently`). `while_moving`: a build whose log
+        """Poll until the build is ready or failed, or `timeout_s` passes (then the last, still-building status; `math.inf`
+        for no window: a build ends, at the latest at the platform's own limit). A platform it cannot reach is asked again
+        for RETRY_FOR_S (see `patiently`). `while_moving`: a build whose log
         moved in the last BUILD_MOVED_S before the deadline is waited on BUILD_MORE_S more, up to BENCHMARK_WAIT_MAX_S
         in all, `on_more(waited_s)` hearing each time; one whose log stood still those last minutes ends the
         wait, `on_stall(waited_s)` hearing it, so the caller says why it ended rather than as a wait run out."""

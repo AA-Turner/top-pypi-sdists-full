@@ -1,0 +1,224 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=82",
+]
+
+[project]
+name = "pyDeprecate"
+description = "Python deprecation decorator: call forwarding, argument mapping, class proxying, CI audit. Zero deps."
+keywords = [
+  "deprecation",
+  "decorator",
+  "API migration",
+  "call forwarding",
+  "argument renaming",
+  "backwards compatibility",
+  "CI audit",
+]
+license = "Apache-2.0"
+license-files = [ "LICENSE" ]
+authors = [ { name = "Jiri Borovec" } ]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Software Development :: Quality Assurance",
+]
+# `readme` comes from `setup.py`, which rewrites relative README links to the release tag for PyPI
+dynamic = [ "readme", "version" ]
+dependencies = []
+# For validate_deprecation_expiry and pyproject.toml version detection; tomllib is stdlib in 3.11+
+optional-dependencies.audit = [ "packaging>=20.0", "tomli>=2.0; python_version<'3.11'" ]
+# the CLI uses only the standard library; the empty extra keeps `pip install 'pyDeprecate[cli]'` working
+optional-dependencies.cli = []
+urls."Agent Guide" = "https://borda.github.io/pyDeprecate/llms.txt"
+urls."Bug Tracker" = "https://github.com/Borda/pyDeprecate/issues"
+urls."Source Code" = "https://github.com/Borda/pyDeprecate"
+urls.Changelog = "https://github.com/Borda/pyDeprecate/blob/main/CHANGELOG.md"
+urls.Documentation = "https://borda.github.io/pyDeprecate/stable/"
+urls.Homepage = "https://borda.github.io/pyDeprecate/stable/"
+scripts.pydeprecate = "deprecate._cli:cli"
+
+[tool.setuptools]
+packages.find.where = [ "src" ]
+# PEP 561 marker: lets downstream mypy/pyright read the inline type hints instead of treating the package as untyped
+package-data.deprecate = [ "py.typed" ]
+dynamic.version = { attr = "deprecate.__about__.__version__" }
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+# Exclude a variety of commonly ignored directories.
+exclude = [
+  "docs",
+]
+lint.select = [
+  "D",  # see: https://pypi.org/project/pydocstyle
+  "E",  # see: https://pypi.org/project/pycodestyle
+  "F",  # see: https://pypi.org/project/pyflakes
+  "I",  # isort
+  "N",  # see: https://pypi.org/project/pep8-naming
+  "S",  # see: https://pypi.org/project/flake8-bandit
+  "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+  "W",  # see: https://pypi.org/project/pycodestyle
+]
+lint.extend-select = [
+  "ANN",     # see: https://pypi.org/project/flake8-annotations
+  "C4",      # see: https://pypi.org/project/flake8-comprehensions
+  "C90",     # see: https://docs.astral.sh/ruff/rules/complex-structure — McCabe cyclomatic complexity; threshold set via lint.mccabe.max-complexity
+  "PLR0912", # see: https://docs.astral.sh/ruff/rules/too-many-branches — branch-count proxy for cognitive complexity (nesting depth)
+  "PT",      # see: https://pypi.org/project/flake8-pytest-style
+  "RET",     # see: https://pypi.org/project/flake8-return
+  "RUF018",  # see: https://docs.astral.sh/ruff/rules/assignment-in-assert
+  "RUF100",  # see: https://docs.astral.sh/ruff/rules/unused-noqa
+  "SIM",     # see: https://pypi.org/project/flake8-simplify
+  "YTT",     # see: https://pypi.org/project/flake8-2020
+]
+lint.per-file-ignores."tests/**" = [
+  "S101", # flake8-bandit: Bandit — Use of assert detected (raising potential security/logic issues) (see: https://pypi.org/project/flake8-bandit)
+  "S603", # flake8-bandit: Bandit — subprocess call with fixed arguments in tests (see: https://pypi.org/project/flake8-bandit)
+]
+lint.unfixable = [
+  "F401", # F401: pyflakes — module imported but unused (cannot be auto-fixed by Ruff) (see: https://pypi.org/project/pyflakes)
+]
+# Unlike Flake8, default to a complexity level of 10.
+lint.mccabe.max-complexity = 10
+# Use Google-style docstrings.
+lint.pydocstyle.convention = "google"
+
+[tool.codespell]
+# comma separated list of words; waiting for:
+#  https://github.com/codespell-project/codespell/issues/2839#issuecomment-1731601603
+# also adding links until they ignored by its: nature
+#  https://github.com/codespell-project/codespell/issues/2243#issuecomment-1732019960
+# reserved: async generator .asend() protocol — codespell flags it as an "ascend" typo
+ignore-words-list = "asend"
+# skip = "*.py"
+quiet-level = 3
+
+[tool.docformatter]
+recursive = true
+# Match the repository's 120-character line length for docstrings, including raw triple-quoted ones.
+wrap-summaries = 120
+wrap-descriptions = 120
+blank = true
+
+[tool.check-manifest]
+ignore = [
+  "*.yml",
+  ".github",
+  ".github/*",
+  "Makefile",
+]
+
+[tool.mypy]
+# `src` layout: without this the package is unresolvable from `tests/**`, so `ignore_missing_imports`
+# below silently degrades every `deprecate` symbol to `Any` and the type-assertion fixtures in
+# `tests/unittests/test_proxy.py` would pass no matter how the public signatures regress.
+mypy_path = "src"
+files = [
+  "src/deprecate",
+]
+ignore_missing_imports = "True"
+python_version = "3.10"
+disallow_untyped_defs = "True"
+warn_redundant_casts = "True"
+warn_unused_ignores = "True"
+warn_no_return = "True"
+allow_redefinition = "True"
+warn_unused_configs = "True"
+# `test_pep702` asserts that mypy flags every documented PEP 702 stacking spelling: each use carries
+# `# type: ignore[deprecated]`, so a spelling mypy stops recognising turns into an unused-ignore failure.
+overrides = [
+  { module = [ "tests.*" ], warn_unused_ignores = false },
+  { module = [ "tests.unittests.test_pep702" ], warn_unused_ignores = true, enable_error_code = [ "deprecated" ] },
+]
+show_error_codes = "True"
+
+[tool.pytest]
+ini_options.testpaths = [ "src", "tests" ]
+ini_options.norecursedirs = [
+  # runtime artifact dirs: one-off scripts land here and `--doctest-modules` imports every `.py`
+  # it walks, so a script with module-level `raise SystemExit` aborts the whole collection
+  ".cache",
+  ".claude",
+  ".git",
+  ".github",
+  ".notes",
+  ".plans",
+  ".reports",
+  ".temp",
+  "build",
+  "demo-*",
+  "dist",
+  "releases",
+  "site",
+]
+ini_options.addopts = [
+  "--strict-markers",
+  "--doctest-modules",
+  "--color=yes",
+  # rooted ignore for the mkdocs site source; a bare "docs" in norecursedirs would match by
+  # basename and silently prune tests/docs/ (the generated docs-example tests) as well
+  "--ignore=docs",
+]
+ini_options.markers = [
+  # an execution requirement, not a speed tier: a fast local loop is `pytest -m "not subprocess"`; CI runs everything
+  "subprocess: starts a real Python interpreter or external CLI as a child process",
+  # coverage 7.10.x (Python 3.9) imports `json` in every child interpreter under `run.patch = ["subprocess"]`, so a test
+  # that reads `sys.modules` of a child must run in a pytest invocation without `--cov`: `-m without_coverage` after `-m "not without_coverage"`
+  "without_coverage: must run in a separate pytest invocation without `--cov` (child-interpreter module probes)",
+]
+ini_options.xfail_strict = true
+# Suppress only the specific legacy-sentinel warnings emitted by `TargetMode.from_legacy()`
+# and the construction-time misconfig warnings from `TargetMode.validate()` so that legacy
+# test fixtures can be imported at module load without polluting test output.  Patterns are
+# scoped by message regex AND originating module (the `tests` package and its submodules;
+# `tests(\.|\Z)` does not prefix-match unrelated modules such as `tests_helper`) so that
+# warnings of the same class from any other source still surface.
+ini_options.filterwarnings = [
+  "ignore:`target=False` is not a valid deprecation mode.*:UserWarning:tests(\\.|\\Z)",
+  "ignore:.*ignores `args_extra`\\..*:UserWarning:tests(\\.|\\Z)",
+  "ignore:.*ignores `args_mapping`\\..*:UserWarning:tests(\\.|\\Z)",
+  "ignore:.*requires `args_mapping` to specify which arguments are being renamed.*:UserWarning:tests(\\.|\\Z)",
+  "ignore:target=None is deprecated since `v0\\.8`.*:FutureWarning:tests(\\.|\\Z)",
+  "ignore:target=True is deprecated since `v0\\.8`.*:FutureWarning:tests(\\.|\\Z)",
+  # decoration-time advisories of collection fixtures that exist to exercise them (asserted where they are tested)
+  "ignore:`@deprecated` on .* has no `deprecated_in` set\\..*:UserWarning:tests(\\.|\\Z)",
+  "ignore:`@deprecated` on class .* now dispatches to `@deprecated_class`\\..*:UserWarning:tests(\\.|\\Z)",
+  "ignore:`target=True` without `args_mapping` resolves to `TargetMode\\.NOTIFY`.*:FutureWarning:tests(\\.|\\Z)",
+]
+ini_options.junit_duration_report = "call"
+# filterwarnings = [ "error::FutureWarning" ]
+
+[tool.coverage]
+run.parallel = true
+# measure the CLI and GitHub Action runs that the integration tests start as `python -m deprecate` subprocesses
+run.patch = [ "subprocess" ]
+run.relative_files = true
+report.exclude_lines = [
+  # anchored so only a bare `pass` statement is excluded — a substring `pass` would also drop
+  # lines containing `passed`, `password`, etc. and overstate coverage
+  "^\\s*pass\\s*$",
+  "pragma: no cover",
+  # typing-only import blocks: the body of `if TYPE_CHECKING:` never runs at runtime by design
+  "^\\s*if TYPE_CHECKING:",
+]
+
+[tool.pydeprecate]
+# Dogfood: our own deprecations are removed only at the next major (`0.6` -> `1.0`), so the window is one major.
+policy.min-grace = "1.0"
+policy.message-required = true

@@ -35,6 +35,7 @@ class MatrixRoom:
         members_count (int):
         members (list['MatrixRoomMemberSummary']):
         current_user_membership_state (Union[None, str]):
+        bot_user_id (str): The Matrix user ID of Waldur's bot in the room: only its events carry Waldur's blocks.
         created (datetime.datetime):
         modified (datetime.datetime):
         room_name (Union[Unset, str]):
@@ -54,6 +55,7 @@ class MatrixRoom:
     members_count: int
     members: list["MatrixRoomMemberSummary"]
     current_user_membership_state: Union[None, str]
+    bot_user_id: str
     created: datetime.datetime
     modified: datetime.datetime
     room_name: Union[Unset, str] = UNSET
@@ -97,6 +99,8 @@ class MatrixRoom:
         current_user_membership_state: Union[None, str]
         current_user_membership_state = self.current_user_membership_state
 
+        bot_user_id = self.bot_user_id
+
         created = self.created.isoformat()
 
         modified = self.modified.isoformat()
@@ -121,6 +125,7 @@ class MatrixRoom:
                 "members_count": members_count,
                 "members": members,
                 "current_user_membership_state": current_user_membership_state,
+                "bot_user_id": bot_user_id,
                 "created": created,
                 "modified": modified,
             }
@@ -198,6 +203,8 @@ class MatrixRoom:
 
         current_user_membership_state = _parse_current_user_membership_state(d.pop("current_user_membership_state"))
 
+        bot_user_id = d.pop("bot_user_id")
+
         created = isoparse(d.pop("created"))
 
         modified = isoparse(d.pop("modified"))
@@ -219,6 +226,7 @@ class MatrixRoom:
             members_count=members_count,
             members=members,
             current_user_membership_state=current_user_membership_state,
+            bot_user_id=bot_user_id,
             created=created,
             modified=modified,
             room_name=room_name,

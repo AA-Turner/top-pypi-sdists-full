@@ -32,6 +32,7 @@ class UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilities:
             of runnable a role may author. `compose` assembles already-deployed runnables with no code of one's own.
         manage_schedules (Union[Unset, bool]):
         manage_triggers (Union[Unset, bool]):
+        run (Union[Unset, bool]):
         fork (Union[Unset, bool]):
         visibility (Union[Unset, UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilitiesVisibility]):
     """
@@ -41,6 +42,7 @@ class UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilities:
     apps: Union[Unset, UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilitiesApps] = UNSET
     manage_schedules: Union[Unset, bool] = UNSET
     manage_triggers: Union[Unset, bool] = UNSET
+    run: Union[Unset, bool] = UNSET
     fork: Union[Unset, bool] = UNSET
     visibility: Union[Unset, "UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilitiesVisibility"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -57,6 +59,7 @@ class UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilities:
 
         manage_schedules = self.manage_schedules
         manage_triggers = self.manage_triggers
+        run = self.run
         fork = self.fork
         visibility: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.visibility, Unset):
@@ -75,6 +78,8 @@ class UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilities:
             field_dict["manage_schedules"] = manage_schedules
         if manage_triggers is not UNSET:
             field_dict["manage_triggers"] = manage_triggers
+        if run is not UNSET:
+            field_dict["run"] = run
         if fork is not UNSET:
             field_dict["fork"] = fork
         if visibility is not UNSET:
@@ -109,6 +114,8 @@ class UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilities:
 
         manage_triggers = d.pop("manage_triggers", UNSET)
 
+        run = d.pop("run", UNSET)
+
         fork = d.pop("fork", UNSET)
 
         _visibility = d.pop("visibility", UNSET)
@@ -126,6 +133,7 @@ class UpdateWorkspaceRoleOverridesJsonBodyAdditionalPropertyCapabilities:
             apps=apps,
             manage_schedules=manage_schedules,
             manage_triggers=manage_triggers,
+            run=run,
             fork=fork,
             visibility=visibility,
         )

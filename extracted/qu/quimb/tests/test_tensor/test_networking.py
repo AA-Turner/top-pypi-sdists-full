@@ -1,8 +1,11 @@
+import collections
+import itertools
 import warnings
 
 import pytest
 
 import quimb.tensor as qtn
+from quimb.tensor.networking import SweepScheduler, compute_sweep_ranks
 
 
 def test_istree():
@@ -44,6 +47,22 @@ def test_subgraphs():
     assert {s1.num_tensors, s2.num_tensors} == {6, 8}
 
 
+def test_tids_are_connected_order_independent():
+    tn = qtn.TensorNetwork(
+        [
+            qtn.rand_tensor((2,), ("a",)),
+            qtn.rand_tensor((2,), ("c",)),
+            qtn.rand_tensor((2, 2), ("b", "c")),
+            qtn.rand_tensor((2, 2), ("a", "b")),
+        ]
+    )
+    tids = tuple(tn.tensor_map)
+    assert not tn.tids_are_connected(())
+    assert tn.tids_are_connected(tids[:1])
+    assert tn.tids_are_connected(tids)
+    assert not tn.tids_are_connected(tids[:3])
+
+
 def test_gen_paths_loops():
     tn = qtn.TN2D_rand(3, 4, 2)
     loops = tuple(tn.gen_paths_loops())
@@ -73,11 +92,11 @@ def test_gen_inds_connected():
 
 class TestGenGloops:
     # a triangle sharing the single site 2 with a square
-    edges = [(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 5), (5, 2)]
+    edges = ((0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 5), (5, 2))
 
     # site 3 dangles, and here the size 3 loops are only found after some
     # size 4 regions have already been queued
-    ragged_edges = [
+    ragged_edges = (
         (0, 1),
         (0, 7),
         (0, 8),
@@ -90,10 +109,10 @@ class TestGenGloops:
         (4, 8),
         (5, 6),
         (7, 8),
-    ]
+    )
 
     # two triangles joined by a path, whose sites lie on no cycle
-    dumbbell_edges = [
+    dumbbell_edges = (
         (0, 1),
         (1, 2),
         (2, 0),
@@ -103,10 +122,10 @@ class TestGenGloops:
         (5, 6),
         (6, 7),
         (7, 5),
-    ]
+    )
 
     # a triangle and a square with no bond between them
-    split_edges = [(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 6), (6, 3)]
+    split_edges = ((0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 6), (6, 3))
 
     @staticmethod
     def get_gloops(psi, max_size=None, **kwargs):
@@ -172,7 +191,7 @@ class TestGenGloops:
         psi = qtn.TN_from_edges_rand(
             [(i, i + 1) for i in range(9)], D=2, phys_dim=2, seed=42
         )
-        with pytest.warns(UserWarning, match="never"):
+        with pytest.warns(UserWarning, match="not in a loop"):
             assert self.get_gloops(psi, sites=(4,), grow_from="any") == []
         # naming no target instead reports the whole network
         with pytest.warns(UserWarning, match="tree like"):
@@ -225,30 +244,122 @@ class TestGenGloops:
         ]
 
     @pytest.mark.parametrize(
-        "grow_from,expected",
-        [("alldangle", [(0, 3)]), ("anydangle", [(0,), (3,)])],
+        "grow_from,max_size,resolved_size",
+        [
+            ("all", None, 6),
+            ("all", "min", 6),
+            ("any", None, 4),
+            ("any", "min", 3),
+        ],
     )
-    def test_dangle_modes_ignore_covering(self, grow_from, expected):
-        # the targets are exempt from the two bond condition, so the seed
-        # region is already valid and covering stops there -> the automatic
-        # size gives the same as 'min', and no expansion at all
+    def test_allow_dangling_uses_nondangling_auto_size(
+        self, grow_from, max_size, resolved_size
+    ):
+        # dangling regions are yielded, but only non-dangling loops set size
         psi = qtn.TN_from_edges_rand(self.edges, D=2, phys_dim=2, seed=42)
         sites = (0, 3)
-        assert self.get_gloops(psi, sites=sites, grow_from=grow_from) == (
-            expected
+        gloops = self.get_gloops(
+            psi,
+            max_size,
+            sites=sites,
+            grow_from=grow_from,
+            allow_dangling=True,
         )
-        assert (
-            self.get_gloops(psi, "min", sites=sites, grow_from=grow_from)
-            == expected
+        assert gloops == self.get_gloops(
+            psi,
+            resolved_size,
+            sites=sites,
+            grow_from=grow_from,
+            allow_dangling=True,
         )
-        # an explicit size does expand
-        assert (
-            len(self.get_gloops(psi, 4, sites=sites, grow_from=grow_from)) > 1
+        nondangling_gloops = self.get_gloops(
+            psi, resolved_size, sites=sites, grow_from=grow_from
+        )
+        assert set(nondangling_gloops) < set(gloops)
+
+    @pytest.mark.parametrize("grow_from", ["all", "any"])
+    def test_legacy_dangle_grow_from_alias(self, grow_from):
+        psi = qtn.TN_from_edges_rand(self.edges, D=2, phys_dim=2, seed=42)
+        opts = {"max_size": 4, "sites": (0, 3)}
+        assert self.get_gloops(
+            psi,
+            grow_from=grow_from,
+            allow_dangling=True,
+            **opts,
+        ) == self.get_gloops(
+            psi,
+            grow_from=f"{grow_from}dangle",
+            **opts,
         )
 
-    def test_num_joins_generates_global_gloops(self):
-        # joining local gloops needs the global ones, which are generated with
-        # the same `max_size` -> the dangling site 3 is ignored by both
+    @pytest.mark.parametrize("grow_from", ["all", "any"])
+    @pytest.mark.parametrize("max_size", [None, "min"])
+    @pytest.mark.parametrize("num_joins", [1, 2])
+    def test_auto_dangling_target_not_in_loop_returns_base(
+        self, grow_from, max_size, num_joins
+    ):
+        psi = qtn.TN_from_edges_rand(
+            [(0, 1), (1, 2), (2, 0), (0, 3)],
+            D=2,
+            phys_dim=2,
+            seed=42,
+        )
+        with pytest.warns(UserWarning, match="only the target region"):
+            gloops = self.get_gloops(
+                psi,
+                max_size,
+                sites=(3,),
+                grow_from=grow_from,
+                allow_dangling=True,
+                num_joins=num_joins,
+            )
+        assert gloops == [(3,)]
+
+    @pytest.mark.parametrize("grow_from", ["all", "any"])
+    @pytest.mark.parametrize("max_size", [None, "min"])
+    def test_auto_dangling_mixed_targets_still_generate(
+        self, grow_from, max_size
+    ):
+        # site 3 dangles but site 1 is in two loops, so the size still
+        # resolves, and dangling regions only add to the non-dangling ones
+        psi = qtn.TN_from_edges_rand(
+            [(0, 1), (1, 2), (2, 0), (0, 3), (1, 4), (4, 5), (5, 2)],
+            D=2,
+            phys_dim=2,
+            seed=42,
+        )
+        sites = (3, 1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            nondangling = self.get_gloops(
+                psi, max_size, sites=sites, grow_from=grow_from
+            )
+            dangling = self.get_gloops(
+                psi,
+                max_size,
+                sites=sites,
+                grow_from=grow_from,
+                allow_dangling=True,
+            )
+        assert set(nondangling) < set(dangling)
+        # the dangling target only appears in the dangling regions
+        assert not any(3 in gloop for gloop in nondangling)
+        assert any(3 in gloop for gloop in dangling)
+
+    @pytest.mark.parametrize("grow_from", ["all", "any"])
+    def test_auto_dangling_num_joins_is_nonempty(self, grow_from):
+        psi = qtn.TN_from_edges_rand(self.edges, D=2, phys_dim=2, seed=42)
+        gloops = self.get_gloops(
+            psi,
+            sites=(0, 3),
+            grow_from=grow_from,
+            allow_dangling=True,
+            num_joins=2,
+        )
+        assert gloops
+
+    def test_num_joins_grows_from_local_gloops(self):
+        # each join generates only base loops intersecting the current patches
         psi = qtn.TN_from_edges_rand(
             self.ragged_edges, D=2, phys_dim=2, seed=42
         )
@@ -261,10 +372,54 @@ class TestGenGloops:
             warnings.simplefilter("error")
             assert self.get_gloops(
                 psi, sites=sites, grow_from="any", num_joins=2
-            ) == [(0, 1, 2, 4, 7, 8), (0, 1, 7), (0, 1, 7, 8), (0, 7, 8)]
+            ) == [(0, 1, 7), (0, 1, 7, 8), (0, 7, 8)]
         assert self.get_gloops(
             psi, "min", sites=sites, grow_from="any", num_joins=2
         ) == [(0, 1, 7), (0, 1, 7, 8), (0, 7, 8)]
+
+        # each round can reach base loops neighboring the previous patches
+        assert self.get_gloops(
+            psi, 5, sites=sites, grow_from="any", num_joins=3
+        )[0] == (0, 1, 2, 4, 5, 6, 7, 8)
+
+    @pytest.mark.parametrize("join_overlap", [1, 2])
+    def test_local_joins_match_global_reference(self, join_overlap):
+        psi = qtn.TN_from_edges_rand(
+            self.ragged_edges, D=2, phys_dim=2, seed=42
+        )
+        max_size = 5
+        base_gloops = tuple(map(frozenset, psi.gen_gloops_sites(max_size)))
+        current = set(
+            map(
+                frozenset,
+                psi.gen_gloops_sites(
+                    max_size,
+                    sites=(0,),
+                    grow_from="any",
+                ),
+            )
+        )
+
+        for num_joins in (1, 2, 3):
+            actual = set(
+                map(
+                    frozenset,
+                    psi.gen_gloops_sites(
+                        max_size,
+                        sites=(0,),
+                        grow_from="any",
+                        num_joins=num_joins,
+                        join_overlap=join_overlap,
+                    ),
+                )
+            )
+            assert actual == current
+            current = {
+                patch | base
+                for patch in current
+                for base in base_gloops
+                if len(patch & base) >= join_overlap
+            }
 
     @pytest.mark.parametrize("max_size", [None, "min", 4])
     @pytest.mark.parametrize("grow_from", ["all", "any"])
@@ -338,6 +493,93 @@ class TestGenGloops:
             assert len(self.get_gloops(psi)) == 6
 
 
+class TestGenGloopsEdgeInduced:
+    # six-site ring with one bond across the middle
+    theta_edges = ((0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 3))
+
+    @staticmethod
+    def is_connected(tn, inds):
+        neighbors = {}
+        for ix in inds:
+            tid_a, tid_b = tn.ind_map[ix]
+            neighbors.setdefault(tid_a, []).append(tid_b)
+            neighbors.setdefault(tid_b, []).append(tid_a)
+        first_tid = next(iter(neighbors))
+        seen = {first_tid}
+        queue = [first_tid]
+        while queue:
+            for tid in neighbors[queue.pop()]:
+                if tid not in seen:
+                    seen.add(tid)
+                    queue.append(tid)
+        return len(seen) == len(neighbors)
+
+    @classmethod
+    def enumerate_expected(cls, tn, tids):
+        """Enumerate connected subgraphs that span ``tids`` and give each
+        tensor at least two bonds.
+        """
+        edge_counts = collections.Counter(
+            ix for tid in tids for ix in tn.tensor_map[tid].inds
+        )
+        edges = [ix for ix, count in edge_counts.items() if count == 2]
+
+        found = []
+        for size in range(len(edges) + 1):
+            for kept in itertools.combinations(edges, size):
+                degrees = collections.Counter(
+                    tid for ix in kept for tid in tn.ind_map[ix]
+                )
+                if (len(degrees) != len(tids)) or any(
+                    degree < 2 for degree in degrees.values()
+                ):
+                    continue
+                if cls.is_connected(tn, kept):
+                    found.append(frozenset(kept))
+
+        return sorted(map(sorted, found))
+
+    def test_theta_yields_the_ring_with_and_without_the_bond(self):
+        tn = qtn.TN_from_edges_rand(self.theta_edges, D=2, seed=42)
+        patches = [
+            p for p in tn.gen_gloops_edge_induced(6) if p.num_tensors == 6
+        ]
+        assert len(patches) == 2
+        patch_ring, patch_full = sorted(patches, key=lambda p: p.num_indices)
+        assert patch_ring.tids == patch_full.tids
+        assert set(patch_full.inds) - set(patch_ring.inds) == set(
+            qtn.bonds(tn[0], tn[3])
+        )
+        assert patch_ring.num_indices == 6
+
+    def test_adds_plain_ring_to_gen_gloops(self):
+        tn = qtn.TN_from_edges_rand(self.theta_edges, D=2, seed=42)
+        gloops = sorted(map(tuple, tn.gen_gloops(6)))
+        assert len(tuple(tn.gen_gloops_edge_induced(6))) == len(gloops) + 1
+
+    @pytest.mark.parametrize("max_size", [4, 5, 6])
+    def test_matches_exhaustive_enumeration(self, max_size):
+        tn = qtn.TN2D_rand(3, 3, D=2, cyclic=True, seed=42)
+        grouped = {}
+        for patch in tn.gen_gloops_edge_induced(max_size):
+            grouped.setdefault(frozenset(patch.tids), []).append(
+                sorted(patch.inds)
+            )
+        assert grouped
+        for tids, patches in grouped.items():
+            assert sorted(patches) == self.enumerate_expected(tn, tids)
+
+    def test_every_site_keeps_two_bonds_and_stays_connected(self):
+        tn = qtn.TN_rand_reg(10, 4, D=2, seed=42)
+        for patch in tn.gen_gloops_edge_induced(6):
+            degrees = collections.Counter(
+                tid for ix in patch.inds for tid in tn.ind_map[ix]
+            )
+            assert set(degrees) == set(patch.tids)
+            assert min(degrees.values()) >= 2
+            assert self.is_connected(tn, patch.inds)
+
+
 def test_connected_bipartitions():
     tn = qtn.TN_rand_reg(6, 3, 2)
     for pa, pb in tn.connected_bipartitions():
@@ -345,3 +587,77 @@ def test_connected_bipartitions():
         assert not (pa & pb)
         assert tn._select_tids(pa).isconnected()
         assert tn._select_tids(pb).isconnected()
+
+
+class TestSweepScheduler:
+    def test_compute_sweep_ranks_chain_from_middle(self):
+        edges = [(0, 1), (1, 2), (2, 3), (3, 4)]
+        ranks, is_tree = compute_sweep_ranks([2, 0, 1, 3, 4], edges)
+        assert ranks == {2: 0, 1: 1, 3: 2, 0: 3, 4: 4}
+        assert is_tree
+
+    def test_compute_sweep_ranks_components(self):
+        edges = [(0, 1), (2, 3)]
+        ranks, is_tree = compute_sweep_ranks([0, 1, 2, 3, 4], edges)
+        assert ranks == {0: 0, 1: 1, 2: 2, 3: 3, 4: 4}
+        assert is_tree
+
+    @pytest.mark.parametrize(
+        "edges",
+        [
+            [(0, 1), (1, 2), (2, 0)],
+            # a repeated edge is a loop
+            [(0, 1), (1, 2), (1, 2)],
+        ],
+    )
+    def test_compute_sweep_ranks_loops(self, edges):
+        _, is_tree = compute_sweep_ranks([0, 1, 2], edges)
+        assert not is_tree
+
+    @pytest.mark.parametrize(
+        "sweep_order, edges, expected",
+        [
+            ("auto", [(0, 1), (1, 2)], [[2, 1, 0], [0, 1, 2], [2, 1, 0]]),
+            ("auto", [(0, 1), (1, 2), (2, 0)], [[0, 1, 2]] * 3),
+            ("alternate", [(0, 1), (1, 2), (2, 0)], [[2, 1, 0], [0, 1, 2]]),
+            ("fixed", [(0, 1), (1, 2)], [[0, 1, 2]] * 2),
+            (None, [(0, 1), (1, 2)], [[1, 2, 0]] * 2),
+        ],
+    )
+    def test_sweep_order(self, sweep_order, edges, expected):
+        sweeper = SweepScheduler(
+            [0, 1, 2], edges, lambda k: (k,), sweep_order=sweep_order
+        )
+        for keys in expected:
+            sweeper.touch([0, 2, 1])
+            assert list(sweeper.sweep()) == keys
+
+    def test_touch_during_sweep(self):
+        edges = [(i, i + 1) for i in range(4)]
+        sweeper = SweepScheduler(range(5), edges, lambda k: (k,), "fixed")
+        sweeper.touch([0])
+        keys = []
+        for k in sweeper.sweep():
+            keys.append(k)
+            # next key joins this sweep, updated key waits for the next
+            sweeper.touch([k, min(k + 1, 4)])
+        assert keys == [0, 1, 2, 3, 4]
+        assert set(sweeper.touched) == {0, 1, 2, 3, 4}
+
+    def test_touch_during_sweep_none_order(self):
+        sweeper = SweepScheduler(
+            range(3), [(0, 1), (1, 2)], lambda k: (k,), None
+        )
+        sweeper.touch([0])
+        keys = []
+        for k in sweeper.sweep():
+            keys.append(k)
+            sweeper.touch([k + 1])
+        assert keys == [0]
+        assert list(sweeper.touched) == [1]
+
+    def test_unranked_nodes_get_next_rank(self):
+        sweeper = SweepScheduler([0, 1], [(0, 1)], lambda k: (k,), "fixed")
+        sweeper.touch([7, 1, 0])
+        assert list(sweeper.sweep()) == [0, 1, 7]
+        assert sweeper.ranks[7] == 2

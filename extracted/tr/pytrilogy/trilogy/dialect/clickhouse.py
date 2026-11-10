@@ -1,10 +1,51 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from trilogy.core.enums import FunctionType, UnnestMode
-from trilogy.core.models.core import DataType, MapWrapper
-from trilogy.dialect.base import BaseDialect, array_element_type, is_array_arg
-from trilogy.dialect.common import CONCAT_COALESCE_LOWER, sunday_first_from_iso
+from trilogy.core.casts import (
+    DATE_PATTERN,
+    DATETIME_PATTERN,
+    FIXED_EXPONENTS,
+    FLOAT_PATTERN,
+    INSTANT_READ_TARGETS,
+    INT64,
+    NUMBER_PATTERN,
+)
+from trilogy.core.enums import (
+    ComparisonOperator,
+    FunctionType,
+    JoinType,
+    Modifier,
+    UnnestMode,
+    WindowType,
+)
+from trilogy.core.models.author import get_basic_type
+from trilogy.core.models.core import DataType, MapWrapper, NumericType
+from trilogy.core.models.execute import CTE, Join, UnionCTE
+from trilogy.core.statements.execute import ColumnInfo, CreateTableInfo
+from trilogy.dialect.base import (
+    INLINE_SAFE_PARAM_DATATYPES,
+    NAVIGATION_WINDOW_FUNCTION_MAP,
+    BaseDialect,
+    array_element_type,
+    guard_divisor,
+    in_domain,
+    is_array_arg,
+    navigation_window_factory,
+    render_log,
+)
+from trilogy.dialect.base import render_divide as base_render_divide
+from trilogy.dialect.common import (
+    CONCAT_COALESCE_LOWER,
+    bool_from_text,
+    cast_kind,
+    guarded_read,
+    int_literal,
+    reads_text,
+    render_window_substring,
+    sunday_first_from_iso,
+    utc_text,
+    written_kind,
+)
 
 
 def date_part(expr: str, part: str) -> str:
@@ -16,7 +57,19 @@ def date_part(expr: str, part: str) -> str:
 
 
 if TYPE_CHECKING:
-    from trilogy.core.models.execute import CTE, UnionCTE
+    from trilogy.core.statements.execute import ProcessedQuery
+
+OUTER_JOINS = (JoinType.LEFT_OUTER, JoinType.RIGHT_OUTER, JoinType.FULL)
+
+
+def pads_outer_rows(ctes: "list[CTE | UnionCTE]") -> bool:
+    for cte in ctes:
+        if isinstance(cte, UnionCTE):
+            if pads_outer_rows(cte.internal_ctes):
+                return True
+        elif any(isinstance(j, Join) and j.join_type in OUTER_JOINS for j in cte.joins):
+            return True
+    return False
 
 
 def _ch_struct(args, types):
@@ -33,6 +86,296 @@ def _ch_struct(args, types):
     return f"cast(tuple({', '.join(values)}), 'Tuple({fields})')"
 
 
+# ClickHouse types are NOT NULL unless wrapped in Nullable, which these refuse
+UNWRAPPABLE_TYPES = (DataType.ARRAY, DataType.MAP, DataType.STRUCT)
+
+
+FLOAT_TYPES = (DataType.FLOAT, DataType.DOUBLE, DataType.NUMBER)
+INTEGER_TYPES = (DataType.INTEGER, DataType.BIGINT)
+
+
+def data_type(datatype: Any) -> Any:
+    return getattr(datatype, "data_type", datatype)
+
+
+def round_half_away(value: str, digits: str, value_type: Any) -> str:
+    """`round` of a float is half to even here (`round(2.5)` is 2) and half
+    away from zero everywhere else; a decimal already rounds half away."""
+    if data_type(value_type) not in FLOAT_TYPES:
+        return f"round({value}, {digits})"
+    if digits.strip() == "0":
+        return f"(sign({value}) * floor(abs({value}) + 0.5))"
+    scale = f"pow(10, {digits})"
+    return f"(sign({value}) * floor(abs({value}) * {scale} + 0.5) / {scale})"
+
+
+def read_text(value: str, target: str, target_type: Any) -> str:
+    """A string as a number: read exactly at 18 digits, which truncates only
+    digits past any half-away tie, then rounded to the target. As a date: the
+    zero-padded day, only if `toDate32` gives it back, as it rolls
+    '2020-02-30' into March and '2020-13-01' to 1970. As an instant: the same
+    day, parsed in UTC. A date's string and its trim are each bound once;
+    a number's are left to the engine, which computes a repeated expression
+    once and runs the lambda slower."""
+    raw = f"toString({value})"
+    if data_type(target_type) not in (DataType.DATE, *INSTANT_READ_TARGETS):
+        return read_trimmed(raw, trim(raw), target, target_type)
+    name, text = "_trilogy_raw", "_trilogy_text"
+    read = bind([text], [trim(name)], read_trimmed(name, text, target, target_type))
+    return bind([name], [raw], read)
+
+
+def trim(text: str) -> str:
+    return f"replaceRegexpAll({text}, '^[[:space:]]+|[[:space:]]+$', '')"
+
+
+def read_trimmed(raw: str, text: str, target: str, target_type: Any) -> str:
+    parts = f"splitByRegexp('[-/ T]', {text})"
+    day = (
+        f"concat({parts}[1], '-', leftPad({parts}[2], 2, '0'), '-',"
+        f" leftPad({parts}[3], 2, '0'))"
+    )
+    real_day = f"toString(toDate32OrNull({day})) = {day}"
+    if data_type(target_type) == DataType.DATE:
+        return guarded_read(
+            f"match({raw}, '{DATE_PATTERN}') AND {real_day}",
+            f"CAST(toDate32OrNull({day}) AS Nullable(Date))",
+        )
+    if data_type(target_type) in INSTANT_READ_TARGETS:
+        # best effort also reads epoch seconds, '20200105', '24:00:00' and a
+        # month or day of 00
+        if not target.startswith("Nullable("):
+            target = f"Nullable({target})"
+        return guarded_read(
+            f"match({raw}, '{DATETIME_PATTERN}') AND {real_day}",
+            f"CAST(parseDateTime64BestEffortOrNull({text}, 6, 'UTC') AS {target})",
+        )
+    if data_type(target_type) in FLOAT_TYPES:
+        return guarded_read(
+            f"match({raw}, '{FLOAT_PATTERN}')", f"toFloat64OrNull({text})"
+        )
+    scale = target_type.scale if isinstance(target_type, NumericType) else 0
+    if target.startswith("Nullable("):
+        target = target[len("Nullable(") : -1]
+    number = f"round(toDecimal128OrNull({text}, 18), {scale})"
+    return guarded_read(
+        f"match({raw}, '{NUMBER_PATTERN}') AND {in_range(number, target_type)}",
+        f"accurateCastOrNull({number}, '{target}')",
+    )
+
+
+def in_range(number: str, target_type: Any) -> str:
+    """`accurateCastOrNull` raises past Int64 from a decimal, and a Decimal
+    keeps more whole digits than its precision allows."""
+    if isinstance(target_type, NumericType):
+        whole = "1" + "0" * (target_type.precision - target_type.scale)
+        return f"abs({number}) < toDecimal256('{whole}', 0)"
+    low, high = INT64
+    return f"{number} BETWEEN {low} AND {high}"
+
+
+ZEROS = "'" + "0" * 20 + "'"
+
+
+def float_layout(digits: str, exponent: str) -> str:
+    """`repr`'s layout of the significant `digits` and the decimal exponent
+    of the first one."""
+    low, high = FIXED_EXPONENTS
+    count = f"length({digits})"
+    fixed = (
+        f"CASE WHEN {exponent} >= {count} - 1"
+        f" THEN {digits} || substr({ZEROS}, 1, {exponent} - {count} + 1) || '.0'"
+        f" WHEN {exponent} >= 0"
+        f" THEN substr({digits}, 1, {exponent} + 1) || '.' || substr({digits}, {exponent} + 2)"
+        f" ELSE '0.' || substr({ZEROS}, 1, -{exponent} - 1) || {digits} END"
+    )
+    scientific = (
+        f"substr({digits}, 1, 1)"
+        f" || CASE WHEN {count} > 1 THEN '.' || substr({digits}, 2) ELSE '' END"
+        f" || 'e' || CASE WHEN {exponent} < 0 THEN '-' ELSE '+' END"
+        f" || if(abs({exponent}) < 10, '0', '') || toString(abs({exponent}))"
+    )
+    return (
+        f"CASE WHEN {exponent} BETWEEN {low} AND {high - 1}"
+        f" THEN {fixed} ELSE {scientific} END"
+    )
+
+
+def bind(names: list[str], values: list[str], body: str) -> str:
+    """`body` with each name bound once: a lambda applied to one-element
+    arrays, which keeps a repeated argument from growing the SQL."""
+    arrays = ", ".join(f"[{v}]" for v in values)
+    return f"arrayMap(({', '.join(names)}) -> {body}, {arrays})[1]"
+
+
+def write_float(value: str) -> str:
+    """`toString` gives the shortest digits, as `repr` does, but fixed up to
+    1e21 and with no `.0`; its digits and exponent are laid out again."""
+    text, magnitude = "_trilogy_text", "_trilogy_magnitude"
+    e = f"position({magnitude}, 'e')"
+    mantissa = f"if({e} > 0, substr({magnitude}, 1, {e} - 1), {magnitude})"
+    shift = f"if({e} > 0, toInt32(substr({magnitude}, {e} + 1)), 0)"
+    run, whole = "_trilogy_run", "_trilogy_whole"
+    leading = f"length({run}) - length(trimLeft({run}, '0'))"
+    exponent = f"{shift} + if({whole} != '0', length({whole}) - 1, -({leading}))"
+    layout = bind(
+        ["_trilogy_digits", "_trilogy_exponent"],
+        [f"trimBoth({run}, '0')", exponent],
+        float_layout("_trilogy_digits", "_trilogy_exponent"),
+    )
+    parts = bind(
+        [run, whole],
+        [f"replaceOne({mantissa}, '.', '')", f"splitByChar('.', {mantissa})[1]"],
+        layout,
+    )
+    sign = f"if(startsWith({text}, '-'), '-', '')"
+    body = (
+        f"CASE WHEN {magnitude} IN ('inf', 'nan') THEN {text}"
+        f" WHEN {magnitude} = '0' THEN {sign} || '0.0'"
+        f" ELSE {sign} || {parts} END"
+    )
+    number = f"toFloat64({value})"
+    return bind(
+        [text, magnitude], [f"toString({number})", f"toString(abs({number}))"], body
+    )
+
+
+def write_text(value: str, source: Any) -> str:
+    """`toString` drops a decimal's trailing zeros and a float's `.0`, writes
+    a DateTime64 at its full precision and a zoneless one in the server's
+    zone."""
+    if isinstance(source, NumericType):
+        return f"toDecimalString({value}, {source.scale})"
+    if source in INSTANT_READ_TARGETS:
+        text = "_trilogy_text"
+        fraction = f"trimRight(substr({text}, 21), '0')"
+        written = bind(
+            [text],
+            [f"toString({value}, 'UTC')"],
+            f"substr({text}, 1, 19) || if({fraction} = '', '', '.' || {fraction})",
+        )
+        return utc_text(written) if source == DataType.TIMESTAMP else written
+    return write_float(value)
+
+
+def render_divide(args: list[str], types: list) -> str:
+    """A decimal quotient is a DOUBLE (`get_divide_output_type`); a Decimal
+    divides at the dividend's scale (`1 / 3` is 0.3333)."""
+    if any(data_type(t) == DataType.NUMERIC for t in types):
+        args = [f"toFloat64({args[0]})", *args[1:]]
+    return base_render_divide(args)
+
+
+def render_cast(args: list[str], types: list) -> str:
+    """A cast keeps NULL: CAST to a bare type raises on one. A fraction cast
+    to an integer or a decimal of a smaller scale rounds half away, as `round`
+    does; ClickHouse truncates it."""
+    value, target = args
+    target_type = data_type(types[-1]) if types else None
+    if cast_kind(types) == (DataType.STRING, DataType.BOOL):
+        return bool_from_text(value)
+    if reads_text(types):
+        return read_text(value, target, types[-1])
+    written = written_kind(types)
+    if written is not None:
+        return write_text(value, written)
+    if target_type not in UNWRAPPABLE_TYPES and not target.startswith("Nullable("):
+        target = f"Nullable({target})"
+    if (
+        len(types) == 2
+        and target_type in INTEGER_TYPES
+        and data_type(types[0]) in (*FLOAT_TYPES, DataType.NUMERIC)
+    ):
+        value = round_half_away(value, "0", types[0])
+    elif (
+        len(types) == 2
+        and isinstance(types[1], NumericType)
+        and data_type(types[0]) in (*FLOAT_TYPES, DataType.NUMERIC)
+    ):
+        value = round_half_away(value, str(types[1].scale), types[0])
+    return f"CAST({value} AS {target})"
+
+
+def render_mod(args: list[str], types: list) -> str:
+    """`modulo` of a decimal drops its fraction (`7.5 % 3` is 0); the
+    truncated remainder `x - y * trunc(x / y)` keeps it."""
+    x, y = args[0], guard_divisor(args[1])
+    if any(data_type(t) == DataType.NUMERIC for t in types):
+        return f"({x} - ({y}) * trunc(({x}) / ({y})))"
+    return f"modulo({x}, {y})"
+
+
+def present_extreme(name: str) -> Callable[[list[str], list], str]:
+    """`greatest`/`least` refuse an integer beside a float; the float is the
+    type they declare, so the integers are widened to it."""
+
+    def render(args: list[str], types: list) -> str:
+        bases = [data_type(t) for t in types]
+        if any(b in FLOAT_TYPES for b in bases):
+            args = [
+                f"toFloat64({a})" if b in INTEGER_TYPES else a
+                for a, b in zip(args, bases)
+            ]
+        return f"{name}({', '.join(args)})"
+
+    return render
+
+
+def date_trunc(args: list[str], types: list) -> str:
+    # a day truncation is a DateTime here; it is typed DATE (`get_date_trunc_output`)
+    rendered = f"date_trunc('{args[1]}', {args[0]})"
+    return f"toDate({rendered})" if args[1].lower() == "day" else rendered
+
+
+def date_diff(args: list[str], types: list) -> str:
+    # `week` is whole 7-day spans of the day difference; ClickHouse counts
+    # Monday boundaries instead
+    if args[2].lower() == "week":
+        return f"intDiv(dateDiff('day', {args[0]}, {args[1]}), 7)"
+    return f"dateDiff('{args[2]}', {args[0]}, {args[1]})"
+
+
+def null_safe_join_key(
+    lval: str, rval: str, modifiers: list[Modifier], jointype: JoinType | None = None
+) -> str:
+    # ClickHouse finds no join key in the `a = b or (a is null and b is null)`
+    # expansion and refuses the join; `<=>` is its null-safe equality
+    if Modifier.NULLABLE in modifiers:
+        return f"({lval} <=> {rval})"
+    return f"{lval} = {rval}"
+
+
+def nullable_navigation(name: str) -> Callable[[str, str, str, int | None], str]:
+    """`lag`/`lead` past the partition's edge return the operand type's
+    default (0, '') when the operand is NOT NULL; NULL everywhere else."""
+    render = navigation_window_factory(name)
+
+    def wrapped(concept: str, window: str, sort: str, offset: int | None = None):
+        return render(f"toNullable({concept})", window, sort, offset)
+
+    return wrapped
+
+
+SUBSTRING, LENGTH = "substringUTF8", "lengthUTF8({})"
+
+
+def substring(args: list[str]) -> str:
+    """The clamped substring names a computed position up to eight times;
+    the string and each computed bound are bound once."""
+    start, count = int_literal(args[1]), int_literal(args[2])
+    if start is not None and start > 0 and count is not None and count >= 0:
+        return render_window_substring(SUBSTRING, LENGTH, args)
+    names = ["_trilogy_string", "_trilogy_start", "_trilogy_count"]
+    bound = [True, start is None, count is None]
+    window = [name if b else arg for name, arg, b in zip(names, args, bound)]
+    pairs = [(name, arg) for name, arg, b in zip(names, args, bound) if b]
+    return bind(
+        [name for name, _ in pairs],
+        [arg for _, arg in pairs],
+        render_window_substring(SUBSTRING, LENGTH, window),
+    )
+
+
 def array_to_string(args, types):
     # arrayStringConcat only takes a string array; map other element types
     if array_element_type(types) == DataType.STRING:
@@ -40,13 +383,29 @@ def array_to_string(args, types):
     return f"arrayStringConcat(arrayMap(x -> toString(x), {args[0]}), {args[1]})"
 
 
-def _ch_log(args):
+# the sentinel group of a two-argument regexp_extract
+AUTO_CAPTURE_GROUP = "-1"
+
+
+def char_length(args: list[str], types: list) -> str:
+    """`length` of a String counts bytes here; a string counts characters"""
+    if types and get_basic_type(types[0]) == DataType.STRING:
+        return f"lengthUTF8({args[0]})"
+    return f"length({args[0]})"
+
+
+def regexp_extract(args: list[str], types: list) -> str:
+    # `extract` takes the first group when the pattern has one, else the match
+    if len(args) < 3 or args[2] == AUTO_CAPTURE_GROUP:
+        return f"extract({args[0]}, {args[1]})"
+    return f"regexpExtract({args[0]}, {args[1]}, {args[2]})"
+
+
+def _ch_log(args, types):
     base = str(args[1]).strip()
-    if base in ("10", "10.0"):
-        return f"log10({args[0]})"
     if base in ("2", "2.0"):
-        return f"log2({args[0]})"
-    return f"(ln({args[0]}) / ln({args[1]}))"
+        return f"log2({in_domain(args[0], strict=True)})"
+    return render_log(args, types)
 
 
 def _ch_hash(val, hash_type):
@@ -73,17 +432,27 @@ FUNCTION_MAP = {
     # math
     FunctionType.POWER: lambda x, types: f"pow({x[0]}, {x[1]})",
     FunctionType.RANDOM: lambda x, types: "randCanonical()",
-    FunctionType.LOG: lambda x, types: _ch_log(x),
-    FunctionType.MOD: lambda x, types: f"modulo({x[0]}, {x[1]})",
+    FunctionType.LOG: _ch_log,
+    FunctionType.MOD: render_mod,
+    FunctionType.ROUND: lambda x, types: round_half_away(
+        x[0], x[1], types[0] if types else None
+    ),
+    FunctionType.GREATEST: present_extreme("greatest"),
+    FunctionType.LEAST: present_extreme("least"),
     # string
-    FunctionType.STRPOS: lambda x, types: f"position({x[0]}, {x[1]})",
+    # the plain string functions count bytes; the UTF8 forms count characters
+    FunctionType.LENGTH: char_length,
+    FunctionType.SUBSTRING: lambda x, types: substring(x),
+    FunctionType.STRPOS: lambda x, types: f"positionUTF8({x[0]}, {x[1]})",
+    FunctionType.UPPER: lambda x, types: f"upperUTF8({x[0]})",
+    FunctionType.LOWER: lambda x, types: f"lowerUTF8({x[0]})",
     FunctionType.CONTAINS: lambda x, types: (
         f"has({x[0]}, {x[1]})"
         if is_array_arg(types)
-        else f"position({x[0]}, {x[1]}) > 0"
+        else f"positionCaseInsensitiveUTF8({x[0]}, {x[1]}) > 0"
     ),
     FunctionType.REGEXP_CONTAINS: lambda x, types: f"match({x[0]}, {x[1]})",
-    FunctionType.REGEXP_EXTRACT: lambda x, types: f"extract({x[0]}, {x[1]})",
+    FunctionType.REGEXP_EXTRACT: regexp_extract,
     FunctionType.REGEXP_REPLACE: lambda x, types: f"replaceRegexpAll({x[0]}, {x[1]}, {x[2]})",
     FunctionType.REPLACE: lambda x, types: f"replaceAll({x[0]}, {x[1]}, {x[2]})",
     FunctionType.SPLIT: lambda x, types: f"splitByString({x[1]}, {x[0]})",
@@ -119,13 +488,15 @@ FUNCTION_MAP = {
     FunctionType.PARSE_TIME: lambda x, types: f"parseDateTime({x[0]}, {x[1]})",
     # CH versions ≥25 alias dateAdd/date_add to `plus` (binary +) with a 3-arg
     # mismatch error. INTERVAL syntax is the portable form.
-    FunctionType.DATE_TRUNCATE: lambda x, types: f"date_trunc('{x[1]}', {x[0]})",
+    FunctionType.DATE_TRUNCATE: date_trunc,
     FunctionType.DATE_PART: lambda x, types: date_part(x[0], x[1]),
     FunctionType.DATE_ADD: lambda x, types: f"({x[0]} + INTERVAL ({x[2]}) {x[1]})",
     FunctionType.DATE_SUB: lambda x, types: f"({x[0]} - INTERVAL ({x[2]}) {x[1]})",
-    FunctionType.DATE_DIFF: lambda x, types: f"dateDiff('{x[2]}', {x[0]}, {x[1]})",
+    FunctionType.DATE_DIFF: date_diff,
     FunctionType.WEEK: lambda x, types: f"toISOWeek({x[0]})",
     # casts
+    FunctionType.CAST: lambda x, types: render_cast(x, types),
+    FunctionType.DIVIDE: render_divide,
     FunctionType.DATE: lambda x, types: f"toDate({x[0]})",
     FunctionType.DATETIME: lambda x, types: f"toDateTime64({x[0]}, 3)",
     FunctionType.TIMESTAMP: lambda x, types: f"toDateTime64({x[0]}, 3)",
@@ -207,7 +578,26 @@ class ClickhouseDialect(BaseDialect):
         **BaseDialect.DB_COLUMN_TYPE_MAP,
         **DB_COLUMN_TYPE_MAP,
     }
+    # a bound date is sent as a string, which ClickHouse does not coerce in
+    # most functions (date_trunc, date arithmetic); render it as a typed literal
+    INLINE_PARAM_DATATYPES: ClassVar[frozenset[DataType]] = (
+        INLINE_SAFE_PARAM_DATATYPES
+        | {DataType.DATE, DataType.DATETIME, DataType.TIMESTAMP}
+    )
+    NULL_WRAPPER = staticmethod(null_safe_join_key)
+    NAVIGATION_WINDOW_FUNCTION_MAP: ClassVar[
+        dict[WindowType, Callable[[str, str, str, int | None], str]]
+    ] = {
+        **NAVIGATION_WINDOW_FUNCTION_MAP,
+        WindowType.LAG: nullable_navigation("lag"),
+        WindowType.LEAD: nullable_navigation("lead"),
+    }
+    # `Decimal(p, s)`; DATATYPE_MAP's bare `Decimal64(4)` takes no precision
+    NUMERIC_TYPE_NAME = "Decimal"
     QUOTE_CHARACTER = "`"
+    # LIKE escapes with a backslash natively and takes no ESCAPE clause
+    LIKE_ESCAPE_CLAUSE = False
+    STRING_LITERAL_BACKSLASH_ESCAPES = True
     SUPPORTS_QUALIFY = True
     # CH doesn't accept arrayJoin as a FROM-clause table function; DIRECT mode
     # emits `SELECT arrayJoin(...) AS alias` with no FROM, which CH supports.
@@ -216,6 +606,46 @@ class ClickhouseDialect(BaseDialect):
     TABLE_NOT_FOUND_PATTERN = "Table .* doesn't exist"
     COLUMN_NOT_FOUND_PATTERN = "Unknown identifier"
     TRANSACTIONAL_DDL = False
+
+    def render_column_type(self, column: ColumnInfo, target: CreateTableInfo) -> str:
+        """A column is NOT NULL unless declared Nullable, and would store a
+        NULL as 0 or ''."""
+        rendered = super().render_column_type(column, target)
+        if column.nullable and data_type(column.type) not in UNWRAPPABLE_TYPES:
+            return f"Nullable({rendered})"
+        return rendered
+
+    def _render_membership_exists(
+        self,
+        left_sql: str,
+        member_sql: str,
+        from_clause: str,
+        operator: ComparisonOperator,
+        null_free: bool = False,
+    ) -> str:
+        """Identity membership without a correlated subquery: ClickHouse
+        decorrelates `exists (... where m <=> x)` into a join that drops the
+        NULL match, so a NULL probe matched nothing and `not in` kept it. A
+        NULL probe's `IN` is NULL, so it is read as FALSE."""
+        members = f"select {member_sql} from {from_clause}"
+        if null_free:
+            matched = f"coalesce({left_sql} IN ({members}), false)"
+        else:
+            matched = (
+                f"(coalesce({left_sql} IN ({members} where {member_sql} is not null),"
+                f" false) OR {left_sql} IS NULL"
+                f" AND exists ({members} where {member_sql} is null))"
+            )
+        if operator == ComparisonOperator.NOT_IN:
+            return f"not {matched}"
+        return matched
+
+    def render_settings(self, query: "ProcessedQuery") -> str:
+        """An outer join pads with each type's default (0, '') unless
+        join_use_nulls is set; the padded side is NULL everywhere else."""
+        if pads_outer_rows(query.ctes):
+            return "\nSETTINGS join_use_nulls = 1"
+        return ""
 
     def normalize_db_type(self, db_type: str) -> DataType:
         # DateTime64(3, 'UTC'): a zone argument is what makes the column an instant
@@ -240,6 +670,19 @@ class ClickhouseDialect(BaseDialect):
             f"CREATE TABLE IF NOT EXISTS {target} AS {staged}",
             f"EXCHANGE TABLES {target} AND {staged}",
         ]
+
+    def render_like_pattern(self, pattern, render: Callable[[Any], str]) -> str:
+        """ClickHouse honours an escape only before `%`, `_` and `\\`, and
+        keeps the backslash before any other character; drop it there."""
+        if isinstance(pattern, str):
+            return super().render_like_pattern(pattern, render)
+        regex = self.render_string_literal(r"\\([^%_\\])")
+        group = self.render_string_literal(r"\1")
+        return f"replaceRegexpAll({render(pattern)}, {regex}, {group})"
+
+    def render_string_literal(self, value: str) -> str:
+        # ClickHouse reads a backslash in a string literal as an escape.
+        return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
     def render_map_literal(
         self,

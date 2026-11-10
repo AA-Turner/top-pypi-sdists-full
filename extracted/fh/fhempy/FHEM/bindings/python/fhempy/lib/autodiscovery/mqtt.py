@@ -167,8 +167,9 @@ class MqttDiscovery:
     async def _broker_loop(self, key):
         try:
             import aiomqtt
-        except ImportError:
-            self.logger.warning("MQTT discovery needs aiomqtt")
+        except ImportError as exc:
+            # e.g. aiomqtt 2 next to paho-mqtt 1.x, fhempy restart needed
+            self.logger.error(f"MQTT discovery doesn't work, aiomqtt: {exc}")
             return
         host, port = key
         while True:
@@ -177,26 +178,26 @@ class MqttDiscovery:
                 async with aiomqtt.Client(
                     host, port, username=username, password=password
                 ) as client:
-                    async with client.messages() as messages:
-                        await client.subscribe(mqtt_ha.DISCOVERY_TOPIC)
-                        await client.subscribe(BRIDGE_DEVICES_TOPIC)
-                        # ESPHome, Zigbee2MQTT... send their discovery again
-                        await client.publish(BIRTH_TOPIC, "online")
-                        self._clients[key] = client
-                        # after a reconnect: values of the offered devices
-                        for topic in self._topics:
-                            await client.subscribe(topic)
-                        self._errors.success(f"{host}:{port}")
-                        async for message in messages:
-                            try:
-                                await self.handle_message(
-                                    key, message.topic.value, message.payload
-                                )
-                            except Exception:
-                                self.logger.exception(
-                                    f"Failed to handle MQTT discovery message on "
-                                    f"{message.topic}"
-                                )
+                    messages = client.messages
+                    await client.subscribe(mqtt_ha.DISCOVERY_TOPIC)
+                    await client.subscribe(BRIDGE_DEVICES_TOPIC)
+                    # ESPHome, Zigbee2MQTT... send their discovery again
+                    await client.publish(BIRTH_TOPIC, "online")
+                    self._clients[key] = client
+                    # after a reconnect: values of the offered devices
+                    for topic in self._topics:
+                        await client.subscribe(topic)
+                    self._errors.success(f"{host}:{port}")
+                    async for message in messages:
+                        try:
+                            await self.handle_message(
+                                key, message.topic.value, message.payload
+                            )
+                        except Exception:
+                            self.logger.exception(
+                                f"Failed to handle MQTT discovery message on "
+                                f"{message.topic}"
+                            )
             except aiomqtt.MqttError as exc:
                 self._clients.pop(key, None)
                 # MqttError isn't an OSError, log it without traceback

@@ -10,12 +10,13 @@
 #  Copyright (C) 2015-2023 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
+import functools
 import logging
 import time
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
 import requests
-from requests import Response, Session
+from requests import Session
 
 from ...config import UPLOAD_FILE_MAX_RETRIES, UPLOAD_FILE_RETRY_BACKOFF_FACTOR
 from ..multipart_transfer import retry_policy
@@ -25,6 +26,7 @@ from ..multipart_transfer.retry_policy import (
     SERVER_ERROR_STATUS_CODES,
     THROTTLING_STATUS_CODES,
 )
+from ..multipart_transfer.transport import S3Transport
 from .upload_error import S3UploadError
 
 MAX_UPLOAD_START_ATTEMPTS = UPLOAD_FILE_MAX_RETRIES
@@ -61,7 +63,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 class UploadResult(NamedTuple):
-    response: Optional[Response]
+    # A requests.Response from the Comet control-plane calls, and a
+    # TransportResponse from a part upload to S3.
+    response: Optional[Any]
     retry_attempts: int
     failed: bool
     has_connection_error: bool
@@ -107,12 +111,10 @@ class UploadRetryStrategyOp(object):
         throttle_gate: Any = None,
     ) -> UploadResult:
         result = _request_with_retries(
-            session=session,
+            send=_control_plane_request(session, url, payload, headers),
             method="POST",
             url=url,
-            json_payload=payload,
-            data=None,
-            headers=headers,
+            body=None,
             max_retries=self.max_upload_start_attempts,
             retry_backoff_factor=self.retry_backoff_factor,
             retry_on_bad_response_status=True,
@@ -135,12 +137,10 @@ class UploadRetryStrategyOp(object):
         throttle_gate: Any = None,
     ) -> UploadResult:
         result = _request_with_retries(
-            session=session,
+            send=_control_plane_request(session, url, payload, headers),
             method="POST",
             url=url,
-            json_payload=payload,
-            data=None,
-            headers=headers,
+            body=None,
             max_retries=self.max_upload_complete_attempts,
             retry_backoff_factor=self.retry_backoff_factor,
             retry_on_bad_response_status=True,
@@ -156,19 +156,17 @@ class UploadRetryStrategyOp(object):
 
     def upload_s3_file_part(
         self,
-        session: Session,
+        transport: S3Transport,
         url: str,
         file_data: Any,
         throttle_gate: Any = None,
     ) -> UploadResult:
         # retrying also on 500 response status (see description: https://comet-ml.atlassian.net/browse/CM-10420)
         result = _request_with_retries(
-            session=session,
+            send=functools.partial(transport.put, url, file_data),
             method="PUT",
             url=url,
-            json_payload=None,
-            data=file_data,
-            headers=None,
+            body=file_data,
             max_retries=self.max_s3_file_part_upload_attempts,
             retry_backoff_factor=self.retry_backoff_factor,
             retry_on_bad_response_status=True,
@@ -204,13 +202,24 @@ def _raise_for_comet_bad_status_or_failure(result: UploadResult, operation: str)
         )
 
 
+def _control_plane_request(
+    session: Session, url: str, payload: Dict[str, Any], headers: Dict[str, Any]
+) -> Callable[[], requests.Response]:
+    return functools.partial(
+        session.request,
+        method="POST",
+        url=url,
+        json=payload,
+        data=None,
+        headers=headers,
+    )
+
+
 def _request_with_retries(
-    session: Session,
+    send: Callable[[], Any],
     method: str,
     url: str,
-    json_payload: Optional[Dict[str, Any]],
-    data: Any,
-    headers: Optional[Dict[str, Any]],
+    body: Any,
     max_retries: int,
     retry_backoff_factor: float,
     retry_on_bad_response_status: bool = False,
@@ -218,6 +227,9 @@ def _request_with_retries(
     retry_jitter: float = 0.0,
     throttle_gate: Any = None,
 ) -> UploadResult:
+    # send() makes one attempt. body is what it sends, passed separately so it can be
+    # rewound before a retry; method and url are only for the log.
+    #
     # Two budgets, because the two failures deserve different patience. A server
     # error is probably not going to clear, so it keeps the caller's attempt count.
     # A throttling response is a promise to accept the request later, so abandoning
@@ -255,18 +267,12 @@ def _request_with_retries(
             # by the failed attempt, so it has to be put back to its start before
             # it can be sent again. Duck typed on purpose: bytes need nothing, and
             # this module must not depend on the parts package that imports it.
-            rewind = getattr(data, "rewind", None)
+            rewind = getattr(body, "rewind", None)
             if callable(rewind):
                 rewind()
 
         try:
-            response = session.request(
-                method=method,
-                url=url,
-                json=json_payload,
-                data=data,
-                headers=headers,
-            )
+            response = send()
             failed = False
         except (ConnectionError, requests.ConnectionError):
             failed = True

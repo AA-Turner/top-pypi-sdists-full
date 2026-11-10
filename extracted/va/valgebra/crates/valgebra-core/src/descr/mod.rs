@@ -237,10 +237,15 @@ impl Component {
                 };
                 Component::Integers(combined?)
             }
-            (Component::Floats(a), Component::Floats(b)) => Component::Floats(match op {
-                Op::Union => a.union(b),
-                Op::Intersect => a.intersect(b),
-            }),
+            (Component::Floats(a), Component::Floats(b)) => {
+                // Refused for the reason the integers above are: two steps meet
+                // at a period past what this holds.
+                let combined = match op {
+                    Op::Union => a.union(b),
+                    Op::Intersect => a.intersect(b),
+                };
+                Component::Floats(combined?)
+            }
             (Component::Words(a), Component::Words(b)) => {
                 // A language operation can pass the automaton bound, and there
                 // is no sound set to substitute -- one too wide is complemented
@@ -393,7 +398,7 @@ enum Op {
 /// the same values may compare unequal. Every law over a descriptor that can
 /// hold one is therefore checked against the values, and the laws checked by
 /// equality are the ones over the components that compare as sets.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Descr {
     /// One union of lines per kind, indexed by that kind's position in
     /// [`Kind::ALL`].
@@ -407,6 +412,26 @@ pub struct Descr {
     /// of `int` holds every non-int value, not merely the ones this partition
     /// names.
     other: Lines,
+}
+
+/// Field by field, a descriptor being equal to itself at its own address: a product
+/// sorts what it keeps, and its atoms hold their fields by handle, so most of what a
+/// comparison reaches is one allocation read on both sides.
+impl Ord for Descr {
+    fn cmp(&self, other: &Descr) -> core::cmp::Ordering {
+        if core::ptr::eq(self, other) {
+            return core::cmp::Ordering::Equal;
+        }
+        self.kinds
+            .cmp(&other.kinds)
+            .then_with(|| self.other.cmp(&other.other))
+    }
+}
+
+impl PartialOrd for Descr {
+    fn partial_cmp(&self, other: &Descr) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// A set of the parts of the universe a descriptor holds a slot for: one bit
@@ -646,14 +671,13 @@ impl Descr {
     /// state per element a caller asked for: `MinLen(100_000)` is a schema
     /// nobody writes and an automaton nobody can hold.
     ///
-    /// **The state bound is not what stops a relation.** Built, the bound
-    /// spends one unit of the build's allowance; met with an element's shape,
-    /// it spends about three an element, since the product holds two states an
-    /// element: one where every element so far is the shape's, and one where
-    /// some element is not. So the
-    /// allowance ([`lower::WORK`]) stops a relation over a list of integers at
-    /// 1,340 elements, well inside the state bound, and
-    /// `a_length_bound_costs_three_units_an_element` holds the figures.
+    /// **The state bound is what stops a relation.** Built, the bound spends one
+    /// unit of the build's allowance; met with an element's shape, it spends about
+    /// two an element, since the product holds two states an element: one where
+    /// every element so far is the shape's, and one where some element is not. So
+    /// the allowance ([`lower::WORK`]) reaches past four thousand elements, and a
+    /// relation over a list of integers declines past 2,046, at the state bound.
+    /// `a_length_bound_costs_two_units_an_element` holds the figures.
     #[must_use]
     pub(crate) fn sequences_at_least(least: usize, kind: Kind) -> Option<Descr> {
         // Asked before the shape asks it, because the letters come first: one
@@ -749,12 +773,14 @@ impl Descr {
     pub(crate) fn keyed_map(
         labels: impl IntoIterator<Item = (Label, Descr, bool)>,
         opened: impl IntoIterator<Item = (Option<Kind>, Descr)>,
+        narrowed: impl IntoIterator<Item = (RegularSet, Descr)>,
     ) -> Option<Descr> {
-        let lattice = MapLattice::record(
+        let lattice = MapLattice::narrowed_record(
             labels
                 .into_iter()
                 .map(|(label, ty, optional)| (label, Arc::new(ty), optional)),
             opened.into_iter().map(|(part, ty)| (part, Arc::new(ty))),
+            narrowed.into_iter().map(|(keys, ty)| (keys, Arc::new(ty))),
         )?;
         let mut descr = Descr::nothing();
         descr.put(Kind::Dict, Component::Maps(lattice));
@@ -905,6 +931,29 @@ impl Descr {
         self.zip(other, Op::Intersect)
     }
 
+    /// Every value this set holds and `other` does not, or `None` where a
+    /// component cannot hold the result: the meet with `other`'s complement.
+    ///
+    /// Each kind is its own question [FCB08, (4)], so a kind this set holds no line
+    /// of holds no line of the difference, whatever `other` holds there, and its
+    /// complement is not built. A subject holds a kind or two, and a complement
+    /// builds a top for every kind `other` leaves out.
+    #[must_use]
+    pub(crate) fn minus(&self, other: &Descr) -> Option<Descr> {
+        if !budget::spend() {
+            return None;
+        }
+        let mut kinds = Descr::no_lines();
+        let pairs = self.kinds.iter().zip(&other.kinds);
+        for ((slot, (mine, theirs)), kind) in kinds.iter_mut().zip(pairs).zip(Kind::ALL) {
+            *slot = mine.minus(theirs, Whole::Kind(kind))?;
+        }
+        Some(Descr {
+            kinds,
+            other: self.other.minus(&other.other, Whole::Kindless)?,
+        })
+    }
+
     /// Every value this set does not hold.
     ///
     /// Componentwise, which is what makes it *saturate*, as the negation of an
@@ -1015,6 +1064,11 @@ impl Descr {
             reached & part(kind) == 0 && lines.emptiness(Whole::Kind(kind)) == Verdict::Inhabited
         }) || (reached & KINDLESS_PART == 0
             && self.other.emptiness(Whole::Kindless) == Verdict::Inhabited)
+    }
+
+    /// Whether some part of the universe holds no line here.
+    fn misses_a_part(&self) -> bool {
+        self.kinds.iter().chain([&self.other]).any(Lines::is_bottom)
     }
 
     /// What is known about this set admitting a value.
@@ -1143,6 +1197,33 @@ impl Guard for Arc<Descr> {
 
     fn emptiness(&self) -> Verdict {
         Descr::emptiness(self)
+    }
+
+    fn minus(&self, other: &Arc<Descr>) -> Option<Arc<Descr>> {
+        Descr::minus(self, other).map(Arc::new)
+    }
+
+    /// Read a part at a time, since they partition the universe [FCB08, (4)]. One
+    /// holding no line here stands whole in the complement, and a whole part holds
+    /// a value whatever the others hold. Most letters hold a kind or two, and a
+    /// complement builds a top for every kind they miss, so those are asked first;
+    /// past them, the first part proved to leave a value is the answer.
+    fn leaves(&self) -> Verdict {
+        if self.misses_a_part() {
+            return Verdict::Inhabited;
+        }
+        // The charge is the complement's: see `complement` above.
+        let _ = budget::spend();
+        let parts = self.kinds.iter().zip(Kind::ALL.map(Whole::Kind));
+        let mut read = Verdict::Empty;
+        for (lines, whole) in parts.chain([(&self.other, Whole::Kindless)]) {
+            match lines.complement(whole).emptiness(whole) {
+                Verdict::Inhabited => return Verdict::Inhabited,
+                Verdict::Unknown => read = Verdict::Unknown,
+                Verdict::Empty => {}
+            }
+        }
+        read
     }
 
     #[cfg(test)]

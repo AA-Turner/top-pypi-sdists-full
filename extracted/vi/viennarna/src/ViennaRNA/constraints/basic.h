@@ -148,6 +148,8 @@
  */
 #define VRNA_DECOMP_ML_ML_STEM (unsigned char)9
 
+#define VRNA_DECOMP_ML_STEM_ML (unsigned char)24
+
 /**
  *  @brief  Indicator for decomposition of multibranch loop part
  *
@@ -285,6 +287,7 @@
 
 #define VRNA_DECOMP_EXT_L         (unsigned char)21
 #define VRNA_DECOMP_EXT_EXT_L     (unsigned char)22
+
 
 /*
  * currently we do not allow for more than 31 different decomposition types

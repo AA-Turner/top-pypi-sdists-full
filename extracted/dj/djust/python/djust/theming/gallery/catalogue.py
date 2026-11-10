@@ -9,6 +9,7 @@ Supports both template-based components (24 contracted) and Python components
 """
 
 import logging
+import importlib
 import re
 from typing import Any
 from pathlib import Path
@@ -31,13 +32,16 @@ _STATIC_DIR = Path(__file__).resolve().parent.parent / "static" / "djust_theming
 # Pattern to extract CSS custom property references: var(--name, ...)
 _CSS_VAR_RE = re.compile(r"var\(\s*(--[a-zA-Z0-9_-]+)")
 
-# Allowlist of valid component identifiers built at import time from the actual
-# HTML files present on disk. CodeQL recognizes `x in frozenset(...)` as a
-# taint-clearing sanitizer for py/path-injection.
-_ALLOWED_COMPONENTS: frozenset[str] = (
-    frozenset(p.stem for p in _COMPONENTS_DIR.glob("*.html"))
-    if _COMPONENTS_DIR.exists()
-    else frozenset()
+# Every default component template, keyed by name, built once at import time
+# from the files on disk. A lookup takes a name and hands back a path that came
+# from the directory listing, so no path is ever assembled from the caller's
+# string: an unknown name, "../x", an absolute path or an encoded separator is
+# simply not a key. (A membership test on a set built from a glob, followed by
+# ``_COMPONENTS_DIR / f"{name}.html"``, was safe too, but it still built the
+# path from the caller's value; code scanning flagged it as py/path-injection,
+# alerts #3085/#3086.)
+_COMPONENT_TEMPLATES: dict[str, Path] = (
+    {p.stem: p for p in sorted(_COMPONENTS_DIR.glob("*.html"))} if _COMPONENTS_DIR.exists() else {}
 )
 
 
@@ -48,18 +52,20 @@ def get_component_template_source(component_name: str) -> str:
         component_name: Component name, e.g. "button", "card".
 
     Returns:
-        Template source as a string, or empty string if not found.
+        Template source as a string, or empty string if *component_name* is
+        not a shipped component template.
     """
-    # Allowlist-based validation — CodeQL recognizes `in frozenset(...)` as
-    # a taint-clearing sanitizer for path-injection.
-    if component_name not in _ALLOWED_COMPONENTS:
+    template_path = _COMPONENT_TEMPLATES.get(component_name)
+    if template_path is None:
         return ""
-    template_path = _COMPONENTS_DIR / f"{component_name}.html"
-    # Defense-in-depth: resolve + relative_to ensures the path stays within
-    # the components directory even if the allowlist were somehow bypassed.
-    try:
-        template_path.resolve().relative_to(_COMPONENTS_DIR.resolve())
-    except ValueError:
+    # A template that is a symlink pointing outside the components directory
+    # is refused rather than followed.
+    if not template_path.resolve().is_relative_to(_COMPONENTS_DIR.resolve()):
+        logger.warning(
+            "Refusing component template %s: it resolves outside %s",
+            sanitize_for_log(component_name),
+            _COMPONENTS_DIR,
+        )
         return ""
     return template_path.read_text()
 
@@ -145,19 +151,81 @@ def _get_component_css_variables(component_name: str) -> list[str]:
     return sorted(all_vars)
 
 
+_COMPONENT_DESCRIPTIONS = {
+    # These entries are template-only components, so there is no Python class
+    # docstring to use as their one-line catalogue description. Keep the
+    # prose next to the catalogue contract rather than silently showing a
+    # component card with no explanation.
+    "interactive_dropdown_menu": (
+        "A menu that owns its open, keyboard and selection state and sends the "
+        "view one typed callback per valid choice (ADR-034)."
+    ),
+    "checkbox": "Checkbox input with a label, description, and validation state.",
+    "input": "Text input with a label, help text, and validation state.",
+    "radio": "Radio-group input for choosing one value from a set.",
+    "select": "Select input with options, labels, and validation support.",
+    "textarea": "Multiline text input with a label and validation state.",
+    "nav": "Navigation container for links and the current active state.",
+    "nav_group": "Grouped navigation section with a heading and nested items.",
+    "nav_item": "Single navigation link with active and disabled states.",
+    "sidebar_nav": "Sidebar navigation list with grouped items and active state.",
+    "table": "Semantic table wrapper for headers, rows, and responsive data.",
+    "server_event_toast": "Server-event helper for delivering toast notifications.",
+}
+
+# Components whose contract is useful but cannot render a standalone example.
+# The detail page shows this explanation beside the generic empty preview so a
+# missing thumbnail is not mistaken for a broken component.
+_COMPONENT_PREVIEW_NOTES = {
+    "form_validation": (
+        "This module provides validation helpers used by form fields rather than "
+        "a standalone renderable surface."
+    ),
+    "image_lightbox": (
+        "The lightbox is opened by an image trigger supplied by the host page, "
+        "so it has no standalone preview."
+    ),
+    "server_event_toast": (
+        "This is a server-event helper, not a renderable component. Use it with "
+        "a toast surface in the view that owns the event."
+    ),
+    "bottom_sheet": (
+        "The sheet requires a host trigger and viewport-level overlay context, "
+        "so it has no standalone preview."
+    ),
+    "export_dialog": (
+        "The dialog requires a host action and export payload, so it has no standalone preview."
+    ),
+    "prompt_editor": (
+        "This composed editor receives its state from the host view, so it has "
+        "no standalone preview."
+    ),
+    "tour": (
+        "The tour requires host-page anchors and a current step, so it has no standalone preview."
+    ),
+}
+
+
 def component_description(component_name: str) -> str:
-    """One line a card can show: the first line of a python component's
-    class docstring, or ``""`` when nothing documents it. Template components
-    carry no prose in their contract, so they get ``""`` too — an honest gap
-    the docs pass can fill, not a generated sentence."""
+    """Return the concise description shown on cards and detail pages.
+
+    Python components use the first line of their class docstring. Components
+    without a Python class use the explicit catalogue prose above; unknown
+    names still return ``""`` rather than inventing documentation.
+    """
     from .component_registry import _load_component_class
 
     cls, _ = _load_component_class(component_name)
     doc = (getattr(cls, "__doc__", None) or "").strip() if cls is not None else ""
     if not doc:
-        return ""
+        return _COMPONENT_DESCRIPTIONS.get(component_name, "")
     first = doc.splitlines()[0].strip()
     return first if len(first) <= 140 else first[:137].rstrip() + "…"
+
+
+def component_preview_note(component_name: str) -> str:
+    """Explain why a known component does not have a standalone example."""
+    return _COMPONENT_PREVIEW_NOTES.get(component_name, "")
 
 
 _TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,15}$")
@@ -250,6 +318,58 @@ def build_catalogue_index_context() -> dict:
 #:
 #: The markup dispatches the same event the component's descriptor listens for,
 #: so this is the real server path rather than a demo-only shim.
+#: Catalogue entries whose preview is a LiveView that owns interactive
+#: components (ADR-034): the name maps to the canonical example view.
+INTERACTIVE_ENTRIES = {
+    "interactive_dropdown_menu": "djust.components.interactive_examples.DropdownMenuExample",
+}
+
+#: The component each interactive entry documents, and the outputs a host
+#: subscribes to (``@<menu>.on.<output>``).
+INTERACTIVE_COMPONENTS = {
+    "interactive_dropdown_menu": ("djust.components.interactive", "DropdownMenu", ["selected"]),
+}
+
+
+def interactive_example_view(component_name: str) -> type:
+    """The canonical example view an interactive entry serves (ADR-037 D2)."""
+    module_path, _, class_name = INTERACTIVE_ENTRIES[component_name].rpartition(".")
+    view: type = getattr(importlib.import_module(module_path), class_name)
+    return view
+
+
+def interactive_preview_html(component_name: str) -> str:
+    """The example view's first render, through a real GET, for the index card."""
+    from django.contrib.auth.models import AnonymousUser
+    from django.contrib.sessions.backends.signed_cookies import SessionStore
+    from django.test import RequestFactory
+
+    request = RequestFactory().get("/")
+    request.user, request.session, request.tenant = AnonymousUser(), SessionStore(), None
+    response = interactive_example_view(component_name)().get(request)
+    if response.status_code != 200:
+        return ""
+    return _preview_fragment(response.content.decode())
+
+
+_SCRIPT_RE = re.compile(r"<script\b.*?</script\b[^>]*>", re.S | re.I)
+_ROOT_RE = re.compile(r"<div\b[^>]*\bdj-root\b[^>]*>(.*)</div>", re.S)
+_WIRING_ATTR_RE = re.compile(r'\s(?:dj-[\w:.-]+|data-component-id|data-dj-[\w-]+)(?:="[^"]*")?')
+
+
+def _preview_fragment(page_html: str) -> str:
+    """The markup inside the example's root, with nothing live left in it.
+
+    A card preview must not carry a second view root, the example's scripts or
+    its parameter-contracts block: the client reads the first contracts block
+    on the page, so an embedded one would describe the wrong view (#3134 review).
+    """
+    body = _SCRIPT_RE.sub("", page_html)
+    match = _ROOT_RE.search(body)
+    inner = match.group(1) if match else ""
+    return _WIRING_ATTR_RE.sub("", inner).strip()
+
+
 _CATALOGUE_TRIGGERS = {
     "modal": (
         '<button type="button" dj-click="toggle_modal" '
@@ -392,20 +512,14 @@ def styles_for(html: str) -> list[dict]:
     return found
 
 
-_EVENT_ATTR_RE = re.compile(
-    r'dj-(?:click|change|input|submit|keydown|keyup|blur|focus)="([A-Za-z_][\w]*)"'
-)
-
-
 def component_events(rendered_html: str) -> list[str]:
     """The server events a component's markup emits, in the order they appear:
     every ``dj-click`` / ``dj-change`` / ``dj-input`` / … name in the rendered
-    example. These are the handlers a host view has to answer."""
-    seen: list[str] = []
-    for name in _EVENT_ATTR_RE.findall(rendered_html or ""):
-        if name not in seen:
-            seen.append(name)
-    return seen
+    example. These are the handlers a host view has to answer. Parsed by the
+    same binding scanner ``manage.py check`` uses (ADR-037)."""
+    from djust._template_bindings import markup_event_names
+
+    return markup_event_names(rendered_html or "")
 
 
 def _is_event_param(name: str) -> bool:
@@ -510,12 +624,10 @@ def usage_with_events(
 
     A component that renders ``dj-click="set_rating"`` needs a host that
     answers it — that is the contract, and the part a reader copying the
-    assignment alone would miss. Two shapes:
-
-    * every event, the descriptor-backed ones included: an ``@event_handler`` stub on the view that writes the
-      new value to the component held in ``mount()`` (ADR-033 — the write
-      goes through to its state), the kwarg it drives named when the
-      catalogue knows it (``demo_stubs``).
+    assignment alone would miss. Python-component handlers write to the
+    component held in ``mount()`` (ADR-033). Template-tag handlers write to
+    view assigns passed to the tag. Known demo transforms supply the actual
+    state transition, not a placeholder.
     """
     if not events and not descriptor_class:
         return snippet
@@ -532,7 +644,6 @@ def usage_with_events(
     if others:
         if "from djust.decorators import event_handler" not in lines:
             lines.insert(2, "from djust.decorators import event_handler")
-        example = example or {}
         stubs = {e: (demo_stubs or {}).get(e) or [] for e in others}
         # Every kwarg some event drives, with the value it starts from.
         initial: dict = {}
@@ -541,26 +652,40 @@ def usage_with_events(
                 initial.setdefault(key, start_value)
         keys = list(initial)
 
-        if keys and class_name:
-            # ADR-033: the component lives on the view and a handler writes
-            # to it — the write goes through to the component's state and the
-            # re-render carries it. No rebuild, no get_context_data.
+        if keys:
+            # Use the same state owner that the generated template reads.
+            owner = "self.component" if class_name else "self"
+            if not class_name:
+                # Template tags read view assigns, not a Python component.
+                # Their default state may be absent from the example kwargs.
+                template_lines = template_part.splitlines()
+                for key, value in initial.items():
+                    assignment = f"        self.{key} = "
+                    if not any(line.startswith(assignment) for line in lines):
+                        lines.append(f"{assignment}{value!r}")
+                    for index, line in enumerate(template_lines):
+                        if line.startswith("{% theme_") and f"{key}=" not in line:
+                            template_lines[index] = line.replace(" %}", f" {key}={key} %}}")
+                template_part = "\n".join(template_lines)
             for event in others:
                 uses_value = any("value" in expr for _k, expr, _s in stubs[event])
                 params = "self, value, **kwargs" if uses_value else "self, **kwargs"
                 lines += ["", "    @event_handler()", f"    def {event}({params}):"]
                 if stubs[event]:
                     for key, expr, _start in stubs[event]:
-                        lines.append(f"        self.component.{key} = {expr}")
+                        expr = expr.replace("self.component.", f"{owner}.")
+                        lines.append(f"        {owner}.{key} = {expr}")
                 else:
-                    lines.append("        ...  # write to self.component; the re-render carries it")
+                    lines.append(
+                        f"        pass  # your app acts on {event!r}; no component state moves"
+                    )
         else:
             for event in others:
                 lines += [
                     "",
                     "    @event_handler()",
                     f"    def {event}(self, value=None, **kwargs):",
-                    "        ...  # write to self.component; the re-render carries it",
+                    f"        pass  # your app acts on {event!r}; no component state moves",
                 ]
     return "\n".join(lines) + sep + template_part
 
@@ -613,24 +738,12 @@ def _usage_snippet(
     slot_args = [k for k in first if k.startswith("slot_")]
 
     if component_type == "template":
-
-        def is_literal(value: object) -> bool:
-            return value is None or isinstance(value, (str, int, float, bool))
-
-        named = {k: v for k, v in first.items() if not k.startswith("slot_")}
-        # A template argument is parsed by Django, not Python: `repr()` of a
-        # list of dicts — `[{'label': 'Home'}]` — is a TemplateSyntaxError, not
-        # a value. Anything the template cannot write as a literal is held on
-        # the view and passed by name, which is what a developer does anyway.
-        on_view = {k: v for k, v in named.items() if not is_literal(v)}
-        # One value always comes from the view even when it could be inlined,
-        # so the two files visibly connect instead of reading as unrelated.
-        first_name = next(iter(on_view), next(iter(named), "value"))
-        on_view.setdefault(first_name, named.get(first_name))
-
-        # Tag arguments are space-separated; a comma between them is a syntax
-        # error in the template, not a style choice.
-        tag_args = " ".join(f"{k}={k if k in on_view else repr(v)}" for k, v in named.items())
+        # Keep every argument on the view: event handlers must update the same
+        # value the tag reads, including scalar state such as is_open/active.
+        # Passing slot content by name also preserves the demonstrated menu
+        # without embedding quoted HTML or Python collections in tag syntax.
+        on_view = first
+        tag_args = " ".join(f"{key}={key}" for key in on_view)
 
         lines = [
             "# views.py",
@@ -642,8 +755,12 @@ def _usage_snippet(
             "",
             "    def mount(self, request, **kwargs):",
         ]
+        if slot_args:
+            lines.append("        # Slots contain trusted application markup, not user input.")
         for key, value in on_view.items():
             lines.append(f"        self.{key} = {_py_literal(value)}")
+        if not on_view:
+            lines.append("        pass")
         if any("mark_safe(" in line for line in lines):
             lines.insert(2, "from django.utils.safestring import mark_safe")
         lines += [
@@ -651,8 +768,11 @@ def _usage_snippet(
             "",
             "# my_template.html",
             "{% load theme_components %}",
-            f"{{% theme_{component_name}{' ' + tag_args if tag_args else ''} %}}",
         ]
+        trigger = _CATALOGUE_TRIGGERS.get(component_name)
+        if trigger:
+            lines.append(trigger)
+        lines.append(f"{{% theme_{component_name}{' ' + tag_args if tag_args else ''} %}}")
         return "\n".join(lines)
 
     if not import_line:
@@ -708,10 +828,20 @@ def _import_line(component_name: str) -> str:
     """The USAGE snippet's import line, or "" when there is nothing to import."""
     from .component_registry import get_python_component_import
 
-    _module_path, names = get_python_component_import(component_name)
+    module_path, names = get_python_component_import(component_name)
     if not names:
         return ""
-    return f"from djust.components import {', '.join(names)}"
+    # Some public names refer to descriptor classes, while the catalogue
+    # previews their plain-renderer namesakes. An import that succeeds is not
+    # enough: the example must instantiate the exact class it demonstrates.
+    module = importlib.import_module(module_path)
+    public = importlib.import_module("djust.components")
+    source = (
+        "djust.components"
+        if all(getattr(public, name, None) is getattr(module, name) for name in names)
+        else module_path
+    )
+    return f"from {source} import {', '.join(names)}"
 
 
 def _first_class_name(component_name: str) -> str:
@@ -743,6 +873,47 @@ def build_catalogue_detail_context(component_name: str, *, render_examples: bool
         PYTHON_COMPONENT_EXAMPLES,
         _COMPONENT_TO_CATEGORY,
     )
+
+    if component_name in INTERACTIVE_ENTRIES:
+        import inspect
+
+        from django.template.loader import get_template
+
+        from .component_registry import get_component_category
+
+        from .component_registry import _default_source
+
+        view_class = interactive_example_view(component_name)
+        module = importlib.import_module(view_class.__module__)
+        component_module, class_name, outputs = INTERACTIVE_COMPONENTS[component_name]
+        component_class = getattr(importlib.import_module(component_module), class_name)
+        markup = get_template(
+            "djust_theming/catalogue/examples/%s.html" % component_name
+        ).template.source
+        return {
+            "name": component_name,
+            "display_name": component_name.replace("_", " ").title(),
+            "category": get_component_category(component_name),
+            "component_type": "interactive",
+            "description": component_description(component_name),
+            "usage_parts": {"view": inspect.getsource(module), "template": markup},
+            "import_line": "from %s import %s" % (component_module, class_name),
+            "class_name": class_name,
+            "python_params": [
+                {
+                    "name": name,
+                    "kind": param.kind.name,
+                    "default": _default_source(param.default),
+                    "annotation": (
+                        str(param.annotation)
+                        if param.annotation is not inspect.Parameter.empty
+                        else ""
+                    ),
+                }
+                for name, param in inspect.signature(component_class).parameters.items()
+            ],
+            "events": list(outputs),
+        }
 
     if component_name not in COMPONENT_CONTRACTS and component_name not in _COMPONENT_TO_CATEGORY:
         raise KeyError(f"Unknown component: {component_name}")

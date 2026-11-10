@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -7,7 +7,6 @@ from office365.sharepoint.publishing.calltoaction import CallToAction as _CallTo
 from office365.sharepoint.publishing.icon import Icon as _Icon
 
 
-@dataclass
 class AnnouncementsData(ClientValue):
     CallToAction: _CallToAction = field(default_factory=_CallToAction)
     Dismissable: Optional[bool] = None

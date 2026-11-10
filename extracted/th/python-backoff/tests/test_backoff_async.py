@@ -3,12 +3,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import itertools
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Literal
+from unittest.mock import patch
 
 import pytest
 from dirty_equals import IsFloat, IsInstance
 
 import backoff
+import backoff._async
 from tests.common import EventAppender, _save_target
 
 if TYPE_CHECKING:
@@ -18,16 +21,17 @@ if TYPE_CHECKING:
 asyncio_sleep = asyncio.sleep
 
 
-async def _await_none(x: Any) -> None:
+async def _await_none(_: Any) -> None:
     return None
 
 
 @pytest.fixture(autouse=True)
-def _patch_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("asyncio.sleep", _await_none)
+def _patch_sleep() -> Generator[None, None]:
+    with patch.object(backoff._async, "asyncio", SimpleNamespace(sleep=_await_none)):
+        yield
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate() -> None:
     @backoff.on_predicate(backoff.expo)
     async def return_true(log: list[bool], n: int) -> bool:
@@ -41,7 +45,7 @@ async def test_on_predicate() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_max_tries() -> None:
     @backoff.on_predicate(backoff.expo, jitter=None, max_tries=3)
     async def return_true(log: list[bool], n: int) -> bool:
@@ -55,7 +59,7 @@ async def test_on_predicate_max_tries() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_max_tries_callable() -> None:
     @backoff.on_predicate(backoff.expo, jitter=None, max_tries=lambda: 3)
     async def return_true(log: list[bool], n: int) -> bool:
@@ -69,7 +73,7 @@ async def test_on_predicate_max_tries_callable() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception() -> None:
     @backoff.on_exception(backoff.expo, KeyError)
     async def keyerror_then_true(log: list[Exception], n: int) -> bool:
@@ -84,7 +88,7 @@ async def test_on_exception() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_tuple() -> None:
     @backoff.on_exception(backoff.expo, (KeyError, ValueError))
     async def keyerror_valueerror_then_true(log: list[Exception]) -> Literal[True]:
@@ -105,7 +109,7 @@ async def test_on_exception_tuple() -> None:
     assert isinstance(log[1], ValueError)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_max_tries() -> None:
     @backoff.on_exception(backoff.expo, KeyError, jitter=None, max_tries=3)
     async def keyerror_then_true(
@@ -126,7 +130,7 @@ async def test_on_exception_max_tries() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_max_tries_callable() -> None:
     @backoff.on_exception(backoff.expo, KeyError, jitter=None, max_tries=lambda: 3)
     async def keyerror_then_true(
@@ -147,7 +151,7 @@ async def test_on_exception_max_tries_callable() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_constant_iterable(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.constant,
@@ -172,7 +176,7 @@ async def test_on_exception_constant_iterable(appender: EventAppender) -> None:
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_success_random_jitter(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.expo,
@@ -205,7 +209,7 @@ async def test_on_exception_success_random_jitter(appender: EventAppender) -> No
         assert details["wait"] >= 0.5 * 2**i
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_success_full_jitter(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.expo,
@@ -238,7 +242,7 @@ async def test_on_exception_success_full_jitter(appender: EventAppender) -> None
         assert details["wait"] <= 0.5 * 2**i
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_success(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.constant,
@@ -271,7 +275,7 @@ async def test_on_exception_success(appender: EventAppender) -> None:
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
-            "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
             "tries": i + 1,
             "wait": 0,
             "elapsed": IsFloat(gt=0),
@@ -282,13 +286,13 @@ async def test_on_exception_success(appender: EventAppender) -> None:
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
-        "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
         "tries": 3,
         "elapsed": IsFloat(gt=0),
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_on_try_runs_before_attempt() -> None:
     calls: list[object] = []
 
@@ -321,7 +325,7 @@ async def test_on_exception_on_try_runs_before_attempt() -> None:
     ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize("raise_on_giveup", [True, False])
 async def test_on_exception_giveup(
     raise_on_giveup: bool,
@@ -361,14 +365,14 @@ async def test_on_exception_giveup(
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
-        "target": exceptor._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        "target": exceptor._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
         "tries": 3,
         "elapsed": IsFloat(gt=0),
         "exception": IsInstance(ValueError),
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_giveup_predicate() -> None:
     def on_baz(e: Exception) -> bool:
         return str(e) == "baz"
@@ -385,7 +389,7 @@ async def test_on_exception_giveup_predicate() -> None:
     assert not vals
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_giveup_coro() -> None:
     async def on_baz(e: Exception) -> bool:
         return str(e) == "baz"
@@ -402,7 +406,7 @@ async def test_on_exception_giveup_coro() -> None:
     assert not vals
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_success(appender: EventAppender) -> None:
     @backoff.on_predicate(
         backoff.constant,
@@ -433,7 +437,7 @@ async def test_on_predicate_success(appender: EventAppender) -> None:
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
-            "target": success._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            "target": success._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
             "tries": i + 1,
             "value": False,
             "wait": 0,
@@ -444,14 +448,14 @@ async def test_on_predicate_success(appender: EventAppender) -> None:
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
-        "target": success._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        "target": success._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
         "tries": 3,
         "value": True,
         "elapsed": IsFloat(gt=0),
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_on_try_runs_before_attempt() -> None:
     calls: list[object] = []
 
@@ -482,7 +486,7 @@ async def test_on_predicate_on_try_runs_before_attempt() -> None:
     ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_giveup(appender: EventAppender) -> None:
     @backoff.on_predicate(
         backoff.constant,
@@ -512,14 +516,14 @@ async def test_on_predicate_giveup(appender: EventAppender) -> None:
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
-        "target": emptiness._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        "target": emptiness._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
         "tries": 3,
         "value": None,
         "elapsed": IsFloat(gt=0),
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_iterable_handlers() -> None:
     appenders = [EventAppender() for _ in range(3)]
 
@@ -551,14 +555,14 @@ async def test_on_predicate_iterable_handlers() -> None:
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
-            "target": emptiness._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            "target": emptiness._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
             "tries": 3,
             "value": None,
             "elapsed": IsFloat(gt=0),
         }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_constant_iterable(appender: EventAppender) -> None:
     waits = [1, 2, 3, 6, 9]
 
@@ -586,7 +590,7 @@ async def test_on_predicate_constant_iterable(appender: EventAppender) -> None:
         assert appender.events["backoff"][i]["wait"] == wait
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_jitter(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.constant,
@@ -619,7 +623,7 @@ async def test_on_exception_jitter(appender: EventAppender) -> None:
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
-            "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
             "tries": i + 1,
             "wait": 0,
             "elapsed": IsFloat(gt=0),
@@ -630,13 +634,13 @@ async def test_on_exception_jitter(appender: EventAppender) -> None:
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
-        "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        "target": succeeder._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
         "tries": 3,
         "elapsed": IsFloat(gt=0),
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_predicate_jitter(appender: EventAppender) -> None:
     @backoff.on_predicate(
         backoff.constant,
@@ -667,7 +671,7 @@ async def test_on_predicate_jitter(appender: EventAppender) -> None:
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
-            "target": success._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+            "target": success._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
             "tries": i + 1,
             "value": False,
             "wait": 0,
@@ -678,14 +682,14 @@ async def test_on_predicate_jitter(appender: EventAppender) -> None:
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
-        "target": success._target,  # type:ignore[attr-defined] # ty:ignore[unresolved-attribute]
+        "target": success._target,  # type:ignore[attr-defined] # ty:ignore[missing-attribute]
         "tries": 3,
         "value": True,
         "elapsed": IsFloat(gt=0),
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_callable_max_tries() -> None:
     def lookup_max_tries() -> int:
         return 3
@@ -703,7 +707,7 @@ async def test_on_exception_callable_max_tries() -> None:
     assert len(log) == 3
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_callable_max_tries_reads_every_time() -> None:
 
     lookups = []
@@ -725,7 +729,7 @@ async def test_on_exception_callable_max_tries_reads_every_time() -> None:
     assert len(lookups) == 2
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_on_exception_callable_gen_kwargs() -> None:
     def lookup_foo() -> Literal["foo"]:
         return "foo"
@@ -748,9 +752,8 @@ async def test_on_exception_callable_gen_kwargs() -> None:
         await exceptor()
 
 
-@pytest.mark.asyncio
-async def test_on_exception_coro_cancelling(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("asyncio.sleep", asyncio_sleep)
+@pytest.mark.anyio
+async def test_on_exception_coro_cancelling() -> None:
     sleep_started_event = asyncio.Event()
 
     @backoff.on_predicate(backoff.expo)
@@ -764,17 +767,17 @@ async def test_on_exception_coro_cancelling(monkeypatch: pytest.MonkeyPatch) -> 
 
         return False
 
-    task = asyncio.create_task(coro())
-
-    await sleep_started_event.wait()
+    with patch.object(backoff._async, "asyncio", SimpleNamespace(sleep=asyncio_sleep)):
+        task = asyncio.create_task(coro())
+        await sleep_started_event.wait()
 
     task.cancel()
 
     assert await task
 
 
-@pytest.mark.asyncio
-async def test_max_time(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.anyio
+async def test_max_time() -> None:
     elapsed: float = 0
 
     async def patch_sleep(n: float) -> None:
@@ -783,9 +786,6 @@ async def test_max_time(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def monotonic() -> float:
         return elapsed
-
-    monkeypatch.setattr("asyncio.sleep", patch_sleep)
-    monkeypatch.setattr("time.monotonic", monotonic)
 
     # A good place for property-based testing
     for function_runtime, max_time in itertools.product(range(10), repeat=2):
@@ -796,29 +796,50 @@ async def test_max_time(monkeypatch: pytest.MonkeyPatch) -> None:
             RuntimeError,
             max_time=max_time,
             jitter=None,
+            interval=max_time + 1,  # Overshoot max time
         )
         async def on_exception() -> None:
             await patch_sleep(function_runtime)  # ruff: ignore[function-uses-loop-variable]
             raise RuntimeError
 
-        with contextlib.suppress(BaseException):
+        with (
+            contextlib.suppress(RuntimeError),
+            patch.object(backoff._common, "time", SimpleNamespace(monotonic=monotonic)),
+            patch.object(
+                backoff._async,
+                "asyncio",
+                SimpleNamespace(sleep=patch_sleep),
+            ),
+        ):
             await on_exception()
 
         # backoff never sleeps past max_time, but the time spent in the
         # target's own call isn't capped, so the total can run up to one
         # more function call past max_time before giving up.
-        assert elapsed <= max_time + function_runtime + 1e-9
+        assert elapsed <= max_time + function_runtime
+        assert max_time <= elapsed
 
         elapsed = 0
 
         @backoff.on_predicate(
             backoff.constant,
-            lambda x: False,
+            lambda _: True,
             max_time=max_time,
             jitter=None,
+            interval=max_time + 1,  # Overshoot max time
         )
         async def on_predicate() -> None:
             await patch_sleep(function_runtime)  # ruff: ignore[function-uses-loop-variable]
 
-        await on_predicate()
-        assert elapsed <= max_time + function_runtime + 1e-9
+        with (
+            patch.object(
+                backoff._async,
+                "asyncio",
+                SimpleNamespace(sleep=patch_sleep),
+            ),
+            patch.object(backoff._common, "time", SimpleNamespace(monotonic=monotonic)),
+        ):
+            await on_predicate()
+
+        assert elapsed <= max_time + function_runtime
+        assert max_time <= elapsed

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from office365.directory.synchronization.attributemappingsourcetype import AttributeMappingSourceType
@@ -13,7 +12,6 @@ if TYPE_CHECKING:
     )
 
 
-@dataclass
 class AttributeMappingSource(ClientValue):
     expression: str | None = None
     name: str | None = None

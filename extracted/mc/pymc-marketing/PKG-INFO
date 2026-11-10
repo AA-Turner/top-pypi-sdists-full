@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pymc-marketing
-Version: 1.3.0
+Version: 1.4.0
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -227,13 +227,13 @@ Requires-Dist: h5netcdf>=1.8.1
 Requires-Dist: h5py>=3.16.0
 Requires-Dist: matplotlib>=3.5.1
 Requires-Dist: narwhals
-Requires-Dist: numpy<2.5,>=2.0
+Requires-Dist: numpy<2.6,>=2.0
 Requires-Dist: pandas>=2.2
 Requires-Dist: patsy
 Requires-Dist: preliz<1.0,>=0.20.0
 Requires-Dist: pydantic>=2.1.0
-Requires-Dist: pymc-extras<0.16.0,>=0.15.0
-Requires-Dist: pymc<6.4.0,>=6.3.1
+Requires-Dist: pymc-extras<0.17.0,>=0.16.0
+Requires-Dist: pymc<6.5.0,>=6.4.0
 Requires-Dist: pyprojroot
 Requires-Dist: pyyaml
 Requires-Dist: scikit-learn>=1.1.1

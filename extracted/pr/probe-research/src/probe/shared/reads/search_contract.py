@@ -492,6 +492,9 @@ class MissingMarker(StrEnum):
     # whose contract says the rest is reachable via `next_cursor` as `step_from`/`after_id`, metric
     # arguments this view does not take. Narrow the question instead: ask a thousands-of-rollouts run by step.
     TRIALS_BEYOND_WALK_BOUND = "trials_beyond_walk_bound"
+    # entity(run, view="commands"): the run had more commands than the view walks (`_COMMAND_BACKEND_MAX`); the
+    # rest are `probe run commands RUN --after <seq>`.
+    COMMANDS_BEYOND_WALK_BOUND = "commands_beyond_walk_bound"
     # GET /v1/runs/{ref}/bundle caps its artifact list at 200 server-side (`artifact_total` is the true
     # count; no offset), so handoff cannot show the rest: view="artifacts" (uncapped route) has the full list.
     ARTIFACTS_BEYOND_BUNDLE_LIMIT = "artifacts_beyond_bundle_limit"
@@ -508,6 +511,12 @@ class MissingMarker(StrEnum):
     # backend pages this read covered was the caller's own session's work and was left out, up to the
     # read's bound. NOT "nothing exists": the empty page says nothing about what lies past `next_cursor`.
     PAGE_HIDDEN_AS_OWN_SESSION_WORK = "page_hidden_as_own_session_work"
+    # browse(mode="runs"): `GET /v1/runs/counts` did not answer (an older API, or the count ran past its
+    # bound), so the page carries no `totals`. The page is still right; how many there are in all is unknown.
+    TOTALS_UNAVAILABLE = "totals_unavailable"
+    # entity on a failed/crashed run: `GET /v1/runs/failures` did not answer, so the card has no `failure`
+    # block. Not "no cause": the reason was not read.
+    FAILURE_UNAVAILABLE = "failure_unavailable"
     # metrics(mode="series"): the backend answered but some series could not be read (a provider-backed
     # run's source failed); they are listed in `data.errors`, the series that DID read are complete.
     SERIES_READ_ERRORS = "series_read_errors"

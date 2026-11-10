@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::ffi::{OsStr, OsString};
 use std::fs::{File, Metadata};
@@ -10,7 +11,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(test)]
 use sonic_rs::JsonType;
@@ -40,7 +41,7 @@ use crate::types::SYNTHETIC_MODEL;
 pub const SCHEMA: &str = "cc-transcript.snapshot/1";
 pub const PARSER_VERSION: &str = "cc-transcript.snapshot/1";
 pub const MAX_REPLY_BYTES: usize = 1_044_480;
-const MAX_DATA_BYTES: usize = MAX_REPLY_BYTES - 2048;
+pub(crate) const MAX_DATA_BYTES: usize = MAX_REPLY_BYTES - 2048;
 const FILESYSTEM_PATH_BYTES: usize = 2 * (libc::PATH_MAX as usize + size_of::<libc::dirent>());
 const LOCATE_PATH_SLOTS: usize = 2 * FILESYSTEM_PATH_BYTES;
 const LOCATE_USER_PATH_SLOTS: usize = 3 * FILESYSTEM_PATH_BYTES;
@@ -161,6 +162,38 @@ impl Cancellation {
             ));
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct RequestWaits {
+    pub state: Duration,
+    pub fact_read: Duration,
+}
+
+thread_local! {
+    static REQUEST_WAITS: Cell<RequestWaits> = Cell::new(RequestWaits::default());
+}
+
+impl RequestWaits {
+    pub fn measured<T>(work: impl FnOnce() -> T) -> (T, Self) {
+        REQUEST_WAITS.set(Self::default());
+        let value = work();
+        (value, REQUEST_WAITS.take())
+    }
+
+    fn add(waited: Duration, field: fn(&mut Self) -> &mut Duration) {
+        let mut waits = REQUEST_WAITS.get();
+        *field(&mut waits) += waited;
+        REQUEST_WAITS.set(waits);
+    }
+}
+
+struct FactReadWait(Instant);
+
+impl Drop for FactReadWait {
+    fn drop(&mut self) {
+        RequestWaits::add(self.0.elapsed(), |waits| &mut waits.fact_read);
     }
 }
 
@@ -1163,6 +1196,7 @@ struct PreparedBuild {
     sources: Vec<PreparedSourceRef>,
     stamps: Vec<(PathBuf, SourceStamp)>,
     sidechain_dirs: Vec<(PathBuf, Option<SourceStamp>)>,
+    sidechain_registration: Option<u64>,
     expires: u64,
 }
 
@@ -2277,6 +2311,7 @@ pub(crate) struct StoreState {
     fact_read_in_flight: bool,
     owned: crate::snapshot_owned::OwnedProjections,
     ledger: RetainedLedger,
+    sidechain_feed: Arc<SidechainFeed>,
     #[cfg(test)]
     audits: Arc<AtomicUsize>,
     #[cfg(test)]
@@ -2365,6 +2400,7 @@ impl StoreState {
             fact_read_in_flight: false,
             owned: crate::snapshot_owned::OwnedProjections::default(),
             ledger: RetainedLedger::new(work),
+            sidechain_feed: Arc::default(),
             #[cfg(test)]
             audits: Arc::new(AtomicUsize::new(0)),
             #[cfg(test)]
@@ -2845,6 +2881,7 @@ impl StoreState {
 
     fn remove_latest(&mut self, identity: &SourceIdentity) -> Option<Arc<TranscriptSnapshot>> {
         let key = self.latest.remove(identity)?;
+        self.sidechain_feed.release(*identity);
         let removed = Arc::clone(
             &self
                 .generations
@@ -3703,6 +3740,7 @@ pub struct NativeStore {
     transport_bytes: AtomicU64,
     state: Mutex<StoreState>,
     fact_read_released: Condvar,
+    sidechain_feed: Arc<SidechainFeed>,
     #[cfg(test)]
     catalog_wait_hook: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
     classifiers: Mutex<HashMap<String, Arc<ClassifierCallback>>>,
@@ -4269,6 +4307,7 @@ impl NativeStore {
             work.clone(),
         )?;
         state.prepared_disk_index_bytes = prepared_disk.index_bytes();
+        let sidechain_feed = Arc::clone(&state.sidechain_feed);
         Ok(Self {
             config,
             agent_sources: false,
@@ -4280,6 +4319,7 @@ impl NativeStore {
             transport_bytes: AtomicU64::new(0),
             state: Mutex::new(state),
             fact_read_released: Condvar::new(),
+            sidechain_feed,
             #[cfg(test)]
             catalog_wait_hook: Mutex::new(None),
             classifiers: Mutex::new(HashMap::new()),
@@ -4372,8 +4412,15 @@ impl NativeStore {
     }
 
     pub(crate) fn lock_state(&self) -> MutexGuard<'_, StoreState> {
-        let mut state = self.state.lock().expect("snapshot state");
+        let mut state = self.timed_state();
         state.drain();
+        state
+    }
+
+    fn timed_state(&self) -> MutexGuard<'_, StoreState> {
+        let started = Instant::now();
+        let state = self.state.lock().expect("snapshot state");
+        RequestWaits::add(started.elapsed(), |waits| &mut waits.state);
         state
     }
 
@@ -4411,13 +4458,7 @@ impl NativeStore {
         let definitions =
             crate::toolcall::ToolRegistrySnapshot::specs_from_json(specs).map_err(invalid)?;
         let fingerprint = crate::toolcall::ToolRegistrySnapshot::fingerprint_of(&definitions);
-        if self
-            .state
-            .lock()
-            .expect("snapshot state")
-            .registries
-            .contains_key(&fingerprint)
-        {
+        if self.timed_state().registries.contains_key(&fingerprint) {
             return Ok(fingerprint);
         }
         let charge = crate::snapshot_memory::value_charge(specs);
@@ -4499,6 +4540,9 @@ impl NativeStore {
         deadline_unix_ms: u64,
     ) -> Result<FactReadClaim<'_>, SnapshotError> {
         let mut state = self.lock_state();
+        let _waiting = state
+            .fact_read_in_flight
+            .then(|| FactReadWait(Instant::now()));
         #[cfg(test)]
         {
             if state.fact_read_in_flight {
@@ -7000,6 +7044,10 @@ impl NativeStore {
                 .sum(),
             cache_owners: state.cache_order.len(),
         });
+    }
+
+    pub fn take_sidechain_watch_failures(&self) -> Vec<(PathBuf, String)> {
+        self.sidechain_feed.take_failures()
     }
 
     pub fn take_admission_refusal(&self) -> Option<Value> {
@@ -12981,6 +13029,7 @@ include!("snapshot_catalog_owner.rs");
 
 include!("snapshot_membership_progress.rs");
 include!("snapshot_sidechain_absence.rs");
+include!("snapshot_sidechain_feed.rs");
 include!("snapshot_prepared_service.rs");
 include!("snapshot_skills.rs");
 include!("snapshot_hydration_observations.rs");
@@ -13074,6 +13123,7 @@ mod tests {
     include!("snapshot_membership_progress_tests.rs");
     include!("snapshot_membership_progress_controls.rs");
     include!("snapshot_sidechain_absence_tests.rs");
+    include!("snapshot_sidechain_feed_tests.rs");
     include!("snapshot_common_borrowed_parent_tests.rs");
     include!("snapshot_graph_anchor_tests.rs");
 
@@ -19806,6 +19856,41 @@ mod tests {
                 .facts,
             &first.0
         ));
+        drop((first, second));
+        store.assert_conserved();
+    }
+
+    #[test]
+    fn a_request_held_behind_the_fact_read_gate_reports_the_wait() {
+        let source = Source::new(&format!("{}\n{}\n", user("root"), user("child")));
+        let store = fact_budget_store(16 * 1024 * 1024);
+        let owner = context("a");
+        let bounds = limits(&acquire(&source.path)).unwrap();
+        let root = pinned_root(&store, &source, &owner);
+        assert_eq!(root_facts_read(&store, &root, &owner, &bounds).1, 0);
+        assert_eq!(
+            store
+                .lock_state()
+                .remove_identity_facts(root.stamp.identity),
+            1
+        );
+        let held = Duration::from_millis(60);
+        let gate = install_fact_read_gate(&store, || {});
+        let (first, second) = std::thread::scope(|scope| {
+            let read =
+                || RequestWaits::measured(|| root_facts_read(&store, &root, &owner, &bounds));
+            let first = scope.spawn(read);
+            gate.wait_until_read();
+            let second = scope.spawn(read);
+            wait_for_fact_read_waiter(&store);
+            std::thread::sleep(held);
+            gate.release();
+            (first.join().unwrap(), second.join().unwrap())
+        });
+        store.prepared_disk.set_read_hook(None);
+        assert_eq!((first.0 .1, second.0 .1), (1, 0));
+        assert_eq!(first.1.fact_read, Duration::ZERO);
+        assert!(second.1.fact_read >= held, "{:?}", second.1);
         drop((first, second));
         store.assert_conserved();
     }

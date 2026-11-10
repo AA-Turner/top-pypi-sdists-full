@@ -27,9 +27,11 @@ class CreateCustomerCredit:
         allocated_to_projects (float):
         consumption_last_month (float):
         withdrawable_balance (float): Part of the credit that may leave the platform via payouts or
-            transfers: earnings-typed ledger inflows minus outflows, capped by
-            the current credit value so that staff-granted (promotional) credit
-            is never withdrawable and credit expiry wipes earnings too.
+            transfers: what is left of the earned lots. Granted and paid
+            credit is never withdrawable, and spending earnings on usage lowers
+            it for good, however much credit is granted afterwards.
+        paid_balance (float): What is left of the customer's prepayments recorded by staff.
+        granted_balance (float): What is left of staff-granted credit.
         value (Union[Unset, str]):
         offerings (Union[Unset, list[Union[None, str]]]): Offerings the credit may be drawn against. Leave empty to
             allow all offerings: an empty list means unrestricted, not none. Cost on any other offering is invoiced normally
@@ -51,6 +53,8 @@ class CreateCustomerCredit:
     allocated_to_projects: float
     consumption_last_month: float
     withdrawable_balance: float
+    paid_balance: float
+    granted_balance: float
     value: Union[Unset, str] = UNSET
     offerings: Union[Unset, list[Union[None, str]]] = UNSET
     end_date: Union[None, Unset, datetime.date] = UNSET
@@ -80,6 +84,10 @@ class CreateCustomerCredit:
         consumption_last_month = self.consumption_last_month
 
         withdrawable_balance = self.withdrawable_balance
+
+        paid_balance = self.paid_balance
+
+        granted_balance = self.granted_balance
 
         value = self.value
 
@@ -123,6 +131,8 @@ class CreateCustomerCredit:
                 "allocated_to_projects": allocated_to_projects,
                 "consumption_last_month": consumption_last_month,
                 "withdrawable_balance": withdrawable_balance,
+                "paid_balance": paid_balance,
+                "granted_balance": granted_balance,
             }
         )
         if value is not UNSET:
@@ -164,6 +174,10 @@ class CreateCustomerCredit:
         consumption_last_month = d.pop("consumption_last_month")
 
         withdrawable_balance = d.pop("withdrawable_balance")
+
+        paid_balance = d.pop("paid_balance")
+
+        granted_balance = d.pop("granted_balance")
 
         value = d.pop("value", UNSET)
 
@@ -221,6 +235,8 @@ class CreateCustomerCredit:
             allocated_to_projects=allocated_to_projects,
             consumption_last_month=consumption_last_month,
             withdrawable_balance=withdrawable_balance,
+            paid_balance=paid_balance,
+            granted_balance=granted_balance,
             value=value,
             offerings=offerings,
             end_date=end_date,

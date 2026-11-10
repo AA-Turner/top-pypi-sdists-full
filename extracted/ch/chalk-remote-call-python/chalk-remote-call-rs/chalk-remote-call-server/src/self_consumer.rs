@@ -245,11 +245,13 @@ enum CallOutput {
         conn: ConnectionManager,
         destination: ResultDestination,
         call_id: Uuid,
+        call_duration: Option<Duration>,
     },
     Fnq {
         client: crate::fnq_client::FnqClient,
         handle: String,
         trace_id: String,
+        call_duration: Option<Duration>,
     },
 }
 
@@ -265,7 +267,16 @@ impl CallOutput {
             conn: conn.clone(),
             destination: ResultDestination::for_call(queue, work, call_id),
             call_id,
+            call_duration: None,
         })
+    }
+
+    fn record_duration(&mut self, duration: Duration) {
+        match self {
+            Self::Redis { call_duration, .. } | Self::Fnq { call_duration, .. } => {
+                *call_duration = Some(duration);
+            }
+        }
     }
 
     async fn begin(&mut self, trace_id: &str) {
@@ -280,9 +291,15 @@ impl CallOutput {
     }
 
     async fn complete(&self, status: &str, summary: &str, trace_id: Option<String>) {
-        if let Self::Redis { queue, call_id, .. } = self {
+        if let Self::Redis {
+            queue,
+            call_id,
+            call_duration,
+            ..
+        } = self
+        {
             let _ = queue
-                .complete_status(*call_id, status, summary, trace_id)
+                .complete_status_with_duration(*call_id, status, summary, trace_id, *call_duration)
                 .await;
         }
     }
@@ -292,14 +309,24 @@ impl CallOutput {
             client,
             handle,
             trace_id,
+            call_duration,
         } = self
         {
             client
                 .report(ReportResultsRequest {
                     work_handle: handle.clone(),
                     sequence,
-                    result: Some(result),
                     processing_trace_id: trace_id.clone(),
+                    call_duration: if matches!(result, ResultEvent::End(_) | ResultEvent::Error(_))
+                    {
+                        call_duration.map(|duration| prost_types::Duration {
+                            seconds: duration.as_secs() as i64,
+                            nanos: duration.subsec_nanos() as i32,
+                        })
+                    } else {
+                        None
+                    },
+                    result: Some(result),
                 })
                 .await?;
         }
@@ -627,6 +654,7 @@ async fn run_fnq(
                             client,
                             handle: handle.clone(),
                             trace_id: String::new(),
+                            call_duration: None,
                         };
                         let call = delivery.call.ok_or("Fnq response missing call")?;
                         let work = QueuedCall {
@@ -638,6 +666,7 @@ async fn run_fnq(
                             },
                             metadata: chalk_queue::types::CallMetadata {
                                 otel_headers: delivery.metadata,
+                                ..Default::default()
                             },
                             result_ttl_seconds: 86400,
                             batch_result: None,
@@ -911,6 +940,28 @@ async fn run_stream_dispatch_loop(
     }
 }
 
+fn attach_queue_wait_timing(work: &mut QueuedCall, attempt: u64) {
+    if attempt != 1 || !work.metadata.otel_headers.contains_key("traceparent") {
+        return;
+    }
+    let Some(enqueued) = work.metadata.enqueued_at_unix_millis else {
+        return;
+    };
+    let Ok(dequeued) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) else {
+        return;
+    };
+    work.metadata.otel_headers.extend([
+        (
+            "x-chalk-internal-enqueued-at-ms".into(),
+            enqueued.to_string(),
+        ),
+        (
+            "x-chalk-internal-dequeued-at-ns".into(),
+            dequeued.as_nanos().to_string(),
+        ),
+    ]);
+}
+
 #[allow(clippy::too_many_arguments)]
 fn dispatch_delivery(
     queue: FunctionQueue,
@@ -986,7 +1037,7 @@ async fn run_one_call(
         }
     };
     let DequeuedCall {
-        call: work,
+        call: mut work,
         receipt,
     } = delivery;
     let call_id = work.call_id.clone();
@@ -996,6 +1047,7 @@ async fn run_one_call(
             max_attempts,
         } => {
             debug!(%call_id, attempt, max_attempts, "executing queued call attempt");
+            attach_queue_wait_timing(&mut work, attempt);
             attempt == max_attempts
         }
         DeliveryAttempt::Exhausted {
@@ -1152,7 +1204,7 @@ async fn run_one_coalesced_call(
         }
     };
     let DequeuedCall {
-        call: work,
+        call: mut work,
         receipt,
     } = delivery;
     let call_id = work.call_id.clone();
@@ -1162,6 +1214,7 @@ async fn run_one_coalesced_call(
             max_attempts,
         } => {
             debug!(%call_id, attempt, max_attempts, "executing coalesced queued call attempt");
+            attach_queue_wait_timing(&mut work, attempt);
             attempt == max_attempts
         }
         DeliveryAttempt::Exhausted {
@@ -1275,14 +1328,10 @@ async fn coalesced_execute_and_write(
     // Record metrics once the batch has produced this caller's result, before
     // stream writes below — parity with the streaming path.
     let success = matches!(response, Some(Ok(_)));
+    let elapsed = started.elapsed();
+    output.record_duration(elapsed);
     if let Some(p) = metrics {
-        crate::metrics::record_completed_call(
-            p,
-            &function_name,
-            success,
-            started.elapsed(),
-            Mode::Async,
-        );
+        crate::metrics::record_completed_call(p, &function_name, success, elapsed, Mode::Async);
     }
 
     match response {
@@ -1417,12 +1466,14 @@ async fn execute_and_write(
     // Emit metrics as soon as execution finishes, before result-stream writes,
     // so every executed call is recorded regardless of downstream Redis write
     // failure. Mirrors the catalog consumer's per-call emission.
+    let elapsed = started.elapsed();
+    output.record_duration(elapsed);
     if let Some(p) = metrics {
         crate::metrics::record_completed_call(
             p,
             &function_name,
             result.is_ok(),
-            started.elapsed(),
+            elapsed,
             Mode::Async,
         );
     }
@@ -1587,6 +1638,27 @@ fn spawn_renewer(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn queue_wait_timing_is_only_attached_to_the_initial_attempt() {
+        let mut work: chalk_queue::types::QueuedCall = serde_json::from_value(serde_json::json!({
+            "call_id": "call", "call": {"name": "embed", "feather_stream": ""},
+            "metadata": {"otel_headers": {"traceparent": "parent"}, "enqueued_at_unix_millis": 1000}
+        }))
+        .unwrap();
+        super::attach_queue_wait_timing(&mut work, 2);
+        assert_eq!(work.metadata.otel_headers.len(), 1);
+        super::attach_queue_wait_timing(&mut work, 1);
+        assert_eq!(
+            work.metadata.otel_headers["x-chalk-internal-enqueued-at-ms"],
+            "1000"
+        );
+        assert!(work
+            .metadata
+            .otel_headers
+            .contains_key("x-chalk-internal-dequeued-at-ns"));
+        assert_eq!(work.metadata.otel_headers["traceparent"], "parent");
+    }
+
     use super::*;
 
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

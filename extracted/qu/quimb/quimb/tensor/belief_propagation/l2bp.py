@@ -3,8 +3,10 @@ import math
 import autoray as ar
 
 import quimb.tensor as qtn
-from quimb.utils import ensure_dict, oset
+from quimb.tensor.networking import SweepScheduler
+from quimb.utils import ensure_dict
 
+from ..array_ops import fuse, unfuse
 from .bp_common import (
     BeliefPropagationCommon,
     combine_local_contractions,
@@ -25,42 +27,42 @@ class L2BP(BeliefPropagationCommon):
     tn : TensorNetwork
         The tensor network to form the 2-norm of and run BP on.
     site_tags : sequence of str, optional
-        The tags identifying the sites in ``tn``, each tag forms a region,
-        which should not overlap. If the tensor network is structured, then
-        these are inferred automatically.
+        Tags for sites in ``tn``. Each tag should select a region, and
+        regions must not overlap. Infer tags for structured networks.
     damping : float or callable, optional
-        The damping factor to apply to messages. This simply mixes some part
-        of the old message into the new one, with the final message being
-        ``damping * old + (1 - damping) * new``. This makes convergence more
-        reliable but slower.
+        Mix old and new messages as ``damping * old + (1 - damping) * new``.
+        This can make convergence more reliable but slower.
+    diis : bool or dict, optional
+        Use direct inversion in the iterative subspace (DIIS) to estimate
+        messages with lower error. A dict can contain DIIS options:
+        ``max_history``, ``beta``, ``rcond``.
     update : {'sequential', 'parallel'}, optional
-        Whether to update messages sequentially (newly computed messages are
-        immediately used for other updates in the same iteration round) or in
-        parallel (all messages are comptued using messages from the previous
-        round only). Sequential generally helps convergence but parallel can
-        possibly converge to differnt solutions.
+        With 'sequential', use new messages in later updates of the same
+        sweep. With 'parallel', use only messages from the previous sweep.
+        Sequential updates usually help convergence. Parallel updates can
+        converge to different solutions.
+    sweep_order : {'auto', 'alternate', 'fixed', None}, optional
+        Sequential update order. Use 'alternate' to reverse each sweep,
+        starting reversed, or 'fixed' to keep the same order. With 'auto',
+        alternate on graphs with no loops, else use a fixed order. With None,
+        use reverse insertion order. See :class:`.SweepScheduler`.
     normalize : {'L1', 'L2', 'L2phased', 'Linf', callable}, optional
-        How to normalize messages after each update. If None choose
-        automatically. If a callable, it should take a message and return the
-        normalized message. If a string, it should be one of 'L1', 'L2',
-        'L2phased', 'Linf' for the corresponding norms. 'L2phased' is like 'L2'
-        but also normalizes the phase of the message, by default used for
-        complex dtypes.
+        Norm to use after each update. With None, choose automatically.
+        Callables should take a message and return its normalized form.
+        'L2phased' also normalizes the phase, and is the default for complex
+        dtypes.
     distance : {'L1', 'L2', 'L2phased', 'Linf', 'cosine', callable}, optional
-        How to compute the distance between messages to check for convergence.
-        If None choose automatically. If a callable, it should take two
-        messages and return the distance. If a string, it should be one of
-        'L1', 'L2', 'L2phased', 'Linf', or 'cosine' for the corresponding
-        norms. 'L2phased' is like 'L2' but also normalizes the phases of the
-        messages, by default used for complex dtypes if phased normalization is
-        not already being used.
+        Distance between messages to check convergence. With None, choose
+        automatically. Callables should take two messages and return their
+        distance. 'L2phased' normalizes their phases before computing the L2
+        distance. It is the default for complex dtypes when normalization
+        does not already fix the phase.
     symmetrize : bool or callable, optional
         Whether to symmetrize the messages, i.e. for each message ensure that
         it is hermitian with respect to its bra and ket indices. If a callable
         it should take a message and return the symmetrized message.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     optimize : str or PathOptimizer, optional
         The path optimizer to use when contracting the messages.
     contract_every : int, optional
@@ -79,7 +81,9 @@ class L2BP(BeliefPropagationCommon):
         site_tags=None,
         *,
         damping=0.0,
+        diis=False,
         update="sequential",
+        sweep_order="auto",
         normalize=None,
         distance=None,
         symmetrize=True,
@@ -92,6 +96,7 @@ class L2BP(BeliefPropagationCommon):
         super().__init__(
             tn,
             damping=damping,
+            diis=diis,
             update=update,
             normalize=normalize,
             distance=distance,
@@ -114,7 +119,13 @@ class L2BP(BeliefPropagationCommon):
             self.local_tns,
             self.touch_map,
         ) = create_lazy_community_edge_map(tn, site_tags)
-        self.touched = oset()
+        self.sweeper = SweepScheduler(
+            nodes=self.site_tags,
+            edges=tuple(self.edges),
+            # rank messages by their source site
+            key_to_nodes=lambda key: key[:1],
+            sweep_order=sweep_order,
+        )
 
         # these are all settable properties
         self.symmetrize = symmetrize
@@ -194,7 +205,7 @@ class L2BP(BeliefPropagationCommon):
 
             def _symmetrize_fn(x):
                 N = ar.ndim(x)
-                perm = (*range(N // 2, N), *range(0, N // 2))
+                perm = (*range(N // 2, N), *range(N // 2))
                 # XXX: do this blockwise for block/fermi arrays?
                 return x + _conj(_transpose(x, perm))
 
@@ -207,18 +218,20 @@ class L2BP(BeliefPropagationCommon):
             self._symmetrize_fn = _identity
 
     def iterate(self, tol=5e-6):
-        if (not self.local_convergence) or (not self.touched):
-            # assume if asked to iterate that we want to check all messages
-            self.touched.update(
+        if (not self.local_convergence) or (not self.sweeper.touched):
+            # check all messages when none are marked for update
+            self.sweeper.touch(
                 pair for edge in self.edges for pair in (edge, edge[::-1])
             )
 
-        ncheck = len(self.touched)
+        ncheck = 0
         nconv = 0
-        max_mdiff = -1.0
-        new_touched = oset()
+        # nan prevents convergence based on skipped distance checks
+        max_mdiff = float("nan") if tol == 0.0 else -1.0
 
         def _compute_m(key):
+            nonlocal ncheck
+            ncheck += 1
             i, j = key
             bix = self.edges[(i, j) if i < j else (j, i)]
             cix = tuple(ix + "_l2bp**" for ix in bix)
@@ -242,46 +255,44 @@ class L2BP(BeliefPropagationCommon):
 
             tm = self.messages[key]
 
-            # pre-damp distance
-            mdiff = self._distance_fn(data, tm.data)
+            if tol == 0.0:
+                # skip redundant distance (e.g. for traced arrays)
+                self.sweeper.touch(self.touch_map[key])
+            else:
+                # measure change before damping
+                mdiff = self._distance_fn(data, tm.data)
+
+                if mdiff > tol:
+                    # mark touching messages for update
+                    self.sweeper.touch(self.touch_map[key])
+                else:
+                    nconv += 1
+
+                max_mdiff = max(max_mdiff, mdiff)
 
             if self.damping:
                 data = self._damping_fn(data, tm.data)
 
-            # # post-damp distance
-            # mdiff = self._distance_fn(data, tm.data)
-
-            if mdiff > tol:
-                # mark touching messages for update
-                new_touched.update(self.touch_map[key])
-            else:
-                nconv += 1
-
-            max_mdiff = max(max_mdiff, mdiff)
             tm.modify(data=data)
 
         if self.update == "parallel":
             new_data = {}
-            # compute all new messages
-            while self.touched:
-                key = self.touched.pop()
+            # compute all messages before updating any
+            for key in self.sweeper.sweep():
                 new_data[key] = _compute_m(key)
-            # insert all new messages
             for key, data in new_data.items():
                 _update_m(key, data)
 
         elif self.update == "sequential":
-            # compute each new message and immediately re-insert it
-            while self.touched:
-                key = self.touched.pop()
+            # use each new message in subsequent updates
+            for key in self.sweeper.sweep():
                 data = _compute_m(key)
                 _update_m(key, data)
-
-        self.touched = new_touched
 
         return {
             "nconv": nconv,
             "ncheck": ncheck,
+            "npending": len(self.sweeper.touched),
             "max_mdiff": max_mdiff,
         }
 
@@ -411,40 +422,40 @@ class L2BP(BeliefPropagationCommon):
             tml = self.messages[i, j]
             tmr = self.messages[j, i]
 
+            nbond = len(bix)
             bix_sizes = [tml.ind_size(ix) for ix in bix]
             dm = math.prod(bix_sizes)
 
-            ml = ar.reshape(tml.data, (dm, dm))
+            # use fuse/unfuse for block max sparse compatibility
+            ml = fuse(tml.data, range(nbond), range(nbond, 2 * nbond))
             dl = self.local_tns[i].outer_size() // dm
             Rl = qtn.decomp.squared_op_to_reduced_factor(
                 ml, dl, dm, right=True, **reduce_opts
             )
 
-            mr = ar.reshape(tmr.data, (dm, dm)).T
+            mr = fuse(tmr.data, range(nbond), range(nbond, 2 * nbond)).T
             dr = self.local_tns[j].outer_size() // dm
             Rr = qtn.decomp.squared_op_to_reduced_factor(
                 mr, dm, dr, right=False, **reduce_opts
             )
 
+            # compute projectors with bonds unfused
+            Rl = unfuse(Rl, axis=1, axis_dims=bix_sizes)
+            Rr = unfuse(Rr, axis=0, axis_dims=bix_sizes)
             Pl, Pr = qtn.decomp.compute_oblique_projectors(
                 Rl, Rr, **compress_opts
             )
 
-            Pl = ar.do("reshape", Pl, (*bix_sizes, -1))
-            Pr = ar.do("reshape", Pr, (-1, *bix_sizes))
-
-            ltn = tn.select(i)
-            rtn = tn.select(j)
-
-            new_lix = [qtn.rand_uuid() for _ in bix]
-            new_rix = [qtn.rand_uuid() for _ in bix]
-            new_bix = [qtn.rand_uuid()]
-            ltn.reindex_(dict(zip(bix, new_lix)))
-            rtn.reindex_(dict(zip(bix, new_rix)))
-
-            # ... and insert the new projectors in place
-            tn |= qtn.Tensor(Pl, inds=new_lix + new_bix, tags=(i,))
-            tn |= qtn.Tensor(Pr, inds=new_bix + new_rix, tags=(j,))
+            tn.insert_projectors_between_regions_(
+                i,
+                j,
+                Pl,
+                Pr,
+                left_inds=bix,
+                right_inds=bix,
+                new_ltags=i,
+                new_rtags=j,
+            )
 
         if not lazy:
             for st in self.site_tags:
@@ -485,8 +496,7 @@ def contract_l2bp(
     update : {'parallel', 'sequential'}, optional
         Whether to update all messages in parallel or sequentially.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     optimize : str or PathOptimizer, optional
         The contraction strategy to use.
     max_iterations : int, optional
@@ -566,8 +576,7 @@ def compress_l2bp(
     update : {'parallel', 'sequential'}, optional
         Whether to update all messages in parallel or sequentially.
     local_convergence : bool, optional
-        Whether to allow messages to locally converge - i.e. if all their
-        input messages have converged then stop updating them.
+        Stop updating messages whose input messages have converged.
     optimize : str or PathOptimizer, optional
         The path optimizer to use when contracting the messages.
     lazy : bool, optional

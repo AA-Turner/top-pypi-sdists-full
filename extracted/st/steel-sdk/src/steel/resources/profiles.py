@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class ProfilesResource(SyncAPIResource):
         This property can be used as a prefix for any HTTP method call to return
         the raw response object instead of the parsed content.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#accessing-raw-response-data-eg-headers
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#accessing-raw-response-data-eg-headers
         """
         return ProfilesResourceWithRawResponse(self)
 
@@ -43,7 +43,7 @@ class ProfilesResource(SyncAPIResource):
         """
         An alternative to `.with_raw_response` that doesn't eagerly read the response body.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#with_streaming_response
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#with_streaming_response
         """
         return ProfilesResourceWithStreamingResponse(self)
 
@@ -89,14 +89,17 @@ class ProfilesResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         body = deepcopy_with_paths(
-            {
-                "user_data_dir": user_data_dir,
-                "dimensions": dimensions,
-                "project_id": project_id,
-                "proxy_url": proxy_url,
-                "use_proxy": use_proxy,
-                "user_agent": user_agent,
-            },
+            maybe_transform(
+                {
+                    "user_data_dir": user_data_dir,
+                    "dimensions": dimensions,
+                    "project_id": project_id,
+                    "proxy_url": proxy_url,
+                    "use_proxy": use_proxy,
+                    "user_agent": user_agent,
+                },
+                profile_create_params.ProfileCreateParams,
+            ),
             [["userDataDir"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["userDataDir"]])
@@ -106,7 +109,7 @@ class ProfilesResource(SyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
             "/v1/profiles",
-            body=maybe_transform(body, profile_create_params.ProfileCreateParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -162,14 +165,17 @@ class ProfilesResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         body = deepcopy_with_paths(
-            {
-                "user_data_dir": user_data_dir,
-                "dimensions": dimensions,
-                "body_project_id": body_project_id,
-                "proxy_url": proxy_url,
-                "use_proxy": use_proxy,
-                "user_agent": user_agent,
-            },
+            maybe_transform(
+                {
+                    "user_data_dir": user_data_dir,
+                    "dimensions": dimensions,
+                    "body_project_id": body_project_id,
+                    "proxy_url": proxy_url,
+                    "use_proxy": use_proxy,
+                    "user_agent": user_agent,
+                },
+                profile_update_params.ProfileUpdateParams,
+            ),
             [["userDataDir"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["userDataDir"]])
@@ -179,7 +185,7 @@ class ProfilesResource(SyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._patch(
             path_template("/v1/profiles/{id}", id=id),
-            body=maybe_transform(body, profile_update_params.ProfileUpdateParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -278,7 +284,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         This property can be used as a prefix for any HTTP method call to return
         the raw response object instead of the parsed content.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#accessing-raw-response-data-eg-headers
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#accessing-raw-response-data-eg-headers
         """
         return AsyncProfilesResourceWithRawResponse(self)
 
@@ -287,7 +293,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         """
         An alternative to `.with_raw_response` that doesn't eagerly read the response body.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#with_streaming_response
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#with_streaming_response
         """
         return AsyncProfilesResourceWithStreamingResponse(self)
 
@@ -333,14 +339,17 @@ class AsyncProfilesResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         body = deepcopy_with_paths(
-            {
-                "user_data_dir": user_data_dir,
-                "dimensions": dimensions,
-                "project_id": project_id,
-                "proxy_url": proxy_url,
-                "use_proxy": use_proxy,
-                "user_agent": user_agent,
-            },
+            await async_maybe_transform(
+                {
+                    "user_data_dir": user_data_dir,
+                    "dimensions": dimensions,
+                    "project_id": project_id,
+                    "proxy_url": proxy_url,
+                    "use_proxy": use_proxy,
+                    "user_agent": user_agent,
+                },
+                profile_create_params.ProfileCreateParams,
+            ),
             [["userDataDir"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["userDataDir"]])
@@ -350,7 +359,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
             "/v1/profiles",
-            body=await async_maybe_transform(body, profile_create_params.ProfileCreateParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -406,14 +415,17 @@ class AsyncProfilesResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         body = deepcopy_with_paths(
-            {
-                "user_data_dir": user_data_dir,
-                "dimensions": dimensions,
-                "body_project_id": body_project_id,
-                "proxy_url": proxy_url,
-                "use_proxy": use_proxy,
-                "user_agent": user_agent,
-            },
+            await async_maybe_transform(
+                {
+                    "user_data_dir": user_data_dir,
+                    "dimensions": dimensions,
+                    "body_project_id": body_project_id,
+                    "proxy_url": proxy_url,
+                    "use_proxy": use_proxy,
+                    "user_agent": user_agent,
+                },
+                profile_update_params.ProfileUpdateParams,
+            ),
             [["userDataDir"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["userDataDir"]])
@@ -423,7 +435,7 @@ class AsyncProfilesResource(AsyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._patch(
             path_template("/v1/profiles/{id}", id=id),
-            body=await async_maybe_transform(body, profile_update_params.ProfileUpdateParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers,

@@ -41,6 +41,14 @@ _SUFFIX_LANGUAGES = {
     ".rs": "rust",
     ".dart": "dart",
     ".cs": "csharp",
+    ".c": "cpp",
+    ".h": "cpp",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".hpp": "cpp",
+    ".hh": "cpp",
+    ".hxx": "cpp",
     ".sol": "solidity",
     ".yml": "yaml",
     ".yaml": "yaml",
@@ -61,6 +69,8 @@ _LANGUAGE_NAMES = {
     "dart": "dart",
     "csharp": "csharp",
     "c#": "csharp",
+    "cpp": "cpp",
+    "c++": "cpp",
     "yaml": "yaml",
 }
 _COMMENT_PREFIX = {
@@ -74,6 +84,7 @@ _COMMENT_PREFIX = {
     "rust": "//",
     "dart": "//",
     "csharp": "//",
+    "cpp": "//",
     "solidity": "//",
 }
 
@@ -85,7 +96,7 @@ _UNTRUSTED_COMMAND = {
     "go": 'Call exec.Command with the program and each argument separately, never "sh -c"; allowlist input.',
     "java": "Use ProcessBuilder with a fixed program and a separate argument list; allowlist input.",
     "rust": "Use Command::new with a fixed program and .arg() per value, never a shell; allowlist input.",
-    "php": "Avoid shell_exec/system with input; use escapeshellarg on each argument or a fixed command.",
+    "php": "Run a fixed command and pass each input as its own escapeshellarg() argument (not inside quotes, not as sh -c code), or use proc_open with an argument array; escapeshellcmd() is not enough.",
     "dart": "Use Process.run with a fixed executable and an argument list, runInShell: false; allowlist input.",
     "csharp": "Start a fixed executable with ArgumentList entries, UseShellExecute = false; allowlist input.",
 }
@@ -96,6 +107,7 @@ _PATH_TRAVERSAL = {
     "shell": "Strip directories with basename, resolve with realpath, and require the result under the base dir.",
     "go": "Clean the path with filepath.Clean/filepath.Rel against the base and reject results outside it.",
     "java": "Normalize with base.resolve(name).normalize() and require startsWith(base).",
+    "csharp": "Use Path.Combine(baseDir, Path.GetFileName(name)), or check Path.GetFullPath(path) starts with the base directory.",
 }
 _SQL = {
     "default": "Use parameterized queries; never build SQL from string concatenation or formatting.",
@@ -103,12 +115,15 @@ _SQL = {
     "js": "Use placeholders with a values array (or the ORM's query builder); never template values into SQL.",
     "go": "Use db.Query(sql, args...) with placeholders; never fmt.Sprintf values into SQL.",
     "java": "Use PreparedStatement with ? placeholders; never concatenate values into SQL.",
-    "php": "Use PDO prepared statements with bound parameters; never interpolate values into SQL.",
+    "php": "Use PDO/mysqli prepared statements or Laravel bindings (DB::select($sql, [$value]), whereRaw($sql, [$value])); never interpolate values into SQL.",
+    "csharp": "Use SqlParameter/@name placeholders, EF FromSqlInterpolated or Dapper parameters; never concatenate values into SQL.",
 }
 _SSRF = {
     "default": "Allowlist the destination host and scheme before the request, and block internal addresses.",
+    "java": "Build the URL from a fixed scheme and host and append only encoded path or query values; allowlist anything else.",
     "python": "Parse the URL, allowlist scheme and host, and reject private/loopback addresses before requesting.",
     "js": "Parse with new URL(), allowlist protocol and host, and reject private/loopback addresses.",
+    "csharp": "Give the HttpClient a fixed BaseAddress and pass only relative, encoded paths; allowlist any absolute URL's host.",
 }
 _WEAK_HASH = {
     "default": "Use SHA-256 or stronger for integrity; for passwords use a password hash (argon2, bcrypt, scrypt).",
@@ -143,12 +158,15 @@ _TIMING = {
 }
 _OPEN_REDIRECT = {
     "default": "Redirect only to relative paths or an allowlist of hosts; reject absolute user-supplied URLs.",
+    "java": "Redirect to a fixed path ('redirect:/orders/' + id) or check the target starts with '/' and not '//' before redirecting.",
+    "csharp": "Use LocalRedirect(url), or redirect only inside if (Url.IsLocalUrl(url)).",
 }
 _DESERIALIZE = {
     "default": "Never deserialize untrusted data with a code-executing format; use JSON or a schema-checked format.",
     "python": "Replace pickle/marshal on untrusted data with json or a schema-validated format.",
-    "java": "Avoid ObjectInputStream on untrusted data; use JSON with a schema, or an allowlisting filter.",
+    "java": "Avoid ObjectInputStream, XMLDecoder, XStream and default-typed Jackson on untrusted data; use JSON with fixed types or an allowlisting filter.",
     "php": "Replace unserialize on untrusted data with json_decode.",
+    "csharp": "Replace BinaryFormatter-family serializers with System.Text.Json; keep Json.NET TypeNameHandling.None or set an allowlisting ISerializationBinder.",
 }
 _SECRET = {
     "default": "Remove the secret from the code, rotate it, and load it from the environment or a secret manager.",
@@ -159,6 +177,7 @@ _DYNAMIC_CODE = {
     "default": "Remove dynamic code execution; call the needed function directly or parse data with a safe parser.",
     "python": "Replace exec/eval with direct calls, a dispatch dict, or ast.literal_eval for literals.",
     "js": "Replace eval/new Function/string timers with direct function calls or JSON.parse.",
+    "php": "Remove eval/create_function/preg_replace /e; call the function directly or use preg_replace_callback.",
 }
 _DEAD_CODE = "Delete it if nothing outside this repo uses it; otherwise add {comment} skylos: ignore[{rule}] with a reason."
 
@@ -279,15 +298,24 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     },
     "SKY-D225": {"default": "Pin a dependency version that exists on the registry."},
     "SKY-D226": {
-        "default": "Escape untrusted content instead of marking it safe; sanitize HTML with an allowlist."
+        "default": "Escape untrusted content instead of marking it safe; sanitize HTML with an allowlist.",
+        "csharp": "Let Razor encode the value, or run it through HtmlEncoder or an HTML sanitizer before HtmlString/Html.Raw/MarkupString.",
     },
     "SKY-D227": {
         "default": "Render through the template engine with auto-escaping; do not build templates from input."
     },
     "SKY-D228": {
-        "default": "Build HTML with auto-escaping templates or textContent, not string concatenation."
+        "default": "Build HTML with auto-escaping templates or textContent, not string concatenation.",
+        "csharp": "Return a Razor view, or HtmlEncoder.Default.Encode each value before writing an HTML response.",
+        "php": "Escape for the spot it lands in: htmlspecialchars() (or esc_html/esc_attr, e()) for text and quoted attributes, esc_url()/urlencode() for links, and never print request data inside <script> or event handlers.",
+    },
+    "SKY-D229": {
+        "default": "Use a fixed XPath expression and pass input through XPath variables, or allowlist the value."
     },
     "SKY-D230": _OPEN_REDIRECT,
+    "SKY-D238": {
+        "default": "Cast request values to strings (String(x)) or validate them with a schema before using them in a MongoDB filter; never pass req.body or req.query as the filter."
+    },
     "SKY-D231": _CORS,
     "SKY-D283": {
         "default": "Require an authenticated, authorised caller before the route runs its action.",
@@ -297,6 +325,18 @@ RULE_FIXES: dict[str, dict[str, str]] = {
         "default": "Verify JWT signatures with a fixed algorithm list and key; reject 'none'."
     },
     "SKY-D233": _DESERIALIZE,
+    "SKY-D236": {
+        "default": "Disable DTDs on the XML parser before parsing untrusted XML.",
+        "java": 'Call setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) on the factory before creating the parser, or turn off external general and parameter entities.',
+    },
+    "SKY-D237": {
+        "default": "Never evaluate request data as an expression, script or JNDI name; use fixed expressions and pass input as variables.",
+        "java": "Use fixed SpEL/OGNL/MVEL expressions with input as variables (SimpleEvaluationContext for SpEL), and look up only fixed JNDI names.",
+    },
+    "SKY-D239": {
+        "default": "Escape LDAP filter and DN values before building the query, or use a filter builder that encodes them.",
+        "java": "Encode values with LdapEncoder.filterEncode or Rdn.escapeValue, or use Spring LdapQueryBuilder with parameters.",
+    },
     "SKY-D234": {
         "default": "Copy only an explicit allowlist of fields from the request into the model."
     },
@@ -334,6 +374,15 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     "SKY-D253": _TIMING,
     "SKY-D254": {
         "default": "Re-check authorization on the server instead of trusting values stored in the session."
+    },
+    "SKY-D255": {
+        "default": "Include only files from a fixed list: map the input to a known file name instead of building the path from it."
+    },
+    "SKY-D257": {
+        "default": "Remove the addJavascriptInterface bridge, or load only trusted, fixed content in that WebView."
+    },
+    "SKY-D258": {
+        "default": "Keep allowFileAccessFromFileURLs and allowUniversalAccessFromFileURLs false; serve local pages with WebViewAssetLoader."
     },
     "SKY-D260": {
         "default": "Treat the text as data: keep it out of agent instructions, or mark it as untrusted input."
@@ -550,6 +599,19 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     "SKY-D364": {
         "default": "Publish with trusted publishing (OIDC) and delete the long-lived token."
     },
+    "SKY-D365": {"default": "Remove the committed hook, or review the exact command and the script it runs before merging."},
+    "SKY-D366": {"default": "Remove runOptions.runOn \"folderOpen\" unless the team added it on purpose, and review what it runs."},
+    "SKY-D367": {"default": "Pin the MCP server to an exact version (pkg@1.2.3) or a full commit."},
+    "SKY-D368": {"default": "Launch MCP servers from reviewed packages at exact versions, not files in hidden home folders."},
+    "SKY-D369": {"default": "Check the MCP package's publisher; use the vendor's own package."},
+    "SKY-D370": {"default": "Move API gateway URLs to user or managed settings, not committed project settings."},
+    "SKY-D371": {"default": "Pin tools in jobs that hold publish credentials to exact versions or hashes."},
+    "SKY-D372": {"default": "Verify downloads in the publish path with a checksum or signature."},
+    "SKY-D373": {"default": "Put the OIDC publish job behind a protected environment."},
+    "SKY-D374": {"default": "Publish only from protected branches or tags, not workflow_dispatch or any branch."},
+    "SKY-D375": {"default": "Review every changed step, trigger and permission of the publish job."},
+    "SKY-D376": {"default": "Pin the reusable workflow to a commit SHA and pass only the secrets it needs, not secrets: inherit."},
+    "SKY-D377": {"default": "Remove the duplicated keys so the file says once what runs."},
     "SKY-D510": {
         "default": "Reject __proto__, constructor and prototype keys before merging objects."
     },
@@ -779,9 +841,28 @@ RULE_FIXES: dict[str, dict[str, str]] = {
     "SKY-SC001": {
         "default": "Fix the contract issue the message names before deploying."
     },
+    "SKY-SCA-AGE001": {
+        "default": "Pin the newest version older than the release-age window, or wait."
+    },
+    "SKY-SCA-API001": {"default": "Update this line to the new version's API before merging the upgrade, or keep the old version."},
+    "SKY-SCA-HRD001": {"default": "Keep the hardening setting, or record a reviewed exception on the base branch."},
+    "SKY-SCA-INT001": {
+        "default": "Regenerate the lockfile with your package manager so every entry has a hash."
+    },
     "SKY-SCA-LIC001": {
         "default": "Replace the dependency, or record a license exception your policy allows."
     },
+    "SKY-SCA-SRC001": {
+        "default": "Install internal packages only from your private registry (exclusive index or scoped registry)."
+    },
+    "SKY-SCA-SRC003": {
+        "default": "Pin the Git dependency to a full commit SHA, or add a hash to the URL dependency."
+    },
+    "SKY-SCA-SRC004": {
+        "default": "Confirm the new source. If the package is yours, list it in internal_packages on the target branch; otherwise restore the original source."
+    },
+    "SKY-SCA-UPG001": {"default": "Read the new install/import-time code before merging; pin the old version if it cannot be explained."},
+    "SKY-SCA-UPG002": {"default": "Review the new code the upgrade adds before merging."},
     "SKY-T101": {"default": "Add type annotations to the parameters."},
     "SKY-T102": {"default": "Add a return type annotation."},
     "SKY-T103": {

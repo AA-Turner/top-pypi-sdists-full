@@ -13,6 +13,7 @@ for _piece in (
     "probe.sdk.delivery.transport.failures",
     "probe.sdk.delivery.transport.headers",
     "probe.sdk.delivery.transport.notices",
+    "probe.sdk.delivery.transport.streams",
     "probe.sdk.delivery.transport.tracking",
     "probe.sdk.delivery.transport.transport",
 ):
@@ -74,6 +75,9 @@ _HOMES = {
     "NOTICE_WATCHER": "probe.sdk.delivery.transport.notices",
     "NoticeWatcher": "probe.sdk.delivery.transport.notices",
     "AgentPoster": "probe.sdk.delivery.transport.notices",
+    # probe.sdk.delivery.transport.streams
+    "STREAM_CONNECT_SECONDS": "probe.sdk.delivery.transport.streams",
+    "cut_stream": "probe.sdk.delivery.transport.streams",
     # probe.sdk.delivery.transport.tracking
     "_RESEARCH_PATH_PREFIXES": "probe.sdk.delivery.transport.tracking",
     "_READ_METHODS": "probe.sdk.delivery.transport.tracking",

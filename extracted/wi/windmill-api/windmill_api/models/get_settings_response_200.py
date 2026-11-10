@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.get_settings_response_200_webhook_events_item import GetSettingsResponse200WebhookEventsItem
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -45,6 +46,8 @@ class GetSettingsResponse200:
         plan (Union[Unset, str]):
         customer_id (Union[Unset, str]):
         webhook (Union[Unset, str]):
+        webhook_events (Union[Unset, List[GetSettingsResponse200WebhookEventsItem]]): event types the webhook is sent;
+            absent sends every event
         ai_config (Union[Unset, GetSettingsResponse200AiConfig]):
         error_handler (Union[Unset, GetSettingsResponse200ErrorHandler]): Configuration for the workspace error handler
         success_handler (Union[Unset, GetSettingsResponse200SuccessHandler]): Configuration for the workspace success
@@ -90,6 +93,7 @@ class GetSettingsResponse200:
     plan: Union[Unset, str] = UNSET
     customer_id: Union[Unset, str] = UNSET
     webhook: Union[Unset, str] = UNSET
+    webhook_events: Union[Unset, List[GetSettingsResponse200WebhookEventsItem]] = UNSET
     ai_config: Union[Unset, "GetSettingsResponse200AiConfig"] = UNSET
     error_handler: Union[Unset, "GetSettingsResponse200ErrorHandler"] = UNSET
     success_handler: Union[Unset, "GetSettingsResponse200SuccessHandler"] = UNSET
@@ -130,6 +134,14 @@ class GetSettingsResponse200:
         plan = self.plan
         customer_id = self.customer_id
         webhook = self.webhook
+        webhook_events: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.webhook_events, Unset):
+            webhook_events = []
+            for webhook_events_item_data in self.webhook_events:
+                webhook_events_item = webhook_events_item_data.value
+
+                webhook_events.append(webhook_events_item)
+
         ai_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.ai_config, Unset):
             ai_config = self.ai_config.to_dict()
@@ -218,6 +230,8 @@ class GetSettingsResponse200:
             field_dict["customer_id"] = customer_id
         if webhook is not UNSET:
             field_dict["webhook"] = webhook
+        if webhook_events is not UNSET:
+            field_dict["webhook_events"] = webhook_events
         if ai_config is not UNSET:
             field_dict["ai_config"] = ai_config
         if error_handler is not UNSET:
@@ -312,6 +326,13 @@ class GetSettingsResponse200:
         customer_id = d.pop("customer_id", UNSET)
 
         webhook = d.pop("webhook", UNSET)
+
+        webhook_events = []
+        _webhook_events = d.pop("webhook_events", UNSET)
+        for webhook_events_item_data in _webhook_events or []:
+            webhook_events_item = GetSettingsResponse200WebhookEventsItem(webhook_events_item_data)
+
+            webhook_events.append(webhook_events_item)
 
         _ai_config = d.pop("ai_config", UNSET)
         ai_config: Union[Unset, GetSettingsResponse200AiConfig]
@@ -432,6 +453,7 @@ class GetSettingsResponse200:
             plan=plan,
             customer_id=customer_id,
             webhook=webhook,
+            webhook_events=webhook_events,
             ai_config=ai_config,
             error_handler=error_handler,
             success_handler=success_handler,

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ScheduleItem(ClientValue):
     """
     An item that describes the availability of a user corresponding to an actual event on the user's default calendar.

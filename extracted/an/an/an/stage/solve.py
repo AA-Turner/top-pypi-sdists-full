@@ -48,7 +48,7 @@ True
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -66,6 +66,10 @@ __all__ = [
     "declarations",
     "Puppet",
     "build_puppet",
+    "NodePoint",
+    "PointScope",
+    "locate_point",
+    "contact_point",
     "solve_pass",
     "joint_residuals",
     "shot_declares_solve",
@@ -103,16 +107,43 @@ REACH_SOURCE: str = "reach"
 SAME_VALUE: dict[str, float] = {"x": 1e-5, "y": 1e-5, "rotation": 1e-6}
 #: The same, for a held item's scale (a factor).
 SAME_SCALE: float = 1e-6
-#: How far each solved channel's emitted keys may stray from the solve at any
-#: frame, in px (an#636); a rotation's is this at the puppet's whole reach
-#: (every body's box end to end). The errors add along a chain: a point moves
-#: at most this × (√2 for the root's x and y + one per rotating body above
-#: it) × its scale, a few thousandths of a px, far under the joints' own
-#: tolerance (:data:`an.verify.joints.JOINT_TOLERANCE_PX`, 0.25). At this
-#: tolerance only stretches that are already straight (still, or moving
-#: evenly) lose their keys; curved motion keeps them (compacting it within the
-#: joint budget is the rest of an#636).
-SOLVED_KEY_TOLERANCE_PX: float = 1e-3
+#: How far any point of a solved body may stray from the solve at any frame
+#: once its keys are compacted (px, an#636): a fifth of the joints' own
+#: tolerance (:data:`an.verify.joints.JOINT_TOLERANCE_PX`, 0.25), so a joint's
+#: two ends together move at most 0.1 px and a joint the solve holds still
+#: holds. Each channel's keys are compacted at the share of it its place in a
+#: chain allows (:func:`solved_key_tolerances`), the error measured at every
+#: frame (:func:`compact_keys`), so curved motion is compacted too.
+SOLVED_POSE_TOLERANCE_PX: float = 0.05
+
+
+def solved_key_tolerances(
+    puppet: Any, *, budget: float = SOLVED_POSE_TOLERANCE_PX, scale: float = 1.0
+) -> dict[str, float]:
+    """``{channel: tolerance}`` for compacting ``puppet``'s solved keys so no
+    point of any body strays more than ``budget`` px from the solve (an#636).
+
+    The errors add along a chain: a point moves at most ``tolerance`` × (√2 for
+    the root's x and y, plus one per rotating body down to it) × its scale, a
+    rotation's tolerance being the positional one over the puppet's whole
+    reach (every body's box end to end, its lever at most). So each channel
+    gets ``budget`` over the longest chain's count, at the largest scale:
+    ``scale``, the largest any body or its parent is drawn at over the shot
+    (an authored scale animates it), else the rest pose's.
+    """
+    bodies = list(puppet.bodies.values())
+
+    def chain(b: Any) -> int:
+        n, cursor = 1, b.parent_body
+        while cursor is not None and n <= len(bodies):
+            n, cursor = n + 1, puppet.bodies[cursor].parent_body
+        return n
+
+    longest = max((chain(b) for b in bodies), default=1)
+    scale = max([1.0, scale] + [max(abs(b.sx), abs(b.sy)) for b in bodies])
+    reach = max(1.0, sum(math.hypot(b.box[2], b.box[3]) for b in bodies))
+    position = budget / ((math.sqrt(2.0) + longest) * scale)
+    return {"x": position, "y": position, "rotation": position / reach}
 
 
 def compact_keys(
@@ -200,6 +231,25 @@ class DeclaredJoint:
     b: str | None
     end: str | None
     where: str
+    #: The entity that declares it (its ``a`` is relative to it), else ``None``.
+    entity: str | None = None
+
+    @property
+    def qualified_id(self) -> str:
+        """What a ``join``/``unjoin`` calls a support (an#519): its name, else its
+        ``a`` as a shot path, so two entities' unnamed ``{a: "@", b: ground}``
+        are ``cup`` and ``mug``, not both ``@`` (an unnamed part joint is
+        keyed by its node path the same way, :func:`build_puppet`).
+
+        >>> spec = JointSpec(type="support", a="@", b="ground")
+        >>> _declared(spec, "cup", where="entities/0/joints/0").qualified_id
+        'cup'
+        >>> DeclaredJoint(spec, "@", "ground", None, "joints/0").qualified_id
+        '@'
+        """
+        if self.spec.name or self.entity is None:
+            return self.spec.id
+        return _support_id(self.entity, self.spec)
 
 
 @dataclass(frozen=True)
@@ -215,7 +265,12 @@ class Verb:
 @dataclass
 class Declarations:
     """Every joint and verb a shot declares, in solver order (structure first),
-    and what it holds (:class:`an.stage.hold.HoldDeclarations`)."""
+    and what it holds (:class:`an.stage.hold.HoldDeclarations`).
+
+    A ``support`` joint (an#519) is a lint's declaration, never the solve's:
+    it goes to ``supports``, a ``join``/``unjoin`` of one to ``support_verbs``,
+    and neither makes the declarations non-``empty``, so a shot declaring only
+    supports runs no solve and compiles as if it declared nothing."""
 
     joints: list[DeclaredJoint] = field(default_factory=list)
     verbs: list[Verb] = field(default_factory=list)
@@ -223,6 +278,10 @@ class Declarations:
     problems: list[tuple[str, str]] = field(default_factory=list)
     #: The hold verbs and ``held_by`` overrides (:mod:`an.stage.hold`), or ``None``.
     holds: Any = None
+    #: The ``support`` joints (:mod:`an.stage.support` reads them; the solve does not).
+    supports: list[DeclaredJoint] = field(default_factory=list)
+    #: The ``join``/``unjoin`` verbs naming a support.
+    support_verbs: list[Verb] = field(default_factory=list)
 
     @property
     def empty(self) -> bool:
@@ -265,12 +324,16 @@ def solve_knobs(shot: Shot) -> dict[str, Any]:
     from an.stage.hold import HOLD_VERSION
 
     own = shot.solve
+
+    def solved(joints: Sequence[JointSpec]) -> list[dict[str, Any]]:
+        # a support (an#519) is a lint's declaration: it changes no pixel
+        return [
+            j.model_dump(mode="json") for j in joints if j.type != SUPPORT_JOINT_TYPE
+        ]
+
     declared = {
-        "joints": [j.model_dump(mode="json") for j in shot.joints],
-        "entities": [
-            [e.id, [j.model_dump(mode="json") for j in e.joints], e.overrides]
-            for e in shot.entities
-        ],
+        "joints": solved(shot.joints),
+        "entities": [[e.id, solved(e.joints), e.overrides] for e in shot.entities],
         "solve": own.model_dump(mode="json") if own is not None else None,
     }
     return {
@@ -290,14 +353,55 @@ def solve_knobs(shot: Shot) -> dict[str, Any]:
 
 
 def _has_verb(shot: Shot) -> bool:
+    """Whether ``shot`` has a verb the solve acts on: a ``join``/``unjoin`` of a
+    support (an#519) is the ``support`` check's, not the solve's."""
     from an.ir.compose import iter_actions
     from an.ir.joints import JOINT_ACTION_KINDS
 
+    supports = _support_ids(shot)
     return any(
         getattr(node, "kind", None) in JOINT_ACTION_KINDS
+        and not (
+            node.kind in ("join", "unjoin") and getattr(node, "joint", None) in supports
+        )
         for action in shot.actions
         for node in iter_actions(action)
     )
+
+
+#: The joint type the solve never lowers (an#519): a lint's declaration.
+SUPPORT_JOINT_TYPE: str = "support"
+
+
+def _support_ids(shot: Shot) -> frozenset[str]:
+    """The ids of the supports the shot and its entities declare (an entity's
+    unnamed one by its shot path, :attr:`DeclaredJoint.qualified_id`), less
+    any that also names a joint the solve lowers (a verb on it is the solve's).
+
+    >>> _support_ids(Shot(id="s", joints=[{"type": "support", "a": "cup", "b": "ground"}]))
+    frozenset({'cup'})
+    """
+    specs = [(None, j) for j in shot.joints] + [
+        (e.id, j) for e in shot.entities for j in e.joints
+    ]
+    solved = {j.id for _e, j in specs if j.type != SUPPORT_JOINT_TYPE}
+    return frozenset(
+        _support_id(e, j) if e is not None else j.id
+        for e, j in specs
+        if j.type == SUPPORT_JOINT_TYPE
+    ) - frozenset(solved)
+
+
+def _support_id(entity_id: str, spec: JointSpec) -> str:
+    """An entity's support's id: its name, else its ``a`` as a shot path (the
+    entity's own ``@`` is the entity).
+
+    >>> _support_id("cup", JointSpec(type="support", a="@base", b="ground"))
+    'cup@base'
+    """
+    if spec.name:
+        return spec.name
+    return _entity_ref(entity_id, spec.a).rstrip("@")
 
 
 def _is_rig_kind(entity: Any) -> bool:
@@ -357,33 +461,47 @@ def declarations(
                     (where, f"{entity.ref!r} declares a joint that does not read: {e}")
                 )
                 continue
-            out.joints.append(_declared(spec, entity.id, where=where))
+            _route(out, _declared(spec, entity.id, where=where))
         for k, spec in enumerate(entity.joints):
-            out.joints.append(
-                _declared(spec, entity.id, where=f"entities/{i}/joints/{k}")
-            )
+            _route(out, _declared(spec, entity.id, where=f"entities/{i}/joints/{k}"))
     for k, spec in enumerate(shot.joints):
-        out.joints.append(
+        _route(
+            out,
             DeclaredJoint(
                 spec=spec, a=spec.a, b=spec.b, end=spec.end, where=f"joints/{k}"
-            )
+            ),
         )
     if verbs:
         from an.ir.compose import flatten
         from an.ir.joints import JOINT_ACTION_KINDS
 
+        solved = {dj.spec.id for dj in out.joints}
+        supports = {dj.qualified_id for dj in out.supports} - solved
         for k, action in enumerate(shot.actions):
             for flat in flatten(action, play_extent=play_extent):
                 if getattr(flat.action, "kind", None) in JOINT_ACTION_KINDS:
-                    out.verbs.append(
-                        Verb(flat.action, flat.start, flat.end, where=f"actions/{k}")
-                    )
+                    verb = Verb(flat.action, flat.start, flat.end, where=f"actions/{k}")
+                    if (
+                        flat.action.kind in ("join", "unjoin")
+                        and flat.action.joint in supports
+                    ):
+                        out.support_verbs.append(verb)
+                    else:
+                        out.verbs.append(verb)
     if verbs or any(e.overrides and "held_by" in e.overrides for e in shot.entities):
         from an.stage.hold import hold_declarations
 
         holds = hold_declarations(shot, play_extent=play_extent)
         out.holds = None if holds.empty else holds
     return out
+
+
+def _route(out: Declarations, dj: DeclaredJoint) -> None:
+    """A declared joint to the solve's list, or a support to the lint's."""
+    if dj.spec.type == SUPPORT_JOINT_TYPE:
+        out.supports.append(dj)
+    else:
+        out.joints.append(dj)
 
 
 def _declared(spec: JointSpec, entity_id: str, *, where: str) -> DeclaredJoint:
@@ -393,6 +511,7 @@ def _declared(spec: JointSpec, entity_id: str, *, where: str) -> DeclaredJoint:
         b=spec.b,
         end=spec.end,
         where=where,
+        entity=entity_id,
     )
 
 
@@ -523,6 +642,19 @@ Geometry = tuple[float, float, bool, bool]
 def _geometry_at(m: Affine, local_scale_x: float) -> Geometry:
     _theta, sx, sy, mirrored = _decompose(m)
     return (sx, sy, mirrored, local_scale_x < 0)
+
+
+def _drawn_scale(geometry: Geometry, local_sx: float, local_sy: float) -> float:
+    """The largest scale a body's channels are drawn at in a frame: its own
+    world scale, and its parent's (its x and y are the parent's units), which
+    is the world scale over its own local one.
+
+    >>> _drawn_scale((1.5, 1.5, False, False), 0.5, 0.5)
+    3.0
+    """
+    sx, sy = abs(geometry[0]), abs(geometry[1])
+    parent = [w / abs(own) for w, own in ((sx, local_sx), (sy, local_sy)) if own]
+    return max([sx, sy, *parent])
 
 
 def _flip_point(p: Any, flips: Mapping[str, bool]) -> Any:
@@ -853,20 +985,17 @@ def build_puppet(
         return rest_cache[path]
 
     def anchor_world(eid: str, bone: str) -> tuple[float, float] | None:
-        rig = rigs.get(eid)
-        if rig is None or bone not in rig.anchors:
-            return None
-        anchor = rig.anchors[bone]
-        frame = (
-            _node_rest(
-                f"{eid}/{rig.bodies.get(anchor.on) or _slot_path(eid, anchor.on, nodes)}"
-            )
-            if anchor.on is not None
-            else _node_rest(eid)
-        )
-        return _apply(frame, anchor.offset)
+        return _anchor_rest(eid, bone, rigs.get(eid), nodes, _node_rest)
 
     landmark_cache: dict[str, Mapping[str, Any]] = {}
+    contact_cache: dict[str, Mapping[str, Any]] = {}
+
+    def descriptor_of(eid: str) -> Any:
+        return (
+            (getattr(vocab, "descriptors", None) or {}).get(eid)
+            if vocab is not None
+            else None
+        ) or _descriptor(entities[eid], mall)
 
     def landmarks_of(eid: str) -> Mapping[str, Any]:
         """The named points a genre declares for ``eid``'s rig beyond its bones
@@ -878,11 +1007,7 @@ def build_puppet(
             hook = getattr(kind, "landmarks", None) if kind is not None else None
             found: Mapping[str, Any] = {}
             if hook is not None and rigs.get(eid) is not None:
-                desc = (
-                    (getattr(vocab, "descriptors", None) or {}).get(eid)
-                    if vocab is not None
-                    else None
-                ) or _descriptor(entities[eid], mall)
+                desc = descriptor_of(eid)
                 try:
                     found = dict(hook(desc) or {}) if desc is not None else {}
                 except Exception:  # noqa: BLE001 - a genre that cannot say names nothing
@@ -890,133 +1015,55 @@ def build_puppet(
             landmark_cache[eid] = found
         return landmark_cache[eid]
 
+    def contacts_of_parts(eid: str) -> Mapping[str, Any]:
+        """``eid``'s contacts on a part (:func:`an.stage.support.contacts_on_parts`,
+        an#519: a character's feet, a prop's ``metadata.contacts``)."""
+        if eid not in contact_cache:
+            from an.stage.support import contacts_on_parts
+
+            rig = rigs.get(eid)
+            desc = descriptor_of(eid) if rig is not None else None
+            contact_cache[eid] = (
+                contacts_on_parts(entities[eid], desc, rig=rig)
+                if desc is not None
+                else {}
+            )
+        return contact_cache[eid]
+
+    scope = PointScope(
+        nodes=nodes,
+        entities=entities,
+        rig=rigs.get,
+        landmarks=landmarks_of,
+        contacts=contacts_of_parts,
+        rest=_node_rest,
+    )
+
     def locate(ref: Any, *, where: str, side: str) -> Any:
         """A reference as ``Located(body, local, frame, node)`` (a point of a
         body, in its node's own coordinates, and the frame of the node named),
-        a world ``Point``, or ``None`` after noting the problem.
-
-        ``side`` says what a reference with no ``@`` means: ``"a"`` (and
-        ``"socket"``) the node's pivot, ``"b"`` the centre of its drawing,
-        ``"hand"`` the far end of the body from its pivot (its end effector).
-        """
-        if (
-            isinstance(ref, (list, tuple))
-            and len(ref) == 2
-            and all(isinstance(v, (int, float)) for v in ref)
-        ):
-            return Point(WORLD, float(ref[0]), float(ref[1]))
-        if not isinstance(ref, str):
+        a world ``Point``, or ``None`` after noting the problem: the shared
+        resolver (:func:`locate_point`) put on the shot's bodies."""
+        found = locate_point(ref, scope, side=side)
+        if isinstance(found, str):
+            problems.append((where, found))
+            return None
+        if not isinstance(found, NodePoint):
+            return found  # a stage point
+        hit = body_and_local(found.node)
+        if hit is None:
             problems.append(
-                (
-                    where,
-                    f"{ref!r} is not a body reference (`body[@point]`, `world@x,y`, or [x, y])",
-                )
+                (where, f"{ref!r}: {found.node!r} is on no body of the shot")
             )
             return None
-        head, _, at = ref.partition("@")
-        if head == WORLD_REF:
-            xy = _numbers(at)
-            if xy is None:
-                problems.append((where, f"{ref!r}: a stage point is `world@x,y`"))
-                return None
-            return Point(WORLD, *xy)
-        eid = entity_of(head)
-        if eid not in entities:
-            problems.append((where, f"{ref!r}: {eid!r} is not an entity of this shot"))
-            return None
-        landmark = (
-            landmarks_of(eid).get(at)
-            if at
-            and _numbers(at) is None
-            and not (rigs.get(eid) is not None and at in rigs[eid].anchors)
-            else None
-        )
-        if landmark is not None:
-            slot, fraction = landmark
-            rig = rigs.get(eid)
-            if rig is None or slot not in rig.bodies:
-                problems.append(
-                    (
-                        where,
-                        f"{ref!r}: {at!r} names part {slot!r}, which {eid!r} does not draw",
-                    )
-                )
-                return None
-            node_path = f"{eid}/{rig.bodies[slot]}"
-            at = "" if fraction is None else f"{fraction[0]},{fraction[1]}"
-            side = "hand" if fraction is None else side
+        body, inner = hit
+        if found.rest_world is not None:  # a bone: kept in the body's frame
+            local = _apply(_invert(rest[body]), found.rest_world)
+        elif found.end and found.node != body:  # a part riding on a body: its pivot
+            local = _apply(inner, _pivot(nodes[found.node]))
         else:
-            node_path = (
-                _slot_path(eid, head.split("/", 1)[1], nodes, rigs.get(eid))
-                if "/" in head
-                else head
-            )
-            # A bone named on an entity with several root parts (`ned@hand_r`)
-            # is a point of the part that bone carries: it needs no `ned/<part>`
-            # (with one root, the reference is that root's, as it always was).
-            carrier = (
-                _bone_carrier(rigs[eid], at)
-                if "/" not in head
-                and rigs.get(eid) is not None
-                and len(rigs[eid].roots) > 1
-                else None
-            )
-            if carrier is not None:
-                node_path = f"{eid}/{rigs[eid].bodies[carrier]}"
-        if node_path not in nodes:
-            near = sorted(p for p in nodes if p.split("/", 1)[0] == eid)
-            problems.append(
-                (where, f"{ref!r}: no node {node_path!r}; {eid!r} has {near}")
-            )
-            return None
-        if node_path == eid and rigs.get(eid) is not None and rigs[eid].bodies:
-            roots = rigs[eid].roots
-            if len(roots) != 1:
-                problems.append(
-                    (
-                        where,
-                        f"{ref!r}: {eid!r} has {len(roots)} root parts {list(roots)}; name the part (`{eid}/<part>`)",
-                    )
-                )
-                return None
-            node_path = f"{eid}/{rigs[eid].bodies[roots[0]]}"
-        found = body_and_local(node_path)
-        if found is None:
-            problems.append(
-                (where, f"{ref!r}: {node_path!r} is on no body of the shot")
-            )
-            return None
-        body, inner = found
-        node = nodes[node_path]
-        if not at:
-            if side == "hand" and node_path == body:
-                local_on_node = end_effector(_local_box(node), _pivot(node))
-            elif side in ("a", "socket", "hand"):
-                local_on_node = _pivot(node)
-            else:
-                local_on_node = _centre(_local_box(node))
-            local = _apply(inner, local_on_node)
-        else:
-            xy = _numbers(at)
-            if xy is not None:
-                left, top, w, h = _local_box(node)
-                local = _apply(inner, (left + xy[0] * w, top + xy[1] * h))
-            else:
-                world = anchor_world(eid, at)
-                if world is None:
-                    rig = rigs.get(eid)
-                    known = sorted(rig.anchors) if rig is not None else []
-                    named_points = sorted(landmarks_of(eid))
-                    also = f", named points: {named_points}" if named_points else ""
-                    problems.append(
-                        (
-                            where,
-                            f"{ref!r}: {at!r} is not a bone of {eid!r} (bones: {known}{also}) nor a fraction `u,v`",
-                        )
-                    )
-                    return None
-                local = _apply(_invert(rest[body]), world)
-        return Located(body, local, inner, node_path)
+            local = _apply(inner, found.local)
+        return Located(body, local, inner, found.node)
 
     def resolve(ref: Any, *, where: str, side: str) -> Any:
         """A reference as a solver Point (and its body), or ``None`` after noting the problem."""
@@ -1173,7 +1220,9 @@ def build_puppet(
                 verb=action.kind,
             )
         )
-    ids = {row.id for row in rows}
+    # A support's id is a joint of the shot (an#519), though the solve builds
+    # no row for it: a join/unjoin naming one is the support check's.
+    ids = {row.id for row in rows} | {dj.qualified_id for dj in decl.supports}
     for jid in events:
         if jid not in ids:
             problems.append(
@@ -1259,6 +1308,207 @@ def end_effector(
         far[0] + (near[0] - far[0]) * f + 0.0,
         far[1] + (near[1] - far[1]) * f + 0.0,
     )
+
+
+#: How far inside its far end a contact named with no point sits: none. A sole
+#: is the bottom of the drawing, not a hand's palm (:data:`DFLT_EFFECTOR_INSET`).
+CONTACT_INSET: float = 0.0
+
+
+def contact_point(node: Any, point: tuple[float, float] | None) -> tuple[float, float]:
+    """A contact's point in its part's own frame (an#519): ``point`` a fraction
+    ``(u, v)`` of the part's drawing, or ``None`` for the drawn extent's far end
+    from its pivot, :data:`CONTACT_INSET` in. The one point the solve pins and
+    the ``support`` check measures for that contact.
+
+    >>> from an.stage.serialize import NodeJSON, VisualJSON
+    >>> leg = NodeJSON(name="leg", visual=VisualJSON(width=16, height=100, anchor_y=0))
+    >>> contact_point(leg, None), contact_point(leg, (0.5, 0.5))
+    ((0.0, 100.0), (0.0, 50.0))
+    """
+    box = _local_box(node)
+    if point is None:
+        return end_effector(box, _pivot(node), inset=CONTACT_INSET)
+    return (box[0] + float(point[0]) * box[2], box[1] + float(point[1]) * box[3])
+
+
+@dataclass(frozen=True)
+class NodePoint:
+    """A body reference resolved on the compiled document (:func:`locate_point`):
+    the node its point is on, and the point, in that node's own frame
+    (``local``), or, for a bone, at rest on the stage (``rest_world``: each
+    caller maps it into its own frame). ``end`` marks the drawn extent's far
+    end from the pivot (a hand), which the solve takes at the pivot of a node
+    that only rides on a body."""
+
+    entity: str
+    node: str
+    local: tuple[float, float] | None = None
+    rest_world: tuple[float, float] | None = None
+    end: bool = False
+
+    def on_node(self, rest: Callable[[str], Affine]) -> tuple[float, float]:
+        """The point in ``node``'s own frame, ``rest`` giving a node's rest transform."""
+        if self.rest_world is None:
+            return self.local
+        return _apply(_invert(rest(self.node)), self.rest_world)
+
+
+@dataclass(frozen=True)
+class PointScope:
+    """What :func:`locate_point` resolves a reference against: the compiled
+    document's nodes by path, the shot's entities by id, and per entity its
+    rig (or ``None``), its landmarks and its contacts on a part (``{name:
+    (slot, (u, v) or None)}``), and ``rest``, a node's rest stage transform."""
+
+    nodes: Mapping[str, Any]
+    entities: Mapping[str, Any]
+    rig: Callable[[str], Any]
+    landmarks: Callable[[str], Mapping[str, Any]]
+    contacts: Callable[[str], Mapping[str, Any]]
+    rest: Callable[[str], Affine]
+
+
+def _anchor_rest(
+    eid: str,
+    bone: str,
+    rig: Any,
+    nodes: Mapping[str, Any],
+    rest: Callable[[str], Affine],
+) -> tuple[float, float] | None:
+    """A rig's bone at rest on the stage, or ``None`` when it is no bone."""
+    if rig is None or bone not in rig.anchors:
+        return None
+    anchor = rig.anchors[bone]
+    frame = (
+        rest(f"{eid}/{rig.bodies.get(anchor.on) or _slot_path(eid, anchor.on, nodes)}")
+        if anchor.on is not None
+        else rest(eid)
+    )
+    return _apply(frame, anchor.offset)
+
+
+def named_point(scope: PointScope, eid: str, at: str) -> tuple[str, Any] | None:
+    """What ``eid@at`` names beyond a fraction or a bone: ``("landmark",
+    (slot, point))`` or ``("contact", (slot, point))`` (a landmark wins), else
+    ``None``."""
+    if not at:
+        return None
+    rig = scope.rig(eid)
+    if _numbers(at) is not None or (rig is not None and at in rig.anchors):
+        return None
+    landmark = scope.landmarks(eid).get(at)
+    if landmark is not None:
+        return ("landmark", landmark)
+    contact = scope.contacts(eid).get(at)
+    return ("contact", contact) if contact is not None else None
+
+
+def locate_point(ref: Any, scope: PointScope, *, side: str) -> Any:
+    """A body reference as the point it names: a :class:`NodePoint`, a world
+    ``Point`` (``world@x,y`` or ``[x, y]``), or the message saying why it
+    names none. The one resolver of ``body[@point]`` (an#519): the solve's
+    (:func:`build_puppet`, which puts the node on its bodies) and the
+    ``support`` check's (:mod:`an.stage.support`).
+
+    ``@point`` is a fraction ``u,v`` of the node's drawing, a bone of the rig,
+    a landmark (:attr:`an.genres.EntityKind.landmarks`), else a contact
+    (:func:`contact_point`). ``side`` says what no ``@`` means: ``"a"`` (and
+    ``"socket"``) the node's pivot, ``"b"`` the centre of its drawing,
+    ``"hand"`` the far end of it from its pivot (its end effector).
+
+    >>> from types import SimpleNamespace as NS
+    >>> nothing = PointScope({}, {}, lambda e: None, lambda e: {}, lambda e: {}, None)
+    >>> locate_point("world@3,4", nothing, side="a").u
+    3.0
+    >>> locate_point("ghost@hand", nothing, side="a")
+    "'ghost@hand': 'ghost' is not an entity of this shot"
+    """
+    from an.kinematics import WORLD, Point
+
+    if (
+        isinstance(ref, (list, tuple))
+        and len(ref) == 2
+        and all(isinstance(v, (int, float)) for v in ref)
+    ):
+        return Point(WORLD, float(ref[0]), float(ref[1]))
+    if not isinstance(ref, str):
+        return (
+            f"{ref!r} is not a body reference (`body[@point]`, `world@x,y`, or [x, y])"
+        )
+    head, _, at = ref.partition("@")
+    if head == WORLD_REF:
+        xy = _numbers(at)
+        if xy is None:
+            return f"{ref!r}: a stage point is `world@x,y`"
+        return Point(WORLD, *xy)
+    nodes = scope.nodes
+    eid = head.split("/", 1)[0]
+    if eid not in scope.entities:
+        return f"{ref!r}: {eid!r} is not an entity of this shot"
+    rig = scope.rig(eid)
+    named = named_point(scope, eid, at)
+    if named is not None:
+        kind, (slot, fraction) = named
+        if rig is None or slot not in rig.bodies:
+            return f"{ref!r}: {at!r} names part {slot!r}, which {eid!r} does not draw"
+        node_path = f"{eid}/{rig.bodies[slot]}"
+    else:
+        node_path = (
+            _slot_path(eid, head.split("/", 1)[1], nodes, rig) if "/" in head else head
+        )
+        # A bone named on an entity with several root parts (`ned@hand_r`)
+        # is a point of the part that bone carries: it needs no `ned/<part>`
+        # (with one root, the reference is that root's, as it always was).
+        carrier = (
+            _bone_carrier(rig, at)
+            if "/" not in head and rig is not None and len(rig.roots) > 1
+            else None
+        )
+        if carrier is not None:
+            node_path = f"{eid}/{rig.bodies[carrier]}"
+    if node_path not in nodes:
+        near = sorted(p for p in nodes if p.split("/", 1)[0] == eid)
+        return f"{ref!r}: no node {node_path!r}; {eid!r} has {near}"
+    if node_path == eid and rig is not None and rig.bodies:
+        roots = rig.roots
+        if len(roots) != 1:
+            return (
+                f"{ref!r}: {eid!r} has {len(roots)} root parts {list(roots)}; "
+                f"name the part (`{eid}/<part>`)"
+            )
+        node_path = f"{eid}/{rig.bodies[roots[0]]}"
+    node = nodes[node_path]
+    if named is not None:
+        if kind == "contact":
+            return NodePoint(eid, node_path, contact_point(node, fraction))
+        if fraction is None:  # a landmark at the part's far end: a hand
+            return NodePoint(
+                eid, node_path, end_effector(_local_box(node), _pivot(node)), end=True
+            )
+        return NodePoint(eid, node_path, contact_point(node, fraction))
+    if not at:
+        if side == "hand":
+            return NodePoint(
+                eid, node_path, end_effector(_local_box(node), _pivot(node)), end=True
+            )
+        if side in ("a", "socket"):
+            return NodePoint(eid, node_path, _pivot(node))
+        return NodePoint(eid, node_path, _centre(_local_box(node)))
+    xy = _numbers(at)
+    if xy is not None:
+        left, top, w, h = _local_box(node)
+        return NodePoint(eid, node_path, (left + xy[0] * w, top + xy[1] * h))
+    world = _anchor_rest(eid, at, rig, nodes, scope.rest)
+    if world is None:
+        known = sorted(rig.anchors) if rig is not None else []
+        named_points = sorted({*scope.landmarks(eid), *scope.contacts(eid)})
+        also = f", named points: {named_points}" if named_points else ""
+        return (
+            f"{ref!r}: {at!r} is not a bone of {eid!r} (bones: {known}{also}) "
+            "nor a fraction `u,v`"
+        )
+    return NodePoint(eid, node_path, rest_world=world)
 
 
 def _bone_carrier(rig: Any, bone: str) -> str | None:
@@ -1415,23 +1665,22 @@ def resolve_settings(shot: Shot, style_pack: Any, puppet: Puppet) -> Settings:
     )
 
 
-def frame_times(duration: float, *, fps: float, step_hz: float | None) -> list[float]:
-    """The instants the solve runs at: every frame (``k/fps``, the end
-    included), or the shot's step grid under ``step_hz``.
+def frame_times(
+    duration: float, *, fps: float, step_hz: float | None = None
+) -> list[float]:
+    """The instants the solve runs at: a thin wrapper over
+    :func:`an.frame_clock.grid_times` (every frame, or the shot's step grid
+    under ``step_hz``; the one grid rule, an#626) that only floors
+    ``duration`` at 1 ms, as every compile pass does. Kept for its callers.
 
     >>> frame_times(0.1, fps=20, step_hz=None)
     [0.0, 0.05, 0.1]
     >>> frame_times(0.25, fps=20, step_hz=10)
     [0.0, 0.1, 0.2, 0.25]
     """
-    duration = max(0.001, float(duration))
-    if step_hz:
-        from an.stage.compile import step_times
+    from an.frame_clock import grid_times  # the one grid rule (an#626)
 
-        return step_times(0.0, duration, step_hz)
-    from an.ir.camera import frame_times as every_frame  # the one frame grid
-
-    return every_frame(duration=duration, fps=fps)
+    return grid_times(max(0.001, float(duration)), fps=fps, step_hz=step_hz)
 
 
 @dataclass
@@ -1457,6 +1706,12 @@ class Run:
     #: per frame: the grips being led back (lost out of reach, walked back a
     #: step a frame, an#645); the report marks a dropped span that was (an#672)
     led: list[tuple[int, ...]] = field(default_factory=list)
+    #: per rejoin ``(frame, joint)`` of ``snaps``: how many frames it is
+    #: closed over (0: snapped shut in one; an#636, :class:`RejoinBlends`)
+    blends: dict[tuple[int, int], int] = field(default_factory=dict)
+    #: The largest scale any body, or the node it hangs from, is drawn at over
+    #: the run (an#636): what a solved channel's error is multiplied by.
+    max_scale: float = 1.0
     digest: str = ""
 
 
@@ -1516,6 +1771,7 @@ def run_solve(
     from an.kinematics.solver import (
         DFLT_REGRIP_SPEED,
         Regrip,
+        RejoinBlends,
         regrip_strength_by_mass,
         solve_regripping,
     )
@@ -1545,6 +1801,8 @@ def run_solve(
     joined_before: list[bool] | None = None
     frames_inputs: list[Any] = []
     regrip = Regrip()
+    blending = RejoinBlends(last=len(times) - 1)
+    run.blends = blending.started
     for k, t in enumerate(times):
         pose = evaluate_timeline(timeline, t)
         world = _world_matrices(doc, [*order, *extra_paths], pose, nodes)
@@ -1564,6 +1822,9 @@ def run_solve(
             )
             local_now[path] = (tr.x, tr.y, tr.rotation)
             geometry[path] = _geometry_at(world[path], tr.scale_x)
+            run.max_scale = max(
+                run.max_scale, _drawn_scale(geometry[path], tr.scale_x, tr.scale_y)
+            )
         run.local.append(local_now)
         run.geometry.append(geometry)
         flips = {p: geometry[p][2] != puppet.bodies[p].mirrored for p in order}
@@ -1687,9 +1948,14 @@ def run_solve(
             # A joint the AUTHOR joins again (a `join`, a verb's span opening),
             # not one a conflict gave up for a frame: that one is refused, and
             # unreachable_pin or joint_violation says so.
-            for j, (was, now) in enumerate(zip(joined_before, joined_now)):
-                if now and not was:
-                    run.snaps.append((k, j, _gap(current, joints[j])))
+            rejoined = [
+                (j, _gap(current, joints[j]))
+                for j, (was, now) in enumerate(zip(joined_before, joined_now))
+                if now and not was
+            ]
+            run.snaps += [(k, j, gap) for j, gap in rejoined]
+            # One within a blend's width closes over a few frames (an#636).
+            joints = blending.frame(k, joints, rejoined)
         options = dict(
             targets=targets or None,
             gravity=settings.gravity,
@@ -1975,14 +2241,7 @@ def _emit(
     clips: dict[str, list[Any]] = {}
     emitted: set[tuple[str, str]] = set()
     index = {prop: i for i, prop in enumerate(SOLVED_CHANNELS)}
-    reach = max(
-        1.0, sum(math.hypot(b.box[2], b.box[3]) for b in puppet.bodies.values())
-    )
-    tolerance = {
-        "x": SOLVED_KEY_TOLERANCE_PX,
-        "y": SOLVED_KEY_TOLERANCE_PX,
-        "rotation": SOLVED_KEY_TOLERANCE_PX / reach,
-    }
+    tolerance = solved_key_tolerances(puppet, scale=run.max_scale)
 
     def keyframes(vs: Sequence[float], prop: str) -> list[Any]:
         kept = compact_keys(
@@ -2175,7 +2434,13 @@ def _report(
         },
         "dropped": dropped,
         "snaps": [
-            {"joint": j, "at": r2(run.times[k]), "gap": r2(g)}
+            {
+                "joint": j,
+                "at": r2(run.times[k]),
+                "gap": r2(g),
+                "frame": k,
+                "blend": run.blends.get((k, j), 0),
+            }
             for k, j, g in run.snaps
             if puppet.rows[j].source != REACH_SOURCE  # a reach starts where the hand is
         ],

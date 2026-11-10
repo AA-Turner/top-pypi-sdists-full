@@ -199,6 +199,7 @@ class ParsedPage:
 
     @property
     def superseded_by(self) -> list[str]:
+        # Debt (K21): naming the field is sound; "a successor pointer means not current" repeats here.
         sb = self.frontmatter.get("superseded_by")
         if not sb:
             return []
@@ -206,6 +207,7 @@ class ParsedPage:
 
     @property
     def supersedes(self) -> list[str]:
+        # Debt (K21): naming the field is sound; "a successor pointer means not current" repeats here.
         sv = self.frontmatter.get("supersedes")
         if not sv:
             return []
@@ -521,6 +523,8 @@ class SemanticUnitHit:
     # omitted from every serializer rather than emitted as null.
     verdict: str | None = None
     check_by: str | None = None
+    as_of: str | None = None
+    until: str | None = None
     relation_match: dict[str, Any] | None = None
     bm25_rank: int | None = None
     bm25_score: float | None = None
@@ -562,6 +566,10 @@ class SemanticUnitHit:
             out["verdict"] = self.verdict
         if self.check_by is not None:
             out["check_by"] = self.check_by
+        if self.as_of is not None:
+            out["as_of"] = self.as_of
+        if self.until is not None:
+            out["until"] = self.until
         if self.parent_superseded_by:
             out["parent_superseded_by"] = self.parent_superseded_by
         if self.relation_match is not None:

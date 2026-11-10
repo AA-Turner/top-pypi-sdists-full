@@ -18,7 +18,7 @@ from jhora.horoscope.dhasa.graha import vimsottari
 from jhora.horoscope.dhasa.raasi import kalachakra
 from jhora.horoscope.dhasa.annual import patyayini
 from jhora.horoscope.transit.tajaka import annual_chart, both_planets_within_their_deeptamsa
-from jhora.horoscope.transit.saham import vivaha_saham_from_jd_place
+from jhora.horoscope.transit.saham import vivaha_saham
 
 # ---------- Config ----------
 _marriage_age_year_range = (20, 32)
@@ -240,7 +240,7 @@ def predict_marriage_windows_from_jd_place(
     )
 
     # Vimshottari segments (MD/AD time ranges)
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
 
     candidates = []
@@ -939,7 +939,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
     jd_years = drik.next_solar_date(jd, place, years=running_year)
 
     # Vivaha Saham (annual D1) from the annual instant (returns ABS longitude)
-    vs_abs_long = vivaha_saham_from_jd_place(jd_years, place, divisional_chart_factor=1)
+    vs_abs_long = vivaha_saham(jd_years, place)
     vs_sign, vs_lon_in_sign = drik.dasavarga_from_long(vs_abs_long)
 
     # Venus absolute longitude in annual D1
@@ -961,7 +961,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
     muntha_lord = house.house_owner_from_planet_positions(annual_pp_d1, muntha_sign)
 
     # Patyayini anchored at the SAME solar return instant
-    patyayini_raw = patyayini.get_dhasa_bhukthi(jd_years, place, divisional_chart_factor=1, chart_method=1)
+    patyayini_raw = patyayini.get_dhasa_antardhasa(jd_years, place, divisional_chart_factor=1, chart_method=1)
     patyayini_schedule = _expand_patyayini_schedule(patyayini_raw)              # sub-slices
     patyayini_major_schedule = _expand_patyayini_major_schedule(patyayini_raw)  # majors
 

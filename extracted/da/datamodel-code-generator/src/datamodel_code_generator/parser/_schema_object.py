@@ -24,8 +24,9 @@ from pydantic_core import core_schema
 from typing_extensions import override
 
 from datamodel_code_generator._json_schema import DEFINITION_KEYS, non_null_types, schema_positions
+from datamodel_code_generator._regex_syntax import read_pattern
 from datamodel_code_generator.parser._null_facts import NullSources, resolve_null_facts
-from datamodel_code_generator.parser._schema_graph import SCHEMA_GRAPH, canonical_ref_spelling, keep_resolved_ref
+from datamodel_code_generator.parser._schema_graph import SCHEMA_GRAPH, canonical_ref_spelling, validate_resolved_ref
 from datamodel_code_generator.parser.base import SPECIAL_PATH_FORMAT
 from datamodel_code_generator.reference import SCHEMA_LOCATION_KEY, is_url
 from datamodel_code_generator.types import FloatConstraint, UnionIntFloat  # noqa: TC001 - pydantic field types
@@ -43,14 +44,18 @@ if TYPE_CHECKING:
 
 __all__ = [
     "DEFAULT_FIELD_KEYS",
+    "EMPTY_ENUM_CONTEXT",
     "EXCLUDE_FIELD_KEYS",
     "EXCLUDE_FIELD_KEYS_IN_JSON_SCHEMA",
+    "IGNORED_REF_SIBLINGS_CONTEXT",
+    "PATTERN_READING_CONTEXT",
     "READ_UNEVALUATED_PROPERTIES_CONTEXT",
     "Discriminator",
     "JSONReference",
     "JsonSchemaLiteral",
     "JsonSchemaObject",
     "get_ref_type",
+    "reads_ref_alone",
 ]
 
 JsonSchemaLiteral = Union[bool, int, str]  # noqa: UP007
@@ -211,6 +216,9 @@ def _type_null_sources(obj: JsonSchemaObject) -> NullSources:
     """Return the null sources of a schema object without the answer ``JsonSchemaObject.type_has_null`` recorded."""
     type_ = _read_type(obj)
     is_list = isinstance(type_, list)
+    enum = obj.enum
+    extras = obj.extras
+    const_set = "const" in extras
     return NullSources(
         type_null=type_ == "null",
         type_list=is_list,
@@ -218,14 +226,18 @@ def _type_null_sources(obj: JsonSchemaObject) -> NullSources:
         type_lists_object=is_list and "object" in type_,
         typed=type_ is not None,
         type_string=type_ == "string",
-        member_null=any(
+        member_null=bool(obj.oneOf or obj.anyOf)
+        and any(
             isinstance(item, JsonSchemaObject)
             and (item.type == "null" or (isinstance(item.type, list) and "null" in item.type))
             for item in (*obj.oneOf, *obj.anyOf)
         ),
         nullable=obj.nullable,
         copied_nullable=bool(obj.__dict__.get(_COPIED_NULLABLE_KEY)),
-        enum_null=None in obj.enum,
+        enum_null=bool(enum) and None in enum,
+        enum_set=bool(enum),
+        const_set=const_set,
+        const_null=const_set and extras["const"] is None,
     )
 
 
@@ -256,6 +268,14 @@ _IN_PLACE_APPLICATOR_KEYWORDS: Final = frozenset({
 })
 """The keywords that apply a schema to the instance itself; ``then`` and ``else`` apply only through ``if``."""
 READ_UNEVALUATED_PROPERTIES_CONTEXT: Final = "read_unevaluated_properties"
+IGNORED_REF_SIBLINGS_CONTEXT: Final = "ignored_ref_siblings"
+"""The context key of ``--ignore-ref-siblings-by-schema-version``: whether a location's version ignores ``$ref``
+siblings."""
+EMPTY_ENUM_CONTEXT: Final = "empty_enum"
+"""The context key of the set that collects the location of each schema object whose ``enum`` lists no value."""
+PATTERN_READING_CONTEXT: Final = "pattern_reading"
+"""The context key of the regex engines of the output's models and the map that collects, by location, each
+``pattern`` that no engine compiles (``_regex_syntax.read_pattern``)."""
 
 
 _PROPERTY_EVALUATING_KEYWORDS: Final = frozenset({
@@ -268,6 +288,22 @@ _PROPERTY_EVALUATING_KEYWORDS: Final = frozenset({
 def _is_document_object(values: object) -> TypeIs[dict[str, Any]]:
     """Return whether ``values`` is a JSON object of a document the running parse loaded, not a dump or a merge."""
     return isinstance(values, dict) and (graph := SCHEMA_GRAPH.get()) is not None and id(values) in graph.locations
+
+
+def reads_ref_alone(values: object, context: Mapping[str, Any] | None) -> TypeIs[dict[str, Any]]:
+    """Return whether a JSON object of a loaded document is read as its ``$ref`` alone, without the keywords beside it.
+
+    Only under ``--ignore-ref-siblings-by-schema-version``, whose test of a location the parser passes in ``context``
+    (``IGNORED_REF_SIBLINGS_CONTEXT``), where the schema version of the object's document ignores them (draft 4, 6 and
+    7, OpenAPI 3.0, AsyncAPI 2).
+    """
+    return (
+        (ignores := (context or {}).get(IGNORED_REF_SIBLINGS_CONTEXT)) is not None
+        and _is_document_object(values)
+        and isinstance(values.get("$ref"), str)
+        and len(values) > 1
+        and ignores(_source_location(values))
+    )
 
 
 def _has_map_key_keywords(schema: JsonSchemaObject) -> bool:
@@ -395,6 +431,30 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
 
     @model_validator(mode="before")
     @classmethod
+    def read_pattern_as_the_engines_compile_it(cls, values: Any, info: ValidationInfo) -> Any:
+        """Write a schema's ``pattern`` as the regex engines of the output's models compile it (``read_pattern``).
+
+        The parser passes the engines in the validation context with the map that collects, by location, each pattern
+        no engine compiles, which is left out and reported after the schema parsing; a ``[`` inside a class that only
+        Rust leaves open is escaped. The decision reads the pattern's text alone. Only an object with a location is
+        read, a document object or the dump of one, so that a pattern is never left out unreported. It runs after the
+        validators that read the document object as written.
+        """
+        if (
+            (reading := (info.context or {}).get(PATTERN_READING_CONTEXT)) is None
+            or not isinstance(values, dict)
+            or not isinstance(pattern := values.get("pattern"), str)
+            or (read := read_pattern(pattern, reading[0])) == pattern
+            or (location := _source_location(values)) is None
+        ):
+            return values
+        if read is None:
+            reading[1].setdefault(location, pattern)
+            return _located({key: value for key, value in values.items() if key != "pattern"}, location)
+        return _located({**values, "pattern": read}, location)
+
+    @model_validator(mode="before")
+    @classmethod
     def read_unevaluated_properties_as_additional(cls, values: Any, info: ValidationInfo) -> Any:
         """Read a schema-valued ``unevaluatedProperties`` as ``additionalProperties`` when nothing applies in place.
 
@@ -421,6 +481,40 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
             return {**values, "unevaluatedProperties": False}
         return {**values, "additionalProperties": unevaluated_properties}
 
+    @model_validator(mode="before")
+    @classmethod
+    def collect_empty_enum(cls, values: Any, info: ValidationInfo) -> Any:
+        """Collect a schema object of a document whose ``enum`` lists no value, so that no value is valid against it.
+
+        The parser passes the set of their locations in the validation context (``EMPTY_ENUM_CONTEXT``) and reports
+        them after the schema parsing. The schema object of the document decides, as written: a dump or a merge the
+        parser validates again is not collected, nor an ``enum`` beside a ``$ref`` that
+        ``read_ref_alone_where_its_siblings_are_ignored``, which runs before it, leaves out.
+        """
+        if (
+            isinstance(values, dict)
+            and values.get("enum") == []
+            and (locations := (info.context or {}).get(EMPTY_ENUM_CONTEXT)) is not None
+            and _is_document_object(values)
+        ):
+            locations.add(_source_location(values))
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_ref_alone_where_its_siblings_are_ignored(cls, values: Any, info: ValidationInfo) -> Any:
+        """Read a ``$ref`` as its target alone where the schema version of its document ignores the keywords beside it.
+
+        Only under ``--ignore-ref-siblings-by-schema-version``, whose test of a location (draft 4, 6 and 7, OpenAPI
+        3.0, AsyncAPI 2) the parser passes in the validation context; nested schema objects are validated with the same
+        context. The schema object of the document decides, as written, so the keywords beside the ``$ref`` are left
+        out of it, annotations and extensions included, and the document keeps them for the JSON pointers that name
+        them. Defined last, it runs before the other validators and sees the document object.
+        """
+        if not reads_ref_alone(values, info.context):
+            return values
+        return _located({"$ref": values["$ref"]}, _source_location(values))
+
     @property
     def python_field_overrides(self) -> Mapping[str, str]:
         """Read only converter-owned replacement metadata."""
@@ -440,7 +534,7 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
     @classmethod
     def _keep_resolved_ref(cls, value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
         """Keep the edge of a reference keyword of a loaded document, also when validation normalizes its value."""
-        return keep_resolved_ref(value, handler(value))
+        return validate_resolved_ref(value, handler)
 
     @field_validator("required", mode="before")
     @classmethod
@@ -588,8 +682,18 @@ class JsonSchemaObject(BaseModel):  # noqa: PLR0904
 
     @cached_property
     def is_array(self) -> bool:
-        """Check if the schema represents an array type."""
-        return self.items is not None or self.prefixItems is not None or self.type == "array"
+        """Check if the schema represents an array type.
+
+        It does when ``array`` is its type, when it is among its types and items are given, or when no type is declared
+        but items are: items apply only to arrays, so beside other declared types they make no array.
+        """
+        has_items = self.items is not None or self.prefixItems is not None
+        match self.type:
+            case None:
+                return has_items
+            case str():
+                return self.type == "array"
+        return has_items and "array" in self.type
 
     @cached_property
     def ref_object_name(self) -> str:  # pragma: no cover

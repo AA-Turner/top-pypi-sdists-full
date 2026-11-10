@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class SharePointHomePageContext(ClientValue):
     ActiveFlights: Optional[StringCollection] = None
     AlternateWebAppHost: Optional[str] = None

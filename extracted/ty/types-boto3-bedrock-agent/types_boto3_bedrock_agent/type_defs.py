@@ -46,6 +46,7 @@ from .literals import (
     EmbeddingDataTypeType,
     EmbeddingModelTypeType,
     EnabledOrDisabledStateType,
+    FieldTypeType,
     FlowConnectionTypeType,
     FlowNodeInputCategoryType,
     FlowNodeIODataTypeType,
@@ -82,6 +83,7 @@ from .literals import (
     RetrievalInstructionFieldNameType,
     RetrievalInstructionLastTransitionStatusType,
     RetrievalInstructionStatusType,
+    SearchableStatusType,
     SharePointAuthTypeType,
     SortOrderType,
     TypeType,
@@ -397,6 +399,7 @@ __all__ = (
     "MetadataAttributeValueTypeDef",
     "MetadataConfigurationForRerankingOutputTypeDef",
     "MetadataConfigurationForRerankingTypeDef",
+    "MetadataConfigurationTypeDef",
     "MismatchedNodeInputTypeFlowValidationDetailsTypeDef",
     "MismatchedNodeOutputTypeFlowValidationDetailsTypeDef",
     "MissingConnectionConfigurationFlowValidationDetailsTypeDef",
@@ -1392,6 +1395,16 @@ class KnowledgeBaseSummaryTypeDef(TypedDict):
     status: KnowledgeBaseStatusType
     updatedAt: datetime
     description: NotRequired[str]
+
+
+MetadataConfigurationTypeDef = TypedDict(
+    "MetadataConfigurationTypeDef",
+    {
+        "name": str,
+        "type": FieldTypeType,
+        "searchability": SearchableStatusType,
+    },
+)
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -3835,6 +3848,7 @@ class KnowledgeBaseTypeDef(TypedDict):
     description: NotRequired[str]
     storageConfiguration: NotRequired[StorageConfigurationTypeDef]
     failureReasons: NotRequired[list[str]]
+    metadataConfigurations: NotRequired[list[MetadataConfigurationTypeDef]]
 
 
 KnowledgeBaseConfigurationUnionTypeDef = Union[
@@ -3946,6 +3960,7 @@ class UpdateKnowledgeBaseRequestTypeDef(TypedDict):
     knowledgeBaseConfiguration: KnowledgeBaseConfigurationUnionTypeDef
     description: NotRequired[str]
     storageConfiguration: NotRequired[StorageConfigurationTypeDef]
+    metadataConfigurations: NotRequired[Sequence[MetadataConfigurationTypeDef]]
 
 
 class PromptFlowNodeConfigurationOutputTypeDef(TypedDict):

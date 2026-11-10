@@ -5,22 +5,26 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 import requests
 
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity_collection import EntityCollection
 from office365.outlook.mail.attachments.attachment import Attachment
 from office365.outlook.mail.attachments.attachment_item import AttachmentItem
+from office365.outlook.quotas import OUTLOOK_UPLOAD
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.http.url import parse_query_param
+from office365.runtime.limits import limit
 from office365.runtime.odata.v4.upload_session import UploadSession
 from office365.runtime.odata.v4.upload_session_request import UploadSessionRequest
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.upload_session import UploadSessionQuery
+from office365.runtime.transfer import UPLOAD_CHUNK_DEFAULT, check_chunk_size
 
 if TYPE_CHECKING:
     from office365.graph_client import GraphClient
 
 
+@limit(OUTLOOK_UPLOAD)
 class AttachmentCollection(EntityCollection[Attachment]):
     """Attachment collection"""
 
@@ -77,10 +81,11 @@ class AttachmentCollection(EntityCollection[Attachment]):
             return_type.content_type = content_type
         return return_type
 
+    @require_permission(delegated=["Mail.ReadWrite"], application=["Mail.ReadWrite"])
     def resumable_upload(
         self,
         source_path: str,
-        chunk_size: int = 1000000,
+        chunk_size: int = UPLOAD_CHUNK_DEFAULT,
         chunk_uploaded: Callable[[int], None] | None = None,
     ):
         """Create an upload session to allow your app to upload files up to the maximum file size.
@@ -89,9 +94,13 @@ class AttachmentCollection(EntityCollection[Attachment]):
 
         Args:
             source_path (str): Local file path
-            chunk_size (int): File chunk size
+            chunk_size (int): bytes per chunk; positive multiple of 320 KiB, at most 60 MiB (default 10 MiB)
             chunk_uploaded ((int)->None): Upload action
+
+        Raises:
+            ValueError: If ``chunk_size`` is not a positive multiple of 320 KiB or exceeds 60 MiB.
         """
+        check_chunk_size(chunk_size)
         from office365.outlook.mail.attachments.attachment_item import AttachmentItem
         from office365.outlook.mail.attachments.file import FileAttachment
 
@@ -108,7 +117,7 @@ class AttachmentCollection(EntityCollection[Attachment]):
                     auth_token = parse_query_param(request.url, "authtoken")
                     request.set_header("Authorization", f"Bearer {auth_token}")
 
-                def _process_response(response: requests.Response) -> None:
+                def _handle_response(response: requests.Response) -> None:
                     location = response.headers.get("Location", None)
                     if location is None:
                         return
@@ -116,7 +125,7 @@ class AttachmentCollection(EntityCollection[Attachment]):
                     return_type.set_property("id", attachment_id)
 
                 session_request.beforeExecute += _construct_request
-                session_request.afterExecute += _process_response
+                session_request.afterExecute += _handle_response
                 session_request.execute_query(qry)
 
         self.context.add_query(qry).after_execute(_start_upload, execute_first=True)

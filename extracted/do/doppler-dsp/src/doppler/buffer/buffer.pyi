@@ -1,5 +1,6 @@
 # buffer/buffer.pyi — type stubs for the buffer C extension.
 from typing import Any, final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -915,6 +916,13 @@ class I16Buffer:
         NDArray[Any]
             Zero-copy view of the next ``n`` samples, one record each.
 
+            One row per `dp_iq16_t` record, with fields:
+
+            i : int
+                In-phase component.
+            q : int
+                Quadrature component.
+
         Raises
         ------
         EOFError
@@ -976,6 +984,13 @@ class I16Buffer:
             Zero-copy view of the next ``n`` samples, or ``None`` when fewer
             than ``n`` have been written so far. None when the C call lends
             nothing (returns NULL) and its status has no exception row.
+
+            One row per `dp_iq16_t` record, with fields:
+
+            i : int
+                In-phase component.
+            q : int
+                Quadrature component.
 
         Raises
         ------

@@ -22,6 +22,7 @@ from nab_provider.policy import (
     DecisionOrder,
     DistPolicy,
     LocalSource,
+    MetadataPolicy,
     ResolutionStrategy,
     VcsSource,
 )
@@ -41,6 +42,7 @@ _INNER_FORWARDS = frozenset(
         "decision_order",
         "index_overrides",
         "indexes",
+        "metadata_policy",
         "package_overrides",
         "uploaded_prior_to",
     }
@@ -54,6 +56,7 @@ _INNER_DROPS = frozenset(
     {
         "archive_sources",
         "assume_universal_deps",
+        "assume_consistent_metadata",
         "base_group",
         "build_group",
         "build_requires_depth",
@@ -85,15 +88,17 @@ def _inputs_off_every_default(tmp_path: Path) -> ResolveInputs:
             ArchiveSource("blob", "https://example.invalid/b-1.0.tar.gz"),
         ),
         assume_universal_deps=True,
+        assume_consistent_metadata=True,
         base_group="project",
         build_group="build",
         build_policy=BuildPolicy.BUILD_REMOTE,
         build_requires_depth=1,
         conflicts=(ConflictSet(members=(ConflictMember(ConflictKind.EXTRA, "cpu"),)),),
         constraints=("setuptools<70",),
-        decision_order=DecisionOrder.STABLE,
+        decision_order=DecisionOrder.ARRIVAL,
         default_groups=("dev",),
         dist_policy=DistPolicy.SDIST_ONLY,
+        metadata_policy=MetadataPolicy.PREFER_WHEEL,
         index_overrides={
             "internal": IndexOverride(
                 uploaded_prior_to=_CUTOFF, build_policy=BuildPolicy.BUILD_REMOTE

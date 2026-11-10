@@ -83,17 +83,26 @@ def _render_fallback(fallback: str, context: dict[str, Any]) -> str:
         return _DEFAULT_FALLBACK_HTML
     try:
         from django.template.loader import render_to_string
+
+        from .._include_guard import include_guard_scope
     except ImportError:  # pragma: no cover — Django is always present in runtime
         logger.debug("dj_suspense: Django not available, falling back to default spinner")
         return _DEFAULT_FALLBACK_HTML
     try:
-        rendered: str = render_to_string(fallback, context)
+        with include_guard_scope():
+            rendered: str = render_to_string(fallback, context)
         return rendered
     except Exception as exc:  # noqa: BLE001 — fallback gracefully on template errors
-        logger.warning(
+        from .._exposure_diagnostics import log_failure
+
+        # A template error can quote the context it was rendering.
+        log_failure(
+            logger,
+            exc,
             "dj_suspense: failed to render fallback template %s: %s",
             fallback,
             exc,
+            level="warning",
         )
         return _DEFAULT_FALLBACK_HTML
 

@@ -466,7 +466,7 @@ ERROR_SUGGESTIONS = {
         "Try a different time period",
         "Some companies (funds, REITs) have different statement formats"
     ],
-    "NoCompanyFactsFound": [
+    "CompanyFactsNotFoundError": [
         "This company may not have XBRL data available",
         "Try using edgar_read to access raw filing text instead",
         "Some companies (especially foreign filers) lack XBRL facts"
@@ -498,10 +498,11 @@ ERROR_SUGGESTIONS = {
     ],
     "SSLVerificationError": [
         "SSL certificate verification failed",
-        "Try: from edgar import configure_http; configure_http(use_system_certs=True)",
+        "edgartools verifies against the OS certificate store: add your corporate root CA there, "
+        "or point SSL_CERT_FILE at a CA bundle that holds it",
         "This is common in corporate networks with SSL inspection"
     ],
-    "IdentityNotSetException": [
+    "IdentityNotSetError": [
         "SEC requires identification for API requests",
         "Set the EDGAR_IDENTITY environment variable: export EDGAR_IDENTITY='Your Name your@email.com'",
         "Or configure it in your MCP client's env settings"
@@ -511,7 +512,7 @@ ERROR_SUGGESTIONS = {
         "Set EDGAR_IDENTITY environment variable: export EDGAR_IDENTITY='Your Name your@email.com'",
         "Ensure the identity includes both a name and email address"
     ],
-    "SECFilingNotFoundError": [
+    "FilingNotFoundError": [
         "The requested SEC filing was not found",
         "Double-check the accession number format",
         "The filing may have been removed or the URL may be incorrect"
@@ -578,7 +579,7 @@ def classify_error(exc: Exception) -> dict[str, Any]:
             return {
                 "error_code": "IDENTITY_NOT_SET",
                 "message": "SEC identity not configured. Set the EDGAR_IDENTITY environment variable.",
-                "suggestions": ERROR_SUGGESTIONS["IdentityNotSetException"],
+                "suggestions": ERROR_SUGGESTIONS["IdentityNotSetError"],
             }
     except ImportError:
         pass
@@ -611,7 +612,7 @@ def classify_error(exc: Exception) -> dict[str, Any]:
             return {
                 "error_code": "NO_FACTS_DATA",
                 "message": getattr(exc, 'message', str(exc)),
-                "suggestions": ERROR_SUGGESTIONS["NoCompanyFactsFound"],
+                "suggestions": ERROR_SUGGESTIONS["CompanyFactsNotFoundError"],
             }
     except ImportError:
         pass
@@ -633,14 +634,14 @@ def classify_error(exc: Exception) -> dict[str, Any]:
             return {
                 "error_code": "FILING_NOT_FOUND",
                 "message": f"SEC filing not found: {exc}",
-                "suggestions": ERROR_SUGGESTIONS["SECFilingNotFoundError"],
+                "suggestions": ERROR_SUGGESTIONS["FilingNotFoundError"],
             }
     except ImportError:
         pass
 
-    # --- httpx exceptions ---
+    # --- httpx2 exceptions ---
     try:
-        from httpx import TimeoutException
+        from httpx2 import TimeoutException
         if isinstance(exc, TimeoutException):
             return {
                 "error_code": "NETWORK_TIMEOUT",
@@ -651,7 +652,7 @@ def classify_error(exc: Exception) -> dict[str, Any]:
         pass
 
     try:
-        from httpx import ConnectError
+        from httpx2 import ConnectError
         if isinstance(exc, ConnectError):
             return {
                 "error_code": "NETWORK_CONNECTION",
@@ -662,7 +663,7 @@ def classify_error(exc: Exception) -> dict[str, Any]:
         pass
 
     try:
-        from httpx import HTTPStatusError
+        from httpx2 import HTTPStatusError
         if isinstance(exc, HTTPStatusError):
             status = exc.response.status_code
             if status == 404:
@@ -687,9 +688,9 @@ def classify_error(exc: Exception) -> dict[str, Any]:
         pass
 
     # --- The same failures, in the wrapped era ---
-    # Under EDGARTOOLS_STRICT_ERRORS (and unconditionally in 6.0) the network
-    # boundary raises TransportError instead of the httpx types above, so this
-    # block has to answer the same questions the httpx blocks just did. It sits
+    # Since 6.0 the network boundary raises TransportError instead of the httpx2
+    # types above, so this block has to answer the same questions the httpx2
+    # blocks just did. It sits
     # last among the transport checks because TooManyRequestsError,
     # SSLVerificationError and IdentityNotSetError are all TransportError
     # subclasses and each has its own, better answer earlier in this function.

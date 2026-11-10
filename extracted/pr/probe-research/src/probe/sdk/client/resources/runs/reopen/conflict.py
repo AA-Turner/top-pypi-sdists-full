@@ -12,6 +12,7 @@ from ..... import agent_session
 
 from ..... import errors
 from ......foundation.process_rank import read_process_rank
+from ......foundation.safe_warn import safe_warn as _diagnostics
 
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
@@ -67,6 +68,28 @@ def _repin_bracket_lease(run_id: str, write_epoch: object) -> None:
             run_lock.touch_lease(str(run_id), write_epoch=int(write_epoch))
     except Exception:  # noqa: BLE001 -- best-effort, like the lease tier itself
         pass
+
+
+#: `detail.code` on a run create's 409 when a run in ANOTHER project holds the (source, external_id): it
+#: names no run, so nothing resumes or rewinds a stranger's (twin: app/runs/lifecycle/create.py).
+EXTERNAL_ID_IN_OTHER_PROJECT = "external_id_in_other_project"
+#: Keys whose "held in another project" warning this process already showed.
+_WARNED_KEYS: set[str] = set()
+
+
+def is_key_in_other_project(exc: BaseException) -> bool:
+    """A run create's 409 said another project's run holds the key (and named no run)."""
+    detail = getattr(exc, "detail", None)
+    return isinstance(exc, errors.ConflictError) and isinstance(detail, dict) and (
+        detail.get("code") == EXTERNAL_ID_IN_OTHER_PROJECT)
+
+
+def is_filed_in(row: dict, project_id: str | None) -> bool:
+    """Whether a run sits in ``project_id``: its project (an experiment's run reads its project), or the
+    experiment itself when an experiment's id was passed as the project. True when nothing was asked."""
+    if project_id is None:
+        return True
+    return str(project_id) in {str(row.get("project_id")), str(row.get("experiment_id"))}
 
 
 #: SDK reliability 2.8: the server takes per-writer leases (0271).
@@ -125,9 +148,12 @@ class ReopenConflictMixin:
         *,
         experiment_id: str | None,
         project_id: str | None,
+        home_project_id: str | None = None,
         max_attempts: int = 5,
     ) -> Run:
-        """``create()``, except an external_id 409 is resolved by policy.
+        """``create()``, except an external_id 409 is resolved by policy. ``home_project_id`` is the project
+        the run opens in (an experiment's project): an incumbent outside it is never resumed, rewound or
+        superseded; the run opens fresh with no key instead (`_open_without_key`).
 
         RESUME reopens the incumbent in place — same identity, same curve —
         which is only honest when the relaunch continues from a checkpoint;
@@ -144,6 +170,8 @@ class ReopenConflictMixin:
             base = run_kw.get("external_id")
             if on_conflict == "error" or base is None:
                 raise
+            if is_key_in_other_project(conflict):
+                return self._open_without_key(create, run_kw, name)
             existing_id = conflict.existing_id
         old = None
         if existing_id:
@@ -171,6 +199,9 @@ class ReopenConflictMixin:
                 f"run {base!r} conflicts but its incumbent is not visible "
                 "here — resolve the collision by hand",
             )
+        if not is_filed_in(old, home_project_id):
+            # An older server names the key's run in any project: a stranger's, never ours to reopen.
+            return self._open_without_key(create, run_kw, name)
         status = old.get("status")
         if isinstance(on_conflict, Rewind):
             # Rewind: `completed` is ALLOWED (naming the step is the consent); a live writer still refuses.
@@ -220,8 +251,9 @@ class ReopenConflictMixin:
                 # declared it: stored as observed, not as a person's claim.
                 parent_provenance="observed_call",
             )
-            if name == base and retry_kw.get("authored_by") is None:
-                # `retry_id` is SDK-composed (`<base>-r2`): it declares itself unless the caller did (DESIGN.md).
+            if name == base and retry_kw.get("authored_by") is None and not retry_kw.get("description"):
+                # `retry_id` is SDK-composed (`<base>-r2`): it declares itself unless the caller did, or a
+                # description (someone's words) rides along (DESIGN.md).
                 retry_kw["authored_by"] = agent_session.AUTHORSHIP_AGENT
             try:
                 run = create(retry_kw, retry_id if name == base else name)
@@ -243,6 +275,18 @@ class ReopenConflictMixin:
             # finish barrier (it carries the OLD run's run_ref). DESIGN.md.
             self.send("PATCH", path_for(WriteOp.RUN_PATCH, old['id']), {"tags": tags})
         return run
+
+    @staticmethod
+    def _open_without_key(create, run_kw: dict, name: str) -> Run:
+        """The key's run is in another project: this run opens fresh, keyless, so no relaunch can find it."""
+        base = str(run_kw.get("external_id"))
+        if base not in _WARNED_KEYS:
+            _WARNED_KEYS.add(base)
+            _diagnostics.warn(
+                f"probe: a run with this key ({base}) exists in another project; this run starts fresh and "
+                "cannot be resumed by key."
+            )
+        return create({key: value for key, value in run_kw.items() if key != "external_id"}, name)
 
     @staticmethod
     def _attached_owns_verdict(row: dict) -> bool:

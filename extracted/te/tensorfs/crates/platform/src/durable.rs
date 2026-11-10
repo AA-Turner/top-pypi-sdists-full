@@ -13,7 +13,9 @@ use std::{
 };
 
 mod disk;
-pub use disk::{DiskClass, Filesystem, cached, cached_runs, filesystem, open_direct, page_size, will_need};
+mod soon;
+pub use disk::{DiskClass, Filesystem, cached, cached_pages, cached_runs, filesystem, open_direct, page_size, renames_after_data, will_need};
+pub use soon::soon;
 
 static TEMPS: AtomicU64 = AtomicU64::new(0);
 
@@ -47,11 +49,38 @@ pub fn rename_over(from: &Path, to: &Path) -> io::Result<()> {
     fs::rename(from, to)
 }
 
+/// Puts a copy of the program `new` at `target`, with `target`'s permissions, also while `target`
+/// runs: the running process keeps its old file. On Windows, where a running program's file can be
+/// renamed but not removed, the old one moves aside to `.<name>.old` until the next replacement.
+pub fn replace_program(target: &Path, new: &Path) -> io::Result<()> {
+    let name = target.file_name().unwrap_or_default().to_string_lossy();
+    let temp = target.with_file_name(format!(".{name}.swap"));
+    let placed = (|| {
+        fs::copy(new, &temp)?;
+        if let Ok(meta) = fs::metadata(target) {
+            fs::set_permissions(&temp, meta.permissions())?;
+        }
+        if cfg!(windows) {
+            let aside = target.with_file_name(format!(".{name}.old"));
+            match fs::remove_file(&aside) {
+                Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(error),
+                _ => {}
+            }
+            rename_over(target, &aside)?;
+        }
+        rename_over(&temp, target)
+    })();
+    if placed.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    placed
+}
+
 /// Replaces `path` with `bytes`: a reader sees the old file or the new one, never a part, and after
 /// this returns a crash keeps the new one. `mode` is the Unix permission; Windows keeps the
 /// profile's ACL, and has no directory to sync: the rename is atomic in NTFS's journal.
 pub fn replace(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
-    renamed(path, bytes, mode, true)?;
+    renamed(path, bytes, mode, Flush::Durable)?;
     sync_dir(
         path.parent()
             .filter(|dir| !dir.as_os_str().is_empty())
@@ -62,11 +91,17 @@ pub fn replace(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
 /// As `replace`, but nothing is made to survive a crash: for a record of a live process, which a
 /// crash makes stale anyway. It never waits on the disk's write-back.
 pub fn swap(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
-    renamed(path, bytes, mode, false)
+    renamed(path, bytes, mode, Flush::Not)
 }
 
-/// Writes `bytes` beside `path` and renames them over it, flushed first when `durable`.
-fn renamed(path: &Path, bytes: &[u8], mode: u32, durable: bool) -> Result<()> {
+enum Flush {
+    Durable,
+    Ordered,
+    Not,
+}
+
+/// Writes `bytes` beside `path` and renames them over it, flushed first as `flush` says.
+fn renamed(path: &Path, bytes: &[u8], mode: u32, flush: Flush) -> Result<()> {
     let dir = match path.parent() {
         Some(dir) if !dir.as_os_str().is_empty() => dir,
         _ => Path::new("."),
@@ -92,7 +127,11 @@ fn renamed(path: &Path, bytes: &[u8], mode: u32, durable: bool) -> Result<()> {
     let written = file
         .write_all(bytes)
         .and_then(|()| set_file_mode(&file, mode).map_err(io::Error::from))
-        .and_then(|()| if durable { file.sync_all() } else { Ok(()) })
+        .and_then(|()| match flush {
+            Flush::Durable => file.sync_all(),
+            Flush::Ordered => ordered(&file),
+            Flush::Not => Ok(()),
+        })
         .map_err(Error::io("write", &temp));
     drop(file);
     let renamed = written.and_then(|()| rename_over(&temp, path).map_err(Error::io("rename", path)));
@@ -100,6 +139,76 @@ fn renamed(path: &Path, bytes: &[u8], mode: u32, durable: bool) -> Result<()> {
         let _ = fs::remove_file(&temp);
     }
     renamed
+}
+
+/// Writes `file`'s bytes to the disk and waits for those alone, so a name given it after can't
+/// name what isn't there: on Linux not for a journal commit, which waits for every file's.
+/// Elsewhere a flush. `soon` makes the file durable.
+pub fn ordered(file: &File) -> io::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::AsRawFd;
+        let all = libc::SYNC_FILE_RANGE_WAIT_BEFORE | libc::SYNC_FILE_RANGE_WRITE | libc::SYNC_FILE_RANGE_WAIT_AFTER;
+        // SAFETY: a descriptor this owns, and scalars.
+        match unsafe { libc::sync_file_range(file.as_raw_fd(), 0, 0, all) } {
+            0 => Ok(()),
+            _ => Err(io::Error::last_os_error()),
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    file.sync_data()
+}
+
+/// Paces a bulk writer to the disk: each `Paced::WINDOW` it writes starts for the disk at once,
+/// and the one before it is waited for, so at most two of its windows are ever unwritten. ext4
+/// commits its journal with every file's data in it: unpaced, a download leaves gigabytes for any
+/// fsync to wait behind, and its own last flush takes as long. Linux only; elsewhere nothing.
+#[derive(Default)]
+pub struct Paced {
+    /// Written, not yet started.
+    open: Option<(u64, u64)>,
+    /// Started, not yet waited for.
+    started: Option<(u64, u64)>,
+}
+
+impl Paced {
+    pub(crate) const WINDOW: u64 = 8 << 20;
+
+    /// `len` bytes were just written to `file` at `offset`.
+    pub fn wrote(&mut self, file: &File, offset: u64, len: u64) {
+        let start = match self.open {
+            Some((start, end)) if end == offset => start,
+            _ => {
+                self.start(file);
+                offset
+            }
+        };
+        self.open = Some((start, offset + len));
+        if offset + len - start >= Self::WINDOW {
+            self.start(file);
+        }
+    }
+
+    fn start(&mut self, file: &File) {
+        let Some(open) = self.open.take() else { return };
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::fd::AsRawFd;
+            let range = |(start, end): (u64, u64)| (start as libc::off64_t, (end - start) as libc::off64_t);
+            let (fd, write) = (file.as_raw_fd(), libc::SYNC_FILE_RANGE_WRITE);
+            let wait = libc::SYNC_FILE_RANGE_WAIT_BEFORE | write | libc::SYNC_FILE_RANGE_WAIT_AFTER;
+            let ((at, len), before) = (range(open), self.started.replace(open).map(range));
+            // SAFETY: a descriptor the caller holds, and scalars. Pacing is advice: a failure changes nothing written.
+            unsafe {
+                libc::sync_file_range(fd, at, len, write);
+                if let Some((at, len)) = before {
+                    libc::sync_file_range(fd, at, len, wait);
+                }
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        let _ = (file, self.started.replace(open));
+    }
 }
 
 /// Makes the entries of `dir` (a create, rename or unlink in it) survive a crash.
@@ -215,6 +324,7 @@ impl Mode for OpenOptions {
     }
 }
 
+/// Sets a path's permission bits; a no-op on Windows, which keeps an ACL instead.
 pub fn set_mode(path: &Path, mode: u32) -> Result<()> {
     #[cfg(unix)]
     {
@@ -226,6 +336,7 @@ pub fn set_mode(path: &Path, mode: u32) -> Result<()> {
     Ok(())
 }
 
+/// Sets an open file's permission bits; a no-op on Windows.
 pub fn set_file_mode(file: &File, mode: u32) -> Result<()> {
     #[cfg(unix)]
     {
@@ -250,41 +361,6 @@ pub fn mode(metadata: &Metadata) -> Option<u32> {
     }
 }
 
-/// Who a file belongs to: uid and gid on Unix; on Windows every file is the profile's.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Owner {
-    #[cfg(unix)]
-    uid: u32,
-    #[cfg(unix)]
-    gid: u32,
-}
-
-impl Owner {
-    pub fn of(metadata: &Metadata) -> Owner {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            Owner {
-                uid: metadata.uid(),
-                gid: metadata.gid(),
-            }
-        }
-        #[cfg(windows)]
-        {
-            let _ = metadata;
-            Owner {}
-        }
-    }
-
-    pub fn assign(self, file: &File) -> Result<()> {
-        #[cfg(unix)]
-        std::os::unix::fs::fchown(file, Some(self.uid), Some(self.gid))?;
-        #[cfg(windows)]
-        let _ = file;
-        Ok(())
-    }
-}
-
 /// One file's identity: device and inode, or volume serial and file index.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct FileId {
@@ -293,6 +369,7 @@ pub struct FileId {
 }
 
 impl FileId {
+    /// The identity of an open file.
     pub fn of(file: &File) -> Result<FileId> {
         #[cfg(unix)]
         {
@@ -304,8 +381,7 @@ impl FileId {
             use windows_sys::Win32::Storage::FileSystem::{
                 BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
             };
-            // SAFETY: plain-old-data; all-zero is a valid value.
-            let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+            let mut info = BY_HANDLE_FILE_INFORMATION::default();
             // SAFETY: a handle this File owns and keeps open, and the struct the call fills.
             if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
                 return Err(io::Error::last_os_error().into());
@@ -367,35 +443,6 @@ pub fn device(path: &Path) -> Result<u64> {
     }
 }
 
-/// Sizes `file` to `len` as a hole: writes fill it in any order and only what they write takes
-/// disk. Unix files are sparse already; NTFS allocates a grown file whole unless marked sparse.
-pub fn set_sparse_len(file: &File, len: u64) -> Result<()> {
-    #[cfg(windows)]
-    {
-        use std::os::windows::io::AsRawHandle;
-        use windows_sys::Win32::System::{IO::DeviceIoControl, Ioctl::FSCTL_SET_SPARSE};
-        let mut returned = 0u32;
-        // SAFETY: no buffers in or out, on a handle this File owns.
-        let ok = unsafe {
-            DeviceIoControl(
-                file.as_raw_handle(),
-                FSCTL_SET_SPARSE,
-                std::ptr::null(),
-                0,
-                std::ptr::null_mut(),
-                0,
-                &mut returned,
-                std::ptr::null_mut(),
-            )
-        };
-        if ok == 0 {
-            return Err(io::Error::last_os_error().into());
-        }
-    }
-    file.set_len(len)?;
-    Ok(())
-}
-
 /// Hard links to the file `path` names itself, a symlink not followed: unlinking one of several
 /// frees nothing.
 pub fn links(path: &Path) -> Result<u64> {
@@ -408,8 +455,7 @@ pub fn links(path: &Path) -> Result<u64> {
             BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
         };
         let file = itself(path)?;
-        // SAFETY: plain-old-data; all-zero is a valid value.
-        let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+        let mut info = BY_HANDLE_FILE_INFORMATION::default();
         // SAFETY: a handle this File owns and keeps open, and the struct the call fills.
         if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
             return Err(io::Error::last_os_error().into());
@@ -454,8 +500,7 @@ pub fn changed(path: &Path) -> Result<std::time::SystemTime> {
             FILE_BASIC_INFO, FileBasicInfo, GetFileInformationByHandleEx,
         };
         let file = itself(path)?;
-        // SAFETY: plain-old-data; all-zero is a valid value.
-        let mut info: FILE_BASIC_INFO = unsafe { std::mem::zeroed() };
+        let mut info = FILE_BASIC_INFO::default();
         let size = std::mem::size_of::<FILE_BASIC_INFO>() as u32;
         // SAFETY: a handle this File owns and keeps open; FileBasicInfo fills a FILE_BASIC_INFO,
         // and `size` is that struct's size.
@@ -568,7 +613,7 @@ fn keep_cursor(
 
 /// Makes a file's bytes survive a crash, by name. Unix syncs through any descriptor; Windows'
 /// `FlushFileBuffers` needs a writable handle.
-pub fn sync_file(path: &Path) -> Result<()> {
+pub(crate) fn sync_file(path: &Path) -> Result<()> {
     #[cfg(unix)]
     File::open(path)?.sync_data()?;
     // A directory has nothing to flush on Windows: NTFS journals its entries.
@@ -577,29 +622,6 @@ pub fn sync_file(path: &Path) -> Result<()> {
         OpenOptions::new().write(true).open(path)?.sync_data()?;
     }
     Ok(())
-}
-
-/// Opens a small record another process may be replacing or deleting right now. Windows
-/// answers an open that races a rename or a delete with access denied: the open is asked
-/// again while the name keeps changing, and a refusal of an unchanged name stands; a name that
-/// no longer identifies is gone.
-pub fn open_racing(path: &Path) -> io::Result<File> {
-    let mut refused: Option<FileId> = None;
-    loop {
-        match File::open(path) {
-            Err(error) if cfg!(windows) && error.kind() == io::ErrorKind::PermissionDenied => {
-                // A name that cannot even be identified is a delete in flight.
-                let Ok(now) = FileId::at(path) else {
-                    return Err(io::ErrorKind::NotFound.into());
-                };
-                if refused == Some(now) {
-                    return Err(error);
-                }
-                refused = Some(now);
-            }
-            opened => return opened,
-        }
-    }
 }
 
 /// The filesystem is full, or this user's quota is.
@@ -620,6 +642,7 @@ pub struct Space {
     pub free_inodes: u64,
 }
 
+/// The [`Space`] of the filesystem holding `path`; `free` counts only what this user may write.
 pub fn space(path: &Path) -> Result<Space> {
     #[cfg(unix)]
     {

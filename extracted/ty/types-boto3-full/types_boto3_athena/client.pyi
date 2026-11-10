@@ -32,6 +32,7 @@ from .paginator import (
     ListDataCatalogsPaginator,
     ListNamedQueriesPaginator,
     ListQueryExecutionsPaginator,
+    ListSystemTableStatusesPaginator,
     ListTableMetadataPaginator,
     ListTagsForResourcePaginator,
 )
@@ -53,6 +54,8 @@ from .type_defs import (
     CreatePreparedStatementInputTypeDef,
     CreatePresignedNotebookUrlRequestTypeDef,
     CreatePresignedNotebookUrlResponseTypeDef,
+    CreateSystemTableConfigurationInputTypeDef,
+    CreateSystemTableConfigurationOutputTypeDef,
     CreateWorkGroupInputTypeDef,
     DeleteCapacityReservationInputTypeDef,
     DeleteDataCatalogInputTypeDef,
@@ -60,6 +63,7 @@ from .type_defs import (
     DeleteNamedQueryInputTypeDef,
     DeleteNotebookInputTypeDef,
     DeletePreparedStatementInputTypeDef,
+    DeleteSystemTableConfigurationInputTypeDef,
     DeleteWorkGroupInputTypeDef,
     ExportNotebookInputTypeDef,
     ExportNotebookOutputTypeDef,
@@ -97,6 +101,8 @@ from .type_defs import (
     GetSessionResponseTypeDef,
     GetSessionStatusRequestTypeDef,
     GetSessionStatusResponseTypeDef,
+    GetSystemTableConfigurationInputTypeDef,
+    GetSystemTableConfigurationOutputTypeDef,
     GetTableMetadataInputTypeDef,
     GetTableMetadataOutputTypeDef,
     GetWorkGroupInputTypeDef,
@@ -129,6 +135,8 @@ from .type_defs import (
     ListQueryExecutionsOutputTypeDef,
     ListSessionsRequestTypeDef,
     ListSessionsResponseTypeDef,
+    ListSystemTableStatusesInputTypeDef,
+    ListSystemTableStatusesOutputTypeDef,
     ListTableMetadataInputTypeDef,
     ListTableMetadataOutputTypeDef,
     ListTagsForResourceInputTypeDef,
@@ -155,6 +163,8 @@ from .type_defs import (
     UpdateNotebookInputTypeDef,
     UpdateNotebookMetadataInputTypeDef,
     UpdatePreparedStatementInputTypeDef,
+    UpdateSystemTableConfigurationInputTypeDef,
+    UpdateSystemTableConfigurationOutputTypeDef,
     UpdateWorkGroupInputTypeDef,
 )
 
@@ -314,6 +324,16 @@ class AthenaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#create_presigned_notebook_url)
         """
 
+    def create_system_table_configuration(
+        self, **kwargs: Unpack[CreateSystemTableConfigurationInputTypeDef]
+    ) -> CreateSystemTableConfigurationOutputTypeDef:
+        """
+        Enables system tables for the current account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/create_system_table_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#create_system_table_configuration)
+        """
+
     def create_work_group(self, **kwargs: Unpack[CreateWorkGroupInputTypeDef]) -> dict[str, Any]:
         """
         Creates a workgroup with the specified name.
@@ -368,6 +388,17 @@ class AthenaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/delete_prepared_statement.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#delete_prepared_statement)
+        """
+
+    def delete_system_table_configuration(
+        self, **kwargs: Unpack[DeleteSystemTableConfigurationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables system tables for the current account by deleting the account-level
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/delete_system_table_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#delete_system_table_configuration)
         """
 
     def delete_work_group(self, **kwargs: Unpack[DeleteWorkGroupInputTypeDef]) -> dict[str, Any]:
@@ -561,6 +592,16 @@ class AthenaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#get_session_status)
         """
 
+    def get_system_table_configuration(
+        self, **kwargs: Unpack[GetSystemTableConfigurationInputTypeDef]
+    ) -> GetSystemTableConfigurationOutputTypeDef:
+        """
+        Returns the account-level system tables configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_system_table_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#get_system_table_configuration)
+        """
+
     def get_table_metadata(
         self, **kwargs: Unpack[GetTableMetadataInputTypeDef]
     ) -> GetTableMetadataOutputTypeDef:
@@ -728,6 +769,17 @@ class AthenaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/list_sessions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#list_sessions)
+        """
+
+    def list_system_table_statuses(
+        self, **kwargs: Unpack[ListSystemTableStatusesInputTypeDef]
+    ) -> ListSystemTableStatusesOutputTypeDef:
+        """
+        Lists the system tables that the account-level configuration activates, along
+        with whether each is currently enabled.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/list_system_table_statuses.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#list_system_table_statuses)
         """
 
     def list_table_metadata(
@@ -904,6 +956,16 @@ class AthenaClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#update_prepared_statement)
         """
 
+    def update_system_table_configuration(
+        self, **kwargs: Unpack[UpdateSystemTableConfigurationInputTypeDef]
+    ) -> UpdateSystemTableConfigurationOutputTypeDef:
+        """
+        Updates the account-level system tables configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/update_system_table_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#update_system_table_configuration)
+        """
+
     def update_work_group(self, **kwargs: Unpack[UpdateWorkGroupInputTypeDef]) -> dict[str, Any]:
         """
         Updates the workgroup with the specified name.
@@ -960,6 +1022,17 @@ class AthenaClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_query_executions"]
     ) -> ListQueryExecutionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_athena/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_system_table_statuses"]
+    ) -> ListSystemTableStatusesPaginator:
         """
         Create a paginator for an operation.
 

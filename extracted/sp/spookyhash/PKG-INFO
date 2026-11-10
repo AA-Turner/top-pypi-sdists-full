@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: spookyhash
-Version: 2.1.1
+Version: 2.1.2
 Summary: A Python wrapper for SpookyHash version 2
 Author-email: Alen Buhanec <alen.buhanec@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/buhanec/spookyhash
 Project-URL: Repository, https://github.com/buhanec/spookyhash
 Project-URL: Issues, https://github.com/buhanec/spookyhash/issues
@@ -11,22 +11,25 @@ Keywords: SpookyHash,hashlib
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Provides-Extra: typing
+Requires-Dist: mypy>=1.18; extra == "typing"
+Requires-Dist: typing-extensions; extra == "typing"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: hypothesis; extra == "test"
+Requires-Dist: numpy; (python_version >= "3.11" or sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
 Dynamic: license-file
 
 # spookyhash
@@ -108,7 +111,7 @@ Includes `memoryview` compatible types, such as NumPy arrays.
 >>> import spookyhash
 >>> import numpy as np
 
->>> spookyhash.Hash64(np.arange(100)).hexdigest()
+>>> spookyhash.Hash64(np.arange(100, dtype=np.int32)).hexdigest()
 '43ab5363ad362c74'
 
 >>> spookyhash.Hash64(memoryview(b'hello world')).hexdigest()

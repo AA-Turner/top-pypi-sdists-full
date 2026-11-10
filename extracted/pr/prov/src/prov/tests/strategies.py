@@ -18,12 +18,14 @@ for it) is instead skipped per-format with an ``assume()`` in
 """
 
 import string
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from hypothesis import strategies as st
+from hypothesis.strategies import DrawFn
 
+from prov.constants import XSD_BOOLEAN, XSD_DECIMAL, XSD_DOUBLE, XSD_INT, XSD_LONG
 from prov.identifier import Namespace
-from prov.model import ProvBundle, ProvDocument
+from prov.model import Literal, ProvBundle, ProvDocument
 
 # A small fixed set of namespaces registered on every generated document, so
 # documents exercise multi-namespace prefix handling (criterion 1).
@@ -47,13 +49,10 @@ EX_NS = Namespace("ex", NAMESPACES["ex"])
 # never in identifiers.
 #
 # A space and the characters < > " { } | ^ ` \ never appear here either.
-# PROV-N's PN_LOCAL ([53]) cannot express them even escaped, so
-# provn_bare_representation() percent-encodes them. A percent-encoded local
-# part does not round-trip to an *equal* QualifiedName (the local part
-# changes, e.g. "a b" to "a%20b"), a documented exclusion covered by the
-# pinning test in test_provn_escaping.py. '-', '.' and '%' are excluded too,
-# because PN_LOCAL forbids a bare '-'/'.' as the first character and a bare
-# '.' as the last, and a bare '%' must be followed by two hex digits -- all
+# PROV-N's PN_LOCAL ([53]) cannot express them even escaped, so no
+# QualifiedName holds one (#524). '-', '.' and '%' are excluded too, because
+# PN_LOCAL forbids a bare '-'/'.' as the first character and a bare '.' as
+# the last, and a bare '%' must be followed by two hex digits -- all
 # positional rules this fixed-alphabet generator cannot express.
 local_part = st.text(
     alphabet=string.ascii_lowercase + string.digits + "='(),:;[]",
@@ -75,29 +74,69 @@ text_values = st.text(
 
 attr_values = st.one_of(
     text_values,  # str, including non-ASCII
-    # xsd:int range (PROV-DM's canonical datatype for a plain Python int,
-    # #249): magnitudes beyond it are excluded because the serializers still
-    # tag every plain int xsd:int regardless of magnitude until their
-    # magnitude-aware reverse maps land (roadmap step 37), so a generated
-    # int outside int32 would round-trip back as a kept xsd:int Literal
-    # instead of the original bare int (#235's lossless-collapse rule).
+    # The xsd:int range, which keeps the frozen prov_documents() digest stable.
+    # _int64_only and test_numeric_typing.py pin the wider magnitudes.
     st.integers(min_value=-(2**31), max_value=2**31 - 1),
     st.booleans(),
-    # Floats. RDF now emits xsd:double values at full repr() precision (#225),
-    # matching JSON/XML, and every writer spells the infinities INF and -INF
-    # (#550), so any float but NaN round-trips cleanly. NaN is excluded
-    # because it is not equal to itself, so a round trip cannot compare it.
-    st.floats(allow_nan=False),
+    # Floats. Every writer spells the infinities INF and -INF and a NaN as
+    # NaN, and a NaN is one value with itself in a record (E5), so every
+    # float round-trips and compares.
+    st.floats(),
     # Timezone-aware UTC datetimes; PROV serialises these as xsd:dateTime.
     st.datetimes(min_value=datetime(1900, 1, 1), max_value=datetime(2100, 1, 1)).map(
-        lambda dt: dt.replace(tzinfo=timezone.utc)
+        lambda dt: dt.replace(tzinfo=UTC)
     ),
     # QualifiedName values, drawn from the registered "ex" namespace.
     local_part.map(lambda s: EX_NS[s]),
 )
 
 
-def _attribute_dict(draw) -> list[tuple[str, object]]:
+# Typed literals over the datatypes prov compares in value space (#527):
+# well-formed text in a spelling that is not the canonical one, which the
+# model keeps as a Literal, and ill-formed text, which compares as text.
+_int32 = st.integers(min_value=-(2**31), max_value=2**31 - 1)
+_int64_only = st.integers(min_value=2**31, max_value=2**63 - 1)
+_finite_floats = st.floats(allow_nan=False, allow_infinity=False)
+_decimals = st.decimals(allow_nan=False, allow_infinity=False, places=2)
+
+
+def _padded(value: int) -> str:
+    return f"+{value}" if value >= 0 else f"-0{-value}"
+
+
+typed_literals = st.one_of(
+    _int32.map(lambda i: Literal(_padded(i), XSD_INT)),
+    _int32.map(lambda i: Literal(str(i), XSD_LONG)),
+    _int64_only.map(lambda i: Literal(f"0{i}", XSD_LONG)),
+    # 18 significant digits round-trip any double exactly.
+    _finite_floats.map(lambda f: Literal(f"{f:.17e}", XSD_DOUBLE)),
+    st.sampled_from(["1", "0", "true", "false"]).map(lambda t: Literal(t, XSD_BOOLEAN)),
+    _decimals.map(lambda d: Literal(f"{d:f}0", XSD_DECIMAL)),
+    st.sampled_from(["abc", "1e1", "NaN", "Infinity", "sNaN", "0x10", "True"]).map(
+        lambda t: Literal(t, XSD_DECIMAL)
+    ),
+    st.sampled_from(["abc", "1.0", "True", "1e0", "nan"]).map(
+        lambda t: Literal(t, XSD_INT)
+    ),
+)
+
+# The same value in two spellings: a plain Python value and a kept Literal, or
+# two Literals; an ill-formed text pairs with itself.
+same_value_pairs = st.one_of(
+    _int32.map(lambda i: (i, Literal(_padded(i), XSD_INT))),
+    _int64_only.map(lambda i: (i, Literal(f"0{i}", XSD_LONG))),
+    _finite_floats.map(lambda f: (f, Literal(f"{f:.17e}", XSD_DOUBLE))),
+    st.booleans().map(lambda b: (b, Literal("1" if b else "0", XSD_BOOLEAN))),
+    _decimals.map(
+        lambda d: (Literal(f"{d:f}", XSD_DECIMAL), Literal(f"{d:f}0", XSD_DECIMAL))
+    ),
+    st.sampled_from(["abc", "1e1", "NaN"]).map(
+        lambda t: (Literal(t, XSD_DECIMAL), Literal(t, XSD_DECIMAL))
+    ),
+)
+
+
+def _attribute_dict(draw: DrawFn) -> list[tuple[str, object]]:
     """Draw a list of ``(ex:<key>, value)`` other-attribute pairs.
 
     A key may be drawn more than once, each occurrence with an independently
@@ -113,7 +152,7 @@ def _attribute_dict(draw) -> list[tuple[str, object]]:
     return pairs
 
 
-def _draw_ids(draw, tag: str) -> list[str]:
+def _draw_ids(draw: DrawFn, tag: str) -> list[str]:
     """Draw a list of unique element identifiers with a role-specific prefix.
 
     Prefixing by role (``e``/``a``/``g``) keeps entity, activity and agent
@@ -128,12 +167,12 @@ def _draw_ids(draw, tag: str) -> list[str]:
 _rel_time = st.one_of(
     st.none(),
     st.datetimes(min_value=datetime(1900, 1, 1), max_value=datetime(2100, 1, 1)).map(
-        lambda dt: dt.replace(tzinfo=timezone.utc)
+        lambda dt: dt.replace(tzinfo=UTC)
     ),
 )
 
 
-def _populate(draw, container: ProvBundle) -> list[str]:
+def _populate(draw: DrawFn, container: ProvBundle) -> list[str]:
     """Add elements and relations to ``container`` (a document or a bundle).
 
     Returns the entity identifiers drawn for ``container`` so the caller can
@@ -258,7 +297,7 @@ def _populate(draw, container: ProvBundle) -> list[str]:
 
 
 @st.composite
-def prov_documents(draw) -> ProvDocument:
+def prov_documents(draw: DrawFn) -> ProvDocument:
     """Generate a valid PROV document for round-trip property testing."""
     doc = ProvDocument()
     for prefix, uri in NAMESPACES.items():
@@ -282,3 +321,45 @@ def prov_documents(draw) -> ProvDocument:
                 doc.mention(specific, general, bundle_id)
 
     return doc
+
+
+def _new_document() -> ProvDocument:
+    document = ProvDocument()
+    for prefix, uri in NAMESPACES.items():
+        document.add_namespace(prefix, uri)
+    return document
+
+
+_relation_id = st.one_of(st.none(), local_part.map(lambda s: f"ex:g{s}"))
+
+
+@st.composite
+def prov_records(draw: DrawFn) -> ProvDocument:
+    """One entity with plain and typed-literal values, and one generation
+    that may carry an identifier (#525)."""
+    document = _new_document()
+    pairs: list[tuple[str, object]] = _attribute_dict(draw)
+    for key, literal in draw(
+        st.lists(st.tuples(local_part, typed_literals), max_size=3)
+    ):
+        pairs.append((f"ex:k{key}", literal))
+    document.entity("ex:e", pairs)
+    document.wasGeneratedBy("ex:e", "ex:a", identifier=draw(_relation_id))
+    return document
+
+
+@st.composite
+def prov_record_pairs(draw: DrawFn) -> tuple[ProvDocument, ProvDocument]:
+    """Two one-record documents whose attribute values are the same values in
+    two spellings, so they compare equal with equal hashes (#527)."""
+    pairs = draw(
+        st.lists(st.tuples(local_part, same_value_pairs), min_size=1, max_size=4)
+    )
+    identifier = draw(_relation_id)
+    documents = []
+    for side in (0, 1):
+        document = _new_document()
+        document.entity("ex:e", [(f"ex:k{key}", pair[side]) for key, pair in pairs])
+        document.wasGeneratedBy("ex:e", "ex:a", identifier=identifier)
+        documents.append(document)
+    return documents[0], documents[1]

@@ -4,8 +4,8 @@ build-backend = "uv_build"
 
 [project]
 name = "ha-mcp-dev"
-version = "9.1.1.dev3368"
-description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
+version = "9.2.0.dev3457"
+description = "Configure and automate Home Assistant with Claude, ChatGPT, and other AI assistants."
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
 license = "MIT"
@@ -85,23 +85,8 @@ ha-mcp-web = "ha_mcp.__main__:main_web"
 ha-mcp-oauth = "ha_mcp.__main__:main_oauth"
 ha-mcp-oidc = "ha_mcp.__main__:main_oidc"
 
-[tool.uv.build-backend]
-module-name = "ha_mcp"
-source-exclude = [
-    "src/ha_mcp/resources/skills-vendor/.*",
-    "src/ha_mcp/resources/skills-vendor/*.md",
-    "src/ha_mcp/resources/skills-vendor/evals",
-    "src/ha_mcp/resources/skills-vendor/scripts",
-    "src/ha_mcp/settings_ui/AGENTS.md",
-    "src/ha_mcp/settings_ui/CLAUDE.md",
-]
-
-[tool.uv.sources.hamcp-test-env]
-path = "tests/test-env"
-editable = true
-
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 mypy_path = "src"
 cache_dir = "/tmp/.mypy_cache"
 exclude = ["^src/ha_mcp/resources/skills-vendor/"]
@@ -117,6 +102,13 @@ explicit_package_bases = true
 module = ["ha_mcp._vendor.*"]
 follow_imports = "skip"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "voluptuous",
+    "voluptuous.*",
+]
+follow_imports = "skip"
 
 [[tool.mypy.overrides]]
 module = [
@@ -201,14 +193,18 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 empty_parameter_set_mark = "fail_at_collect"
+strict_markers = true
+strict_config = true
 addopts = [
-    "--strict-markers",
-    "--strict-config",
     "--verbose",
     "--tb=short",
     "--maxfail=3",
     "-ra",
     "--durations=10",
+    "-p",
+    "no:pytest_homeassistant",
+    "-p",
+    "no:respx",
 ]
 markers = [
     "slow: marks tests as slow (use -m 'not slow' to skip)",
@@ -258,8 +254,8 @@ markers = [
     "requires_component_surface: needs an active ha_mcp_tools config entry - skipped on the no-tools lanes without an active server entry (plain container, HAOS inaddon, where it is absent or disabled); #2584",
 ]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
-asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 timeout = 300
 timeout_method = "signal"
 timeout_func_only = true
@@ -272,7 +268,26 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
     "ignore::ResourceWarning",
+    "ignore::aiohttp.web_exceptions.NotAppKeyWarning",
 ]
+
+[tool.uv]
+environments = ["python_full_version >= '3.14.2'"]
+
+[tool.uv.build-backend]
+module-name = "ha_mcp"
+source-exclude = [
+    "src/ha_mcp/resources/skills-vendor/.*",
+    "src/ha_mcp/resources/skills-vendor/*.md",
+    "src/ha_mcp/resources/skills-vendor/evals",
+    "src/ha_mcp/resources/skills-vendor/scripts",
+    "src/ha_mcp/settings_ui/AGENTS.md",
+    "src/ha_mcp/settings_ui/CLAUDE.md",
+]
+
+[tool.uv.sources.hamcp-test-env]
+path = "tests/test-env"
+editable = true
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -306,7 +321,8 @@ upload_to_vcs_release = false
 
 [dependency-groups]
 dev = [
-    "aiohttp>=3.13.5",
+    "homeassistant==2026.11.1",
+    "pytest-homeassistant==2026.11.1",
     "websockets>=15.0.1",
     "docker>=7.1.0",
     "mcp>=1.26.0,<2",
@@ -317,9 +333,7 @@ dev = [
     "pytest-timeout>=2.3.0",
     "quickjs-ng==0.17.0.2",
     "pytest-rerunfailures>=15.0",
-    "voluptuous>=0.15.2",
     "voluptuous-openapi>=0.4.1",
-    "probatio>=0.11.4",
     "pytest-xdist>=3.8.0",
     "requests>=2.25.0",
     "lefthook>=1.10.0",

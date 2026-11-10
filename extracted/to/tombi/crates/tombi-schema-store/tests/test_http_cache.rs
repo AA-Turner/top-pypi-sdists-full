@@ -15,6 +15,7 @@ use tombi_schema_store::{FetchError, HttpClient, HttpFuture, SchemaStore, Schema
 use tombi_test_lib::TestCacheHome;
 
 const SCHEMA: &[u8] = br#"{"type":"object"}"#;
+const CATALOG: &[u8] = br#"{"schemas":[]}"#;
 
 #[derive(Debug)]
 struct ControlledHttpClient {
@@ -55,7 +56,7 @@ fn store(client: Arc<ControlledHttpClient>, ttl: Duration) -> SchemaStore {
 
 #[rstest]
 #[tokio::test(flavor = "current_thread")]
-async fn authentication_failure_does_not_use_stale_cache() {
+async fn authentication_failure_uses_stale_cache() {
     let _cache_home = TestCacheHome::new();
     let uri = SchemaUri::from_str("https://example.com/cache/schema.json").unwrap();
     let cache_path = tombi_cache::get_cache_file_path(&uri).await.unwrap();
@@ -71,10 +72,7 @@ async fn authentication_failure_does_not_use_stale_cache() {
         .fetch_schema_document(&uri)
         .await;
 
-    assert!(matches!(
-        result,
-        Err(tombi_schema_store::Error::SchemaFetchFailed { .. })
-    ));
+    assert!(result.unwrap().is_some());
     assert_eq!(client.calls.load(Ordering::Relaxed), 1);
 }
 
@@ -150,5 +148,31 @@ async fn successful_fetch_reuses_fresh_disk_cache() {
             std::fs::metadata(cache_path).unwrap().permissions().mode() & 0o777,
             0o600
         );
+    }
+}
+
+#[rstest]
+#[case(CATALOG, true)]
+#[case(b"<html>Sign in</html>", false)]
+#[tokio::test(flavor = "current_thread")]
+async fn catalog_fetch_keeps_cache_validation(#[case] content: &'static [u8], #[case] valid: bool) {
+    let _cache_home = TestCacheHome::new();
+    let url = "https://example.com/cache/catalog.json";
+    let uri = SchemaUri::from_str(url).unwrap();
+    let client = Arc::new(ControlledHttpClient::new(Ok(Bytes::from_static(content))));
+    let schema_store = store(client.clone(), Duration::from_secs(3600));
+    let mut schema_options = tombi_config::SchemaOverviewOptions::default();
+    schema_options.catalog = Some(Default::default());
+    schema_options.catalog.as_mut().unwrap().paths = Some(vec![url.into()]);
+    let mut config = tombi_config::Config::default();
+    config.schema = Some(schema_options);
+
+    let result = schema_store.load_config(&config, None).await;
+    assert_eq!(result.is_ok(), valid);
+    let cache_path = tombi_cache::get_cache_file_path(&uri).await.unwrap();
+    assert_eq!(cache_path.exists(), valid);
+    if valid {
+        schema_store.load_config(&config, None).await.unwrap();
+        assert_eq!(client.calls.load(Ordering::Relaxed), 1);
     }
 }

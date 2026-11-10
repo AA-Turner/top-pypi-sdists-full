@@ -3,8 +3,8 @@
 import locale
 import os
 import re
-import typing
 import codecs
+from collections.abc import Generator, Iterable
 
 CODEC_BOMS = {
     'utf-8': codecs.BOM_UTF8,
@@ -20,8 +20,15 @@ _BOM_WRITING_CODECS = ('utf-8-sig', 'utf-16', 'utf-32')
 # the line terminators of WebVTT, characters like U+2028 do not break lines
 _LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
 
+# a path to a file or a folder, as a string or a path object such as
+# pathlib.Path
+_Path = str | os.PathLike[str]
 
-def _split_lines(text: str) -> typing.List[str]:
+# the line number where a block of text starts, from 1, and its lines
+_NumberedBlock = tuple[int, list[str]]
+
+
+def _split_lines(text: str) -> list[str]:
     """
     Split text into lines on CR, LF and CRLF.
 
@@ -38,14 +45,29 @@ def _split_lines(text: str) -> typing.List[str]:
     return lines
 
 
+def _check_errors(errors: str | None) -> None:
+    """
+    Check the name of an error handler for decoding.
+
+    Decoding only looks up the handler on invalid bytes, so a wrong name
+    would otherwise go unnoticed until a file has them.
+
+    :param errors: the name of the error handler, or None for the default
+    :raises LookupError: if the error handler is not known
+    """
+    if errors is not None:
+        codecs.lookup_error(errors)
+
+
 class FileWrapper:
     """File handling functionality with built-in support for Byte OrderMark."""
 
     def __init__(
             self,
-            file_path: str,
-            mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            file_path: _Path,
+            mode: str | None = None,
+            encoding: str | None = None,
+            errors: str | None = None
             ):
         """
         Initialize.
@@ -53,9 +75,14 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
+
+        :raises LookupError: if the error handler is not known
         """
+        _check_errors(errors)
         self.file_path = file_path
         self.mode = mode or 'r'
+        self.errors = errors
         self.bom_encoding = self.detect_bom_encoding(file_path)
         self.encoding = (self.bom_encoding or
                          encoding or
@@ -65,9 +92,10 @@ class FileWrapper:
     @classmethod
     def open(
             cls,
-            file_path: str,
-            mode: typing.Optional[str] = None,
-            encoding: typing.Optional[str] = None
+            file_path: _Path,
+            mode: str | None = None,
+            encoding: str | None = None,
+            errors: str | None = None
             ) -> 'FileWrapper':
         """
         Open a file.
@@ -75,26 +103,28 @@ class FileWrapper:
         :param file_path: path to the file
         :param mode: mode in which the file is opened
         :param encoding: name of the encoding used to decode the file
+        :param errors: how decoding errors are handled, as in open()
         """
-        return cls(file_path, mode, encoding)
+        return cls(file_path, mode, encoding, errors)
 
-    def __enter__(self):
+    def __enter__(self) -> 'FileWrapper':
         """Enter context."""
         self.file = open(
             file=self.file_path,
             mode=self.mode,
-            encoding=self.encoding
+            encoding=self.encoding,
+            errors=self.errors
             )
         if self.bom_encoding:
             self.file.seek(len(CODEC_BOMS[self.bom_encoding]))
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *exc_info: object) -> None:
         """Exit context."""
         self.file.close()
 
     @staticmethod
-    def detect_bom_encoding(file_path: str) -> typing.Optional[str]:
+    def detect_bom_encoding(file_path: _Path) -> str | None:
         """
         Detect the encoding of a file based on the presence of the BOM.
 
@@ -105,7 +135,7 @@ class FileWrapper:
             return _bom_encoding(f.read(4))
 
 
-def _bom_encoding(data: bytes) -> typing.Optional[str]:
+def _bom_encoding(data: bytes) -> str | None:
     """
     Return the encoding of the BOM at the start of the data.
 
@@ -119,10 +149,10 @@ def _bom_encoding(data: bytes) -> typing.Optional[str]:
 
 
 def _write_text_file(
-        file_path: str,
+        file_path: _Path,
         text: str,
-        encoding: typing.Optional[str] = None
-        ):
+        encoding: str | None = None
+        ) -> None:
     """
     Write text to a file, encoding all of it before the file is opened.
 
@@ -146,21 +176,35 @@ def _write_text_file(
 
 
 def iter_blocks_of_lines(
-        lines: typing.Iterable[str]
-        ) -> typing.Generator[typing.List[str], None, None]:
+        lines: Iterable[str]
+        ) -> Generator[list[str], None, None]:
     """
     Iterate blocks of text.
 
     :param lines: lines of text.
     """
-    current_text_block = []
+    for _, block in _iter_numbered_blocks(lines):
+        yield block
 
-    for line in lines:
+
+def _iter_numbered_blocks(
+        lines: Iterable[str]
+        ) -> Generator[_NumberedBlock, None, None]:
+    """
+    Iterate blocks of text with the line number where each one starts.
+
+    :param lines: lines of text.
+    :returns: the line number where each block starts, from 1, and its lines
+    """
+    current_text_block: list[str] = []
+    number = 0
+
+    for number, line in enumerate(lines, 1):
         if line.strip():
             current_text_block.append(line)
         elif current_text_block:
-            yield current_text_block
+            yield number - len(current_text_block), current_text_block
             current_text_block = []
 
     if current_text_block:
-        yield current_text_block
+        yield number + 1 - len(current_text_block), current_text_block

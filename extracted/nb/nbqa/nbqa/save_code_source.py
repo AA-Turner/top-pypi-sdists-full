@@ -9,7 +9,8 @@ from __future__ import annotations
 import ast
 import secrets
 from collections import defaultdict
-from typing import Any, DefaultDict, Mapping, MutableMapping, NamedTuple, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
+from typing import Any, DefaultDict, NamedTuple
 
 import tokenize_rt
 from IPython.core.inputtransformer2 import TransformerManager
@@ -234,14 +235,18 @@ def _get_line_numbers_for_mapping(
     lines_in_cell = cell_source.splitlines()
     line_mapping: MutableMapping[int, int] = {}
 
+    # Line 0 of the parsed cell is the CODE_SEPARATOR which nbQA itself
+    # inserted, so a diagnostic reported there belongs to the first line the
+    # user actually wrote. Cell lines are 1-indexed, and cell_N:0 does not
+    # exist - see https://github.com/nbQA-dev/nbQA/issues/821
     if not magic_substitutions:
-        line_mapping.update({i: i for i in range(len(lines_in_cell))})
+        line_mapping.update({i: max(i, 1) for i in range(len(lines_in_cell))})
     else:
         line_number = -1
 
         for line_no, _ in enumerate(lines_in_cell):
             line_number += 1
-            line_mapping[line_no] = line_number
+            line_mapping[line_no] = max(line_number, 1)
 
     return line_mapping
 
@@ -328,7 +333,7 @@ def _has_trailing_semicolon(src: str) -> tuple[str, bool]:
         if not token.src.strip(" \n") or token.name == "COMMENT":
             continue
         if token.name == "OP" and token.src == ";":
-            tokens[idx] = token._replace(src="")
+            tokens[idx] = token._replace(src="")  # type: ignore[missing-attribute,unused-ignore]
             trailing_semicolon = True
         break
     if not trailing_semicolon:

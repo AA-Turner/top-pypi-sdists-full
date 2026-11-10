@@ -5,19 +5,23 @@ from typing import TYPE_CHECKING
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 if TYPE_CHECKING:
     from office365.sharepoint.client_context import ClientContext
 
 
 class UserFirstRun(Entity):
+    @odata(name="Experiences", beta=True)
     @property
     def experiences(self) -> ClientValueCollection[int]:
         """Gets the Experiences property"""
         return self.properties.get("Experiences", ClientValueCollection(int))
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def set_experience(
         context: ClientContext, experience_id: int, reset: bool
     ) -> ClientResult[ClientValueCollection[int]]:
@@ -45,6 +49,7 @@ class UserFirstRun(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def set_experiences(context: ClientContext, experiences: str) -> ClientResult[ClientValueCollection[int]]:
         """SetExperiences operation.
 

@@ -1,7 +1,7 @@
 """djust system checks — security checks (S0xx).
 
 Mostly AST-based (S001-S003, S008, S009, S012); S011 is a template-source
-scan (inline-script / CSP). Split from the former monolithic ``checks.py``
+scan (inline-script / CSP); S013 inspects the imported ADR-035 edit views. Split from the former monolithic ``checks.py``
 (#1822). Note: S012 was reallocated from a duplicate S004 (#2070) --
 configuration.py's "DEBUG=True with non-localhost ALLOWED_HOSTS" check kept
 S004; this module's "LiveView gates auth via dispatch()" check moved to
@@ -22,6 +22,8 @@ import djust.checks as _root
 from djust.checks.utils import (
     DjustError,
     DjustWarning,
+    LineCounter,
+    _blank_template_comments,
     _get_template_dirs,
     _has_noqa,
     _is_check_suppressed,
@@ -69,6 +71,11 @@ def check_security(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
             continue
 
         relpath = os.path.relpath(filepath)
+        # #3093: what each imported name binds to, so S009 judges a decorator
+        # by its target rather than its local spelling.
+        from djust.checks._ast_bindings import import_bindings
+
+        bindings = import_bindings(tree)
 
         for node in ast.walk(tree):
             # S001 -- mark_safe(f'...') with interpolated values
@@ -270,7 +277,7 @@ def check_security(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
                 # handler with no gate (no @permission_required on the handler,
                 # no class-level check_permissions/has_object_permission).
                 if not _is_check_suppressed("djust.S009"):
-                    for handler in _ungated_event_handlers(node):
+                    for handler in _ungated_event_handlers(node, bindings):
                         # Honor a "noqa S009" comment on the def line OR any of
                         # the handler's decorator lines (the author may annotate
                         # the @event_handler line rather than the def).
@@ -492,15 +499,22 @@ def _http_only_access_messages(
     from djust.auth.core import is_framework_module, live_auth_refused_findings
     from djust.checks.utils import _walk_subclasses
 
-    def _source(obj: Any) -> tuple[str, Optional[int]]:
-        path = ""
-        line = None
+    # File first, line only for a class that is analysed AND refused:
+    # getsourcelines() reads and parses the class's whole module, and this
+    # loop sees every imported LiveView subclass — under the test suite a
+    # worker holds thousands, nearly all outside app_dirs. Looking the line up
+    # for each of them was ~95% of check_security's time there.
+    def _file(obj: Any) -> str:
         try:
-            path = inspect.getfile(obj)
-            line = inspect.getsourcelines(obj)[1]
+            return inspect.getfile(obj)
         except (OSError, TypeError):
-            pass  # Source introspection may fail for built-in or C-extension objects
-        return path, line
+            return ""  # Source introspection may fail for built-in or C-extension objects
+
+    def _line(obj: Any) -> Optional[int]:
+        try:
+            return inspect.getsourcelines(obj)[1]
+        except (OSError, TypeError):
+            return None
 
     try:
         routed = {view_cls for _route, _callback, view_cls in _routed_liveview_callbacks()}
@@ -518,7 +532,7 @@ def _http_only_access_messages(
             or cls.__dict__.get("abstract") is True
         ):
             continue
-        cls_file, cls_line = _source(cls)
+        cls_file = _file(cls)
         if not _in_app_dirs(cls_file, app_dirs):
             continue
         analysed.add((os.path.realpath(cls_file), cls.__name__))
@@ -547,7 +561,7 @@ def _http_only_access_messages(
                         % (cls.__qualname__, "; ".join(refusals), declare)
                     ),
                     "file_path": cls_file,
-                    "line_number": cls_line,
+                    "line_number": _line(cls),
                 },
             )
         )
@@ -792,9 +806,25 @@ def _is_event_handler_decorator(deco: ast.expr) -> bool:
     return _decorator_callable_name(deco) in ("event_handler", "action")
 
 
-def _is_permission_required_decorator(deco: ast.expr) -> bool:
-    """True if ``deco`` is ``@permission_required(...)`` (the per-handler gate)."""
-    return _decorator_callable_name(deco) == "permission_required"
+def _is_permission_required_decorator(
+    deco: ast.expr, bindings: Optional[dict[str, Any]] = None
+) -> bool:
+    """True if ``deco`` is djust's ``@permission_required(...)`` per-handler gate.
+
+    Resolved by what the decorator binds to, not its local name (#3093): an
+    aliased import (``permission_required as require_permission``) or a dotted
+    ``decorators.permission_required`` is the gate -- and aliasing is forced
+    whenever the view also sets the ``permission_required`` class attribute,
+    which shadows the decorator in the class body. Django's
+    ``django.contrib.auth.decorators.permission_required`` is not the gate.
+    Only a target that is positively not the gate is rejected; anything
+    undecidable (a project's own wrapper, a module that is not loaded, an
+    ambiguous or relative binding) keeps the name match. Never imports the
+    scanned code (see ``djust.checks._ast_bindings``).
+    """
+    from djust.checks._ast_bindings import is_djust_permission_gate
+
+    return is_djust_permission_gate(deco, bindings or {})
 
 
 def _class_attr_is_truthy(node: "ast.ClassDef", attr_name: str) -> bool:
@@ -881,6 +911,7 @@ def _class_gates_events(node: "ast.ClassDef") -> bool:
 
 def _ungated_event_handlers(
     node: "ast.ClassDef",
+    bindings: Optional[dict[str, Any]] = None,
 ) -> Iterator[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     """Yield public ``@event_handler`` method nodes with no per-handler auth gate.
 
@@ -902,7 +933,7 @@ def _ungated_event_handlers(
         decos = item.decorator_list
         if not any(_is_event_handler_decorator(d) for d in decos):
             continue
-        if any(_is_permission_required_decorator(d) for d in decos):
+        if any(_is_permission_required_decorator(d, bindings) for d in decos):
             continue
         if item.name.startswith(_READ_ONLY_HANDLER_PREFIXES):
             continue
@@ -1110,7 +1141,7 @@ def check_inline_script_csp(app_configs: Any, **kwargs: Any) -> list[CheckMessag
             continue
 
         # Blank <pre>/<code> example markup so escaped/doc scripts never match.
-        scan = _blank_pre_code(content)
+        scan = _blank_pre_code(_blank_template_comments(content))
 
         # Only flag scripts that fall INSIDE a real dj-root/dj-view subtree —
         # that is the #1610/#1848 morph region. A page script after the dj-root
@@ -1122,13 +1153,14 @@ def check_inline_script_csp(app_configs: Any, **kwargs: Any) -> list[CheckMessag
 
         relpath = os.path.relpath(filepath)
         source_lines = [""] + content.splitlines()
+        _line_counter = LineCounter(content)
         for match in _SCRIPT_OPEN_RE.finditer(scan):
             if not _script_open_is_executable_inline(match.group(1)):
                 continue
             pos = match.start()
             if not any(lo <= pos < hi for lo, hi in ranges):
                 continue
-            lineno = content[:pos].count("\n") + 1
+            lineno = _line_counter.line_at(pos)
             if _has_noqa(source_lines, lineno, "S011"):
                 continue
             errors.append(
@@ -1161,3 +1193,181 @@ def check_inline_script_csp(app_configs: Any, **kwargs: Any) -> list[CheckMessag
             )
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# S013 -- ADR-035 edit adapter with neither scoping nor object permission
+# ---------------------------------------------------------------------------
+
+
+def _model_form_hook_owner(cls: type, name: str) -> Optional[type]:
+    """The class that defines ``name`` for ``cls``, or None for djust's own."""
+    from djust.forms import ModelFormMixin
+    from djust.live_view import LiveView
+
+    framework = {ModelFormMixin, *LiveView.__mro__}
+    for owner in cls.__mro__:
+        if name in vars(owner):
+            return None if owner in framework else owner
+    return None
+
+
+@register("djust")
+def check_model_form_object_policy(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """``djust.S013``: a ``ModelFormMixin`` view that edits any row by id.
+
+    With neither ``get_queryset()`` nor ``has_object_permission()`` overridden,
+    every signed-in user who passes the view-level checks can edit every row of
+    ``model`` by changing the id in the URL (ADR-035, owner decision Q5). The
+    default stays permissive, as Django's ``UpdateView`` is; this says so.
+    Nothing is constructed, mounted or queried.
+    """
+    if _is_check_suppressed("S013"):
+        return []
+    try:
+        from djust.forms import ModelFormMixin
+        from djust.live_view import LiveView
+    except ImportError:
+        return []
+    from djust.checks.components import _routed_liveview_classes
+    from djust.checks.utils import _is_framework_internal_class, _walk_subclasses
+
+    # Walk the URLconf first: importing it is what registers routed views (#2559).
+    routed = set(_routed_liveview_classes())
+    candidates = {cls for cls in routed if issubclass(cls, ModelFormMixin)}
+    candidates.update(_walk_subclasses(ModelFormMixin))
+    messages: list[CheckMessage] = []
+    for cls in sorted(candidates, key=lambda c: (c.__module__, c.__qualname__)):
+        if (
+            not issubclass(cls, LiveView)
+            or _is_framework_internal_class(cls)
+            or cls.__dict__.get("abstract") is True
+        ):
+            continue
+        if _model_form_hook_owner(cls, "get_queryset") or _model_form_hook_owner(
+            cls, "has_object_permission"
+        ):
+            continue
+        try:
+            file_path = inspect.getsourcefile(cls) or ""
+            source_lines, line_number = inspect.getsourcelines(cls)
+        except (OSError, TypeError):
+            file_path, source_lines, line_number = "", [], 0
+        # ``_has_noqa`` reads 1-based line numbers; the class line comes first.
+        if source_lines and _has_noqa(["", *source_lines], 1, "S013"):
+            continue
+        label = "%s.%s" % (cls.__module__, cls.__qualname__)
+        messages.append(
+            DjustWarning(
+                "%s lets any user who can open the view edit any %s by its id."
+                % (label, getattr(getattr(cls, "model", None), "__name__", "object")),
+                hint=(
+                    "Override get_queryset() to limit the rows this user may edit, "
+                    "or has_object_permission() to authorize each object."
+                ),
+                id="djust.S013",
+                fix_hint=(
+                    "Scope `%s.get_queryset()` to the requesting user, or add "
+                    "`has_object_permission(self, request, obj)`." % label
+                ),
+                file_path=file_path,
+                line_number=line_number or None,
+            )
+        )
+    return messages
+
+
+@register("djust")
+def check_editable_secret_floor_fields(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """``djust.S014``: a ``ModelForm`` with an editable SECRET-LIKE floor field (#3797).
+
+    djust draws such a field (``password``, ``api_token``, ``secret_key``, ... : a floor field the
+    model floor already holds, :func:`djust.serialization._floor_field_is_secret`) WITHOUT its stored
+    value, and a browser posts an empty control as ``""``: an untouched re-save of the form overwrites
+    the column. Nothing at render time can prevent that on a plain ``ModelForm`` in a classic view;
+    only ``disabled=True`` on the form field does (Django then ignores what is posted and keeps the
+    initial value). ``FormMixin.get_form()`` sets it for a form that edits an existing row, so a
+    djust edit view is protected; this reports the forms that are not. Static: the form CLASS's
+    fields (``base_fields``), so a field added in ``__init__`` is not seen. Nothing is constructed,
+    mounted or queried.
+    """
+    if _is_check_suppressed("S014"):
+        return []
+    try:
+        from django import forms as django_forms
+
+        from djust.serialization import (
+            _floor_field_is_secret,
+            _floor_field_readable,
+            _floor_for_model,
+            _form_password_names,
+            _widget_keeps_its_value,
+            field_has_password_widget,
+        )
+    except ImportError:
+        return []
+    from djust.checks.utils import _is_framework_internal_class, _walk_subclasses
+
+    messages: list[CheckMessage] = []
+    seen: set[type] = set()
+    for cls in sorted(
+        _walk_subclasses(django_forms.ModelForm), key=lambda c: (c.__module__, c.__qualname__)
+    ):
+        module = getattr(cls, "__module__", "") or ""
+        if (
+            cls in seen
+            or module.split(".", 1)[0] == "django"
+            or module.rsplit(".", 1)[-1].startswith("test")
+            or _is_framework_internal_class(cls)
+        ):
+            continue
+        seen.add(cls)
+        model = getattr(getattr(cls, "_meta", None), "model", None)
+        base_fields = getattr(cls, "base_fields", None)
+        if model is None or not base_fields:
+            continue
+        try:
+            floor = _floor_for_model(model, _form_password_names(base_fields))
+            exposed = [
+                name
+                for name, field in base_fields.items()
+                if not _floor_field_readable(floor, name)
+                and _floor_field_is_secret(floor, name, field)
+                and not field_has_password_widget(field)
+                and not _widget_keeps_its_value(field.widget)
+                and not getattr(field, "disabled", False)
+            ]
+        except Exception:  # noqa: BLE001 - a model the floor cannot be read for is not reported
+            continue
+        if not exposed:
+            continue
+        try:
+            file_path = inspect.getsourcefile(cls) or ""
+            source_lines, line_number = inspect.getsourcelines(cls)
+        except (OSError, TypeError):
+            file_path, source_lines, line_number = "", [], 0
+        if source_lines and _has_noqa(["", *source_lines], 1, "S014"):
+            continue
+        label = "%s.%s" % (module, cls.__qualname__)
+        names = ", ".join(sorted(exposed))
+        messages.append(
+            DjustWarning(
+                "%s has editable secret field(s) on the serialization floor (%s): djust draws them "
+                "without their stored value, so submitting the form unchanged saves them as empty."
+                % (label, names),
+                hint=(
+                    "Declare the form field disabled=True (Django then ignores the posted value and "
+                    "keeps the stored one), leave it out of Meta.fields, or opt the model field out "
+                    "of the floor with djust_serialize_sensitive_fields. A FormMixin view that edits "
+                    "an existing row sets disabled=True itself."
+                ),
+                id="djust.S014",
+                fix_hint=(
+                    "In `%s.__init__` (or on the field): `self.fields[%r].disabled = True`."
+                    % (label, sorted(exposed)[0])
+                ),
+                file_path=file_path,
+                line_number=line_number or None,
+            )
+        )
+    return messages

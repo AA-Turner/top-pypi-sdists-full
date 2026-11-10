@@ -8,7 +8,7 @@ from pydantic.plugin._schema_validator import (
 from pydantic_core import CoreSchema, SchemaValidator
 
 import ormar  # noqa: I100, I202
-from ormar.exceptions import ModelPersistenceError
+from ormar.exceptions import ModelPersistenceError, QueryDefinitionError
 from ormar.fields.parsers import encode_json
 from ormar.models.excludable import skip_ellipsis
 from ormar.models.mixins import AliasMixin
@@ -99,12 +99,12 @@ class SavePrepareMixin(RelationMixin, AliasMixin):
         :return: dictionary of model that is about to be saved
         :rtype: dict[str, str]
         """
-        pkname = cls.ormar_config.pkname
-        pk = cls.ormar_config.model_fields[pkname]
-        if new_kwargs.get(pkname, ormar.Undefined) is None and (
-            pk.nullable or pk.autoincrement
-        ):
-            del new_kwargs[pkname]
+        for field_name in cls.ormar_config.pk.fields:
+            field = cls.ormar_config.model_fields[field_name]
+            if new_kwargs.get(field_name, ormar.Undefined) is None and (
+                field.nullable or cls.ormar_config.pk.autoincrement
+            ):
+                del new_kwargs[field_name]
         return new_kwargs
 
     @classmethod
@@ -113,34 +113,76 @@ class SavePrepareMixin(RelationMixin, AliasMixin):
         Receives dictionary of model that is about to be saved and changes all related
         models that are stored as foreign keys to their fk value.
 
+        The values of all foreign keys are collected first and merged into the
+        dictionary afterwards (see ``merge_relation_values``), so columns the
+        foreign keys share get the same result whatever order they come in.
+
         :param model_dict: dictionary of model that is about to be saved
         :type model_dict: dict
         :return: dictionary of model that is about to be saved
         :rtype: dict
         """
+        relation_values: dict[str, dict[str, Any]] = {}
         for field in cls.extract_related_names():
             field_value = model_dict.get(field, None)
-            if field_value is not None:
-                target_field = cls.ormar_config.model_fields[field]
-                target_pkname = target_field.to.ormar_config.pkname
+            if field_value is None and field in model_dict:
+                cls._expand_missing_relation(
+                    model_dict=model_dict,
+                    field_name=field,
+                    relation_values=relation_values,
+                )
+            elif field_value is not None:
+                target_field = cast(
+                    "ForeignKeyField", cls.ormar_config.model_fields[field]
+                )
+                target_key = target_field.to.ormar_config.pk
                 if isinstance(field_value, ormar.Model):  # pragma: no cover
-                    pk_value = getattr(field_value, target_pkname)
-                    if not pk_value:
+                    values = target_field.link.values_for(related=field_value)
+                    if None in values.values():
                         raise ModelPersistenceError(
                             f"You cannot save {field_value.get_name()} "
                             f"model without pk set!"
                         )
-                    model_dict[field] = pk_value
-                elif isinstance(field_value, (list, dict)) and field_value:
-                    if isinstance(field_value, list):
-                        model_dict[field] = [
-                            target.get(target_pkname) for target in field_value
-                        ]
-                    else:
-                        model_dict[field] = field_value.get(target_pkname)
+                    relation_values[field] = values
+                elif isinstance(field_value, list) and field_value:
+                    model_dict[field] = [
+                        target_key.value_from(data=target) for target in field_value
+                    ]
+                elif isinstance(field_value, dict) and field_value:
+                    relation_values[field] = target_field.link.values_for(
+                        related=field_value
+                    )
                 else:
                     model_dict.pop(field, None)
+        cls.merge_relation_values(target=model_dict, relation_values=relation_values)
         return model_dict
+
+    @classmethod
+    def _expand_missing_relation(
+        cls,
+        model_dict: dict,
+        field_name: str,
+        relation_values: dict[str, dict[str, Any]],
+    ) -> None:
+        """
+        A missing foreign key sets all its columns to ``None`` (a column it
+        shares with other fields keeps their value), a missing reverse
+        relation (one-to-one) is dropped, as it has no column.
+
+        :param model_dict: dictionary of the model that is about to be saved
+        :type model_dict: dict
+        :param field_name: name of the relation field holding ``None``
+        :type field_name: str
+        :param relation_values: values of the foreign keys by name, filled in
+        :type relation_values: dict[str, dict[str, Any]]
+        """
+        field = cls.ormar_config.model_fields[field_name]
+        if not field.kind.holds_columns:
+            model_dict.pop(field_name)
+            return
+        relation_values[field_name] = cast("ForeignKeyField", field).link.values_for(
+            related=None
+        )
 
     @classmethod
     def reconvert_str_to_bytes(cls, model_dict: dict) -> dict:
@@ -301,19 +343,24 @@ class SavePrepareMixin(RelationMixin, AliasMixin):
         """
         validators = cls._build_individual_schema_validator()
         foreign_keys = cls._extract_db_related_names()
+        validated: dict = {}
+        related_values: dict[str, dict[str, Any]] = {}
         for key, value in new_kwargs.items():
             if key in foreign_keys:
-                new_kwargs[key] = cls._related_pk_for_update(
+                related_values[key] = cls._related_values_for_update(
                     field_name=key, value=value
                 )
             elif key in cls._json_fields:
-                new_kwargs[key] = validators[key].validate_python(encode_json(value))
-            elif key in validators:
-                validators[key].validate_python(value)
-        return new_kwargs
+                validated[key] = validators[key].validate_python(encode_json(value))
+            else:
+                if key in validators:
+                    validators[key].validate_python(value)
+                validated[key] = value
+        cls.merge_relation_values(target=validated, relation_values=related_values)
+        return validated
 
     @classmethod
-    def _related_pk_for_update(cls, field_name: str, value: Any) -> Any:
+    def _related_values_for_update(cls, field_name: str, value: Any) -> dict:
         """
         Returns the validated pk value of a related model passed to a queryset
         update as a model, a dictionary with its pk or the pk itself.
@@ -326,22 +373,29 @@ class SavePrepareMixin(RelationMixin, AliasMixin):
         :return: pk value of the related model
         :rtype: Any
         """
-        target = cls.ormar_config.model_fields[field_name].to
-        pkname = target.ormar_config.pkname
-        if isinstance(value, ormar.Model):
-            value = getattr(value, pkname)
-            if value is None:
-                raise ModelPersistenceError(
-                    f"You cannot update {field_name} with {target.get_name()} "
-                    f"model without pk set!"
+        field = cast("ForeignKeyField", cls.ormar_config.model_fields[field_name])
+        target = field.to
+        is_model = isinstance(value, ormar.Model)
+        values = field.link.values_for(related=value)
+        if is_model and None in values.values():
+            raise ModelPersistenceError(
+                f"You cannot update {field_name} with {target.get_name()} "
+                f"model without pk set!"
+            )
+        parts = tuple(values.values())
+        if len(parts) > 1 and None in parts and any(part is not None for part in parts):
+            raise QueryDefinitionError(
+                f"{field_name} needs a value for each of its columns "
+                f"{list(values)} (or None), got {value!r}."
+            )
+        if len(values) == 1:
+            ((key, single),) = values.items()
+            if single is not None:
+                validators = target._build_individual_schema_validator()
+                values[key] = validators[field.target_fields()[0]].validate_python(
+                    single
                 )
-        elif isinstance(value, dict):
-            value = value.get(pkname)
-        if value is None:
-            return None
-        return target._build_individual_schema_validator()[pkname].validate_python(
-            value
-        )
+        return values
 
     @classmethod
     def _build_individual_schema_validator(cls) -> Any:
@@ -413,7 +467,8 @@ class SavePrepareMixin(RelationMixin, AliasMixin):
         if (
             save_all or not instance.pk or not instance.saved
         ) and not instance.__pk_only__:
-            await instance.upsert(__force_save__=True)
+            if not instance.ormar_config.view:
+                await instance.upsert(__force_save__=True)
             if relation_field and relation_field.is_multi:
                 await instance._upsert_through_model(
                     instance=instance,

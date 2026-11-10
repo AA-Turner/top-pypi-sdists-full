@@ -48,7 +48,7 @@ def sync_detailed(
     """Rotate an API key
 
      Asks the site agent to replace this key's value at the backend. The other keys are untouched (zero
-    downtime).
+    downtime). Available to whoever manages the resource's API keys and to the key's assignee.
 
     Args:
         uuid (UUID):
@@ -80,7 +80,7 @@ def sync(
     """Rotate an API key
 
      Asks the site agent to replace this key's value at the backend. The other keys are untouched (zero
-    downtime).
+    downtime). Available to whoever manages the resource's API keys and to the key's assignee.
 
     Args:
         uuid (UUID):
@@ -107,7 +107,7 @@ async def asyncio_detailed(
     """Rotate an API key
 
      Asks the site agent to replace this key's value at the backend. The other keys are untouched (zero
-    downtime).
+    downtime). Available to whoever manages the resource's API keys and to the key's assignee.
 
     Args:
         uuid (UUID):
@@ -137,7 +137,7 @@ async def asyncio(
     """Rotate an API key
 
      Asks the site agent to replace this key's value at the backend. The other keys are untouched (zero
-    downtime).
+    downtime). Available to whoever manages the resource's API keys and to the key's assignee.
 
     Args:
         uuid (UUID):

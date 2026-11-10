@@ -111,3 +111,28 @@ def test_removal_policy_lists_the_covered_pointer_retirement_route():
     text = _read(PASSES)
     removal = text[text.index("## Removal"):text.index("## Contradiction")]
     assert "Point a rule at its skill" in removal, "Removal does not name the retirement route"
+
+
+def test_the_report_contract_names_the_cost_lines():
+    # The bare words "pointer blocks" also occur in dream-core.md's walk-pruning note, so the
+    # check quotes the report contract's own clause, whitespace collapsed across its line wrap.
+    core = " ".join(_read(CORE).split())
+    assert "the `pointer blocks` lines `store_manifest.py verify` prints" in core, (
+        "dream-core.md's report contract lost the cost lines")
+
+
+def test_propose_mode_carves_out_a_move_to_the_tree_top():
+    core = " ".join(_read(CORE).split())
+    assert "EXCEPT a misplacement re-home to the tree top" in core, (
+        "dream-core.md's propose mode lost its carve-out for a move to the tree top")
+    assert "and PROPOSES a misplacement re-home to the tree top as propose mode does" in core, (
+        "dream-core.md's off mode lost its carve-out for a move to the tree top")
+
+
+@pytest.mark.parametrize("name", sorted(FAMILY))
+def test_every_dream_backs_up_and_verifies_with_store_manifest(name):
+    """A hand-rolled snapshot records no manifest, so the run can never be verified against it
+    and its cost lines cannot be printed."""
+    text = _read(FAMILY[name])
+    assert "store_manifest.py backup" in text, "%s hand-rolls its backup" % name
+    assert "store_manifest.py verify" in text, "%s never verifies against its backup" % name

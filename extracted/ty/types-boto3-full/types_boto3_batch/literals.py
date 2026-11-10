@@ -42,6 +42,7 @@ __all__ = (
     "EFSTransitEncryptionType",
     "EksAccessEntryDesiredStateType",
     "EksAccessEntryStatusType",
+    "EksSeccompProfileTypeType",
     "FirelensConfigurationTypeType",
     "JQStateType",
     "JQStatusType",
@@ -112,6 +113,7 @@ EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
 EksAccessEntryDesiredStateType = Literal["DISABLED", "ENABLED", "INHERIT_FROM_CLUSTER"]
 EksAccessEntryStatusType = Literal["ACTIVE", "INACTIVE"]
+EksSeccompProfileTypeType = Literal["Localhost", "RuntimeDefault", "Unconfined"]
 FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 JQStateType = Literal["DISABLED", "ENABLED"]
 JQStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]

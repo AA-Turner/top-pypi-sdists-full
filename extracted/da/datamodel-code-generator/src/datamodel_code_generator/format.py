@@ -307,7 +307,6 @@ _BUILTIN_FORMATTER_REEXPORTS: tuple[str, ...] = (
     "_ImportCategory",
     "_is_valid_builtin_line_length",
     "_line_indent",
-    "_indent_first_line",
     "_find_pyproject_toml",
     "_get_builtin_line_length",
     "_get_builtin_known_first_party",
@@ -329,59 +328,6 @@ _BUILTIN_FORMATTER_REEXPORTS: tuple[str, ...] = (
     "_build_builtin_import_block",
     "_is_name_or_attr",
     "_is_type_checking_if",
-    "_source_segment",
-    "_inline_source_segment",
-    "_format_call_argument",
-    "_format_dict_literal",
-    "_format_list_literal",
-    "_split_escaped_string_literal",
-    "_format_wrapped_string_literal",
-    "_format_call_argument_for_block",
-    "_format_call",
-    "_format_constrained_call",
-    "_is_call",
-    "_has_attribute_root",
-    "_is_datetime_module_call",
-    "_is_annotated",
-    "_is_list_of_annotated",
-    "_is_union",
-    "_CONSTRAINED_CALL_NAMES",
-    "_is_constrained_string_call",
-    "_is_constrained_call",
-    "_contains_constrained_string_call",
-    "_contains_annotated",
-    "_contains_list_of_annotated",
-    "_is_simple_union_annotation",
-    "_should_format_constrained_call_union",
-    "_can_parenthesize_field_value",
-    "_should_format_union_annotation",
-    "_iter_bit_or_elements",
-    "_format_bit_or_element",
-    "_format_bit_or_elements",
-    "_format_parenthesized_bit_or_annotation",
-    "_should_format_field_bit_or_annotation_assignment",
-    "_should_format_field_bit_or_value_assignment",
-    "_format_parenthesized_field_value",
-    "_should_format_string_bit_or_annotation_assignment",
-    "_format_bit_or_annotation_assignment",
-    "_iter_subscript_elements",
-    "_format_annotated",
-    "_config_dict_assignment",
-    "_format_generated_annotation_assignment",
-    "_format_generated_class_statement",
-    "_format_constrained_call_union",
-    "_format_annotated_union",
-    "_format_list_of_annotated",
-    "_format_union_subscript",
-    "_format_subscript_value",
-    "_format_type_alias_type_call",
-    "_format_type_alias_union_assignment",
-    "_format_typed_dict_call",
-    "_is_root_model_constrained_union",
-    "_format_root_model_constrained_union_base",
-    "_format_root_model_union_base",
-    "_format_generated_class_definition",
-    "_format_generated_module_statement",
     "_format_type_checking_block",
     "_LineReplacement",
     "_collect_builtin_replacements",
@@ -391,7 +337,6 @@ _BUILTIN_FORMATTER_REEXPORTS: tuple[str, ...] = (
     "_iter_module_import_nodes",
     "_apply_line_replacements",
     "_previous_non_empty_line_index",
-    "_ensure_post_class_annotation_assignment_spacing",
     "_normalize_top_level_blank_lines",
     "_normalize_string_quotes",
     "_finalize_builtin_code",
@@ -445,6 +390,17 @@ def _get_isort() -> Any:
     import isort as _isort  # noqa: PLC0415
 
     return _isort
+
+
+def _is_formatter_available(formatter: Formatter) -> bool:
+    """Return True if the external package required by *formatter* can be imported."""
+    try:
+        import_module(formatter.value)
+    except ModuleNotFoundError as exc:
+        if exc.name != formatter.value:
+            raise
+        return False
+    return True
 
 
 def apply_builtin_formatter(  # noqa: PLR0913
@@ -558,12 +514,36 @@ class CodeFormatter:
                 settings_path = Path.cwd()  # pragma: no cover
 
         self.settings_path: str = str(settings_path)
-        self.formatters = formatters
         self.defer_formatting = defer_formatting
         self.encoding = encoding
         self.use_type_checking_imports = use_type_checking_imports
         self.python_version = python_version
         self._formatting_generated_code = False
+
+        missing_formatters = [
+            formatter
+            for formatter in (Formatter.BLACK, Formatter.ISORT)
+            if formatter in formatters and not _is_formatter_available(formatter)
+        ]
+        if missing_formatters:
+            if len(missing_formatters) == 1:
+                formatter_name = missing_formatters[0].value
+                msg = (
+                    f"{formatter_name} is not installed but was requested as an output formatter. "
+                    f"Install it (datamodel-code-generator[{formatter_name}]), or use the built-in formatter "
+                    "with --formatters builtin (formatters=[Formatter.BUILTIN] in the Python API)."
+                )
+            else:
+                formatter_names = " and ".join(formatter.value for formatter in missing_formatters)
+                extras = ",".join(formatter.value for formatter in missing_formatters)
+                msg = (
+                    f"{formatter_names} are not installed but were requested as output formatters. "
+                    f"Install them (datamodel-code-generator[{extras}]), or use the built-in formatter "
+                    "with --formatters builtin (formatters=[Formatter.BUILTIN] in the Python API)."
+                )
+            raise ImportError(msg)
+
+        self.formatters = formatters
 
         has_external_formatter = bool(EXTERNAL_FORMATTERS.intersection(formatters))
         if Formatter.BUILTIN in formatters and has_external_formatter:

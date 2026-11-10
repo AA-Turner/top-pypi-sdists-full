@@ -41,7 +41,12 @@ from pydantic import Field, BaseModel, field_validator
 from fireworks.training.sdk import types
 from fireworks.training.sdk._core import APIStatusError, SamplingClient
 from fireworks.training.sdk._core._compat import model_dump as _training_model_dump
-from fireworks.training.sdk.tokenizer_identity import is_deepseek_v4_model_name, requires_code_free_tokenizer_loading
+from fireworks.training.sdk.tokenizer_identity import (
+    is_code_free_model_name,
+    is_kimi_k3_k31_model_name,
+    is_kimi_k3_k31_tokenizer_source,
+    requires_code_free_tokenizer_loading,
+)
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerBase
@@ -107,6 +112,8 @@ SAMPLER_SHUTDOWN_TIMEOUT_S: int = 10
 SAMPLER_DRAIN_TIMEOUT_S: float = 3600.0
 DEFAULT_PARALLEL_CHUNK_SEND_CONCURRENCY: int = 128
 PARALLEL_CHUNK_SEND_CONCURRENCY_ENV = "FIREWORKS_TRAINING_PARALLEL_CHUNK_SEND_CONCURRENCY"
+TRAINING_RELEASE_CHANNEL_ENV = "FIREWORKS_TRAINING_RELEASE_CHANNEL"
+TRAINING_RELEASE_CHANNEL_HEADER = "Fireworks-Release-Channel"
 FIRETITAN_TINKER_CLIENT_CONFIG: dict[str, bool] = {
     "parallel_fwdbwd_chunks": True,
     "proto_write_fwdbwd": False,
@@ -1678,7 +1685,7 @@ class FiretitanTrainingClient(TrainingClient):
             if required:
                 raise RuntimeError("RDMA weight sync is enabled but the sampler backend does not support RDMA")
             return sampler
-        eligible = sampler.allow_rdma and self._lora_rank == 0 and self.run_name is None and not sampler.cmek_resource
+        eligible = sampler.allow_rdma and self.run_name is None and not sampler.cmek_resource
         if not eligible and not required:
             # Legacy LoRA/session deployments need not expose base-model hotload
             # status. The rollout enforces its flag at FILE publication as well.
@@ -1686,6 +1693,7 @@ class FiretitanTrainingClient(TrainingClient):
         state = sampler.deploy_mgr.hotload_check_status(sampler.deployment_id, sampler.base_model)
         replicas = state.get("replicas", [])
         receiver_support = [replica.get("supports_rdma_weight_sync") is True for replica in replicas]
+        receiver_lora_support = [replica.get("supports_rdma_lora_weight_sync") is True for replica in replicas]
         receiver_enabled = [replica.get("rdma_weight_sync_enabled") for replica in replicas]
         required = required or any(receiver_support) or any(flag is True for flag in receiver_enabled)
         if not required:
@@ -1696,6 +1704,7 @@ class FiretitanTrainingClient(TrainingClient):
             or not trainer_support
             or not receiver_support
             or not all(receiver_support)
+            or (self._lora_rank != 0 and not all(receiver_lora_support))
             or any(flag is False for flag in receiver_enabled)
         ):
             raise RuntimeError(
@@ -3107,10 +3116,20 @@ class FiretitanTrainingClient(TrainingClient):
         # lazy: tokenizer downloads are optional; transport needs no transformers.
         from transformers import AutoTokenizer
 
-        if is_deepseek_v4_model_name(
+        if is_kimi_k3_k31_model_name(
+            getattr(self, "_tokenizer_base_model", None)
+        ) or is_kimi_k3_k31_tokenizer_source(self._tokenizer_model):
+            # Recognized reviewed Kimi K3/K3.1 data: build the id-identical
+            # fast tokenizer from reviewed installed code. Checkpoint Python
+            # (the auto_map TikTokenTokenizer) is never imported, and an
+            # explicit trust_remote_code elsewhere cannot reopen it.
+            from fireworks.training.sdk.kimi_native_tokenizer import load_native_tokenizer
+
+            return load_native_tokenizer(self._tokenizer_model)
+        if is_code_free_model_name(
             getattr(self, "_tokenizer_base_model", None)
         ) or requires_code_free_tokenizer_loading(self._tokenizer_model):
-            # Recognized official DeepSeek V4 data ships no remote code; an
+            # Reviewed DeepSeek V4/V4.1 data ships no remote code; an
             # explicit False resolves the identical tokenizer class and keeps
             # any checkpoint-staged Python inert.
             return AutoTokenizer.from_pretrained(self._tokenizer_model, trust_remote_code=False)
@@ -3273,9 +3292,18 @@ class FiretitanServiceClient(ServiceClient):
     Each training client automatically selects optimized requests when its
     model-creation response advertises ``comms="v2"``. Older trainers retain
     the legacy request path. Inspect ``training_client.comms`` for the selected version.
+
+    ``release_channel`` selects an authorized serverless training session release. When omitted,
+    an explicit default header or ``FIREWORKS_TRAINING_RELEASE_CHANNEL`` is used.
+    Pass an empty string for the default release. Dedicated clients ignore the
+    environment setting and reject an explicit nonempty selection.
     """
 
-    def __init__(self, *args, api_key: str | None = None, **kwargs):
+    def __init__(
+        self, *args: Any, api_key: str | None = None, release_channel: str | None = None, **kwargs: Any
+    ) -> None:
+        if release_channel is not None and not isinstance(release_channel, str):
+            raise ValueError("release_channel must be a string or None")
         project_id = kwargs.get("project_id", args[1] if len(args) > 1 else None)
         if project_id is not None:
             raise NotImplementedError(
@@ -3312,9 +3340,25 @@ class FiretitanServiceClient(ServiceClient):
         self._default_user_metadata: dict[str, str] | None = kwargs.get("user_metadata")
 
         if self._managed_config is not None:
+            if release_channel:
+                raise ValueError("release_channel is only supported for serverless training")
             return
 
         self._training_base_url = str(resolve_training_base_url(constructor_base_url))
+        serverless = self._training_base_url.rstrip("/").endswith("/training/v1/serverless")
+        if release_channel and not serverless:
+            raise ValueError("release_channel is only supported for serverless training")
+        if serverless:
+            headers = dict(kwargs.get("default_headers") or {})
+            channel_header_names = [name for name in headers if name.lower() == TRAINING_RELEASE_CHANNEL_HEADER.lower()]
+            if release_channel is None and not channel_header_names:
+                release_channel = os.environ.get(TRAINING_RELEASE_CHANNEL_ENV)
+            if release_channel is not None:
+                for name in channel_header_names:
+                    del headers[name]
+                if release_channel:
+                    headers[TRAINING_RELEASE_CHANNEL_HEADER] = release_channel
+                kwargs["default_headers"] = headers
         self._serverless_caller_headers = _serverless_caller_headers(kwargs.get("default_headers"))
         if self._fireworks_api_key is not None:
             headers = dict(kwargs.pop("default_headers", None) or {})
@@ -4143,7 +4187,9 @@ class FiretitanServiceClient(ServiceClient):
                 training_client = managed_handle.service_client.create_training_client(**create_model_kwargs)
                 training_client._tokenizer_model = managed_config.tokenizer_model
                 training_client._tokenizer_base_model = (
-                    "deepseek_v4" if managed_config.base_model_type == "deepseek_v4" else managed_config.base_model
+                    managed_config.base_model_type
+                    if is_code_free_model_name(managed_config.base_model_type)
+                    else managed_config.base_model
                 )
                 if managed_handle.sampler_backend is not None:
                     training_client._attach_sampler_backend(managed_handle.sampler_backend)

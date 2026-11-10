@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from typing_extensions import Self
 
+from office365.permissions.roles import DirectoryRole
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import StringCollection
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
-
-if TYPE_CHECKING:
-    from office365.sharepoint.tenant.administration.spocontentsecuritypolicyentry import (
-        SPOContentSecurityPolicyEntry,
-    )
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.tenant.administration.spocontentsecuritypolicyentry import SPOContentSecurityPolicyEntry
 
 
 class SPOContentSecurityPolicyConfiguration(Entity):
@@ -22,17 +19,15 @@ class SPOContentSecurityPolicyConfiguration(Entity):
     def entity_type_name(self):  # type: ignore[override]
         return "Microsoft.Online.SharePoint.TenantAdministration.SPOContentSecurityPolicyConfiguration"
 
+    @odata(name="Items")
     @property
     def items(self) -> ClientValueCollection[SPOContentSecurityPolicyEntry]:
         """Gets the Items property"""
-        from office365.sharepoint.tenant.administration.spocontentsecuritypolicyentry import (
-            SPOContentSecurityPolicyEntry,
-        )
-
         return self.properties.get(
             "Items", ClientValueCollection[SPOContentSecurityPolicyEntry](SPOContentSecurityPolicyEntry)
         )
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add(self, source: str) -> Self:
         """Add operation.
 
@@ -44,6 +39,7 @@ class SPOContentSecurityPolicyConfiguration(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove(self, source: str) -> Self:
         """Remove operation.
 
@@ -55,6 +51,7 @@ class SPOContentSecurityPolicyConfiguration(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_script_sources(self, added: list[str], removed: list[str]) -> Self:
         """UpdateScriptSources operation.
 

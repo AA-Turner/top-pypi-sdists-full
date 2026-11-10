@@ -1,38 +1,174 @@
 [build-system]
-requires = [
-    "setuptools>=50",  # 50 is to match mypyc's minimum
-    "setuptools_scm[toml]>=8.0.4,<11",
-    'mypy[mypyc]==2.3.1',  # update mypy-requirements as well
-    "black>=19.10b0,<26.4",
-    "types-requests",
-    "types-dataclasses",
-    "ruamel.yaml>= 0.17.6, < 0.20",
-    "types-setuptools",
-    "CacheControl[filecache] >= 0.14.0, < 0.15",
-    "rich-argparse",
-    "mistune >= 3.3.0, < 3.4",
-]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.setuptools_scm]
-write_to = "src/schema_salad/_version.py"
+[dependency-groups]
+lint = [
+  "diff_cover < 10.7",
+  "pydocstyle < 6.4",
+  "flake8 > 4",
+  "flake8-bugbear < 26.11",
+  "bandit < 1.9.5",
+  "pylint < 4.2",
+]
+test = [
+  "coverage >= 7.14.0",  # automatic report combining
+  "pytest >= 6.2, < 9.3",
+  "pytest-xdist",
+  "mistune >= 3.1.4, < 3.5",
+]
+cibw = [
+  "cibuildwheel==4.2.0"
+]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"},
+  {include-group = "cibw"},
+  "tox >= 4",
+  "isort >= 9.0.2, < 9.1",
+  "build < 1.6.2",
+  "autoflake < 2.5",
+  "auto-walrus",
+]
+
+[project]
+name = "schema-salad"
+description = "Schema Annotations for Linked Avro Data (SALAD)"
+readme = "README.rst"
+license = "Apache-2.0"
+license-file = "LICENSE.txt"
+requires-python = ">=3.10"
+authors = [
+  { name = "Common workflow language working group", email = "common-workflow-language@googlegroups.com" },
+]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX",
+  "Operating System :: MacOS :: MacOS X",
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Typing :: Typed",
+]
+dependencies = [
+  "requests >= 1.0",
+  "ruamel.yaml >= 0.17.6, < 0.20",
+  "rdflib >= 4.2.2, < 8.0.0",
+  "mistune>=3.3.0,<3.5",
+  "CacheControl[filecache] >= 0.13.1, < 0.15",
+  "mypy_extensions",
+  "rich-argparse",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+mypy = [
+  "mypy==2.4.1",
+  "black>=26.10.1,<26.11",
+  "types-requests",
+  "types-dataclasses",
+  "CacheControl[filecache] >= 0.14.0, < 0.15",
+]
+docs = [
+  "sphinx >= 2.2",
+  "sphinx-rtd-theme >= 1",
+  "pytest < 10",
+  "sphinx-autoapi",
+  "sphinx-autodoc-typehints",
+  "sphinxcontrib-autoprogram",
+]
+pycodegen = ["black"]
+
+[project.scripts]
+schema-salad-tool = "schema_salad.main:main"
+schema-salad-doc = "schema_salad.makedoc:main"
+
+[project.urls]
+Documentation = "https://schema-salad.readthedocs.io/"
+Homepage = "https://www.commonwl.org"
+Changelog = "https://github.com/common-workflow-language/schema_salad/releases"
+Repository = "https://github.com/common-workflow-language/schema_salad/"
+Issues = "https://github.com/common-workflow-language/schema_salad/issues"
+"Related Tools" = "https://www.commonwl.org/tools/"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/schema_salad/_version.py"
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+  "Makefile",
+  "LICENSE.txt",
+  "mypy.ini",
+  "CONTRIBUTING.md",
+  ".coveragerc",
+  "src/schema_salad",
+  "docs",
+  "mypy-stubs",
+  "README.rst",
+  "tox.ini",
+]
+exclude = ["docs/_build/", "docs/autoapi/"]
+
+[tool.hatch.build.targets.wheel.hooks.mypyc]
+enable-by-default = false
+dependencies = ["hatch-mypyc"]
+require-runtime-dependencies = true
+require-runtime-features = ["mypy"]
+mypy-args = ["--verbose"]
+exclude = [
+  "/src/schema_salad/exceptions.py", # leads to memory leaks
+  "/src/schema_salad/fetcher.py",    # to allow subclassing {Default,}Fetcher
+  "/src/schema_salad/metaschema.py", # "Multiple inheritance is not supported"
+  "/src/schema_salad/python_codegen_support.py",
+  "/src/schema_salad/runtime.py",    # "interpreted classes cannot inherit from compiled"
+  "/src/schema_salad/tests/**",      # don't compile the tests
+]
+
+[build.targets.wheel.hooks.mypyc.options]
+verbose = true
 
 [tool.cibuildwheel]
 test-command = "python -m pytest -n auto -k 'not (test_load_by_yaml_metaschema)' --junitxml={project}/test-results/junit_$(python -V | awk '{print $2}')_${AUDITWHEEL_PLAT}.xml --pyargs schema_salad"
-test-requires = "-r test-requirements.txt"
-test-extras = "pycodegen"
-skip = ["cp31?t-*", "cp315-pyodide*"]
-# cp31?t: https://mypy.readthedocs.io/en/stable/changelog.html#mypyc-partial-unsafe-support-for-free-threading
-# cp315-pyodide_wasm32: cachecontrol/msgpack isn't ready for py315/pyodide yet
+test-groups = ["test"]
+test-extras = ["pycodegen"]
 build-verbosity = 1
-environment = { SCHEMA_SALAD_USE_MYPYC="1", MYPYPATH="$(pwd)/mypy-stubs", CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros", CCACHE_NOHASHDIR="true" }
+environment = { HATCH_BUILD_HOOKS_ENABLE = "1", MYPYPATH = "$(pwd)/mypy-stubs", CCACHE_SLOPPINESS = "include_file_ctime,include_file_mtime,locale,time_macros", CCACHE_NOHASHDIR = "true" }
 
 [tool.cibuildwheel.linux]
-before-all = "apk add ccache || yum install -y ccache || dnf --nogpg -y install https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/ccache-4.13.6-1.3.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libcpp-httplib0_49-0.49.0-4.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libfmt12-12.1.0-1.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libhiredis1_3_0-1.3.0-1.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libxxhash0-0.8.3-4.2.riscv64.rpm || apt-get install -y --no-install-recommends ccache"
+before-all = "apk add ccache || yum install -y ccache || dnf --nogpg -y install https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/ccache-4.14-2.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libcpp-httplib0_49-0.49.0-4.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libfmt12-12.1.0-1.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libhiredis1_3_0-1.3.0-1.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libxxhash0-0.8.4-4.1.riscv64.rpm || apt-get install -y --no-install-recommends ccache"
 
 [tool.cibuildwheel.pyodide]
 test-command = "python -m pytest -n 0 -k 'not (test_load_by_yaml_metaschema)' --junitxml={project}/test-results/junit_$(python -V | awk '{print $2}')_${AUDITWHEEL_PLAT}.xml --pyargs schema_salad"
+# "-n 0", no support for multiprocessing under pyodide/emscripten
 
 [tool.black]
 line-length = 100
-target-version = [ "py310" ]
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+addopts = "-n auto --dist=loadscope --pyargs schema_salad.tests"
+pythonpath = [
+  "src"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.run]
+branch = true
+patch = ["subprocess"]
+source_pkgs = ["schema_salad"]
+omit = ["**/schema_salad/tests/**","**/schema_salad/metaschema.py", "**/schema_salad/python_codegen_support.py", "**/cwl_v1_0.py"]
+
+[tool.coverage.report]
+omit = ["**/cwl_v1_0.py", ]#  "**/schema_salad/metaschema.py", "**/schema_salad/python_codegen_support.py"]
+exclude_also = ["if self.debug:", "raise NotImplementedError", "if __name__ == .__main__.:"]

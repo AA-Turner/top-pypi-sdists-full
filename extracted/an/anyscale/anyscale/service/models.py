@@ -160,6 +160,12 @@ tracing_config:
             raise TypeError("'sampling_ratio' must be a float.")
 
 
+# A cloud resource's weight in a static traffic policy. Traffic is split in
+# whole percentages, so a weight above 100 adds no precision.
+MIN_STATIC_TRAFFIC_WEIGHT = 1
+MAX_STATIC_TRAFFIC_WEIGHT = 100
+
+
 class TrafficPolicyType(ModelEnum):
     """How a service splits its traffic and capacity across the cloud resources it runs on."""
 
@@ -192,8 +198,9 @@ weights:
         metadata={
             "docstring": (
                 "Relative weight of each cloud resource, by cloud resource name. Each weight "
-                "is at least 1, and the weights must cover every cloud resource the service "
-                "runs on."
+                "is from 1 to 100, and the weights must cover every cloud resource the service "
+                "runs on. Traffic is split in whole percentages, so the lightest resource "
+                "gets at least 1%."
             )
         },
     )
@@ -207,8 +214,11 @@ weights:
         if not weights:
             raise ValueError("'weights' must name at least one cloud resource.")
         for name, weight in weights.items():
-            if weight < 1:
-                raise ValueError(f"The weight of cloud resource '{name}' must be at least 1.")
+            if not MIN_STATIC_TRAFFIC_WEIGHT <= weight <= MAX_STATIC_TRAFFIC_WEIGHT:
+                raise ValueError(
+                    f"The weight of cloud resource '{name}' must be from "
+                    f"{MIN_STATIC_TRAFFIC_WEIGHT} to {MAX_STATIC_TRAFFIC_WEIGHT}."
+                )
 
 
 @dataclass(frozen=True)

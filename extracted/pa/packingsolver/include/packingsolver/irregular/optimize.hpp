@@ -316,6 +316,14 @@ struct OptimizeParameters: packingsolver::Parameters<Instance, Solution, Output>
      */
     bool use_tree_search_relative_positions = false;
 
+    /**
+     * Use the global nonlinear programming algorithm (only for the
+     * 'Feasibility' objective with a single convex bin; only selected
+     * automatically in 'Exact' mode, if an item type has continuous
+     * rotations). Requires SCIP.
+     */
+    bool use_global_nonlinear_programming = false;
+
     /** Initial maximum approximation ratio. */
     double initial_maximum_approximation_ratio = 0.10;
 
@@ -329,6 +337,16 @@ struct OptimizeParameters: packingsolver::Parameters<Instance, Solution, Output>
 
     /** Threshold to consider that a bin contains "many" items. */
     Counter many_items_in_bins_threshold = 16;
+
+    /**
+     * Threshold to consider that a bin x (resp. y) section - a full-height
+     * (resp. full-width) strip as wide (resp. as tall) as the mean item -
+     * contains "many" items, i.e. bin height (resp. width) / mean item
+     * height (resp. width). With a single bin, when both sections contain
+     * many items, the tree search maximal spaces algorithm is run instead of
+     * the tree search for the 'Knapsack' and 'Feasibility' objectives.
+     */
+    Counter many_items_in_section_threshold = 4;
 
     /** Factor to consider that the number of copies of items is "high". */
     Counter many_item_type_copies_factor = 1;

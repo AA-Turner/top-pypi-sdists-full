@@ -1,15 +1,12 @@
 """Delimiter processor."""
 from __future__ import annotations
 import re
+from bisect import bisect_left
 from markdown import Markdown
 from markdown.inlinepatterns import InlineProcessor
 import xml.etree.ElementTree as etree
 from collections import deque
-from markdown import __version_info__
 from typing import Any, cast
-
-# TODO: Remove from main when Python Markdown releases https://github.com/Python-Markdown/markdown/commit/152a16f.
-MD_FAST = __version_info__[:3] > (3, 10, 3)
 
 # Unicode punctuation and symbols `\p{P}\p{S}`. These should be placed in regex character class `fr"[{PUNCT}]"`.
 # Python seems to be slowly adding Unicode Properties on Python main. It is possible that in the future, we can
@@ -91,6 +88,16 @@ PUNCT = (
 ).decode('utf-8')
 
 
+class EvaluatedText(str):
+    """
+    Text that sits between delimiter regions that were parsed together.
+
+    Python Markdown processes the tail of an element we return starting with the same pattern that created it
+    and pass it back to us while we still have regions cached. All delimiters in it have already been evaluated,
+    so this represents text we can ignore.
+    """
+
+
 class Delimiter:
     """
     Delimiter.
@@ -127,7 +134,14 @@ class Delimiter:
         """Initialize."""
 
         self.token = token
-        self.stack: deque[tuple[int, int, bool, int]] = deque()
+        # An unclosed delimiter.
+        #
+        # 0. Start position of the (remaining) run in the text.
+        # 1. End position of the (remaining) run in the text.
+        # 2. Whether the run is ambiguous (could be a start or an end).
+        # 3. Original length of the run.
+        # 4. Current length of the run.
+        self.stack: deque[tuple[int, int, bool, int, int]] = deque()
         temp = tags.split(',')
         self.tag_count = len(temp)
         self.tags: tuple[str, str] = (temp[0], temp[1]) if self.tag_count == 2 else (temp[0], temp[0])
@@ -281,15 +295,24 @@ class DelimiterProcessor(InlineProcessor):
 
         """
 
+        # Found regions delimiter regions.
         self.regions: list[tuple[int, int, int, int, tuple[str, str], int]] = []
-        self.stack: list[tuple[int, int, bool, int]] = []
+        # HTML element cache of valid regions. Each entry holds the element, the location it replaces,
+        # and the location of the token Python Markdown will call us for once the element has been replaced.
+        self.cache: list[tuple[etree.Element, int, int, int]] = []
+        # Unpaired delimiter runs collected from all delimiters. The entries are the same as `Delimiter.stack`.
+        self.stack: list[tuple[int, int, bool, int, int]] = []
+        # Position of every delimiter token (valid or not) encountered while pairing, in ascending order.
+        # Python Markdown will call us for each one, so this lets us predict where the next call will land.
+        self.positions: list[int] = []
         self.tokens: list[str] = []
         self.delimiters: dict[str, Delimiter] = {}
         self.cache_index = 0
         self.cache_pos = 0
-        self.cache_legacy_pos = -1
         self.contains_space = [-1, -1]
         self.contains_non_space = [-1, -1]
+        # Info about the unused part of a closing delimiter run that directly follows the last returned element
+        self.remainder: tuple[str, str] | None = None
         self.md = md
         # API for Markdown to pass `safe_mode` into instance
         self.safe_mode = False
@@ -324,18 +347,19 @@ class DelimiterProcessor(InlineProcessor):
         for v in self.delimiters.values():
             v.reset()
         self.regions.clear()
+        self.cache.clear()
         self.stack.clear()
+        self.positions.clear()
         self.cache_index = 0
         self.cache_pos = 0
-        self.cache_legacy_pos = -1
         self.contains_space = [-1, -1]
         self.contains_non_space = [-1, -1]
+        self.remainder = None
 
     def _build_element(
         self,
         data: str,
-        start: int = 0,
-        offset: int = 0
+        start: int = 0
     ) -> tuple[etree.Element, int]:
         """Element builder."""
 
@@ -367,15 +391,15 @@ class DelimiterProcessor(InlineProcessor):
             if idx > 1:
                 if last.text is None:
                     if previous[2] < r[0]:
-                        last.text = data[previous[1]+offset:previous[2]+offset]
+                        last.text = data[previous[1]:previous[2]]
                     else:
-                        last.text = data[previous[1]+offset:r[0]+offset]
+                        last.text = data[previous[1]:r[0]]
                 if last is not outer[-1] and last.tail is None:
                     if r[0] < outer_r[-1][3]:
-                        last.tail = data[previous[3]+offset:r[0]+offset]
+                        last.tail = EvaluatedText(data[previous[3]:r[0]])
                     else:
-                        last.tail = data[previous[3]+offset:outer_r[-1][2]+offset]
-                        outer[-1].tail = data[outer_r[-1][3]+offset:r[0]+offset]
+                        last.tail = EvaluatedText(data[previous[3]:outer_r[-1][2]])
+                        outer[-1].tail = EvaluatedText(data[outer_r[-1][3]:r[0]])
 
             # First element
             if el is None:
@@ -410,49 +434,58 @@ class DelimiterProcessor(InlineProcessor):
         # Populate remaining elements with their text
         while outer:
             if last.text is None:
-                last.text = data[previous[1]+offset:previous[2]+offset]
+                last.text = data[previous[1]:previous[2]]
             if last.tail is None and last is not outer[-1]:
-                last.tail = data[previous[3]+offset:outer_r[-1][2]+offset]
+                last.tail = EvaluatedText(data[previous[3]:outer_r[-1][2]])
             last = outer.pop()
             previous = outer_r.pop()
 
         return cast('etree.Element', el), idx
 
-    def increment_next_position(self, start: int, count: int, offset: int) -> None:
+    def build_cache(self, data: str) -> None:
         """
-        Increment cache position to the next location that we can initiate an insertion.
+        Build the elements for all the regions we found.
 
-        Cache position should be the first match after our current replacement.
-        This gives us an anchor to calculate the new offset after insertion.
+        Elements are built from the data as it is now, so there is nothing to recalculate when Python Markdown
+        asks for them one at a time after replacing the previous one.
+
+        While pairing, we encounter every token between the regions we found, whether it was useful or not.
+        Python Markdown will call us for each of them, so the call after an element is replaced will be for the first
+        token at or after the end of that element. If an element only used part of a delimiter run, the rest
+        of the run is that token.
         """
 
-         # Determine next offset
-        self.cache_index += count
-        if self.cache_index < len(self.regions):
-            self.cache_pos = self.regions[self.cache_index][0]
-            # Legacy position is for older Python Markdown and must be
-            # the start of the last inserted region before offsets change.
-            # This allows us to skip anything before our target cache position.
-            self.cache_legacy_pos = start + offset
-            while self.stack:
-                entry = self.stack.pop(0)
-                if start < entry[0] <= self.cache_pos:
-                    self.cache_pos = entry[0]
-                    break
+        regions = self.regions
+        index = 0
+        position = 0
+        while index < len(regions):
+            el, count = self._build_element(data, index)
+            start, end = regions[index][0], regions[index][3]
+            if data[end:end + 1] in self.delimiters:
+                anchor = end
+            else:
+                position = bisect_left(self.positions, end, position)
+                anchor = self.positions[position] if position < len(self.positions) else end
+            self.cache.append((el, start, end, anchor))
+            index += count
 
+        regions.clear()
+        self.positions.clear()
+        self.cache_index = 0
+
+    def get_cached_result(self, pos: int | None = None) -> tuple[etree.Element, int, int]:
+        """Get the next element from the cache."""
+
+        el, start, end, anchor = self.cache[self.cache_index]
+        offset = 0 if pos is None else pos - self.cache_pos
+        self.cache_index += 1
+
+        if self.cache_index < len(self.cache):
+            self.cache_pos = anchor
         # Nothing left to process
         else:
             self.reset()
 
-    def get_cached_result(self, pos: int, data: str) -> tuple[etree.Element, int, int]:
-        """Get a cached result."""
-
-        # Process the next region(s) in the cache
-        regions = self.regions
-        offset = pos - self.cache_pos if pos != self.cache_pos else pos - regions[self.cache_index][0]
-        start, end = regions[self.cache_index][0], regions[self.cache_index][3]
-        el, count = self._build_element(data, self.cache_index, offset)
-        self.increment_next_position(start, count, offset)
         return el, start + offset, end + offset
 
     def check_space(self, data: str, s: int, e: int) -> bool:
@@ -468,10 +501,10 @@ class DelimiterProcessor(InlineProcessor):
         # End should be the character position.
         e -= 1
         p1, p2 = self.contains_space
-        if max(s, p1) <= min(e, p2):
+        if max(s, p1) <= min(e, p2):  # pragma: no cover
             if p1 == -1 or s < p1:
                 self.contains_space[0] = s
-            if p2 == -1 or e > p2:  # pragma: no cover
+            if p2 == -1 or e > p2:
                 self.contains_space[1] = e
             return True
         p3, p4 = self.contains_non_space
@@ -496,6 +529,16 @@ class DelimiterProcessor(InlineProcessor):
                 self.contains_non_space[1] = e
         return has_space
 
+    @staticmethod
+    def rule_of_3(opener: int, closer: int) -> bool:
+        """
+        Check the "rule of 3" which prevents an open delimiter from pairing with an ambiguous one.
+
+        The original lengths of the delimiter must be used, not what is left of them after partial pairing.
+        """
+
+        return (opener + closer) % 3 == 0 and (opener % 3 != 0 or closer % 3 != 0)
+
     def get_match(self, data: str, start: int) -> re.Match[str] | None:
         """Get match."""
 
@@ -510,6 +553,7 @@ class DelimiterProcessor(InlineProcessor):
 
         for i in range(start, len(data)):
             if data[i] in self.delimiters:
+                self.positions.append(i)
                 d = self.delimiters[data[i]]
                 m = d.boundary.match(data, i)
                 if m is not None:
@@ -522,11 +566,12 @@ class DelimiterProcessor(InlineProcessor):
         """Add region."""
 
         self.regions.append((a, b, c, d, delim.tags, size))
-        for delim in self.delimiters.values():
-            while delim.stack:
-                p = delim.stack[-1][0]
+        # Unpaired delimiters inside the new region can no longer be used, drop them and their space tracking.
+        for other in self.delimiters.values():
+            while other.stack:
+                p = other.stack[-1][0]
                 if max(p, a) <= min(p, d - 1):
-                    delim.stack.pop()
+                    self.decrement_space_trackers(other, other.stack.pop()[-1])
                     continue
                 break
 
@@ -555,17 +600,49 @@ class DelimiterProcessor(InlineProcessor):
     ) -> tuple[etree.Element | None, int | None, int | None]:
         """Parse delimiter pattern."""
 
-        # TODO: Remove when Python Markdown > 3.10.3 releases.
-        if not MD_FAST and self.cache_legacy_pos > -1 and m.end(0) < self.cache_legacy_pos:
-            return None, m.start(0), self.cache_legacy_pos
-        self.cache_legacy_pos = -1
+        remainder = self.remainder
+        self.remainder = None
+        el, start, end = self._handle_match(m, data, remainder)
+
+        # If the element did not consume the entire closing delimiter run, the rest of the run directly follows
+        # the placeholder that will replace the element. The placeholder will hide what preceded the run, which
+        # is needed to correctly classify the rest of the run, so save it for the next match.
+        if el is not None and end is not None and end < len(data) and data[end] == data[end - 1]:
+            run = end - 1
+            while run > 0 and data[run - 1] == data[end]:
+                run -= 1
+            if run > 0:
+                self.remainder = (data[end], data[run - 1])
+
+        return el, start, end
+
+    def _handle_match(
+        self,
+        m: re.Match[str],
+        data: str,
+        remainder: tuple[str, str] | None
+    ) -> tuple[etree.Element | None, int | None, int | None]:
+        """Parse delimiter pattern."""
+
+        # If the cache is not empty, it is possible to receive text that we already evaluated
+        # between found regions, ignore such text.
+        if self.cache and isinstance(data, EvaluatedText):
+            skip = self.delimiters[m.group(0)].bad.match(data, m.start(0))
+            return None, m.start(0), skip.end(0) if skip else m.end(0)
 
         # Do we have entries we haven't returned yet?
-        if self.regions:
-            return self.get_cached_result(m.start(0), data)
+        if self.cache:
+            return self.get_cached_result(m.start(0))
 
         # If token is not an opening, quit
-        m2 = self.get_match(data, m.start(0))
+        # If this is the rest of a closing run that was partially consumed, the placeholder directly before it is
+        # treated as punctuation by the patterns, but the run should be classified by what actually preceded it.
+        text = data
+        pos = m.start(0)
+        if remainder is not None and pos and data[pos - 1] == '\x03' and data[pos] == remainder[0]:
+            text = f'{data[:pos - 1]}{remainder[1]}{data[pos:]}'
+
+        m2 = self.get_match(text, pos)
         if m2 is None or m2.lastgroup[0] == 'e':  # type: ignore[index]
             if m2 is None:
                 delim = self.delimiters[m.group(0)]
@@ -587,7 +664,7 @@ class DelimiterProcessor(InlineProcessor):
             return None, m.start(0), m.end(0)
 
         is_ambiguous = m2.lastgroup[0] != 's'  # type: ignore[index]
-        stack.append((start, start + l, is_ambiguous, l))
+        stack.append((start, start + l, is_ambiguous, l, l))
         self.increment_space_trackers(delim, l)
 
         # Pair tokens until the stack is empty or we can no longer find tokens.
@@ -613,6 +690,19 @@ class DelimiterProcessor(InlineProcessor):
 
             last = stack[-1][-1] if stack else 0
 
+            # Rule of 3: an ambiguous closer cannot pair with an opener if the sum of the original
+            # lengths of their delimiter runs is a multiple of 3 (unless both are multiples of 3).
+            if (
+                stack and is_ambiguous and current != last and
+                self.rule_of_3(stack[-1][3], current)
+            ):
+                for i in range(len(stack) - 2, -1, -1):
+                    if stack[i][-1] == current and not self.rule_of_3(stack[i][3], current):
+                        while len(stack) > i + 1:
+                            self.decrement_space_trackers(delim, stack.pop()[-1])
+                        last = current
+                        break
+
             # Find closing tokens
             # Looking for:
             # - `*em*`
@@ -622,10 +712,14 @@ class DelimiterProcessor(InlineProcessor):
             # - `*em***`
             # - `**strong***`
             #
-            # Avoid ambiguous tokens that could be a start or an end.
+            # Avoid ambiguous tokens that could be a start or an end, unless the "rule of 3" allows the pairing.
             # Consume starts until the end token is fully consumed.
             # If we don't consume the entire end, see if next rule consumes it.
-            if stack and is_end and ((not is_ambiguous and current > last) or current == last or current >= 3):
+            if stack and is_end and (
+                (current > last and (not is_ambiguous or not self.rule_of_3(stack[-1][3], current))) or
+                current == last or
+                current >= 3
+            ):
                 is_start = False
 
                 # Consume previous points until the delimiter is consumed
@@ -666,7 +760,7 @@ class DelimiterProcessor(InlineProcessor):
                     current -= size
                     if size < delimiter[-1] and (not delim.double or (delimiter[-1] - size) != 1):
                         new = delimiter[-1] - size
-                        stack.append((delimiter[0], delimiter[1] - size, delimiter[2], new))
+                        stack.append((delimiter[0], delimiter[1] - size, delimiter[2], delimiter[3], new))
                         self.increment_space_trackers(delim, new)
 
                     if not stack:
@@ -680,7 +774,7 @@ class DelimiterProcessor(InlineProcessor):
 
                 # Should remainder be treated as a new start?
                 if original >= 3 and current and is_ambiguous:
-                    delim.stack.append((m2.start(0) + (original - current), end, False, current))
+                    delim.stack.append((m2.start(0) + (original - current), end, False, original, current))
                     self.increment_space_trackers(delim, current)
                     is_end = False
 
@@ -730,7 +824,7 @@ class DelimiterProcessor(InlineProcessor):
                         de -= size
 
                     if last and (not delim.double or last > 1):
-                        stack.append((ds, de, False, last))
+                        stack.append((ds, de, False, delimiter[3], last))
                         self.increment_space_trackers(delim, last)
 
             # Find opening tokens
@@ -741,8 +835,9 @@ class DelimiterProcessor(InlineProcessor):
             if is_start and (not delim.double or current != 1):
                 # Start a new nested span, but avoid adding new spans if it no space requirement
                 # cannot be fulfilled. Abort if it is impossible to meet the requirement.
+                # There is nothing to check if this delimiter has no opener yet (another delimiter may be active).
                 if (
-                    delim.no_space and (delim.space_track or delim.single) and
+                    delim.no_space and (delim.space_track or delim.single) and stack and
                     self.check_space(data, stack[-1][1], start)
                 ):
                     if delim.space_track > 1 or delim.singles or delim.single:
@@ -751,7 +846,7 @@ class DelimiterProcessor(InlineProcessor):
                         delim.reset()
                     continue
 
-                stack.append((start, end, is_ambiguous, current))
+                stack.append((start, end, is_ambiguous, current, current))
                 self.increment_space_trackers(delim, current)
 
         # Build the HTML elements
@@ -761,13 +856,11 @@ class DelimiterProcessor(InlineProcessor):
         if self.regions:
             # Regions may be out of order.
             self.regions.sort(key=lambda x: x[0])
-            start, end = self.regions[0][0], self.regions[0][3]
-            el, count = self._build_element(data)
-            self.increment_next_position(start, count, 0)
-            return el, start, end
+            self.build_cache(data)
+            return self.get_cached_result()
 
         # We failed to pair any valid start/end delimiters, avoid the parsed range next pass.
         start = m.start(0)
-        end = self.stack[-1][1] if self.stack and (MD_FAST or len(self.stack) > 1) else m.end(0)
+        end = self.stack[-1][1] if self.stack and len(self.stack) > 1 else m.end(0)
         self.reset()
         return None, start, end

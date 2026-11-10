@@ -102,6 +102,7 @@ TRACKED = {
         "&from=1111111111&to=15551230001,15551239999"
     ),
     "clicksend": "clicksend://user:pass@33333333333333?batch=no",
+    "cm": "cm://0123abcd-4567-89ef-abcd-0123456789ab/15551234567/15551239999",
     "d7networks": "d7sms://token1@33333333333333?batch=no",
     "dapnet": "dapnet://user:pass@localhost/DL0001/DL9999",
     "discord": "discord://1234567890/abcdefghijklmnop",
@@ -121,7 +122,12 @@ TRACKED = {
     "flock": "flock://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/u:0001/u:9999",
     "fortysixelks": "46elks://user:pass@sender/12125550001/12125559999",
     "google_chat": "gchat://workspace/key/token",
+    "groundmail": (
+        "groundmail://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:user@example.com/"
+        "one@example.ca"
+    ),
     "guilded": "guilded://1234567890/abcdefghijklmnop",
+    "gupshup": "gupshup://app:apikey@917834811114/15551234567/15551239999",
     "home_assistant": "hassio://localhost/prefix/path/long.lived.token",
     "httpsms": (
         "httpsms://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@12125550000/"
@@ -129,8 +135,11 @@ TRACKED = {
     ),
     "humhub": "humhubs://mytoken@hostname/1/2/3",
     "ifttt": "ifttt://WebHookID@EventID/EventID2/",
+    "infobip": "infobip://apikey@xyz123/15551234567/15551239999",
     "jira": "jira://apikey/user@email.com/#team/",
     "join": "join://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/device0001",
+    "kaleyra": "kaleyra://sid:apikey@KLRHXA/15551234567/15551239999",
+    "kakaotalk": "kakaotalk://abcdef0123456789/refresh/friend0001/me",
     "kavenegar": "kavenegar://12125550000/12125550001/12125559999",
     "kook": "kook://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/1234567890",
     "line": "line://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/target0001",
@@ -223,6 +232,7 @@ TRACKED = {
     "smpp": "smpp://user:pass@localhost:2775/12125550000/12125550001",
     "smseagle": "smseagle://token@localhost/12512222222/@contact/%23group",
     "smsmanager": "smsmgr://zzzzzzzzzz@123/33333333333/+44444444444",
+    "smstunnel": "smstunnel://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/12125550001",
     "smtp2go": (
         "smtp2go://user@example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
         "one@example.ca"
@@ -245,6 +255,7 @@ TRACKED = {
     "telegram": (
         "tgram://123456789:ABCdefGHIjklMNOpqrSTUvwxYZ1234567890/111/"
     ),
+    "telesign": "telesign://customerid:apikey@15551234567/15551239999",
     "telnyx": (
         "telnyx://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@12125550000/12125550001"
     ),

@@ -1,5 +1,6 @@
 # cvt/cvt.pyi — type stubs for the cvt C extension.
-from typing import final, Literal
+from typing import Literal, final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -26,7 +27,7 @@ class F32ToI8:
     Create with defaults:
 
     >>> from doppler.cvt import F32ToI8
-    >>> obj = F32ToI8(scale=128.0)
+    >>> obj = F32ToI8()
 
     """
 
@@ -248,7 +249,7 @@ class F32ToI16:
     Create with defaults:
 
     >>> from doppler.cvt import F32ToI16
-    >>> obj = F32ToI16(scale=32768.0)
+    >>> obj = F32ToI16()
 
     """
 
@@ -469,7 +470,7 @@ class F32ToI32:
     Create with defaults:
 
     >>> from doppler.cvt import F32ToI32
-    >>> obj = F32ToI32(scale=2147483648.0)
+    >>> obj = F32ToI32()
 
     """
 
@@ -698,7 +699,7 @@ class I8ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import I8ToF32
-    >>> obj = I8ToF32(scale=128.0)
+    >>> obj = I8ToF32()
 
     """
 
@@ -839,7 +840,7 @@ class U8ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import U8ToF32
-    >>> obj = U8ToF32(mode="shift")
+    >>> obj = U8ToF32()
 
     """
 
@@ -994,7 +995,7 @@ class I16ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import I16ToF32
-    >>> obj = I16ToF32(scale=32768.0)
+    >>> obj = I16ToF32()
 
     """
 
@@ -1146,7 +1147,7 @@ class I32ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import I32ToF32
-    >>> obj = I32ToF32(scale=2147483648.0)
+    >>> obj = I32ToF32()
 
     """
 
@@ -1298,7 +1299,7 @@ class F32ToI16U32:
     Create with defaults:
 
     >>> from doppler.cvt import F32ToI16U32
-    >>> obj = F32ToI16U32(scale=32768.0)
+    >>> obj = F32ToI16U32()
 
     """
 
@@ -1517,7 +1518,7 @@ class F32ToI16U64:
     Create with defaults:
 
     >>> from doppler.cvt import F32ToI16U64
-    >>> obj = F32ToI16U64(scale=32768.0)
+    >>> obj = F32ToI16U64()
 
     """
 
@@ -1734,7 +1735,7 @@ class I16U32ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import I16U32ToF32
-    >>> obj = I16U32ToF32(scale=32768.0)
+    >>> obj = I16U32ToF32()
 
     """
 
@@ -1885,7 +1886,7 @@ class I16U64ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import I16U64ToF32
-    >>> obj = I16U64ToF32(scale=32768.0)
+    >>> obj = I16U64ToF32()
 
     """
 
@@ -2037,7 +2038,7 @@ class F32ToUQ15:
     Create with defaults:
 
     >>> from doppler.cvt import F32ToUQ15
-    >>> obj = F32ToUQ15(scale=32768.0)
+    >>> obj = F32ToUQ15()
 
     """
 
@@ -2258,7 +2259,7 @@ class UQ15ToF32:
     Create with defaults:
 
     >>> from doppler.cvt import UQ15ToF32
-    >>> obj = UQ15ToF32(scale=32768.0)
+    >>> obj = UQ15ToF32()
 
     """
 
@@ -2409,7 +2410,7 @@ class ADC:
     Create with defaults:
 
     >>> from doppler.cvt import ADC
-    >>> obj = ADC(bits=16, dbfs=-10.0, dithering=0)
+    >>> obj = ADC()
 
     """
 

@@ -29,8 +29,11 @@ resamp_bessel_i0 (double x)
 static unsigned
 resamp_log2_u (size_t v)
 {
+  /* A size_t shift: an unsigned-int one never reaches a count above 2^31,
+     so it shifted past its width and looped forever. v is a power of two
+     (create_custom refuses any other), so r stops at most at w - 1. */
   unsigned r = 0;
-  while ((1u << r) < v)
+  while (((size_t)1 << r) < v)
     r++;
   return r;
 }
@@ -70,7 +73,10 @@ resamp_build_bank (size_t num_phases, size_t num_taps, double atten, double pb,
       g[i]       = w * wc / M_PI * s * (double)num_phases;
     }
 
-  float *bank = malloc (num_phases * num_taps * sizeof (float));
+  size_t bank_n;
+  float *bank = dp_size_mul (num_phases, num_taps, &bank_n)
+                    ? dp_mallocn (bank_n, sizeof (float))
+                    : NULL;
   if (!bank)
     {
       free (g);
@@ -175,7 +181,7 @@ resamp_create_from_bank (size_t num_phases, size_t num_taps, float *bank_owned,
     s->delay_cap <<= 1;
   s->delay_mask = s->delay_cap - 1;
   s->delay_head = 0;
-  s->delay_buf  = calloc (2 * s->delay_cap, sizeof (float _Complex));
+  s->delay_buf  = dp_callocn (2, s->delay_cap, sizeof (float _Complex));
   if (!s->delay_buf)
     {
       free (s->bank);
@@ -238,13 +244,26 @@ dp_resamp_create_custom (size_t num_phases, size_t num_taps, const float *bank,
 {
   /* get_branch() selects the arm from the top log2(num_phases) bits of the
      phase word, rounded UP, so a non-power-of-two count would address arms
-     past the end of the bank: 48 phases reach arm 63 (doppler#2640). */
-  if (!num_phases || (num_phases & (num_phases - 1u)) != 0u || !num_taps
-      || !bank || !dp_resamp_rate_ok (rate))
+     past the end of the bank: 48 phases reach arm 63 (doppler#2640).
+
+     The phase word is a uint32_t and get_branch() shifts it right by
+     32 - log2(num_phases).  C99 6.5.7p3 defines that shift only for a count
+     in [0, 31], so log2(num_phases) <= 32: at exactly 2^32 the count is 0
+     and the arm is the whole word, every one of 2^32 arms reachable and
+     none past the end.  Above it the count is negative -- undefined -- and
+     a 32-bit word cannot name more arms anyway.  Refused here, before the
+     bank is copied: 2^33 phases would otherwise copy 32 GiB first.  (The
+     comparison is in uint64_t because 2^32 does not fit a 32-bit size_t,
+     where no count can exceed the cap at all.) */
+  if (!num_phases || (num_phases & (num_phases - 1u)) != 0u
+      || (uint64_t)num_phases > RESAMP_MAX_PHASES || !num_taps || !bank
+      || !dp_resamp_rate_ok (rate))
     return NULL;
 
-  size_t len = num_phases * num_taps;
-  float *b   = malloc (len * sizeof (float));
+  size_t len;
+  if (!dp_size_mul (num_phases, num_taps, &len))
+    return NULL;
+  float *b = dp_mallocn (len, sizeof (float));
   if (!b)
     return NULL;
   memcpy (b, bank, len * sizeof (float));
@@ -491,7 +510,10 @@ get_branch (const resamp_state_t *s, uint32_t ph)
      undefined, yielding 0 on x86, which pinned `ph` at 0 and made the bad
      shift return a harmless 0. One undefined conversion was hiding the
      other, so fixing either alone turns a silently dead waveform into a
-     segfault. */
+     segfault.
+
+     The other end is create's: it refuses num_phases above 2^32, so
+     log2_phases <= 32 and the count below is never negative. */
   size_t arm = s->log2_phases ? (size_t)(ph >> (32u - s->log2_phases)) : 0u;
   return &s->bank[arm * s->num_taps];
 }

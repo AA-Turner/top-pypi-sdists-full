@@ -29,7 +29,8 @@ import logging
 import sys
 import tempfile
 import threading
-from collections.abc import Callable, Iterator, MutableSet, Sequence
+from collections.abc import Callable, Iterator, Mapping, MutableSet, Sequence
+from dataclasses import dataclass
 from os import fspath
 from pathlib import Path
 from struct import pack as struct_pack
@@ -42,7 +43,6 @@ from pikepdf import (
     Dictionary,
     Name,
     NamePath,
-    Object,
     ObjectStreamMode,
     Pdf,
     PdfError,
@@ -62,7 +62,6 @@ from ocrmypdf._progressbar import ProgressBar
 from ocrmypdf.exceptions import OutputFileAccessError
 from ocrmypdf.helpers import (
     IMG2PDF_KWARGS,
-    RESOURCES_XOBJECT,
     safe_symlink,
 )
 
@@ -130,7 +129,7 @@ def _filter_parameter(decode_parms: Any, key: Name, default: int) -> int | None:
 
 def extract_image_filter(
     image: Stream, xref: Xref
-) -> tuple[PdfImage, tuple[Name, Object]] | None:
+) -> tuple[PdfImage, tuple[str, Any]] | None:
     """Determine if an image is extractable."""
     if image.get(Name.Subtype) != Name.Image:
         return None
@@ -418,73 +417,54 @@ def extract_image_generic(
     return None
 
 
-def _find_image_xrefs_container(
-    pdf: Pdf,
-    container: Object,
-    pageno: int,
-    include_xrefs: MutableSet[Xref],
-    exclude_xrefs: MutableSet[Xref],
-    pageno_for_xref: dict[Xref, int],
-    depth: int = 0,
-    visited_forms: MutableSet[Xref] | None = None,
-):
-    """Find all image XRefs or Form XObject and add to the include/exclude sets."""
-    # Form XObjects are not added to include/exclude_xrefs, so the dedup
-    # check below doesn't catch Form-XObject cycles or DAGs. Track them in
-    # a shared set so each Form is only descended into once per document
-    # (issue #1321).
-    if visited_forms is None:
-        visited_forms = set()
-    if depth > 10:
-        # With visited_forms memoization, this is a soft DAG-height guard
-        # rather than a cycle defense, so a debug log is sufficient.
-        log.debug("Recursion depth exceeded in _find_image_xrefs_page")
-        return
-    for _imname, image in (container.get_dict(RESOURCES_XOBJECT) or {}).items():
-        if image.objgen[1] != 0:
-            continue  # Ignore images in an incremental PDF
-        xref = Xref(image.objgen[0])
-        if xref in include_xrefs or xref in exclude_xrefs:
-            continue  # Already processed
-        if Name.Subtype in image and image.Subtype == Name.Form:
-            if xref in visited_forms:
-                continue
-            visited_forms.add(xref)
-            log.debug(f"Recursing into Form XObject {_imname} in page {pageno}")
-            _find_image_xrefs_container(
-                pdf,
-                image,
-                pageno,
-                include_xrefs,
-                exclude_xrefs,
-                pageno_for_xref,
-                depth + 1,
-                visited_forms,
-            )
-            continue
-        if Name.SMask in image:
-            # Ignore soft masks
-            smask_xref = Xref(image.SMask.objgen[0])
-            exclude_xrefs.add(smask_xref)
-            log.debug(f"xref {smask_xref}: skipping image because it is an SMask")
-        include_xrefs.add(xref)
-        log.debug(f"xref {xref}: treating as an optimization candidate")
-        if xref not in pageno_for_xref:
-            pageno_for_xref[xref] = pageno
+@dataclass(frozen=True, slots=True)
+class _ImageXrefs:
+    """The images to consider optimizing, and where each is first used."""
+
+    working_xrefs: frozenset[Xref]
+    pageno_for_xref: Mapping[Xref, int]
 
 
-def _find_image_xrefs(pdf: Pdf):
+def _find_image_xrefs(pdf: Pdf) -> _ImageXrefs:
+    """Find the xrefs of the images that pages and their Form XObjects use.
+
+    Returns the xrefs of the images to consider for optimization, and the
+    number of the first page each is used on.
+    """
     include_xrefs: MutableSet[Xref] = set()
     exclude_xrefs: MutableSet[Xref] = set()
     pageno_for_xref: dict[Xref, int] = {}
+    pagenos = {page.obj.objgen: pageno for pageno, page in enumerate(pdf.pages)}
 
-    for pageno, page in enumerate(pdf.pages):
-        _find_image_xrefs_container(
-            pdf, page.obj, pageno, include_xrefs, exclude_xrefs, pageno_for_xref
-        )
+    # Form XObjects may refer to themselves or to each other in a cycle, and
+    # commonly share one /Resources. content_scopes reports each page and each
+    # Form XObject once for the document, however it is reached (issue #1321).
+    for scope in pdf.content_scopes(kinds=('page', 'form')):
+        if scope.resources is None or scope.page is None:
+            continue
+        pageno = pagenos[scope.page.obj.objgen]
+        for image in (scope.resources.get_dict(Name.XObject) or {}).values():
+            if image.objgen[1] != 0:
+                continue  # Ignore images in an incremental PDF
+            xref = Xref(image.objgen[0])
+            if xref in include_xrefs or xref in exclude_xrefs:
+                continue  # Already processed
+            if Name.Subtype in image and image.Subtype == Name.Form:
+                continue  # Reported as a scope of its own
+            if Name.SMask in image:
+                # Ignore soft masks
+                smask_xref = Xref(image.SMask.objgen[0])
+                exclude_xrefs.add(smask_xref)
+                log.debug(f"xref {smask_xref}: skipping image because it is an SMask")
+            include_xrefs.add(xref)
+            log.debug(f"xref {xref}: treating as an optimization candidate")
+            if xref not in pageno_for_xref:
+                pageno_for_xref[xref] = pageno
 
-    working_xrefs = include_xrefs - exclude_xrefs
-    return working_xrefs, pageno_for_xref
+    return _ImageXrefs(
+        working_xrefs=frozenset(include_xrefs - exclude_xrefs),
+        pageno_for_xref=pageno_for_xref,
+    )
 
 
 def extract_images(
@@ -500,16 +480,18 @@ def extract_images(
     Record the page number on which an image is first used, since images may be
     used on multiple pages (or multiple times on the same page).
 
-    Current we do not check Form XObjects or other objects that may contain
-    images, and we don't evaluate alternate images or thumbnails.
+    Images in Form XObjects are included. We do not check other objects that
+    may contain images, such as tiling patterns, and we don't evaluate
+    alternate images or thumbnails (elsewhere discarded).
 
     extract_fn must decide if wants to extract the image in this context. If
     it does a tuple should be returned: (xref, ext) where .ext is the file
     extension. extract_fn must also extract the file it finds interesting.
     """
     errors = 0
-    working_xrefs, pageno_for_xref = _find_image_xrefs(pdf)
-    for xref in working_xrefs:
+    image_xrefs = _find_image_xrefs(pdf)
+    pageno_for_xref = image_xrefs.pageno_for_xref
+    for xref in image_xrefs.working_xrefs:
         image = pdf.get_object((xref, 0))
         try:
             result = extract_fn(
@@ -610,9 +592,25 @@ def convert_to_jbig2(
         im_obj.write(jbig2_im_data, filter=Name.JBIG2Decode, decode_parms=None)
 
 
+@dataclass(frozen=True, slots=True)
+class _JpegResult:
+    """A recompressed JPEG; ``opt_jpg`` is None if it was not made smaller."""
+
+    xref: Xref
+    opt_jpg: Path | None
+
+
+@dataclass(frozen=True, slots=True)
+class _DeflateResult:
+    """A deflated JPEG; ``compdata`` is empty if it was not made smaller."""
+
+    xref: Xref
+    compdata: bytes
+
+
 def _optimize_jpeg(
     xref: Xref, in_jpg: Path, opt_jpg: Path, jpeg_quality: int
-) -> tuple[Xref, Path | None]:
+) -> _JpegResult:
     with Image.open(in_jpg) as im:
         save_kwargs: dict[str, Any] = {'optimize': True}
         if isinstance(jpeg_quality, int) and 0 < jpeg_quality <= 100:
@@ -622,8 +620,8 @@ def _optimize_jpeg(
     if opt_jpg.stat().st_size > in_jpg.stat().st_size:
         log.debug(f"xref {xref}, jpeg, made larger - skip")
         opt_jpg.unlink()
-        return xref, None
-    return xref, opt_jpg
+        return _JpegResult(xref, None)
+    return _JpegResult(xref, opt_jpg)
 
 
 def transcode_jpegs(
@@ -637,11 +635,11 @@ def transcode_jpegs(
             opt_jpg = in_jpg.with_suffix('.opt.jpg')
             yield xref, in_jpg, opt_jpg, options.jpeg_quality
 
-    def finish_jpeg(result: tuple[Xref, Path | None], pbar: ProgressBar):
-        xref, opt_jpg = result
-        if opt_jpg:
-            compdata = opt_jpg.read_bytes()  # JPEG can inserted into PDF as is
-            im_obj = pdf.get_object(xref, 0)
+    def finish_jpeg(result: _JpegResult, pbar: ProgressBar):
+        if result.opt_jpg:
+            # JPEG can inserted into PDF as is
+            compdata = result.opt_jpg.read_bytes()
+            im_obj = pdf.get_object(result.xref, 0)
             im_obj.write(compdata, filter=Name.DCTDecode)
         pbar.update()
 
@@ -702,17 +700,17 @@ def _find_deflatable_jpeg(
 
 def _deflate_jpeg(
     pdf: Pdf, lock: threading.Lock, xref: Xref, complevel: int
-) -> tuple[Xref, bytes]:
+) -> _DeflateResult:
     with lock:
         xobj = pdf.get_object(xref, 0)
         try:
             data = xobj.read_raw_bytes()
         except PdfError:
-            return xref, b''
+            return _DeflateResult(xref, b'')
     compdata = compress(data, complevel)
     if len(compdata) >= len(data):
-        return xref, b''
-    return xref, compdata
+        return _DeflateResult(xref, b'')
+    return _DeflateResult(xref, compdata)
 
 
 def deflate_jpegs(pdf: Pdf, root: Path, options, executor: Executor) -> None:
@@ -737,12 +735,11 @@ def deflate_jpegs(pdf: Pdf, root: Path, options, executor: Executor) -> None:
         for xref in jpegs:
             yield pdf, lock, xref, complevel
 
-    def finish(result: tuple[Xref, bytes], pbar: ProgressBar):
-        xref, compdata = result
-        if len(compdata) > 0:
+    def finish(result: _DeflateResult, pbar: ProgressBar):
+        if len(result.compdata) > 0:
             with lock:
-                xobj = pdf.get_object(xref, 0)
-                xobj.write(compdata, filter=[Name.FlateDecode, Name.DCTDecode])
+                xobj = pdf.get_object(result.xref, 0)
+                xobj.write(result.compdata, filter=[Name.FlateDecode, Name.DCTDecode])
         pbar.update()
 
     executor(

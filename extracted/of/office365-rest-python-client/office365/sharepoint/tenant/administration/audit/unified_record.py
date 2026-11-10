@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from uuid import UUID
 
@@ -8,7 +8,6 @@ from office365.runtime.client_value import ClientValue
 from office365.sharepoint.tenant.administration.audit.data import AuditData
 
 
-@dataclass
 class UnifiedAuditRecord(ClientValue):
     AuditData: AuditData = field(default_factory=AuditData)
     RawAuditData: str | None = None

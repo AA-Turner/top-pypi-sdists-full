@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -10,7 +10,6 @@ from office365.security.user_training_status_info import (
 )
 
 
-@dataclass
 class AttackSimulationTrainingUserCoverage(ClientValue):
     attackSimulationUser: AttackSimulationUser = field(default_factory=AttackSimulationUser)
     userTrainings: ClientValueCollection[UserTrainingStatusInfo] = field(

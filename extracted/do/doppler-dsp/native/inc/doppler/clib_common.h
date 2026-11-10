@@ -64,6 +64,12 @@
              state, not a failure, and distinct from DP_ERR_TIMEOUT, which  \
              means "not yet". Every transport spells it the same way -- see \
              docs/design/io-termination.md. */
+#define DP_ERR_UNSUPPORTED                                                    \
+  (-11) /**< This object's flavor does not serve the call: a member only    \
+             some of its constructions honor, asked of one that does not   \
+             (docs/design/correlator-python.md section 18). The call       \
+             changed nothing. Distinct from DP_ERR_INVALID, a bad          \
+             argument to a call the object does serve. */
 
 /**
  * @brief Marks a function whose status must not be dropped.
@@ -138,6 +144,546 @@ static inline void *
 dp_xrealloc (void *p, size_t n)
 {
   return dp_xnn (realloc (p, n));
+}
+
+/**
+ * @brief `a * b` as a `size_t`, or a refusal when the product does not fit.
+ *
+ * A size product that wraps is the worst way an allocation can go wrong:
+ * the buffer comes back SMALL, every check against it passes, and the
+ * writes that follow run past its end. The guard is one line, and that is
+ * the trouble with it -- written by hand at each site it was spelled a
+ * different way every time (`n > SIZE_MAX / k`, `SIZE_MAX / a / b`, a
+ * strict `<` against the quotient), and one file grew three wrapping
+ * products in two review rounds. Spelled once here so every product that
+ * sizes memory is checked the same way; `scripts/check_size_mul_sites.py`
+ * fails on a `SIZE_MAX /` written anywhere else in library C.
+ *
+ * Divide before multiplying, so nothing overflows on the way to the
+ * answer: `a * b` fits exactly when `b == 0` or `a <= SIZE_MAX / b`. It is
+ * plain C99 on purpose, not `__builtin_mul_overflow`: clang-cl on Windows
+ * builds this header too.
+ *
+ * The contract a caller can lean on:
+ *
+ * - it returns 1 and writes `a * b` to @p out when the product fits,
+ *   including a zero factor (the product is then 0);
+ * - it returns 0 and leaves @p out UNTOUCHED when it overflows, so a
+ *   refusal never hands back a wrapped count;
+ * - @p out may alias the storage a factor was read from:
+ *   `dp_size_mul (n, k, &n)` is safe, because both factors are taken by
+ *   value before anything is written. Chain a three-way product that way.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdint.h>
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   size_t bytes = 0;
+ *   if (!dp_size_mul (1024, sizeof (float), &bytes))
+ *     return 1;
+ *   printf ("%zu\n", bytes); // 4096
+ *
+ *   size_t n = 7;
+ *   if (!dp_size_mul (n, 3, &n) || !dp_size_mul (n, 2, &n))
+ *     return 1;
+ *   printf ("%zu\n", n); // 42
+ *
+ *   size_t kept = 5;
+ *   if (dp_size_mul (SIZE_MAX / 2 + 1, 2, &kept))
+ *     return 1;
+ *   printf ("%zu\n", kept); // 5: a refusal leaves it alone
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param a    First factor.
+ * @param b    Second factor.
+ * @param out  Receives `a * b` when it fits; untouched otherwise.
+ * @return 1 when the product fits in a `size_t`, 0 when it would wrap.
+ */
+static inline int
+dp_size_mul (size_t a, size_t b, size_t *out)
+{
+  if (b != 0 && a > SIZE_MAX / b)
+    return 0;
+  *out = a * b;
+  return 1;
+}
+
+/**
+ * @brief `a + b` as a `size_t`, or a refusal when the sum does not fit.
+ *
+ * The other half of a multiply-add guard, `k * hop + frame_n` fits: a
+ * product checked by dp_size_mul() and then a sum checked here, rather than
+ * the one-line `k <= (SIZE_MAX - frame_n) / hop` that folds both into a
+ * division nobody can read twice the same way. The same contract as
+ * dp_size_mul(): 1 and the sum when it fits; 0 and @p out UNTOUCHED when it
+ * wraps; @p out may alias a summand, so a product chains into a sum.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdint.h>
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   size_t end = 0;
+ *   // 3 hops of 256 past a 1024-sample frame
+ *   if (!dp_size_mul (3, 256, &end) || !dp_size_add (end, 1024, &end))
+ *     return 1;
+ *   printf ("%zu\n", end); // 1792
+ *   printf ("%d\n", dp_size_add (SIZE_MAX, 1, &end)); // 0
+ *   printf ("%zu\n", end); // 1792: a refusal leaves it alone
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param a    First summand.
+ * @param b    Second summand.
+ * @param out  Receives `a + b` when it fits; untouched otherwise.
+ * @return 1 when the sum fits in a `size_t`, 0 when it would wrap.
+ */
+static inline int
+dp_size_add (size_t a, size_t b, size_t *out)
+{
+  if (a > SIZE_MAX - b)
+    return 0;
+  *out = a + b;
+  return 1;
+}
+
+/**
+ * @brief `a * b`, or `SIZE_MAX` when the product does not fit.
+ *
+ * The saturating face of dp_size_mul(), for a function whose job is an
+ * UPPER BOUND -- the most output a call can produce, the records a ring
+ * must hold. A wrapped bound sizes a buffer small, which is the one
+ * failure such a function exists to prevent; `SIZE_MAX` instead is a size
+ * no allocation satisfies, so a caller that trusts it is refused at the
+ * allocation rather than overrun after it. Built on dp_size_mul() so the
+ * overflow test has one spelling.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdint.h>
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   printf ("%zu\n", dp_size_mul_sat (6, 7));                   // 42
+ *   printf ("%d\n", dp_size_mul_sat (SIZE_MAX, 2) == SIZE_MAX); // 1
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param a  First factor.
+ * @param b  Second factor.
+ * @return `a * b` when it fits in a `size_t`, else `SIZE_MAX`.
+ */
+static inline size_t
+dp_size_mul_sat (size_t a, size_t b)
+{
+  size_t p = SIZE_MAX;
+  (void)dp_size_mul (a, b, &p);
+  return p;
+}
+
+/* ------------------------------------------------------------------ */
+/* Array allocations: @p n elements of @p size bytes, the product      */
+/* checked by dp_size_mul(). `malloc (n * sizeof *p)` wraps silently   */
+/* when n is large, returns a SMALL buffer, and the loop that fills    */
+/* all n elements writes past it. These are malloc / dp_xmalloc /      */
+/* dp_xrealloc with the product taken out of the caller's hands, as    */
+/* calloc already takes it for a zeroed allocation. calloc and         */
+/* dp_xcalloc check nmemb * size themselves, but not a product written */
+/* INSIDE an argument: `calloc (a * b, size)` wraps `a * b` first, and */
+/* `dp_xcalloc (dp_size_mul_sat (a, b), size)` hands calloc SIZE_MAX,  */
+/* which gcc's -Walloc-size-larger-than sees. dp_callocn and           */
+/* dp_xcallocn take that count as two factors and check it inside.     */
+/*                                                                     */
+/* Which one:                                                          */
+/*                                                                     */
+/*  - dp_mallocn, when the count comes from a CALLER on a path that    */
+/*    can refuse (a create(), a resize, a decode): it returns NULL on  */
+/*    overflow as well as on OOM, and the caller refuses.              */
+/*  - dp_reallocn, its resizing twin on the same kind of path: NULL on */
+/*    overflow or OOM, with the old block untouched and still the      */
+/*    caller's, exactly as a failed realloc leaves it.                 */
+/*  - dp_callocn, the ZEROED one, when the element count is itself a   */
+/*    product `n * m` (rows x columns, lanes x taps): NULL when n * m  */
+/*    overflows, when calloc refuses n * m * size (its own check), or  */
+/*    on OOM. A count that is one factor needs no helper: plain calloc */
+/*    already checks `nmemb * size`.                                   */
+/*  - dp_xmallocn / dp_xreallocn / dp_xcallocn, when the count is      */
+/*    already validated and only genuine OOM could fail it: they       */
+/*    abort, like dp_xmalloc.                                          */
+/*    An overflow there is a broken internal guarantee, not a caller's */
+/*    mistake, so it aborts too rather than handing back a short      */
+/*    buffer.                                                          */
+/*                                                                     */
+/* scripts/check_alloc_helpers.py fails on a new allocation with a    */
+/* product written inline in any size argument.                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * @brief malloc for @p n elements of @p size bytes; NULL when the byte
+ *        count would overflow, or on OOM.
+ *
+ * For a count a caller chose, on a path that refuses: check the result
+ * and refuse, exactly as for malloc.
+ *
+ * @note When `n * size == 0` this asks for ONE byte, not zero: `malloc (0)`
+ *       may return NULL, which a caller would read as a refusal. So NULL
+ *       from dp_mallocn means overflow or OOM and nothing else, and a
+ *       zero-count result is a live pointer the caller frees as usual and
+ *       never dereferences.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdint.h>
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   float *x = dp_mallocn (256, sizeof *x);
+ *   if (!x)
+ *     return 1;
+ *   x[255] = 1.0f;
+ *   free (x);
+ *   // 2^(w-1) elements of 2 bytes is 2^w bytes: refused, not wrapped to 0
+ *   printf ("%d\n", dp_mallocn (SIZE_MAX / 2 + 1, 2) == NULL); // 1
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param n     Element count.
+ * @param size  Bytes per element.
+ * @return The allocation, or NULL on overflow or OOM.
+ */
+static inline void *
+dp_mallocn (size_t n, size_t size)
+{
+  size_t bytes;
+  if (!dp_size_mul (n, size, &bytes))
+    return NULL;
+  return malloc (bytes ? bytes : 1u);
+}
+
+/**
+ * @brief realloc to @p n elements of @p size bytes; NULL when the byte
+ *        count would overflow, or on OOM, with @p p untouched.
+ *
+ * The refusing twin of dp_xreallocn(), for a buffer that grows on a path
+ * that can refuse (a resize, a decode, a create()): on NULL, @p p is
+ * neither freed nor moved and is still the caller's, exactly as after a
+ * failed realloc, so the usual pattern keeps working:
+ * `tmp = dp_reallocn (p, n, s); if (!tmp) refuse; p = tmp;`. Pick
+ * dp_xreallocn() instead when the count is already bounded and only a
+ * genuine OOM could fail it. Passing NULL for @p p is a fresh allocation.
+ *
+ * @note When `n * size == 0` this resizes @p p to ONE byte rather than
+ *       calling `realloc (p, 0)`: glibc's frees @p p and returns NULL,
+ *       which a caller would read as a refusal while still owning a freed
+ *       pointer, and C23 makes it undefined. So dp_reallocn never frees,
+ *       NULL means overflow or OOM and nothing else, and a zero-count
+ *       result is a live pointer the caller frees as usual.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdint.h>
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   float *buf = dp_reallocn (NULL, 64, sizeof *buf);
+ *   if (!buf)
+ *     return 1;
+ *   float *tmp = dp_reallocn (buf, 4096, sizeof *buf);
+ *   if (!tmp)
+ *     {
+ *       free (buf); // a refusal leaves buf the caller's to free
+ *       return 1;
+ *     }
+ *   buf       = tmp;
+ *   buf[4095] = 0.0f;
+ *   // 2^(w-1) elements of 2 bytes is 2^w bytes: refused, buf untouched
+ *   printf ("%d\n", dp_reallocn (buf, SIZE_MAX / 2 + 1, 2) == NULL); // 1
+ *   free (buf);
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param p     The block to resize, or NULL.
+ * @param n     Element count.
+ * @param size  Bytes per element.
+ * @return The resized allocation, or NULL on overflow or OOM (@p p then
+ *         unchanged and still owned by the caller).
+ */
+static inline void *
+dp_reallocn (void *p, size_t n, size_t size)
+{
+  size_t bytes;
+  if (!dp_size_mul (n, size, &bytes))
+    return NULL;
+  /* zero: one byte, never realloc (p, 0) -- see the @note */
+  return realloc (p, bytes ? bytes : 1u);
+}
+
+/**
+ * @brief calloc for `n * m` zeroed elements of @p size bytes; NULL when
+ *        `n * m` overflows, or when calloc refuses.
+ *
+ * The zeroed allocation whose element count is a PRODUCT -- rows times
+ * columns, lanes times taps -- on a path that can refuse (a create(), a
+ * resize, a decode): check the result and refuse, exactly as for calloc.
+ * `n * m` is checked by dp_size_mul(); the product is then handed to
+ * `calloc (n * m, size)` as its element count, so calloc keeps its own
+ * `nmemb * size` check. NULL therefore means one of three things, and a
+ * caller refuses on all of them: `n * m` overflowed, `n * m * size`
+ * overflowed (calloc's refusal), or memory ran out. Pick dp_xcallocn()
+ * instead when the count is already bounded and only a genuine OOM could
+ * fail it; pick plain calloc when the count is a single factor.
+ *
+ * @note When `n * m == 0` or `size == 0` this asks for ONE zeroed byte,
+ *       not zero: `calloc (0, s)` may return NULL, which a caller would
+ *       read as a refusal. So NULL from dp_callocn means overflow or OOM
+ *       and nothing else, and a zero-count result is a live pointer the
+ *       caller frees as usual and never dereferences.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdint.h>
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   // 3 rows of 5 floats, zeroed
+ *   float *grid = dp_callocn (3, 5, sizeof *grid);
+ *   if (!grid)
+ *     return 1;
+ *   printf ("%g\n", grid[14]); // 0
+ *   free (grid);
+ *   // 2^(w-1) x 2 elements is 2^w: refused, not wrapped to 0
+ *   printf ("%d\n", dp_callocn (SIZE_MAX / 2 + 1, 2, 1) == NULL); // 1
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param n     First factor of the element count.
+ * @param m     Second factor of the element count.
+ * @param size  Bytes per element.
+ * @return The zeroed allocation, or NULL on overflow or OOM.
+ */
+static inline void *
+dp_callocn (size_t n, size_t m, size_t size)
+{
+  size_t count;
+  if (!dp_size_mul (n, m, &count))
+    return NULL;
+  if (count == 0 || size == 0)
+    return calloc (1u, 1u); /* zero: one byte (@note) */
+  return calloc (count, size);
+}
+
+/**
+ * @brief dp_xmalloc for @p n elements of @p size bytes: aborts on overflow
+ *        or OOM.
+ *
+ * For a trusted internal allocation whose count is already validated.
+ *
+ * @note When `n * size == 0` this asks for ONE byte, not zero: `malloc (0)`
+ *       may return NULL, and dp_xmalloc would abort on it as if out of
+ *       memory. The result is a live pointer the caller frees as usual and
+ *       never dereferences.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ *
+ * int
+ * main (void)
+ * {
+ *   double *acc = dp_xmallocn (1024, sizeof *acc);
+ *   acc[1023]   = 0.0;
+ *   free (acc);
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param n     Element count.
+ * @param size  Bytes per element.
+ * @return The allocation; never NULL.
+ */
+static inline void *
+dp_xmallocn (size_t n, size_t size)
+{
+  size_t bytes;
+  if (!dp_size_mul (n, size, &bytes))
+    abort ();
+  return dp_xmalloc (bytes ? bytes : 1u); /* zero: one byte (@note) */
+}
+
+/**
+ * @brief dp_xrealloc to @p n elements of @p size bytes: aborts on overflow
+ *        or OOM. `n * size == 0` is a 1-byte request:
+ *        `dp_xreallocn (p, 0, s)` does NOT free @p p.
+ *
+ * The grow-on-demand scratch buffer's helper, for a count the caller has
+ * already bounded. Passing NULL for @p p is a fresh allocation.
+ *
+ * @note A zero count resizes @p p to ONE byte rather than calling
+ *       `realloc (p, 0)`: glibc's frees @p p and returns NULL, which
+ *       dp_xrealloc would abort on as if out of memory, and C23 makes it
+ *       undefined. The result is a live pointer the caller frees as usual.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ *
+ * int
+ * main (void)
+ * {
+ *   float *buf = dp_xreallocn (NULL, 64, sizeof *buf);
+ *   buf        = dp_xreallocn (buf, 4096, sizeof *buf);
+ *   buf[4095]  = 0.0f;
+ *   free (buf);
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param p     The block to resize, or NULL.
+ * @param n     Element count.
+ * @param size  Bytes per element.
+ * @return The resized allocation; never NULL.
+ */
+static inline void *
+dp_xreallocn (void *p, size_t n, size_t size)
+{
+  size_t bytes;
+  if (!dp_size_mul (n, size, &bytes))
+    abort ();
+  /* zero: one byte, never realloc (p, 0) -- see the @note */
+  return dp_xrealloc (p, bytes ? bytes : 1u);
+}
+
+/**
+ * @brief dp_xcalloc for `n * m` zeroed elements of @p size bytes: aborts
+ *        on overflow or OOM.
+ *
+ * For a trusted internal zeroed allocation whose count is a product of
+ * two already-validated factors. `n * m` is checked by dp_size_mul() and
+ * an overflow aborts; `calloc (n * m, size)` then keeps its own
+ * `nmemb * size` check, and its refusal aborts through dp_xnn() like an
+ * OOM. Either overflow is a broken internal guarantee, so the answer is
+ * an abort, never a short buffer.
+ *
+ * @note When `n * m == 0` or `size == 0` this asks for ONE zeroed byte,
+ *       not zero: `calloc (0, s)` may return NULL, and dp_xnn would abort
+ *       on it as if out of memory. The result is a live pointer the
+ *       caller frees as usual and never dereferences.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ *
+ * int
+ * main (void)
+ * {
+ *   // 4 lanes of 64 taps, zeroed
+ *   double *taps = dp_xcallocn (4, 64, sizeof *taps);
+ *   taps[255]    = taps[0] + 1.0;
+ *   free (taps);
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param n     First factor of the element count.
+ * @param m     Second factor of the element count.
+ * @param size  Bytes per element.
+ * @return The zeroed allocation; never NULL.
+ */
+static inline void *
+dp_xcallocn (size_t n, size_t m, size_t size)
+{
+  size_t count;
+  if (!dp_size_mul (n, m, &count))
+    abort ();
+  if (count == 0 || size == 0)
+    return dp_xcalloc (1u, 1u); /* zero: one byte (@note) */
+  return dp_xcalloc (count, size);
+}
+
+/**
+ * @brief @p d as a `size_t`, truncated, or a refusal when it does not fit.
+ *
+ * The "does this double fit a size_t" check, which every site wrote as
+ * `d <= (double)SIZE_MAX` -- and that is wrong where size_t is 64 bits:
+ * SIZE_MAX is 2^64 - 1, which a double cannot hold, so the cast rounds UP
+ * to 2^64, the bound admits 2^64 itself, and the conversion of 2^64 to
+ * `size_t` is undefined behaviour (in practice 0 or SIZE_MAX, by target).
+ * The right bound is a strict `<` against 2^w, w the width of size_t: a
+ * power of two, so exactly representable whatever w is. It is formed as
+ * `(SIZE_MAX / 2 + 1) * 2.0`: SIZE_MAX / 2 + 1 is 2^(w-1), exact as a
+ * double, and doubling it is exact. Where size_t is 32 bits this is the
+ * same as `<= SIZE_MAX` for a whole number, and every double below 2^32
+ * truncates into range. `scripts/check_size_mul_sites.py` fails on a
+ * `(double)SIZE_MAX` written anywhere else in library C.
+ *
+ * The contract:
+ *
+ * - it returns 1 and writes `(size_t)d`, truncated toward zero, when
+ *   `0 <= d < 2^w`. -0.0 compares equal to 0 and converts to 0;
+ * - it returns 0 and leaves @p out UNTOUCHED for a negative @p d, for
+ *   2^w and above, for +inf and for NaN (every comparison with NaN is
+ *   false, and doppler builds with -fno-finite-math-only so that holds).
+ *
+ * This is a static inline, so it is compiled under the INCLUDING
+ * translation unit's flags. A consumer that builds with -ffast-math (or
+ * -ffinite-math-only) tells its compiler no value is NaN or infinite, and
+ * the compiler may then fold the refusal of NaN and +inf away; such a
+ * caller must rule those out itself before calling this.
+ *
+ * Whether @p d must also be whole is the caller's rule, not this one's:
+ * test `d == floor (d)` beside it.
+ *
+ * @code
+ * #include "doppler/clib_common.h"
+ * #include <stdio.h>
+ *
+ * int
+ * main (void)
+ * {
+ *   size_t n = 7;
+ *   if (!dp_size_from_double (4096.75, &n))
+ *     return 1;
+ *   printf ("%zu\n", n); // 4096
+ *
+ *   if (dp_size_from_double (-1.0, &n) || dp_size_from_double (NAN, &n))
+ *     return 1;
+ *   printf ("%zu\n", n); // 4096: a refusal leaves it alone
+ *   return 0;
+ * }
+ * @endcode
+ *
+ * @param d    The value to convert.
+ * @param out  Receives `(size_t)d` when it fits; untouched otherwise.
+ * @return 1 when `0 <= d < 2^w`, else 0.
+ */
+static inline int
+dp_size_from_double (double d, size_t *out)
+{
+  /* 2^w, exactly: see the comment above. */
+  const double two_w = (double)(SIZE_MAX / 2 + 1) * 2.0;
+  if (!(d >= 0.0 && d < two_w))
+    return 0;
+  *out = (size_t)d;
+  return 1;
 }
 
 /**

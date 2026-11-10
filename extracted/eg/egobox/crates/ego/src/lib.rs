@@ -241,6 +241,26 @@
 //! each modeled function will be retained. You can also simply specify `RegressionSpec::ALL` and `CorrelationSpec::ALL` to
 //! test all available combinations but remember that the more you test the slower it runs.
 //!
+//! * When function values are noisy, gaussian processes can smooth them instead of interpolating them
+//!   by estimating the noise-to-signal ratio `tau^2 / sigma^2` (noise variance over process variance)
+//!   along with the other GP hyperparameters. By default no noise is modeled.
+//!
+//! ```no_run
+//! # use egobox_ego::{EgorConfig, ParamTuning};
+//! # let egor_config = EgorConfig::default();
+//!     egor_config.configure_gp(|gp_conf| {
+//!         gp_conf.noise_ratio(ParamTuning::Optimized { init: 1e-2, bounds: (1e-10, 10.) })
+//!     });
+//! ```
+//!
+//!   When noise is modeled (mono-objective optimization), the best point is the evaluated point
+//!   with the lowest posterior mean of the objective model (taking constraint models posterior means
+//!   into account) instead of the lowest observed value, which is likely a lucky noisy draw. Infill criteria
+//!   then compare candidates against this estimated best value, and the TREGO algorithm below tests
+//!   the sufficient decrease on estimated values with a milder trust region contraction when a failure
+//!   may be due to noise \[[Diouane2026](#Diouane2026)\]. The ask-and-tell interface (see [`EgorServiceBuilder`]) follows the same rule
+//!   in `suggest()` and `best_index()`.
+//!
 //! * the TREGO algorithm described in \[[Diouane2023](#Diouane2023)\] activated with
 //!   the default gl1-4 configuration from the reference paper
 //!
@@ -264,6 +284,16 @@
 //! # use egobox_ego::{EgorConfig, TregoStrategy};
 //! # let egor_config = EgorConfig::default();
 //!    egor_config.iteration_strategy(Box::new(TregoStrategy::default().n_gl_steps((4, 1)).beta(0.8)));
+//! ```
+//!
+//!   Local steps can follow the STREGO local phase \[[Diouane2026](#Diouane2026)\]: the objective
+//!   is modeled by a GP trained only on the points around the best point (`local_gp`) and/or its
+//!   posterior mean is minimized instead of the infill criterion (`local_mean`)
+//!
+//! ```no_run
+//! # use egobox_ego::EgorConfig;
+//! # let egor_config = EgorConfig::default();
+//!    egor_config.configure_trego(|trego| trego.local_gp(true).local_mean(true));
 //! ```
 //!
 //! * Intermediate results can be logged at each iteration when `outdir` directory is specified.
@@ -358,6 +388,10 @@
 //! [TREGO: a trust-region framework for efficient global optimization](https://arxiv.org/pdf/2101.06808)
 //! Journal of Global Optimization 86.1 (2023): 1-23.
 //!
+//! \[<a id="Diouane2026">Diouane(2026)</a>\]: Diouane, Youssef, et al.
+//! [STREGO: A Scalable Implementation of a Trust-Region Framework for Noisy Bayesian Optimization](https://doi.org/10.48550/arXiv.2610.14338)
+//! arXiv:2610.14338 (2026).
+//!
 //! \[<a id="Priem2019">Priem2019</a>\]: Priem, Rémy, Nathalie Bartoli, and Youssef Diouane.
 //! [On the use of upper trust bounds in constrained Bayesian optimization infill criteria](https://hal.science/hal-02182492v1/file/Priem_24049.pdf).
 //! AIAA aviation 2019 forum. 2019.
@@ -428,15 +462,16 @@ mod types;
 pub use crate::egor::*;
 pub use crate::errors::*;
 pub use crate::moo::{EimAggregation, MooConfig, MooStrategy, ParetoResult};
+pub use crate::outputs::*;
 pub use crate::solver::*;
 pub use crate::types::*;
 pub use crate::utils::{
-    CHECKPOINT_FILE, EGOBOX_LOG, EGOR_GP_FILENAME, EGOR_INITIAL_GP_FILENAME,
-    EGOR_USE_GP_VAR_PORTFOLIO, HotStartMode, find_best_result_index, find_compromise_index,
-    find_pareto_front_indices, load_gp_models,
+    EGOBOX_LOG, EGOR_USE_GP_VAR_PORTFOLIO, HotStartMode, find_best_result_index,
+    find_compromise_index, find_pareto_front_indices, load_gp_models,
 };
-pub use egobox_moe::{CorrelationSpec, RegressionSpec};
+pub use egobox_moe::{CorrelationSpec, ParamTuning, RegressionSpec};
 
 mod moo;
 mod optimizers;
+mod outputs;
 mod utils;

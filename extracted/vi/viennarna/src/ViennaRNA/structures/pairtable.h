@@ -25,7 +25,7 @@
  */
 
 /**
- *  @brief Create a pair table from a dot-bracket notation of a secondary structure
+ *  @brief Create a pair table from a @rstinline :ref:`dot-bracket-notation` @endrst of a secondary structure
  *
  *  Returns a newly allocated table, such that table[i]=j if (i.j) pair
  *  or 0 if i is unpaired, table[0] contains the length of the structure.
@@ -43,7 +43,7 @@ vrna_ptable(const char *structure);
  *  @brief  Create a pair table for a secondary structure string
  *
  *  This function takes an input string of a secondary structure annotation
- *  in @ref dot-bracket-notation or @ref dot-bracket-ext-notation, and converts
+ *  in @rstinline :ref:`dot-bracket-notation` @endrst or @rstinline :ref:`dot-bracket-ext-notation` @endrst, and converts
  *  it into a pair table representation.
  *
  *  @note   This function also extracts crossing base pairs, i.e. pseudo-knots
@@ -54,7 +54,7 @@ vrna_ptable(const char *structure);
  *       #VRNA_BRACKETS_RND, #VRNA_BRACKETS_ANG, #VRNA_BRACKETS_CLY, #VRNA_BRACKETS_SQR,
  *       VRNA_BRACKETS_ALPHA, #VRNA_BRACKETS_DEFAULT, #VRNA_BRACKETS_ANY
  *
- *  @param  structure Secondary structure in @ref dot-bracket-ext-notation
+ *  @param  structure Secondary structure in @rstinline :ref:`dot-bracket-ext-notation` @endrst
  *  @param  options   A bitmask to specify which brackets are recognized during conversion to pair table
  *  @return           A pointer to a new pair table of the provided secondary structure
  */
@@ -132,6 +132,37 @@ vrna_pt_snoop_get(const char *structure);
 short *
 vrna_pt_pk_remove(const short   *ptable,
                   unsigned int  options);
+
+
+/**
+ *  @brief  Remove base pairs compatible with a reference structure
+ *
+ *  This function compares two structures (@p pt and @p pt_ref) of
+ *  the same length in pair table format and removes all base pairs
+ *  in @p pt that are not present in the reference @p pt_ref as
+ *  long as they are compatible with @p pt_ref.
+ *
+ *  This is useful in cases where one wants to score the difference
+ *  between two structures but not account for additional compatible
+ *  base pairs, e.g. during benchmarking.
+ *
+ *  @see vrna_compare_structure_pt()
+ *
+ *  @param  pt      The structure in pair table format that might undergo base pair removal
+ *  @param  pt_ref  The reference structure in pair table format
+ *  @return         The number of base pairs removed from @p pt
+ */
+unsigned int
+vrna_ptable_compat_remove(short       *pt,
+                          const short *pt_ref);
+
+
+unsigned int
+vrna_ptable_count_bp(const short *pt);
+
+
+unsigned int
+vrna_ptable_count_up(const short *pt);
 
 
 /* End pair table interface */

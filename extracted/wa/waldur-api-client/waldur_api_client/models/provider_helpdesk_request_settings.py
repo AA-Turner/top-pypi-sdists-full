@@ -9,7 +9,7 @@ T = TypeVar("T", bound="ProviderHelpdeskRequestSettings")
 
 @_attrs_define
 class ProviderHelpdeskRequestSettings:
-    """Backend-specific configuration."""
+    """Backend-specific configuration. Only staff can change it, and only staff see the credentials in it."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

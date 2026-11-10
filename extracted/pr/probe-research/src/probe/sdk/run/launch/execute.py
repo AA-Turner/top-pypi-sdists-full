@@ -215,7 +215,7 @@ class ExecuteMixin:
         log_stats = None
         try:
             if log_path is not None:
-                from ...capture.logs.logs import run_teed
+                from ...capture.logs.tee import run_teed
 
                 result, log_stats = run_teed(
                     argv,

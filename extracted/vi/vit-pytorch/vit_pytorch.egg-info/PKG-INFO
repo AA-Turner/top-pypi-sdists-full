@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.26.12
+Version: 1.26.14
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
@@ -2570,6 +2570,18 @@ Coming from computer vision and new to transformers? Here are some resources tha
     author  = {Mike Heddes and Adel Javanmard and Kyriakos Axiotis and Gang Fu and MohammadHossein Bateni and Vahab S. Mirrokni},
     year    = {2025},
     url     = {https://api.semanticscholar.org/CorpusID:276250576}
+}
+```
+
+```bibtex
+@misc{luo2026multiheadattentionresiduals,
+    title   = {Multi-Head Attention Residuals},
+    author  = {Cheng Luo and Zefan Cai and Junjie Hu},
+    year    = {2026},
+    eprint  = {2607.27230},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.AI},
+    url     = {https://arxiv.org/abs/2607.27230},
 }
 ```
 

@@ -29,6 +29,7 @@ from __future__ import annotations
 import time
 from typing import Optional
 
+from .. import _floats
 from . import _pacing
 from .connection import ReplyTimeout
 from .deadline import Deadline
@@ -129,7 +130,7 @@ class Actions:
 
     def __init__(self, connection, session: str, lifecycle, injected, *,
                  acts, session_seed=None, motion_budget_s=None,
-                 engine_approach: bool = False):
+                 engine_approach: bool = False, layout: str = "us"):
         self.c = connection
         self.engine_approach = engine_approach
         self.session = session
@@ -183,8 +184,11 @@ class Actions:
         #: the state of the modifiers. Building one per action would lose
         #: "Shift is down" between a `down` and the next key, and
         #: `Shift+a` would type `a`.
+        #: The keyboard this persona types on (`keyboard.layout_for`, from the
+        #: session's language): which key a character is, with which modifiers.
         self.keyboard = Keyboard(connection, session, self.typing_persona,
-                                 acts=acts, latency=self.input_latency)
+                                 acts=acts, latency=self.input_latency,
+                                 layout=layout)
         #: The last pointer position. Used by the wheel and by drag and
         #: drop, which start from where the mouse IS - not from 0,0.
         self.position = (0.0, 0.0)
@@ -266,8 +270,8 @@ class Actions:
         if isinstance(position, dict) and "x" in position and "y" in position:
             return (min(p["x"] for p in points) + float(position["x"]),
                     min(p["y"] for p in points) + float(position["y"]))
-        return (sum(p["x"] for p in points) / 4.0,
-                sum(p["y"] for p in points) / 4.0)
+        return (_floats.exact_sum(p["x"] for p in points) / 4.0,
+                _floats.exact_sum(p["y"] for p in points) / 4.0)
 
     # ── the loop ────────────────────────────────────────────────────────────
     def _retry(self, selector: str, run, *, states=None,
@@ -381,11 +385,19 @@ class Actions:
                     # geometry has just changed underneath.
                     point = self._center_point(f, element, position, deadline)
                     if point is not None and not self._in_viewport(point):
-                        if self.inj.scroll_into_view(f, element):
+                        # The point asked for, when there is one: the engine
+                        # brings that rect of the element into view.
+                        rect = ({"x": float(position["x"]), "y": float(position["y"]),
+                                 "width": 0, "height": 0}
+                                if isinstance(position, dict) and "x" in position
+                                and "y" in position else None)
+                        self.inj.scroll_into_view(f, element, rect)
+                        moved = self._center_point(f, element, position, deadline)
+                        if moved is not None and moved != point:
                             reason = ("the element was outside the viewport; "
                                       "scrolled it in and starting over")
                             continue
-                        point = self._center_point(f, element, position, deadline)
+                        point = moved
                     if point is None:
                         reason = "the element has no quad (it isn't visible)"
                     elif trial:

@@ -28,6 +28,7 @@ from agents_conversation import ITEMS  # pylint: disable=import-error
 import pytest
 
 import restate
+from support import RESTATE_IMAGE, Gate  # pylint: disable=import-error
 from restate import HarnessEnvironment, sessions
 from restate.agents._api import Messages, Status
 from restate.agents._object import AgentObject
@@ -59,7 +60,7 @@ class Refund(pydantic.BaseModel):
 approval = wait_for_signal("approval", description="Wait for a manager to approve a refund.", input=Refund)
 
 # A scripted framework, on the made-up items of agents_conversation: it answers with an echo.
-gate = asyncio.Event()
+gate = Gate()
 forgotten: list[str] = []
 
 
@@ -76,12 +77,12 @@ async def answer(ctx: sessions.SessionContext, text: str) -> str:
             call_id = f"call-{text.split()[1]}"
             args = {"order": text.split()[1], "amount": 5}
             call = {"id": call_id, "name": approval.name, "input": args}
-            await conversation.append_reply({"role": "assistant", "text": "", "calls": [call]})
+            await conversation.turn.append_reply({"role": "assistant", "text": "", "calls": [call]})
             result = await run_tool(approval, args, ToolCall(ctx, call_id))
-            await conversation.append({"result": call_id, "output": result})
-            await conversation.append_reply({"role": "assistant", "text": f"refund: {result}"})
+            await conversation.turn.append({"result": call_id, "output": result})
+            await conversation.turn.append_reply({"role": "assistant", "text": f"refund: {result}"})
             return f"refund: {result}"
-        await conversation.append_reply({"role": "assistant", "text": f"echo: {text}"})
+        await conversation.turn.append_reply({"role": "assistant", "text": f"echo: {text}"})
         return f"echo: {text}"
 
     return await answer_once(ctx, text, ITEMS, work)
@@ -97,9 +98,7 @@ assistant.chat(answer, items=ITEMS, clear=forget)
 
 @pytest.fixture(scope="session")
 async def harness():
-    async with restate.create_test_harness(
-        restate.app([assistant]), restate_image="ghcr.io/restatedev/restate:latest"
-    ) as harness:
+    async with restate.create_test_harness(restate.app([assistant]), restate_image=RESTATE_IMAGE) as harness:
         yield harness
 
 
@@ -197,7 +196,7 @@ async def test_the_views_without_input_take_a_request_with_a_json_content_type(h
 
 async def test_status_says_which_message_is_answered_and_stop_cancels_it(harness: HarnessEnvironment):
     key = str(uuid.uuid4())
-    gate.clear()
+    gate.close()
     invocation = await send(harness, key, "wait")
 
     async def answering() -> bool:
@@ -209,7 +208,7 @@ async def test_status_says_which_message_is_answered_and_stop_cancels_it(harness
     assert (await attach(harness, invocation)).status_code == 409
     assert (await call(harness, "status", key)).json()["answering"] is None
     # The next message is answered.
-    gate.set()
+    gate.open()
     assert (await call(harness, "chat", key, "next")).json() == "echo: next"
 
 

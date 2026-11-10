@@ -1,25 +1,19 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: anybadge
-Version: 1.16.0
+Version: 1.18.0
 Summary: Simple, flexible badge generator for project badges.
-Home-page: https://github.com/jongracecox/anybadge
-Author: Jon Grace-Cox
-Author-email: 30441316+jongracecox@users.noreply.github.com
+Author-email: Jon Grace-Cox <30441316+jongracecox@users.noreply.github.com>
+License: MIT
+Project-URL: Homepage, https://github.com/jongracecox/anybadge
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS.rst
 Requires-Dist: packaging
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Provides-Extra: emoji
+Requires-Dist: emoji; extra == "emoji"
+Dynamic: license-file
 
 # anybadge
 
@@ -31,12 +25,12 @@ Python project for generating badges for your projects
 [![GitHub last commit](https://img.shields.io/github/last-commit/jongracecox/anybadge.svg)](https://github.com/jongracecox/anybadge/commits/master)
 [![GitHub](https://img.shields.io/github/license/jongracecox/anybadge.svg)](https://github.com/jongracecox/anybadge/blob/master/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/jongracecox/anybadge.svg?style=social)](https://github.com/jongracecox/anybadge/stargazers)
-[![Snyk health](https://snyk.io/advisor/python/anybadge/badge.svg)](https://snyk.io/advisor/python/anybadge)
+[![Snyk health](https://snyk.io/test/github/jongracecox/anybadge/badge.svg)](https://snyk.io/advisor/python/anybadge)
 [![Downloads](https://pepy.tech/badge/anybadge)](https://pepy.tech/project/anybadge)
 
-[![buymeacoffee](https://camo.githubusercontent.com/c3f856bacd5b09669157ed4774f80fb9d8622dd45ce8fdf2990d3552db99bd27/68747470733a2f2f7777772e6275796d6561636f666665652e636f6d2f6173736574732f696d672f637573746f6d5f696d616765732f6f72616e67655f696d672e706e67)](https://www.buymeacoffee.com/jongracecox)
+[![buymeacoffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/jongracecox)
 
-Supports: Python 3.7-3.13 (2.7-3.6 support has been dropped)
+Supports: Python 3.7-3.15 (2.7-3.6 support has been dropped)
 
 ## Overview
 
@@ -81,7 +75,9 @@ This would result in a badge like this:
 In this example the label is set to "pylint", the value "2.22", and an
 output file called "pylint.svg".  The thresholds are provided in pairs
 of `<value>=color`  Values can be integer or floats for ranges, and
-string values are also supported.
+string values are also supported.  See
+[Thresholds](#thresholds) below for details of how the badge value is
+compared against thresholds.
 
 ### Python
 
@@ -103,7 +99,10 @@ badge.write_badge('pylint.svg')
 
 ## Installation
 
-`anybadge` is available in PyPi at https://pypi.python.org/pypi/anybadge
+`anybadge` is available in PyPi at https://pypi.org/project/anybadge
+
+Release notes are published on the
+[GitHub releases page](https://github.com/jongracecox/anybadge/releases).
 
 You can install the latest release of `anybadge` using `pip`:
 
@@ -113,6 +112,16 @@ pip install anybadge
 
 This will install the Python package, and also make `anybadge` available
 as a command line utility.
+
+Support for `:emoji:` shortcodes (see
+[Emojis](#emojis) below) is an optional extra since it requires the
+`emoji` package. Install it with:
+
+```bash
+pip install anybadge[emoji]
+```
+
+Without this extra, `:shortcode:` text is rendered exactly as it was passed.
 
 ## Getting help
 
@@ -132,18 +141,121 @@ written to stdout, so can be redirected to a file.
 
 ### Thresholds
 
-Some thresholds have been built in to save time.  To use these thresholds you
-can simply specify the template name instead of threshold value/color pairs.
+Thresholds are provided as pairs of `<threshold>=<color>`. Each threshold
+defines the upper bound of a range. The badge value is compared against
+each threshold in turn, and the color used is that of the first threshold
+whose value the badge value is strictly less than. With:
+
+```bash
+anybadge --label=pylint --value=2.22 --file=pylint.svg 2=red 4=orange 8=yellow 10=green
+```
+
+the thresholds can be read as "less than 2 = red, less than 4 = orange,
+less than 8 = yellow, less than 10 = green", or shown as a decision flow:
+
+```mermaid
+flowchart LR
+    A([badge value]) --> B{"value < 2?"}
+    B -- "yes" --> R[red]
+    B -- "no" --> C{"value < 4?"}
+    C -- "yes" --> O[orange]
+    C -- "no" --> D{"value < 8?"}
+    D -- "yes" --> Y[yellow]
+    D -- "no" --> E{"value < 10?"}
+    E -- "yes" --> G[green]
+    E -- "no" --> G
+
+    classDef red fill:#e05d44,color:#fff
+    classDef orange fill:#fe7d37,color:#fff
+    classDef yellow fill:#dfb317,color:#000
+    classDef green fill:#4c1,color:#000
+    class R red
+    class O orange
+    class Y yellow
+    class G green
+```
+
+Note that the comparison is exclusive (`<` rather than `<=`). A value
+exactly equal to a threshold is not less than that threshold, so it
+falls into the next range up. With the thresholds above:
+
+| Badge value   | Badge color | Why                          |
+| ------------- | ----------- | ---------------------------- |
+| 1.99          | red         | 1.99 is < 2                  |
+| 2.0           | orange      | 2.0 is not < 2, but is < 4   |
+| 4.0           | yellow      | 4.0 is not < 4, but is < 8   |
+| 9.0           | green       | 9.0 is not < 8, but is < 10  |
+| 10 or greater | green       | see "Values above the top threshold" below |
+
+**Values above the top threshold** default to the color of the largest
+threshold.  On the command line this behavior is off by default; pass
+`--use-max` to enable it, otherwise the `--color` value is used.
+On the Python API the behavior is on by default; pass
+`use_max_when_value_exceeds=False` to disable it and use `default_color`
+instead.
+
+**Lower is better, higher is worse.** The exclusive comparison matters
+most when a badge shows a metric where lower values are good, such as
+vulnerability or code-quality counts, because a value exactly equal to a
+threshold has not reached the next level of "goodness". For example, with
+0 vulnerabilities being good, and any value of 1 or more being bad:
+
+```bash
+anybadge --label=vulnerabilities --value=4 --file=vulnerabilities.svg --color=red 1=green
+```
+
+```mermaid
+flowchart LR
+    A([badge value]) --> B{"value < 1?"}
+    B -- "yes (0)" --> G2[green]
+    B -- "no (1+)" --> R2[red]
+
+    classDef green fill:#4c1,color:#000
+    classDef red fill:#e05d44,color:#fff
+    class G2 green
+    class R2 red
+```
+
+Here the fixed `--color=red` is used as the default color for values that
+do not fall below the single threshold, so a badge value of 0 is green,
+and any value of 1 or more is red. The same badge can be created in
+Python with:
+
+```python
+badge = Badge(
+    label='vulnerabilities',
+    value=4,
+    default_color='red',
+    thresholds={1: 'green'},
+    use_max_when_value_exceeds=False,
+)
+```
+
+### Built-in templates
+
+Some common badge types have been built in to save you from having to
+specify thresholds, a label, and a value suffix each time. To use one of
+these built-ins, specify the template name in place of threshold
+value/color pairs:
 
 ```bash
 anybadge --value=<VALUE> --file=<FILE> <TEMPLATE-NAME>
 ```
+
+| Template | Label      | Value suffix | Thresholds                           | Colors produced                                                              |
+| -------- | ---------- | ------------ | ------------------------------------ | ---------------------------------------------------------------------------- |
+| pylint   | `pylint`   | (none)       | 2=red 4=orange 8=yellow 10=green     | less than 2 = red, less than 4 = orange, less than 8 = yellow, 10 and above = green |
+| coverage | `coverage` | `%`          | 50=red 60=orange 80=yellow 100=green | less than 50 = red, less than 60 = orange, less than 80 = yellow, 100 and above = green |
 
 For example:
 
 ```bash
 anybadge --value=2.22 --file=pylint.svg pylint
 ```
+
+Any badge can also be customized with a different style using
+`--style=gitlab-scoped`, or with a custom SVG template file using
+`--template <path>`.
 
 ### Colors
 
@@ -326,10 +438,52 @@ These files were created by using the **actual** emoji character in the label/va
 badge = anybadge.Badge(label="Pipeline status", value="😄")
 ```
 
+If you install the `emoji` extra (`pip install anybadge[emoji]`), you can
+instead write `:shortcode:` text in labels and values, and it will be
+automatically converted into emoji characters before the badge is rendered.
+This is useful in editors and consoles where typing emoji characters is
+difficult. Both Unicode CLDR shortcodes and GitHub-style aliases are
+supported:
+
+```python
+badge = anybadge.Badge(label="Pipeline status", value=":smile:")
+# :smile: is a GitHub-style alias for 😄
+
+badge = anybadge.Badge(label="Pipeline status", value=":grinning_face:")
+# :grinning_face: is a Unicode CLDR shortcode for 😀
+```
+
+See the [emoji package documentation](https://pypi.org/project/emoji/) for the full list of
+supported shortcodes. Without the `emoji` package, `:shortcode:` text is rendered
+as-is.
+
+Here are the same badges generated with an actual emoji character, with
+shortcodes (using the `emoji` package), and with shortcodes where the `emoji`
+package is not installed. Note that a badge created with a shortcode renders
+exactly the same as one created with the emoji character itself:
+
+| Badge                                                                                                          | Code                                                                                              |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/pipeline_smile.svg)                            | `anybadge.Badge(label="Pipeline status", value="😄")` — actual emoji character                     |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/pipeline_smile_shortcode.svg)                  | `anybadge.Badge(label="Pipeline status", value=":smile:")` — shortcode (requires `emoji` package)  |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/pipeline_smile_without_emoji_package.svg)      | `anybadge.Badge(label="Pipeline status", value=":smile:")` — without `emoji` package: rendered as-is |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/rocket_deploy.svg)                             | `anybadge.Badge(label=":rocket: Deploy", value=":100:")` — shortcodes in label and value           |
+
+Emoji conversion happens before badge dimensions are calculated, so emoji
+shortcodes take up exactly the same space as the emoji characters they
+produce. Note that the original text is used when matching values against
+thresholds, so thresholds should be defined using the text you pass as the
+value.
+
 There are some caveats worth mentioning:
 - The "look" of the emoji is determined by the client (Emoji characters are placed as-is into the SVG file, and are
   rendered client-side)
 - Rendering may fail in some viewers and developer IDEs (for example, PyCharm does not render emojis in the svg viewer)
+- Emoji fallback fonts render emoji at a visually smaller size than Latin text at the same font size, so
+  anybadge wraps emoji characters in `<tspan>` elements that render them slightly larger, at 3pt above the
+  surrounding font size (e.g. 14 when the font size is 11). You can change this with the `emoji_font_size`
+  argument, or `--emoji-font-size` on the command line. To render emoji at the surrounding font size without
+  the tspan wrapper, pass `emoji_font_size` equal to `font_size`.
 - Emojis can have different widths, so the layout may be affected. You can use `num_label_padding_chars` and
   `num_value_padding_chars` to fix (see below)
 
@@ -339,6 +493,77 @@ Here are some examples to show how to use padding to fix layout:
 | ----- |----------------------------------------------------------------------|
 | ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/pipeline_smile.svg) | `anybadge.Badge("Pipeline status", "😄")` |
 | ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/pipeline_smile_padding.svg) | `anybadge.Badge("Pipeline status", "😄", num_value_padding_chars=1)` |
+
+### Logos
+
+Badges can include a logo, positioned next to the label or value. A logo can
+be specified as a Simple Icons slug, a local image file path, an http(s)
+URL, or a `data:` URI. In all cases the image is **embedded into the badge
+as a base64 `data:` URI**, so the generated SVG remains fully
+self-contained and never loads anything at view time.
+
+Common project logos are bundled with the package (rendered in white to
+match the badge text color), and can be used offline:
+
+`docker` `git` `github` `gitlab` `javascript` `jenkins` `kubernetes`
+`linux` `nodejs` `python` `typescript`
+
+Bundled logos are sourced from [Simple Icons](https://simpleicons.org)
+and released under a
+[CC0 1.0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md)
+public domain dedication. All logos remain subject to their respective
+brand owners' trademarks and usage guidelines.
+
+| Badge | Code |
+| ----- | ---- |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/logo_github_left.svg) | `anybadge.Badge("Stars", "23,414", logo="github")` |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/logo_github_right.svg) | `anybadge.Badge("Stars", "23,414", logo="github", logo_position="right")` |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/logo_python.svg) | `anybadge.Badge("Python", "3.13", logo="python")` |
+| ![](https://cdn.rawgit.com/jongracecox/anybadge/master/examples/logo_docker_pipeline.svg) | `anybadge.Badge("Docker", "passing", logo="docker")` |
+
+Logos that are not bundled can be provided as:
+
+```python
+badge = anybadge.Badge(label="Stars", value="23,414", logo="https://cdn.simpleicons.org/github/red")
+
+badge = anybadge.Badge(label="Stars", value="23,414", logo="logos/mysprite.svg")
+
+badge = anybadge.Badge(label="Stars", value="23,414", logo="mysprite",
+                       logo_dirs=["logos"])
+```
+
+When a Simple Icons slug is given, `logo_color` chooses the icon color for
+CDN downloads (e.g. `logo_color="#fff"`); bundled, vendored and local-file
+logos use the colors stored in the image file.
+
+#### Using logos in network-gated environments
+
+If badges are generated on a CI runner or server that is gated from the
+network, logos can be vendored as files wherever network access is
+available, and then used from disk:
+
+```bash
+# Where there is network access, download logos into a directory
+# (e.g. commit this directory, or pass it between CI jobs):
+anybadge fetch-logos python github docker --dir=logos
+
+# Where there is no network access, generate badges using vendored logos:
+anybadge --label=stars --value=23414 --logo=github --logos-dir=logos --file=stars.svg
+```
+
+The same resolution applies in Python, using the `logo_dirs` argument.
+
+The parameters are also accepted by `anybadge-server`, as `logo`,
+`logo_color` and `logo_position` query parameters:
+
+```
+http://localhost:8000/?label=Stars&value=23414&logo=github&logo_position=right
+```
+
+The server additionally takes a `--logos-dir` argument (repeatable),
+which is used to resolve logo names, so a server on a network-gated
+host can generate badges containing vendored logos without network
+access.
 
 ### Value or label only
 

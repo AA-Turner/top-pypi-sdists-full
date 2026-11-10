@@ -186,3 +186,74 @@ async fn timing_fifo_without_reader_prevents_admission() {
     assert!(matches!(result, Err(RecordingError::Unrecordable(_))));
     assert!(std::fs::metadata(path).unwrap().file_type().is_fifo());
 }
+
+/// Parameters exactly as the Gateway's QUIC path delivers them: every value is `str(v)`,
+/// so Python's `True` arrives as `"True"`, and the FIFO lives at recordingpath/recordingname.
+fn gateway_params(dir: &TempDir) -> HashMap<String, String> {
+    HashMap::from([
+        ("recordingenabled".to_string(), "True".to_string()),
+        (
+            "recordingpath".to_string(),
+            dir.path().to_string_lossy().into_owned(),
+        ),
+        ("recordingname".to_string(), "gw.ses".to_string()),
+        ("recordingwriteexisting".to_string(), "True".to_string()),
+    ])
+}
+
+async fn fifo_receives_payload(protocol: &str, payload: SesPayload, rdp_style: bool) {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("gw.ses");
+    fifo(&path);
+    let params = gateway_params(&dir);
+    let config = RecordingConfig::from_params(&params);
+    assert!(
+        config.recording_write_existing,
+        "\"True\" must parse as true"
+    );
+
+    let reader_path = path.clone();
+    let reader = std::thread::spawn(move || {
+        let mut bytes = Vec::new();
+        std::fs::File::open(reader_path)
+            .unwrap()
+            .read_to_end(&mut bytes)
+            .unwrap();
+        bytes
+    });
+
+    let mut recorder = if rdp_style {
+        MultiFormatRecorder::new_async(&config, &params, protocol, 80, 24).await
+    } else {
+        MultiFormatRecorder::new_with_payload_async(&config, &params, protocol, 80, 24, payload)
+            .await
+    }
+    .unwrap();
+    recorder
+        .record_instruction(
+            RecordingDirection::ServerToClient,
+            &Bytes::from_static(b"4.size,1.0,2.80,2.24;"),
+        )
+        .unwrap();
+    recorder.finalize().unwrap();
+
+    let bytes = reader.join().unwrap();
+    assert!(
+        bytes
+            .windows(b"4.size,1.0,2.80,2.24;".len())
+            .any(|s| s == b"4.size,1.0,2.80,2.24;"),
+        "{protocol}: FIFO reader received no payload"
+    );
+    assert!(std::fs::metadata(&path).unwrap().file_type().is_fifo());
+    assert!(!dir.path().join("gw.ses.1").exists());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ssh_gateway_params_write_into_the_precreated_fifo() {
+    fifo_receives_payload("ssh", SesPayload::Terminal, false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rdp_gateway_params_write_into_the_precreated_fifo() {
+    fifo_receives_payload("rdp", SesPayload::Guacamole, true).await;
+}

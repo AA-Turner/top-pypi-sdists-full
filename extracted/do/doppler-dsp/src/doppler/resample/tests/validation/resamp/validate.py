@@ -46,6 +46,10 @@ NIN = 4096
 SKIP = 64
 #: Analyser length for the artifact-floor measurements.
 NFFT = 8192
+#: How far `execute` and a zero-control `execute_ctrl` may differ at and
+#: above unity: C §18's RESAMP_FORMS_ULPS (test_resamp_core.c), the same
+#: rule in the language that owns it.
+FORMS_ULPS = 8.0
 
 R = Report()
 
@@ -213,7 +217,7 @@ def characterise() -> Data:
         "question a comparison against a reference implementation would."
     )
     R.md()
-    for rate in (0.25, 0.3, 0.5, 0.7, 0.923, 1.0, 1.3, 2.0, 2.5, 4.0):
+    for rate in (0.25, 0.3, 0.5, 0.7, 0.923, 1.0, 1.0333, 1.3, 2.0, 2.5, 4.0):
         f0 = 0.05
         y = Resampler(rate=rate).execute(tone(NIN, f0))
         d.rates.append(rate)
@@ -238,7 +242,9 @@ def characterise() -> Data:
         "(0.25, 0.5, 1.0) the fractional part is exactly zero, one arm is "
         "selected forever, and the residual sits at the float32 floor. "
         "Every other rate interpolates between arms and pays the bank's "
-        "own error."
+        "own error. 1.0333 is the row nearest unity, where the phase walks "
+        "slowest across the arms; it reads with 1.3, so nothing in the "
+        "bank depends on being close to 1."
     )
     R.md()
     R.md("![tone purity](tone_purity.png)")
@@ -393,8 +399,12 @@ def characterise() -> Data:
     R.md(
         "`execute` dispatches on rate and uses the transposed decimator "
         "below unity; `execute_ctrl` rides the interpolator at every rate. "
-        "So with a zero control they are bit-identical at and above unity "
-        "and **must** differ below it. The difference is large — order "
+        "So with a zero control they agree at and above unity and **must** "
+        "differ below it. Agreeing is the same count with each value "
+        "within 8 ULPs, the tolerance C §18 pins (`RESAMP_FORMS_ULPS`): "
+        "-ffast-math may contract the two forms' dot products differently, "
+        "so the last bits belong to the compiler (#2697). The difference "
+        "below unity is large — order "
         "unity against a unit-amplitude signal — which reads alarming "
         "until both are projected: each is a clean tone, and what "
         "separates them is **group delay**, not quality."
@@ -406,7 +416,14 @@ def characterise() -> Data:
         a = Resampler(rate=rate).execute(x)
         b = Resampler(rate=rate).execute_ctrl(x, np.zeros(NIN))
         n = min(len(a), len(b))
-        same = bool(np.array_equal(a[:n], b[:n]))
+        # C §18's cf32_forms_agree, per component: 8 ULPs of the larger
+        # magnitude, floored at 1. Same count is part of agreeing.
+        mag = np.maximum(1.0, np.maximum(np.abs(a[:n]), np.abs(b[:n])))
+        tol = FORMS_ULPS * np.finfo(np.float32).eps * mag
+        same = len(a) == len(b) and bool(
+            np.all(np.abs(a[:n].real - b[:n].real) <= tol)
+            and np.all(np.abs(a[:n].imag - b[:n].imag) <= tol)
+        )
         m = np.arange(SKIP, n)
         basis = np.exp(2j * np.pi * (f0 / rate) * m)
         pa = np.vdot(basis, a[SKIP:n]) / np.vdot(basis, basis)
@@ -419,7 +436,7 @@ def characterise() -> Data:
         [
             "rate",
             "`execute` structure",
-            "identical",
+            "agree (8 ULPs)",
             "count delta",
             "max abs diff",
             "implied delay (out samples)",
@@ -836,7 +853,8 @@ def limits(d: Data) -> None:
     )
     R.limit(
         all(s for r, s, _, _, _ in d.struct if r >= 1.0),
-        "At and above unity, a zero control reproduces `execute` bit-for-bit",
+        "At and above unity, a zero control reproduces `execute`: the same "
+        "count, each value within 8 ULPs",
     )
     R.md()
 

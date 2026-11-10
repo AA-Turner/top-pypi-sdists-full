@@ -18,18 +18,22 @@
 
 from __future__ import annotations as _annotations
 
+import asyncio
+import ntpath
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, Literal, overload
+from typing import TYPE_CHECKING, Literal, cast, overload
 
 import pyrogram
 from pyrogram import types, utils
-from pyrogram._typing import PathType
 from pyrogram.file_id import PHOTO_TYPES, FileId, FileType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from io import BytesIO
+
+    from pyrogram._typing import PathType
 
 DEFAULT_DOWNLOAD_DIR = "downloads/"
 
@@ -89,7 +93,7 @@ class DownloadMedia:
         block: Literal[True] = True,
         progress: Callable | None = None,
         progress_args: tuple = (),
-    ) -> BinaryIO | list[BinaryIO] | None: ...
+    ) -> BytesIO | list[BytesIO] | None: ...
 
     @overload
     async def download_media(
@@ -174,7 +178,7 @@ class DownloadMedia:
         block: bool = True,
         progress: Callable | None = None,
         progress_args: tuple = (),
-    ) -> str | BinaryIO | list[str] | list[BinaryIO] | None: ...
+    ) -> str | BytesIO | list[str] | list[BytesIO] | None: ...
 
     async def download_media(
         self: pyrogram.Client,
@@ -201,7 +205,7 @@ class DownloadMedia:
         block: bool = True,
         progress: Callable | None = None,
         progress_args: tuple = (),
-    ) -> str | BinaryIO | list[str] | list[BinaryIO] | None:
+    ) -> str | BytesIO | list[str] | list[BytesIO] | None:
         """Download the media from a message.
 
         .. include:: /_includes/usable-by/users-bots.rst
@@ -249,7 +253,7 @@ class DownloadMedia:
                 You can either keep ``*args`` or add every single extra argument in your function signature.
 
         Returns:
-            ``str`` | ``BinaryIO`` | ``list[str]`` | ``list[BinaryIO]`` | ``None``: On success, the absolute path of the
+            ``str`` | ``BytesIO`` | ``list[str]`` | ``list[BytesIO]`` | ``None``: On success, the absolute path of the
             downloaded file is returned. In case ``in_memory=True``, a binary file-like object with its attribute
             ".name" set is returned. If the message contains multiple media (purchased paid media), a list of paths or
             binary file-like objects is returned. In case the download failed or was deliberately stopped with
@@ -381,7 +385,8 @@ class DownloadMedia:
                 if result:
                     results.append(result)
 
-            return results or None
+            # Every paid-media item downloads to one file, so the list is homogeneous.
+            return cast("list[str] | list[BytesIO]", results) or None
 
         if not media:
             raise ValueError("This message doesn't contain any downloadable media")
@@ -391,7 +396,9 @@ class DownloadMedia:
         file_id_obj = FileId.decode(file_id_str)
 
         file_type = file_id_obj.file_type
-        media_file_name = getattr(media, "file_name", "")
+        media_file_name = ntpath.basename(getattr(media, "file_name", ""))
+        if media_file_name in (".", ".."):
+            media_file_name = ""
         file_size = getattr(media, "file_size", 0)
         mime_type = getattr(media, "mime_type", "")
         date = getattr(media, "date", None)
@@ -434,4 +441,4 @@ class DownloadMedia:
         if block:
             return await downloader
 
-        self.loop.create_task(downloader)
+        asyncio.create_task(downloader)

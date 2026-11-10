@@ -141,8 +141,6 @@ class ProviderOfferingDetails:
         offering_group_uuid (Union[None, UUID, Unset]):
         offering_group_title (Union[None, Unset, str]):
         integration_status (Union[None, Unset, list['IntegrationStatus']]):
-        google_calendar_is_public (Union[None, Unset, bool]):
-        google_calendar_link (Union[None, Unset, str]): Get the Google Calendar link for an offering.
     """
 
     url: Union[Unset, str] = UNSET
@@ -233,8 +231,6 @@ class ProviderOfferingDetails:
     offering_group_uuid: Union[None, UUID, Unset] = UNSET
     offering_group_title: Union[None, Unset, str] = UNSET
     integration_status: Union[None, Unset, list["IntegrationStatus"]] = UNSET
-    google_calendar_is_public: Union[None, Unset, bool] = UNSET
-    google_calendar_link: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -664,18 +660,6 @@ class ProviderOfferingDetails:
         else:
             integration_status = self.integration_status
 
-        google_calendar_is_public: Union[None, Unset, bool]
-        if isinstance(self.google_calendar_is_public, Unset):
-            google_calendar_is_public = UNSET
-        else:
-            google_calendar_is_public = self.google_calendar_is_public
-
-        google_calendar_link: Union[None, Unset, str]
-        if isinstance(self.google_calendar_link, Unset):
-            google_calendar_link = UNSET
-        else:
-            google_calendar_link = self.google_calendar_link
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -855,10 +839,6 @@ class ProviderOfferingDetails:
             field_dict["offering_group_title"] = offering_group_title
         if integration_status is not UNSET:
             field_dict["integration_status"] = integration_status
-        if google_calendar_is_public is not UNSET:
-            field_dict["google_calendar_is_public"] = google_calendar_is_public
-        if google_calendar_link is not UNSET:
-            field_dict["google_calendar_link"] = google_calendar_link
 
         return field_dict
 
@@ -1523,24 +1503,6 @@ class ProviderOfferingDetails:
 
         integration_status = _parse_integration_status(d.pop("integration_status", UNSET))
 
-        def _parse_google_calendar_is_public(data: object) -> Union[None, Unset, bool]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, bool], data)
-
-        google_calendar_is_public = _parse_google_calendar_is_public(d.pop("google_calendar_is_public", UNSET))
-
-        def _parse_google_calendar_link(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        google_calendar_link = _parse_google_calendar_link(d.pop("google_calendar_link", UNSET))
-
         provider_offering_details = cls(
             url=url,
             uuid=uuid,
@@ -1630,8 +1592,6 @@ class ProviderOfferingDetails:
             offering_group_uuid=offering_group_uuid,
             offering_group_title=offering_group_title,
             integration_status=integration_status,
-            google_calendar_is_public=google_calendar_is_public,
-            google_calendar_link=google_calendar_link,
         )
 
         provider_offering_details.additional_properties = d

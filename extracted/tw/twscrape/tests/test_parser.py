@@ -1,23 +1,42 @@
 import json
 import os
+import re
+from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any, Callable, cast
 
 import pytest
 
-from twscrape import API, gather
+from twscrape import API, gather, models
 from twscrape.models import (
+    AppCard,
+    Article,
     AudiospaceCard,
     BroadcastCard,
+    LiveEventCard,
+    MediaAnimated,
+    MediaPhoto,
+    MediaVideo,
+    MessageMeCard,
+    ParseError,
+    PeriscopeBroadcastCard,
     PollCard,
+    PromoImageConvoCard,
+    PromoVideoConvoCard,
     SummaryCard,
     Trend,
     Tweet,
     User,
+    UserParseError,
     UserRef,
+    parse_about,
+    parse_community,
+    parse_trend,
     parse_tweet,
     parse_tweets,
+    parse_user,
 )
-from twscrape.utils import find_obj, to_old_rep
+from twscrape.utils import find_obj, get_or, get_typed_object, to_old_rep
 
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "mocked-data")
@@ -67,7 +86,8 @@ def mock_rep(fn: Callable[..., Any], filename: str, as_generator=False):
 
 
 @pytest.mark.parametrize("path", ["core", "author_results"])
-def test_tweet_parser_uses_embedded_author_when_users_map_is_missing(path):
+@pytest.mark.parametrize("user_format", ["legacy", "flat"])
+def test_tweet_parser_uses_embedded_author_when_users_map_is_missing(path, user_format):
     obj = to_old_rep(fake_rep("raw_search").json())
     tweet = next(x for x in obj["tweets"].values() if x.get("user_id_str") in obj["users"])
     user_id = tweet["user_id_str"]
@@ -75,6 +95,9 @@ def test_tweet_parser_uses_embedded_author_when_users_map_is_missing(path):
     tweet.pop("core", None)
     tweet.pop("author_results", None)
     embedded = {"__typename": "User", "rest_id": user_id, "legacy": user}
+    if user_format == "flat":
+        embedded = {k: v for k, v in user.items() if k not in {"core", "legacy", "rest_id"}}
+
     if path == "core":
         tweet["core"] = {"user_results": {"result": embedded}}
     else:
@@ -104,6 +127,22 @@ def check_tweet(doc: Tweet | None):
         assert isinstance(doc.inReplyToTweetIdStr, str)
         assert str(doc.inReplyToTweetId) == doc.inReplyToTweetIdStr
 
+    if doc.retweetedTweetId is not None:
+        assert isinstance(doc.retweetedTweetId, int)
+        assert isinstance(doc.retweetedTweetIdStr, str)
+        assert str(doc.retweetedTweetId) == doc.retweetedTweetIdStr
+
+    if doc.retweetedTweet is not None:
+        assert doc.retweetedTweetId == doc.retweetedTweet.id
+
+    if doc.quotedTweetId is not None:
+        assert isinstance(doc.quotedTweetId, int)
+        assert isinstance(doc.quotedTweetIdStr, str)
+        assert str(doc.quotedTweetId) == doc.quotedTweetIdStr
+
+    if doc.quotedTweet is not None:
+        assert doc.quotedTweetId == doc.quotedTweet.id
+
     if doc.inReplyToUser:
         check_user_ref(doc.inReplyToUser)
 
@@ -128,18 +167,20 @@ def check_tweet(doc: Tweet | None):
     assert isinstance(txt, str)
     assert str(doc.id) in txt
 
-    if doc.media is not None:
-        if len(doc.media.photos) > 0:
-            assert doc.media.photos[0].url is not None
+    if len(doc.media.photos) > 0:
+        assert doc.media.photos[0].url is not None
 
-        if len(doc.media.videos) > 0:
-            for x in doc.media.videos:
-                assert x.thumbnailUrl is not None
-                assert x.duration is not None
-                for v in x.variants:
-                    assert v.url is not None
-                    assert v.bitrate is not None
-                    assert v.contentType is not None
+    if len(doc.media.videos) > 0:
+        for x in doc.media.videos:
+            assert x.thumbnailUrl is not None
+            assert x.duration is not None
+            for v in x.variants:
+                assert v.url is not None
+                assert v.bitrate is not None
+                assert v.contentType is not None
+
+    for x in [*doc.media.photos, *doc.media.videos, *doc.media.animated]:
+        check_media(x)
 
     if doc.retweetedTweet is not None:
         try:
@@ -184,6 +225,40 @@ def check_user(doc: User):
     txt = doc.json()
     assert isinstance(txt, str)
     assert str(doc.id) in txt
+
+
+def check_media(doc: MediaPhoto | MediaVideo | MediaAnimated):
+    assert doc.shortUrl is None or re.fullmatch(r"https://t\.co/[A-Za-z0-9]+", doc.shortUrl)
+    assert doc.expandedUrl is None or re.fullmatch(
+        r"https://(twitter|x)\.com/\w+/status/\d+/(photo|video)/\d+", doc.expandedUrl
+    )
+    # a reused media links to the tweet that uploaded it
+    if doc.expandedUrl is not None and doc.sourceTweetId is not None:
+        assert f"/status/{doc.sourceTweetId}/" in doc.expandedUrl
+    assert isinstance(doc.id, int)
+    assert str(doc.id) == doc.id_str
+
+    # X sends the source tweet and its author together, or neither
+    assert (doc.sourceTweetId is None) == (doc.sourceUserId is None)
+    if doc.sourceTweetId is not None:
+        assert str(doc.sourceTweetId) == doc.sourceTweetIdStr
+        assert str(doc.sourceUserId) == doc.sourceUserIdStr
+    else:
+        assert doc.sourceTweetIdStr is None
+        assert doc.sourceUserIdStr is None
+
+    assert doc.altText is None or isinstance(doc.altText, str)
+
+    # X sends both dimensions together, or neither
+    assert (doc.width is None) == (doc.height is None)
+    if doc.width is not None and doc.height is not None:
+        assert doc.width > 0 and doc.height > 0
+
+
+def collect_tweets(doc: Tweet | None) -> list[Tweet]:
+    if doc is None:
+        return []
+    return [doc, *collect_tweets(doc.retweetedTweet), *collect_tweets(doc.quotedTweet)]
 
 
 def collect_tweet_users(doc: Tweet | None):
@@ -545,6 +620,109 @@ async def test_tweet_with_video():
         check_tweet(doc)
 
 
+def test_media_reused_from_another_tweet():
+    # the author pasted another tweet's video URL: X names that tweet and its author
+    tweets = {x.id: x for x in parse_tweets(fake_rep("manual_tweet_with_video_1").json())}
+    video = tweets[1671508600538161153].media.videos[0]
+    assert video.shortUrl == "https://t.co/XnC1A3Uk3J"
+    assert (
+        video.expandedUrl == "https://twitter.com/sz_mediagroup/status/1669691294183043074/video/1"
+    )
+    assert video.id == 1668857866328100864
+    assert video.id_str == "1668857866328100864"
+    assert video.sourceTweetId == 1669691294183043074
+    assert video.sourceTweetIdStr == "1669691294183043074"
+    assert video.sourceUserId == 1433745612537741318
+    assert video.sourceUserIdStr == "1433745612537741318"
+    assert video.altText is None
+    assert (video.width, video.height) == (1080, 1920)
+
+
+@pytest.mark.parametrize(
+    "fixture, twid, kind, media_id, short_url, size",
+    [
+        (
+            "manual_tweet_with_video_1",
+            1671885256914518017,
+            "photos",
+            1671885208583548935,
+            "https://t.co/BlksXCHXiM",
+            (455, 674),
+        ),
+        (
+            "manual_tweet_with_video_2",
+            1671753569412820992,
+            "videos",
+            1671753482821328896,
+            "https://t.co/1FyrDMxt16",
+            (720, 720),
+        ),
+    ],
+)
+def test_media_own_upload(fixture, twid, kind, media_id, short_url, size):
+    tweets = {x.id: x for x in parse_tweets(fake_rep(fixture).json())}
+    media = getattr(tweets[twid].media, kind)[0]
+    assert media.shortUrl == short_url
+    assert media.expandedUrl is not None
+    assert f"/status/{twid}/" in media.expandedUrl
+    assert media.id == media_id
+    assert media.id_str == str(media_id)
+    assert media.sourceTweetId is None
+    assert media.sourceTweetIdStr is None
+    assert media.sourceUserId is None
+    assert media.sourceUserIdStr is None
+    assert media.altText is None
+    assert (media.width, media.height) == size
+
+
+@pytest.mark.parametrize(
+    "fixture, kind, attr",
+    [
+        ("_retweet_with_photo", "photos", "sourceTweetId"),
+        ("manual_tweet_with_video_1", "videos", "sourceTweetId"),
+        ("manual_tweet_with_video_2", "videos", "sourceTweetId"),
+        ("_tweet_with_gif", "animated", "altText"),
+    ],
+)
+def test_media_field_coverage(fixture, kind, attr):
+    tweets = [x for t in parse_tweets(fake_rep(fixture).json()) for x in collect_tweets(t)]
+    medias = [x for t in tweets for x in getattr(t.media, kind)]
+    for x in medias:
+        check_media(x)
+    assert any(getattr(x, attr) for x in medias)
+
+
+def recorded_media():
+    # every media of every recorded tweet, with its tweet and the tweet's raw legacy object
+    items = []
+    for name in sorted(os.listdir(DATA_DIR)):
+        raw = fake_rep(name).json()
+        objs = to_old_rep(raw)["tweets"]
+        for doc in (x for t in parse_tweets(raw) for x in collect_tweets(t)):
+            for x in [*doc.media.photos, *doc.media.videos, *doc.media.animated]:
+                items.append((objs[doc.id_str], doc, x))
+    assert len(items) > 0
+    return items
+
+
+def test_media_short_url_in_tweet_text():
+    # X appends the media's t.co to the legacy text; a long tweet's rawContent is its note text,
+    # which carries no attachment link
+    for obj, doc, x in recorded_media():
+        assert x.shortUrl is not None
+        assert x.shortUrl in obj["full_text"]
+        if "note_tweet" not in obj:
+            assert x.shortUrl in doc.rawContent
+
+
+def test_media_dimensions_on_every_recorded_media():
+    for _, _, x in recorded_media():
+        check_media(x)
+        assert x.expandedUrl is not None
+        assert x.width is not None
+        assert x.height is not None
+
+
 async def test_issue_28():
     api = get_api()
 
@@ -560,6 +738,8 @@ async def test_issue_28():
     assert doc.retweetedTweet.viewCount is not None
     assert doc.viewCount is not None  # views should come from retweetedTweet
     assert doc.viewCount == doc.retweetedTweet.viewCount
+    assert doc.retweetedTweetId == 1658407192859492355
+    assert doc.retweetedTweetIdStr == "1658407192859492355"
     check_tweet(doc.retweetedTweet)
 
     mock_rep(api.tweet_details_raw, "_issue_28_2")
@@ -571,6 +751,8 @@ async def test_issue_28():
 
     assert doc.quotedTweet is not None
     assert doc.quotedTweet.id != doc.id
+    assert doc.quotedTweetId == 1658407192859492355
+    assert doc.quotedTweetIdStr == "1658407192859492355"
     check_tweet(doc.quotedTweet)
     assert doc.quotedTweet.viewCount is not None
 
@@ -601,6 +783,52 @@ def test_retweet_not_duplicated():
     )
 
 
+@pytest.mark.parametrize(
+    "fixture, twid, quoted_id",
+    [
+        # Real TweetDetail responses: X sends the quoted ID with a TweetTombstone (account
+        # gone) or a TweetUnavailable in place of the quoted tweet
+        ("_quote_of_tombstone", 1553061790468161538, 1552999455422664704),
+        ("_quote_of_unavailable", 1864361260982083963, 1864142818312171743),
+    ],
+)
+def test_quote_of_unavailable_tweet_keeps_quoted_id(fixture, twid, quoted_id):
+    doc = parse_tweet(fake_rep(fixture).json(), twid)
+    assert doc is not None
+    check_tweet(doc)
+    assert doc.isQuoteStatus
+    assert doc.quotedTweet is None
+    assert doc.quotedTweetId == quoted_id
+    assert doc.quotedTweetIdStr == str(quoted_id)
+    assert doc.retweetedTweetId is None
+
+
+def test_retweet_with_visibility_results_id():
+    # Real TweetDetail response: the retweeted tweet is a TweetWithVisibilityResults, its ID
+    # under retweeted_status_result.result.tweet.rest_id
+    doc = parse_tweet(fake_rep("_retweet_with_visibility_results").json(), 1686409496019562496)
+    assert doc is not None
+    check_tweet(doc)
+    assert doc.retweetedTweet is not None
+    assert doc.retweetedTweetId == 1686408294095577090
+    assert doc.retweetedTweetIdStr == "1686408294095577090"
+
+
+def test_retweet_of_quote_ids():
+    # The wrapper of a retweet of a quote also carries the quoted ID of the original
+    tweets = {x.id: x for x in parse_tweets(fake_rep("_issue_315").json())}
+    doc = tweets[2075724225273323678]
+    check_tweet(doc)
+
+    rt = doc.retweetedTweet
+    assert rt is not None
+    assert doc.retweetedTweetId == rt.id == 2075723878333141097
+    assert rt.quotedTweetId == 2075716337603907695
+    assert doc.quotedTweetId == rt.quotedTweetId
+    assert doc.quotedTweet is not None
+    assert doc.quotedTweet.id == rt.quotedTweetId
+
+
 async def test_issue_56():
     raw = fake_rep("_issue_56").json()
     doc = parse_tweet(raw, 1682072224013099008)
@@ -627,67 +855,854 @@ async def test_issue_310():
     )
 
 
-async def test_cards():
-    # Issues:
-    # - https://github.com/vladkens/twscrape/issues/72
-    # - https://github.com/vladkens/twscrape/issues/191
+def test_article_tweet():
+    # timelines get the article preview, without its content state
+    raw = fake_rep("_issue_342_343").json()
+    source = find_obj(raw, lambda x: "preview_text" in x)
+    assert source is not None
 
-    # Check SummaryCard
-    raw = fake_rep("card_summary").json()
-    doc = parse_tweet(raw, 1696922210588410217)
-    assert doc is not None
-    assert doc.card is not None
-    assert isinstance(doc.card, SummaryCard)
-    assert doc.card._type == "summary"
-    assert doc.card.title is not None
-    assert doc.card.description is not None
-    assert doc.card.url is not None
+    doc = {x.id: x for x in parse_tweets(raw)}[2079814622639469025]
+    assert doc.retweetedTweet is not None
 
-    # Check PollCard
-    raw = fake_rep("card_poll").json()
-    doc = parse_tweet(raw, 1780666831310877100)
+    article = doc.retweetedTweet.article
+    assert article is not None
+    assert article.id == int(source["rest_id"])
+    assert article.title == source["title"]
+    assert article.previewText == source["preview_text"]
+    assert article.contentState is None
+    assert article.publishedAt == datetime.fromtimestamp(
+        source["metadata"]["first_published_at_secs"], timezone.utc
+    )
+    assert article.modifiedAt == datetime.fromtimestamp(
+        source["lifecycle_state"]["modified_at_secs"], timezone.utc
+    )
+
+
+def test_article_rich_content():
+    raw = fake_rep("article").json()
+    source = find_obj(raw, lambda x: "content_state" in x)
+    assert source is not None
+
+    doc = parse_tweet(raw, 2075503860689281453)
     assert doc is not None
-    assert doc.card is not None
-    assert isinstance(doc.card, PollCard)
-    assert doc.card._type == "poll"
-    assert doc.card.finished is not None
-    assert doc.card.options is not None
-    assert len(doc.card.options) > 0
+    assert isinstance(doc.article, Article)
+
+    article = doc.article
+    assert article.id_str == source["rest_id"]
+    assert article.title == source["title"]
+    assert article.summaryText == source["summary_text"]
+    assert article.isGrokSummaryEligible is True
+    assert article.coverMedia is not None
+    assert article.coverMedia.mediaId == source["cover_media"]["media_id"]
+    assert article.coverMedia.mediaInfo == source["cover_media"]["media_info"]
+    assert article.mediaEntities == source["media_entities"]
+
+    assert article.contentState is not None
+    content = article.contentState
+    assert [x.key for x in content.blocks] == [x["key"] for x in source["content_state"]["blocks"]]
+    assert list(content.entityMap) == [str(x["key"]) for x in source["content_state"]["entityMap"]]
+    assert {x.type for x in content.blocks} == {
+        "unstyled",
+        "atomic",
+        "header-two",
+        "unordered-list-item",
+    }
+    assert any(x.data.get("urls") for x in content.blocks)
+    assert any(x.data.get("hashtags") for x in content.blocks)
+    assert any(x.inlineStyleRanges for x in content.blocks)
+    assert all(x.key in content.entityMap for block in content.blocks for x in block.entityRanges)
+
+    entities = [content.entityMap[x.key] for block in content.blocks for x in block.entityRanges]
+    assert {x.type for x in entities} >= {"MARKDOWN", "TWEMOJI", "DIVIDER"}
+    assert any(x.data.get("markdown", "").startswith("```bash") for x in entities)
+    assert any(x.data.get("url", "").endswith(".svg") for x in entities)
+    assert any(x.type == "DIVIDER" and x.data == {} for x in entities)
+
+    parsed = article.dict()
+    assert len(parsed["contentState"]["blocks"]) == len(source["content_state"]["blocks"])
+    assert parsed["contentState"]["entityMap"].keys() == content.entityMap.keys()
+
+
+def test_article_malformed():
+    # a bad article must never drop its tweet
+    raw = fake_rep("article").json()
+    source = find_obj(raw, lambda x: "content_state" in x)
+    assert source is not None
+
+    source["content_state"]["blocks"][0] = {"key": "k1"}
+    del source["cover_media"]["media_key"]
+    doc = parse_tweet(raw, 2075503860689281453)
+    assert doc is not None and doc.article is not None
+    assert doc.article.contentState is not None
+    assert doc.article.contentState.blocks[0].text == ""
+    assert doc.article.coverMedia is not None and doc.article.coverMedia.mediaKey == ""
+
+    source["content_state"]["blocks"][0] = None
+    source["rest_id"] = None
+    doc = parse_tweet(raw, 2075503860689281453)
+    assert doc is not None
+    assert doc.article is None
+
+
+async def test_issue_315():
+    """Quoted tweets must not leak as standalone timeline items.
+
+    UserTweets page of @XDevelopers, trimmed to retweets quoting @XDevelopers and @agno_three,
+    a retweet of the @agno_three tweet and the thread module of the quoted @XDevelopers tweet.
+    X returns quoted tweets embedded in the quoting tweet's payload and they must not be
+    yielded as top-level items too: https://github.com/vladkens/twscrape/issues/315
+    """
+    tweets = list(parse_tweets(fake_rep("_issue_315").json()))
+    top_level_ids = [x.id_str for x in tweets]
+
+    # a self-quoted tweet X lists inside its own thread module entry remains a real result
+    assert top_level_ids == [
+        "2082669627528601817",
+        "2082640274845811115",
+        "2082640276389249363",
+        "2075724225273323678",
+        "2075722586172846484",
+    ]
+
+    other_user_quotes = {
+        x.quotedTweet.id_str
+        for x in tweets
+        if x.quotedTweet is not None and x.quotedTweet.user.username != x.user.username
+    }
+    assert other_user_quotes == {"2075716337603907695"}
+
+
+@pytest.mark.parametrize(
+    "module",
+    ["conversationthread", "list-conversation", "profile-grid", "tweetdetailrelatedtweets"],
+)
+def test_quoted_tweet_in_other_timeline_modules_is_standalone(module):
+    raw = fake_rep("_issue_315").json()
+    quoted_id = "2082640274845811115"
+    entry = find_obj(raw, lambda x: x.get("entryId", "").endswith(f"-tweet-{quoted_id}"))
+    assert entry is not None
+    entry["entryId"] = entry["entryId"].replace("profile-conversation-", f"{module}-", 1)
+
+    assert quoted_id in {tweet.id_str for tweet in parse_tweets(raw)}
+
+
+def _automated_by_label(user_id: str, screen_name: str) -> dict:
+    # A bot's "Automated by @operator" label embeds the operator as a partial User
+    mention = {"__typename": "User", "rest_id": user_id, "core": {"screen_name": screen_name}}
+    entity = {"ref": {"mention_results": {"result": mention}}}
+    return {"label": {"longDescription": {"entities": [entity]}}}
+
+
+def test_partial_user_does_not_overwrite_full_user():
+    # https://github.com/vladkens/twscrape/issues/341
+    # Real UserTweets page: two retweets of @rodalies, then a retweet of the bot @rod11cat
+    # whose "Automated by @rodalies" label embeds @rodalies as a partial User.
+    raw = fake_rep("_issue_341").json()
+
+    assert to_old_rep(raw)["users"]["110680768"]["name"] == "Rodalies Catalunya"
+
+    tweets = {x.id: x for x in parse_tweets(raw)}
+    for twid in (2106637440312369380, 2106444684209893707):
+        rt = tweets[twid].retweetedTweet
+        assert rt is not None
+        assert rt.user.username == "rodalies"
+
+
+def test_partial_only_user_keeps_user_lookup_single(monkeypatch):
+    # The operator of a looked-up bot exists only as a partial User: the lookup returns the
+    # bot, without a parse error for the operator.
+    expected = parse_user(fake_rep("raw_user_by_login").json())
+    assert expected is not None
+
+    raw = fake_rep("raw_user_by_login").json()
+    label = _automated_by_label("123456789", "operator_account")
+    raw["data"]["user"]["result"]["affiliates_highlighted_label"] = label
+
+    dumps = []
+    monkeypatch.setattr(models, "_write_dump", lambda *args: dumps.append(args))
+    assert parse_user(raw) == expected
+    assert dumps == []
+
+
+@pytest.mark.parametrize("missing", ["name", "screen_name", "core"])
+def test_user_lookup_normalization_failure_raises(missing):
+    # https://github.com/vladkens/twscrape/issues/346
+    # A user X sent but that can't be parsed must not read as "no user", e.g. the looked-up
+    # user lacks its name, like the partial users of #341 and #342.
+    raw = fake_rep("raw_user_by_id").json()
+    user = raw["data"]["user"]["result"]
+    if missing == "core":
+        del user["core"]
+    else:
+        del user["core"][missing]
+
+    with pytest.raises(UserParseError, match="Failed to parse user"):
+        parse_user(raw)
+
+
+def test_user_lookup_parse_failure_keeps_cause():
+    # A looked-up user that normalizes but fails User.parse wraps the original error
+    raw = fake_rep("raw_user_by_id").json()
+    raw["data"]["user"]["result"]["core"]["created_at"] = "not a date"
+
+    with pytest.raises(UserParseError, match="Failed to parse user") as exc:
+        parse_user(raw)
+
+    assert isinstance(exc.value.__cause__, ValueError)
+
+
+def _find_tweet(raw: dict, fn: Callable[[str], bool]) -> dict:
+    tw = find_obj(raw, lambda x: x.get("__typename") == "Tweet" and fn(x["rest_id"]))
+    assert tw is not None
+    return tw
+
+
+def _bad_date(tw: dict):
+    tw["legacy"]["created_at"] = "not a date"
+
+
+def _no_rest_id(tw: dict):
+    del tw["rest_id"]
+
+
+def _no_legacy(tw: dict):
+    del tw["legacy"]
+
+
+def _null_quote(tw: dict):
+    tw["quoted_status_result"] = None
+
+
+def _wrapped_without_tweet(tw: dict):
+    tw.clear()
+    tw["__typename"] = "TweetWithVisibilityResults"
+
+
+def _wrapped_without_legacy(tw: dict):
+    inner = {"rest_id": tw["rest_id"]}
+    tw.clear()
+    tw.update({"__typename": "TweetWithVisibilityResults", "tweet": inner})
+
+
+def _trend_without_name(tw: dict):
+    tw.clear()
+    tw["__typename"] = "TimelineTrend"
+
+
+def _unknown_typename(tw: dict):
+    tw["__typename"] = "SomethingNew"
+
+
+@pytest.mark.parametrize(
+    "breaks, cause",
+    [
+        (_bad_date, ValueError),
+        (_no_rest_id, KeyError),
+        (_no_legacy, ValueError),
+        (_null_quote, TypeError),
+        (_wrapped_without_tweet, KeyError),
+        (_wrapped_without_legacy, ValueError),
+        (_unknown_typename, ValueError),
+    ],
+)
+def test_tweet_lookup_parse_failure_raises(monkeypatch, breaks, cause):
+    # https://github.com/vladkens/twscrape/issues/348
+    dumps = []
+    monkeypatch.setattr(models, "_write_dump", lambda *args: dumps.append(args))
+
+    twid = 1649191520250245121
+    raw = fake_rep("raw_tweet_details").json()
+    breaks(_find_tweet(raw, lambda x: x == str(twid)))
+
+    with pytest.raises(ParseError, match=f"Failed to parse tweet {twid}") as exc:
+        parse_tweet(raw, twid)
+
+    assert isinstance(exc.value.__cause__, cause)
+    assert len(dumps) == 1
+
+
+@pytest.mark.parametrize(
+    "breaks",
+    [
+        _bad_date,
+        _no_rest_id,
+        _no_legacy,
+        _null_quote,
+        _wrapped_without_tweet,
+        _wrapped_without_legacy,
+        _trend_without_name,
+    ],
+)
+def test_tweet_lookup_ignores_broken_reply(breaks):
+    twid = 1649191520250245121
+    raw = fake_rep("raw_tweet_details").json()
+    expected = parse_tweet(raw, twid)
+    breaks(_find_tweet(raw, lambda x: x != str(twid)))
+
+    doc = parse_tweet(raw, twid)
+    assert doc is not None and doc == expected
+    assert parse_tweet(raw, 1) is None  # not in the response
+
+
+def test_tweet_lookup_keeps_related_objects_of_target():
+    raw = fake_rep("raw_search").json()
+    tw = find_obj(raw, lambda x: x.get("__typename") == "Tweet" and "quoted_status_result" in x)
+    assert tw is not None
+
+    twid = int(tw["rest_id"])
+    expected = parse_tweet(raw, twid)
+    assert expected is not None and expected.quotedTweet is not None
+
+    raw["data"]["broken"] = [
+        {"__typename": "Tweet", "legacy": {}},
+        {"__typename": "TweetWithVisibilityResults"},
+        {"__typename": "TimelineTrend"},
+    ]
+    assert parse_tweet(raw, twid) == expected
+
+    # paginated parsers still fail the page
+    with pytest.raises(KeyError):
+        list(parse_tweets(raw))
+
+
+def _target_results(raw: dict, twid: int) -> dict:
+    entry = find_obj(raw, lambda x: x.get("entryId") == f"tweet-{twid}")
+    item = find_obj(entry, lambda x: "tweet_results" in x)
+    assert item is not None
+    return item["tweet_results"]
+
+
+@pytest.mark.parametrize(
+    "results",
+    [
+        {},
+        {"result": None},
+        {"result": {"__typename": "TweetTombstone", "tombstone": {"__typename": "TextTombstone"}}},
+        {"result": {"__typename": "TweetUnavailable"}},
+    ],
+)
+def test_tweet_lookup_unavailable_returns_none(results):
+    twid = 1649191520250245121
+    raw = fake_rep("raw_tweet_details").json()
+    tweet_results = _target_results(raw, twid)
+    tweet_results.clear()
+    tweet_results.update(results)
+    assert parse_tweet(raw, twid) is None
+
+    # a bare reference from another tweet doesn't make the requested tweet exist
+    raw["data"]["ref"] = {
+        "quotedRefResult": {"result": {"__typename": "Tweet", "rest_id": str(twid)}}
+    }
+    assert parse_tweet(raw, twid) is None
+
+
+@pytest.mark.parametrize("tweet", ["broken", ["broken"]])
+def test_tweet_lookup_ignores_non_object_visibility_tweet(tweet):
+    twid = 1649191520250245121
+    raw = fake_rep("raw_tweet_details").json()
+    expected = parse_tweet(raw, twid)
+
+    # without its entry the target is found by rest_id, after the broken object
+    entry = find_obj(raw, lambda x: x.get("entryId") == f"tweet-{twid}")
+    assert entry is not None
+    entry["entryId"] = "other"
+    raw["data"] = {
+        "broken": {"__typename": "TweetWithVisibilityResults", "tweet": tweet},
+        **raw["data"],
+    }
+
+    assert parse_tweet(raw, twid) == expected
+    assert parse_tweet(raw, 1) is None
+
+
+def test_tweet_lookup_non_object_result_raises():
+    twid = 1649191520250245121
+    raw = fake_rep("raw_tweet_details").json()
+    _target_results(raw, twid)["result"] = ["broken"]
+
+    with pytest.raises(ParseError, match="broken"):
+        parse_tweet(raw, twid)
+
+
+def _find_quoting_tweet(raw: dict, fn: Callable[[dict], bool] = lambda x: True) -> dict:
+    tw = find_obj(
+        raw,
+        lambda x: (
+            x.get("__typename") == "Tweet"
+            and get_or(x, "quoted_status_result.result.__typename") == "Tweet"
+            and fn(x["quoted_status_result"]["result"])
+        ),
+    )
+    assert tw is not None
+    return tw
+
+
+@pytest.mark.parametrize(
+    "breaks, cause",
+    [
+        (_bad_date, ValueError),
+        (_no_rest_id, KeyError),
+        (_null_quote, TypeError),
+        (_wrapped_without_tweet, KeyError),
+    ],
+)
+def test_tweet_lookup_broken_nested_tweet_raises(monkeypatch, breaks, cause):
+    dumps = []
+    monkeypatch.setattr(models, "_write_dump", lambda *args: dumps.append(args))
+
+    raw = fake_rep("raw_search").json()
+    tw = _find_quoting_tweet(raw)
+    twid = int(tw["rest_id"])
+
+    # X can also list the quoted tweet on its own: a healthy copy would hide a bad date
+    qtid = tw["quoted_status_result"]["result"]["rest_id"]
+    for x in get_typed_object(raw, defaultdict(list))["Tweet"]:
+        if x["rest_id"] == qtid:
+            breaks(x)
+
+    with pytest.raises(ParseError, match=f"Failed to parse tweet {twid}") as exc:
+        parse_tweet(raw, twid)
+
+    assert isinstance(exc.value.__cause__, cause)
+    assert len(dumps) == 1
+
+
+def test_tweet_lookup_skips_nested_tweet_without_legacy():
+    raw = fake_rep("raw_search").json()
+    tw = _find_quoting_tweet(raw)
+    twid = int(tw["rest_id"])
+
+    qtid = tw["quoted_status_result"]["result"]["rest_id"]
+    for x in get_typed_object(raw, defaultdict(list))["Tweet"]:
+        if x["rest_id"] == qtid:
+            _no_legacy(x)
+
+    doc = parse_tweet(raw, twid)
+    assert doc is not None
+    assert doc.quotedTweet is None
+    assert doc.quotedTweetIdStr == qtid
+
+
+def test_tweet_lookup_keeps_nested_ref():
+    # quotedRefResult holds a bare {__typename, rest_id}: no legacy, and not a failure
+    raw = fake_rep("raw_list_timeline").json()
+    tw = _find_quoting_tweet(raw, lambda x: "quotedRefResult" in x)
+    twid = int(tw["rest_id"])
+
+    doc = parse_tweet(raw, twid)
+    assert doc is not None and doc.quotedTweet is not None
+
+
+SINGLE_PARSERS = {
+    "about": ("raw_user_about", "user_result_by_screen_name", "about_profile", parse_about),
+    "community": ("raw_community_info", "communityResults", "rest_id", parse_community),
+}
+
+
+@pytest.mark.parametrize("name, key, field, parse", SINGLE_PARSERS.values(), ids=SINGLE_PARSERS)
+def test_single_object_parse_failure_raises(name, key, field, parse):
+    # https://github.com/vladkens/twscrape/issues/348
+    raw = fake_rep(name).json()
+    raw["data"][key]["result"][field] = ["broken"]
+    with pytest.raises(ParseError, match="Failed to parse"):
+        parse(raw)
+
+
+@pytest.mark.parametrize("name, key, field, parse", SINGLE_PARSERS.values(), ids=SINGLE_PARSERS)
+def test_single_object_unknown_typename_raises(monkeypatch, name, key, field, parse):
+    dumps = []
+    monkeypatch.setattr(models, "_write_dump", lambda *args: dumps.append(args))
+
+    raw = fake_rep(name).json()
+    raw["data"][key]["result"]["__typename"] = "SomethingNew"
+    with pytest.raises(ParseError, match="SomethingNew") as exc:
+        parse(raw)
+
+    assert isinstance(exc.value.__cause__, ValueError)
+    assert len(dumps) == 1
+
+
+SUSPENDED_USER = {"__typename": "UserUnavailable", "unavailable_reason": "Suspended"}
+UNKNOWN_COMMUNITY = {"__typename": "CommunityUnavailable", "reason": "Unavailable"}
+
+
+@pytest.mark.parametrize(
+    "data, parse",
+    [
+        ({}, parse_about),  # missing or deactivated account
+        ({"user_result_by_screen_name": {}}, parse_about),
+        ({"user_result_by_screen_name": {"id": "1", "result": SUSPENDED_USER}}, parse_about),
+        ({}, parse_community),
+        ({"communityResults": {}}, parse_community),
+        ({"communityResults": {"id": "1", "result": UNKNOWN_COMMUNITY}}, parse_community),
+    ],
+)
+def test_unavailable_single_object_returns_none(data, parse):
+    assert parse({"data": data}) is None
+
+
+@pytest.mark.parametrize("name, key, field, parse", SINGLE_PARSERS.values(), ids=SINGLE_PARSERS)
+@pytest.mark.parametrize("data", [lambda key: None, lambda key: {key: None}])
+def test_single_object_null_parent_returns_none(data, name, key, field, parse):
+    assert parse({"data": data(key)}) is None
+    assert parse({"data": {key: {"result": None}}}) is None
+
+
+@pytest.mark.parametrize("name, key, field, parse", SINGLE_PARSERS.values(), ids=SINGLE_PARSERS)
+@pytest.mark.parametrize(
+    "data",
+    [lambda key: ["broken"], lambda key: {key: ["broken"]}, lambda key: {key: {"result": ["x"]}}],
+)
+def test_single_object_non_object_raises(monkeypatch, data, name, key, field, parse):
+    dumps = []
+    monkeypatch.setattr(models, "_write_dump", lambda *args: dumps.append(args))
+
+    with pytest.raises(ParseError, match="Failed to parse") as exc:
+        parse({"data": data(key)})
+
+    assert isinstance(exc.value.__cause__, AttributeError)
+    assert len(dumps) == 1
+
+
+def test_trend_parse_failure_raises(monkeypatch):
+    def fail(*args):
+        raise ValueError("broken trend")
+
+    monkeypatch.setattr(models.Trend, "parse", fail)
+    with pytest.raises(ParseError, match="Failed to parse trend") as exc:
+        parse_trend(fake_rep("raw_trends").json())
+
+    assert isinstance(exc.value.__cause__, ValueError)
+
+
+def test_trend_without_name_raises():
+    raw = fake_rep("raw_trends").json()
+    trend = find_obj(raw, lambda x: x.get("__typename") == "TimelineTrend")
+    assert trend is not None
+    del trend["name"]
+
+    with pytest.raises(ParseError, match="Failed to parse trend") as exc:
+        parse_trend(raw)
+
+    assert isinstance(exc.value.__cause__, KeyError)
+
+
+def test_bot_reply_to_partial_only_operator():
+    # Two own retweets from production UserTweets pages (@NatMus_SWE, @betaworks). Each
+    # retweets a bot's reply to its operator, whose "Automated by @operator" label is the
+    # only User of the operator on the page, partial, without name.
+    tweets = {x.id: x for x in parse_tweets(fake_rep("_user_tweets_bot_reply_to_operator").json())}
+    for twid, bot, operator in (
+        (
+            956082660291555328,
+            "Emojimuseet",
+            (185260921, "AronAmbrosiani", "Aron Ambrosiani @aronambrosiani@glammr.us"),
+        ),
+        (1934744325579051137, "opus_genesis", (1614308799220695045, "veryvanya", "veryvanya")),
+    ):
+        rt = tweets[twid].retweetedTweet
+        assert rt is not None
+        assert rt.user.username == bot
+        reply_to = rt.inReplyToUser
+        assert reply_to is not None
+        assert (reply_to.id, reply_to.username, reply_to.displayname) == operator
+
+
+def test_nested_author_without_profile_keeps_outer_tweet():
+    # https://github.com/vladkens/twscrape/issues/342
+    # https://github.com/vladkens/twscrape/issues/343
+    # UserTweets page from raw_user_tweets, with nested authors replaced by the shapes X sent
+    # in production: UserUnavailable (#343) and a User stub without core (#342).
+    tweets = {x.id: x for x in parse_tweets(fake_rep("_issue_342_343").json())}
+
+    # retweet of an unavailable author: handle and name from the retweet's user_mentions
+    rt = tweets[2083305234688803178].retweetedTweet
+    assert rt is not None
+    assert rt.id == 2083289084567724316
+    assert rt.rawContent.startswith("Overhauled the 𝕏 Developer Console")
+    assert (rt.user.id, rt.user.username, rt.user.displayname) == (
+        2606432720,
+        "benjitaylor",
+        "Benji Taylor",
+    )
+
+    # unavailable author of a tweet quoted by a retweet: handle from quoted_status_permalink
+    rt = tweets[2082157691451920667].retweetedTweet
+    assert rt is not None
+    qt = rt.quotedTweet
+    assert qt is not None
+    assert qt.id == 2082134521370272218
+    assert (qt.user.id, qt.user.username) == (2867234365, "milichab")
+
+    # retweet of a stub author
+    rt = tweets[2079814622639469025].retweetedTweet
+    assert rt is not None
+    assert (rt.user.id, rt.user.username, rt.user.displayname) == (
+        1818311005698678784,
+        "XFreeze",
+        "X Freeze",
+    )
+
+
+def test_retweet_author_from_text_prefix_without_mention():
+    # The retweet of an unavailable author from _issue_342_343, without the user_mentions
+    # entry that names the author: the handle comes from the retweet's "RT @handle: " prefix,
+    # so the truncated retweet text is still restored with it.
+    raw = fake_rep("_issue_342_343").json()
+    tweet = find_obj(raw, lambda x: x.get("rest_id") == "2083305234688803178" and "legacy" in x)
+    assert tweet is not None
+    tweet["legacy"]["entities"]["user_mentions"] = []
+
+    tweet = {x.id: x for x in parse_tweets(raw)}[2083305234688803178]
+    rt = tweet.retweetedTweet
+    assert rt is not None
+    assert (rt.user.id, rt.user.username, rt.user.displayname) == (2606432720, "benjitaylor", "")
+    assert tweet.rawContent == f"RT @benjitaylor: {rt.rawContent}"
+
+
+@pytest.mark.parametrize(
+    "shape", ["empty", "stub", "stub_empty_core", "stub_empty_legacy", "partial", "absent"]
+)
+def test_own_author_without_profile_keeps_tweets(shape, monkeypatch):
+    # Real UserTweets page of @scottyenor (April 2023 part, trimmed to 4 entries), with the
+    # author of every own tweet sent as empty user_results, as X did in production for this
+    # page on 2026-10-05. The other shapes seen that day, a User stub without core and no
+    # core at all, are applied over it, as well as stubs with empty core or legacy and a
+    # partial User with only screen_name. The tweets are complete: kept, with an ID-only author.
+    raw = fake_rep("_user_tweets_own_author_without_profile").json()
+    uid = "1380623475023355907"
+    stubs = {
+        "stub": {"privacy": {"protected": False}},
+        "stub_empty_core": {"core": {}},
+        "stub_empty_legacy": {"legacy": {}},
+        "partial": {"core": {"screen_name": "scottyenor"}},
+    }
+
+    for x in get_typed_object(raw, defaultdict(list))["Tweet"]:
+        if shape == "empty" or x["legacy"]["user_id_str"] != uid:
+            continue
+
+        if shape == "absent":
+            del x["core"]
+        else:
+            stub = {"__typename": "User", "rest_id": uid, **stubs[shape]}
+            x["core"] = {"user_results": {"result": stub}}
+
+    assert uid not in to_old_rep(raw)["users"]
+
+    warnings = []
+    monkeypatch.setattr(models.logger, "warning", warnings.append)
+    tweets = {x.id: x for x in parse_tweets(raw)}
+    assert len(tweets) == 7
+    assert len(warnings) == 1  # once per author per page
+    for tw in tweets.values():
+        assert (tw.user.id_str, tw.user.username, tw.user.displayname) == (uid, "", "")
+        assert tw.url == f"https://x.com/i/status/{tw.id}"
+
+    # self-replies of two threads: the replied-to user comes from the reply's own fields
+    for twid in (
+        1643335556762329089,
+        1643612772930813956,
+        1643335820617678854,
+        1643336000138092545,
+    ):
+        reply_to = tweets[twid].inReplyToUser
+        assert reply_to is not None
+        assert (reply_to.id_str, reply_to.username) == (uid, "scottyenor")
+
+    # the retweeted author is unaffected
+    rt = tweets[1645841834814341125].retweetedTweet
+    assert rt is not None
+    assert rt.user.username == "megbasham"
+
+
+# Issues:
+# - https://github.com/vladkens/twscrape/issues/72
+# - https://github.com/vladkens/twscrape/issues/191
+# fixture, tweet id, card class, expected attrs (`...` means not None)
+CARDS = {
+    "summary": (
+        "card_summary",
+        1696922210588410217,
+        SummaryCard,
+        {"_type": "summary", "title": ..., "description": ..., "url": ...},
+    ),
+    "poll": (
+        "card_poll",
+        1780666831310877100,
+        PollCard,
+        {"_type": "poll", "finished": ..., "options": ...},
+    ),
+    "poll2choice_video": (
+        "card_poll_video",
+        1114574134397165568,
+        PollCard,
+        {"_type": "poll", "finished": True, "videoUrl": ..., "durationSeconds": 24, "photo": ...},
+    ),
+    "broadcast": (
+        "card_broadcast",
+        1790441814857826439,
+        BroadcastCard,
+        {"_type": "broadcast", "title": ..., "url": ..., "photo": ...},
+    ),
+    "audiospace": (
+        "card_audiospace",
+        1789054061729173804,
+        AudiospaceCard,
+        {"_type": "audiospace", "url": ...},
+    ),
+    "message_me": (
+        "card_message_me",
+        1916063270131191983,
+        MessageMeCard,
+        {"_type": "message_me", "url": ..., "cta": ..., "recipientId": "85741735"},
+    ),
+    "periscope_broadcast": (
+        "card_periscope_broadcast",
+        822817044450013184,
+        PeriscopeBroadcastCard,
+        {
+            "_type": "periscope_broadcast",
+            "title": ...,
+            "url": ...,
+            "state": "ENDED",
+            "broadcasterUsername": "womensmarch",
+            "thumbnailUrl": ...,
+        },
+    ),
+    "promo_video_convo": (
+        "card_promo_video_convo",
+        1090673433690685441,
+        PromoVideoConvoCard,
+        {
+            "_type": "promo_video_convo",
+            "title": "Add your voice.",
+            "thankYouText": ...,
+            "videoUrl": ...,
+            "durationSeconds": 5,
+            "ctas": ["#BellLetsTalk"],
+            "photo": ...,
+        },
+    ),
+    "promo_image_convo": (
+        "card_promo_image_convo",
+        2078218219689492480,
+        PromoImageConvoCard,
+        {
+            "_type": "promo_image_convo",
+            "title": ...,
+            "thankYouText": ...,
+            "thankYouUrl": ...,
+            "ctas": ["#onerufflecheddarlong"],
+            "photo": ...,
+        },
+    ),
+    "live_event": (
+        "card_live_event",
+        1463203718153703425,
+        LiveEventCard,
+        {
+            "_type": "live_event",
+            "title": ...,
+            "url": ...,
+            "eventId": "1461789549739143169",
+            "category": "Music",
+            "subtitle": ...,
+            "photo": ...,
+        },
+    ),
+    "app": (
+        "card_app",
+        1249486216266788865,
+        AppCard,
+        {
+            "_type": "app",
+            "title": "The NBC App – Stream TV Shows",
+            "url": ...,
+            "description": ...,
+            "starRating": 4.57233,
+            "numRatings": 289838,
+            "photo": ...,
+        },
+    ),
+}
+
+
+@pytest.mark.parametrize("name, twid, cls, attrs", CARDS.values(), ids=CARDS.keys())
+def test_cards(name, twid, cls, attrs):
+    doc = parse_tweet(fake_rep(name).json(), twid)
+    assert doc is not None
+    assert isinstance(doc.card, cls)
+
+    for k, v in attrs.items():
+        x = getattr(doc.card, k)
+        assert x is not None if v is ... else x == v, k
+
+
+@pytest.mark.parametrize(
+    "name, twid, count",
+    [("card_poll", 1780666831310877100, 2), ("card_poll_video", 1114574134397165568, 2)],
+)
+def test_poll_card_options(name, twid, count):
+    doc = parse_tweet(fake_rep(name).json(), twid)
+    assert doc is not None and isinstance(doc.card, PollCard)
+    assert len(doc.card.options) == count
     for x in doc.card.options:
         assert x.label is not None
         assert x.votesCount is not None
 
-    image_poll = fake_rep("card_poll").json()
+
+def test_poll_card_with_choice_images():
+    raw = fake_rep("card_poll").json()
     card = find_obj(
-        image_poll,
+        raw,
         lambda x: (
             isinstance(x.get("legacy"), dict)
             and str(x["legacy"].get("name", "")).startswith("poll")
         ),
     )
     assert card is not None
+
     card["legacy"]["name"] = "1906814671912599552:poll_choice_images"
-    doc = parse_tweet(image_poll, 1780666831310877100)
+    doc = parse_tweet(raw, 1780666831310877100)
     assert doc is not None
     assert isinstance(doc.card, PollCard)
 
-    # Check BrodcastCard
-    raw = fake_rep("card_broadcast").json()
-    doc = parse_tweet(raw, 1790441814857826439)
-    assert doc is not None and doc.card is not None
-    assert doc.card._type == "broadcast"
-    assert isinstance(doc.card, BroadcastCard)
-    assert doc.card.title is not None
-    assert doc.card.url is not None
-    assert doc.card.photo is not None
 
-    # Check AudiospaceCard
-    raw = fake_rep("card_audiospace").json()
-    doc = parse_tweet(raw, 1789054061729173804)
+def test_promo_image_convo_card_photo():
+    # main image, not the cover_promo_image ad cover (that one lives under /ad_img/)
+    doc = parse_tweet(fake_rep("card_promo_image_convo").json(), 2078218219689492480)
+    assert doc is not None and isinstance(doc.card, PromoImageConvoCard)
+    assert doc.card.photo is not None
+    assert "/ad_img/" not in doc.card.photo.url
+
+
+@pytest.mark.parametrize(
+    "name, twid, key, value, attr",
+    [
+        ("card_app", 1249486216266788865, "app_star_rating", "n/a", "starRating"),
+        ("card_app", 1249486216266788865, "app_num_ratings", "1.2K", "numRatings"),
+        (
+            "card_promo_video_convo",
+            1090673433690685441,
+            "content_duration_seconds",
+            "",
+            "durationSeconds",
+        ),
+    ],
+)
+def test_card_bad_numbers(name, twid, key, value, attr, monkeypatch):
+    raw = fake_rep(name).json()
+    item = find_obj(raw, lambda x: x.get("key") == key)
+    assert item is not None
+
+    item["value"]["string_value"] = value
+    warnings = []
+    monkeypatch.setattr(models.logger, "warning", warnings.append)
+    doc = parse_tweet(raw, twid)
     assert doc is not None and doc.card is not None
-    assert doc.card._type == "audiospace"
-    assert isinstance(doc.card, AudiospaceCard)
-    assert doc.card.url is not None
+    assert getattr(doc.card, attr) is None
+    assert len(warnings) == 1 and f"{key}={value!r}" in warnings[0]
 
 
 async def test_tweet_new_fields():

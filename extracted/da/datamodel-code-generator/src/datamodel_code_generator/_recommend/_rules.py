@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from datamodel_code_generator import _option_names
 from datamodel_code_generator._name_words import pascal_words
 from datamodel_code_generator._option_names import configured_value
 from datamodel_code_generator._recommend._signals import (
@@ -119,8 +118,6 @@ class Rule(_Data):
     optional: OptionalSection | None = None
     applies_to: AppliesTo = AppliesTo()
     when: Condition
-    contested_when: Condition | None = None
-    contested_reason: str = ""
     set: dict[str, Any] = Field(default_factory=dict)
     value_from: dict[str, Literal["pascal_case_input_stem"]] = Field(default_factory=dict)
     reason: str
@@ -167,30 +164,15 @@ class LoadedRules:
 
 @dataclass(frozen=True, slots=True)
 class Decision:
-    """A rule that fired, with the values it decides and whether the schema also argues against it."""
+    """A rule that fired, with the values it decides."""
 
     rule: Rule
     values: Mapping[str, OptionValue]
-    contested: bool
 
     @property
     def avoids(self) -> bool:
         """Return whether the rule only turns options off."""
         return all(value is False for value in self.values.values())
-
-
-def option_arguments(field: str, value: OptionValue) -> list[str] | None:
-    """Return the CLI arguments that set a config field to a value, or None when no option can express it."""
-    from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
-
-    return _option_names.option_arguments(field, value, negative=_negative_option)
-
-
-def values_arguments(values: Mapping[str, OptionValue]) -> list[str]:
-    """Return the CLI arguments that set config fields to values, leaving out the values no option can express."""
-    from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
-
-    return _option_names.values_arguments(values.items(), negative=_negative_option)
 
 
 def _rule_values(rule: Rule) -> dict[str, OptionValue]:
@@ -275,7 +257,6 @@ def decide(
             Decision(
                 rule=rule,
                 values={**rules.values[rule.id], **dict.fromkeys(rule.value_from, name)},
-                contested=rule.contested_when is not None and matches(rule.contested_when, signals.counts),
             )
         )
     return decisions

@@ -37,7 +37,8 @@ from pydantic import (
     model_validator,
 )
 
-from .registry import LaneletPlace, get_action_spec
+from ..scaffold.names import SCENARIO_NAME_PATTERN
+from .registry import FieldSpec, LaneletPlace, get_action_spec, read_bool
 
 __all__ = [
     "ActionNode",
@@ -168,7 +169,9 @@ def as_action_phase(value: object) -> Optional[ActionPhaseName]:
     return cast(ActionPhaseName, value) if value in ACTION_PHASE_VALUES else None
 
 
-_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+#: The rule ``scenario-new`` holds a scenario name to (#1858), so an id is
+#: one Hydra's override grammar can select (``scenario=<id>``).
+_ID_PATTERN = re.compile(SCENARIO_NAME_PATTERN)
 
 
 def new_object_id(prefix: str) -> str:
@@ -194,6 +197,37 @@ class _Node(BaseModel):
 # ---------------------------------------------------------------------------
 # Spawn
 # ---------------------------------------------------------------------------
+
+
+def _sweep_params(
+    fields: tuple[FieldSpec, ...], params: dict[str, Any]
+) -> dict[str, Any]:
+    """*params* as the sweeper takes them: each ``bool`` field a real bool.
+
+    A constraint's and a binding's parameters go to the sweep config as
+    written -- the compiler's :func:`coerce_params` never sees them -- and the
+    sweeper reads a flag by its truth, so a ``no`` or an ``off`` kept as text
+    (a document reads them as text, #1946) would turn the flag on.  Each is
+    read as the validator reads it
+    (:func:`~autoware_carla_scenario.authoring.registry.read_bool`); a blank
+    one stands for the field's default.  A spelling that is neither is left
+    as written: the validator names it, and the sweeper refuses it.
+    """
+    out = dict(params)
+    for spec in fields:
+        if spec.kind != "bool" or spec.name not in out:
+            continue
+        value = out[spec.name]
+        if value is None or (isinstance(value, str) and not value.strip()):
+            if spec.default is None:
+                del out[spec.name]
+            else:
+                out[spec.name] = spec.default
+            continue
+        flag = read_bool(value)
+        if flag is not None:
+            out[spec.name] = flag
+    return out
 
 
 class ConstraintNode(_Node):
@@ -225,11 +259,11 @@ class ConstraintNode(_Node):
         """Return this subtree in ``sweep.constraints`` YAML form."""
         from .registry import get_constraint_spec
 
+        spec = get_constraint_spec(self.type)
         out: dict[str, Any] = {"type": self.type}
-        out.update(self.params)
+        out.update(_sweep_params(spec.fields if spec else (), self.params))
         if not self.constraints:
             return out
-        spec = get_constraint_spec(self.type)
         if spec is not None and spec.kind == "wrapper":
             out["constraint"] = self.constraints[0].to_sweep_dict()
         else:
@@ -274,7 +308,8 @@ class BindingRef(_Node):
 
         spec = get_binding_spec(self.type)
         fixed = dict(spec.fixed) if spec else {}
-        return {"type": self.type, **self.params, **fixed}
+        params = _sweep_params(spec.fields if spec else (), self.params)
+        return {"type": self.type, **params, **fixed}
 
 
 class SValue(_Node):
@@ -378,11 +413,14 @@ class SpawnSpec(LaneletChoice):
     #: Yaw relative to the lanelet's direction of travel, in radians, positive
     #: anticlockwise.  ``pi / 2`` faces across the lane from its right-hand edge.
     heading: float = 0.0
-    #: Spawn out of the world -- under the map, physics off -- and let an
-    #: action bring the entity in: a *Set Goal* card that keeps it out
-    #: until its first vertex.  What a road user a recording picks up late
-    #: needs: placed where it first appears, it could collide at spawn with
-    #: whatever stood there when the run began.
+    #: Spawn out of the world -- under the map, physics off, kept from its
+    #: traffic backend -- and let a *Spawn* card bring the entity in.  Only a
+    #: Spawn card does: a *Set Goal* card routes an entity already in the
+    #: scene, so trigger it on the Spawn card's action state (the validator
+    #: warns about a hidden entity no Spawn card names).  What a road user a
+    #: recording picks up late needs: placed where it first appears, it could
+    #: collide at spawn with whatever stood there when the run began.  Never
+    #: the ego, which the run is measured on from the first tick.
     hidden: bool = False
 
     @property
@@ -476,7 +514,7 @@ class Entity(_Node):
     @field_validator("id")
     @classmethod
     def _check_id(cls, value: str) -> str:
-        if not _ID_PATTERN.match(value):
+        if not _ID_PATTERN.fullmatch(value):
             raise ValueError(
                 f"Entity id {value!r} must be lower_snake_case starting with a letter."
             )
@@ -1068,10 +1106,26 @@ class LaneletSlot:
 Tristate = Literal["any", "yes", "no"]
 
 
+#: The words YAML 1.1 reads as a boolean, by the tristate each one stands for.
+#: A document is read with YAML 1.2's booleans (#1946), so ``Yes`` or ``on``
+#: now arrives as text; it still means what it meant when it arrived as a bool.
+_YAML11_TRISTATES: dict[str, str] = {
+    **dict.fromkeys(("yes", "on", "true"), "yes"),
+    **dict.fromkeys(("no", "off", "false"), "no"),
+}
+
+
 def _tristate_from_yaml(value: Any) -> Any:
-    """YAML 1.1 reads a bare ``yes`` / ``no`` as a boolean; take it back."""
+    """A route segment's ``yes`` / ``no`` from what YAML made of it.
+
+    A bool (YAML 1.1's reading of a bare ``yes``, or a ``true``) and the words
+    YAML 1.1 read as one, in any case, are taken back to ``"yes"`` / ``"no"``;
+    anything else is left for the field to judge.
+    """
     if isinstance(value, bool):
         return "yes" if value else "no"
+    if isinstance(value, str) and value != "any":
+        return _YAML11_TRISTATES.get(value.lower(), value)
     return value
 
 
@@ -1439,7 +1493,7 @@ class ScenarioDocument(_Node):
     @field_validator("id")
     @classmethod
     def _check_id(cls, value: str) -> str:
-        if not _ID_PATTERN.match(value):
+        if not _ID_PATTERN.fullmatch(value):
             raise ValueError(
                 f"Scenario id {value!r} must be lower_snake_case starting with a letter."
             )

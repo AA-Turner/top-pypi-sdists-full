@@ -3,20 +3,32 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pyfixest.estimation.api.utils import _estimation_input_checks
-from pyfixest.estimation.FixestMulti_ import FixestMulti
+from pyfixest.demeaners import MapDemeaner
+from pyfixest.estimation.api.utils import (
+    _estimation_input_checks,
+    _resolve_ssc,
+    _resolve_vcov,
+)
+from pyfixest.estimation.config import EstimationConfig, QuantileProcess
+from pyfixest.estimation.formula.parse import Formula
 from pyfixest.estimation.internals.literals import (
+    FixedRmOptions,
     QuantregMethodOptions,
     QuantregMultiOptions,
     SolverOptions,
     VcovTypeOptions,
+    WeightsTypeOptions,
 )
+from pyfixest.estimation.internals.model_state import QuantregEstimationOptions
+from pyfixest.estimation.plan_ import plan_formulas
+from pyfixest.estimation.runner import run_estimation
 from pyfixest.utils.dev_utils import DataFrameType
-from pyfixest.utils.utils import capture_context
-from pyfixest.utils.utils import ssc as ssc_func
+from pyfixest.utils.utils import Ssc, capture_context
 
 
-def _quantreg_input_checks(quantile: float, tol: float, maxiter: int | None):
+def _quantreg_input_checks(
+    quantile: float | list[float], tol: float, maxiter: int | None
+):
     "Run custom input checks for quantreg."
     if isinstance(quantile, list):
         if not all(isinstance(q, float) for q in quantile):
@@ -41,14 +53,14 @@ def _quantreg_input_checks(quantile: float, tol: float, maxiter: int | None):
 
 def quantreg(
     fml: str,
-    data: DataFrameType,  # type: ignore
+    data: DataFrameType,
     vcov: VcovTypeOptions | dict[str, str] | None = "nid",
-    quantile: float = 0.5,
+    quantile: float | list[float] = 0.5,
     method: QuantregMethodOptions = "fn",
     multi_method: QuantregMultiOptions = "cfm1",
     tol: float = 1e-06,
     maxiter: int | None = None,
-    ssc: dict[str, str | bool] | None = None,
+    ssc: Ssc | Mapping[str, Any] | None = None,
     collin_tol: float = 1e-09,
     separation_check: list[str] | None = None,
     drop_intercept: bool = False,
@@ -73,8 +85,9 @@ def quantreg(
     data : DataFrameType
         A pandas or polars dataframe containing the variables in the formula.
 
-    quantile : float
-        The quantile to estimate. Must be between 0 and 1.
+    quantile : float or list[float]
+        The quantile to estimate, or a list of quantiles fitted jointly as a
+        quantile regression process. Each must be between 0 and 1.
 
     method : QuantregMethodOptions, optional
         The method to use for the quantile regression. Currently, only "fn" is supported.
@@ -114,7 +127,7 @@ def quantreg(
 
     ssc : dict[str, Union[str, bool]], optional
         A dictionary specifying the small sample correction for inference.
-        If None, uses default settings from `ssc_func()`. Note that by default, R's quantreg and Stata's qreg2 do not use
+        If None, uses default settings from `pf.ssc()`. Note that by default, R's quantreg and Stata's qreg2 do not use
         small sample corrections. To match their behavior, set
         `ssc = pf.ssc(k_adj=False, G_adj=False)`.
 
@@ -136,12 +149,15 @@ def quantreg(
         Whether to store the data in the model object, by default True.
         If set to False, the data is not stored in the model object, which can
         improve performance and save memory. However, it will no longer be possible
-        to access the data via the `data` attribute of the model object.
+        to access the data via the `data` attribute of the model object. This has
+        impact on post-estimation capabilities that rely on the data, e.g. `predict()`
+        or `vcov()`. Such methods raise a `MissingModelDataError`.
 
-    lean : bool, optional
+    lean: bool, optional
         False by default. If True, then all large objects are removed from the
         returned result: this will save memory but will block the possibility
-        to use many methods. It is recommended to use the argument vcov
+        to use many methods, which raise `MissingModelDataError` when required
+        attributes were removed. It is recommended to use the argument vcov
         to obtain the appropriate standard-errors at estimation time,
         since obtaining different SEs won't be possible afterwards.
 
@@ -168,6 +184,18 @@ def quantreg(
     -------
     object
         An instance of the [Quantreg](/reference/estimation.quantreg.quantreg_.Quantreg.qmd) class or [FixestMulti](/reference/estimation.FixestMulti_.FixestMulti.qmd) class for multiple models specified via `fml`.
+
+    Notes
+    -----
+    `Quantreg` inherits from
+    [Feols](/reference/estimation.models.feols_.Feols.qmd). A quantile
+    regression fit therefore supports the same post-estimation methods as an OLS
+    fit, among them `vcov()`, `tidy()`, `coef()`, `confint()` and `predict()`.
+    See the Post-Estimation Methods section of the function reference for the
+    full list.
+
+    Fixed effects are not yet supported. Multiway clustering is not supported
+    for the cluster-robust variance estimator.
 
     Examples
     --------
@@ -197,28 +225,25 @@ def quantreg(
     """
     # WLS currently not supported for quantile regression
     weights = None
-    weights_type = "aweights"
+    weights_type: WeightsTypeOptions = "aweights"
     solver: SolverOptions = "np.linalg.solve"
+    # fixed effects are rejected for quantile regression; use the feols default
+    fixef_rm: FixedRmOptions = "singleton"
 
-    if ssc is None:
-        ssc = ssc_func()
+    ssc = _resolve_ssc(ssc)
 
     context = {} if context is None else capture_context(context)
 
-    fixef_rm = "none"
-    iwls_tol = 1e-08
-    iwls_maxiter = 25
-
     if isinstance(vcov, str) and vcov in ["HC1", "HC2", "HC3"]:
         vcov = "hetero"
+    vcov_spec = _resolve_vcov(vcov, None)
 
     _quantreg_input_checks(quantile, tol, maxiter)
 
     _estimation_input_checks(
         fml=fml,
         data=data,
-        vcov=vcov,
-        vcov_kwargs=None,
+        vcov=vcov_spec,
         weights=weights,
         ssc=ssc,
         fixef_rm=fixef_rm,
@@ -227,7 +252,6 @@ def quantreg(
         store_data=store_data,
         lean=lean,
         weights_type=weights_type,
-        use_compression=False,
         reps=None,
         seed=None,
         split=split,
@@ -235,52 +259,45 @@ def quantreg(
         separation_check=separation_check,
     )
 
-    fixest = FixestMulti(
-        data=data,
-        copy_data=copy_data,
-        store_data=store_data,
-        lean=lean,
-        weights_type=weights_type,
-        use_compression=False,
-        reps=None,
-        seed=seed,
-        split=split,
-        fsplit=fsplit,
-        context=context,
-        quantreg_method=method,
-        quantreg_multi_method=multi_method,
-    )
-
-    # same checks as for Poisson regression
-    fixest._prepare_estimation(
-        estimation="quantreg" if not isinstance(quantile, list) else "quantreg_multi",
-        fml=fml,
-        vcov=vcov,
-        vcov_kwargs=None,
-        weights=weights,
+    options = QuantregEstimationOptions(
         ssc=ssc,
-        fixef_rm=fixef_rm,
+        drop_singletons=fixef_rm == "singleton",
         drop_intercept=drop_intercept,
-        quantile=quantile,
+        weights=weights,
+        weights_type=weights_type,
+        offset=None,
+        collin_tol=collin_tol,
+        solver=solver,
+        demeaner=MapDemeaner(),
+        store_data=store_data,
+        copy_data=copy_data,
+        lean=lean,
+        context=context,
+        # a quantile process carries its first quantile; each child fit
+        # gets its own via `dataclasses.replace`
+        quantile=quantile[0] if isinstance(quantile, list) else quantile,
+        method=method,
         quantile_tol=tol,
         quantile_maxiter=maxiter,
+        seed=seed,
     )
-    if fixest._is_iv:
+    config = EstimationConfig(
+        method="quantreg",
+        data=data,
+        formulas=tuple(Formula.parse(fml)),
+        options=options,
+        vcov=vcov_spec,
+        split=split,
+        fsplit=fsplit,
+        quantile_process=QuantileProcess(quantiles=quantile, multi_method=multi_method)
+        if isinstance(quantile, list)
+        else None,
+    )
+
+    plan = plan_formulas(config)
+    if plan.is_iv:
         raise NotImplementedError(
             "IV Estimation is not supported for Quantile Regression"
         )
 
-    fixest._estimate_all_models(
-        vcov=vcov,
-        solver=solver,
-        vcov_kwargs=None,
-        iwls_tol=iwls_tol,
-        iwls_maxiter=iwls_maxiter,
-        collin_tol=collin_tol,
-        separation_check=separation_check,
-    )
-
-    if fixest._is_multiple_estimation:
-        return fixest
-    else:
-        return fixest.fetch_model(0, print_fml=False)
+    return run_estimation(config, plan, apply_retention=True)

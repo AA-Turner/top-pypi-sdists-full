@@ -1,4 +1,4 @@
-"""A package's Triton kernels (`author.kernels.TritonKernels`): built when its executor starts,
+"""A package's Triton kernels (`accel.kernels.TritonKernels`): built when its executor starts,
 for each sealed GPU's architecture, and loaded at construction.
 
 Each entry compiles into Triton's own keyed cache (`TRITON_CACHE_DIR`, inside the machine's
@@ -35,14 +35,12 @@ import sysconfig
 from collections.abc import Callable, Iterable
 from importlib import import_module
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import msgspec
 from msgspec import Struct
 
-from cozy_runtime.author import _request_path as request_path
-from cozy_runtime.author._model import LANDED
-from cozy_runtime.author.kernels import (
+from cozy_runtime.accel.kernels import (
     KernelsUnavailable,
     Launch,
     TritonEntry,
@@ -50,6 +48,8 @@ from cozy_runtime.author.kernels import (
     entry_key,
     readable,
 )
+from cozy_runtime.author import _request_path as request_path
+from cozy_runtime.author._model import LANDED
 from cozy_runtime.internal import kernel_cache, kernel_compile, kernel_ready, tools, verify
 
 try:
@@ -69,6 +69,8 @@ try:
     from triton.runtime.driver import driver as triton_driver
     from triton.runtime.jit import JITFunction
 except ImportError as _absent:  # pragma: no cover - exercised by the typed refusal
+    if TYPE_CHECKING:
+        raise
     TRITON_ABSENT = f"torch and triton do not import ({_absent})"
 else:
     TRITON_ABSENT = ""
@@ -472,7 +474,7 @@ class _Launcher:
             operands = list(args)
             for i, value in zip(at, real, strict=True):
                 operands[i] = value
-            found[grid](*operands)
+            found[(*grid, 1, 1)[:3]](*operands)  # a compiled kernel reads all three dims
 
 
 #: Loaded sets by (name, device index).

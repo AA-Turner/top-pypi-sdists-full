@@ -18,7 +18,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-import httpx
+import httpx2
 import pandas as pd
 
 from edgar.display.formatting import cik_text
@@ -165,20 +165,21 @@ class BDCEntity:
         from edgar import Company
         return Company(self.cik)
 
-    def get_filings(self, form: Optional[str] = None):
+    def get_filings(self, form: Optional[str] = None, amendments: bool = True):
         """
         Get filings for this BDC.
 
         Args:
             form: Optional form type to filter (e.g., '10-K', '10-Q')
+            amendments: Include amendments such as 10-K/A. Defaults to True.
 
         Returns:
             Filings for this BDC.
         """
         company = self.get_company()
         if form:
-            return company.get_filings(form=form)
-        return company.get_filings()
+            return company.get_filings(form=form, amendments=amendments)
+        return company.get_filings(amendments=amendments)
 
     def schedule_of_investments(self, form: str = "10-K"):
         """
@@ -608,7 +609,7 @@ def fetch_bdc_report(year: Optional[int] = None) -> pd.DataFrame:
         address_1, city, state, zip_code, last_filling_date, last_filling_type
 
     Raises:
-        httpx.HTTPError: If the request fails.
+        httpx2.HTTPError: If the request fails.
     """
     if year is None:
         year = get_latest_bdc_report_year()

@@ -12,7 +12,7 @@ pub mod host_pressure;
 #[cfg_attr(not(any(target_os = "linux", windows)), path = "scope_unsupported.rs")]
 mod scope;
 
-pub use scope::{Scope, all_stuck, stuck};
+pub use scope::{Budget, MachineFacts, Scope, all_stuck, budget, contain, follow, stuck};
 
 /// A killed scope member stuck in the kernel (Linux `D`: a driver after an Xid, a hung network
 /// filesystem). It acts on its kill only once that wait ends, and nothing waits on it meanwhile.
@@ -27,7 +27,7 @@ pub struct Stuck {
 }
 
 /// Runtime `child_env.EXECUTOR_SCOPE_ENV`: one complete inherited environment entry.
-pub const TOKEN_ENV: &str = "COZY_EXECUTOR_SCOPE";
+pub(crate) const TOKEN_ENV: &str = "COZY_EXECUTOR_SCOPE";
 
 /// Opaque, stable per state root, so a machine only ever sweeps its own scopes.
 pub fn namespace(state: &Path) -> String {

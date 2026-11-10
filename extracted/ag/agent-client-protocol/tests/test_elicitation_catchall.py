@@ -8,7 +8,7 @@ known values must still resolve to their specific typed variant.
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from acp.client.router import _mode_from_create_elicitation_request
+from acp._protocol_adapters import _mode_from_create_elicitation_request
 from acp.exceptions import RequestError
 from acp.schema import (
     AcceptElicitationResponse,
@@ -61,7 +61,11 @@ def test_unknown_elicitation_mode_dispatches_to_clean_request_error() -> None:
     # A custom mode parses (above); the client router must then reject it with a clean
     # RequestError (invalid params) rather than a bare TypeError that surfaces as an
     # opaque -32603 internal error.
-    request = CreateOtherElicitationRequest(message="hi", mode="x-voice")
+    request = _REQUEST.validate_python({
+        "mode": "x-voice",
+        "message": "hi",
+        "sessionId": "sess-1",
+    })
     with pytest.raises(RequestError) as exc_info:
         _mode_from_create_elicitation_request(request)
     assert isinstance(exc_info.value, RequestError)

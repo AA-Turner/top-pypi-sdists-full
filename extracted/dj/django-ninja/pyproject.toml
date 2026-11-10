@@ -33,6 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Framework :: Django",
     "Framework :: Django :: 3.1",
@@ -68,10 +69,10 @@ test = [
     "pytest-asyncio",
     "psycopg2-binary",
     "mypy==1.7.1",
-    "ruff==0.5.7",
+    "ruff==0.17.3",
     "django-stubs",
 ]
-doc = ["mkdocs", "mkdocs-material", "markdown-include", "mkdocstrings[python]"]
+doc = ["mkdocs", "mkdocs-material"]
 dev = [
     { include-group = "test" },
     { include-group = "doc" },
@@ -94,6 +95,8 @@ target-version = "py37"
 
 [tool.ruff.format]
 preview = true
+# Keep documentation code blocks outside the Python formatting scope.
+exclude = ["*.md"]
 
 [tool.ruff.lint]
 preview = true
@@ -112,6 +115,7 @@ ignore = [
     "E501", # line too long, handled by black
     "B008", # do not perform function calls in argument defaults
     "C901", # too complex
+    "FURB189", # built-in subclasses preserve type and JSON serialization compatibility
 ]
 
 [tool.ruff.lint.per-file-ignores]

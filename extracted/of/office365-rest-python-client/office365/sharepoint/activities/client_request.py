@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 from uuid import UUID
 
@@ -10,7 +10,6 @@ from office365.sharepoint.activities.facets.mention import MentionFacet
 from office365.sharepoint.activities.facets.revision_set import RevisionSetFacet
 
 
-@dataclass
 class ActivityClientRequest(ClientValue):
     revisionSet: RevisionSetFacet = field(default_factory=RevisionSetFacet)
     comment: CommentFacet = field(default_factory=CommentFacet)

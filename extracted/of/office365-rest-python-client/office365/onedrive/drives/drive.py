@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Optional
 
 from office365.directory.permissions.identity_set import IdentitySet
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity_collection import EntityCollection
 from office365.onedrive.base_item import BaseItem
 from office365.onedrive.driveitems.collection import DriveItemCollection
@@ -15,6 +14,7 @@ from office365.onedrive.internal.paths.root import RootPath
 from office365.onedrive.lists.list import List
 from office365.onedrive.recyclebin.recyclebin import RecycleBin
 from office365.onedrive.sharepoint.ids import SharePointIds
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.function import FunctionQuery
@@ -41,6 +41,10 @@ class Drive(BaseItem):
         """Retrieve drive metadata"""
         return super().get()
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     def create_bundle(self, name: str, children: list | None = None) -> DriveItem:
         """Add a new bundle to the user's drive.
 
@@ -61,6 +65,17 @@ class Drive(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def search(self, query_text: str) -> EntityCollection[DriveItem]:
         """Search the hierarchy of items for items matching a query.
 
@@ -72,6 +87,17 @@ class Drive(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def recent(self) -> EntityCollection[DriveItem]:
         """
         List a set of items that have been recently used by the signed in user.
@@ -83,6 +109,17 @@ class Drive(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def shared_with_me(self) -> EntityCollection[DriveItem]:
         """Retrieve a collection of DriveItem resources that have been shared with the owner of the Drive."""
         return_type = DriveItemCollection(self.context, self.items.resource_path)
@@ -90,6 +127,7 @@ class Drive(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="driveType")
     @property
     def drive_type(self) -> Optional[str]:
         """
@@ -104,16 +142,19 @@ class Drive(BaseItem):
         """Returns identifiers useful for SharePoint REST compatibility."""
         return self.properties.get("sharepointIds", SharePointIds())
 
+    @odata(name="system")
     @property
     def system(self) -> SystemFacet:
         """Optional. The user account that owns the drive. Read-only."""
         return self.properties.get("system", SystemFacet())
 
+    @odata(name="owner")
     @property
     def owner(self) -> IdentitySet:
         """If present, indicates that this is a system-managed drive. Read-only."""
         return self.properties.get("owner", IdentitySet())
 
+    @odata(name="root", navigation=True)
     @property
     @require_permission(
         delegated=[
@@ -133,11 +174,13 @@ class Drive(BaseItem):
             "root", DriveItem(self.context, RootPath(self.resource_path, self.items.resource_path))
         )
 
+    @odata(name="list", navigation=True)
     @property
     def list(self) -> List:
         """For drives in SharePoint, the underlying document library list."""
         return self.properties.get("list", List(self.context, ResourcePath("list", self.resource_path)))
 
+    @odata(name="bundles", navigation=True)
     @property
     def bundles(self) -> EntityCollection[DriveItem]:
         """Bundle metadata, if the item is a bundle."""
@@ -145,11 +188,13 @@ class Drive(BaseItem):
             "bundles", DriveItemCollection(self.context, ResourcePath("bundles", self.resource_path))
         )
 
+    @odata(name="items", navigation=True)
     @property
     def items(self) -> EntityCollection[DriveItem]:
         """All items contained in the drive."""
         return self.properties.get("items", DriveItemCollection(self.context, ResourcePath("items", self.resource_path)))
 
+    @odata(name="following", navigation=True)
     @property
     @require_permission(
         delegated=[
@@ -169,11 +214,13 @@ class Drive(BaseItem):
             "following", DriveItemCollection(self.context, ResourcePath("following", self.resource_path))
         )
 
+    @odata(name="quota")
     @property
     def quota(self) -> Quota:
         """Optional. Information about the drive's storage space quota. Read-only."""
         return self.properties.get("quota", Quota())
 
+    @odata(name="special", navigation=True)
     @property
     @require_permission(
         delegated=[
@@ -193,6 +240,7 @@ class Drive(BaseItem):
             "special", DriveItemCollection(self.context, ResourcePath("special", self.resource_path))
         )
 
+    @odata(name="list", navigation=True)
     @property
     def list_(self) -> List:
         """Gets the list property"""

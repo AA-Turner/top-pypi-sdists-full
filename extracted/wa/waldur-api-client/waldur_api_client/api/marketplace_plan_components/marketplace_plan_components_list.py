@@ -89,9 +89,9 @@ def sync_detailed(
 ) -> Response[list["PlanComponent"]]:
     """List plan components
 
-     Returns a paginated list of all plan components. A plan component defines the pricing and quotas for
-    an offering component within a billing plan. The list is filtered based on the current user's access
-    permissions and organization group memberships.
+     Returns a paginated list of plan components. A plan component defines the pricing and quotas for an
+    offering component within a billing plan. The list shows the components of plans of offerings the
+    caller sees in public or provider offerings, narrowed by the plans' organization groups.
 
     Args:
         archived (Union[Unset, bool]):
@@ -137,9 +137,9 @@ def sync(
 ) -> list["PlanComponent"]:
     """List plan components
 
-     Returns a paginated list of all plan components. A plan component defines the pricing and quotas for
-    an offering component within a billing plan. The list is filtered based on the current user's access
-    permissions and organization group memberships.
+     Returns a paginated list of plan components. A plan component defines the pricing and quotas for an
+    offering component within a billing plan. The list shows the components of plans of offerings the
+    caller sees in public or provider offerings, narrowed by the plans' organization groups.
 
     Args:
         archived (Union[Unset, bool]):
@@ -180,9 +180,9 @@ async def asyncio_detailed(
 ) -> Response[list["PlanComponent"]]:
     """List plan components
 
-     Returns a paginated list of all plan components. A plan component defines the pricing and quotas for
-    an offering component within a billing plan. The list is filtered based on the current user's access
-    permissions and organization group memberships.
+     Returns a paginated list of plan components. A plan component defines the pricing and quotas for an
+    offering component within a billing plan. The list shows the components of plans of offerings the
+    caller sees in public or provider offerings, narrowed by the plans' organization groups.
 
     Args:
         archived (Union[Unset, bool]):
@@ -226,9 +226,9 @@ async def asyncio(
 ) -> list["PlanComponent"]:
     """List plan components
 
-     Returns a paginated list of all plan components. A plan component defines the pricing and quotas for
-    an offering component within a billing plan. The list is filtered based on the current user's access
-    permissions and organization group memberships.
+     Returns a paginated list of plan components. A plan component defines the pricing and quotas for an
+    offering component within a billing plan. The list shows the components of plans of offerings the
+    caller sees in public or provider offerings, narrowed by the plans' organization groups.
 
     Args:
         archived (Union[Unset, bool]):

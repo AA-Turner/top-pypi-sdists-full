@@ -54,7 +54,7 @@ import time
 import weakref
 from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager, nullcontext, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property, partial
@@ -95,6 +95,7 @@ from .backup_entity_ids import (
     update_with_registry_icon,
     with_registry_icon,
 )
+from .backup_files import _fetch_file, _fetch_file_as_stored, _restore_file
 from .backup_helper_target import fetch_helper as _fetch_helper
 from .backup_helper_target import note_no_safety_backup as _note_no_safety_backup
 from .backup_helper_target import (
@@ -273,6 +274,15 @@ class _FlowHelperReadError(HomeAssistantError):
 class _FlowHelperBackupSkip(_FlowHelperReadError):
     """Nothing to back up: no stored or disclosed options, or no helper flow Core
     lists. Best-effort capture logs it at INFO."""
+
+
+def _restore_is_flow_driven(domain: str) -> bool:
+    """A snapshot domain whose restore drives a Core flow, which can apply it
+    partly: a flow helper, a config subentry or an integration entry."""
+    return _is_flow_helper_domain(domain) or domain in (
+        "helper_config_subentry",
+        "integration",
+    )
 
 
 def _is_flow_helper_domain(domain: str) -> bool:
@@ -1514,18 +1524,17 @@ class BackupManager:
                         safety_backup=None,
                     ) from err
                 data["entity_id"] = entity_id
-                async with self.config_entry_write_guard(entity_id, exclusive=True):
-                    return await self._restore_snapshot_data(
-                        name, data, take_safety_backup=take_safety_backup
-                    )
-            if data["domain"] == "entity":
-                async with restore_locks(self._client, data["config"]):
-                    return await self._restore_snapshot_data(
-                        name, data, take_safety_backup=take_safety_backup
-                    )
-            return await self._restore_snapshot_data(
-                name, data, take_safety_backup=take_safety_backup
-            )
+                guard: Any = self.config_entry_write_guard(entity_id, exclusive=True)
+            elif data["domain"] == "entity":
+                guard = restore_locks(self._client, data["config"])
+            elif data["domain"] == "integration":  # its restore drives an options flow
+                guard = self.config_entry_write_guard(data["entity_id"])
+            else:
+                guard = nullcontext()
+            async with guard:
+                return await self._restore_snapshot_data(
+                    name, data, take_safety_backup=take_safety_backup
+                )
         finally:
             self._unprotect_snapshot(name)
 
@@ -1567,11 +1576,10 @@ class BackupManager:
         step = "safety_preflight"
         try:
             needs_safety = await self._restore_needs_safety(handler, entity_id, config)
-            # Existing flow helpers and subentries always require a fresh
-            # recovery point: their flows can apply a restore partly.
-            is_flow = _is_flow_helper_domain(domain)
-            flow_driven = is_flow or domain == "helper_config_subentry"
-            if needs_safety and (flow_driven or take_safety_backup):
+            # Existing flow helpers, subentries and integration entries always
+            # require a fresh recovery point: their flows can apply a restore
+            # partly.
+            if needs_safety and (_restore_is_flow_driven(domain) or take_safety_backup):
                 step = "safety_backup"
                 safety_path = await self._capture_restore_safety(
                     domain, entity_id, outcome, config
@@ -1643,7 +1651,7 @@ class BackupManager:
     ) -> Path | None:
         """Take a restore's recovery point; a failed capture raises and blocks it."""
         is_flow = _is_flow_helper_domain(domain)
-        flow_driven = is_flow or domain == "helper_config_subentry"
+        flow_driven = _restore_is_flow_driven(domain)
         if not flow_driven and not getattr(self._settings, "enable_auto_backup", False):
             return None  # auto-backup off: no safety backup is promised
         # The restore overwrites the current state, so the throttle that a
@@ -2468,60 +2476,6 @@ async def _registry_snapshot(client: Any, helper_type: str, item: dict) -> Any:
 # ``edit_yaml_config``. Both store the content as ``kind: "text"``.
 
 
-async def _fetch_file(client: Any, entity_id: str) -> Any:
-    """Read a file's current content via the read_file service.
-
-    ``entity_id`` is the file path. Returns the content string, or None
-    when the file does not exist — a brand-new write has no prior content
-    to snapshot, so capture skips (same as creating a new entity). A
-    binary file also returns None: snapshots store text only, so capture
-    skips it instead of blocking the write or delete. Other read failures
-    raise so the capture pipeline logs them at WARNING.
-    """
-    from .tools.auto_backup import PathNotAllowedError
-    from .tools.tools_filesystem import call_mcp_tools_service
-    from .tools.util_helpers import unwrap_service_response
-
-    result = await call_mcp_tools_service(client, "read_file", {"path": entity_id})
-    if not isinstance(result, dict):
-        return None
-    result = unwrap_service_response(result)
-    if result.get("success", False):
-        content = result.get("content")
-        return content if isinstance(content, str) else None
-    error = str(result.get("error", ""))
-    skips = ("does not exist", "not a file", "Cannot read binary file")
-    if any(marker in error for marker in skips):
-        return None
-    if error.startswith("Path not allowed"):
-        raise PathNotAllowedError(entity_id, error)
-    raise HomeAssistantError(f"read_file failed for {entity_id!r}: {error}")
-
-
-async def _restore_file(client: Any, entity_id: str, config: Any) -> Any:
-    """Re-write a file's captured content via the write_file service."""
-    from .tools.tools_filesystem import call_mcp_tools_service
-    from .tools.util_helpers import unwrap_service_response
-
-    result = await call_mcp_tools_service(
-        client,
-        "write_file",
-        {
-            "path": entity_id,
-            "content": str(config),
-            "overwrite": True,
-            "create_dirs": True,
-        },
-    )
-    if isinstance(result, dict):
-        result = unwrap_service_response(result)
-        if not result.get("success", False):
-            raise HomeAssistantError(
-                f"write_file restore failed for {entity_id!r}: {result.get('error')}"
-            )
-    return result
-
-
 async def _fetch_yaml(client: Any, entity_id: str) -> Any:
     """Read the current YAML subtree for a ``{file}::{yaml_path}`` target.
 
@@ -2579,12 +2533,12 @@ async def _restore_yaml(client: Any, entity_id: str, config: Any) -> Any:
     and can therefore be left off.
     """
     from .config import get_global_settings
-    from .tools.tools_filesystem import (
+    from .tools.tools_filesystem import call_mcp_tools_service
+    from .tools.util_helpers import unwrap_service_response
+    from .tools.yaml_extra_keys import (
         assert_extra_yaml_keys_supported,
-        call_mcp_tools_service,
         effective_extra_yaml_write_keys,
     )
-    from .tools.util_helpers import unwrap_service_response
 
     # Split on the LAST "::" (see _fetch_yaml) so an exotic file path
     # containing "::" still restores to the right file and key.
@@ -2780,7 +2734,7 @@ def _flow_label(helper_type: str) -> str:
 
 def _flow_options(config: Any, helper_type: str) -> dict[str, Any]:
     """Require persisted flow-helper options that can safely be restored."""
-    from .redaction import sentinel_option_keys
+    from .redaction import placeholder_option_keys
 
     label = _flow_label(helper_type)
     if not isinstance(config, dict):
@@ -2792,22 +2746,14 @@ def _flow_options(config: Any, helper_type: str) -> dict[str, Any]:
             f"{label} helper has no stored options to back up or restore",
             "invalid_options",
         )
-    # The component's resolved-!secret scrub predates the server sentinels.
-    # Neither kind of placeholder is a usable recovery value.
-    if sentinel_option_keys(config) or _contains_redacted_leaf(config):
+    # Neither a server sentinel nor the component's scrub is a usable
+    # recovery value.
+    if placeholder_option_keys(config):
         raise _FlowHelperReadError(
             f"{label} helper options contain redacted values; capture is incomplete",
             "redacted_options",
         )
     return config
-
-
-def _contains_redacted_leaf(value: Any) -> bool:
-    if isinstance(value, dict):
-        return any(_contains_redacted_leaf(item) for item in value.values())
-    if isinstance(value, list):
-        return any(_contains_redacted_leaf(item) for item in value)
-    return isinstance(value, str) and value == "**redacted**"
 
 
 async def _fetch_flow_helper(client: Any, entity_id: str, helper_type: str) -> Any:
@@ -3309,13 +3255,13 @@ def _subentry_target(entity_id: str) -> tuple[str, str]:
 
 
 def _subentry_data(data: Any) -> dict[str, Any]:
-    from .redaction import sentinel_option_keys
+    from .redaction import placeholder_option_keys
 
     if not isinstance(data, dict):
         raise _FlowHelperReadError(
             "Config subentry data must be an object", "invalid_data"
         )
-    if sentinel_option_keys(data) or _contains_redacted_leaf(data):
+    if placeholder_option_keys(data):
         raise _FlowHelperReadError(
             "Config subentry data contains redacted values; capture is incomplete",
             "redacted_data",
@@ -3602,12 +3548,12 @@ def register_default_handlers(mgr: BackupManager, _client: Any) -> None:
     mgr.register(DomainHandler("entity", fetch_entity, restore_entity))
     mgr.register(DomainHandler("device", _fetch_device, _restore_device))
     mgr.register(DomainHandler("integration", fetch_integration, restore_integration))
-    mgr.register(DomainHandler("file", _fetch_file, _restore_file))
+    mgr.register(DomainHandler("file", _fetch_file_as_stored, _restore_file))
     mgr.register(DomainHandler("yaml", _fetch_yaml, _restore_yaml))
     # Whole-file YAML config: same fetch as "file" (read_file), but restored via
     # edit_yaml_config(replace_file) since write_file rejects config files.
     # Backs the legacy-restore write path and its pre-restore safety snapshot.
-    mgr.register(DomainHandler("yaml_file", _fetch_file, _restore_yaml_file))
+    mgr.register(DomainHandler("yaml_file", _fetch_file_as_stored, _restore_yaml_file))
     # Blueprint files (#2329): the pre-write snapshot for
     # ha_manage_blueprints(action="delete" / "save").
     for blueprint_domain in ("automation", "script"):

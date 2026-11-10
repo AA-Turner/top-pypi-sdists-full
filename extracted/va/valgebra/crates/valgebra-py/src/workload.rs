@@ -228,13 +228,23 @@ pub enum BindingShape {
     /// A nested tree walked against a **recursive** schema: `mu X. int | list[X]`
     /// over a list nested eight deep.
     ///
-    /// The one shape that enters a reference. Every other shape here walks a
-    /// schema with no `Ref` in it, so the trail the walk keeps to refuse a
-    /// cyclic value -- entered and left once per level, per value -- is reached
-    /// by none of them, and a change to how it is held reads as free. The
+    /// One of the three shapes that enter a reference, beside the JSON
+    /// recursive document and [`Memo`](BindingShape::Memo). Every other shape
+    /// walks a schema with no `Ref` in it, so the trail the walk keeps to refuse
+    /// a cyclic value -- entered and left once per level, per value -- is
+    /// reached by none of them, and a change to how it is held reads as free. The
     /// recursive schema is also the one a caller writes for a JSON document or
     /// a syntax tree, which is the shape most likely to carry real depth.
     Recursive,
+    /// A chain twenty-four lists deep, each `[inner, "s"]` around a `None`,
+    /// against `mu T. int | list[T] | list[T | str]`: whichever list branch
+    /// the union asks first walks the inner list as `T` and refuses it, and the
+    /// second reads the inner list as `T` again. The **memo** keeps the second
+    /// branch's walk, so each level is walked a bounded number of times where
+    /// without it the walk doubles with each one. Every other shape arms no
+    /// memo, so what it costs to keep and find an answer reads as free without
+    /// this one.
+    Memo,
     /// The JSON document with one record's `id` a string, halfway through: the
     /// *rejecting* path of `is_valid_json`, where the walk stops at the first
     /// field that fails and every shape beside it accepts.
@@ -264,6 +274,10 @@ pub enum BindingShape {
     /// refined values, where every element reads its bound. Every other walk
     /// shape checks a kind and nothing more.
     Refined,
+    /// Sixty-four floats against `list[Annotated[float, Ge(1000.0)]]`: what
+    /// [`Refined`](BindingShape::Refined) reads of an integer, read of a float,
+    /// whose bound takes a reading of its own at every check.
+    RefinedFloat,
     /// A `dict[str, int]` of sixty-four entries: a mapping, read entry by entry
     /// through its clause. Every record shape names its keys and asks the dict
     /// for each; a mapping declares none, so each entry is iterated and asked
@@ -277,6 +291,11 @@ pub enum BindingShape {
     /// reader of its own settles, so without this shape the scan is measured
     /// by nothing.
     MappingLists,
+    /// The keys of [`Mapping`](BindingShape::Mapping) under
+    /// `dict[Annotated[str, Regex("k.*")], int]`: a clause narrowing its key, which no
+    /// type test decides, so the scan reads each key's text, where the shape beside
+    /// it reads none.
+    NarrowedKey,
     /// Sixty-four records in a list, against `list[User]` where `User` is a
     /// `TypedDict` of an integer, a string and a list of strings: the list a
     /// payload is, read by the list's reader for records. That reader inlines
@@ -316,6 +335,7 @@ impl BindingShape {
             "json" => BindingShape::Json,
             "pattern" => BindingShape::Pattern,
             "recursive" => BindingShape::Recursive,
+            "memo" => BindingShape::Memo,
             "json-reject" => BindingShape::JsonReject,
             "json-union" => BindingShape::JsonUnion,
             "json-open" => BindingShape::JsonOpen,
@@ -325,6 +345,8 @@ impl BindingShape {
             "refined" => BindingShape::Refined,
             "mapping" => BindingShape::Mapping,
             "mapping-lists" => BindingShape::MappingLists,
+            "narrowed-key" => BindingShape::NarrowedKey,
+            "refined-float" => BindingShape::RefinedFloat,
             "record-list" => BindingShape::RecordList,
             "nullable" => BindingShape::Nullable,
             "set" => BindingShape::Set,
@@ -777,6 +799,7 @@ pub fn binding_perf_workload_shape(py: Python<'_>, shape: BindingShape, iters: u
             checksum
         }
         BindingShape::Recursive => recursive_walk(py, iters),
+        BindingShape::Memo => memo_walk(py, iters),
         BindingShape::Relation => relation_walk(py, iters),
         BindingShape::Json => json_walk(py, iters, JSON_DOCUMENT, Expect::Member),
         BindingShape::JsonReject => json_walk(py, iters, JSON_REJECT, Expect::NonMember),
@@ -786,8 +809,10 @@ pub fn binding_perf_workload_shape(py: Python<'_>, shape: BindingShape, iters: u
         BindingShape::JsonDeep => json_deep_walk(py, iters),
         BindingShape::Deep => spelled_walk(py, iters, DEEP),
         BindingShape::Refined => spelled_walk(py, iters, REFINED),
+        BindingShape::RefinedFloat => spelled_walk(py, iters, REFINED_FLOAT),
         BindingShape::Mapping => spelled_walk(py, iters, MAPPING),
         BindingShape::MappingLists => spelled_walk(py, iters, MAPPING_LISTS),
+        BindingShape::NarrowedKey => spelled_walk(py, iters, NARROWED_KEY),
         BindingShape::RecordList => spelled_walk(py, iters, RECORD_LIST),
         BindingShape::Nullable => spelled_walk(py, iters, NULLABLE),
         BindingShape::Set => spelled_walk(py, iters, SET),
@@ -1016,6 +1041,15 @@ const REFINED: &str = "from typing import Annotated\n\
      SPELLING = list[Annotated[int, Ge(1000)]]\n\
      VALUE = list(range(1000, 1064))\n";
 
+/// The values of [`REFINED`] as floats, under a bound of a float.
+const REFINED_FLOAT: &str = "from typing import Annotated\n\
+     class Ge:\n\
+     \x20   def __init__(self, ge):\n\
+     \x20       self.ge = ge\n\
+     Ge.__module__ = 'annotated_types'\n\
+     SPELLING = list[Annotated[float, Ge(1000.0)]]\n\
+     VALUE = [float(i) for i in range(1000, 1064)]\n";
+
 /// Sixty-four string keys, each holding an integer.
 const MAPPING: &str = "SPELLING = dict[str, int]\n\
      VALUE = {f'k{i}': i for i in range(64)}\n";
@@ -1023,6 +1057,12 @@ const MAPPING: &str = "SPELLING = dict[str, int]\n\
 /// Sixty-four string keys, each holding two integers.
 const MAPPING_LISTS: &str = "SPELLING = dict[str, list[int]]\n\
      VALUE = {f'k{i}': [i, i] for i in range(64)}\n";
+
+/// The keys of [`MAPPING`], each a member of a language.
+const NARROWED_KEY: &str = "import re\n\
+     from typing import Annotated\n\
+     SPELLING = dict[Annotated[str, re.compile('k.*')], int]\n\
+     VALUE = {f'k{i}': i for i in range(64)}\n";
 
 /// Sixty-four of the records `scripts/perf_shapes.py` reads, each a member.
 const RECORD_LIST: &str = "from typing import TypedDict\n\
@@ -1089,6 +1129,42 @@ fn recursive_walk(py: Python<'_>, iters: usize) -> u64 {
     for _ in 0..8 {
         value = PyList::new(py, [value])
             .expect("a one-element list always builds")
+            .into_any();
+    }
+    let work = digest(validator.schema.node_count(), shown(&value));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let state = WalkState::new();
+        let ok = member(
+            std::hint::black_box(&validator.schema),
+            &Value::Py(std::hint::black_box(&value)),
+            &mut Unwritten::default().frame(validator.context(py, &state, WalkMode::Fast)),
+        );
+        checksum = checksum.wrapping_add(u64::from(ok) + work);
+    }
+    checksum
+}
+
+/// The memo's own shape: a definition two list branches read, at each level of
+/// a chain the first branch refuses (see [`BindingShape::Memo`]).
+fn memo_walk(py: Python<'_>, iters: usize) -> u64 {
+    let element = Schema::Ref(DefIx::new(0));
+    let body = Schema::union([
+        Schema::Int,
+        Schema::list(SeqShape::homogeneous(element.clone())),
+        Schema::list(SeqShape::homogeneous(Schema::union([element, Schema::Str]))),
+    ]);
+    let validator = Validator::checked(Schema::Ref(DefIx::new(0)), Vec::new(), vec![body])
+        .expect("one definition is within every limit");
+    let text = "s"
+        .into_pyobject(py)
+        .expect("a str always converts")
+        .into_any();
+    let mut value = py.None().into_bound(py);
+    for _ in 0..24 {
+        value = PyList::new(py, [value, text.clone()])
+            .expect("a two-element list always builds")
             .into_any();
     }
     let work = digest(validator.schema.node_count(), shown(&value));

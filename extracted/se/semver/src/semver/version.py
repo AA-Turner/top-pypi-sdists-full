@@ -1,5 +1,6 @@
 """Version handling by a semver compatible version class."""
 
+import operator
 import re
 from functools import wraps
 from typing import (
@@ -10,6 +11,7 @@ from typing import (
     Optional,
     Pattern,
     SupportsInt,
+    SupportsIndex,
     Tuple,
     Union,
     cast,
@@ -95,10 +97,18 @@ class Version:
     _LAST_NUMBER: ClassVar[Pattern[str]] = re.compile(r"(?:[^\d]*(\d+)[^\d]*)+")
     #: Regex for number in a prerelease
     _LAST_PRERELEASE: ClassVar[Pattern[str]] = re.compile(r"^(.*\.)?(\d+)$")
+    #: Regex for a single valid alphanumeric prerelease identifier
+    _PRERELEASE_IDENTIFIER: ClassVar[Pattern[str]] = re.compile(
+        r"0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*", re.ASCII
+    )
+    #: Regex for a single valid build identifier
+    _BUILD_IDENTIFIER: ClassVar[Pattern[str]] = re.compile(
+        r"[0-9a-zA-Z-]+", re.ASCII
+    )
     #: Regex template for a semver version
     _REGEX_TEMPLATE: ClassVar[
         str
-    ] = r"""
+    ] = rf"""
             ^
             (?P<major>0|[1-9]\d*)
             (?:
@@ -107,15 +117,15 @@ class Version:
                 (?:
                     \.
                     (?P<patch>0|[1-9]\d*)
-                ){opt_patch}
-            ){opt_minor}
+                ){{opt_patch}}
+            ){{opt_minor}}
             (?:-(?P<prerelease>
-                (?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)
-                (?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*
+                (?:{_PRERELEASE_IDENTIFIER.pattern})
+                (?:\.(?:{_PRERELEASE_IDENTIFIER.pattern}))*
             ))?
             (?:\+(?P<build>
-                [0-9a-zA-Z-]+
-                (?:\.[0-9a-zA-Z-]+)*
+                (?:{_BUILD_IDENTIFIER.pattern})
+                (?:\.(?:{_BUILD_IDENTIFIER.pattern}))*
             ))?
             \Z
         """
@@ -154,22 +164,46 @@ class Version:
         self._build = None if build is None else str(build)
 
     @classmethod
-    def _nat_cmp(cls, a: Optional[str], b: Optional[str]) -> int:
-        def cmp_prerelease_tag(a, b):
-            if isinstance(a, int) and isinstance(b, int):
-                return _cmp(a, b)
-            elif isinstance(a, int):
-                return -1
-            elif isinstance(b, int):
-                return 1
-            else:
-                return _cmp(a, b)
+    def _validate_identifiers(
+        cls, value: str, pattern: Pattern[str], what: str
+    ) -> None:
+        """
+        Check that a dot-separated identifier string consists only of
+        identifiers allowed by the SemVer grammar.
 
-        a_parts = [int(x) if x.isdigit() else x for x in (a or "").split(".")]
-        b_parts = [int(x) if x.isdigit() else x for x in (b or "").split(".")]
+        :param value: the identifier string to check
+        :param pattern: the regex a single identifier must match
+        :param what: human readable name of the checked part,
+            used for the error message
+        :raises ValueError: if any dot-separated part is not a valid identifier
+        """
+        for identifier in value.split("."):
+            if not pattern.fullmatch(identifier):
+                raise ValueError(
+                    f"{value!r} is not a valid {what}. It may only consist of "
+                    "dot-separated identifiers, made of alphanumerics and "
+                    "hyphens."
+                )
+
+    @classmethod
+    def _nat_cmp(cls, a: Optional[str], b: Optional[str]) -> int:
+        def prerelease_key(identifier: str) -> tuple[int, int, str]:
+            if not identifier.isdigit():
+                return (1, 0, identifier)
+
+            if not identifier.isascii():
+                identifier = str(int(identifier))
+
+            # Compare decimal values without converting arbitrarily long
+            # ASCII identifiers to integers. Keep constructor leading zeros.
+            normalized = identifier.lstrip("0") or "0"
+            return (0, len(normalized), normalized)
+
+        a_parts = [prerelease_key(x) for x in (a or "").split(".")]
+        b_parts = [prerelease_key(x) for x in (b or "").split(".")]
 
         for sub_a, sub_b in zip(a_parts, b_parts):
-            cmp_result = cmp_prerelease_tag(sub_a, sub_b)
+            cmp_result = _cmp(sub_a, sub_b)
             if cmp_result != 0:
                 return cmp_result
 
@@ -381,7 +415,11 @@ class Version:
             elif token is None:
                 prerelease = "rc.1"
             else:
-                prerelease = str(token) + ".1"
+                token = str(token)
+                cls._validate_identifiers(
+                    token, cls._PRERELEASE_IDENTIFIER, "prerelease token"
+                )
+                prerelease = token + ".1"
 
         return cls(self._major, self._minor, patch, prerelease)
 
@@ -409,7 +447,9 @@ build='build.10')
         elif token is None:
             build = "build.0"
         else:
-            build = str(token) + ".0"
+            token = str(token)
+            cls._validate_identifiers(token, cls._BUILD_IDENTIFIER, "build token")
+            build = token + ".0"
 
         build = cls._increment_string(build)
         if build == self._build:
@@ -480,6 +520,18 @@ build='build.10')
         >>> str(semver.Version.parse("0.1.4").next_version("prerelease"))
         '0.1.5-rc.1'
 
+        Switching to an earlier prerelease token advances the patch version
+        so the result remains greater than the original version:
+
+        >>> str(semver.Version.parse("1.2.3-rc.1").next_version("prerelease", "alpha"))
+        '1.2.4-alpha.1'
+
+        Old-style counters also advance the patch version if incrementing
+        the counter would move backwards under SemVer's lexical ordering:
+
+        >>> str(semver.Version.parse("1.2.3-rc9").next_version("prerelease"))
+        '1.2.4-rc10'
+
         :param part: One of "major", "minor", "patch", or "prerelease"
         :param prerelease_token: prefix string of prerelease, defaults to 'rc'
         :return: new object with the appropriate part raised
@@ -503,10 +555,38 @@ build='build.10')
         if part in cls.NAMES[:3]:
             return getattr(version, "bump_" + part)()
         else:
-            if version.prerelease is not None and prerelease_token:
-                current_token = version.prerelease.split(".")[0]
-                if current_token != prerelease_token:
-                    return version.replace(prerelease=f"{prerelease_token}.1", build=None)
+            if version.prerelease and prerelease_token:
+                prerelease_token = str(prerelease_token)
+                cls._validate_identifiers(
+                    prerelease_token,
+                    cls._PRERELEASE_IDENTIFIER,
+                    "prerelease token",
+                )
+                # Handle old-style prereleases like "rc3" (no dot separator)
+                match = re.fullmatch(
+                    rf"{re.escape(prerelease_token)}(\d+)", version.prerelease
+                )
+                if match:
+                    num = int(match.group(1))
+                    candidate = version.replace(
+                        prerelease=f"{prerelease_token}{num + 1}", build=None
+                    )
+                    if candidate > version:
+                        return candidate
+                    return candidate.bump_patch().replace(
+                        prerelease=candidate.prerelease
+                    )
+
+                if not (
+                    version.prerelease == prerelease_token
+                    or version.prerelease.startswith(prerelease_token + ".")
+                ):
+                    candidate = version.replace(
+                        prerelease=f"{prerelease_token}.1", build=None
+                    )
+                    if candidate > version:
+                        return candidate
+                    return version.bump_patch().bump_prerelease(prerelease_token)
             return version.bump_prerelease(prerelease_token, bump_when_empty=True)
 
     @_comparator
@@ -534,7 +614,7 @@ build='build.10')
         return self.compare(other) >= 0
 
     def __getitem__(
-        self, index: Union[int, slice]
+        self, index: Union[SupportsIndex, slice]
     ) -> Union[int, Optional[str], Tuple[Union[int, str], ...]]:
         """
         self.__getitem__(index) <==> self[index] Implement getitem.
@@ -552,15 +632,16 @@ build='build.10')
         >>> ver[0], ver[1], ver[2]
         (3, 4, 5)
         """
-        if isinstance(index, int):
-            index = slice(index, index + 1)
-        index = cast(slice, index)
+        if isinstance(index, slice):
+            start = None if index.start is None else operator.index(index.start)
+            stop = None if index.stop is None else operator.index(index.stop)
+            index = slice(start, stop, index.step)
+        else:
+            start = operator.index(index)
+            stop = start + 1
+            index = slice(start, stop)
 
-        if (
-            isinstance(index, slice)
-            and (index.start is not None and index.start < 0)
-            or (index.stop is not None and index.stop < 0)
-        ):
+        if (start is not None and start < 0) or (stop is not None and stop < 0):
             raise IndexError("Version index cannot be negative")
 
         part = tuple(
@@ -726,6 +807,8 @@ prerelease='pre.2', build='build.4')
             return type(self)(**version)  # type: ignore
         except TypeError:
             unknownkeys = set(parts) - set(self.to_dict())
+            if not unknownkeys:
+                raise
             error = "replace() got %d unexpected keyword argument(s): %s" % (
                 len(unknownkeys),
                 ", ".join(unknownkeys),
@@ -733,7 +816,7 @@ prerelease='pre.2', build='build.4')
             raise TypeError(error)
 
     @classmethod
-    def is_valid(cls, version: str) -> bool:
+    def is_valid(cls, version: String) -> bool:
         """
         Check if the string is a valid semver version.
 
@@ -742,7 +825,7 @@ prerelease='pre.2', build='build.4')
         .. versionchanged:: 3.0.0
            Renamed from :meth:`~semver.version.Version.isvalid`
 
-        :param version: the version string to check
+        :param version: the version string to check, as str or UTF-8 encoded bytes
         :return: True if the version string is a valid semver version, False
                  otherwise.
         """

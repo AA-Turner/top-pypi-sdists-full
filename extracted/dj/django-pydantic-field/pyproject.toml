@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "django-pydantic-field"
-version = "0.5.7"
+version = "0.6.1"
 requires-python = ">=3.10"
 description = "Type-Safe Pydantic Schemas for Django JSONFields"
 readme = "README.md"
@@ -62,6 +62,7 @@ openapi = [
     "inflection",
 ]
 jsonform = ["django_jsonform>=2.0,<3"]
+spectacular = ["drf-spectacular>=0.26.0"]
 
 [project.urls]
 Homepage = "https://github.com/surenkov/django-pydantic-field"
@@ -81,6 +82,7 @@ dev = [
     "django-stubs>=5",
     "djangorestframework>=3,<4",
     "djangorestframework-stubs>=3",
+    "drf-spectacular>=0.26.0",
     "django_jsonform>=2.0,<3",
     "dj-database-url>=2,<4",
     "pyyaml",

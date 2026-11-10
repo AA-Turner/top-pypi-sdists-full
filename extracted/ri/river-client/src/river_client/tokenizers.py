@@ -44,6 +44,12 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4": (
         "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
     ),
+    # Self-mappings so context-suffixed deployment names load these
+    # tokenizers. NVFP4 is its own root, not a suffix of the BF16 line: it is
+    # a separate repository with its own revisions, and an offline cache may
+    # hold only its snapshot.
+    "ricursiveAI/Ripple-65B-Preview": "ricursiveAI/Ripple-65B-Preview",
+    "ricursiveAI/Ripple-65B-Preview-NVFP4": "ricursiveAI/Ripple-65B-Preview-NVFP4",
 }
 
 

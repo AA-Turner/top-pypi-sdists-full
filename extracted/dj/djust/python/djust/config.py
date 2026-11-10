@@ -9,10 +9,94 @@ Provides centralized configuration for:
 - Serialization behavior (strict mode, depth limits)
 """
 
+import copy
 import logging
-from typing import Any, ClassVar, Dict
+import os
+import threading
+from collections.abc import Mapping
+from typing import Any, ClassVar, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+#: Django's ``DATA_UPLOAD_MAX_NUMBER_FIELDS`` / ``DATA_UPLOAD_MAX_MEMORY_SIZE`` defaults, the defaults of
+#: ``max_form_fields`` / ``max_form_data_size`` (#3834). Defined here, not in ``_form_data_bounds``,
+#: because the config loads at ``django.setup()`` and that module must not.
+DEFAULT_MAX_FORM_FIELDS = 1000
+DEFAULT_MAX_FORM_DATA_SIZE = 2_621_440
+#: ``max_form_members`` (#3844): how many keys, values and nested containers a form's data may hold.
+#: 100x Django's field limit; at the per-member cost of an event (~0.7 us in the state sync, measured
+#: in #3844) it keeps an event at the cap to ~70 ms where the size limit alone allowed ~1.8 s.
+DEFAULT_MAX_FORM_MEMBERS = 100_000
+#: The three form-data limits (#3834, #3844). Every one is a non-negative integer (``0`` = no limit),
+#: validated when the config loads AND when a value is written in code (``set`` / ``update``, #3858).
+_FORM_LIMIT_KEYS = ("max_form_fields", "max_form_data_size", "max_form_members")
+
+#: The project-wide default of ``LiveView.http_status_of_state`` (#3706): a mapping of a state name to
+#: the HTTP status the page answers for it. Validated like the form limits, on load and on every
+#: ``set`` / ``update`` that names it; a bad value is the default (no map, the page answers 200).
+_STATUS_MAP_KEY = "http_status_of_state"
+#: Every key whose written value is sanitized, so what a reload replays is what is stored (#3858).
+_SANITIZED_KEYS = _FORM_LIMIT_KEYS + (_STATUS_MAP_KEY,)
+
+
+def valid_http_status_map(value: Any) -> bool:
+    """Whether *value* is a usable ``http_status_of_state``: a mapping of state names (``str``) to HTTP
+    status codes (``int``, not ``bool``, 100-599). Empty is valid and means "no map"."""
+    if not isinstance(value, Mapping):
+        return False
+    return all(
+        isinstance(state, str)
+        and isinstance(status, int)
+        and 100 <= status <= 599  # also refuses True / False (== 1 / 0)
+        for state, status in value.items()
+    )
+
+
+#: Flat ``DJUST_*`` settings aliasing keys of the ``service_worker`` dict.
+_SERVICE_WORKER_ALIASES = (
+    ("DJUST_VDOM_CACHE_ENABLED", "vdom_cache_enabled", bool),
+    ("DJUST_VDOM_CACHE_TTL_SECONDS", "vdom_cache_ttl_seconds", int),
+    ("DJUST_VDOM_CACHE_MAX_ENTRIES", "vdom_cache_max_entries", int),
+    ("DJUST_STATE_SNAPSHOT_ENABLED", "state_snapshot_enabled", bool),
+)
+
+
+def _detached(value: Any) -> Any:
+    """``value`` with every dict, list and set in it copied, leaves shared (#3218).
+
+    What ``get()``/``as_dict()`` hand out and what ``set()``/``update()`` store:
+    an in-place edit of a returned container must not reach the live config,
+    where it would be unrecorded and silently undone by the next reload, and a
+    caller keeping the container it passed in must not edit the config through
+    it. Leaves are shared rather than deep-copied, so a config value that is an
+    arbitrary object (a class, a callable) is returned as itself.
+    """
+    if isinstance(value, dict):
+        return {k: _detached(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_detached(v) for v in value]
+    if isinstance(value, set):
+        return set(value)
+    return value
+
+
+def _set_path(target: Dict[str, Any], key: str, value: Any) -> None:
+    """``target[a][b] = value`` for ``key == "a.b"``, creating dicts as needed."""
+    keys = key.split(".")
+    for k in keys[:-1]:
+        if not isinstance(target.get(k), dict):
+            target[k] = {}
+        target = target[k]
+    target[keys[-1]] = value
+
+
+def _overlapping(contrib: Dict[str, Any], key: str) -> Dict[str, Any]:
+    """The entries of a settings contribution that touch config path ``key``."""
+    return {
+        path: value
+        for path, value in contrib.items()
+        if path == key or key.startswith(path + ".") or path.startswith(key + ".")
+    }
 
 
 class LiveViewConfig:
@@ -49,13 +133,56 @@ class LiveViewConfig:
             "upload_rate": 200,
             "upload_burst": 400,
         },
+        # Pinned session worker pool for WebSocket sync work (#3074). None
+        # (default) = asgiref's one shared thread for every session; True /
+        # "auto" = one thread per available CPU (max 32); an int = that many
+        # threads. Each session stays on one thread. See djust.worker_pool.
+        "worker_threads": None,
+        # A context manager factory ``wrapper(view, step, turn)`` (or its
+        # dotted path) entered on the thread around each sync step djust runs
+        # for a view: handler, mount, handle_params, start_async callback,
+        # get_context_data. None (default) = no wrapper. See djust.sync_turn.
+        "sync_turn_wrapper": None,
+        # Run-time measurement of ``LiveView.query_budget`` (#3701): None
+        # (default) = log a warning for a phase over its budget while DEBUG is
+        # on or under pytest, nothing otherwise; "warn" / "error" = measure
+        # regardless of DEBUG and log / raise QueryBudgetExceeded; "off" =
+        # never. A view that declares no query_budget is never measured. See
+        # djust._query_budget.
+        "query_budget": None,
+        # The HTTP status a page answers for a state it renders itself, for every view that does
+        # not declare ``http_status_of_state`` itself (#3706): ``{"not_found": 404, "gone": 410}``.
+        # A view's own attribute wins, then this; ``{}`` = no project-wide map.
+        "http_status_of_state": {},
+        # With worker_threads on: True (default) pins each WebSocket session to
+        # one pool thread; False gives it a lane, its calls one at a time and
+        # in order on any free thread of the pool, so a slow hop of one session
+        # no longer holds up the sessions sharing its thread. See
+        # djust.worker_pool._Lane.
+        "worker_pinning": True,
         # Maximum incoming WebSocket message size in bytes (0 = no limit)
         "max_message_size": 65536,  # 64KB
+        # How much a client may put into one form's submitted data over the socket (#3834): the
+        # field count and the characters of keys + values, defaulting to Django's
+        # DATA_UPLOAD_MAX_NUMBER_FIELDS (1000) and DATA_UPLOAD_MAX_MEMORY_SIZE (2.5 MB). A frame is
+        # bounded by max_message_size; a form's data is the sum of many frames. 0 = no limit.
+        "max_form_fields": DEFAULT_MAX_FORM_FIELDS,
+        "max_form_data_size": DEFAULT_MAX_FORM_DATA_SIZE,
+        # How many members (keys, values, nested containers) a form's data may hold. The size limit
+        # bounds characters, not the time an event takes: millions of tiny members fit in 2.5 MB and
+        # each is walked on every event (#3844). 0 = no limit.
+        "max_form_members": DEFAULT_MAX_FORM_MEMBERS,
+        # How many views one WebSocket may host besides the page view: the
+        # ``dj-lazy`` and ``mount_batch`` views, each a view of its own (#3252).
+        "max_views_per_connection": 64,
         # Event security mode: "open", "warn", or "strict"
         # "open"   - no decorator check (legacy behavior)
         # "warn"   - allow unmarked methods but log deprecation warning
         # "strict" - only @event_handler decorated methods
         "event_security": "strict",
+        # ADR-036: opt-in predictable signature binding and bounded conversion.
+        # Distinct from event_security, which controls callable authorization.
+        "event_parameter_policy": "legacy",
         # LiveView transport mode
         "use_websocket": True,  # Set to False to use HTTP polling instead of WebSocket
         # WebSocket per-message compression advisory flag (v0.6.0).
@@ -72,7 +199,11 @@ class LiveViewConfig:
         "websocket_compression": True,
         # Debug settings
         "debug_vdom": False,  # Enable detailed VDOM patching debug logs
-        "debug_components": False,  # Deprecated, never read (#2984; djust.C018; removed in 1.3)
+        # DEBUG-only browser debug panel (debug-panel.js/.css, its toolbar
+        # button and the per-event ``_debug`` payload). Set False to keep the
+        # rest of the DEBUG tooling (client-dev.js hot reload, error overlay)
+        # without the panel. Read through ``debug_panel_enabled()``.
+        "debug_panel": True,
         "debug_panel_max_history": 50,  # Maximum number of events/patches to keep in debug panel history
         "debug_auto_open_on_error": False,  # Auto-open debug panel on first error/warning (DEBUG mode only)
         # Colocated JS hook namespacing (Phoenix 1.1 parity).
@@ -149,11 +280,24 @@ class LiveViewConfig:
         # JIT Serialization (Phase 5)
         "jit_serialization": True,  # False skips JIT auto-serialization (#2984)
         "jit_debug": False,  # Debug logging for JIT serialization
-        # Deprecated, never read (#2984; djust.C018 warns when set, removed in 1.3):
-        "jit_cache_backend": "filesystem",
-        "jit_cache_dir": "__pycache__/djust_serializers",
-        "jit_redis_url": "redis://localhost:6379/0",
+        # jit_cache_backend / jit_cache_dir / jit_redis_url and
+        # debug_components / component_wrapper_class / component_loading_class
+        # were removed in 1.3 (#2984): nothing read them. djust.C018 warns when
+        # one is still set.
         "serialization_max_depth": 3,  # Max depth for nested model serialization (e.g., lease.tenant.user = 3 levels)
+        # Rows read through a related manager's ``.all`` (``{% for g in
+        # u.groups.all %}``, ``{{ u.groups.all|length }}``). The relation is an
+        # unevaluated QuerySet, and the serializer read all of it with no
+        # bound (#3788). At most this many rows are read per ``.all`` -- a SQL
+        # LIMIT on an unevaluated QuerySet -- the rest are dropped and a
+        # warning is logged. The default is a ceiling no ordinary page reaches
+        # (a template rendering 100,000 related rows is already past usable);
+        # lower it to bound memory, ``0`` removes it. A cap is not
+        # free of cost to correctness: ``{{ u.groups.all|length }}`` reports
+        # the capped count, so a template that needs a total should read
+        # ``.count`` (never capped, one query), and one that needs one row
+        # ``.first`` / ``.exists``.
+        "queryset_all_row_cap": 100_000,
         # Serialization behavior (issue #292)
         # When False (default): non-serializable values are converted via str() fallback with a warning log
         # When True: non-serializable values raise TypeError with actionable error message
@@ -170,7 +314,37 @@ class LiveViewConfig:
         # position-INDEPENDENT loop bodies that read nothing but the loop
         # variable; bodies using {% if %}/{% cycle %}/nested loops/forloop or
         # outer-context reads are auto-excluded (correct by construction).
+        # A view whose loop items change on almost every render turns the
+        # cache off for itself, for the rest of that view instance's lifetime,
+        # after a streak of low-hit renders (#3071; see
+        # RustBridgeMixin._LOOP_CACHE_BYPASS_AFTER).
         "loop_render_cache_enabled": True,
+        # Whether a view on the default (legacy) state policy keeps its state
+        # in the Django session between requests: the ``liveview_<path>`` key
+        # and its ``__private`` / ``__private_unsaved`` / ``_components``
+        # siblings. ``True`` (default) is the long-standing behaviour. ``False``
+        # makes djust stateless on that path: the first GET, every HTTP
+        # fallback POST and every WebSocket / SSE turn neither write nor read
+        # those keys, so each fallback POST runs ``mount()`` again before it
+        # applies the event, and a socket mount never restores from the
+        # session (the signed client ``state_snapshot`` of a view with
+        # ``enable_state_snapshot`` is not in the session and still works).
+        # State that only lives on the
+        # view (a "load more" offset, a form draft) resets on each fallback
+        # POST. Must be a bool (system check ``djust.C027``).
+        "view_state_in_session": True,
+        # Seconds one page-POST fallback request waits, in total, for the
+        # ``start_async`` / ``@background`` work it runs before answering
+        # (#3634). ``None`` (default) = no deadline: a task that does not return
+        # holds the POST open for as long as it runs, and a sync callback runs
+        # on the request thread. A positive number runs each task on a worker
+        # thread the request does not join; when the budget is spent the
+        # fallback stops waiting, cancels an ``async def`` callback, hands
+        # ``handle_async_result`` a ``TimeoutError`` and answers. A sync
+        # callback cannot be cancelled: it keeps running, abandoned. Anything
+        # that is not a number from above 0 up to ``threading.TIMEOUT_MAX`` means
+        # no deadline (system check ``djust.C028``). Does not touch the socket or SSE transports.
+        "http_fallback_background_timeout": None,
         # `[dj-virtual]` keyed splice ops in the VDOM differ (ADR-026, #2017
         # items 2-4). A windowed list holds off-window rows DETACHED, so the
         # index-addressed ops the differ normally emits are meaningless for it:
@@ -322,10 +496,6 @@ class LiveViewConfig:
         "render_help_text": True,
         "render_errors": True,
         "auto_validate_on_change": True,
-        # Component defaults. Deprecated, never read (#2984; djust.C018 warns
-        # when set; removed in 1.3):
-        "component_wrapper_class": "",
-        "component_loading_class": "loading",
         # Service worker (v0.5.0 P3) — opt-in instant shell + reconnection bridge.
         # These values are informational for tooling / system checks; the
         # actual runtime knobs live in the client-side registration call
@@ -358,7 +528,21 @@ class LiveViewConfig:
     }
 
     def __init__(self) -> None:
-        self._config: Dict[str, Any] = self._defaults.copy()
+        self._config: Dict[str, Any] = copy.deepcopy(self._defaults)
+        # Serializes every write to ``_config`` / ``_programmatic`` against a
+        # reload (#3218): a reload on another thread between ``set()``'s write
+        # and its record used to rebuild without the value.
+        self._lock = threading.RLock()
+        # Values written in code (``set`` / ``update``), in write order, each
+        # with the settings contribution in force when it was written (#3217).
+        # A reload from settings replays them, so reloading on
+        # ``override_settings`` never drops a project's ``AppConfig.ready()``
+        # configuration.
+        self._programmatic: Dict[str, Tuple[Any, Dict[str, Any]]] = {}
+        # What the settings contributed at the last load: ``{path: value}``.
+        self._contrib: Dict[str, Any] = {}
+        # Whether this object, not the environment, set ``DJUST_VDOM_TRACE``.
+        self._vdom_trace_set = False
         # #2164/#2166: Django settings can be UNREADABLE at the moment this
         # module is imported — a project whose ``asgi.py`` imports djust before
         # it sets ``DJANGO_SETTINGS_MODULE`` gets ``ImproperlyConfigured`` from
@@ -370,13 +554,35 @@ class LiveViewConfig:
         self._load_from_settings()
 
     def _load_from_settings(self) -> None:
-        """Load configuration from Django settings if available"""
+        """Load configuration from Django settings, in place, if available."""
+        with self._lock:
+            # Copy-on-write (#3218 review): readers iterate ``_config``
+            # without the lock, so it is never mutated in place.
+            new = _detached(self._config)
+            loaded, contrib = self._apply_settings(new)
+            if loaded:
+                self._settings_loaded = True
+                self._contrib = contrib
+            self._validate_config(new)
+            self._config = new
+            self._sync_vdom_trace(new)
+
+    def _apply_settings(self, target: Dict[str, Any]) -> Tuple[bool, Dict[str, Any]]:
+        """Apply the Django settings the config reads onto ``target``.
+
+        Returns whether the settings could be read, and what they contributed
+        as ``{path: value}`` (dotted paths for the nested aliases).
+        """
+        contrib: Dict[str, Any] = {}
         try:
             from django.conf import settings
 
             live_cfg = getattr(settings, "LIVEVIEW_CONFIG", None) or {}
             if live_cfg:
-                self._config.update(live_cfg)
+                # Copied: the aliases below write into nested dicts, which
+                # must not be the settings module's own objects (#3218).
+                target.update(_detached(live_cfg))
+                contrib.update(live_cfg)
             # #1993: also honor LiveView runtime keys set in the similarly-named
             # ``DJUST_CONFIG`` dict as a fallback. The two dicts are defined in
             # the same module and easy to confuse — ``DJUST_CONFIG`` already
@@ -392,7 +598,8 @@ class LiveViewConfig:
             if isinstance(djust_cfg, dict):
                 for key, value in djust_cfg.items():
                     if key in self._defaults and key not in live_cfg:
-                        self._config[key] = value
+                        target[key] = _detached(value)
+                        contrib[key] = value
                         logger.debug(
                             "djust: applied LiveView config key %r from "
                             "DJUST_CONFIG (its documented home is LIVEVIEW_CONFIG)",
@@ -403,24 +610,21 @@ class LiveViewConfig:
             # toggles. (The nested ``DJUST_CONFIG`` *dict* is handled just above,
             # #1993 — these are the separate flat scalars.)
             if hasattr(settings, "DJUST_WS_COMPRESSION"):
-                self._config["websocket_compression"] = bool(settings.DJUST_WS_COMPRESSION)
+                target["websocket_compression"] = bool(settings.DJUST_WS_COMPRESSION)
+                contrib["websocket_compression"] = target["websocket_compression"]
             # Service-worker advanced features (v0.6.0) — top-level aliases
             # for the ``service_worker`` nested dict. Modifying the nested
             # dict directly also works; these aliases exist for operator
             # discoverability and to match the
             # ``DJUST_{VDOM_CACHE,STATE_SNAPSHOT}_*`` naming seen in the
             # v0.6.0 release notes.
-            sw_cfg = self._config.setdefault("service_worker", {})
-            if hasattr(settings, "DJUST_VDOM_CACHE_ENABLED"):
-                sw_cfg["vdom_cache_enabled"] = bool(settings.DJUST_VDOM_CACHE_ENABLED)
-            if hasattr(settings, "DJUST_VDOM_CACHE_TTL_SECONDS"):
-                sw_cfg["vdom_cache_ttl_seconds"] = int(settings.DJUST_VDOM_CACHE_TTL_SECONDS)
-            if hasattr(settings, "DJUST_VDOM_CACHE_MAX_ENTRIES"):
-                sw_cfg["vdom_cache_max_entries"] = int(settings.DJUST_VDOM_CACHE_MAX_ENTRIES)
-            if hasattr(settings, "DJUST_STATE_SNAPSHOT_ENABLED"):
-                sw_cfg["state_snapshot_enabled"] = bool(settings.DJUST_STATE_SNAPSHOT_ENABLED)
+            sw_cfg = target.setdefault("service_worker", {})
+            for setting_name, key, cast in _SERVICE_WORKER_ALIASES:
+                if hasattr(settings, setting_name):
+                    sw_cfg[key] = cast(getattr(settings, setting_name))
+                    contrib["service_worker." + key] = sw_cfg[key]
             # Reached only if every settings read above succeeded.
-            self._settings_loaded = True
+            return True, contrib
         except ImportError:
             # Django not installed
             pass
@@ -429,31 +633,108 @@ class LiveViewConfig:
             # We catch Exception here because the ImproperlyConfigured import might
             # itself fail if Django is partially installed
             pass
+        return False, contrib
 
-        # --- Validate config values ---
-        self._validate_config()
+    def _sync_vdom_trace(self, target: Dict[str, Any]) -> None:
+        """Bridge ``debug_vdom`` to Rust VDOM tracing, so developers only need
+        one setting. Undo it only if this object set it (#3217): a reload that
+        turns ``debug_vdom`` off must not leave tracing on, and must not clear
+        a ``DJUST_VDOM_TRACE`` the environment set itself."""
+        if target.get("debug_vdom", False):
+            if "DJUST_VDOM_TRACE" not in os.environ:
+                os.environ["DJUST_VDOM_TRACE"] = "1"
+                self._vdom_trace_set = True
+        elif self._vdom_trace_set:
+            os.environ.pop("DJUST_VDOM_TRACE", None)
+            self._vdom_trace_set = False
 
-        # Bridge debug_vdom to Rust VDOM tracing so developers only need one setting
-        if self._config.get("debug_vdom", False):
-            import os
+    def _rebuild_from_settings(self, keep_programmatic: bool) -> None:
+        """Rebuild the whole config and swap it in with one assignment (#3217).
 
-            os.environ.setdefault("DJUST_VDOM_TRACE", "1")
+        Readers on other threads (the free-threaded build, a live-server
+        thread) see the old dict or the new one, never defaults partway
+        through a reload. Values written in code are replayed on top, unless
+        the settings now contribute a different value for that path than when
+        the value was written: an ``override_settings`` that sets a key wins
+        inside the override, and the code-set value returns when it exits.
+        """
+        with self._lock:
+            new: Dict[str, Any] = copy.deepcopy(self._defaults)
+            loaded, contrib = self._apply_settings(new)
+            self._validate_config(new)
+            if keep_programmatic:
+                for key, (value, contrib_at_write) in self._programmatic.items():
+                    now = _overlapping(contrib, key)
+                    if now and now != _overlapping(contrib_at_write, key):
+                        continue  # the settings in force set this path themselves
+                    _set_path(new, key, copy.deepcopy(value))
+            else:
+                self._programmatic = {}
+            self._config = new
+            self._settings_loaded = loaded
+            if loaded:
+                self._contrib = contrib
+            self._sync_vdom_trace(new)
 
-    def _validate_config(self) -> None:
-        """Validate security-critical config values on startup."""
+    def _record_programmatic(self, key: str, value: Any) -> None:
+        # Latest write last; a write to ``a`` supersedes earlier ``a.b`` writes.
+        for existing in [k for k in self._programmatic if k == key or k.startswith(key + ".")]:
+            del self._programmatic[existing]
+        self._programmatic[key] = (copy.deepcopy(value), dict(self._contrib))
+
+    def _validate_form_limits(self, target: Dict[str, Any]) -> None:
+        """Replace each form-data limit in *target* that is not a non-negative integer by its default.
+
+        Run when the config loads and again on every ``set`` / ``update`` that names one (#3858): a
+        ``'abc'`` written in code made every form event raise ``TypeError``, ``-5`` refused everything,
+        and ``3.7`` / ``True`` were accepted as limits. A bad value is the default, never "no limit"."""
+        for key in _FORM_LIMIT_KEYS:
+            val = target.get(key)
+            if isinstance(val, bool) or not isinstance(val, int) or val < 0:
+                logger.warning(
+                    "Invalid %s=%r (must be an integer >= 0; 0 = no limit). Using default %s.",
+                    key,
+                    val,
+                    self._defaults[key],
+                )
+                target[key] = self._defaults[key]
+
+    def _validate_status_map(self, target: Dict[str, Any]) -> None:
+        """Replace ``http_status_of_state`` in *target* by the default (no map) when it is not a mapping
+        of state names to HTTP statuses (#3706). Run where the form limits are, so a value written in
+        code is sanitized before it is stored and recorded."""
+        val = target.get(_STATUS_MAP_KEY)
+        if not valid_http_status_map(val):
+            logger.warning(
+                "Invalid %s=%r (must be a mapping of state name to HTTP status, 100-599, e.g. "
+                "{'not_found': 404}). Using the default: no project-wide map, pages answer 200.",
+                _STATUS_MAP_KEY,
+                val,
+            )
+            target[_STATUS_MAP_KEY] = {}
+
+    def _validate_config(self, target: Optional[Dict[str, Any]] = None) -> None:
+        """Validate security-critical config values (the live config when
+        ``target`` is omitted)."""
+        if target is None:
+            target = self._config
         valid_modes = ("open", "warn", "strict")
-        mode = self._config.get("event_security")
+        mode = target.get("event_security")
         if mode not in valid_modes:
             logger.warning(
                 "Invalid event_security mode %r (must be one of %s). Falling back to 'strict'.",
                 mode,
                 valid_modes,
             )
-            self._config["event_security"] = "strict"
+            target["event_security"] = "strict"
+
+        # A limit that is not a non-negative integer is the default, never "no limit" (#3834).
+        self._validate_form_limits(target)
+        self._validate_status_map(target)
 
         # Validate rate_limit values
         defaults = self._defaults["rate_limit"]
-        rl = self._config.get("rate_limit", {})
+        rl = target.get("rate_limit", {})
         if isinstance(rl, dict):
             for key in (
                 "rate",
@@ -483,12 +764,19 @@ class LiveViewConfig:
             debug = True
 
         if not debug:
-            if self._config.get("max_message_size") == 0:
+            if target.get("max_message_size") == 0:
                 logger.warning(
                     "max_message_size is 0 (no limit) with DEBUG=False. "
                     "Consider setting a message size limit in production."
                 )
-            if self._config.get("event_security") == "open":
+            unlimited = [key for key in _FORM_LIMIT_KEYS if target.get(key) == 0]
+            if unlimited:
+                logger.warning(
+                    "%s is 0 (no limit) with DEBUG=False. "
+                    "A client can grow a form's data without bound across events.",
+                    ", ".join(unlimited),
+                )
+            if target.get("event_security") == "open":
                 logger.warning(
                     "event_security is 'open' with DEBUG=False. "
                     "Consider using 'warn' or 'strict' in production."
@@ -503,7 +791,9 @@ class LiveViewConfig:
             default: Default value if key not found
 
         Returns:
-            Configuration value or default
+            Configuration value or default. A dict, list or set value is a
+            copy: editing it in place does not change the configuration
+            (#3218). Use :meth:`set` or :meth:`update` to change a value.
 
         Example:
             config.get('css_framework')  # 'bootstrap5'
@@ -521,7 +811,7 @@ class LiveViewConfig:
             else:
                 return default
 
-        return value if value is not None else default
+        return _detached(value) if value is not None else default
 
     def set(self, key: str, value: Any) -> None:
         """
@@ -534,18 +824,23 @@ class LiveViewConfig:
         Example:
             config.set('css_framework', 'tailwind')
             config.set('bootstrap5.field_class', 'custom-control')
+
+        The write and its record happen under one lock, so a reload on
+        another thread cannot fall between them and drop the value (#3218).
+        The write is copy-on-write: a new dict is built and swapped in, so a
+        lock-free reader copying the old one never sees it change size.
         """
-        keys = key.split(".")
-
-        # Navigate to the nested dict
-        target = self._config
-        for k in keys[:-1]:
-            if k not in target:
-                target[k] = {}
-            target = target[k]
-
-        # Set the value
-        target[keys[-1]] = value
+        with self._lock:
+            new = _detached(self._config)
+            _set_path(new, key, _detached(value))
+            if key in _SANITIZED_KEYS:
+                # The default replaces a bad value, and that is what is recorded, so a reload replays
+                # the sanitized value and not the one written (#3858, #3706).
+                self._validate_form_limits(new)
+                self._validate_status_map(new)
+                value = new[key]
+            self._record_programmatic(key, value)
+            self._config = new
 
     def get_framework_class(self, class_type: str) -> str:
         """
@@ -598,10 +893,13 @@ class LiveViewConfig:
         return self._settings_loaded
 
     def reset(self) -> None:
-        """Reset configuration to defaults"""
-        self._config = self._defaults.copy()
-        self._settings_loaded = False
-        self._load_from_settings()
+        """Reset configuration to defaults plus settings, discarding values
+        written in code."""
+        self._rebuild_from_settings(keep_programmatic=False)
+
+    def reload_from_settings(self) -> None:
+        """Re-read the settings, keeping values written in code (#3217)."""
+        self._rebuild_from_settings(keep_programmatic=True)
 
     def update(self, config_dict: Dict[str, Any]) -> None:
         """
@@ -616,15 +914,56 @@ class LiveViewConfig:
                 'render_labels': False,
             })
         """
-        self._config.update(config_dict)
+        with self._lock:
+            new = _detached(self._config)  # copy-on-write, as in ``set()``
+            new.update(_detached(config_dict))
+            self._validate_form_limits(new)  # the same rule ``set()`` applies (#3858)
+            self._validate_status_map(new)
+            for key, value in config_dict.items():
+                self._record_programmatic(key, new[key] if key in _SANITIZED_KEYS else value)
+            self._config = new
 
     def as_dict(self) -> Dict[str, Any]:
-        """Get the entire configuration as a dictionary"""
-        return self._config.copy()
+        """Get the entire configuration as a dictionary: a copy, nested dicts
+        included, so editing it does not change the configuration (#3218)."""
+        detached: Dict[str, Any] = _detached(self._config)
+        return detached
 
 
 # Global configuration instance
 config = LiveViewConfig()
+
+#: Every Django setting the config is built from. A change to any of them
+#: reloads the config. Pinned against every settings read in this module,
+#: helpers included (#3218), by ``test_config_follows_override_settings_3217``,
+#: which lists the reads that deliberately do not reload (``DEBUG``).
+_CONFIG_SETTINGS = frozenset(
+    {"LIVEVIEW_CONFIG", "DJUST_CONFIG", "DJUST_WS_COMPRESSION"}
+    | {setting_name for setting_name, _, _ in _SERVICE_WORKER_ALIASES}
+)
+
+
+def _reload_on_setting_change(*, setting: str, **kwargs: Any) -> None:
+    """Follow ``override_settings`` for the settings the config reads (#3217).
+
+    The singleton reads ``LIVEVIEW_CONFIG`` once and caches it. An
+    ``override_settings(LIVEVIEW_CONFIG=...)`` therefore did not take effect
+    until something called ``config.reset()``. Worse, a reset done inside the
+    override outlived it: ``reauth_on_event=True`` leaked into every later
+    test on the worker. ``setting_changed`` fires on both entry and exit, so
+    reloading here keeps the cache equal to the settings in force, the way
+    djust's other setting-derived caches already do.
+    """
+    if setting in _CONFIG_SETTINGS:
+        config.reload_from_settings()
+
+
+try:
+    from django.core.signals import setting_changed
+
+    setting_changed.connect(_reload_on_setting_change, dispatch_uid="djust.config")
+except ImportError:  # pragma: no cover - Django is a hard dependency
+    logger.debug("[djust] django unavailable; config will not follow override_settings")
 
 
 def get_config() -> LiveViewConfig:
@@ -650,6 +989,58 @@ def get_djust_config() -> Dict[str, Any]:
         return result
     except Exception:
         return {}
+
+
+def view_state_in_session() -> bool:
+    """Whether legacy view state is kept in the Django session.
+
+    The single reader of ``LIVEVIEW_CONFIG['view_state_in_session']`` (also
+    read from ``DJUST_CONFIG``). Only ``False`` turns it off; any other value
+    keeps the default, and system check ``djust.C027`` reports a value that is
+    not a bool. A config read that raises keeps the default.
+    """
+    try:
+        return get_config().get("view_state_in_session", True) is not False
+    except Exception:  # pragma: no cover - defensive
+        logger.debug("[djust] view_state_in_session read failed; keeping the default")
+        return True
+
+
+def valid_http_fallback_background_timeout(value: Any) -> bool:
+    """Whether ``value`` is a usable ``http_fallback_background_timeout``.
+
+    A number of seconds greater than 0 and at most ``threading.TIMEOUT_MAX``
+    (about 9.2e9, nearly three centuries: the longest a thread can wait, so a
+    larger value could never be waited on and is rejected, not clamped). A bool
+    is not a number here (``True`` would read as one second). Total: any value,
+    however odd (a huge int, ``nan``, a container), answers ``False`` instead of
+    raising.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        # An int is compared exactly (no float conversion, so 10**400 is fine);
+        # ``nan`` fails both comparisons.
+        return bool(0 < value <= threading.TIMEOUT_MAX)
+    except (OverflowError, TypeError, ValueError):  # pragma: no cover - defensive
+        return False
+
+
+def http_fallback_background_timeout() -> Optional[float]:
+    """The deadline, in seconds, for background work on the page-POST fallback.
+
+    The single reader of ``LIVEVIEW_CONFIG['http_fallback_background_timeout']``
+    (also read from ``DJUST_CONFIG``). ``None`` means no deadline, which is also
+    what any value that is not a number from above 0 up to
+    ``threading.TIMEOUT_MAX`` means; system check ``djust.C028`` reports such a
+    value. A config read that raises means no deadline.
+    """
+    try:
+        value = get_config().get("http_fallback_background_timeout")
+        return float(value) if valid_http_fallback_background_timeout(value) else None
+    except Exception:  # pragma: no cover - defensive
+        logger.debug("[djust] http_fallback_background_timeout read failed; no deadline")
+        return None
 
 
 def template_auto_call_enabled() -> bool:
@@ -679,4 +1070,31 @@ def template_auto_call_enabled() -> bool:
         return bool(get_config().get("template_auto_call", True))
     except Exception:  # pragma: no cover - defensive
         logger.debug("[djust] template_auto_call flag read failed; defaulting ON")
+        return True
+
+
+def debug_panel_enabled() -> bool:
+    """Whether the browser debug panel is served on this request's pages.
+
+    The single reader of ``LIVEVIEW_CONFIG['debug_panel']`` (also read from
+    ``DJUST_CONFIG``). The panel needs ``settings.DEBUG``; with DEBUG on, only
+    ``False`` turns it off, so the default keeps the panel. Every panel entry
+    point consults this: the ``debug-panel.js`` / ``debug-panel.css`` /
+    ``window.DJUST_DEBUG_INFO`` injection (``mixins/post_processing.py``), the
+    per-event ``_debug`` payload on WebSocket (``websocket.py``) and HTTP
+    (``mixins/request.py``) responses, and the service-worker precache list
+    (``management/commands/generate_sw.py``). A config read that raises keeps
+    the default.
+    """
+    try:
+        from django.conf import settings
+
+        if not getattr(settings, "DEBUG", False):
+            return False
+    except Exception:  # pragma: no cover - defensive
+        return False
+    try:
+        return get_config().get("debug_panel", True) is not False
+    except Exception:  # pragma: no cover - defensive
+        logger.debug("[djust] debug_panel read failed; keeping the default")
         return True

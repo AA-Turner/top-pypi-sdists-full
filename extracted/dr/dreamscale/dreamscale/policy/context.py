@@ -280,16 +280,18 @@ class TickHistory:
     observation is stamped with the tick it was taken at (the latest of a tick stands for
     it). A request at tick ``s`` carries, oldest first, the latest observation taken at or
     before ``s - offset`` for each offset ``s`` has reached; offsets not yet reached are
-    left out (the server fills their slots with black, as the model was trained), so a
-    camera's strip holds 1-6 frames. Only an episode start (``clear``) resets it: a new
-    instruction keeps the frames before it.
+    left out (the server fills their slots with black, as Hy-VLA was trained), so a
+    camera's strip holds 1-6 frames. With ``start`` (Long-WAM) they are the episode's first
+    observation instead, sent once and repeated by the server, as upstream's window repeats
+    its first frame. Only an episode start (``clear``) resets it: a new instruction keeps the
+    frames before it.
     """
 
     sparse = True
     sends_ahead = False
     state_steps = 0
 
-    def __init__(self, offsets: tuple[int, ...]):
+    def __init__(self, offsets: tuple[int, ...], *, start: bool = False):
         offsets = tuple(offsets)
         if (
             not offsets
@@ -299,7 +301,9 @@ class TickHistory:
             raise ValueError("a tick history needs distinct offsets of 1-64 ticks, oldest first")
         self.offsets = offsets
         self.frames = len(offsets) + 1
+        self.start = start
         self._observed: deque[tuple[int, Any]] = deque()
+        self._first: Any | None = None  # the episode's tick-0 observation (``start``)
         self._tick = 0
         self.padded_ticks = 0
 
@@ -320,6 +324,8 @@ class TickHistory:
         if self._observed and self._observed[-1][0] == self._tick:
             self._observed.pop()  # the latest observation of a tick stands for it
         self._observed.append((self._tick, observation))
+        if self._tick == 0:
+            self._first = observation
         # Keep the newest observation at or before the oldest tick a request can still need.
         oldest = self._tick - self.offsets[0]
         while len(self._observed) > 1 and self._observed[1][0] <= oldest:
@@ -335,10 +341,15 @@ class TickHistory:
                         None)
             if seen is not None:
                 older.append(seen)
+        first = self._first
+        if (self.start and first is not None and self._tick < self.offsets[0]
+                and (older[0] if older else observation) is not first):
+            older.insert(0, first)
         return ContextObservation(observation, tuple(older)) if older else observation
 
     def clear(self) -> None:
         self._observed.clear()
+        self._first = None
         self._tick = 0
 
     def hold(self, start: float, end: float) -> None:
@@ -418,6 +429,124 @@ class EpisodeHistory:
         """The anchor is the episode's first frame, whenever motion begins."""
 
 
+class EpisodeObservation:
+    """A request's observation in an episode the server keeps (``EpisodeTicks``): the newest
+    observation, the one taken a control step before it (its state travels as the request's
+    ``state_history``), and the request's step since the episode's first request."""
+
+    def __init__(self, current: Any, previous: Any, step: int) -> None:
+        self.current = current
+        self.previous = previous
+        self.step = step
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.current, name)
+
+    def to_wire(self, *, session_id: str, observation_id: int, instruction: str) -> Any:
+        return self.current.to_wire(
+            session_id=session_id, observation_id=observation_id, instruction=instruction
+        )
+
+
+class EpisodeTicks:
+    """An episode the server keeps (a contract with ``episode_tick_steps``; Verne V0.5's
+    first): its memory reads the camera frames of every ``tick_steps``-th executed step.
+
+    Steps are the robot's executed actions from the episode's first request (step 0); a wait
+    for a chunk doesn't advance them. Each tick's frames are sent ahead as soon as they are
+    observed (``history_frame``, keyed by the step), so the server encodes them before the
+    request that reads them. Each request names its step and how many requests the episode
+    made before it (``RuntimeRequestContext.episode``), and carries the state of the step
+    before it. ``clear`` starts a new episode.
+    """
+
+    sparse = True
+    sends_ahead = True
+    # The manual loop (next_action) sends ticks ahead too: the server needs every tick.
+    pushes_ahead_in_steps = True
+    # Keep an observation on every step (the run loop observes each one).
+    state_steps = 1
+    frames = 1
+
+    def __init__(self, tick_steps: int, executed_per_chunk: int, seed: int = 0) -> None:
+        if type(tick_steps) is not int or not 1 <= tick_steps <= 64:
+            raise ValueError("episode ticks are every 1-64 executed steps")
+        if type(executed_per_chunk) is not int or executed_per_chunk < 1:
+            raise ValueError("a chunk executes at least one action")
+        self.tick_steps = tick_steps
+        self.executed_per_chunk = executed_per_chunk
+        self.seed = seed
+        self.clear()
+
+    @property
+    def tick(self) -> int:
+        return self._step
+
+    @property
+    def observe_steps(self) -> range:
+        return range(1, 2)
+
+    def executed(self) -> None:
+        """The robot executed one action of a chunk (a held step doesn't count)."""
+        self._step += 1
+
+    def send_key(self) -> int | None:
+        """The key the observation of this step is sent ahead under (the step), once per tick
+        after the episode's first request; None when this step's frames stay local."""
+        step = self._step
+        if not self._requested or step % self.tick_steps or step in self._sent:
+            return None
+        self._sent.add(step)
+        while len(self._sent) > 64:
+            self._sent.discard(min(self._sent))
+        return step
+
+    def push(self, observation: Any, at: float | None = None, key: int | None = None) -> None:
+        if self._latest is not None and self._latest[0] < self._step:
+            self._previous = self._latest
+        self._latest = (self._step, observation)
+
+    def window(self, observation: Any, at: float | None = None) -> Any:
+        previous = observation
+        if self._previous is not None and self._previous[0] == self._step - 1:
+            previous = self._previous[1]
+        elif self._latest is not None and self._latest[0] == self._step - 1:
+            previous = self._latest[1]
+        return EpisodeObservation(observation, previous, self._step)
+
+    def predict_window(self, observation: Any) -> EpisodeObservation:
+        """A raw ``predict()`` call: the robot ran every executed action of each earlier chunk
+        (the step advances by them), unless a loop counted its steps itself."""
+        self._step = max(self._step, self._chunks * self.executed_per_chunk)
+        return self.window(observation)
+
+    @property
+    def requested(self) -> bool:
+        """Whether this episode has sent a request (``predict()`` or a step's)."""
+        return self._requested
+
+    def take_chunk(self) -> int:
+        """The request about to be sent: its count in the episode (the server's noise draw)."""
+        self._requested = True
+        chunk = self._chunks
+        self._chunks += 1
+        return chunk
+
+    def clear(self) -> None:
+        self._step = 0
+        self._chunks = 0
+        self._requested = False
+        self._sent: set[int] = set()
+        self._latest: tuple[int, Any] | None = None
+        self._previous: tuple[int, Any] | None = None
+
+    def hold(self, start: float, end: float) -> None:
+        """A wait for a chunk advances no step."""
+
+    def begin_motion(self, at: float | None = None) -> None:
+        """Steps count executed actions from the episode's first request."""
+
+
 def history_ticks(history: Any) -> int:
     """How many ticks before an observation its window reads: ``policy.contract``'s
     ``past_observations`` (0 without a window)."""
@@ -442,8 +571,9 @@ def window_from_ticks(history: Any, observation: Any, past: Any) -> tuple[Any, i
     ticks = list(past or ())[-need:]
     if isinstance(history, TickHistory):
         # One past observation per executed tick: the observation is tick len(ticks) of a
-        # fresh episode, so offsets past its start are left out (black on the server).
-        episode = TickHistory(history.offsets)
+        # fresh episode, so offsets past its start are left out (black on the server) or,
+        # with ``start``, its first tick sent once.
+        episode = TickHistory(history.offsets, start=history.start)
         for tick in ticks:
             episode.push(tick)
             episode.executed()

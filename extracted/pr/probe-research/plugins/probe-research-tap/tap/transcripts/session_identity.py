@@ -2,17 +2,21 @@
 
 Claude resumed/forked logs can contain ancestor sessionIds. The final primary
 conversation record identifies the current leg; sidechain/progress IDs do not.
+A Claude sub-agent's own file holds sidechain records only: its id is made from
+its parent's session and its agentId (`get_subagent_session_id`, a UUID v5,
+which Claude Code never writes), and its last turn proves that id.
 Codex and pi have an explicit session header. Kimi Code's wire has a header
 (`metadata`) that names no session: Kimi keeps the session's identity in the
-session folder's `state.json`, which it writes itself. Uploader identity is
-separate.
+session folder's `state.json`, which it writes itself; a helper agent's wire
+(`agents/agent-<n>/`) gets a made id the same way a Claude sub-agent does, and
+`state.json` must list that helper. Uploader identity is separate.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from .journal.errors import ReconciliationRequired
 from .pinned import open_transcript
@@ -69,6 +73,39 @@ def _is_primary(record: dict) -> bool:
     )
 
 
+def _is_subagent_turn(record: dict) -> bool:
+    """A Claude sub-agent's turn: a sidechain record naming its parent session and its agent."""
+    return bool(
+        record.get("type") in ("user", "assistant")
+        and record.get("isSidechain") is True
+        and isinstance(record.get("sessionId"), str)
+        and isinstance(record.get("agentId"), str)
+        and record.get("agentId")
+    )
+
+
+def _is_claude_turn(record: dict) -> bool:
+    """What a sub-agent's id is proved by: its own turn, or a session's turn after it."""
+    return _is_primary(record) or _is_subagent_turn(record)
+
+
+def get_subagent_session_id(parent_session_id: str, agent_id: str) -> str | None:
+    """The session id of a Claude sub-agent's chat (`<parent>/subagents/agent-<agentId>.jsonl`):
+    a UUID v5 made from its parent's and its own id, the same on every machine; None when the
+    parent id is not a UUID. Claude Code gives a sub-agent no session id of its own."""
+    try:
+        return str(uuid5(UUID(parent_session_id), agent_id))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _get_turn_session(record: dict) -> object:
+    """The session a Claude turn names: a session's own, or the one made for its sub-agent."""
+    if _is_primary(record):
+        return record["sessionId"]
+    return get_subagent_session_id(record["sessionId"], record["agentId"])
+
+
 #: What `json.loads` raises on a line it cannot use. RecursionError: a line
 #: nested past the interpreter's limit (about 1,000 levels before Python 3.12).
 _UNPARSABLE = (ValueError, UnicodeDecodeError, RecursionError)
@@ -101,13 +138,13 @@ def _window(handle, size: int, span: int, *, tail: bool) -> list[bytes]:
     return lines[1:] if start > 0 else lines
 
 
-def _last_primary(handle, size: int) -> dict | None:
-    """The last primary record in the last SAMPLE_BYTES, reading as little as it
-    can: a record whole inside a shorter span is whole inside the full one, and
-    nothing after it is primary."""
+def _find_last_record(handle, size: int, is_wanted=_is_primary) -> dict | None:
+    """The last `is_wanted` record in the last SAMPLE_BYTES, reading as little as
+    it can: a record whole inside a shorter span is whole inside the full one, and
+    nothing after it is wanted."""
     for span in (VERDICT_FIRST_BYTES, SAMPLE_BYTES):
         lines = _window(handle, size, span, tail=True)
-        found = next((r for r in _records(reversed(lines)) if _is_primary(r)), None)
+        found = next((r for r in _records(reversed(lines)) if is_wanted(r)), None)
         if found is not None or span >= size:
             return found
     return None
@@ -142,9 +179,11 @@ def _identify(path: Path, source: str, session_id: str, *, verdict_only: bool) -
             return _kimi_identity(path, head_lines, _harness(source), expected) | {"automated": automated}
         if fmt != FORMAT_CLAUDE and fmt not in _HEADER_TYPE:
             raise ReconciliationRequired(f"no identity check for transcript format {fmt!r}")
-        # Claude's current leg is its LAST primary record; header formats open with theirs.
+        # Claude's current leg is its LAST primary record, a sub-agent's (a made id: UUID v5,
+        # never Claude Code's) its last turn; header formats open with theirs.
+        is_made = UUID(expected).version == 5
         if fmt == FORMAT_CLAUDE and verdict_only:
-            last = _last_primary(handle, size)
+            last = _find_last_record(handle, size, _is_claude_turn if is_made else _is_primary)
             records = [last] if last is not None else []
         elif fmt == FORMAT_CLAUDE:
             records = list(_records(_window(handle, size, SAMPLE_BYTES, tail=True)))
@@ -154,7 +193,14 @@ def _identify(path: Path, source: str, session_id: str, *, verdict_only: bool) -
     native = None
     lineage = []
     source_cwd = None
-    if fmt == FORMAT_CLAUDE:
+    if fmt == FORMAT_CLAUDE and is_made:
+        turns = [r for r in records if _is_claude_turn(r)]
+        if turns:
+            native = _get_turn_session(turns[-1])
+            # The parent session: the link to the chat that started it.
+            lineage = sorted({r["sessionId"] for r in turns if _is_subagent_turn(r)})
+            source_cwd = next((r["cwd"] for r in reversed(turns) if r.get("cwd")), None)
+    elif fmt == FORMAT_CLAUDE:
         primary = [r for r in records if _is_primary(r)]
         if primary:
             native = primary[-1]["sessionId"]
@@ -174,17 +220,8 @@ def _identify(path: Path, source: str, session_id: str, *, verdict_only: bool) -
             payload = _header_fields(headers[0], nested)
             native = payload.get("id")
             source_cwd = payload.get("cwd")
-            for key in ("forked_from_id", "parentSession", "parent_session_id", "parent_thread_id"):
-                if payload.get(key):
-                    lineage.append(str(payload[key]))
-            parent = _spawn_parent(payload)
-            if parent and parent not in lineage:
-                lineage.append(parent)
-            if any(
-                _header_fields(r, nested).get("id") != native
-                for r in headers
-            ):
-                raise IdentityMismatch("conflicting native session headers")
+            lineage = _get_lineage(payload)
+            _check_headers(headers, nested)
     try:
         matches = str(UUID(native)) == expected
     except (ValueError, TypeError, AttributeError):
@@ -211,6 +248,29 @@ def _header_fields(record: dict, nested: bool) -> dict:
     return fields if isinstance(fields, dict) else {}
 
 
+#: Header fields naming the session this one came from (a fork's source, a sub-agent's parent).
+_LINEAGE_KEYS = ("forked_from_id", "parentSession", "parent_session_id", "parent_thread_id")
+
+
+def _get_lineage(payload: dict) -> list[str]:
+    """The sessions a header says this one came from, each once."""
+    lineage: list[str] = []
+    for value in (*(payload.get(key) for key in _LINEAGE_KEYS), _spawn_parent(payload)):
+        if value and str(value) not in lineage:
+            lineage.append(str(value))
+    return lineage
+
+
+def _check_headers(headers: list[dict], is_nested: bool) -> None:
+    """Every header names the first one's session, or one the first says it came from: Codex
+    (seen 0.147-0.166) writes a sub-agent spawned with its parent's context as its own header, then
+    a copy of the parent's rollout, the parent's header first. Any other id is another chat's."""
+    first = _header_fields(headers[0], is_nested)
+    known = (first.get("id"), *_get_lineage(first))
+    if any(_header_fields(r, is_nested).get("id") not in known for r in headers):
+        raise IdentityMismatch("conflicting native session headers")
+
+
 def _same_uuid(value: object, expected: str) -> bool:
     try:
         return str(UUID(str(value))) == expected
@@ -224,7 +284,10 @@ def _kimi_identity(path: Path, head_lines: list[bytes], harness, expected: str) 
     Two producer-written facts must agree with the session being uploaded:
     the session folder's own name and the `id` Kimi wrote into its
     `state.json`. The wire itself must open with Kimi's `metadata` header, so
-    a stray file in a session folder is never taken for its transcript.
+    a stray file in a session folder is never taken for its transcript. A
+    helper's wire (`agents/agent-<n>/wire.jsonl`, a made id: UUID v5 of the
+    session and `agent-<n>`) proves its session the same way, and `state.json`
+    must list `agent-<n>` as a helper (`agents`, `type: sub`; Kimi 2.1-2.5).
     """
     try:
         first = json.loads(head_lines[0]) if head_lines else None
@@ -232,14 +295,21 @@ def _kimi_identity(path: Path, head_lines: list[bytes], harness, expected: str) 
         first = None
     if not isinstance(first, dict) or first.get("type") != _KIMI_HEADER_TYPE:
         raise ReconciliationRequired("transcript does not open with a Kimi Code header")
-    folder = next(
-        (
-            parent
-            for parent in path.parents
-            if _same_uuid(harness.canonical_session_id(parent.name), expected)
-        ),
-        None,
-    )
+    helper = _get_kimi_helper(path, harness) if UUID(expected).version == 5 else None
+    if helper is not None:
+        folder, session = helper
+        if get_subagent_session_id(session, path.parent.name) != expected:
+            folder = None
+    else:
+        session = expected
+        folder = next(
+            (
+                parent
+                for parent in path.parents
+                if _same_uuid(harness.canonical_session_id(parent.name), expected)
+            ),
+            None,
+        )
     if folder is None:
         raise IdentityMismatch(
             "native transcript identity is absent or differs from the filename/session"
@@ -251,21 +321,38 @@ def _kimi_identity(path: Path, head_lines: list[bytes], harness, expected: str) 
         raise ReconciliationRequired("Kimi Code session state is unreadable") from exc
     if not isinstance(state, dict) or not _same_uuid(
         harness.canonical_session_id(state.get("id") if isinstance(state.get("id"), str) else ""),
-        expected,
+        session,
     ):
         raise (IdentityMismatch if isinstance(state, dict) and state.get("id") else ReconciliationRequired)(
             "native transcript identity is absent or differs from the filename/session"
         )
+    if helper is not None:
+        agents = state.get("agents")
+        listed = agents.get(path.parent.name) if isinstance(agents, dict) else None
+        if not isinstance(listed, dict) or listed.get("type") != "sub":
+            raise ReconciliationRequired("Kimi Code's session state does not list this helper")
     proof = {
         "native_session_id": expected,
         "identity_method": "producer-record-v1",
-        "observed_lineage": [],
+        # A helper's link to the chat that started it.
+        "observed_lineage": [session] if helper is not None else [],
         "original_author": "unverified",
     }
     source_cwd = state.get("cwd")
     if isinstance(source_cwd, str) and Path(source_cwd).is_absolute():
         proof["source_cwd"] = source_cwd
     return proof
+
+
+def _get_kimi_helper(path: Path, harness) -> tuple[Path, str] | None:
+    """(session folder, session id) of a helper's wire at `<session>/agents/agent-<n>/wire.jsonl`."""
+    folder = path.parent.parent.parent
+    if not path.parent.name.startswith("agent-") or path.parent.parent.name != "agents":
+        return None
+    try:
+        return folder, str(UUID(harness.canonical_session_id(folder.name)))
+    except ValueError:
+        return None
 
 
 def compatible_copy(first: Path, second: Path) -> bool:

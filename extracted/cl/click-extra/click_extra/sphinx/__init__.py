@@ -45,7 +45,20 @@ from sphinx.util import logging
 
 from .. import __version__
 from ..pygments import AnsiHtmlFormatter
-from . import fail_on_warnings, manpages, matrix, tables, todos
+from . import (
+    changelog,
+    crosshair,
+    doctrees,
+    fail_on_warnings,
+    linkcheck,
+    manpages,
+    matrix,
+    mermaid,
+    tables,
+    tabs,
+    todos,
+    viewcode,
+)
 from .click import cleanup_runner, register_config
 from .click_reference import ClickDomain
 from .python import (
@@ -147,6 +160,29 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     - A one-line first column for every table whose top-left cell names both
       axes, like the `matrix` tables: a narrow screen scrolls the table
       instead of wrapping its labels. See {mod}`click_extra.sphinx.tables`.
+    - A crosshair on the same tables, which highlights the row and the column
+      under the pointer, and makes a cell holding a single link clickable over
+      its whole area. See {mod}`click_extra.sphinx.crosshair`.
+    - A vertical layout for a sphinx-design `tab-set` marked with
+      `:class: tabs-vertical`: its labels stack down a left rail. Inert without
+      sphinx-design. See {mod}`click_extra.sphinx.tabs`.
+    - Class diagrams of `autoclasstree` that let the mouse wheel scroll the
+      page, where the d3 zoom of sphinxcontrib-mermaid would catch it. Inert
+      without sphinxcontrib-mermaid, or with `mermaid_d3_zoom` off. See
+      {mod}`click_extra.sphinx.mermaid`.
+    - The `linkcheck` requests to github.com signed with the token of
+      `GITHUB_TOKEN`, release downloads excepted. Inert until the variable is
+      set. See {mod}`click_extra.sphinx.linkcheck`.
+    - No `sphinx.ext.viewcode` page for a module that no documented object
+      links to, so a parallel read publishes the pages of a serial one. Inert
+      without `sphinx.ext.viewcode`. See {mod}`click_extra.sphinx.viewcode`.
+    - Every node of a page pointed at the page's own document before Sphinx
+      pickles it, which keeps the build environment out of the doctree of a
+      page with an ``{eval-rst}`` block. See {mod}`click_extra.sphinx.doctrees`.
+    - Changelog releases anchored on their version, like `#v1-4-2`, in place
+      of a positional `#idN`. Inert until a project sets
+      {data}`click_extra.sphinx.changelog.RELEASE_ANCHORS_CONFIG`. See
+      {mod}`click_extra.sphinx.changelog`.
     - The man-page hook, which writes roff man pages for the CLIs a project
       lists in {data}`click_extra.sphinx.manpages.MANPAGES_CONFIG_KEY` on every
       HTML build. Inert until a project lists one. See
@@ -160,6 +196,8 @@ def setup(app: Sphinx) -> ExtensionMetadata:
 
     - `click:source` / `click:run` to define and execute Click CLIs
       at build time.
+    - `click:tree` / `click:config` to render the command reference and the
+      configuration reference of a Click CLI at build time.
     - `python:source` / `python:run` to execute arbitrary Python at
       build time and render its source or captured `stdout`.
     - `python:render` / `python:render-myst` / `python:render-rst`
@@ -209,6 +247,33 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     # tables.py). Every HTML page links the stylesheet, but only a table with a
     # corner label carries the class it styles.
     tables.setup(app)
+
+    # Highlight the row and the column under the pointer in the same tables
+    # (see crosshair.py).
+    crosshair.setup(app)
+
+    # Lay out a tab-set marked `tabs-vertical` in two columns (see tabs.py).
+    tabs.setup(app)
+
+    # Keep the d3 zoom of sphinxcontrib-mermaid off the `autoclasstree` diagrams
+    # (see mermaid.py). Inert without it, or with `mermaid_d3_zoom` off.
+    mermaid.setup(app)
+
+    # Sign the `linkcheck` requests to github.com with `GITHUB_TOKEN` (see
+    # linkcheck.py). Inert until the variable is set.
+    linkcheck.setup(app)
+
+    # Drop the viewcode pages that no documented object links to (see
+    # viewcode.py). Inert without `sphinx.ext.viewcode`.
+    viewcode.setup(app)
+
+    # Point the nodes an `{eval-rst}` block moves into a page at that page, so
+    # its pickled doctree leaves out the build environment (see doctrees.py).
+    doctrees.setup(app)
+
+    # Anchor each changelog release on its version (see changelog.py). Inert
+    # until `click_extra_release_anchors` is set.
+    changelog.setup(app)
 
     # Fail the build on the warning types a project lists (see
     # fail_on_warnings.py). Inert until `click_extra_fail_on_warnings` names one.

@@ -29,10 +29,11 @@ from datamodel_code_generator.types import DataType, Types
 
 if TYPE_CHECKING:
     from collections import defaultdict
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Mapping
     from pathlib import Path
 
     from datamodel_code_generator.model._decisions.enum_kind import EnumBase, EnumKind
+    from datamodel_code_generator.model._decisions.hashability import SetItemHash
     from datamodel_code_generator.model._views import ModelForm
     from datamodel_code_generator.reference import Reference
 
@@ -178,6 +179,15 @@ class Enum(DataModel):
     _FREEZES_FIELD_RENDER_PLANS: ClassVar[bool] = True
     """A member is a field of the output's backend: the template writes ``name = value``, and the member's imports
     (row ``legacy.enum-member-import-bindings``) come from the plan its backend froze for it."""
+
+    @override
+    def _class_hash(self, generic_base_config: Mapping[str, Any] | None) -> SetItemHash:
+        """Return ``value``: an Enum member is its one instance, so its hash agrees with equality.
+
+        Class code, a custom base class or templates may give it a hash of its own, which hashes by identity as far as
+        the set rule knows, as for the other classes.
+        """
+        return self._compared_class_hash(frozen=True)
 
     def __init__(  # noqa: PLR0913
         self,

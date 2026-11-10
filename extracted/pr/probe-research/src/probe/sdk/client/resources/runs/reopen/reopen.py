@@ -126,7 +126,7 @@ class ReopenMixin:
         row = receipt.get("run") or receipt
         if receipt.get("write_epoch") is not None:
             _repin_bracket_lease(old["id"], receipt["write_epoch"])
-        return self.attach_run(
+        handle = self.attach_run(
             row,
             heartbeat=run_kw.get("heartbeat", True),
             session_id=session_id,
@@ -134,6 +134,11 @@ class ReopenMixin:
             write_epoch=receipt.get("write_epoch"),
             writer=writer,
         )
+        # A retry wrapper resuming inside the last attempt's `except`: that error is not this one's.
+        from probe.sdk.diagnostics import mark_run_opened_during
+
+        mark_run_opened_during(handle)
+        return handle
 
     def _queued_completed_close(self, old: dict) -> bool:
         """Whether this outbox still holds the incumbent's queued `completed`

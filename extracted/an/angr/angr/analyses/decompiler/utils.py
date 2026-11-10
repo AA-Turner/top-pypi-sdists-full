@@ -8,7 +8,7 @@ import pathlib
 from collections import deque
 from collections.abc import Iterable
 from types import FunctionType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import networkx
 
@@ -21,6 +21,7 @@ from angr.analyses.decompiler.peephole_optimizations.base import (
     PeepholeOptimizationExprBase,
     PeepholeOptimizationMultiStmtBase,
 )
+from angr.sim_type import SimStruct, SimType, SimTypeArray, SimUnion, TypeRef
 from angr.utils.ail import BlockDefs, GraphVVarDefs, is_phi_assignment
 
 from .seq_to_blocks import SequenceToBlocks
@@ -36,11 +37,27 @@ from .structurer_nodes import (
     SwitchCaseNode,
 )
 
+if TYPE_CHECKING:
+    from archinfo import Arch
+
+    from angr.sim_variable import SimVariable
+
 pdb = __import__("pdb")
 with contextlib.suppress(ImportError):
     pdb = __import__("ipdb")
 
 _l = logging.getLogger(__name__)
+
+
+def type_fits_variable(ty: SimType, variable: SimVariable, arch: Arch) -> bool:
+    """
+    Check if a specified type (SimType) fits into a variable.
+    """
+    inner = ty.type if isinstance(ty, TypeRef) else ty
+    if variable.size is None or not isinstance(inner, (SimStruct, SimUnion, SimTypeArray)):
+        return True
+    size = ty.with_arch(arch).size
+    return size is None or size <= variable.size * arch.byte_width
 
 
 def const_with_value(expr: ailment.Expr.Const, value: int) -> ailment.Expr.Const:
@@ -1168,19 +1185,26 @@ class _PeepholeExprWalker(ailment.AILBlockRewriter):
     def _handle_expr(
         self, expr_idx: int, expr: ailment.Expr.Expression, stmt_idx: int, stmt: ailment.Stmt.Statement | None, block
     ) -> ailment.Expression:
-        redo = True
-        while redo:
-            redo = False
-            for expr_opt in self.expr_opts:
-                if isinstance(expr, expr_opt.expr_classes):
-                    r = expr_opt.optimize(expr)
-                    if r is not None and r is not expr:
-                        expr = r
-                        redo = True
-                        break
-
+        expr = peephole_optimize_expr_shallow(expr, self.expr_opts)
         # continue to process the expr
         return super()._handle_expr(expr_idx, expr, stmt_idx, stmt, block)
+
+
+def peephole_optimize_expr_shallow(
+    expr: ailment.Expression, expr_opts: list[PeepholeOptimizationExprBase]
+) -> ailment.Expression:
+    # run expression optimizers on this node only (not its children) until none fires
+    redo = True
+    while redo:
+        redo = False
+        for expr_opt in expr_opts:
+            if isinstance(expr, expr_opt.expr_classes):
+                r = expr_opt.optimize(expr)
+                if r is not None and r is not expr:
+                    expr = r
+                    redo = True
+                    break
+    return expr
 
 
 def peephole_optimize_expr(expr: ailment.Expression, expr_opts: list[PeepholeOptimizationExprBase]):

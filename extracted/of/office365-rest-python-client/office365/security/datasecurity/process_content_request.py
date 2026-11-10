@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.identitygovernance.process_content_metadata_base import (
     ProcessContentMetadataBase,
@@ -17,7 +17,6 @@ from office365.security.datasecurity.integrated_application_metadata import (
 )
 
 
-@dataclass
 class ProcessContentRequest(ClientValue):
     contentEntries: ClientValueCollection[ProcessContentMetadataBase] = field(
         default_factory=lambda: ClientValueCollection(ProcessContentMetadataBase)

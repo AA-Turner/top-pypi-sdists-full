@@ -59,10 +59,10 @@ class Unauthorized(StrEnum):
 
 def _unauthorized_body(reason: Unauthorized) -> bytes:
     if reason is Unauthorized.NO_TOKEN_ON_DEVICE:
-        from ...sdk.session_marker import WIZARD_HINT
+        from ...sdk.session_marker import SIGN_IN_HINT
 
         return json.dumps(
-            {"error": "invalid_token", "error_description": f"no Probe token on this computer: {WIZARD_HINT}"}
+            {"error": "invalid_token", "error_description": f"no Probe token on this computer: {SIGN_IN_HINT}"}
         ).encode()
     return b'{"error":"invalid_token"}'
 

@@ -5,7 +5,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections import deque
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Iterator, List, Optional, Tuple, Type
 
 from requests import Response
 from typing_extensions import Self
@@ -15,10 +15,11 @@ from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.limits import Limit, LimitDecl, collect_class_limits, collect_limit_meta
+from office365.runtime.limits import Limit
 from office365.runtime.queries.client_query import ClientQuery
 from office365.runtime.queries.read_entity import ReadEntityQuery
 from office365.runtime.retry import DEFAULT_RETRY_EXCEPTIONS
+from office365.runtime.schema import EMPTY, TypeSchema
 from office365.runtime.transport.offload import run_offloaded
 
 if TYPE_CHECKING:
@@ -33,13 +34,12 @@ class ClientRuntimeContext(ABC):
     Provides core functionality for executing queries and managing request lifecycle.
     """
 
-    _limit_meta: dict[str, Tuple[LimitDecl, ...]] = {}
-    _class_limit_decls: Tuple[LimitDecl, ...] = ()
+    #: A context declares no properties, but it declares limits like any other type.
+    _schema: ClassVar[TypeSchema] = EMPTY
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        cls._limit_meta = collect_limit_meta(cls)
-        cls._class_limit_decls = collect_class_limits(cls)
+        cls._schema = TypeSchema.build(cls)
 
     def __init__(self) -> None:
         self._queries: deque[ClientQuery] = deque()
@@ -106,9 +106,7 @@ class ClientRuntimeContext(ABC):
     @classmethod
     def declared_limits(cls) -> Tuple[Limit, ...]:
         """The limits declared on this class and its methods/properties (``@limit``)."""
-        class_limits = tuple(decl.limit for decl in cls._class_limit_decls)
-        member_limits = tuple(decl.limit for decls in cls._limit_meta.values() for decl in decls)
-        return (*class_limits, *member_limits)
+        return cls._schema.declared_limits()
 
     @property
     def service_root_url(self) -> str:
@@ -172,25 +170,26 @@ class ClientRuntimeContext(ABC):
         are retried. Permanent failures (e.g. HTTP 400/401/403/404) are re-raised
         immediately, and the last exception is re-raised once retries are exhausted.
 
-        Delays between attempts use exponential backoff with jitter; a delay
-        returned by ``failure_callback`` (e.g. the server's ``Retry-After`` via
-        ``retry_after_delay``) overrides the backoff.
+        Delays between attempts use exponential backoff with jitter, and the wait a
+        throttled response asks for (``Retry-After``) overrides the backoff — a
+        ``failure_callback`` replaces that default policy.
 
         Args:
             max_retry: Maximum number of retry attempts
             timeout_secs: Base delay for exponential backoff (seconds)
-            max_delay: Optional cap on the exponential delay (seconds)
-            jitter: Whether to randomize the delay (default True)
+            max_delay: Optional cap on any delay, the server's included (seconds)
+            jitter: Whether to randomize the backoff delay (default True)
             success_callback: Called on successful execution
             failure_callback: Called after each failed attempt; may return a
-                retry delay in seconds to override the backoff
+                retry delay in seconds to override the backoff. Defaults to the
+                server's ``Retry-After`` (:func:`~office365.runtime.retry.retry_after_policy`).
             exceptions: Exception types that trigger retries
             is_retriable: Optional predicate deciding whether a caught exception
                 is retried. Defaults to :func:`~office365.runtime.retry.is_transient_error`;
                 pass :func:`~office365.runtime.retry.retry_on` to also retry
                 otherwise-permanent errors such as a locked file (HTTP 423).
         """
-        from office365.runtime.retry import is_transient_error, retry, should_reset_connections
+        from office365.runtime.retry import is_transient_error, retry, retry_after_policy, should_reset_connections
 
         def _on_failure(_attempt: int, ex: Exception) -> Optional[int]:
             # Drop a poisoned keep-alive socket before retrying a 503/connection
@@ -201,7 +200,10 @@ class ClientRuntimeContext(ABC):
             # otherwise the context is left with a stale, un-executed query.
             if _attempt < max_retry and self.current_query is not None:
                 self.add_query(self.current_query)
-            return failure_callback(_attempt, ex) if callable(failure_callback) else None
+            # Microsoft's first instruction for a throttled request: wait the
+            # interval the server named. Without a ``Retry-After`` (or with a
+            # ``failure_callback`` of your own) the backoff decides.
+            return (failure_callback or retry_after_policy)(_attempt, ex)
 
         def _on_success(_) -> None:
             if callable(success_callback) and self.current_query is not None:
@@ -318,13 +320,13 @@ class ClientRuntimeContext(ABC):
             return self
         query = self._queries[-1]
 
-        def _process_response(resp: Response) -> None:
+        def _handle_response(resp: Response) -> None:
             resp.raise_for_status()
             if callable(action):
                 action(resp if include_response else query.return_type)
 
         self.pending_request().after_execute(
-            _process_response,
+            _handle_response,
             once=True,
             condition=lambda: self.current_query is not None and self.current_query.id == query.id,
         )
@@ -552,23 +554,25 @@ class ClientRuntimeContext(ABC):
         """Executes pending queries with retry logic, without blocking the loop.
 
         Async counterpart of :meth:`execute_query_retry` — same retry policy
-        (transient-only by default, exponential backoff with jitter), but the
-        delay between attempts uses ``asyncio.sleep``.
+        (transient-only by default, exponential backoff with jitter, the server's
+        ``Retry-After`` ahead of it), but the delay between attempts uses
+        ``asyncio.sleep``.
 
         Args:
             max_retry: Maximum number of retry attempts
             timeout_secs: Base delay for exponential backoff (seconds)
-            max_delay: Optional cap on the exponential delay (seconds)
-            jitter: Whether to randomize the delay (default True)
+            max_delay: Optional cap on any delay, the server's included (seconds)
+            jitter: Whether to randomize the backoff delay (default True)
             success_callback: Called on successful execution
             failure_callback: Called after each failed attempt; may return a
-                retry delay in seconds to override the backoff
+                retry delay in seconds to override the backoff. Defaults to the
+                server's ``Retry-After`` (:func:`~office365.runtime.retry.retry_after_policy`).
             exceptions: Exception types that trigger retries
             is_retriable: Optional predicate deciding whether a caught exception
                 is retried. Defaults to
                 :func:`~office365.runtime.retry.is_transient_error`.
         """
-        from office365.runtime.retry import is_transient_error, retry_async, should_reset_connections
+        from office365.runtime.retry import is_transient_error, retry_after_policy, retry_async, should_reset_connections
 
         def _on_failure(_attempt: int, ex: Exception) -> Optional[int]:
             # Drop a poisoned keep-alive socket before retrying a 503/connection
@@ -579,7 +583,7 @@ class ClientRuntimeContext(ABC):
             # otherwise the context is left with a stale, un-executed query.
             if _attempt < max_retry and self.current_query is not None:
                 self.add_query(self.current_query)
-            return failure_callback(_attempt, ex) if callable(failure_callback) else None
+            return (failure_callback or retry_after_policy)(_attempt, ex)
 
         def _on_success(_) -> None:
             if callable(success_callback) and self.current_query is not None:
@@ -701,13 +705,13 @@ class ClientRuntimeContext(ABC):
                     self._current_query = qry
                     if on_error is None:
                         request._raise_for_status(response)
-                        request.process_response(response, qry)
+                        request.handle_response(response, qry)
                         request.afterExecute(response)
                         processed = index + 1
                         continue
                     try:
                         request._raise_for_status(response)
-                        request.process_response(response, qry)
+                        request.handle_response(response, qry)
                         request.afterExecute(response)
                     except BaseException as error:  # noqa: BLE001 - collected, batch continues
                         on_error(qry, error)
@@ -815,13 +819,13 @@ class ClientRuntimeContext(ABC):
                     self._current_query = qry
                     if on_error is None:
                         request._raise_for_status(response)
-                        request.process_response(response, qry)
+                        request.handle_response(response, qry)
                         request.afterExecute(response)
                         processed = index + 1
                         continue
                     try:
                         request._raise_for_status(response)
-                        request.process_response(response, qry)
+                        request.handle_response(response, qry)
                         request.afterExecute(response)
                     except BaseException as error:  # noqa: BLE001 - collected, batch continues
                         on_error(qry, error)
@@ -1000,11 +1004,11 @@ class ClientRuntimeContext(ABC):
             request.url += "/$metadata"
             request.method = HttpMethod.Get
 
-        def _process_response(response: Response) -> None:
+        def _handle_response(response: Response) -> None:
             return_type.set_property("__value", response.content)
 
         qry = ClientQuery(self)
-        (self.add_query(qry).before_execute(_construct_request).after_execute(_process_response, include_response=True))
+        (self.add_query(qry).before_execute(_construct_request).after_execute(_handle_response, include_response=True))
         return return_type
 
     def _get_next_query(self, count: int = 1) -> ClientQuery:
@@ -1055,7 +1059,8 @@ class ClientRuntimeContext(ABC):
             queries.append(self._queries.popleft())
 
         batches = []
-        for chunk in partition_by_limits(queries, items_per_batch, max_batch_bytes):
+        json_format = getattr(self.pending_request(), "json_format", None)
+        for chunk in partition_by_limits(queries, items_per_batch, max_batch_bytes, json_format):
             batches.append(BatchQuery(self, chunk))
         return batches
 

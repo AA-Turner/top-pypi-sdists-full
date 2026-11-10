@@ -2,7 +2,9 @@
 tagged the words (#613): `_comma.decide`. These tests were segment's
 until the decision moved; they run the stages up to classify and then
 the decision, as group does."""
-from nameparser import Parser, parse
+from nameparser import (
+    FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST, Parser, parse,
+)
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline import _comma
 from nameparser._pipeline._classify import classify
@@ -12,15 +14,17 @@ from nameparser._pipeline._state import ParseState, Structure
 from nameparser._pipeline._tokenize import tokenize
 import dataclasses
 
+import pytest
+
 from nameparser._policy import Policy
 from nameparser._types import AmbiguityKind, Role
 
 # synthetic vocabulary: behavior given a lexicon, never default() contents
-_LEX = Lexicon(
-    suffix_acronyms=frozenset({"phd", "md", "do", "dds", "ma", "ed"}),
-    suffix_acronyms_ambiguous=frozenset({"ma", "ed", "do"}),
-    suffix_words=frozenset({"jr", "v"}),
-)
+_LEX = (Lexicon()
+        .add("phd", "md", "do", "dds", "ma", "ed", kind="credential")
+        # a family reading makes the credential ambiguous
+        .add("ma", "ed", "do", kind="family")
+        .add("jr", "v", kind="suffix"))
 
 
 def _decided(text: str, lexicon: Lexicon = _LEX,
@@ -250,7 +254,7 @@ def test_the_run_test_reads_lenient_comma_suffixes() -> None:
     # is_suffix_lenient bypasses the initial veto), strict under
     # Policy(lenient_comma_suffixes=False) (v1's is_suffix, which the
     # veto reads as a middle initial instead).
-    lex = _LEX.add(suffix_words={"b"})
+    lex = _LEX.add("b", kind="suffix")
     text = "John Smith, Ma B."
     state = ParseState(original=text, lexicon=lex, policy=Policy())
     out = _comma.decide(classify(segment(tokenize(extract_delimited(state)))))
@@ -314,7 +318,7 @@ def test_a_listed_surname_still_carries_the_name_contrast() -> None:
     # is a different question. A draft shared one predicate for both
     # and this read given 'XYZ'. The all-caps spelling is the control:
     # no word before the comma is written as a name, so no contrast.
-    lex = Lexicon.default().add(surnames={"smith", "jones"})
+    lex = Lexicon.default() | Lexicon(surnames={"smith", "jones"})
     out = _decided("Smith Jones, XYZ", lexicon=lex)
     assert out.structure is Structure.SUFFIX_COMMA
     assert out.tokens[2].role is Role.SUFFIX
@@ -364,11 +368,11 @@ def test_a_bound_caps_word_keeps_its_capitals_in_case_repair() -> None:
     # (#613's PR review). A name in one case carries no contrast.
     def repaired(text: str) -> str:
         return str(parse(text).capitalized(force=True))
-    assert repaired("John Smith, XYZ") == "John Smith XYZ"
+    assert repaired("John Smith, XYZ") == "John Smith, XYZ"
     assert repaired("John Smith, PhD Jones XYZ") == \
-        "John Smith PhD Jones XYZ"
+        "John Smith, PhD Jones XYZ"
     assert repaired("JOHN SMITH, PhD JONES XYZ") == \
-        "John Smith PhD Jones Xyz"
+        "John Smith, PhD Jones Xyz"
 
 
 def test_a_lone_core_after_the_comma_is_a_word_of_the_part() -> None:
@@ -391,10 +395,63 @@ def test_a_generational_connective_joins_no_title_after_the_comma() -> None:
     # it in a plain join, which only caller vocabulary can spell. The
     # control is the same word as a plain connective, which joins the
     # titles.
-    generational = Lexicon.default().add(conjunctions={"og"},
-                                         suffix_words={"og"})
-    plain = Lexicon.default().add(conjunctions={"og"})
+    generational = (Lexicon.default().add("og", kind="conjunction")
+                    .add("og", kind="suffix"))
+    plain = Lexicon.default().add("og", kind="conjunction")
     name = Parser(lexicon=generational).parse("Smith, Mr. og Mrs.")
     assert (name.title, name.suffix) == ("Mr. Mrs.", "og")
     name = Parser(lexicon=plain).parse("Smith, Mr. og Mrs.")
     assert (name.title, name.suffix) == ("Mr. og Mrs.", "")
+
+
+def test_a_split_member_opening_the_part_is_no_name_word_to_either_count() -> None:
+    """rules/C3's opening suffix word excepts a split credential's
+    member (rules/S12): `_members` finds it among classify's tags, and
+    `name_word_count` leaves it out of the names behind the titles, as
+    `_whole_name` leaves it out of the units -- the one-letter
+    numeral's count (rules/C12) and the ambiguous class's (C4) alike."""
+    from nameparser._pipeline._vocab import name_word_count
+    lexicon, policy = Lexicon.default(), Policy()
+    state = classify(segment(tokenize(extract_delimited(ParseState(
+        original="Dr. MB ChB V, AD", lexicon=lexicon, policy=policy)))))
+    front = state.segments[0][:-1]
+    assert _texts(state, front) == ["Dr.", "MB", "ChB"]
+    assert _comma._members(front, state.tokens) == {1}
+    texts = _texts(state, front)
+    assert name_word_count(texts, lexicon, policy, members={1}) == 1
+    assert name_word_count(texts, lexicon, policy) == 2
+    # the ambiguous class's count, which decide scans for inline
+    # ("MB ChB, Ing" read suffix 'Ing' with the member counted)
+    assert parse("MB ChB, Ing").given == "Ing"
+
+
+# C3's numeral clause: a shape-only numeral ending the part before the
+# comma counts as the listed 'III' does, and P3's three-word count asks
+# the same of a name ending in one, or in one before its suffix words
+# (#893). Each grid row is compared
+# with its 'III' twin under all three orders.
+_GENERATION_HEADS = ("Dumas {n}", "de la Vega {n}", "Ortega y Gasset {n}",
+                     "John Dumas {n}", "(Bob) Dumas {n}", "Dr. Dumas {n}",
+                     "Dumas {n} MD", "Dumas {n} Jr.", "Dumas {n} Sr.",
+                     "Dumas {n} Ms")
+_GENERATION_TAILS = (", Jr.", ", MA", ", PhD", ", Ed", ", Filho", ", John",
+                     ", Dr.", ", AD", ", Jr., PhD", "", " MD", " Jr.",
+                     " PhD")
+
+
+@pytest.mark.parametrize("order", [GIVEN_FIRST, FAMILY_FIRST,
+                                   FAMILY_FIRST_GIVEN_LAST])
+@pytest.mark.parametrize("numeral", ["VI", "VI.", "IX", "vi"])
+def test_a_shape_only_generation_reads_as_a_listed_one(
+        numeral: str, order: tuple[Role, Role, Role]) -> None:
+    parser = Parser(policy=Policy(name_order=order))
+    moved: list[str] = []
+    for head in _GENERATION_HEADS:
+        for tail in _GENERATION_TAILS:
+            text = head.format(n=numeral) + tail
+            listed = parser.parse(head.format(n="III") + tail).as_dict()
+            got = {k: v.replace(numeral, "III")
+                   for k, v in parser.parse(text).as_dict().items()}
+            if got != listed:
+                moved.append(text)
+    assert not moved

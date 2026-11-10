@@ -17,6 +17,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any, Final
 
 from scripts.pass_decls import BOUNDARY_BEFORE, DECISION_DECLS, HOOK_BODIES, PASS_DECLS, SCOPE_NAMES, Boundary
+from tests.checks import areas
 from tests.checks.areas import MODES, Area, read_modes
 from tests.checks.finality import (
     NO_SCOPE,
@@ -27,6 +28,7 @@ from tests.checks.finality import (
     parse_checks,
 )
 from tests.checks.model_graph import check_emitted_models, check_model_owners
+from tests.checks.naming import start as start_naming
 from tests.checks.schema_graph import check_shared_schemas
 from tests.checks.schema_locations import check_schema_locations
 from tests.checks.trace import MODULE_TRACE_MARK, TRACE
@@ -123,7 +125,7 @@ CHECKED_MODELS: Final[dict[str, Callable[[Any, Any], Sequence[Any]]]] = {
     "mark_unused_models_start": _model_list,
     "set_reference_default_value_to_field": _model_list,
     "reuse_model": _model_list,
-    "replace_type_list_unique_list_to_set": _model_list,
+    "replace_merged_unique_list_to_set": _model_list,
     "collapse_root_models": _model_list,
     "set_default_enum_member": _model_list,
     "sort_models": _model_list,
@@ -142,6 +144,7 @@ CHECKED_MODELS: Final[dict[str, Callable[[Any, Any], Sequence[Any]]]] = {
     "apply_base_class_type_overrides": _model_list,
     "settle_discriminated_unions": _context_models,
     "tag_fields_of_tagged_bases": _context_models,
+    "flatten_narrowed_inherited_fields": _context_models,
     "write_enum_member_tags_as_values": _context_models,
     "assign_forward_reference_fields": _model_list,
     "fix_constructor_field_ordering": _models_before_override_removal,
@@ -229,6 +232,7 @@ def _run_pipeline(original: Callable[..., None], runner: Any, steps: Any, parser
     modes = read_modes()
     token, module = MODES.set(modes), _IN_MODULE.set(False)
     try:
+        start_naming(parser)
         with NO_SCOPE if Area.STORE_WRITES not in modes and Area.FACT_FINALITY not in modes else _checks(parser):
             return original(runner, steps, parser, state)
     finally:
@@ -243,11 +247,23 @@ def _checks(parser: object) -> AbstractContextManager[None]:
     return parse_checks(parser, Error)
 
 
+def _runs_idle(spec: Any, parser: object, state: object) -> bool:
+    """Return whether the trigger check runs the pass of ``spec`` idle: ``when`` holds and ``trigger`` is false."""
+    return (
+        spec.trigger is not None
+        and areas.mode(Area.PASS_TRIGGERS) is not None
+        and (spec.when is None or spec.when(parser, state))
+        and not spec.trigger(parser, state)
+    )
+
+
 def run_pass(original: Callable[..., None]) -> Callable[..., None]:
     """Wrap ``Runner.run_pass``: a pass that runs is traced and runs inside the finality scope of its declaration.
 
-    ``when`` is evaluated once, by the original: the pass it runs is the instrumented one, which the checks of a parse
-    make once for each pass spec (``ParseChecks.passes``).
+    ``when`` and ``trigger`` are evaluated by the original: the pass it runs is the instrumented one, which the checks
+    of a parse make once for each pass spec (``ParseChecks.passes``). With ``PASS_TRIGGERS`` on, a pass whose ``when``
+    holds and whose ``trigger`` is false runs untraced inside ``ParseChecks.idle_pass`` instead, so that the traces are
+    those of a run with the area off.
     """
 
     @wraps(original)
@@ -255,6 +271,10 @@ def run_pass(original: Callable[..., None]) -> Callable[..., None]:
         trace, checks = TRACE.get(), PARSE_CHECKS.get()
         if trace is None and checks is None:
             return original(self, spec, parser, state)
+        if checks is not None and _runs_idle(spec, parser, state):
+            with checks.idle_pass(_DECLS[spec.name], parser, state):
+                spec.run(parser, state)
+            return None
         passes = {} if checks is None else checks.passes
         if (known := passes.get(id(spec))) is not None and known[0] is spec:
             return original(self, known[1], parser, state)
@@ -327,8 +347,8 @@ def seal_facts(original: Callable[..., Any]) -> Callable[..., Any]:
     """
 
     @wraps(original)
-    def seal_facts(self: Any, modules: Any, member_keywords: Any) -> Any:
-        facts = original(self, modules, member_keywords)
+    def seal_facts(self: Any, modules: Any, member_keywords: Any, options: Any, constrained_member: Any) -> Any:
+        facts = original(self, modules, member_keywords, options, constrained_member)
         checks = PARSE_CHECKS.get()
         return facts if checks is None or checks.finality is None else _views(checks.finality, facts)
 
@@ -351,13 +371,55 @@ def drop_held_null(original: Callable[..., None]) -> Callable[..., None]:
 
 
 def drop_field_constraints(original: Callable[..., None]) -> Callable[..., None]:
-    """Wrap ``_DecisionWriter.drop_field_constraints``: it writes the field that the guarded view it gets names."""
+    """Wrap ``_DecisionWriter.drop_field_constraints``: it writes the objects that the guarded views it gets name."""
 
     @wraps(original)
-    def drop_field_constraints(self: Any, model: Any, field: Any, keywords: frozenset[str]) -> None:
-        return original(self, viewed(model), viewed(field), keywords)
+    def drop_field_constraints(self: Any, model: Any, field: Any, keywords: frozenset[str], members: Any) -> None:
+        return original(
+            self, viewed(model), viewed(field), keywords, [(viewed(member), written) for member, written in members]
+        )
 
     return drop_field_constraints
+
+
+def write_sets(original: Callable[..., None]) -> Callable[..., None]:
+    """Wrap ``_DecisionWriter.write_sets``: it writes the objects that the guarded views a decision read name."""
+
+    @wraps(original)
+    def write_sets(self: Any, model: Any, field: Any, lists: Any, default: Any) -> None:
+        return original(self, viewed(model), viewed(field), [viewed(data_type) for data_type in lists], default)
+
+    return write_sets
+
+
+def write_additional_properties_sets(original: Callable[..., None]) -> Callable[..., None]:
+    """Wrap ``_DecisionWriter.write_additional_properties_sets``: it writes the objects the guarded views name."""
+
+    @wraps(original)
+    def write_additional_properties_sets(self: Any, model: Any, lists: Any) -> None:
+        return original(self, viewed(model), [viewed(data_type) for data_type in lists])
+
+    return write_additional_properties_sets
+
+
+def omit_default(original: Callable[..., None]) -> Callable[..., None]:
+    """Wrap ``_DecisionWriter.omit_default``: it writes the field that the guarded view it gets names."""
+
+    @wraps(original)
+    def omit_default(self: Any, model: Any, field: Any) -> None:
+        return original(self, viewed(model), viewed(field))
+
+    return omit_default
+
+
+def mark_serialized_as_any(original: Callable[..., None]) -> Callable[..., None]:
+    """Wrap ``_DecisionWriter.mark_serialized_as_any``: it writes the model that the guarded view it gets names."""
+
+    @wraps(original)
+    def mark_serialized_as_any(self: Any, model: Any, wrapped: bool) -> None:
+        return original(self, viewed(model), wrapped)
+
+    return mark_serialized_as_any
 
 
 def get_inherited_constructor_info(original: Callable[..., Any]) -> Callable[..., Any]:

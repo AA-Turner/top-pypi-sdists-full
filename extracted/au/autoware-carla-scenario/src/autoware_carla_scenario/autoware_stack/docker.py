@@ -32,7 +32,7 @@ and the image do not change.
 A workspace whose ``autoware_carla_interface`` has no ``scenario_mode`` -- one
 built from a branch without scenario support -- cannot run a scenario at all,
 and is refused by :meth:`DockerAutowareLauncher.prepare` before any scenario
-starts.
+starts, unless the configured launch file declares ``scenario_mode`` itself.
 """
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ import hashlib
 import logging
 import os
 import shlex
+import socket
 import subprocess
 import sys
 from dataclasses import dataclass, field, replace
@@ -72,12 +73,29 @@ __all__ = [
     "DEPENDENCY_IMAGE_REPOSITORY",
     "DockerAutowareConfig",
     "DockerAutowareLauncher",
+    "OWNER_LABEL",
     "STACK_LABEL",
 ]
 
 #: Every container this launcher starts carries this label, which is how one
 #: left behind by a run that was killed is found and removed by the next.
 STACK_LABEL: str = "autoware_carla_scenario.stack"
+
+#: And this one, ``<host>:<pid>`` of the process that started it: a leftover
+#: is one whose process is gone, not a live stack of another run of the same
+#: user on the host (a SLURM task beside this one, #1862).  A host and pid
+#: name one process only while the launchers on a host share its pid
+#: namespace, which is assumed: a launcher run in a container of its own
+#: (a pid namespace of its own) that keeps the host's name would look the
+#: others' pids up in the wrong namespace and could take a live owner for
+#: a dead one.  One with a host name of its own is another host's to the
+#: rest, whose running stacks are left alone (remove_leftover_containers()).
+OWNER_LABEL: str = "autoware_carla_scenario.owner"
+
+#: The states of a container that runs nothing, which one whose owner cannot
+#: be told alive or dead is removed in (not ``running``, ``paused`` or
+#: ``restarting``: those may be another run's live stack).
+_STOPPED_STATES: tuple[str, ...] = ("exited", "created", "dead")
 
 #: When the workspace is built: ``auto`` when it has never been built
 #: (``install/setup.bash`` is missing), ``always`` before every batch, ``never``
@@ -95,10 +113,81 @@ _INTERFACE_PACKAGE = "autoware_carla_interface"
 #: container: the directory put on ``PYTHONPATH``.
 _BRIDGE_PYTHON_ROOT = "/opt/autoware_carla_scenario/python"
 
+#: How long a captured docker call (``ps``, ``image inspect``, ``rm``) may
+#: take before it is given up on: a daemon that stops answering fails the
+#: call rather than hang the batch between scenarios (#1790).
+_DOCKER_TIMEOUT_S = 60.0
+
+#: How long ``docker commit`` of the dependency image may take: it writes the
+#: container's whole layer (apt packages and, with ``rosdep``, the workspace's
+#: dependencies, gigabytes of them), once per digest.  The workspace's build
+#: and the dependencies' install stream their output and are not bounded.
+_DOCKER_COMMIT_TIMEOUT_S = 1800.0
+
+#: The lock file, in the workspace, that the dependency image's install and
+#: the workspace's build are run under: one run on the host (or on any host
+#: the workspace is shared with, where the file system locks across hosts)
+#: at a time, so SLURM tasks sharing a workspace do not ``colcon build`` it
+#: together (#1862).  In the workspace, not in a per-user cache directory:
+#: the runs to keep apart are those on one workspace, on whichever node.
+#: Taken only when there is something to make or build.
+_BUILD_LOCK_NAME = ".autoware_carla_scenario-build.lock"
+
+#: How long a run waits for another's build of the workspace before failing.
+_BUILD_LOCK_TIMEOUT_S = 4 * 3600.0
+
+#: How often the build lock is tried while another run holds it.
+_BUILD_LOCK_POLL_S = 2.0
+
+
+def _shapes_the_cli(key: str) -> bool:
+    """Whether variable *key* changes what the Docker CLI process does.
+
+    ``autoware.launcher.env`` is passed by name (#1961), its value in the CLI's
+    environment; one of these would reach the CLI (or the wrapper that starts
+    it) as well as the container, so it stays on the command line.
+    """
+    upper = key.upper()
+    return (
+        key in ("PATH", "HOME", "TMPDIR", "SHELL")
+        or key.startswith("DOCKER_")
+        or key.startswith("LD_")
+        or key.startswith("PYTHON")
+        or upper.endswith("_PROXY")
+        or upper.startswith("SSL_")
+    )
+
 
 def _label_value() -> str:
     """The value of :data:`STACK_LABEL` on this user's containers."""
     return f"uid-{os.getuid()}"
+
+
+def _owner_value() -> str:
+    """The value of :data:`OWNER_LABEL` on this process's containers."""
+    return f"{socket.gethostname()}:{os.getpid()}"
+
+
+def _process_alive(pid: int) -> bool:
+    """Whether process *pid* exists on this host."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # someone else's, but alive
+    return True
+
+
+def _owner_alive(owner: str) -> Optional[bool]:
+    """Whether the process an :data:`OWNER_LABEL` value names still runs;
+    None when that cannot be told (no label, a malformed one, another host's)."""
+    host, _, pid = owner.rpartition(":")
+    if not host or not pid.isdigit():
+        return None
+    if host != socket.gethostname():
+        return None
+    return _process_alive(int(pid))
 
 
 @dataclass(frozen=True)
@@ -110,7 +199,9 @@ class DockerAutowareConfig:
         launch: The ``ros2 launch`` arguments (package, file, ``name:=value``
             arguments), with ``scenario_mode:=true``.  ``{bridge_address}``,
             ``{index}`` and ``{name}`` are replaced with the episode's (see
-            :class:`~autoware_carla_scenario.autoware_stack.AutowareEpisode`).
+            :class:`~autoware_carla_scenario.autoware_stack.AutowareEpisode`;
+            ``{name}`` with only ``A-Z a-z 0-9 . _ -``, as in the log's file
+            name).
         devcontainer: The dev container variant under ``.devcontainer/`` whose
             image and workspace mount are used.
         image: The image to use instead of the dev container's; its mount and
@@ -131,6 +222,9 @@ class DockerAutowareConfig:
             that does not exist is skipped with a warning (Docker would create
             it, owned by root).
         env: Variables set in the container, over the dev container's own.
+            Passed to ``docker run`` by name, their values in the CLI's
+            environment, so they do not show in ``ps`` (but one the CLI reads
+            itself, ``PATH`` or ``DOCKER_HOST`` say, does).
         ros_domain_ids: ``ROS_DOMAIN_ID`` for each scenario in turn, cycling;
             empty keeps the dev container's.  Moving to another domain keeps a
             stack from discovering what is left of the last one before its
@@ -275,11 +369,26 @@ class DockerAutowareLauncher:
             self._config.build == "auto" and not self._is_built()
         )
         if build or self._is_built():
-            self._container = replace(
-                self._container, image=self._dependency_image(self._container.image)
-            )
-        if build:
-            self._build()
+            base = self._container.image
+            tag = self._dependency_tag(base)
+            if not build and self._has_image(tag):
+                # Nothing to make: no lock to wait for.
+                logger.info("Workspace dependencies: %s", tag)
+                self._container = replace(self._container, image=tag)
+            else:
+                lock = self._lock_workspace()
+                try:
+                    # Asked again: another run may have made it meanwhile.
+                    self._container = replace(
+                        self._container, image=self._dependency_image(base, tag)
+                    )
+                    # Or built the workspace, while this one waited.
+                    if build and self._config.build == "auto" and self._is_built():
+                        build = False
+                    if build:
+                        self._build()
+                finally:
+                    self._unlock_workspace(lock)
         if not self._is_built():
             raise AutowareStackError(
                 f"{self._workspace} has not been built ({self._setup_script()} is "
@@ -288,8 +397,8 @@ class DockerAutowareLauncher:
         if not self.has_scenario_support():
             raise AutowareStackError(
                 f"{self._workspace} was built without scenario support: the launch "
-                f"file of {_INTERFACE_PACKAGE} takes no scenario_mode. Build a "
-                "branch that has it."
+                f"file of {_INTERFACE_PACKAGE} takes no scenario_mode, and neither "
+                "does the configured launch file. Build a branch that has it."
             )
         self._prepared = True
 
@@ -348,6 +457,7 @@ class DockerAutowareLauncher:
         # whatever happened.
         self._process = ProcessGroup(
             argv,
+            env=self._run_env(extra_env),
             log_path=episode_log_path(self._log_dir, episode),
             stop_timeout_s=self._config.stop_timeout_s,
         )
@@ -378,20 +488,44 @@ class DockerAutowareLauncher:
     # ------------------------------------------------------------------
 
     def has_scenario_support(self) -> bool:
-        """Whether the built ``autoware_carla_interface`` launch takes ``scenario_mode``."""
-        launch = (
+        """Whether the workspace can follow a scenario's world, ego and clock.
+
+        True when the built ``autoware_carla_interface`` launch takes
+        ``scenario_mode``, or when the configured launch file itself declares
+        it -- a launch that brings up Autoware and another CARLA interface
+        (``autoware_carla_interface_v2``'s ``autoware_carla_scenario.launch.xml``,
+        say) in scenario mode.
+        """
+        candidates = [
+            self._installed_launch(
+                _INTERFACE_PACKAGE, f"{_INTERFACE_PACKAGE}.launch.xml"
+            )
+        ]
+        launch_args = list(self._config.launch)
+        if (
+            len(launch_args) >= 2
+            and ":=" not in launch_args[0]
+            and ":=" not in launch_args[1]
+        ):
+            candidates.append(self._installed_launch(launch_args[0], launch_args[1]))
+        for launch in candidates:
+            try:
+                if 'name="scenario_mode"' in self._on_host(launch).read_text():
+                    return True
+            except OSError:
+                continue
+        return False
+
+    def _installed_launch(self, package: str, launch_file: str) -> Path:
+        return (
             self._workspace
             / "install"
-            / _INTERFACE_PACKAGE
+            / package
             / "share"
-            / _INTERFACE_PACKAGE
+            / package
             / "launch"
-            / f"{_INTERFACE_PACKAGE}.launch.xml"
+            / launch_file
         )
-        try:
-            return 'name="scenario_mode"' in self._on_host(launch).read_text()
-        except OSError:
-            return False
 
     def _on_host(self, path: Path) -> Path:
         """*path*, its links into the workspace's mount followed on this host.
@@ -416,22 +550,60 @@ class DockerAutowareLauncher:
         return path
 
     def remove_leftover_containers(self) -> None:
-        """Remove every container this user's launchers started and nothing removed.
+        """Remove the containers this user's launchers started whose process is gone.
 
         A run killed before its scenario ended leaves its stack running -- and
         its nodes publishing into the next run's ROS graph.  Containers carry
-        the user's id in their label, so another user's runs are left alone;
-        two batches of one user's on one host are not supported.
+        the user's id in their label, so another user's runs are left alone,
+        and the host and pid of the process that started them
+        (:data:`OWNER_LABEL`), so the live stack of another run of this
+        user's (a SLURM task beside this one) is left alone too: only those
+        whose process no longer runs on this host are removed.  One without
+        an owner (started by a version before the label, or by another host
+        whose processes cannot be seen from here) is removed only once it
+        runs nothing (``exited``, ``created``, ``dead``), and only named in a
+        warning otherwise.  The owner is looked up in this process's pid
+        namespace (see :data:`OWNER_LABEL`).
         """
         listed = self._docker(
             "ps",
             "--all",
-            "--quiet",
             "--filter",
             f"label={STACK_LABEL}={_label_value()}",
+            "--format",
+            '{{.ID}}\t{{.State}}\t{{.Label "' + OWNER_LABEL + '"}}',
             check=False,
         )
-        ids = listed.stdout.split()
+        ids: list[str] = []
+        unknown: list[str] = []
+        for line in listed.stdout.splitlines():
+            fields = line.split("\t")
+            container = fields[0].strip()
+            if not container:
+                continue
+            state = ""
+            if len(fields) > 1:
+                state = fields[1].strip()
+            owner = ""
+            if len(fields) > 2:
+                owner = fields[2].strip()
+            alive = _owner_alive(owner)
+            if alive is None:
+                if state in _STOPPED_STATES:
+                    ids.append(container)
+                else:
+                    unknown.append(container)
+            elif not alive:
+                ids.append(container)
+        if unknown:
+            logger.warning(
+                "Leaving %d Autoware container(s) still up whose process cannot be "
+                "told alive or not (no %s label, or another host's): %s. Remove "
+                "them with `docker rm --force` if no run of yours uses them.",
+                len(unknown),
+                OWNER_LABEL,
+                " ".join(unknown),
+            )
         if ids:
             logger.warning("Removing %d leftover Autoware container(s)", len(ids))
             # A list, not `*ids`: Codon 0.19 unpacks only a tuple into a call.
@@ -457,6 +629,73 @@ class DockerAutowareLauncher:
             workspace_mount=workspace_mount,
             environment=container.environment,
         )
+
+    def _lock_workspace(self) -> int:
+        """Wait for, and take, the workspace's build lock; its descriptor.
+
+        Raises:
+            AutowareStackError: Another run held it for longer than
+                :data:`_BUILD_LOCK_TIMEOUT_S`.
+        """
+        if TYPE_CHECKING:
+            # fcntl and os.open() have no model (typecheck/library.py).
+            return -1
+        else:
+            import fcntl  # noqa: PLC0415
+            import time  # noqa: PLC0415
+
+            path = self._workspace / _BUILD_LOCK_NAME
+            try:
+                # Read-only is enough for flock, and lets an existing file
+                # on a read-only mount lock too.
+                fd = os.open(path, os.O_RDONLY | os.O_CREAT, 0o644)
+            except OSError as exc:
+                logger.warning(
+                    "Building %s without a lock (%s): another run may build it "
+                    "at the same time",
+                    self._workspace,
+                    exc,
+                )
+                return -1
+            # Read here, not as a default: a default is bound once.
+            timeout = _BUILD_LOCK_TIMEOUT_S
+            deadline = time.monotonic() + timeout
+            waiting = False
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return fd
+                except BlockingIOError:
+                    pass
+                except OSError as exc:
+                    os.close(fd)
+                    logger.warning(
+                        "Building %s without a lock (%s): another run may build "
+                        "it at the same time",
+                        self._workspace,
+                        exc,
+                    )
+                    return -1
+                if time.monotonic() >= deadline:
+                    os.close(fd)
+                    raise AutowareStackError(
+                        f"Another run has been building {self._workspace} for "
+                        f"more than {timeout:.0f} s (it holds {path}); not "
+                        "building it beside it"
+                    )
+                if not waiting:
+                    logger.info(
+                        "Waiting for another run to finish building %s (%s)",
+                        self._workspace,
+                        path,
+                    )
+                    waiting = True
+                time.sleep(_BUILD_LOCK_POLL_S)
+
+    def _unlock_workspace(self, fd: int) -> None:
+        """Let the build lock *fd* (from :meth:`_lock_workspace`) go."""
+        if fd >= 0:
+            os.close(fd)
 
     def _setup_script(self) -> Path:
         return self._workspace / "install" / "setup.bash"
@@ -487,14 +726,30 @@ class DockerAutowareLauncher:
             digest.update(b"\0")
         return digest.hexdigest()[:16]
 
-    def _dependency_image(self, base_image: str) -> str:
+    def _dependency_tag(self, base_image: str) -> str:
+        """The tag of the dependency image made from *base_image*."""
+        return f"{DEPENDENCY_IMAGE_REPOSITORY}:{self._dependency_digest(base_image)}"
+
+    def _has_image(self, tag: str) -> bool:
+        """Whether Docker has the image *tag*."""
+        # A non-zero exit is "no such image"; no answer at all is not, and
+        # read as one it would reinstall and recommit an image that may well
+        # exist, through an install that is not bounded (#1797).
+        inspected = self._docker(
+            "image", "inspect", tag, check=False, timeout_is_error=True
+        )
+        return inspected.returncode == 0
+
+    def _dependency_image(self, base_image: str, tag: Optional[str] = None) -> str:
         """The image with what the stack needs installed, made if missing.
 
         That is the ``scenario_bridge`` node's packages and, with ``rosdep``,
-        the workspace's dependencies.
+        the workspace's dependencies.  *tag* is :meth:`_dependency_tag`'s,
+        when the caller has it.
         """
-        tag = f"{DEPENDENCY_IMAGE_REPOSITORY}:{self._dependency_digest(base_image)}"
-        if self._docker("image", "inspect", tag, check=False).returncode == 0:
+        if tag is None:
+            tag = self._dependency_tag(base_image)
+        if self._has_image(tag):
             logger.info("Workspace dependencies: %s", tag)
             return tag
         name = f"{self._config.container_prefix}-{os.getpid()}-deps"
@@ -529,7 +784,11 @@ class DockerAutowareLauncher:
             tag,
         )
         try:
-            code = self._stream(argv, "autoware-deps.log")
+            code = self._stream(
+                argv,
+                "autoware-deps.log",
+                self._run_env({"DEBIAN_FRONTEND": "noninteractive"}),
+            )
             if code != 0:
                 raise AutowareStackError(
                     f"Installing the dependencies of {self._workspace} failed "
@@ -544,6 +803,7 @@ class DockerAutowareLauncher:
                 name,
                 tag,
                 check=True,
+                timeout_s=_DOCKER_COMMIT_TIMEOUT_S,
             )
         finally:
             self._docker("rm", "--force", name, check=False)
@@ -553,8 +813,16 @@ class DockerAutowareLauncher:
         assert self._container is not None  # noqa: S101 - set by _resolve_container()
         return self._container.workspace_mount
 
-    def _stream(self, argv: Sequence[str], log_name: str) -> int:
-        """Run *argv*, its output to this process's and to *log_name* in the log dir."""
+    def _stream(
+        self,
+        argv: Sequence[str],
+        log_name: str,
+        env: Optional[dict[str, str]] = None,
+    ) -> int:
+        """Run *argv*, its output to this process's and to *log_name* in the log dir.
+
+        *env* is its environment (:meth:`_run_env`); ``None`` is this process's.
+        """
         log_path: Optional[Path] = None
         if self._log_dir is not None:
             log_path = self._log_dir / log_name
@@ -567,6 +835,7 @@ class DockerAutowareLauncher:
         try:
             process: subprocess.Popen[str] = subprocess.Popen(  # noqa: S603 - argv comes from the user's own config
                 argv,
+                env=env,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -605,7 +874,7 @@ class DockerAutowareLauncher:
             shlex.join(self._config.colcon_args),
         )
         try:
-            code = self._stream(argv, "autoware-build.log")
+            code = self._stream(argv, "autoware-build.log", self._run_env({}))
         finally:
             self._docker("rm", "--force", name, check=False)
         if code != 0:
@@ -629,7 +898,9 @@ class DockerAutowareLauncher:
         """``docker run`` up to the image, for a container named *name*.
 
         *remove* is ``--rm``; *image* replaces the one the stack runs in;
-        *volumes* are further ``host: container[:options]`` mounts.
+        *volumes* are further ``host: container[:options]`` mounts.  The
+        ``autoware.launcher.env`` variables of :meth:`_named_env` are passed
+        by name: the CLI is run with :meth:`_run_env` (*extra_env* the same).
         """
         assert self._container is not None  # noqa: S101 - set by prepare()
         config = self._config
@@ -651,6 +922,8 @@ class DockerAutowareLauncher:
             name,
             "--label",
             f"{STACK_LABEL}={_label_value()}",
+            "--label",
+            f"{OWNER_LABEL}={_owner_value()}",
             # tini as PID 1 hands SIGINT on to ros2 launch whatever the image's
             # entrypoint does with it.
             "--init",
@@ -676,8 +949,12 @@ class DockerAutowareLauncher:
             argv += ["--gpus", config.gpus]
         if config.user is not None:
             argv += ["--user", config.user]
+        named = self._named_env(extra_env)
         for key, value in env.items():
-            argv += ["--env", f"{key}={value}"]
+            if key in named:
+                argv += ["--env", key]
+            else:
+                argv += ["--env", f"{key}={value}"]
         argv += list(config.docker_args)
         if image:
             argv.append(image)
@@ -685,21 +962,90 @@ class DockerAutowareLauncher:
             argv.append(self._container.image)
         return argv
 
-    def _docker(self, *args: str, check: bool) -> subprocess.CompletedProcess[str]:
-        return self._run_docker(list(args), check=check)
+    def _named_env(self, extra_env: dict[str, str]) -> dict[str, str]:
+        """The ``autoware.launcher.env`` variables passed to ``docker run`` by
+        name, their values in the CLI's environment (#1961): on its command
+        line, any user of the host could read them (``ps``).
+
+        Not one *extra_env* overrides, nor one the CLI would heed itself
+        (:func:`_shapes_the_cli`).
+        """
+        named: dict[str, str] = {}
+        for key, value in self._config.env.items():
+            if key not in extra_env and not _shapes_the_cli(key):
+                named[key] = value
+        return named
+
+    def _run_env(self, extra_env: dict[str, str]) -> Optional[dict[str, str]]:
+        """The environment of the CLI running :meth:`_run_argv`'s command,
+        with the same *extra_env*: this process's, with the variables passed
+        by name; ``None`` (this process's) when there are none."""
+        named = self._named_env(extra_env)
+        if len(named) == 0:
+            return None
+        env = os.environ.copy()
+        env.update(named)
+        return env
+
+    def _docker(
+        self,
+        *args: str,
+        check: bool,
+        timeout_s: Optional[float] = None,
+        timeout_is_error: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        return self._run_docker(
+            list(args),
+            check=check,
+            timeout_s=timeout_s,
+            timeout_is_error=timeout_is_error,
+        )
 
     def _run_docker(
-        self, args: list[str], *, check: bool
+        self,
+        args: list[str],
+        *,
+        check: bool,
+        timeout_s: Optional[float] = None,
+        timeout_is_error: bool = False,
     ) -> subprocess.CompletedProcess[str]:
-        """The Docker CLI run with *args*, its output captured."""
+        """The Docker CLI run with *args*, its output captured, within
+        *timeout_s* seconds (:data:`_DOCKER_TIMEOUT_S` when None).
+
+        A call that fails to run or to finish raises
+        :class:`AutowareStackError` with *check*; without, it is logged and
+        answers as a failed one (exit status 1).  *timeout_is_error* raises
+        on a call that does not finish even without *check*: for a caller
+        that reads a non-zero exit as an answer ("no such image"), which no
+        answer at all must not pass for.
+        """
+        # Read here, not as a default: a default is bound once, at definition.
+        timeout = _DOCKER_TIMEOUT_S
+        if timeout_s is not None:
+            timeout = timeout_s
         try:
             completed = subprocess.run(  # noqa: S603 - argv comes from the user's own config
                 [self._config.docker] + args,
                 capture_output=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=timeout,
                 check=False,
             )
+        except subprocess.TimeoutExpired:
+            # subprocess.run() has killed the docker CLI by now.
+            if check or timeout_is_error:
+                raise AutowareStackError(
+                    f"{self._config.docker} {' '.join(args)} did not finish "
+                    f"within {timeout:.0f} s"
+                ) from None
+            logger.warning(
+                "%s %s did not finish within %.0f s; going on without it",
+                self._config.docker,
+                " ".join(args),
+                timeout,
+            )
+            return subprocess.CompletedProcess([self._config.docker] + args, 1, "", "")
         except OSError as exc:
             if check:
                 raise AutowareStackError(

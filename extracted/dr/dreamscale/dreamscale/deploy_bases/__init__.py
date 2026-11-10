@@ -135,6 +135,9 @@ class DeployBase:
     local_archive: bool = False  # a single local checkpoint file is a source, beside a folder
     # `deployments create --base <name>`: every option the command takes, as keywords.
     create: Callable[..., None] | None = None
+    # `deployments create --base <name> --official <checkpoint>`: one of its family's own
+    # published checkpoints by name (None: the base offers none).
+    create_official: Callable[..., None] | None = None
     exported: ExportedBase | None = None
     # Catalog models its deployments serve, with the contract their sessions export.
     catalog_exports: Mapping[str, ExportedBase] = field(default_factory=dict)

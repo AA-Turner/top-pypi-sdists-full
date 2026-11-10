@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +10,6 @@ from office365.sharepoint.activities.clientidentity import (
 )
 
 
-@dataclass
 class CommentFacet(ClientValue):
     commentText: Optional[str] = None
     parentAuthor: ActivityClientIdentity = field(default_factory=ActivityClientIdentity)

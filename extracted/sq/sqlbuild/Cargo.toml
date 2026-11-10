@@ -18,8 +18,8 @@ order = [
     "sqlbuild-config",
     "sqlbuild-host",
     "sqlbuild-recall",
-    "sqlbuild-orchestration",
     "sqlbuild-model-config",
+    "sqlbuild-orchestration",
     "sqlbuild-discovery",
     "sqlbuild-render",
     "sqlbuild-scopes",
@@ -57,7 +57,9 @@ globset = "0.4"
 junction = { version = "2.1.0", default-features = false }
 keyring = { version = "3.6.3", default-features = false }
 # Python loads the extension with dlopen, so mimalloc must not use initial-exec TLS.
-mimalloc = { version = "0.1", default-features = false, features = ["local_dynamic_tls"] }
+# no_thp: mimalloc otherwise asks for transparent huge pages on its 1 GiB arenas, and each
+# partly used 2 MiB page then stays resident in full, which raises peak memory.
+mimalloc = { version = "0.1", default-features = false, features = ["local_dynamic_tls", "no_thp"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 pyo3 = { version = "0.26", features = ["abi3-py312"] }
 rpassword = "7.5.4"
@@ -68,9 +70,6 @@ polyglot-sql = { git = "https://github.com/sqlstack-io/polyglot.git", rev = "876
     "all-dialects",
     "semantic",
     "stacker",
-] }
-polyglot-sql-function-catalogs = { git = "https://github.com/sqlstack-io/polyglot.git", rev = "8767d688c5b504ad609645e27ab77a260d91c5a1", default-features = false, features = [
-    "dialect-duckdb",
 ] }
 blake3 = { version = "1", features = ["rayon"] }
 # Only sqlbuild-build-features uses these: each enables in the sqb build exactly the features the
@@ -150,8 +149,12 @@ sqlbuild-recall = { path = "crates/sqlbuild-recall" }
 sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }
 sqlbuild-sqltext = { path = "crates/sqlbuild-sqltext" }
 sqlbuild-state = { path = "crates/sqlbuild-state" }
-# SQL lint Rules, quality Rules, the formatter and the canonical token stream.
+# SQL lint Rules, quality Rules and the formatter.
 sqlclean = { git = "https://github.com/sqlstack-io/sqlclean.git", rev = "cf79656d247277a30bc81ef39b6dee420e721221" }
+# SQLQuack's lossless tokenizer behind query fingerprints and its parsers for warehouse types.
+sqlquack-syntax = { git = "https://github.com/sqlstack-io/sqlquack.git", rev = "edfa30b26a0bab86661f96490b86a4f24b92db0a" }
+sqlquack-syntax-bigquery = { git = "https://github.com/sqlstack-io/sqlquack.git", rev = "edfa30b26a0bab86661f96490b86a4f24b92db0a" }
+sqlquack-syntax-postgres = { git = "https://github.com/sqlstack-io/sqlquack.git", rev = "edfa30b26a0bab86661f96490b86a4f24b92db0a" }
 stacker = "0.1"
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 subtle = "2"
@@ -179,8 +182,14 @@ debug = false
 [profile.release]
 strip = "symbols"
 
+# Released wheels: one codegen unit per crate keeps one copy of generic code that parallel units
+# each instantiate, so the native binaries are about an eighth smaller and build in about 2x time.
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+
 # Local iteration: release-level optimisation with incremental builds, so rebuilding after a
-# focused change does not recompile the whole binding crate. CI and wheels use `release`.
+# focused change does not recompile the whole binding crate. CI uses `release`.
 [profile.fast]
 inherits = "release"
 incremental = true

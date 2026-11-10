@@ -13,11 +13,11 @@ from symengine import sympify, And, Or, Not, EmptySet, Interval, Piecewise, Add,
 from symengine import Float, Symbol, LessThan, StrictLessThan, S, E
 from tinydb import where
 from pycalphad import Database
-from pycalphad.io.database import DatabaseExportError
+from pycalphad.io.database import DatabaseExportError, DiffusionModel
 from pycalphad.io.grammar import float_number, chemical_formula
 from pycalphad.variables import Species
 import pycalphad.variables as v
-from pycalphad.io.tdb_keywords import expand_keyword, TDB_PARAM_TYPES
+from pycalphad.io.tdb_keywords import expand_keyword, TDB_PARAM_TYPES, TDB_PHASE_DESCRIPTIONS
 from pycalphad.core.utils import generate_symmetric_group
 from collections import defaultdict, namedtuple
 import ast
@@ -243,7 +243,15 @@ def _tdb_grammar(): #pylint: disable=R0914
     # ZEROVOLUME_SPECIES
     cmd_zerovolume = TCCommand('ZEROVOLUME_SPECIES') + SkipTo(LineEnd())
     # DIFFUSION
-    cmd_diffusion = TCCommand('DIFFUSION') + SkipTo(LineEnd())
+    diffusion_coefficient = Group((CaselessKeyword('ALPHA2') | CaselessKeyword('ALPHA')) + \
+        Optional(Suppress('&') + species_name, default=None) + \
+        Suppress('=') + float_number)
+    cmd_diffusion = TCCommand('DIFFUSION') + \
+        ((CaselessKeyword('NONE') + symbol_name) | \
+         ((CaselessKeyword('DILUTE') | CaselessKeyword('SIMPLE')) + symbol_name + \
+          Group(Suppress(':') + OneOrMore(species_name + Suppress(':')))) | \
+         (CaselessKeyword('MAGNETIC') + symbol_name + Group(OneOrMore(diffusion_coefficient)))) + \
+        LineEnd()
     # Now combine the grammar together
     all_commands = cmd_element | \
                     cmd_species | \
@@ -276,22 +284,29 @@ def _process_typedef(targetdb, typechar, line):
     phase names may be defined in this TYPE_DEF line.
 
     """
+    IGNORED_KEYWORDS = {
+        # PyCalphad does not use these hints
+        "COMPOSITION_SETS",
+        "MAJOR_CONSTITUENT",
+        "FRACTION_LIMITS"
+    }
+
     matching_phases = targetdb._typechar_map[typechar]
     del targetdb._typechar_map[typechar]
-    # GES A_P_D BCC_A2 MAGNETIC  -1    0.4
     tokens = line.replace(',', '').split()
     if len(tokens) < 4:
         return
-    #Don't process IF-THEN type definitions for now
+    if len(matching_phases) == 0:
+        warnings.warn(f"The type definition character `{typechar}` in `TYPE_DEFINITION {typechar} {line}` is not used by any phase.")
+    # Don't process IF-THEN type definitions for now
     if 'IF' in tokens or 'THEN' in tokens:
         warnings.warn("Type definitions using IF/THEN logic is not supported")
         return
-    keyword = expand_keyword(['DISORDERED_PART', 'MAGNETIC', 'NEVER_DISORDER'], tokens[3].upper())[0]
+    keyword = expand_keyword(TDB_PHASE_DESCRIPTIONS, tokens[3].upper())[0]
     if len(keyword) == 0:
         raise ValueError('Unknown type definition keyword: {}'.format(tokens[3]))
-    if len(matching_phases) == 0:
-        warnings.warn(f"The type definition character `{typechar}` in `TYPE_DEFINITION {typechar} {line}` is not used by any phase.")
-    if keyword == 'MAGNETIC':
+    elif keyword == 'MAGNETIC_ORDERING':
+        # GES A_P_D BCC_A2 MAGNETIC  -1    0.4
         # Magnetic model, both IHJ and Xiong models use these model hints when
         # constructing Model instances, despite being prefixed `ihj_magnetic_`
         model_hints = {
@@ -300,9 +315,8 @@ def _process_typedef(targetdb, typechar, line):
         }
         for phase_name in matching_phases:
             targetdb.phases[phase_name].model_hints.update(model_hints)
-
-    # GES A_P_D L12_FCC DIS_PART FCC_A1
-    if keyword == 'DISORDERED_PART':
+    elif keyword == 'DISORDERED_PART':
+        # GES A_P_D L12_FCC DIS_PART FCC_A1
         # order-disorder model: since we need to add model_hints to both the
         # ordered and disorderd phase, we special case to update the phase
         # names defined by the TYPE_DEF, rather than the updating the phases
@@ -321,9 +335,8 @@ def _process_typedef(targetdb, typechar, line):
             targetdb.phases[disordered_phase].model_hints.update(hint)
         else:
             raise ValueError(f"The {disordered_phase} phase is not in the database, but is defined by: `TYPE_DEFINTION {typechar} {line}`")
-
-    # GES A_P_D SIGMA_D8B NEVER_DIS SIGMA_DIS
-    if keyword == 'NEVER_DISORDER':
+    elif keyword == 'NEVER_DISORDER':
+        # GES A_P_D SIGMA_D8B NEVER_DIS SIGMA_DIS
         # never disorder model: since we need to add model_hints to both the
         # ordered and disorderd phase, we special case to update the phase
         # names defined by the TYPE_DEF, rather than the updating the phases
@@ -343,6 +356,25 @@ def _process_typedef(targetdb, typechar, line):
             targetdb.phases[disordered_phase].model_hints.update(hint)
         else:
             raise ValueError(f"The {disordered_phase} phase is not in the database, but is defined by: `TYPE_DEFINTION {typechar} {line}`")
+    elif keyword == "STATUS_BITS" and tokens[4] == "02200800":
+        # GES A_P_D ORD STATUS 02200800
+        # This is a legacy hint for NEVER_DISORDER that is assumed to be paired with a DIS_PART
+        # The status bit MUST be set on the ordered phase
+        ordered_phase = tokens[2].upper()
+        hint = {"never_disorder": True}
+        if ordered_phase in targetdb.phases:
+            targetdb.phases[ordered_phase].model_hints.update(hint)
+        else:
+            raise ValueError(f"The {ordered_phase} phase is not in the database, but is defined by: `TYPE_DEFINTION {typechar} {line}`")
+    elif keyword in IGNORED_KEYWORDS:
+        pass
+    else:
+        raise ValueError(
+            f"The type definition keyword {keyword} used by `TYPE_DEFINITION {typechar} {line}` used by the phases "
+            f"{matching_phases} is not handled by PyCalphad. If you need to use this feature, please report an issue: "
+            f"https://github.com/pycalphad/pycalphad/issues"
+            )
+
 
 
 phase_options = {'ionic_liquid_2SL': 'Y',
@@ -392,6 +424,63 @@ def _unimplemented(*args, **kwargs): #pylint: disable=W0613
     Null function.
     """
     pass
+
+def _process_diffusion(targetdb, model, phase_name, arguments=()):
+    """
+    Process the DIFFUSION command.
+
+    DIFFUSION commands can precede the PHASE commands, so the arguments are
+    queued and the DiffusionModel is built once all phases are defined.
+    """
+    phase_name = phase_name.upper()
+    if model == 'MAGNETIC':
+        arguments = [(keyword, None if species is None else species.upper(), value) for keyword, species, value in arguments]
+        given = set()
+        for keyword, species, _ in arguments:
+            if (keyword, species) in given:
+                name = keyword if species is None else f'{keyword}&{species}'
+                raise ValueError(f"`DIFFUSION {model} {phase_name}` gives {name} more than once")
+            given.add((keyword, species))
+    else:
+        arguments = [species.upper() for species in arguments]
+    if phase_name in targetdb._diffusion_queue:
+        warnings.warn(f"The {phase_name} phase has more than one DIFFUSION command. Using the last one: `DIFFUSION {model} {phase_name}`")
+    targetdb._diffusion_queue[phase_name] = (model, arguments)
+
+def _apply_diffusion_queue(targetdb):
+    """
+    Add the queued DIFFUSION commands to the model hints of the phases they name.
+    """
+    for phase_name, (model, arguments) in targetdb._diffusion_queue.items():
+        command = f'DIFFUSION {model} {phase_name}'
+        phase = targetdb.phases.get(phase_name)
+        if phase is None:
+            raise ValueError(f"The {phase_name} phase is not in the database, but is named by: `{command}`")
+        if model in ('DILUTE', 'SIMPLE'):
+            if len(arguments) != len(phase.constituents):
+                raise ValueError(f"`{command}` gives {len(arguments)} dependent species, but the {phase_name} phase has {len(phase.constituents)} sublattices")
+            dependent_constituents = []
+            for sublattice, species_name in zip(phase.constituents, arguments):
+                species = {sp.name: sp for sp in sublattice}.get(species_name)
+                if species is None:
+                    raise ValueError(f"`{command}` gives the dependent species {species_name}, which is not a constituent of its sublattice")
+                dependent_constituents.append(species)
+            diffusion = DiffusionModel(model, dependent_constituents=tuple(dependent_constituents))
+        elif model == 'MAGNETIC':
+            phase_species = {sp.name: sp for sublattice in phase.constituents for sp in sublattice}
+            alphas = {'ALPHA': [], 'ALPHA2': []}
+            for keyword, species_name, value in arguments:
+                if species_name is None:
+                    species = None
+                elif species_name in phase_species:
+                    species = phase_species[species_name]
+                else:
+                    raise ValueError(f"`{command}` gives {keyword}&{species_name}, but {species_name} is not a constituent of the {phase_name} phase")
+                alphas[keyword].append((species, value))
+            diffusion = DiffusionModel(model, magnetic_alpha=tuple(alphas['ALPHA']), magnetic_alpha_2=tuple(alphas['ALPHA2']))
+        else:
+            diffusion = DiffusionModel(model)
+        phase.model_hints['diffusion'] = diffusion
 
 def _process_species(db, sp_name, sp_comp, charge=0, *args):
     """Add a species to the Database. If charge not specified, the Species will be neutral."""
@@ -451,7 +540,7 @@ _TDB_PROCESSOR = {
             name.split(':')[0].upper(), c),
     'PARAMETER': _process_parameter,
     'ZEROVOLUME_SPECIES': _unimplemented,
-    'DIFFUSION': _unimplemented,
+    'DIFFUSION': _process_diffusion,
 }
 
 def to_interval(relational):
@@ -606,6 +695,8 @@ def reflow_text(text, linewidth=80):
     """
     lines = text.split("\n")
     linebreak_chars = [" ", "$"]
+    # Binary addition/subtraction follows an operand, unlike exponent and unary signs: '6.14599E-07', 'T**(-3)', 'LOG(-3)'
+    binary_add_sub = re.compile(r'(?<=[\w.)])(?<![0-9.][Ee])[+-]')
     output_lines = []
     for line in lines:
         if len(line) <= linewidth:
@@ -613,8 +704,7 @@ def reflow_text(text, linewidth=80):
         else:
             while len(line) > linewidth:
                 linebreak_idx = linewidth - 1
-                # Makes expressions breakable at `linebreak_chars` plus at [+-][0-9], since they are not preceded by 'E' or '('. This should prevent breaking lines inside EXP or LN/LOG or power expression: '6.14599E-07', 'T**(-3)', and 'LOG(-3)'
-                while linebreak_idx > 0 and not re.match(r'[^E\(][+-][0-9]', line[linebreak_idx-1:linebreak_idx+2]) and line[linebreak_idx] not in linebreak_chars:
+                while linebreak_idx > 0 and not binary_add_sub.match(line, linebreak_idx) and line[linebreak_idx] not in linebreak_chars:
                     linebreak_idx -= 1
                 # Need to check 2 (rather than zero) because we prepend newlines with 2 characters
                 if linebreak_idx <= 2:
@@ -691,8 +781,20 @@ def get_supported_variables():
     "When loading databases, these symbols should be replaced by their IndependentPotential counterparts"
     return {Symbol(x): getattr(v, x) for x in v.__dict__ if isinstance(getattr(v, x), (v.IndependentPotential, Float))}
 
+def _diffusion_command(phase_name, diffusion):
+    """
+    Return the DIFFUSION command for the DiffusionModel of a phase.
+    """
+    arguments = [diffusion.model, phase_name.upper()]
+    if len(diffusion.dependent_constituents) > 0:
+        arguments.append(':' + ':'.join(species.name for species in diffusion.dependent_constituents) + ':')
+    for keyword, coefficients in (('ALPHA', diffusion.magnetic_alpha), ('ALPHA2', diffusion.magnetic_alpha_2)):
+        for species, value in coefficients:
+            arguments.append(f'{keyword}={value}' if species is None else f'{keyword}&{species.name}={value}')
+    return 'DIFFUSION {} !\n'.format(' '.join(arguments))
 
-def write_tdb(dbf, fd, groupby='subsystem', if_incompatible='warn'):
+
+def write_tdb(dbf, fd, groupby='subsystem', if_incompatible='warn', maxlen=78):
     """
     Write a TDB file from a pycalphad Database object.
 
@@ -749,7 +851,6 @@ def write_tdb(dbf, fd, groupby='subsystem', if_incompatible='warn'):
 
     # Begin constructing the written database
     writetime = datetime.datetime.now()
-    maxlen = 78
     output = ""
     # Comment header block
     # Import here to prevent circular imports
@@ -838,9 +939,15 @@ def write_tdb(dbf, fd, groupby='subsystem', if_incompatible='warn'):
                         model_hints['ihj_magnetic_structure_factor'])
             del model_hints['ihj_magnetic_afm_factor']
             del model_hints['ihj_magnetic_structure_factor']
+        # The diffusion model is written as a DIFFUSION command below, after the type definitions
+        model_hints.pop('diffusion', None)
         if len(model_hints) > 0:
             # Some model hints were not properly consumed
             raise ValueError('Not all model hints are supported: {}'.format(model_hints))
+    diffusion_lines = [_diffusion_command(name, phase_obj.model_hints['diffusion'])
+                       for name, phase_obj in sorted(dbf.phases.items()) if 'diffusion' in phase_obj.model_hints]
+    if len(diffusion_lines) > 0:
+        output += ''.join(diffusion_lines) + '\n'
     # Perform a second loop now that all typedefs / model hints are consistent
     for name, phase_obj in sorted(dbf.phases.items()):
         # model_hints may also contain "phase options", e.g., ionic liquid
@@ -979,6 +1086,7 @@ def read_tdb(dbf, fd):
     # Map {typedef character: [phases using that typedef]}
     dbf._typechar_map = defaultdict(list)
     dbf._typedefs_queue = []  # queue of type defintion lines to process
+    dbf._diffusion_queue = {}  # {phase name: (model, arguments)} of the DIFFUSION commands
 
     grammar = _tdb_grammar()
 
@@ -1018,6 +1126,8 @@ def read_tdb(dbf, fd):
                       f"{phases_expecting_typechar}, but no corresponding TYPE_DEFINITION line was found in the TDB.")
     del dbf._typechar_map
     del dbf._typedefs_queue
+    _apply_diffusion_queue(dbf)
+    del dbf._diffusion_queue
 
     dbf.process_parameter_queue()
 

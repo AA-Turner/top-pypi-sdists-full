@@ -4,6 +4,7 @@ subpackage ``__init__`` for the shared vocabulary.
 """
 
 import functools
+import itertools
 
 from autoray import do
 
@@ -797,7 +798,7 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
             **gate_opts,
         )
 
-        for sa, sb in zip(path[:-1], path[1:]):
+        for sa, sb in itertools.pairwise(path):
             itn._sync_site(sa)
             bix = itn.get_bond_ind(sa, sb)
             bond_type = itn.get_bond_type(sa, sb)
@@ -943,7 +944,7 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
             fragment, fragment_gauges = self.fragment, gauges
         else:
             where_sites = set()
-            for where, _ in terms.items():
+            for where in terms:
                 where_sites.update(ensure_inf_2d_sites(where))
             fragment, fragment_gauges = self.build_fragment_with_gauges(
                 self._region_sites(where_sites, max_distance), gauges
@@ -957,28 +958,47 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
             **kwargs,
         )
 
-    def _gloop_region(self, where, gloops):
+    def _gloop_region(self, where, gloops, num_joins=1, allow_dangling=False):
         """The set of sites needed to evaluate a generalized-loop expansion of
         size ``gloops`` around ``where``. An explicit set of loops contributes
-        exactly its sites; an integer max-size or ``None`` (smallest loop) is
-        turned into a conservative graph-distance radius (a loop of ``C`` sites
-        reaches at most ``~C // 2`` hops out and back).
+        exactly its sites. An integer max-size, or ``None`` for the smallest
+        loop, is turned into a conservative graph-distance radius. A
+        non-dangling loop of ``C`` sites reaches at most ``~C // 2`` hops out
+        and back. A region with a dangling target reaches at most ``C - 2``
+        hops. Each further join can extend the loop by at most the same
+        radius.
         """
         if gloops is None:
-            # smallest non-trivial loop ~ one unit-cell plaquette
+            # smallest non-trivial loop ~ one unit-cell plaquette, adding one
+            # then covers all cases where target sites are danglers
             radius = max(self.geometry.get_cell_size()) + 1
         elif isinstance(gloops, int):
-            radius = gloops // 2 + 1
+            if allow_dangling:
+                radius = max(0, gloops - 2)
+            else:
+                radius = gloops // 2 + 1
         else:
             # explicit loops: union their sites (plus where), already exact
             sites = set(where)
             for gloop in gloops:
                 sites.update(gloop)
             return sites
+        radius *= max(1, num_joins)
         return self._region_sites(where, radius)
 
     def local_expectation_gloop_expand(
-        self, G, where, gloops=None, gauges=None, normalized=True, **kwargs
+        self,
+        G,
+        where,
+        gloops=None,
+        gauges=None,
+        normalized=True,
+        *,
+        max_size=None,
+        num_joins=1,
+        allow_dangling=True,
+        info=None,
+        **kwargs,
     ):
         """Approximate local expectation of gate ``G`` at sites ``where`` via a
         generalized-loop expansion with the bond ``gauges`` as the environment.
@@ -999,23 +1019,52 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
             Diagonal bond gauges (environments), keyed by bond index.
         normalized : bool, optional
             Whether and how to normalize the result.
+        max_size : None, int, or "min", optional
+            Alias for an automatically generated ``gloops`` size, matching
+            :meth:`~quimb.tensor.networking.gen_gloops`. Cannot be combined
+            with a non-``None`` ``gloops`` specification.
+        num_joins : int, optional
+            How many overlapping generalized loops can be joined together.
+            Typically only vary this with `gloops`/`max_size` set to ``None``
+            or the explicit smallest loop size.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded generalized loops.
+        info : dict, optional
+            A cache for intermediate contraction results. This can be reused
+            across different loop settings while the tensor network, gauges,
+            and local operator remain unchanged.
 
         Returns
         -------
         float
         """
 
-        fragment_sites = self._gloop_region(where, gloops)
+        if (gloops is not None) and (max_size is not None):
+            raise ValueError("Cannot supply both `gloops` and `max_size`.")
+        if gloops is None:
+            gloops = max_size
+
+        fragment_sites = self._gloop_region(
+            where, gloops, num_joins, allow_dangling
+        )
 
         fragment, fragment_gauges = self.build_fragment_with_gauges(
             fragment_sites, gauges
         )
+        if (info is not None) and ("neighbors" in info):
+            # this cache depends on the particular finite fragment
+            info["neighbors"] = fragment.get_site_neighbor_map()
+
         return fragment.local_expectation_gloop_expand(
             G,
             where,
             gloops=gloops,
             gauges=fragment_gauges,
             normalized=normalized,
+            num_joins=num_joins,
+            allow_dangling=allow_dangling,
+            info=info,
             **kwargs,
         )
 
@@ -1026,6 +1075,10 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
         *,
         gauges=None,
         normalized=True,
+        max_size=None,
+        num_joins=1,
+        allow_dangling=True,
+        info=None,
         return_all=False,
         **kwargs,
     ):
@@ -1046,6 +1099,21 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
             Diagonal bond gauges (environments), keyed by bond index.
         normalized : bool, optional
             Whether and how to normalize the result.
+        max_size : None, int, or "min", optional
+            Alias for an automatically generated ``gloops`` size, matching
+            :meth:`~quimb.tensor.networking.gen_gloops`. Cannot be combined
+            with a non-``None`` ``gloops`` specification.
+        num_joins : int, optional
+            How many overlapping generalized loops can be joined together.
+            Typically only vary this with `gloops`/`max_size` set to ``None``
+            or the explicit smallest loop size.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded generalized loops.
+        info : dict, optional
+            A cache for intermediate contraction results. This can be reused
+            across different loop settings while the tensor network, gauges,
+            and local operators remain unchanged.
         return_all : bool, optional
             If ``True`` return the per-``bond_type`` expectations instead of
             their sum.
@@ -1054,17 +1122,30 @@ class PEPSInfinite2D(TensorNetworkInfinite2DFlat):
         -------
         float or dict[bond_type, float]
         """
+        if (gloops is not None) and (max_size is not None):
+            raise ValueError("Cannot supply both `gloops` and `max_size`.")
+        if gloops is None:
+            gloops = max_size
+
         where_sites = set()
-        for where, _ in terms.items():
+        for where in terms:
             where_sites.update(ensure_inf_2d_sites(where))
         fragment, fragment_gauges = self.build_fragment_with_gauges(
-            self._gloop_region(where_sites, gloops), gauges
+            self._gloop_region(where_sites, gloops, num_joins, allow_dangling),
+            gauges,
         )
+        if (info is not None) and ("neighbors" in info):
+            # this cache depends on the particular finite fragment
+            info["neighbors"] = fragment.get_site_neighbor_map()
+
         return fragment.compute_local_expectation_gloop_expand(
             terms,
             gloops,
             gauges=fragment_gauges,
             normalized=normalized,
+            num_joins=num_joins,
+            allow_dangling=allow_dangling,
+            info=info,
             return_all=return_all,
             **kwargs,
         )

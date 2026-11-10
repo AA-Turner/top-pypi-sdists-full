@@ -32,6 +32,50 @@ logger = logging.getLogger(__name__)
 MIN_STREAM_INTERVAL_S = 1.0 / 60  # ~16ms
 
 
+def _overwrites_target(op: dict) -> bool:
+    """True if ``op`` replaces its target's whole content on the client."""
+    return op["op"] == "replace" or (op["op"] == "text" and op.get("mode") == "replace")
+
+
+def _queue_stream_op(queued: Optional[List[dict]], op: dict) -> List[dict]:
+    """Add ``op`` to a stream's queued ops so the client ends in the same state.
+
+    A queued op used to be replaced by the next one ("only latest matters"),
+    which is right for a replace and drops text for an append: five appends
+    inside one rate window reached the client as the first and the last.
+
+    - An op that overwrites its target (``replace``, ``text`` in replace mode)
+      makes every queued op for that target moot, so they are dropped.
+    - A text append or prepend is merged into the target's last queued text
+      op when the result is one op: append onto an append or a replace,
+      prepend onto a prepend or a replace. Otherwise it is queued after it.
+
+    Ops for different targets don't affect each other, so only the target's
+    own last op matters; the queue stays one or two ops per target.
+    """
+    ops = list(queued or ())
+    target = op["target"]
+    if _overwrites_target(op):
+        return [q for q in ops if q["target"] != target] + [op]
+    if op["op"] == "text":
+        mode = op.get("mode")
+        for i in range(len(ops) - 1, -1, -1):
+            last = ops[i]
+            if last["target"] != target:
+                continue
+            if last["op"] == "text":
+                last_mode = last.get("mode")
+                if mode == "append" and last_mode in ("append", "replace"):
+                    ops[i] = dict(last, text=last["text"] + op["text"])
+                    return ops
+                if mode == "prepend" and last_mode in ("prepend", "replace"):
+                    ops[i] = dict(last, text=op["text"] + last["text"])
+                    return ops
+            break
+    ops.append(op)
+    return ops
+
+
 class StreamingMixin:
     """
     Mixin that provides streaming capabilities for LiveView.
@@ -58,6 +102,7 @@ class StreamingMixin:
         self._stream_batch: Dict[str, List[dict]] = {}  # Pending ops by stream name
         self._last_stream_time: float = 0.0
         self._stream_flush_task: Optional[asyncio.Task] = None
+        self._stream_flush_sending: bool = False  # the flush task is sending its batch
 
     async def stream_to(
         self,
@@ -103,21 +148,9 @@ class StreamingMixin:
             )
 
         # Batch or send immediately
-        if elapsed >= MIN_STREAM_INTERVAL_S:
-            # Send immediately
-            await self._send_stream_ops(stream_name, [op])
-            self._last_stream_time = now
-        else:
-            # Batch: queue the op and schedule a flush
-            if stream_name not in self._stream_batch:
-                self._stream_batch[stream_name] = []
-            self._stream_batch[stream_name] = [op]  # Replace: only latest matters
+        await self._send_or_queue_stream_op(stream_name, op, now, elapsed)
 
-            if not self._stream_flush_task or self._stream_flush_task.done():
-                delay = MIN_STREAM_INTERVAL_S - elapsed
-                self._stream_flush_task = asyncio.ensure_future(self._flush_stream_batch(delay))
-
-    async def stream_insert(
+    async def astream_insert(
         self,
         stream_name: str,
         html: str,
@@ -171,18 +204,7 @@ class StreamingMixin:
 
         now = time.monotonic()
         elapsed = now - self._last_stream_time
-
-        if elapsed >= MIN_STREAM_INTERVAL_S:
-            await self._send_stream_ops(stream_name, [op])
-            self._last_stream_time = now
-        else:
-            if stream_name not in self._stream_batch:
-                self._stream_batch[stream_name] = []
-            self._stream_batch[stream_name] = [op]
-
-            if not self._stream_flush_task or self._stream_flush_task.done():
-                delay = MIN_STREAM_INTERVAL_S - elapsed
-                self._stream_flush_task = asyncio.ensure_future(self._flush_stream_batch(delay))
+        await self._send_or_queue_stream_op(stream_name, op, now, elapsed)
 
     async def stream_error(
         self,
@@ -206,7 +228,7 @@ class StreamingMixin:
             "target": target or f"[dj-stream='{stream_name}']",
             "error": error,
         }
-        await self._send_stream_ops(stream_name, [op])
+        await self._send_terminal_stream_op(stream_name, op)
 
     async def stream_start(
         self,
@@ -248,9 +270,9 @@ class StreamingMixin:
             "op": "done",
             "target": target or f"[dj-stream='{stream_name}']",
         }
-        await self._send_stream_ops(stream_name, [op])
+        await self._send_terminal_stream_op(stream_name, op)
 
-    async def stream_delete(
+    async def astream_delete(
         self,
         stream_name: str,
         selector: str,
@@ -270,6 +292,50 @@ class StreamingMixin:
             "target": selector,
         }
         await self._send_stream_ops(stream_name, [op])
+
+    async def stream_insert(
+        self,
+        stream_name: str,
+        html: str,
+        at: str = "append",
+        target: Optional[str] = None,
+    ) -> None:
+        """Deprecated name of :meth:`astream_insert` (removed in djust 2.0).
+
+        On a ``LiveView`` this name is shadowed by the sync
+        ``StreamsMixin.stream_insert``, so it was only reachable as
+        ``StreamingMixin.stream_insert(self, ...)``.
+
+        .. deprecated:: 1.3
+            Use ``await self.astream_insert(...)``. Removed in djust 2.0.0.
+        """
+        from ._deprecation import warn_deprecated
+
+        warn_deprecated(
+            "StreamingMixin.stream_insert",
+            since="1.3",
+            removed_in="2.0.0",
+            instead="await self.astream_insert(...)",
+            stacklevel=3,
+        )
+        await self.astream_insert(stream_name, html, at=at, target=target)
+
+    async def stream_delete(self, stream_name: str, selector: str) -> None:
+        """Deprecated name of :meth:`astream_delete` (removed in djust 2.0).
+
+        .. deprecated:: 1.3
+            Use ``await self.astream_delete(...)``. Removed in djust 2.0.0.
+        """
+        from ._deprecation import warn_deprecated
+
+        warn_deprecated(
+            "StreamingMixin.stream_delete",
+            since="1.3",
+            removed_in="2.0.0",
+            instead="await self.astream_delete(...)",
+            stacklevel=3,
+        )
+        await self.astream_delete(stream_name, selector)
 
     async def push_state(self) -> None:
         """
@@ -292,7 +358,22 @@ class StreamingMixin:
         # both frames MUST stamp the consumer-owned monotonic counter
         # (#1788, HIDDEN #2). Stamping the Rust version here would desync the
         # client against every other send path.
-        html, patches, _version = await sync_to_async(self.render_with_diff)()
+        # ADR-036: the rendered tree's public contracts travel with the frame
+        # (captured in the same operation); a strict client invalidates its
+        # scope on a DOM frame without them. Discovery failure withholds it.
+        from ._background_render import direct_render_contract_fields
+
+        runtime = getattr(self._ws_consumer, "_runtime", None)
+
+        def render() -> Any:
+            rendered = self.render_with_diff()
+            return rendered, direct_render_contract_fields(self, runtime)
+
+        (html, patches, _version), contract_fields = await sync_to_async(render)()
+        if contract_fields is None:
+            logger.warning("push_state() withheld: render parameter contracts unavailable")
+            return
+        snapshot = contract_fields.get("parameter_contract_snapshot") or {}
 
         if patches is not None:
             patch_list = json.loads(patches) if patches else []
@@ -301,6 +382,7 @@ class StreamingMixin:
                     "type": "patch",
                     "patches": patch_list,
                     "version": self._ws_consumer._next_version(),
+                    **snapshot,
                 }
             )
         else:
@@ -311,6 +393,7 @@ class StreamingMixin:
                     "type": "html_update",
                     "html": html,
                     "version": self._ws_consumer._next_version(),
+                    **snapshot,
                 }
             )
         await self._ws_consumer._flush_push_events()
@@ -355,15 +438,22 @@ class StreamingMixin:
         from asgiref.sync import sync_to_async
         from django.template.loader import render_to_string
 
-        context = await sync_to_async(self.get_context_data)()
+        from ._include_guard import include_guard_scope
+        from .sync_turn import sync_step
+
+        context = await sync_to_async(sync_step(self, "render", self.get_context_data))()
 
         if self.template_name:
-            html = await sync_to_async(render_to_string)(self.template_name, context)
+            # The scope is a ContextVar and asgiref runs the thread with a copy of this task's
+            # context, so entering it here guards the render on the worker thread (#3880).
+            with include_guard_scope():
+                html = await sync_to_async(render_to_string)(self.template_name, context)
         elif self.template:
             from django.template import Template, Context
 
             tmpl = Template(self.template)
-            html = await sync_to_async(tmpl.render)(Context(context))
+            with include_guard_scope():
+                html = await sync_to_async(tmpl.render)(Context(context))
         else:
             return ""
 
@@ -414,13 +504,90 @@ class StreamingMixin:
             }
         )
 
+    async def _send_or_queue_stream_op(
+        self, stream_name: str, op: dict, now: float, elapsed: float
+    ) -> None:
+        """Send ``op`` now if the rate window has passed, otherwise queue it.
+
+        Ops of one stream reach the client in the order they were made
+        (#3227). The window can pass while an older op of the stream is still
+        queued: the flush's deadline has come but it has not run yet (the
+        coroutine did synchronous work without yielding), or it is still
+        sending a batch it already took. So an immediate send first sends the
+        stream's queued ops, and while the flush is sending the new op is
+        queued instead; the flush schedules a successor for it. Queued ops
+        are merged by ``_queue_stream_op``: a replace supersedes the target's
+        queued ops, text appends and prepends accumulate.
+        """
+        if elapsed >= MIN_STREAM_INTERVAL_S and not getattr(self, "_stream_flush_sending", False):
+            queued = self._stream_batch.pop(stream_name, None) or []
+            await self._send_stream_ops(stream_name, queued + [op])
+            self._last_stream_time = now
+            return
+        self._stream_batch[stream_name] = _queue_stream_op(self._stream_batch.get(stream_name), op)
+        if not self._stream_flush_task or self._stream_flush_task.done():
+            delay = max(MIN_STREAM_INTERVAL_S - elapsed, 0.0)
+            self._stream_flush_task = asyncio.ensure_future(self._flush_stream_batch(delay))
+
     async def _flush_stream_batch(self, delay: float) -> None:
-        """Flush batched stream operations after a delay."""
+        """Flush batched stream operations after a delay.
+
+        The batch is taken as a whole before the first send, so an op queued
+        while a send is awaited lands in a fresh batch (flushed by the next
+        task) instead of mutating the dict being iterated. The flag marks the
+        send phase for ``_send_terminal_stream_op`` (#3227).
+        """
         await asyncio.sleep(delay)
 
-        for stream_name, ops in self._stream_batch.items():
-            if ops:
-                await self._send_stream_ops(stream_name, ops)
+        batch = self._stream_batch
+        self._stream_batch = {}
+        self._stream_flush_sending = True
+        try:
+            for stream_name, ops in batch.items():
+                if ops:
+                    await self._send_stream_ops(stream_name, ops)
+        finally:
+            self._stream_flush_sending = False
+            self._last_stream_time = time.monotonic()
+        if self._stream_batch:
+            # Queued while this task was sending: no new task was scheduled
+            # (this one was still pending), so schedule it now.
+            self._stream_flush_task = asyncio.ensure_future(
+                self._flush_stream_batch(MIN_STREAM_INTERVAL_S)
+            )
 
-        self._stream_batch.clear()
-        self._last_stream_time = time.monotonic()
+    async def _send_terminal_stream_op(self, stream_name: str, op: dict) -> None:
+        """Send a terminal op (``done``, ``error``) after the stream's queued ops (#3227).
+
+        ``stream_to``/``stream_text`` queue an op that lands inside the rate
+        window and flush it from a task. A terminal op sent directly would
+        overtake that op, so the client would get content for a stream it has
+        already finalised. Before the terminal op:
+
+        - If the flush task is sending, it owns a batch taken before this
+          call, possibly holding this stream's op: wait for it (``asyncio.wait``:
+          cancelling this caller doesn't cut the batch short, and a send
+          failure stays the flush task's own), then look
+          again, since it may have scheduled a successor.
+        - Otherwise take this stream's queued ops out of the batch and send
+          them here. If no other stream has queued ops, the sleeping flush
+          task has nothing left to do and is cancelled; if others do, it
+          keeps running for them.
+        """
+        while True:
+            task = self._stream_flush_task
+            if task is None or task.done() or task is asyncio.current_task():
+                break
+            if getattr(self, "_stream_flush_sending", False):
+                await asyncio.wait({task})
+                continue
+            if not any(ops for name, ops in self._stream_batch.items() if name != stream_name):
+                task.cancel()
+                self._stream_flush_task = None
+            break
+
+        queued = self._stream_batch.pop(stream_name, None)
+        if queued:
+            await self._send_stream_ops(stream_name, queued)
+            self._last_stream_time = time.monotonic()
+        await self._send_stream_ops(stream_name, [op])

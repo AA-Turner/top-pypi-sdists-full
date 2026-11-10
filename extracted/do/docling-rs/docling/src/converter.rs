@@ -4,11 +4,12 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use crate::backend::{
-    is_deepseek_markdown, AbwBackend, AsciiDocBackend, CsvBackend, DeclarativeBackend,
-    DeepSeekBackend, DocBackend, DoclingJsonBackend, DocxBackend, EbcdicBackend, EmailBackend,
-    EpubBackend, InterchangeBackend, JatsBackend, LatexBackend, LotusBackend, MarkdownBackend,
-    MhtmlBackend, PptBackend, PptxBackend, QuattroBackend, RtfBackend, StarOffice5Backend,
-    UsptoBackend, VisioBackend, WebVttBackend, WpdBackend, WpsBackend, XlsBackend, XlsxBackend,
+    is_deepseek_markdown, AbwBackend, AsciiDocBackend, CalendarBackend, CsvBackend,
+    DeclarativeBackend, DeepSeekBackend, DocBackend, DoclingJsonBackend, DocxBackend,
+    EbcdicBackend, EmailBackend, EpubBackend, InterchangeBackend, JatsBackend, LatexBackend,
+    LotusBackend, MarkdownBackend, MhtmlBackend, PptBackend, PptxBackend, QuattroBackend,
+    RtfBackend, StarOffice5Backend, UsptoBackend, VisioBackend, WebVttBackend, WpdBackend,
+    WpsBackend, XlsBackend, XlsxBackend,
 };
 
 /// Drop the embedded image bytes from every picture — the flat nodes and the
@@ -300,6 +301,12 @@ pub struct DocumentConverter {
     /// The password of an encrypted PDF (#611) or Office document (#625).
     password: Option<String>,
     force_full_page_ocr: bool,
+    /// OCR only the pages whose text layer is broken (#1006). See
+    /// [`Self::replace_broken_text_layer`].
+    replace_broken_text_layer: bool,
+    /// Mark PDF superscripts and subscripts (#1005). See
+    /// [`Self::script_positions`].
+    script_positions: bool,
     /// OCR mode id (docling's `OcrMode`, #254); parsed at the ML call sites.
     ocr_mode: Option<String>,
     /// OCR engine id (`ppocr` | `tesseract`, #460); parsed at the ML call
@@ -325,6 +332,9 @@ pub struct DocumentConverter {
     /// Keep page renders as the document's page images (docling's
     /// `generate_page_images`, #520).
     generate_page_images: bool,
+    /// Pictures take their one safe embedded image instead of a render crop
+    /// (docling's `use_embedded_picture_images`, #1007).
+    use_embedded_picture_images: bool,
     /// Infer PDF/image section-header levels after assembly (#302, docling's
     /// `HeadingHierarchyModel`): bookmarks > numbering > font style. Off by
     /// default — heading levels then stay exactly as detected.
@@ -619,6 +629,8 @@ impl Default for DocumentConverter {
             no_ocr: false,
             password: None,
             force_full_page_ocr: false,
+            replace_broken_text_layer: false,
+            script_positions: false,
             ocr_mode: None,
             ocr_engine: None,
             ocr_scale: None,
@@ -628,6 +640,7 @@ impl Default for DocumentConverter {
             ocr_textline_orientation: None,
             images_scale: None,
             generate_page_images: false,
+            use_embedded_picture_images: false,
             heading_hierarchy: false,
             use_web_browser: false,
             asr_model: None,
@@ -684,8 +697,9 @@ impl DocumentConverter {
     /// numbers a viewer shows — issue #80's `--pages A-B`). Out-of-window pages
     /// are skipped before rasterization, so converting 3 pages of a 500-page
     /// PDF costs 3 pages. `last` clamps to the document; a window that selects
-    /// no pages at all errors at convert time. Non-PDF formats ignore the
-    /// window (they convert whole).
+    /// no pages at all errors at convert time. DjVu and AFP pages, and
+    /// Numbers sheets (each sheet a page, as in docling), take the window
+    /// too; other non-PDF formats ignore it (they convert whole).
     pub fn page_range(mut self, first: usize, last: usize) -> Self {
         self.page_range = Some((first, last));
         self
@@ -820,9 +834,12 @@ impl DocumentConverter {
         p.set_ocr_scale(self.ocr_scale_choice());
         p.set_word_gap(self.pdf_word_gap_choice());
         p.set_keep_typography(self.pdf_keep_typography);
+        p.set_replace_broken_text_layer(self.replace_broken_text_layer);
+        p.set_script_positions(self.script_positions);
         p.set_images(docling_pdf::ImageOutput {
             scale: self.images_scale,
             page_images: self.generate_page_images,
+            embedded_pictures: self.use_embedded_picture_images,
         });
         p.set_heading_hierarchy(docling_pdf::HeadingHierarchyOptions::enabled(
             self.heading_hierarchy,
@@ -2278,6 +2295,37 @@ impl DocumentConverter {
         self
     }
 
+    /// Replace a broken PDF text layer with OCR, page by page — docling's
+    /// `replace_broken_text_layer` (docling#4654, #1006). A page whose text
+    /// layer a broken font mapping produced (control, U+FFFD or private-use
+    /// characters; Latin letters standing for another script; too few
+    /// vowels — [`docling_pdf::quality::is_broken_text_layer`]) is read with
+    /// full-page OCR and its `parse_score` drops to 0; every other page
+    /// keeps its text layer. The targeted alternative to
+    /// [`force_full_page_ocr`](Self::force_full_page_ocr). Off by default;
+    /// ignored with [`no_ocr`](Self::no_ocr) or a missing OCR model (the
+    /// page keeps its layer).
+    pub fn replace_broken_text_layer(mut self, replace: bool) -> Self {
+        self.replace_broken_text_layer = replace;
+        self
+    }
+
+    /// Mark superscript and subscript text in PDFs — docling's
+    /// `script_position_options.enabled` (docling#4815, #1005). Characters
+    /// drawn smaller than their line and raised or lowered against it
+    /// (footnote markers, `1st`, `mc²`, `H₂O`) are marked with
+    /// `formatting.script`: a paragraph or footnote holding them keeps its
+    /// place, and its text moves into an inline group of runs in the JSON
+    /// (HTML `<sup>`/`<sub>`); Markdown joins the runs (`E = mc2 in 1905.`).
+    /// Headings, captions, tables, code, formulas, list items, OCR'd and
+    /// invisible text are left alone. Off by default (the output is
+    /// unchanged); the PDF pipeline only — the text-layer-only route skips
+    /// it.
+    pub fn script_positions(mut self, enable: bool) -> Self {
+        self.script_positions = enable;
+        self
+    }
+
     /// Which document regions feed the OCR — docling's `OcrMode` (#254):
     /// `default`, `full_page`, `layout_regions`, or
     /// `pdf_aware_layout_regions`. The default is the text-layer-aware
@@ -2381,6 +2429,7 @@ impl DocumentConverter {
         docling_pdf::TextOptions {
             word_gap: self.pdf_word_gap_choice(),
             keep_typography: self.pdf_keep_typography.unwrap_or(env.keep_typography),
+            ..env
         }
     }
 
@@ -2419,6 +2468,20 @@ impl DocumentConverter {
     /// only; text-layer-only (`text_layer_only`) and streaming conversions get none.
     pub fn generate_page_images(mut self, enabled: bool) -> Self {
         self.generate_page_images = enabled;
+        self
+    }
+
+    /// Give a PDF picture its embedded image instead of the render crop
+    /// when the picture's region holds exactly one image XObject (mutual
+    /// intersection-over-self ≥ 0.8) with nothing painted over it — docling's
+    /// `use_embedded_picture_images` (#1007, docling#5143). The bitmap keeps
+    /// its native pixel size (`dpi` 72, not [`Self::images_scale`]); a
+    /// masked, transparent, clipped, rotated or overlapped image, a second
+    /// image or text in the box, or a `/Rotate`d page keep the crop. Off by
+    /// default; layout, OCR and page images are unaffected. PDF ML pipeline
+    /// only.
+    pub fn use_embedded_picture_images(mut self, enabled: bool) -> Self {
+        self.use_embedded_picture_images = enabled;
         self
     }
 
@@ -2746,6 +2809,10 @@ impl DocumentConverter {
     /// assembled document, and streamed output must stay byte-identical to
     /// buffered output).
     #[cfg(feature = "pdf")]
+    pub(crate) fn script_positions_enabled(&self) -> bool {
+        self.script_positions
+    }
+
     pub(crate) fn heading_hierarchy_enabled(&self) -> bool {
         self.heading_hierarchy
     }
@@ -2762,6 +2829,7 @@ impl DocumentConverter {
             no_ocr: self.no_ocr,
             password: self.password.clone(),
             force_full_page_ocr: self.force_full_page_ocr,
+            replace_broken_text_layer: self.replace_broken_text_layer,
             enrich: self.enrich,
             page_range: self.page_range,
             ocr_lang: self.ocr_lang_choice(),
@@ -2773,6 +2841,7 @@ impl DocumentConverter {
             keep_typography: self.pdf_keep_typography,
             ocr_textline_orientation: self.ocr_textline_orientation,
             images_scale: self.images_scale,
+            embedded_pictures: self.use_embedded_picture_images,
             keep_picture_images: self.keep_picture_images,
             page_break_placeholder: self.page_break_placeholder.clone(),
             compact_tables: self.compact_tables,
@@ -3089,6 +3158,11 @@ impl DocumentConverter {
                 }
                 .convert(source)?,
                 InputFormat::Vtt => WebVttBackend.convert(source)?,
+                InputFormat::Afp => crate::backend::AfpBackend {
+                    page_range: self.page_range,
+                }
+                .convert(source)?,
+                InputFormat::Calendar => CalendarBackend.convert(source)?,
                 InputFormat::Ebcdic => EbcdicBackend {
                     layout: self.ebcdic_layout.clone(),
                 }
@@ -3112,8 +3186,13 @@ impl DocumentConverter {
                 // `"cells"` — reads as one, like MarkItDown's `application/json`
                 // sniff; any other JSON is the docling-JSON backend's.
                 InputFormat::JsonDocling => {
-                    if crate::backend::ipynb::looks_like_notebook(&source.text()?) {
+                    let text = source.text()?;
+                    if crate::backend::ipynb::looks_like_notebook(&text) {
                         self.ipynb_backend().convert(source)?
+                    } else if crate::backend::boxnote::looks_like_boxnote(&text) {
+                        // A Box Note saved as `.json` (#1033): a top-level
+                        // `doc` node, which no docling document has.
+                        crate::backend::BoxNoteBackend.convert(source)?
                     } else {
                         DoclingJsonBackend.convert(source)?
                     }
@@ -3121,6 +3200,8 @@ impl DocumentConverter {
                 InputFormat::Jsonl => crate::backend::text::convert_json_text(source)?,
                 InputFormat::Text => crate::backend::TextBackend.convert(source)?,
                 InputFormat::Ipynb => self.ipynb_backend().convert(source)?,
+                // Box Notes (#1033): docling's ProseMirror JSON reader.
+                InputFormat::Boxnote => crate::backend::BoxNoteBackend.convert(source)?,
                 // RSS / Atom / RDF feeds (#678): the title, each item's heading,
                 // date and body (its HTML through the HTML backend).
                 InputFormat::Feed => crate::backend::FeedBackend {
@@ -3243,7 +3324,10 @@ impl DocumentConverter {
                 InputFormat::Svg => crate::backend::SvgBackend.convert(source)?,
                 // Apple iWork (#213): pure-Rust IWA text extraction, all builds.
                 InputFormat::Pages | InputFormat::Numbers | InputFormat::Keynote => {
-                    crate::backend::IworkBackend.convert(source)?
+                    crate::backend::IworkBackend {
+                        page_range: self.page_range,
+                    }
+                    .convert(source)?
                 }
                 #[cfg(feature = "pdf")]
                 InputFormat::Image => self

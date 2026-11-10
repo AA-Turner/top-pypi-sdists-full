@@ -43,6 +43,7 @@ path where an exception is a broken prompt.
 
 from __future__ import annotations
 
+import enum
 import json
 import math
 import os
@@ -70,6 +71,9 @@ SCOPE_SUFFIX = ".scope"
 #: `<session>.home` beside it: where this session's runs go (`write_run_home`), set by
 #: the daemon. Not a key in `.scope`, which every landed write rewrites. `prune` sweeps it.
 HOME_SUFFIX = ".home"
+#: `<session>.workspace` beside it: where a project this session creates is filed
+#: (`write_session_workspace`), set by `probe example start` (agent-prompt install D68). `prune` sweeps it.
+WORKSPACE_SUFFIX = ".workspace"
 #: A bound on a project name this file stores or shows. Server slugs are
 #: free-form TEXT; the segment elides a long one anyway, so this only keeps a
 #: pathological value off the render path.
@@ -80,159 +84,69 @@ MAX_LABEL_CHARS = 1024
 #: python can be older than the daemon's, and a newer emoji is unassigned there.
 _UNPRINTABLE = frozenset({"Cc", "Cf", "Zl", "Zp", "Cs", "Co"})
 
-#: The ONE way any message sends a person to set up, sign in, update or repair
-#: this device: setup is wizard-only (Richard 2026-09-29), so no user-facing text
-#: names a `probe <setup command>`. Lives here because this file is the one every
-#: surface can reach (the SDK imports it, the plugin hooks vendor it); the tap and
-#: the pi extension carry copies that tests/test_wizard_hint_sync.py pins to it.
-WIZARD_HINT = "run the Probe wizard: probe wizard or npx probe-research"
+#: How a message sends someone to fix this device from the chat (fixes-1107b): the
+#: command the agent runs itself, never the wizard or "a terminal"
+#: (tests/test_no_terminal_handoff.py). Here because every surface reaches this file
+#: (the SDK imports it, the hooks vendor it); the tap, the pi extension, safe_warn and
+#: two shell scripts copy SIGN_IN_HINT (tests/test_sign_in_hint_sync.py).
+SIGN_IN_HINT = "run `npx -y probe-research sign-in --json`"
+UPDATE_HINT = "run `npx -y probe-research update --json`"
+#: The install, keeping every choice: it re-pairs capture and re-points the agents' MCP.
+INSTALL_HINT = "run `npx -y probe-research install --yes --json`"
+#: Checks every part of this machine's Probe and fixes what fails (the CLI's env included).
+REPAIR_HINT = "run `npx -y probe-research repair --json`"
+#: Who records -> the daemon again: its key from the sign-in, and its AI libraries. A
+#: `--who-records` change records less by the gate's rule, so only on the person's ask (UC2).
+DAEMON_HINT = ("ask your agent to set Who records to the daemon "
+               "(`npx -y probe-research install --yes --json --who-records daemon --directed`)")
 
 _ELLIPSIS = "…"  # …
-#: ONE glyph for both states, and it is FILLED in both. A hollow ring is faint
-#: at terminal font sizes and reads as a rendering artefact rather than a mark.
-#: Nothing is lost by using the same glyph twice: the state is carried by the
-#: WORD ("untracked" / "tracked →"), which is why the dot could be spared the
-#: job in the first place. Colour distinguishes them for a quick glance; the
-#: word distinguishes them when colour is off, absent, or unseeable.
+#: The status line's one glyph. Its colour says the kind of state (green on, yellow read, red off or broken); the words
+#: say it too, so nothing is lost with colour off.
 _DOT = "●"  # ●
-_ARROW = "→"  # →
-_SEPARATOR = "·"  # ·
-
-_INDENT = "  "
+_INDENT = "  "  # the segment is concatenated after a chained neighbour: keep a gap
 _GLYPH_WIDTH = 2  # the dot plus its trailing space
 
-#: The state is spelled OUT, not encoded in the glyph. `● folding` requires the
-#: reader to already know that a filled dot means tracked; `tracked → folding`
-#: does not, and a status line is read by people who did not install it.
-_LABEL_TRACKED = "tracking " + _ARROW + " "
-_LABEL_TRACKING_BARE = "tracking"
-#: The `daemon` state's words: `on (daemon)`, the switch's `on` with who records
-#: in parentheses (Richard 2026-09-29; `DAEMON_STATE_DISPLAY`).
-_LABEL_DAEMON = "on (daemon) " + _ARROW + " "
-_LABEL_DAEMON_BARE = "on (daemon)"
-#: Still `on (daemon)`, but the daemon holds no live lease (no key, out of
-#: budget, gateway down, not started yet). The mode stays on screen; `degraded`
-#: says the daemon is not the one doing it.
-_LABEL_DAEMON_DEGRADED = "on (daemon degraded) " + _ARROW + " "
-_LABEL_DAEMON_DEGRADED_BARE = "on (daemon degraded)"
-#: The researcher set Probe inline (`/probe inline`, `is_inline`, Richard 2026-10-06).
-_LABEL_INLINE = "on (inline) " + _ARROW + " "
-_LABEL_INLINE_BARE = "on (inline)"
-#: Kept for readers that still resolve the switch to a BOOLEAN. `render` only
-#: reaches it when no three-valued state was passed in, which is the shape a
-#: pre-three-state caller has. New callers pass `session_state` and get one of
-#: the two labels below instead.
-_LABEL_NOT_TRACKING = "not tracking"
+#: The segment's fields, joined: `● <state words> | <title> | <note>` (Richard 2026-11-07; no `Probe |` prefix, 11-08).
+STATUS_DIVIDER = " | "
 
-#: The two non-recording states are spelled by `_STATE_SEGMENT`, down in the
-#: Rendering section beside the colour each one is painted. Both words are
-#: SHORTER than `not tracking` (9 and 3 against 12), so MAX_SEGMENT_CHARS is
-#: untouched.
+#: The one note a line carries, most serious first. Problems only, plus `transcripts off`, which is why a daemon chat
+#: records nothing. Failure lines carry the status alone, never a command (Richard 2026-11-07).
+NOTE_TRANSCRIPT_NOT_RECORDED = "session transcript not recorded"
+NOTE_DAEMON_NOT_RECORDING = "daemon not recording"
+NOTE_TRANSCRIPTS_OFF = "transcripts off"
+NOTE_STATUS_UNAVAILABLE = "Probe status unavailable"
+NOTE_SERVICE_DOWN = "Probe service down"
+NOTE_SIGNED_OUT = "signed out of Probe"
+NOTE_NOTHING_FILED = "nothing filed yet"  # the notice's, when the chat has filed nothing
 
-#: A middle dot, NOT a second arrow. `tracked → folding ▸ running` puts two
-#: arrow-shaped glyphs in one short segment, and the eye reads them as a
-#: sequence of three things rather than as a name with a state hung off it.
-_ACCENT_TEXT = " " + _SEPARATOR + " running"
-
-#: The third state: tracking is ON and the work IS landing, but no
-#: transcript-capture daemon is live for this conversation.
-#:
-#: A HALF-FILLED dot, not a hollow one. Hollow is faint at terminal font sizes
-#: (see `_DOT`), and the reader must be able to tell this from `not tracking` at
-#: a glance; the WORD carries the meaning for anyone whose terminal renders both
-#: dots the same. The dot stays GREEN when painted, because green means
-#: "landing" and the work still is — yellow already belongs to `not tracking`,
-#: and reusing it would make a degraded session look like a switched-off one.
-_DOT_DEGRADED = "◐"  # ◐
-#: SPELLED OUT. An earlier `no capture:` named the mechanism, and read beside
-#: `tracking` it was taken for its opposite -- "nothing is being recorded" --
-#: when the work IS landing and only the conversation is not. Naming the
-#: transcript says exactly which half is missing. The columns this costs are
-#: paid by `MAX_SEGMENT_CHARS` below, never by the project name.
-_LABEL_NO_CAPTURE = " " + _SEPARATOR + " not capturing session transcript: "
-
-#: The capture reason for transcripts turned off on purpose (`capture_state.TURNED_OFF_REASON`):
-#: a choice, so it renders as a plain note with the full dot, never as a fault.
+#: The capture reason for transcripts turned off on purpose (`capture_state.TURNED_OFF_REASON`).
 _CHOSEN_OFF_REASON = "turned off"
-_LABEL_TRANSCRIPTS_OFF = " " + _SEPARATOR + " transcripts off"
+_MAX_LOWERED_CHARS = 24
 
-#: The longest word in `probe.cli.capture_state.REASONS` (`interpreter too old`).
-#: A literal, because nothing of ours may be imported on the render path;
-#: `test_every_reason_in_the_closed_vocabulary_renders_whole_on_the_bare_line`
-#: pins it against the vocabulary, so a longer reason added there fails a test
-#: here rather than rendering as `interp…` on somebody's status line.
-_LONGEST_REASON_CHARS = 19
+#: Room for a title when a note shares the line: the length of Richard's example title (`BIRD SFT Fine Tuning`).
+TITLE_ROOM_WITH_NOTE = 20
+#: A title past this many characters is not one (the server's own name limit).
+MAX_TITLE_LEN = 200
+#: How many project titles the marker keeps (the last rows of the work read; the picked project is the last).
+MAX_TITLE_ROWS = 32
 
-#: Below this many columns an elided project name identifies nothing — `a-rea…`
-#: is not a name, it is noise wearing one. When the reason is long enough to
-#: push the name under this floor, the name is dropped ENTIRELY and the segment
-#: falls back to `_LABEL_TRACKING_BARE`, which this file already renders for
-#: "tracking is on, nothing filed yet".
-_MIN_SLUG_CHARS_DEGRADED = 8
-
-#: Hard ceiling on the rendered segment, leading indent included, counted in
-#: VISIBLE characters. The cap exists because the status line must not WRAP: a
-#: wrapped line reflows every other segment sharing it, which is the one failure
-#: that makes neighbouring output less readable rather than merely longer.
-#:
-#: DERIVED FROM THE WIDEST LINE THAT MUST RENDER WHOLE: the degraded bare form
-#: carrying the longest reason in the closed vocabulary,
-#: `  ◐ tracking · not capturing session transcript: interpreter too old` (68).
-#: The reason is the one actionable thing on that line and is on screen nowhere
-#: else, so it is the last thing cut (`_no_capture_clause`); a ceiling it cannot
-#: fit under would elide the diagnosis on every degraded render.
-#:
-#: The previous ceiling, 51, was measured against the HEALTHY line instead: the
-#: smallest number at which a 26-character name budget survived, 26 being what
-#: this lab's project names need (median 18, longest 29). The capture suffix was
-#: 15 columns then and fit beneath it; spelling the suffix out made the degraded
-#: line the binding one. The name budget grows with the ceiling (see
-#: `MAX_SLUG_CHARS`), so nothing that fit whole before fits worse now.
-#:
-#: THE LABEL IS PAID FOR BY THE CEILING, NEVER BY THE NAME. Spelling out
-#: "tracking → " costs eleven columns; taking them from the name would elide the
-#: project the segment exists to identify. When a label changes length, this
-#: number moves with it by construction.
-#: `test_this_labs_project_names_mostly_fit_whole` pins the name budget.
-#:
-#: The bare label is the WIDER of the two that can carry the capture suffix:
-#: `on (daemon)` does too (see `_recording_labels`), and it is three columns
-#: longer than `tracking`.
+#: The segment's ceiling in terminal columns, leading indent included: the widest line that must render whole,
+#: `  ● on (daemon) | <20-column title> | session transcript not recorded` (72). Derived, so it moves when
+#: the words do; only words reachable today count (a manual chat's `, manual` re-derives it).
 MAX_SEGMENT_CHARS = (
-    len(_INDENT)
-    + _GLYPH_WIDTH
-    + max(len(_LABEL_TRACKING_BARE), len(_LABEL_DAEMON_BARE))
-    + len(_LABEL_NO_CAPTURE)
-    + _LONGEST_REASON_CHARS
+    len(_INDENT) + _GLYPH_WIDTH + len("on (daemon)")
+    + len(STATUS_DIVIDER) + TITLE_ROOM_WITH_NOTE + len(STATUS_DIVIDER) + len(NOTE_TRANSCRIPT_NOT_RECORDED)
 )
-
-#: What the name may occupy. DERIVED, and derived against the LIVE width even
-#: when idle, so the name keeps one budget in both states: a name that shrank the
-#: moment a run started -- and grew back when it ended -- would read as the status
-#: line glitching rather than as the run changing.
-#:
-#: Wider than any name this lab has (43 against a longest of 29), so a healthy
-#: line reaches the ceiling only in theory; the columns the ceiling grew by are
-#: spent on the reason, and only when there is one.
-MAX_SLUG_CHARS = (
-    MAX_SEGMENT_CHARS - len(_INDENT) - _GLYPH_WIDTH - len(_LABEL_TRACKED) - len(_ACCENT_TEXT)
+#: The title's budget with no note: the same in every state, so it never moves when the state does.
+MAX_TITLE_CHARS = (
+    MAX_SEGMENT_CHARS - len(_INDENT) - _GLYPH_WIDTH
+    - len("read (daemon)") - len(STATUS_DIVIDER)
 )
+#: Below this many columns a cut title names nothing: it is dropped (a guard against unbounded input).
+_MIN_TITLE_CHARS = 8
 
-# Basic SGR codes, never 256-colour or truecolour: the status line is rendered
-# inside the user's terminal theme, and a hardcoded hex that looks right on one
-# background is unreadable on the other. These resolve against whatever palette
-# they already chose. Claude Code additionally dims the whole line, so treat
-# these as a hint of hue rather than as emphasis.
-#
-# Three, and each is a state someone can name: landing (green), not landing but
-# still reading (yellow), and switched off entirely (red). A fourth colour would
-# be a state nobody defined.
-#
-# RED IS THE ONE THAT STOPS A READER, and `off` is the one state that earns it:
-# it is the only position of the switch under which an agent cannot find prior
-# work AND cannot know what it missed. `read-only` still answers questions, so
-# it keeps the yellow that means "look, but nothing is on fire".
-_DIM = "\033[2m"
+# Basic SGR codes, never 256-colour: the line renders inside the user's own terminal theme.
 _GREEN = "\033[32m"
 _YELLOW = "\033[33m"
 _RED = "\033[31m"
@@ -352,12 +266,29 @@ def read(session_id: str) -> dict | None:
     state = _read_marker(session_id)
     if state is None:
         return None
-    scope = read_scope(session_id)
-    if scope is not None:
-        return {**state, "project": scope}
-    if state.get("project") is not None and not _printable(state.get("project")):
-        return {**state, "project": None}
-    return state
+    record = _read_scope_record(session_id)
+    if record is not None:
+        state = {**state, "project": record["project"]}
+    elif state.get("project") is not None and not _printable(state.get("project")):
+        state = {**state, "project": None}
+    return {**state, "project_title": _pick_title(state, record)}
+
+
+def _pick_title(state: dict, scope: "dict | None") -> "str | None":
+    """The title for the winning slug: the newer of the marker's title map (refreshed from the server) and the
+    daemon's scope title, each by when it was observed. None: neither knows one (the line shows the slug)."""
+    slug = state.get("project")
+    if not isinstance(slug, str):
+        return None
+    titles = state.get("project_titles")
+    mapped = titles.get(slug) if isinstance(titles, dict) else None
+    mapped = mapped if is_printable_title(mapped) else None
+    scoped = scope.get("title") if scope is not None and scope.get("project") == slug else None
+    scoped = scoped if is_printable_title(scoped) else None
+    if mapped and scoped:
+        mapped_at, scoped_at = _finite(state.get("titles_at")) or 0.0, _finite(scope.get("updated_at")) or 0.0
+        return scoped if scoped_at > mapped_at else mapped
+    return mapped or scoped
 
 
 def scope_path(session_id: str) -> Path:
@@ -372,9 +303,37 @@ def _printable(value: object) -> bool:
             and all(unicodedata.category(ch) not in _UNPRINTABLE for ch in value))
 
 
-def write_scope(session_id: str, project: str, project_id: str | None = None) -> bool:
-    """Record the project the daemon's latest write landed in (its slug, and its
-    id so a delete by id can clear it). True when it landed.
+#: Format characters a title may carry: ZWJ and the emoji variation selector build emoji (`👩‍🔬`); every other `Cf`
+#: (bidi controls above all) stays refused.
+_TITLE_ALLOWED_CF = frozenset({"\u200d", "\ufe0f"})
+
+
+#: Combining marks a title may stack on one character: scripts with diacritics use up to 3; more draws over the
+#: rows around it in many terminals (a teammate names the project).
+MAX_TITLE_MARKS = 4
+
+
+def _has_mark_stack(value: str) -> bool:
+    run = 0
+    for ch in value:
+        run = run + 1 if unicodedata.category(ch) in ("Mn", "Me") else 0
+        if run > MAX_TITLE_MARKS:
+            return True
+    return False
+
+
+def is_printable_title(value: object) -> bool:
+    """A project title the line can print: like `_printable`, but capped at the server's own name limit, letting the
+    two characters emoji are built from through, and refusing a pile of combining marks."""
+    return (isinstance(value, str) and 0 < len(value) <= MAX_TITLE_LEN
+            and all(ch in _TITLE_ALLOWED_CF or unicodedata.category(ch) not in _UNPRINTABLE for ch in value)
+            and not _has_mark_stack(value))
+
+
+def write_scope(session_id: str, project: str, project_id: str | None = None, title: str | None = None) -> bool:
+    """Record the project the daemon's latest write landed in (its slug, its id so a delete by id can clear it, and
+    its title when the lookup read the project row). True when it landed; a title that fails `is_printable_title` is
+    dropped and the slug kept.
 
     A file of its own, not a key in the marker: the refresh hook REPLACES the
     marker every few seconds from the server's answer, and a second writer's key
@@ -383,6 +342,8 @@ def write_scope(session_id: str, project: str, project_id: str | None = None) ->
     if not valid_session_id(session_id) or not _printable(project):
         return False
     record = {"project": project, "project_id": project_id, "updated_at": time.time()}
+    if is_printable_title(title):
+        record["title"] = title
     return _publish_atomically(scope_path(session_id), json.dumps(record) + "\n")
 
 
@@ -476,6 +437,47 @@ def clear_run_home(session_id: str) -> bool:
         return False
 
 
+def get_session_workspace_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + WORKSPACE_SUFFIX)
+
+
+def write_session_workspace(session_id: str, *, workspace_id: str, base_url: str,
+                            customer_id: "str | None") -> bool:
+    """Record the workspace a project this session creates is filed in, with the server and team
+    it belongs to. True when it landed. It outranks this computer's own pin (D68)."""
+    if not valid_session_id(session_id) or not _printable(workspace_id) or not isinstance(base_url, str):
+        return False
+    record = {"workspace_id": workspace_id, "base_url": base_url, "customer_id": customer_id,
+              "decided_at": time.time()}
+    return _publish_atomically(get_session_workspace_path(session_id), json.dumps(record) + "\n")
+
+
+def read_session_workspace(session_id: str) -> "dict | None":
+    """This session's workspace as `write_session_workspace` stored it, or None: absent,
+    unreadable and malformed alike."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        with open(get_session_workspace_path(session_id), encoding="utf-8") as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not _printable(record.get("workspace_id")):
+        return None
+    return record if isinstance(record.get("base_url"), str) else None
+
+
+def clear_session_workspace(session_id: str) -> bool:
+    """Forget this session's workspace. True when there was one to forget."""
+    if not valid_session_id(session_id):
+        return False
+    try:
+        os.unlink(get_session_workspace_path(session_id))
+        return True
+    except OSError:
+        return False
+
+
 def write(session_id: str, state: dict) -> bool:
     """Replace this session's marker. True when it landed.
 
@@ -518,6 +520,7 @@ def from_session_work(payload: dict) -> dict:
     there is one.
     """
     project = None
+    titles: dict = {}
     projects = payload.get("projects")
     if isinstance(projects, list):
         for row in projects:
@@ -526,6 +529,11 @@ def from_session_work(payload: dict) -> dict:
             slug = row.get("slug") or row.get("name")
             if isinstance(slug, str) and slug:
                 project = slug
+                name = row.get("name")
+                titles.pop(slug, None)  # re-insert: the dict keeps response order, newest last
+                if is_printable_title(name):
+                    titles[slug] = name
+    titles = dict(list(titles.items())[-MAX_TITLE_ROWS:])
 
     # The work read carries no run STATUS, only identity. The ids are kept so the
     # renderer can intersect them with the run locks this box holds — the local
@@ -541,7 +549,7 @@ def from_session_work(payload: dict) -> dict:
             if isinstance(entity_id, str) and entity_id:
                 run_ids.append(entity_id)
 
-    return {"project": project, "run_ids": run_ids}
+    return {"project": project, "run_ids": run_ids, "project_titles": titles, "titles_at": time.time()}
 
 
 def from_active_runs(payload: object) -> list[str]:

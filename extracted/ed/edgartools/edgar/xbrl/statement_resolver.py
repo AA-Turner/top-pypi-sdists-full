@@ -669,7 +669,7 @@ class StatementResolver:
             if concept in self._statement_by_primary_concept:
                 for stmt in self._statement_by_primary_concept[concept]:
                     # Handle parenthetical check
-                    if registry_entry.supports_parenthetical:
+                    if is_parenthetical or registry_entry.supports_parenthetical:
                         role_def = stmt.get('definition', '').lower()
                         is_role_parenthetical = 'parenthetical' in role_def
 
@@ -731,7 +731,7 @@ class StatementResolver:
             for pattern in concept_patterns:
                 if re.match(pattern, primary_concept):
                     # For parenthetical statements, check the role definition
-                    if registry_entry.supports_parenthetical:
+                    if is_parenthetical or registry_entry.supports_parenthetical:
                         role_def = stmt.get('definition', '').lower()
                         is_role_parenthetical = 'parenthetical' in role_def
 
@@ -831,6 +831,8 @@ class StatementResolver:
             # An explicit parenthetical request must not settle for the main statement.
             score -= 80
 
+        score -= self._coregistrant_penalty(stmt)
+
         # Prefer "Consolidated" statements (primary statements)
         if 'consolidated' in role_def or 'consolidated' in role_uri:
             score += 30
@@ -868,6 +870,20 @@ class StatementResolver:
 
         return score
 
+    def _coregistrant_penalty(self, stmt: Dict[str, Any]) -> int:
+        """Score penalty for a co-registrant's own face statement (GH #1648).
+
+        A subsidiary filing alongside the parent (Transco in Williams' 10-Q) has
+        its own face statements, and they are never THE statement of the filing
+        while the parent's role exists. Name scoring alone preferred Transco's
+        "Statement of Net Income" over Williams' "Statement of Comprehensive Income".
+        Duck-typed: callers (and tests) hand the resolver light XBRL stand-ins.
+        """
+        coregistrant_member = getattr(self.xbrl, '_coregistrant_member', None)
+        if coregistrant_member is not None and coregistrant_member(stmt.get('role')):
+            return 200
+        return 0
+
     def _match_by_role_pattern(self, statement_type: str, is_parenthetical: bool = False) -> Tuple[List[Dict[str, Any]], Optional[str], float]:
         """
         Match statements using role URI or role name patterns.
@@ -892,6 +908,12 @@ class StatementResolver:
         # Get registry information
         registry_entry = statement_registry[registry_type]
         role_patterns = registry_entry.role_patterns
+        if is_parenthetical and registry_type == "CashFlowStatement":
+            # A family name is distinct from cash-flow hedge disclosure names.
+            role_patterns = [
+                r"^(?:.*/)?(?:(?:[Cc]ondensed|[Cc]onsolidated))*[Cc]ash[Ff]lows?(?:[Ss]tatements?)?[Pp]arentheticals?$",
+                *role_patterns[1:],
+            ]
 
         if not role_patterns:
             return [], None, 0.0
@@ -910,7 +932,7 @@ class StatementResolver:
                 if (re.search(pattern, role, re.IGNORECASE) or
                    (role_name and re.search(pattern, role_name, re.IGNORECASE))):
                     # For parenthetical statements, check the role definition
-                    if registry_entry.supports_parenthetical:
+                    if is_parenthetical or registry_entry.supports_parenthetical:
                         role_def = stmt.get('definition', '').lower()
                         is_role_parenthetical = 'parenthetical' in role_def
 
@@ -1278,7 +1300,7 @@ class StatementResolver:
         # NOTE: We use a broad search for equity candidates because older filings may use
         # non-standard primary concepts (e.g., us-gaap_IncreaseDecreaseInStockholdersEquityRollForward
         # used by GE 2010) that are not recognized in the type index.
-        if statement_type == 'ComprehensiveIncome':
+        if statement_type == 'ComprehensiveIncome' and not is_parenthetical:
             # Gather equity statement candidates from multiple sources:
             # 1. Statements already typed as StatementOfEquity
             # 2. Statements with any known equity primary concept (handles GE-style roll-forward concept)

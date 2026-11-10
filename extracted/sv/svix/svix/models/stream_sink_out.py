@@ -14,10 +14,12 @@ from .event_bridge_config_out import EventBridgeConfigOut
 from .google_cloud_pub_sub_config_out import GoogleCloudPubSubConfigOut
 from .google_cloud_storage_config_out import GoogleCloudStorageConfigOut
 from .otel_tracing_config_out import OtelTracingConfigOut
+from .post_hog_config_out import PostHogConfigOut
 from .postgres_config_out import PostgresConfigOut
 from .rabbit_mq_config_out import RabbitMqConfigOut
 from .redshift_config_out import RedshiftConfigOut
 from .s3_config_out import S3ConfigOut
+from .segment_sink_config_out import SegmentSinkConfigOut
 from .sink_http_config_out import SinkHttpConfigOut
 from .sink_status import SinkStatus
 from .snowflake_config_out import SnowflakeConfigOut
@@ -73,6 +75,8 @@ class StreamSinkOut(BaseModel):
         t.Literal["sns"],
         t.Literal["postgres"],
         t.Literal["elasticSearch"],
+        t.Literal["postHog"],
+        t.Literal["segment"],
     ]
     config: t.Union[
         t.Dict[str, t.Any],
@@ -92,6 +96,8 @@ class StreamSinkOut(BaseModel):
         SnsConfigOut,
         PostgresConfigOut,
         ElasticSearchConfigOut,
+        PostHogConfigOut,
+        SegmentSinkConfigOut,
     ]
 
     @model_validator(mode="wrap")
@@ -148,6 +154,10 @@ class StreamSinkOut(BaseModel):
             output.config = ElasticSearchConfigOut.model_validate(
                 data.get("config", {})
             )
+        elif output.type == "postHog":
+            output.config = PostHogConfigOut.model_validate(data.get("config", {}))
+        elif output.type == "segment":
+            output.config = SegmentSinkConfigOut.model_validate(data.get("config", {}))
         else:
             raise ValueError(f"Unexpected type `{output.type}`")
         return output

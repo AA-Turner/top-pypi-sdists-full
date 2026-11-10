@@ -245,23 +245,26 @@ class TestResolutionLadder:
 
 
 class TestDecisionOrderLadder:
-    def test_default_is_arrival(self, tmp_path: Path) -> None:
+    def test_default_is_stable(self, tmp_path: Path) -> None:
         _project(tmp_path)
         eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["decision-order"].value is DecisionOrder.ARRIVAL
+
+        assert eff["decision-order"].value is DecisionOrder.STABLE
         assert eff["decision-order"].origin.kind is SourceKind.DEFAULT
 
     def test_pyproject_sets_decision_order(self, tmp_path: Path) -> None:
-        _project(tmp_path, 'decision-order = "stable"\n')
+        _project(tmp_path, 'decision-order = "arrival"\n')
         eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["decision-order"].value is DecisionOrder.STABLE
+
+        assert eff["decision-order"].value is DecisionOrder.ARRIVAL
         assert eff["decision-order"].origin.kind is SourceKind.PYPROJECT
 
     def test_project_nab_toml_sets_decision_order(self, tmp_path: Path) -> None:
         _project(tmp_path)
-        _write(tmp_path / "nab.toml", 'decision-order = "stable"\n')
+        _write(tmp_path / "nab.toml", 'decision-order = "arrival"\n')
         eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["decision-order"].value is DecisionOrder.STABLE
+
+        assert eff["decision-order"].value is DecisionOrder.ARRIVAL
         assert eff["decision-order"].origin.kind is SourceKind.PROJECT_TOML
 
     def test_cli_project_decision_order_wins(self, tmp_path: Path) -> None:
@@ -1030,12 +1033,24 @@ class TestReproducibilityNotice:
                 "offline": None,
                 "cache_dir": Path("/c"),
                 "http_backend": None,
+                "lock_policy": None,
+                "format": None,
+                "cache": None,
+                "groups": (),
+                "all_groups": None,
+                "extras": (),
+                "all_extras": None,
+                "workspace_discovery": None,
+                "build_requirements": None,
+                "no_emit_workspace": None,
                 "max_concurrency": 16,
                 "project_mode": None,
                 "project_requires_python": None,
                 "project_uploaded_prior_to": None,
                 "project_dist_policy": "sdist-only",
+                "project_metadata_policy": "prefer-wheel",
                 "project_assume_universal_deps": None,
+                "project_assume_consistent_metadata": None,
                 "project_allow_zip_sdists": None,
                 "project_build_policy": None,
                 "project_build_requires_depth": None,
@@ -1054,6 +1069,7 @@ class TestReproducibilityNotice:
             "cache-dir": Path("/c"),
             "max-concurrency": 16,
             "dist-policy": "sdist-only",
+            "metadata-policy": "prefer-wheel",
             "default-groups": ("dev",),
         }
 
@@ -1529,7 +1545,9 @@ class TestParserFoldHelpers:
                 "requires-python",
                 "uploaded-prior-to",
                 "dist-policy",
+                "metadata-policy",
                 "assume-universal-deps",
+                "assume-consistent-metadata",
                 "allow-zip-sdists",
                 "build-policy",
                 "build-requires-depth",

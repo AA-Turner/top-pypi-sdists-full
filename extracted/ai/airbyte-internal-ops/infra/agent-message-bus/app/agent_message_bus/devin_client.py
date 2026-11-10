@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 import requests
 
@@ -43,6 +44,26 @@ def _get_devin_org_id() -> str:
     if not org_id:
         raise ValueError("DEVIN_ORG_ID environment variable is not set")
     return org_id
+
+
+def get_session(session_id: str) -> dict[str, Any] | None:
+    """Retrieve a Devin session by its ID.
+
+    Returns `None` when the session does not exist.
+    """
+    api_key = _get_devin_api_key()
+    org_id = _get_devin_org_id()
+    devin_id = f"devin-{session_id}"
+    url = f"{DEVIN_API_BASE}/organizations/{org_id}/sessions/{devin_id}"
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=10,
+    )
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+    return response.json()
 
 
 # Sentinel return values for inject_message().

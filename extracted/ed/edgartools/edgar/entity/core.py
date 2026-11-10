@@ -5,7 +5,6 @@ This module provides the main classes for interacting with SEC entities,
 including companies, funds, and individuals.
 """
 import re
-import warnings
 from abc import ABC, abstractmethod
 from datetime import date
 from functools import cached_property
@@ -36,6 +35,7 @@ from edgar.exceptions import CompanyFactsNotFoundError, CompanyNotFoundError
 from edgar.entity.tickers import get_icon_from_ticker
 from edgar.financials import Financials
 from edgar.display.formatting import cik_text, datefmt, reverse_name
+from edgar.reference.successors import get_predecessor
 from edgar.reference.tickers import find_cik
 from edgar.richtools import Docs, repr_rich
 
@@ -64,7 +64,6 @@ __all__ = [
     'get_entity',
     'get_company',
     'CompanyFactsNotFoundError',
-    'NoCompanyFactsFound',  # deprecated alias, removed in 6.0
     'has_company_filings',
     'COMPANY_FORMS',
 ]
@@ -557,6 +556,10 @@ class Entity(SecFiler):
         return not self.not_found
 
 
+class PredecessorHistoryWarning(UserWarning):
+    """This company's earlier filings are under the CIK of the registrant it succeeded."""
+
+
 class Company(Entity):
     """
     Represents a public company that files with the SEC.
@@ -596,6 +599,41 @@ class Company(Entity):
             return self.data.exchanges
         return []
 
+    @cached_property
+    def predecessor(self) -> Optional['Company']:
+        """
+        The registrant this company succeeded, when its filing history stays there.
+
+        When a company forms a holding company or redomiciles, SEC gives the ticker to
+        the new CIK and leaves the earlier 10-Ks and XBRL facts under the old one.
+        get_facts() already includes the predecessor's facts; get_financials() reads
+        this company's own latest annual report. Only successions reviewed by hand
+        are listed.
+
+        Example::
+
+            >>> Company("XOM").predecessor     # ExxonMobil Holdings Corp -> Exxon Mobil Corp
+            >>> Company("XOM").predecessor.get_financials()
+
+        Returns:
+            The predecessor Company, or None if this company has no listed predecessor
+        """
+        predecessor = get_predecessor(self.cik)
+        return Company(predecessor.cik) if predecessor else None
+
+    def _warn_history_with_predecessor(self, problem: str, method: str) -> None:
+        predecessor = get_predecessor(self.cik)
+        if predecessor is None:
+            return
+        import warnings
+        warnings.warn(
+            f"{self.name} (CIK {self.cik}) {problem}. It succeeded CIK {predecessor.cik} on "
+            f"{predecessor.effective_date}, and the earlier filings are under that CIK: "
+            f"Company({predecessor.cik}).{method}() or company.predecessor.{method}()",
+            PredecessorHistoryWarning,
+            stacklevel=3,
+        )
+
     def get_financials(self) -> Optional[Financials]:
         """
         Get financial statements from this company's latest annual report.
@@ -605,18 +643,12 @@ class Company(Entity):
         income statement, balance sheet, and cash flow statement.
 
         Returns:
-            Financials object, or None — and None means exactly one thing: this
-            company has filed no 10-K, 20-F or 40-F that we can see. It is never
-            how a failure is reported. If we could not reach SEC, a
-            ``TransportError`` propagates; if the filing was there but would not
-            parse, a ``ParsingError`` does.
-
-            One case is neither: an annual report that predates SEC's 2009-2011
-            XBRL phase-in carries no XBRL, so there is nothing to build
-            statements from. You get a ``Financials`` back — not None, so the
-            guard above passes — whose every accessor answers None. That path
-            now warns, and raises ``XBRLFilingWithNoXbrlData`` in 6.0. Set
-            ``EDGARTOOLS_STRICT_ERRORS=1`` for the 6.0 behaviour today.
+            Financials object, or None when there are no statements to read:
+            this company has filed no 10-K, 20-F or 40-F that we can see, or
+            the latest one carries no XBRL (one predating SEC's 2009-2011
+            phase-in, say). It is never how a failure is reported. If we could
+            not reach SEC, a ``TransportError`` propagates; if the filing was
+            there but would not parse, a ``ParsingError`` does.
 
         Example::
 
@@ -634,6 +666,7 @@ class Company(Entity):
             filing = self.get_filings(form=form, amendments=False, trigger_full_load=False).latest()
             if filing is not None:
                 return Financials.extract(filing)
+        self._warn_history_with_predecessor("has filed no annual report yet", "get_financials")
         return None
 
     def get_quarterly_financials(self) -> Optional[Financials]:
@@ -645,14 +678,14 @@ class Company(Entity):
         but with quarterly data instead of annual.
 
         Returns:
-            Financials object, or None — and None means exactly one thing: this
-            company has filed no 10-Q or 6-K that we can see. It is never how a
-            failure is reported; a transport or parsing failure raises.
+            Financials object, or None when there are no statements to read:
+            this company has filed no 10-Q or 6-K, or the latest one carries no
+            XBRL (most 6-Ks don't). It is never how a failure is reported; a
+            transport or parsing failure raises.
 
-            As with ``get_financials()``, a quarterly report with no XBRL is
-            neither: it returns a ``Financials`` whose accessors all answer
-            None. That path warns, and raises ``XBRLFilingWithNoXbrlData`` in
-            6.0.
+            A 6-K filer's quarterly figures are usually in an HTML press
+            release instead; read them with
+            ``edgar.earnings.EarningsRelease.from_filing(filing)``.
 
         Example::
 
@@ -1154,38 +1187,6 @@ class Company(Entity):
             from edgar.core import log
             log.debug(f"Error getting cash flow for {self.name}: {e}")
         return None
-
-    def cash_flow(
-        self,
-        periods: int = 4,
-        period: str = 'annual',
-        annual: Optional[bool] = None,
-        as_dataframe: bool = False,
-        concise_format: bool = False
-    ) -> Union["MultiPeriodStatement", TTMStatement, "pd.DataFrame", None]:
-        """Deprecated: Use cash_flow_statement() instead."""
-        import warnings
-        warnings.warn(
-            "cash_flow() is deprecated and will be removed in v6.0. "
-            "Use cash_flow_statement() instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self.cash_flow_statement(
-            periods=periods, period=period, annual=annual,
-            as_dataframe=as_dataframe, concise_format=concise_format
-        )
-
-    def cashflow_statement(self, **kwargs):
-        """Deprecated: use :meth:`cash_flow_statement`."""
-        warnings.warn(
-            "cashflow_statement() is deprecated and will be removed in v6.0. "
-            "Use cash_flow_statement(), which matches income_statement() and "
-            "balance_sheet().",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.cash_flow_statement(**kwargs)
 
     # -------------------------------------------------------------------------
     # Concept Discovery Methods
@@ -1821,16 +1822,3 @@ def public_companies() -> Iterable[Company]:
     for _, row in df.iterrows():
         c = Company(row.cik)
         yield c
-
-
-
-
-# ---------------------------------------------------------------------------
-# Deprecated name (bead edgartools-07lk.10): NoCompanyFactsFound is now
-# CompanyFactsNotFoundError. Same object, so `except NoCompanyFactsFound:`
-# still works. Removed in 6.0.
-# ---------------------------------------------------------------------------
-from edgar._compat import deprecated_alias  # noqa: E402
-from edgar.exceptions import CompanyFactsNotFoundError as _CompanyFactsNotFoundError  # noqa: E402
-
-__getattr__ = deprecated_alias(NoCompanyFactsFound=_CompanyFactsNotFoundError)

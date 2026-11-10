@@ -29,6 +29,7 @@ delegable:
 enabled: false
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
 harness: pydantic-ai
+identity: datalayer-acting-agent
 
 sandbox_variant: jupyter-server
 
@@ -107,3 +108,8 @@ welcome_notebook: null
 
 # Optional: Lexical document to show on agent creation
 welcome_document: null
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

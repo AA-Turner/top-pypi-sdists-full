@@ -2,15 +2,14 @@
 # SPDX-License-Identifier: LGPL-3.0-or-later
 
 
-import functools
 import os
 import threading
 
 # Concurrent imports
 from concurrent.futures import ProcessPoolExecutor
 
-from tango._instrumentation import _get_non_tango_source_location
-from tango._telemetry import _telemetry_runtime
+from tango._internal.instrumentation import _get_non_tango_source_location
+from tango._internal.telemetry import _telemetry_runtime
 
 # Tango imports
 from tango.green import AbstractExecutor, get_ident, get_thread_pool_executor
@@ -94,7 +93,7 @@ class FuturesExecutor(AbstractExecutor):
             kwargs["trace_location"] = _get_non_tango_source_location()
             kwargs["trace_context"] = _telemetry_runtime.get_current_otel_context()
 
-        callback = functools.partial(fn, *args, **kwargs)
+        callback = _telemetry_runtime.wrap_device_telemetry_scope(fn, *args, **kwargs)
         executor_ref = self
 
         def _callback_with_executor():

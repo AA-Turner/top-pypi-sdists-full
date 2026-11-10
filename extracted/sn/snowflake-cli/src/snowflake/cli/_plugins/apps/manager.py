@@ -1674,11 +1674,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ) -> str:
         """Fetch observability telemetry from an application service's event table.
 
-        Do not call this for serverless (CNG) apps. That backend does not
-        support ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``. The
-        ``snow app events`` command rejects those requests before it reaches
-        this method.
-
         Wraps ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``, which returns
         a VARCHAR holding a JSON array of positional tuples for the requested
         ``event_type`` (``LOG`` / ``METRIC`` / ``EVENT``). When both bounds are
@@ -1775,9 +1770,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"ORDER BY TIMESTAMP DESC LIMIT {int(limit)}"
         )
         rows = cursor.fetchall()
-        # RESULT_SCAN returned the newest rows first; reverse to oldest-first so
-        # the reconstructed payload matches the inline function's ordering.
-        tuples = [self._event_table_row_to_tuple(row) for row in reversed(rows)]
+        tuples = [self._event_table_row_to_tuple(row) for row in rows]
         return json.dumps(tuples, default=str)
 
     @staticmethod

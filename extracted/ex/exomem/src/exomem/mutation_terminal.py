@@ -66,6 +66,7 @@ _EPISODE_RECEIPT_FIELDS = (
     "recovery",
     "ledger",
     "about_skipped",
+    "compile",
 )
 _EPISODE_WORKFLOW_FIELDS = (
     "operation",
@@ -171,7 +172,75 @@ _ENVELOPE_KEYS = (
     "next_action",
     "request_id",
     "receipt_id",
+    "replayed",
 )
+
+#: The wire fields that say how a write went for an operator or a program: outcome flags,
+#: correlation ids, content hashes, receipt audit fields and background-sync state. None is something
+#: an agent tells the user or passes to its next call, so they leave the default reply and sit under
+#: `diagnostics.operational` for `response_detail="full"`. `after_hash` is not among them: the next
+#: guarded edit of that page takes it as `expected_hash`, and the egress filter binds a reported
+#: unit to its page by it.
+# nosemgrep: ep-word-set -- this module's own closed wire-field names, not a customer vocabulary.
+_OPERATIONAL_KEYS = frozenset(
+    {
+        "ok",
+        "state",
+        "terminal",
+        "status",
+        "mutated",
+        "operation_id",
+        "error_code",
+        "request_id",
+        "receipt_id",
+        "idempotency_key",
+        "before_hash",
+        # A records or plan receipt: the next guarded write takes `after_container_hash`,
+        # `after_item_hash` and `after_manifest_hash` as `expected_*`, so those three stay in the
+        # reply. The rest audits.
+        "_record_receipt",
+        "receipt_version",
+        "before_item_hash",
+        "before_manifest_hash",
+        "before_container_hash",
+        "affected_paths",
+        "payload_hash",
+        "audit_correlation",
+        "continuity",
+        "acknowledged_gap_codes",
+        "gap_fingerprint",
+        "checkpoint_snapshot_hash",
+        "minimum_reader_version",
+        "warnings_count",
+        "derived_sync",
+        "derived_sync_components",
+        "derived_sync_code",
+        "derived_sync_next_action",
+        "advisory_sync",
+        "advisory_result_ref",
+        "advisory_sync_code",
+        "advisory_sync_next_action",
+        "graph_sync",
+        "graph_sync_code",
+        "graph_sync_checkpoint",
+        "graph_sync_remediation",
+        "vocabulary_sync",
+    }
+)
+
+#: The one sentence a write reply carries in `next_action` when the capture-sweep ledger judged this
+#: write the first of a new episode. The producer's longer block (rule, examples, recent writes) stays in
+#: the leaf for its own tests; the agent needs the ask, once, and any `unpaged_mentions` it names.
+CAPTURE_SWEEP_NEXT = (
+    "Check the recent conversation once for anything else worth keeping, save what is missing "
+    "from memory, and stay silent if nothing qualifies."
+)
+
+#: What the agent tells the user when a write saved the page but a background update failed.
+_BACKGROUND_UPDATE_FAILED_NOTICE = (
+    "Saved, but a background update failed, so this change may be missing from search results."
+)
+_NOT_SAVED_YET_NOTICE = "Nothing was saved; this call only checked the draft."
 
 #: Bounds on the free-text `warnings` compact carries beside `warnings_count`.
 #: Same shape the client-artifact rows already use (see `_artifact_receipt_projection`),
@@ -220,6 +289,9 @@ def _without_graph_rebuild_handoff(result: Any) -> Any:
 #: for one release, reporting `already_stored` as `stored`, so a reader that
 #: needs to tell a fresh commit from a duplicate reads `state`.
 _ARTIFACT_STATES = frozenset({"stored", "already_stored", "failed"})
+#: How many families, and how many characters of a `fields_not_applied` value, one projected row carries.
+_FAMILIES_SHOWN = 64
+_NOT_APPLIED_CHARS = 300
 
 
 def _artifact_state(item: Any) -> Any:
@@ -370,16 +442,19 @@ def _path_projection(result: Any) -> dict[str, Any]:
 def _adoption_control_projection(leaf: Mapping[str, Any]) -> dict[str, Any]:
     """The import flow's control signals, which the compact reply must not hide.
 
-    Without them the reply that must stop (`apply_stop`), that has a next page (`next_after`)
-    or that leaves staged files with the person (`finish.residual`) has the shape of ordinary
-    progress. Each field is built by `adoption_run` and is small: `apply_stop` has five keys,
+    Without them the reply that must stop (`apply_stop`), that has a next page (`next_after`),
+    that yielded the boundary to a waiting write (`stop_reason`) or that leaves staged files with
+    the person (`finish.residual`) has the shape of ordinary progress. Each field is built by
+    `adoption_run` and is small: `stop_reason` is one token, `apply_stop` has five keys,
     `next_actions` holds at most five entries of three strings, and `residual` counts files by a
     closed set of reasons. The inventory and the plan items are not copied. `residual` stays under
     `finish` because the next actions name it as `finish.residual`.
     """
     kept: dict[str, Any] = {
         key: leaf[key]
-        for key, kind in (("next_after", str), ("apply_stop", Mapping), ("next_actions", list))
+        for key, kind in (
+            ("next_after", str), ("apply_stop", Mapping), ("next_actions", list), ("stop_reason", str)
+        )
         if isinstance(leaf.get(key), kind)
     }
     finish = leaf.get("finish")
@@ -555,6 +630,121 @@ def settled_media_terminal(
     return terminal
 
 
+def is_reused_capture(leaf_result: Any) -> bool:
+    """Whether a capture or file hand-over matched an earlier copy and wrote nothing (`capture_outcome` is a closed protocol value)."""
+    return (
+        isinstance(leaf_result, Mapping)
+        and leaf_result.get("mutated") is False
+        and leaf_result.get("capture_outcome") == "reused"
+    )
+
+
+def as_reused(result: Mapping[str, Any]) -> dict[str, Any]:
+    """`result` marked as a reuse that wrote nothing, which `is_reused_capture` reads: it settles and never commits."""
+    return {**result, "mutated": False, "capture_outcome": "reused"}
+
+
+def reused_capture_terminal(
+    leaf_result: Any,
+    *,
+    request_id: str,
+    receipt_id: str | None,
+    idempotency_key: str | None,
+) -> dict[str, Any] | None:
+    """Own a capture that reused an earlier copy: settled, never committed.
+
+    Nothing was written, so the reply states the outcome like any other tool result and carries no
+    graph-sync or durable-write text: there is no write for either to describe. It names the earlier copy.
+    """
+    if not is_reused_capture(leaf_result):
+        return None
+    terminal: dict[str, Any] = {
+        "_terminal": _TERMINAL_MARKER,
+        "version": _TERMINAL_VERSION,
+        "ok": True,
+        "state": "settled",
+        "status": "settled",
+        "terminal": True,
+        "mutated": False,
+        "request_id": request_id,
+        "receipt_id": receipt_id,
+        "warnings_count": _warning_count(leaf_result),
+        "leaf_result": leaf_result,
+    }
+    terminal.update(_path_projection(leaf_result))
+    if idempotency_key is not None:
+        terminal["idempotency_key"] = idempotency_key
+    return terminal
+
+
+def _duplicate_outcome_projection(outcome: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The bounded earlier-copy fields of a hand-over outcome, or None when one is malformed.
+
+    A hand-over that found its bytes already stored names the earlier artifact (`duplicate_of`) and, for an
+    Evidence page, the families it lists (`families`, `family_added`) and the caller fields it did not take
+    (`fields_not_applied`). A batch row and a file handed over alone carry them alike, so both project them here.
+    A page may list more families than the view carries: the first ones and the total, never an invalid view.
+    """
+
+    def text(value: Any, limit: int) -> bool:
+        return isinstance(value, str) and 0 < len(value) <= limit
+
+    def clipped(value: str | None) -> str | None:
+        return None if value is None else value[:_NOT_APPLIED_CHARS]
+
+    projected: dict[str, Any] = {}
+    if "duplicate_of" in outcome:
+        earlier = outcome["duplicate_of"]
+        if not (
+            isinstance(earlier, Mapping)
+            and set(earlier) == {"path", "ref"}  # nosemgrep: ep-word-set -- the two field names of an earlier-copy pointer, a closed record shape.
+            and text(earlier["path"], 2048)
+            and text(earlier["ref"], 2048)
+        ):
+            return None
+        projected["duplicate_of"] = {"path": earlier["path"], "ref": earlier["ref"]}
+    if "families" in outcome or "family_added" in outcome:
+        listed = outcome.get("families")
+        if not (
+            isinstance(listed, (list, tuple))
+            and listed
+            and all(
+                isinstance(pair, Mapping)
+                and set(pair) == {"scope", "category"}  # nosemgrep: ep-word-set -- the two field names of a family pair, a closed record shape.
+                and text(pair["scope"], 256)
+                and text(pair["category"], 256)
+                for pair in listed
+            )
+            and isinstance(outcome.get("family_added"), bool)
+        ):
+            return None
+        projected["families"] = [
+            {"scope": pair["scope"], "category": pair["category"]} for pair in listed[:_FAMILIES_SHOWN]
+        ]
+        if len(listed) > _FAMILIES_SHOWN:
+            projected["families_total"] = len(listed)
+        projected["family_added"] = outcome["family_added"]
+    if "fields_not_applied" in outcome:
+        differing = outcome["fields_not_applied"]
+        if not (
+            isinstance(differing, (list, tuple))
+            and len(differing) <= 8
+            and all(
+                isinstance(entry, Mapping)
+                and set(entry) == {"field", "provided", "kept"}  # nosemgrep: ep-word-set -- the three field names of a `fields_not_applied` row, a closed record shape.
+                and text(entry["field"], 64)
+                and all(isinstance(value, str) or value is None for value in (entry["provided"], entry["kept"]))
+                for entry in differing
+            )
+        ):
+            return None
+        projected["fields_not_applied"] = [
+            {"field": entry["field"], "provided": clipped(entry["provided"]), "kept": clipped(entry["kept"])}
+            for entry in differing
+        ]
+    return projected
+
+
 def _artifact_receipt_projection(result: Any) -> dict[str, Any]:
     """Keep the bounded client-artifact outcome visible in compact terminals."""
 
@@ -639,16 +829,15 @@ def _artifact_receipt_projection(result: Any) -> dict[str, Any]:
             return None
         return {field: value[field] for field in fields}
 
-    def duplicate_of(value: Any) -> dict[str, Any] | None:
-        """The bounded identity of the artifact a duplicate resolved to."""
-        if (
-            not isinstance(value, Mapping)
-            or set(value) != {"path", "ref"}
-            or not string(value.get("path"), limit=2048)
-            or not string(value.get("ref"), limit=2048)
-        ):
+    def archive_receipt(value: Any) -> dict[str, Any] | None:
+        """A zip kept as members: its identity and how many blobs this call wrote or restored."""
+        if not isinstance(value, Mapping) or not sha256(value.get("sha256")) or not nonnegative_int(value.get("bytes")):
             return None
-        return {"path": value["path"], "ref": value["ref"]}
+        # The count fields of `archive_members.preserve_members`' receipt protocol.
+        counts = {key: value[key] for key in ("members", "new_blobs", "restored") if key in value}
+        if not counts or not all(nonnegative_int(count) for count in counts.values()):
+            return None
+        return {"sha256": value["sha256"], "bytes": value["bytes"], **counts}
 
     def transcription(value: Any) -> dict[str, Any] | None:
         """Whether a client transcription was recorded with its original."""
@@ -705,12 +894,29 @@ def _artifact_receipt_projection(result: Any) -> dict[str, Any]:
             for key in ("path", "page", "ref"):
                 if key in item and string(item[key], limit=2048):
                     row[key] = item[key]
-            if "duplicate_of" in item:
-                duplicate = duplicate_of(item["duplicate_of"])
-                if duplicate is None:
+            container = item.get("document_container")
+            if isinstance(container, Mapping):
+                # These scalar fields are the bounded container-inspection receipt protocol.
+                row["document_container"] = {
+                    key: value for key in (
+                        "inspection_state", "signature_verification", "supported_payload_count",
+                        "code", "reason", "next_action",
+                    ) if key in container and (
+                        (value := container[key]) is None or nonnegative_int(value)
+                        or string(value, limit=300)
+                    )
+                }
+            earlier_copy = _duplicate_outcome_projection(item)
+            if earlier_copy is None:
+                projected.append(invalid_row(item, index))
+                continue
+            row.update(earlier_copy)
+            if "archive" in item:
+                archive = archive_receipt(item["archive"])
+                if archive is None:
                     projected.append(invalid_row(item, index))
                     continue
-                row["duplicate_of"] = duplicate
+                row["archive"] = archive
             if "transcription" in item:
                 recorded = transcription(item["transcription"])
                 if recorded is None:
@@ -784,7 +990,7 @@ def _artifact_receipt_projection(result: Any) -> dict[str, Any]:
             recomputed["already_stored"] = counts["already_stored"]
         return {"files": projected, "summary": recomputed}
     projected_summary: dict[str, int] = {}
-    for outcome in ("stored", "replayed", "failed", "unselected"):
+    for outcome in ("stored", "already_stored", "replayed", "failed", "unselected"):
         value = summary.get(outcome)
         if value is None and outcome not in {"stored", "failed"}:
             continue
@@ -845,18 +1051,26 @@ _SOURCE_CLASSIFICATION_KIND = "source_classification_debt"
 _MAX_UNCLASSIFIED_FOLDERS = 4
 
 
+#: Longest question text a compiled write may carry: `note_cohesion.QUESTION` plus the
+#: keep-whole call spelled for the serving surface. A longer question drops the whole
+#: advisory, so `tests/test_note_cohesion.py` writes it on every tool shape against
+#: this bound. It only stops a malformed payload from widening the wire.
+_MAX_COHESION_QUESTION_CHARS = 800
+
+
 def _structure_suggestion_projection(leaf: Any) -> dict[str, Any] | None:
-    """Lift one advisory structural suggestion out of a write leaf.
+    """Lift one advisory structure suggestion out of a write leaf.
 
     Compiled creations carry it under `creation`, compiled edits under `semantic`,
     and a source capture carries it under `source`. The shape is re-validated
     here rather than trusted, so a malformed or oversized advisory is dropped
     instead of widening the wire contract.
 
-    Each advisory kind declares the payload it is allowed to carry. Adding a kind
-    therefore extends these bounds rather than bypassing them — the alternative,
-    passing an unvalidated body through, is how an advisory channel turns into an
-    arbitrary one.
+    Each advisory kind declares the payload it is allowed to carry, in its own
+    projector below. Adding a kind therefore adds a projector with its own bounds
+    rather than bypassing them -- the alternative, passing an unvalidated body
+    through, is how an advisory channel turns into an arbitrary one. A kind with no
+    projector is dropped.
     """
     if not isinstance(leaf, Mapping):
         return None
@@ -867,34 +1081,80 @@ def _structure_suggestion_projection(leaf: Any) -> dict[str, Any] | None:
         value = container.get("structure_suggestion")
         if not isinstance(value, Mapping):
             continue
-        kind = value.get("kind")
-        strength = value.get("strength")
-        reasons = value.get("reasons")
-        if not isinstance(kind, str) or not kind or len(kind) > _MAX_STRUCTURE_TOKEN_CHARS:
-            continue
-        if strength not in _STRUCTURE_STRENGTHS:
-            continue
-        if not _bounded_tokens(reasons, _MAX_STRUCTURE_REASONS):
-            continue
-        common = {"kind": kind, "strength": strength, "reasons": list(reasons)}
-        if kind == _SOURCE_CLASSIFICATION_KIND:
-            sources = value.get("unclassified_sources")
-            folders = value.get("folders")
-            if type(sources) is not int or sources < 1:
-                continue
-            if not isinstance(folders, list) or not _bounded_tokens(
-                folders, _MAX_UNCLASSIFIED_FOLDERS
-            ):
-                continue
-            return {**common, "unclassified_sources": sources, "folders": list(folders)}
-        terms = value.get("cluster_terms")
-        units = value.get("off_scope_units")
-        if type(units) is not int or units < 0:
-            continue
-        if not _bounded_tokens(terms, _MAX_STRUCTURE_TERMS):
-            continue
-        return {**common, "off_scope_units": units, "cluster_terms": list(terms)}
+        projected = _structure_suggestion_kind_projection(value)
+        if projected is not None:
+            return projected
     return None
+
+
+def _structure_suggestion_kind_projection(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    from .note_cohesion import KIND as note_cohesion_kind
+
+    kind = value.get("kind")
+    if kind == _SOURCE_CLASSIFICATION_KIND:
+        return _source_classification_projection(value)
+    if kind == note_cohesion_kind:
+        return _note_cohesion_projection(value)
+    return None
+
+
+def _source_classification_projection(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    strength = value.get("strength")
+    reasons = value.get("reasons")
+    if strength not in _STRUCTURE_STRENGTHS:
+        return None
+    if not _bounded_tokens(reasons, _MAX_STRUCTURE_REASONS):
+        return None
+    sources = value.get("unclassified_sources")
+    folders = value.get("folders")
+    if type(sources) is not int or sources < 1:
+        return None
+    if not isinstance(folders, list) or not _bounded_tokens(folders, _MAX_UNCLASSIFIED_FOLDERS):
+        return None
+    return {
+        "kind": _SOURCE_CLASSIFICATION_KIND,
+        "strength": strength,
+        "reasons": list(reasons),
+        "unclassified_sources": sources,
+        "folders": list(folders),
+    }
+
+
+def _note_cohesion_projection(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The question a compiled write asks: three counts, the item's identity, the text."""
+    from . import review_state
+    from .note_cohesion import BASE_STEP_UNITS, KIND
+
+    units = value.get("units")
+    step = value.get("step_units")
+    following = value.get("next_step_units")
+    if any(type(count) is not int for count in (units, step, following)):
+        return None
+    if not (step >= BASE_STEP_UNITS and units >= step and following > step):
+        return None
+    try:
+        ref = review_state.review_ref(review_state.parse_review_ref(str(value.get("ref") or "")))
+    except ValueError:
+        return None
+    fingerprint = value.get("fingerprint")
+    if (
+        not isinstance(fingerprint, str)
+        or len(fingerprint) != 24
+        or any(char not in "0123456789abcdef" for char in fingerprint)
+    ):
+        return None
+    question = value.get("question")
+    if not isinstance(question, str) or not 0 < len(question) <= _MAX_COHESION_QUESTION_CHARS:
+        return None
+    return {
+        "kind": KIND,
+        "units": units,
+        "step_units": step,
+        "next_step_units": following,
+        "ref": ref,
+        "fingerprint": fingerprint,
+        "question": question,
+    }
 
 
 def _records_routing_projection(leaf: Any) -> dict[str, Any] | None:
@@ -1210,115 +1470,12 @@ def _undeclared_referents_projection(leaf: Any) -> dict[str, Any] | None:
     return None
 
 
-#: Wire bounds on the advisory due-state block. Deliberately this module's own
-#: numbers rather than an import of the producer's: the terminal re-validates what
-#: a leaf attached instead of trusting it, and a bound that came from the producer
-#: would validate nothing. The category vocabulary is NOT restated here for the
-#: opposite reason — `audit` owns which categories exist, and a second copy of that
-#: list would drift the day a category ships, so a category is checked as a bounded
-#: token and its meaning is left to the module that owns it. The count of categories
-#: is bounded by `_max_due_state_categories` below for the same reason.
-_MAX_DUE_STATE_TOP = 5
-_MAX_DUE_STATE_TOKEN_CHARS = 64
+#: The scope a write-time due-state block names (`due_state` produces it, and no reply carries it).
 _MAX_DUE_STATE_REF_CHARS = 256
 # The advisory protocol fixes this scope; omitted scope means historical global counts.
 DUE_STATE_AFFECTED_PATHS = "affected_paths"
 #: Every reference this substrate puts on the wire is an `exomem://` URI.
 _ADVISORY_REF_SCHEME = "exomem://"
-
-
-def _max_due_state_categories() -> int:
-    """The most categories one block can name: one per category the projection holds.
-
-    It is the length of the owner's list, not a value the leaf supplied, so it still
-    rejects a malformed block, and it moves with the list the day a category ships.
-    """
-    from . import due_state as due_state_module  # lazy, as in `_admit_due_state`
-
-    return len(due_state_module.PROJECTION_CATEGORIES)
-
-
-def _due_state_projection(leaf: Any) -> tuple[dict[str, Any] | None, str]:
-    """Lift one advisory due-state block out of a write leaf.
-
-    Same posture as `_structure_suggestion_projection`, and for the same reason: a
-    malformed or oversized advisory is DROPPED rather than allowed to widen the
-    wire contract. The difference is what it describes — a structural suggestion is
-    evidence about the page just written, while this is a bounded count of what the
-    vault owes. Neither is ever a key a client branches on for the outcome of the
-    mutation (see `_ENVELOPE_KEYS`), and both are absent — never null, never empty —
-    when there is nothing to say.
-
-    Returns the validated block and the vault it was computed for. The vault rides
-    on the leaf under a server-internal `_vault` key that never reaches the wire —
-    the block below is rebuilt from validated fields only — because the terminal is
-    where emission is DECIDED and one process can serve more than one vault.
-    """
-    if not isinstance(leaf, Mapping):
-        return None, ""
-    for container_key in ("creation", "semantic", "source", None):
-        container = leaf if container_key is None else leaf.get(container_key)
-        if not isinstance(container, Mapping):
-            continue
-        value = container.get("due_state")
-        if not isinstance(value, Mapping):
-            continue
-        if "scope" in value and value["scope"] != DUE_STATE_AFFECTED_PATHS:
-            continue
-        total = value.get("total")
-        categories = value.get("categories")
-        top = value.get("top")
-        if type(total) is not int or total <= 0:
-            continue
-        if not isinstance(categories, Mapping) or not (
-            0 < len(categories) <= _max_due_state_categories()
-        ):
-            continue
-        if not all(
-            _due_state_token(name) and type(count) is int and count >= 0
-            for name, count in categories.items()
-        ):
-            continue
-        if not isinstance(top, (list, tuple)) or len(top) > _MAX_DUE_STATE_TOP:
-            continue
-        rows: list[dict[str, Any]] = []
-        for row in top:
-            if not isinstance(row, Mapping):
-                break
-            category = row.get("category")
-            ref = row.get("ref")
-            fingerprint = row.get("fingerprint")
-            due_since = row.get("due_since")
-            if not _due_state_token(category) or not _due_state_token(fingerprint):
-                break
-            if (
-                not isinstance(ref, str)
-                or not ref.startswith(_ADVISORY_REF_SCHEME)
-                or len(ref) > _MAX_DUE_STATE_REF_CHARS
-            ):
-                break
-            if not _iso_date(due_since):
-                break
-            rows.append(
-                {
-                    "category": category,
-                    "ref": ref,
-                    "fingerprint": fingerprint,
-                    "due_since": due_since,
-                }
-            )
-        else:
-            hint = value.get("_vault")
-            return (
-                {
-                    "total": total,
-                    "categories": {str(name): categories[name] for name in categories},
-                    "top": rows,
-                    **({"scope": DUE_STATE_AFFECTED_PATHS} if "scope" in value else {}),
-                },
-                str(hint) if isinstance(hint, str) else "",
-            )
-    return None, ""
 
 
 #: Wire bounds on the advisory capture-sweep block. This module's own numbers
@@ -1413,61 +1570,6 @@ def _capture_sweep_projection(leaf: Any) -> dict[str, Any] | None:
     return None
 
 
-def _admit_due_state(block: dict[str, Any], vault_hint: str) -> bool:
-    """Decide, at the point of DELIVERY, whether this response carries the block.
-
-    This is the one choke point every mutating command reaches, and it is called
-    once per command invocation -- so "a multi-write product command emits at most
-    once, at its terminal" (D9) holds by construction rather than by each writer
-    remembering to behave. It is also the first moment the detail level is known,
-    which matters: deciding at production burnt the session's single emission on
-    `legacy` responses that strip the block and on blocks the validation above
-    drops, leaving the caller told nothing and the next response silent.
-
-    Fails CLOSED. If the governor cannot be consulted, the safe direction for an
-    anti-nagging mechanism is silence -- the items are still on the review surface.
-    """
-    try:
-        from . import due_state as due_state_module
-
-        vault = vault_hint or None
-        if not due_state_module.would_emit(block, vault_root=vault):
-            return False
-        due_state_module.mark_emitted(block, vault_root=vault)
-        return True
-    except Exception:  # noqa: BLE001 -- an ungovernable advisory is not delivered
-        log.debug("due-state emission governor unavailable; dropping", exc_info=True)
-        return False
-
-
-def _due_state_token(value: Any) -> bool:
-    return (
-        isinstance(value, str)
-        and 0 < len(value) <= _MAX_DUE_STATE_TOKEN_CHARS
-        and all(character.isalnum() or character == "_" for character in value)
-    )
-
-
-def _iso_date(value: Any) -> bool:
-    """A strict `YYYY-MM-DD`, checked without importing a date parser into a pure module."""
-    if not isinstance(value, str) or len(value) != 10:
-        return False
-    year, sep_one, rest = value.partition("-")
-    month, sep_two, day = rest.partition("-")
-    return (
-        sep_one == "-"
-        and sep_two == "-"
-        and len(year) == 4
-        and len(month) == 2
-        and len(day) == 2
-        and year.isdigit()
-        and month.isdigit()
-        and day.isdigit()
-        and 1 <= int(month) <= 12
-        and 1 <= int(day) <= 31
-    )
-
-
 def _without_leaf_advisory(result: Any, advisory_key: str) -> Any:
     """Strip one advisory block from the leaf the legacy detail and diagnostics see.
 
@@ -1524,13 +1626,13 @@ def _semantic_advisory_projection(leaf: Any) -> dict[str, Any] | None:
         for finding in findings:
             code = finding.get("code") if isinstance(finding, Mapping) else None
             # These closed finding codes are protocol data, not relation vocabulary.
-            if isinstance(code, str) and code in semantic_contract.RELATION_QUALITY_ADVISORIES:
+            if isinstance(code, str) and code in semantic_contract.RELATION_QUALITY_CODES:
                 codes.add(code)
     if not codes:
         return None
     return {
         "findings": [
-            {"code": code, **semantic_contract.RELATION_QUALITY_ADVISORIES[code]}
+            {"code": code, **semantic_contract.relation_quality_advisory(code)}
             for code in sorted(codes)
         ],
         "next_action": {"tool": "schema_memory", "args": {"operation": "inspect", "subject": "relations"}},
@@ -1588,21 +1690,8 @@ def _relation_advisory_context(leaf: Mapping[str, Any]) -> Mapping[str, Any] | N
     return None
 
 
-def _specific_options_projection(leaf: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """The specific-relation options the semantic writer built for this committed write.
-
-    It has already bounded the list and shaped each entry.
-    """
-    context = _relation_advisory_context(leaf)
-    options = context.get("specific_options") if context is not None else None
-    if not isinstance(options, (list, tuple)):
-        return []
-    return [dict(option) for option in options if isinstance(option, Mapping)]
-
-
 def _relation_advisory_projection(leaf: Any) -> dict[str, Any] | None:
-    """Project just-parsed unregistered facts plus optional indexed recurrence, and the
-    specific relations a note-to-note generic edge could take.
+    """Project just-parsed unregistered facts plus optional indexed recurrence.
 
     The fact scan is bounded by the semantic feedback renderer. Recurrence is a
     point lookup against one already-current graph snapshot and is deliberately
@@ -1655,9 +1744,8 @@ def _relation_advisory_projection(leaf: Any) -> dict[str, Any] | None:
                 and len(normalized) <= _MAX_RELATION_ADVISORY_LABEL_CHARS
             ):
                 labels.add(normalized)
-    specific = _specific_options_projection(leaf)
     if not labels:
-        return {"specific_options": specific} if specific else None
+        return None
     ordered = sorted(labels)
     retained = ordered[:_MAX_RELATION_ADVISORY_LABELS]
     truncated = facts_truncated or len(ordered) > len(retained)
@@ -1742,8 +1830,6 @@ def _relation_advisory_projection(leaf: Any) -> dict[str, Any] | None:
             "args": {"operation": "resolve-relation"},
         },
     }
-    if specific:
-        advisory["specific_options"] = specific
     return advisory
 
 
@@ -1931,6 +2017,18 @@ def with_fast_acknowledgement(
     return frozen
 
 
+def as_replay(terminal: Any) -> Any:
+    """Mark a stored terminal that answers a retry, so the reply says it is the earlier commit's.
+
+    `mutated`, `request_id` and `receipt_id` stay those of the commit it replays: the egress
+    filter binds a unit write's parent on `mutated`, so a replay must not change it. Anything that
+    is not a terminal passes through.
+    """
+    if not isinstance(terminal, Mapping) or terminal.get("_terminal") != _TERMINAL_MARKER:
+        return terminal
+    return {**terminal, "replayed": True}
+
+
 def replayed_terminal(
     leaf_result: Any,
     *,
@@ -1958,6 +2056,7 @@ def replayed_terminal(
         "ok": True,
         "status": "replayed",
         "mutated": False,
+        "replayed": True,
     }
     if recorded_replay:
         terminal.update(state="settled", terminal=True)
@@ -2117,8 +2216,10 @@ def _user_summary(
     """
     if verb is None or result.get("ok") is not True:
         return None
-    if result.get("status") == "committed":
-        head = verb.capitalize()
+    reused = result.get("status") == "settled" and is_reused_capture(result.get("leaf_result"))
+    if result.get("status") == "committed" or reused:
+        # A reused batch can still hold a failed file, so its rows speak before the settled sentence does.
+        head = f"Already {verb}" if reused else verb.capitalize()
         if (partial := _partial_batch_summary(verb, batch)) is not None:
             return partial
     elif result.get("status") == "replayed":
@@ -2144,6 +2245,18 @@ def _user_summary(
     return _lead(head, names)
 
 
+def _stated_outcome(leaf: Any) -> str | None:
+    """The sentence an approval leaf states itself.
+
+    An approval has no page `path` for `_user_summary` to name, and its outcome (approved, already
+    approved, revoked, moved aside) depends on the ledger's state, so the leaf carries the sentence.
+    """
+    if not isinstance(leaf, Mapping) or leaf.get("operation") != "approve_procedure":
+        return None
+    sentence = leaf.get("outcome")
+    return sentence if isinstance(sentence, str) and sentence else None
+
+
 def project_terminal(
     result: Any, detail: ResponseDetail = "compact", *, outcome_verb: OutcomeVerb | None = None
 ) -> Any:
@@ -2158,7 +2271,6 @@ def project_terminal(
     ):
         return result
     raw_leaf = result["leaf_result"]
-    due_state, due_state_vault = _due_state_projection(raw_leaf)
     capture_sweep = _capture_sweep_projection(raw_leaf)
     undeclared_referents = _undeclared_referents_projection(raw_leaf)
     relation_advisory = (
@@ -2177,6 +2289,10 @@ def project_terminal(
     if detail == "legacy":
         return leaf
     compact: dict[str, Any] = {}
+    # Leaf result fields that share a name with an operational key: the leaf's value is its own
+    # data (an episode pass reports its `status`), so the agent keeps it and the terminal's own
+    # value goes to `diagnostics.operational`.
+    leaf_owned: frozenset[str] = frozenset()
     artifact_receipt = _artifact_receipt_projection(leaf)
     media_projection = _media_result_projection(leaf)
     # A media batch whose rows did not project gives no per-file states, and its `paths`
@@ -2194,6 +2310,9 @@ def project_terminal(
             result, outcome_verb, _batch_rows(leaf, artifact_receipt, media_projection)
         )
     )
+    stated_outcome = _stated_outcome(leaf)
+    if user_summary is not None and stated_outcome is not None:
+        user_summary = stated_outcome
     if user_summary is not None:
         # Named at render time from the deployment, so a replay of the stored terminal reads the
         # same. Two connectors can present one display name; the sentence says which store it was.
@@ -2251,10 +2370,17 @@ def project_terminal(
         # reconciled and which are blocked; every list is bounded by the
         # episode model's own caps.
         compact.update({key: leaf[key] for key in _EPISODE_WORKFLOW_FIELDS if key in leaf})
+        leaf_owned = _OPERATIONAL_KEYS.intersection(_EPISODE_WORKFLOW_FIELDS)
     elif isinstance(leaf, Mapping) and leaf.get("operation") == "episode_memory":
         # The recording agent needs the key back to record the next revision,
         # and every field here is bounded by `episode_capture`'s own caps.
         compact.update({key: leaf[key] for key in _EPISODE_RECEIPT_FIELDS if key in leaf})
+    elif stated_outcome is not None:
+        # The owner reads the sentence in `user_summary`; the change shown for an approve and the
+        # entry ids and versions stay in the bounded `changes` and `diagnostics` parts.
+        compact.update({key: value for key, value in leaf.items() if key != "outcome"})
+        if user_summary is None:
+            compact["outcome"] = stated_outcome
     elif isinstance(leaf, Mapping) and leaf.get("operation") == "configure_memory":
         # The configuration contract is metadata-only and bounded by the
         # canonical prominence vocabulary. Keep the newly effective contract
@@ -2295,16 +2421,30 @@ def project_terminal(
         and str(leaf["run_id"]).startswith("adr-")
     ):
         # An Adoption Studio call: the caller carries on with the run id, the plan id
-        # and the continuation cursor, so these must survive the compact view.
+        # and the continuation cursor, so these must survive the compact view. A `file`
+        # reply is built small for this view: its state, summary, stop, person list and
+        # final result are what the agent reads, so they pass as built.
         compact.update(
-            {key: leaf[key] for key in ("run_id", "run_ref", "phase", "continuation", "progress")
-             if key in leaf}
+            {key: leaf[key] for key in (
+                "run_id", "run_ref", "phase", "continuation", "progress",
+                "filing", "summary", "stop", "person", "filed",
+            ) if key in leaf}
         )
+        if "filing" in leaf and "collection" in leaf:
+            # A `file` reply names its collection by label; other Adoption Studio replies keep theirs out of this view.
+            compact["collection"] = leaf["collection"]
         plan = leaf.get("plan")
         if isinstance(plan, Mapping) and isinstance(plan.get("plan_id"), str):
             compact["plan_id"] = plan["plan_id"]
         compact.update(_adoption_control_projection(leaf))
+        apply_result = leaf.get("apply_result")
+        if isinstance(apply_result, Mapping) and type(apply_result.get("skipped_duplicates")) is int:
+            # The agent tells the person how many items the run left unstored because those bytes were already stored.
+            compact["skipped_duplicates"] = apply_result["skipped_duplicates"]
     compact.update(artifact_receipt)
+    if isinstance(leaf, Mapping) and leaf.get("state") == "already_stored":
+        # A file handed over alone has no row; its outcome names the earlier copy and what it did not take.
+        compact.update(_duplicate_outcome_projection(leaf) or {})
     if isinstance(leaf, Mapping) and isinstance(leaf.get("source"), Mapping):
         # Closed text capture outcomes belong to the durable capture protocol.
         from typing import get_args
@@ -2317,6 +2457,11 @@ def project_terminal(
                 key: leaf["source"][key] for key in ("path", "ref")
                 if key in leaf["source"]
             }
+        # What the duplicate check found or could not do: the caller acts on each of these.
+        compact.update(
+            {key: leaf[key] for key in ("duplicate_of", "fields_not_applied", "same_url", "duplicate_check_unavailable")
+             if key in leaf}
+        )
     if result.get("state") == "committed":
         compact.update(_commit_metadata_projection(leaf))
     compact.update(media_projection)
@@ -2380,14 +2525,9 @@ def project_terminal(
         compact["entity_candidate"] = entity_candidate
     if undeclared_referents is not None:
         compact["undeclared_referents"] = undeclared_referents
-    if due_state is not None and _admit_due_state(due_state, due_state_vault):
-        compact["due_state"] = due_state
-    if capture_sweep is not None:
-        # No admission step, unlike due-state. This carrier's governor is its own
-        # quiet-interval ledger and it already ran at the seam, where the write it
-        # measures actually happened. See `capture_sweep`'s module docstring on
-        # why this ledger records writes rather than deliveries.
-        compact["capture_sweep"] = capture_sweep
+    # The capture-sweep block carries no admission step here. Its governor is its own
+    # quiet-interval ledger, which already ran at the seam where the write it measures happened
+    # (see `capture_sweep`'s module docstring on why it records writes, not deliveries).
     if relation_advisory is not None:
         compact["relation_advisory"] = relation_advisory
     semantic_advisory = _semantic_advisory_projection(leaf)
@@ -2400,13 +2540,6 @@ def project_terminal(
         from .vocabulary_delivery import public_projection
 
         compact.update(public_projection(result))
-    from . import vocabulary_delta
-
-    if vocabulary_delta.PENDING_KEY in result:
-        # Delivery is decided here, where the detail is known: a `legacy` response returned above.
-        delivered = vocabulary_delta.delivered_by(result)
-        if delivered is not None:
-            compact["vocabulary_delta"] = delivered
     if "additive_authority" in result:
         from .vocabulary_receipts import valid_projection
 
@@ -2439,18 +2572,102 @@ def project_terminal(
     warnings = _warning_texts(leaf, has_artifact_receipt=bool(artifact_receipt))
     if warnings:
         compact["warnings"] = warnings
+    reply, operational = _agent_reply(
+        compact,
+        result,
+        capture_sweep=capture_sweep,
+        warnings_listed_per_file=bool(artifact_receipt),
+        leaf_owned=leaf_owned,
+    )
     if detail == "full":
         derived_diagnostics = result.get("_derived_diagnostics")
         if isinstance(derived_diagnostics, (list, tuple)):
-            compact["diagnostics"] = {
+            reply["diagnostics"] = {
+                "operational": operational,
                 "leaf_result": leaf,
                 "derived_components": list(
                     derived_diagnostics[:_MAX_DERIVED_DIAGNOSTICS]
                 ),
             }
+        elif isinstance(leaf, Mapping):
+            reply["diagnostics"] = {"operational": operational, **leaf}
         else:
-            compact["diagnostics"] = leaf
-    return compact
+            reply["diagnostics"] = {"operational": operational, "leaf_result": leaf}
+        if capture_sweep is not None:
+            # The agent reply holds only the sweep's ask; the producer's whole block is
+            # diagnostic detail, and the leaf above has it stripped.
+            reply["diagnostics"]["capture_sweep"] = capture_sweep
+    return reply
+
+
+def _agent_reply(
+    wide: Mapping[str, Any],
+    result: Mapping[str, Any],
+    *,
+    capture_sweep: Mapping[str, Any] | None,
+    warnings_listed_per_file: bool,
+    leaf_owned: frozenset[str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Split the projected write reply into what the agent reads and what operators read.
+
+    The agent reads the outcome sentence, the result fields its next call may take, and at most
+    one `next_action` and one `notice` sentence. Everything in `_OPERATIONAL_KEYS` is returned
+    separately for `diagnostics`. A field this split does not name stays in the agent view, so a
+    new result field is never lost to it. A `leaf_owned` key stays in the agent view with the
+    leaf's value, and `diagnostics` takes the terminal's own value for it.
+    """
+    operational = {
+        key: result[key] if key in leaf_owned and key in result else value
+        for key, value in wide.items()
+        if key in _OPERATIONAL_KEYS
+    }
+    reply = {
+        key: value
+        for key, value in wide.items()
+        if key not in _OPERATIONAL_KEYS or key in leaf_owned
+    }
+    if capture_sweep is not None:
+        # A write's own step (a guarded write waiting for review) is a sentence; the sweep's ask
+        # follows it in the same `next_action`, so neither is lost. A step that is one closed
+        # protocol value (a curation run's `resume`, `apply`) takes no prose, so the ask sits
+        # beside it. The check is the value's shape, one token, not its meaning.
+        own_step = reply.get("next_action")
+        if not isinstance(own_step, str):
+            reply["next_action"] = CAPTURE_SWEEP_NEXT
+        elif len(own_step.split()) == 1:
+            reply["capture_next"] = CAPTURE_SWEEP_NEXT
+        else:
+            reply["next_action"] = f"{own_step} {CAPTURE_SWEEP_NEXT}"
+        if mentions := capture_sweep.get("unpaged_mentions"):
+            # Names this page reached for that have no page: data the sweep acts on, not rule text.
+            reply["unpaged_mentions"] = list(mentions)
+    if result.get("state") == "needs_review":
+        # The guarded write is mid-flight: nothing is saved, and its draft identity is what the
+        # next call needs.
+        reply["notice"] = _NOT_SAVED_YET_NOTICE
+        if "operation_id" in operational:
+            reply["operation_id"] = operational["operation_id"]
+    elif any(
+        wide.get(field) == "failed" for field in ("derived_sync", "graph_sync", "advisory_sync")
+    ):
+        reply["notice"] = _BACKGROUND_UPDATE_FAILED_NOTICE
+    count = wide.get("warnings_count")
+    if (
+        not warnings_listed_per_file
+        and type(count) is int
+        and count > len(reply.get("warnings", ()))
+    ):
+        # The warning texts are bounded, or a recovered receipt kept only the count. The agent
+        # must still see that there is more than it was shown.
+        reply["warnings_count"] = count
+    source = reply.get("source")
+    if "capture_outcome" in reply and isinstance(source, Mapping) and "path" in source:
+        # One identifier for the stored source: the path, which every read accepts.
+        reply["source"] = {"path": source["path"]}
+    if not reply:
+        # A committed write that has no outcome verb and no receipt would otherwise answer `{}`.
+        reply["user_summary"] = "Done."
+    return reply, operational
 
 
 def _commit_metadata_projection(leaf: Any) -> dict[str, str]:

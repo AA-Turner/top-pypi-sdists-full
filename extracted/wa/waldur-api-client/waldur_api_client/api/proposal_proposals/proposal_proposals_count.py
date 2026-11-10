@@ -9,6 +9,7 @@ from ...client import AuthenticatedClient, Client
 from ...models.proposal_o_enum import ProposalOEnum
 from ...models.proposal_states import ProposalStates
 from ...models.responsible_role_enum import ResponsibleRoleEnum
+from ...models.step_enum import StepEnum
 from ...types import UNSET, Response, Unset
 
 
@@ -27,6 +28,7 @@ def _get_kwargs(
     round_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -89,6 +91,15 @@ def _get_kwargs(
 
     params["state"] = json_state
 
+    json_workflow_step: Union[Unset, list[str]] = UNSET
+    if not isinstance(workflow_step, Unset):
+        json_workflow_step = []
+        for workflow_step_item_data in workflow_step:
+            workflow_step_item = workflow_step_item_data.value
+            json_workflow_step.append(workflow_step_item)
+
+    params["workflow_step"] = json_workflow_step
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -142,6 +153,7 @@ def sync_detailed(
     round_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
@@ -159,6 +171,7 @@ def sync_detailed(
         round_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -182,6 +195,7 @@ def sync_detailed(
         round_uuid=round_uuid,
         slug=slug,
         state=state,
+        workflow_step=workflow_step,
     )
 
     response = client.get_httpx_client().request(
@@ -207,6 +221,7 @@ def sync(
     round_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
@@ -224,6 +239,7 @@ def sync(
         round_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -248,6 +264,7 @@ def sync(
         round_uuid=round_uuid,
         slug=slug,
         state=state,
+        workflow_step=workflow_step,
     ).parsed
 
 
@@ -267,6 +284,7 @@ async def asyncio_detailed(
     round_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
@@ -284,6 +302,7 @@ async def asyncio_detailed(
         round_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -307,6 +326,7 @@ async def asyncio_detailed(
         round_uuid=round_uuid,
         slug=slug,
         state=state,
+        workflow_step=workflow_step,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -330,6 +350,7 @@ async def asyncio(
     round_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
@@ -347,6 +368,7 @@ async def asyncio(
         round_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -372,5 +394,6 @@ async def asyncio(
             round_uuid=round_uuid,
             slug=slug,
             state=state,
+            workflow_step=workflow_step,
         )
     ).parsed

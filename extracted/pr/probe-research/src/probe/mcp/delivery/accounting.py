@@ -54,7 +54,7 @@ _DELIVERY_PROPERTIES = frozenset(
     }
 )
 
-#: Only agents whose transcripts reach Research OS may be named (an unresolvable session id is a
+#: Only agents whose transcripts reach Probe may be named (an unresolvable session id is a
 #: dead link). DERIVED from `sdk.agent_session.AGENTS` so a fourth captured agent is not silently
 #: dropped; the backend's twin is `app.runs.agent_session.CAPTURED_AGENTS` (the MCP cannot import it).
 _CAPTURED_AGENTS = frozenset(spec.label for spec in AGENTS if spec.captured)

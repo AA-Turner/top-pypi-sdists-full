@@ -51,6 +51,7 @@ from .literals import (
     ConnectionStatusType,
     DeletionModeType,
     DescribeActivationsFilterKeysType,
+    DHMCPermissionModelType,
     DocumentFilterKeyType,
     DocumentFormatType,
     DocumentHashTypeType,
@@ -582,6 +583,8 @@ __all__ = (
     "PutParameterResultTypeDef",
     "PutResourcePolicyRequestTypeDef",
     "PutResourcePolicyResponseTypeDef",
+    "RegisterDefaultHostManagementConfigurationRequestTypeDef",
+    "RegisterDefaultHostManagementConfigurationResultTypeDef",
     "RegisterDefaultPatchBaselineRequestTypeDef",
     "RegisterDefaultPatchBaselineResultTypeDef",
     "RegisterPatchBaselineForPatchGroupRequestTypeDef",
@@ -1806,6 +1809,12 @@ class PutResourcePolicyRequestTypeDef(TypedDict):
     PolicyHash: NotRequired[str]
 
 
+class RegisterDefaultHostManagementConfigurationRequestTypeDef(TypedDict):
+    PermissionModel: DHMCPermissionModelType
+    RoleArn: NotRequired[str]
+    Overwrite: NotRequired[bool]
+
+
 class RegisterDefaultPatchBaselineRequestTypeDef(TypedDict):
     BaselineId: str
 
@@ -2222,6 +2231,11 @@ class PutParameterResultTypeDef(TypedDict):
 class PutResourcePolicyResponseTypeDef(TypedDict):
     PolicyId: str
     PolicyHash: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterDefaultHostManagementConfigurationResultTypeDef(TypedDict):
+    RoleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

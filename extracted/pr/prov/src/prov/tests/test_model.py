@@ -8,14 +8,26 @@ import datetime
 import json
 import logging
 import os
+import re
 import shutil
+import tempfile
+import warnings
+from collections.abc import Callable
+from operator import attrgetter
+from pathlib import Path
+from typing import Any
 
 import pytest
 
-from prov.constants import PROV, PROV_INTERNATIONALIZEDSTRING, XSD
+from prov.constants import (
+    PROV,
+    PROV_INTERNATIONALIZEDSTRING,
+    XSD,
+)
 from prov.identifier import Namespace
 from prov.model import (
     PROV_TYPE,
+    PROV_VALUE,
     Literal,
     NamespaceManager,
     ProvBundle,
@@ -23,6 +35,8 @@ from prov.model import (
     ProvElementIdentifierRequired,
     ProvException,
     ProvExceptionInvalidQualifiedName,
+    ProvMembership,
+    ProvMissingFormalAttribute,
     ProvRecord,
     ProvUnificationError,
     first,
@@ -30,7 +44,20 @@ from prov.model import (
     parse_xsd_datetime,
 )
 from prov.tests import examples
-from prov.tests.conftest import add_ordered_namespaces
+from prov.tests.conftest import (
+    BLANK_PREFIX,
+    HTTP_PREFIX,
+    NO_PREFIX,
+    UNDECLARED_PREFIX,
+    add_ordered_namespaces,
+    ex_document,
+    unresolved_sentence,
+)
+
+_UNDECLARED_DEFAULT = (
+    r"the name '\w+' is in the default namespace http://[\w.]+/, "
+    "which is not the default namespace in scope; declare a prefix for it"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,32 +66,14 @@ EX_URI = "http://www.example.org/"
 EX2_URI = "http://www.example2.org/"
 
 
-def test_loading_all_json() -> None:
-    json_path = os.path.dirname(os.path.abspath(__file__)) + "/json/"
-    fails = []
-    for filename in os.listdir(json_path):
-        if filename.endswith(".json"):
-            with open(json_path + filename) as json_file:
-                try:
-                    g1 = ProvDocument.deserialize(json_file)
-                    json_str = g1.serialize(indent=4)
-                    g2 = ProvDocument.deserialize(content=json_str)
-                    assert g1 == g2, (
-                        f"Round-trip JSON encoding/decoding failed:  {filename}."
-                    )
-                except Exception:  # intentionally broad to catch any failure
-                    fails.append(filename)
+JSON_FIXTURES = sorted((Path(__file__).parent / "json").glob("*.json"))
 
-    # Code for debugging the failed tests: reload the failed files so a real
-    # failure (not silently swallowed by the broad except above) is reported.
-    for filename in fails:
-        filepath = json_path + filename
-        with open(filepath) as json_file:
-            logger.info("Loading %s...", filepath)
-            g1 = ProvDocument.deserialize(json_file)
-            json_str = g1.serialize(indent=4)
-            g2 = ProvDocument.deserialize(content=json_str)
-            assert g1 == g2, f"Round-trip JSON encoding/decoding failed:  {filename}."
+
+@pytest.mark.parametrize("path", JSON_FIXTURES, ids=lambda path: path.name)
+def test_json_fixture_round_trips(path) -> None:
+    with path.open() as stream:
+        document = ProvDocument.deserialize(stream)
+    assert ProvDocument.deserialize(content=document.serialize(indent=4)) == document
 
 
 def test_flattening() -> None:
@@ -253,14 +262,6 @@ def test_bundle_requires_an_identifier() -> None:
         d1.bundle(None)
 
 
-def test_bundle_rejects_unresolvable_identifier() -> None:
-    # No default namespace and an unregistered prefix: valid_qualified_name()
-    # returns None, which bundle() must turn into a ProvException.
-    d1 = _document_1()
-    with pytest.raises(ProvException):
-        d1.bundle("bogus:x")
-
-
 def test_bundle_rejects_duplicate_identifier() -> None:
     d1 = _document_1()
     d1.bundle("ex:b1")
@@ -398,7 +399,7 @@ def test_conflicting_duplicate_value_with_naive_vs_aware_datetime(doc) -> None:
     # deferred per planning/test-gap-checklist.md). This still exercises
     # the duplicate-value ProvException with two "different" datetimes.
     activity = doc.activity("ex:a4", startTime=datetime.datetime(2020, 1, 1))
-    aware_time = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+    aware_time = datetime.datetime(2020, 1, 1, tzinfo=datetime.UTC)
     with pytest.raises(ProvException):
         activity.add_attributes({"prov:startTime": aware_time})
 
@@ -419,10 +420,79 @@ def test_record_value_converted_from_provrecord_for_generic_attribute(doc) -> No
     assert e2.get_attribute("ex:ref") == {e1.identifier}
 
 
-def test_entity_without_identifier_raises() -> None:
+@pytest.mark.parametrize("identifier", [None, ""])
+def test_entity_without_identifier_raises(identifier: str | None) -> None:
     d = ProvDocument()
     with pytest.raises(ProvElementIdentifierRequired):
-        d.entity(None)
+        d.entity(identifier)  # type: ignore[arg-type]
+
+
+def _unresolved(name: str, reason: str, of: str = "") -> str:
+    return f"Invalid Qualified Name: {name}, {unresolved_sentence(name, reason, of)}"
+
+
+@pytest.mark.parametrize(
+    ("call", "message"),
+    [
+        pytest.param(
+            lambda d: d.entity("zz:e"),
+            _unresolved("zz:e", UNDECLARED_PREFIX),
+            id="element",
+        ),
+        pytest.param(
+            lambda d: d.used("ex:a", "ex:e", identifier="zz:u"),
+            _unresolved("zz:u", UNDECLARED_PREFIX),
+            id="relation",
+        ),
+        pytest.param(
+            lambda d: d.bundle("zz:b"),
+            _unresolved("zz:b", UNDECLARED_PREFIX),
+            id="bundle",
+        ),
+        pytest.param(
+            lambda d: d.add_bundle(ProvBundle(), "zz:b"),
+            _unresolved("zz:b", UNDECLARED_PREFIX),
+            id="add-bundle",
+        ),
+        pytest.param(
+            lambda d: d.used("zz:a", "ex:e"),
+            _unresolved("zz:a", UNDECLARED_PREFIX, " of prov:activity"),
+            id="formal-value",
+        ),
+        pytest.param(
+            lambda d: d.entity("ex:e", {"zz:a": 1}),
+            _unresolved("zz:a", UNDECLARED_PREFIX),
+            id="attribute-name",
+        ),
+        pytest.param(
+            lambda d: d.used("ex:a", "ex:e", identifier="_:u"),
+            _unresolved("_:u", BLANK_PREFIX),
+            id="blank-node",
+        ),
+        pytest.param(
+            lambda d: d.entity("http://other.org/e"),
+            _unresolved("http://other.org/e", HTTP_PREFIX),
+            id="iri",
+        ),
+        pytest.param(
+            lambda d: d.entity("e"),
+            _unresolved("e", NO_PREFIX),
+            id="no-prefix",
+        ),
+        pytest.param(
+            lambda d: d.entity(5), "Invalid Qualified Name: 5", id="not-a-string"
+        ),
+    ],
+)
+def test_unresolvable_identifier_raises_the_qualified_name_sentence(
+    call: Callable[[ProvDocument], object], message: str
+) -> None:
+    d = ex_document()
+    with pytest.raises(ProvExceptionInvalidQualifiedName) as ctx:
+        call(d)
+    assert str(ctx.value) == message
+    assert not d.get_records()
+    assert not d.bundles
 
 
 def test_activity_without_identifier_raises() -> None:
@@ -436,6 +506,82 @@ def test_provelementidentifierrequired_str() -> None:
         str(ProvElementIdentifierRequired())
         == "An identifier is missing. All PROV elements require a valid identifier."
     )
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        pytest.param(
+            lambda d: d.membership("ex:c", None),
+            "hadMember requires a value for prov:entity",
+            id="membership-no-entity",
+        ),
+        pytest.param(
+            lambda d: d.membership(None, "ex:e"),
+            "hadMember requires a value for prov:collection",
+            id="membership-no-collection",
+        ),
+        pytest.param(
+            lambda d: d.alternate("ex:a", None),
+            "alternateOf requires a value for prov:alternate2",
+            id="alternate-no-second",
+        ),
+        pytest.param(
+            lambda d: d.alternate(None, "ex:b"),
+            "alternateOf requires a value for prov:alternate1",
+            id="alternate-no-first",
+        ),
+        pytest.param(
+            lambda d: d.specialization("ex:s", None),
+            "specializationOf requires a value for prov:generalEntity",
+            id="specialization-no-general",
+        ),
+        pytest.param(
+            lambda d: d.specialization(None, "ex:g"),
+            "specializationOf requires a value for prov:specificEntity",
+            id="specialization-no-specific",
+        ),
+        pytest.param(
+            lambda d: d.mention(None, "ex:b", "ex:bun"),
+            "mentionOf requires a value for prov:specificEntity",
+            id="mention-no-specific",
+        ),
+        pytest.param(
+            lambda d: d.mention("ex:a", None, "ex:bun"),
+            "mentionOf requires a value for prov:generalEntity",
+            id="mention-no-general",
+        ),
+        pytest.param(
+            lambda d: ProvMembership(d, None),
+            "hadMember requires a value for prov:collection",
+            id="bare-class",
+        ),
+        pytest.param(
+            lambda d: d.bundle("ex:b").membership("ex:c", None),
+            "hadMember requires a value for prov:entity",
+            id="in-a-bundle",
+        ),
+    ],
+)
+def test_a_relation_missing_a_party_is_refused(build, message: str) -> None:
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    with pytest.raises(ProvMissingFormalAttribute) as ctx:
+        build(doc)
+    assert str(ctx.value) == message
+    assert list(doc.get_records()) == []
+    assert all(list(b.get_records()) == [] for b in doc.bundles)
+
+
+def test_a_missing_party_error_is_a_prov_exception() -> None:
+    assert issubclass(ProvMissingFormalAttribute, ProvException)
+
+
+def test_a_mention_may_omit_its_bundle() -> None:
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.mention("ex:a", "ex:b", None)
+    assert len(list(doc.get_records())) == 1
 
 
 def test_provexceptioninvalidqualifiedname_str() -> None:
@@ -607,10 +753,14 @@ def test_valid_qualified_name_rejects_blank_node_and_bad_types() -> None:
     assert nm.valid_qualified_name(12345) is None
 
 
-def test_default_namespace_uri_alone_is_not_an_empty_local_name() -> None:
+def test_default_namespace_uri_alone_is_rejected() -> None:
+    # An IRI equal to the default namespace has no spelling, so asserting it
+    # is rejected (#473); looking it up is not.
     doc = ProvDocument()
     doc.set_default_namespace("http://d/")
     assert doc.valid_qualified_name("http://d/") is None
+    with pytest.raises(ProvExceptionInvalidQualifiedName, match="declare a prefix"):
+        doc.mandatory_valid_qname("http://d/")
     assert doc.valid_qualified_name("http://d/e1").localpart == "e1"
     ex = doc.add_namespace("ex", "http://e/")
     # [52] allows a prefixed empty local part.
@@ -672,7 +822,7 @@ def test_standalone_bundle_properties() -> None:
     b = ProvBundle()
     assert b.records == []
     assert b.identifier is None
-    assert b.document is None
+    assert b._namespaces.parent is None
 
 
 def test_add_namespace_without_uri_raises() -> None:
@@ -735,6 +885,42 @@ def test_deserialize_without_source_or_content_raises_type_error() -> None:
         ProvDocument.deserialize()
 
 
+def test_serialize_writes_to_named_temporary_file(doc, tmp_path, monkeypatch) -> None:
+    # #240: a writable that is not an io.IOBase, such as NamedTemporaryFile's
+    # wrapper, is a stream, not a path.
+    monkeypatch.chdir(tmp_path)  # any junk repr-named file would land here
+    doc.entity("ex:e1")
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", dir=tmp_path, delete=False
+    ) as stream:
+        doc.serialize(stream, format="json")
+        name = stream.name
+    assert ProvDocument.deserialize(name, format="json") == doc
+    junk = [p for p in os.listdir(tmp_path) if p.startswith("<")]
+    assert junk == []
+
+
+def test_deserialize_reads_from_named_temporary_file(doc, tmp_path) -> None:
+    # #240, the read side: any object with read() is accepted as a stream.
+    doc.entity("ex:e1")
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", dir=tmp_path) as stream:
+        stream.write(doc.serialize(format="json"))
+        stream.flush()
+        stream.seek(0)
+        assert ProvDocument.deserialize(stream, format="json") == doc
+
+
+def test_serialize_xml_to_text_mode_named_temporary_file(doc, tmp_path) -> None:
+    # #240 as filed: a text-mode NamedTemporaryFile and format="xml", which
+    # also needs the serializer to recognise the wrapper as a text stream.
+    pytest.importorskip("lxml")
+    doc.entity("ex:e1")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", dir=tmp_path) as stream:
+        doc.serialize(stream, format="xml")
+        stream.flush()
+        assert ProvDocument.deserialize(stream.name, format="xml") == doc
+
+
 # The following cover ProvDocument.__eq__'s bundle-comparison early-outs and
 # unified()'s no-bundles loop (planning/test-gap-checklist.md, T13 item under
 # model.py).
@@ -784,22 +970,6 @@ def test_equal_when_same_records_added_in_different_order() -> None:
     assert d2 == d1
 
 
-def test_anonymous_relation_still_equals_identified_relation() -> None:
-    # ProvRecord.__eq__ skips the identifier check when *this* record has no
-    # identifier, while __hash__ includes it; the two records hash
-    # differently, so set equality fails and __eq__ must fall through to the
-    # record-by-record loop to find the match.
-    d1 = ProvDocument()
-    d1.set_default_namespace("http://example.org/")
-    d1.wasGeneratedBy("e1", "a1")
-
-    d2 = ProvDocument()
-    d2.set_default_namespace("http://example.org/")
-    d2.wasGeneratedBy("e1", "a1", identifier="g1")
-
-    assert d1 == d2
-
-
 def test_unified_with_no_bundles() -> None:
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
@@ -809,6 +979,117 @@ def test_unified_with_no_bundles() -> None:
 
     assert list(unified.bundles) == []
     assert unified == doc
+
+
+@pytest.mark.parametrize(
+    "in_document", [True, False], ids=["in-document", "standalone"]
+)
+def test_bundle_unified_is_deprecated(in_document: bool) -> None:
+    # 4.0 removes ProvBundle.unified(); the copy it returns is unchanged until then.
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    bundle = (
+        doc.bundle("ex:b")
+        if in_document
+        else ProvBundle(namespaces={"ex": "http://example.org/"})
+    )
+    bundle.entity("ex:e", {"ex:v": 1})
+    bundle.entity("ex:e", {"ex:w": 2})
+
+    with pytest.warns(DeprecationWarning, match=r"ProvDocument\.unified\(\)") as record:
+        unified = bundle.unified()
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert unified._namespaces.parent is None
+    assert len(unified.get_records()) == 1
+
+    # The document method unifies each bundle in place and does not warn.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        doc.unified()
+
+
+_DOCUMENT_MESSAGE = re.escape(
+    "ProvBundle.document is deprecated and 4.0 removes it; keep a reference "
+    "to the ProvDocument that holds the bundle"
+)
+_ARGUMENT_MESSAGE = re.escape(
+    "The document argument of ProvBundle() is deprecated and 4.0 removes it; "
+    "create the bundle with ProvDocument.bundle() or add it with "
+    "ProvDocument.add_bundle()"
+)
+_RECORD_BUNDLE_MESSAGE = re.escape(
+    "ProvRecord.bundle is deprecated and 4.0 removes it; a record's container "
+    "is not public API. Keep the document or bundle that made the record beside it."
+)
+
+
+def _bundle_made_by_the_document(d: ProvDocument) -> tuple[ProvBundle, ProvDocument]:
+    return d.bundle("ex:b"), d
+
+
+def _bundle_added_to_the_document(d: ProvDocument) -> tuple[ProvBundle, ProvDocument]:
+    bundle = ProvBundle()
+    d.add_bundle(bundle, "ex:b")
+    return bundle, d
+
+
+def _bundle_in_no_document(d: ProvDocument) -> tuple[ProvBundle, None]:
+    return ProvBundle(), None
+
+
+def _record_of_the_document(d: ProvDocument) -> tuple[ProvRecord, ProvDocument]:
+    return d.entity("ex:e"), d
+
+
+def _record_of_a_bundle(d: ProvDocument) -> tuple[ProvRecord, ProvBundle]:
+    bundle = d.bundle("ex:b")
+    return bundle.entity("ex:e"), bundle
+
+
+# 4.0 removes both properties and the keyword; until then each answers as in 3.2.3.
+@pytest.mark.parametrize(
+    ("build", "read", "message"),
+    [
+        (_bundle_made_by_the_document, attrgetter("document"), _DOCUMENT_MESSAGE),
+        (_bundle_added_to_the_document, attrgetter("document"), _DOCUMENT_MESSAGE),
+        (_bundle_in_no_document, attrgetter("document"), _DOCUMENT_MESSAGE),
+        (_record_of_the_document, attrgetter("bundle"), _RECORD_BUNDLE_MESSAGE),
+        (_record_of_a_bundle, attrgetter("bundle"), _RECORD_BUNDLE_MESSAGE),
+    ],
+    ids=["held", "added", "standalone", "record-of-document", "record-of-bundle"],
+)
+def test_container_reads_are_deprecated(
+    build: Callable[[ProvDocument], tuple[Any, Any]],
+    read: Callable[[Any], Any],
+    message: str,
+) -> None:
+    subject, expected = build(ex_document())
+
+    with pytest.warns(DeprecationWarning, match=message) as record:
+        found = read(subject)
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert found is expected
+
+
+@pytest.mark.parametrize("linked", [True, False], ids=["d", "None"])
+def test_the_document_argument_is_deprecated(linked: bool) -> None:
+    d = ex_document()
+    document = d if linked else None
+
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        bundle = ProvBundle(document=document)
+
+    assert len(record) == int(linked)
+    assert all(re.search(_ARGUMENT_MESSAGE, str(w.message)) for w in record)
+    assert all(w.filename == __file__ for w in record)
+    assert bundle._namespaces.parent is (d._namespaces if linked else None)
+    with pytest.warns(DeprecationWarning, match=_DOCUMENT_MESSAGE):
+        assert bundle.document is document
 
 
 # The following cover ProvDocument.plot()'s filename-based save path and its
@@ -896,3 +1177,33 @@ def test_add_record_override_runs_once_per_record() -> None:
 
     counting.update(document)
     assert counting.added == 2
+
+
+# PROV-DM marks these inputs non-conformant and prov accepts them: a scruffy
+# statement is legal at assertion, and validation is opt-in (#257, #62).
+
+
+def test_multiple_prov_value_attributes_accepted(doc) -> None:
+    # PROV-DM 5.7.2.5 allows prov:value at most once
+    entity = doc.entity("ex:e1", {PROV_VALUE: 1})
+    entity.add_attributes({PROV_VALUE: 2})
+    assert entity.value == {1, 2}
+
+
+def test_non_string_prov_label_accepted(doc) -> None:
+    # PROV-DM 5.7.2.1 requires prov:label to be a string
+    entity = doc.entity("ex:e1", {"prov:label": 42})
+    assert entity.label == "42"
+
+
+def test_mandatory_formal_attribute_none_silently_dropped(doc) -> None:
+    # PROV-DM 5.1.3 requires a generated entity; a None value is skipped
+    record = doc.generation(None)  # type: ignore[arg-type]
+    assert record.get_provn() == "wasGeneratedBy(-, -, -)"
+
+
+def test_at_least_one_of_rule_not_enforced(doc) -> None:
+    # PROV-DM 5.1.3: at least one of id, activity, time, attributes must be
+    # present alongside the entity
+    record = doc.generation("ex:e1")
+    assert record.get_provn() == "wasGeneratedBy(ex:e1, -, -)"

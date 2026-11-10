@@ -137,8 +137,6 @@ class PublicOfferingDetails:
         is_accessible (Union[Unset, bool]):
         open_for_proposals (Union[Unset, bool]):
         config_drive_default (Union[Unset, bool]):
-        google_calendar_is_public (Union[None, Unset, bool]):
-        google_calendar_link (Union[None, Unset, str]): Get the Google Calendar link for an offering.
         promotion_campaigns (Union[Unset, list['NestedCampaign']]):
     """
 
@@ -230,8 +228,6 @@ class PublicOfferingDetails:
     is_accessible: Union[Unset, bool] = UNSET
     open_for_proposals: Union[Unset, bool] = UNSET
     config_drive_default: Union[Unset, bool] = UNSET
-    google_calendar_is_public: Union[None, Unset, bool] = UNSET
-    google_calendar_link: Union[None, Unset, str] = UNSET
     promotion_campaigns: Union[Unset, list["NestedCampaign"]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -642,18 +638,6 @@ class PublicOfferingDetails:
 
         config_drive_default = self.config_drive_default
 
-        google_calendar_is_public: Union[None, Unset, bool]
-        if isinstance(self.google_calendar_is_public, Unset):
-            google_calendar_is_public = UNSET
-        else:
-            google_calendar_is_public = self.google_calendar_is_public
-
-        google_calendar_link: Union[None, Unset, str]
-        if isinstance(self.google_calendar_link, Unset):
-            google_calendar_link = UNSET
-        else:
-            google_calendar_link = self.google_calendar_link
-
         promotion_campaigns: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.promotion_campaigns, Unset):
             promotion_campaigns = []
@@ -840,10 +824,6 @@ class PublicOfferingDetails:
             field_dict["open_for_proposals"] = open_for_proposals
         if config_drive_default is not UNSET:
             field_dict["config_drive_default"] = config_drive_default
-        if google_calendar_is_public is not UNSET:
-            field_dict["google_calendar_is_public"] = google_calendar_is_public
-        if google_calendar_link is not UNSET:
-            field_dict["google_calendar_link"] = google_calendar_link
         if promotion_campaigns is not UNSET:
             field_dict["promotion_campaigns"] = promotion_campaigns
 
@@ -1461,24 +1441,6 @@ class PublicOfferingDetails:
 
         config_drive_default = d.pop("config_drive_default", UNSET)
 
-        def _parse_google_calendar_is_public(data: object) -> Union[None, Unset, bool]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, bool], data)
-
-        google_calendar_is_public = _parse_google_calendar_is_public(d.pop("google_calendar_is_public", UNSET))
-
-        def _parse_google_calendar_link(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        google_calendar_link = _parse_google_calendar_link(d.pop("google_calendar_link", UNSET))
-
         promotion_campaigns = []
         _promotion_campaigns = d.pop("promotion_campaigns", UNSET)
         for promotion_campaigns_item_data in _promotion_campaigns or []:
@@ -1575,8 +1537,6 @@ class PublicOfferingDetails:
             is_accessible=is_accessible,
             open_for_proposals=open_for_proposals,
             config_drive_default=config_drive_default,
-            google_calendar_is_public=google_calendar_is_public,
-            google_calendar_link=google_calendar_link,
             promotion_campaigns=promotion_campaigns,
         )
 

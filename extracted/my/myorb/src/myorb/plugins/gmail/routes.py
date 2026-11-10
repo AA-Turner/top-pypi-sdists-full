@@ -6,7 +6,7 @@ import base64
 import binascii
 import json
 import time
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -220,6 +220,19 @@ def _in_view(request: Request) -> bool:
 async def read_email(
     request: Request, account_id: int, thread_id: str, images: bool = False, read: bool = False
 ) -> Response:
+    return await _email(request, account_id, thread_id, images=images, read=read)
+
+
+async def _email(
+    request: Request,
+    account_id: int,
+    thread_id: str,
+    images: bool = False,
+    read: bool = False,
+    error: str = "",
+) -> Response:
+    """The email's page, or the email over the details; `error` says what the button the user
+    pressed in it could not do."""
     account = await _account(request, account_id)
     context: dict[str, Any] = {
         "account": account,
@@ -233,6 +246,7 @@ async def read_email(
         "in_view": _in_view(request),
         "frame_document": frame_document,
         "size_label": size_label,
+        "error": error,
     }
     try:
         thread = await request.app.state.google.get_json(
@@ -242,7 +256,8 @@ async def read_email(
         context["messages"] = [read_message(m, timezone) for m in thread.get("messages", [])]
         await _fetch_inline(request, account, context["messages"])
     except GoogleError as error:
-        context["error"] = str(error)
+        # Just marked as read, the email is done with: the view goes on to the next one.
+        context["error"] = "" if read else str(error)
         context["messages"] = []
     allowed = set(await _image_domains(request))
     with_html = [m for m in context["messages"] if m["html"]]
@@ -347,6 +362,10 @@ async def mark_read(request: Request, account_id: int, thread_id: str) -> Respon
             json={"removeLabelIds": ["UNREAD"]},
         )
     except GoogleError as error:
+        # Over the details, the email again with what went wrong: an answer with an error
+        # status would change nothing there, and the button would seem to do nothing.
+        if _in_view(request):
+            return await _email(request, account_id, thread_id, error=str(error))
         raise HTTPException(status_code=502, detail=str(error)) from error
     request.app.state.cache.invalidate(f"google:{account.id}:gmail")
     request.app.state.plugins["gmail"].marked_read(account.email, thread_id)
@@ -360,6 +379,48 @@ async def mark_read(request: Request, account_id: int, thread_id: str) -> Respon
     if request.headers.get("HX-Request") and not request.headers.get("HX-Boosted"):
         return Response(status_code=204, headers={"HX-Trigger": "myorb:refresh"})
     return RedirectResponse(f"/email/{account_id}/{thread_id}?read=true", status_code=303)
+
+
+@router.post("/email/{account_id}/{thread_id}/star/{message_id}", response_class=HTMLResponse)
+async def star(
+    request: Request,
+    account_id: int,
+    thread_id: str,
+    message_id: str,
+    starred: bool,
+    place: Literal["top", "head"] = "top",
+    twin: bool = False,
+) -> Response:
+    """Stars or unstars one message, as its star in Gmail; answers with the star as it is now,
+    and with its twin when the message has one (the newest: right of the buttons and its date)."""
+    account = await _account(request, account_id)
+    if MODIFY_SCOPE not in account.scopes:
+        raise HTTPException(
+            status_code=403, detail="Connect the Google account again to allow starring."
+        )
+    change = "addLabelIds" if starred else "removeLabelIds"
+    context: dict[str, Any] = {
+        "account": account,
+        "thread_id": thread_id,
+        "place": place,
+        "twin": twin,
+        "answer": True,
+    }
+    try:
+        await request.app.state.google.request_json(
+            account,
+            "POST",
+            f"{API}/messages/{quote(message_id, safe='')}/modify",
+            API_NAME,
+            json={change: ["STARRED"]},
+        )
+    except GoogleError as error:
+        # The star as it was, saying why: an error status would change nothing on the page.
+        context |= {"message": {"id": message_id, "starred": not starred}, "star_error": str(error)}
+    else:
+        context["message"] = {"id": message_id, "starred": starred}
+        request.app.state.cache.invalidate(f"google:{account.id}:gmail")
+    return request.app.state.templates.TemplateResponse(request, "gmail/star.html", context)
 
 
 # A reply, written by Claude or the user, saved as a Gmail draft (myOrb never sends a reply)

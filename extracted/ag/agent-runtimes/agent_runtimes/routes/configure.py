@@ -246,6 +246,27 @@ async def set_node_mode(body: NodeModeRequest) -> dict[str, Any]:
     }
 
 
+@router.get("/mcp-toolsets-status")
+async def get_mcp_toolsets_status(
+    agent_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """Whether the agent answers, and each MCP server starting, ready or failed.
+
+    The agent answers with its model as soon as it is registered; its MCP
+    servers start in the background, each said ``starting``, ``started`` (its
+    tools with it) or ``failed`` with ``reason``, a sentence a page shows
+    (the user, 8 November 2026). The same as a snapshot's ``mcpStatus``.
+    """
+    from agent_runtimes.mcp import get_config_mcp_toolsets_status
+    from agent_runtimes.routes.acp import _agents
+
+    status = get_config_mcp_toolsets_status()
+    if agent_id is not None:
+        status["agent_id"] = agent_id
+        status["agent_ready"] = agent_id in _agents
+    return status
+
+
 @router.get("/inference/provider")
 async def get_inference_provider() -> dict[str, Any]:
     """Return the effective runtime inference provider."""
@@ -333,6 +354,60 @@ async def give_inference_token_endpoint(
         "source": source,
         "note": note,
     }
+
+
+class AgentCoreWorkloadRequest(BaseModel):
+    """The workload token a pod is given for AgentCore Identity, as the companion gives it."""
+
+    workload_access_token: str = ""
+    workload_name: str = ""
+    region: str = ""
+
+
+@router.put("/identity/agentcore")
+async def give_agentcore_workload_token_endpoint(
+    request: Request, body: AgentCoreWorkloadRequest
+) -> dict[str, Any]:
+    """Give this pod the workload token the ``agentcore`` identity provider uses (ID-06).
+
+    The companion asks AgentCore Identity for it with the person's token
+    (``GetWorkloadAccessTokenForJWT``) and gives it here, as it gives the
+    inference token. Only the pod itself may. A later call replaces it.
+    """
+    from agent_runtimes.agentcore.identity import give_workload_token
+    from agent_runtimes.apps.callers import POD_SECRET_HEADER, is_the_pod
+
+    if not is_the_pod(
+        request.client.host if request.client else None,
+        request.headers.get(POD_SECRET_HEADER),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the runtime's own pod gives it its AgentCore workload token.",
+        )
+    try:
+        give_workload_token(body.workload_access_token, body.workload_name, body.region)
+    except ValueError as refused:
+        raise HTTPException(status_code=422, detail=str(refused)) from None
+    return {"workloadName": body.workload_name.strip(), "region": body.region.strip()}
+
+
+@router.post("/identity/authorizations/{authorization_id}/decline")
+async def decline_authorization_endpoint(authorization_id: str) -> dict[str, Any]:
+    """Decline the grant a tool waits for, as the chat's *Decline* asks (ID-10).
+
+    The id is the one the ``identity.authorization_required`` event carried to
+    the person's own turn stream, never listed elsewhere. The tool call ends
+    with a sentence.
+    """
+    from agent_runtimes.identity import decline_authorization
+
+    if not decline_authorization(authorization_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No authorization {authorization_id} waits: answered, timed out, or never asked.",
+        )
+    return {"id": authorization_id, "declined": True}
 
 
 @router.get("/inference/models")

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class Pkcs12CertificateInformation(ClientValue):
     """Represents the public information of a Pkcs12 certificate.
 

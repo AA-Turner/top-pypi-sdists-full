@@ -381,10 +381,7 @@ def row_history(writer, manifest, *, item_key, limit=None, continuation=None):
     from . import governance
 
     subject = next(iter(governance.iter_subjects(conn, cid, writer._operation.logical_vault_id, row_key=item_key)), None)
-    if subject is None or writer._operation.decision(subject).level < 6:
-        raise collections.CollectionError("RECORD_NOT_FOUND", "record key does not exist")
-    plan = writer._operation.field_plan(manifest)
-    if not plan.owner and plan.whole_fields != set(manifest.schema.fields):
+    if not writer._operation.reads_whole_row(cid, subject):
         raise collections.CollectionError("RECORD_NOT_FOUND", "record key does not exist")
     item = writer._item(cid, item_key)
     assessment = audit(writer, writer._collection_row(manifest))
@@ -659,9 +656,9 @@ class PageContext:
                 if (not self._allows(subject, readers)
                         or any(not self._allows(subject, readers, path) for path in historical_paths)):
                     return None
-                # An item view follows its row through filename maintenance; other layouts keep the event's path.
-                paths = [subject.basis.subject.path if self.layout == "markdown-items" and self.view_mode == "items"
-                         else original["canonical_path"]]
+                # An item view follows its row through filename maintenance. A summary row's page is its
+                # collection's, because conversion retired the item path. A log keeps the event's path.
+                paths = [original["canonical_path"] if self.layout == "markdown-log" else subject.basis.subject.path]
             elif (not self._allows(self.manifest_subject, readers)
                   or any(not self._allows(self.manifest_subject, readers, path) for path in historical_paths)):
                 return None

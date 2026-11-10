@@ -12,6 +12,7 @@ from pysqlsync.connection import ConnectionParameters, ConnectionSSLMode
 from pysqlsync.factory import get_dialect, get_parameters
 from pysqlsync.formation.mutation import MutatorOptions
 from pysqlsync.formation.py_to_sql import StructMode
+from rich.markup import escape
 
 from .. import ui
 from ..replicator import canvas, canvas_logs, catalog, meta_schema, new_quizzes
@@ -142,7 +143,7 @@ class DatabaseConnection:
             ):
                 utf8_warn_str = f"The database character set '{charset}' should be 'utf8mb4' and collation '{collation}' should start with 'utf8mb4_'. Text fields may be incorrectly stored. Please consider using UTF-8 settings."
         if utf8_warn_str:
-            ui.warning(f"[bold]{utf8_warn_str}[/bold]")
+            ui.warning(f"[bold]{escape(utf8_warn_str)}[/bold]")
             logger.warning(utf8_warn_str)
 
     @staticmethod

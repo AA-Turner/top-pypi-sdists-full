@@ -46,6 +46,7 @@ class TOCAnalyzer:
                   on forms with few items (e.g., 10-Q has only Items 1-6).
         """
         self.form = form
+        self._dfin_row_text_used = False
         # Per-form schema: bare-item cap, text-keyword item rules, and the
         # unmatched-text policy. Replaces the scattered `if self.form in (...)`
         # branches that baked 10-K shape into form-agnostic code (edgartools-fhno).
@@ -112,7 +113,13 @@ class TOCAnalyzer:
         if agent == 'Workiva':
             result = self._analyze_workiva_toc(html_content, tree=tree)
         elif agent == 'Donnelley':
+            self._dfin_row_text_used = False
             result = self._analyze_dfin_toc(html_content, tree=tree)
+            if result and self._dfin_row_text_used:
+                # Row-text recovery can leave a thin mapping that would suppress the
+                # generic scan; let the scan fill the gaps (GH #1749).
+                generic = self._analyze_generic_toc(html_content, tree=tree)
+                result = {**generic, **result}
         elif agent == 'Novaworks':
             result = self._analyze_novaworks_toc(html_content, tree=tree)
         elif agent == 'Toppan Merrill':
@@ -585,8 +592,22 @@ class TOCAnalyzer:
 
     # Trailing page-number / dot-leader run on a TOC link's text ("Use of
     # Proceeds .... 12"), stripped before matching the schema title vocabulary
-    # (whose regexes are heading-anchored with \s*$).
-    _TOC_PAGE_TAIL = re.compile(r'[\s.…]*\d{0,4}\s*$')
+    # (whose regexes are heading-anchored with \s*$). It removes exactly what
+    # re.sub(r'[\s.…]*\d{0,4}\s*$', '', text) removes, but as one backward
+    # scan: that regex backtracks cubically on a long run of spaces and dots
+    # (33 KB of ". " took 10.7 s; attack-surface audit 2026-10-22).
+    @staticmethod
+    def _strip_toc_page_tail(text: str) -> str:
+        end = len(text)
+        while end and text[end - 1].isspace():          # \s*$
+            end -= 1
+        digits = 0
+        while end and digits < 4 and text[end - 1].isdecimal():   # \d{0,4}
+            end -= 1
+            digits += 1
+        while end and (text[end - 1].isspace() or text[end - 1] in '.…'):  # [\s.…]*
+            end -= 1
+        return text[:end]
 
     # A TOC entry whose visible text is only a page number ("8", "12") is a
     # dot-leader artifact, not a section title. It shares its sibling title's
@@ -799,7 +820,7 @@ class TOCAnalyzer:
                 title = ' '.join(t for t in texts[lo_k:hi_k] if t).strip()
                 # A single-fragment entry can still carry an inline trailing page
                 # number ("Use of Proceeds 12"); strip it for matching.
-                title = self._TOC_PAGE_TAIL.sub('', title).strip() or title
+                title = self._strip_toc_page_tail(title).strip() or title
                 key = self.schema.match_section_pattern(title) if title else None
                 # Depth from the non-page fragments only: a page-number link is
                 # rendered flush (indent 0) and would otherwise drag every entry's
@@ -1085,9 +1106,13 @@ class TOCAnalyzer:
             if not isinstance(tag, str):
                 continue
             # Track the most recent element carrying an id; for a body heading
-            # this is the empty anchor div placed immediately before it.
+            # this is the empty anchor div placed immediately before it. Not an
+            # inline-XBRL fact's generated id (see _own_anchor_id): Southern's
+            # Item 16 heading has no anchor, and the fact tagging the auditor's
+            # PCAOB ID in Item 15's last paragraph became its start, cutting
+            # Item 15 mid-sentence (edgartools-llmp.12).
             eid = el.get('id')
-            if eid:
+            if eid and not tag.lower().startswith('ix:'):
                 last_anchor_id = eid
             if windows is not None and not any(lo <= idx < hi for lo, hi in windows):
                 continue
@@ -2038,6 +2063,15 @@ class TOCAnalyzer:
                     if not parsed:
                         parsed = self._parse_item_from_text(text)
 
+                    # The item label can sit in a neighbouring cell ("Item 1." | link
+                    # "Financial Statements" | page) with no number in anchor or link
+                    # text (GH #1749); read it from the row text.
+                    if not parsed and len(links) == 1:
+                        row_parsed = self._parse_item_from_text(row_text)
+                        if row_parsed and not row_parsed.startswith('Part'):
+                            parsed = row_parsed
+                            self._dfin_row_text_used = True
+
                     if not parsed:
                         continue
 
@@ -2553,6 +2587,13 @@ class TOCAnalyzer:
             if re.search(pattern, text, re.IGNORECASE):
                 return True
 
+        # A title the form's text rules map to an item is a section link by
+        # definition ("Form 10-K Summary" -> Item 16 on a title-only TOC, which
+        # the keyword list below never admitted, so Morgan Stanley's Item 15
+        # ran on through its Item 16).
+        if self.schema.match_text(text.lower(), use_exclusions=True):
+            return True
+
         # Also consider links with section keywords
         if len(text) < 100 and any(keyword in text.lower() for keyword in
                                    ['item', 'part', 'business', 'risk', 'properties', 'legal',
@@ -2691,6 +2732,10 @@ class TOCAnalyzer:
         named_match = re.match(r'(?:part_([ivx]+)_)?([a-z_]+)$', text_lower)
         if named_match and self._is_known_named_section(named_match.group(2)):
             part_roman = named_match.group(1)
+            if named_match.group(2) == 'exhibit_index':
+                # Split from the end of Part IV Item 16, it sits after it and
+                # before any Part IV Signatures.
+                return 'section', self._roman_to_int(part_roman or 'iv') * 100000 + 98000
             if part_roman:
                 return 'section', self._roman_to_int(part_roman) * 100000 + 99000
             return 'section', 9_900_000
@@ -2743,7 +2788,7 @@ class TOCAnalyzer:
 
     # Named sections that legitimately carry no item number but should still be
     # exposed. Everything else without an item number is descriptive free-text noise.
-    _KNOWN_NAMED_SECTIONS = frozenset({'signatures'})
+    _KNOWN_NAMED_SECTIONS = frozenset({'signatures', 'exhibit_index'})
     # A canonical section key: item, optionally part-prefixed (part_ii_item_7).
     # The single-letter suffix admits standard items (1A, 7A, 9A–9C) and
     # legitimate company-specific ones (Caterpillar's Item 1D), not just a–c.

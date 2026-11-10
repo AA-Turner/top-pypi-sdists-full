@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.communications.callrecords.network_connection_type import (
     NetworkConnectionType,
@@ -15,7 +15,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class NetworkInfo(ClientValue):
     bandwidthLowEventRatio: float | None = None
     basicServiceSetIdentifier: str | None = None

@@ -9,6 +9,7 @@ import logging
 from collections.abc import Iterator, Mapping
 from functools import lru_cache
 from typing import Any, Callable, Dict, Optional
+from ._class_snapshot import attribute_names
 
 logger = logging.getLogger("djust")
 
@@ -27,7 +28,7 @@ def cleanup_expired_sessions(ttl: Optional[int] = None) -> int:
     Returns:
         Number of sessions cleaned up
     """
-    from .state_backend import get_backend
+    from .state_backends import get_backend
 
     backend = get_backend()
     return backend.cleanup_expired(ttl)
@@ -40,7 +41,7 @@ def get_session_stats() -> Dict[str, Any]:
     Returns:
         Dictionary with cache statistics
     """
-    from .state_backend import get_backend
+    from .state_backends import get_backend
 
     backend = get_backend()
     return backend.get_stats()
@@ -90,7 +91,7 @@ def _get_model_hash(model_class: type) -> str:
     # These are included in JIT serialization, so changes should invalidate cache
     method_prefixes = ("get_", "is_", "has_", "can_")
     skip_prefixes = ("get_next_by_", "get_previous_by_")
-    for attr_name in sorted(dir(model_class)):
+    for attr_name in attribute_names(model_class):  # sorted; dir() races (#3151)
         if attr_name.startswith("_"):
             continue
         if not any(attr_name.startswith(p) for p in method_prefixes):
@@ -324,17 +325,24 @@ class Stream:
             # catch the drift.
             try:
                 return f"{self.name}-{self.dom_id_fn(item_or_id)}"
-            except Exception:
+            except Exception as exc:
                 if not allow_factory_fallback:
                     raise
+                from ._exposure_diagnostics import log_failure
+
                 # Never swallowed — logged with the traceback, then handled.
-                logger.warning(
+                # The line quotes the row itself, so it is value-free inside a
+                # nonlegacy view's turn.
+                log_failure(
+                    logger,
+                    exc,
                     "Stream %r custom dom_id= factory raised on %r; falling back to "
                     "the default id resolution, which will NOT match the row that "
                     "was inserted. The argument must be an item the factory accepts.",
                     self.name,
                     item_or_id,
-                    exc_info=True,
+                    level="warning",
+                    traceback=True,
                 )
                 return f"{self.name}-{Stream.resolve_id(item_or_id)}"
 

@@ -1,5 +1,6 @@
-"""Ride a run's neighbouring telemetry ops in few POSTs: its metric ops in one `/metrics` POST and
-its step records in one `/steps/batch` POST (one pass, plan T4); split a batch when it fails."""
+"""Ride a run's neighbouring telemetry ops in few POSTs: its metric ops in one `/metrics` POST, its
+step records in one `/steps/batch` POST (one pass, plan T4) and its sample ops in one
+`/samples/batch` POST; split a batch when it fails."""
 
 from __future__ import annotations
 import json
@@ -22,6 +23,9 @@ MERGE_MAX_POINTS = 5_000
 MERGE_MAX_BYTES = 2 * 1024 * 1024
 #: Step records per `POST /v1/runs/{id}/steps/batch`: the server's cap (`StepBatch`).
 STEPS_MAX = 1_000
+#: Items (samples, seals, ...) and bytes per `POST /v1/runs/{id}/samples/batch` (RL plan §4).
+SAMPLES_MAX = 1_000
+SAMPLES_MAX_BYTES = 4 * 1024 * 1024
 
 
 def _delivery_headers(op: dict) -> list:
@@ -107,6 +111,96 @@ def _step_key(op: dict) -> str | None:
         )
     except (TypeError, ValueError):
         return None
+
+
+def _get_samples_key(op: dict) -> str | None:
+    """What a sample op must share with its neighbours to ride in one `/samples/batch` POST: its
+    run, context, writer and every non-list body field (epoch, producer), and its
+    `_delivery_headers`. None when it never merges."""
+    if op.get("kind") != "http" or op.get("method") != "POST" or op.get("correlation"):
+        return None
+    route = routes.classify("POST", op.get("path"))
+    if route.op is not WriteOp.SAMPLES or not route.exact or not _is_uuid(route.run):
+        return None
+    body = op.get("body")
+    if not isinstance(body, dict):
+        return None
+    rest = {key: value for key, value in body.items() if not isinstance(value, list)}
+    try:
+        return json.dumps(
+            [
+                op.get("run_ref"),
+                op.get("context"),
+                op.get("attribution"),
+                op.get("path"),
+                op.get("blocking", True),
+                bool(op.get("best_effort")),
+                rest,
+                _delivery_headers(op),
+            ],
+            sort_keys=True,
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def count_sample_items(body: dict) -> int:
+    """Items one samples body carries: every entry of every list field."""
+    return sum(len(value) for value in body.values() if isinstance(value, list))
+
+
+def _collect_sample_batch(
+    lane: list[tuple[Path, dict]],
+    start: int,
+    held_back: str | None,
+    *,
+    still_queued: Callable[[Path, dict], bool] | None = None,
+) -> list:
+    """Sample ops sharing the head's `_get_samples_key`, from ``lane[start]``, up to the caps. Metric
+    and step ops between them stay queued for their own batch (each kind keeps its order); any
+    other op ends the walk. [] unless two or more."""
+    if start >= len(lane):
+        return []
+    head = lane[start][1]
+    key = _get_samples_key(head)
+    if key is None or _attempts(head) > 0:
+        return []
+    batch: list = []
+    count = size = 0
+    stepped: set[tuple[str, object]] = set()
+    for path, op in lane[start:]:
+        if batch:
+            if held_back is not None and path.name > held_back:
+                break
+            if still_queued is not None and not still_queued(path, op):
+                continue
+            if _merge_key(op) is not None or _step_key(op) is not None:
+                continue
+            if _attempts(op) > 0 or _get_samples_key(op) != key:
+                break
+        items = count_sample_items(op["body"])
+        weight = len(json.dumps(op["body"]))
+        if batch and (count + items > SAMPLES_MAX or size + weight > SAMPLES_MAX_BYTES):
+            break
+        # A batch names a step once per seal and once per commit (`SampleBatchIn`).
+        steps = _get_sealed_steps(op["body"])
+        if steps & stepped:
+            break
+        batch.append((path, op))
+        stepped |= steps
+        count += items
+        size += weight
+    return batch if len(batch) >= 2 else []
+
+
+def _get_sealed_steps(body: dict) -> set[tuple[str, object]]:
+    """The (list, step) pairs a samples body's seals and commits name."""
+    return {
+        (name, item.get("step"))
+        for name in ("seals", "commits")
+        for item in body.get(name) or ()
+        if isinstance(item, dict)
+    }
 
 
 def _partition(
@@ -344,6 +438,30 @@ def _send_steps(client, items) -> None:
             _forget_steps_batch(client)
             raise _BatchRouteAbsent from exc
         raise
+
+
+def merge_sample_bodies(bodies: list[dict]) -> dict:
+    """One samples body from many sharing a `_get_samples_key`: each list field concatenated in
+    queue order, the rest (epoch, producer) taken from the first."""
+    merged: dict = {}
+    for body in bodies:
+        for key, value in body.items():
+            if isinstance(value, list):
+                merged.setdefault(key, []).extend(value)
+            else:
+                merged.setdefault(key, value)
+    return merged
+
+
+def _send_samples(client, items) -> None:
+    """One `POST /v1/runs/{id}/samples/batch` carrying every item of ``items``, in queue order."""
+    for _, op in items:
+        for value in op.values():
+            unstorable.has_nul(value)
+        unstorable.validate_nuls(op.get("body"), path=op.get("path", ""), method="POST")
+    head = items[0][1]
+    body = merge_sample_bodies([op["body"] for _, op in items])
+    client.transport.request("POST", head["path"], json_body=body, **build_async_ack_kwargs(client))
 
 
 def _send_merged(client, items) -> None:

@@ -1,3 +1,21 @@
+# SPDX-License-Identifier: ISC
+#
+# ISC License
+#
+# Copyright (c) 2020, Timothée Mazzucotelli and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # Why does this file exist, and why not put this in `__main__`?
 #
 # You might be tempted to import things from `__main__` later,
@@ -14,6 +32,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import tomllib
 import warnings
 from importlib import metadata
 from pathlib import Path
@@ -30,19 +49,16 @@ from git_changelog._internal.commit import (
     BasicConvention,
     CommitConvention,
     ConventionalCommitConvention,
+    ConventionalCommitConventionV1,
     LinuxConvention,
 )
-from git_changelog._internal.providers import Bitbucket, GitHub, GitLab, ProviderRefParser
-from git_changelog._internal.versioning import bump_pep440, bump_semver
-
-# YORE: EOL 3.10: Replace block with line 2.
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
+from git_changelog._internal.providers import Bitbucket, Forgejo, GitHub, GitLab, ProviderRefParser
+from git_changelog._internal.versioning import SemVerVersion, bump_pep440, bump_semver
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
+
+    from git_changelog._internal.versioning import ParsedVersion
 
 _MARKER_LINE_PREPEND = ":prepend:"
 
@@ -147,6 +163,7 @@ providers: dict[str, type[ProviderRefParser]] = {
     "github": GitHub,
     "gitlab": GitLab,
     "bitbucket": Bitbucket,
+    "forgejo": Forgejo,
 }
 """Available version control providers."""
 
@@ -189,6 +206,7 @@ def get_parser() -> argparse.ArgumentParser:
             {BasicConvention._format_sections_help()}
             {AngularConvention._format_sections_help()}
             {ConventionalCommitConvention._format_sections_help()}
+            {ConventionalCommitConventionV1._format_sections_help()}
             {LinuxConvention._format_sections_help()}
             """,
         ),
@@ -462,9 +480,30 @@ def _get_version_regex(version_regex: str | None, template: str) -> str:
     return DEFAULT_VERSION_REGEX
 
 
-def _unreleased(versions: list[Version], last_release: str) -> list[Version]:
+def _version_key(
+    tag: str | None, version_parser: Callable[[str], tuple[ParsedVersion, str]]
+) -> tuple[ParsedVersion, str | None] | str | None:
+    """Parse a release identifier, retaining unparseable identifiers for exact matching."""
+    if not tag:
+        return None
+    try:
+        parsed, _ = version_parser(tag)
+    except ValueError:
+        return tag
+    # SemVer equality ignores build metadata, but distinct builds can identify different releases.
+    return parsed, parsed.build if isinstance(parsed, SemVerVersion) else None
+
+
+def _unreleased(
+    versions: list[Version], last_release: str, version_parser: Callable[[str], tuple[ParsedVersion, str]]
+) -> list[Version]:
+    """Keep releases missing from the changelog, rejecting an already documented latest release."""
+    last_release_key = _version_key(last_release, version_parser)
+    latest = versions[0]
+    if last_release_key in (_version_key(latest.tag, version_parser), _version_key(latest.planned_tag, version_parser)):
+        raise ValueError(f"Version {last_release} already in changelog")
     for index, version in enumerate(versions):
-        if version.tag == last_release:
+        if _version_key(version.tag, version_parser) == last_release_key:
             return versions[:index]
     return versions
 
@@ -741,15 +780,10 @@ def render(  # noqa: PLR0917
         # Only keep new entries (missing from changelog).
         last_released, last_released_line = _latest(lines, re.compile(version_regex))
         if last_released:
-            # Check if the latest version is already in the changelog.
-            if last_released in [
-                changelog.versions_list[0].tag,
-                changelog.versions_list[0].planned_tag,
-            ]:
-                raise ValueError(f"Version {last_released} already in changelog")
             changelog.versions_list = _unreleased(
                 changelog.versions_list,
                 last_released,
+                changelog.version_parser,
             )
 
         # Render new entries.
@@ -765,7 +799,8 @@ def render(  # noqa: PLR0917
         # Find marker line(s) in current changelog.
         if marker_line == ":prepend:":
             # With prepend mode, take account of last_released_line to replace unreleased changelog.
-            lines[0:last_released_line] = [rendered]
+            end = last_released_line if last_released else len(lines)
+            lines[:end] = [rendered]
         else:
             marker = lines.index(marker_line)
             try:
@@ -783,7 +818,7 @@ def render(  # noqa: PLR0917
 
     # Overwrite output file.
     else:
-        rendered = jinja_template.render(changelog=changelog, jinja_context=jinja_context)
+        rendered = jinja_template.render(changelog=changelog, jinja_context=jinja_context).rstrip("\n") + "\n"
 
         # Write result in specified output.
         if output is sys.stdout:
@@ -983,6 +1018,9 @@ def main(args: list[str] | None = None) -> int:
         changelog = build(**settings)
         if not changelog.versions_list:
             print("git-changelog: No version found in the repository.", file=sys.stderr)
+            return 1
+        if changelog.versions_list[0].planned_tag is None:
+            print("git-changelog: No version bump required.", file=sys.stderr)
             return 1
         print(changelog.versions_list[0].planned_tag)
         return 0

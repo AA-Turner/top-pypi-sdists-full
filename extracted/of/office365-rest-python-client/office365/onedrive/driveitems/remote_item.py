@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.permissions.identity_set import IdentitySet
@@ -16,7 +16,6 @@ from office365.onedrive.shares.shared import Shared
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class RemoteItem(ClientValue):
     """
     The remoteItem resource indicates that a driveItem references an item that exists in another drive.

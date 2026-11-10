@@ -359,6 +359,51 @@ def _get_always_off_tracer() -> Any | None:
     return _always_off_tracer
 
 
+def _record_queue_wait_spans(context_metadata: Any) -> None:
+    contexts = [context_metadata] if isinstance(context_metadata, Mapping) else context_metadata
+    if not isinstance(contexts, Sequence) or isinstance(contexts, str | bytes):
+        return
+    for context in contexts:
+        if not isinstance(context, Mapping) or context.get("peer") != "fnq-self-consumer":
+            continue
+        metadata = _raw_metadata(context)
+        if metadata is None:
+            continue
+        try:
+            started = int(metadata["x-chalk-internal-enqueued-at-ms"]) * 1_000_000
+            ended = int(metadata["x-chalk-internal-dequeued-at-ns"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if started < 0 or ended < started or ended > 2**64 - 1:
+            continue
+        config = _load_tracing_config()
+        override = str(metadata.get(_REMOTE_FUNCTION_TRACE_OVERRIDE_KEY) or "").strip().lower()
+        if override == _TRACE_OVERRIDE_OFF:
+            continue
+        if override == _TRACE_OVERRIDE_ON:
+            config = replace(config, policy=_TRACE_POLICY_PARENT_BASED_TRACE_ID_RATIO, sample_rate=1.0)
+            metadata = _force_sampled_traceparent(metadata)
+        if config.policy in (None, _TRACE_POLICY_ALWAYS_OFF) or config.environment_id is None:
+            continue
+        _, parent, modules = _span_metadata(metadata, metadata, config)
+        if modules is None or parent is None:
+            continue
+        tracer = _get_tracer(modules[2])
+        if tracer is None:
+            continue
+        span = tracer.start_span(
+            "chalk.serverless.queue_wait",
+            context=parent,
+            start_time=started,
+            attributes={
+                "chalk.environment_id": config.environment_id,
+                "chalk.remote_function.name": str(context.get("function_name") or ""),
+            },
+        )
+        span.end(end_time=ended)
+        _request_span_flush()
+
+
 @contextlib.contextmanager
 def remote_function_invocation_span(
     context_metadata: Any,

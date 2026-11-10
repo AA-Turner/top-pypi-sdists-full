@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from ..models.edit_copilot_config_json_body_metadata_model import EditCopilotConfigJsonBodyMetadataModel
     from ..models.edit_copilot_config_json_body_model_pricing import EditCopilotConfigJsonBodyModelPricing
     from ..models.edit_copilot_config_json_body_providers import EditCopilotConfigJsonBodyProviders
+    from ..models.edit_copilot_config_json_body_web_search import EditCopilotConfigJsonBodyWebSearch
 
 
 T = TypeVar("T", bound="EditCopilotConfigJsonBody")
@@ -48,6 +49,9 @@ class EditCopilotConfigJsonBody:
         sessions_retention_days (Union[Unset, int]): The server deletes the backup of a session no push has reached for
             this many days. Unset keeps backups until the user deletes the session. Read from the workspace's own settings
             like `copilot_disabled`.
+        web_search (Union[Unset, EditCopilotConfigJsonBodyWebSearch]): The search API the AI chat searches the web and
+            reads pages through when the model's provider has no built-in web search. Read from the workspace's own settings
+            like `copilot_disabled`.
     """
 
     providers: Union[Unset, "EditCopilotConfigJsonBodyProviders"] = UNSET
@@ -62,6 +66,7 @@ class EditCopilotConfigJsonBody:
     copilot_disabled: Union[Unset, bool] = UNSET
     sessions_storage_disabled: Union[Unset, bool] = UNSET
     sessions_retention_days: Union[Unset, int] = UNSET
+    web_search: Union[Unset, "EditCopilotConfigJsonBodyWebSearch"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -104,6 +109,9 @@ class EditCopilotConfigJsonBody:
         copilot_disabled = self.copilot_disabled
         sessions_storage_disabled = self.sessions_storage_disabled
         sessions_retention_days = self.sessions_retention_days
+        web_search: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.web_search, Unset):
+            web_search = self.web_search.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -132,6 +140,8 @@ class EditCopilotConfigJsonBody:
             field_dict["sessions_storage_disabled"] = sessions_storage_disabled
         if sessions_retention_days is not UNSET:
             field_dict["sessions_retention_days"] = sessions_retention_days
+        if web_search is not UNSET:
+            field_dict["web_search"] = web_search
 
         return field_dict
 
@@ -152,6 +162,7 @@ class EditCopilotConfigJsonBody:
         from ..models.edit_copilot_config_json_body_metadata_model import EditCopilotConfigJsonBodyMetadataModel
         from ..models.edit_copilot_config_json_body_model_pricing import EditCopilotConfigJsonBodyModelPricing
         from ..models.edit_copilot_config_json_body_providers import EditCopilotConfigJsonBodyProviders
+        from ..models.edit_copilot_config_json_body_web_search import EditCopilotConfigJsonBodyWebSearch
 
         d = src_dict.copy()
         _providers = d.pop("providers", UNSET)
@@ -225,6 +236,13 @@ class EditCopilotConfigJsonBody:
 
         sessions_retention_days = d.pop("sessions_retention_days", UNSET)
 
+        _web_search = d.pop("web_search", UNSET)
+        web_search: Union[Unset, EditCopilotConfigJsonBodyWebSearch]
+        if isinstance(_web_search, Unset):
+            web_search = UNSET
+        else:
+            web_search = EditCopilotConfigJsonBodyWebSearch.from_dict(_web_search)
+
         edit_copilot_config_json_body = cls(
             providers=providers,
             default_model=default_model,
@@ -238,6 +256,7 @@ class EditCopilotConfigJsonBody:
             copilot_disabled=copilot_disabled,
             sessions_storage_disabled=sessions_storage_disabled,
             sessions_retention_days=sessions_retention_days,
+            web_search=web_search,
         )
 
         edit_copilot_config_json_body.additional_properties = d

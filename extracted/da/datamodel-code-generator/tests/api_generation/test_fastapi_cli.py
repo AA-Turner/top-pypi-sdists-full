@@ -255,6 +255,27 @@ def test_fastapi_cli_model_dependencies(
     )
 
 
+def test_fastapi_cli_request_response_discriminated_enum(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Generate a server beside request-response models of a discriminated union whose target has an enum tag.
+
+    The split read the marker path of the enum the tag property builds as a ``$ref`` into the document, and stopped
+    with ``NotImplementedError`` (#5706); the marker names no schema, so the split reads nothing there.
+    """
+    monkeypatch.chdir(tmp_path)
+    run_main_and_assert(
+        input_path=Path("pets.yaml"),
+        output_path=Path("models.py"),
+        input_file_type="openapi",
+        extra_args=_server("--read-only-write-only-model-type", "request-response"),
+        copy_files=[(CLI / "request-response-discriminator.yaml", tmp_path / "pets.yaml")],
+        capsys=capsys,
+        assert_func=assert_file_content,
+        skip_code_validation=True,
+    )
+
+
 @pytest.mark.parametrize("case_name", ["unchanged", "models-in-package", "package-in-models"])
 @pytest.mark.parametrize("structured", [False, True], ids=["text", "json"])
 def test_fastapi_cli_check_read_only(
@@ -1434,6 +1455,39 @@ def test_fastapi_cli_job(tmp_path: Path, capsys: pytest.CaptureFixture[str], mon
         capsys=capsys,
         expected_stdout_path=EXPECTED / "cli" / "check-model-readme.txt",
         assert_no_stderr=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "option", [[], ["--check"], ["--diff-against", str(CLI / "layout-clash.yaml")]], ids=["write", "check", "diff"]
+)
+def test_fastapi_cli_models_package_onto_a_file(
+    option: list[str], tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuse a models package whose output is an existing file, as a model run does, and write nothing (#4497).
+
+    --diff-against reads no destination, so it compares the two inputs instead.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").write_text("kept = 1\n", encoding="utf-8")
+    compares = bool(option) and option[0] == "--diff-against"
+    run_main_and_assert(
+        input_path=CLI / "layout-clash.yaml",
+        output_path=Path("models"),
+        input_file_type="openapi",
+        extra_args=_server(*option),
+        expected_exit=Exit.OK if compares else Exit.ERROR,
+        capsys=capsys,
+        expected_stderr=None if compares else "Error: Modular references require an output directory, not a file\n",
+        expected_output="kept = 1\n" if compares else None,
+        assert_no_stderr=compares,
+    )
+    assert_output(
+        "".join(
+            f"{path.relative_to(tmp_path).as_posix()}: {path.read_text(encoding='utf-8')}"
+            for path in sorted(tmp_path.rglob("*"))
+            if path.is_file()
+        )
     )
 
 

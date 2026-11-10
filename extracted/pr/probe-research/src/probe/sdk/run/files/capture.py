@@ -9,6 +9,7 @@ from typing import Any
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
 from ...recording_rules import recording_rules as _ignore
+from ...capture.logs import early as _early
 from ...capture.logs import stream as _logstream
 from ...capture import outputs as _outputs
 
@@ -86,29 +87,38 @@ class CaptureMixin:
         *,
         outputs: str | os.PathLike | None = None,
         capture_outputs: bool | None = None,
+        should_keep_files: bool = True,
+        log_name: str | None = None,
     ) -> None:
         """Open this run's capture window IN THIS PROCESS: the folder's
         baseline now, fds 1/2 teed to ``probe/run.log``, the sweep at close. A
         no-op when opted out, or when a launcher on this host (``probe
-        exec``) already captures for this process."""
-        if self._capture is not None or not _outputs.enabled(capture_outputs):
+        exec``) already captures for this process. ``should_keep_files=False``: the
+        log only (a rank's lease, a producer, a Miles driver, an offline run);
+        ``log_name`` names it when the caller knows this process's place."""
+        if self._capture is not None:
+            return
+        if not _outputs.enabled(capture_outputs):
+            _early.end_held_window()  # opted out: the tee `import probe` started stops too
             return
         try:
             root = _outputs.target_root(outputs=outputs)
-            if _outputs.outputs_owned_here(root) and _outputs.log_owned_here():
-                # `probe exec` on this host already sweeps this folder and tees
+            # This window sweeps unless it keeps the log only (a caller's choice, or
+            # `probe exec` on this host already sweeps this folder).
+            sweeps = should_keep_files and not _outputs.outputs_owned_here(root)
+            if not sweeps and _outputs.log_owned_here():
+                # Nothing left for it: a launcher on this host (`probe exec`) tees
                 # this process (PROBE_CAPTURE_OWNER/_ROOT/_LOG_OWNER).
                 return
-            # When exec sweeps the folder but does not tee (it could not), this
-            # window keeps the log only.
             self._capture = _outputs.OutputCapture.start(
                 self._client,
                 self.id,
                 outputs=outputs,
-                sweep=not _outputs.outputs_owned_here(root),
+                sweep=sweeps,
                 ignore=self._ignore_rules(),
                 epoch=_logstream.handle_epoch(self),
                 writer=self._writer_record(),
+                log_name=log_name,
             )
         except Exception as exc:  # noqa: BLE001 -- capture never stops a run from opening
             warnings.warn(f"probe: output capture could not start ({type(exc).__name__}): {exc}", stacklevel=2)

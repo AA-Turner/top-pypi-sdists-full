@@ -22,7 +22,12 @@ from PyQt6.QtWidgets import (QLineEdit, QApplication, QLabel, QHBoxLayout, QVBox
                             QRadioButton, QDialog, QCheckBox, QComboBox,)
 from PyQt6.QtCore import Qt
 from jhora import utils, const
-from jhora.panchanga.drik import Date
+""" 
+    drik here is generic model name can be surya_sidhantha or drik depending on value 
+    of const.astrology_model_default value
+"""
+drik = utils.hora_engine_proxy
+Date = drik.Date
 
 class WidgetDialog(QDialog):
     """
@@ -146,7 +151,7 @@ class OptionDialog(QDialog):
         else:
             for mc in range(len(self._options_list)):
                 _caption = self._options_list[mc]
-                print(mc,_caption,self._default_options)
+                #print(mc,_caption,self._default_options)
                 self._options.append(QRadioButton(_caption))
                 if mc in [self._default_options]:
                     self._options[mc].setChecked(True)

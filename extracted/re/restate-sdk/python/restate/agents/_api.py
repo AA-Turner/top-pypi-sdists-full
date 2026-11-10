@@ -68,6 +68,15 @@ class ChatMessage(Said):
     """The message's id, which increases through the conversation and stays the same when the message changes."""
 
 
+View = Literal["full", "summary"]
+"""How much of each turn the ``messages`` view shows.
+
+``"full"``: every message, the tool calls with their outputs. ``"summary"``:
+the user's message and the answer, one each per turn, with the same ids as in
+the full view.
+"""
+
+
 class MessagesRequest(TypedDict, total=False):
     """The request of the ``messages`` view.
 
@@ -81,6 +90,8 @@ class MessagesRequest(TypedDict, total=False):
     """Return the messages before the one with this ``id``, for scrolling back."""
     cursor: int
     """Return the messages that are new or changed since this cursor, in the order they changed."""
+    view: View
+    """How much of each turn to show: ``"full"`` (the default) or ``"summary"``."""
 
 
 class _Messages(TypedDict):
@@ -105,8 +116,12 @@ class Messages(_Messages, total=False):
     """The id of the first message after the conversation was cleared; a client drops the messages it kept from before."""
 
 
-class Turn(TypedDict):
-    """The message a ``chat`` handler is answering: its invocation and when it started."""
+class Answering(TypedDict):
+    """The message a ``chat`` handler is answering: its invocation and when it started.
+
+    Its wire format is shared with Restate's other SDKs. The conversation's turns (one per prompt) are
+    ``restate.agents.internal.Turn``; an invocation of a handler of your own can hold several.
+    """
 
     invocationId: str
     """The invocation's id; ``/restate/invocation/<id>/attach`` waits for its answer."""
@@ -167,6 +182,42 @@ class Notifications(TypedDict):
     revision: int
 
 
+class Steer(TypedDict):
+    """A message steered to the turn being answered (``steer``): its id (the ``steer`` request's) and its text."""
+
+    id: str
+    text: str
+
+
+class Published(Notifications, total=False):
+    """What the companion's ``publish`` returns to the turn that published: the new revision, and the messages
+    steered to that turn that it has not taken yet, if any, oldest first."""
+
+    steering: list[Steer]
+
+
+class Steering(TypedDict):
+    """A message steered to the turn being answered that it has not taken yet, as ``status`` shows it."""
+
+    id: str
+    since: str
+    """When it was sent, as an ISO 8601 timestamp."""
+
+
+class Steered(TypedDict):
+    """The response of the ``steer`` view.
+
+    ``id`` is the message's (the request's id). ``turn`` is the invocation of
+    the turn being answered, which takes the message at its next step if it
+    reaches one; ``None`` if no turn takes it. Either way the message is
+    answered once: in that turn, or else as a turn of its own, in the order
+    it was sent.
+    """
+
+    id: str
+    turn: str | None
+
+
 class _Watch(TypedDict):
     revision: int
 
@@ -177,11 +228,16 @@ class Watch(_Watch, total=False):
     timeoutSeconds: float
 
 
-class Status(TypedDict):
+class _Status(TypedDict):
+    answering: Answering | None
+    waiting: list[Waiting]
+
+
+class Status(_Status, total=False):
     """What an agent is doing: the message it is answering, if any, and what its tools wait for, oldest first."""
 
-    answering: Turn | None
-    waiting: list[Waiting]
+    steering: list[Steering]
+    """The messages steered to the turn being answered that it has not taken yet, oldest first; absent if none."""
 
 
 class Stopped(TypedDict):

@@ -156,7 +156,9 @@ class PAYGBudget(google.protobuf.message.Message):
     budget_cents: builtins.int
     @property
     def custom_payg_rate(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate:
-        """Overrides package's PAYG rates; only enterprise customers can set custom PAYG rates"""
+        """Deprecated: use contract.v2.SalesLineItemPricing.payg_rate in Contract.sales_config.
+        A customer can send UserConfig, so it must not carry a price.
+        """
 
     def __init__(
         self,
@@ -178,6 +180,10 @@ class Reservation(google.protobuf.message.Message):
     IS_UNLIMITED_FIELD_NUMBER: builtins.int
     NUM_RESERVED_UNITS_FIELD_NUMBER: builtins.int
     reserved_price_cents: builtins.int
+    """Deprecated: use contract.v2.SalesLineItemPricing.reserved_price_cents in
+    Contract.sales_config. A customer can send UserConfig, so it must not carry
+    a price.
+    """
     is_unlimited: builtins.bool
     num_reserved_units: builtins.int
     def __init__(

@@ -16,6 +16,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.calc import functions as functions
 from excel_mcp.calc.cells import CellKey, constant
+from excel_mcp.calc.functions.lambdas import Lambda, run
 from excel_mcp.calc.operators import (
     apply_binary,
     apply_percent,
@@ -34,13 +35,17 @@ from excel_mcp.calc.parser import (
     Percent,
     Ref,
     Unary,
+    left_chain,
     parse,
 )
 from excel_mcp.calc.registry import FUNCTIONS, Function
 from excel_mcp.calc.scheduler import MAX_NAME_DEPTH, Scheduler, TooDeepError
 from excel_mcp.calc.tablerefs import bind
 from excel_mcp.calc.values import (
+    CALC,
     ERRORS,
+    NAME,
+    NULL,
     NUM,
     REF,
     VALUE,
@@ -52,6 +57,7 @@ from excel_mcp.calc.values import (
     UncalculableError,
     Value,
 )
+from excel_mcp.errors import InvalidArgumentError
 from excel_mcp.lazy_workbook import extent
 from excel_mcp.refs import parse_range
 from excel_mcp.workspace import worksheets
@@ -79,6 +85,8 @@ class Engine:
         self.filename = filename
         self.sheets = {ws.title.casefold(): ws for ws in worksheets(formulas)}
         self.cached_sheets = {ws.title.casefold(): ws for ws in worksheets(cached)}
+        if not self.sheets:
+            raise InvalidArgumentError("The workbook has no worksheets.")
         self.stale: set[CellKey] = set()  # cells whose stored results no longer hold
         self.memo: dict[CellKey, Scalar | UncalculableError] = {}
         self.trees: dict[CellKey, Node] = {}
@@ -88,7 +96,7 @@ class Engine:
         self.depth = 0
         self.name_depth = 0
         self.array_mode = False  # whether the lazy function being called is in an array context
-        self.scopes: list[dict[str, Value]] = []
+        self.scopes: list[dict[str, Any]] = []
         self.here = Position(next(iter(self.sheets.values())), 1, 1)
         self.scheduler = Scheduler(self)
 
@@ -121,7 +129,7 @@ class Engine:
         if cell is None:
             return None
         if cell.data_type != "f":
-            return constant(cell)
+            return self.sized(constant(cell))
         key = (sheet.title, row, col)
         if key in self.memo:
             remembered = self.memo[key]
@@ -227,6 +235,18 @@ class Engine:
         rows = value.rows if isinstance(value, Grid) else [[value]]
         return Grid([[0 if item is None else item for item in line] for line in rows])
 
+    def evaluate_formula(self, sheet: Worksheet, row: int, col: int, formula: str) -> Scalar:
+        """The value of a formula as if it were written in this cell, which it does not replace."""
+        tree = bind(parse(formula), self.workbook, sheet, row, col)
+        outer = self.here
+        self.here = Position(sheet, row, col)
+        try:
+            self.scheduler.calculate_precedents(tree, sheet)
+            value = self.intersect(self.eval(tree, array=False))
+        finally:
+            self.here = outer
+        return value if not isinstance(value, Grid) else value.rows[0][0]
+
     def sized(self, value: Scalar) -> Scalar:
         """Count produced text against the work limit, so arrays of long text stop."""
         if isinstance(value, str):
@@ -277,6 +297,7 @@ class Engine:
             len(sheets),
             clipped_rows=ref.top is None or ref.bottom is None,
             clipped_cols=ref.left is None or ref.right is None,
+            sheet=sheets[0].title if len(sheets) == 1 else None,
         )
 
     def intersect(self, value: Value) -> Value:
@@ -304,10 +325,15 @@ class Engine:
             return None
         return VALUE
 
+    def scope_of(self, name: str) -> dict[str, Any] | None:
+        """The innermost LET or LAMBDA scope that declares the name."""
+        return next((s for s in reversed(self.scopes) if name.casefold() in s), None)
+
     def name(self, node: Name, array: bool) -> Value:
-        for scope in reversed(self.scopes):
-            if node.name.casefold() in scope:
-                return scope[node.name.casefold()]
+        scope = self.scope_of(node.name)
+        if scope is not None:
+            found = scope[node.name.casefold()]
+            return CALC if isinstance(found, Lambda) else found
         if self.name_depth >= MAX_NAME_DEPTH:
             raise UncalculableError("names nested too deeply")
         scope = self.find_sheet(node.sheet) if node.sheet else self.here.sheet
@@ -325,16 +351,18 @@ class Engine:
         scope = self.find_sheet(node.sheet) if node.sheet else self.here.sheet
         try:
             self.lookup_name(scope, node.name)
-        except UncalculableError:
+        except FormulaError:
             return False
         return True
 
     def lookup_name(self, scope: Worksheet, name: str) -> str:
         for names in (scope.defined_names, self.workbook.defined_names):
             for key, defined in names.items():
-                if key.casefold() == name.casefold() and defined.attr_text:
+                if key.casefold() == name.casefold():
+                    if not defined.attr_text:
+                        raise UncalculableError(f"name {name} without a definition")
                     return "=" + defined.attr_text
-        raise UncalculableError(f"name {name}")
+        raise FormulaError(NAME)
 
     # -- expressions -----------------------------------------------------------------------
 
@@ -360,17 +388,45 @@ class Engine:
                 return elementwise(lambda v: apply_unary(op, v), self.operand(operand, array))
             case Percent(operand):
                 return elementwise(apply_percent, self.operand(operand, array))
-            case Binary(op, left, right):
-                return elementwise(
-                    lambda a, b: self.sized(apply_binary(op, a, b)),
-                    self.operand(left, array),
-                    self.operand(right, array),
-                )
+            case Binary():
+                base, chain = left_chain(node)
+                value = self.eval(base, array)
+                for step in chain:
+                    if step.op == " ":
+                        value = self.common_cells(value, self.eval(step.right, array))
+                        continue
+                    left = value if array else self.intersect(value)
+                    value = self.binary(step.op, left, self.operand(step.right, array))
+                return value
             case Call():
                 return self.call(node, array)
             case ArrayLiteral(rows):
                 return Grid([[self.scalar(item) for item in row] for row in rows])
         raise UncalculableError("unsupported syntax")
+
+    def common_cells(self, left: Value, right: Value) -> Value:
+        """The cells two references have in common, which is #NULL! when there are none."""
+        if isinstance(left, ExcelError):
+            return left
+        if isinstance(right, ExcelError):
+            return right
+        if not isinstance(left, RefGrid) or not isinstance(right, RefGrid):
+            return VALUE
+        if left.sheet is None or right.sheet is None:
+            raise UncalculableError("intersection of 3-D references")
+        top, left_edge = max(left.top, right.top), max(left.left, right.left)
+        bottom = min(left.top + left.total_rows, right.top + right.total_rows) - 1
+        right_edge = min(left.left + left.total_cols, right.left + right.total_cols) - 1
+        if left.sheet != right.sheet or top > bottom or left_edge > right_edge:
+            return NULL
+        rows: list[list[Value]] = [
+            [_cell_of(left, r, c) for c in range(left_edge, right_edge + 1)]
+            for r in range(top, bottom + 1)
+        ]
+        return RefGrid(rows, top, left_edge, 1, sheet=left.sheet)
+
+    def binary(self, op: str, left: Value, right: Value) -> Value:
+        return elementwise(lambda a, b: self.sized(apply_binary(op, a, b)), left, right)
 
     def operand(self, node: Node, array: bool) -> Value:
         value = self.eval(node, array)
@@ -386,6 +442,10 @@ class Engine:
     def call(self, node: Call, array: bool) -> Value:
         spec = FUNCTIONS.get(node.name)
         if spec is None:
+            scope = self.scope_of(node.name)
+            lam = scope[node.name.casefold()] if scope else None
+            if isinstance(lam, Lambda):
+                return run(self, lam, *(self.eval(arg, True) for arg in node.args))
             raise UncalculableError(node.name)
         if node.name in FUTURE_FUNCTIONS and not node.prefixed:
             raise UncalculableError(f"{node.name} needs the {FUTURE_FUNCTIONS[node.name]} prefix")
@@ -396,6 +456,8 @@ class Engine:
             result = self.dispatch(spec, node.args, array)
         except FormulaError as error:
             return error.error
+        except OverflowError:
+            return NUM
         if isinstance(result, float) and not math.isfinite(result):
             return NUM
         if isinstance(result, str):
@@ -433,8 +495,16 @@ class Engine:
                 return self.sized(spec.call(*scalars))
             except FormulaError as error:
                 return error.error
+            except OverflowError:
+                return NUM
 
         return elementwise(apply, *values)
+
+
+def _cell_of(grid: RefGrid, row: int, col: int) -> Scalar:
+    """The value at a sheet position of a grid; past its read cells it is blank."""
+    r, c = row - grid.top, col - grid.left
+    return grid.rows[r][c] if r < grid.height and c < grid.width else None  # pyright: ignore[reportReturnType]
 
 
 def _has_relative_reference(node: Node) -> bool:
@@ -443,8 +513,11 @@ def _has_relative_reference(node: Node) -> bool:
             return node.relative
         case Unary(_, operand) | Percent(operand):
             return _has_relative_reference(operand)
-        case Binary(_, left, right):
-            return _has_relative_reference(left) or _has_relative_reference(right)
+        case Binary():
+            base, chain = left_chain(node)
+            return _has_relative_reference(base) or any(
+                _has_relative_reference(step.right) for step in chain
+            )
         case Call():
             return any(_has_relative_reference(arg) for arg in node.args)
         case _:

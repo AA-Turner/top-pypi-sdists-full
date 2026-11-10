@@ -10,12 +10,15 @@ edit:
   similarity_threshold: 0.95        # EDIT match threshold (1.0 = exact match; ignores relative indentation).
 
 workspace:
-  init: true                        # Initialize a missing Git repository (start and resume).
-  pre-commit: true                  # Install pre-commit and post-commit git hooks (start and resume).
-  pull: true                        # Fast-forward pull before starting a new session (start only).
+  init: true                        # Repair a missing Git repository on session start.
+  pre-commit: true                  # Repair pre-commit and post-commit git hooks on session start.
+  pull: true                        # Fast-forward the workspace on session start.
 
 read:
   max_lines: 1000                   # Caps READ action output lines.
+
+plan:
+  max_lines: 1500                   # Caps plan lines included in the LLM context window.
 
 context:
   max_depth: 3                      # Max project tree depth.
@@ -29,9 +32,9 @@ checks:
   templates: true                   # Warn when local docs/templates/ differ from bundled defaults.
   update: true                      # Warn when a newer TeDDy release is available on PyPI.
 
-yolo_default: false                 # When true, runs non-interactively by default; overridden per-command by -n / --no-yolo.
+yolo_default: false                 # When true, skips the plan review by default; overridden per-command by -n / --no-yolo.
 
-guardrails:                         # Non-interactive limits (--yolo / --pipeline). Counters reset on 'teddy resume' and on message turns if message_reset: true.
+guardrails:                         # Limits for yolo runs (--yolo) and pipeline runs. Counters reset on 'teddy resume' and on message turns if message_reset: true.
   enabled: true
   max_turns: 150
   max_session_cost: 5.00
@@ -46,11 +49,11 @@ auto_pruning:
   max_turns_retention: 10           # Max historical turns retained in turn context.
 
 # LiteLLM reference: https://docs.litellm.ai/docs/completion/input (all keys under llm pass directly to litellm).
-# OpenRouter syntax: "openrouter/<slug>" (:nitro=fastest, :floor=cheapest).
+# OpenRouter syntax: "openrouter/<slug>". Variants documented at: https://openrouter.ai/docs/guides/routing/model-variants/overview
 # ${TEDDY_LLM_API_KEY} resolves from .teddy/.env or shell environment.
 
 llm:
-  model: "openrouter/~deepseek/deepseek-flash-latest:nitro"
+  model: "openrouter/~deepseek/deepseek-flash-latest"
   api_key: "${TEDDY_LLM_API_KEY}"
   max_retries: 3
   timeout: 300

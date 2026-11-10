@@ -6,7 +6,8 @@ import json
 import logging
 import re
 import sys
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, cast
+from .._class_snapshot import attribute_names
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,58 @@ def _find_html_close(masked: str) -> int:
     return found
 
 
+_MISSING = object()
+
+
+def _property_types() -> tuple:
+    import functools
+
+    from django.utils.functional import cached_property as django_cached_property
+
+    return (property, functools.cached_property, django_cached_property)
+
+
+def _read_debug_attr(view: Any, name: str) -> "tuple[Any, Dict[str, Any] | None]":
+    """Read one attribute for the legacy debug panel (#3103).
+
+    Returns ``(value, None)`` for a readable attribute, ``(_MISSING, None)``
+    when it does not exist, or ``(_MISSING, placeholder)`` when the panel lists
+    the name without a value. A property is code, not state: running it could
+    raise anything or query the database on every debug render, so it is
+    listed as not evaluated (a cached property already computed is state and
+    is read from the instance). Any other descriptor that raises is reported
+    as unavailable with its exception type, and the rest of the panel renders.
+    """
+    import inspect
+
+    instance_dict = getattr(view, "__dict__", {})
+    if name not in instance_dict:
+        try:
+            static = inspect.getattr_static(view, name)
+        except AttributeError:
+            static = _MISSING
+        if isinstance(static, _property_types()) or getattr(
+            static, "_djust_framework_derived", False
+        ):
+            return _MISSING, {
+                "name": name,
+                "type": "property",
+                "value": "<property: not evaluated>",
+                "size_bytes": 0,
+            }
+    try:
+        return getattr(view, name), None
+    except AttributeError:
+        return _MISSING, None
+    except Exception as exc:  # noqa: BLE001 -- any descriptor may raise; report it, keep going
+        return _MISSING, {
+            "name": name,
+            "type": "unavailable",
+            "value": "<unavailable: %s>" % type(exc).__name__,
+            "size_bytes": 0,
+        }
+
+
 class PostProcessingMixin:
     """Post-processing: get_debug_info, _hydrate_react_components, _inject_client_script."""
 
@@ -78,6 +131,7 @@ class PostProcessingMixin:
         # so the strict-island mypy run resolves it on the mixin without a
         # runtime change — this mixin is never instantiated standalone.
         def get_context_data(self, **kwargs: Any) -> Dict[str, Any]: ...
+        def _extract_handler_metadata(self) -> Dict[str, Dict[str, Any]]: ...
 
     def get_debug_info(self) -> Dict[str, Any]:
         """
@@ -86,36 +140,52 @@ class PostProcessingMixin:
         Returns:
             Dict with debug information
         """
+        from .._exposure import explicit_debug_projection
+
+        explicit = explicit_debug_projection(self)
+        if explicit is not None:
+            # Do not inspect arbitrary descriptors or handler default values.
+            # Typed public handler metadata will be supplied by ADR-036/037.
+            from ..config import config
+
+            return {
+                **self._explicit_debug_update(explicit),
+                "handlers": {},
+                "template": None,
+                "config": {"maxHistory": config.get("debug_panel_max_history", 50)},
+            }
+        from .._parameter_metadata import _event_methods
         from ..validation import get_handler_signature_info
-        from ..decorators import is_event_handler
 
         handlers = {}
         variables = {}
 
-        # Match the runtime event_security policy: only @event_handler-decorated
-        # methods are callable.
+        # Exactly the handlers dispatch resolves (ADR-037 D1), never a second
+        # discovery: only @event_handler-decorated methods are callable.
+        decorators = self._extract_handler_metadata()
+        for name, method in sorted(_event_methods(self).items()):
+            sig_info = get_handler_signature_info(method)
+            handlers[name] = {
+                "name": name,
+                "params": sig_info["params"],
+                "description": sig_info["description"],
+                "accepts_kwargs": sig_info["accepts_kwargs"],
+                "decorators": decorators.get(name, {}),
+            }
 
-        for name in dir(self):
-            if name.startswith("_"):
+        for name in attribute_names(self):  # dir() races class writes (#3151)
+            if name.startswith("_") or name in handlers:
                 continue
 
-            try:
-                attr = getattr(self, name)
-            except AttributeError:
+            attr, placeholder = _read_debug_attr(self, name)
+            if placeholder is not None:
+                variables[name] = placeholder
+                continue
+            if attr is _MISSING:
                 continue
 
             if callable(attr) and hasattr(attr, "__func__"):
-                # Show only handlers that would pass _check_event_security at runtime
-                if is_event_handler(attr):
-                    sig_info = get_handler_signature_info(attr)
-
-                    handlers[name] = {
-                        "name": name,
-                        "params": sig_info["params"],
-                        "description": sig_info["description"],
-                        "accepts_kwargs": sig_info["accepts_kwargs"],
-                        "decorators": getattr(attr, "_djust_decorators", {}),
-                    }
+                continue  # A method, not a state variable.
 
             elif (
                 not callable(attr)
@@ -164,6 +234,13 @@ class PostProcessingMixin:
 
     def _debug_state_sizes(self) -> Dict[str, Dict[str, Any]]:
         """Return size breakdown of public state variables for debug toolbar."""
+        from .._exposure import explicit_debug_projection
+
+        explicit = explicit_debug_projection(self)
+        if explicit is not None:
+            return cast(
+                Dict[str, Dict[str, Any]], self._explicit_debug_update(explicit)["state_sizes"]
+            )
         # #762: Filter framework-internal attrs from the observability payload
         # so state_sizes reflects user-owned reactive state, not framework config.
         from ..live_view import _FRAMEWORK_INTERNAL_ATTRS
@@ -198,20 +275,27 @@ class PostProcessingMixin:
         this returns only the parts that change per event: variables and view class.
         Handlers are static and only sent on initial mount via get_debug_info().
         """
+        from .._exposure import explicit_debug_projection
+
+        explicit = explicit_debug_projection(self)
+        if explicit is not None:
+            return self._explicit_debug_update(explicit)
         # #762: Filter framework-internal attrs from the observability payload.
         from ..live_view import _FRAMEWORK_INTERNAL_ATTRS
 
         variables = {}
 
-        for name in dir(self):
+        for name in attribute_names(self):  # dir() races class writes (#3151)
             if name.startswith("_"):
                 continue
             if name in _FRAMEWORK_INTERNAL_ATTRS:
                 continue
 
-            try:
-                attr = getattr(self, name)
-            except AttributeError:
+            attr, placeholder = _read_debug_attr(self, name)
+            if placeholder is not None:
+                variables[name] = placeholder
+                continue
+            if attr is _MISSING:
                 continue
 
             if callable(attr):
@@ -252,6 +336,24 @@ class PostProcessingMixin:
             "state_sizes": self._debug_state_sizes(),
         }
 
+    def _explicit_debug_update(self, projection: Dict[str, Any]) -> Dict[str, Any]:
+        """Format already-bounded debug primitives, never inspect the view again."""
+        variables = {}
+        sizes = {}
+        for name, value in projection.items():
+            encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+            size = len(encoded.encode("utf-8"))
+            redacted = value == "[redacted]"
+            variables[name] = {
+                "name": name,
+                "type": "redacted" if redacted else type(value).__name__,
+                "value": encoded[:100] + ("..." if len(encoded) > 100 else ""),
+                "size_bytes": None if redacted else size,
+            }
+            # Sizes describe the exported value only; hidden values are not read.
+            sizes[name] = {"memory": None, "serialized": None if redacted else size}
+        return {"view_class": type(self).__name__, "variables": variables, "state_sizes": sizes}
+
     def _hydrate_react_components(self, html: str) -> str:
         """
         Post-process HTML to hydrate React component placeholders.
@@ -290,7 +392,9 @@ class PostProcessingMixin:
             else:
                 return match.group(0)
 
-        html = re.sub(pattern, replace_component, html, flags=re.DOTALL)
+        from .._render_provenance import sub
+
+        html = sub(pattern, replace_component, html, flags=re.DOTALL)
 
         return html
 
@@ -307,12 +411,30 @@ class PostProcessingMixin:
             ["d-flex", "btn-group", "input-group", "form-group", "btn-toolbar"],
         )
 
-        loading_classes_js = json.dumps(loading_grouping_classes)
+        # Settings value inlined in a <script>: script-escaped like ``debug_info_json`` below
+        # (``json.dumps`` leaves ``<``, ``>`` and ``&`` raw; #3819).
+        from ..security.json_script import escape_json_for_script as _escape_script_json
 
+        loading_classes_js = _escape_script_json(json.dumps(loading_grouping_classes))
+
+        # The two inline scripts below carry the request's CSP nonce, as the
+        # handler-metadata script does (mixins/template.py): under a policy
+        # without 'unsafe-inline' they were blocked on every page, so the
+        # client fell back to its defaults and the DEBUG panel had no info.
+        from ..utils import get_csp_nonce
+
+        from django.utils.html import escape
+
+        nonce = get_csp_nonce(getattr(self, "request", None))
+        nonce_attr = f' nonce="{escape(nonce)}"' if nonce else ""
+
+        from ..config import debug_panel_enabled
+
+        panel_enabled = debug_panel_enabled()
         debug_info_script = ""
         debug_css_link = ""
-        if settings.DEBUG:
-            from ..security import escape_json_for_script
+        if panel_enabled:
+            from ..security.json_script import escape_json_for_script  # the defining module (#3820)
 
             debug_info = self.get_debug_info()
             # get_debug_info() includes repr()s of user-controlled public view
@@ -322,14 +444,14 @@ class PostProcessingMixin:
             # <, >, & (and U+2028/2029).
             debug_info_json = escape_json_for_script(json.dumps(debug_info))
             debug_info_script = f"""
-            <script data-turbo-track="reload">
+            <script data-turbo-track="reload"{nonce_attr}>
                 window.DJUST_DEBUG_INFO = {debug_info_json};
             </script>
             """
             debug_css_link = '<link rel="stylesheet" href="/static/djust/debug-panel.css" data-turbo-track="reload">'
 
         config_script = f"""
-        <script data-turbo-track="reload">
+        <script data-turbo-track="reload"{nonce_attr}>
             // djust configuration
             window.DJUST_USE_WEBSOCKET = {str(use_websocket).lower()};
             window.DJUST_DEBUG_VDOM = {str(debug_vdom).lower()};
@@ -380,12 +502,15 @@ class PostProcessingMixin:
         if settings.DEBUG:
             # debug-panel.js MUST load before client-dev.js so that
             # DjustDebugPanel is defined when client-dev.js calls
-            # initDebugPanel() (fixes #193 and #196).
-            try:
-                debug_panel_js_url = static("djust/debug-panel.js")
-            except (ValueError, AttributeError):
-                debug_panel_js_url = "/static/djust/debug-panel.js"
-            script += f'\n        <script src="{debug_panel_js_url}" defer data-turbo-track="reload"></script>'
+            # initDebugPanel() (fixes #193 and #196). With the panel off
+            # (``debug_panel: False``) client-dev.js still loads for hot
+            # reload; its initDebugPanel() skips when DjustDebugPanel is absent.
+            if panel_enabled:
+                try:
+                    debug_panel_js_url = static("djust/debug-panel.js")
+                except (ValueError, AttributeError):
+                    debug_panel_js_url = "/static/djust/debug-panel.js"
+                script += f'\n        <script src="{debug_panel_js_url}" defer data-turbo-track="reload"></script>'
 
             try:
                 client_dev_js_url = static("djust/client-dev.js")
@@ -394,6 +519,14 @@ class PostProcessingMixin:
             script += f'\n        <script src="{client_dev_js_url}" defer data-turbo-track="reload"></script>'
 
         full_script = config_script + script
+        # ADR-036: public owner contracts of the initial page (set by get();
+        # escaped JSON, outside dj-root). A data block, not executable script.
+        initial_contracts = self.__dict__.pop("_initial_parameter_contracts", None)
+        if initial_contracts:
+            full_script = (
+                '<script type="application/json" data-djust-parameter-contracts>'
+                f"{initial_contracts}</script>" + full_script
+            )
 
         # The HTTP event fallback and djust.call need the CSRF token even when
         # the project renames the cookie (CSRF_COOKIE_NAME) or keeps it out of
@@ -420,6 +553,15 @@ class PostProcessingMixin:
                 full_script = csrf_meta + full_script
         if debug_css_link and head_close >= 0:
             head_inject += debug_css_link
+        # #3036: what this page's shell loads, so a live navigation to a page
+        # with a different shell becomes a full load. Needs a real <head> to
+        # live in; without one the client keeps the in-place swap.
+        if head_close >= 0:
+            from .._page_shell import page_shell
+
+            shell = page_shell(self)
+            if shell:
+                head_inject += f'<meta name="djust-page-shell" content="{shell}">'
         if head_inject:
             html = html[:head_close] + head_inject + html[head_close:]
 

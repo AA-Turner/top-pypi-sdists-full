@@ -133,7 +133,7 @@ import re
 from codecs import BOM_UTF16_LE, BOM_UTF32_LE, iterencode
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Self, TypeVar
 
 from lxml import etree
 
@@ -177,16 +177,7 @@ def is_line_continuation(line: str) -> bool:
     :param line: A properties line
     :return: Does *line* end with a line continuation
     """
-    pos = -1
-    count = 0
-    if len(line) == 0:
-        return False
-    # Count the slashes from the end of the line. Ensure we don't
-    # go into infinite loop.
-    while len(line) >= -pos and line[pos:][0] == "\\":
-        pos -= 1
-        count += 1
-    return (count % 2) == 1  # Odd is a line continuation, even is not
+    return (len(line) - len(line.rstrip("\\"))) % 2 == 1
 
 
 def get_comment_one_line(line: str) -> str | None:
@@ -300,7 +291,12 @@ class Dialect:
         ):
             # Skip the key if it is delimited by some char
             start_pos += 1
-            while line[start_pos] != cls.key_wrap_char or line[start_pos - 1] == "\\":
+            escaped = False
+            while start_pos < len(line):
+                char = line[start_pos]
+                if char == cls.key_wrap_char and not escaped:
+                    break
+                escaped = char == "\\" and not escaped
                 start_pos += 1
         # Find the position of each delimiter type
         for delimiter, value in delimiters.items():
@@ -434,7 +430,7 @@ class DialectXWiki(DialectJava):
 
     @staticmethod
     def encode(string, encoding=None):
-        return xwiki_properties_encode(string or "", encoding)  # ty:ignore[invalid-argument-type]
+        return xwiki_properties_encode(string or "", encoding)
 
     @staticmethod
     def decode(string):
@@ -487,8 +483,8 @@ class DialectGwt(DialectJavaUtf8):
     @classmethod
     def get_key_cldr_name(cls, key):
         match = cls.plural_regex.fullmatch(key)
-        basekey = match.group(1)  # ty:ignore[unresolved-attribute]
-        variant = match.group(2)  # ty:ignore[unresolved-attribute]
+        basekey = match.group(1)  # ty:ignore[missing-union-attribute]
+        variant = match.group(2)  # ty:ignore[missing-union-attribute]
         if variant is None:
             variant = ""
 
@@ -567,6 +563,9 @@ class DialectStrings(Dialect):
     @staticmethod
     def key_strip(key):
         """Strip unneeded characters from the key."""
+        stripped = key.strip()
+        if len(stripped) >= 2 and stripped[0] == stripped[-1] == '"':
+            return stripped[1:-1].replace('\\"', '"')
         newkey = key.rstrip().rstrip('"')
         # If string now ends in \ we put back the char that was escaped
         if newkey[-1:] == "\\":
@@ -588,12 +587,17 @@ class DialectStrings(Dialect):
         - After value: ``"key" = "value" /* comment */;``
         """
         comments = []
+        # Most lines carry no comment at all, nothing to strip there
+        if "/*" not in line:
+            return line, comments
+
         result = []
+        length = len(line)
         i = 0
         in_quote = False
         escape_next = False
 
-        while i < len(line):
+        while i < length:
             char = line[i]
 
             # Handle escape sequences
@@ -617,37 +621,23 @@ class DialectStrings(Dialect):
                 continue
 
             # Only process comments outside of quotes
-            if not in_quote and i + 1 < len(line) and line[i : i + 2] == "/*":
-                # Found start of comment, find the end
-                comment_start = i
-                # Skip any whitespace before the comment
-                ws_start = i
-                while ws_start > 0 and line[ws_start - 1] in " \t":
-                    ws_start -= 1
+            if not in_quote and line.startswith("/*", i):
                 # Trim trailing whitespace before comment from result
                 while result and result[-1] in " \t":
                     result.pop()
 
-                i += 2
-                comment_found = False
-                while i < len(line):
-                    if i + 1 < len(line) and line[i : i + 2] == "*/":
-                        # Found end of comment
-                        comment = line[comment_start : i + 2]
-                        comments.append(comment)
-                        i += 2
-                        # Skip whitespace after comment
-                        while i < len(line) and line[i] in " \t":
-                            i += 1
-                        comment_found = True
-                        break
+                # Found start of comment, find the end
+                comment_end = line.find("*/", i + 2)
+                if comment_end == -1:
+                    # If no closing */ found, treat rest of line as comment
+                    comments.append(line[i:])
+                    break
+                comment_end += 2
+                comments.append(line[i:comment_end])
+                # Skip whitespace after comment
+                i = comment_end
+                while i < length and line[i] in " \t":
                     i += 1
-
-                # If no closing */ found, treat rest of line as comment
-                if not comment_found:
-                    comment = line[comment_start:]
-                    comments.append(comment)
-                    # i is already at end of line, loop will exit
             else:
                 result.append(char)
                 i += 1
@@ -684,6 +674,86 @@ class DialectStringsUtf8(DialectStrings):
     default_encoding = "utf-8"
 
 
+def validate_property_key(value: str, personality: Dialect) -> None:
+    """
+    Check serialized key spelling, including Java backslash escapes.
+
+    Java ``getid()`` returns the key as written in the file, not its decoded
+    value. Keeping that spelling ensures a parsed unit round trips unchanged.
+    """
+    if not isinstance(value, str):
+        raise TypeError("Property key must be a string")
+    quoted_key: bool = bool(personality.key_wrap_char) and not (
+        personality.skip_key_quote_re and personality.skip_key_quote_re.match(value)
+    )
+    # Tab is allowed only inside quoted keys
+    control_chars = r"[\x00-\x08\x0a-\x1f\x7f]" if quoted_key else r"[\x00-\x1f\x7f]"
+    if re.search(control_chars, value):
+        raise ValueError("Property key cannot be represented safely")
+    if is_line_continuation(value):
+        raise ValueError("Property key cannot be represented safely")
+    if not quoted_key and value.endswith("\\"):
+        # The property parser treats the following output delimiter as escaped.
+        raise ValueError("Property key cannot be represented safely")
+    if quoted_key:
+        backslashes = 0
+        for char in value:
+            if char == "\\":
+                backslashes += 1
+            else:
+                if char == personality.key_wrap_char and backslashes % 2:
+                    raise ValueError("Property key cannot be represented safely")
+                backslashes = 0
+        if backslashes % 2:
+            raise ValueError("Property key cannot be represented safely")
+        return
+    if personality.key_wrap_char and not re.fullmatch(r"[A-Za-z0-9_$/:.-]+", value):
+        raise ValueError("Property key cannot be represented safely")
+    if personality.name == "joomla" and (
+        not value
+        or any(char.isspace() or char in '?{}|&~!()^"[]=;$' for char in value)
+        or value.lower() in {"null", "yes", "no", "true", "false", "on", "off", "none"}
+    ):
+        raise ValueError("Property key cannot be represented safely")
+    escaped = False
+    for pos, char in enumerate(value):
+        if char == "\\":
+            escaped = not escaped
+            continue
+        if (
+            not personality.key_wrap_char
+            and escaped
+            and char == "u"
+            and not re.fullmatch(r"[0-9A-Fa-f]{4}", value[pos + 1 : pos + 5])
+        ):
+            raise ValueError("Property key cannot be represented safely")
+        if (
+            (
+                char in personality.delimiters
+                or (" " in personality.delimiters and char.isspace())
+            )
+            and not escaped
+        ) or (personality.key_wrap_char and char in {'"', ";"}):
+            raise ValueError("Property key cannot be represented safely")
+        escaped = False
+    if (
+        get_comment_one_line(value) is not None
+        or get_comment_start(value) is not None
+        or personality.key_strip(value) != value
+    ):
+        raise ValueError("Property key cannot be represented safely")
+
+
+def validate_property_key_encoding(value: str, encoding: str) -> None:
+    """Reject keys the store would fail to encode during serialization."""
+    try:
+        value.encode(encoding)
+    except UnicodeEncodeError as error:
+        raise ValueError(
+            "Property key cannot be represented in file encoding"
+        ) from error
+
+
 class proppluralunit(base.TranslationUnit):
     KEY = "other"
 
@@ -706,7 +776,7 @@ class proppluralunit(base.TranslationUnit):
         return [key for key in data.cldr_plural_categories if key in existing]
 
     def _get_source_mapping(self):
-        cldr_mapping = proppluralunit._get_language_mapping(self._store.sourcelanguage)  # ty:ignore[unresolved-attribute]
+        cldr_mapping = proppluralunit._get_language_mapping(self._store.sourcelanguage)  # ty:ignore[missing-union-attribute]
         if cldr_mapping:
             return cldr_mapping
         return self._get_existing_mapping()
@@ -717,6 +787,7 @@ class proppluralunit(base.TranslationUnit):
             for name in mapping:
                 if name not in self.units:
                     unit = propunit("", self.personality.name)
+                    unit._store = self._store
                     unit.name = self.personality.get_key(self.name, name)
                     self.units[name] = unit
                 ret.append(self.units[name])
@@ -744,7 +815,7 @@ class proppluralunit(base.TranslationUnit):
     def _get_ordered_units(self):
         # Used for str (GWT order)
         mapping = self.personality.get_expand_output_target_mapping(
-            self._store.get_plural_tags()  # ty:ignore[unresolved-attribute]
+            self._store.get_plural_tags()  # ty:ignore[missing-union-attribute]
         )
         names = [
             name for name in self.personality.get_cldr_names_order() if name in mapping
@@ -767,7 +838,7 @@ class proppluralunit(base.TranslationUnit):
         else:
             strings = [text]
         if mapping is None:
-            mapping = self._store.get_plural_tags(text)  # ty:ignore[unresolved-attribute]
+            mapping = self._store.get_plural_tags(text)  # ty:ignore[missing-union-attribute]
 
         strings = self._get_strings(strings, mapping)
         units = self._get_units(mapping)
@@ -782,7 +853,7 @@ class proppluralunit(base.TranslationUnit):
             b.target = a
 
     def gettarget(self):
-        ll = [x.target for x in self._get_units(self._store.get_plural_tags())]  # ty:ignore[unresolved-attribute]
+        ll = [x.target for x in self._get_units(self._store.get_plural_tags())]  # ty:ignore[missing-union-attribute]
         if len(ll) > 1:
             return multistring(ll)
         return ll[0]
@@ -859,6 +930,8 @@ class proppluralunit(base.TranslationUnit):
         return self._get_source_unit().getlocations()
 
     def add_unit(self, unit, variant) -> None:
+        if self._store is not None:
+            unit._store = self._store
         self.units[variant] = unit
 
     def isblank(self) -> bool:
@@ -874,16 +947,45 @@ class proppluralunit(base.TranslationUnit):
     def getid(self):
         return self.name
 
-    def setid(self, value) -> None:
-        self._invalidate_store_indexes()
+    def validate_id(self, value: str) -> None:
+        super().validate_id(value)
         previous = self.name
-        self.name = value
+        validate_property_key(value, self.personality)
+        if not value:
+            raise ValueError("Property plural base cannot be empty")
+        encoding = (
+            self._store.encoding
+            if self._store is not None
+            else self.personality.default_encoding
+        )
+        validate_property_key_encoding(value, encoding)
+        if self.personality.get_key_cldr_name(value) != (value, self.KEY):
+            raise ValueError("Property key changes plural base or variant")
         for variant, unit in self.units.items():
-            unit.setid(
+            name = (
                 value
                 if variant == self.KEY and unit.name == previous
                 else self.personality.get_key(value, variant)
             )
+            unit.validate_id(name)
+            if self.personality.get_key_cldr_name(name) != (value, variant):
+                raise ValueError("Property key changes plural base or variant")
+
+    def setid(self, value) -> None:
+        previous = self.name
+        self.validate_id(value)
+        names = {
+            variant: (
+                value
+                if variant == self.KEY and unit.name == previous
+                else self.personality.get_key(value, variant)
+            )
+            for variant, unit in self.units.items()
+        }
+        self._invalidate_store_indexes()
+        self.name = value
+        for variant, unit in self.units.items():
+            unit.setid(names[variant])
 
     @property
     def missing(self):
@@ -949,6 +1051,14 @@ class propunit(base.TranslationUnit):
     An element of a properties file i.e. a name and value, and any comments
     associated.
     """
+
+    _encoding: str | None = None
+
+    def copy(self) -> Self:
+        """Copy a native unit without retaining its store or losing its encoding."""
+        result = deepcopy(self, {id(self._store): None})
+        result._encoding = self.encoding
+        return result
 
     def __init__(self, source="", personality="java") -> None:
         """Construct a blank propunit."""
@@ -1020,7 +1130,7 @@ class propunit(base.TranslationUnit):
     def encoding(self):
         if self._store:
             return self._store.encoding
-        return self.personality.default_encoding
+        return self._encoding or self.personality.default_encoding
 
     def __str__(self) -> str:
         """Convert to a string."""
@@ -1112,7 +1222,13 @@ class propunit(base.TranslationUnit):
     def getid(self):
         return self.name
 
+    def validate_id(self, value: str) -> None:
+        super().validate_id(value)
+        validate_property_key(value, self.personality)
+        validate_property_key_encoding(value, self.encoding)
+
     def setid(self, value) -> None:
+        self.validate_id(value)
         self._invalidate_store_indexes()
         self.name = value
 
@@ -1160,6 +1276,12 @@ class propfile(base.TranslationStore):
 
     UnitClass = propunit
 
+    def addunit(self, unit: base.TranslationUnit) -> None:
+        super().addunit(unit)
+        if isinstance(unit, proppluralunit):
+            for member in unit.units.values():
+                member._store = self
+
     def __init__(self, inputfile=None, personality="java", encoding=None) -> None:
         """Construct a propfile, optionally reading in from inputfile."""
         super().__init__()
@@ -1172,7 +1294,7 @@ class propfile(base.TranslationStore):
             self.parse(propsrc)
             self.makeindex()
 
-    def parse(self, propsrc) -> None:  # ty:ignore[invalid-method-override]
+    def parse(self, propsrc) -> None:  # ty:ignore[lost-keyword-for-regular-parameter]
         """Read the source of a properties file in and include them as units."""
         text, encoding = self.detect_encoding(
             propsrc,
@@ -1451,11 +1573,11 @@ class XWikiPageProperties(xwikifile):
         return get_safe_xml_parser(strip_cdata=False)
 
     def extract_language(self) -> None:
-        language_node = self.root.find("language")  # ty:ignore[unresolved-attribute]
+        language_node = self.root.find("language")  # ty:ignore[missing-union-attribute]
         if language_node is not None and language_node.text:
             self.setsourcelanguage(language_node.text)
         else:
-            language_node = self.root.find("defaultLanguage")  # ty:ignore[unresolved-attribute]
+            language_node = self.root.find("defaultLanguage")  # ty:ignore[missing-union-attribute]
             if language_node is not None and language_node.text:
                 self.setsourcelanguage(language_node.text)
 

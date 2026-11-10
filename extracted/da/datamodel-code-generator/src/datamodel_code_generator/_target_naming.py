@@ -22,7 +22,6 @@ from datamodel_code_generator._format_types import PythonVersionMin
 from datamodel_code_generator._free_names import first_free
 from datamodel_code_generator._runtime.model_codecs.parameters import PLACEHOLDER as PATH_PLACEHOLDER
 from datamodel_code_generator._target_unicode import casefold, is_nfkc, is_python_name, nfc, nfkc, target_pattern
-from datamodel_code_generator._user_keys import scoped_key
 from datamodel_code_generator.enums import NamingStrategy
 
 if TYPE_CHECKING:
@@ -45,7 +44,8 @@ __all__ = (
 
 _WORDS_SOURCE: Final = r"(?:(?!_)\w)+"
 _WORDS: Final = re.compile(_WORDS_SOURCE)
-_PREFIXED: Final = frozenset({NamingStrategy.ParentPrefixed, NamingStrategy.FullPath})
+_PREFIXED: Final = frozenset({NamingStrategy.ParentPrefixed, NamingStrategy.FullPath, NamingStrategy.EnclosingModel})
+_DECLARED_FIRST: Final = frozenset({NamingStrategy.PrimaryFirst, NamingStrategy.DefinitionsFirst})
 WINDOWS_DEVICES: Final = frozenset({
     "aux",
     "con",
@@ -210,12 +210,13 @@ class TargetNames:
         """Claim derived names in their scope, in order, telling a name the scope already holds apart as models do.
 
         `numbered` suffixes it; `parent-prefixed` first prefixes it with its innermost enclosing scope, `full-path`
-        with every enclosing scope; `primary-first` claims the names declared in the root document before those
-        another document declares, as models claim primary definitions before external ones.
+        and `enclosing-model` with every enclosing scope; `primary-first` and `definitions-first` claim the names
+        declared in the root document before those another document declares, as models claim primary definitions
+        before external ones.
         A class takes the duplicate class suffix.
         """
         order: Iterable[int] = range(len(candidates))
-        if self.strategy is NamingStrategy.PrimaryFirst:
+        if self.strategy in _DECLARED_FIRST:
             order = sorted(order, key=lambda index: not candidates[index][1])
         names = [""] * len(candidates)
         for index in order:
@@ -230,15 +231,6 @@ class TargetNames:
     def alias(self, wire_name: str) -> str | None:
         """Return the flat `--aliases` entry for a wire name, which names its argument as given."""
         return alias if isinstance(alias := self._resolver.aliases.get(wire_name), str) else None
-
-    def aliased(self, wire_name: str, name: str) -> bool:
-        """Return whether a model field took its name from a flat or a scoped `--aliases` entry for its wire name."""
-        return any(
-            value == name
-            and (key == wire_name or any(part == wire_name for _, part in scoped_key(key, row="every-dot")))
-            for key, value in self._resolver.aliases.items()
-            if isinstance(value, str)
-        )
 
     def argument(self, wire_name: str) -> str:
         """Return the name a model field named after a wire name takes."""

@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 from uuid import UUID
 
+from office365.directory.synchronization.metadata_entry import SynchronizationMetadataEntry
 from office365.directory.synchronization.schema import SynchronizationSchema
 from office365.entity import Entity
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
-
-if TYPE_CHECKING:
-    from office365.directory.synchronization.metadata_entry import (
-        SynchronizationMetadataEntry,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class SynchronizationTemplate(Entity):
@@ -25,6 +22,7 @@ class SynchronizationTemplate(Entity):
     best meets your needs.
     """
 
+    @odata(name="schema", navigation=True)
     @property
     def schema(self):
         """Default synchronization schema for the jobs based on this template."""
@@ -32,26 +30,31 @@ class SynchronizationTemplate(Entity):
             "schema", SynchronizationSchema(self.context, ResourcePath("schema", self.resource_path))
         )
 
+    @odata(name="applicationId")
     @property
     def application_id(self) -> Optional[UUID]:
         """Gets the applicationId property"""
         return self.properties.get("applicationId", None)
 
+    @odata(name="default")
     @property
     def default(self) -> Optional[bool]:
         """Gets the default property"""
         return self.properties.get("default", None)
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description property"""
         return self.properties.get("description", None)
 
+    @odata(name="discoverable")
     @property
     def discoverable(self) -> Optional[bool]:
         """Gets the discoverable property"""
         return self.properties.get("discoverable", None)
 
+    @odata(name="factoryTag")
     @property
     def factory_tag(self) -> Optional[str]:
         """Gets the factoryTag property"""
@@ -61,13 +64,10 @@ class SynchronizationTemplate(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.SynchronizationTemplate"
 
+    @odata(name="metadata")
     @property
     def metadata(self) -> ClientValueCollection[SynchronizationMetadataEntry]:
         """Gets the metadata property"""
-        from office365.directory.synchronization.metadata_entry import (
-            SynchronizationMetadataEntry,
-        )
-
         return self.properties.get(
             "metadata", ClientValueCollection[SynchronizationMetadataEntry](SynchronizationMetadataEntry)
         )

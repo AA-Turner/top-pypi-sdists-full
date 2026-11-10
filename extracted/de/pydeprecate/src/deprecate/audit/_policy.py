@@ -18,7 +18,9 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 if TYPE_CHECKING:
     from packaging.version import Version
 
+from deprecate._frames import _caller_stacklevel
 from deprecate._types import DeprecationConfig, TargetMode
+from deprecate.audit._findings import _Check, _Finding, _make_finding, _Rule
 from deprecate.audit._lifecycle import _parse_version
 from deprecate.audit._scan import find_deprecation_wrappers
 from deprecate.audit._wrappers import DeprecationWrapperInfo, _format_subject
@@ -82,9 +84,9 @@ _GRACE_WINDOW_UNITS = (VersionBump.MAJOR, VersionBump.MINOR, VersionBump.PATCH)
 
 
 _GRACE_WINDOW_UNITS_BY_NAME = {unit.value: unit for unit in _GRACE_WINDOW_UNITS}
-_GRACE_WINDOW_SPELLINGS = (
-    "`1.0` (one major), `0.1` (one minor), `0.0.1` (one patch), or a one-key table such as `{'minor': 1}`"
-)
+#: The table spelling of a ``min_grace`` value, which a command-line flag cannot carry.
+_GRACE_WINDOW_TABLE_SPELLING = ", or a one-key table such as `{'minor': 1}`"
+_GRACE_WINDOW_SPELLINGS = "`1.0` (one major), `0.1` (one minor), `0.0.1` (one patch)" + _GRACE_WINDOW_TABLE_SPELLING
 
 
 def _grace_window_error(min_grace: object, detail: str) -> ValueError:
@@ -101,7 +103,7 @@ class GraceWindow:
     This is what every user-facing spelling is converted into before a policy scan starts, so the single-unit
     rule is structural rather than something each consumer re-checks: an instance cannot name two units, and
     construction rejects a negative or non-integer count. Build one directly, or from any accepted spelling with
-    :meth:`parse` — a dotted delta (``"0.3"``), the float Fire or TOML may hand over, or a one-key table.
+    :meth:`parse` — a dotted delta (``"0.3"``), the float a TOML file may hand over, or a one-key table.
 
     Attributes:
         count: Minimum number of bumps required; ``0`` disables the distance check while still requiring a
@@ -205,7 +207,7 @@ class GraceWindow:
         return f"{self.count} {self.unit.value} release{'' if self.count == 1 else 's'}"
 
 
-#: Accepted ``min_grace`` value: a dotted delta string (``"0.3"``), a float Fire/TOML may hand over, a one-key
+#: Accepted ``min_grace`` value: a dotted delta string (``"0.3"``), a float a TOML file may hand over, a one-key
 #: table, or an already-strict :class:`GraceWindow`.
 GraceWindowSpec = Union[str, float, Mapping[str, int], GraceWindow]
 
@@ -280,7 +282,7 @@ def _parse_policy_version(raw: Optional[str], info: DeprecationWrapperInfo, fiel
         warnings.warn(
             f"{_format_subject(info)} has an unparsable `{field_name}` version `{raw}`; "
             "the policy rules depending on it are skipped until the version string is fixed.",
-            stacklevel=2,
+            stacklevel=_caller_stacklevel(),
         )
         return None
 
@@ -381,7 +383,7 @@ def _grace_window_violation(
             f"{_format_subject(info)} spans a PEP 440 epoch change between `deprecated_in`"
             f" `{config.deprecated_in}` and `remove_in` `{config.remove_in}`; version distance is not"
             " comparable across epochs, so the `min-grace` check is skipped for it.",
-            stacklevel=2,
+            stacklevel=_caller_stacklevel(),
         )
         return None
     return None if _satisfies_grace_window(deprecated_ver, remove_ver, window) else violation
@@ -406,8 +408,8 @@ def _has_migration_guidance(info: DeprecationWrapperInfo) -> bool:
 
     The same reading excludes a mapping configured alongside an explicit ``TargetMode.NOTIFY``: that combination is
     contradictory, so the decorator warns about it and drops the mapping (see
-    :meth:`~deprecate._types.TargetMode._validate`) — nothing is renamed at call time and the emitted warning names
-    no replacement, which leaves a custom ``message_template`` as ``NOTIFY``'s only way to guide a caller. An
+    :func:`~deprecate._validate._validate_callable_mode`) — nothing is renamed at call time and the emitted warning
+    names no replacement, which leaves a custom ``message_template`` as ``NOTIFY``'s only way to guide a caller. An
     *unset* target keeps its mapping: only an explicitly chosen ``NOTIFY`` is barred from auto-resolving to a remap
     mode, so a mapping stored against ``target=None`` is still applied.
 
@@ -490,7 +492,7 @@ def _message_required_remedy(api_type: str) -> str:
     return _MESSAGE_REQUIRED_REMEDIES.get(api_type, _MESSAGE_REQUIRED_DEFAULT_REMEDY)
 
 
-def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySpec) -> list[str]:
+def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySpec) -> list[_Finding]:
     """Collect every policy violation of a single wrapper.
 
     Args:
@@ -498,11 +500,11 @@ def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySp
         spec: Parsed policy configuration.
 
     Returns:
-        List of violation messages, each prefixed with its :class:`~deprecate.audit.PolicyRule` slug.
+        One finding per violated rule; each message is prefixed with its :class:`~deprecate.audit.PolicyRule` slug.
 
     """
     config = info.deprecated_info
-    violations = []
+    violations: list[_Finding] = []
 
     # Parse the version fields only when the grace-window rule is switched on. With it disabled the parse is
     # pure cost — and, on an install without ``packaging``, an ImportError raised for a rule the caller never
@@ -514,13 +516,14 @@ def _policy_violations_for_wrapper(info: DeprecationWrapperInfo, spec: _PolicySp
         if deprecated_ver is not None and remove_ver is not None:
             grace_violation = _grace_window_violation(info, deprecated_ver, remove_ver, spec.grace)
             if grace_violation is not None:
-                violations.append(grace_violation)
+                violations.append(_make_finding(info, _Rule.MIN_GRACE, _Check.POLICY, grace_violation))
 
     if spec.message_required and not _has_migration_guidance(info):
-        violations.append(
+        message = (
             f"[{PolicyRule.MESSAGE_REQUIRED.value}] {_format_subject(info)} warns without naming a replacement;"
             f" {_message_required_remedy(info.api_type)} so callers learn what to migrate to."
         )
+        violations.append(_make_finding(info, _Rule.MESSAGE_REQUIRED, _Check.POLICY, message))
 
     return violations
 
@@ -547,10 +550,17 @@ def _check_policy_for_callables(results: list[DeprecationWrapperInfo], spec: _Po
             ``packaging`` library is not installed.
 
     """
-    violations = []
-    for info in results:
-        violations.extend(_policy_violations_for_wrapper(info, spec))
-    return violations
+    return [finding.message for finding in _policy_findings(results, spec)]
+
+
+def _policy_findings(results: list[DeprecationWrapperInfo], spec: _PolicySpec) -> list[_Finding]:
+    """Return one finding per policy rule each wrapper breaks, in wrapper order; the CLI gates on these.
+
+    Raises:
+        ImportError: As :func:`_check_policy_for_callables`.
+
+    """
+    return [finding for info in results for finding in _policy_violations_for_wrapper(info, spec)]
 
 
 def validate_deprecation_policy(
@@ -606,12 +616,12 @@ def validate_deprecation_policy(
 
     Examples:
         >>> from deprecate import validate_deprecation_policy
-        >>> violations = validate_deprecation_policy("tests.collection_policy", recursive=False)
+        >>> violations = validate_deprecation_policy("tests.collections.policy", recursive=False)
         >>> [v for v in violations if "no_grace_window" in v]  # doctest: +ELLIPSIS
-        ['[min-grace] Callable `tests.collection_policy.no_grace_window` is deprecated in `2.0` and ...']
+        ['[min-grace] Callable `tests.collections.policy.no_grace_window` is deprecated in `2.0` and ...']
 
         >>> # Rules are opt-out: keep the guidance rule, drop the grace window
-        >>> violations = validate_deprecation_policy("tests.collection_policy", recursive=False, min_grace=None)
+        >>> violations = validate_deprecation_policy("tests.collections.policy", recursive=False, min_grace=None)
         >>> any("min-grace" in v for v in violations)
         False
 

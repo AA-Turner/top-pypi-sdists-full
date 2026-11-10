@@ -7,7 +7,9 @@ bool query_satisfies_predicates(Query *query, TSQueryMatch match, Tree *tree, Py
 void query_cursor_dealloc(QueryCursor *self) {
     ts_query_cursor_delete(self->cursor);
     Py_XDECREF(self->query);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 PyObject *query_cursor_new(PyTypeObject *cls, PyObject *Py_UNUSED(args),
@@ -97,7 +99,12 @@ PyObject *query_cursor_set_containing_point_range(QueryCursor *self, PyObject *a
 static bool query_cursor_progress_callback(TSQueryCursorState *state) {
     PyObject *result =
         PyObject_CallFunction((PyObject *)state->payload, "I", state->current_byte_offset);
-    return PyObject_IsTrue(result);
+    if (result == NULL) {
+        return false;
+    }
+    int truth = PyObject_IsTrue(result);
+    Py_DECREF(result);
+    return truth > 0;
 }
 
 PyObject *query_cursor_matches(QueryCursor *self, PyObject *args, PyObject *kwargs) {
@@ -165,7 +172,11 @@ PyObject *query_cursor_matches(QueryCursor *self, PyObject *args, PyObject *kwar
         Py_XDECREF(tuple_match);
     }
 
-    return PyErr_Occurred() == NULL ? result : NULL;
+    if (PyErr_Occurred()) {
+        Py_DECREF(result);
+        return NULL;
+    }
+    return result;
 }
 
 PyObject *query_cursor_captures(QueryCursor *self, PyObject *args, PyObject *kwargs) {
@@ -236,7 +247,11 @@ PyObject *query_cursor_captures(QueryCursor *self, PyObject *args, PyObject *kwa
         Py_DECREF(list);
     }
 
-    return PyErr_Occurred() == NULL ? result : NULL;
+    if (PyErr_Occurred() != NULL) {
+        Py_DECREF(result);
+        return NULL;
+    }
+    return result;
 }
 
 PyObject *query_cursor_get_did_exceed_match_limit(QueryCursor *self, void *Py_UNUSED(payload)) {

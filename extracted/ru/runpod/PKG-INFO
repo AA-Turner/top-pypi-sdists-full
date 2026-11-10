@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runpod
-Version: 2.1.0
+Version: 2.2.0
 Summary: 🐍 | Python library for Runpod API and serverless worker SDK.
 Home-page: https://runpod.io
 Author: Runpod
@@ -34,7 +34,6 @@ Requires-Dist: backoff>=2.2.1
 Requires-Dist: boto3>=1.43.118
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: click>=8.5.0
-Requires-Dist: cloudpickle>=3.1.2
 Requires-Dist: colorama<0.4.7,>=0.4.6
 Requires-Dist: cryptography>=50.0.2
 Requires-Dist: fastapi[all]>=0.162.0
@@ -142,6 +141,18 @@ cd runpod-python
 make setup
 make test
 ```
+
+## Remote values
+
+Queue and task calls use finite JSON-compatible arguments, return values,
+and stream chunks. JSON conversion turns tuples into lists and supported
+dictionary keys into strings, including in same-worker remote calls.
+Bytes, custom objects, circular references, and non-finite numbers produce
+explicit errors. `.local()` remains a direct Python call.
+
+Successful function responses contain `json_result`, including for a null
+return value. SDK and worker runtimes share the JSON protocol validators;
+use compatible package releases when building worker images.
 
 ## ⚡ | Serverless Worker (SDK)
 

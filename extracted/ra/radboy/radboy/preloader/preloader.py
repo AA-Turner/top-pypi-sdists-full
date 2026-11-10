@@ -248,6 +248,11 @@ preloader={
             'desc':"(QTY=Distance*Trips)/MPG[economy]"
             	},
     f'{uuid1()}':{
+            'cmds':['kwhu','kilowatthours used'],
+            'exec':kilowatthours_used,
+            'desc':"kilowatthours/kilo watt hours/kilowatt hours used"
+                },
+    f'{uuid1()}':{
             'cmds':['mt',"meal time",],
             'exec':Meal_Time,
             'desc':'"Get The Time for your Meal; keep track of your Meals"'

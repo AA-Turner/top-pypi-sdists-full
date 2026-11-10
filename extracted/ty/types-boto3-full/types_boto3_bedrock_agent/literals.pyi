@@ -52,6 +52,7 @@ __all__ = (
     "EmbeddingModelTypeType",
     "EnabledOrDisabledStateType",
     "EnrichmentStrategyMethodType",
+    "FieldTypeType",
     "FlowConnectionTypeType",
     "FlowNodeIODataTypeType",
     "FlowNodeInputCategoryType",
@@ -113,6 +114,7 @@ __all__ = (
     "RetrievalInstructionLastTransitionStatusType",
     "RetrievalInstructionStatusType",
     "SalesforceAuthTypeType",
+    "SearchableStatusType",
     "ServiceName",
     "SharePointAuthTypeType",
     "SharePointHostTypeType",
@@ -200,6 +202,7 @@ EmbeddingDataTypeType = Literal["BINARY", "FLOAT32"]
 EmbeddingModelTypeType = Literal["CUSTOM", "MANAGED"]
 EnabledOrDisabledStateType = Literal["DISABLED", "ENABLED"]
 EnrichmentStrategyMethodType = Literal["CHUNK_ENTITY_EXTRACTION"]
+FieldTypeType = Literal["STRING", "STRING_LIST"]
 FlowConnectionTypeType = Literal["Conditional", "Data"]
 FlowNodeIODataTypeType = Literal["Array", "Boolean", "Number", "Object", "String"]
 FlowNodeInputCategoryType = Literal["ExitLoop", "LoopCondition", "ReturnValueToLoopStart"]
@@ -348,6 +351,7 @@ RetrievalInstructionLastTransitionStatusType = Literal[
 ]
 RetrievalInstructionStatusType = Literal["ACTIVE", "INACTIVE"]
 SalesforceAuthTypeType = Literal["OAUTH2_CLIENT_CREDENTIALS"]
+SearchableStatusType = Literal["DISABLED", "ENABLED"]
 SharePointAuthTypeType = Literal[
     "OAUTH2_CLIENT_CREDENTIALS", "OAUTH2_SHAREPOINT_APP_ONLY_CLIENT_CREDENTIALS"
 ]

@@ -1,5 +1,6 @@
 //! `tfs`: the Python verbs on the command line (`import`, `download`, `upload`, `export`,
 //! `inspect`, `verify`), plus `ceiling`, `conform endpoint`, `dev ckpt` and `version`.
+#![deny(unreachable_pub)]
 
 mod dev;
 
@@ -10,7 +11,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value as Json};
-use tensorfs::failure::{fail, Failure, Kind, Result};
+use tensorfs::{Failure, Kind, Result};
+use tensorfs::failure::fail;
 use tensorfs::format::{Body, ClassRef, ObjectRef, Tree};
 use tensorfs::store::Store;
 use tensorfs::{fetch, Checkpoint, Client, Config, Convert, Download, Format, Open, Ref, Selection};
@@ -405,7 +407,7 @@ async fn conform(url: &str, write: bool, token_env: Option<&str>, json: bool) ->
     let _ = fs::remove_dir_all(&scratch);
     let policy = fetch::SourcePolicy {
         any_host: true,
-        allow_local: fetch::policy::is_loopback_origin(url),
+        allow_local: fetch::is_loopback_origin(url),
         max_redirects: 5,
         ..Default::default()
     };

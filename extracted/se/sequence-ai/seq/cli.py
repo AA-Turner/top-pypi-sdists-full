@@ -43,7 +43,7 @@ from seq.cli_parser import at_version, _OVERVIEW, build_parser
 
 from seq.deploy_cli import (_BuildProgress, _cmd_build_log, _cmd_status, _deploy_benchmark,
                             _deploy_policy, _print_code, _print_deps, _print_request, _request_of)
-from seq.errors import SeqAuthoringError
+from seq.errors import LeftRunning, SeqAuthoringError
 
 from seq.loading import load_deployable as _load_deployable
 from seq.loading import load_folder as _load_folder
@@ -117,8 +117,8 @@ def _main(argv: list[str] | None = None) -> int:
     _your_clock(args.base_url)
     try:
         return _dispatch(args)
-    except KeyboardInterrupt:
-        print("\ncancelled", file=sys.stderr)
+    except KeyboardInterrupt as exc:
+        print(f"\n{exc}" if isinstance(exc, LeftRunning) else "\ncancelled", file=sys.stderr)
         return 130
     except Exception as exc:
 
@@ -150,6 +150,10 @@ _OWN_FLAGS = {
     (None, "unauthenticated"): "seq login, or set SEQUENCES_API_KEY",
     (None, "person_only"): "seq login",
     (None, "policy_error"): "seq policy logs <name>",
+
+
+    ("policy shell", "no_worker"): "seq policy debug <name> opens a machine of its own on the version it serves",
+    ("policy debug", "debug_other_episode"): "seq policy debug <name> --stop ends it, then run this again",
     ("deploy", "name_held"): "add --override to take it over, or give it another name with --name",
     ("deploy", "name_taken"): "give it another name with --name",
 }
@@ -210,6 +214,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return _cmd_policy(args)
     if cmd == "robot":
         return _cmd_robot(args)
+    if cmd == "record":
+        return _cmd_record(args)
     if cmd == "key":
         return _cmd_key(args)
     if cmd == "benchmark":
@@ -256,12 +262,22 @@ def _command(args: argparse.Namespace) -> str:
     return f"{args.cmd} {sub}" if sub else args.cmd
 
 
+def _a_terminal(args: argparse.Namespace, sub: str | None) -> bool:
+    """Whether the command opens a terminal whatever it is given - a shell with no command, a debug machine - which has
+    no JSON form: its output is a screen. A command after -- runs once where JSON is asked for (seq/shell_cli.in_terminal)."""
+    if args.cmd not in ("policy", "benchmark") or sub not in ("shell", "debug") or getattr(args, "stop", False):
+        return False
+    return sub == "debug" or not [w for w in (getattr(args, "command", None) or []) if w != "--"]
+
+
 def _json_ok(args: argparse.Namespace) -> bool:
     """The commands `--json` applies to: those that read something back. An action (init, a real deploy or eval, an
     upload, a secret write) and doctor's report have no JSON form, and say so rather than ignore the flag. `seq policy
     logs` has one: the page as the platform sends it - the reference's Logs section says the lines are kept that way for
     `seq --json policy logs`."""
     sub = getattr(args, f"{args.cmd}_cmd", None)
+    if _a_terminal(args, sub):
+        return False
     return (args.cmd in ("benchmark", "port", "audit", "models", "gpus", "account", "billing")
             or (args.cmd == "usage" and not args.csv)
             or (args.cmd == "adapter" and sub != "rm")
@@ -383,11 +399,24 @@ def _cmd_policy(args: argparse.Namespace) -> int:
     if sub == "shell":
         from seq import shell_cli
 
+        if shell_cli.in_terminal(args.command, as_json=args.json):
+            return shell_cli.terminal(name, args.command, worker=args.worker, base_url=args.base_url)
         out = shell_cli.shell(name, args.command, worker=args.worker, timeout_s=args.timeout, base_url=args.base_url,
                               echo=_quiet if args.json else print)
         if args.json:
             _print_json(out)
         return shell_cli.exit_code(out)
+    if sub == "debug":
+        from seq import shell_cli
+
+        if args.stop and args.episode:
+            raise InvalidRequest("--stop only ends the debug machine; it plays no episode")
+        if not args.stop:
+            return shell_cli.debug(name, episode=args.episode, base_url=args.base_url)
+        out = shell_cli.debug_stop(name, base_url=args.base_url, echo=_quiet if args.json else print)
+        if args.json:
+            _print_json(out)
+        return 0
     if sub == "logs":
         name, version = at_version(name)
         if args.build:
@@ -487,6 +516,19 @@ def _cmd_robot(args: argparse.Namespace) -> int:
     if args.robot_cmd == "revoke":
         return _cmd_platform(args, robot_cli.robot_revoke, args.key)
     raise InvalidRequest(f"seq robot {args.robot_cmd} is not a command; `seq robot --help` lists them")
+
+
+def _cmd_record(args: argparse.Namespace) -> int:
+    """`seq record add | list | revoke`: the keys your own recorder of a policy's steps holds (seq/record_cli.py)."""
+    from seq import record_cli
+
+    if args.record_cmd == "add":
+        return _cmd_platform(args, record_cli.record_add, args.policy, expires=args.expires)
+    if args.record_cmd == "list":
+        return _cmd_platform(args, record_cli.record_list)
+    if args.record_cmd == "revoke":
+        return _cmd_platform(args, record_cli.record_revoke, args.key)
+    raise InvalidRequest(f"seq record {args.record_cmd} is not a command; `seq record --help` lists them")
 
 
 def _cmd_key(args: argparse.Namespace) -> int:
@@ -597,6 +639,8 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
 
             raise InvalidRequest("--stop only ends the shell machine; it takes no command")
         echo = _quiet if args.json else print
+        if not args.stop and shell_cli.in_terminal(args.command, as_json=args.json):
+            return shell_cli.benchmark_terminal(name, args.command, version=version, base_url=args.base_url)
         out = (shell_cli.benchmark_stop(name, base_url=args.base_url, echo=echo) if args.stop else
                shell_cli.benchmark_shell(name, args.command, version=version, timeout_s=args.timeout,
                                          base_url=args.base_url, echo=echo))
@@ -876,6 +920,7 @@ def _dry_run_price(request: Any, args: argparse.Namespace) -> None:
     steps = wait_steps(request.policy.action_chunk_valid_len, request.policy.action_chunk_replan_at)
     try:
 
+        res = request.resources
         ops_cli.estimate(gpu, min_workers=request.autoscaler.min_containers,
                          buffer_workers=request.autoscaler.buffer_containers or 0,
                          max_gpus=request.autoscaler.max_gpus, seats=measured_robots,
@@ -892,7 +937,8 @@ def _dry_run_price(request: Any, args: argparse.Namespace) -> None:
 
                          weights=request.weights.uri if request.weights is not None else None,
                          weights_others=[r.uri for r in (request.extra_weights or {}).values()],
-                         cpu_cores=request.resources.cpu, memory_gib=request.resources.memory_gb)
+                         cpu_cores=max(res.cpu or 0, res.cpu_limit or 0) or None,
+                         memory_gib=max(res.memory_gb or 0, res.memory_limit_gb or 0) or None)
     except ValueError as exc:
         raise InvalidRequest(str(exc)) from None
 

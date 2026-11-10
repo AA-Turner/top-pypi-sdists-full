@@ -2,6 +2,7 @@ from typing import Optional
 
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
@@ -12,6 +13,7 @@ from office365.teams.associated_info import AssociatedTeamInfo
 class UserTeamwork(Entity):
     """A container for the range of Microsoft Teams functionalities that are available per user in the tenant."""
 
+    @odata(name="locale")
     @property
     def locale(self) -> Optional[str]:
         """Represents the location that a user selected in Microsoft Teams and doesn't follow the Office's locale
@@ -21,6 +23,7 @@ class UserTeamwork(Entity):
         """
         return self.properties.get("locale", None)
 
+    @odata(name="region")
     @property
     def region(self) -> Optional[str]:
         """Represents the region of the organization or the user. For users with multigeo licenses, the property
@@ -35,7 +38,7 @@ class UserTeamwork(Entity):
         """
         return self.properties.get("region", None)
 
-    @odata(name="associatedTeams")
+    @odata(name="associatedTeams", navigation=True)
     @property
     def associated_teams(self) -> EntityCollection[AssociatedTeamInfo]:
         """
@@ -46,7 +49,7 @@ class UserTeamwork(Entity):
             EntityCollection(self.context, AssociatedTeamInfo, ResourcePath("associatedTeams", self.resource_path)),
         )
 
-    @odata(name="installedApps")
+    @odata(name="installedApps", navigation=True)
     @property
     def installed_apps(self) -> EntityCollection[UserScopeTeamsAppInstallation]:
         """
@@ -59,6 +62,11 @@ class UserTeamwork(Entity):
             ),
         )
 
+    @require_permission(
+        delegated=["TeamsActivity.Send"],
+        application=["TeamsActivity.Send"],
+        notes="Send an activity feed notification to a user",
+    )
     def send_activity_notification(self, topic, activity_type, chain_id: int, preview_text, template_parameters=None):
         """Send an activity feed notification in the scope of a team. For more details about sending notifications
         and the requirements for doing so, see sending Teams activity notifications.

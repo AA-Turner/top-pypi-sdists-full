@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: antsibull-docutils
-Version: 1.4.1
+Version: 1.5.0
 Summary: Antsibull docutils helpers
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docutils/
 Project-URL: Code of Conduct, https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
@@ -20,9 +20,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Requires-Dist: docutils
+Provides-Extra: all
+Requires-Dist: graphemeu>=0.8.0; (python_version < '3.15') and extra == 'all'
 Provides-Extra: codeqa
 Requires-Dist: antsibull-changelog; extra == 'codeqa'
 Requires-Dist: flake8>=3.8.0; extra == 'codeqa'
@@ -58,6 +61,8 @@ Requires-Dist: mypy; extra == 'typing'
 Requires-Dist: types-docutils; extra == 'typing'
 Requires-Dist: types-pyyaml; extra == 'typing'
 Requires-Dist: types-toml; extra == 'typing'
+Provides-Extra: unicode
+Requires-Dist: graphemeu>=0.8.0; (python_version < '3.15') and extra == 'unicode'
 Description-Content-Type: text/markdown
 
 <!--

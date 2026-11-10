@@ -20,13 +20,16 @@ class WorkspaceRolesRolesItemCapabilities:
     """
     Attributes:
         code (bool): Author scripts and run code of one's own (previews, dependency jobs, dynamic selects, resolving
-            jobs, data table migrations). Required by `full` flows or apps.
+            jobs, data table migrations). Required by `full` flows or apps. Previews also need `run`.
         flows (WorkspaceRolesRolesItemCapabilitiesFlows): How much of a kind of runnable a role may author. `compose`
             assembles already-deployed runnables with no code of one's own.
         apps (WorkspaceRolesRolesItemCapabilitiesApps): How much of a kind of runnable a role may author. `compose`
             assembles already-deployed runnables with no code of one's own.
         manage_schedules (bool):
         manage_triggers (bool):
+        run (bool): Start runs of scripts, flows and AI agents (by path, hash or version, restarts, previews, MCP run
+            tools). Without it a role is view-only. Schedules and triggers keep their own rights; resuming a suspended step
+            is not a run.
         fork (bool): Fork the workspace.
         visibility (WorkspaceRolesRolesItemCapabilitiesVisibility): Pages a role sees. Not enforced.
     """
@@ -36,6 +39,7 @@ class WorkspaceRolesRolesItemCapabilities:
     apps: WorkspaceRolesRolesItemCapabilitiesApps
     manage_schedules: bool
     manage_triggers: bool
+    run: bool
     fork: bool
     visibility: "WorkspaceRolesRolesItemCapabilitiesVisibility"
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -48,6 +52,7 @@ class WorkspaceRolesRolesItemCapabilities:
 
         manage_schedules = self.manage_schedules
         manage_triggers = self.manage_triggers
+        run = self.run
         fork = self.fork
         visibility = self.visibility.to_dict()
 
@@ -60,6 +65,7 @@ class WorkspaceRolesRolesItemCapabilities:
                 "apps": apps,
                 "manage_schedules": manage_schedules,
                 "manage_triggers": manage_triggers,
+                "run": run,
                 "fork": fork,
                 "visibility": visibility,
             }
@@ -84,6 +90,8 @@ class WorkspaceRolesRolesItemCapabilities:
 
         manage_triggers = d.pop("manage_triggers")
 
+        run = d.pop("run")
+
         fork = d.pop("fork")
 
         visibility = WorkspaceRolesRolesItemCapabilitiesVisibility.from_dict(d.pop("visibility"))
@@ -94,6 +102,7 @@ class WorkspaceRolesRolesItemCapabilities:
             apps=apps,
             manage_schedules=manage_schedules,
             manage_triggers=manage_triggers,
+            run=run,
             fork=fork,
             visibility=visibility,
         )

@@ -1,11 +1,13 @@
 """Exercises prov.read(), the documented convenience entry point that wraps
 ProvDocument.deserialize() with lazy format auto-detection."""
 
+import inspect
 import io
 import json
 import locale
 import logging
 import pathlib
+import re
 import warnings
 from typing import NoReturn
 from unittest import mock
@@ -13,11 +15,13 @@ from unittest import mock
 import pytest
 
 import prov
-from prov._warnings import collect_warnings, future_rejection_message, warn as prov_warn
-from prov.model import ProvDocument, ProvFutureRejectionWarning, ProvWarning
-from prov.serializers import DoNotExist
-from prov.serializers.provjson import ProvJSONSerializer
+from prov._warnings import collect_warnings, warn as prov_warn
+from prov.model import ProvDocument, ProvValueError, ProvWarning
+from prov.serializers import DoNotExist, ProvFormatNotDetected
+from prov.serializers.provjson import ProvJSONException, ProvJSONSerializer
+from prov.serializers.provjsonld import ProvJSONLDException
 from prov.serializers.provn import ProvNSerializer
+from prov.serializers.provn_lexer import ProvNSyntaxError
 from prov.serializers.provrdf import ProvRDFSerializer
 from prov.serializers.provxml import ProvXMLSerializer
 from prov.tests.examples import primer_example
@@ -138,6 +142,7 @@ def test_read_auto_detect_swallows_any_deserializer_error() -> None:
     ):
         prov.read(io.StringIO("garbage"))
     assert "specify the format" in str(ctx.value)
+    assert ctx.value.__cause__ is None
 
 
 # -- raw-content strings/bytes (not a file path) ----------------------------
@@ -188,8 +193,113 @@ def test_read_empty_string_raises_type_error() -> None:
 
 def test_read_garbage_content_raises_type_error() -> None:
     # A str that is not an existing file path is treated as raw content.
-    with pytest.raises(TypeError):
-        prov.read("no/such/file.json")
+    with pytest.raises(TypeError) as ctx:
+        _ = prov.read("no/such/file.json")
+    assert ctx.type is ProvFormatNotDetected
+    assert str(ctx.value).startswith("Could not read from the source.")
+    assert ctx.value.__cause__ is None
+
+
+# -- a rejected input reports the reader's error as the TypeError's cause ----
+
+_JSON_NULL = (
+    '{"prefix": {"ex": "http://example.org/"}, "entity": {"ex:e": {"ex:k": null}}}'
+)
+_JSONLD_UNKNOWN_TYPE = '{"@context": [], "@graph": [{"@type": "Frobnication"}]}'
+_JSON_LANGUAGE_TAG = (
+    '{"prefix": {"ex": "http://example.org/"},'
+    ' "entity": {"ex:e": {"ex:k": {"$": "hi", "lang": "en_US"}}}}'
+)
+_PROVN_UNDECLARED = "document\n  prefix ex <http://example.org/>\n  entity(ex:e, [ex:k='zz:x'])\nendDocument"
+
+
+def _source(kind: str, content: str, tmp_path: pathlib.Path) -> object:
+    if kind == "content":
+        return content
+    if kind == "text-stream":
+        return io.StringIO(content)
+    if kind == "bytes-stream":
+        return io.BytesIO(content.encode("utf-8"))
+    path = tmp_path / "rejected.txt"
+    path.write_text(content, encoding="utf-8")
+    return str(path)
+
+
+@pytest.mark.parametrize("kind", ["content", "text-stream", "bytes-stream", "path"])
+@pytest.mark.parametrize(
+    ("content", "cause", "match"),
+    [
+        pytest.param(
+            _JSON_NULL,
+            ProvJSONException,
+            "^record 'ex:e', attribute 'ex:k': the value is null$",
+            id="json",
+        ),
+        pytest.param(
+            _JSON_LANGUAGE_TAG,
+            ProvJSONException,
+            "^record 'ex:e': the language tag 'en_US' of 'hi' is not a BCP 47 tag$",
+            id="json-language-tag",
+        ),
+        pytest.param(
+            _JSONLD_UNKNOWN_TYPE, ProvJSONLDException, "Frobnication", id="jsonld"
+        ),
+        pytest.param(
+            _PROVN_UNDECLARED,
+            ProvNSyntaxError,
+            "^line 3, column \\d+: the qualified name 'zz:x' does not resolve, "
+            "because its prefix 'zz' is not declared$",
+            id="provn",
+        ),
+    ],
+)
+def test_read_auto_detect_chains_the_readers_error(
+    kind: str, content: str, cause: type[Exception], match: str, tmp_path: pathlib.Path
+) -> None:
+    with pytest.raises(TypeError) as ctx:
+        _ = prov.read(_source(kind, content, tmp_path))
+    assert ctx.type is ProvFormatNotDetected
+    assert isinstance(ctx.value.__cause__, cause)
+    assert re.search(match, str(ctx.value.__cause__))
+
+
+def test_read_of_a_bad_language_tag_chains_the_reader_and_the_model_errors() -> None:
+    with pytest.raises(TypeError) as ctx:
+        _ = prov.read(_JSON_LANGUAGE_TAG)
+    reader_error = ctx.value.__cause__
+    assert isinstance(reader_error, ProvJSONException)
+    assert isinstance(reader_error.__cause__, ProvValueError)
+
+
+def test_read_auto_detect_chains_nothing_for_an_error_of_another_type() -> None:
+    # A truncated document fails in the JSON parser, before the PROV-JSON
+    # reader raises an error of its own.
+    with pytest.raises(TypeError) as ctx:
+        _ = prov.read('{"prefix": {"ex": "http://example.org/"}, "entity": ')
+    assert ctx.value.__cause__ is None
+
+
+def test_read_auto_detect_chains_nothing_for_xml() -> None:
+    # `<` starts both PROV-XML and RDF/XML, so it names no one reader.
+    text = (
+        '<prov:document xmlns:prov="http://www.w3.org/ns/prov#">'
+        '<prov:entity prov:id="zz:e"/></prov:document>'
+    )
+    with pytest.raises(TypeError) as ctx:
+        _ = prov.read(text)
+    assert ctx.value.__cause__ is None
+
+
+def test_read_auto_detect_chains_nothing_from_a_consumed_stream() -> None:
+    # A non-seekable stream is consumed by the first candidate, so the content
+    # that would name the reader is gone.
+    class NotSeekable(io.StringIO):
+        def seekable(self) -> bool:
+            return False
+
+    with pytest.raises(TypeError) as ctx:
+        _ = prov.read(NotSeekable(_PROVN_UNDECLARED))
+    assert ctx.value.__cause__ is None
 
 
 # -- Fix A: seekable streams are rewound between auto-detect attempts ------
@@ -336,14 +446,40 @@ def test_unknown_option_for_an_explicit_format_is_a_clear_type_error(document) -
 
 
 def test_declared_options_per_serializer() -> None:
-    from prov.serializers import Registry
+    from prov.serializers import Registry, Serializer
 
     Registry.load_serializers()
+    assert Serializer.serialize_options == frozenset()
     assert Registry.serializers["provn"].deserialize_options == frozenset({"profile"})
     assert "parse_float" in Registry.serializers["json"].deserialize_options
     assert "parse_float" in Registry.serializers["jsonld"].deserialize_options
     if "rdf" in Registry.serializers:
         assert "rdf_format" in Registry.serializers["rdf"].deserialize_options
+
+
+_SERIALIZE_OPTIONS = [
+    ("provn", {"strict", "width"}),
+    ("rdf", {"rdf_format"}),
+    ("xml", {"force_types"}),
+    ("json", {"indent", "sort_keys", "ensure_ascii"}),
+    ("jsonld", {"context", "indent", "sort_keys", "ensure_ascii"}),
+]
+
+
+@pytest.mark.parametrize(("fmt", "expected"), _SERIALIZE_OPTIONS)
+def test_serialize_options_per_serializer(fmt: str, expected: set[str]) -> None:
+    from prov.serializers import Registry
+
+    Registry.load_serializers()
+    if fmt not in Registry.serializers:
+        pytest.skip(f"the {fmt} serializer is not registered")
+    cls = Registry.serializers[fmt]
+    assert cls.serialize_options == frozenset(expected)
+    accepted = set(inspect.signature(cls.serialize).parameters)
+    if fmt in ("json", "jsonld"):
+        # These pass their remaining keywords to json.dump.
+        accepted |= set(inspect.signature(json.dump).parameters)
+    assert cls.serialize_options <= accepted
 
 
 def test_read_forwards_json_load_options() -> None:
@@ -381,23 +517,29 @@ def test_deserialize_path_reads_utf8_regardless_of_locale(tmp_path) -> None:
 # -- warnings during auto-detection ----------------------------------------
 
 _PROVN = "document\n  prefix ex <http://example.org/>\n  entity(ex:e1)\nendDocument"
-_PROBE = future_rejection_message("probe", issue=509)
+_PROBE = "probe"
+
+
+class _ProbeWarning(ProvWarning):
+    """A non-default category, so the tests see it kept through collection."""
+
+
 _provn_deserialize = ProvNSerializer.deserialize
 
 
 def _warns_then_fails(self, stream, **kwargs) -> NoReturn:
-    prov_warn("from a failed candidate", ProvFutureRejectionWarning)
+    prov_warn("from a failed candidate")
     raise ValueError("not this format")
 
 
 def _warns_then_returns_empty(self, stream, **kwargs) -> ProvDocument:
-    prov_warn("from an empty candidate", ProvFutureRejectionWarning)
+    prov_warn("from an empty candidate")
     return ProvDocument()
 
 
 def _provn_warns(self, stream, **kwargs) -> ProvDocument:
     document = _provn_deserialize(self, stream, **kwargs)
-    prov_warn(_PROBE, ProvFutureRejectionWarning)
+    prov_warn(_PROBE, _ProbeWarning)
     return document
 
 
@@ -442,9 +584,10 @@ def test_read_auto_detect_emits_the_winners_warnings_once_at_the_caller() -> Non
     ):
         warnings.simplefilter("always")
         prov.read(_PROVN)
-    future = [w for w in caught if issubclass(w.category, ProvFutureRejectionWarning)]
-    assert [str(w.message) for w in future] == [_PROBE]
-    assert future[0].filename == __file__
+    emitted = [w for w in caught if issubclass(w.category, ProvWarning)]
+    assert [str(w.message) for w in emitted] == [_PROBE]
+    assert emitted[0].category is _ProbeWarning
+    assert emitted[0].filename == __file__
 
 
 def test_read_auto_detect_keeps_the_once_per_location_record() -> None:
@@ -467,8 +610,8 @@ def test_read_auto_detect_raises_the_winners_warning_under_an_error_filter() -> 
         mock.patch.object(ProvNSerializer, "deserialize", _provn_warns),
         warnings.catch_warnings(),
     ):
-        warnings.simplefilter("error", ProvFutureRejectionWarning)
-        with pytest.raises(ProvFutureRejectionWarning, match="probe"):
+        warnings.simplefilter("error", ProvWarning)
+        with pytest.raises(ProvWarning, match="probe"):
             prov.read(_PROVN)
 
 
@@ -479,7 +622,7 @@ def test_read_auto_detect_ignores_a_failed_candidates_warning_under_an_error_fil
         mock.patch.object(ProvJSONSerializer, "deserialize", _warns_then_fails),
         warnings.catch_warnings(),
     ):
-        warnings.simplefilter("error", ProvFutureRejectionWarning)
+        warnings.simplefilter("error", ProvWarning)
         document = prov.read(_PROVN)
     assert _identifiers(document) == ["ex:e1"]
 
@@ -489,10 +632,8 @@ def test_read_auto_detect_emits_under_the_callers_module_name() -> None:
         mock.patch.object(ProvNSerializer, "deserialize", _provn_warns),
         warnings.catch_warnings(),
     ):
-        warnings.filterwarnings(
-            "error", category=ProvFutureRejectionWarning, module=__name__
-        )
-        with pytest.raises(ProvFutureRejectionWarning, match="probe"):
+        warnings.filterwarnings("error", category=ProvWarning, module=__name__)
+        with pytest.raises(ProvWarning, match="probe"):
             prov.read(_PROVN)
 
 
@@ -502,4 +643,4 @@ def test_read_auto_detect_inside_a_collection_adds_to_it() -> None:
         collect_warnings() as collected,
     ):
         prov.read(_PROVN)
-    assert collected == [(_PROBE, ProvFutureRejectionWarning)]
+    assert collected == [(_PROBE, _ProbeWarning)]

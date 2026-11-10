@@ -21,6 +21,7 @@ import type { CalendarTimeRangeResponse } from "openapi/requests/types.gen";
 export type DagRunState = "failed" | "planned" | "queued" | "running" | "success";
 
 export type RunCounts = {
+  backfill: number;
   failed: number;
   planned: number;
   queued: number;
@@ -29,9 +30,15 @@ export type RunCounts = {
   total: number;
 };
 
+export type DeadlineCounts = {
+  missed: number;
+  pending: number;
+};
+
 export type CalendarCellData = {
   readonly counts: RunCounts;
   readonly date: string;
+  readonly deadlineCounts?: DeadlineCounts;
   readonly runs: Array<CalendarTimeRangeResponse>;
 };
 

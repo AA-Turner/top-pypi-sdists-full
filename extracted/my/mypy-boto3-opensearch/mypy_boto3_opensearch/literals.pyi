@@ -33,11 +33,15 @@ __all__ = (
     "AutoTuneTypeType",
     "CapabilityFailureReasonType",
     "CapabilityStatusType",
+    "ClonedBlueGreenScheduledActionTypeType",
     "ConfigChangeStatusType",
     "ConnectionModeType",
+    "CutoverStatusType",
+    "CutoverTargetType",
     "DataSourceAttachmentStatusType",
     "DataSourceStatusType",
     "DeploymentStatusType",
+    "DeploymentStrategyOverrideType",
     "DeploymentStrategyType",
     "DescribePackagesFilterNameType",
     "DiffFieldPolicyType",
@@ -93,6 +97,7 @@ __all__ = (
     "RequirementLevelType",
     "ReservedInstancePaymentOptionType",
     "ResourceServiceName",
+    "RetentionActionType",
     "RolesKeyIdCOptionType",
     "RollbackOnDisableType",
     "ScheduleAtType",
@@ -104,6 +109,8 @@ __all__ = (
     "SubjectKeyIdCOptionType",
     "TLSSecurityPolicyType",
     "TimeUnitType",
+    "TrafficSplitStatusType",
+    "TrafficStrategyType",
     "UpgradeStatusType",
     "UpgradeStepType",
     "ValidationFailureSeverityType",
@@ -140,6 +147,9 @@ CapabilityFailureReasonType = Literal["KMS_KEY_INSUFFICIENT_PERMISSION"]
 CapabilityStatusType = Literal[
     "active", "create_failed", "creating", "delete_failed", "deleting", "update_failed", "updating"
 ]
+ClonedBlueGreenScheduledActionTypeType = Literal[
+    "AutomaticCutoverToPrimaryCluster", "DeletePrimaryCluster"
+]
 ConfigChangeStatusType = Literal[
     "ApplyingChanges",
     "Cancelled",
@@ -151,11 +161,14 @@ ConfigChangeStatusType = Literal[
     "ValidationFailed",
 ]
 ConnectionModeType = Literal["DIRECT", "VPC_ENDPOINT"]
+CutoverStatusType = Literal["Completed", "Failed", "InProgress"]
+CutoverTargetType = Literal["ClonedCluster", "PrimaryCluster"]
 DataSourceAttachmentStatusType = Literal["ATTACHED", "FAILED", "PENDING"]
 DataSourceStatusType = Literal["ACTIVE", "DISABLED"]
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"
 ]
+DeploymentStrategyOverrideType = Literal["ClonedBlueGreen"]
 DeploymentStrategyType = Literal["CapacityOptimized", "Default"]
 DescribePackagesFilterNameType = Literal[
     "EngineVersion", "PackageID", "PackageName", "PackageOwner", "PackageStatus", "PackageType"
@@ -371,6 +384,7 @@ ReplicationStatusType = Literal[
 ]
 RequirementLevelType = Literal["NONE", "OPTIONAL", "REQUIRED"]
 ReservedInstancePaymentOptionType = Literal["ALL_UPFRONT", "NO_UPFRONT", "PARTIAL_UPFRONT"]
+RetentionActionType = Literal["DeletePrimaryCluster", "RollbackToPrimaryCluster"]
 RolesKeyIdCOptionType = Literal["GroupId", "GroupName"]
 RollbackOnDisableType = Literal["DEFAULT_ROLLBACK", "NO_ROLLBACK"]
 ScheduleAtType = Literal["NOW", "OFF_PEAK_WINDOW", "TIMESTAMP"]
@@ -387,6 +401,8 @@ TLSSecurityPolicyType = Literal[
     "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
 TimeUnitType = Literal["HOURS"]
+TrafficSplitStatusType = Literal["Completed", "Failed", "InProgress"]
+TrafficStrategyType = Literal["ShiftReadTrafficPercent"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]
 UpgradeStepType = Literal["PRE_UPGRADE_CHECK", "SNAPSHOT", "UPGRADE"]
 ValidationFailureSeverityType = Literal["Critical", "Warning"]
@@ -401,6 +417,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -40,6 +40,10 @@ main (void)
     dp_fft_reset (obj); /* no-op; must not crash */
     dp_fft_destroy (obj);
     dp_fft_destroy (NULL); /* must not crash */
+    /* A length vendored pocketfft cannot size its plan for (its Bluestein
+       count, up to 10n doubles, would wrap) is refused before the vendor
+       code runs: ASan caught the wrapped request (#2958). */
+    DP_CHECK (dp_fft_create (SIZE_MAX / 8, -1, 1) == NULL);
   }
 
   /* ── CF64 forward/inverse round-trip ────────────────────────────── */

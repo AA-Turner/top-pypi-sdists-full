@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +9,6 @@ if TYPE_CHECKING:
     from office365.directory.identities.provider import IdentityProvider
 
 
-@dataclass
 class InvokeActionResult(ClientValue):
     accountId: str | None = None
     correlationId: str | None = None

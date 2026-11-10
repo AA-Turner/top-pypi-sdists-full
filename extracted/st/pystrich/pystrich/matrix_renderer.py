@@ -13,11 +13,12 @@ from __future__ import annotations
 import os
 from abc import ABC
 from io import BytesIO
-from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, ClassVar, Generic, Literal, TypeVar, get_args
 
-from pystrich.colour import RGBA, Fill, resolve_pil_palette
+from pystrich.colour import RGBA, pil_mode, resolve_colours
 from pystrich.dxf import DxfUnit, matrix_to_dxf
 from pystrich.eps import matrix_to_eps
+from pystrich.exceptions import PyStrichInvalidOption
 from pystrich.limits import check_cell_size, check_image_pixels
 from pystrich.marks import MarkShape, SymbolMarks, iter_marks
 from pystrich.svg import matrix_to_svg
@@ -30,9 +31,29 @@ if TYPE_CHECKING:
 # during placement to mean "unset".
 CellT = TypeVar("CellT", int, "int | None")
 
+ImageDepth = Literal["full", "bilevel"]
 
-def _pixel_bytes(value: Fill) -> bytes:
-    return bytes((value,) if isinstance(value, int) else value)
+
+def _grey_image(modules: bytes, size: tuple[int, int], dark: int, light: int) -> PILImage:
+    """Return 0/1 ``modules`` as an ``"L"`` image, one pixel per module."""
+    from pystrich._pillow import Image
+
+    return Image.frombytes("L", size, modules.translate(bytes((light, dark)) + bytes(254)))
+
+
+def _palette_image(
+    modules: bytes, size: tuple[int, int], dark: RGBA, light: RGBA, *, alpha: bool
+) -> PILImage:
+    """Return 0/1 ``modules`` as a ``"P"`` image on a light/dark palette, one pixel per module."""
+    from pystrich._pillow import Image
+
+    def entry(colour: RGBA) -> tuple[int, ...]:
+        rgb = (colour.r, colour.g, colour.b)
+        return (*rgb, colour.a) if alpha else rgb
+
+    image = Image.frombytes("P", size, modules)
+    image.putpalette(bytes(entry(light) + entry(dark)), "RGBA" if alpha else "RGB")
+    return image
 
 
 class Matrix2DRenderer(ABC, Generic[CellT]):
@@ -68,24 +89,50 @@ class Matrix2DRenderer(ABC, Generic[CellT]):
         *,
         dark_hex: str | RGBA | None = None,
         light_hex: str | RGBA | None = None,
+        depth: ImageDepth = "full",
     ) -> PILImage:
         """Return the matrix as a PIL image."""
+        if depth not in get_args(ImageDepth):
+            raise PyStrichInvalidOption(
+                f"depth must be one of {get_args(ImageDepth)}, got {depth!r}"
+            )
         check_cell_size(cellsize, name="cell size")
         check_image_pixels(self.width * cellsize, self.height * cellsize, cellsize=cellsize)
 
+        dark, light = resolve_colours(dark_hex, light_hex)
+        return self._scaled_image(cellsize, dark, light, depth=depth)
+
+    def _scaled_image(
+        self, cellsize: int, dark: RGBA, light: RGBA, *, depth: ImageDepth
+    ) -> PILImage:
+        """Render the matrix at ``cellsize`` pixels per module.
+
+        One pixel per module, upscaled by nearest-neighbour: Pillow does the
+        per-pixel work, so the Python-side cost scales with modules, not pixels.
+
+        With ``depth="bilevel"`` the image has one bit per pixel: ``"1"`` for
+        black and white, otherwise a two-entry ``"P"`` palette. Pillow writes
+        either as a bit-depth-1 PNG.
+        """
         from pystrich._pillow import Image
 
-        mode, dark_fill, light_fill = resolve_pil_palette(dark_hex, light_hex)
-        buff = self._buffer(cellsize, dark_fill, light_fill)
-        return Image.frombuffer(
-            mode,
-            (self.width * cellsize, self.height * cellsize),
-            buff,
-            "raw",
-            mode,
-            0,
-            -1,
-        )
+        modules = b"".join(bytes(row) for row in self.matrix)  # type: ignore[arg-type]
+        size = (self.width, self.height)
+        scaled = (self.width * cellsize, self.height * cellsize)
+        mode = pil_mode(dark, light)
+        alpha = mode == "RGBA"
+        if depth == "bilevel" and mode == "L" and {dark.r, light.r} <= {0, 255}:
+            image = _grey_image(modules, size, dark.r, light.r).convert(
+                "1", dither=Image.Dither.NONE
+            )
+        elif depth == "bilevel":
+            image = _palette_image(modules, size, dark, light, alpha=alpha)
+        elif mode == "L":
+            image = _grey_image(modules, size, dark.r, light.r)
+        else:
+            # Converting before upscaling touches modules rather than pixels.
+            image = _palette_image(modules, size, dark, light, alpha=alpha).convert(mode)
+        return image.resize(scaled, Image.Resampling.NEAREST)
 
     def write_file(
         self,
@@ -94,9 +141,11 @@ class Matrix2DRenderer(ABC, Generic[CellT]):
         *,
         dark_hex: str | RGBA | None = None,
         light_hex: str | RGBA | None = None,
+        depth: ImageDepth = "bilevel",
     ) -> None:
-        """Write the matrix out to an image file."""
-        self.get_pilimage(cellsize, dark_hex=dark_hex, light_hex=light_hex).save(filename)
+        """Write the matrix out as a PNG file, as :meth:`get_imagedata` produces it."""
+        image = self.get_pilimage(cellsize, dark_hex=dark_hex, light_hex=light_hex, depth=depth)
+        image.save(filename, "PNG")
 
     def get_imagedata(
         self,
@@ -104,24 +153,13 @@ class Matrix2DRenderer(ABC, Generic[CellT]):
         *,
         dark_hex: str | RGBA | None = None,
         light_hex: str | RGBA | None = None,
+        depth: ImageDepth = "bilevel",
     ) -> bytes:
         """Write the matrix out as PNG to a bytestream."""
         buffer = BytesIO()
-        self.get_pilimage(cellsize, dark_hex=dark_hex, light_hex=light_hex).save(buffer, "PNG")
+        image = self.get_pilimage(cellsize, dark_hex=dark_hex, light_hex=light_hex, depth=depth)
+        image.save(buffer, "PNG")
         return buffer.getvalue()
-
-    def _buffer(self, cellsize: int, dark_fill: Fill, light_fill: Fill) -> bytes:
-        """Convert the matrix into the buffer format used by PIL."""
-        pixel: dict[int | None, bytes] = {
-            0: _pixel_bytes(light_fill),
-            1: _pixel_bytes(dark_fill),
-        }
-        # PIL writes image buffers from the bottom up, so feed in rows in
-        # reverse.
-        return b"".join(
-            b"".join([pixel[cell] * cellsize for cell in row]) * cellsize
-            for row in self.matrix[::-1]
-        )
 
     def get_ascii(self) -> str:
         """Return an ASCII-art rendering of the matrix."""

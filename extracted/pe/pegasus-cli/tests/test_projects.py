@@ -43,7 +43,9 @@ class TestAuth:
         with runner.isolated_filesystem():
             with patch("pegasus_cli.projects.save_api_key") as mock_save:
                 mock_save.return_value = "/home/user/.pegasus/credentials"
-                result = runner.invoke(cli, ["auth"], input="my-api-key\n")
+                result = runner.invoke(
+                    cli, ["auth", "login", "--with-key"], input="my-api-key\n"
+                )
                 assert result.exit_code == 0
                 mock_save.assert_called_once_with("my-api-key")
 
@@ -51,7 +53,7 @@ class TestAuth:
     @patch("pegasus_cli.projects.get_api_key", return_value="existing-key")
     def test_auth_prompts_to_replace(self, mock_get_key, mock_client_cls):
         runner = CliRunner()
-        result = runner.invoke(cli, ["auth"], input="n\n")
+        result = runner.invoke(cli, ["auth", "login", "--with-key"], input="n\n")
         assert result.exit_code == 0
         assert "already configured" in result.output
 
@@ -375,6 +377,25 @@ class TestProjectsPush:
             or "Pull request created" in result.output
         )
         assert "Pull request created" in result.output
+
+    @patch("pegasus_cli.projects._get_client")
+    def test_push_no_changes(self, mock_get_client):
+        client = _mock_client(
+            poll_statuses=[
+                {
+                    "state": "SUCCESS",
+                    "complete": True,
+                    "success": True,
+                    "result": {"no_changes": True},
+                },
+            ]
+        )
+        mock_get_client.return_value = client
+        runner = CliRunner()
+        result = runner.invoke(cli, ["projects", "push", "1"], input="3\n")
+        assert result.exit_code == 0
+        assert "Already up to date" in result.output
+        assert "Push completed successfully" not in result.output
 
     @patch("pegasus_cli.projects._get_client")
     def test_push_failure(self, mock_get_client):

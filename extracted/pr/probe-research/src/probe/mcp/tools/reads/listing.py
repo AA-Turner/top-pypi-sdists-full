@@ -458,6 +458,21 @@ class BrowseListMixin:
                     )
                 after = self._list_cursor(mode, keyset)
             sent.append((self._run_row(row), after))
+        if backend_cursor is None:
+            # The whole listing's size, on its first page: a page is one page (Anthrogen 2026-11-05,
+            # "ten runs failed" from a 10-row page of 26). Same filter, so the totals and the pages
+            # count one set; never fails the browse.
+            try:
+                data["totals"] = self.source.run_counts(
+                    project_id=project_id,
+                    experiment_id=experiment_id,
+                    status=status,
+                    tags=tags,
+                    is_active=bool(active),
+                    exclude_origin_session=hide_session,
+                )
+            except Exception:  # noqa: BLE001 -- an older API or a count past its bound
+                missing.append(MissingMarker.TOTALS_UNAVAILABLE)
         views_by_kind = {EntityType.RUN.value}
         return end, hidden_count, hidden_count_more, views_by_kind
 

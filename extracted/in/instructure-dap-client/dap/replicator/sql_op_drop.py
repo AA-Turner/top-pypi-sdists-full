@@ -24,7 +24,9 @@ class SqlOpDrop(SqlOp):
             self.conn, self.namespace, self.table_name
         )
         if not table_meta:
-            raise ValueError("Table not initialized. Please run initdb first.")
+            raise ValueError(
+                "Table not initialized. Check that the namespace, table name and connection string are correct."
+            )
 
         table_id = self.conn.get_table_id(
             ClassRef(module=self.namespace_module, entity_name=self.table_name)

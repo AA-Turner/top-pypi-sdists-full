@@ -114,6 +114,18 @@ impl Schema {
                     })
                 });
             }
+            // An instance in both carries the attribute, and its reading there is
+            // in both schemas, as for a key each record requires. The names are
+            // sorted, so a class of many attributes is not read pair by pair.
+            (Schema::AttrRecord { fields: mine }, Schema::AttrRecord { fields: theirs }) => {
+                return mine.iter().any(|field| {
+                    theirs
+                        .binary_search_by(|other| other.name.cmp(&field.name))
+                        .ok()
+                        .and_then(|at| theirs.get(at))
+                        .is_some_and(|other| field.schema.disjoint_with(&other.schema, oracle))
+                });
+            }
             _ => {}
         }
         // Two sequences of one container meet in the sequences of their
@@ -319,7 +331,7 @@ impl Schema {
     /// base is sized: `Annotated[set[int], MinLen(0)]` holds `set()`, which
     /// `MinLen(1)` refuses, as `set[int]` does, and `Annotated[dict,
     /// MaxLen(0)]` holds `{}`, which `{"a": int}` refuses.
-    fn the_empty_refused(&self, other: &Schema) -> bool {
+    pub(super) fn the_empty_refused(&self, other: &Schema) -> bool {
         self.type_tag().is_some_and(|kind| {
             self.holds_the_exact_empty(kind) == Some(true)
                 && other.holds_the_exact_empty(kind) == Some(false)
@@ -348,6 +360,30 @@ impl Schema {
         refused && self.verdict_rec(cx) == Verdict::Inhabited
     }
 
+    /// Whether this sequence's repeated element holds no value, which leaves it the
+    /// values of its prefix alone [Cas23, fn. 11], and that length meets every one of
+    /// `constraints`: `list[μt. tuple[t]]` holds `[]` alone, and so is below
+    /// `Annotated[list[int], MaxLen(0)]` wherever it is below `list[int]`.
+    #[inline(never)]
+    pub(super) fn holds_its_prefix_alone_within(
+        &self,
+        constraints: &[Constraint],
+        cx: &mut Cx<'_>,
+    ) -> bool {
+        let Schema::Seq { shape, .. } = self else {
+            return false;
+        };
+        let Some(tail) = shape.tail.as_deref() else {
+            return false;
+        };
+        let length = shape.prefix.len();
+        constraints.iter().all(|constraint| match constraint {
+            Constraint::MinLen(least) => length >= *least,
+            Constraint::MaxLen(most) => length <= *most,
+            _ => false,
+        }) && tail.verdict_rec(cx) == Verdict::Empty
+    }
+
     /// Whether a refinement holding a value of every length its bounds admit
     /// holds one the supertype's length bounds refuse.
     ///
@@ -372,8 +408,13 @@ impl Schema {
     /// branch leaves out is the same witness: a branch that is a refinement
     /// admits no length outside its bounds, whatever its base and its other
     /// constraints, and a branch holding no value of the subject's kind admits
-    /// none. Any other branch leaves the union unread. The length asked is the
-    /// least one from the subject's least that no branch's bounds admit.
+    /// none, and a mapping's or a set's lengths are the bounds its shape says without
+    /// writing them ([`lengths_held`](Self::lengths_held)): `Annotated[dict, MaxLen(2)]`
+    /// holds a dict of one key, which `{}` refuses, and `set[Literal[1, 2]]` holds
+    /// `{1, 2}`, which `set[Literal[1]] | set[Literal[2]]` refuses. Any other branch
+    /// leaves the union unread.
+    /// The length asked is the least one from the subject's least that no branch's
+    /// bounds admit.
     ///
     /// A base written bare is its refinement under no bound: every length is
     /// at least zero, so `str` and `Annotated[str, MinLen(0)]` are one set,
@@ -388,7 +429,7 @@ impl Schema {
             bare => (bare, &[]),
         };
         let branches = match other {
-            Schema::Refine { .. } => core::slice::from_ref(other),
+            Schema::Refine { .. } | Schema::KeyedMap { .. } => core::slice::from_ref(other),
             Schema::Union(members) => &members[..],
             _ => return false,
         };
@@ -409,6 +450,12 @@ impl Schema {
                     ..
                 } => admitted.push((shortest(theirs.iter()), longest(theirs.iter()))),
                 _ if branch.holds_no_value_of(kind, cx.oracle) => {}
+                Schema::KeyedMap { .. } | Schema::Coll { .. } => {
+                    match branch.lengths_held(cx.oracle) {
+                        Some(lengths) => admitted.push(lengths),
+                        None => return false,
+                    }
+                }
                 _ => return false,
             }
         }
@@ -707,6 +754,41 @@ impl Schema {
         possibly(self, &mut KindWalk::new(oracle, defs, false))
     }
 
+    /// Whether every value this schema holds is of `kind`, or of a kind a value of
+    /// `kind` also has: the walk above reads no other. `int` spans `bool`, a boolean
+    /// being an integer.
+    pub(super) fn holds_no_kind_beyond(
+        &self,
+        kind: Kind,
+        oracle: &dyn LeafRelations,
+        defs: &[Schema],
+    ) -> bool {
+        self.kinds_possibly_held(oracle, defs) & !sharing(kind) == 0
+    }
+
+    /// Whether this schema is a table with no constant of some builtin kind `other`
+    /// holds no value of: a plain value of that kind is of no constant's exact type,
+    /// so it is outside the table, and outside `other`. A constant of the kind leaves
+    /// that kind unread, though a table is finite and the kind need not be.
+    pub(super) fn plain_kind_beside_a_table(&self, other: &Schema, cx: &Cx<'_>) -> bool {
+        let Some(constants) = super::literals::literal_constants(self) else {
+            return false;
+        };
+        let mut named = 0;
+        for constant in constants.iter() {
+            match cx.oracle.literal_kind(*constant) {
+                Some(kind) => named |= bit(kind),
+                // A constant the bindings decline may be a plain value of any
+                // kind, so no kind is read beside the table.
+                None if !cx.oracle.literal_of_no_kind(*constant) => return false,
+                None => {}
+            }
+        }
+        Kind::ALL
+            .iter()
+            .any(|kind| named & bit(*kind) == 0 && other.holds_no_value_of(*kind, cx.oracle))
+    }
+
     /// A concrete type tag for nodes whose disjointness the core can decide
     /// soundly. `None` for nodes it cannot (`Literal`/`Instance`/`Any`/...).
     pub(super) fn type_tag(&self) -> Option<Kind> {
@@ -991,6 +1073,87 @@ impl Schema {
 pub(super) fn spills_a_kind_into(subject: &Schema, other: &Schema, cx: &Cx<'_>) -> bool {
     let whole = subject.kinds_held_whole(cx.oracle, cx.defs);
     whole != 0 && whole & !other.kinds_possibly_held(cx.oracle, cx.defs) != 0
+}
+
+/// Whether a sequence of one item, or a mapping of one entry, the subject holds
+/// lies outside every branch of a union.
+///
+/// `a ⊆ b` is `a ∧ ¬b = ∅` [FCB08, §4.1], so one value refutes it, and no branch
+/// can name this one: `list[int]` is refuted below `list[str]` on `[0]` and below
+/// `list[bytes]` on `[0]`, each branch holds `[]`, and so none drops out of the
+/// union for sharing no value. But `[v]` lies in a branch of its container only where
+/// `v` lies in what that branch holds at one position, so a `v` outside all of
+/// those is outside the union. What a branch holds is read wide, a refinement as its
+/// base and a map as every value it holds under any key, which keeps a value
+/// outside them outside the branch; a reference is read through its definition once,
+/// since a branch holding itself adds nothing to what the others hold at one
+/// position. A branch no sequence or map of the subject's can be in is asked the
+/// cheap disjointness, and one neither reading places declines.
+///
+/// A refutation and no proof: `[1, "s"]` is in `list[int | str]` and neither of
+/// `list[int]` and `list[str]`, so an item below the union of the items says
+/// nothing. The value is the cheap check [BBC+26, §6, p. 8] with no set built.
+#[inline(never)]
+pub(super) fn one_item_outside(subject: &Schema, members: &[Schema], cx: &mut Cx<'_>) -> bool {
+    let item = match subject {
+        Schema::Seq { shape, .. } => match (&shape.prefix[..], shape.tail.as_deref()) {
+            ([first], _) => first,
+            ([], Some(tail)) => tail,
+            _ => return false,
+        },
+        Schema::KeyedMap { fields, defaults } if fields.is_empty() => {
+            let [clause] = &defaults[..] else {
+                return false;
+            };
+            // A key of a kind with no end of them is one a dict can hold, where
+            // a class may set `__hash__` to `None`.
+            if ![Kind::Str, Kind::Bytes, Kind::Int]
+                .iter()
+                .any(|kind| clause.key.holds_every_value_of(*kind, cx.oracle))
+            {
+                return false;
+            }
+            &clause.value
+        }
+        _ => return false,
+    };
+    let mut held = Vec::new();
+    let mut read = Vec::new();
+    let mut pending: Vec<&Schema> = members.iter().collect();
+    while let Some(branch) = pending.pop() {
+        match (subject, branch) {
+            (
+                Schema::Seq {
+                    container: mine, ..
+                },
+                Schema::Seq { container, shape },
+            ) if mine == container => match (&shape.prefix[..], shape.tail.as_deref()) {
+                ([first], _) => held.push(first.clone()),
+                ([], Some(tail)) => held.push(tail.clone()),
+                _ => {}
+            },
+            (Schema::KeyedMap { .. }, Schema::KeyedMap { fields, defaults }) => {
+                held.extend(fields.iter().map(|field| field.schema.clone()));
+                held.extend(defaults.iter().map(|clause| clause.value.clone()));
+            }
+            (_, Schema::Refine { base, .. }) => pending.push(base),
+            (_, Schema::Union(inner)) => pending.extend(inner.iter()),
+            (_, Schema::Ref(at)) => {
+                if !read.contains(at) {
+                    read.push(*at);
+                    let Some(definition) = cx.defs.get(at.get()) else {
+                        return false;
+                    };
+                    pending.push(definition);
+                }
+            }
+            (_, other) if subject.disjoint_with(other, cx.oracle) => {}
+            _ => return false,
+        }
+    }
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
+    item.is_subtype_rec(&Schema::union(held), cx) == Relation::Fails
 }
 
 /// A set of kinds, one bit per place in [`Kind::ALL`].

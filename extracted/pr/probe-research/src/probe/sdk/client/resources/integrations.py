@@ -175,6 +175,43 @@ class IntegrationsMixin:
             strict=True,
         )
 
+    def claim_wandb_run(
+        self,
+        external_id: str,
+        *,
+        project_id: str,
+        name: str | None = None,
+        config: dict | None = None,
+        tags: list[str] | None = None,
+        metadata: dict | None = None,
+        notes: str | None = None,
+        started_at: str | None = None,
+        experiment_id: str | None = None,
+        parent_external_id: str | None = None,
+    ) -> dict:
+        """The one Probe run a W&B import copies `external_id` (`wandb:entity/project/run_id`) into:
+        `{outcome, run, representation, reads_from_wandb}`. Idempotent: the run that id names, an
+        earlier CLI import's (adopted), a read-through mirror run (upgraded once a team admin pressed
+        Copy into Probe on its attachment, else 409), or a new run in `project_id`. `name`, `config`,
+        `tags`, `metadata`, `notes`, `started_at` (W&B's start), `experiment_id` (where it is filed) and
+        `parent_external_id` (the W&B run it was forked from) only start a new run."""
+        from ... import agent_session
+
+        body: dict = {"external_id": external_id, "project_id": project_id}
+        for field, value in (("name", name), ("config", config), ("tags", tags), ("metadata", metadata),
+                             ("notes", notes), ("started_at", started_at), ("experiment_id", experiment_id),
+                             ("parent_external_id", parent_external_id)):
+            if value is not None:
+                body[field] = value
+        if isinstance(name, agent_session.ComposedName):  # W&B's made-up name: Probe may title the run
+            body["authored_by"] = "agent"
+        return self.send("POST", "/v1/integrations/wandb/runs/claim", body, strict=True)
+
+    def mark_wandb_copied(self, run_id: str) -> dict:
+        """A copy's parity check passed: its reads move from W&B to Probe (`copying` -> `copied`).
+        Idempotent; `{representation, reads_from_wandb}`."""
+        return self.send("POST", f"/v1/integrations/wandb/runs/{run_id}/copied", {}, strict=True)
+
     def patch_project_wandb_source(
         self, project_id: str, attachment_id: str, *, sync_enabled: bool, expected_revision: int
     ) -> dict:

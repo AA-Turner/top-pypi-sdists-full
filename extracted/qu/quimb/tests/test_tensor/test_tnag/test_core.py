@@ -1,3 +1,5 @@
+import functools
+import itertools
 import warnings
 
 import autoray as ar
@@ -6,6 +8,12 @@ from numpy.testing import assert_allclose
 
 import quimb as qu
 import quimb.tensor as qtn
+from quimb.tensor.tnag.core import (
+    TensorNetworkGenVector,
+    contract_reduced_density_matrix,
+    get_bra_inds,
+    rho_expectation,
+)
 
 
 @pytest.mark.parametrize(
@@ -21,19 +29,24 @@ import quimb.tensor as qtn
     ],
 )
 @pytest.mark.parametrize("where", [[1], [2, 3]])
-def test_gate_sandwich_basic_mpo(contract, where):
+@pytest.mark.parametrize("dagger", [False, True])
+def test_gate_sandwich_basic_mpo(contract, where, dagger):
     # apply arbitrary complex 2-site gate to random complex MPO
     mpo = qtn.MPO_rand(5, 3, dtype=complex, seed=42)
     G = qu.rand_matrix(2 ** len(where), seed=42)
     # construct reference by densifying
     A = mpo.to_dense()
     IGI = qu.ikron(G, [mpo.phys_dim()] * mpo.nsites, where)
-    GAG = IGI @ A @ IGI.H
+    if dagger:
+        GAG = IGI.H @ A @ IGI
+    else:
+        GAG = IGI @ A @ IGI.H
     # apply gate via tensor network method
     gmpo = mpo.gate_sandwich(
         G,
         where=where,
         contract=contract,
+        dagger=dagger,
         tags="GATE",
         tags_upper="KET",
         tags_lower="BRA",
@@ -141,6 +154,45 @@ def test_tensor_network_apply_op_op(which_A, which_B, contract, inplace):
     assert_allclose(AB.to_dense(), C)
 
 
+@pytest.mark.parametrize("which", ["upper", "lower"])
+def test_gate_upper_lower_transpose(which):
+    mpo = qtn.MPO_rand(4, 3, dtype=complex, seed=42)
+    G = qu.rand_matrix(4, seed=42)
+    A = qu.qarray(mpo.to_dense())
+    IG = qu.ikron(G, [2] * 4, [1, 2])
+
+    # 'lower' applies X @ G^T by default, so transpose gives plain X @ G
+    if which == "upper":
+        expected = IG.T @ A
+    else:
+        expected = A @ IG
+
+    gmpo = mpo.gate(G, where=[1, 2], which=which, transpose=True)
+    assert_allclose(gmpo.to_dense(), expected)
+
+
+@pytest.mark.parametrize("where", [[1], [2, 3]])
+def test_gate_simple_sandwich_dagger(where):
+    # dagger should match daggering the gate matrix by hand
+    mpo = qtn.MPO_rand(5, 3, dtype=complex, seed=42)
+    G = qu.rand_uni(2 ** len(where), seed=42)
+
+    gauges = {}
+    mpo.gauge_all_simple_(100, 1e-13, gauges=gauges)
+
+    expected = mpo.copy()
+    gauges_expected = dict(gauges)
+    expected.gate_simple_(
+        qu.dag(G), where, gauges_expected, cutoff=0.0, max_bond=None
+    )
+    expected.gauge_simple_insert(gauges_expected)
+
+    mpo.gate_simple_(G, where, gauges, dagger=True, cutoff=0.0, max_bond=None)
+    mpo.gauge_simple_insert(gauges)
+
+    assert_allclose(mpo.to_dense(), expected.to_dense())
+
+
 def test_gate_with_op_lazy():
     A = qtn.MPO_rand(5, 3, dtype=complex)
     x = qtn.MPS_rand_state(5, 3, dtype=complex)
@@ -149,11 +201,16 @@ def test_gate_with_op_lazy():
     assert_allclose(x.to_dense(), y)
 
 
-def test_gate_sandwich_with_op_lazy():
+@pytest.mark.parametrize("dagger", [False, True])
+def test_gate_sandwich_with_op_lazy(dagger):
     B = qtn.MPO_rand(5, 3, dtype=complex)
     A = qtn.MPO_rand(5, 3, dtype=complex)
-    y = A.to_dense() @ B.to_dense() @ A.to_dense().conj().T
-    B.gate_sandwich_with_op_lazy_(A)
+    Ad = A.to_dense()
+    if dagger:
+        y = Ad.conj().T @ B.to_dense() @ Ad
+    else:
+        y = Ad @ B.to_dense() @ Ad.conj().T
+    B.gate_sandwich_with_op_lazy_(A, dagger=dagger)
     assert_allclose(B.to_dense(), y)
 
 
@@ -235,14 +292,14 @@ def test_gauge_all_simple_options(damping, power, smudge, fuse_multibonds):
     psi = qtn.PEPS.rand(2, 2, bond_dim=3, cyclic=True, seed=10)
     norm0 = psi.norm()
 
-    opts = dict(
-        max_iterations=1000,
-        tol=1e-11,
-        damping=damping,
-        power=power,
-        smudge=smudge,
-        fuse_multibonds=fuse_multibonds,
-    )
+    opts = {
+        "max_iterations": 1000,
+        "tol": 1e-11,
+        "damping": damping,
+        "power": power,
+        "smudge": smudge,
+        "fuse_multibonds": fuse_multibonds,
+    }
 
     psig = psi.copy()
     psig.gauge_all_simple_(**opts)
@@ -353,6 +410,158 @@ def test_local_expectation_gloop_expand(grow_from):
     assert o_ex == pytest.approx(o_cl, rel=0.4, abs=0.01)
 
 
+class TestGetBraInds:
+    def test_names(self):
+        mps = qtn.MPS_rand_state(4, 2, seed=42)
+        assert get_bra_inds(mps, (0, 3)) == ("b0", "b3")
+        peps = qtn.PEPS.rand(2, 3, 2, seed=42)
+        assert get_bra_inds(peps, [(1, 2)]) == ("b1,2",)
+
+    def test_clash(self):
+        mps = qtn.MPS_rand_state(4, 2, seed=42)
+        mps.reindex_({mps.bond(0, 1): "b0"})
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            bix = get_bra_inds(mps, (0,))
+        assert bix != ("b0",)
+        with pytest.warns(UserWarning, match="already exist"):
+            get_bra_inds(mps, (0,), warn=True)
+
+    def test_partial_trace_exact_tensor(self):
+        peps = qtn.PEPS.rand(2, 2, 2, seed=42)
+        rho = peps.partial_trace_exact([(0, 0), (1, 1)], get="tensor")
+        assert set(rho.inds) == {"k0,0", "k1,1", "b0,0", "b1,1"}
+
+
+class TestReducedDensityMatrices:
+    @pytest.mark.parametrize(
+        "layer_tags", [False, True, 0, 1, None, ("K", "B")]
+    )
+    def test_make_reduced_density_matrix_layer_tags(self, layer_tags):
+        peps = qtn.PEPS.rand(2, 2, 2, seed=42, dtype="complex128")
+        where = ((0, 0), (1, 1))
+        tn = peps.make_reduced_density_matrix(where, layer_tags=layer_tags)
+        tags = ("KET", "BRA") if layer_tags == 1 else layer_tags
+        if tags:
+            assert all(tag in tn.tags for tag in tags)
+        else:
+            assert tn.tags == peps.tags
+        rho = tn.to_dense(("k0,0", "k1,1"), ("b0,0", "b1,1"))
+        assert rho == pytest.approx(
+            peps.partial_trace_exact(where, normalized=False)
+        )
+
+    @pytest.mark.parametrize("method", ["exact", "cluster"])
+    def test_compute_local_expectation_return_norm(self, method):
+        psi = qtn.MPS_rand_state(4, 2, seed=42) * 3
+        terms = {(0,): qu.pauli("Z"), (1,): qu.pauli("X")}
+        compute = getattr(psi, f"compute_local_expectation_{method}")
+        raw = compute(terms, normalized=False, return_all=True)
+        normalized = compute(terms, normalized=True, return_all=True)
+        pairs = compute(terms, normalized="return", return_all=True)
+
+        for where, (expec, trace) in pairs.items():
+            assert expec == pytest.approx(raw[where])
+            assert expec / trace == pytest.approx(normalized[where])
+        total = compute(terms, normalized="return")
+        assert total == pytest.approx(sum(normalized.values()))
+
+    @pytest.mark.parametrize("get", ["matrix", "array", "tensor", "tn"])
+    @pytest.mark.parametrize("normalized", [False, True, "return"])
+    def test_contract_reduced_density_matrix(self, normalized, get):
+        peps = qtn.PEPS.rand(2, 2, 2, seed=42, dtype="complex128")
+        k_inds, b_inds = ("k0,0", "k1,1"), ("b0,0", "b1,1")
+        tn = peps.make_reduced_density_matrix(((0, 0), (1, 1)))
+        rho_ex = tn.to_dense(k_inds, b_inds)
+        trace = rho_ex.trace()
+
+        rho = contract_reduced_density_matrix(
+            tn, k_inds, b_inds, normalized=normalized, get=get
+        )
+        if get == "tn":
+            assert rho is tn
+            return
+        if normalized == "return":
+            rho, nfactor = rho
+            assert nfactor == pytest.approx(trace)
+        if get == "tensor":
+            assert rho.inds == k_inds + b_inds
+            rho = rho.to_dense(k_inds, b_inds)
+        elif get == "array":
+            assert rho.shape == (2, 2, 2, 2)
+            rho = rho.reshape(4, 4)
+
+        expected = rho_ex / trace if normalized is True else rho_ex
+        assert rho == pytest.approx(expected)
+
+    def test_contract_reduced_density_matrix_bad_get(self):
+        peps = qtn.PEPS.rand(2, 2, 2, seed=42)
+        tn = peps.make_reduced_density_matrix(((0, 0),))
+        with pytest.raises(ValueError):
+            contract_reduced_density_matrix(tn, ("k0,0",), ("b0,0",), get="x")
+
+    def test_rho_expectation(self):
+        rho = qu.rand_rho(4, seed=42)
+        G = qu.rand_herm(4, seed=7)
+        expected = (G @ rho).trace()
+        rho_array = rho.reshape(2, 2, 2, 2)
+        G_array = G.reshape(2, 2, 2, 2)
+        for r in (rho, rho_array):
+            for g in (G, G_array):
+                assert rho_expectation(r, g) == pytest.approx(expected)
+
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "partial_trace_exact",
+            "partial_trace_cluster",
+            "partial_trace",
+            "local_expectation_exact",
+            "local_expectation_cluster",
+            "local_expectation",
+        ],
+    )
+    def test_single_site_where(self, method):
+        peps = qtn.PEPS.rand(2, 3, 2, seed=42, dtype="complex128")
+        # use the generic contraction algorithms
+        fn = functools.partial(getattr(TensorNetworkGenVector, method), peps)
+        args = () if method.startswith("partial_trace") else (qu.pauli("Z"),)
+        kwargs = {}
+        if method in ("partial_trace", "local_expectation"):
+            kwargs = {"max_bond": 64, "optimize": "greedy-compressed"}
+        elif method.endswith("cluster"):
+            kwargs = {"max_distance": 1}
+
+        single = fn(*args, (1, 1), **kwargs)
+        wrapped = fn(*args, ((1, 1),), **kwargs)
+        assert single == pytest.approx(wrapped)
+
+    def test_compute_partial_traces_exact_and_cluster(self):
+        peps = qtn.PEPS.rand(2, 3, 2, seed=42, dtype="complex128")
+        wheres = [(1, 1), ((0, 2), (0, 1))]
+
+        rhos = peps.compute_partial_traces_exact(wheres, get="array")
+        assert set(rhos) == set(wheres)
+        for where in wheres:
+            expected = peps.partial_trace_exact(where, get="array")
+            assert rhos[where] == pytest.approx(expected)
+
+        rhos = peps.compute_partial_traces_cluster(wheres, max_distance=1)
+        assert set(rhos) == set(wheres)
+        for where in wheres:
+            expected = peps.partial_trace_cluster(where, max_distance=1)
+            assert rhos[where] == pytest.approx(expected)
+
+    def test_local_expectation_cluster_compressed_mps(self):
+        # use the generic compressed contraction
+        psi = qtn.MPS_rand_state(6, 3, seed=42)
+        Z = qu.pauli("Z")
+        expec = psi.local_expectation_cluster(
+            Z, 2, max_distance=6, max_bond=64, optimize="greedy-compressed"
+        )
+        assert expec == pytest.approx(psi.local_expectation_exact(Z, 2))
+
+
 class TestGetLocalGloops:
     @pytest.mark.parametrize("gloops", [None, "min", 4])
     def test_specs_agree_on_covered_lattice(self, gloops):
@@ -398,23 +607,52 @@ class TestGetLocalGloops:
             )
 
     @pytest.mark.parametrize(
-        "grow_from,gloops,expected",
+        "allow_dangling,gloops",
         [
-            ("all", None, [2, 4, 4]),
-            ("all", "min", [2, 4, 4]),
-            ("all", 4, [2, 4, 4]),
-            # the automatic size does not expand when the targets can dangle
-            ("alldangle", None, [2, 2]),
-            ("alldangle", "min", [2, 2]),
-            ("alldangle", 4, [2, 2, 4, 4]),
+            (False, None),
+            (False, "min"),
+            (False, 4),
+            (True, None),
+            (True, "min"),
+            (True, 4),
         ],
     )
-    def test_dangle_modes_ignore_covering(self, grow_from, gloops, expected):
+    def test_allow_dangling_uses_nondangling_auto_size(
+        self, allow_dangling, gloops
+    ):
         peps = qtn.PEPS.rand(3, 3, 2, seed=42)
         clusters = peps.get_local_gloops(
-            where=[(1, 1), (1, 2)], gloops=gloops, grow_from=grow_from
+            where=[(1, 1), (1, 2)],
+            gloops=gloops,
+            grow_from="all",
+            allow_dangling=allow_dangling,
         )
-        assert sorted(map(len, clusters)) == expected
+        assert sorted(map(len, clusters)) == [2, 4, 4]
+        assert len(clusters) == len(set(clusters))
+
+    @pytest.mark.parametrize("allow_dangling", [False, True])
+    def test_grow_from_any_adds_all_target_sites(self, allow_dangling):
+        peps = qtn.PEPS.rand(3, 3, 2, seed=42)
+        where = frozenset(((1, 1), (1, 2)))
+        clusters = peps.get_local_gloops(
+            where=where,
+            gloops=None,
+            grow_from="any",
+            allow_dangling=allow_dangling,
+        )
+        assert all(where <= cluster for cluster in clusters)
+        assert len(clusters) == len(set(clusters))
+
+    def test_supplied_gloops_accept_legacy_anydangle(self):
+        peps = qtn.PEPS.rand(3, 3, 2, seed=42)
+        where = frozenset(((1, 1), (1, 2)))
+        gloops = tuple(peps.gen_gloops_sites(4))
+        clusters = peps.get_local_gloops(
+            where=where,
+            gloops=gloops,
+            grow_from="anydangle",
+        )
+        assert all(where <= cluster for cluster in clusters)
 
 
 # ------------------------- long range gating tests ------------------------- #
@@ -487,6 +725,32 @@ def test_against_dense_no_truncation(where, D):
     assert out.distance_normalized(ref) == pytest.approx(0.0, abs=1e-6)
 
 
+@pytest.mark.parametrize("mode", ["dagger", "transpose"])
+def test_long_range_dagger_transpose(mode):
+    psi, gauges = make_state()
+    G = qu.rand_uni(4, seed=10)
+
+    # should match supplying the modified gate directly
+    Gmod = qu.dag(G) if mode == "dagger" else qu.qarray(G).T
+    ref = exact_gated(psi, gauges, Gmod, (1, 4))
+
+    qtn.tnag.core.tensor_network_ag_gate_simple_long_range(
+        psi,
+        G,
+        (1, 4),
+        gauges,
+        dagger=(mode == "dagger"),
+        transpose=(mode == "transpose"),
+        max_bond=None,
+        cutoff=0.0,
+        renorm=False,
+        inplace=True,
+    )
+    out = physical_state(psi, gauges)
+
+    assert out.distance_normalized(ref) == pytest.approx(0.0, abs=1e-6)
+
+
 def test_peps_long_range_no_truncation():
     # 5x3 PEPS, gate on a vertical pair two sites apart: the path runs
     # (1, 1)-(2, 1)-(3, 1), with the rest of the lattice as environment
@@ -540,7 +804,7 @@ def test_monotonic_fidelity_increasing_max_bond():
         infids.append(infidelity(ref, physical_state(psi, gauges)))
 
     # infidelity should (weakly) decrease as more bond dimension is retained
-    for ihi, ilo in zip(infids, infids[1:]):
+    for ihi, ilo in itertools.pairwise(infids):
         assert ilo <= ihi + 1e-10
 
     # and with no cap we recover the exact gated state

@@ -84,7 +84,7 @@ struct JSONSchemaFormat {
   static constexpr const char* type = "json_schema";
   std::string json_schema;
   // "json", "qwen_xml", "minimax_xml", "minimax_m3_xml", "deepseek_xml", "glm_xml",
-  // "cohere_xml", "kimi_k3_xml", "deepseek_v4_1_xml"
+  // "cohere_xml", "kimi_k3_xml", "deepseek_v4_1_xml", "gemma"
   std::string style = "json";
   // Whether to allow object properties to appear in any order. See
   // Grammar::FromJSONSchema / JSONSchemaToEBNF for the semantics.
@@ -111,7 +111,10 @@ struct JSONSchemaFormat {
 struct GrammarFormat {
   static constexpr const char* type = "grammar";
   std::string grammar;
-  GrammarFormat(std::string grammar) : grammar(std::move(grammar)) {}
+  // "ebnf", "lark"
+  std::string syntax = "ebnf";
+  GrammarFormat(std::string grammar, std::string syntax = "ebnf")
+      : grammar(std::move(grammar)), syntax(std::move(syntax)) {}
   picojson::value ToJSON() const;
 };
 

@@ -1,129 +1,303 @@
-import string
 import sys
 import uuid
-from dataclasses import dataclass
 from functools import cached_property
-from random import choices
-from typing import TYPE_CHECKING, Any, ForwardRef, Optional, Union, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ForwardRef,
+    NamedTuple,
+    Optional,
+    Union,
+    cast,
+    overload,
+)
 
 import sqlalchemy
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 
 import ormar  # noqa I101
 from ormar.exceptions import ModelDefinitionError, RelationshipInstanceError
 from ormar.fields.base import BaseField
+from ormar.fields.key_only import (
+    key_dict_type,
+    key_only_instance,
+    key_only_model_type,
+)
+from ormar.fields.link import (
+    ColumnPair,
+    RelationLink,
+    column_value,
+    key_parts,
+    qualified_fk_reference,
+)
 from ormar.fields.referential_actions import ReferentialAction
+from ormar.fields.relation_kind import FOREIGN_KEY_KINDS, RelationKind
 
 if TYPE_CHECKING:  # pragma no cover
-    from ormar.fields import ManyToManyField
     from ormar.models import Model, NewBaseModel, T
 
 
-def create_dummy_instance(fk: type["T"], pk: Any = None) -> "T":
+class FkParams(NamedTuple):
     """
-    Ormar never returns you a raw data.
-    So if you have a related field that has a value populated
-    it will construct you a Model instance out of it.
+    Parameters of a relation field derived from the model it leads to.
 
-    Creates a "fake" instance of passed Model from pk value.
-    The instantiated Model has only pk value filled.
-    To achieve this __pk_only__ flag has to be passed as it skips the validation.
-
-    If the nested related Models are required they are set with -1 as pk value.
-
-    :param fk: class of the related Model to which instance should be constructed
-    :type fk: Model class
-    :param pk: value of the primary_key column
-    :type pk: Any
-    :return: Model instance populated with only pk
-    :rtype: Model
+    :ivar annotation: pydantic type of the field
+    :ivar column_type: SQLAlchemy type of the referencing column
+    :ivar key_only_model: pydantic model validating key-only values
     """
-    init_dict = {
-        **{fk.ormar_config.pkname: pk or -1},
-        **{
-            k: create_dummy_instance(v.to)
-            for k, v in fk.ormar_config.model_fields.items()
-            if v.is_relation and not v.nullable and not v.virtual
-        },
-    }
-    return cast("T", fk._internal_construct(_pk_only=True, _excluded=None, **init_dict))
+
+    annotation: Any
+    column_type: Any
+    key_only_model: type[BaseModel]
 
 
-def create_dummy_model(
-    base_model: type["T"],
-    pk_field: Union[BaseField, "ForeignKeyField", "ManyToManyField"],
-) -> type["BaseModel"]:
+def to_field_names(
+    to_field: Union[str, list[str], tuple[str, ...], None],
+) -> Optional[tuple[str, ...]]:
     """
-    Used to construct a dummy pydantic model for type hints and pydantic validation.
-    Populates only pk field and set it to desired type.
-
-    :param base_model: class of target dummy model
-    :type base_model: Model class
-    :param pk_field: ormar Field to be set on pydantic Model
-    :type pk_field: Union[BaseField, "ForeignKeyField", "ManyToManyField"]
-    :return: constructed dummy model
-    :rtype: pydantic.BaseModel
+    :param to_field: ``to_field`` as given: one field name or several
+    :type to_field: Union[str, list[str], tuple[str, ...], None]
+    :return: the referenced field names as a tuple, ``None`` for the primary key
+    :rtype: Optional[tuple[str, ...]]
     """
-    alias = (
-        "".join(choices(string.ascii_uppercase, k=6))  # + uuid.uuid4().hex[:4]
-    ).lower()
-    fields = {f"{pk_field.name}": (pk_field.__type__, None)}
+    if to_field is None:
+        return None
+    if isinstance(to_field, str):
+        return (to_field,)
+    return tuple(to_field)
 
-    dummy_model = create_model(  # type: ignore
-        f"PkOnly{base_model.get_name(lower=False)}{alias}",
-        __module__=base_model.__module__,
-        **fields,  # type: ignore
-    )
-    return dummy_model
+
+def referenced_columns(
+    to: type["Model"], to_field: Union[str, list[str], tuple[str, ...], None]
+) -> dict[str, str]:
+    """
+    :param to: target model
+    :type to: type[Model]
+    :param to_field: referenced field(s), ``None`` for the primary key
+    :type to_field: Union[str, list[str], tuple[str, ...], None]
+    :return: database columns of the target a foreign key references, each
+        with the target field storing it: the ``to_field`` columns or the
+        primary key columns (a key holding foreign keys contributes their
+        columns, each shared column once)
+    :rtype: dict[str, str]
+    """
+    names = to_field_names(to_field=to_field)
+    if names is None:
+        layout = to.ormar_config.pk.layout()
+        return dict(zip(layout.column_aliases, layout.column_fields))
+    return {to.get_column_alias(field_name=name): name for name in names}
 
 
 def populate_fk_params_based_on_to_model(
+    *,
     to: type["T"],
     nullable: bool,
-    onupdate: Optional[str] = None,
-    ondelete: Optional[str] = None,
-    foreign_key_name: Optional[str] = None,
-) -> tuple[Any, list, Any, Any]:
+    virtual: bool,
+    to_field: Union[str, list[str], tuple[str, ...], None] = None,
+) -> FkParams:
     """
     Based on target to model to which relation leads to populates the type of the
-    pydantic field to use, ForeignKey constraint and type of the target column field.
+    pydantic field to use and the type of the referencing column.
 
     :param to: target related ormar Model
     :type to: Model class
     :param nullable: marks field as optional/ required
     :type nullable: bool
-    :param onupdate: parameter passed to sqlalchemy.ForeignKey.
-    How to treat child rows on update of parent (the one where FK is defined) model.
-    :type onupdate: str
-    :param ondelete: parameter passed to sqlalchemy.ForeignKey.
-    How to treat child rows on delete of parent (the one where FK is defined) model.
-    :type ondelete: str
-    :param foreign_key_name: optional override for the foreign key constraint name
-    emitted in migrations. Defaults to ``None``, which lets ormar generate a name.
-    :type foreign_key_name: Optional[str]
-    :return: tuple with target pydantic type, list of fk constraints and target col type
-    :rtype: tuple[Any, list, Any]
+    :param virtual: whether the field is a reverse relation holding no column
+    :type virtual: bool
+    :param to_field: unique field(s) of the target referenced instead of its pk
+    :type to_field: Union[str, list[str], tuple[str, ...], None]
+    :return: annotation, column type and key-only model of the relation
+    :rtype: FkParams
     """
-    from ormar.models.helpers.sqlalchemy import qualified_fk_reference
-
-    fk_string = qualified_fk_reference(to, to.get_column_alias(to.ormar_config.pkname))
-    to_field = to.ormar_config.model_fields[to.ormar_config.pkname]
-    pk_only_model = create_dummy_model(to, to_field)
-    __type__ = (
-        Union[to_field.__type__, to, pk_only_model]
-        if not nullable
-        else Optional[Union[to_field.__type__, to, pk_only_model]]
-    )
-    constraints = [
-        ForeignKeyConstraint(
-            reference=fk_string,
-            ondelete=ondelete,
-            onupdate=onupdate,
-            name=foreign_key_name,
+    key = to.ormar_config.pk
+    names = to_field_names(to_field=to_field)
+    if names is None:
+        target_fields = key.fields
+        value_type = key.python_type()
+    else:
+        validate_to_field(to=to, fields=names)
+        target_fields = names
+        value_type = (
+            to.ormar_config.model_fields[names[0]].__type__
+            if len(names) == 1
+            else tuple
         )
+    target_field = to.ormar_config.model_fields[target_fields[0]]
+    key_only_model = key_only_model_type(target=to, fields=target_fields)
+    annotation = (
+        Union[value_type, to, key_only_model]
+        if not nullable
+        else Optional[Union[value_type, to, key_only_model]]
+    )
+    return FkParams(
+        annotation=annotation,
+        column_type=target_field.column_type,
+        key_only_model=key_only_model,
+    )
+
+
+def column_type(model: type["Model"], field: str, column: str) -> Any:
+    """
+    :param model: model the column belongs to
+    :type model: type[Model]
+    :param field: field of the model storing the column
+    :type field: str
+    :param column: database column
+    :type column: str
+    :return: SQLAlchemy type of the column: the field's own type, the type
+        of the referenced column for a foreign key
+    :rtype: Any
+    """
+    model_field = model.ormar_config.model_fields[field]
+    if not model_field.is_relation:
+        return model_field.column_type
+    pair = next(
+        pair
+        for pair in cast("ForeignKeyField", model_field).link.pairs
+        if pair.source_column == column
+    )
+    return column_type(
+        model=model_field.to, field=pair.target_field, column=pair.target_column
+    )
+
+
+def flat_field_from_columns(
+    model: type["Model"], field: str, values: dict[str, Any]
+) -> Any:
+    """
+    :param model: model the field belongs to
+    :type model: type[Model]
+    :param field: referenced field
+    :type field: str
+    :param values: values of the model's columns by column name
+    :type values: dict[str, Any]
+    :return: the field's value in flattened output: a relation's own
+        flattened value (see ``ForeignKeyField.flat_from_columns``), else the
+        value of its column
+    :rtype: Any
+    """
+    model_field = model.ormar_config.model_fields[field]
+    if not model_field.is_relation:
+        return values[model.get_column_alias(field_name=field)]
+    relation = cast("ForeignKeyField", model_field)
+    return relation.flat_from_columns(
+        values={
+            pair.target_column: values[pair.source_column]
+            for pair in relation.link.pairs
+        }
+    )
+
+
+def flat_field_type(model: type["Model"], field: str) -> Any:
+    """
+    :param model: model the field belongs to
+    :type model: type[Model]
+    :param field: referenced field
+    :type field: str
+    :return: python type of the field in flattened output (see
+        ``flat_field_from_columns``)
+    :rtype: Any
+    """
+    model_field = model.ormar_config.model_fields[field]
+    if model_field.is_relation:
+        return cast("ForeignKeyField", model_field).flat_value_type()
+    return model_field.__type__
+
+
+def validate_link_columns(
+    to: type["Model"],
+    to_field: Union[str, list[str], tuple[str, ...], None],
+    columns: Optional[dict[str, str]],
+    name: Optional[str],
+) -> None:
+    """
+    Validate the column options of a foreign key against the columns it
+    references.
+
+    :raises ModelDefinitionError: if ``columns=`` doesn't map exactly the
+        referenced columns or ``name=`` is used for several columns
+    :param to: target model
+    :type to: type[Model]
+    :param to_field: referenced field(s), ``None`` for the primary key
+    :type to_field: Union[str, list[str], tuple[str, ...], None]
+    :param columns: local column names by referenced column
+    :type columns: Optional[dict[str, str]]
+    :param name: single local column name
+    :type name: Optional[str]
+    """
+    referenced = set(referenced_columns(to=to, to_field=to_field))
+    if columns is not None and set(columns) != referenced:
+        raise ModelDefinitionError(
+            f"columns= must map every referenced column of {to.__name__} "
+            f"({sorted(referenced)}) to a column name, got {sorted(columns)}."
+        )
+    if len(referenced) == 1 and columns is not None:
+        raise ModelDefinitionError(
+            f"columns= is for foreign keys to several columns of {to.__name__}, "
+            "use name= to name the column."
+        )
+    if len(referenced) > 1 and name is not None:
+        raise ModelDefinitionError(
+            f"A foreign key to several columns of {to.__name__} needs columns= "
+            "instead of name=."
+        )
+
+
+def validate_view_target(to: type["Model"], virtual: bool, db_constraint: bool) -> None:
+    """
+    A database can't enforce a foreign key to a view, so a relation to a model
+    mapped to a view must not create one.
+
+    :raises ModelDefinitionError: if a foreign key to a view keeps its constraint
+    :param to: target model
+    :type to: type[Model]
+    :param virtual: whether the field is a reverse relation holding no column
+    :type virtual: bool
+    :param db_constraint: whether the foreign key creates a database constraint
+    :type db_constraint: bool
+    """
+    if to.ormar_config.view and not virtual and db_constraint:
+        raise ModelDefinitionError(
+            f"{to.__name__} is a view, a foreign key to it needs db_constraint=False."
+        )
+
+
+def validate_to_field(to: type["Model"], fields: tuple[str, ...]) -> None:
+    """
+    Check that ``to_field`` names fields identifying one row of the target: its
+    primary key, a ``unique=True`` field, or exactly the columns of a unique
+    constraint (``UniqueColumns``).
+
+    :raises ModelDefinitionError: if a field does not exist or the set is not
+        unique
+    :param to: target model
+    :type to: type[Model]
+    :param fields: referenced field names
+    :type fields: tuple[str, ...]
+    """
+    model_fields = to.ormar_config.model_fields
+    for name in fields:
+        field = model_fields.get(name)
+        if field is None or field.is_relation:
+            raise ModelDefinitionError(
+                f"to_field '{name}' is not a column field of {to.__name__}."
+            )
+    aliases = {model_fields[name].get_alias() for name in fields}
+    unique_sets = [
+        {column.name for column in constraint.columns}
+        for constraint in to.ormar_config.table.constraints
+        if isinstance(constraint, sqlalchemy.UniqueConstraint)
     ]
-    column_type = to_field.column_type
-    return __type__, constraints, column_type, pk_only_model
+    if not (
+        set(to.ormar_config.pk.fields) == set(fields)
+        or (len(fields) == 1 and model_fields[fields[0]].unique)
+        or aliases in unique_sets
+    ):
+        raise ModelDefinitionError(
+            f"to_field {list(fields)} of {to.__name__} must be unique "
+            "(primary key, unique=True or a UniqueColumns constraint)."
+        )
 
 
 def validate_not_allowed_fields(kwargs: dict) -> None:
@@ -178,19 +352,6 @@ def validate_referential_action(
     return action.value if action is not None else None
 
 
-@dataclass
-class ForeignKeyConstraint:
-    """
-    Internal container to store ForeignKey definitions used later
-    to produce sqlalchemy.ForeignKeys
-    """
-
-    reference: Union[str, sqlalchemy.Column]
-    name: Optional[str]
-    ondelete: Optional[str]
-    onupdate: Optional[str]
-
-
 @overload
 def ForeignKey(to: type["T"], **kwargs: Any) -> "T":  # pragma: no cover
     ...
@@ -206,7 +367,7 @@ def ForeignKey(  # type: ignore # noqa CFQ002
     *,
     name: Optional[str] = None,
     unique: bool = False,
-    nullable: bool = True,
+    nullable: Optional[bool] = None,
     related_name: Optional[str] = None,
     virtual: bool = False,
     onupdate: Union[ReferentialAction, str, None] = None,
@@ -226,8 +387,9 @@ def ForeignKey(  # type: ignore # noqa CFQ002
     :type name: str
     :param unique: parameter passed to sqlalchemy.ForeignKey, unique flag
     :type unique: bool
-    :param nullable: marks field as optional/ required
-    :type nullable: bool
+    :param nullable: marks field as optional/ required; defaults to optional,
+        and to required for a foreign key in the primary key
+    :type nullable: Optional[bool]
     :param related_name: name of reversed FK relation populated for you on to model
     :type related_name: str
     :param virtual: marks if relation is virtual.
@@ -261,52 +423,82 @@ def ForeignKey(  # type: ignore # noqa CFQ002
     skip_reverse = kwargs.pop("skip_reverse", False)
     skip_field = kwargs.pop("skip_field", False)
 
+    primary_key = kwargs.pop("primary_key", False)
+    if primary_key and nullable:
+        raise ModelDefinitionError(
+            "A foreign key that is part of the primary key cannot be nullable."
+        )
+    nullable = (not primary_key) if nullable is None else nullable
     sql_nullable = kwargs.pop("sql_nullable", None)
     sql_nullable = nullable if sql_nullable is None else sql_nullable
 
     index = kwargs.pop("index", False)
+    to_field = kwargs.pop("to_field", None)
+    columns = kwargs.pop("columns", None)
+    if columns is not None and name is not None:
+        raise ModelDefinitionError(
+            "Pass either name= (one column) or columns= (column names by "
+            "referenced column), not both."
+        )
+    db_constraint = kwargs.pop("db_constraint", True)
+    if not db_constraint and (
+        onupdate is not None or ondelete is not None or foreign_key_name is not None
+    ):
+        raise ModelDefinitionError(
+            "ondelete/onupdate/foreign_key_name need a database constraint, they "
+            "cannot be used with db_constraint=False."
+        )
 
     validate_not_allowed_fields(kwargs)
-    pk_only_model = None
+    key_only_model = None
     if to.__class__ == ForwardRef:
         __type__ = to if not nullable else Optional[to]
-        constraints: list = []
         column_type = None
     else:
-        (
-            __type__,
-            constraints,
-            column_type,
-            pk_only_model,
-        ) = populate_fk_params_based_on_to_model(
+        validate_view_target(
+            to=to,  # type: ignore
+            virtual=virtual,
+            db_constraint=db_constraint,
+        )
+        params = populate_fk_params_based_on_to_model(
             to=to,  # type: ignore
             nullable=nullable,
-            ondelete=ondelete,
-            onupdate=onupdate,
-            foreign_key_name=foreign_key_name,
+            virtual=virtual,
+            to_field=to_field,
         )
+        validate_link_columns(
+            to=to,  # type: ignore
+            to_field=to_field,
+            columns=columns,
+            name=name,
+        )
+        __type__ = params.annotation
+        column_type = params.column_type
+        key_only_model = params.key_only_model
 
     namespace = dict(
         __type__=__type__,
         to=to,
-        to_pk_only=pk_only_model,
+        to_key_only=key_only_model,
         through=None,
         alias=name,
         name=kwargs.pop("real_name", None),
         nullable=nullable,
         sql_nullable=sql_nullable,
-        constraints=constraints,
         unique=unique,
         column_type=column_type,
         related_name=related_name,
         virtual=virtual,
-        primary_key=False,
+        primary_key=primary_key,
         index=index,
         default=None,
         server_default=None,
         onupdate=onupdate,
         ondelete=ondelete,
         foreign_key_name=foreign_key_name,
+        to_field=to_field,
+        columns=columns,
+        db_constraint=db_constraint,
         owner=owner,
         self_reference=self_reference,
         is_relation=True,
@@ -321,6 +513,44 @@ def ForeignKey(  # type: ignore # noqa CFQ002
     return Field(**namespace)
 
 
+@overload
+def OneToOne(to: type["T"], **kwargs: Any) -> "T":  # pragma: no cover
+    ...
+
+
+@overload
+def OneToOne(to: ForwardRef, **kwargs: Any) -> "Model":  # pragma: no cover
+    ...
+
+
+def OneToOne(  # type: ignore
+    to: Union[type["T"], "ForwardRef"], **kwargs: Any
+) -> "T":
+    """
+    A foreign key whose related model has at most one model pointing back at it:
+    its column is unique (unless it is the primary key, which already is), and
+    the reverse side holds a single model or ``None`` instead of a list. The
+    default reverse name is the owner model name, without the trailing ``s``.
+
+    Accepts the same arguments as ``ForeignKey``.
+
+    :param to: target related ormar Model
+    :type to: Model class
+    :param kwargs: ``ForeignKey`` parameters
+    :type kwargs: Any
+    :return: ormar ForeignKeyField with a one to one relation
+    :rtype: ForeignKeyField
+    """
+    if kwargs.get("unique") is False:
+        raise ModelDefinitionError(
+            "A OneToOne relation is always unique, use a ForeignKey for a "
+            "non-unique relation."
+        )
+    if not kwargs.get("primary_key"):
+        kwargs["unique"] = True
+    return cast("T", ForeignKey(to=to, one_to_one=True, **kwargs))
+
+
 class ForeignKeyField(BaseField):  # type: ignore[misc]
     """
     Actual class returned from ForeignKey function call and stored in model_fields.
@@ -333,7 +563,54 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         self.ondelete: str = kwargs.pop("ondelete", None)
         self.onupdate: str = kwargs.pop("onupdate", None)
         self.foreign_key_name: Optional[str] = kwargs.pop("foreign_key_name", None)
+        self.to_field: Union[str, list[str], tuple[str, ...], None] = kwargs.pop(
+            "to_field", None
+        )
+        self.columns: Optional[dict[str, str]] = kwargs.pop("columns", None)
+        self.db_constraint: bool = kwargs.pop("db_constraint", True)
+        self.deferred_related_name_checks: list[ForeignKeyField] = []
         super().__init__(**kwargs)
+
+    def construct_constraints(self) -> list:
+        """
+        Build the SQLAlchemy foreign keys of the field's column from its link,
+        one per column pair, named ``foreign_key_name`` or
+        ``fk_<owner table>_<target table>_<target column>_<field name>``.
+        Built on every call, as SQLAlchemy binds a ForeignKey to one table and
+        subclasses need their own.
+
+        :return: SQLAlchemy foreign keys, empty until the target is resolved
+        :rtype: list
+        """
+        if (
+            self.virtual
+            or not self.db_constraint
+            or self.has_unresolved_forward_refs()
+            or self.owner.ormar_config.view
+        ):
+            return []
+        owner_table = self.owner.ormar_config.tablename
+        target_table = self.to.ormar_config.tablename
+        return [
+            sqlalchemy.ForeignKey(
+                column=qualified_fk_reference(
+                    target=self.to, column_alias=pair.target_column
+                ),
+                ondelete=self.ondelete,
+                onupdate=self.onupdate,
+                name=self.foreign_key_name
+                or f"fk_{owner_table}_{target_table}_{pair.target_column}_{self.name}",
+            )
+            for pair in self.link.pairs
+        ]
+
+    @property
+    def kind(self) -> RelationKind:
+        """
+        :return: forward or reverse side of a foreign key or one-to-one relation
+        :rtype: RelationKind
+        """
+        return FOREIGN_KEY_KINDS[(self.one_to_one, self.virtual)]
 
     def get_related_name(self) -> str:
         """
@@ -342,7 +619,8 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         :return: name of the related_name or default related name.
         :rtype: str
         """
-        return self.related_name or self.owner.get_name() + "s"
+        suffix = "" if self.one_to_one else "s"
+        return self.related_name or self.owner.get_name() + suffix
 
     def default_target_field_name(self) -> str:
         """
@@ -365,60 +643,160 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
     def get_filter_clause_target(self) -> type["Model"]:
         return self.to
 
-    def get_model_relation_fields(self, use_alias: bool = False) -> str:
+    @property
+    def link(self) -> RelationLink:
         """
-        Extract names of the database columns or model fields that are connected
-        with given relation based on use_alias switch and which side of the relation
-        the current field is - reverse or normal.
+        Columns connecting the owner's table to the table of the related model,
+        built once per owner and target: a field copied to another model
+        (inheritance) or re-targeted (forward refs) builds its own link.
 
-        :param use_alias: use db names aliases or model fields
-        :type use_alias: bool
-        :return: name or names of the related columns/ fields
-        :rtype: Union[str, list[str]]
+        :return: link from the owner to the related model
+        :rtype: RelationLink
         """
-        if use_alias:
-            return self._get_model_relation_fields_alias()
-        return self._get_model_relation_fields_name()
+        cache_key = (self.owner, self.to, self.through)
+        cached = self.__dict__.get("link_cache")
+        if cached is not None and cached[0] == cache_key:
+            return cached[1]
+        link = self.build_link()
+        self.__dict__["link_cache"] = (cache_key, link)
+        return link
 
-    def _get_model_relation_fields_name(self) -> str:
-        if self.virtual:
-            return self.owner.ormar_config.pkname
-        return self.name
-
-    def _get_model_relation_fields_alias(self) -> str:
-        if self.virtual:
-            return self.owner.ormar_config.model_fields[
-                self.owner.ormar_config.pkname
-            ].get_alias()
-        return self.get_alias()
-
-    def get_related_field_alias(self) -> str:
+    def build_link(self) -> RelationLink:
         """
-        Extract names of the related database columns or that are connected
-        with given relation based to use as a target in filter clause.
+        A foreign key links its own column to the target's primary key, a
+        reverse relation is the mirror of the foreign key it was created from.
 
-        :return: name or names of the related columns/ fields
-        :rtype: Union[str, dict[str, str]]
+        :return: link from the owner to the related model
+        :rtype: RelationLink
         """
         if self.virtual:
-            field_name = self.get_related_name()
-            field = self.to.ormar_config.model_fields[field_name]
-            return field.get_alias()
-        target_field = self.to.get_column_alias(self.to.ormar_config.pkname)
-        return target_field
+            forward = self.to.ormar_config.model_fields[self.get_related_name()]
+            return cast("ForeignKeyField", forward).link.mirrored()
+        columns = referenced_columns(to=self.to, to_field=self.to_field)
+        return RelationLink(
+            source=self.owner,
+            target=self.to,
+            pairs=tuple(
+                ColumnPair(
+                    source_field=self.name,
+                    source_column=self.local_column(
+                        target_column=column, several=len(columns) > 1
+                    ),
+                    target_field=field,
+                    target_column=column,
+                )
+                for column, field in columns.items()
+            ),
+        )
 
-    def get_related_field_name(self) -> Union[str, list[str]]:
+    def target_fields(self) -> tuple[str, ...]:
         """
-        Returns name of the relation field that should be used in prefetch query.
-        This field is later used to register relation in prefetch query,
-        populate relations dict, and populate nested model in prefetch query.
+        :return: fields of the related model the foreign key references: its
+            ``to_field`` or its primary key fields
+        :rtype: tuple[str, ...]
+        """
+        names = to_field_names(to_field=self.to_field)
+        if names is not None:
+            return names
+        return self.to.ormar_config.pk.fields
 
-        :return: name(s) of the field
-        :rtype: Union[str, list[str]]
+    def local_column(self, target_column: str, several: bool) -> str:
         """
-        if self.virtual:
-            return self.get_related_name()
-        return self.to.ormar_config.pkname
+        :param target_column: referenced column of the related model's table
+        :type target_column: str
+        :param several: whether the foreign key references several columns
+        :type several: bool
+        :return: name of the owner's column storing it: from ``columns=``, the
+            field's own column for a single-column key, or
+            ``<field>_<referenced column>`` for keys of several columns
+        :rtype: str
+        """
+        if self.columns is not None:
+            return self.columns[target_column]
+        if not several:
+            return self.get_alias()
+        return f"{self.name}_{target_column}"
+
+    def get_columns(self) -> list[sqlalchemy.Column]:
+        """
+        :return: the owner's columns of the foreign key, one per referenced
+            column (a placeholder single column until a forward reference is
+            resolved)
+        :rtype: list[sqlalchemy.Column]
+        """
+        if self.has_unresolved_forward_refs():
+            return [self.get_column(self.get_alias())]
+        pairs = self.link.pairs
+        if len(pairs) == 1:
+            return [self.get_column(pairs[0].source_column)]
+        return [
+            sqlalchemy.Column(
+                name=pair.source_column,
+                type_=column_type(
+                    model=self.to, field=pair.target_field, column=pair.target_column
+                ),
+                nullable=self.sql_nullable,
+                primary_key=self.primary_key,
+                autoincrement=False,
+            )
+            for pair in pairs
+        ]
+
+    def column_aliases(self) -> tuple[str, ...]:
+        """
+        :return: the owner's column names of the foreign key
+        :rtype: tuple[str, ...]
+        """
+        if self.virtual or self.has_unresolved_forward_refs():
+            return (self.get_alias(),)
+        return self.link.source_columns()
+
+    def construct_table_constraints(self) -> list:
+        """
+        :return: the table-level items of a foreign key of several columns:
+            its ``FOREIGN KEY (a, b) REFERENCES t (x, y)``, and a composite
+            unique constraint / index when the field is unique / indexed;
+            empty for other fields
+        :rtype: list
+        """
+        if (
+            not self.kind.holds_columns
+            or self.has_unresolved_forward_refs()
+            or self.owner.ormar_config.view
+        ):
+            return []
+        pairs = self.link.pairs
+        if len(pairs) == 1:
+            return []
+        columns = [pair.source_column for pair in pairs]
+        owner_table = self.owner.ormar_config.tablename
+        target_table = self.to.ormar_config.tablename
+        items: list = []
+        if self.db_constraint:
+            items.append(
+                sqlalchemy.ForeignKeyConstraint(
+                    columns=columns,
+                    refcolumns=[
+                        qualified_fk_reference(
+                            target=self.to, column_alias=pair.target_column
+                        )
+                        for pair in pairs
+                    ],
+                    ondelete=self.ondelete,
+                    onupdate=self.onupdate,
+                    name=self.foreign_key_name
+                    or f"fk_{owner_table}_{target_table}_{self.name}",
+                )
+            )
+        if self.unique:
+            items.append(
+                sqlalchemy.UniqueConstraint(
+                    *columns, name=f"uc_{owner_table}_{self.name}"
+                )
+            )
+        if self.index:
+            items.append(sqlalchemy.Index(f"ix_{owner_table}_{self.name}", *columns))
+        return items
 
     def _evaluate_forward_ref(
         self, globalns: Any, localns: Any, is_through: bool = False
@@ -444,18 +822,25 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         """
         if self.to.__class__ == ForwardRef:
             self._evaluate_forward_ref(globalns, localns)
-            (
-                self.__type__,
-                self.constraints,
-                self.column_type,
-                self.to_pk_only,
-            ) = populate_fk_params_based_on_to_model(
+            validate_view_target(
+                to=self.to, virtual=self.virtual, db_constraint=self.db_constraint
+            )
+            params = populate_fk_params_based_on_to_model(
                 to=self.to,
                 nullable=self.nullable,
-                ondelete=self.ondelete,
-                onupdate=self.onupdate,
-                foreign_key_name=self.foreign_key_name,
+                virtual=self.virtual,
+                to_field=self.to_field,
             )
+            if not self.virtual:
+                validate_link_columns(
+                    to=self.to,
+                    to_field=self.to_field,
+                    columns=self.columns,
+                    name=self.db_alias,
+                )
+            self.__type__ = params.annotation
+            self.column_type = params.column_type
+            self.to_key_only = params.key_only_model
 
     def _extract_model_from_sequence(
         self, value: list, child: "Model", to_register: bool
@@ -477,7 +862,10 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         """
         return [
             self.expand_relationship(  # type: ignore
-                value=val, child=child, to_register=to_register
+                # a key of several columns given as a JSON list
+                value=tuple(val) if val.__class__ is list else val,
+                child=child,
+                to_register=to_register,
             )
             for val in value
         ]
@@ -487,7 +875,10 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
     ) -> "Model":
         """
         Takes a dictionary, creates a instance and registers it for parent.
-        If dictionary contains only one field and it's a pk it is a __pk_only__ model.
+        If dictionary holds only the referenced key fields it is a __pk_only__
+        model. Related fields may be present if they are None, empty or the
+        relation back to the child (as in serialized responses), any other
+        related value makes it a full model, so nested related models are kept.
         Registration is mutual, so children have also reference to parent.
 
         Used in normal FK for dictionaries.
@@ -501,16 +892,18 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         :return: (if needed) registered Model
         :rtype: Model
         """
-        pk_only_model = None
-        keys = set(value.keys())
-        own_keys = keys - self.to.extract_related_names()
+        key_only_model = None
+        target_fields = self.target_fields()
+        related_names = self.to.extract_related_names()
+        own_keys = set(value.keys()) - related_names
+        nested_keys = value.keys() & related_names - {self.get_related_name()}
         if (
-            len(own_keys) == 1
-            and list(own_keys)[0] == self.to.ormar_config.pkname
-            and value.get(self.to.ormar_config.pkname) is not None
+            own_keys == set(target_fields)
+            and all(value.get(field) is not None for field in target_fields)
+            and all(value[name] is None or value[name] == [] for name in nested_keys)
             and not self.is_through
         ):
-            pk_only_model = self.to_pk_only(**value)
+            key_only_model = self.to_key_only(**value)
             model = cast(
                 "Model",
                 self.to._internal_construct(_pk_only=True, _excluded=None, **value),
@@ -519,7 +912,7 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
             model = self.to(**value)
         if to_register:
             self.register_relation(model=model, child=child)
-        return pk_only_model if pk_only_model is not None else model
+        return key_only_model if key_only_model is not None else model
 
     def _construct_model_from_pk(
         self, value: Any, child: "Model", to_register: bool
@@ -539,15 +932,15 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         :return: (if needed) registered Model
         :rtype: Model
         """
-        model = self.construct_pk_only_model(value)
+        model = self.construct_key_only_model(value=value)
         if to_register:
             self.register_relation(model=model, child=child)
         return model
 
-    def construct_pk_only_model(self, value: Any) -> "Model":
+    def construct_key_only_model(self, value: Any) -> "Model":
         """
-        Takes a pk value and creates a dummy instance of the related model
-        with only the pk populated, without registering it on any side.
+        Takes a key value and creates an instance of the related model with
+        only the key populated, without registering it on any side.
 
         :param value: value of a related pk / fk column
         :type value: Any
@@ -555,18 +948,126 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         :return: related model with only pk set
         :rtype: Model
         """
-        if self.to.pk_type() == uuid.UUID and isinstance(value, str):  # pragma: nocover
+        if isinstance(value, self.to_key_only):
+            values = {field: getattr(value, field) for field in self.target_fields()}
+            return key_only_instance(target=self.to, values=values)
+        value_type = self.target_value_type()
+        if value_type == uuid.UUID and isinstance(value, str):  # pragma: nocover
             value = uuid.UUID(value)
-        if not isinstance(value, self.to.pk_type()):
-            if isinstance(value, self.to_pk_only):
-                value = getattr(value, self.to.ormar_config.pkname)
-            else:
-                raise RelationshipInstanceError(
-                    f"Relationship error - ForeignKey {self.to.__name__} "
-                    f"is of type {self.to.pk_type()} "
-                    f"while {type(value)} passed as a parameter."
-                )
-        return create_dummy_instance(fk=self.to, pk=value)
+        if not isinstance(value, value_type):
+            raise RelationshipInstanceError(
+                f"Relationship error - ForeignKey {self.to.__name__} "
+                f"is of type {value_type} "
+                f"while {type(value)} passed as a parameter."
+            )
+        return key_only_instance(target=self.to, values=self.target_values(value=value))
+
+    def target_value_of(self, related: Any) -> Any:
+        """
+        :param related: related model, its key-only model, a dict of its
+            fields or a raw value
+        :type related: Any
+        :return: the value this foreign key stores for it, ``None`` when the
+            related model lacks it
+        :rtype: Any
+        """
+        return self.link.values_for(related=related)[self.name]
+
+    def flat_fields(self) -> tuple[str, ...]:
+        """
+        :return: fields of a related model that represent it in flattened
+            output: the referenced fields of a foreign key, the primary key
+            of a reverse or many-to-many relation
+        :rtype: tuple[str, ...]
+        """
+        if not self.kind.holds_columns:
+            return self.to.ormar_config.pk.fields
+        return self.target_fields()
+
+    def flat_value(self, related: "Model") -> Any:
+        """
+        Represent a related model in flattened output (``flatten_fields``)::
+
+            Track.album -> 4
+            Address.country (to_field="iso_code") -> "PL"
+            OrderLine.order (two columns) -> {"tenant_id": 1, "number": 7}
+            Shift.membership -> {"tenant_id": 1, "member": {...}, "team": {...}}
+
+        A referenced field that is itself a relation (a key holding a foreign
+        key) is represented by its own flattened value.
+
+        :param related: related model
+        :type related: Model
+        :return: the referenced value, a dict of them for several fields
+        :rtype: Any
+        """
+        return self.flat_from_columns(
+            values={
+                column: column_value(model=self.to, data=related, column=column)
+                for column in self.flat_columns()
+            }
+        )
+
+    def flat_columns(self) -> tuple[str, ...]:
+        """
+        :return: columns of the related model holding ``flat_fields``
+        :rtype: tuple[str, ...]
+        """
+        if not self.kind.holds_columns:
+            return self.to.ormar_config.pk.column_aliases()
+        return self.link.target_columns()
+
+    def flat_from_columns(self, values: dict[str, Any]) -> Any:
+        """
+        Build the flattened representation of a related model (see
+        ``flat_value``) out of the values of its ``flat_columns``.
+
+        :param values: values of the related model's columns by column name
+        :type values: dict[str, Any]
+        :return: the referenced value, a dict of them for several fields
+        :rtype: Any
+        """
+        fields = self.flat_fields()
+        flat = {
+            field: flat_field_from_columns(model=self.to, field=field, values=values)
+            for field in fields
+        }
+        return flat[fields[0]] if len(fields) == 1 else flat
+
+    def flat_value_type(self) -> Any:
+        """
+        :return: python type of a flattened related model (see ``flat_value``)
+        :rtype: Any
+        """
+        fields = self.flat_fields()
+        if len(fields) > 1:
+            return key_dict_type(target=self.to, fields=fields)
+        return flat_field_type(model=self.to, field=fields[0])
+
+    def target_value_type(self) -> Any:
+        """
+        :return: python type of a raw value of the relation: the ``to_field``
+            type or the related model's key type
+        :rtype: Any
+        """
+        names = to_field_names(to_field=self.to_field)
+        if names is None:
+            return self.to.ormar_config.pk.python_type()
+        if len(names) == 1:
+            return self.to.ormar_config.model_fields[names[0]].__type__
+        return tuple
+
+    def target_values(self, value: Any) -> dict[str, Any]:
+        """
+        :param value: raw value of the relation
+        :type value: Any
+        :return: the value split into the referenced fields of the related model
+        :rtype: dict[str, Any]
+        """
+        names = to_field_names(to_field=self.to_field)
+        if names is None:
+            return self.to.ormar_config.pk.to_dict(value=value)
+        return dict(zip(names, key_parts(value=value, size=len(names))))
 
     def register_relation(self, model: "Model", child: "Model") -> None:
         """
@@ -634,7 +1135,7 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
         :rtype: Optional[Union["Model", list["Model"]]]
         """
         if value is None:
-            return None if not self.virtual else []
+            return [] if self.kind.many else None
         # Fast path: ``value`` is already a Model of ``self.to``. Dominant
         # case in row materialization and in user kwargs that pass
         # constructed Models directly. Skips the dispatch table and the
@@ -643,6 +1144,9 @@ class ForeignKeyField(BaseField):  # type: ignore[misc]
             if to_register:
                 self.register_relation(model=value, child=cast("Model", child))
             return value
+        if value.__class__ is list and self.kind.holds_columns:
+            # a key of several columns given as a JSON list
+            value = tuple(value)
         return self._constructor_dispatch.get(
             value.__class__.__name__, self._construct_model_from_pk
         )(value, child, to_register)

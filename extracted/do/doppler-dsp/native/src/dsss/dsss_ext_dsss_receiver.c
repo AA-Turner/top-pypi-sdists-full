@@ -399,6 +399,25 @@ DsssReceiverObj_configure_search_raw (DsssReceiverObject *self, PyObject *args,
                                                    n_noncoh);
   if (_rc != 0)
     {
+      switch (_rc)
+        {
+        case DP_ERR_INVALID:
+          PyErr_SetString (PyExc_ValueError,
+                           "configure_search_raw: doppler_bins must lie in "
+                           "1..reps, n_noncoh in "
+                           "1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and "
+                           "non-coherent looks "
+                           "(n_noncoh > 1) need rate_hypotheses 1");
+          return NULL;
+        case DP_ERR_MEMORY:
+          PyErr_SetString (
+              PyExc_MemoryError,
+              "configure_search_raw: rebuilding the engine's grid could not "
+              "allocate; the engine keeps its prior grid");
+          return NULL;
+        default:
+          break;
+        }
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
                     "configure_search_raw failed", (long long)_rc);
       return NULL;
@@ -809,26 +828,26 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "steps(x, out) -> ndarray\n"
     "\n"
     "Stream raw cf32 samples through the receiver. While searching, samples "
-    "feed the embedded Acquisition and nothing is emitted (an empty array is "
-    "normal, not an error). The moment a hit fires, "
-    "Dll/RateConverter/MpskReceiver are built and seeded from it -- the same "
-    "phase-inversion hand-off and rate-bridging this project's "
+    "feed the embedded continuous search (a Correlator) and nothing is "
+    "emitted (an empty array is normal, not an error). The moment a hit "
+    "fires, Dll/RateConverter/MpskReceiver are built and seeded from it -- "
+    "the same phase-inversion hand-off and rate-bridging this project's "
     "async-DSSS-receiver gallery story validated by hand -- and the "
     "unconsumed tail of this same call is handed straight to them, so no "
     "samples are dropped at the transition. While tracking, samples feed Dll "
     "-> RateConverter -> MpskReceiver in sequence and demodulated symbols are "
     "returned. Accepts any block size; state carries across calls.\n"
     "\n"
-    "While searching, samples feed the embedded Acquisition and nothing is\n"
+    "While searching, samples feed the embedded search and nothing is\n"
     "emitted (0 return is normal, not an error). The moment a hit fires,\n"
     "`Dll`/`RateConverter`/`MpskReceiver` are built and seeded from it, and\n"
     "the rest of THIS call from where the hit's frame ended — the hit's own\n"
     "`samples_consumed`, so no samples are dropped or double-fed — is handed\n"
     "straight to them in the same call. While tracking, samples feed `Dll ->\n"
     "RateConverter -> MpskReceiver` in sequence. Accepts any block size;\n"
-    "state carries across calls (`Acquisition`/`Dll`/\n"
-    "`RateConverter`/`MpskReceiver` are all already block-size invariant;\n"
-    "the only buffering this object adds is the carrier loop's\n"
+    "state carries across calls (the\n"
+    "search/`Dll`/`RateConverter`/`MpskReceiver` are all already block-size\n"
+    "invariant; the only buffering this object adds is the carrier loop's\n"
     "partial-code-period carry). While tracking, each call allocates two\n"
     "scratch buffers (abort on OOM).\n"
     "\n"
@@ -896,16 +915,16 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "configure_search_raw(doppler_bins, n_noncoh) -> None\n"
     "\n"
-    "Pin the embedded Acquisition's search grid directly, bypassing the "
-    "symbol_rate-driven auto-sizing -- the escape hatch for a power user who "
-    "wants a specific (doppler_bins, n_noncoh). Only meaningful while "
-    "searching.\n"
+    "Pin the embedded continuous search (a Correlator)'s search grid "
+    "directly, bypassing the symbol_rate-driven auto-sizing -- the escape "
+    "hatch for a power user who wants a specific (doppler_bins, n_noncoh). "
+    "Only meaningful while searching.\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "doppler_bins : int\n"
     "    Coherent depth to pin, in `[1, reps]` as\n"
-    "    dp_acq_configure_search_raw() defines it.\n"
+    "    dp_correlator_configure_search_raw() defines it.\n"
     "n_noncoh : int\n"
     "    Non-coherent looks accumulated per grid cell (1..256); more looks\n"
     "    buys sensitivity at the cost of dwell, replacing the auto-sized\n"
@@ -914,9 +933,18 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "Raises\n"
     "------\n"
     "ValueError\n"
-    "    If the C call returns a non-zero status. The exception message is\n"
-    "    ``configure_search_raw failed``, with the return code appended\n"
-    "    (gh-869).\n"
+    "    If the C call returns ``DP_ERR_INVALID``. The exception message is\n"
+    "    ``configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh\n"
+    "    in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks\n"
+    "    (n_noncoh > 1) need rate_hypotheses 1``.\n"
+    "MemoryError\n"
+    "    If the C call returns ``DP_ERR_MEMORY``. The exception message is\n"
+    "    ``configure_search_raw: rebuilding the engine's grid could not\n"
+    "    allocate; the engine keeps its prior grid``.\n"
+    "ValueError\n"
+    "    If the C call returns any other non-zero status. The exception\n"
+    "    message is ``configure_search_raw failed``, with the return code\n"
+    "    appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -989,9 +1017,10 @@ static PyMethodDef DsssReceiverObj_methods[] = {
     "independently overridable here, still bridged by a freshly-sized\n"
     "`RateConverter` -- never coupled to each other (see the module\n"
     "docstring). It rebuilds `dll`/`rc`/`rx` at once, allocating every\n"
-    "replacement before freeing the old ones (`Acquisition`'s `acq_regrid()`\n"
-    "discipline), and the pinned grid is the one every later chain is built\n"
-    "on: the next hit's hand-off and reset() both rebuild at it.\n"
+    "replacement before freeing the old ones (the search's\n"
+    "`dp_correlator_regrid()` discipline), and the pinned grid is the one\n"
+    "every later chain is built on: the next hit's hand-off and reset() both\n"
+    "rebuild at it.\n"
     "\n"
     "The new grid is checked before anything is rebuilt, and refused with\n"
     "the receiver left on its prior grid: segments >= 1, sps >= 2, a symbol\n"
@@ -1034,8 +1063,9 @@ static PyMethodDef DsssReceiverObj_methods[] = {
   { "reset", (PyCFunction)DsssReceiverObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
-    "Return to the searching state: resets the embedded Acquisition and frees "
-    "Dll/RateConverter/MpskReceiver (rebuilt from scratch on the next hit).\n"
+    "Return to the searching state: resets the embedded continuous search (a "
+    "Correlator) and frees Dll/RateConverter/MpskReceiver (rebuilt from "
+    "scratch on the next hit).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -1156,8 +1186,8 @@ static PyTypeObject DsssReceiverObjType = {
     "    Chip rate, Hz. Required.\n"
     "symbol_rate : float, default 1000.0\n"
     "    Data-symbol rate, Hz. Required — passed straight to the embedded\n"
-    "    Acquisition's own `symbol_rate` (diagnostic there; see\n"
-    "    `dp_acq_create_continuous()`).\n"
+    "    search's own `symbol_rate` (diagnostic there; see\n"
+    "    `dp_correlator_create_continuous()`).\n"
     "sample_rate : float, default 0.0\n"
     "    Input sample rate, Hz: a whole number of samples a chip (to a part "
     "in\n"

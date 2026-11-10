@@ -77,13 +77,22 @@ fn build_builtin_filters() -> BTreeMap<Cow<'static, str>, Value> {
             "capitalize".into(),
             Value::from_function(filters::capitalize),
         );
-        rv.insert("replace".into(), Value::from_function(filters::replace));
-        let length = Value::from_function(filters::length);
+        rv.insert(
+            "replace".into(),
+            Value::from_function(filters::replace_with_kwargs),
+        );
+        let length = Value::from_function(filters::length_checked);
         rv.insert("length".into(), length.clone());
         rv.insert("count".into(), length);
-        rv.insert("dictsort".into(), Value::from_function(filters::dictsort));
-        rv.insert("items".into(), Value::from_function(filters::items));
-        rv.insert("reverse".into(), Value::from_function(filters::reverse));
+        rv.insert(
+            "dictsort".into(),
+            Value::from_function(filters::dictsort_fueled),
+        );
+        rv.insert("items".into(), Value::from_function(filters::items_checked));
+        rv.insert(
+            "reverse".into(),
+            Value::from_function(filters::reverse_fueled),
+        );
         rv.insert("trim".into(), Value::from_function(filters::trim));
         rv.insert("join".into(), Value::from_function(filters::join));
         rv.insert("split".into(), Value::from_function(filters::split));
@@ -95,8 +104,8 @@ fn build_builtin_filters() -> BTreeMap<Cow<'static, str>, Value> {
         rv.insert("int".into(), Value::from_function(filters::int));
         rv.insert("float".into(), Value::from_function(filters::float));
         rv.insert("attr".into(), Value::from_function(filters::attr));
-        rv.insert("first".into(), Value::from_function(filters::first));
-        rv.insert("last".into(), Value::from_function(filters::last));
+        rv.insert("first".into(), Value::from_function(filters::first_checked));
+        rv.insert("last".into(), Value::from_function(filters::last_fueled));
         rv.insert("min".into(), Value::from_function(filters::min));
         rv.insert("max".into(), Value::from_function(filters::max));
         rv.insert("sort".into(), Value::from_function(filters::sort));
@@ -106,7 +115,10 @@ fn build_builtin_filters() -> BTreeMap<Cow<'static, str>, Value> {
         rv.insert("batch".into(), Value::from_function(filters::batch));
         rv.insert("slice".into(), Value::from_function(filters::slice));
         rv.insert("sum".into(), Value::from_function(filters::sum));
-        rv.insert("indent".into(), Value::from_function(filters::indent));
+        rv.insert(
+            "indent".into(),
+            Value::from_function(filters::indent_fueled),
+        );
         rv.insert("select".into(), Value::from_function(filters::select));
         rv.insert("reject".into(), Value::from_function(filters::reject));
         rv.insert(
@@ -118,16 +130,25 @@ fn build_builtin_filters() -> BTreeMap<Cow<'static, str>, Value> {
             Value::from_function(filters::rejectattr),
         );
         rv.insert("map".into(), Value::from_function(filters::map));
-        rv.insert("groupby".into(), Value::from_function(filters::groupby));
+        rv.insert(
+            "groupby".into(),
+            Value::from_function(filters::groupby_fueled),
+        );
         rv.insert("unique".into(), Value::from_function(filters::unique));
         rv.insert("chain".into(), Value::from_function(filters::chain));
         rv.insert("zip".into(), Value::from_function(filters::zip));
-        rv.insert("pprint".into(), Value::from_function(filters::pprint));
+        rv.insert(
+            "pprint".into(),
+            Value::from_function(filters::pprint_fueled),
+        );
         rv.insert("format".into(), Value::from_function(filters::format));
 
         #[cfg(feature = "json")]
         {
-            rv.insert("tojson".into(), Value::from_function(filters::tojson));
+            rv.insert(
+                "tojson".into(),
+                Value::from_function(filters::tojson_fueled),
+            );
         }
         #[cfg(feature = "urlencode")]
         {
@@ -163,7 +184,7 @@ fn build_builtin_tests() -> BTreeMap<Cow<'static, str>, Value> {
         rv.insert("even".into(), Value::from_function(tests::is_even));
         rv.insert(
             "divisibleby".into(),
-            Value::from_function(tests::is_divisibleby),
+            Value::from_function(tests::is_divisibleby_checked),
         );
         rv.insert("number".into(), Value::from_function(tests::is_number));
         rv.insert("integer".into(), Value::from_function(tests::is_integer));

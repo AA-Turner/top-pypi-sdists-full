@@ -283,3 +283,32 @@ def test_missing_file_raises_the_declared_error(tmp_path):
 def test_view_reports_the_same_error_for_a_missing_file(tmp_path):
     with pytest.raises(ValueError):
         RawCapture(str(tmp_path / "does-not-exist.raw"), sample_type="ci16")
+
+
+@pytest.mark.parametrize("make", [Capture, RawCapture])
+def test_read_refuses_an_output_size_past_npy_max_intp(make, blue):
+    """jm's output-size guard: a size no ndarray can hold is refused.
+
+    `count` reaches C as a `size_t`, so `read(-1)` asks for SIZE_MAX samples.
+    Without the guard that size was cast straight to `npy_intp` and wrapped
+    to a negative dimension; with it, the binding names the oversized output
+    as an `OverflowError` before allocating anything.
+    """
+    cap = make(str(blue))
+    with pytest.raises(OverflowError, match="too large"):
+        cap.read(-1)
+
+
+@pytest.mark.parametrize("make", [Capture, RawCapture])
+def test_regenerated_binding_names_its_package_and_refuses_extra_args(
+    make, blue
+):
+    """What the jm-owned re-render changed besides the guards.
+
+    The types are named for the package they are imported from, and
+    `summary()` is a no-argument method: the old sacred fragment parsed it
+    as METH_VARARGS and silently ignored whatever it was handed.
+    """
+    assert make.__module__ == "iqtools.capture"
+    with pytest.raises(TypeError):
+        make(str(blue)).summary(1)

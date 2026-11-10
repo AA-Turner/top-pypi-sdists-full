@@ -4,16 +4,16 @@ from collections import ChainMap, Counter
 from collections import ChainMap as ChainMapType
 from collections import Counter as CounterType
 from collections.abc import MutableMapping
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from ...errors import PdfReadError
 from ...generic._font import Font
 from .. import mult
 from ._text_state_params import TextStateParams
 
-TextStateManagerKeyType = Union[int, Literal["is_text", "is_render"]]
-TextStateManagerChainMapType = ChainMapType[TextStateManagerKeyType, Union[float, bool]]
-TextStateManagerDictType = MutableMapping[TextStateManagerKeyType, Union[float, bool]]
+TextStateManagerKeyType = int | Literal["is_text", "is_render"]
+TextStateManagerChainMapType = ChainMapType[TextStateManagerKeyType, float | bool]
+TextStateManagerDictType = MutableMapping[TextStateManagerKeyType, float | bool]
 
 
 class TextStateManager:
@@ -45,11 +45,11 @@ class TextStateManager:
         self.Tz: float = 100.0
         self.TL: float = 0.0
         self.Ts: float = 0.0
-        self.font_stack: list[tuple[Union[Font, None], Union[int, float]]] = []
-        self.font: Union[Font, None] = None
-        self.font_size: Union[int, float] = 0
+        self.font_stack: list[tuple[Font | None, int | float]] = []
+        self.font: Font | None = None
+        self.font_size: int | float = 0
 
-    def set_state_param(self, op: bytes, value: Union[float, list[Any]]) -> None:
+    def set_state_param(self, op: bytes, value: float | list[Any]) -> None:
         """
         Set a text state parameter. Supports Tc, Tz, Tw, TL, and Ts operators.
 
@@ -80,7 +80,7 @@ class TextStateManager:
         self.font = font
         self.font_size = size
 
-    def text_state_params(self, value: Union[bytes, str] = "") -> TextStateParams:
+    def text_state_params(self, value: bytes | str = "") -> TextStateParams:
         """
         Create a TextStateParams instance to display a text string. Type[bytes] values
         will be decoded implicitly.
@@ -185,14 +185,20 @@ class TextStateManager:
         """Concatenate an additional transform matrix"""
         self.transform_stack = self.reset_tm()
         self.q_queue.update(self.q_depth[-1:])
-        self.transform_stack = self.transform_stack.new_child(self.new_transform(*args))
+        # A matrix operator consumes the 6 operands nearest to it; extra values
+        # from a malformed content stream must not overflow the transform.
+        self.transform_stack = self.transform_stack.new_child(
+            self.new_transform(*args[-6:])
+        )
         return self.transform_stack
 
     def _complete_matrix(self, operands: list[float]) -> list[float]:
         """Adds a, b, c, and d to an "e/f only" operand set (e.g Td)"""
         if len(operands) == 2:  # this is a Td operator or equivalent
             operands = [1.0, 0.0, 0.0, 1.0, *operands]
-        return operands
+        # Tm consumes the 6 operands nearest to it; extra values from a
+        # malformed content stream must not overflow the transform.
+        return operands[-6:]
 
     def add_tm(self, operands: list[float]) -> TextStateManagerChainMapType:
         """Append a text transform matrix"""

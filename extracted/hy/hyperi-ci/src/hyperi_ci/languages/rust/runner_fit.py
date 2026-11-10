@@ -22,10 +22,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
 
-from hyperi_ci.common import append_step_summary, info, warn
+from hyperi_ci.common import append_step_summary, info, is_linux, warn
 from hyperi_ci.config import CIConfig
 from hyperi_ci.cpu import cpu_budget, cpu_model
 from hyperi_ci.memory import GIB, MemoryLimit, memory_limit
+from hyperi_ci.swap import MODE_ENV, swap_total_bytes
 
 SCHEMA = 1
 RECORD_FILE = "runner-fit.json"
@@ -164,6 +165,28 @@ def _count(value: object) -> TypeGuard[int]:
 
 def _positive(value: object) -> float | None:
     return float(value) if _number(value) and value > 0 else None
+
+
+def planned_gib_per_job(
+    configured: float | None, config: CIConfig, environ: Mapping[str, str]
+) -> float | None:
+    """Return the per-job memory plan, raised to the free-mode floor on a free runner.
+
+    Args:
+        configured: ``build.rust.memory_per_job_gib``, or None when unusable.
+        config: Merged CI configuration.
+        environ: The environment, read for the runner mode.
+
+    Returns:
+        The larger of the two in free mode, else ``configured``.
+
+    """
+    if environ.get(MODE_ENV) != "free":
+        return configured
+    floor = _positive(config.setting("build.rust.free_memory_per_job_gib"))
+    if floor is None:
+        return configured
+    return max(configured or 0.0, floor)
 
 
 def _profile(raw: object) -> RunnerProfile | None:
@@ -351,6 +374,7 @@ def build_record(
     cpus: int,
     cpu_name: str | None,
     machine: str,
+    swap_bytes: int | None = None,
 ) -> dict[str, Any]:
     """Return the ``runner-fit.json`` content for a finished build.
 
@@ -365,6 +389,7 @@ def build_record(
         cpus: The CPU budget.
         cpu_name: The CPU model, or None.
         machine: ``platform.machine()``.
+        swap_bytes: Active swap at the end of the build, or None when unread.
 
     Returns:
         A JSON-ready mapping with ``schema`` 1.
@@ -376,7 +401,9 @@ def build_record(
     peaks = [p.peak_bytes for p in phases if p.peak_bytes is not None]
     max_peak = _gib(max(peaks)) if peaks else None
     per_job = max_peak / jobs if max_peak is not None and jobs else None
-    planned = _positive(config.setting("build.rust.memory_per_job_gib"))
+    planned = planned_gib_per_job(
+        _positive(config.setting("build.rust.memory_per_job_gib")), config, environ
+    )
     judged = verdict(
         arch=arch,
         runner_label=label,
@@ -398,6 +425,7 @@ def build_record(
         "cpu_budget": cpus,
         "memory_limit_gib": _rounded(limit.gib if limit else None, 2),
         "memory_limit_source": limit.source if limit else None,
+        "swap_gib": _rounded(_gib(swap_bytes), 2),
         "cargo_jobs": jobs,
         "memory_per_job_gib": planned,
         "optimization": optimization,
@@ -487,6 +515,7 @@ def finish(
             cpus=cpus if cpus is not None else cpu_budget(),
             cpu_name=cpu_model(),
             machine=platform.machine(),
+            swap_bytes=swap_total_bytes() if is_linux() else None,
         )
         target = (root or Path.cwd()) / RECORD_FILE
         target.write_text(

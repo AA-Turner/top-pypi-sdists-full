@@ -123,7 +123,7 @@ class WorkflowAPIRemoteTask(Task):
                 response = await self._client.execute_workflow_async(
                     workflow_identifier=workflow_id,
                     input=input_data,  # type: ignore[arg-type]
-                    task_queue=self._task_queue,
+                    deployment_name=self._task_queue,
                 )
                 logger.info("task.run.started", exec_id=response.execution_id)
                 return response.execution_id

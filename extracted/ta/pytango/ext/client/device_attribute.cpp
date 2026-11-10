@@ -114,13 +114,13 @@ void reset(Tango::DeviceAttribute &self,
            Tango::DeviceProxy &dev_proxy,
            py::object py_value) {
     self.set_name(attr_name.c_str());
+    // A failure here (typically the attribute does not exist) must propagate: swallowing it
+    // leaves attr_info describing no attribute at all, and the conversion below would then
+    // silently produce an unset DeviceAttribute.
     Tango::AttributeInfoEx attr_info;
     {
         py::gil_scoped_release no_gil;
-        try {
-            attr_info = dev_proxy.get_attribute_config(attr_name);
-        } catch(...) {
-        }
+        attr_info = dev_proxy.get_attribute_config(attr_name);
     }
     set_cpp_values_from_python(self, attr_info.data_type, attr_info.data_format, py_value);
 }

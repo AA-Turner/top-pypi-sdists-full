@@ -211,6 +211,13 @@ def write_text_atomic(
         temporary.unlink(missing_ok=True)
 
 
+def write_json_atomic(path: str | Path, value: Any, *, indent: int | None = 2, mode: int | None = None) -> None:
+    """``value`` as JSON with sorted keys, one trailing newline, written by `write_text_atomic` (``mode`` as there):
+    ``indent`` spaces per level, or compact (no spaces) with None."""
+    separators = None if indent is not None else (",", ":")
+    write_text_atomic(path, json.dumps(value, indent=indent, sort_keys=True, separators=separators) + "\n", mode=mode)
+
+
 def through_symlink(path: str | Path) -> Path:
     """``path``, or the file it links to when ``path`` is a symlink: use before replacing a
     user-owned file, or a dotfiles link (``~/.codex/AGENTS.md`` into a repo) becomes a plain

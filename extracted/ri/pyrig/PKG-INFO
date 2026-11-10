@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 19.13.2
+Version: 19.24.2
 Summary: A Python project setup and management tool built on infrastructure as code and convention over configuration.
 Keywords: automation,boilerplate,ci-cd,code-generation,code-quality,configuration,convention-over-configuration,developer-tools,devops,github-actions,infrastructure-as-code,project-generator,project-maintenance,project-scaffolding,project-setup,python-project,test-generation,test-scaffolding
 Author: Winipedia
@@ -46,14 +46,18 @@ Description-Content-Type: text/markdown
 [![pyrig](docs/assets/banner.svg)](docs/assets/banner.svg)
 
 <!-- project-status -->
-[![CI](https://img.shields.io/github/actions/workflow/status/Winipedia/pyrig/health_check.yml?label=CI&logo=github)](https://github.com/Winipedia/pyrig/actions/workflows/health_check.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/Winipedia/pyrig/health-check.yml?label=CI&logo=github)](https://github.com/Winipedia/pyrig/actions/workflows/health-check.yml)
 [![CD](https://img.shields.io/github/actions/workflow/status/Winipedia/pyrig/release.yml?label=CD&logo=github)](https://github.com/Winipedia/pyrig/actions/workflows/release.yml)
 [![ProjectTester](https://codecov.io/gh/Winipedia/pyrig/branch/main/graph/badge.svg)](https://codecov.io/gh/Winipedia/pyrig)
+[![SecurityPracticesChecker](https://api.scorecard.dev/projects/github.com/Winipedia/pyrig/badge)](https://scorecard.dev/viewer/?uri=github.com/Winipedia/pyrig)
+[![Best Practices](https://www.bestpractices.dev/en/projects?as=badge&url=https%3A%2F%2Fgithub.com%2FWinipedia%2Fpyrig)](https://www.bestpractices.dev/en/projects?as=entry&url=https%3A%2F%2Fgithub.com%2FWinipedia%2Fpyrig)
+[![Baseline](https://www.bestpractices.dev/en/projects?as=baseline&url=https%3A%2F%2Fgithub.com%2FWinipedia%2Fpyrig)](https://www.bestpractices.dev/en/projects?as=entry&url=https%3A%2F%2Fgithub.com%2FWinipedia%2Fpyrig)
 <!-- code-quality -->
 [![ByteOrderMarkerFormatter](https://img.shields.io/badge/BOM-fix--byte--order--marker-orange)](https://prek.j178.dev/reference/built-in-hooks/#fix-byte-order-marker)
 [![CICDLinter](https://img.shields.io/badge/CI/CD-actionlint-blue)](https://github.com/rhysd/actionlint)
 [![CICDSecurityChecker](https://img.shields.io/badge/%F0%9F%8C%88-zizmor-white?labelColor=white)](https://github.com/zizmorcore/zizmor)
 [![CaseConflictChecker](https://img.shields.io/badge/case--conflict-check--case--conflict-blue)](https://prek.j178.dev/reference/built-in-hooks/#check-case-conflict)
+[![CodeAnalyzer](https://img.shields.io/badge/code--analysis-CodeQL-181717?logo=github)](https://codeql.github.com/docs/)
 [![DeadCodeChecker](https://img.shields.io/badge/dead--code-vulture-blue)](https://github.com/jendrikseipp/vulture)
 [![DependencyChecker](https://img.shields.io/badge/dependencies-deptry-blue)](https://github.com/osprey-oss/deptry)
 [![EndOfFileFormatter](https://img.shields.io/badge/EOF-end--of--file--fixer-orange)](https://prek.j178.dev/reference/built-in-hooks/#end-of-file-fixer)
@@ -87,7 +91,6 @@ Description-Content-Type: text/markdown
 [![PackageIndex](https://img.shields.io/pypi/v/pyrig?logo=pypi&logoColor=white)](https://pypi.org/project/pyrig)
 [![ProgrammingLanguage](https://img.shields.io/pypi/pyversions/pyrig)](https://www.python.org)
 [![License](https://img.shields.io/github/license/Winipedia/pyrig)](https://github.com/Winipedia/pyrig/blob/main/LICENSE)
-
 <!-- rumdl-disable MD013 -->
 ---
 
@@ -96,7 +99,6 @@ Description-Content-Type: text/markdown
 ---
 
 <!-- rumdl-enable MD013 -->
-
 ## What is pyrig?
 
 pyrig is a package and tool that **rigs up** Python projects with

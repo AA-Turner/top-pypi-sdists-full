@@ -20,6 +20,17 @@ ActorJobStatus = (
 """Status of an Actor job (run or build)."""
 
 
+ActorNotice = (
+    Literal[
+        'NONE',
+        'RESIDENTIAL_PROXY_REQUIRED',
+        'UNDER_MAINTENANCE',
+    ]
+    | str
+)
+"""A warning displayed on the Actor's page in Apify Store and Console. Can be set by the Actor's developer or automatically by Apify's quality checks."""
+
+
 ActorPermissionLevel = (
     Literal[
         'LIMITED_PERMISSIONS',
@@ -28,6 +39,31 @@ ActorPermissionLevel = (
     | str
 )
 """Determines the permission level that the Actor requires to run. For details, see [Actor permissions](https://docs.apify.com/platform/actors/development/permissions)."""
+
+
+Deployment = (
+    Literal[
+        'SINGLE_TENANT',
+        'MULTI_TENANT_OWNER_PAID',
+        'MULTI_TENANT_FREE_USERS',
+        'MULTI_TENANT_PAYING_USERS',
+    ]
+    | str
+)
+"""
+Which pool the Server Actor run serves. `SINGLE_TENANT` is a private instance in the caller's account.
+The `MULTI_TENANT_*` pools run in the Actor owner's account and serve many callers;
+charges in them require a `requestId` (see the charge endpoint).
+"""
+
+
+Encoding = (
+    Literal[
+        'utf-8',
+        'base64',
+    ]
+    | str
+)
 
 
 ErrorType = (
@@ -470,6 +506,29 @@ HttpMethod = (
 )
 
 
+MonitoringLevel = Literal['STANDARD'] | str
+"""Level of monitoring services included in the plan. `null` or missing means the plan includes no monitoring service."""
+
+
+OAuthProviderType = (
+    Literal[
+        'CUSTOM',
+        'GOOGLE',
+    ]
+    | str
+)
+
+
+Provider = (
+    Literal[
+        'github',
+        'gitlab',
+        'bitbucket',
+    ]
+    | str
+)
+
+
 RunOrigin = (
     Literal[
         'DEVELOPMENT',
@@ -504,6 +563,16 @@ StorageOwnership = (
     ]
     | str
 )
+
+
+Tenancy = (
+    Literal[
+        'SINGLE_TENANT',
+        'MULTI_TENANT',
+    ]
+    | str
+)
+"""Whether each user gets their own standby runs (`SINGLE_TENANT`) or runs are shared across users (`MULTI_TENANT`)."""
 
 
 VersionSourceType = (

@@ -11,8 +11,6 @@ from bisect import bisect_left
 from collections import Counter, defaultdict
 from pathlib import Path
 
-
-
 RNA_STATUSES = (
     "alternate_observed", "reference_only", "reference_and_other_only",
     "other_allele_only", "alignment_without_allele_call", "no_alignment_overlap",
@@ -153,9 +151,9 @@ def summarize(calls, annotations, proteins=(), sv=()):
         counts["exonic_changed_product"] += exonic and bool(states["focal_changed"])
         counts["coding"] += _yes(annotation.get("reference_coding_effect"))
         counts["ncorf"] += _yes(annotation.get("orfdata_coding_block_overlap"))
-        counts["frameshift"] += annotation.get("top_effect_type") == "FrameShift"
+        counts["frameshift"] += annotation.get("category") == "Frameshift"
         counts["frameshift_alt"] += (
-            annotation.get("top_effect_type") == "FrameShift" and alt)
+            annotation.get("category") == "Frameshift" and alt)
         if alt:
             if product:
                 selected = top[ident]

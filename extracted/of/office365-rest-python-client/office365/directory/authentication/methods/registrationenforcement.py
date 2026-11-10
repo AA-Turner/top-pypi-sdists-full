@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.authentication.methods.registrationcampaign import (
     AuthenticationMethodsRegistrationCampaign as RegistrationCampaign,
@@ -8,7 +8,6 @@ from office365.directory.authentication.methods.registrationcampaign import (
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class RegistrationEnforcement(ClientValue):
     authenticationMethodsRegistrationCampaign: RegistrationCampaign = field(default_factory=RegistrationCampaign)
 

@@ -51,7 +51,7 @@ def sync_detailed(
     - **active**: Tasks currently being executed by workers
     - **scheduled**: Tasks scheduled for future execution (with ETA)
     - **reserved**: Tasks received by workers but not yet started
-    - **revoked**: Task IDs that have been cancelled/revoked
+    - **revoked**: Task IDs that have been canceled/revoked
     - **query_task**: Results of task queries (if any)
     - **stats**: Detailed worker statistics including uptime, pool info, and broker connection
 
@@ -89,7 +89,7 @@ def sync(
     - **active**: Tasks currently being executed by workers
     - **scheduled**: Tasks scheduled for future execution (with ETA)
     - **reserved**: Tasks received by workers but not yet started
-    - **revoked**: Task IDs that have been cancelled/revoked
+    - **revoked**: Task IDs that have been canceled/revoked
     - **query_task**: Results of task queries (if any)
     - **stats**: Detailed worker statistics including uptime, pool info, and broker connection
 
@@ -123,7 +123,7 @@ async def asyncio_detailed(
     - **active**: Tasks currently being executed by workers
     - **scheduled**: Tasks scheduled for future execution (with ETA)
     - **reserved**: Tasks received by workers but not yet started
-    - **revoked**: Task IDs that have been cancelled/revoked
+    - **revoked**: Task IDs that have been canceled/revoked
     - **query_task**: Results of task queries (if any)
     - **stats**: Detailed worker statistics including uptime, pool info, and broker connection
 
@@ -159,7 +159,7 @@ async def asyncio(
     - **active**: Tasks currently being executed by workers
     - **scheduled**: Tasks scheduled for future execution (with ETA)
     - **reserved**: Tasks received by workers but not yet started
-    - **revoked**: Task IDs that have been cancelled/revoked
+    - **revoked**: Task IDs that have been canceled/revoked
     - **query_task**: Results of task queries (if any)
     - **stats**: Detailed worker statistics including uptime, pool info, and broker connection
 

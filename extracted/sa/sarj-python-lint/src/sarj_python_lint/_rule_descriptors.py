@@ -9,6 +9,33 @@ from sarj_python_lint.rule_metadata import RuleDescriptor
 SCHEMA_VERSION = 1
 DESCRIPTORS: tuple[RuleDescriptor, ...] = (
     RuleDescriptor(
+        rule_id=RuleId("prefer-coordinated-state-owner"),
+        module="sarj_python_lint.rules.prefer_coordinated_state_owner",
+        class_name="PreferCoordinatedStateOwner",
+        code="SARJ565",
+        description="Review dictionaries with repeated same-key writes and removals for one typed owner.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-injected-service"),
+        module="sarj_python_lint.rules.prefer_injected_service",
+        class_name="PreferInjectedService",
+        code="SARJ564",
+        description="Inject a service instead of constructing it from dependencies already available to the consumer.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
+        rule_id=RuleId("prefer-configured-cloud-scope"),
+        module="sarj_python_lint.rules.prefer_configured_cloud_scope",
+        class_name="PreferConfiguredCloudScope",
+        code="SARJ566",
+        description="Read Cloudflare account targets from validated deployment configuration.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
         rule_id=RuleId("fastapi-route-declares-security"),
         module="sarj_python_lint.rules.fastapi_route_declares_security",
         class_name="FastapiRouteDeclaresSecurity",
@@ -148,7 +175,7 @@ DESCRIPTORS: tuple[RuleDescriptor, ...] = (
         module="sarj_python_lint.rules.no_custom_control_flow_exception",
         class_name="NoCustomControlFlowException",
         code="SARJ542",
-        description="Return typed outcomes for expected domain failures instead of marker or fixed-message exceptions.",
+        description="Return coded typed outcomes for expected domain failures instead of exception-only contracts.",
         aliases=(),
         enabled_by_default=True,
     ),

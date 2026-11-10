@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.containers.active.memberproperties import SPActiveContainerMemberProperties
 
 
-@dataclass
 class SPActiveContainerProperties(ClientValue):
     ApplicationName: Optional[str] = None
     ArchivedBy: Optional[str] = None
@@ -22,6 +21,7 @@ class SPActiveContainerProperties(ClientValue):
     CreatedOn: Optional[str] = None
     DeletedOn: Optional[str] = None
     Description: Optional[str] = None
+    IsStorageUsedAvailable: bool | None = None
     LastArchivedDateTime: Optional[str] = None
     OpticalCharacterRecognitionEnabled: Optional[bool] = None
     Owners: ClientValueCollection[SPActiveContainerMemberProperties] = field(

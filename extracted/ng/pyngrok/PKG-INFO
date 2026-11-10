@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyngrok
-Version: 9.1.3
+Version: 9.1.4
 Summary: The complete ngrok agent for Python: programmatic tunnels for ingress, inspection, webhooks, demos, and APIs
 Author-email: Alex Laird <contact@alexlaird.com>
 Maintainer-email: Alex Laird <contact@alexlaird.com>

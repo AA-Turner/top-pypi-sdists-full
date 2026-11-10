@@ -10,6 +10,7 @@ from ...models.proposal_o_enum import ProposalOEnum
 from ...models.proposal_states import ProposalStates
 from ...models.responsible_role_enum import ResponsibleRoleEnum
 from ...models.step_checklist_response_group import StepChecklistResponseGroup
+from ...models.step_enum import StepEnum
 from ...types import UNSET, Response, Unset
 
 
@@ -30,6 +31,7 @@ def _get_kwargs(
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
     step: str,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -94,6 +96,15 @@ def _get_kwargs(
 
     params["step"] = step
 
+    json_workflow_step: Union[Unset, list[str]] = UNSET
+    if not isinstance(workflow_step, Unset):
+        json_workflow_step = []
+        for workflow_step_item_data in workflow_step:
+            workflow_step_item = workflow_step_item_data.value
+            json_workflow_step.append(workflow_step_item)
+
+    params["workflow_step"] = json_workflow_step
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -154,6 +165,7 @@ def sync_detailed(
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
     step: str,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> Response[Union[Any, list["StepChecklistResponseGroup"]]]:
     """List a workflow step's checklist answers grouped by reviewer, for the threaded technical-assessment
     view. Each technical reviewer (offering manager) answers the same checklist; this returns every
@@ -175,6 +187,7 @@ def sync_detailed(
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
         step (str):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -200,6 +213,7 @@ def sync_detailed(
         slug=slug,
         state=state,
         step=step,
+        workflow_step=workflow_step,
     )
 
     response = client.get_httpx_client().request(
@@ -227,6 +241,7 @@ def sync(
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
     step: str,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> Union[Any, list["StepChecklistResponseGroup"]]:
     """List a workflow step's checklist answers grouped by reviewer, for the threaded technical-assessment
     view. Each technical reviewer (offering manager) answers the same checklist; this returns every
@@ -248,6 +263,7 @@ def sync(
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
         step (str):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -274,6 +290,7 @@ def sync(
         slug=slug,
         state=state,
         step=step,
+        workflow_step=workflow_step,
     ).parsed
 
 
@@ -295,6 +312,7 @@ async def asyncio_detailed(
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
     step: str,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> Response[Union[Any, list["StepChecklistResponseGroup"]]]:
     """List a workflow step's checklist answers grouped by reviewer, for the threaded technical-assessment
     view. Each technical reviewer (offering manager) answers the same checklist; this returns every
@@ -316,6 +334,7 @@ async def asyncio_detailed(
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
         step (str):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -341,6 +360,7 @@ async def asyncio_detailed(
         slug=slug,
         state=state,
         step=step,
+        workflow_step=workflow_step,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -366,6 +386,7 @@ async def asyncio(
     slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ProposalStates]] = UNSET,
     step: str,
+    workflow_step: Union[Unset, list[StepEnum]] = UNSET,
 ) -> Union[Any, list["StepChecklistResponseGroup"]]:
     """List a workflow step's checklist answers grouped by reviewer, for the threaded technical-assessment
     view. Each technical reviewer (offering manager) answers the same checklist; this returns every
@@ -387,6 +408,7 @@ async def asyncio(
         slug (Union[Unset, str]):
         state (Union[Unset, list[ProposalStates]]):
         step (str):
+        workflow_step (Union[Unset, list[StepEnum]]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -414,5 +436,6 @@ async def asyncio(
             slug=slug,
             state=state,
             step=step,
+            workflow_step=workflow_step,
         )
     ).parsed

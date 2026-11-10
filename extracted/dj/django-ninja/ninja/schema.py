@@ -76,9 +76,20 @@ class DjangoGetter:
                 except AttributeError:
                     try:
                         # value = attrgetter(key)(self._obj)
-                        value = Variable(key).resolve(self._obj)
+                        variable = Variable(key)
                         # TODO: Variable(key) __init__ is actually slower than
                         #       Variable.resolve - so it better be cached
+                        if variable.lookups is None:
+                            # Variable comes from the template language, so
+                            # it parses constants as well as lookups: "0" and
+                            # "1.5" are numbers, "'x'" is a string. These have
+                            # no lookups, and resolve() returns the constant
+                            # without touching the object. A field with
+                            # alias="0" would then be "found" with the value 0.
+                            # Report it as missing instead, so that pydantic
+                            # tries the field name or uses the default.
+                            raise AttributeError(key)
+                        value = variable.resolve(self._obj)
                     except VariableDoesNotExist as e:
                         raise AttributeError(key) from e
         return self._convert_result(value)
@@ -223,8 +234,21 @@ class Schema(BaseModel, metaclass=ResolverMetaclass):
         if forbids_extra or should_validate_assignment:
             handler(values)
 
-        values = DjangoGetter(values, cls, info.context)
-        return handler(values)
+        # An instance of this Schema (e.g. nested in another schema, or an item of a
+        # List[...] response) is rebuilt via DjangoGetter like any other input, so its
+        # values are re-validated and resolvers run with the current context. Values
+        # that never went through validation (model_construct, plain attribute
+        # assignment) can't reach the output unfiltered that way.
+        # Its model_fields_set is carried over, so exclude_unset keeps working for
+        # nested schemas (#939).
+        fields_set = None
+        if isinstance(values, cls):
+            fields_set = values.model_fields_set & cls.model_fields.keys()
+
+        result = handler(DjangoGetter(values, cls, info.context))
+        if fields_set is not None:
+            object.__setattr__(result, "__pydantic_fields_set__", fields_set)
+        return result
 
     @classmethod
     def from_orm(cls: Type[S], obj: Any, **kw: Any) -> S:

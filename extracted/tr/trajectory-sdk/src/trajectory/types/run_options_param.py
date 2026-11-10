@@ -20,7 +20,7 @@ class RunOptionsParam(TypedDict, total=False):
   training state. batch_size sets the total number of task groups per batch; each budget counts
   as a separate group. Learn more: https://www.trajectory.ai/field-notes/intelligence-density
   """
-  algorithm: Literal["gspo", "grpo"] | None
+  algorithm: Literal["gspo", "grpo", "stable_reinforce"] | None
   """
   Training algorithm; omit to preserve the model default.
   """
@@ -150,6 +150,18 @@ class RunOptionsParam(TypedDict, total=False):
   """
   Trajectories generated for each training instance; GSPO and GRPO require at least 2.
   """
+  priority_trait: (
+    Literal["iid", "least_stale", "most_stale", "longest_tokens", "longest_turns", "reward"] | None
+  )
+  """
+  Trait used to prioritize completed training groups.
+  """
+  priority_aggregation: (
+    Literal["avg", "max", "min", "binary_variance", "fractional_variance"] | None
+  )
+  """
+  Aggregation used to score a group for batch-selection priority.
+  """
   min_trajectories_per_group: int | None
   """
   Minimum eligible trajectories per training group. null uses half of group_size, rounded down.
@@ -185,9 +197,8 @@ class RunOptionsParam(TypedDict, total=False):
   """
   batch_timeout_seconds: int | None
   """
-  Maximum wall-clock time to assemble one training batch. The clock starts when collection
-  begins and does not reset as groups or in-flight trajectories arrive. Must cover trajectory
-  execution and is not adjusted automatically.
+  Wall-clock threshold for logging and reporting slow training batch collection. Collection
+  continues after the threshold and reports again after each additional interval.
   """
   max_output_tokens_per_turn: int | None
   """

@@ -130,6 +130,7 @@ from .literals import (
     ExecutionRoleIdentityConfigType,
     ExecutionRoleSessionNameModeType,
     ExecutionStatusType,
+    ExtensionStatusType,
     FailureHandlingPolicyType,
     FairShareType,
     FeatureGroupSortByType,
@@ -254,6 +255,7 @@ from .literals import (
     PartnerAppStatusType,
     PartnerAppTypeType,
     PipelineExecutionStatusType,
+    PipelineManagedByType,
     PipelineStatusType,
     PreemptTeamTasksType,
     ProblemTypeType,
@@ -460,6 +462,7 @@ __all__ = (
     "AlgorithmValidationSpecificationOutputTypeDef",
     "AlgorithmValidationSpecificationTypeDef",
     "AlgorithmValidationSpecificationUnionTypeDef",
+    "AliasOperationsTypeDef",
     "AmazonQSettingsTypeDef",
     "AnnotationConsolidationConfigTypeDef",
     "AppDetailsTypeDef",
@@ -703,6 +706,8 @@ __all__ = (
     "CreateAutoMLJobResponseTypeDef",
     "CreateAutoMLJobV2RequestTypeDef",
     "CreateAutoMLJobV2ResponseTypeDef",
+    "CreateClusterExtensionRequestTypeDef",
+    "CreateClusterExtensionResponseTypeDef",
     "CreateClusterRequestTypeDef",
     "CreateClusterResponseTypeDef",
     "CreateClusterSchedulerConfigRequestTypeDef",
@@ -879,6 +884,8 @@ __all__ = (
     "DeleteArtifactResponseTypeDef",
     "DeleteAssociationRequestTypeDef",
     "DeleteAssociationResponseTypeDef",
+    "DeleteClusterExtensionRequestTypeDef",
+    "DeleteClusterExtensionResponseTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteClusterResponseTypeDef",
     "DeleteClusterSchedulerConfigRequestTypeDef",
@@ -978,6 +985,8 @@ __all__ = (
     "DescribeAutoMLJobV2ResponseTypeDef",
     "DescribeClusterEventRequestTypeDef",
     "DescribeClusterEventResponseTypeDef",
+    "DescribeClusterExtensionRequestTypeDef",
+    "DescribeClusterExtensionResponseTypeDef",
     "DescribeClusterNodeRequestTypeDef",
     "DescribeClusterNodeResponseTypeDef",
     "DescribeClusterRequestTypeDef",
@@ -1204,6 +1213,9 @@ __all__ = (
     "ExplainerConfigUnionTypeDef",
     "ExtendTrainingPlanRequestTypeDef",
     "ExtendTrainingPlanResponseTypeDef",
+    "ExtensionDetailsTypeDef",
+    "ExtensionNodeSummaryTypeDef",
+    "ExtensionSummaryTypeDef",
     "FSxLustreConfigTypeDef",
     "FSxLustreFileSystemConfigTypeDef",
     "FSxLustreFileSystemTypeDef",
@@ -1243,6 +1255,7 @@ __all__ = (
     "HubAccessConfigTypeDef",
     "HubContentDependencyTypeDef",
     "HubContentInfoTypeDef",
+    "HubContentStepMetadataTypeDef",
     "HubContentTypeDef",
     "HubInfoTypeDef",
     "HubS3StorageConfigTypeDef",
@@ -1432,6 +1445,9 @@ __all__ = (
     "ListClusterEventsRequestPaginateTypeDef",
     "ListClusterEventsRequestTypeDef",
     "ListClusterEventsResponseTypeDef",
+    "ListClusterExtensionsRequestPaginateTypeDef",
+    "ListClusterExtensionsRequestTypeDef",
+    "ListClusterExtensionsResponseTypeDef",
     "ListClusterNodesRequestPaginateTypeDef",
     "ListClusterNodesRequestTypeDef",
     "ListClusterNodesResponseTypeDef",
@@ -2187,6 +2203,8 @@ __all__ = (
     "UpdateAppImageConfigResponseTypeDef",
     "UpdateArtifactRequestTypeDef",
     "UpdateArtifactResponseTypeDef",
+    "UpdateClusterExtensionRequestTypeDef",
+    "UpdateClusterExtensionResponseTypeDef",
     "UpdateClusterRequestTypeDef",
     "UpdateClusterResponseTypeDef",
     "UpdateClusterSchedulerConfigRequestTypeDef",
@@ -2456,6 +2474,10 @@ class AlgorithmSummaryTypeDef(TypedDict):
     CreationTime: datetime
     AlgorithmStatus: AlgorithmStatusType
     AlgorithmDescription: NotRequired[str]
+
+class AliasOperationsTypeDef(TypedDict):
+    Add: NotRequired[Sequence[str]]
+    Remove: NotRequired[Sequence[str]]
 
 class AmazonQSettingsTypeDef(TypedDict):
     Status: NotRequired[FeatureStatusType]
@@ -3590,6 +3612,10 @@ class DeleteAssociationRequestTypeDef(TypedDict):
     SourceArn: str
     DestinationArn: str
 
+class DeleteClusterExtensionRequestTypeDef(TypedDict):
+    ClusterArn: str
+    ExtensionArn: str
+
 class DeleteClusterRequestTypeDef(TypedDict):
     ClusterName: str
 
@@ -3840,6 +3866,24 @@ class DescribeAutoMLJobV2RequestTypeDef(TypedDict):
 class DescribeClusterEventRequestTypeDef(TypedDict):
     EventId: str
     ClusterName: str
+
+class DescribeClusterExtensionRequestTypeDef(TypedDict):
+    ClusterArn: str
+    ExtensionArn: str
+
+class ExtensionDetailsTypeDef(TypedDict):
+    ClusterArn: str
+    ExtensionArn: str
+    ExtensionName: str
+    ExtensionVersion: str
+    Status: ExtensionStatusType
+    ConfigurationValues: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+
+class ExtensionNodeSummaryTypeDef(TypedDict):
+    TotalCount: int
+    ActiveCount: int
 
 class DescribeClusterNodeRequestTypeDef(TypedDict):
     ClusterName: str
@@ -4174,6 +4218,7 @@ class PipelineExperimentConfigTypeDef(TypedDict):
 class DescribePipelineRequestTypeDef(TypedDict):
     PipelineName: str
     PipelineVersionId: NotRequired[int]
+    PipelineVersionAlias: NotRequired[str]
 
 class DescribeProcessingJobRequestTypeDef(TypedDict):
     ProcessingJobName: str
@@ -4539,6 +4584,13 @@ class SlurmHealthMetadataTypeDef(TypedDict):
 class ExtendTrainingPlanRequestTypeDef(TypedDict):
     TrainingPlanExtensionOfferingId: str
 
+class ExtensionSummaryTypeDef(TypedDict):
+    ExtensionArn: str
+    ExtensionName: str
+    ExtensionVersion: str
+    Status: ExtensionStatusType
+    CreationTime: NotRequired[datetime]
+
 class FailStepMetadataTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
 
@@ -4618,6 +4670,10 @@ class HubContentInfoTypeDef(TypedDict):
     SupportStatus: NotRequired[HubContentSupportStatusType]
     HubContentSearchKeywords: NotRequired[list[str]]
     OriginalCreationTime: NotRequired[datetime]
+
+class HubContentStepMetadataTypeDef(TypedDict):
+    HubArn: NotRequired[str]
+    HubContentArn: NotRequired[str]
 
 class HubInfoTypeDef(TypedDict):
     HubName: str
@@ -5041,6 +5097,7 @@ class PipelineExecutionSummaryTypeDef(TypedDict):
     PipelineExecutionDescription: NotRequired[str]
     PipelineExecutionDisplayName: NotRequired[str]
     PipelineExecutionFailureReason: NotRequired[str]
+    PipelineVersionAliases: NotRequired[list[str]]
 
 class ListPipelineParametersForExecutionRequestTypeDef(TypedDict):
     PipelineExecutionArn: str
@@ -5058,6 +5115,7 @@ class PipelineVersionSummaryTypeDef(TypedDict):
     PipelineVersionDescription: NotRequired[str]
     PipelineVersionDisplayName: NotRequired[str]
     LastExecutionPipelineExecutionArn: NotRequired[str]
+    PipelineVersionAliases: NotRequired[list[str]]
 
 class PipelineSummaryTypeDef(TypedDict):
     PipelineArn: NotRequired[str]
@@ -5751,6 +5809,13 @@ class UpdateArtifactRequestTypeDef(TypedDict):
     Properties: NotRequired[Mapping[str, str]]
     PropertiesToRemove: NotRequired[Sequence[str]]
 
+class UpdateClusterExtensionRequestTypeDef(TypedDict):
+    ClusterArn: str
+    ExtensionArn: str
+    ExtensionVersion: NotRequired[str]
+    ConfigurationValues: NotRequired[str]
+    ClientToken: NotRequired[str]
+
 class UpdateClusterSoftwareInstanceGroupSpecificationTypeDef(TypedDict):
     InstanceGroupName: str
     ImageReleaseVersion: NotRequired[str]
@@ -5841,12 +5906,6 @@ class UpdateMonitoringAlertRequestTypeDef(TypedDict):
     MonitoringAlertName: str
     DatapointsToAlert: int
     EvaluationPeriod: int
-
-class UpdatePipelineVersionRequestTypeDef(TypedDict):
-    PipelineArn: str
-    PipelineVersionId: int
-    PipelineVersionDisplayName: NotRequired[str]
-    PipelineVersionDescription: NotRequired[str]
 
 class UpdateTrialRequestTypeDef(TypedDict):
     TrialName: str
@@ -6067,6 +6126,10 @@ class CreateAutoMLJobResponseTypeDef(TypedDict):
 
 class CreateAutoMLJobV2ResponseTypeDef(TypedDict):
     AutoMLJobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateClusterExtensionResponseTypeDef(TypedDict):
+    ExtensionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateClusterResponseTypeDef(TypedDict):
@@ -6336,6 +6399,10 @@ class DeleteAssociationResponseTypeDef(TypedDict):
     DestinationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteClusterExtensionResponseTypeDef(TypedDict):
+    ExtensionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteClusterResponseTypeDef(TypedDict):
     ClusterArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6556,6 +6623,10 @@ class UpdateArtifactResponseTypeDef(TypedDict):
     ArtifactArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateClusterExtensionResponseTypeDef(TypedDict):
+    ExtensionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateClusterResponseTypeDef(TypedDict):
     ClusterArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6716,6 +6787,14 @@ class AddTagsOutputTypeDef(TypedDict):
     Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateClusterExtensionRequestTypeDef(TypedDict):
+    ClusterArn: str
+    ExtensionName: str
+    ExtensionVersion: NotRequired[str]
+    ConfigurationValues: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
+
 class CreateExperimentRequestTypeDef(TypedDict):
     ExperimentName: str
     DisplayName: NotRequired[str]
@@ -6828,6 +6907,13 @@ class ListAlgorithmsOutputTypeDef(TypedDict):
     AlgorithmSummaryList: list[AlgorithmSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class UpdatePipelineVersionRequestTypeDef(TypedDict):
+    PipelineArn: str
+    PipelineVersionId: int
+    PipelineVersionDisplayName: NotRequired[str]
+    PipelineVersionDescription: NotRequired[str]
+    PipelineVersionAliasOperations: NotRequired[AliasOperationsTypeDef]
 
 class AppDetailsTypeDef(TypedDict):
     DomainId: NotRequired[str]
@@ -7307,6 +7393,13 @@ class ListClusterEventsRequestTypeDef(TypedDict):
     ResourceType: NotRequired[ClusterEventResourceTypeType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListClusterExtensionsRequestTypeDef(TypedDict):
+    ClusterArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
 
 class ListClusterNodesRequestTypeDef(TypedDict):
     ClusterName: str
@@ -7854,6 +7947,7 @@ class ListPipelineExecutionsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    PipelineVersionAlias: NotRequired[str]
 
 class ListPipelineVersionsRequestTypeDef(TypedDict):
     PipelineName: str
@@ -7871,6 +7965,7 @@ class ListPipelinesRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    ManagedBy: NotRequired[PipelineManagedByType]
 
 class ListProcessingJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -8300,6 +8395,12 @@ class ListClusterEventsRequestPaginateTypeDef(TypedDict):
     SortBy: NotRequired[Literal["EventTime"]]
     SortOrder: NotRequired[SortOrderType]
     ResourceType: NotRequired[ClusterEventResourceTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListClusterExtensionsRequestPaginateTypeDef(TypedDict):
+    ClusterArn: str
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListClusterNodesRequestPaginateTypeDef(TypedDict):
@@ -8790,6 +8891,7 @@ class ListPipelineExecutionsRequestPaginateTypeDef(TypedDict):
     CreatedBefore: NotRequired[TimestampTypeDef]
     SortBy: NotRequired[SortPipelineExecutionsByType]
     SortOrder: NotRequired[SortOrderType]
+    PipelineVersionAlias: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPipelineParametersForExecutionRequestPaginateTypeDef(TypedDict):
@@ -8809,6 +8911,7 @@ class ListPipelinesRequestPaginateTypeDef(TypedDict):
     CreatedBefore: NotRequired[TimestampTypeDef]
     SortBy: NotRequired[SortPipelinesByType]
     SortOrder: NotRequired[SortOrderType]
+    ManagedBy: NotRequired[PipelineManagedByType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProcessingJobsRequestPaginateTypeDef(TypedDict):
@@ -9140,6 +9243,7 @@ class CreatePipelineRequestTypeDef(TypedDict):
     PipelineDescription: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
+    PipelineVersionAliases: NotRequired[Sequence[str]]
 
 class UpdatePipelineRequestTypeDef(TypedDict):
     PipelineName: str
@@ -9149,6 +9253,7 @@ class UpdatePipelineRequestTypeDef(TypedDict):
     PipelineDescription: NotRequired[str]
     RoleArn: NotRequired[str]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
+    PipelineVersionAliases: NotRequired[Sequence[str]]
 
 class CreateTrialComponentRequestTypeDef(TypedDict):
     TrialComponentName: str
@@ -9238,6 +9343,11 @@ class DeploymentStageStatusSummaryTypeDef(TypedDict):
     DeviceSelectionConfig: DeviceSelectionConfigOutputTypeDef
     DeploymentConfig: EdgeDeploymentConfigTypeDef
     DeploymentStatus: EdgeDeploymentStatusTypeDef
+
+class DescribeClusterExtensionResponseTypeDef(TypedDict):
+    ExtensionDetails: ExtensionDetailsTypeDef
+    NodeSummary: ExtensionNodeSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeDeviceResponseTypeDef(TypedDict):
     DeviceArn: str
@@ -9696,6 +9806,11 @@ class ModelConfigurationTypeDef(TypedDict):
     InferenceSpecificationName: NotRequired[str]
     EnvironmentParameters: NotRequired[list[EnvironmentParameterTypeDef]]
     CompilationJobName: NotRequired[str]
+
+class ListClusterExtensionsResponseTypeDef(TypedDict):
+    Extensions: list[ExtensionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class NestedFiltersTypeDef(TypedDict):
     NestedPropertyName: str
@@ -11018,6 +11133,7 @@ class PipelineExecutionStepMetadataTypeDef(TypedDict):
     Athena: NotRequired[AthenaStepMetadataTypeDef]
     Cleanup: NotRequired[CleanupStepMetadataTypeDef]
     ForEach: NotRequired[ForEachStepMetadataTypeDef]
+    HubContent: NotRequired[HubContentStepMetadataTypeDef]
 
 HyperParameterTuningResourceConfigUnionTypeDef = Union[
     HyperParameterTuningResourceConfigTypeDef, HyperParameterTuningResourceConfigOutputTypeDef
@@ -11191,6 +11307,7 @@ class DescribePipelineResponseTypeDef(TypedDict):
     ParallelismConfiguration: ParallelismConfigurationTypeDef
     PipelineVersionDisplayName: str
     PipelineVersionDescription: str
+    PipelineVersionAliases: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrialComponentResponseTypeDef(TypedDict):
@@ -11305,6 +11422,7 @@ class PipelineVersionTypeDef(TypedDict):
     LastExecutedPipelineExecutionArn: NotRequired[str]
     LastExecutedPipelineExecutionDisplayName: NotRequired[str]
     LastExecutedPipelineExecutionStatus: NotRequired[PipelineExecutionStatusType]
+    PipelineVersionAliases: NotRequired[list[str]]
 
 class TrialComponentSimpleSummaryTypeDef(TypedDict):
     TrialComponentName: NotRequired[str]
@@ -11791,6 +11909,8 @@ class DescribePipelineExecutionResponseTypeDef(TypedDict):
     SelectiveExecutionConfig: SelectiveExecutionConfigOutputTypeDef
     PipelineVersionId: int
     MLflowConfig: MLflowConfigurationTypeDef
+    PipelineVersionAliases: list[str]
+    RoleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PipelineExecutionTypeDef(TypedDict):
@@ -12848,6 +12968,8 @@ class StartPipelineExecutionRequestTypeDef(TypedDict):
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigUnionTypeDef]
     PipelineVersionId: NotRequired[int]
     MlflowExperimentName: NotRequired[str]
+    PipelineVersionAlias: NotRequired[str]
+    RoleArn: NotRequired[str]
 
 CreateInferenceExperimentRequestTypeDef = TypedDict(
     "CreateInferenceExperimentRequestTypeDef",

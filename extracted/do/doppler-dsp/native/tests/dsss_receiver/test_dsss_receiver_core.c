@@ -26,7 +26,8 @@
 #include <string.h>
 
 /* A length-7 maximal-length sequence (one period) -- same fixture
- * test_acq_core.c uses for its own fast, real (not mocked) unit tests. */
+ * test_correlator_search.c uses for its own fast, real (not mocked) unit
+ * tests. */
 static const uint8_t CODE7[7] = { 1, 1, 1, 0, 1, 0, 0 };
 
 static int
@@ -651,7 +652,8 @@ _test_accessor_coverage (void)
   (void)dp_dsss_receiver_steps_max_out (rx); /* 0 until first stream */
 
   DP_CHECK (dp_dsss_receiver_configure_search_raw (rx, 1, 1) == 0);
-  DP_CHECK (dp_dsss_receiver_configure_search_raw (rx, 100000, 1) == -1);
+  DP_CHECK (dp_dsss_receiver_configure_search_raw (rx, 100000, 1)
+            == DP_ERR_INVALID);
   dp_dsss_receiver_configure_lock_raw (rx, 12.0, 6.0, 8, 0.1, 3, 3);
   DP_CHECK (dp_dsss_receiver_configure_chain_raw (rx, 4, 8, 4) == 0);
   DP_CHECK (dp_dsss_receiver_configure_chain_raw (rx, 0, 8, 4) == -1);
@@ -725,7 +727,7 @@ _test_handoff_resumes_at_the_hit (void)
       return 1;
     }
   /* The premise: frames after a hit that decide nothing. */
-  DP_CHECK (one->acq->n_noncoh > 1);
+  DP_CHECK (one->acq->search->n_noncoh > 1);
 
   float _Complex *a, *b;
   size_t          n_a = _stream (one, x, n, n, &a);

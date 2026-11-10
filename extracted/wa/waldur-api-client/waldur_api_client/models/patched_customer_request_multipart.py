@@ -26,6 +26,8 @@ class PatchedCustomerRequestMultipart:
         archived (Union[Unset, bool]):
         display_billing_info_in_projects (Union[Unset, bool]):
         default_tax_percent (Union[Unset, str]):
+        is_private_person (Union[Unset, bool]): Organization represents a private person rather than a legal entity.
+            Used for EU VAT calculation.
         accounting_start_date (Union[Unset, datetime.datetime]):
         sponsor_number (Union[None, Unset, int]): External ID of the sponsor covering the costs
         max_service_accounts (Union[None, Unset, int]): Maximum number of service accounts allowed
@@ -36,6 +38,10 @@ class PatchedCustomerRequestMultipart:
         user_email_patterns (Union[Unset, list[str]]):
         user_affiliations (Union[Unset, list[str]]):
         user_identity_sources (Union[Unset, list[str]]):
+        user_nationalities (Union[Unset, list[str]]): Allowed nationality codes (ISO 3166-1 alpha-2). User must have
+            one.
+        user_organization_types (Union[Unset, list[str]]): Allowed organization type URNs (SCHAC). User must match one.
+        user_assurance_levels (Union[Unset, list[str]]): Required assurance URIs (REFEDS). User must have all of these.
         name (Union[Unset, str]):
         slug (Union[Unset, str]): URL-friendly identifier. Only editable by staff users.
         native_name (Union[Unset, str]):
@@ -59,6 +65,8 @@ class PatchedCustomerRequestMultipart:
         bank_account (Union[Unset, str]):
         country (Union[BlankEnum, CountryEnum, Unset]): Country code (ISO 3166-1 alpha-2)
         notification_emails (Union[Unset, str]): Comma-separated list of notification email addresses
+        invoice_emails (Union[Unset, str]): Comma-separated list of email addresses that receive invoice notifications
+            instead of the organization owners
         city (Union[Unset, str]):
         state (Union[Unset, str]):
         parish (Union[Unset, str]):
@@ -76,6 +84,7 @@ class PatchedCustomerRequestMultipart:
     archived: Union[Unset, bool] = UNSET
     display_billing_info_in_projects: Union[Unset, bool] = UNSET
     default_tax_percent: Union[Unset, str] = UNSET
+    is_private_person: Union[Unset, bool] = UNSET
     accounting_start_date: Union[Unset, datetime.datetime] = UNSET
     sponsor_number: Union[None, Unset, int] = UNSET
     max_service_accounts: Union[None, Unset, int] = UNSET
@@ -84,6 +93,9 @@ class PatchedCustomerRequestMultipart:
     user_email_patterns: Union[Unset, list[str]] = UNSET
     user_affiliations: Union[Unset, list[str]] = UNSET
     user_identity_sources: Union[Unset, list[str]] = UNSET
+    user_nationalities: Union[Unset, list[str]] = UNSET
+    user_organization_types: Union[Unset, list[str]] = UNSET
+    user_assurance_levels: Union[Unset, list[str]] = UNSET
     name: Union[Unset, str] = UNSET
     slug: Union[Unset, str] = UNSET
     native_name: Union[Unset, str] = UNSET
@@ -106,6 +118,7 @@ class PatchedCustomerRequestMultipart:
     bank_account: Union[Unset, str] = UNSET
     country: Union[BlankEnum, CountryEnum, Unset] = UNSET
     notification_emails: Union[Unset, str] = UNSET
+    invoice_emails: Union[Unset, str] = UNSET
     city: Union[Unset, str] = UNSET
     state: Union[Unset, str] = UNSET
     parish: Union[Unset, str] = UNSET
@@ -135,6 +148,8 @@ class PatchedCustomerRequestMultipart:
         display_billing_info_in_projects = self.display_billing_info_in_projects
 
         default_tax_percent = self.default_tax_percent
+
+        is_private_person = self.is_private_person
 
         accounting_start_date: Union[Unset, str] = UNSET
         if not isinstance(self.accounting_start_date, Unset):
@@ -177,6 +192,18 @@ class PatchedCustomerRequestMultipart:
         user_identity_sources: Union[Unset, list[str]] = UNSET
         if not isinstance(self.user_identity_sources, Unset):
             user_identity_sources = self.user_identity_sources
+
+        user_nationalities: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_nationalities, Unset):
+            user_nationalities = self.user_nationalities
+
+        user_organization_types: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_organization_types, Unset):
+            user_organization_types = self.user_organization_types
+
+        user_assurance_levels: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_assurance_levels, Unset):
+            user_assurance_levels = self.user_assurance_levels
 
         name = self.name
 
@@ -236,6 +263,8 @@ class PatchedCustomerRequestMultipart:
 
         notification_emails = self.notification_emails
 
+        invoice_emails = self.invoice_emails
+
         city = self.city
 
         state = self.state
@@ -271,6 +300,8 @@ class PatchedCustomerRequestMultipart:
             field_dict["display_billing_info_in_projects"] = display_billing_info_in_projects
         if default_tax_percent is not UNSET:
             field_dict["default_tax_percent"] = default_tax_percent
+        if is_private_person is not UNSET:
+            field_dict["is_private_person"] = is_private_person
         if accounting_start_date is not UNSET:
             field_dict["accounting_start_date"] = accounting_start_date
         if sponsor_number is not UNSET:
@@ -287,6 +318,12 @@ class PatchedCustomerRequestMultipart:
             field_dict["user_affiliations"] = user_affiliations
         if user_identity_sources is not UNSET:
             field_dict["user_identity_sources"] = user_identity_sources
+        if user_nationalities is not UNSET:
+            field_dict["user_nationalities"] = user_nationalities
+        if user_organization_types is not UNSET:
+            field_dict["user_organization_types"] = user_organization_types
+        if user_assurance_levels is not UNSET:
+            field_dict["user_assurance_levels"] = user_assurance_levels
         if name is not UNSET:
             field_dict["name"] = name
         if slug is not UNSET:
@@ -331,6 +368,8 @@ class PatchedCustomerRequestMultipart:
             field_dict["country"] = country
         if notification_emails is not UNSET:
             field_dict["notification_emails"] = notification_emails
+        if invoice_emails is not UNSET:
+            field_dict["invoice_emails"] = invoice_emails
         if city is not UNSET:
             field_dict["city"] = city
         if state is not UNSET:
@@ -379,6 +418,9 @@ class PatchedCustomerRequestMultipart:
         if not isinstance(self.default_tax_percent, Unset):
             files.append(("default_tax_percent", (None, str(self.default_tax_percent).encode(), "text/plain")))
 
+        if not isinstance(self.is_private_person, Unset):
+            files.append(("is_private_person", (None, str(self.is_private_person).encode(), "text/plain")))
+
         if not isinstance(self.accounting_start_date, Unset):
             files.append(
                 ("accounting_start_date", (None, self.accounting_start_date.isoformat().encode(), "text/plain"))
@@ -424,6 +466,27 @@ class PatchedCustomerRequestMultipart:
             for user_identity_sources_item_element in self.user_identity_sources:
                 files.append(
                     ("user_identity_sources", (None, str(user_identity_sources_item_element).encode(), "text/plain"))
+                )
+
+        if not isinstance(self.user_nationalities, Unset):
+            for user_nationalities_item_element in self.user_nationalities:
+                files.append(
+                    ("user_nationalities", (None, str(user_nationalities_item_element).encode(), "text/plain"))
+                )
+
+        if not isinstance(self.user_organization_types, Unset):
+            for user_organization_types_item_element in self.user_organization_types:
+                files.append(
+                    (
+                        "user_organization_types",
+                        (None, str(user_organization_types_item_element).encode(), "text/plain"),
+                    )
+                )
+
+        if not isinstance(self.user_assurance_levels, Unset):
+            for user_assurance_levels_item_element in self.user_assurance_levels:
+                files.append(
+                    ("user_assurance_levels", (None, str(user_assurance_levels_item_element).encode(), "text/plain"))
                 )
 
         if not isinstance(self.name, Unset):
@@ -501,6 +564,9 @@ class PatchedCustomerRequestMultipart:
         if not isinstance(self.notification_emails, Unset):
             files.append(("notification_emails", (None, str(self.notification_emails).encode(), "text/plain")))
 
+        if not isinstance(self.invoice_emails, Unset):
+            files.append(("invoice_emails", (None, str(self.invoice_emails).encode(), "text/plain")))
+
         if not isinstance(self.city, Unset):
             files.append(("city", (None, str(self.city).encode(), "text/plain")))
 
@@ -563,6 +629,8 @@ class PatchedCustomerRequestMultipart:
 
         default_tax_percent = d.pop("default_tax_percent", UNSET)
 
+        is_private_person = d.pop("is_private_person", UNSET)
+
         _accounting_start_date = d.pop("accounting_start_date", UNSET)
         accounting_start_date: Union[Unset, datetime.datetime]
         if isinstance(_accounting_start_date, Unset):
@@ -619,6 +687,12 @@ class PatchedCustomerRequestMultipart:
         user_affiliations = cast(list[str], d.pop("user_affiliations", UNSET))
 
         user_identity_sources = cast(list[str], d.pop("user_identity_sources", UNSET))
+
+        user_nationalities = cast(list[str], d.pop("user_nationalities", UNSET))
+
+        user_organization_types = cast(list[str], d.pop("user_organization_types", UNSET))
+
+        user_assurance_levels = cast(list[str], d.pop("user_assurance_levels", UNSET))
 
         name = d.pop("name", UNSET)
 
@@ -695,6 +769,8 @@ class PatchedCustomerRequestMultipart:
 
         notification_emails = d.pop("notification_emails", UNSET)
 
+        invoice_emails = d.pop("invoice_emails", UNSET)
+
         city = d.pop("city", UNSET)
 
         state = d.pop("state", UNSET)
@@ -725,6 +801,7 @@ class PatchedCustomerRequestMultipart:
             archived=archived,
             display_billing_info_in_projects=display_billing_info_in_projects,
             default_tax_percent=default_tax_percent,
+            is_private_person=is_private_person,
             accounting_start_date=accounting_start_date,
             sponsor_number=sponsor_number,
             max_service_accounts=max_service_accounts,
@@ -733,6 +810,9 @@ class PatchedCustomerRequestMultipart:
             user_email_patterns=user_email_patterns,
             user_affiliations=user_affiliations,
             user_identity_sources=user_identity_sources,
+            user_nationalities=user_nationalities,
+            user_organization_types=user_organization_types,
+            user_assurance_levels=user_assurance_levels,
             name=name,
             slug=slug,
             native_name=native_name,
@@ -755,6 +835,7 @@ class PatchedCustomerRequestMultipart:
             bank_account=bank_account,
             country=country,
             notification_emails=notification_emails,
+            invoice_emails=invoice_emails,
             city=city,
             state=state,
             parish=parish,

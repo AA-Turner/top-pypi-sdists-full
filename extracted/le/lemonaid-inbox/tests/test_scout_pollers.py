@@ -4,9 +4,13 @@ import time
 
 from lemonaid import pr_states
 from lemonaid.watch import (
+    cursors,
     github_api,
     github_failures,
     pr_activity,
+    pr_events,
+    pr_poller,
+    roles,
     scout_pollers,
     subscriptions,
 )
@@ -309,3 +313,93 @@ def test_a_read_that_succeeds_during_a_pause_keeps_the_pause_notice(tmp_path, mo
         tmp_path, tmp_path / "failures" / "14.json", "o/r#14", sent.append, 60, 0
     )
     assert len(sent) == 1
+
+
+def test_a_command_poller_reports_an_exit_once(tmp_path):
+    import subprocess
+    import sys
+
+    done = subprocess.run([sys.executable, "-c", "pass"])
+    spec = subscriptions.Subscription("command", ("999999",))
+    sent = []
+    poll = scout_pollers.open_poller(spec, tmp_path / "cursors" / "x.Lemon", "", sent.append, ())
+    poll()
+    poll()
+    assert done.returncode == 0
+    assert len(sent) == 1 and "process 999999 is not running" in sent[0]
+
+
+def test_a_pr_the_live_poller_cannot_read_reaches_the_outage_path_and_recovers(
+    tmp_path, monkeypatch
+):
+    repository = {"pullRequest": {"state": "OPEN"}}
+    reads, failures, recoveries = [], [], []
+    monkeypatch.setattr(pr_activity, "read", lambda *key: reads.append(key))
+    monkeypatch.setattr(github_failures, "failed", lambda *args: failures.append(args) or 0)
+    monkeypatch.setattr(github_failures, "recovered", lambda *args: recoveries.append(args))
+    snap = pr_activity.Snapshot("a" * 40, "OPEN", False, "", [], "main", "MERGEABLE", [])
+    monkeypatch.setattr(
+        pr_activity,
+        "fetch",
+        lambda repo, number, *args, source, **kw: source(repo, number) and snap,
+    )
+    spec = subscriptions.Subscription("pr", ("owner/repo", "12"), comments=True, ci=True)
+    poll = scout_pollers.open_poller(spec, tmp_path / "cursors", "", lambda message: True, ())
+    pr_poller._beat()
+    path = pr_poller._snapshot_path("owner/repo", 12)
+    cursors.write_json(path, {"fingerprint": "", "fetched": 0, "repository": repository})
+    old = time.time() - pr_poller._BEHIND - 1
+    os.utime(path, (old, old))
+
+    poll()
+    assert len(failures) == 1 and not recoveries
+
+    os.utime(path)
+    monkeypatch.setattr(pr_events, "poll", lambda *args, **kwargs: None)
+    poll()
+    assert len(recoveries) == 1
+    assert reads == []
+
+
+def _mention_poller(tmp_path, monkeypatch, states, sent, fetched):
+    def fetch(*args, **kwargs):
+        fetched.append(args)
+        return pr_activity.Snapshot("a" * 40, next(states), False, "", [], "main", "MERGEABLE", [])
+
+    monkeypatch.setattr(pr_activity, "fetch", fetch)
+    spec = subscriptions.Subscription(
+        "pr", ("owner/repo", "12"), role=roles.MENTION, mentioned=True
+    )
+    return scout_pollers.open_poller(spec, tmp_path / "cursors", "", sent.append, ())
+
+
+def test_a_linked_pr_that_closes_asks_once_whether_the_link_still_matters(tmp_path, monkeypatch):
+    sent, fetched = [], []
+    poll = _mention_poller(tmp_path, monkeypatch, iter(["OPEN", "CLOSED"]), sent, fetched)
+    poll()
+    poll()
+    poll()
+
+    assert len(fetched) == 2
+    [message] = sent
+    assert message.startswith("PR #12 is now CLOSED, and your brief still links to it")
+
+
+def test_a_pr_linked_after_it_merged_is_not_read_or_asked_about(tmp_path, monkeypatch):
+    pr_states.record("owner/repo", "12", "MERGED")
+    sent, fetched = [], []
+    _mention_poller(tmp_path, monkeypatch, iter(["MERGED"]), sent, fetched)()
+
+    assert fetched == sent == []
+
+
+def test_a_pr_this_lemon_saw_close_is_not_read_again_by_a_new_scout(tmp_path, monkeypatch):
+    sent, fetched = [], []
+    _mention_poller(tmp_path, monkeypatch, iter(["OPEN", "MERGED"]), sent, fetched)()
+    poll = _mention_poller(tmp_path, monkeypatch, iter(["MERGED"]), sent, fetched)
+    poll()
+    _mention_poller(tmp_path, monkeypatch, iter([]), sent, fetched)()
+
+    assert len(fetched) == 2
+    [message] = sent
+    assert message.startswith("PR #12 is now MERGED, and your brief still links to it")

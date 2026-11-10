@@ -47,25 +47,25 @@ supports (:meth:`~autoware_carla_scenario.traffic.base.TrafficBackend.supported_
 and a field set for a backend that does not support it is an error before the
 run starts.  A field left at ``None`` is the backend's own default.
 
-========================== ====================== =============================
-``traffic.vehicles``       ``traffic_manager``    ``sumo``
-========================== ====================== =============================
-``speed_factor``           global speed diff.     each vehicle's ``speedFactor``
-``min_gap_m``              distance to leader     ``minGap``
-``lane_changes``           ``auto_lane_change``   lane-change mode
-``ignore_lights``          per vehicle            --
-``ignore_signs``           per vehicle            --
-``ignore_vehicles``        per vehicle            --
-``ignore_walkers``         per vehicle            --
-``random_lane_changes``    per vehicle            --
-``accel``                  --                     ``accel``
-``decel``                  --                     ``decel``
-``reaction_time_s``        --                     ``tau``
-``imperfection``           --                     ``sigma``
-``max_lateral_speed_mps``  --                     ``maxSpeedLat``
-``max_lateral_accel``      --                     ``lcAccelLat`` (sublane)
-``follow_visibility``      held to sight (opt-in) held to sight
-========================== ====================== =============================
+========================== ======================== =============================
+``traffic.vehicles``       ``traffic_manager``      ``sumo``
+========================== ======================== =============================
+``speed_factor``           per-vehicle speed diff.  each vehicle's ``speedFactor``
+``min_gap_m``              distance to leader       ``minGap``
+``lane_changes``           ``auto_lane_change``     lane-change mode
+``ignore_lights``          per vehicle              --
+``ignore_signs``           per vehicle              --
+``ignore_vehicles``        per vehicle              --
+``ignore_walkers``         per vehicle              --
+``random_lane_changes``    per vehicle              --
+``accel``                  --                       ``accel``
+``decel``                  --                       ``decel``
+``reaction_time_s``        --                       ``tau``
+``imperfection``           --                       ``sigma``
+``max_lateral_speed_mps``  --                       ``maxSpeedLat``
+``max_lateral_accel``      --                       ``lcAccelLat`` (sublane)
+``follow_visibility``      held to sight (opt-in)   held to sight
+========================== ======================== =============================
 
 ========================== ====================== =============================
 ``traffic.pedestrians``    ``traffic_manager``    ``sumo``
@@ -864,16 +864,12 @@ class PedestrianParameters:
 
     def describe(self) -> dict[str, Any]:
         """The fields that are set, for a run's result record."""
-        values: dict[str, Any] = {
-            "walking_speed_mps": self.walking_speed_mps,
-            "min_gap_m": self.min_gap_m,
-            "red_light_violation_s": self.red_light_violation_s,
-        }
-        return {
-            name: _described(value)
-            for name, value in values.items()
-            if value is not None
-        }
+        values: list[tuple[str, Optional[Spread]]] = [
+            ("walking_speed_mps", self.walking_speed_mps),
+            ("min_gap_m", self.min_gap_m),
+            ("red_light_violation_s", self.red_light_violation_s),
+        ]
+        return {name: value.describe() for name, value in values if value is not None}
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "PedestrianParameters":
@@ -1019,7 +1015,7 @@ class BicycleParameters:
 
     def describe(self) -> dict[str, Any]:
         """The fields that are set, for a run's result record."""
-        return {name: _described(value) for name, value in self.spreads().items()}
+        return {name: spread.describe() for name, spread in self.spreads().items()}
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "BicycleParameters":

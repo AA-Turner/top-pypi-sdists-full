@@ -46,6 +46,11 @@ from skylos.ui.dead_code_evidence import (
 from skylos.ui.quality_advice import pytest_signature_advice, pytest_signature_title
 from skylos.ui.scope_notes import scope_note_lines
 from skylos.ui.security_evidence import security_evidence_details
+from skylos.reporting.path_display import (
+    group_path_checks,
+    path_check_details,
+    path_rule_label,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +263,7 @@ def _finding_table_cells(item, category, root_path=None, *, verbose=True):
     rule = (
         complexity.rule_label
         if complexity is not None
-        else str(item.get("rule_id") or item.get("rule") or "")
+        else path_rule_label(item) or str(item.get("rule_id") or item.get("rule") or "")
     )
     name = str(item.get("name") or item.get("simple_name") or "")
     details = []
@@ -331,6 +336,7 @@ def _finding_table_cells(item, category, root_path=None, *, verbose=True):
     if not isinstance(metadata, dict):
         metadata = {}
     details.extend(security_evidence_details(item))
+    details.extend(path_check_details(item))
     if category in {"dependency_vulnerabilities", "publisher_change_findings"}:
         details.append(
             f"Package: {metadata.get('package_name', '?')}@{metadata.get('package_version', '?')}"
@@ -342,6 +348,9 @@ def _finding_table_cells(item, category, root_path=None, *, verbose=True):
         details.append(f"Fix: {metadata.get('fixed_version') or '-'}")
         if metadata.get("reachability_verdict"):
             details.append(f"Reachability: {metadata['reachability_verdict']}")
+        from skylos.rules.sca.threat_intel import risk_context_details
+
+        details.extend(risk_context_details(metadata.get("risk_context")))
     if category == "publisher_change_findings":
         details.append(
             f"Publisher: {metadata.get('previous_publisher') or '?'} → "
@@ -1095,6 +1104,8 @@ def _render_danger(
     console: Console, root_path, limit, items, *, title="Security", reliability=False
 ):
     category = "reliability" if reliability else "danger"
+    if not reliability:
+        items = group_path_checks(items or [])
     _render_finding_table(console, root_path, limit, title, items, category)
 
 
@@ -1142,7 +1153,11 @@ def _render_sca(console: Console, limit, items, root_path=None, *, verbose=False
 
 
 def _render_sca_packages(console: Console, root_path, limit, advisories):
-    from skylos.reporting.sca_summary import group_advisories, summary_footer
+    from skylos.reporting.sca_summary import (
+        group_advisories,
+        has_use_data,
+        summary_footer,
+    )
 
     groups = group_advisories(advisories)
     if not groups:
@@ -1154,17 +1169,30 @@ def _render_sca_packages(console: Console, root_path, limit, advisories):
     table.add_column("Package", overflow="fold")
     table.add_column("Installed", overflow="fold")
     table.add_column("Upgrade to", overflow="fold")
+    show_use = has_use_data(groups)
+    if show_use:
+        table.add_column("Use", overflow="fold")
+    from skylos.rules.sca.threat_intel import package_risk_text
+
+    show_threat = any(package_risk_text(group.findings) for group in groups)
+    if show_threat:
+        table.add_column("Threat context", overflow="fold")
     table.add_column("Advisories", overflow="fold")
     table.add_column("Location", overflow="fold")
     for group in show:
-        table.add_row(
+        cells = [
             escape(group.worst_severity),
             escape(group.name),
             escape(group.version),
             escape(group.fix_text()),
-            escape(f"{group.count}: {group.ids_text()}"),
-            escape(f"{_shorten_path(group.file, root_path)}:{group.line}"),
-        )
+        ]
+        if show_use:
+            cells.append(escape(group.use_text()))
+        if show_threat:
+            cells.append(escape(package_risk_text(group.findings) or "No CVE context"))
+        cells.append(escape(f"{group.count}: {group.ids_text()}"))
+        cells.append(escape(f"{_shorten_path(group.file, root_path)}:{group.line}"))
+        table.add_row(*cells)
     console.print(table)
     if overflow:
         console.print(

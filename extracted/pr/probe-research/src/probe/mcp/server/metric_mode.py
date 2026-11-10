@@ -70,7 +70,19 @@ _METRIC_MODE_ARGS: dict[MetricMode, frozenset[str]] = {
     # either -- the series route has no top-level kind filter and would DROP it
     # (its body model ignores unknown fields); each row says its kind instead.
     MetricMode.SERIES: frozenset(
-        {"run_ids", "keys", "step_from", "step_to", "smoothing", "max_points"}
+        {
+            "run_ids",
+            "keys",
+            "step_from",
+            "step_to",
+            "smoothing",
+            "smoothing_factor",
+            "smoothing_window",
+            "sample_every",
+            "x_axis",
+            "dimensions",
+            "max_points",
+        }
     ),
 }
 

@@ -242,6 +242,31 @@ public:
     /** Get the objective of the problem. */
     inline Objective objective() const { return objective_; }
 
+    /**
+     * Get the goal of the 'BinPacking' objective, 0 if none: the search stops
+     * as soon as a solution with at most this number of bins is found. It
+     * doesn't stop when the goal is proven unreachable, since the optimal
+     * solution is then still needed (e.g., by the Benders decomposition of
+     * irregular, whose master problems use it).
+     */
+    inline BinPos bin_packing_goal() const { return bin_packing_goal_; }
+
+    /**
+     * Get the goal of the 'Knapsack' objective, infinity if none: the search
+     * stops as soon as a solution with at least this profit is found. As for
+     * the bin packing goal, it doesn't stop when the goal is proven
+     * unreachable.
+     */
+    inline Profit knapsack_goal() const { return knapsack_goal_; }
+
+    /**
+     * Get the goal of the 'VariableSizedBinPacking' objective, 0 if none: the
+     * search stops as soon as a solution with at most this cost is found. As
+     * for the bin packing goal, it doesn't stop when the goal is proven
+     * unreachable.
+     */
+    inline Profit variable_sized_bin_packing_goal() const { return variable_sized_bin_packing_goal_; }
+
     /*
      * Getters: parameters
      */
@@ -385,6 +410,18 @@ private:
 
     /** Objective. */
     Objective objective_ = Objective::BinPacking;
+
+    /** Goal of the 'BinPacking' objective (see 'bin_packing_goal'). */
+    BinPos bin_packing_goal_ = 0;
+
+    /** Goal of the 'Knapsack' objective (see 'knapsack_goal'). */
+    Profit knapsack_goal_ = std::numeric_limits<Profit>::infinity();
+
+    /**
+     * Goal of the 'VariableSizedBinPacking' objective (see
+     * 'variable_sized_bin_packing_goal').
+     */
+    Profit variable_sized_bin_packing_goal_ = 0;
 
     /** Parameters. */
     Parameters parameters_;

@@ -14,7 +14,10 @@ from .columns import Columns, ColumnsError, ColumnsWarning
 from .constants import (
     RELATIVE_100,
     Align,
+    MouseButton,
+    Severity,
     Sizing,
+    ValidationMessage,
     VAlign,
     WHSettings,
     WrapMode,
@@ -38,6 +41,7 @@ from .divider import Divider
 from .drop_down import DropDown
 from .edit import Edit, EditError, IntEdit
 from .filler import Filler, FillerError, FillerWarning, calculate_top_bottom_filler
+from .filtered_walker import FilteredListWalker
 from .frame import Frame, FrameError
 from .grid_flow import GridFlow, GridFlowError, GridFlowWarning
 from .line_box import LineBox
@@ -45,13 +49,18 @@ from .list_walker import ListWalker, ListWalkerError, SimpleFocusListWalker, Sim
 from .listbox import ListBox, ListBoxError
 from .monitored_deque import MonitoredDeque, MonitoredFocusDeque
 from .monitored_list import MonitoredFocusList, MonitoredList
+from .notifications import Notification, Notifications
 from .overlay import Overlay, OverlayError, OverlayWarning
+from .overlay_stack import OverlayStack
 from .padding import Padding, PaddingError, PaddingWarning, calculate_left_right_padding
 from .pile import Pile, PileError, PileWarning
 from .popup import PopUpLauncher, PopUpTarget
 from .progress_bar import ProgressBar
 from .scrollable import Scrollable, ScrollableError, ScrollBar
 from .solid_fill import SolidFill
+from .spinner import Spinner
+from .table import Table, TableColumn, TableError, TableLayout, TableRow
+from .tabs import Tabs, TabsError
 from .text import Text, TextError
 from .treetools import ParentNode, TreeListBox, TreeNode, TreeWalker, TreeWidget, TreeWidgetError
 from .widget import (
@@ -120,6 +129,7 @@ __all__ = (
     "Filler",
     "FillerError",
     "FillerWarning",
+    "FilteredListWalker",
     "Frame",
     "FrameError",
     "GraphVScale",
@@ -136,8 +146,12 @@ __all__ = (
     "MonitoredFocusDeque",
     "MonitoredFocusList",
     "MonitoredList",
+    "MouseButton",
+    "Notification",
+    "Notifications",
     "Overlay",
     "OverlayError",
+    "OverlayStack",
     "OverlayWarning",
     "Padding",
     "PaddingError",
@@ -156,12 +170,21 @@ __all__ = (
     "SelectNavigationListContentsMixin",
     "SelectNavigationMixin",
     "SelectableIcon",
+    "Severity",
     "SimpleDequeWalker",
     "SimpleFocusDequeWalker",
     "SimpleFocusListWalker",
     "SimpleListWalker",
     "Sizing",
     "SolidFill",
+    "Spinner",
+    "Table",
+    "TableColumn",
+    "TableError",
+    "TableLayout",
+    "TableRow",
+    "Tabs",
+    "TabsError",
     "Text",
     "TextError",
     "TreeListBox",
@@ -170,6 +193,7 @@ __all__ = (
     "TreeWidget",
     "TreeWidgetError",
     "VAlign",
+    "ValidationMessage",
     "WHSettings",
     "Widget",
     "WidgetContainerListContentsMixin",

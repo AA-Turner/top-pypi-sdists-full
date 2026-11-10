@@ -131,6 +131,104 @@ pub(crate) fn protect_sidecar_strict<'py>(
     protect.call1((obj,)).ok()
 }
 
+/// [`protect_sidecar_strict`] for a TEMPLATE AUTHOR's walk (#3790): the floor
+/// `Context::walk_live` applies after every segment.
+///
+/// Two floors, one leaf. `_protect_sidecar_value` proxies a `Model` / `Manager` /
+/// `QuerySet`; `_protect_sidecar_walk` is that PLUS the objects that hold a model's
+/// values behind a plain `dict` / attribute (a model `Form` and its `BoundField`s), where the
+/// leaf floor cannot see a floor field because the value is already a string
+/// (`{{ form.initial.password }}`, `{{ form.password.value }}`).
+///
+/// They are different calls on purpose. [`protect_sidecar_strict`] is also what
+/// [`crate::value_into_handler_pyobject`] hands a live object to a bridged
+/// Python TAG with, and that code is the application's own: djust's `bound_field.value()`
+/// component readers and every third-party form tag must get the real `BoundField`, or
+/// a form rendering a `User`'s `is_staff` checkbox would draw it unchecked and a save
+/// would silently demote the user. The wrapper the walk needs is for a path a
+/// TEMPLATE spells, not for a Python function that receives the object.
+///
+/// Falls back to the leaf floor when `_protect_sidecar_walk` is absent from an
+/// importable `djust.serialization` (a stub, or a version skew): never weaker than
+/// before; the only thing missing is the form arm.
+pub(crate) fn protect_sidecar_walk_strict<'py>(
+    py: Python<'py>,
+    obj: pyo3::Bound<'py, pyo3::PyAny>,
+) -> Option<pyo3::Bound<'py, pyo3::PyAny>> {
+    let Ok(module) = py.import("djust.serialization") else {
+        return Some(obj);
+    };
+    let Ok(protect) = module
+        .getattr("_protect_sidecar_walk")
+        .or_else(|_| module.getattr("_protect_sidecar_value"))
+    else {
+        return Some(obj);
+    };
+    protect.call1((obj,)).ok()
+}
+
+/// Is this live handle a Django `Form` / `BoundField` (#3755)?
+///
+/// [`crate::value_into_handler_pyobject`] hands a live handle to a bridged Python
+/// tag only when the object is NOT iterable, because the floor
+/// ([`protect_sidecar_strict`]) is a leaf floor and cannot see inside a container.
+/// A `BoundField` is iterable (its subwidgets), so a `{% for f in form %}` /
+/// `{% with f=form.name %}` binding reached `{% field_error field=f %}` as a
+/// [`crate::TemplateObject`] with no `errors` to read, while the same field spelled
+/// `form.name` reached it live.
+///
+/// The exception is this exact family, decided by `djust.serialization` (one
+/// authority, not a copy of its type list here). It adds a new SPELLING of an existing
+/// reach, not a new reach: a `Form` / `BoundField` in the value stack came from a `Form`
+/// that the raw-Python sidecar already hands the same bridged tag LIVE under its own
+/// name, and everything reachable from a field is reachable from that form. That reach has
+/// NO floor: Django's `Variable` walks raw objects, so a bridged tag given
+/// `form.instance.password` or `f.form.instance.password` prints the hash (tracked in the
+/// follow-up issue; an earlier version of this comment said "adds no exposure", which was
+/// wrong for `json_viewer`, now back on the floored native path). Fail-CLOSED: anything but
+/// a clean `True` (djust's Python not importable, the helper missing or raising) answers
+/// `false`, and the caller keeps the wrapper.
+pub(crate) fn live_handle_is_form_object(
+    py: Python<'_>,
+    obj: &pyo3::Bound<'_, pyo3::PyAny>,
+) -> bool {
+    py.import("djust.serialization")
+        .and_then(|m| m.getattr("_is_form_object"))
+        .and_then(|check| check.call1((obj,)))
+        .and_then(|answer| answer.is_truthy())
+        .unwrap_or(false)
+}
+
+/// Is this live handle a Django formset, or the walk proxy of one (#3769)?
+///
+/// The conversion asks it ONLY to decide whether `str(o)` is read now or on first use: a formset's
+/// text is the render of its management form and of every form in it. It is a separate question
+/// from [`live_handle_is_form_object`], which also decides how a bridged tag receives the object
+/// (#3755) and has never included a formset.
+///
+/// **Asked of every iterable that is not a form** (a `set`, a `range`, a `deque`...), so it makes
+/// no Python-level call: the two classes are resolved ONCE per process into a tuple and the
+/// answer is one C-level `isinstance`. (The first version imported `django.forms.formsets` and
+/// called a Python helper per value: +4-6% CPU on a conversion of a `set`.) Only a SUCCESSFUL
+/// lookup is cached; a failed one (djust's Python not importable yet, Django absent) is retried,
+/// and answers `false` meanwhile: fail-closed, the text is read now, as it always was.
+pub(crate) fn live_handle_is_formset(py: Python<'_>, obj: &pyo3::Bound<'_, pyo3::PyAny>) -> bool {
+    static CLASSES: pyo3::sync::PyOnceLock<Py<pyo3::PyAny>> = pyo3::sync::PyOnceLock::new();
+    let classes = CLASSES.get_or_try_init(py, || -> PyResult<Py<pyo3::PyAny>> {
+        let formset = py.import("django.forms.formsets")?.getattr("BaseFormSet")?;
+        let proxy = py
+            .import("djust.serialization")?
+            .getattr("_SidecarFormSetProxy")?;
+        Ok(pyo3::types::PyTuple::new(py, [formset, proxy])?
+            .into_any()
+            .unbind())
+    });
+    match classes {
+        Ok(classes) => obj.is_instance(classes.bind(py)).unwrap_or(false),
+        Err(_) => false,
+    }
+}
+
 /// Reuse only exact builtin values with no user-defined timezone behavior.
 /// Subclasses can override display, truthiness and methods; aware values can
 /// carry mutable tzinfo implementations, so both take normal live conversion.
@@ -215,6 +313,9 @@ pub type SharedValues = std::sync::Arc<AHashMap<String, Value>>;
 /// One lexical binding scope, including the provenance of its values.
 #[derive(Clone, Debug, Default)]
 struct ScopeFrame {
+    /// Template-literal bindings, independent of HTML safety or registration authority.
+    literal_keys: std::sync::Arc<AHashSet<String>>,
+    captured_literals: std::sync::Arc<AHashMap<String, LiteralOutput>>,
     /// COPY-ON-WRITE, and that is a performance contract, not a style choice
     /// (#2732).
     ///
@@ -583,6 +684,9 @@ pub struct Context {
     /// the resolver holds `&Context` — hence a shareable handle rather than
     /// a borrow. See [`BlockSuperSource`].
     block_super: Option<std::sync::Arc<dyn BlockSuperSource>>,
+    // Render-owned notification: resolver/capture APIs return Values and cannot
+    // carry intervals. Shared only by scopes/clones of this tracked render.
+    provenance_flatten: Option<std::sync::Arc<std::sync::Mutex<Vec<LiteralOutput>>>>,
 }
 
 impl Default for Context {
@@ -623,6 +727,7 @@ impl Clone for Context {
             // the parent NODES, not a rendered string, so cloning it costs a
             // refcount.
             block_super: self.block_super.clone(),
+            provenance_flatten: self.provenance_flatten.clone(),
         }
     }
 }
@@ -645,6 +750,396 @@ pub trait BlockSuperSource: std::fmt::Debug + Send + Sync {
     /// Render the parent body against `ctx`, as Django's
     /// `BlockNode.render(self.context)` does.
     fn render_block_super(&self, ctx: &Context) -> crate::Result<String>;
+
+    /// Direct unfiltered block.super emission may compose authored output.
+    /// The default for external sources is untrusted String output.
+    fn render_block_super_authored(&self, ctx: &Context) -> crate::Result<AuthoredOutput> {
+        self.render_block_super(ctx).map(|html| {
+            (
+                html,
+                Vec::new(),
+                Vec::new(),
+                LiteralOutput {
+                    blocked: false,
+                    html: Some("\u{fffd}".to_owned()),
+                    blank_html: Some(String::new()),
+                    blank_openings: Vec::new(),
+                    openings: Vec::new(),
+                },
+            )
+        })
+    }
+}
+
+/// Literal-only context travels independently of emitted HTML. Missing cache
+/// metadata is None and fails closed for the whole render.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiteralOutput {
+    /// A permanent forward authority cutoff, distinct from unknown cache metadata.
+    pub blocked: bool,
+    pub html: Option<String>,
+    /// Blank projection: opaque occurrences contribute no bytes.
+    pub blank_html: Option<String>,
+    pub blank_openings: Vec<(usize, usize)>,
+    pub openings: Vec<(usize, usize)>,
+}
+
+/// Renderer-internal composition. The Python API exposes the first three fields.
+pub type AuthoredOutput = (
+    String,
+    Vec<(usize, usize)>,
+    Vec<(usize, usize, usize, String)>,
+    LiteralOutput,
+);
+
+/// Drop authority; an unreplayable byte-changing transform invalidates literal
+/// context. Byte-identical captures retain their literal/value boundaries.
+pub fn flatten_authored_output(output: AuthoredOutput, text: String) -> AuthoredOutput {
+    let literal = if output.0 == text {
+        output.3.html
+    } else {
+        None
+    };
+    let blank_html = if output.0 == text {
+        output.3.blank_html
+    } else {
+        None
+    };
+    (
+        text,
+        Vec::new(),
+        Vec::new(),
+        LiteralOutput {
+            blocked: output.3.blocked,
+            blank_html,
+            blank_openings: Vec::new(),
+            html: literal,
+            openings: Vec::new(),
+        },
+    )
+}
+
+/// The `block` a PYTHON-BRIDGED tag receives while a `{{ block.super }}` is
+/// armed (#2918).
+///
+/// A bridged tag gets the context as a flat map, and a map has nothing to
+/// defer behind. This used to be answered by rendering the parent for EVERY
+/// bridged call made inside an overriding block, whether or not the tag ever
+/// read it — identical output, but the parent's own side effects (a counter, a
+/// cache warmer, a bridged tag in the parent body) ran several times as often
+/// as in Django: 60 handler calls against 12 in the #2916 probe.
+///
+/// This object is what the map carries instead. It owns a snapshot of the
+/// context (a `Context` clone is copy-on-write, so the snapshot costs
+/// refcount bumps) and renders the parent when `super` is READ, through the
+/// same [`BlockSuperSource`] [`Context::resolve`] runs. Every read renders
+/// again: Django's `BlockNode.super()` is a method call, so a tag reading it
+/// twice renders the parent twice, and **nothing here may memoize** — a
+/// parent holding `{% cycle 'a' 'b' %}` answers `a` then `b`.
+///
+/// Its shape is Django's: `super` is a METHOD (`context["block"].super()`, and
+/// what `Variable("block.super")` resolves by auto-calling it), with
+/// `"super" in block`, `len` and the keys alongside, none of which evaluates
+/// anything.
+///
+/// **Dict-style reads are a DEPRECATED compatibility path** (deprecated in 1.3,
+/// removed no earlier than 2.0; replacement `block.super()`): the `dict` this
+/// object replaced allowed `block["super"]`, and `get("super")`, `values()` and
+/// `items()` read it too. Each such read emits the standard djust
+/// `DeprecationWarning` (`djust._deprecation.warn_deprecated`, attributed to the
+/// tag's own line), renders the parent once, and lets the parent's own
+/// exception propagate unchanged — so `except ValueError` around it works as it
+/// did against the dict.
+///
+/// The one hard part is `__getitem__`. Django's `Variable._resolve_lookup`
+/// tries `current[bit]` FIRST and CATCHES the five exception classes a mapping
+/// access may raise (`TypeError`, `AttributeError`, `KeyError`, `ValueError`,
+/// `IndexError`), then walks on to `getattr` — which for Django's own
+/// `BlockNode` is the `super()` method, because a `BlockNode` is not
+/// subscriptable. An evaluating `__getitem__` would therefore run the parent,
+/// have its error swallowed, and run it a second time; re-wrapping the error
+/// changes the class a tag's `except` sees; a "pending exception" slot leaves a
+/// stale error for the next read. So `__getitem__` asks WHO is calling: when the
+/// immediate Python caller is Django's own `_resolve_lookup` frame (matched by
+/// file and name, so a wrapped method still counts and a look-alike in user code
+/// does not), or djust's own Rust resolver is subscripting this very object, it
+/// answers exactly what a `BlockNode` answers
+/// (`TypeError: not subscriptable`, no evaluation, no warning) and the resolver
+/// falls through to `super()` as it always has. Anyone else is user code reading
+/// the legacy way. If a future Django moved the subscript out of
+/// `_resolve_lookup`, the resolver would take the legacy path (a warning, and a
+/// double run only when the parent raises one of the five classes); the
+/// differential tests run the resolver paths under
+/// `-W error::DeprecationWarning`, so that fails loudly when the lock moves.
+///
+/// What it returns is a `SafeString`: rendered template output, already
+/// escaped by whatever produced it, which is the grant Django makes too.
+///
+/// **It is only good for the bridged call that was handed it.** The snapshot
+/// holds strong references to the render context's Python objects, and a tag
+/// may keep the `Context` it receives (`holder.ctx = context`): that closes a
+/// cycle — holder, Django context, this object, the snapshot, holder — which
+/// Python's collector cannot see through, because this type has no
+/// `tp_traverse`. So [`LazyBlockGuard`] drops the snapshot when the call
+/// returns, and a later read answers `''`, which is what Django's retained
+/// `BlockNode.super()` answers once the render is over.
+#[pyclass(name = "LazyBlock", module = "djust._rust")]
+pub struct LazyBlock {
+    /// `None` once the bridged call that owned it has returned.
+    context: std::sync::Mutex<Option<Context>>,
+}
+
+const LAZY_BLOCK_REPR: &str = "<LazyBlock super=<deferred>>";
+
+/// Is the immediate Python caller Django's `Variable._resolve_lookup`?
+///
+/// Matched by the frame's MODULE and NAME: `f_globals` is the namespace of
+/// `django.template.base` and `co_name == "_resolve_lookup"`. The
+/// first version compared the code object with the one `Variable._resolve_lookup`
+/// holds NOW, which fails the moment anything wraps or replaces that method (a
+/// profiler, a decorator, a monkeypatch): the wrapper calls the original, whose
+/// frame is still Django's own but whose code object is no longer the one the
+/// attribute reads back. A user function that merely shares the name lives in
+/// another module and still reads as user code, and a subclass reaching the base
+/// implementation through `super()` is still Django's frame.
+///
+/// `sys._getframe(0)` is the Python frame that performed the subscript (a
+/// pymethod pushes no frame of its own). False when Django's template module
+/// was never imported, when there is no Python frame at all (an embedded unit
+/// test), or when anything about the probe fails: the caller is then treated as
+/// user code.
+fn called_by_django_resolver(py: Python<'_>) -> bool {
+    let probe = || -> PyResult<bool> {
+        let sys = py.import("sys")?;
+        let Some(base) = sys
+            .getattr("modules")?
+            .get_item("django.template.base")
+            .ok()
+        else {
+            return Ok(false);
+        };
+        let frame = sys.call_method1("_getframe", (0,))?;
+        if frame
+            .getattr("f_code")?
+            .getattr("co_name")?
+            .extract::<String>()?
+            != "_resolve_lookup"
+        {
+            return Ok(false);
+        }
+        // The frame's globals ARE the module's namespace. (`co_filename` is not
+        // `__file__` for a sourceless, `.pyc`-only Django.)
+        Ok(frame.getattr("f_globals")?.is(&base.getattr("__dict__")?))
+    };
+    probe().unwrap_or(false)
+}
+
+thread_local! {
+    /// The object this thread's RUST resolver is currently subscripting as
+    /// Django's step 1 (`0` = none). See [`step1_get_item`].
+    static RUST_STEP1_TARGET: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Django's resolution step 1 (`current[bit]`) as the RUST resolvers perform
+/// it ([`Context::walk_live`] and the sidecar walk).
+///
+/// They have no Python frame of their own, so [`called_by_django_resolver`]
+/// cannot recognise them: a template rendered in Rust that holds a `block`
+/// (`_rust.render_template("{{ block.super }}", {"block": context["block"]})`)
+/// reached a lazy block's `__getitem__` as if it were legacy user code, warned,
+/// and, over a parent raising one of the five classes this step swallows, ran
+/// the parent twice. So the object being subscripted is recorded here for the
+/// duration of the call and [`LazyBlock::__getitem__`] answers it as Django's
+/// resolver is answered. Keyed by OBJECT, not a bare flag, so nested user code
+/// that happens to subscript some other lazy block is still user code.
+fn step1_get_item<'py, K>(current: &Bound<'py, PyAny>, key: K) -> PyResult<Bound<'py, PyAny>>
+where
+    K: pyo3::conversion::IntoPyObject<'py>,
+{
+    struct Restore(usize);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            RUST_STEP1_TARGET.with(|cell| cell.set(self.0));
+        }
+    }
+    let _restore = Restore(RUST_STEP1_TARGET.with(|cell| cell.replace(current.as_ptr() as usize)));
+    current.get_item(key)
+}
+
+/// The standard djust deprecation for a dict-style read of the lazy `block`.
+///
+/// Through `djust._deprecation.warn_deprecated` like every other djust
+/// deprecation; its default `stacklevel=2` lands on the Python frame that made
+/// the read (the Rust frames in between do not exist for `warnings`). A failure
+/// to IMPORT the helper (a bare embedded interpreter) is not an error; a
+/// warning promoted to an exception by the caller's filters is, and propagates.
+fn warn_dict_style(py: Python<'_>) -> PyResult<()> {
+    let Ok(module) = py.import("djust._deprecation") else {
+        return Ok(());
+    };
+    let kwargs = pyo3::types::PyDict::new(py);
+    kwargs.set_item("since", "1.3")?;
+    kwargs.set_item("removed_in", "2.0.0")?;
+    kwargs.set_item("instead", "block.super()")?;
+    module.getattr("warn_deprecated")?.call(
+        (
+            "Dict-style access to `block.super` (`block['super']`, `block.get('super')`, \
+             `block.values()`, `block.items()`) on the context a template tag receives",
+        ),
+        Some(&kwargs),
+    )?;
+    Ok(())
+}
+
+impl LazyBlock {
+    /// One read: render the parent now, exactly as `Context::resolve` does.
+    ///
+    /// A Python exception the parent raised crosses WHOLE, so the tag that
+    /// read `super` sees the parent's own error; anything else becomes the
+    /// same Python error every other `DjangoRustError` does.
+    fn read<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        // Cloned out so the lock is not held across the render.
+        let snapshot = self
+            .context
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        let html = match snapshot {
+            Some(context) => context.render_armed_block_super()?,
+            None => None,
+        };
+        // `None`: the call that owned this is over, or there is no further
+        // ancestor — Django's `BlockNode.super()` answers `''` in both.
+        crate::value_into_handler_pyobject(py, Value::SafeString(html.unwrap_or_default()))
+    }
+}
+
+/// Ends a [`LazyBlock`]'s life when the bridged call it was built for returns.
+///
+/// Held next to the flat map the handler is called with, so it drops after the
+/// call on every path, including `?` and a Python exception.
+pub struct LazyBlockGuard(Py<LazyBlock>);
+
+impl Drop for LazyBlockGuard {
+    fn drop(&mut self) {
+        Python::attach(|py| {
+            *self
+                .0
+                .bind(py)
+                .borrow()
+                .context
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+        });
+    }
+}
+
+#[pymethods]
+impl LazyBlock {
+    /// Django's `BlockNode.super()` — a METHOD, so a tag written against
+    /// Django's `context["block"]` (`context["block"].super()`) works, and so
+    /// does the attribute step of `_resolve_lookup`, which auto-calls it.
+    #[pyo3(name = "super")]
+    fn super_call<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.read(py)
+    }
+
+    /// `block["super"]` — the legacy dict-style read (deprecated since 1.3,
+    /// removed no earlier than 2.0; use [`LazyBlock::super_call`]).
+    ///
+    /// From Django's own resolver this is a `TypeError`, exactly what a
+    /// `BlockNode` answers, so the resolver falls through to `super()` with the
+    /// parent evaluated once and its own exception propagating. From anything
+    /// else it warns, renders the parent once, and propagates the parent's own
+    /// exception unwrapped. See the type's docs for why it must ask.
+    fn __getitem__<'py>(
+        slf: &Bound<'py, Self>,
+        key: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let py = slf.py();
+        if called_by_django_resolver(py)
+            || RUST_STEP1_TARGET.with(|cell| cell.get()) == slf.as_ptr() as usize
+        {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "'LazyBlock' object is not subscriptable",
+            ));
+        }
+        match key.extract::<String>() {
+            Ok(name) if name == "super" => {
+                warn_dict_style(py)?;
+                slf.borrow().read(py)
+            }
+            _ => Err(pyo3::exceptions::PyKeyError::new_err(key.to_string())),
+        }
+    }
+
+    /// Deprecated like [`LazyBlock::__getitem__`] when it reads `super`.
+    #[pyo3(signature = (key, default=None))]
+    fn get<'py>(
+        &self,
+        py: Python<'py>,
+        key: &Bound<'py, PyAny>,
+        default: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        match key.extract::<String>() {
+            Ok(name) if name == "super" => {
+                warn_dict_style(py)?;
+                self.read(py)
+            }
+            _ => Ok(default.unwrap_or_else(|| py.None().into_bound(py))),
+        }
+    }
+
+    fn __contains__(&self, key: &Bound<'_, PyAny>) -> bool {
+        key.extract::<String>().is_ok_and(|name| name == "super")
+    }
+
+    fn __len__(&self) -> usize {
+        1
+    }
+
+    fn __iter__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        pyo3::types::PyList::new(py, ["super"])?
+            .as_any()
+            .try_iter()
+            .map(|it| it.into_any())
+    }
+
+    fn keys<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        Ok(pyo3::types::PyList::new(py, ["super"])?.into_any())
+    }
+
+    /// Reads `super`: a read per call, not a cached pair. Deprecated like
+    /// [`LazyBlock::__getitem__`].
+    fn values<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        warn_dict_style(py)?;
+        Ok(pyo3::types::PyList::new(py, [self.read(py)?])?.into_any())
+    }
+
+    /// Reads `super`; deprecated like [`LazyBlock::__getitem__`].
+    fn items<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        warn_dict_style(py)?;
+        let name = "super".into_pyobject(py)?.into_any();
+        let pair = pyo3::types::PyTuple::new(py, [name, self.read(py)?])?;
+        Ok(pyo3::types::PyList::new(py, [pair])?.into_any())
+    }
+
+    /// `copy.copy` / `copy.deepcopy` of a context (`context.flatten()`,
+    /// `copy.copy(context)`) reach this object; it is a handle, not state, so
+    /// the copy is itself. (`pickle` raises `TypeError`, as it does for a
+    /// `BlockNode`'s render state.)
+    fn __copy__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __deepcopy__(slf: Py<Self>, _memo: &Bound<'_, PyAny>) -> Py<Self> {
+        slf
+    }
+
+    /// Never evaluates: a `repr` in a debug log must not run the parent.
+    fn __repr__(&self) -> &'static str {
+        LAZY_BLOCK_REPR
+    }
 }
 
 /// Outcome of the Django-parity callable handling for one resolved
@@ -737,6 +1232,7 @@ impl Context {
             loop_scope_counter: std::sync::Arc::default(),
             string_if_invalid: String::new(),
             block_super: None,
+            provenance_flatten: None,
         }
     }
 
@@ -791,6 +1287,7 @@ impl Context {
             loop_scope_counter: std::sync::Arc::default(),
             string_if_invalid: String::new(),
             block_super: None,
+            provenance_flatten: None,
         }
     }
 
@@ -1229,6 +1726,57 @@ impl Context {
             .collect()
     }
 
+    /// Begin a tracked render's value/capture loss notifications.
+    pub fn enable_provenance_flatten_tracking(&mut self) {
+        if self.provenance_flatten.is_none() {
+            self.provenance_flatten = Some(std::sync::Arc::default());
+        }
+    }
+
+    /// Track a body independently of its caller, preserving assignment effects
+    /// but neither consuming the caller's pending literal bytes nor leaking tracking
+    /// into an untracked render. Used for cache metadata in every render mode.
+    pub fn with_isolated_provenance_flatten<T>(
+        &mut self,
+        render: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        let outer = self.provenance_flatten.replace(std::sync::Arc::default());
+        let result = render(self);
+        self.provenance_flatten = outer;
+        result
+    }
+
+    pub fn provenance_flatten_tracking(&self) -> bool {
+        self.provenance_flatten.is_some()
+    }
+
+    pub fn record_provenance_flatten(&self, output: AuthoredOutput, text: String) -> String {
+        self.restore_provenance_literals(vec![output.3]);
+        text
+    }
+
+    pub fn restore_provenance_literals(&self, literals: Vec<LiteralOutput>) {
+        if let Some(pending) = &self.provenance_flatten {
+            pending
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .extend(literals);
+        }
+    }
+
+    pub fn take_provenance_flatten(&self) -> Vec<LiteralOutput> {
+        self.provenance_flatten
+            .as_ref()
+            .map(|pending| {
+                std::mem::take(
+                    &mut *pending
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()),
+                )
+            })
+            .unwrap_or_default()
+    }
+
     /// Arm the DEFERRED `{{ block.super }}` for this scope (#2710).
     ///
     /// Called by the renderer's `Node::BlockSuperScope` arm on the scoped
@@ -1257,18 +1805,75 @@ impl Context {
 
     /// Run the armed source NOW, or answer `None` when nothing is armed.
     ///
-    /// The escape hatch for the ONE boundary laziness cannot cross: a
-    /// PYTHON-BRIDGED tag receives the context as a flat map
-    /// ([`Context::to_hashmap`]), and a map has no callable to defer behind —
-    /// so `{% blocktranslate with s=block.super %}`, whose operands Django's
-    /// own Python code resolves against that map, needs the string. The
-    /// renderer's `bridge_context` is the only caller; see its doc for the
-    /// residual divergence that buys.
+    /// One read of `block.super`: [`LazyBlock`] calls it when a bridged tag
+    /// reads `super`, and every read calls it again (no memo, #2918).
     pub fn render_armed_block_super(&self) -> crate::Result<Option<String>> {
         match self.block_super.clone() {
-            Some(source) => source.render_block_super(self).map(Some),
+            Some(source) => {
+                if self.provenance_flatten_tracking() {
+                    let output = source.render_block_super_authored(self)?;
+                    let text = output.0.clone();
+                    Ok(Some(self.record_provenance_flatten(output, text)))
+                } else {
+                    source.render_block_super(self).map(Some)
+                }
+            }
             None => Ok(None),
         }
+    }
+
+    /// Result-bound origin for direct block.super emission (#3252).
+    pub fn render_armed_block_super_authored(&self) -> crate::Result<Option<AuthoredOutput>> {
+        // Preserve the resolver's base-block error, without rendering a parent
+        // twice. Context::get has already handled any shadowing value.
+        if self
+            .stack
+            .iter()
+            .rev()
+            .find(|frame| frame.contains_key("block"))
+            .is_some_and(|frame| frame.invalid_block_super)
+        {
+            self.resolve("block.super")?;
+        }
+        match self.block_super.clone() {
+            Some(source) => source.render_block_super_authored(self).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    /// The value a bridged tag's flat map carries under `block` while a
+    /// `block.super` is armed (#2918): a [`LazyBlock`] over a snapshot of this
+    /// context, handed to the handler as the very object (an ADR-027 live
+    /// handle), so `super` is rendered when the tag reads it and not before.
+    ///
+    /// The [`LazyBlockGuard`] ends the snapshot's life: keep it alive for
+    /// exactly the bridged call. `None` when nothing is armed — the caller
+    /// keeps the plain bound `block`.
+    pub fn lazy_block_value(&self) -> crate::Result<Option<(Value, LazyBlockGuard)>> {
+        if self.block_super.is_none() {
+            return Ok(None);
+        }
+        let lazy = LazyBlock {
+            context: std::sync::Mutex::new(Some(self.clone())),
+        };
+        let object = Python::attach(|py| Py::new(py, lazy))
+            .map_err(|e| crate::DjangoRustError::TemplateError(format!("block.super: {e}")))?;
+        let handle = Python::attach(|py| object.clone_ref(py).into_any());
+        let value = Value::Encoded(Box::new(crate::Encoded {
+            type_name: "LazyBlock".to_string(),
+            display: String::new().into(),
+            json: Some(String::new()),
+            truthy: true,
+            len: None,
+            iterable: false,
+            repr: LAZY_BLOCK_REPR.to_string(),
+            cmp_key: None,
+            live: Some(std::sync::Arc::new(handle)),
+            attrs: Default::default(),
+            items: None,
+            eq_class: None,
+        }));
+        Ok(Some((value, LazyBlockGuard(object))))
     }
 
     /// A base block has no inheritance context; super is invalid until evaluated.
@@ -1641,9 +2246,19 @@ impl Context {
         if !matches!(last, "items" | "keys" | "values") {
             return None;
         }
-        let Value::Object(map) = self.get(prefix)? else {
+        let value = self.get(prefix)?;
+        let Value::Object(map) = value else {
             return None;
         };
+        // A serialized Django model is not a mapping to a template. `{{ model.items }}` is
+        // empty in Django (a model has no such attribute), so this answers nothing and the
+        // read is missing, as it is for a live model handle. The entries of this map are the
+        // serializer's, not the model's, and a view of them would print them whole. The marker
+        // is `Value::model_str`, the one `pprint`, `json_script`, iteration and the other
+        // model-not-mapping sinks read, so they all agree on what `p` IS.
+        if value.model_str().is_some() {
+            return None;
+        }
         let kind = match last {
             "keys" => crate::DictViewKind::Keys,
             "values" => crate::DictViewKind::Values,
@@ -1670,7 +2285,45 @@ impl Context {
         self.set_at(self.stack.len() - 1, key, value);
     }
 
+    /// Record the byte source of the nearest binding, without granting HTML authority.
+    pub fn mark_template_literal(&mut self, name: &str) {
+        if let Some(frame) = self.stack.iter_mut().rev().find(|f| f.contains_key(name)) {
+            std::sync::Arc::make_mut(&mut frame.literal_keys).insert(name.to_owned());
+        }
+    }
+
+    /// Captured rendered output carries context bytes at its emission position,
+    /// never start-tag authority. Metadata follows scoped aliases and shadowing.
+    pub fn mark_captured_literals(&mut self, name: &str, literal: LiteralOutput) {
+        if let Some(frame) = self.stack.iter_mut().rev().find(|f| f.contains_key(name)) {
+            std::sync::Arc::make_mut(&mut frame.captured_literals).insert(name.to_owned(), literal);
+        }
+    }
+
+    pub fn captured_literals(&self, name: &str) -> Option<LiteralOutput> {
+        self.stack
+            .iter()
+            .rev()
+            .find(|f| f.contains_key(name))
+            .and_then(|f| f.captured_literals.get(name).cloned())
+    }
+
+    /// Shadowing values never inherit a template literal's byte-source metadata.
+    pub fn is_template_literal(&self, name: &str) -> bool {
+        self.stack
+            .iter()
+            .rev()
+            .find(|f| f.contains_key(name))
+            .is_some_and(|f| f.literal_keys.contains(name))
+    }
+
     fn set_at(&mut self, index: usize, key: String, value: Value) {
+        if !self.stack[index].captured_literals.is_empty() {
+            std::sync::Arc::make_mut(&mut self.stack[index].captured_literals).remove(&key);
+        }
+        if !self.stack[index].literal_keys.is_empty() {
+            std::sync::Arc::make_mut(&mut self.stack[index].literal_keys).remove(&key);
+        }
         if self
             .raw_py_objects
             .as_ref()
@@ -1898,10 +2551,11 @@ impl Context {
         // `SafeString`, because Django `mark_safe`s the result: it is
         // rendered template output, already escaped by whatever produced it,
         // and escaping it again would double-escape every parent block.
-        if key == "block.super" {
-            if let Some(source) = self.block_super.clone() {
-                return Ok(Some(Value::SafeString(source.render_block_super(self)?)));
-            }
+        if key == "block.super" && self.block_super.is_some() {
+            // All Value/bridge captures share the same flatten chokepoint.
+            return self
+                .render_armed_block_super()
+                .map(|text| text.map(Value::SafeString));
         }
         // Django's THREE template builtins, tried LAST (#2347).
         //
@@ -2130,7 +2784,7 @@ impl Context {
                 // when its failure is spelled as an exception. `maybe_call`
                 // one step below already propagates a real exception raised
                 // INSIDE a nullary method; this makes the getattr half agree.
-                let next = match current.get_item(*part) {
+                let next = match step1_get_item(&current, *part) {
                     Ok(v) => Ok(v),
                     // Django step 1: `except (TypeError, AttributeError,
                     // KeyError, ValueError, IndexError)` — the last two are
@@ -2229,19 +2883,31 @@ impl Context {
     /// Floor enforcement is INDEPENDENT of the `auto_call` kill-switch
     /// (`{{ p.user.password }}` leaks via pure getattr, no call), so this runs
     /// regardless of `self.auto_call`. It is idempotent (wrapping a proxy
-    /// returns it unchanged) and fail-safe: any error returns the value
-    /// unwrapped rather than crashing the render.
+    /// returns it unchanged). A floor that RAISES drops the value (the cell
+    /// renders empty) rather than handing the raw object on (#3790); only an
+    /// interpreter with no `djust.serialization` at all passes it through.
     fn protect_sidecar<'py>(
         &self,
         py: Python<'py>,
         obj: pyo3::Bound<'py, pyo3::PyAny>,
     ) -> pyo3::Bound<'py, pyo3::PyAny> {
-        match py
-            .import("djust.serialization")
-            .and_then(|m| m.getattr("_protect_sidecar_value"))
-            .and_then(|f| f.call1((obj.clone(),)))
-        {
-            Ok(wrapped) => wrapped,
+        // The WALK's floor (#3790): `_protect_sidecar_walk` is the leaf floor plus the
+        // model-form arms, and falls back to the leaf when the name is absent.
+        match py.import("djust.serialization").and_then(|m| {
+            m.getattr("_protect_sidecar_walk")
+                .or_else(|_| m.getattr("_protect_sidecar_value"))
+        }) {
+            Ok(protect) => match protect.call1((obj,)) {
+                Ok(wrapped) => wrapped,
+                // The floor RAN and raised (#3790): the form arms read a form's instance and its
+                // field set, which can raise for an exotic object. Handing the raw object on is
+                // handing the next segment the very thing the floor exists to hold back, so the
+                // value is dropped instead (`None`: the next segment finds nothing, and the cell
+                // renders empty). The ABSENT-floor arm below still passes the object through.
+                Err(_) => py.None().into_bound(py),
+            },
+            // No `djust.serialization` on this interpreter (an embedder): no floor to fail
+            // closed about.
             Err(_) => obj,
         }
     }
@@ -2272,7 +2938,7 @@ impl Context {
         py: Python<'py>,
         obj: pyo3::Bound<'py, pyo3::PyAny>,
     ) -> Option<pyo3::Bound<'py, pyo3::PyAny>> {
-        protect_sidecar_strict(py, obj)
+        protect_sidecar_walk_strict(py, obj)
     }
 
     /// Django-parity callable handling for one resolved attribute
@@ -2291,14 +2957,14 @@ impl Context {
             return Ok(CallOutcome::AsIs(obj));
         }
         // `do_not_call_in_templates` → use as-is (Model classes,
-        // enums.Choices set this).
-        if attr_is_truthy(&obj, "do_not_call_in_templates") {
-            return Ok(CallOutcome::AsIs(obj));
-        }
-        // `alters_data` → refuse: never call, expression renders empty
-        // (Django stamps Model.save/delete, QuerySet.delete/update, …).
-        if attr_is_truthy(&obj, "alters_data") {
-            return Ok(CallOutcome::Empty);
+        // enums.Choices set this); `alters_data` → refuse: never call,
+        // expression renders empty (Django stamps Model.save/delete,
+        // QuerySet.delete/update, …). One statement of the rule, shared with
+        // the queryset serializer (#3772).
+        match template_call_guard(&obj) {
+            TemplateCallGuard::UseAsIs => return Ok(CallOutcome::AsIs(obj)),
+            TemplateCallGuard::AltersData => return Ok(CallOutcome::Empty),
+            TemplateCallGuard::Callable => {}
         }
         warn_once_on_orm_autocall(py, &obj, path);
         match obj.call0() {
@@ -2574,7 +3240,7 @@ impl Context {
         // Django's own `hasattr` (which swallows) would.
         let has_getitem = current.get_type().hasattr("__getitem__").unwrap_or(false);
         if has_getitem {
-            match current.get_item(part) {
+            match step1_get_item(current, part) {
                 Ok(found) => return Ok(Walked::Object(found)),
                 // Django step 1: `except (TypeError, AttributeError, KeyError,
                 // ValueError, IndexError)` — the last two its own numpy
@@ -2857,8 +3523,113 @@ fn name_exists_on(obj: &pyo3::Bound<'_, pyo3::PyAny>, name: &str) -> bool {
     {
         return false;
     }
-    let probe = || -> PyResult<bool> { obj.dir()?.contains(name) };
-    probe().unwrap_or(false)
+    name_in_dir(obj, name).unwrap_or(false)
+}
+
+/// `name in dir(obj)`, answered by membership instead of building `dir()`
+/// (#3151).
+///
+/// `dir()` iterates every class `__dict__` in the MRO. On a free-threaded
+/// build that iteration raises when another thread writes a first-use class
+/// cache (`_djust_descriptor_fields_cache`, ...) at the same moment, and the
+/// `false` it then answered let a raising `@property` render empty instead
+/// of propagating. For the default `object.__dir__` / `type.__dir__` the
+/// answer is the instance `__dict__` plus every class `__dict__` in the MRO,
+/// and a `__contains__` on each is a single atomic lookup. An object whose
+/// type overrides `__dir__` still gets `dir()` itself.
+fn name_in_dir(obj: &pyo3::Bound<'_, pyo3::PyAny>, name: &str) -> PyResult<bool> {
+    use pyo3::types::{PyDict, PyType};
+
+    let py = obj.py();
+    let dir_attr = pyo3::intern!(py, "__dir__");
+    let is_class = obj.is_instance_of::<PyType>();
+    let default_dir = if is_class {
+        py.get_type::<PyType>().getattr(dir_attr)?
+    } else {
+        py.get_type::<pyo3::PyAny>().getattr(dir_attr)?
+    };
+    if !obj.get_type().getattr(dir_attr)?.is(&default_dir) {
+        return obj.dir()?.contains(name);
+    }
+    let classes = if is_class {
+        obj.clone()
+    } else {
+        // As `object.__dir__` does: `__dict__` via ordinary attribute access,
+        // any failure meaning "no instance attributes".
+        if let Ok(own) = obj.getattr(pyo3::intern!(py, "__dict__")) {
+            if let Ok(own) = own.cast::<PyDict>() {
+                if own.contains(name)? {
+                    return Ok(true);
+                }
+            }
+        }
+        match obj.getattr(pyo3::intern!(py, "__class__")) {
+            Ok(cls) if cls.is_instance_of::<PyType>() => cls,
+            _ => return obj.dir()?.contains(name),
+        }
+    };
+    // `__mro__` is an immutable tuple; each class namespace answers
+    // `__contains__` without being iterated.
+    for klass in classes.getattr(pyo3::intern!(py, "__mro__"))?.try_iter()? {
+        if klass?
+            .getattr(pyo3::intern!(py, "__dict__"))?
+            .contains(name)?
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// What a template may do with a callable it has just resolved — Django's
+/// `Variable._resolve_lookup` callable block, stated ONCE (#3772).
+///
+/// Two sites in the Rust tree decide this and they are not the same walk: the
+/// sidecar / live-handle walk ([`Context::maybe_call`]) and the queryset
+/// serializer behind `DjustTemplateBackend.render` and the LiveView queryset
+/// JIT (`serialize_object_with_paths` in `djust_live`). The second one
+/// `call0()`-ed every callable leaf with NO guard, so `{{ users.delete }}`
+/// deleted every row while `_rust.render_template` — which has no JIT step and
+/// only the first walk — was inert (#3772). Both now ask this function, so the
+/// rule cannot drift between them (#1646).
+///
+/// The order is Django's: `do_not_call_in_templates` is tested FIRST, so a
+/// callable carrying both markers is used as-is rather than refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TemplateCallGuard {
+    /// No marker: Django calls it with no arguments.
+    Callable,
+    /// `do_not_call_in_templates` — use the object itself (a Model class, an
+    /// `enums.Choices`), never call it.
+    UseAsIs,
+    /// `alters_data` — never call it; the expression is `string_if_invalid`.
+    AltersData,
+}
+
+impl TemplateCallGuard {
+    /// May a template call it? Only when no marker forbids it.
+    pub fn may_call(self) -> bool {
+        self == TemplateCallGuard::Callable
+    }
+}
+
+/// Classify a resolved callable for a template, reading
+/// `do_not_call_in_templates` then `alters_data` exactly as Django does
+/// (`getattr(obj, name, False)`; a missing attribute or a raising descriptor is
+/// falsy).
+///
+/// Reads the markers off the object it is GIVEN. For a bound method that is
+/// the function's attribute (`QuerySet.delete.alters_data`), which Django
+/// stamps on `Model.save/delete`, `QuerySet.delete/update/create/…` and the
+/// related-manager mutators.
+pub fn template_call_guard(obj: &pyo3::Bound<'_, pyo3::PyAny>) -> TemplateCallGuard {
+    if attr_is_truthy(obj, "do_not_call_in_templates") {
+        TemplateCallGuard::UseAsIs
+    } else if attr_is_truthy(obj, "alters_data") {
+        TemplateCallGuard::AltersData
+    } else {
+        TemplateCallGuard::Callable
+    }
 }
 
 /// Truthiness of an optional attribute (`getattr(obj, name, False)` +
@@ -2878,6 +3649,16 @@ fn attr_is_truthy(obj: &pyo3::Bound<'_, pyo3::PyAny>, name: &str) -> bool {
 /// builtin) is treated the same. A successful zero-arg bind means the
 /// `TypeError` came from INSIDE the method and must propagate.
 fn callable_requires_arguments(py: Python<'_>, obj: &pyo3::Bound<'_, pyo3::PyAny>) -> bool {
+    // A floor call wrapper (`djust.serialization._FlooredCall`) hands out no `inspect.Signature`
+    // (its class would put Python-level methods in a reader's reach); it answers the question itself
+    // through this marker.
+    if let Some(answer) = obj
+        .getattr("djust_requires_arguments")
+        .ok()
+        .and_then(|marker| marker.call0().ok())
+    {
+        return answer.is_truthy().unwrap_or(true);
+    }
     let probe = || -> PyResult<bool> {
         let inspect = py.import("inspect")?;
         let signature = inspect.call_method1("signature", (obj,))?;
@@ -2904,18 +3685,23 @@ fn warn_once_on_orm_autocall(py: Python<'_>, obj: &pyo3::Bound<'_, pyo3::PyAny>,
             return; // already warned for this path
         }
     }
-    // Only bound methods whose __self__ is a Manager/QuerySet.
-    let Ok(receiver) = obj.getattr("__self__") else {
-        return;
+    // Only bound methods whose __self__ is a Manager/QuerySet. A floored call wrapper
+    // (`djust.serialization._FlooredCall`) does not expose its receiver (a reader that walks
+    // attributes could take it), so it says the same thing with a flag.
+    let is_orm = match obj.getattr("__self__") {
+        Ok(receiver) => py
+            .import("django.db.models")
+            .and_then(|m| {
+                let manager = m.getattr("Manager")?;
+                let queryset = m.getattr("QuerySet")?;
+                Ok(receiver.is_instance(&manager)? || receiver.is_instance(&queryset)?)
+            })
+            .unwrap_or(false),
+        Err(_) => obj
+            .getattr("djust_orm_call")
+            .and_then(|flag| flag.is_truthy())
+            .unwrap_or(false),
     };
-    let is_orm = py
-        .import("django.db.models")
-        .and_then(|m| {
-            let manager = m.getattr("Manager")?;
-            let queryset = m.getattr("QuerySet")?;
-            Ok(receiver.is_instance(&manager)? || receiver.is_instance(&queryset)?)
-        })
-        .unwrap_or(false);
     if !is_orm {
         return;
     }
@@ -2958,6 +3744,25 @@ fn warn_once_on_orm_autocall(py: Python<'_>, obj: &pyo3::Bound<'_, pyo3::PyAny>,
 mod tests {
     use super::*;
     use indexmap::IndexMap;
+
+    #[test]
+    fn template_literal_bindings_are_scoped_and_copy_on_write() {
+        let mut ctx = Context::new();
+        ctx.bind("o".into(), Value::String("<!--".into()), true);
+        ctx.mark_template_literal("o");
+        let mut clone = ctx.clone();
+        clone.set("o".into(), Value::String("-->".into()));
+        assert!(!clone.is_template_literal("o"));
+        assert!(ctx.is_template_literal("o"));
+        ctx.with_scope(|inner| {
+            inner.bind("o".into(), Value::String("-->".into()), true);
+            assert!(!inner.is_template_literal("o"));
+            inner.mark_template_literal("o");
+            inner.bind_upward("o".into(), Value::String("x".into()), false);
+            assert!(!inner.is_template_literal("o"));
+        });
+        assert!(ctx.is_template_literal("o"));
+    }
 
     /// #2689 / #2529 — the include path is interpolated RAW into a marker
     /// comment, so its grammar is a refusal, not an escape.
@@ -4046,5 +4851,79 @@ mod tests {
         assert!(!ctx.is_safe("p"));
         assert!(!ctx.is_safe("p.a"));
         assert!(ctx.is_safe("pp"), "a prefix-sharing SIBLING was revoked");
+    }
+
+    /// #2918 — a read of the lazy `block` renders the parent, and renders it
+    /// AGAIN on every read; asking whether `super` exists, or for the keys,
+    /// renders nothing; and once the bridged call's guard drops the snapshot
+    /// is gone, so a retained handle renders nothing more. A memoizing
+    /// `LazyBlock` fails the count; a guard that never invalidates fails the
+    /// last count (and leaks a Python-invisible cycle).
+    ///
+    /// Counts only: handing the rendered string to Python builds a Django
+    /// `SafeString`, and this crate's own test interpreter has no Django. The
+    /// values a read returns (`''` after the call, the parent's text before)
+    /// are asserted in `python/tests/test_block_super_bridge_lazy_2918.py`.
+    #[test]
+    fn lazy_block_renders_per_read_and_never_for_a_question() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        #[derive(Debug)]
+        struct Counting(Arc<AtomicUsize>);
+        impl BlockSuperSource for Counting {
+            fn render_block_super(&self, _ctx: &Context) -> crate::Result<String> {
+                let n = self.0.fetch_add(1, Ordering::SeqCst);
+                Ok(format!("p{n}"))
+            }
+        }
+
+        Python::initialize();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let mut ctx = Context::new();
+        assert!(ctx.lazy_block_value().unwrap().is_none(), "nothing armed");
+        ctx.arm_block_super(Arc::new(Counting(Arc::clone(&calls))));
+        let (value, guard) = ctx.lazy_block_value().unwrap().expect("armed");
+        let Value::Encoded(encoded) = value else {
+            panic!("the lazy block crosses as a live handle");
+        };
+        let handle = encoded.live.clone().expect("live handle");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            0,
+            "building it renders nothing"
+        );
+
+        Python::attach(|py| {
+            let block = handle.bind(py);
+            assert!(block.contains("super").unwrap());
+            let _ = block.call_method0("keys").unwrap();
+            assert_eq!(block.len().unwrap(), 1);
+            assert_eq!(calls.load(Ordering::SeqCst), 0, "a question is not a read");
+
+            // Each read renders once; the result is ignored (see above).
+            let _ = block.call_method0("super");
+            let _ = block.call_method0("super");
+            let _ = block.call_method1("get", ("super",));
+            // The legacy dict-style read (deprecated): no Python frame calls
+            // it here, so it is user code, not Django's resolver — it renders.
+            let _ = block.get_item("super");
+            assert_eq!(calls.load(Ordering::SeqCst), 4, "one render per read");
+            assert!(
+                block.get_item("other").is_err(),
+                "a key other than `super` is a KeyError, and renders nothing"
+            );
+            assert_eq!(calls.load(Ordering::SeqCst), 4);
+        });
+
+        drop(guard);
+        Python::attach(|py| {
+            let _ = handle.bind(py).call_method0("super");
+        });
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            4,
+            "the call is over: a retained handle renders nothing"
+        );
     }
 }

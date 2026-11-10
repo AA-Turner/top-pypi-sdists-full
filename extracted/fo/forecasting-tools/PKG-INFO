@@ -1,16 +1,14 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: forecasting-tools
-Version: 0.3.5
+Version: 0.3.6
 Summary: AI forecasting and research tools to help humans reason about and forecast the future
-License: MIT
+Project-URL: Repository, https://github.com/Metaculus/forecasting-tools
+Author-email: Benjamin Wilson <ben@metaculus.com>
+License-Expression: MIT
 License-File: LICENSE
-Keywords: ai,forecasting,research,metaculus,prediction,future,market
-Author: Benjamin Wilson
-Author-email: ben@metaculus.com
-Requires-Python: >=3.11,<4.0
+Keywords: ai,forecasting,future,market,metaculus,prediction,research
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -19,45 +17,65 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.11
+Requires-Dist: aiofiles<26.0.0,>=24.1.0
+Requires-Dist: aiohttp<4.0.0,>=3.9.3
+Requires-Dist: aiolimiter<2.0.0,>=1.1.0
+Requires-Dist: asknews<0.15.0,>=0.9.1
+Requires-Dist: asyncio<5.0.0,>=3.0.0
+Requires-Dist: exceptiongroup<2.0.0,>=1.2.2
+Requires-Dist: litellm!=1.107.*,!=1.108.*,!=1.109.*,!=1.76.*,!=1.77.*,!=1.82.7,!=1.82.8,<2.0.0,>=1.59.1
+Requires-Dist: nest-asyncio<2.0.0,>=1.5.8
+Requires-Dist: numpy<3.0.0,>=1.26.0
+Requires-Dist: openai<4.0.0,>=1.51.0
+Requires-Dist: pendulum<4.0.0,>=3.1.0
+Requires-Dist: pillow<13.0.0,>=9.0.0
+Requires-Dist: pydantic<3.0.0,>=2.9.2
+Requires-Dist: python-dotenv<2.0.0,>=1.0.0
+Requires-Dist: requests<3.0.0,>=2.32.3
+Requires-Dist: tenacity<10.0.0,>=8.0.0
+Requires-Dist: tiktoken<0.20.0,>=0.8.0
+Requires-Dist: typeguard<5.0.0,>=4.3.0
+Requires-Dist: unidecode<2.0.0,>=1.4.0
 Provides-Extra: agents
+Requires-Dist: faker<41.0.0,>=37.0.0; extra == 'agents'
+Requires-Dist: hyperbrowser<2.0.0,>=0.53.0; extra == 'agents'
+Requires-Dist: openai-agents[litellm]<0.23.0,>=0.2.0; extra == 'agents'
 Provides-Extra: all
+Requires-Dist: boto3<2.0.0,>=1.34; extra == 'all'
+Requires-Dist: cloakbrowser<0.4.0,>=0.3.31; extra == 'all'
+Requires-Dist: faker<41.0.0,>=37.0.0; extra == 'all'
+Requires-Dist: firecrawl-py<5.0.0,>=4.0; extra == 'all'
+Requires-Dist: hyperbrowser<2.0.0,>=0.53.0; extra == 'all'
+Requires-Dist: openai-agents[litellm]<0.23.0,>=0.2.0; extra == 'all'
+Requires-Dist: pandas<4.0.0,>=2.2.3; extra == 'all'
+Requires-Dist: playwright<2.0.0,>=1.44; extra == 'all'
+Requires-Dist: plotly<8.0.0,>=5.24.1; extra == 'all'
+Requires-Dist: pymupdf4llm<1.0.0,>=0.0.17; extra == 'all'
+Requires-Dist: scikit-learn<2.0.0,>=1.5.2; extra == 'all'
+Requires-Dist: scipy<2.0.0,>=1.10.0; extra == 'all'
+Requires-Dist: streamlit<2.0.0,>=1.20.0; extra == 'all'
+Requires-Dist: trafilatura<3.0.0,>=1.9; extra == 'all'
 Provides-Extra: front-end
+Requires-Dist: faker<41.0.0,>=37.0.0; extra == 'front-end'
+Requires-Dist: hyperbrowser<2.0.0,>=0.53.0; extra == 'front-end'
+Requires-Dist: openai-agents[litellm]<0.23.0,>=0.2.0; extra == 'front-end'
+Requires-Dist: pandas<4.0.0,>=2.2.3; extra == 'front-end'
+Requires-Dist: plotly<8.0.0,>=5.24.1; extra == 'front-end'
+Requires-Dist: scipy<2.0.0,>=1.10.0; extra == 'front-end'
+Requires-Dist: streamlit<2.0.0,>=1.20.0; extra == 'front-end'
 Provides-Extra: source-archive
+Requires-Dist: boto3<2.0.0,>=1.34; extra == 'source-archive'
+Requires-Dist: cloakbrowser<0.4.0,>=0.3.31; extra == 'source-archive'
+Requires-Dist: firecrawl-py<5.0.0,>=4.0; extra == 'source-archive'
+Requires-Dist: hyperbrowser<2.0.0,>=0.53.0; extra == 'source-archive'
+Requires-Dist: playwright<2.0.0,>=1.44; extra == 'source-archive'
+Requires-Dist: pymupdf4llm<1.0.0,>=0.0.17; extra == 'source-archive'
+Requires-Dist: trafilatura<3.0.0,>=1.9; extra == 'source-archive'
 Provides-Extra: stats
-Requires-Dist: aiofiles (>=24.1.0,<26.0.0)
-Requires-Dist: aiohttp (>=3.9.3,<4.0.0)
-Requires-Dist: aiolimiter (>=1.1.0,<2.0.0)
-Requires-Dist: asknews (>=0.9.1,<0.15.0)
-Requires-Dist: asyncio (>=3.0.0,<5.0.0)
-Requires-Dist: boto3 (>=1.34,<2.0.0) ; extra == "source-archive" or extra == "all"
-Requires-Dist: cloakbrowser (>=0.3.31,<0.4.0) ; extra == "source-archive" or extra == "all"
-Requires-Dist: exceptiongroup (>=1.2.2,<2.0.0)
-Requires-Dist: faker (>=37.0.0,<41.0.0) ; extra == "agents" or extra == "front-end" or extra == "all"
-Requires-Dist: firecrawl-py (>=4.0,<5.0.0) ; extra == "source-archive" or extra == "all"
-Requires-Dist: hyperbrowser (>=0.53.0,<2.0.0) ; extra == "source-archive" or extra == "agents" or extra == "front-end" or extra == "all"
-Requires-Dist: litellm (>=1.59.1,<2.0.0,!=1.76.*,!=1.77.*,!=1.82.7,!=1.82.8,!=1.107.*,!=1.108.*,!=1.109.*)
-Requires-Dist: nest-asyncio (>=1.5.8,<2.0.0)
-Requires-Dist: numpy (>=1.26.0,<3.0.0)
-Requires-Dist: openai (>=1.51.0,<4.0.0)
-Requires-Dist: openai-agents[litellm] (>=0.2.0,<0.23.0) ; extra == "agents" or extra == "front-end" or extra == "all"
-Requires-Dist: pandas (>=2.2.3,<4.0.0) ; extra == "front-end" or extra == "stats" or extra == "all"
-Requires-Dist: pendulum (>=3.1.0,<4.0.0)
-Requires-Dist: pillow (>=9.0.0,<13.0.0)
-Requires-Dist: playwright (>=1.44,<2.0.0) ; extra == "source-archive" or extra == "all"
-Requires-Dist: plotly (>=5.24.1,<8.0.0) ; extra == "front-end" or extra == "all"
-Requires-Dist: pydantic (>=2.9.2,<3.0.0)
-Requires-Dist: pymupdf4llm (>=0.0.17,<1.0.0) ; extra == "source-archive" or extra == "all"
-Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
-Requires-Dist: requests (>=2.32.3,<3.0.0)
-Requires-Dist: scikit-learn (>=1.5.2,<2.0.0) ; extra == "stats" or extra == "all"
-Requires-Dist: scipy (>=1.10.0,<2.0.0) ; extra == "front-end" or extra == "stats" or extra == "all"
-Requires-Dist: streamlit (>=1.20.0,<2.0.0) ; extra == "front-end" or extra == "all"
-Requires-Dist: tenacity (>=8.0.0,<10.0.0)
-Requires-Dist: tiktoken (>=0.8.0,<0.20.0)
-Requires-Dist: trafilatura (>=1.9,<3.0.0) ; extra == "source-archive" or extra == "all"
-Requires-Dist: typeguard (>=4.3.0,<5.0.0)
-Requires-Dist: unidecode (>=1.4.0,<2.0.0)
-Project-URL: Repository, https://github.com/Metaculus/forecasting-tools
+Requires-Dist: pandas<4.0.0,>=2.2.3; extra == 'stats'
+Requires-Dist: scikit-learn<2.0.0,>=1.5.2; extra == 'stats'
+Requires-Dist: scipy<2.0.0,>=1.10.0; extra == 'stats'
 Description-Content-Type: text/markdown
 
 ![PyPI version](https://badge.fury.io/py/forecasting-tools.svg)
@@ -120,7 +138,7 @@ bot = TemplateBot(
     skip_previously_forecasted_questions=False,
     llms={ # LLM models to use for different tasks. Will use default llms if not specified. Requires the relevant provider environment variables to be set.
         "default": GeneralLlm(model="openrouter/google/gemini-2.5-pro", temperature=0),
-        "summarizer": "openai/gpt-4o-mini",
+        "summarizer": "openai/gpt-6-luna",
     }
 )
 
@@ -249,7 +267,7 @@ class MyCustomBot(TemplateBot):
         self, question: BinaryQuestion, research: str
     ) -> ReasonedPrediction[float]:
         prompt = f"Please make a prediction on the following question: {question.question_text}. The last thing you write is your final answer as: 'Probability: ZZ%', 0-100"
-        reasoning = await GeneralLlm(model="metaculus/gpt-4o", temperature=0).invoke(prompt)
+        reasoning = await GeneralLlm(model="metaculus/gpt-6-sol", temperature=0).invoke(prompt)
         prediction = PredictionExtractor.extract_last_percentage_value(
             reasoning, max_prediction=1, min_prediction=0
         )
@@ -313,7 +331,7 @@ class NotepadBot(TemplateBot):
         notepad = await self._get_notepad(question)
 
         if notepad.total_predictions_attempted % 2 == 0:
-            model = "openrouter/openai/gpt-4o"
+            model = "openrouter/openai/gpt-6-sol"
         else:
             model = "anthropic/claude-3-5-sonnet-20240620"
 
@@ -432,7 +450,7 @@ The `GeneralLlm` class is a wrapper around litellm's acompletion function that a
 
 ```python
 prompt = "What is the weather in Tokyo?"
-result = await GeneralLlm(model="gpt-4o").invoke(prompt)
+result = await GeneralLlm(model="gpt-6-sol").invoke(prompt)
 result = await GeneralLlm(model="claude-3-5-sonnet-20241022").invoke(prompt)
 result = await GeneralLlm(model="metaculus/claude-3-5-sonnet-20241022").invoke(prompt) # Adding 'metaculus' Calls the Metaculus proxy
 result = await GeneralLlm(model="gemini/gemini-pro").invoke(prompt)
@@ -460,7 +478,7 @@ class President(BaseModel):
     age_at_death: int
     biggest_accomplishment: str
 
-model = GeneralLlm(model="gpt-4o")
+model = GeneralLlm(model="gpt-6-sol")
 pydantic_model_explanation = model.get_schema_format_instructions_for_pydantic_type(President)
 prompt = clean_indents(f"""
     You are a historian helping with a presidential research project. Please answer the following question:
@@ -499,7 +517,7 @@ You can also do some basic code execution.
 ```python
 from forecasting_tools import GeneralLlm, clean_indents
 
-model = GeneralLlm(model="gpt-4o")
+model = GeneralLlm(model="gpt-6-sol")
 
 code = clean_indents("""
     Please run a fermi estimate for the number of books published worldwide each year.
@@ -551,7 +569,7 @@ max_cost = 5.00
 
 with MonetaryCostManager(max_cost) as cost_manager:
     prompt = "What is the weather in Tokyo?"
-    result = await GeneralLlm(model="gpt-4o").invoke(prompt)
+    result = await GeneralLlm(model="gpt-6-sol").invoke(prompt)
     result = await ExaSearcher().invoke(prompt)
     # ... etc ...
 
@@ -584,7 +602,7 @@ If you use one of these features without its extra installed, you get an error t
 The environment variables you need can be found in ```.env.template```. Copy this template as ```.env``` and fill it in.
 
 ## Docker Dev Container
-Dev containers are reliable ways to make sure environments work on everyone's machine the first try and so you don't have to spend hours setting up your environment (especially if you have Docker already installed). If you would rather just use poetry, without the dev container, you can skip to "Alternatives to Docker". Otherwise, to get your development environment up and running, you need to have Docker Engine installed and running. Once you do, you can use the VSCode dev container pop-up to automatically set up everything for you.
+Dev containers are reliable ways to make sure environments work on everyone's machine the first try and so you don't have to spend hours setting up your environment (especially if you have Docker already installed). If you would rather just use uv, without the dev container, you can skip to "Alternatives to Docker". Otherwise, to get your development environment up and running, you need to have Docker Engine installed and running. Once you do, you can use the VSCode dev container pop-up to automatically set up everything for you.
 
 ### Install Docker
 For Windows and Mac, you will download Docker Desktop. For Linux, you will download Docker Engine. (NOTE: These instructions might be outdated).
@@ -602,7 +620,7 @@ Once Docker is installed, when you open up the project folder in VSCode, you wil
 
 If the Docker process times out in the middle of installing python packages you can run the `.devcontiner/postinstall.sh` manually. You may need to have the VSCode Docker extension and/or devcontainer extension downloaded in order for the pop up to appear.
 
-Once you are in the container, poetry should have already installed a virtual environment. For VSCode features to use this environment, you will need to select the correct python interpreter. You can do this by pressing `Ctrl + Shift + P` and then typing `Python: Select Interpreter`. Then select the interpreter that starts with `.venv`.
+Once you are in the container, uv should have already installed a virtual environment. For VSCode features to use this environment, you will need to select the correct python interpreter. You can do this by pressing `Ctrl + Shift + P` and then typing `Python: Select Interpreter`. Then select the interpreter that starts with `.venv`.
 
 A number of vscode extensions are installed automatically (e.g. linting). You may need to wait a little while and then reload the window (once for things to install, and a second for needed reload after installation). You can install personal vscode extensions in the dev environment.
 
@@ -612,20 +630,22 @@ There are many ways to manager Docker containers, but generally if you download 
 
 
 ### Alternatives to Docker
-If you choose not to run Docker, you can use poetry to set up a local virtual environment. If you are on Ubuntu, you should be able to just read through and then run `.devcontainer/postinstall.sh`. If you aren't on Ubuntu, check out the links in the postinstall file for where install instructions for dependencies were originally found. You may also want to take a look at VSCode extensions that would be installed (see the list in the `.devcontainer/devcontainer.json` file) so that some VSCode workplace settings work out of the box (e.g. automatic Black Formatting).
+If you choose not to run Docker, you can use [uv](https://docs.astral.sh/uv/getting-started/installation/) to set up a local virtual environment. If you are on Ubuntu, you should be able to just read through and then run `.devcontainer/postinstall.sh`. If you aren't on Ubuntu, check out the links in the postinstall file for where install instructions for dependencies were originally found. You may also want to take a look at VSCode extensions that would be installed (see the list in the `.devcontainer/devcontainer.json` file) so that some VSCode workplace settings work out of the box (e.g. automatic Black Formatting).
 
 
 ## Installing dependencies
 Local development uses the optional extras (the tests cover the front end and the agent tools), so install with:
 
 ```bash
-poetry install --all-extras
+uv sync --all-extras
 ```
 
-A plain `poetry install` gives you only the base dependencies. That is what the bot-running GitHub workflows use, which keeps them honest about the template bot not needing the extras — but it is not enough to run the full unit test suite.
+A plain `uv sync` gives you only the base dependencies. That is what the bot-running GitHub workflows use, which keeps them honest about the template bot not needing the extras — but it is not enough to run the full unit test suite.
+
+uv only resolves package files uploaded at least 7 days ago (`exclude-newer` in `pyproject.toml`), so a brand-new release won't be picked up by `uv lock` or `uv add` until it is a week old.
 
 ## Running the Front End
-You can run any front end folder in the front_end directory by executing `streamlit run front_end/Home.py`. This will start a development server for you that you can run. Streamlit makes it very easy to publish demos. This needs the `front-end` extra (included in `poetry install --all-extras`).
+You can run any front end folder in the front_end directory by executing `streamlit run front_end/Home.py`. This will start a development server for you that you can run. Streamlit makes it very easy to publish demos. This needs the `front-end` extra (included in `uv sync --all-extras`).
 
 ## Testing
 This repository uses pytest tests are subdivided into folders 'unit_tests', 'integration'. Unit tests should always pass. You can run `pytest code_tests/unit_tests` or just `pytest` to run all of these
@@ -668,4 +688,3 @@ Also it's helpful to use the log file that is automatically placed at `logs/late
 - Open an issue for bugs or feature requests
 
 Thank you for helping improve forecasting-tools!
-

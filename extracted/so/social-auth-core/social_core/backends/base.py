@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from email.errors import HeaderParseError
 from email.headerregistry import Address
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cast
 
 import requests
 
@@ -24,17 +24,22 @@ from social_core.exceptions import (
 )
 from social_core.identifiers import UNVERIFIED_LEGACY_TRANSITIONS
 from social_core.registry import REGISTRY
+from social_core.response_types import HttpResponseProtocol as _HttpResponseProtocol
 from social_core.utils import (
     constant_time_compare,
     http_error,
     module_member,
     normalize_user_names,
     parse_qs,
+    provider_error,
     redact_request_error,
     social_logger,
     user_agent,
     user_is_authenticated,
 )
+
+HttpResponseProtocol: TypeAlias = _HttpResponseProtocol
+
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -48,10 +53,13 @@ if TYPE_CHECKING:
         UserMixin,
         UserProtocol,
     )
-    from social_core.strategy import BaseStrategy, HttpResponseProtocol
+    from social_core.strategy import BaseStrategy
 
 
-class BaseAuth:
+ResponseT_co = TypeVar("ResponseT_co", covariant=True)
+
+
+class BaseAuth(Generic[ResponseT_co]):
     """A authentication backend that authenticates the user based on
     the provider response.
 
@@ -77,9 +85,11 @@ class BaseAuth:
     ASSOCIATION_ONLY = False
 
     def __init__(
-        self, strategy: BaseStrategy | None = None, redirect_uri: str | None = None
+        self,
+        strategy: BaseStrategy[ResponseT_co] | None = None,
+        redirect_uri: str | None = None,
     ) -> None:
-        self.strategy: BaseStrategy = (
+        self._strategy: BaseStrategy[ResponseT_co] = (
             strategy if strategy is not None else REGISTRY.default_strategy
         )
         self.redirect_uri = redirect_uri
@@ -90,8 +100,28 @@ class BaseAuth:
         self.data = self.strategy.request_data()
         self.redirect_uri = self.strategy.absolute_uri(self.redirect_uri)
 
+    @property
+    def strategy(self) -> BaseStrategy[ResponseT_co]:
+        """The strategy this backend was created with.
+
+        Type checkers treat this as read-only. Assigning it is deprecated.
+        """
+        return self._strategy
+
+    if not TYPE_CHECKING:  # pragma: no branch
+
+        @strategy.setter
+        def strategy(self, strategy: BaseStrategy[ResponseT_co]) -> None:
+            warnings.warn(
+                "Assigning BaseAuth.strategy is deprecated. Create the backend "
+                "with the intended strategy instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._strategy = strategy
+
     @classmethod
-    def get_title(cls, strategy: BaseStrategy) -> str:
+    def get_title(cls, strategy: BaseStrategy[object]) -> str:
         """Return a sign-in label using the application's strategy settings."""
         return cls.title or cls.name
 
@@ -208,14 +238,14 @@ class BaseAuth:
             )
         kwargs[key] = str(user.id)
 
-    def start(self) -> HttpResponseProtocol:
+    def start(self) -> ResponseT_co:
         if self.ASSOCIATION_ONLY:
             self.get_association_state()
         if self.uses_redirect():
             return self.strategy.redirect(self.auth_url())
         return self.strategy.html(self.auth_html())
 
-    def complete(self, *args, **kwargs) -> HttpResponseProtocol | UserProtocol | None:
+    def complete(self, *args, **kwargs) -> ResponseT_co | UserProtocol | None:
         return self.auth_complete(*args, **kwargs)
 
     def auth_url(self) -> str:
@@ -226,11 +256,22 @@ class BaseAuth:
         """Must return login HTML content returned by provider"""
         return "Implement in subclass"
 
-    def auth_complete(
-        self, *args, **kwargs
-    ) -> HttpResponseProtocol | UserProtocol | None:
+    def auth_complete(self, *args, **kwargs) -> ResponseT_co | UserProtocol | None:
         """Completes login process, must return user instance"""
         raise NotImplementedError("Implement in subclass")
+
+    def get_provider_error(
+        self,
+        data: object,
+        *,
+        stage: ErrorStage = "callback",
+        status_code: int | None = None,
+        retry_after: str | None = None,
+    ) -> SocialAuthBaseException | None:
+        """Classify provider errors for callbacks and HTTP failures."""
+        return provider_error(
+            self, data, stage=stage, status_code=status_code, retry_after=retry_after
+        )
 
     def process_error(self, data, *, stage: ErrorStage = "callback") -> None:
         """Hook to process provider response errors.
@@ -257,14 +298,17 @@ class BaseAuth:
             error.stage = stage
             raise
 
-    def authenticate(
-        self, *args, **kwargs
-    ) -> UserProtocol | HttpResponseProtocol | None:
+    def authenticate(self, *args, **kwargs) -> UserProtocol | ResponseT_co | None:
         """Authenticate user using social credentials
 
         Authentication is made if this is the correct backend, backend
         verification is made by kwargs inspection for current backend
         name presence.
+
+        A framework's authentication API may call this on a backend instance
+        that it created itself with the default strategy, as Django's does.
+        The pipeline always runs on the backend passed in kwargs, which must
+        have been created with the calling strategy.
         """
         # Validate backend and arguments. Require that the Social Auth
         # response be passed in as a keyword argument, to make sure we
@@ -277,8 +321,21 @@ class BaseAuth:
             or "response" not in kwargs
         ):
             return None
+        return kwargs["backend"].run_authentication(*args, **kwargs)
 
-        self.strategy = kwargs.get("strategy") or self.strategy
+    def run_authentication(self, *args, **kwargs) -> UserProtocol | ResponseT_co | None:
+        """Run the authentication pipeline with this backend's strategy.
+
+        authenticate() calls this on the backend passed in kwargs.
+        """
+        if kwargs["strategy"] is not self.strategy:
+            raise AuthConfigurationError(
+                self,
+                "authentication with a different strategy",
+                code="unsupported_feature",
+                parameter="strategy",
+                stage="callback",
+            )
         self.redirect_uri = kwargs.get("redirect_uri") or self.redirect_uri
         self.data = self.strategy.request_data()
         if self.ASSOCIATION_ONLY:
@@ -290,7 +347,7 @@ class BaseAuth:
 
     def pipeline(
         self, pipeline: list[str], pipeline_index: int = 0, *args, **kwargs
-    ) -> UserProtocol | HttpResponseProtocol | None:
+    ) -> UserProtocol | ResponseT_co | None:
         token = self._pipeline_type.set("authentication")
         try:
             out = self.run_pipeline(pipeline, pipeline_index, *args, **kwargs)
@@ -305,7 +362,7 @@ class BaseAuth:
             pipeline_user.is_new = bool(out.get("is_new"))
         return user
 
-    def disconnect(self, *args, **kwargs) -> dict[str, Any] | HttpResponseProtocol:
+    def disconnect(self, *args, **kwargs) -> dict[str, Any] | ResponseT_co:
         if self.ASSOCIATION_ONLY:
             self._bind_association_user(kwargs, "disconnect")
         pipeline = self.strategy.get_disconnect_pipeline(self)
@@ -324,7 +381,7 @@ class BaseAuth:
 
     def run_pipeline(
         self, pipeline: list[str], pipeline_index: int = 0, *args, **kwargs
-    ) -> dict[str, Any] | HttpResponseProtocol:
+    ) -> dict[str, Any] | ResponseT_co:
         """Merge step dictionaries into context and return it on completion.
 
         Falsy step results continue execution. Truthy non-dictionary results,
@@ -643,7 +700,7 @@ class BaseAuth:
 
     def continue_pipeline(
         self, partial: PartialMixin
-    ) -> UserProtocol | HttpResponseProtocol | None:
+    ) -> UserProtocol | ResponseT_co | None:
         """Continue previous halted pipeline"""
         with self._partial_pipeline_context(partial):
             return self.strategy.authenticate(
@@ -652,7 +709,7 @@ class BaseAuth:
 
     def continue_disconnect_pipeline(
         self, partial: PartialMixin
-    ) -> dict[str, Any] | HttpResponseProtocol:
+    ) -> dict[str, Any] | ResponseT_co:
         """Continue a halted disconnect with its effective request data."""
         with self._partial_pipeline_context(partial, pipeline_type="disconnect"):
             return self.disconnect(

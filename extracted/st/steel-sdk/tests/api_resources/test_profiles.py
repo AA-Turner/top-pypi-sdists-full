@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ class TestProfiles:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = response.parse()
         assert_matches_type(ProfileCreateResponse, profile, path=["response"])
 
@@ -61,7 +61,7 @@ class TestProfiles:
             user_data_dir=b"Example data",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = response.parse()
             assert_matches_type(ProfileCreateResponse, profile, path=["response"])
@@ -101,7 +101,7 @@ class TestProfiles:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = response.parse()
         assert_matches_type(ProfileUpdateResponse, profile, path=["response"])
 
@@ -112,7 +112,7 @@ class TestProfiles:
             user_data_dir=b"Example data",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = response.parse()
             assert_matches_type(ProfileUpdateResponse, profile, path=["response"])
@@ -144,7 +144,7 @@ class TestProfiles:
         response = client.profiles.with_raw_response.list()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = response.parse()
         assert_matches_type(ProfileListResponse, profile, path=["response"])
 
@@ -152,7 +152,7 @@ class TestProfiles:
     def test_streaming_response_list(self, client: Steel) -> None:
         with client.profiles.with_streaming_response.list() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = response.parse()
             assert_matches_type(ProfileListResponse, profile, path=["response"])
@@ -181,7 +181,7 @@ class TestProfiles:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = response.parse()
         assert_matches_type(ProfileGetResponse, profile, path=["response"])
 
@@ -191,7 +191,7 @@ class TestProfiles:
             id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = response.parse()
             assert_matches_type(ProfileGetResponse, profile, path=["response"])
@@ -240,7 +240,7 @@ class TestAsyncProfiles:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = await response.parse()
         assert_matches_type(ProfileCreateResponse, profile, path=["response"])
 
@@ -250,7 +250,7 @@ class TestAsyncProfiles:
             user_data_dir=b"Example data",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = await response.parse()
             assert_matches_type(ProfileCreateResponse, profile, path=["response"])
@@ -290,7 +290,7 @@ class TestAsyncProfiles:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = await response.parse()
         assert_matches_type(ProfileUpdateResponse, profile, path=["response"])
 
@@ -301,7 +301,7 @@ class TestAsyncProfiles:
             user_data_dir=b"Example data",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = await response.parse()
             assert_matches_type(ProfileUpdateResponse, profile, path=["response"])
@@ -333,7 +333,7 @@ class TestAsyncProfiles:
         response = await async_client.profiles.with_raw_response.list()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = await response.parse()
         assert_matches_type(ProfileListResponse, profile, path=["response"])
 
@@ -341,7 +341,7 @@ class TestAsyncProfiles:
     async def test_streaming_response_list(self, async_client: AsyncSteel) -> None:
         async with async_client.profiles.with_streaming_response.list() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = await response.parse()
             assert_matches_type(ProfileListResponse, profile, path=["response"])
@@ -370,7 +370,7 @@ class TestAsyncProfiles:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         profile = await response.parse()
         assert_matches_type(ProfileGetResponse, profile, path=["response"])
 
@@ -380,7 +380,7 @@ class TestAsyncProfiles:
             id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             profile = await response.parse()
             assert_matches_type(ProfileGetResponse, profile, path=["response"])

@@ -1,409 +1,264 @@
-import warnings
-from collections.abc import Callable
-from dataclasses import replace
-from importlib import import_module
-from typing import cast, get_args
+from __future__ import annotations
+
+from collections.abc import Hashable, Sequence
+from dataclasses import dataclass, replace
 
 import numpy as np
-import pandas as pd
-import scipy.sparse as sp
+from numpy.typing import NDArray
+from within import Effect
 
 from pyfixest.core.demean import (
     Preconditioner,
-    WithinPreconditionerName,
-    demean_within,
+    within_preconditioner_name,
 )
-from pyfixest.demeaners import (
-    AnyDemeaner,
-    LsmrBackend,
-    LsmrDemeaner,
-    LsmrPreconditioner,
-    MapDemeaner,
-)
-
-_PRECONDITIONER_SUPPORT: dict[LsmrBackend, tuple[set[str], str]] = {
-    "within": (set(get_args(WithinPreconditionerName)), "additive"),
-    "torch": ({"diagonal"}, "diagonal"),
-    "cupy": ({"off", "diagonal"}, "diagonal"),
-}
+from pyfixest.demeaners import AnyDemeaner, LsmrDemeaner
 
 
-def _resolve_preconditioner(backend: LsmrBackend, requested: LsmrPreconditioner) -> str:
-    """Resolve ``preconditioner`` against the backend's supported set.
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DemeanedData:
+    """Cache entry for demeaned columns and their keys.
 
-    ``"auto"`` always resolves silently to the backend's natural default.
-    An explicit but unsupported value emits a ``UserWarning`` and is replaced
-    with the natural default.
-    """
-    supported, default = _PRECONDITIONER_SUPPORT[backend]
-    if requested == "auto" or requested in supported:
-        return default if requested == "auto" else requested
-    warnings.warn(
-        (
-            f"preconditioner={requested!r} is not supported by the {backend!r} "
-            f"LSMR backend; falling back to {default!r}."
-        ),
-        UserWarning,
-        stacklevel=3,
-    )
-    return default
-
-
-def demean_model(
-    Y: pd.DataFrame,
-    X: pd.DataFrame,
-    fe: pd.DataFrame | None,
-    weights: np.ndarray | None,
-    lookup_demeaned_data: dict[frozenset[int], pd.DataFrame],
-    na_index: frozenset[int],
-    demeaner: AnyDemeaner,
-    cached_preconditioner: Preconditioner | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame, Preconditioner | None]:
-    """
-    Demean a regression model.
-
-    Demeans a single regression model via the configured demeaner backend.
-    Prior to demeaning, the function checks if some of the variables have
-    already been demeaned and uses values from the cache
-    `lookup_demeaned_data` if possible. If the model has no fixed effects,
-    the function does not demean the data.
-
-    Parameters
+    Attributes
     ----------
-    Y : pandas.DataFrame
-        A DataFrame of the dependent variable.
-    X : pandas.DataFrame
-        A DataFrame of the covariates.
-    fe : pandas.DataFrame or None
-        A DataFrame of the fixed effects. None if no fixed effects specified.
-    weights : numpy.ndarray or None
-        A numpy array of weights. None if no weights.
-    lookup_demeaned_data : dict[frozenset[int], pd.DataFrame]
-        A dictionary with keys for each fixed effects combination and potentially
-        values of demeaned data frames. The function checks this dictionary to
-        see if some of the variables have already been demeaned.
-    na_index : frozenset[int]
-        A frozenset of indices of dropped rows. Used as a hashable cache key
-        for demeaned variables.
-    demeaner : AnyDemeaner
-        Resolved typed demeaner configuration. Backend-specific runtime options
-        are taken from this object.
+    values : NDArray[np.float64]
+        Demeaned columns, shape ``(n_rows, len(column_keys))``.
+    column_keys : tuple[Hashable, ...]
+        Column keys, in the insertion order of the columns in ``values``.
 
-    Returns
-    -------
-    tuple[pd.DataFrame, pd.DataFrame, Preconditioner | None]
-        A tuple of the following elements:
-        - Yd : pd.DataFrame
-            A DataFrame of the demeaned dependent variable.
-        - Xd : pd.DataFrame
-            A DataFrame of the demeaned covariates.
-        - used_preconditioner : Preconditioner or None
-            The within preconditioner used during the solve (Schwarz, diagonal,
-            or the cached/explicit instance), or ``None`` for non-within
-            backends, ``preconditioner='off'``, the single-FE MAP fallback,
-            or when no demeaning happened.
+    Notes
+    -----
+    One entry is shared by every model fitted on the same ``na_index``, and
+    callers receive slices of ``values`` rather than copies, so the entry must
+    not change after publication. The frozen dataclass prevents field
+    rebinding, and ``values`` is flagged read-only before it is stored, so a
+    model writing into a returned slice fails loudly instead of silently
+    corrupting the demeaned data of the models it shares the cache with.
     """
-    used_preconditioner: Preconditioner | None = None
-    YX = pd.concat([Y, X], axis=1)
 
-    yx_names = YX.columns
-    YX_array = YX.to_numpy()
-
-    if YX_array.dtype != np.dtype("float64"):
-        YX_array = YX_array.astype(np.float64)
-
-    if fe is not None:
-        YX_demeaned: pd.DataFrame
-        fe_array = fe.to_numpy()
-
-        # check if lookup dict has data for na_index
-        YX_demeaned_old = lookup_demeaned_data.get(na_index)
-        if YX_demeaned_old is not None:
-            # get not yet demeaned covariates
-            var_diff_names = list(set(yx_names) - set(YX_demeaned_old.columns))
-
-            # if some variables still need to be demeaned
-            if var_diff_names:
-                yx_names_list = list(yx_names)
-                var_diff_index = [yx_names_list.index(item) for item in var_diff_names]
-                var_diff = YX_array[:, var_diff_index]
-                if var_diff.ndim == 1:
-                    var_diff = var_diff.reshape(len(var_diff), 1)
-
-                YX_demean_new, success, used_preconditioner = dispatch_demean(
-                    x=var_diff,
-                    flist=fe_array,
-                    weights=weights,
-                    demeaner=demeaner,
-                    cached_preconditioner=cached_preconditioner,
-                )
-                if success is False:
-                    raise ValueError(
-                        f"Demeaning failed after {demeaner.fixef_maxiter} iterations."
-                    )
-
-                YX_demeaned = pd.DataFrame(
-                    np.concatenate([YX_demeaned_old, YX_demean_new], axis=1)
-                )
-
-                if isinstance(var_diff_names, str):
-                    var_diff_names = [var_diff_names]
-
-                YX_demeaned.columns = pd.Index(
-                    list(YX_demeaned_old.columns) + var_diff_names
-                )
-
-            else:
-                # all variables already demeaned
-                YX_demeaned = YX_demeaned_old[yx_names]
-
-        else:
-            YX_demeaned_array, success, used_preconditioner = dispatch_demean(
-                x=YX_array,
-                flist=fe_array,
-                weights=weights,
-                demeaner=demeaner,
-                cached_preconditioner=cached_preconditioner,
-            )
-            if success is False:
-                raise ValueError(
-                    f"Demeaning failed after {demeaner.fixef_maxiter} iterations."
-                )
-
-            YX_demeaned = pd.DataFrame(YX_demeaned_array)
-            YX_demeaned.columns = yx_names
-
-        lookup_demeaned_data[na_index] = YX_demeaned
-
-    else:
-        YX_demeaned = pd.DataFrame(YX_array)
-        YX_demeaned.columns = yx_names
-
-    # get demeaned Y, X (if no fixef, equal to Y, X, I)
-    Yd = YX_demeaned[Y.columns]
-    Xd = YX_demeaned[X.columns]
-
-    return Yd, Xd, used_preconditioner
+    values: NDArray[np.float64]
+    column_keys: tuple[Hashable, ...]
 
 
-def _override_demeaner_tol(
-    demeaner: AnyDemeaner,
-    *,
-    tol: float | None = None,
-) -> AnyDemeaner:
-    """Override FE tolerance on a typed demeaner when needed. Used for IWLS acceleration."""
-    if isinstance(demeaner, LsmrDemeaner):
-        if tol is None or (tol == demeaner.fixef_atol and tol == demeaner.fixef_btol):
-            return demeaner
-        return replace(
-            demeaner,
-            fixef_atol=tol,
-            fixef_btol=tol,
+class DemeanCache:
+    """Model-side helper around the demeaner strategies, with two caches.
+
+    `Compute once, never forget`:
+
+    - `lookup_demeaned_data`: already-demeaned columns from previous fits.
+    - `lookup_preconditioner`: the preconditioner from the first fit on a
+       data set / na index combination.
+
+    The index for both caches is the frozen set of `na_index` - as all fits
+    operate on the same fixed effects / data structure.
+
+    OLS/IV models call :meth:`demean_yx`. GLMs call :meth:`demean_array` to
+    recompute each weighted projection while reusing the preconditioner.
+    """
+
+    def __init__(
+        self,
+        lookup_demeaned_data: dict[frozenset[int], DemeanedData] | None = None,
+        lookup_preconditioner: dict[frozenset[int], Preconditioner] | None = None,
+    ) -> None:
+        self.lookup_demeaned_data = (
+            {} if lookup_demeaned_data is None else lookup_demeaned_data
         )
-    if tol is None or tol == demeaner.fixef_tol:
-        return demeaner
-    return replace(demeaner, fixef_tol=tol)
+        self.lookup_preconditioner = (
+            {} if lookup_preconditioner is None else lookup_preconditioner
+        )
 
+    def seed_preconditioner(
+        self, na_index: frozenset[int], used_preconditioner: Preconditioner | None
+    ) -> None:
+        """Store the preconditioner to reuse for ``na_index``.
 
-def dispatch_demean(
-    x: np.ndarray,
-    flist: np.ndarray,
-    weights: np.ndarray | None,
-    demeaner: AnyDemeaner,
-    cached_preconditioner: Preconditioner | None = None,
-) -> tuple[np.ndarray, bool, Preconditioner | None]:
-    """Demean an array using the configured backend for the resolved demeaner.
-
-    Parameters
-    ----------
-    cached_preconditioner : Preconditioner or None, optional
-        A preconditioner saved by the caller from an earlier within solve on
-        the same fixed-effect design. This is separate from
-        ``demeaner.preconditioner``: the latter is the user's requested
-        configuration, while ``cached_preconditioner`` is the model's internal
-        "reuse this if it still matches" handle. The cache is used only when
-        the current request is a string preconditioner with the same variant
-        (``"additive"`` or ``"diagonal"``). If the user explicitly supplied a
-        ``Preconditioner`` on the demeaner, that object is passed through and
-        the model cache is ignored.
-
-    Returns
-    -------
-    tuple[np.ndarray, bool, Preconditioner | None]
-        The demeaned array, a convergence flag, and the within preconditioner
-        actually used during the solve. The third element is ``None`` for
-        non-within backends, when ``preconditioner='off'`` was requested, or
-        when the single-FE MAP fallback path was taken inside
-        ``demean_within`` — in those cases no preconditioner participated in
-        the solve. Callers (e.g. model classes) can cache the returned
-        instance to amortise setup across subsequent solves on the same
-        design.
-    """
-    flist_uint = flist.astype(np.uintp, copy=False)
-
-    if isinstance(demeaner, LsmrDemeaner) and demeaner.backend == "within":
-        preconditioner: WithinPreconditionerName | Preconditioner
-        if isinstance(demeaner.preconditioner, Preconditioner):
-            preconditioner = demeaner.preconditioner
-        else:
-            preconditioner = cast(
-                WithinPreconditionerName,
-                _resolve_preconditioner("within", demeaner.preconditioner),
-            )
-
-        # If the user requested a preconditioner by string, we would normally
-        # pass that string to Rust and let within build a fresh factorization.
-        # When the model already has a cached preconditioner of the same
-        # variant, pass the object instead so Rust takes the reuse path.
-        # We do not replace an explicit user-supplied preconditioner.
-
-        if (
-            cached_preconditioner is not None
-            and isinstance(preconditioner, str)
-            and cached_preconditioner.variant.lower() == preconditioner
+        The first preconditioner observed is kept, unless a later solve
+        escalates an adaptive preconditioner. Retain that additive Schwarz
+        replacement for subsequent IWLS iterations and sibling models.
+        """
+        if used_preconditioner is None:
+            return
+        cached = self.lookup_preconditioner.get(na_index)
+        if cached is None or (
+            within_preconditioner_name(cached) == "adaptive"
+            and within_preconditioner_name(used_preconditioner) == "additive"
         ):
-            preconditioner = cached_preconditioner
+            self.lookup_preconditioner[na_index] = used_preconditioner
 
-        result, success, built = demean_within(
+    def demean_array(
+        self,
+        x: np.ndarray,
+        flist: np.ndarray | list[Effect],
+        weights: np.ndarray | None,
+        na_index: frozenset[int],
+        demeaner: AnyDemeaner,
+    ) -> np.ndarray:
+        """Recompute a projection with current weights and a cached preconditioner.
+
+        Unlike :meth:`demean_yx`, this does not cache demeaned columns. Within
+        a cache block, keep using the first handle or its additive replacement
+        after adaptive escalation, including for an explicitly supplied handle.
+        """
+        cached = self.lookup_preconditioner.get(na_index)
+        if (
+            cached is not None
+            and isinstance(demeaner, LsmrDemeaner)
+            and isinstance(demeaner.preconditioner, Preconditioner)
+        ):
+            # An explicit adaptive handle must not restart the ladder after
+            # an earlier solve has already built the additive preconditioner.
+            demeaner = replace(demeaner, preconditioner=cached)
+        result, _ = self._run_or_raise(
             x=x,
-            flist=flist.astype(np.uint32, copy=False),
+            flist=flist,
             weights=weights,
-            tol=max(demeaner.fixef_atol, demeaner.fixef_btol),
-            maxiter=demeaner.fixef_maxiter,
-            local_size=demeaner.local_size,
-            preconditioner=preconditioner,
+            na_index=na_index,
+            demeaner=demeaner,
         )
-        return result, success, built
+        return result
 
-    if weights is None:
-        weights = np.ones(x.shape[0], dtype=np.float64)
-
-    # Non-within branches never produce a Preconditioner, so their
-    # third return value is always None.
-    if isinstance(demeaner, LsmrDemeaner):
-        if demeaner.backend == "torch":
-            # Torch LSMR always uses its built-in diagonal preconditioner.
-            # Call resolver for its UserWarning side effect on incompatible
-            # requests; the returned value is intentionally unused.
-            _ = _resolve_preconditioner(
-                "torch", cast(LsmrPreconditioner, demeaner.preconditioner)
-            )
-            try:
-                torch = import_module("torch")
-                torch_demean_module = import_module(
-                    "pyfixest.estimation.torch.demean_torch_"
-                )
-            except ImportError:
-                from pyfixest.core.demean import demean as demean_rs
-
-                result, success = demean_rs(
-                    x=x,
-                    flist=flist_uint,
-                    weights=weights,
-                    tol=max(demeaner.fixef_atol, demeaner.fixef_btol),
-                    maxiter=demeaner.fixef_maxiter,
-                )
-                return result, success, None
-
-            dtype = torch.float32 if demeaner.precision == "float32" else torch.float64
-            tol = max(demeaner.fixef_atol, demeaner.fixef_btol)
-            flist_uint64 = flist.astype(np.uint64, copy=False)
-
-            if demeaner.device == "auto":
-                demean_torch = cast(
-                    Callable[..., tuple[np.ndarray, bool]],
-                    torch_demean_module.demean_torch,
-                )
-                result, success = demean_torch(
-                    x=x,
-                    flist=flist_uint64,
-                    weights=weights,
-                    tol=tol,
-                    maxiter=demeaner.fixef_maxiter,
-                    dtype=dtype,
-                )
-                return result, success, None
-
-            demean_torch_on_device = cast(
-                Callable[..., tuple[np.ndarray, bool]],
-                torch_demean_module._demean_torch_on_device_impl,
-            )
-            result, success = demean_torch_on_device(
-                x=x,
-                flist=flist_uint64,
-                weights=weights,
-                tol=tol,
-                maxiter=demeaner.fixef_maxiter,
-                device=torch.device(demeaner.device),
-                dtype=dtype,
-            )
-            return result, success, None
-
-        cupy_resolved = _resolve_preconditioner(
-            "cupy", cast(LsmrPreconditioner, demeaner.preconditioner)
-        )
-        cupy_demean_module = import_module("pyfixest.estimation.cupy.demean_cupy_")
-        fe_df = pd.DataFrame(
-            flist_uint,
-            columns=[f"f{i + 1}" for i in range(flist_uint.shape[1])],
-            copy=False,
-        )
-        fe_sparse_matrix = cast(
-            sp.spmatrix,
-            cupy_demean_module.create_fe_sparse_matrix(fe_df),
-        )
-        cupy_demeaner = cupy_demean_module.CupyFWLDemeaner(
-            device=demeaner.device,
-            fixef_atol=demeaner.fixef_atol,
-            fixef_btol=demeaner.fixef_btol,
-            fixef_maxiter=demeaner.fixef_maxiter,
-            warn_on_cpu_fallback=demeaner.warn_on_cpu_fallback,
-            dtype=np.float32 if demeaner.precision == "float32" else np.float64,
-            preconditioner=cupy_resolved,
-        )
-        result, success = cupy_demeaner.demean(
+    def _run_or_raise(
+        self,
+        x: np.ndarray,
+        flist: np.ndarray | list[Effect],
+        weights: np.ndarray | None,
+        na_index: frozenset[int],
+        demeaner: AnyDemeaner,
+    ) -> tuple[np.ndarray, Preconditioner | None]:
+        cached_preconditioner = self.lookup_preconditioner.get(na_index)
+        result, success, used_preconditioner = demeaner.demean(
             x=x,
-            flist=flist_uint,
+            flist=flist,
             weights=weights,
-            fe_sparse_matrix=fe_sparse_matrix,
+            cached_preconditioner=cached_preconditioner,
         )
-        return result, success, None
+        self.seed_preconditioner(na_index, used_preconditioner)
+        if not success:
+            raise ValueError(
+                f"Demeaning failed after {demeaner.fixef_maxiter} iterations."
+            )
+        return result, used_preconditioner
 
-    if isinstance(demeaner, MapDemeaner):
-        backend = demeaner.backend
-        if backend == "numba":
-            demean_func = _get_numba_demean()
-        elif backend == "rust":
-            from pyfixest.core.demean import demean as demean_rs
+    def demean_yx(
+        self,
+        Y: NDArray[np.float64],
+        X: NDArray[np.float64],
+        *,
+        y_keys: Sequence[Hashable],
+        x_keys: Sequence[Hashable],
+        fe: np.ndarray | list[Effect] | None,
+        weights: NDArray[np.float64] | None,
+        na_index: frozenset[int],
+        demeaner: AnyDemeaner,
+    ) -> tuple[
+        NDArray[np.float64],
+        NDArray[np.float64],
+        Preconditioner | None,
+    ]:
+        """Demean response and design arrays and cache missing columns.
 
-            demean_func = demean_rs
-        elif backend == "jax":
-            from pyfixest.estimation.jax.demean_jax_ import demean_jax
+        New columns are appended to the cache in their requested order. Returned
+        arrays always follow ``y_keys`` and ``x_keys``, independently of the
+        cache's insertion order.
 
-            demean_func = demean_jax
+        Parameters
+        ----------
+        Y : NDArray[np.float64]
+            Response array, shape ``(n_rows, n_responses)``.
+        X : NDArray[np.float64]
+            Design array, shape ``(n_rows, n_regressors)``.
+        y_keys : Sequence[Hashable]
+            Ordered response keys corresponding to the columns of ``Y``.
+        x_keys : Sequence[Hashable]
+            Ordered regressor keys corresponding to the columns of ``X``.
+        fe : np.ndarray, list[within.Effect], or None
+            Encoded fixed-effect identifiers, complete effects, or ``None`` for
+            no fixed effects. A cache block shares the same effect design.
+        weights : NDArray[np.float64] or None
+            Observation weights passed to the within transformation.
+        na_index : frozenset[int]
+            Row-removal identity used to share cached data between model fits.
+        demeaner : AnyDemeaner
+            Configured within-transformation strategy.
+
+        Returns
+        -------
+        tuple[NDArray[np.float64], NDArray[np.float64], Preconditioner or None]
+            Demeaned response and design arrays, in their requested column order,
+            plus the preconditioner used when new columns were transformed.
+            Cached arrays and their selections are read-only. Without fixed
+            effects, inputs pass through without changing their writeability.
+        """
+        Y_array = np.asarray(Y, dtype=np.float64)
+        X_array = np.asarray(X, dtype=np.float64)
+        if fe is None:
+            return Y_array, X_array, None
+
+        y_keys_tuple = tuple(y_keys)
+        x_keys_tuple = tuple(x_keys)
+        yx_keys = y_keys_tuple + x_keys_tuple
+
+        cached = self.lookup_demeaned_data.get(na_index)
+        used_preconditioner: Preconditioner | None = None
+        if cached is None:
+            YX = np.concatenate((Y_array, X_array), axis=1)
+            YX_demeaned, used_preconditioner = self._run_or_raise(
+                x=YX, flist=fe, weights=weights, na_index=na_index, demeaner=demeaner
+            )
+            # Callers get slices of this array; see DemeanedData.
+            YX_demeaned.setflags(write=False)
+            cached = DemeanedData(values=YX_demeaned, column_keys=yx_keys)
+            self.lookup_demeaned_data[na_index] = cached
         else:
-            raise ValueError(f"Unknown MapDemeaner backend: {backend!r}")
+            cached_keys = cached.column_keys
+            cached_key_set = frozenset(cached_keys)
+            uncached_positions = tuple(
+                index for index, key in enumerate(yx_keys) if key not in cached_key_set
+            )
+            if uncached_positions:
+                YX = np.concatenate((Y_array, X_array), axis=1)
+                uncached_demeaned, used_preconditioner = self._run_or_raise(
+                    x=YX[:, uncached_positions],
+                    flist=fe,
+                    weights=weights,
+                    na_index=na_index,
+                    demeaner=demeaner,
+                )
+                uncached_keys = tuple(yx_keys[index] for index in uncached_positions)
+                cached_demeaned = np.concatenate(
+                    (cached.values, uncached_demeaned), axis=1
+                )
+                cached_demeaned.setflags(write=False)
+                cached = DemeanedData(
+                    values=cached_demeaned,
+                    column_keys=cached_keys + uncached_keys,
+                )
+                self.lookup_demeaned_data[na_index] = cached
+            # Every requested column is demeaned and cached at this point.
+            YX_demeaned = self._select_columns(cached, yx_keys)
 
-        result, success = demean_func(
-            x=x,
-            flist=flist_uint,
-            weights=weights,
-            tol=demeaner.fixef_tol,
-            maxiter=demeaner.fixef_maxiter,
-        )
-        return result, success, None
+        # ``yx_keys`` lists the responses first, so they lead the columns.
+        n_response_columns = len(y_keys_tuple)
+        response_demeaned = YX_demeaned[:, :n_response_columns]
+        design_demeaned = YX_demeaned[:, n_response_columns:]
+        return response_demeaned, design_demeaned, used_preconditioner
 
-    raise TypeError(f"Unsupported demeaner type: {type(demeaner)!r}")
-
-
-def _get_numba_demean() -> Callable[..., tuple[np.ndarray, bool]]:
-    try:
-        from pyfixest.estimation.numba.demean_nb import demean as demean_nb
-    except ImportError as exc:
-        raise ImportError(
-            "The Numba MAP backend requires the optional `numba` extra. "
-            "Install it with `pip install pyfixest[numba]`, or use the default "
-            "`MapDemeaner(backend='rust')` backend."
-        ) from exc
-
-    return cast(Callable[..., tuple[np.ndarray, bool]], demean_nb)
+    @staticmethod
+    def _select_columns(
+        cached: DemeanedData,
+        yx_keys: tuple[Hashable, ...],
+    ) -> NDArray[np.float64]:
+        cached_position_by_key = {
+            key: position for position, key in enumerate(cached.column_keys)
+        }
+        positions = tuple(cached_position_by_key[key] for key in yx_keys)
+        selects_cached_prefix = positions == tuple(range(len(positions)))
+        if selects_cached_prefix:
+            # Basic slicing gives a view, which inherits the read-only flag.
+            return cached.values[:, : len(positions)]
+        # Fancy indexing gives a fresh, writable copy. Flag it too, so that
+        # whether a caller may write into its demeaned data never depends on
+        # the order the cache happened to fill up in.
+        reordered = cached.values[:, positions]
+        reordered.setflags(write=False)
+        return reordered

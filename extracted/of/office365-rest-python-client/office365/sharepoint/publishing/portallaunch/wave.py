@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -7,7 +7,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.publishing.portallaunch.wavegroup import PortalLaunchWaveGroup
 
 
-@dataclass
 class PortalLaunchWave(ClientValue):
     Groups: ClientValueCollection[PortalLaunchWaveGroup] = field(
         default_factory=lambda: ClientValueCollection(PortalLaunchWaveGroup)

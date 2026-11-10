@@ -1,6 +1,6 @@
 [project]
 name = "arthur-client"
-version = "1.4.2978"
+version = "1.4.3003"
 description = "Arthur Python API Client Library"
 readme = "README.md"
 license = { text = "MIT" }
@@ -17,6 +17,8 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    # SOC-222: installed clients must not keep a certifi that trusts emSign ECC Root CA - G3
+    "certifi>=2026.10.19",
     "urllib3>=2.7.0,<3.0.0",
     "python-dateutil>=2.9.0.post0,<3.0.0",
     "pydantic>=2",
@@ -39,6 +41,11 @@ dev = [
 
 [tool.uv]
 exclude-newer = "3 days"
+# SOC-222: certifi 2026.10.19 drops the compromised "emSign ECC Root CA - G3"
+# root (2026.10.18 removed too many roots, so floor at .19). certifi is
+# exempt from the 3-day cooldown so this fix can land right away.
+exclude-newer-package = { certifi = false }
+constraint-dependencies = ["certifi>=2026.10.19"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

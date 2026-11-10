@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-terminal
-Version: 0.17.1
+Version: 0.17.6
 Summary: A remote computer API.
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: mss>=10.0.0; sys_platform == 'darwin' or sys_platform == 'win32'
 Requires-Dist: openpyxl>=3.1.0
 Requires-Dist: pillow>=10.0.0
+Requires-Dist: psutil>=7.2.2
 Requires-Dist: pyautogui>=0.9.54; sys_platform == 'darwin' or sys_platform == 'win32'
 Requires-Dist: pypdf>=5.0.0
 Requires-Dist: pyperclip>=1.9.0; sys_platform == 'darwin' or sys_platform == 'win32'
@@ -62,6 +63,7 @@ The API is available at `http://localhost:8000`, with interactive docs at [/docs
 | --- | --- |
 | `latest` | Full toolkit: Python, Node.js, build tools, browser, desktop, and document tools |
 | `agents` | Everything in `latest`, plus the latest Codex and Claude Code CLIs |
+| `cuda` | Full environment with CUDA toolkit and GPU-enabled PyTorch |
 | `slim` | Minimal Debian environment with git, curl, and jq |
 | `alpine` | Minimal Alpine environment with git, curl, and jq |
 | `openshift` | Minimal image for OpenShift restricted non-root policies |
@@ -83,6 +85,22 @@ If no API key is configured, one is generated and printed at startup. For Docker
 
 > [!CAUTION]
 > The API key grants command and file access. On bare metal, commands run with your user's permissions. Give access only to people and agents you trust.
+
+### Private local IPC
+
+Desktop clients can use the existing HTTP/WebSocket API without opening a TCP listener:
+
+```bash
+# macOS/Linux: use a socket inside a directory owned by the current user (mode 0700).
+open-terminal run --isolated --ipc /path/to/private-directory/api.sock
+```
+
+On Windows, use a local named pipe, for example
+`open-terminal run --isolated --ipc \\.\pipe\open-terminal-private`.
+API-key authentication still applies. `--port 8000` adds a TCP listener;
+it binds to `127.0.0.1` unless `--host 0.0.0.0` is explicitly supplied.
+Use port `0` to select an available port. The bind address and port are logged at startup.
+With `--ipc`, `--host` requires an explicit `--port`; `--cftunnel` is not supported.
 
 ## Connect to Open WebUI
 

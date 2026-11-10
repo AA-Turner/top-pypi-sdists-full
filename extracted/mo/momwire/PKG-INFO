@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: momwire
-Version: 0.87.0
+Version: 0.89.1
 Summary: A pure-Python method-of-moments antenna simulator with optional C++ accelerators
 Author-email: "Steven M. Burns" <smburns47@gmail.com>
 Project-URL: Homepage, https://github.com/stevenmburns/momwire
@@ -17,7 +17,7 @@ Requires-Dist: numpy>=1.21
 Requires-Dist: scipy>=1.7
 Requires-Dist: threadpoolctl>=3
 Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest<9.2; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: scikit-rf; extra == "test"
@@ -159,7 +159,8 @@ launcher (`momwire-nec2c` and its siblings), a resident NEC engine speaking
 the protocol [SimNEC](https://ae6ty.com/smith_charts/) uses to drive `nec2c`,
 with momwire's solver behind it. Point SimNEC's NEC portal
 dialog at that command and its Smith chart, tuner and sweeps run on momwire.
-`python -m momwire.portal` is the long spelling, and `--selftest` is the
+`python -m momwire.dropin.nec2c` is the long spelling (`python -m momwire.portal`
+still works), and `--selftest` is the
 deployment smoke.
 
 ```bash
@@ -176,9 +177,10 @@ Setup, the two filename rules SimNEC enforces, `--basis`, the caching flags
 and what refusals look like:
 **[momwire.dev/reference/portal-usage/](https://momwire.dev/reference/portal-usage/)**.
 
-`momwire.portal` may use the solver API and `momwire.deck`; nothing else in
-momwire may import from it. The SimNEC protocol is the portal's business
-alone, and a test enforces that.
+`momwire.dropin` (the Python drop-in engine, NEC-2 / NEC-4.2 / NEC-5 dialects:
+`momwire.dropin.nec2c` and `momwire.dropin.nec5`) may use the solver API and
+`momwire.deck`; nothing else in momwire may import from it. The hosts'
+protocols are the drop-in's business alone, and a test enforces that.
 
 ## Public names
 
@@ -266,9 +268,11 @@ warns and falls back to the slower pure-Python path. On Linux the system
 
 Each release also carries **`momwire-nec5-linux-x86_64.tar.gz`**: two of
 momwire's NEC-5 engines as native programs, with no Python in them. They are
-razor-2p (`momwire-nec5-razor-2p`) and bs2, the default B-spline formulation
+nec5-razor-2p (`momwire-nec5-razor-2p`) and nec5-bspline, the default B-spline formulation
 (`momwire-nec5-bspline`). You do not need Python, pip or momwire installed.
-Their printouts are byte for byte the Python commands'.
+Their printouts are byte for byte the Python commands'. Their `-version` line
+is the command's with `-standalone` and the build added to the name, e.g.
+`NEC5 momwire-nec5-razor-2p-standalone-avx2 [sb] <version>`.
 
 ```bash
 tar -xzf momwire-nec5-linux-x86_64.tar.gz
@@ -276,7 +280,7 @@ cd momwire-nec5-linux-x86_64
 ./momwire-nec5-razor2p-linux -version
 ./momwire-nec5-razor2p-linux deck.nec deck.out   # EZNEC's and SimNEC's form
 ./momwire-nec5-razor2p-linux - - < chain.nec     # SimNEC's streaming form
-./momwire-nec5-bs2-linux deck.nec deck.out       # the same forms, bs2
+./momwire-nec5-bs2-linux deck.nec deck.out       # the same forms, nec5-bspline
 ```
 
 For SimNEC, point the NEC-5 engine setting at `momwire-nec5-razor2p-linux`
@@ -307,24 +311,11 @@ name buried wires beside raised ones with no crossing junction when the wires
 carry more than one radius, and an insulated wire (IS); the Python command
 serves those decks.
 
-### The Sinusoidal-Galerkin engines on Linux, without Python (preview)
-
-**Preview:** the same tarball also carries
-`momwire-nec42-sinusoidal-galerkin-linux` and
-`momwire-nec5-sinusoidal-galerkin-linux` (momwire#1718), the native twins of
-the Python commands `momwire-nec42-sinusoidal-galerkin` (EZNEC's and SimNEC's
-NEC-4.2 slot) and `momwire-nec5-sinusoidal-galerkin` (SimNEC's NEC-5 engine),
-with the same `-avx2` / `-sse2` picking and the same three forms. Their
-printouts are the Python commands' byte for byte, apart from the two lines
-that report measured time. They serve free space, a perfect ground (GN 1), a Sommerfeld ground (GN 2 / GN 3) with every wire above it or a wire end on it, a structure wholly below a Sommerfeld ground, a wire through the ground at a crossing junction, wire loading, networks (TL / NT), node gaps and the extended kernel. They still refuse by
-name a deck with wires on both sides of the ground and no crossing
-junction; the Python commands serve those decks.
-
 ### The NEC-4.2 slot's default engine on Linux, without Python (preview)
 
 **Preview:** the same tarball also carries `momwire-nec42-linux`
 (momwire#1607 Phase C), the native twin of the Python command
-`momwire-nec42`, the NEC-4.2 slot's default (bs2, the B-spline basis), with
+`momwire-nec42`, the NEC-4.2 slot's default (nec42-bspline, the B-spline basis), with
 the same `-avx2` / `-sse2` picking and the same three forms. Its printouts
 are the Python command's byte for byte, apart from the two lines that report
 measured time. It serves free space, a perfect ground (GN 1), a Sommerfeld

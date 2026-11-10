@@ -1,7 +1,7 @@
 """Models module."""
 
 import bisect
-import collections.abc
+import copy
 import datetime
 import decimal
 import fractions
@@ -9,6 +9,8 @@ import functools
 import math
 import re
 import typing
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
+from dataclasses import dataclass
 
 from .errors import MalformedCaptionError, MalformedRegionError
 from .utils import _split_lines
@@ -47,18 +49,18 @@ class Timestamp:
         self.seconds = seconds
         self.milliseconds = milliseconds
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the string representation of the timestamp."""
         return (
             f'{self.hours:02d}:{self.minutes:02d}:{self.seconds:02d}'
             f'.{self.milliseconds:03d}'
             )
 
-    def to_tuple(self) -> typing.Tuple[int, int, int, int]:
+    def to_tuple(self) -> tuple[int, int, int, int]:
         """Return the timestamp in tuple form."""
         return self.hours, self.minutes, self.seconds, self.milliseconds
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the caption."""
         return (f'<{self.__class__.__name__} '
                 f'hours={self.hours} '
@@ -67,7 +69,7 @@ class Timestamp:
                 f'milliseconds={self.milliseconds}>'
                 )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare equality with other object."""
         if not isinstance(other, Timestamp):
             return NotImplemented
@@ -101,15 +103,16 @@ class Timestamp:
         if not match:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        hours = int(match.group(1) or 0)
-        minutes = int(match.group(2))
-        seconds = int(match.group(3))
-        milliseconds = int(match.group(4).ljust(3, '0'))
-
+        hours, minutes, seconds, fraction = match.groups()
+        minutes, seconds = int(minutes), int(seconds)
         if minutes > 59 or seconds > 59:
             raise MalformedCaptionError(f'Invalid timestamp {value!r}')
 
-        return cls(hours, minutes, seconds, milliseconds)
+        return cls(int(hours or 0),
+                   minutes,
+                   seconds,
+                   int(fraction.ljust(3, '0'))
+                   )
 
     @classmethod
     def from_seconds(cls, value: float) -> 'Timestamp':
@@ -176,7 +179,7 @@ class Timestamp:
         return self.in_seconds() * 1000 + self.milliseconds
 
 
-def _is_finite(value: typing.Union[float, fractions.Fraction]) -> bool:
+def _is_finite(value: float | fractions.Fraction) -> bool:
     """
     Return whether a number is finite.
 
@@ -187,7 +190,7 @@ def _is_finite(value: typing.Union[float, fractions.Fraction]) -> bool:
     return not isinstance(value, float) or math.isfinite(value)
 
 
-def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
+def _in_milliseconds(value: float | datetime.timedelta) -> int:
     """
     Return a number of seconds or a ``timedelta`` in milliseconds.
 
@@ -221,7 +224,7 @@ def _in_milliseconds(value: typing.Union[float, datetime.timedelta]) -> int:
 
 
 def _offset_in_milliseconds(
-        offset: typing.Union[float, datetime.timedelta],
+        offset: float | datetime.timedelta,
         name: str = 'offset'
         ) -> int:
     """
@@ -247,7 +250,7 @@ def _offset_in_milliseconds(
     return _in_milliseconds(offset)
 
 
-_Position = typing.Union[str, Timestamp, float, datetime.timedelta]
+_Position = str | Timestamp | float | datetime.timedelta
 
 
 def _position_in_milliseconds(value: _Position) -> int:
@@ -268,15 +271,75 @@ def _position_in_milliseconds(value: _Position) -> int:
         return Timestamp.from_string(value).in_milliseconds()
 
     if isinstance(value, Timestamp):
-        return value.in_milliseconds()
+        if not all(type(field) is int for field in value.to_tuple()):
+            raise TypeError(f'Invalid timestamp {value!r}')
+        milliseconds = value.in_milliseconds()
+    else:
+        milliseconds = _offset_in_milliseconds(value, name='timestamp')
 
-    milliseconds = _offset_in_milliseconds(value, name='timestamp')
     if milliseconds < 0:
         raise ValueError(f'Invalid timestamp {value!r}')
     if milliseconds > _MAX_MILLISECONDS:
         raise ValueError(_OUT_OF_RANGE)
 
     return milliseconds
+
+
+def _to_timestamp(value: _Position) -> Timestamp:
+    """
+    Return a time of a caption or of a range as a new `Timestamp`.
+
+    The value is read as the times of ``sync``, and a `Timestamp` is
+    copied, so it is not shared with where it comes from.
+
+    :param value: a timestamp, as a string or a `Timestamp`, a number of
+        seconds or a ``timedelta``
+    :returns: the time rounded to the nearest millisecond, halves away from
+        zero
+
+    :raises MalformedCaptionError: if the value is not of a supported type,
+        is not finite, is before zero or is after the largest timestamp
+    """
+    if isinstance(value, str):
+        return Timestamp.from_string(value)
+
+    try:
+        milliseconds = _position_in_milliseconds(value)
+    except (TypeError, ValueError) as error:
+        raise MalformedCaptionError(str(error)) from None
+
+    return Timestamp._from_milliseconds(milliseconds)
+
+
+def _optional_timestamp(
+        value: _Position | None
+        ) -> Timestamp | None:
+    """
+    Return a time that may be missing as a new `Timestamp`.
+
+    :param value: the time, or None or an empty string when it is missing,
+        as times were only strings before and an empty one was accepted
+    :returns: the time as with `_to_timestamp`, or None when it is missing
+
+    :raises MalformedCaptionError: if the value is not a valid time
+    """
+    if value is None or value == '':
+        return None
+    return _to_timestamp(value)
+
+
+def _time_or_zero(value: _Position | None) -> Timestamp:
+    """
+    Return a time that may be missing as a new `Timestamp`, or zero.
+
+    :param value: the time, or None or an empty string when it is missing
+    :returns: the time as with `_to_timestamp`, or ``00:00:00.000`` when it
+        is missing
+
+    :raises MalformedCaptionError: if the value is not a valid time
+    """
+    timestamp = _optional_timestamp(value)
+    return Timestamp() if timestamp is None else timestamp
 
 
 def _divide_rounded(numerator: int, denominator: int) -> int:
@@ -293,8 +356,8 @@ def _divide_rounded(numerator: int, denominator: int) -> int:
 
 
 def _sync_mapping(
-        points: typing.Sequence[typing.Sequence[_Position]]
-        ) -> typing.Callable[[int], int]:
+        points: Sequence[Sequence[_Position]]
+        ) -> Callable[[int], int]:
     """
     Return the function mapping times in milliseconds for sync points.
 
@@ -344,7 +407,7 @@ def _sync_mapping(
     return mapping
 
 
-def _sync_point(point: typing.Sequence[_Position]) -> typing.Tuple[int, int]:
+def _sync_point(point: Sequence[_Position]) -> tuple[int, int]:
     """
     Return a ``(from, to)`` sync point in milliseconds.
 
@@ -360,13 +423,13 @@ def _sync_point(point: typing.Sequence[_Position]) -> typing.Tuple[int, int]:
             _position_in_milliseconds(point[1]))
 
 
-_FrameRate = typing.Union[float, fractions.Fraction]
+_FrameRate = float | fractions.Fraction
 
 
 def _framerate_mapping(
         from_fps: _FrameRate,
         to_fps: _FrameRate
-        ) -> typing.Callable[[int], int]:
+        ) -> Callable[[int], int]:
     """
     Return the function mapping times in milliseconds between frame rates.
 
@@ -412,7 +475,7 @@ def _frame_rate(value: _FrameRate) -> fractions.Fraction:
 
 def _iter_cue_text_tokens(
         line: str
-        ) -> typing.Generator[typing.Tuple[str, bool], None, None]:
+        ) -> Generator[tuple[str, bool], None, None]:
     """
     Iterate the text and the cue tags of a single line of text.
 
@@ -499,7 +562,7 @@ def _is_valid_identifier(value: str) -> bool:
         )
 
 
-def _split_setting(setting: str) -> typing.Optional[typing.Tuple[str, str]]:
+def _split_setting(setting: str) -> tuple[str, str] | None:
     """
     Split a setting in name and value at its first colon.
 
@@ -513,7 +576,7 @@ def _split_setting(setting: str) -> typing.Optional[typing.Tuple[str, str]]:
     return name, value
 
 
-def _setting_name(setting: str) -> typing.Optional[str]:
+def _setting_name(setting: str) -> str | None:
     """Return the name of a setting, or None when it has no name."""
     parts = _split_setting(setting)
     return parts[0] if parts else None
@@ -541,24 +604,35 @@ class _Settings:
     the last valid one when it is repeated, and validates a new value.
     """
 
-    VALIDATORS: typing.ClassVar[
-        typing.Dict[str, typing.Callable[[str], bool]]
-        ] = {}
+    VALIDATORS: typing.ClassVar[dict[str, Callable[[str], bool]]] = {}
 
     # what a setting is called in error messages
     _KIND = 'setting'
     # the error raised for settings that are not valid
-    _ERROR: typing.ClassVar[
-        typing.Type[MalformedCaptionError]
-        ] = MalformedCaptionError
+    _ERROR: typing.ClassVar[type[MalformedCaptionError]] = (
+        MalformedCaptionError
+        )
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize without settings."""
-        self._settings: typing.List[str] = []
+        self._settings: list[str] = []
+
+    def _set_given(self, **values: str | None) -> None:
+        """
+        Set the settings that are given, in order.
+
+        The settings that are None are not set, as there are none to
+        remove yet, which keeps creating empty settings fast.
+
+        :raises MalformedCaptionError: if a value is not valid
+        """
+        for name, value in values.items():
+            if value is not None:
+                setattr(self, name, value)
 
     @classmethod
     def from_string(
-            cls: typing.Type[_SettingsT],
+            cls: type[_SettingsT],
             value: str,
             strict: bool = False
             ) -> _SettingsT:
@@ -584,7 +658,7 @@ class _Settings:
             ]
 
         if strict:
-            names: typing.Set[str] = set()
+            names: set[str] = set()
             for setting in settings._settings:
                 parts = _split_setting(setting)
                 if (not parts or
@@ -597,30 +671,30 @@ class _Settings:
 
         return settings
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the settings separated by a space."""
         return ' '.join(self._settings)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the settings."""
         return f'<{self.__class__.__name__} text={str(self)!r}>'
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return whether there is any setting."""
         return bool(self._settings)
 
-    def __iter__(self) -> typing.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         """Iterate the settings as written, e.g. ``line:0``."""
         return iter(self._settings)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare equality with another object."""
         if not isinstance(other, type(self)):
             return False
 
         return self._settings == other._settings
 
-    def _get(self, name: str) -> typing.Optional[str]:
+    def _get(self, name: str) -> str | None:
         """Return the value of the last valid setting with that name."""
         value = None
         for setting in self._settings:
@@ -631,7 +705,7 @@ class _Settings:
                 value = parts[1]
         return value
 
-    def _set(self, name: str, value: typing.Optional[str]):
+    def _set(self, name: str, value: str | None) -> None:
         """
         Set the setting with that name, or remove it when the value is None.
 
@@ -685,12 +759,12 @@ class CueSettings(_Settings):
 
     def __init__(self,
                  *,
-                 vertical: typing.Optional[str] = None,
-                 line: typing.Optional[str] = None,
-                 position: typing.Optional[str] = None,
-                 size: typing.Optional[str] = None,
-                 align: typing.Optional[str] = None,
-                 region: typing.Optional[str] = None
+                 vertical: str | None = None,
+                 line: str | None = None,
+                 position: str | None = None,
+                 size: str | None = None,
+                 align: str | None = None,
+                 region: str | None = None
                  ):
         """
         Initialize.
@@ -708,12 +782,13 @@ class CueSettings(_Settings):
         :raises MalformedCaptionError: if a value is not valid
         """
         super().__init__()
-        self.vertical = vertical
-        self.line = line
-        self.position = position
-        self.size = size
-        self.align = align
-        self.region = region
+        self._set_given(vertical=vertical,
+                        line=line,
+                        position=position,
+                        size=size,
+                        align=align,
+                        region=region
+                        )
 
     @classmethod
     def from_string(cls, value: str, strict: bool = False) -> 'CueSettings':
@@ -753,7 +828,7 @@ class CueSettings(_Settings):
 
 
 def _to_cue_settings(
-        value: typing.Optional[typing.Union[str, CueSettings]]
+        value: str | CueSettings | None
         ) -> CueSettings:
     """
     Return a new `CueSettings` instance from the value.
@@ -769,7 +844,9 @@ def _to_cue_settings(
         settings = CueSettings()
         settings._settings = list(value._settings)
         return settings
-    return CueSettings.from_string('' if value is None else value)
+    if value is None:
+        return CueSettings()
+    return CueSettings.from_string(value)
 
 
 class Caption:
@@ -778,21 +855,19 @@ class Caption:
     VOICE_SPAN_PATTERN = re.compile(r'<v(?:\.\w+)*\s+([^>\s][^>]*)>')
 
     def __init__(self,
-                 start: typing.Optional[str] = None,
-                 end: typing.Optional[str] = None,
-                 text: typing.Optional[typing.Union[str,
-                                                    typing.Sequence[str]
-                                                    ]] = None,
-                 identifier: typing.Optional[str] = None,
-                 settings: typing.Optional[typing.Union[str,
-                                                        CueSettings
-                                                        ]] = None
+                 start: _Position | None = None,
+                 end: _Position | None = None,
+                 text: str | Sequence[str] | None = None,
+                 identifier: str | None = None,
+                 settings: str | CueSettings | None = None
                  ):
         """
         Initialize.
 
-        :param start: start time of the caption
-        :param end: end time of the caption
+        :param start: start time of the caption, a timestamp string, a
+            `Timestamp`, a number of seconds or a ``timedelta``, rounded to
+            the nearest millisecond. Default: ``00:00:00.000``
+        :param end: end time of the caption, as the start time
         :param text: the text of the caption, or a sequence of its lines
         :param identifier: optional identifier
         :param settings: optional cue settings, as a string such as
@@ -802,14 +877,14 @@ class Caption:
             settings is not a string, a `CueSettings` instance or None
         :raises TypeError: if text is not a string or a sequence of strings
         """
-        self.start = start or '00:00:00.000'
-        self.end = end or '00:00:00.000'
+        self.start_time = _time_or_zero(start)
+        self.end_time = _time_or_zero(end)
         self.identifier = identifier
         self._settings = _to_cue_settings(settings)
         self.lines = _caption_lines([] if text is None else text)
-        self.comments: typing.List[str] = []
+        self.comments: list[str] = []
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return the string representation of the caption."""
         cleaned_text = self.text.replace('\n', '\\n')
         return (f'<{self.__class__.__name__} '
@@ -820,12 +895,12 @@ class Caption:
                 f'settings={str(self.settings)!r}>'
                 )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a readable representation of the caption."""
         cleaned_text = self.text.replace('\n', '\\n')
         return f'{self.start} {self.end} {cleaned_text}'
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare equality with another object."""
         if not isinstance(other, type(self)):
             return False
@@ -838,24 +913,38 @@ class Caption:
                 )
 
     @property
-    def start(self):
+    def start(self) -> str:
         """Return the start time of the caption."""
         return str(self.start_time)
 
     @start.setter
-    def start(self, value: str):
-        """Set the start time of the caption."""
-        self.start_time = Timestamp.from_string(value)
+    def start(self, value: _Position) -> None:
+        """
+        Set the start time of the caption.
+
+        :param value: a timestamp string, a `Timestamp`, a number of seconds
+            or a ``timedelta``, rounded to the nearest millisecond
+
+        :raises MalformedCaptionError: if the value is not a valid time
+        """
+        self.start_time = _to_timestamp(value)
 
     @property
-    def end(self):
+    def end(self) -> str:
         """Return the end time of the caption."""
         return str(self.end_time)
 
     @end.setter
-    def end(self, value: str):
-        """Set the end time of the caption."""
-        self.end_time = Timestamp.from_string(value)
+    def end(self, value: _Position) -> None:
+        """
+        Set the end time of the caption.
+
+        :param value: a timestamp string, a `Timestamp`, a number of seconds
+            or a ``timedelta``, rounded to the nearest millisecond
+
+        :raises MalformedCaptionError: if the value is not a valid time
+        """
+        self.end_time = _to_timestamp(value)
 
     @property
     def settings(self) -> CueSettings:
@@ -863,7 +952,7 @@ class Caption:
         return self._settings
 
     @settings.setter
-    def settings(self, value: typing.Optional[typing.Union[str, CueSettings]]):
+    def settings(self, value: str | CueSettings | None) -> None:
         """
         Set the cue settings of the caption, or clear them when None.
 
@@ -881,11 +970,41 @@ class Caption:
         return self.start_time.in_seconds()
 
     @property
-    def end_in_seconds(self):
+    def end_in_seconds(self) -> int:
         """Return the end time of the caption in seconds."""
         return self.end_time.in_seconds()
 
-    def shift(self, offset: typing.Union[float, datetime.timedelta]):
+    @property
+    def start_in_milliseconds(self) -> int:
+        """Return the start time of the caption in milliseconds."""
+        return self.start_time.in_milliseconds()
+
+    @property
+    def end_in_milliseconds(self) -> int:
+        """Return the end time of the caption in milliseconds."""
+        return self.end_time.in_milliseconds()
+
+    @property
+    def duration(self) -> float:
+        """
+        Return the duration of the caption in seconds.
+
+        It is 0 for a caption that ends before it starts.
+        """
+        return max(
+            self.end_in_milliseconds - self.start_in_milliseconds, 0
+            ) / 1000
+
+    def copy(self) -> 'Caption':
+        """
+        Return a copy of the caption that shares nothing with it.
+
+        Changing the times, lines, settings or comments of the copy leaves
+        the caption unchanged, unlike ``copy.copy``, which shares them.
+        """
+        return copy.deepcopy(self)
+
+    def shift(self, offset: float | datetime.timedelta) -> None:
         """
         Shift the start and end time of the caption.
 
@@ -905,8 +1024,8 @@ class Caption:
 
     def _retimed(
             self,
-            mapping: typing.Callable[[int], int]
-            ) -> typing.Tuple[Timestamp, Timestamp]:
+            mapping: Callable[[int], int]
+            ) -> tuple[Timestamp, Timestamp]:
         """
         Return the start and end time of the caption mapped to new times.
 
@@ -941,7 +1060,7 @@ class Caption:
         )
 
     @text.setter
-    def text(self, value: typing.Union[str, typing.Sequence[str]]):
+    def text(self, value: str | Sequence[str]) -> None:
         """
         Set the text of the caption.
 
@@ -953,19 +1072,38 @@ class Caption:
         self.lines = _caption_lines(value)
 
     @property
-    def voice(self) -> typing.Optional[str]:
+    def voice(self) -> str | None:
         """Return the voice span if present."""
         if self.lines and self.lines[0].startswith('<v'):
-            match = re.match(self.VOICE_SPAN_PATTERN, self.lines[0])
+            match = self.VOICE_SPAN_PATTERN.match(self.lines[0])
             if match:
                 return match.group(1)
 
         return None
 
+    @property
+    def voices(self) -> list[str]:
+        """
+        Return the voices of every voice span in the text, in order.
+
+        Unlike `voice`, which only reads a voice span at the start of the
+        first line, the spans can be anywhere in the text, and a voice is
+        returned once for each of its spans. The names are read as for
+        `voice`, so a caption that starts with a voice span has it first.
+        """
+        voices = []
+        for line in self.lines:
+            for token, is_tag in _iter_cue_text_tokens(line):
+                if is_tag:
+                    match = self.VOICE_SPAN_PATTERN.fullmatch(f'<{token}>')
+                    if match:
+                        voices.append(match.group(1))
+        return voices
+
 
 def _caption_lines(
-        text: typing.Union[str, typing.Iterable[str]]
-        ) -> typing.List[str]:
+        text: str | Iterable[str]
+        ) -> list[str]:
     """
     Return the lines of the text of a caption.
 
@@ -979,7 +1117,7 @@ def _caption_lines(
 
     # bytes are iterable, as integers
     lines = (list(text)
-             if isinstance(text, collections.abc.Iterable) and
+             if isinstance(text, Iterable) and
              not isinstance(text, (bytes, bytearray))
              else None
              )
@@ -992,9 +1130,9 @@ def _caption_lines(
 
 
 def _retime_captions(
-        captions: typing.Iterable[Caption],
-        mapping: typing.Callable[[int], int]
-        ):
+        captions: Iterable[Caption],
+        mapping: Callable[[int], int]
+        ) -> None:
     """
     Change the start and end time of the captions with a mapping.
 
@@ -1013,6 +1151,10 @@ def _retime_captions(
         caption.start_time, caption.end_time = start_time, end_time
 
 
+# the separators of the fields of an SRT or SBV timing
+_TIMING_FIELDS = re.compile('[:,.]')
+
+
 def _timing_in_milliseconds(value: str) -> int:
     """
     Return the milliseconds of a SRT or SBV timestamp.
@@ -1027,10 +1169,11 @@ def _timing_in_milliseconds(value: str) -> int:
 
     :raises ValueError: if a field is past the range of a timestamp
     """
-    fields = re.split('[:,.]', value)
+    fields = _TIMING_FIELDS.split(value)
     # a field with more than 17 significant digits is past the largest
     # timestamp whatever its unit, so it is rejected without converting it
-    if any(len(field.lstrip('0')) > 17 for field in fields):
+    if (max(map(len, fields)) > 17 and
+            any(len(field.lstrip('0')) > 17 for field in fields)):
         raise ValueError(_OUT_OF_RANGE)
 
     hours, minutes, seconds, milliseconds = map(int, fields)
@@ -1040,8 +1183,8 @@ def _timing_in_milliseconds(value: str) -> int:
 def _caption_from_timings(
         start: str,
         end: str,
-        lines: typing.Sequence[str]
-        ) -> typing.Optional[Caption]:
+        lines: Sequence[str]
+        ) -> Caption | None:
     """
     Return a caption from the cue timings of SRT or SBV.
 
@@ -1052,20 +1195,92 @@ def _caption_from_timings(
         is after the largest timestamp
     """
     try:
-        start_time, end_time = (
-            Timestamp._from_milliseconds(_timing_in_milliseconds(timing))
-            for timing in (start, end)
+        start_time = Timestamp._from_milliseconds(
+            _timing_in_milliseconds(start)
             )
+        end_time = Timestamp._from_milliseconds(_timing_in_milliseconds(end))
     except ValueError:
         return None
 
-    return Caption(str(start_time), str(end_time), lines)
+    caption = Caption(text=lines)
+    # the timestamps are new, so the caption keeps them instead of copies
+    caption.start_time = start_time
+    caption.end_time = end_time
+    return caption
+
+
+@dataclass
+class ParseIssue:
+    """
+    Record of a block that was skipped when reading captions.
+
+    :param line: the line number where the block starts, from 1
+    :param message: why the block was skipped
+    :param lines: the lines of the block
+    """
+
+    line: int
+    message: str
+    lines: list[str]
+
+    def __str__(self) -> str:
+        """Return the line number and the message."""
+        return f'line {self.line}: {self.message}'
+
+
+_ValidationCode = typing.Literal[
+    'timing', 'order', 'region', 'overlap', 'empty'
+    ]
+_Severity = typing.Literal['error', 'warning']
+
+
+@dataclass
+class ValidationIssue:
+    """
+    Record of a problem found in the captions by ``WebVTT.validate``.
+
+    :param index: the index of the caption in ``captions``, from 0
+    :param code: the kind of problem: ``timing`` for an end that is not
+        after the start, ``order`` for a caption that starts before the
+        previous one, ``region`` for a region that is not defined,
+        ``overlap`` for a caption that overlaps an earlier one, or
+        ``empty`` for a caption without text
+    :param severity: ``error`` when the captions are not valid WebVTT, or
+        ``warning`` when they are valid but likely have a mistake
+    :param message: a description of the problem, where captions are
+        numbered from 1 as in a file
+    """
+
+    index: int
+    code: _ValidationCode
+    severity: _Severity
+    message: str
+
+    def __str__(self) -> str:
+        """Return the caption number, from 1, the severity and the message."""
+        return f'caption {self.index + 1}: {self.severity}: {self.message}'
+
+
+def _skipped_block(
+        number: int,
+        kind: str,
+        lines: list[str]
+        ) -> ParseIssue:
+    """
+    Return the record of a block of SRT or SBV that is skipped.
+
+    :param number: the line number where the block starts
+    :param kind: the description of what is wrong with the block
+    :param lines: the lines of the block
+    :returns: a `ParseIssue` instance
+    """
+    return ParseIssue(number, f'{kind} {lines!r}', lines)
 
 
 class Style:
     """Representation of a style."""
 
-    def __init__(self, text: typing.Union[str, typing.List[str]]):
+    def __init__(self, text: str | list[str]):
         """Initialize.
 
         :param text: the style text, or a list of its lines, which is
@@ -1075,10 +1290,26 @@ class Style:
                       if isinstance(text, str)
                       else list(text)
                       )
-        self.comments: typing.List[str] = []
+        self.comments: list[str] = []
+
+    def __repr__(self) -> str:
+        """Return the string representation of the style."""
+        return f'<{self.__class__.__name__} text={self.text!r}>'
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Compare equality with another object.
+
+        Styles are equal when they have the same lines. The comments are not
+        compared, as for captions and regions.
+        """
+        if not isinstance(other, Style):
+            return NotImplemented
+
+        return self.lines == other.lines
 
     @property
-    def text(self):
+    def text(self) -> str:
         """Return the text of the style."""
         return '\n'.join(self.lines)
 
@@ -1111,12 +1342,12 @@ class Region(_Settings):
 
     def __init__(self,
                  *,
-                 id: typing.Optional[str] = None,
-                 width: typing.Optional[str] = None,
-                 lines: typing.Optional[str] = None,
-                 regionanchor: typing.Optional[str] = None,
-                 viewportanchor: typing.Optional[str] = None,
-                 scroll: typing.Optional[str] = None
+                 id: str | None = None,
+                 width: str | None = None,
+                 lines: str | None = None,
+                 regionanchor: str | None = None,
+                 viewportanchor: str | None = None,
+                 scroll: str | None = None
                  ):
         """
         Initialize.
@@ -1133,13 +1364,14 @@ class Region(_Settings):
         :raises MalformedRegionError: if a value is not valid
         """
         super().__init__()
-        self.id = id
-        self.width = width
-        self.lines = lines
-        self.regionanchor = regionanchor
-        self.viewportanchor = viewportanchor
-        self.scroll = scroll
-        self.comments: typing.List[str] = []
+        self._set_given(id=id,
+                        width=width,
+                        lines=lines,
+                        regionanchor=regionanchor,
+                        viewportanchor=viewportanchor,
+                        scroll=scroll
+                        )
+        self.comments: list[str] = []
 
     @classmethod
     def from_string(cls, value: str, strict: bool = False) -> 'Region':

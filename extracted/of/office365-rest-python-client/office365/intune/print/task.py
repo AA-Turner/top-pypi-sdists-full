@@ -3,27 +3,29 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from office365.entity import Entity
+from office365.intune.print.task_status import PrintTaskStatus
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.intune.print.task_definition import PrintTaskDefinition
-    from office365.intune.print.task_status import PrintTaskStatus
     from office365.intune.print.task_trigger import PrintTaskTrigger
 
 
 class PrintTask(Entity):
+    @odata(name="parentUrl")
     @property
     def parent_url(self) -> Optional[str]:
         """Gets the parentUrl property"""
         return self.properties.get("parentUrl", None)
 
+    @odata(name="status")
     @property
     def status(self) -> PrintTaskStatus:
         """Gets the status property"""
-        from office365.intune.print.task_status import PrintTaskStatus
-
         return self.properties.get("status", PrintTaskStatus())
 
+    @odata(name="definition", navigation=True)
     @property
     def definition(self) -> PrintTaskDefinition:
         """Gets the definition property"""
@@ -33,6 +35,7 @@ class PrintTask(Entity):
             "definition", PrintTaskDefinition(self.context, ResourcePath("definition", self.resource_path))
         )
 
+    @odata(name="trigger", navigation=True)
     @property
     def trigger(self) -> PrintTaskTrigger:
         """Gets the trigger property"""

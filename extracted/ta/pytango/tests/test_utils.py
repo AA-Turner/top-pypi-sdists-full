@@ -8,6 +8,8 @@ from threading import Event
 import pytest
 
 from tango import (
+    AttrDataFormat,
+    CmdArgType,
     DbData,
     DbDatum,
     DbDevExportInfo,
@@ -26,9 +28,13 @@ from tango import (
     StdStringVector,
     is_omni_thread,
 )
-from tango._instrumentation import _traced_coverage_run_active
+from tango._internal.instrumentation import _traced_coverage_run_active
+from tango.tango_numpy import NumpyType
 from tango.utils import (
+    FROM_TANGO_TO_NUMPY_TYPE,
     TO_TANGO_TYPE,
+    CaselessList,
+    EventCallback,
     InvalidTangoHostTrlError,
     PyTangoThread,
     StdDoubleVector_2_seq,
@@ -37,12 +43,21 @@ from tango.utils import (
     _get_device_fqtrl_if_necessary,
     _get_test_context_tango_host_fqtrl,
     _set_test_context_tango_host_fqtrl,
+    get_attrs,
     get_tango_type,
+    is_binary,
+    is_bool,
+    is_devstate_seq,
+    is_enum_seq,
+    is_float,
+    is_int,
+    is_str,
     seq_2_DbData,
     seq_2_DbDevExportInfos,
     seq_2_DbDevInfos,
     seq_2_StdDoubleVector,
     seq_2_StdStringVector,
+    seqStr_2_obj,
 )
 
 
@@ -348,3 +363,175 @@ def test_pytango_thread_runs_with_omni():
     task.start()
     task.join()
     assert my_event.is_set()
+
+
+def test_numpy_type_mapping_agrees_with_the_general_one():
+    for tango_type, expected in NumpyType.mapping.items():
+        assert FROM_TANGO_TO_NUMPY_TYPE[tango_type] == expected
+
+
+@pytest.mark.parametrize(
+    "tg_type, tg_format, seq, expected",
+    [
+        (CmdArgType.DevLong, AttrDataFormat.SCALAR, ["7"], 7),
+        (CmdArgType.DevDouble, AttrDataFormat.SCALAR, ["1.5"], 1.5),
+        (CmdArgType.DevString, AttrDataFormat.SCALAR, ["abc"], "abc"),
+        (CmdArgType.DevBoolean, AttrDataFormat.SCALAR, ["true"], True),
+        (CmdArgType.DevLong, AttrDataFormat.SPECTRUM, ["1", "2"], [1, 2]),
+        (CmdArgType.DevDouble, AttrDataFormat.SPECTRUM, ["1.5", "2.5"], [1.5, 2.5]),
+        (CmdArgType.DevString, AttrDataFormat.SPECTRUM, ["a", "b"], ["a", "b"]),
+        (CmdArgType.DevBoolean, AttrDataFormat.SPECTRUM, ["true", "0"], [True, False]),
+        (
+            CmdArgType.DevLong,
+            AttrDataFormat.IMAGE,
+            [["1", "2"], ["3", "4"]],
+            [[1, 2], [3, 4]],
+        ),
+        (
+            CmdArgType.DevDouble,
+            AttrDataFormat.IMAGE,
+            [["1.5"], ["2.5"]],
+            [[1.5], [2.5]],
+        ),
+        (CmdArgType.DevString, AttrDataFormat.IMAGE, [["a"], ["b"]], [["a"], ["b"]]),
+        (
+            CmdArgType.DevBoolean,
+            AttrDataFormat.IMAGE,
+            [["true", "0"]],
+            [[True, False]],
+        ),
+    ],
+)
+def test_seq_str_2_obj_honours_explicit_format(tg_type, tg_format, seq, expected):
+    assert seqStr_2_obj(seq, tg_type, tg_format) == expected
+
+
+@pytest.mark.parametrize(
+    "tg_type, seq",
+    [
+        (CmdArgType.DevLong, ["7"]),
+        (CmdArgType.DevDouble, ["1.5"]),
+        (CmdArgType.DevString, ["abc"]),
+        (CmdArgType.DevBoolean, ["true"]),
+    ],
+)
+def test_seq_str_2_obj_scalar_format_matches_omitted_format(tg_type, seq):
+    # AttrDataFormat.SCALAR is 0, so it must not be treated as "no format given".
+    assert seqStr_2_obj(seq, tg_type, AttrDataFormat.SCALAR) == seqStr_2_obj(seq, tg_type)
+
+
+@pytest.mark.parametrize("tg_type", [CmdArgType.DevEnum, CmdArgType.DevState, CmdArgType.DevEncoded])
+def test_seq_str_2_obj_rejects_type_without_array_equivalent(tg_type):
+    with pytest.raises(ValueError):
+        seqStr_2_obj(["a"], tg_type, AttrDataFormat.SPECTRUM)
+
+
+def test_caseless_list_index_finds_first_match_ignoring_case():
+    assert CaselessList(["Abc", "def", "ABC"]).index("aBc") == 0
+    assert CaselessList(["Abc", "def"]).index("DEF") == 1
+
+
+def test_caseless_list_index_raises_value_error_when_absent():
+    with pytest.raises(ValueError):
+        CaselessList(["a", "b"]).index("zzz")
+
+
+def test_caseless_list_index_raises_type_error_for_non_string():
+    with pytest.raises(TypeError):
+        CaselessList(["a"]).index(1)
+
+
+@pytest.mark.parametrize(
+    "entries, item, minindex, maxindex, expected",
+    [
+        (["a", "b", "c"], "b", 1, None, 1),
+        (["a", "b", "c"], "c", 0, 3, 2),
+        (["a", "b", "a"], "a", 1, None, 2),
+    ],
+)
+def test_caseless_list_index_honours_bounds(entries, item, minindex, maxindex, expected):
+    assert CaselessList(entries).index(item, minindex, maxindex) == expected
+
+
+@pytest.mark.parametrize(
+    "entries, item, minindex, maxindex",
+    [
+        # maxindex is exclusive, so the match at that position is out of range.
+        (["a", "b"], "b", 0, 1),
+        (["a", "b"], "a", 1, 2),
+    ],
+)
+def test_caseless_list_index_excludes_out_of_range_match(entries, item, minindex, maxindex):
+    with pytest.raises(ValueError):
+        CaselessList(entries).index(item, minindex, maxindex)
+
+
+def test_caseless_list_in_place_add_returns_the_list():
+    entries = CaselessList(["a"])
+    entries += ["b"]
+    assert isinstance(entries, CaselessList)
+    assert list(entries) == ["a", "b"]
+
+
+def test_caseless_list_reflected_add_keeps_operand_order():
+    # The concatenation operator is what is under test here, so it must not be
+    # rewritten as unpacking.
+    assert list(["x"] + CaselessList(["a"])) == ["x", "a"]  # noqa: RUF005
+
+
+def test_caseless_list_add_keeps_operand_order():
+    assert list(CaselessList(["a"]) + ["x"]) == ["a", "x"]  # noqa: RUF005
+
+
+@pytest.mark.parametrize("empty", [[], (), [[]], [()]])
+def test_is_devstate_seq_handles_empty_sequences(empty):
+    # Must agree with is_enum_seq, which already guards against this.
+    assert is_devstate_seq(empty) is False
+    assert is_enum_seq(empty) is False
+
+
+def test_get_attrs_reports_bad_dict_without_writing_to_stdout(capsys):
+    class Meta(type):
+        @property
+        def __dict__(cls):
+            return "not a mapping"
+
+    class BadDict(metaclass=Meta):
+        pass
+
+    with pytest.raises(TypeError):
+        get_attrs(BadDict)
+
+    assert capsys.readouterr().out == ""
+
+
+def test_event_callback_value_for_unknown_event_type():
+    class UnknownEvent:
+        err = False
+
+    value = EventCallback()._get_value(UnknownEvent())
+    assert isinstance(value, str)
+    assert value
+
+
+def test_event_callback_append_accepts_zero_sized_buffer():
+    callback = EventCallback(max_buf=0)
+    callback._append(object())
+    assert callback.get_events() == []
+
+
+@pytest.mark.parametrize(
+    "predicate, scalar_type, array_type",
+    [
+        (is_binary, CmdArgType.DevEncoded, CmdArgType.DevVarCharArray),
+        (is_int, CmdArgType.DevLong, CmdArgType.DevVarLongArray),
+        (is_float, CmdArgType.DevDouble, CmdArgType.DevVarDoubleArray),
+        (is_bool, CmdArgType.DevBoolean, CmdArgType.DevVarBooleanArray),
+        (is_str, CmdArgType.DevString, CmdArgType.DevVarStringArray),
+    ],
+)
+def test_type_predicates_gate_array_types_on_inc_array(predicate, scalar_type, array_type):
+    assert predicate(scalar_type) is True
+    assert predicate(scalar_type, True) is True
+    assert predicate(array_type) is False
+    assert predicate(array_type, True) is True

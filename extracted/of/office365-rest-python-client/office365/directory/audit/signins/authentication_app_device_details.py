@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AuthenticationAppDeviceDetails(ClientValue):
     appVersion: str | None = None
     clientApp: str | None = None

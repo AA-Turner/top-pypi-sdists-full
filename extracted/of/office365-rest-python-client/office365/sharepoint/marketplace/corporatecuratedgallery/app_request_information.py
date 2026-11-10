@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SPStoreAppRequestInformation(ClientValue):
     AssetId: Optional[str] = None
     BillingMarket: Optional[str] = None

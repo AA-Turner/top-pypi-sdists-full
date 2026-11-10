@@ -26,21 +26,214 @@ the two documents look like the same terminal.
 
 from __future__ import annotations
 
-from ..styling import ansi_to_html
+from itertools import groupby
+
+from ..styling import split_ansi
 from .presets import BARE_CHROME, CAPTURE_FONT_STACK, DEFAULT_PRESET, NO_PAINT, OPAQUE
 from .svg import (
+    _SHAPED_RE,
+    BLOCK_ELEMENTS,
+    BRAILLE_DOT_RADIUS,
+    CELL_WIDTH,
+    LINE_HEIGHT,
+    SHADE_DENSITY,
     SHADOW_BLUR,
     SHADOW_OFFSET,
     WATERMARK_INSET,
     WATERMARK_SIZE,
     WATERMARK_URL,
+    _braille_centers,
     _escape_markup,
+    _shape_kind,
+    _svg_number,
+    box_svg,
     credit_markup,
 )
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from .presets import Chrome, TerminalPalette
+
+
+LINE_SPACING = 1.25
+"""Height of a line of a capture's `<pre>`, as a multiple of its font size.
+
+Every box a run of shapes is drawn in is this tall too, so two stacked rows of
+shapes meet where their lines do.
+"""
+
+
+def _shape_box(count: int) -> str:
+    """The box a run of shapes is drawn in: a line tall, a cell per character.
+
+    The glyphs stay in it, with a transparent fill. The width is stated rather
+    than left to the glyphs, so a font drawing them wider than a cell cannot
+    push the rest of the line off its columns.
+    """
+    return (
+        f"display: inline-block; width: {count}ch; height: {LINE_SPACING:g}em; "
+        "vertical-align: top; -webkit-text-fill-color: transparent"
+    )
+
+
+def block_css(char: str, count: int) -> str:
+    """Draw a run of one Block Elements character as shapes, in CSS.
+
+    The run becomes an inline block as tall as its line, and each rectangle
+    {data}`~click_extra.capture.svg.BLOCK_ELEMENTS` names becomes a background
+    layer painted in the run's own color: one layer across the run for a
+    rectangle as wide as its cell, a band repeated cell by cell for a narrower
+    one. A font draws the glyph shorter than the line, and an inline background
+    covers only the font's height, so either would leave a band between two
+    stacked rows. The glyphs stay in the text, with a transparent fill.
+
+    :param char: the Block Elements character.
+    :param count: how many cells of it the run holds.
+    :return: the declarations, semicolon-separated.
+    """
+    density = SHADE_DENSITY.get(char)
+    # A shade is its ink thinned over the run's own background, which the
+    # transparent part of the color lets through.
+    ink = (
+        "currentColor"
+        if density is None
+        else f"color-mix(in srgb, currentColor {density:.0%}, transparent)"
+    )
+    images = []
+    sizes = []
+    positions = []
+    repeats = []
+    for left, top, right, bottom in BLOCK_ELEMENTS[char]:
+        height = f"{LINE_SPACING * (bottom - top) / 8:g}em"
+        if left == 0 and right == 8:
+            # One layer across the whole run. Repeated a cell at a time, it
+            # would end on a fraction of a pixel, and two runs side by side
+            # would leave a seam of background between them.
+            images.append(f"linear-gradient({ink}, {ink})")
+            sizes.append(f"100% {height}")
+            repeats.append("no-repeat")
+        else:
+            start, end = f"{left * 100 / 8:g}%", f"{right * 100 / 8:g}%"
+            images.append(
+                f"linear-gradient(90deg, transparent {start}, {ink} {start}, "
+                f"{ink} {end}, transparent {end})"
+            )
+            sizes.append(f"1ch {height}")
+            repeats.append("repeat-x")
+        positions.append(f"0 {LINE_SPACING * top / 8:g}em")
+    return (
+        f"{_shape_box(count)}; "
+        f"background-image: {', '.join(images)}; "
+        f"background-size: {', '.join(sizes)}; "
+        f"background-position: {', '.join(positions)}; "
+        f"background-repeat: {', '.join(repeats)}"
+    )
+
+
+def braille_css(char: str, count: int) -> str:
+    """Draw a run of one Braille pattern as dots, in CSS.
+
+    Each dot the pattern raises becomes a background layer: a disc in the run's
+    own color, at its place on a tile one cell wide, repeated along the run, see
+    {data}`~click_extra.capture.svg.BRAILLE_DOTS`. The disc's edge fades over a
+    pixel, which a hard stop would leave jagged.
+
+    :param char: the Braille pattern.
+    :param count: how many cells of it the run holds.
+    :return: the declarations, semicolon-separated.
+    """
+    radius = f"{BRAILLE_DOT_RADIUS * LINE_SPACING / 4:g}em"
+    images = [
+        f"radial-gradient(circle {radius} at {across * 100:g}% {down * 100:g}%, "
+        f"currentColor calc({radius} - 0.5px), transparent calc({radius} + 0.5px))"
+        for across, down in _braille_centers(char)
+    ]
+    if not images:
+        return _shape_box(count)
+    return (
+        f"{_shape_box(count)}; "
+        f"background-image: {', '.join(images)}; "
+        f"background-size: 1ch {LINE_SPACING:g}em; background-repeat: repeat-x"
+    )
+
+
+def box_html(text: str) -> str:
+    """Draw a run of Box Drawing as an SVG filling the run's box.
+
+    The SVG holds the lines {func}`~click_extra.capture.svg.box_svg` draws for
+    an SVG capture, scaled to the run's cells and painted in the run's own
+    color. One SVG spans the whole run, so a table's rule is one shape: repeated
+    cell by cell, a background would end each line on a fraction of a pixel and
+    leave seams.
+
+    :param text: the run, Box Drawing only.
+    :return: the SVG markup, to sit in the run's box, see {func}`_pre_markup`.
+    """
+    width = _svg_number(len(text) * CELL_WIDTH)
+    return (
+        f'<svg viewBox="0 0 {width} {_svg_number(LINE_HEIGHT)}" '
+        'preserveAspectRatio="none" aria-hidden="true" style="position: absolute; '
+        'left: 0; top: 0; width: 100%; height: 100%; overflow: visible">'
+        f"{box_svg(text, 0, 0, 'currentColor')}</svg>"
+    )
+
+
+def _styled_span(content: str, css: str, declarations: str = "") -> str:
+    """Wrap `content` in a span wearing a run's `css` and any `declarations`.
+
+    Given neither, the content is left bare, as
+    {func}`~click_extra.styling.ansi_to_html` leaves a run whose style has no CSS.
+    """
+    joined = "; ".join(part for part in (css, declarations) if part)
+    return f'<span style="{joined}">{content}</span>' if joined else content
+
+
+def _pre_markup(text: str) -> str:
+    """Translate captured text to the markup a capture's `<pre>` holds.
+
+    What {func}`~click_extra.styling.ansi_to_html` writes, but for the characters
+    drawn as shapes: a run of Box Drawing is cut out into a box of its own, drawn
+    by {func}`box_html`, and so is each run of one Block Elements character or
+    Braille pattern, drawn by {func}`block_css` or {func}`braille_css`. Each box
+    wears the style of the run it came from. Spans never cross a line, as there.
+
+    :param text: captured output, already escaped, ANSI escape sequences
+        included.
+    :return: the markup.
+    """
+    chunks: list[str] = []
+    for style, run in split_ansi(text):
+        css = style.to_css()
+        for index, line in enumerate(run.split("\n")):
+            if index:
+                chunks.append("\n")
+            position = 0
+            for found in (*_SHAPED_RE.finditer(line), None):
+                end = len(line) if found is None else found.start()
+                between = line[position:end]
+                if between:
+                    chunks.append(_styled_span(between, css))
+                if found is None:
+                    break
+                for kind, group in groupby(found.group(), key=_shape_kind):
+                    piece = "".join(group)
+                    if kind == "box":
+                        chunks.append(
+                            _styled_span(
+                                f"{piece}{box_html(piece)}",
+                                css,
+                                f"{_shape_box(len(piece))}; position: relative",
+                            )
+                        )
+                        continue
+                    shape = braille_css if kind == "braille" else block_css
+                    for char, cells in groupby(piece):
+                        count = len(tuple(cells))
+                        chunks.append(
+                            _styled_span(char * count, css, shape(char, count))
+                        )
+                position = found.end()
+    return "".join(chunks)
 
 
 def _credit_link(url: str, name: str) -> str:
@@ -71,7 +264,9 @@ def render_html(
     existing page needs no stylesheet and cannot be restyled out of legibility
     by the host. Nothing else is needed either: a `<pre>` preserves the
     capture's own spacing, which is what spares HTML the column arithmetic
-    {func}`~click_extra.capture.svg.render_svg` performs for a picture.
+    {func}`~click_extra.capture.svg.render_svg` performs for a picture. Box
+    Drawing, Block Elements and Braille patterns are the exception, drawn as
+    shapes by {func}`box_html`, {func}`block_css` and {func}`braille_css`.
 
     ```{caution}
     The text is escaped before its ANSI is translated, the order
@@ -131,10 +326,10 @@ def render_html(
         )
     body = (
         f'<pre style="background: {background}; color: {ink}; '
-        f"font-family: {font_stack}; line-height: 1.25; "
+        f"font-family: {font_stack}; line-height: {LINE_SPACING:g}; "
         f"margin: {block_margin}; padding: calc(1em + {chrome.padding}px); "
         f"{frame}border-radius: {chrome.radius}px; "
-        f'overflow-x: auto">{ansi_to_html(_escape_markup(text))}</pre>'
+        f'overflow-x: auto">{_pre_markup(_escape_markup(text))}</pre>'
     )
     if chrome.watermark:
         credit = credit_markup(

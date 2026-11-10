@@ -42,6 +42,7 @@ from airbyte_ops_mcp.regression_tests.report import (
     build_single_version_report_model,
     build_split_diff_block,
     consolidate_reports,
+    enrich_report_model,
     extract_report_part,
     render_html_report,
     render_inline_summary,
@@ -69,6 +70,76 @@ def _comparison(command: str, target: dict, control: dict, **kwargs):
         control_result=control,
         **kwargs,
     )
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("success", [False, True])
+@pytest.mark.parametrize("configured_streams", [(), ("users", "empty")])
+def test_core_and_enriched_models_have_identical_verdicts_and_checks(
+    single, success, configured_streams
+):
+    target = _run_result(
+        success,
+        record_counts_per_stream={"users": 5},
+        message_counts={"RECORD": 5},
+        http_metrics={
+            "flow_count": 10,
+            "live_flow_count": 4,
+            "replay_source": "control.mitm",
+            "connector_request_count": 10,
+            "connector_cache_hits_count": 1,
+        },
+    )
+    control = _run_result(
+        True,
+        record_counts_per_stream={"users": 5},
+        message_counts={"RECORD": 5},
+        http_metrics={
+            "flow_count": 10,
+            "connector_request_count": 10,
+            "connector_cache_hits_count": 9,
+        },
+    )
+    checks = (CheckResult(name="Validation", passed=success, summary="Validated"),)
+    if single:
+        core = build_single_version_report_model(
+            connector_image=TARGET_IMAGE,
+            command="read",
+            result=target,
+            extra_checks=checks,
+            configured_streams=configured_streams,
+            include_report_sections=False,
+        )
+    else:
+        core = _comparison(
+            "read",
+            target,
+            control,
+            extra_checks=checks,
+            configured_streams=configured_streams,
+            include_report_sections=False,
+        )
+    assert core.metric_tables == ()
+    assert core.stream_sections == ()
+    assert core.diff_blocks == ()
+    assert core.connection_objects == ()
+    check_names = {check["name"] for check in core.check_results()}
+    assert ("Stream coverage" in check_names) is bool(configured_streams)
+    if not single:
+        assert {"HTTP replay coverage", "Connector cache hit ratio"} <= check_names
+    enriched = enrich_report_model(
+        core,
+        target_result=target,
+        control_result=None if single else control,
+        configured_streams=configured_streams,
+    )
+    assert enriched.metric_tables
+    assert enriched.stream_sections
+    assert enriched.verdict_flags() == core.verdict_flags()
+    assert enriched.verdict_label == core.verdict_label
+    assert enriched.verdict_detail == core.verdict_detail
+    assert enriched.checks == core.checks
+    assert enriched.check_results() == core.check_results()
 
 
 # --------------------------------------------------------------------------

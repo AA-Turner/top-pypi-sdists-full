@@ -681,7 +681,7 @@ impl Hash for Value {
             ValueRepr::None | ValueRepr::Undefined(..) => 0u8.hash(state),
             ValueRepr::String(ref s, _) => s.hash(state),
             ValueRepr::SmallStr(ref s) => s.as_str().hash(state),
-            ValueRepr::Bool(b) => b.hash(state),
+            ValueRepr::Bool(b) => (b as i64).hash(state),
             ValueRepr::Invalid(ref e) => (e.kind(), e.detail()).hash(state),
             ValueRepr::Bytes(ref b) => b.hash(state),
             ValueRepr::Object(ref d) => {
@@ -715,6 +715,8 @@ impl PartialEq for Value {
             (&ValueRepr::String(ref a, _), &ValueRepr::String(ref b, _)) => a == b,
             (&ValueRepr::SmallStr(ref a), &ValueRepr::SmallStr(ref b)) => a.as_str() == b.as_str(),
             (&ValueRepr::Bytes(ref a), &ValueRepr::Bytes(ref b)) => a == b,
+            // `coerce` cannot represent u128 values above i128::MAX.
+            (&ValueRepr::U128(a), &ValueRepr::U128(b)) => a.0 == b.0,
             _ => match ops::coerce(self, other, false) {
                 Some(ops::CoerceResult::F64(a, b)) => a == b,
                 Some(ops::CoerceResult::I128(a, b)) => a == b,
@@ -891,6 +893,15 @@ fn cmp_uncoercible_numbers(left: &Value, right: &Value) -> Ordering {
 
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
+        match (&self.0, &other.0) {
+            (&ValueRepr::Bool(a), _) if other.is_number() => {
+                return Value::from(a as i64).cmp(other)
+            }
+            (_, &ValueRepr::Bool(b)) if self.is_number() => {
+                return self.cmp(&Value::from(b as i64))
+            }
+            _ => {}
+        }
         let kind_ordering = self.kind().cmp(&other.kind());
         if matches!(kind_ordering, Ordering::Less | Ordering::Greater) {
             return kind_ordering;
@@ -903,8 +914,7 @@ impl Ord for Value {
                 a.as_str().cmp(b.as_str())
             }
             (&ValueRepr::Bytes(ref a), &ValueRepr::Bytes(ref b)) => a.cmp(b),
-            // `coerce` represents two u128 values as i128, which reverses the
-            // order if only one of them exceeds i128::MAX.
+            // `coerce` cannot represent u128 values above i128::MAX.
             (&ValueRepr::U128(a), &ValueRepr::U128(b)) => { a.0 }.cmp(&{ b.0 }),
             _ => match ops::coerce(self, other, false) {
                 Some(ops::CoerceResult::F64(a, b)) => cmp_f64(a, b),
@@ -1653,7 +1663,14 @@ impl Value {
     /// * string and bytes: returns a reversed version of that value
     /// * iterables: returns a reversed version of the iterable.  If the iterable is not
     ///   reversible itself, it consumes it and then reverses it.
+    /// * maps: returns the keys in reverse order.
     pub fn reverse(&self) -> Result<Value, Error> {
+        self.reverse_with_fuel(None)
+    }
+
+    /// Like [`reverse`](Self::reverse) but charges the fuel of the state for
+    /// iterables that need to be consumed.
+    pub(crate) fn reverse_with_fuel(&self, state: Option<&State>) -> Result<Value, Error> {
         match self.0 {
             ValueRepr::Undefined(..) | ValueRepr::None => Some(self.clone()),
             ValueRepr::String(ref s, _) => Some(Value::from(s.chars().rev().collect::<String>())),
@@ -1677,7 +1694,7 @@ impl Value {
                     }))
                 }
                 Enumerator::Iter(iter) => {
-                    let mut v = crate::utils::collect_untrusted(iter);
+                    let mut v = crate::utils::collect_untrusted(State::opt_fuel_iter(state, iter));
                     v.reverse();
                     Some(Value::make_object_iterable(v, move |v| {
                         Box::new(v.iter().cloned())
@@ -1685,9 +1702,15 @@ impl Value {
                 }
                 Enumerator::KeyValueIter(iter) => {
                     let mut v = if let ObjectRepr::Map = o.repr() {
-                        crate::utils::collect_untrusted(iter.map(|(k, _)| k))
+                        crate::utils::collect_untrusted(State::opt_fuel_iter(
+                            state,
+                            iter.map(|(k, _)| k),
+                        ))
                     } else {
-                        crate::utils::collect_untrusted(iter.map(Value::from))
+                        crate::utils::collect_untrusted(State::opt_fuel_iter(
+                            state,
+                            iter.map(Value::from),
+                        ))
                     };
                     v.reverse();
                     Some(Value::make_object_iterable(v, move |v| {
@@ -1699,7 +1722,7 @@ impl Value {
                     let iter = Mutex::new(Some(rev_iter));
                     Some(Value::make_iterable(move || {
                         if let Some(iter) = iter.lock().unwrap().take() {
-                            Box::new(iter) as Box<dyn Iterator<Item = Value> + Send + Sync>
+                            Box::new(iter.rev()) as Box<dyn Iterator<Item = Value> + Send + Sync>
                         } else {
                             match for_restart.reverse().and_then(|x| x.try_iter()) {
                                 Ok(iterable) => Box::new(iterable)
@@ -1717,10 +1740,10 @@ impl Value {
                     Some(Value::make_iterable(move || {
                         if let Some(iter) = iter.lock().unwrap().take() {
                             if let ObjectRepr::Map = repr {
-                                Box::new(iter.map(|(k, _)| k))
+                                Box::new(iter.rev().map(|(k, _)| k))
                                     as Box<dyn Iterator<Item = Value> + Send + Sync>
                             } else {
-                                Box::new(iter.map(Value::from))
+                                Box::new(iter.rev().map(Value::from))
                                     as Box<dyn Iterator<Item = Value> + Send + Sync>
                             }
                         } else {

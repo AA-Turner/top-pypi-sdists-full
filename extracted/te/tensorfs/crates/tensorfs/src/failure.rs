@@ -3,9 +3,9 @@
 
 use crate::err::{Code, Refusal};
 use crate::format;
-#[cfg(feature = "store")]
 use crate::store;
 
+/// The thirteen error families, each with a stable `code`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// A document, argument or tensor breaks the format or a grammar.
@@ -71,6 +71,7 @@ impl Kind {
     }
 }
 
+/// An error: its family and the cause in the detail.
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{}: {detail}", kind.code())]
 pub struct Failure {
@@ -78,8 +79,10 @@ pub struct Failure {
     pub detail: String,
 }
 
+/// A result that fails with a `Failure`.
 pub type Result<T> = std::result::Result<T, Failure>;
 
+/// Returns `Err` with a failure of this kind and detail.
 pub fn fail<T>(kind: Kind, detail: impl Into<String>) -> Result<T> {
     Err(Failure {
         kind,
@@ -116,6 +119,7 @@ impl From<Refusal> for Failure {
             | AMBIGUOUS_CLASSIFICATION
             | UNREGISTERED_FINGERPRINT
             | CONVERTS_NOTHING
+            | UNPLACED_KEYS
             | MISSING_COMPANION_ROLE
             | ADAPTER_TARGET_UNSUPPORTED
             | CARRIER_HEADER_CAP
@@ -146,12 +150,13 @@ impl From<format::Error> for Failure {
     }
 }
 
-#[cfg(feature = "store")]
+#[cfg(feature = "cuda")]
 impl From<crate::io::cuda::Error> for Failure {
     fn from(error: crate::io::cuda::Error) -> Failure {
         use crate::io::cuda;
         let kind = match &error {
-            cuda::Error::CudaUnavailable(_) => Kind::Unsupported,
+            cuda::Error::Allocation(varena::Error::OutOfMemory { .. }) => Kind::DeviceMemory,
+            cuda::Error::Allocation(varena::Error::Unsupported(_)) | cuda::Error::CudaUnavailable(_) => Kind::Unsupported,
             cuda::Error::Cuda { code, .. } if *code == cuda::ERROR_OUT_OF_MEMORY => Kind::DeviceMemory,
             _ => Kind::Io,
         };
@@ -159,7 +164,6 @@ impl From<crate::io::cuda::Error> for Failure {
     }
 }
 
-#[cfg(feature = "store")]
 impl From<store::Error> for Failure {
     fn from(e: store::Error) -> Failure {
         let kind = match &e {
@@ -168,6 +172,7 @@ impl From<store::Error> for Failure {
                 if let Some(refusal) = source.get_ref().and_then(|cause| cause.downcast_ref::<Refusal>()) {
                     return refusal.clone().into();
                 }
+                #[cfg(feature = "cuda")]
                 if let Some(cuda) = source.get_ref().and_then(|cause| cause.downcast_ref::<crate::io::cuda::Error>()) {
                     return cuda.clone().into();
                 }
@@ -190,7 +195,7 @@ impl From<std::io::Error> for Failure {
         if let Some(failure) = e.get_ref().and_then(|cause| cause.downcast_ref::<Failure>()) {
             return failure.clone();
         }
-        #[cfg(feature = "store")]
+        #[cfg(feature = "cuda")]
         if let Some(cuda) = e.get_ref().and_then(|cause| cause.downcast_ref::<crate::io::cuda::Error>()) {
             return cuda.clone().into();
         }

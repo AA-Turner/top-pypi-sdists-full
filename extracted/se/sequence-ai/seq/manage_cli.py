@@ -139,7 +139,8 @@ def policy_upgrade(name: str, *, to: str | None = None, dry_run: bool = False, w
     """Move a deployment made from a template to the template's newer version (`seq policy upgrade`), built beside
     the one serving, your changes and its scaling kept. `to` names a version of the template it was made from,
     "toy-policy@v3"; the stable one without it. `dry_run` changes nothing and returns what the upgrade would change,
-    keep and cost; `wait` follows the new version's build to ready (up to `timeout_s`). Returns the platform's plan."""
+    keep and cost; `wait` follows the new version's build to its end, raising when it does not end ready. `timeout_s`:
+    how long the build may run, the platform stopping it then, as seq.deploy's. Returns the platform's plan."""
     from seq import upgrade_cli
 
     return upgrade_cli.upgrade(name, kind="policy", to=to, dry_run=dry_run, wait=wait, timeout=timeout_s,
@@ -208,7 +209,8 @@ def benchmark_upgrade(name: str, *, to: str | None = None, dry_run: bool = False
                       timeout_s: float | None = None, base_url: str | None = None, echo: Echo = None) -> dict:
     """Move a benchmark registered from a template to the template's newer version, or back to an earlier one with
     `to` ("libero-10@v8"), your changes kept (`seq benchmark upgrade`). `dry_run` changes nothing and returns the plan;
-    `wait` follows the new version's build to ready (up to `timeout_s`)."""
+    `wait` follows the new version's build to its end, raising when it does not end ready. `timeout_s`: how long the build
+    may run, the platform stopping it then, as seq.deploy's."""
     from seq import upgrade_cli
 
     return upgrade_cli.upgrade(name, kind="benchmark", to=to, dry_run=dry_run, wait=wait, timeout=timeout_s,

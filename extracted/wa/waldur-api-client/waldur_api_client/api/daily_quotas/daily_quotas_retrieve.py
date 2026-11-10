@@ -1,7 +1,6 @@
 import datetime
 from http import HTTPStatus
 from typing import Any, Union
-from uuid import UUID
 
 import httpx
 
@@ -15,7 +14,7 @@ def _get_kwargs(
     *,
     end: Union[Unset, datetime.date] = UNSET,
     quota_names: Union[Unset, list[str]] = UNSET,
-    scope: Union[Unset, UUID] = UNSET,
+    scope: str,
     start: Union[Unset, datetime.date] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -31,10 +30,7 @@ def _get_kwargs(
 
     params["quota_names"] = json_quota_names
 
-    json_scope: Union[Unset, str] = UNSET
-    if not isinstance(scope, Unset):
-        json_scope = str(scope)
-    params["scope"] = json_scope
+    params["scope"] = scope
 
     json_start: Union[Unset, str] = UNSET
     if not isinstance(start, Unset):
@@ -80,14 +76,14 @@ def sync_detailed(
     client: AuthenticatedClient,
     end: Union[Unset, datetime.date] = UNSET,
     quota_names: Union[Unset, list[str]] = UNSET,
-    scope: Union[Unset, UUID] = UNSET,
+    scope: str,
     start: Union[Unset, datetime.date] = UNSET,
 ) -> Response[DailyQuotasRetrieveResponse200]:
     """
     Args:
         end (Union[Unset, datetime.date]):
         quota_names (Union[Unset, list[str]]):
-        scope (Union[Unset, UUID]):
+        scope (str):
         start (Union[Unset, datetime.date]):
 
     Raises:
@@ -117,14 +113,14 @@ def sync(
     client: AuthenticatedClient,
     end: Union[Unset, datetime.date] = UNSET,
     quota_names: Union[Unset, list[str]] = UNSET,
-    scope: Union[Unset, UUID] = UNSET,
+    scope: str,
     start: Union[Unset, datetime.date] = UNSET,
 ) -> DailyQuotasRetrieveResponse200:
     """
     Args:
         end (Union[Unset, datetime.date]):
         quota_names (Union[Unset, list[str]]):
-        scope (Union[Unset, UUID]):
+        scope (str):
         start (Union[Unset, datetime.date]):
 
     Raises:
@@ -149,14 +145,14 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     end: Union[Unset, datetime.date] = UNSET,
     quota_names: Union[Unset, list[str]] = UNSET,
-    scope: Union[Unset, UUID] = UNSET,
+    scope: str,
     start: Union[Unset, datetime.date] = UNSET,
 ) -> Response[DailyQuotasRetrieveResponse200]:
     """
     Args:
         end (Union[Unset, datetime.date]):
         quota_names (Union[Unset, list[str]]):
-        scope (Union[Unset, UUID]):
+        scope (str):
         start (Union[Unset, datetime.date]):
 
     Raises:
@@ -184,14 +180,14 @@ async def asyncio(
     client: AuthenticatedClient,
     end: Union[Unset, datetime.date] = UNSET,
     quota_names: Union[Unset, list[str]] = UNSET,
-    scope: Union[Unset, UUID] = UNSET,
+    scope: str,
     start: Union[Unset, datetime.date] = UNSET,
 ) -> DailyQuotasRetrieveResponse200:
     """
     Args:
         end (Union[Unset, datetime.date]):
         quota_names (Union[Unset, list[str]]):
-        scope (Union[Unset, UUID]):
+        scope (str):
         start (Union[Unset, datetime.date]):
 
     Raises:

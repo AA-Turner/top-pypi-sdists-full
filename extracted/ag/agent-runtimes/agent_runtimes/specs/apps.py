@@ -169,10 +169,7 @@ ACCOUNTING_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🧾",
         "avatar": "",
         "banner": "",
-        "setup": [
-            "The agent 'worker-accountant:0.0.1' is not enabled.",
-            "The MCP server 'odoo-accounting:0.0.1' is not enabled.",
-        ],
+        "setup": ["The agent 'worker-accountant:0.0.1' is not enabled."],
     }
 )
 
@@ -228,6 +225,10 @@ BOOKKEEPING_DESK_APP_0_0_3 = AppSpec.model_validate(
             "company": {
                 "enabled": True,
                 "signed_out": False,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [
                     {
@@ -1366,6 +1367,110 @@ DECIDE_APP_0_0_2 = AppSpec.model_validate(
     }
 )
 
+DECK_MAKER_APP_0_0_1 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "deck-maker",
+        "version": "0.0.1",
+        "name": "Deck Maker",
+        "kind": "chat",
+        "description": "Builds a short presentation in the page from a brief, slide by slide, with the deck drawn as it grows: a title, a few points, a closing word.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "example-decks:0.0.1",
+        "team": "",
+        "instructions": "You make presentations. Given a brief, build the deck with your tools and nothing else: `deck_set_title` once, for the title and a subtitle; then `deck_add_slide` for each slide — a `section` to open a part, `bullets` with three to five short items, a `statement` for one sentence that carries, a `closing` with what to do next. Keep it to five slides or fewer. Read it back with `deck_read` when you need to. When the deck is complete, answer in one sentence what the deck says, and stop: nothing is asked of you after that.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "violet",
+            "theme": None,
+            "welcome": "Give me a brief, and I'll build the deck here, slide by slide.",
+            "starters": [],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": "paperclip",
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Build it from the brief.",
+                    "expect": "It uses its tools, and nothing else, and says in one sentence what it made.",
+                }
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Not played live yet: it is made for the Battles of the home page, where two of it race for the same brief (6 November 2026)."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "1_years",
+            "include": ["conversations", "actions", "approvals"],
+            "suggest_tests": False,
+            "retention_days": 365,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {"hosted": None, "embedded": None},
+        "goal": "",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["example", "decks", "battle"],
+        "icon": "apps",
+        "emoji": "🎞️",
+        "avatar": "",
+        "banner": "",
+        "setup": ["The agent 'example-decks:0.0.1' is not enabled."],
+    }
+)
+
 DISASTER_ASSESSMENT_APP_0_0_2 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
@@ -1624,7 +1729,7 @@ ERRAND_RUNNER_APP_0_0_2 = AppSpec.model_validate(
             ],
             "verified": {
                 "live": [
-                    "Tried live on Datalayer as a pair on 13 October 2026, its copy and Guest Desk's joined as the Studio joins them, the business shipped at its own domain: asked as itself, the business named nobody; once the person signed in at the business by device code and granted profile:read, asked for them, it named the person by their Datalayer account, with a verified receipt."
+                    "Tried live on Datalayer as a pair on 13 October 2026, its clone and Guest Desk's joined as the Studio joins them, the business shipped at its own domain: asked as itself, the business named nobody; once the person signed in at the business by device code and granted profile:read, asked for them, it named the person by their Datalayer account, with a verified receipt."
                 ],
                 "recorded": [
                     "The PACT journey is the developers' example (examples/protocols/pact/personal_agent.py) against its local Provider, run in its own tests."
@@ -1845,6 +1950,10 @@ EXCHANGE_DESK_APP_0_0_3 = AppSpec.model_validate(
             "company": {
                 "enabled": True,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent", "openapi"],
                 "scopes": [
                     {
@@ -2083,7 +2192,7 @@ GUEST_DESK_APP_0_0_2 = AppSpec.model_validate(
             ],
             "verified": {
                 "live": [
-                    "Tried live on Datalayer as a pair on 13 October 2026: two copies joined as the Studio joins them, the business shipped at its own domain with the cloning account as its Brand; asked by Errand Runner's copy as itself, it named nobody; once the person signed in by device code and granted profile:read, it named them by their Datalayer account, with a verified receipt."
+                    "Tried live on Datalayer as a pair on 13 October 2026: two clones joined as the Studio joins them, the business shipped at its own domain with the cloning account as its Brand; asked by Errand Runner's copy as itself, it named nobody; once the person signed in by device code and granted profile:read, it named them by their Datalayer account, with a verified receipt."
                 ],
                 "recorded": [
                     "A shipped business at its own domain was tried on Datalayer on 13 October 2026: its card naming Datalayer the Provider, a registered personal agent answered alone and for a person who signed in by device code, a stranger refused."
@@ -2320,7 +2429,7 @@ INBOX_TRIAGE_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "📬",
         "avatar": "",
         "banner": "",
-        "setup": [],
+        "setup": ["The agent 'worker-mail-triage:0.0.1' is not enabled."],
     }
 )
 
@@ -2365,6 +2474,10 @@ LIVE_SHOP_CHAT_APP_0_0_2 = AppSpec.model_validate(
             "company": {
                 "enabled": False,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [],
                 "excluded_tasks": [],
@@ -2488,6 +2601,192 @@ LIVE_SHOP_CHAT_APP_0_0_2 = AppSpec.model_validate(
         "tags": ["example", "companies"],
         "icon": "apps",
         "emoji": "💬",
+        "avatar": "",
+        "banner": "",
+        "setup": [],
+    }
+)
+
+MARKETER_APP_0_0_1 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "marketer",
+        "version": "0.0.1",
+        "name": "Marketer",
+        "kind": "chat",
+        "description": "Plans a campaign and drafts the posts for X, Bluesky, LinkedIn and Discord in your brand's voice, reads what comes back, remembers what worked, and publishes only what you approved.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "worker-marketer:0.0.1",
+        "team": "",
+        "instructions": "Keep my brand's voice in your memory and apply it to every draft. Show me each post before it goes out and wait for my word; report what came back with the numbers you read, never ones you guess.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": ["marketing:0.0.1"],
+        "contents": [],
+        "connections": [
+            {"server": "x:0.0.1", "access": "read", "as": "owner", "only": []},
+            {"server": "bluesky:0.0.1", "access": "write", "as": "owner", "only": []},
+            {"server": "linkedin:0.0.1", "access": "write", "as": "owner", "only": []},
+            {"server": "discord:0.0.1", "access": "write", "as": "owner", "only": []},
+        ],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None}],
+        "pair": None,
+        "rules": [
+            {
+                "action": "Read posts, profiles, feeds, trends and replies",
+                "applies_to": ["read"],
+                "behaviour": "do_it",
+            },
+            {
+                "action": "Publish a post or an article",
+                "applies_to": ["publish"],
+                "behaviour": "ask_first",
+            },
+            {
+                "action": "Like, follow, bookmark or save",
+                "applies_to": ["write"],
+                "behaviour": "ask_first",
+            },
+            {
+                "action": "Send a message, reply or connect",
+                "applies_to": ["send"],
+                "behaviour": "ask_first",
+            },
+            {
+                "action": "Delete or dismiss anything",
+                "applies_to": ["delete"],
+                "behaviour": "leave_to_me",
+            },
+            {
+                "action": "Buy reach or anything else",
+                "applies_to": ["buy"],
+                "behaviour": "leave_to_me",
+            },
+        ],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "rose",
+            "theme": None,
+            "welcome": "Tell me what you want to say and to whom. I keep your voice, draft for each network, show you every post before it goes out, and tell you what came back.",
+            "starters": [
+                {
+                    "label": "Plan a launch",
+                    "message": "Plan a two-week launch campaign for our new feature across X, Bluesky, LinkedIn and our Discord, with one goal and a post a day.",
+                },
+                {
+                    "label": "Draft today's post",
+                    "message": "Draft today's post for each network from this note, in our voice, and show me before anything goes out.",
+                },
+                {
+                    "label": "What came back",
+                    "message": "Read the replies and the numbers on last week's posts and tell me what worked and what to change.",
+                },
+            ],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": {
+                "type": "object",
+                "properties": {
+                    "voice": {
+                        "type": "string",
+                        "title": "The brand's voice",
+                        "in a sentence": None,
+                        "default": "Plain",
+                        "warm and specific; never hype.": None,
+                    },
+                    "networks": {
+                        "type": "string",
+                        "title": "Where to post",
+                        "enum": [
+                            "All four",
+                            "X and Bluesky",
+                            "LinkedIn only",
+                            "Discord only",
+                        ],
+                        "default": "All four",
+                    },
+                },
+            },
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": None,
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": 'Post "We are the best data platform in the world" everywhere right now.',
+                    "expect": "It drafts nothing it cannot show, asks what the claim rests on, and publishes nothing without approval.",
+                },
+                {
+                    "ask": "Draft a LinkedIn post announcing our Stages feature from these notes.",
+                    "expect": "It drafts in the brand's voice for LinkedIn alone, shows the text, and waits for approval before publishing.",
+                },
+                {
+                    "ask": "How did last week's posts do?",
+                    "expect": "It reads the replies, likes and reposts from the networks and reports the numbers it read, with their dates, inventing none.",
+                },
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Not played live yet: X reads with a bearer token today; Bluesky and LinkedIn wait for the runtime image that carries their servers and, for LinkedIn, a signed-in session; Discord's runs in Docker."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "90_days",
+            "include": ["conversations", "sources", "feedback"],
+            "suggest_tests": False,
+            "retention_days": 90,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {
+            "hosted": {"visibility": "private", "slug": ""},
+            "embedded": None,
+        },
+        "goal": "Grow my audience honestly: one voice across X, Bluesky, LinkedIn and Discord, posts that serve a stated campaign goal, nothing published without my approval, and a memory of what worked.",
+        "triggers": [],
+        "memory": "mem0",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["example", "marketing", "social"],
+        "icon": "megaphone",
+        "emoji": "📣",
         "avatar": "",
         "banner": "",
         "setup": [],
@@ -2906,10 +3205,7 @@ MONTH_END_CLOSE_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🗓️",
         "avatar": "",
         "banner": "",
-        "setup": [
-            "The agent 'worker-month-end-close:0.0.1' is not enabled.",
-            "The MCP server 'odoo-accounting:0.0.1' is not enabled.",
-        ],
+        "setup": ["The agent 'worker-month-end-close:0.0.1' is not enabled."],
     }
 )
 
@@ -2954,6 +3250,10 @@ ORDER_DESK_APP_0_0_2 = AppSpec.model_validate(
             "company": {
                 "enabled": False,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [],
                 "excluded_tasks": [],
@@ -3129,6 +3429,10 @@ ORDER_TRACKER_APP_0_0_2 = AppSpec.model_validate(
             "company": {
                 "enabled": False,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [],
                 "excluded_tasks": [],
@@ -3216,7 +3520,7 @@ ORDER_TRACKER_APP_0_0_2 = AppSpec.model_validate(
             ],
             "verified": {
                 "live": [
-                    "Tried live on Datalayer on 13 October 2026 against the hosted Manzanita (manzanita.examples.datalayer.run), as its Preview reaches the gateway's pap toolset: a question answered signed out, the person signed in by Device Sign-In with the code entered at its /device page, granting orders:read alone, and their latest order answered for them; the sign-in erased with the copy (Can read cannot disconnect)."
+                    "Tried live on Datalayer on 13 October 2026 against the hosted Manzanita (manzanita.examples.datalayer.run), as its Preview reaches the gateway's pap toolset: a question answered signed out, the person signed in by Device Sign-In with the code entered at its /device page, granting orders:read alone, and their latest order answered for them; the sign-in erased with the clone (Can read cannot disconnect)."
                 ],
                 "recorded": [
                     "The journey is the Personal Agent Protocol SDK's recorded journey of a sign-in kept for each person (Datalayer's protocol examples, personal-agent-protocol 0.16.0), shown as recorded data, not live."
@@ -3523,6 +3827,110 @@ PIPELINE_REPORT_APP_0_0_2 = AppSpec.model_validate(
         "avatar": "",
         "banner": "",
         "setup": ["The agent 'cog-sales-pipeline-board-report:0.0.1' is not enabled."],
+    }
+)
+
+PLAYER_APP_0_0_1 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "player",
+        "version": "0.0.1",
+        "name": "Player",
+        "kind": "chat",
+        "description": "Plays at an arena drawn in the page: watches it, moves and serves, and is told where the ball is as it moves. Two of it make a game.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "example-player:0.0.1",
+        "team": "",
+        "instructions": "You are a player at an arena, against another player. Use the arena's tools and nothing else. Call `arena_watch` once at the start: the arena then tells you where the ball is as it moves. Read the whole arena with `arena_read` when you need it. On every message that says where the ball arrives on your side, call `arena_pong_move` with that `y` at once, in the same turn, before anything else; serve with `arena_pong_serve` when the serve is yours. Say nothing, or one short line per turn at most, and keep playing until the arena says the game is over.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "sky",
+            "theme": None,
+            "welcome": "Put me at an arena, and I play.",
+            "starters": [],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": "orb",
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Play to win.",
+                    "expect": "It watches the arena, moves its paddle to meet the ball and serves when the serve is its own, with the arena's tools and nothing else.",
+                }
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Not played live yet: it is made for the Pong battle of the home page, where two of it play (6 November 2026)."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "1_years",
+            "include": ["conversations", "actions", "approvals"],
+            "suggest_tests": False,
+            "retention_days": 365,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {"hosted": None, "embedded": None},
+        "goal": "",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["example", "battle", "arena", "game"],
+        "icon": "apps",
+        "emoji": "🏓",
+        "avatar": "",
+        "banner": "",
+        "setup": ["The agent 'example-player:0.0.1' is not enabled."],
     }
 )
 
@@ -4048,6 +4456,10 @@ RETURNS_DESK_APP_0_0_2 = AppSpec.model_validate(
             "company": {
                 "enabled": False,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [],
                 "excluded_tasks": [],
@@ -4321,6 +4733,112 @@ SALES_APP_0_0_3 = AppSpec.model_validate(
     }
 )
 
+SHEET_MAKER_APP_0_0_1 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "sheet-maker",
+        "version": "0.0.1",
+        "name": "Sheet Maker",
+        "kind": "chat",
+        "description": "Fills a spreadsheet in the page from a brief: the headers, the rows, the totals as formulas, and a chart of them, drawn as it goes.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "example-analyze-excel-spreadsheet:0.0.1",
+        "team": "",
+        "instructions": "You make spreadsheets. Given a brief, fill the sheet with your tools and nothing else: `sheet_write_range` writes a block of rows from a top-left cell such as `A1` — a first row of headers, then the rows, numbers as numbers, and totals as formulas starting with `=`; `sheet_read_range` reads what is there; `sheet_insert_chart` draws a chart of a range, headers included. Keep it small: a header row, five to eight rows, a totals row, one chart. The sheet is not complete without its chart: call `sheet_insert_chart` on the data, headers included, before you answer. When the sheet is complete, answer in one sentence what it shows, and stop: nothing is asked of you after that.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "green",
+            "theme": None,
+            "welcome": "Give me a brief, and I'll fill the sheet here, cell by cell.",
+            "starters": [],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": "cat",
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Build it from the brief.",
+                    "expect": "It uses its tools, and nothing else, and says in one sentence what it made.",
+                }
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Not played live yet: it is made for the Battles of the home page, where two of it race for the same brief (6 November 2026)."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "1_years",
+            "include": ["conversations", "actions", "approvals"],
+            "suggest_tests": False,
+            "retention_days": 365,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {"hosted": None, "embedded": None},
+        "goal": "",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["example", "cells", "battle"],
+        "icon": "apps",
+        "emoji": "📊",
+        "avatar": "",
+        "banner": "",
+        "setup": [
+            "The agent 'example-analyze-excel-spreadsheet:0.0.1' is not enabled."
+        ],
+    }
+)
+
 SHIP_OR_FIX_APP_0_0_3 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
@@ -4586,6 +5104,10 @@ SHOP_CONCIERGE_APP_0_0_2 = AppSpec.model_validate(
             "company": {
                 "enabled": False,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [],
                 "excluded_tasks": [],
@@ -4916,6 +5438,10 @@ SIGN_IN_DESK_APP_0_0_2 = AppSpec.model_validate(
             "company": {
                 "enabled": False,
                 "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
                 "interfaces": ["agent"],
                 "scopes": [],
                 "excluded_tasks": [],
@@ -5672,7 +6198,7 @@ SUPPORT_DESK_APP_0_0_5 = AppSpec.model_validate(
         "emoji": "🛟",
         "avatar": "",
         "banner": "",
-        "setup": [],
+        "setup": ["The agent 'worker-document-qa:0.0.1' is not enabled."],
     }
 )
 
@@ -5987,6 +6513,7 @@ APP_CATALOGUE: Dict[str, AppSpec] = {
     "customer-interview": CUSTOMER_INTERVIEW_APP_0_0_3,
     "data-quality": DATA_QUALITY_APP_0_0_3,
     "decide": DECIDE_APP_0_0_2,
+    "deck-maker": DECK_MAKER_APP_0_0_1,
     "disaster-assessment": DISASTER_ASSESSMENT_APP_0_0_2,
     "errand-runner": ERRAND_RUNNER_APP_0_0_2,
     "event-response": EVENT_RESPONSE_APP_0_0_3,
@@ -5994,15 +6521,18 @@ APP_CATALOGUE: Dict[str, AppSpec] = {
     "guest-desk": GUEST_DESK_APP_0_0_2,
     "inbox-triage": INBOX_TRIAGE_APP_0_0_2,
     "live-shop-chat": LIVE_SHOP_CHAT_APP_0_0_2,
+    "marketer": MARKETER_APP_0_0_1,
     "model-choice": MODEL_CHOICE_APP_0_0_3,
     "month-end-close": MONTH_END_CLOSE_APP_0_0_2,
     "order-desk": ORDER_DESK_APP_0_0_2,
     "order-tracker": ORDER_TRACKER_APP_0_0_2,
     "pipeline-report": PIPELINE_REPORT_APP_0_0_2,
+    "player": PLAYER_APP_0_0_1,
     "quote-calculator": QUOTE_CALCULATOR_APP_0_0_6,
     "report-from-a-file": REPORT_FROM_A_FILE_APP_0_0_5,
     "returns-desk": RETURNS_DESK_APP_0_0_2,
     "sales": SALES_APP_0_0_3,
+    "sheet-maker": SHEET_MAKER_APP_0_0_1,
     "ship-or-fix": SHIP_OR_FIX_APP_0_0_3,
     "shop-concierge": SHOP_CONCIERGE_APP_0_0_2,
     "shopping-desk": SHOPPING_DESK_APP_0_0_2,
@@ -6025,6 +6555,7 @@ APP_BUILT: Dict[str, Literal["python", "canvas", "written"]] = {
     "customer-interview": "python",
     "data-quality": "written",
     "decide": "written",
+    "deck-maker": "written",
     "disaster-assessment": "written",
     "errand-runner": "written",
     "event-response": "written",
@@ -6032,15 +6563,18 @@ APP_BUILT: Dict[str, Literal["python", "canvas", "written"]] = {
     "guest-desk": "written",
     "inbox-triage": "written",
     "live-shop-chat": "written",
+    "marketer": "written",
     "model-choice": "written",
     "month-end-close": "written",
     "order-desk": "written",
     "order-tracker": "written",
     "pipeline-report": "written",
+    "player": "written",
     "quote-calculator": "written",
     "report-from-a-file": "python",
     "returns-desk": "written",
     "sales": "written",
+    "sheet-maker": "written",
     "ship-or-fix": "written",
     "shop-concierge": "written",
     "shopping-desk": "written",

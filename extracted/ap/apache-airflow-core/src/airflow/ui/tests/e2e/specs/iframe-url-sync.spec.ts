@@ -17,6 +17,7 @@
  * under the License.
  */
 import type { Page } from "@playwright/test";
+
 import { expect, test } from "tests/e2e/fixtures";
 
 const page = (heading: string, links: Array<{ href: string; id: string }> = []) =>

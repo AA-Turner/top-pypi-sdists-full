@@ -166,6 +166,7 @@ class _TestMincFile:
 
 
 class TestMinc1File(_TestMincFile):
+    @pytest.mark.thread_unsafe
     def test_compressed(self):
         # we can read minc compressed
         # Not so for MINC2; hence this small sub-class
@@ -176,7 +177,7 @@ class TestMinc1File(_TestMincFile):
                 openers_exts += [(zstd.ZstdFile, '.zst')]
             with InTemporaryDirectory():
                 for opener, ext in openers_exts:
-                    fname = 'test.mnc' + ext
+                    fname = f'test.mnc{ext}'
                     fobj = opener(fname, 'wb')
                     fobj.write(content)
                     fobj.close()

@@ -7,8 +7,6 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..types import UNSET, Unset
-
 T = TypeVar("T", bound="LexisLink")
 
 
@@ -33,7 +31,7 @@ class LexisLink:
         project_name (str):
         customer_uuid (UUID):
         customer_name (str):
-        heappe_project_id (Union[None, Unset, int]):
+        heappe_project_id (Union[None, int]):
     """
 
     url: str
@@ -53,7 +51,7 @@ class LexisLink:
     project_name: str
     customer_uuid: UUID
     customer_name: str
-    heappe_project_id: Union[None, Unset, int] = UNSET
+    heappe_project_id: Union[None, int]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -91,11 +89,8 @@ class LexisLink:
 
         customer_name = self.customer_name
 
-        heappe_project_id: Union[None, Unset, int]
-        if isinstance(self.heappe_project_id, Unset):
-            heappe_project_id = UNSET
-        else:
-            heappe_project_id = self.heappe_project_id
+        heappe_project_id: Union[None, int]
+        heappe_project_id = self.heappe_project_id
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -118,10 +113,9 @@ class LexisLink:
                 "project_name": project_name,
                 "customer_uuid": customer_uuid,
                 "customer_name": customer_name,
+                "heappe_project_id": heappe_project_id,
             }
         )
-        if heappe_project_id is not UNSET:
-            field_dict["heappe_project_id"] = heappe_project_id
 
         return field_dict
 
@@ -162,14 +156,12 @@ class LexisLink:
 
         customer_name = d.pop("customer_name")
 
-        def _parse_heappe_project_id(data: object) -> Union[None, Unset, int]:
+        def _parse_heappe_project_id(data: object) -> Union[None, int]:
             if data is None:
                 return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, int], data)
+            return cast(Union[None, int], data)
 
-        heappe_project_id = _parse_heappe_project_id(d.pop("heappe_project_id", UNSET))
+        heappe_project_id = _parse_heappe_project_id(d.pop("heappe_project_id"))
 
         lexis_link = cls(
             url=url,

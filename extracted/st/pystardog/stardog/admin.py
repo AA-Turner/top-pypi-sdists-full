@@ -13,6 +13,7 @@ from requests.auth import AuthBase
 from stardog.content import Content, ImportFile, ImportRaw, MappingFile, MappingRaw
 
 from . import content_types as content_types
+from .utils import validate_iri
 from .http import client
 
 DEFAULT_MAPPINGS_SYNTAX = "SMS"
@@ -508,16 +509,18 @@ class Admin:
         :param remove_all: Should the target named graph be cleared before importing?
         :param options: Options for the new virtual graph. See `Stardog Docs - Virtual Graph Properties <https://docs.stardog.com/virtual-graphs/virtual-graph-configuration#virtual-graph-properties>`_ for all available options.
 
+        :raises ValueError: If ``named_graph`` is not a valid IRI.
+
         Examples:
 
         .. code-block:: python
             :caption: Import a MySQL virtual graph into the ``db-name`` database using the mappings specified in ``mappings.ttl``.
-                The virtual graph will be imported into the named graph ``my-graph`` and prior to the import will have its contents cleared.
+                The virtual graph will be imported into the named graph ``urn:my-graph`` and prior to the import will have its contents cleared.
 
             admin.import_virtual_graph(
                   'db-name',
                   mappings=File('mappings.ttl'),
-                  named_graph='my-graph',
+                  named_graph='urn:my-graph',
                   remove_all=True,
                   options={'jdbc.driver': 'com.mysql.jdbc.Driver'}
             )
@@ -552,9 +555,13 @@ class Admin:
         :param named_graph: Name of the graph into which import the virtual graph.
         :param remove_all: Should the target named graph be cleared before importing?
 
+        :raises ValueError: If ``named_graph`` is not a valid IRI.
+
         .. note::
             ``data_source`` or ``options`` must be provided.
         """
+
+        validate_iri(named_graph, "named_graph")
 
         assert (
             data_source is not None or options is not None
@@ -679,7 +686,11 @@ class Admin:
         :param named_graph: The named graph to import the mapped CSV/JSON into.
 
         :return: was the import successful?
+
+        :raises ValueError: If ``named_graph`` is not a valid IRI.
         """
+
+        validate_iri(named_graph, "named_graph")
 
         if mappings is not None:
             if mappings.syntax:
@@ -1397,7 +1408,10 @@ class User:
         """
         self.username = name
         self.client = client
-        self.path = "/admin/users/{}".format(name)
+        # Stardog decodes a literal "+" in a path segment as a space, so the
+        # name has to be percent-encoded with quote(), never quote_plus().
+        self._encoded_name = urllib.parse.quote(name, safe="")
+        self.path = "/admin/users/{}".format(self._encoded_name)
         # this checks for existence by throwing an exception if the resource does not exist
         self.client.get(self.path)
 
@@ -1467,7 +1481,7 @@ class User:
             >>> user.add_role('reader')
             >>> user.add_role(admin.role('reader'))
         """
-        self.client.post(self.path + "/roles", json={"rolename": role})
+        self.client.post(self.path + "/roles", json={"rolename": self.__rolename(role)})
 
     def set_roles(self, *roles: Union[str, "Role"]) -> None:
         """Sets the roles of the user.
@@ -1489,7 +1503,9 @@ class User:
             >>> user.remove_role('reader')
             >>> user.remove_role(admin.role('reader'))
         """
-        self.client.delete(self.path + "/roles/" + role)
+        self.client.delete(
+            self.path + "/roles/" + urllib.parse.quote(self.__rolename(role), safe="")
+        )
 
     def delete(self) -> None:
         """Deletes the user."""
@@ -1503,7 +1519,7 @@ class User:
 
         :return: user permissions
         """
-        r = self.client.get("/admin/permissions/user/{}".format(self.name))
+        r = self.client.get("/admin/permissions/user/{}".format(self._encoded_name))
         return r.json()["permissions"]
 
     def add_permission(self, action: str, resource_type: str, resource: str) -> None:
@@ -1527,7 +1543,9 @@ class User:
             "resource_type": resource_type,
             "resource": [resource],
         }
-        self.client.put("/admin/permissions/user/{}".format(self.name), json=meta)
+        self.client.put(
+            "/admin/permissions/user/{}".format(self._encoded_name), json=meta
+        )
 
     def remove_permission(self, action: str, resource_type: str, resource: str):
         """Removes a permission from the user.
@@ -1551,7 +1569,8 @@ class User:
         }
 
         self.client.post(
-            "/admin/permissions/user/{}/delete".format(self.name), json=meta
+            "/admin/permissions/user/{}/delete".format(self._encoded_name),
+            json=meta,
         )
 
     def effective_permissions(self) -> dict:
@@ -1559,7 +1578,7 @@ class User:
 
         :return: User's effective permissions
         """
-        r = self.client.get("/admin/permissions/effective/user/" + self.name)
+        r = self.client.get("/admin/permissions/effective/user/" + self._encoded_name)
         return r.json()["permissions"]
 
     def __rolename(self, role):
@@ -1586,7 +1605,9 @@ class Role:
         """
         self.role_name = name
         self.client = client
-        self.path = "/admin/roles/{}".format(name)
+        # See User.__init__: quote(), not quote_plus(), so "+" survives.
+        self._encoded_name = urllib.parse.quote(name, safe="")
+        self.path = "/admin/roles/{}".format(self._encoded_name)
         # this checks for existence by throwing an exception if the resource does not exist
         self.client.get(f"{self.path}/users")
 
@@ -1622,7 +1643,7 @@ class Role:
         Returns:
           dict: Role permissions
         """
-        r = self.client.get("/admin/permissions/role/{}".format(self.name))
+        r = self.client.get("/admin/permissions/role/{}".format(self._encoded_name))
         return r.json()["permissions"]
 
     def add_permission(self, action, resource_type, resource):
@@ -1648,7 +1669,9 @@ class Role:
             "resource": [resource],
         }
 
-        self.client.put("/admin/permissions/role/{}".format(self.name), json=meta)
+        self.client.put(
+            "/admin/permissions/role/{}".format(self._encoded_name), json=meta
+        )
 
     def remove_permission(self, action, resource_type, resource):
         """Removes a permission from the role.
@@ -1672,7 +1695,8 @@ class Role:
         }
 
         self.client.post(
-            "/admin/permissions/role/{}/delete".format(self.name), json=meta
+            "/admin/permissions/role/{}/delete".format(self._encoded_name),
+            json=meta,
         )
 
     def __repr__(self):

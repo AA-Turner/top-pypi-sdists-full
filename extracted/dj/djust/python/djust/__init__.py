@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     # types (PEP 562 alone types every lazy name as ``Any`` and reds the
     # ADR-023 strict-island gate, #1960). Never executed at runtime.
     from .async_result import AsyncResult
-    from .live_view import LiveView, live_view
+    from .live_view import LiveView, PersistentLiveView, live_view
     from .components.base import Component, LiveComponent
     from .components.assigns import Assign, AssignValidationError, Slot
     from .components.function_component import component, clear_components
@@ -57,6 +57,8 @@ if TYPE_CHECKING:
         is_action,
         server_function,
         is_server_function,
+        push_handler,
+        is_push_handler,
         permission_required,
         rate_limit,
         state,
@@ -86,7 +88,7 @@ if TYPE_CHECKING:
     from .markdown import render_markdown as render_markdown
     from . import rust_components  # noqa: F401
 
-__version__ = "1.2.6"
+__version__ = "1.3.1"
 
 # Import Rust functions
 try:
@@ -116,6 +118,7 @@ except ImportError:
 _LAZY: dict[str, tuple[str, str]] = {
     "AsyncResult": ("djust.async_result", "AsyncResult"),
     "LiveView": ("djust.live_view", "LiveView"),
+    "PersistentLiveView": ("djust.live_view", "PersistentLiveView"),
     "live_view": ("djust.live_view", "live_view"),
     "Component": ("djust.components.base", "Component"),
     "LiveComponent": ("djust.components.base", "LiveComponent"),
@@ -132,6 +135,8 @@ _LAZY: dict[str, tuple[str, str]] = {
     "is_action": ("djust.decorators", "is_action"),
     "server_function": ("djust.decorators", "server_function"),
     "is_server_function": ("djust.decorators", "is_server_function"),
+    "push_handler": ("djust.decorators", "push_handler"),
+    "is_push_handler": ("djust.decorators", "is_push_handler"),
     "permission_required": ("djust.decorators", "permission_required"),
     "rate_limit": ("djust.decorators", "rate_limit"),
     "state": ("djust.decorators", "state"),
@@ -265,7 +270,10 @@ def enable_hot_reload():
 
     Notes:
         - Only activates when DEBUG=True
-        - Changes are debounced (500ms) to avoid excessive reloads
+        - Changes are debounced (500ms) to avoid excessive reloads; every
+          file saved in the window is handled (``.py`` first), and an
+          editor's atomic save (temp file renamed over the original) counts
+          as a change to the original
         - Excludes common directories: node_modules, .git, __pycache__, .venv, etc.
         - Hot reload messages are broadcast to all connected LiveView clients
     """
@@ -342,13 +350,21 @@ def enable_hot_reload():
     # path unchanged.
     def on_file_change(file_path: str):
         """Called when a file changes - broadcasts reload to all clients."""
+        if not file_path.lower().endswith(".py"):
+            # A template edit keeps the view class, whose cached template hash
+            # would otherwise key the saved renderer of the old template.
+            try:
+                from djust.hot_view_replacement import note_template_change
+
+                note_template_change(file_path)
+            except Exception:  # noqa: BLE001 — dev-only safety net
+                logger.exception("[HotReload] template hash reset failed")
         if file_path.lower().endswith(".py"):
             # #2602: a templatetags module added (or renamed) while the server
             # runs must be seen by the next ``{% load %}``. The installed-
-            # library scan is process-cached; drop it on ANY .py change — the
-            # debounced watcher hands us one representative path per burst, so
-            # matching ``templatetags/`` in it would miss a mixed burst. The
-            # drop is a pointer write; the re-scan is paid by the next load.
+            # library scan is process-cached; drop it on ANY .py change rather
+            # than matching ``templatetags/`` in the path. The drop is a
+            # pointer write; the re-scan is paid by the next load.
             try:
                 from djust.template_libraries import invalidate_installed_cache
 
@@ -399,19 +415,25 @@ def enable_hot_reload():
         hot_reload_server.start(
             watch_dirs=watch_dirs, on_change=on_file_change, exclude_dirs=exclude_dirs
         )
-        print(
-            f"[HotReload] Hot reload enabled for directories: {', '.join(str(d) for d in watch_dirs)}"
+        banner = "[HotReload] Hot reload enabled for directories: %s" % ", ".join(
+            str(d) for d in watch_dirs
         )
-        logger.info(
-            f"[HotReload] Hot reload enabled for directories: {', '.join(str(d) for d in watch_dirs)}"
-        )
+        # Never stdout: ready() runs this for every management command, and
+        # ``manage.py <cmd> > file`` would otherwise start with the banner
+        # (#3298). Always straight to stderr, never through ``logger``: whether a
+        # log record reaches a terminal depends on handlers and levels this code
+        # cannot see (``apps.py`` always installs one, so a ``hasHandlers()``
+        # guard is vacuous), and routing here printed it nowhere under a
+        # non-console handler or a WARNING-level console handler (#3312).
+        sys.stderr.write(banner + "\n")
     except Exception as e:
-        print(f"[HotReload] Failed to start hot reload server: {e}")
+        # logger.error reaches stderr through logging's last-resort handler.
         logger.error("[HotReload] Failed to start hot reload server: %s", e)
 
 
 __all__ = [
     "LiveView",
+    "PersistentLiveView",
     "live_view",
     "AsyncResult",
     "Component",
@@ -431,6 +453,8 @@ __all__ = [
     "is_action",
     "server_function",
     "is_server_function",
+    "push_handler",
+    "is_push_handler",
     "permission_required",
     "rate_limit",
     "state",

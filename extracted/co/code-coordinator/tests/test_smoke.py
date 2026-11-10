@@ -3751,6 +3751,90 @@ def test_dispatch_smoke_fanout_concurrent_ticks_never_double_dispatch_a_partitio
     assert client_b.calls == []
 
 
+def test_dispatch_smoke_single_leg_concurrent_ticks_never_double_dispatch(
+    gtk_and_server_config: Config, coord_db,
+) -> None:
+    """#3920 regression (claude-coordinator#3917/#3918): two coordinator
+    ticks racing each other on the SINGLE-leg path — `passive_reconcile` and
+    a short-lived `coord notify`/`coord drive-queue` process, both reading
+    "nothing in flight yet" before either records its own dispatch — must
+    not both dispatch a Test-stage leg for the same work row. Before the
+    atomic claim, the dedupe here was board reads only
+    (`has_active_followup`/`has_active_branch_followup`), so the second tick
+    sailed straight through: the real incident's first leg died in ~40s on
+    an environment-setup failure and recorded `test_state="failed"`, and the
+    second leg's genuine ~18-minute passing run had nowhere left to land.
+
+    `claim_smoke_dispatch` lives on the shared DB, not on either tick's own
+    in-memory `Board` — so even though this test hands each call its own
+    fresh, empty `Board` (exactly what two racing processes would each
+    observe), the second call must still lose.
+    """
+    diff = lambda repo, branch: ["docs/README.md"]  # noqa: E731 — no capability rule matches
+
+    completed_a = _completed()
+    legs_a = dispatch_smoke(
+        completed_a, Board(), gtk_and_server_config,
+        http_client=_FakeClient({"id": "leg-a"}),
+        diff_lookup=diff,
+    )
+    assert legs_a is not None
+    assert legs_a.assignment_id == "leg-a"
+
+    # The second tick: a separate `Assignment` object (same assignment_id —
+    # the same work row) and a separate, empty `Board` — it has no idea the
+    # first tick dispatched anything.
+    completed_b = _completed()
+    client_b = _FakeClient({"id": "leg-b"})
+    legs_b = dispatch_smoke(
+        completed_b, Board(), gtk_and_server_config,
+        http_client=client_b,
+        diff_lookup=diff,
+    )
+
+    assert legs_b is None
+    # No machine was ever contacted for the second tick's dispatch — this
+    # loses the atomic claim BEFORE ranking candidates or spending a real
+    # `/assign` call, never after.
+    assert client_b.calls == []
+
+
+def test_dispatch_smoke_single_leg_claim_released_once_leg_self_reports(
+    gtk_and_server_config: Config, coord_db,
+) -> None:
+    """#3920: once the dispatched single leg's own assignment reaches a
+    terminal status, its claim must release — a legitimate LATER retry
+    (an environmental death, `coord diagnose --stage test --reset`) must
+    never find the row permanently stranded behind a claim nothing will
+    ever release again, the same guarantee #3333 already gives the fan-out
+    path."""
+    from coord.smoke import SINGLE_LEG_SMOKE_PARTITION_TAG
+    from coord.state import claim_smoke_dispatch, release_smoke_claim_if_row_is_smoke_leg
+
+    diff = lambda repo, branch: ["docs/README.md"]  # noqa: E731
+
+    completed = _completed()
+    leg = dispatch_smoke(
+        completed, Board(), gtk_and_server_config,
+        http_client=_FakeClient({"id": "leg-self-report"}),
+        diff_lookup=diff,
+    )
+    assert leg is not None
+
+    # The claim is held — a fresh dispatch attempt for the same row loses it.
+    assert claim_smoke_dispatch(
+        completed.assignment_id or "", SINGLE_LEG_SMOKE_PARTITION_TAG,
+    ) is False
+
+    # The leg's own terminal-status write (worker self-report / `coord
+    # notify` reap) releases it.
+    release_smoke_claim_if_row_is_smoke_leg(leg.assignment_id or "")
+
+    assert claim_smoke_dispatch(
+        completed.assignment_id or "", SINGLE_LEG_SMOKE_PARTITION_TAG,
+    ) is True
+
+
 def test_dispatch_smoke_fanout_concurrent_ticks_on_different_partitions_never_drop_either(
     repo: Repo, coord_db,
 ) -> None:
@@ -6275,6 +6359,201 @@ def test_finalize_smoke_fanout_passes_when_every_leg_passes(coord_db) -> None:
     from coord.state import load_assignment_test_state  # noqa: PLC0415
 
     assert load_assignment_test_state("w-fanout") == "passed"
+
+
+@pytest.mark.parametrize(
+    "infra_reason",
+    [
+        "headless smoke: worktree /home/x/.coord/worktrees/leg-b was "
+        "deleted out from under the running cargo build",
+        # #3912's own two observed field shapes (vimcode#2126/PR#2130,
+        # 2026-11-08) — a sibling fan-out leg's build deleting this leg's
+        # dependency-info file mid-compile, and a worktree collision
+        # removing the toolchain binary out from under the invoking
+        # process. Both route through `record_test_verdict` exactly like
+        # a worker's own `SMOKE: fail <reason>` would.
+        "headless smoke: error: could not parse/generate dep info at: "
+        "/home/john/.coord/cargo-target/vimcode/debug/deps/"
+        "vimcode_core-623a3dccad0dbb40.d — No such file or directory",
+        "headless smoke: could not execute process "
+        "`/home/john/.rustup/toolchains/stable/bin/rustc --version` "
+        "(No such file or directory (os error 2))",
+    ],
+)
+def test_finalize_smoke_fanout_infra_failed_leg_does_not_clobber_sibling_pass(
+    coord_db, infra_reason: str,
+) -> None:
+    """#3912: a leg whose own failure is a build/worktree infrastructure
+    outage (two concurrent fan-out legs racing on one machine) must not fold
+    in as a genuine `failed` — the aggregate must stay `running` (never flip
+    the sibling's real `passed` to `failed`), and the infra leg's own row
+    must clear back to retryable so only ITS partition gets a fresh leg.
+
+    `_seed_leg` records through `coord.state.record_test_verdict` — the
+    SAME production write path every real caller uses — so this exercises
+    the actual choke point (`coord.state._reclassify_infra_test_failure`)
+    that clears an infra-flavoured ``failed`` verdict before it ever lands,
+    not a synthetic bypass of it. Confirmed failing against the dep-info/
+    rustc-ENOENT reasons before `coord.failure_class._INFRA_RE` grew the
+    two new alternatives for them (#3912 review round 1) — those two
+    reasons used to classify `KIND_WORK`, so the leg landed as a genuine
+    `failed`, folding the aggregate to `failed` and clobbering `leg-a`'s
+    pass exactly as the issue report described.
+    """
+    from coord.state import record_test_verdict  # noqa: PLC0415
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="passed", reason="ok")
+    _seed_leg(leg_id="leg-b", state="failed", reason=infra_reason)
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            "[[smoke-fanout:leg-a=gtk,leg-b=windows]]\n"
+            "Test stage running across 2 capability-partition leg(s) (#3182): "
+            "[gtk]; [windows]."
+        ),
+    )
+
+    finalize_smoke_fanout("w-fanout")
+
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_state,
+    )
+
+    # The aggregate never flips to `failed` — the genuine pass survives.
+    assert load_assignment_test_state("w-fanout") == "running"
+    # The passing sibling's own row is untouched.
+    assert load_assignment_test_state("leg-a") == "passed"
+    # The infra-flavoured leg is cleared back to retryable, not left `failed`
+    # — `_find_leg_for_partition` would otherwise treat it as "already
+    # handled" and strand this partition forever.
+    assert load_assignment_test_state("leg-b") is None
+
+
+def test_finalize_smoke_fanout_infra_leg_parks_after_retry_budget_exhausted(
+    coord_db,
+) -> None:
+    """#3912: a SUSTAINED infrastructure outage against the SAME leg row
+    (e.g. a human-driven `coord diagnose --reset` that reuses the id, or a
+    caller that writes repeated verdicts onto one row directly) still parks
+    the fan-out instead of clearing it for retry forever — the shared
+    #3315 budget `coord.state._reclassify_infra_test_failure` already
+    enforces for every ``test_state="failed"`` write, fan-out leg or not.
+
+    This fold-through-to-the-parent behaviour comes entirely from that one
+    choke point (see `finalize_smoke_fanout`'s own #3912 docstring note) —
+    `coord/smoke.py` has no fan-out-specific budget logic of its own. See
+    `test_finalize_smoke_fanout_infra_leg_with_fresh_id_never_parks` right
+    below for the known gap this leaves: a REAL #3182 fan-out leg mints a
+    fresh assignment id every retry, so this budget never actually
+    accumulates across retries of one partition in production.
+    """
+    from coord.smoke import (  # noqa: PLC0415
+        ENVIRONMENTAL_SMOKE_RETRY_BUDGET,
+        TEST_STATE_BLOCKED,
+    )
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_state,
+        record_test_verdict,
+    )
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="passed", reason="ok")
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            "[[smoke-fanout:leg-a=gtk,leg-b=windows]]\n"
+            "Test stage running across 2 capability-partition leg(s) (#3182): "
+            "[gtk]; [windows]."
+        ),
+    )
+
+    infra_reason = (
+        "headless smoke: worktree /home/x/.coord/worktrees/leg-b was "
+        "deleted out from under the running cargo build"
+    )
+    for i in range(ENVIRONMENTAL_SMOKE_RETRY_BUDGET):
+        # Same leg id every time — the row's own `test_reason` history is
+        # what the choke point's tally is read off, so reusing it here is
+        # what actually lets the budget accumulate across these calls.
+        _seed_leg(leg_id="leg-b", state="failed", reason=infra_reason)
+        finalize_smoke_fanout("w-fanout")
+        parent_state = load_assignment_test_state("w-fanout")
+        if i + 1 < ENVIRONMENTAL_SMOKE_RETRY_BUDGET:
+            assert parent_state == "running", (
+                f"parked too early, after only {i + 1} death(s)"
+            )
+            assert load_assignment_test_state("leg-b") is None
+            record_test_verdict(
+                assignment_id="w-fanout", test_state="running",
+                test_reason=(
+                    "[[smoke-fanout:leg-a=gtk,leg-b=windows]]\n"
+                    "Test stage running across 2 capability-partition leg(s) "
+                    "(#3182): [gtk]; [windows]."
+                ),
+            )
+
+    assert load_assignment_test_state("w-fanout") == TEST_STATE_BLOCKED
+    assert load_assignment_test_state("leg-b") == TEST_STATE_BLOCKED
+    # The still-passing sibling is never touched by the park either.
+    assert load_assignment_test_state("leg-a") == "passed"
+
+
+def test_finalize_smoke_fanout_infra_leg_with_fresh_id_never_parks(
+    coord_db,
+) -> None:
+    """#3912 review: documents the accepted trade-off of leaning on
+    `coord.state`'s per-ROW retry budget rather than a fan-out-specific,
+    parent-scoped one (see `finalize_smoke_fanout`'s docstring). A REAL
+    #3182 fan-out leg mints a brand-new assignment id every re-dispatch
+    (`coord.smoke._dispatch_smoke_fanout`), so the budget this test's
+    sibling (`..._parks_after_retry_budget_exhausted`) exercises never
+    actually accumulates in production: each fresh leg id's own row starts
+    its tally at zero. The partition keeps re-dispatching indefinitely
+    instead of parking — acceptable (see docstring), but worth pinning
+    explicitly rather than leaving it an unstated difference from the old,
+    unreachable fan-out-specific budget this PR removed.
+    """
+    from coord.smoke import ENVIRONMENTAL_SMOKE_RETRY_BUDGET  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_state,
+        record_test_verdict,
+    )
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="passed", reason="ok")
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            "[[smoke-fanout:leg-a=gtk,leg-b=windows]]\n"
+            "Test stage running across 2 capability-partition leg(s) (#3182): "
+            "[gtk]; [windows]."
+        ),
+    )
+
+    infra_reason = (
+        "headless smoke: worktree /home/x/.coord/worktrees/leg-b was "
+        "deleted out from under the running cargo build"
+    )
+    # One more death than the budget allows — but each one lands on a
+    # BRAND-NEW leg id, exactly as a real fan-out retry would.
+    for i in range(ENVIRONMENTAL_SMOKE_RETRY_BUDGET + 1):
+        _seed_leg(leg_id=f"leg-b-retry-{i}", state="failed", reason=infra_reason)
+        record_test_verdict(
+            assignment_id="w-fanout", test_state="running",
+            test_reason=(
+                f"[[smoke-fanout:leg-a=gtk,leg-b-retry-{i}=windows]]\n"
+                "Test stage running across 2 capability-partition leg(s) "
+                f"(#3182): [gtk]; [windows]."
+            ),
+        )
+        finalize_smoke_fanout("w-fanout")
+        assert load_assignment_test_state("w-fanout") == "running"
+        assert load_assignment_test_state(f"leg-b-retry-{i}") is None
+
+    # Never parks, and the passing sibling is never touched either.
+    assert load_assignment_test_state("w-fanout") == "running"
+    assert load_assignment_test_state("leg-a") == "passed"
 
 
 def test_finalize_smoke_fanout_is_a_noop_for_a_non_fanout_row(coord_db) -> None:

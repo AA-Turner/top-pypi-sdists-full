@@ -31,6 +31,8 @@ def query(request: httpx2.Request) -> dict[str, list[str]]:
 
 # What was sent to mark threads as read.
 modified: list[str] = []
+# Set, Gmail turns marking as read down.
+modify_fails: list[bool] = []
 # Drafts saved in Gmail.
 drafts: list[dict] = []
 
@@ -51,8 +53,15 @@ def gmail_api(request: httpx2.Request) -> httpx2.Response:
     if path == "/threads":
         assert "is:unread" in query(request)["q"][0]
         return httpx2.Response(200, json={"threads": [{"id": "t1"}]})
+    if path.startswith("/messages/") and path.endswith("/modify"):
+        if modify_fails:
+            return httpx2.Response(500, json={"error": {"message": "Backend Error"}})
+        modified.append(f"{path} {request.content.decode()}")
+        return httpx2.Response(200, json={})
     if path == "/threads/t1/modify":
         assert request.method == "POST"
+        if modify_fails:
+            return httpx2.Response(500, json={"error": {"message": "Backend Error"}})
         modified.append(request.content.decode())
         return httpx2.Response(200, json={"id": "t1"})
     if path == "/drafts/d1":
@@ -854,6 +863,20 @@ def test_email_opens_over_the_details(client: TestClient, fake_google: FakeGoogl
     assert "Images from stark.example are shown." in shown.text and "<html" not in shown.text
 
 
+def test_marking_read_says_why_it_failed(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    view = {"HX-Request": "true", "HX-Target": "page-view"}
+    modify_fails.append(True)
+    try:
+        response = client.post("/email/1/t1/read", headers=view)
+    finally:
+        modify_fails.clear()
+    # The email again, still unread, with what went wrong; the view does not go on.
+    assert response.status_code == 200 and "HX-Trigger" not in response.headers
+    assert "✕ ERROR" in response.text and "Marked as read." not in response.text
+    assert 'hx-post="/email/1/t1/read"' in response.text
+
+
 def test_marking_read_needs_the_permission(client: TestClient, fake_google: FakeGoogle):
     fake_google.granted_scopes = " ".join(
         s for s in fake_google.granted_scopes.split() if not s.endswith("gmail.modify")
@@ -1483,3 +1506,100 @@ def test_an_invitation_without_its_event_shows_what_the_email_says():
     assert when(date(2099, 11, 5), date(2099, 11, 6), True) == "Thu 5 Nov"
     # An answer to the user's own invitation is no invitation.
     assert read_ics(ICS.replace("METHOD:REQUEST", "METHOD:REPLY"))["METHOD"] == "REPLY"
+
+
+def test_few_requests_go_to_google_at_once(monkeypatch: pytest.MonkeyPatch):
+    # Gmail turns down more than a few at once for one account, as a rate limit.
+    from myorb.connections.google_accounts import CONCURRENT, GoogleAccount, GoogleAccounts
+
+    under_way = most = 0
+
+    async def slow(request: httpx2.Request) -> httpx2.Response:
+        nonlocal under_way, most
+        under_way += 1
+        most = max(most, under_way)
+        await asyncio.sleep(0.01)
+        under_way -= 1
+        return httpx2.Response(200, json={})
+
+    async def run() -> None:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(slow)) as http:
+            accounts = GoogleAccounts(None, None, http)  # type: ignore[arg-type]
+
+            async def token(account: GoogleAccount) -> str:
+                return "token"
+
+            monkeypatch.setattr(accounts, "_access_token", token)
+            account = GoogleAccount(1, "tony@stark.example", frozenset())
+            requests = [accounts.get_json(account, GMAIL, "Gmail API") for _ in range(12)]
+            await asyncio.gather(*requests)
+
+    asyncio.run(run())
+    assert most == CONCURRENT
+
+
+def test_an_unchanged_conversation_is_not_read_again():
+    # Reading every unread conversation on each refresh went over Gmail's rate limit.
+    from myorb.connections.google_accounts import GoogleAccount
+    from myorb.plugins.gmail import fetch_inbox
+
+    history = {"t1": "5", "t2": "7"}
+    read: list[str] = []
+
+    class Google:
+        async def get_json(self, account, url: str, api_name: str, params=None):  # noqa: ANN001
+            path = url.removeprefix(GMAIL)
+            if path == "/threads":
+                return {"threads": [{"id": t, "historyId": h} for t, h in history.items()]}
+            if path.startswith("/threads/"):
+                read.append(path.removeprefix("/threads/"))
+                headers = [{"name": "From", "value": "pepper@stark.example"}]
+                message = {"id": f"m-{read[-1]}", "threadId": read[-1], "labelIds": ["UNREAD"]}
+                return {"messages": [{**message, "payload": {"headers": headers}}]}
+            return {}
+
+    account = GoogleAccount(1, "tony@stark.example", frozenset())
+    day = datetime(2026, 11, 7, tzinfo=TZ)
+    known: dict = {}
+    first = asyncio.run(fetch_inbox(Google(), account, day, known))  # type: ignore[arg-type]
+    assert sorted(read) == ["t1", "t2"] and len(first["latest_unread"]) == 2
+    history["t2"] = "9"
+    del history["t1"]
+    read.clear()
+    again = asyncio.run(fetch_inbox(Google(), account, day, known))  # type: ignore[arg-type]
+    assert read == ["t2"] and len(again["latest_unread"]) == 1 and set(known) == {"t2"}
+    read.clear()
+    asyncio.run(fetch_inbox(Google(), account, day, known))  # type: ignore[arg-type]
+    assert read == []
+
+
+def test_a_message_is_starred_as_in_gmail(client: TestClient, fake_google: FakeGoogle):
+    connect_google(client, fake_google)
+    page = client.get("/email/1/t1").text
+    # The newest message's star, right of the buttons; Pepper's reply is starred already.
+    star = re.search(r'hx-post="(/email/1/t1/star/m-pepper)\?starred=false&place=top', page)
+    assert star and page.index("data-email-star") < page.index("email-message")
+    # Each message has its own right of its date, Tony's not starred.
+    assert "/star/m-tony?starred=true&place=head" in page
+    assert "/star/m-pepper?starred=false&place=head&twin=true" in page
+    modified.clear()
+    answer = client.post(f"{star[1]}?starred=true&place=top&twin=true").text
+    message_id = star[1].rsplit("/", 1)[1]
+    assert modified == [f'/messages/{message_id}/modify {{"addLabelIds":["STARRED"]}}']
+    assert 'aria-pressed="true"' in answer and "starred=false" in answer and "<html" not in answer
+    # Its twin right of the date follows it.
+    assert 'id="star-head-m-pepper"' in answer and 'hx-swap-oob="true"' in answer
+    modified.clear()
+    tony = client.post("/email/1/t1/star/m-tony?starred=true&place=head").text
+    assert modified[0].startswith("/messages/m-tony/modify") and "hx-swap-oob" not in tony
+    assert 'id="star-head-m-tony"' in tony and 'aria-pressed="true"' in tony
+    modified.clear()
+    assert "starred=true" in client.post(f"{star[1]}?starred=false").text
+    assert modified[0].endswith('{"removeLabelIds":["STARRED"]}')
+    # Gmail said no: the star stays as it was and says why.
+    modify_fails.append(True)
+    try:
+        failed = client.post(f"{star[1]}?starred=true").text
+    finally:
+        modify_fails.clear()
+    assert 'aria-pressed="false"' in failed and "Google returned an error" in failed

@@ -1,5 +1,6 @@
 # filter/filter.pyi — type stubs for the filter C extension.
 from typing import final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -71,7 +72,7 @@ class FIR:
         Parameters
         ----------
         x : npt.NDArray[np.complex64]
-            Input.
+            Input array of n_in CF32 samples.
         out : npt.NDArray[np.complex64] | None
             Output buffer; caller must provide space for n_in CF32 values.
 
@@ -249,7 +250,7 @@ class MovingAverage:
     Create with defaults:
 
     >>> from doppler.filter import MovingAverage
-    >>> obj = MovingAverage(len=4, gain=1.0)
+    >>> obj = MovingAverage()
 
     """
 

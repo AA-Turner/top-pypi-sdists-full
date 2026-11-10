@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Any
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.sharepoint.publishing.authoringschemafeatureversion import (
 )
 
 
-@dataclass
 class SitePageCoAuthState(ClientValue):
     Action: Any = None
     HasReachedMinorVersionsLimit: Any = None

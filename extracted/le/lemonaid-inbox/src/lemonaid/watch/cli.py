@@ -5,6 +5,7 @@ from collections import abc
 
 from . import (
     briefs_cli,
+    command_cli,
     doc_cli,
     file_cli,
     host_services,
@@ -14,6 +15,7 @@ from . import (
     reconcile,
     repo_cli,
     restart_cli,
+    reviews_cli,
     scout_host,
     stop_cli,
     wait_cli,
@@ -25,7 +27,8 @@ def setup_parser(
     host_services: abc.Sequence[host_services.Factory] = (),
 ) -> None:
     parser = subparsers.add_parser(
-        "watch", help="Watch your brief with --self, or watch a document, PR, file or children"
+        "watch",
+        help="Watch your brief with --self, or watch a document, PR, file, command or children",
     )
     wait_cli.add_arguments(parser)
     watch_subparsers = parser.add_subparsers(dest="watch_command")
@@ -33,7 +36,9 @@ def setup_parser(
     openclaw_cli.add_parser(watch_subparsers)
     pr_cli.add_parser(watch_subparsers)
     repo_cli.add_parser(watch_subparsers)
+    reviews_cli.add_parser(watch_subparsers)
     file_cli.add_parser(watch_subparsers)
+    command_cli.add_parser(watch_subparsers)
     briefs_cli.add_parser(watch_subparsers)
     notes_cli.add_parser(watch_subparsers)
     reconcile.add_parser(watch_subparsers)

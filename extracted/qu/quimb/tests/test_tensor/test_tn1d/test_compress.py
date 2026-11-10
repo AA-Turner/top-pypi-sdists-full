@@ -1,9 +1,799 @@
+import autoray as ar
+import numpy as np
 import pytest
 
 import quimb as qu
 import quimb.tensor as qtn
 
+from .. import (
+    bond_orientations,
+    jax_case,
+    make_symmetric_2d_tn,
+    pytorch_case,
+    requires_symmray,
+    symmetry_cases,
+)
+
 dtypes = ["float32", "float64", "complex64", "complex128"]
+
+
+@pytest.mark.parametrize("method", ["src", "srcmps"])
+@pytest.mark.filterwarnings("error:`cutoff` is ignored")
+def test_random_sampling_default_cutoff(method):
+    from quimb.tensor.tn1d.compress import tensor_network_1d_compress
+
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    result = tensor_network_1d_compress(
+        psi, max_bond=2, method=method, seed=42
+    )
+    assert result.max_bond() <= 2
+    with pytest.warns(UserWarning, match="`cutoff` is ignored"):
+        tensor_network_1d_compress(
+            psi, max_bond=2, method=method, cutoff=1e-10, seed=42
+        )
+
+
+@pytest.mark.parametrize("method", ["zipup", "sdc", "sdcr"])
+@pytest.mark.parametrize("mode", [None, "abs"])
+def test_oversample_independent_cutoff_modes(monkeypatch, method, mode):
+    from quimb.tensor.tn1d import compress
+
+    name = f"tensor_network_1d_compress_{method}"
+    original = getattr(compress, name)
+    original_sweep = compress._do_direct_sweep
+    modes = []
+
+    def record_intermediate(*args, **kwargs):
+        modes.append(kwargs["cutoff_mode"])
+        return original(*args, **kwargs)
+
+    def record_sweep(*args, **kwargs):
+        modes.append(kwargs["cutoff_mode"])
+        return original_sweep(*args, **kwargs)
+
+    monkeypatch.setattr(compress, name, record_intermediate)
+    monkeypatch.setattr(compress, "_do_direct_sweep", record_sweep)
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    opts = {} if mode is None else {"cutoff_mode_oversample": mode}
+    result = compress.tensor_network_1d_compress(
+        psi,
+        method=f"{method}-oversample",
+        max_bond=2,
+        max_bond_oversample=4,
+        cutoff_oversample=1e-8,
+        **opts,
+    )
+    assert modes == [mode or "rel", "rsum2"]
+    assert result.max_bond() <= 2
+
+
+@pytest.mark.parametrize("max_bond", [None, 2])
+def test_zipup_oversample_default_cutoff(monkeypatch, max_bond):
+    from quimb.tensor.tn1d import compress
+
+    original = compress.tensor_network_1d_compress_zipup
+    cutoffs = []
+
+    def record(*args, **kwargs):
+        cutoffs.append(kwargs["cutoff"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(compress, "tensor_network_1d_compress_zipup", record)
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    compress.tensor_network_1d_compress_zipup_oversample(
+        psi, max_bond=max_bond, max_bond_oversample=4, cutoff=1e-3
+    )
+    compress.mps_gate_with_mpo_zipup_first(
+        psi,
+        qtn.MPO_identity(5),
+        max_bond=max_bond,
+        max_bond_oversample=4,
+        cutoff=1e-3,
+    )
+    assert cutoffs == ["auto", "auto"]
+
+
+@pytest.mark.parametrize(
+    "method,expected", [("svd", 1e-10), ("svd:rand", 0.0)]
+)
+def test_zipup_oversample_method_cutoff(monkeypatch, method, expected):
+    import functools
+
+    from quimb.tensor import decomp
+    from quimb.tensor.tn1d import compress
+
+    original = decomp._SPLIT_FNS[method]
+    cutoffs = []
+
+    @functools.wraps(original)
+    def record(*args, **kwargs):
+        cutoffs.append(kwargs["cutoff"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setitem(decomp._SPLIT_FNS, method, record)
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    compress.tensor_network_1d_compress_zipup_oversample(
+        psi, max_bond=2, cutoff=1e-3, method=method
+    )
+    assert cutoffs
+    assert cutoffs[:4] == [expected] * 4
+    assert set(cutoffs[4:]) == ({1e-3} if method == "svd" else set())
+
+
+@pytest.mark.parametrize("method", ["zipup", "sdc", "sdcr"])
+def test_oversample_randomized_options_stay_intermediate(method):
+    from quimb.tensor.tn1d.compress import tensor_network_1d_compress
+
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    intermediate = {"method": "svd:rand", "oversample": 1}
+    final = {"method": "svd", "max_bond": 1}
+    result = tensor_network_1d_compress(
+        psi,
+        method=f"{method}-oversample",
+        max_bond=2,
+        max_bond_oversample=4,
+        seed=42,
+        compress_opts=intermediate,
+        compress_opts_final=final,
+    )
+    assert result.max_bond() == 1
+    assert intermediate == {"method": "svd:rand", "oversample": 1}
+    assert final == {"method": "svd", "max_bond": 1}
+
+
+@pytest.mark.parametrize("method", ["src", "srcmps", "fit"])
+def test_oversample_final_options_precedence(method):
+    from quimb.tensor.tn1d.compress import tensor_network_1d_compress
+
+    psi = qtn.MPS_rand_state(5, 6, seed=42)
+    result = tensor_network_1d_compress(
+        psi,
+        method=f"{method}-oversample",
+        max_bond=2,
+        max_bond_oversample=4,
+        seed=42,
+        compress_opts={"cutoff_mode": "rsum2", "max_bond": 3},
+        compress_opts_final={"method": "svd", "max_bond": 1},
+    )
+    assert result.max_bond() == 1
+
+
+# compression options, including fit sweep counts
+boundary_options = {
+    "direct": {"method": "direct"},
+    "dm": {"method": "dm"},
+    "zipup": {"method": "zipup"},
+    "zipup-oversample": {"method": "zipup-oversample"},
+    "sdc": {"method": "sdc"},
+    "sdc-oversample": {"method": "sdc-oversample"},
+    "sdcr": {"method": "sdcr"},
+    "sdcr-oversample": {"method": "sdcr-oversample"},
+    "fit-bsz1": {
+        "method": "fit",
+        "bsz": 1,
+        "tn_fit": "zipup",
+        "max_iterations": 6,
+    },
+    "fit-bsz2": {
+        "method": "fit",
+        "bsz": 2,
+        "tn_fit": "zipup",
+        "max_iterations": 6,
+    },
+    "fit-bsz2-odd-iters": {
+        "method": "fit",
+        "bsz": 2,
+        "tn_fit": "zipup",
+        "max_iterations": 5,
+    },
+    "fit-bsz1-odd-iters": {
+        "method": "fit",
+        "bsz": 1,
+        "tn_fit": "zipup",
+        "max_iterations": 5,
+    },
+}
+
+
+@pytest.fixture(scope="module")
+def fpeps_norm_and_benchmark():
+    import symmray as sr
+
+    fpeps = sr.PEPS_fermionic_rand("Z2", 4, 4, bond_dim=4, phys_dim=4, seed=42)
+    fpeps.equalize_norms_()
+    for tensor in fpeps.tensors:
+        tensor.data.phase_sync(inplace=True)
+
+    fpeps_norm = fpeps.make_norm()
+    benchmark = fpeps_norm.contract(all, optimize="auto-hq")
+    return fpeps_norm, benchmark
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["src", "src-first", "srcmps", "srcmps-first", "fit", "fit-oversample"],
+)
+@pytest.mark.parametrize("seed_mode", ["global", "integer", "generator"])
+def test_random_seed(method, seed_mode):
+    psi = qtn.MPS_rand_state(4, 3, seed=7)
+    compress_opts = {
+        "max_bond": 2,
+        "method": method,
+    }
+    if method == "fit":
+        compress_opts["max_iterations"] = 1
+    else:
+        compress_opts["cutoff"] = 0.0
+
+    def compress():
+        if seed_mode == "global":
+            np.random.seed(42)
+            seed = None
+        elif seed_mode == "integer":
+            seed = 42
+        else:
+            seed = np.random.default_rng(42)
+        return qtn.tensor_network_1d_compress(
+            psi,
+            seed=seed,
+            **compress_opts,
+        ).to_dense()
+
+    np.testing.assert_allclose(compress(), compress())
+
+
+@pytest.mark.parametrize("method", ["src-first", "srcmps-first"])
+def test_random_oversample_noise_dist(method):
+    psi = qtn.MPS_rand_state(4, 3, seed=7)
+    a = qtn.tensor_network_1d_compress(
+        psi,
+        max_bond=2,
+        method=method,
+        noise_dist="rademacher",
+        seed=42,
+    )
+    b = qtn.tensor_network_1d_compress(
+        psi,
+        max_bond=2,
+        method=method,
+        noise_dist="rademacher",
+        seed=42,
+    )
+    np.testing.assert_allclose(a.to_dense(), b.to_dense())
+
+
+@pytest.mark.parametrize("backend", [jax_case, pytorch_case])
+@pytest.mark.parametrize("seed_mode", ["integer", "generator"])
+@pytest.mark.parametrize("method", ["src", "srcmps"])
+def test_random_backend(method, seed_mode, backend):
+    psi = qtn.MPS_rand_state(4, 3, dtype="complex64", seed=7)
+    psi.apply_to_arrays(lambda x: ar.do("array", x, like=backend))
+    expected = ar.infer_backend_device_dtype(psi[0].data)
+
+    if seed_mode == "integer":
+        seed = 42
+    else:
+        seed = psi.get_namespace().random.default_rng(42)
+
+    compressed = qtn.tensor_network_1d_compress(
+        psi,
+        max_bond=2,
+        cutoff=0.0,
+        method=method,
+        seed=seed,
+    )
+
+    for tensor in compressed:
+        assert ar.infer_backend_device_dtype(tensor.data) == expected
+
+
+@pytest.mark.parametrize("backend", [jax_case, pytorch_case])
+@pytest.mark.parametrize(
+    "method", ["sdc", "sdc-oversample", "sdcr", "sdcr-oversample"]
+)
+def test_sdc_backend(method, backend):
+    psi = qtn.MPS_rand_state(4, 3, dtype="complex64", seed=7)
+    psi.apply_to_arrays(lambda x: ar.do("array", x, like=backend))
+    expected = ar.infer_backend_device_dtype(psi[0].data)
+
+    compressed = qtn.tensor_network_1d_compress(
+        psi,
+        max_bond=2,
+        cutoff=0.0,
+        method=method,
+    )
+
+    for tensor in compressed:
+        assert ar.infer_backend_device_dtype(tensor.data) == expected
+
+
+@requires_symmray
+@pytest.mark.parametrize("method", boundary_options)
+@pytest.mark.parametrize("symmetry", symmetry_cases)
+@pytest.mark.parametrize("bond_orientation", bond_orientations)
+@pytest.mark.parametrize("direction", ["xmin", "xmax", "ymin", "ymax"])
+def test_symmetric_boundary_contract(
+    method, symmetry, bond_orientation, direction
+):
+    """Check exact 1D compression of a scalar symmetric 2D network.
+
+    Cover tensor parity, bond orientation, and contraction direction. Use
+    enough bond dimension to prevent truncation.
+    """
+    # use distinct random data for each case
+    seed = qu.utils.hash_kwargs_to_int(
+        method=method,
+        symmetry=symmetry,
+        bond_orientation=bond_orientation,
+        direction=direction,
+    )
+    tn = make_symmetric_2d_tn(symmetry, duals=bond_orientation, seed=seed)
+
+    expected = tn.contract(all, optimize="auto-hq")
+    value = tn.contract_boundary(
+        # prevent truncation
+        max_bond=4,
+        cutoff=0.0,
+        sequence=(direction,),
+        **boundary_options[method],
+    )
+    assert value == pytest.approx(expected, rel=1e-10)
+
+
+@requires_symmray
+@pytest.mark.parametrize(
+    "from_which,boundary_range",
+    [
+        pytest.param("xmin", (0, 2), id="xmin"),
+        pytest.param("xmax", (1, 3), id="xmax"),
+        pytest.param("ymin", (0, 2), id="ymin"),
+        pytest.param("ymax", (1, 3), id="ymax"),
+    ],
+)
+def test_fmps_mpo_fitting(
+    from_which,
+    boundary_range,
+    fpeps_norm_and_benchmark,
+):
+    fpeps_norm, benchmark = fpeps_norm_and_benchmark
+    contract_boundary = getattr(
+        fpeps_norm,
+        f"contract_boundary_from_{from_which}",
+    )
+    range_key = "xrange" if from_which.startswith("x") else "yrange"
+
+    result = contract_boundary(
+        **{range_key: boundary_range},
+        max_bond=128,
+        cutoff=0.0,
+        method="fit",
+        tol=1e-5,
+        tn_fit="zipup",
+        bsz=2,
+        max_iterations=6,
+    ).contract()
+
+    assert result == pytest.approx(benchmark, rel=1e-4)
+
+
+@requires_symmray
+@pytest.mark.parametrize("symmetry", symmetry_cases)
+@pytest.mark.parametrize("bond_orientation", bond_orientations)
+@pytest.mark.parametrize("direction", ["xmin", "xmax", "ymin", "ymax"])
+def test_dm_truncating_matches_direct(symmetry, bond_orientation, direction):
+    """Check that truncated DM compression matches direct compression."""
+    seed = qu.utils.hash_kwargs_to_int(
+        symmetry=symmetry,
+        bond_orientation=bond_orientation,
+        direction=direction,
+    )
+    # this network and bond limit force truncation
+    tn = make_symmetric_2d_tn(
+        symmetry,
+        duals=bond_orientation,
+        Lx=6,
+        Ly=6,
+        seed=seed,
+    )
+    contraction_options = {
+        "max_bond": 4,
+        "cutoff": 0.0,
+        "sequence": (direction,),
+    }
+    value_dm = tn.contract_boundary(method="dm", **contraction_options)
+    value_direct = tn.contract_boundary(method="direct", **contraction_options)
+    assert value_dm == pytest.approx(value_direct, rel=1e-8)
+
+
+@requires_symmray
+@pytest.mark.parametrize("layer_tags", [None, ("KET", "BRA")])
+@pytest.mark.parametrize("direction", ["xmin", "xmax", "ymin", "ymax"])
+def test_dm_truncating_matches_direct_fermionic_norm(layer_tags, direction):
+    """Check truncated DM compression of the norm of an odd parity fermionic
+    PEPS, whose bra tensors carry dual dummy modes.
+    """
+    import symmray as sr
+
+    psi = sr.PEPS_fermionic_rand(
+        "Z2",
+        4,
+        4,
+        bond_dim=2,
+        phys_dim=2,
+        site_charge=lambda site: 1,
+        seed=7,
+        dist="uniform",
+        loc=-0.5,
+    )
+    norm = psi.make_norm()
+    contraction_options = {
+        "max_bond": 4,
+        "cutoff": 0.0,
+        "sequence": (direction,),
+        "layer_tags": layer_tags,
+    }
+    value_dm = norm.contract_boundary(method="dm", **contraction_options)
+    value_direct = norm.contract_boundary(
+        method="direct", **contraction_options
+    )
+    assert value_dm == pytest.approx(value_direct, rel=1e-8)
+
+
+@pytest.mark.parametrize("dtype", ["float64", "complex128"])
+@pytest.mark.parametrize(
+    "dm_opts,direct_opts",
+    [
+        pytest.param(
+            {"max_bond": 3, "cutoff": 0.0},
+            {"max_bond": 3, "cutoff": 0.0},
+            id="max_bond",
+        ),
+        # dm truncates the squares of the singular values that direct sees
+        pytest.param(
+            {"max_bond": 16, "cutoff": 1e-4, "cutoff_mode": "rel"},
+            {"max_bond": 16, "cutoff": 1e-2, "cutoff_mode": "rel"},
+            id="rel",
+        ),
+        pytest.param(
+            {"max_bond": 16, "cutoff": 1e-3, "cutoff_mode": "rsum1"},
+            {"max_bond": 16, "cutoff": 1e-3, "cutoff_mode": "rsum2"},
+            id="rsum1",
+        ),
+    ],
+)
+def test_dm_layered_norm_matches_direct(dtype, dm_opts, direct_opts):
+    """Check truncated DM compression of a layered norm, where each site's
+    density matrix is larger than its rank, so is not formed explicitly.
+    """
+    peps = qtn.PEPS.rand(4, 4, bond_dim=2, phys_dim=2, seed=7, dtype=dtype)
+    norm = peps.make_norm()
+    # make the absolute scale of the eigenvalues meaningful
+    norm.multiply_(1 / norm.contract(), spread_over="all")
+    contraction_options = {
+        "layer_tags": ("KET", "BRA"),
+        "sequence": ("ymin",),
+    }
+    value_dm = norm.contract_boundary(
+        method="dm", **dm_opts, **contraction_options
+    )
+    value_direct = norm.contract_boundary(
+        method="direct", **direct_opts, **contraction_options
+    )
+    # check that truncation happened
+    assert value_dm != pytest.approx(1.0, rel=1e-6)
+    assert value_dm == pytest.approx(value_direct, rel=1e-8)
+
+
+@requires_symmray
+@pytest.mark.parametrize("direction", ["xmin", "xmax", "ymin", "ymax"])
+def test_dm_layered_norm_matches_direct_abelian(direction):
+    """Check truncated DM compression of a layered norm with non-fermionic
+    block sparse arrays, whose density matrices are not formed explicitly.
+    """
+    import symmray as sr
+
+    psi = sr.PEPS_abelian_rand("Z2", 4, 4, bond_dim=2, phys_dim=2, seed=7)
+    norm = psi.make_norm()
+    contraction_options = {
+        "max_bond": 4,
+        "cutoff": 0.0,
+        "layer_tags": ("KET", "BRA"),
+        "sequence": (direction,),
+    }
+    value_dm = norm.contract_boundary(method="dm", **contraction_options)
+    value_direct = norm.contract_boundary(
+        method="direct", **contraction_options
+    )
+    assert value_dm == pytest.approx(value_direct, rel=1e-8)
+
+
+def test_dm_layered_norm_decomposition_size():
+    """Check DM never decomposes a matrix larger than the bound on its rank,
+    which for a layered norm is much smaller than the reduced density matrix.
+    """
+    from autoray.lazy import descend
+
+    D, chi = 2, 4
+    peps = qtn.PEPS.from_fill_fn(
+        lambda shape: ar.lazy.Variable(shape, backend="numpy"), 4, 4, D, 2
+    )
+    z = peps.make_norm().contract_boundary(
+        max_bond=chi,
+        cutoff=0.0,
+        method="dm",
+        layer_tags=("KET", "BRA"),
+        sequence=("ymin",),
+    )
+    sizes = [
+        min(node.deps[0].shape)
+        for node in descend(z)
+        if any(name in node.fn_name for name in ("eigh", "svd", "qr"))
+    ]
+    assert sizes
+    # rho itself would be chi * D**2 * phys_dim
+    assert max(sizes) <= chi * D
+
+
+@requires_symmray
+@pytest.mark.parametrize(
+    "site_charge",
+    [
+        pytest.param(lambda site: 0, id="even"),
+        pytest.param(lambda site: 1, id="odd"),
+        pytest.param(lambda site: (site[0] + site[1]) % 2, id="odd-checker"),
+    ],
+)
+@pytest.mark.parametrize("duals", bond_orientations)
+@pytest.mark.parametrize("layer_tags", [("KET", "BRA"), ("BRA", "KET")])
+@pytest.mark.parametrize("direction", ["xmin", "xmax", "ymin", "ymax"])
+def test_dm_layered_norm_matches_direct_fermionic(
+    site_charge, duals, layer_tags, direction
+):
+    """Check truncated DM compression of a layered fermionic norm, whose
+    density matrices are not formed explicitly. Odd parity sites, with the bra
+    layer first, need the QR charge and dummy modes kept off the projector.
+    """
+    import symmray as sr
+
+    psi = sr.PEPS_fermionic_rand(
+        "Z2",
+        4,
+        4,
+        bond_dim=2,
+        phys_dim=2,
+        site_charge=site_charge,
+        duals=duals,
+        seed=7,
+        dist="uniform",
+        loc=-0.5,
+    )
+    norm = psi.make_norm()
+    contraction_options = {
+        "max_bond": 4,
+        "cutoff": 0.0,
+        "layer_tags": layer_tags,
+        "sequence": (direction,),
+    }
+    value_dm = norm.contract_boundary(method="dm", **contraction_options)
+    value_direct = norm.contract_boundary(
+        method="direct", **contraction_options
+    )
+    assert value_dm == pytest.approx(value_direct, rel=1e-8)
+
+
+def make_fermionic_long_range_tn():
+    """An odd parity fermionic PEPS ordered as a 1D snake, so that the
+    vertical bonds (0, 0)-(1, 0) and (0, 1)-(1, 1) are long range.
+    """
+    import symmray as sr
+
+    psi = sr.PEPS_fermionic_rand(
+        "Z2", 2, 3, bond_dim=2, phys_dim=2, site_charge=lambda site: 1, seed=3
+    )
+    snake = [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (1, 0)]
+    site_tags = [psi.site_tag(*site) for site in snake]
+    return psi, site_tags
+
+
+@requires_symmray
+@pytest.mark.parametrize(
+    "method",
+    [
+        "direct",
+        "dm",
+        "zipup",
+        "zipup-oversample",
+        "sdc",
+        "sdc-oversample",
+        "sdcr",
+        "sdcr-oversample",
+        "fit-zipup",
+    ],
+)
+@pytest.mark.parametrize("sweep_reverse", [False, True])
+def test_fermionic_long_range_exact(method, sweep_reverse):
+    """Check exact compression of a fermionic network with long range bonds,
+    which these methods handle without inserting identities, which symmray
+    arrays do not support.
+    """
+    psi, site_tags = make_fermionic_long_range_tn()
+    new = qtn.tensor_network_1d_compress(
+        psi,
+        max_bond=8,
+        method=method,
+        site_tags=site_tags,
+        sweep_reverse=sweep_reverse,
+    )
+    assert new.max_bond() <= 8
+    expected = (psi.conj() & psi).contract()
+    assert (new.conj() & psi).contract() == pytest.approx(expected, rel=1e-8)
+    assert (new.conj() & new).contract() == pytest.approx(expected, rel=1e-8)
+
+
+@requires_symmray
+@pytest.mark.parametrize("method", ["direct", "dm"])
+@pytest.mark.parametrize("sweep_reverse", [False, True])
+def test_truncating_fermionic_long_range(method, sweep_reverse):
+    """Check truncated compression of a fermionic network with long range
+    bonds against an exact zipup followed by a truncating SVD sweep.
+    """
+    psi, site_tags = make_fermionic_long_range_tn()
+    compress_opts = {
+        "max_bond": 2,
+        "site_tags": site_tags,
+        "sweep_reverse": sweep_reverse,
+    }
+    new = qtn.tensor_network_1d_compress(psi, method=method, **compress_opts)
+    new_ref = qtn.tensor_network_1d_compress(
+        psi,
+        method="zipup-oversample",
+        # exact zipup so only the final sweep truncates
+        max_bond_oversample=8,
+        **compress_opts,
+    )
+    overlap = (new.conj() & psi).contract()
+    overlap_ref = (new_ref.conj() & psi).contract()
+    assert overlap == pytest.approx(overlap_ref, rel=1e-8)
+    norm = (new.conj() & new).contract()
+    norm_ref = (new_ref.conj() & new_ref).contract()
+    assert norm == pytest.approx(norm_ref, rel=1e-8)
+
+
+@requires_symmray
+@pytest.mark.parametrize(
+    "method", ["srcmps", "srcmps-oversample", "fit", "fit-oversample"]
+)
+@pytest.mark.parametrize("symmetry", ["abelian", "fermionic"])
+@pytest.mark.parametrize("sweep_reverse", [False, True])
+def test_long_range_with_guess(method, symmetry, sweep_reverse):
+    """Check that methods taking a guess handle long range bonds directly,
+    since symmray arrays cannot insert identities.
+    """
+    import symmray as sr
+
+    if symmetry == "abelian":
+        psi = sr.PEPS_abelian_rand("Z2", 2, 3, bond_dim=2, phys_dim=2, seed=3)
+        snake = [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (1, 0)]
+        site_tags = [psi.site_tag(*site) for site in snake]
+    else:
+        psi, site_tags = make_fermionic_long_range_tn()
+
+    opts = {}
+    if method == "fit-oversample":
+        # symmray can't pad the guess up to size for 1-site sweeps
+        opts["bsz"] = 2
+
+    new = qtn.tensor_network_1d_compress(
+        psi,
+        max_bond=8,
+        method=method,
+        site_tags=site_tags,
+        tn_fit="zipup",
+        sweep_reverse=sweep_reverse,
+        **opts,
+    )
+    assert new.num_tensors == 6
+    expected = (psi.conj() & psi).contract()
+    assert (new.conj() & psi).contract() == pytest.approx(expected, rel=1e-8)
+    assert (new.conj() & new).contract() == pytest.approx(expected, rel=1e-8)
+
+
+def test_tn_matching_edges():
+    psi = qtn.PEPS.rand(2, 3, bond_dim=2, seed=3)
+    snake = [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (1, 0)]
+    site_tags = [psi.site_tag(*site) for site in snake]
+    guess = qtn.TN_matching(psi, max_bond=3, site_tags=site_tags, seed=4)
+    assert guess.num_indices == 7 + 6
+    chain = qtn.TN_matching(
+        psi,
+        max_bond=3,
+        site_tags=site_tags,
+        edges=zip(site_tags[:-1], site_tags[1:]),
+        seed=4,
+    )
+    assert chain.num_indices == 5 + 6
+    for tag_a, tag_b in zip(site_tags[:-1], site_tags[1:]):
+        assert len(chain[tag_a].bonds(chain[tag_b])) == 1
+    assert set(chain.outer_inds()) == set(psi.outer_inds())
+
+
+def test_srcmps_guess_sketch():
+    # a good guess should give a good sketch, also for complex arrays
+    mps = qtn.MPS_rand_state(12, 16, dtype="complex128", seed=1)
+    mpo = qtn.MPO_rand(12, 4, dtype="complex128", seed=2)
+    tn = mpo.apply(mps, compress=False)
+    guess = qtn.tensor_network_1d_compress(tn, max_bond=12, method="dm")
+    new = qtn.tensor_network_1d_compress(
+        tn, max_bond=12, method="srcmps", tn_fit=guess
+    )
+    assert new.distance_normalized(tn) < 1.05 * guess.distance_normalized(tn)
+
+
+@pytest.mark.parametrize("method", ["srcmps", "fit", "fit-oversample"])
+def test_tn_fit(method):
+    # with a guess supplied, the seed should have no effect
+    psi = qtn.MPS_rand_state(4, 3, seed=7)
+    tn_fit = qtn.TN_matching(psi, max_bond=2, seed=42)
+    compress_opts = {
+        "max_bond": 2,
+        "method": method,
+        "tn_fit": tn_fit,
+    }
+    if method == "fit":
+        compress_opts["max_iterations"] = 1
+    elif method == "fit-oversample":
+        compress_opts["max_bond_oversample"] = 2
+    else:
+        compress_opts["cutoff"] = 0.0
+
+    a = qtn.tensor_network_1d_compress(
+        psi,
+        seed=1,
+        **compress_opts,
+    )
+    b = qtn.tensor_network_1d_compress(
+        psi,
+        seed=2,
+        **compress_opts,
+    )
+    np.testing.assert_allclose(a.to_dense(), b.to_dense())
+
+
+def test_fit_single_sweep_cutoff_only():
+    mps = qtn.MPS_rand_state(8, 7, seed=1)
+    mpo = qtn.MPO_rand_herm(8, 3, seed=2)
+    tn = mpo.apply(mps, compress=False)
+    out = qtn.tensor_network_1d_compress(
+        tn, method="fit", cutoff=1e-10, max_iterations=1, seed=3
+    )
+    assert out.max_bond() <= 21
+
+
+def test_fit_single_sweep_guess_full_bond():
+    # a single 1-site sweep can only improve on a guess at max_bond
+    mps = qtn.MPS_rand_state(10, 7, seed=1)
+    mpo = qtn.MPO_rand_herm(10, 5, seed=2)
+    tn = mpo.apply(mps, compress=False)
+    ref = qtn.tensor_network_1d_compress(tn, method="zipup", max_bond=12)
+    out = qtn.tensor_network_1d_compress(
+        tn,
+        method="fit",
+        bsz=1,
+        max_bond=12,
+        cutoff=0.0,
+        tn_fit="zipup",
+        max_iterations=1,
+    )
+    assert out.max_bond() == 12
+    assert out.distance_normalized(tn) <= ref.distance_normalized(tn) + 1e-6
+
+
+def test_unknown_method_raises():
+    tn = qtn.MPS_rand_state(6, 4, seed=1)
+    with pytest.raises(ValueError, match="sdcr"):
+        qtn.tensor_network_1d_compress(tn, max_bond=2, method="unknown")
+    with pytest.raises(ValueError, match="projector"):
+        qtn.tensor_network_ag_compress(tn, max_bond=2, method="dm")
 
 
 @pytest.mark.parametrize(
@@ -12,13 +802,14 @@ dtypes = ["float32", "float64", "complex64", "complex128"]
         "direct",
         "dm",
         "zipup",
-        "zipup-first",
         "zipup-oversample",
+        "sdc",
+        "sdc-oversample",
+        "sdcr",
+        "sdcr-oversample",
         "src",
-        "src-first",
         "src-oversample",
         "srcmps",
-        "srcmps-first",
         "srcmps-oversample",
         "fit",
         "fit-zipup",
@@ -93,7 +884,7 @@ def test_basic_compress_double_mpo(
         assert c.exponent == 0.0
 
     eps = 1e-3 if dtype in ("float32", "complex64") else 1e-6
-    if "src" in method:
+    if ("src" in method) or ("sdcr" in method):
         # account for noise
         eps *= 5
 
@@ -111,18 +902,20 @@ def test_basic_compress_double_mpo(
         "direct",
         "dm",
         "zipup",
-        "zipup-first",
         "zipup-oversample",
+        "sdc",
+        "sdc-oversample",
+        "sdcr",
+        "sdcr-oversample",
         "src",
-        "src-first",
         "src-oversample",
         "srcmps",
-        "srcmps-first",
         "srcmps-oversample",
         "fit",
         "fit-zipup",
         "fit-projector",
         "fit-oversample",
+        "projector",
     ],
 )
 @pytest.mark.parametrize("dtype", dtypes)
@@ -147,8 +940,8 @@ def test_mps_partial_mpo_apply(method, dtype, sweep_reverse):
         is new
     )
     assert new.num_tensors == 10
-    eps = 1e-3 if dtype in ("float32", "complex64") else 1e-6
-    if "src" in method:
+    eps = 1e-3 if dtype in ("float32", "complex64") else 1e-5
+    if ("src" in method) or ("sdcr" in method):
         # account for noise
         eps *= 5
     assert new.distance_normalized(mps.gate(A, where)) == pytest.approx(
@@ -164,6 +957,10 @@ def test_mps_partial_mpo_apply(method, dtype, sweep_reverse):
         "fit",
         "zipup",
         "zipup-first",
+        "sdc",
+        "sdc-oversample",
+        "sdcr",
+        "sdcr-oversample",
         "src",
         "src-first",
     ],
@@ -193,3 +990,72 @@ def test_mpo_compress_opts(method, sweep_reverse):
 
     for site in range(L):
         assert set(ABc[site].tags) == {"A", "B", f"I{site}"}
+
+
+@pytest.mark.parametrize("method", ["direct", "local-early"])
+@pytest.mark.parametrize("nested", [False, True])
+def test_compress_site_tag_groups(method, nested):
+    L = 6
+    max_bond = 4
+    A = qtn.MPO_rand(L, 3, phys_dim=2, seed=42, tags="A")
+    B = qtn.MPS_rand_state(L, 3, phys_dim=2, seed=43, tags="B")
+    AB = qtn.tensor_network_apply_op_vec(A, B, contract=False)
+
+    # add a unique tag to each tensor at a site
+    for i in range(L):
+        AB.select(("A", AB.site_tag(i)), "all").add_tag(f"L{i}")
+        AB.select(("B", AB.site_tag(i)), "all").add_tag(f"R{i}")
+
+    if nested:
+        # the nested item requires both tags
+        site_tags = [(f"L{i}", (f"R{i}", "B")) for i in range(L)]
+    else:
+        site_tags = [(f"L{i}", f"R{i}") for i in range(L)]
+
+    # retain a virtual view to detect leaked tags
+    view = AB.select("A")
+
+    ref = qtn.tensor_network_1d_compress(AB, max_bond=max_bond, method=method)
+    ABc = qtn.tensor_network_1d_compress(
+        AB, max_bond=max_bond, method=method, site_tags=site_tags
+    )
+
+    assert ABc.num_tensors == L
+    assert ABc.max_bond() == max_bond
+    for src in (ABc, AB, view):
+        assert not any(tag.startswith("__GST") for tag in src.tag_map)
+    for i in range(L):
+        assert set(ABc[f"L{i}"].tags) == {"A", "B", f"I{i}", f"L{i}", f"R{i}"}
+
+    # both forms select the same tensors
+    np.testing.assert_allclose(ABc.to_dense(), ref.to_dense(), atol=1e-12)
+
+
+def test_compress_fit_site_tag_groups_with_initial_guess():
+    L = 4
+    A = qtn.MPO_rand(L, 3, phys_dim=2, seed=42, tags="A")
+    B = qtn.MPS_rand_state(L, 3, phys_dim=2, seed=43, tags="B")
+    AB = qtn.tensor_network_apply_op_vec(A, B, contract=False)
+    guess = qtn.MPS_rand_state(L, 2, phys_dim=2, seed=44)
+
+    site_tags = []
+    for i in range(L):
+        left_tag = f"L{i}"
+        right_tag = f"R{i}"
+        AB.select(("A", AB.site_tag(i)), "all").add_tag(left_tag)
+        AB.select(("B", AB.site_tag(i)), "all").add_tag(right_tag)
+        guess[i].add_tag((left_tag, right_tag))
+        site_tags.append((left_tag, right_tag))
+
+    ABc = qtn.tensor_network_1d_compress(
+        AB,
+        max_bond=2,
+        method="fit",
+        site_tags=site_tags,
+        tn_fit=guess,
+        max_iterations=1,
+    )
+
+    assert ABc.num_tensors == L
+    for src in (ABc, AB, guess):
+        assert not any(tag.startswith("__GST") for tag in src.tag_map)

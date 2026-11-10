@@ -11,33 +11,40 @@ override them; ``Parser._resolve_type_import_from_defs``, which ``JsonSchemaPars
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import Protocol
 
 from datamodel_code_generator import Error
 from datamodel_code_generator._constraint_applicability import (
+    COUNT_KEYWORDS,
+    ITEM_COUNT_KEYWORDS,
+    LENGTH_KEYWORDS,
     overridden_declared_constraints,
     resplit_overridden_constraints,
     untaken_minimums,
 )
+from datamodel_code_generator._container_kinds import ARRAYS, CONTAINER_FLAGS, MAPPINGS
 from datamodel_code_generator._model_keys import model_key_of
 from datamodel_code_generator._module_paths import dotted_name
 from datamodel_code_generator._requirements import REQUIREMENTS, python_target_meets
 from datamodel_code_generator._target_unicode import is_dotted_python_name
+from datamodel_code_generator._user_keys import model_type_override
 from datamodel_code_generator.enums import _pydantic_version_key
 from datamodel_code_generator.imports import Import, _import_key, _import_path
 from datamodel_code_generator.model.base import BaseClassDataType, ConstraintsBase
+from datamodel_code_generator.parser._passes._keys import site_constraints
 from datamodel_code_generator.parser._passes._shared import (
     _TYPE_DEPENDENT_CONSTRAINTS_KEY,
     TypeOverrideHost,
     enum_site_override_import,
 )
 from datamodel_code_generator.python_literal import message_repr
-from datamodel_code_generator.types import _copy_data_type
+from datamodel_code_generator.types import _copy_data_type, _value_members
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator._python_type_annotation import PythonTypeExpr
@@ -95,6 +102,10 @@ class TypeOverridesHost(TypeOverrideHost, Protocol):
     @property
     def target_python_version(self) -> PythonVersion:
         """The Python version the output targets."""
+
+    @property
+    def type_overrides_replace_whole_type(self) -> bool:
+        """Whether an override replaces a field's whole type and counts (``--type-overrides-replace-whole-type``)."""
 
     @property
     def _graph_builder(self) -> GraphBuilder:
@@ -240,6 +251,34 @@ def _registry_import(binding: object, version_key: tuple[int, int]) -> bool:
     return isinstance(binding, Import) and is_known_python_type_path(_import_path(binding), version_key)
 
 
+def _write_refused_literal_values(parser: TypeOverridesHost, written: PythonTypeExpr) -> PythonTypeExpr:
+    """Return the type with the values of its ``Literal`` that the output refuses written as their types, and warn.
+
+    A msgspec ``Literal`` holds no float and no bytes (``REFUSED_LITERAL_TYPES``), so ``Literal[5.0]`` becomes
+    ``float``, which msgspec does not check against the value.
+    """
+    if not (refused := parser.data_type_manager.REFUSED_LITERAL_TYPES):
+        return written
+    from datamodel_code_generator._message_text import for_count  # noqa: PLC0415
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        render_python_type_expr,
+        write_refused_literal_values,
+    )
+    from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base  # noqa: PLC0415
+
+    read, values = write_refused_literal_values(written, refused)
+    if values:
+        listed = tuple(dict.fromkeys(map(render_python_type_expr, values)))
+        warn_as_parser_base(
+            f"msgspec cannot decode {render_python_type_expr(written)}: a msgspec Literal holds only None, bool, "
+            f"int and str values, not {', '.join(listed)}. It is written as {render_python_type_expr(read)}, so "
+            f"msgspec does not check {for_count(len(listed), 'it', 'them')}.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return read
+
+
 def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> BoundPythonType:
     """Bind names/imports without returning to runtime-dependent text parsing.
 
@@ -321,7 +360,10 @@ def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> B
                         raise Error(msg)
                     resolving_names.add(name)
                     try:
-                        return rewrite_python_type_expr(read_literal_enum_members(resolved, names_class), bind_leaf)
+                        return rewrite_python_type_expr(
+                            read_literal_enum_members(_write_refused_literal_values(parser, resolved), names_class),
+                            bind_leaf,
+                        )
                     finally:
                         resolving_names.remove(name)
                 if resolved:
@@ -330,7 +372,10 @@ def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> B
         return item
 
     return BoundPythonType(
-        rewrite_python_type_expr(read_literal_enum_members(expression, names_class), bind_leaf), tuple(imports)
+        rewrite_python_type_expr(
+            read_literal_enum_members(_write_refused_literal_values(parser, expression), names_class), bind_leaf
+        ),
+        tuple(imports),
     )
 
 
@@ -355,18 +400,19 @@ def _override_expression(parser: TypeOverridesHost, path: str) -> PythonTypeExpr
 
     A value that names no type, such as an empty one, is an error, and so is a value with brackets that is no
     annotation, as neither has an import to write. A value without brackets names a class to import when it is a
-    dotted path, or a bare name that no builtin and no standard-library type of the registry has; a bare name that one
-    has, or a union of names such as ``str | None``, is an annotation. A name or a dotted path is read by the target's
-    identifier characters, which the parser of the Python that runs the generator may not know; the parser reads the
-    other values.
+    dotted path, relative (``..types.T``) or not, or a bare name that no builtin and no standard-library type of the
+    registry has; a bare name that one has, or a union of names such as ``str | None``, is an annotation. A name or a
+    dotted path is read by the target's identifier characters, which the parser of the Python that runs the generator
+    may not know; the parser reads the other values.
     """
     from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
         PythonTypeName,
         PythonTypeQualifiedName,
     )
 
-    if "[" not in path and is_dotted_python_name(path, parser.target_python_version):
-        if "." in path or not (
+    name = path.strip() if path.strip().startswith(".") else path
+    if "[" not in name and is_dotted_python_name(name.lstrip("."), parser.target_python_version):
+        if "." in name or not (
             parser._is_target_python_builtin_type(path)  # noqa: SLF001
             or parser._resolve_type_import(path)  # noqa: SLF001
         ):
@@ -434,6 +480,11 @@ def apply_override_to_field(parser: TypeOverridesHost, field: DataModelFieldBase
     The arguments of a ``con*`` call stay on an override the generator does not know, which may be a factory such
     as ``pydantic.conint``; a known class takes none, so they are left out, and so are those of the nested types the
     override replaces. An output model that writes ``Field()`` arguments warns about the ones it leaves out.
+
+    Row ``legacy-class-override-keeps-container``: without ``--type-overrides-replace-whole-type`` a class keeps the
+    container of the field's own type node, so the override of an object map is written as its values
+    (``dict[str, X]``, ``_override_node``), and every override keeps the item or property counts of the array or map
+    it replaces (``_untaken_container_counts``).
     """
     if (
         data_type := parser._override_annotation(override_import, is_optional=field.data_type.is_optional)  # noqa: SLF001
@@ -449,7 +500,8 @@ def apply_override_to_field(parser: TypeOverridesHost, field: DataModelFieldBase
         is_known_python_type_path,
     )
 
-    data_type = _copy_data_type(field.data_type)
+    data_type = _override_node(field.data_type, whole_type=parser.type_overrides_replace_whole_type)
+    _drop_site_constraints(parser, data_type)
     data_type.import_ = override_import
     data_type.alias = override_import.import_
     path = _import_path(override_import)
@@ -463,6 +515,53 @@ def apply_override_to_field(parser: TypeOverridesHost, field: DataModelFieldBase
     parser._graph_builder.replace_field_type(field, data_type)  # noqa: SLF001
     parser._graph_builder.detach_data_type_ref(field.data_type)  # noqa: SLF001
     parser._graph_builder.set_nested_data_types(field.data_type, [])  # noqa: SLF001
+
+
+_WITHOUT_CONTAINER: Final[Mapping[str, Any]] = MappingProxyType({
+    **dict.fromkeys(CONTAINER_FLAGS.values(), False),
+    "data_types": (),
+    "dict_key": None,
+    "tuple_item_count": None,
+})
+"""The values of a type node that holds no container: no container slot, member, dict key or tuple length."""
+
+
+def _drop_site_constraints(parser: TypeOverridesHost, data_type: DataType) -> None:
+    """Drop the constraints the allOf site of ``data_type`` adds to the target it named, which leave with it."""
+    if site_constraints(data_type):
+        parser._graph_builder.record_site_constraints(data_type, {})  # noqa: SLF001
+
+
+def _override_node(data_type: DataType, *, whole_type: bool) -> DataType:
+    """Return the copy of a field's own type node that a class override is written on, with its nullability.
+
+    With ``whole_type`` the copy holds none of the container it replaces (``_WITHOUT_CONTAINER``), so an object map
+    gives the class itself; the members of any other copy leave once the override replaces the type.
+    """
+    return _copy_data_type(data_type.model_copy(update=_WITHOUT_CONTAINER) if whole_type else data_type)
+
+
+def _untaken_container_counts(
+    field: DataModelFieldBase, keys: Iterable[str], keywords: Callable[..., frozenset[str]]
+) -> list[str]:
+    """Return the lengths among ``keys`` that count the map or the array an override replaces and it does not count.
+
+    The lengths and item counts (``minItems``, as msgspec's constraints name a length) of a field whose every value is
+    a map are its property counts, and of one whose every value is an array its item counts, as no string length is
+    written beside them; the override counts the keys when it takes the lengths as a map's
+    (``keywords(counts_keys=True)``: a mapping class, or a type the generator cannot classify) and the items when it
+    takes the array's counts (a sequence). The lengths of any other field are not decided here (row
+    ``legacy-override-keeps-string-keywords``).
+    """
+    if not (lengths := [key for key in keys if key in COUNT_KEYWORDS]) or not (
+        members := [*_value_members(field.data_type)]
+    ):
+        return []
+    if all(member in MAPPINGS for member in members):
+        return [] if keywords(counts_keys=True) >= LENGTH_KEYWORDS else lengths
+    if all(member in ARRAYS for member in members):
+        return [] if keywords() >= ITEM_COUNT_KEYWORDS else lengths
+    return []
 
 
 def record_overridden_constraints(
@@ -493,8 +592,11 @@ def decide_overridden_constraints(
 
     An output model that writes constraints as ``Field()`` arguments also decides the number constraints of a
     declared number and the string constraints the replaced type left out this way, and remembers the ones it
-    leaves out to warn about them. The untaken constraints of the members, items and values that collapsing inlines
-    into the field leave with the type the override replaces.
+    leaves out to warn about them. Under ``--type-overrides-replace-whole-type`` every output model leaves out the
+    item or property counts of the array or map the override replaces that the override type does not count
+    (``_untaken_container_counts``), which warn as the constraints that leave with the replaced type. The untaken
+    constraints of the members, items and values that collapsing inlines into the field leave with the type the
+    override replaces.
     """
     type_dependent = field.__dict__.get(_TYPE_DEPENDENT_CONSTRAINTS_KEY) or {}
     constraints = field.constraints
@@ -509,8 +611,17 @@ def decide_overridden_constraints(
         if parser.data_model_field_type.SUPPORTS_FIELD_CONSTRAINTS
         else {}
     )
-    if not type_dependent and not declared:
+    counts = (
+        _untaken_container_counts(field, (key for key in values if key not in type_dependent), keywords)
+        if parser.type_overrides_replace_whole_type
+        else []
+    )
+    if not type_dependent and not declared and not counts:
         return
+    if counts:
+        values = {key: value for key, value in values.items() if key not in counts}
+        replaced, count = field.overridden_constraints or (field.data_type.type_hint, 0)
+        field.record_overridden_constraints(replaced, count + len(counts))
     values, untaken = resplit_overridden_constraints(
         values,
         type_dependent=type_dependent,
@@ -556,43 +667,35 @@ def mark_untaken_constraints(
     )
 
 
-def _is_class_name(annotation: DataType) -> bool:
-    """Return whether an override annotation is a bare class name, such as ``str`` or ``Decimal``, but not ``None``."""
-    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
-        PythonTypeBoundName,
-        PythonTypeName,
-    )
+def _class_path(annotation: DataType) -> str | None:
+    """Return the path of the class an override annotation names as a bare class name, such as ``str`` or ``Decimal``.
 
-    return (
-        annotation.python_type is not None
-        and isinstance(expression := annotation.python_type.expression, PythonTypeName | PythonTypeBoundName)
-        and expression.value != "None"
-    )
-
-
-def _base_class_refusal(parser: TypeOverridesHost, override_import: Import, annotation: DataType | None) -> str | None:
-    """Return why an override cannot replace a base class, or None when it names a class.
-
-    A class path names a class, and so does an annotation that is a bare class name (``_is_class_name``);
-    ``typing.Any``, by its path or as ``Any``, is a class only on a target that can subclass it.
+    None for any other annotation, and for ``None``.
     """
     from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
         PythonTypeBoundName,
         PythonTypeName,
     )
 
+    expression = None if annotation.python_type is None else annotation.python_type.expression
+    if not isinstance(expression, PythonTypeName | PythonTypeBoundName) or expression.value == "None":
+        return None
+    return (
+        dotted_name(expression.import_from, expression.import_name)
+        if isinstance(expression, PythonTypeBoundName)
+        else expression.value
+    )
+
+
+def _base_class_refusal(parser: TypeOverridesHost, override_import: Import, annotation: DataType | None) -> str | None:
+    """Return why an override cannot replace a base class, or None when it names a class.
+
+    A class path names a class, and so does an annotation that is a bare class name (``_class_path``);
+    ``typing.Any``, by its path or as ``Any``, is a class only on a target that can subclass it.
+    """
     path = _import_path(override_import)
-    if annotation is not None:
-        if annotation.python_type is None or not _is_class_name(annotation):
-            return "is no class"
-        expression = annotation.python_type.expression
-        path = (
-            dotted_name(expression.import_from, expression.import_name)
-            if isinstance(expression, PythonTypeBoundName)
-            else expression.value
-            if isinstance(expression, PythonTypeName)
-            else path
-        )
+    if annotation is not None and (path := _class_path(annotation)) is None:
+        return "is no class"
     if path == "typing.Any" and not python_target_meets(
         "python.subclass_any", parser.target_python_version.version_key
     ):
@@ -610,7 +713,7 @@ def apply_override_to_data_type(parser: TypeOverridesHost, data_type: DataType) 
     overridden = False
     if (reference := data_type.reference) and (
         override_import := parser._base_stand_in_imports.get(model_key_of(reference))  # noqa: SLF001
-        or parser._model_type_override_imports.get(reference.name)  # noqa: SLF001
+        or model_type_override(parser._model_type_override_imports, reference, row="class-name")  # noqa: SLF001
         or enum_site_override_import(parser, reference)
     ):
         annotation = parser._override_annotation(override_import)  # noqa: SLF001
@@ -630,6 +733,7 @@ def apply_override_to_data_type(parser: TypeOverridesHost, data_type: DataType) 
             parser._graph_builder.set_type_expressions(  # noqa: SLF001
                 data_type, type_=annotation.type, python_type=annotation.python_type
             )
+        _drop_site_constraints(parser, data_type)
         overridden = True
     # Handle nested types (List[CustomType], Optional[CustomType], etc.)
     for nested in data_type.data_types:

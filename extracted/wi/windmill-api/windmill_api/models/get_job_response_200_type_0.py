@@ -75,6 +75,7 @@ class GetJobResponse200Type0:
             Explicit rather than inferred from an absent resolved_by, which is also absent for a manual resolution outside
             enterprise
         trigger_kind (Union[Unset, GetJobResponse200Type0TriggerKind]): job trigger kind (schedule, http, websocket...)
+        trigger_path (Union[Unset, str]): Path of the trigger, schedule or app that started the job, if any
         worker (Union[Unset, str]):
         type (Union[Unset, GetJobResponse200Type0Type]):
     """
@@ -123,6 +124,7 @@ class GetJobResponse200Type0:
     resolution_note: Union[Unset, str] = UNSET
     resolved_automatically: Union[Unset, bool] = UNSET
     trigger_kind: Union[Unset, GetJobResponse200Type0TriggerKind] = UNSET
+    trigger_path: Union[Unset, str] = UNSET
     worker: Union[Unset, str] = UNSET
     type: Union[Unset, GetJobResponse200Type0Type] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -202,6 +204,7 @@ class GetJobResponse200Type0:
         if not isinstance(self.trigger_kind, Unset):
             trigger_kind = self.trigger_kind.value
 
+        trigger_path = self.trigger_path
         worker = self.worker
         type: Union[Unset, str] = UNSET
         if not isinstance(self.type, Unset):
@@ -287,6 +290,8 @@ class GetJobResponse200Type0:
             field_dict["resolved_automatically"] = resolved_automatically
         if trigger_kind is not UNSET:
             field_dict["trigger_kind"] = trigger_kind
+        if trigger_path is not UNSET:
+            field_dict["trigger_path"] = trigger_path
         if worker is not UNSET:
             field_dict["worker"] = worker
         if type is not UNSET:
@@ -432,6 +437,8 @@ class GetJobResponse200Type0:
         else:
             trigger_kind = GetJobResponse200Type0TriggerKind(_trigger_kind)
 
+        trigger_path = d.pop("trigger_path", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         _type = d.pop("type", UNSET)
@@ -486,6 +493,7 @@ class GetJobResponse200Type0:
             resolution_note=resolution_note,
             resolved_automatically=resolved_automatically,
             trigger_kind=trigger_kind,
+            trigger_path=trigger_path,
             worker=worker,
             type=type,
         )

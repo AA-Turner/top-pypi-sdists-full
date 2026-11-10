@@ -86,6 +86,10 @@ _VIEWS: dict[tuple[str, str], str] = {
     # Captured coding sessions that produced the run. Only the run BUNDLE carries them
     # (`GET /v1/runs/{ref}` does not, `handoff` drops them): "which session made this run" had no answer.
     (EntityType.RUN, View.SESSIONS): "_view_run_sessions",
+    # Its data edits (agentic W&B B.4), read-only: a rescaled or cut curve is not what the run logged.
+    (EntityType.RUN, View.EDITS): "_build_run_edits_view",
+    # What was asked of it while it ran (agentic W&B C.1), read-only: a stop or LR change explains a curve's turn.
+    (EntityType.RUN, View.COMMANDS): "_build_run_commands_view",
     (EntityType.EXPERIMENT, View.CARD): "_view_card_with_notes",
     (EntityType.EXPERIMENT, View.NOTES): "_view_experiment_notes",
     (EntityType.EXPERIMENT, View.SUMMARY): "_view_experiment_summary",

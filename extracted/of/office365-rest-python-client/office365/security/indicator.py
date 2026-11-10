@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from office365.entity import Entity
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 from office365.security.artifact import Artifact
-
-if TYPE_CHECKING:
-    from office365.security.indicator_source import IndicatorSource
+from office365.security.indicator_source import IndicatorSource
 
 
 class Indicator(Entity):
+    @odata(name="artifact", navigation=True)
     @property
     def artifact(self) -> Artifact:
         """Gets the artifact property"""
@@ -20,9 +18,8 @@ class Indicator(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.security.Indicator"
 
+    @odata(name="source")
     @property
     def source(self) -> IndicatorSource:
         """Gets the source property"""
-        from office365.security.indicator_source import IndicatorSource
-
         return self.properties.get("source", IndicatorSource.microsoft)

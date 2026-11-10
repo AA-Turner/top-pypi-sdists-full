@@ -58,11 +58,15 @@ def sync_detailed(
     client: AuthenticatedClient,
     body: PatchedResourceApiKeyUpdateRequest,
 ) -> Response[ResourceApiKeyStatus]:
-    r"""Edit an API key
+    """Edit an API key
 
-     Changes the key's assignee, limits or model allowlist. A change to limits or models is sent to the
-    site agent as an update command, unless the key is paused: resuming it applies them. Only on
-    offerings with enable_api_key_provisioning, except for unassigning the key ({\"user\": null}).
+     Changes the key's limits, model allowlist or description. A change of limits or models is sent to
+    the site agent as an update command, unless the key is paused: resuming it applies them. The key's
+    assignee is set when the key is requested and cannot be changed: an edit that names user, null
+    included, is refused with 400. To hand a key to someone else, request a key for them and delete this
+    one. Only on offerings with enable_api_key_provisioning, except an edit of the description alone:
+    that is saved at once on any offering and in any state but Deleted, sends no command and leaves the
+    key's state as it is.
 
     Args:
         uuid (UUID):
@@ -94,11 +98,15 @@ def sync(
     client: AuthenticatedClient,
     body: PatchedResourceApiKeyUpdateRequest,
 ) -> ResourceApiKeyStatus:
-    r"""Edit an API key
+    """Edit an API key
 
-     Changes the key's assignee, limits or model allowlist. A change to limits or models is sent to the
-    site agent as an update command, unless the key is paused: resuming it applies them. Only on
-    offerings with enable_api_key_provisioning, except for unassigning the key ({\"user\": null}).
+     Changes the key's limits, model allowlist or description. A change of limits or models is sent to
+    the site agent as an update command, unless the key is paused: resuming it applies them. The key's
+    assignee is set when the key is requested and cannot be changed: an edit that names user, null
+    included, is refused with 400. To hand a key to someone else, request a key for them and delete this
+    one. Only on offerings with enable_api_key_provisioning, except an edit of the description alone:
+    that is saved at once on any offering and in any state but Deleted, sends no command and leaves the
+    key's state as it is.
 
     Args:
         uuid (UUID):
@@ -125,11 +133,15 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     body: PatchedResourceApiKeyUpdateRequest,
 ) -> Response[ResourceApiKeyStatus]:
-    r"""Edit an API key
+    """Edit an API key
 
-     Changes the key's assignee, limits or model allowlist. A change to limits or models is sent to the
-    site agent as an update command, unless the key is paused: resuming it applies them. Only on
-    offerings with enable_api_key_provisioning, except for unassigning the key ({\"user\": null}).
+     Changes the key's limits, model allowlist or description. A change of limits or models is sent to
+    the site agent as an update command, unless the key is paused: resuming it applies them. The key's
+    assignee is set when the key is requested and cannot be changed: an edit that names user, null
+    included, is refused with 400. To hand a key to someone else, request a key for them and delete this
+    one. Only on offerings with enable_api_key_provisioning, except an edit of the description alone:
+    that is saved at once on any offering and in any state but Deleted, sends no command and leaves the
+    key's state as it is.
 
     Args:
         uuid (UUID):
@@ -159,11 +171,15 @@ async def asyncio(
     client: AuthenticatedClient,
     body: PatchedResourceApiKeyUpdateRequest,
 ) -> ResourceApiKeyStatus:
-    r"""Edit an API key
+    """Edit an API key
 
-     Changes the key's assignee, limits or model allowlist. A change to limits or models is sent to the
-    site agent as an update command, unless the key is paused: resuming it applies them. Only on
-    offerings with enable_api_key_provisioning, except for unassigning the key ({\"user\": null}).
+     Changes the key's limits, model allowlist or description. A change of limits or models is sent to
+    the site agent as an update command, unless the key is paused: resuming it applies them. The key's
+    assignee is set when the key is requested and cannot be changed: an edit that names user, null
+    included, is refused with 400. To hand a key to someone else, request a key for them and delete this
+    one. Only on offerings with enable_api_key_provisioning, except an edit of the description alone:
+    that is saved at once on any offering and in any state but Deleted, sends no command and leaves the
+    key's state as it is.
 
     Args:
         uuid (UUID):

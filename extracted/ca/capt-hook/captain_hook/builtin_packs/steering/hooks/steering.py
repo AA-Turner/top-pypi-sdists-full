@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import ClassVar
 
@@ -9,6 +10,7 @@ from captain_hook import (
     Clause,
     CustomCondition,
     Event,
+    FileFixture,
     InPlanMode,
     Input,
     NlpSignal,
@@ -17,10 +19,12 @@ from captain_hook import (
     Signals,
     T,
     Tool,
+    UsedTool,
     Warn,
     llm_nudge,
     nudge,
 )
+from captain_hook.util.paths import resolve_long_running_state
 
 THINKING_MISFIRES = (
     "Thinking it through more, the deploy applies the stack at the dev commit, so this addon update is likely just "
@@ -47,6 +51,13 @@ THINKING_MISFIRES = (
     "leaving the chime composite alerts alone since they're already properly gated.",
 )
 
+CCI_HANDOFFS = ("mcp__plugin_cc-inbox_cci__post", "mcp__plugin_cc-inbox_cci__close")
+COMMUNICATOR_SESSION = "c0ffee00-0000-4000-8000-00000000c0de"
+COMMUNICATOR_DRIVE = FileFixture(
+    home=True,
+    name=".local/state/long-running/drive-a/drive.json",
+    content=json.dumps({"roles": {"communicator": {"session": COMMUNICATOR_SESSION}}}),
+)
 CHANGE_NOUNS = Phrase("change", "alteration", "modification", "variety")
 FIX_NOUNS = Phrase(
     "fix",
@@ -81,6 +92,17 @@ class TypeCheckerContext(CustomCondition):
 
     def check(self, evt: BaseHookEvent) -> bool:
         return bool((t := evt.ctx.transcript) and self.PATTERN.search(t.assistant_text(n=10)))
+
+
+class DriveCommunicator(CustomCondition):
+    def check(self, evt: BaseHookEvent) -> bool:
+        if not (session := evt.session_id):
+            return False
+        return any(
+            session.encode() in (raw := path.read_bytes())
+            and json.loads(raw).get("roles", {}).get("communicator", {}).get("session") == session
+            for path in resolve_long_running_state().glob("*/drive.json")
+        )
 
 
 nudge(
@@ -602,7 +624,7 @@ tell that decided it) in `reasoning`.""",
         ],
     ),
     events=Event.Stop,
-    skip_if=[InPlanMode()],
+    skip_if=[InPlanMode(), UsedTool(*CCI_HANDOFFS), DriveCommunicator()],
     max_fires=1,
     tests={
         Input(
@@ -612,6 +634,35 @@ tell that decided it) in `reasoning`.""",
                     "solution is to improve the documentation and help text."
                 )
             ]
+        ): Warn(),
+        Input(
+            transcript=[
+                *T.tool_turn("mcp__plugin_cc-inbox_cci__post", lane="communicator", kind="defect", to=["root"]),
+                T.assistant(
+                    "Since fixing this requires a vcs-core release, the practical "
+                    "solution is to improve the documentation and help text."
+                ),
+            ]
+        ): Allow(),
+        Input(
+            session_id=COMMUNICATOR_SESSION,
+            file=COMMUNICATOR_DRIVE,
+            transcript=[
+                T.assistant(
+                    "Since fixing this requires a vcs-core release, the practical "
+                    "solution is to improve the documentation and help text."
+                )
+            ],
+        ): Allow(),
+        Input(
+            session_id="c0ffee00-0000-4000-8000-00000000beef",
+            file=COMMUNICATOR_DRIVE,
+            transcript=[
+                T.assistant(
+                    "Since fixing this requires a vcs-core release, the practical "
+                    "solution is to improve the documentation and help text."
+                )
+            ],
         ): Warn(),
         Input(
             transcript=[

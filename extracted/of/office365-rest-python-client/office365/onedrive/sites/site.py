@@ -26,15 +26,16 @@ from office365.onedrive.sitepages.collection import SitePageCollection
 from office365.onedrive.sites.collection import SiteCollection
 from office365.onedrive.termstore.store import Store
 from office365.onenote.onenote import Onenote
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
+from office365.runtime.types.public_error import PublicError
 
 if TYPE_CHECKING:
     from office365.directory.applications.application import Application
     from office365.directory.serviceprincipals.service_principal import ServicePrincipal
-    from office365.runtime.types.public_error import PublicError
 
 
 def _permission_identity_ids(permission: Permission) -> set[str]:
@@ -60,6 +61,9 @@ class Site(BaseItem):
     def __repr__(self):
         return self.name or self.web_url or self.id or self.entity_type_name
 
+    @require_permission(
+        delegated=["Sites.Read.All", "Sites.ReadWrite.All"], application=["Sites.Read.All", "Sites.ReadWrite.All"]
+    )
     def get_by_path(self, path: str) -> Site:
         """
         Retrieve properties and relationships for a site resource. A site resource represents a team site in SharePoint.
@@ -79,6 +83,10 @@ class Site(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["Sites.Read.All", "Sites.ReadWrite.All", "Sites.Manage.All", "Sites.FullControl.All"],
+        application=["Sites.Read.All", "Sites.ReadWrite.All", "Sites.Manage.All", "Sites.FullControl.All"],
+    )
     def get_applicable_content_types_for_list(self, list_or_id: Union[List, str]) -> ContentTypeCollection:
         """Get site contentTypes that can be added to a list.
 
@@ -102,6 +110,17 @@ class Site(BaseItem):
             _get_applicable_content_types_for_list(list_or_id)
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def get_activities_by_interval(
         self, start_dt: datetime | None = None, end_dt: datetime | None = None, interval: str | None = None
     ) -> EntityCollection[ItemActivityStat]:
@@ -243,6 +262,7 @@ class Site(BaseItem):
         """Returns identifiers useful for SharePoint REST compatibility."""
         return self.properties.get("sharepointIds", SharePointIds())
 
+    @odata(name="items", navigation=True)
     @property
     def items(self) -> EntityCollection[ListItem]:
         """Used to address any item contained in this site. This collection cannot be enumerated."""
@@ -250,6 +270,7 @@ class Site(BaseItem):
             "items", EntityCollection(self.context, ListItem, ResourcePath("items", self.resource_path))
         )
 
+    @odata(name="columns", navigation=True)
     @property
     def columns(self) -> ColumnDefinitionCollection:
         """The collection of columns under this site."""
@@ -257,7 +278,7 @@ class Site(BaseItem):
             "columns", ColumnDefinitionCollection(self.context, ResourcePath("columns", self.resource_path), self)
         )
 
-    @odata(name="externalColumns")
+    @odata(name="externalColumns", navigation=True)
     @property
     def external_columns(self) -> ColumnDefinitionCollection:
         """The collection of columns under this site."""
@@ -266,7 +287,7 @@ class Site(BaseItem):
             ColumnDefinitionCollection(self.context, ResourcePath("externalColumns", self.resource_path), self),
         )
 
-    @odata(name="contentTypes")
+    @odata(name="contentTypes", navigation=True)
     @property
     def content_types(self) -> ContentTypeCollection:
         """The collection of content types under this site."""
@@ -274,11 +295,13 @@ class Site(BaseItem):
             "contentTypes", ContentTypeCollection(self.context, ResourcePath("contentTypes", self.resource_path))
         )
 
+    @odata(name="lists", navigation=True)
     @property
     def lists(self) -> ListCollection:
         """The collection of lists under this site."""
         return self.properties.get("lists", ListCollection(self.context, ResourcePath("lists", self.resource_path)))
 
+    @odata(name="operations", navigation=True)
     @property
     def operations(self) -> EntityCollection[RichLongRunningOperation]:
         """The collection of long-running operations on the site."""
@@ -287,6 +310,7 @@ class Site(BaseItem):
             EntityCollection(self.context, RichLongRunningOperation, ResourcePath("operations", self.resource_path)),
         )
 
+    @odata(name="permissions", navigation=True)
     @property
     def permissions(self) -> PermissionCollection:
         """The permissions associated with the site."""
@@ -294,11 +318,13 @@ class Site(BaseItem):
             "permissions", PermissionCollection(self.context, ResourcePath("permissions", self.resource_path))
         )
 
+    @odata(name="drive", navigation=True)
     @property
     def drive(self) -> Drive:
         """The default drive (document library) for this site."""
         return self.properties.get("drive", Drive(self.context, ResourcePath("drive", self.resource_path)))
 
+    @odata(name="drives", navigation=True)
     @property
     def drives(self) -> EntityCollection[Drive]:
         """The collection of drives under this site."""
@@ -306,6 +332,7 @@ class Site(BaseItem):
             "drives", EntityCollection(self.context, Drive, ResourcePath("drives", self.resource_path), self)
         )
 
+    @odata(name="sites", navigation=True)
     @property
     def sites(self) -> EntityCollection[Site]:
         """The collection of sites under this site."""
@@ -313,6 +340,7 @@ class Site(BaseItem):
             "sites", EntityCollection(self.context, Site, ResourcePath("sites", self.resource_path))
         )
 
+    @odata(name="analytics", navigation=True)
     @property
     def analytics(self) -> ItemAnalytics:
         """Analytics about the view activities that took place on this site."""
@@ -320,11 +348,13 @@ class Site(BaseItem):
             "analytics", ItemAnalytics(self.context, ResourcePath("analytics", self.resource_path))
         )
 
+    @odata(name="onenote", navigation=True)
     @property
     def onenote(self) -> Onenote:
         """Represents the Onenote services available to a site."""
         return self.properties.get("onenote", Onenote(self.context, ResourcePath("onenote", self.resource_path)))
 
+    @odata(name="pages", navigation=True)
     @property
     def pages(self) -> SitePageCollection:
         """The collection of site pages under this site."""
@@ -337,13 +367,13 @@ class Site(BaseItem):
         """The list that contains the site pages."""
         return self.lists.get_by_name("Site Pages")
 
-    @odata(name="termStore")
+    @odata(name="termStore", navigation=True)
     @property
     def term_store(self) -> Store:
         """The default termStore under this site."""
         return self.properties.get("termStore", Store(self.context, ResourcePath("termStore", self.resource_path)))
 
-    @odata(name="termStores")
+    @odata(name="termStores", beta=False, navigation=True)
     @property
     def term_stores(self) -> EntityCollection[Store]:
         """The collection of termStores under this site."""
@@ -351,16 +381,19 @@ class Site(BaseItem):
             "termStores", EntityCollection(self.context, Store, ResourcePath("termStores", self.resource_path))
         )
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> str:
         """Gets the displayName property"""
         return self.properties.get("displayName", "")
 
+    @odata(name="isPersonalSite")
     @property
     def is_personal_site(self) -> Optional[bool]:
         """Gets the isPersonalSite property"""
         return self.properties.get("isPersonalSite", None)
 
+    @odata(name="root")
     @property
     def root(self) -> Root:
         """Gets the root property"""
@@ -370,9 +403,8 @@ class Site(BaseItem):
     def entity_type_name(self) -> str:
         return "microsoft.graph.Site"
 
+    @odata(name="error")
     @property
     def error(self) -> PublicError:
         """Gets the error property"""
-        from office365.runtime.types.public_error import PublicError
-
         return self.properties.get("error", PublicError())

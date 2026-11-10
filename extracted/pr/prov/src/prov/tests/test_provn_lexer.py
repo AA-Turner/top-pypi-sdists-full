@@ -9,6 +9,7 @@ import time
 
 import pytest
 
+from prov import identifier
 from prov.serializers import provn_lexer
 from prov.serializers.provn_lexer import ProvNSyntaxError, Token, TokenKind, tokenize
 
@@ -38,12 +39,14 @@ def values(text):
         ("-", [TokenKind.MARKER]),
         ("'ex:abc'", [TokenKind.QNAME_LITERAL]),
         (
-            "( ) [ ] , ; =",
+            "( ) [ ] { } , ; =",
             [
                 TokenKind.LPAREN,
                 TokenKind.RPAREN,
                 TokenKind.LBRACKET,
                 TokenKind.RBRACKET,
+                TokenKind.LBRACE,
+                TokenKind.RBRACE,
                 TokenKind.COMMA,
                 TokenKind.SEMICOLON,
                 TokenKind.EQUALS,
@@ -55,10 +58,14 @@ def test_token_kinds(text, expected) -> None:
     assert kinds(text) == expected
 
 
-def test_token_uses_slots() -> None:
+def test_token_is_slotted_and_hashable() -> None:
     # Every Token instance is thrown away almost immediately by the parser,
-    # so __dict__ per instance is pure overhead.
-    assert not hasattr(Token(TokenKind.EOF, "", None, 1, 1), "__dict__")
+    # so __dict__ per instance is pure overhead. Token is public through
+    # __all__, so it keeps hashing and comparing by its fields.
+    token = Token(TokenKind.EOF, "", None, 1, 1)
+    assert not hasattr(token, "__dict__")
+    assert token == Token(TokenKind.EOF, "", None, 1, 1)
+    assert hash(token) == hash(Token(TokenKind.EOF, "", None, 1, 1))
 
 
 def test_comments_are_skipped() -> None:
@@ -66,11 +73,21 @@ def test_comments_are_skipped() -> None:
     assert values(text) == [("", "entity"), ("", "agent")]
 
 
-@pytest.mark.parametrize("ch", list("='(),:;[]"))
-def test_escaped_metachar_in_local_part(ch) -> None:
-    tokens = list(tokenize(f"ex:na\\{ch}me"))
-    assert tokens[0].kind is TokenKind.NAME
-    assert tokens[0].value == ("ex", f"na{ch}me")
+# The Recommendation's [55] PN_CHARS_ESC list, typed once as the oracle.
+PN_CHARS_ESC_ORACLE = "='(),-.:;[]"
+
+
+@pytest.mark.parametrize("ch", [chr(c) for c in range(0x21, 0x7F)] + ["\xe9", "\xb7"])
+def test_escaped_metachar_in_local_part(ch: str) -> None:
+    text = f"ex:na\\{ch}me"
+    if ch in PN_CHARS_ESC_ORACLE:
+        tokens = list(tokenize(text))
+        assert tokens[0].kind is TokenKind.NAME
+        assert tokens[0].value == ("ex", f"na{ch}me")
+    else:
+        with pytest.raises(ProvNSyntaxError) as ctx:
+            list(tokenize(text))
+        assert (ctx.value.line, ctx.value.column) == (1, 6)
 
 
 def test_percent_encoding_is_kept_verbatim() -> None:
@@ -133,11 +150,46 @@ def test_bare_local_name_has_empty_prefix() -> None:
     assert values("e1") == [("", "e1")]
 
 
-def test_line_and_column_tracking() -> None:
-    tokens = list(tokenize("entity(\n  ex:e1)"))
+@pytest.mark.parametrize(
+    ("text", "index", "line", "column"),
+    [
+        ("entity(\n  ex:e1)", 2, 2, 3),
+        ('"""a\nb""" ex:x', 1, 2, 6),
+        ('"""a\r\nb""" ex:x', 1, 2, 6),
+        ('"""a\rb\nc""" ex:x', 1, 3, 6),
+        ("a /* x\r\ny */ b", 1, 2, 6),
+        ('"a" ex:x', 1, 1, 5),
+        ("a\r\nb", 1, 2, 1),
+        ("a\rb", 1, 2, 1),
+    ],
+)
+def test_line_and_column_tracking(
+    text: str, index: int, line: int, column: int
+) -> None:
+    tokens = list(tokenize(text))
     assert (tokens[0].line, tokens[0].column) == (1, 1)
-    assert (tokens[2].line, tokens[2].column) == (2, 3)
+    assert (tokens[index].line, tokens[index].column) == (line, column)
     assert tokens[-1].kind is TokenKind.EOF
+
+
+# Unicode whitespace that WS (SPARQL [93]) excludes, U+1680 apart: it is also
+# a name character, so it has its own test.
+NON_WS_SPACES = [
+    "\x0b",
+    "\x0c",
+    "\x1c",
+    "\x1d",
+    "\x1e",
+    "\x1f",
+    "\x85",
+    "\xa0",
+    *[chr(code) for code in range(0x2000, 0x200B)],
+    "\u2028",
+    "\u2029",
+    "\u202f",
+    "\u205f",
+    "\u3000",
+]
 
 
 @pytest.mark.parametrize(
@@ -150,7 +202,10 @@ def test_line_and_column_tracking() -> None:
         ("entity(\n  ex:e1, ^)", 2, 10),
         ("ex:a:b", 1, 5),
         ('"x" %', 1, 5),
-        ("ex:a\\zb", 1, 5),
+        ('"a\\\rb"', 1, 3),
+        ("'a\\\rb'", 1, 3),
+        *[(f"entity(ex:e){ch}endDocument", 1, 13) for ch in NON_WS_SPACES],
+        ("entity(ex:e) \xa0// note\n\xa0endDocument", 1, 14),
     ],
 )
 def test_malformed_input_reports_position(text, line, column) -> None:
@@ -272,13 +327,6 @@ def test_line_comment_ends_at_cr_not_just_lf() -> None:
     ]
 
 
-def test_crlf_and_lone_cr_each_count_as_one_line_break() -> None:
-    crlf_tokens = list(tokenize("a\r\nb"))
-    assert (crlf_tokens[1].line, crlf_tokens[1].column) == (2, 1)
-    cr_tokens = list(tokenize("a\rb"))
-    assert (cr_tokens[1].line, cr_tokens[1].column) == (2, 1)
-
-
 def test_long_run_of_trailing_dots_is_fast() -> None:
     # 200_000 dots isn't large enough to expose the old O(n^2) back-off
     # loop within a 1s bound on typical hardware (~0.5s pre-fix); 1_000_000
@@ -344,8 +392,9 @@ def test_pn_chars_classes_match_the_recommendation_s_own_literal_ranges() -> Non
     old_pn_chars_u = old_pn_chars_base + "_"
     old_pn_chars = old_pn_chars_u + r"\-0-9\u00B7\u0300-\u036F\u203F-\u2040"
 
+    assert set(identifier._PN_CHARS_ESC) == set(PN_CHARS_ESC_ORACLE)
     checks = [
-        (old_pn_chars_base, provn_lexer._PN_CHARS_BASE),
+        (old_pn_chars_base, identifier._PN_CHARS_BASE),
         (old_pn_chars_u, provn_lexer._PN_CHARS_U),
         (old_pn_chars, provn_lexer._PN_CHARS),
     ]
@@ -369,7 +418,6 @@ def test_carriage_return_ends_a_short_literal(text) -> None:
     ("text", "expected"),
     [
         (r'"caf\u00E9"', "café"),
-        (r'"caf\u00e9"', "café"),
         (r'"\U0001F600"', "\U0001f600"),
         (r'"""caf\u00E9\nline"""', "café\nline"),
         (r'"a\u0022b"', 'a"b'),
@@ -385,11 +433,12 @@ def test_code_point_escapes_are_decoded(text, expected) -> None:
 @pytest.mark.parametrize(
     ("text", "message", "column"),
     [
-        (r'"ab\u00G9"', r"escape '\u' needs four hex digits", 4),
-        (r'"ab\U0001F60"', r"escape '\U' needs eight hex digits", 4),
+        (r'"ab\u00G9"', r"escape '\u' needs four uppercase hex digits", 4),
+        (r'"ab\U0001F60"', r"escape '\U' needs eight uppercase hex digits", 4),
+        (r'"\U0001f600"', r"escape '\U' needs eight uppercase hex digits", 2),
         (r'"ab\uD800"', r"escape '\uD800' is not a Unicode scalar value", 4),
         (r'"ab\U00110000"', r"escape '\U00110000' is not a Unicode scalar value", 4),
-        (r"<http://a/\u00G9>", r"escape '\u' needs four hex digits", 11),
+        (r"<http://a/\u00G9>", r"escape '\u' needs four uppercase hex digits", 11),
         (r"<http://a/\q>", r"unknown IRI escape '\q'", 11),
         (r"<http://a/\n>", r"unknown IRI escape '\n'", 11),
         (r"<http://a/\\>", r"unknown IRI escape '\\'", 11),
@@ -414,36 +463,11 @@ def test_bad_code_point_escape_raises_at_the_escape(text, message, column) -> No
 
 def test_bad_code_point_escape_position_on_a_later_line_of_a_long_string() -> None:
     with pytest.raises(
-        ProvNSyntaxError, match=re.escape(r"escape '\u' needs four hex digits")
+        ProvNSyntaxError,
+        match=re.escape(r"escape '\u' needs four uppercase hex digits"),
     ) as ctx:
         list(tokenize('"""ab\ncd \\u12"""'))
     assert (ctx.value.line, ctx.value.column) == (2, 4)
-
-
-def lexer_warnings(text):
-    collected: list[str] = []
-    list(tokenize(text, collected))
-    return collected
-
-
-# Unicode whitespace that WS (SPARQL [93]) excludes, U+1680 apart: it is also
-# a name character, so it has its own test.
-NON_WS_SPACES = [
-    "\x0b",
-    "\x0c",
-    "\x1c",
-    "\x1d",
-    "\x1e",
-    "\x1f",
-    "\x85",
-    "\xa0",
-    *[chr(code) for code in range(0x2000, 0x200B)],
-    "\u2028",
-    "\u2029",
-    "\u202f",
-    "\u205f",
-    "\u3000",
-]
 
 
 def test_non_ws_spaces_are_every_unicode_space_but_the_four_ws_characters() -> None:
@@ -451,41 +475,18 @@ def test_non_ws_spaces_are_every_unicode_space_but_the_four_ws_characters() -> N
     assert spaces - set(" \t\r\n") == {*NON_WS_SPACES, "\u1680"}
 
 
-@pytest.mark.parametrize("ch", NON_WS_SPACES)
-def test_non_ws_space_between_tokens_is_skipped_and_warned(ch) -> None:
-    text = f"entity(ex:e){ch}endDocument"
-    assert values(text) == values("entity(ex:e) endDocument")
-    assert lexer_warnings(text) == [
-        f"line 1, column 13: U+{ord(ch):04X} is not PROV-N whitespace."
-        " prov 3.3.0 will reject this (#509)"
-    ]
+def test_non_ws_space_error_names_the_character() -> None:
+    with pytest.raises(ProvNSyntaxError, match=r"U\+00A0 is not PROV-N whitespace"):
+        list(tokenize("entity(ex:e)\xa0endDocument"))
 
 
-def test_ogham_space_mark_warns_that_it_becomes_a_name_character() -> None:
-    text = "entity(\u1680ex:e)"
-    assert values(text) == values("entity(ex:e)")
-    assert lexer_warnings(text) == [
-        "line 1, column 8: U+1680 is not PROV-N whitespace."
-        " prov 3.3.0 will read it as a name character (#509)"
-    ]
+def test_ogham_space_mark_is_a_name_character() -> None:
+    # PN_CHARS_BASE ([53]) includes U+1680, so it starts a name rather than
+    # separating tokens.
+    tokens = list(tokenize("entity(\u1680ex:e)"))
+    assert (tokens[2].kind, tokens[2].value) == (TokenKind.NAME, ("\u1680ex", "e"))
 
 
-def test_a_run_of_one_character_warns_once() -> None:
-    assert lexer_warnings("entity(ex:e)\xa0\xa0\xa0\u2028endDocument") == [
-        "line 1, column 13: U+00A0 is not PROV-N whitespace. prov 3.3.0 will reject this (#509)",
-        "line 1, column 16: U+2028 is not PROV-N whitespace. prov 3.3.0 will reject this (#509)",
-    ]
-
-
-def test_non_ws_space_between_ws_and_comments_is_skipped() -> None:
-    text = "entity(ex:e) \xa0// note\n\xa0endDocument"
-    assert values(text) == values("entity(ex:e) endDocument")
-    assert lexer_warnings(text) == [
-        "line 1, column 14: U+00A0 is not PROV-N whitespace. prov 3.3.0 will reject this (#509)",
-        "line 2, column 1: U+00A0 is not PROV-N whitespace. prov 3.3.0 will reject this (#509)",
-    ]
-
-
-def test_ws_and_spaces_inside_comments_strings_and_iris_do_not_warn() -> None:
+def test_ws_and_spaces_inside_comments_strings_and_iris_are_not_errors() -> None:
     text = 'entity(ex:e,\t[ex:a="\xa0"])\r\n// \xa0\n/* \u3000 */ <http://a/\xa0>'
-    assert lexer_warnings(text) == []
+    assert list(tokenize(text))[-1].kind is TokenKind.EOF

@@ -23,7 +23,7 @@ class ProviderHelpdesk:
     Attributes:
         url (str):
         uuid (UUID):
-        service_provider (UUID):
+        service_provider (UUID): Service provider the helpdesk serves. Only staff can change it.
         service_provider_name (str):
         health_status (str):
         last_health_check (Union[None, datetime.datetime]):
@@ -31,7 +31,8 @@ class ProviderHelpdesk:
         created (datetime.datetime):
         modified (datetime.datetime):
         backend_type (Union[Unset, BackendTypeEnum]):
-        settings (Union[Unset, ProviderHelpdeskSettings]): Backend-specific configuration.
+        settings (Union[Unset, ProviderHelpdeskSettings]): Backend-specific configuration. Only staff can change it, and
+            only staff see the credentials in it.
         is_active (Union[Unset, bool]):
         webhook_secret (Union[Unset, str]):
         notification_email (Union[Unset, str]): Primary email for notifications.

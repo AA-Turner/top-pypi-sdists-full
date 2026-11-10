@@ -139,6 +139,7 @@ async def run_policy_loop(
         resolved_config=getattr(policy, "resolved_optimization_config", None),
         action_smoothing=action_smoothing,
         late_bound_rows=late_bound_prefix_rows(getattr(policy, "deployment", None)),
+        min_replan_steps=contract.min_replan_steps,
     )
     pending: _PendingRequest | None = None
     last_action: tuple[float, ...] | None = None
@@ -885,8 +886,11 @@ class _ReplanPlanner:
         resolved_config: ResolvedOptimizationConfig | None,
         action_smoothing: ResolvedActionSmoothing,
         late_bound_rows: int | None = None,
+        min_replan_steps: int = 0,
     ) -> None:
         self._control_hz = control_hz
+        # The most rows left at a replan: a fresh chunk minus the contract's minimum interval.
+        self._max_threshold = chunk_size - min_replan_steps if min_replan_steps else None
         # The deployment's own cap on committed rows (late-bound prefix), if it declares one.
         self._late_bound_rows = late_bound_rows
         self._chunk_size = chunk_size
@@ -930,8 +934,12 @@ class _ReplanPlanner:
         if self._explicit_threshold is not None:
             return int(self._explicit_threshold)
         if self._method_o is not None:
-            return self._method_o.threshold_steps
-        return max(1, ceil(self._chunk_size / 2))
+            threshold = self._method_o.threshold_steps
+        else:
+            threshold = max(1, ceil(self._chunk_size / 2))
+        if self._max_threshold is not None:
+            threshold = max(1, min(threshold, self._max_threshold))
+        return threshold
 
     @property
     def threshold_steps(self) -> int | None:
@@ -1260,8 +1268,12 @@ class AsyncActionController:
             resolved_config=getattr(policy, "resolved_optimization_config", None),
             action_smoothing=action_smoothing,
             late_bound_rows=late_bound_prefix_rows(getattr(policy, "deployment", None)),
+            min_replan_steps=self._contract.min_replan_steps,
         )
         self._pending: _PendingRequest | None = None
+        # Whether this controller has stepped or prepared yet: its first one starts a new
+        # server-kept episode if raw ``predict()`` calls already used the policy's.
+        self._episode_begun = False
         self._active_instruction: str | None = None
         # A new instruction whose first request hasn't gone out yet (it goes on the next tick
         # a request can), and when the plan was last stepped.
@@ -1322,6 +1334,19 @@ class AsyncActionController:
         request waiting to be merged on the next step does not count)."""
         return self._pending is not None and not self._pending.task.done()
 
+    def _begin_episode(self, history: Any) -> None:
+        """The controller's first step or prepare: an episode the server keeps (EpisodeTicks)
+        that raw ``predict()`` calls already drove starts afresh (step 0, chunk 0), so the
+        loop's first request is a new episode on the server rather than a step back in the
+        one the predicts left (which the server refuses; the SDK then reconnected)."""
+        if self._episode_begun:
+            return
+        self._episode_begun = True
+        if history is not None and getattr(history, "requested", False) and hasattr(
+            history, "take_chunk"
+        ):
+            history.clear()
+
     async def next_action(
         self,
         observation: Any,
@@ -1362,6 +1387,7 @@ class AsyncActionController:
             if self._action_history is not None:
                 self._latest_action_history = tuple(self._action_history)
             history = getattr(self._policy, "observation_history", None)
+            self._begin_episode(history)
             if history is not None:
                 # Every step is one control tick: the windowed request reads them back.
                 # Keep the tick even when its window fails, so later windows can heal.
@@ -1369,7 +1395,7 @@ class AsyncActionController:
                 try:
                     self._latest_observation = history.window(observation)
                 finally:
-                    history.push(observation)
+                    await self._push_history(history, observation)
             await self._maybe_calibrate(instruction=instruction, timeout_s=timeout_s)
             await self._finish_ready_request()
             if self._pending is None:
@@ -1412,6 +1438,7 @@ class AsyncActionController:
             if self._action_history is not None:
                 self._latest_action_history = tuple(self._action_history)
             history = getattr(self._policy, "observation_history", None)
+            self._begin_episode(history)
             if history is not None:
                 # Every step is one control tick: the windowed request reads them back.
                 # Keep the tick even when its window fails, so later windows can heal.
@@ -1419,7 +1446,7 @@ class AsyncActionController:
                 try:
                     self._latest_observation = history.window(observation)
                 finally:
-                    history.push(observation)
+                    await self._push_history(history, observation)
             await self._maybe_calibrate(instruction=instruction, timeout_s=timeout_s)
             if self._pending is not None and not self._pending.task.done():
                 # The sync facade can otherwise poll repeatedly ahead of ready
@@ -1910,6 +1937,15 @@ class AsyncActionController:
                 last_action=self._last_action,
             )
         return self._hold_latch
+
+    async def _push_history(self, history: Any, observation: Any) -> None:
+        """Keep this step's observation; an episode the server keeps (EpisodeTicks) also
+        sends its tick frames ahead, as the managed run loop does."""
+        push = getattr(self._policy, "push_history", None)
+        if getattr(history, "pushes_ahead_in_steps", False) and push is not None:
+            await _maybe_await(push(observation))
+        else:
+            history.push(observation)
 
     def _record_hold(self) -> None:
         """The robot has held since its first stalled step; measured history windows

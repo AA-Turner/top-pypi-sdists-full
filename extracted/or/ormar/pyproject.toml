@@ -3,7 +3,7 @@ name = "ormar"
 
 [tool.poetry]
 name = "ormar"
-version = "0.27.0"
+version = "0.28.0"
 description = "An async ORM with fastapi in mind and pydantic validation."
 authors = ["Radosław Drążkiewicz <collerek@gmail.com>"]
 license = "MIT"
@@ -35,17 +35,17 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Framework :: AsyncIO",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
 ]
 
 
 [tool.poetry.dependencies]
-python = "^3.10.0"
+python = "^3.11.0"
 # Pinned below 2.15 because ormar relies on pydantic internals; bump the
 # upper bound manually after verifying compatibility with each new release.
 pydantic = ">=2.11.9,<2.15"
@@ -95,16 +95,13 @@ codecov = "^2.1.13"
 pytest-asyncio = ">=1.1.0,<2.0"
 fastapi = ">=0.125.0"
 
-ruff = ">=0.5.1,<0.17.3"
+ruff = ">=0.5.1,<0.17.5"
 
 setuptools = ">=78.1.1,<85.0.0"
 
 # Transitive (virtualenv); pinned for GHSA-567q-5qvw-pf92, GHSA-9vhv-jxww-xfm5,
-# GHSA-v4x8-3wr5-3wq8. The fix needs Python >=3.11, so 3.10 stays on 4.1.x.
-filelock = [
-    { version = ">=4.2.1,<5", python = ">=3.11" },
-    { version = ">=4.1.0,<4.1.1", python = "<3.11" },
-]
+# GHSA-v4x8-3wr5-3wq8.
+filelock = ">=4.2.1,<5"
 
 # types
 mypy = ">=1.8,<3.0"
@@ -120,9 +117,10 @@ types-toml = "^0.10.8"
 
 # Documentation
 mkdocs = "^1.5.3"
-mkdocs-material = ">=8.1.2,<9.8"
+mkdocs-material = ">=8.1.2,<9.9"
 mkdocs-material-extensions = "^1.2"
-mkdocstrings = {version = "==1.0.6", extras = ["python"]}
+mkdocstrings = {version = "==1.0.8", extras = ["python"]}
+mkdocstrings-python = ">=2.0.3"
 mkdocs-gen-files = ">=0.5,<0.7"
 mkdocs-literate-nav = "^0.6.1"
 mkdocs-section-index = "^0.3.7"
@@ -137,7 +135,7 @@ pre-commit = ">=2.21,<5.0"
 httpx = ">=0.28.0"
 asgi-lifespan = "^2.1.0"
 pydantic-extra-types = "^2.5.0"
-watchdog = "<7.0.0"
+watchdog = "<8.0.0"
 pytest-codspeed = ">=4.2,<6.0"
 mike = "^2.0.0"
 faker = ">=24.3,<41.0"

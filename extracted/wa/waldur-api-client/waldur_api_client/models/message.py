@@ -36,6 +36,8 @@ class Message:
         created (datetime.datetime):
         input_tokens (Union[None, int]):
         output_tokens (Union[None, int]):
+        cache_read_tokens (Union[None, int]):
+        cache_write_tokens (Union[None, int]):
         feedback_score (Union[None, bool]): User feedback: True=thumbs up, False=thumbs down, None=no feedback.
         feedback_comment (Union[None, str]): Optional user comment accompanying feedback.
         feedback_category (Union[FeedbackCategoryEnum, None]): Category tag when feedback_score is False (thumbs down);
@@ -59,6 +61,8 @@ class Message:
     created: datetime.datetime
     input_tokens: Union[None, int]
     output_tokens: Union[None, int]
+    cache_read_tokens: Union[None, int]
+    cache_write_tokens: Union[None, int]
     feedback_score: Union[None, bool]
     feedback_comment: Union[None, str]
     feedback_category: Union[FeedbackCategoryEnum, None]
@@ -99,6 +103,12 @@ class Message:
 
         output_tokens: Union[None, int]
         output_tokens = self.output_tokens
+
+        cache_read_tokens: Union[None, int]
+        cache_read_tokens = self.cache_read_tokens
+
+        cache_write_tokens: Union[None, int]
+        cache_write_tokens = self.cache_write_tokens
 
         feedback_score: Union[None, bool]
         feedback_score = self.feedback_score
@@ -150,6 +160,8 @@ class Message:
                 "created": created,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read_tokens,
+                "cache_write_tokens": cache_write_tokens,
                 "feedback_score": feedback_score,
                 "feedback_comment": feedback_comment,
                 "feedback_category": feedback_category,
@@ -223,6 +235,20 @@ class Message:
             return cast(Union[None, int], data)
 
         output_tokens = _parse_output_tokens(d.pop("output_tokens"))
+
+        def _parse_cache_read_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_read_tokens = _parse_cache_read_tokens(d.pop("cache_read_tokens"))
+
+        def _parse_cache_write_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_write_tokens = _parse_cache_write_tokens(d.pop("cache_write_tokens"))
 
         def _parse_feedback_score(data: object) -> Union[None, bool]:
             if data is None:
@@ -309,6 +335,8 @@ class Message:
             created=created,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
             feedback_score=feedback_score,
             feedback_comment=feedback_comment,
             feedback_category=feedback_category,

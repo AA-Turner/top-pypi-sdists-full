@@ -14,22 +14,30 @@ void assign_double_attr_prop(py::object &py_obj,
                              Tango::DoubleAttrProp<Tango::DevDouble> &attr_prop) {
     py::object attr_value = py_obj.attr(attr_name.c_str());
 
-    try {
-        attr_prop = attr_value.cast<std::string>();
-    } catch(const py::cast_error &) {
+    // pybind11's std::string caster accepts bytes and bytearray as well as str
+    if(py::isinstance<py::str>(attr_value) || py::isinstance<py::bytes>(attr_value) ||
+       py::isinstance<py::bytearray>(attr_value)) {
         try {
-            if(py::isinstance<py::sequence>(attr_value)) {
-                std::vector<Tango::DevDouble> vec;
-                for(auto item : attr_value.cast<py::sequence>()) {
-                    vec.push_back(py::cast<Tango::DevDouble>(item));
-                }
-                attr_prop = vec;
-            } else {
-                attr_prop = attr_value.cast<Tango::DevDouble>();
-            }
+            attr_prop = attr_value.cast<std::string>();
+            return;
         } catch(const py::cast_error &) {
-            throw std::runtime_error("Failed to cast attribute: " + attr_name);
+            // the caster also requires a str to encode to UTF-8: if it does not,
+            // the value is handled below like any other non-string
         }
+    }
+
+    try {
+        if(py::isinstance<py::sequence>(attr_value)) {
+            std::vector<Tango::DevDouble> vec;
+            for(auto item : attr_value.cast<py::sequence>()) {
+                vec.push_back(py::cast<Tango::DevDouble>(item));
+            }
+            attr_prop = vec;
+        } else {
+            attr_prop = attr_value.cast<Tango::DevDouble>();
+        }
+    } catch(const py::cast_error &) {
+        throw std::runtime_error("Failed to cast attribute: " + attr_name);
     }
 }
 
@@ -94,28 +102,21 @@ void python_seq_to_tango(const py::object &py_value, Tango::DevVarStringArray &r
     }
 }
 
+template <typename TangoArrayType>
+static void numeric_string_seq_to_tango(const py::object &py_value, TangoArrayType &result) {
+    using traits = numeric_string_array_traits<TangoArrayType>;
+
+    py::object py_numeric, py_string;
+    split_numeric_string_sequence<TangoArrayType>(py_value, "python_seq_to_tango()", py_numeric, py_string);
+
+    python_seq_to_tango(py_numeric, result.*traits::numeric_member);
+    python_seq_to_tango(py_string, result.*traits::string_member);
+}
+
 void python_seq_to_tango(const py::object &py_value, Tango::DevVarDoubleStringArray &result) {
-    py::object py_double, py_str;
-    // clang-format off
-    __long_double_string_array_helper(py_value,
-                                      DevVarNumericStringArray::DOUBLE_STRING,
-                                      "python_seq_to_tango()",
-                                      py_double,
-                                      py_str);
-    // clang-format on
-    python_seq_to_tango(py_double, result.dvalue);
-    python_seq_to_tango(py_str, result.svalue);
+    numeric_string_seq_to_tango(py_value, result);
 }
 
 void python_seq_to_tango(const py::object &py_value, Tango::DevVarLongStringArray &result) {
-    py::object py_long, py_str;
-    // clang-format off
-    __long_double_string_array_helper(py_value,
-                                      DevVarNumericStringArray::LONG_STRING,
-                                      "python_seq_to_tango()",
-                                      py_long,
-                                      py_str);
-    // clang-format on
-    python_seq_to_tango(py_long, result.lvalue);
-    python_seq_to_tango(py_str, result.svalue);
+    numeric_string_seq_to_tango(py_value, result);
 }

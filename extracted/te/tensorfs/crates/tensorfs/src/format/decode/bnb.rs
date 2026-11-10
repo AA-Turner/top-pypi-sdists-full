@@ -47,9 +47,9 @@ pub const FP4_MAP: [f32; 16] = [
     -0.25,
 ];
 /// Absmax blocks per nested block.
-pub const NESTED: usize = 256;
+pub(crate) const NESTED: usize = 256;
 /// The f32 nearest 1/127, which `bnb.int8` multiplies by.
-pub const R127: u32 = 0x3c01_0204;
+pub(crate) const R127: u32 = 0x3c01_0204;
 
 const F32: Dtypes = &["F32"];
 const NIBBLES: Packing = Packing {
@@ -86,7 +86,7 @@ const FOUR_BIT_PARTS: &[Part] = &[
     Part::opt("nested_offset", F32, one),
 ];
 
-pub const NF4: Scheme = Scheme {
+pub(crate) const NF4: Scheme = Scheme {
     name: "bnb.nf4",
     view: View::Flat,
     params: FOUR_BIT_PARAMS,
@@ -94,7 +94,7 @@ pub const NF4: Scheme = Scheme {
     decode: |c| four_bit(c, &NF4_MAP),
 };
 
-pub const FP4: Scheme = Scheme {
+pub(crate) const FP4: Scheme = Scheme {
     name: "bnb.fp4",
     view: View::Flat,
     params: FOUR_BIT_PARAMS,
@@ -102,7 +102,7 @@ pub const FP4: Scheme = Scheme {
     decode: |c| four_bit(c, &FP4_MAP),
 };
 
-pub const INT8: Scheme = Scheme {
+pub(crate) const INT8: Scheme = Scheme {
     name: "bnb.int8",
     view: View::Matrix,
     params: &[],

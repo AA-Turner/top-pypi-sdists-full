@@ -2,7 +2,7 @@
 
 The wizard's sign-in starts a short-lived request, opens the dashboard so a
 signed-in human approves the exact scopes/team, then polls for the minted
-``probe_pat``. Mirrors Probe Research ``/auth/device/*`` with mandatory S256 PKCE:
+``probe_pat``. Mirrors Probe ``/auth/device/*`` with mandatory S256 PKCE:
 the browser never sees the token, and the PKCE verifier binds the exchange to
 this CLI process. Every sign-in asks in the browser: the website's one-time install
 codes are retired (install redesign R1).
@@ -92,6 +92,14 @@ class OnboardingRequired(DeviceLoginError):
         self.onboarding_url = onboarding_url
 
 
+class ApprovalPending(DeviceLoginError):
+    """The browser approval had not come by the caller's deadline: the request is still open."""
+
+
+class ApprovalExpired(DeviceLoginError):
+    """The request expired before anyone approved it (`expired_token`)."""
+
+
 def _login_error(resp: httpx.Response, fallback: str) -> DeviceLoginError:
     code, description = _error_code(resp)
     if code == "onboarding_required":
@@ -99,6 +107,8 @@ def _login_error(resp: httpx.Response, fallback: str) -> DeviceLoginError:
         return OnboardingRequired(
             description or fallback, onboarding_url=detail.get("onboarding_url")
         )
+    if code == "expired_token":
+        return ApprovalExpired(description or fallback)
     return DeviceLoginError(description or fallback)
 
 
@@ -205,7 +215,7 @@ def device_authorize(
     revoked its own login (a customer's Mac, 2026-10-23).
     """
     if token_name is None:
-        token_name = f"Probe Research CLI · {hostname()}"
+        token_name = f"Probe CLI · {hostname()}"
     verifier, challenge = _pkce_pair()
     owns_client = client is None
     http = client or httpx.Client(base_url=base_url, timeout=30.0, verify=ssl_context())
@@ -269,26 +279,71 @@ def device_authorize(
         with _approval_wait():
             if before_exchange is not None:
                 before_exchange()
-            while monotonic() < deadline:
-                resp = http.post(
-                    _TOKEN_PATH,
-                    json={"device_code": device_code, "code_verifier": verifier},
-                )
-                if resp.status_code == 200:
-                    return resp.json()
-                code, desc = _error_code(resp)
-                if code == "slow_down":
-                    interval += _SLOW_DOWN_BACKOFF
-                elif code != "authorization_pending":
-                    raise _login_error(resp, f"device login failed ({code or resp.status_code})")
-                sleep(interval)
-
-        raise DeviceLoginError("device authorization expired before it was approved")
+            minted = _poll(http, device_code, verifier, interval=interval, until=deadline, sleep=sleep, clock=monotonic)
+        if minted is not None:
+            return minted
+        raise ApprovalExpired("device authorization expired before it was approved")
     except httpx.HTTPError as exc:
         raise DeviceLoginError(f"could not reach {base_url}: {exc}") from exc
     finally:
         if owns_client:
             http.close()
+
+
+def _poll(
+    http: httpx.Client,
+    device_code: str,
+    verifier: str,
+    *,
+    interval: int,
+    until: float,
+    sleep: Callable[[float], None],
+    clock: Callable[[], float],
+) -> dict | None:
+    """Ask for the token every `interval` s until it is minted (its answer) or `clock()` passes
+    `until` (None). The poll that succeeds IS the exchange; a refusal raises (`_login_error`)."""
+    while clock() < until:
+        resp = http.post(_TOKEN_PATH, json={"device_code": device_code, "code_verifier": verifier})
+        if resp.status_code == 200:
+            return resp.json()
+        code, _desc = _error_code(resp)
+        if code == "slow_down":
+            interval += _SLOW_DOWN_BACKOFF
+        elif code != "authorization_pending":
+            raise _login_error(resp, f"device login failed ({code or resp.status_code})")
+        sleep(max(0.0, min(float(interval), until - clock())))
+    return None
+
+
+def exchange_device_request(
+    base_url: str,
+    *,
+    device_code: str,
+    code_verifier: str,
+    interval: int,
+    until: float,
+    client: httpx.Client | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.time,
+) -> dict:
+    """Finish a device request another process started (the launcher's `sign-in`, plan D1):
+    poll until it is approved -- the whole mint response, as `device_authorize` returns it --
+    or `until` (`clock`'s time, wall clock by default: the deadline crosses processes) passes,
+    which raises `ApprovalPending`. A request that expired raises `ApprovalExpired`."""
+    owns_client = client is None
+    http = client or httpx.Client(base_url=base_url, timeout=30.0, verify=ssl_context())
+    try:
+        with _approval_wait():
+            minted = _poll(http, device_code, code_verifier, interval=max(1, interval), until=until,
+                           sleep=sleep, clock=clock)
+    except httpx.HTTPError as exc:
+        raise DeviceLoginError(f"could not reach {base_url}: {exc}") from exc
+    finally:
+        if owns_client:
+            http.close()
+    if minted is None:
+        raise ApprovalPending("the browser approval has not come yet")
+    return minted
 
 
 def device_login(base_url: str, **kwargs) -> str:

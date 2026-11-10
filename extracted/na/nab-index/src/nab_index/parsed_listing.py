@@ -8,7 +8,8 @@ An incompatible header or digest is a cache miss.
 Rows preserve source order and tag each flat record as a wheel or sdist. A
 version cell is ``null`` where the row above carries the same version. Decode
 checks every field and restores interned strings. Integrity cells retain either
-the index table or parsed pairs so hash parsing stays deferred.
+the index table or parsed pairs so hash parsing stays deferred. A raw
+table containing only sha256 uses its digest string instead of a JSON object.
 
 Invalid blobs are cache misses, not caller-visible errors. The on-disk cache
 treats this representation as opaque.
@@ -47,7 +48,7 @@ __all__ = ["ParsedListing", "corruption_reason", "decode", "encode"]
 # blob surfacing under the current bucket. Bump it when the header or row shape
 # changes, or when the same body parses to different records: ``body_digest``
 # pins only the input.
-FORMAT_VERSION = 7
+FORMAT_VERSION = 8
 # Serialization variant that wrote the rows, so a future codec switch
 # self-heals rather than misdecodes.
 CODEC = 1
@@ -87,13 +88,22 @@ def _hashes_cell(record: WheelFile | SdistFile) -> object:
     fresh listing does not force the parse it deferred.
     """
     raw = record.raw_hashes()
-    return record.hashes if raw is None else raw
+    return record.hashes if raw is None else _raw_table_cell(raw)
 
 
 def _sidecar_cell(wheel: WheelFile) -> object:
     """Return the row cell for ``metadata_hash``, raw table or parsed pair."""
     raw = wheel.raw_sidecar()
-    return wheel.metadata_hash if raw is None else raw
+    return wheel.metadata_hash if raw is None else _raw_table_cell(raw)
+
+
+def _raw_table_cell(raw: object) -> object:
+    """Omit JSON objects around raw sha256 digests."""
+    if isinstance(raw, dict) and len(raw) == 1:
+        digest = raw.get("sha256")
+        if type(digest) is str:
+            return digest
+    return raw
 
 
 def encode(
@@ -289,26 +299,23 @@ def _decode_rows(rows: object) -> list[WheelFile | SdistFile]:
         raise _BadRowError
     decoded: list[WheelFile | SdistFile] = []
     previous_version: str | None = None
+    record: WheelFile | SdistFile
     for row in rows:
-        record = _decode_row(row, previous_version)
+        if not isinstance(row, list) or not row:
+            raise _BadRowError
+        tag = row[0]
+        # bool is a subclass of int, so ``True == _TAG_SDIST`` without this.
+        if type(tag) is not int:
+            raise _BadRowError
+        if tag == _TAG_WHEEL:
+            record = _decode_wheel(row, previous_version)
+        elif tag == _TAG_SDIST:
+            record = _decode_sdist(row, previous_version)
+        else:
+            raise _BadRowError
         previous_version = record.version
         decoded.append(record)
     return decoded
-
-
-def _decode_row(row: object, previous_version: str | None) -> WheelFile | SdistFile:
-    """Rehydrate one row, dispatching on the tag its first element carries."""
-    if not isinstance(row, list) or not row:
-        raise _BadRowError
-    tag = row[0]
-    # bool is a subclass of int, so ``True == _TAG_SDIST`` without this.
-    if type(tag) is not int:
-        raise _BadRowError
-    if tag == _TAG_WHEEL:
-        return _decode_wheel(row, previous_version)
-    if tag == _TAG_SDIST:
-        return _decode_sdist(row, previous_version)
-    raise _BadRowError
 
 
 def _decode_wheel(row: Sequence[object], previous_version: str | None) -> WheelFile:
@@ -356,10 +363,10 @@ def _decode_wheel(row: Sequence[object], previous_version: str | None) -> WheelF
         None if requires_python is None else sys.intern(requires_python),
         has_metadata,
         upload_time,
-        hashes if isinstance(hashes, dict) else _hashes(hashes),
+        hashes if isinstance(hashes, (dict, str)) else _hashes(hashes),
         size,
         metadata_hash
-        if isinstance(metadata_hash, dict)
+        if isinstance(metadata_hash, (dict, str))
         else _pair_or_none(metadata_hash),
     )
 
@@ -387,7 +394,7 @@ def _decode_sdist(row: Sequence[object], previous_version: str | None) -> SdistF
         version,
         None if requires_python is None else sys.intern(requires_python),
         upload_time,
-        hashes if isinstance(hashes, dict) else _hashes(hashes),
+        hashes if isinstance(hashes, (dict, str)) else _hashes(hashes),
         size,
     )
 

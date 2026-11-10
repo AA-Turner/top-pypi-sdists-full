@@ -17,6 +17,7 @@ import pytest
 
 from nab_markersets._compat import get_int_max_str_digits
 from nab_project._testing.artifacts import make_sdist_artifact, make_wheel_artifact
+from nab_provider.policy import MetadataPolicy
 from nab_provider.value import replace
 
 if sys.version_info >= (3, 11):
@@ -112,7 +113,7 @@ from nab_provider.target import (
     micro_boundary_points,
     slices_from_points,
 )
-from nab_provider.testing import pkg_override
+from nab_provider.testing import make_metadata, make_wheel, pkg_override
 
 requires_int_limit = pytest.mark.skipif(
     get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
@@ -3077,6 +3078,11 @@ class _FakeIndex:
     def get_listing_index(self, package: str) -> str | None:
         return self._listing_indexes.get(package)
 
+    def get_metadata_with_origin(
+        self, package: str, version: str, metadata_url: str | None = None
+    ) -> tuple[str | None, bool]:
+        return None, False
+
 
 class _FakeCoordinator:
     """Stub for the FetchCoordinator slice the lockfile builder reads."""
@@ -3293,7 +3299,10 @@ class TestBuildTargetLock:
         Both versions ship a wheel and an sdist.  ``foo <= 2`` is pinned to its
         sdist so an installer builds that archive; 3.0 keeps its wheel.
         """
-        provider = _range_override_provider(dist_policy=DistPolicy.SDIST_INSTALL)
+        provider = _range_override_provider(
+            dist_policy=DistPolicy.SDIST_ONLY,
+            metadata_policy=MetadataPolicy.PREFER_WHEEL,
+        )
 
         selected = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
         unselected = build_target_lock(provider, _HOST, {"foo": Version("3.0")})
@@ -3499,19 +3508,8 @@ class TestBuildTargetLock:
         assert isinstance(pin, IndexPin)
         assert pin.wheels[0].local_path == wheel_path
 
-    def test_index_pin_sdist_install_drops_wheels(self) -> None:
-        """Wheels seen during resolution stay out of the pin under sdist-install.
-
-        The listing carried both a wheel and an sdist so the resolver
-        could read the wheel's METADATA, but the lockfile must pin
-        only the sdist so an installer downloads (and builds) that
-        archive.  Mirrors what
-        :attr:`nab_provider.provider.DistPolicy.SDIST_INSTALL` is for.
-
-        The policy comes from the index that served the listing, so
-        ``foo`` loses its wheel under ``internal`` while ``bar`` keeps
-        its own under the default index.
-        """
+    def test_index_pin_source_install_drops_wheels(self) -> None:
+        """A serving index can require sources while allowing wheel metadata."""
         coordinator = make_coordinator(
             listings={
                 "foo": [_wheel_file(), _sdist_file()],
@@ -3524,7 +3522,10 @@ class TestBuildTargetLock:
             coordinator,
             target=_HOST,
             index_overrides={
-                "internal": IndexOverride(dist_policy=DistPolicy.SDIST_INSTALL)
+                "internal": IndexOverride(
+                    dist_policy=DistPolicy.SDIST_ONLY,
+                    metadata_policy=MetadataPolicy.PREFER_WHEEL,
+                )
             },
         )
         provider.fetch_versions("foo")
@@ -3551,14 +3552,12 @@ class TestBuildTargetLock:
         assert isinstance(bar_pin, IndexPin)
         assert [w.filename for w in bar_pin.wheels] == ["bar-1.0-py3-none-any.whl"]
 
-    def test_index_pin_sdist_install_without_sdist_raises(self) -> None:
+    def test_index_pin_source_install_without_sdist_raises(self) -> None:
         """A wheel-only version under sdist-install has nothing to pin."""
         provider = _FakeProvider(
             listings={"foo": [(Version("1.0"), _wheel_file())]},
             listing_indexes={"foo": "internal"},
-            dist_policies={
-                ("foo", "internal", Version("1.0")): DistPolicy.SDIST_INSTALL
-            },
+            dist_policies={("foo", "internal", Version("1.0")): DistPolicy.SDIST_ONLY},
         )
         with pytest.raises(MissingSdistError, match="foo==1.0 has no sdist"):
             build_target_lock(provider, _HOST, {"foo": Version("1.0")})
@@ -5557,43 +5556,49 @@ class TestDependencyGraph:
         assert lock.base_dependencies == {}
 
     def test_umbrella_extra_drops_self_edge(self) -> None:
-        # ``all`` pulls ``mypkg[graphviz]`` and ``mypkg[otel]``, so its recorded
-        # deps name ``mypkg`` itself; the graph keeps only the transitive deps.
-        provider = _FakeProvider(
-            listings={
-                name: [(Version("1.0"), _wheel_file(name))]
-                for name in ("mypkg", "graphviz-lib", "otel-lib")
-            },
-            deps_cache={("mypkg", Version("1.0")): {}},
-            extra_deps_map={
-                ("mypkg", Version("1.0")): {
-                    "all": dict.fromkeys(["mypkg[graphviz]", "mypkg[otel]"]),
-                    "graphviz": dict.fromkeys(["graphviz-lib"]),
-                    "otel": dict.fromkeys(["otel-lib"]),
-                }
-            },
-        )
-        lock = build_target_lock(
-            provider,
-            _HOST,
-            {
-                "mypkg": Version("1.0"),
-                "graphviz-lib": Version("1.0"),
-                "otel-lib": Version("1.0"),
-            },
-            resolved_keys=(
+        wheels = {
+            name: make_wheel(
+                package=name.replace("-", "_"), hashes=(("sha256", "a" * 64),)
+            )
+            for name in ("mypkg", "graphviz-lib", "otel-lib")
+        }
+        metadata = {
+            "mypkg": make_metadata(
                 "mypkg",
-                "mypkg[all]",
-                "mypkg[graphviz]",
-                "mypkg[otel]",
-                "graphviz-lib",
-                "otel-lib",
+                "1.0",
+                'mypkg[graphviz]; extra == "all"',
+                'mypkg[otel]; extra == "all"',
+                'graphviz-lib; extra == "graphviz"',
+                'otel-lib; extra == "otel"',
+                provides_extra=("all", "graphviz", "otel"),
             ),
+            "graphviz-lib": make_metadata("graphviz-lib", "1.0"),
+            "otel-lib": make_metadata("otel-lib", "1.0"),
+        }
+        coordinator = make_coordinator(
+            listings={name: [wheel] for name, wheel in wheels.items()},
+            metadata_by_url={
+                wheels[name].metadata_url: text for name, text in metadata.items()
+            },
         )
+
+        result = resolve_with_coordinator(
+            coordinator,
+            [_HOST],
+            [Requirement("mypkg[all]")],
+            inputs=ResolveInputs(build_policy=BuildPolicy.NEVER),
+        )
+        result.raise_for_failure()
+
+        lock = result.target_results[0].lock
+        assert lock is not None
         assert lock.dependencies == {"mypkg": ("graphviz-lib", "otel-lib")}
-        # Both transitive deps arrive through extras, so neither is a base
-        # edge and mypkg has no base dependencies.
         assert lock.base_dependencies == {}
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "mypkg": "1.0",
+            "graphviz-lib": "1.0",
+            "otel-lib": "1.0",
+        }
 
     def test_resolve_records_transitive_extra_edges(self) -> None:
         """A resolve of ``app[cli]`` locks the edges of every extra it activates.

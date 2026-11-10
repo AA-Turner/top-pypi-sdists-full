@@ -17,6 +17,7 @@ Usage::
         ListDatabasesPaginator,
         ListNamedQueriesPaginator,
         ListQueryExecutionsPaginator,
+        ListSystemTableStatusesPaginator,
         ListTableMetadataPaginator,
         ListTagsForResourcePaginator,
     )
@@ -29,6 +30,7 @@ Usage::
     list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_databases")
     list_named_queries_paginator: ListNamedQueriesPaginator = client.get_paginator("list_named_queries")
     list_query_executions_paginator: ListQueryExecutionsPaginator = client.get_paginator("list_query_executions")
+    list_system_table_statuses_paginator: ListSystemTableStatusesPaginator = client.get_paginator("list_system_table_statuses")
     list_table_metadata_paginator: ListTableMetadataPaginator = client.get_paginator("list_table_metadata")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
     ```
@@ -41,6 +43,7 @@ from .paginator import (
     ListDataCatalogsPaginator,
     ListNamedQueriesPaginator,
     ListQueryExecutionsPaginator,
+    ListSystemTableStatusesPaginator,
     ListTableMetadataPaginator,
     ListTagsForResourcePaginator,
 )
@@ -55,6 +58,7 @@ __all__ = (
     "ListDatabasesPaginator",
     "ListNamedQueriesPaginator",
     "ListQueryExecutionsPaginator",
+    "ListSystemTableStatusesPaginator",
     "ListTableMetadataPaginator",
     "ListTagsForResourcePaginator",
 )

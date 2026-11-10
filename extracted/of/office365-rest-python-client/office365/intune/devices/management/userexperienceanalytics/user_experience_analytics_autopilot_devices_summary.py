@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class UserExperienceAnalyticsAutopilotDevicesSummary(ClientValue):
     devicesNotAutopilotRegistered: int | None = None
     devicesWithoutAutopilotProfileAssigned: int | None = None

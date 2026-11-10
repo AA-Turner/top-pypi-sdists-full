@@ -8,18 +8,19 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 import pyarrow as pa
+from httpx2 import Timeout
 
 from edgar.core import listify, log
 from edgar.settings import get_edgar_data_directory
 from edgar.exceptions import http_status
-from edgar.httprequests import download_file, download_json
+from edgar.httprequests import download_file, download_json, get_once, inspect_response
 from edgar.reference.data.common import read_csv_from_package, read_parquet_from_package
 
 __all__ = ['cusip_ticker_mapping', 'get_ticker_from_cusip', 'get_company_tickers', 'get_icon_from_ticker', 'find_cik',
            'get_cik_tickers', 'get_company_ticker_name_exchange', 'get_companies_by_exchange', 'popular_us_stocks',
            'get_mutual_fund_tickers', 'find_mutual_fund_cik', 'list_all_tickers', 'find_ticker', 'find_ticker_safe', 'get_cik_ticker_lookup',
            'get_company_cik_lookup', 'get_cik_tickers_from_ticker_txt', 'get_cik_tickers', 'get_company_tickers',
-           'Exchange'
+           'Exchange', 'find_retired_ticker_cik'
            ]
 
 from edgar.urls import build_company_tickers_exchange_url, build_company_tickers_url, build_mutual_fund_tickers_url, build_ticker_url
@@ -336,35 +337,41 @@ def get_company_cik_lookup():
     return lookup
 
 
-# Manual overrides for CIKs where the shortest non-hyphenated ticker is wrong
-_PREFERRED_TICKER = {
-    1166691: 'CMCSA',   # Comcast common stock, not CCZ (ETN)
-    1161611: 'ALMMF',   # Aluminum Corp of China, not ACH (conflicts with CIK 75252)
-    1787518: 'DFNSW',   # T3 Defense, not DFNS (conflicts with CIK 1777946)
-}
+def _is_derivative_ticker(ticker: str, siblings: list[str]) -> bool:
+    """Preferred/unit/warrant tickers: hyphenated (JPM-PC, KCAC-UN), or a
+    sibling plus only U/W/R (BEATW, ALFUU). Share-class letters (FOXA, GOOGL)
+    are not derivatives."""
+    if '-' in ticker:
+        return True
+    return any(
+        ticker != s and ticker.startswith(s) and set(ticker[len(s):]) <= {'U', 'W', 'R'}
+        for s in siblings
+    )
 
 
 @lru_cache(maxsize=1)
 def get_cik_ticker_lookup():
     """Create a mapping of CIK to the primary ticker symbol for each CIK.
 
-    For CIKs with multiple tickers, prefers non-hyphenated tickers (common stock)
-    over hyphenated ones (share classes like BRK-A), then picks the shortest.
+    SEC lists a CIK's tickers primary-first (GOOGL before GOOG, CMCSA before
+    the CCZ note), so the listed order decides, after demoting OTC tickers and
+    derivative tickers (preferreds, units, warrants). A missing exchange is not
+    demoted: a new SPAC lists its shares before they trade.
     """
-    df = get_cik_tickers()
+    df = _get_company_tickers_raw()
+    exchanges = df['exchange'] if 'exchange' in df.columns else [None] * len(df)
+    by_cik: dict[int, list[tuple[str, object]]] = {}
+    for ticker, cik, exchange in zip(df['ticker'], df['cik'], exchanges, strict=True):
+        by_cik.setdefault(cik, []).append((ticker, exchange))
+
     cik_to_ticker = {}
-    for ticker, cik in zip(df['ticker'], df['cik'], strict=False):
-        has_hyphen = '-' in ticker
-        prev = cik_to_ticker.get(cik)
-        if prev is None:
-            cik_to_ticker[cik] = ticker
-        else:
-            prev_has_hyphen = '-' in prev
-            # Prefer non-hyphenated over hyphenated; among equals, prefer shortest
-            if (prev_has_hyphen and not has_hyphen) or \
-               (prev_has_hyphen == has_hyphen and len(ticker) < len(prev)):
-                cik_to_ticker[cik] = ticker
-    cik_to_ticker.update(_PREFERRED_TICKER)
+    for cik, rows in by_cik.items():
+        siblings = [ticker for ticker, _ in rows]
+        best = min(
+            range(len(rows)),
+            key=lambda i: (rows[i][1] == 'OTC', _is_derivative_ticker(siblings[i], siblings), i),
+        )
+        cik_to_ticker[cik] = siblings[best]
     return cik_to_ticker
 
 
@@ -484,16 +491,22 @@ def find_mutual_fund_cik(ticker):
     return lookup.get(ticker.upper())
 
 
+# One short attempt: the bundle answers when SEC can't, so don't wait out retries offline
+LIVE_TICKERS_TIMEOUT = Timeout(10.0, connect=3.0)
+
+
 @lru_cache(maxsize=1)
 def _get_live_company_cik_lookup() -> Optional[dict]:
     """
     Fetch the live company_tickers.json from the SEC and build a ticker→CIK dict.
 
-    Called once per session as a fallback when a ticker is missing from the
-    bundled parquet data (e.g. recent IPOs). Returns None on network failure.
+    Fetched once per session; find_company_cik() asks it before the bundled
+    parquet, which goes stale between refreshes. Returns None on network failure.
     """
     try:
-        tickers_json = download_json(build_company_tickers_url())
+        response = get_once(build_company_tickers_url(), timeout=LIVE_TICKERS_TIMEOUT)
+        inspect_response(response)
+        tickers_json = response.json()
         lookup = {}
         for item in tickers_json.values():
             ticker = item['ticker'].upper()
@@ -509,16 +522,19 @@ def _get_live_company_cik_lookup() -> Optional[dict]:
 
 
 def find_company_cik(ticker):
-    lookup = get_company_cik_lookup()
     ticker = ticker.upper().replace('.', '-')
-    cik = lookup.get(ticker)
-    if cik is not None:
-        return cik
-
-    # Fallback: try live SEC data for tickers missing from bundled parquet
-    live_lookup = _get_live_company_cik_lookup()
-    if live_lookup is not None:
-        return live_lookup.get(ticker)
+    if os.getenv("EDGAR_USE_LOCAL_DATA"):
+        lookups = (get_company_cik_lookup, _get_live_company_cik_lookup)
+    else:
+        # SEC's live file first: the bundle is a snapshot, and a ticker that moves
+        # to a new registrant after it is taken keeps answering the old CIK
+        # (GH #1588: XOM is 2115436 since 2026, the bundle still says 34088).
+        # The bundle answers offline, and for tickers SEC no longer lists.
+        lookups = (_get_live_company_cik_lookup, get_company_cik_lookup)
+    for get_lookup in lookups:
+        lookup = get_lookup()
+        if lookup is not None and ticker in lookup:
+            return lookup[ticker]
     return None
 
 def find_company_ticker(cik: Union[int, str]) -> Union[str, List[str], None]:
@@ -562,7 +578,7 @@ def find_company_ticker(cik: Union[int, str]) -> Union[str, List[str], None]:
 
 def find_cik(ticker):
     """
-    Find the CIK for a given ticker, checking both company and mutual fund/ETF data.
+    Find the CIK for a given ticker, checking company, mutual fund/ETF and retired-ticker data.
 
     :param ticker: String, the ticker symbol to look up
     :return: Integer, the CIK for the given ticker, or None if not found
@@ -573,7 +589,35 @@ def find_cik(ticker):
         return cik
 
     # If not found, check mutual fund/ETF CIKs
-    return find_mutual_fund_cik(ticker)
+    cik = find_mutual_fund_cik(ticker)
+    if cik is not None:
+        return cik
+
+    # Last, a ticker SEC has retired. Current mappings always win, so a reused ticker
+    # resolves to its new owner (GH #1829).
+    return find_retired_ticker_cik(ticker)
+
+
+@lru_cache(maxsize=1)
+def _get_retired_ticker_lookup() -> Dict[str, int]:
+    df = read_csv_from_package('retired_tickers.csv', dtype={'ticker': str, 'cik': int})
+    return {ticker.upper(): int(cik) for ticker, cik in zip(df['ticker'], df['cik'], strict=True)}
+
+
+def find_retired_ticker_cik(ticker: str) -> Optional[int]:
+    """
+    Find the CIK a ticker belonged to before SEC dropped it from its ticker map.
+
+    SEC's company_tickers.json lists current tickers only, so a renamed company's old
+    ticker stops resolving (EQR became VMRK in 2026; CIK 906107 is unchanged). The
+    bundled ``retired_tickers.csv`` keeps those associations. It is reviewed by hand.
+
+    :param ticker: The ticker symbol to look up
+    :return: The CIK, or None if the ticker is not a known retired ticker
+    """
+    if not isinstance(ticker, str):
+        return None
+    return _get_retired_ticker_lookup().get(ticker.upper().replace('.', '-'))
 
 
 def get_ticker_from_cusip(cusip: str) -> Optional[str]:
@@ -639,8 +683,8 @@ def get_icon_from_ticker(ticker: str) -> Optional[bytes]:
         # the installed httpx build the raised type may not be our imported
         # HTTPStatusError (e.g. CI environments surface it under a different module
         # identity such as httpx2), so matching on isinstance is fragile. It is
-        # also why this reads the status through http_status() — under
-        # EDGARTOOLS_STRICT_ERRORS the boundary raises a TransportError, which
+        # also why this reads the status through http_status() — the
+        # boundary raises a TransportError, which
         # carries `.status_code` and no `.response` at all, and a check written
         # against `.response` silently stops recognising the 404 and starts
         # raising for every ticker without an icon. Anything that isn't a 404 is

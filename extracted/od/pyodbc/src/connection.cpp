@@ -165,10 +165,18 @@ static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char 
     }
     else if (PyUnicode_Check(value))
     {
-        Object po(PyUnicode_AsEncodedString(value, strencoding ? strencoding : "utf-16le", "strict"));
+        Object encoded(PyUnicode_AsEncodedString(value, strencoding ? strencoding : "utf-16le", "strict"));
+        if (!encoded)
+            return false;
+        // The value is passed with SQL_NTS, so it needs a NUL as wide as a character.  A bytes
+        // object only has one NUL byte, so copy it with 4 (enough for UTF-16 or UTF-32).
+        Py_ssize_t cb = PyBytes_GET_SIZE(encoded.Get());
+        Object po(PyBytes_FromStringAndSize(0, cb + 4));
         if (!po)
             return false;  // OOM
-        ivalue = (SQLPOINTER)PyBytes_AsString(po);
+        memcpy(PyBytes_AS_STRING(po.Get()), PyBytes_AS_STRING(encoded.Get()), (size_t)cb);
+        memset(PyBytes_AS_STRING(po.Get()) + cb, 0, 4);
+        ivalue = (SQLPOINTER)PyBytes_AS_STRING(po.Get());
         vallen = SQL_NTS;
         // PyList_Append increments the refcount, so the list owns the encoded buffer for as long
         // as the driver needs it; po releases our own reference when it goes out of scope.
@@ -179,9 +187,21 @@ static bool ApplyPreconnAttrs(HDBC hdbc, SQLINTEGER ikey, PyObject *value, char 
     {
         // To allow for possibility of setting multiple attributes more than once.
         Py_ssize_t len = PySequence_Size(value);
+        if (len < 0)
+            return false;
         for (Py_ssize_t i = 0; i < len; i++)
         {
             Object v(PySequence_GetItem(value, i));
+            if (!v)
+                return false;
+            // Only one level of nesting is allowed (CheckAttrsVal), but the sequence could
+            // return something else now than when it was checked.
+            if (!PyLong_Check(v) && !PyByteArray_Check(v) && !PyBytes_Check(v) && !PyUnicode_Check(v))
+            {
+                RaiseErrorV(0, PyExc_TypeError, "Unsupported attrs_before type: %s",
+                            Py_TYPE(v.Get())->tp_name);
+                return false;
+            }
             if (!ApplyPreconnAttrs(hdbc, ikey, v.Get(), strencoding, keepalives))
                 return false;
         }
@@ -246,16 +266,48 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeou
         PyObject* value = 0;
 
         Object encodingholder;
-        char *strencoding = (encoding != 0) ?
-            (PyUnicode_Check(encoding) ? PyBytes_AsString(encodingholder = PyCodec_Encode(encoding, "utf-8", "strict")) :
-             PyBytes_Check(encoding) ? PyBytes_AsString(encoding) : 0) : 0;
+        char *strencoding = 0;
+        if (encoding && PyUnicode_Check(encoding))
+        {
+            encodingholder = PyCodec_Encode(encoding, "utf-8", "strict");
+            if (!encodingholder)
+            {
+                Py_DECREF(preconn_keepalives);
+                Py_BEGIN_ALLOW_THREADS
+                SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+                Py_END_ALLOW_THREADS
+                return 0;
+            }
+            strencoding = PyBytes_AS_STRING(encodingholder.Get());
+        }
+        else if (encoding && PyBytes_Check(encoding))
+        {
+            strencoding = PyBytes_AS_STRING(encoding);
+        }
 
         while (PyDict_Next(attrs_before, &pos, &key, &value))
         {
             SQLINTEGER ikey = 0;
 
             if (PyLong_Check(key))
-                ikey = (int)PyLong_AsLong(key);
+            {
+                // Attribute IDs are SQLINTEGERs.  long is 64 bits on most Unix platforms, so
+                // check the range rather than truncate to another attribute.
+                long lkey = PyLong_AsLong(key);
+                if (!PyErr_Occurred() && (lkey < INT_MIN || lkey > INT_MAX))
+                    PyErr_Format(PyExc_OverflowError,
+                        "attrs_before key %ld is outside the range of an ODBC attribute ID",
+                        lkey);
+                ikey = (SQLINTEGER)lkey;
+                if (PyErr_Occurred())
+                {
+                    Py_DECREF(preconn_keepalives);
+                    Py_BEGIN_ALLOW_THREADS
+                    SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+                    Py_END_ALLOW_THREADS
+                    return 0;
+                }
+            }
             if (!ApplyPreconnAttrs(hdbc, ikey, value, strencoding, preconn_keepalives))
             {
                 Py_DECREF(preconn_keepalives);
@@ -310,7 +362,7 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeou
     cnxn->compat_diagrec_byte_length = false;
 
     cnxn->attrs_before = attrs_before_o.Detach();
-    cnxn->fetch_decimal_as_string = false;
+    cnxn->decimal_mode = DECIMAL_MODE_BINARY;
 
     // This is an inefficient default, but should work all the time.  When we are offered
     // single-byte text we don't actually know what the encoding is.  For example, with SQL
@@ -400,6 +452,7 @@ PyObject* Connection_New(PyObject* pConnectString, bool fAutoCommit, long timeou
     cnxn->varchar_maxlength      = p->varchar_maxlength;
     cnxn->wvarchar_maxlength     = p->wvarchar_maxlength;
     cnxn->binary_maxlength       = p->binary_maxlength;
+    cnxn->decimal_mode           = p->is_postgresql ? DECIMAL_MODE_TEXT : DECIMAL_MODE_BINARY;
 
     return reinterpret_cast<PyObject*>(cnxn);
 }
@@ -419,7 +472,9 @@ static PyObject* Connection_set_attr(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "iO", &id, &value))
         return 0;
 
-    Connection* cnxn = (Connection*)self;
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return 0;
 
     SQLRETURN ret;
     SQLWChar sqlchar;  // declared here so buffer stays alive across the call
@@ -427,6 +482,8 @@ static PyObject* Connection_set_attr(PyObject* self, PyObject* args)
     if (PyLong_Check(value))
     {
         long ival = PyLong_AsLong(value);
+        if (ival == -1 && PyErr_Occurred())
+            return 0;
         Py_BEGIN_ALLOW_THREADS
         ret = SQLSetConnectAttrW(cnxn->hdbc, id, (SQLPOINTER)(intptr_t)ival, SQL_IS_INTEGER);
         Py_END_ALLOW_THREADS
@@ -434,6 +491,8 @@ static PyObject* Connection_set_attr(PyObject* self, PyObject* args)
     else if (PyUnicode_Check(value))
     {
         sqlchar.set(value, "utf-16le");
+        if (!sqlchar.isValid())
+            return 0;
         Py_BEGIN_ALLOW_THREADS
         ret = SQLSetConnectAttrW(cnxn->hdbc, id, sqlchar.get(), SQL_NTS);
         Py_END_ALLOW_THREADS
@@ -773,7 +832,7 @@ static PyObject* Connection_getinfo(PyObject* self, PyObject* args)
     }
 
     if (i == _countof(aInfoTypes))
-        return RaiseErrorV(0, ProgrammingError, "Unsupported getinfo value: %d", infotype);
+        return RaiseErrorV(0, ProgrammingError, "Unsupported getinfo value: %lu", infotype);
 
     char szBuffer[0x1000];
     SQLSMALLINT cch = 0;
@@ -798,7 +857,8 @@ static PyObject* Connection_getinfo(PyObject* self, PyObject* args)
         break;
 
     case GI_STRING:
-        result = PyUnicode_FromStringAndSize(szBuffer, (Py_ssize_t)cch);
+        // On truncation cch is the full length, not what fit in the buffer.
+        result = PyUnicode_FromStringAndSize(szBuffer, min((Py_ssize_t)cch, (Py_ssize_t)sizeof(szBuffer) - 1));
         break;
 
     case GI_UINTEGER:
@@ -973,7 +1033,9 @@ static PyObject* Connection_getsearchescape(PyObject* self, void* closure)
 {
     UNUSED(closure);
 
-    Connection* cnxn = (Connection*)self;
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return 0;
 
     if (!cnxn->searchescape)
     {
@@ -987,7 +1049,9 @@ static PyObject* Connection_getsearchescape(PyObject* self, void* closure)
         if (!SQL_SUCCEEDED(ret))
             return RaiseErrorFromHandle(cnxn, "SQLGetInfo", cnxn->hdbc, SQL_NULL_HANDLE);
 
-        cnxn->searchescape = PyUnicode_FromStringAndSize(sz, (Py_ssize_t)cch);
+        cnxn->searchescape = PyUnicode_FromStringAndSize(sz, min((Py_ssize_t)cch, (Py_ssize_t)sizeof(sz) - 1));
+        if (!cnxn->searchescape)
+            return 0;
     }
 
     Py_INCREF(cnxn->searchescape);
@@ -1112,6 +1176,75 @@ static int Connection_settimeout(PyObject* self, PyObject* value, void* closure)
     return 0;
 }
 
+static const char* const DECIMAL_MODE_NAMES[] = { "binary", "text", "locale" };
+
+static PyObject* Connection_getdecimalmode(PyObject* self, void* closure)
+{
+    UNUSED(closure);
+
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return 0;
+
+    return PyUnicode_FromString(DECIMAL_MODE_NAMES[cnxn->decimal_mode]);
+}
+
+static int SetDecimalModeFromBool(Connection* cnxn, PyObject* value, const char* attr)
+{
+    // The bool values of fetch_decimal_as_string, kept until 6.0.  True keeps its old meaning,
+    // the locale path, rather than becoming "text".  Since the getter returns True for both
+    // text modes, True leaves 'text' alone, so saving and restoring the value changes nothing.
+
+    int isTrue = PyObject_IsTrue(value);
+    if (isTrue < 0)
+        return -1;
+    int mode = !isTrue ? DECIMAL_MODE_BINARY
+             : cnxn->decimal_mode == DECIMAL_MODE_TEXT ? DECIMAL_MODE_TEXT : DECIMAL_MODE_LOCALE;
+    if (PyErr_WarnFormat(PyExc_FutureWarning, 1,
+            "Setting %s to %s is deprecated and will not be supported in pyodbc 6.0; "
+            "set decimal_mode = '%s' instead", attr, isTrue ? "True" : "False",
+            DECIMAL_MODE_NAMES[mode]) < 0)
+        return -1;
+    cnxn->decimal_mode = mode;
+    return 0;
+}
+
+static int Connection_setdecimalmode(PyObject* self, PyObject* value, void* closure)
+{
+    UNUSED(closure);
+
+    Connection* cnxn = Connection_Validate(self);
+    if (!cnxn)
+        return -1;
+
+    if (value == 0)
+    {
+        PyErr_SetString(PyExc_TypeError, "Cannot delete the decimal_mode attribute.");
+        return -1;
+    }
+
+    if (PyBool_Check(value))
+        return SetDecimalModeFromBool(cnxn, value, "decimal_mode");
+
+    if (PyUnicode_Check(value))
+    {
+        for (int i = 0; i < (int)_countof(DECIMAL_MODE_NAMES); i++)
+        {
+            if (PyUnicode_CompareWithASCIIString(value, DECIMAL_MODE_NAMES[i]) == 0)
+            {
+                cnxn->decimal_mode = i;
+                return 0;
+            }
+        }
+        PyErr_Format(PyExc_ValueError,
+            "decimal_mode must be 'binary', 'text', or 'locale', not %R", value);
+        return -1;
+    }
+
+    PyErr_Format(PyExc_TypeError, "decimal_mode must be a str, not %s", Py_TYPE(value)->tp_name);
+    return -1;
+}
+
 static PyObject* Connection_getfetchdecimalasstring(PyObject* self, void* closure)
 {
     UNUSED(closure);
@@ -1120,9 +1253,12 @@ static PyObject* Connection_getfetchdecimalasstring(PyObject* self, void* closur
     if (!cnxn)
         return 0;
 
-    PyObject* result = cnxn->fetch_decimal_as_string ? Py_True : Py_False;
-    Py_INCREF(result);
-    return result;
+    if (PyErr_WarnEx(PyExc_FutureWarning,
+            "fetch_decimal_as_string is deprecated and will be removed in pyodbc 6.0; "
+            "use decimal_mode instead", 1) < 0)
+        return 0;
+
+    return PyBool_FromLong(cnxn->decimal_mode != DECIMAL_MODE_BINARY);
 }
 
 static int Connection_setfetchdecimalasstring(PyObject* self, PyObject* value, void* closure)
@@ -1139,8 +1275,7 @@ static int Connection_setfetchdecimalasstring(PyObject* self, PyObject* value, v
         return -1;
     }
 
-    cnxn->fetch_decimal_as_string = PyObject_IsTrue(value);
-    return 0;
+    return SetDecimalModeFromBool(cnxn, value, "fetch_decimal_as_string");
 }
 
 static PyObject* Connection_getcompat_diagrec_byte_length(PyObject* self, void* closure)
@@ -1440,7 +1575,6 @@ static PyObject* Connection_setencoding(PyObject* self, PyObject* args, PyObject
 {
     Connection* cnxn = (Connection*)self;
 
-    // In Python 3 we only support encodings for Unicode text.
     char* encoding = 0;
     int ctype = 0;
     static char *kwlist[] = { "encoding", "ctype", 0 };
@@ -1565,10 +1699,20 @@ static PyGetSetDef Connection_getseters[] = {
     { "maxwrite", Connection_getmaxwrite, Connection_setmaxwrite, "The maximum bytes to write before using SQLPutData.", 0 },
     { "readvar_initsize", Connection_getreadvarinitsize, Connection_setreadvarinitsize,
       "The initial buffer size in bytes for reading values from variable-length columns.", 0 },
+    { "decimal_mode", Connection_getdecimalmode, Connection_setdecimalmode,
+      "How DECIMAL and NUMERIC values are read:\n\n"
+      "'binary': into a SQL_NUMERIC_STRUCT, which is not affected by the locale.  This is the\n"
+      "  default except for PostgreSQL.  The struct cannot hold NaN or Infinity, or more than\n"
+      "  38 digits.\n"
+      "'text': as text with no grouping separators: a sign, digits, and at most one decimal\n"
+      "  point, which can be '.' or ','; or NaN, Infinity, or -Infinity.  Other text raises\n"
+      "  DataError.  This is the default for PostgreSQL.\n"
+      "'locale': as text, after removing everything but digits, '-', and the separator from\n"
+      "  setDecimalSeparator, which then becomes the decimal point.  For drivers that add\n"
+      "  grouping separators or currency symbols.", 0 },
     { "fetch_decimal_as_string", Connection_getfetchdecimalasstring, Connection_setfetchdecimalasstring,
-      "If True, DECIMAL and NUMERIC values are fetched as strings using the legacy\n"
-      "locale-aware path.  If False (the default), values are fetched using a binary\n"
-      "representation that is not affected by the locale.", 0 },
+      "Deprecated; use decimal_mode.  True means decimal_mode is not 'binary'.  Setting True\n"
+      "selects 'locale' and False selects 'binary'.", 0 },
     { "compat_diagrec_byte_length", Connection_getcompat_diagrec_byte_length, Connection_setcompat_diagrec_byte_length,
       "If True, the driver reports byte length instead of character length in SQLGetDiagRecW().", 0 },
     { 0 }

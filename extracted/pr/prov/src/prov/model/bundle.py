@@ -2,24 +2,20 @@
 
 from __future__ import annotations  # defer eval: ProvDocument used before it's defined
 
+import functools
 import io
 import itertools
-import logging
 import os
 import re
 import shutil
 import tempfile
 from collections import defaultdict
-from collections.abc import Iterable
-from typing import Any, cast
+from collections.abc import Iterable, Iterator, Mapping, ValuesView
+from typing import Any, TypeVar, cast, overload
 from urllib.parse import urlparse
 
 from prov import serializers
-from prov._warnings import (
-    ProvFutureRejectionWarning,
-    future_rejection_message,
-    warn,
-)
+from prov._warnings import warn
 from prov.constants import (
     PROV,
     PROV_ACTIVITY,
@@ -72,9 +68,9 @@ from prov.constants import (
     PROV_TYPE,
     PROV_USAGE,
     PROV_VALUE,
-    XSI,
 )
-from prov.identifier import Namespace, QualifiedName, _provn_escape_local_and_warn
+from prov.identifier import Identifier, Namespace, QualifiedName
+from prov.model._values import _split_name, unresolved_name_sentence
 from prov.model.namespaces import NamespaceManager
 from prov.model.records import (
     PROV_REC_CLS,
@@ -117,17 +113,14 @@ from prov.model.records import (
     UsageRef,
     _attribute_pairs,
     _ensure_datetime,
-    _rebuild,
-    _rebuilding,
 )
 
-logger = logging.getLogger(__name__)
-
 _PROVN_IRI_FORBIDDEN = re.compile(r'[<>"{}|^`\\\x00-\x20]')
+_DUPLICATE_BUNDLE = "A bundle with that identifier already exists"
 
 
 def _check_provn_iri(namespace: Namespace) -> None:
-    """A namespace URI must be a PROV-N IRI_REF ([56]) to be declared."""
+    """A namespace URI must be a PROV-N IRI_REF to be declared."""
     if _PROVN_IRI_FORBIDDEN.search(namespace.uri):
         where = (
             f"prefix '{namespace.prefix}'"
@@ -138,6 +131,49 @@ def _check_provn_iri(namespace: Namespace) -> None:
             f"{where} has URI <{namespace.uri}>, which PROV-N cannot write as an IRI: "
             'it contains a space, a control character or one of <>"{}|^`\\'
         )
+
+
+def _indent_line_feeds(text: str, newline: str) -> str:
+    """Replace the line feeds outside triple-quoted strings with ``newline``.
+
+    A triple-quoted string keeps its line feeds raw, and the lexer counts the
+    spaces after one as part of the value, so its content is never indented.
+    ``_provn_string_literal`` escapes every double quote, a namespace IRI
+    cannot hold one (``_PROVN_IRI_FORBIDDEN``) and a checked name cannot
+    either, so three in a row appear only as the delimiters of such a string,
+    and the odd-indexed parts of the split hold its content. A content that
+    ends in a quote gives four in a row at the close. The split takes the first
+    three and leaves the fourth in an even-indexed part, so the parity holds.
+    A prefix is not checked yet, so one holding a double quote breaks the
+    parity for the whole text (#668).
+    """
+    parts = text.split('"""')
+    for index in range(0, len(parts), 2):
+        parts[index] = parts[index].replace("\n", newline)
+    return '"""'.join(parts)
+
+
+def _held_qualified_names(records: Iterable[ProvRecord]) -> Iterator[QualifiedName]:
+    """Every qualified name the records hold in their identifier, attribute
+    names and values, a literal standing for its datatype."""
+    for record in records:
+        items: list[Any] = [record.identifier]
+        for name, value in record.attributes:
+            items.append(name)
+            items.append(value.datatype if isinstance(value, Literal) else value)
+        for item in items:
+            if isinstance(item, QualifiedName):
+                yield item
+
+
+def _clashing_name(
+    names: Iterable[QualifiedName], prefix: str, uri: str
+) -> QualifiedName | None:
+    """The first of ``names`` in ``prefix`` whose IRI is not under ``uri``."""
+    return next(
+        (n for n in names if n.namespace.prefix == prefix and n.namespace.uri != uri),
+        None,
+    )
 
 
 # PROV-CONSTRAINTS (https://www.w3.org/TR/prov-constraints/) type compatibility
@@ -208,54 +244,53 @@ _KEYLESS_RELATIONS = frozenset(
 )
 
 
-# Non-expandable positions, from PROV-CONSTRAINTS Definition 4 and Table 3. An
-# absent value in one of them is the constant "none", which unifies only with
-# itself. Generation and usage are non-expandable only on a derivation that
-# names no activity.
-_NON_EXPANDABLE = {
-    PROV_ASSOCIATION: (PROV_ATTR_PLAN,),
-    PROV_DERIVATION: (PROV_ATTR_ACTIVITY, PROV_ATTR_GENERATION, PROV_ATTR_USAGE),
+# PROV-CONSTRAINTS Table 3: the formal positions that do not expand, each with
+# the position whose presence makes it expandable again (None if none). A
+# derivation that names its activity has expandable generation and usage.
+_NON_EXPANDABLE: dict[
+    QualifiedName, tuple[tuple[QualifiedName, QualifiedName | None], ...]
+] = {
+    PROV_ASSOCIATION: ((PROV_ATTR_PLAN, None),),
+    PROV_DERIVATION: (
+        (PROV_ATTR_ACTIVITY, None),
+        (PROV_ATTR_GENERATION, PROV_ATTR_ACTIVITY),
+        (PROV_ATTR_USAGE, PROV_ATTR_ACTIVITY),
+    ),
 }
 
 
-def _warn_absent_non_expandable(records: list[ProvRecord]) -> None:
-    """Warn if an absent non-expandable formal meets a present one in ``records``.
+def _check_non_expandable(records: list[ProvRecord]) -> None:
+    """Raise if an absent non-expandable formal meets a present one in ``records``.
 
-    Only the first such position in ``FORMAL_ATTRIBUTES`` order warns, since
-    3.3.0 raises there. The group has already unified, so its records agree on
-    every position where they all have a value.
+    The first such position in Table 3 order raises. The table lists each
+    guard before its dependants, and a guard present in only some records has
+    already raised, so by the time a dependant is reached its guard is present
+    in every record or in none.
+
+    Raises:
+        ProvUnificationError: Naming the records' identifier, the position and
+            the present value.
     """
     positions = _NON_EXPANDABLE.get(PROV_BASE_CLS[records[0].get_type()])
     if positions is None:
         return
     formal_values = [dict(record.formal_attributes) for record in records]
-    for attr_name in positions:
+    for attr_name, guard in positions:
+        if guard is not None and all(
+            values[guard] is not None for values in formal_values
+        ):
+            continue
         present = [
             values[attr_name]
             for values in formal_values
             if values[attr_name] is not None
         ]
         if present and len(present) < len(records):
-            condition = (
-                " on a derivation with no activity"
-                if attr_name in (PROV_ATTR_GENERATION, PROV_ATTR_USAGE)
-                else ""
+            condition = " on a derivation with no activity" if guard is not None else ""
+            raise ProvUnificationError(
+                f"{records[0].identifier}: an absent {attr_name}{condition} "
+                f"means none, so it does not unify with {present[0]}"
             )
-            warn(
-                future_rejection_message(
-                    f"{records[0].identifier}: an absent {attr_name}{condition} "
-                    f"means none, so it does not unify with {present[0]}; "
-                    f"unified() merges the records and keeps {present[0]}",
-                    "raise ProvUnificationError",
-                    issue=547,
-                ),
-                ProvFutureRejectionWarning,
-            )
-            return
-        if attr_name == PROV_ATTR_ACTIVITY and present:
-            # A derivation that names its activity has expandable generation
-            # and usage.
-            return
 
 
 def _incompatible_types(type_a: QualifiedName, type_b: QualifiedName) -> bool:
@@ -284,12 +319,13 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
     Formal attributes are unified positionally: an absent value is an
     existential ("unknown") that unifies with anything, equal concrete values
     unify, and two different concrete values do not unify. An absent value in
-    a non-expandable position also unifies, and ``_warn_absent_non_expandable``
-    warns once the merged record is built. Non-formal ("extra") attributes are
-    unioned. The merged record is newly constructed from the unified formal
-    attributes, so no *formal-attribute* conflict is ever routed through
-    :meth:`ProvRecord.add_attributes`' single-value guard -- a conflict between
-    two records' *extra* attributes still is, since those are reasserted
+    a non-expandable position does not unify with a present one;
+    ``_check_non_expandable`` raises once the merged record is built, so a
+    conflict elsewhere in the records raises first. Non-formal ("extra")
+    attributes are unioned. The merged record is newly constructed from the
+    unified formal attributes, so no *formal-attribute* conflict is ever routed
+    through :meth:`ProvRecord.add_attributes`' single-value guard -- a conflict
+    between two records' *extra* attributes still is, since those are reasserted
     through the merged record's constructor unchanged.
 
     Args:
@@ -301,7 +337,8 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
 
     Raises:
         ProvUnificationError: If two of the records hold different concrete
-            values for the same formal attribute.
+            values for the same formal attribute, or an absent value in a
+            non-expandable position where another holds a concrete one.
     """
     first_record = records[0]
     record_type = first_record.get_type()
@@ -317,7 +354,7 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
                 # An absent formal attribute is an existential variable. The
                 # model cannot express PROV-N's placeholder `-`, so absent
                 # unifies with any concrete value; the non-expandable positions
-                # warn after the merge.
+                # are checked after the merge.
                 continue
             if unified_value is None:
                 unified_value = value
@@ -337,14 +374,12 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
     for record in records:
         attributes.extend(record.extra_attributes)
 
-    merged = _rebuild(
-        PROV_REC_CLS[record_type], first_record.bundle, identifier, attributes
-    )
-    _warn_absent_non_expandable(records)
+    merged = PROV_REC_CLS[record_type](first_record._bundle, identifier, attributes)
+    _check_non_expandable(records)
     return merged
 
 
-def _unify_record_group(records: list[ProvRecord]) -> dict[ProvRecord, ProvRecord]:
+def _unify_record_group(records: list[ProvRecord]) -> dict[int, ProvRecord]:
     """Merge records sharing an identifier by PROV-CONSTRAINTS term unification.
 
     Records are first partitioned by base record type (:data:`PROV_BASE_CLS`,
@@ -359,15 +394,18 @@ def _unify_record_group(records: list[ProvRecord]) -> dict[ProvRecord, ProvRecor
             assertion order.
 
     Returns:
-        A mapping from each original record in the group to the single,
-        newly created record that stands for its base type. Records of the
-        same base type map to the same merged record.
+        A mapping from the ``id()`` of each original record in the group
+        (so equal copies each have an entry) to the single, newly created
+        record that stands for its base type. Records of the same base type
+        map to the same merged record.
 
     Raises:
         ProvUnificationError: If two records of the same type hold different
-            concrete values for the same formal attribute, or if the group
-            spans two base record types that PROV-CONSTRAINTS' impossibility
-            constraints (53/54/55) forbid combining under one identifier.
+            concrete values for the same formal attribute, or an absent value
+            in a non-expandable position where another holds a concrete one,
+            or if the group spans two base record types that PROV-CONSTRAINTS'
+            impossibility constraints (53/54/55) forbid combining under one
+            identifier.
     """
     identifier = records[0].identifier
     groups: dict[QualifiedName, list[ProvRecord]] = defaultdict(list)
@@ -381,16 +419,26 @@ def _unify_record_group(records: list[ProvRecord]) -> dict[ProvRecord, ProvRecor
                 f"cannot unify {identifier}: incompatible types {type_a} and {type_b}"
             )
 
-    merged_records: dict[ProvRecord, ProvRecord] = {}
+    merged_records: dict[int, ProvRecord] = {}
     for group in groups.values():
         merged = _unify_same_type_group(group)
         for record in group:
-            merged_records[record] = merged
+            merged_records[id(record)] = merged
     return merged_records
 
 
+_R = TypeVar("_R", bound=ProvRecord)
+
+
 class ProvBundle:
-    """PROV Bundle"""
+    """A named or anonymous set of PROV records with its own namespaces.
+
+    A bundle holds records, has an optional identifier and registers only the
+    namespaces it binds itself, together with any namespace that its records
+    use and no enclosing scope declares. A name in a namespace that the
+    document declares resolves through the document. :class:`ProvDocument` is
+    the subclass that also holds bundles.
+    """
 
     def __init__(
         self,
@@ -398,6 +446,8 @@ class ProvBundle:
         identifier: QualifiedName | None = None,
         namespaces: NSCollection | None = None,
         document: ProvDocument | None = None,
+        *,
+        _parent: ProvDocument | None = None,
     ):
         """Initialise the bundle.
 
@@ -406,24 +456,35 @@ class ProvBundle:
                 (default: ``None``).
             identifier: Optional identifier of the bundle (default: ``None``).
             namespaces: Optional namespaces to register, as a ``{prefix: uri}``
-                dict or an iterable of :class:`~prov.identifier.Namespace`
+                mapping or an iterable of :class:`~prov.identifier.Namespace`
                 (default: ``None``).
-            document: Optional parent document for the bundle (default:
+            document: Deprecated parent document for the bundle (default:
                 ``None``).
+
+        .. deprecated:: 3.3.0
+            Create the bundle with :meth:`ProvDocument.bundle` or add it with
+            :meth:`ProvDocument.add_bundle`; 4.0 removes the ``document``
+            argument. Passing ``None`` does not warn.
         """
         #  Initializing bundle-specific attributes
         self._identifier = identifier
         self._records: list[ProvRecord] = []
         self._id_map: dict[QualifiedName, list[ProvRecord]] = defaultdict(list)
-        self._document = document
+        if document is not None:
+            warn(
+                "The document argument of ProvBundle() is deprecated and 4.0 "
+                "removes it; create the bundle with ProvDocument.bundle() or "
+                "add it with ProvDocument.add_bundle()",
+                DeprecationWarning,
+            )
+            _parent = document
+        self._document = _parent
         self._namespaces: NamespaceManager = NamespaceManager(
-            namespaces, parent=(document._namespaces if document is not None else None)
+            namespaces, parent=(_parent._namespaces if _parent is not None else None)
         )
         if records:
-            # Consume the iterable first: records it builds are assertions,
-            # not copies.
-            records = list(records)
-            _rebuild(self._add_record_copies, records)
+            for record in records:
+                self.add_record(record)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self._identifier}>"
@@ -441,7 +502,17 @@ class ProvBundle:
 
     @property
     def document(self) -> ProvDocument | None:
-        """The parent document of this bundle, or ``None`` if it has none."""
+        """The parent document of this bundle, or ``None`` if it has none.
+
+        .. deprecated:: 3.3.0
+            Keep a reference to the :class:`ProvDocument` that holds the
+            bundle; 4.0 removes this property.
+        """
+        warn(
+            "ProvBundle.document is deprecated and 4.0 removes it; keep a "
+            "reference to the ProvDocument that holds the bundle",
+            DeprecationWarning,
+        )
         return self._document
 
     @property
@@ -460,12 +531,53 @@ class ProvBundle:
 
         Args:
             uri: The URI of the default namespace.
+
+        Raises:
+            ProvValueError: If ``uri`` is blank or starts with ``@``.
+            ProvException: If the bundle holds a name in the current default
+                namespace, which the new one would make another name.
         """
+        self._refuse_changed_reading("", uri)
         self._namespaces.set_default_namespace(uri)
+
+    def _held_here(self) -> Iterator[QualifiedName]:
+        """The qualified names this scope holds, its own identifier first."""
+        if self._identifier is not None:
+            yield self._identifier
+        yield from _held_qualified_names(self._records)
+
+    def _inheriting_bundles(self, prefix: str) -> list[ProvBundle]:
+        """The bundles that read ``prefix`` through this scope."""
+        return []
+
+    def _refuse_changed_reading(self, prefix: str, uri: str) -> None:
+        """Refuse a declaration that would change the IRI of a name this scope,
+        or a bundle reading through it, holds."""
+        for scope in [self, *self._inheriting_bundles(prefix)]:
+            clash = _clashing_name(scope._held_here(), prefix, uri)
+            if clash is not None:
+                what = f"prefix {prefix} <{uri}>" if prefix else f"default <{uri}>"
+                kind = "document" if scope.is_document() else "bundle"
+                raise ProvException(
+                    f"cannot declare {what}: this {kind} holds {clash}, "
+                    f"which would read as {uri}{clash.localpart}"
+                )
 
     def get_default_namespace(self) -> Namespace | None:
         """Return the default namespace, or ``None`` if none is set."""
         return self._namespaces.get_default_namespace()
+
+    def _copy_declarations_from(self, source: ProvBundle | NamespaceManager) -> None:
+        """Declare ``source``'s registered namespaces and default here."""
+        for namespace in source.get_registered_namespaces():
+            self.add_namespace(namespace)
+        self._copy_default_from(source)
+
+    def _copy_default_from(self, source: ProvBundle | NamespaceManager) -> None:
+        """Make ``source``'s default namespace, if it has one, this scope's."""
+        default = source.get_default_namespace()
+        if default is not None:
+            self.set_default_namespace(default.uri)
 
     def add_namespace(
         self, namespace_or_prefix: Namespace | str, uri: str | None = None
@@ -482,17 +594,26 @@ class ProvBundle:
             The registered namespace (which may be an existing or renamed one).
 
         Raises:
-            ProvException: If a prefix string is given without a ``uri``.
+            ProvException: If a prefix string is given without a ``uri``, or
+                the prefix is not bound here but an enclosing scope binds it
+                and the bundle holds a name in that binding, which the new
+                namespace would make another name.
+            ProvValueError: If a prefix string is given that is empty or is not
+                a ``PN_PREFIX``, or whose ``uri`` is blank or starts with ``@``.
         """
-        if isinstance(namespace_or_prefix, Namespace):
-            return self._namespaces.add_namespace(namespace_or_prefix)
-        else:
-            if uri is not None:
-                return self._namespaces.add_namespace(
-                    Namespace(namespace_or_prefix, uri)
-                )
-            else:
+        if not isinstance(namespace_or_prefix, Namespace):
+            if uri is None:
                 raise ProvException("Cannot add a namespace without a URI")
+            namespace_or_prefix = Namespace(namespace_or_prefix, uri)
+        prefix = namespace_or_prefix.prefix
+        # no held name can use a prefix that no scope in reach binds
+        if (
+            prefix
+            and self._namespaces._binding(prefix) is None
+            and self._namespaces._binding_in_scope(prefix) is not None
+        ):
+            self._refuse_changed_reading(prefix, namespace_or_prefix.uri)
+        return self._namespaces.add_namespace(namespace_or_prefix)
 
     def get_registered_namespaces(self) -> Iterable[Namespace]:
         """Return all namespaces registered on the bundle.
@@ -513,38 +634,66 @@ class ProvBundle:
         Returns:
             The resolved :class:`~prov.identifier.QualifiedName`, or ``None`` if
             it could not be resolved.
+
+        Raises:
+            ProvExceptionInvalidQualifiedName: If the local part is one PROV-N
+                cannot write.
         """
         return self._namespaces.valid_qualified_name(identifier)
 
-    def _unresolved_reason(self, text: str) -> str | None:
-        """Return why ``text`` resolves to no qualified name in this bundle by
-        its prefix alone, or ``None`` when it resolves."""
-        return self._namespaces._unresolved_reason(text)
+    def _lookup(self, prefix: str, local: str) -> QualifiedName | None:
+        """Resolve a split name by its prefix in scope; see ``NamespaceManager.lookup``."""
+        return self._namespaces.lookup(prefix, local)
+
+    def _unresolved_reason(
+        self, prefix: str, local: str, colon: bool, text: str
+    ) -> str:
+        """Why a split name does not resolve in this bundle by its prefix,
+        after :meth:`_lookup` returned ``None``; ``colon`` says it was
+        written with a ``:`` and ``text`` is the name as written."""
+        return self._namespaces._unresolved_reason(prefix, local, colon, text)
 
     def mandatory_valid_qname(
-        self, identifier: QualifiedNameCandidate
+        self, identifier: QualifiedNameCandidate, *, attr: QualifiedName | None = None
     ) -> QualifiedName:
         """Resolve an identifier to a qualified name, requiring success.
 
         Args:
             identifier: The candidate to resolve.
+            attr: The attribute the identifier is the value of, named in the
+                message when given (default: ``None``).
 
         Returns:
             The resolved :class:`~prov.identifier.QualifiedName`.
 
         Raises:
             ProvExceptionInvalidQualifiedName: If the identifier cannot be
-                resolved to a valid qualified name.
+                resolved to a valid qualified name. A string or IRI that no
+                namespace resolves carries the sentence saying why.
         """
-        valid_qname = self.valid_qualified_name(identifier)
+        valid_qname = self._namespaces.valid_qualified_name(identifier)
         if valid_qname is not None:
             return valid_qname
-        else:
+        if not isinstance(identifier, (str, Identifier)):
             raise ProvExceptionInvalidQualifiedName(identifier)
+        text = identifier if isinstance(identifier, str) else identifier.uri
+        prefix, local = _split_name(text)
+        raise ProvExceptionInvalidQualifiedName(
+            identifier,
+            unresolved_name_sentence(self, prefix, local, ":" in text, text, attr),
+        )
+
+    @overload
+    def get_records(self, class_or_type_or_tuple: type[_R]) -> list[_R]: ...
+
+    @overload
+    def get_records(
+        self, class_or_type_or_tuple: tuple[type, ...] | None = None
+    ) -> list[ProvRecord]: ...
 
     def get_records(
-        self, class_or_type_or_tuple: type | tuple[type] | None = None
-    ) -> Iterable[ProvRecord]:
+        self, class_or_type_or_tuple: type | tuple[type, ...] | None = None
+    ) -> list[Any]:
         """Return the bundle's records, optionally filtered by type.
 
         Args:
@@ -553,14 +702,15 @@ class ProvBundle:
                 (default: ``None``, meaning all records).
 
         Returns:
-            The matching :class:`ProvRecord` objects (a list when unfiltered,
-            otherwise a filter iterator).
+            A new list of the matching :class:`ProvRecord` objects.
         """
-        results = list(self._records)  # make a (shallow) copy of the record list
         if class_or_type_or_tuple:
-            return filter(lambda rec: isinstance(rec, class_or_type_or_tuple), results)
-        else:
-            return results
+            return [
+                record
+                for record in self._records
+                if isinstance(record, class_or_type_or_tuple)
+            ]
+        return list(self._records)
 
     def get_record(self, identifier: QualifiedNameCandidate) -> list[ProvRecord]:
         """Return all records matching a given identifier.
@@ -572,7 +722,10 @@ class ProvBundle:
             The matching :class:`ProvRecord` objects, or an empty list if the
             identifier is invalid or unknown.
         """
-        valid_id = self.valid_qualified_name(identifier)
+        try:
+            valid_id = self.valid_qualified_name(identifier)
+        except ProvExceptionInvalidQualifiedName:
+            return []
         return list(self._id_map[valid_id]) if valid_id is not None else []
 
     # Miscellaneous functions
@@ -589,7 +742,7 @@ class ProvBundle:
         return False
 
     @property
-    def bundles(self) -> Iterable[ProvBundle]:
+    def bundles(self) -> ValuesView[ProvBundle]:
         """The bundles contained in this object.
 
         Raises:
@@ -598,74 +751,25 @@ class ProvBundle:
         """
         raise ProvException("A PROV bundle does not contain sub-bundles")
 
-    def _provn_header_id(
-        self,
-        default_namespace: Namespace | None,
-        registered_namespaces: list[Namespace],
-    ) -> tuple[str, Namespace | None]:
-        """Return the bundle header's identifier text and, if needed, an
-        extra prefix declaration for its namespace.
+    def _provn_header(self) -> str:
+        """The ``document`` or ``bundle <id>`` line that opens the PROV-N text."""
+        if self.is_document():
+            return "document"
+        identifier = self._identifier
+        return f"bundle {identifier.provn_bare_representation() if identifier else ''}"
 
-        A bare identifier in a namespace with no prefix would, on re-read,
-        resolve against the bundle's own default namespace (PROV-N 3.4.1)
-        rather than the namespace it was minted in. When those differ, this
-        mints a prefix for the identifier's namespace instead of writing the
-        identifier bare.
-        """
-        if self._identifier is None:
-            return "", None
-        id_namespace = self._identifier.namespace
-        if (
-            id_namespace.prefix
-            or default_namespace is None
-            or default_namespace.uri == id_namespace.uri
-        ):
-            return self._identifier.provn_bare_representation(), None
-        prefix = "dn"
-        taken = {ns.prefix for ns in registered_namespaces}
-        count = 1
-        while prefix in taken:
-            prefix = f"dn_{count}"
-            count += 1
-        extra_prefix = Namespace(prefix, id_namespace.uri)
-        localpart = _provn_escape_local_and_warn(
-            self._identifier.localpart, self._identifier.uri
-        )
-        return f"{prefix}:{localpart}", extra_prefix
-
-    def _uses_xsi(self) -> bool:
-        """Whether a record in this bundle, not its sub-bundles, names an ``xsi:`` term."""
-
-        def in_xsi(value: object) -> bool:
-            return isinstance(value, QualifiedName) and value.namespace.uri == XSI.uri
-
-        for record in self._records:
-            if in_xsi(record.identifier):
-                return True
-            for name, value in record.attributes:
-                if in_xsi(name) or in_xsi(value):
-                    return True
-                if isinstance(value, Literal) and in_xsi(value.datatype):
-                    return True
-        return False
-
-    def _provn_namespace_lines(
-        self,
-        default_namespace: Namespace | None,
-        registered_namespaces: list[Namespace],
-        extra_prefix: Namespace | None,
-    ) -> list[str]:
+    def _provn_namespace_lines(self) -> list[str]:
         """Return the header's ``default``/``prefix`` declaration lines.
 
         Checks every namespace being declared is a legal PROV-N IRI first,
         then a trailing blank line separates the declarations from the
         assertions that follow, present only when there is at least one.
         """
+        default_namespace = self._namespaces.get_default_namespace()
+        registered_namespaces = list(self._namespaces.get_registered_namespaces())
         for namespace in (
-            ([default_namespace] if default_namespace else [])
-            + registered_namespaces
-            + ([extra_prefix] if extra_prefix else [])
-        ):
+            [default_namespace] if default_namespace else []
+        ) + registered_namespaces:
             _check_provn_iri(namespace)
 
         lines = [f"default <{default_namespace.uri}>"] if default_namespace else []
@@ -673,97 +777,45 @@ class ProvBundle:
             f"prefix {namespace.prefix} <{namespace.uri}>"
             for namespace in registered_namespaces
         )
-        if extra_prefix is not None:
-            lines.append(f"prefix {extra_prefix.prefix} <{extra_prefix.uri}>")
         if lines:
             #  a blank line between the prefixes and the assertions
             lines.append("")
         return lines
 
-    def get_provn(self, _indent_level: int = 0, strict: bool = False) -> str:
+    def get_provn(self, *, strict: bool = False, width: int | None = 80) -> str:
         """Return the PROV-N representation of the bundle.
 
         Args:
-            _indent_level: Indentation level for nested bundles.
-            strict: Write ``prov:mentionOf`` instead of the bare
-                ``mentionOf`` keyword so the output parses under the strict
-                PROV-N profile.
+            strict: Write output that parses under the strict PROV-N
+                profile, as :meth:`ProvRecord.get_provn` describes, dropping
+                what ``alternateOf``, ``specializationOf`` and ``hadMember``
+                cannot carry there, with a warning each.
+            width: The column limit for one line, as
+                :meth:`ProvRecord.get_provn` describes, counted with the
+                indentation of the statement. ``None`` never wraps.
         """
-        indentation = "" + ("  " * _indent_level)
-        newline = "\n" + ("  " * (_indent_level + 1))
-
-        #  if this is the document, start the document;
-        # otherwise, start the bundle
-        default_namespace = self._namespaces.get_default_namespace()
-        registered_namespaces = list(self._namespaces.get_registered_namespaces())
-        record_lines = [record.get_provn(strict=strict) for record in self._records]
-        # PROV-N predeclares only prov and xsd. The writer spells every xsi
-        # name as "xsi:...", so the substring scan skips the record walk for
-        # documents without one; _uses_xsi() then rules out string values.
-        if (
-            any("xsi:" in line for line in record_lines)
-            and self._uses_xsi()
-            and not any(
-                ns.prefix == XSI.prefix and ns.uri == XSI.uri
-                for ns in registered_namespaces
-            )
-        ):
-            registered_namespaces.append(XSI)
-        bundle_id, extra_prefix = self._provn_header_id(
-            default_namespace, registered_namespaces
-        )
-        lines = ["document"] if self.is_document() else [f"bundle {bundle_id}"]
+        inner = None if width is None else width - 2
+        lines = [self._provn_header()]
+        lines.extend(self._provn_namespace_lines())
         lines.extend(
-            self._provn_namespace_lines(
-                default_namespace, registered_namespaces, extra_prefix
-            )
+            record.get_provn(strict=strict, width=inner) for record in self._records
         )
-
-        #  adding all the records
-        lines.extend(record_lines)
         if self.is_document():
-            # Print out bundles
             lines.extend(
-                bundle.get_provn(_indent_level + 1, strict=strict)
-                for bundle in self.bundles
+                bundle.get_provn(strict=strict, width=inner) for bundle in self.bundles
             )
-        provn_str = newline.join(lines) + "\n"
-
-        #  closing the structure
-        provn_str += indentation + (
-            "endDocument" if self.is_document() else "endBundle"
-        )
-        return provn_str
+        body = _indent_line_feeds("\n".join(lines), "\n  ")
+        return body + "\n" + ("endDocument" if self.is_document() else "endBundle")
 
     def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, ProvBundle):
-            return False
-        other_records = set(other.get_records())
-        this_records = set(self.get_records())
-        if len(this_records) != len(other_records):
-            return False
-        if this_records == other_records:
-            # The common case (e.g. after a round trip): every record has a
-            # hash-equal counterpart, settled in O(n).
-            return True
-        # ProvRecord.__eq__ is looser than ProvRecord.__hash__ (a record
-        # without an identifier equals one with, given the same type and
-        # attributes), so records that hash differently may still match.
-        for record_a in this_records:
-            #  Manually look for the record
-            found = False
-            for record_b in other_records:
-                if record_a == record_b:
-                    other_records.remove(record_b)
-                    found = True
-                    break
-            if not found:
-                logger.debug(
-                    "Equality (ProvBundle): Could not find this record: %s",
-                    str(record_a),
-                )
-                return False
-        return True
+        # Record equality agrees with record hashing, so one set comparison
+        # settles it; a bundle and a document are unequal here too, for a
+        # ProvBundle subclass that reaches this method first.
+        return (
+            isinstance(other, ProvBundle)
+            and self.is_document() == other.is_document()
+            and set(self.get_records()) == set(other.get_records())
+        )
 
     def __ne__(self, other: Any) -> bool:
         return not (self == other)
@@ -772,13 +824,15 @@ class ProvBundle:
 
     # Transformations
     def _unified_records(self) -> list[ProvRecord]:
-        """Returns a list of unified records."""
-        merged_records = {}
-        for _identifier, records in self._id_map.items():
+        """The records with same-identifier groups merged and each record
+        kept once, in the order of the first occurrence."""
+        merged_records: dict[int, ProvRecord] = {}
+        for records in self._id_map.values():
             if len(records) > 1:
-                # more than one record having the same identifier: unify them,
-                # per base record type (usually one type, but PROV-CONSTRAINTS
-                # permits an id to carry more than one, e.g. agent + entity)
+                # Unify per base record type (usually one type, but
+                # PROV-CONSTRAINTS permits an identifier to carry more than
+                # one, e.g. agent + entity). PROV-DM and PROV-Links give the
+                # keyless relations no identifier to merge on.
                 keyed = [
                     record
                     for record in records
@@ -786,68 +840,60 @@ class ProvBundle:
                 ]
                 if len(keyed) > 1:
                     merged_records.update(_unify_record_group(keyed))
-        if not merged_records:
-            # No merging done, just return the list of original records
-            return list(self._records)
-
-        added_merged_records = set()
-        unified_records = []
-        for record in self._records:
-            if record in merged_records:
-                merged = merged_records[record]
-                if merged not in added_merged_records:
-                    unified_records.append(merged)
-                    added_merged_records.add(merged)
-            else:
-                # add the original record
-                unified_records.append(record)
-        return unified_records
+        records = (
+            [merged_records.get(id(record), record) for record in self._records]
+            if merged_records
+            else self._records
+        )
+        # dict.fromkeys keeps the first of equal records, by == and hash.
+        return list(dict.fromkeys(records))
 
     def unified(self) -> ProvBundle:
         """Return a new bundle with records sharing an identifier merged.
 
-        For each identifier carried by more than one record, the records are
-        first checked for type compatibility (W3C PROV-CONSTRAINTS'
-        impossibility constraints 53, 54 and 55): an entity and an activity (or
-        two distinct relation kinds, e.g. a generation and a usage) cannot
-        share an identifier and raise; a spec-permitted overlap (an agent that
-        is also an entity and/or an activity) is kept as separate records, one
-        per type. Within each type, a single merged record is produced by the
-        term unification of key constraints 22 and 23: the records' formal
-        attributes are unified position by position — an absent formal
-        attribute is an existential that unifies with any concrete value,
-        equal concrete values unify, and two different concrete values do not
-        — while their remaining attributes are unioned. In the non-expandable
-        positions of PROV-CONSTRAINTS Table 3 (the plan of an association,
-        the activity of a derivation, and the generation and usage of a
-        derivation with no activity) an absent value means "none"; it still
-        unifies with a concrete value, with a warning. Records with a unique
-        identifier, or no identifier, pass through unchanged. So do
-        ``alternateOf``, ``specializationOf``, ``mentionOf`` and ``hadMember``
-        records, even when several share an identifier, since PROV-DM and
-        PROV-Links give these relations no identifier to merge on.
+        .. deprecated:: 3.3.0
+            Unify the document with :meth:`ProvDocument.unified`, which
+            unifies each bundle in place; 4.0 removes this method.
 
-        This is not the specification's full normalization: the uniqueness
-        constraints keyed on something other than the record identifier
-        (Constraints 24-29) are not checked and no inference is performed. The
+        Unification follows the rules of :meth:`ProvDocument.unified`. The
         original bundle is left untouched.
+
+        The new bundle belongs to no document. A bundle inside a document
+        gives it the document's declarations it does not make itself, declared
+        first, so every name resolves to the IRI it has in the original; an
+        IRI both scopes bind is spelled with the document's prefix.
 
         Returns:
             The new, unified :class:`ProvBundle`.
 
         Raises:
-            ProvUnificationError: If two records of the same type sharing an
-                identifier hold different concrete values for the same formal
-                attribute, or if two records sharing an identifier have
-                incompatible types.
-
-        Warns:
-            ProvFutureRejectionWarning: If two records sharing an identifier
-                pair an absent non-expandable formal attribute with a present
-                one. prov 3.3.0 raises ProvUnificationError instead.
+            ProvUnificationError: As :meth:`ProvDocument.unified` raises it,
+                for records of the bundle that cannot be merged.
         """
-        unified_records = self._unified_records()
-        bundle = ProvBundle(records=unified_records, identifier=self.identifier)
+        warn(
+            "ProvBundle.unified() is deprecated and 4.0 removes it; unify the "
+            "document with ProvDocument.unified()",
+            DeprecationWarning,
+        )
+        return self._unified_copy(None)
+
+    def _unified_copy(self, document: ProvDocument | None) -> ProvBundle:
+        """The unified bundle, built inside ``document``, or standalone."""
+        bundle = ProvBundle(identifier=self.identifier, _parent=document)
+        # a standalone copy declares what the bundle reads through its document;
+        # the branch goes in 4.0 with ProvBundle.unified() and with prov_to_dot,
+        # which draws a bundle that is not a document
+        enclosing = self._namespaces.parent if document is None else None
+        if enclosing is not None:
+            # first, so a namespace both scopes bind keeps the document's prefix
+            for namespace in enclosing.get_registered_namespaces():
+                if namespace.prefix not in self._namespaces:
+                    bundle.add_namespace(namespace)
+        bundle._copy_declarations_from(self)
+        if enclosing is not None and bundle.get_default_namespace() is None:
+            bundle._copy_default_from(enclosing)
+        for record in self._unified_records():
+            bundle.add_record(record)
         return bundle
 
     def update(self, other: ProvBundle) -> None:
@@ -867,7 +913,8 @@ class ProvBundle:
                     "ProvBundle.update(): The other bundle is a document with "
                     "sub-bundle(s)."
                 )
-            _rebuild(self._add_record_copies, other.get_records())
+            for record in other.get_records():
+                self.add_record(record)
         else:
             raise ProvException(
                 "ProvBundle.update(): The other bundle is not a ProvBundle "
@@ -894,7 +941,7 @@ class ProvBundle:
 
         Args:
             record_type: The record type, one of the keys of
-                :data:`PROV_REC_CLS`.
+                :data:`~prov.model.PROV_REC_CLS`.
             identifier: The identifier for the new record (may be ``None`` for
                 relations).
             attributes: Formal attributes of the record, as a dict or a
@@ -904,6 +951,13 @@ class ProvBundle:
 
         Returns:
             The newly created and added :class:`ProvRecord`.
+
+        Raises:
+            ProvExceptionInvalidQualifiedName: If ``identifier`` is set and
+                no namespace resolves it.
+            ProvMissingFormalAttribute: If ``record_type`` is a ``hadMember``,
+                ``alternateOf``, ``specializationOf`` or ``mentionOf`` and
+                ``attributes`` leave a party without a value.
         """
         attr_list: list[AttributePair] = []
         if attributes:
@@ -911,7 +965,7 @@ class ProvBundle:
         if other_attributes:
             attr_list.extend(_attribute_pairs(other_attributes))
         record_identifier = (
-            self.valid_qualified_name(identifier) if identifier else None
+            self.mandatory_valid_qname(identifier) if identifier else None
         )
         new_record = PROV_REC_CLS[record_type](self, record_identifier, attr_list)
         self._add_record(new_record)
@@ -929,23 +983,18 @@ class ProvBundle:
 
         Returns:
             The newly created :class:`ProvRecord` belonging to this bundle.
+
+        Raises:
+            ProvMissingFormalAttribute: If ``record`` is a ``hadMember``,
+                ``alternateOf``, ``specializationOf`` or ``mentionOf`` with a
+                party missing.
         """
-        copy_args = (
+        return self.new_record(
             record.get_type(),
             record.identifier,
             record.formal_attributes,
             record.extra_attributes,
         )
-        if _rebuilding.get():
-            return self.new_record(*copy_args)
-        # A lone copy sets the rebuild guard; copies made in a loop share
-        # the guard _add_record_copies() holds.
-        return _rebuild(self.new_record, *copy_args)
-
-    def _add_record_copies(self, records: Iterable[ProvRecord]) -> None:
-        # Call through _rebuild(), which holds the guard for every copy.
-        for record in records:
-            self.add_record(record)
 
     def entity(
         self,
@@ -1571,6 +1620,10 @@ class ProvBundle:
 
         Returns:
             The new :class:`ProvSpecialization` record.
+
+        Raises:
+            ProvMissingFormalAttribute: If ``specificEntity`` or ``generalEntity``
+                is ``None``.
         """
         attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_SPECIFIC_ENTITY: specificEntity,
@@ -1593,6 +1646,10 @@ class ProvBundle:
 
         Returns:
             The new :class:`ProvAlternate` record.
+
+        Raises:
+            ProvMissingFormalAttribute: If ``alternate1`` or ``alternate2``
+                is ``None``.
         """
         attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_ALTERNATE1: alternate1,
@@ -1619,6 +1676,10 @@ class ProvBundle:
 
         Returns:
             The new :class:`ProvMention` record.
+
+        Raises:
+            ProvMissingFormalAttribute: If ``specificEntity`` or ``generalEntity``
+                is ``None``.
         """
         attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_SPECIFIC_ENTITY: specificEntity,
@@ -1663,6 +1724,10 @@ class ProvBundle:
 
         Returns:
             The new :class:`ProvMembership` record.
+
+        Raises:
+            ProvMissingFormalAttribute: If ``collection`` or ``entity``
+                is ``None``.
         """
         attributes: dict[QualifiedNameCandidate, Any] = {
             PROV_ATTR_COLLECTION: collection,
@@ -1682,12 +1747,17 @@ class ProvBundle:
         show_element_attributes: bool = True,
         show_relation_attributes: bool = True,
     ) -> None:
-        """Plot the bundle as a graph, saving to a file or displaying it.
+        """Plot the document as a graph, saving to a file or displaying it.
+
+        The graph is the one :func:`prov.dot.prov_to_dot` draws. A bundle that
+        is not a document warns :class:`DeprecationWarning`, as
+        :func:`prov.dot.prov_to_dot` does, and 4.0 draws documents only.
 
         Args:
-            filename: The path to save the plot to; the image format is derived
-                from its extension. If not given, the plot is shown in an
-                interactive matplotlib window (default: ``None``).
+            filename: The path to save the plot to, written through Graphviz;
+                the image format is derived from its extension. If not given,
+                the plot is shown through matplotlib, in an interactive window
+                or inline in a notebook (default: ``None``).
             show_nary: Whether to show all elements in n-ary relations
                 (default: ``True``).
             use_labels: Whether to label elements by their ``prov:label``
@@ -1781,7 +1851,11 @@ class ProvBundle:
 
 
 class ProvDocument(ProvBundle):
-    """Provenance Document."""
+    """The top-level container of a PROV document.
+
+    A document holds records and named bundles. ``serialize()`` writes one,
+    and :func:`prov.read` returns one.
+    """
 
     def __init__(
         self,
@@ -1794,7 +1868,7 @@ class ProvDocument(ProvBundle):
             records: Optional iterable of records to add to the document
                 (default: ``None``).
             namespaces: Optional namespaces to register, as a ``{prefix: uri}``
-                dict or an iterable of :class:`~prov.identifier.Namespace`
+                mapping or an iterable of :class:`~prov.identifier.Namespace`
                 (default: ``None``).
         """
         ProvBundle.__init__(
@@ -1806,22 +1880,11 @@ class ProvDocument(ProvBundle):
         return "<ProvDocument>"
 
     def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, ProvDocument):
-            return False
-        # Comparing the documents' content
-        if not super().__eq__(other):
-            return False
-
-        # Comparing the documents' bundles
-        for b_id, bundle in self._bundles.items():
-            if b_id not in other._bundles:
-                return False
-            other_bundle = other._bundles[b_id]
-            if bundle != other_bundle:
-                return False
-
-        # Everything is the same
-        return True
+        return (
+            isinstance(other, ProvDocument)
+            and self._bundles == other._bundles
+            and super().__eq__(other)
+        )
 
     def is_document(self) -> bool:
         """Return ``True`` if this is a document, ``False`` otherwise."""
@@ -1836,7 +1899,7 @@ class ProvDocument(ProvBundle):
         return len(self._bundles) > 0
 
     @property
-    def bundles(self) -> Iterable[ProvBundle]:
+    def bundles(self) -> ValuesView[ProvBundle]:
         """The bundles contained in this document."""
         return self._bundles.values()
 
@@ -1857,26 +1920,60 @@ class ProvDocument(ProvBundle):
         if self._bundles:
             # Creating a new document for all the records
             new_doc = ProvDocument()
+            new_doc._copy_declarations_from(self)
+            new_doc._declare_prefixes_for_bundle_defaults(self.bundles)
             bundled_records = itertools.chain(
                 *[b.get_records() for b in self._bundles.values()]
             )
-            _rebuild(
-                new_doc._add_record_copies,
-                itertools.chain(self._records, bundled_records),
-            )
+            for record in itertools.chain(self._records, bundled_records):
+                new_doc.add_record(record)
             return new_doc
         else:
             # returning the same document
             return self
 
+    def _inheriting_bundles(self, prefix: str) -> list[ProvBundle]:
+        return [
+            bundle
+            for bundle in self._bundles.values()
+            if bundle._namespaces._binding(prefix) is None
+        ]
+
+    def _declare_prefixes_for_bundle_defaults(
+        self, bundles: Iterable[ProvBundle]
+    ) -> None:
+        """Declare a prefix for each default ``bundles`` read, their own or
+        else their document's, that differs from this document's, so their
+        bare names keep a spelling here: a prefix already bound to the IRI,
+        else one the bundle binds to it, else ``dn`` or the next free suffix."""
+        for bundle in bundles:
+            defaults = (s.get_default_namespace() for s in bundle._namespaces._scopes())
+            default = next((d for d in defaults if d is not None), None)
+            uri = default.uri if default is not None else None
+            if (
+                uri is None
+                or uri == self.default_ns_uri
+                or self._namespaces.get_namespace(uri) is not None
+            ):
+                continue
+            own = next(
+                (ns for ns in bundle.get_registered_namespaces() if ns.uri == uri),
+                None,
+            )
+            self.add_namespace(
+                own or Namespace(self._namespaces._unused_prefix_in_scope("dn"), uri)
+            )
+
     def unified(self) -> ProvDocument:
         """Return a new document with records sharing an identifier merged.
 
-        The term unification of :meth:`ProvBundle.unified` is applied to the
-        document's top-level records and, independently, to each contained
-        bundle, preserving the bundle structure — as PROV-CONSTRAINTS §7.2
-        requires, nothing is merged across a bundle boundary. The original
-        document is left untouched.
+        Records that share an identifier in one scope, the document's top
+        level or one bundle, merge into one record, and the original document
+        is left untouched. After the merge, a record equal to an earlier one
+        is dropped. Records that share an identifier but cannot merge raise
+        :class:`~prov.model.ProvUnificationError`.
+        :doc:`/explanation/unification-flattening` gives the rules, the
+        exceptions and the limits.
 
         Returns:
             The new, unified :class:`ProvDocument`.
@@ -1884,18 +1981,17 @@ class ProvDocument(ProvBundle):
         Raises:
             ProvUnificationError: If two records sharing an identifier within
                 the same scope hold different concrete values for the same
-                formal attribute, or have incompatible types (see
-                :meth:`ProvBundle.unified`).
-
-        Warns:
-            ProvFutureRejectionWarning: As for :meth:`ProvBundle.unified`, in
-                the document's top-level records or in any of its bundles.
+                formal attribute, or one leaves out a value in a position that
+                cannot take one, such as an association's plan, where another
+                holds a concrete one, or the records have incompatible types,
+                such as an entity and an activity.
         """
-        document = ProvDocument(self._unified_records())
-        document._namespaces = self._namespaces
+        document = ProvDocument()
+        document._copy_declarations_from(self)
+        for record in self._unified_records():
+            document.add_record(record)
         for bundle in self.bundles:
-            unified_bundle = bundle.unified()
-            document.add_bundle(unified_bundle)
+            document.add_bundle(bundle._unified_copy(document))
         return document
 
     def update(self, other: ProvBundle) -> None:
@@ -1914,7 +2010,8 @@ class ProvDocument(ProvBundle):
                 subclass).
         """
         if isinstance(other, ProvBundle):
-            _rebuild(self._add_record_copies, other.get_records())
+            for record in other.get_records():
+                self.add_record(record)
             if other.has_bundles():
                 for bundle in other.bundles:
                     bundle_id = bundle.identifier
@@ -1926,6 +2023,7 @@ class ProvDocument(ProvBundle):
                         self._bundles[bundle_id].update(bundle)
                     else:
                         new_bundle = self.bundle(bundle_id)
+                        new_bundle._copy_declarations_from(bundle)
                         new_bundle.update(bundle)
         else:
             raise ProvException(
@@ -1935,13 +2033,13 @@ class ProvDocument(ProvBundle):
 
     # Bundle operations
     def add_bundle(
-        self, bundle: ProvBundle, identifier: QualifiedName | None = None
+        self, bundle: ProvBundle, identifier: QualifiedNameCandidate | None = None
     ) -> None:
         """Add a bundle to this document.
 
         If a document (with no nested bundles) is passed, its records are copied
-        into a fresh bundle. The bundle's identifier is normalised against this
-        document's namespaces.
+        into a fresh bundle. The bundle's identifier resolves against the bundle's own
+        namespaces first and then this document's.
 
         Args:
             bundle: The :class:`ProvBundle` to add.
@@ -1951,7 +2049,10 @@ class ProvDocument(ProvBundle):
         Raises:
             ProvException: If ``bundle`` is not a :class:`ProvBundle`, is a
                 document with nested bundles, has no usable identifier, or an
-                identifier collides with an existing bundle.
+                identifier collides with an existing bundle, or ``bundle``
+                already belongs to another document.
+            ProvExceptionInvalidQualifiedName: If no namespace resolves
+                ``identifier``.
         """
         if not isinstance(bundle, ProvBundle):
             raise ProvException(
@@ -1964,9 +2065,17 @@ class ProvDocument(ProvBundle):
                     "Cannot add a document with nested bundles as a bundle."
                 )
             # Make it a new ProvBundle
-            new_bundle = ProvBundle(namespaces=list(bundle.get_registered_namespaces()))
+            new_bundle = ProvBundle()
+            new_bundle._copy_declarations_from(bundle)
             new_bundle.update(bundle)
             bundle = new_bundle
+
+        previous = bundle._namespaces.parent
+        if previous is not None and previous is not self._namespaces:
+            raise ProvException(
+                "the bundle belongs to another document; "
+                "a bundle is not moved between documents"
+            )
 
         if identifier is None:
             identifier = bundle.identifier
@@ -1974,18 +2083,37 @@ class ProvDocument(ProvBundle):
         if not identifier:
             raise ProvException("The provided bundle has no identifier")
 
-        # Link the bundle namespace manager to the document's
-        bundle._namespaces.parent = self._namespaces
+        valid_id = self._bundle_identifier(bundle, identifier)
 
-        valid_id = bundle.mandatory_valid_qname(identifier)
         # IMPORTANT: Rewriting the bundle identifier for consistency
         bundle._identifier = valid_id
-
-        if valid_id in self._bundles:
-            raise ProvException("A bundle with that identifier already exists")
-
         self._bundles[valid_id] = bundle
         bundle._document = self
+
+    def _bundle_identifier(
+        self, bundle: ProvBundle, identifier: QualifiedNameCandidate
+    ) -> QualifiedName:
+        """Link ``bundle`` to this document's namespaces and resolve ``identifier``.
+
+        A ``QualifiedName`` is checked before the link because resolving it may
+        register its namespace on the bundle. A string or ``Identifier`` resolves
+        through the link, which a refusal restores, and the second check covers
+        those. The link stays for resolution because an unlinked read would
+        compact a prefix the document declares (#599).
+        """
+        if isinstance(identifier, QualifiedName) and identifier in self._bundles:
+            raise ProvException(_DUPLICATE_BUNDLE)
+
+        previous = bundle._namespaces.parent
+        bundle._namespaces.parent = self._namespaces
+        try:
+            valid_id = bundle.mandatory_valid_qname(identifier)
+            if valid_id in self._bundles:
+                raise ProvException(_DUPLICATE_BUNDLE)
+        except ProvException:
+            bundle._namespaces.parent = previous
+            raise
+        return valid_id
 
     def bundle(self, identifier: QualifiedNameCandidate) -> ProvBundle:
         """Create a new, empty named bundle in this document.
@@ -1997,23 +2125,38 @@ class ProvDocument(ProvBundle):
             The newly created :class:`ProvBundle`.
 
         Raises:
-            ProvException: If ``identifier`` is ``None`` or invalid, or a bundle
-                with that identifier already exists.
+            ProvException: If ``identifier`` is ``None`` or a bundle with that
+                identifier already exists.
+            ProvExceptionInvalidQualifiedName: If no namespace resolves
+                ``identifier``.
         """
         if identifier is None:
             raise ProvException(
                 "An identifier is required. Cannot create an unnamed bundle."
             )
-        valid_id = self.valid_qualified_name(identifier)
-        if valid_id is None:
-            raise ProvException(f'The provided identifier "{identifier}" is not valid')
+        valid_id = self.mandatory_valid_qname(identifier)
         if valid_id in self._bundles:
-            raise ProvException("A bundle with that identifier already exists")
-        b = ProvBundle(identifier=valid_id, document=self)
+            raise ProvException(_DUPLICATE_BUNDLE)
+        b = ProvBundle(identifier=valid_id, _parent=self)
         self._bundles[valid_id] = b
         return b
 
     # Serializing and deserializing
+    @overload
+    def serialize(
+        self, destination: None = None, format: str = "json", **args: Any
+    ) -> str: ...
+
+    @overload
+    def serialize(
+        self, destination: StreamOrPath, format: str = "json", **args: Any
+    ) -> None: ...
+
+    @overload
+    def serialize(
+        self, destination: StreamOrPath | None, format: str = "json", **args: Any
+    ) -> str | None: ...
+
     def serialize(
         self,
         destination: StreamOrPath | None = None,
@@ -2124,6 +2267,21 @@ class ProvDocument(ProvBundle):
         raise TypeError("Either source or content must be provided")
 
 
+@functools.cache
+def _xml_attribute_rank(element: QualifiedName) -> Mapping[QualifiedName, int]:
+    """Map each attribute name to its place in PROV-XML order for ``element``,
+    which is its formal attributes, then label, location, role, type and value."""
+    order = (
+        *PROV_REC_CLS[element].FORMAL_ATTRIBUTES,
+        PROV_LABEL,
+        PROV_LOCATION,
+        PROV_ROLE,
+        PROV_TYPE,
+        PROV_VALUE,
+    )
+    return {name: position for position, name in enumerate(order)}
+
+
 def sorted_attributes(
     element: QualifiedName, attributes: Iterable[NameValuePair]
 ) -> list[NameValuePair]:
@@ -2138,33 +2296,15 @@ def sorted_attributes(
         label/location/role/type/value attributes, then any remaining
         attributes alphabetically.
     """
-    attributes = list(attributes)
-    order = list(PROV_REC_CLS[element].FORMAL_ATTRIBUTES)
+    rank = _xml_attribute_rank(element)
+    last = len(rank)
 
-    # Append label, location, role, type, and value attributes. This is
-    # universal amongst all elements.
-    order.extend([PROV_LABEL, PROV_LOCATION, PROV_ROLE, PROV_TYPE, PROV_VALUE])
+    # The PROV XML specification talks about alphabetical sorting. This
+    # interprets it as sorting by tag including the prefix first and then by
+    # the text, also including the namespace prefix if given. Unranked
+    # attributes come after ranked ones.
+    def sort_key(x: NameValuePair) -> tuple[int, str, str]:
+        value = getattr(x[1], "value", x[1])
+        return rank.get(x[0], last), str(x[0]), str(value)
 
-    # Sort function. The PROV XML specification talks about alphabetical
-    # sorting. We now interpret it as sorting by tag including the prefix
-    # first and then sorting by the text, also including the namespace
-    # prefix if given.
-    def sort_fct(x: NameValuePair) -> tuple[str, str]:
-        return str(x[0]), str(x[1].value if hasattr(x[1], "value") else x[1])
-
-    sorted_elements = []
-    for item in order:
-        this_type_list = []
-        for e in list(attributes):
-            if e[0] != item:
-                continue
-            this_type_list.append(e)
-            attributes.remove(e)
-        this_type_list.sort(key=sort_fct)
-        sorted_elements.extend(this_type_list)
-    # Add remaining attributes. According to the spec, the other attributes
-    # have a fixed alphabetical order.
-    attributes.sort(key=sort_fct)
-    sorted_elements.extend(attributes)
-
-    return sorted_elements
+    return sorted(attributes, key=sort_key)

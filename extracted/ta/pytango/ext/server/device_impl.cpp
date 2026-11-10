@@ -1712,4 +1712,11 @@ void export_device_impl(py::module &m) {
     fix_dynamic_attr_dealloc<Tango::Device_4Impl>();
     fix_dynamic_attr_dealloc<Tango::Device_5Impl>();
     fix_dynamic_attr_dealloc<Tango::Device_6Impl>();
+
+    raise_on_use_before_init<Tango::DeviceImpl>();
+    raise_on_use_before_init<Tango::Device_2Impl>();
+    raise_on_use_before_init<Tango::Device_3Impl>();
+    raise_on_use_before_init<Tango::Device_4Impl>();
+    raise_on_use_before_init<Tango::Device_5Impl>();
+    raise_on_use_before_init<Tango::Device_6Impl>();
 }

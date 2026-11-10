@@ -119,8 +119,7 @@ class ConfiguredRetryTransport(RetryTransport):
         return self._mode
 
 
-# The ASGI testing transport runs only on asyncio.
-@pytest.fixture(params=[pytest.param("asgi", marks=pytest.mark.asyncio_only)])
+@pytest.fixture
 def app():
     return App()
 
@@ -266,11 +265,9 @@ async def test_content_iterator_error_not_retried(app: App, client: Client) -> N
         msg = "boom"
         raise ValueError(msg)
 
-    # The ASGI transport reports the body's error as a 500 from the app. A retry
-    # would send only the content read before the error, and succeed.
     app.status = [200]
-    res = await client.put("http://localhost", content=content())
-    assert res.status == 500
+    with pytest.raises(ValueError, match="boom"):
+        await client.put("http://localhost", content=content())
     assert app.count == 1
 
 
@@ -1003,8 +1000,6 @@ async def test_unbuffered_stream_connection_error(app: App) -> None:
     assert closed
 
 
-# The ASGI testing transport runs only on asyncio.
-@pytest.mark.asyncio_only
 @pytest.mark.anyio
 async def test_unread_unbuffered_stream_closed() -> None:
     class Content:
@@ -1129,8 +1124,6 @@ async def test_retry_connection_error_content_iterator(
     assert read_attempts == [2]
 
 
-# The ASGI testing transport runs only on asyncio.
-@pytest.mark.asyncio_only
 @pytest.mark.anyio
 async def test_no_retry_exception(app: App) -> None:
     class NoExceptionRetry(RetryTransport):

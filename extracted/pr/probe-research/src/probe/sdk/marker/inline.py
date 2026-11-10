@@ -46,7 +46,9 @@ INLINE_LOG_SUFFIX = ".inline-log"
 INLINE_SHOWN_SUFFIX = ".inline-shown"
 #: The states `/probe inline` is typed from (any; `off` also for no state yet).
 INLINE_FROM = (STATE_DAEMON, STATE_READ_ONLY, STATE_OFF)
-INLINE_DISPLAY = "on (inline)"
+#: The marker `reason` of a stretch a spent daemon allowance opened (`inline_on_budget`, `_publish_budget_marker`).
+BUDGET_INLINE_REASON = "budget_exhausted"
+INLINE_DISPLAY = INLINE_STATE_DISPLAY[STATE_FULL]
 #: The skills an inline agent records by (the main agent's versions), shipped as
 #: plain files in the lean plugin's `inline/` folder (`make sync-daemon-plugin`;
 #: never under `skills/`, which would list them); pi names its own package's.
@@ -73,7 +75,7 @@ INLINE_READS = (
 #: agent to `No such command`.
 INLINE_READS_OLD_CLI = (
     "This session has no Probe MCP tools, and this machine's `probe` CLI is too old to read Probe "
-    "here: ask the researcher to update it (`probe wizard --action update`)."
+    "here: update it (`npx -y probe-research update --json`)."
 )
 
 
@@ -155,8 +157,8 @@ def inline_marker(session_id: str) -> "dict | None":
         if data["mode"] not in (STATE_FULL, STATE_READ_ONLY):
             return None
         marker["mode"] = data["mode"]
-    if data.get("reason") == "budget_exhausted":
-        marker["reason"] = "budget_exhausted"
+    if data.get("reason") == BUDGET_INLINE_REASON:
+        marker["reason"] = BUDGET_INLINE_REASON
     if "until" in data:
         until = _finite(data.get("until"))
         if until is None or until < since:
@@ -167,11 +169,12 @@ def inline_marker(session_id: str) -> "dict | None":
 
 def _open_marker(session_id: str, state: "str | None" = None) -> "dict | None":
     """The marker of the stretch the session is in now, or None: the state is
-    the marker's mode (`full` by default), the session is the daemon's, and the marker is
-    open (no `until`). One read of each file; the guard asks before every call."""
+    the marker's mode (`full` by default), the session is the daemon's or no plugin
+    marked it (`seed_inline`'s chat), and the marker is open (no `until`). One read of
+    each file; the guard asks before every call."""
     if state is None:
         state = session_state(session_id)
-    if state not in (STATE_FULL, STATE_READ_ONLY) or session_profile(session_id) != RECORDER_DAEMON:
+    if state not in (STATE_FULL, STATE_READ_ONLY) or session_profile(session_id) not in (RECORDER_DAEMON, None):
         return None
     marker = inline_marker(session_id)
     return marker if marker is not None and "until" not in marker and marker.get("mode", STATE_FULL) == state else None
@@ -182,36 +185,92 @@ def is_inline(session_id: str, state: "str | None" = None) -> bool:
     return _open_marker(session_id, state) is not None
 
 
-def switch_to_inline(session_id: str, now: "float | None" = None) -> bool:
-    """The researcher's `/probe inline` (never the agent's: callers only reach
-    this from a typed prompt, pi's command or a terminal). True when the session
-    is inline (in the agent profile: `on`) afterwards. In a daemon-profile
-    session: the marker (`from` the state before, `off` when there was none),
-    then `full`; a session already inline stays. A stretch closed earlier whose
-    log could not be written is logged first, or nothing moves: overwriting its
-    marker would hand that stretch back to the daemon."""
+def switch_to_inline(session_id: str, now: "float | None" = None, *, is_agent: bool = False,
+                     is_directed: bool = False) -> bool:
+    """`/probe inline`: the researcher's (a typed prompt, pi's command or a terminal), or with
+    `is_agent` the agent's own (`session state inline`: when the person asked, `is_directed`, or the
+    chat is in auto, read inside the lock). True when the session is inline (in the agent profile:
+    `on`) afterwards. In a daemon-profile session: the marker (`from` the state before, `off` when
+    there was none), then `full`; a session already inline stays, though the researcher's move still
+    makes the switch theirs (`_hand_switch_to_researcher`). A stretch closed earlier whose log could not be
+    written is logged first, or nothing moves: overwriting its marker would hand that stretch back to
+    the daemon."""
     if not valid_session_id(session_id):
         return False
     if session_profile(session_id) != RECORDER_DAEMON:
+        if is_agent:
+            return set_state_by_agent(session_id, STATE_FULL, is_directed=is_directed)[0]
         return set_session_state(session_id, STATE_FULL, now)
     with _StateLock(session_id):
-        state = session_state(session_id)
-        if is_inline(session_id, state) and state == STATE_FULL:
-            return True
-        stale = inline_marker(session_id)
-        if stale is not None and "until" not in stale and is_inline(session_id, state):
-            if _close_inline(session_id, stale, now) is not False:
-                return False
-        if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
+        is_auto = is_auto_chat(session_id)
+        if is_agent and not (is_auto or is_directed):
             return False
-        at = time.time() if now is None else now
-        prior = state if state in INLINE_FROM else STATE_OFF
-        if not _publish_atomically(inline_path(session_id), json.dumps({"from": prior, "since": at}) + "\n"):
+        moved = _enter_inline_locked(session_id, now)
+        if moved and is_agent:
+            save_agent_move(session_id, MOVED_TO_INLINE, is_auto=is_auto)
+        elif moved:
+            _hand_switch_to_researcher(session_id)
+    return moved
+
+
+def _enter_inline_locked(session_id: str, now: "float | None") -> bool:
+    """`switch_to_inline`'s move, with the session's `_StateLock` already held."""
+    state = session_state(session_id)
+    if is_inline(session_id, state) and state == STATE_FULL:
+        return True
+    stale = inline_marker(session_id)
+    if stale is not None and "until" not in stale and is_inline(session_id, state):
+        if _close_inline(session_id, stale, now) is not False:
             return False
-        if not _set_state_unlocked(session_id, STATE_FULL):
-            _remove_inline_marker(session_id)
-            return False
+    if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
+        return False
+    at = time.time() if now is None else now
+    prior = state if state in INLINE_FROM else STATE_OFF
+    if not _publish_atomically(inline_path(session_id), json.dumps({"from": prior, "since": at}) + "\n"):
+        return False
+    if not _set_state_unlocked(session_id, STATE_FULL):
+        _remove_inline_marker(session_id)
+        return False
+    _save_kept_out(session_id, STATE_FULL)
     return True
+
+
+def seed_inline(session_id: str, default: "str | None" = None, now: "float | None" = None) -> bool:
+    """Seed the switch of a chat Probe's hooks never started (open before the install,
+    or its hooks never ran) from `default` (the new-chat default when None). True when
+    THIS call decided; a decision on disk is never touched.
+
+    Its `on` is `on (inline)` (Richard 2026-11-06): no session-start hook attached a
+    daemon worker or told its agent the daemon records, and neither Claude Code nor
+    Codex loads a plugin into a chat already open. Stored as the marker, then `full`,
+    and NO profile mark: nothing refuses the agent's own `probe` calls, `probe mcp` is
+    its read path, and the stretch is logged if the chat ever moves to the daemon.
+    `read-only` and `off` are themselves."""
+    if not valid_session_id(session_id):
+        return False
+    if default is None:
+        default, where = resolve_state_default(None)
+        source = seed_source(where)
+    else:
+        source = SOURCE_DEFAULT
+    if default not in (STATE_FULL, STATE_DAEMON):
+        return set_session_state_if_absent(session_id, default, source=source)
+    with _StateLock(session_id):
+        if session_state(session_id) is not None:
+            return False
+        if session_profile(session_id) is not None:
+            # A plugin did start it and its seed is still landing: the value that seed writes.
+            return _seed_started_locked(session_id, seed_state(session_id, default), source)
+        stale = inline_marker(session_id)
+        if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
+            return False  # overwriting it would hand that stretch back to the daemon
+        at = time.time() if now is None else now
+        if not _publish_atomically(inline_path(session_id), json.dumps({"from": STATE_OFF, "since": at}) + "\n"):
+            return set_session_state_if_absent(session_id, STATE_FULL, source=source)
+        if set_session_state_if_absent(session_id, STATE_FULL, source=source):
+            return True
+        _remove_inline_marker(session_id)
+        return False
 
 
 def inline_on_budget(session_id: str, expected_state: str, now: "float | None" = None) -> bool:
@@ -232,14 +291,169 @@ def inline_on_budget(session_id: str, expected_state: str, now: "float | None" =
         if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
             return False
         target = STATE_FULL if expected_state == STATE_DAEMON else STATE_READ_ONLY
-        at = time.time() if now is None else now
-        marker = {"from": expected_state, "since": at, "mode": target, "reason": "budget_exhausted"}
-        if not _publish_atomically(inline_path(session_id), json.dumps(marker) + "\n"):
+        # The handoff is the daemon's, never the person's: an auto chat stays the agent's (`is_auto_chat`).
+        was_default = state_source(session_id) == SOURCE_DEFAULT
+        move = load_agent_move(session_id)
+        if not _publish_budget_marker(session_id, expected_state, target, now):
             return False
+        if was_default:  # claimed before the state, as the seed claims it, so no reader sees the move as the person's
+            _publish_atomically(state_source_path(session_id), SOURCE_DEFAULT + "\n")
         if not _set_state_unlocked(session_id, target):
             _remove_inline_marker(session_id)
             return False
+        if not was_default and move is not None and move["auto"]:
+            # The agent's `read` stays its `read`; its daemon `on` is now its chat, inline.
+            save_agent_move(session_id, move["state"] if target == expected_state else MOVED_TO_INLINE, is_auto=True)
         return True
+
+
+def seed_started(session_id: str, default: str, where: str, agent: "str | None" = None) -> bool:
+    """Seed a chat Probe's hooks started (the session-start hook, `probe session initialize`): its state from
+    `default` by who records (`seed_state`), its source by where that default came from (`seed_source(where)`).
+    While the team's daemon allowance is spent a daemon seed starts inline (`get_budget_inline_state`), marker
+    first. True when this call seeded it."""
+    state = seed_state(session_id, default, agent)
+    source = seed_source(where)
+    if get_budget_inline_state(session_id, state) is None:
+        return set_session_state_if_absent(session_id, state, source=source)
+    with _StateLock(session_id):
+        return _seed_started_locked(session_id, state, source)
+
+
+def _seed_started_locked(session_id: str, state: str, source: "str | None") -> bool:
+    """`seed_started`'s seed of `state` (already resolved by `seed_state`), the chat's `_StateLock` held: inline
+    with the budget marker while the allowance is spent, else as asked."""
+    budget = get_budget_inline_state(session_id, state)
+    if budget is None:
+        return set_session_state_if_absent(session_id, state, source=source)
+    if session_state(session_id) is not None:
+        return False
+    stale = inline_marker(session_id)
+    if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
+        return False  # overwriting it would hand that stretch back to the daemon
+    if not _publish_budget_marker(session_id, state, budget, None):
+        return set_session_state_if_absent(session_id, state, source=source)
+    if set_session_state_if_absent(session_id, budget, source=source):
+        return True
+    _remove_inline_marker(session_id)
+    return False
+
+
+def _publish_budget_marker(session_id: str, from_state: str, mode: str, now: "float | None") -> bool:
+    """The marker of a stretch the spent allowance opened: `from` the daemon state it replaces, `mode` stored."""
+    at = time.time() if now is None else now
+    marker = {"from": from_state, "since": at, "mode": mode, "reason": BUDGET_INLINE_REASON}
+    return _publish_atomically(inline_path(session_id), json.dumps(marker) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# A SPENT ALLOWANCE, remembered (Richard 2026-11-08)
+# ---------------------------------------------------------------------------
+# The free team's month refusal (`scope: team_month`, read by the worker's `_quota_inline`) is remembered on the
+# machine for an hour, so every daemon move and seed of a daemon-profile chat lands inline at once
+# (`get_budget_inline_state`) instead of rediscovering it with a refused call. It only lapses: an answer may come
+# from a call admitted before the cap. Keyed by who is signed in (`_get_sign_in_key`: the context, its server and
+# a hash of its token), so a refusal another team or another sign-in got steers nothing.
+#
+#     daemon-budget.json   {"sign_in": <key>, "at": <epoch s>, "until": <epoch s>}
+
+DAEMON_BUDGET_FILENAME = "daemon-budget.json"
+#: How long a spent month stays remembered; after it the next daemon move tries the daemon once.
+DAEMON_BUDGET_LAPSE_S = 3600.0
+#: The refusal scope that is the team's month (`TEAM_MONTH_SCOPE` in app/agents/companion/router.py).
+TEAM_MONTH_SCOPE = "team_month"
+
+
+def get_daemon_budget_path() -> Path:
+    return state_dir() / DAEMON_BUDGET_FILENAME
+
+
+def _get_sign_in_key() -> str:
+    """Who is signed in, as the record keys it: the current context's name, server and a hash of its daemon
+    credential (`companion_token`, the one a refusal answered; else its token). A new sign-in under the same
+    name, or another team, is another key. Read from the config on every side, never the token itself."""
+    import hashlib  # noqa: PLC0415 -- only when a record is written or exists, never on the status line's path
+
+    data = _read_config()
+    name = str(data.get("current_context") or "default")
+    contexts = data.get("contexts")
+    context = contexts.get(name) if isinstance(contexts, dict) else None
+    context = context if isinstance(context, dict) else {}
+    token = str(context.get("companion_token") or context.get("token") or "")
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+    return f"{name}|{context.get('base_url') or ''}|{digest}"
+
+
+def save_daemon_budget_spent(now: "float | None" = None) -> bool:
+    """Remember the team's month refusal for `DAEMON_BUDGET_LAPSE_S`. True when written."""
+    at = time.time() if now is None else now
+    record = {"sign_in": _get_sign_in_key(), "at": at, "until": at + DAEMON_BUDGET_LAPSE_S}
+    try:
+        state_dir().mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
+    return _publish_atomically(get_daemon_budget_path(), json.dumps(record) + "\n")
+
+
+def is_daemon_budget_spent(now: "float | None" = None) -> bool:
+    """Does a remembered month refusal stand: written for this sign-in, `at <= now < until`, never longer than
+    `DAEMON_BUDGET_LAPSE_S`? A missing, unreadable or foreign record is no record (today's behaviour)."""
+    try:
+        data = json.loads(get_daemon_budget_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    at, until = _finite(data.get("at")), _finite(data.get("until"))
+    moment = time.time() if now is None else now
+    return (at is not None and until is not None and at <= moment < min(until, at + DAEMON_BUDGET_LAPSE_S)
+            and data.get("sign_in") == _get_sign_in_key())
+
+
+def get_budget_inline_state(session_id: str, state: str) -> "str | None":
+    """What a move or seed to `state` stores instead while the allowance is spent: `full` for the daemon's
+    `on`, `read-only` (inline) for its read, in a daemon-profile chat (`inline_on_budget`'s rule). None: as asked."""
+    if state not in (STATE_DAEMON, STATE_READ_ONLY) or session_profile(session_id) != RECORDER_DAEMON:
+        return None
+    if not is_daemon_budget_spent():
+        return None
+    return STATE_FULL if state == STATE_DAEMON else STATE_READ_ONLY
+
+
+def is_budget_inline(session_id: str, state: str) -> bool:
+    """Is the chat now inline where a spent allowance put `state` (`get_budget_inline_state`)? The read-back a
+    caller checks a move by."""
+    marker = inline_marker(session_id)
+    return (marker is not None and marker.get("reason") == BUDGET_INLINE_REASON and "until" not in marker
+            and marker.get("from") == state and session_state(session_id) == marker.get("mode"))
+
+
+def _log_replaced_stretch(session_id: str, marker: "dict | None", now: "float | None") -> bool:
+    """Before a budget stretch replaces `marker`: log the stretch it holds. True when there was nothing to log or
+    its line landed; on False nothing on disk changed (unlike `_close_inline`), so the move can refuse cleanly."""
+    if marker is None:
+        return True
+    if "until" in marker:
+        return _log_inline_interval(session_id, marker, marker["until"])
+    if session_state(session_id) != marker.get("mode", STATE_FULL):
+        return True  # a crashed entry: the marker beside another state claims nothing
+    return _log_inline_interval(session_id, marker, now)
+
+
+def _load_inline_text(session_id: str) -> "str | None":
+    """The marker file as written, to put back when a move that replaced it fails; None when there is none."""
+    try:
+        return inline_path(session_id).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _restore_inline_text(session_id: str, text: "str | None") -> None:
+    """Put back the marker `_load_inline_text` read (remove it when there was none)."""
+    if text is None:
+        _remove_inline_marker(session_id)
+    else:
+        _publish_atomically(inline_path(session_id), text)
 
 
 def _close_inline(session_id: str, marker: "dict | None", now: "float | None") -> "bool | None":
@@ -336,7 +550,7 @@ def inline_notice(
     this machine's CLI has `probe mcp tools|call` (`INLINE_READS`), else it is
     too old to read Probe inline (`INLINE_READS_OLD_CLI`)."""
     reads = INLINE_READS if bridge else INLINE_READS_OLD_CLI
-    prefix = "The team's free daemon allowance is exhausted. Probe switched to inline automatically. " if budget else ""
+    prefix = ALLOWANCE_SPENT + " Probe switched to inline automatically. " if budget else ""
     if read_only:
         return prefix + ("Probe is `read only (inline)` for this conversation: the daemon is off, and you read "
                          "Probe yourself. Record nothing new; the researcher's read-only choice stays in effect. " + reads)

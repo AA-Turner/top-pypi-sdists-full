@@ -3,13 +3,9 @@
 //! is "no GPU", never an error.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple;
-#[cfg(windows)]
-mod budget;
 mod cuda;
 mod faults;
 
-#[cfg(windows)]
-pub use budget::{Adapter, Budget, adapters};
 pub use cuda::memory_classes;
 pub use faults::{Fault, watch_faults};
 
@@ -179,11 +175,6 @@ impl Device {
         })
     }
 
-    /// `<GPU UUID>/<driver version>`: what a learned context is valid for.
-    pub fn key(&self) -> &str {
-        &self.key
-    }
-
     pub fn read(&self) -> Result<Reading> {
         let device = self
             .nvml
@@ -234,7 +225,7 @@ impl Device {
 
     /// Its bytes in use now, every process's, as `nvidia-smi` shows them (not the driver's reserve;
     /// an integrated GPU's: total less free).
-    pub fn used(&self) -> Result<u64> {
+    pub(crate) fn used(&self) -> Result<u64> {
         let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
         match device.memory_info() {
             Ok(info) => Ok(info.used),
@@ -251,6 +242,20 @@ impl Device {
             Err(NvmlError::NotSupported) => Ok(false),
             Err(error) => Err(failed("compute mode")(error)),
         }
+    }
+
+    /// What the display it drives uses now: its graphics processes' bytes (0 where the driver
+    /// does not attribute them), or None when it drives none.
+    pub fn display_use(&self) -> Result<Option<u64>> {
+        let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
+        if !device.is_display_active().map_err(failed("display active"))? {
+            return Ok(None);
+        }
+        let graphics = device.running_graphics_processes().unwrap_or_default();
+        Ok(Some(graphics.iter().map(|row| match row.used_gpu_memory {
+            UsedGpuMemory::Used(bytes) => bytes,
+            UsedGpuMemory::Unavailable => 0,
+        }).sum()))
     }
 
     pub fn display_active(&self) -> Result<bool> {

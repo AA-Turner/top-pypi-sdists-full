@@ -371,7 +371,7 @@ def shell_line(name: str, shell: dict) -> str:
     state = _SHELL_WAITS.get(shell.get("waiting_for"), "up")
     billed = f", billed from {stamp(shell['started_at'])}" if shell.get("started_at") else ""
     return (f"  shell machine of v{shell.get('version')} on {shell.get('card')}: {state}{billed}; it ends 10 minutes after "
-            f"your last command (seq benchmark shell {name} --stop ends it now)")
+            f"your last command or terminal (seq benchmark shell {name} --stop ends it now)")
 
 
 def _tasks(client: Any, name: str) -> dict | None:

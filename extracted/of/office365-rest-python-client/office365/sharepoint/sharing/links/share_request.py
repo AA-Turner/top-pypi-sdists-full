@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.sharing.emaildata import EmailData
 from office365.sharepoint.sharing.links.share_settings import ShareLinkSettings
 
 
-@dataclass
 class ShareLinkRequest(ClientValue):
     """
     Represents a request for the retrieval or creation of a tokenized sharing link.

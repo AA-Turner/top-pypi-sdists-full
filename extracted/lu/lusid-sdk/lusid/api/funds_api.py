@@ -41,6 +41,7 @@ from lusid.models.fund_definition_request import FundDefinitionRequest
 from lusid.models.fund_partner_unfunded_reconciliation import FundPartnerUnfundedReconciliation
 from lusid.models.fund_properties import FundProperties
 from lusid.models.fund_request import FundRequest
+from lusid.models.fund_tax_scope import FundTaxScope
 from lusid.models.fund_valuation_request import FundValuationRequest
 from lusid.models.list_aggregation_response import ListAggregationResponse
 from lusid.models.management_fee_request import ManagementFeeRequest
@@ -56,6 +57,7 @@ from lusid.models.paged_resource_list_of_fund_calendar_entries import PagedResou
 from lusid.models.paged_resource_list_of_fund_calendar_entry import PagedResourceListOfFundCalendarEntry
 from lusid.models.paged_resource_list_of_fund_partner import PagedResourceListOfFundPartner
 from lusid.models.paged_resource_list_of_partner_capital_account import PagedResourceListOfPartnerCapitalAccount
+from lusid.models.paged_resource_list_of_tax_cost_record import PagedResourceListOfTaxCostRecord
 from lusid.models.paged_resource_list_of_valuation_point_instrument import PagedResourceListOfValuationPointInstrument
 from lusid.models.paged_resource_list_of_valuation_point_overview import PagedResourceListOfValuationPointOverview
 from lusid.models.partner_allocation_run_request import PartnerAllocationRunRequest
@@ -67,18 +69,23 @@ from lusid.models.partner_statement_diff import PartnerStatementDiff
 from lusid.models.partner_statement_request import PartnerStatementRequest
 from lusid.models.partnership_config_pack import PartnershipConfigPack
 from lusid.models.query_fund_cash_statement_parameters import QueryFundCashStatementParameters
+from lusid.models.resource_list_of_fund_tax_exception_item import ResourceListOfFundTaxExceptionItem
 from lusid.models.resource_list_of_nav_activity_adjustment_response import ResourceListOfNavActivityAdjustmentResponse
 from lusid.models.resource_list_of_partner_statement import ResourceListOfPartnerStatement
 from lusid.models.resource_list_of_series import ResourceListOfSeries
+from lusid.models.resource_list_of_tax_exception_item import ResourceListOfTaxExceptionItem
 from lusid.models.revert_valuation_point_data_request import RevertValuationPointDataRequest
 from lusid.models.revert_valuation_point_response import RevertValuationPointResponse
 from lusid.models.series_definition_request import SeriesDefinitionRequest
 from lusid.models.set_share_class_instruments_request import SetShareClassInstrumentsRequest
 from lusid.models.single_valuation_point_query_parameters import SingleValuationPointQueryParameters
+from lusid.models.tax_cost_record_request import TaxCostRecordRequest
+from lusid.models.tax_sync_status import TaxSyncStatus
 from lusid.models.update_valuation_point_request import UpdateValuationPointRequest
 from lusid.models.upsert_external_dealing_estimates_request import UpsertExternalDealingEstimatesRequest
 from lusid.models.upsert_external_dealing_estimates_response import UpsertExternalDealingEstimatesResponse
 from lusid.models.upsert_fund_bookmark_request import UpsertFundBookmarkRequest
+from lusid.models.upsert_tax_cost_records_response import UpsertTaxCostRecordsResponse
 from lusid.models.upsert_valuation_point_request import UpsertValuationPointRequest
 from lusid.models.valuation_point import ValuationPoint
 from lusid.models.valuation_point_data_query_parameters import ValuationPointDataQueryParameters
@@ -3135,6 +3142,174 @@ class FundsApi:
 
 
     @overload
+    async def delete_tax_cost_record(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], tax_cost_record_code : Annotated[StrictStr, Field(..., description="The code of the Tax Cost Record to be deleted.")], **kwargs) -> DeletedEntityResponse:  # noqa: E501
+        ...
+
+    @overload
+    def delete_tax_cost_record(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], tax_cost_record_code : Annotated[StrictStr, Field(..., description="The code of the Tax Cost Record to be deleted.")], async_req: Optional[bool]=True, **kwargs) -> DeletedEntityResponse:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def delete_tax_cost_record(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], tax_cost_record_code : Annotated[StrictStr, Field(..., description="The code of the Tax Cost Record to be deleted.")], async_req: Optional[bool]=None, **kwargs) -> Union[DeletedEntityResponse, Awaitable[DeletedEntityResponse]]:  # noqa: E501
+        """[EXPERIMENTAL] DeleteTaxCostRecord: [EXPERIMENTAL] DeleteTaxCostRecord: Delete a Tax Cost Record.  # noqa: E501
+
+        Delete the given Tax Cost Record.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.delete_tax_cost_record(scope, code, tax_cost_record_code, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param tax_cost_record_code: The code of the Tax Cost Record to be deleted. (required)
+        :type tax_cost_record_code: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: DeletedEntityResponse
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the delete_tax_cost_record_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.delete_tax_cost_record_with_http_info(scope, code, tax_cost_record_code, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def delete_tax_cost_record_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], tax_cost_record_code : Annotated[StrictStr, Field(..., description="The code of the Tax Cost Record to be deleted.")], **kwargs) -> ApiResponse:  # noqa: E501
+        """[EXPERIMENTAL] DeleteTaxCostRecord: [EXPERIMENTAL] DeleteTaxCostRecord: Delete a Tax Cost Record.  # noqa: E501
+
+        Delete the given Tax Cost Record.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.delete_tax_cost_record_with_http_info(scope, code, tax_cost_record_code, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param tax_cost_record_code: The code of the Tax Cost Record to be deleted. (required)
+        :type tax_cost_record_code: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(DeletedEntityResponse, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'tax_cost_record_code'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_tax_cost_record" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+        if _params['tax_cost_record_code']:
+            _path_params['taxCostRecordCode'] = _params['tax_cost_record_code']
+
+
+        # process the query parameters
+        _query_params = []
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "DeletedEntityResponse",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/taxcostrecords/{taxCostRecordCode}', 'DELETE',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
     async def delete_valuation_point(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], diary_entry_code : Annotated[StrictStr, Field(..., description="The diary entry code for the valuation Point to be deleted.")], diary_entry_code_variant : Annotated[Optional[StrictStr], Field( description="The variant of the valuation point used in the request. Together with the valuation point code marks the unique branch for the NavType. This is working only for the Estimates.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, deletes the Valuation Point against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, **kwargs) -> DeletedEntityResponse:  # noqa: E501
         ...
 
@@ -5224,6 +5399,185 @@ class FundsApi:
 
 
     @overload
+    async def get_fund_tax_scope(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the tax scope. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the tax scope. Defaults to returning the latest version if not specified.")] = None, **kwargs) -> FundTaxScope:  # noqa: E501
+        ...
+
+    @overload
+    def get_fund_tax_scope(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the tax scope. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the tax scope. Defaults to returning the latest version if not specified.")] = None, async_req: Optional[bool]=True, **kwargs) -> FundTaxScope:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def get_fund_tax_scope(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the tax scope. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the tax scope. Defaults to returning the latest version if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[FundTaxScope, Awaitable[FundTaxScope]]:  # noqa: E501
+        """[EARLY ACCESS] GetFundTaxScope: [EARLY ACCESS] GetFundTaxScope: Get the UK chargeable-gains tax scope of a fund.  # noqa: E501
+
+        Returns the fund's portfolios within the UK chargeable-gains regime and the exclusions the regime's figures  apply. A fund portfolio is in scope when its own details elect the regime. A NAV type that elects the regime  puts its derived portfolio for each fund portfolio in scope, since that is where the fund accounts for the  holdings under the election.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.get_fund_tax_scope(scope, code, effective_at, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which to read the tax scope. Defaults to the current LUSID system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to read the tax scope. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: FundTaxScope
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the get_fund_tax_scope_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.get_fund_tax_scope_with_http_info(scope, code, effective_at, as_at, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def get_fund_tax_scope_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the tax scope. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the tax scope. Defaults to returning the latest version if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EARLY ACCESS] GetFundTaxScope: [EARLY ACCESS] GetFundTaxScope: Get the UK chargeable-gains tax scope of a fund.  # noqa: E501
+
+        Returns the fund's portfolios within the UK chargeable-gains regime and the exclusions the regime's figures  apply. A fund portfolio is in scope when its own details elect the regime. A NAV type that elects the regime  puts its derived portfolio for each fund portfolio in scope, since that is where the fund accounts for the  holdings under the election.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.get_fund_tax_scope_with_http_info(scope, code, effective_at, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which to read the tax scope. Defaults to the current LUSID system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to read the tax scope. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(FundTaxScope, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'effective_at',
+            'as_at'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_fund_tax_scope" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('effective_at') is not None:  # noqa: E501
+            _query_params.append(('effectiveAt', _params['effective_at']))
+
+        if _params.get('as_at') is not None:  # noqa: E501
+            if isinstance(_params['as_at'], datetime):
+                _query_params.append(('asAt', _params['as_at'].strftime(self.api_client.configuration.datetime_format)))
+            else:
+                _query_params.append(('asAt', _params['as_at']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "FundTaxScope",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/tax/scope', 'GET',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
     async def get_holding_contributors_for_fund(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], holding_id : Annotated[StrictInt, Field(description="The unique holding identifier")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the holdings.This can be a date, valuationPoint or a bookmark.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, include_historic : Annotated[Optional[StrictBool], Field(description="If true, transactions from previously closed holdings are returned.              If false, only transactions from last time position is opened.")] = None, tax_lot_id : Annotated[Optional[StrictStr], Field( description="Constrains the Holding Contributors to those which contributed to the specified tax lot.")] = None, include_unsettled_movements : Annotated[Optional[StrictBool], Field(description="If true, contributing transaction which have not settled yet will also be returned. False by default")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to build the transactions. Defaults to return the latest              version of each transaction if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetHoldingContributors.")] = None, **kwargs) -> VersionedResourceListOfHoldingContributor:  # noqa: E501
         ...
 
@@ -6861,6 +7215,177 @@ class FundsApi:
 
 
     @overload
+    async def get_tax_sync_status(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, **kwargs) -> TaxSyncStatus:  # noqa: E501
+        ...
+
+    @overload
+    def get_tax_sync_status(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, async_req: Optional[bool]=True, **kwargs) -> TaxSyncStatus:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def get_tax_sync_status(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[TaxSyncStatus, Awaitable[TaxSyncStatus]]:  # noqa: E501
+        """[EARLY ACCESS] GetTaxSyncStatus: [EARLY ACCESS] GetTaxSyncStatus: Get the tax sync position of each portfolio in a Fund.  # noqa: E501
+
+        For each portfolio in the Fund, compares the asAt the tax engine last processed the Fund (its latest valuation  point) with the asAt of the latest transaction booked to the portfolio, and says whether the tax position has  caught up.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.get_tax_sync_status(scope, code, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param as_at: The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: TaxSyncStatus
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the get_tax_sync_status_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.get_tax_sync_status_with_http_info(scope, code, as_at, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def get_tax_sync_status_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EARLY ACCESS] GetTaxSyncStatus: [EARLY ACCESS] GetTaxSyncStatus: Get the tax sync position of each portfolio in a Fund.  # noqa: E501
+
+        For each portfolio in the Fund, compares the asAt the tax engine last processed the Fund (its latest valuation  point) with the asAt of the latest transaction booked to the portfolio, and says whether the tax position has  caught up.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.get_tax_sync_status_with_http_info(scope, code, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param as_at: The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(TaxSyncStatus, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'as_at'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_tax_sync_status" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('as_at') is not None:  # noqa: E501
+            if isinstance(_params['as_at'], datetime):
+                _query_params.append(('asAt', _params['as_at'].strftime(self.api_client.configuration.datetime_format)))
+            else:
+                _query_params.append(('asAt', _params['as_at']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "TaxSyncStatus",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/tax/sync', 'GET',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
     async def get_valuation_for_fund(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, fund_valuation_request : Annotated[Optional[FundValuationRequest], Field(description="The request specifying the dates (or DiaryEntry) on which to calculate a set of valuation metrics.")] = None, **kwargs) -> ListAggregationResponse:  # noqa: E501
         ...
 
@@ -7917,15 +8442,15 @@ class FundsApi:
 
 
     @overload
-    async def get_valuation_point_transactions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter. Defaults to False if not specified.")] = None, **kwargs) -> ValuationPointResourceListOfAccountedTransaction:  # noqa: E501
+    async def get_valuation_point_transactions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter, flagged with isExcluded. The reversal of a previously included version of              a transaction that has since been amended to be excluded is returned regardless of this option.              Defaults to False if not specified.")] = None, **kwargs) -> ValuationPointResourceListOfAccountedTransaction:  # noqa: E501
         ...
 
     @overload
-    def get_valuation_point_transactions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter. Defaults to False if not specified.")] = None, async_req: Optional[bool]=True, **kwargs) -> ValuationPointResourceListOfAccountedTransaction:  # noqa: E501
+    def get_valuation_point_transactions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter, flagged with isExcluded. The reversal of a previously included version of              a transaction that has since been amended to be excluded is returned regardless of this option.              Defaults to False if not specified.")] = None, async_req: Optional[bool]=True, **kwargs) -> ValuationPointResourceListOfAccountedTransaction:  # noqa: E501
         ...
 
     @validate_arguments
-    def get_valuation_point_transactions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter. Defaults to False if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[ValuationPointResourceListOfAccountedTransaction, Awaitable[ValuationPointResourceListOfAccountedTransaction]]:  # noqa: E501
+    def get_valuation_point_transactions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter, flagged with isExcluded. The reversal of a previously included version of              a transaction that has since been amended to be excluded is returned regardless of this option.              Defaults to False if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[ValuationPointResourceListOfAccountedTransaction, Awaitable[ValuationPointResourceListOfAccountedTransaction]]:  # noqa: E501
         """[EARLY ACCESS] GetValuationPointTransactions: Get the Transactions for the given Fund.  # noqa: E501
 
         Gets the Transactions for the given Valuation Point for a Fund.  # noqa: E501
@@ -7961,7 +8486,7 @@ class FundsApi:
         :type show_cancelled_transactions: bool
         :param membership_type: The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.
         :type membership_type: str
-        :param return_excluded_transactions: Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter. Defaults to False if not specified.
+        :param return_excluded_transactions: Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter, flagged with isExcluded. The reversal of a previously included version of              a transaction that has since been amended to be excluded is returned regardless of this option.              Defaults to False if not specified.
         :type return_excluded_transactions: bool
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
@@ -7982,7 +8507,7 @@ class FundsApi:
         return self.get_valuation_point_transactions_with_http_info(scope, code, valuation_point_data_query_parameters, as_at, filter, limit, page, property_keys, nav_type_code, data_model_scope, data_model_code, show_cancelled_transactions, membership_type, return_excluded_transactions, **kwargs)  # noqa: E501
 
     @validate_arguments
-    def get_valuation_point_transactions_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter. Defaults to False if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+    def get_valuation_point_transactions_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the transactions.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve transactions. Defaults to returning the latest version              of each transaction if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing transactions from a previous call to GetValuationPointTransactions.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys from the 'Instrument', 'Transaction', 'Portfolio', 'Account', 'LegalEntity' or 'CustodianAccount'              domain to decorate onto the transactions.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, data_model_scope : Annotated[Optional[StrictStr], Field( description="The optional scope of a Custom Data Model to use")] = None, data_model_code : Annotated[Optional[StrictStr], Field( description="The optional code of a Custom Data Model to use")] = None, show_cancelled_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include cancelled transactions,              including previous versions of transactions which have since been amended.              Defaults to False if not specified.")] = None, membership_type : Annotated[Optional[StrictStr], Field( description="The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.")] = None, return_excluded_transactions : Annotated[Optional[StrictBool], Field(description="Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter, flagged with isExcluded. The reversal of a previously included version of              a transaction that has since been amended to be excluded is returned regardless of this option.              Defaults to False if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
         """[EARLY ACCESS] GetValuationPointTransactions: Get the Transactions for the given Fund.  # noqa: E501
 
         Gets the Transactions for the given Valuation Point for a Fund.  # noqa: E501
@@ -8018,7 +8543,7 @@ class FundsApi:
         :type show_cancelled_transactions: bool
         :param membership_type: The membership types of the specified Custom Data Model to return. Default value: Member. Available values: All, Member, Candidate.
         :type membership_type: str
-        :param return_excluded_transactions: Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter. Defaults to False if not specified.
+        :param return_excluded_transactions: Option to specify whether or not to include transactions excluded by the              NavType's TransactionExclusionFilter, flagged with isExcluded. The reversal of a previously included version of              a transaction that has since been amended to be excluded is returned regardless of this option.              Defaults to False if not specified.
         :type return_excluded_transactions: bool
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
@@ -10322,6 +10847,568 @@ class FundsApi:
 
 
     @overload
+    async def list_tax_cost_records(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to list the Tax Cost Records. Defaults to the current LUSID              system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to list the Tax Cost Records. Defaults to returning the latest version of each record if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing Tax Cost Records; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number. Defaults to 100 if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the results.              For example, to filter on the portfolio code, specify \"portfolioCode eq 'MyPortfolio'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"")] = None, **kwargs) -> PagedResourceListOfTaxCostRecord:  # noqa: E501
+        ...
+
+    @overload
+    def list_tax_cost_records(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to list the Tax Cost Records. Defaults to the current LUSID              system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to list the Tax Cost Records. Defaults to returning the latest version of each record if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing Tax Cost Records; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number. Defaults to 100 if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the results.              For example, to filter on the portfolio code, specify \"portfolioCode eq 'MyPortfolio'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"")] = None, async_req: Optional[bool]=True, **kwargs) -> PagedResourceListOfTaxCostRecord:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def list_tax_cost_records(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to list the Tax Cost Records. Defaults to the current LUSID              system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to list the Tax Cost Records. Defaults to returning the latest version of each record if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing Tax Cost Records; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number. Defaults to 100 if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the results.              For example, to filter on the portfolio code, specify \"portfolioCode eq 'MyPortfolio'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[PagedResourceListOfTaxCostRecord, Awaitable[PagedResourceListOfTaxCostRecord]]:  # noqa: E501
+        """[EXPERIMENTAL] ListTaxCostRecords: [EXPERIMENTAL] ListTaxCostRecords: List Tax Cost Records for a specified Fund.  # noqa: E501
+
+        List all the Tax Cost Records matching a particular criteria.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.list_tax_cost_records(scope, code, effective_at, as_at, page, limit, filter, sort_by, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which to list the Tax Cost Records. Defaults to the current LUSID              system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to list the Tax Cost Records. Defaults to returning the latest version of each record if not specified.
+        :type as_at: datetime
+        :param page: The pagination token to use to continue listing Tax Cost Records; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.
+        :type page: str
+        :param limit: When paginating, limit the results to this number. Defaults to 100 if not specified.
+        :type limit: int
+        :param filter: Expression to filter the results.              For example, to filter on the portfolio code, specify \"portfolioCode eq 'MyPortfolio'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.
+        :type filter: str
+        :param sort_by: A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"
+        :type sort_by: List[str]
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: PagedResourceListOfTaxCostRecord
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the list_tax_cost_records_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.list_tax_cost_records_with_http_info(scope, code, effective_at, as_at, page, limit, filter, sort_by, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def list_tax_cost_records_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to list the Tax Cost Records. Defaults to the current LUSID              system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to list the Tax Cost Records. Defaults to returning the latest version of each record if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing Tax Cost Records; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the results to this number. Defaults to 100 if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the results.              For example, to filter on the portfolio code, specify \"portfolioCode eq 'MyPortfolio'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.")] = None, sort_by : Annotated[Optional[List[StrictStr]], Field(description="A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EXPERIMENTAL] ListTaxCostRecords: [EXPERIMENTAL] ListTaxCostRecords: List Tax Cost Records for a specified Fund.  # noqa: E501
+
+        List all the Tax Cost Records matching a particular criteria.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.list_tax_cost_records_with_http_info(scope, code, effective_at, as_at, page, limit, filter, sort_by, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which to list the Tax Cost Records. Defaults to the current LUSID              system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to list the Tax Cost Records. Defaults to returning the latest version of each record if not specified.
+        :type as_at: datetime
+        :param page: The pagination token to use to continue listing Tax Cost Records; this              value is returned from the previous call. If a pagination token is provided, the filter, effectiveAt              and asAt fields must not have changed since the original request.
+        :type page: str
+        :param limit: When paginating, limit the results to this number. Defaults to 100 if not specified.
+        :type limit: int
+        :param filter: Expression to filter the results.              For example, to filter on the portfolio code, specify \"portfolioCode eq 'MyPortfolio'\". For more information about filtering              results, see https://support.lusid.com/docs/filtering-information-retrieved-from-lusid.
+        :type filter: str
+        :param sort_by: A list of field names to sort by, each suffixed by \" ASC\" or \" DESC\"
+        :type sort_by: List[str]
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(PagedResourceListOfTaxCostRecord, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'effective_at',
+            'as_at',
+            'page',
+            'limit',
+            'filter',
+            'sort_by'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_tax_cost_records" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('effective_at') is not None:  # noqa: E501
+            _query_params.append(('effectiveAt', _params['effective_at']))
+
+        if _params.get('as_at') is not None:  # noqa: E501
+            if isinstance(_params['as_at'], datetime):
+                _query_params.append(('asAt', _params['as_at'].strftime(self.api_client.configuration.datetime_format)))
+            else:
+                _query_params.append(('asAt', _params['as_at']))
+
+        if _params.get('page') is not None:  # noqa: E501
+            _query_params.append(('page', _params['page']))
+
+        if _params.get('limit') is not None:  # noqa: E501
+            _query_params.append(('limit', _params['limit']))
+
+        if _params.get('filter') is not None:  # noqa: E501
+            _query_params.append(('filter', _params['filter']))
+
+        if _params.get('sort_by') is not None:  # noqa: E501
+            _query_params.append(('sortBy', _params['sort_by']))
+            _collection_formats['sortBy'] = 'multi'
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "PagedResourceListOfTaxCostRecord",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/taxcostrecords', 'GET',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
+    async def list_tax_exceptions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Fund. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, **kwargs) -> ResourceListOfTaxExceptionItem:  # noqa: E501
+        ...
+
+    @overload
+    def list_tax_exceptions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Fund. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, async_req: Optional[bool]=True, **kwargs) -> ResourceListOfTaxExceptionItem:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def list_tax_exceptions(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Fund. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[ResourceListOfTaxExceptionItem, Awaitable[ResourceListOfTaxExceptionItem]]:  # noqa: E501
+        """[EARLY ACCESS] ListTaxExceptions: [EARLY ACCESS] ListTaxExceptions: List the open tax exceptions of a Fund.  # noqa: E501
+
+        Lists the conditions blocking, or casting doubt on, the Fund's tax computation at the given effective and asAt  datetimes, ordered by tax at stake descending with unknown amounts last. A Fund outside the UK chargeable gains  regime has no exceptions.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.list_tax_exceptions(scope, code, effective_at, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which to read the Fund. Defaults to the current LUSID system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: ResourceListOfTaxExceptionItem
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the list_tax_exceptions_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.list_tax_exceptions_with_http_info(scope, code, effective_at, as_at, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def list_tax_exceptions_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Fund. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EARLY ACCESS] ListTaxExceptions: [EARLY ACCESS] ListTaxExceptions: List the open tax exceptions of a Fund.  # noqa: E501
+
+        Lists the conditions blocking, or casting doubt on, the Fund's tax computation at the given effective and asAt  datetimes, ordered by tax at stake descending with unknown amounts last. A Fund outside the UK chargeable gains  regime has no exceptions.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.list_tax_exceptions_with_http_info(scope, code, effective_at, as_at, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param effective_at: The effective datetime or cut label at which to read the Fund. Defaults to the current LUSID system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to read the Fund. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(ResourceListOfTaxExceptionItem, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'effective_at',
+            'as_at'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_tax_exceptions" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('effective_at') is not None:  # noqa: E501
+            _query_params.append(('effectiveAt', _params['effective_at']))
+
+        if _params.get('as_at') is not None:  # noqa: E501
+            if isinstance(_params['as_at'], datetime):
+                _query_params.append(('asAt', _params['as_at'].strftime(self.api_client.configuration.datetime_format)))
+            else:
+                _query_params.append(('asAt', _params['as_at']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "ResourceListOfTaxExceptionItem",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/tax/exceptions', 'GET',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
+    async def list_tax_exceptions_across_funds(self, effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Funds. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Funds. Defaults to returning the latest version if not specified.")] = None, root_cause : Annotated[Optional[StrictStr], Field( description="Optionally, the root cause code to restrict the exceptions to, for example \"PoolOutOfSync\". Defaults to all root causes.")] = None, **kwargs) -> ResourceListOfFundTaxExceptionItem:  # noqa: E501
+        ...
+
+    @overload
+    def list_tax_exceptions_across_funds(self, effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Funds. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Funds. Defaults to returning the latest version if not specified.")] = None, root_cause : Annotated[Optional[StrictStr], Field( description="Optionally, the root cause code to restrict the exceptions to, for example \"PoolOutOfSync\". Defaults to all root causes.")] = None, async_req: Optional[bool]=True, **kwargs) -> ResourceListOfFundTaxExceptionItem:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def list_tax_exceptions_across_funds(self, effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Funds. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Funds. Defaults to returning the latest version if not specified.")] = None, root_cause : Annotated[Optional[StrictStr], Field( description="Optionally, the root cause code to restrict the exceptions to, for example \"PoolOutOfSync\". Defaults to all root causes.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[ResourceListOfFundTaxExceptionItem, Awaitable[ResourceListOfFundTaxExceptionItem]]:  # noqa: E501
+        """[EARLY ACCESS] ListTaxExceptionsAcrossFunds: [EARLY ACCESS] ListTaxExceptionsAcrossFunds: List the open tax exceptions across every Fund.  # noqa: E501
+
+        Lists the conditions blocking, or casting doubt on, the tax computation of every Fund the caller can see, each  row carrying the Fund and, where known, the owning entity. Rows are ordered by tax at stake descending with  unknown amounts last. Funds outside the UK chargeable gains regime contribute no rows.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.list_tax_exceptions_across_funds(effective_at, as_at, root_cause, async_req=True)
+        >>> result = thread.get()
+
+        :param effective_at: The effective datetime or cut label at which to read the Funds. Defaults to the current LUSID system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to read the Funds. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param root_cause: Optionally, the root cause code to restrict the exceptions to, for example \"PoolOutOfSync\". Defaults to all root causes.
+        :type root_cause: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: ResourceListOfFundTaxExceptionItem
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the list_tax_exceptions_across_funds_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.list_tax_exceptions_across_funds_with_http_info(effective_at, as_at, root_cause, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def list_tax_exceptions_across_funds_with_http_info(self, effective_at : Annotated[Optional[StrictStr], Field( description="The effective datetime or cut label at which to read the Funds. Defaults to the current LUSID system datetime if not specified.")] = None, as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to read the Funds. Defaults to returning the latest version if not specified.")] = None, root_cause : Annotated[Optional[StrictStr], Field( description="Optionally, the root cause code to restrict the exceptions to, for example \"PoolOutOfSync\". Defaults to all root causes.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
+        """[EARLY ACCESS] ListTaxExceptionsAcrossFunds: [EARLY ACCESS] ListTaxExceptionsAcrossFunds: List the open tax exceptions across every Fund.  # noqa: E501
+
+        Lists the conditions blocking, or casting doubt on, the tax computation of every Fund the caller can see, each  row carrying the Fund and, where known, the owning entity. Rows are ordered by tax at stake descending with  unknown amounts last. Funds outside the UK chargeable gains regime contribute no rows.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.list_tax_exceptions_across_funds_with_http_info(effective_at, as_at, root_cause, async_req=True)
+        >>> result = thread.get()
+
+        :param effective_at: The effective datetime or cut label at which to read the Funds. Defaults to the current LUSID system datetime if not specified.
+        :type effective_at: str
+        :param as_at: The asAt datetime at which to read the Funds. Defaults to returning the latest version if not specified.
+        :type as_at: datetime
+        :param root_cause: Optionally, the root cause code to restrict the exceptions to, for example \"PoolOutOfSync\". Defaults to all root causes.
+        :type root_cause: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(ResourceListOfFundTaxExceptionItem, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'effective_at',
+            'as_at',
+            'root_cause'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_tax_exceptions_across_funds" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        # process the query parameters
+        _query_params = []
+        if _params.get('effective_at') is not None:  # noqa: E501
+            _query_params.append(('effectiveAt', _params['effective_at']))
+
+        if _params.get('as_at') is not None:  # noqa: E501
+            if isinstance(_params['as_at'], datetime):
+                _query_params.append(('asAt', _params['as_at'].strftime(self.api_client.configuration.datetime_format)))
+            else:
+                _query_params.append(('asAt', _params['as_at']))
+
+        if _params.get('root_cause') is not None:  # noqa: E501
+            _query_params.append(('rootCause', _params['root_cause']))
+
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "ResourceListOfFundTaxExceptionItem",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/tax/exceptions', 'GET',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
     async def list_valuation_point_complex_market_data(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], valuation_point_data_query_parameters : Annotated[ValuationPointDataQueryParameters, Field(description="The arguments to use for querying the complex market data.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve complex market data. Defaults to returning the latest version              of each item if not specified.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to continue listing complex market data from a previous call to ListValuationPointComplexMarketData.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="When provided, runs against the specified NAV Type, otherwise the Primary NAV Type will be used.")] = None, **kwargs) -> ValuationPointResourceListOfAccountedComplexMarketData:  # noqa: E501
         ...
 
@@ -11787,7 +12874,7 @@ class FundsApi:
     def query_cash_statement_local_currency(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], query_fund_cash_statement_parameters : Annotated[QueryFundCashStatementParameters, Field(description="The query parameters specifying the diary entry period and display mode.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve the cash statement. Defaults to the latest version if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to get the next page of results.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys to decorate onto the cash statement rows.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="The code of the NAV type to use. Defaults to the primary NAV type if not specified.")] = None, async_req: Optional[bool]=None, **kwargs) -> Union[ValuationPointResourceListOfFundCashStatementLocalCurrency, Awaitable[ValuationPointResourceListOfFundCashStatementLocalCurrency]]:  # noqa: E501
         """[EARLY ACCESS] QueryCashStatementLocalCurrency: [EXPERIMENTAL] QueryCashStatementLocalCurrency: Query the local-currency cash statement for a Fund valuation point.  # noqa: E501
 
-        Returns settled cash movements with a running balance in local currency for the specified Fund  valuation point period. The cash statement is derived from Journal Entry Lines filtered to  settled cash (HoldType='B', SourceType=LusidTransaction). Use the DisplayMode parameter on the  request body to choose between ShowReversal (full reversal/TrueUp detail) and Consolidated  (collapses system-generated zero-net reversal/TrueUp pairs into SystemCorrection rows). Base  currency columns are out of scope for this variant and are not returned.  # noqa: E501
+        Returns settled cash movements with a running balance in local currency for the specified Fund  valuation point period. The cash statement is derived from Journal Entry Lines filtered to  settled cash (HoldType='B', SourceType=LusidTransaction). Use the DisplayMode parameter on the  request body to choose between ShowReversal (full reversal/TrueUp detail) and Consolidated  (collapses each transaction's system-generated reversal/TrueUp rows into a single SystemCorrection  row carrying their net cashflow, while user-entered rows are always shown individually). Base  currency columns are out of scope for this variant and are not returned.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
 
@@ -11834,7 +12921,7 @@ class FundsApi:
     def query_cash_statement_local_currency_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], query_fund_cash_statement_parameters : Annotated[QueryFundCashStatementParameters, Field(description="The query parameters specifying the diary entry period and display mode.")], as_at : Annotated[Optional[datetime], Field(description="The asAt datetime at which to retrieve the cash statement. Defaults to the latest version if not specified.")] = None, filter : Annotated[Optional[StrictStr], Field( description="Expression to filter the result set.")] = None, limit : Annotated[Optional[StrictInt], Field(description="When paginating, limit the number of returned results to this many. Defaults to 100 if not specified.")] = None, page : Annotated[Optional[StrictStr], Field( description="The pagination token to use to get the next page of results.")] = None, property_keys : Annotated[Optional[List[StrictStr]], Field(description="A list of property keys to decorate onto the cash statement rows.")] = None, nav_type_code : Annotated[Optional[StrictStr], Field( description="The code of the NAV type to use. Defaults to the primary NAV type if not specified.")] = None, **kwargs) -> ApiResponse:  # noqa: E501
         """[EARLY ACCESS] QueryCashStatementLocalCurrency: [EXPERIMENTAL] QueryCashStatementLocalCurrency: Query the local-currency cash statement for a Fund valuation point.  # noqa: E501
 
-        Returns settled cash movements with a running balance in local currency for the specified Fund  valuation point period. The cash statement is derived from Journal Entry Lines filtered to  settled cash (HoldType='B', SourceType=LusidTransaction). Use the DisplayMode parameter on the  request body to choose between ShowReversal (full reversal/TrueUp detail) and Consolidated  (collapses system-generated zero-net reversal/TrueUp pairs into SystemCorrection rows). Base  currency columns are out of scope for this variant and are not returned.  # noqa: E501
+        Returns settled cash movements with a running balance in local currency for the specified Fund  valuation point period. The cash statement is derived from Journal Entry Lines filtered to  settled cash (HoldType='B', SourceType=LusidTransaction). Use the DisplayMode parameter on the  request body to choose between ShowReversal (full reversal/TrueUp detail) and Consolidated  (collapses each transaction's system-generated reversal/TrueUp rows into a single SystemCorrection  row carrying their net cashflow, while user-entered rows are always shown individually). Base  currency columns are out of scope for this variant and are not returned.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
 
@@ -13811,6 +14898,181 @@ class FundsApi:
 
         return self.api_client.call_api(
             '/api/funds/{scope}/{code}/navAdjustment', 'POST',
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get('async_req'),
+            _return_http_data_only=_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=_params.get('_preload_content', True),
+            _request_timeout=_params.get('_request_timeout'),
+            opts=_params.get('opts'),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get('_request_auth'))
+
+
+    @overload
+    async def upsert_tax_cost_records(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], request_body : Annotated[Dict[str, TaxCostRecordRequest], Field(description="The Tax Cost Records to upsert, keyed by the code of each record.")], **kwargs) -> UpsertTaxCostRecordsResponse:  # noqa: E501
+        ...
+
+    @overload
+    def upsert_tax_cost_records(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], request_body : Annotated[Dict[str, TaxCostRecordRequest], Field(description="The Tax Cost Records to upsert, keyed by the code of each record.")], async_req: Optional[bool]=True, **kwargs) -> UpsertTaxCostRecordsResponse:  # noqa: E501
+        ...
+
+    @validate_arguments
+    def upsert_tax_cost_records(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], request_body : Annotated[Dict[str, TaxCostRecordRequest], Field(description="The Tax Cost Records to upsert, keyed by the code of each record.")], async_req: Optional[bool]=None, **kwargs) -> Union[UpsertTaxCostRecordsResponse, Awaitable[UpsertTaxCostRecordsResponse]]:  # noqa: E501
+        """[EXPERIMENTAL] UpsertTaxCostRecords: [EXPERIMENTAL] UpsertTaxCostRecords: Upsert Tax Cost Records for a specified Fund.  # noqa: E501
+
+        Create or update Tax Cost Records for the given Fund. Each record is keyed by its code; a record with an  existing code is replaced in full.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.upsert_tax_cost_records(scope, code, request_body, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param request_body: The Tax Cost Records to upsert, keyed by the code of each record. (required)
+        :type request_body: Dict[str, TaxCostRecordRequest]
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: UpsertTaxCostRecordsResponse
+        """
+        kwargs['_return_http_data_only'] = True
+        if '_preload_content' in kwargs:
+            message = "Error! Please call the upsert_tax_cost_records_with_http_info method with `_preload_content` instead and obtain raw data from ApiResponse.raw_data"  # noqa: E501
+            raise ValueError(message)
+        if async_req is not None:
+            kwargs['async_req'] = async_req
+        return self.upsert_tax_cost_records_with_http_info(scope, code, request_body, **kwargs)  # noqa: E501
+
+    @validate_arguments
+    def upsert_tax_cost_records_with_http_info(self, scope : Annotated[StrictStr, Field(..., description="The scope of the Fund.")], code : Annotated[StrictStr, Field(..., description="The code of the Fund. Together with the scope this uniquely identifies the Fund.")], request_body : Annotated[Dict[str, TaxCostRecordRequest], Field(description="The Tax Cost Records to upsert, keyed by the code of each record.")], **kwargs) -> ApiResponse:  # noqa: E501
+        """[EXPERIMENTAL] UpsertTaxCostRecords: [EXPERIMENTAL] UpsertTaxCostRecords: Upsert Tax Cost Records for a specified Fund.  # noqa: E501
+
+        Create or update Tax Cost Records for the given Fund. Each record is keyed by its code; a record with an  existing code is replaced in full.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> thread = api.upsert_tax_cost_records_with_http_info(scope, code, request_body, async_req=True)
+        >>> result = thread.get()
+
+        :param scope: The scope of the Fund. (required)
+        :type scope: str
+        :param code: The code of the Fund. Together with the scope this uniquely identifies the Fund. (required)
+        :type code: str
+        :param request_body: The Tax Cost Records to upsert, keyed by the code of each record. (required)
+        :type request_body: Dict[str, TaxCostRecordRequest]
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the ApiResponse.data will
+                                 be set to none and raw_data will store the
+                                 HTTP response body without reading/decoding.
+                                 Default is True.
+        :type _preload_content: bool, optional
+        :param _return_http_data_only: response data instead of ApiResponse
+                                       object with status code, headers, etc
+        :type _return_http_data_only: bool, optional
+        :param _request_timeout: Timeout setting. Do not use - use the opts parameter instead
+        :param opts: Configuration options for this request
+        :type opts: ConfigurationOptions, optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns the request thread.
+        :rtype: tuple(UpsertTaxCostRecordsResponse, status_code(int), headers(HTTPHeaderDict))
+        """
+
+        _params = locals()
+
+        _all_params = [
+            'scope',
+            'code',
+            'request_body'
+        ]
+        _all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout',
+                '_request_auth',
+                '_content_type',
+                '_headers',
+                'opts'
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params['kwargs'].items():
+            if _key not in _all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method upsert_tax_cost_records" % _key
+                )
+            _params[_key] = _val
+        del _params['kwargs']
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+        if _params['scope']:
+            _path_params['scope'] = _params['scope']
+
+        if _params['code']:
+            _path_params['code'] = _params['code']
+
+
+        # process the query parameters
+        _query_params = []
+        # process the header parameters
+        _header_params = dict(_params.get('_headers', {}))
+        # process the form parameters
+        _form_params = []
+        _files = {}
+        # process the body parameter
+        _body_params = None
+        if _params['request_body'] is not None:
+            _body_params = _params['request_body']
+
+        # set the HTTP header `Accept`
+        _header_params['Accept'] = self.api_client.select_header_accept(
+            ['text/plain', 'application/json', 'text/json'])  # noqa: E501
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get('_content_type',
+            self.api_client.select_header_content_type(
+                ['application/json-patch+json', 'application/json', 'text/json', 'application/*+json']))
+        if _content_types_list:
+                _header_params['Content-Type'] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ['oauth2']  # noqa: E501
+
+        _response_types_map = {
+            '200': "UpsertTaxCostRecordsResponse",
+            '400': "LusidValidationProblemDetails",
+        }
+
+        return self.api_client.call_api(
+            '/api/funds/{scope}/{code}/taxcostrecords', 'POST',
             _path_params,
             _query_params,
             _header_params,

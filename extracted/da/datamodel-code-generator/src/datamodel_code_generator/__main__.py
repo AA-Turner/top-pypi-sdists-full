@@ -104,7 +104,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeAlias, cast
 
 from datamodel_code_generator import (
-    _SINGLE_MODULE_OUTPUT_DIRECTORY_ERROR,
     DataModelType,  # noqa: F401  # Preserve the established __main__ export.
     Error,
     InputFileType,
@@ -137,15 +136,23 @@ from datamodel_code_generator._option_names import (
     field_name,
     hyphenated,
     mapping_argument,
-    option_arguments,
+    option_arguments,  # noqa: F401  # Preserve the established __main__ export.
     option_flag,
     shell_command,
     toml_table,
     toml_text,
-    values_arguments,
+    values_arguments,  # noqa: F401  # Preserve the established __main__ export.
 )
 from datamodel_code_generator._option_names import json_ready as _json_ready
-from datamodel_code_generator._paths import files_under, names_directory, overlaps, resolved, same_file
+from datamodel_code_generator._paths import (
+    layout_refusal,
+    names_directory,
+    output_files,
+    output_layout,
+    overlaps,
+    resolved,
+    same_file,
+)
 from datamodel_code_generator._project_config import (
     _find_datamodel_codegen_project_config_with_path,
     _get_pyproject_toml_config_with_path,
@@ -155,6 +162,7 @@ from datamodel_code_generator._project_config import (
     _resolve_relative_paths_from,
     names_profile,
 )
+from datamodel_code_generator._project_config import profile_table_keys as _profile_table_keys
 from datamodel_code_generator._python_syntax import normalize_newlines
 from datamodel_code_generator._url_redaction import is_url, redact_url
 from datamodel_code_generator.arguments import _reset_namespace, arg_parser, namespace
@@ -414,9 +422,9 @@ class _StagedJobPlan(NamedTuple):
 
 def _remote_lock_plan(config: Config, pyproject_path: Path | None) -> _RemoteLockPlan:
     """Resolve the project-relative default lock path without importing lock machinery."""
-    from datamodel_code_generator._lock_plan import default_lock_parent, remote_lock_plan  # noqa: PLC0415
+    from datamodel_code_generator._lock_plan import remote_lock_plan  # noqa: PLC0415
 
-    return remote_lock_plan(config, default_lock_parent(pyproject_path), "lexical")
+    return remote_lock_plan(config, pyproject_path)
 
 
 def _watch_remote_lock_setup(
@@ -1150,7 +1158,7 @@ def _compare_directories(
 
     if comparison.input_diff:
         for files, output in ((generated_files, generated_dir), (actual_files, actual_dir)):
-            if not files and output.is_file():
+            if output_layout(output) == "module":
                 files.add(Path())
 
     missing_files = [comparison.directory_file_path(rel_path) for rel_path in sorted(generated_files - actual_files)]
@@ -1204,7 +1212,7 @@ def _compare_generated_single_file(
         message = f"{kind.upper()}: {path} ({message_suffix})"
         return OutputComparison(
             differences=[ComparisonDifference(kind=kind, path=path, message=message)],
-            content=f"{message}\n" if comparison.input_diff else message,
+            content=f"{message}\n",
         )
 
     diff_found, diff_lines = (
@@ -1273,7 +1281,7 @@ def _format_cli_value(value: str | list[str]) -> str:
 
 def generate_cli_command(config: dict[str, TomlValue]) -> str:
     """Generate CLI command from pyproject.toml configuration."""
-    from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
+    from datamodel_code_generator.cli_options import _option_arguments  # noqa: PLC0415
 
     parts: list[str] = ["datamodel-codegen"]
 
@@ -1284,7 +1292,7 @@ def generate_cli_command(config: dict[str, TomlValue]) -> str:
             if argument := mapping_argument(key, value):
                 parts.extend((option_flag(key), argument))
             continue
-        match option_arguments(key, value, negative=_negative_option):
+        match _option_arguments(key, value):
             case [option, *items] if items and isinstance(value, list | tuple):
                 parts.extend((option, _format_cli_value(items)))
             case [option, *items]:
@@ -1313,16 +1321,12 @@ def _generated_files_from_output(
 ) -> list[GeneratedFilePayload]:
     from datamodel_code_generator._structured_output import GeneratedFilePayload  # noqa: PLC0415
 
-    if output.is_file():
-        return [
-            GeneratedFilePayload(
-                path=(display_output or output).name,
-                content=output.read_text(encoding=encoding),
-            )
-        ]
     return [
-        GeneratedFilePayload(path=path.relative_to(output).as_posix(), content=path.read_text(encoding=encoding))
-        for path in files_under(output, "*.py")
+        GeneratedFilePayload(
+            path=Path(*parts).as_posix() if parts else (display_output or output).name,
+            content=path.read_text(encoding=encoding),
+        )
+        for parts, path in output_files(output, "*.py")
     ]
 
 
@@ -1413,9 +1417,9 @@ def _invalid_class_name_message(error: InvalidClassNameError, args: Namespace, c
 
 def _cli_arguments(config: Mapping[str, TomlValue]) -> list[str]:
     """Return the CLI arguments for configuration values keyed by field name, as an argument list."""
-    from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
+    from datamodel_code_generator.cli_options import _values_arguments  # noqa: PLC0415
 
-    return [str(argument) for argument in values_arguments(sorted(config.items()), negative=_negative_option)]
+    return [str(argument) for argument in _values_arguments(sorted(config.items()))]
 
 
 def _recommend_lock_observer(config: Config, pyproject_path: Path | None) -> Any:
@@ -1559,14 +1563,11 @@ def _run_recommend_options(  # noqa: PLR0913
 def _copy_generated_output(generated_output: Path, actual_output: Path, *, is_directory_output: bool) -> None:
     from datamodel_code_generator._shadowed_modules import warn_shadowed_modules  # noqa: PLC0415
 
-    targets: dict[Path, Path] = {}
-    if is_directory_output:
-        targets = {
-            generated_file: actual_output / generated_file.relative_to(generated_output)
-            for generated_file in files_under(generated_output)
-        }
-    if not targets and generated_output.is_file():
-        targets = {generated_output: actual_output}
+    targets = {
+        generated_file: actual_output.joinpath(*parts)
+        for parts, generated_file in output_files(generated_output)
+        if is_directory_output or not parts
+    }
     warn_shadowed_modules(targets.values())
     for generated_file, target in targets.items():
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1729,9 +1730,9 @@ def _target_lockfile(config: Config, pyproject_path: Path | None) -> Path | None
     The default lock file sits next to pyproject.toml or in the working directory, so it reaches the target only
     while a policy uses it: an update, a locked run, or an existing file to verify.
     """
-    from datamodel_code_generator._lock_plan import default_lock_parent, models_lockfile  # noqa: PLC0415
+    from datamodel_code_generator._lock_plan import models_lockfile  # noqa: PLC0415
 
-    return models_lockfile(config, default_lock_parent(pyproject_path))
+    return models_lockfile(config, pyproject_path)
 
 
 def _target_settings(config: Config, args: Sequence[str], lockfile: Path | None) -> GenerateConfig:
@@ -1899,7 +1900,6 @@ def _stage_job_plan(plan: JobPlan) -> _StagedJobPlan:
             ),
             contexts,
             anchors,
-            existing_directory="legacy-cli-staged-directory-uncreated",
         )
         staged_config = plan.config.model_copy(update=staging.updates)
         staged_config._logical_model_metadata = plan.config.emit_model_metadata  # noqa: SLF001
@@ -1974,7 +1974,7 @@ def _cleanup_job_transaction(
 
 def _staged_files(staged_plan: _StagedJobPlan) -> Iterator[_StagedFile]:
     """Return staged files paired with their final targets without removing directory extras."""
-    return iter(()) if staged_plan.staging is None else staged_plan.staging.files("fail")
+    return iter(()) if staged_plan.staging is None else staged_plan.staging.files()
 
 
 def _publish_staged_files(files: Iterable[tuple[Path, Path] | _StagedFile], targets: Sequence[Any] = ()) -> None:
@@ -2697,7 +2697,7 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             cli_config_args,
             pyproject_path,
             selector=("--profile", namespace.profile) if names_profile(namespace.profile) else (),
-            table=config_table("profiles", namespace.profile) if names_profile(namespace.profile) else CONFIG_TABLE,
+            table=config_table(*_profile_table_keys(namespace.profile)),
         )
 
     _imply_remote_refs(config)
@@ -2824,20 +2824,9 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
     try:
         input_: Path | str | ParseResult | Mapping[str, Any]
         if config.input_model:
-            from datamodel_code_generator.input_model import Error as InputModelError  # noqa: PLC0415
-            from datamodel_code_generator.input_model import (  # noqa: PLC0415
-                _load_model_schema_with_python_type_expressions,
-            )
+            from datamodel_code_generator.input_model import _load_config_input_model  # noqa: PLC0415
 
-            try:
-                input_ = _load_model_schema_with_python_type_expressions(
-                    config.input_model,
-                    config.input_file_type,
-                    config.input_model_ref_strategy,
-                    config.output_model_type,
-                )
-            except InputModelError as e:
-                raise Error(str(e)) from e
+            input_ = _load_config_input_model(config)
             if config.input_file_type == InputFileType.Auto:
                 config.input_file_type = InputFileType.JsonSchema
         else:
@@ -2894,15 +2883,13 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
         return cleanup_and_return(_error_with_traceback())
 
     if config.output is not None and generate_output is not None:
-        if config.output.is_dir():
-            if generate_output.is_file():
-                print(_SINGLE_MODULE_OUTPUT_DIRECTORY_ERROR, file=sys.stderr)  # noqa: T201
-                return cleanup_and_return(Exit.ERROR)
-        elif (
-            config.check
-            and is_directory_output
-            and (generate_output.is_file() or (config.output.is_file() and not generate_output.exists()))
+        layout = output_layout(generate_output)
+        if refusal := layout_refusal(
+            layout, _batch_original_output or config.output, compares=config.diff_against is not None
         ):
+            print(refusal, file=sys.stderr)  # noqa: T201
+            return cleanup_and_return(Exit.ERROR)
+        if config.check and is_directory_output and (layout or output_layout(config.output)) == "module":
             is_directory_output = False
 
     if writes_json_output_file and generate_output is not None and config.output is not None:
@@ -2979,7 +2966,8 @@ def main(args: Sequence[str] | None = None) -> Exit:
     """Execute datamodel code generation from command-line arguments.
 
     A warning turned into an error that no step reports, such as one raised while the options are processed, ends
-    the run with its traceback, as in a generation.
+    the run with its traceback, as in a generation. A run that reads ``sys.argv``, the command line, first raises the
+    soft limit on open files to the hard limit (``raise_open_file_limit``).
     """
     from datamodel_code_generator import _StructuredOutputUnavailableError  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator._naming_hint import naming_hint_scope  # ruff: ignore[import-outside-top-level]
@@ -2987,6 +2975,12 @@ def main(args: Sequence[str] | None = None) -> Exit:
         cli_migration_warning_scope,
     )
 
+    if args is None:
+        from datamodel_code_generator._open_file_limit import (  # ruff: ignore[import-outside-top-level]
+            raise_open_file_limit,
+        )
+
+        raise_open_file_limit()
     try:
         with cli_migration_warning_scope(), naming_hint_scope():
             return _main(args, start_watch=True)

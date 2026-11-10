@@ -16,8 +16,8 @@ def ends_expression(token):
         return token not in OPERAND_WORDS
     return (token in (')', ']', '}', '++', '--')
             or (first == '/' and len(token) > 2)  # regular expression literal
-            or (first == '<' and (token.startswith('</')  # JSX element end
-                                  or token.endswith('/>'))))
+            or (first == '<' and token.endswith('>')  # JSX element end
+                and ('</' in token or token.endswith('/>'))))
 
 
 def starts_statement(token):
@@ -111,6 +111,11 @@ class JavaScriptFunctionsMixin:
 
     def _arrow_function(self, token):
         self._push_arrow_function()
+        arrow_line = getattr(self, '_arrow_line', None)
+        if (arrow_line is not None and self.started_function
+                and self.context.current_function):
+            # The body may start on the next line: `(e) =>\n  f(e)`.
+            self.context.current_function.start_line = arrow_line
         if token == '{':
             # A block body closes any expression body (`a => b => {}`).
             if self._expression_body:
@@ -137,8 +142,9 @@ class JavaScriptFunctionsMixin:
             return
         if token == '<':
             # Generic type params: function name<T>(...) — consume <...>
-            # so function_name (already set) is preserved.
-            self._consume_generic_type_params()
+            # so function_name (already set) is preserved and "(" still
+            # opens the parameters.
+            self._consume_generic_type_params(self._function)
             return
         if token.startswith('<') and token.endswith('>') and len(token) > 1:
             # Single-token generic from TSX tokenizer (e.g., <T>, <Props>)
@@ -169,6 +175,12 @@ class JavaScriptFunctionsMixin:
             return
         if token == 'function' and not self._parameter_bindings.defaults:
             # The optimistic named-arrow signature is an IIFE expression.
+            self._abandon_optimistic_parameter_group()
+            self.next(self._state_global, token)
+            return
+        if (self._parameter_bindings.at_start and self.last_token == '('
+                and token.startswith('<') and len(token) > 1):
+            # Parenthesized JSX: `c = (<div>…</div>)`, not parameters.
             self._abandon_optimistic_parameter_group()
             self.next(self._state_global, token)
             return
@@ -206,3 +218,41 @@ class JavaScriptFunctionsMixin:
             return
         self.last_tokens += token
         self._state = self._state_global
+
+    def _expecting_condition_and_statement_block(self, token):
+        def callback():
+            self.next(self._expecting_statement_or_block)
+
+        if token == "await":
+            return
+
+        if token != '(':
+            self.next(self._state_global, token)
+            return
+
+        if self._condition_kind == 'catch':
+            def catch_callback(summary):
+                self.context.add_condition(summary.defaults)
+                callback()
+
+            self._read_binding_candidate(
+                ')', catch_callback, track_complexity=False)
+            return
+
+        self.sub_state(
+            self.__class__(self.context), callback)
+
+    def _expecting_statement_or_block(self, token):
+        def callback():
+            self._prev_token = ''
+            self.next(self._state_global)
+        if token == "{":
+            self.sub_state(
+                self.__class__(self.context), callback)
+        else:
+            self._prev_token = ''
+            self.next(self._state_global, token)
+
+    def _state_template_literal(self, token):
+        if token == '`':
+            self.next(self._state_global)

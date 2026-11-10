@@ -76,7 +76,7 @@ class Component(object):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        return self.name < other.name
+        return self.escaped_name < other.escaped_name
 
     def __str__(self):
         return self.name
@@ -175,7 +175,8 @@ class Species(object):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        return self.name < other.name
+        # escaped_name to match sorting order of SiteFraction objects
+        return self.escaped_name < other.escaped_name
 
     def __str__(self):
         return self.name
@@ -361,6 +362,20 @@ class StateVariable(Symbol):
     def __reduce__(self):
         return self.__class__, (self.name,)
 
+    @classmethod
+    @lru_cache(maxsize=10000)
+    def _with_display_units(cls, args, display_units):
+        "Shared display_units variant, so unit overrides don't allocate each time; StateVariable objects are never freed (gh-656)"
+        newobj = copy(cls(*args))
+        newobj.display_units = display_units
+        return newobj
+
+    def __reduce_ex__(self, protocol):
+        cls, args = self.__reduce__()
+        if 'display_units' in self.__dict__:
+            return cls._with_display_units, (args, self.display_units)
+        return cls, args
+
     def __eq__(self, other):
         """Two species are the same if their names are the same."""
         if isinstance(other, self.__class__):
@@ -376,6 +391,9 @@ class StateVariable(Symbol):
 
     def __getitem__(self, new_units: str) -> "StateVariable":
         "Get StateVariable with different display units"
+        cls, args = self.__reduce__()
+        if self.__dict__ == cls(*args).__dict__:
+            return cls._with_display_units(args, new_units)
         newobj = copy(self)
         newobj.display_units = new_units
         return newobj
@@ -408,6 +426,10 @@ class StateVariable(Symbol):
             newobj.__dict__.update(self.__dict__)
 
         return newobj
+
+    def __deepcopy__(self, memo):
+        # StateVariable objects are never freed (gh-656), so deepcopy must not allocate. Use copy to mutate.
+        return self
 
 class SiteFraction(StateVariable):
     """
@@ -609,12 +631,8 @@ class MoleFraction(StateVariable):
 
         # Sundman et al, 2015, Eq. 73
         jansson_derivative = np.nan
-        for idx, compset in enumerate(compsets):
-            if compset.NP == 0 and not (compset.fixed):
-                continue
+        for idx, compset in self.filtered(compsets):
             func_value = self.compute_per_phase_property(compset, cur_conds)
-            if np.isnan(func_value):
-                continue
             if np.isnan(jansson_derivative):
                 jansson_derivative = 0.0
             grad_value = grad_values[idx]

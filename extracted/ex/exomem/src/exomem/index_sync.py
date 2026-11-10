@@ -307,12 +307,15 @@ def publish_corpus_delta(
     ``populate_on_miss`` passes through to
     :func:`semantic_contract.publish_corpus_files_changed_classified`.
     """
-    from . import semantic_contract
+    from . import graph_read_publication, semantic_contract
 
     changed_values = tuple(Path(path) for path in changed)
     deleted_values = tuple(deleted)
     if not changed_values and not deleted_values:
         return True
+    observation = graph_read_publication.begin_observation(
+        vault_root, changed_values, deleted_values,
+    )
     bounded_attempts = max(1, min(int(attempts), 2))
     failure: semantic_contract.CorpusPublicationFailure | None = None
     for attempt in range(1, bounded_attempts + 1):
@@ -331,6 +334,7 @@ def publish_corpus_delta(
                 semantic_contract.CORPUS_PUBLICATION_REGISTRY_ADVANCE, error
             )
         if failure is None:
+            graph_read_publication.finish_observation(vault_root, observation)
             return True
         log.warning(
             "canonical corpus publication failed (attempt %d/%d, stage=%s)",
@@ -887,6 +891,9 @@ def full_upsert_succeeded(vault_root: Path, replaced: list[Path], report: object
         or report.reconcile_required
     ):
         return False
+    if not report.eligible_paths and not report.paths_truncated and not report.components:
+        # Every written path is one no index reads (`_Schema/`, `_trash/`, ...): nothing is owed.
+        return True
     if (
         len(report.components) != len(_FULL_UPSERT_COMPONENTS)
         or {component.component for component in report.components} != _FULL_UPSERT_COMPONENTS
@@ -1397,12 +1404,12 @@ def requeue_quarantined_graph_paths(vault_root: Path) -> int:
 
 def _quarantine_change_backoff(attempts: int) -> float:
     """Seconds after its last failure before a changed quarantined page is retried."""
-    from . import epistemic_graph
+    from . import backoff, epistemic_graph
 
-    excess = max(0, attempts - epistemic_graph.GRAPH_POISON_ATTEMPTS)
-    return min(
+    return backoff.capped_doubling(
+        epistemic_graph.GRAPH_QUARANTINE_CHANGE_BACKOFF_SECONDS,
         epistemic_graph.GRAPH_QUARANTINE_RETRY_SECONDS,
-        epistemic_graph.GRAPH_QUARANTINE_CHANGE_BACKOFF_SECONDS * 2**excess,
+        attempts - epistemic_graph.GRAPH_POISON_ATTEMPTS,
     )
 
 
@@ -1943,24 +1950,30 @@ def upsert_after_write(
     created_rels = {rel for path in created_paths if (rel := _rel(Path(path))) is not None}
     created_semantic_paths = [item.path for item in semantic_items if item.rel_path in created_rels]
 
-    def stale_report() -> IndexSyncReport:
+    def stale_report(drifted: frozenset[str] | None = None) -> IndexSyncReport:
+        # `drifted` is the identities that disagree with disk after the batch
+        # published. None means every identity is owed: nothing was published
+        # yet, or the policy identity changed and any admission may have flipped.
+        def owed(rel: str) -> bool:
+            return drifted is None or rel in drifted
+
         if watcher_mode:
             from . import lexstore
 
             # The batch disagreed with disk, so its lexical rows may be behind.
-            # Replay exactly its paths against current disk; the worker still
+            # Replay exactly the owed paths against current disk; the worker still
             # escalates a failed replay to the whole-catalogue rebuild.
             lexstore.request_repair(
                 vault_root,
                 deferred_paths=[
-                    *(item.path for item in batch.identity_paths),
+                    *(item.path for item in batch.identity_paths if owed(item.rel_path)),
                     *(vault_root / rel for rel in (*batch.missing_paths, *(watcher_deleted_rels or []))),
                 ],
                 cause=lexstore.RepairCause.WATCHER_BATCH_STALE,
             )
         return _stale_batch_report(
             vault_root,
-            [item.rel_path for item in identity_items],
+            [item.rel_path for item in identity_items if owed(item.rel_path)],
             requested_report,
             eligible_report,
             truncated=requested_truncated or eligible_truncated,
@@ -1990,8 +2003,10 @@ def upsert_after_write(
                 defer_semantic=defer_semantic,
                 created_semantic_paths=[],
             )
-        if watcher_mode and batch.identity_paths and not batch.revalidate(vault_root):
-            return stale_report()
+        if watcher_mode and batch.identity_paths:
+            drifted = batch.drifted_identities(vault_root)
+            if drifted is None or drifted:
+                return stale_report(drifted)
         return IndexSyncReport(
             "upsert",
             requested_report,
@@ -2062,10 +2077,21 @@ def upsert_after_write(
         )
     finally:
         semantic_index.reset_parent_states(token)
+    report = IndexSyncReport(
+        "upsert",
+        requested_report,
+        eligible_report,
+        tuple(components),
+        requested_truncated or eligible_truncated,
+    )
     with call_spans.span("index.policy_revalidate"):
-        current = batch.revalidate(vault_root)
-    if not current:
-        return stale_report()
+        drifted = batch.drifted_identities(vault_root)
+    if drifted is None or drifted:
+        # Only the drifted identities are owed when every component published. A
+        # degraded or failed one leaves rows that custody below repairs, and a
+        # stale batch skips custody, so then the whole batch is owed. The checks
+        # before the dispatch also owe the whole batch.
+        return stale_report(None if report.reconcile_required else drifted)
     with call_spans.span(
         "index.path_custody", {"paths": len(batch.identity_paths)}
     ):
@@ -2080,13 +2106,6 @@ def upsert_after_write(
             deleted=watcher_deleted_rels or [],
             reason="governed_write",
         )
-    report = IndexSyncReport(
-        "upsert",
-        requested_report,
-        eligible_report,
-        tuple(components),
-        requested_truncated or eligible_truncated,
-    )
     return report
 
 
@@ -2358,23 +2377,29 @@ def converge_derived_component(
     if key not in _DERIVED_COMPONENT_REPORT_KEY:
         return False
     root = Path(vault_root)
-    from . import claims, mode, recall_policy, semantic_drain
+    from . import claims, derived_receipts, mode, recall_policy, semantic_drain
 
+    # A page a newer batch carries is that batch's to converge. Replaying it here
+    # races every later write: a shared page such as the vault log changes on each
+    # commit, so its replay never lands and this batch would retry for ever.
+    paths = derived_receipts.converge_paths(root, receipt)
+    if not paths:
+        return True
     service = mode.service_profile_enabled()
     # Tombstones must reach the removal owner before any component can finish,
     # including semantic components whose service path normally only queues work.
-    has_removals = any(path.after_hash is None for path in receipt.paths)
+    has_removals = any(path.after_hash is None for path in paths)
     semantic_outcome: bool | Literal["pending"] | None = None
     if service:
-        paths = [root / path.rel_path for path in receipt.paths if path.after_hash is not None]
+        semantic_paths = [root / path.rel_path for path in paths if path.after_hash is not None]
         if not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS"):
-            semantic_drain.request(root, paths, edited=False, claims_required=key == DerivedComponent.CLAIMS.value and claims.claim_level_enabled())
+            semantic_drain.request(root, semantic_paths, edited=False, claims_required=key == DerivedComponent.CLAIMS.value and claims.claim_level_enabled())
         if key in {DerivedComponent.EMBEDDINGS.value, DerivedComponent.CLAIMS.value}:
             semantic_outcome = True
             enabled = not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS") and (
                 key != DerivedComponent.CLAIMS.value or claims.claim_level_enabled()
             )
-            for path in receipt.paths if enabled else ():
+            for path in paths if enabled else ():
                 if path.after_hash is None or not recall_policy.is_recall_candidate(root, root / path.rel_path):
                     continue
                 if not semantic_drain.publication_ready(root, path.rel_path, expected_hash=path.after_hash, claims_required=key == DerivedComponent.CLAIMS.value):
@@ -2392,7 +2417,7 @@ def converge_derived_component(
         written: list[Path] = []
         created: list[Path] = []
         removed: list[str] = []
-        for path in receipt.paths:
+        for path in paths:
             if path.after_hash is None:
                 removed.append(path.rel_path)
                 continue

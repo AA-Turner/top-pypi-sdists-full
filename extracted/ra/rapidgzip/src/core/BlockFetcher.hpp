@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <exception>
 #include <functional>
 #include <future>
 #include <iostream>
@@ -314,7 +315,16 @@ public:
         while ( queuedResult.wait_for( 1ms ) == std::future_status::timeout ) {
             prefetchNewBlocks( getPartitionOffsetFromOffset, resultIsReady );
         }
-        auto result = std::make_shared<BlockData>( queuedResult.get() );
+        std::shared_ptr<BlockData> result;
+        try {
+            result = std::make_shared<BlockData>( queuedResult.get() );
+        } catch ( ... ) {
+            /* This function owns the only future referencing the worker's shared state. It is destroyed while
+             * unwinding, and the worker's task state may be the last owner of the stored exception. Keep the
+             * exception alive in a member until the next failure so the caller can read exception.what(). */
+            m_exceptionBeingRethrown = std::current_exception();
+            std::rethrow_exception( m_exceptionBeingRethrown );
+        }
         [[maybe_unused]] const auto futureGetDuration = duration( tFutureGetStart );
 
         insertIntoCache( blockOffset, result );
@@ -328,10 +338,35 @@ public:
         return result;
     }
 
-    void
+    /**
+     * Clears all caches and waits for outstanding prefetches. Use this when the decoding configuration
+     * changes, e.g., when enabling checksum verification, because prefetched chunks decoded with the old
+     * configuration must not be reused. The wait is a quiescence barrier, not result collection: dropping
+     * the futures would leave the worker tasks running against the old configuration.
+     */
+    virtual void
     clearCache()
     {
+    #ifdef WITH_PYTHON_SUPPORT
+        /* Worker threads may need the GIL to read from a Python file object. */
+        const ScopedGILUnlock unlockedGIL;
+    #endif
+        for ( auto& [blockOffset, future] : m_prefetching ) {
+            if ( future.valid() ) {
+                try {
+                    (void)future.get();
+                } catch ( const std::exception& ) {
+                    /* Errors are rethrown when the block is requested directly. */
+                }
+            }
+        }
+        m_prefetching.clear();
         m_cache.clear();
+        m_prefetchCache.clear();
+        {
+            const std::scoped_lock lock( m_failedPrefetchCacheMutex );
+            m_failedPrefetchCache.clear();
+        }
     }
 
     [[nodiscard]] Statistics
@@ -473,7 +508,8 @@ private:
 
         auto blockIndexesToPrefetch = m_fetchingStrategy.prefetch( m_prefetchCache.capacity() );
 
-        std::vector<size_t> blockOffsetsToPrefetch( blockIndexesToPrefetch.size() );
+        std::vector<size_t> blockOffsetsToPrefetch;
+        blockOffsetsToPrefetch.reserve( 2 * blockIndexesToPrefetch.size() );
         for ( auto blockIndexToPrefetch : blockIndexesToPrefetch ) {
             /* If we don't find the offset in the timeout of 0, then we very likely also don't have it cached yet. */
             const auto [blockOffset, _] = m_blockFinder->get( blockIndexToPrefetch, /* timeout */ 0 );
@@ -603,6 +639,20 @@ protected:
         m_threadPool.stop();
     }
 
+public:
+    /**
+     * Drains outstanding prefetches and caches, then stops and joins all worker threads. Queued tasks therefore
+     * run before the pool is stopped. The rest of the state is kept so that a later read continues from the same
+     * block map and finder state. This is intended for use before forking. The pool restarts on the next submit.
+     */
+    virtual void
+    joinThreads()
+    {
+        clearCache();
+        m_threadPool.stop();
+    }
+
+protected:
     template<class T_Functor, std::enable_if_t<std::is_invocable_v<T_Functor>, void>* = nullptr>
     std::future<decltype( std::declval<T_Functor>()() )>
     submitTaskWithHighPriority( T_Functor task )
@@ -684,5 +734,8 @@ private:
 
     std::map</* block offset */ size_t, std::future<BlockData> > m_prefetching;
     ThreadPool m_threadPool;
+
+    /* Keeps a rethrown worker exception alive after the future and task state owning it are destroyed. */
+    std::exception_ptr m_exceptionBeingRethrown;
 };
 }  // namespace rapidgzip

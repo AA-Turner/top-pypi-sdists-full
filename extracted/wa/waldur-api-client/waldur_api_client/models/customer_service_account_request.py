@@ -15,17 +15,13 @@ class CustomerServiceAccountRequest:
     """
     Attributes:
         customer (Union[None, UUID]):
-        username (Union[Unset, str]):
         description (Union[Unset, str]):
-        error_traceback (Union[Unset, str]):
         email (Union[Unset, str]):
         preferred_identifier (Union[Unset, str]):
     """
 
     customer: Union[None, UUID]
-    username: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
-    error_traceback: Union[Unset, str] = UNSET
     email: Union[Unset, str] = UNSET
     preferred_identifier: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -37,11 +33,7 @@ class CustomerServiceAccountRequest:
         else:
             customer = self.customer
 
-        username = self.username
-
         description = self.description
-
-        error_traceback = self.error_traceback
 
         email = self.email
 
@@ -54,12 +46,8 @@ class CustomerServiceAccountRequest:
                 "customer": customer,
             }
         )
-        if username is not UNSET:
-            field_dict["username"] = username
         if description is not UNSET:
             field_dict["description"] = description
-        if error_traceback is not UNSET:
-            field_dict["error_traceback"] = error_traceback
         if email is not UNSET:
             field_dict["email"] = email
         if preferred_identifier is not UNSET:
@@ -86,11 +74,7 @@ class CustomerServiceAccountRequest:
 
         customer = _parse_customer(d.pop("customer"))
 
-        username = d.pop("username", UNSET)
-
         description = d.pop("description", UNSET)
-
-        error_traceback = d.pop("error_traceback", UNSET)
 
         email = d.pop("email", UNSET)
 
@@ -98,9 +82,7 @@ class CustomerServiceAccountRequest:
 
         customer_service_account_request = cls(
             customer=customer,
-            username=username,
             description=description,
-            error_traceback=error_traceback,
             email=email,
             preferred_identifier=preferred_identifier,
         )

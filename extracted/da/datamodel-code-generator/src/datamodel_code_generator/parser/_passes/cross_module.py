@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 from typing_extensions import Protocol
 
+from datamodel_code_generator._graph import post_order
 from datamodel_code_generator._model_keys import keyed_or_path
 from datamodel_code_generator._module_paths import dotted_name
 from datamodel_code_generator.imports import Import
@@ -19,6 +20,7 @@ from datamodel_code_generator.model.base import (
     GENERIC_BASE_CLASS_PATH,
     BaseClassDataType,
     DataModel,
+    _find_base_classes,
 )
 from datamodel_code_generator.model.enum import Enum
 from datamodel_code_generator.parser._graph_ids import keyed_models
@@ -32,9 +34,8 @@ from datamodel_code_generator.parser._passes._import_binding import (
 )
 from datamodel_code_generator.parser._passes._import_edges import generic_base_class_module, inherits_one_of
 from datamodel_code_generator.parser._passes._shared import (
-    GraphBuilderHost,
+    GenerationStoreHost,
     ModuleScopeView,
-    RenamedTypesHost,
     _context_models,
     _get_model_module_name,
     _named_data_types,
@@ -47,19 +48,25 @@ from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import Reference
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
     from pathlib import Path
 
+    from datamodel_code_generator._model_keys import ModelKey
     from datamodel_code_generator.imports import Imports
     from datamodel_code_generator.model.base import DataModelFieldBase
-    from datamodel_code_generator.parser._passes._state import ModuleContextView, _ConstNarrowing, _RenamedType
+    from datamodel_code_generator.parser._imports_plan import ImportPass
+    from datamodel_code_generator.parser._passes._import_edges import ImportCycleSeeds
+    from datamodel_code_generator.parser._passes._state import ModuleContextView, ModulePath, _ConstNarrowing
+    from datamodel_code_generator.parser.generation import ModelRename
     from datamodel_code_generator.types import DataType
 
 __all__ = [
     "CrossModuleHost",
     "CrossModuleRun",
+    "FlattenAcrossModulesHost",
     "TaggedBasesHost",
     "apply_generic_base_class",
+    "flatten_narrowed_inherited_fields",
     "import_enum_member_literal_classes",
     "import_removed_reuse_canonicals",
     "import_renamed_types",
@@ -68,10 +75,14 @@ __all__ = [
 ]
 
 
-class CrossModuleHost(ReimportHost, RenamedTypesHost, GraphBuilderHost, Protocol):
+class CrossModuleHost(ReimportHost, GenerationStoreHost, Protocol):
     """The options, run state and hooks of the parser that the cross-module passes read and write."""
 
     _generic_base_model: DataModel | None
+
+    @property
+    def _import_cycle_seeds(self) -> ImportCycleSeeds:
+        """What an earlier attempt of the run found to fail as the output is imported."""
 
     @property
     def _enum_admits_other_values(self) -> list[tuple[DataModelFieldBase, _ConstNarrowing]]:
@@ -108,7 +119,11 @@ class CrossModuleHost(ReimportHost, RenamedTypesHost, GraphBuilderHost, Protocol
         """Build a model with ``factory``, a model class or a model factory, for the run's target Python."""
 
 
-class TaggedBasesHost(CrossModuleHost, FlattenHost, TagPlanHost, Protocol):
+class FlattenAcrossModulesHost(CrossModuleHost, FlattenHost, Protocol):
+    """What making a model of any module declare the fields of its bases reads and writes of the parser."""
+
+
+class TaggedBasesHost(FlattenAcrossModulesHost, TagPlanHost, Protocol):
     """What tagging the structs below tagged bases reads and writes of the parser."""
 
 
@@ -123,32 +138,43 @@ class CrossModuleRun(ModuleScopeView, Protocol):
 _GENERIC_BASE_CLASS: Final = ImportProducer("generic-base-class")
 
 
-def tag_fields_of_tagged_bases(parser: TaggedBasesHost, run: CrossModuleRun) -> None:
-    """Write what becomes of the msgspec structs below tagged bases (``iter_struct_tag_decisions``), and record it.
+def _flattener(
+    parser: FlattenAcrossModulesHost, run: CrossModuleRun, producer: ImportPass
+) -> Callable[[DataModel], None]:
+    """Return what makes a model of the run declare the fields of its generated bases and drop them.
 
-    The modules have bound the names of the models their fields name by then, so a struct that declares the fields
-    of its bases instead names the models of each copied field from its own module, importing those of others.
+    The modules have bound the names of the models their fields name by then, so the model names the models of each
+    copied field from its own module, importing those of others under names that no field of its module takes, as
+    the module's own imports are.
     """
     contexts = {id(model): ctx for ctx in run.contexts for model in ctx.models}
 
     def flatten(model: DataModel) -> None:
         own_fields = {id(field) for field in model.fields}
         flatten_base_layouts(parser, model)
+        copied = [field for field in model.fields if id(field) not in own_fields]
+        ctx = contexts[id(model)]
+        ctx.scoped_model_resolver.exclude_names.update(field.name for field in copied if field.name is not None)
         set_reference_expressions(
             parser,
-            ctx := contexts[id(model)],
+            ctx,
             run,
             model,
-            (
-                data_type
-                for field in model.fields
-                if id(field) not in own_fields
-                for data_type in field.data_type.all_data_types
-            ),
+            (data_type for field in copied for data_type in field.data_type.all_data_types),
             members=keyed_models(module_members(parser, ctx.models), "module members"),
-            producer=ImportProducer("tag-fields-of-tagged-bases", model),
+            producer=ImportProducer(producer, model),
         )
 
+    return flatten
+
+
+def tag_fields_of_tagged_bases(parser: TaggedBasesHost, run: CrossModuleRun) -> None:
+    """Write what becomes of the msgspec structs below tagged bases (``iter_struct_tag_decisions``), and record it.
+
+    A struct that declares the fields of its bases instead names the models of its copied fields as ``_flattener``
+    names them.
+    """
+    flatten = _flattener(parser, run, "tag-fields-of-tagged-bases")
     builder = parser._graph_builder  # noqa: SLF001
     decisions = parser._tag_plan.struct_tags  # noqa: SLF001
     for decision in iter_struct_tag_decisions(_context_models(run.contexts)):
@@ -172,6 +198,25 @@ def tag_fields_of_tagged_bases(parser: TaggedBasesHost, run: CrossModuleRun) -> 
                         builder.replace_field_type(field, field.data_type.__class__(literals=[field.extras["const"]]))
                 model.opt_out_of_inherited_tag()
         decisions.append(decision)
+
+
+def flatten_narrowed_inherited_fields(parser: FlattenAcrossModulesHost, run: CrossModuleRun) -> None:
+    """Make each model whose field narrows an inherited one, which its subclass cannot write, drop its bases.
+
+    The output holds an inherited field to the annotation of its bases (``DataModel._KEEPS_INHERITED_FIELD_TYPES``),
+    so such a model declares the fields of its generated bases itself (``_flattener``), bases first: a model that
+    inherits from one that narrows a field compares its fields with what that base declares then. A model whose form
+    writes no base, a functional TypedDict, declares them too (``DataModel._declares_inherited_fields``).
+    """
+    flatten = _flattener(parser, run, "flatten-narrowed-inherited-fields")
+    written = {id(model) for ctx in run.contexts for model in ctx.models}
+    for model in post_order(
+        [model for ctx in run.contexts for model in ctx.models],
+        lambda model: [base for base in _find_base_classes(model) if id(base) in written],
+        id,
+    ):
+        if model._declares_inherited_fields():  # noqa: SLF001
+            flatten(model)
 
 
 def write_enum_member_tags_as_values(parser: CrossModuleHost, run: CrossModuleRun) -> None:
@@ -213,9 +258,7 @@ def warn_enums_admitting_other_values(parser: CrossModuleHost) -> None:
         )
 
 
-def _stale_renamed_import(
-    imports: Imports, data_type: DataType, renamed_types: Sequence[_RenamedType]
-) -> Import | None:
+def _stale_renamed_import(imports: Imports, data_type: DataType, renamed_types: Sequence[ModelRename]) -> Import | None:
     """Return the import of a module that still names a data type's type by one of the names it had before."""
     return next(
         (
@@ -263,9 +306,25 @@ def import_removed_reuse_canonicals(parser: CrossModuleHost, run: CrossModuleRun
                 )
 
 
-def renamed_types_of(parser: CrossModuleHost, reference: Reference) -> list[_RenamedType] | None:
-    """Return the class names that the model ``reference`` names had before it was renamed, or None."""
-    return keyed_or_path(reference, parser._renamed_types, parser._renamed_type_paths)  # noqa: SLF001
+def _stale_import_renames(
+    renames: Iterable[ModelRename],
+) -> tuple[dict[ModelKey, list[ModelRename]], dict[str, list[ModelRename]]]:
+    """Return the renames that modules processed before them may still import the old name of, by key and by path.
+
+    These are every ``field-type`` rename and each ``collapsed-root`` rename that changed the class name, under the
+    keys the model had when it was renamed and under its path then: row ``legacy-keyless-reference-by-path`` reads
+    the path for a reference that no model was built with.
+    """
+    by_key: dict[ModelKey, list[ModelRename]] = {}
+    by_path: dict[str, list[ModelRename]] = {}
+    for rename in renames:
+        if rename.scheme == "field-type" or (
+            rename.scheme == "collapsed-root" and rename.new_class_name != rename.class_name
+        ):
+            for key in rename.keys:
+                by_key.setdefault(key, []).append(rename)
+            by_path.setdefault(rename.path, []).append(rename)
+    return by_key, by_path
 
 
 def import_renamed_types(parser: CrossModuleHost, run: CrossModuleRun) -> None:
@@ -278,7 +337,8 @@ def import_renamed_types(parser: CrossModuleHost, run: CrossModuleRun) -> None:
     It releases the name it binds for the new one, found by name, as neither the import of a package ``__init__``
     nor a ``from .`` path leads back to the path it was added under.
     """
-    if not parser._renamed_types:  # noqa: SLF001
+    by_key, by_path = _stale_import_renames(parser.generation_store.renames)
+    if not by_key:
         return
     for ctx in run.contexts:
         members = module_members(parser, ctx.models)
@@ -288,7 +348,7 @@ def import_renamed_types(parser: CrossModuleHost, run: CrossModuleRun) -> None:
             for model in members
             for data_type in _named_data_types(model)
             if (reference := data_type.reference) is not None
-            and (renamed_types := renamed_types_of(parser, reference)) is not None
+            and (renamed_types := keyed_or_path(reference, by_key, by_path)) is not None
             and keyed_members.key_of(reference) not in keyed_members.models
             and (import_ := _stale_renamed_import(ctx.imports, data_type, renamed_types)) is not None
         ]
@@ -334,22 +394,32 @@ def import_enum_member_literal_classes(parser: CrossModuleHost, run: CrossModule
 
 
 def apply_generic_base_class(parser: CrossModuleHost, run: CrossModuleRun) -> None:
-    """Add the configured generic base class to the first root module and make top-level target models inherit it."""
+    """Add the configured generic base class to the first root module and make top-level target models inherit it.
+
+    An earlier attempt of the run that found an import of the class to fail as the output is imported seeds the
+    module it goes to (``ImportCycleSeeds.base_class_module``).
+    """
     if not parser.use_generic_base_class or not parser.generic_base_class_config:
         return
 
     all_target_models: set[DataModel] = set()
     modules_with_targets: list[tuple[tuple[str, ...], list[DataModel], list[DataModel], Imports, bool]] = []
+    module_keys: list[ModulePath] = []
     for ctx in run.contexts:
         if target_models := [m for m in ctx.models if m.SUPPORTS_GENERIC_BASE_CLASS and not parser._is_root_model(m)]:  # noqa: SLF001
             modules_with_targets.append((ctx.module, ctx.models, target_models, ctx.imports, ctx.is_init))
+            module_keys.append(ctx.module_key)
             all_target_models.update(target_models)
 
     if not modules_with_targets:
         return
 
     first_root_module, first_root_models, first_root_target_models, _, _ = modules_with_targets[
-        generic_base_class_module([entry[2] for entry in modules_with_targets])
+        generic_base_class_module(
+            [entry[2] for entry in modules_with_targets],
+            module_keys,
+            parser._import_cycle_seeds.base_class_module,  # noqa: SLF001
+        )
     ]
     first_root_file_path = first_root_target_models[0].file_path
 

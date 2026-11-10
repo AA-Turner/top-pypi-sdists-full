@@ -145,14 +145,20 @@ mariadb_pydate_to_tm(enum enum_field_types type,
             type == MYSQL_TYPE_DATETIME)
     {
         uint8_t is_time= PyTime_CheckExact(obj);
-        tm->hour= is_time ? PyDateTime_TIME_GET_HOUR(obj) :
-            PyDateTime_DATE_GET_HOUR(obj);
-        tm->minute= is_time ? PyDateTime_TIME_GET_MINUTE(obj) :
-            PyDateTime_DATE_GET_MINUTE(obj);
-        tm->second= is_time ? PyDateTime_TIME_GET_SECOND(obj) :
-            PyDateTime_DATE_GET_SECOND(obj);
-        tm->second_part= is_time ? PyDateTime_TIME_GET_MICROSECOND(obj) :
-            PyDateTime_DATE_GET_MICROSECOND(obj);
+        uint8_t is_datetime= PyDateTime_CheckExact(obj);
+
+        if (is_time) {
+            tm->hour = PyDateTime_TIME_GET_HOUR(obj);
+            tm->minute = PyDateTime_TIME_GET_MINUTE(obj);
+            tm->second = PyDateTime_TIME_GET_SECOND(obj);
+            tm->second_part = PyDateTime_TIME_GET_MICROSECOND(obj);
+        } else if (is_datetime) {
+            tm->hour = PyDateTime_DATE_GET_HOUR(obj);
+            tm->minute = PyDateTime_DATE_GET_MINUTE(obj);
+            tm->second = PyDateTime_DATE_GET_SECOND(obj);
+            tm->second_part = PyDateTime_DATE_GET_MICROSECOND(obj);
+        }
+
         if (type == MYSQL_TYPE_TIME)
         {
             tm->time_type= MYSQL_TIMESTAMP_TIME;
@@ -162,9 +168,11 @@ mariadb_pydate_to_tm(enum enum_field_types type,
     if (type == MYSQL_TYPE_DATE ||
             type == MYSQL_TYPE_DATETIME)
     {
-        tm->year= PyDateTime_GET_YEAR(obj);
-        tm->month= PyDateTime_GET_MONTH(obj);
-        tm->day= PyDateTime_GET_DAY(obj);
+        if (PyDate_Check(obj) || PyDateTime_Check(obj)) {
+            tm->year = PyDateTime_GET_YEAR(obj);
+            tm->month = PyDateTime_GET_MONTH(obj);
+            tm->day = PyDateTime_GET_DAY(obj);
+        }
         if (type == MYSQL_TYPE_DATE)
             tm->time_type= MYSQL_TIMESTAMP_DATE;
         else
@@ -311,6 +319,8 @@ static uint8_t check_date(uint16_t year, uint8_t month, uint8_t day)
       return 0;
   if (month < 1 || month > 12)
       return 0;
+  if (day < 1 || day > 31)
+      return 0;
   if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
       is_leap= 1;
   if (month == 2)
@@ -323,6 +333,20 @@ static uint8_t check_date(uint16_t year, uint8_t month, uint8_t day)
   if ((month == 4 || month == 6 || month == 9 || month == 11) && day > 30)
       return 0;
   return 1;
+}
+
+/* Store a converted temporal value, or None when Python cannot represent it. */
+static void ma_set_temporal_value(MrdbCursor *self, unsigned int column,
+                                  PyObject *value)
+{
+  if (!value)
+  {
+    if (PyErr_Occurred() && PyErr_ExceptionMatches(PyExc_ValueError))
+        PyErr_Clear();
+    Py_INCREF(Py_None);
+    value= Py_None;
+  }
+  self->values[column]= value;
 }
 
 static uint8_t check_time(MYSQL_TIME *tm)
@@ -485,21 +509,25 @@ static PyObject *ma_convert_value(MrdbCursor *self,
                                   enum enum_field_types type,
                                   PyObject *value)
 {
-    PyObject *key= PyLong_FromLongLong(type);
+    PyObject *key;
     PyObject *func;
     PyObject *new_value= NULL;
 
-    if (!self->connection->converter)
-        return NULL;
+    if (!self->connection || !self->connection->converter ||
+        !PyDict_Check(self->connection->converter))
+        return NULL;                         /* no converter, no exception */
+    if (!(key= PyLong_FromLongLong(type)))
+        return NULL;                         /* MemoryError is set */
 
-    if ((func= PyDict_GetItem(self->connection->converter, key)) &&
-            PyCallable_Check(func))
+    func= PyDict_GetItemWithError(self->connection->converter, key);
+    Py_DECREF(key);
+    if (func && PyCallable_Check(func))
     {
-        PyObject *arglist= PyTuple_New(1);
-        PyTuple_SetItem(arglist, 0, value);
-        new_value= PyObject_CallObject(func, arglist);
+        Py_INCREF(func);                     /* the converter may modify the dict */
+        new_value= PyObject_CallFunctionObjArgs(func, value, NULL);
+        Py_DECREF(func);
     }
-    return new_value;
+    return new_value;                        /* NULL + exception = failed */
 }
 
 void
@@ -556,36 +584,20 @@ field_fetch_fromtext(MrdbCursor *self, char *data, unsigned int column)
             Py_str_to_TIME(data, strlen(data), &tm);
             if (self->fields[column].type == MYSQL_TYPE_TIME)
             {
-                if (check_time(&tm))
-                {
-                      self->values[column]= Mrdb_GetTimeDelta(&tm);
-                }
-                else {
-                    Py_INCREF(Py_None);
-                    self->values[column]= Py_None;
-                }
+                ma_set_temporal_value(self, column,
+                    check_time(&tm) ? Mrdb_GetTimeDelta(&tm) : NULL);
             } else if (self->fields[column].type == MYSQL_TYPE_DATE)
             {
-                if (check_date(tm.year, tm.month, tm.day))
-                {
-                    self->values[column]= PyDate_FromDate(tm.year, tm.month, tm.day);
-                }
-                else {
-                    Py_INCREF(Py_None);
-                    self->values[column]= Py_None;
-                }
+                ma_set_temporal_value(self, column,
+                    check_date(tm.year, tm.month, tm.day)
+                        ? PyDate_FromDate(tm.year, tm.month, tm.day) : NULL);
             } else
             {
-                if (check_date(tm.year, tm.month, tm.day) &&
-                    check_time(&tm))
-                {
-                    self->values[column]= PyDateTime_FromDateAndTime(tm.year, tm.month,
-                               tm.day, tm.hour, tm.minute, tm.second, tm.second_part);
-                }
-                else {
-                    Py_INCREF(Py_None);
-                    self->values[column]= Py_None;
-                }
+                ma_set_temporal_value(self, column,
+                    (check_date(tm.year, tm.month, tm.day) && check_time(&tm))
+                        ? PyDateTime_FromDateAndTime(tm.year, tm.month, tm.day,
+                              tm.hour, tm.minute, tm.second, tm.second_part)
+                        : NULL);
             }
             break;
         case MYSQL_TYPE_TINY_BLOB:
@@ -647,7 +659,7 @@ field_fetch_fromtext(MrdbCursor *self, char *data, unsigned int column)
         default:
             break;
     }
-        /* check if values need to be converted */
+    /* check if values need to be converted */
     if (self->connection->converter)
     {
         PyObject *val;
@@ -659,10 +671,46 @@ field_fetch_fromtext(MrdbCursor *self, char *data, unsigned int column)
           type= self->fields[column].type;
 
         if ((val= ma_convert_value(self, type, self->values[column])))
+        {
+            PyObject *old= self->values[column];
             self->values[column]= val;
+            Py_DECREF(old);                      /* the function no longer steals it */
+        }
     }
 }
 
+/* values[column] holds a new reference or NULL (invalid date).
+   Returns 0 on success, 1 with an exception set. */
+static int ma_finish_value(MrdbCursor *self, unsigned int column,
+                           Mrdb_ExtFieldType *ext_field_type)
+{
+    if (!self->values[column])
+    {
+        if (PyErr_Occurred())
+            return 1;
+        Py_INCREF(Py_None);
+        self->values[column]= Py_None;
+    }
+    if (self->connection->converter)
+    {
+        PyObject *val;
+        enum enum_field_types type=
+            (ext_field_type && ext_field_type->ext_type == EXT_TYPE_JSON)
+                ? MYSQL_TYPE_JSON : self->fields[column].type;
+
+        if ((val= ma_convert_value(self, type, self->values[column])))
+        {
+            PyObject *old= self->values[column];
+            self->values[column]= val;
+            Py_DECREF(old);
+        }
+        else if (PyErr_Occurred())
+            return 1;
+    }
+    return 0;
+}
+
+#ifdef MARIADB_LENENC_ERROR
 /* field_fetch_callback
    This function was previously registered with mysql_stmt_attr_set and
    STMT_ATTR_FIELD_FETCH_CALLBACK parameter. Instead of filling a bind
@@ -673,16 +721,20 @@ field_fetch_fromtext(MrdbCursor *self, char *data, unsigned int column)
    and STMT_ATTR_USER_DATA parameter and will be passed in data variable.
 */
 
-void
-field_fetch_callback(void *data, unsigned int column, unsigned char **row)
+int
+field_fetch_callback(void *data, unsigned int column, unsigned char **row, const unsigned char *end)
 {
     MrdbCursor *self= (MrdbCursor *)data;
     Mrdb_ExtFieldType *ext_field_type;
+    int rc= 1;
 
     PyGILState_STATE gstate;
 
     /* Acquire the GIL */
     gstate = PyGILState_Ensure();
+
+    if (PyErr_Occurred())
+        goto end;
 
     ext_field_type= mariadb_extended_field_type(&self->fields[column]);
 
@@ -690,22 +742,28 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
     {
         Py_INCREF(Py_None);
         self->values[column]= Py_None;
+        rc= 0;
         goto end;
     }
+
     switch(self->fields[column].type) {
         case MYSQL_TYPE_NULL:
             Py_INCREF(Py_None);
             self->values[column]= Py_None;
             break;
         case MYSQL_TYPE_TINY:
+            if ((end - *row) < 1)
+              goto malformed;
             self->values[column]= (self->fields[column].flags &
                  UNSIGNED_FLAG) ?
-                PyLong_FromUnsignedLong((unsigned long)*row[0]) :
-                PyLong_FromLong((long)*row[0]);
+                PyLong_FromUnsignedLong((unsigned long)uint1korr(*row)) :
+                PyLong_FromLong(sint1korr(*row));
             *row+= 1;
             break;
         case MYSQL_TYPE_SHORT:
         case MYSQL_TYPE_YEAR:
+            if ((end - *row) < 2)
+                goto malformed;
             self->values[column]=
                 (self->fields[column].flags & UNSIGNED_FLAG) ?
                 PyLong_FromUnsignedLong((unsigned long)uint2korr(*row)) :
@@ -713,6 +771,8 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
             *row+= 2;
             break;
         case MYSQL_TYPE_INT24:
+            if ((end - *row) < 4)
+                goto malformed;
             self->values[column]=
                 (self->fields[column].flags & UNSIGNED_FLAG) ?
                 PyLong_FromUnsignedLong((unsigned long)uint3korr(*row)) :
@@ -720,6 +780,8 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
             *row+= 4;
             break;
         case MYSQL_TYPE_LONG:
+            if ((end - *row) < 4)
+                goto malformed;
             self->values[column]=
                 (self->fields[column].flags & UNSIGNED_FLAG) ?
                 PyLong_FromUnsignedLong((unsigned long)uint4korr(*row)) :
@@ -728,17 +790,22 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
             break;
         case MYSQL_TYPE_LONGLONG:
             {
-                long long l= sint8korr(*row);
+                long long l;
+                if ((end - *row) < 8)
+                    goto malformed;
+                l= sint8korr(*row);
                 self->values[column]=
-                   (self->fields[column].flags & UNSIGNED_FLAG) ?
-                    PyLong_FromUnsignedLongLong((unsigned long long)l) :
-                    PyLong_FromLongLong(l);
+                  (self->fields[column].flags & UNSIGNED_FLAG) ?
+                  PyLong_FromUnsignedLongLong((unsigned long long)l) :
+                  PyLong_FromLongLong(l);
                 *row+= 8;
                 break;
             }
         case MYSQL_TYPE_FLOAT:
             {
                 float f;
+                if ((end - *row) < 4)
+                    goto malformed;
                 float4get(f, *row);
                 self->values[column]= PyFloat_FromDouble((double)f);
                 *row+= 4;
@@ -747,6 +814,8 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
         case MYSQL_TYPE_DOUBLE:
             {
                 double d;
+                if ((end - *row) < 8)
+                    goto malformed;
                 float8get(d, *row);
                 self->values[column]= PyFloat_FromDouble(d);
                 *row+= 8;
@@ -755,16 +824,24 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
         case MYSQL_TYPE_DATETIME:
         case MYSQL_TYPE_TIMESTAMP:
             {
-                uint8_t len= 0;
+                unsigned long len= 0;
                 int year= 0, month= 0, day= 0,
                     hour= 0, minute= 0, second= 0, second_part= 0;
 
-                len= (uint8_t)mysql_net_field_length(row);
+                if ((mariadb_net_field_length(row, end, MARIADB_LENENC_FORBID_NULL, &len)))
+                    goto malformed;
+
+                if ((len != 0 && len != 4 && len != 7 && len != 11) ||
+                    (len > (size_t)(end - *row)))
+                    goto malformed;
+
                 if (!len)
                 {
-                    self->values[column]= PyDateTime_FromDateAndTime(0,0,0,0,0,0,0);
+                    Py_INCREF(Py_None);
+                    self->values[column]= Py_None;
                     break;
                 }
+
                 year= uint2korr(*row);
                 month= uint1korr(*row + 2);
                 day= uint1korr(*row + 3);
@@ -776,37 +853,54 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
                 }
                 if (len == 11)
                     second_part= uint4korr(*row + 7);
-                self->values[column]= PyDateTime_FromDateAndTime(year, month,
-                    day, hour, minute, second, second_part);
+                ma_set_temporal_value(self, column,
+                    check_date(year, month, day)
+                        ? PyDateTime_FromDateAndTime(year, month, day,
+                              hour, minute, second, second_part)
+                        : NULL);
                 *row+= len;
                 break;
             }
         case MYSQL_TYPE_DATE:
             {
-                uint8_t len= 0;
+                unsigned long len= 0;
                 int year, month, day;
 
-                len= (uint8_t)mysql_net_field_length(row);
+                if ((mariadb_net_field_length(row, end, MARIADB_LENENC_FORBID_NULL, &len)))
+                    goto malformed;
+
+                if ((len != 0 && len != 4) ||
+                    (len > (size_t)(end - *row)))
+                    goto malformed;
 
                 if (!len)
                 {
-                    self->values[column]= PyDate_FromDate(0,0,0);
+                    Py_INCREF(Py_None);
+                    self->values[column]= Py_None;
                     break;
                 }
                 year= uint2korr(*row);
                 month= uint1korr(*row + 2);
                 day= uint1korr(*row + 3);
-                self->values[column]= PyDate_FromDate(year, month, day);
+                ma_set_temporal_value(self, column,
+                    check_date(year, month, day)
+                        ? PyDate_FromDate(year, month, day) : NULL);
                 *row+= len;
                 break;
             }
         case MYSQL_TYPE_TIME:
             {
-                uint8_t len= 0;
+                unsigned long len= 0;
                 MYSQL_TIME tm;
                 memset(&tm, 0, sizeof(MYSQL_TIME));
 
-                len= (uint8_t)mysql_net_field_length(row);
+                if ((mariadb_net_field_length(row, end, MARIADB_LENENC_FORBID_NULL, &len)))
+                    goto malformed;
+
+                if ((len != 0 && len != 8 && len != 12) ||
+                   (len > (size_t)(end - *row)))
+                    goto malformed;
+
                 if (!len)
                 {
                     self->values[column]= Mrdb_GetTimeDelta(&tm);
@@ -831,7 +925,14 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
         case MYSQL_TYPE_LONG_BLOB:
         case MYSQL_TYPE_BIT:
             {
-                unsigned long length= mysql_net_field_length(row);
+                unsigned long length;
+
+                if ((mariadb_net_field_length(row, end, MARIADB_LENENC_FORBID_NULL, &length)))
+                    goto malformed;
+
+                if (length > (size_t)(end - *row))
+                    goto malformed;
+
                 if (length > self->fields[column].max_length)
                     self->fields[column].max_length= length;
                 if (self->fields[column].charsetnr== CHARSET_BINARY)
@@ -850,16 +951,26 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
             }
         case MYSQL_TYPE_NEWDECIMAL:
             {
-                unsigned long length= mysql_net_field_length(row);
+                unsigned long length;
 
-                if (length > 0)
+                if ((mariadb_net_field_length(row, end, MARIADB_LENENC_FORBID_NULL, &length)))
+                    goto malformed;
+
+                if (length > (size_t)(end - *row))
+                    goto malformed;
+
+                if (length > 0 && length <= MAX_DECIMAL_LEN)
                 {
                     char *tmp= alloca(length + 1);
                     memcpy(tmp, (const char *)*row, length);
                     tmp[length]= 0;
                     self->values[column]= PyObject_CallFunction(decimal_type, "s", tmp);
+                } else if (length == 0) {
+                    Py_INCREF(Py_None);
+                    self->values[column]= Py_None;
                 } else {
-                    self->values[column]= PyObject_CallFunction(decimal_type, "s", "0");
+                    PyErr_SetString(PyExc_ValueError, "Invalid or out-of-bounds decimal length encountered");
+                    goto malformed;
                 }
                 *row+= length;
                 break;
@@ -875,7 +986,12 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
         {
             unsigned long length;
             unsigned long utf8len;
-            length= mysql_net_field_length(row);
+
+            if ((mariadb_net_field_length(row, end, MARIADB_LENENC_FORBID_NULL, &length)))
+                goto malformed;
+
+            if (length > (size_t)(end - *row))
+                goto malformed;
 
             if (self->fields[column].charsetnr== CHARSET_BINARY)
             {
@@ -895,29 +1011,34 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
                  }
             }
             *row+= length;
+            break;
         }
         default:
             break;
     }
-    /* check if values need to be converted */
-    if (self->connection->converter)
+
+    if (ma_finish_value(self, column, ext_field_type))
+        goto malformed;
+
+    rc= 0;
+    goto end;
+
+malformed:
+    if (!PyErr_Occurred())
     {
-        PyObject *val;
-        enum enum_field_types type;
-
-        if (ext_field_type && ext_field_type->ext_type == EXT_TYPE_JSON)
-          type= MYSQL_TYPE_JSON;
-        else
-          type= self->fields[column].type;
-
-        if ((val= ma_convert_value(self, type, self->values[column])))
-            self->values[column]= val;
+        PyErr_SetString(PyExc_ValueError, "Malformed packet detected");
     }
-
+    if (!self->values[column]) {
+        Py_INCREF(Py_None);
+        self->values[column]= Py_None;
+    }
+    rc= 1;
 end:
   /* Release the GIL */
   PyGILState_Release(gstate);
+  return rc;
 }
+#endif
 
 static uint8_t ma_is_vector(PyObject *obj)
 {
@@ -988,6 +1109,9 @@ mariadb_get_column_info(PyObject *obj, MrdbParamInfo *paraminfo)
         paraminfo->type= MYSQL_TYPE_DATETIME;
         return 0;
    } else if (CHECK_TYPE(obj, &PyUnicode_Type)) {
+        Py_ssize_t len;
+        if (!PyUnicode_AsUTF8AndSize(obj, &len))
+            return 1;
         paraminfo->type= MYSQL_TYPE_VAR_STRING;
         return 0;
     } else if (obj == Py_None) {
@@ -1184,7 +1308,7 @@ mariadb_get_parameter_info(MrdbCursor *self,
         if (mariadb_get_parameter(self, 1, i, column_nr, &paramvalue))
             return 1;
         memset(&pinfo, 0, sizeof(MrdbParamInfo));
-        if ((rc= mariadb_get_column_info(paramvalue.value, &pinfo) && !paramvalue.indicator))
+        if ((rc= mariadb_get_column_info(paramvalue.value, &pinfo)) && !paramvalue.indicator)
         {
             if (rc == 1)
             {
@@ -1458,8 +1582,15 @@ mariadb_param_to_bind(MrdbCursor *self,
 
       if (CHECK_TYPE(value->value, &PyLong_Type))
       {
+#if PY_VERSION_HEX < 0x030E0000
           if (_PyLong_Sign(value->value) < 0)
               is_negative= 1;
+#else
+          int sign;
+          PyLong_GetSign(value->value, &sign);
+          if (sign < 0)
+              is_negative= 1;
+#endif
       }
     }
 
@@ -1520,11 +1651,18 @@ mariadb_param_to_bind(MrdbCursor *self,
                Py_buffer v;
 
                bind->buffer= NULL;
+               bind->buffer_length= 0;
                if (PyObject_GetBuffer(value->value, &v, PyBUF_CONTIG_RO) < 0)
+               {
+                 rc= 1;
                  goto end;
+               }
 
                if (!v.len)
-                 goto end;
+               {
+                 PyBuffer_Release(&v);
+                 break;
+               }
 
                bind->buffer_length= (unsigned long)v.len;
 #if PY_BIG_ENDIAN == 0
@@ -1570,6 +1708,12 @@ mariadb_param_to_bind(MrdbCursor *self,
 
                 if (CHECK_TYPE(value->value, &PyUnicode_Type)) {
                   bind->buffer= (void *)PyUnicode_AsUTF8AndSize(value->value, &len);
+                  if (!bind->buffer)
+                  {
+                    bind->buffer_length= 0;
+                    rc= 1;
+                    goto end;
+                  }
                   bind->buffer_length= (unsigned long)len;
                 } else {
                   PyObject *obj= PyObject_Str(value->value);
@@ -1583,8 +1727,16 @@ mariadb_param_to_bind(MrdbCursor *self,
                   }
 
                   p= (void *)PyUnicode_AsUTF8AndSize(obj, &len);
-                  if (!(bind->buffer= value->buffer= PyMem_RawCalloc(1, len)))
+                  if (!p)
                   {
+                      Py_DECREF(obj);
+                      bind->buffer_length= 0;
+                      rc= 1;
+                      goto end;
+                  }
+                  if (!(bind->buffer= value->buffer= PyMem_RawCalloc(1, len ? (size_t)len : 1)))
+                  {
+                      Py_DECREF(obj);
                       mariadb_throw_exception(NULL, Mariadb_InterfaceError, 0,
                           "Not enough memory (tried to allocated %lld bytes)", len);
                       return 1;
@@ -1649,6 +1801,334 @@ mariadb_param_update(void *data, MYSQL_BIND *bind, uint32_t row_nr)
     rc= 0;
 end:
     return rc;
+}
+
+/*
+  bind_result fallback for libraries without STMT_ATTR_CB_RESULT_EX.
+
+  Flow:
+    execute      -> ma_bind_result_setup(self)   (instead of registering the callback)
+    each fetch   -> mysql_stmt_fetch(); then ma_values_from_bind(self)
+    close/reset  -> ma_bind_result_free(self)
+
+  Values are built exactly like field_fetch_callback() does: same types,
+  same bytes/str decision, same max_length bookkeeping, and the common tail
+  ma_finish_value() (zero dates -> None, converters).
+
+  ASSUMPTIONS TO VERIFY (marked with "CHECK"):
+    - MrdbCursor has: stmt, fields, field_count, values[], connection and a new
+      member "MA_BIND_STATE *bindstate"
+    - ma_set_temporal_value(self, column, PyObject *) stores into values[column]
+    - check_date() rejects year/month/day == 0
+    - how libmariadb fills MYSQL_TIME for TIME values with days
+    - mariadb_throw_exception(stmt, NULL, 1, NULL) signature
+    - MAX_DECIMAL_LEN is smaller than MA_BIND_STR_SIZE
+*/
+
+static const MA_COL_INFO ma_col_info[MYSQL_TYPE_GEOMETRY + 1]=
+{
+  [MYSQL_TYPE_NULL]        = MA_STR_ENTRY(MA_COL_NULL),
+
+  [MYSQL_TYPE_TINY]        = MA_INT_ENTRY,
+  [MYSQL_TYPE_SHORT]       = MA_INT_ENTRY,
+  [MYSQL_TYPE_YEAR]        = MA_INT_ENTRY,
+  [MYSQL_TYPE_INT24]       = MA_INT_ENTRY,
+  [MYSQL_TYPE_LONG]        = MA_INT_ENTRY,
+  [MYSQL_TYPE_LONGLONG]    = MA_INT_ENTRY,
+
+  [MYSQL_TYPE_FLOAT]       = {MA_COL_FLOAT,  MYSQL_TYPE_FLOAT,  sizeof(float)},
+  [MYSQL_TYPE_DOUBLE]      = {MA_COL_DOUBLE, MYSQL_TYPE_DOUBLE, sizeof(double)},
+
+  [MYSQL_TYPE_DATE]        = MA_TIME_ENTRY(MA_COL_DATE,     MYSQL_TYPE_DATE),
+  [MYSQL_TYPE_TIME]        = MA_TIME_ENTRY(MA_COL_TIME,     MYSQL_TYPE_TIME),
+  [MYSQL_TYPE_DATETIME]    = MA_TIME_ENTRY(MA_COL_DATETIME, MYSQL_TYPE_DATETIME),
+  [MYSQL_TYPE_TIMESTAMP]   = MA_TIME_ENTRY(MA_COL_DATETIME, MYSQL_TYPE_TIMESTAMP),
+
+  [MYSQL_TYPE_NEWDECIMAL]  = MA_STR_ENTRY(MA_COL_DECIMAL),
+
+  [MYSQL_TYPE_TINY_BLOB]   = MA_STR_ENTRY(MA_COL_BLOB),
+  [MYSQL_TYPE_MEDIUM_BLOB] = MA_STR_ENTRY(MA_COL_BLOB),
+  [MYSQL_TYPE_BLOB]        = MA_STR_ENTRY(MA_COL_BLOB),
+  [MYSQL_TYPE_LONG_BLOB]   = MA_STR_ENTRY(MA_COL_BLOB),
+  [MYSQL_TYPE_BIT]         = MA_STR_ENTRY(MA_COL_BLOB),
+
+  [MYSQL_TYPE_GEOMETRY]    = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_STRING]      = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_VAR_STRING]  = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_JSON]        = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_VARCHAR]     = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_DECIMAL]     = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_SET]         = MA_STR_ENTRY(MA_COL_STRING),
+  [MYSQL_TYPE_ENUM]        = MA_STR_ENTRY(MA_COL_STRING)
+};
+
+static const MA_COL_INFO *ma_col_lookup(enum enum_field_types type)
+{
+  static const MA_COL_INFO unknown= {MA_COL_UNKNOWN, MYSQL_TYPE_STRING, 0};
+
+  if ((unsigned int)type > MYSQL_TYPE_GEOMETRY ||
+      ma_col_info[type].cls == MA_COL_UNKNOWN)
+    return &unknown;
+  return &ma_col_info[type];
+}
+
+void ma_bind_result_free(MrdbCursor *self)
+{
+  MA_BIND_STATE *st= self->bindstate;
+
+  if (!st)
+    return;
+  PyMem_Free(st->bind);
+  PyMem_Free(st->buf);
+  PyMem_Free(st->length);
+  PyMem_Free(st->is_null);
+  PyMem_Free(st->error);
+  PyMem_Free(st);
+  self->bindstate= NULL;
+}
+
+/*
+  Allocates the bind buffers and binds them to the statement.
+  Call after the result metadata is known (self->fields, self->field_count)
+  and before the first mysql_stmt_fetch(). Do NOT register any result callback.
+  Returns 0 on success, 1 with a Python exception set.
+*/
+int ma_bind_result_setup(MrdbCursor *self)
+{
+  unsigned int i, n= self->field_count;
+  MA_BIND_STATE *st;
+
+  ma_bind_result_free(self);
+  if (!n)
+    return 0;
+
+  if (!(st= PyMem_Calloc(1, sizeof(MA_BIND_STATE))))
+    goto oom;
+  self->bindstate= st;
+  st->count= n;
+  st->bind=    PyMem_Calloc(n, sizeof(MYSQL_BIND));
+  st->buf=     PyMem_Calloc(n, sizeof(MA_BIND_BUF));
+  st->length=  PyMem_Calloc(n, sizeof(unsigned long));
+  st->is_null= PyMem_Calloc(n, sizeof(my_bool));
+  st->error=   PyMem_Calloc(n, sizeof(my_bool));
+  if (!st->bind || !st->buf || !st->length || !st->is_null || !st->error)
+    goto oom;
+
+  for (i= 0; i < n; i++)
+  {
+    MYSQL_BIND *b= &st->bind[i];
+    const MA_COL_INFO *info= ma_col_lookup(self->fields[i].type);
+
+    b->buffer_type= info->bind_type;
+    b->buffer= &st->buf[i];       /* every union member starts at offset 0 */
+    b->buffer_length= info->buf_size ? info->buf_size
+                                     : MA_BIND_STR_SIZE - 1;   /* one byte kept
+                                        free for the NUL of a decimal */
+    if (info->cls == MA_COL_INT)
+      b->is_unsigned= (self->fields[i].flags & UNSIGNED_FLAG) ? 1 : 0;
+    b->length= &st->length[i];
+    b->is_null= &st->is_null[i];
+    b->error= &st->error[i];
+  }
+
+
+  if (mysql_stmt_bind_result(self->stmt, st->bind))
+  {
+    mariadb_throw_exception(self->stmt, NULL, 1, NULL);     /* CHECK signature */
+    ma_bind_result_free(self);
+    return 1;
+  }
+  return 0;
+
+oom:
+  ma_bind_result_free(self);
+  PyErr_NoMemory();
+  return 1;
+}
+
+/* Builds the value of one column. 0 = ok, 1 = Python exception set. */
+static int ma_bind_value(MrdbCursor *self, unsigned int column)
+{
+  MA_BIND_STATE *st= self->bindstate;
+  MA_BIND_BUF *u= &st->buf[column];
+  MYSQL_FIELD *field= &self->fields[column];
+  Mrdb_ExtFieldType *ext_field_type= mariadb_extended_field_type(field);
+  int cls= ma_col_lookup(field->type)->cls;
+
+  /* like the callback: NULL values do not go through converters */
+  if (st->is_null[column])
+  {
+    Py_INCREF(Py_None);
+    self->values[column]= Py_None;
+    return 0;
+  }
+
+  switch (cls)
+  {
+    case MA_COL_NULL:
+      Py_INCREF(Py_None);
+      self->values[column]= Py_None;
+      break;
+
+    case MA_COL_INT:
+      self->values[column]= (field->flags & UNSIGNED_FLAG) ?
+          PyLong_FromUnsignedLongLong((unsigned long long)u->u.ll) :
+          PyLong_FromLongLong(u->u.ll);
+      break;
+
+    case MA_COL_FLOAT:
+      self->values[column]= PyFloat_FromDouble((double)u->u.f);
+      break;
+
+    case MA_COL_DOUBLE:
+      self->values[column]= PyFloat_FromDouble(u->u.d);
+      break;
+
+    case MA_COL_DATETIME:
+      /* CHECK: a zero date must give None (check_date() false), like len == 0
+         in the callback */
+      ma_set_temporal_value(self, column,
+          check_date(u->u.tm.year, u->u.tm.month, u->u.tm.day)
+              ? PyDateTime_FromDateAndTime(u->u.tm.year, u->u.tm.month,
+                    u->u.tm.day, u->u.tm.hour, u->u.tm.minute,
+                    u->u.tm.second, (int)u->u.tm.second_part)
+              : NULL);
+      break;
+
+    case MA_COL_DATE:
+      ma_set_temporal_value(self, column,
+          check_date(u->u.tm.year, u->u.tm.month, u->u.tm.day)
+              ? PyDate_FromDate(u->u.tm.year, u->u.tm.month, u->u.tm.day)
+              : NULL);
+      break;
+
+    case MA_COL_TIME:
+    {
+      MYSQL_TIME tm= u->u.tm;
+      /* same arithmetic as the callback. CHECK: if the library already folds
+         the days into the hours and clears tm.day, this is a no-op; if it
+         leaves both set, the result is wrong. Test with '-100:20:30'. */
+      if (tm.day)
+        tm.hour+= (tm.day * 24);
+      self->values[column]= Mrdb_GetTimeDelta(&tm);
+      break;
+    }
+
+    case MA_COL_DECIMAL:
+    {
+      unsigned long len= st->length[column];
+
+      if (len == 0)
+      {
+        Py_INCREF(Py_None);
+        self->values[column]= Py_None;
+      }
+      else if (len <= MAX_DECIMAL_LEN && len < MA_BIND_STR_SIZE)  /* CHECK constant */
+      {
+        u->u.str[len]= 0;                       /* a byte is reserved for it */
+        self->values[column]= PyObject_CallFunction(decimal_type, "s", u->u.str);
+      }
+      else
+      {
+        PyErr_SetString(PyExc_ValueError,
+                        "Invalid or out-of-bounds decimal length encountered");
+        return 1;
+      }
+      break;
+    }
+
+    case MA_COL_BLOB:
+    case MA_COL_STRING:
+    {
+      const char *data= u->u.str;
+      unsigned long len= st->length[column];
+      char *big= NULL;
+
+      /* *length is the real length even if the buffer was too small */
+      if (len > MA_BIND_STR_SIZE - 1)
+      {
+        MYSQL_BIND tmp;
+        unsigned long tmp_len= 0;
+        my_bool tmp_null= 0, tmp_err= 0;
+
+        if (!(big= PyMem_Malloc(len)))
+        {
+          PyErr_NoMemory();
+          return 1;
+        }
+        /* a temporary bind: the bound buffers stay as they are for the next
+           fetch */
+        memset(&tmp, 0, sizeof(tmp));
+        tmp.buffer_type= MYSQL_TYPE_STRING;
+        tmp.buffer= big;
+        tmp.buffer_length= len;
+        tmp.length= &tmp_len;
+        tmp.is_null= &tmp_null;
+        tmp.error= &tmp_err;
+        if (mysql_stmt_fetch_column(self->stmt, &tmp, column, 0))
+        {
+          PyMem_Free(big);
+          mariadb_throw_exception(self->stmt, NULL, 1, NULL);   /* CHECK */
+          return 1;
+        }
+        data= big;
+        if (tmp_len < len)
+          len= tmp_len;
+      }
+
+      if (cls == MA_COL_BLOB && len > field->max_length)
+        field->max_length= len;
+
+      if (field->charsetnr == CHARSET_BINARY)
+      {
+        self->values[column]= PyBytes_FromStringAndSize(data, (Py_ssize_t)len);
+        if (cls == MA_COL_STRING && len > field->max_length)
+          field->max_length= len;
+      }
+      else
+      {
+        self->values[column]= PyUnicode_FromStringAndSize(data, (Py_ssize_t)len);
+        if (self->values[column] && cls == MA_COL_STRING)
+        {
+          unsigned long utf8len=
+              (unsigned long)PyUnicode_GET_LENGTH(self->values[column]);
+          if (utf8len > field->max_length)
+            field->max_length= utf8len;
+        }
+      }
+      PyMem_Free(big);
+      break;
+    }
+
+    default:
+      break;                                    /* NULL -> None in ma_finish_value */
+  }
+
+  return ma_finish_value(self, column, ext_field_type);
+}
+
+/*
+  Fills self->values[] from the bound buffers after a successful
+  mysql_stmt_fetch(). Returns 0 on success, 1 with a Python exception set.
+  On failure, values[] holds the columns converted so far, like on the
+  callback path, so the cursor's usual cleanup applies.
+*/
+int ma_values_from_bind(MrdbCursor *self)
+{
+  MA_BIND_STATE *st= self->bindstate;
+  unsigned int i;
+
+  if (!st)
+  {
+    PyErr_SetString(PyExc_RuntimeError, "result buffers are not bound");
+    return 1;
+  }
+  for (i= 0; i < st->count; i++)
+  {
+    if (ma_bind_value(self, i))
+      return 1;
+  }
+  return 0;
 }
 
 #ifdef _WIN32

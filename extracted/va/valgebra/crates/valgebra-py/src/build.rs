@@ -11,14 +11,16 @@ use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyModule, PySet, PyString,
-    PyTuple, PyType,
+    PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyIterator, PyList, PyModule, PySet,
+    PyString, PyTuple, PyType,
 };
+use valgebra_core::descr::lower::reads_as_words;
 use valgebra_core::{
-    ClassIx, ConstIx, DefIx, DefShift, Guarded, OperandIx, PredIx, Schema, fresh_self_token,
+    ClassIx, ConstIx, Constraint, DefIx, DefShift, Guarded, OperandIx, PredIx, Schema,
+    fresh_self_token,
 };
 
-use crate::errors::summarize;
+use crate::errors::{refused_memory_is_memory_error, summarize};
 use crate::validator::{MAX_SCHEMA_DEPTH, MAX_SCHEMA_NODES, Validator};
 
 /// The `build_schema` recursion running on this thread, read and written once on
@@ -63,18 +65,25 @@ thread_local! {
 struct OpenClass {
     address: usize,
     arguments: Option<Py<PyTuple>>,
+    /// How many aliases stood open where its fields began. Reached again with
+    /// one opened since, the class is read inside an alias its own fields reach
+    /// again, which ties the cycle there.
+    aliases: usize,
 }
 
 /// One class's fields being built, held open on [`OPEN_CLASSES`] until they
 /// are and given back as it was however the build ends.
 ///
 /// A class reached again while its own fields are being built, applied to the
-/// same arguments, is built from the same hints again, so the build never
-/// bottoms out. It is refused where it is reached, as the form the frontend
-/// does not take that it is: an alias ties such a fixpoint, and a class is
-/// written with `recursive(...)` to tie one. Applied to other arguments it is
-/// another build, which may end, and the depth bound refuses it where it does
-/// not.
+/// same arguments, with no alias opened in between, is built from the same
+/// hints again, so the build never bottoms out. It is refused where it is
+/// reached, as the form the frontend does not take that it is: an alias ties
+/// such a fixpoint, and a class is written with `recursive(...)` to tie one.
+/// Reached inside an alias opened since its fields began, as `Box[Tree]` with
+/// `type Tree = int | Box[Tree]` reaches `Box`, it is built once more: its
+/// fields reach that alias again while it is open, the alias's back edge, and
+/// the cycle is tied there. Applied to other arguments it is another build,
+/// which may end, and the depth bound refuses either where it does not.
 pub(super) struct ClassScope;
 
 impl ClassScope {
@@ -84,11 +93,12 @@ impl ClassScope {
     ) -> PyResult<ClassScope> {
         let py = class.py();
         let address = class.as_ptr() as usize;
+        let aliases = OPEN_ALIASES.with_borrow(Vec::len);
         // Compared outside the borrow, as an open alias is: an equality is
         // Python code, and code that builds a validator would borrow the list.
         let open: Vec<Option<Py<PyTuple>>> = OPEN_CLASSES.with_borrow(|open| {
             open.iter()
-                .filter(|entry| entry.address == address)
+                .filter(|entry| entry.address == address && entry.aliases == aliases)
                 .map(|entry| entry.arguments.as_ref().map(|held| held.clone_ref(py)))
                 .collect()
         });
@@ -110,6 +120,7 @@ impl ClassScope {
             open.push(OpenClass {
                 address,
                 arguments: arguments.map(|these| these.clone().unbind()),
+                aliases,
             });
         });
         Ok(ClassScope)
@@ -1056,6 +1067,19 @@ pub(crate) fn build_root(
     lits: &mut Pool,
     defs: &mut Vec<Schema>,
 ) -> PyResult<Schema> {
+    // A build is where an argument's Python objects are made, so every door that
+    // builds from one -- the constructor, a combinator, an operator -- reads a
+    // refused allocation as `MemoryError` here.
+    refused_memory_is_memory_error(|| build_root_inside(obj, lits, defs))
+}
+
+/// [`build_root`] for a caller that reads a refused allocation itself: a
+/// relation, whose decision makes Python objects of its own, is caught once.
+pub(crate) fn build_root_inside(
+    obj: &Bound<'_, PyAny>,
+    lits: &mut Pool,
+    defs: &mut Vec<Schema>,
+) -> PyResult<Schema> {
     let _scope = RootScope::enter();
     build_schema(obj, lits, defs)
 }
@@ -1096,6 +1120,50 @@ pub(crate) fn build_schema(
 #[inline(never)]
 fn read_apart(obj: &Bound<'_, PyAny>, lits: &mut Pool, defs: &mut Vec<Schema>) -> PyResult<Schema> {
     read_annotation(obj, lits, defs)
+}
+
+/// The origin and arguments of `obj`, an alias of a builtin container or a union
+/// written with `|`, and `None` for any other object.
+///
+/// What `typing.get_origin` and `typing.get_args` answer for such an object, read
+/// off the object: exact `types.GenericAlias` and exact `types.UnionType` have no
+/// branch of either function but these two attributes, and `get_args` rewrites
+/// the arguments only of an alias of `collections.abc.Callable`, which is no
+/// builtin container. Neither form carries `__metadata__`: an alias hands that
+/// name on to its origin, a static type no assignment reaches, and a union to its
+/// own static type. So the attribute read that would answer it, which raises an
+/// `AttributeError` with its message formatted and clears it, is not made, nor
+/// are the two calls and the one `get_args` makes. An alias of any other origin
+/// may hand the name to a class of the program's, and takes the general reading.
+/// A build of `int | str | list[int] | dict[str, int] | None` reads 68% fewer
+/// instructions on the profiled `CPython` 3.15 wheel, and a test holds the two
+/// readings to one answer over a corpus of forms.
+fn builtin_alias<'py>(
+    obj: &Bound<'py, PyAny>,
+    forms: &Forms,
+) -> PyResult<Option<(Bound<'py, PyAny>, Bound<'py, PyTuple>)>> {
+    let py = obj.py();
+    let kind = obj.get_type();
+    let origin = if kind.is(forms.generic_alias.bind(py)) {
+        let origin = obj.getattr(intern!(py, "__origin__"))?;
+        let builtin = origin.is(py.get_type::<PyList>())
+            || origin.is(py.get_type::<PyDict>())
+            || origin.is(py.get_type::<PyTuple>())
+            || origin.is(py.get_type::<PySet>())
+            || origin.is(py.get_type::<PyFrozenSet>());
+        if !builtin {
+            return Ok(None);
+        }
+        origin
+    } else if kind.is(forms.union_type.bind(py)) {
+        forms.union_type.bind(py).clone()
+    } else {
+        return Ok(None);
+    };
+    let args = obj
+        .getattr(intern!(py, "__args__"))?
+        .cast_into::<PyTuple>()?;
+    Ok(Some((origin, args)))
 }
 
 /// One descent of [`build_schema`] inside its guard: the dispatch on what `obj`
@@ -1174,6 +1242,12 @@ fn read_annotation(
         let schema = compose(py, compiled.get(), lits, defs);
         hold_whole(&schema);
         return Ok(schema);
+    }
+
+    // `list[int]` and `int | str`, which the typing introspection below answers
+    // after an exception built and cleared and three Python calls.
+    if let Some((origin, args)) = builtin_alias(obj, forms)? {
+        return build_parametrized(obj, &origin, &args, lits, defs);
     }
 
     // Annotated[T, m1, ...]: the base type T with refinement metadata.
@@ -1613,6 +1687,14 @@ enum Constant {
     NoneType,
     Bool(bool),
     Int(i64),
+    /// A value by a text its type spells exactly. An `int` past the key above, by its
+    /// hexadecimal digits, which take no time a value's size does not and read no
+    /// limit on a conversion's digits; and an exact `Fraction` or `Decimal` equal to
+    /// itself, by its `repr`: its type, its value, and a `Decimal`'s exponent, which
+    /// `Decimal("1.0") == Decimal("1.00")` does not read and `%` does. The two texts
+    /// never meet, a `repr` holding a capital and a parenthesis and the digits
+    /// neither.
+    Text(Arc<str>),
     /// A float by its bits, with the one value whose bits are not its identity
     /// folded: `0.0 == -0.0`, so the two are one constant. A `nan` never reaches
     /// here -- it equals nothing, itself included, so it is keyed by address.
@@ -1638,9 +1720,20 @@ fn constant_of(obj: &Bound<'_, PyAny>) -> Constant {
         return obj.extract::<bool>().map_or(address, Constant::Bool);
     }
     if is(PyInt::type_object(py)) {
-        // An `int` wider than the key falls back to its address, which pools it
-        // once per object rather than once per value -- correct, just coarser.
-        return obj.extract::<i64>().map_or(address, Constant::Int);
+        return obj.extract::<i64>().map_or_else(
+            |_| {
+                obj.call_method1(intern!(py, "__format__"), (intern!(py, "x"),))
+                    .ok()
+                    .and_then(|digits| {
+                        digits
+                            .cast_exact::<PyString>()
+                            .ok()
+                            .and_then(|text| text.to_str().ok().map(Arc::from))
+                    })
+                    .map_or_else(|| Constant::Address(obj.as_ptr() as usize), Constant::Text)
+            },
+            Constant::Int,
+        );
     }
     if is(PyFloat::type_object(py)) {
         return match obj.extract::<f64>() {
@@ -1656,7 +1749,79 @@ fn constant_of(obj: &Bound<'_, PyAny>) -> Constant {
     if let Ok(raw) = obj.cast_exact::<PyBytes>() {
         return Constant::Bytes(Arc::from(raw.as_bytes()));
     }
+    // A class or a callable, which a build pools by the thousand, is no number: read
+    // off its type's slot before the modules are asked for the two classes.
+    if !obj.is_callable()
+        && let Some(key) = rational_key(obj, &ty)
+    {
+        return key;
+    }
     address
+}
+
+/// The key of an exact `Fraction` or `Decimal` equal to itself, its `repr`: its
+/// type, its value and a `Decimal`'s exponent. `None` for any other object, and for
+/// a `nan` or a signaling one, which equals nothing. Out of line: rare beside the
+/// scalars [`constant_of`] reads first, and every build reads that.
+#[inline(never)]
+fn rational_key(obj: &Bound<'_, PyAny>, ty: &Bound<'_, PyType>) -> Option<Constant> {
+    if !(crate::oracle::is_exact_rational(ty).unwrap_or(false) && obj.eq(obj).unwrap_or(false)) {
+        return None;
+    }
+    let text = obj.repr().ok()?;
+    Some(Constant::Text(Arc::from(text.to_str().ok()?)))
+}
+
+/// The items of an iterable a class or a marker supplies, refused past as many
+/// as a schema holds nodes: the frontend holds what it reads, so one that does
+/// not end would be read until memory does.
+pub(super) fn each_within_the_bound<'a, 'py>(
+    iterable: &'a Bound<'py, PyAny>,
+) -> PyResult<WithinTheBound<'a, 'py>> {
+    Ok(WithinTheBound {
+        items: iterable.try_iter()?,
+        iterable,
+        left: MAX_SCHEMA_NODES,
+    })
+}
+
+/// [`each_within_the_bound`]'s iterator: a count down, read item by item.
+pub(super) struct WithinTheBound<'a, 'py> {
+    items: Bound<'py, PyIterator>,
+    iterable: &'a Bound<'py, PyAny>,
+    left: usize,
+}
+
+impl<'py> Iterator for WithinTheBound<'_, 'py> {
+    type Item = PyResult<Bound<'py, PyAny>>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = self.items.next()?;
+        if self.left == 0 {
+            return Some(Err(yields_too_many(self.iterable)));
+        }
+        self.left -= 1;
+        Some(item)
+    }
+
+    /// The iterable's own hint, held to the bound, so a collect sizes its
+    /// buffer once and a hint past the bound asks for no more than it reads.
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.items.size_hint().0.min(self.left), None)
+    }
+}
+
+/// The refusal of an iterable that yields more items than a schema holds nodes.
+#[cold]
+fn yields_too_many(iterable: &Bound<'_, PyAny>) -> PyErr {
+    match summarize(iterable) {
+        Ok(shown) => PyValueError::new_err(format!(
+            "schema is too large: {shown} yields more than the limit of \
+             {MAX_SCHEMA_NODES} items"
+        )),
+        Err(err) => err,
+    }
 }
 
 /// A pool's keys, slot for slot, and the index a new constant is looked up in.
@@ -1795,43 +1960,70 @@ impl Pool {
     }
 }
 
-/// Refuse a map key schema narrowed by a constraint or a predicate.
+/// Refuse a map key schema narrowed past what a language of `str` keys reads.
 ///
-/// A clause's key says which keys it governs, and a map reads that as whole
-/// *kinds* of key -- `str`, `int`, and the rest -- or as the constants a
-/// `Literal` names. A key narrowed by a bound, a pattern or a callback is
-/// neither: it names part of a kind, and two such clauses can overlap without
-/// either containing the other. Overlapping key domains are a different theory
-/// from the one this library's maps are built on -- with them "there would not
-/// be any difference between record types and an intersection of function
-/// types" [Cas23, §4.5], which is why the paper forbids them [Cas23, §4.4] --
-/// and reading them as this library does, one clause at a time, answers a
-/// question the two spellings do not agree on.
-///
-/// So it is refused where it is written, which is the rule the zero divisor and
-/// the invalid pattern already follow.
-fn checked_key(schema: &Schema, spelling: &Bound<'_, PyAny>) -> PyResult<()> {
-    if !narrows_its_keys(schema) {
+/// A clause's key says which keys it governs. A key type and a `Literal` name
+/// whole kinds and constants, and a `str` narrowed by a pattern or a length names
+/// a regular language, which a map splits its `str` part by
+/// (`crates/valgebra-core/src/descr/maps.rs`). Clauses read disjunctively, so two
+/// that overlap read the join of their values on what they share, a step function
+/// on the common refinement of their keys [Cas23, Def. 4.6]. A key narrowed by a
+/// number's bound, a word's order or a callback names part of a kind no language
+/// holds, so it is refused where it is written, which is the rule the zero divisor
+/// and the invalid pattern already follow. A recursion is its definition here, so
+/// one whose arms are such a key is refused as one. A key that is the very
+/// definition being built is not: its arms are not built where the key is read.
+fn checked_key(schema: &Schema, spelling: &Bound<'_, PyAny>, defs: &[Schema]) -> PyResult<()> {
+    if !narrows_past_words(schema, defs, &mut Vec::new()) {
         return Ok(());
     }
     Err(not_implemented(format!(
-        "{} narrows the keys it governs, and a map key must be a key type or a \
-         Literal: write dict[str, V] to key every string, or dict[Literal[\"a\"], V] \
-         (or {{\"a\": V}}) to key one. To constrain the keys themselves, check them \
+        "{} narrows the keys it governs past a language of `str` keys, and a map key \
+         must be a key type, a Literal, or a `str` narrowed by a pattern or a length: \
+         write dict[str, V] to key every string, or dict[Literal[\"a\"], V] (or \
+         {{\"a\": V}}) to key one. To constrain the keys any other way, check them \
          beside the mapping rather than inside it",
         summarize(spelling)?
     )))
 }
 
-/// Whether a key schema narrows its keys by a constraint or a predicate, at any
-/// depth a union or a complement can hide one.
-fn narrows_its_keys(schema: &Schema) -> bool {
+/// Whether a key schema narrows its keys by more than a pattern or a length of a
+/// `str`, at any depth a union, a complement or a reference to a definition can
+/// hide one. `entered` holds the definitions on the way, so a reference reached
+/// again adds nothing.
+fn narrows_past_words(schema: &Schema, defs: &[Schema], entered: &mut Vec<DefIx>) -> bool {
     match schema {
-        Schema::Refine { constraints, .. } => !constraints.is_empty(),
-        Schema::Union(members) | Schema::Intersection(members) => {
-            members.iter().any(narrows_its_keys)
+        Schema::Refine { base, constraints } if !constraints.is_empty() => {
+            let of_words = matches!(**base, Schema::Str)
+                || (matches!(**base, Schema::Refine { .. })
+                    && !narrows_past_words(base, defs, entered));
+            !of_words
+                || !constraints.iter().all(|constraint| {
+                    matches!(
+                        constraint,
+                        Constraint::Regex(_) | Constraint::MinLen(_) | Constraint::MaxLen(_)
+                    )
+                })
         }
-        Schema::Complement(inner) => narrows_its_keys(inner),
+        Schema::Union(members) => members
+            .iter()
+            .any(|member| narrows_past_words(member, defs, entered)),
+        // A member narrowed past words alone may be narrowed to words by the
+        // others, which hold none of the kinds it narrows: the map's own
+        // reading of the key says, so a key the decision splits by a language
+        // builds.
+        Schema::Intersection(members) => {
+            members
+                .iter()
+                .any(|member| narrows_past_words(member, defs, entered))
+                && !reads_as_words(schema)
+        }
+        Schema::Complement(inner) => narrows_past_words(inner, defs, entered),
+        Schema::Ref(index) if !entered.contains(index) => {
+            entered.push(*index);
+            defs.get(index.get())
+                .is_some_and(|body| narrows_past_words(body, defs, entered))
+        }
         _ => false,
     }
 }

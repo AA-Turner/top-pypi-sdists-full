@@ -6,8 +6,10 @@ from pathlib import PurePosixPath
 import re
 from typing import Literal
 
+from repo_standards.activation_verification import VerifiedActivation
+
 from .canonical import canonical_path
-from .description import DescriptionMetrics, analyze_description
+from .description import DescriptionMetrics, analyze_description, without_bot_footer
 from .errors import ConfigurationError
 from .models import (
     DEFAULT_MAXIMUM_BODY_CHARACTERS,
@@ -107,6 +109,7 @@ class ReviewPolicyConfig:
     migration_review_floor: RequiredReviewCount = MIGRATION_REVIEW_FLOOR
     migration_roots: tuple[str, ...] = ()
     author_review_floor: RequiredReviewCount = 0
+    verified_activation: VerifiedActivation | None = None
     accepted_check_conclusions: frozenset[CheckConclusion] = frozenset({CheckConclusion.SUCCESS})
     require_resolved_threads: bool = True
     maximum_body_characters: int = DEFAULT_MAXIMUM_BODY_CHARACTERS
@@ -278,6 +281,9 @@ def evaluate_review_policy(
         required_reviews = config.author_review_floor
         reasons.append(ReviewPolicyReason.AUTHOR_REVIEW_FLOOR)
 
+    if _verified_activation(evidence, config):
+        required_reviews = 0
+
     head_matches = evidence.current_head_sha is not None and (
         evidence.current_head_sha == evidence.evaluated_head_sha
     )
@@ -301,12 +307,11 @@ def evaluate_review_policy(
     reasons.extend(review_assessment.reasons)
     reasons.extend(_focus_reasons(evidence, config))
 
-    description = (
-        analyze_description(evidence.body)
-        if len(evidence.body) <= config.maximum_body_characters
-        else None
+    body = without_bot_footer(evidence.body)
+    description = analyze_description(body) if len(body) <= config.maximum_body_characters else None
+    reasons.extend(
+        description_reasons(description, maximum_prose_characters=config.maximum_prose_characters)
     )
-    reasons.extend(_description_reasons(description, config))
 
     if config.require_resolved_threads:
         if evidence.threads_resolved is None:
@@ -341,17 +346,28 @@ def evaluate_review_policy(
     )
 
 
-def _description_reasons(
-    description: DescriptionMetrics | None, config: ReviewPolicyConfig
+def description_reasons(
+    description: DescriptionMetrics | None,
+    *,
+    maximum_prose_characters: int = DEFAULT_MAXIMUM_PROSE_CHARACTERS,
 ) -> tuple[ReviewPolicyReason, ...]:
     if description is None:
         return (ReviewPolicyReason.BODY_TOO_LONG,)
     reasons: list[ReviewPolicyReason] = []
-    if description.prose_characters > config.maximum_prose_characters:
+    if description.prose_characters > maximum_prose_characters:
         reasons.append(ReviewPolicyReason.BODY_PROSE_TOO_LONG)
     if description.invalid_code_examples:
         reasons.append(ReviewPolicyReason.BODY_CODE_EXAMPLE_INVALID)
     return tuple(reasons)
+
+
+def _verified_activation(evidence: ReviewPolicyEvidence, config: ReviewPolicyConfig) -> bool:
+    proof = config.verified_activation
+    return bool(
+        proof is not None
+        and proof.binding.head_sha == evidence.evaluated_head_sha == evidence.current_head_sha
+        and set(evidence.changed_paths) == {item.path for item in proof.binding.changes}
+    )
 
 
 def _focus_reasons(
@@ -374,7 +390,7 @@ def _focus_reasons(
         else 0,
         int(any(_under_roots(path, config.domain_roots) for path in evidence.changed_paths)),
     )
-    if len(exact_humans) < sensitive_floor:
+    if len(exact_humans) < sensitive_floor and not _verified_activation(evidence, config):
         reasons.append(ReviewPolicyReason.SENSITIVE_APPROVAL_MISSING)
     coupled_paths = migration_coupled_paths(evidence.changed_paths, config.migration_roots)
     exception = evidence.migration_exception

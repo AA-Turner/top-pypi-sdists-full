@@ -17,7 +17,7 @@ single bucket). No derivation is privileged in the orchestrator.
 
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from trilogy.constants import logger
 from trilogy.core import graph as nx
@@ -38,7 +38,6 @@ from trilogy.core.models.build_environment import (
 )
 from trilogy.core.models.keyspace import Keyspace
 from trilogy.core.processing import plan_trace
-from trilogy.core.processing.join_key_groups import is_join_key_group
 from trilogy.core.processing.node_generators.presence_probe import is_presence_probe
 
 from .concept_graph import (
@@ -80,7 +79,13 @@ from .functional_dependency import (
 )
 from .group_behaviors import Behavior, behavior_for
 from .group_rules import DEFAULT_RULE, GROUPING_RULES
-from .join_plan import authored_axes, final_predecessors, merge_axes, row_identity
+from .join_plan import (
+    authored_axes,
+    carryable,
+    final_predecessors,
+    merge_axes,
+    row_identity,
+)
 from .models import (
     ConceptAttrs,
     FinalAssemblyContract,
@@ -91,6 +96,7 @@ from .models import (
     RootReason,
 )
 from .projection import (
+    iter_row_lineage,
     rollup_padded_keys,
 )
 from .region_domains import (
@@ -847,7 +853,6 @@ def _shared_row_parent_join_keys(
     gid: str,
     key_addresses: frozenset[str],
     lineage_parents: dict[str, set[str]],
-    axes: frozenset[str] = frozenset(),
 ) -> frozenset[str]:
     """Keys carried by >=2 row-stream parents of `gid` that bridge a fixed-grain
     dimension CTE to the fact scan: the join key their merge must use. A
@@ -862,12 +867,8 @@ def _shared_row_parent_join_keys(
     any parent as that parent's own grain. A grain-owning parent is the
     canonical dimension at the key and folds with the others, and a key
     unrelated to the grouping grain is co-carried by plain projections of a
-    common scan; declaring either as a preserve_key over-constrains
-    sourcing.
-
-    A merged attribute (`axes`) is the exception: a scalar of it
-    (`coalesce(a.year, b.year)`) is grained on the attribute itself, and that
-    is the only column it shares with the row stream."""
+    common scan; declaring either as a sourcing key over-constrains
+    sourcing."""
     if attrs[gid].derivation not in _ROW_JOIN_CONSUMER_DERIVATIONS:
         return frozenset()
     rows = row_parents(group_graph, group_edges, gid)
@@ -881,10 +882,7 @@ def _shared_row_parent_join_keys(
     counts: dict[str, int] = defaultdict(int)
     grain_owners: set[str] = set()
     for pred in rows:
-        carried = set(attrs[pred].output_concepts) | (
-            set(attrs[pred].grain_components) & axes
-        )
-        for addr in carried:
+        for addr in attrs[pred].output_concepts:
             counts[addr] += 1
             if addr in attrs[pred].grain_components:
                 grain_owners.add(addr)
@@ -893,7 +891,8 @@ def _shared_row_parent_join_keys(
         for addr, n in counts.items()
         if n >= 2
         and addr in grain_ancestors
-        and (addr in axes or (addr in key_addresses and addr not in grain_owners))
+        and addr in key_addresses
+        and addr not in grain_owners
     )
 
 
@@ -914,14 +913,9 @@ def _rowset_relation_keys(
     (`_aggregate_axis_members`)."""
     if len(row_parents) < 2:
         return frozenset()
-    rowsets = {
-        concept.lineage.rowset.name
-        for pred in row_parents
-        if attrs[pred].derivation == Derivation.ROWSET
-        for addr in attrs[pred].members
-        if (concept := environment.concepts.get(addr)) is not None
-        and isinstance(concept.lineage, BuildRowsetItem)
-    }
+    rowsets = frozenset().union(
+        *(_group_rowsets(attrs[pred], environment) for pred in row_parents)
+    )
     if not rowsets:
         return frozenset()
     statement = _statement_scoped_relation_members(environment)
@@ -941,6 +935,56 @@ def _rowset_relation_keys(
         ):
             keys |= relation
     return frozenset(keys)
+
+
+def _group_rowsets(group: GroupAttrs, environment: BuildEnvironment) -> frozenset[str]:
+    """The rowsets a ROWSET group reads out; empty for any other group."""
+    if group.derivation != Derivation.ROWSET:
+        return frozenset()
+    return frozenset(
+        concept.lineage.rowset.name
+        for addr in group.members
+        if (concept := environment.concepts.get(addr)) is not None
+        and isinstance(concept.lineage, BuildRowsetItem)
+    )
+
+
+def _lineage_rowsets(address: str, environment: BuildEnvironment) -> frozenset[str]:
+    """The rowsets whose handles `address` is computed off (`b.oid + 1` reads
+    `b`); empty for a concept no rowset feeds."""
+    concept = environment.concepts.get(address)
+    if concept is None or concept.lineage is None:
+        return frozenset()
+    if isinstance(concept.lineage, BuildRowsetItem):
+        return frozenset({concept.lineage.rowset.name})
+    return frozenset().union(
+        *(
+            _lineage_rowsets(arg.address, environment)
+            for arg in concept.lineage.concept_arguments
+        )
+    )
+
+
+def _edge_relation_keys(
+    relation_keys: frozenset[str],
+    parent: GroupAttrs,
+    environment: BuildEnvironment,
+) -> frozenset[str]:
+    """The side of a consumer's statement relations one row parent sources: a
+    rowset its own handles, any other parent the members no rowset feeds
+    (`subset join rs2.cid = customer_id` asks the rowset for `rs2.cid` and the
+    customers scan for `customer_id`). A member it already outputs it carries
+    either way."""
+    own = _group_rowsets(parent, environment)
+    return frozenset(
+        key
+        for key in relation_keys
+        if key in parent.output_concepts
+        or (
+            (rowsets := _lineage_rowsets(key, environment)) <= own
+            and bool(rowsets) == bool(own)
+        )
+    )
 
 
 GroupedRowMemo = dict[str, tuple[frozenset[str], bool] | None]
@@ -1025,6 +1069,108 @@ def _walk_grouped_rows(
     )
 
 
+def _consumer_sibling_grains(
+    group_graph: nx.DiGraph,
+    group_edges: EdgeMap,
+    attrs: dict[str, GroupAttrs],
+    gid: str,
+    grouped_grains: GroupedRowMemo,
+) -> frozenset[str]:
+    """The grains `gid`'s row parents already stand at, which a dimension
+    parent beside them is projected to rather than asked to carry: the grain
+    of any parent computed off aggregates, and the spans of any region
+    domain. No pairing reads them; they only fix the projection (part 34)."""
+    rows = row_parents(group_graph, group_edges, gid)
+    # A non-grouping consumer pairing a GROUPING row parent (a population
+    # aggregate at grain G) with row-grain siblings reads the sibling at G
+    # (`sum(z) by x + w`: the w rows project to x before the sum joins).
+    grouping_parent_grain: frozenset[str] = frozenset()
+    if attrs[gid].derivation not in GROUPING_DERIVATIONS and len(rows) >= 2:
+        grouping_parent_grain = frozenset().union(
+            *(
+                _grouped_row_grain(
+                    group_graph, group_edges, attrs, pred, grouped_grains
+                )
+                or frozenset()
+                for pred in rows
+            )
+        )
+    domain_spans: frozenset[str] = frozenset().union(
+        *(attrs[pred].extent_spans for pred in rows)
+    )
+    return grouping_parent_grain | domain_spans
+
+
+def _rowset_body_shapes_rows(
+    handle: BuildRowsetItem, environment: BuildEnvironment
+) -> bool:
+    """A rowset's body groups or windows its rows when any of its columns does."""
+    for addr in handle.rowset.derived_concepts:
+        concept = environment.concepts.get(addr)
+        content = (
+            concept.lineage.content
+            if concept is not None and isinstance(concept.lineage, BuildRowsetItem)
+            else None
+        )
+        if content is not None and any(
+            c.derivation in GROUPING_DERIVATIONS for c in iter_row_lineage(content)
+        ):
+            return True
+    return False
+
+
+def _shapes_rows_here(group: GroupAttrs, environment: BuildEnvironment) -> bool:
+    if group.derivation in GROUPING_DERIVATIONS:
+        return True
+    if group.derivation != Derivation.ROWSET:
+        return False
+    handles = {
+        concept.lineage.rowset.name: concept.lineage
+        for addr in group.members
+        if (concept := environment.concepts.get(addr)) is not None
+        and isinstance(concept.lineage, BuildRowsetItem)
+    }
+    return any(
+        _rowset_body_shapes_rows(handle, environment) for handle in handles.values()
+    )
+
+
+def _refresh_shapes_rows(
+    group_graph: nx.DiGraph,
+    group_edges: EdgeMap,
+    attrs: dict[str, GroupAttrs],
+    environment: BuildEnvironment,
+) -> None:
+    """Mark each group whose rows a grouping stage shapes: its own, a rowset
+    body's it reads out, or that of any group its rows flow from. A condition
+    an aggregate answers filters the rows it constrains; it does not shape them."""
+    for gid in (g for g in nx.topological_sort(group_graph) if g in attrs):
+        attrs[gid].shapes_rows = _shapes_rows_here(attrs[gid], environment) or any(
+            attrs[pred].shapes_rows
+            for pred in lineage_predecessors(group_graph, group_edges, gid)
+            if pred in attrs
+        )
+
+
+def shape_through_bridges(
+    group_graph: nx.DiGraph,
+    group_edges: EdgeMap,
+    attrs: dict[str, GroupAttrs],
+    order: Sequence[str],
+) -> None:
+    """A group whose merge plan elects a shaped bridge holds that bridge's
+    rows (q64: a rowset across a `union join`), and so does every group its
+    rows flow to. `order` is the build order, which puts a bridge before its
+    consumer though no edge does."""
+    bridged: set[str] = set()
+    for gid in (g for g in order if g in attrs):
+        if any(b in attrs and attrs[b].shapes_rows for b in attrs[gid].bridges) or (
+            bridged & set(lineage_predecessors(group_graph, group_edges, gid))
+        ):
+            bridged.add(gid)
+            attrs[gid].shapes_rows = True
+
+
 def _refresh_input_contracts(
     group_graph: nx.DiGraph,
     group_edges: EdgeMap,
@@ -1037,42 +1183,33 @@ def _refresh_input_contracts(
     key_addresses = frozenset(
         a.address for a in concept_attrs.values() if a.purpose == Purpose.KEY
     )
-    axes = frozenset(
-        a.address
-        for a in concept_attrs.values()
-        if is_join_key_group(a.address, environment)
-    )
     lineage_parents = _lineage_parents_by_address(concept_edges, concept_attrs)
     grouped_grains: GroupedRowMemo = {}
-    for gid in group_graph.nodes:
-        if gid == FINAL_NODE_ID or gid not in attrs:
-            continue
-        required_grain = _consumer_required_input_grain(
+    consumers = [
+        gid for gid in group_graph.nodes if gid != FINAL_NODE_ID and gid in attrs
+    ]
+    _refresh_shapes_rows(group_graph, group_edges, attrs, environment)
+    # every grain first: what a parent can carry reads its own input grain
+    for gid in consumers:
+        attrs[gid].input_grain = _consumer_required_input_grain(
             group_graph, group_edges, attrs, gid, rows_pair_facts
         )
-        bridge_keys = _shared_row_parent_join_keys(
-            group_graph, group_edges, attrs, gid, key_addresses, lineage_parents, axes
+    for gid in consumers:
+        input_grain = attrs[gid].input_grain
+        # a bridge widens the consumer's sourcing and fixes the projection; no
+        # pairing reads it (part 35)
+        sourcing_keys = _shared_row_parent_join_keys(
+            group_graph, group_edges, attrs, gid, key_addresses, lineage_parents
         )
-        rows = row_parents(group_graph, group_edges, gid)
-        # A non-grouping consumer pairing a GROUPING row parent (a population
-        # aggregate at grain G) with row-grain siblings joins them ON G; the
-        # aggregate's value repeats per G-group across the row stream (`sum(z)
-        # by x + w`: the sum CTE pairs to the w rows on x). Declare G so the
-        # sibling projections keep the bridge instead of degrading to 1=1.
-        grouping_parent_grain: set[str] = set()
-        if attrs[gid].derivation not in GROUPING_DERIVATIONS and len(rows) >= 2:
-            for pred in rows:
-                grain = _grouped_row_grain(
-                    group_graph, group_edges, attrs, pred, grouped_grains
-                )
-                grouping_parent_grain |= grain or frozenset()
-        # a region domain among the parents joins the rest on its spans: the
-        # axis every side keeps, whatever the consumer's grain
-        domain_spans: frozenset[str] = frozenset().union(
-            *(attrs[pred].extent_spans for pred in rows)
-        )
+        attrs[gid].sourcing_keys = sourcing_keys
         relation_keys = _rowset_relation_keys(
-            rows, attrs, environment, attrs[gid].aggregate_input_grain
+            row_parents(group_graph, group_edges, gid),
+            attrs,
+            environment,
+            attrs[gid].aggregate_input_grain,
+        )
+        attrs[gid].projection_grain = sourcing_keys | _consumer_sibling_grains(
+            group_graph, group_edges, attrs, gid, grouped_grains
         )
         contracts: list[GroupInputContract] = []
         for pred in sorted(group_graph.predecessors(gid)):
@@ -1084,15 +1221,25 @@ def _refresh_input_contracts(
                 GroupInputContract(
                     parent_group_id=pred,
                     consumer_group_id=gid,
-                    required_grain=frozenset() if is_existence else required_grain,
-                    preserve_keys=(
+                    required_grain=(
                         frozenset()
                         if is_existence
-                        else required_grain
-                        | bridge_keys
-                        | grouping_parent_grain
-                        | domain_spans
-                        | relation_keys
+                        else carryable(
+                            group_graph, attrs, pred, input_grain, environment
+                        )
+                    ),
+                    relation_keys=(
+                        frozenset()
+                        if is_existence
+                        else carryable(
+                            group_graph,
+                            attrs,
+                            pred,
+                            _edge_relation_keys(
+                                relation_keys, attrs[pred], environment
+                            ),
+                            environment,
+                        )
                     ),
                     channel=(
                         InputChannel.EXISTENCE
@@ -1100,7 +1247,7 @@ def _refresh_input_contracts(
                         else InputChannel.ROW_STREAM
                     ),
                     may_project_dimension=(
-                        bool(required_grain)
+                        bool(input_grain)
                         and not is_existence
                         and attrs[pred].derivation not in GROUPING_DERIVATIONS
                     ),
@@ -1889,6 +2036,9 @@ def _compute_concept_sets(
         )
         for gid, bucket in buckets.items()
     }
+    for gid, anchors in pin_anchors.items():
+        if gid in attrs:
+            attrs[gid].grain_pin_anchors = anchors
 
     mate_accumulator: dict[str, set[str]] = {}
     for ca in concept_attrs.values():
@@ -2194,12 +2344,7 @@ def build_group_graph(
         environment,
         rollup_padded,
     )
-    _merge_basic_into_window_parent(
-        group_graph, group_edges, attrs, buckets, concept_attrs
-    )
-    _regraft_group_sources(
-        group_graph, group_edges, attrs, buckets, concept_attrs, environment
-    )
+    _rehome_groups(group_graph, group_edges, attrs, buckets, concept_attrs, environment)
     trace_group_graph(
         "FINAL added, concept sets computed, sources regrafted",
         group_graph,
@@ -2304,6 +2449,21 @@ def trace_group_graph(
         )
 
 
+@dataclass(frozen=True)
+class RowProvider:
+    """The row source a regraftable group is re-homed onto: the parent it
+    reads, the grain it adopts from a grouping provider, the lineage parents
+    that parent replaces, the dimension ROOT minted for it, and whether the
+    parent renders the group inline."""
+
+    parent: str | None
+    grain: frozenset[str] | None = None
+    drop: frozenset[str] = frozenset()
+    minted: GroupBucket | None = None
+    # the parent renders the group in its own SELECT: the group folds into it
+    inline: bool = False
+
+
 def _regraft_candidate(
     group_graph: nx.DiGraph,
     group_edges: EdgeMap,
@@ -2312,6 +2472,7 @@ def _regraft_candidate(
     *,
     allow_partial: bool,
     environment: BuildEnvironment | None = None,
+    grain: frozenset[str] | None = None,
 ) -> str | None:
     """Find the richest row-compatible sibling to source `gid`'s inputs.
 
@@ -2344,6 +2505,8 @@ def _regraft_candidate(
     merge.
     """
     current = attrs[gid]
+    if grain is None:
+        grain = current.grain_components
     needed = set(current.input_concepts)
     if not needed:
         return None
@@ -2379,9 +2542,7 @@ def _regraft_candidate(
             # right one is chosen by depth below, not by derivation type.
             if not allow_partial or current.derivation != Derivation.BASIC:
                 continue
-            if not _same_rows(
-                cattrs.grain_components, current.grain_components, environment
-            ):
+            if not _same_rows(cattrs.grain_components, grain, environment):
                 continue
             if not (needed - covered) <= pred_outputs:
                 continue
@@ -2518,7 +2679,8 @@ def _synthetic_dimension_regraft_parent(
     buckets: dict[str, GroupBucket],
     concept_attrs: dict[str, ConceptAttrs],
     gid: str,
-) -> str | None:
+    grain: frozenset[str],
+) -> RowProvider | None:
     current = attrs[gid]
     if current.derivation != Derivation.BASIC:
         return None
@@ -2528,7 +2690,7 @@ def _synthetic_dimension_regraft_parent(
     # condition's derived arg needs.
     if current.depth_label == DepthLabel.D1:
         return None
-    key = set(current.grain_components)
+    key = set(grain)
     if not key:
         return None
     lineage_preds = lineage_predecessors(group_graph, group_edges, gid)
@@ -2565,11 +2727,9 @@ def _synthetic_dimension_regraft_parent(
 
     dimension_root = _covering_dimension_root(root_preds, inputs, attrs, buckets)
     if dimension_root is not None:
-        for other in root_preds:
-            if other != dimension_root and group_graph.has_edge(other, gid):
-                remove_edge(group_graph, group_edges, other, gid)
-        return dimension_root
-
+        return RowProvider(
+            dimension_root, drop=frozenset(root_preds) - {dimension_root}
+        )
     bucket = GroupBucket(
         depth_label=DepthLabel.ROOT,
         derivation=Derivation.ROOT,
@@ -2580,15 +2740,7 @@ def _synthetic_dimension_regraft_parent(
         reason=RootReason.BASIC_INPUT,
         primary_members=list(inputs),
     )
-    root_gid = bucket.group_id
-    if root_gid not in group_graph:
-        group_graph.add_node(root_gid)
-        attrs[root_gid] = GroupAttrs.from_bucket(bucket)
-        buckets[root_gid] = bucket
-    for pred in root_preds:
-        if group_graph.has_edge(pred, gid):
-            remove_edge(group_graph, group_edges, pred, gid)
-    return root_gid
+    return RowProvider(bucket.group_id, drop=frozenset(root_preds), minted=bucket)
 
 
 def _covering_dimension_root(
@@ -2650,75 +2802,194 @@ def _absorb_group(
     buckets.pop(gid, None)
 
 
-def _merge_basic_into_window_parent(
+def _renders_inline(
+    attrs: dict[str, GroupAttrs],
+    concept_attrs: dict[str, ConceptAttrs],
+    gid: str,
+    parent: str,
+) -> bool:
+    """Whether WINDOW `parent` renders scalar BASIC `gid` in its own SELECT, so
+    the group folds into it instead of forcing the window to materialize every
+    passthrough column for a separate projection node.
+
+    Gated to the one case the optimizer cannot express: `CollapseSingleParent`
+    blocks BASIC-into-WINDOW, since a row projection can't ride a window
+    node's SELECT through a generic fold (an AGGREGATE parent is its
+    `basic_fold_into_group_is_safe`). A post-window filter needs no handling:
+    none is injected yet, and placement never hosts a filter on a window
+    group's own output."""
+    a = attrs[gid]
+    pa = attrs[parent]
+    if pa.derivation != Derivation.WINDOW:
+        return False
+    if pa.grain_components != a.grain_components:
+        return False
+    # the window must already source every input, from its outputs or its
+    # inputs: a spine lacking one needs a real join the fold can't create
+    return set(a.input_concepts) <= set(pa.output_concepts) | set(pa.input_concepts)
+
+
+def _inline_window(
+    group_graph: nx.DiGraph,
+    group_edges: EdgeMap,
+    attrs: dict[str, GroupAttrs],
+    concept_attrs: dict[str, ConceptAttrs],
+    gid: str,
+) -> str | None:
+    """The WINDOW that renders scalar BASIC `gid` inline, if any."""
+    a = attrs[gid]
+    if a.derivation != Derivation.BASIC or a.condition_atoms:
+        return None
+    # an aggregate or window member can't render in the parent's SELECT
+    if any(
+        m in concept_attrs
+        and concept_attrs[m].derivation in ROW_SHAPE_BARRIER_DERIVATIONS
+        for m in a.primary_members
+    ):
+        return None
+    # The BASIC may also read a sibling the window already sources
+    # (`round(lag(x))` reads `x` directly AND via the lag, so its parents are
+    # the window and the BASIC the window reads): fall back to a partial
+    # spine, which `_renders_inline` gates on carrying every input.
+    parent = _regraft_candidate(
+        group_graph, group_edges, attrs, gid, allow_partial=False
+    ) or _regraft_candidate(group_graph, group_edges, attrs, gid, allow_partial=True)
+    if parent is None or not _renders_inline(attrs, concept_attrs, gid, parent):
+        return None
+    return parent
+
+
+def _elect_row_provider(
     group_graph: nx.DiGraph,
     group_edges: EdgeMap,
     attrs: dict[str, GroupAttrs],
     buckets: dict[str, GroupBucket],
     concept_attrs: dict[str, ConceptAttrs],
-) -> None:
-    """Collapse a same-grain scalar BASIC group into a WINDOW parent that already
-    supplies all of its inputs, so the projection renders inline in the
-    window's own SELECT instead of a separate node that forces the window to
-    materialize every passthrough column.
-
-    This is the node-MERGE generalization of `_regraft_group_sources` (which
-    only routes a source edge). It is gated to the one case the optimizer
-    cannot express: `CollapseSingleParent` blocks BASIC-into-WINDOW because a
-    row projection can't ride a window node's SELECT through a generic fold.
-    An AGGREGATE parent is excluded; that fold is handled by
-    `CollapseSingleParent`'s `basic_fold_into_group_is_safe`.
-
-    A post-window filter (`x is not null`) needs no handling here: it has not
-    been injected yet (this runs before `_inject_conditions`), and placement
-    refuses to host a filter on a window group's own output, so it defers to
-    FINAL."""
-    for gid in list(group_graph.nodes):
-        if gid == FINAL_NODE_ID:
-            continue
-        a = attrs[gid]
-        if a.derivation != Derivation.BASIC or a.condition_atoms:
-            continue
-        # pure scalar projection only: a member that is itself a row-shape
-        # barrier (aggregate/window output) can't render in the parent's SELECT.
-        if any(
-            m in concept_attrs
-            and concept_attrs[m].derivation in ROW_SHAPE_BARRIER_DERIVATIONS
-            for m in a.primary_members
+    environment: BuildEnvironment,
+    gid: str,
+) -> RowProvider | None:
+    """Pick `gid`'s row source over the graph; mutates nothing. The choices,
+    in order: a WINDOW that renders it inline, a terminal BASIC's grouping
+    provider, a full-coverage sibling, a dimension ROOT, a partial spine."""
+    window = _inline_window(group_graph, group_edges, attrs, concept_attrs, gid)
+    if window is not None:
+        return RowProvider(window, inline=True)
+    grain = None
+    provider_gid = _terminal_basic_grouping_provider(
+        group_graph, attrs, gid, environment
+    )
+    if provider_gid is not None:
+        grain = attrs[provider_gid].grain_components
+        if not _grain_needed_by_independent_sibling(
+            group_graph, attrs, gid, provider_gid
         ):
-            continue
-        parent_gid = _regraft_candidate(
-            group_graph, group_edges, attrs, gid, allow_partial=False
-        )
-        if parent_gid is None:
-            # The BASIC may also read a sibling the window already sources
-            # (`round(lag(x))` references `x` directly AND via the lag, so the
-            # round group's parents are the window + the BASIC the window
-            # itself reads). Full coverage misses this; fall back to a partial
-            # spine and gate on the window carrying every remaining input.
-            parent_gid = _regraft_candidate(
-                group_graph, group_edges, attrs, gid, allow_partial=True
+            # Placed at the provider's grain, the projection has no use for
+            # a finer relation the provider was built from. Joined back, it
+            # pairs the provider's groups on a non-key (a region domain on
+            # a nullable description) and drops or multiplies them.
+            provider_ancestors = nx.ancestors(group_graph, provider_gid)
+            drop = frozenset(
+                pred
+                for pred in lineage_predecessors(group_graph, group_edges, gid)
+                if pred in provider_ancestors
             )
-        if parent_gid is None or parent_gid == gid:
-            continue
-        pa = attrs[parent_gid]
-        if pa.derivation != Derivation.WINDOW:
-            continue
-        if pa.grain_components != a.grain_components:
-            continue
-        # Absorption renders gid inline in the window's own SELECT, so the window
-        # must already source every input gid needs, from its outputs or its
-        # inputs. A spine whose missing inputs the window doesn't carry would
-        # need a real join the absorb can't create, so leave it as a separate
-        # joined node.
-        if not set(a.input_concepts) <= set(pa.output_concepts) | set(
-            pa.input_concepts
+            return RowProvider(provider_gid, grain, drop)
+    own_grain = attrs[gid].grain_components if grain is None else grain
+    parent_gid = _regraft_candidate(
+        group_graph, group_edges, attrs, gid, allow_partial=False
+    )
+    if parent_gid is not None:
+        return RowProvider(parent_gid, grain)
+    dimension = _synthetic_dimension_regraft_parent(
+        group_graph, group_edges, attrs, buckets, concept_attrs, gid, own_grain
+    )
+    if dimension is not None:
+        return replace(dimension, grain=grain)
+    parent_gid = _regraft_candidate(
+        group_graph,
+        group_edges,
+        attrs,
+        gid,
+        allow_partial=True,
+        environment=environment,
+        grain=own_grain,
+    )
+    if parent_gid is None and grain is None:
+        return None
+    return RowProvider(parent_gid, grain)
+
+
+def _apply_row_provider(
+    group_graph: nx.DiGraph,
+    group_edges: EdgeMap,
+    attrs: dict[str, GroupAttrs],
+    buckets: dict[str, GroupBucket],
+    gid: str,
+    provider: RowProvider,
+) -> None:
+    if provider.grain is not None:
+        attrs[gid].grain_components = provider.grain
+        if gid in buckets:
+            buckets[gid].grain_components = provider.grain
+    minted = provider.minted
+    if minted is not None and minted.group_id not in group_graph:
+        group_graph.add_node(minted.group_id)
+        attrs[minted.group_id] = GroupAttrs.from_bucket(minted)
+        buckets[minted.group_id] = minted
+    for pred in provider.drop:
+        if group_graph.has_edge(pred, gid):
+            remove_edge(group_graph, group_edges, pred, gid)
+    parent = provider.parent
+    if parent is None or group_graph.has_edge(parent, gid):
+        return
+    add_edge(group_graph, group_edges, parent, gid, EdgeKind.LINEAGE)
+
+
+def _elect_row_providers(
+    group_graph: nx.DiGraph,
+    group_edges: EdgeMap,
+    attrs: dict[str, GroupAttrs],
+    buckets: dict[str, GroupBucket],
+    concept_attrs: dict[str, ConceptAttrs],
+    environment: BuildEnvironment,
+) -> dict[str, RowProvider]:
+    """Each regraftable group whose best row source is already built, elected
+    over the graph as stage 2 built it.
+
+    No provider is a BASIC, so no fold removes one; a parent a provider drops
+    that folds is dropped as the WINDOW its edge moves to. Concrete datasource
+    selection remains in `source_planning` and StrategyNode construction in
+    `strategy_builder`.
+    """
+    providers: dict[str, RowProvider] = {}
+    for gid in list(group_graph.nodes):
+        if (
+            gid == FINAL_NODE_ID
+            or attrs[gid].derivation not in _REGRAFTABLE_DERIVATIONS
         ):
             continue
-        _absorb_group(gid, parent_gid, group_graph, group_edges, attrs, buckets)
+        provider = _elect_row_provider(
+            group_graph, group_edges, attrs, buckets, concept_attrs, environment, gid
+        )
+        if provider is not None:
+            providers[gid] = provider
+    folded = _folds(providers)
+    return {
+        gid: replace(p, drop=frozenset(folded.get(pred, pred) for pred in p.drop))
+        for gid, p in providers.items()
+    }
 
 
-def _regraft_group_sources(
+def _folds(providers: dict[str, RowProvider]) -> dict[str, str]:
+    """Each group its provider renders inline, to that provider."""
+    return {
+        gid: p.parent
+        for gid, p in providers.items()
+        if p.inline and p.parent is not None
+    }
+
+
+def _rehome_groups(
     group_graph: nx.DiGraph,
     group_edges: EdgeMap,
     attrs: dict[str, GroupAttrs],
@@ -2726,55 +2997,14 @@ def _regraft_group_sources(
     concept_attrs: dict[str, ConceptAttrs],
     environment: BuildEnvironment,
 ) -> None:
-    """Topology-only repair for groups whose best row source is already built.
-
-    This is still a grouping-phase concern: it may add group edges or a
-    synthetic dimension ROOT bucket so IO demand flows through the right parent,
-    but concrete datasource selection remains in `source_planning` and
-    StrategyNode construction remains in `strategy_builder`.
-    """
-    for gid in list(group_graph.nodes):
-        if gid == FINAL_NODE_ID:
-            continue
-        if attrs[gid].derivation not in _REGRAFTABLE_DERIVATIONS:
-            continue
-        provider_gid = _terminal_basic_grouping_provider(
-            group_graph, attrs, gid, environment
-        )
-        parent_gid = None
-        if provider_gid is not None:
-            attrs[gid].grain_components = attrs[provider_gid].grain_components
-            if gid in buckets:
-                buckets[gid].grain_components = attrs[provider_gid].grain_components
-            if not _grain_needed_by_independent_sibling(
-                group_graph, attrs, gid, provider_gid
-            ):
-                parent_gid = provider_gid
-                # Placed at the provider's grain, the projection has no use for
-                # a finer relation the provider was built from. Joined back, it
-                # pairs the provider's groups on a non-key (a region domain on
-                # a nullable description) and drops or multiplies them.
-                provider_ancestors = nx.ancestors(group_graph, provider_gid)
-                for pred in lineage_predecessors(group_graph, group_edges, gid):
-                    if pred in provider_ancestors:
-                        remove_edge(group_graph, group_edges, pred, gid)
-        if parent_gid is None:
-            parent_gid = _regraft_candidate(
-                group_graph, group_edges, attrs, gid, allow_partial=False
-            )
-        if parent_gid is None:
-            parent_gid = _synthetic_dimension_regraft_parent(
-                group_graph, group_edges, attrs, buckets, concept_attrs, gid
-            )
-        if parent_gid is None:
-            parent_gid = _regraft_candidate(
-                group_graph,
-                group_edges,
-                attrs,
-                gid,
-                allow_partial=True,
-                environment=environment,
-            )
-        if parent_gid is None or group_graph.has_edge(parent_gid, gid):
-            continue
-        add_edge(group_graph, group_edges, parent_gid, gid, EdgeKind.LINEAGE)
+    """Elect every group's row provider over the graph as stage 2 built it,
+    then fold each group its provider renders inline and apply the rest: no
+    election reads another's fold, edges or adopted grain."""
+    providers = _elect_row_providers(
+        group_graph, group_edges, attrs, buckets, concept_attrs, environment
+    )
+    for gid, parent in _folds(providers).items():
+        _absorb_group(gid, parent, group_graph, group_edges, attrs, buckets)
+    for gid, provider in providers.items():
+        if not provider.inline:
+            _apply_row_provider(group_graph, group_edges, attrs, buckets, gid, provider)

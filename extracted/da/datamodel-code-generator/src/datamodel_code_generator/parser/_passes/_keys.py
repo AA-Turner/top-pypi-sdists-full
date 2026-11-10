@@ -16,11 +16,16 @@ __all__ = [
     "_DERIVED_FROM_KEY",
     "_RAW_SCHEMA_DEFAULT_KEY",
     "_RAW_SCHEMA_DEFAULT_UNDEFINED",
+    "_SITE_CONSTRAINTS_KEY",
     "_TYPE_LIST_UNIQUE_ITEMS_KEY",
+    "_UNIQUE_ITEMS_SET_KEY",
     "declares_raw_schema_default",
     "declares_type_list_unique_items",
+    "is_unique_items_set",
     "raw_schema_default",
+    "site_constraints",
     "with_type_list_unique_items",
+    "with_unique_items_set",
 ]
 
 _DEFERRED_INHERITED_CLASS_KEY: Final = "_deferred_inherited_class"
@@ -30,7 +35,10 @@ _DERIVED_FROM_KEY: Final = "_derived_from"
 """The Reference of the one ``$ref`` target a site model is built from with the site's other parts."""
 _RAW_SCHEMA_DEFAULT_KEY: Final = "_raw_schema_default"
 _RAW_SCHEMA_DEFAULT_UNDEFINED: Final = Sentinel("_RAW_SCHEMA_DEFAULT_UNDEFINED")
+_SITE_CONSTRAINTS_KEY: Final = "_site_constraints"
+"""The constraint keywords an allOf site adds to the ``$ref`` target its type names (``site_constraints``)."""
 _TYPE_LIST_UNIQUE_ITEMS_KEY: Final = "_type_list_unique_items"
+_UNIQUE_ITEMS_SET_KEY: Final = "_unique_items_set"
 
 
 def raw_schema_default(field: object) -> tuple[Any, bool] | None:
@@ -44,6 +52,15 @@ def raw_schema_default(field: object) -> tuple[Any, bool] | None:
     if (default := values[_RAW_SCHEMA_DEFAULT_KEY]) is _RAW_SCHEMA_DEFAULT_UNDEFINED:
         return None, False
     return default, True
+
+
+def site_constraints(data_type: object) -> dict[str, Any]:
+    """Return the constraint keywords that the allOf site a type is built for adds to the target the type names.
+
+    The parse records them on the type of the site, typed by its first ``$ref`` alone; root-model collapse carries them
+    to the type it inlines in its place. Empty for every other type.
+    """
+    return data_type.__dict__.get(_SITE_CONSTRAINTS_KEY, {})
 
 
 def declares_raw_schema_default(field: object) -> bool:
@@ -65,3 +82,23 @@ def declares_type_list_unique_items(field: object) -> bool:
     of the field keeps the record.
     """
     return _TYPE_LIST_UNIQUE_ITEMS_KEY in field.__dict__
+
+
+def with_unique_items_set(data_type: Any, *, wrote: bool = True) -> Any:
+    """Record on ``data_type`` that --use-unique-items-as-set wrote it as a set from a uniqueItems list; return it.
+
+    ``wrote=False`` removes the record, from the list copy that such a set turns back into.
+    """
+    if wrote:
+        data_type.__dict__[_UNIQUE_ITEMS_SET_KEY] = True
+    else:
+        del data_type.__dict__[_UNIQUE_ITEMS_SET_KEY]
+    return data_type
+
+
+def is_unique_items_set(data_type: object) -> bool:
+    """Return whether --use-unique-items-as-set wrote ``data_type`` as a set from a uniqueItems list.
+
+    A copy of the node keeps the record, such as the copy of a root type that collapse inlines.
+    """
+    return _UNIQUE_ITEMS_SET_KEY in data_type.__dict__

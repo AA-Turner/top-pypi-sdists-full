@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.synchronization.attributetype import AttributeType
 from office365.directory.synchronization.mutability import Mutability
@@ -11,7 +11,6 @@ from office365.security.referenced_object import ReferencedObject
 from office365.security.string_key_string_value_pair import StringKeyStringValuePair
 
 
-@dataclass
 class AttributeDefinition(ClientValue):
     anchor: bool | None = None
     apiExpressions: ClientValueCollection[StringKeyStringValuePair] = field(

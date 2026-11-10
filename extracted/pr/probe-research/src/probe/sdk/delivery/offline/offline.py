@@ -14,6 +14,7 @@ from ... import errors
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ...client.client import Client
 from ...client.resources.runs.home import (
+    FROM_ENV,
     RunHome,
     build_missing_home_error,
     mark_home_source,
@@ -235,6 +236,9 @@ class OfflineRun(Run):
                 "or the queue was unwritable -- see the earlier warning); the run is marked "
                 f"probe_finish.dropped_writes={dropped} and `probe sync` reports it"
             )
+        # The run's log (T18), with what this close printed (its queued-in notice): the tee is handed on here, so
+        # what prints next is the next run's, never this one's. `probe sync` uploads it behind the close.
+        self._finalize_capture()
         self._release_run_lock()
         self._finish_result = result
         # The close is over: an unbound (`reinit="create_new"`) run lets go of
@@ -340,6 +344,9 @@ def open_offline_run(
     # credential (nothing cached): said so again at sync.
     owner = identity.get("user_id") or UNKNOWN_OWNER
     run_home = resolve_run_home(kw.get("project"), kw.get("experiment"), settings)
+    if kw.get("project") is FROM_ENV:
+        # Resolved now, never queued (D32): `probe sync` files it where it would have gone today.
+        kw["project"], kw["experiment"] = run_home.project, run_home.experiment
     if sent is not None:
         key, body, create, home, skipped = _create_from_sent(kw, sent, sent_body, on_conflict, started_at, owner)
     else:
@@ -351,6 +358,9 @@ def open_offline_run(
     op["create"] = create
     journal._append(op, admitted=True)
     run = _open_offline_handle(settings, journal, ref, key, body, started_at)
+    from probe.sdk.diagnostics import mark_run_opened_during
+
+    mark_run_opened_during(run)  # opened maybe inside an `except`: that error is not its death
     why = "the API could not be reached (PROBE_INIT_FALLBACK=offline)" if fallback else "PROBE_MODE=offline"
     print(
         f"probe: recording OFFLINE ({why}) -- run {ref} queues in {directory}; "
@@ -456,8 +466,8 @@ def _create_from_init(
     kw: dict, on_conflict: str | None, started_at: str, owner: str, run_home: RunHome
 ) -> tuple[str, dict, dict, dict, list[str]]:
     """The create built from ``probe.init()``'s keywords, refusing ones an offline run cannot take.
-    With no project or experiment named it takes ``run_home`` (`resolve_run_home`, as online),
-    else refuses."""
+    With no project or experiment named it takes ``run_home`` (`resolve_run_home`, as online;
+    a `FROM_ENV` default), else refuses with the fix."""
     intent = kw.pop("intent", None)
     skipped = sorted(k for k in _SKIPPED_FIELDS if kw.pop(k, None) is not None)
     home = {k: kw.pop(k, None) for k in _HOME_FIELDS}
@@ -476,7 +486,7 @@ def _create_from_init(
         home["project"], home["experiment"] = run_home.project, run_home.experiment
     if not home["experiment"] and not home["project"]:
         # Offline: no daemon pick to wait for and no projects to list; the fix for this case.
-        raise build_missing_home_error()
+        raise build_missing_home_error(is_from_env=run_home.is_from_env)
     # After the home: a session home's experiment can hold the group (as online).
     if create_kw.get("group_id") is not None and not home["experiment"]:
         raise errors.ValidationError("a group needs an experiment: name the experiment or drop the group")

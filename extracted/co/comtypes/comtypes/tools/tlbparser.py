@@ -1,11 +1,14 @@
 import os
 import sys
+import warnings
 from _ctypes import COMError
+from collections.abc import Mapping
 from ctypes import alignment, c_void_p, sizeof, windll
 from ctypes.wintypes import MAX_PATH
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
+from typing import Union as _UnionT
 
-from comtypes import automation, typeinfo
+from comtypes import IUnknown, automation, typeinfo
 from comtypes.tools import typedesc
 
 # Is the process 64-bit?
@@ -13,14 +16,16 @@ is_64bits = sys.maxsize > 2**32
 
 
 ################################
+_PT = TypeVar("_PT", bound=_UnionT["ParsedType", "SpecType"])
 
 
-def PTR(typ):
+def PTR(typ: _PT) -> typedesc.PointerType[_PT]:
     return typedesc.PointerType(typ, sizeof(c_void_p) * 8, alignment(c_void_p) * 8)
 
 
 # basic C data types, with size and alignment in bits
 char_type = typedesc.FundamentalType("char", 8, 8)
+schar_type = typedesc.FundamentalType("signed char", 8, 8)
 uchar_type = typedesc.FundamentalType("unsigned char", 8, 8)
 wchar_t_type = typedesc.FundamentalType("wchar_t", 16, 16)
 short_type = typedesc.FundamentalType("short int", 16, 16)
@@ -45,21 +50,45 @@ VARIANT_type = typedesc.Structure(
     "VARIANT",
     align=alignment(automation.VARIANT) * 8,
     members=[],
-    bases=[],
     size=sizeof(automation.VARIANT) * 8,
 )
-IDISPATCH_type = typedesc.Typedef("IDispatch", None)
-IUNKNOWN_type = typedesc.Typedef("IUnknown", None)
+
+# These are simplified definitions of `IUnknown` and `IDispatch` from `stdole`.
+# Their full definitions include method arguments and IDL flags. However, these
+# basic interfaces are replaced with suitable definitions for each use case, so
+# they do not need to be modeled perfectly here. Even a complete model would not
+# be used, and adding more redundant fields would make maintenance harder.
+IUNKNOWN_type = typedesc.ComInterface(
+    "IUnknown", None, "{00000000-0000-0000-C000-000000000046}", [], None
+)
+IUNKNOWN_type.extend_members(
+    [
+        typedesc.ComMethod(1, 1610612736, "QueryInterface", HRESULT_type, [], None),
+        typedesc.ComMethod(1, 1610612737, "AddRef", ulong_type, [], None),
+        typedesc.ComMethod(1, 1610612738, "Release", ulong_type, [], None),
+    ]
+)
+IDISPATCH_type = typedesc.ComInterface(
+    "IDispatch", IUNKNOWN_type, "{00020400-0000-0000-C000-000000000046}", [], None
+)
+IDISPATCH_type.extend_members(
+    [
+        typedesc.ComMethod(1, 1610678272, "GetTypeInfoCount", HRESULT_type, [], None),
+        typedesc.ComMethod(1, 1610678273, "GetTypeInfo", HRESULT_type, [], None),
+        typedesc.ComMethod(1, 1610678274, "GetIDsOfNames", HRESULT_type, [], None),
+        typedesc.ComMethod(1, 1610678275, "Invoke", HRESULT_type, [], None),
+    ]
+)
+
 DECIMAL_type = typedesc.Structure(
     "DECIMAL",
     align=alignment(automation.DECIMAL) * 8,
     members=[],
-    bases=[],
     size=sizeof(automation.DECIMAL) * 8,
 )
 
 
-def midlSAFEARRAY(typ):
+def midlSAFEARRAY(typ: _PT) -> typedesc.SAFEARRAYType[_PT]:
     return typedesc.SAFEARRAYType(typ)
 
 
@@ -81,6 +110,7 @@ COMTYPES = {
     automation.VT_VARIANT: VARIANT_type,  # 12
     automation.VT_UNKNOWN: PTR(IUNKNOWN_type),  # 13
     automation.VT_DECIMAL: DECIMAL_type,  # 14
+    # Signed-byte mapping and compatibility: https://github.com/enthought/comtypes/issues/969
     automation.VT_I1: char_type,  # 16
     automation.VT_UI1: uchar_type,  # 17
     automation.VT_UI2: ushort_type,  # 18
@@ -105,14 +135,40 @@ COMTYPES = {
 # automation.VT_ARRAY = 8192
 # automation.VT_BYREF = 16384
 
+ParsedType = _UnionT[
+    typedesc.TypeLib,
+    typedesc.Constant,
+    typedesc.External,
+    typedesc.CoClass,
+    typedesc.ComInterface,
+    typedesc.DispInterface,
+    typedesc.Typedef["_UnionT[ParsedType, SpecType]"],
+    typedesc.Structure,
+    typedesc.Union,
+    typedesc.Enumeration,
+]
+
+SpecType = _UnionT[
+    typedesc.FundamentalType,
+    typedesc.PointerType["_UnionT[ParsedType, SpecType]"],
+    typedesc.ArrayType["_UnionT[ParsedType, SpecType]"],
+    typedesc.SAFEARRAYType["_UnionT[ParsedType, SpecType]"],
+]
 ################################################################
+
+
+# Cast to str only once to avoid redundant work.
+_IID_IUnknown = str(IUnknown._iid_)
+_IID_IDispatch = str(automation.IDispatch._iid_)
 
 
 class Parser:
     tlib: typeinfo.ITypeLib
-    items: dict[str, Any]
+    items: dict[str, ParsedType]
 
-    def make_type(self, tdesc: typeinfo.TYPEDESC, tinfo: typeinfo.ITypeInfo) -> Any:
+    def make_type(
+        self, tdesc: typeinfo.TYPEDESC, tinfo: typeinfo.ITypeInfo
+    ) -> _UnionT[ParsedType, SpecType]:
         if tdesc.vt in COMTYPES:
             return COMTYPES[tdesc.vt]
         if tdesc.vt == automation.VT_CARRAY:
@@ -139,12 +195,8 @@ class Parser:
                     f"\n\tGetRefTypeInfo failed in {tlib_name}: {details}"
                     f"\n\tgenerating type '{type_name}' instead"
                 )
-                import warnings
-
                 warnings.warn(message, UserWarning)
-                result = typedesc.Structure(
-                    type_name, align=8, members=[], bases=[], size=0
-                )
+                result = typedesc.Structure(type_name, align=8, members=[], size=0)
                 return result
             result = self.parse_typeinfo(ti)
             assert result is not None, ti.GetDocumentation(-1)[0]
@@ -184,7 +236,6 @@ class Parser:
             struct_name,
             align=ta.cbAlignment * 8,
             members=members,
-            bases=[],
             size=ta.cbSizeInstance * 8,
         )
         self._register(struct_name, struct)
@@ -225,27 +276,30 @@ class Parser:
             # We skip all function definitions.  There are several
             # problems with these, and we can, for comtypes, ignore them.
             continue
-            fd = tinfo.GetFuncDesc(i)
-            dllname, func_name, ordinal = tinfo.GetDllEntry(fd.memid, fd.invkind)
-            func_doc = tinfo.GetDocumentation(fd.memid)[1]
-            assert 0 == fd.cParamsOpt  # XXX
-            returns = self.make_type(fd.elemdescFunc.tdesc, tinfo)
-
-            if fd.callconv == typeinfo.CC_CDECL:
-                attributes = "__cdecl__"
-            elif fd.callconv == typeinfo.CC_STDCALL:
-                attributes = "__stdcall__"
-            else:
-                raise ValueError(f"calling convention {fd.callconv:d}")
-
-            func = typedesc.Function(func_name, returns, attributes, extern=1)
-            if func_doc is not None:
-                func.doc = func_doc.encode("mbcs")
-            func.dllname = dllname
-            self._register(func_name, func)
-            for i in range(fd.cParams):
-                argtype = self.make_type(fd.lprgelemdescParam[i].tdesc, tinfo)
-                func.add_argument(argtype)
+            # Unreachable code has existed here since the oldest revision
+            # tracked in the version control system.
+            # MIDL requires interface names to be unique.
+            # https://learn.microsoft.com/en-us/windows/win32/midl/interface
+            # On the other hand, the `ITypeComp::Bind` specification in COM
+            # Automation defines `TYPE_E_AMBIGUOUSNAME` for cases where
+            # multiple elements match during name resolution.
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-oaut/476f00da-0806-40d9-bbf3-6059154abbb7
+            # Therefore, at least, in COM, ambiguity during name resolution is
+            # considered in the specification.
+            # If functions are also registered in the mapping that stores type
+            # library parsing results, type information and function names may
+            # conflict, potentially causing type information to be overwritten
+            # or become inaccessible.
+            # While such conflicts may be avoided by modern MIDL compiler
+            # constraints or developer naming conventions, existing type
+            # libraries do not necessarily follow the same constraints or
+            # conventions.
+            # Furthermore, an old Microsoft article also notes that `FUNCDESC`s
+            # for `TKIND_MODULE` (which describe regular functions) are seen
+            # in relatively few cases.
+            # https://web.archive.org/web/20161023092604/http://www.microsoft.com/msj/0399/comtype/comtype.aspx
+            # So, functions are excluded from registration during parsing t
+            # avoid unnecessary name conflicts.
 
         # constants
         for i in range(ta.cVars):
@@ -269,12 +323,20 @@ class Parser:
             # It's an interface without methods anyway.
             if itf_name != "IOleControlTypes":
                 message = f"Ignoring interface {itf_name} which has no base interface"
-                import warnings
-
                 warnings.warn(message, UserWarning)
             return None
 
         iid = str(ta.guid)
+        # IUnknown and IDispatch are fundamental COM interfaces, so reuse
+        # their canonical type-model constants instead of rebuilding a
+        # model from the type library. This avoids redundant work and
+        # keeps the handling of these well-known symbols consistent.
+        if iid == _IID_IUnknown:
+            self._register(itf_name, IUNKNOWN_type)
+            return IUNKNOWN_type
+        if iid == _IID_IDispatch:
+            self._register(itf_name, IDISPATCH_type)
+            return IDISPATCH_type
         idlflags = self.interface_type_flags(ta.wTypeFlags)
         itf = typedesc.ComInterface(itf_name, None, iid, idlflags, itf_doc)
         self._register(itf_name, itf)
@@ -304,8 +366,8 @@ class Parser:
             )
             for j in range(fd.cParams):
                 elemdesc = fd.lprgelemdescParam[j]
-                typ = self.make_type(elemdesc.tdesc, tinfo)
                 name = names[j + 1]
+                typ = self.make_type(elemdesc.tdesc, tinfo)
                 paramdesc = elemdesc._.paramdesc
                 if paramdesc.wParamFlags & typeinfo.PARAMFLAG_FHASDEFAULT:
                     # XXX should be handled by VARIANT itself
@@ -390,8 +452,8 @@ class Parser:
             )
             for j in range(fd.cParams):
                 elemdesc = fd.lprgelemdescParam[j]
-                typ = self.make_type(elemdesc.tdesc, tinfo)
                 name = names[j + 1]
+                typ = self.make_type(elemdesc.tdesc, tinfo)
                 paramdesc = elemdesc._.paramdesc
                 if paramdesc.wParamFlags & typeinfo.PARAMFLAG_FHASDEFAULT:
                     # XXX should be handled by VARIANT itself
@@ -551,7 +613,6 @@ class Parser:
             union_name,
             align=ta.cbAlignment * 8,
             members=members,
-            bases=[],
             size=ta.cbSizeInstance * 8,
         )
         self._register(union_name, union)
@@ -585,7 +646,10 @@ class Parser:
         return str(tlib.GetLibAttr())
 
     def _register(
-        self, name: Optional[str], value: Any, tlib: Optional[typeinfo.ITypeLib] = None
+        self,
+        name: Optional[str],
+        value: ParsedType,
+        tlib: Optional[typeinfo.ITypeLib] = None,
     ) -> None:
         modname = self._typelib_module(tlib)
         fullname = f"{modname}.{name}"
@@ -597,7 +661,7 @@ class Parser:
             raise ValueError(f"Bug: Multiple registered name '{name}': {value!r}")
         self.items[fullname] = value
 
-    def parse_typeinfo(self, tinfo: typeinfo.ITypeInfo) -> Any:
+    def parse_typeinfo(self, tinfo: typeinfo.ITypeInfo) -> Optional[ParsedType]:
         name = tinfo.GetDocumentation(-1)[0]
         modname = self._typelib_module()
         try:
@@ -668,7 +732,7 @@ class Parser:
 
     ################################################################
 
-    def parse(self):
+    def parse(self) -> Mapping[str, ParsedType]:
         self.parse_LibraryDescription()
 
         for i in range(self.tlib.GetTypeInfoCount()):

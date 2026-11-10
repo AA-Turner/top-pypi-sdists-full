@@ -2,10 +2,11 @@
 
 After Diffusers' unequal-length all-to-all each rank holds the WHOLE sequence for its head
 subset, so a forward-only kernel whose reductions stay within one head computes exactly what
-one GPU computes for those heads. `member` registers a `Local` kernel as a Diffusers backend:
-without a parallel config it calls the kernel, with Runtime's Ulysses config it exchanges
-around it. Ring attention needs LSE merging and is refused. A kernel with a cross-head
-reduction (`head_local=False`) is registered without context parallelism.
+one GPU computes for those heads. `function` makes a `Local` kernel's backend call: without a
+parallel config it calls the kernel, with Runtime's Ulysses config it exchanges around it. A
+Runtime site (`attention_site`) calls it directly; `member` registers it with Diffusers. Ring
+attention needs LSE merging and is refused. A kernel with a cross-head reduction
+(`head_local=False`) is registered without context parallelism.
 """
 
 from __future__ import annotations
@@ -77,12 +78,13 @@ class Seen(dict[str, set[str]]):
 #: what served in the observed scope on this rank, and the operand signatures already named
 #: there (an implementation is named once per signature, not per call)
 _SEEN: ContextVar[tuple[Seen, set[object]] | None] = ContextVar("cozy_attention_seen", default=None)
+_FUNCTIONS: dict[str, Callable[..., Tensor]] = {}
 _MEMBERS: dict[str, AttentionBackendName] = {}
 
 
 class Execution(Protocol):
     """The execution layer's side (`internal.execution`, installed with the memory): the
-    attention cut, the pass's agreed exchange level and its exchanged sizes."""
+    attention cut."""
 
     def attend(
         self,
@@ -96,14 +98,8 @@ class Execution(Protocol):
         heads: bool = True,
     ) -> Tensor: ...
 
-    def agreed(self) -> int: ...
-
-    def sizes(self, gather: Callable[[], list[int]]) -> list[int]: ...
-
 
 _EXECUTION: Execution | None = None
-#: the exchanges' one cut site (`execution.agree.SITE`)
-SITE = "ulysses"
 
 
 def install(execution: Execution | None) -> None:
@@ -132,12 +128,28 @@ def observing() -> Iterator[Seen]:
         _SEEN.reset(token)
 
 
+def function(backend: str, local: Local) -> Callable[..., Tensor]:
+    """`backend`'s call, made once per process: Diffusers' backend signature."""
+    found = _FUNCTIONS.get(backend)
+    if found is None:
+        found = _FUNCTIONS[backend] = _dispatch(backend, local)
+    return found
+
+
+def opened(backend: str) -> Callable[..., Tensor]:
+    """The call of a `backend` this process has made (`function`)."""
+    found = _FUNCTIONS.get(backend)
+    if found is None:
+        raise ValueError(f"attention backend {backend!r} is not open in this process")
+    return found
+
+
 def member(backend: str, local: Local) -> AttentionBackendName:
     """The Diffusers member for `backend`, registered once per process."""
     found = _MEMBERS.get(backend)
     if found is None:
         found = register(
-            backend, _dispatch(backend, local), supports_context_parallel=local.head_local
+            backend, function(backend, local), supports_context_parallel=local.head_local
         )
         _MEMBERS[backend] = found
     return found
@@ -225,12 +237,13 @@ def exchange(
     value: Tensor,
     handle: ProcessGroup,
     compute: Callable[[Tensor, Tensor, Tensor], Tensor],
+    site: str = "",
 ) -> Tensor:
     """Sequence shards -> full sequence per head subset -> `compute` -> back
     (`internal.parallel.ulysses.exchange`)."""
     if _EXCHANGE is None:
         raise ValueError(_UNSERVED)
-    return _EXCHANGE(query, key, value, handle, compute)
+    return _EXCHANGE(query, key, value, handle, compute, site)
 
 
 _UNSERVED = "Ulysses runs where torch does: nothing imported internal.parallel.ulysses"

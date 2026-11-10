@@ -14,10 +14,11 @@ _NEXT = {
     WaitOutcome.STALLED: "they are retried every hour; `probe outbox retry` tries them now",
     WaitOutcome.UNREACHABLE: "the background worker keeps trying for a day; `probe outbox status` shows them",
     WaitOutcome.WORKER_CRASH_LOOP: "see the outbox's drainer.log; `probe outbox drain` sends them in the foreground",
-    WaitOutcome.NO_SENDER: "no Probe service could start here; `probe outbox drain` sends them once one can",
+    WaitOutcome.NO_SENDER: "`probe outbox drain` sends them where a Probe service can run (it starts one)",
     WaitOutcome.KEY_NOT_HANDED: (
-        "before this container or job exits, run `PROBE_TOKEN=<that key> probe outbox drain` with "
-        "PROBE_OUTBOX_DIR={outbox} (`probe sync` for runs recorded offline)"
+        "to send them, run `PROBE_TOKEN=<that key> probe outbox drain` with PROBE_OUTBOX_DIR={outbox}{server} "
+        "where a Probe service can run (it starts one), before this container or job exits; where none can, "
+        "copy that folder to a machine with Probe first"
     ),
     WaitOutcome.OLD_WORKER: "an older probe-research is sending this outbox; upgrade it or stop it",
     WaitOutcome.NEEDS_NEWER_SERVICE: "{newer_service_advice}; they wait, in order, until then",
@@ -32,10 +33,8 @@ _WHY = {
     WaitOutcome.STALLED: "{held} kept failing and were set aside",
     WaitOutcome.UNREACHABLE: "the server could not be reached for {minutes} minutes",
     WaitOutcome.WORKER_CRASH_LOOP: "the background worker kept dying without delivering",
-    WaitOutcome.NO_SENDER: "the Probe service could not be reached to send them",
-    WaitOutcome.KEY_NOT_HANDED: (
-        "the API key passed in code never reached the Probe service (it could not start), so nothing here can send them"
-    ),
+    WaitOutcome.NO_SENDER: "no Probe service here took them to send",
+    WaitOutcome.KEY_NOT_HANDED: "the API key passed in code never reached a Probe service, and nothing else here holds it",
     WaitOutcome.OLD_WORKER: "an older worker ({holder}) holds the outbox and did not step aside",
     WaitOutcome.NEEDS_NEWER_SERVICE: (
         "a write of this run is of a newer outbox format than the Probe service here ({service_version}) reads"
@@ -65,11 +64,47 @@ def describe(result: WaitResult, *, minutes: int = 10) -> str:
         service_version=result.service_version or "unknown version",
     )
     error = f" (first error: {result.first_error[:200]})" if result.first_error else ""
+    server = ""
+    if result.server:
+        server = f" and PROBE_BASE_URL={result.server}" if _is_plain_url(result.server) else _SERVER_NOT_SHOWN_ADVICE
     return (
         f"run {result.run_ref}: {left} write(s) not delivered: {why}{error}. "
         f"They are kept on disk; "
-        f"{_NEXT.get(result.outcome, 'see `probe outbox status`').format(outbox=result.outbox or '<the outbox>', newer_service_advice=_get_newer_service_advice())}."
+        f"{_NEXT.get(result.outcome, 'see `probe outbox status`').format(outbox=result.outbox or '<the outbox>', server=server, newer_service_advice=_get_newer_service_advice())}."
     )
+
+
+#: `WaitResult.server` for an address carrying userinfo, a query or a fragment: never printed, and a
+#: scrubbed copy would not match the queued writes, so the advice names it without showing it.
+_SERVER_NOT_SHOWN = "<not shown>"
+_SERVER_NOT_SHOWN_ADVICE = (
+    " and PROBE_BASE_URL set to the exact server address the run used (not shown here: it carries credentials)"
+)
+
+
+def get_recovery_server(base_url: str | None) -> str | None:
+    """The server a recovery drain must be told (`PROBE_BASE_URL`), exactly as the run had it; None for
+    the default one, which a fresh shell's drain matches by itself (both judged by
+    `normalize_endpoint`). An address with userinfo, a query or a fragment is never kept here: it is
+    printed, and a URL can carry a secret."""
+    from probe.sdk.settings.settings import DEFAULT_BASE_URL, normalize_endpoint
+
+    if not base_url or normalize_endpoint(base_url) == normalize_endpoint(DEFAULT_BASE_URL):
+        return None
+    server = base_url.strip().rstrip("/")
+    return server if _is_plain_url(server) else _SERVER_NOT_SHOWN
+
+
+def _is_plain_url(url: str) -> bool:
+    """Whether ``url`` is an address with nothing secret in it: a scheme and a host, and no userinfo,
+    query or fragment."""
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    return bool(parts.scheme and parts.netloc) and "@" not in parts.netloc and not parts.query and not parts.fragment
 
 
 def _describe_refusals(result: WaitResult) -> str:

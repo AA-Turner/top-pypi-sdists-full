@@ -1,31 +1,28 @@
 import contextlib
 import datetime
 import threading
-from collections.abc import Iterable
+from collections.abc import AsyncIterable
 from datetime import timedelta
-from typing import List, cast
-
-import pytest
-from pytest_django.fixtures import SettingsWrapper
-from pytest_mock import MockerFixture
+from typing import cast
 
 import anyio
-
+import pytest
 from django.core.cache import caches
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 from django.test import override_settings
+from pytest_django import Settings
+from pytest_mock import MockerFixture
 
 from django_valkey.async_cache.cache import AsyncValkeyCache
-from django_valkey.async_cache.client import AsyncHerdClient
 from django_valkey.serializers.json import JSONSerializer
 from django_valkey.serializers.msgpack import MSGPackSerializer
-
+from tests.conftest import Expiry
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def patch_itersize_setting() -> Iterable[None]:
+async def patch_itersize_setting() -> AsyncIterable[None]:
     del caches["default"]
     with override_settings(DJANGO_VALKEY_SCAN_ITERSIZE=30):
         yield
@@ -35,8 +32,6 @@ async def patch_itersize_setting() -> Iterable[None]:
 
 class TestAsyncDjangoValkeyCache:
     async def test_set_int(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("Herd client's set method works differently")
         await cache.aset("test_key", 1)
         result = await cache.aget("test_key")
         assert type(result) is int
@@ -44,8 +39,6 @@ class TestAsyncDjangoValkeyCache:
         assert await raw_client.get(":1:test_key") == b"1"
 
     async def test_set_float(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("Herd client's set method works differently")
         await cache.aset("test_key2", 1.1)
         result = await cache.aget("test_key2")
         assert type(result) is float
@@ -69,19 +62,19 @@ class TestAsyncDjangoValkeyCache:
         res = await cache.get("test_key_nx")
         assert res is None
 
-    async def test_setnx_timeout(self, cache: AsyncValkeyCache):
+    async def test_setnx_timeout(self, cache: AsyncValkeyCache, expiry: Expiry):
         # test that timeout still works for nx=True
-        res = await cache.aset("test_key_nx", 1, timeout=2, nx=True)
+        res = await cache.aset("test_key_nx", 1, timeout=expiry.timeout, nx=True)
         assert res is True
-        await anyio.sleep(3)
+        await anyio.sleep(expiry.wait)
         res = await cache.aget("test_key_nx")
         assert res is None
 
         # test that timeout will not affect key, if it was there
         await cache.aset("test_key_nx", 1)
-        res = await cache.aset("test_key_nx", 2, timeout=2, nx=True)
+        res = await cache.aset("test_key_nx", 2, timeout=expiry.timeout, nx=True)
         assert res is None
-        await anyio.sleep(3)
+        await anyio.sleep(expiry.wait)
         res = await cache.aget("test_key_nx")
         assert res == 1
 
@@ -127,9 +120,11 @@ class TestAsyncDjangoValkeyCache:
             ):
                 # JSONSerializer and MSGPackSerializer use the isoformat for
                 # datetimes.
-                now_dt: str | datetime.datetime = datetime.datetime.now().isoformat()
+                now_dt: str | datetime.datetime = datetime.datetime.now(
+                    tz=datetime.timezone.utc
+                ).isoformat()
             else:
-                now_dt = datetime.datetime.now()
+                now_dt = datetime.datetime.now(tz=datetime.timezone.utc)
 
             test_dict = {"id": 1, "date": now_dt, "name": "Foo"}
 
@@ -150,9 +145,17 @@ class TestAsyncDjangoValkeyCache:
         assert isinstance(res, float)
         assert res == float_val
 
-    async def test_timeout(self, cache: AsyncValkeyCache):
-        await cache.aset("test_key", 222, timeout=3)
-        await anyio.sleep(4)
+    async def test_timeout(self, cache: AsyncValkeyCache, expiry: Expiry):
+        await cache.aset("test_key", 222, timeout=expiry.timeout)
+        await anyio.sleep(expiry.wait)
+
+        res = await cache.aget("test_key")
+        assert res is None
+
+    async def test_timeout_whole_seconds(self, cache: AsyncValkeyCache):
+        await cache.aset("test_key", 222, timeout=1)
+        assert await cache.aget("test_key") == 222
+        await anyio.sleep(1.5)
 
         res = await cache.aget("test_key")
         assert res is None
@@ -162,16 +165,23 @@ class TestAsyncDjangoValkeyCache:
         res = await cache.aget("test_key")
         assert res is None
 
+    async def test_fractional_timeout(self, cache: AsyncValkeyCache):
+        await cache.aset("test_key", 222, timeout=0.5)
+        assert await cache.aget("test_key") == 222
+
+        await cache.aset("test_key", 222, timeout=1.5)
+        assert 1000 < await cache.apttl("test_key") <= 1500
+
     async def test_timeout_parameter_as_positional_argument(
-        self, cache: AsyncValkeyCache
+        self, cache: AsyncValkeyCache, expiry: Expiry
     ):
         await cache.aset("test_key", 222, -1)
         res = await cache.aget("test_key")
         assert res is None
 
-        await cache.aset("test_key", 222, 1)
+        await cache.aset("test_key", 222, expiry.timeout)
         res1 = await cache.aget("test_key")
-        await anyio.sleep(2)
+        await anyio.sleep(expiry.wait)
         res2 = await cache.aget("test_key")
         assert res1 == 222
         assert res2 is None
@@ -265,7 +275,7 @@ class TestAsyncDjangoValkeyCache:
         self,
         cache: AsyncValkeyCache,
         mocker: MockerFixture,
-        settings: SettingsWrapper,
+        settings: Settings,
     ):
         tmp = await cache.client.get_client(write=True)
         pipeline = await tmp.pipeline()
@@ -276,25 +286,13 @@ class TestAsyncDjangoValkeyCache:
 
         await cache.aset(key, value, client=pipeline)
 
-        if isinstance(cache.client, AsyncHerdClient):
-            default_timeout = cache.client._backend.default_timeout
-            herd_timeout = (default_timeout + settings.CACHE_HERD_TIMEOUT) * 1000
-            herd_pack_value = cache.client._pack(value, default_timeout)
-            mocked_set.assert_awaited_once_with(
-                cache.client.make_key(key, version=None),
-                cache.client.encode(herd_pack_value),
-                nx=False,
-                px=herd_timeout,
-                xx=False,
-            )
-        else:
-            mocked_set.assert_awaited_once_with(
-                cache.client.make_key(key, version=None),
-                cache.client.encode(value),
-                nx=False,
-                px=cache.client._backend.default_timeout * 1000,
-                xx=False,
-            )
+        mocked_set.assert_awaited_once_with(
+            cache.client.make_key(key, version=None),
+            cache.client.encode(value),
+            nx=False,
+            px=cache.client._backend.default_timeout * 1000,
+            xx=False,
+        )
 
     async def test_delete(self, cache: AsyncValkeyCache):
         await cache.aset_many({"a": 1, "b": 2, "c": 3})
@@ -335,17 +333,14 @@ class TestAsyncDjangoValkeyCache:
         res = await cache.aget_many(["a", "b", "c"])
         assert res == {"c": 3}
 
-        res = await cache.adelete_many((key for key in ("a", "b")))
+        res = await cache.adelete_many(key for key in ("a", "b"))
         assert res == 0
 
     async def test_delete_many_empty_generator(self, cache: AsyncValkeyCache):
-        res = await cache.adelete_many(key for key in cast(List[str], []))
+        res = await cache.adelete_many(key for key in cast(list[str], []))
         assert res == 0
 
     async def test_incr(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("HerdClient doesn't support incr")
-
         await cache.aset("num", 1)
 
         await cache.aincr("num")
@@ -374,9 +369,6 @@ class TestAsyncDjangoValkeyCache:
         assert res == 5
 
     async def test_incr_no_timeout(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("HerdClient doesn't support incr")
-
         await cache.aset("num", 1, timeout=None)
 
         await cache.aincr("num")
@@ -405,17 +397,11 @@ class TestAsyncDjangoValkeyCache:
         assert res == 5
 
     async def test_incr_error(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("HerdClient doesn't support incr")
-
         with pytest.raises(ValueError):
             # key does not exist
             await cache.aincr("numnum")
 
     async def test_incr_ignore_check(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("HerdClient doesn't support incr")
-
         # key exists check will be skipped and the value will be incremented by
         # '1' which is the default delta
         await cache.aincr("num", ignore_key_check=True)
@@ -461,9 +447,6 @@ class TestAsyncDjangoValkeyCache:
         assert res is False
 
     async def test_decr(self, cache: AsyncValkeyCache):
-        if isinstance(cache.client, AsyncHerdClient):
-            pytest.skip("HerdClient doesn't support decr")
-
         await cache.aset("num", 20)
 
         await cache.adecr("num")
@@ -576,7 +559,7 @@ class TestAsyncDjangoValkeyCache:
         self,
         patch_itersize_setting,
         cache: AsyncValkeyCache,
-        settings: SettingsWrapper,
+        settings: Settings,
         mocker,
     ):
         client_mock = mocker.patch(
@@ -594,7 +577,7 @@ class TestAsyncDjangoValkeyCache:
             "*foo-a*", itersize=expected_count
         )
 
-    async def test_close(self, cache: AsyncValkeyCache, settings: SettingsWrapper):
+    async def test_close(self, cache: AsyncValkeyCache, settings: Settings):
         settings.DJANGO_VALKEY_CLOSE_CONNECTION = True
         await cache.aset("f", "1")
         await cache.aclose()
@@ -609,10 +592,7 @@ class TestAsyncDjangoValkeyCache:
         await cache.aset("foo", "bar", 10)
         ttl = await cache.attl("foo")
 
-        if isinstance(cache.client, AsyncHerdClient):
-            assert pytest.approx(ttl) == 12
-        else:
-            assert pytest.approx(ttl) == 10
+        assert pytest.approx(ttl) == 10
 
         # Test ttl None
         await cache.aset("foo", "foo", timeout=None)
@@ -634,19 +614,13 @@ class TestAsyncDjangoValkeyCache:
         ttl = await cache.apttl("foo")
 
         # delta is set to 10 as precision error causes tests to fail
-        if isinstance(cache.client, AsyncHerdClient):
-            assert pytest.approx(ttl, 10) == 12000
-        else:
-            assert pytest.approx(ttl, 10) == 10000
+        assert pytest.approx(ttl, 10) == 10000
 
         # Test pttl with float value
         await cache.aset("foo", "bar", 5.5)
         ttl = await cache.apttl("foo")
 
-        if isinstance(cache.client, AsyncHerdClient):
-            assert pytest.approx(ttl, 10) == 7500
-        else:
-            assert pytest.approx(ttl, 10) == 5500
+        assert pytest.approx(ttl, 10) == 5500
 
         # Test pttl None
         await cache.aset("foo", "foo", timeout=None)
@@ -698,14 +672,18 @@ class TestAsyncDjangoValkeyCache:
     async def test_pexpire_at(self, cache: AsyncValkeyCache):
         # Test settings expiration time 1 hour ahead by datetime.
         await cache.aset("foo", "bar", timeout=None)
-        expiration_time = datetime.datetime.now() + timedelta(hours=1)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) + timedelta(
+            hours=1
+        )
         assert await cache.apexpire_at("foo", expiration_time) is True
         ttl = await cache.apttl("foo")
         assert pytest.approx(ttl, 10) == timedelta(hours=1).total_seconds()
 
         # Test settings expiration time 1 hour ahead by Unix timestamp.
         await cache.aset("foo", "bar", timeout=None)
-        expiration_time = datetime.datetime.now() + timedelta(hours=2)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) + timedelta(
+            hours=2
+        )
         assert (
             await cache.apexpire_at("foo", int(expiration_time.timestamp() * 1000))
             is True
@@ -715,37 +693,49 @@ class TestAsyncDjangoValkeyCache:
 
         # Test settings expiration time 1 hour in the past, which effectively
         # deletes the key.
-        expiration_time = datetime.datetime.now() - timedelta(hours=2)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) - timedelta(
+            hours=2
+        )
         assert await cache.apexpire_at("foo", expiration_time) is True
         value = await cache.aget("foo")
         assert value is None
 
-        expiration_time = datetime.datetime.now() + timedelta(hours=2)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) + timedelta(
+            hours=2
+        )
         assert await cache.apexpire_at("not-existent-key", expiration_time) is False
 
     async def test_expire_at(self, cache: AsyncValkeyCache):
         # Test settings expiration time 1 hour ahead by datetime.
         await cache.aset("foo", "bar", timeout=None)
-        expiration_time = datetime.datetime.now() + timedelta(hours=1)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) + timedelta(
+            hours=1
+        )
         assert await cache.aexpire_at("foo", when=expiration_time) is True
         ttl = await cache.attl("foo")
         assert pytest.approx(ttl, 1) == timedelta(hours=1).total_seconds()
 
         # Test settings expiration time 1 hour ahead by Unix timestamp.
         await cache.aset("foo", "bar", timeout=None)
-        expiration_time = datetime.datetime.now() + timedelta(hours=2)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) + timedelta(
+            hours=2
+        )
         assert await cache.aexpire_at("foo", int(expiration_time.timestamp())) is True
         ttl = await cache.attl("foo")
         assert pytest.approx(ttl, 1) == timedelta(hours=1).total_seconds() * 2
 
         # Test settings expiration time 1 hour in the past, which effectively
         # deletes the key.
-        expiration_time = datetime.datetime.now() - timedelta(hours=2)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) - timedelta(
+            hours=2
+        )
         assert await cache.aexpire_at("foo", expiration_time) is True
         value = await cache.aget("foo")
         assert value is None
 
-        expiration_time = datetime.datetime.now() + timedelta(hours=2)
+        expiration_time = datetime.datetime.now(tz=datetime.timezone.utc) + timedelta(
+            hours=2
+        )
         assert await cache.aexpire_at("not-existent-key", expiration_time) is False
 
     async def test_lock(self, cache: AsyncValkeyCache):
@@ -801,7 +791,7 @@ class TestAsyncDjangoValkeyCache:
 
         # Test generator object
         result = cache.aiter_keys("foo*")
-        next_value = anext(result)  # noqa: F821
+        next_value = anext(result)
         assert await next_value is not None
 
     async def test_primary_replica_switching(self, cache: AsyncValkeyCache):
@@ -829,12 +819,14 @@ class TestAsyncDjangoValkeyCache:
         res = await cache.aget("test_key")
         assert res is None
 
-    async def test_touch_positive_timeout(self, cache: AsyncValkeyCache):
+    async def test_touch_positive_timeout(
+        self, cache: AsyncValkeyCache, expiry: Expiry
+    ):
         await cache.aset("test_key", 222, timeout=10)
 
-        assert await cache.atouch("test_key", 2) is True
+        assert await cache.atouch("test_key", expiry.timeout) is True
         assert await cache.aget("test_key") == 222
-        await anyio.sleep(3)
+        await anyio.sleep(expiry.wait)
         assert await cache.aget("test_key") is None
 
     async def test_touch_negative_timeout(self, cache: AsyncValkeyCache):
@@ -847,23 +839,23 @@ class TestAsyncDjangoValkeyCache:
     async def test_touch_missed_key(self, cache: AsyncValkeyCache):
         assert await cache.atouch("test_key_does_not_exist", 1) is False
 
-    async def test_touch_forever(self, cache: AsyncValkeyCache):
-        await cache.aset("test_key", "foo", timeout=1)
+    async def test_touch_forever(self, cache: AsyncValkeyCache, expiry: Expiry):
+        await cache.aset("test_key", "foo", timeout=expiry.timeout)
         result = await cache.atouch("test_key", None)
         assert result is True
         assert await cache.attl("test_key") is None
-        await anyio.sleep(2)
+        await anyio.sleep(expiry.wait)
         assert await cache.aget("test_key") == "foo"
 
     async def test_touch_forever_nonexistent(self, cache: AsyncValkeyCache):
         result = await cache.atouch("test_key_does_not_exist", None)
         assert result is False
 
-    async def test_touch_default_timeout(self, cache: AsyncValkeyCache):
-        await cache.aset("test_key", "foo", timeout=1)
+    async def test_touch_default_timeout(self, cache: AsyncValkeyCache, expiry: Expiry):
+        await cache.aset("test_key", "foo", timeout=expiry.timeout)
         result = await cache.atouch("test_key")
         assert result is True
-        await anyio.sleep(2)
+        await anyio.sleep(expiry.wait)
         assert await cache.aget("test_key") == "foo"
 
     async def test_clear(self, cache: AsyncValkeyCache):

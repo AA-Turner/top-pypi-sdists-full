@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PowerAppsEnvironment(ClientValue):
     AllocatedAICredits: float | None = None
     DisplayName: str | None = None

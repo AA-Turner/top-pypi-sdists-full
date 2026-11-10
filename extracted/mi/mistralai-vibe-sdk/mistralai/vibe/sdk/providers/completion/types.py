@@ -111,6 +111,7 @@ class CompletionChunk(BaseModel):
 
     content_delta: str | None = None
     thinking_delta: str | None = None
+    thinking_signature: str | None = None
     tool_call_deltas: list[ToolCallDelta] | None = None
     finish_reason: str | None = None
     usage: TokenUsage | None = None

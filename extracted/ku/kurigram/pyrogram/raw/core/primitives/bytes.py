@@ -18,24 +18,34 @@
 
 from __future__ import annotations as _annotations
 
-from io import BytesIO
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..tl_object import TLObject
+
+if TYPE_CHECKING:
+    from io import BytesIO
 
 
 class Bytes(bytes, TLObject):
     @classmethod
     def read(cls, data: BytesIO, *args: Any) -> bytes:
-        length = int.from_bytes(data.read(1), "little")
+        prefix = data.read(1)
 
-        if length <= 253:
-            x = data.read(length)
-            data.read(-(length + 1) % 4)
-        else:
+        if not prefix:
+            return prefix
+
+        length = prefix[0]
+
+        if length > 253:
             length = int.from_bytes(data.read(3), "little")
-            x = data.read(length)
-            data.read(-length % 4)
+            padding = -length % 4
+        else:
+            padding = 3 - length % 4
+
+        x = data.read(length)
+
+        if padding:
+            data.read(padding)
 
         return x
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ from office365.sharepoint.microfeed.datalinkcollection import (
 from office365.sharepoint.microfeed.link import MicrofeedLink
 
 
-@dataclass
 class MicrofeedPostOptions(ClientValue):
     Content: Optional[str] = None
     ContentFormattingOption: Optional[int] = None

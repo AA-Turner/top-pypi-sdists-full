@@ -191,3 +191,25 @@ class ConfigMixin:
         if isinstance(data, dict) and isinstance(data.get("config"), dict):
             self._data["config"] = data["config"]
         return data
+
+    def _update_config_guarded(self, values: dict, guard: dict[str, dict]) -> bool | None:
+        """Merge ``values`` as a server compare-and-set (feature ``run_config_guard``, rl-scale C8): each key in
+        ``guard`` lands only when the run has none, or an object whose named fields equal the guard's. Sent now
+        (a transient failure queues it; the server still guards it at delivery). True when sent, False when the
+        server refused because another writer holds a key (409 ``CONFIG_KEY_HELD``), None when this server has
+        no guard (an older one would drop it and merge new-wins), so nothing was sent."""
+        try:
+            if not self._client.supports_feature("run_config_guard"):
+                return None
+        except Exception:  # noqa: BLE001 -- cannot ask: an unguarded merge is the caller's call
+            return None
+        body = {"config_merge": values, "config_if_absent_or_equal": guard}
+        try:
+            data = self._client.send("PATCH", path_for(WriteOp.RUN_PATCH, self.id), body, raise_permanent=True)
+        except errors.ConflictError as exc:
+            if isinstance(exc.detail, dict) and exc.detail.get("code") == "CONFIG_KEY_HELD":
+                return False
+            raise
+        if isinstance(data, dict) and isinstance(data.get("config"), dict):
+            self._data["config"] = data["config"]
+        return True

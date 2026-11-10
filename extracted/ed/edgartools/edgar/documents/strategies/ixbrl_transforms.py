@@ -328,6 +328,12 @@ _DURATION_UNITS = {'year': 'Y', 'month': 'M', 'week': 'W', 'day': 'D',
                    'hour': 'H', 'minute': 'M', 'second': 'S'}
 _DURATION_ORDER = ('Y', 'M', 'W', 'D', 'H', 'MIN', 'S')
 
+# Real durations are a few words ("two years and six months" is 24 characters).
+# The phrase regex below is quadratic in its input, so 24 KB of filer-supplied
+# text took 7 s; anything longer than this cannot be a duration and is refused
+# before matching (attack-surface audit 2026-10-22).
+_DUR_WORDS_MAX_LEN = 200
+
 
 def _dur_words_en(value: str) -> str:
     """
@@ -341,6 +347,9 @@ def _dur_words_en(value: str) -> str:
         text = text.replace(dash, '-')
     if not text:
         raise _fail(value, 'an English duration')
+    if len(text) > _DUR_WORDS_MAX_LEN:
+        raise _fail(text[:40] + '...',
+                    f'an English duration (longer than {_DUR_WORDS_MAX_LEN} characters)')
     text = re.sub(r"'s\b|\bs\b", '', text)
     parts = re.findall(r'([\w\s]+?)[\s-]+(years?|months?|weeks?|days?|hours?|minutes?|seconds?)\b', text)
     if not parts:
@@ -444,14 +453,16 @@ def _country_name_en(value: str) -> str:
 
 
 # Exchange names as filers write them on the cover page, to the code the SEC
-# expects in dei:SecurityExchangeName. Matching is on the folded key, after the
-# leading article and the corporate suffix are dropped.
+# expects in dei:SecurityExchangeName (the dei edgarExchangeCodeItemType
+# enumeration; the 21 names of SEC's ixt-sec:exchnameen registry are all here).
+# Matching is on the folded key, after the leading article and the corporate
+# suffix are dropped.
 _EXCHANGE_CODES = {
     'new york stock exchange': 'NYSE',
     'nyse': 'NYSE',
     'nyse american': 'NYSEAMER',
     'american stock exchange': 'NYSEAMER',
-    'nyse arca': 'NYSEARCA',
+    'nyse arca': 'NYSEArca',
     'nyse national': 'NYSENAT',
     'nyse texas': 'NYSETXSE',
     'nasdaq': 'NASDAQ',
@@ -460,10 +471,20 @@ _EXCHANGE_CODES = {
     'nasdaq global market': 'NASDAQ',
     'nasdaq capital market': 'NASDAQ',
     'cboe bzx': 'CboeBZX',
+    'cboe bzx exchange': 'CboeBZX',
     'cboe byx': 'CboeBYX',
+    'cboe byx exchange': 'CboeBYX',
     'cboe edgx': 'CboeEDGX',
+    'cboe edgx exchange': 'CboeEDGX',
     'cboe edga': 'CboeEDGA',
+    'cboe edga exchange': 'CboeEDGA',
     'cboe c2': 'C2',
+    'cboe c2 exchange': 'C2',
+    'nasdaq bx': 'BX',
+    'nasdaq gemx': 'GEMX',
+    'nasdaq ise': 'ISE',
+    'nasdaq mrx': 'MRX',
+    'nasdaq phlx': 'Phlx',
     'cboe exchange': 'CBOE',
     'chicago board options exchange': 'CBOE',
     'chicago stock exchange': 'CHX',
@@ -472,7 +493,7 @@ _EXCHANGE_CODES = {
     'long term stock exchange': 'LTSE',
     'members exchange': 'MEMX',
     'memx': 'MEMX',
-    'miax pearl': 'MIAXPEARL',
+    'miax pearl': 'PEARL',
     'miami international securities exchange': 'MIAX',
     'box exchange': 'BOX',
     'nyse chicago': 'NYSECHX',

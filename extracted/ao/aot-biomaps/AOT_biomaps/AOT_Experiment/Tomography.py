@@ -5,6 +5,7 @@ from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.ExperimentTools import calc_mat_os, convert_to_hex_list, get_phase_deterministic, hex_to_binary_profile, binary_to_hex_profile, load_AOsignal
 from AOT_biomaps.AOT_Experiment._mainExperiment import Experiment
 import os
+import gc
 import concurrent.futures
 from tqdm import tqdm
 from tqdm import trange
@@ -13,7 +14,12 @@ from scipy.io import loadmat, savemat
 import matplotlib.pyplot as plt
 import h5py
     
-
+try:
+    import cupy as cp
+    CUPY_AVAILABLE = True
+except ImportError:
+    cp = None
+    CUPY_AVAILABLE = False
 
 class Tomography(Experiment):
     """
@@ -979,13 +985,25 @@ class Tomography(Experiment):
             # Round-robin device pinning: worker index -> GPU index
             device = gpu_devices[index % len(gpu_devices)]
 
-            AcousticField.generate_field(isGPU=isGPU, GPUdevice=device, tempFieldName=safe_tempFieldName, generation_type=generation_type, show_log=show_log, backend=backend)
+            AcousticField.generate_field(
+                isGPU=isGPU, GPUdevice=device, tempFieldName=safe_tempFieldName,
+                generation_type=generation_type, show_log=show_log, backend=backend
+            )
 
-            # Save only if missing or EMPTY (overwrite corrupted zero-byte files)
+            # Save only if missing or EMPTY
             if pathField is not None and self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                 if (not os.path.exists(pathField)) or os.path.getsize(pathField) == 0:
                     os.makedirs(os.path.dirname(pathField), exist_ok=True)
                     AcousticField.save_field(fieldDataPath)
+
+            if not materialize_enabled[0] and pathField is not None and os.path.exists(pathField):
+                AcousticField.field = None
+                AcousticField.delayedSignal = None
+                AcousticField.burst = None
+                AcousticField.load_field(fieldDataPath, self.FormatSave, nameBlock)
+
+            if index % 50 == 0:
+                gc.collect()
 
             return index, AcousticField
 
@@ -1008,6 +1026,68 @@ class Tomography(Experiment):
                     listAcousticFields[index] = AcousticField
 
         return listAcousticFields
+
+    def stream_acoustic_fields(
+        self,
+        isGPU=True,
+        GPUdevice=0,
+        tempFieldName="Kwave",
+        generation_type="envelope_squared",
+        show_log=False,
+        backend="python",
+        start_index=0,
+    ):
+        """
+        Generator that simulates the acoustic fields one by one on the fly,
+        starting from `start_index` (for checkpoint resume).
+        """
+        if self.patterns is None:
+            raise ValueError("[AOT-biomaps] patterns is not initialized. Please load active list first.")
+
+        if isinstance(GPUdevice, (list, tuple)):
+            device = int(GPUdevice[0])
+        elif isinstance(GPUdevice, int):
+            device = GPUdevice
+        else:
+            device = config.select_best_gpu() if isGPU else None
+
+        total_patterns = len(self.patterns)
+        desc = f"[AOT-biomaps] Streaming fields -> SMatrix (backend: {backend}, GPU {device})"
+
+        for i in tqdm(range(start_index, total_patterns), initial=start_index, total=total_patterns, desc=desc):
+            pattern = self.patterns[i]
+            if "fileName" in pattern:
+                AcousticField = StructuredWave(fileName=pattern["fileName"], params=self.params, medium=self.medium)
+            else:
+                AcousticField = StructuredWave(
+                    angle_deg=pattern["angle"],
+                    space_0=pattern["space_0"],
+                    space_1=pattern["space_1"],
+                    move_head_0_2tail=pattern["move_head_0_2tail"],
+                    move_tail_1_2head=pattern["move_tail_1_2head"],
+                    params=self.params,
+                    medium=self.medium,
+                )
+
+            safe_tempFieldName = f"{tempFieldName}_{AcousticField.get_name_field()}"
+            AcousticField.generate_field(
+                isGPU=isGPU,
+                GPUdevice=device,
+                tempFieldName=safe_tempFieldName,
+                generation_type=generation_type,
+                show_log=show_log,
+                backend=backend,
+            )
+
+            try:
+                yield i, AcousticField.field
+            finally:
+                AcousticField.field = None
+                AcousticField.delayedSignal = None
+                AcousticField.burst = None
+                del AcousticField
+                if i % 50 == 0:
+                    gc.collect()       
 
     def load_experimentalAO(self, pathAO, withTumor=True, h5name='AOsignal'):
         """

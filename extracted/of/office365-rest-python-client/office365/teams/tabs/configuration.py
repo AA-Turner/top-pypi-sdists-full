@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TeamsTabConfiguration(ClientValue):
     """The settings that determine the content of a tab.
     When a tab is interactively configured, this information is set by the tab provider application.

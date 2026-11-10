@@ -26,8 +26,12 @@ __all__ = (
     "AutoTuneDesiredStateType",
     "AutoTuneStateType",
     "AutoTuneTypeType",
+    "ClonedBlueGreenScheduledActionTypeType",
     "ConfigChangeStatusType",
+    "CutoverStatusType",
+    "CutoverTargetType",
     "DeploymentStatusType",
+    "DeploymentStrategyOverrideType",
     "DeploymentStrategyType",
     "DescribePackagesFilterNameType",
     "DescribeReservedElasticsearchInstanceOfferingsPaginatorName",
@@ -58,12 +62,15 @@ __all__ = (
     "RegionName",
     "ReservedElasticsearchInstancePaymentOptionType",
     "ResourceServiceName",
+    "RetentionActionType",
     "RollbackOnDisableType",
     "ScheduledAutoTuneActionTypeType",
     "ScheduledAutoTuneSeverityTypeType",
     "ServiceName",
     "TLSSecurityPolicyType",
     "TimeUnitType",
+    "TrafficSplitStatusType",
+    "TrafficStrategyType",
     "UpgradeStatusType",
     "UpgradeStepType",
     "VolumeTypeType",
@@ -85,6 +92,9 @@ AutoTuneStateType = Literal[
     "ERROR",
 ]
 AutoTuneTypeType = Literal["SCHEDULED_ACTION"]
+ClonedBlueGreenScheduledActionTypeType = Literal[
+    "AutomaticCutoverToPrimaryCluster", "DeletePrimaryCluster"
+]
 ConfigChangeStatusType = Literal[
     "ApplyingChanges",
     "Cancelled",
@@ -95,9 +105,12 @@ ConfigChangeStatusType = Literal[
     "Validating",
     "ValidationFailed",
 ]
+CutoverStatusType = Literal["Completed", "Failed", "InProgress"]
+CutoverTargetType = Literal["ClonedCluster", "PrimaryCluster"]
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"
 ]
+DeploymentStrategyOverrideType = Literal["ClonedBlueGreen"]
 DeploymentStrategyType = Literal["CapacityOptimized", "Default"]
 DescribePackagesFilterNameType = Literal["PackageID", "PackageName", "PackageStatus"]
 DescribeReservedElasticsearchInstanceOfferingsPaginatorName = Literal[
@@ -221,6 +234,7 @@ PropertyValueTypeType = Literal["PLAIN_TEXT", "STRINGIFIED_JSON"]
 ReservedElasticsearchInstancePaymentOptionType = Literal[
     "ALL_UPFRONT", "NO_UPFRONT", "PARTIAL_UPFRONT"
 ]
+RetentionActionType = Literal["DeletePrimaryCluster", "RollbackToPrimaryCluster"]
 RollbackOnDisableType = Literal["DEFAULT_ROLLBACK", "NO_ROLLBACK"]
 ScheduledAutoTuneActionTypeType = Literal["JVM_HEAP_SIZE_TUNING", "JVM_YOUNG_GEN_TUNING"]
 ScheduledAutoTuneSeverityTypeType = Literal["HIGH", "LOW", "MEDIUM"]
@@ -231,6 +245,8 @@ TLSSecurityPolicyType = Literal[
     "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
 TimeUnitType = Literal["HOURS"]
+TrafficSplitStatusType = Literal["Completed", "Failed", "InProgress"]
+TrafficStrategyType = Literal["ShiftReadTrafficPercent"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]
 UpgradeStepType = Literal["PRE_UPGRADE_CHECK", "SNAPSHOT", "UPGRADE"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "standard"]

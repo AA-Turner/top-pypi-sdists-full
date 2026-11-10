@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.permissions.identity_set import IdentitySet
@@ -8,7 +8,6 @@ from office365.intune.browser.sharedcookiesourceenvironment import BrowserShared
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class BrowserSharedCookieHistory(ClientValue):
     comment: str | None = None
     displayName: str | None = None

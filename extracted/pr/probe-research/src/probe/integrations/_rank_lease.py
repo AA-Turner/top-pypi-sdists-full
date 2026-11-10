@@ -8,9 +8,10 @@ every other rank calls :func:`hold`, which joins that run as a LEASE-ONLY
 writer:
 
 * its handle beats a ``rank`` lease from its beat thread and writes nothing
-  else: no metric, no capture, no hardware sampling, no config, and never a
-  status. The server closes the run from its leases, the worst verdict of
-  every writer winning;
+  else but its own console log (``probe/run.rank<N>.log``, unless a launcher
+  on this host tees it): no metric, no output files, no hardware sampling, no
+  config, and never a status. The server closes the run from its leases, the
+  worst verdict of every writer winning;
 * the lease is released when the process exits -- atexit, and for a
   multiprocessing worker (``ddp_fork``, ``ddp_spawn``), whose fork exit skips
   atexit, multiprocessing's own worker-exit finalizers -- with how the process
@@ -165,6 +166,8 @@ def hold(
     lease = RankLease(handle, client, owns_client=owns)
     with _LEASES_LOCK:
         _LEASES[lease.run_id] = lease
+    # What this rank prints is kept as its own log (T16); its close (the release) sends it.
+    handle._start_capture(should_keep_files=False, log_name=f"probe/run.rank{int(rank)}.log")
     # How this process ends (an uncaught exception, sys.exit, Ctrl-C) is what
     # its release says: the same hooks probe.init() installs on rank 0.
     fluent._install_exit_hooks()

@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import re
 from typing import TYPE_CHECKING
 
 from repo_standards.core.canonical import scope_digest
-from repo_standards.repository import parse_baseline_bytes, parse_manifest_bytes
+from repo_standards.repository import (
+    RepositoryAnalysisRequest,
+    analyze_repository,
+    parse_baseline_bytes,
+    parse_manifest_bytes,
+)
 
 from sarj_standards.libs.filesystem import is_link_like
 from sarj_standards.libs.json_boundary import parse_unique_json
 
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from pathlib import Path
 
 
@@ -47,6 +54,8 @@ PATH = ".repo-standards/baseline.json"
 # Policy 34 changes PR-template fingerprints. Preserve nonempty debt only when
 # the configured repository has no template review policy; active scopes need
 # a separate provenance review. Empty baselines contain no accepted identities.
+# Policy 35 requires Merge Risk in active template scopes and changes that
+# rule's fingerprints again. Keep the same empty-or-no-review-policy boundary.
 _COMPATIBLE_TRANSITIONS = frozenset(
     {
         (18, 19),
@@ -63,10 +72,13 @@ _COMPATIBLE_TRANSITIONS = frozenset(
     }
 )
 _POLICY_VERSION = re.compile(rb'("policy_version"\s*:\s*)[0-9]+(?=\s*[,}])')
+_SCOPE_DIGEST = re.compile(rb'("scope_digest"\s*:\s*")[0-9a-f]{64}(?=")')
+_FINGERPRINTS = re.compile(rb'("fingerprints"\s*:\s*\[)([^\]]*)(\])')
 _IMAGE_POLICY_BASE = 30
 _IMAGE_ERROR_POLICY = 32
 _MIGRATION_COUNTS_POLICY = 33
 _PR_TEMPLATE_POLICY = 34
+_MERGE_RISK_POLICY = 35
 
 
 def read_optional(root: Path) -> bytes | None:
@@ -77,6 +89,56 @@ def read_optional(root: Path) -> bytes | None:
         msg = "repository baseline must be a regular file"
         raise OSError(msg)
     return path.read_bytes()
+
+
+# Fingerprints of the committed findings on files the migration deletes. The Oxlint migration deletes
+# eslint.config.mjs and eslint.strict.mjs; Repo Standards rejects a baseline that still accepts a finding
+# on a file that is gone ("resolved fingerprints"). Without a baseline, or when the analysis is incomplete,
+# nothing is retired.
+def retired_fingerprints(root: Path, deleted: Collection[str]) -> frozenset[str]:
+    if not deleted or not (root / PATH).is_file():
+        return frozenset()
+    report = analyze_repository(RepositoryAnalysisRequest(root=root))
+    if report.completion != "complete":
+        return frozenset()
+    return frozenset(item.fingerprint for item in report.diagnostics if item.path in deleted)
+
+
+# Carry the baseline over the Oxlint migration: drop the accepted fingerprints in `retired` (findings on
+# files it deletes) and follow a manifest change that only drops JavaScript artifact entries, such as the
+# deleted eslint.strict.mjs. No finding can name a deleted file, so the remaining fingerprints stay valid.
+def rescope(contents: bytes, previous: bytes, manifest: bytes, retired: Collection[str] = frozenset()) -> bytes:
+    contents = _without_fingerprints(contents, frozenset(retired) & set(parse_baseline_bytes(contents).fingerprints))
+    baseline = parse_baseline_bytes(contents)
+    before = parse_manifest_bytes(previous)
+    after = parse_manifest_bytes(manifest)
+    digest = scope_digest(after)
+    if baseline.scope_digest == digest:
+        return contents
+    dropped_only = set(after.javascript_artifacts) < set(before.javascript_artifacts) and digest == scope_digest(
+        replace(before, javascript_artifacts=after.javascript_artifacts)
+    )
+    matches = tuple(_SCOPE_DIGEST.finditer(contents))
+    if baseline.scope_digest != scope_digest(before) or not dropped_only or len(matches) != 1:
+        msg = "repository baseline scope does not match the planned manifest"
+        raise ValueError(msg)
+    selected = matches[0]
+    return contents[: selected.start()] + selected[1] + digest.encode("ascii") + contents[selected.end() :]
+
+
+def _without_fingerprints(contents: bytes, removed: frozenset[str]) -> bytes:
+    if not removed:
+        return contents
+    matches = tuple(_FINGERPRINTS.finditer(contents))
+    if len(matches) != 1:
+        msg = "cannot safely locate the canonical repository baseline fingerprints field"
+        raise ValueError(msg)
+    selected = matches[0]
+    items = selected[2].split(b",")
+    closing = items[-1][len(items[-1].rstrip()) :]
+    kept = [item.rstrip() for item in items if item.strip().strip(b'"').decode("ascii") not in removed]
+    body = b",".join(kept) + closing if kept else b""
+    return contents[: selected.start()] + selected[1] + body + selected[3] + contents[selected.end() :]
 
 
 def migrate(contents: bytes, manifest: bytes, *, target_policy_version: int) -> bytes:
@@ -95,6 +157,9 @@ def migrate(contents: bytes, manifest: bytes, *, target_policy_version: int) -> 
         raise ValueError(msg)
     if baseline.policy_version == target_policy_version:
         return contents
+    if target_policy_version == _MERGE_RISK_POLICY and baseline.policy_version != _PR_TEMPLATE_POLICY:
+        intermediate = migrate(contents, manifest, target_policy_version=_PR_TEMPLATE_POLICY)
+        return migrate(intermediate, manifest, target_policy_version=_MERGE_RISK_POLICY)
     if target_policy_version == _PR_TEMPLATE_POLICY and baseline.policy_version != _MIGRATION_COUNTS_POLICY:
         intermediate = migrate(contents, manifest, target_policy_version=_MIGRATION_COUNTS_POLICY)
         return migrate(intermediate, manifest, target_policy_version=_PR_TEMPLATE_POLICY)
@@ -108,7 +173,7 @@ def migrate(contents: bytes, manifest: bytes, *, target_policy_version: int) -> 
     empty_compatible = transition in {(27, 28), (27, 29), (27, 30), (29, 30), (31, 32)} and not baseline.fingerprints
     error_only_compatible = transition in {(29, 30), (31, 32)} and not baseline.include_warnings
     review_policy_absent = configured.pull_request is None or configured.pull_request.review_policy is None
-    template_compatible = transition == (33, 34) and (not baseline.fingerprints or review_policy_absent)
+    template_compatible = transition in {(33, 34), (34, 35)} and (not baseline.fingerprints or review_policy_absent)
     if (
         transition not in _COMPATIBLE_TRANSITIONS
         and not empty_compatible

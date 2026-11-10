@@ -6,8 +6,10 @@ from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.sharing.links.info import SharingLinkInfo
 from office365.sharepoint.sharing.object_sharing_information_user import (
     ObjectSharingInformationUser,
@@ -21,6 +23,7 @@ class ObjectSharingInformation(Entity):
     """Provides information about the sharing state of a securable object."""
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def can_current_user_share(context: ClientContext, doc_id: str) -> ClientResult[int]:
         """Indicates whether the current user can share the document identified by docId.
 
@@ -36,6 +39,7 @@ class ObjectSharingInformation(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def can_current_user_share_remote(context: ClientContext, doc_id: str) -> ClientResult[int]:
         """Indicates whether the current user can share the document identified by docId, from a remote context.
 
@@ -59,6 +63,7 @@ class ObjectSharingInformation(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_web_sharing_information(
         context: ClientContext,
         exclude_current_user=None,
@@ -108,6 +113,7 @@ class ObjectSharingInformation(Entity):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_shared_with_users(self):
         """Returns an array that contains the users with whom a securable object is shared."""
         return_type = EntityCollection(self.context, ObjectSharingInformationUser)
@@ -116,6 +122,7 @@ class ObjectSharingInformation(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_list_item_sharing_information(
         context: ClientContext,
         list_id: str,
@@ -174,6 +181,7 @@ class ObjectSharingInformation(Entity):
         context.add_query(qry)
         return return_type
 
+    @odata(name="AnonymousEditLink")
     @property
     def anonymous_edit_link(self) -> Optional[str]:
         """
@@ -182,6 +190,7 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("AnonymousEditLink", None)
 
+    @odata(name="AnonymousViewLink")
     @property
     def anonymous_view_link(self) -> Optional[str]:
         """
@@ -190,6 +199,7 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("AnonymousViewLink", None)
 
+    @odata(name="CanBeShared")
     @property
     def can_be_shared(self) -> Optional[bool]:
         """
@@ -197,6 +207,7 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("CanBeShared", None)
 
+    @odata(name="CanBeUnshared")
     @property
     def can_be_unshared(self) -> Optional[bool]:
         """
@@ -204,6 +215,7 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("CanBeUnshared", None)
 
+    @odata(name="CanManagePermissions")
     @property
     def can_manage_permissions(self) -> Optional[bool]:
         """
@@ -211,6 +223,7 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("CanManagePermissions", None)
 
+    @odata(name="HasPendingAccessRequests")
     @property
     def has_pending_access_requests(self) -> Optional[bool]:
         """
@@ -221,6 +234,7 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("HasPendingAccessRequests", None)
 
+    @odata(name="HasPermissionLevels")
     @property
     def has_permission_levels(self) -> Optional[bool]:
         """
@@ -229,11 +243,13 @@ class ObjectSharingInformation(Entity):
         """
         return self.properties.get("HasPermissionLevels", None)
 
+    @odata(name="SharingLinks")
     @property
     def sharing_links(self) -> ClientValueCollection[SharingLinkInfo]:
         """Indicates the collection of all available sharing links for the securable object."""
         return self.properties.get("SharingLinks", ClientValueCollection(SharingLinkInfo))
 
+    @odata(name="SharedWithUsersCollection", navigation=True)
     @property
     def shared_with_users_collection(
         self,
@@ -262,36 +278,43 @@ class ObjectSharingInformation(Entity):
             self._resource_path = None
         return self
 
+    @odata(name="IsFolder")
     @property
     def is_folder(self) -> Optional[bool]:
         """Gets the IsFolder property"""
         return self.properties.get("IsFolder", None)
 
+    @odata(name="IsSharedWithCurrentUser")
     @property
     def is_shared_with_current_user(self) -> Optional[bool]:
         """Gets the IsSharedWithCurrentUser property"""
         return self.properties.get("IsSharedWithCurrentUser", None)
 
+    @odata(name="IsSharedWithGuest")
     @property
     def is_shared_with_guest(self) -> Optional[bool]:
         """Gets the IsSharedWithGuest property"""
         return self.properties.get("IsSharedWithGuest", None)
 
+    @odata(name="IsSharedWithMany")
     @property
     def is_shared_with_many(self) -> Optional[bool]:
         """Gets the IsSharedWithMany property"""
         return self.properties.get("IsSharedWithMany", None)
 
+    @odata(name="IsSharedWithSecurityGroup")
     @property
     def is_shared_with_security_group(self) -> Optional[bool]:
         """Gets the IsSharedWithSecurityGroup property"""
         return self.properties.get("IsSharedWithSecurityGroup", None)
 
+    @odata(name="PendingAccessRequestsLink")
     @property
     def pending_access_requests_link(self) -> Optional[str]:
         """Gets the PendingAccessRequestsLink property"""
         return self.properties.get("PendingAccessRequestsLink", None)
 
+    @odata(name="TotalFileCount")
     @property
     def total_file_count(self) -> Optional[int]:
         """Gets the TotalFileCount property"""

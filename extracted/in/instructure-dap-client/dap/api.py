@@ -7,8 +7,7 @@ import types
 import typing
 import uuid
 import zlib
-from datetime import datetime, timedelta, timezone
-from http import HTTPStatus
+from datetime import datetime, timezone
 from typing import (
     Any,
     AsyncIterator,
@@ -19,32 +18,29 @@ from typing import (
     Optional,
     Type,
     TypeVar,
-    Union,
 )
 from urllib.parse import urlparse
 
 import aiofiles
 import aiohttp
-import jwt
-from aiohttp_retry import RetryClient
-from strong_typing.serialization import json_dump_string, json_to_object, object_to_json
+from rich.markup import escape
+from strong_typing.serialization import object_to_json
 
-from . import __version__, ui
-from .commands.global_options import DAP_API_URL_DEFAULT, read_dap_tracking_env_var
+from . import ui
+from .auth import TableAccess
+from .channel import DapApiChannel, DownloadChannel, default_headers
+from .commands.global_options import read_dap_tracking_env_var
 from .concurrency import gather_n
 from .dap_error import (
     AccountDisabledError,
     AccountNotOnboardedError,
     AccountUnderMaintenanceError,
-    RequestTypeForbiddenError,
     AuthenticationError,
-    NotFoundError,
+    DAPClientError,
+    DownloadError,
+    OAuthTokenError,
     OperationError,
-    OutOfRangeError,
-    ProcessingError,
     ServerError,
-    SnapshotRequiredError,
-    ValidationError,
 )
 from .dap_types import (
     CompleteIncrementalJob,
@@ -58,6 +54,7 @@ from .dap_types import (
     Job,
     JobID,
     JobStatus,
+    NamespaceList,
     Object,
     ObjectID,
     Query,
@@ -65,11 +62,8 @@ from .dap_types import (
     ResourceResult,
     SnapshotQuery,
     TableList,
-    TokenProperties,
     VersionedSchema,
 )
-from .networking import get_content_type
-from .retry_options import CustomExponentialRetry
 from .tracking import TrackingData, send_tracking_data
 
 logger = logging.getLogger("dap")
@@ -79,10 +73,6 @@ T = TypeVar("T")
 # prevent "RuntimeError: Event loop is closed" on Windows platforms
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())  # type: ignore
-
-
-class DAPClientError(RuntimeError):
-    pass
 
 
 DOWNLOAD_CONCURRENCY = 4
@@ -104,7 +94,7 @@ class DAPClient:
 
     _base_url: str
     _credentials: Credentials
-    _session: Optional["DAPSession"]
+    _dap_session: Optional["DAPSession"]
     _tracking: bool
 
     def __init__(
@@ -118,7 +108,10 @@ class DAPClient:
         if not base_url:
             base_url = os.getenv("DAP_API_URL")
             if not base_url:
-                base_url = DAP_API_URL_DEFAULT
+                raise DAPClientError(
+                    "Missing DAP API base URL. Please provide the base URL of your "
+                    "regional API Gateway before proceeding."
+                )
 
         if credentials is None:
             client_id = os.getenv("DAP_CLIENT_ID")
@@ -145,23 +138,16 @@ class DAPClient:
         self._base_url = base_url.rstrip("/")
         self._credentials = credentials
 
-        logger.debug(f"Client region: {self._credentials.client_region}")
-
     async def __aenter__(self) -> "DAPSession":
         "Initiates a new client session."
 
-        session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=30 * 60, connect=30),
-        )
         tracking_data = (
             TrackingData(client_id=self._credentials.client_id)
             if self._tracking
             else None
         )
-        self._session = DAPSession(
-            session, self._base_url, self._credentials, tracking_data
-        )
-        return self._session
+        self._dap_session = DAPSession(self._base_url, self._credentials, tracking_data)
+        return self._dap_session
 
     async def __aexit__(
         self,
@@ -171,59 +157,26 @@ class DAPClient:
     ) -> None:
         "Terminates a client session."
 
-        if self._session is not None:
-            if self._session.tracking_data is not None:
-                await send_tracking_data(self._session.tracking_data)
-            await self._session.close()
-            self._session = None
-
-
-class AccessToken:
-    """
-    A JWT access token. This object is immutable.
-
-    The access token counts as sensitive information not to be exposed (e.g. in logs).
-    """
-
-    _token: str
-    _expiry: datetime
-
-    def __init__(self, jwt_token: str) -> None:
-        "Creates a new JWT access token."
-
-        self._token = jwt_token
-        decoded_jwt = jwt.decode(jwt_token, options={"verify_signature": False})
-        expiry = int(decoded_jwt["exp"])
-        self._expiry = datetime.fromtimestamp(expiry, tz=timezone.utc)
-
-    def __str__(self) -> str:
-        "Returns the string representation of the JWT access token."
-
-        return self._token
-
-    def is_expiring(self) -> bool:
-        """
-        Checks if the token is about to expire.
-
-        :returns: True if the token is about to expire.
-        """
-
-        latest_accepted_expiry = datetime.now(tz=timezone.utc) + timedelta(minutes=5)
-        return self._expiry < latest_accepted_expiry
+        if self._dap_session is not None:
+            if self._dap_session.tracking_data is not None:
+                await send_tracking_data(self._dap_session.tracking_data)
+            await self._dap_session.close()
+            self._dap_session = None
 
 
 class DAPSession:
     """
     Represents an authenticated session to DAP.
+
+    Talks to the outside world over two independent HTTP channels: `_dap_api`
+    for the authenticated DAP API, and `_downloads` for pre-signed resource
+    URLs, which carry their own authorization and must never receive the API
+    bearer token. Each owns its own connection pool.
     """
 
     _base_url: str
-    _session: aiohttp.ClientSession
-    _credentials: Credentials
-    _access_token: Optional[AccessToken] = None
-    _retry_client: RetryClient
-    _resources_download_client: RetryClient
-    _headers: Dict[str, str]
+    _dap_api: DapApiChannel
+    _downloads: DownloadChannel
     tracking_data: Optional[TrackingData]
 
     def _generate_traceparent(self) -> str:
@@ -234,38 +187,21 @@ class DAPSession:
 
     def __init__(
         self,
-        session: aiohttp.ClientSession,
         base_url: str,
         credentials: Credentials,
         tracking_data: Optional[TrackingData] = None,
     ) -> None:
         """
-        Creates a new logical session by encapsulating a network connection.
+        Creates a new logical session by opening the channels it talks over.
         """
 
         self._base_url = base_url
-        self._session = session
-        self._credentials = credentials
         self.tracking_data = tracking_data
-        self._retry_client = RetryClient(
-            client_session=self._session,
-            retry_options=CustomExponentialRetry(),
-            raise_for_status=False,
-        )
-        resources_session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=30 * 60, connect=30),
-        )
-        self._resources_download_client = RetryClient(
-            client_session=resources_session,
-            retry_options=CustomExponentialRetry(),
-            raise_for_status=True,
-        )
-        self._headers = {
-            "User-Agent": f"DataAccessPlatform/{__version__}",
-            "traceparent": self._generate_traceparent(),
-        }
+        headers = default_headers(self._generate_traceparent())
+        self._dap_api = DapApiChannel(base_url, credentials, headers)
+        self._downloads = DownloadChannel(headers)
         logger.debug(
-            f"DAP API Client created with base URL: {self._base_url} using headers: {self._headers}"
+            f"DAP API Client created with base URL: {self._base_url} using headers: {headers}"
         )
 
     async def close(self) -> None:
@@ -273,171 +209,43 @@ class DAPSession:
         Closes the underlying network sockets.
         """
 
-        await self._session.close()
-        await self._resources_download_client.close()
+        await self._dap_api.close()
+        await self._downloads.close()
 
-    async def _get(self, path: str, response_type: Type[T]) -> T:
-        """
-        Sends a request to the server and parses the response into the expected type.
-
-        :param path: The path component of the endpoint to invoke.
-        :param response_type: The object type the endpoint returns on success.
-        :returns: The object returned on success.
-        :raises Exception: The object returned on failure.
-        """
-
-        await self.authenticate()
-        async with self._retry_client.get(
-            f"{self._base_url}{path}", headers=self._headers
-        ) as response:
-            return await self._process(response, response_type)
-
-    @typing.no_type_check  # mypy shits itself on Union type used in json_to_object
-    def _map_to_error_type(
-        self, status_code: int, response_body: Any
-    ) -> Union[
-        ValidationError,
-        NotFoundError,
-        OutOfRangeError,
-        SnapshotRequiredError,
-        AuthenticationError,
-        AccountDisabledError,
-        AccountNotOnboardedError,
-        AccountUnderMaintenanceError,
-        ProcessingError,
-        ServerError,
-    ]:
-        """
-        Maps error body and status to Python error object.
-        """
-
-        if "error" not in response_body:
-            return ServerError(response_body)
-
-        response_body_error = response_body["error"]
-        try:
-            if status_code == HTTPStatus.UNAUTHORIZED.value:
-                return json_to_object(AuthenticationError, response_body_error)
-            elif status_code == HTTPStatus.FORBIDDEN.value:
-                return json_to_object(
-                    Union[
-                        AccountDisabledError,
-                        AccountNotOnboardedError,
-                        AccountUnderMaintenanceError,
-                        RequestTypeForbiddenError,
-                    ],
-                    response_body_error,
-                )
-            else:
-                return json_to_object(
-                    Union[
-                        ValidationError,
-                        NotFoundError,
-                        OutOfRangeError,
-                        SnapshotRequiredError,
-                        ProcessingError,
-                    ],
-                    response_body_error,
-                )
-        except Exception:
-            return ServerError(response_body_error)
-
-    async def _post(self, path: str, request_data: Any, response_type: Type[T]) -> T:
-        """
-        Sends a request to the server by serializing a payload object, and parses the response into the expected type.
-
-        :param path: The path component of the endpoint to invoke.
-        :param request_data: The object to pass in the request body.
-        :param response_type: The object type the endpoint returns on success.
-        :returns: The object returned on success.
-        :raises Exception: The object returned on failure.
-        """
-
-        await self.authenticate()
-
-        request_payload = object_to_json(request_data)
-        logger.debug(f"POST request payload:\n{repr(request_payload)}")
-
-        async with self._retry_client.post(
-            f"{self._base_url}{path}",
-            data=json_dump_string(request_payload),
-            headers={"Content-Type": "application/json"} | self._headers,
-        ) as response:
-            return await self._process(response, response_type)
-
-    async def _post_auth_request(self, basic_credentials: str) -> TokenProperties:
-        """
-        Sends an authentication request to the Identity Service through Instructure API Gateway,
-        and parses the response into a TokenProperties object.
-
-        :param basic_credentials: Basic credentials.
-        :returns: An access token and metadata.
-        :raises Exception: The object returned on failure.
-        """
-
-        async with self._session.post(
-            f"{self._base_url}/ids/auth/login",
-            data={"grant_type": "client_credentials"},
-            headers={"Authorization": "Basic " + basic_credentials} | self._headers,
-        ) as response:
-            return await self._process(response, TokenProperties, suppress_output=True)
-
-    async def _process(
+    async def _get(
         self,
-        response: aiohttp.ClientResponse,
+        path: str,
         response_type: Type[T],
-        suppress_output: bool = False,
+        table_access: Optional[TableAccess] = None,
     ) -> T:
+        "Sends a GET request over the API channel. See `DapApiChannel.get`."
+
+        return await self._dap_api.get(path, response_type, table_access)
+
+    async def _post(
+        self,
+        path: str,
+        request_data: Any,
+        response_type: Type[T],
+        table_access: Optional[TableAccess] = None,
+    ) -> T:
+        "Sends a POST request over the API channel. See `DapApiChannel.post`."
+
+        return await self._dap_api.post(path, request_data, response_type, table_access)
+
+    async def authenticate(self, table_access: Optional[TableAccess] = None) -> None:
         """
-        Extracts an object instance from an HTTP response body.
-        """
+        Authenticates with API key to receive a table-restricted JWT, and pins it
+        as the access level for subsequent requests on this session.
 
-        content_type = get_content_type(response.headers.get("Content-Type", ""))
-        if content_type == "application/json":
-            response_payload = await response.json()
-        else:
-            response_text = await response.text()
-            if response_text:
-                logger.error(
-                    f"Unexpected response from server. Unable to parse the HTTP response. \n{response_text}"
-                )
+        See `DapApiChannel.authenticate` for the caching and access level rules.
 
-            raise DAPClientError(
-                "Unexpected response from server. Unable to parse the HTTP response."
-            )
-
-        if not suppress_output:
-            logger.debug(f"GET/POST response payload:\n{repr(response_payload)}")
-
-        # HTTP status codes between 400 (inclusive) and 600 (exclusive) indicate an error
-        # (includes non-standard 5xx server-side error codes)
-        if HTTPStatus.BAD_REQUEST.value <= response.status < 600:
-            error_object = self._map_to_error_type(response.status, response_payload)
-            logger.warning(f"Received error in response: {error_object}")
-            raise error_object
-        else:
-            return json_to_object(response_type, response_payload)
-
-    async def authenticate(self) -> None:
-        """
-        Authenticates with API key to receive a JWT.
+        :param table_access: The table the requested JWT should be restricted to.
+            Omit to reuse the most recently used access level on this session if one exists,
+            otherwise a token with no table access is requested (e.g. on a fresh session).
         """
 
-        if self._access_token is not None and not self._access_token.is_expiring():
-            return
-
-        logger.debug(
-            f"Authenticating to DAP in region {self._credentials.client_region}"
-        )
-
-        # drop expired auth header, re-authentication will set new one
-        self._session.headers.pop("Authorization", None)
-
-        properties = await self._post_auth_request(self._credentials.basic_credentials)
-        self._access_token = AccessToken(properties.access_token)
-        self._session.headers.update(
-            {"Authorization": "Bearer " + str(self._access_token)}
-        )
+        await self._dap_api.authenticate(table_access)
 
     async def query_snapshot(
         self, namespace: str, table: str, query: SnapshotQuery
@@ -448,7 +256,13 @@ class DAPSession:
 
         logger.debug(f"Query snapshot of table: {table}. Query: {query}")
 
-        job = await self._post(f"/dap/query/{namespace}/table/{table}/data", query, Job)  # type: ignore
+        table_access = TableAccess(namespace=namespace, table=table)
+        job = await self._post(
+            f"/dap/query/{namespace}/table/{table}/data",
+            query,
+            Job,  # type: ignore
+            table_access,
+        )
         return job
 
     async def query_incremental(
@@ -459,7 +273,13 @@ class DAPSession:
         """
 
         logger.debug(f"Query updates for table: {table}")
-        job = await self._post(f"/dap/query/{namespace}/table/{table}/data", query, Job)  # type: ignore
+        table_access = TableAccess(namespace=namespace, table=table)
+        job = await self._post(
+            f"/dap/query/{namespace}/table/{table}/data",
+            query,
+            Job,  # type: ignore
+            table_access,
+        )
         return job
 
     async def get_tables(self, namespace: str) -> List[str]:
@@ -470,11 +290,30 @@ class DAPSession:
         :returns: A list of tables available for querying in the given namespace.
         """
         if self.tracking_data:
-            self.tracking_data.set_cmd_info("list", namespace, None)
+            self.tracking_data.set_cmd_info("list-tables", namespace, None)
         logger.debug(f"Get list of tables from namespace: {namespace}")
         ui.info("Retrieving list of tables...")
-        table_list = await self._get(f"/dap/query/{namespace}/table", TableList)
+        table_access = TableAccess(namespace=None, table=None)
+        table_list = await self._get(
+            f"/dap/query/{namespace}/table", TableList, table_access
+        )
         return table_list.tables
+
+    async def get_namespaces(self) -> List[str]:
+        """
+        Retrieves the list of namespaces available for querying.
+
+        :returns: A list of namespaces available for querying.
+        """
+        if self.tracking_data:
+            self.tracking_data.set_cmd_info("list-namespaces", None, None)
+        logger.debug("Get list of namespaces")
+        ui.info("Retrieving list of namespaces...")
+        table_access = TableAccess(namespace=None, table=None)
+        namespace_list = await self._get(
+            "/dap/query/namespace", NamespaceList, table_access
+        )
+        return namespace_list.namespaces
 
     async def get_table_list(self, namespace: str, table_param: str) -> List[str]:
         """
@@ -491,8 +330,8 @@ class DAPSession:
 
     def _log_error(self, operation_name: str, e: BaseException) -> None:
         if isinstance(e, OperationError):
-            err_str = f"Operation {operation_name} failed. Reason: {e.message} {e.uuid}"
-            ui.error(err_str)
+            err_str = f"Operation {operation_name} failed. Reason: {e.message} ({e.type}, {e.uuid})"
+            ui.error(escape(err_str))
             logger.error(err_str)
         elif isinstance(e, (asyncio.exceptions.CancelledError, KeyboardInterrupt)):
             err_str = (
@@ -501,8 +340,9 @@ class DAPSession:
             ui.warning(err_str)
             logger.error(err_str)
         else:
-            err_str = f"Operation {operation_name} failed. Reason: {e}"
-            ui.error(err_str)
+            reason = e.describe() if isinstance(e, OAuthTokenError) else str(e)
+            err_str = f"Operation {operation_name} failed. Reason: {reason}"
+            ui.error(escape(err_str))
             logger.error(err_str)
 
     async def execute_operation_on_tables(
@@ -553,6 +393,7 @@ class DAPSession:
             except (
                 ServerError,
                 AuthenticationError,
+                OAuthTokenError,
                 AccountNotOnboardedError,
                 AccountDisabledError,
                 AccountUnderMaintenanceError,
@@ -624,8 +465,11 @@ class DAPSession:
         """
 
         logger.debug(f"Get schema of table: {table}")
+        table_access = TableAccess(namespace=None, table=None)
         versioned_schema = await self._get(
-            f"/dap/query/{namespace}/table/{table}/schema", VersionedSchema
+            f"/dap/query/{namespace}/table/{table}/schema",
+            VersionedSchema,
+            table_access,
         )
         if self.tracking_data:
             self.tracking_data.set_cmd_info("schema", namespace, table)
@@ -651,44 +495,67 @@ class DAPSession:
         file_path = os.path.join(output_directory, file_name)
         with open(file_path, "w") as file:
             json.dump(json_object, file, indent=4)
-        ui.info(f"Schema saved to [underline]{file_path}[/underline]")
+        ui.info(f"Schema saved to [underline]{escape(file_path)}[/underline]")
         logger.info(f"JSON schema downloaded to file {file_path}")
 
-    async def get_job(self, job_id: JobID) -> Job:
+    async def get_job(self, job_id: JobID, namespace: str, table: str) -> Job:
         """
         Retrieve job status.
+
+        :param job_id: Identifier of the job to check.
+        :param namespace: The namespace the job's query was restricted to.
+        :param table: The table the job's query was restricted to.
         """
 
         logger.debug(f"Retrieving job state for job {job_id}")
-        job = await self._get(f"/dap/job/{job_id}", Job)  # type: ignore
+        table_access = TableAccess(namespace=namespace, table=table)
+        job = await self._get(f"/dap/job/{job_id}", Job, table_access)  # type: ignore
         return job
 
-    async def get_job_status(self, job_id: JobID) -> JobStatus:
+    async def get_job_status(
+        self, job_id: JobID, namespace: str, table: str
+    ) -> JobStatus:
         """
         Retrieve job status.
         """
 
-        job = await self.get_job(job_id)
+        job = await self.get_job(job_id, namespace, table)
         return job.status
 
-    async def get_objects(self, job_id: JobID) -> List[Object]:
+    async def get_objects(
+        self, job_id: JobID, namespace: str, table: str
+    ) -> List[Object]:
         """
         Retrieve object IDs once the query is completed successfully.
+
+        :param job_id: Identifier of the job to retrieve object IDs for.
+        :param namespace: The namespace the job's query was restricted to.
+        :param table: The table the job's query was restricted to.
         """
 
         logger.debug(f"Retrieving object IDs for job {job_id}")
-        job = await self._get(f"/dap/job/{job_id}", Job)  # type: ignore
+        table_access = TableAccess(namespace=namespace, table=table)
+        job = await self._get(f"/dap/job/{job_id}", Job, table_access)  # type: ignore
         return typing.cast(CompleteJob, job).objects
 
-    async def get_resources(self, objects: List[Object]) -> Dict[ObjectID, Resource]:
+    async def get_resources(
+        self, objects: List[Object], namespace: str, table: str
+    ) -> Dict[ObjectID, Resource]:
         """
         Retrieve URLs to data stored remotely.
+
+        :param objects: List of output objects to retrieve resource URLs for.
+        :param namespace: The namespace the objects' query was restricted to.
+        :param table: The table the objects' query was restricted to.
         """
 
         logger.debug("Retrieve resource URLs for objects:")
         logger.debug([o.id for o in objects])
 
-        response = await self._post("/dap/object/url", objects, ResourceResult)
+        table_access = TableAccess(namespace=namespace, table=table)
+        response = await self._post(
+            "/dap/object/url", objects, ResourceResult, table_access
+        )
 
         return response.urls
 
@@ -760,12 +627,19 @@ class DAPSession:
         return file_path
 
     async def download_objects(
-        self, objects: List[Object], output_directory: str, decompress: bool = False
+        self,
+        objects: List[Object],
+        namespace: str,
+        table: str,
+        output_directory: str,
+        decompress: bool = False,
     ) -> List[str]:
         """
         Save data stored remotely into a local directory.
 
         :param objects: List of output objects to be downloaded.
+        :param namespace: The namespace the objects' query was restricted to.
+        :param table: The table the objects' query was restricted to.
         :param output_directory: Path to the target directory to save downloaded files to.
         :param decompress: If True, the file will be decompressed after downloading. Default is False.
         :returns: A list of paths to files saved in the local file system.
@@ -774,7 +648,9 @@ class DAPSession:
             "Downloading files from server...", total_steps=len(objects)
         ) as progress:
             downloads = [
-                self.download_object(object, output_directory, decompress, progress)
+                self.download_object(
+                    object, namespace, table, output_directory, decompress, progress
+                )
                 for object in objects
             ]
             local_files = await gather_n(downloads, concurrency=DOWNLOAD_CONCURRENCY)
@@ -784,6 +660,8 @@ class DAPSession:
     async def download_object(
         self,
         object: Object,
+        namespace: str,
+        table: str,
         output_directory: str,
         decompress: bool,
         progress: ui.JobProgress | None = None,
@@ -792,13 +670,15 @@ class DAPSession:
         Save a single remote file to a local directory.
 
         :param object: Object to download.
+        :param namespace: The namespace the object's query was restricted to.
+        :param table: The table the object's query was restricted to.
         :param output_directory: Path of the target directory to save the downloaded file.
         :param decompress: If True, the file will be decompressed after downloading. Default is False.
         :param progress: A progress bar to update during the download.
         :returns: A path of the file saved in the local file system.
         """
 
-        resource = (await self.get_resources([object]))[object.id]
+        resource = (await self.get_resources([object], namespace, table))[object.id]
         file_path = await self.download_resource(resource, output_directory, decompress)
         if progress is not None:
             progress.update(advance=1)
@@ -812,27 +692,23 @@ class DAPSession:
 
         :param resource: Resource to download.
         :yields: An asynchronous generator that can be used with an asynchronous context manager.
-        :raises DownloadError: Raised when the host returns an HTTP error response, and rejects the request.
+        :raises DownloadError: Raised when the host returns an HTTP error
+            response, and rejects the request.
         """
 
-        async with self._resources_download_client.get(
-            str(resource.url), headers=self._headers
-        ) as response:
-            if not response.ok:
-                raise DownloadError(
-                    f"Request failed with HTTP status code: {response.status}"
-                )
-
+        async with self._downloads.get(str(resource.url)) as response:
             yield response.content
 
     async def wait_seconds(self, seconds: float) -> None:
         await asyncio.sleep(seconds)
 
-    async def await_job(self, job: Job) -> Job:
+    async def await_job(self, job: Job, namespace: str, table: str) -> Job:
         """
         Wait until a job terminates.
 
         :param job: A job that might be still running.
+        :param namespace: The namespace the job's query was restricted to.
+        :param table: The table the job's query was restricted to.
         :returns: A job that has completed with success or terminated with failure.
         """
         with ui.JobProgress("Waiting for query job to finish ...") as _:
@@ -843,7 +719,7 @@ class DAPSession:
                 )
                 await self.wait_seconds(delay)
 
-                job = await self.get_job(job.id)
+                job = await self.get_job(job.id, namespace, table)
 
         ui.info(f"Query job finished with status {job.status.value} (ID: {job.id})")
         logger.debug(f"Query job finished with status: {job.status.value}")
@@ -891,7 +767,7 @@ class DAPSession:
 
         logger.info(f"Query started with job ID: {job.id}")
 
-        job = await self.await_job(job)
+        job = await self.await_job(job, namespace, table)
         return job
 
     async def download_table_data(
@@ -930,15 +806,17 @@ class DAPSession:
                 f"Query job ended with status: {job.status.value}. Please review the job logs."
             )
 
-        objects = await self.get_objects(job.id)
+        objects = await self.get_objects(job.id, namespace, table)
         directory = os.path.join(output_directory, f"job_{job.id}")
 
-        downloaded_files = await self.download_objects(objects, directory, decompress)
+        downloaded_files = await self.download_objects(
+            objects, namespace, table, directory, decompress
+        )
         file_count_str = (
             f"{len(downloaded_files)} files" if len(downloaded_files) > 1 else "file"
         )
         ui.info(
-            f"Downloaded {file_count_str} to [underline]{directory}[/underline]",
+            f"Downloaded {file_count_str} to [underline]{escape(directory)}[/underline]",
         )
         logger.info(f"Files from server downloaded to folder: {directory}")
 
@@ -977,7 +855,7 @@ class DAPSession:
         job = await self.execute_job(namespace, table, query)
 
         if job.status is JobStatus.Complete:
-            objects = await self.get_objects(job.id)
+            objects = await self.get_objects(job.id, namespace, table)
 
             if isinstance(job, CompleteSnapshotJob):
                 logger.info(f"Data has been successfully retrieved:\n{job.json()}")
@@ -998,8 +876,3 @@ class DAPSession:
             raise DAPClientError(
                 f"Query job ended with status: {job.status.value}. Please review the job logs."
             )
-
-
-class DownloadError(DAPClientError):
-    def __init__(self, response_str: str) -> None:
-        super().__init__(f"download error: {response_str}")

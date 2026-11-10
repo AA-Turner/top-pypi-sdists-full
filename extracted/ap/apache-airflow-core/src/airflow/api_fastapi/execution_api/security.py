@@ -42,6 +42,8 @@ Enforcement flow:
          by ``ExecutionAPIRoute`` from ``token:*`` Security scopes).
        - ``ti:self`` scope — checks that the JWT ``sub`` matches the
          ``{task_instance_id}`` path parameter.
+       - Mutating task requests — checks that the attempt UUID still exists
+         in the live TI table. Already-admitted requests may finish after archival.
     3. ``ExecutionAPIRoute`` precomputes ``allowed_token_types`` from
        ``token:*`` Security scopes at route registration time. Routes
        without explicit ``token:*`` scopes default to execution-only.
@@ -52,11 +54,13 @@ Why ``ExecutionAPIRoute`` is needed:
     to *relax* the outer router's default execution-only restriction, but
     ``SecurityScopes`` only accumulate additively — an outer dependency
     cannot see scopes declared by inner ones. ``ExecutionAPIRoute`` solves
-    this by inspecting the **merged** dependency list at route registration
-    time (after ``include_router`` has combined all parent and child
-    dependencies) and precomputing the full ``allowed_token_types`` set.
+    this by inspecting the route's own dependency list at route registration
+    time and precomputing the full ``allowed_token_types`` set.
     ``require_auth`` then reads this precomputed set from the matched route
-    at request time, avoiding the ordering problem entirely.
+    at request time, avoiding the ordering problem entirely. FastAPI includes
+    routers lazily, so ``token:*`` scopes must be declared on the route
+    itself: scopes on an enclosing router or ``include_router`` call are not
+    seen, and the route falls back to execution-only.
 
     Any router whose routes need non-default token type policies must use
     ``route_class=ExecutionAPIRoute``. Routers that only need the default
@@ -67,25 +71,75 @@ Why ``ExecutionAPIRoute`` is needed:
 # Disable future annotations in this file to work around https://github.com/fastapi/fastapi/issues/13056
 # ruff: noqa: I002
 
-from typing import Any, get_args
+from collections.abc import Callable
+from typing import Any, ParamSpec, TypeVar, get_args
+from uuid import UUID
 
 import structlog
-from fastapi import Depends, HTTPException, Request, status
+import svcs
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.params import Security as SecurityParam
 from fastapi.routing import APIRoute
 from fastapi.security import HTTPBearer, SecurityScopes
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from airflow.api_fastapi.auth.tokens import JWTValidator
+from airflow.api_fastapi.auth.tokens import JWTGenerator, JWTValidator
 from airflow.api_fastapi.execution_api.datamodels.token import TIClaims, TIToken, TokenScope
 from airflow.api_fastapi.execution_api.deps import DepContainer
+from airflow.models.callback import Callback
+from airflow.models.taskinstance import TaskInstance
+from airflow.utils.session import create_session_async
 
 log = structlog.get_logger(logger_name=__name__)
 
 VALID_TOKEN_TYPES: frozenset[str] = frozenset(get_args(TokenScope))
 
 _REQUEST_SCOPE_TOKEN_KEY = "ti_token"
+_REQUEST_SCOPE_LIVE_ATTEMPT_KEY = "live_attempt_checked"
+_IN_PROCESS_NON_TI_CALLER = "airflow_in_process_non_ti_caller"
+_IN_PROCESS_TRIGGERER_ID = "airflow_in_process_triggerer_id"
+_SKIP_AUTO_TI_ATTEMPT_LIVE = "skip_auto_ti_attempt_live"
+_LIVENESS_EXEMPTION = "liveness_exemption"
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+# A triggerer that reaches the Execution API over HTTP authenticates watchers
+# with an execution token setting 'sub' to this value. Routes marked with
+# allow_asset_watcher exempt it from the attempt-liveness check, so such a
+# token can write and clear the state of any asset. The in-process Execution
+# API also falls back to this ID for every caller that has no task identity.
+ASSET_WATCHER_ID = UUID(int=0)
+
+
+def skip_auto_ti_attempt_live(endpoint: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Mark a route that checks attempt liveness itself, so ``require_auth`` skips its automatic check."""
+    setattr(endpoint, _SKIP_AUTO_TI_ATTEMPT_LIVE, True)
+    return endpoint
+
+
+def _mark_liveness_exemption(
+    endpoint: Callable[_P, _R], accepts: Callable[[TIToken], bool]
+) -> Callable[_P, _R]:
+    """Let tokens accepted by ``accepts`` skip ``require_auth``'s automatic liveness check on this route."""
+    setattr(endpoint, _LIVENESS_EXEMPTION, accepts)
+    return endpoint
+
+
+def allow_non_ti_writer(endpoint: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Mark a route whose data no task attempt owns, so ``require_auth`` skips its automatic check."""
+    return _mark_liveness_exemption(endpoint, lambda _: True)
+
+
+def allow_asset_watcher(endpoint: Callable[_P, _R]) -> Callable[_P, _R]:
+    """
+    Mark a route that accepts mutations from an asset watcher token in place of a live attempt.
+
+    Unlike ``allow_non_ti_writer``, other tokens without a live attempt are still rejected. The asset
+    state store's delete and clear handlers never read the token, so they would let any such token
+    wipe an asset's state.
+    """
+    return _mark_liveness_exemption(endpoint, lambda token: token.id == ASSET_WATCHER_ID)
 
 
 class JWTBearer(HTTPBearer):
@@ -149,7 +203,7 @@ async def require_auth(
     token: TIToken = Depends(_jwt_bearer),
 ) -> TIToken:
     """
-    Security dependency that enforces token type and ``ti:self`` scope.
+    Enforce token type, self scopes, and live attempt identity for mutations.
 
     Used via ``Security(require_auth)`` on routers. ``SecurityScopes`` are
     accumulated by FastAPI from all parent ``Security()`` declarations.
@@ -196,11 +250,80 @@ async def require_auth(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Token subject does not match connection test ID",
             )
+    elif "cb:self" in security_scopes.scopes:
+        cb_self_id = str(request.path_params["callback_id"])
+        if str(token.id) != cb_self_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Token subject does not match callback ID",
+            )
+
+    liveness_exemption = getattr(route, _LIVENESS_EXEMPTION, None)
+    if (
+        request.method not in {"GET", "HEAD", "OPTIONS"}
+        and token_scope != "callback"
+        and "connection_test_id" not in request.path_params
+        and not request.scope.get(_IN_PROCESS_NON_TI_CALLER)
+        and not request.scope.get(_REQUEST_SCOPE_LIVE_ATTEMPT_KEY)
+        and not getattr(route, _SKIP_AUTO_TI_ATTEMPT_LIVE, False)
+        and not (liveness_exemption and liveness_exemption(token))
+    ):
+        # The versions package imports routes, which depend on this module.
+        from airflow.api_fastapi.execution_api.versions.v2026_10_30 import IdentifyArchivedTaskStateUpdates
+
+        if IdentifyArchivedTaskStateUpdates.is_applied:
+            await _require_live_attempt(token, allow_callback="task_instance_id" not in request.path_params)
+            request.scope[_REQUEST_SCOPE_LIVE_ATTEMPT_KEY] = True
 
     return token
 
 
+async def _require_live_attempt(token: TIToken, *, allow_callback: bool) -> None:
+    """
+    Reject mutations from an attempt whose UUID is no longer in the working set.
+
+    This is an admission check, not a lock: archival may race with an already
+    admitted request. Use a fresh session so a prior transaction's snapshot
+    cannot keep an archived UUID visible. Historical attempts never grant access.
+    """
+    async with create_session_async() as session:
+        attempt = (
+            await session.execute(
+                select(TaskInstance.working_set)
+                .where(TaskInstance.id == token.id)
+                .execution_options(include_all_attempts=True)
+            )
+        ).one_or_none()
+        if attempt is not None and attempt.working_set:
+            return
+        # Callback token exchange issues an execution token with the callback UUID.
+        if (
+            attempt is None
+            and allow_callback
+            and await session.scalar(select(Callback.id).where(Callback.id == token.id))
+        ):
+            return
+        archived = attempt is not None
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE if archived else status.HTTP_404_NOT_FOUND,
+        detail={
+            "reason": "not_found",
+            "message": (
+                "Task Instance not found in the working set; its attempt has been archived"
+                if archived
+                else "Task Instance not found"
+            ),
+        },
+    )
+
+
 CurrentTIToken: TIToken = Depends(require_auth)
+
+
+def issue_execution_token(services: svcs.Container, response: Response, sub: str) -> None:
+    """Mint an ``execution``-scoped token and set it on the ``Refreshed-API-Token`` header."""
+    generator: JWTGenerator = services.get(JWTGenerator)
+    response.headers["Refreshed-API-Token"] = generator.generate(extras={"sub": sub, "scope": "execution"})
 
 
 class ExecutionAPIRoute(APIRoute):
@@ -215,9 +338,13 @@ class ExecutionAPIRoute(APIRoute):
     """
 
     allowed_token_types: frozenset[str]
+    skip_auto_ti_attempt_live: bool
+    liveness_exemption: Callable[[TIToken], bool] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.skip_auto_ti_attempt_live = bool(getattr(self.endpoint, _SKIP_AUTO_TI_ATTEMPT_LIVE, False))
+        self.liveness_exemption = getattr(self.endpoint, _LIVENESS_EXEMPTION, None)
 
         all_scopes: set[str] = set()
         for dep in self.dependencies:
@@ -239,8 +366,6 @@ async def get_team_name_dep(token=CurrentTIToken) -> str | None:
 
     if not conf.getboolean("core", "multi_team"):
         return None
-
-    from airflow.utils.session import create_session_async
 
     async with create_session_async() as session:
         return await session.scalar(_team_name_for_ti_stmt(token.id))
@@ -273,6 +398,7 @@ def _team_name_for_ti_stmt(ti_id):
         .join(DagBundleModel, DagBundleModel.name == DagModel.bundle_name)
         .join(DagBundleModel.teams)
         .where(TaskInstance.id == ti_id)
+        .execution_options(include_all_attempts=True)
     )
 
 

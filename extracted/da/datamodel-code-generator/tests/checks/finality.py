@@ -63,21 +63,23 @@ set, are replaced by ``_GuardedList`` copies: a list keeps being shared by the o
 other references to the original list, and ``type(x) is list`` is false for it. The copies outlive the parse; once no
 parse is armed they act as plain lists, and they copy and pickle as plain lists. Writes through ``object.__setattr__``,
 through ``__dict__``, into dict attributes, and into lists that an object got outside a store operation after arming are
-not seen by the guards; the finality check sees their effect at the next comparison.
+not seen by the guards; the finality check sees their effect at the next comparison. A store operation that writes one
+key of a dict attribute (an ``Access.ITEM`` row) touches the object it writes, as a guarded write does.
 """
 
 from __future__ import annotations
 
 import re
 import sys
+import warnings
 from abc import get_cache_token
 from collections.abc import Mapping
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from decimal import Decimal
 from enum import Enum, unique
-from functools import wraps
+from functools import cached_property, wraps
 from inspect import getattr_static
 from itertools import chain, repeat, takewhile, zip_longest
 from operator import is_, methodcaller
@@ -92,6 +94,7 @@ from pydantic import BaseModel
 from typing_extensions import Sentinel, TypeIs, final, override
 
 import datamodel_code_generator
+from datamodel_code_generator._parse_memo import PARSE_MEMO
 from datamodel_code_generator._records import record
 from datamodel_code_generator.model.base import (
     DataModel,
@@ -200,6 +203,14 @@ def _guarded_names(cls: type) -> tuple[frozenset[str], frozenset[str]]:
 
 
 _STORE_OPERATIONS: Final = frozenset(store_op for row in ATTRIBUTE_FACTS for store_op in row.store_ops)
+_ITEM_OPERATIONS: Final = frozenset(
+    store_op for row in ATTRIBUTE_FACTS if row.access is Access.ITEM for store_op in row.store_ops
+)
+"""The store operations that write one key of a dict attribute of their first argument, which no guard sees.
+
+They touch that object first, as a guarded write does, so that the pass running them answers for the change, also on a
+model of another module that the pass compares nowhere else.
+"""
 
 
 def _source_path(filename: str) -> str:
@@ -356,17 +367,8 @@ class KnownWrite:
     """The roadmap item that removes the violation."""
 
 
-_TAGGED_MODULES_WITNESS: Final = (
-    "--input tests/data/openapi/discriminator_msgspec_tagged_unions_modules_variants_first.yaml --input-file-type "
-    "openapi --output-model-type msgspec.Struct --use-msgspec-tagged-unions --target-python-version 3.10 "
-    "--formatters builtin"
-)
 _IMPORTS_CORRECT_WITNESS: Final = (
     "--input tests/data/jsonschema/imports_correct --output-model-type pydantic_v2.BaseModel --formatters builtin"
-)
-_EMPTY_UNION_WITNESS: Final = (
-    "--input tests/data/jsonschema/collapse_root_models_empty_union.json --input-file-type jsonschema "
-    "--collapse-root-models --formatters builtin"
 )
 
 KNOWN_WRITES: tuple[KnownWrite, ...] = (
@@ -391,9 +393,6 @@ KNOWN_WRITES: tuple[KnownWrite, ...] = (
         "--input tests/data/jsonschema/discriminator_with_external_reference --output-model-type msgspec.Struct "
         "--target-python-version 3.10 --formatters builtin",
         "RP17",
-    ),
-    KnownWrite(
-        "<MODULES>", Rule.UNATTRIBUTED, 'DataModelFieldBase.extras["is_classvar"]', _TAGGED_MODULES_WITNESS, "RP17"
     ),
     KnownWrite(
         "delete_duplicate_models",
@@ -452,7 +451,6 @@ KNOWN_WRITES: tuple[KnownWrite, ...] = (
         "schemas api --collapse-root-models --formatters builtin",
         "RP15",
     ),
-    KnownWrite("render_modules", Rule.FROZEN, "DataType.import_", _EMPTY_UNION_WITNESS, "RP15"),
 )
 """The violations of today's pipeline; ``scripts/check_fact_finality.py --witnesses`` runs their witnesses.
 
@@ -462,7 +460,7 @@ and bases module by module (DC11b makes it one step). Constructor ordering, afte
 required field back the place in the constructor it left out while its base excluded it (RP14c's dataclass field
 plan holds it), and it reads the nullability of base fields before render preparation writes rendered nullability
 once (RP14's ordering reads the plans written after it). Rendering writes the import of the ``Any`` an empty union
-renders as after B1, at render preparation and at L7 (RP15), and alias preparation records compiled patterns in
+renders as after B1, at render preparation (RP15), and alias preparation records compiled patterns in
 field extras after B1 (RP14a's field render plan holds them).
 """
 
@@ -1667,6 +1665,38 @@ class ParseChecks:
         """Run the pass ``decl`` declares inside the finality check; a no-op when that area is off."""
         return NO_SCOPE if (finality := self.finality) is None else finality.pass_scope(decl, models)
 
+    @contextmanager
+    def idle_pass(self, decl: PassDecl, parser: Any, state: Any) -> Generator[None, None, None]:
+        """Run the pass ``decl`` declares where its trigger is false, and report what it changes (``PASS_TRIGGERS``).
+
+        Such a pass may change no memo revision, entry of the import ledger, parser attribute or run-state field
+        (another object, unless equal; the same container, unless its size changed; the value of a ``cached_property``
+        is a read and left out) and warn nothing; then the finality check, when it is on, compares every model under
+        ``decl`` without its writes, named ``<pass> (trigger absent)``, so a changed fact is ``undeclared``. An
+        exception propagates, as the skip would not raise.
+        """
+        idle = replace(decl, name=f"{decl.name} (trigger absent)", writes=frozenset())
+        finality = self.finality
+        models = None if finality is None else tuple(model_print.model for model_print in finality.prints.values())
+        with self.fact_pass(idle, models):
+            before = _idle_snapshot(parser, state)
+            with warnings.catch_warnings(record=True) as warned:
+                warnings.simplefilter("always")
+                yield
+            after = _idle_snapshot(parser, state)
+            changed = [
+                *(key for key in dict.fromkeys([*before, *after]) if not _unchanged(before.get(key), after.get(key))),
+                *(f"warning {item.message}" for item in warned),
+            ]
+            if changed and (mode := areas.mode(Area.PASS_TRIGGERS)) is not None:
+                mode.violation(
+                    self.error,
+                    f"{decl.name} trigger-absent write: {', '.join(changed)} during {decl.phase.name}",
+                    pass_name=decl.name,
+                    changed=changed,
+                    phase=decl.phase.name,
+                )
+
     def module_checkpoint(self, models: list[DataModel]) -> AbstractContextManager[None]:
         """Process the module whose models are ``models`` inside the finality check; a no-op when that area is off."""
         return NO_SCOPE if (finality := self.finality) is None else finality.module_scope(models)
@@ -1805,6 +1835,38 @@ class ParseChecks:
         )
 
 
+def _sized(value: object) -> tuple[object, int | None]:
+    """Return ``value`` with its size where it has one, so that a container changed in place reads as changed."""
+    try:
+        return value, len(value)  # ty: ignore[invalid-argument-type]
+    except TypeError:
+        return value, None
+
+
+def _cached(cls: type, name: str) -> bool:
+    """Return whether ``name`` is a ``cached_property`` of ``cls``, whose value a first read adds as an attribute."""
+    return isinstance(getattr_static(cls, name, None), cached_property)
+
+
+def _idle_snapshot(parser: Any, state: Any) -> dict[str, tuple[object, int | None]]:
+    """Return what a pass whose trigger is false may not change: the parser, the run state, the memos, the ledger."""
+    memo = PARSE_MEMO.get()
+    ledger = parser._import_ledger
+    parser_class = type(parser)
+    return {
+        **{f"parser.{name}": _sized(value) for name, value in vars(parser).items() if not _cached(parser_class, name)},
+        **{f"state.{item.name}": _sized(getattr(state, item.name, _MISSING)) for item in fields(state)},
+        "memo revisions": (None, None if memo is None else memo._clock),
+        "import ledger": (None, sum(len(entries) for _, entries in ledger._accounts.values())),
+    }
+
+
+def _unchanged(before: tuple[object, int | None] | None, after: tuple[object, int | None] | None) -> bool:
+    """Return whether a value of the snapshot stayed: the same object of the same size, or an equal one."""
+    (old, old_size), (new, new_size) = before or (_MISSING, None), after or (_MISSING, None)
+    return old_size == new_size and (old is new or old == new)
+
+
 def _constructing(owner: object, frame: FrameType) -> bool:
     """Return whether the write comes from the construction of ``owner``: its ``__init__`` and what that calls."""
     frames = takewhile(lambda item: item.f_locals.get("self") is owner, _stack(frame))
@@ -1832,8 +1894,12 @@ def _graph_objects(models: Iterable[Any]) -> Iterator[object]:
 
 
 def _store_operation(checks: ParseChecks, name: str, operation: Callable[..., Any]) -> Callable[..., Any]:
+    touches = name in _ITEM_OPERATIONS
+
     @wraps(operation)
     def run(*args: Any, **kwargs: Any) -> Any:
+        if touches and (finality := checks.finality) is not None:
+            finality.touch(args[0])
         checks.operations.append(name)
         try:
             return operation(*args, **kwargs)
@@ -1847,7 +1913,13 @@ def guarded_facts(finality: _Finality, facts: FinalFacts) -> FinalFacts:
     """Return ``facts`` with each model as the guarded view a decision reads; it reports the render facts read."""
     view = _ReadGuard(finality).view
     modules = tuple(ModuleFacts(item.module, tuple(map(view, item.live_models))) for item in facts.modules)
-    return FinalFacts(modules, tuple(model for item in modules for model in item.live_models), facts.member_keywords)
+    return FinalFacts(
+        modules,
+        tuple(model for item in modules for model in item.live_models),
+        facts.member_keywords,
+        facts.constrained_member,
+        facts.options,
+    )
 
 
 @contextmanager

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -11,7 +11,6 @@ from office365.security.simulation_events_content import (
 )
 
 
-@dataclass
 class SimulationReportOverview(ClientValue):
     """Represents an overview report of an attack simulation and training campaign."""
 

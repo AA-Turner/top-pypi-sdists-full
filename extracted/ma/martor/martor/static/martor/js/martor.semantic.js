@@ -1,7 +1,7 @@
 /**
- * Name         : Martor v1.8.5
+ * Name         : Martor v1.9.2
  * Created by   : Agus Makmun (Summon Agus)
- * Release date : 31-Oct-2026
+ * Release date : 10-Nov-2026
  * License      : GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
  * Repository   : https://github.com/agusmakmun/django-markdown-editor
  * JS Minifier  : terser (https://terser.org)
@@ -140,6 +140,7 @@
 
             // update the preview if this menu is clicked
             var currentTab = $('.tab.segment[data-tab=preview-tab-' + field_name + ']');
+            var emptyPreview = currentTab.html(); // placeholder rendered by the template
             var previewTabButton = $('.item[data-tab=preview-tab-' + field_name + ']');
             var refreshPreview = function () {
                 var value = textareaId.val();
@@ -165,7 +166,7 @@
                                 });
                             }
                         } else {
-                            currentTab.html('<p>Nothing to preview</p>');
+                            currentTab.html(emptyPreview).removeClass('martor-preview-stale');
                         }
                     },
                     error: function (response) {
@@ -830,13 +831,22 @@
             });
 
             // markdown insert emoji from the modal
+            // Filter the emoji picker by name while typing in its search box
+            $('.modal-emoji[data-field-name=' + field_name + '] .emoji-search').on('input', function () {
+                var term = $.trim(this.value).toLowerCase();
+                $(this).closest('.modal-emoji').find('.insert-emoji').each(function () {
+                    $(this).closest('div').toggle($(this).data('emoji-target').indexOf(term) !== -1);
+                });
+            });
+
             $('.markdown-emoji[data-field-name=' + field_name + ']').click(function () {
                 var modalEmoji = $('.modal-emoji[data-field-name=' + field_name + ']');
                 var emojiList = typeof (emojis) != "undefined" ? emojis : []; // from `plugins/js/emojis.min.js`
                 var segmentEmoji = modalEmoji.find('.emoji-content-body');
                 var loaderInit = modalEmoji.find('.emoji-loader-init');
 
-                // setup initial loader
+                // setup initial loader, with an empty search
+                modalEmoji.find('.emoji-search').val('');
                 segmentEmoji.html('');
                 loaderInit.show();
                 modalEmoji.modal({

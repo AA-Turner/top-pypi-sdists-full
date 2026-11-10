@@ -482,7 +482,7 @@ class Command(BaseCommand):
 
             os.makedirs("templates/examples", exist_ok=True)
 
-            example_template = """{% load theme_tags theme_components %}
+            example_template = """{% load static theme_tags theme_components %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -490,7 +490,7 @@ class Command(BaseCommand):
     <title>djust-theming Example</title>
     {% theme_head %}
     {% if tailwind %}
-    <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/output.css' %}">
     {% endif %}
 </head>
 <body class="bg-background text-foreground min-h-screen p-8">
@@ -500,14 +500,17 @@ class Command(BaseCommand):
             {% theme_switcher %}
         </div>
 
-        {# `theme_card` is a simple_tag: it takes its body as an argument and has
-           no `{% end_theme_card %}`, so it cannot wrap other template tags. #}
-        {% theme_card title="Welcome" body="This is an example using djust-theming components." %}
-
-        <div class="mt-4 flex gap-2">
-            {% theme_button "Click me" variant="primary" %}
-            {% theme_button "Secondary" variant="secondary" %}
-        </div>
+        {% comment %}
+            `theme_card` takes its body as an argument; `theme_card_block` takes it
+            between the tags, so it can hold other template tags.
+        {% endcomment %}
+        {% theme_card_block title="Welcome" %}
+            <p>This is an example using djust-theming components.</p>
+            <div class="mt-4 flex gap-2">
+                {% theme_button "Click me" variant="primary" %}
+                {% theme_button "Secondary" variant="secondary" %}
+            </div>
+        {% end_theme_card_block %}
 
         <div class="mt-4">
             {% theme_alert "This is a success message!" variant="success" dismissible=True %}
@@ -536,11 +539,15 @@ class Command(BaseCommand):
         self.stdout.write("  2. Add theme context processor to settings.py:")
         self.stdout.write("     'djust.theming.context_processors.theme_context'")
         self.stdout.write("  3. Use {{ theme_head }} in your base template")
-        self.stdout.write("  4. Use {% load theme_components %} to access components\n")
+        self.stdout.write("  4. Use {% load theme_components %} to access components")
+        self.stdout.write(
+            "  5. Build static/css/output.css with the Tailwind CLI: "
+            "tailwindcss -i static/css/input.css -o static/css/output.css --minify\n"
+        )
 
         if with_examples:
             self.stdout.write(
-                "  5. Check templates/examples/theme_example.html for usage examples\n"
+                "  6. Check templates/examples/theme_example.html for usage examples\n"
             )
 
         self.stdout.write(f"\n📚 Preset: {preset}")
@@ -890,7 +897,7 @@ name = "{dist_name}"
 version = "0.1.0"
 description = "djust-theming theme package: {name}"
 {author_line}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {{text = "MIT"}}
 
 dependencies = [

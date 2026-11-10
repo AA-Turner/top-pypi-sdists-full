@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from datamodel_code_generator._document_reader import MISSING, descend
 from datamodel_code_generator._generation_contract import AttemptId
 from datamodel_code_generator._json_pointer import pointer_tokens
+from datamodel_code_generator.enums import InputFileType
 
 
 class SourceLease:
@@ -70,17 +71,38 @@ class TargetGenerationSession:
         self._candidate: BoundAttempt | None = None
         self._model_imports: frozenset[str] = frozenset()
 
-    @property
-    def parser_factory(self) -> OpenAPIParserFactory:
-        """Advertise API support on the actual callable selected once by the driver."""
-        return self
+    def parser_factory(self, input_file_type: InputFileType) -> TargetParserFactory | None:
+        """Advertise API support on the actual callable the driver selects once, for the input kinds targets read.
 
-    def __call__(self, *, source: _ParserSource, config: OpenAPIParserConfig) -> OpenAPIParser:
-        """Construct one target parser attempt."""
+        The session itself builds OpenAPI attempts, and `asyncapi_attempt` AsyncAPI ones.
+        """
+        factories: dict[InputFileType, TargetParserFactory] = {
+            InputFileType.OpenAPI: self,
+            InputFileType.AsyncAPI: self.asyncapi_attempt,
+        }
+        return factories.get(input_file_type)
+
+    def __call__(self, *, source: _ParserSource, config: OpenAPIParserConfig | AsyncAPIParserConfig) -> OpenAPIParser:
+        """Construct one target parser attempt of an OpenAPI input."""
         from datamodel_code_generator._target_binding import TargetApiOpenAPIParser  # noqa: PLC0415
 
+        return self._numbered(
+            TargetApiOpenAPIParser(
+                source, config=cast("OpenAPIParserConfig", config), serves_source=self._serves_source
+            )
+        )
+
+    def asyncapi_attempt(
+        self, *, source: _ParserSource, config: OpenAPIParserConfig | AsyncAPIParserConfig
+    ) -> OpenAPIParser:
+        """Construct one target parser attempt of an AsyncAPI input."""
+        from datamodel_code_generator._target_binding import TargetAsyncAPIParser  # noqa: PLC0415
+
+        return self._numbered(TargetAsyncAPIParser(source, config=cast("AsyncAPIParserConfig", config)))
+
+    def _numbered(self, parser: TargetParser) -> TargetParser:
+        """Give a new attempt the next attempt identity."""
         self._next_attempt += 1
-        parser = TargetApiOpenAPIParser(source, config=config, serves_source=self._serves_source)
         parser.attempt = AttemptId(self._next_attempt)
         return parser
 
@@ -88,7 +110,7 @@ class TargetGenerationSession:
         """Bind an attempt before its parser is disposed, replacing the previous candidate on success."""
         from datamodel_code_generator._target_binding import MetadataCycleError, bind_operations  # noqa: PLC0415
 
-        target: TargetApiOpenAPIParser = cast("TargetApiOpenAPIParser", parser)
+        target: TargetParser = cast("TargetParser", parser)
         try:
             self._candidate = bind_operations(
                 target,
@@ -112,7 +134,7 @@ class TargetGenerationSession:
     @staticmethod
     def discard_attempt(parser: OpenAPIParser) -> None:
         """Release a rejected attempt's records after the driver's original parser disposal."""
-        target: TargetApiOpenAPIParser = cast("TargetApiOpenAPIParser", parser)
+        target: TargetParser = cast("TargetParser", parser)
         target.release_records()
 
     def raise_if_failed(self) -> None:
@@ -156,14 +178,14 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from datamodel_code_generator import _ParserSource  # pyright: ignore[reportPrivateUsage]
-    from datamodel_code_generator._generation_contract import OpenAPIParserFactory
+    from datamodel_code_generator._generation_contract import TargetParserFactory
     from datamodel_code_generator._source import YamlValue
-    from datamodel_code_generator._target_binding import BoundAttempt, TargetApiOpenAPIParser
+    from datamodel_code_generator._target_binding import BoundAttempt, TargetParser
     from datamodel_code_generator._target_contract import (
         GeneratedTypeContractBatch,
         ModelArtifact,
         SourceLocation,
     )
-    from datamodel_code_generator.config import OpenAPIParserConfig
+    from datamodel_code_generator.config import AsyncAPIParserConfig, OpenAPIParserConfig
     from datamodel_code_generator.parser.base import Result
     from datamodel_code_generator.parser.openapi import OpenAPIParser

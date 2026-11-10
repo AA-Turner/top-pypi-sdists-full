@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -8,7 +8,6 @@ from office365.security.hunting_row_result import HuntingRowResult
 from office365.security.single_property_schema import SinglePropertySchema
 
 
-@dataclass
 class HuntingQueryResults(ClientValue):
     """The results of running a query for advanced hunting."""
 

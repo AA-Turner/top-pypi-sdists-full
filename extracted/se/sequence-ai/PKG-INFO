@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sequence-ai
-Version: 0.56.8
+Version: 0.58.0
 Summary: The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it.
 Project-URL: Homepage, https://generalsequences.com
 Project-URL: Documentation, https://generalsequences.com/docs/
@@ -27,7 +27,7 @@ Requires-Python: >=3.9
 Requires-Dist: httpx<1,>=0.24
 Requires-Dist: pillow>=10
 Requires-Dist: pydantic>=2; python_version >= '3.10'
-Requires-Dist: sequence-base<0.9,>=0.8.7; python_version >= '3.10'
+Requires-Dist: sequence-base<0.9,>=0.8.10; python_version >= '3.10'
 Provides-Extra: data
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'data'
 Requires-Dist: numpy>=1.24; extra == 'data'
@@ -39,7 +39,7 @@ Requires-Dist: numpy>=1.24; extra == 'dev'
 Requires-Dist: pillow>=10; extra == 'dev'
 Requires-Dist: pyarrow>=14; extra == 'dev'
 Requires-Dist: pytest>=7; extra == 'dev'
-Requires-Dist: sequence-base<0.9,>=0.8.7; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: sequence-base<0.9,>=0.8.10; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: zstandard>=0.22; extra == 'dev'
 Provides-Extra: observe
 Requires-Dist: av>=17; (python_version >= '3.10') and extra == 'observe'
@@ -686,7 +686,7 @@ as the page's last line says — the lists of policies, benchmarks, adapters, ev
 
 **You lay the eval out; the platform never picks the numbers.** The policy runs on its own machines
 (`--policy-machines`, on the deployment's own card) and the benchmark on its own GPU
-machines (`--benchmark-machines`, each on the benchmark's card — an L4, RTX-PRO-6000, T4 or A100, or a CPU machine for a
+machines (`--benchmark-machines`, each on the benchmark's card — an L4 or an RTX-PRO-6000, or a CPU machine for a
 `gpu="cpu"` benchmark — each building the worlds the eval needs); unset, each is one machine. `--spend-cap USD` is the
 eval's spend cap, and
 `--param eval.max_seconds=N` an episode's time limit on the robot's clock. Every card counts against your account's
@@ -772,6 +772,67 @@ A failed `seq` command prints `error[<code>]: <detail>`, then `hint: …` when t
 `request_id: …` for a 500), and exits with the number in the last column — 0 is success, and
 `seq eval run --gate` exits 8 when a metric misses its bar — so a script can tell "retry" from
 "give up" without reading the text.
+
+## Debugging
+
+You can open a terminal on the machines your code runs on, and stop at a `breakpoint()` on a machine set up exactly as
+your workers are.
+
+### A terminal in a running worker
+
+```bash
+seq policy shell my_policy_user                     # a shell in a worker serving now (--worker a0012 picks one)
+seq policy shell my_policy_user -- python           # a command in a terminal there: python, top and pdb all work
+```
+
+It runs as your policy's code does there, with the same image, files and card, and none of the platform's secrets
+nor your own. Your keys reach it as you type them, Ctrl-C included, its window follows yours, and `seq` exits with its
+exit code. A dropped connection comes back by itself within a minute. The terminal ends when you leave it or when the
+worker ends. Where stdin or stdout is no terminal, as in a script, a pipe or `> out.txt`, a command after `--` runs once
+instead, prints its output and stops at its time limit (`--timeout`, up to 120 s).
+
+### Breakpoints
+
+```bash
+seq policy debug my_policy_user                     # plays its sample episode; a breakpoint() stops in your terminal
+seq policy debug my_policy_user --episode ep_user   # plays an episode its field data kept, in place of its sample
+seq policy debug my_policy_user --stop              # ends its debug machine now
+```
+
+`seq policy debug` opens a machine of its own on the version your deployment serves, with the same image, card, files
+and settings, and sends no robot to it. Your policy loads there as a worker loads it, and its constructor's output
+shows in your terminal. Then its `@seq.sample` episode plays as the build check plays it, with each act's time
+printed. Any `breakpoint()` in your code, in the constructor or in `@seq.infer` alike, opens `pdb` in your terminal.
+Ctrl-C does not stop your policy there: in `pdb`, `c` goes on and `q` quits. Once the episode is over, you get a
+terminal on that machine. While the machine opens, `seq` says what it waits for.
+
+A `breakpoint()` in your code does nothing in the build's check or on a serving worker, so a version with one builds
+and serves as usual; it stops only on the machine `seq policy debug` opens.
+
+Each `seq policy debug` starts your policy again and plays its episode from the start, on the machine still up from
+the last one if there is one. A terminal opened while another terminal's policy is still running gets a shell instead,
+and says why. The machine plays the episode it was opened with each time: to play another, end it with `--stop` first.
+
+A policy with no `@seq.sample` and no `--episode` loads, says it has nothing to play, and gives you the terminal.
+
+### A terminal on a benchmark's machine
+
+```bash
+seq benchmark shell my_benchmark_user               # a terminal on a machine of its newest version, on its card
+seq benchmark shell my_benchmark_user -- nvidia-smi
+seq benchmark shell my_benchmark_user --stop        # ends its machine now
+```
+
+### How long they live and what they cost
+
+| | It ends | It is billed |
+|---|---|---|
+| `seq policy shell` | when you leave it, or when its worker ends | it opens no machine: the worker is billed as it serves |
+| `seq policy debug` | 10 minutes after you leave it (the next `seq policy debug` plays again on it), at `--stop`, or after an hour | by its card, from the card's first second to its end |
+| `seq benchmark shell` | 10 minutes after your last command or terminal, at `--stop`, or after an hour | by its card, from the card's first second to its end |
+
+`seq usage` and Billing list the debug and benchmark machines as shells. A terminal opens from macOS or Linux; on
+Windows, a command after `--` runs once.
 
 ## Debugging a deployment
 
@@ -1055,16 +1116,23 @@ many GPUs at once as its plan allows - 8 on Starter, 32 on Team, what is agreed 
 `seq account` shows its limit, how many each holds now, how many are left and which
 evals are waiting for GPUs (a count the platform could not read says `unknown`, never full).
 
-**GPU, CPU and memory are billed apart, per second.** A card is billed per card, for at least 60 s each time a
-machine starts. CPU and memory are billed on
-**the greater of what the worker requests and what it actually uses**: `cpu=` / `memory=` is the
-request, and without them a worker requests only the minimum (0.125 cores, 0.125 GiB) and may use more — you then
-pay for what it uses. Write `cpu=(2, 4)` to cap it; declare `memory=` for a policy that runs a copy on each of
-several cards or holds large buffers, so the worker is not squeezed to the minimum. `seq deploy` prints one worker's price per hour in three
-parts once it is ready. `seq usage` shows what your machines used and cost over this billing period (the UTC month
-so far), per hour or day in UTC: GPU card-hours, and dollars for the GPU, CPU and memory together. `--policy <name>`
-keeps one deployment's rows and adds what its robots did, `--since` / `--until` name another window, and `--csv`
-prints the rows alone.
+**GPU, CPU and memory are billed apart, per second, on every card.** A card is billed per card, for at least 60 s each
+time a machine starts. A policy's worker - serving or in an eval - is billed **its card's standard machine's CPU and
+memory** at the serving rates, the same wherever it runs: an L4's 8 cores and 32 GiB, an RTX-PRO-6000's 8 and 64, an
+H100's 16 and 256, an A100's 12 and 170, an A100-40GB's 12 and 85, its count of cards times one card's, and 4 cores
+and 16 GiB with no card - or the `cpu=` / `memory=` it declares, where that is more. `seq gpus` lists them
+(`policy_machines` in `GET /v1/pricing`). A policy's build check is billed its CPU and memory at its request. A
+benchmark's machines - its evals', its registration check and its shell - and the machine a build runs on are billed
+the greater of what they request and what they used, their average cores and their peak memory, where they share a
+machine, and their request on a machine of their own; all at the rates `seq gpus` lists for checks, evals and
+benchmarks. `cpu=` /
+`memory=` is what a worker needs at least; without them a worker requests only the
+minimum (0.125 cores, 0.125 GiB). Declare `memory=` for a policy that runs a copy on each of several cards or holds
+large buffers, so its machine holds them. `seq deploy --dry-run` prices one worker per hour - its card, and its CPU
+and memory - and `seq deploy` prints that price in three parts once it is ready; it is what the worker is billed. `seq
+usage` shows what your machines used and cost over this billing period (the UTC month so far), per hour or day in UTC:
+GPU card-hours, and dollars for the GPU, CPU and memory together. `--policy <name>` keeps one deployment's rows and
+adds what its robots did, `--since` / `--until` name another window, and `--csv` prints the rows alone.
 
 When a request finds no GPU or no seat, the error says which of six things happened, in one sentence:
 your account's GPUs are in use (with what serving and evals hold), every GPU on the platform is busy, no card of the
@@ -1175,7 +1243,8 @@ the code says. From Python, `seq.policy_settings(name)` and `seq.policy_set(name
 - `max_wait_for_batch`, in seconds: how long a robot waits for an answer so that its act can share a batch - a robot
   takes it with its next connect and each running worker seats and batches its robots by it within a minute; an eval
   plays as before, its world held still for every answer;
-- `capture=on|off` and `capture.retention_days` ([Field data](#field-data-capture-label-export));
+- `capture=on|off`, `capture.retention_days` and `teleop.keep=on|off` ([Field data](#field-data-capture-label-export));
+- `record=on|off` ([Your own recorder](#your-own-recorder-record));
 - `budget.monthly_usd`, and `alerts.webhook`;
 - `models`;
 - the machine - `gpu`, `weights`, `cpu`, `cpu_limit`, `memory`, `memory_limit`, `replica_start`: one of these builds a
@@ -1217,6 +1286,42 @@ billed as the `capture:<name>` dataset volume and removed after `capture.retenti
 deployment never deletes it: it stays as a dataset of its own, `capture:<name>-<id8>` in `seq volume ls`, billed the
 same way until you delete it with `seq volume rm`. `seq policy set <name> capture=off` stops it.
 
+`seq policy set <name> teleop.keep=on` keeps every episode of its robots connected with `teleop=True` whole as well -
+a person's demonstrations - whatever capture says: the same files, export, billing and retention. Each switch is off
+unless set, and off is off: with `capture`, `teleop.keep` and `record` off, the platform keeps none of a robot's
+observations, actions, frames or labels (a standby worker's checkpoint, kept while an episode runs, is deleted at its
+end - https://generalsequences.com/docs/data-safety/).
+
+### Your own recorder: record
+
+`seq policy set <name> record=on` makes the deployment's workers hold each step for your own recorder, which reads it
+straight from them and writes it wherever you keep your data. The platform keeps none of it, and it costs nothing more.
+It is apart from capture: either, both or neither. `seq record add --policy <name>` prints a record key, this once:
+
+```python
+import sequence_ai
+
+with sequence_ai.record("pick_user", key=RECORD_KEY_user) as rec_user:
+    for item_user in rec_user.steps():
+        my_bucket_user.write(item_user)
+```
+
+Each item is a dict, its `kind` saying which:
+
+- `step`, one act: `robot`, `episode`, `step`, `observations` (each its robot sent since its last act, as it sent it -
+  frames byte for byte), `action` (the chunk it answered), `params`, `driver` (`model`, or `human` with `operator`
+  through teleop) and `at`;
+- `label` (`success`, `notes`) and `end`, an episode's;
+- `driver`, who drives a robot from now through teleop, and `help`, a robot's ask for a person with its newest frame;
+- `gap`: a worker let `count` records go before your recorder read them.
+
+Each worker holds its newest minute, at most 32 MiB, in memory and nothing on disk. A recorder away longer loses the
+oldest and is told how many in a `gap`; one that must have no gap keeps capture on as well. A recorder started again
+reads each worker's newest minute again: `worker` and `n` say which items it had. A record key reads its own policy's
+steps and opens nothing else - no robot connects with it and it acts on nothing; `seq record list` lists them, and
+`seq record revoke <id or last four>` closes its recorders on the workers. `record=off` stops it, and the workers drop
+what they hold.
+
 ### Have the platform validate it
 
 ```bash
@@ -1239,7 +1344,7 @@ data) - and the dry run prices it; without a key it is the checks here alone, an
 
 ```
 policy      my_pi05_user
-contract    valid for this SDK's deployment contract 0.5.43 (the platform checks it again when you deploy)
+contract    valid for this SDK's deployment contract 0.5.49 (the platform checks it again when you deploy)
 image       nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04@sha256:131e238d724ee145317f10d6c8eba0d301439c6c8764b02473510e7035756e81
   add               third_party/openpi/src → /opt/openpi/src
   add               third_party/openpi/packages/openpi-client → /opt/openpi/packages/openpi-client
@@ -1383,9 +1488,9 @@ What the platform fixes; everything else is your code's. Each value is what the 
 | A worker going away | Its acts are answered `503 unavailable` (`reason: draining`); the SDK reconnects to another worker and replays the act. |
 | Shutdown | Before a worker is removed, the acts in flight finish and every replica runs `@seq.shutdown` — within 30 s. After that the worker is stopped without further notice. |
 | Scale to zero | A worker ends after its idle timeout with no robot acting: 60 seconds unless its deployment sets another, 2 seconds to 20 minutes. `min_workers` (default 0) keeps some warm. |
-| Cards | The platform's price list names them (`GET /v1/pricing`): A100, A100-40GB, B200, H100, L4, RTX-PRO-6000 and T4 as of 2026-11. A benchmark's sims run on L4, RTX-PRO-6000, T4 or A100, or on CPU machines when it says `gpu="cpu"`. An A100 has no RT cores, so Isaac Sim does not run on it: name an L4 or an RTX-PRO-6000 for an Isaac Sim benchmark. |
+| Cards | The platform's price list names them (`GET /v1/pricing`): A100, A100-40GB, H100, L4 and RTX-PRO-6000 as of 2026-11. A benchmark's sims run on an L4 or an RTX-PRO-6000, or on CPU machines when it says `gpu="cpu"`. |
 | Regions | A deployment's workers start in the region nearest each robot. A benchmark's and an eval's machines run wherever a card is available. |
-| Billing | Per second of a worker's life: each card for at least 60 s each time the worker starts, plus its CPU cores and GiB of memory at the greater of the request and actual use (the minimum, 0.125 / 0.125, when undeclared). |
+| Billing | Per second of a worker's life: each card for at least 60 s each time the worker starts, plus its card's standard machine's CPU cores and GiB of memory (an L4's 8 and 32), or what it declares where more, the same wherever it runs. |
 
 ## Install footprint
 

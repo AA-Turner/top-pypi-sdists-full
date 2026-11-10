@@ -1,8 +1,17 @@
 /* Implementation of the Horizon type */
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
-#include <stdbool.h>
+#include "../include/guppy.h"
+#include "../include/pythoncapi_compat.h"
 
-char horizon_doc[]=
+#include "impsets.h"
+#include "heapy.h"
+#include "hv.h"
+#include "stoptheworld.h"
+#include "utils.h"
+
+PyDoc_STRVAR(horizon_doc,
 "Horizon(X:iterable)\n"
 "\n"
 "Create a new Horizon object from X. \n"
@@ -15,7 +24,7 @@ char horizon_doc[]=
 "another set of objects via the news() method. This can be used to see\n"
 "what objects have been allocated but not deallocated since the Horizon\n"
 "object was created.\n"
-;
+);
 
 
 
@@ -32,9 +41,9 @@ typedef struct _NyHorizonObject {
 
 static struct {
     NyHorizonObject *horizons;
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 15
-    bool replaced;
-#elif PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION < 13
+#if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 15)
+    int replaced;
+#elif NY_MASKED_VERSION_HEX < Py_PACK_VERSION(3, 13)
     PyObject *types;
 #endif
 } rm;
@@ -42,17 +51,30 @@ static struct {
 static void
 horizon_on_dealloc(PyObject *v);
 
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 13
+#if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 13)
 /* Post 3.13: Implemented via PyRefTracer */
 static PyMutex rm_mutex = {0};
+static PyMutex tracer_mutex = {0};
 
-static int horizon_tracer(PyObject *v, PyRefTracerEvent event, void *data)
+#ifdef Py_GIL_DISABLED
+# define Py_BUILD_CORE
+/* PyMutex_LockFlags */
+#  include <internal/pycore_lock.h>
+# undef Py_BUILD_CORE
+# define RM_LOCK() PyMutex_LockFlags(&rm_mutex, _Py_LOCK_DONT_DETACH)
+#else
+# define RM_LOCK() PyMutex_Lock(&rm_mutex)
+#endif
+#define RM_UNLOCK() PyMutex_Unlock(&rm_mutex)
+
+static int
+horizon_tracer(PyObject *v, PyRefTracerEvent event, void *data)
 {
     if (event == PyRefTracer_DESTROY)
         horizon_on_dealloc(v);
-# if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 15
+# if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 15)
     if (event == PyRefTracer_TRACKER_REMOVED)
-        rm.replaced = true;
+        _Py_atomic_store_int(&rm.replaced, 1);
 # endif
 
     return 0;
@@ -61,13 +83,17 @@ static int horizon_tracer(PyObject *v, PyRefTracerEvent event, void *data)
 static int
 horizon_install(void)
 {
-    /* This is racy, but we don't have a lock */
+# if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 14)
+    assert(PyMutex_IsLocked(&tracer_mutex));
+# endif
+
+    /* This is racy against other tracers, but we don't have a lock */
     if (PyRefTracer_GetTracer(NULL)) {
         PyErr_SetString(PyExc_RuntimeError, "PyRefTracer busy");
         return -1;
     }
-# if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 15
-    rm.replaced = false;
+# if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 15)
+    _Py_atomic_store_int(&rm.replaced, 0);
 # endif
 
     return PyRefTracer_SetTracer(&horizon_tracer, NULL);
@@ -76,7 +102,11 @@ horizon_install(void)
 static void
 horizon_uninstall(void)
 {
-    /* This is racy, but we don't have a lock */
+# if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 14)
+    assert(PyMutex_IsLocked(&tracer_mutex));
+# endif
+
+    /* This is racy other tracers, but we don't have a lock */
     if (PyRefTracer_GetTracer(NULL) != &horizon_tracer)
         return;
 
@@ -88,6 +118,8 @@ horizon_uninstall(void)
 /* Pre 3.13: Implemented via Patching */
 # define PyMutex_Lock(m) do {} while (0)
 # define PyMutex_Unlock(m) do {} while (0)
+# define RM_LOCK() do {} while (0)
+# define RM_UNLOCK() do {} while (0)
 
 static void horizon_patched_dealloc(PyObject *v);
 
@@ -121,8 +153,7 @@ horizon_uninstall(void)
     while (PyDict_Next(rm.types, &i, &pk, &pv)) {
         ((PyTypeObject *)pk)->tp_dealloc = (destructor)PyLong_AsSsize_t(pv);
     }
-    Py_DECREF(rm.types);
-    rm.types = 0;
+    Py_CLEAR(rm.types);
 }
 
 
@@ -159,61 +190,111 @@ horizon_patch_dealloc(PyTypeObject *t)
     if (!(org = PyLong_FromSsize_t((Py_ssize_t)t->tp_dealloc)))
         return -1;
     if (PyDict_SetItem(rm.types, (PyObject *)t, org) == -1) {
-        Py_DECREF(org);
+        Py_CLEAR(org);
         return -1;
     }
     t->tp_dealloc = horizon_patched_dealloc;
-    Py_DECREF(org);
+    Py_CLEAR(org);
     return 0;
 }
+#endif
+
+#ifdef Py_GIL_DISABLED
+static Ny_thread_local int horizon_on_dealloc_reentrant;
 #endif
 
 static void
 horizon_on_dealloc(PyObject *v)
 {
+    PyObject *type, *value, *traceback;
     NyHorizonObject *r;
 
-    PyMutex_Lock(&rm_mutex);
-    for (r = rm.horizons; r; r = r->next) {
-        if (NyNodeSet_clrobj(r->hs, v) == -1)
-            Py_FatalError("could not clear object in nodeset");
+    PyErr_Fetch(&type, &value, &traceback);
+
+#ifdef Py_GIL_DISABLED
+    if (horizon_on_dealloc_reentrant || NY_IS_WORLD_STOPPED()) {
+        /* Freethreading invokes copy-on-write behavior on the bitset because
+           PyUnstable_Object_IsUniquelyReferenced returns false negatives
+           across threads. This causes this function to recurse. However,
+           the inner immbitsets and unions of a nodeset is private and
+           non-traversed, so it can never belong to any horizon's nodeset,
+           so we can return immediately here.
+
+           Likewise, if the world is stopped, anything that is de-allocated
+           should be known-temporary objects created during STW, since it is
+           unsafe to release the last reference of arbitrary objects during
+           STW, as a cascade of dealloc may reach into arbitrary Python code */
+        PyErr_Restore(type, value, traceback);
+        return;
     }
-    PyMutex_Unlock(&rm_mutex);
+#endif
+
+    RM_LOCK();
+#ifdef Py_GIL_DISABLED
+    horizon_on_dealloc_reentrant = true;
+#endif
+    /* The list must be loaded after the Python finds this tracer
+       from the global state */
+    _Py_atomic_fence_acquire();
+    for (r = rm.horizons; r; r = r->next) {
+        /* Look-before-you-leap: Avoid unnecessary COW behavior in freethreading. */
+#ifdef Py_GIL_DISABLED
+        int hasobj = NyNodeSet_hasobj(r->hs, v);
+        if (hasobj == -1)
+            Py_FatalError("could not check object in nodeset");
+        if (hasobj)
+#endif
+            if (NyNodeSet_clrobj(r->hs, v) == -1)
+                Py_FatalError("could not clear object in nodeset");
+    }
+
+#ifdef Py_GIL_DISABLED
+    horizon_on_dealloc_reentrant = false;
+#endif
+    RM_UNLOCK();
+
+    PyErr_Restore(type, value, traceback);
 }
 
 static void
 horizon_remove(NyHorizonObject *v)
 {
-    NyHorizonObject **p;
     bool should_uninstall;
+    NyHorizonObject **p;
 
-    PyMutex_Lock(&rm_mutex);
+    PyMutex_Lock(&tracer_mutex);
+    RM_LOCK();
     for (p = &rm.horizons; *p != v; p = &((*p)->next)) {
         if (!*p)
             Py_FatalError("no such horizon found");
     }
     *p = v->next;
     should_uninstall = !rm.horizons;
-    PyMutex_Unlock(&rm_mutex);
+    RM_UNLOCK();
 
     if (should_uninstall)
         horizon_uninstall();
+    PyMutex_Unlock(&tracer_mutex);
 }
 
 static void
-horizon_dealloc(NyHorizonObject *rg)
+horizon_dealloc(NyHorizonObject *v)
 {
-    if (rg->installed)
-        horizon_remove(rg);
-    Py_XDECREF(rg->hs);
-    Py_TYPE(rg)->tp_free((PyObject *)rg);
+    PyTypeObject *tp = Py_TYPE(v);
+    Py_TRASHCAN_BEGIN(v, horizon_dealloc)
+    if (v->installed)
+        horizon_remove(v);
+    Py_CLEAR(v->hs);
+    tp->tp_free((PyObject *)v);
+    Py_CLEAR(tp);
+    Py_TRASHCAN_END
 }
 
 static int
 horizon_update_trav(PyObject *obj, NyHorizonObject *ta) {
     int r;
     r = NyNodeSet_setobj(ta->hs, obj);
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION < 13
+#if NY_MASKED_VERSION_HEX < Py_PACK_VERSION(3, 13)
     if (!r) {
         PyTypeObject *t = horizon_base(obj);
         if (t->tp_dealloc != horizon_patched_dealloc) {
@@ -228,42 +309,59 @@ horizon_update_trav(PyObject *obj, NyHorizonObject *ta) {
     return 0;
 }
 
-PyObject *
+static PyObject *
 horizon_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-
+    struct HeapycState *ms = NyType_AssertModuleState(type, &heapyc_def);
     PyObject *X;
-    NyHorizonObject *hz = 0;
-    static char *kwlist[] = {"X", 0};
+    NyHorizonObject *hz = NULL;
+    static char *kwlist[] = {"X", NULL};
     bool should_install;
+    PyObject *mat;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:Horizon.__new__",
                                  kwlist,
                                  &X))
         return NULL;
+    /* Prevent objects from being deallocated before we install the horizon */
+    mat = iterable_materialize(ms, X);
+    if (!mat)
+        return NULL;
     hz = (NyHorizonObject *)type->tp_alloc(type, 1);
     if (!hz)
-        return NULL;
-    hz->hs = NyMutNodeSet_NewFlags(0); /* I.E. not NS_HOLDOBJECTS */
+        goto err;
+    hz->hs = NyMutNodeSet_NewFlags(ms->nodeset_exports->ms, 0); /* I.E. not NS_HOLDOBJECTS */
     if (!hz->hs)
         goto err;
-    if (iterable_iterate((PyObject *)X, (visitproc)horizon_update_trav, hz) == -1 ||
+    if (iterable_iterate(ms, mat, (visitproc)horizon_update_trav, hz) == -1 ||
         horizon_update_trav((PyObject *)hz, hz) == -1)
         goto err;
 
-    PyMutex_Lock(&rm_mutex);
+    PyMutex_Lock(&tracer_mutex);
+    RM_LOCK();
     should_install = !rm.horizons;
     hz->next = rm.horizons;
     rm.horizons = hz;
     hz->installed = true;
-    PyMutex_Unlock(&rm_mutex);
-    if (should_install)
-        if (horizon_install() == -1)
-            goto err;
+    RM_UNLOCK();
 
+    if (should_install) {
+        /* The list must be published before the tracer is installed, which
+           may load the list on a different thread */
+        _Py_atomic_fence_release();
+        if (horizon_install() == -1)
+            goto err_unlock;
+    }
+    PyMutex_Unlock(&tracer_mutex);
+
+    Py_CLEAR(mat);
     return (PyObject *)hz;
+
+err_unlock:
+    PyMutex_Unlock(&tracer_mutex);
 err:
-    Py_XDECREF(hz);
+    Py_CLEAR(hz);
+    Py_CLEAR(mat);
     return NULL;
 
 }
@@ -277,13 +375,19 @@ typedef struct {
 static int
 horizon_news_trav(PyObject *obj, NewsTravArg *ta)
 {
-    if (!(NyNodeSet_hasobj(ta->rg->hs, obj)))
+    int hasobj;
+    RM_LOCK();
+    hasobj = NyNodeSet_hasobj(ta->rg->hs, obj);
+    RM_UNLOCK();
+    if (hasobj == -1)
+        return -1;
+    if (!hasobj)
         if (NyNodeSet_setobj(ta->result, obj) == -1)
             return -1;
     return 0;
 }
 
-static char news_doc[] =
+PyDoc_STRVAR(news_doc,
 "H.news(X:iterable) -> NodeSet\n"
 "\n"
 "Return the set of objects in X that is not in the set of objects of H.\n"
@@ -291,32 +395,41 @@ static char news_doc[] =
 "If H was created from the contents of the heap at a particular time,\n"
 "H.news(X) will return the set of objects in X that were allocated\n"
 "after H was created.\n"
-;
+);
 
 
 static PyObject *
 horizon_news(NyHorizonObject *self, PyObject *arg)
 {
+    struct HeapycState *ms = NyType_AssertModuleState(Py_TYPE(self), &heapyc_def);
     NewsTravArg ta;
-#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 13
-# if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 15
-    if (rm.replaced)
+    PyObject *mat;
+#if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 13)
+# if NY_MASKED_VERSION_HEX >= Py_PACK_VERSION(3, 15)
+    if (_Py_atomic_load_int(&rm.replaced)) {
 # else
-    if (PyRefTracer_GetTracer(NULL) != &horizon_tracer)
+    if (PyRefTracer_GetTracer(NULL) != &horizon_tracer) {
 # endif
         PyErr_SetString(PyExc_RuntimeError, "PyRefTracer was replaced");
+        return NULL;
+    }
 #endif
 
+    mat = iterable_materialize(ms, arg);
+    if (!mat)
+        return NULL;
     ta.rg = self;
-    ta.result = NyMutNodeSet_New();
+    ta.result = NyMutNodeSet_New(ms->nodeset_exports->ms);
     if (!(ta.result))
         goto err;
-    if (iterable_iterate(arg, (visitproc)horizon_news_trav, &ta) == -1)
+    if (iterable_iterate(ms, mat, (visitproc)horizon_news_trav, &ta) == -1)
         goto err;
+    Py_CLEAR(mat);
     return (PyObject *)ta.result;
 err:
-    Py_XDECREF(ta.result);
-    return 0;
+    Py_CLEAR(ta.result);
+    Py_CLEAR(mat);
+    return NULL;
 }
 
 
@@ -325,16 +438,20 @@ static PyMethodDef horizon_methods[] = {
     {0} /* sentinel */
 };
 
-PyTypeObject NyHorizon_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name      = "guppy.heapy.heapyc.Horizon",
-    .tp_basicsize = sizeof(NyHorizonObject),
-    .tp_dealloc   = (destructor)horizon_dealloc,
-    .tp_getattro  = PyObject_GenericGetAttr,
-    .tp_flags     = Py_TPFLAGS_DEFAULT,
-    .tp_doc       = horizon_doc,
-    .tp_methods   = horizon_methods,
-    .tp_alloc     = PyType_GenericAlloc,
-    .tp_new       = horizon_new,
-    .tp_free      = PyObject_Del,
+static PyType_Slot horizon_slots[] = {
+    {Py_tp_dealloc,  horizon_dealloc},
+    {Py_tp_getattro, PyObject_GenericGetAttr},
+    {Py_tp_doc,      (void *)horizon_doc},
+    {Py_tp_methods,  horizon_methods},
+    {Py_tp_alloc,    PyType_GenericAlloc},
+    {Py_tp_new,      horizon_new},
+    {Py_tp_free,     PyObject_Free},
+    {0, NULL},
+};
+
+PyType_Spec NyHorizon_Spec = {
+    .name      = "guppy.heapy.heapyc.Horizon",
+    .basicsize = sizeof(NyHorizonObject),
+    .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+    .slots     = horizon_slots,
 };

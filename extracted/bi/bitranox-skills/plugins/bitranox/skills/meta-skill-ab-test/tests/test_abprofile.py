@@ -254,3 +254,61 @@ def test_suite_from_without_a_suite_is_refused(tmp_path, scratch_repo):
         P.load_profile(_write(tmp_path, scratch_repo, text))
     assert str(exc.value).splitlines() == [
         "floor.suite_from: needs floor.suite, the path the sealed copy takes in each arm's worktree"]
+
+
+# --- [workpiece] link: gitignored build prerequisites linked into every arm's worktree -----------
+
+def _with_link(value):
+    return GOOD.replace('task_file = "task.md"', f"task_file = \"task.md\"\nlink = {value}")
+
+
+def test_link_loads_as_a_tuple_and_defaults_to_empty(tmp_path, scratch_repo):
+    assert P.load_profile(_write(tmp_path, scratch_repo)).workpiece.link == ()
+    prof = P.load_profile(_write(tmp_path, scratch_repo, _with_link('[".packages", "third_party/protoc"]')))
+    assert prof.workpiece.link == (".packages", "third_party/protoc")
+
+
+@pytest.mark.parametrize("value", ['["/opt/protoc"]', '["../outside"]', '["a/../../outside"]', '[""]',
+                                   '[".git"]', '[".git/hooks"]', '".packages"', "[3]", '[".packages", ".packages"]'],
+                         ids=["absolute", "dotdot", "inner-dotdot", "empty", "git-dir", "inside-git-dir",
+                              "not-a-list", "not-a-string", "duplicate"])
+def test_a_link_entry_must_be_a_relative_path_inside_the_workpiece(tmp_path, scratch_repo, value):
+    with pytest.raises(P.ProfileError) as exc:
+        P.load_profile(_write(tmp_path, scratch_repo, _with_link(value)))
+    assert any(line.startswith("workpiece.link") for line in str(exc.value).splitlines()), str(exc.value)
+
+
+def test_a_link_entry_that_resolves_outside_the_workpiece_is_refused(tmp_path, scratch_repo):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (scratch_repo / "escape").symlink_to(outside)
+    with pytest.raises(P.ProfileError) as exc:
+        P.load_profile(_write(tmp_path, scratch_repo, _with_link('["escape/protoc"]')))
+    assert "workpiece.link: escape/protoc resolves outside the workpiece" in str(exc.value), str(exc.value)
+
+
+def test_the_skeleton_names_link_as_a_commented_option():
+    assert '# link = [".packages"]' in P.SKELETON
+
+
+# --- [run] unattended_note: one text appended to every arm's prompt -------------------------------
+
+def _with_note(value):
+    return GOOD.replace("max_tokens = 5000", f"max_tokens = 5000\nunattended_note = {value}")
+
+
+def test_unattended_note_loads_and_defaults_to_none(tmp_path, scratch_repo):
+    assert P.load_profile(_write(tmp_path, scratch_repo)).run.unattended_note is None
+    prof = P.load_profile(_write(tmp_path, scratch_repo, _with_note('"No human reads this; never ask, decide."')))
+    assert prof.run.unattended_note == "No human reads this; never ask, decide."
+
+
+@pytest.mark.parametrize("value", ['""', '"   "', "3", '["a"]', '"<what every arm is told>"'],
+                         ids=["empty", "blank", "not-a-string", "a-list", "placeholder"])
+def test_a_bad_unattended_note_is_a_profile_error(tmp_path, scratch_repo, value):
+    with pytest.raises(P.ProfileError, match=r"run\.unattended_note: "):
+        P.load_profile(_write(tmp_path, scratch_repo, _with_note(value)))
+
+
+def test_the_skeleton_names_unattended_note_as_a_commented_option():
+    assert "# unattended_note = " in P.SKELETON

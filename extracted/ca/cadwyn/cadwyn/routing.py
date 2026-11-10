@@ -1,23 +1,41 @@
 import bisect
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
+from contextlib import AsyncExitStack
 from contextvars import ContextVar
+from datetime import date
 from functools import cached_property
 from logging import getLogger
 from typing import Any, Union
 
+import anyio
 from fastapi.routing import APIRouter
+from pydantic import TypeAdapter, ValidationError
+from starlette import status
 from starlette.datastructures import URL
+from starlette.exceptions import WebSocketException
+from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.routing import BaseRoute, Match
 from starlette.types import Receive, Scope, Send
+from starlette.websockets import WebSocket
 from typing_extensions import override
 
 from cadwyn._internal.context_vars import DEFAULT_API_VERSION_VAR
 from cadwyn._utils import same_method_definition_as_in
-from cadwyn.middleware import APIVersionFormat
+from cadwyn.exceptions import CadwynError
+from cadwyn.middleware import (
+    _PATH_VERSION_MATCH_SCOPE_KEY,
+    APIVersionFormat,
+    APIVersionLocation,
+    HeaderVersionManager,
+    URLVersionManager,
+    _match_key,
+)
 from cadwyn.structure.common import VersionType
+from cadwyn.structure.versions._uploads import _UPLOAD_CLOSE_TIMEOUT_SECONDS
 
 _logger = getLogger(__name__)
+_DATE_ADAPTER = TypeAdapter(date)
 
 
 class _RootCadwynAPIRouter(APIRouter):
@@ -27,6 +45,8 @@ class _RootCadwynAPIRouter(APIRouter):
         api_version_parameter_name: str,
         api_version_var: ContextVar[Union[str, None]],
         api_version_format: APIVersionFormat,
+        api_version_location: APIVersionLocation = "custom_header",
+        api_version_default_value: str | Callable[[Request], Awaitable[str]] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -35,6 +55,15 @@ class _RootCadwynAPIRouter(APIRouter):
         self.api_version_var = api_version_var
         self.unversioned_routes: list[BaseRoute] = []
         self.api_version_format = api_version_format
+        # VersionPickingMiddleware gets the same manager, so HTTP requests and WebSockets read the version alike
+        self.api_version_manager: HeaderVersionManager | URLVersionManager
+        if api_version_location == "path":
+            self.api_version_manager = URLVersionManager(
+                api_version_parameter_name=api_version_parameter_name, versioned_routers=self.versioned_routers
+            )
+        else:
+            self.api_version_manager = HeaderVersionManager(api_version_parameter_name=api_version_parameter_name)
+        self._api_version_default_value = api_version_default_value
 
     async def _get_routes_from_closest_suitable_version(self, version: VersionType) -> list[BaseRoute]:
         """Pick the versioned routes for the given version in case we failed to pick a concrete version
@@ -67,6 +96,9 @@ class _RootCadwynAPIRouter(APIRouter):
 
     @override
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "websocket":
+            await self._handle_websocket(scope, receive, send)
+            return
         if "router" not in scope:  # pragma: no cover
             scope["router"] = self
 
@@ -93,7 +125,77 @@ class _RootCadwynAPIRouter(APIRouter):
             # We use this order because if versioned routes go first and there is a versioned route that is
             # the same as an unversioned route -- the unversioned one becomes impossible to match.
             routes = self.unversioned_routes + routes
-        await self.process_request(scope=scope, receive=receive, send=send, routes=routes)
+        # FastAPI closes the uploads of its forms with this stack after the response. `VersionPickingMiddleware`
+        # (a `BaseHTTPMiddleware`) cancels the request when the client disconnects, which would interrupt that, so we
+        # exit the stack here, shielded from the cancellation, like `async with` would. FastAPI then exits the empty
+        # stack as usual
+        file_stack = scope.get("fastapi_middleware_astack")
+        if not isinstance(file_stack, AsyncExitStack):  # E.g. the router is used as an ASGI app on its own
+            await self.process_request(scope=scope, receive=receive, send=send, routes=routes)
+            return
+        try:
+            await self.process_request(scope=scope, receive=receive, send=send, routes=routes)
+        except BaseException as exc:
+            suppressed = False
+            with anyio.move_on_after(_UPLOAD_CLOSE_TIMEOUT_SECONDS, shield=True):
+                suppressed = await file_stack.__aexit__(type(exc), exc, exc.__traceback__)
+            if not suppressed:
+                raise
+        else:
+            with anyio.move_on_after(_UPLOAD_CLOSE_TIMEOUT_SECONDS, shield=True):
+                await file_stack.__aexit__(None, None, None)
+
+    async def _handle_websocket(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope.setdefault("router", self)
+        version = self.api_version_var.get(None)
+        version_token = self.api_version_var.set(version)
+        default_token = DEFAULT_API_VERSION_VAR.set(DEFAULT_API_VERSION_VAR.get(None))
+        try:
+            if version is None:
+                # These sockets were already reachable before WebSocket version picking existed,
+                # even with an invalid header or a Request-based default. Keep them unversioned.
+                if any(route.matches(scope)[0] == Match.FULL for route in self.unversioned_routes):
+                    scope["cadwyn.api_version"] = None
+                    await self.process_request(scope, receive, send, self.unversioned_routes)
+                    return
+                version = self._pick_websocket_version(WebSocket(scope, receive, send))
+                self.api_version_var.set(version)
+
+            if not version:
+                routes = self.unversioned_routes
+            elif version in self.versioned_routers:
+                routes = self.versioned_routers[version].routes
+            else:
+                routes = await self._get_routes_from_closest_suitable_version(version)
+            if not routes:
+                raise WebSocketException(status.WS_1008_POLICY_VIOLATION, "No matching API version")
+            scope["cadwyn.api_version"] = self.api_version_var.get(None)
+            if DEFAULT_API_VERSION_VAR.get(None):
+                routes = self.unversioned_routes + routes
+            await self.process_request(scope, receive, send, routes)
+        finally:
+            self.api_version_var.reset(version_token)
+            DEFAULT_API_VERSION_VAR.reset(default_token)
+
+    def _pick_websocket_version(self, websocket: WebSocket) -> str:
+        # VersionPickingMiddleware is HTTP-only, so we pick the version with the same manager and rules here
+        version = self.api_version_manager.get(websocket)
+        if version is None:
+            if callable(self._api_version_default_value):
+                raise CadwynError(
+                    "A callable api_version_default_value is unsupported for WebSocket connections; "
+                    "send an explicit API version or use a constant default."
+                )
+            version = self._api_version_default_value
+            DEFAULT_API_VERSION_VAR.set(version)
+        if not version:
+            raise WebSocketException(status.WS_1008_POLICY_VIOLATION, "Missing API version")
+        if self.api_version_format == "date":
+            try:
+                _DATE_ADAPTER.validate_python(version)
+            except ValidationError as exc:
+                raise WebSocketException(status.WS_1008_POLICY_VIOLATION, "Invalid API version") from exc
+        return version
 
     @cached_property
     def versions(self):
@@ -141,6 +243,17 @@ class _RootCadwynAPIRouter(APIRouter):
     async def process_request(self, scope: Scope, receive: Receive, send: Send, routes: Sequence[BaseRoute]) -> None:
         # It's a copy-paste from starlette.routing.Router
         # but in this version self.routes were replaced with routes from the function arguments
+
+        # URLVersionManager has already found the route while picking the version from the path
+        path_version_match = scope.pop(_PATH_VERSION_MATCH_SCOPE_KEY, None)
+        if (
+            path_version_match is not None
+            and path_version_match.routes is routes
+            and path_version_match.key == _match_key(scope)
+        ):
+            scope.update(path_version_match.child_scope)
+            await path_version_match.route.handle(scope, receive, send)
+            return None
 
         partial = None
         partial_scope = {}

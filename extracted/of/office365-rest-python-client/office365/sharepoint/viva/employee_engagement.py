@@ -13,6 +13,7 @@ from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import StringCollection
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.viva.app_configuration import AppConfiguration
 from office365.sharepoint.viva.connections.page import VivaConnectionsPage
 from office365.sharepoint.viva.dashboard.configuration import DashboardConfiguration
@@ -33,6 +34,7 @@ class EmployeeEngagement(Entity):
     def __init__(self, context):
         super().__init__(context, ResourcePath("SP.EmployeeEngagement"))
 
+    @site_access(SiteLevel.READ)
     def dashboard_content(self, override_language_code: Optional[str] = None) -> ClientResult[str]:
         """Args:
         override_language_code (str):
@@ -43,6 +45,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def full_dashboard_content(
         self, canvas_as_json: Optional[bool] = None, include_personalization_data: Optional[bool] = None
     ) -> ClientResult[DashboardConfiguration]:
@@ -59,19 +62,21 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def viva_home_configuration(self):
         return_type = ClientResult(self.context, {})
         qry = FunctionQuery(self, "VivaHomeConfiguration", None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def viva_home(self) -> VivaHome:
         return_type = VivaHome(self.context)
         qry = ServiceOperationQuery(self, "VivaHome", return_type=return_type)
         self.context.add_query(qry)
         return return_type
 
-    @odata(name="AppConfiguration")
+    @odata(name="AppConfiguration", navigation=True)
     @property
     def app_configuration(self) -> AppConfiguration:
         return self.properties.get(
@@ -79,7 +84,7 @@ class EmployeeEngagement(Entity):
             AppConfiguration(self.context, ResourcePath("AppConfiguration", self.resource_path)),
         )
 
-    @odata(name="VivaConnectionsPage")
+    @odata(name="VivaConnectionsPage", navigation=True)
     @property
     def viva_connections_page(self) -> VivaConnectionsPage:
         return self.properties.get(
@@ -87,6 +92,7 @@ class EmployeeEngagement(Entity):
             VivaConnectionsPage(self.context, ResourcePath("VivaConnectionsPage", self.resource_path)),
         )
 
+    @odata(name="VivaResources", navigation=True)
     @property
     def viva_resources(self) -> VivaResources:
         """Gets the VivaResources property"""
@@ -96,6 +102,7 @@ class EmployeeEngagement(Entity):
             "VivaResources", VivaResources(self.context, ResourcePath("VivaResources", self.resource_path))
         )
 
+    @site_access(SiteLevel.READ)
     def configuration(self) -> ClientResult[ConfigurationData]:
         """Configuration operation."""
         from office365.sharepoint.viva.configurationdata import ConfigurationData
@@ -105,6 +112,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def configured_viva_connections_url(self) -> ClientResult[str]:
         """ConfiguredVivaConnectionsURL operation."""
         return_type = ClientResult(self.context, str())
@@ -112,6 +120,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def dashboard_oob_content(self, oob_content_choice: int) -> ClientResult[str]:
         """DashboardOOBContent operation.
 
@@ -124,6 +133,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_dashboard_personalization(self) -> ClientResult[bool]:
         """GetDashboardPersonalization operation."""
         return_type = ClientResult(self.context, bool())
@@ -131,6 +141,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_data_for_home(self) -> ClientResult[StringCollection]:
         """GetDataForHome operation."""
         return_type = ClientResult(self.context, StringCollection())
@@ -138,6 +149,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_targeted_sites_as_editor(self) -> ClientResult[ClientValueCollection[TargetedSiteDetails]]:
         """GetTargetedSitesAsEditor operation."""
         from office365.sharepoint.viva.targetedsitedetails import TargetedSiteDetails
@@ -147,6 +159,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def like_news_post(self, page_url: str, list_id: UUID, list_item_unique_id: UUID) -> Self:
         """LikeNewsPost operation.
 
@@ -169,6 +182,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_dashboard_personalization(self, is_enabled: bool) -> Self:
         """SetDashboardPersonalization operation.
 
@@ -180,6 +194,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def unlike_news_post(self, page_url: str, list_id: UUID, list_item_unique_id: UUID) -> Self:
         """UnlikeNewsPost operation.
 
@@ -202,6 +217,7 @@ class EmployeeEngagement(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def viva_connections(self, admin_configured_url: str) -> ClientResult[VivaConnectionsUrlConfiguration]:
         """VivaConnections operation.
 

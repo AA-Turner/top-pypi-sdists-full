@@ -43,8 +43,7 @@ target_link_libraries(dsss PRIVATE
     gold_core
     mpsk_core
     wfm_dsp_core
-    acq_core
-    corr2d_core
+    correlator_core
     fft2d_core
     RateConverter_core
     resamp_core
@@ -65,11 +64,8 @@ target_link_libraries(dsss PRIVATE
     carrier_acq_core
     psd_core
     acc_trace_core
-    detector_core
-    corr_core
     Threads::Threads
     burst_capture_core
-    burst_acq_core
     Python3::NumPy)
 target_include_directories(dsss PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
 set_target_properties(dsss PROPERTIES

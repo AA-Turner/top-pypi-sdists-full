@@ -6,11 +6,13 @@ pub mod inheritance;
 mod l10n;
 mod language_cache;
 pub(crate) use language_cache::CatalogCache;
+pub mod humanize;
 pub mod lorem;
 mod stock;
 pub mod tags;
 mod timesince;
 pub mod types;
+pub mod urlize;
 
 use std::borrow::Cow;
 

@@ -97,6 +97,87 @@ _OFFLINE_METADATA_MISS = "offline mode skipped a metadata fetch with no cached m
 _FILTERED_SDIST = "no PEP 658 metadata and the listing filter excluded the sdist"
 
 
+def assumed_wheel_metadata(
+    provider: Provider, package: str, version: Version
+) -> str | None:
+    """Return shared wheel metadata when this target's policy allows it."""
+    if not provider.effective_assume_consistent_metadata(
+        package, version, provider.serving_index(package)
+    ):
+        return None
+
+    # Sharing still requires a wheel admitted for this target.
+    versions = provider.versions_cache.get(package)
+    if versions is None or not isinstance(
+        version_dists(provider, package, versions).picked.get(version), WheelFile
+    ):
+        return None
+
+    contexts = provider.consistent_metadata_contexts
+    assert contexts is not None
+    return provider.coordinator.index.get_consistent_wheel_metadata(
+        package, str(version), context=contexts.get(package)
+    )
+
+
+def resolve_consistent_metadata(
+    provider: Provider,
+    versions: list[tuple[Version, DistFile]],
+    package: str,
+    version: Version,
+) -> tuple[str, bool]:
+    """Read shared wheel metadata after target admission, or fetch it normally."""
+    _, _, normalized = provider.split_and_normalize(package)
+    assumed = assumed_wheel_metadata(provider, normalized, version)
+    if assumed is not None:
+        dist = version_dists(provider, normalized, versions).picked.get(version)
+        assert isinstance(dist, WheelFile)
+
+        # Reusing metadata does not grant permission to use a yanked wheel.
+        if dist.yanked:
+            require_yank_admission(provider, versions, normalized, version)
+        return assumed, False
+
+    return resolve_metadata(provider, versions, package, version)
+
+
+def parse_consistent_metadata(
+    provider: Provider,
+    cache_key: tuple[str, Version],
+    metadata_text: str,
+    *,
+    from_sdist: bool = False,
+) -> None:
+    """Validate metadata and remember the first wheel source for the release."""
+    package, version = cache_key
+    if not from_sdist:
+        assumed = assumed_wheel_metadata(provider, package, version)
+        if assumed is not None:
+            metadata_text = assumed
+
+    # Validate for this target before sharing the source with other targets.
+    parse_and_cache_metadata(provider, cache_key, metadata_text, from_sdist=from_sdist)
+
+    if from_sdist or not provider.effective_assume_consistent_metadata(
+        package, version, provider.serving_index(package)
+    ):
+        return
+
+    versions = provider.versions_cache.get(package)
+    if versions is not None:
+        dist = version_dists(provider, package, versions).picked.get(version)
+        if isinstance(dist, WheelFile):
+            contexts = provider.consistent_metadata_contexts
+            assert contexts is not None
+            provider.coordinator.index.store_consistent_wheel_metadata(
+                package,
+                str(version),
+                dist.metadata_url or dist.url,
+                metadata_text,
+                context=contexts.get(package),
+            )
+
+
 def resolve_metadata(
     provider: Provider,
     versions: list[tuple[Version, DistFile]],
@@ -636,29 +717,14 @@ def pick_dist(
     target: ResolveTarget | None = None,
     wheels: list[WheelFile] | None = None,
 ) -> DistFile:
-    """Pick the dist of one version whose metadata answers for the target.
+    """Choose metadata from a non-empty sequence of one release's artifacts.
 
-    ``dists`` are the artifacts of a single version, and must be non-empty.
-    ``wheels`` is those dists' wheels in listing order, for a caller that
-    already holds them; they are selected from ``dists`` otherwise.
+    Rank wheels by the target's tags and build tag; prefer a sidecar among
+    ties. With no admitted wheel, prefer a gzip-tar sdist over a ZIP.
 
-    Sibling wheels of one version can declare different dependencies, so
-    the wheel the ``tags`` rank most specific wins: :pep:`425` is what an
-    installer picks by, so that wheel's METADATA is the one the pin has to
-    satisfy.  ``tags`` is ``None`` when there is no tag axis to rank by,
-    either because nothing said which machine the resolve is for or because
-    a marker overlay moved the target off its tags.  ``target`` still names
-    the Python, so wheels built for another interpreter drop out
-    (:func:`_python_axis_narrowed`): reading a release's dependencies out of a
-    wheel the target could never install is the unsoundness
-    :func:`check_sibling_metadata_divergence` guards against, one layer
-    earlier.
-
-    Among the wheels that remain the cheapest metadata source wins: a wheel
-    with a :pep:`658` ``metadata_url``, then any wheel.  Only a version
-    publishing no wheel is read from its sdist, which lets
-    :attr:`~nab_provider.provider.DistPolicy.SDIST_INSTALL` keep wheels in the
-    listing purely as a metadata source.
+    Without known tags, use wheels matching the target's Python and
+    implementation when available. Check fetched siblings that tie the chosen
+    wheel with :func:`check_sibling_metadata_divergence`.
     """
     if len(dists) == 1:
         return dists[0]
@@ -1059,7 +1125,7 @@ def classify_requirement(
     gating = requirement_gating(provider, req)
     if gating == "base":
         return set()
-    if gating == "excluded":
+    if gating == "excluded" or not provided_extras:
         return None
     matched_extras = marker_matched_extras(
         provider, marker, id(marker), provided_extras

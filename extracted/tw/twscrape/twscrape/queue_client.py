@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 from enum import Enum, auto
 from typing import Any
 from urllib.parse import urlparse
@@ -22,6 +23,7 @@ from .utils import utc
 from .xclid import XClIdAccountError, XClIdGen, XClIdParseError
 
 ReqParams = dict[str, str | int] | None
+MISSING_FEATURES_RE = re.compile(r"The following features cannot be null: ([^;]+)")
 TMP_TS = utc.now().isoformat().split(".")[0].replace("T", "_").replace(":", "-")[0:16]
 
 
@@ -32,7 +34,16 @@ class AbortReqError(Exception): ...
 
 
 class GqlFeaturesOutdatedError(AbortReqError):
-    """GQL_FEATURES in api.py no longer matches the X API. Retrying cannot help."""
+    """GQL_FEATURES in api.py no longer matches the X API and self-healing did not resolve it."""
+
+
+class ApiError(AbortReqError):
+    """X answered with errors and without data."""
+
+    # errors is optional so that pickle, which calls ApiError(msg), can rebuild it
+    def __init__(self, msg: str, errors: list[str] | None = None):
+        super().__init__(msg)
+        self.errors = errors or []
 
 
 class FailKind(Enum):
@@ -107,7 +118,7 @@ class Ctx:
             await asyncio.sleep(1)
 
         raise AbortReqError(
-            "Faield to get XClIdGen. See: https://github.com/vladkens/twscrape/issues/248"
+            "Failed to get XClIdGen. See: https://github.com/vladkens/twscrape/issues/248"
         )
 
 
@@ -122,16 +133,47 @@ def req_id(rep: Response):
 
 
 def has_data(rep: Response, res: Any) -> bool:
-    """Return True for successful responses with at least one non-null data field."""
+    """Return True for successful responses with at least one non-empty data field."""
     if rep.status_code != 200 or not isinstance(res, dict):
         return False
 
+    # An empty field is no data: on a timeout X sends {"data": {"user": {}}}
+    # with DeadlineExceeded at path user.result.
     data = res.get("data")
-    return isinstance(data, dict) and any(value is not None for value in data.values())
+    return isinstance(data, dict) and any(value not in (None, {}, []) for value in data.values())
 
 
 def has_error(errors: list[str], prefix: str) -> bool:
     return any(error.startswith(prefix) for error in errors)
+
+
+def parse_missing_features(msg: str) -> list[str]:
+    """Feature flags X named in a (336) error: "...cannot be null: a, b"."""
+    match = MISSING_FEATURES_RE.search(msg)
+    return [x.strip() for x in match.group(1).split(",") if x.strip()] if match else []
+
+
+def add_missing_features(params: ReqParams, missing: list[str]) -> bool:
+    """Set `missing` to true in params["features"]. False if there is nothing to patch."""
+    if not isinstance(params, dict) or "features" not in params:
+        return False
+
+    features = params["features"]
+    if isinstance(features, str):  # encode_params() has already run
+        try:
+            features = json.loads(features)
+        except json.JSONDecodeError:
+            return False
+
+    if not isinstance(features, dict):
+        return False
+
+    if all(features.get(x) is True for x in missing):
+        return False  # already true, so a retry would just loop
+
+    features.update(dict.fromkeys(missing, True))
+    params["features"] = json.dumps(features, separators=(",", ":"))
+    return True
 
 
 def dump_rep(rep: Response):
@@ -145,7 +187,7 @@ def dump_rep(rep: Response):
 
     msg = []
     msg.append(f"{count:,d} - {req_id(rep)}")
-    msg.append(f"{rep.status_code} {rep.request.method} {rep.request.url}")
+    msg.append(f"{rep.status_code} {rep.request.method if rep.request else '?'} {rep.url}")
     msg.append("\n")
     # msg.append("\n".join([str(x) for x in list(rep.request.headers.items())]))
     msg.append("\n".join([str(x) for x in list(rep.headers.items())]))
@@ -162,6 +204,9 @@ def dump_rep(rep: Response):
 
 
 class QueueClient:
+    # Flags self-healed per operation, shared so later clients don't repeat the failed request
+    healed_features: dict[str, set[str]] = {}
+
     def __init__(self, pool: AccountsPool, queue: str, debug=False, proxy: str | None = None):
         self.pool = pool
         self.queue = queue
@@ -222,10 +267,18 @@ class QueueClient:
         if self.debug:
             dump_rep(rep)
 
-        if "text/html" in rep.headers.get("content-type", "") and rep.status_code >= 400:
+        html_error = "text/html" in rep.headers.get("content-type", "") and rep.status_code >= 400
+        rate_limited_429 = rep.status_code == 429
+        if html_error and not rate_limited_429:
             src = "Cloudflare" if "cf-ray" in rep.headers else "HTML"
-            logger.warning(f"Blocked by {src}: {rep.status_code} - {req_id(rep)}")
-            raise AbortReqError()
+            msg = f"Blocked by {src}: {rep.status_code} - {req_id(rep)}"
+            # Cloudflare blocks the httpx TLS fingerprint on some ops (UserByRestId), see #337
+            backend = getattr(self.ctx.clt, "backend", None) if self.ctx else None
+            if src == "Cloudflare" and backend == "httpx":
+                msg += "; retry with TWS_HTTP_BACKEND=curl or unset it"
+
+            logger.warning(msg)
+            raise AbortReqError(msg)
 
         try:
             res = rep.json()
@@ -251,7 +304,6 @@ class QueueClient:
 
         # for dev: need to add some features in api.py
         if has_error(errors, "(336) The following features cannot be null"):
-            logger.error(f"[DEV] Update required: {err_msg}")
             raise GqlFeaturesOutdatedError(f"Update GQL_FEATURES in api.py: {err_msg}")
 
         # general api rate limit
@@ -261,12 +313,21 @@ class QueueClient:
             raise HandledError()
 
         # no way to check is account banned in direct way, but this check should work
-        if has_error(errors, "(88) Rate limit exceeded") and limit_remaining > 0:
+        rate_limited = has_error(errors, "(88) Rate limit exceeded") and not has_data(rep, res)
+        if rate_limited and limit_remaining > 0 and not rate_limited_429:
             logger.warning(f"Ban detected: {request_log}")
             await self._close_ctx(-1, inactive=True, msg=err_msg)
             raise HandledError()
 
-        if has_error(errors, "(326) Authorization: Denied by access control"):
+        # rate limit without x-rate-limit-* headers: https://github.com/vladkens/twscrape/issues/351
+        if rate_limited_429 or rate_limited:
+            logger.debug(f"Rate limited: {request_log}")
+            await self._close_ctx(limit_reset if limit_reset > utc.ts() else utc.ts() + 60 * 15)
+            raise HandledError()
+
+        # https://github.com/vladkens/twscrape/issues/211
+        suspended = has_error(errors, "(64) Your account is suspended")
+        if suspended or has_error(errors, "(326) Authorization: Denied by access control"):
             logger.warning(f"Ban detected: {request_log}")
             await self._close_ctx(-1, inactive=True, msg=err_msg)
             raise HandledError()
@@ -290,16 +351,18 @@ class QueueClient:
                 LogOnce.throttled(log_key, "DEBUG", f"API warning with data: {summary_log}")
                 return
 
-            # X is overloaded and dropping work; retry without penalizing the account.
-            if has_error(errors, "(-1) LoadShed"):
+            # X is overloaded or timed out; retry without penalizing the account.
+            if has_error(errors, "(-1) LoadShed") or has_error(errors, "(-1) DeadlineExceeded"):
                 LogOnce.throttled(log_key, "WARNING", f"API busy: {summary_log}")
                 ctx = self.ctx
                 if ctx is not None and await ctx.retry(FailKind.LOADSHED):
                     raise HandledError()
-                return
+            else:
+                LogOnce.once(log_key, "WARNING", f"API unknown error: {summary_log}")
 
-            LogOnce.once(log_key, "WARNING", f"API unknown error: {summary_log}")
-            return
+            # Without data the parser would find nothing, and the caller would read
+            # a failure as an empty result.
+            raise ApiError(f"API error: {summary_log}", errors)
 
         try:
             rep.raise_for_status()
@@ -312,6 +375,11 @@ class QueueClient:
         return await self.req("GET", url, params=params)
 
     async def req(self, method: HttpMethod, url: str, params: ReqParams = None) -> Response | None:
+        healed = self.healed_features.setdefault(self.queue, set())
+        if healed:
+            add_missing_features(params, list(healed))
+
+        features_retried = False
         while True:
             # 1. same ctx until _close_ctx() clears it — that's retry vs rotate
             # 2. no aclose() needed here, __aexit__ handles it
@@ -342,13 +410,30 @@ class QueueClient:
                 await self._check_rep(rep)
 
                 ctx.req_count += 1  # count only successful
+                ctx.fails = dict.fromkeys(ctx.fails, 0)  # budget is per request, not per crawl
                 return rep
-            except GqlFeaturesOutdatedError:
-                # structurally invalid request, retrying cannot help — let the caller see it
-                raise
+            except GqlFeaturesOutdatedError as e:
+                # X names the flags it wants, so set them and retry once. GQL_FEATURES still
+                # needs a permanent update — the warning says so — but a stale dict shouldn't
+                # take every caller down until the next release.
+                missing = parse_missing_features(str(e))
+                if features_retried or not add_missing_features(params, missing):
+                    LogOnce.once((self.queue, str(e)), "ERROR", f"[DEV] {e}")
+                    raise
+
+                healed.update(missing)
+                features_retried = True
+                LogOnce.once(
+                    (self.queue, "healed", frozenset(missing)),
+                    "WARNING",
+                    f"[DEV] Update required: {self.queue} needs GQL_FEATURES {missing}, "
+                    "set true for now. Update GQL_FEATURES in api.py to fix this permanently.",
+                )
+                continue
             except AbortReqError:
-                # abort all queries
-                return
+                # abort all queries; raise rather than return None, which callers
+                # can't tell from "no data"
+                raise
             except HandledError:
                 # retry with new account
                 continue
@@ -362,7 +447,7 @@ class QueueClient:
                     "Report: https://github.com/vladkens/twscrape/issues"
                 )
                 await self._close_ctx()
-                return None
+                raise
             except (NetworkError, ConnectError) as e:
                 # transport failed, retry same account with backoff, then cool it down and rotate
                 if await ctx.retry(FailKind.TRANSPORT):

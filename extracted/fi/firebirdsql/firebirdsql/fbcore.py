@@ -45,8 +45,14 @@ from firebirdsql.stream import SocketStream
 from firebirdsql.xsqlvar import calc_blr, parse_xsqlda
 from firebirdsql.event_conduit import EventConduit
 from firebirdsql import srp
-from firebirdsql.arc4 import ARC4
-from firebirdsql.chacha import ChaCha20
+try:    # C implementations when pycryptodome is installed
+    from Crypto.Cipher import ARC4
+except ImportError:
+    from firebirdsql.arc4 import ARC4
+try:
+    from Crypto.Cipher import ChaCha20
+except ImportError:
+    from firebirdsql.chacha import ChaCha20
 
 def DEBUG_OUTPUT(*argv):
     if debug_level() == 0:
@@ -93,21 +99,22 @@ class Statement(object):
                             h = -1
                         else:
                             (h, oid, buf) = connection._op_response()
-                        v = bytes([])
+                        v = bytearray()
                         n = 1   # 0,1:mora data 2:no more data
                         while n != 2:
                             connection._op_get_segment(h)
                             (n, oid, buf) = connection._op_response()
-                            while buf:
-                                ln = bytes_to_int(buf[:2])
-                                v += buf[2:ln+2]
-                                buf = buf[ln+2:]
+                            pos = 0
+                            while pos < len(buf):
+                                ln = bytes_to_int(buf[pos:pos+2])
+                                v += buf[pos+2:pos+2+ln]
+                                pos += ln + 2
                         connection._op_close_blob(h)
                         if (connection.accept_type & ptype_MASK)== ptype_lazy_send:
                             connection.lazy_response_count += 1
                         else:
                             (h, oid, buf) = connection._op_response()
-                        r[i] = v
+                        r[i] = bytes(v)
                         if x.sqlsubtype == 1:    # TEXT
                             r[i] = connection.bytes_to_str(r[i])
                     elif x.sqltype == SQL_TYPE_ARRAY:
@@ -152,8 +159,7 @@ class Statement(object):
             self.plan = self.trans.connection.bytes_to_str(buf[i+3:i+3+ln])
             i += 3 + ln
         self.stmt_type, self.xsqlda, self.bind_xsqlda = parse_xsqlda(buf[i:], self.trans.connection, self.handle)
-        if self.stmt_type == isc_info_sql_stmt_select:
-            self._is_open = True
+        self._is_open = False       # opened by executing it
 
     def close(self):
         DEBUG_OUTPUT("Statement::close()", self.handle)
@@ -209,6 +215,13 @@ class PreparedStatement(object):
         self.stmt.close()
 
 
+class _Prepared(PreparedStatement):
+    """A statement a cursor has already prepared, executed like a PreparedStatement."""
+    def __init__(self, stmt: Statement, sql: str) -> None:
+        self.stmt = stmt
+        self.sql = sql
+
+
 class Cursor(object):
     def __init__(self, obj: 'ConnectionBase | Transaction', timeout: float | int | None = None) -> None:
         DEBUG_OUTPUT("Cursor::__init__()")
@@ -226,6 +239,7 @@ class Cursor(object):
         self.stmt: Statement | None = None
         self.arraysize: int = 1
         self.rowcount: int = -1
+        self._pending_rowcount: int | None = None
         self.statement_timeout: float | int | None = timeout if timeout is not None else getattr(conn, 'statement_timeout', None)
         self._fetch_records = None
         self._callproc_result = None
@@ -278,6 +292,7 @@ class Cursor(object):
     def _execute(self, query: str | PreparedStatement, params: Sequence[Any] | None, timeout: float | int | None = None) -> 'Cursor':
         if params is None:
             params = []
+        self.transaction.connection._drop_deferred_statements()
         self.transaction.check_trans_handle()
         stmt = self._get_stmt(query)
         cooked_params = self._convert_params(params)
@@ -304,19 +319,45 @@ class Cursor(object):
                             )
             self._fetch_records = None
         else:
-            self.transaction.connection._op_execute(
+            # Send the requests together and read the replies afterwards: one
+            # round trip instead of three (SELECT) or two (other statements).
+            connection = self.transaction.connection
+            is_select = stmt.stmt_type == isc_info_sql_stmt_select
+            # Build the execute packet first: it uploads large bytes/text and
+            # array parameters, reading each reply at once, so it must run
+            # before any request whose reply is read later.
+            execute_buf = connection._op_execute_buffer(
                 stmt.handle, self.transaction.trans_handle, cooked_params,
                 input_xsqlda=stmt.bind_xsqlda,
                 timeout=timeout)
-            (h, oid, buf) = self.transaction.connection._op_response()
+            readers = []
+            if is_select and stmt._is_open:     # executed before: close its cursor first
+                connection._op_free_statement(stmt.handle, DSQL_close)
+                readers.append(connection._op_response_unless_closed)
+                stmt._is_open = False
+            connection.sock.send(execute_buf)
 
-            if stmt.stmt_type == isc_info_sql_stmt_select:
+            def read_execute():
+                r = connection._op_response()
+                if is_select:
+                    # the cursor is open on the server from here, even if
+                    # the first fetch fails
+                    stmt._is_open = True
+                return r
+            readers.append(read_execute)
+            if is_select:
                 fetch_count = max(self.arraysize, DEFAULT_FETCH_COUNT)
-                self.transaction.connection._op_fetch(stmt.handle, calc_blr(stmt.xsqlda), fetch_count)
-                (rows, more_data) = self.transaction.connection._op_fetch_response(stmt.handle, stmt.xsqlda)
+                connection._op_fetch(stmt.handle, calc_blr(stmt.xsqlda), fetch_count)
+                readers.append(lambda: connection._op_fetch_response(stmt.handle, stmt.xsqlda))
+            connection._op_info_sql(stmt.handle, bytes([isc_info_sql_records]))
+            readers.append(connection._op_response)
+            replies = connection._read_responses(readers)
+            if is_select:
+                (rows, more_data) = replies[-2]
                 self._fetch_records = stmt.fetch_generator(rows, more_data, fetch_count)
             else:
                 self._fetch_records = None
+            self._pending_rowcount = self._parse_rowcount(stmt, replies[-1][2])
             self._callproc_result = None
 
         return self
@@ -332,8 +373,12 @@ class Cursor(object):
         DEBUG_OUTPUT("Cursor::execute()", query, params)
         eff_timeout = timeout if timeout is not None else self.statement_timeout
         try:
+            self._pending_rowcount = None
             self._execute(query, params, timeout=eff_timeout)
-            self.rowcount = self._rowcount()
+            if self._pending_rowcount is not None:
+                self.rowcount = self._pending_rowcount
+            else:
+                self.rowcount = self._rowcount()
             # DML with RETURNING returns a phantom row of NULLs when no rows
             # are affected. Clear it so fetchone()/fetchall() return nothing,
             # matching PEP 249. Don't clear for EXECUTE PROCEDURE statements.
@@ -515,11 +560,14 @@ class Cursor(object):
             finally:
                 self.transaction.is_dirty = True
 
+        # one statement for all rows: prepared once above
+        prepared = query if isinstance(query, PreparedStatement) else _Prepared(stmt, query)
         total = 0
         for params in param_list:
-            self.execute(query, params)
+            self.execute(prepared, params)
             if self.rowcount > 0:
                 total += self.rowcount
+        self.query = query
         self.rowcount = total
 
     def fetchone(self) -> tuple[Any, ...] | None:
@@ -618,11 +666,17 @@ class Cursor(object):
         self.stmt = None
 
     def __del__(self) -> None:
+        # No network I/O here: the garbage collector can run this while the
+        # connection waits for replies to requests it has already sent, and
+        # a request sent now would put the replies out of step. The
+        # statement is dropped before the connection's next execute.
         try:
             if hasattr(self, 'stmt') and self.stmt and self.stmt.handle != -1:
                 if hasattr(self, '_transaction') and self._transaction:
-                    if self._transaction.connection and self._transaction.connection.sock is not None:
-                        self.close()
+                    connection = self._transaction.connection
+                    if connection and connection.sock is not None:
+                        connection._deferred_drops.append(self.stmt)
+                        self.stmt = None
         except Exception:
             pass
 
@@ -653,9 +707,13 @@ class Cursor(object):
 
         self.transaction.connection._op_info_sql(self.stmt.handle, bytes([isc_info_sql_records]))
         (h, oid, buf) = self.transaction.connection._op_response()
+        return self._parse_rowcount(self.stmt, buf)
+
+    @staticmethod
+    def _parse_rowcount(stmt, buf) -> int:
         if buf[:3] != bytes([0x17, 0x1d, 0x00]):    # isc_info_sql_records
             count = -1
-        elif self.stmt.stmt_type == isc_info_sql_stmt_select:
+        elif stmt.stmt_type == isc_info_sql_stmt_select:
             assert buf[17:20] == bytes([0x0d, 0x04, 0x00])     # isc_info_req_select_count
             # select count
             count = bytes_to_int(buf[20:24])
@@ -813,6 +871,17 @@ class Transaction(object):
 
 
 class ConnectionResponseMixin:
+    def _wait_readable(self):
+        """Wait up to ``timeout`` for data from the server.
+
+        With wire compression, bytes already decompressed into the stream's
+        buffer are ready even though the socket has nothing more to read.
+        """
+        if self.timeout is None or getattr(self.sock, '_recv_buf', None):
+            return
+        if select.select([self.sock._sock], [], [], self.timeout)[0] == []:
+            raise TimeoutError("Pakcet recv timeout error")
+
     def _recv_channel(self, nbytes, word_alignment=False):
         n = nbytes
         if word_alignment and (n % 4):
@@ -824,8 +893,7 @@ class ConnectionResponseMixin:
             del self._recv_buf[:take]
             n -= take
         while n:
-            if (self.timeout is not None and select.select([self.sock._sock], [], [], self.timeout)[0] == []):
-                raise TimeoutError("Pakcet recv timeout error")
+            self._wait_readable()
             b = self.sock.recv(n)
             if not b:
                 break
@@ -903,6 +971,44 @@ class ConnectionResponseMixin:
             raise InternalError("_op_response:op_code = %d" % (op_code,))
         return self._parse_op_response()
 
+    def _read_responses(self, readers):
+        """Call the readers of replies to requests sent together, in order.
+        Every reply is read even if one reports an error; the first error is
+        raised afterwards, so the connection stays in step."""
+        results = []
+        first_exc = None
+        for read in readers:
+            try:
+                results.append(read())
+            except InternalError:
+                raise           # not a server error: the replies may be out of step
+            except (IntegrityError, DataError, OperationalError, ProgrammingError, DatabaseError) as e:
+                results.append(None)
+                if first_exc is None:
+                    first_exc = e
+        if first_exc is not None:
+            raise first_exc
+        return results
+
+    def _drop_deferred_statements(self):
+        """Drop the statements of cursors freed by the garbage collector.
+        Call it only when no reply is pending."""
+        drops = getattr(self, '_deferred_drops', None)
+        while drops:
+            stmt = drops.pop()
+            if self.sock is not None and stmt.handle != -1:
+                stmt.drop()
+
+    def _op_response_unless_closed(self):
+        """Reply to DSQL_close; a cursor already closed (by a commit or a
+        rollback) is fine."""
+        try:
+            return self._op_response()
+        except OperationalError as e:
+            if 335544577 not in e.gds_codes:    # isc_dsql_cursor_close_err
+                raise
+            return None
+
     def _receive_two_responses(self):
         first_exc = None
         for _ in range(2):
@@ -976,9 +1082,13 @@ class ConnectionResponseMixin:
         self.accept_type = bytes_to_bint(b[8:])
         self.lazy_response_count = 0
 
-        if self.accept_type & pflag_compress:
-            self.sock.enable_compression()
+        # Firebird sends the whole accept packet uncompressed and compresses what
+        # follows, so compression is enabled once the packet has been read.
+        compress = self.accept_type & pflag_compress
+        if compress:
             self.accept_type &= ptype_MASK
+            if op_code not in (self.op_cond_accept, self.op_accept_data):
+                self.sock.enable_compression()
 
         if op_code == self.op_cond_accept or op_code == self.op_accept_data:
             ln = bytes_to_bint(self._recv_channel(4))
@@ -990,6 +1100,8 @@ class ConnectionResponseMixin:
             is_authenticated = bytes_to_bint(self._recv_channel(4))
             ln = bytes_to_bint(self._recv_channel(4))
             self._recv_channel(ln, word_alignment=True)   # keys
+            if compress:
+                self.sock.enable_compression()
 
             if is_authenticated == 0:
                 if self.accept_plugin_name in (b'Srp256',  b'Srp'):
@@ -1071,12 +1183,12 @@ class ConnectionResponseMixin:
                 if enc_plugin in (b'ChaCha64', b'ChaCha'):
                     k = hashlib.sha256(session_key).digest()
                     self.sock.set_translator(
-                        ChaCha20.new(k, nonce),
-                        ChaCha20.new(k, nonce),
+                        ChaCha20.new(key=k, nonce=nonce),
+                        ChaCha20.new(key=k, nonce=nonce),
                     )
                 elif enc_plugin == b'Arc4':
                     self.sock.set_translator(
-                        ARC4.new(session_key), ARC4.new(session_key))
+                        ARC4.new(key=session_key), ARC4.new(key=session_key))
                 else:
                     raise OperationalError(
                         'Unknown wirecrypt plugin %s' % (enc_plugin)
@@ -1094,6 +1206,12 @@ class ConnectionResponseMixin:
         while bytes_to_bint(b) == self.op_dummy:
             b = self._recv_channel(4)
         op_code = bytes_to_bint(b)
+        while op_code == self.op_response and self.lazy_response_count:
+            # a reply left for later (lazy_send), e.g. to dropping a statement
+            self.lazy_response_count -= 1
+            self._parse_op_response()
+            b = self._recv_channel(4)
+            op_code = bytes_to_bint(b)
         if op_code != self.op_sql_response:
             if op_code == self.op_response:
                 self._parse_op_response()
@@ -1200,8 +1318,7 @@ class ConnectionResponseMixin:
                     del buf[:pos]
                     pos = 0
                 while len(buf) < needed:
-                    if self.timeout is not None and select.select([self.sock._sock], [], [], self.timeout)[0] == []:
-                        raise TimeoutError("Pakcet recv timeout error")
+                    self._wait_readable()
                     is_compressed = getattr(self.sock, '_decompressor', None) is not None
                     read_size = (needed - len(buf)) if is_compressed else max(65536, needed - len(buf))
                     chunk = self.sock.recv(read_size)
@@ -1437,6 +1554,7 @@ class ConnectionBase(WireProtocol):
         self._autocommit = False
         self._transaction = None
         self._cursors = {}
+        self._deferred_drops = []      # statements of cursors freed by the garbage collector
 
         self.sock = SocketStream(self.hostname, self.port, self.timeout, self.cloexec)
 

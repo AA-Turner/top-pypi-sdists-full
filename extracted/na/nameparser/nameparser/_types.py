@@ -14,10 +14,10 @@ contents.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum
-from typing import TYPE_CHECKING, NamedTuple, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, NamedTuple, NoReturn, TypeVar
 
 if TYPE_CHECKING:
     from nameparser._lexicon import Lexicon
@@ -52,6 +52,125 @@ class Role(StrEnum):
     #: A birth surname, from a marker word ("Jane Smith née Jones" ->
     #: "Jones") or a delimiter pair routed via Policy.maiden_delimiters.
     MAIDEN = "maiden"
+
+
+# Order-spec constants (#270). Each reads as its contents because roles
+# are named given/family, not first/last. Defined here rather than in
+# _policy because ParsedName.order holds one; _policy re-exports them.
+
+#: Western order (the default): the first word of positional input is
+#: the given name, the last is the family name, everything between is
+#: middle. One of the three valid ``Policy(name_order=...)`` values.
+GIVEN_FIRST = (Role.GIVEN, Role.MIDDLE, Role.FAMILY)
+#: Family name first, given name second, remaining words middle
+#: (e.g. Hungarian, or East Asian order). One of the three valid
+#: ``Policy(name_order=...)`` values.
+FAMILY_FIRST = (Role.FAMILY, Role.GIVEN, Role.MIDDLE)
+#: Family name first, given name LAST, words between middle
+#: (e.g. Vietnamese full-name order). One of the three valid
+#: ``Policy(name_order=...)`` values.
+FAMILY_FIRST_GIVEN_LAST = (Role.FAMILY, Role.MIDDLE, Role.GIVEN)
+
+#: The three orders, for ParsedName.order's validation.
+_NAME_ORDERS = (GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST)
+
+
+# The order validation Policy.name_order, its script_orders values and
+# ParsedName.order share, here beside the constants since _types
+# imports nothing internal; _policy imports it from here.
+
+def _reject_bare_string_order(value: object, field_name: str) -> None:
+    # tuple("gmf") would be ("g", "m", "f") -- catch the bare string
+    # with the same TypeError every other iterable field raises.
+    # Single-sourced: called directly by PolicyPatch.__post_init__ and
+    # by _validated_order, which Policy.name_order, script_orders'
+    # values and ParsedName.order (where its fast path does not accept
+    # the value) go through. field_name is REQUIRED, with no name_order
+    # default: a defaulted caller that forgot to pass it would silently
+    # name the wrong field.
+    if isinstance(value, str):
+        raise TypeError(
+            f"{field_name} must be an iterable of three Roles, "
+            f"not a bare string: {value!r}"
+        )
+    # A {Role: position} dict iterates to the right three Roles in the
+    # right order, so it would be accepted -- harmlessly today, since
+    # the result is checked against the three exported orders anyway.
+    # Guarded regardless: "iterating this yields something plausible
+    # but not what you wrote" is one bug class, and leaving one field
+    # out of it is how the PolicyPatch hole happened.
+    if isinstance(value, Mapping):
+        raise TypeError(
+            f"{field_name} must be an iterable of three Roles, not a "
+            f"mapping: {value!r}"
+        )
+    # a set iterates in an order its hash seed decides, so the same
+    # value read as one order, another, or none from run to run
+    if isinstance(value, (set, frozenset)):
+        raise TypeError(
+            f"{field_name} must be an ordered iterable of three Roles, "
+            f"not a {type(value).__name__}: {value!r}"
+        )
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        raise TypeError(
+            f"{field_name} must be an iterable of three Roles, not "
+            f"{type(value).__name__} -- decode first, e.g. "
+            f"raw.decode('utf-8')"
+        )
+
+
+def _require_iterable(value: Iterable[Any], field_name: str,
+                      expected: str = "an iterable") -> Iterable[Any]:
+    """Probe a value's iterability and return its iterator, raising a
+    TypeError naming the field if it has none. `expected` carries the
+    field's own phrasing ("a mapping of Script to order"); the default
+    suits every plain iterable field.
+
+    Probing with iter() is what makes the message possible: a
+    non-iterable (an int, a bool, ...) is named here, matching the
+    treatment patronymic_rules already gets, instead of a bare "'int'
+    object is not iterable" surfacing from whatever tuple()/frozenset()
+    happens to run first. It is ALSO the reason callers consume the
+    returned iterator OUTSIDE any try of their own: an exception raised
+    inside a caller's generator while it is being consumed is the
+    caller's own error, and must propagate untouched rather than be
+    rewritten as a shape complaint about the field.
+    """
+    try:
+        return iter(value)
+    except TypeError:
+        raise TypeError(
+            f"{field_name} must be {expected}, got {value!r}"
+        ) from None
+
+
+def _validated_order(value: Iterable[Any],
+                     field_name: str) -> tuple[Role, Role, Role]:
+    """name_order's element/permutation check, single-sourced so
+    script_orders values and ParsedName.order obey the identical rule (only the three
+    exported orders have implemented assignment semantics)."""
+    _reject_bare_string_order(value, field_name)
+    order = tuple(_require_iterable(value, field_name))
+    # Sole rejection point for plain-string tuples: Role is a StrEnum,
+    # so the named-order membership check below compares EQUAL for
+    # ("given", "middle", "family") -- do not remove this loop as
+    # redundant.
+    for element in order:
+        if not isinstance(element, Role):
+            raise TypeError(
+                f"{field_name} elements must be Role members, "
+                f"got {element!r}"
+            )
+    # Only the three exported orders have implemented assignment
+    # semantics; the unnamed permutations would silently misassign.
+    # Pre-2.0 strictness is free -- relaxing later is compatible.
+    if order not in _NAME_ORDERS:
+        raise ValueError(
+            f"{field_name} must be one of the exported orders, got "
+            f"{order!r}; use GIVEN_FIRST, FAMILY_FIRST, or "
+            f"FAMILY_FIRST_GIVEN_LAST"
+        )
+    return order  # type: ignore[return-value]  # length checked above
 
 
 class Span(NamedTuple):
@@ -93,8 +212,8 @@ class Span(NamedTuple):
 #: capital would be one ("j" as "J", never "é", rules/T4);
 #: "joined" a continuation of the token before it -- within one
 #: merged piece the tag is role-blind and every view joins the pair
-#: with a space ("Ph." + "D."; 'Ph. D., Jr.' gives last_list
-#: ['Ph. D.']), and since #436 it also spans the pieces of one SUFFIX
+#: with a space ("Ph." + "D."; 'Ph. D., Jr.' gives family
+#: 'Ph. D.'), and since #436 it also spans the pieces of one SUFFIX
 #: entry, the run of post-nominals the writer wrote without a comma
 #: ("MD PhD"), which is the half the suffix view alone reads and
 #: joins with a space instead of ", ". Every other tag is namespaced
@@ -105,7 +224,9 @@ class Span(NamedTuple):
 #: test only compares the frozenset), so edit both or neither.
 STABLE_TAGS = frozenset({"particle", "conjunction", "initial", "joined"})
 
-#: A name part whose every word is particle vocabulary is a part
+#: A name part whose every word is particle vocabulary (a connective
+#: between two of its words set aside in asking, and left unmarked,
+#: rules/R2, #939) is a part
 #: where none of them is doing a particle's work -- nothing joins them
 #: to a name -- so FOUR views read them as ordinary name words: they
 #: anchor `family_base`, drop out of `family_particles`, contribute
@@ -132,15 +253,14 @@ UNJOINED_CONJUNCTION_TAG = "vocab:unjoined-conjunction"
 #: The one sanctioned view-reorder marker (namespaced = unstable API).
 #: Tokens cannot reorder (span order is validated), so a role fold that
 #: must render BEFORE the role's original tokens tags them with this;
-#: _text_for, _render.initials and the facade lists all prepend the
-#: carriers. Single-sourced here so the emitter (_pipeline/_post_rules)
-#: and the consumers cannot drift -- initials() was the consumer that
-#: did drift, walking written order until #408.
+#: _text_for and _render.initials both prepend the carriers.
+#: Single-sourced here so the emitter (_pipeline/_post_rules) and the
+#: consumers cannot drift -- initials() was the consumer that did
+#: drift, walking written order until #408.
 FOLDED_TAG = "vocab:folded-middle"
 
 #: Raw text spliced into a field after the parse, which no parse ever
-#: read: `ParsedName.replace()` stamps it, and so does the facade's
-#: v1 pickle load, which rebuilds a name from `*_list` strings alone.
+#: read: `ParsedName.replace()` stamps it.
 #: A view that is HANDED a vocabulary falls back to it for a token
 #: carrying this -- there is no decision to honor -- and reads every
 #: other token by its tags (mechanisms.md#RENDER-HONORS-THE-PARSE).
@@ -173,9 +293,10 @@ SHAPE_ACRONYM_TAG = "shape:acronym"
 
 #: The tags classify writes on the FIRST word of a credential written
 #: split across a space (`_pipeline._vocab.split_pair`), naming the
-#: piece tag the pair merges with: SPLIT_CREDENTIAL_TAG the Ph./D. pair,
-#: merged as an unambiguous suffix ("suffix"), and SPLIT_MEMBER_TAG any
-#: other, merged as a member of the ambiguous class ("split", rules/S12).
+#: piece tag the pair merges with: SPLIT_CREDENTIAL_TAG the Ph./D. pair
+#: where the lexicon lists `phd` as an unambiguous credential, merged as
+#: an unambiguous suffix ("suffix"), and SPLIT_MEMBER_TAG any other,
+#: merged as a member of the ambiguous class ("split", rules/S12).
 #: Written by classify because it is the one stage that sees every
 #: adjacent pair with the lexicon in hand, so group's merge and
 #: `_comma._pieces` read the decision off a tag, C-level, rather than
@@ -231,7 +352,8 @@ def _guarded_getstate(self: object) -> dict[str, object]:
 #: before the release lacks it, and loads with the default (2.7, #752).
 #: A field without the key -- every field a type shipped with -- is
 #: still required, default or not, so a pickle missing `Token.tags` is
-#: refused as it always was.
+#: refused as it always was. Lexicon's own guard reads the same string
+#: as `_lexicon._ADDED_IN` (3.0, #959), layering keeping it from this one.
 ADDED_IN = "nameparser.added_in"
 
 
@@ -275,6 +397,19 @@ class Token:
     #: "initial", "joined") are API; namespaced tags like "vocab:..."
     #: are unstable debugging provenance -- never match against them.
     tags: frozenset[str] = frozenset()
+    #: The reading the parse took for this word: what it was read as,
+    #: the field it landed in (always this token's :attr:`role`), and
+    #: why -- a listed word, a declared name, a shape, or position
+    #: alone -- and the shipped files whose reading of it is on in the
+    #: parse's lexicon (:attr:`Reading.languages`). The twin of
+    #: :attr:`Ambiguity.alternative`, which holds the reading NOT taken.
+    #: None for a token the parse did not read: one
+    #: :meth:`ParsedName.replace` or :meth:`Parser.revise` builds, or one
+    #: loaded from a pickle written before 3.0. Not compared: two tokens
+    #: equal without it, as before 3.0, and
+    #: :meth:`ParsedName.comparison_key` ignores it. Added in 3.0.
+    reading: Reading | None = field(
+        default=None, compare=False, metadata={ADDED_IN: "3.0.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -289,6 +424,19 @@ class Token:
             raise ValueError("Token.text must be a non-empty string")
         object.__setattr__(
             self, "role", _coerce_enum(self.role, Role, "Role", "roles"))
+        if self.reading is not None:
+            if not isinstance(self.reading, Reading):
+                raise TypeError(
+                    f"Token.reading must be a Reading or None, got "
+                    f"{self.reading!r}"
+                )
+            if self.reading.role is not self.role:
+                raise ValueError(
+                    f"Token.reading names the field {self.reading.role.value!r} "
+                    f"but the token's role is {self.role.value!r}; a "
+                    f"token's reading is of its own field: pass "
+                    f"Reading(kind, role, source) with the token's role"
+                )
         if self.span is not None:
             if not (
                 isinstance(self.span, tuple)
@@ -453,14 +601,14 @@ class AmbiguityKind(StrEnum):
     certainty."""
 
     #: Reserved: the name's field order itself is uncertain (e.g. a
-    #: two-word name under a non-default name_order). Not yet emitted;
-    #: planned for 2.x. A lone name word is GIVEN_OR_FAMILY's, not
+    #: two-word name under a non-default name_order). Not yet
+    #: emitted. A lone name word is GIVEN_OR_FAMILY's, not
     #: this.
     ORDER = "order"
     #: Delimited content is an ambiguous suffix acronym, so it reads
     #: plausibly as either a post-nominal or a nickname -- "JEFFREY
     #: (JD) BRICKEN" keeps the nickname reading, where the
-    #: unambiguous "(MBA)" escapes to suffix on vocabulary alone, and
+    #: unambiguous "(PhD)" escapes to suffix on vocabulary alone, and
     #: "Andrew Perkins (JD)" on its capitals, which settle it.
     SUFFIX_OR_NICKNAME = "suffix-or-nickname"
     #: A trailing word reads plausibly as either a post-nominal or an
@@ -618,8 +766,9 @@ class AmbiguityKind(StrEnum):
     #: A title that may also be a given name ("Dean", rules/H9) reports
     #: it too, where it opens the name outside a title phrase and no
     #: comma has marked the given name: "Dean Smith" gives given "Dean".
-    #: Only a word some phrase of ``Lexicon.title_phrases`` holds
-    #: reports, so "Grace Smith" does not.
+    #: Only a word some title phrase holds (a pair a title reading's
+    #: ``attaches`` property licenses) reports, so "Grace Smith" does
+    #: not.
     TITLE_OR_NAME = "title-or-name"
     #: An ambiguous particle is either a particle or a name in its own
     #: right -- "Van Johnson" is the actor's given name, a bare
@@ -654,7 +803,8 @@ class AmbiguityKind(StrEnum):
     #: an INITIAL and this reports the fork: "jose e maria santos" gives
     #: middle "e maria" and "JOSE E MARIA SANTOS" middle "E MARIA",
     #: both flagged. Only a letter the vocabulary marks both ways
-    #: reports -- ``Lexicon.conjunctions_ambiguous``, "e" and "i" by
+    #: reports -- a conjunction reading written ``may_be_initial``
+    #: (``Lexicon.words(kind="conjunction", may_be_initial=True)``), "e" and "i" by
     #: default -- because a letter outside it is not in doubt: "JUAN GARCIA Y
     #: LOPEZ" joins into family "GARCIA Y LOPEZ" and reports nothing,
     #: as does the Cyrillic "ХОСЕ И МАРИЯ САНТОС" -- whose join lands
@@ -685,18 +835,20 @@ class AmbiguityKind(StrEnum):
     CONJUNCTION_OR_INITIAL = "conjunction-or-initial"
     #: A name of one name word that nothing else decided had to be read
     #: as one field or the other, and both readings fit it equally well
-    #: -- "Andrew", "Smith". The convention picks the given name under
-    #: the default order and the family name under a declared
-    #: family-first one, the same way every time, so ``detail`` names
-    #: the field the convention chose rather than the kind naming it:
-    #: the same reason PARTICLE_OR_GIVEN cannot. A name something DID
+    #: -- "Andrew", "Smith". The convention picks the field
+    #: ``Policy.lone_name_word`` names, the given name by default, under
+    #: every order and the same way every time, so ``detail`` names the
+    #: field the convention chose rather than the kind naming it: the
+    #: field is the caller's setting, as PARTICLE_OR_GIVEN's is the
+    #: order's. A name something DID
     #: decide reports nothing: a title, a maiden name, a family comma
     #: that names a family, a script whose own convention settles the
     #: order, or the vocabulary claiming the word (a particle, a bound
     #: given name, an initial's shape) each settle the reading, and a
-    #: settled reading is not a fork. A nickname or a suffix standing
-    #: BESIDE the one name word does not settle it -- "'Smitty' Jones
-    #: Jr." and "Smith Jr." both report.
+    #: settled reading is not a fork; so does a nickname beside it,
+    #: whatever suffix stands there too ("'Smitty' Jones Jr.", N3). A
+    #: suffix standing BESIDE the one name word does not settle it --
+    #: "Smith Jr." reports.
     GIVEN_OR_FAMILY = "given-or-family"
     #: A nickname/maiden delimiter opened without closing (or closed
     #: without opening); the text was kept as literal name content, so
@@ -743,12 +895,16 @@ class ReadingKind(StrEnum):
 
     #: A post-nominal credential or other acronym suffix ("MA", "X.Y.Z.").
     CREDENTIAL = "credential"
-    #: A generational suffix: a roman numeral, or a word such as "fils".
+    #: A generational suffix: a roman numeral, or a word such as "Jr."
+    #: or "fils".
     GENERATION = "generation"
     #: An agnomen, a family word that is also a suffix ("Filho", "Neto").
     AGNOMEN = "agnomen"
     #: A listed post-nominal word of another kind ("Rinpoche", "Esq.").
     POST_NOMINAL = "post-nominal"
+    #: A form of address written after the name ("さん", "씨", "先生"),
+    #: the words :attr:`ParsedName.honorifics` holds. Added in 3.0.
+    HONORIFIC = "honorific"
     #: A title ("Dean", "Prince"). The one value shared with a
     #: :class:`Role`, on purpose: a title reading is the title field's,
     #: so ``ReadingKind.TITLE == Role.TITLE`` says something true.
@@ -761,6 +917,17 @@ class ReadingKind(StrEnum):
     INITIAL = "initial"
     #: An ordinary name word, given or family.
     NAME = "name"
+    #: A patronymic or matronymic: a word naming the parent ("bin
+    #: Mohamad", "Ivanovich"), in whichever field the parse put it, the
+    #: words :attr:`ParsedName.patronymic` holds. Added in 3.0.
+    PATRONYMIC = "patronymic"
+
+
+#: The reading kinds :attr:`ParsedName.generation` and
+#: :attr:`ParsedName.honorifics` hold; every other suffix word is in
+#: :attr:`ParsedName.credentials` (#326).
+_GENERATION_KINDS = frozenset({ReadingKind.GENERATION, ReadingKind.AGNOMEN})
+_HONORIFIC_KINDS = frozenset({ReadingKind.HONORIFIC})
 
 
 class ReadingSource(StrEnum):
@@ -780,17 +947,21 @@ class ReadingSource(StrEnum):
     #: reading any word has where it stands, an ordinary name word. A
     #: word a credential run took by position alone ("Jones" in "John
     #: Smith PhD Jones") has this as its alternative, where "Ma" in
-    #: "JOHN SMITH MA" has :attr:`DECLARED`.
+    #: "JOHN SMITH MA" has :attr:`DECLARED`. As a reading taken, it is
+    #: also the source of a word a run took into its field by where it
+    #: stands rather than by what it is: "Jones" itself, read into the
+    #: suffix behind "PhD", or an unlisted word past a second comma.
     POSITION = "position"
 
 
 @dataclass(frozen=True, slots=True)
 class Reading:
     """One way of reading a word, as a decision of the parse weighed
-    it. :attr:`Ambiguity.alternative` holds the reading the parse did
-    NOT take, so a caller who would have read the name the other way
-    knows which field the word would have gone to and why the reading
-    was available at all."""
+    it. :attr:`Token.reading` holds the reading the parse took, and
+    :attr:`Ambiguity.alternative` the reading it did NOT take, so a
+    caller who would have read the name the other way knows which
+    field the word would have gone to and why the reading was
+    available at all."""
 
     #: What the word is read as.
     kind: ReadingKind
@@ -800,12 +971,81 @@ class Reading:
     #: Where the reading comes from: a listed word, a declared name, a
     #: shape, or position alone.
     source: ReadingSource
+    #: The BCP 47 tags of the shipped vocabulary files that hold this
+    #: reading of the word, on in the parse's own ``Lexicon``
+    #: (``("ca", "es", "fil", "fr", "it", "nl", "pt", "si")`` for the particle ``de`` by
+    #: default, ``("pt",)`` under a ``pt`` choice, which drops the
+    #: others' readings of it; ``("mul",)`` for the title ``Dr.``), so
+    #: a choice of languages names the files it turns on and not those
+    #: it drops; sorted. A caller's ``add`` of a kind a file holds for
+    #: the word turns that file's reading on, so the file is named
+    #: (``add("st", kind="generation")`` names ``cs``, ``hr``, ``sk``
+    #: and ``sl``), and a ``remove`` stops naming the files it took a
+    #: reading from. A name reading takes the files listing the word
+    #: as a name of its field, given or family (``Ma`` read as a
+    #: family name names ``en``, which lists it so, and not ``fil``,
+    #: which lists it as a given name). Empty for a reading no file
+    #: holds: a shape, position alone, a name read into a field no
+    #: file lists it in (``van`` as a family name, ``nl`` listing it
+    #: as given), a caller's ``add`` of a kind no file holds for the
+    #: word, or a shipped list kept outside the per-word files (the
+    #: Korean surnames that divide ``김민준``).
+    #: A suffix reading is matched by the word's suffix entry whatever
+    #: its finer kind, a word having one. An ``Ambiguity.alternative``
+    #: names the files holding it for any word the report names. Not
+    #: compared: two readings are equal without it, as in 2.x. Added
+    #: in 3.0.
+    languages: tuple[str, ...] = field(
+        default=(), compare=False, metadata={ADDED_IN: "3.0.0"})
+    #: True for a word of the family's second name unit, where a rule
+    #: read the family as two (``Márquez`` in ``Gabriel García
+    #: Márquez`` under ``two_family_names``): the words
+    #: :attr:`ParsedName.surname2` holds. False everywhere else, a
+    #: family the parse read as one unit included, and in every
+    #: :attr:`Ambiguity.alternative`. Not compared: two readings are
+    #: equal without it. Added in 3.0.
+    second_surname: bool = field(
+        default=False, compare=False, metadata={ADDED_IN: "3.0.0"})
+    #: True for a word of the family's FIRST name unit where a rule read
+    #: the family as two (``García`` in ``Gabriel García Márquez`` under
+    #: ``two_family_names``) or folded middle names into it
+    #: (``middle_as_family``): the words :attr:`ParsedName.surname1`
+    #: holds there, the folded middles not among them. False everywhere
+    #: else, and in every :attr:`Ambiguity.alternative`. Not compared.
+    #: Added in 3.0.
+    first_surname: bool = field(
+        default=False, compare=False, metadata={ADDED_IN: "3.0.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
     __setstate__ = _guarded_setstate
 
     def __post_init__(self) -> None:
+        if type(self.second_surname) is not bool:
+            raise TypeError(
+                f"Reading.second_surname must be a bool, got "
+                f"{self.second_surname!r}; pass True or False")
+        if type(self.first_surname) is not bool:
+            raise TypeError(
+                f"Reading.first_surname must be a bool, got "
+                f"{self.first_surname!r}; pass True or False")
+        if type(self.languages) is not tuple:
+            langs = self.languages
+            if isinstance(langs, str):
+                raise TypeError(
+                    f"Reading.languages must be an iterable of BCP 47 "
+                    f"tags, got the str {langs!r}; write ({langs!r},)")
+            if isinstance(langs, Mapping) or not isinstance(langs, Iterable):
+                raise TypeError(
+                    f"Reading.languages must be an iterable of BCP 47 "
+                    f"tags as str, got {langs!r}; pass a tuple or list of "
+                    f"tags, such as ('en',)")
+            object.__setattr__(self, "languages", tuple(langs))
+        for tag in self.languages:
+            if not isinstance(tag, str):
+                raise TypeError(
+                    f"Reading.languages must hold BCP 47 tags as str, got "
+                    f"{tag!r} in {self.languages!r}")
         # the members the parser passes need no coercion, and a report
         # pays no frame for it (decisions/parse-cost)
         if not isinstance(self.kind, ReadingKind):
@@ -822,8 +1062,12 @@ class Reading:
                              "sources"))
 
     def __repr__(self) -> str:
+        langs = (f", in {' '.join(self.languages)}" if self.languages
+                 else "")
+        unit = (", second surname" if self.second_surname
+                else ", first surname" if self.first_surname else "")
         return (f"Reading({self.kind.value!r} as {self.role.value!r}, "
-                f"{self.source.value!r})")
+                f"{self.source.value!r}{langs}{unit})")
 
 
 @dataclass(frozen=True, slots=True)
@@ -926,14 +1170,24 @@ def _remarked(tokens: list[Token]) -> tuple[Token, ...]:
     is only correct for half the cases.
 
     The two predicates mirror the pipeline's single walk, including
-    its precedence: where the part is ALL particles the first mark
-    already readmits every word of it, a word that is both particle
-    and connective included, so the second is not written there.
+    its precedence: where the part is ALL particles -- a connective
+    that is no particle, between the part's first and last word, set
+    aside in asking (rules/R2, #939) -- the first mark readmits every
+    word of it but that connective, a word that is both particle and
+    connective included, so the second is not written there.
     """
     out = list(tokens)
     for role in (Role.GIVEN, Role.MIDDLE, Role.FAMILY):
         part = [i for i, t in enumerate(out) if t.role is role]
-        alone = bool(part) and all("particle" in out[i].tags for i in part)
+        # rules/R2's connective set-aside, as the pipeline's walk
+        # applies it: a connective that is no particle, between the
+        # part's first and last word, is not asked, and is not marked
+        between = {i for n, i in enumerate(part)
+                   if 0 < n < len(part) - 1
+                   and "conjunction" in out[i].tags
+                   and "particle" not in out[i].tags}
+        alone = bool(part) and all("particle" in out[i].tags
+                                   for i in part if i not in between)
         # `bool(part)` on both, and DEFENSIVE and measured inert on
         # this one (2026-09-20, #397 review question 4): an EMPTY part
         # satisfies `all` and `not any` alike, so without the guard
@@ -948,9 +1202,10 @@ def _remarked(tokens: list[Token]) -> tuple[Token, ...]:
             for i in part)
         for i in part:
             tags = out[i].tags
-            if alone and UNJOINED_TAG not in tags:
+            unjoined = alone and i not in between
+            if unjoined and UNJOINED_TAG not in tags:
                 out[i] = dataclasses.replace(out[i], tags=tags | {UNJOINED_TAG})
-            elif not alone and UNJOINED_TAG in tags:
+            elif not unjoined and UNJOINED_TAG in tags:
                 out[i] = dataclasses.replace(out[i],
                                              tags=tags - {UNJOINED_TAG})
             # re-read: the arm above may have replaced the token
@@ -971,7 +1226,10 @@ class ParsedName:
     fields as strings (``.given``, ``.family``, ...); inspect structure
     through :attr:`tokens` / :meth:`tokens_for`; correct a parse with
     :meth:`replace` (returns a new value; Parser.revise is the
-    tag-preserving form); produce output with
+    tag-preserving form); read the views derived from the fields
+    (:attr:`given_names`, :attr:`family_base`, :attr:`generation`,
+    :attr:`credentials`, :attr:`honorifics`, :attr:`patronymic`,
+    :attr:`surname1`, :attr:`surname2`, ...); produce output with
     :meth:`render`, :meth:`initials`, :meth:`capitalized`, or ``str()``.
 
     Constructor-enforced invariants: spans ascending, non-overlapping,
@@ -988,6 +1246,17 @@ class ParsedName:
     #: Judgment calls that could have gone the other way; empty for
     #: most names (see Ambiguity).
     ambiguities: tuple[Ambiguity, ...] = ()
+    #: The order the name was read in: ``GIVEN_FIRST``,
+    #: ``FAMILY_FIRST`` or ``FAMILY_FIRST_GIVEN_LAST``, the declared
+    #: ``name_order`` or the ``script_orders`` entry that overrode it,
+    #: and ``GIVEN_FIRST`` for a name with a family comma. ``str()``
+    #: and :meth:`render`'s default lay the name out in it. ``None``
+    #: (a name built by hand, or a 2.x pickle) renders as 2.x did:
+    #: given-first, its words joined by spaces.
+    #: Left out of ``==`` and :meth:`comparison_key`, so two equal
+    #: names can render differently. Added in 3.0.
+    order: tuple[Role, Role, Role] | None = field(
+        default=None, compare=False, metadata={ADDED_IN: "3.0.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -1000,6 +1269,23 @@ class ParsedName:
             )
         object.__setattr__(self, "tokens", tuple(self.tokens))
         object.__setattr__(self, "ambiguities", tuple(self.ambiguities))
+        order = self.order
+        # a tuple of three Role members that is one of the orders, as
+        # every parse passes, is valid as it stands, and is asked
+        # C-level so a parse pays no frame for it; anything else goes
+        # through the one validator Policy.name_order goes through, so
+        # a list is stored as the tuple and a plain-string tuple, which
+        # compares equal to an order, is refused here as there. The
+        # three `type() is Role` tests are what keep a tuple holding a
+        # plain string off the fast path, Role being a StrEnum, and the
+        # length test what keeps a short one from an IndexError: do not
+        # drop either as redundant
+        if order is not None and not (
+                type(order) is tuple and len(order) == 3
+                and type(order[0]) is Role and type(order[1]) is Role
+                and type(order[2]) is Role and order in _NAME_ORDERS):
+            object.__setattr__(self, "order", _validated_order(
+                order, "ParsedName.order"))
         for tok in self.tokens:
             if not isinstance(tok, Token):
                 raise TypeError(
@@ -1054,7 +1340,7 @@ class ParsedName:
         return self.render()
 
     def __repr__(self) -> str:
-        # 4-space indent, matching HumanName's repr (v1 style)
+        # 4-space indent, v1's repr style
         lines = []
         for role in Role:
             text = self._text_for(role)
@@ -1074,12 +1360,19 @@ class ParsedName:
 
     def _text_for(self, *roles: Role, tag: str | None = None,
                   without_tag: str | None = None,
-                  unless_tag: str | None = None) -> str:
+                  unless_tag: str | None = None,
+                  first_unit: bool = False) -> str:
         suffix_join = roles == (Role.SUFFIX,)
         parts: list[str] = []
         folded: list[str] = []
+        end = -1
         for tok in self.tokens:
             if tok.role not in roles:
+                continue
+            # the first unit's words alone, where `first_unit` (the
+            # surname1 views below)
+            if first_unit and (tok.reading is None
+                               or not tok.reading.first_surname):
                 continue
             # A token carrying `unless_tag` is read as though it did
             # not carry `tag`/`without_tag` at all -- so it is EXCLUDED
@@ -1101,20 +1394,42 @@ class ParsedName:
                 # middle_as_family fold: v1 PREPENDED middle_list to
                 # last_list; spans cannot reorder, so the view does
                 folded.append(tok.text)
+            # rules/R1: "words the writer wrote together join with
+            # nothing between them" -- the two halves of any word a
+            # division cut (rules/W1, W5) that land in one field; the
+            # suffix keeps its entries apart (decisions/W5, #845). `end`
+            # is -1 unless the last word kept went to `parts`, so a match
+            # always has a `parts[-1]` to join
+            elif (not suffix_join and tok.span is not None
+                  and tok.span.start == end):
+                parts[-1] += tok.text
             else:
                 parts.append(tok.text)
+            # a folded word went to `folded`, not to the end of `parts`
+            end = (-1 if tok.span is None or FOLDED_TAG in tok.tags
+                   else tok.span.end)
         return (", " if suffix_join else " ").join(folded + parts)
 
     @property
     def title(self) -> str:
+        """The words read as titles ("Dr.", "Sir"), wherever in the
+        name they stand, space-joined in written order, save words
+        written with nothing between them, which stay so; ``''`` for a
+        name with none."""
         return self._text_for(Role.TITLE)
 
     @property
     def given(self) -> str:
+        """The given name's words, space-joined in written order, save
+        words written with nothing between them, which stay so; ``''``
+        for a name with none ("de la Vega")."""
         return self._text_for(Role.GIVEN)
 
     @property
     def middle(self) -> str:
+        """The middle names' words, space-joined in written order, save
+        words written with nothing between them, which stay so; ``''``
+        for a name with none."""
         return self._text_for(Role.MIDDLE)
 
     @property
@@ -1123,42 +1438,237 @@ class ParsedName:
     # folded family words" (O3's fold and P6's tussenvoegsel, which
     # render before the rest of the family)
     def family(self) -> str:
+        """The family name's words, particles included ("de la
+        Vega"), space-joined in written order, save words written with
+        nothing between them, which stay so ("王李" in "王李小明" under
+        ``locales.ZH``), and the middle names ``middle_as_family`` folds
+        in, which come first; ``''`` for a
+        name with none ("Williams" is a given name alone)."""
         return self._text_for(Role.FAMILY)
 
     @property
     def suffix(self) -> str:
+        """The words after the name ("Jr.", "PhD", "さん"): each entry
+        the writer set apart joined to the next with ``", "``, the
+        words of one entry with a space ("MD PhD, Jr."); ``''`` for a
+        name with none. :attr:`generation`, :attr:`credentials` and
+        :attr:`honorifics` divide it by kind."""
         return self._text_for(Role.SUFFIX)
 
     @property
     def nickname(self) -> str:
+        """The words written inside nickname delimiters (quotes,
+        parentheses; :attr:`Policy.nickname_delimiters
+        <nameparser.Policy.nickname_delimiters>`), space-joined in
+        written order, the delimiters dropped; ``''`` for a name with
+        none."""
         return self._text_for(Role.NICKNAME)
 
     @property
     def maiden(self) -> str:
+        """The maiden name's words, those a birth marker ("née",
+        "geb.") introduces or a pair in :attr:`Policy.maiden_delimiters
+        <nameparser.Policy.maiden_delimiters>` encloses, space-joined
+        in written order, the marker dropped; ``''`` for a name with
+        none."""
         return self._text_for(Role.MAIDEN)
 
-    # -- derived views (filters over roles + STABLE tags only) ----------
+    # -- derived views (filters over roles, STABLE tags and readings) ---
 
     @property
     # rules/R2: "the family name splits into further views: the
-    # base (the family without its leading particles) and the
-    # particles themselves"
+    # base (the family without its particles) and the particles
+    # themselves"
     def family_particles(self) -> str:
+        """The particles of :attr:`family` ("de la" in "Juan de la
+        Vega"), space-joined as :attr:`family` writes them; ``''`` for
+        a family with none. A family that :meth:`replace` or
+        Parser.revise wrote carries no particle tags, so its words are
+        all in :attr:`family_base`."""
         return self._text_for(Role.FAMILY, tag="particle",
                               unless_tag=UNJOINED_TAG)
 
     @property
     def family_base(self) -> str:
+        """:attr:`family` without its particles ("Vega" in "Juan de la
+        Vega"), space-joined as :attr:`family` writes them, so the two
+        views together hold the family's words; ``''`` for a name with
+        no family."""
         return self._text_for(Role.FAMILY, without_tag="particle",
                               unless_tag=UNJOINED_TAG)
 
     @property
     def surnames(self) -> str:
+        """The middle names and the family name together ("Q. Xavier
+        de la Vega" in "Juan Q. Xavier de la Vega"), space-joined in
+        written order, save words written with nothing between them,
+        which stay so; ``''`` for a name with neither ("Williams")."""
         return self._text_for(Role.MIDDLE, Role.FAMILY)
 
     @property
+    # rules/R8: "the suffix splits into three views that partition it"
+    # (history: decisions/R8, #326)
+    def generation(self) -> str:
+        """The suffix words read as a generation or an agnomen ("Jr.",
+        "III", "Filho"), joined as :attr:`suffix` joins them; ``''``
+        for a name with none. Added in 3.0."""
+        return self._suffix_view(_GENERATION_KINDS)
+
+    @property
+    def credentials(self) -> str:
+        """The rest of the suffix: credentials and the post-nominal
+        words that are neither a generation nor an honorific ("PhD",
+        "Esq.", "Rinpoche"), joined as :attr:`suffix` joins them; ``''``
+        for a name with none. A suffix word with no
+        :attr:`Token.reading` (one :meth:`replace` or Parser.revise
+        wrote) is counted here. Added in 3.0."""
+        return self._suffix_view(None)
+
+    @property
+    def honorifics(self) -> str:
+        """The suffix words read as a form of address written after
+        the name ("さん", "씨", "先生"), joined as :attr:`suffix` joins
+        them; ``''`` for a name with none. Added in 3.0."""
+        return self._suffix_view(_HONORIFIC_KINDS)
+
+    @property
     def given_names(self) -> str:
+        """The given name and the middle names together ("Juan Q.
+        Xavier" in "Juan Q. Xavier de la Vega"), space-joined in
+        written order, save words written with nothing between them,
+        which stay so; ``''`` for a name with neither ("de la Vega")."""
         return self._text_for(Role.GIVEN, Role.MIDDLE)
+
+    @property
+    # rules/R9: "the words read as a patronymic, in whichever field
+    # the parse put them" (history: decisions/R9, #754)
+    def patronymic(self) -> str:
+        """The words read as a patronymic or matronymic ("bin
+        Mohamad", and "Ivanovich" where a policy turns on the East
+        Slavic rule), in whichever field the parse put them, which
+        keeps them; ``''`` for a name with none. Space-joined in
+        written order, the family's words in the order :attr:`family`
+        writes them. Added in 3.0."""
+        parts: list[str | list[str]] = []
+        family: list[str] | None = None
+        folded: list[str] = []
+        for tok in self.tokens:
+            if (tok.reading is None
+                    or tok.reading.kind is not ReadingKind.PATRONYMIC):
+                continue
+            if tok.role is Role.FAMILY:
+                if family is None:
+                    family = []
+                    parts.append(family)
+                # a word folded into the family is written before it,
+                # as `family` writes it ('Mohamad, Mahathir bin')
+                (folded if FOLDED_TAG in tok.tags else family).append(
+                    tok.text)
+            else:
+                parts.append(tok.text)
+        if family is not None:
+            family[:0] = folded
+        return " ".join(p if isinstance(p, str) else " ".join(p)
+                        for p in parts)
+
+    @property
+    # rules/R10: "the family's second name unit, the one written
+    # second, makes the second-surname view" (history: decisions/R10,
+    # #754)
+    def surname2(self) -> str:
+        """The family's second name unit where the parse read the
+        family as two (``Márquez`` in ``Gabriel García Márquez`` under
+        ``two_family_names``, ``李`` in ``王李小明`` under
+        ``locales.ZH``), which :attr:`family` keeps; ``''`` for a
+        family read as one, a family comma's ("Lloyd Webber, Andrew")
+        and a hyphenated one included, for a name unpickled from 2.x,
+        and once :meth:`replace` or Parser.revise rewrites ``family``,
+        whose words then carry no reading; rewriting another field
+        keeps it. Added in 3.0."""
+        # the parse marks family words only; the role test keeps a
+        # hand-built token marked in another field out of the view
+        return " ".join(
+            tok.text for tok in self.tokens
+            if tok.role is Role.FAMILY and tok.reading is not None
+            and tok.reading.second_surname)
+
+    # rules/R11: "the family's first name unit, the one written first,
+    # makes the first-surname view" (history: decisions/R11, #1022)
+    def _first_unit(self) -> bool:
+        """Whether the parse marked a first unit: where O6 read two
+        units, W5 divided a Han surname pair or O3 folded middles in. A
+        family whose words carry no reading (replace(), Parser.revise,
+        a 2.x pickle) is unmarked and reads whole."""
+        return any(tok.role is Role.FAMILY and tok.reading is not None
+                   and tok.reading.first_surname for tok in self.tokens)
+
+    @property
+    def surname1(self) -> str:
+        """The family's first name unit where the parse read the family
+        as two (``García`` in ``Gabriel García Márquez`` under
+        ``two_family_names``, ``de la Vega`` in ``Juan de la Vega del
+        Valle`` under it too), :attr:`surname2` being the other;
+        elsewhere the whole :attr:`family`. A middle name
+        ``middle_as_family`` folds into the family is in neither
+        (``María García`` in ``Ana María García López`` under
+        ``middle_as_family``, whose surname1 is ``López``). Added in
+        3.0."""
+        return self._text_for(Role.FAMILY, first_unit=self._first_unit())
+
+    @property
+    def surname1_particles(self) -> str:
+        """:attr:`surname1`'s particles, as :attr:`family_particles` reads
+        the whole family's (``de la`` in ``Juan de la Vega del Valle``
+        under ``two_family_names``), so the two units' particles are the
+        family's. Added in 3.0."""
+        return self._text_for(Role.FAMILY, tag="particle",
+                              unless_tag=UNJOINED_TAG,
+                              first_unit=self._first_unit())
+
+    @property
+    def surname1_base(self) -> str:
+        """:attr:`surname1` without its particles, as :attr:`family_base`
+        reads the whole family (``Pérez`` in ``Juan Pérez de la Vega``
+        under ``two_family_names``, where :attr:`family_base` is
+        ``Pérez Vega``). Added in 3.0."""
+        return self._text_for(Role.FAMILY, without_tag="particle",
+                              unless_tag=UNJOINED_TAG,
+                              first_unit=self._first_unit())
+
+    def _suffix_view(self, kinds: frozenset[ReadingKind] | None) -> str:
+        # the `generation` / `honorifics` / `credentials` partition of
+        # `suffix` (`kinds` None is the credentials, every word the
+        # other two kind sets do not hold), each
+        # word placed by the reading it took ('D.' after 'Ph.' takes
+        # the credential's) and a connective going with the word it
+        # follows ('PhD and MD'); two words of one view are separated
+        # by a comma where `suffix` holds one anywhere between them (an
+        # entry boundary, a word not `joined`) and by a space where it
+        # holds none ('MD Jr. PhD' gives 'MD PhD', 'MD, Jr. PhD' and
+        # 'MD / Jr. / PhD' give 'MD, PhD')
+        parts: list[str] = []
+        before: bool | None = None
+        comma = False
+        for tok in self.tokens:
+            if tok.role is not Role.SUFFIX:
+                continue
+            comma = comma or "joined" not in tok.tags
+            kind = tok.reading.kind if tok.reading is not None else None
+            if kind is ReadingKind.CONJUNCTION and before is not None:
+                keep = before
+            elif kinds is None:
+                keep = (kind not in _GENERATION_KINDS
+                        and kind not in _HONORIFIC_KINDS)
+            else:
+                keep = kind in kinds
+            if keep:
+                if parts and not comma:
+                    parts[-1] += " " + tok.text
+                else:
+                    parts.append(tok.text)
+                comma = False
+            before = keep
+        return ", ".join(parts)
 
     # -- structured access ----------------------------------------------
 
@@ -1170,6 +1680,12 @@ class ParsedName:
         return tuple(t for t in self.tokens if t.role is role)
 
     def as_dict(self, *, include_empty: bool = True) -> dict[str, str]:
+        """The seven fields as a new dict keyed by each :class:`Role`'s
+        value (``"title"``, ``"given"``, ...), in :class:`Role` order,
+        each value the string its property gives, ``''`` included;
+        ``include_empty=False`` leaves the empty fields out. The views
+        derived from the fields (:attr:`family_base`,
+        :attr:`generation`, ...) are not in it."""
         # _text_for handles the suffix ", "-join (single-role SUFFIX call)
         d = {role.value: self._text_for(role) for role in Role}
         if not include_empty:
@@ -1235,7 +1751,8 @@ class ParsedName:
             amb for amb in self.ambiguities
             if all(t in new_tokens for t in amb.tokens)
         )
-        return ParsedName(self.original, _remarked(new_tokens), kept)
+        return ParsedName(self.original, _remarked(new_tokens), kept,
+                          self.order)
 
     # -- comparison -------------------------------------------------------
 
@@ -1269,28 +1786,42 @@ class ParsedName:
     # tests/v2/test_layering.py), so these import at call time -- module
     # level stays internal-import-free.
 
-    def render(
-        self,
-        spec: str = ('{title} {given} "{nickname}" {middle} {family} '
-                     "({maiden}) {suffix}"),
-    ) -> str:
+    def render(self, spec: str | None = None) -> str:
         """Fill the str.format spec from the seven role fields and the
         derived views; empty fields collapse (#254), including the
-        default spec's decorations (empty '""' and '()' wrappers).
-        The default shows every non-empty field: the nickname quoted
-        after the given name, the maiden name parenthesized after the
-        family name. Unknown keys raise KeyError naming the valid
-        fields."""
+        spec's decorations (empty '""' and '()' wrappers). A spec
+        renders exactly as written, its order and its joiners. Unknown
+        keys raise KeyError naming the valid fields.
+
+        ``None``, the default and what ``str()`` passes, lays the name
+        out in :attr:`order`: given-first
+        ``'{title} {given} "{nickname}" {middle} {family} ({maiden})
+        {suffix}'``, and for a family-first order the family (with its
+        maiden name) after the title and the given and middle names
+        in the order's sequence, the suffix last. Two words that stand
+        one directly after the other both in the name as written and
+        in that layout keep the separator written between them,
+        normalized: nothing stays nothing, any whitespace becomes one
+        space, an interpunct or nakaguro the parse divided at stands
+        alone, and one comma is written ', ' (ASCII), '، ' (Arabic)
+        or '，' (full-width). Every other pair takes a space, or the
+        layout's quotes and parentheses where those stand between the
+        two fields, and suffixes not written side by side are joined
+        with ', ' as the ``suffix`` field joins them."""
         import nameparser._render as _render
         return _render.render(self, spec)
 
     def initials(self, spec: str = "{given} {middle} {family}",
                  delimiter: str = ".", separator: str = " ") -> str:
-        """Initials per group; v1's initials_format/_delimiter/_separator
-        become call-site arguments instead of Config-wide settings.
-        Each group is ordered the way its own field is ordered, so a
-        name whose middle words fold into the family initials them
-        before the family's own words, as `family` renders them.
+        """The initials of the given, middle and family names, laid
+        out by `spec`, a format string whose keys are the groups:
+        each initial is followed by `delimiter`, and the initials of
+        one group are joined by `separator` (so
+        ``initials(spec="{given}{middle}{family}", separator="")``
+        runs them together). Each group is ordered the way its own
+        field is ordered, so a name whose middle words fold into the
+        family initials them before the family's own words, as
+        `family` renders them.
         Valid spec keys: given, middle, family."""
         import nameparser._render as _render
         return _render.initials(self, spec, delimiter, separator)

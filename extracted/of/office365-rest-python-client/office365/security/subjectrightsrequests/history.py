@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.permissions.identity_set import IdentitySet
@@ -9,7 +9,6 @@ from office365.directory.privacy.subjectrightsrequeststagestatus import SubjectR
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SubjectRightsRequestHistory(ClientValue):
     changedBy: IdentitySet = field(default_factory=IdentitySet)
     eventDateTime: datetime | None = field(default_factory=lambda: datetime.min)

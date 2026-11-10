@@ -12,6 +12,7 @@ from pathspec.pattern import Pattern
 from sarj_standards._meta import CONFIGS_DIR
 from sarj_standards.libs.adoption.manifest import MANIFEST_NAME, ExclusionOverride, Manifest
 from sarj_standards.libs.repository import rule_catalog_artifact
+from sarj_standards.libs.rules import oxlint_ids
 
 
 if TYPE_CHECKING:
@@ -30,7 +31,9 @@ _SOURCE_ENGINES: Final[Mapping[str, str]] = MappingProxyType(
         "sarj-library-policy": "python",
         "ruff": "ruff",
         "basedpyright": "basedpyright",
-        "eslint": "eslint",
+        # Baselines and suppressions written for ESLint name the same Oxlint findings.
+        oxlint_ids.LEGACY_SOURCE: oxlint_ids.SOURCE,
+        oxlint_ids.SOURCE: oxlint_ids.SOURCE,
     }
 )
 
@@ -123,7 +126,12 @@ class Policy:
         return frozenset(selector.removeprefix(prefix) for selector in selectors if selector.startswith(prefix))
 
     def filter_diagnostics(self, diagnostics: Iterable[Diagnostic]) -> tuple[Diagnostic, ...]:
-        return tuple(item for item in diagnostics if self.allows_path(item.location.path) and self.allows_rule(item))
+        allows_path = (
+            self.allows_path
+            if isinstance(diagnostics, tuple) and len(diagnostics) <= 1
+            else lru_cache()(self.allows_path)
+        )
+        return tuple(item for item in diagnostics if allows_path(item.location.path) and self.allows_rule(item))
 
     def relative(self, path: str | Path) -> str:
         candidate = Path(path)

@@ -1,5 +1,5 @@
-//! Native port of `django.utils.dateformat` for the `date` and `time` filters
-//! and the `{% now %}` tag.
+//! Native port of `django.utils.dateformat` for the `date` and `time` filters,
+//! the `{% now %}` tag, and dates, times and datetimes printed by `{{ }}`.
 //!
 //! Django looks up the active language's format strings, month and weekday
 //! names and the current timezone for every value it formats. Within a render
@@ -7,10 +7,12 @@
 //! [`DateCache`] reads each one once and those tags give their body a fresh
 //! cache.
 //!
-//! Anything else is left to Django. Subclasses of the `datetime` types and
+//! Anything else is left to Django. Subclasses of the `datetime` types (other
+//! than the `tz` filters' `datetimeobject`) and
 //! tzinfo implementations other than `datetime.timezone` and
 //! `zoneinfo.ZoneInfo` go to the filter itself. The timezone specifiers
-//! (`e I O r T U Z`) and specifiers the value lacks go to
+//! (`e I O r T U Z`) ask the tzinfo for its offset, name and DST, as Django
+//! does. Specifiers the value lacks, and offsets with seconds in `r`, go to
 //! `django.utils.dateformat` with the already resolved format.
 
 use std::collections::HashMap;
@@ -21,11 +23,14 @@ use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{
-    PyDate, PyDateAccess, PyDateTime, PyString, PyTime, PyTimeAccess, PyType, PyTzInfoAccess,
+    PyDate, PyDateAccess, PyDateTime, PyDelta, PyDeltaAccess, PyDict, PyString, PyTime,
+    PyTimeAccess, PyType, PyTzInfo, PyTzInfoAccess,
 };
 use pyo3::{PyTraverseError, PyVisit};
 
+use crate::filters::TzConversion;
 use crate::gc::Trace;
+use crate::render::Content;
 use crate::render::common::gettext;
 
 static GET_FORMAT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
@@ -42,6 +47,41 @@ static ZONE_INFO: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 const FORMAT_CHARS: &str = "aAbcdDeEfFgGhHiIjlLmMnNoOPrsStTUuwWyYzZ";
 /// The specifiers `TimeFormat` defines. `DateFormat` adds the rest.
 const TIME_CHARS: &str = "aAefgGhHiOPsTuZ";
+/// The specifiers that depend on the timezone.
+const ZONE_CHARS: &str = "eIOrTUZ";
+static GET_DEFAULT_TIMEZONE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static DATETIME_COMBINE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static TIME_MIN: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static TZ_DATETIME: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+static UTC: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static ZONE_INFO_NOT_FOUND: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// Whether `value` is `django.templatetags.tz.datetimeobject`, the subclass
+/// the `tz` filters return so later formatting skips local time conversion.
+/// It adds only the `convert_to_local_time` attribute, so it formats as a
+/// `datetime`.
+fn is_tz_datetime(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let py = value.py();
+    Ok(value.is_instance_of::<PyDateTime>()
+        && value.get_type().is(TZ_DATETIME.import(
+            py,
+            "django.templatetags.tz",
+            "datetimeobject",
+        )?))
+}
+
+/// The value as a `datetime` the formatters can read like the built-in type.
+fn plain_datetime<'a, 'py>(
+    value: &'a Bound<'py, PyAny>,
+) -> PyResult<Option<&'a Bound<'py, PyDateTime>>> {
+    if let Ok(datetime) = value.cast_exact::<PyDateTime>() {
+        return Ok(Some(datetime));
+    }
+    if is_tz_datetime(value)? {
+        return Ok(Some(value.cast::<PyDateTime>()?));
+    }
+    Ok(None)
+}
 
 /// Which of Django's formatter classes to mirror.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -145,7 +185,7 @@ impl Trace for DateCache {
 }
 
 impl DateCache {
-    fn current_timezone<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    pub fn current_timezone<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         if let Some(timezone) = &self.timezone {
             return Ok(timezone.bind(py).clone());
         }
@@ -240,7 +280,14 @@ pub fn template_localtime<'py>(
     cache: &mut DateCache,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = value.py();
-    let Ok(datetime) = value.cast_exact::<PyDateTime>() else {
+    if is_tz_datetime(&value)?
+        && !value
+            .getattr_opt(pyo3::intern!(py, "convert_to_local_time"))?
+            .map_or(Ok(true), |flag| flag.is_truthy())?
+    {
+        return Ok(value);
+    }
+    let Some(datetime) = plain_datetime(&value)? else {
         if value.is_instance_of::<PyDateTime>() {
             // Subclasses may define `convert_to_local_time`.
             return TEMPLATE_LOCALTIME
@@ -270,6 +317,161 @@ pub fn template_localtime<'py>(
         pyo3::intern!(py, "astimezone"),
         (cache.current_timezone(py)?,),
     )
+}
+
+/// Django's `do_timezone`, behind the `localtime`, `utc` and `timezone`
+/// filters.
+///
+/// Returns `Some(None)` where Django returns `""`, and `None` to call
+/// Django's filter: subclasses, unusual time zone arguments, and errors.
+pub fn convert_timezone<'py>(
+    conversion: TzConversion,
+    value: Option<&Content<'_, 'py>>,
+    argument: Option<&Content<'_, 'py>>,
+    py: Python<'py>,
+    cache: &mut DateCache,
+) -> PyResult<Option<Option<Bound<'py, PyAny>>>> {
+    // Missing variables reach Django's filter as "", which isn't a datetime.
+    let Some(Content::Py(value)) = value else {
+        return Ok(Some(None));
+    };
+    let Ok(datetime) = value.cast_exact::<PyDateTime>() else {
+        return Ok(match value.is_instance_of::<PyDateTime>() {
+            true => None,
+            false => Some(None),
+        });
+    };
+    // `is_naive`, then `make_aware` with the default time zone.
+    let Ok(offset) = value.call_method0(pyo3::intern!(py, "utcoffset")) else {
+        return Ok(None);
+    };
+    let aware = if offset.is_none() {
+        if datetime.get_tzinfo().is_some() {
+            // An aware-looking value whose tzinfo has no offset.
+            return Ok(None);
+        }
+        let default = GET_DEFAULT_TIMEZONE
+            .import(py, "django.utils.timezone", "get_default_timezone")?
+            .call0()?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item(pyo3::intern!(py, "tzinfo"), default)?;
+        value.call_method(pyo3::intern!(py, "replace"), (), Some(&kwargs))?
+    } else {
+        value.clone()
+    };
+    let timezone = match conversion {
+        TzConversion::Localtime => cache.current_timezone(py)?,
+        TzConversion::Utc => UTC.import(py, "datetime", "UTC")?.clone(),
+        TzConversion::Timezone => {
+            let zone = match argument {
+                Some(Content::String(name)) => zone_info(py, name.as_raw())?,
+                Some(Content::Py(argument)) if argument.is_instance_of::<PyTzInfo>() => {
+                    Some(argument.clone())
+                }
+                Some(Content::Py(argument)) if argument.is_instance_of::<PyString>() => {
+                    zone_info(py, &argument.cast::<PyString>()?.to_cow()?)?
+                }
+                // Absent, None, numbers and other objects: Django returns "".
+                _ => None,
+            };
+            match zone {
+                Some(zone) => zone,
+                None => return Ok(Some(None)),
+            }
+        }
+    };
+    let Ok(local) = aware.call_method1(pyo3::intern!(py, "astimezone"), (timezone,)) else {
+        return Ok(None);
+    };
+    let local = local.cast::<PyDateTime>()?;
+    // A `datetimeobject` without `fold`, as Django builds it.
+    let result = TZ_DATETIME
+        .import(py, "django.templatetags.tz", "datetimeobject")?
+        .call1((
+            local.get_year(),
+            local.get_month(),
+            local.get_day(),
+            local.get_hour(),
+            local.get_minute(),
+            local.get_second(),
+            local.get_microsecond(),
+            local.get_tzinfo(),
+        ))?;
+    result.setattr(pyo3::intern!(py, "convert_to_local_time"), false)?;
+    Ok(Some(Some(result)))
+}
+
+/// `zoneinfo.ZoneInfo(name)`, or `None` for an unknown zone. Other errors,
+/// such as invalid keys, propagate as they do from Django's filter.
+fn zone_info<'py>(py: Python<'py>, name: &str) -> PyResult<Option<Bound<'py, PyAny>>> {
+    match ZONE_INFO.import(py, "zoneinfo", "ZoneInfo")?.call1((name,)) {
+        Ok(zone) => Ok(Some(zone)),
+        Err(error)
+            if error.is_instance(
+                py,
+                ZONE_INFO_NOT_FOUND.import(py, "zoneinfo", "ZoneInfoNotFoundError")?,
+            ) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+/// A date, time or datetime as `render_value_in_context` prints it.
+///
+/// That is `localize(template_localtime(value))`, which formats it with
+/// `DATETIME_FORMAT`, `DATE_FORMAT` or `TIME_FORMAT`. `None` for other values
+/// and anything left to Django, such as subclasses and other tzinfo types.
+pub fn localize_datetime(
+    value: &Bound<'_, PyAny>,
+    use_tz: Option<bool>,
+    cache: &mut DateCache,
+) -> PyResult<Option<String>> {
+    let Some((format_name, formatter)) = date_kind(value)? else {
+        return Ok(None);
+    };
+    let value = template_localtime(value.clone(), use_tz, cache)?;
+    format_localized(&value, format_name, formatter, cache)
+}
+
+/// `formats.localize(value, use_l10n=True)` for a date, time or datetime,
+/// without converting to local time first, as the `localize` filter does.
+pub fn localize_date_value(
+    value: &Bound<'_, PyAny>,
+    cache: &mut DateCache,
+) -> PyResult<Option<String>> {
+    let Some((format_name, formatter)) = date_kind(value)? else {
+        return Ok(None);
+    };
+    format_localized(value, format_name, formatter, cache)
+}
+
+/// The format setting and formatter `localize` uses for a value.
+fn date_kind(value: &Bound<'_, PyAny>) -> PyResult<Option<(&'static str, Formatter)>> {
+    // `localize` checks `datetime` before `date`, its base class.
+    Ok(if plain_datetime(value)?.is_some() {
+        Some(("DATETIME_FORMAT", Formatter::Date))
+    } else if value.is_exact_instance_of::<PyDate>() {
+        Some(("DATE_FORMAT", Formatter::Date))
+    } else if value.is_exact_instance_of::<PyTime>() {
+        Some(("TIME_FORMAT", Formatter::Time))
+    } else {
+        None
+    })
+}
+
+fn format_localized(
+    value: &Bound<'_, PyAny>,
+    format_name: &'static str,
+    formatter: Formatter,
+    cache: &mut DateCache,
+) -> PyResult<Option<String>> {
+    Ok(match cache.format(value, format_name, formatter)? {
+        Some(Formatted::Native(formatted)) => Some(formatted),
+        Some(Formatted::Django(formatted)) => Some(formatted.str()?.to_cow()?.into_owned()),
+        None => None,
+    })
 }
 
 #[derive(Clone, Copy)]
@@ -330,7 +532,7 @@ impl Fields {
     /// `None` for anything that might not behave like the built-in types.
     fn of(value: &Bound<'_, PyAny>) -> PyResult<Option<Self>> {
         let py = value.py();
-        if let Ok(datetime) = value.cast_exact::<PyDateTime>() {
+        if let Some(datetime) = plain_datetime(value)? {
             // `TimeFormat.__init__` calls `utcoffset()` on any tzinfo, which other
             // implementations may not support.
             if let Some(tzinfo) = datetime.get_tzinfo() {
@@ -392,6 +594,7 @@ fn format_value(
     names: &mut Names,
 ) -> PyResult<Option<String>> {
     let mut output = String::with_capacity(format.len() * 2);
+    let mut zone = Zone::Unknown;
     let mut chars = format.chars().peekable();
     let mut previous = None;
     while let Some(character) = chars.next() {
@@ -408,7 +611,9 @@ fn format_value(
             }
             continue;
         }
-        let specifier = if TIME_CHARS.contains(character) {
+        let specifier = if ZONE_CHARS.contains(character) {
+            push_zone_specifier(character, fields, formatter, value, &mut zone, &mut output)?
+        } else if TIME_CHARS.contains(character) {
             // Django raises TypeError for time specifiers on a plain date.
             match fields.time() {
                 Some(time) => push_time_specifier(character, time, names, &mut output, value)?,
@@ -428,6 +633,226 @@ fn format_value(
         }
     }
     Ok(Some(output))
+}
+
+/// `TimeFormat.timezone`: the value's tzinfo, or the default timezone for a
+/// naive value, unless the local time is ambiguous or imaginary there.
+fn value_timezone<'py>(value: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let py = value.py();
+    let datetime = value.cast::<PyDateTime>()?;
+    let timezone = match datetime.get_tzinfo() {
+        Some(tzinfo) => tzinfo.into_any(),
+        None => GET_DEFAULT_TIMEZONE
+            .import(py, "django.utils.timezone", "get_default_timezone")?
+            .call0()?,
+    };
+    if timezone
+        .get_type()
+        .is(FIXED_OFFSET.import(py, "datetime", "timezone")?)
+    {
+        return Ok(Some(timezone));
+    }
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("fold", u8::from(!datetime.get_fold()))?;
+    let flipped = value.call_method("replace", (), Some(&kwargs))?;
+    let offset = timezone.call_method1("utcoffset", (value,))?;
+    let flipped_offset = timezone.call_method1("utcoffset", (flipped,))?;
+    Ok(offset.eq(flipped_offset)?.then_some(timezone))
+}
+
+/// A `timedelta` offset as `days * 86400 + seconds`, and whether it has
+/// microseconds. `None` when the tzinfo returned something else.
+fn offset_seconds(offset: &Bound<'_, PyAny>) -> Option<(i64, bool)> {
+    let offset = offset.cast_exact::<PyDelta>().ok()?;
+    let seconds = i64::from(offset.get_days()) * 86400 + i64::from(offset.get_seconds());
+    Some((seconds, offset.get_microseconds() != 0))
+}
+
+/// Appends an offset as `+HHMM`, as `O` and `%z` write it.
+fn push_offset(seconds: i64, output: &mut String) {
+    let sign = if seconds < 0 { '-' } else { '+' };
+    let seconds = seconds.unsigned_abs();
+    push_fmt(
+        output,
+        format_args!("{sign}{:02}{:02}", seconds / 3600, (seconds / 60) % 60),
+    );
+}
+
+/// [`value_timezone`] for the value being formatted, once it is needed.
+enum Zone<'py> {
+    Unknown,
+    Known(Option<Bound<'py, PyAny>>),
+}
+
+/// Appends one specifier that depends on the timezone. `zone` caches
+/// [`value_timezone`] for the value.
+fn push_zone_specifier<'py>(
+    specifier: char,
+    fields: Fields,
+    formatter: Formatter,
+    value: &Bound<'py, PyAny>,
+    zone: &mut Zone<'py>,
+    output: &mut String,
+) -> PyResult<Specifier> {
+    let py = value.py();
+    let timezone = match (fields, specifier) {
+        // `TimeFormat` has no `I`, `r` or `U`.
+        (_, 'I' | 'r' | 'U') if formatter == Formatter::Time => {
+            return Ok(Specifier::Unsupported);
+        }
+        // Time specifiers raise TypeError for a date, and `r` and `U`
+        // can't combine a time.
+        (Fields::Date(_), 'e' | 'O' | 'T' | 'Z') | (Fields::Time(_), 'r' | 'U') => {
+            return Ok(Specifier::Unsupported);
+        }
+        (Fields::Date(date), 'r') => {
+            // Midnight in the default timezone.
+            let timezone = GET_DEFAULT_TIMEZONE
+                .import(py, "django.utils.timezone", "get_default_timezone")?
+                .call0()?;
+            let midnight = midnight(value)?;
+            let offset = timezone.call_method1("utcoffset", (midnight,))?;
+            let time = Time {
+                hour: 0,
+                minute: 0,
+                second: 0,
+                microsecond: 0,
+            };
+            return Ok(push_rfc5322(date, time, &offset, output));
+        }
+        (Fields::Date(_), 'U') => {
+            let midnight = midnight(value)?;
+            return push_timestamp(&midnight, output);
+        }
+        (Fields::DateTime(..), 'U') => return push_timestamp(value, output),
+        // Django gives a date or time no timezone.
+        (Fields::Date(_) | Fields::Time(_), _) => None,
+        (Fields::DateTime(..), _) => {
+            if matches!(zone, Zone::Unknown) {
+                *zone = Zone::Known(value_timezone(value)?);
+            }
+            match zone {
+                Zone::Known(timezone) => timezone.clone(),
+                Zone::Unknown => None,
+            }
+        }
+    };
+    let Some(timezone) = timezone else {
+        // Without a timezone these are empty, but `r` needs one for a naive value.
+        if specifier == 'r' {
+            let datetime = value.cast::<PyDateTime>()?;
+            if datetime.get_tzinfo().is_none() {
+                return Ok(Specifier::Unsupported);
+            }
+        } else {
+            return Ok(Specifier::Written);
+        }
+        return Ok(push_datetime_rfc5322(
+            fields,
+            &value.call_method0("utcoffset")?,
+            output,
+        ));
+    };
+    match specifier {
+        'e' => {
+            let datetime = value.cast::<PyDateTime>()?;
+            if datetime.get_tzinfo().is_some() {
+                let name = value.call_method0("tzname")?;
+                if name.is_truthy()? {
+                    output.push_str(&name.str()?.to_cow()?);
+                }
+            }
+        }
+        'I' => output.push(if timezone.call_method1("dst", (value,))?.is_truthy()? {
+            '1'
+        } else {
+            '0'
+        }),
+        'O' | 'Z' => {
+            let offset = timezone.call_method1("utcoffset", (value,))?;
+            let Some((seconds, _)) = offset_seconds(&offset) else {
+                return Ok(Specifier::Unsupported);
+            };
+            if specifier == 'O' {
+                push_offset(seconds, output);
+            } else {
+                push_fmt(output, format_args!("{seconds}"));
+            }
+        }
+        'T' => output.push_str(&timezone.call_method1("tzname", (value,))?.str()?.to_cow()?),
+        'r' => {
+            // `make_aware` uses the value's timezone; an aware value keeps its own.
+            let offset = match value.cast::<PyDateTime>()?.get_tzinfo() {
+                Some(_) => value.call_method0("utcoffset")?,
+                None => timezone.call_method1("utcoffset", (value,))?,
+            };
+            return Ok(push_datetime_rfc5322(fields, &offset, output));
+        }
+        _ => return Ok(Specifier::Unsupported),
+    }
+    Ok(Specifier::Written)
+}
+
+/// `datetime.combine(value, time.min)` for a date.
+fn midnight<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    let py = value.py();
+    let min = TIME_MIN.import(py, "datetime", "time")?.getattr("min")?;
+    DATETIME_COMBINE
+        .import(py, "datetime", "datetime")?
+        .call_method1("combine", (value, min))
+}
+
+/// `int(value.timestamp())`.
+fn push_timestamp(value: &Bound<'_, PyAny>, output: &mut String) -> PyResult<Specifier> {
+    let timestamp: f64 = value.call_method0("timestamp")?.extract()?;
+    #[allow(clippy::cast_possible_truncation)]
+    push_fmt(output, format_args!("{}", timestamp.trunc() as i64));
+    Ok(Specifier::Written)
+}
+
+fn push_datetime_rfc5322(
+    fields: Fields,
+    offset: &Bound<'_, PyAny>,
+    output: &mut String,
+) -> Specifier {
+    let (Some(date), Some(time)) = (fields.date(), fields.time()) else {
+        return Specifier::Unsupported;
+    };
+    push_rfc5322(date, time, offset, output)
+}
+
+/// `email.utils.format_datetime`, for offsets in whole minutes.
+fn push_rfc5322(
+    date: Date,
+    time: Time,
+    offset: &Bound<'_, PyAny>,
+    output: &mut String,
+) -> Specifier {
+    const WEEKDAYS: [&str; 7] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let Some((seconds, false)) = offset_seconds(offset) else {
+        return Specifier::Unsupported;
+    };
+    if seconds % 60 != 0 {
+        return Specifier::Unsupported;
+    }
+    push_fmt(
+        output,
+        format_args!(
+            "{}, {:02} {} {:04} {:02}:{:02}:{:02} ",
+            WEEKDAYS[usize::from(weekday(date))],
+            date.day,
+            MONTHS[usize::from(date.month - 1)],
+            date.year,
+            time.hour,
+            time.minute,
+            time.second,
+        ),
+    );
+    push_offset(seconds, output);
+    Specifier::Written
 }
 
 /// Appends one `TimeFormat` specifier.

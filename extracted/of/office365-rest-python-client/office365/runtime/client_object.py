@@ -5,9 +5,11 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    ClassVar,
+    Collection,
     Dict,
-    List,
     Optional,
+    Sequence,
     Tuple,
     TypeVar,
 )
@@ -17,20 +19,39 @@ from typing_extensions import Self
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_runtime_context import ClientRuntimeContext
 from office365.runtime.converters.value import (
-    _add_type_metadata,
+    coerce_value,
     declared_type,
-    deserialize_value,
     serialize_value,
     to_snake_case,
 )
 from office365.runtime.exceptions import ObjectNotFoundException
 from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.limits import Limit, LimitDecl, collect_class_limits, collect_limit_meta
-from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.limits import Limit
+from office365.runtime.odata.json_format import JsonProfile, as_held
 from office365.runtime.odata.query_options import QueryOptions
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.retry import DEFAULT_RETRY_EXCEPTIONS
-from office365.runtime.types.odata_property import _ODATA_MARKER, ODataPropertyMeta
+from office365.runtime.schema import EMPTY, TypeSchema
+from office365.runtime.types.odata_property import PREVIEW, NotSupportedInVersion, request_version
+
+
+def require_declared_version(name: str, declared: Collection[str], context: Any) -> None:
+    """Refuse to build ``name`` on a client whose service root does not declare it.
+
+    One model tree serves both service roots, so a preview-only class is an attribute of
+    the tree a stable client sees, and holding the class is not the error -- building one
+    is: the request it carries names a path the stable root has no entity for, and the
+    service answers 404 rather than naming the version that would have worked. A client
+    that names no version (a SharePoint context) is never refused: the declaration states
+    a fact about Graph, not a rule about every service.
+    """
+    if not declared:
+        return
+    version = request_version(context)
+    if version is None or version in declared:
+        return
+    raise NotSupportedInVersion(name, version, PREVIEW)
+
 
 if TYPE_CHECKING:
     from office365.runtime.client_object_collection import ClientObjectCollection
@@ -51,22 +72,34 @@ def _swallow_object_not_found(error: ClientRequestException) -> None:
 class ClientObject:
     """Base client object which defines named properties and relationships of an entity."""
 
-    _odata_meta: dict[str, ODataPropertyMeta] = {}
-    _limit_meta: dict[str, Tuple[LimitDecl, ...]] = {}
-    _class_limit_decls: Tuple[LimitDecl, ...] = ()
+    #: Everything this type declares: its properties, the projections a request and a
+    #: ``$select`` are built from, and its OData name. Built in ``__init_subclass__``, so
+    #: ``Contact._schema.readonly`` answers a question about a type without an instance.
+    _schema: ClassVar[TypeSchema] = EMPTY
+
+    #: The OData name this class declares (``"microsoft.graph.Event"``), emitted by the
+    #: generator. A class-level fact, so name resolution reads it without building an
+    #: instance; see :func:`office365.runtime.odata.edm.edm_type_name`.
+    _odata_type_name: ClassVar[Optional[str]] = None
+
+    #: The service roots whose metadata declares this type, declared by
+    #: ``@version(...)`` on the class. This is the *declaration*; it is read through
+    #: :attr:`_schema` (``versions``), which is what a client asks. Empty -- every
+    #: hand-written class, and every type both roots declare -- means all of them. The
+    #: generator states ``@version("beta")`` on a type only the preview root declares, so
+    #: an attempt to build one on a stable client fails here, before it becomes a 404.
+    _versions: ClassVar[Collection[str]] = ()
+
+    #: The property that spells this type's identity, declared by ``@key(...)`` on the
+    #: class. This is the *declaration*; it is read through :attr:`_schema` (``key``),
+    #: which is what :attr:`property_ref_name` answers. Empty -- every type whose key is
+    #: its family's default -- leaves the base class's own spelling to answer, so a class
+    #: that states nothing behaves exactly as it did before the declaration existed.
+    _key: ClassVar[Sequence[str]] = ()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        meta: dict[str, ODataPropertyMeta] = dict(getattr(cls, "_odata_meta", {}))
-        for attr_name, attr in cls.__dict__.items():
-            target = attr.fget if isinstance(attr, property) else attr
-            m: ODataPropertyMeta | None = getattr(target, _ODATA_MARKER, None)
-            if m is not None:
-                m.attr = attr_name
-                meta[m.name] = m
-        cls._odata_meta = meta
-        cls._limit_meta = collect_limit_meta(cls)
-        cls._class_limit_decls = collect_class_limits(cls)
+        cls._schema = TypeSchema.build(cls)
 
     def __init__(
         self,
@@ -83,7 +116,8 @@ class ClientObject:
             parent_collection: The collection that contains this object
         """
         self._properties: dict[str, Any] = {}
-        self._changes: set[str] = {name for name, m in type(self)._odata_meta.items() if m.persist}
+        self._changes: set[str] = set(type(self)._schema.persistable)
+        require_declared_version(type(self).__name__, type(self)._schema.versions, context)
         self._query_options = QueryOptions()
         self._parent_collection = parent_collection
         self._context = context
@@ -127,23 +161,16 @@ class ClientObject:
         again on subsequent updates (``persist=True`` means "always include"),
         while explicitly changed, non-persistable props are dropped.
         """
-        persistable = self._persistable_names
+        persistable = self._schema.persistable
         self._properties = {k: v for k, v in self._properties.items() if k not in self._changes or k in persistable}
         self._changes.clear()
         self._query_options = QueryOptions()
         return self
 
-    @property
-    def _persistable_names(self) -> set[str]:
-        """Names of properties marked ``@odata(persist=True)``."""
-        return {name for name, m in type(self)._odata_meta.items() if m.persist}
-
     @classmethod
     def declared_limits(cls) -> Tuple[Limit, ...]:
         """The limits declared on this class and its methods/properties (``@limit``)."""
-        class_limits = tuple(decl.limit for decl in cls._class_limit_decls)
-        member_limits = tuple(decl.limit for decls in cls._limit_meta.values() for decl in decls)
-        return (*class_limits, *member_limits)
+        return cls._schema.declared_limits()
 
     def execute_query(self) -> Self:
         """
@@ -378,30 +405,32 @@ class ClientObject:
             return True
         return False
 
-    def expand(self, names: List[str]) -> Self:
+    def expand(self, names: Sequence[str]) -> Self:
         """
         Specifies related resources to include in the response.
 
         Args:
-            names: List of related resource names to expand
+            names: Related resource names to expand, as a list or a schema's
+                :attr:`~office365.runtime.schema.TypeSchema.expansions`
 
         Returns:
             The current instance for method chaining
         """
-        self.query_options.expand = names
+        self.query_options.expand = list(names)
         return self
 
-    def select(self, names: List[str]) -> Self:
+    def select(self, names: Sequence[str]) -> Self:
         """
         Specifies which properties to include in the response.
 
         Args:
-            names: List of property names to select
+            names: Property names to select, as a list or a schema's
+                :attr:`~office365.runtime.schema.TypeSchema.columns`
 
         Returns:
             The current instance for method chaining
         """
-        self.query_options.select = names
+        self.query_options.select = list(names)
         return self
 
     def get_property(self, name: str, default_value: Any = None) -> Any:
@@ -419,8 +448,9 @@ class ClientObject:
         Returns:
             The property value or default value
         """
+        name = type(self)._schema.canonical(name)
         if default_value is None:
-            meta = type(self)._odata_meta.get(name)
+            meta = type(self)._schema.properties.get(name)
             if meta is not None:
                 return getattr(self, meta.attr)
             normalized_name = name[0].lower() + name[1:]
@@ -433,7 +463,7 @@ class ClientObject:
     def set_property(self, name: str, value: Any, persist_changes: bool = True) -> Self:
         """Set a property, coercing the value to its declared type.
 
-        Uses the shared conversion core (``deserialize_value``/``declared_type``) so
+        Uses the shared conversion core (``coerce_value``/``declared_type``) so
         deserialization and the CSV/JSON pipeline use the same conversions.
 
         Args:
@@ -444,6 +474,9 @@ class ClientObject:
         Returns:
             The current instance for method chaining
         """
+        # A preview response spells a renamed member the preview way; the model holds one
+        # name per member, so both spellings land on the same declaration from here on.
+        name = type(self)._schema.canonical(name)
         if name == "__odata_type":
             return self
         if persist_changes:
@@ -454,19 +487,27 @@ class ClientObject:
         # would otherwise be discarded).
         if isinstance(current, Enum) and name not in self._properties:
             current = None
-        self._properties[name] = deserialize_value(declared_type(type(self), name), value, current, persist_changes)
+        self._properties[name] = coerce_value(declared_type(type(self), name), value, current, persist_changes)
         return self
 
     def ensure_property(self, name: str) -> Self:
         """Ensures a property is loaded before executing an action."""
         return self.ensure_properties([name])
 
-    def ensure_properties(self, names: List[str]) -> Self:
-        """Ensures multiple properties are loaded before executing an action."""
+    def ensure_properties(self, names: Sequence[str], *, refresh: bool = False) -> Self:
+        """Ensures multiple properties are loaded before executing an action.
+
+        Args:
+            names: The properties to load, as a list or a schema's
+                :attr:`~office365.runtime.schema.TypeSchema.columns`.
+            refresh: Load them again when this object already carries a value; a value read
+                earlier is a snapshot, not a reason to trust it for a decision made now.
+        """
+        names = list(names)
         if self.property_ref_name is not None and self.property_ref_name not in names:
             names.append(self.property_ref_name)
 
-        names_to_include = [n for n in names if not self.is_property_available(n)]
+        names_to_include = list(names) if refresh else [n for n in names if not self.is_property_available(n)]
         if names_to_include:
             from office365.runtime.queries.read_entity import ReadEntityQuery
 
@@ -484,8 +525,10 @@ class ClientObject:
         Gets the server type name for this entity.
 
         Returns:
-            The entity type name
+            The declared OData type name, or the class name when none is declared.
         """
+        if self._odata_type_name is not None:
+            return self._odata_type_name
         if self._entity_type_name is None:
             self._entity_type_name = type(self).__name__
         return self._entity_type_name
@@ -506,6 +549,17 @@ class ClientObject:
         if self.resource_path is None:
             return None
         return self.context.service_root_url + str(self.resource_path)
+
+    def wire_name(self, name: str) -> str:
+        """The name this client's service root spells ``name`` with.
+
+        One model tree serves both roots, and a navigation's path segment is the wire
+        name, so a getter that builds a path asks here rather than hard-coding the
+        stable spelling: ``AccessPackage.catalog`` is ``catalog`` on v1.0 and
+        ``accessPackageCatalog`` on the preview root. A member the client's root does
+        not declare raises -- that is the whole gate for reading one.
+        """
+        return type(self)._schema.wire_name(name, request_version(self.context))
 
     @property
     def context(self) -> ClientRuntimeContext:
@@ -561,25 +615,69 @@ class ClientObject:
         """
         return self._parent_collection
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any] | List[Any]:
+    def hydrate(self, payload: Any, profile: Optional[JsonProfile] = None) -> Self:
+        """Read this object's content from a payload: the mirror of :meth:`to_json`.
+
+        One direction spells, the other reads, and neither is a procedure: the object
+        knows its declarations, the profile knows the dialect, and the payload is all
+        that is left over. The object is bound to its context before it is filled, so
+        ``Event(context).hydrate(payload)`` reads and chains, and a client with no
+        credentials is enough to do it offline.
+
+        ``profile=None`` is the spelling :meth:`to_json` writes with no profile (a
+        sidecar: no control information), so ``x.hydrate(y.to_json())`` round-trips.
+        A payload that came off the wire needs its own profile: JSON Light wraps an
+        entity in ``d``, OData V4 does not, and a wrapped payload read in the wrong
+        dialect quietly yields an empty object.
+
+        Everything the payload says becomes this object's own content
+        (``persist_changes``): content meant to be posted, not a response that happened
+        to arrive. A response is filled the other way, by ``profile.hydrate(self, payload)``,
+        because what a service said is not what a caller changed.
+
+        Args:
+            payload: The payload to read (an entity, or a list of them)
+            profile: The profile that spells the payload; ``None`` for what ``to_json()`` wrote
+
+        Returns:
+            This object, so reading and spelling chain.
+        """
+        (profile or as_held()).hydrate(self, payload, persist_changes=True)
+        return self
+
+    def to_json(self, profile: Optional[JsonProfile] = None) -> Dict[str, Any]:
         """
         Serializes the client object to a JSON-compatible dictionary.
 
         Args:
-            json_format: The OData JSON format settings
+            profile: The profile that spells the payload. ``None`` keeps the object as the
+                model holds it — a response or a sidecar — so nothing the service owns is
+                dropped and nothing is wrapped.
 
         Returns:
-            Dictionary (or list, for collections) representing the serialized object
+            Dictionary representing the serialized object (a collection overrides this to
+            answer the list of its members)
         """
-        if json_format is None:
-            include_control_info = False
+        if profile is None:
             json = {k: self.get_property(k) for k in self._properties}
         else:
-            include_control_info = self.entity_type_name is not None and json_format.include_control_information
-            persistable = self._persistable_names
-            json = {k: self.get_property(k) for k in self._properties if k in self._changes or k in persistable}
-        json = {k: serialize_value(v, json_format) for k, v in json.items()}
+            version = request_version(self.context)
+            persistable, readonly = self._schema.persistable, self._schema.readonly
+            declared = self._schema.properties
+            # The payload is spelled the way the client's service root spells it, so a
+            # renamed member goes out under the name that root declares -- and a member
+            # that root does not declare raises instead of being sent into a schema that
+            # has no room for it.
+            json = {
+                self._schema.wire_name(k, version): self.get_property(k)
+                for k in self._properties
+                if k not in readonly
+                and profile.includes(self, declared.get(k), k, k in self._changes or k in persistable)
+            }
+        # ``__``-prefixed keys are this client's own bookkeeping, ingested from a
+        # response (``__etag`` for ``If-Match``, ``__odata_type``, ``__deferred``):
+        # they describe the response, never the entity, so no payload carries them.
+        # A dialect's control marker (``__metadata``) is added *after* this filter.
+        json = {k: serialize_value(v, profile) for k, v in json.items() if not k.startswith("__")}
 
-        if json and include_control_info:
-            _add_type_metadata(json, json_format, self.entity_type_name)
-        return json
+        return json if profile is None else profile.wrap(self, profile.refine(json, self._schema.properties.values()))

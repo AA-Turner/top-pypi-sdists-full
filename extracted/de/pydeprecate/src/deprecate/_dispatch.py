@@ -1,441 +1,44 @@
-"""Target resolution and call-plan engine for callable deprecation.
+"""Call-facts precomputation and call-plan engine for callable deprecation.
 
-Decoration-time target normalization and guards (``_normalize_target``, cross-class checks, positional-only detection,
-stacking-misconfiguration warnings) plus the call-time dispatch core (``_build_call_plan`` and the sync/async invokers)
-that forwards a deprecated call to its replacement.  :mod:`deprecate.routine` builds its ``packing`` closures and the
-public ``deprecated`` / ``deprecated_callable`` decorators on top of these helpers.
+Signature facts computed at decoration time feed the call-time dispatch core (``_build_call_plan`` and the sync/async
+invokers) that forwards a deprecated call to its replacement.  :mod:`deprecate.routine` builds its ``packing`` closures
+and the public ``deprecated`` / ``deprecated_callable`` decorators on top of these helpers.
 
 Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 
 """
 
+import contextlib
+import copy
 import inspect
-import sys
 import warnings
-from functools import cached_property
+from collections.abc import Mapping
+from contextvars import ContextVar, Token
+from dataclasses import dataclass, field
 from inspect import Parameter
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, Callable, NamedTuple, NoReturn, Optional, Union, cast
 
 from deprecate._fatal import _resolve_as_exception
+from deprecate._frames import _caller_stacklevel
 from deprecate._types import (
     DeprecationConfig,
     TargetMode,
+    _CallFacts,
     _CallPlan,
-    _DeprecatedCallable,
-    get_deprecation_config,
+    _WrapperState,
 )
+from deprecate._validate import _MAJOR_BREAK_VERSION, _classmethod_target_error, _warn_target_positional_only
 from deprecate.messaging import (
-    _DEFAULT_STACKLEVEL_TO_CALLER,
+    _callable_display_name,
+    _consume_argument_warn_budget,
     _consume_warn_budget,
     _raise_warn_arguments,
     _raise_warn_callable,
 )
-from deprecate.utils import _apply_args_mapping_collisions, _get_signature, get_func_arguments_types_defaults
-
-_MAJOR_BREAK_VERSION = "v1.0"
+from deprecate.utils import _partial_chain, _remap_kwargs, _SigFacts, _signature_facts
 
 POSITIONAL_ONLY = Parameter.POSITIONAL_ONLY
 POSITIONAL_OR_KEYWORD = Parameter.POSITIONAL_OR_KEYWORD
-
-
-def _get_positional_params(params: list[inspect.Parameter]) -> list[inspect.Parameter]:
-    """Filter positional-only and positional-or-keyword parameters."""
-    return [param for param in params if param.kind in (POSITIONAL_ONLY, POSITIONAL_OR_KEYWORD)]
-
-
-def _reject_bare_decorator(source: Any) -> None:  # noqa: ANN401
-    """Raise a clear ``TypeError`` when ``@deprecated`` was applied without parentheses.
-
-    Bare ``@deprecated`` makes Python call ``deprecated(source)`` — binding the decorated object to
-    ``target`` — and return the ``packing`` decorator; the first real call then arrives in ``packing`` with
-    the *call argument* as ``source`` (e.g. ``old(5)`` → ``packing(5)``).  A non-callable, non-descriptor
-    ``source`` therefore signals the missing-parentheses mistake, so raise here instead of leaking a downstream
-    ``AttributeError: 'int' object has no attribute '__name__'``.
-
-    Args:
-        source: The object ``packing`` received as its decoration target.
-
-    """
-    if not callable(source) and not isinstance(source, (classmethod, staticmethod, property, cached_property)):
-        raise TypeError(
-            f"`@deprecated` must be called with parentheses, e.g. "
-            f"`@deprecated(target=..., deprecated_in=..., remove_in=...)`; got a non-callable "
-            f"`{type(source).__name__}` as the decoration target, which usually means `@deprecated` "
-            f"was used without arguments."
-        )
-
-
-# Descriptor source types the callable path handles via ``_packing_descriptor`` even though some are
-# neither ``callable`` nor carry ``__name__`` (``property``/``cached_property``). They must be exempt
-# from the dispatcher's "plain object" reject guard so class/instance-style misuse stays the only reject.
-_DESCRIPTOR_SOURCE_TYPES = (classmethod, staticmethod, property, cached_property)
-
-# Reject message for a non-callable / callable-without-``__name__`` source handed to ``@deprecated``.
-_PLAIN_OBJECT_REJECT = "cannot deprecate a plain object with `@deprecated` — use `deprecated_instance(obj, ...)`"
-
-
-def _reject_non_callable_source(source: Any, target: Any) -> None:  # noqa: ANN401
-    """Raise ``TypeError`` for a non-callable, or callable-without-``__name__``, decoration source.
-
-    Third dispatch bucket: a non-callable object, or a callable instance lacking ``__name__`` (a
-    ``__call__`` object or ``functools.partial``), would crash downstream at ``source.__name__``. Reject
-    up front with actionable guidance. Descriptors are exempt — the callable path handles them via
-    ``_packing_descriptor`` even though some are neither ``callable`` nor carry ``__name__``.
-
-    Disambiguates two look-alike shapes: a bare ``@deprecated`` (no parens) binds the user's callable to
-    ``target`` and this call arrives with the call ARGUMENT as ``source`` — a callable ``target`` that is
-    not a ``TargetMode`` is that signal, so it delegates to :func:`_reject_bare_decorator`. Otherwise
-    (dispatcher default ``target`` is a ``TargetMode``) it is a genuine attempt to deprecate a plain
-    object → point at ``deprecated_instance``.
-
-    Args:
-        source: The object ``packing`` received as its decoration target.
-        target: The raw ``target`` argument given to ``@deprecated``, used only to disambiguate the
-            bare-decorator misuse case.
-
-    Raises:
-        TypeError: When ``source`` is neither a descriptor, nor a named callable.
-
-    """
-    if not isinstance(source, _DESCRIPTOR_SOURCE_TYPES) and (not callable(source) or not hasattr(source, "__name__")):
-        if callable(target) and not isinstance(target, TargetMode):
-            _reject_bare_decorator(source)  # raises the missing-parentheses TypeError
-        raise TypeError(_PLAIN_OBJECT_REJECT)
-
-
-def _find_class_body_qualname(max_depth: int = 10) -> str:
-    """Return the ``__qualname__`` of the nearest enclosing class body on the call stack.
-
-    Python populates ``__qualname__`` (alongside ``__module__``) in the class-body execution namespace at
-    class-definition time.  A fixed :func:`sys._getframe` depth is fragile — descriptor-decorated methods
-    (``@property``/``@classmethod``/``@staticmethod`` under ``@deprecated``) insert extra ``_packing_descriptor``
-    and ``packing`` frames, so the class body sits deeper than the plain-callable case.  This bounded walk
-    searches upward for the first frame whose locals carry both ``__qualname__`` and ``__module__`` (the
-    signature of a class body) instead of assuming a single layout, and returns ``""`` when none is found.
-
-    Args:
-        max_depth: Maximum number of parent frames to inspect (safety bound against unbounded walks).
-
-    """
-    for depth in range(1, max_depth + 1):
-        try:
-            frame = sys._getframe(depth)
-        except ValueError:
-            break
-        qualname = frame.f_locals.get("__qualname__", "")
-        # Class-body namespaces expose both ``__qualname__`` and ``__module__``; a function frame that merely
-        # has a local named ``__qualname__`` (e.g. a decorator rewrite) lacks ``__module__`` in its locals.
-        if qualname and "__module__" in frame.f_locals and not qualname.rsplit(".", 1)[-1].startswith("<"):
-            return qualname
-    return ""
-
-
-def _check_cross_class_method_target(source: Callable, target: Callable) -> None:
-    """Raise ``TypeError`` when target is a method on a different class than source.
-
-    Forwarding a class method to a method on a *different* class silently passes ``self`` of the wrong type, causing
-    runtime attribute errors.  This guard detects the misconfiguration at decoration time by comparing the immediate
-    class name extracted from each callable's ``__qualname__``.
-
-    Qualname patterns and how they are handled:
-
-    - ``"MyClass.method"``                   → class ``MyClass``
-    - ``"outer.<locals>.MyClass.method"``    → class ``MyClass`` (class inside a function)
-    - ``"outer.<locals>.<lambda>"``          → skipped; prefix ends with ``<locals>``
-    - ``"base_sum_kwargs"``                  → skipped; no dot means module-level function
-
-    False positive resolution — ``__qualname__`` is a display string, not an ownership API, so two scenarios used to
-    yield spurious warnings.  Both are now handled:
-
-    - **Decorators that rewrite ``__qualname__``** (e.g. a decorator applied before
-      :func:`~deprecate.deprecated` that sets ``fn.__qualname__ = "OtherClass.method"``): resolved by reading
-      ``__qualname__`` from the enclosing class
-      body frame via :func:`sys._getframe`.  Python itself sets ``__qualname__`` in the class-body locals at
-      class-definition time, so this value reflects the true enclosing class regardless of any decorator that
-      mutated the source callable's ``__qualname__`` attribute.
-    - **Metaclass-generated classes** (``type("Name", bases, ns)``, ``__init_subclass__``, or manual assignment
-      producing qualnames like ``"FakeOwner.method"`` for unrelated types): resolved by verifying that the
-      top-level class name in the qualname prefix actually exists in the callable's module globals.  When the
-      referenced class does not exist, the qualname is unreliable and the guard returns without raising.
-
-    Args:
-        source: The callable being decorated with ``@deprecated``.
-        target: The replacement callable supplied as the ``target`` argument.
-
-    """
-    # Constructor-to-constructor forwarding (__init__ → __init__) is always valid,
-    # including across different classes, because PastCls inherits NewCls so `self` is a valid NewCls instance.
-    if source.__name__ == "__init__" and getattr(target, "__name__", "") == "__init__":
-        return
-    src_qualname = getattr(source, "__qualname__", "")
-    tgt_qualname = getattr(target, "__qualname__", "")
-    src_parts = src_qualname.rsplit(".", 1)
-    tgt_parts = tgt_qualname.rsplit(".", 1)
-    if len(src_parts) != 2 or len(tgt_parts) != 2:
-        return
-    src_prefix, tgt_prefix = src_parts[0], tgt_parts[0]
-    # Skip nested functions / lambdas whose prefix ends with "<locals>"
-    if src_prefix.endswith("<locals>") or tgt_prefix.endswith("<locals>"):
-        return
-
-    # Fix 1 — decorator-rewriting FP: a decorator applied before @deprecated may have
-    # mutated source.__qualname__.  Python sets __qualname__ in the class body's locals
-    # at class-definition time, before any decorator runs, so the frame value is the
-    # authoritative source class name.  A bounded upward walk locates the class-body frame
-    # regardless of how many descriptor/packing frames sit between here and it (see
-    # :func:`_find_class_body_qualname`) — a fixed ``sys._getframe(2)`` silently missed the
-    # class body for descriptor-decorated methods, disabling the guard for them.
-    frame_qn = _find_class_body_qualname()
-    if frame_qn:
-        src_prefix = frame_qn
-
-    # Fix 2 — metaclass/synthetic-qualname FP: a target whose __qualname__ refers to a
-    # class that does not actually exist in the target's module is unreliable; the guard
-    # has no way to verify the cross-class claim, so it must skip rather than raise.
-    # Applied to the target only — the source class is mid-definition when this helper
-    # runs, so it cannot appear in module globals yet; applying the check to the source
-    # would silently disable the guard for all module-level class definitions.
-    tgt_top_class = tgt_prefix.split(".", 1)[0]
-    tgt_module = sys.modules.get(getattr(target, "__module__", ""), None)
-    if tgt_module is not None and not hasattr(tgt_module, tgt_top_class):
-        return
-
-    src_class_name = src_prefix.rsplit(".", 1)[-1]
-    tgt_class_name = tgt_prefix.rsplit(".", 1)[-1]
-    src_owner = f"{getattr(source, '__module__', '')}.{src_prefix}"
-    tgt_owner = f"{getattr(target, '__module__', '')}.{tgt_prefix}"
-    if src_owner == tgt_owner:
-        return
-    raise TypeError(
-        f"Cannot use @deprecated on '{source.__qualname__}' with target "
-        f"'{target.__qualname__}': cross-class method forwarding is not supported "
-        f"because `self` would carry the wrong type. "
-        f"The target must be a method on the same class ('{src_class_name}') "
-        f"or a full class (use target={tgt_class_name} for class migration).",
-    )
-
-
-def _warn_stacking_misconfiguration(
-    source: Callable, outer_target: Union[TargetMode, Callable], stacklevel: int = 3
-) -> None:
-    """Emit ``UserWarning`` at decoration time for unsupported stacking combinations.
-
-    Only called when ``source`` already carries ``__deprecation_config__`` metadata (i.e. is itself a
-    ``@deprecated`` wrapper).  Supported combinations are silently accepted:
-
-    - ``ARGS_REMAP`` (outer) + ``ARGS_REMAP`` (inner): multi-step arg renames across versions.
-    - ``ARGS_REMAP`` (outer) + ``NOTIFY`` (inner): lifecycle pattern — rename args first, deprecate
-      the whole function later.
-    - ``NOTIFY`` (outer) + ``callable`` (inner): outer NOTIFY warns callers the function is going
-      away; inner callable handles forwarding.
-
-    Unsupported combinations (six cases) produce ``UserWarning`` at decoration time; all others
-    are silently accepted.  The three supported combinations are: ``ARGS_REMAP`` (outer) +
-    ``ARGS_REMAP`` (inner), ``ARGS_REMAP`` (outer) + ``NOTIFY`` (inner), and ``NOTIFY`` (outer) +
-    ``callable`` (inner).
-
-    """
-    inner_config = get_deprecation_config(source)
-    if inner_config is None:
-        raise TypeError(f"'{source.__name__}' no longer carries valid deprecation metadata.")
-    inner_target = inner_config.target
-    name = source.__name__
-
-    if callable(outer_target) and callable(inner_target):
-        warnings.warn(
-            f"'{name}' has a callable target stacked over another callable-target @deprecated."
-            " Stacking a callable target over another callable target is not supported."
-            " This will raise `TypeError` at call time."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-    elif callable(outer_target) and inner_target is TargetMode.ARGS_REMAP:
-        warnings.warn(
-            f"'{name}' has a callable target stacked over @deprecated(ARGS_REMAP)."
-            " The arg-rename warning will not fire at call time; the inner layer is bypassed."
-            " Collapse to: @deprecated(target=<callable>, args_mapping={...})."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-    elif callable(outer_target) and inner_target is TargetMode.NOTIFY:
-        warnings.warn(
-            f"'{name}' has a callable target stacked over @deprecated(NOTIFY)."
-            " The inner function-deprecated warning will not fire at call time; the inner layer is bypassed"
-            " while the callable target is still invoked."
-            " Collapse to a single @deprecated(target=<callable>) and remove the inner @deprecated(NOTIFY)."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-    elif outer_target is TargetMode.ARGS_REMAP and callable(inner_target):
-        warnings.warn(
-            f"'{name}' has @deprecated(ARGS_REMAP) stacked over a callable-target @deprecated."
-            " Update the inner @deprecated(target=<callable>, args_mapping={...}) instead of stacking."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-    elif outer_target is TargetMode.NOTIFY and inner_target is TargetMode.NOTIFY:
-        warnings.warn(
-            f"'{name}' has duplicate @deprecated(NOTIFY) layers."
-            " Update the existing decorator's `deprecated_in`, `remove_in`, or `message_template` instead."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-    elif outer_target is TargetMode.NOTIFY and inner_target is TargetMode.ARGS_REMAP:
-        warnings.warn(
-            f"'{name}' has @deprecated(NOTIFY) stacked over @deprecated(ARGS_REMAP)."
-            " Reverse the decorator order: put @deprecated(ARGS_REMAP, ...) outermost (on top)"
-            " and @deprecated(NOTIFY, ...) below it."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-    elif (
-        (outer_target is TargetMode.ARGS_REMAP and inner_target is TargetMode.ARGS_REMAP)
-        or (outer_target is TargetMode.ARGS_REMAP and inner_target is TargetMode.NOTIFY)
-        or (outer_target is TargetMode.NOTIFY and callable(inner_target))
-    ):
-        pass  # supported combinations — silently accepted
-    else:
-        warnings.warn(
-            f"'{name}' has an unsupported @deprecated stacking combination."
-            f" Will be `TypeError` in `{_MAJOR_BREAK_VERSION}`.",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
-
-
-def _normalize_target(
-    source: Callable,
-    target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
-) -> Union[TargetMode, Callable]:
-    """Normalise the effective target callable before the wrapper closure captures it.
-
-    Converts legacy sentinel values to :class:`~deprecate._types.TargetMode` enum members with a deprecation
-    warning, and handles class targets:
-
-    Legacy sentinel conversion (emits warning at decoration time):
-
-    - ``target=None`` → :attr:`TargetMode.NOTIFY` + :class:`FutureWarning`
-    - ``target=True`` → :attr:`TargetMode.ARGS_REMAP` + :class:`FutureWarning`
-    - ``target=False`` → :attr:`TargetMode.NOTIFY` + :class:`UserWarning`
-
-    Class target handling (unchanged from previous behaviour):
-
-    1. ``source`` is ``__init__`` → remap ``target=NewCls`` to ``target=NewCls.__init__``
-       (constructor forwarding; ``self`` is the new instance so the call is valid).
-    2. ``source`` is a class method (non-``__init__``) → raise :exc:`TypeError`; passing a class as target for a
-       bound method silently passes ``self`` of the wrong type.
-    3. ``source`` is a module-level function → keep ``target=NewCls`` as-is; calling ``NewCls(**kwargs)`` creates
-       a new instance directly.
-
-    Descriptor unwrapping:
-
-    - ``target=staticmethod(fn)`` → unwrapped to ``fn`` (``.__func__``); enables ``target=bbb`` inside a class
-      body where ``bbb`` is still the raw ``staticmethod`` descriptor, not yet bound.
-    - ``target=classmethod(fn)`` → unwrapped to ``fn`` (``.__func__``); same pattern, but only when ``source``
-      accepts ``cls`` as its first positional parameter.  Asymmetric usage (non-classmethod source targeting a
-      ``classmethod`` descriptor) raises :exc:`TypeError` at decoration time because ``cls`` would be missing at
-      call time otherwise.
-
-    Note on the ``classmethod`` guard: the check ``src_params[0] != "cls"`` relies on the Python convention that
-    classmethods name their first parameter ``cls`` (PEP 8 / all major linters enforce this).  If your classmethod
-    uses an unconventional name (e.g. ``klass``) or ``source`` is a ``functools.partial`` whose first argument is
-    already bound, the guard may raise spuriously.  In that case pass the unwrapped target explicitly:
-    ``target=your_classmethod.__func__``.
-
-    Args:
-        source: The callable being decorated with ``@deprecated``.
-        target: Raw ``target`` argument from the ``@deprecated`` call.
-
-    Returns:
-        Normalised target suitable for use inside ``wrapped_fn``.
-
-    Raises:
-        TypeError: When a class target is used on a non-``__init__`` class method.
-
-    """
-    # --- Legacy sentinel conversion (v0.8 compat shim; removed in v1.0) ---
-    # stacklevel=4: warn() → _from_legacy() → _normalize_target() → packing() → @decorator application site
-    if target is None or isinstance(target, bool):
-        return TargetMode._from_legacy(target, stacklevel=4)
-
-    # --- TargetMode enum pass-through ---
-    if isinstance(target, TargetMode):
-        return target
-
-    # --- Descriptor unwrap (staticmethod/classmethod passed from class body before binding) ---
-    if isinstance(target, (staticmethod, classmethod)):
-        if isinstance(target, classmethod):
-            # Guard: classmethod.__func__ expects cls as its first arg.  If source does not
-            # accept cls, it will never be supplied → TypeError at call time.  Raise early.
-            try:
-                src_params = list(inspect.signature(source).parameters)
-            except (ValueError, TypeError):
-                src_params = []
-            if not src_params or src_params[0] != "cls":
-                func_name = getattr(target.__func__, "__name__", "target")
-                raise TypeError(
-                    f"@deprecated(target=<classmethod descriptor>) on '{source.__name__}': "
-                    "descriptor targets require the source to accept a leading class argument "
-                    "(typically named 'cls') so it can be forwarded to the replacement. "
-                    f"Either make '{source.__name__}' a @classmethod, or pass a bound target like "
-                    f"'target=<YourClass>.{func_name}' after the class is defined."
-                )
-        return target.__func__
-
-    # --- Class target handling ---
-    if inspect.isclass(target):
-        src_qualname = getattr(source, "__qualname__", "")
-        src_parts = src_qualname.rsplit(".", 1)
-        source_is_class_method = len(src_parts) == 2 and not src_parts[0].endswith("<locals>")
-        if source.__name__ == "__init__":
-            return target.__init__
-        if source_is_class_method:
-            raise TypeError(
-                f"Cannot use a class as `target` for @deprecated on '{source.__qualname__}'. "
-                f"Constructor forwarding via target=ClassName is only supported on `__init__`. "
-                f"Use target={target.__name__}.__init__ explicitly, or apply the decorator to `__init__`."
-            )
-        return target  # module-level function: instantiate directly
-
-    # --- Callable target (function/method) ---
-    return target
-
-
-def _precompute_target_facts(
-    target: Union[Callable, TargetMode],
-) -> tuple[frozenset[str], bool, bool]:
-    """Extract decoration-time-stable signature facts of a forwarding target.
-
-    Computed once at decoration time and stored on :class:`~deprecate._types.DeprecationConfig`
-    so the call-time kwarg validation never re-inspects the target (previously an uncached
-    ``inspect.getfullargspec`` on every forwarded call).
-
-    Args:
-        target: Normalised target — a :class:`TargetMode` member or a callable.  Non-callables
-            return empty/``False`` facts because the dispatcher never forwards to them.
-
-    Returns:
-        Tuple ``(all_param_names, accepts_var_positional, accepts_var_keyword)`` where
-        ``all_param_names`` mirrors :func:`get_func_arguments_types_defaults` (every signature
-        parameter, including ``*args`` / ``**kwargs`` names).
-
-    """
-    if not callable(target):
-        return frozenset(), False, False
-    try:
-        params = _get_signature(target).parameters
-    except (TypeError, ValueError):
-        return frozenset(), False, False
-    all_names = frozenset(params)
-    accepts_var_positional = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in params.values())
-    accepts_var_keyword = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
-    return all_names, accepts_var_positional, accepts_var_keyword
 
 
 def _prepare_target_call(
@@ -456,7 +59,7 @@ def _prepare_target_call(
         source: Deprecated callable being wrapped.
         target: Target callable to invoke (shall not be a class).
         kwargs: Keyword arguments after mapping and defaults.
-        target_arg_names: Pre-computed target parameter names (see :func:`_precompute_target_facts`).  When
+        target_arg_names: Pre-computed target parameter names (see :func:`_build_call_facts`).  When
             ``None`` the facts are derived from ``target`` on the spot — the decorator path always passes the
             cached values so the fallback only runs for direct/test callers.
         accepts_var_positional: Whether ``target`` declares ``*args`` (from the same pre-computed facts).
@@ -478,7 +81,9 @@ def _prepare_target_call(
 
     """
     if target_arg_names is None:
-        target_arg_names, accepts_var_positional, accepts_var_keyword = _precompute_target_facts(target)
+        target_facts = _signature_facts(target, empty_on_error=True)
+        target_arg_names = target_facts.names
+        accepts_var_positional, accepts_var_keyword = target_facts.var_positional, target_facts.var_keyword
 
     missed = [arg for arg in kwargs if arg not in target_arg_names]
     if missed and not accepts_var_keyword:
@@ -491,66 +96,160 @@ def _prepare_target_call(
     return target
 
 
-def _update_kwargs_with_args(func: Callable, fn_args: tuple[Any, ...], fn_kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Convert positional arguments to keyword arguments using function signature.
-
-    This helper function takes positional arguments and converts them to keyword arguments by matching them with
-    parameter names from the function signature.  This enables consistent argument handling in the deprecation wrapper.
+def _raise_positional_arity_error(
+    func: Callable, positional_names: tuple[str, ...], defaults: Mapping[str, Any], n_args: int
+) -> NoReturn:
+    """Raise the curated ``TypeError`` for a call that passes more positional arguments than ``func`` declares.
 
     Args:
-        func: Function whose signature provides parameter names.
+        func: Callable whose positional slots were exceeded; the message names it by ``__qualname__``.
+        positional_names: Names of the positional-only and positional-or-keyword parameters of ``func``, in order.
+        defaults: Each parameter of ``func`` that has a default, mapped to that default.
+        n_args: Number of positional arguments the caller passed.
+
+    Raises:
+        TypeError: Always; the message states the accepted count, or the accepted range when some slots have
+            defaults.
+
+    """
+    required_positional_names = [name for name in positional_names if name not in defaults]
+    if len(required_positional_names) == len(positional_names):
+        raise TypeError(
+            f"{func.__qualname__}() takes {len(positional_names)} positional argument(s) but got "
+            f"{n_args} positional argument(s)"
+        )
+    raise TypeError(
+        f"{func.__qualname__}() takes {len(required_positional_names)} to {len(positional_names)} "
+        f"positional argument(s) but got {n_args} positional argument(s)"
+    )
+
+
+def _check_source_arity(source: Callable, args: tuple[Any, ...], facts: _CallFacts) -> None:
+    """Reject surplus positional arguments before any deprecation warning fires or any warn budget is spent.
+
+    A caller passing one positional argument too many gets the same curated ``TypeError`` whether or not the wrapper
+    goes on to rewrite the call, so the check runs on the decoration-time parameter names instead of on the converted
+    keyword arguments.  A source declaring ``*args`` accepts any number of positionals and is never rejected.
+
+    Args:
+        source: The decorated callable.
+        args: The positional arguments the caller passed.
+        facts: The wrapper's signature facts; ``source_positional_names``, ``source_has_var_positional`` and
+            ``source_defaults`` are read from them.
+
+    Raises:
+        TypeError: When ``source`` has no ``*args`` and ``args`` is longer than ``facts.source_positional_names``.
+
+    Example:
+        >>> def source(a, b=0): pass
+        >>> facts = _CallFacts(source_positional_names=("a", "b"), source_defaults={"b": 0})
+        >>> _check_source_arity(source, (1, 2), facts)
+        >>> _check_source_arity(source, (1, 2, 3), facts)
+        Traceback (most recent call last):
+        ...
+        TypeError: source() takes 1 to 2 positional argument(s) but got 3 positional argument(s)
+
+    """
+    limit = facts.source_positional_limit
+    if limit is None or len(args) <= limit:
+        return
+    _raise_positional_arity_error(source, facts.source_positional_names, facts.source_defaults, len(args))
+
+
+def _is_verbatim_call(
+    normalized_target: Union[Callable[..., Any], TargetMode],
+    dep_cfg: DeprecationConfig,
+    args: tuple[Any, ...],
+    kwargs: Mapping[str, Any],
+    source_positional_names: tuple[str, ...],
+) -> bool:
+    """Decide whether the source can be called with the caller's own ``(*args, **kwargs)``, unchanged.
+
+    The wrapper has to rewrite a call only when something changes on the way to the source: a callable target is
+    forwarded by keyword, a deprecated argument is renamed, or ``args_extra`` is injected.  Every other call is passed
+    through exactly as made, so a source whose runtime call shape differs from its signature
+    (``functools.singledispatch``, a patched ``__signature__``, a ``functools.wraps`` forwarder) keeps working under
+    ``TargetMode.NOTIFY`` and under a ``TargetMode.ARGS_REMAP`` the caller does not trigger.  A deprecated argument
+    counts as used when its old name is passed by keyword or when a positional argument fills the slot that carries
+    the old name.
+
+    Args:
+        normalized_target: The normalised target (callable or :class:`TargetMode`).
+        dep_cfg: The wrapper's configuration; ``args_mapping`` and ``args_extra`` are read from it.
+        args: The positional arguments the caller passed.
+        kwargs: The keyword arguments the caller passed.
+        source_positional_names: Names of the source's positional parameters before ``*args``, in order.
+
+    Returns:
+        ``True`` when the source can be invoked as ``source(*args, **kwargs)``.
+
+    Example:
+        >>> from deprecate._types import DeprecationConfig, TargetMode
+        >>> cfg = DeprecationConfig(deprecated_in="1.0", remove_in="2.0", args_mapping={"old": "new"})
+        >>> _is_verbatim_call(TargetMode.ARGS_REMAP, cfg, (1,), {}, ("new", "old"))
+        True
+        >>> _is_verbatim_call(TargetMode.ARGS_REMAP, cfg, (1, 2), {}, ("new", "old"))
+        False
+        >>> _is_verbatim_call(TargetMode.ARGS_REMAP, cfg, (), {"old": 1}, ("new", "old"))
+        False
+
+    """
+    if callable(normalized_target):
+        return False
+    if normalized_target is not TargetMode.ARGS_REMAP:
+        return True
+    if dep_cfg.args_extra:
+        return False
+    mapping_names = (dep_cfg.args_mapping or {}).keys()
+    # No old name passed by keyword, none filling a positional slot; ``isdisjoint`` runs at C speed on a dict.
+    return mapping_names.isdisjoint(kwargs) and mapping_names.isdisjoint(source_positional_names[: len(args)])
+
+
+def _update_kwargs_with_args(fn_args: tuple[Any, ...], fn_kwargs: dict[str, Any], facts: _CallFacts) -> dict[str, Any]:
+    """Convert positional arguments to keyword arguments using the decoration-time parameter names.
+
+    This helper takes positional arguments and converts them to keyword arguments by matching them with the source's
+    positional parameter names, read from its signature when it was decorated.  This enables consistent argument
+    handling in the deprecation wrapper.
+
+    The caller has already rejected surplus positionals with :func:`_check_source_arity` (:func:`_build_call_plan` does
+    so before any other work), so this helper does not check the arity again.  Values beyond the named positional
+    parameters are left unconverted instead of raising.
+
+    Args:
         fn_args: Tuple of positional arguments passed to the function.
         fn_kwargs: Dictionary of keyword arguments already passed.
+        facts: The wrapper's signature facts (see :func:`_check_source_arity`).
 
     Returns:
         Dictionary combining converted positional arguments and existing kwargs, where positional args are now mapped
-        to their parameter names.  Conversion stops when encountering var-positional parameters (``*args``) because
-        they cannot be safely represented as keyword arguments.
+        to their parameter names.  Conversion stops at the var-positional parameter (``*args``) because its values
+        cannot be safely represented as keyword arguments.
 
     Example:
         >>> from pprint import pprint
         >>> def example_func(a, b, c=3): pass
-        >>> pprint(_update_kwargs_with_args(example_func, (1, 2), {'c': 5}))
+        >>> facts = _build_call_facts(example_func, TargetMode.NOTIFY, None)
+        >>> pprint(_update_kwargs_with_args((1, 2), {'c': 5}, facts))
         {'a': 1, 'b': 2, 'c': 5}
 
     """
     if not fn_args:
         return fn_kwargs
-    params = list(_get_signature(func).parameters.values())
-    positional_params = _get_positional_params(params)
-    has_var_positional = any(param.kind == inspect.Parameter.VAR_POSITIONAL for param in params)
-
-    if not has_var_positional and len(fn_args) > len(positional_params):
-        required_positional_params = [param for param in positional_params if param.default is inspect.Parameter.empty]
-        if len(required_positional_params) == len(positional_params):
-            raise TypeError(
-                f"{func.__qualname__}() takes {len(positional_params)} positional argument(s) but got "
-                f"{len(fn_args)} positional argument(s)"
-            )
-        raise TypeError(
-            f"{func.__qualname__}() takes {len(required_positional_params)} to {len(positional_params)} "
-            f"positional argument(s) but got {len(fn_args)} positional argument(s)"
-        )
     updated_kwargs = dict(fn_kwargs)
-    for index, arg in enumerate(fn_args):
-        if index >= len(params):
-            break
-        param = params[index]
-        if param.kind == inspect.Parameter.VAR_POSITIONAL:
-            break
-        if param.kind in (POSITIONAL_ONLY, POSITIONAL_OR_KEYWORD):
-            updated_kwargs[param.name] = arg
+    # Positional parameters precede ``*args`` in every signature, so ``zip`` stops where the old loop broke off.
+    updated_kwargs.update(zip(facts.source_positional_names, fn_args))
     return updated_kwargs
 
 
-def _update_kwargs_with_defaults(func: Callable, fn_kwargs: dict[str, Any]) -> dict[str, Any]:
+def _update_kwargs_with_defaults(defaults: Mapping[str, Any], fn_kwargs: dict[str, Any]) -> dict[str, Any]:
     """Merge function default values with provided keyword arguments.
 
-    This helper fills in default parameter values from the function signature for any parameters not explicitly
-    provided.  Provided kwargs take precedence over defaults.
+    This helper fills in the default parameter values, read from the signature when the function was decorated, for
+    any parameters not explicitly provided.  Provided kwargs take precedence over defaults.
 
     Args:
-        func: Function whose signature provides default parameter values.
+        defaults: Each parameter that has a default, mapped to that default, in declaration order.
         fn_kwargs: Dictionary of keyword arguments provided by caller.
 
     Returns:
@@ -559,17 +258,157 @@ def _update_kwargs_with_defaults(func: Callable, fn_kwargs: dict[str, Any]) -> d
     Example:
         >>> from pprint import pprint
         >>> def example_func(a=1, b=2, c=3): pass
-        >>> pprint(_update_kwargs_with_defaults(example_func, {'b': 20}))
+        >>> pprint(_update_kwargs_with_defaults(_signature_facts(example_func).defaults, {'b': 20}))
         {'a': 1, 'b': 20, 'c': 3}
 
     Note:
         Parameters without defaults (inspect.Parameter.empty) are not included in the result.
 
     """
-    func_arg_type_val = get_func_arguments_types_defaults(func)
-    # fill by source defaults
-    fn_defaults = {arg[0]: arg[2] for arg in func_arg_type_val if arg[2] != inspect.Parameter.empty}
-    return dict(list(fn_defaults.items()) + list(fn_kwargs.items()))
+    return {**defaults, **fn_kwargs}
+
+
+def _renamed_defaults_owned_by_target(
+    normalized_target: Union[Callable[..., Any], TargetMode],
+    args_mapping: Mapping[str, Optional[str]],
+) -> frozenset[str]:
+    """Return the source parameter names whose default an ``args_mapping`` rename makes stale.
+
+    A source default for a renamed argument survives :func:`_update_kwargs_with_defaults` and would be forwarded under
+    the new name, silently overriding the target's own default. Two kinds of name are stale: a source parameter that
+    already carries a rename's *new* name, and a renamed *old* name whose new name has a default on the target. Only a
+    callable target with a non-empty mapping can have any.
+
+    """
+    if not args_mapping or not callable(normalized_target):
+        return frozenset()
+    rename_targets = {new for new in args_mapping.values() if new is not None}
+    target_defaults = _signature_facts(normalized_target).defaults
+    renamed_with_target_default = {old for old, new in args_mapping.items() if new in target_defaults}
+    return frozenset(rename_targets | renamed_with_target_default)
+
+
+class _ForwardDefaults(NamedTuple):
+    """Names that keep a source default out of a forwarded call, fixed once the function is decorated.
+
+    Both sets depend only on the target and on ``args_mapping``, never on the call, so a wrapper can derive them one
+    time (:func:`_precompute_forward_defaults`) and hand the same instance to every call instead of re-deriving them
+    on each one. Keep that instance on the wrapper's :class:`_WrapperContext`, not on
+    :class:`~deprecate._types.DeprecationConfig`, which is public through ``get_deprecation_config``.
+
+    Attributes:
+        stale_renamed: Source parameter names whose default an ``args_mapping`` rename makes stale (see
+            :func:`_renamed_defaults_owned_by_target`).
+        partial_bound: Keyword names bound anywhere in the target's ``functools.partial`` chain.
+
+    """
+
+    stale_renamed: frozenset[str]
+    partial_bound: frozenset[str]
+
+
+def _derive_forward_defaults(
+    normalized_target: Union[Callable[..., Any], TargetMode],
+    args_mapping: Optional[Mapping[str, Optional[str]]],
+) -> _ForwardDefaults:
+    """Derive the :class:`_ForwardDefaults` of one target and mapping on the spot.
+
+    Args:
+        normalized_target: The normalised target (callable or :class:`TargetMode`).
+        args_mapping: The wrapper's ``args_mapping``, or ``None``.
+
+    Returns:
+        The names a rename makes stale and the keywords the target's ``functools.partial`` chain binds.
+
+    Raises:
+        TypeError: When the target's signature cannot be read.
+        ValueError: When the target's signature cannot be read.
+
+    """
+    stale_renamed = _renamed_defaults_owned_by_target(normalized_target, args_mapping or {})
+    partial_bound = frozenset().union(*(layer.keywords for layer in _partial_chain(normalized_target)))
+    return _ForwardDefaults(stale_renamed, partial_bound)
+
+
+def _precompute_forward_defaults(
+    normalized_target: Union[Callable[..., Any], TargetMode],
+    args_mapping: Optional[Mapping[str, Optional[str]]],
+) -> Optional[_ForwardDefaults]:
+    """Derive a wrapper's :class:`_ForwardDefaults` once, at decoration time.
+
+    Store the result on the wrapper's :class:`_WrapperContext`; the forwarded-call path then skips the target
+    signature read and the ``functools.partial`` chain walk that would otherwise repeat per call.
+
+    Args:
+        normalized_target: The normalised target (callable or :class:`TargetMode`).
+        args_mapping: The wrapper's ``args_mapping``, or ``None``.
+
+    Returns:
+        The facts, or ``None`` when the target's signature cannot be read. Passing ``None`` on makes the call path
+        derive them itself, so the error an unreadable signature raises still surfaces on the first forwarded call
+        and decoration (import time) never fails because of it.
+
+    Example:
+        >>> from functools import partial
+        >>> def new(x, y=1, z=2): pass
+        >>> _precompute_forward_defaults(partial(new, z=5), None)
+        _ForwardDefaults(stale_renamed=frozenset(), partial_bound=frozenset({'z'}))
+        >>> sorted(_precompute_forward_defaults(new, {"old": "y"}).stale_renamed)
+        ['old', 'y']
+
+    """
+    try:
+        return _derive_forward_defaults(normalized_target, args_mapping)
+    except (TypeError, ValueError):
+        return None
+
+
+def _merge_source_defaults(
+    source_defaults: Mapping[str, Any],
+    normalized_target: Union[Callable[..., Any], TargetMode],
+    kwargs: dict[str, Any],
+    args_mapping: Optional[Mapping[str, Optional[str]]],
+    forward_defaults: Optional[_ForwardDefaults] = None,
+) -> dict[str, Any]:
+    """Fill the source's defaults into the caller's *kwargs*, leaving out defaults the target owns.
+
+    Precedence for one argument: a value the caller supplied (by keyword or by position — positionals are already
+    folded into *kwargs*) > a keyword a ``functools.partial`` target binds > the source default. Two kinds of
+    source default are therefore dropped, unless the caller supplied that name:
+
+    - a renamed argument's default the rename makes stale (:func:`_renamed_defaults_owned_by_target`);
+    - a default whose forwarded name (``args_mapping.get(name) or name``) is bound by a keyword anywhere in the
+      target's ``functools.partial`` chain — the partial's own value must reach the target.
+
+    Every other shared parameter keeps its source default: the source signature is the contract callers migrated
+    from, so its default is forwarded (see ``decorated_sum`` / ``test_functions.py::test_default``). Positional
+    arguments a partial binds are not considered — forwarding by name collides with the bound slot.
+
+    Args:
+        source_defaults: The decorated callable's defaults, read from its signature at decoration
+            (:attr:`~deprecate._types._CallFacts.source_defaults`).
+        normalized_target: The normalised target (callable or :class:`TargetMode`).
+        kwargs: The caller's arguments, positionals already mapped to their parameter names.
+        args_mapping: The wrapper's ``args_mapping``, or ``None``.
+        forward_defaults: Facts precomputed at decoration time (:func:`_precompute_forward_defaults`). ``None``
+            derives them from ``normalized_target`` and ``args_mapping`` on the spot, on every call.
+
+    Returns:
+        The caller's arguments plus every source default the target does not own.
+
+    """
+    full_defaults = _update_kwargs_with_defaults(source_defaults, kwargs)
+    if forward_defaults is None:
+        forward_defaults = _derive_forward_defaults(normalized_target, args_mapping)
+    stale_renamed, partial_bound = forward_defaults
+    if not stale_renamed and not partial_bound:
+        return full_defaults
+    mapping = args_mapping or {}
+    return {
+        name: value
+        for name, value in full_defaults.items()
+        if name in kwargs or (name not in stale_renamed and (mapping.get(name) or name) not in partial_bound)
+    }
 
 
 def _split_positional_only_kwargs(
@@ -638,100 +477,618 @@ def _split_positional_only_kwargs(
     return pos_args, kw_args
 
 
-def _build_call_plan(  # noqa: C901, PLR0912
-    wrapper_fn: Callable[..., Any],
-    source: Callable[..., Any],
-    target: Union[bool, None, Callable[..., Any], TargetMode, staticmethod, classmethod],
-    normalized_target: Union[Callable[..., Any], TargetMode],
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-    dep_cfg: DeprecationConfig,
-    stream: Optional[Callable[..., None]],
-    num_warns: int,
-    source_has_var_positional: bool,
-    source_is_stacked: bool,
-) -> _CallPlan:
-    """Compute the dispatch plan shared by the sync and async wrappers inside :func:`deprecated`.
+@dataclass(frozen=True)
+class _WrapperContext:
+    """Everything a ``@deprecated`` wrapper needs at call time, fixed once the callable is decorated.
 
-    Extracted verbatim from the body of ``wrapped_fn`` / ``async_wrapped_fn`` so that the wrappers differ only by
-    ``await`` on the final source/target call.  All closure variables that the wrapper needs are passed explicitly so
-    this helper has no dependency on the enclosing ``packing`` scope and can be unit-tested in isolation.
+    ``packing`` builds one instance per wrapper and the wrapper's closure hands it to every call, so the call-time
+    helpers below read configuration, signature facts and counters from one place.  The wrapper reads ``cfg`` from
+    here rather than from its own ``__deprecated__`` attribute: a PEP 702 ``typing_extensions.deprecated`` decorator
+    stacked outside this one overwrites that attribute with a plain string.
 
-    Side effects (carried over from the original inline logic):
-
-    - Mutates ``wrapper_fn._state`` — bumps ``called``, optionally bumps ``warned_calls`` / ``warned_args``, and sets
-      ``warned_misconfigured`` on the first misconfiguration warning.
-    - Emits the one-time misconfiguration ``UserWarning`` via :func:`warnings.warn` when ``dep_cfg.misconfigured`` is
-      set, ``stream`` is non-``None``, and the state has not yet seen it.
-    - Emits the deprecation warning through ``stream`` when the per-call quota allows it — callable-reason via
-      :func:`_raise_warn_callable`, argument-rename-reason via :func:`_raise_warn_arguments`.
-
-    Args:
-        wrapper_fn: The wrapping function itself, used to read mutable ``_state`` via the
-            :class:`_DeprecatedCallable` protocol.  Passing the wrapper instead of a bare state lets the wrapper
-            preserve its existing ``cast(_DeprecatedCallable, ...)._state`` access pattern.
+    Attributes:
         source: The decorated callable.
-        target: The raw ``target`` argument given to ``@deprecated`` — preserved for warning emission so callable
-            targets that are classes are named by their user-facing name rather than ``__init__``.
-        normalized_target: The normalised target (a :class:`TargetMode` member or callable) returned by
-            :func:`_normalize_target`.
-        args: The positional arguments the caller passed to the wrapper.
-        kwargs: The keyword arguments the caller passed to the wrapper.
-        dep_cfg: The frozen :class:`DeprecationConfig` for this wrapper.  ``args_mapping``, ``args_extra``,
-            ``deprecated_in``, ``remove_in``, and ``message_template`` are all read from this object.
-            Precedence when keys collide: explicit new-name kwarg wins over the remapped old-name value;
-            ``args_extra`` wins over both (it is merged last).
-        stream: Warning stream (typically :func:`warnings.warn` partial), or ``None`` to suppress.
-        num_warns: Maximum number of times to emit the warning per wrapper / per renamed argument.
-        source_has_var_positional: ``True`` when ``source`` declares ``*args`` — affects fast-path dispatch in the
-            wrapper but is also needed inside this helper for the short-circuit branch.
-        source_is_stacked: ``True`` when ``source`` is itself a ``@deprecated`` wrapper.
-
-    Returns:
-        A :class:`_CallPlan` describing the resolved dispatch outcome.
+        raw_target: The ``target`` argument as given to ``@deprecated``; warnings name a class target by it rather
+            than by its ``__init__``.
+        target: The normalised target (a :class:`TargetMode` member or a callable) returned by
+            :func:`~deprecate._validate._normalize_target`.
+        cfg: The wrapper's frozen :class:`~deprecate._types.DeprecationConfig`; ``args_mapping``, ``args_extra``,
+            ``deprecated_in``, ``remove_in``, ``message_template``, ``misconfigured`` and ``as_exception`` are read
+            from it.
+        facts: Signature facts of the source and the target (see :func:`_build_call_facts`).
+        state: The wrapper's mutable counters, the same object as ``wrapper._state``, so a counter reset through the
+            wrapper is seen by the next call.
+        stream: Warning stream, or ``None`` to suppress emission.
+        num_warns: Warning budget per wrapper and per renamed argument; negative means unlimited.
+        skip_if: The ``skip_if`` condition, evaluated on every call by :func:`~deprecate.messaging._eval_skip_if`.
+        is_stacked: ``True`` when ``source`` is itself a ``@deprecated`` wrapper.
+        forward_defaults: Decoration-time facts for the forwarded-call path (see
+            :func:`_precompute_forward_defaults`); ``None`` derives them on every forwarded call.
+        remap_active: Derived; ``True`` when ``args_mapping`` and ``args_extra`` apply to the target, that is for
+            ``TargetMode.ARGS_REMAP`` and for a callable target.
+        cycle_guarded: Derived; ``True`` when the target is callable, so every call runs under the target-chain cycle
+            guard (:func:`_enter_cycle_guard`).
+        fast_notify: Derived; ``True`` for ``TargetMode.NOTIFY`` unless ``as_exception=True`` makes every call fatal,
+            so a call after the warn budget is spent may skip the call plan (:func:`_skips_call_plan`).
+        fast_remap: Derived; ``True`` for ``TargetMode.ARGS_REMAP`` without ``args_extra`` over a source that is not
+            itself a ``@deprecated`` wrapper, so a caller using none of the deprecated names may skip the call plan.
+        source_receiver: Derived; for a ``classmethod`` descriptor target, the name of the source's first positional
+            parameter, which receives the class whatever it is called (``cls``, ``klass``, ``mcs``); ``None``
+            otherwise.  Its value is checked to be a class on every call (:func:`_check_classmethod_receiver`).
+        target_receiver: Derived; for a ``classmethod`` descriptor target, the name of the target's own receiver
+            parameter, under which the source's receiver is forwarded (:func:`_forward_receiver_name`); ``None``
+            when there is none or the target signature is unreadable.
 
     """
-    state = cast(_DeprecatedCallable, wrapper_fn)._state
-    state.called += 1
-    if dep_cfg.misconfigured and stream and not state.warned_misconfigured:
+
+    source: Callable[..., Any]
+    raw_target: Union[bool, None, Callable[..., Any], TargetMode, staticmethod, classmethod]
+    target: Union[Callable[..., Any], TargetMode]
+    cfg: DeprecationConfig
+    facts: _CallFacts
+    state: _WrapperState
+    stream: Optional[Callable[..., Any]]
+    num_warns: int
+    skip_if: Union[bool, Callable[[], bool]]
+    is_stacked: bool
+    forward_defaults: Optional[_ForwardDefaults] = None
+    remap_active: bool = field(init=False)
+    cycle_guarded: bool = field(init=False)
+    fast_notify: bool = field(init=False)
+    fast_remap: bool = field(init=False)
+    source_receiver: Optional[str] = field(init=False)
+    target_receiver: Optional[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Derive the per-wrapper flags the call path would otherwise recompute on every call."""
+        forwards = callable(self.target)
+        object.__setattr__(self, "cycle_guarded", forwards)
+        object.__setattr__(self, "remap_active", forwards or self.target is TargetMode.ARGS_REMAP)
+        object.__setattr__(self, "fast_notify", self.target is TargetMode.NOTIFY and self.cfg.as_exception is not True)
+        object.__setattr__(
+            self,
+            "fast_remap",
+            self.target is TargetMode.ARGS_REMAP and not self.cfg.args_extra and not self.is_stacked,
+        )
+        source_receiver, target_receiver = _classmethod_receivers(self.raw_target, self.facts)
+        object.__setattr__(self, "source_receiver", source_receiver)
+        object.__setattr__(self, "target_receiver", target_receiver)
+
+
+def _classmethod_receivers(
+    raw_target: Union[bool, None, Callable[..., Any], TargetMode, staticmethod, classmethod],
+    facts: _CallFacts,
+) -> tuple[Optional[str], Optional[str]]:
+    """Name the parameters that carry the class from the source to a ``classmethod`` descriptor target.
+
+    A classmethod's receiver is its first positional parameter, whatever it is called, so the names are read by
+    position rather than matched against ``cls``.  The decoration guard
+    (:func:`~deprecate._validate._normalize_target`) already rejected a source with no leading positional parameter.
+
+    Args:
+        raw_target: The ``target`` argument as given to ``@deprecated``, before the descriptor was unwrapped.
+        facts: Signature facts of the source and the target.
+
+    Returns:
+        Tuple of ``(source_receiver, target_receiver)``: both ``None`` unless ``raw_target`` is a ``classmethod``;
+        ``target_receiver`` is also ``None`` when the target has no positional parameter or its signature is
+        unreadable.
+
+    Example:
+        >>> def make(kls, value): pass
+        >>> def old(klass, value): pass
+        >>> _classmethod_receivers(classmethod(make), _build_call_facts(old, make, None))
+        ('klass', 'kls')
+        >>> _classmethod_receivers(make, _build_call_facts(old, make, None))
+        (None, None)
+
+    """
+    if not isinstance(raw_target, classmethod) or not facts.source_positional_names:
+        return None, None
+    target_names = facts.target_positional_names
+    return facts.source_positional_names[0], (target_names[0] if target_names else None)
+
+
+#: Marks a receiver with no value: neither the call nor the source's default supplies one
+#: (:func:`_check_classmethod_receiver`), or a forwarded call did not take it out of the keywords
+#: (:func:`_resolve_forward_kwargs`).
+_NO_RECEIVER = object()
+
+
+def _check_classmethod_receiver(ctx: _WrapperContext, kwargs: Mapping[str, Any]) -> None:
+    """Raise when the value a source hands to its ``classmethod`` descriptor target as the receiver is not a class.
+
+    A plain source, or a static one written ``@staticmethod`` above ``@deprecated``, pointed at a ``classmethod``
+    descriptor decorates fine, because the receiver's name is free, but its first argument is a caller's value:
+    forwarding a value that is not a class would run the replacement with a wrong ``cls``.  Only the type is checked,
+    so a class the caller passes as that first argument is forwarded as the receiver; the decorator cannot tell such a
+    source from a classmethod.  When the call leaves the first argument out, the source's default for it is checked
+    instead, because the forwarded call fills that default in later.  Runs before any warning is emitted or any budget
+    is spent, like :func:`_check_source_arity`.
+
+    The caller's keywords must not carry the target's receiver name either, when it differs from the source's: the
+    receiver is forwarded under that name, so the keyword would take the class's place.  A later source parameter of
+    that name is rejected at decoration (``_validate._receiver_name_clash``), so at this point such a keyword can only
+    arrive through the source's ``**kwargs``.  Only a mapping that renames or drops the keyword is exempt: an empty
+    string keeps the name unchanged and therefore still collides with the receiver.
+
+    Args:
+        ctx: The wrapper's context; :attr:`_WrapperContext.source_receiver` must be set.
+        kwargs: The caller's arguments, positionals already mapped to their parameter names.
+
+    Raises:
+        TypeError: When the receiver is missing with no default, when it or its default is not a class, or when the
+            caller passed the target's receiver name as a keyword.
+
+    """
+    name = cast(str, ctx.source_receiver)
+    target_name = ctx.target_receiver
+    # Defaults are merged only on the forward path, after the warning, so look the default up here.
+    receiver = kwargs[name] if name in kwargs else ctx.facts.source_defaults.get(name, _NO_RECEIVER)
+    if receiver is _NO_RECEIVER:
+        problem = f"the call supplied no value for its first parameter `{name}`"
+    elif not isinstance(receiver, type):
+        problem = f"its first parameter `{name}` received a value of type `{type(receiver).__name__}`, not a class"
+    elif (
+        target_name is not None
+        and target_name != name
+        and target_name in kwargs
+        and (ctx.cfg.args_mapping or {}).get(target_name, target_name) in ("", target_name)
+    ):
+        problem = (
+            f"the call also passed `{target_name}`, the target's receiver name, as a keyword argument that would"
+            " replace the class; drop that keyword"
+        )
+    else:
+        return
+    raise _classmethod_target_error(ctx.source.__name__, cast(Callable, ctx.target), problem)
+
+
+def _forward_receiver_name(ctx: _WrapperContext, kwargs: dict[str, Any], receiver: Any) -> dict[str, Any]:  # noqa: ANN401
+    """Put the source's receiver back into the forwarded keywords under the target's receiver name.
+
+    The call path forwards by keyword, so a source receiver named ``klass`` would reach a target whose receiver is
+    ``cls`` as a keyword the target does not accept.  :func:`_resolve_forward_kwargs` takes the receiver out of the
+    keywords before the ``args_mapping`` rename and the ``args_extra`` merge and hands it here afterwards, so neither
+    can move or replace it: a rename onto a target parameter that shares the source receiver's name
+    (``args_mapping={"old_value": "klass"}`` for a target ``make(cls, klass)``) would otherwise collide with the class.
+    Put first under the target's receiver name, the class sits in the target's receiver slot, and every later step
+    (the target-accepts check, the POSITIONAL_ONLY split, the ``*args`` surplus reorder) handles it as it handles a
+    ``cls`` named on both sides.
+
+    Args:
+        ctx: The wrapper's context; :attr:`_WrapperContext.target_receiver` must be set.
+        kwargs: The keyword arguments for the target, without the receiver.
+        receiver: The class the source received.
+
+    Returns:
+        A new dict holding the receiver under the target's receiver name, followed by ``kwargs``.
+
+    Raises:
+        TypeError: When ``kwargs`` already holds the target's receiver name, which ``args_mapping`` or ``args_extra``
+            put there: forwarding it would replace the class or drop that value.
+
+    """
+    name = cast(str, ctx.target_receiver)
+    if name in kwargs:
+        raise TypeError(
+            f"Failed mapping of `{ctx.source.__name__}`: the target's receiver `{name}` would receive both the class"
+            " and a value from `args_mapping` or `args_extra`. Map that value to another target parameter."
+        )
+    return {name: receiver, **kwargs}
+
+
+class _CycleEntry:
+    """Track one guarded call's lifetime across contexts copied while it is running.
+
+    A task or ``contextvars.copy_context()`` made inside the call keeps the entry it copied after the call returned.
+    The copy shares this object, so clearing :attr:`active` on exit expires the entry in every copy at once.  A plain
+    ``__slots__`` class rather than a dataclass: one is created per guarded call, and its construction shows up in the
+    per-call benchmark.
+
+    Attributes:
+        source_id: ``id()`` of the guarded wrapper's source callable.
+        active: ``True`` while the call is in flight.
+
+    """
+
+    __slots__ = ("active", "source_id")
+
+    def __init__(self, source_id: int) -> None:
+        self.source_id = source_id
+        self.active = True
+
+
+#: Handle returned by :func:`_enter_cycle_guard`: the call's entry and the token that installed the chain containing it,
+#: or ``None`` when the wrapper does not run under the guard.
+_CycleGuardHandle = Optional[tuple[_CycleEntry, "Token[Optional[tuple[_CycleEntry, ...]]]"]]
+
+# ContextVar holding the chain of guarded calls in flight for the current async task or sync call stack.
+# The chain is an immutable tuple, replaced on every entry and restored on every exit, never mutated in place, so a
+# task or context spawned inside a guarded call starts from a snapshot of the chain and sets its own successor
+# without touching its siblings.  Sibling tasks therefore never see each other's calls as a cycle, while a call that
+# re-enters a wrapper still in flight on its own chain, from the same stack or from a spawned task, does raise.
+# The entries are shared with copied contexts only so that a finished call can expire in them (see ``_CycleEntry``).
+# Only ``_enter_cycle_guard`` / ``_exit_cycle_guard`` below read or write it.
+_cycle_detection: ContextVar[Optional[tuple[_CycleEntry, ...]]] = ContextVar("_cycle_detection", default=None)
+
+
+def _enter_cycle_guard(ctx: _WrapperContext) -> _CycleGuardHandle:
+    """Mark ``ctx.source`` as running in the current call stack or task, or raise when it is already running.
+
+    A wrapper whose callable target leads back to itself would otherwise recurse until the interpreter's recursion
+    limit.  Wrappers without a callable target are not guarded and get ``None``.  Pass the handle to
+    :func:`_exit_cycle_guard` in a ``finally``; a raise from this function leaves nothing to undo.
+
+    Args:
+        ctx: The wrapper's context.
+
+    Returns:
+        The handle :func:`_exit_cycle_guard` needs, or ``None`` when the wrapper is not guarded.
+
+    Raises:
+        RuntimeError: When ``ctx.source`` re-enters through its own target chain.
+
+    """
+    if not ctx.cycle_guarded:
+        return None
+    source_id = id(ctx.source)
+    chain = _cycle_detection.get()
+    entry = _CycleEntry(source_id)
+    if chain:
+        # Entries of calls that finished after a context was copied are dropped, so a stale copy cannot raise.
+        chain = tuple(other for other in chain if other.active)
+        if any(other.source_id == source_id for other in chain):
+            source_name = getattr(ctx.source, "__qualname__", repr(ctx.source))
+            raise RuntimeError(
+                f"Circular deprecation cycle detected: `{source_name}` re-entered"
+                " via its own target chain. Point to a non-deprecated final implementation."
+            )
+        chain += (entry,)
+    else:
+        chain = (entry,)
+    return entry, _cycle_detection.set(chain)
+
+
+def _exit_cycle_guard(ctx: _WrapperContext, handle: _CycleGuardHandle) -> None:
+    """Undo :func:`_enter_cycle_guard`: expire the call's entry and restore the chain from before the call.
+
+    ``ctx`` is not read; it stays so both guard functions take the wrapper context the same way.
+
+    """
+    if handle is None:
+        return
+    entry, token = handle
+    entry.active = False
+    _cycle_detection.reset(token)
+
+
+def _leading_positional_slots(func: Callable[..., Any]) -> tuple[tuple[str, ...], bool]:
+    """Return ``func``'s leading positional parameter names and whether a ``*args`` parameter ends them.
+
+    Raises:
+        TypeError: When the signature of ``func`` cannot be read.
+        ValueError: When the signature of ``func`` cannot be read.
+
+    Example:
+        >>> def target(a, /, b, *rest, c=1): pass
+        >>> _leading_positional_slots(target)
+        (('a', 'b'), True)
+
+    """
+    # Positional parameters precede ``*args`` in every signature, so they are exactly the leading positional slots.
+    facts = _signature_facts(func)
+    return facts.positional_names, facts.var_positional
+
+
+def _target_signature_facts(
+    target: Union[Callable[..., Any], TargetMode],
+) -> tuple[_SigFacts, Optional[Exception]]:
+    """Read a normalised target's signature once, keeping apart a mode target and an unreadable callable.
+
+    Args:
+        target: The normalised target returned by :func:`~deprecate._validate._normalize_target`.
+
+    Returns:
+        Tuple of ``(facts, error)``.  A :class:`TargetMode` gives empty facts and no error; a callable whose signature
+        cannot be read gives empty facts and the ``TypeError`` or ``ValueError`` the read raised, without its
+        traceback, so its forwarded call can raise that error itself; any other callable gives its facts and no error.
+
+    Example:
+        >>> def target(a, /, b, *rest, c=1): pass
+        >>> facts, error = _target_signature_facts(target)
+        >>> facts.positional_names, sorted(facts.positional_only), error
+        (('a', 'b'), ['a'], None)
+        >>> _target_signature_facts(TargetMode.NOTIFY) == (_SigFacts(), None)
+        True
+
+    """
+    if not callable(target):
+        return _SigFacts(), None
+    try:
+        return _signature_facts(target), None
+    except (TypeError, ValueError) as error:
+        return _SigFacts(), error.with_traceback(None)
+
+
+def _rebuild_exception(error: Exception) -> Exception:
+    """Return a new exception of the same type as ``error`` without calling its constructor.
+
+    Copies ``args`` and the instance ``__dict__``, so an error type whose constructor takes more than the message
+    (and cannot be rebuilt from ``args``) keeps its attributes.  Values held in ``__slots__`` are not carried over.
+
+    Raises:
+        TypeError: When the type's ``__new__`` needs arguments.
+
+    """
+    rebuilt = type(error).__new__(type(error))
+    rebuilt.args = error.args
+    rebuilt.__dict__.update(vars(error))
+    return rebuilt
+
+
+def _fresh_signature_error(error: Exception) -> Exception:
+    """Return a never-raised error equal to ``error``, so raising it again cannot touch ``error``.
+
+    Tries, in order, :func:`copy.copy`, a rebuild that skips the constructor (:func:`_rebuild_exception`), and finally a
+    plain ``TypeError`` or ``ValueError`` carrying the message.  The last step loses the error's own type but is still
+    caught by the documented base type; no step returns ``error`` itself.
+
+    """
+    # Broad on purpose: a user-defined ``__reduce__``, ``__new__`` or ``__init__`` may raise anything.
+    with contextlib.suppress(Exception):
+        return copy.copy(error)
+    with contextlib.suppress(Exception):
+        return _rebuild_exception(error)
+    return (TypeError if isinstance(error, TypeError) else ValueError)(*error.args)
+
+
+def _raise_target_signature_error(facts: _CallFacts) -> None:
+    """Raise, on a forwarded call, the error the target's signature read raised when the function was decorated.
+
+    A target whose signature cannot be read still decorates; the forwarded call that needs the signature raises a
+    fresh copy of the decoration-time error (:func:`_fresh_signature_error`), as the call-time read this replaces did.
+    The stored error is never raised itself: raising one shared object would grow its traceback on every call and
+    overwrite its ``__context__`` across threads.  Does nothing when the read succeeded or the facts were built by
+    hand.
+
+    Raises:
+        TypeError: A copy of :attr:`~deprecate._types._CallFacts.target_signature_error`, when it is one.
+        ValueError: A copy of :attr:`~deprecate._types._CallFacts.target_signature_error`, when it is one.
+
+    """
+    error = facts.target_signature_error
+    if error is None:
+        return
+    raise _fresh_signature_error(error)
+
+
+def _build_call_facts(
+    source: Callable[..., Any],
+    normalized_target: Union[Callable[..., Any], TargetMode],
+    stream: Optional[Callable[..., Any]],
+) -> _CallFacts:
+    """Derive the :class:`~deprecate._types._CallFacts` of a source and its normalised target at decoration time.
+
+    Reads the source signature and the target signature once each through :func:`~deprecate.utils._signature_facts`,
+    so no call inspects either again.
+
+    Args:
+        source: The decorated callable.
+        normalized_target: The normalised target returned by :func:`~deprecate._validate._normalize_target`.
+        stream: Warning stream; the POSITIONAL_ONLY target warning of
+            :func:`~deprecate._validate._warn_target_positional_only` fires through ``warnings.warn`` unless it is
+            ``None``.
+
+    Returns:
+        The facts the call-time dispatcher reads.
+
+    Raises:
+        TypeError: When the source signature cannot be read.
+        ValueError: When the source signature cannot be read.
+
+    Example:
+        >>> def source(a, /, b, *rest, c=1): pass
+        >>> facts = _build_call_facts(source, TargetMode.NOTIFY, None)
+        >>> facts.source_positional_names, facts.source_var_positional_prefix, sorted(facts.source_positional_only)
+        (('a', 'b'), 2, ['a'])
+
+    """
+    source_facts = _signature_facts(source)
+    target_facts, target_error = _target_signature_facts(normalized_target)
+    _warn_target_positional_only(normalized_target, source, target_facts.positional_only, stream)
+    # Source-side POSITIONAL_ONLY params: a call the wrapper rewrites (a triggered ARGS_REMAP rename, or ARGS_REMAP
+    # with args_extra) converts positional args to kwargs internally, so the dispatcher must split these back out
+    # before invoking the source body.  Verbatim calls keep the caller's shape and need no split.  Both sides keep
+    # their declaration order only when they have POSITIONAL_ONLY params to split.
+    return _CallFacts(
+        source_positional_names=source_facts.positional_names,
+        source_has_var_positional=source_facts.var_positional,
+        source_var_positional_prefix=source_facts.var_positional_index or 0,
+        source_positional_only=source_facts.positional_only,
+        source_positional_only_order=source_facts.order if source_facts.positional_only else (),
+        target_all_param_names=target_facts.names,
+        target_accepts_var_positional=target_facts.var_positional,
+        target_accepts_var_keyword=target_facts.var_keyword,
+        target_positional_only=target_facts.positional_only,
+        target_positional_only_order=target_facts.order if target_facts.positional_only else (),
+        target_positional_names=None if target_error is not None else target_facts.positional_names,
+        # A plain dict, not the read-only view: the record must stay picklable (a proxy pickles its facts).
+        source_defaults=dict(source_facts.defaults),
+        target_signature_error=target_error,
+    )
+
+
+def _resolve_forward_kwargs(
+    ctx: _WrapperContext,
+    kwargs: dict[str, Any],
+    reason_callable: bool,
+) -> tuple[dict[str, Any], Optional[Callable[..., Any]]]:
+    """Build the final keyword arguments, and the validated target, for a call the wrapper has to rewrite.
+
+    Runs only when :func:`_is_verbatim_call` rejected the pass-through.  Applies, in order: the source defaults (for a
+    callable reason only), the ``args_mapping`` rename with its collision check, the ``args_extra`` merge, and, for a
+    callable target, the check that the target accepts every resulting keyword.  Precedence when keys collide: an
+    explicit new-name keyword wins over the remapped old-name value; ``args_extra`` wins over both (it is merged
+    last).  For a ``classmethod`` descriptor target with a readable receiver, the source's receiver is taken out after
+    the defaults merge, so the rename and the extras never see it, and is put back under the target's receiver name
+    after the extras (:func:`_forward_receiver_name`).
+
+    Args:
+        ctx: The wrapper's context.
+        kwargs: The caller's arguments, positionals already mapped to their parameter names.
+        reason_callable: ``True`` when the whole callable is deprecated (``NOTIFY`` or a callable target).
+
+    Returns:
+        Tuple of ``(kwargs, target_func)``; ``target_func`` is ``None`` unless the target is callable.
+
+    """
+    source, target, mapping, extra = ctx.source, ctx.target, ctx.cfg.args_mapping, ctx.cfg.args_extra
+    if reason_callable:
+        if ctx.forward_defaults is None:
+            # Not derivable at decoration because the target signature is unreadable: raise that error now.
+            _raise_target_signature_error(ctx.facts)
+        kwargs = _merge_source_defaults(ctx.facts.source_defaults, target, kwargs, mapping, ctx.forward_defaults)
+    # Taken out after the defaults merge, which fills a defaulted receiver by its source name; a target without a
+    # readable receiver keeps it under that name.  ``kwargs`` is the merge's own new dict here: a set
+    # ``target_receiver`` means a classmethod descriptor target, hence a callable target and a callable reason.
+    receiver = _NO_RECEIVER
+    if ctx.target_receiver is not None:
+        receiver_name = cast(str, ctx.source_receiver)
+        receiver = kwargs.pop(receiver_name, ctx.facts.source_defaults.get(receiver_name, _NO_RECEIVER))
+    if mapping and ctx.remap_active:
+        kwargs = _remap_kwargs(mapping, kwargs, name=source.__name__, stream=ctx.stream)
+    if extra and ctx.remap_active:
+        kwargs.update(extra)
+    if receiver is not _NO_RECEIVER:
+        kwargs = _forward_receiver_name(ctx, kwargs, receiver)
+    if not callable(target):
+        return kwargs, None
+    facts = ctx.facts
+    if kwargs:
+        # Empty cached names can mean an unreadable signature, not a target that rejects every keyword.
+        _raise_target_signature_error(facts)
+    # ``None`` means the facts were not precomputed (a hand-built ``_CallFacts``); _prepare_target_call recomputes
+    # them from the target. ``frozenset()`` is a valid cached value for zero-arg targets — it gates on identity
+    # (``is not None``), not truthiness, to preserve the zero-arg cache hit.
+    target_func = _prepare_target_call(
+        source,
+        target,
+        kwargs,
+        target_arg_names=facts.target_all_param_names,
+        accepts_var_positional=facts.target_accepts_var_positional,
+        accepts_var_keyword=facts.target_accepts_var_keyword,
+    )
+    return kwargs, target_func
+
+
+def _skips_call_plan(ctx: _WrapperContext, args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> bool:
+    """Decide whether this call warns nothing and reaches the source unchanged, so the call plan can be skipped.
+
+    The wrappers ask after ``skip_if`` and before the cycle guard, which neither mode below needs (it guards callable
+    targets only).  A call qualifies only when :func:`_build_call_plan` would emit nothing and invoke
+    ``source(*args, **kwargs)`` as made:
+
+    - ``TargetMode.NOTIFY`` (:attr:`_WrapperContext.fast_notify`) once ``stream`` is ``None`` or the warn budget is
+      spent, and only while the deprecation is not fatal: the fatal switch is resolved on every call, because the
+      global, the :func:`~deprecate._fatal.as_exceptions` scope and the environment seed can change at runtime.
+    - ``TargetMode.ARGS_REMAP`` (:attr:`_WrapperContext.fast_remap`) when the caller uses none of the deprecated names
+      (:func:`_is_verbatim_call`), the call the plan short-circuits before any warning or fatal check.
+
+    Neither qualifies while the one-time misconfiguration warning is still due, nor with surplus positionals, for
+    which the plan raises the curated ``TypeError`` of :func:`_check_source_arity`.
+
+    Args:
+        ctx: The wrapper's context.
+        args: The positional arguments the caller passed.
+        kwargs: The keyword arguments the caller passed.
+
+    Returns:
+        ``True`` when the wrapper may call ``ctx.source(*args, **kwargs)`` directly.
+
+    """
+    if not (ctx.fast_notify or ctx.fast_remap):
+        return False
+    state, facts = ctx.state, ctx.facts
+    misconfig_due = ctx.cfg.misconfigured and ctx.stream and not state.warned_misconfigured
+    limit = facts.source_positional_limit
+    if misconfig_due or (limit is not None and len(args) > limit):
+        return False
+    if ctx.fast_notify:
+        spent = not ctx.stream or (ctx.num_warns >= 0 and state.warned_calls >= ctx.num_warns)
+        return spent and not _resolve_as_exception(ctx.cfg.as_exception)
+    return _is_verbatim_call(ctx.target, ctx.cfg, args, kwargs, facts.source_positional_names)
+
+
+def _warn_misconfigured_once(ctx: _WrapperContext) -> None:
+    """Emit the one-time call-time ``UserWarning`` of a misconfigured wrapper, unless ``stream`` is ``None``.
+
+    The flag check-then-set runs under ``ctx.state.lock``, so concurrent first calls flip it exactly once; only the call
+    that flipped it emits, outside the lock.
+
+    """
+    state = ctx.state
+    # Lock-free pre-check: a correctly configured or already-notified wrapper never touches the lock.
+    if not (ctx.cfg.misconfigured and ctx.stream) or state.warned_misconfigured:
+        return
+    with state.lock:
+        flipped = not state.warned_misconfigured
+        state.warned_misconfigured = True
+    if flipped:
         warnings.warn(
-            f"'{source.__name__}' has an invalid deprecation configuration;"
+            f"'{ctx.source.__name__}' has an invalid deprecation configuration;"
             f" verify your `@deprecated(target=...)` arguments. Will be TypeError in {_MAJOR_BREAK_VERSION}.",
             UserWarning,
-            stacklevel=3,  # caller → wrapper_fn → _build_call_plan → warn
+            stacklevel=_caller_stacklevel(),
         )
-        state.warned_misconfigured = True
 
-    # *args sources need the unremapped tuple; remapping happens on kwargs only.
-    original_kwargs = dict(kwargs)
-    kwargs = _update_kwargs_with_args(source, args, kwargs)
 
-    reason_callable = normalized_target is TargetMode.NOTIFY or callable(normalized_target)
-    reason_argument: dict[str, Optional[str]] = {}
-    if dep_cfg.args_mapping and (normalized_target is TargetMode.ARGS_REMAP or callable(normalized_target)):
-        reason_argument = {a: b for a, b in dep_cfg.args_mapping.items() if a in kwargs}
+def _resolve_reasons(ctx: _WrapperContext, kwargs: Mapping[str, Any]) -> tuple[bool, dict[str, Optional[str]]]:
+    """Return why this call warns: the whole callable, and the deprecated argument names the caller used.
+
+    Args:
+        ctx: The wrapper's context.
+        kwargs: The caller's arguments; positionals are already mapped to their parameter names unless the call is
+            verbatim.
+
+    Returns:
+        Tuple ``(reason_callable, reason_argument)``: ``reason_callable`` is ``True`` for ``TargetMode.NOTIFY`` and a
+        callable target, ``reason_argument`` maps each used old name of ``args_mapping`` to its new name.
+
+    """
+    reason_callable = ctx.target is TargetMode.NOTIFY or callable(ctx.target)
+    mapping = ctx.cfg.args_mapping
+    reason_argument = {a: b for a, b in mapping.items() if a in kwargs} if mapping and ctx.remap_active else {}
+    return reason_callable, reason_argument
+
+
+def _is_short_circuit(ctx: _WrapperContext, reason_callable: bool, reason_argument: dict[str, Optional[str]]) -> bool:
+    """Decide whether the call skips warning and rewriting: a migrated caller with nothing to inject or to delegate."""
     # Migrated callers (using the new arg name) produce empty reason_argument;
     # without the args_extra guard they short-circuit before extras are injected.
     # When source is a stacked @deprecated wrapper (e.g. ARGS_REMAP outer + NOTIFY inner),
     # do not short-circuit even with no reason — the inner layer may still need to run.
-    if (
-        not (reason_callable or reason_argument)
-        and not (dep_cfg.args_extra and normalized_target is TargetMode.ARGS_REMAP)
-        and not source_is_stacked
-    ):
-        return _CallPlan(
-            short_circuit=True,
-            original_kwargs=original_kwargs,
-            resolved_kwargs=kwargs,
-            reason_argument={},
-            target_func=None,
-        )
+    injects_extra = bool(ctx.cfg.args_extra) and ctx.target is TargetMode.ARGS_REMAP
+    return not (reason_callable or reason_argument or injects_extra or ctx.is_stacked)
 
-    # +1 stacklevel: extraction added one frame (caller → wrapper_fn → _build_call_plan → _raise_warn_*)
-    # over the previous in-wrapper call chain.  Async path has the same frame depth:
-    # caller → coroutine `async_wrapped_fn` body → _build_call_plan → _raise_warn_* — the asyncio runner
-    # frames sit *below* the caller and are skipped by warnings.warn's stacklevel walk.
-    _stacklevel_to_caller = _DEFAULT_STACKLEVEL_TO_CALLER + 1
+
+def _emit_call_warning(
+    ctx: _WrapperContext,
+    reason_callable: bool,
+    reason_argument: dict[str, Optional[str]],
+) -> None:
+    """Spend the warn budget and deliver this call's deprecation warning, or raise it when the deprecation is fatal.
+
+    The callable reason warns through :func:`_raise_warn_callable`, the argument-rename reason through
+    :func:`_raise_warn_arguments`, naming only the arguments still under their own budget (a fatal deprecation names
+    all of them); the budget check-then-increment runs under ``ctx.state.lock``.
+
+    Args:
+        ctx: The wrapper's context.
+        reason_callable: ``True`` when the whole callable is deprecated.
+        reason_argument: Deprecated argument names the caller used, mapped to their new names.
+
+    """
     # Double-checked fast path: avoid the lock when the warn budget is clearly exhausted.
     # Under CPython the int read is atomic (GIL); after num_warns=1 fires once,
     # warned_calls >= num_warns on every subsequent call — no benefit from acquiring the lock.
@@ -741,195 +1098,99 @@ def _build_call_plan(  # noqa: C901, PLR0912
     # every call, not once — otherwise a caller catching DeprecatedError sails through on the second attempt)
     # and the ``stream`` check (``stream=None`` silences the message, it does not open the door).  The budget
     # counters stay untouched, so flipping the global switch off mid-process restores ordinary warn-once.
-    _fatal = _resolve_as_exception(dep_cfg.as_exception)
-    should_warn = _fatal
-    if not _fatal and stream and (num_warns < 0 or reason_argument or state.warned_calls < num_warns):
+    state, cfg, num_warns = ctx.state, ctx.cfg, ctx.num_warns
+    fatal = _resolve_as_exception(cfg.as_exception)
+    should_warn, arguments = fatal, reason_argument
+    if not fatal and ctx.stream and (num_warns < 0 or reason_argument or state.warned_calls < num_warns):
         with state.lock:
-            should_warn = _consume_warn_budget(state, num_warns, reason_callable, reason_argument)
-    if should_warn:
-        if reason_callable:
-            # Use original `target` (not remapped normalized_target) so the warning
-            # names the class (e.g. "NewCls") rather than "__init__".
-            _raise_warn_callable(
-                stream=stream,
-                source=source,
-                target=target,
-                deprecated_in=dep_cfg.deprecated_in,
-                remove_in=dep_cfg.remove_in,
-                message_template=dep_cfg.message_template,
-                stacklevel=_stacklevel_to_caller,
-                as_exception=_fatal,
-            )
-        elif reason_argument:
-            _raise_warn_arguments(
-                stream=stream,
-                source=source,
-                arguments=reason_argument,
-                deprecated_in=dep_cfg.deprecated_in,
-                remove_in=dep_cfg.remove_in,
-                message_template=dep_cfg.message_template,
-                stacklevel=_stacklevel_to_caller,
-                as_exception=_fatal,
-            )
-
-    if reason_callable:
-        # Source defaults for renamed args survive _update_kwargs_with_defaults and would be forwarded
-        # under the new name, silently overriding the target's own default. Drop only the *renamed*
-        # old-arg default when the caller supplied neither the old nor the new name.
-        # NOTE: non-renamed shared parameters intentionally keep their source default — the source
-        # signature is the contract the caller migrated from, so its default is forwarded (see
-        # ``decorated_sum`` / ``test_functions.py::test_default``). Dropping these too
-        # would conflict with the tested behaviour and is deliberately NOT applied.
-        if dep_cfg.args_mapping and (normalized_target is TargetMode.ARGS_REMAP or callable(normalized_target)):
-            _am = dep_cfg.args_mapping  # narrowed: non-None inside this branch; needed for nested closure
-            caller_keys = set(kwargs)
-            rename_targets: set[str] = {r for r in _am.values() if r is not None}
-            rename_sources = set(_am)
-            # For ARGS_REMAP, source IS the target; Python applies its own default
-            # when the kwarg is absent, so treating rename_targets as target_defaults is safe.
-            if callable(normalized_target):
-                target_defaults = {
-                    arg[0]
-                    for arg in get_func_arguments_types_defaults(normalized_target)
-                    if arg[2] is not inspect.Parameter.empty
-                }
+            if reason_callable:
+                should_warn = _consume_warn_budget(state, num_warns, reason_callable=True)
             else:
-                target_defaults = rename_targets
-            full_defaults = _update_kwargs_with_defaults(source, kwargs)
-
-            def is_source_default_kept(k: str) -> bool:
-                # A renamed old-arg default is stale when the target has its own default → drop it;
-                # everything else (non-renamed params) keeps its source default.
-                renamed_with_target_default = k in rename_sources and _am.get(k) in target_defaults
-                return k not in rename_targets and not renamed_with_target_default
-
-            kwargs = {k: v for k, v in full_defaults.items() if k in caller_keys or is_source_default_kept(k)}
-        else:
-            kwargs = _update_kwargs_with_defaults(source, kwargs)
-    if dep_cfg.args_mapping and (normalized_target is TargetMode.ARGS_REMAP or callable(normalized_target)):
-        args_skip = [arg for arg in dep_cfg.args_mapping if not dep_cfg.args_mapping[arg]]
-        # caller → wrapper_fn → _build_call_plan → _apply_args_mapping_collisions → warn = stacklevel 4
-        _explicit_new = _apply_args_mapping_collisions(
-            dep_cfg.args_mapping, kwargs, args_skip, source.__name__, stream, stacklevel=4
+                # Name only the arguments still under their own budget: one already warned about up to
+                # ``num_warns`` times is not listed again when it reappears next to a fresh one.
+                arguments = _consume_argument_warn_budget(state, num_warns, reason_argument)
+                should_warn = bool(arguments)
+    if not should_warn:
+        return
+    if reason_callable:
+        # Use the raw ``target`` (not the normalised one) so the warning
+        # names the class (e.g. "NewCls") rather than "__init__".
+        _raise_warn_callable(
+            stream=ctx.stream,
+            source=ctx.source,
+            target=ctx.raw_target,
+            deprecated_in=cfg.deprecated_in,
+            remove_in=cfg.remove_in,
+            message_template=cfg.message_template,
+            as_exception=fatal,
         )
-        kwargs = {(dep_cfg.args_mapping.get(arg) or arg): val for arg, val in kwargs.items() if arg not in args_skip}
-        if _explicit_new:
-            kwargs.update(_explicit_new)
+    elif arguments:
+        _raise_warn_arguments(
+            stream=ctx.stream,
+            source=ctx.source,
+            arguments=arguments,
+            deprecated_in=cfg.deprecated_in,
+            remove_in=cfg.remove_in,
+            message_template=cfg.message_template,
+            as_exception=fatal,
+        )
 
-    if dep_cfg.args_extra and (normalized_target is TargetMode.ARGS_REMAP or callable(normalized_target)):
-        kwargs.update(dep_cfg.args_extra)
 
-    # ``source_has_var_positional`` is accepted for symmetry with the wrapper closure: the helper itself does
-    # not branch on it (the wrapper consumes it after reading the plan to decide whether to forward positional
-    # args or kwargs to the source).  Keeping it in the signature lets future callers pass a single,
-    # uniform argument set even if the helper later needs to switch on var-positional shape.
+def _build_call_plan(ctx: _WrapperContext, args: tuple[Any, ...], kwargs: dict[str, Any]) -> _CallPlan:
+    """Compute the dispatch plan shared by the sync and async wrappers inside :func:`deprecated`.
+
+    The wrappers differ only by ``await`` on the final source or target call.  In order, this emits the one-time
+    misconfiguration warning (:func:`_warn_misconfigured_once`), rejects surplus positionals
+    (:func:`_check_source_arity`), decides the verbatim pass-through (:func:`_is_verbatim_call`), maps positionals to
+    keywords, resolves the warning reasons (:func:`_resolve_reasons`), short-circuits a migrated caller, emits the
+    budgeted deprecation warning (:func:`_emit_call_warning`) and assembles the forwarded keywords
+    (:func:`_resolve_forward_kwargs`).
+
+    Side effects: mutates ``ctx.state`` (optionally bumps ``warned_calls`` / ``warned_args``, and sets
+    ``warned_misconfigured`` on the first misconfiguration warning) and emits the warnings named above.
+
+    Args:
+        ctx: The wrapper's decoration-time context.
+        args: The positional arguments the caller passed to the wrapper.
+        kwargs: The keyword arguments the caller passed to the wrapper.
+
+    Returns:
+        A :class:`_CallPlan` describing the resolved dispatch outcome.  When :attr:`_CallPlan.verbatim` is set, the
+        positionals were not converted to keywords and the source is invoked with the caller's arguments unchanged.
+
+    """
+    _warn_misconfigured_once(ctx)
+    facts = ctx.facts
+    # Surplus positionals raise the curated TypeError before any warning fires or any budget is spent.
+    _check_source_arity(ctx.source, args, facts)
+    # No rename, no injected extras and no forwarding target: the source gets the caller's arguments unchanged.
+    verbatim = _is_verbatim_call(ctx.target, ctx.cfg, args, kwargs, facts.source_positional_names)
+    # *args sources need the unremapped tuple; remapping happens on kwargs only.
+    original_kwargs = dict(kwargs)
+    if not verbatim:
+        kwargs = _update_kwargs_with_args(args, kwargs, facts)
+    if ctx.source_receiver is not None:
+        # A classmethod descriptor target needs a class as the receiver; reject any other value before warning.
+        _check_classmethod_receiver(ctx, kwargs)
+    reason_callable, reason_argument = _resolve_reasons(ctx, kwargs)
+    if _is_short_circuit(ctx, reason_callable, reason_argument):
+        return _CallPlan(short_circuit=True, original_kwargs=original_kwargs, resolved_kwargs=kwargs, verbatim=verbatim)
+    _emit_call_warning(ctx, reason_callable, reason_argument)
     target_func: Optional[Callable[..., Any]] = None
-    if callable(normalized_target):
-        # ``None`` means facts were not precomputed (manual DeprecationConfig construction or proxy path);
-        # _prepare_target_call recomputes from target. ``frozenset()`` is a valid cached value for zero-arg
-        # targets — gate on identity (``is not None``), not truthiness, to preserve the zero-arg cache hit.
-        _cached_target_names = dep_cfg.target_all_param_names
-        target_func = _prepare_target_call(
-            source,
-            normalized_target,
-            kwargs,
-            target_arg_names=_cached_target_names,
-            accepts_var_positional=dep_cfg.target_accepts_var_positional,
-            accepts_var_keyword=dep_cfg.target_accepts_var_keyword,
-        )
-
+    if not verbatim:
+        kwargs, target_func = _resolve_forward_kwargs(ctx, kwargs, reason_callable)
     return _CallPlan(
         short_circuit=False,
         original_kwargs=original_kwargs,
         resolved_kwargs=kwargs,
         reason_argument=reason_argument,
         target_func=target_func,
+        verbatim=verbatim,
     )
-
-
-def _detect_positional_only(
-    target: Union[Callable, TargetMode],
-    source: Callable,
-    stream: Optional[Callable],
-    warn_stacklevel: int,
-) -> tuple[frozenset[str], tuple[str, ...]]:
-    """Inspect *target* for POSITIONAL_ONLY parameters and emit a ``UserWarning`` when found.
-
-    Called at decoration time so the warning fires once and the results are stored in
-    :class:`~deprecate._types.DeprecationConfig` for the call-time dispatcher.
-
-    Args:
-        target: Normalised target from :func:`_normalize_target` — may be a
-            :class:`TargetMode` or a callable.  Non-callables return empty results immediately.
-        source: The decorated callable; used only in the warning message.
-        stream: Warning stream; when ``None`` the warning is suppressed.
-        warn_stacklevel: ``stacklevel`` forwarded to ``warnings.warn``.  Caller passes
-            ``packing``'s ``_stacklevel + 1`` to account for the extra frame.
-
-    Returns:
-        Tuple of ``(target_positional_only, target_positional_only_order)`` where
-        ``target_positional_only`` is the frozenset of POSITIONAL_ONLY param names and
-        ``target_positional_only_order`` is the full parameter-name tuple in declaration order.
-
-    """
-    if not callable(target):
-        return frozenset(), ()
-    try:
-        tgt_sig = inspect.signature(target)
-    except (TypeError, ValueError):
-        return frozenset(), ()
-    target_positional_only = frozenset(
-        name for name, p in tgt_sig.parameters.items() if p.kind is inspect.Parameter.POSITIONAL_ONLY
-    )
-    target_positional_only_order: tuple[str, ...] = tuple(tgt_sig.parameters.keys()) if target_positional_only else ()
-    warn_set = target_positional_only - {"self", "cls"}
-    if warn_set and stream is not None:
-        warnings.warn(
-            f"`@deprecated(target={getattr(target, '__name__', repr(target))!r})` on"
-            f" `{source.__name__}`: target parameter(s)"
-            f" {sorted(warn_set)!r} are POSITIONAL_ONLY and cannot be"
-            " forwarded as kwargs. Calls will pass these values positionally."
-            " Consider removing `/` from the target signature.",
-            UserWarning,
-            stacklevel=warn_stacklevel,
-        )
-    return target_positional_only, target_positional_only_order
-
-
-def _resolve_stored_target(
-    target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
-) -> Union[TargetMode, Callable]:
-    """Normalise *target* for storage in :class:`~deprecate._types.DeprecationConfig`.
-
-    Converts legacy bool/None sentinels to :class:`TargetMode` members and strips
-    descriptor wrappers so audit tools see the underlying callable rather than a raw
-    descriptor object.
-
-    Args:
-        target: Raw ``target`` argument from ``@deprecated``.
-
-    Returns:
-        Normalised value suitable for ``DeprecationConfig.target``.
-
-    Note:
-        Class targets are kept verbatim — :func:`_normalize_target` remaps
-        ``class → __init__`` at decoration time for the wrapper closure, but the stored
-        value must preserve the user-facing class so audit and docstring consumers see
-        the original target.
-
-    """
-    if target is None or isinstance(target, bool):
-        # Enum-normalised target stored so audit does not re-derive from raw sentinel.
-        return TargetMode._from_legacy(target, stacklevel=None)
-    if isinstance(target, TargetMode):
-        return target
-    if isinstance(target, (staticmethod, classmethod)):
-        return target.__func__  # audit sees the function, not the descriptor
-    return target
 
 
 def _reorder_kwargs_for_surplus(
-    source: Callable,
+    ctx: _WrapperContext,
     target_func: Callable,
     surplus: tuple[Any, ...],
     resolved_kwargs: dict[str, Any],
@@ -945,10 +1206,11 @@ def _reorder_kwargs_for_surplus(
     own ``*args``), which is the natural positional call shape.
 
     Args:
-        source: The decorated callable — named in the curated ``TypeError``.
-        target_func: The forwarding target whose signature defines the positional slots.
+        ctx: The wrapper's context; the slots come from ``ctx.facts.target_positional_names`` and
+            ``target_accepts_var_positional``, and the source named in the curated ``TypeError`` is ``ctx.source``.
+        target_func: The forwarding target; its signature is read only when hand-built facts carry no slot names.
         surplus: Positional tail beyond the source's named positional parameters
-            (``args[dep_cfg.source_var_positional_prefix:]``).
+            (``args[ctx.facts.source_var_positional_prefix:]``).
         resolved_kwargs: Final kwargs assembled by :func:`_build_call_plan`.
 
     Returns:
@@ -959,16 +1221,14 @@ def _reorder_kwargs_for_surplus(
             cannot absorb the surplus — raising loudly instead of silently dropping data.
 
     """
-    params = list(_get_signature(target_func).parameters.values())
-    positional_names: list[str] = []
-    accepts_var_positional = False
-    for param in params:
-        if param.kind is inspect.Parameter.VAR_POSITIONAL:
-            accepts_var_positional = True
-            break
-        if param.kind not in (POSITIONAL_ONLY, POSITIONAL_OR_KEYWORD):
-            break
-        positional_names.append(param.name)
+    positional_names = ctx.facts.target_positional_names
+    accepts_var_positional = ctx.facts.target_accepts_var_positional
+    if positional_names is None:
+        # A target signature unreadable at decoration raises its error on this forwarded call; hand-built facts carry
+        # no slot names and no error, so the slots are read from the target here.
+        _raise_target_signature_error(ctx.facts)
+        positional_names, accepts_var_positional = _leading_positional_slots(target_func)
+    source = ctx.source
     kw_args = dict(resolved_kwargs)
     pos_args: list[Any] = []
     for name in positional_names:
@@ -985,53 +1245,80 @@ def _reorder_kwargs_for_surplus(
     return pos_args, kw_args
 
 
+def _var_positional_source_call(
+    ctx: _WrapperContext, plan: _CallPlan, args: tuple[Any, ...]
+) -> tuple[list[Any], dict[str, Any]]:
+    """Return the ``(pos_args, kw_args)`` a source declaring ``*args`` receives.
+
+    Only the caller-supplied keywords are used, never ``resolved_kwargs``, which also holds the positional-to-keyword
+    conversions that would double-pass with ``*args``.  A rewritten call applies the ``args_mapping`` rename to them (a
+    no-op for a caller already on the new names; an explicit new-name value wins over a renamed old one) and merges
+    ``args_extra`` last, so the injected keywords reach the source whether or not the caller used a deprecated name.
+
+    The caller's positional tuple fills the leading named parameters, so a name the rewrite adds as a keyword while
+    the tuple already binds it would be passed twice.  It is reconciled against the bound prefix instead, with the same
+    precedence a source without ``*args`` gets:
+
+    - a keyword the *rename* produced for a positionally bound name is dropped, because the positional value wins; a
+      keyword the caller passed itself is kept, so a genuine duplicate still raises Python's own ``TypeError``;
+    - an ``args_extra`` value for a positionally bound name replaces that positional value, because ``args_extra``
+      wins over both.
+
+    """
+    if plan.short_circuit:
+        return list(args), plan.original_kwargs
+    pos_args = list(args)
+    bound = ctx.facts.source_positional_names[: len(args)]
+    original = plan.original_kwargs
+    # Silent rename (``stream=None``): these keywords are a subset of the resolved keywords, whose rename in
+    # _resolve_forward_kwargs already emitted every collision UserWarning once for this call.
+    kw_args = _remap_kwargs(ctx.cfg.args_mapping or {}, original, name=ctx.source.__name__, stream=None)
+    for name in bound:
+        if name not in original:
+            kw_args.pop(name, None)
+    extra = ctx.cfg.args_extra
+    if extra:
+        kw_args.update(extra)
+        for index, name in enumerate(bound):
+            if name in extra:
+                pos_args[index] = kw_args.pop(name)
+    return pos_args, kw_args
+
+
 def _resolve_source_call_shape(
+    ctx: _WrapperContext,
     plan: _CallPlan,
-    dep_cfg: DeprecationConfig,
-    source_has_var_positional: bool,
     args: tuple[Any, ...],
 ) -> tuple[list[Any], dict[str, Any]]:
     """Return the ``(pos_args, kw_args)`` shape for invoking the *source* body.
 
     Covers the short-circuit (migrated caller) and no-target (NOTIFY / ARGS_REMAP) branches:
 
-    - ``*args`` sources keep their original positional tuple; kwargs are the original caller-
-      supplied keywords only (never ``resolved_kwargs``, which also contains positional-to-keyword
-      conversions that would double-pass with ``*args``).  When an arg-rename reason fires,
-      the mapping is applied to ``original_kwargs`` directly, and ``args_extra`` is merged last.
+    - A :attr:`~deprecate._types._CallPlan.verbatim` plan returns the caller's own positional tuple and keywords
+      unchanged — no rename, no injected extras and no defaults merge apply, so no split is needed either.
+    - ``*args`` sources keep their original positional tuple, reconciled with the rewritten keywords by
+      :func:`_var_positional_source_call` so no parameter is bound twice.
     - Sources declaring POSITIONAL_ONLY params get those split back out of the resolved
       kwargs — the wrapper converted them to keyword form internally, but the source body
       cannot accept them as keywords.
     - All other sources are invoked with the resolved kwargs only.
 
     """
-    if source_has_var_positional:
-        if plan.short_circuit or not plan.reason_argument:
-            kw_args = plan.original_kwargs
-        else:
-            # Use caller-supplied keywords only (not resolved_kwargs, which also contains
-            # positional-to-keyword conversions that would double-pass with *args).
-            mapping = dep_cfg.args_mapping or {}
-            kw_args = {
-                (mapping.get(k) or k): v
-                for k, v in plan.original_kwargs.items()
-                if k not in mapping or mapping[k] is not None
-            }
-            if dep_cfg.args_extra:
-                kw_args.update(dep_cfg.args_extra)
-        return list(args), kw_args
-    if dep_cfg.source_positional_only:
+    if plan.verbatim:
+        return list(args), plan.original_kwargs
+    facts = ctx.facts
+    if facts.source_has_var_positional:
+        return _var_positional_source_call(ctx, plan, args)
+    if facts.source_positional_only:
         return _split_positional_only_kwargs(
-            dep_cfg.source_positional_only_order, plan.resolved_kwargs, dep_cfg.source_positional_only
+            facts.source_positional_only_order, plan.resolved_kwargs, facts.source_positional_only
         )
     return [], plan.resolved_kwargs
 
 
 def _resolve_target_call_shape(
-    source: Callable,
+    ctx: _WrapperContext,
     plan: _CallPlan,
-    dep_cfg: DeprecationConfig,
-    source_has_var_positional: bool,
     args: tuple[Any, ...],
 ) -> tuple[list[Any], dict[str, Any]]:
     """Return the ``(pos_args, kw_args)`` shape for invoking the forwarding *target*.
@@ -1045,29 +1332,24 @@ def _resolve_target_call_shape(
 
     """
     target_func = cast(Callable, plan.target_func)
-    surplus = args[dep_cfg.source_var_positional_prefix :] if source_has_var_positional else ()
+    facts = ctx.facts
+    surplus = args[facts.source_var_positional_prefix :] if facts.source_has_var_positional else ()
     if surplus:
-        pos_args, kw_args = _reorder_kwargs_for_surplus(source, target_func, surplus, plan.resolved_kwargs)
+        pos_args, kw_args = _reorder_kwargs_for_surplus(ctx, target_func, surplus, plan.resolved_kwargs)
         return [*pos_args, *surplus], kw_args
-    if dep_cfg.target_positional_only:
+    if facts.target_positional_only:
         return _split_positional_only_kwargs(
-            dep_cfg.target_positional_only_order, plan.resolved_kwargs, dep_cfg.target_positional_only
+            facts.target_positional_only_order, plan.resolved_kwargs, facts.target_positional_only
         )
     return [], plan.resolved_kwargs
 
 
-async def _invoke_async(
-    source: Callable,
-    plan: _CallPlan,
-    dep_cfg: DeprecationConfig,
-    source_has_var_positional: bool,
-    args: tuple[Any, ...],
-) -> Any:  # noqa: ANN401
+async def _invoke_async(ctx: _WrapperContext, plan: _CallPlan, args: tuple[Any, ...]) -> Any:  # noqa: ANN401
     """Dispatch async call after :func:`_build_call_plan` has resolved the outcome."""
     if plan.short_circuit or plan.target_func is None:
-        pos_args, kw_args = _resolve_source_call_shape(plan, dep_cfg, source_has_var_positional, args)
-        return await source(*pos_args, **kw_args)
-    pos_args, kw_args = _resolve_target_call_shape(source, plan, dep_cfg, source_has_var_positional, args)
+        pos_args, kw_args = _resolve_source_call_shape(ctx, plan, args)
+        return await ctx.source(*pos_args, **kw_args)
+    pos_args, kw_args = _resolve_target_call_shape(ctx, plan, args)
     # Sync target under async source: invoke directly so callers can migrate without forcing
     # every legacy target to be redeclared ``async def``.
     if inspect.iscoroutinefunction(plan.target_func):
@@ -1075,21 +1357,28 @@ async def _invoke_async(
     return plan.target_func(*pos_args, **kw_args)
 
 
-def _invoke_sync(
-    source: Callable,
-    plan: _CallPlan,
-    dep_cfg: DeprecationConfig,
-    source_has_var_positional: bool,
-    args: tuple[Any, ...],
-) -> Any:  # noqa: ANN401
-    """Dispatch sync call after :func:`_build_call_plan` has resolved the outcome."""
+def _invoke_sync(ctx: _WrapperContext, plan: _CallPlan, args: tuple[Any, ...]) -> Any:  # noqa: ANN401
+    """Dispatch sync call after :func:`_build_call_plan` has resolved the outcome.
+
+    A coroutine function target raises :class:`TypeError`, since nothing here awaits it; the advice names the fix that
+    fits the source, which for an async generator source is a target returning an async iterable.
+
+    """
     if plan.short_circuit or plan.target_func is None:
-        pos_args, kw_args = _resolve_source_call_shape(plan, dep_cfg, source_has_var_positional, args)
-        return source(*pos_args, **kw_args)
+        pos_args, kw_args = _resolve_source_call_shape(ctx, plan, args)
+        return ctx.source(*pos_args, **kw_args)
     if inspect.iscoroutinefunction(plan.target_func):
+        target_name = _callable_display_name(plan.target_func)[0]
+        # An async generator source is already ``async def``; its target must return an async iterable instead.
+        if inspect.isasyncgenfunction(ctx.source):
+            raise TypeError(
+                f"Coroutine function target `{target_name}` cannot replace async generator `{ctx.source.__name__}`:"
+                " an async generator's target must return an async iterable. Make the target an async generator"
+                " function, or a callable that returns an async iterator."
+            )
         raise TypeError(
-            f"Async target `{plan.target_func.__name__}` cannot be invoked from a sync wrapper."
-            f" Declare `{source.__name__}` as `async def`, or replace the target with a sync callable."
+            f"Async target `{target_name}` cannot be invoked from a sync wrapper."
+            f" Declare `{ctx.source.__name__}` as `async def`, or replace the target with a sync callable."
         )
-    pos_args, kw_args = _resolve_target_call_shape(source, plan, dep_cfg, source_has_var_positional, args)
+    pos_args, kw_args = _resolve_target_call_shape(ctx, plan, args)
     return plan.target_func(*pos_args, **kw_args)

@@ -6,7 +6,7 @@ import time
 from probe.foundation.compat.compat import StrEnum
 from typing import Any
 from .... import errors
-from ....session_marker import WIZARD_HINT
+from ....session_marker import SIGN_IN_HINT
 from probe.sdk.delivery.status_fields import StatusField
 
 
@@ -53,7 +53,7 @@ def _settings_for(context: dict | None):
         # indistinguishable from a dead ephemeral test port.
         raise errors.AuthError(
             f"no stored credential for pinned endpoint {pinned} "
-            f"(context {name or '<default>'}); {WIZARD_HINT}"
+            f"(context {name or '<default>'}); {SIGN_IN_HINT}"
         )
     if pinned:
         settings.base_url = pinned.rstrip("/")
@@ -214,7 +214,7 @@ def _settings_for_op(
             "queued for the ingest route by a client that had no ingest token; nothing may "
             "send it with another one"
         )
-    from ....settings.settings import keep_stored_keys_home, load_context, resolve
+    from ....settings.settings import keep_stored_keys_home, load_context, normalize_endpoint, resolve
 
     name = (context or {}).get("name")
     pinned = ((context or {}).get("base_url") or "").rstrip("/")
@@ -227,7 +227,9 @@ def _settings_for_op(
         ambient = None
     if (
         ambient is not None
-        and (not pinned or ambient.base_url.rstrip("/") == pinned)
+        # The same address however spelled (host case, https's :443): what a recovery's
+        # PROBE_BASE_URL hint is judged by (`waiter.get_recovery_server`). Sent to `pinned` itself.
+        and (not pinned or normalize_endpoint(ambient.base_url) == normalize_endpoint(pinned))
         and _route_fingerprint(ambient, ingest) == wanted
     ):
         if pinned:
@@ -265,7 +267,7 @@ def _settings_for_op(
         # Logged out since: park until a sign-in, as an unstamped op would, but never hand
         # this op to an environment token instead.
         raise errors.AuthError(
-            f"no stored credential for context {name or '<default>'} ({WIZARD_HINT})"
+            f"no stored credential for context {name or '<default>'} ({SIGN_IN_HINT})"
         )
     # The stored login outranks the environment field by field in `_settings_for`; a field the
     # login does not store must not be filled from someone else's environment either.

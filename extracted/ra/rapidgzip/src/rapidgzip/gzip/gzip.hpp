@@ -162,7 +162,7 @@ readHeader( gzip::BitReader& bitReader )
 
     try {
         bitReader.peek<1>();
-    } catch ( const gzip::BitReader::EndOfFileReached& ) {
+    } catch ( const EndOfFileReached& ) {
         return { header, Error::END_OF_FILE };
     }
 
@@ -226,7 +226,7 @@ readHeader( gzip::BitReader& bitReader )
         if ( ( flags & ( 1U << 1U ) ) != 0 ) {
             header.crc16 = bitReader.read<16>();
         }
-    } catch ( const gzip::BitReader::EndOfFileReached& ) {
+    } catch ( const EndOfFileReached& ) {
         return { header, Error::INCOMPLETE_GZIP_HEADER };
     }
 
@@ -386,7 +386,7 @@ readHeader( const std::function<uint64_t()>& readByte )
         }
 
         header.compressionLevel = static_cast<CompressionLevel>( ( flags >> 6U ) & 0b11U );
-    } catch ( const gzip::BitReader::EndOfFileReached& ) {
+    } catch ( const EndOfFileReached& ) {
         return { header, readPartialHeader ? Error::INCOMPLETE_GZIP_HEADER : Error::END_OF_FILE };
     }
 
@@ -409,7 +409,12 @@ readFooter( gzip::BitReader& bitReader )
     }
 
     Footer footer;
-    footer.adler32 = static_cast<uint32_t>( bitReader.read<32>() );
+    /* In contrast to the gzip footer, the zlib Adler-32 is stored in big-endian byte order. */
+    const auto adler32 = static_cast<uint32_t>( bitReader.read<32>() );
+    footer.adler32 = ( ( adler32 >> 24U ) & 0x000000FFU )
+                     | ( ( adler32 >> 8U ) & 0x0000FF00U )
+                     | ( ( adler32 << 8U ) & 0x00FF0000U )
+                     | ( ( adler32 << 24U ) & 0xFF000000U );
     return footer;
 }
 }  // namespace rapidgzip::zlib

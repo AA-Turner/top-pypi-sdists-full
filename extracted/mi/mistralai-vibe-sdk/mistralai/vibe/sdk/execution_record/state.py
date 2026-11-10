@@ -91,6 +91,10 @@ class ThinkingContentBlock(BaseModel):
 
     type: Literal["thinking"] = "thinking"
     thinking: str = ""
+    signature: Annotated[
+        str | None,
+        OmitFromModelContext(extra_exclude_if=lambda value: value is None),
+    ] = None
 
 
 class ImageContentBlock(BaseModel):

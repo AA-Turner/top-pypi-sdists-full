@@ -43,8 +43,8 @@ from ..language import (
     UnionTypeDefinitionNode,
     UnionTypeExtensionNode,
     ValueNode,
-    print_ast,
 )
+from ..language.printer import print_for_error
 from ..pyutils import (
     AbortSignal,
     AwaitableOrValue,
@@ -2711,13 +2711,13 @@ class GraphQLEnumType(GraphQLNamedType):
             try:
                 enum_value = self.values[value_node.value]
             except KeyError as error:
-                value_str = print_ast(value_node)
+                value_str = print_for_error(value_node)
                 msg = f"Value '{value_str}' does not exist in '{self.name}' enum." + (
                     "" if hide_suggestions else did_you_mean_enum_value(self, value_str)
                 )
                 raise GraphQLError(msg, value_node) from error
             return enum_value.value
-        value_str = print_ast(value_node)
+        value_str = print_for_error(value_node)
         msg = f"Enum '{self.name}' cannot represent non-enum value: {value_str}." + (
             "" if hide_suggestions else did_you_mean_enum_value(self, value_str)
         )
@@ -2733,7 +2733,9 @@ class GraphQLEnumType(GraphQLNamedType):
         >>> rgb_type = GraphQLEnumType('RGB', {'RED': 0, 'GREEN': 1, 'BLUE': 2})
         >>> print_ast(rgb_type.value_to_literal('BLUE'))
         'BLUE'
-        >>> rgb_type.value_to_literal(3) is None
+        >>> rgb_type.value_to_literal(2) is None
+        True
+        >>> rgb_type.value_to_literal('PURPLE') is None
         True
         """
         if isinstance(value, str) and self.values.get(value):

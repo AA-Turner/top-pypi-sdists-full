@@ -1,6 +1,19 @@
 from collections.abc import Callable
+from typing import Any
 
 from trilogy.constants import PRESENCE_MARKER_PREFIX
+from trilogy.core.casts import (
+    DATE_PATTERN,
+    DATETIME_PATTERN,
+    FALSE_TEXT,
+    FLOAT_PATTERN,
+    FLOAT_READ_TARGETS,
+    INSTANT_READ_TARGETS,
+    NUMBER_PATTERN,
+    TEXT_READ_TARGETS,
+    TRUE_TEXT,
+    UTC_SUFFIX,
+)
 from trilogy.core.constants import UNNEST_NAME
 from trilogy.core.enums import FunctionType, JoinType, Modifier, UnnestMode
 from trilogy.core.models.build import (
@@ -11,6 +24,7 @@ from trilogy.core.models.build import (
     BuildFunction,
     BuildParamaterizedConceptReference,
 )
+from trilogy.core.models.core import DataType, NumericType
 from trilogy.core.models.execute import (
     CTE,
     ConceptPair,
@@ -401,3 +415,114 @@ CONCAT_COALESCE_LOWER: dict[FunctionType, Callable[..., str]] = {
         "concat(" + ", ".join([f"coalesce({a}, '')" for a in x]) + ")"
     ),
 }
+
+
+def int_literal(arg: str) -> int | None:
+    try:
+        return int(arg.strip().strip("()").strip())
+    except ValueError:
+        return None
+
+
+def render_window_substring(
+    name: str, size: str, args: list[str], types: list | None = None
+) -> str:
+    """`substring(s, start, n)` as DuckDB and SQLite read it
+    (formal/Trilogy/Strings.lean, `substr`): a negative start counts from the
+    end, 0 is the position before the first character, and a negative n takes
+    the characters before start. Engines agree only once start >= 1 and
+    n >= 0, so other positions are clamped into that range (`clamp_exact`).
+    `size` renders a string's length in characters, as a format template."""
+    s, start, count = args
+    st, n = int_literal(start), int_literal(count)
+    if st is not None and st > 0 and n is not None and n >= 0:
+        return f"{name}({s},{st},{n})"
+    length = size.format(s)
+    if st is None:
+        begin = f"({start} + CASE WHEN {start} < 0 THEN {length} + 1 ELSE 0 END)"
+    elif st < 0:
+        begin = f"({length} + {st + 1})"
+    else:
+        begin = str(st)
+    if n is None:
+        low = f"{begin} + CASE WHEN {count} < 0 THEN {count} ELSE 0 END"
+        high = f"{begin} + CASE WHEN {count} < 0 THEN 0 ELSE {count} END"
+    elif n < 0:
+        low, high = f"{begin} - {-n}", begin
+    else:
+        low, high = begin, f"{begin} + {n}"
+    first = f"CASE WHEN {low} < 1 THEN 1 ELSE {low} END"
+    taken = f"{high} - {first}"
+    return f"{name}({s}, {first}, CASE WHEN {taken} < 0 THEN 0 ELSE {taken} END)"
+
+
+def _text_list(values: tuple[str, ...]) -> str:
+    return ", ".join(f"'{v}'" for v in values)
+
+
+def bool_from_text(value: str, true: str = "TRUE", false: str = "FALSE") -> str:
+    """A string as a bool, read as `trilogy.core.casts.text_to_bool` reads it
+    (DuckDB's spellings); SQLite reads 'true' as 0, BigQuery and Presto refuse
+    't' and 'yes'. A string with no reading is NULL."""
+    folded = f"lower({value})"
+    return (
+        f"CASE WHEN {folded} IN ({_text_list(TRUE_TEXT)}) THEN {true}"
+        f" WHEN {folded} IN ({_text_list(FALSE_TEXT)}) THEN {false} END"
+    )
+
+
+def text_from_bool(value: str) -> str:
+    """'true' / 'false' where a bool is stored as 1 / 0 and casts to '1'."""
+    return f"CASE {value} WHEN 1 THEN 'true' WHEN 0 THEN 'false' END"
+
+
+def cast_kind(types: list) -> tuple[Any, Any]:
+    """The (source, target) DataTypes of a cast, or Nones."""
+    if len(types) != 2:
+        return None, None
+    return tuple(getattr(t, "data_type", t) for t in types)  # type: ignore[return-value]
+
+
+def reads_text(types: list) -> bool:
+    source, target = cast_kind(types)
+    return source == DataType.STRING and target in TEXT_READ_TARGETS
+
+
+def written_kind(types: list) -> Any:
+    """The source of a cast to a string whose text the engine's own CAST
+    does not write as `trilogy.core.casts` does: a float, a decimal of a
+    declared scale or an instant; else None."""
+    source, target = cast_kind(types)
+    if target != DataType.STRING:
+        return None
+    if source in FLOAT_READ_TARGETS or source in INSTANT_READ_TARGETS:
+        return source
+    return types[0] if isinstance(types[0], NumericType) else None
+
+
+def utc_text(text: str) -> str:
+    return f"({text} || '{UTC_SUFFIX}')"
+
+
+def read_pattern(types: list) -> str:
+    target = cast_kind(types)[1]
+    if target == DataType.DATE:
+        return DATE_PATTERN
+    if target in INSTANT_READ_TARGETS:
+        return DATETIME_PATTERN
+    return FLOAT_PATTERN if target in FLOAT_READ_TARGETS else NUMBER_PATTERN
+
+
+def guarded_read(matches: str, read: str) -> str:
+    """The engine's own reading, kept only where the string has the reference's
+    shape: every engine reads more spellings than the reference (DuckDB '1_000',
+    ClickHouse 'on', SQLite any numeric prefix)."""
+    return f"CASE WHEN {matches} THEN {read} END"
+
+
+def render_text_bool_cast(args: list[str], types: list) -> str:
+    """CAST, except a string to a bool on an engine that refuses some of
+    DuckDB's spellings ('t', 'yes' on BigQuery and Presto)."""
+    if cast_kind(types) == (DataType.STRING, DataType.BOOL):
+        return bool_from_text(args[0])
+    return f"cast({args[0]} as {args[1]})"

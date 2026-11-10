@@ -6,6 +6,20 @@ import quimb.tensor as qtn
 
 
 class TestTensorNetwork3D:
+    @pytest.mark.parametrize("layer_tags", [False, True, 0, 1])
+    @pytest.mark.parametrize(
+        "method", ["contract_boundary", "contract_boundary_from"]
+    )
+    def test_boundary_rejects_boolean_layer_tags(self, layer_tags, method):
+        tn = qtn.TN3D_classical_ising_partition_function(2, 2, 2, beta=0.3)
+        opts = {"max_bond": 4, "layer_tags": layer_tags}
+        if method == "contract_boundary_from":
+            opts.update(
+                xrange=(0, 1), yrange=(0, 1), zrange=(0, 1), from_which="xmin"
+            )
+        with pytest.raises(TypeError, match="existing tensor network"):
+            getattr(tn, method)(**opts)
+
     def test_cyclic_basic(self):
         tn = qtn.TN3D_empty(Lx=3, Ly=4, Lz=5, D=2, cyclic=True)
         assert tn.is_cyclic_x()
@@ -72,6 +86,20 @@ class Test3DManualContract:
         Z = tn.contract_boundary(max_bond=8, canonize=canonize)
         f = -qu.log(Z) / (L**3 * beta)
         assert f == pytest.approx(fex, rel=1e-3)
+
+    @pytest.mark.parametrize("mode", ["local-early", "projector", "l2bp3d"])
+    def test_contract_boundary_via_2d_no_stale_tags(self, mode):
+        L = 4
+        beta = 0.3
+        tn = qtn.TN3D_classical_ising_partition_function(L, L, L, beta=beta)
+        Zex = tn.contract_boundary(max_bond=8)
+
+        # retain a virtual view to detect leaked tags
+        view = tn.select(tn.x_tag(0))
+
+        tn.contract_boundary_(max_bond=8, mode=mode)
+        assert tn.contract(all) == pytest.approx(Zex, rel=1e-1)
+        assert not any(tag.startswith(("__ST", "__R")) for tag in view.tag_map)
 
     def test_contract_peps_sweep_strip_exponent(self):
         tn = qtn.TN3D_classical_ising_partition_function(3, 3, 3, beta=0.3)

@@ -5,6 +5,7 @@ and the caller's work waits on disk (the journal) or fails open into it. DESIGN.
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import socket
 import sys
@@ -26,10 +27,14 @@ FALLBACK_ROOT_NAME = ".probe-service"
 #: state dir, else (a read-only home) under the outbox root, never the read-only fallback's name.
 OWN_ROOT_NAME = "sdk-service"
 OWN_FALLBACK_ROOT_NAME = ".probe-sdk-service"
+_log = logging.getLogger(__name__)
+
 #: What the SDK relies on (plan D8, D10, D20): a service whose hello lacks one is older than it.
 SDK_CAPS = ("outbox.journal.v1", "sdk.relay.v1")
 #: The methods an older service cannot serve as this SDK sends them: retried on its own service.
 NEEDS_SDK_CAPS = frozenset({"api.call", "files.hash", "credentials.hold", "outbox.drain"})
+#: A held stream (`api.call` with `stream: true`) needs these too: a service without them refuses its socket.
+STREAM_CAPS = (*SDK_CAPS, "sdk.relay.stream.v1")
 #: A service that does not answer a request's hello within this is wedged (a live one answers in
 #: milliseconds, whatever its HTTP waits on): the request costs this one budget, and this process
 #: asks no service for SILENT_BACKOFF_S after (its writes wait on disk meanwhile).
@@ -157,10 +162,10 @@ def _is_writable(folder) -> bool:
         return False
 
 
-def is_older(hello: dict) -> bool:
-    """The service that answered this hello lacks what this SDK relies on (`SDK_CAPS`)."""
+def is_older(hello: dict, needs: tuple = SDK_CAPS) -> bool:
+    """The service that answered this hello lacks what this SDK relies on (`SDK_CAPS`, or what one call needs)."""
     caps = hello.get("caps") or []
-    return not all(cap in caps for cap in SDK_CAPS)
+    return not all(cap in caps for cap in needs)
 
 
 def use_own_service() -> bool:
@@ -325,9 +330,15 @@ def request(method: str, parameters: dict, *, timeout: float = REQUEST_TIMEOUT_S
                 failed, result = exc, None
             hello = getattr(connection, "hello_answer", None) or {}
         # An older machine service (C1): an SDK process (M-2) whose call failed there or needs what
-        # it lacks moves to a delivery service of its own, and the call goes there.
-        if (attempt == 0 and _is_start_asked and is_older(hello) and (failed or method in NEEDS_SDK_CAPS)
-                and use_own_service()):
+        # it lacks moves to a delivery service of its own, and the call goes there. A held stream is
+        # always an SDK process's (only the SDK's relay sends one), and needs the stream cap too.
+        is_stream = parameters.get("stream") is True
+        needs = STREAM_CAPS if is_stream else SDK_CAPS
+        if (attempt == 0 and (_is_start_asked or is_stream) and is_older(hello, needs)
+                and (failed or method in NEEDS_SDK_CAPS) and use_own_service()):
+            if is_stream:
+                _log.warning("probe: the Probe service on this machine is older than this SDK and cannot carry "
+                             "live streams; this process uses a Probe service of its own")
             should_start = True
             continue
         if failed is not None:

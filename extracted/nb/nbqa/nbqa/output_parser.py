@@ -1,8 +1,10 @@
 """Parse output from code quality tools."""
 
 import re
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
-from typing import Callable, Mapping, Match, NamedTuple, Sequence, Tuple, Union
+from re import Match
+from typing import NamedTuple
 
 from nbqa.path_utils import get_relative_and_absolute_paths
 
@@ -21,7 +23,7 @@ class Output(NamedTuple):
 
 def _get_pattern(
     notebook: str, command: str, cell_mapping: Mapping[int, str]
-) -> Sequence[Tuple[str, Union[str, Callable[[Match[str]], str]]]]:
+) -> Sequence[tuple[str, str | Callable[[Match[str]], str]]]:
     """
     Get pattern and substitutions with which to process code quality tool's output.
 
@@ -66,6 +68,15 @@ def _get_pattern(
                 rf'|(?<=^File "{re.escape(absolute_path)}",) line',
                 "",
             ),
+        ]
+
+    if command.startswith("ruff"):
+        return [
+            (
+                rf"(?<=--> {re.escape(relative_path)}:)\d+"
+                rf"|(?<=--> {re.escape(absolute_path)}:)\d+",
+                standard_substitution,
+            )
         ]
 
     # This is the most common one and is used by flake, pylint, mypy, and more.

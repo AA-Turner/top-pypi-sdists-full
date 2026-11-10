@@ -39,6 +39,28 @@ REVERSED_REPETITION_PAYLOADS = {
     "SpacedOrdered": ("aa", "a{ 2 , 3 }"),
 }
 
+CODE_POINT_PAYLOADS = {
+    "SurrogateRanges": ("tab\tand text", "bell\u0007"),
+    "SurrogateOutsideClass": ("a", "b"),
+    "BracedCode": ("AA", "B"),
+}
+
+SIZE_AND_DIALECT_PAYLOADS = {
+    "WordsBeyondTheSizeLimit": ("user.name@example (x)", "a" * 256),
+    "TextBeyondTheSizeLimit": ("any text", "two\nlines"),
+    "BracketInClass": ("[A1", "a1"),
+    "Letters": ("Déjà", "abc1"),
+    "DigitsWithinTheSizeLimit": ("abc-123", "abc-"),
+    "NotAngleBracketsBeyondTheSizeLimit": ("a and b", "a<b"),
+    "AnythingBeyondTheSizeLimit": ("two\nlines", "x" * 20001),
+    "NoSpacesBeyondTheSizeLimit": ("abc", "a b"),
+    "AsciiWordsWithinTheSizeLimit": ("abc_1", "Déjà"),
+    "AtLeastTwoLetters": ("ab", "a"),
+    "AtLeastWordsBeyondTheSizeLimit": ("a" * 300, "a" * 299),
+    "LettersBeyondTheSizeLimit": ("bbb", "bc"),
+    "WordWithinBoundaries": ("abc", "a b"),
+}
+
 
 def _outcome(validate: Callable[[str], object], payload: object) -> str:
     """Return ``valid``, or the types of the errors that the validator reports for a JSON payload."""
@@ -172,6 +194,139 @@ def test_counted_repetitions_with_a_minimum_above_the_maximum_select_the_python_
     for name, payloads in REVERSED_REPETITION_PAYLOADS.items():
         with _generated_model(output_file, "rust_unsupported_reversed_repetition", name) as model:
             outcomes += _outcomes(model, {f"{name} {payload!r}": payload for payload in payloads})
+    assert_output(outcomes, name="payloads")
+
+
+@pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "pydantic_v2.dataclass"])
+def test_surrogate_escapes_select_the_python_engine(output_file: Path, output_model_type: str) -> None:
+    r"""Select ``python-re`` for a pattern escaping a surrogate, which Rust rejects and Python's ``re`` reads (#6593).
+
+    AWS documents write ``\\uD800`` inside a class, outside a class it is the same, and only Python's ``re`` imports
+    the model. ``\\x{41}``, which only Rust reads, stays on the default engine.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_code_points.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            "--field-constraints",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    outcomes = ""
+    for name, payloads in CODE_POINT_PAYLOADS.items():
+        with _generated_model(output_file, "rust_unsupported_code_points", name) as model:
+            outcomes += _outcomes(model, {f"{name} {payload!r}": payload for payload in payloads})
+    assert_output(outcomes, name="payloads")
+
+
+@pytest.mark.parametrize("output_model_type", ["pydantic_v2.BaseModel", "pydantic_v2.dataclass", "msgspec.Struct"])
+def test_patterns_no_engine_compiles_as_written(
+    output_file: Path, recwarn: pytest.WarningsRecorder, output_model_type: str
+) -> None:
+    r"""Write each pattern so that an engine of the output compiles it, or leave it out with a warning (#6593).
+
+    A repetition past Rust's compiled-size limit selects ``python-re``; a ``[`` inside a class that only Rust leaves
+    open is escaped, which every engine reads alike. A pattern no engine of the output compiles, a Java property, an
+    escaped brace after ``\\p`` or a class escape as the start of a range, and for msgspec, which only runs Python's
+    ``re``, ``\\p{L}`` and a group that turns Unicode off, is left out with a warning; one both engines read stays as
+    written, and so does one only Rust reads where Rust is the engine. Each valid payload keeps its value and each
+    invalid one fails.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_sizes_and_dialects.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", output_model_type, "--formatters", "builtin", "--disable-timestamp"],
+        force_exec_validation=True,
+    )
+    outcomes = "".join(
+        f"{warning.message}\n" for warning in recwarn if "no regex engine of the output" in str(warning.message)
+    )
+    if output_model_type != "msgspec.Struct":
+        for name, payloads in SIZE_AND_DIALECT_PAYLOADS.items():
+            with _generated_model(output_file, "rust_unsupported_sizes_and_dialects", name) as model:
+                validate = _model_json_validator(model)
+                outcomes += _outcomes(model, {f"{name} {payload!r}": payload for payload in payloads})
+                value = validate(json.dumps(payloads[0]))
+                outcomes += f"{name} value: {getattr(value, 'root', value) == payloads[0]}\n"
+    assert_output(outcomes, name="outcomes")
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param(["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"], id="field_constraints"),
+        pytest.param(
+            ["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated", "--collapse-root-models"],
+            id="base_model_collapsed",
+        ),
+        pytest.param(["--output-model-type", "pydantic_v2.dataclass", "--use-annotated"], id="dataclass_alias"),
+    ],
+)
+def test_patterns_the_python_engine_rejects_beside_one_it_needs(
+    output_file: Path, recwarn: pytest.WarningsRecorder, extra_args: list[str]
+) -> None:
+    r"""Leave out with a warning a pattern Python's ``re`` rejects where its config selects ``python-re`` (#6593).
+
+    A model selects ``python-re`` for a lookaround, so every other pattern its config builds runs on that engine:
+    ``\\P{C}`` and a class of Unicode properties, which only the default engine reads, are left out of its fields,
+    and of a type alias it builds, while a root model with a config of its own keeps its pattern. AWS documents, under
+    the dated presets, wrote such models. The module imports, each valid payload keeps its value and the lookaround
+    still rejects what it rejects.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "python_engine_beside_unicode_properties.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[*extra_args, "--formatters", "builtin", "--disable-timestamp"],
+        force_exec_validation=True,
+    )
+    outcomes = "".join(f"{warning.message}\n" for warning in recwarn if "regex engine" in str(warning.message))
+    payloads = {
+        "valid": {
+            "dateFieldFormat": "yyyy-MM-dd",
+            "indexFieldName": "Name",
+            "description": "Déjà vu",
+            "tagKeys": ["k"],
+        },
+        "space before the date format": {"dateFieldFormat": " yyyy"},
+        "control character in the name": {"indexFieldName": "a\u0007"},
+    }
+    with _generated_model(output_file, "python_engine_beside_unicode_properties", "FieldMapping") as model:
+        outcomes += _outcomes(model, payloads)
+        value = _model_json_validator(model)(json.dumps(payloads["valid"]))
+        outcomes += f"value: {value.description!r} {[getattr(key, 'root', key) for key in value.tagKeys]!r}\n"
+    assert_output(outcomes, name="outcomes")
+
+
+def test_encoded_str_roots_build_their_pattern_with_the_python_engine(output_file: Path) -> None:
+    """Write a base64 root model whose pattern needs ``python-re`` with only the decoded type in its base (#6603).
+
+    Under ``--use-encoded-str-for-constrained-base64`` the base ``RootModel[...]`` once wrote the pattern, which
+    Pydantic built with the default engine before the class's config selected ``python-re``, and the module failed at
+    import. Each valid payload keeps its decoded value and each invalid one fails.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "encoded_str_python_regex_engine.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            *("--output-model-type", "pydantic_v2.BaseModel", "--use-annotated"),
+            *("--use-encoded-str-for-constrained-base64", "--formatters", "builtin", "--disable-timestamp"),
+        ],
+        force_exec_validation=True,
+    )
+    outcomes = ""
+    for name, payloads in {"LookaroundBlob": ("QUJDRA==", "-QUJD"), "LongBlob": ("QUJDRA==", "")}.items():
+        with _generated_model(output_file, "encoded_str_python_regex_engine", name) as model:
+            outcomes += _outcomes(model, {f"{name} {payload!r}": payload for payload in payloads})
+            outcomes += f"{name} value: {_model_json_validator(model)(json.dumps(payloads[0])).root!r}\n"
     assert_output(outcomes, name="payloads")
 
 

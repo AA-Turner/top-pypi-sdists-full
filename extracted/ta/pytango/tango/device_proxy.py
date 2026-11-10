@@ -17,7 +17,13 @@ import warnings
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from tango._instrumentation import _forcefully_traced_method, _trace_client
+from tango._internal.instrumentation import _forcefully_traced_method, _trace_client
+from tango._internal.telemetry import (
+    _telemetry_endpoint_to_wire,
+    _telemetry_endpoints_from_wire,
+    _telemetry_endpoints_to_wire,
+)
+from tango._internal.warn import PyTangoUserWarning, warn_once
 from tango._tango import (
     AttributeInfo,
     AttributeInfoEx,
@@ -41,12 +47,6 @@ from tango._tango import (
     __EventCallBack,
     constants,
 )
-from tango._telemetry import (
-    _telemetry_endpoint_to_wire,
-    _telemetry_endpoints_from_wire,
-    _telemetry_endpoints_to_wire,
-)
-from tango._warnings import PyTangoUserWarning, warn_once
 from tango.green import get_green_mode, green, green_callback
 from tango.telemetry import TelemetryEndpoint
 from tango.utils import (

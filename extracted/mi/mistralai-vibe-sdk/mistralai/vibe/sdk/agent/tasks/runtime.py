@@ -194,21 +194,16 @@ def _derive_type_name(config_cls: type[TaskConfigBase]) -> str:
 def _derive_workflow_name(workflow_cls: type) -> str:
     """Derive the workflow identifier from a @workflow.define-decorated class.
 
-    Reads ``__temporal_workflow_definition.name`` set by the Mistral
-    Workflows SDK ``@workflow.define(name=...)`` decorator. Raises
-    ValueError if the attribute is absent — callers must pass a
-    properly decorated workflow class, not an arbitrary type.
+    Reads the Mistral Workflows SDK definition. Raises ValueError if callers pass
+    an arbitrary type instead of a properly decorated workflow class.
     """
-    defn = getattr(workflow_cls, "__temporal_workflow_definition", None)
-    if defn is not None:
-        name = getattr(defn, "name", None)
-        if isinstance(name, str):
-            return name
-    msg = (
-        f"{workflow_cls.__name__} is not a @workflow.define-decorated class "
-        f"(missing __temporal_workflow_definition attribute)"
-    )
-    raise ValueError(msg)
+    from mistralai.workflows import get_workflow_definition
+
+    try:
+        return get_workflow_definition(workflow_cls).name
+    except ValueError as exc:
+        msg = f"{workflow_cls.__name__} is not a @workflow.define-decorated class"
+        raise ValueError(msg) from exc
 
 
 @dataclass(frozen=True)

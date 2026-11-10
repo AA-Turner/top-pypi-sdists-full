@@ -49,6 +49,12 @@ def sync_detailed(
 ) -> Response[CustomerContext]:
     """Get customer context for this ticket
 
+     The original ticket's caller (full name, email and organization), its resource, and the caller's
+    five latest other tickets among those the provider ticket list shows the requester: tickets routed
+    to a helpdesk they speak for, as an owner of the service provider's organization or as an active
+    agent. Staff and support see the caller's tickets routed to any provider. Tickets kept on the
+    operator's own desk are not listed.
+
     Args:
         uuid (UUID):
 
@@ -78,6 +84,12 @@ def sync(
 ) -> CustomerContext:
     """Get customer context for this ticket
 
+     The original ticket's caller (full name, email and organization), its resource, and the caller's
+    five latest other tickets among those the provider ticket list shows the requester: tickets routed
+    to a helpdesk they speak for, as an owner of the service provider's organization or as an active
+    agent. Staff and support see the caller's tickets routed to any provider. Tickets kept on the
+    operator's own desk are not listed.
+
     Args:
         uuid (UUID):
 
@@ -101,6 +113,12 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
 ) -> Response[CustomerContext]:
     """Get customer context for this ticket
+
+     The original ticket's caller (full name, email and organization), its resource, and the caller's
+    five latest other tickets among those the provider ticket list shows the requester: tickets routed
+    to a helpdesk they speak for, as an owner of the service provider's organization or as an active
+    agent. Staff and support see the caller's tickets routed to any provider. Tickets kept on the
+    operator's own desk are not listed.
 
     Args:
         uuid (UUID):
@@ -128,6 +146,12 @@ async def asyncio(
     client: AuthenticatedClient,
 ) -> CustomerContext:
     """Get customer context for this ticket
+
+     The original ticket's caller (full name, email and organization), its resource, and the caller's
+    five latest other tickets among those the provider ticket list shows the requester: tickets routed
+    to a helpdesk they speak for, as an owner of the service provider's organization or as an active
+    agent. Staff and support see the caller's tickets routed to any provider. Tickets kept on the
+    operator's own desk are not listed.
 
     Args:
         uuid (UUID):

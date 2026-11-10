@@ -1,8 +1,9 @@
 """The one definition of how a Story moves through the newsroom (docs/story-procedure.md).
 
 Pure data and pure functions, no model calls. The CLI reads it for `papyrus stories next` and for the reminders printed after a write.
-Skipped steps warn and never refuse; publishing stays the only hard gate. Human review is never a step: a person comes in through a
-review request."""
+Each live step is also an item of the Story's stored checklist (story_checklist.py): a skipped step needs a recorded reason, and publishing
+refuses while a required step is open. The four review steps are the template's readers' lenses. Human sign-off is never a stage: a person
+comes in through a review request."""
 
 from __future__ import annotations
 
@@ -26,6 +27,9 @@ EDITOR_REVIEW_KEY = "editorReview"
 STAGES_AT_OR_AFTER_COPYWRITING = ("copywriting", "illustration", "typesetting", "published")
 STAGES_WITHOUT_NEXT_STEP = ("spiked", "held", "published")
 
+#: The version of this template. Raise it whenever a step is added, removed or changes its status, so each checklist item records the template it came from.
+TEMPLATE_VERSION = 4
+
 
 @dataclass(frozen=True)
 class Step:
@@ -37,6 +41,8 @@ class Step:
     status: str
     optional: bool
     note: str
+    #: Done by hand: no record proves it, so marking it done needs a short findings note (the four review lenses).
+    manual: bool = False
 
 
 STEPS: tuple[Step, ...] = (
@@ -53,14 +59,36 @@ STEPS: tuple[Step, ...] = (
          "A person can save their own with stories save-version --outline. A later version counts as the draft."),
     Step("draft", "copywriting", "Copywriter", "Write the draft",
          "papyrus stories draft --story {story}", LIVE, False,
-         "A version newer than the outline; a person can save their own with stories save-version."),
+         "A version newer than the outline; a person can save their own with stories save-version. Share a review link: after each save, show the editor the console link of the exact version (the console row of stories save-version, or papyrus links --story LINEAGE --version N), before asking for anything."),
     Step("fact_check", "copywriting", "Fact-check agent", "Fact-check the draft", "", NOT_BUILT, False,
          "Not built yet (PPY-719a02)."),
     Step("copy_edit", "copywriting", "Copywriter with Humanus", "Copy-edit the draft",
          "papyrus editorial check-version --item <current version id>", LIVE, False,
-         "A finished editorial check of the current version with no error-level violation."),
+         "A finished editorial check of the current version with no error-level violation. Share a review link: show the editor the console link of the version you checked (and of any version the copy edit saves) before asking to publish."),
     Step("editor_review", "copywriting", "Editor agent", "Editor review", "", OFF, False,
          "Off: needs the editor_review.tac procedure, which no site has on."),
+    Step("review_people", "copywriting", "Editor or reviewing agent", "Reviewed for readers",
+         "papyrus stories step --story {story} --step review_people --state done --note <findings>", LIVE, False,
+         "Human readers: a person or agent reads the Story as a reader would and records the findings. What each lens checks is a later design (PPY-59c772df).", True),
+    Step("review_reader_agents", "copywriting", "Editor or reviewing agent", "Reviewed for AI reader agents",
+         "papyrus stories step --story {story} --step review_reader_agents --state done --note <findings>", LIVE, False,
+         "AI agents that read the page for a person. Findings are recorded by hand for now (PPY-59c772df).", True),
+    Step("review_search", "copywriting", "Editor or reviewing agent", "Reviewed for search",
+         "papyrus stories step --story {story} --step review_search --state done --note <findings>", LIVE, False,
+         "Search crawlers. Findings are recorded by hand for now (PPY-59c772df).", True),
+    Step("review_social", "copywriting", "Editor or reviewing agent", "Reviewed for social previews",
+         "papyrus stories step --story {story} --step review_social --state done --note <findings>", LIVE, False,
+         "Social previews (link cards). Findings are recorded by hand for now (PPY-59c772df).", True),
+    Step("concepts", "copywriting", "Editor or reviewing agent", "Associate with relevant Concepts",
+         "papyrus stories link-concept --story {story} --concept \"Name\" --note <why>", LIVE, False,
+         "Tag the Story with the existing accepted Concepts it is about (stories link-concept: exact names, never creates one). No Story command creates a Concept: make a missing one from a Reference "
+         "(references link --reference <id> --concept NAME --create) or in the newsroom. Then mark this step done with a findings note that names the Concepts added and any considered and left out "
+         "(papyrus stories step --story {story} --step concepts --state done --note <findings>), or skipped with a reason.", True),
+    Step("related_content", "copywriting", "Editor or reviewing agent", "Add related associations",
+         "papyrus stories suggest-links --story {story}", LIVE, False,
+         "Read only: ranked related articles, posts and References from the Story's concepts, other than what the Story already links or cites. Add the good ones as see-also associations "
+         "(stories link-story --story <lineage> --to <lineage>, and --reference <id> for a Reference). Then mark this step done with a findings note that says what was linked and what was left out and why "
+         "(papyrus stories step --story {story} --step related_content --state done --note <findings>), or skipped with a reason.", True),
     Step("illustration", "illustration", "Editor", "Illustrate", "", NOT_BUILT, True, "Not built yet."),
     Step("typesetting", "typesetting", "Editor", "Typeset", "", NOT_BUILT, True, "Not built yet."),
     Step("publish", "published", "A person", "Publish the Story", "papyrus ops content publish --id <item id>", LIVE, False,
@@ -69,6 +97,7 @@ STEPS: tuple[Step, ...] = (
 
 
 STEP_BY_KEY = {step.key: step for step in STEPS}
+REVIEW_STEP_KEYS = tuple(step.key for step in STEPS if step.key.startswith("review_"))
 
 
 def _metadata_of(row: dict[str, Any]) -> dict[str, Any]:
@@ -162,6 +191,8 @@ def _state_of(step: Step, facts: dict[str, Any]) -> str:
         return DONE if approved else NOT_DONE
     if step.key == "publish":
         return DONE if stage == "published" else NOT_DONE
+    if step.manual:
+        return NOT_DONE   # no record proves a lens review; the Story's stored checklist says whether a person or agent did it
     return UNKNOWN
 
 
@@ -173,6 +204,7 @@ def assess(facts: dict[str, Any]) -> dict[str, Any]:
         rows.append({
             "key": step.key, "title": step.title, "role": step.role, "stage": step.stage, "status": step.status,
             "state": _state_of(step, facts), "command": step.command.replace("{story}", str(facts["lineage"])), "note": step.note,
+            "optional": step.optional, "manual": step.manual,
         })
     next_row = None
     skipped: list[dict[str, Any]] = []
@@ -229,17 +261,26 @@ def step_lines(assessment: dict[str, Any]) -> list[str]:
     return ["\t".join(["step", row["key"], row["state"], row["status"], row["stage"], row["role"], row["title"]]) for row in assessment["steps"]]
 
 
-def reminder_assessment(client, lineage: str, read_check_run=None) -> dict[str, Any] | None:
-    """The assessment for a reminder after a write; a failure prints one line to stderr and returns None, never raises."""
+def reminder_assessment(client, lineage: str, read_check_run=None, *, sync_checklist: bool = False) -> dict[str, Any] | None:
+    """The assessment for a reminder after a write; a failure prints one line to stderr and returns None, never raises.
+
+    ``sync_checklist`` is for a reminder printed after a write: the same facts then bring the Story's stored checklist up to date once
+    (new template steps open, evidence marks steps done). It never fails the write either; a problem prints one line to stderr."""
     try:
-        return assess(story_facts(client, lineage, read_check_run))
+        facts = story_facts(client, lineage, read_check_run)
+        assessment = assess(facts)
     except Exception as error:
         print(f"next\tnot computed\t{type(error).__name__}: {str(error)[:160]}", file=sys.stderr)
         return None
+    if sync_checklist:
+        from .story_checklist import sync_quietly
+
+        sync_quietly(client, lineage, facts=facts, assessment=assessment)
+    return assessment
 
 
 def print_reminder(client, lineage: str, read_check_run=None) -> dict[str, Any] | None:
-    assessment = reminder_assessment(client, lineage, read_check_run)
+    assessment = reminder_assessment(client, lineage, read_check_run, sync_checklist=True)
     print_next_lines(assessment)
     return assessment
 

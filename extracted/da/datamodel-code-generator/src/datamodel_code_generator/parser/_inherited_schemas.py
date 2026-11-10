@@ -12,32 +12,46 @@ warning names, and the context manager ``_inherited_ref_context`` stay parser me
 
 from __future__ import annotations
 
-from functools import partial
-from typing import TYPE_CHECKING, Any, cast
+import operator
+from collections import Counter
+from functools import partial, reduce
+from itertools import islice
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
 from typing_extensions import Protocol, Sentinel
 
 from datamodel_code_generator import AllOfMergeMode, Error
-from datamodel_code_generator._constraint_applicability import PROPERTY_COUNT_KEYWORDS, keyword_kinds
+from datamodel_code_generator._constraint_applicability import (
+    ITEM_COUNT_KEYWORDS,
+    NUMBER_KEYWORDS,
+    PROPERTY_COUNT_KEYWORDS,
+    STRING_KEYWORDS,
+    keyword_kinds,
+)
 from datamodel_code_generator._copy_on_change import unchanged
 from datamodel_code_generator._json_schema import (
     COMBINATOR_POSITIONS,
     MODELED_SCHEMA_MAPS,
+    SCHEMA_POSITIONS,
     admitted_types,
     non_null_types,
     schema_positions,
 )
 from datamodel_code_generator._mro import linearize, sort_descendants_first
 from datamodel_code_generator._url_redaction import named_location
+from datamodel_code_generator._warning_control import quiet
 from datamodel_code_generator.imports import IMPORT_ANY
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model.base import _field_source_name, get_inherited_fields
+from datamodel_code_generator.parser._all_of_values import holds_union_member
 from datamodel_code_generator.parser._intersection import (
     INHERITED_SCHEMA_KEYWORDS,
     POSITIONAL_SCHEMA_KEYWORDS,
+    all_of_member_row,
     declared_types,
     inherited_override_row,
     inherited_positional_tail,
+    json_values_equal,
     merge_inherited_keyword,
     merge_inherited_value,
 )
@@ -46,6 +60,7 @@ from datamodel_code_generator.parser._origins import with_field_origin
 from datamodel_code_generator.parser._schema_object import (
     _ANNOTATION_KEYWORDS,
     _MODELED_POSITIONS,
+    _REF_KEYWORDS,
     JsonSchemaObject,
     _dump_location,
     _dump_without_keywords,
@@ -58,16 +73,24 @@ from datamodel_code_generator.parser._schema_reading import (
     _RAW_SCHEMA_EXPLICIT_FIELD_EXTRAS_KEY,
     _get_json_value_type,
     _intersect_dumps,
+    _intersect_parts,
     _schema_dump,
     _without_contains_keywords,
 )
+from datamodel_code_generator.parser._schema_refs import mark_conjunction_parts
+from datamodel_code_generator.parser._value_keywords import get_effective_array_length
 from datamodel_code_generator.parser.base import (
     _DEFERRED_INHERITED_FIELD_KEY,
     _DEFERRED_INHERITED_TYPE_KEY,
     _get_inherited_type_modifiers,
 )
 from datamodel_code_generator.python_literal import stable_repr
-from datamodel_code_generator.reference import Reference, _is_special_path, get_inferred_module_name
+from datamodel_code_generator.reference import (
+    Reference,
+    _is_special_path,
+    context_variable,
+    get_inferred_module_name,
+)
 from datamodel_code_generator.types import ANY, DataType
 
 if TYPE_CHECKING:
@@ -78,6 +101,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator._source import YamlValue
+    from datamodel_code_generator._user_keys import ClassScope
     from datamodel_code_generator.parser._field_rows import (
         FieldAliasRow,
         FieldCopyFacts,
@@ -88,11 +112,15 @@ if TYPE_CHECKING:
     from datamodel_code_generator.parser._intersection import KeywordIntersection
     from datamodel_code_generator.parser._null_facts import NullFacts, NullMode, NullSite, NullSources
     from datamodel_code_generator.parser._schema_graph import _TargetNode
-    from datamodel_code_generator.reference import ModelResolver, ModelType
+    from datamodel_code_generator.reference import ModelResolver, ModelType, SchemaLocation
 
 __all__ = [
+    "InheritedParentRow",
     "InheritedSchemasHost",
+    "ModelDeclarations",
+    "all_of_members",
     "build_missing_required_field",
+    "checked_declarations",
     "drop_incompatible_inherited_constraints",
     "get_allof_parent_references",
     "get_deferred_inherited_parse_object",
@@ -120,6 +148,8 @@ __all__ = [
     "inferred_module_name",
     "inherited_node",
     "inherited_override_schema",
+    "inherited_schema_parents",
+    "inline_all_of_parts",
     "is_inherited_type_narrowing",
     "is_partial_inherited_nested_value",
     "is_partial_inherited_property",
@@ -133,18 +163,23 @@ __all__ = [
     "merge_inherited_type_shape_dict",
     "merge_inherited_union_branch",
     "merge_properties_with_parent_constraints",
+    "model_declarations",
     "normalize_inherited_constraint_compositions",
     "normalize_inherited_nested_schema_value",
     "override_row",
     "parse_fields_beside_parents",
     "parse_inherited_schema_fields",
     "preserve_inherited_materialized_type_shape",
+    "property_conjunctions",
     "remove_inherited_distributed_shape",
     "remove_unconstrained_compositions",
+    "required_names_at",
     "resolve_inherited_parent_property",
     "sanitize_untyped_boolean_inherited_property",
     "select_inherited_distributed_shape",
     "sort_inherited_base_classes_for_mro",
+    "union_model_properties",
+    "with_conjoined_properties",
 ]
 
 _INHERITED_TYPE_SHAPE_FIELDS = frozenset({
@@ -164,16 +199,34 @@ _INHERITED_CONTAINER_TYPE_FIELDS: tuple[tuple[frozenset[str], frozenset[str]], .
 )
 _INHERITED_MATERIALIZED_TYPE_SHAPE_KEY = "_inherited_materialized_type_shape"
 _INHERITED_OVERRIDE_KEY = "_inherited_override"
+_READ_THROUGH_KEY = "_all_of_read_through"
+"""Marks a member ``all_of_members`` reads in place of a ``$ref``, or within one, with the locations read through."""
+ModelDeclarations: TypeAlias = "tuple[dict[str, JsonSchemaObject | None], frozenset[str]]"
+InheritedParentRow: TypeAlias = Literal["class-bases", "legacy-document-order"]
+"""The order the allOf parents of an inherited schema are read in (``inherited_schema_parents``)."""
+"""The property declarations of a model, None for one it merges, and the names it requires (``model_declarations``)."""
+_CHECK_KEYWORDS: Final = NUMBER_KEYWORDS | STRING_KEYWORDS | ITEM_COUNT_KEYWORDS
+"""The keywords that narrow the values of the type a schema is written as, never that type: bounds and pattern."""
+_DOCUMENTATION_KEYWORDS: Final = frozenset({"$comment", "deprecated", "description", "example", "examples", "title"})
+"""The annotations of a schema that give no value and do not split request and response models."""
+_MODEL_BUILDING_KEYWORDS: Final = frozenset({*SCHEMA_POSITIONS, *_REF_KEYWORDS, "enum"})
+"""The keywords a declaration may build a model of its own with: its subschemas, references and ``enum``."""
 _NO_INHERITED_SCHEMA_MERGE = Sentinel("_NO_INHERITED_SCHEMA_MERGE")
 
 
-def _inline_all_of_closure(schema: JsonSchemaObject, *, members_first: bool = False) -> Iterator[JsonSchemaObject]:
-    """Yield ``schema`` and its inline (not ``$ref``) allOf members, recursively; ``members_first`` yields it last."""
+def inline_all_of_parts(
+    parser: InheritedSchemasHost, schema: JsonSchemaObject, *, members_first: bool = False
+) -> Iterator[JsonSchemaObject]:
+    """Yield ``schema`` and its inline (not ``$ref``) allOf members, recursively; ``members_first`` yields it last.
+
+    The members are read as ``all_of_members`` reads them, so the keywords beside a ``$ref`` member are one where they
+    are parts of it.
+    """
     if not members_first:
         yield schema
-    for item in schema.allOf:
+    for item in all_of_members(parser, schema):
         if isinstance(item, JsonSchemaObject) and not item.ref:
-            yield from _inline_all_of_closure(item, members_first=members_first)
+            yield from inline_all_of_parts(parser, item, members_first=members_first)
     if members_first:
         yield schema
 
@@ -210,6 +263,7 @@ class InheritedSchemasHost(Protocol):
     _inherited_schema_ancestor_cache: dict[str, frozenset[str]]
     _inherited_schema_cache: dict[str, JsonSchemaObject]
     _inherited_schema_linearization_cache: dict[tuple[str, ...], tuple[str, ...]]
+    _parses_unowned_fields: bool
 
     @property
     def allof_merge_mode(self) -> AllOfMergeMode:
@@ -252,8 +306,12 @@ class InheritedSchemasHost(Protocol):
         """Whether closed arrays are written as tuples (``--use-tuple-for-closed-arrays``)."""
 
     @property
+    def _inherited_parent_row(self) -> InheritedParentRow:
+        """The order the allOf parents of an inherited schema are read in (``inherited_schema_parents``)."""
+
+    @property
     def _legacy_intersection(self) -> frozenset[str]:
-        """The rows of ``parser/_intersection.py:LEGACY_ROWS`` kept: every row without --intersect-allof-keywords."""
+        """The rows of ``parser/_intersection.py:LEGACY_ROWS`` kept: those of each of its options that is off."""
 
     @property
     def _legacy_rw_variants(self) -> frozenset[str]:
@@ -272,6 +330,8 @@ class InheritedSchemasHost(Protocol):
         path: list[str],
         module_name: str | None = None,
         class_name: str | None = None,
+        *,
+        output_names: tuple[str, ...] = (),
     ) -> list[DataModelFieldBase]:
         """Parse object properties into a list of data model fields."""
 
@@ -283,7 +343,7 @@ class InheritedSchemasHost(Protocol):
         field: DataModelFieldBase,
         inherited_field: DataModelFieldBase,
         *,
-        class_name: str,
+        scope: ClassScope,
     ) -> None:
         """Resolve an inherited schema default in the derived class scope."""
 
@@ -297,20 +357,10 @@ class InheritedSchemasHost(Protocol):
         data_type: DataType,
         *,
         source_name: str | None = None,
-        class_name: str | None = None,
+        scope: ClassScope | None = None,
         **facts: Unpack[FieldFacts],
     ) -> DataModelFieldBase:
         """Build a field of a model the parser writes, with the configured options its ``row`` takes."""
-
-    def _build_missing_required_field(
-        self,
-        required_field_name: str,
-        excludes: set[str],
-        base_classes: list[Reference],
-        class_name: str,
-        inherited_fields: dict[str, DataModelFieldBase] | None = None,
-    ) -> DataModelFieldBase:
-        """Build a field for a required name that is not declared in properties."""
 
     def _collect_inherited_fields_for_request_response(
         self,
@@ -330,36 +380,6 @@ class InheritedSchemasHost(Protocol):
     ) -> DataModelFieldBase:
         """Copy a field and its mutable state without copying model references, made with ``identity`` and ``facts``."""
 
-    def _drop_incompatible_inherited_constraints(
-        self,
-        child: dict[str, Any],
-        parent_types: frozenset[str],
-    ) -> dict[str, Any]:
-        """Avoid applying schema constraints to incompatible Python value types."""
-
-    def _get_allof_parent_references(
-        self,
-        schema: JsonSchemaObject,
-        *,
-        inherited: Iterable[Reference] = (),
-        defining_ref: str | None = None,
-    ) -> list[Reference]:
-        """Collect effective allOf parents once, preserving declaration precedence."""
-
-    def _get_deferred_inherited_parse_object(
-        self,
-        source_obj: JsonSchemaObject,
-        deferred_property_names: frozenset[str],
-    ) -> JsonSchemaObject:
-        """Strip nested type work that late canonical inheritance will replace."""
-
-    def _get_deferred_inherited_property_names(
-        self,
-        source_obj: JsonSchemaObject,
-        parent_properties: dict[str, tuple[JsonSchemaObject | bool, str]],
-    ) -> frozenset[str]:
-        """Find partial properties that need canonical generated-type resolution."""
-
     def _get_fixed_positional_items(
         self,
         obj: JsonSchemaObject,
@@ -367,56 +387,20 @@ class InheritedSchemasHost(Protocol):
     ) -> list[JsonSchemaObject | bool] | None:
         """Return the positions of a positional array written as a tuple, or None when it is written as a list."""
 
-    def _get_flattenable_inherited_constraint_items(
-        self,
-        keyword: str,
-        raw_items: list[Any],
-    ) -> list[dict[str, Any]] | None:
-        """Return normalized constraint-only branches when composition flattening is equivalent."""
+    @classmethod
+    def _get_array_items_constraints(cls, obj: JsonSchemaObject) -> dict[str, int]:
+        """Return array length constraints derived from boolean items."""
 
-    def _get_inherited_field_map(self, base_classes: list[Reference]) -> dict[str, DataModelFieldBase]:
-        """Build the effective generated field map once for a set of direct bases."""
-
-    def _get_inherited_field_schema(
-        self, prop_name: str, base_classes: list[Reference], visited: frozenset[_TargetNode] | None = None
-    ) -> JsonSchemaObject | None:
-        """Get the schema for an inherited property from parent schemas."""
+    def _load_ref_schema_object(self, ref: str) -> JsonSchemaObject:
+        """Load a JsonSchemaObject from a $ref using standard resolve/load pipeline."""
 
     def _get_inherited_field_type(
         self, prop_name: str, base_classes: list[Reference], visited: frozenset[_TargetNode] | None = None
     ) -> DataType | None:
         """Get the data type for an inherited property from parent schemas."""
 
-    def _get_inherited_property_map(
-        self,
-        base_classes: list[Reference],
-    ) -> dict[str, tuple[JsonSchemaObject | bool, str]]:
-        """Build the effective raw property map once in inherited C3 order."""
-
-    def _get_inherited_schema_types(
-        self,
-        schema: JsonSchemaObject,
-        parent_ref: str,
-        active: frozenset[_TargetNode] = frozenset(),
-    ) -> frozenset[str]:
-        """Infer JSON instance types accepted by an inherited schema."""
-
-    def _get_inline_required_names(self, schema: JsonSchemaObject) -> tuple[str, ...]:
-        """Collect required names in declaration order from one schema and inline allOf items."""
-
     def _get_ref_raw_schema(self, resolved_ref: str) -> dict[str, YamlValue] | YamlValue:
         """Return the value of a loaded document at a reference key, with the references it holds as a schema."""
-
-    def _has_inherited_constraints(self, schema: JsonSchemaObject) -> bool:
-        """Return whether a partial schema contains constraints at any container depth."""
-
-    def _inherited_override_row(self, parent: dict[str, Any], child: dict[str, Any]) -> dict[str, Any]:
-        """Return ``parser/_intersection.py:inherited_override_row`` under the merge mode of this parse."""
-
-    def _inherited_override_schema(
-        self, parent: JsonSchemaObject, child: JsonSchemaObject, parent_ref: str, where: str
-    ) -> JsonSchemaObject:
-        """Return the schema of a property ``child`` that overrides the inherited property ``parent``."""
 
     def _inherited_ref_context(self, resolved_ref: str) -> AbstractContextManager[None]:
         """Resolve nested references relative to the inherited schema's own file and schema resource."""
@@ -425,49 +409,6 @@ class InheritedSchemasHost(Protocol):
         self, target: dict[str, Any], siblings: dict[str, Any], where: str, *, siblings_are_parts: bool
     ) -> JsonSchemaObject:
         """Return the schema of the intersection of a referenced schema's dump and the sibling keywords of its $ref."""
-
-    def _is_inherited_type_narrowing(
-        self,
-        child_types: frozenset[str],
-        parent_types: frozenset[str],
-    ) -> bool:
-        """Return whether explicit child JSON types are contained by the inherited types."""
-
-    def _is_partial_inherited_nested_value(
-        self,
-        child: object,
-        parent: object,
-        *,
-        parent_tail: object = True,
-        context: tuple[str, frozenset[_TargetNode]] = ("", frozenset()),
-        schema_map: bool = False,
-    ) -> bool:
-        """Compare one nested schema keyword using JSON Schema intersection semantics."""
-
-    def _is_partial_inherited_property(
-        self,
-        child: JsonSchemaObject,
-        parent: JsonSchemaObject,
-        context: tuple[str, frozenset[_TargetNode]] = ("", frozenset()),
-    ) -> bool:
-        """Return whether a child schema only narrows metadata/constraints of its inherited type."""
-
-    def _is_unconstrained_inherited_schema(self, schema: object) -> bool:
-        """Return whether a raw subschema adds no validation to an inherited type."""
-
-    def _iter_inherited_schema_objects(
-        self, base_classes: list[Reference], visited: frozenset[_TargetNode]
-    ) -> Iterator[tuple[JsonSchemaObject, frozenset[_TargetNode], str]]:
-        """Yield inherited schema objects not visited yet, with the visited schema nodes they add to."""
-
-    def _linearize_inherited_schema_refs(self, base_classes: list[Reference]) -> tuple[str, ...]:
-        """Return raw inherited schemas in the same C3 order as generated models."""
-
-    def _load_inherited_schema_object(self, resolved_ref: str) -> JsonSchemaObject:
-        """Load and cache a schema used only for inherited field inspection."""
-
-    def _mark_inherited_materialized_type_shapes(self, schema: JsonSchemaObject) -> None:
-        """Mark synthesized schemas whose container constraints need a root wrapper."""
 
     def _mark_reported_value_conflict(self, schema: JsonSchemaObject, keywords: Sequence[str]) -> None:
         """Mark a merged schema whose ``enum`` or ``const`` conflict the intersection warning already reports."""
@@ -480,29 +421,6 @@ class InheritedSchemasHost(Protocol):
         active: frozenset[_TargetNode] = frozenset(),
     ) -> dict[str, Any]:
         """Fill missing type-shape keywords while keeping child validation precedence."""
-
-    def _merge_inherited_union_branch(
-        self,
-        parent: object,
-        child: dict[str, Any],
-        distributed_fields: frozenset[str],
-        context: tuple[str, frozenset[_TargetNode]],
-        *,
-        excludes_null: bool,
-    ) -> object:
-        """Apply type-specific child keywords to one compatible inherited branch."""
-
-    def _merge_properties_with_parent_constraints(
-        self,
-        child_obj: JsonSchemaObject,
-        base_classes: list[Reference],
-        parent_properties: dict[str, tuple[JsonSchemaObject | bool, str]] | None = None,
-        deferred_property_names: frozenset[str] | None = None,
-    ) -> JsonSchemaObject:
-        """Merge child properties with parent property constraints for allOf inheritance."""
-
-    def _normalize_inherited_constraint_compositions(self, schema: JsonSchemaObject) -> JsonSchemaObject:
-        """Flatten constraint-only compositions before resolving their inherited type."""
 
     def _null_facts(
         self,
@@ -527,43 +445,20 @@ class InheritedSchemasHost(Protocol):
     def _ref_path(self, ref: str) -> str:
         """Return the reference key a reference names."""
 
+    def _ref_target_dump(self, ref: str, resolved_ref: str) -> tuple[dict[str, Any], str]:
+        """Return a fresh dump of a referenced schema for the current document, and the reference it ends at."""
+
     def _ref_siblings_are_parts_of(self, schema: JsonSchemaObject) -> bool:
         """Return whether the keywords beside the ``$ref`` of ``schema`` are parts of it."""
 
-    def _remove_inherited_distributed_shape(
-        self,
-        child: dict[str, Any],
-        distributed_fields: frozenset[str],
-    ) -> dict[str, Any]:
-        """Remove distributed keywords while preserving unrelated extension values."""
-
-    def _remove_unconstrained_compositions(self, schema_dict: dict[str, Any]) -> dict[str, Any]:
-        """Remove composition branches that make an inherited override universally valid."""
-
-    def _resolve_inherited_parent_property(
-        self,
-        schema: JsonSchemaObject,
-        parent_ref: str,
-        active: frozenset[_TargetNode] = frozenset(),
-    ) -> tuple[JsonSchemaObject, str, frozenset[_TargetNode]]:
-        """Resolve pure property references before comparing nested override shapes."""
-
-    def _sanitize_untyped_boolean_inherited_property(
-        self,
-        child: JsonSchemaObject,
-    ) -> JsonSchemaObject | None:
-        """Drop type-specific constraints when a boolean parent supplies no usable type."""
+    def _schema_location(self, resolved_ref: str) -> str:
+        """Return the registry location of a resolved reference."""
 
     def _schema_object(self, raw: object) -> JsonSchemaObject:
         """Validate a raw schema into a schema object."""
 
-    def _select_inherited_distributed_shape(
-        self,
-        child: dict[str, Any],
-        distributed_fields: frozenset[str],
-        parent_types: frozenset[str],
-    ) -> dict[str, Any]:
-        """Select child keywords that apply to one inherited JSON type branch."""
+    def _schema_resource_document(self, path_parts: list[str]) -> str:
+        """Identify one physical schema document without changing its public reference names."""
 
     def _shared_schema_object(self, raw: dict[str, YamlValue] | YamlValue, path: list[str]) -> JsonSchemaObject:
         """Return the schema object a value of a loaded document validates to, shared by its readers."""
@@ -575,7 +470,7 @@ class InheritedSchemasHost(Protocol):
         alias: str | list[str] | None,
         *,
         source_name: str,
-        class_name: str,
+        scope: ClassScope,
         row: FieldAliasRow,
         inherits: bool | None = None,
     ) -> None:
@@ -615,6 +510,10 @@ def get_inherited_type_shape(
 ) -> dict[str, Any]:
     """Return structural schema keywords without inherited value restrictions; a tuple keeps its length.
 
+    The length is that of explicit equal ``minItems`` and ``maxItems``, else that of the tuple
+    ``--use-tuple-for-closed-arrays`` writes, and unless ``legacy-type-shape-length-from-max-items`` is kept also the
+    bounds the effective length bounds fix it by (``parser/_value_keywords.py:get_effective_array_length``: a closed
+    tuple whose tail or a position is ``false``).
     ``canonical_ref`` reads the ``$ref`` values of ``schema`` in the document that defines it.
     """
     schema_dict = schema.model_dump(exclude_unset=True, by_alias=True)
@@ -628,6 +527,13 @@ def get_inherited_type_shape(
         and (fixed_items := parser._get_fixed_positional_items(schema, canonical_ref)) is not None  # noqa: SLF001
     ):
         shape["minItems"] = shape["maxItems"] = len(fixed_items)
+    elif (
+        positional_items
+        and "legacy-type-shape-length-from-max-items" not in parser._legacy_intersection  # noqa: SLF001
+        and get_effective_array_length(type(parser), schema) == len(positional_items)
+    ):
+        shape["minItems"] = schema.minItems
+        shape["maxItems"] = schema.maxItems
     return shape
 
 
@@ -638,7 +544,7 @@ def get_inherited_schema_types(
     active: frozenset[_TargetNode] = frozenset(),
 ) -> frozenset[str]:
     """Infer JSON instance types accepted by an inherited schema."""
-    schema, parent_ref, active = parser._resolve_inherited_parent_property(schema, parent_ref, active)  # noqa: SLF001
+    schema, parent_ref, active = resolve_inherited_parent_property(parser, schema, parent_ref, active)
     nullable_types = frozenset(("null",)) if parser._null_facts(schema, "inherited-types").admits_null else frozenset()  # noqa: SLF001
     if direct_types := frozenset(declared_types(schema.type)):
         return direct_types | nullable_types
@@ -670,7 +576,7 @@ def get_inherited_schema_types(
     combined_types: set[str] = set()
     for item in (*schema.anyOf, *schema.oneOf):
         if isinstance(item, JsonSchemaObject):
-            combined_types.update(parser._get_inherited_schema_types(item, parent_ref, active))  # noqa: SLF001
+            combined_types.update(get_inherited_schema_types(parser, item, parent_ref, active))
     if combined_types:
         return frozenset(combined_types) | nullable_types
 
@@ -678,7 +584,7 @@ def get_inherited_schema_types(
     for item in schema.allOf:
         if not isinstance(item, JsonSchemaObject):
             continue
-        if not (item_types := parser._get_inherited_schema_types(item, parent_ref, active)):  # noqa: SLF001
+        if not (item_types := get_inherited_schema_types(parser, item, parent_ref, active)):
             continue
         all_of_types = item_types if all_of_types is None else all_of_types & item_types
     return (all_of_types or frozenset()) | nullable_types
@@ -802,18 +708,17 @@ def remove_unconstrained_compositions(parser: InheritedSchemasHost, schema_dict:
     """Remove composition branches that make an inherited override universally valid."""
     result = schema_dict.copy()
     if isinstance(any_of := result.get("anyOf"), list) and any(
-        parser._is_unconstrained_inherited_schema(item)  # noqa: SLF001
-        for item in any_of
+        is_unconstrained_inherited_schema(parser, item) for item in any_of
     ):
         result.pop("anyOf")
     if (
         isinstance(one_of := result.get("oneOf"), list)
         and len(one_of) == 1
-        and parser._is_unconstrained_inherited_schema(one_of[0])  # noqa: SLF001
+        and is_unconstrained_inherited_schema(parser, one_of[0])
     ):
         result.pop("oneOf")
     if isinstance(all_of := result.get("allOf"), list):
-        if constrained_items := [item for item in all_of if not parser._is_unconstrained_inherited_schema(item)]:  # noqa: SLF001
+        if constrained_items := [item for item in all_of if not is_unconstrained_inherited_schema(parser, item)]:
             result["allOf"] = constrained_items
         else:
             result.pop("allOf")
@@ -844,7 +749,7 @@ def get_flattenable_inherited_constraint_items(
             case True:
                 normalized_items.append({})
             case dict():
-                normalized_item = parser._normalize_inherited_constraint_compositions(parser._schema_object(item))  # noqa: SLF001
+                normalized_item = normalize_inherited_constraint_compositions(parser, parser._schema_object(item))  # noqa: SLF001
                 if get_inherited_override_shape(parser, normalized_item):
                     return None
                 normalized_items.append(normalized_item.model_dump(exclude_unset=True, by_alias=True))
@@ -857,13 +762,13 @@ def normalize_inherited_nested_schema_value(parser: InheritedSchemasHost, value:
     """Normalize schema-valued container keywords without copying unchanged branches."""
     match value:
         case JsonSchemaObject() as nested_schema:
-            if (normalized := parser._normalize_inherited_constraint_compositions(nested_schema)) is nested_schema:  # noqa: SLF001
+            if (normalized := normalize_inherited_constraint_compositions(parser, nested_schema)) is nested_schema:
                 return None
             return normalized.model_dump(exclude_unset=True, by_alias=True)
         case list() | dict():
             members = value if isinstance(value, dict) else dict(enumerate(value))
             normalized = {
-                key: parser._normalize_inherited_constraint_compositions(item)  # noqa: SLF001
+                key: normalize_inherited_constraint_compositions(parser, item)
                 if isinstance(item, JsonSchemaObject)
                 else item
                 for key, item in members.items()
@@ -893,7 +798,8 @@ def normalize_inherited_constraint_compositions(
             case list() as raw_items if (
                 raw_items
                 and (
-                    normalized_items := parser._get_flattenable_inherited_constraint_items(  # noqa: SLF001
+                    normalized_items := get_flattenable_inherited_constraint_items(
+                        parser,
                         keyword,
                         raw_items,
                     )
@@ -927,14 +833,14 @@ def is_partial_inherited_property(
 ) -> bool:
     """Return whether a child schema only narrows metadata/constraints of its inherited type."""
     parent_ref, _ = context
-    child_dict = parser._remove_unconstrained_compositions(get_inherited_override_shape(parser, child))  # noqa: SLF001
+    child_dict = remove_unconstrained_compositions(parser, get_inherited_override_shape(parser, child))
     if not child_dict:
         return True
 
     if (child_type := child_dict.pop("type", None)) is not None:
         child_types = frozenset(declared_types(child_type))
-        parent_types = parser._get_inherited_schema_types(parent, parent_ref)  # noqa: SLF001
-        if not parser._is_inherited_type_narrowing(child_types, parent_types):  # noqa: SLF001
+        parent_types = get_inherited_schema_types(parser, parent, parent_ref)
+        if not is_inherited_type_narrowing(parser, child_types, parent_types):
             return False
 
     for field_name, nested_child in child_dict.items():
@@ -948,7 +854,8 @@ def is_partial_inherited_property(
             if field_name in POSITIONAL_SCHEMA_KEYWORDS and isinstance(nested_parent, list)
             else True
         )
-        if not parser._is_partial_inherited_nested_value(  # noqa: SLF001
+        if not is_partial_inherited_nested_value(
+            parser,
             nested_child,
             nested_parent,
             parent_tail=parent_tail,
@@ -972,7 +879,7 @@ def is_partial_inherited_nested_value(  # noqa: PLR0913
     parent_ref, active = context
     if child is None or child is True or parent is True or parent is False:
         return True
-    if not schema_map and isinstance(child, dict) and parser._is_unconstrained_inherited_schema(child):  # noqa: SLF001
+    if not schema_map and isinstance(child, dict) and is_unconstrained_inherited_schema(parser, child):
         return True
     result = False
     match child, parent:
@@ -982,19 +889,22 @@ def is_partial_inherited_nested_value(  # noqa: PLR0913
             effective_ref = parent_ref
             next_active = active
             if parent_schema.ref:
-                effective_parent, effective_ref, next_active = parser._resolve_inherited_parent_property(  # noqa: SLF001
+                effective_parent, effective_ref, next_active = resolve_inherited_parent_property(
+                    parser,
                     parent_schema,
                     parent_ref,
                     active - {inherited_node(parser, parser._ref_path(parent_schema.ref))},  # noqa: SLF001
                 )
-            result = parser._is_partial_inherited_property(  # noqa: SLF001
+            result = is_partial_inherited_property(
+                parser,
                 child_obj,
                 effective_parent,
                 (effective_ref, next_active),
             )
         case list() as child_schemas, list() as parent_schemas:
             result = all(
-                parser._is_partial_inherited_nested_value(  # noqa: SLF001
+                is_partial_inherited_nested_value(
+                    parser,
                     child_schema,
                     parent_schemas[index] if index < len(parent_schemas) else parent_tail,
                     context=context,
@@ -1004,7 +914,8 @@ def is_partial_inherited_nested_value(  # noqa: PLR0913
         case dict() as child_schema_map, dict() as parent_schema_map:
             result = all(
                 key in parent_schema_map
-                and parser._is_partial_inherited_nested_value(  # noqa: SLF001
+                and is_partial_inherited_nested_value(
+                    parser,
                     child_schema,
                     parent_schema_map[key],
                     context=context,
@@ -1027,7 +938,7 @@ def has_inherited_constraints(parser: InheritedSchemasHost, schema: JsonSchemaOb
     ):
         return True
     return any(
-        parser._has_inherited_constraints(nested_schema)  # noqa: SLF001
+        has_inherited_constraints(parser, nested_schema)
         for field_name in INHERITED_SCHEMA_KEYWORDS
         for nested_schema in _nested_schema_objects(getattr(schema, field_name))
     )
@@ -1038,7 +949,7 @@ def mark_inherited_materialized_type_shapes(parser: InheritedSchemasHost, schema
     schema.__dict__[_INHERITED_MATERIALIZED_TYPE_SHAPE_KEY] = True
     for field_name in _MODELED_POSITIONS:
         for nested_schema in _nested_schema_objects(getattr(schema, field_name)):
-            parser._mark_inherited_materialized_type_shapes(nested_schema)  # noqa: SLF001
+            mark_inherited_materialized_type_shapes(parser, nested_schema)
 
 
 def preserve_inherited_materialized_type_shape(
@@ -1048,7 +959,7 @@ def preserve_inherited_materialized_type_shape(
 ) -> JsonSchemaObject:
     """Propagate the internal materialization marker across schema normalization."""
     if source.__dict__.get(_INHERITED_MATERIALIZED_TYPE_SHAPE_KEY):
-        parser._mark_inherited_materialized_type_shapes(target)  # noqa: SLF001
+        mark_inherited_materialized_type_shapes(parser, target)
     return target
 
 
@@ -1087,7 +998,7 @@ def resolve_inherited_parent_property(
         if (node := inherited_node(parser, resolved_ref)) in active:
             break
         active |= {node}
-        referenced_schema = parser._load_inherited_schema_object(resolved_ref)  # noqa: SLF001
+        referenced_schema = load_inherited_schema_object(parser, resolved_ref)
         if schema.has_ref_with_schema_keywords:
             schema = parser._intersect_ref_siblings_schema(  # noqa: SLF001
                 referenced_schema.model_dump(exclude_unset=True, by_alias=True),
@@ -1131,10 +1042,11 @@ def merge_inherited_union_branch(  # noqa: PLR0913
     parent = cast("dict[str, Any]", parent)
     parent_ref, active = context
     parent_obj = parser._schema_object(parent)  # noqa: SLF001
-    parent_types = parser._get_inherited_schema_types(parent_obj, parent_ref, active)  # noqa: SLF001
+    parent_types = get_inherited_schema_types(parser, parent_obj, parent_ref, active)
     if excludes_null and parent_types == {"null"}:
         return _NO_INHERITED_SCHEMA_MERGE
-    branch_child = parser._select_inherited_distributed_shape(  # noqa: SLF001
+    branch_child = select_inherited_distributed_shape(
+        parser,
         child,
         distributed_fields,
         parent_types,
@@ -1166,12 +1078,13 @@ def merge_inherited_type_shape_dict(  # noqa: PLR0914
 ) -> dict[str, Any]:
     """Fill missing type-shape keywords while keeping child validation precedence."""
     parent_obj = parser._schema_object(parent)  # noqa: SLF001
-    effective_parent, effective_ref, next_active = parser._resolve_inherited_parent_property(  # noqa: SLF001
+    effective_parent, effective_ref, next_active = resolve_inherited_parent_property(
+        parser,
         parent_obj,
         parent_ref,
         active,
     )
-    parent_types = parser._get_inherited_schema_types(effective_parent, effective_ref, next_active)  # noqa: SLF001
+    parent_types = get_inherited_schema_types(parser, effective_parent, effective_ref, next_active)
     parent_shape = get_inherited_type_shape(parser, effective_parent, parser._ref_path)  # noqa: SLF001
     child_obj = parser._schema_object(child)  # noqa: SLF001
     excludes_null = parser._null_facts(child_obj, "inherited-child").admits_null is False  # noqa: SLF001
@@ -1187,7 +1100,8 @@ def merge_inherited_type_shape_dict(  # noqa: PLR0914
             merged_branch
             for branch in cast("list[object]", parent_shape[union_key])
             if (
-                merged_branch := parser._merge_inherited_union_branch(  # noqa: SLF001
+                merged_branch := merge_inherited_union_branch(
+                    parser,
                     branch,
                     child,
                     distributed_fields,
@@ -1201,7 +1115,8 @@ def merge_inherited_type_shape_dict(  # noqa: PLR0914
     elif distributed_fields and len(parent_types) > 1:
         parent_distributed_fields = get_inherited_distributed_fields(parser, effective_parent) & parent_shape.keys()
         branch_parent_shape = parent_shape
-        parent_shape = parser._remove_inherited_distributed_shape(  # noqa: SLF001
+        parent_shape = remove_inherited_distributed_shape(
+            parser,
             parent_shape,
             frozenset(parent_distributed_fields),
         )
@@ -1211,13 +1126,15 @@ def merge_inherited_type_shape_dict(  # noqa: PLR0914
                 parser._merge_inherited_type_shape_dict(  # noqa: SLF001
                     {
                         "type": parent_type,
-                        **parser._select_inherited_distributed_shape(  # noqa: SLF001
+                        **select_inherited_distributed_shape(
+                            parser,
                             branch_parent_shape,
                             frozenset(parent_distributed_fields),
                             frozenset((parent_type,)),
                         ),
                     },
-                    parser._select_inherited_distributed_shape(  # noqa: SLF001
+                    select_inherited_distributed_shape(
+                        parser,
                         child,
                         distributed_fields,
                         frozenset((parent_type,)),
@@ -1231,16 +1148,17 @@ def merge_inherited_type_shape_dict(  # noqa: PLR0914
             for parent_type in sorted(parent_types)
         ]
     if distributed_fields:
-        child_shape = parser._remove_inherited_distributed_shape(child, distributed_fields)  # noqa: SLF001
+        child_shape = remove_inherited_distributed_shape(parser, child, distributed_fields)
         if union_key is None and len(parent_types) <= 1:
-            child_shape.update(parser._select_inherited_distributed_shape(child, distributed_fields, parent_types))  # noqa: SLF001
+            child_shape.update(select_inherited_distributed_shape(parser, child, distributed_fields, parent_types))
     if (
         parent_shape.get("allOf")
         and len(parent_types) == 1
         and (parent_type := next(iter(parent_types))) not in {"array", "object"}
     ):
         parent_shape = {"type": parent_type}
-    child_shape = parser._drop_incompatible_inherited_constraints(  # noqa: SLF001
+    child_shape = drop_incompatible_inherited_constraints(
+        parser,
         child_shape,
         parent_types,
     )
@@ -1275,10 +1193,15 @@ def override_row(parser: InheritedSchemasHost, parent: dict[str, Any], child: di
     """Return ``parser/_intersection.py:inherited_override_row`` under the merge mode of this parse.
 
     An override drops the inherited ``nullable`` by the null rule ``inherited-typed-without-null``, read from its
-    own ``type`` and ``nullable`` (``parser/_null_facts.py:dump_null_sources``).
+    own ``type`` and ``nullable`` (``parser/_null_facts.py:dump_null_sources``). A map of named schemas merges name by
+    name unless ``legacy-schema-maps-merged-as-schemas`` is kept.
     """
     return inherited_override_row(
-        parent, child, merge_mode=parser.allof_merge_mode.value, drops_null=_dump_drops_inherited_null
+        parent,
+        child,
+        merge_mode=parser.allof_merge_mode.value,
+        drops_null=_dump_drops_inherited_null,
+        maps_by_name="legacy-schema-maps-merged-as-schemas" not in parser._legacy_intersection,  # noqa: SLF001
     )
 
 
@@ -1290,13 +1213,18 @@ def inherited_override_schema(
     The row of ``--allof-merge-mode`` decides: ``none`` writes the child's constraints on the inherited type shape
     (``_merge_inherited_type_shape_dict``) where the child only narrows it, and keeps the child otherwise; ``all``
     and ``constraints`` give the intersection of both (``intersect_keywords``) over their presentation row
-    (``parser/_intersection.py:inherited_override_row``).
+    (``parser/_intersection.py:inherited_override_row``). A child without constraints that only narrows the inherited
+    property is written on the type shape too, unless ``legacy-type-narrowing-override-deferred`` is kept, where it
+    is the copy of the inherited field and none reaches here (``get_deferred_inherited_property_names``).
     """
     if parser.allof_merge_mode == AllOfMergeMode.NoMerge:
-        if not parser._has_inherited_constraints(child):  # noqa: SLF001
+        if (
+            "legacy-type-narrowing-override-deferred" in parser._legacy_intersection  # noqa: SLF001
+            and not has_inherited_constraints(parser, child)
+        ):
             return child
-        effective_parent, effective_ref, active = parser._resolve_inherited_parent_property(parent, parent_ref)  # noqa: SLF001
-        if not parser._is_partial_inherited_property(child, effective_parent, (effective_ref, active)):  # noqa: SLF001
+        effective_parent, effective_ref, active = resolve_inherited_parent_property(parser, parent, parent_ref)
+        if not is_partial_inherited_property(parser, child, effective_parent, (effective_ref, active)):
             return child
         child_dict = child.model_dump(exclude_unset=True, by_alias=True)
         merged_dict = parser._merge_inherited_type_shape_dict(  # noqa: SLF001
@@ -1305,16 +1233,17 @@ def inherited_override_schema(
         if merged_dict == child_dict:
             return child
         merged_schema = parser._schema_object(merged_dict)  # noqa: SLF001
-        parser._mark_inherited_materialized_type_shapes(merged_schema)  # noqa: SLF001
+        mark_inherited_materialized_type_shapes(parser, merged_schema)
         return merged_schema
     parent_dict = parent.model_dump(exclude_unset=True, by_alias=True)
     child_dict = child.model_dump(exclude_unset=True, by_alias=True)
-    intersection = _intersect_dumps(
+    intersection = _intersect_parts(
+        parser,
         [parent_dict, child_dict],
-        parser._inherited_override_row(parent_dict, child_dict),  # noqa: SLF001
+        override_row(parser, parent_dict, child_dict),
+        where=where,
         legacy_rows=parser._legacy_intersection,  # noqa: SLF001
     )
-    parser._warn_intersection(where, intersection)  # noqa: SLF001
     merged_property = parser._schema_object(intersection.keywords)  # noqa: SLF001
     parser._mark_reported_value_conflict(merged_property, intersection.unsatisfiable)  # noqa: SLF001
     merged_property.__dict__[_RAW_SCHEMA_EXPLICIT_FIELD_EXTRAS_KEY] = frozenset(parser.get_field_extras(child))
@@ -1322,12 +1251,74 @@ def inherited_override_schema(
     return merged_property
 
 
+def copy_carries_override(
+    parser: InheritedSchemasHost,
+    child: JsonSchemaObject,
+    parent: JsonSchemaObject,
+    context: tuple[str, frozenset[_TargetNode]],
+) -> bool:
+    """Return whether the copy of an inherited field carries a partial override without constraints.
+
+    The copy keeps the inherited type and drops at most its null, so it carries an override whose ``type`` admits
+    every non-null type the inherited property admits and whose nested schema keywords admit every value the
+    inherited ones do: the inherited value narrows the override's (``is_partial_inherited_nested_value`` read the
+    other way round), or the override writes the inherited value as it is.
+    """
+    parent_ref, active = context
+    shape = remove_unconstrained_compositions(parser, get_inherited_override_shape(parser, child))
+    if (child_type := shape.pop("type", None)) is not None and not set(
+        non_null_types(get_inherited_schema_types(parser, parent, parent_ref, active))
+    ) <= admitted_types(declared_types(child_type)):
+        return False
+    parent_dump = parent.model_dump(exclude_unset=True, by_alias=True)
+    return all(
+        _admits_inherited_value(parser, getattr(child, keyword), parent_dump.get(keyword), context) for keyword in shape
+    )
+
+
+def _admits_inherited_value(
+    parser: InheritedSchemasHost, child: object, parent: object, context: tuple[str, frozenset[_TargetNode]]
+) -> bool:
+    """Return whether the value an override gives a nested schema keyword admits every value of the inherited one.
+
+    ``child`` is the override's value (schema objects), ``parent`` the dump of the inherited value; a map of named
+    schemas and the positions of a tuple compare entry by entry of the override, and a value the inherited schema
+    does not set is admitted only where the override's constrains nothing.
+    """
+    match child, parent:
+        case JsonSchemaObject() as child_schema, _:
+            child_dump = child_schema.model_dump(exclude_unset=True, by_alias=True)
+            if parent is None:
+                return is_unconstrained_inherited_schema(parser, child_dump)
+            return child_dump == parent or is_partial_inherited_nested_value(
+                parser, parent, child_schema, context=context
+            )
+        case dict() as child_map, dict() as parent_map:
+            return all(
+                _admits_inherited_value(parser, value, parent_map.get(name), context)
+                for name, value in child_map.items()
+            )
+        case list() as child_items, list() as parent_items:
+            return all(
+                _admits_inherited_value(
+                    parser, value, parent_items[index] if index < len(parent_items) else None, context
+                )
+                for index, value in enumerate(child_items)
+            )
+    return child is True or child == parent
+
+
 def get_deferred_inherited_property_names(
     parser: InheritedSchemasHost,
     source_obj: JsonSchemaObject,
     parent_properties: dict[str, tuple[JsonSchemaObject | bool, str]],
 ) -> frozenset[str]:
-    """Find partial properties that need canonical generated-type resolution."""
+    """Find partial properties that need canonical generated-type resolution.
+
+    A partial override without constraints is resolved as a copy of the inherited field, unless
+    ``legacy-type-narrowing-override-deferred`` is dropped and the copy does not carry it (``copy_carries_override``):
+    such an override is the intersection with the inherited property, as a constrained one is.
+    """
     if not source_obj.properties:
         return frozenset()
     deferred_names: set[str] = set()
@@ -1341,18 +1332,24 @@ def get_deferred_inherited_property_names(
             case True:
                 deferred_names.add(field_name)
             case JsonSchemaObject() as child_schema:
-                normalized_child = parser._normalize_inherited_constraint_compositions(child_schema)  # noqa: SLF001
-                effective_parent, effective_ref, active = parser._resolve_inherited_parent_property(  # noqa: SLF001
+                normalized_child = normalize_inherited_constraint_compositions(parser, child_schema)
+                effective_parent, effective_ref, active = resolve_inherited_parent_property(
+                    parser,
                     parent_property,
                     inherited_property[1],
                 )
-                if not parser._is_partial_inherited_property(  # noqa: SLF001
+                if not is_partial_inherited_property(
+                    parser,
                     normalized_child,
                     effective_parent,
                     (effective_ref, active),
                 ):
                     continue
-                if parser._has_inherited_constraints(normalized_child):  # noqa: SLF001
+                if has_inherited_constraints(parser, normalized_child):
+                    continue
+                if "legacy-type-narrowing-override-deferred" not in parser._legacy_intersection and not (  # noqa: SLF001
+                    copy_carries_override(parser, normalized_child, effective_parent, (effective_ref, active))
+                ):
                     continue
                 deferred_names.add(field_name)
             case _:
@@ -1425,11 +1422,13 @@ def sanitize_untyped_boolean_inherited_property(
         return None
     if any((child.ref, child.allOf, child.anyOf, child.oneOf, child.enum, "const" in child.extras)):
         return None
-    if not parser._has_inherited_constraints(child):  # noqa: SLF001
+    if not has_inherited_constraints(parser, child):
         return None
     child_dict = child.model_dump(exclude_unset=True, by_alias=True)
-    sanitized_dict = parser._drop_incompatible_inherited_constraints(  # noqa: SLF001
-        parser._remove_inherited_distributed_shape(  # noqa: SLF001
+    sanitized_dict = drop_incompatible_inherited_constraints(
+        parser,
+        remove_inherited_distributed_shape(
+            parser,
             child_dict,
             get_inherited_distributed_fields(parser, child),
         ),
@@ -1450,11 +1449,12 @@ def merge_properties_with_parent_constraints(  # noqa: PLR0912
         return child_obj
 
     if parent_properties is None:
-        parent_properties = parser._get_inherited_property_map(base_classes)  # noqa: SLF001
+        parent_properties = get_inherited_property_map(parser, base_classes)
     if not parent_properties:
         return child_obj
     if deferred_property_names is None:
-        deferred_property_names = parser._get_deferred_inherited_property_names(  # noqa: SLF001
+        deferred_property_names = get_deferred_inherited_property_names(
+            parser,
             child_obj,
             parent_properties,
         )
@@ -1471,12 +1471,12 @@ def merge_properties_with_parent_constraints(  # noqa: PLR0912
             continue
 
         parent_prop, parent_ref = inherited_property
-        effective_child = parser._normalize_inherited_constraint_compositions(child_prop)  # noqa: SLF001
+        effective_child = normalize_inherited_constraint_compositions(parser, child_prop)
         if effective_child is not child_prop:
             merged_changed = True
         if not isinstance(parent_prop, JsonSchemaObject):
             if isinstance(parent_prop, bool) and (
-                sanitized_child := parser._sanitize_untyped_boolean_inherited_property(effective_child)  # noqa: SLF001
+                sanitized_child := sanitize_untyped_boolean_inherited_property(parser, effective_child)
             ):
                 merged_properties[prop_name] = sanitized_child
                 merged_changed = True
@@ -1485,13 +1485,14 @@ def merge_properties_with_parent_constraints(  # noqa: PLR0912
             continue
         if prop_name in deferred_property_names:
             child_dict = effective_child.model_dump(exclude_unset=True, by_alias=True)
-            normalized_dict = parser._remove_unconstrained_compositions(child_dict)  # noqa: SLF001
+            normalized_dict = remove_unconstrained_compositions(parser, child_dict)
             merged_properties[prop_name] = (
                 parser._schema_object(normalized_dict) if normalized_dict != child_dict else effective_child  # noqa: SLF001
             )
             merged_changed = merged_changed or normalized_dict != child_dict
             continue
-        merged_property = parser._inherited_override_schema(  # noqa: SLF001
+        merged_property = inherited_override_schema(
+            parser,
             parent_prop,
             effective_child,
             parent_ref,
@@ -1521,15 +1522,250 @@ def inherited_node(parser: InheritedSchemasHost, resolved_ref: str) -> _TargetNo
     A schema that does not load is its key: the load that reads it raises.
     """
     try:
-        schema = parser._load_inherited_schema_object(resolved_ref)  # noqa: SLF001
+        schema = load_inherited_schema_object(parser, resolved_ref)
     except (Error, OSError):
         return resolved_ref
     return _schema_node(schema, resolved_ref)
 
 
-def iter_allof_refs(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> Iterator[str]:
-    """Yield refs nested only through inline allOf branches in document order."""
+def all_of_members(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> list[JsonSchemaObject | bool]:
+    """Return the members of an allOf as its readers read them, in order.
+
+    ``JsonSchemaParser.parse_all_of`` (the members it parses and the properties they declare), ``iter_allof_refs``
+    (the parents of the inherited property map) and the request/response walk (``_typed_model_children``) read the
+    members through it. A member is as written under ``legacy-all-of-ref-siblings-ignored`` and
+    ``legacy-all-of-alias-member-base``. Without the first, a ``$ref`` member whose sibling keywords are parts of it
+    (``_ref_siblings_are_parts_of``, keywords beyond annotations) is read as two members, the ``$ref`` and its
+    siblings at its location, as an inline member is read. Without the second, a ``$ref`` member names the schema that
+    a chain of aliases ends at (``alias_target``).
+    """
+    legacy = parser._legacy_intersection  # noqa: SLF001
+    splits = "legacy-all-of-ref-siblings-ignored" not in legacy
+    follows = "legacy-all-of-alias-member-base" not in legacy
+    reads_through = "legacy-ref-member-union-dropped" not in legacy
+    if not (splits or follows or reads_through):
+        return list(schema.allOf)
+    members: list[JsonSchemaObject | bool] = []
     for item in schema.allOf:
+        if not (isinstance(item, JsonSchemaObject) and item.ref):
+            members.append(item)
+            continue
+        target = alias_target(parser, item.ref) if follows else item.ref
+        siblings = splits and item.has_ref_with_schema_keywords and parser._ref_siblings_are_parts_of(item)  # noqa: SLF001
+        if target is item.ref and not siblings:
+            members.append(item)
+            continue
+        members.append(parser._schema_object({"$ref": target}).with_schema_location(item.schema_location))  # noqa: SLF001
+        if siblings:
+            members.append(
+                parser._schema_object(_dump_without_keywords(item, {"$ref"})).with_schema_location(  # noqa: SLF001
+                    item.schema_location
+                )
+            )
+    return _read_through_members(parser, schema, members) if reads_through else members
+
+
+def _read_through_members(
+    parser: InheritedSchemasHost, schema: JsonSchemaObject, members: list[JsonSchemaObject | bool]
+) -> list[JsonSchemaObject | bool]:
+    """Return the members of an allOf with each ``$ref`` member that names an allOf holding a union read in place.
+
+    Such a member (an allOf beside its own ``anyOf`` or ``oneOf``, or one whose members hold one,
+    ``holds_union_member``) is read as an inline member, the schema it names, so its union parts join those of the
+    site. The member is marked with the locations read through so far (the site's first), and so are the inline
+    members within it; a member naming one of them adds nothing (A and A is A). A schema that an ``x-python-import``
+    types is the class it imports, as ``alias_target`` reads it, so a member naming it stays a base. A schema of another
+    document is read as the current document reads it (``_read_through_target``).
+    """
+    within = schema.__dict__.get(_READ_THROUGH_KEY)
+    read: list[JsonSchemaObject | bool] = []
+    for member in members:
+        if not isinstance(member, JsonSchemaObject) or (not member.ref and within is None):
+            read.append(member)
+        elif not member.ref:
+            read.append(_read_within(member, within))
+        elif (
+            not (target := parser._load_ref_schema_object(member.ref)).allOf  # noqa: SLF001
+            or "x-python-import" in target.extras
+            or not (target.anyOf or target.oneOf or holds_union_member(parser, target))
+        ):
+            read.append(member)
+        elif (location := target.schema_location) not in (chain := within or frozenset({schema.schema_location})):
+            read.append(_read_within(_read_through_target(parser, member.ref, target), chain | {location}))
+    return read
+
+
+def _read_through_target(parser: InheritedSchemasHost, ref: str, target: JsonSchemaObject) -> JsonSchemaObject:
+    """Return the schema ``target`` that a member read in place names, as the document being parsed reads it.
+
+    A schema of another document is its dump for this document (``_ref_target_dump``), where each ``$recursiveRef``
+    that has a fixed target there names it, as a schema merged from there reads it.
+    """
+    resolved_ref = parser._ref_path(ref)  # noqa: SLF001
+    document = parser._schema_resource_document(list(parser.model_resolver.current_root))  # noqa: SLF001
+    if parser._schema_location(resolved_ref).partition("#")[0] == document:  # noqa: SLF001
+        return target
+    return parser._schema_object(parser._ref_target_dump(ref, resolved_ref)[0])  # noqa: SLF001
+
+
+def _read_within(schema: JsonSchemaObject, chain: frozenset[SchemaLocation | None]) -> JsonSchemaObject:
+    """Return a copy of an allOf member marked as read within the locations ``chain`` (``_read_through_members``)."""
+    copied = schema.model_copy()
+    copied.__dict__[_READ_THROUGH_KEY] = chain
+    return copied
+
+
+def property_conjunctions(
+    parser: InheritedSchemasHost, schema: JsonSchemaObject
+) -> dict[str, list[JsonSchemaObject | None]]:
+    """Return, by name, how each declaration of a property that several inline allOf members declare is read.
+
+    The list holds one entry per declaration, in the order ``parse_all_of`` parses the members: the schema the
+    declaration is read as, None where it is left out. Each declaration would be a field of the site, the first of
+    which wins (``DataModel._validate_fields``); the request/response variants of the site take the last. A ``$ref``
+    member read in place (``_read_through_members``) is no base class whose properties the other members override, so
+    a property that members read within different locations declare is one field, the conjunction of every declaration
+    (``_conjoined_declarations``) where it is first declared; no member is read in place under
+    ``legacy-ref-member-union-dropped``. Each declaration of a property that members within one location declare
+    takes the check keywords of all of them (``checked_declarations``). A property that one of them declares as a
+    boolean schema keeps its declarations.
+    """
+    reads_through = "legacy-ref-member-union-dropped" not in parser._legacy_intersection  # noqa: SLF001
+    declarations: dict[str, list[tuple[JsonSchemaObject | bool, object]]] = {}
+    for source in islice(inline_all_of_parts(parser, schema), 1, None):
+        for name, declared in (source.properties or {}).items():
+            declarations.setdefault(name, []).append((declared, source.__dict__.get(_READ_THROUGH_KEY)))
+    conjunctions: dict[str, list[JsonSchemaObject | None]] = {}
+    for name, declared_within in declarations.items():
+        schemas = [declared for declared, _ in declared_within if isinstance(declared, JsonSchemaObject)]
+        if len(declared_within) == 1 or len(schemas) < len(declared_within):
+            continue
+        if reads_through and len({within for _, within in declared_within}) > 1:
+            conjunctions[name] = [_conjoined_declarations(parser, name, schemas), *([None] * (len(schemas) - 1))]
+        elif (checked := checked_declarations(parser, name, schemas)) is not None:
+            conjunctions[name] = [*checked]
+    return conjunctions
+
+
+def checked_declarations(
+    parser: InheritedSchemasHost, name: str, declarations: Sequence[JsonSchemaObject]
+) -> tuple[JsonSchemaObject, ...] | None:
+    """Return several declarations of one property, each with the check keywords of all of them; None if none changes.
+
+    The check keywords (``_CHECK_KEYWORDS``: the bounds, ``multipleOf`` and ``pattern``) narrow the values of the type
+    a declaration is written as, never that type or a value it parses to, so whichever declaration a model writes
+    checks what every one of them does. Each takes the value all of them admit (``intersect_keywords`` over a row in
+    which its own values win), keeping its own with a warning for keywords without a common value. Item counts beside
+    positional items decide whether an array is a tuple (``get_fixed_positional_items``), so such a declaration takes
+    none; a reference (``_REF_KEYWORDS``) takes none and gives none, since keywords beside it change how it is written
+    and may be no part of it in its dialect.
+    """
+    dumps = [declared.model_dump(exclude_unset=True, by_alias=True) for declared in declarations]
+    takes = [
+        frozenset()
+        if any(keyword in dump for keyword in _REF_KEYWORDS)
+        else _CHECK_KEYWORDS - ITEM_COUNT_KEYWORDS
+        if "prefixItems" in dump or isinstance(dump.get("items"), list)
+        else _CHECK_KEYWORDS
+        for dump in dumps
+    ]
+    parts = [
+        {keyword: dump[keyword] for keyword in _CHECK_KEYWORDS.intersection(dump)} if taken else {}
+        for dump, taken in zip(dumps, takes, strict=True)
+    ]
+    checked: list[JsonSchemaObject] = []
+    for index, (declared, dump, taken) in enumerate(zip(declarations, dumps, takes, strict=True)):
+        intersection = _intersect_dumps(
+            parts, reduce(lambda row, part: {**part, **row}, parts, parts[index]), own_last=False
+        )
+        if index == 0:
+            parser._warn_intersection(  # noqa: SLF001
+                named_location(declared.schema_location, f"property {stable_repr(name)}"),
+                intersection,
+                "the allOf members that declare it",
+            )
+        updates = {
+            keyword: value
+            for keyword, value in intersection.keywords.items()
+            if keyword in taken and dump.get(keyword) != value
+        }
+        checked.append(
+            parser._schema_object({**dump, **updates}).with_schema_location(declared.schema_location)  # noqa: SLF001
+            if updates
+            else declared
+        )
+    return None if all(map(operator.is_, checked, declarations)) else tuple(checked)
+
+
+def _conjoined_declarations(
+    parser: InheritedSchemasHost, name: str, declarations: list[JsonSchemaObject]
+) -> JsonSchemaObject:
+    """Return the schema of a property several allOf members declare: the intersection of their declarations.
+
+    The row is their merge as allOf members (``all_of_member_row``), and every keyword the intersection reads keeps
+    the value all the declarations admit, also under ``legacy-merge-row``, with a warning for keywords without a
+    common value. Siblings of a ``$ref`` it keeps are parts of it in every dialect (``_CONJUNCTION_PARTS_KEY``). It
+    stands at the first declaration.
+    """
+    dumps = [declared.model_dump(exclude_unset=True, by_alias=True) for declared in declarations]
+    location = declarations[0].schema_location
+    intersection = _intersect_parts(
+        parser,
+        dumps,
+        reduce(all_of_member_row, dumps[1:], dumps[0]),
+        where=named_location(location, f"property {stable_repr(name)}"),
+        parts=("the allOf members that declare it",),
+        own_last=False,
+    )
+    merged = parser._schema_object(intersection.keywords).with_schema_location(location)  # noqa: SLF001
+    parser._mark_reported_value_conflict(merged, intersection.unsatisfiable)  # noqa: SLF001
+    mark_conjunction_parts(merged)
+    return merged
+
+
+def with_conjoined_properties(
+    schema: JsonSchemaObject, conjunctions: Mapping[str, Sequence[JsonSchemaObject | None]], written: Counter[str]
+) -> JsonSchemaObject:
+    """Return an allOf member with its declarations of the properties of ``conjunctions`` read as they say.
+
+    ``conjunctions`` holds the entry of each declaration in parse order (``property_conjunctions``): a member takes the
+    next entry of each name it declares, which ``written`` counts, leaving out a declaration whose entry is None.
+    """
+    if not (names := conjunctions.keys() & (schema.properties or {}).keys()):
+        return schema
+    properties: dict[str, JsonSchemaObject | bool] = {}
+    for name, declared in (schema.properties or {}).items():
+        if name not in names:
+            properties[name] = declared
+            continue
+        if (read := conjunctions[name][written[name]]) is not None:
+            properties[name] = read
+        written[name] += 1
+    return schema.model_copy(update={"properties": properties})
+
+
+def alias_target(parser: InheritedSchemasHost, ref: str) -> str:
+    """Return the reference a chain of aliases from ``ref`` ends at, ``ref`` itself when it names no alias.
+
+    An alias is a schema that is a ``$ref`` beside annotations only (``has_ref_with_schema_keywords`` false): it is
+    the same schema as its target in every output form, unless an ``x-python-import`` types its references by the
+    class it imports. A reference the chain has passed stops it.
+    """
+    seen = {parser._ref_path(ref)}  # noqa: SLF001
+    while (
+        (target := parser._load_ref_schema_object(ref)).ref  # noqa: SLF001
+        and not target.has_ref_with_schema_keywords
+        and "x-python-import" not in target.extras
+        and (path := parser._ref_path(target.ref)) not in seen  # noqa: SLF001
+    ):
+        seen.add(path)
+        ref = target.ref
+    return ref
+
+
+def iter_allof_refs(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> Iterator[str]:
+    """Yield refs nested only through inline allOf branches in document order (members by ``all_of_members``)."""
+    for item in all_of_members(parser, schema):
         match item:
             case JsonSchemaObject(ref=str() as ref) if ref:
                 yield ref
@@ -1566,7 +1802,7 @@ def get_inherited_schema_ancestor_paths(
         return parser._inherited_schema_ancestor_cache[resolved_ref]  # noqa: SLF001
     if _is_special_path(resolved_ref):
         return frozenset()
-    schema = parser._load_inherited_schema_object(resolved_ref)  # noqa: SLF001
+    schema = load_inherited_schema_object(parser, resolved_ref)
     if (node := _schema_node(schema, resolved_ref)) in active:
         return frozenset()
     ancestors: set[str] = set()
@@ -1594,10 +1830,27 @@ def sort_inherited_base_classes_for_mro(parser: InheritedSchemasHost, base_class
     )
 
 
+def inherited_schema_parents(parser: InheritedSchemasHost, ref: str) -> list[str]:
+    """Return the allOf parents of the inherited schema at ``ref`` in the order the C3 merge reads them.
+
+    Row ``class-bases`` (``--read-allof-parents-in-mro-order``) orders them descendants first like the bases of its
+    class, so a property each declares takes the nearer base's declaration, as the class does. Row
+    ``legacy-document-order`` keeps the document order of its allOf references, as in 0.90.0: with
+    ``allOf: [A, B]`` and ``B = allOf: [A, ...]`` the merge finds no free head and takes the farther base ``A`` first.
+    """
+    parents = [
+        parser._ref_path(parent)  # noqa: SLF001
+        for parent in iter_allof_refs(parser, load_inherited_schema_object(parser, ref))
+    ]
+    if parser._inherited_parent_row == "legacy-document-order":  # noqa: SLF001
+        return parents
+    return sort_descendants_first(parents, lambda path: path, partial(get_inherited_schema_ancestor_paths, parser))
+
+
 def linearize_inherited_schema_refs(parser: InheritedSchemasHost, base_classes: list[Reference]) -> tuple[str, ...]:
     """Return raw inherited schemas in the same C3 order as generated models.
 
-    The parents of each schema are its allOf references in document order.
+    The parents of each schema are those ``inherited_schema_parents`` reads.
     """
     direct_refs = tuple(
         base.path
@@ -1609,51 +1862,139 @@ def linearize_inherited_schema_refs(parser: InheritedSchemasHost, base_classes: 
             linearize(
                 list(direct_refs),
                 lambda ref: ref,
-                lambda ref: [
-                    parser._ref_path(parent)  # noqa: SLF001
-                    for parent in iter_allof_refs(parser, parser._load_inherited_schema_object(ref))  # noqa: SLF001
-                ],
-                lambda ref: _schema_node(parser._load_inherited_schema_object(ref), ref),  # noqa: SLF001
+                partial(inherited_schema_parents, parser),
+                lambda ref: _schema_node(load_inherited_schema_object(parser, ref), ref),
             )
         )
     return parser._inherited_schema_linearization_cache[direct_refs]  # noqa: SLF001
+
+
+def model_declarations(
+    parser: InheritedSchemasHost, schema: JsonSchemaObject | None, parents: list[Reference]
+) -> ModelDeclarations:
+    """Return the property declarations and the required names of a model built from ``schema`` and ``parents``.
+
+    The sources are ``schema`` with its inline allOf members and the schemas ``parents`` inherit, in C3 order
+    (``linearize_inherited_schema_refs``). A property one source declares as a schema is that declaration, as the
+    model writes it; one that several declare, or one declares as a boolean schema, is None: the model writes their
+    merge.
+    """
+    declared: dict[str, JsonSchemaObject | None] = {}
+    required: set[str] = set()
+    for source in (
+        *(inline_all_of_parts(parser, schema) if schema is not None else ()),
+        *(
+            source
+            for ref in linearize_inherited_schema_refs(parser, parents)
+            for source in inline_all_of_parts(parser, load_inherited_schema_object(parser, ref))
+        ),
+    ):
+        required.update(source.required)
+        for name, declaration in (source.properties or {}).items():
+            declared[name] = declaration if name not in declared and isinstance(declaration, JsonSchemaObject) else None
+    return declared, frozenset(required)
+
+
+def union_model_properties(
+    parser: InheritedSchemasHost, site: JsonSchemaObject, declarations: Sequence[ModelDeclarations]
+) -> dict[str, tuple[JsonSchemaObject, bool]]:
+    """Return the properties a union model of an allOf declares itself, and whether a base requires each.
+
+    A union model is a class of the site's properties and bases: one branch of each union and the class of the other
+    parts, whose ``declarations`` (``model_declarations``) come in that order. A property two of its bases declare is
+    written from the first in Python's method resolution order, and from the last by msgspec, so the check keywords
+    of the others would be lost. The class declares it with the check keywords of all (``checked_declarations``) where
+    each base declares it once: a property of the site is its own declaration, which the class writes already; another
+    is the first declaration, where every declaration writes the same keywords but for check keywords and
+    documentation and none holds a subschema, an ``enum`` or a reference, so the class writes the type its bases
+    write and builds no model of its own.
+    """
+    own = site.properties or {}
+    properties: dict[str, tuple[JsonSchemaObject, bool]] = {}
+    for name in dict.fromkeys(name for declared, _ in declarations for name in declared):
+        entries = [declared[name] for declared, _ in declarations if name in declared]
+        if len(entries) == 1 or None in entries:
+            continue
+        schemas = cast("list[JsonSchemaObject]", entries)
+        if (site_declaration := own.get(name)) is not None:
+            schemas = [
+                cast("JsonSchemaObject", site_declaration),
+                *(entry for entry in schemas if entry is not site_declaration),
+            ]
+        elif any(keyword in (written := _without_checks(schemas[0])) for keyword in _MODEL_BUILDING_KEYWORDS) or any(
+            not json_values_equal(_without_checks(other), written) for other in schemas[1:]
+        ):
+            continue
+        if (checked := checked_declarations(parser, name, schemas)) is not None:
+            properties[name] = checked[0], any(name in required for _, required in declarations)
+    return properties
+
+
+def _without_checks(declaration: JsonSchemaObject) -> dict[str, Any]:
+    """Return the dump of a declaration without its check keywords and documentation."""
+    return _dump_without_keywords(declaration, _CHECK_KEYWORDS | _DOCUMENTATION_KEYWORDS)
 
 
 def get_inherited_property_map(
     parser: InheritedSchemasHost,
     base_classes: list[Reference],
 ) -> dict[str, tuple[JsonSchemaObject | bool, str]]:
-    """Build the effective raw property map once in inherited C3 order."""
+    """Build the effective raw property map once in inherited C3 order.
+
+    The declarations of a property that several inline allOf members of an inherited schema declare are read as its
+    model reads them (``property_conjunctions``); the parse of that schema reports their warnings.
+    """
     properties: dict[str, tuple[JsonSchemaObject | bool, str]] = {}
-    for ref in parser._linearize_inherited_schema_refs(base_classes):  # noqa: SLF001
-        for source in _inline_all_of_closure(parser._load_inherited_schema_object(ref)):  # noqa: SLF001
-            for name, prop_schema in (source.properties or {}).items():
+    for ref in linearize_inherited_schema_refs(parser, base_classes):
+        schema, *members = inline_all_of_parts(parser, load_inherited_schema_object(parser, ref))
+        with quiet():
+            conjunctions = property_conjunctions(parser, schema)
+        for name, prop_schema in (schema.properties or {}).items():
+            properties.setdefault(name, (prop_schema, ref))
+        written: Counter[str] = Counter()
+        for source in members:
+            for name, prop_schema in (
+                with_conjoined_properties(source, conjunctions, written).properties or {}
+            ).items():
                 properties.setdefault(name, (prop_schema, ref))
     return properties
 
 
 def get_inherited_required_names(parser: InheritedSchemasHost, base_classes: list[Reference]) -> frozenset[str]:
     """Collect required names across the effective inherited allOf graph."""
-    linearized_refs = parser._linearize_inherited_schema_refs(base_classes)  # noqa: SLF001
+    linearized_refs = linearize_inherited_schema_refs(parser, base_classes)
     if linearized_refs in parser._inherited_required_cache:  # noqa: SLF001
         return parser._inherited_required_cache[linearized_refs]  # noqa: SLF001
-    result = parser._inherited_required_cache[linearized_refs] = frozenset(  # noqa: SLF001
-        name
-        for ref in linearized_refs
-        for source in _inline_all_of_closure(parser._load_inherited_schema_object(ref))  # noqa: SLF001
-        for name in source.required
-    )
+    result = parser._inherited_required_cache[linearized_refs] = _required_names(parser, linearized_refs)  # noqa: SLF001
     return result
 
 
-def get_inline_required_names(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> tuple[str, ...]:  # noqa: ARG001
+def required_names_at(parser: InheritedSchemasHost, resolved_ref: str) -> frozenset[str]:
+    """Return the names the schema at a reference key requires, with its inline allOf members and its ancestors.
+
+    These are the names ``get_inherited_required_names`` reads for the model of that schema as a base.
+    """
+    return _required_names(parser, (resolved_ref, *get_inherited_schema_ancestor_paths(parser, resolved_ref)))
+
+
+def _required_names(parser: InheritedSchemasHost, refs: Iterable[str]) -> frozenset[str]:
+    """Return the names the schemas at reference keys ``refs`` require, with their inline allOf members."""
+    return frozenset(
+        name
+        for ref in refs
+        for source in inline_all_of_parts(parser, load_inherited_schema_object(parser, ref))
+        for name in source.required
+    )
+
+
+def get_inline_required_names(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> tuple[str, ...]:
     """Collect required names in declaration order from one schema and inline allOf items."""
-    return tuple(dict.fromkeys(name for source in _inline_all_of_closure(schema) for name in source.required))
+    return tuple(dict.fromkeys(name for source in inline_all_of_parts(parser, schema) for name in source.required))
 
 
-def get_inline_property_names(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> frozenset[str]:  # noqa: ARG001
+def get_inline_property_names(parser: InheritedSchemasHost, schema: JsonSchemaObject) -> frozenset[str]:
     """Collect properties declared directly by one schema and its inline allOf items."""
-    return frozenset(name for source in _inline_all_of_closure(schema) for name in source.properties or ())
+    return frozenset(name for source in inline_all_of_parts(parser, schema) for name in source.properties or ())
 
 
 def get_inherited_field_owner_reference(
@@ -1685,17 +2026,18 @@ def get_inherited_property_order(parser: InheritedSchemasHost, base_classes: lis
     def collect_ref(resolved_ref: str) -> None:
         if _is_special_path(resolved_ref):
             return
-        schema = parser._load_inherited_schema_object(resolved_ref)  # noqa: SLF001
+        schema = load_inherited_schema_object(parser, resolved_ref)
         if (node := _schema_node(schema, resolved_ref)) in visited_refs:
             return
         visited_refs.add(node)
-        parent_refs = parser._get_allof_parent_references(  # noqa: SLF001
+        parent_refs = get_allof_parent_references(
+            parser,
             schema,
             defining_ref=resolved_ref,
         )
         for parent in sort_inherited_base_classes_for_mro(parser, parent_refs):
             collect_ref(parent.path)
-        for source in _inline_all_of_closure(schema, members_first=True):
+        for source in inline_all_of_parts(parser, schema, members_first=True):
             ordered_names.update(dict.fromkeys(source.properties or {}))
 
     for base in sort_inherited_base_classes_for_mro(parser, base_classes):
@@ -1719,20 +2061,21 @@ def parse_fields_beside_parents(  # noqa: PLR0913, PLR0917
     parent_refs: list[Reference],
     parent_properties: dict[str, tuple[JsonSchemaObject | bool, str]],
     path: list[str],
-    class_name: str,
+    scope: ClassScope,
 ) -> list[DataModelFieldBase]:
-    """Parse the properties of ``source`` for ``class_name``, merged with the parent properties they override.
+    """Parse the properties of ``source`` for the class ``scope``, merged with the parent properties they override.
 
     A property that only narrows its parent's is parsed without the nested types the parent's type replaces
     and marked for that late resolution.
     """
-    deferred_names = parser._get_deferred_inherited_property_names(source, parent_properties)  # noqa: SLF001
-    merged = parser._merge_properties_with_parent_constraints(source, parent_refs, parent_properties, deferred_names)  # noqa: SLF001
+    deferred_names = get_deferred_inherited_property_names(parser, source, parent_properties)
+    merged = merge_properties_with_parent_constraints(parser, source, parent_refs, parent_properties, deferred_names)
     fields = parser.parse_object_fields(
-        parser._get_deferred_inherited_parse_object(merged, deferred_names),  # noqa: SLF001
+        get_deferred_inherited_parse_object(parser, merged, deferred_names),
         path,
-        inferred_module_name(parser, class_name),
-        class_name=class_name,
+        inferred_module_name(parser, scope.name),
+        class_name=scope.name,
+        output_names=scope.output_names,
     )
     mark_partial_inherited_fields(parser, fields, deferred_names, merged)
     return fields
@@ -1749,19 +2092,28 @@ def parse_inherited_schema_fields(
 
     The inline models the fields name are the ones the schema's own parse builds, under the same names.
     """
-    inherited_properties = parser._get_inherited_property_map(parent_refs)  # noqa: SLF001
+    inherited_properties = get_inherited_property_map(parser, parent_refs)
     reference = get_inherited_field_owner_reference(parser, reference, schema)
-    class_name = reference.name
+    scope = parser.model_resolver.class_scope("reference-name", reference, reference.path)
     fields: list[DataModelFieldBase] = []
     owner_path = [] if "legacy-rw-unowned-parent-fields" in parser._legacy_rw_variants else [reference.path]  # noqa: SLF001
 
-    _, *members = _inline_all_of_closure(schema)
-    with parser._inherited_ref_context(reference.path):  # noqa: SLF001
-        for source in (*members, schema):
+    _, *members = inline_all_of_parts(parser, schema)
+    written: Counter[str] = Counter()
+    with (
+        parser._inherited_ref_context(reference.path),  # noqa: SLF001
+        context_variable(
+            partial(setattr, parser, "_parses_unowned_fields"),
+            parser._parses_unowned_fields,  # noqa: SLF001
+            parser._parses_unowned_fields or not owner_path,  # noqa: SLF001
+        ),
+    ):
+        conjunctions = property_conjunctions(parser, schema)
+        for source in (*(with_conjoined_properties(member, conjunctions, written) for member in members), schema):
             if not source.properties:
                 continue
             parsed_fields = parse_fields_beside_parents(
-                parser, source, parent_refs, inherited_properties, owner_path, class_name
+                parser, source, parent_refs, inherited_properties, owner_path, scope
             )
             parser._unregister_temporary_field_references(parsed_fields)  # noqa: SLF001
             fields.extend(parsed_fields)
@@ -1770,14 +2122,15 @@ def parse_inherited_schema_fields(
         inherited_fields = {
             field_name: field for field in parent_fields if (field_name := _field_source_name(field)) is not None
         }
-        for required_name in parser._get_inline_required_names(schema):  # noqa: SLF001
+        for required_name in get_inline_required_names(parser, schema):
             if required_name in existing_names:
                 continue
-            field = parser._build_missing_required_field(  # noqa: SLF001
+            field = build_missing_required_field(
+                parser,
                 required_name,
                 excludes={field.name for field in fields if field.name},
                 base_classes=parent_refs,
-                class_name=class_name,
+                scope=scope,
                 inherited_fields=inherited_fields,
             )
             fields.append(field)
@@ -1794,7 +2147,9 @@ def iter_inherited_schema_objects(
             continue
         resolved_ref = base.path
         try:
-            parent_schema = parser._load_inherited_schema_object(resolved_ref)  # noqa: SLF001
+            parent_schema = load_inherited_schema_object(parser, resolved_ref)
+        except RecursionError:  # pragma: no cover
+            raise
         except Exception:  # pragma: no cover  # noqa: BLE001, S112
             continue
         if (node := _schema_node(parent_schema, resolved_ref)) in visited:  # pragma: no cover
@@ -1849,7 +2204,7 @@ def get_inherited_field(
     inherited_fields: dict[str, DataModelFieldBase] | None = None,
 ) -> DataModelFieldBase | None:
     """Get an inherited generated field from parsed base models."""
-    return (inherited_fields if inherited_fields is not None else parser._get_inherited_field_map(base_classes)).get(  # noqa: SLF001
+    return (inherited_fields if inherited_fields is not None else get_inherited_field_map(parser, base_classes)).get(
         prop_name
     )
 
@@ -1883,14 +2238,14 @@ def get_inherited_field_schema(
             if not isinstance(item, JsonSchemaObject) or not item.ref:
                 continue
             resolved_ref = parser._ref_path(item.ref)  # noqa: SLF001
-            parent_schema = parser._load_inherited_schema_object(resolved_ref)  # noqa: SLF001
+            parent_schema = load_inherited_schema_object(parser, resolved_ref)
             if (node := _schema_node(parent_schema, resolved_ref)) in current_visited:
                 continue
             if property_schema := find_property(parent_schema, current_visited | {node}):
                 return property_schema
         return None
 
-    for parent_schema, next_visited, _ in parser._iter_inherited_schema_objects(base_classes, visited):  # noqa: SLF001
+    for parent_schema, next_visited, _ in iter_inherited_schema_objects(parser, base_classes, visited):
         if property_schema := find_property(parent_schema, next_visited):
             return property_schema
 
@@ -1902,7 +2257,7 @@ def build_missing_required_field(  # noqa: PLR0913, PLR0917
     required_field_name: str,
     excludes: set[str],
     base_classes: list[Reference],
-    class_name: str,
+    scope: ClassScope,
     inherited_fields: dict[str, DataModelFieldBase] | None = None,
 ) -> DataModelFieldBase:
     """Build a field for a required name that is not declared in properties.
@@ -1913,7 +2268,8 @@ def build_missing_required_field(  # noqa: PLR0913, PLR0917
         required_field_name,
         excludes=excludes,
         model_type=parser.field_name_model_type,
-        class_name=class_name,
+        class_name=scope.name,
+        output_names=scope.output_names,
     )
     inherited_field = get_inherited_field(parser, required_field_name, base_classes, inherited_fields)
     if inherited_field is not None and inherited_field.name and inherited_field.name not in excludes:
@@ -1925,15 +2281,15 @@ def build_missing_required_field(  # noqa: PLR0913, PLR0917
             field_name,
             alias,
             source_name=required_field_name,
-            class_name=class_name,
+            scope=scope,
             row="required-copy",
             inherits=bool(base_classes),
         )
         parser._prepare_required_inherited_field(copied_field, inherited_field)  # noqa: SLF001
-        parser._apply_inherited_field_default(copied_field, inherited_field, class_name=class_name)  # noqa: SLF001
+        parser._apply_inherited_field_default(copied_field, inherited_field, scope=scope)  # noqa: SLF001
         return copied_field
 
-    deferred = parser._get_inherited_field_schema(required_field_name, base_classes) is not None  # noqa: SLF001
+    deferred = get_inherited_field_schema(parser, required_field_name, base_classes) is not None
     field = parser._build_field(  # noqa: SLF001
         "legacy-alias-option-only",
         parser.data_type()
@@ -1943,11 +2299,11 @@ def build_missing_required_field(  # noqa: PLR0913, PLR0917
         name=field_name,
         alias=alias,
         source_name=required_field_name,
-        class_name=class_name,
+        scope=scope,
         required=True,
         original_name=required_field_name,
     )
     with_field_origin(field, "required-only", None)
     if deferred:
-        field.__dict__[_DEFERRED_INHERITED_FIELD_KEY] = class_name
+        field.__dict__[_DEFERRED_INHERITED_FIELD_KEY] = scope
     return field

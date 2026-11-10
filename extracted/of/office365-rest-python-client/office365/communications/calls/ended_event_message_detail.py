@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import timedelta
 
 from office365.communications.call_participant_info import CallParticipantInfo
@@ -10,7 +10,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.teams.teamwork.calleventtype import TeamworkCallEventType
 
 
-@dataclass
 class CallEndedEventMessageDetail(ClientValue):
     callDuration: timedelta | None = None
     callEventType: TeamworkCallEventType = TeamworkCallEventType.call

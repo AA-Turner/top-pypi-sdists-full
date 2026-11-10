@@ -88,7 +88,27 @@ class SourceRecoveryState:
                 attempt=self._execution.attempts_started,
                 usage=usage,
             )
-        if protocol == "chat":
+        if protocol == "gemini":
+            # The final native replay carrier is published only after the source
+            # completes. A call alone cannot prove its late signature is complete.
+            self._handoff_blocked = True
+            for candidate in payload.get("candidates", []):
+                for part in candidate.get("content", {}).get("parts", []):
+                    if part.get("thoughtSignature") and self.unsafe_reason is None:
+                        self.unsafe_reason = "signed_thinking"
+                    if any(
+                        key
+                        not in {"text", "thought", "thoughtSignature", "functionCall"}
+                        for key in part
+                    ):
+                        self.unsafe_reason = "native_content"
+        elif protocol == "chat":
+            if len(payload.get("choices", [])) > 1 or any(
+                choice.get("index", 0) != 0 or choice.get("logprobs")
+                for choice in payload.get("choices", [])
+            ):
+                self.unsafe_reason = "native_content"
+                self._handoff_blocked = True
             for choice in payload.get("choices", []):
                 delta = choice.get("delta") or {}
                 if protected_reasoning({"extra_content": delta.get("extra_content")}):
@@ -173,7 +193,11 @@ class SourceRecoveryState:
             if kind == "response.output_text.annotation.added":
                 self.unsafe_reason = "native_content"
                 self._handoff_blocked = True
-        if continuing and self.unsafe_reason:
+        if (
+            continuing
+            and self.unsafe_reason
+            and not (protocol == "gemini" and self.unsafe_reason == "signed_thinking")
+        ):
             raise ExecutionFailure(
                 kind=FailureKind.UPSTREAM,
                 status_code=502,
@@ -231,6 +255,18 @@ def public_stream_failure(
 
 
 def _structured_output(body: dict[str, Any], protocol: UpstreamProtocol) -> bool:
+    if protocol == "gemini":
+        config = body.get("generationConfig") or {}
+        text = (config.get("responseFormat") or {}).get("text") or {}
+        return (
+            config.get("responseMimeType") == "application/json"
+            or text.get("mimeType") == "APPLICATION_JSON"
+            or bool(
+                config.get("responseSchema")
+                or config.get("responseJsonSchema")
+                or text.get("schema")
+            )
+        )
     if protocol == "chat":
         extra = body.get("extra_body") or {}
         value = extra.get("response_format", body.get("response_format"))

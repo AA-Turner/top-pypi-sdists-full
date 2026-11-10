@@ -77,6 +77,20 @@ _EPSILON_M = 1e-6
 #: Durations shorter than this (s) are treated as an instant.
 _EPSILON_S = 1e-9
 
+#: How far (m) either side of a vertex without a yaw of its own the entity
+#: turns from the segment arriving there to the one leaving: at most this, and
+#: at most half of either segment, so a sparse path is driven along each leg
+#: and a dense one (a recording) turns all the way along, at its own rate.
+_CORNER_HALF_WIDTH_M = 1.0
+
+#: How long (s) a timed trajectory has to stay on one point, between two
+#: segments that move, for that to be a **stop** rather than part of a corner.
+#: A shorter pause is a sample written twice -- a recording resampled onto a
+#: faster tick, ``0.05`` to ``0.15`` s on CARLA's -- and the corner turns
+#: through it as through the window either side; a stop keeps the heading it
+#: arrived with and turns on the spot.
+_STOP_MIN_S = 0.5
+
 
 @dataclass(frozen=True)
 class MapPose:
@@ -197,11 +211,9 @@ class RelativeLanePose:
         self.__post_init__()
 
     def __post_init__(self) -> None:
-        if isinstance(self.d_lane, bool) or int(self.d_lane) != self.d_lane:
-            raise ValueError(
-                f"RelativeLanePose.d_lane must be a whole number, got {self.d_lane!r}"
-            )
-        object.__setattr__(self, "d_lane", int(self.d_lane))
+        object.__setattr__(
+            self, "d_lane", _whole("RelativeLanePose", "d_lane", self.d_lane)
+        )
         _finite("RelativeLanePose", "ds", self.ds)
         _finite("RelativeLanePose", "offset", self.offset)
         _finite_or_none("RelativeLanePose", "yaw", self.yaw)
@@ -215,7 +227,19 @@ def _one_of(owner: str, name: str, value: str, allowed: Sequence[str]) -> None:
 
 
 def _whole(owner: str, name: str, value: Any) -> int:
-    if isinstance(value, bool) or int(value) != value:
+    if isinstance(value, bool):
+        raise ValueError(f"{owner}.{name} must be a whole number, got {value!r}")
+    if TYPE_CHECKING:
+        pass
+    elif getattr(getattr(value, "dtype", None), "kind", None) == "b" or (
+        # numpy's ndim is an int; a stand-in's (a mock's) is not (#1906).
+        isinstance(getattr(value, "ndim", 0), int) and getattr(value, "ndim", 0) != 0
+    ):
+        # numpy's bool_, which int() takes as 0 or 1, and an array of one
+        # element, which the numpy on Python 3.10 (2.2) still converts
+        # (#1906), as seed.check_whole_number refuses them.
+        raise ValueError(f"{owner}.{name} must be a whole number, got {value!r}")
+    if int(value) != value:
         raise ValueError(f"{owner}.{name} must be a whole number, got {value!r}")
     return int(value)
 
@@ -931,8 +955,35 @@ class ResolvedTrajectory:
     Args:
         xs, ys, zs: Vertex positions in CARLA world coordinates (m).
         yaws: Vertex headings in CARLA degrees; ``None`` for a vertex whose
-            heading is taken from the path.
-        times: Vertex times, or ``None`` for an untimed trajectory.
+            heading is taken from the path.  Such a vertex is a corner: the
+            entity turns from the arriving segment's direction to the leaving
+            one's across a window around it, reaching
+            :data:`_CORNER_HALF_WIDTH_M` along each segment or half of it if
+            that is shorter, and the vertex itself faces half way round.
+            Elsewhere along a segment it faces the segment's own direction,
+            with a yaw rate of ``0`` -- a sparse path is driven along its
+            legs, a dense one turns smoothly.  Given yaws interpolate between
+            each other; between a given yaw and a vertex without one the yaw
+            turns from the given heading to the segment's direction (or back)
+            outside the corner window.  Segments that do not move (the same
+            point written again) are looked past: the corner is between the
+            nearest segments that move either side, its vertices all facing
+            half way round (:meth:`_find_corners`) -- so a sample written
+            twice, or a closed path that repeats its first vertex, turns as
+            smoothly as one written once.  The first and last vertices of an
+            open path, a vertex with a given yaw among them, and a **stop**
+            (a timed trajectory staying on one point for
+            :data:`_STOP_MIN_S` or longer) are not corners: they face along
+            the path, a stop keeping the heading it arrived with, and a
+            segment that does not move turns from one vertex's heading to the
+            next's -- a stop turns on the spot.
+        times: Vertex times, or ``None`` for an untimed trajectory.  On a
+            closed trajectory they are the written vertices' times: the
+            closing segment has none, so the clock starts at the first vertex
+            facing along the first segment, and ends at the last written
+            vertex facing along the segment arriving there, as an open
+            trajectory's does (:meth:`at_time`); only along the path
+            (:meth:`at_distance`, which wraps) does it turn at the seam.
         closed: Whether the last vertex joins back to the first.
 
     Raises:
@@ -949,6 +1000,13 @@ class ResolvedTrajectory:
     closed: bool = False
     _arc: list[float] = field(init=False, repr=False)
     _headings: list[float] = field(init=False, repr=False)
+    _given: list[bool] = field(init=False, repr=False)
+    _corner_before: list[float] = field(init=False, repr=False)
+    _corner_after: list[float] = field(init=False, repr=False)
+    _corner_turn: list[float] = field(init=False, repr=False)
+    _corner_share: list[float] = field(init=False, repr=False)
+    _clock_headings: list[float] = field(init=False, repr=False)
+    _last: int = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         count = len(self.xs)
@@ -979,6 +1037,9 @@ class ResolvedTrajectory:
         times = self.times
         if times is not None:
             _finite_column("times", times)
+        # The last vertex as written: where the clock of a timed trajectory
+        # ends, a closed one's too, whose closing segment has no time.
+        self._last = count - 1
         if self.closed:
             # The closing segment is an ordinary one, so the distance queries
             # need no special case for it.
@@ -996,7 +1057,9 @@ class ResolvedTrajectory:
                 )
             )
         self._arc = arc
+        self._given = [yaw is not None for yaw in self.yaws]
         self._headings = self._fill_headings()
+        self._find_corners()
 
     # ------------------------------------------------------------------
     # Shape
@@ -1031,14 +1094,26 @@ class ResolvedTrajectory:
         return float(self.times[-1]) if self.times is not None else 0.0
 
     def start(self) -> TrajectorySample:
-        """The first vertex, at rest."""
-        return TrajectorySample(self.xs[0], self.ys[0], self.zs[0], self._headings[0])
+        """The first vertex, at rest.
+
+        On a closed timed trajectory, whose clock starts there and never
+        drives the closing segment, it faces along the first segment; untimed,
+        half way round the seam.
+        """
+        return self._at_rest(0)
 
     def end(self) -> TrajectorySample:
-        """The last vertex, at rest."""
-        return TrajectorySample(
-            self.xs[-1], self.ys[-1], self.zs[-1], self._headings[-1]
-        )
+        """Where the trajectory leaves the entity, at rest.
+
+        The last vertex -- on a closed untimed trajectory the first one again,
+        where the closing segment ends.  A timed trajectory's clock ends at the
+        last vertex written, so on a closed one that is where it stays, facing
+        along the segment arriving there: the closing segment has no time
+        (:meth:`at_time`).
+        """
+        if self.times is not None:
+            return self._at_rest(self._last)
+        return self._at_rest(len(self.xs) - 1)
 
     # ------------------------------------------------------------------
     # Queries
@@ -1050,6 +1125,10 @@ class ResolvedTrajectory:
         Before the first vertex it waits there, after the last it stays there,
         at rest in both cases.  The velocity is the segment's own, so it is
         what moving from one vertex to the next at the recorded times takes.
+        On a closed trajectory the times are the written vertices': the
+        closing segment has none, so at the last written vertex's time the
+        entity is there, and stays there -- the clock does not lap (a closed
+        path is driven round by :meth:`at_distance`, which wraps).
 
         Raises:
             ValueError: On an untimed trajectory.
@@ -1057,14 +1136,15 @@ class ResolvedTrajectory:
         if self.times is None:
             raise ValueError("at_time needs a timed trajectory")
         times = self.times
+        last = self._last
         if time <= times[0]:
-            return self.start()
-        if time >= times[-1]:
-            return self.end()
+            return self._at_rest(0)
+        if time >= times[last]:
+            return self._at_rest(last)
         index = bisect.bisect_right(times, time) - 1
         duration = float(times[index + 1]) - float(times[index])
         if duration < _EPSILON_S:
-            return self._vertex(index + 1)
+            return self._at_rest(index + 1)
         fraction = (time - float(times[index])) / duration
         return self._between(index, fraction, duration)
 
@@ -1100,27 +1180,38 @@ class ResolvedTrajectory:
         )
 
     def distance_at_time(self, time: float) -> float:
-        """How far along the path the entity is at vertex time *time*."""
+        """How far along the path the entity is at vertex time *time*.
+
+        From the last vertex's time on, the last written vertex's distance --
+        the length, except on a closed trajectory, whose closing segment has no
+        time (:meth:`at_time`).
+        """
         if self.times is None:
             raise ValueError("distance_at_time needs a timed trajectory")
         times = self.times
+        last = self._last
         if time <= times[0]:
             return 0.0
-        if time >= times[-1]:
-            return self.length
+        if time >= times[last]:
+            return self._arc[last]
         index = bisect.bisect_right(times, time) - 1
         duration = times[index + 1] - times[index]
         fraction = 0.0 if duration < _EPSILON_S else (time - times[index]) / duration
         return self._arc[index] + fraction * (self._arc[index + 1] - self._arc[index])
 
     def time_at_distance(self, distance: float) -> float:
-        """The vertex time at which the entity is *distance* metres along."""
+        """The vertex time at which the entity is *distance* metres along.
+
+        At or past the last written vertex, its time: on a closed trajectory
+        the closing segment has none, and the distance does not wrap.
+        """
         if self.times is None:
             raise ValueError("time_at_distance needs a timed trajectory")
+        last = self._last
         if distance <= 0.0:
             return float(self.times[0])
-        if distance >= self.length:
-            return float(self.times[-1])
+        if distance >= self._arc[last]:
+            return float(self.times[last])
         index = bisect.bisect_right(self._arc, distance) - 1
         span = self._arc[index + 1] - self._arc[index]
         fraction = 0.0 if span < _EPSILON_M else (distance - self._arc[index]) / span
@@ -1204,15 +1295,22 @@ class ResolvedTrajectory:
         return best_distance, best_along
 
     def vertices(self) -> list[TrajectorySample]:
-        """Every vertex, with the heading it resolved to and its times' velocity."""
+        """Every vertex, with the heading it resolved to and its times' velocity.
+
+        On a timed trajectory each is what :meth:`at_time` gives at the
+        vertex's time, leaving it; a vertex with no timed segment after it
+        (the last written one, and on a closed trajectory the closing vertex)
+        at rest.
+        """
         samples: list[TrajectorySample] = []
         for index in range(len(self.xs)):
-            if self.times is not None and index + 1 < len(self.xs):
-                duration = float(self.times[index + 1]) - float(self.times[index])
+            times = self.times
+            if times is not None and index + 1 < len(times):
+                duration = float(times[index + 1]) - float(times[index])
                 if duration >= _EPSILON_S:
                     samples.append(self._between(index, 0.0, duration))
                     continue
-            samples.append(self._vertex(index))
+            samples.append(self._at_rest(index))
         return samples
 
     # ------------------------------------------------------------------
@@ -1224,23 +1322,90 @@ class ResolvedTrajectory:
             self.xs[index], self.ys[index], self.zs[index], self._headings[index]
         )
 
+    def _at_rest(self, index: int) -> TrajectorySample:
+        """Vertex *index* at rest, facing as the clock has it there.
+
+        That is its resolved heading, but within a corner that turns through
+        a pause (:meth:`_find_corners`), where the clock spends part of the
+        turn on the spot; untimed, the two are the same.
+        """
+        return TrajectorySample(
+            self.xs[index], self.ys[index], self.zs[index], self._clock_headings[index]
+        )
+
     def _between(
         self, index: int, fraction: float, duration: Optional[float]
     ) -> TrajectorySample:
         """The point *fraction* of the way along segment *index*.
 
+        Along a segment that moves the yaw is its direction, but for three
+        stretches: within a corner's window at either end (a vertex without a
+        yaw of its own, :meth:`_find_corners`) it turns half the corner's turn,
+        from the vertex's heading to the segment's direction or back; and
+        between the windows, where an end has a given yaw, it turns from that
+        yaw to the segment's direction or back (between both, if both ends have
+        one).  It never uses a derived vertex heading outside a window, which
+        would be the next segment's direction and turn the entity across the
+        whole segment.  A segment that does not move has no direction, and
+        turns from one vertex's heading to the next's (a turn on the spot, or
+        nothing, where a stop kept its heading).
+
         With a *duration* the velocity is the segment's, and the yaw rate the
-        turn between its vertex headings over that time.
+        rate of that turn at the segment's speed.  The *duration* also says
+        the sample is the clock's (:meth:`at_time`): within a corner that turns
+        through a pause the clock spends a share of the turn on the spot, the
+        windows the rest (``_corner_share`` each, ``_clock_headings`` at the
+        vertices), where a distance along the path, which has no time to spend
+        there, turns half in each window.
         """
         x0, y0, z0 = self.xs[index], self.ys[index], self.zs[index]
         x1, y1, z1 = self.xs[index + 1], self.ys[index + 1], self.zs[index + 1]
-        turn = _wrap_degrees(self._headings[index + 1] - self._headings[index])
-        yaw = _wrap_degrees(self._headings[index] + fraction * turn)
+        span = self._arc[index + 1] - self._arc[index]
+        direction = self._segment_heading(index)
+        # The yaw at *fraction*, and its rate of change per unit of fraction.
+        yaw = 0.0
+        slope = 0.0
+        clock = duration is not None
+        if direction is None:
+            headings = self._clock_headings if clock else self._headings
+            slope = _wrap_degrees(headings[index + 1] - headings[index])
+            yaw = headings[index] + fraction * slope
+        else:
+            along = math.degrees(direction)
+            # Each at most half the segment, so the two never overlap.
+            start_window = self._corner_after[index] / span
+            end_window = self._corner_before[index + 1] / span
+            if fraction < start_window:
+                # Leaving a corner: from its share short of the leaving
+                # segment's way (half way round, untimed) to that way.
+                share = self._corner_share[index] if clock else 0.5
+                slope = share * self._corner_turn[index] / start_window
+                yaw = along + (fraction - start_window) * slope
+            elif end_window > 0.0 and fraction >= 1.0 - end_window:
+                # Arriving at a corner: from the segment's way to its share
+                # round (half way, untimed).
+                share = self._corner_share[index + 1] if clock else 0.5
+                slope = share * self._corner_turn[index + 1] / end_window
+                yaw = along + (fraction - (1.0 - end_window)) * slope
+            else:
+                first = self._headings[index] if self._given[index] else along
+                last = self._headings[index + 1] if self._given[index + 1] else along
+                # A turn here means a given end, which has no window, and the
+                # other end's window is at most half: the stretch is at least
+                # half the segment.  With neither end given there is no turn.
+                stretch = 1.0 - start_window - end_window
+                turn = _wrap_degrees(last - first)
+                if turn != 0.0 and stretch > 0.0:
+                    slope = turn / stretch
+                    yaw = first + (fraction - start_window) * slope
+                else:
+                    yaw = first
+        yaw = _wrap_degrees(yaw)
         if duration is None:
             vx = vy = yaw_rate = 0.0
         else:
             vx, vy = (x1 - x0) / duration, (y1 - y0) / duration
-            yaw_rate = turn / duration
+            yaw_rate = slope / duration
         return TrajectorySample(
             x0 + fraction * (x1 - x0),
             y0 + fraction * (y1 - y0),
@@ -1258,6 +1423,181 @@ class ResolvedTrajectory:
         if math.hypot(dx, dy) < _EPSILON_M:
             return None
         return math.atan2(dy, dx)
+
+    def _find_corners(self) -> None:
+        """Every vertex's corner window, and the vertex headings at corners.
+
+        A corner is where the path turns from one segment that moves to the
+        next that moves, looking past any segments between them that do not
+        (the same point written again): a vertex without a yaw of its own
+        between two moving segments, or a run of such vertices on one point.
+        On a closed path the first vertex is one too, between the closing
+        segment and the first -- the same point as the closing vertex, which
+        mirrors it.  A run with a given yaw is not a corner, nor, on a timed
+        trajectory, one that stays put for :data:`_STOP_MIN_S` or longer: a
+        stop, which keeps the heading it arrived with and turns on the spot
+        (:meth:`_fill_headings`).
+
+        The window reaches back along the arriving segment
+        :data:`_CORNER_HALF_WIDTH_M` or half of it, whichever is shorter, and
+        on along the leaving one the same way, so two windows never overlap
+        and on a dense path they cover it all.  The entity turns from the
+        arriving segment's direction to the leaving one's across the window,
+        and the corner's vertices face half way round: half the turn before
+        them, half after.  On a path sampled at even times (a recording) each
+        half then takes half a sample's time, so the yaw rate is the turn over
+        the time across the window, as steady as the curve -- unlike a split
+        in proportion to each half's length, which would swing with uneven
+        spacing.
+
+        A corner that pauses (a timed run shorter than a stop: a sample
+        written twice) turns on the clock through the pause as well: the
+        moving windows keep their half-and-half split of the time they take
+        between them, and the pause turns the rest, so the turn is spread over
+        the window's time evenly -- a recording resampled onto a faster tick
+        turns at its own rate, not in bursts with none between.  Along the
+        path the pause takes no distance, so there the windows still turn half
+        each; at a vertex of such a corner :meth:`at_time` and
+        :meth:`at_distance` differ by the clock's share of the turn spent on
+        the spot.  The pause is a difference of the run's times, and one
+        within :data:`_EPSILON_S` of :data:`_STOP_MIN_S` is a stop.
+
+        A timed closed path's clock never drives its closing segment, so on
+        the clock a corner that segment is part of -- at the first vertex, at
+        the last one written, or a run across the seam -- does not turn: its
+        windows face along their own segments (``_corner_share`` ``0``), and
+        its vertices along the timed segment on their side, the first vertex
+        along the first segment and the last written one along the segment
+        arriving there, as an open path's ends.  Along the path, which wraps,
+        it is a corner like any other.
+
+        ``_corner_before`` and ``_corner_after`` hold each vertex's reach (m)
+        back and on (``0`` for none), ``_corner_turn`` the turn (degrees,
+        positive towards +y: clockwise seen from above, CARLA's sense of yaw),
+        ``_corner_share`` the share of it each window turns on the clock, and
+        ``_clock_headings`` the vertex headings on the clock.
+        """
+        count = len(self.xs)
+        segments = count - 1
+        corner_before = [0.0] * count
+        corner_after = [0.0] * count
+        corner_turn = [0.0] * count
+        corner_share = [0.5] * count
+        clock = list(self._headings)
+        for arriving in range(segments):
+            before = self._segment_heading(arriving)
+            if before is None:
+                continue
+            # The next segment that moves, past any that do not; on a closed
+            # path round the seam, but never back to this one.
+            limit = segments - 1 if self.closed else segments - 1 - arriving
+            leaving = -1
+            reach = 0
+            for offset in range(1, limit + 1):
+                candidate = (arriving + offset) % segments
+                if self._segment_heading(candidate) is not None:
+                    leaving = candidate
+                    reach = offset
+                    break
+            if leaving < 0:
+                continue
+            after = self._segment_heading(leaving)
+            if after is None:
+                continue
+            # The corner's vertices, from the arriving segment's end to the
+            # leaving one's start; the segments between them do not move.
+            run: list[int] = []
+            given = False
+            for offset in range(1, reach + 1):
+                vertex = (arriving + offset) % segments
+                run.append(vertex)
+                if self._given[vertex]:
+                    given = True
+            if given:
+                continue
+            # How long the run stays put, each stretch of it as one difference
+            # of times, so a stop written as several pauses is not a hair
+            # short of _STOP_MIN_S.  On a closed path the closing segment,
+            # which has no time, splits a run across the seam in two.
+            seam = segments - 1
+            crosses = self.closed and seam in run[:-1]
+            if crosses:
+                pause = self._elapsed(run[0], seam) + self._elapsed(0, run[-1])
+            else:
+                pause = self._elapsed(run[0], run[-1])
+            if pause >= _STOP_MIN_S - _EPSILON_S:
+                continue
+            # A timed closed path's clock never drives the closing segment:
+            # it starts at the first vertex and stops at the last one written,
+            # so on the clock a corner the closing segment is part of is no
+            # corner -- each side faces along its own timed segment, as an
+            # open path's ends do.
+            untimed = (
+                self.closed
+                and self.times is not None
+                and (arriving == seam or leaving == seam or crosses)
+            )
+            turn = _wrap_degrees(math.degrees(after) - math.degrees(before))
+            span_in = self._arc[arriving + 1] - self._arc[arriving]
+            span_out = self._arc[leaving + 1] - self._arc[leaving]
+            reach_in = min(_CORNER_HALF_WIDTH_M, 0.5 * span_in)
+            reach_out = min(_CORNER_HALF_WIDTH_M, 0.5 * span_out)
+            # The time each window takes, and the whole corner's.
+            moving = (reach_in / span_in) * self._segment_duration(arriving) + (
+                reach_out / span_out
+            ) * self._segment_duration(leaving)
+            total = moving + pause
+            share = 0.5
+            if untimed:
+                share = 0.0
+            elif total >= _EPSILON_S:
+                share = 0.5 * moving / total
+            middle = _wrap_degrees(math.degrees(before) + 0.5 * turn)
+            # On the clock, past the seam yet (untimed corners only).
+            past = arriving == seam
+            for position in range(len(run)):
+                vertex = run[position]
+                if position > 0 and run[position - 1] == seam:
+                    past = True
+                heading = middle
+                if untimed:
+                    heading = math.degrees(after) if past else math.degrees(before)
+                elif total >= _EPSILON_S:
+                    done = share + self._elapsed(run[0], vertex) / total
+                    heading = math.degrees(before) + done * turn
+                indices = [vertex]
+                if self.closed and vertex == 0:
+                    indices.append(count - 1)
+                for index in indices:
+                    corner_turn[index] = turn
+                    corner_share[index] = share
+                    self._headings[index] = middle
+                    clock[index] = _wrap_degrees(heading)
+                    if position == 0:
+                        corner_before[index] = reach_in
+                    if position == len(run) - 1:
+                        corner_after[index] = reach_out
+        self._corner_before = corner_before
+        self._corner_after = corner_after
+        self._corner_turn = corner_turn
+        self._corner_share = corner_share
+        self._clock_headings = clock
+
+    def _elapsed(self, first: int, last: int) -> float:
+        """The time (s) from vertex *first* to vertex *last*; ``0`` untimed,
+        or where either has no time (a closed trajectory's closing vertex)."""
+        times = self.times
+        if times is None or first >= len(times) or last >= len(times):
+            return 0.0
+        return float(times[last]) - float(times[first])
+
+    def _segment_duration(self, index: int) -> float:
+        """Segment *index*'s duration (s); ``0`` untimed, and for a closed
+        trajectory's closing segment, which has no time."""
+        times = self.times
+        if times is None or index + 1 >= len(times):
+            return 0.0
+        return float(times[index + 1]) - float(times[index])
 
     def _fill_headings(self) -> list[float]:
         """Every vertex's heading in CARLA degrees.
@@ -1293,4 +1633,6 @@ class ResolvedTrajectory:
 
 def _wrap_degrees(angle: float) -> float:
     """*angle* wrapped into ``[-180, 180)``."""
-    return (angle + 180.0) % 360.0 - 180.0
+    wrapped = (angle + 180.0) % 360.0 - 180.0
+    # Rounding can land a value just below -180 on +180 itself.
+    return -180.0 if wrapped >= 180.0 else wrapped

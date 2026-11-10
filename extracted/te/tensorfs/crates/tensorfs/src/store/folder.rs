@@ -50,18 +50,6 @@ impl Store {
         Ok((self.put_tree(&tree)?, absent))
     }
 
-    /// The commit `tree` as a plain folder in `dir`: its files, and its header's objects this
-    /// store holds.
-    pub fn snapshot(&self, tree: &ObjectRef, dir: &Path) -> Result<()> {
-        let tree = self.tree(tree)?;
-        let mut payload = Vec::new();
-        for object in Header::from_cbor(&self.read(tree.header()?.1)?)?.objects() {
-            if self.reuse(object)? {
-                payload.push(object.clone());
-            }
-        }
-        self.write_folder(&tree, dir, &payload)
-    }
 
     /// The commit `tree` as a plain folder in `dir`: its repo files, `payload` under `chunks/`,
     /// then its header last, so a folder never has a header without what it names.
@@ -124,7 +112,7 @@ fn same_bytes(file: &mut File, object: &ObjectRef) -> bool {
 
 /// `from` copied to `dest` by a unique temp, flushed and renamed in, its directory synced; with
 /// `expected`, the bytes are checked against it first.
-pub(crate) fn copy_checked(from: &mut File, dest: &Path, expected: Option<&ObjectRef>) -> Result<()> {
+pub fn copy_checked(from: &mut File, dest: &Path, expected: Option<&ObjectRef>) -> Result<()> {
     let (temp, mut out) = temp_beside(dest)?;
     let mut source = Hashing { source: from, hash: crate::sha256::Sha256::new() };
     let copied = io::copy(&mut source, &mut out).map_err(fail("copy", &temp)).and_then(|length| {
@@ -157,7 +145,7 @@ impl Read for Hashing<'_> {
 }
 
 /// Every regular file under `dir`, as tree paths, but `chunks/` at the root.
-pub(crate) fn files(dir: &Path, prefix: &str) -> Result<Vec<String>> {
+pub fn files(dir: &Path, prefix: &str) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for entry in fs::read_dir(dir).map_err(fail("list", dir))? {
         let entry = entry.map_err(fail("list", dir))?;

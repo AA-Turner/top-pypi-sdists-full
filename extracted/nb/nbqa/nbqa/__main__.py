@@ -10,11 +10,12 @@ import string
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
 from importlib import import_module
 from pathlib import Path
 from shutil import which
 from textwrap import dedent
-from typing import Any, Iterator, Mapping, MutableMapping, NamedTuple, Sequence, cast
+from typing import Any, NamedTuple, cast
 
 import tomli
 
@@ -401,8 +402,7 @@ def _get_command_not_found_msg(command: str) -> str:
     str
         Message to display to stdout.
     """
-    template = dedent(
-        f"""\
+    template = dedent(f"""\
         {BOLD}Command `{command}` not found by nbqa.{RESET}
 
         Please make sure you have it installed in the same Python environment as nbqa. See
@@ -416,8 +416,7 @@ def _get_command_not_found_msg(command: str) -> str:
             `python -m {command}`
 
         then you might want to pass `--nbqa-shell`.
-        """
-    )
+        """)
     python_executable = sys.executable
     nbqa_file = sys.modules["nbqa"].__file__
     assert nbqa_file is not None
@@ -460,7 +459,10 @@ def _get_configs(cli_args: CLIArgs, project_root: Path) -> Configs:
         if getattr(cli_args, section) is not None:
             if section == "addopts":
                 # addopts are added to / overridden rather than replaced outright
-                config["addopts"] = (*config["addopts"], *getattr(cli_args, section))
+                config["addopts"] = (  # type: ignore[missing-attribute,unused-ignore]
+                    *config["addopts"],
+                    *getattr(cli_args, section),
+                )
             else:
                 # TypedDict key must be a string literal
                 config[section] = getattr(cli_args, section)  # type: ignore
@@ -767,7 +769,7 @@ def _main(cli_args: CLIArgs, configs: Configs) -> int:
                 for key, i in nb_to_tmp_mapping.items()
                 if key
                 not in (
-                    *saved_sources.failed_notebooks,
+                    *saved_sources.failed_notebooks,  # type: ignore[not-a-type, unused-ignore]
                     *saved_sources.non_python_notebooks,
                 )
             ],
@@ -790,8 +792,14 @@ def _main(cli_args: CLIArgs, configs: Configs) -> int:
         sys.stderr.write(output.err)
 
         if mutated and not actually_mutated:
-            output_code = 0
             mutated = False
+            if not output.out.strip() and not output.err.strip():
+                # The tool rewrote the temporary Python file, the notebook came
+                # back unchanged, and the tool reported nothing: its non-zero
+                # exit code was about having modified files, so there is
+                # nothing left to report. If it did print something, keep its
+                # exit code - see https://github.com/nbQA-dev/nbQA/issues/872
+                output_code = 0
 
         if saved_sources.failed_notebooks:
             output_code = 123

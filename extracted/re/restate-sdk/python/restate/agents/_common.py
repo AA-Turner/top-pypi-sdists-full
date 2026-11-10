@@ -22,7 +22,6 @@ import json
 import os
 import re
 import typing
-import weakref
 from collections.abc import Awaitable, Callable
 
 from restate.exceptions import TerminalError
@@ -73,10 +72,40 @@ DEFAULT_MODEL = "openai/gpt-6-sol"
 """The default model of the frameworks that accept any provider; it needs ``OPENAI_API_KEY``."""
 
 
-def check_own(own: object, system: object) -> None:
-    """Raise ``TypeError`` if an agent of the framework's own (``own``) and ``system`` are both given."""
-    if own is not None and system is not None:
-        raise TypeError("an agent of your own has its own instructions: pass no system")
+def check_own(own: object, kind: str, **built_in: object) -> None:
+    """Raise ``TypeError`` if a framework's own configured ``kind`` (``own``) is given with options of the built-in agent.
+
+    An agent takes either the common options of the built-in agent
+    (``model``, ``system``, ``tools``) or a ``kind`` of your own (an
+    ``agent``, a ``graph``), configured as the framework does: its model,
+    instructions and tools are its own.
+    """
+    if own is None:
+        return
+    # An empty list of tools is no tools.
+    given = [
+        name
+        for name, value in built_in.items()
+        if value is not None and not (isinstance(value, list | tuple) and not value)
+    ]
+    if given:
+        raise TypeError(
+            f"your own {kind} is configured with its own model, instructions and tools: "
+            f"pass no {', '.join(given)} with it"
+        )
+
+
+def check_built_in(own: object, kind: str, **own_only: object) -> None:
+    """Raise ``TypeError`` if options of a framework's own ``kind`` (its run's, such as ``deps``) are given without one.
+
+    The built-in agent has none of its own, and would ignore them.
+    """
+    if own is not None:
+        return
+    given = [name for name, value in own_only.items() if value is not None]
+    if given:
+        options = f"{given[0]} is an option" if len(given) == 1 else f"{', '.join(given)} are options"
+        raise TypeError(f"{options} of your own {kind}: pass {'it' if len(given) == 1 else 'them'} with {kind}=")
 
 
 def model_of(model: str | None, fallback: str = DEFAULT_MODEL) -> str:
@@ -150,11 +179,63 @@ class MessageSerde(Serde[str]):
         return (obj or "").encode()
 
 
+Window: typing.TypeAlias = "int | typing.Literal['all']"
+"""How many of the latest answered turns the model sees whole (with their tool calls and results), or ``"all"``."""
+
+WINDOW: Window = 1
+"""The window by default: the previous turn's tool calls and results stay in view, for a follow-up."""
+
+BUDGET = 32_000
+"""How many tokens of the turns before the window the model sees, by default, counted as 4 characters each."""
+
+
+Summarize: typing.TypeAlias = Callable[[SessionContext, str], Awaitable[str]]
+"""How an agent summarizes earlier turns: from the request (``SUMMARIZE`` and the turns, as text) to the summary."""
+
+CompactHistory: typing.TypeAlias = Callable[[SessionContext, list[typing.Any]], Awaitable[list[typing.Any] | None]]
+"""How an agent that takes its history from snapshots compacts it between turns: from the history (the framework's
+items) to the compacted history, which is stored as a snapshot, or ``None`` to leave it as it is."""
+
+SUMMARIZE = (
+    "Summarize the conversation below, for the assistant who carries it on: keep the facts, names, numbers, "
+    "decisions, the user's preferences, and what is still open. Answer with the summary only.\n\n"
+)
+"""What a request to summarize earlier turns starts with, before the turns themselves."""
+
+
+Check: typing.TypeAlias = Callable[[str, bool], "str | None"]
+"""What a turn checks its answer with: ``None`` if the answer is what was asked for, else the message that asks
+the model again, once, within the turn (``answer_once``'s ``check``). Its second argument, ``last``, says the model
+was asked again already: a ``TerminalError`` the check raises then fails the turn, which is closed with it."""
+
+
+def check_window(window: Window) -> Window:
+    """Return ``window`` if it is one: a number of turns (0 or more), or ``"all"``."""
+    given = typing.cast(object, window)
+    if given != "all" and (isinstance(given, bool) or not isinstance(given, int) or given < 0):
+        raise ValueError(f"window must be a number of turns (0 or more) or 'all', not {window!r}")
+    return window
+
+
 CANCELLATION = 409
 """The status code of Restate's cancellation error, which a stopped turn fails with."""
 
+
+def is_cancellation(error: BaseException) -> bool:
+    """Return whether ``error`` is Restate's cancellation error, which a stopped turn fails with too.
+
+    Its status code alone does not tell: a call fails with 409 for other reasons, such as a workflow run a second
+    time, which fail the turn rather than stop it.
+    """
+    return isinstance(error, TerminalError) and error.status_code == CANCELLATION and error.message == "cancelled"
+
+
 CANCELLED = "Cancelled: the turn was stopped before it finished."
 """The answer of a cancelled turn, and the result of each tool call it cut off, which the model sees later in the conversation."""
+
+ENDED = "Ended: the turn ended before it finished, and was not answered."
+"""The answer of a turn whose invocation ended without answering it (killed, say), and the result of each tool call
+it cut off. A newer message, or the companion noticing that the turn's invocation is gone, closes it with this."""
 
 RETURNED_UNRECORDED = (
     "Done, but the turn was stopped before this call's result was recorded: it did happen, so check its "
@@ -192,18 +273,37 @@ class ToolError(Exception):
         self.__cause__ = cause
 
 
-_TOOL_ERRORS: ScopeKey[weakref.WeakSet[BaseException]] = ScopeKey("from_tool")
+class ErrorSet:
+    """A set of errors, by identity, that holds them for as long as it lives (an attempt, or a run).
+
+    Not a ``WeakSet``: an error of a built-in type (``KeyError``,
+    ``TypeError``, ...) cannot be weakly referenced, and adding one would
+    raise in its place. Not a ``set``: an error type may define equality.
+    """
+
+    def __init__(self) -> None:
+        self._errors: dict[int, BaseException] = {}
+
+    def add(self, error: BaseException) -> None:
+        """Add ``error``."""
+        self._errors[id(error)] = error
+
+    def __contains__(self, error: object) -> bool:
+        return self._errors.get(id(error)) is error
+
+
+_TOOL_ERRORS: ScopeKey[ErrorSet] = ScopeKey("from_tool")
 """The errors that framework tools (not those made by ``tool()``) raised in the attempt; see ``from_tool``."""
 
 
 def from_tool(ctx: SessionContext, error: BaseException) -> None:
-    """Record that a framework's own tool raised ``error`` in the attempt of ``ctx``.
+    """Record that a framework's own tool, or a graph of one's own, raised ``error`` in the attempt of ``ctx``.
 
     Such an error is never mistaken for a refusal by the model's provider,
     even if it looks like one (a tool that calls a model API can fail the same
     way).
     """
-    _TOOL_ERRORS.of(ctx, weakref.WeakSet[BaseException]).add(error)
+    _TOOL_ERRORS.of(ctx, ErrorSet).add(error)
 
 
 _FOR_GOOD = frozenset({"AuthenticationError", "PermissionDeniedError", "NotFoundError", "BadRequestError"})
@@ -211,7 +311,7 @@ _FOR_GOOD = frozenset({"AuthenticationError", "PermissionDeniedError", "NotFound
 
 _REFUSED_TEXT = re.compile(
     r"API key not found|no API key|Could not resolve authentication method|Provider is not configured"
-    r"|api_key client option must be set"
+    r"|api_key client option must be set|Missing credentials\. Please pass an `api_key`"
     r'|"code":"(AUTH|MISSING_CREDENTIAL)"',
     re.IGNORECASE,
 )
@@ -247,16 +347,35 @@ def refusal(error: BaseException) -> TerminalError | None:
     return terminal
 
 
+def raised_by_tool(ctx: SessionContext, error: BaseException) -> bool:
+    """Return whether ``error`` is one that ``from_tool`` recorded in the attempt of ``ctx``."""
+    failed_tool = _TOOL_ERRORS.get(ctx)
+    return failed_tool is not None and error in failed_tool
+
+
 def refusal_of(ctx: SessionContext, error: BaseException) -> TerminalError | None:
     """Return ``refusal(error)``, except for errors that a framework's tool raised in the attempt (see ``from_tool``)."""
-    failed_tool = _TOOL_ERRORS.get(ctx)
-    if failed_tool is not None and error in failed_tool:
+    if raised_by_tool(ctx, error):
         return None
     return refusal(error)
 
 
-def stored_answer(answer: str) -> str:
-    """Return a prompt's stored answer, or raise the refusal again if it is ``UNANSWERED``."""
-    if answer != UNANSWERED:
-        return answer
-    raise TerminalError(f"the model's provider refused the request: {CHECK_MODEL}", status_code=REFUSED)
+def stored_answer(answer: str, status: str | None = "answered") -> str:
+    """Return a prompt's stored answer, or fail as the prompt did, by how its turn ended (``status``).
+
+    A turn refused (``UNANSWERED``) fails with ``REFUSED``; one failed for
+    good, with its error; one cancelled, with the cancellation; one that
+    another invocation ended, with its note. So a retry after a crash right
+    after the turn was closed fails as the prompt did, instead of answering
+    with the note. A failed turn's error has the default status code: the
+    turn keeps its message, not its code.
+    """
+    if status == "refused" or answer == UNANSWERED:
+        raise TerminalError(f"the model's provider refused the request: {CHECK_MODEL}", status_code=REFUSED)
+    if status == "cancelled":
+        raise TerminalError("cancelled", status_code=CANCELLATION)
+    if status == "failed":
+        raise TerminalError(answer.removeprefix("Error: "))
+    if status == "ended":
+        raise TerminalError(answer)
+    return answer

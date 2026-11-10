@@ -103,7 +103,7 @@ class WMLResource:
     @classmethod
     def _handle_response(
         cls,
-        expected_status_code: int | set[int],
+        expected_status_code: int | set[int] | frozenset[int],
         operationName: str,
         response: httpx.Response,
         json_response: Literal[True] = True,
@@ -115,7 +115,7 @@ class WMLResource:
     @classmethod
     def _handle_response(
         cls,
-        expected_status_code: int | set[int],
+        expected_status_code: int | set[int] | frozenset[int],
         operationName: str,
         response: httpx.Response,
         json_response: Literal[False],
@@ -126,7 +126,7 @@ class WMLResource:
     @classmethod
     def _handle_response(
         cls,
-        expected_status_code: int | set[int],
+        expected_status_code: int | set[int] | frozenset[int],
         operationName: str,
         response: httpx.Response,
         json_response: bool = True,

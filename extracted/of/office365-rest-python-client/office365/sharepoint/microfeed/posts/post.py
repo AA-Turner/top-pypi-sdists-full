@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -9,7 +9,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.microfeed.link import MicrofeedLink
 
 
-@dataclass
 class MicrofeedPost(ClientValue):
     AuthorIndex: Optional[int] = None
     BreadCrumb: Optional[str] = None

@@ -8,7 +8,7 @@ import time
 from typing import Any
 from ..settings import settings as config_module
 from ...foundation.safe_warn import safe_warn as _diagnostics
-from ..session_marker import WIZARD_HINT
+from ..session_marker import SIGN_IN_HINT
 from ..delivery.outbox.drain.credentials import (
     CredentialSource,
     credential_fingerprint)
@@ -335,7 +335,7 @@ class CredentialsMixin:
                 return None, f"the stored login is for {base}, not {self.settings.base_url}"
             token = stored.get("token") or None
             if token is None or token == self.settings.token:
-                return None, f"there is no newer login to read; {WIZARD_HINT}"
+                return None, f"there is no newer login to read; {SIGN_IN_HINT}"
             return token, None
         return None, None
 

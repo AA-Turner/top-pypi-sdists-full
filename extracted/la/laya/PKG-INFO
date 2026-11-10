@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laya
-Version: 0.4.26
+Version: 0.4.30
 Summary: Fast, non-autoregressive System 1 decision engine with calibrated probabilities
 Author: Convai Innovations
 License: Apache-2.0
@@ -25,6 +25,7 @@ Requires-Dist: safetensors>=0.4.0
 Requires-Dist: huggingface_hub>=0.20.0
 Requires-Dist: numpy>=1.20.0
 Requires-Dist: vegaml>=0.15.0
+Requires-Dist: cryptography>=41
 Provides-Extra: serve
 Requires-Dist: fastapi>=0.110.0; extra == "serve"
 Requires-Dist: uvicorn>=0.27.0; extra == "serve"
@@ -305,88 +306,20 @@ The shipped checkpoints work zero-shot, but fine-tuning on decisions from your o
 
 **[nandhakishorm.github.io/laya](https://nandhakishorm.github.io/laya/)**: guides for [prediction hooks](https://nandhakishorm.github.io/laya/hooks/), [schema-driven decisions](https://nandhakishorm.github.io/laya/structured/), [Docker](https://nandhakishorm.github.io/laya/docker/) and [LangChain and LangGraph](https://nandhakishorm.github.io/laya/langchain/), plus a full [API reference](https://nandhakishorm.github.io/laya/reference/).
 
-## What's new in 0.4.26
+## What's new in 0.4.30
 
-* **`laya[vision]` and `laya[audio]`.** Images and video through the vega lane need Pillow and
-  torchvision, and audio files need soundfile; none of them is a core dependency, and a fresh
-  install used to fail inside transformers with a message about an image processor backend. The
-  two extras install exactly what each path needs, and `predict(image=...)`, `predict(video=...)`
-  and `predict(audio=path)` now name the extra when it is missing. Text and a numpy waveform need
-  nothing beyond `pip install laya`.
-
-## What's new in 0.4.25
-
-* **The `Router` has a vega lane.** When vegaml is installed, `Router()` routes what the encoders
-  cannot read to `laya.Agent(vegaml=True)`, built on first use: `image=`, `audio=` or `video=` in
-  place of a state, a state past 8,192 tokens (`vega_over_tokens`), and any question the vega agent
-  has a fitted head for (`Router(vega=agent)` after `agent.fit(...)`). Text the encoders can read
-  keeps going to the encoders with the same decisions and reasons as before, `Router(vega=False)`
-  turns the lane off, `model="vega"` selects it, and `predict_batch` stays on the encoders. The CLI
-  gained `--image`, `--audio` and `--video` for the same lane; the HTTP server refuses the three
-  keys with a message saying where media goes. Details in
-  [the routing guide](https://nandhakishorm.github.io/laya/routing/#the-vega-lane).
-
-## What's new in 0.4.24
-
-* **Video, through the same call: `agent.predict(video="call.mp4", questions=questions)`** on
-  `Agent(vegaml=True)`. The clip is split into what the engine can already read, and the path is
-  chosen by its content: the sound track is extracted at 16 kHz and transcribed, and when the
-  transcript holds real words the decision is made on it through the text path, so fitted heads,
-  the refit calibration, the conformal set and the route all apply and the transcript rides along.
-  A silent clip, or one whose sound is music or noise, has four evenly spaced frames tiled into
-  one contact sheet and decided through the image path. `out["video"]` says which path decided,
-  with the frame times or the transcript. Decoding goes through the `ffmpeg` binary on your
-  PATH; laya takes on no Python dependency for it, and `laya.video` holds the helpers.
-  `laya.vega.Router` sends a clip to vega like an image or a recording.
-* **`fit` takes a CSV and refuses to calibrate on its own fitting rows.** `agent.fit("rows.csv",
-  questions=questions)` reads a `state` column plus one column per question id
-  (`laya.VegaAgent.load_rows`; `.jsonl` too). A quarter of the rows is now held out inside `fit`
-  and the temperature, conformal threshold and review line are measured there, because a head is
-  right on its own rows and calibrating on them put every confidence at 1.000 and the review line
-  out of reach. `laya.VegaAgent.min_rows(questions)` is the floor `fit` accepts, and below it the
-  error names the number. Where the calibration rows cannot certify the review line at
-  `target_precision`, the band is reported `None` for that question and the conformal set routes
-  its answers, with `route_reason` saying so, instead of every answer going to review.
-  [`examples/42_fit_and_calibrate_vegaml.py`](https://github.com/NandhaKishorM/laya/blob/main/examples/42_fit_and_calibrate_vegaml.py)
-  and [`examples/data/routing_labels.csv`](https://github.com/NandhaKishorM/laya/blob/main/examples/data/routing_labels.csv)
-  are the measured loop; the quickstart carries its output.
-
-## What's new in 0.4.23
-
-* **`laya.Agent(vegaml=True)`: vega's engine behind laya's surface.** One argument swaps the
-  encoder for vegaml's frozen 0.8B universal reader and its decision engine. Every method keeps
-  its laya name (`predict`, `system_one`, `predict_batch`, `predict_long`, `fit_temperatures`,
-  `save_calibration`, `load_calibration`, the hooks), and every answer gains a conformal
-  `prediction_set`, `abstain`, `unbound` and a `route` decided without a threshold you set:
-  a fitted band when `fit` or `calibrate` has run, otherwise the engine's own abstain, unbound
-  and set size. `fit(rows)` fits a head per question over the frozen features in seconds and
-  serves it only where it beats the engine on your rows; `predict(image=...)`,
-  `predict(audio=...)` and a 73,728-token `predict_long` go through the same call.
-  `laya.vega.Router(fast=laya.Agent(), vega=agent)` switches between the two on media, length,
-  language and fitted heads. Details in [vega inside laya](#vega-inside-laya-agentvegamltrue)
-  and the [docs page](https://nandhakishorm.github.io/laya/vegaml/).
-* **vegaml is a core dependency**, so a plain `pip install laya` carries it. `import laya` is
-  as light as before: `laya.vega` is imported only when the argument is given.
-* **The quickstart starts there**, with the laya checkpoints under their own heading below it.
-
-Earlier releases are in the [GitHub releases](https://github.com/NandhaKishorM/laya/releases).
-
----
-
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/NandhaKishorM/laya/main/assets/laya_vs_jev_full.png" alt="Laya versus TypeSafe Jev: accuracy on shared public datasets, every application workflow, all 51 languages, speed, calibration, and the cost of not preloading" width="100%" />
-</p>
-
-Laya evaluates typed questions (`choice`, `score`, `noul`) over any state (text, email, ticket or JSON document) in **a single forward pass** — 33 ms for one question, 7.2 ms/question batched, measured on a T4. No text generation, so nothing to parse and nothing to hallucinate.
-
-Three checkpoints, and a `Router` that picks between them per request:
-
-| | encoder | params | context | use it for |
-|---|---|---|---|---|
-| [`laya`](https://huggingface.co/convaiinnovations/laya) | ModernBERT-large | 421M | 512 | English |
-| [`laya-multilingual`](https://huggingface.co/convaiinnovations/laya-multilingual) | mmBERT-base | 322M | 1024 (up to 8,192) | 100+ languages, 2x faster |
-| [`laya-typed-decisions`](https://huggingface.co/convaiinnovations/laya-typed-decisions) | ModernBERT-large | 421M | 1024 | the typed-decisions workflows |
+* **`Agent(vegaml=True)` refuses bad input by name instead of training on it.** A yes/no gold
+  of `1.0` used to train as `false`; fit golds are now read the way laya's fine-tune reads them
+  (#1474), a gold keyed to no question is refused (#1477), and a malformed question is refused
+  through laya's own question check (#1476). A non-finite number from the engine is refused
+  before it can become a confident `auto` decision (#1475).
+* **Hooks run on vega.** `on_predict_start`, `on_predict_end` and `on_error`, plus
+  `hooks_raise` and `hooks_timeout`, now work on `VegaAgent.predict` as on every laya surface
+  (#1480).
+* **Video and policies.** Frame times report the frame each one came from (#1481), a clip with
+  no duration no longer crashes the banner fallback (#1478), and a malformed policy manifest is
+  a `PolicyError` (#1487). Loading a trained policy and how routing works are in
+  [docs/vegaml.md](https://github.com/NandhaKishorM/laya/blob/main/docs/vegaml.md).
 
 ## Where to go next
 
@@ -559,6 +492,23 @@ CUDA; CPU and MPS run fp32. Override with `device=`, which is accepted by both e
 agent = laya.load("convaiinnovations/laya", device="cpu")      # or "cuda", "mps", "xpu"
 router = Router(preload=True, device="mps")
 ```
+
+Eager CPU fp32 inference combines packed decision-head projections and SDPA with selective
+outputs in the final head layer: option markers and token zero for the action head. Every
+unmasked token remains a head attention key/value. On Transformers 5, supported ModernBERT
+encoders also compute their existing local attention windows in blocks for sequences of at
+least 512 tokens; global layers retain full attention. No allowed attention connection or
+input token is removed. Training, autocast, other devices, compilation/export, custom hooks
+and unsupported encoders retain the corresponding original execution paths.
+This uses the same weights and calibration, adds no dependency or external service, and
+keeps request tensors local to each call without a shared request cache. Floating-point
+results can differ slightly, including decisions at exact ties. The existing
+[CPU/device](https://github.com/NandhaKishorM/laya/blob/main/verify/bench_devices.py),
+[routing-latency](https://github.com/NandhaKishorM/laya/blob/main/research/scripts/bench_latency.py)
+and [long-context](https://github.com/NandhaKishorM/laya/blob/main/research/scripts/bench_long_context.py)
+benchmarks provide the [before/after evidence](https://github.com/NandhaKishorM/laya/blob/main/benchmarks/results/cpu/README.md).
+The separate [CPU regression harness](https://github.com/NandhaKishorM/laya/blob/main/benchmarks/bench_cpu.py)
+checks unrounded outputs and public answers against the original execution path.
 
 ### macOS, including Intel Macs
 

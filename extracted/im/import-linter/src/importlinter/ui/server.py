@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import cast
+import json
 import logging
 import os
 import socket
@@ -37,9 +38,13 @@ class ErrorResponse(TypedDict):
     error: str
 
 
-def launch(module_name: str) -> None:
+def launch(module_names: list[str]) -> None:
     """
     Launch the interactive UI in a local browser.
+
+    Args:
+        module_names: The Python modules to explore. If more than one is supplied, the UI opens
+            on a top-level overview showing the packages and the dependencies between them.
     """
     handler = logging.StreamHandler()
     handler.setFormatter(
@@ -54,32 +59,50 @@ def launch(module_name: str) -> None:
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
 
-    top_level_package = module_name.split(".")[0]
-    try:
-        __import__(top_level_package)
-    except ImportError:
-        logger.error(
-            f"Could not import '{top_level_package}'. "
-            f"Make sure the package is installed or the current directory contains it."
-        )
-        sys.exit(1)
+    # Deduplicate the root packages (preserving order) so that supplying two subpackages of the
+    # same package, e.g. 'foo.api foo.db', builds the Grimp graph for 'foo' only once.
+    root_packages = _deduplicate([module_name.split(".")[0] for module_name in module_names])
+    for top_level_package in root_packages:
+        try:
+            __import__(top_level_package)
+        except ImportError:
+            logger.error(
+                f"Could not import '{top_level_package}'. "
+                f"Make sure the package is installed or the current directory contains it."
+            )
+            sys.exit(1)
+
+    # A single module opens directly on that module; several open on the overview.
+    initial_module = module_names[0] if len(module_names) == 1 else ""
 
     port = _find_free_port()
-    app = create_app(module_name=module_name, browser_url=f"http://{LOCALHOST}:{port}")
+    app = create_app(
+        root_packages=root_packages,
+        overview_modules=list(module_names),
+        initial_module=initial_module,
+        browser_url=f"http://{LOCALHOST}:{port}",
+    )
     uvicorn.run(app, host=LOCALHOST, port=port, access_log=False)
 
 
 def create_app(
-    module_name: str = "",
+    root_packages: list[str] | None = None,
+    overview_modules: list[str] | None = None,
+    initial_module: str = "",
     browser_url: str | None = None,
 ) -> FastAPI:
     """
     Return FastAPI application for the interactive UI.
 
     Args:
-        module_name: The Python module being explored.
+        root_packages: The deduplicated root packages whose combined graph is built with Grimp.
+        overview_modules: The exact modules the user supplied, drawn as nodes on the top-level
+            overview. These may be subpackages (e.g. 'foo.api'). Defaults to root_packages.
+        initial_module: The module to display on load (empty for the top-level overview).
         browser_url: The URL to open in a browser once the app is ready.
     """
+    root_packages = list(root_packages or [])
+    overview_modules = list(overview_modules) if overview_modules else list(root_packages)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -88,14 +111,62 @@ def create_app(
         yield
 
     app = FastAPI(lifespan=lifespan)
-    app.state.module_name = module_name
+    app.state.root_packages = root_packages
+    app.state.overview_modules = overview_modules
+    app.state.initial_module = initial_module
     app.state.grimp_cache = {}
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
         html = (STATIC_DIR / "index.html").read_text()
-        html = html.replace("{{module_name}}", request.app.state.module_name)
+        html = html.replace(
+            "{{overview_modules_json}}", json.dumps(request.app.state.overview_modules)
+        )
+        html = html.replace(
+            "{{initial_module_json}}", json.dumps(request.app.state.initial_module)
+        )
         return HTMLResponse(content=html)
+
+    def _build_graph_response(
+        request: Request,
+        module: str,
+        show_import_totals: bool,
+        show_module_counts: bool,
+        show_lazy_imports: bool,
+        show_cycle_breakers: bool,
+    ) -> GraphResponse | ErrorResponse:
+        try:
+            graph_data = generate_dot(
+                request.app.state.grimp_cache,
+                module,
+                show_import_totals,
+                show_module_counts,
+                show_lazy_imports,
+                show_cycle_breakers,
+                request.app.state.root_packages,
+                request.app.state.overview_modules,
+            )
+            return cast(GraphResponse, dataclasses.asdict(graph_data))
+        except Exception as e:
+            logger.exception(f"Error building graph for '{module}'")
+            return {"error": str(e)}
+
+    @app.get("/api/graph")
+    def get_overview_graph(
+        request: Request,
+        show_import_totals: bool = False,
+        show_module_counts: bool = False,
+        show_lazy_imports: bool = False,
+        show_cycle_breakers: bool = False,
+    ) -> GraphResponse | ErrorResponse:
+        return _build_graph_response(
+            request,
+            "",
+            show_import_totals,
+            show_module_counts,
+            show_lazy_imports,
+            show_cycle_breakers,
+        )
 
     @app.get("/api/graph/{module:path}")
     def get_graph(
@@ -106,19 +177,14 @@ def create_app(
         show_lazy_imports: bool = False,
         show_cycle_breakers: bool = False,
     ) -> GraphResponse | ErrorResponse:
-        try:
-            graph_data = generate_dot(
-                request.app.state.grimp_cache,
-                module,
-                show_import_totals,
-                show_module_counts,
-                show_lazy_imports,
-                show_cycle_breakers,
-            )
-            return cast(GraphResponse, dataclasses.asdict(graph_data))
-        except Exception as e:
-            logger.exception(f"Error building graph for '{module}'")
-            return {"error": str(e)}
+        return _build_graph_response(
+            request,
+            module,
+            show_import_totals,
+            show_module_counts,
+            show_lazy_imports,
+            show_cycle_breakers,
+        )
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -129,3 +195,8 @@ def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((LOCALHOST, 0))
         return s.getsockname()[1]
+
+
+def _deduplicate(items: list[str]) -> list[str]:
+    """Return the items with duplicates removed, preserving the order of first appearance."""
+    return list(dict.fromkeys(items))

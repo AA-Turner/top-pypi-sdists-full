@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -8,7 +8,6 @@ from office365.runtime.types.collections import StringCollection
 from office365.sharepoint.campaigns.userinfo import CampaignUserInfo
 
 
-@dataclass
 class CampaignEntity(ClientValue):
     campaignId: Optional[str] = None
     channels: Optional[StringCollection] = None

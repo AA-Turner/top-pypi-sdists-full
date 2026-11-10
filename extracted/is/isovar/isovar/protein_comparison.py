@@ -8,12 +8,17 @@ this is not unrestricted six-frame ORF prediction.
 import json
 from pathlib import Path
 
-from .json_files import write_json
 from .default_parameters import PLOT_DPI, PLOT_PROTEIN_ROWS_PER_PAGE, PLOT_WIDTH
+from .json_files import write_json
 from .protein_sequence_helpers import covered_protein_groups
 from .visualization import (
-    BLUE, GRAY, INK, draw_protein_rows, _plot_imports,
-    _protein_disagreements, _style_axis,
+    BLUE,
+    GRAY,
+    INK,
+    draw_protein_rows,
+    plot_dependencies,
+    protein_disagreements,
+    style_evidence_axis,
 )
 
 
@@ -99,8 +104,8 @@ def protein_comparison_figures(products, rows_per_page=PLOT_PROTEIN_ROWS_PER_PAG
     if isinstance(rows_per_page, bool) or not isinstance(rows_per_page, int) or rows_per_page < 2:
         raise ValueError("rows_per_page must be an integer >= 2")
     rows = comparison_rows(products)
-    Figure, rc_context, rectangle = _plot_imports()
-    differences = _protein_disagreements(row["protein"] for row in rows)
+    Figure, rc_context, rectangle = plot_dependencies()
+    differences = protein_disagreements(row["protein"] for row in rows)
     title = " / ".join(products[0]["visualization"]["genes"]) + " | Protein alternatives"
     references = [r for r in rows if r["source"] == "Varcode"]
     rna = [r for r in rows if r["source"] != "Varcode"]
@@ -113,7 +118,7 @@ def protein_comparison_figures(products, rows_per_page=PLOT_PROTEIN_ROWS_PER_PAG
         with rc_context({"svg.fonttype": "none", "font.family": "DejaVu Sans"}):
             figure = Figure(figsize=(PLOT_WIDTH, max(6.5, 2.5 + .8 * len(page))), facecolor="white")
             ax = figure.subplots()
-            _style_axis(ax, "Sample / technology / assembly mode; all recovered alternatives")
+            style_evidence_axis(ax, "Sample / technology / assembly mode; all recovered alternatives")
             display = []
             for row in page:
                 p = row["protein"]
@@ -121,7 +126,8 @@ def protein_comparison_figures(products, rows_per_page=PLOT_PROTEIN_ROWS_PER_PAG
                 if row["assembly"] is not None:
                     label += "\nAssembly " + ("on" if row["assembly"] else "off")
                     if row["rank"]:
-                        label += " / rank %d" % row["rank"]
+                        ranks = row["covered_ranks"]
+                        label += " / " + ("rank " if len(ranks) == 1 else "ranks ") + ", ".join(map(str, ranks))
                 elif row["rank"]:
                     label += " %d" % row["rank"]
                 if row["source"] == "Varcode":
@@ -140,7 +146,7 @@ def protein_comparison_figures(products, rows_per_page=PLOT_PROTEIN_ROWS_PER_PAG
             draw_protein_rows(ax, display, rectangle, differences)
             figure.suptitle(title, x=.035, y=.975, ha="left", fontsize=19, fontweight="bold")
             figure.subplots_adjust(left=.24, right=.79, bottom=.16, top=.85)
-            figure.text(.24, .065, "Orange: nominated mutation. Magenta: differing residues at shared offsets; missing context is not a mismatch.", fontsize=10, color=GRAY)
+            figure.text(.24, .065, "Orange: focal difference / deletion. Magenta: differing residues at shared offsets; missing context is not a mismatch.", fontsize=10, color=GRAY)
             figure.text(.24, .03, "Page %d/%d. Varcode repeats for comparison. Exact shorter contexts grouped, not joined. All ranks/frames: evidence.json." %
                         (number, len(pages)), fontsize=9, color=GRAY)
         yield "protein-comparison-%02d" % number, figure

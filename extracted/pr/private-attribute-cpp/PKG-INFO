@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: private_attribute_cpp
-Version: 2.2.9
+Version: 3.0.2
 Summary: A Python package that provides a way to define private attributes in C++ implementation.
 Author-Email: HuangHaoHua <13140752715@example.com>
 License-Expression: MIT
@@ -36,6 +36,7 @@ outside the declaring class's own code.
   - [Custom name generation (`private_func`)](#custom-name-generation-private_func)
   - [Decorated methods (`PrivateWrapProxy`)](#decorated-methods-privatewrapproxy)
   - [Inheritance and `use_parents`](#inheritance-and-use_parents)
+  - [Cross-class access (`PrivateSuper` and `PrivateClassSuper`)](#cross-class-access-privatesuper-and-privateclasssuper)
 - [API reference](#api-reference)
 - [Custom metaclasses](#custom-metaclasses)
 - [Behavioral notes & limitations](#behavioral-notes--limitations)
@@ -59,9 +60,10 @@ code that knows (or can guess) the mangled name can still read and mutate your
   from subclasses and from `getattr`/`hasattr`/`dir`.
 - Inside the declaring class, they look and behave like ordinary attributes.
 
-It does this by rewriting attribute access in `tp_getattro` / `tp_setattro` and
-storing private values under generated, collision-resistant names (a tuple of
-two SHA-256 hashes).
+It does this by installing C-struct descriptors for `__getattribute__` /
+`__getattr__` / `__setattr__` / `__delattr__` / `__del__` (and `__call__` on
+registered metaclasses) and storing private values under generated,
+collision-resistant names (a tuple of two SHA-256 hashes).
 
 ---
 
@@ -264,6 +266,57 @@ unchanged; only the internal name set is merged. Default is `False`.
 
 ---
 
+### Cross-class access (`PrivateSuper` and `PrivateClassSuper`)
+
+Since v3.0.0 you can explicitly reach a parent class's class-level private
+attribute — including the value it stored "for" an intermediate class — with
+`PrivateSuper` (instance flavour) or `PrivateClassSuper` (`@classmethod`
+flavour):
+
+```python
+import private_attribute
+
+class Grand(private_attribute.PrivateAttrBase):
+    __private_attrs__ = ["_g"]
+    _g = "grand"
+
+    @classmethod
+    def set_g(cls, value):
+        cls._g = value
+
+class Mid(Grand):
+    __private_attrs__ = ["_m"]
+    _m = "mid"
+
+class Leaf(Mid, use_parents=True):
+    __private_attrs__ = []
+
+    def read_grand_shadow(self):
+        # A=Leaf (running code), B=Grand (owning class), C=Mid (defined-for class)
+        return private_attribute.PrivateSuper(Leaf, Grand, Mid, self)._g
+
+    @classmethod
+    def read_grand_shadow_cls(cls):
+        return private_attribute.PrivateClassSuper(Leaf, Grand, Mid, cls)._g
+
+Mid.set_g("written-on-mid")
+Leaf().read_grand_shadow()      # "written-on-mid"
+Leaf.read_grand_shadow_cls()    # "written-on-mid"
+```
+
+- `A` — the type whose code is currently running.
+- `B` — a parent type of `A` whose class-level private attribute is accessed.
+- `C` — the class the private value was defined for; it must be `B`, `A`, or a
+  class that is both a subclass of `B` and a parent of `A`.
+- the final argument is an instance of `A` (for `PrivateSuper`) or a subclass of
+  `A` (for `PrivateClassSuper`).
+
+The attribute is resolved from `B`'s class-level storage for `C` and its
+`__get__(obj, A)` (or `__get__(None, cls)`) is invoked. This is for **class-level
+private attributes only** — it is not for instance-attribute cross-type access.
+
+---
+
 ## API reference
 
 | Name | Kind | Purpose |
@@ -272,11 +325,13 @@ unchanged; only the internal name set is merged. Default is `False`.
 | `PrivateAttrType` | metaclass | The metaclass that implements the private-attribute machinery. |
 | `PrivateWrapProxy(decorator, orig=None)` | decorator | Wrap an arbitrary decorator so it stays private-attribute-aware. |
 | `_PrivateWrap` | class | Returned by `PrivateWrapProxy`; exposes `.result` and `.funcs`. |
-| `prepare(name, bases, attrs, **kwds)` | function | Context manager for building private-attribute classes in a custom metaclass. |
-| `postprocess(typ, temp)` | function | Finalize a class created via `prepare`. |
-| `register_metaclass(metaclass)` | function | Register a custom metaclass so it can produce private-attribute classes. |
-| `ensure_type(typ)` | function | Reset `tp_getattro`/`tp_setattro`/`tp_finalizer` slots on a type. |
-| `ensure_metaclass(metaclass)` | function | Reset the corresponding slots on a metaclass. |
+| `PrivateSuper(A, B, C, obj)` | class | Read a parent class's class-level private attribute defined for another class; calls `__get__(obj, A)`. |
+| `PrivateClassSuper(A, B, C, cls)` | class | Classmethod flavour of `PrivateSuper`; calls `__get__(None, cls)`. |
+| `create_new(func=None)` | function | Register and control a custom metaclass automatically; placed in the metaclass body (or used as a decorator). |
+| `create_meta_slot(name)` | function | Create the final slot (e.g. `__setattr__`) for a registered metaclass; empty slot or decorator. |
+| `create_slot(name)` | function | Create the final slot for a private-attribute class; empty slot or decorator. |
+| `ensure_type(typ)` | function | Re-inject the special-method slot descriptors and `tp_traverse`/`tp_clear` wrappers on a type. |
+| `ensure_metaclass(metaclass)` | function | Re-inject the corresponding slot descriptors and wrappers on a metaclass. |
 
 Class-definition options:
 
@@ -290,21 +345,16 @@ Class-definition options:
 
 ## Custom metaclasses
 
-To combine private attributes with another metaclass (e.g. `ABCMeta`), use the
-`prepare` / `postprocess` pair and register the metaclass:
+To combine private attributes with another metaclass (e.g. `ABCMeta`), put a
+`create_new` slot directly in the metaclass. `create_new` takes care of
+registration and control automatically:
 
 ```python
 from abc import ABCMeta, abstractmethod
 import private_attribute
 
 class PrivateAbcMeta(ABCMeta):
-    def __new__(cls, name, bases, attrs, **kwargs):
-        with private_attribute.prepare(name, bases, attrs, **kwargs) as temp:
-            typ = super().__new__(cls, temp.name, temp.bases, temp.attrs, **temp.kwds)
-            private_attribute.postprocess(typ, temp)   # or temp.postprocess(typ)
-            return typ
-
-private_attribute.register_metaclass(PrivateAbcMeta)
+    __new__ = private_attribute.create_new()
 
 class MyClass(metaclass=PrivateAbcMeta):
     __private_attrs__ = ("_a",)
@@ -326,10 +376,31 @@ a._a                     # AttributeError: private attribute
 MyClass()                # TypeError: Can't instantiate abstract class ...
 ```
 
-`prepare(...)` returns a temporary object exposing `.name`, `.bases`, `.attrs`,
-and `.kwds` (and, since v2.1.17, a `.postprocess(typ)` shortcut). Since v2.2.3
-it is a context manager (`with`), which guarantees the internal creation lock is
-released even if construction fails.
+`create_new` also works as a decorator:
+
+```python
+class PrivateAbcMeta(ABCMeta):
+    @private_attribute.create_new
+    def __new__(cls, name, bases, attrs, **kwargs):
+        return super().__new__(cls, name, bases, attrs, **kwargs)
+```
+
+Custom special-method slots on the metaclass use `create_meta_slot`, and on a
+private-attribute class use `create_slot`. Both take the slot name first and
+work either as an empty slot or as a decorator:
+
+```python
+class PrivateAbcMeta(ABCMeta):
+    __new__ = private_attribute.create_new()
+    __setattr__ = private_attribute.create_meta_slot("__setattr__")()
+
+class MyClass(private_attribute.PrivateAttrBase):
+    __setattr__ = private_attribute.create_slot("__setattr__")()
+```
+
+> The old `prepare` / `postprocess` pair and `register_metaclass` are
+> deprecated (they emit a warning) and kept only for backward compatibility;
+> new code should use `create_new`.
 
 ---
 
@@ -359,14 +430,23 @@ released even if construction fails.
   `__private_attrs__` or opts in with `use_parents=True`.
 - **v2.2.1** — `prepare` locks private-attribute-type creation so only one type
   is being built (`type.__new__`) at a time; `postprocess` unlocks it. The lock
-  is released automatically on failure.
+  is released automatically on failure. (Deprecated; see `create_new`.)
 - **v2.2.3** — prefer the `with` form of `prepare`/`postprocess` to guarantee
-  the lock is released.
-- CPython may change `tp_getattro` / `tp_setattro` when you assign
-  `__getattribute__` / `__setattr__`. Use `ensure_type` (or `ensure_metaclass`)
-  to reset those slots, and avoid setting those methods on private-attribute
-  classes directly.
+  the lock is released. (Deprecated; see `create_new`.)
+- CPython may reset the special-method slot descriptors (e.g. when you assign
+  `__getattribute__` / `__setattr__`). Use `ensure_type` (or
+  `ensure_metaclass`) to re-inject them, and avoid setting those methods on
+  private-attribute classes directly.
+- **v3** — private attribute interception is implemented through C-struct
+  descriptors installed as `__getattribute__` / `__getattr__` / `__setattr__` /
+  `__delattr__` / `__del__` (and `__call__` on registered metaclasses), rather
+  than by directly setting `tp_getattro` / `tp_setattro` / `tp_finalize`. Only
+  `tp_traverse` / `tp_clear` are set directly. A public cache keyed by object
+  id records attribute names already confirmed non-private, so they go
+  straight to the user callback without re-classification. Registered types and
+  created types must be heap types (static types are rejected).
 - `register_metaclass` requires a metaclass that supports weak references.
+  (Deprecated; use `create_new`, which registers the metaclass automatically.)
 - Do **not** set `__static_attributes__` on a private-attribute class; it is
   removed automatically.
 

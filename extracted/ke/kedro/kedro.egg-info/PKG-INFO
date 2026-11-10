@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 1.7.0
+Version: 1.8.0
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -58,23 +58,17 @@ Requires-Dist: pytest-mock<4.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]<4.0,>=2.2.1; extra == "test"
 Requires-Dist: pytest<10.0,>=7.2; extra == "test"
 Requires-Dist: requests_mock; extra == "test"
-Requires-Dist: s3fs<2026.8,>=2021.4; extra == "test"
+Requires-Dist: s3fs<2026.10,>=2021.4; extra == "test"
 Requires-Dist: pandas-stubs; extra == "test"
 Requires-Dist: types-PyYAML; extra == "test"
 Requires-Dist: types-requests; extra == "test"
 Provides-Extra: docs
-Requires-Dist: mkdocs<2.0,>=1.6.1; extra == "docs"
-Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
-Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == "docs"
-Requires-Dist: mkdocs-mermaid2-plugin>=1.2.1; extra == "docs"
+Requires-Dist: zensical>=0.0.58; extra == "docs"
 Requires-Dist: mkdocs-autorefs>=1.4.1; extra == "docs"
-Requires-Dist: mkdocs-get-deps>=0.2.0; extra == "docs"
 Requires-Dist: mkdocstrings>=0.29.1; extra == "docs"
-Requires-Dist: mkdocstrings-python>=0.29.1; extra == "docs"
+Requires-Dist: mkdocstrings-python>=1.0.2; extra == "docs"
 Requires-Dist: mkdocs-click; extra == "docs"
-Requires-Dist: mkdocs-redirects; extra == "docs"
 Requires-Dist: griffe; extra == "docs"
-Requires-Dist: mkdocs-llmstxt; extra == "docs"
 Provides-Extra: jupyter
 Requires-Dist: ipylab>=1.0.0; extra == "jupyter"
 Requires-Dist: notebook>=7.0.0; extra == "jupyter"

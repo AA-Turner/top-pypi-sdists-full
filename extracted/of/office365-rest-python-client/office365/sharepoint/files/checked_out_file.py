@@ -8,24 +8,27 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.principal.users.user import User
 
 
 class CheckedOutFile(Entity):
     """Represents a checked-out file in a document library or workspace."""
 
+    @site_access(SiteLevel.WRITE)
     def takeover_checkout(self) -> Self:
         """Instructs the site that another user account is taking over control of a currently checked-out file."""
         qry = ServiceOperationQuery(self, "TakeOverCheckOut")
         self.context.add_query(qry)
         return self
 
+    @odata(name="CheckedOutById", beta=True)
     @property
     def checked_out_by_id(self) -> Optional[int]:
         """Returns the user ID of the account used to check out the file."""
         return self.properties.get("CheckedOutById", None)
 
-    @odata(name="CheckedOutBy")
+    @odata(name="CheckedOutBy", navigation=True, beta=True)
     @property
     def checked_out_by(self) -> User:
         """Returns the username of the account used to check out the file."""
@@ -38,6 +41,7 @@ class CheckedOutFile(Entity):
     def property_ref_name(self) -> str:
         return "CheckedOutById"
 
+    @odata(name="ServerRelativePath", beta=True)
     @property
     def server_relative_path(self) -> ResourcePath:
         """Gets the ServerRelativePath property"""
@@ -45,6 +49,7 @@ class CheckedOutFile(Entity):
 
         return self.properties.get("ServerRelativePath", ResourcePath())
 
+    @site_access(SiteLevel.WRITE)
     def take_over_check_out(self) -> Self:
         """TakeOverCheckOut operation."""
         qry = ServiceOperationQuery(self, "TakeOverCheckOut", None, {}, None, None)

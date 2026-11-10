@@ -247,15 +247,37 @@ def request_drain(journal, credential_env: dict | None = None) -> str | None:
     from probe.foundation.service_api import handoff
     from probe.foundation.service_api.wire import Method
 
-    parameters = {"dir": os.path.abspath(str(journal.dir)), "env": {**_drain_env(), **(credential_env or {})}}
+    from probe.foundation.service_api.vocabularies import BackgroundRefusal
+
+    folder = os.path.abspath(str(journal.dir))
+    parameters = {"dir": folder, "env": {**_drain_env(), **(credential_env or {})}}
+    _PROMISED_AT.pop(folder, None)
     try:
         answer = handoff.request(Method.OUTBOX_DRAIN, parameters, timeout=DRAIN_ASK_S)
     except Exception:  # noqa: BLE001 -- no service (or a broken one): the journal waits on disk
         return None
-    if isinstance(answer, dict) and answer.get("accepted") is True:
+    is_accepted = isinstance(answer, dict) and answer.get("accepted") is True
+    if is_accepted or (isinstance(answer, dict) and answer.get("reason") == BackgroundRefusal.BUSY):
+        _PROMISED_AT[folder] = time.monotonic()
+    if is_accepted:
         note_key_handed(credential_env)
         return answer.get("state")
     return None
+
+
+#: How long a service's last answer for a folder stands (each ask renews it).
+PROMISE_FRESH_S = 10.0
+#: Folders a service lately said it drains (accepted: started, or running) or will once a slot frees
+#: (BUSY: every one of its `MAX_DRAINS` slots taken): monotonic time of that answer.
+_PROMISED_AT: dict[str, float] = {}
+
+
+def is_drain_promised(directory) -> bool:
+    """A service answered `directory`'s last drain ask lately with a drain or a full house: a sender exists,
+    however slowly its worker starts on a loaded node, so a wait keeps asking (W23: eight producers on one
+    node, a ninth gave its writes up as "no sender" while the service was busy)."""
+    at = _PROMISED_AT.get(os.path.abspath(str(directory)))
+    return at is not None and time.monotonic() - at < PROMISE_FRESH_S
 
 
 #: In-code keys a service took (an accepted `outbox.drain` carrying one, or `credentials.hold`):

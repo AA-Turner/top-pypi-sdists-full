@@ -21,6 +21,7 @@ enabled: false
 protocol: ag-ui
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
 harness: pydantic-ai
+identity: datalayer-acting-agent
 
 # Memory backend
 memory: ephemeral
@@ -60,3 +61,8 @@ system_prompt: >
 
 system_prompt_codemode_addons: null
 trigger: null
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

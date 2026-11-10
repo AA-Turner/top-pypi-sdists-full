@@ -32,8 +32,8 @@ effective_threads (int threads, size_t n_receivers)
 /* Rebuild the workers for `threads`. One worker is serial: no helpers,
    and dp_pool_run() runs every task inline on the caller. The workers step
    the receivers; the search runs before them, on the requested count, and
-   dp_acq_set_threads() caps that at one worker a tile. On bare metal the
-   fan takes a full-span dwell to 0.35-0.58 of the serial time at 2-8
+   dp_correlator_set_threads() caps that at one worker a tile. On bare metal
+   the fan takes a full-span dwell to 0.35-0.58 of the serial time at 2-8
    workers; on WSL2 it costs the scene example 1.8x and an all-cores pool
    1.27x, which #2775 owns (async-dsss-receiver-measurements.md §9.7). */
 static void
@@ -109,7 +109,7 @@ dp_async_dsss_pool_create (
      1.9-3.5x at D = 1, and inline it ties serial everywhere. A standalone
      engine keeps the fan, which pays there on bare metal. */
   if (s->search->acq)
-    s->search->acq->epoch_fan = 0;
+    s->search->acq->search->epoch_fan = 0;
   /* A call that completes a carried code period emits that period's
      symbols beyond its input's own (dp_async_dsss_receiver_steps()), and
      its input's own are at most one a sample (a symbol spans at least one
@@ -126,9 +126,12 @@ dp_async_dsss_pool_create (
                                      / (double)code_len);
   if (s->ghost_window < 2)
     s->ghost_window = 2;
+  /* A row of ghost_window per receiver. dp_xcallocn checks the
+     n_receivers x ghost_window count and its byte size, so a product too
+     large for memory aborts here, never a short buffer. */
   s->car_hist
-      = dp_xcalloc (n_receivers * s->ghost_window, sizeof *s->car_hist);
-  s->cl_hist  = dp_xcalloc (n_receivers * s->ghost_window, sizeof *s->cl_hist);
+      = dp_xcallocn (n_receivers, s->ghost_window, sizeof *s->car_hist);
+  s->cl_hist  = dp_xcallocn (n_receivers, s->ghost_window, sizeof *s->cl_hist);
   s->hist_len = dp_xcalloc (n_receivers, sizeof *s->hist_len);
   build_workers (s, threads);
   return s;
@@ -456,7 +459,13 @@ dp_async_dsss_pool_push (dp_async_dsss_pool_state_t *s,
   if (need > s->sym_cap)
     {
       free (s->sym_buf);
-      s->sym_buf = dp_xmalloc (s->n_receivers * need * sizeof *s->sym_buf);
+      /* Trusted, like every allocation on this path: a row of `need` per
+         receiver whose count does not fit aborts, and so does its byte
+         size (dp_xmallocn), rather than wrapping to a short buffer. */
+      size_t n_sym;
+      if (!dp_size_mul (s->n_receivers, need, &n_sym))
+        abort ();
+      s->sym_buf = dp_xmallocn (n_sym, sizeof *s->sym_buf);
       s->sym_cap = need;
     }
   for (size_t i = 0; i < s->n_receivers; i++)

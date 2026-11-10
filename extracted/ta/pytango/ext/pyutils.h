@@ -96,34 +96,31 @@ inline void raise_(PyObject *type, const char *message) {
     throw py::error_already_set();
 }
 
-inline PyObject *EncodeAsLatin1(PyObject *in) {
-    PyObject *bytes_out = PyUnicode_AsLatin1String(in);
-    if(bytes_out == nullptr) {
-        PyObject *bytes_replaced = PyUnicode_AsEncodedString(in, "latin-1", "replace");
-        const char *string_replaced = PyBytes_AsString(bytes_replaced);
+inline py::object EncodeAsLatin1(PyObject *in) {
+    py::object bytes_out = py::reinterpret_steal<py::object>(PyUnicode_AsLatin1String(in));
+    if(!bytes_out) {
+        // Retry with bad chars replaced, only to build a helpful error message.
+        // The indicator must be cleared first, otherwise we call into Python
+        // with an exception still pending.
+        PyErr_Clear();
+        py::object bytes_replaced =
+            py::reinterpret_steal<py::object>(PyUnicode_AsEncodedString(in, "latin-1", "replace"));
         std::string err_msg = "Can't encode ";
+        // PyBytes_AsString(nullptr) dereferences a null type pointer, so the
+        // null check has to come before the call, not after it.
+        const char *string_replaced = bytes_replaced ? PyBytes_AsString(bytes_replaced.ptr()) : nullptr;
         if(string_replaced == nullptr) {
+            PyErr_Clear();
             err_msg += "unknown Unicode string as Latin-1";
         } else {
             err_msg += "'";
             err_msg += string_replaced;
             err_msg += "' Unicode string as Latin-1 (bad chars replaced with ?)";
         }
-        Py_XDECREF(bytes_replaced);
         raise_(PyExc_UnicodeError, err_msg.c_str());
     }
 
     return bytes_out;
-}
-
-inline PyObject *PyObject_GetAttrString_(PyObject *o, const std::string &attr_name) {
-    const char *attr = attr_name.c_str();
-    return PyObject_GetAttrString(o, attr);
-}
-
-inline PyObject *PyImport_ImportModule_(const std::string &name) {
-    const char *attr = name.c_str();
-    return PyImport_ImportModule(attr);
 }
 
 py::object from_cpp_str_to_pybind11_str(const std::string &in,

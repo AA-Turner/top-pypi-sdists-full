@@ -3,17 +3,21 @@
 Consumes: tokens, segments, structure, interpunct_offsets, segmenter,
 one_case where segment recorded it, and comma_offsets, for the
 own-words span `_one_case` asks the fact over where segment did not
-(#613; the answer is not recorded, classify recording its own).
+(#613; the answer is not recorded, classify recording its own), and
+original, for the peel's ASCII bail.
 Produces: tokens, by two independent splits into sub-slices -- a
 listed honorific peeled off the END of the name's last
 non-post-nominal token, in whichever of the name's runs that falls
 (the tail token also carries this module's _PEELED_TAG), and the
-first activated-script token of the name segment split into n+1 --
-segments (index runs remapped past the insertions), ambiguities
+first activated-script token of the name segment split into n+1
+(into its two surnames and, undivided, the given name behind them,
+where a Han surname pair stands there, the second surname carrying
+SURNAME_PAIR_TAG for post_rules, rules/W5) -- segments (index runs remapped past the insertions), ambiguities
 (indices likewise remapped, plus a SEGMENTATION report when more than
 one split was vocabulary-supported, or when a segmenter's answer
 scored under the confidence floor).
-Reads: Policy.segment_scripts, Lexicon.surnames,
+Reads: Policy.segment_scripts, Lexicon.surnames, Policy.script_orders
+and Policy.name_order (the order W5's pair needs, rules/W4),
 Lexicon.honorific_tails, ParseState.segmenter, Lexicon.maiden_markers
 DIRECTLY (the own-words span `_one_case` takes, _pieces.own_words),
 everything classify and `_comma.decide` read, through
@@ -44,7 +48,8 @@ split being the half that flips "田中さん, Jr./V." under {"/"} and the
 bare core the half that flips "田中さん, /").
 
 Implements rules W1 (the vocabulary/segmenter division), W2 (the
-glued-honorific peel) and W3 (the writer's divisions are respected)
+glued-honorific peel), W3 (the writer's divisions are respected) and
+W5's division (a Han surname pair)
 of docs/design/rules/, cited at their code below; the decision
 chain (#308, #312, #319, the vetting bars, the measured
 spaced-honorific trade) is decisions/W1, #W2 and #W3. Both splits
@@ -70,14 +75,16 @@ from nameparser._lexicon import FULL_STOPS
 import nameparser._pipeline._comma as _comma
 from nameparser._pipeline._classify import classify
 from nameparser._pipeline._state import (
-    ParseState, PendingAmbiguity, Structure, WorkToken, copy_with,
+    SURNAME_PAIR_TAG, ParseState, PendingAmbiguity, Structure, WorkToken,
+    copy_with,
 )
 from nameparser._pipeline._vocab import (
     effective_script, is_one_case,
-    is_suffix_strict, is_wholly_suffix,
+    is_suffix_strict, is_wholly_suffix, resolve_script_set,
 )
 from nameparser._pipeline._pieces import own_words
-from nameparser._types import AmbiguityKind, Segmentation, Span
+from nameparser._policy import Script
+from nameparser._types import AmbiguityKind, Role, Segmentation, Span
 
 #: Marks the tail token the peel below MANUFACTURED, so the segmenter's
 #: neighbour test can tell it from a token somebody wrote. Namespaced,
@@ -348,7 +355,7 @@ def _one_case(state: ParseState) -> bool:
     if state.one_case is not None:
         return state.one_case
     return is_one_case(own_words(state.tokens, state.comma_offsets,
-                                 state.lexicon.maiden_markers)[0])
+                                 state.lexicon._sets.maiden_markers)[0])
 
 
 def _postnominal_behind_a_whole_name(state: ParseState) -> bool:
@@ -446,7 +453,7 @@ def _peel_honorific_tail(state: ParseState,
     matching surname is a competing READING of the name, which a
     caller may prefer, while a shorter tail leaves a remainder that is
     not a name at all (김선생), so there is nothing to adjudicate."""
-    tails = state.lexicon.honorific_tails
+    tails = state.lexicon._sets.honorific_tails
     if not tails:
         return state
     # The NAME's runs: more than segments[0], never every segment. A
@@ -550,9 +557,88 @@ def _split_candidate(state: ParseState) -> int | None:
     # role is the order resolution's call, stop or no stop. Asked here,
     # with the core the split reads (#323), so the comma gate in front
     # learns it before asking the comma's decision (#613's /simplify)
-    if state.tokens[i].text.rstrip(FULL_STOPS) in state.lexicon.surnames:
+    if state.tokens[i].text.rstrip(FULL_STOPS) in state.lexicon._sets.surnames:
         return None
     return i
+
+
+def _surname_pair(state: ParseState, i: int, core: str,
+                  surnames: frozenset[str]) -> tuple[int, ...] | None:
+    """rules/W5: "whose first two are each a listed single surname" --
+    the offsets at which `_split` divides token `i` into its two
+    surnames and, written undivided, the given name behind them: (1, 2)
+    for four characters, (1,) for two with the given name after the
+    space; or None where it holds no second single surname the family
+    can take, by the length, script and order tests below (#845). Token
+    `i`'s longest listed surname is its first character, so no listed
+    compound opens it.
+
+    Four characters written undivided, or two with a word of two
+    written after the space: a Han given name is nearly always one or
+    two characters, and a three-character name is nearly always a
+    single surname before a two-character given name (李林伟, and
+    `李林 伟` written with a stray space), the reason no married pair is
+    listed as a compound.
+
+    Only where the name will be read family-first, since only there is
+    the first surname the family for the second to join: every word of
+    the name segment but the post-nominals ending it written in the
+    scripts assign's order resolution keys (rules/W4), resolving to an
+    entry, or failing one, to a declared order, that puts the family
+    first -- the resolution assign makes over its name pieces, asked of
+    the words before titles are known. A word in another
+    script, a Latin title included, keeps W1's division, which reads
+    the same under any order, so the stage never cuts a name the order
+    then reads otherwise. History: decisions/W5 (#845)."""
+    # the length tests first: they are C-level, and refuse a
+    # three-character token, the usual single surname and given name,
+    # before the script walk below
+    if core[1] not in surnames or len(core) not in (2, 4):
+        return None
+    run = state.segments[0]
+    at = run.index(i)
+    if len(core) == 2 and (
+            at + 1 == len(run)
+            or len(state.tokens[run[at + 1]].text.rstrip(FULL_STOPS)) != 2):
+        return None
+    # post-nominals ending the name, a peeled honorific among them, are
+    # no name pieces of assign's, so they key no order (王李小明さん,
+    # 王李小明 PhD); anything before them does
+    end = len(run)
+    while (end > at + 1
+           and (_PEELED_TAG in state.tokens[run[end - 1]].tags
+                or _is_post_nominal(state, run[end - 1]))):
+        end -= 1
+    found: set[Script] = set()
+    for j in run[:end]:
+        script = effective_script(state.tokens[j].text)
+        if script is None:
+            return None
+        found.add(script)
+    if resolve_script_set(found) is not Script.HAN:
+        return None
+    order = next((o for s, o in state.policy.script_orders
+                  if s is Script.HAN), state.policy.name_order)
+    if order[0] is Role.GIVEN:
+        return None
+    if len(core) == 4:
+        return (1, 2)
+    return None if _is_post_nominal(state, run[at + 1]) else (1,)
+
+
+def _split_surname_pair(state: ParseState, i: int,
+                        splits: tuple[int, ...]) -> ParseState:
+    """Token `i` divided at `_surname_pair`'s cuts into its two surnames
+    and, unspaced, the given name behind them, the second surname
+    tagged for post_rules to read as the family's second unit. No
+    report here: whether the pair is read is post_rules' decision,
+    under the order the name is read in, so it reports there
+    (mechanisms.md#AMBIGUITY-AT-THE-DECISION-SITE)."""
+    state = _split(state, i, splits, None)
+    second = state.tokens[i + 1]
+    tokens = list(state.tokens)
+    tokens[i + 1] = copy_with(second, tags=second.tags | {SURNAME_PAIR_TAG})
+    return copy_with(state, tokens=tuple(tokens))
 
 
 def _split_surname_site(state: ParseState) -> ParseState:
@@ -574,7 +660,7 @@ def _split_surname_site(state: ParseState) -> ParseState:
         return state
     token = state.tokens[i]
     text = token.text
-    surnames = state.lexicon.surnames
+    surnames = state.lexicon._sets.surnames
     # The vocabulary match reads the token's CORE (#323). Without it
     # the stop WAS the remainder: '김.' matched its own head and became
     # 김 + '.'; the stop rides with the remainder instead, so '김민준.'
@@ -604,6 +690,10 @@ def _split_surname_site(state: ParseState) -> ParseState:
                    if core[:length] in surnames]
     if matches:
         take = matches[0]
+        if take == 1:
+            pair = _surname_pair(state, i, core, surnames)
+            if pair is not None:
+                return _split_surname_pair(state, i, pair)
         detail = None
         if len(matches) > 1:
             # more than one vocabulary-supported split: longest-first
@@ -738,12 +828,12 @@ def script_segment(state: ParseState) -> ParseState:
         # rather than splitting -- a different mechanism, and no peel
         # site either way. A glued Latin POST-nominal is spelled the
         # same way, so it reaches that same mechanism rather than
-        # nothing: period_joined_vocab reads "Smith.Jr." as a suffix
-        # ('jr' is suffix vocabulary only since #296 took it out of
-        # TITLES), and position decides whether that reading lands --
-        # "John Anderson Smith.Jr." gives suffix "Smith.Jr.", while
+        # nothing: period_joined_vocab reads "Smith.Jr." by its shape,
+        # 'smith' being no chunk that counts (#1131), and position
+        # decides whether that reading lands -- "John Anderson
+        # Smith.Jr." gives suffix "Smith.Jr.", reported, while
         # "Smith.Jr. Anderson" gives given "Smith.Jr.", family
-        # "Anderson" (measured 2026-10-02). Whatever it decides, this
+        # "Anderson" (measured 2026-11-07). Whatever it decides, this
         # bail is what settles the question here: it
         # returns above all of it, so no ASCII input reaches the peel.
         return state

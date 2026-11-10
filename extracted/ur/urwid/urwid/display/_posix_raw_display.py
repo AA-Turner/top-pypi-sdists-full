@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import contextlib
+import errno
 import fcntl
 import functools
 import os
@@ -38,7 +39,7 @@ from subprocess import PIPE, Popen
 from urwid import signals
 
 from . import _raw_display_base, escape
-from .common import INPUT_DESCRIPTORS_CHANGED
+from .common import INPUT_DESCRIPTORS_CHANGED, InputClosedError
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
@@ -132,6 +133,12 @@ class Screen(_raw_display_base.Screen):
             should chain to the previous handler (as this class does) rather than replacing it outright,
             and multithreaded applications must call `signal_init()` and `signal_restore()` from the main thread,
             since only the main thread can receive process signals.
+            `start()` also clears the ``IEXTEN`` flag, which cbreak mode leaves on,
+            so on macOS and the BSDs Ctrl+V, Ctrl+O and Ctrl+Y reach the application
+            instead of being handled by the terminal driver.
+            It clears ``FLUSHO`` as well: a Ctrl+O typed before the start can leave that output discard on,
+            and without ``IEXTEN`` no Ctrl+O can turn it off.
+            `stop()` restores both flags.
         """
         super().__init__(
             input,
@@ -280,6 +287,14 @@ class Screen(_raw_display_base.Screen):
         if fd is not None and os.isatty(fd):
             self._old_termios_settings = termios.tcgetattr(fd)
             tty.setcbreak(fd)
+            # setcbreak() leaves IEXTEN on, and with it the macOS and BSD drivers still act on ctrl v (VLNEXT),
+            # ctrl o (VDISCARD, which toggles FLUSHO, and the driver drops every write while FLUSHO is set)
+            # and ctrl y (VDSUSP).
+            # FLUSHO is cleared too, because with IEXTEN off no ctrl o can clear it.
+            # ISIG stays as it is for tty_signal_keys().
+            mode = termios.tcgetattr(fd)
+            mode[tty.LFLAG] &= ~(termios.IEXTEN | termios.FLUSHO)
+            termios.tcsetattr(fd, termios.TCSANOW, mode)
 
         self._detect_terminal_modes()
 
@@ -290,6 +305,7 @@ class Screen(_raw_display_base.Screen):
             self.write(escape.PrivateMode.FOCUS_REPORTING.enable_seq)
 
         self._enable_keyboard_protocol()
+        self._show_title()
 
         self.signal_init()
         self._next_timeout = self.max_wait
@@ -306,27 +322,44 @@ class Screen(_raw_display_base.Screen):
     def _stop(self) -> None:
         """Restore the screen."""
         self.clear()
-
-        if self.modes.bracketed_paste:
-            self.write(escape.PrivateMode.BRACKETED_PASTE.disable_seq)
-
-        if self.modes.focus_reporting:
-            self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
-
-        # before the alternate screen is left: the kitty keyboard flags are kept per screen
-        self._disable_keyboard_protocol()
-
         self.signal_restore()
 
-        self._stop_restore_palette()
-        self._stop_mouse_restore_buffer()
+        try:
+            try:
+                if self.modes.bracketed_paste:
+                    self.write(escape.PrivateMode.BRACKETED_PASTE.disable_seq)
 
-        fd = self._input_fileno()
-        if fd is not None and os.isatty(fd) and self._old_termios_settings is not None:
-            termios.tcsetattr(fd, termios.TCSAFLUSH, self._old_termios_settings)
+                if self.modes.focus_reporting:
+                    self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
 
-        if self._old_signal_keys:
-            self.tty_signal_keys(*self._old_signal_keys, fd)
+                # before the alternate screen is left: the kitty keyboard flags are kept per screen
+                self._disable_keyboard_protocol()
+
+                self._stop_restore_palette()
+                self._restore_title()
+                self._stop_mouse_restore_buffer()
+            except OSError as exc:
+                # A hung-up terminal (EIO, or ENXIO on FreeBSD) or a closed output pipe (EPIPE) has nothing to restore,
+                # and raising here would hide the error that ended the run, such as the closed input.
+                if exc.errno not in {errno.EIO, errno.ENXIO, errno.EPIPE}:
+                    raise
+            finally:
+                # a failed write skips the step of _mouse_tracking() that stops the helper
+                self._stop_gpm_tracking()
+        finally:
+            # the terminal settings are restored also when an error other than a hang-up ended the writes
+            fd = self._input_fileno()
+            try:
+                if fd is not None and os.isatty(fd) and self._old_termios_settings is not None:
+                    termios.tcsetattr(fd, termios.TCSAFLUSH, self._old_termios_settings)
+
+                if self._old_signal_keys:
+                    self.tty_signal_keys(*self._old_signal_keys, fd)
+            except termios.error:
+                # A terminal that hung up after the isatty() check is no tty any more and has no settings to restore.
+                # One that still is, such as a terminal an orphaned process group may not change, reports its error.
+                if fd is None or os.isatty(fd):
+                    raise
 
         # A suspend requested while the screen ran must not stop the process after a later restart.
         self._suspend_requested = False
@@ -421,7 +454,7 @@ class Screen(_raw_display_base.Screen):
         """
         Read at most `_INPUT_READ_LIMIT` bytes of the raw input available, waiting at most *timeout* seconds.
 
-        :raises RuntimeError: the input file has been closed.
+        :raises InputClosedError: the input file has been closed.
         """
         ready = self._wait_for_input_ready(timeout)
         gpm_stdout = self.gpm_mev.stdout if self.gpm_mev is not None else None
@@ -436,7 +469,7 @@ class Screen(_raw_display_base.Screen):
         # `fd` was just reported ready, so this read does not block. Input beyond the limit is read on the next pass.
         chunk = os.read(fd, _INPUT_READ_LIMIT)
         if not chunk:
-            raise RuntimeError("stdin has been closed")
+            raise InputClosedError("stdin has been closed")
         chars.extend(chunk)
         return chars
 

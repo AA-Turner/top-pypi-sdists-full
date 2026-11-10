@@ -5,6 +5,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from decimal import Decimal
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -53,6 +54,7 @@ from trilogy.core.enums import (
 )
 from trilogy.core.exceptions import InvalidSyntaxException, UnsupportedDialectFeature
 from trilogy.core.internal import DEFAULT_CONCEPTS
+from trilogy.core.like_patterns import ESCAPE, canonical
 from trilogy.core.models.author import ArgBinding, arg_to_datatype, get_basic_type
 from trilogy.core.models.build import (
     BuildAggregateWrapper,
@@ -141,6 +143,7 @@ from trilogy.core.statements.author import (
 )
 from trilogy.core.statements.execute import (
     PROCESSED_STATEMENT_TYPES,
+    ColumnInfo,
     ProcessedCallStatement,
     ProcessedChartCopyStatement,
     ProcessedChartStatement,
@@ -165,7 +168,7 @@ from trilogy.core.table_processor import (
 )
 from trilogy.core.utility import safe_quote
 from trilogy.dialect.common import render_join as render_join_clause
-from trilogy.dialect.common import render_unnest
+from trilogy.dialect.common import render_unnest, render_window_substring
 from trilogy.hooks.base_hook import BaseHook
 from trilogy.utility import safe_open
 
@@ -184,6 +187,14 @@ class TableColumn:
     trilogy_type: DataType
     is_nullable: bool = True
     comment: str | None = None
+
+
+LIKE_OPERATORS = (
+    ComparisonOperator.LIKE,
+    ComparisonOperator.NOT_LIKE,
+    ComparisonOperator.ILIKE,
+    ComparisonOperator.NOT_ILIKE,
+)
 
 
 def nullable_from_str(value: object) -> bool:
@@ -677,12 +688,59 @@ def render_prior(args: list[str], types: list[Any]) -> str:
     )
 
 
+def _is_nonzero_literal(arg: str) -> bool:
+    try:
+        value = float(arg.strip().strip("()").strip())
+    except ValueError:
+        return False
+    return value != 0 and math.isfinite(value)
+
+
+def _literal_number(arg: str) -> float | None:
+    try:
+        value = float(arg.strip().strip("()").strip())
+    except ValueError:
+        return None
+    return value if math.isfinite(value) else None
+
+
+def in_domain(arg: str, strict: bool) -> str:
+    """`arg` where `sqrt` (`strict=False`) or `log` (`strict=True`) is
+    defined, else NULL: DuckDB and ClickHouse answer nan or -inf outside it,
+    Postgres and BigQuery raise, SQLite is NULL (formal/Trilogy/Casts.lean,
+    `domain_guard_exact`)."""
+    value = _literal_number(arg)
+    if value is not None and (value > 0 or (value == 0 and not strict)):
+        return arg
+    op = ">" if strict else ">="
+    return f"CASE WHEN {arg} {op} 0 THEN {arg} END"
+
+
+def render_sqrt(args: list[str], types: list | None = None) -> str:
+    return f"sqrt({in_domain(args[0], strict=False)})"
+
+
+def guard_divisor(arg: str) -> str:
+    """A zero divisor makes `/` and `%` NULL on every dialect, as SQLite and
+    BigQuery's `safe_divide` answer; DuckDB and ClickHouse give inf or nan or
+    raise, Postgres raises (formal/Trilogy/NullReject.lean, `guarded_div`)."""
+    return arg if _is_nonzero_literal(arg) else f"nullif({arg}, 0)"
+
+
+def render_divide(args: list[str], types: list | None = None) -> str:
+    return " / ".join([args[0], *(guard_divisor(a) for a in args[1:])])
+
+
+def render_mod(args: list[str], types: list | None = None) -> str:
+    return f"{args[0]} % {guard_divisor(args[1])}"
+
+
 def render_true_divide(float_type: str, args: list[str], types: list) -> str:
     """`/` on an engine that truncates an integer quotient: Trilogy's `/` is
     true division, so the dividend is cast to a float first."""
     if types and all(t.data_type in (DataType.INTEGER, DataType.BIGINT) for t in types):
-        return " / ".join([f"cast({args[0]} as {float_type})", *args[1:]])
-    return " / ".join(args)
+        return render_divide([f"cast({args[0]} as {float_type})", *args[1:]])
+    return render_divide(args)
 
 
 def render_log(args: list[str], types: list) -> str:
@@ -690,8 +748,14 @@ def render_log(args: list[str], types: list) -> str:
     the base first on SQLite, Postgres, Snowflake and MySQL and second
     elsewhere, so only the change of base is portable."""
     if args[1] in ("10", "10.0"):
-        return f"log10({args[0]})"
-    return f"(ln({args[0]}) / ln({args[1]}))"
+        return f"log10({in_domain(args[0], strict=True)})"
+    return render_ln_log("ln", args)
+
+
+def render_ln_log(ln: str, args: list[str]) -> str:
+    """The change of base, NULL outside the log's domain and for base 1."""
+    x, base = (in_domain(a, strict=True) for a in args)
+    return f"({ln}({x}) / nullif({ln}({base}), 0))"
 
 
 def render_present_extreme(name: str) -> Callable[..., str]:
@@ -806,15 +870,15 @@ FUNCTION_MAP = {
     FunctionType.ADD: lambda x, types: " + ".join(x),
     FunctionType.ABS: lambda x, types: f"abs({x[0]})",
     FunctionType.SUBTRACT: lambda x, types: " - ".join(x),
-    FunctionType.DIVIDE: lambda x, types: " / ".join(x),
+    FunctionType.DIVIDE: render_divide,
     FunctionType.MULTIPLY: lambda x, types: " * ".join(x),
     FunctionType.ROUND: lambda x, types: f"round({x[0]},{x[1]})",
     FunctionType.FLOOR: lambda x, types: f"floor({x[0]})",
     FunctionType.CEIL: lambda x, types: f"ceil({x[0]})",
-    FunctionType.MOD: lambda x, types: f"{x[0]} % {x[1]}",
+    FunctionType.MOD: render_mod,
     # `**` is DuckDB's alone; SQLite, Postgres and SQL Server reject it
     FunctionType.POWER: lambda x, types: f"power({x[0]}, {x[1]})",
-    FunctionType.SQRT: lambda x, types: f"sqrt({x[0]})",
+    FunctionType.SQRT: render_sqrt,
     FunctionType.RANDOM: lambda x, types: "random()",
     FunctionType.LOG: render_log,
     # aggregate types
@@ -841,9 +905,16 @@ FUNCTION_MAP = {
     # string types
     FunctionType.UPPER: lambda x, types: f"UPPER({x[0]}) ",
     FunctionType.LOWER: lambda x, types: f"LOWER({x[0]}) ",
-    FunctionType.SUBSTRING: lambda x, types: f"SUBSTRING({x[0]},{x[1]},{x[2]})",
+    FunctionType.SUBSTRING: lambda x, types: render_window_substring(
+        "SUBSTRING", "length({})", x
+    ),
     FunctionType.STRPOS: lambda x, types: f"STRPOS({x[0]},{x[1]})",
-    FunctionType.CONTAINS: lambda x, types: f"CONTAINS({x[0]},{x[1]})",
+    # a substring test ignores case on every dialect; array membership is exact
+    FunctionType.CONTAINS: lambda x, types: (
+        f"CONTAINS({x[0]},{x[1]})"
+        if is_array_arg(types)
+        else f"(strpos(lower({x[0]}), lower({x[1]})) > 0)"
+    ),
     FunctionType.REGEXP_CONTAINS: lambda x, types: f"REGEXP_CONTAINS({x[0]},{x[1]})",
     FunctionType.REGEXP_EXTRACT: lambda x, types: f"REGEXP_EXTRACT({x[0]},{x[1]})",
     FunctionType.REGEXP_REPLACE: lambda x, types: f"REGEXP_REPLACE({x[0]},{x[1]}, {x[2]})",
@@ -1026,6 +1097,10 @@ class BaseDialect:
     RECURSIVE_KEYWORD = "RECURSIVE"
     QUOTE_CTE_NAMES = False
     DATATYPE_MAP: ClassVar[dict[DataType, str]] = DATATYPE_MAP
+    # the name a `numeric(p,s)` renders with, when not DATATYPE_MAP's NUMERIC
+    NUMERIC_TYPE_NAME: ClassVar[str | None] = None
+    # datatypes a constant renders inline rather than binding as a parameter
+    INLINE_PARAM_DATATYPES: ClassVar[frozenset[DataType]] = INLINE_SAFE_PARAM_DATATYPES
     COMPLEX_DATATYPE_MAP: ClassVar[dict[DataType, Callable[[str], str]]] = (
         COMPLEX_DATATYPE_MAP
     )
@@ -1089,6 +1164,13 @@ class BaseDialect:
     COLUMN_NOT_FOUND_PATTERN: str | None = None
     # (lower, like, not) spellings for dialects without native ILIKE
     ILIKE_AS_LOWER_LIKE: tuple[str, str, str] | None = None
+    # `like` patterns escape with a backslash (trilogy.core.like_patterns);
+    # dialects whose LIKE does so natively and takes no ESCAPE clause opt out.
+    LIKE_ESCAPE_CLAUSE = True
+    # whether a backslash escapes the next character inside a string literal
+    STRING_LITERAL_BACKSLASH_ESCAPES = False
+    # pattern characters, beyond `%` and `_`, a dialect's LIKE reads specially
+    LIKE_SPECIAL_CHARACTERS = ""
     # A source that exists but cannot be parsed - a truncated or half-uploaded
     # object, the usual shape of a publish that died mid-write. Distinct from
     # not-found: the state probes report it loudly and treat the asset as
@@ -1646,7 +1728,7 @@ class BaseDialect:
                 # `agg(x ? c)` from a stored `agg(x)`: each partial counts where
                 # `c` holds on its row (`Cover.filtered_sum_exact`)
                 condition = self.render_expr(
-                    filtered[1].where.conditional, cte, raise_invalid=raise_invalid
+                    filtered[1].conditional, cte, raise_invalid=raise_invalid
                 )
                 rolled = f"CASE WHEN {condition} THEN {rolled} ELSE NULL END"
                 summed = self.FUNCTION_MAP[rollup_reaggregate(c)]([rolled], [])
@@ -1989,7 +2071,7 @@ class BaseDialect:
             and c.lineage.operator == FunctionType.CONSTANT
             and self.rendering.parameters is True
             and c.datatype.data_type != DataType.MAP
-            and c.datatype.data_type not in INLINE_SAFE_PARAM_DATATYPES
+            and c.datatype.data_type not in self.INLINE_PARAM_DATATYPES
             and _constant_bindable(c.lineage)
         )
 
@@ -1997,7 +2079,7 @@ class BaseDialect:
         """Whether a parameterized reference binds (``:name``) or inlines its
         value; small datatypes round-trip cleanly and are always inlined."""
         return bool(self.rendering.parameters) and (
-            e.concept.datatype.data_type not in INLINE_SAFE_PARAM_DATATYPES
+            e.concept.datatype.data_type not in self.INLINE_PARAM_DATATYPES
         )
 
     def render_comparison(
@@ -2011,42 +2093,48 @@ class BaseDialect:
     ) -> str:
         """Default rendering for a binary comparison. Dialects override when an
         operator needs translation."""
+        render = partial(
+            self.render_expr,
+            cte=cte,
+            raise_invalid=raise_invalid,
+            materialized_addresses=materialized_addresses,
+        )
+        if operator in LIKE_OPERATORS:
+            return self.render_like(render(left), right, operator, render)
+        return f"{render(left)} {operator.value} {render(right)}"
+
+    def render_like_pattern(self, pattern, render: Callable[[Any], str]) -> str:
+        """A literal pattern is written with every literal special escaped, so
+        it means the same under any LIKE; a computed one is passed as is."""
+        if isinstance(pattern, str):
+            return self.render_string_literal(
+                canonical(pattern, "%_" + ESCAPE + self.LIKE_SPECIAL_CHARACTERS)
+            )
+        return render(pattern)
+
+    def like_escape(self) -> str:
+        if not self.LIKE_ESCAPE_CLAUSE:
+            return ""
+        return f" ESCAPE {self.render_string_literal(ESCAPE)}"
+
+    def render_like(
+        self,
+        left_sql: str,
+        pattern,
+        operator: ComparisonOperator,
+        render: Callable[[Any], str],
+    ) -> str:
+        right_sql = self.render_like_pattern(pattern, render)
+        escape = self.like_escape()
         if self.ILIKE_AS_LOWER_LIKE and operator in (
             ComparisonOperator.ILIKE,
             ComparisonOperator.NOT_ILIKE,
         ):
-            return self.render_ilike_as_lower_like(
-                left, right, operator, cte, raise_invalid, materialized_addresses
-            )
-        return f"{self.render_expr(left, cte=cte, raise_invalid=raise_invalid, materialized_addresses=materialized_addresses)} {operator.value} {self.render_expr(right, cte=cte, raise_invalid=raise_invalid, materialized_addresses=materialized_addresses)}"
-
-    def render_ilike_as_lower_like(
-        self,
-        left,
-        right,
-        operator: ComparisonOperator,
-        cte: CTE | UnionCTE | None,
-        raise_invalid: bool,
-        materialized_addresses: set[str] | None,
-    ) -> str:
-        """Emulate ``ILIKE`` on dialects without it via case-folded ``LIKE``;
-        the keyword spellings are the dialect's."""
-        assert self.ILIKE_AS_LOWER_LIKE is not None
-        lower, like, negate = self.ILIKE_AS_LOWER_LIKE
-        left_sql = self.render_expr(
-            left,
-            cte=cte,
-            raise_invalid=raise_invalid,
-            materialized_addresses=materialized_addresses,
-        )
-        right_sql = self.render_expr(
-            right,
-            cte=cte,
-            raise_invalid=raise_invalid,
-            materialized_addresses=materialized_addresses,
-        )
-        prefix = negate if operator == ComparisonOperator.NOT_ILIKE else ""
-        return f"({prefix}{lower}({left_sql}) {like} {lower}({right_sql}))"
+            # emulate ILIKE by a case-folded LIKE; the spellings are the dialect's
+            lower, like, negate = self.ILIKE_AS_LOWER_LIKE
+            prefix = negate if operator == ComparisonOperator.NOT_ILIKE else ""
+            return f"({prefix}{lower}({left_sql}) {like} {lower}({right_sql}){escape})"
+        return f"{left_sql} {operator.value} {right_sql}{escape}"
 
     def _common_existence_source(
         self,
@@ -2265,6 +2353,9 @@ class BaseDialect:
         self.used_map[semi.feeder].update(member.address for _, member in semi.keys)
         left = probes[0] if len(probes) == 1 else f"({', '.join(probes)})"
         return f"{left} in (select {', '.join(members)} from {q}{semi.feeder}{q})"
+
+    def render_non_finite(self, value: float) -> str:
+        return f"CAST('{value}' AS {self.DATATYPE_MAP[DataType.FLOAT]})"
 
     def _render_membership_exists(
         self,
@@ -2714,7 +2805,7 @@ class BaseDialect:
         elif isinstance(e, str):
             return self.render_string_literal(e)
         elif isinstance(e, float) and not math.isfinite(e):
-            return f"CAST('{e}' AS {self.DATATYPE_MAP[DataType.FLOAT]})"
+            return self.render_non_finite(e)
         elif isinstance(e, (int, float)):
             return str(e)
         elif isinstance(e, Decimal):
@@ -2730,7 +2821,8 @@ class BaseDialect:
         elif isinstance(e, DatePart):
             return str(e.value)
         elif isinstance(e, NumericType):
-            return f"{self.DATATYPE_MAP[DataType.NUMERIC]}({e.precision},{e.scale})"
+            name = self.NUMERIC_TYPE_NAME or self.DATATYPE_MAP[DataType.NUMERIC]
+            return f"{name}({e.precision},{e.scale})"
         elif isinstance(e, MagicConstants):
             if e == MagicConstants.NULL:
                 return "null"
@@ -3605,7 +3697,7 @@ class BaseDialect:
         select = self.render_sql_template(
             recursive=recursive,
             output=None,
-            full_select=compiled_ctes[-1].statement,
+            full_select=compiled_ctes[-1].statement + self.render_settings(query),
             ctes=compiled_ctes[:-1],
         )
         return [
@@ -3767,6 +3859,9 @@ class BaseDialect:
             )
         return ""
 
+    def render_column_type(self, column: ColumnInfo, target: CreateTableInfo) -> str:
+        return self.render_expr(column.type)
+
     def compile_create_table_statements(
         self, target: CreateTableInfo, create_mode: CreateMode
     ) -> list[str]:
@@ -3775,7 +3870,7 @@ class BaseDialect:
         type_map = {}
         description_map = {}
         for c in target.columns:
-            type_map[c.name] = self.render_expr(c.type)
+            type_map[c.name] = self.render_column_type(c, target)
             description_map[c.name] = (
                 self.render_string_literal(c.description) if c.description else ""
             )
@@ -3942,13 +4037,18 @@ class BaseDialect:
                 )
         return [self.compile_statement(query)]
 
+    def render_settings(self, query: ProcessedQuery) -> str:
+        """Engine settings a statement needs for its rows to mean what the
+        query says, appended after its final select."""
+        return ""
+
     def _render_query(self, query, output: str | None) -> str:
         recursive = any(isinstance(x, RecursiveCTE) for x in query.ctes)
         compiled_ctes = self.generate_ctes(query)
         final = self.render_sql_template(
             recursive=recursive,
             output=output,
-            full_select=compiled_ctes[-1].statement,
+            full_select=compiled_ctes[-1].statement + self.render_settings(query),
             ctes=compiled_ctes[:-1],
         )
 

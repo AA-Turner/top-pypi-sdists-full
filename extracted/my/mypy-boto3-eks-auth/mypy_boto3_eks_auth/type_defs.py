@@ -80,4 +80,5 @@ class AssumeRoleForPodIdentityResponseTypeDef(TypedDict):
     podIdentityAssociation: PodIdentityAssociationTypeDef
     assumedRoleUser: AssumedRoleUserTypeDef
     credentials: CredentialsTypeDef
+    workloadIdentityProviderArn: str
     ResponseMetadata: ResponseMetadataTypeDef

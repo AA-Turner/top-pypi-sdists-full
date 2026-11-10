@@ -16,8 +16,8 @@ class PatchedSystemPromptRequest:
         name (Union[Unset, str]):
         description (Union[Unset, str]):
         custom_instructions (Union[Unset, str]): Additional instructions injected into the system prompt. Use this for
-            organisation-specific context, terminology, FAQ content, or behavioural guidelines. Supports {assistant_name}
-            and {organization} placeholders.
+            organization-specific context, terminology, FAQ content, or behavioral guidelines. Supports {assistant_name} and
+            {organization} placeholders.
     """
 
     name: Union[Unset, str] = UNSET

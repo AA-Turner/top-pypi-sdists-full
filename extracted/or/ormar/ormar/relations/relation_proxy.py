@@ -107,7 +107,7 @@ class RelationProxy(Generic[T], list[T]):
 
         :param prev_hash: The hash to update
         :type prev_hash: int
-        :param prev_hash: The new hash to update to
+        :param new_hash: The new hash to update to
         :type new_hash: int
         """
         try:
@@ -252,6 +252,20 @@ class RelationProxy(Generic[T], list[T]):
         proxy = self._queryset_proxy
         return proxy is not None and proxy._queryset is not None
 
+    def _verify_writable(self, item: "T") -> None:
+        """
+        Refuse relation changes that write read-only models: the through model
+        of a many-to-many relation, or the child holding the foreign key.
+
+        :raises ReadOnlyModelError: if the written model is read-only
+        :param item: child added to or removed from the relation
+        :type item: Model
+        """
+        if self.type_ == ormar.RelationType.MULTIPLE:
+            self.relation.through.verify_writable()
+        else:
+            item.verify_writable()
+
     def _check_if_model_saved(self) -> None:
         """
         Verifies if the parent model of the relation has been already saved.
@@ -273,9 +287,14 @@ class RelationProxy(Generic[T], list[T]):
         :rtype: QuerySet
         """
         related_field_name = self.related_field_name
-        pkname = self._owner.get_column_alias(self._owner.ormar_config.pkname)
+        key = self._owner.ormar_config.pk
         self._check_if_model_saved()
-        kwargs = {f"{related_field_name}__{pkname}": self._owner.pk}
+        kwargs = {
+            f"{related_field_name}__{alias}": part
+            for alias, part in zip(
+                key.column_aliases(), key.flat_parts(value=self._owner.pk)
+            )
+        }
         queryset = (
             ormar.QuerySet(
                 model_cls=self.relation.to, proxy_source_model=self._owner.__class__
@@ -303,6 +322,7 @@ class RelationProxy(Generic[T], list[T]):
         :param keep_reversed: flag if the reversed model should be kept or deleted too
         :type keep_reversed: bool
         """
+        self._verify_writable(item=item)
         if item not in self:
             raise NoMatch(
                 f"Object {self._owner.get_name()} has no "
@@ -357,6 +377,7 @@ class RelationProxy(Generic[T], list[T]):
         :param item: child to add to relation
         :type item: Model
         """
+        self._verify_writable(item=item)
         new_idx = len(self) if item not in self else self.index(item)
         relation_name = self.related_field_name
         await self._owner.signals.pre_relation_add.send(

@@ -25,6 +25,7 @@ from ..pyutils.is_awaitable import (
 from .async_iterables import map_async_iterable
 from .collect_fields import collect_fields
 from .executor import (
+    SELECTIONS_NESTED_TOO_DEEPLY,
     UNEXPECTED_MULTIPLE_PAYLOADS,
     AsyncWorkFinishedInfo,
     ExecutionHooks,
@@ -465,6 +466,14 @@ def assume_not_awaitable(_value: Any) -> TypeGuard[Awaitable]:
     return False
 
 
+def assume_not_async_iterable(_value: Any) -> TypeGuard[AsyncIterable]:
+    """Replacement for is_async_iterable if everything is assumed to be synchronous.
+
+    :meta private:
+    """
+    return False
+
+
 def execute_sync(
     schema: GraphQLSchema,
     document: DocumentNode,
@@ -549,6 +558,7 @@ def execute_sync(
         if callable(check_sync)
         else (None if check_sync else assume_not_awaitable)
     )
+    is_async_iterable = assume_not_async_iterable if not check_sync else None
 
     result = experimental_execute_incrementally(
         schema,
@@ -565,6 +575,7 @@ def execute_sync(
         middleware,
         executor_class,
         is_awaitable,
+        is_async_iterable,
         hide_suggestions=hide_suggestions,
         abort_signal=abort_signal,
         hooks=hooks,
@@ -988,6 +999,13 @@ def create_source_event_stream(
         event_stream = execute_subscription(executor)
     except GraphQLError as error:
         return ExecutionResult(None, errors=[error])
+    except RecursionError:
+        # This error is never raised, so it has no traceback or context
+        # that would keep all the frames of the recursion alive.
+        return ExecutionResult(
+            None,
+            errors=[GraphQLError(SELECTIONS_NESTED_TOO_DEEPLY, executor.operation)],
+        )
 
     if executor.is_awaitable(event_stream):
 

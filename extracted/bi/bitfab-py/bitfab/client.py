@@ -303,8 +303,9 @@ def _build_provider_auto_run(
             started_at = time.monotonic()
             with _hidden_original(original_code):
                 response = await original(self, *args, **kwargs)
+            body = await provider_calls.parsed_body_async(response)
             provider_calls.record_auto_traced_completion(
-                call, span, kwargs, response, _elapsed_ms(started_at)
+                call, span, kwargs, body, _elapsed_ms(started_at)
             )
             return response
 
@@ -483,6 +484,7 @@ class SpanContext(TypedDict, total=False):
     instrumentation: SpanInstrumentation
     declaredNode: bool
     isRoot: bool
+    metadata: dict[str, str | int | float | bool]
 
 
 class MixedTracingError(RuntimeError):
@@ -764,6 +766,30 @@ class CurrentSpan:
             # Silently ignore - never crash the host app
             pass
 
+    def set_metadata(self, metadata: dict[str, str | int | float | bool]) -> None:
+        """Merge metadata into this span, with later values for a key winning.
+
+        Use it to label what the span did, for example
+        ``{"delivery": "blocked"}`` on a message that was drafted but never
+        sent. Values must be strings, numbers, or booleans; keys are 1 to 40 of
+        ``A-Z a-z 0-9 _ . : -``. Bitfab stores keys and values lowercased,
+        returns them on ``client.spans.list``, and narrows that list with its
+        ``metadata`` filter. Sent even when content capture is off, like trace
+        metadata.
+
+        Args:
+            metadata: Key-value pairs to merge into the span's metadata
+        """
+        try:
+            if not isinstance(metadata, dict):
+                return
+            self._context["metadata"] = {
+                **self._context.get("metadata", {}),
+                **metadata,
+            }
+        except Exception:
+            pass
+
 
 def _on_event_loop_thread() -> bool:
     try:
@@ -1020,6 +1046,9 @@ class _NoOpCurrentSpan:
         pass
 
     def set_prompt(self, prompt: str) -> None:
+        pass
+
+    def set_metadata(self, metadata: dict[str, str | int | float | bool]) -> None:
         pass
 
 
@@ -1355,6 +1384,8 @@ class Bitfab:
         )
         if resolved_trace_across_threads:
             install_thread_propagation()
+        provider_calls.install_import_hook()
+        provider_calls.instrument_loaded_clients()
         start_commit_ref_resolution()
         self._simulation_plan.refresh()
 
@@ -2162,6 +2193,7 @@ class Bitfab:
         code_change_base: str | None = None,
         experiment_group_id: str | None = None,
         experiment_group_name: str | None = None,
+        baseline_experiment_id: str | None = None,
         dataset_id: str | None = None,
         dataset_ids: list[str] | None = None,
         grader_ids: list[str] | None = None,
@@ -2270,6 +2302,11 @@ class Bitfab:
                 1 to 120 characters. Applied when this replay creates the group
                 or the group has no name yet. A group that already has a name
                 keeps it. Requires ``experiment_group_id``.
+            baseline_experiment_id: Optional UUID of an earlier experiment to
+                compare this run against. When set, the run's summary measures
+                against that experiment instead of the first finished
+                experiment in its group or the original traces. The server
+                refuses an experiment outside your organization.
             dataset_id: Optional UUID of the dataset this replay runs against.
                 Mutually exclusive with ``dataset_ids``. Stored on the resulting
                 experiment for durable dataset attribution; validated
@@ -2432,6 +2469,7 @@ class Bitfab:
             code_change_base=code_change_base,
             experiment_group_id=experiment_group_id,
             experiment_group_name=experiment_group_name,
+            baseline_experiment_id=baseline_experiment_id,
             dataset_id=dataset_id,
             dataset_ids=dataset_ids,
             grader_ids=grader_ids,
@@ -2838,6 +2876,9 @@ class Bitfab:
                     runtime_prompt: str | None = span_context.get("prompt")
                     if runtime_prompt is not None:
                         send_kwargs["prompt"] = runtime_prompt
+                    runtime_metadata = span_context.get("metadata")
+                    if runtime_metadata is not None:
+                        send_kwargs["metadata"] = runtime_metadata
                     enclosing_trace = span_context.get("enclosingTrace")
                     if enclosing_trace is not None:
                         send_kwargs["enclosing_trace"] = enclosing_trace
@@ -4276,6 +4317,7 @@ class Bitfab:
         declared_node: bool = False,
         contexts: list[ContextEntry] | None = None,
         prompt: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         try:
             self._send_span(
@@ -4302,6 +4344,7 @@ class Bitfab:
                 declared_node=declared_node,
                 contexts=contexts,
                 prompt=prompt,
+                metadata=metadata,
             )
         except Exception as error:
             warn_once(
@@ -5078,8 +5121,8 @@ class Bitfab:
         ``gpt-4o-transcribe``), ``audioSeconds`` (for models billed by
         duration, such as ``whisper-1``), and ``durationMs``. Fields the
         response omits are left out. Bitfab works out the cost of
-        token-billed models from the model and token counts; duration-billed
-        models record no cost.
+        token-billed models from the model and token counts, and of
+        duration-billed models from the audio seconds.
 
         Beneath a ``trace`` root, ``audio.transcriptions.create`` calls on an
         ``openai`` client are already recorded without this wrapper as their
@@ -5254,10 +5297,15 @@ class Bitfab:
             response: Any,
             started_at: float,
             framework_owned: bool,
+            body: Any = None,
         ) -> Any:
             if not framework_owned and not call.recorded():
                 provider_calls.record_completion(
-                    call_type, span, request, response, _elapsed_ms(started_at)
+                    call_type,
+                    span,
+                    request,
+                    response if body is None else body,
+                    _elapsed_ms(started_at),
                 )
             if on_response is not None:
                 with contextlib.suppress(Exception):
@@ -5273,7 +5321,10 @@ class Bitfab:
         ) -> Any:
             with provider_calls.wrapper_call() as call:
                 response = await awaitable
-            return finish(call, span, request, response, started_at, framework_owned)
+            body = await provider_calls.parsed_body_async(response)
+            return finish(
+                call, span, request, response, started_at, framework_owned, body
+            )
 
         if inspect.iscoroutinefunction(fn):
 
@@ -5284,8 +5335,9 @@ class Bitfab:
                 with provider_calls.wrapper_call() as call:
                     response = await fn(*args, **kwargs)
                 request = provider_calls.request_of(args, kwargs)
+                body = await provider_calls.parsed_body_async(response)
                 return finish(
-                    call, span, request, response, started_at, framework_owned
+                    call, span, request, response, started_at, framework_owned, body
                 )
 
             wrapper: Callable[..., Any] = async_wrapper
@@ -5681,6 +5733,7 @@ class Bitfab:
         span_type: SpanType = "custom",
         contexts: list[ContextEntry] | None = None,
         prompt: str | None = None,
+        metadata: dict[str, Any] | None = None,
         experiment_id: str | None = None,
         input_source_span_id: str | None = None,
         is_root_span: bool = False,
@@ -5779,6 +5832,9 @@ class Bitfab:
 
         if prompt is not None:
             span_data["prompt"] = prompt
+
+        if metadata is not None:
+            span_data["metadata"] = metadata
 
         if runtime is not None:
             span_data["runtime"] = runtime

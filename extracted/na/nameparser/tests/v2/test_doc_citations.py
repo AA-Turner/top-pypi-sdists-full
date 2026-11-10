@@ -25,6 +25,10 @@ from typing import NamedTuple
 
 import pytest
 
+# @needs_checkout: the citations it reads are comments in the source package
+from tests.checkout import needs_checkout
+
+
 from tests.v2.design_docs import (
     DECISIONS_DIR, MECHANISMS_DOC, MENTION_RE, RULES_DIR,
     read_decision_files, read_rules_text)
@@ -225,6 +229,7 @@ def test_citations_are_verbatim_excerpts() -> None:
     assert not problems, "\n".join(problems)
 
 
+@needs_checkout
 def test_the_sweep_reaches_every_citation_shape() -> None:
     # Each half of the sweep decides its own scope -- a glob, a lead
     # grammar, an elision, the decisions routing -- and one matching
@@ -371,6 +376,7 @@ def test_retired_excerpts_stay_rejected() -> None:
         assert not _is_excerpt(_norm(old), statements[cid]), (cid, old)
 
 
+@needs_checkout
 def test_implemented_matches_citing_modules() -> None:
     citing: dict[str, set[str]] = {}
     for c in _citations():
@@ -640,8 +646,12 @@ def test_no_old_design_doc_anchors() -> None:
     """rules.md and decisions.md are folders since #713, cited as
     rules/S2 and decisions/key. An old-form citation written from habit
     would not be read by the citation check at all, so its quote would
-    go unchecked; this keeps the form out of every tracked file."""
-    tracked = subprocess.run(["git", "ls-files"], cwd=REPO, check=True,
+    go unchecked; this keeps the form out of every tracked file. A tree
+    with no repository (a release tarball, the CI job testing one) has
+    no tracked files to read, so it skips."""
+    if not (REPO / ".git").exists():
+        pytest.skip("not a git checkout: no tracked files to read")
+    tracked =subprocess.run(["git", "ls-files"], cwd=REPO, check=True,
                              capture_output=True, text=True).stdout.split()
     problems = []
     for rel in tracked:

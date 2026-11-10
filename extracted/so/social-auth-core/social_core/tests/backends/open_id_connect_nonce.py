@@ -130,7 +130,7 @@ class OpenIdConnectNonceAssertionsMixin:
         )
         self.backend.validate_claims(
             {
-                "iat": int(dt.datetime.now(dt.timezone.utc).timestamp()),
+                "iat": int(dt.datetime.now(dt.UTC).timestamp()),
                 "nonce": params["nonce"],
             }
         )
@@ -149,7 +149,7 @@ class OpenIdConnectNonceAssertionsMixin:
         with assert_auth_error(self, AuthResponseError, "nonce_mismatch"):
             self.backend.validate_claims(
                 {
-                    "iat": int(dt.datetime.now(dt.timezone.utc).timestamp()),
+                    "iat": int(dt.datetime.now(dt.UTC).timestamp()),
                     "nonce": first["nonce"],
                 }
             )
@@ -168,7 +168,7 @@ class OpenIdConnectNonceAssertionsMixin:
                     )
                 lifetime = configured_lifetime or 1800
                 with patch(
-                    "social_core.backends.open_id_connect.time.time", return_value=1000
+                    "social_core.backends.open_id_connect._time", return_value=1000
                 ):
                     nonce = self.backend.get_and_store_nonce(
                         self.backend.authorization_url(), "state"
@@ -178,12 +178,10 @@ class OpenIdConnectNonceAssertionsMixin:
                 self.assertEqual(association.lifetime, lifetime)
                 self.assertEqual(association.assoc_type, "state")
                 with patch(
-                    "social_core.storage.time.time", return_value=1000 + lifetime - 1
+                    "social_core.storage._time", return_value=1000 + lifetime - 1
                 ):
                     self.assertIs(self.backend.get_nonce(nonce), association)
-                with patch(
-                    "social_core.storage.time.time", return_value=1000 + lifetime
-                ):
+                with patch("social_core.storage._time", return_value=1000 + lifetime):
                     self.assertIsNone(self.backend.get_nonce(nonce))
                 self.assertFalse(TestAssociation.get(handle=nonce))
 

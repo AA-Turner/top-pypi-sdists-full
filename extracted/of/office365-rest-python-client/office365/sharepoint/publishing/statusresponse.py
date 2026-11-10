@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -11,7 +11,6 @@ from office365.sharepoint.teams.statusresponse import TeamsPublishingStatusRespo
 from office365.sharepoint.viva.engagepublishingstatus import VivaEngagePublishingStatus as _VivaEngagePublishingStatus
 
 
-@dataclass
 class PublishingStatusResponse(ClientValue):
     EmailPublishingStatus: _EmailPublishingStatus = field(default_factory=_EmailPublishingStatus)
     LastTriedAt: Optional[datetime] = None

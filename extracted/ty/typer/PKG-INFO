@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typer
-Version: 0.27.3
+Version: 0.29.0
 Summary: Typer, build great CLIs. Easy to code. Based on Python type hints.
 Author-Email: Sebastián Ramírez <tiangolo@gmail.com>
 License-Expression: MIT
@@ -29,6 +29,7 @@ Project-URL: Repository, https://github.com/fastapi/typer
 Project-URL: Issues, https://github.com/fastapi/typer/issues
 Project-URL: Changelog, https://typer.tiangolo.com/release-notes/
 Requires-Python: >=3.10
+Requires-Dist: pydantic>=2.5.3
 Requires-Dist: shellingham>=1.3.0
 Requires-Dist: rich>=13.8.0
 Requires-Dist: annotated-doc>=0.0.2
@@ -389,9 +390,10 @@ For a more complete example including more features, see the <a href="https://ty
 
 ## Dependencies
 
-**Typer** requires only a few dependencies (most are tiny):
+**Typer** requires only a few dependencies:
 
 * [`rich`](https://rich.readthedocs.io/en/stable/index.html): to show nicely formatted errors automatically.
+* [`pydantic`](https://pydantic.dev/docs/validation/latest/get-started/): to validate input parameters.
 * [`shellingham`](https://github.com/sarugaku/shellingham): to automatically detect the current shell when installing completion.
 * [`annotated-doc`](https://github.com/fastapi/annotated-doc): to generate documentation from Python type annotations.
 * [`colorama`](https://github.com/tartley/colorama) (only on Windows): for producing colored terminal text on Windows.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -13,7 +13,6 @@ _DEFAULT_TIMEOUT_SECONDS = 1800
 _REFRESH_MARGIN_SECONDS = 60
 
 
-@dataclass
 class ContextWebInformation(ClientValue):
     """Specifies metadata about a site."""
 

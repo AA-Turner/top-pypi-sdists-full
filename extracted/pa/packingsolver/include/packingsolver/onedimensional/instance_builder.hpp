@@ -18,6 +18,21 @@ public:
     /** Set the objective. */
     void set_objective(Objective objective) { instance_.objective_ = objective; }
 
+    /**
+     * Set the goal of the 'BinPacking' objective (see
+     * 'Instance::bin_packing_goal').
+     */
+    void set_bin_packing_goal(BinPos bin_packing_goal) { instance_.bin_packing_goal_ = bin_packing_goal; }
+
+    /** Set the goal of the 'Knapsack' objective (see 'Instance::knapsack_goal'). */
+    void set_knapsack_goal(Profit knapsack_goal) { instance_.knapsack_goal_ = knapsack_goal; }
+
+    /**
+     * Set the goal of the 'VariableSizedBinPacking' objective (see
+     * 'Instance::variable_sized_bin_packing_goal').
+     */
+    void set_variable_sized_bin_packing_goal(Profit variable_sized_bin_packing_goal) { instance_.variable_sized_bin_packing_goal_ = variable_sized_bin_packing_goal; }
+
     /*
      * Read from files
      */

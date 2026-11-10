@@ -34,7 +34,9 @@ class AgentIdentity:
         version (Union[None, Unset, str]):
         dependencies (Union[Unset, list['AgentDependency']]):
         config_file_path (Union[None, Unset, str]): Example: '/etc/waldur/agent.yaml'
-        config_file_content (Union[None, Unset, str]):
+        config_file_content (Union[None, Unset, str]): Returned only to staff, to who holds OFFERING.UPDATE on the
+            identity's offering, its organization or its service provider, and to the identity manager who created the
+            identity, while the offering is in an ISD-allowed state.
         last_restarted (Union[Unset, datetime.datetime]):
     """
 

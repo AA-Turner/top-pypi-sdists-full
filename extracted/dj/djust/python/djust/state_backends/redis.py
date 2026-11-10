@@ -15,6 +15,7 @@ from .base import (
     COMPRESSION_MARKER,
     NO_COMPRESSION_MARKER,
     ZSTD_AVAILABLE,
+    state_key_label,
 )
 
 # Import zstd if available (already checked in base)
@@ -127,6 +128,32 @@ class RedisStateBackend(StateBackend):
     def _make_key(self, key: str) -> str:
         """Add prefix to key."""
         return f"{self._key_prefix}{key}"
+
+    def _register_observation(self, lifetime: str) -> None:
+        self._client.set(
+            self._make_key("__observation__:" + lifetime),
+            0,
+            nx=True,
+            ex=self._default_ttl if self._default_ttl > 0 else None,
+        )
+
+    def _claim_observation(self, lifetime: str, sequence: int) -> bool:
+        # Lua performs the comparison and write on the shared Redis owner.
+        # Preserve the original TTL: traffic cannot extend a binding lifetime.
+        # Redis errors propagate; do not execute an observer without a claim.
+        return bool(
+            self._client.eval(
+                "local old = redis.call('GET', KEYS[1]); "
+                "if not old or tonumber(ARGV[1]) <= tonumber(old) then return 0 end; "
+                "local ttl = redis.call('PTTL', KEYS[1]); "
+                "redis.call('SET', KEYS[1], ARGV[1]); "
+                "if ttl >= 0 then redis.call('PEXPIRE', KEYS[1], ttl) end; "
+                "return 1",
+                1,
+                self._make_key("__observation__:" + lifetime),
+                sequence,
+            )
+        )
 
     def _get_compressor(self) -> Optional[Any]:
         """Return this thread's `ZstdCompressor`, creating it lazily.
@@ -253,7 +280,7 @@ class RedisStateBackend(StateBackend):
                 return (view, timestamp)
 
             except Exception as e:
-                logger.error("Failed to deserialize from Redis key '%s': %s", key, e)
+                logger.error("Failed to deserialize from Redis %s: %s", state_key_label(key), e)
                 return None
 
     def set(self, key: str, view: RustLiveView, ttl: Optional[int] = None) -> None:
@@ -286,7 +313,7 @@ class RedisStateBackend(StateBackend):
                 self._client.setex(redis_key, ttl, data)
 
             except Exception as e:
-                logger.error("Failed to serialize to Redis key '%s': %s", key, e)
+                logger.error("Failed to serialize to Redis %s: %s", state_key_label(key), e)
                 raise
 
     def delete(self, key: str) -> bool:
@@ -346,6 +373,11 @@ class RedisStateBackend(StateBackend):
             max_keys = 10000  # Limit to 10k keys for stats to prevent memory issues
             keys = []
             for key in self._client.scan_iter(match=pattern, count=100):
+                observation_prefix = self._make_key("__observation__:")
+                if key.startswith(
+                    observation_prefix.encode() if isinstance(key, bytes) else observation_prefix
+                ):
+                    continue
                 keys.append(key)
                 if len(keys) >= max_keys:
                     break

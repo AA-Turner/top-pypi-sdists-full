@@ -37,13 +37,13 @@ use constraints::constraint_entailed;
 use emptiness::{ReadBack, class_with_attributes, narrowed_meet, the_rules_find_a_value};
 use literals::{
     a_union_spilled_past_as_a_table, finite_meet_below, finite_set, finite_set_below,
-    spills_past_a_table, the_constant_speaks_for_the_literal,
+    spilled_past_a_table, spills_past_a_table, the_constant_speaks_for_the_literal,
 };
 use products::{linear_subtype, seq_splits_across_union};
 use readings::{outside_every_kind, refuted_by_a_multiple, tables_disjoint, tag_pairs};
 use records::{
-    a_shared_field_refuted_by_the_sets, attr_record_subtype, keyed_map_splits_across_union,
-    keyed_map_subtype, keyed_meet_below,
+    a_map_below_its_clauses_the_subject_spells, a_shared_field_refuted_by_the_sets,
+    attr_record_subtype, keyed_map_splits_across_union, keyed_map_subtype, keyed_meet_below,
 };
 
 pub use crate::oracle::{LeafRelations, NoLeafRelations};
@@ -122,6 +122,12 @@ pub(crate) const RESPELLING: u32 = 4096;
 /// refutations. Sixteen times it regains what four does not: two answers a
 /// step-free kinds reading moved past four times the figure.
 pub(crate) const RESPELLING_AGAIN: u32 = 65_536;
+
+/// The steps a goal read by the sets is charged ([`Schema::decided_by_its_leaves`]).
+///
+/// **This bound is cost.** No step counts a lowering, so this is what holds how
+/// many of them one asking reads: sixty-four under [`RESPELLING`].
+const LEAF_READING: u32 = 64;
 
 thread_local! {
     /// The respelling allowance of the asking a question on this thread is in:
@@ -272,6 +278,40 @@ pub(super) fn descending<T>(budget: &Budget, refused: T, descent: impl FnOnce() 
     let answer = descent();
     budget.depth.set(depth);
     answer
+}
+
+/// The member of a meet below all the others, which is the meet: `A ∩ B` is `A`
+/// where `A ⊆ B`.
+///
+/// A table of constants is asked in every asking: a translation from JSON Schema
+/// writes an `enum` of strings as `str` met with a table of them, whose own relation
+/// is a comparison where the meet's is a product of their words' automata. Any other
+/// member is asked where a pair everything else declined reads its leaves
+/// ([`Schema::decided_by_its_leaves`]), since each is a goal per other member, and
+/// asked of every meet they starved the readings after them of steps: an enumeration
+/// met with a union holding it is the enumeration, which reads its members.
+///
+/// A proof under a hypothesis is no fact to refute from: a goal on the trail is
+/// assumed to hold, and a reading of the meet as `A` stands on `A ⊆ B` when it names
+/// a value of `A`. So none is read with a hypothesis open, as a verdict is held
+/// only where it rests on nothing.
+#[inline(never)]
+fn the_member_that_is_the_meet<'m>(members: &'m [Schema], cx: &mut Cx<'_>) -> Option<&'m Schema> {
+    if !(cx.trail.is_empty() && cx.visiting.is_empty()) || emptiness::OpenMeet::any_open(cx.budget)
+    {
+        return None;
+    }
+    let is_a_table = |member: &Schema| match member {
+        Schema::Literal(_) => true,
+        Schema::Union(inner) => inner.iter().all(|m| matches!(m, Schema::Literal(_))),
+        _ => false,
+    };
+    members.iter().find(|&candidate| {
+        (cx.reads_leaves || is_a_table(candidate))
+            && members.iter().all(|member| {
+                core::ptr::eq(member, candidate) || candidate.is_subtype_rec(member, cx).holds()
+            })
+    })
 }
 
 /// Whether `sub ⊆ sup` holds by membership alone: the subject is a branch of a
@@ -748,14 +788,12 @@ impl Schema {
                 }
                 let theirs = theirs()?;
                 let (emptiness, refuted) = budget::under(WORK, || {
-                    let complemented;
-                    let outside = if negate {
-                        complemented = theirs.complement();
-                        &complemented
+                    let difference = if negate {
+                        mine.minus(theirs)
                     } else {
-                        theirs
+                        mine.intersect(theirs)
                     };
-                    mine.intersect(outside).map(|difference| {
+                    difference.map(|difference| {
                         let emptiness = difference.emptiness();
                         // With no definitions nothing was unfolded: a
                         // reference none resolves is a set no lowering reads,
@@ -845,15 +883,12 @@ impl Schema {
             let mine = lower_unfolded(self, defs, Polarity::Narrow, pool)?;
             let theirs = lower_unfolded(read, defs, side.flipped(), pool)?;
             budget::under(WORK, || {
-                let complemented;
-                let outside = if side == Polarity::Narrow {
-                    complemented = theirs.complement();
-                    &complemented
+                let difference = if side == Polarity::Narrow {
+                    mine.minus(&theirs)
                 } else {
-                    &theirs
+                    mine.intersect(&theirs)
                 };
-                mine.intersect(outside)
-                    .map(|difference| difference.emptiness() == Verdict::Inhabited)
+                difference.map(|difference| difference.emptiness() == Verdict::Inhabited)
             })
         };
         if refuted() == Some(true) {
@@ -966,7 +1001,8 @@ impl Schema {
             return asked_again(|budget| {
                 let mut cx = Cx::new(oracle, defs, budget);
                 self.is_subtype_rec(other, &mut cx)
-                    .or_else(|| self.decided_by_sets(other, &mut cx, true))
+                    .or_else(|| self.a_side_with_no_value(other, &mut cx))
+                    .or_else(|| self.decided_past_the_whole_pair(other, &mut cx, true))
             });
         }
         first
@@ -987,7 +1023,24 @@ impl Schema {
     /// of the loop, at 3%.
     #[inline(never)]
     fn decided_by_sets(&self, other: &Schema, cx: &mut Cx<'_>, by_branch: bool) -> Relation {
+        let read_alone = self.a_side_with_no_value(other, cx);
+        if read_alone != Relation::Unknown {
+            return read_alone;
+        }
         self.descriptor_contained_in(other, cx.oracle, cx.defs)
+            .or_else(|| self.decided_past_the_whole_pair(other, cx, by_branch))
+    }
+
+    /// What follows the set representation of the whole pair: both deciders asked
+    /// of its parts. A second asking starts here, the whole pair's reading being
+    /// a function of the pair that spends no step, so read again it declines alike.
+    fn decided_past_the_whole_pair(
+        &self,
+        other: &Schema,
+        cx: &mut Cx<'_>,
+        by_branch: bool,
+    ) -> Relation {
+        self.a_plain_value_outside_a_table(other, cx)
             .or_else(|| self.decided_by_parts(other, cx, by_branch))
             .or_else(|| {
                 if by_branch {
@@ -1003,7 +1056,184 @@ impl Schema {
                     Relation::Unknown
                 }
             })
+            .or_else(|| {
+                if by_branch {
+                    self.decided_by_its_leaves(other, cx, true)
+                } else {
+                    Relation::Unknown
+                }
+            })
             .or_else(|| self.below_by_emptiness(other, cx))
+    }
+
+    /// `Fails` where a subject of a builtin kind holds a value and every constant of a
+    /// table is of another exact type. A literal denotes `{x | type(x) is type(c) and x
+    /// == c}`, and a value of a kind is a plain one wherever it holds any: `[]` for a
+    /// list of anything, `2` for an integer at or past `2`, equal to whatever subclass
+    /// the set also holds. So `list[str]` is outside `Literal[Color.RED]`, and `bool`
+    /// outside `Literal[2**63]`, where the sets read no such constant and a class is
+    /// not asked: a member of an `IntEnum` is an `int`, and shares no plain one.
+    ///
+    /// The complement of a table holds such a value too: `None` is outside
+    /// `Literal[Color.RED]`, so `~Literal[Color.RED]` is outside `str` on it
+    /// ([`plain_kind_beside_a_table`](Self::plain_kind_beside_a_table)).
+    #[inline(never)]
+    fn a_plain_value_outside_a_table(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        if let Schema::Complement(table) = self {
+            return if table.plain_kind_beside_a_table(other, cx) {
+                Relation::Fails
+            } else {
+                Relation::Unknown
+            };
+        }
+        if !matches!(other, Schema::Literal(_) | Schema::Union(_)) {
+            return Relation::Unknown;
+        }
+        let Some(kind) = self.type_tag() else {
+            return Relation::Unknown;
+        };
+        let Some(constants) = literals::literal_constants(other) else {
+            return Relation::Unknown;
+        };
+        // A constant the bindings decline may be of any kind, the subject's
+        // among them: only one kinded apart, or of no kind, is beside it.
+        if constants
+            .iter()
+            .any(|constant| match cx.oracle.literal_kind(*constant) {
+                Some(of) => of == kind,
+                None => !cx.oracle.literal_of_no_kind(*constant),
+            })
+            || self.verdict_rec(cx) != Verdict::Inhabited
+        {
+            return Relation::Unknown;
+        }
+        Relation::Fails
+    }
+
+    /// The rules asked once more, a goal they decline read by the sets where no
+    /// reference stands in the way.
+    ///
+    /// The whole pair's set reading stops at what it cannot lower or at a cut,
+    /// and it stops for all of the pair: `tuple[bool, R]` below `tuple[Annotated[int,
+    /// Lt(8)], R]` holds a reference at one position, and the leaf at the other is
+    /// a question the sets answer on their own. Both deciders are sound, so a
+    /// part's answer composes through the rules as any other does. A reference on
+    /// neither side is cut nowhere, so the reading is the set itself.
+    ///
+    /// Asked last of a pair everything else declined. A goal the rules decline
+    /// is the common case on the way to an answer another rule gives, and asked
+    /// of every such goal a lowering cost the relation matrix ninety-six times its
+    /// instructions. The rules are asked here and never reach this again, so a
+    /// query asks it a fixed number of times, under [`RESPELLING`]'s allowance.
+    ///
+    /// `read_whole` is that the sets have read this pair, which read alike, so the
+    /// goal at the root is not read again: a dict of 4,096 literal keys read it
+    /// three times over for one decline.
+    #[inline(never)]
+    pub(super) fn decided_by_its_leaves(
+        &self,
+        other: &Schema,
+        cx: &Cx<'_>,
+        read_whole: bool,
+    ) -> Relation {
+        if !(self.holds_parts() || other.holds_parts()) {
+            return Relation::Unknown;
+        }
+        let allowance = Budget::new(cx.budget.left().min(respelling()));
+        let mut read = cx.within_this_query(&allowance);
+        read.reads_leaves = true;
+        if read_whole {
+            read.read_whole = (core::ptr::from_ref(self), core::ptr::from_ref(other));
+        }
+        self.is_subtype_rec(other, &mut read)
+    }
+
+    /// Whether a goal of this schema's can stand beneath a constructor or a
+    /// reference, under the connectives. One that cannot is a leaf itself, whose
+    /// whole pair the set reading has read.
+    fn holds_parts(&self) -> bool {
+        match self {
+            Schema::Seq { .. }
+            | Schema::Coll { .. }
+            | Schema::KeyedMap { .. }
+            | Schema::AttrRecord { .. }
+            | Schema::Ref(_) => true,
+            Schema::Union(members) | Schema::Intersection(members) => {
+                members.iter().any(Schema::holds_parts)
+            }
+            Schema::Complement(inner) => inner.holds_parts(),
+            _ => false,
+        }
+    }
+
+    /// A goal the rules declined: what the sets answer of one with no reference
+    /// on either side where the query reads its leaves, charged [`LEAF_READING`]
+    /// steps, since no step counts a lowering. A difference the sets read inhabited
+    /// holds the value a refutation stands on, so no witness is asked of it. Out of
+    /// line, as a declined goal is the path this is on: the rules' answers read one
+    /// test.
+    ///
+    /// Read once a query and held ([`Leaves`]), and charged each time it is asked,
+    /// so the memo changes no answer and no allowance: a query relating two
+    /// recursions over lists of patterns asked the sets of 8 pairs 346 times.
+    #[inline(never)]
+    fn a_goal_declined(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        if !cx.reads_leaves
+            || (core::ptr::eq(self, cx.read_whole.0) && core::ptr::eq(other, cx.read_whole.1))
+            || self.has_reference()
+            || other.has_reference()
+        {
+            return Relation::Unknown;
+        }
+        if !spend_at_once(cx.budget, LEAF_READING) {
+            a_bound_is_met();
+            return Relation::Unknown;
+        }
+        let key = (cx.query(), self.clone(), other.clone());
+        if let Some(answer) = LEAVES.with_borrow(|held| held.get(&key).copied()) {
+            return answer;
+        }
+        let answer = self.descriptor_contained_in(other, cx.oracle, cx.defs);
+        LEAVES.with_borrow_mut(|held| {
+            if held.len() >= READINGS_HELD {
+                held.clear();
+            }
+            held.insert(key, answer);
+        });
+        answer
+    }
+
+    /// A side proved empty settles the pair without the difference. A supertype with
+    /// no value is the bottom, so the pair is the subject's own emptiness: the dual of
+    /// [BBC+26, (uninhabited)]. The complement of a set with no value is every value
+    /// [FCB08, Def. 4.1], so the pair is the universe's. A reference is what no reading
+    /// of the pair sees through: `μt. attr{y: t}` holds no finite value, `is_empty` says
+    /// so at once, and the difference the set reading builds of `str` against it is read
+    /// as holding values both ways, to a depth that doubles. A schema with no reference
+    /// is read by the sets, with nothing cut, so it is not asked. `Unknown` where the
+    /// other side is undecided, which leaves the pair to the readings after this one:
+    /// answered here, an undecided subject lost a hundred answers in 72,000 drawn pairs.
+    #[inline(never)]
+    fn a_side_with_no_value(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        let no_value = |schema: &Schema, cx: &Cx<'_>| {
+            matches!(
+                schema,
+                Schema::Ref(_) | Schema::AttrRecord { .. } | Schema::KeyedMap { .. }
+            ) && !schema.holds_a_value_shallowly()
+                && schema.has_reference()
+                && schema.is_empty_with(cx.oracle, cx.defs)
+        };
+        if no_value(other, cx) {
+            return self
+                .is_subtype_rec(&Schema::Nothing, cx)
+                .or_else(|| self.descriptor_contained_in(&Schema::Nothing, cx.oracle, cx.defs));
+        }
+        if let Schema::Complement(inner) = self
+            && no_value(inner, cx)
+        {
+            return Schema::ANYTHING.is_subtype_rec(other, cx);
+        }
+        Relation::Unknown
     }
 
     /// The two lattice bounds read once more, each under an emptiness query of its
@@ -1191,13 +1421,21 @@ impl Schema {
             .or_else(|| inner.is_subtype_rec(&self.clone().complement(), cx))
             .or_else(|| Relation::proven(meet.empty_under(cx)))
             .or_else(|| meet.below_the_set_it_complements(cx))
+            .or_else(|| {
+                Relation::proven(
+                    matches!(meet, Schema::Union(_)) && meet.read_as_a_relation_empty(cx),
+                )
+            })
     }
 
     /// The pair asked of its parts, where both deciders declined it whole.
     ///
     /// A union subject is below a supertype where each member is, and outside
     /// it where one member is [BBC+26, (anyOf-l)], so each member is asked as
-    /// a pair of its own, by both deciders and by its own parts. The rules
+    /// a pair of its own, by both deciders and by every reading past them
+    /// ([`decided_past_the_whole_pair`](Self::decided_past_the_whole_pair)):
+    /// a word is outside a float step by its kind, which a member's own parts do
+    /// not read. The rules
     /// distribute the union already; what this adds is the set representation
     /// asked of one member, where asked of the whole pair it is refused past
     /// its node bound: a union of seven tagged records against seven decides a
@@ -1234,9 +1472,11 @@ impl Schema {
     /// adds is the set representation asked of one member, where a member that
     /// runs a callback -- a predicate, a class whose `isinstance` is code --
     /// refuses the whole meet a lowering: `int` is outside `Ge(0)` at `-1`, and
-    /// so outside `Ge(0)` met with a predicate. A meet of sets was read whole,
-    /// and is not read again a member at a time, which would lower each member
-    /// for an answer the whole reading did not find.
+    /// so outside `Ge(0)` met with a predicate. A meet of sets is read a member
+    /// at a time too: the whole reading declines where one member's recursion
+    /// stops it, and that member alone may be refuted, as `list[int]` is outside
+    /// `complement(list[J]) | Annotated[list, MaxLen(2)]` met with the JSON values
+    /// `J`.
     ///
     /// A record against a record is asked a shared field at a time by the set
     /// representation, which the pair is past the node bound of where it is
@@ -1261,6 +1501,25 @@ impl Schema {
             a_bound_is_met();
             return Relation::Unknown;
         }
+        // `¬a ⊆ ¬b` is `b ⊆ a` [FCB08, §4.1], whose parts the rules' contravariant
+        // arm does not ask.
+        if let (Schema::Complement(a), Schema::Complement(b)) = (self, other) {
+            return b.decided_by_parts(a, cx, by_branch);
+        }
+        // A mapping of words under a length counting each is below its record,
+        // and holds the record's plain values: a proof through the record stands,
+        // and so does the record's value against the empty set. Any other
+        // refutation through it may stand on a key that reads a field and not a
+        // `Literal`, and proves nothing of the mapping.
+        if matches!(self, Schema::Refine { .. })
+            && let Some(record) = records::the_record_a_count_requires(self, cx)
+        {
+            return if matches!(other, Schema::Nothing) {
+                Relation::of_mismatch(record.verdict_rec(cx))
+            } else {
+                record.is_subtype_rec(other, cx).proof_only()
+            };
+        }
         if let Schema::Union(members) = self {
             // The supertype is every member's, so it is lowered once: where it
             // refuses, every member's pair refuses on it, after a build of the
@@ -1284,25 +1543,26 @@ impl Schema {
                         Relation::proven(cx.denotes_no_value(member))
                     }
                 })
-                .or_else(|| member.decided_by_parts(other, cx, false))
+                .or_else(|| member.decided_past_the_whole_pair(other, cx, by_branch))
             }));
         }
-        if let (Schema::KeyedMap { fields: fa, .. }, Schema::KeyedMap { fields: fb, .. }) =
-            (self, other)
+        if let (
+            Schema::KeyedMap {
+                fields: fa,
+                defaults: da,
+            },
+            Schema::KeyedMap {
+                fields: fb,
+                defaults: db,
+            },
+        ) = (self, other)
         {
-            return if a_shared_field_refuted_by_the_sets(fa, fb, cx) {
-                Relation::of_mismatch(self.verdict_rec(cx))
-            } else {
-                Relation::Unknown
-            };
+            if a_shared_field_refuted_by_the_sets(fa, fb, cx) {
+                return Relation::of_mismatch(self.verdict_rec(cx));
+            }
+            return a_map_below_its_clauses_the_subject_spells(fa, da, fb, db, self, cx);
         }
         if let Schema::Intersection(members) = other {
-            if members
-                .iter()
-                .all(|member| denotes_a_set_within(member, cx.oracle, cx.defs))
-            {
-                return Relation::Unknown;
-            }
             let held = cx.held_below(self, members);
             return Relation::all(members.iter().enumerate().map(|(at, member)| {
                 match held {
@@ -1323,8 +1583,12 @@ impl Schema {
         if met.len() == branches.len() {
             // What the rules refuted of each branch at the root is read back
             // ([`Schema::below_a_union`]): a containment the rules refuted is
-            // one the set representation, sound as they are, never proves.
+            // one the set representation, sound as they are, never proves. A
+            // union past what the root keeps is asked here, which spends a step
+            // where a reading of the sets rebuilds the subject: 512 frozensets
+            // of a literal read 512 lowerings of 513 nodes.
             let refuted = cx.refuted_at_the_root(self, branches);
+            let kept = branches.len() <= MEMBERS_HELD;
             return Relation::proven(
                 by_branch
                     && branches
@@ -1332,11 +1596,13 @@ impl Schema {
                         .enumerate()
                         .filter(|&(at, branch)| {
                             !matches!(branch, Schema::Literal(_))
-                                && (at >= MEMBERS_HELD || refuted >> at & 1 == 0)
+                                && (!kept || refuted >> at & 1 == 0)
                         })
                         .any(|(_, branch)| {
-                            self.descriptor_contained_in(branch, cx.oracle, cx.defs)
-                                .holds()
+                            (kept || self.is_subtype_rec(branch, cx) != Relation::Fails)
+                                && self
+                                    .descriptor_contained_in(branch, cx.oracle, cx.defs)
+                                    .holds()
                         }),
             );
         }
@@ -1427,9 +1693,26 @@ impl Schema {
             {
                 return answer;
             }
-            return Relation::of_mismatch(self.verdict_rec(cx));
+            let verdict = self.verdict_rec(cx);
+            if verdict == Verdict::Unknown && cx.reads_leaves {
+                return self.a_meet_read_by_its_member(cx);
+            }
+            return Relation::of_mismatch(verdict);
         }
         answer
+    }
+
+    /// A meet read as one of its members holds what that member holds, where the
+    /// meet's own reading leaves it open: a class is no value of `str | C` by the
+    /// meet's verdict, and is a value of `C`.
+    #[inline(never)]
+    fn a_meet_read_by_its_member(&self, cx: &mut Cx<'_>) -> Relation {
+        if let Schema::Intersection(members) = self
+            && let Some(member) = the_member_that_is_the_meet(members, cx)
+        {
+            return Relation::of_mismatch(member.verdict_rec(cx));
+        }
+        Relation::Unknown
     }
 
     /// Whether this schema is a complement holding every value of a kind,
@@ -1456,6 +1739,9 @@ impl Schema {
         #[cfg(test)]
         goal_tests::goals::record(self, other);
         let answer = self.subtype_by_rules(other, cx);
+        if answer == Relation::Unknown {
+            return self.a_goal_declined(other, cx);
+        }
         self.witnessed(answer, cx)
     }
 
@@ -1617,6 +1903,28 @@ impl Schema {
         let complements = flat_members(members).map(|member| member.clone().complement());
         let meet = Schema::meet_within(complements, cx.defs);
         meet.is_empty_rec(cx) || cx.denotes_no_value(&meet)
+    }
+
+    /// `self` below the branches of a union it shares a value with, read by the
+    /// set representation alone: a branch sharing no value with `self` decides
+    /// nothing of the inclusion, and may be one the sets cannot lower. No reading
+    /// past the sets is asked, so a caller that the respellings reach is not
+    /// reached again: `int ∧ ¬(Ge(2) ∪ Le(3) ∪ Annotated[dict, MaxLen(2)])` is
+    /// empty where `int` is below the two bounds.
+    #[inline(never)]
+    pub(super) fn below_the_branches_it_meets(&self, other: &Schema, cx: &mut Cx<'_>) -> Relation {
+        let Schema::Union(branches) = other else {
+            return Relation::Unknown;
+        };
+        let met: Vec<Schema> = branches
+            .iter()
+            .filter(|branch| !self.shares_no_value_with(branch, cx))
+            .cloned()
+            .collect();
+        if met.len() == branches.len() {
+            return Relation::Unknown;
+        }
+        self.descriptor_contained_in(&Schema::union(met), cx.oracle, cx.defs)
     }
 
     /// Whether `self` and `other` share no value, which is what decides `self ⊆
@@ -1799,11 +2107,14 @@ impl Schema {
             if split != Relation::Unknown {
                 return split;
             }
+            if readings::one_item_outside(self, members, cx) {
+                return Relation::Fails;
+            }
         }
         // A branch the subject shares no value with decides nothing about the
         // inclusion: `A ⊆ X ∪ Y` with `A ∩ X = ∅` is `A ⊆ Y`. Dropping such a
         // branch is what lets a *refutation* out -- the rules refute against a
-        // single supertype and have no arm that refutes against a union, so
+        // single supertype, and a union but for one item, so
         // without it a chain of records beside a `None` branch is undecided
         // where the record branch alone refutes.
         //
@@ -2043,7 +2354,9 @@ impl Schema {
                 return merged;
             }
         }
-        placed
+        the_member_that_is_the_meet(members, cx)
+            .map_or(Relation::Unknown, |member| member.is_subtype_rec(other, cx))
+            .or_else(|| placed)
     }
 
     /// The structural subtyping decision: the lattice, recursion, and
@@ -2520,7 +2833,8 @@ impl Schema {
             // unproven is a pair with no rule of its own.
             (Schema::Refine { .. }, _) => self
                 .left_reduces_below(other, cx)
-                .or_else(|| self.unstructured(other, cx)),
+                .or_else(|| self.unstructured(other, cx))
+                .or_else(|| spilled_past_a_table(self, other, cx)),
             (_, Schema::Literal(_)) if spills_past_a_table(self, other, cx) => Relation::Fails,
             _ => self.unstructured(other, cx),
         }
@@ -2630,8 +2944,9 @@ impl Schema {
                 // hold lengths, so every other subject pays the one test.
                 Schema::Refine { base, constraints } => {
                     let below = self.is_subtype_rec(base, cx);
-                    if matches!(self, Schema::Coll { .. } | Schema::KeyedMap { .. })
-                        && self.lengths_entail(constraints, cx.oracle)
+                    if (matches!(self, Schema::Coll { .. } | Schema::KeyedMap { .. })
+                        && self.lengths_entail(constraints, cx.oracle))
+                        || (cx.reads_leaves && self.holds_its_prefix_alone_within(constraints, cx))
                     {
                         below
                     } else {
@@ -2771,6 +3086,12 @@ pub(super) struct Cx<'a> {
     /// The number this query's set readings are memoized under, given at the
     /// first one; zero until then ([`Readings`]).
     query: Cell<u64>,
+    /// Whether a goal the rules decline is read by the sets, where no reference
+    /// stands in the way ([`Schema::decided_by_its_leaves`]).
+    reads_leaves: bool,
+    /// The pair whose whole the sets have read, which a goal read by the sets does
+    /// not read again; no pair where null.
+    read_whole: (*const Schema, *const Schema),
 }
 
 /// What [`HELD`] keeps of the rules' answers at a query's root: the query's
@@ -2817,11 +3138,18 @@ const MEMBERS_HELD: usize = u64::BITS as usize;
 /// the finished queries' answers occupy and changes no answer. What is held is the answer and never a descriptor: a
 /// descriptor of a few hundred atoms is what a reading builds to throw away.
 ///
-/// Only emptiness is held. It is the reading the goals repeat -- the meet of a
-/// record's kept members, the inner set of a complement -- while a pair placed
-/// by the sets is asked once a query, where a memo is a hash and a copy of two
-/// schemas for nothing.
+/// Emptiness is held here. It is the reading the goals repeat -- the meet of a
+/// record's kept members, the inner set of a complement -- and the pairs the last
+/// asking reads by the sets are held beside it ([`Leaves`]).
 type Readings = FxHashMap<(u64, Schema), bool>;
+
+/// The sets' answers to the goals the last asking hands them
+/// ([`Schema::a_goal_declined`]), by the query and the pair, held for the reason
+/// [`Readings`] is and emptied at the same bound. A pair with no reference on either
+/// side is read by the sets with nothing open, so its answer rests on no open
+/// hypothesis: it is a function of the pair, the pool and the definitions, all fixed
+/// for the query, and a failed disjunct has nothing in it to roll back.
+type Leaves = FxHashMap<(u64, Schema, Schema), Relation>;
 
 /// The most answers the memo holds before it is emptied.
 ///
@@ -2834,6 +3162,8 @@ const READINGS_HELD: usize = 4096;
 thread_local! {
     /// The readings of the queries on this thread, by query number.
     static READINGS: RefCell<Readings> = RefCell::new(Readings::default());
+    /// The pairs the last askings on this thread read by the sets, by query number.
+    static LEAVES: RefCell<Leaves> = RefCell::new(Leaves::default());
     /// The query whose narrowed meet is being asked on this thread, or zero
     /// where none is ([`narrowed_meet_below`]). Held beside the query for the
     /// reason [`Readings`] is, and by number, so a query a callback starts
@@ -2886,6 +3216,8 @@ impl<'a> Cx<'a> {
             trail: Vec::new(),
             visiting: Vec::new(),
             query: Cell::new(0),
+            reads_leaves: false,
+            read_whole: (core::ptr::null(), core::ptr::null()),
         }
     }
 

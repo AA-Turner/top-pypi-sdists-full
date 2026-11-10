@@ -36,19 +36,21 @@ from urllib.parse import urlsplit
 
 import jwt
 
+from social_core.backends.base import ResponseT_co
 from social_core.backends.utils import jwt_error, load_oidc_config
 from social_core.exceptions import (
     AuthConfigurationError,
     AuthResponseError,
     ErrorStage,
+    SocialAuthBaseException,
 )
 from social_core.groups import configured_group_key, read_groups
-from social_core.utils import cache
+from social_core.utils import cache, social_logger
 
 from .oauth import BaseOAuth2PKCE
 
 
-class AzureADOAuth2(BaseOAuth2PKCE):
+class AzureADOAuth2(BaseOAuth2PKCE[ResponseT_co]):
     name = "azuread-oauth2"
     title = "Microsoft"
     icon = "microsoft.svg"
@@ -78,6 +80,35 @@ class AzureADOAuth2(BaseOAuth2PKCE):
         ("tid", "tid"),
         ("token_type", "token_type"),
     ]
+
+    def get_provider_error(
+        self,
+        data: object,
+        *,
+        stage: ErrorStage = "callback",
+        status_code: int | None = None,
+        retry_after: str | None = None,
+    ) -> SocialAuthBaseException | None:
+        if isinstance(data, dict) and data.get("error") == "invalid_request":
+            codes = data.get("error_codes")
+            description = data.get("error_description")
+            if (
+                isinstance(codes, list)
+                and any(isinstance(code, int) and code == 9002325 for code in codes)
+            ) or (
+                isinstance(description, str)
+                and description.lstrip().startswith("AADSTS9002325:")
+            ):
+                social_logger.warning(
+                    "Microsoft Entra ID rejected sign-in with AADSTS9002325. "
+                    "Check the app registration: a server-side callback must be "
+                    "registered under the Web platform. If it is registered as "
+                    "Single-page application (SPA), move it to Web. "
+                    "Enabling PKCE alone does not correct the platform registration."
+                )
+        return super().get_provider_error(
+            data, stage=stage, status_code=status_code, retry_after=retry_after
+        )
 
     @property
     def authority_host(self) -> str:
@@ -462,7 +493,7 @@ class AzureADOAuth2(BaseOAuth2PKCE):
         )
 
 
-class AzureADOAuth2V2(AzureADOAuth2):
+class AzureADOAuth2V2(AzureADOAuth2[ResponseT_co]):
     """Version of the AzureADOAuth2 backend that uses the v2.0 API endpoints,
     supporting users with personal Microsoft accounts, if the app settings
     allow them."""

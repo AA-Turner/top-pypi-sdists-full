@@ -1,20 +1,23 @@
-"""Value-free signals for the opt-in service worker's caches (#2948).
+"""Value-free signals for the opt-in service worker's caches (ADR-038 D-b, D-n).
 
 The worker (``static/djust/service-worker.js``) keeps three caches on disk:
 the state-snapshot cache, the VDOM (mount HTML) cache and the page-shell
-cache. Each mount frame tells the client two things, neither of which carries
-a value derived from view state or from the raw identity:
+cache. The server tells the client and worker three things, none of which
+carries a value derived from view state or from the raw identity:
 
-- **Identity.** ``sw_identity`` is an HMAC digest of the session key and
-  authenticated user id keyed on ``SECRET_KEY``. It is never the raw id or
-  session key. The client clears all three caches when it differs from the
-  stored marker, or when it disappears (logout), so one user's cached state is
-  never offered to the next user of the same browser profile.
-- **Lifetime.** A mount frame that carries a signed snapshot also carries
-  ``state_snapshot_max_age`` (``DJUST_STATE_SNAPSHOT_MAX_AGE``), so the worker
-  expires state entries on read with the server's own lifetime.
-
-Backported from the 1.3 line (ADR-038 D-n).
+- **Eligibility (D-b).** Explicit-exposure pages are not written to the VDOM
+  or shell cache. The HTTP response carries ``X-Djust-SW-Cache: no-store``
+  (read by the worker before it writes the shell) and the mount frame carries
+  ``"sw_cache": "no-store"`` (read by the client before ``cacheVdom``).
+  Legacy pages get neither, so their caching is unchanged.
+- **Identity (D-n).** Each mount frame carries ``sw_identity``, an HMAC
+  digest of the session key and authenticated user id keyed on
+  ``SECRET_KEY``. It is never the raw id or session key. The client clears
+  all three caches when it differs from the stored marker, or when it
+  disappears (logout).
+- **Lifetime (D-n).** A mount frame that carries a signed snapshot also
+  carries ``state_snapshot_max_age`` (``DJUST_STATE_SNAPSHOT_MAX_AGE``), so the
+  worker can expire entries on read with the server's own lifetime.
 """
 
 from __future__ import annotations
@@ -24,6 +27,10 @@ from typing import Any, Optional
 from django.utils.crypto import salted_hmac
 
 from .state_snapshot import get_max_age
+
+# Response header the worker checks before writing the shell cache.
+SW_CACHE_HEADER = "X-Djust-SW-Cache"
+SW_CACHE_NO_STORE = "no-store"
 
 # Namespaces the digest so it can never collide with another SECRET_KEY use.
 SW_IDENTITY_SALT = "djust.sw_identity"
@@ -40,6 +47,10 @@ def identity_marker(session_key: Optional[str], user: Any) -> Optional[str]:
     login and flushes it on logout) or when the authenticated user changes.
     It is ``None`` when there is neither a session key nor an authenticated
     user, which the client treats as "logged out".
+
+    The digest is ``salted_hmac`` over both parts with the project's
+    ``SECRET_KEY``, so it reveals neither the session key nor the user id and
+    cannot be computed without the secret.
     """
     session_part = session_key if isinstance(session_key, str) else ""
     user_part = ""
@@ -61,9 +72,18 @@ def identity_marker(session_key: Optional[str], user: Any) -> Optional[str]:
     return digest[:_MARKER_HEX_LENGTH]
 
 
-def mount_frame_metadata(request: Any, snapshot_token: Any) -> dict[str, Any]:
-    """Return the service-worker fields for one mount frame."""
+def mount_frame_metadata(view: Any, request: Any, snapshot_token: Any) -> dict[str, Any]:
+    """Return the service-worker fields for one mount frame.
+
+    ``sw_cache`` is present only for pages that are not eligible, so a legacy
+    page's cacheability is unchanged. The identity and max age never carry a
+    state value.
+    """
+    from .._exposure import service_worker_cache_eligible
+
     meta: dict[str, Any] = {}
+    if not service_worker_cache_eligible(view):
+        meta["sw_cache"] = SW_CACHE_NO_STORE
     session = getattr(request, "session", None)
     session_key = getattr(session, "session_key", None) if session is not None else None
     marker = identity_marker(session_key, getattr(request, "user", None))

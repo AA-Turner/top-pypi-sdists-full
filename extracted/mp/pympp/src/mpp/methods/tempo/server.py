@@ -65,6 +65,7 @@ def charge(
     can_offer: CanOfferFn | None = None,
     on_payment_success: PaymentSuccessHandler | None = None,
     supported_modes: Sequence[ChargeMode] | None = None,
+    machine_token_enabled: bool = False,
 ) -> list[ServerMethod]:
     """Create Tempo charge server methods, one per accepted currency in offer order.
 
@@ -96,7 +97,9 @@ def charge(
             process sharing it (default: ``SponsorBudget()`` on ``store``).
             Pass ``False`` only when it is enforced elsewhere.
         store: Replay store for transaction hashes. Use a shared store across
-            replicas; defaults to a per-process in-memory store.
+            replicas; defaults to the ``Mpp(store=...)`` store, or else a per-process
+            in-memory store, which raises in production or on a multi-instance platform.
+            Pass ``MemoryStore()`` to accept instance-local replay protection there.
         validate_sender: Authorizes a hash-credential sender that differs from
             the credential source.
         http_client: HTTP client for RPC calls, owned by the caller.
@@ -110,6 +113,10 @@ def charge(
             signed transaction; ``"push"``: the client broadcasts and sends its
             hash). Credentials for other modes are rejected. ``None`` advertises
             nothing and accepts both.
+        machine_token_enabled: Advertise ``methodDetails.machineTokenEnabled``, so clients
+            holding MACH pay through the canonical first-party swapper, which settles the
+            charge currency to the recipient in the same transaction. Routes may override it
+            with ``machine_token_enabled``.
     """
     if supported_modes is not None:
         if isinstance(supported_modes, str) or not supported_modes:
@@ -154,6 +161,8 @@ def charge(
         input.setdefault("decimals", config.decimals)
         if supported_modes is not None:
             input.setdefault("supported_modes", list(supported_modes))
+        if machine_token_enabled:
+            input.setdefault("machine_token_enabled", True)
         # Local simulation cannot authorize access keys: keep sponsorship opt-in.
         if fee_payer is None:
             input.pop("fee_payer", None)
@@ -181,6 +190,8 @@ def charge(
             on_payment_success=on_payment_success,
             defaults={"currency": accepted},
             use_store=use_store,
+            # The relay consumes credentials itself, so it needs no local replay store.
+            _has_store=lambda: relay is not None or intent._store is not None,
         )
         for accepted in config.currencies
     ]

@@ -12,7 +12,7 @@ __docformat__ = "restructuredtext"
 import collections.abc
 from typing import Any, Union
 
-from tango._instrumentation import _trace_client
+from tango._internal.instrumentation import _trace_client
 from tango._tango import (
     DeviceDataList,
     GroupAttrReply,

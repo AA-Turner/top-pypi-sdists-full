@@ -1,28 +1,29 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from typing_extensions import Self
 
+from office365.communications.out_of_office_settings import OutOfOfficeSettings
 from office365.communications.presences.status_message import PresenceStatusMessage
 from office365.communications.quotas import PRESENCE_QUOTAS
+from office365.communications.user_work_location import UserWorkLocation
 from office365.entity import Entity
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.outlook.mail.item_body import ItemBody
+from office365.permissions import require_permission
 from office365.runtime.limits import limit
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.duration import Duration
-
-if TYPE_CHECKING:
-    from office365.communications.out_of_office_settings import OutOfOfficeSettings
-    from office365.communications.user_work_location import UserWorkLocation
+from office365.runtime.types.odata_property import odata
 
 
 @limit(*PRESENCE_QUOTAS)
 class Presence(Entity):
     """Contains information about a user's presence, including their availability and user activity."""
 
+    @require_permission(delegated=["Presence.ReadWrite"], application=["Presence.ReadWrite.All"])
     def clear_presence(self, session_id: str | None = None) -> Self:
         """Clear the application's presence session for a user. If it is the user's only presence session,
         the user's presence will change to Offline/Offline.
@@ -35,6 +36,7 @@ class Presence(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(delegated=["Presence.ReadWrite"], application=["Presence.ReadWrite.All"])
     def clear_user_preferred_presence(self) -> Self:
         """
         Clear the preferred availability and activity status for a user.
@@ -43,6 +45,7 @@ class Presence(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(delegated=["Presence.ReadWrite"], application=["Presence.ReadWrite.All"])
     def set_presence(
         self,
         session_id: str,
@@ -70,6 +73,7 @@ class Presence(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(delegated=["Presence.ReadWrite"], application=["Presence.ReadWrite.All"])
     def set_status_message(self, message: str | ItemBody, expiry: Optional[datetime] = None):
         """Set a presence status message for a user. An optional expiration date and time can be supplied.
 
@@ -89,6 +93,7 @@ class Presence(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(delegated=["Presence.ReadWrite"], application=["Presence.ReadWrite.All"])
     def set_user_preferred_presence(
         self, availability="Available", activity="Available", expiration_duration: Duration | str | None = None
     ) -> Self:
@@ -111,6 +116,7 @@ class Presence(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="activity")
     @property
     def activity(self) -> Optional[str]:
         """
@@ -120,6 +126,7 @@ class Presence(Entity):
         """
         return self.properties.get("activity", None)
 
+    @odata(name="availability")
     @property
     def availability(self) -> Optional[str]:
         """
@@ -129,11 +136,13 @@ class Presence(Entity):
         """
         return self.properties.get("availability", None)
 
+    @odata(name="sequenceNumber", readonly=True)
     @property
     def sequence_number(self) -> Optional[str]:
         """Gets the sequenceNumber property"""
         return self.properties.get("sequenceNumber", None)
 
+    @odata(name="statusMessage")
     @property
     def status_message(self) -> PresenceStatusMessage:
         """Gets the statusMessage property"""
@@ -143,16 +152,14 @@ class Presence(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.Presence"
 
+    @odata(name="outOfOfficeSettings")
     @property
     def out_of_office_settings(self) -> OutOfOfficeSettings:
         """Gets the outOfOfficeSettings property"""
-        from office365.communications.out_of_office_settings import OutOfOfficeSettings
-
         return self.properties.get("outOfOfficeSettings", OutOfOfficeSettings())
 
+    @odata(name="workLocation")
     @property
     def work_location(self) -> UserWorkLocation:
         """Gets the workLocation property"""
-        from office365.communications.user_work_location import UserWorkLocation
-
         return self.properties.get("workLocation", UserWorkLocation())

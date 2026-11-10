@@ -11,6 +11,7 @@ from office365.onedrive.workbooks.charts.data_labels import WorkbookChartDataLab
 from office365.onedrive.workbooks.charts.legend.legend import WorkbookChartLegend
 from office365.onedrive.workbooks.charts.series.series import WorkbookChartSeries
 from office365.onedrive.workbooks.charts.title import WorkbookChartTitle
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 class WorkbookChart(Entity):
     """Represents a chart object in a workbook."""
 
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def image(self, width: int | None = None, height: int | None = None) -> ClientResult[str]:
         """Renders the chart as a base64-encoded image by scaling the chart to fit the specified dimensions.
 
@@ -37,6 +39,7 @@ class WorkbookChart(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def set_data(self, source_data: Dict, series_by: str) -> Self:
         """Updates the data source of a chart
 
@@ -49,6 +52,7 @@ class WorkbookChart(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def set_position(self, start_cell: str, end_cell: str) -> Self:
         """Positions the chart relative to cells on the worksheet.
 
@@ -63,15 +67,16 @@ class WorkbookChart(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="axes", navigation=True)
     @property
     def axes(self) -> WorkbookChartAxes:
         """Represents chart axes."""
         return self.properties.get(
-            "protection",
+            "axes",
             WorkbookChartAxes(self.context, ResourcePath("axes", self.resource_path)),
         )
 
-    @odata(name="dataLabels")
+    @odata(name="dataLabels", navigation=True)
     @property
     def data_labels(self) -> WorkbookChartDataLabels:
         """Represents the data labels on the chart."""
@@ -80,6 +85,7 @@ class WorkbookChart(Entity):
             WorkbookChartDataLabels(self.context, ResourcePath("dataLabels", self.resource_path)),
         )
 
+    @odata(name="legend", navigation=True)
     @property
     def legend(self) -> WorkbookChartLegend:
         """Represents the legend on the chart."""
@@ -88,6 +94,7 @@ class WorkbookChart(Entity):
             WorkbookChartLegend(self.context, ResourcePath("legend", self.resource_path)),
         )
 
+    @odata(name="series", navigation=True)
     @property
     def series(self) -> EntityCollection[WorkbookChartSeries]:
         """Represents chart series."""
@@ -100,6 +107,7 @@ class WorkbookChart(Entity):
             ),
         )
 
+    @odata(name="title", navigation=True)
     @property
     def title(self) -> WorkbookChartTitle:
         """Represents the title on the chart."""
@@ -108,6 +116,7 @@ class WorkbookChart(Entity):
             WorkbookChartTitle(self.context, ResourcePath("title", self.resource_path)),
         )
 
+    @odata(name="worksheet", navigation=True)
     @property
     def worksheet(self):
         """The worksheet containing the current chart."""
@@ -118,31 +127,37 @@ class WorkbookChart(Entity):
             WorkbookWorksheet(self.context, ResourcePath("worksheet", self.resource_path)),
         )
 
+    @odata(name="height")
     @property
     def height(self) -> Optional[float]:
         """Gets the height property"""
         return self.properties.get("height", None)
 
+    @odata(name="left")
     @property
     def left(self) -> Optional[float]:
         """Gets the left property"""
         return self.properties.get("left", None)
 
+    @odata(name="name")
     @property
     def name(self) -> Optional[str]:
         """Gets the name property"""
         return self.properties.get("name", None)
 
+    @odata(name="top")
     @property
     def top(self) -> Optional[float]:
         """Gets the top property"""
         return self.properties.get("top", None)
 
+    @odata(name="width")
     @property
     def width(self) -> Optional[float]:
         """Gets the width property"""
         return self.properties.get("width", None)
 
+    @odata(name="format", navigation=True)
     @property
     def format(self) -> WorkbookChartAreaFormat:
         """Gets the format property"""

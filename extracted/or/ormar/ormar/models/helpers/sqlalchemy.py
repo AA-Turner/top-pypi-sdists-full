@@ -1,39 +1,23 @@
 import logging
 import re
-from typing import TYPE_CHECKING, Any, ForwardRef, Optional, Union
+from typing import TYPE_CHECKING, Any, ForwardRef, Optional, Union, cast
 
 import sqlalchemy
 
 import ormar  # noqa: I100, I202
-from ormar.models.descriptors import RelationDescriptor
+from ormar.fields.link import qualified_fk_reference
+from ormar.models.descriptors import PkDescriptor, RelationDescriptor
 from ormar.models.helpers.pydantic import create_pydantic_field
 from ormar.models.helpers.related_names_validation import (
     validate_related_names_in_relations,
 )
+from ormar.models.primary_key import build_primary_key
 
 if TYPE_CHECKING:  # pragma no cover
     from ormar import BaseField, ForeignKeyField, ManyToManyField, Model
     from ormar.models import NewBaseModel
     from ormar.models.ormar_config import OrmarConfig
-
-
-def qualified_fk_reference(target: type["Model"], column_alias: str) -> str:
-    """
-    Builds the dotted reference string passed to ``sqlalchemy.ForeignKey``.
-
-    SQLAlchemy expects ``"schema.table.column"`` for cross-schema foreign keys
-    and ``"table.column"`` when the target is in the default schema.
-
-    :param target: target ormar Model
-    :type target: type["Model"]
-    :param column_alias: alias of the referenced column on the target table
-    :type column_alias: str
-    :return: dotted reference string
-    :rtype: str
-    """
-    config = target.ormar_config
-    prefix = f"{config.schema}." if config.schema else ""
-    return f"{prefix}{config.tablename}.{column_alias}"
+    from ormar.models.primary_key import PrimaryKey
 
 
 def validate_cross_schema_constraints(
@@ -70,50 +54,56 @@ def validate_cross_schema_constraints(
 def adjust_through_many_to_many_model(model_field: "ManyToManyField") -> None:
     """
     Registers m2m relation on through model.
-    Sets ormar.ForeignKey from through model to both child and parent models.
+    Sets ormar.ForeignKey from through model to both child and parent models,
+    unless the through model already declares them (see resolve_through_fields).
     Sets sqlalchemy.ForeignKey to both child and parent models.
     Sets pydantic fields with child and parent model types.
 
     :param model_field: relation field defined in parent model
     :type model_field: ManyToManyField
     """
-    parent_name = model_field.default_target_field_name()
-    child_name = model_field.default_source_field_name()
     model_fields = model_field.through.ormar_config.model_fields
-    model_fields[parent_name] = ormar.ForeignKey(  # type: ignore
-        model_field.to,
-        real_name=parent_name,
-        ondelete="CASCADE",
-        owner=model_field.through,
+    sides = (
+        (
+            model_field.default_target_field_name(),
+            model_field.to,
+            model_field.through_reverse_foreign_key_name,
+            model_field.through_reverse_relation_nullable,
+        ),
+        (
+            model_field.default_source_field_name(),
+            model_field.owner,
+            model_field.through_foreign_key_name,
+            model_field.through_relation_nullable,
+        ),
     )
-
-    model_fields[child_name] = ormar.ForeignKey(  # type: ignore
-        model_field.owner,
-        real_name=child_name,
-        ondelete="CASCADE",
-        owner=model_field.through,
-    )
-
-    create_and_append_m2m_fk(
-        model=model_field.to,
-        model_field=model_field,
-        field_name=parent_name,
-        foreign_key_name=model_field.through_reverse_foreign_key_name,
-        nullable=model_field.through_reverse_relation_nullable,
-    )
-    create_and_append_m2m_fk(
-        model=model_field.owner,
-        model_field=model_field,
-        field_name=child_name,
-        foreign_key_name=model_field.through_foreign_key_name,
-        nullable=model_field.through_relation_nullable,
-    )
-
-    create_pydantic_field(parent_name, model_field.to, model_field)
-    create_pydantic_field(child_name, model_field.owner, model_field)
-
-    setattr(model_field.through, parent_name, RelationDescriptor(name=parent_name))
-    setattr(model_field.through, child_name, RelationDescriptor(name=child_name))
+    for field_name, target, foreign_key_name, nullable in sides:
+        existing = model_fields.get(field_name)
+        if (
+            existing is not None
+            and existing.is_relation
+            and not existing.virtual
+            and existing.to is target
+        ):
+            continue
+        model_fields[field_name] = ormar.ForeignKey(  # type: ignore
+            to=target,
+            real_name=field_name,
+            ondelete=None if target.ormar_config.view else "CASCADE",
+            db_constraint=not target.ormar_config.view,
+            owner=model_field.through,
+        )
+        create_and_append_m2m_fk(
+            model=target,
+            model_field=model_field,
+            field_name=field_name,
+            foreign_key_name=foreign_key_name,
+            nullable=nullable,
+        )
+        create_pydantic_field(
+            field_name=field_name, model=target, model_field=model_field
+        )
+        setattr(model_field.through, field_name, RelationDescriptor(name=field_name))
 
 
 def create_and_append_m2m_fk(
@@ -140,7 +130,17 @@ def create_and_append_m2m_fk(
     :param nullable: whether the created column is nullable.
     :type nullable: bool
     """
-    pk_alias = model.get_column_alias(model.ormar_config.pkname)
+    through_field = cast(
+        "ForeignKeyField", model_field.through.ormar_config.model_fields[field_name]
+    )
+    if len(through_field.link.pairs) > 1:
+        append_multi_column_m2m_fk(
+            through_field=through_field,
+            foreign_key_name=foreign_key_name,
+            nullable=nullable,
+        )
+        return
+    (pk_alias,) = model.ormar_config.pk.column_aliases()
     pk_column = next(
         (col for col in model.ormar_config.columns if col.name == pk_alias), None
     )
@@ -151,46 +151,62 @@ def create_and_append_m2m_fk(
     through_table = model_field.through.ormar_config.tablename
     target_table = model.ormar_config.tablename
     default_name = f"fk_{through_table}_{target_table}_{field_name}_{pk_alias}"
+    foreign_keys = (
+        []
+        if model.ormar_config.view
+        else [
+            sqlalchemy.schema.ForeignKey(
+                qualified_fk_reference(target=model, column_alias=pk_alias),
+                ondelete="CASCADE",
+                onupdate="CASCADE",
+                name=foreign_key_name or default_name,
+            )
+        ]
+    )
     column = sqlalchemy.Column(
         field_name,
         pk_column.type,
-        sqlalchemy.schema.ForeignKey(
-            qualified_fk_reference(model, pk_alias),
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-            name=foreign_key_name or default_name,
-        ),
+        *foreign_keys,
         nullable=nullable,
     )
     model_field.through.ormar_config.columns.append(column)
     model_field.through.ormar_config.table.append_column(column, replace_existing=True)
 
 
-def check_pk_column_validity(
-    field_name: str, field: "BaseField", pkname: Optional[str]
-) -> Optional[str]:
+def append_multi_column_m2m_fk(
+    through_field: "ForeignKeyField",
+    foreign_key_name: Optional[str],
+    nullable: bool,
+) -> None:
     """
-    Receives the field marked as primary key and verifies if the pkname
-    was not already set (only one allowed per model).
+    Add the columns of a through model foreign key to a model with a composite
+    primary key (``<field>_<key column>``), with one composite
+    ``FOREIGN KEY`` constraint (``ON DELETE / ON UPDATE CASCADE``), built by
+    the foreign key field itself.
 
-    :raises ModelDefintionError: if pkname already set
-    :param field_name: name of field
-    :type field_name: str
-    :param field: ormar.Field
-    :type field: BaseField
-    :param pkname: already set pkname
-    :type pkname: Optional[str]
-    :return: name of the field that should be set as pkname
-    :rtype: str
+    :param through_field: foreign key of the through model to that model
+    :type through_field: ForeignKeyField
+    :param foreign_key_name: name of the constraint, default generated
+    :type foreign_key_name: Optional[str]
+    :param nullable: whether the columns are nullable
+    :type nullable: bool
     """
-    if pkname is not None:
-        raise ormar.ModelDefinitionError("Only one primary key column is allowed.")
-    return field_name
+    through = through_field.owner
+    table = through.ormar_config.table
+    through_field.sql_nullable = nullable
+    through_field.onupdate = "CASCADE"
+    if foreign_key_name is not None:
+        through_field.foreign_key_name = foreign_key_name
+    for column in through_field.get_columns():
+        through.ormar_config.columns.append(column)
+        table.append_column(column, replace_existing=True)
+    for constraint in through_field.construct_table_constraints():
+        table.append_constraint(constraint)
 
 
 def sqlalchemy_columns_from_model_fields(
     model_fields: dict, new_model: type["Model"]
-) -> tuple[Optional[str], list[sqlalchemy.Column]]:
+) -> tuple[tuple[str, ...], list[sqlalchemy.Column]]:
     """
     Iterates over declared on Model model fields and extracts fields that
     should be treated as database fields.
@@ -202,18 +218,16 @@ def sqlalchemy_columns_from_model_fields(
     are leading to the same related model only one can have empty related_name param.
     Also related_names have to be unique.
 
-    Trigger validation of primary_key - only one and required pk can be set
 
     Sets `owner` on each model_field as reference to newly created Model.
 
-    :raises ModelDefinitionError: if validation of related_names fail,
-    or pkname validation fails.
+    :raises ModelDefinitionError: if validation of related_names fail
     :param model_fields: dictionary of declared ormar model fields
     :type model_fields: dict[str, ormar.Field]
     :param new_model:
     :type new_model: Model class
-    :return: pkname, list of sqlalchemy columns
-    :rtype: tuple[Optional[str], list[sqlalchemy.Column]]
+    :return: names of the primary key fields, list of sqlalchemy columns
+    :rtype: tuple[tuple[str, ...], list[sqlalchemy.Column]]
     """
     if len(model_fields.keys()) == 0:
         model_fields["id"] = ormar.Integer(name="id", primary_key=True)
@@ -227,34 +241,179 @@ def sqlalchemy_columns_from_model_fields(
 
 def _process_fields(
     model_fields: dict, new_model: type["Model"]
-) -> tuple[Optional[str], list[sqlalchemy.Column]]:
+) -> tuple[tuple[str, ...], list[sqlalchemy.Column]]:
     """
     Helper method.
 
-    Populates pkname and columns.
+    Collects the primary key field names and columns.
 
     Sets `owner` on each model_field as reference to newly created Model.
 
-    :raises ModelDefinitionError: if validation of related_names fail,
-    or pkname validation fails.
     :param model_fields: dictionary of declared ormar model fields
     :type model_fields: dict[str, ormar.Field]
     :param new_model:
     :type new_model: Model class
-    :return: pkname, list of sqlalchemy columns
-    :rtype: tuple[Optional[str], list[sqlalchemy.Column]]
+    :return: names of the primary key fields, list of sqlalchemy columns
+    :rtype: tuple[tuple[str, ...], list[sqlalchemy.Column]]
     """
     columns = []
-    pkname = None
+    pk_fields = []
     for field_name, field in model_fields.items():
         field.owner = new_model
         if _is_through_model_not_set(field):
             field.create_default_through_model()
         if field.primary_key:
-            pkname = check_pk_column_validity(field_name, field, pkname)
+            pk_fields.append(field_name)
         if _is_db_field(field):
-            columns.append(field.get_column(field.get_alias()))
-    return pkname, columns
+            columns.extend(field.get_columns())
+    return tuple(pk_fields), merge_shared_columns(model=new_model, columns=columns)
+
+
+def names_columns_explicitly(field: "BaseField") -> bool:
+    """
+    :param field: field storing a column
+    :type field: BaseField
+    :return: whether the field is a foreign key naming its columns itself
+        (``columns=`` / ``name=``), so a column it shares with another field
+        is meant, not a clash of generated names
+    :rtype: bool
+    """
+    return field.is_relation and (
+        cast("ForeignKeyField", field).columns is not None or bool(field.db_alias)
+    )
+
+
+def column_owners(
+    model: Union[type["Model"], type["NewBaseModel"]],
+) -> dict[str, list["BaseField"]]:
+    """
+    :param model: model whose fields are inspected
+    :type model: Union[type[Model], type[NewBaseModel]]
+    :return: fields storing each database column, in declaration order
+    :rtype: dict[str, list[BaseField]]
+    """
+    owners: dict[str, list["BaseField"]] = {}
+    for field in model.ormar_config.model_fields.values():
+        if _is_db_field(field):
+            for column in field.column_aliases():
+                owners.setdefault(column, []).append(field)
+    return owners
+
+
+def validate_shared_column(
+    model: Union[type["Model"], type["NewBaseModel"]],
+    name: str,
+    fields: list["BaseField"],
+    columns: list[sqlalchemy.Column],
+) -> None:
+    """
+    Check that a column stored by several fields may be shared: at most one
+    of them is a plain field, every foreign key among them names the column
+    itself, and they agree on its type.
+
+    :raises ModelDefinitionError: if the fields can't share the column
+    :param model: model the column belongs to
+    :type model: Union[type[Model], type[NewBaseModel]]
+    :param name: column name
+    :type name: str
+    :param fields: fields storing the column
+    :type fields: list[BaseField]
+    :param columns: the column as each field defines it
+    :type columns: list[sqlalchemy.Column]
+    """
+    plain = [field for field in fields if not field.is_relation]
+    relations = [field for field in fields if field.is_relation]
+    if len(plain) > 1 or not all(
+        names_columns_explicitly(field=field) for field in relations
+    ):
+        raise ormar.ModelDefinitionError(
+            f"Column {name} of {model.__name__} is used by two fields, "
+            "rename one of them (name= / columns=)."
+        )
+    if len({repr(column.type) for column in columns}) > 1:
+        raise ormar.ModelDefinitionError(
+            f"Fields {[field.name for field in fields]} of {model.__name__} share "
+            f"column {name} but give it different types "
+            f"({', '.join(repr(column.type) for column in columns)})."
+        )
+
+
+def merge_shared_columns(
+    model: Union[type["Model"], type["NewBaseModel"]],
+    columns: list[sqlalchemy.Column],
+) -> list[sqlalchemy.Column]:
+    """
+    Keep one column per name when several fields store the same column (e.g.
+    a ``tenant_id`` shared by two foreign keys of a link table), built by
+    ``merged_column``.
+
+    :raises ModelDefinitionError: if the fields can't share a column
+    :param model: model the columns belong to
+    :type model: Union[type[Model], type[NewBaseModel]]
+    :param columns: columns of the model's fields, in declaration order
+    :type columns: list[sqlalchemy.Column]
+    :return: columns with each name once
+    :rtype: list[sqlalchemy.Column]
+    """
+    by_name: dict[str, list[sqlalchemy.Column]] = {}
+    for column in columns:
+        by_name.setdefault(column.name, []).append(column)
+    if all(len(same) == 1 for same in by_name.values()):
+        return columns
+    owners = column_owners(model=model)
+    merged = []
+    for name, same in by_name.items():
+        if len(same) == 1:
+            merged.append(same[0])
+            continue
+        validate_shared_column(
+            model=model, name=name, fields=owners[name], columns=same
+        )
+        merged.append(merged_column(name=name, fields=owners[name], columns=same))
+    return merged
+
+
+def merged_column(
+    name: str,
+    fields: list["BaseField"],
+    columns: list[sqlalchemy.Column],
+) -> sqlalchemy.Column:
+    """
+    Build the one column several fields share (all of them give it the same
+    type). It is part of the primary key when any of the fields is, nullable
+    only when all of them are and never generated by the database. Fields
+    storing the column on their own (a plain field, foreign keys of one
+    column) add their foreign keys, index and unique flags; the default,
+    server default and comment come from the plain field (foreign keys set
+    none).
+
+    :param name: column name
+    :type name: str
+    :param fields: fields storing the column, in declaration order
+    :type fields: list[BaseField]
+    :param columns: the column as each field defines it
+    :type columns: list[sqlalchemy.Column]
+    :return: the shared column
+    :rtype: sqlalchemy.Column
+    """
+    own = [field for field in fields if len(field.column_aliases()) == 1]
+    plain = next((field for field in own if not field.is_relation), None)
+    foreign_keys = [
+        foreign_key for field in own for foreign_key in field.construct_constraints()
+    ]
+    return sqlalchemy.Column(
+        name,
+        columns[0].type,
+        *foreign_keys,
+        primary_key=any(column.primary_key for column in columns),
+        autoincrement=False,
+        nullable=all(column.nullable for column in columns),
+        index=any(field.index for field in own) or None,
+        unique=any(field.unique for field in own) or None,
+        default=plain.ormar_default if plain is not None else None,
+        server_default=plain.server_default if plain is not None else None,
+        comment=plain.comment if plain is not None else None,
+    )
 
 
 def _is_through_model_not_set(field: "BaseField") -> bool:
@@ -279,6 +438,38 @@ def _is_db_field(field: "BaseField") -> bool:
     return not field.virtual and not field.is_multi
 
 
+def prepare_composite_key_fields(
+    key: "PrimaryKey", columns: list[sqlalchemy.Column]
+) -> None:
+    """
+    Validate the fields of a composite primary key and turn off the
+    autoincrement integer keys get by default, as no part of a composite key
+    is generated by the database.
+
+    :raises ModelDefinitionError: if a part explicitly autoincrements
+    :param key: composite primary key of the model
+    :type key: PrimaryKey
+    :param columns: the model's columns, adjusted in place
+    :type columns: list[sqlalchemy.Column]
+    """
+    model_fields = key.owner.ormar_config.model_fields
+    key_fields = key.fields
+    generated = [
+        name
+        for name in key_fields
+        if model_fields[name].autoincrement
+        and model_fields[name].autoincrement_explicit
+    ]
+    if generated:
+        raise ormar.ModelDefinitionError(
+            f"Composite primary key fields cannot autoincrement: {generated}"
+        )
+    key_columns = set(key.column_aliases())
+    for column in columns:
+        if column.name in key_columns:
+            column.autoincrement = False
+
+
 def populate_config_tablename_columns_and_pk(
     name: str, new_model: type["Model"]
 ) -> type["Model"]:
@@ -286,18 +477,18 @@ def populate_config_tablename_columns_and_pk(
     Sets Model tablename if it's not already set in OrmarConfig.
     Default tablename if not present is class name lower + s (i.e. Bed becomes -> beds)
 
-    Checks if Model's OrmarConfig have pkname and columns set.
+    Checks if Model's OrmarConfig have primary key and columns set.
     If not calls the sqlalchemy_columns_from_model_fields to populate
     columns from ormar.fields definitions.
 
-    :raises ModelDefinitionError: if pkname is not present raises ModelDefinitionError.
+    :raises ModelDefinitionError: if no field is marked as primary key.
     Each model has to have pk.
 
     :param name: name of the current Model
     :type name: str
     :param new_model: currently constructed Model
     :type new_model: ormar.models.metaclass.ModelMetaclass
-    :return: Model with populated pkname and columns in OrmarConfig
+    :return: Model with populated primary key and columns in OrmarConfig
     :rtype: ormar.models.metaclass.ModelMetaclass
     """
     tablename = name.lower() + "s"
@@ -306,24 +497,26 @@ def populate_config_tablename_columns_and_pk(
         if new_model.ormar_config.tablename
         else tablename
     )
-    pkname: Optional[str]
-
     if new_model.ormar_config.columns:
+        # a config with columns is shared with the model that built them
+        # (e.g. pydantic copies made for circular references), keep its key
         columns = new_model.ormar_config.columns
-        pkname = new_model.ormar_config.pkname
+        key = new_model.ormar_config.pk
     else:
-        pkname, columns = sqlalchemy_columns_from_model_fields(
-            new_model.ormar_config.model_fields, new_model
+        pk_fields, columns = sqlalchemy_columns_from_model_fields(
+            model_fields=new_model.ormar_config.model_fields, new_model=new_model
         )
-
-    if pkname is None:
-        raise ormar.ModelDefinitionError("Table has to have a primary key.")
+        if not pk_fields:
+            raise ormar.ModelDefinitionError("Table has to have a primary key.")
+        key = build_primary_key(owner=new_model, fields=pk_fields)
+        if key.is_composite:
+            prepare_composite_key_fields(key=key, columns=columns)
 
     new_model.ormar_config.columns = columns
-    new_model.ormar_config.pkname = pkname
+    new_model.ormar_config.pk = key
     if not new_model.ormar_config.orders_by:
-        # by default, we sort by pk name if other option not provided
-        new_model.ormar_config.orders_by.append(pkname)
+        # by default, we sort by the primary key if other option not provided
+        new_model.ormar_config.orders_by.extend(key.fields)
     return new_model
 
 
@@ -353,11 +546,24 @@ def populate_config_sqlalchemy_table_if_required(config: "OrmarConfig") -> None:
         config=config
     ):
         set_constraint_names(config=config)
+        # a view gets its own metadata so create_all and Alembic leave it alone
         table = sqlalchemy.Table(
             config.tablename,
-            config.metadata,
+            (
+                sqlalchemy.MetaData(
+                    schema=config.metadata.schema,
+                    naming_convention=config.metadata.naming_convention,
+                )
+                if config.view
+                else config.metadata
+            ),
             *config.columns,
             *config.constraints,
+            *(
+                constraint
+                for field in config.model_fields.values()
+                for constraint in field.construct_table_constraints()
+            ),
             schema=config.schema,
             comment=config.comment,
         )
@@ -420,6 +626,24 @@ def update_column_definition(
     columns = model.ormar_config.columns
     for ind, column in enumerate(columns):
         if column.name == field.get_alias():
-            new_column = field.get_column(field.get_alias())
-            columns[ind] = new_column
+            columns[ind : ind + 1] = field.get_columns()
+            columns[:] = merge_shared_columns(model=model, columns=columns)
             break
+
+
+def rebuild_primary_key(model: Union[type["Model"], type["NewBaseModel"]]) -> None:
+    """
+    A key whose only field is a foreign key to a forward reference is built as
+    a key of one column; once the reference resolves to a model with a key of
+    several columns, the foreign key stores several columns and the model's
+    key becomes composite.
+
+    :param model: model whose forward references were just resolved
+    :type model: Union[type[Model], type[NewBaseModel]]
+    """
+    key = model.ormar_config.pk
+    if key.is_composite or len(key.column_aliases()) == 1:
+        return
+    composite = build_primary_key(owner=cast(type["Model"], model), fields=key.fields)
+    model.ormar_config.pk = composite
+    model.pk = PkDescriptor(key=composite)  # type: ignore[assignment]

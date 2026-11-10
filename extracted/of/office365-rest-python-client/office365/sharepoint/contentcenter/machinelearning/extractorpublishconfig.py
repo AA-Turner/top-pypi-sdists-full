@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SPExtractorPublishConfig(ClientValue):
     ColumnInternalName: Optional[str] = None
     ColumnName: Optional[str] = None

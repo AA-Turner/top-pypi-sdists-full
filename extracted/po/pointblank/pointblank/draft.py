@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from importlib_resources import files
+from importlib.resources import files
 
 from pointblank._constants import MODEL_PROVIDERS
 from pointblank._utils_ai import (
     _check_ai_package,
     _check_syntax,
+    _chat_reply,
     _create_chat_instance,
     _extract_chain_steps,
     _extract_code,
@@ -54,6 +55,14 @@ class DraftValidation:
         to disable SSL verification (e.g., when behind a corporate firewall with self-signed
         certificates). Defaults to `True`. Use with caution as disabling SSL verification can pose
         security risks.
+    max_reprompts
+        The maximum number of times to ask the model for a corrected plan when the one it returned
+        doesn't pass a basic check: the code must parse as Python, and every method that looks like
+        a validation method (a name starting with `col_`, `row_`, or `rows_`) must exist, since
+        models sometimes invent method names. The retry tells the model what the problem was. Each
+        retry is another request to the provider, so a higher value can cost more. Set to `0` to
+        accept the first reply as is, and check it yourself with the object's `validate_syntax()`
+        method. Defaults to `1`.
 
     Returns
     -------
@@ -337,7 +346,7 @@ class DraftValidation:
             system_prompt="You are a terse assistant and a Python expert.",
         )
 
-        response = str(chat.chat(prompt, stream=False, echo="none"))
+        response = _chat_reply(chat, prompt)
         code = _extract_code(response)
 
         # Syntax/lint guardrail: re-prompt on failure up to `max_reprompts` times
@@ -350,7 +359,7 @@ class DraftValidation:
                 "Return the COMPLETE corrected plan again inside ```python + ``` code fences, "
                 "with no text outside the block."
             )
-            response = str(chat.chat(reprompt, stream=False, echo="none"))
+            response = _chat_reply(chat, reprompt)
             code = _extract_code(response)
             ok, message = _check_syntax(code)
 

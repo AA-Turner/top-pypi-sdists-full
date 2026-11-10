@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SubscriptionType(str, Enum):
@@ -100,6 +100,16 @@ class CreateSubscriptionRequest(BaseModel):
         default=None,
         description="Who is creating the subscription",
     )
+
+
+class DevinStopEvent(BaseModel):
+    """A Devin Stop hook event."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    hook_event_name: str
+    session_id: str
+    prompt_id: str
 
 
 class SubscriptionResponse(BaseModel):

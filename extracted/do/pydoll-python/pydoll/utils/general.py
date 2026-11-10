@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import errno
 import logging
 import os
 import re
@@ -117,6 +118,9 @@ def decode_base64_to_bytes(image: str) -> bytes:
     return base64.b64decode(image.encode('utf-8'))
 
 
+WS_ADDRESS_LOOKUP_TIMEOUT = 10
+
+
 async def get_browser_ws_address(port: int) -> str:
     """
     Fetches the WebSocket address for the browser instance.
@@ -129,8 +133,9 @@ async def get_browser_ws_address(port: int) -> str:
             or missing data.
         InvalidResponse: If the response is not valid JSON.
     """
+    timeout = aiohttp.ClientTimeout(total=WS_ADDRESS_LOOKUP_TIMEOUT)
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(f'http://localhost:{port}/json/version') as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -138,6 +143,12 @@ async def get_browser_ws_address(port: int) -> str:
 
     except aiohttp.ClientError as e:
         raise NetworkError(f'Failed to get browser ws address: {e}')
+
+    except asyncio.TimeoutError:
+        raise NetworkError(
+            f'Failed to get browser ws address: port {port} did not answer within '
+            f'{WS_ADDRESS_LOOKUP_TIMEOUT}s'
+        )
 
     except KeyError as e:
         raise InvalidResponse(f'Failed to get browser ws address: {e}')
@@ -315,6 +326,40 @@ def find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(('127.0.0.1', 0))
         return probe.getsockname()[1]
+
+
+_PORT_PROBE_ADDRESSES = (
+    (socket.AF_INET, '127.0.0.1'),
+    (socket.AF_INET, '0.0.0.0'),
+    (socket.AF_INET6, '::1'),
+    (socket.AF_INET6, '::'),
+)
+"""Where ``is_port_free`` binds: loopback, and the wildcards a listener could hold instead."""
+
+
+def is_port_free(port: int) -> bool:
+    """Whether no process already listens on the port, on loopback or a wildcard address.
+
+    A browser started on a port another one already owns cannot listen on it,
+    and pydoll would end up driving the other browser. Binding is used rather
+    than connecting because it answers at once on every platform; connecting
+    to a closed port on Windows takes about two seconds.
+
+    On POSIX the probe sets ``SO_REUSEADDR``, as Chrome does for its own
+    listener, so the connections a previous browser left in TIME_WAIT (up to
+    a minute after it stopped) do not read as a listener. Windows takes that
+    option as leave to share a port in use, so the probe there binds without it.
+    """
+    for family, host in _PORT_PROBE_ADDRESSES:
+        try:
+            with socket.socket(family, socket.SOCK_STREAM) as probe:
+                if os.name != 'nt':
+                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                probe.bind((host, port))
+        except OSError as exc:
+            if exc.errno == errno.EADDRINUSE:
+                return False
+    return True
 
 
 class PollInterval:

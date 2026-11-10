@@ -6,7 +6,7 @@ similar to Phoenix LiveView's Presence system.
 
 Example usage:
 
-    class DocumentView(LiveView, PresenceMixin):
+    class DocumentView(PresenceMixin, LiveView):
         presence_key = "document:{doc_id}"  # Group key
 
         def mount(self, request, **kwargs):
@@ -38,6 +38,19 @@ Template usage:
       {% endfor %}
     </div>
 
+Connections and users (#3254):
+
+Presence is stored per connection and reported per user. Each mounted presence
+view (one browser tab) is one *connection* of its user in the room. A user is
+present until their LAST connection leaves or times out, so closing or
+navigating one tab never removes the user while another tab is open:
+
+* ``list_presences()`` / ``presence_count()`` have one entry per user;
+* ``handle_presence_join`` fires when the user's FIRST connection arrives, and
+  ``handle_presence_leave`` when their LAST one leaves;
+* each connection has its own heartbeat and its own 60 s timeout, so a dead tab
+  is dropped without touching the user's other tabs.
+
 Presence-record shape (every backend):
 
     {"id": <user_id>, "joined_at": <epoch>, "meta": {<caller-supplied dict>}}
@@ -47,20 +60,28 @@ under the ``"meta"`` key — access it as ``p.meta.name`` / ``p["meta"]["name"]`
 never ``p.name``.
 """
 
+import contextlib
 import logging
+import threading
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+import uuid
+import asyncio
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.core.cache import cache
 
+from ._exposure import uses_legacy_exposure
 from .decorators import event_handler
-from .push import push_to_view
+from .push import push_to_presence_scope, push_to_view, view_push_scopes
 
 if TYPE_CHECKING:
     from .backends.base import PresenceBackend
 
 logger = logging.getLogger(__name__)
+
+# Clock ensures scheduled from track_presence on a running loop (see below).
+_PENDING_CLOCK_ENSURES: "set[asyncio.Task[Any]]" = set()
 
 # Cache keys
 PRESENCE_KEY_PREFIX = "djust_presence"
@@ -123,7 +144,26 @@ class PresenceManager:
         return f"{PRESENCE_GROUP_PREFIX}_{presence_key.replace(':', '_').replace('{', '').replace('}', '')}"
 
     @classmethod
-    def join_presence(cls, presence_key: str, user_id: str, meta: Dict[str, Any]) -> Dict[str, Any]:
+    def per_connection(cls) -> bool:
+        """Whether the configured backend stores one record per connection (#3254).
+
+        False for a third-party backend on the old three-method contract. The
+        transports hold a replaced view's untrack until after the replacement
+        mounts only when this is true: with one record per user the replacement's
+        join and the old view's leave would address the same record.
+        """
+        from djust.backends.base import uses_per_connection
+
+        return uses_per_connection(cls._backend())
+
+    @classmethod
+    def join_presence(
+        cls,
+        presence_key: str,
+        user_id: str,
+        meta: Dict[str, Any],
+        connection_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Add a user to a presence group.
 
@@ -131,25 +171,63 @@ class PresenceManager:
             presence_key: The presence group identifier
             user_id: Unique identifier for the user
             meta: Metadata about the user (name, color, etc.)
+            connection_id: Which of the user's connections this is (#3254). The
+                user stays present until every connection has left. Omitted,
+                it is the user's one legacy connection: the user as a whole.
 
         Returns:
-            The presence record that was added
+            The user's presence record
         """
-        return cls._backend().join(presence_key, user_id, meta)
+        backend = cls._backend()
+        if connection_id is None:
+            return backend.join(presence_key, user_id, meta)
+        return backend.join_connection(presence_key, user_id, connection_id, meta)[0]
 
     @classmethod
-    def leave_presence(cls, presence_key: str, user_id: str) -> Optional[Dict[str, Any]]:
+    def join_connection(
+        cls, presence_key: str, user_id: str, connection_id: str, meta: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], bool]:
+        """Add one connection of a user (#3254).
+
+        Returns ``(record, first)``: the user's presence record and whether this
+        connection made the user present, which is when ``handle_presence_join``
+        fires.
         """
-        Remove a user from a presence group.
+        return cls._backend().join_connection(presence_key, user_id, connection_id, meta)
+
+    @classmethod
+    def leave_presence(
+        cls, presence_key: str, user_id: str, connection_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Remove a user, or one of their connections, from a presence group.
 
         Args:
             presence_key: The presence group identifier
             user_id: Unique identifier for the user
+            connection_id: The connection to remove (#3254). Omitted, every
+                connection of the user is removed.
 
         Returns:
-            The presence record that was removed, or None if not found
+            The user's presence record when they are no longer in the group,
+            or None if they were not found or are still present through
+            another connection
         """
-        return cls._backend().leave(presence_key, user_id)
+        backend = cls._backend()
+        if connection_id is None:
+            return backend.leave(presence_key, user_id)
+        return backend.leave_connection(presence_key, user_id, connection_id)
+
+    @classmethod
+    def leave_connection(
+        cls, presence_key: str, user_id: str, connection_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Remove one connection of a user (#3254).
+
+        Returns the user's record when that was their last connection, which is
+        when ``handle_presence_leave`` fires, and None otherwise.
+        """
+        return cls._backend().leave_connection(presence_key, user_id, connection_id)
 
     @classmethod
     def list_presences(cls, presence_key: str) -> List[Dict[str, Any]]:
@@ -160,7 +238,7 @@ class PresenceManager:
             presence_key: The presence group identifier
 
         Returns:
-            List of presence records
+            List of presence records, one per user
         """
         return cls._backend().list(presence_key)
 
@@ -170,9 +248,18 @@ class PresenceManager:
         return cls._backend().count(presence_key)
 
     @classmethod
-    def update_heartbeat(cls, presence_key: str, user_id: str) -> None:
-        """Update the heartbeat timestamp for a user."""
-        cls._backend().heartbeat(presence_key, user_id)
+    def update_heartbeat(
+        cls, presence_key: str, user_id: str, connection_id: Optional[str] = None
+    ) -> None:
+        """Update the heartbeat timestamp for a user's connection (#3254).
+
+        Without ``connection_id`` every connection of the user is refreshed.
+        """
+        backend = cls._backend()
+        if connection_id is None:
+            backend.heartbeat(presence_key, user_id)
+        else:
+            backend.heartbeat_connection(presence_key, user_id, connection_id)
 
 
 class PresenceMixin:
@@ -180,14 +267,45 @@ class PresenceMixin:
     Mixin that provides presence tracking capabilities to LiveView.
 
     Usage:
-        class MyView(LiveView, PresenceMixin):
+        class MyView(PresenceMixin, LiveView):
             presence_key = "my_view:{id}"  # Define the presence group
 
             def mount(self, request, **kwargs):
                 self.track_presence(meta={"name": request.user.username})
+
+    List the mixin BEFORE ``LiveView``. ``__init__`` below sets the presence
+    state, and Django's ``View.__init__`` does not call ``super().__init__()``,
+    so a mixin listed after ``LiveView`` never initialises. Such a class is
+    refused with a ``TypeError`` when it is defined (#3109).
     """
 
+    room_clock: Any = None  # Opt-in ADR-042 presence-bound process clock
     presence_key: Optional[str] = None
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        from django.views import View
+
+        mro = cls.__mro__
+        if View in mro and mro.index(View) < mro.index(PresenceMixin):
+            mixin = next(
+                c for c in mro if issubclass(c, PresenceMixin) and c.__module__ == __name__
+            )
+            host = next(c for c in mro if issubclass(c, View) and c is not cls)
+            raise TypeError(
+                "%s lists %s after %s. Django's View.__init__ does not call "
+                "super().__init__(), so %s.__init__ never runs and presence "
+                "state is missing. Put the mixin first: class %s(%s, %s)."
+                % (
+                    cls.__name__,
+                    mixin.__name__,
+                    host.__name__,
+                    mixin.__name__,
+                    cls.__name__,
+                    mixin.__name__,
+                    host.__name__,
+                )
+            )
 
     # When True, anonymous users get a per-WebSocket-connection unique id
     # (``anon_conn_<ws_session_id>``) instead of one collapsing across tabs of
@@ -196,11 +314,45 @@ class PresenceMixin:
     # presence. See issue #1613.
     presence_unique_per_connection: bool = False
 
+    # Who a join or leave wakes (#3095). The broadcast calls
+    # ``_on_presence_change`` on other sessions so they refresh
+    # ``online_count``; only the sessions that share this session's presence
+    # key can see a different count.
+    #
+    # - ``None`` (default): only those sessions when the view sets a
+    #   ``push_scope`` (it has opted in to scoped delivery), otherwise every
+    #   session of the view, as before.
+    # - ``True``: only the sessions that share the presence key.
+    # - ``False``: every session of the view in every room (the 1.2 behaviour,
+    #   for an ``_on_presence_change`` override that reacts to other keys).
+    presence_broadcast_scoped: Optional[bool] = None
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        # The presence key whose sessions a scoped broadcast reaches, and whose
+        # presence-scope group this session's WebSocket joins (#3095). Set by
+        # track_presence / _restore_presence; for a session that never tracks,
+        # the WebSocket transport fills it in once after mount.
+        self._presence_scope_key: Optional[str] = None
         self._presence_tracked = False
         self._presence_user_id: Optional[str] = None
         self._presence_meta: Optional[Dict[str, Any]] = None
+        # Which of the user's connections this view is (#3254). One per
+        # tracking view, minted by ``track_presence`` / ``_restore_presence``.
+        self._presence_connection_id: Optional[str] = None
+        self._presence_pending_join: Optional[Callable[[], None]] = None
+
+    def _new_presence_connection_id(self) -> str:
+        """A fresh id for this view's presence connection (#3254).
+
+        Per view, not per socket: the transport session id leads it (for
+        diagnostics) and a random suffix makes it unique. A replacement view on
+        the same socket (navigation) and a reconnect's view (SSE reuses its
+        session id) each get their own, so tearing down the old view can only
+        ever remove the old view's connection.
+        """
+        transport = getattr(self, "_websocket_session_id", None) or "view"
+        return f"{transport}:{uuid.uuid4().hex[:12]}"
 
     def _refresh_online_count(self) -> None:
         """Recompute ``self.online_count`` from the backend.
@@ -218,18 +370,57 @@ class PresenceMixin:
             logger.debug("PresenceMixin._refresh_online_count: %s", exc)
             self.online_count = getattr(self, "online_count", 0)
 
+    def _presence_broadcast_is_scoped(self) -> bool:
+        """Whether a join or leave wakes only the sessions sharing the presence
+        key (#3095). See ``presence_broadcast_scoped``."""
+        flag = getattr(self, "presence_broadcast_scoped", None)
+        if flag is not None:
+            return bool(flag)
+        try:
+            return bool(view_push_scopes(self))
+        except (TypeError, ValueError):
+            # An invalid push_scope gets no scoped pushes (push.py logs it);
+            # keep the presence broadcast view-wide so nobody misses a change.
+            return False
+
     def _broadcast_presence_change(self) -> None:
-        """Fire ``push_to_view`` to ``_on_presence_change`` on every active session
-        of this view class.
+        """Push ``_on_presence_change`` to the peer sessions of this view.
+
+        Scoped (#3095, see ``presence_broadcast_scoped``): to the sessions
+        whose presence key is this session's key. Otherwise: to every active
+        session of this view class.
 
         Failures are swallowed (logged at debug) so a misconfigured channel
         layer, an invalid view-path regex (test-local class paths often fail
         the ``_VIEW_PATH_RE`` check), or any other transient backend error
         never breaks ``track_presence`` / ``untrack_presence`` (#1614).
         """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            from asgiref.sync import sync_to_async
+
+            # The sync push API bridges group_send back to this serving loop.
+            # Execute that bridge in a worker when track runs in an async event.
+            from .sync_turn import sync_step
+
+            # Reads ``get_presence_key()``: a ``"hook"`` step (#3637).
+            loop.create_task(
+                sync_to_async(sync_step(self, "hook", self._broadcast_presence_change))()
+            )
+            return
+
         view_path = f"{self.__class__.__module__}.{self.__class__.__name__}"
         try:
-            push_to_view(view_path, handler="_on_presence_change", payload={})
+            if self._presence_broadcast_is_scoped():
+                key = getattr(self, "_presence_scope_key", None)
+                if key is None:
+                    key = self.get_presence_key()
+                push_to_presence_scope(view_path, key, handler="_on_presence_change", payload={})
+            else:
+                push_to_view(view_path, handler="_on_presence_change", payload={})
         except Exception as exc:  # noqa: BLE001 — broadcast must never kill track/untrack
             logger.debug("PresenceMixin._broadcast_presence_change: push_to_view failed: %s", exc)
 
@@ -274,7 +465,9 @@ class PresenceMixin:
         1. Authenticated users → ``str(request.user.id)``. ALWAYS collapses
            across tabs to one presence; ``presence_unique_per_connection``
            does NOT affect authenticated users — multi-tab same-user is a
-           single online presence by design.
+           single online presence by design. Each tab is still its own
+           connection (#3254): the user stays present until the last one
+           leaves.
         2. Anonymous + ``presence_unique_per_connection=True`` →
            ``f"anon_conn_{_websocket_session_id}"`` so each tab counts as
            a distinct presence. Falls back to ``f"anon_{id(self)}"`` if
@@ -318,6 +511,20 @@ class PresenceMixin:
         """
         Start tracking this user's presence.
 
+        ``meta`` is application output: it is stored in the presence backend,
+        returned to every peer by ``list_presences()`` and, with
+        :class:`LiveCursorMixin`, rebroadcast to the presence group on every
+        cursor move. Put in it only what every peer may see.
+
+        Legacy views also get the authenticated user's ``name`` (username) and
+        ``user_id`` filled in when absent. Under ``exposure_policy="explicit"``
+        (ADR-038 D-c) nothing is added: only the meta you pass is tracked.
+
+        This view becomes one *connection* of the user in the room (#3254).
+        ``handle_presence_join`` fires only when it is the user's first
+        connection; a second tab of a user who is already present joins
+        silently.
+
         Args:
             meta: Metadata to associate with the user (name, color, avatar, etc.)
         """
@@ -343,9 +550,11 @@ class PresenceMixin:
         if meta is None:
             meta = {}
 
-        # Add default metadata
+        # Add default metadata (legacy only; ADR-038 D-c: peers see meta, so
+        # explicit views track exactly what the application passed).
         if (
-            hasattr(self, "request")
+            uses_legacy_exposure(self)
+            and hasattr(self, "request")
             and hasattr(self.request, "user")
             and self.request.user.is_authenticated
         ):
@@ -354,11 +563,45 @@ class PresenceMixin:
 
         self._presence_user_id = user_id
         self._presence_meta = meta
+        self._presence_scope_key = presence_key
 
-        # Join presence
-        presence_data = PresenceManager.join_presence(presence_key, user_id, meta)
+        # Join presence as one connection of the user (#3254).
+        connection_id = self._new_presence_connection_id()
+        presence_data, first_connection = PresenceManager.join_connection(
+            presence_key, user_id, connection_id, meta
+        )
+        self._presence_connection_id = connection_id
 
         self._presence_tracked = True
+        # Establish the callback as soon as the backend track succeeds, even
+        # if clock binding validation raises before an ensure can be scheduled.
+        if first_connection and hasattr(self, "handle_presence_join"):
+
+            def joined() -> None:
+                # Disconnect/retrack may have happened while ensure waited.
+                if (
+                    not self._presence_tracked
+                    or self._presence_connection_id != connection_id
+                    or self._presence_pending_join is not joined
+                ):
+                    return
+                self._presence_pending_join = None
+                try:
+                    self.handle_presence_join(presence_data)
+                except Exception as e:
+                    from ._exposure_diagnostics import log_failure_for
+
+                    log_failure_for(
+                        logger, (self,), e, "Error in handle_presence_join: %s", e, traceback=True
+                    )
+
+            self._presence_pending_join = joined
+        try:
+            clock_ensure = self._ensure_room_clock(presence_key)
+        except Exception:
+            if self._presence_pending_join is not None:
+                self._presence_pending_join()
+            raise
 
         # #1611 — refresh online_count after the backend join so this user's
         # own join is included.
@@ -370,12 +613,19 @@ class PresenceMixin:
         # so the broadcast terminates after one hop.
         self._broadcast_presence_change()
 
-        # Call presence join handler if it exists
-        if hasattr(self, "handle_presence_join"):
-            try:
-                self.handle_presence_join(presence_data)
-            except Exception as e:
-                logger.exception("Error in handle_presence_join: %s", e)
+        # A synchronous API cannot await on an event-loop thread. Defer the
+        # first-join callback until the asynchronous ensure has completed.
+        if self._presence_pending_join is not None:
+            if clock_ensure is None:
+                joined()
+            else:
+
+                def after_ensure(task: asyncio.Task[bool]) -> None:
+                    # Tracking succeeded even if ensure failed or was cancelled.
+                    # The ensure observer logs failures independently.
+                    joined()
+
+                clock_ensure.add_done_callback(after_ensure)
 
     def _restore_presence(self) -> None:
         """Re-register this view's presence with the process-wide manager.
@@ -401,7 +651,14 @@ class PresenceMixin:
         meta = getattr(self, "_presence_meta", None) or {}
         try:
             presence_key = self.get_presence_key()
-            PresenceManager.join_presence(presence_key, user_id, meta)
+            # A fresh connection, never the id the saved state carries: that one
+            # belongs to the connection the state was saved from, which another
+            # live tab of this user may still hold (#3254).
+            connection_id = self._new_presence_connection_id()
+            PresenceManager.join_connection(presence_key, user_id, connection_id, meta)
+            self._presence_connection_id = connection_id
+            self._presence_scope_key = presence_key
+            self._ensure_room_clock(presence_key)
             # #1611 / #1614 — also refresh local count and broadcast so the
             # reconnected session has online_count set for its first
             # post-restore patch, and peer sessions learn the user came back.
@@ -415,32 +672,134 @@ class PresenceMixin:
                 exc,
             )
 
+    def _ensure_room_clock(self, presence_key: str) -> asyncio.Task[bool] | None:
+        """Bind every tracked/restored connection, including silent second tabs.
+
+        Use the actual recorded presence key for liveness. Namespace the clock
+        key separately and let its tenant helper add the canonical prefix.
+        """
+        clock = self.room_clock
+        if clock is None:
+            return None
+        key = presence_key
+        tenant = getattr(self, "_tenant", None)
+        if tenant is not None:
+            prefix = f"tenant:{tenant.id}:"
+            if key.startswith(prefix):
+                key = key[len(prefix) :]
+        from .push import view_push_scopes, MAX_PUSH_SCOPES
+
+        scope = clock.scope(self, key)
+        scopes = set(view_push_scopes(self))
+        previous = getattr(self, "_room_clock_scope", None)
+        if previous is not None:
+            scopes.discard(previous)
+        scopes.add(scope)
+        if len(scopes) > MAX_PUSH_SCOPES:
+            raise ValueError("room_clock needs one available push scope")
+        self.push_scope = scope if len(scopes) == 1 else sorted(scopes)
+        self._room_clock_scope = scope
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                clock.ensure(self, key, presence_key=presence_key)
+            except Exception as exc:
+                from ._exposure_diagnostics import log_failure_for
+
+                log_failure_for(
+                    logger, (self,), exc, "Presence clock ensure failed", traceback=True
+                )
+        else:
+            # track_presence is synchronous even in async event handlers. Keep
+            # the join/count/broadcast path synchronous and observe failures.
+            task = loop.create_task(clock.aensure(self, key, presence_key=presence_key))
+            # The loop keeps only a weak reference to a task; hold it until done.
+            _PENDING_CLOCK_ENSURES.add(task)
+
+            def ensured(task: "asyncio.Task[Any]") -> None:
+                _PENDING_CLOCK_ENSURES.discard(task)
+                exc = None if task.cancelled() else task.exception()
+                if exc is not None:
+                    from ._exposure_diagnostics import log_failure_for
+
+                    log_failure_for(
+                        logger,
+                        (self,),
+                        exc,
+                        "Presence clock ensure failed",
+                        traceback=True,
+                    )
+
+            task.add_done_callback(ensured)
+            return task
+        return None
+
     def untrack_presence(self) -> None:
-        """Stop tracking this user's presence."""
+        """Stop tracking this view's presence.
+
+        Removes this view's connection only (#3254). ``handle_presence_leave``
+        fires when it was the user's LAST connection; a user who is still open
+        in another tab stays present and gets no leave event.
+        """
         if not self._presence_tracked:
             return
 
+        # Deliver a deferred first join before its matching leave. The task's
+        # later callback is suppressed by the connection identity check.
+        pending_join = getattr(self, "_presence_pending_join", None)
+        if pending_join is not None:
+            pending_join()
+
         presence_key = self.get_presence_key()
         user_id = self._presence_user_id
+        connection_id = self._presence_connection_id
 
-        if user_id:
-            presence_data = PresenceManager.leave_presence(presence_key, user_id)
+        if user_id and connection_id:
+            presence_data = PresenceManager.leave_connection(presence_key, user_id, connection_id)
 
             # Call presence leave handler if it exists
-            if presence_data and hasattr(self, "handle_presence_leave"):
-                try:
-                    self.handle_presence_leave(presence_data)
-                except Exception as e:
-                    logger.exception("Error in handle_presence_leave: %s", e)
+            if presence_data:
+                self._on_presence_user_left(presence_key, user_id)
+                if hasattr(self, "handle_presence_leave"):
+                    try:
+                        self.handle_presence_leave(presence_data)
+                    except Exception as e:
+                        from ._exposure_diagnostics import log_failure_for
+
+                        # handle_presence_leave is application code (ADR-038).
+                        log_failure_for(
+                            logger,
+                            (self,),
+                            e,
+                            "Error in handle_presence_leave: %s",
+                            e,
+                            traceback=True,
+                        )
 
         self._presence_tracked = False
         self._presence_user_id = None
         self._presence_meta = None
+        self._presence_connection_id = None
 
-        # #1611 / #1614 — refresh local count (now excludes the leaving user)
-        # and broadcast to peer sessions.
+        # #1611 / #1614 — refresh local count (now excludes the leaving user
+        # unless another tab keeps them present) and broadcast to peer sessions.
         self._refresh_online_count()
+        scope = getattr(self, "_room_clock_scope", None)
+        if (
+            self.room_clock is not None
+            and scope is not None
+            and getattr(self, "online_count", None) == 0
+        ):
+            self.room_clock._presence_empty(scope)
         self._broadcast_presence_change()
+
+    def _on_presence_user_left(self, presence_key: str, user_id: str) -> None:
+        """Hook: ``user_id``'s last connection left ``presence_key`` (#3254).
+
+        Runs before ``handle_presence_leave``. ``LiveCursorMixin`` drops the
+        user's cursor here.
+        """
 
     @event_handler
     def _on_presence_change(self, **kwargs: Any) -> None:
@@ -470,16 +829,24 @@ class PresenceMixin:
         return PresenceManager.presence_count(presence_key)
 
     def update_presence_heartbeat(self) -> None:
-        """Update the heartbeat for this user's presence."""
-        if not self._presence_tracked or not self._presence_user_id:
+        """Update the heartbeat for this view's presence connection (#3254)."""
+        if (
+            not self._presence_tracked
+            or not self._presence_user_id
+            or not self._presence_connection_id
+        ):
             return
 
         presence_key = self.get_presence_key()
-        PresenceManager.update_heartbeat(presence_key, self._presence_user_id)
+        PresenceManager.update_heartbeat(
+            presence_key, self._presence_user_id, self._presence_connection_id
+        )
 
     def handle_presence_join(self, presence: Dict[str, Any]) -> None:
         """
-        Called when a user joins the presence group.
+        Called when a user joins the presence group: when their FIRST
+        connection arrives (#3254). A second tab of a user who is already
+        present does not call it.
 
         Override this method to handle presence join events.
 
@@ -490,7 +857,9 @@ class PresenceMixin:
 
     def handle_presence_leave(self, presence: Dict[str, Any]) -> None:
         """
-        Called when a user leaves the presence group.
+        Called when a user leaves the presence group: when their LAST
+        connection leaves (#3254). Closing or navigating away from one of
+        several tabs does not call it.
 
         Override this method to handle presence leave events.
 
@@ -519,11 +888,66 @@ class PresenceMixin:
                 "type": "presence_event",
                 "event": event,
                 "payload": payload,
+                # The group it was sent to: a socket that hosts several views
+                # forwards it for the views that joined it (#3252).
+                "group": group_name,
             }
             async_to_sync(channel_layer.group_send)(group_name, message)
 
 
+def presence_groups_of(consumer: Any) -> List[str]:
+    """Every presence group ``consumer`` has joined (#3202).
+
+    A ``mount_batch`` can join several (one per presence view), so the
+    consumer keeps a set in ``_presence_groups``; ``_presence_group`` is the
+    most recent one, kept for code that reads the single attribute.
+    """
+    groups = set(getattr(consumer, "_presence_groups", None) or ())
+    single = getattr(consumer, "_presence_group", None)
+    if isinstance(single, str) and single:
+        groups.add(single)
+    return sorted(groups)
+
+
+async def leave_presence_groups(consumer: Any) -> None:
+    """Leave every presence group ``consumer`` joined and forget them (#3202).
+
+    Called on disconnect, on a ``live_redirect`` teardown and when a mount is
+    refused after it joined. A failed discard is logged, never raised.
+    """
+    groups = presence_groups_of(consumer)
+    consumer._presence_groups = set()
+    consumer._presence_group = None
+    channel_layer = getattr(consumer, "channel_layer", None)
+    if channel_layer is None:
+        return
+    for group in groups:
+        try:
+            await channel_layer.group_discard(group, consumer.channel_name)
+        except Exception:  # noqa: BLE001 - leaving is best effort
+            logger.warning("Error leaving presence group %s", group)
+
+
 # Cursor tracking for live cursors (bonus feature)
+# Guards the cache get -> modify -> set sequences below within this process
+# (#3074): with ``LIVEVIEW_CONFIG["worker_threads"]`` two sessions' cursor
+# updates can run at the same time, and one would overwrite the other's.
+# Only for the in-process (local-memory) cache: a shared cache (Redis,
+# memcached) is last-writer-wins across processes anyway, and holding a
+# process-wide lock across its network round trips would queue every cursor
+# update in the process behind one another.
+_CURSOR_LOCK = threading.Lock()
+
+
+def _cursor_lock() -> Any:
+    from django.core.cache import DEFAULT_CACHE_ALIAS, caches
+    from django.core.cache.backends.locmem import LocMemCache
+
+    if isinstance(caches[DEFAULT_CACHE_ALIAS], LocMemCache):
+        return _CURSOR_LOCK
+    return contextlib.nullcontext()
+
+
 class CursorTracker:
     """Manages live cursor positions for collaborative features."""
 
@@ -541,34 +965,34 @@ class CursorTracker:
     ) -> None:
         """Update cursor position for a user."""
         cache_key = cls.cursor_cache_key(presence_key)
-        cursors = cache.get(cache_key, {})
-
-        cursors[user_id] = {
-            "x": x,
-            "y": y,
-            "timestamp": time.time(),
-            "meta": meta or {},
-        }
-
-        cache.set(cache_key, cursors, timeout=cls.CURSOR_TIMEOUT + 5)
+        with _cursor_lock():
+            cursors = cache.get(cache_key, {})
+            cursors[user_id] = {
+                "x": x,
+                "y": y,
+                "timestamp": time.time(),
+                "meta": meta or {},
+            }
+            cache.set(cache_key, cursors, timeout=cls.CURSOR_TIMEOUT + 5)
 
     @classmethod
     def get_cursors(cls, presence_key: str) -> Dict[str, Dict[str, Any]]:
         """Get all active cursor positions."""
         cache_key = cls.cursor_cache_key(presence_key)
-        cursors = cache.get(cache_key, {})
+        with _cursor_lock():
+            cursors = cache.get(cache_key, {})
 
-        # Clean up stale cursors
-        now = time.time()
-        active_cursors = {}
+            # Clean up stale cursors
+            now = time.time()
+            active_cursors = {}
 
-        for user_id, cursor_data in cursors.items():
-            if (now - cursor_data["timestamp"]) < cls.CURSOR_TIMEOUT:
-                active_cursors[user_id] = cursor_data
+            for user_id, cursor_data in cursors.items():
+                if (now - cursor_data["timestamp"]) < cls.CURSOR_TIMEOUT:
+                    active_cursors[user_id] = cursor_data
 
-        # Update cache if we cleaned up stale cursors
-        if len(active_cursors) != len(cursors):
-            cache.set(cache_key, active_cursors, timeout=cls.CURSOR_TIMEOUT + 5)
+            # Update cache if we cleaned up stale cursors
+            if len(active_cursors) != len(cursors):
+                cache.set(cache_key, active_cursors, timeout=cls.CURSOR_TIMEOUT + 5)
 
         return active_cursors
 
@@ -576,11 +1000,11 @@ class CursorTracker:
     def remove_cursor(cls, presence_key: str, user_id: str) -> None:
         """Remove cursor for a user."""
         cache_key = cls.cursor_cache_key(presence_key)
-        cursors = cache.get(cache_key, {})
-
-        if user_id in cursors:
-            del cursors[user_id]
-            cache.set(cache_key, cursors, timeout=cls.CURSOR_TIMEOUT + 5)
+        with _cursor_lock():
+            cursors = cache.get(cache_key, {})
+            if user_id in cursors:
+                del cursors[user_id]
+                cache.set(cache_key, cursors, timeout=cls.CURSOR_TIMEOUT + 5)
 
 
 class LiveCursorMixin(PresenceMixin):
@@ -588,7 +1012,7 @@ class LiveCursorMixin(PresenceMixin):
     Extends PresenceMixin with live cursor tracking capabilities.
 
     Usage:
-        class MyView(LiveView, LiveCursorMixin):
+        class MyView(LiveCursorMixin, LiveView):
             presence_key = "document:{doc_id}"
 
             def handle_cursor_move(self, x, y):
@@ -597,7 +1021,12 @@ class LiveCursorMixin(PresenceMixin):
     """
 
     def update_cursor_position(self, x: int, y: int) -> None:
-        """Update cursor position for this user."""
+        """Update cursor position for this user.
+
+        Broadcasts ``{"user_id", "x", "y", "meta"}`` to every peer in the
+        presence group, where ``meta`` is what was passed to
+        ``track_presence`` (application output; see its docstring).
+        """
         if not self._presence_tracked or not self._presence_user_id:
             return
 
@@ -634,10 +1063,6 @@ class LiveCursorMixin(PresenceMixin):
         """
         self.update_cursor_position(x, y)
 
-    def untrack_presence(self) -> None:
-        """Override to also remove cursor when leaving presence."""
-        if self._presence_tracked and self._presence_user_id:
-            presence_key = self.get_presence_key()
-            CursorTracker.remove_cursor(presence_key, self._presence_user_id)
-
-        super().untrack_presence()
+    def _on_presence_user_left(self, presence_key: str, user_id: str) -> None:
+        """Also remove the cursor once the user's last connection has left (#3254)."""
+        CursorTracker.remove_cursor(presence_key, user_id)

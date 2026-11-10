@@ -20,6 +20,7 @@ import pytest
 from agents_conversation import ITEMS  # pylint: disable=import-error
 
 import restate
+from support import RESTATE_IMAGE  # pylint: disable=import-error
 from restate import HarnessEnvironment, sessions
 from restate.agents import AgentObject
 from restate.agents._conversation import Conversation, answer_once
@@ -47,7 +48,7 @@ agent = AgentObject("keyed")
 
 async def answer(ctx: sessions.SessionContext, text: str) -> str:
     async def run(conversation: Conversation) -> str:
-        await conversation.append_reply({"role": "assistant", "text": ctx.key})
+        await conversation.turn.append_reply({"role": "assistant", "text": ctx.key})
         return ctx.key
 
     return await answer_once(ctx, text, ITEMS, run)
@@ -58,9 +59,7 @@ agent.chat(answer, items=ITEMS)
 
 @pytest.fixture(scope="module")
 async def harness():
-    async with restate.create_test_harness(
-        restate.app([echo, agent, slow]), restate_image="ghcr.io/restatedev/restate:latest"
-    ) as harness:
+    async with restate.create_test_harness(restate.app([echo, agent, slow]), restate_image=RESTATE_IMAGE) as harness:
         yield harness
 
 

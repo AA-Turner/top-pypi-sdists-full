@@ -447,3 +447,260 @@ def test_interrupted_writes_finds_what_a_killed_write_left(tmp_path):
     assert not target.exists()
     (left,) = interrupted_writes(tmp_path)
     assert os.path.basename(left).startswith(".big.")
+
+
+@posix_only
+def test_interrupted_writes_does_not_collapse_dotdot_through_symlink(tmp_path):
+    # link -> elsewhere/deep, so "link/../blobs" is elsewhere/blobs on disk (#197)
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "deep").mkdir(parents=True)
+    (elsewhere / "blobs").mkdir()
+    (tmp_path / "blobs").mkdir()
+    (tmp_path / "link").symlink_to(elsewhere / "deep", target_is_directory=True)
+    name = temp_name("f")
+    (elsewhere / "blobs" / name).write_bytes(b"")
+    (found,) = interrupted_writes(str(tmp_path / "link" / ".." / "blobs"))
+    assert os.path.samefile(found, elsewhere / "blobs" / name)
+
+
+def test_interrupted_writes_rejects_an_empty_folder():
+    with pytest.raises(ValueError):
+        interrupted_writes("")
+
+
+@posix_only
+def test_filelock_symlinks_to_one_file_share_its_lock(tmp_path):
+    from dol import FileLock
+
+    target = tmp_path / "data.json"
+    target.write_bytes(b"{}")
+    link = tmp_path / "link.json"
+    link.symlink_to(target)
+    assert FileLock(link).path == FileLock(target).path
+    with FileLock(target):
+        with pytest.raises(RuntimeError):  # same thread: would deadlock, so refused
+            with FileLock(link):
+                pass
+
+
+@posix_only
+def test_filelock_follows_a_retargeted_link_and_a_changed_cwd(tmp_path, monkeypatch):
+    from dol import FileLock
+
+    (tmp_path / "day1").write_bytes(b"")
+    (tmp_path / "day2").write_bytes(b"")
+    link = tmp_path / "current"
+    link.symlink_to("day1")
+    lock = FileLock(link)
+    with lock:
+        assert lock.path.endswith("day1.lock")
+    link.unlink()
+    link.symlink_to("day2")
+    with lock:
+        assert lock.path.endswith("day2.lock")
+    lock.close()
+
+    (tmp_path / "p").mkdir()
+    (tmp_path / "q").mkdir()
+    monkeypatch.chdir(tmp_path / "p")
+    rel = FileLock("log.jsonl")
+    monkeypatch.chdir(tmp_path / "q")
+    with rel:
+        assert os.path.samefile(os.path.dirname(rel.path), tmp_path / "q")
+    rel.close()
+
+
+def test_filelock_rejects_a_path_without_a_file_name(tmp_path):
+    from dol import FileLock
+
+    for bad in ("", str(tmp_path) + os.sep):
+        with pytest.raises(ValueError):
+            FileLock(bad)
+
+
+@posix_only
+def test_filelock_reopens_when_its_lock_file_was_deleted_and_recreated(tmp_path):
+    import fcntl
+
+    from dol import FileLock
+
+    lock = FileLock(tmp_path / "data.json")
+    with lock:
+        pass
+    os.unlink(lock.path)  # a cleanup sweep removes it; the kept handle is now stale
+    with lock:
+        # flock locks belong to the open file: a fresh open of the path is refused
+        fd = os.open(lock.path, os.O_RDWR)
+        try:
+            with pytest.raises(OSError):
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)
+    lock.close()
+
+
+def test_filelock_keeps_its_handle_between_sections(tmp_path):
+    from dol import FileLock
+
+    lock = FileLock(tmp_path / "data.json")
+    with lock:
+        fh = lock._fh
+    with lock:
+        assert lock._fh is fh  # not reopened needlessly (any platform)
+    lock.close()
+
+
+# write_content_addressed (#183)
+def test_write_content_addressed_streams_hashes_and_names_by_content(tmp_path):
+    import hashlib
+
+    from dol import write_content_addressed
+
+    name = write_content_addressed(tmp_path, iter([b"he", b"llo"]))
+    assert name == hashlib.sha256(b"hello").hexdigest()
+    assert (tmp_path / name).read_bytes() == b"hello"
+    assert os.listdir(tmp_path) == [name]  # no temp left
+
+
+def test_write_content_addressed_seams(tmp_path):
+    import hashlib
+
+    from dol import write_content_addressed
+
+    name = write_content_addressed(
+        tmp_path,
+        b"x",
+        hasher=hashlib.blake2b,
+        name_of=lambda h: h.hexdigest()[:16] + ".bin",
+        perms=0o600,
+    )
+    assert name.endswith(".bin") and len(name) == 20
+    if os.name != "nt":
+        assert os.stat(tmp_path / name).st_mode & 0o777 == 0o600
+
+
+def test_write_content_addressed_existing_file_is_left_alone(tmp_path):
+    from dol import write_content_addressed
+
+    name = write_content_addressed(tmp_path, b"same")
+    before = os.stat(tmp_path / name).st_mtime_ns
+    assert write_content_addressed(tmp_path, b"same") == name
+    assert os.stat(tmp_path / name).st_mtime_ns == before and len(os.listdir(tmp_path)) == 1
+
+
+def test_write_content_addressed_does_not_trust_a_wrong_thing_under_the_name(tmp_path):
+    import hashlib
+
+    from dol import write_content_addressed
+
+    name = hashlib.sha256(b"payload").hexdigest()
+    (tmp_path / name).write_bytes(b"")  # truncated by an earlier non-atomic writer
+    write_content_addressed(tmp_path, b"payload")
+    assert (tmp_path / name).read_bytes() == b"payload"
+    (tmp_path / name).unlink()
+    (tmp_path / name).mkdir()  # a folder in the way is an error, not a success
+    with pytest.raises(OSError):
+        write_content_addressed(tmp_path, b"payload")
+    assert [p.name for p in tmp_path.iterdir()] == [name]  # and no temp left
+
+
+@posix_only
+def test_write_content_addressed_replaces_a_link_not_its_target(tmp_path):
+    import hashlib
+
+    from dol import write_content_addressed
+
+    other = tmp_path / "other"
+    other.write_bytes(b"payload")  # same size, different file
+    name = hashlib.sha256(b"payload").hexdigest()
+    (tmp_path / name).symlink_to(other)
+    write_content_addressed(tmp_path, b"payload")
+    assert not (tmp_path / name).is_symlink() and other.read_bytes() == b"payload"
+
+
+@posix_only
+def test_write_content_addressed_a_symlinked_folder_is_used_as_given(tmp_path):
+    from dol import write_content_addressed
+
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "link").symlink_to(real, target_is_directory=True)
+    name = write_content_addressed(tmp_path / "link", b"x")
+    assert (real / name).read_bytes() == b"x"
+
+
+def test_write_content_addressed_failure_leaves_nothing(tmp_path):
+    from dol import write_content_addressed
+
+    def boom():
+        yield b"partial"
+        raise RuntimeError("producer died")
+
+    with pytest.raises(RuntimeError):
+        write_content_addressed(tmp_path, boom())
+    assert os.listdir(tmp_path) == []
+    for bad in ("", "..", "a/b", ".x.0123abcd.tmp", 7):
+        with pytest.raises(ValueError):
+            write_content_addressed(tmp_path, b"x", name_of=lambda h, bad=bad: bad)
+    assert os.listdir(tmp_path) == []
+    with pytest.raises(TypeError):
+        write_content_addressed(tmp_path, "text")
+
+
+def test_a_killed_write_content_addressed_is_listed_as_interrupted(tmp_path):
+    from dol import write_content_addressed
+
+    seen = []
+
+    def killed():
+        yield b"x"
+        seen.extend(interrupted_writes(tmp_path))  # the temp is there mid-write
+        yield b"y"
+
+    write_content_addressed(tmp_path, killed())
+    assert len(seen) == 1 and os.path.dirname(seen[0]) == str(tmp_path)
+
+
+def test_a_temp_name_collision_does_not_delete_the_other_writers_temp(
+    tmp_path, monkeypatch
+):
+    from dol import atomic as atomic_mod
+    from dol import write_content_addressed
+
+    other = tmp_path / ".content.deadbeef.tmp"
+    other.write_bytes(b"another writer's")
+    monkeypatch.setattr(atomic_mod, "temp_name", lambda name: other.name)
+    with pytest.raises(FileExistsError):
+        write_content_addressed(tmp_path, b"x")
+    with pytest.raises(FileExistsError):
+        atomic_write(tmp_path / "f", b"x")
+    assert other.read_bytes() == b"another writer's"
+
+
+@posix_only
+def test_write_content_addressed_perms_are_exact_and_default_follows_umask(tmp_path):
+    from dol import write_content_addressed
+
+    old = os.umask(0o077)
+    try:
+        exact = write_content_addressed(tmp_path, b"a", perms=0o640)
+        default = write_content_addressed(tmp_path, b"b")
+    finally:
+        os.umask(old)
+    assert os.stat(tmp_path / exact).st_mode & 0o777 == 0o640  # not narrowed
+    assert os.stat(tmp_path / default).st_mode & 0o777 == 0o600  # 0o666 & ~umask
+
+
+def test_write_content_addressed_cleans_up_after_a_keyboard_interrupt(tmp_path):
+    from dol import write_content_addressed
+
+    def interrupted():
+        yield b"x"
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        write_content_addressed(tmp_path, interrupted())
+    assert os.listdir(tmp_path) == []
+    with pytest.raises(ValueError):
+        write_content_addressed(tmp_path, b"x", name_of=lambda h: "a\0b")
+    assert os.listdir(tmp_path) == []

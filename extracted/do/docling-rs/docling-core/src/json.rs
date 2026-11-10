@@ -1,5 +1,5 @@
 //! Export a [`DoclingDocument`] to docling-core's native JSON wire format
-//! (`DoclingDocument` schema v1.10.0) — the same shape `export_to_dict()` /
+//! (`DoclingDocument` schema v1.11.0) — the same shape `export_to_dict()` /
 //! `save_as_json()` produce in Python docling, and the inverse of the
 //! JSON-docling reader.
 //!
@@ -12,7 +12,7 @@ use serde_json::{json, Map, Value};
 
 use crate::document::{CaptionParent, ContentLayer, DoclingDocument, Node, Table};
 
-const SCHEMA_VERSION: &str = "1.10.0";
+const SCHEMA_VERSION: &str = "1.11.0";
 
 /// docling-core's `CodeLanguageLabel` values (anything else serializes as
 /// `unknown`, which the model requires for code items).
@@ -312,12 +312,19 @@ fn build_parts(doc: &DoclingDocument, note_keys: bool) -> Parts {
             // document it serializes; apply it the same way (keeping the
             // items' children, which docling-core drops — #586).
             let mut tree = tree.clone();
+            // Schema 1.11.0's inline runs own their whitespace (#997); a
+            // backend still building trimmed runs gets the old join back in
+            // the runs, as docling-core migrates a pre-1.11 document on load.
+            if !tree.inline_whitespace {
+                tree.separate_legacy_inline_runs();
+            }
             tree.wrap_misplaced_list_items();
             b.write_tree(&tree).into_iter().map(Child::json).collect()
         }
         None => b.walk_into(&doc.nodes, "#/body"),
     };
     b.link_comments();
+    b.link_script_runs();
 
     // docling-core's `validate_document` — a pydantic `model_validator` every
     // `DoclingDocument` passes through when a `ConversionResult` (or a
@@ -619,9 +626,15 @@ fn picture_meta(
     let mut meta = Map::new();
     let mut annotations = Vec::new();
     if let Some(desc) = desc {
-        let mut m = description_meta(desc);
-        annotations.push(m["annotations"][0].take());
-        meta.insert("description".into(), m["description"].take());
+        if desc.is_docling_meta() {
+            // docling's backend-written description: `text` alone, and no
+            // legacy annotation mirrors it (docling#5015).
+            meta.insert("description".into(), json!({ "text": desc.text }));
+        } else {
+            let mut m = description_meta(desc);
+            annotations.push(m["annotations"][0].take());
+            meta.insert("description".into(), m["description"].take());
+        }
     }
     if let Some(classes) = classes {
         let mut m = classification_meta(classes);
@@ -1518,6 +1531,11 @@ struct Builder {
     /// *after* the body they annotate (docx appends them), so the link is
     /// patched in once the whole document has been walked.
     pending_comments: Vec<(String, Vec<usize>)>,
+    /// The items the script-position stage marked (#1005), with their runs
+    /// and the label and link the runs take: docling adds the inline groups
+    /// once the document is assembled, so their groups and run items come
+    /// after every other item.
+    pending_scripts: Vec<(String, Vec<crate::ScriptRun>, String)>,
 }
 
 impl Builder {
@@ -1595,6 +1613,77 @@ impl Builder {
     fn adopt_loc(&mut self, loc: Option<[u16; 4]>) {
         if self.pending_loc.is_none() && self.cur_page > 0 {
             self.pending_loc = loc;
+        }
+    }
+
+    /// Give each item the script-position stage marked (#1005) its inline
+    /// group, after the walk as docling's post-assembly stage does: the group
+    /// is the item's first child (`insert_inline_group(…, after=False)` /
+    /// `add_inline_group`), and each run is a text item with the item's label,
+    /// its own `prov` (the box of its characters, per page) and
+    /// `formatting.script` when it is raised or lowered. A linked footnote's
+    /// link rides on its baseline runs only, so a marker stays out of it.
+    fn link_script_runs(&mut self) {
+        for (item, runs, label) in std::mem::take(&mut self.pending_scripts) {
+            let group = format!("#/groups/{}", self.groups.len());
+            let layer = self
+                .item_mut(&item)
+                .and_then(|v| v.get("content_layer").cloned())
+                .unwrap_or_else(|| json!("body"));
+            let mut children = Vec::with_capacity(runs.len());
+            for run in &runs {
+                let self_ref = format!("#/texts/{}", self.texts.len());
+                children.push(ref_value(&self_ref));
+                let prov: Vec<Value> = run
+                    .prov
+                    .iter()
+                    .map(|p| {
+                        let [l, t, r, b] = p.bbox.map(|v| round2(f64::from(v)));
+                        json!({
+                            "page_no": p.page_no,
+                            "bbox": {"l": l, "t": t, "r": r, "b": b, "coord_origin": "BOTTOMLEFT"},
+                            "charspan": p.charspan,
+                        })
+                    })
+                    .collect();
+                let mut m = serde_json::Map::new();
+                m.insert("self_ref".into(), json!(self_ref));
+                m.insert("parent".into(), ref_value(&group));
+                m.insert("children".into(), json!([]));
+                m.insert("content_layer".into(), layer.clone());
+                m.insert("label".into(), json!(label));
+                m.insert("prov".into(), Value::Array(prov));
+                m.insert("orig".into(), json!(run.text));
+                m.insert("text".into(), json!(run.text));
+                if run.script != crate::Script::Baseline {
+                    m.insert(
+                        "formatting".into(),
+                        formatting_json(&crate::tree::Formatting {
+                            script: run.script,
+                            ..Default::default()
+                        }),
+                    );
+                }
+                if let Some(url) = &run.hyperlink {
+                    m.insert("hyperlink".into(), json!(url));
+                }
+                self.texts.push(Item::json(Value::Object(m)));
+            }
+            self.groups.push(json!({
+                "self_ref": group,
+                "parent": ref_value(&item),
+                "children": children,
+                "content_layer": layer,
+                "name": "group",
+                "label": "inline",
+            }));
+            if let Some(obj) = self.item_mut(&item).and_then(Value::as_object_mut) {
+                let mut kids = vec![ref_value(&group)];
+                if let Some(Value::Array(old)) = obj.get("children") {
+                    kids.extend(old.iter().cloned());
+                }
+                obj.insert("children".into(), Value::Array(kids));
+            }
         }
     }
 
@@ -1891,6 +1980,7 @@ impl Builder {
                     table,
                     rich_cells,
                     captions,
+                    footnotes,
                 } => {
                     // docling's raw cell text: nothing to unescape or strip.
                     let r = self.add_table_with(table, parent, true);
@@ -1900,6 +1990,8 @@ impl Builder {
                     t.item["content_layer"] = json!(layer);
                     t.item["captions"] =
                         Value::Array(captions.iter().map(|&c| ref_of(c)).collect());
+                    t.item["footnotes"] =
+                        Value::Array(footnotes.iter().map(|&c| ref_of(c)).collect());
                     // A `RichTableCell` is the plain cell plus a `ref` to the
                     // group holding its content — on `table_cells` only; the
                     // derived `grid` shows plain cells.
@@ -2004,6 +2096,18 @@ impl Builder {
                 }
             };
             debug_assert_eq!(self_ref, refs[id], "tree item {id} numbered out of order");
+            // A float's own footnotes (`FloatingItem.footnotes`).
+            if !item.footnotes.is_empty() {
+                let notes: Vec<Value> = item
+                    .footnotes
+                    .iter()
+                    .filter(|&&f| !tree.items[f].deleted)
+                    .map(|&f| ref_of(f))
+                    .collect();
+                if let Some(v) = self.item_mut(&self_ref) {
+                    v["footnotes"] = Value::Array(notes);
+                }
+            }
         }
         tree.body
             .iter()
@@ -2029,6 +2133,27 @@ impl Builder {
                     None => json!({}),
                 };
                 Some(self.add_text("caption", text, parent, extra))
+            }
+            // A marked PDF item (#1005, docling's `ScriptPositionModel._apply`):
+            // the item keeps its place and its `prov`, its text moves into an
+            // inline group of the runs (see `link_script_runs`).
+            Node::ScriptText { inner, runs } => {
+                let label = match inner.as_ref() {
+                    Node::LabeledText { label, .. } => label.clone(),
+                    _ => "text".to_string(),
+                };
+                let r = self.add_node(inner, parent)?;
+                let link = runs.iter().find_map(|run| run.hyperlink.clone());
+                if let Some(obj) = self.item_mut(&r).and_then(Value::as_object_mut) {
+                    obj.insert("orig".into(), json!(""));
+                    obj.insert("text".into(), json!(""));
+                    // The item keeps its own link, as docling's does.
+                    if let Some(url) = link {
+                        obj.insert("hyperlink".into(), json!(url));
+                    }
+                }
+                self.pending_scripts.push((r.clone(), runs.clone(), label));
+                Some(r)
             }
             // A PDF footnote: docling's own label, and its link as the item's
             // `hyperlink` rather than Markdown baked into the text.
@@ -2676,7 +2801,20 @@ impl Builder {
             ),
             None => (Vec::new(), Vec::new()),
         };
-        let data = table_data_with(t, raw);
+        // docling-core#675 (#1009): each footnote is a `footnote` text item
+        // under the table, added after it (docling's backends attach notes
+        // once the table exists) and listed in its `footnotes`.
+        // The item-tree path (`raw`) writes its own footnote items.
+        let (mut children, mut footnotes) = (children, Vec::new());
+        for note in t.footnotes.iter().filter(|n| !raw && !n.is_empty()) {
+            let r = ref_value(self.add_text("footnote", note, &self_ref, json!({})));
+            children.push(r.clone());
+            footnotes.push(r);
+        }
+        let mut data = table_data_with(t, raw);
+        if !raw {
+            self.add_cell_pictures(t, &self_ref, &mut data, &mut children);
+        }
         let item = json!({
             "self_ref": self_ref,
             "parent": { "$ref": parent },
@@ -2686,13 +2824,67 @@ impl Builder {
             "prov": prov,
             "captions": captions,
             "references": [],
-            "footnotes": [],
+            "footnotes": footnotes,
             // The typed `data` takes this stand-in's place on output.
             "data": null,
             "annotations": [],
         });
         self.tables.push(TableItem { item, data });
         self_ref
+    }
+
+    /// The pictures placed in a table's cells (the XLSX "Place in Cell"
+    /// image, docling#5015): a cell whose blocks are exactly one
+    /// [`Node::Prov`]-wrapped picture is docling's `RichTableCell` over a
+    /// picture item — the picture is the table's child, the cell keeps an
+    /// empty text and a `ref` to it. Other rich cells (and the PDF
+    /// pipeline's [`Node::Located`] in-cell pictures) keep their flat cell.
+    /// The cells' blocks are parallel to `rows`; a ragged (compacted) row
+    /// pairs its blocks with that row's first-class cells in column order.
+    fn add_cell_pictures(
+        &mut self,
+        t: &Table,
+        self_ref: &str,
+        data: &mut TableData,
+        children: &mut Vec<Value>,
+    ) {
+        let Some(blocks) = t.cell_blocks.as_ref() else {
+            return;
+        };
+        for (r, row) in blocks.iter().enumerate() {
+            let mut in_row: Vec<usize> = (0..data.cells.len())
+                .filter(|&i| data.cells[i].start_row == r)
+                .collect();
+            in_row.sort_by_key(|&i| data.cells[i].start_col);
+            let ragged = t.rows.get(r).map_or(0, Vec::len) != data.num_cols;
+            for (c, cell) in row.iter().enumerate() {
+                let [node @ Node::Prov { inner, .. }] = cell.as_slice() else {
+                    continue;
+                };
+                if !matches!(**inner, Node::Picture { .. }) {
+                    continue;
+                }
+                let target = if ragged {
+                    in_row.get(c).copied()
+                } else {
+                    in_row
+                        .iter()
+                        .copied()
+                        .find(|&i| data.cells[i].start_col == c)
+                };
+                let Some(target) = target else {
+                    continue;
+                };
+                let Some(pic) = self.add_node(node, self_ref) else {
+                    continue;
+                };
+                let pic = ref_value(pic);
+                children.push(pic.clone());
+                let cell = &mut data.cells[target];
+                cell.text = "".into();
+                cell.cell_ref = Some(Box::new(pic));
+            }
+        }
     }
 
     /// Add a picture's or table's caption text item where `choice` says it
@@ -3214,6 +3406,7 @@ mod tests {
             vec!["a".to_string(), "b".into(), "c".into()],
         ];
         doc.push(Node::Table(crate::Table {
+            footnotes: Vec::new(),
             rows,
             location: None,
             structure: Some(crate::TableStructure {
@@ -3666,6 +3859,7 @@ mod tests {
             layer: None,
         });
         doc.push(Node::Table(Table {
+            footnotes: Vec::new(),
             rows: vec![vec!["A".into(), "B".into()]],
             location: None,
             structure: None,
@@ -3678,7 +3872,7 @@ mod tests {
 
         let v: Value = serde_json::from_str(&doc.export_to_json()).unwrap();
         assert_eq!(v["schema_name"], "DoclingDocument");
-        assert_eq!(v["version"], "1.10.0");
+        assert_eq!(v["version"], "1.11.0");
         assert_eq!(v["texts"][0]["label"], "title");
         assert_eq!(v["texts"][1]["label"], "section_header");
         assert_eq!(v["texts"][1]["level"], 1); // heading level 2 → docling level 1
@@ -4121,10 +4315,66 @@ mod tests {
     }
 
     #[test]
+    fn a_trimmed_run_tree_gets_the_legacy_join_in_its_runs() {
+        use crate::tree::{ItemTree, TreeKind, TreeProv};
+        let text = |label: &str, txt: &str| TreeKind::Text {
+            label: label.into(),
+            text: txt.into(),
+            orig: None,
+            formatting: None,
+            hyperlink: None,
+            level: None,
+            list: None,
+        };
+        let mut t = ItemTree::default();
+        let g = t.add(
+            None,
+            None,
+            TreeKind::Group {
+                label: "inline".into(),
+                name: "group".into(),
+            },
+        );
+        t.add(Some(g), None, text("text", "left"));
+        let prov = TreeProv {
+            page_no: 1,
+            bbox: [0.0, 0.0, 1.0, 1.0],
+            bottom_left: false,
+            charspan: [0, 1],
+        };
+        t.add_with_prov(Some(g), None, text("formula", "a"), prov.clone());
+        t.add_with_prov(Some(g), None, text("formula", "b"), prov);
+        t.add(Some(g), None, text("text", "right"));
+        let doc = DoclingDocument {
+            tree: Some(t),
+            ..DoclingDocument::new("t")
+        };
+        let v: Value = serde_json::from_str(&doc.export_to_json()).unwrap();
+        let texts: Vec<&str> = v["texts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["text"].as_str().unwrap())
+            .collect();
+        // `left ` · `a` · ` ` (standalone, appended) · `b` · ` right`.
+        assert_eq!(texts, ["left ", "a", "b", " right", " "]);
+        assert_eq!(v["texts"][0]["orig"], "left");
+        assert_eq!(v["groups"][0]["children"][2]["$ref"], "#/texts/4");
+        assert_eq!(
+            v["texts"][4]["prov"][0]["charspan"],
+            serde_json::json!([0, 1])
+        );
+    }
+
+    #[test]
     #[cfg(feature = "preserve-order")] // field-order assertions (#970)
     fn a_backend_item_tree_is_written_verbatim() {
         use crate::tree::{Formatting, ItemTree, ListMeta, TreeKind};
-        let mut t = ItemTree::default();
+        let mut t = ItemTree {
+            // Runs as written: no legacy separator injection (#997).
+            inline_whitespace: true,
+            ..ItemTree::default()
+        };
         let text = |label: &str, txt: &str| TreeKind::Text {
             label: label.into(),
             text: txt.into(),
@@ -4217,6 +4467,7 @@ mod tests {
             Some(sub),
             None,
             TreeKind::Table {
+                footnotes: Vec::new(),
                 table: Table {
                     rows: vec![vec!["a  \n&lt;".into(), "b".into()]],
                     cells: Some(vec![
@@ -4696,6 +4947,113 @@ mod tests {
         assert_eq!(
             doc.export_to_text(),
             "1 https://example.com/a_b\n\n© 2022 the authors"
+        );
+    }
+
+    /// A marked PDF item (#1005, docling's `ScriptPositionModel._apply`):
+    /// the item keeps its place with an empty text and holds an inline group
+    /// of its runs, added after every other item; two such paragraphs stay
+    /// separate HTML blocks; a linked footnote's link rides on its baseline
+    /// runs only, so the marker stays out of it.
+    #[test]
+    fn script_runs_follow_docling() {
+        use crate::{Script, ScriptRun, ScriptRunProv};
+        let run = |text: &str, script, hyperlink: Option<&str>| ScriptRun {
+            text: text.into(),
+            script,
+            prov: vec![ScriptRunProv {
+                page_no: 1,
+                bbox: [10.0, 700.0, 20.0, 690.0],
+                charspan: [0, text.chars().count()],
+            }],
+            hyperlink: hyperlink.map(String::from),
+        };
+        let mut doc = DoclingDocument::new("t");
+        doc.push(Node::PageInfo {
+            page_no: 1,
+            width: 612.0,
+            height: 792.0,
+        });
+        let located = |inner: Node| Node::Located {
+            location: [40, 80, 200, 90],
+            inner: Box::new(inner),
+        };
+        doc.push(located(Node::ScriptText {
+            inner: Box::new(Node::Paragraph {
+                text: "E = mc2".into(),
+            }),
+            runs: vec![
+                run("E = mc", Script::Baseline, None),
+                run("2", Script::Super, None),
+            ],
+        }));
+        doc.push(located(Node::ScriptText {
+            inner: Box::new(Node::Paragraph { text: "H2O".into() }),
+            runs: vec![
+                run("H", Script::Baseline, None),
+                run("2", Script::Sub, None),
+                run("O", Script::Baseline, None),
+            ],
+        }));
+        let url = "https://example.com/x";
+        doc.push(located(Node::ScriptText {
+            inner: Box::new(Node::LabeledText {
+                label: "footnote".into(),
+                text: format!("1[Note text]({url})"),
+                href: None,
+            }),
+            runs: vec![
+                run("1", Script::Super, None),
+                run("Note text", Script::Baseline, Some(url)),
+            ],
+        }));
+        doc.push(located(Node::Paragraph {
+            text: "Plain line".into(),
+        }));
+
+        let v: Value = serde_json::from_str(&doc.export_to_json()).unwrap();
+        let texts = v["texts"].as_array().unwrap();
+        // The items first, in place; the runs after them.
+        assert_eq!(texts[0]["text"], "");
+        assert_eq!(
+            texts[0]["children"],
+            serde_json::json!([{"$ref": "#/groups/0"}])
+        );
+        assert_eq!(texts[2]["label"], "footnote");
+        assert_eq!(texts[2]["hyperlink"], url);
+        assert_eq!(texts[3]["text"], "Plain line");
+        assert_eq!(texts[4]["text"], "E = mc");
+        assert_eq!(texts[5]["formatting"]["script"], "super");
+        assert_eq!(texts[5]["prov"][0]["bbox"]["coord_origin"], "BOTTOMLEFT");
+        assert_eq!(texts[7]["formatting"]["script"], "sub");
+        assert_eq!(texts[9]["label"], "footnote");
+        assert!(texts[9].get("hyperlink").is_none());
+        assert_eq!(texts[10]["hyperlink"], url);
+        assert_eq!(v["groups"][0]["label"], "inline");
+        assert_eq!(v["groups"][0]["parent"]["$ref"], "#/texts/0");
+
+        assert_eq!(
+            doc.export_to_markdown(),
+            format!("E = mc2\n\nH2O\n\n1[Note text]({url})\n\nPlain line\n")
+        );
+        let html = doc.export_to_html();
+        // Each marked item is a block of its own (the footnote too, as
+        // docling-core renders it).
+        assert_eq!(
+            html.matches("<p><span class='inline-group'>").count(),
+            3,
+            "{html}"
+        );
+        assert!(html.contains("E = mc<sup>2</sup>"), "{html}");
+        assert!(html.contains("H<sub>2</sub>O"), "{html}");
+        assert!(
+            html.contains(&format!("<sup>1</sup><a href=\"{url}\">Note text</a>")),
+            "{html}"
+        );
+        let dclx = doc.export_to_doclang();
+        assert!(
+            dclx.contains("E = mc<superscript>2</superscript>"),
+            "{dclx}"
         );
     }
 }

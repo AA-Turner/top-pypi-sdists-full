@@ -5,11 +5,13 @@ import os
 import tempfile
 import threading
 import zipfile
+import zlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import BinaryIO, TypeVar, cast
+from xml.etree.ElementTree import ParseError
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.chart import AreaChart
@@ -17,7 +19,7 @@ from openpyxl.workbook.properties import CalcProperties
 from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp import cell_budget, chart_roundtrip, lazy_edit, macros, package
+from excel_mcp import cell_budget, chart_roundtrip, lazy_edit, macros, package, shared_translator
 from excel_mcp.cell_budget import CellBudget
 from excel_mcp.config import Limits
 from excel_mcp.errors import (
@@ -33,7 +35,7 @@ from excel_mcp.lazy_edit import LazyEdit
 from excel_mcp.lazy_workbook import Parts, held_cells, load_lazy
 from excel_mcp.package import lazy_records
 from excel_mcp.paths import MACRO_SUFFIXES, TEMPLATE_SUFFIXES, PathPolicy
-from excel_mcp.zip_limits import check_expansion
+from excel_mcp.zip_limits import check_expansion, too_large
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 # The cells loaded by the edit this call is part of, which reads it makes for results share.
@@ -50,6 +52,7 @@ class Workspace:
 
     def __init__(self, paths: PathPolicy, limits: Limits, allow_macro_workbooks: bool) -> None:
         chart_roundtrip.install()
+        shared_translator.install()
         lazy_records.install()
         self.paths = paths
         self.limits = limits
@@ -126,7 +129,8 @@ class Workspace:
         workbook, _ = self._load_for_edit(path, self._budget())
         package.capture(path, workbook, self.limits.max_file_bytes)
         try:
-            yield workbook
+            with self._damage_as_error(path):
+                yield workbook
         finally:
             close_workbook(workbook)
 
@@ -147,7 +151,8 @@ class Workspace:
         except Exception as error:
             raise self._unreadable(path, error) from None
         try:
-            yield stored, formulas
+            with self._damage_as_error(path):
+                yield stored, formulas
         finally:
             close_workbook(stored)
             close_workbook(formulas)
@@ -159,11 +164,22 @@ class Workspace:
         Its worksheets are openpyxl read-only views: they hold only cell values (no
         formatting, merged ranges, tables or charts) and re-parse the sheet on each pass.
         """
-        workbook = self._load(self.resolve_existing(raw_path), data_only=data_only, stream=True)
-        try:
-            yield workbook
-        finally:
-            close_workbook(workbook)
+        path = self.resolve_existing(raw_path)
+        if not data_only:  # stored results are read as they are, without translating formulas
+            self._check_zip(path)
+            try:
+                cell_budget.check_workbook(
+                    path, CellBudget(self.limits.max_loaded_cells), cells=False
+                )
+            except Exception as error:
+                raise self._unreadable(path, error) from None
+        with path.open("rb") as handle:  # openpyxl does not close a file it opened itself on error
+            workbook = self._load(path, handle, data_only=data_only, stream=True)
+            try:
+                with self._damage_as_error(path):
+                    yield workbook
+            finally:
+                close_workbook(workbook)
 
     @contextmanager
     def edit(self, raw_path: str) -> Iterator[Workbook]:
@@ -178,12 +194,14 @@ class Workspace:
             workbook.calculation.fullCalcOnLoad = True
             token = _edit_budget.set(budget)
             try:
-                yield workbook
+                with self._damage_as_error(path):
+                    yield workbook
                 # Imported here because the calculator imports this module.
                 from excel_mcp.operations.spill import refresh_spills
 
                 refresh_spills(workbook, self.limits.max_cells)
                 _pin_hyperlinks(workbook)
+                _check_text_size(workbook, self.limits)
                 save_atomically(workbook, path, self.limits.max_file_bytes, lazy)
             finally:
                 _edit_budget.reset(token)
@@ -237,11 +255,13 @@ class Workspace:
                 f"{self.display(path)} already exists. Pass overwrite=true to replace it."
             )
 
-    def _load(self, path: Path, *, data_only: bool, stream: bool = False) -> Workbook:
+    def _load(
+        self, path: Path, handle: BinaryIO, *, data_only: bool, stream: bool = False
+    ) -> Workbook:
         self._check_zip(path)
         try:
             return load_workbook(
-                path,
+                handle,
                 data_only=data_only,
                 read_only=stream,
                 keep_vba=not stream and path.suffix.lower() in MACRO_SUFFIXES,
@@ -261,7 +281,8 @@ class Workspace:
                 cell_budget.check_workbook(path, budget)
             except Exception as error:
                 raise self._unreadable(path, error) from None
-            return self._load(path, data_only=False), None
+            with path.open("rb") as handle:
+                return self._load(path, handle, data_only=False), None
         try:
             return lazy_edit.load(path, budget)
         except Exception as error:
@@ -273,6 +294,14 @@ class Workspace:
                 f"{self.display(path)} is not an Excel workbook. Only .xlsx/.xlsm files are "
                 "supported; legacy .xls and CSV files must be converted first."
             )
+
+    @contextmanager
+    def _damage_as_error(self, path: Path) -> Iterator[None]:
+        """Parts are parsed as sheets are read, so damage surfaces after the workbook is open."""
+        try:
+            yield
+        except (ParseError, zipfile.BadZipFile, zlib.error) as error:
+            raise self._unreadable(path, error) from None
 
     def _unreadable(self, path: Path, error: Exception) -> ExcelMCPError:
         if isinstance(error, ExcelMCPError):
@@ -308,6 +337,23 @@ def save_atomically(
             f"{max_bytes:,}. The file was not changed."
         )
     write_atomically(path, content)
+
+
+def _check_text_size(workbook: Workbook, limits: Limits) -> None:
+    """Refuse text that saving would write out beyond what the server can open again.
+
+    A file stores a text once however many cells hold it, but saving writes it in every cell,
+    so a copy, a fill or any edit of such a workbook can be far larger than the file. This is
+    counted before anything is written.
+    """
+    characters = sum(
+        len(cell.value)
+        for sheet in workbook.worksheets
+        for cell in held_cells(sheet).values()
+        if isinstance(cell.value, str)
+    )
+    if characters > limits.max_unpacked_bytes:
+        raise too_large(limits)
 
 
 def write_atomically(path: Path, content: bytes) -> None:

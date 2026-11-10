@@ -1493,6 +1493,261 @@ class SMatrix_SELL(SMatrix):
         self.device = 'cpu'
         self._invalidate_cpu_csr_cache() # Invalidate the CSR cache since the matrix has been moved to CPU
 
+    def allocate_on_the_fly(
+        self,
+        tempFieldName: str = "Kwave",
+        generation_type: str = "envelope_squared",
+        show_log: bool = False,
+        backend: str = "python",
+        keep_on_gpu: bool = False,
+        checkpoint_dir: Optional[str] = None,
+        checkpoint_every: int = 50,
+    ):
+        """
+        Simulates the k-Wave fields on the fly, extracts the non-zero coefficients on GPU,
+        saves a lightweight checkpoint every `checkpoint_every` fields,
+        then assembles and normalizes the SELL-C-sigma matrix.
+        """
+        if self.isComplexSMatrix:
+            raise NotImplementedError("[AOT-biomaps] On-the-fly SMatrix is currently only supported for REAL matrices.")
+        if not (CUPY_AVAILABLE and check_gpu_available(self)):
+            raise RuntimeError("[AOT-biomaps] On-the-fly SMatrix generation requires a CUDA GPU and CuPy.")
+
+        self.load_module()
+        C = int(self.slice_height)
+        thr_rel = np.float32(self.relative_threshold)
+        threads = 256
+
+        count_kernel = self.sparse_mod.get_function("count_nnz_rows_kernel__REAL")
+        csr_fill_kernel = self.sparse_mod.get_function("fill_kernel__CSR__REAL")
+
+        N_patterns = len(self.experiment.patterns)
+        self.N = N_patterns
+
+        field_vals_list = [None] * N_patterns
+        field_cols_list = [None] * N_patterns
+        field_row_ptr_list = [None] * N_patterns
+        row_nnz = None
+        col_sums_unnorm = None
+        global_max_val = 0.0
+        start_index = 0
+
+        # --- 1. Reload any existing checkpoint batches ---
+        ckpt_folder = os.path.join(checkpoint_dir, "_ckpt_csr") if checkpoint_dir else None
+        if ckpt_folder and os.path.isdir(ckpt_folder):
+            ckpt_files = sorted([f for f in os.listdir(ckpt_folder) if f.startswith("batch_") and f.endswith(".npz")])
+            for fname in ckpt_files:
+                b_path = os.path.join(ckpt_folder, fname)
+                try:
+                    with np.load(b_path) as data:
+                        b_start, b_end = map(int, data["range"])
+                        if b_start != start_index:
+                            break
+                        if row_nnz is None:
+                            self.T, self.Z, self.X = map(int, data["shape_TZX"])
+                            row_nnz = np.zeros(self.N * self.T, dtype=np.int32)
+                            col_sums_unnorm = np.zeros(self.Z * self.X, dtype=np.float64)
+
+                        b_row_nnz = data["row_nnz"]
+                        b_vals = data["vals"]
+                        b_cols = data["cols"]
+                        row_nnz[b_start * self.T : b_end * self.T] = b_row_nnz
+
+                        offset = 0
+                        for n_idx in range(b_start, b_end):
+                            r_nnz = b_row_nnz[(n_idx - b_start) * self.T : (n_idx - b_start + 1) * self.T]
+                            r_ptr = np.zeros(self.T + 1, dtype=np.int64)
+                            np.cumsum(r_nnz, dtype=np.int64, out=r_ptr[1:])
+                            count_f = int(r_ptr[-1])
+
+                            v_f = b_vals[offset : offset + count_f]
+                            c_f = b_cols[offset : offset + count_f]
+                            offset += count_f
+
+                            field_row_ptr_list[n_idx] = r_ptr
+                            field_vals_list[n_idx] = v_f
+                            field_cols_list[n_idx] = c_f
+
+                            if count_f > 0:
+                                f_max = float(np.abs(v_f).max())
+                                if f_max > global_max_val:
+                                    global_max_val = f_max
+                                col_sums_unnorm += np.bincount(
+                                    c_f.astype(np.int64),
+                                    weights=np.abs(v_f).astype(np.float64),
+                                    minlength=self.Z * self.X,
+                                )
+                        start_index = b_end
+                except Exception as e:
+                    print(f"[AOT-biomaps] Warning: Ignoring corrupted checkpoint {fname} ({e})", flush=True)
+                    break
+
+            if start_index > 0:
+                print(f"[AOT-biomaps] Checkpoint restored: {start_index}/{N_patterns} fields loaded from disk.", flush=True)
+
+        if ckpt_folder:
+            os.makedirs(ckpt_folder, exist_ok=True)
+
+        # --- 2. On-the-fly simulation and thresholding of the remaining fields ---
+        if start_index < N_patterns:
+            stream_gen = self.experiment.stream_acoustic_fields(
+                isGPU=True,
+                GPUdevice=self.gpu_index,
+                tempFieldName=tempFieldName,
+                generation_type=generation_type,
+                show_log=show_log,
+                backend=backend,
+                start_index=start_index,
+            )
+
+            batch_start = start_index
+            with cp.cuda.Device(self.gpu_index):
+                for n_idx, field_3d in stream_gen:
+                    if row_nnz is None:
+                        self.T, self.Z, self.X = map(int, field_3d.shape)
+                        row_nnz = np.zeros(self.N * self.T, dtype=np.int32)
+                        col_sums_unnorm = np.zeros(self.Z * self.X, dtype=np.float64)
+
+                    T_cur = self.T
+                    num_cols = self.Z * self.X
+                    grid = ((T_cur + threads - 1) // threads, 1, 1)
+
+                    dense_gpu = cp.ascontiguousarray(cp.asarray(field_3d, dtype=cp.float32).reshape(T_cur, num_cols))
+                    row_nnz_f_gpu = cp.zeros(T_cur, dtype=cp.int32)
+
+                    count_kernel(
+                        grid=grid,
+                        block=(threads, 1, 1),
+                        args=[dense_gpu, row_nnz_f_gpu, np.int32(T_cur), np.int32(num_cols), thr_rel],
+                    )
+
+                    local_row_ptr_gpu = cp.zeros(T_cur + 1, dtype=cp.int64)
+                    cp.cumsum(row_nnz_f_gpu, dtype=cp.int64, out=local_row_ptr_gpu[1:])
+                    nnz_f = int(local_row_ptr_gpu[-1].get())
+
+                    row_nnz_f_cpu = cp.asnumpy(row_nnz_f_gpu)
+                    row_nnz[n_idx * T_cur : (n_idx + 1) * T_cur] = row_nnz_f_cpu
+                    field_row_ptr_list[n_idx] = cp.asnumpy(local_row_ptr_gpu)
+
+                    if nnz_f > 0:
+                        cols_f_gpu = cp.empty(nnz_f, dtype=cp.uint32)
+                        vals_f_gpu = cp.empty(nnz_f, dtype=cp.float32)
+
+                        csr_fill_kernel(
+                            grid=grid,
+                            block=(threads, 1, 1),
+                            args=[
+                                dense_gpu,
+                                local_row_ptr_gpu,
+                                cols_f_gpu,
+                                vals_f_gpu,
+                                np.int32(T_cur),
+                                np.int32(num_cols),
+                                thr_rel,
+                                np.int64(nnz_f),
+                            ],
+                        )
+                        cp.cuda.Stream.null.synchronize()
+
+                        abs_vals_gpu = cp.abs(vals_f_gpu)
+                        field_max = float(abs_vals_gpu.max().get())
+                        if field_max > global_max_val:
+                            global_max_val = field_max
+
+                        vals_cpu = cp.asnumpy(vals_f_gpu)
+                        cols_cpu = cp.asnumpy(cols_f_gpu)
+                        col_sums_unnorm += np.bincount(
+                            cols_cpu.astype(np.int64),
+                            weights=np.abs(vals_cpu).astype(np.float64),
+                            minlength=num_cols,
+                        )
+
+                        field_vals_list[n_idx] = vals_cpu
+                        field_cols_list[n_idx] = cols_cpu
+                        del cols_f_gpu, vals_f_gpu, abs_vals_gpu
+                    else:
+                        field_vals_list[n_idx] = np.empty(0, dtype=np.float32)
+                        field_cols_list[n_idx] = np.empty(0, dtype=np.uint32)
+
+                    del dense_gpu, row_nnz_f_gpu, local_row_ptr_gpu
+
+                    # Save a checkpoint batch every `checkpoint_every` fields
+                    if ckpt_folder and ((n_idx + 1 - batch_start) >= checkpoint_every or (n_idx + 1) == N_patterns):
+                        b_end = n_idx + 1
+                        tmp_ckpt = os.path.join(ckpt_folder, f"batch_{batch_start:04d}_{b_end:04d}.tmp.npz")
+                        fin_ckpt = os.path.join(ckpt_folder, f"batch_{batch_start:04d}_{b_end:04d}.npz")
+                        np.savez(
+                            tmp_ckpt,
+                            range=np.array([batch_start, b_end], dtype=np.int32),
+                            shape_TZX=np.array([self.T, self.Z, self.X], dtype=np.int32),
+                            row_nnz=row_nnz[batch_start * T_cur : b_end * T_cur],
+                            vals=np.concatenate(field_vals_list[batch_start:b_end]),
+                            cols=np.concatenate(field_cols_list[batch_start:b_end]),
+                        )
+                        os.replace(tmp_ckpt, fin_ckpt)
+                        batch_start = b_end
+
+                self._release_pool()
+
+        # --- 3. SELL-C-sigma sorting and final assembly ---
+        num_rows = int(self.N * self.T)
+        sorted_row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
+
+        num_slices = (num_rows + C - 1) // C
+        padded_nnz = np.pad(sorted_row_nnz, (0, num_slices * C - num_rows))
+        self.slice_len = padded_nnz.reshape(num_slices, C).max(axis=1).astype(np.int32)
+
+        if np.all(self.slice_len == 0):
+            raise ValueError("[AOT-biomaps] slice_len contains only zeros. Check row_nnz.")
+
+        self.slice_ptr = np.zeros(num_slices + 1, dtype=np.int64)
+        np.cumsum(self.slice_len.astype(np.int64) * C, out=self.slice_ptr[1:])
+        self.total_storage = int(self.slice_ptr[-1])
+        self.total_nnz = self.total_storage
+
+        self.sell_values = np.zeros(self.total_storage, dtype=np.float32)
+        self.sell_colinds = np.zeros(self.total_storage, dtype=np.uint32)
+
+        inv_max_val = np.float32(1.0 / global_max_val) if global_max_val > 0.0 else np.float32(1.0)
+        t_arange = np.arange(self.T, dtype=np.int32)
+
+        for n_idx in trange(self.N, desc="[AOT-biomaps] Assembling normalized SELL SMatrix"):
+            vals_f = field_vals_list[n_idx]
+            cols_f = field_cols_list[n_idx]
+            row_ptr_f = field_row_ptr_list[n_idx]
+
+            field_vals_list[n_idx] = None
+            field_cols_list[n_idx] = None
+            field_row_ptr_list[n_idx] = None
+
+            if vals_f.size == 0:
+                continue
+
+            counts = np.diff(row_ptr_f)
+            rank_in_row = np.arange(vals_f.size, dtype=np.int64) - np.repeat(row_ptr_f[:-1], counts)
+
+            sorted_rows_of_f = self.inv_row_perm[n_idx * self.T + t_arange]
+            out_base_of_f = self.slice_ptr[sorted_rows_of_f // C] + (sorted_rows_of_f % C)
+
+            pos = np.repeat(out_base_of_f, counts) + rank_in_row * C
+            self.sell_values[pos] = vals_f * inv_max_val
+            self.sell_colinds[pos] = cols_f
+
+        self.normalization_factor = float(global_max_val) if global_max_val > 0.0 else 1.0
+        col_sums_norm = (col_sums_unnorm / self.normalization_factor).astype(np.float32)
+        self.norm_factor_inv = (1.0 / (col_sums_norm + 1e-10)).astype(np.float32)
+
+        print(f"[AOT-biomaps] SELL Matrix normalized (Original absolute max: {self.normalization_factor:.2e})", flush=True)
+
+        if keep_on_gpu:
+            self.to_gpu(self.gpu_index)
+            self.sell_values = None
+            self.sell_colinds = None
+        else:
+            self._free_specific()
+
+        gc.collect()
+        
     def _ensure_cpu_csr_cache(self):
         """Build (once) scipy CSR matrices equivalent to the SELL layout (A and A^H).
         Much faster than np.add.at (multithreaded scipy kernels) for repeated projections."""

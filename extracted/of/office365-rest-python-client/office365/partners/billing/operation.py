@@ -1,37 +1,33 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.entity import Entity
+from office365.onedrive.operations.longrunningoperationstatus import LongRunningOperationStatus
 from office365.runtime.pollable import PollableOperation
-
-if TYPE_CHECKING:
-    from office365.onedrive.operations.longrunningoperationstatus import (
-        LongRunningOperationStatus,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class Operation(PollableOperation, Entity):
     """"""
 
+    @odata(name="createdDateTime")
     @property
     def created_date_time(self) -> Optional[datetime]:
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="lastActionDateTime")
     @property
     def last_action_date_time(self) -> Optional[datetime]:
         """Gets the lastActionDateTime property"""
         return self.properties.get("lastActionDateTime", datetime.min)
 
+    @odata(name="status")
     @property
     def status(self) -> LongRunningOperationStatus:
         """Gets the status property"""
-        from office365.onedrive.operations.longrunningoperationstatus import (
-            LongRunningOperationStatus,
-        )
-
         return self.properties.get("status", LongRunningOperationStatus.notStarted)
 
     @property

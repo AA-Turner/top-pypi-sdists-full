@@ -215,13 +215,17 @@ class ReplayManager:
             del self.message_callbacks[message_id]
 
         # Cleanup message file
-        if message_id in self.message_files:
+        message_file = self.message_files.pop(message_id, None)
+        if message_file is not None:
             try:
-                os.remove(self.message_files[message_id])
+                os.remove(message_file)
+            except FileNotFoundError:
+                # already removed, e.g., by the uploader after a retried upload
+                pass
             except Exception:
                 LOGGER.debug(
                     "Failed to remove temporary file: %r of the message: %d",
-                    self.message_files[message_id],
+                    message_file,
                     message_id,
                     exc_info=True,
                 )

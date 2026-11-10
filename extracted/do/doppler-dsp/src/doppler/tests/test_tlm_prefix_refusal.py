@@ -52,14 +52,15 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
+import re
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
 
 import doppler
-from doppler.acquire import Acquisition
 from doppler.agc import AGC
+from doppler.correlation import Correlator
 from doppler.dsss import (
     AsyncDsssPool,
     AsyncDsssReceiver,
@@ -88,8 +89,12 @@ _CODE = (np.arange(31) % 2).astype(np.uint8)
 # from whatever these instances register, and the agc=0 case is pinned
 # separately in test_a_disabled_agc_still_bounds_the_receiver_prefix.
 FACES: dict[str, Callable[[], Any]] = {
-    "doppler.acquire.Acquisition": lambda: Acquisition(
-        _CODE, sample_rate=2 * 1e6, chip_rate=1e6, cn0_dbhz=50.0
+    "doppler.correlation.Correlator": lambda: Correlator(
+        np.where(_CODE & 1, -1, 1).astype(np.complex64),
+        framing="continuous",
+        sample_rate=2 * 1e6,
+        chip_rate=1e6,
+        cn0_dbhz=50.0,
     ),
     "doppler.agc.AGC": lambda: AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05),
     "doppler.dsss.AsyncDsssPool": lambda: AsyncDsssPool(
@@ -190,7 +195,7 @@ def _feed(obj: Any) -> None:
     if type(obj).__name__ == "AsyncDsssPool":  # a few code periods
         obj.push(np.ones(_CODE.size * 2 * 64, np.complex64))
         return
-    if hasattr(obj, "push"):  # Acquisition: a few dwells of its 31-chip code
+    if hasattr(obj, "push"):  # Correlator: a few dwells of its 31-chip code
         obj.push(np.ones(obj.n_noncoh * _CODE.size * 2 * 4, np.complex64))
         return
     real = type(obj).__name__ == "MpskReceiverR"
@@ -212,6 +217,33 @@ def test_every_face_is_covered() -> None:
     )
     assert listed - found == set(), "listed, but no longer public"
     assert set(FACES) >= _DEAD_SLOTS_1897, "a #1897 xfail names no face"
+    assert set(FACES) >= set(REFUSALS), "a refusal names no face"
+
+
+#: The sentence each class's overlong-prefix refusal raises, in one table: a
+#: class whose set_telemetry names the argument it refused (the Correlator's,
+#: through `why`, just-makeit#2574; docs/design/correlator-python.md section
+#: 18) is listed here in full, as is a class whose manifest declares its own
+#: sentence (AsyncDsssPool's); every other class raises jm's generic one.
+#: Matched from the start to the end, so a class cannot pass by raising
+#: some other refusal that merely names set_telemetry.
+REFUSALS: dict[str, str] = {
+    "doppler.correlation.Correlator": (
+        'set_telemetry: the prefix is too long: prefix + "." + each probe '
+        "name must fit DP_TLM_NAME_MAX bytes"
+    ),
+    "doppler.dsss.AsyncDsssPool": (
+        "set_telemetry failed: the pool must run on one worker (threads 1), "
+        "decim must be >= 1, and every receiver's names must fit the prefix "
+        "and the context's table"
+    ),
+}
+_GENERIC = "set_telemetry failed"
+
+
+def _refusal(face: str) -> str:
+    # Both ends: the sentence and nothing after it but the binding's rc.
+    return "^" + re.escape(REFUSALS.get(face, _GENERIC)) + r"( \(rc=-?\d+\))?$"
 
 
 def _refuse(face: str) -> tuple[Telemetry, str, set[str]]:
@@ -224,7 +256,7 @@ def _refuse(face: str) -> tuple[Telemetry, str, set[str]]:
     suffixes = _suffixes(make)
     prefix = "q" * (_fits(suffixes) + 1)  # longest name: one byte over
     tlm = _fresh()
-    with pytest.raises(ValueError, match="set_telemetry failed"):
+    with pytest.raises(ValueError, match=_refusal(face)):
         make().set_telemetry(tlm, prefix)
     return tlm, prefix, suffixes
 
@@ -291,7 +323,7 @@ def test_every_overlong_prefix_is_refused_cleanly(face: str) -> None:
     for length in range(fits + 1, _name_max() + 2):
         prefix = "q" * length
         tlm = _fresh()
-        with pytest.raises(ValueError, match="set_telemetry failed"):
+        with pytest.raises(ValueError, match=_refusal(face)):
             make().set_telemetry(tlm, prefix)
         exact = {f"{prefix}.{s}" for s in suffixes} | {_RESIDENT}
         assert set(tlm.probe_names) <= exact, f"truncated at {length}"
@@ -316,7 +348,7 @@ def test_a_refused_object_stays_detached(face: str) -> None:
     assert len(good.read()) > 0, "the feed emits nothing even when attached"
 
     tlm, refused = _fresh(), make()
-    with pytest.raises(ValueError, match="set_telemetry failed"):
+    with pytest.raises(ValueError, match=_refusal(face)):
         refused.set_telemetry(tlm, "q" * (fits + 1))
     _feed(refused)
     assert len(tlm.read()) == 0
@@ -340,6 +372,7 @@ def test_a_disabled_agc_still_bounds_the_receiver_prefix() -> None:
 
     make().set_telemetry(_fresh(), "q" * (fits - 1))  # one short: attaches
     tlm = _fresh()
-    with pytest.raises(ValueError, match="set_telemetry failed"):
+    refused = _refusal("doppler.mpsk.MpskReceiver")
+    with pytest.raises(ValueError, match=refused):
         make().set_telemetry(tlm, "q" * fits)  # every own name fits
     assert tlm.probe_count > 1  # and the loops registered first (#1897)

@@ -48,6 +48,7 @@ from .paginator import (
     ListAssetTypesPaginator,
     ListBlueprintsPaginator,
     ListConnectionTypesPaginator,
+    ListDataQualityEvaluationConfigsPaginator,
     ListDataQualityResultsV2Paginator,
     ListEntitiesPaginator,
     ListFormTypesPaginator,
@@ -128,6 +129,8 @@ from .type_defs import (
     CreateCustomEntityTypeRequestTypeDef,
     CreateCustomEntityTypeResponseTypeDef,
     CreateDatabaseRequestTypeDef,
+    CreateDataQualityEvaluationConfigRequestTypeDef,
+    CreateDataQualityEvaluationConfigResponseTypeDef,
     CreateDataQualityRulesetRequestTypeDef,
     CreateDataQualityRulesetResponseTypeDef,
     CreateDevEndpointRequestTypeDef,
@@ -185,6 +188,7 @@ from .type_defs import (
     DeleteCustomEntityTypeRequestTypeDef,
     DeleteCustomEntityTypeResponseTypeDef,
     DeleteDatabaseRequestTypeDef,
+    DeleteDataQualityEvaluationConfigRequestTypeDef,
     DeleteDataQualityRulesetRequestTypeDef,
     DeleteDevEndpointRequestTypeDef,
     DeleteFormTypeRequestTypeDef,
@@ -282,6 +286,8 @@ from .type_defs import (
     GetDataCatalogExportConfigurationOutputTypeDef,
     GetDataflowGraphRequestTypeDef,
     GetDataflowGraphResponseTypeDef,
+    GetDataQualityEvaluationConfigRequestTypeDef,
+    GetDataQualityEvaluationConfigResponseTypeDef,
     GetDataQualityModelRequestTypeDef,
     GetDataQualityModelResponseTypeDef,
     GetDataQualityModelResultRequestTypeDef,
@@ -424,6 +430,8 @@ from .type_defs import (
     ListCrawlsResponseTypeDef,
     ListCustomEntityTypesRequestTypeDef,
     ListCustomEntityTypesResponseTypeDef,
+    ListDataQualityEvaluationConfigsRequestTypeDef,
+    ListDataQualityEvaluationConfigsResponseTypeDef,
     ListDataQualityResultsRequestTypeDef,
     ListDataQualityResultsResponseTypeDef,
     ListDataQualityResultsV2RequestTypeDef,
@@ -575,6 +583,8 @@ from .type_defs import (
     UpdateCrawlerRequestTypeDef,
     UpdateCrawlerScheduleRequestTypeDef,
     UpdateDatabaseRequestTypeDef,
+    UpdateDataQualityEvaluationConfigRequestTypeDef,
+    UpdateDataQualityEvaluationConfigResponseTypeDef,
     UpdateDataQualityRulesetRequestTypeDef,
     UpdateDataQualityRulesetResponseTypeDef,
     UpdateDevEndpointRequestTypeDef,
@@ -1040,6 +1050,18 @@ class GlueClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#create_custom_entity_type)
         """
 
+    def create_data_quality_evaluation_config(
+        self, **kwargs: Unpack[CreateDataQualityEvaluationConfigRequestTypeDef]
+    ) -> CreateDataQualityEvaluationConfigResponseTypeDef:
+        """
+        Creates a data quality evaluation configuration, which evaluates the data
+        quality of a collection of tables in the Glue Data Catalog once, on a schedule,
+        or when table metadata changes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/create_data_quality_evaluation_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#create_data_quality_evaluation_config)
+        """
+
     def create_data_quality_ruleset(
         self, **kwargs: Unpack[CreateDataQualityRulesetRequestTypeDef]
     ) -> CreateDataQualityRulesetResponseTypeDef:
@@ -1396,6 +1418,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_custom_entity_type.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#delete_custom_entity_type)
+        """
+
+    def delete_data_quality_evaluation_config(
+        self, **kwargs: Unpack[DeleteDataQualityEvaluationConfigRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a data quality evaluation configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_data_quality_evaluation_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#delete_data_quality_evaluation_config)
         """
 
     def delete_data_quality_ruleset(
@@ -1943,6 +1975,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_data_catalog_export_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#get_data_catalog_export_configuration)
+        """
+
+    def get_data_quality_evaluation_config(
+        self, **kwargs: Unpack[GetDataQualityEvaluationConfigRequestTypeDef]
+    ) -> GetDataQualityEvaluationConfigResponseTypeDef:
+        """
+        Retrieves a data quality evaluation configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_data_quality_evaluation_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#get_data_quality_evaluation_config)
         """
 
     def get_data_quality_model(
@@ -2684,6 +2726,17 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_custom_entity_types.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#list_custom_entity_types)
+        """
+
+    def list_data_quality_evaluation_configs(
+        self, **kwargs: Unpack[ListDataQualityEvaluationConfigsRequestTypeDef]
+    ) -> ListDataQualityEvaluationConfigsResponseTypeDef:
+        """
+        Lists the data quality evaluation configurations in your account, optionally
+        filtered by level.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_data_quality_evaluation_configs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#list_data_quality_evaluation_configs)
         """
 
     def list_data_quality_results(
@@ -3544,6 +3597,16 @@ class GlueClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#update_crawler_schedule)
         """
 
+    def update_data_quality_evaluation_config(
+        self, **kwargs: Unpack[UpdateDataQualityEvaluationConfigRequestTypeDef]
+    ) -> UpdateDataQualityEvaluationConfigResponseTypeDef:
+        """
+        Updates a data quality evaluation configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/update_data_quality_evaluation_config.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#update_data_quality_evaluation_config)
+        """
+
     def update_data_quality_ruleset(
         self, **kwargs: Unpack[UpdateDataQualityRulesetRequestTypeDef]
     ) -> UpdateDataQualityRulesetResponseTypeDef:
@@ -3974,6 +4037,17 @@ class GlueClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_connection_types"]
     ) -> ListConnectionTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_quality_evaluation_configs"]
+    ) -> ListDataQualityEvaluationConfigsPaginator:
         """
         Create a paginator for an operation.
 

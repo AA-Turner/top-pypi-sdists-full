@@ -18,55 +18,51 @@ static inline void array_value_from_cpp_into_python_as_bin_or_str(Tango::DeviceA
                                                                   PyTango::ExtractAs extract_as,
                                                                   py::object &read_value,
                                                                   py::object &written_value) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-    using TangoArrayType = typename TANGO_const2arraytype(tangoTypeConst);
+    if constexpr(tangoTypeConst == Tango::DEV_STRING) {
+        assert(false);
+    } else {
+        using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
+        using TangoArrayType = typename TANGO_const2arraytype(tangoTypeConst);
 
-    Py_ssize_t nb_bytes_read =
-        static_cast<Py_ssize_t>(self.get_nb_read()) * static_cast<Py_ssize_t>(sizeof(TangoScalarType));
-    Py_ssize_t nb_bytes_written =
-        static_cast<Py_ssize_t>(self.get_nb_written()) * static_cast<Py_ssize_t>(sizeof(TangoScalarType));
+        Py_ssize_t nb_bytes_read =
+            static_cast<Py_ssize_t>(self.get_nb_read()) * static_cast<Py_ssize_t>(sizeof(TangoScalarType));
+        Py_ssize_t nb_bytes_written =
+            static_cast<Py_ssize_t>(self.get_nb_written()) * static_cast<Py_ssize_t>(sizeof(TangoScalarType));
 
-    // Extract the actual data from Tango::DeviceAttribute (self)
-    TangoArrayType *value_ptr = nullptr;
-    EXTRACT_VALUE(self, value_ptr)
-    std::unique_ptr<TangoArrayType> guard_value_ptr(value_ptr);
+        // Extract the actual data from Tango::DeviceAttribute (self)
+        TangoArrayType *value_ptr = nullptr;
+        extract_value(self, value_ptr);
 
-    if(value_ptr == nullptr) {
-        // Empty device attribute
-        value_ptr = new TangoArrayType;
+        if(value_ptr == nullptr) {
+            // Empty device attribute
+            value_ptr = new TangoArrayType;
+        }
+
+        std::unique_ptr<TangoArrayType> guard_value_ptr(value_ptr);
+
+        TangoScalarType *buffer = value_ptr->get_buffer();
+        const char *ch_ptr = reinterpret_cast<const char *>(buffer);
+
+        switch(extract_as) {
+        case PyTango::ExtractAsBytes: {
+            read_value = py::bytes(ch_ptr, nb_bytes_read);
+            written_value = py::bytes(ch_ptr + nb_bytes_read, nb_bytes_written);
+            break;
+        }
+        case PyTango::ExtractAsByteArray: {
+            read_value = py::bytearray(ch_ptr, nb_bytes_read);
+            written_value = py::bytearray(ch_ptr + nb_bytes_read, nb_bytes_written);
+            break;
+        }
+        case PyTango::ExtractAsString: {
+            read_value = py::str(ch_ptr, nb_bytes_read);
+            written_value = py::str(ch_ptr + nb_bytes_read, nb_bytes_written);
+            break;
+        }
+        default:
+            throw std::invalid_argument("Unsupported extract_as");
+        }
     }
-
-    TangoScalarType *buffer = value_ptr->get_buffer();
-    const char *ch_ptr = reinterpret_cast<const char *>(buffer);
-
-    switch(extract_as) {
-    case PyTango::ExtractAsBytes: {
-        read_value = py::bytes(ch_ptr, nb_bytes_read);
-        written_value = py::bytes(ch_ptr + nb_bytes_read, nb_bytes_written);
-        break;
-    }
-    case PyTango::ExtractAsByteArray: {
-        read_value = py::bytearray(ch_ptr, nb_bytes_read);
-        written_value = py::bytearray(ch_ptr + nb_bytes_read, nb_bytes_written);
-        break;
-    }
-    case PyTango::ExtractAsString: {
-        read_value = py::str(ch_ptr, nb_bytes_read);
-        written_value = py::str(ch_ptr + nb_bytes_read, nb_bytes_written);
-        break;
-    }
-    default:
-        throw std::invalid_argument("Unsupported extract_as");
-    }
-}
-
-template <>
-inline void
-    array_value_from_cpp_into_python_as_bin_or_str<Tango::DEV_STRING>([[maybe_unused]] Tango::DeviceAttribute &self,
-                                                                      [[maybe_unused]] PyTango::ExtractAs extract_as,
-                                                                      [[maybe_unused]] py::object &read_value,
-                                                                      [[maybe_unused]] py::object &written_value) {
-    assert(false);
 }
 
 template <int tangoTypeConst>
@@ -80,7 +76,7 @@ static void array_value_from_cpp_into_python_as_tuple_or_list(Tango::DeviceAttri
 
     // Extract the actual data from Tango::DeviceAttribute (self)
     TangoArrayType *value_ptr = nullptr;
-    EXTRACT_VALUE(self, value_ptr)
+    extract_value(self, value_ptr);
     std::unique_ptr<TangoArrayType> guard_value_ptr(value_ptr);
 
     if(value_ptr == nullptr) {
@@ -183,7 +179,7 @@ static void array_value_from_cpp_into_python_as_numpy(Tango::DeviceAttribute &se
 
     // Extract the actual data from Tango::DeviceAttribute (self)
     TangoArrayType *value_ptr = nullptr;
-    EXTRACT_VALUE(self, value_ptr)
+    extract_value(self, value_ptr);
 
     if(value_ptr == nullptr) {
         // Empty device attribute
@@ -265,48 +261,44 @@ static inline void array_value_from_cpp_into_python(Tango::DeviceAttribute &self
                                                     py::object &py_value,
                                                     bool is_image,
                                                     PyTango::ExtractAs extract_as) {
-    py::object read_value;
-    py::object written_value;
+    if constexpr(tangoTypeConst == Tango::DEV_ENCODED) {
+        /// @todo Sure, it is not necessary?
+        assert(false);
+    } else {
+        py::object read_value;
+        py::object written_value;
 
-    // clang-format off
-    switch(extract_as) {
-    default:
-    case PyTango::ExtractAsNumpy:
-        array_value_from_cpp_into_python_as_numpy<tangoTypeConst>(self,
-                                                                  is_image,
-                                                                  read_value,
-                                                                  written_value);
-        break;
-    case PyTango::ExtractAsTuple:
-    case PyTango::ExtractAsList:
-        array_value_from_cpp_into_python_as_tuple_or_list<tangoTypeConst>(self,
-                                                                          is_image,
-                                                                          extract_as,
-                                                                          read_value,
-                                                                          written_value);
-        break;
-    case PyTango::ExtractAsBytes:
-    case PyTango::ExtractAsByteArray:
-    case PyTango::ExtractAsString:
-        array_value_from_cpp_into_python_as_bin_or_str<tangoTypeConst>(self,
-                                                                       extract_as,
-                                                                       read_value,
-                                                                       written_value);
-        break;
+        // clang-format off
+        switch(extract_as) {
+        default:
+        case PyTango::ExtractAsNumpy:
+            array_value_from_cpp_into_python_as_numpy<tangoTypeConst>(self,
+                                                                      is_image,
+                                                                      read_value,
+                                                                      written_value);
+            break;
+        case PyTango::ExtractAsTuple:
+        case PyTango::ExtractAsList:
+            array_value_from_cpp_into_python_as_tuple_or_list<tangoTypeConst>(self,
+                                                                              is_image,
+                                                                              extract_as,
+                                                                              read_value,
+                                                                              written_value);
+            break;
+        case PyTango::ExtractAsBytes:
+        case PyTango::ExtractAsByteArray:
+        case PyTango::ExtractAsString:
+            array_value_from_cpp_into_python_as_bin_or_str<tangoTypeConst>(self,
+                                                                           extract_as,
+                                                                           read_value,
+                                                                           written_value);
+            break;
+        }
+        // clang-format on
+
+        py_value.attr(value_attr_name) = read_value;
+        py_value.attr(w_value_attr_name) = written_value;
     }
-    // clang-format on
-
-    py_value.attr(value_attr_name) = read_value;
-    py_value.attr(w_value_attr_name) = written_value;
-}
-
-template <>
-inline void array_value_from_cpp_into_python<Tango::DEV_ENCODED>([[maybe_unused]] Tango::DeviceAttribute &self,
-                                                                 [[maybe_unused]] py::object &py_value,
-                                                                 [[maybe_unused]] bool is_image,
-                                                                 [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    /// @todo Sure, it is not necessary?
-    assert(false);
 }
 } // namespace PyDeviceAttribute
 
@@ -393,27 +385,24 @@ inline void array_value_from_cpp_into_python_as_numpy<Tango::DEV_STRING>(Tango::
 template <int tangoTypeConst>
 static inline void
     array_value_from_cpp_into_python(Tango::WAttribute &att, py::object &py_value, PyTango::ExtractAs extract_as) {
-    switch(extract_as) {
-    case PyTango::ExtractAsPyTango3:
-    case PyTango::ExtractAsList: {
-        array_value_from_cpp_into_python_as_list<tangoTypeConst>(att, py_value);
-        break;
+    if constexpr(tangoTypeConst == Tango::DEV_ENCODED) {
+        assert(false);
+    } else {
+        switch(extract_as) {
+        case PyTango::ExtractAsPyTango3:
+        case PyTango::ExtractAsList: {
+            array_value_from_cpp_into_python_as_list<tangoTypeConst>(att, py_value);
+            break;
+        }
+        case PyTango::ExtractAsNumpy: {
+            array_value_from_cpp_into_python_as_numpy<tangoTypeConst>(att, py_value);
+            break;
+        }
+        default:
+            Tango::Except::throw_exception("PyDs_WrongParameterValue",
+                                           "This extract method is not supported by the function.",
+                                           "PyWAttribute::get_write_value()");
+        }
     }
-    case PyTango::ExtractAsNumpy: {
-        array_value_from_cpp_into_python_as_numpy<tangoTypeConst>(att, py_value);
-        break;
-    }
-    default:
-        Tango::Except::throw_exception("PyDs_WrongParameterValue",
-                                       "This extract method is not supported by the function.",
-                                       "PyWAttribute::get_write_value()");
-    }
-}
-
-template <>
-inline void array_value_from_cpp_into_python<Tango::DEV_ENCODED>([[maybe_unused]] Tango::WAttribute &att,
-                                                                 [[maybe_unused]] py::object &py_value,
-                                                                 [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    assert(false);
 }
 } // namespace PyWAttribute

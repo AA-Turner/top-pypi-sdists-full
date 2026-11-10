@@ -17,6 +17,7 @@ from mpp._typing import is_dict
 from mpp._units import parse_units
 from mpp.methods.tempo.client import (
     AutoSwap,
+    TransactionError,
     _find_auto_swap_calls,  # pyright: ignore[reportPrivateUsage]
 )
 from mpp.methods.tempo.session import _chain as chain
@@ -561,9 +562,11 @@ async def resolve_auto_swap_calls(
     amount_out: int,
     resolved: ChallengeContext,
     client: httpx.AsyncClient | None = None,
+    trusted_currencies: Sequence[str] | None = None,
 ) -> list[tuple[str, str]]:
     """Approve and swap calls buying the channel token the payer lacks (mppx
-    ``resolveAutoSwapCalls``); none when auto-swap is off or the balance suffices."""
+    ``resolveAutoSwapCalls``); none when auto-swap is off or the balance suffices.
+    ``trusted_currencies``, when given, are the only tokens a swap may buy."""
     if auto_swap is None:
         return []
     calls, _ = await _find_auto_swap_calls(
@@ -573,8 +576,13 @@ async def resolve_auto_swap_calls(
         token_out=resolved.token,
         rpc_url=resolved.rpc_url,
         fee_headroom=await _unsponsored_fee_headroom(resolved, client),
+        trusted_currencies=trusted_currencies,
         client=client,
     )
+    # The swap's amountOut is its third word. Servers reject a swap that buys more than
+    # the deposit, so a payer holding less channel token than the fee fails before signing.
+    if calls and int(calls[-1][1][138:202], 16) > amount_out:
+        raise TransactionError("Sessions require a funded channel token for transaction fees")
     return calls
 
 
@@ -608,6 +616,7 @@ async def execute_credential_plan(
     *,
     client: httpx.AsyncClient | None = None,
     auto_swap: AutoSwap | None = None,
+    trusted_currencies: Sequence[str] | None = None,
 ) -> SessionCredentialPayload:
     """Execute ``plan`` and return the credential payload; updates the store.
 
@@ -636,7 +645,12 @@ async def execute_credential_plan(
             fee_payer=resolved.fee_payer,
             fee_token=resolved.fee_token,
             prefix_calls=await resolve_auto_swap_calls(
-                auto_swap, account=account, amount_out=deposit, resolved=resolved, client=client
+                auto_swap,
+                account=account,
+                amount_out=deposit,
+                resolved=resolved,
+                client=client,
+                trusted_currencies=trusted_currencies,
             ),
             client=client,
         )
@@ -708,13 +722,19 @@ async def execute_credential_plan(
         await _store_channel_entry(sink, entry.copy(cumulative_amount=cumulative))
         return payload
 
-    payload = await _manual(plan, client=client, auto_swap=auto_swap)
+    payload = await _manual(
+        plan, client=client, auto_swap=auto_swap, trusted_currencies=trusted_currencies
+    )
     await _apply_cumulative(sink, resolved.key, payload)
     return payload
 
 
 async def _manual(
-    plan: CredentialPlan, *, client: httpx.AsyncClient | None, auto_swap: AutoSwap | None
+    plan: CredentialPlan,
+    *,
+    client: httpx.AsyncClient | None,
+    auto_swap: AutoSwap | None,
+    trusted_currencies: Sequence[str] | None = None,
 ) -> SessionCredentialPayload:
     context = plan.context
     assert context is not None and context.descriptor is not None
@@ -767,7 +787,12 @@ async def _manual(
             fee_payer=resolved.fee_payer,
             escrow=resolved.escrow,
             prefix_calls=await resolve_auto_swap_calls(
-                auto_swap, account=account, amount_out=additional, resolved=resolved, client=client
+                auto_swap,
+                account=account,
+                amount_out=additional,
+                resolved=resolved,
+                client=client,
+                trusted_currencies=trusted_currencies,
             ),
             fee_token=resolved.fee_token,
             client=client,

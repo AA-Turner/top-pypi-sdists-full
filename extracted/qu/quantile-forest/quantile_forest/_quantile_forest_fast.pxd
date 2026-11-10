@@ -1,3 +1,4 @@
+from libc.stdint cimport int32_t, int64_t
 from libcpp.map cimport map
 from libcpp.vector cimport vector
 
@@ -13,10 +14,17 @@ cdef class QuantileForest:
     # The QuantileForest object.
 
     # Input/Output layout.
-    cdef public vector[vector[float64_t]] y_train
-    cdef public intp_t[:, :, :, :] y_train_leaves
-    cdef public float64_t[:, :, :] y_bound_leaves
-    cdef public bint sparse_pickle
+    # Read-only views, so that read-only (e.g., memory-mapped) arrays work, and
+    # C-contiguous, since each leaf's indices are read as one block of memory.
+    # Python reads them as arrays without copying (e.g., `y_train` in predict).
+    cdef public const float64_t[:, ::1] y_train
+    # The training samples of each node, stored without padding.
+    cdef public const int64_t[::1] tree_offsets
+    cdef public const int32_t[:, ::1] leaf_offsets
+    cdef public const int32_t[:, ::1] y_train_indices
+    cdef public const float64_t[:, :, ::1] y_bound_leaves
+    cdef public const float64_t[:, ::1] sample_weight
+    cdef double weight_unit
 
     # Methods.
     cpdef cnp.ndarray predict(
@@ -44,5 +52,5 @@ cdef class QuantileForest:
         intp_t[:, :] X_leaves,
         uint8_t[:, :] X_indices=*,
         uint32_t max_proximities=*,
-        intp_t[:, :] sorter=*,
+        const intp_t[:, :] sorter=*,
     )

@@ -16,7 +16,8 @@ from pikepdf.objects import Dictionary
 
 def allclose(m1, m2, abs_tol=1e-6):
     return all(
-        isclose(x, y, abs_tol=abs_tol) for x, y in zip(m1.shorthand, m2.shorthand)
+        isclose(x, y, abs_tol=abs_tol)
+        for x, y in zip(m1.shorthand, m2.shorthand, strict=True)
     )
 
 
@@ -158,3 +159,11 @@ class TestMatrix:
 
     def test_latex(self):
         assert '\\begin' in Matrix(1, 0, 0, 1, 0, 0)._repr_latex_()
+
+
+def test_array_refuses_copy_false():
+    # numpy asks for copy=False when the caller forbids a copy, which a Matrix
+    # cannot provide: it has no buffer for an array to share.
+    m = Matrix(1, 0, 0, 1, 5, 6)
+    with pytest.raises(ValueError, match='copy=False'):
+        m.__array__(copy=False)

@@ -1,9 +1,9 @@
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
 import twscrape.xclid as xclid
-from twscrape.http import HttpxClient, NetworkError
+from twscrape.http import CurlClient, HttpxClient, NetworkError
 
 from .mock_http import MockClient
 
@@ -48,11 +48,7 @@ async def test_xclid_create_passes_proxy_and_cookies_to_client(monkeypatch):
     assert gen.anim_key == "anim-key"
     assert seen["headers"] == {"user-agent": "@chrome"}
     assert seen["proxy"] == proxy
-    assert seen["cookies"] is None
-    assert fake_client.cookies.set.call_args_list == [
-        call("auth_token", "abc", domain=".x.com"),
-        call("ct0", "def", domain=".x.com"),
-    ]
+    assert seen["cookies"] == cookies
     assert seen["url"] == "https://x.com/tesla"
     assert seen["client"] is fake_client
     assert seen["load_client"] is fake_client
@@ -97,9 +93,10 @@ async def test_xclid_client_does_not_send_cookies_to_asset_hosts(monkeypatch):
         await client.aclose()
 
 
-async def test_xclid_curl_client_scopes_cookies_to_x(monkeypatch):
-    monkeypatch.setenv("TWS_HTTP_BACKEND", "curl")
+async def test_xclid_default_client_scopes_cookies_to_x(monkeypatch):
+    monkeypatch.delenv("TWS_HTTP_BACKEND", raising=False)
     client = xclid._make_client(cookies={"auth_token": "abc"})
+    assert isinstance(client, CurlClient)
     try:
         cookies = list(client.cookies.jar)
         assert [(x.name, x.domain) for x in cookies] == [("auth_token", ".x.com")]
@@ -115,6 +112,30 @@ async def test_logged_out_entry_is_account_error():
 
     with pytest.raises(xclid.XClIdAccountError, match="Logged-out X web app"):
         await xclid.parse_anim_idx(html, MockClient())
+
+
+def test_cloudflare_challenge_shell_raises_precise_error():
+    # https://github.com/vladkens/twscrape/issues/330 - X sometimes serves a
+    # Cloudflare JS-detection shell (only /cdn-cgi/challenge-platform script,
+    # no app bundles) instead of the web app HTML.
+    html = '<script src="/cdn-cgi/challenge-platform/scripts/jsd/api.js?onload=jsdOnload"></script>'
+
+    with pytest.raises(
+        xclid.XClIdParseError, match="Cloudflare challenge page served instead of X web app"
+    ):
+        xclid.get_scripts_list(html)
+
+
+def test_challenge_script_alongside_real_scripts_is_ignored():
+    # X itself loads a challenge-platform script on normal pages; when real app
+    # scripts are present the challenge marker must not break parsing.
+    html = (
+        '<script src="/cdn-cgi/challenge-platform/scripts/jsd/api.js"></script>'
+        '<script src="https://abs.twimg.com/x-web/x-web/app-a1b2c3.js"></script>'
+    )
+
+    urls = xclid.get_scripts_list(html)
+    assert urls == ["https://abs.twimg.com/x-web/x-web/app-a1b2c3.js"]
 
 
 def test_script_list_combines_direct_and_reconstructed_urls():

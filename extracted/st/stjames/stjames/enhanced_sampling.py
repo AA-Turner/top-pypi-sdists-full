@@ -14,8 +14,7 @@ class REST2Settings(BaseModel):
     thermostat temperature; effective temperatures determine Hamiltonian scaling.
     User restraints remain identical across states.
 
-    Default ladder contains eight states from 300 to 450 K with exchanges every
-    1 ps. Workflows at other physical temperatures require a matching ladder.
+    Effective temperatures must start at the workflow temperature.
 
     Outputs contain only the unscaled (λ=1) state trajectory from each independent
     ensemble. This follows the state through exchanges, so consecutive frames can
@@ -31,7 +30,7 @@ class REST2Settings(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
 
     type: Literal["rest2"] = "rest2"
-    effective_temperatures: Annotated[list[PositiveFloat], Field(min_length=2)] = [300, 320, 340, 360, 380, 400, 425, 450]
+    effective_temperatures: Annotated[list[PositiveFloat], Field(min_length=2)] = [298.15, 320, 340, 360, 380, 400, 425, 450]
     exchange_interval_ps: PositiveFloat = 1
 
     @model_validator(mode="after")

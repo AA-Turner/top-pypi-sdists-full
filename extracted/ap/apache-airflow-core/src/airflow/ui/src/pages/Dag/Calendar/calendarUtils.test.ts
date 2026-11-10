@@ -18,9 +18,14 @@
  */
 import { describe, expect, it } from "vitest";
 
-import type { CalendarTimeRangeResponse } from "openapi/requests/types.gen";
+import type { CalendarDeadlineResponse, CalendarTimeRangeResponse } from "openapi/requests/types.gen";
 
-import { calculateDataBounds, calculateRunCounts, createCalendarScale } from "./calendarUtils";
+import {
+  buildDeadlineDateMap,
+  calculateDataBounds,
+  calculateRunCounts,
+  createCalendarScale,
+} from "./calendarUtils";
 import type { RunCounts } from "./types";
 
 const EMPTY_COLOR = { _dark: "gray.700", _light: "gray.100" };
@@ -30,6 +35,7 @@ const DEFAULT_FAILED_COLOR = { _dark: "red.700", _light: "red.400" };
 const DEFAULT_RUNNING_COLOR = { _dark: "cyan.700", _light: "cyan.400" };
 
 const EMPTY_COUNTS: RunCounts = {
+  backfill: 0,
   failed: 0,
   planned: 0,
   queued: 0,
@@ -45,8 +51,14 @@ const run = (
 ): CalendarTimeRangeResponse => ({
   count,
   date,
+  is_backfill: false,
   state,
 });
+
+const backfillRun = (
+  state: CalendarTimeRangeResponse["state"],
+  count: number,
+): CalendarTimeRangeResponse => ({ ...run(state, count), is_backfill: true });
 
 describe("calculateRunCounts", () => {
   it("counts each calendar state and includes all states in total", () => {
@@ -59,12 +71,27 @@ describe("calculateRunCounts", () => {
         run("planned", 5),
       ]),
     ).toEqual({
+      backfill: 0,
       failed: 1,
       planned: 5,
       queued: 4,
       running: 3,
       success: 2,
       total: 15,
+    });
+  });
+
+  it("counts backfill runs separately from their state", () => {
+    expect(
+      calculateRunCounts([backfillRun("success", 1), backfillRun("failed", 2), run("success", 3)]),
+    ).toEqual({
+      backfill: 3,
+      failed: 2,
+      planned: 0,
+      queued: 0,
+      running: 0,
+      success: 4,
+      total: 6,
     });
   });
 });
@@ -339,5 +366,61 @@ describe("createCalendarScale", () => {
 
     expect(scale.getColor({ ...EMPTY_COUNTS, failed: 1, total: 1 })).toEqual(lowIntensityFailedColor);
     expect(scale.getColor({ ...EMPTY_COUNTS, failed: 10, total: 10 })).toEqual(highIntensityFailedColor);
+  });
+});
+
+const buildDeadline = (date: string, missed: boolean, count = 1): CalendarDeadlineResponse => ({
+  count,
+  date,
+  missed,
+});
+
+describe("buildDeadlineDateMap", () => {
+  it("returns an empty map for empty input", () => {
+    expect(buildDeadlineDateMap([], "UTC", "daily")).toEqual(new Map());
+  });
+
+  it("maps a missed deadline to the correct daily key", () => {
+    const map = buildDeadlineDateMap([buildDeadline("2026-04-08T10:00:00Z", true, 2)], "UTC", "daily");
+
+    expect(map.get("2026-04-08")).toEqual({ missed: 2, pending: 0 });
+  });
+
+  it("maps a pending deadline to the correct daily key", () => {
+    const map = buildDeadlineDateMap([buildDeadline("2026-04-08T10:00:00Z", false, 3)], "UTC", "daily");
+
+    expect(map.get("2026-04-08")).toEqual({ missed: 0, pending: 3 });
+  });
+
+  it("accumulates counts for multiple deadlines on the same day", () => {
+    const map = buildDeadlineDateMap(
+      [
+        buildDeadline("2026-04-08T10:00:00Z", true, 1),
+        buildDeadline("2026-04-08T14:00:00Z", false, 2),
+        buildDeadline("2026-04-08T20:00:00Z", true, 3),
+      ],
+      "UTC",
+      "daily",
+    );
+
+    expect(map.get("2026-04-08")).toEqual({ missed: 4, pending: 2 });
+  });
+
+  it("uses an hourly key for hourly granularity", () => {
+    const map = buildDeadlineDateMap([buildDeadline("2026-04-08T10:30:00Z", true, 1)], "UTC", "hourly");
+
+    expect(map.get("2026-04-08T10")).toEqual({ missed: 1, pending: 0 });
+    expect(map.get("2026-04-08")).toBeUndefined();
+  });
+
+  it("respects timezone when grouping by day", () => {
+    const map = buildDeadlineDateMap(
+      [buildDeadline("2026-04-08T01:00:00Z", true, 1)],
+      "America/New_York",
+      "daily",
+    );
+
+    expect(map.get("2026-04-07")).toEqual({ missed: 1, pending: 0 });
+    expect(map.get("2026-04-08")).toBeUndefined();
   });
 });

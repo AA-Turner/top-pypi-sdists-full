@@ -162,7 +162,7 @@ proptest! {
         // table is available for every draw; a refusal here would be the
         // generator, not the lift.
         let classes = a.table_at(modulus).expect("a period inside the bound");
-        let lifted = IntSet { modulus, classes: classes.into_owned() };
+        let lifted = IntSet { modulus, classes: classes.into_owned().into() };
         prop_assert!(same(&a, &lifted));
         prop_assert_eq!(&a, &lifted);
     }
@@ -381,7 +381,8 @@ fn two_spellings_of_one_set_are_one_set_in_two_places() {
         classes: evens
             .table_at(4)
             .expect("a period inside the bound")
-            .into_owned(),
+            .into_owned()
+            .into(),
     };
     assert!(same(&evens, &at_four), "the two hold the same integers");
     assert_eq!(evens, at_four);
@@ -427,7 +428,8 @@ fn equality_is_not_transitive_where_two_periods_cannot_meet() {
             classes: evens
                 .table_at(period)
                 .expect("a period inside the bound")
-                .into_owned(),
+                .into_owned()
+                .into(),
         }
     };
     // 64 and 162 are each a multiple of two, and meet at 5,184.
@@ -499,5 +501,43 @@ fn a_table_is_a_set_only_at_one_class_per_residue_of_a_held_period() {
     assert!(
         IntSet::from_table(0, classes(0)).is_none(),
         "no period at all"
+    );
+}
+
+/// A table holds its residues and the spans in each: four residues and one span for
+/// a step of four, where every multiple is one residue's whole line, and one more
+/// for a bound that cuts that line in two.
+#[test]
+fn a_table_holds_its_residues_and_their_spans() {
+    let four = IntSet::multiple_of(4).expect("a period inside the bound");
+    assert_eq!(four.entries(), 4 + 1);
+    let apart = IntSet::between(Some(0), Some(9))
+        .union(&IntSet::between(Some(20), Some(29)))
+        .expect("a small set");
+    let cut = four.intersect(&apart).expect("a small set");
+    assert_eq!(cut.entries(), 4 + 2);
+}
+
+/// An operation over a step's table charges the residues and spans it holds, so
+/// a build reads no table as wide as the bound on a period for one unit.
+#[test]
+fn an_operation_over_a_table_charges_what_the_table_holds() {
+    use crate::descr::budget::{TABLE_ENTRIES, under};
+    let wide = IntSet::multiple_of(MAX_PERIOD).expect("a period inside the bound");
+    let units = u64::try_from(wide.entries() / TABLE_ENTRIES).expect("a table's size");
+    assert!(units > 0, "the widest table is past a unit");
+    assert!(under(units, || wide.union(&wide)).is_some());
+    assert!(under(units - 1, || wide.union(&wide)).is_none());
+    // A step that small reads under a unit, so what a schema of a few bounds asks
+    // spends nothing it spent before.
+    let narrow = IntSet::multiple_of(4).expect("a period inside the bound");
+    assert!(under(0, || narrow.union(&narrow)).is_some());
+    // A complement cannot refuse, and spends what the next operation needs.
+    assert!(
+        under(units, || {
+            let other = wide.complement();
+            wide.union(&other)
+        })
+        .is_none()
     );
 }

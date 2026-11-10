@@ -5,7 +5,7 @@ import functools
 import itertools
 from collections import abc
 
-from ..model import Plot
+from ..model import WORLD_HEIGHT, WORLD_WIDTH, Plot
 from . import colors, crown
 from .canvas import BACKGROUND, Canvas, mix, put, text
 from .ground import inside, noise, texture
@@ -144,15 +144,58 @@ def _along(view: View, points: abc.Sequence[tuple[int, int]]) -> abc.Iterator[tu
             yield round(sx0 + (sx1 - sx0) * k / steps), round(sy0 + (sy1 - sy0) * k / steps)
 
 
-def stream(canvas: Canvas, view: View, points: abc.Sequence[tuple[int, int]]) -> None:
+def to_edges(
+    points: abc.Sequence[tuple[int, int]], extent: tuple[int, int]
+) -> list[tuple[int, int]]:
+    """*points* with each end that sits on the world's right or bottom border moved out to the
+    grove's *extent*, so terrain keeps running to the map's edge when blocks have grown it.
+    """
+
+    def reach(x: int, y: int) -> tuple[int, int]:
+        return (extent[0] if x >= WORLD_WIDTH else x, extent[1] if y >= WORLD_HEIGHT else y)
+
+    return (
+        [reach(*points[0]), *points[1:-1], reach(*points[-1])] if len(points) > 1 else list(points)
+    )
+
+
+def _stream_cells(
+    view: View, points: abc.Sequence[tuple[int, int]]
+) -> abc.Iterator[tuple[int, int]]:
     for x, y in _along(view, points):
         for dx in (-1, 0, 1):
             for dy in (0, 1):
-                ripple = "≈" if (x + dx + 2 * (y + dy)) % 4 == 0 else " "
-                put(canvas, x + dx, y + dy, ripple, "#4a86b8", "#123049")
+                yield x + dx, y + dy
+
+
+def _road_cells(view: View, points: abc.Sequence[tuple[int, int]]) -> abc.Iterator[tuple[int, int]]:
+    for x, y in _along(view, points):
+        for dx in (-1, 0, 1):
+            yield x + dx, y
+
+
+def stream(canvas: Canvas, view: View, points: abc.Sequence[tuple[int, int]]) -> None:
+    for x, y in _stream_cells(view, points):
+        ripple = "≈" if (x + 2 * y) % 4 == 0 else " "
+        put(canvas, x, y, ripple, "#4a86b8", "#123049")
 
 
 def road(canvas: Canvas, view: View, points: abc.Sequence[tuple[int, int]]) -> None:
-    for x, y in _along(view, points):
-        for dx in (-1, 0, 1):
-            put(canvas, x + dx, y, "·" if noise(x + dx, y) < 0.3 else " ", "#4d4433", "#1b1812")
+    for x, y in _road_cells(view, points):
+        put(canvas, x, y, "·" if noise(x, y) < 0.3 else " ", "#4d4433", "#1b1812")
+
+
+def over_terrain(
+    plot: Plot,
+    view: View,
+    roads: abc.Sequence[abc.Sequence[tuple[int, int]]],
+    stream: abc.Sequence[tuple[int, int]],
+) -> bool:
+    """Whether *plot*'s ground, drawn at *view*, would cover a cell of a road or the stream."""
+    ground = {(col, row) for col, row, *_ in _ground_cells(plot, view, "#000000", True)}
+    return any(
+        cell in ground
+        for cell in itertools.chain(
+            _stream_cells(view, stream), *(_road_cells(view, road) for road in roads)
+        )
+    )

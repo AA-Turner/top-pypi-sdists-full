@@ -7,7 +7,7 @@ use arrow::array::ArrayRef;
 use arrow::array::RecordBatch;
 use arrow::datatypes::SchemaRef;
 use datafusion::execution::SendableRecordBatchStream;
-use datafusion::physical_expr::{EquivalenceProperties, LexOrdering, Partitioning};
+use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
 use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
 use datafusion::physical_plan::stream::RecordBatchReceiverStream;
 use datafusion::physical_plan::{PlanProperties, RecordBatchStream};
@@ -564,13 +564,17 @@ fn get_runtime() -> &'static RwLock<Option<Runtime>> {
 
 /// Returns a Handle for spawning tasks without blocking on the runtime lock.
 pub fn get_tokio_handle() -> Handle {
+    try_get_tokio_handle().expect("tokio runtime has been shut down")
+}
+
+/// Like [`get_tokio_handle`], but returns `None` after [`shutdown_runtime`]
+/// instead of panicking.
+pub fn try_get_tokio_handle() -> Option<Handle> {
     get_runtime()
         .read()
         .unwrap()
         .as_ref()
-        .expect("tokio runtime has been shut down")
-        .handle()
-        .clone()
+        .map(|rt| rt.handle().clone())
 }
 
 /// Shuts down the process-wide tokio runtime. Safe to call from Python before
@@ -618,24 +622,6 @@ pub(crate) fn parse_volatility(value: &str) -> Result<Volatility, DataFusionErro
 
 pub fn compute_properties(schema: SchemaRef) -> Arc<PlanProperties> {
     let eq_properties = EquivalenceProperties::new(schema);
-
-    Arc::new(PlanProperties::new(
-        eq_properties,
-        Partitioning::UnknownPartitioning(1),
-        EmissionType::Incremental,
-        Boundedness::Bounded,
-    ))
-}
-
-pub fn compute_properties_with_orderings(
-    schema: SchemaRef,
-    orderings: &[LexOrdering],
-) -> Arc<PlanProperties> {
-    let eq_properties = if orderings.is_empty() {
-        EquivalenceProperties::new(Arc::clone(&schema))
-    } else {
-        EquivalenceProperties::new_with_orderings(Arc::clone(&schema), orderings.to_vec())
-    };
 
     Arc::new(PlanProperties::new(
         eq_properties,

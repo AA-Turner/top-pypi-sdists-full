@@ -13,6 +13,8 @@
 # define DEPRECATED(func, msg) func
 #endif
 
+#include <ViennaRNA/datastructures/array.h>
+
 /**
  *  @file     ViennaRNA/structures/problist.h
  *  @ingroup  struct_utils
@@ -30,6 +32,8 @@
  */
 typedef struct vrna_elem_prob_s vrna_ep_t;
 
+
+VRNA_ARRAY_REGISTER_NAME(vrna_ep_t, vrna_ep_array_t);
 
 /**
  *  @brief  A Base Pair element
@@ -68,7 +72,7 @@ typedef struct vrna_elem_prob_s vrna_ep_t;
 
 
 /**
- *  @brief  An unpaired base
+ *  @brief  An unpaired base or segment
  */
 #define VRNA_PLIST_TYPE_UNPAIRED      6
 
@@ -77,6 +81,12 @@ typedef struct vrna_elem_prob_s vrna_ep_t;
  *  @brief  One pair of a base triplet
  */
 #define VRNA_PLIST_TYPE_TRIPLE        7
+
+
+/**
+ *  @brief  A Helix element
+ */
+#define VRNA_PLIST_TYPE_HELIX         8
 
 
 /**
@@ -89,10 +99,11 @@ typedef struct vrna_elem_prob_s vrna_ep_t;
  *  #VRNA_PLIST_TYPE_UD_MOTIF, #VRNA_PLIST_TYPE_STACK
  */
 struct vrna_elem_prob_s {
-  int   i;    /**<  @brief  Start position (usually 5' nucleotide that starts the element, e.g. base pair) */
-  int   j;    /**<  @brief  End position (usually 3' nucleotide that ends the element, e.g. base pair) */
-  float p;    /**<  @brief  Probability of the element */
-  int   type; /**<  @brief  Type of the element */
+  int           i;    /**<  @brief  Start position (usually 5' nucleotide that starts the element, e.g. base pair) */
+  int           j;    /**<  @brief  End position (usually 3' nucleotide that ends the element, e.g. base pair) */
+  float         p;    /**<  @brief  Probability of the element */
+  int           type; /**<  @brief  Type of the element */
+  unsigned int  size; /**<  @brief  The size of the element (e.g. number of base pairs that constitute a helix) */
 };
 
 /**

@@ -39,8 +39,10 @@ from office365.migration.base import (
     conflict_to_on_conflict,
 )
 from office365.migration.checkpoint import Checkpoint
+from office365.migration.clients import migration_client
 from office365.migration.delta import DeltaReport, MovedItem, compute_delta
 from office365.migration.fidelity import FidelityReport, FidelityStatus, describe_fidelity
+from office365.migration.identity import IdentityMap, UnmappedPolicy, UnmappedPrincipalError
 from office365.migration.job import MigrationJob
 from office365.migration.logging import (
     JsonLogFormatter,
@@ -52,7 +54,6 @@ from office365.migration.manifest import Manifest
 from office365.migration.map import ContentTypeMap
 from office365.migration.report import MigrationReport, build_report, export_reports
 from office365.migration.runner import MigrationRunner
-from office365.migration.server_job import MigrationServerJob
 from office365.migration.session import MigrationSession, SessionTask
 from office365.migration.settings import MigrationSettings
 from office365.migration.tasks import MigrationTask
@@ -62,7 +63,18 @@ from office365.migration.validators import VerificationReport, verify
 if TYPE_CHECKING:
     # Product conveniences resolved lazily by ``__getattr__`` (declared here so
     # type checkers and ``__all__`` see them without importing the products).
-    from office365.migration.outlook import OUTLOOK_SCANS, MailboxAssessor, OutlookOptions
+    from office365.migration.outlook import (
+        OUTLOOK_SCANS,
+        EmlTreeSource,
+        MailboxAssessor,
+        MailboxTarget,
+        MailExportOptions,
+        MailExportTarget,
+        MailFolderSource,
+        MailImportOptions,
+        OutlookOptions,
+    )
+    from office365.migration.server_job import MigrationJobWait, MigrationServerJob
     from office365.migration.sharepoint import (
         SHAREPOINT_SCANS,
         MigrationAssessor,
@@ -75,18 +87,30 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORTS = {
+    # The server-side job borrows its permissions from the SharePoint methods it drives
+    # (``@derived_from``), so importing it pulls that model tree in with it.
+    "MigrationJobWait": "office365.migration.server_job",
+    "MigrationServerJob": "office365.migration.server_job",
     "MigrationAssessor": "office365.migration.sharepoint",
     "MigrationTenantAssessor": "office365.migration.sharepoint",
     "SHAREPOINT_SCANS": "office365.migration.sharepoint",
     "MailboxAssessor": "office365.migration.outlook",
     "OutlookOptions": "office365.migration.outlook",
     "OUTLOOK_SCANS": "office365.migration.outlook",
+    "MailExportOptions": "office365.migration.outlook",
+    "MailExportTarget": "office365.migration.outlook",
+    "MailFolderSource": "office365.migration.outlook",
+    "MailImportOptions": "office365.migration.outlook",
+    "EmlTreeSource": "office365.migration.outlook",
+    "MailboxTarget": "office365.migration.outlook",
     "TeamsArchiveSource": "office365.migration.teams",
     "TeamsArchiveTarget": "office365.migration.teams",
     "TeamsExportOptions": "office365.migration.teams",
 }
 
 __all__ = [
+    "UnmappedPolicy",
+    "UnmappedPrincipalError",
     "AssessmentOptions",
     "AssessmentReport",
     "Checkpoint",
@@ -100,10 +124,12 @@ __all__ = [
     "Manifest",
     "MigrationItem",
     "MigrationJob",
+    "IdentityMap",
     "MigrationOptions",
     "MigrationPhase",
     "MigrationReport",
     "MigrationRunner",
+    "MigrationJobWait",
     "MigrationServerJob",
     "MigrationSession",
     "MigrationSettings",
@@ -123,6 +149,7 @@ __all__ = [
     "conflict_to_on_conflict",
     "describe_fidelity",
     "log_event",
+    "migration_client",
     "FidelityStatus",
     "export_reports",
     "scan_pairs",
@@ -131,6 +158,12 @@ __all__ = [
     "MigrationTenantAssessor",
     "SHAREPOINT_SCANS",
     "MailboxAssessor",
+    "MailExportOptions",
+    "MailExportTarget",
+    "MailFolderSource",
+    "MailImportOptions",
+    "EmlTreeSource",
+    "MailboxTarget",
     "OutlookOptions",
     "OUTLOOK_SCANS",
     "TeamsArchiveSource",

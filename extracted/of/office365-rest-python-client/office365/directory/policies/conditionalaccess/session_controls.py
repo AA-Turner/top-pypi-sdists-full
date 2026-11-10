@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.identities.application_enforced_restrictions_session_control import (
     ApplicationEnforcedRestrictionsSessionControl,
@@ -16,7 +16,6 @@ from office365.directory.policies.conditionalaccess.sign_in_frequency_session_co
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ConditionalAccessSessionControls(ClientValue):
     applicationEnforcedRestrictions: ApplicationEnforcedRestrictionsSessionControl = field(
         default_factory=ApplicationEnforcedRestrictionsSessionControl

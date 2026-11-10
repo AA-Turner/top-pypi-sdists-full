@@ -35,6 +35,7 @@ from helpers import AppriseURLTester
 import pytest
 import requests
 
+from apprise import Apprise
 from apprise.exception import AppriseImproperlyConfigured
 from apprise.plugins.burstsms import NotifyBurstSMS
 
@@ -98,6 +99,15 @@ apprise_url_tests = (
         {
             # use get args to acomplish the same thing
             "instance": NotifyBurstSMS,
+        },
+    ),
+    (
+        "kudosity://{}:{}@{}/{}".format("a" * 8, "b" * 16, "5" * 11, "6" * 11),
+        {
+            # kudosity:// is an alias of burstsms://
+            "instance": NotifyBurstSMS,
+            # Generated URLs always use the main schema
+            "privacy_url": "burstsms://a...a:****@",
         },
     ),
     (
@@ -232,3 +242,58 @@ def test_plugin_burstsms_edge_cases(mock_post):
 
     # We will fail with the above error code
     assert bool(obj.notify("title", "body", "info")) is False
+
+
+@mock.patch("requests.post")
+def test_plugin_burstsms_validity(mock_post):
+    """NotifyBurstSMS() validity= reaches the payload."""
+
+    response = requests.Request()
+    response.status_code = requests.codes.ok
+    mock_post.return_value = response
+
+    obj = Apprise.instantiate(
+        "burstsms://{}:{}@{}/{}?validity=1440".format(
+            "a" * 8, "b" * 16, "5" * 11, "6" * 11
+        )
+    )
+    assert isinstance(obj, NotifyBurstSMS)
+    assert "validity=1440" in obj.url()
+    assert obj.notify(body="body")
+    assert mock_post.call_count == 1
+    assert mock_post.call_args[1]["data"]["validity"] == 1440
+
+    # No validity is sent when none is given
+    mock_post.reset_mock()
+    obj = Apprise.instantiate(
+        "burstsms://{}:{}@{}/{}".format("a" * 8, "b" * 16, "5" * 11, "6" * 11)
+    )
+    assert obj.notify(body="body")
+    assert "validity" not in mock_post.call_args[1]["data"]
+
+
+def test_plugin_burstsms_country_case():
+    """NotifyBurstSMS() country= is not case sensitive."""
+
+    obj = Apprise.instantiate(
+        "burstsms://{}:{}@{}/{}?country=AU".format(
+            "a" * 8, "b" * 16, "5" * 11, "6" * 11
+        )
+    )
+    assert isinstance(obj, NotifyBurstSMS)
+    assert obj.country == "au"
+    assert "country=au" in obj.url()
+
+
+def test_plugin_burstsms_kudosity_alias():
+    """NotifyBurstSMS() kudosity:// matches the same burstsms:// account."""
+
+    burst = Apprise.instantiate(
+        "burstsms://{}:{}@{}/{}".format("a" * 8, "b" * 16, "5" * 11, "6" * 11)
+    )
+    kudosity = Apprise.instantiate(
+        "kudosity://{}:{}@{}/{}".format("a" * 8, "b" * 16, "5" * 11, "6" * 11)
+    )
+    assert isinstance(kudosity, NotifyBurstSMS)
+    assert kudosity.url_identifier == burst.url_identifier
+    assert kudosity.url().startswith("burstsms://")

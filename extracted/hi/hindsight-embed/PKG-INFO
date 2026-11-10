@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hindsight-embed
-Version: 1.2.0
+Version: 1.2.1
 Summary: Hindsight embedded CLI - local memory operations without a server
 License-Expression: MIT
 License-File: LICENSE

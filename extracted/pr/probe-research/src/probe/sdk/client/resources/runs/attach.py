@@ -32,6 +32,7 @@ class RunAttachMixin:
         resume_from_step: int | None = None,
         write_epoch: int | None = None,
         writer: dict | None = None,
+        is_producer: bool = False,
     ) -> Run:
         """A live handle on an EXISTING run row (or id) in this process.
 
@@ -50,7 +51,11 @@ class RunAttachMixin:
         that reaches its run after the created-sweep -- a queued Slurm job, a
         Modal cold start -- would otherwise beat forever into nothing and never
         learn it. See :meth:`_reopen_for_attach` for which verdicts it will
-        reopen and, more importantly, which it refuses."""
+        reopen and, more importantly, which it refuses.
+
+        ``is_producer`` (RL samples): this process writes the run's data as a
+        `rank` writer that is no torch rank, so its lease declares no world
+        size (review C4: closure would wait on every slot of one)."""
         self._mark_run_process()
         data = self.get_run(run) if isinstance(run, str) else run
         armed_by_attach = False
@@ -93,9 +98,11 @@ class RunAttachMixin:
             # ``writer``: the lease a reopen this process made already sent (a
             # resume keeps the role it reopened under, a launcher's included).
             lease = writer or _writer_lease(
-                "rank" if attached and not self._attached_owns_verdict(data) else "owner",
+                "rank" if is_producer or (attached and not self._attached_owns_verdict(data)) else "owner",
                 session_id,
             )
+            if is_producer and writer is None:
+                lease.pop("world_size", None)
         handle = self._wrap_run(
             data, heartbeat=heartbeat, attached=attached, session_id=session_id, lease=lease
         )
@@ -114,6 +121,11 @@ class RunAttachMixin:
                 body = {**lease, "write_epoch": handle.write_epoch or 1}
                 if attached:
                     body["attached"] = True
+                if writer is not None:
+                    # A resume's reopen registered this lease: this beat refreshes it, so it says what the script can
+                    # be asked (none yet); a beat without it reads as an SDK older than run commands. A first
+                    # attach registers the lease and says nothing, so an ask waits for `run.on` (agentic W&B W16).
+                    body["capabilities"] = handle._get_command_capabilities()
                 answer = self.beat_writer(handle.id, session_id, body)
                 handle._note_lease_answer(answer)
             except Exception:
@@ -129,6 +141,11 @@ class RunAttachMixin:
                 self.heartbeat_run(handle.id, attached=True, write_epoch=handle.write_epoch)
             except Exception:
                 pass
+        if resume_from_step is not None and (is_producer or _is_rank_writer(lease, attached, data, self)):
+            # D18 (#364): a rank writer (a producer, a non-zero rank) never arms
+            # the guard: the owner's curve is not its own, and its samples are
+            # idempotent by id.
+            resume_from_step = None
         if resume_from_step is not None:
             from probe.sdk.hardware.wiring import SUSPECT_RESUME_FLOOR
 
@@ -145,7 +162,11 @@ class RunAttachMixin:
                     stacklevel=2,
                 )
             else:
-                handle.arm_resume_guard(resume_from_step)
+                from probe.sdk.run.metrics.resume import read_key_floors
+
+                handle.arm_resume_guard(
+                    resume_from_step, key_floors=read_key_floors(self, handle.id)
+                )
                 # Its drop warning then names the exits that work from an
                 # attach, since probe.init() joining PROBE_RUN_ID takes no
                 # on_conflict (Run._resume_exits).
@@ -234,7 +255,15 @@ class RunAttachMixin:
 
         Split out of ensure_* so `run()` can run it BEFORE it commits a parent:
         otherwise a refused experiment leaves a brand-new project behind, which is
-        precisely the orphan identity this whole guard exists to prevent."""
+        precisely the orphan identity this whole guard exists to prevent.
+
+        A slug the server refuses as a new one (not kebab: a name typed as a slug, D25) is
+        left to that refusal, which names the project it is the name of; a near miss of the
+        slug would only suggest creating what the server refuses."""
+        from probe.sdk.client.ids import is_new_slug
+
+        if not is_new_slug(slug):
+            return
         self._refuse_near_miss(kind, slug, self._all_slugs(kind))
 
     def _refuse_near_miss(self, kind: str, slug: str, existing: Iterable[dict]) -> None:
@@ -290,5 +319,14 @@ class RunAttachMixin:
             f"Create it with `probe {kind} create {shlex.quote(slug)}{extra}` "
             "if it is genuinely new."
         )
+def _is_rank_writer(lease: dict | None, is_attached: bool, row: dict, client) -> bool:
+    """Whether this handle writes as a `rank`: its lease says so, or, with no
+    lease (an older server, no heartbeat), it is a job attached from inside
+    work it does not own."""
+    if lease is not None:
+        return lease.get("role") == "rank"
+    return is_attached and not client._attached_owns_verdict(row)
+
+
 from probe.sdk.client.client import Client  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.client.resources.runs.reopen.conflict import _attach_jitter_seconds, _writer_lease  # noqa: E402 -- pieces need each other; the front door loads this one first

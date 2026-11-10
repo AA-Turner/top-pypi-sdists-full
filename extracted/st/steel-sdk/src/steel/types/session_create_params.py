@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -98,9 +98,19 @@ class SessionCreateParams(TypedDict, total=False):
     """
 
     is_selenium: Annotated[bool, PropertyInfo(alias="isSelenium")]
-    """Enable Selenium mode for the browser session (default is false).
+    """Deprecated.
 
-    Use this when you plan to connect to the browser session via Selenium.
+    Selenium sessions are no longer supported, and a request that sets this to true
+    is rejected with 400. Connect over CDP with Playwright or Puppeteer instead.
+    """
+
+    metadata: Dict[str, Union[str, float, bool]]
+    """Customer-defined flat metadata: up to 50 keys and 8192 UTF-8 JSON bytes.
+
+    Keys must start with a letter, use only letters, digits, underscores, dots or
+    hyphens, and be at most 64 characters; steel\\__ is reserved. Values are strings
+    (up to 1024 characters, valid Unicode without NUL), finite numbers or booleans.
+    Numbers and booleans are stored as strings, so 3 and "3" are the same value.
     """
 
     namespace: str
@@ -130,6 +140,12 @@ class SessionCreateParams(TypedDict, total=False):
 
     Overrides useProxy, disabling Steel-provided proxies in favor of your specified
     proxy. Format: http(s)://username:password@hostname:port
+    """
+
+    recording: bool
+    """Record the headful session for playback after it ends.
+
+    Default is true. Disabling recording does not affect live WHEP viewing.
     """
 
     region: object
@@ -171,7 +187,16 @@ class Credentials(TypedDict, total=False):
 
     blur_fields: Annotated[bool, PropertyInfo(alias="blurFields")]
 
+    credential_provider: Annotated[str, PropertyInfo(alias="credentialProvider")]
+    """Credential provider to use for runtime credential resolution.
+
+    Defaults to "steel".
+    """
+
     exact_origin: Annotated[bool, PropertyInfo(alias="exactOrigin")]
+
+    origins: SequenceNotStr[str]
+    """Optional allowlist of credential origins to inject into this session."""
 
 
 class DebugConfig(TypedDict, total=False):

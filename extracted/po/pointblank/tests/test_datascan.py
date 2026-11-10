@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime
+import decimal
 import os
 import pytest
 import narwhals as nw
@@ -283,6 +285,26 @@ def test_datascan_class_raises():
 
     with pytest.raises(TypeError):
         DataScan(data=[1, 2, 3])
+
+
+@pytest.mark.parametrize(
+    "backend, data, skipped",
+    [
+        ("polars", {"wait": [datetime.timedelta(days=1)]}, "wait (Duration"),
+        ("polars", {"raw": [b"\x00"]}, "raw (Binary)"),
+        ("pandas", {"flag": [True, None, False]}, "flag (Object)"),
+        ("polars", {"tags": [["a"], ["b", "c"]]}, "tags (List(String))"),
+    ],
+)
+def test_col_summary_tbl_no_supported_columns(backend, data, skipped):
+    if backend == "polars":
+        df = pl.DataFrame(data)
+    else:
+        df = pytest.importorskip("pandas").DataFrame(data)
+
+    with pytest.raises(ValueError, match="No column could be summarized") as exc:
+        col_summary_tbl(df)
+    assert skipped in str(exc.value)
 
 
 def test_compact_integer_fmt():
@@ -577,6 +599,227 @@ def test_datascan_with_struct_column():
     assert "name" in col_names
 
 
+@pytest.mark.parametrize(
+    "nested",
+    [
+        pl.Series("nested", [[1], [2, 3], None], dtype=pl.List(pl.Int64)),
+        pl.Series("nested", [["a"], ["b"], ["c"]], dtype=pl.List(pl.String)),
+        pl.Series("nested", [[1, 2], [3, 4], [5, 6]], dtype=pl.Array(pl.Int64, 2)),
+    ],
+)
+def test_col_summary_tbl_skips_list_and_array_columns(nested):
+    df_pl = pl.DataFrame({"id": [1, 2, 3]}).with_columns(nested)
+
+    scanner = DataScan(data=df_pl)
+    col_names = scanner.summary_data["colname"].to_list()
+
+    assert col_names == ["id"]
+    assert list(scanner.profile.skipped_columns) == ["nested"]
+    assert isinstance(col_summary_tbl(df_pl), GT)
+
+
+def test_col_summary_tbl_skips_list_column_duckdb():
+    ibis = pytest.importorskip("ibis")
+    tbl = ibis.duckdb.connect().sql("SELECT 1 AS id, [1, 2] AS nested UNION ALL SELECT 2, [3]")
+
+    scanner = DataScan(data=tbl)
+
+    assert nw.from_native(scanner.summary_data)["colname"].to_list() == ["id"]
+    assert list(scanner.profile.skipped_columns) == ["nested"]
+    assert isinstance(col_summary_tbl(tbl), GT)
+
+
+# The profile used to be picked by substrings of the type's name, so an Enum's category names
+# could pick it: "print" and "floating" contain "int" and "float", which gave the numeric profile
+# and crashed the whole summary
+@pytest.mark.parametrize(
+    "categories", [["print", "web"], ["floating", "fixed"], ["update", "boolean"], ["playlist"]]
+)
+def test_col_summary_tbl_enum_uses_string_profile(categories):
+    df_pl = pl.DataFrame(
+        {"medium": pl.Series(categories[:1] * 3, dtype=pl.Enum(categories)), "n": [1, 2, 3]}
+    )
+
+    scanner = DataScan(data=df_pl)
+
+    assert [(p.colname, p._type) for p in scanner.profile.column_profiles] == [
+        ("medium", _TypeMap.STRING),
+        ("n", _TypeMap.NUMERIC),
+    ]
+    assert scanner.profile.skipped_columns == {}
+    assert isinstance(col_summary_tbl(df_pl), GT)
+
+
+@pytest.mark.parametrize("tbl_type", ["polars", "pyarrow"])
+def test_col_summary_tbl_profiles_decimal_and_time_columns(tbl_type):
+    df_pl = pl.DataFrame(
+        {
+            "amount": pl.Series(
+                [decimal.Decimal("1.50"), decimal.Decimal("2.25"), None], dtype=pl.Decimal(10, 2)
+            ),
+            "at": [datetime.time(9, 0), datetime.time(17, 30), None],
+        }
+    )
+    tbl = df_pl if tbl_type == "polars" else df_pl.to_arrow()
+
+    scanner = DataScan(data=tbl)
+    stats = {
+        p.colname: (p._type, {s.name: s.val for s in p.statistics})
+        for p in scanner.profile.column_profiles
+    }
+
+    assert stats["amount"][0] is _TypeMap.NUMERIC
+    assert stats["at"][0] is _TypeMap.DATE
+    assert stats["at"][1]["min"] == datetime.time(9, 0)
+    assert stats["at"][1]["max"] == datetime.time(17, 30)
+    assert isinstance(col_summary_tbl(tbl), GT)
+
+
+@pytest.mark.parametrize("tbl_type", ["polars", "pandas"])
+def test_datascan_raises_for_table_with_no_columns(tbl_type):
+    tbl = pl.DataFrame() if tbl_type == "polars" else pytest.importorskip("pandas").DataFrame()
+
+    with pytest.raises(ValueError, match="no columns"):
+        DataScan(data=tbl)
+    with pytest.raises(ValueError, match="no columns"):
+        col_summary_tbl(tbl)
+
+
+def _report_rows(gt_tbl: GT) -> list[str]:
+    """The column-name cells of a summary report, as text (name, type and any badge)."""
+    import re
+
+    html = gt_tbl.as_raw_html()
+    body = html[html.index("<tbody") :]
+    rows = re.findall(r"<tr>(.*?)</tr>", body, re.S)
+    name_cells = [re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)[1] for row in rows]
+    return [" ".join(re.sub(r"<[^>]+>", " ", cell).split()) for cell in name_cells]
+
+
+@pytest.mark.parametrize("tbl_type", ["polars", "pandas", "pyarrow"])
+def test_col_summary_tbl_shows_skipped_columns(tbl_type):
+    df_pl = pl.DataFrame(
+        {
+            "tags": [["a"], ["b", "c"], None],
+            "n": [1, 2, 3],
+            "wait": [datetime.timedelta(days=1), None, None],
+            "s": ["x", "yy", None],
+        }
+    )
+    tbl = {"polars": df_pl, "pandas": df_pl.to_pandas(), "pyarrow": df_pl.to_arrow()}[tbl_type]
+    tags_type = "Object" if tbl_type == "pandas" else "List(String)"
+
+    scanner = DataScan(data=tbl)
+
+    # The skipped columns get a row each, in the table's column order
+    assert _report_rows(scanner.get_tabular_report()) == [
+        f"tags {tags_type} UNSUPPORTED TYPE",
+        "n Int64",
+        "wait Duration(time_unit='us') UNSUPPORTED TYPE",
+        "s String",
+    ]
+    # `summary_data` still has only the summarized columns
+    assert list(nw.from_native(scanner.summary_data)["colname"]) == ["n", "s"]
+
+
+@pytest.mark.parametrize("tbl_type", ["polars", "pandas", "pyarrow"])
+def test_col_summary_tbl_skipped_columns_with_integer_stats(tbl_type):
+    # With only an integer column summarized, `min` and `max` are integer columns, which on
+    # pandas can't hold the empty cells of the skipped row
+    import re
+
+    def stat_cells(data):
+        html = DataScan(data=data).get_tabular_report().as_raw_html()
+        rows = re.findall(r"<tr>(.*?)</tr>", html[html.index("<tbody") :], re.S)
+        return re.findall(r"<td[^>]*>(.*?)</td>", rows[-1], re.S)[2:]
+
+    df_pl = pl.DataFrame({"tags": [["a"], None], "n": [1000, 3]})
+    convert = {
+        "polars": lambda d: d,
+        "pandas": pl.DataFrame.to_pandas,
+        "pyarrow": pl.DataFrame.to_arrow,
+    }
+    tbl = convert[tbl_type](df_pl)
+
+    assert _report_rows(DataScan(data=tbl).get_tabular_report())[0].endswith("UNSUPPORTED TYPE")
+    # The integer stats are still formatted as integers (e.g., `1,000` and not `1,000.00`)
+    assert stat_cells(tbl) == stat_cells(convert[tbl_type](df_pl.drop("tags")))
+    assert "1,000" in stat_cells(tbl)
+
+
+@pytest.mark.parametrize("tbl_type", ["polars", "pandas", "pyarrow"])
+def test_col_summary_tbl_empty_cells_show_dash(tbl_type):
+    # Empty statistic cells (a date column's mean, the `std` of a single string, a skipped
+    # column's row) show `-` on every backend; they used to show `None` on PyArrow, in a pandas
+    # skipped row, and in a `std` column that also had a number
+    df_pl = pl.DataFrame(
+        {
+            "tags": [["a"], None],
+            "d": [datetime.date(2020, 1, 1), None],
+            "n": [1.5, 2.5],
+            "s": ["x", None],
+        }
+    )
+    convert = {
+        "polars": lambda d: d,
+        "pandas": pl.DataFrame.to_pandas,
+        "pyarrow": pl.DataFrame.to_arrow,
+    }
+    tbl = convert[tbl_type](df_pl)
+
+    def body(data):
+        html = DataScan(data=data).get_tabular_report().as_raw_html()
+        return html[html.index("<tbody") :]
+
+    assert ">None<" not in body(tbl)
+    assert body(tbl).count(">-<") > 0
+    assert body(tbl).count(">-<") == body(df_pl).count(">-<")
+    # The `std` of `n` is still a number, so it's formatted (0.7071...)
+    assert ">0.71<" in body(tbl)
+
+
+@pytest.mark.parametrize("tbl_type", ["polars", "pandas"])
+def test_datascan_json_round_trips_skipped_columns(tbl_type):
+    df_pl = pl.DataFrame({"tags": [["a"], ["b"], None], "n": [1, 2, 3], "s": ["x", "yy", None]})
+    tbl = df_pl if tbl_type == "polars" else df_pl.to_pandas()
+    scanner = DataScan(data=tbl)
+
+    restored = DataScan.from_json(scanner.to_json())
+
+    assert scanner.to_dict()["metadata"]["skipped_columns"] == scanner.profile.skipped_columns
+    assert (
+        restored.profile.skipped_columns
+        == scanner.profile.skipped_columns
+        == {"tags": "Object" if tbl_type == "pandas" else "List(String)"}
+    )
+    assert _report_rows(restored.get_tabular_report()) == _report_rows(scanner.get_tabular_report())
+
+
+def test_datascan_from_dict_without_skipped_columns():
+    # JSON saved before `skipped_columns` was written has none
+    d = DataScan(data=pl.DataFrame({"n": [1, 2]})).to_dict()
+    del d["metadata"]["skipped_columns"]
+
+    assert DataScan.from_dict(d).profile.skipped_columns == {}
+
+
+def test_datascan_json_keeps_pandas_counts_as_numbers():
+    # pandas gives NumPy integers, which used to be written as strings, so the report of a
+    # restored scan failed ("division with 'String' datatypes is not allowed")
+    pd = pytest.importorskip("pandas")
+    scanner = DataScan(data=pd.DataFrame({"n": [1, 2, 3], "s": ["a", "bb", None]}))
+
+    restored = DataScan.from_json(scanner.to_json())
+
+    stats = {
+        p.colname: {s.name: s.val for s in p.statistics} for p in restored.profile.column_profiles
+    }
+    assert stats["n"]["n_unique"] == 3
+    assert stats["n"]["min"] == 1
+    assert stats["s"]["n_missing"] == 1
+    assert isinstance(restored.get_tabular_report(), GT)
+
+
 def test_datascan_save_to_json(tmp_path):
     """Test the save_to_json() method."""
 
@@ -643,3 +886,47 @@ def test_dataprofile_as_dataframe_with_mixed_column_types():
     # Verify we can also call with strict=True
     result_strict = scanner.profile.as_dataframe(strict=True)
     assert result_strict is not None
+
+
+def _body_cells(gt_tbl: GT) -> list[str]:
+    import re
+
+    return re.findall(r"<td[^>]*>(.*?)</td>", gt_tbl.as_raw_html(), re.S)
+
+
+@pytest.mark.parametrize("show_sample_data", [False, True])
+@pytest.mark.parametrize(
+    "to_backend", [lambda df: df, lambda df: df.to_pandas(), lambda df: df.to_arrow()]
+)
+def test_tabular_report_renders_html_cells(show_sample_data, to_backend):
+    # The icon, column name and two-line cells are HTML: GT escapes cells that no formatter
+    # touches (with `great_tables>=1.1.0`, including those skipped by `sub_missing()`), which
+    # showed the HTML as text
+    df = pl.DataFrame(
+        {
+            "num": [1.5, None, 3.0],
+            "day": [datetime.date(2020, 1, 1), None, datetime.date(2020, 1, 3)],
+            "flag": [True, False, None],
+            "txt": ["a", "bb", None],
+        }
+    )
+    report = DataScan(to_backend(df)).get_tabular_report(show_sample_data=show_sample_data)
+    cells = _body_cells(report)
+
+    assert not any("&lt;div" in c or "&lt;svg" in c or "&lt;br" in c for c in cells)
+    assert any(c.startswith("<svg") for c in cells)
+    assert any("<div style='font-size: 13px;" in c and ">num</div>" in c for c in cells)
+    assert any("<br>" in c for c in cells)  # e.g., the count and percentage of missing values
+
+
+def test_tabular_report_escapes_table_values():
+    # The column name and type go into HTML, so they're escaped, and so are the sample values
+    df = pl.DataFrame({"<b>x</b>": [1, 2], "s": ["<i>a</i>", "b"]})
+
+    html = DataScan(df).get_tabular_report(show_sample_data=True).as_raw_html()
+
+    assert "<b>x</b>" not in html
+    assert "&lt;b&gt;x&lt;/b&gt;" in html
+    assert "<i>a</i>" not in html
+    assert "&lt;i&gt;a&lt;/i&gt;" in html
+    assert "<b>x</b>" not in col_summary_tbl(df).as_raw_html()

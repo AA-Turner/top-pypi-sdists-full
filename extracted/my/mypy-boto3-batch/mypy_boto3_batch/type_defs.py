@@ -35,6 +35,7 @@ from .literals import (
     EFSTransitEncryptionType,
     EksAccessEntryDesiredStateType,
     EksAccessEntryStatusType,
+    EksSeccompProfileTypeType,
     FirelensConfigurationTypeType,
     JobDefinitionTypeType,
     JobQueueTypeType,
@@ -158,11 +159,14 @@ __all__ = (
     "EksConfigurationUpdateTypeDef",
     "EksContainerDetailTypeDef",
     "EksContainerEnvironmentVariableTypeDef",
+    "EksContainerLinuxCapabilitiesOutputTypeDef",
+    "EksContainerLinuxCapabilitiesTypeDef",
     "EksContainerOutputTypeDef",
     "EksContainerOverrideTypeDef",
     "EksContainerResourceRequirementsOutputTypeDef",
     "EksContainerResourceRequirementsTypeDef",
     "EksContainerResourceRequirementsUnionTypeDef",
+    "EksContainerSecurityContextOutputTypeDef",
     "EksContainerSecurityContextTypeDef",
     "EksContainerTypeDef",
     "EksContainerVolumeMountTypeDef",
@@ -176,11 +180,13 @@ __all__ = (
     "EksPodPropertiesOutputTypeDef",
     "EksPodPropertiesOverrideTypeDef",
     "EksPodPropertiesTypeDef",
+    "EksPodSecurityContextTypeDef",
     "EksPropertiesDetailTypeDef",
     "EksPropertiesOutputTypeDef",
     "EksPropertiesOverrideTypeDef",
     "EksPropertiesTypeDef",
     "EksPropertiesUnionTypeDef",
+    "EksSeccompProfileTypeDef",
     "EksSecretTypeDef",
     "EksVolumeTypeDef",
     "EphemeralStorageTypeDef",
@@ -674,15 +680,6 @@ class EksContainerResourceRequirementsOutputTypeDef(TypedDict):
     requests: NotRequired[dict[str, str]]
 
 
-class EksContainerSecurityContextTypeDef(TypedDict):
-    runAsUser: NotRequired[int]
-    runAsGroup: NotRequired[int]
-    privileged: NotRequired[bool]
-    allowPrivilegeEscalation: NotRequired[bool]
-    readOnlyRootFilesystem: NotRequired[bool]
-    runAsNonRoot: NotRequired[bool]
-
-
 class EksContainerVolumeMountTypeDef(TypedDict):
     name: NotRequired[str]
     mountPath: NotRequired[str]
@@ -690,9 +687,28 @@ class EksContainerVolumeMountTypeDef(TypedDict):
     readOnly: NotRequired[bool]
 
 
+class EksContainerLinuxCapabilitiesOutputTypeDef(TypedDict):
+    add: NotRequired[list[str]]
+    drop: NotRequired[list[str]]
+
+
+class EksContainerLinuxCapabilitiesTypeDef(TypedDict):
+    add: NotRequired[Sequence[str]]
+    drop: NotRequired[Sequence[str]]
+
+
 class EksContainerResourceRequirementsTypeDef(TypedDict):
     limits: NotRequired[Mapping[str, str]]
     requests: NotRequired[Mapping[str, str]]
+
+
+EksSeccompProfileTypeDef = TypedDict(
+    "EksSeccompProfileTypeDef",
+    {
+        "type": EksSeccompProfileTypeType,
+        "localhostProfile": NotRequired[str],
+    },
+)
 
 
 class EksEmptyDirTypeDef(TypedDict):
@@ -1324,47 +1340,39 @@ class EksAttemptDetailTypeDef(TypedDict):
     statusReason: NotRequired[str]
 
 
-class EksContainerDetailTypeDef(TypedDict):
-    name: NotRequired[str]
-    image: NotRequired[str]
-    imagePullPolicy: NotRequired[str]
-    command: NotRequired[list[str]]
-    args: NotRequired[list[str]]
-    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
-    resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
-    exitCode: NotRequired[int]
-    reason: NotRequired[str]
-    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
-    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
-
-
-class EksContainerOutputTypeDef(TypedDict):
-    image: str
-    name: NotRequired[str]
-    imagePullPolicy: NotRequired[str]
-    command: NotRequired[list[str]]
-    args: NotRequired[list[str]]
-    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
-    resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
-    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
-    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
-
-
 EksContainerResourceRequirementsUnionTypeDef = Union[
     EksContainerResourceRequirementsTypeDef, EksContainerResourceRequirementsOutputTypeDef
 ]
 
 
-class EksContainerTypeDef(TypedDict):
-    image: str
-    name: NotRequired[str]
-    imagePullPolicy: NotRequired[str]
-    command: NotRequired[Sequence[str]]
-    args: NotRequired[Sequence[str]]
-    env: NotRequired[Sequence[EksContainerEnvironmentVariableTypeDef]]
-    resources: NotRequired[EksContainerResourceRequirementsTypeDef]
-    volumeMounts: NotRequired[Sequence[EksContainerVolumeMountTypeDef]]
-    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
+class EksContainerSecurityContextOutputTypeDef(TypedDict):
+    runAsUser: NotRequired[int]
+    runAsGroup: NotRequired[int]
+    privileged: NotRequired[bool]
+    allowPrivilegeEscalation: NotRequired[bool]
+    readOnlyRootFilesystem: NotRequired[bool]
+    runAsNonRoot: NotRequired[bool]
+    capabilities: NotRequired[EksContainerLinuxCapabilitiesOutputTypeDef]
+    seccompProfile: NotRequired[EksSeccompProfileTypeDef]
+
+
+class EksContainerSecurityContextTypeDef(TypedDict):
+    runAsUser: NotRequired[int]
+    runAsGroup: NotRequired[int]
+    privileged: NotRequired[bool]
+    allowPrivilegeEscalation: NotRequired[bool]
+    readOnlyRootFilesystem: NotRequired[bool]
+    runAsNonRoot: NotRequired[bool]
+    capabilities: NotRequired[EksContainerLinuxCapabilitiesTypeDef]
+    seccompProfile: NotRequired[EksSeccompProfileTypeDef]
+
+
+class EksPodSecurityContextTypeDef(TypedDict):
+    runAsUser: NotRequired[int]
+    runAsGroup: NotRequired[int]
+    runAsNonRoot: NotRequired[bool]
+    seccompProfile: NotRequired[EksSeccompProfileTypeDef]
+    fsGroup: NotRequired[int]
 
 
 EksMetadataUnionTypeDef = Union[EksMetadataTypeDef, EksMetadataOutputTypeDef]
@@ -1674,42 +1682,42 @@ class EksContainerOverrideTypeDef(TypedDict):
     resources: NotRequired[EksContainerResourceRequirementsUnionTypeDef]
 
 
-class EksPodPropertiesDetailTypeDef(TypedDict):
-    serviceAccountName: NotRequired[str]
-    hostNetwork: NotRequired[bool]
-    dnsPolicy: NotRequired[str]
-    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
-    containers: NotRequired[list[EksContainerDetailTypeDef]]
-    initContainers: NotRequired[list[EksContainerDetailTypeDef]]
-    volumes: NotRequired[list[EksVolumeTypeDef]]
-    podName: NotRequired[str]
-    nodeName: NotRequired[str]
-    metadata: NotRequired[EksMetadataOutputTypeDef]
-    shareProcessNamespace: NotRequired[bool]
+class EksContainerDetailTypeDef(TypedDict):
+    name: NotRequired[str]
+    image: NotRequired[str]
+    imagePullPolicy: NotRequired[str]
+    command: NotRequired[list[str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
+    exitCode: NotRequired[int]
+    reason: NotRequired[str]
+    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
+    securityContext: NotRequired[EksContainerSecurityContextOutputTypeDef]
 
 
-class EksPodPropertiesOutputTypeDef(TypedDict):
-    serviceAccountName: NotRequired[str]
-    hostNetwork: NotRequired[bool]
-    dnsPolicy: NotRequired[str]
-    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
-    containers: NotRequired[list[EksContainerOutputTypeDef]]
-    initContainers: NotRequired[list[EksContainerOutputTypeDef]]
-    volumes: NotRequired[list[EksVolumeTypeDef]]
-    metadata: NotRequired[EksMetadataOutputTypeDef]
-    shareProcessNamespace: NotRequired[bool]
+class EksContainerOutputTypeDef(TypedDict):
+    image: str
+    name: NotRequired[str]
+    imagePullPolicy: NotRequired[str]
+    command: NotRequired[list[str]]
+    args: NotRequired[list[str]]
+    env: NotRequired[list[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsOutputTypeDef]
+    volumeMounts: NotRequired[list[EksContainerVolumeMountTypeDef]]
+    securityContext: NotRequired[EksContainerSecurityContextOutputTypeDef]
 
 
-class EksPodPropertiesTypeDef(TypedDict):
-    serviceAccountName: NotRequired[str]
-    hostNetwork: NotRequired[bool]
-    dnsPolicy: NotRequired[str]
-    imagePullSecrets: NotRequired[Sequence[ImagePullSecretTypeDef]]
-    containers: NotRequired[Sequence[EksContainerTypeDef]]
-    initContainers: NotRequired[Sequence[EksContainerTypeDef]]
-    volumes: NotRequired[Sequence[EksVolumeTypeDef]]
-    metadata: NotRequired[EksMetadataTypeDef]
-    shareProcessNamespace: NotRequired[bool]
+class EksContainerTypeDef(TypedDict):
+    image: str
+    name: NotRequired[str]
+    imagePullPolicy: NotRequired[str]
+    command: NotRequired[Sequence[str]]
+    args: NotRequired[Sequence[str]]
+    env: NotRequired[Sequence[EksContainerEnvironmentVariableTypeDef]]
+    resources: NotRequired[EksContainerResourceRequirementsTypeDef]
+    volumeMounts: NotRequired[Sequence[EksContainerVolumeMountTypeDef]]
+    securityContext: NotRequired[EksContainerSecurityContextTypeDef]
 
 
 RetryStrategyUnionTypeDef = Union[RetryStrategyTypeDef, RetryStrategyOutputTypeDef]
@@ -1983,16 +1991,45 @@ class EksPodPropertiesOverrideTypeDef(TypedDict):
     metadata: NotRequired[EksMetadataUnionTypeDef]
 
 
-class EksPropertiesDetailTypeDef(TypedDict):
-    podProperties: NotRequired[EksPodPropertiesDetailTypeDef]
+class EksPodPropertiesDetailTypeDef(TypedDict):
+    serviceAccountName: NotRequired[str]
+    hostNetwork: NotRequired[bool]
+    dnsPolicy: NotRequired[str]
+    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
+    containers: NotRequired[list[EksContainerDetailTypeDef]]
+    initContainers: NotRequired[list[EksContainerDetailTypeDef]]
+    volumes: NotRequired[list[EksVolumeTypeDef]]
+    podName: NotRequired[str]
+    nodeName: NotRequired[str]
+    metadata: NotRequired[EksMetadataOutputTypeDef]
+    shareProcessNamespace: NotRequired[bool]
+    securityContext: NotRequired[EksPodSecurityContextTypeDef]
 
 
-class EksPropertiesOutputTypeDef(TypedDict):
-    podProperties: NotRequired[EksPodPropertiesOutputTypeDef]
+class EksPodPropertiesOutputTypeDef(TypedDict):
+    serviceAccountName: NotRequired[str]
+    hostNetwork: NotRequired[bool]
+    dnsPolicy: NotRequired[str]
+    imagePullSecrets: NotRequired[list[ImagePullSecretTypeDef]]
+    containers: NotRequired[list[EksContainerOutputTypeDef]]
+    initContainers: NotRequired[list[EksContainerOutputTypeDef]]
+    volumes: NotRequired[list[EksVolumeTypeDef]]
+    metadata: NotRequired[EksMetadataOutputTypeDef]
+    shareProcessNamespace: NotRequired[bool]
+    securityContext: NotRequired[EksPodSecurityContextTypeDef]
 
 
-class EksPropertiesTypeDef(TypedDict):
-    podProperties: NotRequired[EksPodPropertiesTypeDef]
+class EksPodPropertiesTypeDef(TypedDict):
+    serviceAccountName: NotRequired[str]
+    hostNetwork: NotRequired[bool]
+    dnsPolicy: NotRequired[str]
+    imagePullSecrets: NotRequired[Sequence[ImagePullSecretTypeDef]]
+    containers: NotRequired[Sequence[EksContainerTypeDef]]
+    initContainers: NotRequired[Sequence[EksContainerTypeDef]]
+    volumes: NotRequired[Sequence[EksVolumeTypeDef]]
+    metadata: NotRequired[EksMetadataTypeDef]
+    shareProcessNamespace: NotRequired[bool]
+    securityContext: NotRequired[EksPodSecurityContextTypeDef]
 
 
 class DescribeSchedulingPoliciesResponseTypeDef(TypedDict):
@@ -2189,7 +2226,18 @@ class EksPropertiesOverrideTypeDef(TypedDict):
     podProperties: NotRequired[EksPodPropertiesOverrideTypeDef]
 
 
-EksPropertiesUnionTypeDef = Union[EksPropertiesTypeDef, EksPropertiesOutputTypeDef]
+class EksPropertiesDetailTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesDetailTypeDef]
+
+
+class EksPropertiesOutputTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesOutputTypeDef]
+
+
+class EksPropertiesTypeDef(TypedDict):
+    podProperties: NotRequired[EksPodPropertiesTypeDef]
+
+
 ComputeEnvironmentDetailTypeDef = TypedDict(
     "ComputeEnvironmentDetailTypeDef",
     {
@@ -2266,6 +2314,9 @@ class NodePropertyOverrideTypeDef(TypedDict):
     instanceTypes: NotRequired[Sequence[str]]
     eksPropertiesOverride: NotRequired[EksPropertiesOverrideTypeDef]
     consumableResourcePropertiesOverride: NotRequired[ConsumableResourcePropertiesUnionTypeDef]
+
+
+EksPropertiesUnionTypeDef = Union[EksPropertiesTypeDef, EksPropertiesOutputTypeDef]
 
 
 class DescribeComputeEnvironmentsResponseTypeDef(TypedDict):

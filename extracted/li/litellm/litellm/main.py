@@ -27,6 +27,7 @@ from functools import partial
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Protocol, Union, cast, get_args
 
+from litellm._internal_context import is_resent_failure
 from litellm._logging import redact_string
 from litellm._uuid import uuid
 
@@ -119,7 +120,10 @@ from litellm.llms.base_llm.base_model_iterator import (
 from litellm.llms.base_llm.chat.transformation import with_attribution_headers
 from litellm.llms.bedrock.common_utils import (
     BedrockModelInfo,
+    NativeOutputFallback,
     bedrock_route_for_request,
+    deployment_model_info,
+    without_bedrock_native_output_opt_in,
     without_bedrock_route_prefix,
 )
 from litellm.llms.bedrock_mantle.chat.claude_transformation import bedrock_mantle_chat_config
@@ -132,6 +136,7 @@ from litellm.llms.vertex_ai.common_utils import (
     get_vertex_ai_model_route,
 )
 from litellm.realtime_api.main import realtime_health_check
+from litellm.responses.mcp.tool_precheck import may_name_litellm_mcp_gateway
 from litellm.secret_managers.main import get_secret_bool, get_secret_str
 from litellm.types.completion import (
     CompletionDispatchContext,
@@ -223,6 +228,9 @@ from .llms.azure.completion.handler import AzureTextCompletion
 from .llms.azure_ai.anthropic.handler import AzureAnthropicChatCompletion
 from .llms.azure_ai.embed import AzureAIEmbedding
 from .llms.bedrock.chat import BedrockConverseLLM
+from .llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from .llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import AmazonAnthropicClaudeConfig
+from .llms.bedrock.chat.native_output_fallback import NativeOutputAttemptResult, call_with_native_output_fallback
 from .llms.bedrock.embed.embedding import BedrockEmbedding
 from .llms.bedrock.image_edit.handler import BedrockImageEdit
 from .llms.bedrock.image_generation.image_handler import BedrockImageGeneration
@@ -4126,8 +4134,46 @@ def _complete_sagemaker(ctx: CompletionDispatchContext) -> _CompletionDispatchRe
 _ADDITIONAL_DROP_PARAMS_ADAPTER: Final = TypeAdapter(list[str])
 _OPTIONAL_PARAMS_ADAPTER: Final = TypeAdapter(dict[str, object])
 _REQUEST_KWARGS_ADAPTER: Final = TypeAdapter(Mapping[str, object])
+_MODEL_INFO_ADAPTER: Final = TypeAdapter(Mapping[str, object])
 _PROVIDER_ROUTING_HINTS: Final = TypeAdapter(ProviderRoutingHints)
 _BASE_URL_HINT: Final = TypeAdapter(BaseUrlRoutingHint)
+
+
+_AWS_BEDROCK_CLIENT_CREDENTIAL_KEYS: Final = (
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_session_token",
+    "aws_region_name",
+)
+
+
+def _native_output_fallback(
+    ctx: CompletionDispatchContext,
+    first_attempt_params: Mapping[str, object],
+    first_attempt_litellm_params: Mapping[str, object],
+) -> NativeOutputFallback:
+    litellm_params: Final = without_bedrock_native_output_opt_in(first_attempt_litellm_params)
+    remapped_params: Final = ctx.optional_params_for_model_info(deployment_model_info(litellm_params))
+    return NativeOutputFallback(
+        optional_params={
+            **{key: value for key, value in remapped_params.items() if key != "aws_bedrock_client"},
+            **{
+                key: first_attempt_params[key]
+                for key in _AWS_BEDROCK_CLIENT_CREDENTIAL_KEYS
+                if key in first_attempt_params
+            },
+        },
+        litellm_params=litellm_params,
+    )
+
+
+def _converse_native_output_fallback(
+    ctx: CompletionDispatchContext,
+    first_attempt_params: Mapping[str, object],
+    first_attempt_litellm_params: Mapping[str, object],
+) -> NativeOutputFallback | None:
+    fallback: Final = _native_output_fallback(ctx, first_attempt_params, first_attempt_litellm_params)
+    return None if AmazonConverseConfig.sends_native_text_format(fallback.optional_params) else fallback
 
 
 def _complete_bedrock(ctx: CompletionDispatchContext) -> _CompletionDispatchResult:
@@ -4201,22 +4247,36 @@ def _complete_bedrock(ctx: CompletionDispatchContext) -> _CompletionDispatchResu
         )
     elif bedrock_route == "converse":
         model = without_bedrock_route_prefix(model)
-        response = bedrock_converse_chat_completion.completion(
-            model=model,
-            messages=messages,
-            custom_prompt_dict=custom_prompt_dict,
-            model_response=model_response,
-            optional_params=optional_params,
-            litellm_params=litellm_params,
-            logger_fn=logger_fn,
-            encoding=_get_encoding(),
-            logging_obj=logging,
-            extra_headers=headers,  # Use merged headers instead of original extra_headers
-            timeout=timeout,
-            acompletion=acompletion,
-            client=client,
-            api_base=api_base,
-            api_key=api_key,
+        converse_model: Final = model
+
+        def converse_attempt(fallback: NativeOutputFallback | None) -> NativeOutputAttemptResult:
+            return bedrock_converse_chat_completion.completion(
+                model=converse_model,
+                messages=messages,
+                custom_prompt_dict=custom_prompt_dict,
+                model_response=model_response,
+                optional_params=optional_params if fallback is None else dict(fallback.optional_params),
+                litellm_params=litellm_params if fallback is None else dict(fallback.litellm_params),
+                logger_fn=logger_fn,
+                encoding=_get_encoding(),
+                logging_obj=logging,
+                extra_headers=headers,  # Use merged headers instead of original extra_headers
+                timeout=timeout,
+                acompletion=acompletion,
+                client=client,
+                api_base=api_base,
+                api_key=api_key,
+            )
+
+        converse_params: Final = _OPTIONAL_PARAMS_ADAPTER.validate_python(optional_params)
+        response = call_with_native_output_fallback(
+            converse_attempt,
+            (
+                partial(_converse_native_output_fallback, ctx, converse_params, dict(litellm_params))
+                if AmazonConverseConfig().uses_opt_in_native_output(converse_model, converse_params, litellm_params)
+                else None
+            ),
+            converse_model,
         )
     elif bedrock_route == "converse_like":
         model = model.replace("converse_like/", "")
@@ -4238,22 +4298,37 @@ def _complete_bedrock(ctx: CompletionDispatchContext) -> _CompletionDispatchResu
             client=client,
         )
     else:
-        response = base_llm_http_handler.completion(
-            model=model,
-            stream=stream,
-            messages=messages,
-            acompletion=acompletion,
-            api_base=api_base,
-            model_response=model_response,
-            optional_params=optional_params,
-            litellm_params=litellm_params,
-            custom_llm_provider="bedrock",
-            timeout=timeout,
-            headers=headers,
-            encoding=_get_encoding(),
-            api_key=api_key,
-            logging_obj=logging,
-            client=client,
+        headers_before_first_attempt: Final = dict(headers)
+
+        def invoke_attempt(fallback: NativeOutputFallback | None) -> NativeOutputAttemptResult:
+            return base_llm_http_handler.completion(
+                model=model,
+                stream=stream,
+                messages=messages,
+                acompletion=acompletion,
+                api_base=api_base,
+                model_response=model_response,
+                optional_params=optional_params if fallback is None else dict(fallback.optional_params),
+                litellm_params=litellm_params if fallback is None else dict(fallback.litellm_params),
+                custom_llm_provider="bedrock",
+                timeout=timeout,
+                headers=headers if fallback is None else dict(headers_before_first_attempt),
+                encoding=_get_encoding(),
+                api_key=api_key,
+                logging_obj=logging,
+                client=client,
+            )
+
+        invoke_params: Final = _OPTIONAL_PARAMS_ADAPTER.validate_python(optional_params)
+        response = call_with_native_output_fallback(
+            invoke_attempt,
+            (
+                partial(_native_output_fallback, ctx, invoke_params, dict(litellm_params))
+                if isinstance(provider_config, AmazonAnthropicClaudeConfig)
+                and provider_config.uses_opt_in_native_output(model, invoke_params, litellm_params)
+                else None
+            ),
+            model,
         )
 
     return response
@@ -5293,63 +5368,55 @@ def completion(
 
     control_options: Final = _resolve_control_options(kwargs, model)
     skip_mcp_handler: Final = kwargs.pop("_skip_mcp_handler", False)
-    if not skip_mcp_handler and tools:
+    if not skip_mcp_handler and tools and may_name_litellm_mcp_gateway(tools):  # pyright: ignore[reportUnknownArgumentType]  # untyped tools list
         from litellm.responses.mcp.chat_completions_handler import acompletion_with_mcp
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
-        )
-        from litellm.types.llms.openai import ToolParam
 
-        # Check if MCP tools are present (following responses pattern)
-        # Cast tools to Optional[Iterable[ToolParam]] for type checking
-        tools_for_mcp: Final = cast(Iterable[ToolParam] | None, tools)
-        if LiteLLM_Proxy_MCP_Handler.should_use_litellm_mcp_gateway(tools=tools_for_mcp):
-            return acompletion_with_mcp(  # pyright: ignore[reportReturnType]  # MCP path returns a coroutine that acompletion() awaits; completion()'s sync return type omits it
-                model=model,
-                messages=messages,
-                functions=functions,
-                function_call=function_call,
-                timeout=timeout,
-                temperature=temperature,
-                top_p=top_p,
-                n=n,
-                stream=stream,
-                stream_options=stream_options,
-                stop=stop,
-                max_tokens=max_tokens,
-                max_completion_tokens=max_completion_tokens,
-                modalities=modalities,
-                prediction=prediction,
-                audio=audio,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty,
-                logit_bias=logit_bias,
-                user=user,
-                response_format=response_format,
-                seed=seed,
-                tools=tools,
-                tool_choice=tool_choice,
-                parallel_tool_calls=parallel_tool_calls,
-                logprobs=logprobs,
-                top_logprobs=top_logprobs,
-                deployment_id=deployment_id,
-                reasoning_effort=reasoning_effort,
-                verbosity=verbosity,
-                safety_identifier=safety_identifier,
-                service_tier=service_tier,
-                store=store,
-                prompt_cache_key=prompt_cache_key,
-                base_url=base_url,
-                api_version=api_version,
-                api_key=api_key,
-                model_list=model_list,
-                extra_headers=extra_headers,
-                thinking=thinking,
-                web_search_options=web_search_options,
-                shared_session=shared_session,
-                enable_json_schema_validation=enable_json_schema_validation,
-                **kwargs,
-            )
+        return acompletion_with_mcp(  # pyright: ignore[reportReturnType]  # MCP path returns a coroutine that acompletion() awaits; completion()'s sync return type omits it
+            model=model,
+            messages=messages,
+            functions=functions,
+            function_call=function_call,
+            timeout=timeout,
+            temperature=temperature,
+            top_p=top_p,
+            n=n,
+            stream=stream,
+            stream_options=stream_options,
+            stop=stop,
+            max_tokens=max_tokens,
+            max_completion_tokens=max_completion_tokens,
+            modalities=modalities,
+            prediction=prediction,
+            audio=audio,
+            presence_penalty=presence_penalty,
+            frequency_penalty=frequency_penalty,
+            logit_bias=logit_bias,
+            user=user,
+            response_format=response_format,
+            seed=seed,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
+            deployment_id=deployment_id,
+            reasoning_effort=reasoning_effort,
+            verbosity=verbosity,
+            safety_identifier=safety_identifier,
+            service_tier=service_tier,
+            store=store,
+            prompt_cache_key=prompt_cache_key,
+            base_url=base_url,
+            api_version=api_version,
+            api_key=api_key,
+            model_list=model_list,
+            extra_headers=extra_headers,
+            thinking=thinking,
+            web_search_options=web_search_options,
+            shared_session=shared_session,
+            enable_json_schema_validation=enable_json_schema_validation,
+            **kwargs,
+        )
     api_base = kwargs.get("api_base", None)
     mock_response: Final[MOCK_RESPONSE_TYPE | None] = kwargs.get("mock_response", None)
     mock_tool_calls: Final = kwargs.get("mock_tool_calls", None)
@@ -5685,8 +5752,15 @@ def completion(
             accepts_summary=provider_config is not None
             and provider_config.accepts_reasoning_summary_in_reasoning_effort,
         )
-        optional_params = get_optional_params(
-            **{**optional_param_args, "reasoning_effort": provider_reasoning_effort}, **non_default_params
+
+        mapping_args: Final = MappingProxyType({**optional_param_args, "reasoning_effort": provider_reasoning_effort})
+        mapping_special_params: Final = MappingProxyType(dict(non_default_params))
+
+        def optional_params_for_model_info(deployment_info: Mapping[str, object] | None) -> dict[str, object]:
+            return get_optional_params(**mapping_args, model_info=deployment_info, **mapping_special_params)
+
+        optional_params = optional_params_for_model_info(
+            _MODEL_INFO_ADAPTER.validate_python(model_info) if isinstance(model_info, dict) else None
         )
         processed_non_default_params: Final = pre_process_non_default_params(
             model=model,
@@ -5921,6 +5995,7 @@ def completion(
             model=model,
             model_response=model_response,
             optional_params=optional_params,
+            optional_params_for_model_info=optional_params_for_model_info,
             organization=organization,
             provider_config=provider_config,
             request_params=MappingProxyType(
@@ -6161,6 +6236,10 @@ def completion(
         )
 
 
+def _is_not_resent_failure(error: BaseException) -> bool:
+    return isinstance(error, Exception) and not is_resent_failure(error)
+
+
 def completion_with_retries(*args, **kwargs):
     """
     Executes a litellm.completion() with 3 retries
@@ -6180,10 +6259,15 @@ def completion_with_retries(*args, **kwargs):
         retryer = tenacity.Retrying(
             wait=tenacity.wait_exponential(multiplier=1, max=10),
             stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
             reraise=True,
         )
     else:
-        retryer = tenacity.Retrying(stop=tenacity.stop_after_attempt(num_retries), reraise=True)
+        retryer = tenacity.Retrying(
+            stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
+            reraise=True,
+        )
     return retryer(original_function, *args, **kwargs)
 
 
@@ -6206,10 +6290,15 @@ async def acompletion_with_retries(*args, **kwargs):
         retryer = tenacity.AsyncRetrying(
             wait=tenacity.wait_exponential(multiplier=1, max=10),
             stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
             reraise=True,
         )
     else:
-        retryer = tenacity.AsyncRetrying(stop=tenacity.stop_after_attempt(num_retries), reraise=True)
+        retryer = tenacity.AsyncRetrying(
+            stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
+            reraise=True,
+        )
     return await retryer(original_function, *args, **kwargs)
 
 
@@ -6234,10 +6323,15 @@ def responses_with_retries(*args, **kwargs):
         retryer = tenacity.Retrying(
             wait=tenacity.wait_exponential(multiplier=1, max=10),
             stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
             reraise=True,
         )
     else:
-        retryer = tenacity.Retrying(stop=tenacity.stop_after_attempt(num_retries), reraise=True)
+        retryer = tenacity.Retrying(
+            stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
+            reraise=True,
+        )
     return retryer(original_function, *args, **kwargs)
 
 
@@ -6261,10 +6355,15 @@ async def aresponses_with_retries(*args, **kwargs):
         retryer = tenacity.AsyncRetrying(
             wait=tenacity.wait_exponential(multiplier=1, max=10),
             stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
             reraise=True,
         )
     else:
-        retryer = tenacity.AsyncRetrying(stop=tenacity.stop_after_attempt(num_retries), reraise=True)
+        retryer = tenacity.AsyncRetrying(
+            stop=tenacity.stop_after_attempt(num_retries),
+            retry=tenacity.retry_if_exception(_is_not_resent_failure),
+            reraise=True,
+        )
     return await retryer(original_function, *args, **kwargs)
 
 

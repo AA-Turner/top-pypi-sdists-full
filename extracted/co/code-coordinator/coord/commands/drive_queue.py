@@ -608,6 +608,16 @@ def drive_queue_add(
         no_acceptance=no_acceptance,
         plan_destructive=plan_destructive,
     )
+    # #2235 Phase 0 / #3889 review: re-queuing a `blocked`/`parked` row IS
+    # the same operator intervention `remove` already logs — the #2972
+    # "bump --max-fix-rounds and re-add" remedy, and the `remove && add`
+    # requeue both land here. `previous` is the PRE-mutation entry (read
+    # above, before `enqueue_drive_queue` overwrote its row), the same
+    # "read first or the state is gone" posture `remove` takes. Logs
+    # nothing for a fresh insert (`previous is None`) or a routine metadata
+    # edit on a `waiting`/`running` entry — see
+    # `_record_operator_release_entry`'s own guard.
+    _record_operator_release_entry(previous, resolution="operator_requeued")
     # #3395: apply the REVERSED edges rule 2 selected — writing to the
     # INCUMBENT entry's own row, now that this add's row exists to name as
     # its `--after`. Must run after the write above: it names `entry_key
@@ -2136,6 +2146,77 @@ def _record_block_log(events: list[dict[str, Any]]) -> int:
     return block_log.record(events)
 
 
+def _record_operator_release_entry(
+    entry: QueueEntry | None,
+    *,
+    resolution: str,
+    latched_states: frozenset[str] = STALL_STATES,
+    synthesize_enter: bool = False,
+) -> None:
+    """Log a stall a HUMAN just cleared, given the PRE-mutation entry.
+
+    Shared tail of :func:`_record_operator_release` (``remove``, which only
+    has a raw row) and ``coord drive-queue add`` (#3889 review — which
+    already has a parsed :class:`~coord.drive_queue.QueueEntry` via
+    ``entries_from_rows(list_drive_queue())``, so converting it to a row and
+    back would be pure overhead). An entry whose state is not in
+    *latched_states* logs nothing: re-adding a ``waiting``/``running`` entry
+    is a routine metadata edit, and counting it as an intervention would
+    inflate the one number #2235 wants to watch fall.
+
+    *latched_states* defaults to the drive-queue's own ``blocked``/
+    ``parked`` vocabulary (:data:`STALL_STATES`). ``coord merge
+    --override-human-required`` passes a merge-queue-shaped stand-in
+    :class:`~coord.drive_queue.QueueEntry` whose ``state`` is the merge
+    queue's own ``human_required`` — a different vocabulary this function
+    has no business hardcoding — so that caller supplies its own
+    single-member set instead.
+
+    *synthesize_enter* (#3898): ``remove``/``add`` only ever reach a row
+    that got here via a drive-queue ``blocked``/``parked`` transition, which
+    :func:`coord.block_log.plan_events` (or the launch-failure branch's own
+    :func:`coord.block_log.enter_event`) already opened an episode for — so
+    their ``resolve`` always has a matching ``enter`` to pair with.
+    ``coord merge --override-human-required`` clears the merge queue's OWN
+    ``human_required`` latch, which nothing anywhere ever opens an episode
+    for (no caller in this tree passes ``state="human_required"`` to
+    ``enter_event``, and ``plan_events`` only ever fires on the drive
+    queue's own ``blocked``/``parked`` vocabulary) — so without this, that
+    caller's ``resolve`` would be exactly the orphan :func:`coord.block_log.
+    episodes`'s own docstring says it drops rather than synthesises, and the
+    override would silently vanish from the #2235 corpus instead of
+    downgrading the doctor's verdict. Set ``True`` only by a caller whose
+    latch has no other opener; synthesizing one on TOP of an entry
+    ``remove``/``add`` already have an open episode for would double-count.
+    """
+    if entry is None or entry.state not in latched_states:
+        return
+    from coord.block_log import enter_event, operator_resolution_event  # noqa: PLC0415
+
+    events: list[dict[str, Any]] = []
+    if synthesize_enter:
+        # Source "operator", not the default "tick": nothing automated
+        # observed this transition, a human action is what both opens and
+        # closes it. Keyed by `entry.key` same as the `resolve` below, so a
+        # drive-queue episode already open for this same key (the row is
+        # ALSO sitting `blocked`/`parked` there) gets closed out as
+        # unresolved rather than silently merged into this one — see
+        # `episodes()`'s own "second enter" handling.
+        events.append(
+            enter_event(
+                entry,
+                state=entry.state,
+                reason=entry.last_reason,
+                host=_local_host_id(),
+                source="operator",
+            )
+        )
+    events.append(
+        operator_resolution_event(entry, resolution=resolution, host=_local_host_id())
+    )
+    _record_block_log(events)
+
+
 def _record_operator_release(row: Mapping[str, Any] | None, *, resolution: str) -> None:
     """Log a stall a HUMAN just cleared, if the row was actually stalled.
 
@@ -2150,17 +2231,7 @@ def _record_operator_release(row: Mapping[str, Any] | None, *, resolution: str) 
         entry = entries_from_rows([row])[0]
     except (IndexError, KeyError, TypeError, ValueError):  # pragma: no cover
         return
-    if entry.state not in STALL_STATES:
-        return
-    from coord.block_log import operator_resolution_event  # noqa: PLC0415
-
-    _record_block_log(
-        [
-            operator_resolution_event(
-                entry, resolution=resolution, host=_local_host_id()
-            )
-        ]
-    )
+    _record_operator_release_entry(entry, resolution=resolution)
 
 
 # ── log-intervention (#2540) ─────────────────────────────────────────────────
@@ -3150,12 +3221,37 @@ def drive_queue_sweep(
     (`coord.state.board_doctor_decisions`), in the spirit of #1478's board
     comments.
 
+    #3887 (#3875 ask A): the allowlist's mechanical actions include five
+    queue repairs the sweep applies itself. Three go through the SAME
+    closed #3881 investigator wrapper (`coord.board_doctor_permissions.
+    dispatch_investigator_action`) a daemon-host investigator session
+    would use via `coord drive-queue doctor-act` — `mark_done` (a PR
+    merged out-of-band while the row sat running/blocked/waiting),
+    `clear_latch` (a stale HUMAN_REQUIRED latch whose approval is already
+    bound to the current branch content), and `merge` (a PENDING row
+    that already reads green/approved/mergeable but the ordinary merge
+    tick keeps missing). The fourth, `conflict_fix_redispatch`, is a
+    sweep-only primitive pairing with #3871's own completion-time
+    redispatch for a conflict-fix that completed clean but never moved the
+    branch. #3901 (#3887 case 4's remainder) adds a fifth: `drive_queue_
+    requeue` of a frozen `blocked`/`parked` row whose `--after` block cause
+    no longer holds (`coord.board_doctor_policy._requeue_after_prereqs_
+    landed`) — through the same investigator wrapper as the first three.
+    Every one of these re-reads live state immediately before acting and
+    audits with `actor="sweep"`, never `"board_doctor_investigator"` — the
+    same precondition a human-attended `doctor-act` invocation gets, just
+    applied without spending an investigator slot.
+
     A row stuck on the SAME cause for `coord.board_doctor.CONVERGENCE_LIMIT`
-    (default 3) consecutive sweeps stops being re-acted on and escalates to
-    the alert tier exactly once — never a repeat alert for an unresolved
-    cause, never an auto-action looping forever. `--dry-run` classifies and
-    prints but mutates no convergence counter and dispatches nothing — a
-    sweep run right after a dry run sees exactly what the dry run saw.
+    (default 3) consecutive sweeps stops being re-acted on and falls back
+    to the alert tier instead of auto-action looping forever. Escalating
+    never means going silent afterward: a still-unresolved cause keeps
+    getting re-alerted on an exponential backoff
+    (`coord.state.BOARD_DOCTOR_BACKOFF_INITIAL_HOURS` doubling each firing
+    up to `BOARD_DOCTOR_BACKOFF_CAP_HOURS`) rather than alerting once and
+    then being ignored forever. `--dry-run` classifies and prints but
+    mutates no convergence counter and dispatches nothing — a sweep run
+    right after a dry run sees exactly what the dry run saw.
 
     Meant to run on a schedule (`coord/deploy/coord-board-doctor.timer`,
     shipped disabled by default) as well as by hand; same `is_remote()`
@@ -3263,8 +3359,460 @@ def drive_queue_sweep(
     else:
         click.echo(
             f"{report.rows_observed} row(s) observed and decided — read the log later with "
-            "`coord drive-queue sweep --json`"
+            "`coord drive-queue doctor-log`"
         )
+
+
+# ── doctor act (#3881) ────────────────────────────────────────────────────────
+
+
+@drive_queue_group.command("doctor-act")
+@click.argument("action")
+@click.argument("repo")
+@click.argument("issue", type=int)
+@click.option(
+    "--reason",
+    required=True,
+    help="Why this action is being taken now — audited verbatim alongside the action.",
+)
+@click.option(
+    "--review-assignment-id",
+    default=None,
+    help=(
+        "bounce: the review assignment id whose request-changes verdict to "
+        "bounce. raise_budget: the review assignment id to re-derive "
+        "request-changes-with-findings eligibility from, live."
+    ),
+)
+@click.option(
+    "--sibling-repo",
+    default=None,
+    help="integration_fix: the repo whose own issue is the broken base/integration fix.",
+)
+@click.option(
+    "--sibling-issue",
+    type=int,
+    default=None,
+    help="integration_fix: the sibling issue number to dispatch a fix-it leg against.",
+)
+@click.option(
+    "--cause",
+    default="",
+    help="integration_fix: the diagnosed cause, carried into the dispatched leg's briefing.",
+)
+@click.option(
+    "--evidence",
+    multiple=True,
+    help="integration_fix: one line of supporting evidence (repeatable).",
+)
+@click.option("--stage", default=None, help="restage: 'test' or 'review'.")
+@click.option(
+    "--increment",
+    type=int,
+    default=2,
+    show_default=True,
+    help="raise_budget: how many fix rounds to add to the current ceiling.",
+)
+@_CONFIG_OPTION
+def drive_queue_doctor_act(
+    action: str,
+    repo: str,
+    issue: int,
+    reason: str,
+    review_assignment_id: str | None,
+    sibling_repo: str | None,
+    sibling_issue: int | None,
+    cause: str,
+    evidence: tuple[str, ...],
+    stage: str | None,
+    increment: int,
+    config_path: Path,
+) -> None:
+    """The ONE audited, precondition-checked action a daemon-host
+    investigator session may take against a stuck row (#3881).
+
+    *action* is one of ``coord.board_doctor_permissions.INVESTIGATOR_
+    ACTIONS`` — ``requeue``, ``raise_budget``, ``bounce``,
+    ``integration_fix``, ``restage``, ``clear_latch``, ``merge``, or
+    ``mark_done``. Every one of them re-reads live board/GitHub/merge-queue
+    state immediately before acting, refuses (prints and exits 0, never an
+    exception) when its own precondition no longer holds, and writes an
+    audit row either way — see `coord.board_doctor_permissions` for each
+    verb's exact precondition. This command is the ONLY way an unattended
+    investigator session reaches any of them: it never runs
+    `--dangerously-skip-permissions`, and the handlers behind it have no
+    code path to `--force-merge`, `--override-human-required`, a sealed
+    suite, an issue close/retitle/rescope, credentials, or
+    `coordinator.yml`.
+
+    Daemon-host only, same as `drive-queue sweep`/`diagnose` — the queues,
+    board and merge queue all live there; a thin client would act on an
+    empty local copy.
+    """
+    from coord.board_doctor_permissions import (  # noqa: PLC0415
+        INVESTIGATOR_ACTIONS,
+        dispatch_investigator_action,
+    )
+    from coord.board_service import is_remote  # noqa: PLC0415
+    from coord.commands._common import _load_config  # noqa: PLC0415
+
+    if is_remote():
+        raise click.ClickException(
+            "drive-queue doctor-act mutates the daemon host's queues, board "
+            "and merge queue directly — run it there (a board_service-"
+            "configured thin client would act on an empty local copy)."
+        )
+    if action not in INVESTIGATOR_ACTIONS:
+        raise click.ClickException(
+            f"unknown action {action!r} — must be one of "
+            f"{sorted(INVESTIGATOR_ACTIONS)!r}"
+        )
+
+    config = _load_config(config_path)
+    from coord.state import build_board  # noqa: PLC0415
+
+    board = build_board()
+
+    if action == "requeue":
+        result = dispatch_investigator_action("requeue", repo, issue, board, reason=reason)
+    elif action == "raise_budget":
+        from coord import github_ops as gh_ops  # noqa: PLC0415
+
+        result = dispatch_investigator_action(
+            "raise_budget",
+            repo,
+            issue,
+            board,
+            config,
+            gh_ops,
+            review_assignment_id=review_assignment_id,
+            reason=reason,
+            increment=increment,
+        )
+    elif action == "bounce":
+        if not review_assignment_id:
+            raise click.ClickException("bounce requires --review-assignment-id")
+        result = dispatch_investigator_action(
+            "bounce", repo, issue, review_assignment_id, board, config, reason=reason,
+        )
+    elif action == "integration_fix":
+        if not sibling_repo or sibling_issue is None:
+            raise click.ClickException(
+                "integration_fix requires --sibling-repo and --sibling-issue"
+            )
+        result = dispatch_investigator_action(
+            "integration_fix",
+            repo,
+            issue,
+            board,
+            config,
+            sibling_repo=sibling_repo,
+            sibling_issue=sibling_issue,
+            cause=cause,
+            evidence=tuple(evidence),
+            reason=reason,
+        )
+    elif action == "restage":
+        if stage not in ("test", "review"):
+            raise click.ClickException("restage requires --stage test|review")
+        result = dispatch_investigator_action(
+            "restage", repo, issue, board, config, stage=stage, reason=reason,
+        )
+    elif action in ("clear_latch", "merge"):
+        from coord import github_ops as gh_ops  # noqa: PLC0415
+
+        result = dispatch_investigator_action(
+            action, repo, issue, board, config, gh_ops, reason=reason,
+        )
+    elif action == "mark_done":
+        result = dispatch_investigator_action(
+            "mark_done", repo, issue, board, config, reason=reason,
+        )
+    else:  # pragma: no cover — INVESTIGATOR_ACTIONS checked above
+        raise click.ClickException(f"unhandled action {action!r}")
+
+    click.echo(f"{action} {repo}#{issue}: acted={result['acted']} — {result['detail']}")
+
+
+# ── doctor-log ───────────────────────────────────────────────────────────────
+
+
+def _doctor_log_window_label(since_days: float) -> str:
+    """Render ``--since`` for a log line — ``"0"`` means no limit, not a
+    zero-day window, so it gets its own word rather than a misleading
+    ``"0d"``."""
+    return "all time" if since_days <= 0 else f"{since_days:g}d"
+
+
+def _doctor_log_line(entry: Mapping[str, Any]) -> str:
+    outcome = entry.get("outcome")
+    outcome_suffix = f" outcome={outcome}" if outcome else ""
+    line = (
+        f"{entry.get('recorded_at', '?')}  {entry.get('queue', '?')}:{entry.get('key', '?')} "
+        f"cause={entry.get('cause', '?')} action={entry.get('action', '?')}{outcome_suffix}"
+    )
+    if entry.get("action") == "alert":
+        reason = _doctor_log_escalation_reason(entry)
+        if reason:
+            line += f" — {reason}"
+    return line
+
+
+def _doctor_log_escalation_reason(entry: Mapping[str, Any]) -> str | None:
+    """The live `coord.state.drive_escalations` reason text for *entry*'s
+    alert-tier row, when one is still on file for the same stage this
+    entry's own queue maps to
+    (`coord.board_doctor_policy._board_doctor_stage`).
+
+    `coord.board_doctor_policy.escalation_alert_dispatcher`'s full
+    diagnosis — cause with its confidence, evidence, what the doctor
+    already tried, and 2-3 options each with a command — is filed into
+    `drive_escalations`, not into the `board_doctor_decisions` row this
+    function's caller otherwise renders unchanged; this is the one place
+    `doctor-log` also reads that table, so the diagnosis reaches this
+    surface instead of only the phone alert and the digest.
+
+    Best-effort, read-only: an unparseable key, no escalation on file, a
+    `coord.state` read failure, or a stage mismatch (a more specific
+    escalation has since superseded this one) all return ``None`` — the
+    plain ``cause=.../action=...`` line is still printed either way, this
+    is enrichment, never a requirement.
+    """
+    parsed = parse_key(str(entry.get("key") or ""))
+    if parsed is None:
+        return None
+    repo_name, issue_number = parsed
+    try:
+        from coord.board_doctor_policy import _board_doctor_stage  # noqa: PLC0415, SLF001
+        from coord.state import get_drive_escalation  # noqa: PLC0415
+
+        escalation = get_drive_escalation(repo_name, issue_number)
+    except Exception:  # noqa: BLE001 — enrichment only, never blocks the log line
+        return None
+    if not escalation:
+        return None
+    if escalation.get("stage") != _board_doctor_stage(str(entry.get("queue") or "")):
+        return None
+    reason = str(escalation.get("reason") or "").strip()
+    return reason or None
+
+
+def _doctor_log_summary(
+    entries: list[dict], *, since_days: float, repo: str | None, issue: int | None = None
+) -> dict[str, Any]:
+    """Aggregate a filtered :func:`coord.state.board_doctor_decisions` slice
+    against the same window's block-log episodes, so an operator can read
+    "what has the doctor fixed" next to "what did a human still have to do."
+
+    ``rows_unstuck``/``rows_still_stuck``/``rows_pending`` count distinct
+    ROWS (by ``key``), not decision entries: a row stuck for the whole
+    window logs one ``unchanged`` decision per sweep, so counting entries
+    would make ``rows_still_stuck`` grow with the sweep cadence instead of
+    the stuck population. Each key's MOST RECENT action-tracked entry
+    (``board_doctor_decisions`` returns oldest first) is the one that
+    decides its bucket — a row can carry mixed outcomes across the window
+    (e.g. `progressed` on one sweep, `unchanged` on a later one), and only
+    the latest one answers "is it stuck NOW," not "was it ever."
+
+    ``rows_unstuck`` counts only outcome ``"progressed"`` — the doctor's
+    OWN confirmed action is what moved the row (#3889:
+    `coord.state.evaluate_board_doctor_outcome`'s attribution rule).
+    ``"progressed_by_other"`` (an operator action, or the ordinary drive
+    loop, got there first) is counted separately in
+    ``rows_unstuck_by_other`` so this number never credits the doctor for
+    a human's fix. ``rows_pending`` (#3889) is the key's latest
+    action-tracked entry still carrying ``outcome: None`` — logged, but no
+    later sweep has re-observed the row yet to say whether it worked.
+    """
+    from coord import state  # noqa: PLC0415
+    from coord.block_log import episodes, read_events  # noqa: PLC0415
+
+    actions_taken = sum(
+        1 for e in entries if e.get("action") in state.BOARD_DOCTOR_OUTCOME_ACTIONS
+    )
+    last_entry_by_key: dict[Any, dict] = {}
+    for e in entries:
+        if e.get("action") not in state.BOARD_DOCTOR_OUTCOME_ACTIONS:
+            continue
+        last_entry_by_key[e.get("key")] = e
+    last_outcome_by_key = {k: v.get("outcome") for k, v in last_entry_by_key.items()}
+    rows_unstuck = sum(1 for outcome in last_outcome_by_key.values() if outcome == "progressed")
+    rows_unstuck_by_other = sum(
+        1 for outcome in last_outcome_by_key.values() if outcome == "progressed_by_other"
+    )
+    rows_still_stuck = sum(
+        1 for outcome in last_outcome_by_key.values() if outcome in ("unchanged", "regressed")
+    )
+    rows_pending = sum(1 for outcome in last_outcome_by_key.values() if outcome is None)
+    acted_keys = {
+        e.get("key") for e in entries if e.get("action") in state.BOARD_DOCTOR_OUTCOME_ACTIONS
+    }
+
+    since = time.time() - since_days * 86400.0 if since_days > 0 else None
+    block_items = episodes(read_events(since=since))
+    if repo is not None:
+        block_items = [
+            item for item in block_items
+            if str(item.get("key") or "").rpartition("#")[0] == repo
+        ]
+    if issue is not None:
+        block_items = [
+            item for item in block_items
+            if str(item.get("key") or "").rpartition("#")[2] == str(issue)
+        ]
+    missed = sorted(
+        {
+            str(item.get("key") or "")
+            for item in block_items
+            if item.get("human_acted") and str(item.get("key") or "") not in acted_keys
+        }
+    )
+
+    return {
+        "actions_taken": actions_taken,
+        "rows_unstuck": rows_unstuck,
+        "rows_unstuck_by_other": rows_unstuck_by_other,
+        "rows_still_stuck": rows_still_stuck,
+        "rows_pending": rows_pending,
+        "human_interventions_missed": len(missed),
+        "human_interventions_missed_keys": missed,
+    }
+
+
+@drive_queue_group.command("doctor-log")
+@click.option("--json", "output_json", is_flag=True, default=False, help="Emit entries (or the summary) as JSON.")
+@click.option(
+    "--since",
+    type=float,
+    default=14.0,
+    show_default=True,
+    help="Only decisions recorded within this many days (0 = no limit).",
+)
+@click.option("--repo", default=None, help="Restrict to one repo.")
+@click.option("--issue", type=int, default=None, help="Restrict to one issue number.")
+@click.option("--action", "action_filter", default=None, help="Restrict to one action name (e.g. auto-dispatch, alert).")
+@click.option("--limit", type=int, default=200, show_default=True, help="Max entries to print (ignored with --summary).")
+@click.option(
+    "--summary",
+    "summary_mode",
+    is_flag=True,
+    default=False,
+    help="Aggregate counts instead of the raw log: actions taken, rows unstuck, rows still "
+    "stuck, and human interventions the doctor missed (cross-referenced from the block log).",
+)
+@click.option(
+    "--backfill-outcomes",
+    "backfill_outcomes_flag",
+    is_flag=True,
+    default=False,
+    help="#3907: re-grade every outcome-pending/regradable entry against current state "
+    "first, before printing — a one-shot catch-up for rows that were graded too early "
+    "(or never re-graded) before this fix.",
+)
+@_CONFIG_OPTION
+def drive_queue_doctor_log(
+    output_json: bool,
+    since: float,
+    repo: str | None,
+    issue: int | None,
+    action_filter: str | None,
+    limit: int,
+    summary_mode: bool,
+    backfill_outcomes_flag: bool,
+    config_path: Path,
+) -> None:
+    """Read back `coord drive-queue sweep`'s durable decision/action log.
+
+    The log lives in its own `board_doctor_log` table (#3889 — a single
+    JSON blob before that), kept for `coordinator.yml`'s
+    `board_doctor.log_retention_days` (`coord.state.BOARD_DOCTOR_LOG_RETENTION_DAYS`,
+    default 90, when unset) and outcome-tracked: every `auto-dispatch`/
+    `alert` decision gets an `outcome` filled in once a later sweep
+    re-observes the same row — `"progressed"` (the doctor's own confirmed
+    action moved it), `"progressed_by_other"` (an operator action or the
+    ordinary drive loop got there first), `"unchanged"`, or `"regressed"`
+    — so this answers "did it work, and was it really the doctor", not
+    just "what did the doctor try."
+
+    `--summary` is the fleet-health number this was built to drive down:
+    `rows_still_stuck` trending to zero, `rows_pending` (logged, outcome
+    not yet evaluated) shrinking rather than growing unbounded, and
+    `human_interventions_missed` — a block-log episode a human had to act
+    on (`coord drive-queue block-log`'s own `human_acted`) that this same
+    window's log never shows an `auto-dispatch`/`alert` against — staying
+    at zero. `rows_unstuck` only counts `"progressed"`;
+    `rows_unstuck_by_other` is reported separately so this number never
+    credits the doctor for a human's fix.
+
+    `--backfill-outcomes` (#3907) re-grades every entry still open for a
+    verdict — `None`, or `unchanged`/`regressed` — against the doctor's
+    CURRENT per-row state before this command does anything else, so a
+    row that merged (or otherwise resolved) since it was last graded
+    reads `progressed`/`progressed_by_other` without needing a fresh
+    sweep to walk past it again. Safe to run repeatedly: it only changes
+    an entry whose re-evaluated outcome actually differs.
+
+    Same `is_remote()` guard as `sweep`/`diagnose` — the decision log
+    lives on the daemon host (unlike `block-log`, which reads a local
+    file and has no such guard).
+    """
+    from coord import state  # noqa: PLC0415
+    from coord.board_doctor import backfill_board_doctor_outcomes  # noqa: PLC0415
+    from coord.board_service import is_remote  # noqa: PLC0415
+
+    if is_remote():
+        raise click.ClickException(
+            "drive-queue doctor-log reads the daemon host's board_meta "
+            "directly — run it there (a board_service-configured thin "
+            "client would read an empty local copy)."
+        )
+
+    if summary_mode and limit != 200:
+        click.echo("warning: --limit is ignored with --summary", err=True)
+
+    if backfill_outcomes_flag:
+        changed = backfill_board_doctor_outcomes()
+        click.echo(f"backfilled {changed} outcome(s)", err=True)
+
+    since_ts = time.time() - since * 86400.0 if since > 0 else None
+    entries = state.board_doctor_decisions(
+        since=since_ts, repo=repo, issue=issue, action=action_filter,
+    )
+
+    if summary_mode:
+        summary = _doctor_log_summary(entries, since_days=since, repo=repo, issue=issue)
+        if output_json:
+            click.echo(_json.dumps(summary))
+            return
+        click.echo(
+            f"{summary['actions_taken']} action(s) taken in {_doctor_log_window_label(since)} — "
+            f"{summary['rows_unstuck']} row(s) unstuck · "
+            f"{summary['rows_unstuck_by_other']} unstuck by other · "
+            f"{summary['rows_still_stuck']} still stuck · "
+            f"{summary['rows_pending']} pending"
+        )
+        if summary["human_interventions_missed"]:
+            click.echo(
+                f"{summary['human_interventions_missed']} human intervention(s) the doctor "
+                "missed:"
+            )
+            for key in summary["human_interventions_missed_keys"]:
+                click.echo(f"  {key}")
+        else:
+            click.echo("0 human interventions missed")
+        return
+
+    entries = entries if limit <= 0 else entries[-limit:]
+    if output_json:
+        click.echo(_json.dumps({"entries": entries}))
+        return
+    if not entries:
+        click.echo(
+            f"no board-doctor decisions recorded in the last {_doctor_log_window_label(since)}"
+        )
+        return
+    for entry in entries:
+        click.echo(_doctor_log_line(entry))
 
 
 # ── overlap-report (#2247) ───────────────────────────────────────────────────
@@ -5609,6 +6157,19 @@ def _fetch_live_blocked_gate(
         e for e in entries
         if e.state == STATE_BLOCKED
         and not is_permanent_block_reason(getattr(e, "last_reason", "") or "")
+        # #3874: a row whose `last_reason` still names `_resolve_prereqs`'s
+        # own unsatisfiable `after=` verdict
+        # (`coord.drive_queue.is_unsatisfiable_prereq_reason`) is
+        # `coord.drive_queue._reconcile_blocked_after`'s to resolve, from
+        # the `after=` graph, not this probe's: a `waiting` entry that
+        # never reached `running` has no branch, no PR and no merge-queue
+        # row for THIS sweep to have any opinion about, the identical
+        # category error `_reconcile_blocked` itself already refuses to
+        # commit (see its own top-of-function guard). Probing it anyway
+        # only ever comes back "no merge-queue row" below, reported as an
+        # unconfirmed probe failure that implies a retry might help — when
+        # the real answer is "wait for the `after=` graph, not a retry".
+        and not is_unsatisfiable_prereq_reason(getattr(e, "last_reason", "") or "")
     ]
     if not targets:
         return {}, {}, {}

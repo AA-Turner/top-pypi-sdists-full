@@ -310,14 +310,36 @@ impl ArrayData {
     }
 }
 
+/// `RecordInterface::Fixed`: the record's fields can't be added or removed.
+/// On disk only a nested record whose description is part of its parent's
+/// is Fixed; casacure reads such a record with this type.
+pub const RECORD_FIXED: i32 = 0;
+/// `RecordInterface::Variable`: fields can be added and removed. casacore
+/// creates every table, column and private keyword set this way, and so does
+/// casacure for every record it makes (casacure#41: a Fixed keyword set
+/// stops casacore and CASA from adding a keyword or a tiled column).
+pub const RECORD_VARIABLE: i32 = 1;
+
 /// A decoded TableRecord: description, record type, and values aligned with
 /// `desc.fields`.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TableRecord {
     pub desc: RecordDesc,
-    /// 0 = Fixed, 1 = Variable (`RecordInterface::RecordType`).
+    /// `RECORD_FIXED` (0) or `RECORD_VARIABLE` (1)
+    /// (`RecordInterface::RecordType`).
     pub record_type: i32,
     pub values: Vec<RecordValue>,
+}
+
+impl Default for TableRecord {
+    /// An empty Variable record, as casacore's `TableRecord()`.
+    fn default() -> Self {
+        TableRecord {
+            desc: RecordDesc::default(),
+            record_type: RECORD_VARIABLE,
+            values: Vec::new(),
+        }
+    }
 }
 
 impl TableRecord {
@@ -372,10 +394,11 @@ fn read_field_value(
                 Ok(RecordValue::Record(TableRecord::read(r)?))
             } else {
                 // Non-empty subdesc: bare field data, no framing; the record
-                // type is not stored.
+                // type is not stored -- casacore only writes a Fixed nested
+                // record this way.
                 Ok(RecordValue::Record(TableRecord {
                     desc: sub.clone(),
-                    record_type: 0,
+                    record_type: RECORD_FIXED,
                     values: read_record_data(r, sub)?,
                 }))
             }
@@ -627,13 +650,29 @@ pub fn write_scalar_value(w: &mut crate::aipsio::Writer, dt: DataType, value: &R
 ///
 /// Currently supports the field types this project writes: scalars, strings,
 /// and nested records. Array fields are rejected.
-/// The record's description with every Record field's sub-desc replaced
-/// by the desc of the value actually stored (recursively).
+/// The record's description as it is written: a Record field carries the
+/// desc of the value actually stored (recursively) when that value is a
+/// non-empty Fixed record, and an empty sub-desc otherwise.
+///
+/// This is casacore's `TableRecordRep::addField`: a Variable (or empty)
+/// sub-record is described in the parent only as `TpRecord` and written
+/// framed, with its own desc and record type; only a Fixed one has its desc
+/// in the parent and its values written bare.  Putting a Variable record's
+/// desc in the parent makes casacore read it back as a fixed layout: adding
+/// a field to it (e.g. `MEASINFO.TabRefTypes`) then writes values that no
+/// longer match the parent's desc, and the table can't be reopened
+/// (casacure#41).
 fn synced_desc(record: &TableRecord) -> RecordDesc {
     let mut desc = record.desc.clone();
     for (field, value) in desc.fields.iter_mut().zip(&record.values) {
         if let RecordValue::Record(sub) = value {
-            field.sub_desc = Some(synced_desc(sub));
+            field.sub_desc = Some(
+                if sub.record_type == RECORD_FIXED && !sub.desc.fields.is_empty() {
+                    synced_desc(sub)
+                } else {
+                    RecordDesc::default()
+                },
+            );
         }
     }
     desc
@@ -688,11 +727,9 @@ pub(crate) fn write_table_record(
                 // Framed iff the synced sub-descriptor is empty (casacore
                 // frames nested keyword records whose header sub-desc is
                 // empty, regardless of the value's own desc).
-                let field_empty = field.sub_desc.as_ref().is_none_or(|s| s.fields.is_empty());
-                if field_empty {
-                    write_table_record(w, sub)?;
-                } else {
-                    write_record_data_values(w, sub)?;
+                match field.sub_desc.as_ref() {
+                    Some(sd) if !sd.fields.is_empty() => write_record_data_values(w, sub, sd)?,
+                    _ => write_table_record(w, sub)?,
                 }
             }
             _ => {
@@ -825,25 +862,24 @@ fn write_record_desc(w: &mut crate::aipsio::Writer, desc: &RecordDesc) -> Result
     Ok(())
 }
 
-/// Write bare field values of a nested record with a non-empty description,
-/// recursing into nested records (casacore `RecordRep::putData`).
+/// Write bare field values of a nested Fixed record, recursing into nested
+/// records (casacore `TableRecordRep::putData`).  `desc` is the record's
+/// desc as written (`synced_desc`): a sub-record is framed iff its sub-desc
+/// there is empty, which is what the reader goes by.
 fn write_record_data_values(
     w: &mut crate::aipsio::Writer,
     record: &TableRecord,
+    desc: &RecordDesc,
 ) -> Result<(), RecordError> {
-    for field in &record.desc.fields {
+    for field in &desc.fields {
         let value = record
             .get(&field.name)
             .ok_or_else(|| RecordError::LegacyKeywordSet("missing nested value".into()))?;
         match value {
-            RecordValue::Record(sub) => {
-                let value_empty = sub.desc.fields.is_empty();
-                if value_empty {
-                    write_table_record(w, sub)?;
-                } else {
-                    write_record_data_values(w, sub)?;
-                }
-            }
+            RecordValue::Record(sub) => match field.sub_desc.as_ref() {
+                Some(sd) if !sd.fields.is_empty() => write_record_data_values(w, sub, sd)?,
+                _ => write_table_record(w, sub)?,
+            },
             RecordValue::Array(a) if field.data_type.is_array() => {
                 write_array_value(w, &a.shape, &a.data);
             }
@@ -889,6 +925,18 @@ pub fn infer_data_type(value: &RecordValue) -> DataType {
     }
 }
 
+/// The sub-desc a parent record holds for the nested record `sub`
+/// (casacore `TableRecordRep::addField`): a non-empty Fixed record's own
+/// desc, and an empty one for a Variable (or empty) record, whose desc
+/// travels with its value.
+pub(crate) fn parent_sub_desc(sub: &TableRecord) -> RecordDesc {
+    if sub.record_type == RECORD_FIXED && !sub.desc.fields.is_empty() {
+        sub.desc.clone()
+    } else {
+        RecordDesc::default()
+    }
+}
+
 impl TableRecord {
     /// Set (or append) a keyword field, inferring its data type from the
     /// value (`putkeyword`/`putcolkeyword`).
@@ -896,13 +944,14 @@ impl TableRecord {
         let dt = infer_data_type(&value);
         if let Some(i) = self.desc.fields.iter().position(|f| f.name == name) {
             self.desc.fields[i].data_type = dt;
-            if let RecordValue::Record(sub) = &value {
-                self.desc.fields[i].sub_desc = Some(sub.desc.clone());
-            }
+            self.desc.fields[i].sub_desc = match &value {
+                RecordValue::Record(sub) => Some(parent_sub_desc(sub)),
+                _ => None,
+            };
             self.values[i] = value;
         } else {
             let sub_desc = match &value {
-                RecordValue::Record(sub) => Some(sub.desc.clone()),
+                RecordValue::Record(sub) => Some(parent_sub_desc(sub)),
                 _ => None,
             };
             self.desc.fields.push(RecordDescField {
@@ -1137,6 +1186,23 @@ impl TableRecord {
         s
     }
 }
+/// Dimension vector from an encoded `{"shape":[..], ...}` member: its
+/// non-negative integer elements, or `None` when it is not one. An empty
+/// member (`[]`, which `parse_array` types as an empty string array) means a
+/// 0-d array — the shape `to_json_string` writes for one.
+fn shape_dims(data: &ArrayData) -> Option<Vec<u32>> {
+    match data {
+        ArrayData::Int(v) if v.iter().all(|&i| i >= 0) => {
+            Some(v.iter().map(|&i| i as u32).collect())
+        }
+        ArrayData::Int64(v) if v.iter().all(|&i| i >= 0) => {
+            Some(v.iter().map(|&i| i as u32).collect())
+        }
+        ArrayData::String(v) if v.is_empty() => Some(Vec::new()),
+        _ => None,
+    }
+}
+
 /// Parse a JSON object into a `TableRecord` (`{"name": value, ...}`).
 /// This is the inverse of `TableRecord::to_json_string`: it reconstructs the
 /// typed keyword/descriptor structures from the dict representation
@@ -1157,7 +1223,7 @@ pub fn parse_json_record(input: &str) -> Result<TableRecord, RecordError> {
     }
     Ok(TableRecord {
         desc,
-        record_type: 0,
+        record_type: RECORD_VARIABLE,
         values,
     })
 }
@@ -1245,12 +1311,43 @@ impl<'a> JsonParser<'a> {
             }
             Some(b'{') => {
                 let (sub_desc, values) = self.parse_object()?;
+                // `TableRecord::to_json_string` encodes an array as
+                // `{"shape":[..],"array":[..]}`; invert that here so a JSON
+                // round-trip keeps the value an Array instead of downgrading
+                // it to a Record. casacure#40: a keyword decoded as a Record
+                // is written to disk as a sub-record where casacore declares
+                // `Array<String>`, and CASA then refuses the table
+                // (`TableRecordRep::get_pointer - incorrect data type`).
+                // Only the exact two-field encoding is converted, so a genuine
+                // record that merely happens to carry both field names keeps
+                // its type.
+                if sub_desc.fields.len() == 2 {
+                    let pos = |n: &str| sub_desc.fields.iter().position(|f| f.name == n);
+                    if let (Some(si), Some(ai)) = (pos("shape"), pos("array")) {
+                        if let (RecordValue::Array(sh), RecordValue::Array(payload)) =
+                            (&values[si], &values[ai])
+                        {
+                            if let Some(dims) = shape_dims(&sh.data) {
+                                let value = RecordValue::Array(ArrayValue {
+                                    shape: dims,
+                                    data: payload.data.clone(),
+                                });
+                                let dt = infer_data_type(&value);
+                                return Ok((dt, None, value));
+                            }
+                        }
+                    }
+                }
                 let rec = TableRecord {
-                    desc: sub_desc.clone(),
-                    record_type: 0,
+                    desc: sub_desc,
+                    record_type: RECORD_VARIABLE,
                     values,
                 };
-                Ok((DataType::Record, Some(sub_desc), RecordValue::Record(rec)))
+                Ok((
+                    DataType::Record,
+                    Some(parent_sub_desc(&rec)),
+                    RecordValue::Record(rec),
+                ))
             }
             Some(b'[') => self.parse_array(),
             Some(b't') => {
@@ -1676,6 +1773,53 @@ mod tests {
     }
 
     #[test]
+    fn json_array_dict_decodes_to_array() {
+        // The inverse of json_parser_round_trip: to_json_string emits arrays
+        // as {"shape":[..],"array":[..]}, and parsing that back must give an
+        // Array, not a Record — a Record lands on disk as a sub-record where
+        // casacore declares Array<String>, and CASA then refuses the table
+        // (casacure#40: QuantumUnits / MEASINFO / FLAG_CATEGORY keywords).
+        let json = r#"{"QS":{"shape":[2],"array":["s","u"]},"AR":{"shape":[3],"array":[1,2,3]},"EMPTY":{"shape":[0],"array":[]}}"#;
+        let rec = parse_json_record(json).unwrap();
+        match rec.get("QS") {
+            Some(RecordValue::Array(a)) => {
+                assert_eq!(a.shape, vec![2]);
+                assert_eq!(a.data, ArrayData::String(vec!["s".into(), "u".into()]));
+            }
+            other => panic!("QS: {other:?}"),
+        }
+        match rec.get("AR") {
+            Some(RecordValue::Array(a)) => {
+                assert_eq!(a.shape, vec![3]);
+                assert_eq!(a.data, ArrayData::Int(vec![1, 2, 3]));
+            }
+            other => panic!("AR: {other:?}"),
+        }
+        // An empty payload keeps its dims (the FLAG_CATEGORY `[]` case).
+        match rec.get("EMPTY") {
+            Some(RecordValue::Array(a)) => assert_eq!(a.shape, vec![0]),
+            other => panic!("EMPTY: {other:?}"),
+        }
+        // encode → decode → encode is stable.
+        assert_eq!(rec.to_json_string(), json);
+
+        // A genuine record that merely carries a `shape` and an `array`
+        // field alongside a third keeps its type (only the exact two-field
+        // encoding is inverted). Bare member arrays normalise to the dict
+        // form on encode, so compare against that normalised form.
+        let json2 = r#"{"MEASINFO":{"shape":[1],"array":[2],"type":"epoch"}}"#;
+        let rec2 = parse_json_record(json2).unwrap();
+        assert!(matches!(rec2.get("MEASINFO"), Some(RecordValue::Record(_))));
+        let enc = rec2.to_json_string();
+        let rec2b = parse_json_record(&enc).unwrap();
+        assert!(matches!(
+            rec2b.get("MEASINFO"),
+            Some(RecordValue::Record(_))
+        ));
+        assert_eq!(rec2b.to_json_string(), enc);
+    }
+
+    #[test]
     fn rejects_unknown_data_type() {
         assert!(matches!(
             DataType::from_i32(99),
@@ -1756,7 +1900,7 @@ mod tests {
     fn sample_record() -> TableRecord {
         let mut r = TableRecord {
             desc: Default::default(),
-            record_type: 0,
+            record_type: RECORD_VARIABLE,
             values: Vec::new(),
         };
         r.set("count", RecordValue::Int(42));
@@ -1764,7 +1908,7 @@ mod tests {
         r.set("tag", RecordValue::String("x".into()));
         let mut sub = TableRecord {
             desc: Default::default(),
-            record_type: 0,
+            record_type: RECORD_VARIABLE,
             values: Vec::new(),
         };
         sub.set("inner", RecordValue::Bool(true));
@@ -1797,6 +1941,65 @@ mod tests {
         let bytes = w.into_bytes();
         let mut r = Reader::new(&bytes);
         let back = TableRecord::read(&mut r).unwrap();
+        assert_eq!(back, rec);
+    }
+
+    fn write_read(rec: &TableRecord) -> TableRecord {
+        let mut w = Writer::new();
+        write_table_record(&mut w, rec).unwrap();
+        let bytes = w.into_bytes();
+        TableRecord::read(&mut Reader::new(&bytes)).unwrap()
+    }
+
+    /// casacure#41: records casacure makes are Variable, as casacore's
+    /// `TableRecord()`, and are written so; a Fixed keyword set stops
+    /// casacore/CASA adding a keyword or a tiled column.
+    #[test]
+    fn new_records_are_variable_on_disk() {
+        assert_eq!(TableRecord::default().record_type, RECORD_VARIABLE);
+        let back = write_read(&sample_record());
+        assert_eq!(back.record_type, RECORD_VARIABLE);
+        let Some(RecordValue::Record(nested)) = back.get("nested") else {
+            panic!("nested record missing");
+        };
+        assert_eq!(nested.record_type, RECORD_VARIABLE);
+    }
+
+    /// casacure#41: a Variable nested record is described in its parent only
+    /// as a record and written framed with its own desc (casacore
+    /// `TableRecordRep::addField`), so casacore can add fields to it.
+    #[test]
+    fn variable_nested_record_is_framed() {
+        let back = write_read(&sample_record());
+        let field = back
+            .desc
+            .fields
+            .iter()
+            .find(|f| f.name == "nested")
+            .unwrap();
+        assert_eq!(field.sub_desc.as_ref().map(|d| d.fields.len()), Some(0));
+        let Some(RecordValue::Record(nested)) = back.get("nested") else {
+            panic!("nested record missing");
+        };
+        assert_eq!(nested.get("inner"), Some(&RecordValue::Bool(true)));
+    }
+
+    /// A Fixed nested record (as casacore writes one, and casacure reads it)
+    /// keeps its desc in the parent and its values bare across a rewrite.
+    #[test]
+    fn fixed_nested_record_stays_fixed() {
+        let mut sub = TableRecord {
+            record_type: RECORD_FIXED,
+            ..Default::default()
+        };
+        sub.set("a", RecordValue::Int(1));
+        sub.set("b", RecordValue::String("x".into()));
+        let mut rec = TableRecord::default();
+        rec.set("fixed", RecordValue::Record(sub.clone()));
+        let back = write_read(&rec);
+        let field = back.desc.fields.iter().find(|f| f.name == "fixed").unwrap();
+        assert_eq!(field.sub_desc.as_ref(), Some(&sub.desc));
+        assert_eq!(back.get("fixed"), Some(&RecordValue::Record(sub)));
         assert_eq!(back, rec);
     }
 }

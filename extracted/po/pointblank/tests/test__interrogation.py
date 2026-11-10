@@ -1,3 +1,4 @@
+import datetime
 import pyexpat
 import pytest
 import pandas as pd
@@ -317,6 +318,22 @@ def test_safe_is_nan_or_null_expr_ibis_sqlite():
     assert evaluated == [False, True, False]
 
 
+def test_safe_is_nan_or_null_expr_ibis_duckdb():
+    """Works with an Ibis DuckDB backend (which supports NaN checks)."""
+    import ibis
+    import narwhals as nw
+
+    con = ibis.duckdb.connect()
+    t = con.create_table("test", pl.DataFrame({"x": [1.0, float("nan"), None]}).to_arrow())
+    nw_tbl = nw.from_native(t)
+    col_expr = nw.col("x")
+
+    result = _safe_is_nan_or_null_expr(nw_tbl, col_expr, "x")
+
+    evaluated = nw_tbl.select(result).to_native().to_pandas()["x"].tolist()
+    assert evaluated == [False, True, True]
+
+
 def test_safe_modify_datetime_lazy_polars():
     """Works with a Polars LazyFrame."""
     import datetime
@@ -556,6 +573,112 @@ class TestColPctMissing:
         df = pl.DataFrame({"a": [1, None, 3, None, 5]}).lazy()
         result = col_pct_missing(df, "a", sentinels=[], count_null=True, max_pct=0.5)
         assert result is True
+
+
+class TestTableLevelCheckDetails:
+    """Tests for the `*_details()` functions that return the measured values for step reports."""
+
+    def test_col_exists_details(self):
+        from pointblank._interrogation import col_exists_details
+
+        df = pl.DataFrame({"a": [1], "b": [2]})
+
+        assert col_exists_details(df, "b") == {
+            "passed": True,
+            "column": "b",
+            "tbl_columns": ["a", "b"],
+        }
+        assert col_exists_details(df, "z")["passed"] is False
+
+    def test_row_count_match_details(self):
+        from pointblank._interrogation import row_count_match_details
+
+        df = pl.DataFrame({"a": [1, 2, 3]})
+
+        assert row_count_match_details(df, count=4, inverse=False, abs_tol_bounds=(1, 2)) == {
+            "passed": True,
+            "actual": 3,
+            "count": 4,
+            "min_val": 3,
+            "max_val": 6,
+            "inverse": False,
+        }
+        assert (
+            row_count_match_details(df, count=3, inverse=True, abs_tol_bounds=(0, 0))["passed"]
+            is False
+        )
+
+    def test_col_count_match_details(self):
+        from pointblank._interrogation import col_count_match_details
+
+        df = pl.DataFrame({"a": [1], "b": [2]})
+
+        assert col_count_match_details(df, count=3, inverse=False) == {
+            "passed": False,
+            "actual": 2,
+            "count": 3,
+            "inverse": False,
+        }
+        assert col_count_match_details(df, count=3, inverse=True)["passed"] is True
+
+    def test_col_pct_null_details(self):
+        from functools import partial
+
+        from pointblank._interrogation import col_pct_null_details
+        from pointblank._utils import _derive_bounds
+
+        df = pl.DataFrame({"a": [1, None, 3, None, 5]})
+
+        result = col_pct_null_details(df, "a", p=0.6, bound_finder=partial(_derive_bounds, tol=1))
+
+        assert result == {
+            "passed": True,
+            "n_null": 2,
+            "total_rows": 5,
+            "p": 0.6,
+            "min_null": 2,
+            "max_null": 4,
+        }
+
+    @pytest.mark.parametrize("lazy", [False, True])
+    def test_col_pct_missing_details(self, lazy):
+        from pointblank._interrogation import col_pct_missing_details
+
+        df = pl.DataFrame({"a": [1.0, -99.0, None, 4.0]})
+        df = df.lazy() if lazy else df
+
+        result = col_pct_missing_details(df, "a", sentinels=[-99.0], count_null=True, max_pct=0.4)
+
+        assert result == {
+            "passed": False,
+            "n_missing": 2,
+            "total_rows": 4,
+            "pct_missing": 0.5,
+            "max_pct": 0.4,
+        }
+
+    def test_col_pct_missing_details_nothing_counts_as_missing(self):
+        from pointblank._interrogation import col_pct_missing_details
+
+        df = pl.DataFrame({"a": [1, None]})
+
+        result = col_pct_missing_details(df, "a", sentinels=[], count_null=False, max_pct=0.0)
+
+        assert result["passed"] is True
+        assert result["n_missing"] == 0
+        assert result["total_rows"] is None
+        assert result["pct_missing"] == 0.0
+
+    def test_col_pct_missing_details_empty_table(self):
+        from pointblank._interrogation import col_pct_missing_details
+
+        df = pl.DataFrame({"a": pl.Series([], dtype=pl.Float64)})
+
+        result = col_pct_missing_details(df, "a", sentinels=[-99], count_null=True, max_pct=0.0)
+
+        assert result["passed"] is True
+        assert result["total_rows"] == 0
+        assert result["pct_missing"] is None
 
 
 class TestInterrogateWithinSpec:
@@ -923,6 +1046,34 @@ class TestDataFreshness:
             allow_tz_mismatch=True,
         )
         assert result["passed"] is True
+
+    @pytest.mark.parametrize(
+        "allow_future, passed",
+        [
+            (False, False),
+            (True, True),
+            (datetime.timedelta(minutes=30), False),
+            (datetime.timedelta(hours=1), True),
+        ],
+    )
+    def test_future_data(self, allow_future, passed):
+        import datetime
+        from pointblank._interrogation import data_freshness
+
+        ref = datetime.datetime(2023, 6, 15, 12, 0, 0)
+        df = pd.DataFrame({"ts": [ref + datetime.timedelta(hours=1)]})
+        result = data_freshness(
+            df,
+            "ts",
+            max_age=datetime.timedelta(hours=2),
+            reference_time=ref,
+            timezone=None,
+            allow_tz_mismatch=False,
+            allow_future=allow_future,
+        )
+        assert result["passed"] is passed
+        assert result["future"] is True
+        assert result["age"] == datetime.timedelta(hours=-1)
 
 
 class TestIsDatetimeAware:

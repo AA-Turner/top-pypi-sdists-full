@@ -77,6 +77,7 @@ def test_conversion_spatialimages(caplog):
                 assert_array_equal(img2.affine, affine)
 
 
+@pytest.mark.thread_unsafe
 def test_save_load_endian():
     shape = (2, 4, 6)
     affine = np.diag([1, 2, 3, 1])
@@ -123,6 +124,7 @@ def test_save_load_endian():
     assert_array_equal(m_img2.get_fdata(), data)
 
 
+@pytest.mark.thread_unsafe
 def test_save_load():
     shape = (2, 4, 6)
     npt = np.float32
@@ -261,15 +263,14 @@ def test_filename_save():
     affine = np.diag([1, 2, 3, 1])
     data = np.arange(np.prod(shape), dtype='f4').reshape(shape)
     for inklass, out_ext, loadklass in inklass_ext_loadklasses:
-        if not have_scipy:
+        if not have_scipy and ('mat', '.mat') in loadklass.files_types:
             # We can't load a SPM analyze type without scipy.  These types have
             # a 'mat' file (the type we can't load)
-            if ('mat', '.mat') in loadklass.files_types:
-                continue
+            continue
         img = inklass(data, affine)
         try:
             pth = mkdtemp()
-            fname = pjoin(pth, 'image' + out_ext)
+            fname = pjoin(pth, f'image{out_ext}')
             for path in (fname, pathlib.Path(fname)):
                 nils.save(img, path)
                 rt_img = nils.load(path)
@@ -296,6 +297,7 @@ def test_guessed_image_type():
         assert nils.guessed_image_type(pjoin(DATA_PATH, 'analyze.hdr')) == Spm2AnalyzeImage
 
 
+@pytest.mark.thread_unsafe
 def test_fail_save():
     with InTemporaryDirectory():
         dataobj = np.ones((10, 10, 10), dtype=np.float16)

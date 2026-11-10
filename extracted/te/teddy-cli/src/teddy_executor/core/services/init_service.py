@@ -132,13 +132,14 @@ class InitService(IInitUseCase):
         """Formats the shared copy-result status string.
 
         Single-sources the "unchanged" / "updated (N files)" / "overwritten (N
-        files)" vocabulary shared by the config, prompts, and templates copy
-        routines.
+        file(s) modified)" vocabulary shared by the config, prompts, and
+        templates copy routines. The ``file(s)`` form keeps the singular count
+        grammatical, because an overwrite can change exactly one file.
         """
         if count == 0:
             return "unchanged"
         if overwrite:
-            return f"overwritten ({count} files)"
+            return f"overwritten ({count} file(s) modified)"
         return f"updated ({count} files)"
 
     @staticmethod
@@ -187,6 +188,19 @@ class InitService(IInitUseCase):
             if name != filename and self._stem_key(name) == stem:
                 self._file_system.remove_file(f"{dest_dir}/{name}")
 
+    def _content_matches(self, target_path: str, content: str) -> bool:
+        """True when ``target_path`` already holds exactly ``content``.
+
+        Lets the overwrite path skip a file whose content already equals the
+        bundled default, so the reported count reflects the files that actually
+        changed. Returns ``False`` when the target is absent, including the case
+        where only a same-stem sibling exists.
+        """
+        return (
+            self._file_system.path_exists(target_path)
+            and self._file_system.read_file(target_path) == content
+        )
+
     def _copy_bundled_files(
         self,
         dest_dir: str,
@@ -198,8 +212,11 @@ class InitService(IInitUseCase):
         """Copies bundled resources into ``dest_dir`` via the file-system port.
 
         Creates ``dest_dir`` when absent. Writes each ``filenames`` entry that is
-        missing, or every entry when ``overwrite`` is set -- except names listed
-        in ``create_only``, which are written only when absent. Content is
+        missing, or every entry whose on-disk content differs from the bundled
+        default when ``overwrite`` is set -- except names listed in
+        ``create_only``, which are written only when absent. A file that already
+        holds the bundled content is left untouched and excluded from the count,
+        so the status reports only the files that actually changed. Content is
         supplied by ``resolve_content``; a ``None`` result silently skips a
         missing bundled resource. Returns the shared copy-result status string.
 
@@ -207,6 +224,9 @@ class InitService(IInitUseCase):
         sharing an entry's stem under ANY extension counts as present, and an
         overwrite removes any same-stem file with a different name so a stale
         ``.xml`` is replaced by the new ``.md`` instead of being left beside it.
+        The removal runs whenever the canonical file is written or already
+        matches the default, so no two same-stem files coexist after an
+        overwrite.
         """
         create_only = policy.create_only
         stem_identity = policy.stem_identity
@@ -220,10 +240,11 @@ class InitService(IInitUseCase):
             if not exists or (overwrite and fname not in create_only):
                 content = resolve_content(fname)
                 if content is not None:
-                    self._file_system.write_file(target_path, content)
+                    if not self._content_matches(target_path, content):
+                        self._file_system.write_file(target_path, content)
+                        count += 1
                     if stem_identity:
                         self._prune_same_stem(dest_dir, fname)
-                    count += 1
         return self._format_init_status(count, overwrite)
 
     def _get_default_content(self, filename: str) -> str | None:
@@ -252,7 +273,8 @@ class InitService(IInitUseCase):
                 If False, only write missing files.
 
         Returns:
-            A status string: "unchanged", "updated (N files)", or "overwritten (N files)".
+            A status string: "unchanged", "updated (N files)", or
+            "overwritten (N file(s) modified)".
         """
         return self._copy_bundled_files(
             dest_dir=".teddy",
@@ -273,7 +295,8 @@ class InitService(IInitUseCase):
             overwrite: If True, always overwrite existing files. If False, only write missing ones.
 
         Returns:
-            A status string: "unchanged", "updated (N files)", or "overwritten (N files)".
+            A status string: "unchanged", "updated (N files)", or
+            "overwritten (N file(s) modified)".
         """
         return self._copy_bundled_files(
             dest_dir=".teddy/prompts",
@@ -291,7 +314,8 @@ class InitService(IInitUseCase):
                 If False (default), only write missing files.
 
         Returns:
-            A status string: "unchanged", "updated (N files)", or "overwritten (N files)".
+            A status string: "unchanged", "updated (N files)", or
+            "overwritten (N file(s) modified)".
         """
         return self._copy_bundled_files(
             dest_dir="docs/templates",
@@ -330,7 +354,8 @@ class InitService(IInitUseCase):
                        If False (default), only write missing files.
 
         Returns:
-            A human-readable status string (e.g., "Prompts overwritten (6 files).").
+            A human-readable status string (e.g.,
+            "Prompts overwritten (6 file(s) modified).").
         """
         status = self._init_prompts(overwrite=overwrite)
         return f"Prompts {status}."
@@ -349,7 +374,8 @@ class InitService(IInitUseCase):
                        written only when missing in either case.
 
         Returns:
-            A human-readable status string (e.g., "Configuration files overwritten (3 files).").
+            A human-readable status string (e.g.,
+            "Configuration files overwritten (3 file(s) modified).").
         """
         status = self._init_config_dir(overwrite=overwrite)
         return f"Configuration files {status}."

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: hvplot
-Version: 0.12.2
+Version: 0.13.0
 Summary: A high-level plotting API for the PyData ecosystem built on HoloViews.
 Project-URL: Homepage, https://hvplot.holoviz.org
 Project-URL: Source, http://github.com/holoviz/hvplot
@@ -15,14 +15,14 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: bokeh>=3.1
 Requires-Dist: colorcet>=2
 Requires-Dist: holoviews>=1.19.0
@@ -35,113 +35,104 @@ Provides-Extra: dev-extras
 Requires-Dist: setuptools-scm>=6; extra == 'dev-extras'
 Provides-Extra: doc
 Requires-Dist: bokeh-sampledata>=2025.0; extra == 'doc'
+Requires-Dist: bokeh>=3.10; extra == 'doc'
 Requires-Dist: dask[dataframe]>=2021.3.0; extra == 'doc'
 Requires-Dist: datashader>=0.6.5; extra == 'doc'
 Requires-Dist: duckdb; extra == 'doc'
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'doc'
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == 'doc'
 Requires-Dist: fugue[sql]; extra == 'doc'
 Requires-Dist: geodatasets>=2023.12.0; extra == 'doc'
 Requires-Dist: hvsampledata>=0.1.4a2; extra == 'doc'
 Requires-Dist: ibis-framework[duckdb]; extra == 'doc'
-Requires-Dist: intake-parquet>=0.2.3; extra == 'doc'
-Requires-Dist: intake-xarray<2,>=0.5.0; extra == 'doc'
-Requires-Dist: intake<2.0.0,>=0.6.5; extra == 'doc'
 Requires-Dist: ipywidgets; extra == 'doc'
 Requires-Dist: jinja2; extra == 'doc'
 Requires-Dist: matplotlib; extra == 'doc'
 Requires-Dist: nbsite>=0.9.0a12; extra == 'doc'
+Requires-Dist: netcdf4; extra == 'doc'
 Requires-Dist: networkx>=2.6.3; extra == 'doc'
 Requires-Dist: notebook>=5.4; extra == 'doc'
 Requires-Dist: numba>=0.51.0; extra == 'doc'
 Requires-Dist: numpydoc; extra == 'doc'
 Requires-Dist: pillow>=8.2.0; extra == 'doc'
+Requires-Dist: playwright; extra == 'doc'
 Requires-Dist: plotly; extra == 'doc'
 Requires-Dist: polars; extra == 'doc'
 Requires-Dist: pooch>=1.6.0; extra == 'doc'
-Requires-Dist: qpd>=0.4.4; extra == 'doc'
 Requires-Dist: s3fs>=2022.1.0; extra == 'doc'
 Requires-Dist: scikit-image>=0.17.2; extra == 'doc'
 Requires-Dist: scikit-learn>=1.4.0; extra == 'doc'
 Requires-Dist: scipy>=1.5.3; extra == 'doc'
-Requires-Dist: selenium>=3.141.0; extra == 'doc'
 Requires-Dist: sphinxcontrib-mermaid; extra == 'doc'
 Requires-Dist: sphinxext-rediraffe; extra == 'doc'
 Requires-Dist: sqlglot; extra == 'doc'
-Requires-Dist: streamz>=0.3.0; extra == 'doc'
 Requires-Dist: xarray>=0.18.2; extra == 'doc'
+Requires-Dist: xugrid>=0.15.0; extra == 'doc'
 Requires-Dist: xyzservices>=2022.9.0; extra == 'doc'
 Provides-Extra: examples
 Requires-Dist: bokeh-sampledata>=2025.0; extra == 'examples'
 Requires-Dist: dask[dataframe]>=2021.3.0; extra == 'examples'
 Requires-Dist: datashader>=0.6.5; extra == 'examples'
 Requires-Dist: duckdb; extra == 'examples'
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'examples'
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == 'examples'
 Requires-Dist: fugue[sql]; extra == 'examples'
 Requires-Dist: geodatasets>=2023.12.0; extra == 'examples'
 Requires-Dist: hvsampledata>=0.1.4a2; extra == 'examples'
 Requires-Dist: ibis-framework[duckdb]; extra == 'examples'
-Requires-Dist: intake-parquet>=0.2.3; extra == 'examples'
-Requires-Dist: intake-xarray<2,>=0.5.0; extra == 'examples'
-Requires-Dist: intake<2.0.0,>=0.6.5; extra == 'examples'
 Requires-Dist: ipywidgets; extra == 'examples'
 Requires-Dist: jinja2; extra == 'examples'
 Requires-Dist: matplotlib; extra == 'examples'
+Requires-Dist: netcdf4; extra == 'examples'
 Requires-Dist: networkx>=2.6.3; extra == 'examples'
 Requires-Dist: notebook>=5.4; extra == 'examples'
 Requires-Dist: numba>=0.51.0; extra == 'examples'
 Requires-Dist: pillow>=8.2.0; extra == 'examples'
+Requires-Dist: playwright; extra == 'examples'
 Requires-Dist: plotly; extra == 'examples'
 Requires-Dist: polars; extra == 'examples'
 Requires-Dist: pooch>=1.6.0; extra == 'examples'
-Requires-Dist: qpd>=0.4.4; extra == 'examples'
 Requires-Dist: s3fs>=2022.1.0; extra == 'examples'
 Requires-Dist: scikit-image>=0.17.2; extra == 'examples'
 Requires-Dist: scikit-learn>=1.4.0; extra == 'examples'
 Requires-Dist: scipy>=1.5.3; extra == 'examples'
-Requires-Dist: selenium>=3.141.0; extra == 'examples'
 Requires-Dist: sqlglot; extra == 'examples'
-Requires-Dist: streamz>=0.3.0; extra == 'examples'
 Requires-Dist: xarray>=0.18.2; extra == 'examples'
+Requires-Dist: xugrid>=0.15.0; extra == 'examples'
 Requires-Dist: xyzservices>=2022.9.0; extra == 'examples'
 Provides-Extra: examples-tests
 Requires-Dist: bokeh-sampledata>=2025.0; extra == 'examples-tests'
 Requires-Dist: dask[dataframe]>=2021.3.0; extra == 'examples-tests'
 Requires-Dist: datashader>=0.6.5; extra == 'examples-tests'
 Requires-Dist: duckdb; extra == 'examples-tests'
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'examples-tests'
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == 'examples-tests'
 Requires-Dist: fugue[sql]; extra == 'examples-tests'
 Requires-Dist: geodatasets>=2023.12.0; extra == 'examples-tests'
 Requires-Dist: hvsampledata>=0.1.4a2; extra == 'examples-tests'
 Requires-Dist: ibis-framework[duckdb]; extra == 'examples-tests'
-Requires-Dist: intake-parquet>=0.2.3; extra == 'examples-tests'
-Requires-Dist: intake-xarray<2,>=0.5.0; extra == 'examples-tests'
-Requires-Dist: intake<2.0.0,>=0.6.5; extra == 'examples-tests'
 Requires-Dist: ipywidgets; extra == 'examples-tests'
 Requires-Dist: jinja2; extra == 'examples-tests'
 Requires-Dist: matplotlib; extra == 'examples-tests'
 Requires-Dist: nbval; extra == 'examples-tests'
+Requires-Dist: netcdf4; extra == 'examples-tests'
 Requires-Dist: networkx>=2.6.3; extra == 'examples-tests'
 Requires-Dist: notebook>=5.4; extra == 'examples-tests'
 Requires-Dist: numba>=0.51.0; extra == 'examples-tests'
 Requires-Dist: pillow>=8.2.0; extra == 'examples-tests'
+Requires-Dist: playwright; extra == 'examples-tests'
 Requires-Dist: plotly; extra == 'examples-tests'
 Requires-Dist: polars; extra == 'examples-tests'
 Requires-Dist: pooch>=1.6.0; extra == 'examples-tests'
 Requires-Dist: pytest-xdist; extra == 'examples-tests'
-Requires-Dist: qpd>=0.4.4; extra == 'examples-tests'
 Requires-Dist: s3fs>=2022.1.0; extra == 'examples-tests'
 Requires-Dist: scikit-image>=0.17.2; extra == 'examples-tests'
 Requires-Dist: scikit-learn>=1.4.0; extra == 'examples-tests'
 Requires-Dist: scipy>=1.5.3; extra == 'examples-tests'
-Requires-Dist: selenium>=3.141.0; extra == 'examples-tests'
 Requires-Dist: sqlglot; extra == 'examples-tests'
-Requires-Dist: streamz>=0.3.0; extra == 'examples-tests'
 Requires-Dist: xarray>=0.18.2; extra == 'examples-tests'
+Requires-Dist: xugrid>=0.15.0; extra == 'examples-tests'
 Requires-Dist: xyzservices>=2022.9.0; extra == 'examples-tests'
 Provides-Extra: fugue-sql
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'fugue-sql'
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == 'fugue-sql'
 Requires-Dist: jinja2; extra == 'fugue-sql'
-Requires-Dist: qpd>=0.4.4; extra == 'fugue-sql'
 Requires-Dist: sqlglot; extra == 'fugue-sql'
 Provides-Extra: geo
 Requires-Dist: cartopy; extra == 'geo'
@@ -169,14 +160,13 @@ Requires-Dist: cftime; extra == 'tests'
 Requires-Dist: dask; extra == 'tests'
 Requires-Dist: dask[dataframe]; extra == 'tests'
 Requires-Dist: duckdb; extra == 'tests'
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == 'tests'
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == 'tests'
 Requires-Dist: fugue[sql]; extra == 'tests'
 Requires-Dist: ibis-framework[duckdb]; extra == 'tests'
 Requires-Dist: ipywidgets; extra == 'tests'
 Requires-Dist: jinja2; extra == 'tests'
 Requires-Dist: matplotlib; extra == 'tests'
 Requires-Dist: numpydoc; extra == 'tests'
-Requires-Dist: parameterized; extra == 'tests'
 Requires-Dist: plotly; extra == 'tests'
 Requires-Dist: polars; extra == 'tests'
 Requires-Dist: pooch; extra == 'tests'
@@ -184,7 +174,9 @@ Requires-Dist: pre-commit; extra == 'tests'
 Requires-Dist: psutil; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
-Requires-Dist: qpd>=0.4.4; extra == 'tests'
+Requires-Dist: pytest-randomly; extra == 'tests'
+Requires-Dist: pytest-socket; extra == 'tests'
+Requires-Dist: pytest-xdist; extra == 'tests'
 Requires-Dist: ruff; extra == 'tests'
 Requires-Dist: scipy; extra == 'tests'
 Requires-Dist: spatialpandas; extra == 'tests'
@@ -197,13 +189,15 @@ Requires-Dist: dask[dataframe]; extra == 'tests-core'
 Requires-Dist: ipywidgets; extra == 'tests-core'
 Requires-Dist: matplotlib; extra == 'tests-core'
 Requires-Dist: numpydoc; extra == 'tests-core'
-Requires-Dist: parameterized; extra == 'tests-core'
 Requires-Dist: plotly; extra == 'tests-core'
 Requires-Dist: pooch; extra == 'tests-core'
 Requires-Dist: pre-commit; extra == 'tests-core'
 Requires-Dist: psutil; extra == 'tests-core'
 Requires-Dist: pytest; extra == 'tests-core'
 Requires-Dist: pytest-cov; extra == 'tests-core'
+Requires-Dist: pytest-randomly; extra == 'tests-core'
+Requires-Dist: pytest-socket; extra == 'tests-core'
+Requires-Dist: pytest-xdist; extra == 'tests-core'
 Requires-Dist: ruff; extra == 'tests-core'
 Requires-Dist: scipy; extra == 'tests-core'
 Requires-Dist: xarray; extra == 'tests-core'
@@ -224,7 +218,7 @@ Description-Content-Type: text/markdown
 | Downloads | ![https://pypistats.org/packages/hvplot](https://img.shields.io/pypi/dm/hvplot?label=pypi) ![https://anaconda.org/pyviz/hvplot](https://pyviz.org/_static/cache/hvplot_conda_downloads_badge.svg)
 | Build Status | [![Build Status](https://github.com/holoviz/hvplot/workflows/tests/badge.svg?query=branch%3Amain)](https://github.com/holoviz/hvplot/actions?query=workflow%3Atests+branch%3Amain) |
 | Coverage | [![codecov](https://codecov.io/gh/holoviz/hvplot/branch/main/graph/badge.svg)](https://codecov.io/gh/holoviz/hvplot) |
-| Latest dev release | [![Github tag](https://img.shields.io/github/tag/holoviz/hvplot.svg?label=tag&colorB=11ccbb)](https://github.com/holoviz/hvplot/tags) [![dev-site](https://img.shields.io/website-up-down-green-red/https/holoviz-dev.github.io/hvplot.svg?label=dev%20website)](https://holoviz-dev.github.io/hvplot/) |
+| Latest dev release | [![Github tag](https://img.shields.io/github/tag/holoviz/hvplot.svg?label=tag&colorB=11ccbb)](https://github.com/holoviz/hvplot/tags) [![dev-site](https://img.shields.io/website.svg?label=dev%20website&up_message=up&down_message=down&up_color=green&down_color=red&url=https://hvplot.holoviz.org/en/docs/dev/index.html)](https://hvplot.holoviz.org/en/docs/dev/index.html) |
 | Latest release | [![Github release](https://img.shields.io/github/release/holoviz/hvplot.svg?label=tag&colorB=11ccbb)](https://github.com/holoviz/hvplot/releases) [![PyPI version](https://img.shields.io/pypi/v/hvplot.svg?colorB=cc77dd)](https://pypi.python.org/pypi/hvplot) [![hvplot version](https://img.shields.io/conda/v/pyviz/hvplot.svg?colorB=4488ff&style=flat)](https://anaconda.org/pyviz/hvplot) [![conda-forge version](https://img.shields.io/conda/v/conda-forge/hvplot.svg?label=conda%7Cconda-forge&colorB=4488ff)](https://anaconda.org/conda-forge/hvplot) [![defaults version](https://img.shields.io/conda/v/anaconda/hvplot.svg?label=conda%7Cdefaults&style=flat&colorB=4488ff)](https://anaconda.org/anaconda/hvplot) |
 | Python | [![Python support](https://img.shields.io/pypi/pyversions/hvplot.svg)](https://pypi.org/project/hvplot/) |
 | Docs | [![gh-pages](https://img.shields.io/github/last-commit/holoviz/hvplot/gh-pages.svg)](https://github.com/holoviz/hvplot/tree/gh-pages) [![site](https://img.shields.io/website-up-down-green-red/http/hvplot.holoviz.org.svg)](https://hvplot.holoviz.org) |
@@ -243,7 +237,7 @@ The API is based on the familiar Pandas `.plot` API and the innovative `.interac
 
 hvPlot
 
-- supports a wide range of data sources including [Pandas](http://pandas.pydata.org), [Polars](https://docs.pola.rs/), [XArray](http://xarray.pydata.org), [Dask](http://dask.pydata.org), [Streamz](http://streamz.readthedocs.io), [Intake](http://github.com/ContinuumIO/intake), [GeoPandas](http://geopandas.org) and [NetworkX](https://networkx.github.io/documentation/stable/).
+- supports a wide range of data sources including [Pandas](http://pandas.pydata.org), [Polars](https://docs.pola.rs/), [XArray](http://xarray.pydata.org), [Dask](http://dask.pydata.org), [GeoPandas](http://geopandas.org) and [NetworkX](https://networkx.github.io/documentation/stable/).
 - supports the plotting backends [Bokeh](https://docs.bokeh.org/en/latest/), [Matplotlib](https://matplotlib.org/) and [Plotly](https://plotly.com/python/).
 - exposes the powerful tools from the [HoloViz](https://holoviz.org/) ecosystem in a familiar and convenient API.
 

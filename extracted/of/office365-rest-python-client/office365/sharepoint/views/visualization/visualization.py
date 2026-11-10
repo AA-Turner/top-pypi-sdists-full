@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -6,7 +6,6 @@ from office365.sharepoint.views.visualization.style_set import VisualizationStyl
 from office365.sharepoint.viva.visualizationappinfo import VisualizationAppInfo
 
 
-@dataclass
 class Visualization(ClientValue):
     DefaultScreen: VisualizationStyleSet = field(default_factory=VisualizationStyleSet)
     DetailView: VisualizationStyleSet = field(default_factory=VisualizationStyleSet)

@@ -90,7 +90,7 @@ class Tokenizations(SyncAPIResource):
         ending_before: str | Omit = omit,
         page_size: int | Omit = omit,
         starting_after: str | Omit = omit,
-        tokenization_channel: Literal["DIGITAL_WALLET", "MERCHANT", "ALL"] | Omit = omit,
+        tokenization_channel: Literal["DIGITAL_WALLET", "MERCHANT", "AGENT_PAY", "ALL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -104,7 +104,7 @@ class Tokenizations(SyncAPIResource):
         Args:
           account_token: Filters for tokenizations associated with a specific account.
 
-          begin: Filter for tokenizations created after this date.
+          begin: Filter for tokenizations created on or after this date.
 
           card_token: Filters for tokenizations associated with a specific card.
 
@@ -558,7 +558,7 @@ class AsyncTokenizations(AsyncAPIResource):
         ending_before: str | Omit = omit,
         page_size: int | Omit = omit,
         starting_after: str | Omit = omit,
-        tokenization_channel: Literal["DIGITAL_WALLET", "MERCHANT", "ALL"] | Omit = omit,
+        tokenization_channel: Literal["DIGITAL_WALLET", "MERCHANT", "AGENT_PAY", "ALL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -572,7 +572,7 @@ class AsyncTokenizations(AsyncAPIResource):
         Args:
           account_token: Filters for tokenizations associated with a specific account.
 
-          begin: Filter for tokenizations created after this date.
+          begin: Filter for tokenizations created on or after this date.
 
           card_token: Filters for tokenizations associated with a specific card.
 

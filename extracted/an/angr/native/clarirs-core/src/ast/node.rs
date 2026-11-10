@@ -15,11 +15,11 @@ use crate::{
 /// [`AstType`] so its sort can be queried in O(1) without inspecting the operation.
 pub struct AstNode<'c> {
     op: AstOp<'c>,
-    annotations: BTreeSet<Annotation>,
+    annotations: BTreeSet<Arc<Annotation>>,
     ast_type: AstType,
     ctx: &'c Context<'c>,
     hash: u64,
-    variables: BTreeSet<InternedString>,
+    pub(crate) variables: Option<Arc<BTreeSet<InternedString>>>,
     depth: u32,
     symbolic: bool,
     simplifiable: bool,
@@ -59,14 +59,14 @@ impl<'c> AstNode<'c> {
     pub(crate) fn new(
         ctx: &'c Context<'c>,
         op: AstOp<'c>,
-        annotations: BTreeSet<Annotation>,
+        annotations: BTreeSet<Arc<Annotation>>,
     ) -> Self {
         let ast_type = op.infer_type();
         let variables = op.variables();
         let depth = 1 + op.child_iter().map(|c| c.depth()).max().unwrap_or(0);
         // Symbolic propagates from: having variables, the op itself being inherently
         // symbolic (e.g. VSA Union/Intersection/Widen), or any child being symbolic.
-        let symbolic = !variables.is_empty()
+        let symbolic = variables.is_some()
             || op.is_inherently_symbolic()
             || op.child_iter().any(|c| c.symbolic());
 
@@ -104,13 +104,13 @@ impl<'c> AstNode<'c> {
         self.ast_type
     }
 
-    pub fn annotations(&self) -> &BTreeSet<Annotation> {
+    pub fn annotations(&self) -> &BTreeSet<Arc<Annotation>> {
         &self.annotations
     }
 
     pub fn annotate(
         self: Arc<Self>,
-        annotations: impl IntoIterator<Item = Annotation>,
+        annotations: impl IntoIterator<Item = Arc<Annotation>>,
     ) -> Result<Arc<Self>, ClarirsError> {
         let combined: BTreeSet<_> = self
             .annotations()
@@ -152,7 +152,9 @@ impl<'c> AstNode<'c> {
     }
 
     pub fn variables(&self) -> &BTreeSet<InternedString> {
-        &self.variables
+        self.variables
+            .as_deref()
+            .unwrap_or(const { &BTreeSet::new() })
     }
 
     pub fn size(&self) -> u32 {
@@ -271,5 +273,49 @@ impl<T> IntoOwned<T> for T {
 impl<T: Clone> IntoOwned<T> for &T {
     fn into_owned(self) -> T {
         self.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    #[test]
+    fn test_variables_shared_with_covering_child() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let bytes = (0..64)
+            .map(|i| ctx.bvs(format!("b{i}"), 8))
+            .collect::<Result<Vec<_>, _>>()?;
+        let wide = ctx.concat(bytes.iter().cloned())?;
+        assert_eq!(wide.variables().len(), 64);
+
+        let low = ctx.extract(wide.clone(), 7, 0)?;
+        let ext = ctx.zero_ext(low.clone(), 504)?;
+        let sum = ctx.add(wide.clone(), ctx.xor2(wide.clone(), ext.clone())?)?;
+        for node in [&low, &ext, &sum] {
+            assert!(std::ptr::eq(node.variables(), wide.variables()));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_variables_union_when_no_child_covers() -> Result<(), ClarirsError> {
+        let ctx = Context::new();
+        let (x, y) = (ctx.bvs("x", 8)?, ctx.bvs("y", 8)?);
+        let xy = ctx.add(x.clone(), y.clone())?;
+        let names: Vec<_> = xy
+            .variables()
+            .iter()
+            .map(|v| v.as_str().to_owned())
+            .collect();
+        assert_eq!(names, ["x", "y"]);
+        assert!(!std::ptr::eq(xy.variables(), x.variables()));
+
+        let k = ctx.add(
+            ctx.bvv(BitVec::from((1, 8)))?,
+            ctx.bvv(BitVec::from((2, 8)))?,
+        )?;
+        assert!(k.variables().is_empty());
+        Ok(())
     }
 }

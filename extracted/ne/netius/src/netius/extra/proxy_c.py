@@ -68,7 +68,9 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
 
     Additional per-service tags are supported for password
     protection (`proxy.password=<secret>`), custom error pages
-    (`proxy.error-url=<url>`), automatic HTTPS redirection
+    (`proxy.error-url=<url>`), custom not found pages
+    (`proxy.not-found-url=<url>`), custom not authorized pages
+    (`proxy.unauthorized-url=<url>`), automatic HTTPS redirection
     (`proxy.redirect-ssl=true`), host redirection
     (`proxy.redirect=<host>` or `proxy.redirect=<host>;<protocol>`),
     regex-based redirection
@@ -145,12 +147,14 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
 
     def _build_hosts(self, entries):
         # removes any previously registered consul-managed hosts,
-        # auth, error URLs, redirects and auth regex entries to
-        # ensure a clean state before rebuilding the complete set
+        # auth, error URLs, not found URLs, not authorized URLs, redirects
+        # and auth regex entries to ensure a clean state before rebuilding
         for host in self._consul_hosts:
             self.hosts.pop(host, None)
             self.auth.pop(host, None)
             self.error_urls.pop(host, None)
+            self.not_found_urls.pop(host, None)
+            self.unauthorized_urls.pop(host, None)
             self.redirect.pop(host, None)
         for entry in self._consul_auth_regex:
             try:
@@ -174,6 +178,16 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
         self._consul_auth_regex = []
         self._consul_redirect_regex = []
         self._consul_regex = []
+
+        # re-applies the pages named in the environment, as the cleanup above
+        # also removed the ones of a host that consul happens to manage, the
+        # tags are applied after this so that they still take precedence
+        if self.env:
+            self._build_error_urls()
+        if self.env:
+            self._build_not_found_urls()
+        if self.env:
+            self._build_unauthorized_urls()
 
         # iterates over the fetched entries registering each one
         # in the hosts map and applying per-service configuration
@@ -478,7 +492,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             part = part.strip()
             if not part:
                 continue
-            if ";" not in part:
+            if not ";" in part:
                 continue
             pattern, auth_spec = part.split(";", 1)
             pattern = pattern.strip()
@@ -504,7 +518,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
     def _resolve_redirect(self, value):
         if not value:
             return None
-        if ";" not in value:
+        if not ";" in value:
             return str(value)
         parts = value.split(";", 1)
         host = parts[0].strip()
@@ -527,7 +541,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             part = part.strip()
             if not part:
                 continue
-            if ";" not in part:
+            if not ";" in part:
                 continue
             pattern, target = part.split(";", 1)
             pattern = pattern.strip()
@@ -552,7 +566,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             part = part.strip()
             if not part:
                 continue
-            if ";" not in part:
+            if not ";" in part:
                 continue
             pattern, target = part.split(";", 1)
             pattern = pattern.strip()
@@ -615,6 +629,24 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
                     self.error_urls[domain] = str(error_url)
                     self.debug(
                         "Registered proxy.error-url '%s' for '%s'", error_url, domain
+                    )
+            elif tag.startswith("proxy.not-found-url="):
+                not_found_url = tag[len("proxy.not-found-url=") :]
+                if not_found_url:
+                    self.not_found_urls[domain] = str(not_found_url)
+                    self.debug(
+                        "Registered proxy.not-found-url '%s' for '%s'",
+                        not_found_url,
+                        domain,
+                    )
+            elif tag.startswith("proxy.unauthorized-url="):
+                unauthorized_url = tag[len("proxy.unauthorized-url=") :]
+                if unauthorized_url:
+                    self.unauthorized_urls[domain] = str(unauthorized_url)
+                    self.debug(
+                        "Registered proxy.unauthorized-url '%s' for '%s'",
+                        unauthorized_url,
+                        domain,
                     )
             elif tag.startswith("proxy.alias="):
                 aliases = tag[len("proxy.alias=") :]
@@ -773,6 +805,12 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             self.debug("    %s => %s", name, value.__class__.__name__)
         self.debug("  error_urls (%d):", len(self.error_urls))
         for name, value in netius.legacy.items(self.error_urls):
+            self.debug("    %s => %s", name, value)
+        self.debug("  not_found_urls (%d):", len(self.not_found_urls))
+        for name, value in netius.legacy.items(self.not_found_urls):
+            self.debug("    %s => %s", name, value)
+        self.debug("  unauthorized_urls (%d):", len(self.unauthorized_urls))
+        for name, value in netius.legacy.items(self.unauthorized_urls):
             self.debug("    %s => %s", name, value)
         self.debug("  redirect (%d):", len(self.redirect))
         for name, value in netius.legacy.items(self.redirect):

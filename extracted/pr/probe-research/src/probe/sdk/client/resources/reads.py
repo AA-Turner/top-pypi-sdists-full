@@ -36,8 +36,11 @@ class ReadsMixin:
         sql: str | None = None,
         tables: list[str] | None = None,
         max_rows: int | None = None,
+        source: str | None = None,
     ) -> dict:
-        """``POST /v1/sql``: schema discovery (omit ``sql``) or one read-only SELECT.
+        """``POST /v1/sql``: schema discovery (omit ``sql``) or one read-only SELECT. ``source="samples"``
+        reads ClickHouse's RL sample views instead of the research tables (sent only when given: an older
+        server refuses the field).
 
         The server enforces the caller's tenant and visibility, a closed set of
         tables, functions and constructs, a 5s statement timeout and a result
@@ -52,6 +55,8 @@ class ReadsMixin:
             body["tables"] = tables
         if max_rows is not None:
             body["max_rows"] = max_rows
+        if source is not None:
+            body["source"] = source
         return self.transport.post("/v1/sql", body)
 
     def query_series(self, run_ids: list[str], **kw) -> dict:

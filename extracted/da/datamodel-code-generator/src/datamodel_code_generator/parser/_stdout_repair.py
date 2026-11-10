@@ -4,9 +4,9 @@ Once every module is written, ``inspect_invalid_dotted_stdout`` records whether 
 usable and, when an inferred dotted module made it unusable, the modules a retry flattens, with the model inventory
 and source fingerprint the retry must match. ``apply_forced_invalid_dotted_stdout_repair`` flattens those modules in
 the retry. Each function takes the parser through ``StdoutRepairHost``, which ``Parser`` satisfies structurally. The
-methods stay on ``Parser`` as delegators to these functions, and these functions call them through the parser, so
-subclasses still override them; ``Parser._find_stdout_defect_models`` and ``Parser._find_shadowed_stdout_models``,
-which build and read the public ``StdoutBindingContext``, stay parser methods.
+passes reach the first two through ``Parser._inspect_invalid_dotted_stdout`` and
+``Parser._apply_forced_invalid_dotted_stdout_repair``; ``Parser._find_stdout_defect_models`` and
+``Parser._find_shadowed_stdout_models``, which build and read the public ``StdoutBindingContext``, stay parser methods.
 """
 
 from __future__ import annotations
@@ -19,9 +19,8 @@ from typing_extensions import Protocol
 from datamodel_code_generator._module_paths import is_within, normalized_path
 from datamodel_code_generator._parse_memo import MemoTable
 from datamodel_code_generator.model.base import forget_model_memos
-from datamodel_code_generator.model.enum import Enum
 from datamodel_code_generator.parser._model_shapes import stdout_fingerprint
-from datamodel_code_generator.parser._passes._name_allocation import scheme_resolver
+from datamodel_code_generator.parser._passes._name_allocation import scheme_resolver, suffix_kind
 from datamodel_code_generator.parser._passes._state import ContextT, ResultT
 from datamodel_code_generator.reference import split_module_name
 
@@ -107,9 +106,6 @@ class StdoutRepairHost(Protocol[ContextT, ResultT]):
     def _reuse_groups(self) -> ReuseGroups:
         """The groups of duplicate models that deduplication and reuse found."""
 
-    def _find_invalid_inferred_modules(self, sorted_data_models: SortedDataModels) -> set[ModulePath]:
-        """Return non-canonical module paths created by automatic dotted-name inference."""
-
     @staticmethod
     def _find_stdout_defect_models(
         contexts: list[ContextT],
@@ -121,18 +117,8 @@ class StdoutRepairHost(Protocol[ContextT, ResultT]):
     ) -> set[DataModel]:
         """Return final models involved in an unusable concatenated stdout result."""
 
-    def _flatten_invalid_modules(
-        self,
-        live_models: list[DataModel],
-        affected_models: list[DataModel],
-    ) -> bool:
-        """Flatten selected inferred modules while preserving all unaffected names."""
-
     def _get_source_data_fingerprint(self) -> bytes | None:
         """Hash parsed root and reference data without allocating one serialized copy."""
-
-    def _model_inventory(self, models: list[DataModel]) -> tuple[str, ...]:
-        """Return the paths of the models other than typed map values, which a retry with untyped values omits."""
 
 
 def find_invalid_inferred_modules(
@@ -207,7 +193,7 @@ def inspect_invalid_dotted_stdout(
     invalid_modules = (
         set()
         if parser.forced_invalid_dotted_stdout_repair_modules
-        else parser._find_invalid_inferred_modules(sorted_data_models)  # noqa: SLF001
+        else find_invalid_inferred_modules(parser, sorted_data_models)
     )
     if parser.repair_invalid_dotted_stdout and not invalid_modules:
         return
@@ -233,7 +219,7 @@ def inspect_invalid_dotted_stdout(
         defect_models.update(live_models)
     parser.stdout_result_usable = not defect_models
     if parser.forced_invalid_dotted_stdout_repair_modules:
-        parser.generated_model_inventory = parser._model_inventory(live_models)  # noqa: SLF001
+        parser.generated_model_inventory = model_inventory(parser, live_models)
         parser.source_data_fingerprint = parser._get_source_data_fingerprint()  # noqa: SLF001
         return
     if not defect_models or config.module_split_mode is not None:
@@ -256,7 +242,7 @@ def inspect_invalid_dotted_stdout(
     # The retry flattens every stdout model. Pass every non-canonical inferred
     # module so canonical modules reserve their existing names before any of them.
     parser.invalid_dotted_stdout_repair_modules = tuple(sorted(invalid_modules))
-    parser.generated_model_inventory = parser._model_inventory(live_models)  # noqa: SLF001
+    parser.generated_model_inventory = model_inventory(parser, live_models)
     parser.source_data_fingerprint = source_fingerprint
 
 
@@ -290,7 +276,7 @@ def flatten_invalid_modules(
             [str(index)],
             model.class_name,
             class_name=True,
-            model_type="enum" if isinstance(model, Enum) else "model",
+            model_type=suffix_kind(model),
             preserve_class_name=True,
         ).name
 
@@ -304,7 +290,9 @@ def flatten_invalid_modules(
         )
 
     for model, new_name in new_names.items():
-        parser._graph_builder.rename_model(model, reference_name=new_name, clear_duplicate_name=True)  # noqa: SLF001
+        parser._graph_builder.rename_model(  # noqa: SLF001
+            model, reference_name=new_name, clear_duplicate_name=True, scheme="flattened-module"
+        )
     resolver.refresh_reference_names()
     for model in models_to_clear:
         forget_model_memos(model, MemoTable.DEDUP_KEYS)
@@ -334,4 +322,4 @@ def apply_forced_invalid_dotted_stdout_repair(
     flatten_order = [model for model in unaffected_models if not model.module_path]
     flatten_order.extend(model for model in unaffected_models if model.module_path)
     flatten_order.extend(originally_affected_models)
-    return parser._flatten_invalid_modules(live_models, flatten_order)  # noqa: SLF001
+    return flatten_invalid_modules(parser, live_models, flatten_order)

@@ -49,7 +49,7 @@ class NumpyType:
         ArgType.DevULong: DevULong,
         ArgType.DevUChar: DevUChar,
         ArgType.DevLong64: DevLong64,
-        ArgType.DevULong: DevULong64,
+        ArgType.DevULong64: DevULong64,
     }
 
     @staticmethod

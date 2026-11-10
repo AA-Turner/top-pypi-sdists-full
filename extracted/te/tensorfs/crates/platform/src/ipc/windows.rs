@@ -127,16 +127,6 @@ impl LocalStream {
         self.closed.load(std::sync::atomic::Ordering::Acquire)
     }
 
-    /// How long a read waits before it answers `TimedOut`, as a socket's read timeout.
-    pub fn set_read_timeout(&self, timeout: Option<std::time::Duration>) -> io::Result<()> {
-        let ms = timeout.map_or(0, |t| {
-            t.as_millis().clamp(1, u128::from(INFINITE - 1)) as u32
-        });
-        self.read_timeout_ms
-            .store(ms, std::sync::atomic::Ordering::Relaxed);
-        Ok(())
-    }
-
     /// Whether a read or write that cannot finish at once answers `WouldBlock` instead of waiting.
     pub fn set_nonblocking(&self, nonblocking: bool) -> io::Result<()> {
         self.nonblocking
@@ -145,7 +135,7 @@ impl LocalStream {
     }
 
     /// The process on the other end.
-    pub fn peer_pid(&self) -> io::Result<u32> {
+    pub(crate) fn peer_pid(&self) -> io::Result<u32> {
         let mut pid = 0u32;
         // SAFETY: a live pipe handle and a writable pid.
         let read = unsafe {
@@ -164,7 +154,7 @@ impl LocalStream {
     /// handle sent later lands in the process whose token [`LocalStream::peer_user`] read. It
     /// is opened for duplication where the OS allows that, else for queries only (a peer of
     /// higher integrity), and refused if the pipe broke first: then the pid may name a successor.
-    pub fn peer_process(&self) -> io::Result<BorrowedHandle<'_>> {
+    pub(crate) fn peer_process(&self) -> io::Result<BorrowedHandle<'_>> {
         if self.peer.get().is_none() {
             let pid = self.peer_pid()?;
             let query = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SYNCHRONIZE;
@@ -204,7 +194,7 @@ impl LocalStream {
 
     /// Whether a handle can be duplicated into the peer; an error names a process of a higher
     /// integrity level, which this one can identify but not write into.
-    pub fn peer_accepts_handles(&self) -> io::Result<()> {
+    pub(crate) fn peer_accepts_handles(&self) -> io::Result<()> {
         self.peer_process()?;
         if self.peer.get().is_some_and(|(_, dup)| *dup) {
             return Ok(());
@@ -219,7 +209,7 @@ impl LocalStream {
     }
 
     /// The user the process on the other end runs as: its token's user SID, as text.
-    pub fn peer_user(&self) -> io::Result<String> {
+    pub(crate) fn peer_user(&self) -> io::Result<String> {
         token_user(self.peer_process()?.as_raw_handle())
     }
 
@@ -362,18 +352,6 @@ impl LocalListener {
         })
     }
 
-    /// Every dialer, one at a time, as `UnixListener::incoming` gives them.
-    pub fn incoming(&self) -> impl Iterator<Item = Result<LocalStream>> + '_ {
-        std::iter::repeat_with(|| self.accept())
-    }
-
-    pub fn accept(&self) -> Result<LocalStream> {
-        match self.connect_one(None)? {
-            Some(stream) => Ok(stream),
-            None => unreachable!("only a process ends a wait"),
-        }
-    }
-
     /// A dialer, or `None` once `process` has ended first: woken by the kernel, never a timer.
     pub fn accept_unless(&self, process: &Exact) -> Result<Option<LocalStream>> {
         self.connect_one(Some(process.as_handle()))
@@ -386,9 +364,7 @@ impl LocalListener {
             None => instance(&self.name, false, &self.security).map_err(Error::os("listen"))?,
         };
         let signal = event().map_err(Error::os("accept"))?;
-        // SAFETY: plain-old-data with its event set.
-        let mut overlapped: OVERLAPPED = unsafe { mem::zeroed() };
-        overlapped.hEvent = raw(&signal);
+        let mut overlapped = OVERLAPPED { hEvent: raw(&signal), ..Default::default() };
         // SAFETY: a live pipe instance and an OVERLAPPED that outlives the wait below.
         let connected = unsafe { ConnectNamedPipe(raw(&pipe), &mut overlapped) } != 0;
         let error = io::Error::last_os_error();
@@ -450,9 +426,7 @@ pub fn pair() -> Result<(LocalStream, LocalStream)> {
     let server = instance(&name, true, &security).map_err(Error::os("pair"))?;
     let client = dial(&name).map_err(Error::os("pair"))?;
     let signal = event().map_err(Error::os("pair"))?;
-    // SAFETY: plain-old-data with its event set.
-    let mut overlapped: OVERLAPPED = unsafe { mem::zeroed() };
-    overlapped.hEvent = raw(&signal);
+    let mut overlapped = OVERLAPPED { hEvent: raw(&signal), ..Default::default() };
     // SAFETY: a live pipe instance whose dialer has already connected, and an OVERLAPPED that
     // outlives any wait for it.
     if unsafe { ConnectNamedPipe(raw(&server), &mut overlapped) } == 0 {
@@ -552,9 +526,7 @@ fn transfer(
     waits: Option<u32>,
     start: impl FnOnce(*mut OVERLAPPED) -> i32,
 ) -> io::Result<u32> {
-    // SAFETY: plain-old-data with its event set.
-    let mut overlapped: OVERLAPPED = unsafe { mem::zeroed() };
-    overlapped.hEvent = raw(event);
+    let mut overlapped = OVERLAPPED { hEvent: raw(event), ..Default::default() };
     if start(&mut overlapped) == 0 {
         let error = io::Error::last_os_error();
         if error.raw_os_error() != Some(ERROR_IO_PENDING as i32) {
@@ -672,7 +644,7 @@ impl Drop for Security {
 }
 
 /// The user this process runs as, as an SID string; read once.
-pub fn this_user() -> io::Result<String> {
+pub(crate) fn this_user() -> io::Result<String> {
     static USER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
     if let Some(user) = USER.get() {
         return Ok(user.clone());

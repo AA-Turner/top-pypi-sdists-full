@@ -22,21 +22,25 @@ def _derive_justification(result: VerdictResult) -> str | None:
         return None
 
     ev = result.evidence
-
-    # UNREACHABLE_STATIC cases
     if ev is None:
-        return "component_not_present"
+        return "vulnerable_code_not_in_execute_path"
 
+    # The installed version is outside the affected range.
     if ev.version_in_range is False:
-        return "component_not_present"
-
-    if not ev.package_imported:
-        return "component_not_present"
-
-    if ev.submodule_imported is False:
         return "vulnerable_code_not_present"
 
-    return "component_not_present"
+    # Only a package missing from both the analyzed environment and every
+    # dependency source is absent; anything else is present but not executed.
+    if (
+        not ev.package_imported
+        and ev.package_installed is False
+        and not ev.declared_direct_dependency
+        and not ev.report_dependency_chain
+        and ev.dependency_kind is None
+    ):
+        return "component_not_present"
+
+    return "vulnerable_code_not_in_execute_path"
 
 
 def _get_blast_radius(result: VerdictResult):
@@ -142,12 +146,7 @@ def _build_statement(
 
     if result.threat_intel:
         ti = result.threat_intel
-        ca9_meta["threat_intel"] = {
-            "epss_score": ti.epss_score,
-            "epss_percentile": ti.epss_percentile,
-            "in_kev": ti.in_kev,
-            "kev_due_date": ti.kev_due_date,
-        }
+        ca9_meta["threat_intel"] = ti.to_dict()
 
     if result.runtime_mitigations:
         ca9_meta["runtime_mitigations"] = result.runtime_mitigations
@@ -169,6 +168,10 @@ def _build_statement(
             "api_targets": list(ev.api_targets),
             "coverage_completeness_pct": ev.coverage_completeness_pct,
             "submodule_imported": ev.submodule_imported,
+            "import_names": list(ev.import_names),
+            "import_name_source": ev.import_name_source,
+            "package_installed": ev.package_installed,
+            "indirect_use_signals": list(ev.indirect_use_signals),
         }
 
     statement["ca9"] = ca9_meta

@@ -219,6 +219,9 @@ class ObjectType(Enum):
     task = 'task'
     workflow = 'workflow'
     mapping = 'mapping'
+    sequenceJob = 'sequenceJob'
+    parallelJob = 'parallelJob'
+    sharedContainer = 'sharedContainer'
     fileFormat = 'fileFormat'
     policy = 'policy'
     tag = 'tag'
@@ -261,6 +264,7 @@ class SourcePlatform(Enum):
     azureSynapse = 'azureSynapse'
     bigQuery = 'bigQuery'
     databricksSql = 'databricksSql'
+    dataStage = 'dataStage'
     db2 = 'db2'
     druid = 'druid'
     greenplum = 'greenplum'
@@ -468,7 +472,7 @@ class PartTarget(BaseModel):
     )
     objectType: str | None = Field(
         None,
-        description="Target object type for this part. Open string. Well-known values: 'task', 'procedure'. Used together with format to disambiguate sub-kinds within a format (e.g. snowflakeSQL + task vs snowflakeSQL + procedure).",
+        description="Target object type for this part. Open string. Well-known values: 'task', 'procedure', 'macro', 'model'. Used together with format to disambiguate sub-kinds within a format (e.g. snowflakeSQL + task vs snowflakeSQL + procedure).",
     )
     modelName: str | None = Field(
         None,

@@ -1000,6 +1000,23 @@ def test_xml_processing_instruction_drops_forbidden_characters(invalid: str) -> 
 
 
 @pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        pytest.param("\tbar", "bar", id="tab"),
+        pytest.param("\rbar", "bar", id="carriage-return"),
+        pytest.param("\x00\tbar", "bar", id="invalid-before-tab"),
+        pytest.param(" \nbar", "bar", id="multiple-spaces"),
+        pytest.param("\x00\t", "", id="empty-after-filtering"),
+        pytest.param("a\tbar", "a\tbar", id="internal-tab"),
+    ],
+)
+def test_xml_processing_instruction_normalizes_leading_data_space(data: str, expected: str) -> None:
+    output = Element("doc", children=[ProcessingInstruction("t", data)]).serialize(_XML)
+    assert output == f"<doc><?t {expected}?></doc>"
+    assert parse_xml(output).serialize(_XML) == output
+
+
+@pytest.mark.parametrize(
     "target",
     [
         pytest.param("xml", id="reserved-lowercase"),
@@ -1186,6 +1203,8 @@ def test_xml_serialize_makes_a_comment_well_formed() -> None:
         pytest.param("<z:>", id="incomplete-namespace-prefix"),
         pytest.param("<l :>", id="invalid-attribute-prefix"),
         pytest.param("<!--a--b\x01--><p>x</p>", id="double-hyphen-and-control-in-comment"),
+        pytest.param("<!--end-\x01--><p>x</p>", id="trailing-hyphen-after-control"),
+        pytest.param("<!--a-\x01-b--><p>x</p>", id="double-hyphen-across-control"),
     ],
 )
 def test_serialize_xml_output_reparses_as_xml(markup: str) -> None:
@@ -1248,6 +1267,9 @@ def test_serialize_xml_checks_unicode_element_names(name: str, expected: str) ->
         pytest.param("a--b", "<!--a- -b-->", id="double-hyphen-split"),
         pytest.param("a---b", "<!--a- - -b-->", id="triple-hyphen-split"),
         pytest.param("end-", "<!--end- -->", id="trailing-hyphen-spaced"),
+        pytest.param("end-\x01", "<!--end- -->", id="trailing-hyphen-after-control"),
+        pytest.param("a-\x01-b", "<!--a- -b-->", id="double-hyphen-across-control"),
+        pytest.param("a-\x01b", "<!--a-b-->", id="hyphen-before-dropped-control"),
         pytest.param("--", "<!--- - -->", id="only-hyphens"),
         pytest.param("a\x0cb", "<!--ab-->", id="control-char-dropped"),
     ],
@@ -1312,6 +1334,41 @@ def test_inner_xml_drops_attributes_with_invalid_names(markup: str, expected: st
     out = _parsed_inner_xml(markup)
     assert out == expected
     ET.fromstring(out)  # ruff:ignore[suspicious-xml-element-tree-usage]  # our own output, parsed to assert dropping the bad name left it well-formed
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param("<p xmlns:p>", "<p/>", id="empty-prefix-uri"),
+        pytest.param('<p xmlns:xml="urn:x">', "<p/>", id="rebound-xml-prefix"),
+        pytest.param('<p xmlns:xmlns="urn:x">', "<p/>", id="xmlns-prefix"),
+        pytest.param('<p xmlns:p="http://www.w3.org/XML/1998/namespace">', "<p/>", id="reserved-xml-uri"),
+        pytest.param('<p xmlns:p="http://www.w3.org/2000/xmlns/">', "<p/>", id="reserved-xmlns-uri"),
+        pytest.param('<p xmlns="http://www.w3.org/XML/1998/namespace">', "<p/>", id="default-xml-uri"),
+        pytest.param('<p xmlns="http://www.w3.org/2000/xmlns/">', "<p/>", id="default-xmlns-uri"),
+        pytest.param('<p xmlns:1="urn:x">', "<p/>", id="invalid-prefix-name"),
+        pytest.param('<p xmlns:p="urn:x\x01">', "<p/>", id="invalid-prefix-uri-character"),
+        pytest.param('<p xmlns:p="urn:p">', '<p xmlns:p="urn:p"/>', id="valid-prefix-uri"),
+        pytest.param(
+            '<p xmlns:xml="http://www.w3.org/XML/1998/namespace">',
+            '<p xmlns:xml="http://www.w3.org/XML/1998/namespace"/>',
+            id="valid-xml-prefix",
+        ),
+        pytest.param('<p xmlns="">', '<p xmlns=""/>', id="empty-default-uri"),
+    ],
+)
+def test_inner_xml_namespace_declaration_bindings(markup: str, expected: str) -> None:
+    output = _parsed_inner_xml(markup)
+    assert output == expected
+    parse_xml(output)
+
+
+def test_inner_xml_rebinds_invalid_xlink_declaration() -> None:
+    output = _parsed_inner_xml('<svg xmlns:xlink="" xlink:href="x"></svg>')
+    assert output == (
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="x"/>'
+    )
+    parse_xml(output)
 
 
 @pytest.mark.parametrize(

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.directory.synchronization.bulk_upload import BulkUpload
+from office365.directory.synchronization.schedule import SynchronizationSchedule
 from office365.directory.synchronization.schema import SynchronizationSchema
 from office365.directory.synchronization.status import SynchronizationStatus
 from office365.entity import Entity
+from office365.permissions import require_permission
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.key_value_pair import KeyValuePair
-
-if TYPE_CHECKING:
-    from office365.directory.synchronization.schedule import SynchronizationSchedule
+from office365.runtime.types.odata_property import odata
 
 
 class SynchronizationJob(Entity):
@@ -23,6 +23,7 @@ class SynchronizationJob(Entity):
     to read and write objects in your target directory, and customize the job's synchronization schema.
     """
 
+    @require_permission(delegated=["Synchronization.ReadWrite.All"], application=["Synchronization.ReadWrite.All"])
     def pause(self):
         """
         Temporarily stop a running synchronization job. All the progress, including job state, is persisted, and the
@@ -32,6 +33,7 @@ class SynchronizationJob(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(delegated=["Synchronization.ReadWrite.All"], application=["Synchronization.ReadWrite.All"])
     def start(self):
         """
         Start an existing synchronization job. If the job is in a paused state, it will continue processing changes
@@ -43,11 +45,13 @@ class SynchronizationJob(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="status")
     @property
-    def status(self):
+    def status(self) -> SynchronizationStatus:
         """Status of the job, which includes when the job was last run, current job state, and errors."""
         return self.properties.get("status", SynchronizationStatus())
 
+    @odata(name="schema", navigation=True)
     @property
     def schema(self):
         """The synchronization schema configured for the job."""
@@ -55,16 +59,19 @@ class SynchronizationJob(Entity):
             "schema", SynchronizationSchema(self.context, ResourcePath("schema", self.resource_path))
         )
 
+    @odata(name="synchronizationJobSettings")
     @property
     def synchronization_job_settings(self) -> ClientValueCollection[KeyValuePair]:
         """Gets the synchronizationJobSettings property"""
         return self.properties.get("synchronizationJobSettings", ClientValueCollection[KeyValuePair](KeyValuePair))
 
+    @odata(name="templateId")
     @property
     def template_id(self) -> Optional[str]:
         """Gets the templateId property"""
         return self.properties.get("templateId", None)
 
+    @odata(name="bulkUpload", navigation=True)
     @property
     def bulk_upload(self) -> BulkUpload:
         """Gets the bulkUpload property"""
@@ -76,9 +83,8 @@ class SynchronizationJob(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.SynchronizationJob"
 
+    @odata(name="schedule")
     @property
     def schedule(self) -> SynchronizationSchedule:
         """Gets the schedule property"""
-        from office365.directory.synchronization.schedule import SynchronizationSchedule
-
         return self.properties.get("schedule", SynchronizationSchedule())

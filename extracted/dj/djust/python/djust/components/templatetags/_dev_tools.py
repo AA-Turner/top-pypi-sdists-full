@@ -12,7 +12,13 @@ from typing import Any, Dict, List
 
 from django import template
 
-from ._registry import register, _resolve, _parse_kv_args, conditional_escape, mark_safe
+# ``conditional_escape`` comes from where it is DEFINED, not through ``._registry``: the safe-markup
+# guard trusts an escaper by its origin, and a re-export is a different origin (#3774, #3820).
+from django.utils.html import conditional_escape
+
+from djust.components.utils import attr_text
+
+from ._registry import register, _resolve, _parse_kv_args, mark_safe
 
 
 def _safe(html: str) -> str:
@@ -98,6 +104,8 @@ class TerminalNode(template.Node):
         show_line_numbers = kw.get("show_line_numbers", False)
         wrap = kw.get("wrap", False)
         custom_class = kw.get("class", "")
+        max_lines = kw.get("max_lines", 0)
+        auto_scroll = kw.get("auto_scroll", True)
 
         e_class = conditional_escape(str(custom_class))
 
@@ -140,8 +148,21 @@ class TerminalNode(template.Node):
             e_stream = conditional_escape(str(stream_event))
             stream_attr = f' data-stream-event="{e_stream}"'
 
+        # What the Terminal hook needs to render and trim streamed lines like these.
+        hook_attrs = ""
+        if show_line_numbers:
+            hook_attrs += ' data-line-numbers="true"'
+        try:
+            max_lines = int(max_lines)
+        except (ValueError, TypeError):
+            max_lines = 0
+        if max_lines > 0:
+            hook_attrs += f' data-max-lines="{max_lines}"'
+        if not auto_scroll:
+            hook_attrs += ' data-auto-scroll="false"'
+
         return _safe(
-            f'<div class="{class_str}" dj-hook="Terminal"{stream_attr}>'
+            f'<div class="{class_str}" dj-hook="Terminal"{stream_attr}{hook_attrs}>'
             f"{title_html}"
             f'<div class="dj-terminal__body">{"".join(lines_html)}</div>'
             f"</div>"
@@ -239,9 +260,12 @@ class MarkdownEditorNode(template.Node):
             )
 
         panes = f'<div class="dj-md-editor__panes">{textarea_html}{preview_html}</div>'
+        from djust.components.components.markdown_editor import menu_attrs
+
+        menus = menu_attrs(kw.get("bubble_menu"), kw.get("floating_menu"))
 
         return _safe(
-            f'<div class="{class_str}" dj-hook="MarkdownEditor" data-mode="{mode}">{toolbar_html}{panes}</div>'
+            f'<div class="{class_str}" dj-hook="MarkdownEditor" data-mode="{mode}"{menus}>{toolbar_html}{panes}</div>'
         )
 
 
@@ -467,10 +491,18 @@ class LogViewerNode(template.Node):
             stream_attr = f' data-stream-event="{e_stream}"'
 
         scroll_attr = ' data-auto-scroll="true"' if auto_scroll else ""
+        # What the LogViewer hook needs to append streamed lines like these.
+        hook_attrs = ""
+        if show_line_numbers:
+            hook_attrs += ' data-line-numbers="true"'
+        if max_lines and max_lines > 0:
+            hook_attrs += f' data-max-lines="{int(max_lines)}"'
+        if filter_level:
+            hook_attrs += f' data-filter-level="{conditional_escape(str(filter_level).lower())}"'
 
         return _safe(
             f'<div class="{class_str}" dj-hook="LogViewer"'
-            f'{stream_attr}{scroll_attr} role="log" aria-live="polite">'
+            f'{stream_attr}{scroll_attr}{hook_attrs} role="log" aria-live="polite">'
             f'<div class="dj-log-viewer__body">{"".join(lines_html)}</div>'
             f"</div>"
         )
@@ -507,7 +539,8 @@ class FileTreeNode(template.Node):
         children = node.get("children", [])
         expanded = node.get("expanded", True)
         e_name = conditional_escape(name)
-        e_type = conditional_escape(node_type)
+        a_name = attr_text(name)  # the data-name= attribute; e_name stays the text (#3904)
+        e_type = attr_text(node_type)  # only in class= / data-type= (#3904)
 
         is_selected = name == selected
         selected_cls = " dj-file-tree__node--selected" if is_selected else ""
@@ -539,7 +572,7 @@ class FileTreeNode(template.Node):
             child_display = ' style="display:none"' if not expanded else ""
             return (
                 f'<div class="dj-file-tree__node{type_cls}{selected_cls}{expand_cls}"'
-                f'{indent_style} data-name="{e_name}" data-type="{e_type}">'
+                f'{indent_style} data-name="{a_name}" data-type="{e_type}">'
                 f"{toggle}{icon_html}"
                 f'<span class="dj-file-tree__name">{e_name}</span></div>'
                 f'<div class="dj-file-tree__children"{child_display}>'
@@ -548,7 +581,7 @@ class FileTreeNode(template.Node):
 
         return (
             f'<div class="dj-file-tree__node{type_cls}{selected_cls}"'
-            f'{indent_style} data-name="{e_name}" data-type="{e_type}" '
+            f'{indent_style} data-name="{a_name}" data-type="{e_type}" '
             f'dj-click="{e_event}" role="treeitem" tabindex="0">'
             f'{icon_html}<span class="dj-file-tree__name">{e_name}</span></div>'
         )
@@ -560,6 +593,7 @@ class FileTreeNode(template.Node):
         event = kw.get("event", "select_file")
         show_icons = kw.get("show_icons", True)
         custom_class = kw.get("class", "")
+        toggle_event = kw.get("toggle_event", "")
 
         e_class = conditional_escape(str(custom_class))
         e_event = conditional_escape(str(event))
@@ -577,9 +611,12 @@ class FileTreeNode(template.Node):
         for node in nodes:
             nodes_html.append(self._render_tree_node(node, 0, event, show_icons, str(selected)))
 
+        toggle_attr = (
+            f' data-toggle-event="{conditional_escape(str(toggle_event))}"' if toggle_event else ""
+        )
         return _safe(
             f'<div class="{class_str}" dj-hook="FileTree" '
-            f'data-event="{e_event}" data-selected="{e_selected}" '
+            f'data-event="{e_event}" data-selected="{e_selected}"{toggle_attr} '
             f'role="tree">{"".join(nodes_html)}</div>'
         )
 

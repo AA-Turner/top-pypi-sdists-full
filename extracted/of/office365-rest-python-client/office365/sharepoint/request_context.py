@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING
 
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 if TYPE_CHECKING:
     from office365.sharepoint.lists.list import List
@@ -21,6 +23,7 @@ class RequestContext(Entity):
         site, list, or list item.
     """
 
+    @site_access(SiteLevel.READ)
     def get_remote_context(self) -> "RequestContext":
         """
         Returns the SP.RequestContext for the mounted folder.
@@ -31,6 +34,7 @@ class RequestContext(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="Current", navigation=True)
     @property
     def current(self) -> RequestContext:
         """Gets the Current property"""
@@ -38,6 +42,7 @@ class RequestContext(Entity):
 
         return self.properties.get("Current", RequestContext(self.context, ResourcePath("Current", self.resource_path)))
 
+    @odata(name="List", navigation=True)
     @property
     def list(self) -> List:
         """Gets the List property"""
@@ -45,6 +50,7 @@ class RequestContext(Entity):
 
         return self.properties.get("List", List(self.context, ResourcePath("List", self.resource_path)))
 
+    @odata(name="Site", navigation=True)
     @property
     def site(self) -> Site:
         """Gets the Site property"""
@@ -52,6 +58,7 @@ class RequestContext(Entity):
 
         return self.properties.get("Site", Site(self.context, ResourcePath("Site", self.resource_path)))
 
+    @odata(name="Web", navigation=True)
     @property
     def web(self) -> Web:
         """Gets the Web property"""

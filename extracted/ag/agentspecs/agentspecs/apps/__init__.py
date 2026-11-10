@@ -569,10 +569,50 @@ class AppPapExcludedTask(_Strict):
 
 
 class AppPapCompany(_Strict):
-    """The application is a company personal agents work with."""
+    """The application is a company personal agents work with.
+
+    Published at PAP 0.3 as published: the application's `avatar` is served to personal agents
+    as the company's logo (`organization.logo_uri`), and `sign_in_disabled` turns sign-in off
+    for them (`auth.disabled`), the company then answering them signed out only. At PAP draft 0.4
+    its website says two things of itself (§6): `web_unscoped`, a browser signed in for the person
+    has everything the account can do there (`web.unscoped`), and `web_disabled`, personal agents
+    are asked to use its agent and APIs rather than its website (`web.disabled`). The protocol
+    versions it serves are the platform's, never an Appspec's.
+    """
 
     enabled: bool = Field(default=False, description="Whether it publishes itself as a company at Ship")
     signed_out: bool = Field(default=True, description="Whether a personal agent may ask before signing in")
+    sign_in_disabled: bool = Field(
+        default=False,
+        description=(
+            "Whether it offers personal agents no sign-in (`auth.disabled`): they ask only what anybody "
+            "may ask, in nobody's account, whatever scopes it lists for its other clients"
+        ),
+    )
+    web_unscoped: bool = Field(
+        default=False,
+        description=(
+            "Whether a browser signed in for the person on its website has everything the account can do "
+            "there, not only what the person approved (`web.unscoped`, PAP draft 0.4 §6): the person is told so "
+            "when they sign in. Needs the `web` interface"
+        ),
+    )
+    web_disabled: bool = Field(
+        default=False,
+        description=(
+            "Whether it asks personal agents not to use its website, but its agent and APIs (`web.disabled`, "
+            "PAP draft 0.4 §6): a preference, not enforced. It then lists no `web` interface, and offers "
+            "`agent` or `openapi`"
+        ),
+    )
+    publish_skills: bool = Field(
+        default=False,
+        description=(
+            "Whether it publishes the application's skills to personal agents as a `skill_index` "
+            "(PAP 0.3 §9.4, the pinned Agent Skills revision): only the skills whose SKILL.md says "
+            "it is public and that need no secret are listed, Company content granting no access"
+        ),
+    )
     interfaces: List[PapInterface] = Field(
         default_factory=lambda: [PapInterface.AGENT],
         description=(
@@ -641,8 +681,19 @@ class AppPapCompany(_Strict):
     def _coherent(self) -> "AppPapCompany":
         if self.enabled and not self.scopes and not self.signed_out:
             raise ValueError("a company that admits nobody signed out offers at least one scope")
+        if self.enabled and self.sign_in_disabled and not self.signed_out:
+            raise ValueError(
+                "a company that offers personal agents no sign-in answers them signed out: "
+                "say `signed_out`, or offer sign-in"
+            )
         if not self.interfaces or len(set(self.interfaces)) != len(self.interfaces):
             raise ValueError("a company is reached in at least one way, each once")
+        if self.web_unscoped and PapInterface.WEB not in self.interfaces:
+            raise ValueError("a website that gives the account's full access is offered: add the `web` interface")
+        if self.web_disabled and PapInterface.WEB in self.interfaces:
+            raise ValueError("a company asking personal agents not to use its website does not offer `web`")
+        if self.web_disabled and not {PapInterface.AGENT, PapInterface.OPENAPI} & set(self.interfaces):
+            raise ValueError("a company asking personal agents not to use its website offers `agent` or `openapi`")
         if self.personal_agents is PapAgents.REGISTERED and not self.registered_agents:
             raise ValueError("a company for registered personal agents names at least one")
         if self.registered_agents and self.personal_agents is not PapAgents.REGISTERED:
@@ -3503,7 +3554,8 @@ class AppSpec(_Strict):
         description=(
             "Its avatar, as people keep theirs on their profile: `emoji:<emoji>`, or "
             "`@datalayer/icons-react:<Name>Icon` for a drawing of the set. "
-            "Its emoji stands for it when unsaid, and where only text goes"
+            "Its emoji stands for it when unsaid, and where only text goes. "
+            "Published as a company, it is served to personal agents as its logo (`organization.logo_uri`)"
         ),
         json_schema_extra=_AVATAR_SCHEMA,
     )
@@ -3570,6 +3622,12 @@ class AppSpec(_Strict):
         if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", identity):
             raise ValueError(f"cannot use {identity!r} as an id: lower-case letters, digits and hyphens")
         return identity
+
+    @model_validator(mode="after")
+    def _publishes_skills_it_has(self) -> "AppSpec":
+        if self.pap is not None and self.pap.company.enabled and self.pap.company.publish_skills and not self.skills:
+            raise ValueError("a company that publishes its skills to personal agents names skills to publish")
+        return self
 
     @model_validator(mode="after")
     def _holds_together(self) -> "AppSpec":

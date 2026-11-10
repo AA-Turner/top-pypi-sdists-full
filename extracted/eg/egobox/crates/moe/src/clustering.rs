@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use crate::algorithm::MIN_CLUSTER_POINTS;
 use crate::parameters::GpMixtureParams;
 use crate::{NbClusters, types::*};
 use log::debug; // , info};
@@ -55,6 +56,15 @@ pub(crate) fn sort_by_cluster<F: Float>(
     res
 }
 
+/// Whether each cluster (rows of `[x, y]` data) of a multi-cluster mixture
+/// has at least [MIN_CLUSTER_POINTS] points, as required to train the mixture
+fn clusters_have_enough_points(clusters: &[Array2<f64>]) -> bool {
+    clusters.len() <= 1
+        || clusters
+            .iter()
+            .all(|cluster| cluster.nrows() >= MIN_CLUSTER_POINTS)
+}
+
 /// Find the best number of cluster thanks to cross validation
 pub fn find_best_number_of_clusters<R: Rng + Clone>(
     x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
@@ -71,6 +81,17 @@ pub fn find_best_number_of_clusters<R: Rng + Clone>(
         max_nb_clusters
     };
     let dataset: DatasetView<f64, f64, Ix1> = DatasetView::new(x.view(), y.view());
+
+    // Cross-validation folds, at most as many as data points,
+    // each fold training mixtures on at least 2 points
+    let n_folds = x.nrows().min(5);
+    if x.nrows() < 3 {
+        debug!(
+            "Not enough points ({}) to select the number of clusters. Default to 1 cluster with Smooth(None) recombination",
+            x.nrows()
+        );
+        return (1, Recombination::Smooth(None));
+    }
 
     // Stock
     let mut mean_err_h: Vec<f64> = Vec::new();
@@ -138,7 +159,7 @@ pub fn find_best_number_of_clusters<R: Rng + Clone>(
                 // )
                 // .expect("clustering saved");
 
-                for (train, valid) in dataset.fold(5).into_iter() {
+                for (train, valid) in dataset.fold(n_folds).into_iter() {
                     debug!("X: {}", Array1::from_iter(valid.records().iter().cloned()));
                     match GpMixtureParams::default()
                         .n_clusters(NbClusters::fixed(n_clusters))
@@ -159,10 +180,7 @@ pub fn find_best_number_of_clusters<R: Rng + Clone>(
                             .unwrap();
                             let data_clustering = gmm.predict(&xytrain);
                             let clusters = sort_by_cluster(n_clusters, &xytrain, &data_clustering);
-                            for cluster in clusters.iter().take(i + 1) {
-                                // If there is at least 3 points
-                                ok = ok && cluster.len() > 3
-                            }
+                            ok = ok && clusters_have_enough_points(&clusters);
                             let actual = valid.targets();
                             let mixture = mixture.set_recombination(Recombination::Hard);
                             let h_error = match mixture.predict(valid.records()) {
@@ -399,6 +417,36 @@ mod tests {
     //use ndarray_npy::write_npy;
     use ndarray_rand::rand::SeedableRng;
     use rand_xoshiro::Xoshiro256Plus;
+
+    #[test]
+    fn test_clusters_have_enough_points_counts_rows() {
+        // 2 points of [x, y] in 1-D: 4 elements, still only 2 points
+        let two = Array2::<f64>::zeros((2, 2));
+        let three = Array2::<f64>::zeros((3, 2));
+        assert!(!clusters_have_enough_points(&[three.clone(), two]));
+        assert!(clusters_have_enough_points(&[three.clone(), three]));
+        // a single cluster is not checked, as when training the mixture
+        assert!(clusters_have_enough_points(&[Array2::zeros((2, 2))]));
+    }
+
+    #[test]
+    fn test_find_best_number_of_clusters_with_few_points() {
+        // Less points than the usual 5 cross-validation folds
+        for n in [1, 2, 3, 4] {
+            let xt = Array1::linspace(0., 1., n).insert_axis(Axis(1));
+            let yt = function_test_1d(&xt);
+            let (n_clusters, _) = find_best_number_of_clusters(
+                &xt,
+                &yt,
+                3,
+                None,
+                RegressionSpec::CONSTANT,
+                CorrelationSpec::SQUAREDEXPONENTIAL,
+                Xoshiro256Plus::seed_from_u64(42),
+            );
+            assert_eq!(n_clusters, 1, "{n} points");
+        }
+    }
 
     fn l1norm(x: &Array2<f64>) -> Array1<f64> {
         x.map_axis(Axis(1), |x| x.norm_l1())

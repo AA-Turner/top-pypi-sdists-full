@@ -1,7 +1,12 @@
 """The Turkish/Azerbaijani locale pack (rule O2): policy-only
--- it turns on the TURKIC patronymic rule. The marker data (oglu/qizi/
-uulu/kyzy and Cyrillic forms) lives inside the rule implementation in
-nameparser/_pipeline/_post_rules.py (mirrors v1's flag design).
+-- it turns on the TURKIC patronymic rule, its policy patch compiled
+from nameparser/vocab/tr.toml's [rules] table by tools/vocab/build.py
+(#754, 4f; one file for both languages, no az.toml existing, as
+decisions/vocabulary-model's 4f entry records). The marker data (oglu/qizi/
+uulu/kyzy and Cyrillic forms) lives beside the rule implementation, in
+nameparser/_pipeline/_vocab.py's patterns, which _post_rules.py's
+rotation and assemble's patronymic reading (rules/R9) both ask
+(mirrors v1's flag design).
 
 Data sources: the v1 Turkic patronymic rule (issue #185 and its test
 bank, tests/test_turkic_patronymic_order.py); the pack carries no
@@ -18,17 +23,16 @@ from __future__ import annotations
 import re
 
 from nameparser._lexicon import Lexicon
-from nameparser._locale import Locale
-from nameparser._policy import PatronymicRule, PolicyPatch
+from nameparser._locale import Locale, rules_patch
 
 TR_AZ = Locale(
     code="tr_az",
     lexicon=Lexicon.empty(),
-    policy=PolicyPatch(
-        patronymic_rules=frozenset({PatronymicRule.TURKIC})),
+    # nameparser/vocab/tr.toml's [rules], compiled by tools/vocab/build.py
+    policy=rules_patch("tr"),
 )
 
-# Ported by hand from nameparser/_pipeline/_post_rules.py's
+# Ported by hand from nameparser/_pipeline/_vocab.py's
 # _TURKIC/_TURKIC_CYR (the rule is the source of truth; this predicate
 # only DECLARES the deviation surface for the non-interference gate --
 # layering forbids importing the pipeline from a pack). Keep both

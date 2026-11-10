@@ -26,6 +26,7 @@ from typing import (
 import sqlalchemy
 from sqlalchemy.sql import operators
 from sqlalchemy.sql.elements import BindParameter
+from sqlalchemy.sql.sqltypes import TupleType
 
 from ormar.queryset.actions.filter_action import FILTER_OPERATORS
 
@@ -204,6 +205,33 @@ class SlotBinder:
             _compared_to_type=action.column.type,
         )
 
+    def bind_key_in(
+        self, action: "FilterAction", value: Any, column_types: List[Any]
+    ) -> BindParameter:
+        """
+        Return the expanding bind parameter of a row-value ``IN`` over several
+        key columns, typed as a tuple of the column types so each part gets its
+        column's bind processing::
+
+            (orders.tenant_id, orders.number) IN (:ormar_p0)
+            # rendered per call as IN ((?, ?), (?, ?))
+
+        :param action: the key ``IN`` filter action
+        :type action: FilterAction
+        :param value: key values, one tuple of parts per key
+        :type value: Any
+        :param column_types: types of the key columns, in key order
+        :type column_types: List[Any]
+        :return: named expanding bind parameter
+        :rtype: BindParameter
+        """
+        return BindParameter(
+            key=self.slots[id(action)],
+            value=value,
+            expanding=True,
+            type_=TupleType(*column_types),
+        )
+
     def limit(self, value: int) -> BindParameter:
         """
         Return the named bind parameter for a limit, typed as an integer like
@@ -231,20 +259,6 @@ class SlotBinder:
         return sqlalchemy.bindparam(
             key=OFFSET_SLOT, value=value, type_=sqlalchemy.Integer()
         )
-
-
-def primary_key_bind(column: sqlalchemy.Column) -> BindParameter:
-    """
-    Return the named bind parameter of a primary key filter
-    (``WHERE authors.id = :ormar_pk``), typed like the column so the key gets
-    the column's bind processing (e.g. UUID).
-
-    :param column: primary key column
-    :type column: sqlalchemy.Column
-    :return: named bind parameter
-    :rtype: BindParameter
-    """
-    return sqlalchemy.bindparam(key=PK_SLOT, type_=column.type)
 
 
 def value_binds(table: sqlalchemy.Table, names: Tuple[str, ...]) -> Dict[Any, Any]:

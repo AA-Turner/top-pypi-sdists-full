@@ -88,6 +88,7 @@ mod completion_labels {
                 "█",
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extends",
                 "extensions",
                 "files",
                 "format",
@@ -221,6 +222,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extends",
                 "extensions",
                 "files",
                 "format",
@@ -244,6 +246,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extends",
                 "extensions",
                 "files",
                 "format",
@@ -267,6 +270,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extends",
                 "extensions",
                 "files",
                 "format",
@@ -1021,6 +1025,63 @@ mod completion_labels {
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
                 "product.toml",
+                "schemas/",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_extends_path_completion_offers_tombi_toml(
+                r#"
+                extends = ["tomb█"]
+                "#,
+                SourcePath(project_root_path().join("tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "tombi.toml",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_extends_path_completion_skips_other_file_names(
+                r#"
+                extends = ["█"]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extends-completion/tombi.toml"
+                )),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "base/",
+                "tombi.toml",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_extends_path_completion_in_subdirectory(
+                r#"
+                extends = ["base/█"]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extends-completion/tombi.toml"
+                )),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "base/tombi.toml",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_extends_string_path_completion_from_dot_config_project_root(
+                r#"
+                extends = "█"
+                "#,
+                SourcePath(dot_config_project_root_fixture_path().join(".config/tombi.toml")),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
                 "schemas/",
             ]);
         }
@@ -2389,6 +2450,409 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn pyproject_dependency_groups_include_group_filters_group_names(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+                qa = [{ include-group = "l█" }]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"lint\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_include_group_excludes_own_group(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+                qa = [{ include-group = "█" }]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"dev\"", "\"lint\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependency_name_from_workspace(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["█"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"anyio\"", "\"app2\"", "\"pydantic\"", "\"pytest\"", "\"ruff\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependency_name_excludes_own_project(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["app█"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"app2\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependency_name_excludes_normalized_own_project(
+                r#"
+                [project]
+                name = "Anyio"
+                version = "0.1.0"
+                dependencies = ["█"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"app2\"", "\"pydantic\"", "\"pytest\"", "\"ruff\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_empty_dependencies_completes_names_and_string_literals(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [█]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"anyio\"",
+                "\"app2\"",
+                "\"pydantic\"",
+                "\"pytest\"",
+                "\"ruff\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_element_completes_names_and_string_literals(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", █]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"app2\"",
+                "\"pydantic\"",
+                "\"pytest\"",
+                "\"ruff\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_after_item_completes_new_names(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", "pydantic"█, "ruff"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"app2\"",
+                "\"pytest\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_before_item_completes_names(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", █"pydantic"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"app2\"",
+                "\"pytest\"",
+                "\"ruff\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_dynamic_middle_item_excludes_listed_values(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dynamic = ["version", █"description"]
+                "#,
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"authors\"",
+                "\"classifiers\"",
+                "\"dependencies\"",
+                "\"entry-points\"",
+                "\"gui-scripts\"",
+                "\"import-names\"",
+                "\"import-namespaces\"",
+                "\"keywords\"",
+                "\"license\"",
+                "\"license-files\"",
+                "\"maintainers\"",
+                "\"optional-dependencies\"",
+                "\"readme\"",
+                "\"requires-python\"",
+                "\"scripts\"",
+                "\"urls\"",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_editing_item_excludes_other_items(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", "pyd█"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"pydantic\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_uv_default_groups_excludes_listed_group(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                default-groups = ["dev", █]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"lint\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_uv_default_groups_excludes_listed_group_by_normalized_name(
+                r#"
+                [dependency-groups]
+                lint-tools = []
+                dev = []
+
+                [tool.uv]
+                default-groups = ["Lint_Tools", █]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"dev\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_include_group_excludes_already_included_group(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+                qa = [{ include-group = "dev" }, { include-group = █ }]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([
+                "\"lint\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_workspace_non_member_dependency_name_is_not_completed(
+                r#"
+                [project]
+                name = "demo"
+                version = "0.1.0"
+                dependencies = ["█"]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/examples/demo/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_uv_default_groups_completes_dependency_groups(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                default-groups = ["█"]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"dev\"", "\"lint\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_uv_conflicts_group_completes_dependency_groups(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                conflicts = [[{ group = "█" }]]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"dev\"", "\"lint\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_uv_conflicts_extra_completes_optional_dependencies(
+                r#"
+                [project.optional-dependencies]
+                cpu = []
+                gpu = []
+
+                [tool.uv]
+                conflicts = [[{ extra = "█" }]]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(["\"cpu\"", "\"gpu\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_include_group_ignores_invalid_triple_quoted_value(
+                r#"
+                [dependency-groups]
+                dev = []
+                qa = [{ include-group = """d█ev-tail }]
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok([]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn pyproject_double_bracket_project_dot(
                 "[[project.█]]",
                 SchemaPath(pyproject_schema_path()),
@@ -3313,6 +3777,139 @@ mod completion_labels {
                 "''''''",
                 "{}",
             ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_bin_required_features_excludes_listed_feature(
+                r#"
+                [features]
+                fast = []
+                slow = []
+
+                [[bin]]
+                name = "app"
+                required-features = ["fast", █]
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "\"slow\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_bin_required_features_editing_item_keeps_its_own_name(
+                r#"
+                [features]
+                fast = []
+                slow = []
+
+                [[bin]]
+                name = "app"
+                required-features = ["fast█"]
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "\"fast\"",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_features_list_excludes_listed_dep_feature(
+                r#"
+                [features]
+                fast = []
+                default = ["dep:tokio", █]
+
+                [dependencies]
+                tokio = { version = "1", optional = true }
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "\"fast\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_features_list_excludes_listed_feature(
+                r#"
+                [features]
+                fast = []
+                slow = []
+                default = ["fast", █]
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "\"slow\"",
+                "\"\"",
+                "\"\"\"\"\"\"",
+                "''",
+                "''''''",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_bin_required_features_completes_feature_names(
+                r#"
+                [features]
+                serde = []
+                fast = []
+
+                [[bin]]
+                name = "app"
+                required-features = ["█"]
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(["\"fast\"", "\"serde\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_features_value_completes_features_and_optional_dependencies(
+                r#"
+                [dependencies]
+                tokio = { version = "1", optional = true }
+                serde = "1"
+
+                [features]
+                default = ["█"]
+                extra = []
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(["\"dep:tokio\"", "\"extra\""]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_profile_inherits_completes_profile_names(
+                r#"
+                [profile.fast]
+                inherits = "█"
+
+                [profile.ci]
+                inherits = "dev"
+                "#,
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(["\"ci\"", "\"bench\"", "\"dev\"", "\"release\"", "\"test\""]);
         }
 
         test_completion_labels! {

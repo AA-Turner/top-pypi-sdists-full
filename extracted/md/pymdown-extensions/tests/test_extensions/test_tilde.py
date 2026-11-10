@@ -367,7 +367,7 @@ class TestTildeNoSmart(util.MdCase):
 
         self.check_markdown(
             R"~~~a~~b~~c ~ d~~",
-            "<p>~<del>a</del>b<del>c ~ d</del></p>"
+            "<p><sub><del>a</del>b</sub>~c ~ d~~</p>"
         )
 
     def test_case13(self):
@@ -726,6 +726,65 @@ class TestTildeMixed(util.MdCase):
             <p>~b <strong>c</strong> ~d</p>
             <p><em><strong>bold and italic<sub><del>delete</del>sub</sub></strong> italic</em></p>
             <p><strong>bold a~~b~ bold</strong></p>
+            """,
+            True
+        )
+
+
+class TestTildeMixedNoDelete(util.MdCase):
+    """Test mixed with emphasis when only subscript is enabled."""
+
+    extension = [
+        'pymdownx.tilde',
+        'pymdownx.betterem'
+    ]
+    extension_configs = {
+        "pymdownx.tilde": {
+            "delete": False
+        }
+    }
+
+    def test_sub_in_emphasis(self):
+        """Test that a subscript can start inside emphasis."""
+
+        self.check_markdown(
+            """
+            *a ~b~*
+
+            **a ~b~ c**
+
+            _a ~b c~_
+            """,
+            """
+            <p><em>a <sub>b</sub></em></p>
+            <p><strong>a <sub>b</sub> c</strong></p>
+            <p><em>a ~b c~</em></p>
+            """,
+            True
+        )
+
+
+class TestTildeMixedUnusable(util.MdCase):
+    """Test that unusable delimiters inside a region do not affect later delimiters."""
+
+    extension = [
+        'pymdownx.tilde',
+        'pymdownx.betterem'
+    ]
+    extension_configs = {}
+
+    def test_unusable_inside_region(self):
+        """Test that a delimiter dropped by another delimiter's region is no longer tracked."""
+
+        self.check_markdown(
+            """
+            _*~*~.
+
+            ~~)_~b_) ~*)^(.~~ba.
+            """,
+            """
+            <p>_<em>~</em>~.</p>
+            <p><del>)<em>~b</em>) ~*)^(.</del>ba.</p>
             """,
             True
         )

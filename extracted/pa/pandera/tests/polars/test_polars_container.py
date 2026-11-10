@@ -962,14 +962,37 @@ def test_dataframe_schema_with_nested_types(lf_with_nested_types):
 def test_dataframe_model_with_annotated_nested_types(lf_with_nested_types):
     class ModelWithAnnotated(DataFrameModel):
         list_col: Annotated[pl.List, pl.Int64()]
-        array_col: Annotated[pl.Array, pl.Int64(), 3, None]
+        array_col: Annotated[pl.Array, pl.Int64(), 3]
         struct_col: Annotated[pl.Struct, {"a": pl.Utf8(), "b": pl.Float64()}]
 
         class Config:
             coerce = True
 
+    schema = ModelWithAnnotated.to_schema()
+    assert schema.columns["list_col"].dtype.type == pl.List(pl.Int64())
+    assert schema.columns["array_col"].dtype.type == pl.Array(pl.Int64(), 3)
+    assert schema.columns["struct_col"].dtype.type == pl.Struct(
+        {"a": pl.Utf8(), "b": pl.Float64()}
+    )
+
     validated_lf = ModelWithAnnotated.validate(lf_with_nested_types, lazy=True)
-    assert validated_lf.collect().equals(validated_lf.collect())
+    assert validated_lf.collect().equals(lf_with_nested_types.collect())
+
+
+def test_dataframe_model_annotated_dtype_optional_params():
+    class ModelWithPartialDatetime(DataFrameModel):
+        dt_col: Annotated[pl.Datetime, "us"]
+
+    schema = ModelWithPartialDatetime.to_schema()
+    assert schema.columns["dt_col"].dtype.type == pl.Datetime("us")
+
+
+def test_dataframe_model_annotated_dtype_too_many_params():
+    class ModelTooManyArgs(DataFrameModel):
+        list_col: Annotated[pl.List, pl.Int64(), "extra", "extra2"]
+
+    with pytest.raises(TypeError, match="only accepts"):
+        ModelTooManyArgs.to_schema()
 
 
 @pytest.mark.xfail(
@@ -1139,3 +1162,29 @@ def test_dataframe_schema_inplace_warns():
         match="setting inplace=True will have no effect",
     ):
         schema.validate(pl.DataFrame({"column": [1, 2, 3]}), inplace=True)
+
+
+def test_collect_column_info_reads_frame_schema_once():
+    """collect_column_info must not resolve the frame schema once per column."""
+    from unittest import mock
+
+    from pandera.backends.polars.container import DataFrameSchemaBackend
+
+    n_columns = 200
+    schema = DataFrameSchema(
+        {f"col_{i}": Column(pl.Int64) for i in range(n_columns)}
+        | {"missing": Column(pl.Int64)}
+    )
+    lf = pl.LazyFrame({f"col_{i}": [i] for i in range(n_columns)})
+
+    original = pl.LazyFrame.collect_schema
+    with mock.patch.object(
+        pl.LazyFrame, "collect_schema", autospec=True, side_effect=original
+    ) as collect_schema:
+        info = DataFrameSchemaBackend().collect_column_info(lf, schema)
+
+    assert collect_schema.call_count == 1
+    assert info.absent_column_names == ["missing"]
+    assert list(info.sorted_column_names) == [
+        f"col_{i}" for i in range(n_columns)
+    ]

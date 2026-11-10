@@ -115,3 +115,10 @@ query CustomerSmartHome {
     }
 }
 """
+
+# Amazon Kids dashboard naming convention and marketplace exceptions.
+PARENT_DASHBOARD_SUBDOMAIN_DEFAULT = "parents"
+PARENT_DASHBOARD_SUBDOMAIN_EXCEPTIONS = {"amazon.de": "eltern"}
+# A DNS timeout or resolver error does not prove the dashboard host is missing, so it
+# is retried after this long. A definitive "no such host" answer is never retried.
+PARENT_DASHBOARD_DNS_RETRY_SECONDS = 1800

@@ -49,6 +49,12 @@ def select_periods(xbrl, statement_type: str, max_periods: int = 4,
     Returns:
         List of (period_key, period_label) tuples, most recent first
     """
+    # A balance-sheet parenthetical annotates the same instant comparison.
+    # This affects period choice only; the selected role and sign rules retain
+    # their parenthetical classification.
+    if statement_type == 'BalanceSheetParenthetical':
+        statement_type = 'BalanceSheet'
+
     # Step 1: Always filter by document date first (prevents future date bugs)
     all_periods = xbrl.reporting_periods
     document_end_date = xbrl.period_of_report
@@ -305,7 +311,13 @@ def _select_duration_periods(periods: List[Dict], entity_info: Dict[str, Any], m
     # Consider it annual if: fiscal_period == 'FY' OR it's flagged as annual OR it's an annual form type.
     # The form list used to live here as its own tuple, which is the same rule
     # entity_info's annual_report flag is derived from (GH #1226).
-    is_annual = (fiscal_period == 'FY' or is_annual_report
+    # The FY focus tag alone does not override a quarterly document type, the
+    # mirror of the #600 case above: BXP's Q2 2026 10-Q tags
+    # DocumentFiscalPeriodFocus FY, so the annual branch picked note-only
+    # 2025 durations and its income statement had no 2026 column (GH #1678).
+    is_quarterly_report = entity_info.get('quarterly_report', False)
+    is_annual = ((fiscal_period == 'FY' and not is_quarterly_report)
+                 or is_annual_report
                  or is_annual_document_type(document_type))
 
     # Filter for annual periods if this is an annual report

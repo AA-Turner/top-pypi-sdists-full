@@ -18,16 +18,18 @@
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from .handler import Handler
 
 if TYPE_CHECKING:
     import pyrogram
 
+StartCallbackType = Callable[["pyrogram.Client"], Any]
 
-class StartHandler(Handler):
+
+class StartHandler(Handler[StartCallbackType]):
     """The Start handler class. Used to handle client start. It is intended to be used with
     :meth:`~pyrogram.Client.add_handler`
 
@@ -45,5 +47,5 @@ class StartHandler(Handler):
             is established.
     """
 
-    def __init__(self, callback: Callable[[pyrogram.Client], Any]):
+    def __init__(self, callback: StartCallbackType) -> None:
         super().__init__(callback)

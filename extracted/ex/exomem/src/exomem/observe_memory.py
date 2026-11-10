@@ -13,11 +13,13 @@ from typing import Any, Literal
 
 from . import (
     access,
+    capabilities,
     edit,
     kbdir,
     note_types,
     origin_bindings,
     provenance,
+    semantic_authoring,
     semantic_contract,
     semantic_index,
     semantic_language_registry,
@@ -78,6 +80,32 @@ def _legacy_routing_remediation(resolution: dict[str, Any]) -> str:
     )
 
 
+def _entity_observation_remediation(rel_path: str) -> str:
+    """The exact edit that adds one compact unit line to an Entity page.
+
+    observe_memory does not write Entity pages.
+    """
+    section = semantic_authoring.build_semantic_authoring_contract().compact["canonical_section"]
+    call = capabilities.active_call_text(
+        "edit_memory",
+        {
+            "path": rel_path,
+            "why": "<reason>",
+            "operation": {
+                "kind": "edit_section",
+                "heading": section,
+                "new_string": "<one compact unit line>",
+                "create_missing": True,
+                "expected_hash": "<content_hash>",
+            },
+        },
+    )
+    return (
+        "An Entity page stays structural, so add the observation as a compact unit line under "
+        f"`{section}` with {call}. Take `expected_hash` from a whole-page read of the page."
+    )
+
+
 def observe_memory(
     vault_root: Path,
     *,
@@ -91,6 +119,8 @@ def observe_memory(
     relations: list[dict[str, Any]] | None = None,
     verdict: str | None = None,
     check_by: str | None = None,
+    as_of: str | None = None,
+    until: str | None = None,
     id: str | None = None,
     unit_ref: str | None = None,
     expected_fingerprint: str | None = None,
@@ -135,6 +165,8 @@ def observe_memory(
             relations,
             verdict,
             check_by,
+            as_of,
+            until,
             id,
         )
     ):
@@ -255,12 +287,33 @@ def observe_memory(
                 "or author a canonical note-level relation.",
             )
         base_unit = current_unit if proposal_mode == "update" else None
-        normalized_verdict = _resolve_verdict(verdict, base_unit)
+        normalized_verdict = _resolve_verdict(
+            verdict,
+            base_unit,
+            semantic_language_registry.load_for_page(vault_root, editable.rel_path, frontmatter),
+        )
         normalized_check_by = _resolve_check_by(check_by, base_unit)
+        normalized_as_of = _resolve_governed_value(
+            as_of, base_unit, key="as_of",
+            normalize=lambda value: _canonical_date(value, "as_of"),
+        )
+        normalized_until = _resolve_governed_value(
+            until, base_unit, key="until",
+            normalize=lambda value: _canonical_date(value, "until"),
+        )
+        if (
+            normalized_as_of and normalized_until
+            and dt.date.fromisoformat(normalized_until) < dt.date.fromisoformat(normalized_as_of)
+        ):
+            raise ObserveMemoryError(
+                "INVALID_SEMANTIC_DATE_ORDER", "until must be on or after as_of",
+            )
         preserved_metadata = _preserved_metadata(base_unit)
         if selected_kind == _COMPACT_KIND and (
             normalized_verdict is not None
             or normalized_check_by is not None
+            or normalized_as_of is not None
+            or normalized_until is not None
             or preserved_metadata
         ):
             # Every exit named here has to actually exist. `verdict=""` and
@@ -274,8 +327,8 @@ def observe_memory(
                 "non-observation kind",
                 "Compact observations carry no metadata rows. Select an "
                 "explicit governed non-observation kind to keep the rich form; "
-                "or, to convert this unit to compact form, clear `verdict` and "
-                "`check_by` by passing an empty string and remove any remaining "
+                "or, to convert this unit to compact form, clear each governed field "
+                "by passing an empty string and remove any remaining "
                 "metadata rows by editing the page, since no argument clears a "
                 "row this tool does not own.",
             )
@@ -308,6 +361,8 @@ def observe_memory(
             anchor=target_anchor,
             verdict=normalized_verdict,
             check_by=normalized_check_by,
+            as_of=normalized_as_of,
+            until=normalized_until,
             preserved=preserved_metadata,
         )
         if proposal_mode == "update":
@@ -386,7 +441,11 @@ def observe_memory(
         raise ObserveMemoryError(
             "OBSERVE_TARGET_NOT_WRITABLE_COMPILED_PAGE",
             "observe_memory only mutates writable compiled pages",
-            _legacy_routing_remediation(resolution),
+            # `role` is a closed attribute the note-type registry schema declares,
+            # not an entry key.
+            _entity_observation_remediation(editable.rel_path)
+            if note_type is not None and note_type.role == "entity"
+            else _legacy_routing_remediation(resolution),
             resolution=resolution,
         )
 
@@ -411,14 +470,14 @@ def observe_memory(
             anchor=target_anchor,
             verdict=normalized_verdict,
             check_by=normalized_check_by,
+            as_of=normalized_as_of,
+            until=normalized_until,
             preserved=preserved_metadata,
         )
 
     if target_fingerprints is not None:
         # An episode correction must not change a different claim after target drift.
         # A refusal costs this leaf a re-read; ordinary page/heading edits keep their route.
-        from .unit_corrections import CORRECTIVE_FAMILIES
-
         if not isinstance(target_fingerprints, dict):
             raise ObserveMemoryError(
                 "INVALID_UNIT_TARGETS", "target_fingerprints must be an object"
@@ -430,7 +489,9 @@ def observe_memory(
         ):
             if fact.logical_source_ref != getattr(proposed_unit, "unit_ref", None):
                 continue
-            if fact.family not in CORRECTIVE_FAMILIES:
+            if "corrects" not in semantic_contract.page_relation_behaviours(
+                preflight.after, preflight.after_corpus, fact.canonical_relation
+            ):
                 continue
             if fact.target_unit_status != "found" or fact.logical_target_ref is None:
                 raise ObserveMemoryError(
@@ -650,13 +711,17 @@ def _canonical_relations(values: list[dict[str, Any]]) -> tuple[tuple[str, str],
     return tuple(relations)
 
 
-def _resolve_verdict(supplied: str | None, current: Any | None) -> str | None:
+def _resolve_verdict(
+    supplied: str | None,
+    current: Any | None,
+    language: semantic_language_registry.SemanticLanguageRegistry,
+) -> str | None:
     """Resolve `verdict` preserve-by-default; an explicit empty string clears it."""
     return _resolve_governed_value(
         supplied,
         current,
         key="verdict",
-        normalize=_canonical_verdict,
+        normalize=lambda value: _canonical_verdict(value, language),
     )
 
 
@@ -707,32 +772,30 @@ def _resolve_governed_value(
     return normalize(str(supplied))
 
 
-def _canonical_verdict(value: str) -> str:
-    verdict = unicodedata.normalize("NFKC", value.strip()).casefold()
-    if verdict not in semantic_units.EPISTEMIC_OUTCOMES:
-        accepted = ", ".join(semantic_units.EPISTEMIC_OUTCOMES)
+def _canonical_verdict(
+    value: str, language: semantic_language_registry.SemanticLanguageRegistry
+) -> str:
+    verdict = language.resolve_verdict(value)
+    if verdict is None:
+        keys = language.verdict_keys()
         raise ObserveMemoryError(
             "INVALID_SEMANTIC_VERDICT",
-            f"verdict must be exactly one of {accepted}",
-            "A verdict is categorical lifecycle state, not a confidence score, "
-            "so a number, percentage, or free-text hedge is never valid.",
+            f"verdict must be exactly one of {', '.join(keys)}, as the key or its label",
+            semantic_units.verdict_remediation(keys),
         )
     return verdict
 
 
 def _canonical_check_by(value: str) -> str:
-    candidate = value.strip()
-    try:
-        parsed = dt.date.fromisoformat(candidate)
-    except ValueError as error:
+    return _canonical_date(value, "check_by")
+
+
+def _canonical_date(value: str, key: str) -> str:
+    candidate = semantic_units.calendar_date(value)
+    if candidate is None:
         raise ObserveMemoryError(
-            "INVALID_SEMANTIC_CHECK_BY",
-            "check_by must be one exact ISO calendar date spelled YYYY-MM-DD",
-        ) from error
-    if parsed.isoformat() != candidate:
-        raise ObserveMemoryError(
-            "INVALID_SEMANTIC_CHECK_BY",
-            "check_by must be one exact ISO calendar date spelled YYYY-MM-DD",
+            f"INVALID_SEMANTIC_{key.upper()}",
+            f"{key} must be one exact ISO calendar date spelled YYYY-MM-DD",
         )
     return candidate
 
@@ -803,6 +866,8 @@ def _render_unit(
     anchor: str,
     verdict: str | None = None,
     check_by: str | None = None,
+    as_of: str | None = None,
+    until: str | None = None,
     preserved: tuple[tuple[str, str], ...] = (),
 ) -> str:
     clean_content = content.strip()
@@ -833,6 +898,10 @@ def _render_unit(
         metadata.append(f"- verdict: {verdict}")
     if check_by is not None:
         metadata.append(f"- check_by: {check_by}")
+    if as_of is not None:
+        metadata.append(f"- as_of: {as_of}")
+    if until is not None:
+        metadata.append(f"- until: {until}")
     # Rows this command does not own, re-emitted in their authored order.
     metadata.extend(_metadata_row(key, value) for key, value in preserved)
     return f"## {heading}\n" + "\n".join(metadata) + f"\n\n{clean_content}"
@@ -973,6 +1042,8 @@ def _assert_round_trip(
     anchor: str | None,
     verdict: str | None = None,
     check_by: str | None = None,
+    as_of: str | None = None,
+    until: str | None = None,
     preserved: tuple[tuple[str, str], ...] = (),
 ) -> None:
     relation_values = tuple((item.kind, item.target) for item in unit.relations)
@@ -1004,6 +1075,8 @@ def _assert_round_trip(
             ),
             **({"verdict": verdict} if verdict is not None else {}),
             **({"check_by": check_by} if check_by is not None else {}),
+            **({"as_of": as_of} if as_of is not None else {}),
+            **({"until": until} if until is not None else {}),
             **dict(preserved),
         }
         matches = (
@@ -1011,6 +1084,8 @@ def _assert_round_trip(
             and dict(unit.metadata) == expected_metadata
             and unit.verdict == verdict
             and unit.check_by == check_by
+            and unit.as_of == as_of
+            and unit.until == until
         )
     if not matches:
         raise ObserveMemoryError(

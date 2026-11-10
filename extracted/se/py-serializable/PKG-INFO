@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: py-serializable
-Version: 2.1.0
+Version: 2.2.0
 Summary: Library for serializing and deserializing Python Objects to and from JSON and XML.
 License: Apache-2.0
+License-File: LICENSE
 Keywords: serialization,deserialization,JSON,XML
 Author: Paul Horton
 Author-email: paul.horton@owasp.org
@@ -20,10 +21,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
 Requires-Dist: defusedxml (>=0.7.1,<0.8.0)
 Project-URL: Bug Tracker, https://github.com/madpah/serializable/issues
+Project-URL: Changelog, https://github.com/madpah/serializable/releases
 Project-URL: Documentation, https://py-serializable.readthedocs.io/
 Project-URL: Homepage, https://github.com/madpah/serializable#readme
 Project-URL: Repository, https://github.com/madpah/serializable

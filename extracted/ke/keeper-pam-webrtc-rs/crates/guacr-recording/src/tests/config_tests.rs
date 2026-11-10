@@ -1,4 +1,4 @@
-use crate::config::{find_unique_path, RecordingConfig, RecordingFormat};
+use crate::config::{find_unique_path, parse_bool, RecordingConfig, RecordingFormat};
 use std::collections::HashMap;
 
 #[test]
@@ -322,4 +322,16 @@ fn test_posix_recording_path_still_resolves_to_a_file() {
         )),
         "a plain directory must still produce a filesystem destination"
     );
+}
+
+#[test]
+fn parse_bool_accepts_python_stringified_booleans() {
+    // The Gateway sends `str(True)`; a case-sensitive match read it as false.
+    for v in ["true", "True", "TRUE", "1", " True "] {
+        assert!(parse_bool(Some(&v.to_string())), "{v:?} must be true");
+    }
+    for v in ["false", "False", "0", "", "yes"] {
+        assert!(!parse_bool(Some(&v.to_string())), "{v:?} must be false");
+    }
+    assert!(!parse_bool(None));
 }

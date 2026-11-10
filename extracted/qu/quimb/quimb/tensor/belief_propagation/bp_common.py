@@ -25,6 +25,11 @@ class BeliefPropagationCommon:
         of the old message into the new one, with the final message being
         ``damping * old + (1 - damping) * new``. This makes convergence more
         reliable but slower.
+    diis : bool or dict, optional
+        Whether to use direct inversion in the iterative subspace to help
+        converge the messages by extrapolating to low error guesses. If a
+        dict, should contain options for the DIIS algorithm. The relevant
+        options are {`max_history`, `beta`, `rcond`}.
     update : {'sequential', 'parallel'}, optional
         Whether to update messages sequentially (newly computed messages are
         immediately used for other updates in the same iteration round) or in
@@ -62,19 +67,22 @@ class BeliefPropagationCommon:
         tn: TensorNetwork,
         *,
         damping=0.0,
+        diis=False,
         update="sequential",
         normalize=None,
         distance=None,
         contract_every=None,
         callback=None,
         inplace=False,
+        backend=None,
     ):
         self.tn = tn if inplace else tn.copy()
-        self.backend = self.tn.backend
+        self.backend = self.tn.backend if backend is None else backend
         self.dtype = self.tn.dtype
         self.sign = 1.0
         self.exponent = tn.exponent
         self.damping = damping
+        self.diis = diis
         self.update = update
         self.callback = callback
 
@@ -256,7 +264,8 @@ class BeliefPropagationCommon:
     def run(
         self,
         max_iterations=1000,
-        diis=False,
+        damping=None,
+        diis=None,
         tol=5e-6,
         tol_abs=None,
         tol_rolling_diff=None,
@@ -268,11 +277,15 @@ class BeliefPropagationCommon:
         ----------
         max_iterations : int, optional
             The maximum number of iterations to perform.
+        damping : float or callable, optional
+            The damping factor to apply to messages. If given, this updates
+            the default set at initialization.
         diis : bool or dict, optional
             Whether to use direct inversion in the iterative subspace to
             help converge the messages by extrapolating to low error guesses.
             If a dict, should contain options for the DIIS algorithm. The
-            relevant options are {`max_history`, `beta`, `rcond`}.
+            relevant options are {`max_history`, `beta`, `rcond`}. If given,
+            this updates the default set at initialization.
         tol : float, optional
             The convergence tolerance for messages.
         tol_abs : float, optional
@@ -290,6 +303,11 @@ class BeliefPropagationCommon:
         progbar : bool, optional
             Whether to show a progress bar.
         """
+        if damping is not None:
+            self.damping = damping
+        if diis is not None:
+            self.diis = diis
+
         if tol_abs is None:
             tol_abs = tol
         if tol_rolling_diff is None:
@@ -302,12 +320,11 @@ class BeliefPropagationCommon:
         else:
             pbar = None
 
-        if diis:
+        if self.diis:
             from .diis import DIIS
 
-            if isinstance(diis, dict):
-                self._diis = DIIS(**diis)
-                diis = True
+            if isinstance(self.diis, dict):
+                self._diis = DIIS(**self.diis)
             else:
                 self._diis = DIIS()
         else:
@@ -319,11 +336,10 @@ class BeliefPropagationCommon:
         while not self.converged and it < max_iterations:
             self._maybe_contract()
 
-            # perform a single iteration of BP
-            # we supply tol here for use with local convergence
+            # pass tol for local convergence checks
             result = self.iterate(tol=tol)
 
-            if diis:
+            if self._diis is not None:
                 # extrapolate new guess for messages
                 self.messages = self._diis.update(self.messages)
 
@@ -331,7 +347,7 @@ class BeliefPropagationCommon:
                 max_mdiff = result.get("max_mdiff", float("inf"))
             else:
                 max_mdiff = result
-                result = dict()
+                result = {}
 
             self.mdiffs.append(max_mdiff)
 
@@ -346,8 +362,11 @@ class BeliefPropagationCommon:
                 pbar.set_description(msg, refresh=False)
                 pbar.update()
 
-            # check covergence criteria
+            # check convergence
             self.converged |= max_mdiff < tol_abs
+            if (self._diis is None) and (tol_abs >= tol):
+                # no pending updates means changes above tol have propagated
+                self.converged |= result.get("npending", None) == 0
             if tol_rolling_diff > 0.0:
                 # check rolling mean convergence
                 rdm.update(max_mdiff)
@@ -803,8 +822,48 @@ def auto_add_indices(tn, regions):
     return new_regions
 
 
+def parse_gloops_edge_induced(tn, gloops=None):
+    """Generate and then possibly expand tid based generalized loops to
+    :class:`~quimb.tensor.networking.NetworkPatch` objects, which also specify
+    which subset of internal bonds to include. Multiple edge induced patches
+    can therefore be generated from the same tensor region.
+
+    Parameters
+    ----------
+    tn : TensorNetwork
+        Tensor network to inspect.
+    gloops : None, int, "min" or iterable, optional
+        Loops or regions to convert. An integer generates all loops up to that
+        size. ``None`` and ``"min"`` use an automatic size. An iterable can
+        contain regions of ``tids`` or patches.
+
+    Returns
+    -------
+    tuple[NetworkPatch]
+    """
+    from quimb.tensor.networking import (
+        NetworkPatch,
+        _gen_gloops_edge_induced_single,
+        gen_gloops_edge_induced,
+    )
+
+    if (gloops is None) or isinstance(gloops, (int, str)):
+        return tuple(gen_gloops_edge_induced(tn, max_size=gloops))
+
+    patches = []
+    for gloop in gloops:
+        if isinstance(gloop, NetworkPatch):
+            # the patch already selects the excited bonds
+            patches.append(gloop)
+        else:
+            patches.extend(_gen_gloops_edge_induced_single(tn, gloop))
+
+    return tuple(patches)
+
+
 def process_loop_series_expansion_weights(
     weights,
+    num_tensors,
     mantissa=1.0,
     exponent=0.0,
     multi_excitation_correct=True,
@@ -816,26 +875,60 @@ def process_loop_series_expansion_weights(
     """Assuming a normalized BP fixed point, take a series of loop weights, and
     iteratively compute the free energy by requiring self-consistency with
     exponential suppression factors. See https://arxiv.org/abs/2409.03108.
+
+    Parameters
+    ----------
+    weights : mapping
+        The loop regions and their weights.
+    num_tensors : int
+        The number of tensors used to make the free energy intensive.
+
+    Raises
+    ------
+    RuntimeError
+        If the multi-excitation correction does not converge.
     """
     # this is the single exictation approximation
     f_uncorrected = -sum(weights.values())
 
     if multi_excitation_correct:
         # iteratively compute a self consistent free energy
-        fold = float("inf")
         f = f_uncorrected
-        for _ in range(maxiter_correction):
-            f = -sum(
-                wl * math.exp(len(gloop) * f) for gloop, wl in weights.items()
-            )
+        fold = f
+        for it in range(1, maxiter_correction + 1):
+            fold = f
+            try:
+                f = -sum(
+                    wl * math.exp(len(gloop) * fold / num_tensors)
+                    for gloop, wl in weights.items()
+                )
+            except OverflowError:
+                raise RuntimeError(
+                    "Loop series correction did not converge after "
+                    f"{it} iterations: exponential overflow."
+                ) from None
+
+            if not math.isfinite(abs(f)):
+                raise RuntimeError(
+                    "Loop series correction did not converge after "
+                    f"{it} iterations: non-finite free energy."
+                )
+
             if abs(f - fold) < tol_correction:
                 break
-            fold = f
+        else:
+            raise RuntimeError(
+                "Loop series correction did not converge after "
+                f"{maxiter_correction} iterations, "
+                f"|df|={abs(f - fold):.3e}."
+            )
     else:
         f = f_uncorrected
 
     if return_all:
-        return {gloop: math.exp(len(gloop) * f) for gloop in weights}
+        return {
+            gloop: math.exp(len(gloop) * f / num_tensors) for gloop in weights
+        }
 
     mantissa = mantissa * (1 - f)
 

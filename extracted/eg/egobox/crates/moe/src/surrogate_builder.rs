@@ -7,8 +7,9 @@ use crate::{
     Clustering, CorrelationSpec, MixtureGpSurrogate, NbClusters, Recombination, RegressionSpec,
     XType, errors::Result,
 };
-use egobox_gp::ThetaTuning;
+use egobox_gp::{ParamTuning, ThetaTuning};
 use ndarray::{ArrayView1, ArrayView2};
+use rand_xoshiro::Xoshiro256Plus;
 
 /// A trait for mixture of gp surrogate builder (aka gp configuration and training).
 pub trait SurrogateBuilder: Clone + Sync {
@@ -35,6 +36,14 @@ pub trait SurrogateBuilder: Clone + Sync {
 
     /// Set likelihood optimization parameters
     fn set_optim_params(&mut self, n_start: usize, max_eval: usize);
+
+    /// Sets the noise-to-signal ratio tuning of full GP experts
+    /// (see [GpParams::noise_ratio](egobox_gp::GpParams::noise_ratio))
+    fn set_noise_ratio(&mut self, noise_ratio: ParamTuning<f64>);
+
+    /// Sets the random generator used during training (e.g. clustering), for reproducibility.
+    /// Default implementation ignores it.
+    fn set_rng(&mut self, _rng: Xoshiro256Plus) {}
 
     /// Train the surrogate with given training dataset (x, y)
     fn train(
@@ -101,6 +110,16 @@ impl SurrogateBuilder for GpMixtureParams<f64> {
     /// Sets the number of clusters used by the mixture of surrogate experts.
     fn set_optim_params(&mut self, n_start: usize, max_eval: usize) {
         *self = self.clone().n_start(n_start).max_eval(max_eval);
+    }
+
+    /// Sets the noise-to-signal ratio tuning of full GP experts
+    fn set_noise_ratio(&mut self, noise_ratio: ParamTuning<f64>) {
+        *self = self.clone().noise_ratio(noise_ratio);
+    }
+
+    /// Sets the random generator used during training (e.g. clustering)
+    fn set_rng(&mut self, rng: Xoshiro256Plus) {
+        *self = self.clone().with_rng(rng);
     }
 
     fn train(

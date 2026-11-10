@@ -17,55 +17,73 @@ name: nox
 
 env:
   FORCE_COLOR: "1"
+  OTHER_ANTSIBULL_MODE: local
+
+permissions:
+  contents: read
 
 jobs:
   nox:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.image || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
-            force-python: ""
+            python-versions: "3.10, 3.11, 3.12, 3.13, 3.14, 3.15"
+            force-python: "3.10 3.11 3.12 3.13 3.14 3.15"
             codecov: true
             packages: ""
             docutils_version: ""
+            image: ""
 
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
-            force-python: ""
+            python-versions: "3.9"
+            force-python: "3.9"
+            codecov: true
+            packages: ""
+            docutils_version: ""
+            image: ubuntu-24.04
+
+          - session: test
+            python-versions: "3.10, 3.11, 3.12, 3.13, 3.14, 3.15"
+            force-python: "3.10 3.11 3.12 3.13 3.14 3.15"
             codecov: true
             packages: ""
             docutils_version: "0.22.4"
+            image: ""
 
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
-            force-python: ""
+            python-versions: "3.10, 3.11, 3.12, 3.13, 3.14, 3.15"
+            force-python: "3.10 3.11 3.12 3.13 3.14 3.15"
             codecov: true
             packages: ""
             docutils_version: "0.21.2"
+            image: ""
 
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
-            force-python: ""
+            python-versions: "3.10, 3.11, 3.12, 3.13, 3.14, 3.15"
+            force-python: "3.10 3.11 3.12 3.13 3.14 3.15"
             codecov: true
             packages: ""
             docutils_version: "0.20.1"
+            image: ""
 
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
-            force-python: ""
+            python-versions: "3.10, 3.11, 3.12, 3.13, 3.14, 3.15"
+            force-python: "3.10 3.11 3.12 3.13 3.14 3.15"
             codecov: true
             packages: ""
             docutils_version: "0.19"
+            image: ""
 
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
-            force-python: ""
+            python-versions: "3.10, 3.11, 3.12, 3.13, 3.14"
+            force-python: "3.10 3.11 3.12 3.13 3.14"
             codecov: true
             packages: ""
             docutils_version: "0.18.1"
+            image: ""
 
           - session: lint
             python-versions: "3.14"
@@ -73,7 +91,8 @@ jobs:
             codecov: false
             packages: ""
             docutils_version: ""
-    name: "Run nox ${{ matrix.session }} session (docutils ${{ matrix.docutils_version || 'latest'}})"
+            image: ""
+    name: "Run nox ${{ matrix.session }} session (docutils ${{ matrix.docutils_version || 'latest'}}, Py ${{ matrix.python-versions }})"
     steps:
       - name: Check out antsibull-docutils
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -90,7 +109,7 @@ jobs:
           sed -i -e 's/"docutils"/"docutils == ${{ matrix.docutils_version }}"/g' pyproject.toml
         working-directory: antsibull-docutils
       - name: Setup nox
-        uses: wntrblm/nox@a976d7ee04ab7a13634adc1016d4755a1348225f  # 2026.08.17
+        uses: wntrblm/nox@afa3983bbac3143bab5c8406244327581f76a3d7  # 2026.10.20
         with:
           python-versions: "${{ matrix.python-versions }}"
       - name: Run nox

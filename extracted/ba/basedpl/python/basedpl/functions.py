@@ -18,7 +18,7 @@ class _Combinators(_Operators):
     @property
     def left(self): return _build('↣', _HOLE, self, valence=1)
     def __pow__(self, counts): return _build('⍣', self, counts)
-    def __getitem__(self, axis): return _build('axis', self, axis, valence=self._valence)
+    def __getitem__(self, axis): return _build('⍠', self, axis, valence=self._valence)
     def __lshift__(self, g): return _build('∘', self, g)
     def __rshift__(self, g): return _build('∘', g, self)
     def __matmul__(self, g):
@@ -72,7 +72,7 @@ class Function(_Combinators):
     def _invoke(self, args): return bpl._call(self._inner, args, _show).value
 
 class _Attaching(Function):
-    "`f.undo` or `f.derivative`. Called with one function `g`, it attaches `g` to `f` as its inverse or derivative, as `f⁻¹←g` and `f∂←g` do in BPL."
+    "`f.undo` or `f.derivative`. Called with one function `g`, it attaches `g` to `f` as its inverse or derivative, as `f⁻←g` and `f∂←g` do in BPL."
     def __init__(self, glyph, f, attach, valence):
         super().__init__(_build(glyph, f)._inner, valence)
         self._f, self._attach = f, attach
@@ -86,7 +86,9 @@ class Operator:
     def __repr__(self): return repr(self._inner)
     def __call__(self, *operands): return Function(self._inner.derive(*[o._inner if isinstance(o, Function) else _array(o) for o in operands]))
 
-def fork(f, g, h): return _build('fork', f, g, h)
+def fork(f, g, h):
+    f, h = (o if isinstance(o, _Combinators) else _build('⍨', o) for o in (f, h))
+    return _build('fork', f, g, h)
 def atop(f, g): return _build('∘', f, g)
 
 def _python_name(name):
@@ -95,10 +97,10 @@ def _python_name(name):
 
 # Every documented name of an operator is a property, in Python spelling. Its glyph name gives the derived function with both
 # valences, and each name for what it does gives the valences that name covers. A dyadic operator's property waits for its right
-# operand. `f[axis]` spells `⍠`, `f.undo` spells `⁻¹`, and number-marker properties use their native word names.
+# operand. `f[axis]` spells `⍠`, `f.undo` spells `⁻`, and number-marker properties use their native word names.
 # `f.undo(g)` and `f.derivative(g)` attach `g` as an inverse or derivative.
 _marks = dict(_number_marks)
-_operators = {'undo': ('⁻¹', False, 0)} | {name: (glyph, False, 0) for glyph, name in _marks.items()}  # Python name: glyph, whether the operator is dyadic, and the derived function's valence
+_operators = {'undo': ('⁻', False, 0)} | {name: (glyph, False, 0) for glyph, name in _marks.items()}  # Python name: glyph, whether the operator is dyadic, and the derived function's valence
 _operator_names = {}  # An operator's glyph: its glyph name, then its names with one argument and with two, in Python spelling
 for _s in symbols:
     if not _s['kind'].endswith('-operator'): continue

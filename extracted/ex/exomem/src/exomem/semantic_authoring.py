@@ -20,15 +20,22 @@ from . import note_types, semantic_language_registry
 AUTHORING_CONTRACT_VERSION = 10
 AUTHORING_CONTRACT_ID = "exomem.semantic-authoring"
 
-STATUS_CLASSIFICATION_RULE = (
-    "Validation now uses page status classes, not historical inactive-label lists. "
-    "Live compiled results require a semantic unit; pending results may stay unit-free until activation. "
+#: What the compact bootstrap core serves about page status. It leaves out the migration note for a
+#: frozen client (the full profile carries that) and the semantic-unit sentence, which the core
+#: already serves as `capture_semantics.minimum_unit`. The compact core sits at its byte ceiling.
+STATUS_CLASSIFICATION_RULE_COMPACT = (
     "Statusless pages are publicly live. Canonical meanings need no private definitions. "
     "Admitted unknown labels are live with review debt; unavailable classification refuses only dependent operations."
 )
 
+STATUS_CLASSIFICATION_RULE = (
+    "Validation now uses page status classes, not historical inactive-label lists. "
+    "Live compiled results require a semantic unit; pending results may stay unit-free until activation. "
+    + STATUS_CLASSIFICATION_RULE_COMPACT
+)
+
 OBSERVATION_UPDATE_GUIDANCE = (
-    "Updates rebuild the unit: omitted verdict/check_by/id persist; "
+    "Updates rebuild the unit: omitted governed metadata and id persist; "
     "tags/context/relations clear unless resent."
 )
 
@@ -299,6 +306,8 @@ def build_semantic_authoring_contract() -> SemanticAuthoringContract:
             "- relations: <relation-type>: [[Target]]",
             "- verdict: <epistemic outcome>",
             "- check_by: <ISO revisit date>",
+            "- as_of: <ISO start date>",
+            "- until: <ISO last valid date>",
         ],
         "accepted_metadata_order": "flexible while rows remain leading",
         "canonical_metadata_order": [
@@ -309,10 +318,12 @@ def build_semantic_authoring_contract() -> SemanticAuthoringContract:
             "relations",
             "verdict",
             "check_by",
+            "as_of",
+            "until",
         ],
         "metadata_rule": (
             "Metadata rows are optional and leading; the canonical writer emits category, "
-            "id, tags, context, relations, verdict and check_by; category defaults to the governed kind "
+            "id, tags, context, relations, verdict, check_by, as_of and until; category defaults to the governed kind "
             "when omitted."
         ),
         "correction_rule": (

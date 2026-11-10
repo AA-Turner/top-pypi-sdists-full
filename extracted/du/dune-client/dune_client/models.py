@@ -4,6 +4,7 @@ Dataclasses encoding response data from Dune API.
 
 from __future__ import annotations
 
+import csv
 import logging.config
 from dataclasses import dataclass
 from enum import Enum
@@ -226,10 +227,12 @@ class ResultMetadata:
         return cls(
             column_names=data["column_names"],
             column_types=data["column_types"],
-            row_count=int(data["total_row_count"]),
+            row_count=int(data.get("row_count", data["total_row_count"])),
             result_set_bytes=int(data["result_set_bytes"]),
             total_row_count=int(data["total_row_count"]),
-            total_result_set_bytes=int(data["result_set_bytes"]),
+            total_result_set_bytes=int(
+                data.get("total_result_set_bytes", data["result_set_bytes"])
+            ),
             datapoint_count=int(data["datapoint_count"]),
             pending_time_millis=int(pending_time) if pending_time else None,
             execution_time_millis=int(data["execution_time_millis"]),
@@ -275,8 +278,8 @@ class ExecutionResultCSV:
         # Get to the end of the current CSV
         self.data.seek(0, SEEK_END)
 
-        # Skip the first line of the new CSV, which contains the header
-        other.data.readline()
+        # Skip the header record, which can span multiple lines.
+        next(csv.reader(line.decode("utf-8") for line in other.data), None)
 
         # Append the rest of the content from `other` into current one
         self.data.write(other.data.read())
@@ -357,11 +360,11 @@ class ResultsResponse:
 
     def get_rows(self) -> list[DuneRecord]:
         """
-        Absorbs the Optional check and returns the result rows.
-        When execution is a non-complete terminal state, returns empty list.
+        Returns rows from completed or partially completed executions.
+        Other states return an empty list.
         """
 
-        if self.state == ExecutionState.COMPLETED:
+        if self.state in (ExecutionState.COMPLETED, ExecutionState.PARTIAL):
             assert self.result is not None, f"No Results on completed execution {self}"
             return self.result.rows
 

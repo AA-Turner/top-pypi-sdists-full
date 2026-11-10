@@ -11,17 +11,18 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     Type,
     cast,
 )
 
 from typing_extensions import Self
 
-from office365.runtime.client_object import ClientObject, ClientObjectT
+from office365.runtime.client_object import ClientObject, ClientObjectT, require_declared_version
 from office365.runtime.client_runtime_context import ClientRuntimeContext
 from office365.runtime.http.prefer import add_prefer
 from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.odata.json_format import JsonProfile
 from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.query_capabilities import (
@@ -78,6 +79,10 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             parent: Parent object that owns this collection
         """
         super().__init__(context, resource_path)
+        # A collection is how a stable client reaches a preview-only type: the item type
+        # is named here, before any page is asked for, so the refusal lands on
+        # ``message.mentions`` rather than on a 404 from the stable root.
+        require_declared_version(item_type.__name__, item_type._schema.versions, context)
         self._data: list[ClientObjectT] = []
         self._item_type: Type[ClientObjectT] = item_type
         self._page_loaded: EventHandler = EventHandler(False)
@@ -315,7 +320,7 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         """Get an item by its index position."""
         return self._data[index]
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> list[dict[str, Any]]:
+    def to_json(self, profile: Optional[JsonProfile] = None) -> list[dict[str, Any]]:  # type: ignore[override]
         """
         Serialize the collection to OData JSON format.
 
@@ -324,12 +329,13 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         :meth:`to_csv` instead.
 
         Args:
-            json_format: Serialization options
+            profile: The profile each item is spelled with; ``None`` keeps every item as
+                the model holds it.
 
         Returns:
             JSON-serializable list of item dictionaries
         """
-        return [cast(Dict[str, Any], item.to_json(json_format)) for item in self._data]
+        return [cast(Dict[str, Any], item.to_json(profile)) for item in self._data]
 
     def _ensure_query_option(self, option: str) -> bool:
         """Whether ``option`` may be applied to this collection's endpoint.
@@ -399,13 +405,13 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         if values:
             add_prefer(request, *values)
 
-    def select(self, names: List[str]) -> Self:
+    def select(self, names: Sequence[str]) -> Self:
         """Include specific properties in the query (``$select``)."""
         if self._ensure_query_option("select"):
             super().select(names)
         return self
 
-    def expand(self, names: List[str]) -> Self:
+    def expand(self, names: Sequence[str]) -> Self:
         """Include related resources in the query (``$expand``)."""
         if self._ensure_query_option("expand"):
             super().expand(names)
@@ -648,10 +654,8 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             # The server drives paging (``__next``/``$skiptoken``); a ``$skip``
             # fallback would conflict with the token on the final page.
             return False
-        from office365.runtime.odata.v3.json_light_format import JsonLightFormat
-
-        json_format = getattr(self.context.pending_request(), "json_format", None)
-        if not isinstance(json_format, JsonLightFormat):
+        dialect = getattr(getattr(self.context.pending_request(), "json_format", None), "dialect", None)
+        if dialect is None or not dialect.paginates_by_offset:
             return False
         return len(self.current_page) == self._page_size
 

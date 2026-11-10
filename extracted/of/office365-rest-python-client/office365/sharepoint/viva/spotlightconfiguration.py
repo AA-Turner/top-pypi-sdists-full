@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -7,7 +7,6 @@ from office365.sharepoint.viva.newssite import NewsSite
 from office365.sharepoint.viva.spotlightnews import SpotlightNews
 
 
-@dataclass
 class SpotlightConfiguration(ClientValue):
     IsHidden: Optional[bool] = None
     NewsSource: Optional[int] = None

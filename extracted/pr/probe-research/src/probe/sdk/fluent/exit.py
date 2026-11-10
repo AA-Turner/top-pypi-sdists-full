@@ -273,7 +273,7 @@ def _close_bound_at_exit(binding: _Binding) -> None:
     if _exit_exception is not None:
         from .. import diagnostics
 
-        diagnostics.report_exception(run, _exit_exception)
+        diagnostics.report_run_crash(run, _exit_exception)
     try:
         finish(_exit_status)
     except Exception as exc:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.applications.implicitgrantsettings import ImplicitGrantSettings
 from office365.directory.applications.redirecturisettings import RedirectUriSettings
@@ -9,7 +9,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class WebApplication(ClientValue):
     """Specifies settings for a web application."""
 

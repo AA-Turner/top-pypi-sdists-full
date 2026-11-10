@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +9,6 @@ from office365.sharepoint.contentcenter.machinelearning.column_autofill_choice_s
 )
 
 
-@dataclass
 class SPMachineLearningColumnAutofillPromptSuggestionData(ClientValue):
     ChoiceSettings: SPMachineLearningColumnAutofillChoiceSettings = field(
         default_factory=SPMachineLearningColumnAutofillChoiceSettings

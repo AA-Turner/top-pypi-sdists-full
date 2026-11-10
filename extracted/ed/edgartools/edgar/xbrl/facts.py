@@ -42,15 +42,16 @@ _STR_DTYPE = STR_DTYPE
 # shape, so a column no returned row happened to populate is materialized as null
 # rather than silently vanishing.
 #
-# Dtypes here are applied ONLY to columns that had to be materialized. Pinning the
-# dtype of a populated column moves a null sentinel, which is a breaking change
-# held for the 6.0 window (edgartools-rsyt.2) — until then `preferred_sign` and
-# `fiscal_year` keep the float64 they take today whenever a null is present.
+# Dtypes here are applied to columns that had to be materialized, and to the
+# populated columns in _PINNED. `preferred_sign` (-1, 1 or absent) and
+# `fiscal_year` are integers that can be absent, so they are nullable Int64 with
+# pd.NA, not float64 with NaN. Before 6.0 they were inferred per query, float64
+# when a returned row lacked one and int64 when none did (edgartools-rsyt.2, GH #1100).
 _CORE_COLUMNS: Dict[str, Any] = {
     'concept': _STR_DTYPE,
     'label': _STR_DTYPE,
     'balance': _STR_DTYPE,
-    'preferred_sign': 'float64',
+    'preferred_sign': 'Int64',
     'weight': 'float64',
     'value': _STR_DTYPE,
     'numeric_value': 'float64',
@@ -73,8 +74,13 @@ _CORE_COLUMNS: Dict[str, Any] = {
     'entity_identifier': _STR_DTYPE,
     'entity_scheme': _STR_DTYPE,
     'fiscal_period': _STR_DTYPE,
-    'fiscal_year': 'float64',
+    'fiscal_year': 'Int64',
 }
+
+# Declared dtype applied to populated columns too, so it holds whichever rows match.
+# `is_dimensioned` is always populated as a bool; pinning it to `boolean` keeps an
+# empty result, which must declare a nullable dtype, identical to a populated one.
+_PINNED = frozenset({'preferred_sign', 'fiscal_year', 'is_dimensioned'})
 
 # Dropped by include_contexts=False.
 _CONTEXT_COLUMNS = frozenset(
@@ -411,13 +417,18 @@ class FactQuery:
         """
         Filter facts by a list of period keys.
 
+        The keys are captured when this method is called. Later edits to the
+        caller's list do not change this filter. To use an edited selection,
+        start a new query; another call on this query adds an AND constraint.
+
         Args:
             period_keys: List of period keys to filter by
 
         Returns:
             Self for method chaining
         """
-        self._filters.append(lambda f: 'period_key' in f and f['period_key'] in period_keys)
+        selected_period_keys = tuple(period_keys)
+        self._filters.append(lambda f: 'period_key' in f and f['period_key'] in selected_period_keys)
         return self
 
     def by_instant_date(self, date_str: str, exact: bool = True) -> FactQuery:
@@ -1098,11 +1109,34 @@ class FactQuery:
             self._include_dimensions,
             self._include_contexts,
             self._include_element_info,
+            # limit() and sort_by() overwrite rather than append, so they go in by
+            # value; without them a cached frame ignored both (GH #1735).
+            self._limit,
+            self._sort_by,
+            self._sort_ascending,
             # getattr, not attribute access: StitchedFactQuery does not call
             # super().__init__() — it re-initialises the base attributes by hand
             # and misses this one, so a plain read raises AttributeError there.
             getattr(self, '_requested_dimension', None),
         )
+
+    def _dataframe_cache(self) -> Dict[tuple, pd.DataFrame]:
+        """Acquire frames for the owner's current cache generation.
+
+        Owners without a generation retain configuration-only caching. Initialize
+        lazily because StitchedFactQuery does not call the base initializer.
+        """
+        generation = getattr(self._facts_view, '_cache_generation', None)
+        cache = getattr(self, '_df_cache', None)
+        if cache is None or (
+            generation is not None
+            and getattr(self, '_df_cache_generation', None) != generation
+        ):
+            cache = {}
+            self._df_cache = cache
+        if generation is not None:
+            self._df_cache_generation = generation
+        return cache
 
     def _projection_source_columns(self, columns: tuple, results: List[Dict[str, Any]]):
         """The source keys a projected `to_dataframe(*columns)` actually needs.
@@ -1166,6 +1200,14 @@ class FactQuery:
             df = _deduplicate_facts(df)
         return df
 
+    def to_pandas(self, *args, **kwargs) -> pd.DataFrame:
+        """Alias of :meth:`to_dataframe`, taking the same arguments.
+
+        ``Filings``, ``XBRL`` and ``FilingSummary`` export with ``to_pandas()``, and
+        code written against them reaches for it here too (edgartools-m3jpa).
+        """
+        return self.to_dataframe(*args, **kwargs)
+
     def to_dataframe(self, *columns) -> pd.DataFrame:
         """
         Execute the query and return results as a DataFrame.
@@ -1187,7 +1229,7 @@ class FactQuery:
         See engineering/decisions/facts-dataframe-schema.md.
         """
         cache_key = self._df_cache_key(columns)
-        cache = getattr(self, '_df_cache', {})
+        cache = self._dataframe_cache()
         if cache_key in cache:
             return cache[cache_key]
         results = self.execute()
@@ -1253,11 +1295,14 @@ class FactQuery:
         # has nothing to work with there and lands somewhere arbitrary — an
         # all-None `decimals` infers as object/None rather than string/pd.NA — and
         # before this change dropna() hid that by deleting the column outright.
-        # Populated columns keep their inferred dtype until edgartools-rsyt.2
-        # pins them, since changing those moves a sentinel callers may rely on.
+        # Populated columns keep their inferred dtype unless pinned.
         for col in ordered:
-            if col in declared and result[col].isna().all():
+            if col not in declared:
+                continue
+            if result[col].isna().all():
                 result[col] = _null_column(declared[col], result.index)
+            elif col in _PINNED and result[col].dtype != declared[col]:
+                result[col] = result[col].astype(declared[col])
 
         cache[cache_key] = result
         self._df_cache = cache
@@ -1323,6 +1368,7 @@ class FactsView:
         self.xbrl = xbrl
         self._facts_cache = None
         self._facts_df_cache = None
+        self._cache_generation = 0
 
     def __len__(self):
         return len(self.get_facts())
@@ -1543,21 +1589,31 @@ class FactsView:
             if element_id in self.xbrl.element_catalog:
                 element = self.xbrl.element_catalog[element_id]
 
-                # preferred_label comes from the first presentation tree that
-                # carries one; statement membership comes from the index built
-                # above, which holds every role the element appears in rather
-                # than only the first one reached.
-                preferred_label = None
-                for tree in self.xbrl.presentation_trees.values():
-                    if element_id in tree.all_nodes:
-                        pres_node = tree.all_nodes[element_id]
-                        if pres_node.preferred_label:
-                            preferred_label = pres_node.preferred_label
-                            break
-
+                # Statement membership comes from the index built above, which
+                # holds every role the element appears in rather than only the
+                # first one reached.
                 memberships = element_to_statements.get(element_id, [])
                 statement_type_found = memberships[0][0] if memberships else None
                 statement_role_found = memberships[0][1] if memberships else None
+
+                # A preferredLabel belongs to one presentation arc, so a fact
+                # assigned to a statement takes it from that statement's role,
+                # and has none when that role's arc names none. Taking the first
+                # role that had one gave OHI's income-statement interest expense
+                # a disclosure role's negatedLabel (GH #1677). A fact with no
+                # statement keeps the first preferred label found in any role.
+                preferred_label = None
+                statement_tree = (self.xbrl.presentation_trees.get(statement_role_found)
+                                  if statement_role_found else None)
+                if statement_tree is not None and element_id in statement_tree.all_nodes:
+                    preferred_label = statement_tree.all_nodes[element_id].preferred_label
+                else:
+                    for tree in self.xbrl.presentation_trees.values():
+                        if element_id in tree.all_nodes:
+                            pres_node = tree.all_nodes[element_id]
+                            if pres_node.preferred_label:
+                                preferred_label = pres_node.preferred_label
+                                break
 
                 # Add label using the same selection logic as display_label
                 # but including the preferred_label we found above
@@ -1644,6 +1700,14 @@ class FactsView:
             FactQuery: A new query builder
         """
         return FactQuery(self)
+
+    def to_pandas(self, *args, **kwargs) -> pd.DataFrame:
+        """Alias of :meth:`to_dataframe`, taking the same arguments.
+
+        ``Filings``, ``XBRL`` and ``FilingSummary`` export with ``to_pandas()``, and
+        code written against them reaches for it here too (edgartools-m3jpa).
+        """
+        return self.to_dataframe(*args, **kwargs)
 
     def to_dataframe(self) -> pd.DataFrame:
         """
@@ -2218,12 +2282,13 @@ class FactsView:
         if not hasattr(self.xbrl, 'calculation_trees'):
             return None
 
-        # GH-712: First try exact role URI match (most reliable)
-        if statement_role and statement_role in self.xbrl.calculation_trees:
-            calc_tree = self.xbrl.calculation_trees[statement_role]
-            node = calc_tree.all_nodes.get(element_id)
-            if node:
-                return node.weight
+        # GH-712: a fact assigned to a statement reads that statement role's
+        # calculation network only; another role's summation says nothing about
+        # this one (GH #1702). The fallbacks below are for unassigned facts.
+        if statement_role:
+            calc_tree = self.xbrl.calculation_trees.get(statement_role)
+            node = calc_tree.all_nodes.get(element_id) if calc_tree else None
+            return node.weight if node else None
 
         # Fallback: keyword matching on role URI
         for role_uri, calc_tree in self.xbrl.calculation_trees.items():
@@ -2254,9 +2319,10 @@ class FactsView:
         return None
 
     def clear_cache(self) -> None:
-        """Clear cached data."""
+        """Clear this view's cached data and invalidate its queries' cached frames."""
         self._facts_cache = None
         self._facts_df_cache = None
+        self._cache_generation += 1
 
     def __str__(self):
         return f"Facts for {self.xbrl}"

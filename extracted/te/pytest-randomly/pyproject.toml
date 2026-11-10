@@ -4,7 +4,7 @@ requires = ["uv-build>=0.12.1,<0.13"]
 
 [project]
 name = "pytest-randomly"
-version = "5.0.0"
+version = "5.1.0"
 description = "Pytest plugin to randomly order tests and control random.seed."
 readme = "README.rst"
 keywords = [
@@ -16,14 +16,13 @@ keywords = [
 ]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -102,13 +101,13 @@ allow_untyped_defs = true
 strict = true
 
 [tool.coverage.run]
-branch = true
-data_file = ".coverage/cov"
-parallel = true
 source = [
     "pytest_randomly",
     "tests",
 ]
+branch = true
+data_file = ".coverage/cov"
+parallel = true
 
 [tool.coverage.paths]
 source = [
@@ -117,9 +116,9 @@ source = [
 ]
 
 [tool.coverage.report]
-show_missing = true
 skip_covered = true
 skip_empty = true
+show_missing = true
 
 [tool.rstcheck]
 report_level = "ERROR"

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.credential import Credential
 
 
-@dataclass
 class PasswordCredential(Credential):
     """Represents a password credential (client secret) associated with an
     application or a service principal. The passwordCredentials property of the

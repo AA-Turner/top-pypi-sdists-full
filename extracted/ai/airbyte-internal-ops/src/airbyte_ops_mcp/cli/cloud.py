@@ -41,6 +41,7 @@ import sys
 import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import Annotated, Any, Literal, NoReturn
@@ -144,13 +145,11 @@ from airbyte_ops_mcp.regression_tests.ci_output import (
     config_error_streams,
     could_not_test,
     describe_could_not_test,
-    describe_not_exercised,
     describe_setup_error,
     evaluate_comparison_outcome,
     generate_regression_report,
     generate_single_version_report,
     is_github_actions,
-    not_exercised_streams,
     run_readable_fields,
     stopped_early_sides,
     target_errors_only_from,
@@ -235,12 +234,12 @@ from airbyte_ops_mcp.regression_tests.report import (
     build_comparison_report_model,
     build_diff_block,
     build_json_block,
-    build_record_comparison_checks,
     build_single_version_report_model,
-    comparison_label_inputs,
     consolidate_reports,
+    enrich_report_model,
     failed_checks,
     render_inline_summary,
+    report_section,
     write_html_report,
 )
 from airbyte_ops_mcp.regression_tests.repro_case import (
@@ -1372,29 +1371,6 @@ def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any
     }
 
 
-def _check_results(
-    extra_checks: tuple[CheckResult, ...],
-    record_comparison: RecordComparisonSummary | None,
-) -> list[dict[str, Any]]:
-    """Project comparison checks onto the metadata-only CLI report shape."""
-    checks = (
-        *extra_checks,
-        *(
-            build_record_comparison_checks(record_comparison)
-            if record_comparison is not None
-            else ()
-        ),
-    )
-    return [
-        {
-            "name": check.name,
-            "passed": check.passed,
-            "severity": check.severity,
-        }
-        for check in checks
-    ]
-
-
 # The lists in the run's JSON payload that hold record values: missing and
 # duplicated primary keys, and the field diffs of paired records. Named alike,
 # so a new example list is covered without a change here.
@@ -1486,6 +1462,7 @@ def _compare_outputs(
     partial: bool = False,
     no_control_streams: tuple[str, ...] = (),
     could_not_test: bool = False,
+    deferred_diff_blocks: list[Callable[[], tuple[DiffBlock, ...]]] | None = None,
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
     """Compare what the two versions produced, for the commands that produce it.
 
@@ -1529,10 +1506,14 @@ def _compare_outputs(
         return (), (), {}
 
     if command == "spec":
-        return _spec_comparison(control_outputs.spec, target_outputs.spec)
+        return _spec_comparison(
+            control_outputs.spec, target_outputs.spec, deferred_diff_blocks
+        )
 
     if command == "discover":
-        return _catalog_comparison(control_outputs.catalog, target_outputs.catalog)
+        return _catalog_comparison(
+            control_outputs.catalog, target_outputs.catalog, deferred_diff_blocks
+        )
 
     if command == "read":
         return _final_state_comparison(
@@ -1540,13 +1521,16 @@ def _compare_outputs(
             target_outputs.final_states,
             partial,
             no_control_streams,
+            deferred_diff_blocks,
         )
 
     return (), (), {}
 
 
 def _spec_comparison(
-    control_spec: Any, target_spec: Any
+    control_spec: Any,
+    target_spec: Any,
+    deferred_diff_blocks: list[Callable[[], tuple[DiffBlock, ...]]] | None = None,
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
     """Run the spec comparison and shape it for every surface."""
     result = compare_specs(control_spec, target_spec)
@@ -1566,19 +1550,24 @@ def _spec_comparison(
     # under the check row and the step summary lists -- a block would repeat them.
     # The compatible ones have nowhere else to go, and a reviewer asking "what
     # else moved?" is asking about exactly those.
-    blocks = tuple(
-        block
-        for block in (
-            _change_block("Spec — compatible changes", result.warnings, "add"),
-        )
-        if block is not None
+    blocks = _report_diff_blocks(
+        lambda: tuple(
+            block
+            for block in (
+                _change_block("Spec — compatible changes", result.warnings, "add"),
+            )
+            if block is not None
+        ),
+        deferred_diff_blocks,
     )
 
     return (check,), blocks, {"spec": _spec_detail(result)}
 
 
 def _catalog_comparison(
-    control_catalog: Any, target_catalog: Any
+    control_catalog: Any,
+    target_catalog: Any,
+    deferred_diff_blocks: list[Callable[[], tuple[DiffBlock, ...]]] | None = None,
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
     """Run the discovered-catalog comparison and shape it for every surface."""
     result = compare_catalog_schemas(control_catalog, target_catalog)
@@ -1598,14 +1587,17 @@ def _catalog_comparison(
     # The findings themselves are the check's `details`, which the report renders
     # under the check row: a stream that is missing or new has no schema diff, so
     # that list is the only place it appears.
-    blocks = _stream_diff_blocks(
-        result,
-        block_title="Schema diff",
-        omission_title="Schema diffs omitted for size",
-        artifact_hint=(
-            "Both discovered catalogs are in the artifact, under "
-            "airbyte_messages/catalog.jsonl."
+    blocks = _report_diff_blocks(
+        lambda: _stream_diff_blocks(
+            result,
+            block_title="Schema diff",
+            omission_title="Schema diffs omitted for size",
+            artifact_hint=(
+                "Both discovered catalogs are in the artifact, under "
+                "airbyte_messages/catalog.jsonl."
+            ),
         ),
+        deferred_diff_blocks,
     )
 
     return (check,), blocks, {"catalog_schema": _catalog_schema_detail(result)}
@@ -1616,6 +1608,7 @@ def _final_state_comparison(
     target_states: dict[tuple[str | None, str], Any] | None,
     partial: bool = False,
     no_control_streams: tuple[str, ...] = (),
+    deferred_diff_blocks: list[Callable[[], tuple[DiffBlock, ...]]] | None = None,
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
     """Run the final-state comparison and shape it for every surface."""
     excluded = set(no_control_streams)
@@ -1673,19 +1666,33 @@ def _final_state_comparison(
         details=tuple(findings),
     )
 
-    blocks = _stream_diff_blocks(
-        result,
-        block_title="Final state diff",
-        omission_title="Final state diffs omitted for size",
-        artifact_hint=(
-            "Both versions' state messages are in the artifact, under "
-            "airbyte_messages/state.jsonl."
+    blocks = _report_diff_blocks(
+        lambda: _stream_diff_blocks(
+            result,
+            block_title="Final state diff",
+            omission_title="Final state diffs omitted for size",
+            artifact_hint=(
+                "Both versions' state messages are in the artifact, under "
+                "airbyte_messages/state.jsonl."
+            ),
         ),
+        deferred_diff_blocks,
     )
 
     detail = _final_state_detail(result)
     detail["not_compared"] = not_compared
     return (check,), blocks, {"final_state": detail}
+
+
+def _report_diff_blocks(
+    build: Callable[[], tuple[DiffBlock, ...]],
+    deferred: list[Callable[[], tuple[DiffBlock, ...]]] | None,
+) -> tuple[DiffBlock, ...]:
+    """Defer display-only diffs while keeping comparison checks and JSON eager."""
+    if deferred is not None:
+        deferred.append(build)
+        return ()
+    return build()
 
 
 def _stream_diff_blocks(
@@ -3701,34 +3708,29 @@ def regression_test(
             )
         _record_read_share(result, single_timeout_s, read_timeout)
 
+        configured_streams = _configured_stream_names(cmd, catalog_file)
+        report_model = build_single_version_report_model(
+            connector_image=resolved_test_image,
+            command=command,
+            result=result,
+            configured_streams=configured_streams,
+            include_report_sections=False,
+        )
+
         # Same per-version rule as comparison mode: for CHECK the exit code alone
         # is not the verdict, connectionStatus is.
         annotated_result = _annotate_run_verdict(command, result)
-        # A read the harness stopped is never a pass: what it read is reported,
-        # and `incomplete` says why `success` is false.
-        incomplete = bool(stopped_early_sides(("single", result)))
-        single_success = bool(annotated_result["success"]) and not incomplete
-        annotated_result["success"] = single_success
-        annotated_result["incomplete"] = incomplete
-        # Carried for the workflow's sake; the rule needs a control to compare
-        # catalogs against, so a lone run never trips it.
-        annotated_result["not_exercised"] = False
-        annotated_result["setup_error"] = False
-        annotated_result["could_not_test"] = False
-        annotated_result["strict_failed"] = False
-        annotated_result["comparison_errored"] = False
+        incomplete = report_model.incomplete
+        single_success = report_model.passed
+        annotated_result.update(report_model.verdict_flags())
 
         print_json(_printable_payload(annotated_result, output_mode))
 
         single_outputs: dict[str, object] = {
-            "success": single_success,
+            **report_model.verdict_flags(github=True),
             "connector": resolved_test_image,
             "command": command,
             "exit_code": result["exit_code"],
-            "incomplete": incomplete,
-            "not_exercised": False,
-            "setup_error": False,
-            "could_not_test": False,
             "output_mode": output_mode,
         }
         if command == "check":
@@ -3737,36 +3739,54 @@ def regression_test(
 
         write_github_outputs(single_outputs)
 
-        # Generate report.md with detailed metrics
-        report_path = generate_single_version_report(
-            connector_image=resolved_test_image,
-            command=command,
-            result=result,
-            output_dir=output_path,
+        write_json_output(
+            "regression_report",
+            {
+                **report_model.verdict_flags(),
+                "command": command,
+                "output_mode": output_mode,
+                "target": _annotate_run_verdict(command, result),
+                "check_results": report_model.check_results(),
+            },
         )
-        print_success(f"Generated report: {report_path}")
 
-        # The detailed surface is report.html in the uploaded artifact; the step
-        # summary gets the concise block instead of the whole report. Both are
-        # built from the unannotated result: the model derives the verdict itself.
-        report_model = build_single_version_report_model(
-            connector_image=resolved_test_image,
-            command=command,
-            result=result,
-            configured_streams=_configured_stream_names(cmd, catalog_file),
-            connection_objects=_collect_connection_objects(
+        connection_objects: tuple[DiffBlock, ...] = ()
+        with report_section("connection objects"):
+            connection_objects = _collect_connection_objects(
                 catalog_file,
                 state_file,
                 output_path / "airbyte_messages",
                 state_seeded=state_seeded,
                 mask_policy=report_mask_policy,
-            ),
+            )
+        report_model = enrich_report_model(
+            report_model,
+            target_result=result,
+            configured_streams=configured_streams,
+            connection_objects=connection_objects,
         )
-        html_report_path = write_html_report(report_model, output_path)
-        print_success(f"Generated HTML report: {html_report_path}")
+
+        # Generate report.md with detailed metrics
+        with report_section("markdown report"):
+            report_path = generate_single_version_report(
+                connector_image=resolved_test_image,
+                command=command,
+                result=result,
+                output_dir=output_path,
+                report_model=report_model,
+            )
+            print_success(f"Generated report: {report_path}")
+
+        # The detailed surface is report.html in the uploaded artifact; the step
+        # summary gets the concise block instead of the whole report. Both are
+        # built from the unannotated result: the model derives the verdict itself.
+        with report_section("HTML report"):
+            html_report_path = write_html_report(report_model, output_path)
+            print_success(f"Generated HTML report: {html_report_path}")
 
         # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
-        write_github_summary(render_inline_summary(report_model))
+        with report_section("GitHub step summary"):
+            write_github_summary(render_inline_summary(report_model))
 
         if incomplete:
             print_error(
@@ -3912,12 +3932,6 @@ def regression_test(
         config_errors = config_error_streams(
             target_only_streams, target_outputs.stream_errors or {}
         )
-        unexercised = not_exercised_streams(
-            target_only_streams,
-            target_result.get("record_counts_per_stream", {}),
-            excluded_streams=(*setup_error_streams, *config_errors),
-        )
-        not_exercised = bool(unexercised)
         setup_error = bool(setup_error_streams)
         could_not_test_result = could_not_test(
             target_only_streams, target_outputs.stream_errors or {}
@@ -4042,20 +4056,12 @@ def regression_test(
                     ),
                 )
 
-        record_comparison_failed = (
-            record_comparison is not None and not record_comparison.passed
-        )
-        record_checks_failed = bool(failed_checks(new_record_checks))
-        # An errored comparison fails the run (fail closed) but as
-        # INCONCLUSIVE, like both_failed: a comparator crash must not tell a
-        # connector developer their change caused a regression.
-        comparison_errored = record_comparison is not None and record_comparison.errored
-
         # Spec/catalog-schema comparison of what the two versions declared
         # about themselves; a failed check here is a regression as much as
         # a dropped record.
         comparison_checks: tuple[CheckResult, ...] = ()
         comparison_diff_blocks: tuple[DiffBlock, ...] = ()
+        deferred_diff_blocks: list[Callable[[], tuple[DiffBlock, ...]]] = []
         comparison_detail: dict[str, Any] = {}
         if reproduction is None:
             (
@@ -4070,6 +4076,7 @@ def regression_test(
                 partial=incomplete,
                 no_control_streams=target_only_streams,
                 could_not_test=could_not_test_result,
+                deferred_diff_blocks=deferred_diff_blocks,
             )
         failed_comparisons = failed_checks(comparison_checks)
         extra_checks = (
@@ -4077,62 +4084,36 @@ def regression_test(
             *comparison_checks,
             *([record_comparison_skipped] if record_comparison_skipped else []),
         )
-        check_results = _check_results(extra_checks, record_comparison)
-        strict_failed, comparison_errored_for_label = comparison_label_inputs(
+        report_target_result = {
+            **target_result,
+            "setup_error": setup_error,
+            "setup_error_clears_regression": setup_error_clears_regression,
+            "record_checks_regression": record_checks_regression,
+            "could_not_test": could_not_test_result,
+            "setup_error_detail": describe_setup_error(setup_error_streams),
+            "could_not_test_detail": describe_could_not_test(
+                config_errors, target_outputs.stream_errors or {}
+            ),
+            "excluded_not_exercised_streams": (
+                *setup_error_streams,
+                *config_errors,
+            ),
+        }
+        configured_streams = _configured_stream_names(cmd, catalog_file)
+        report_model = build_comparison_report_model(
+            target_image=resolved_test_image,
+            control_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
+            command=command,
+            target_result=report_target_result,
+            control_result=control_result,
+            outcome=outcome,
             record_comparison=record_comparison,
             extra_checks=extra_checks,
-            record_checks_regression=record_checks_regression,
-            regression_detected=outcome.regression_detected,
-            both_failed=outcome.both_failed,
-            stopped=bool(incomplete),
-            setup_error=setup_error,
-            could_not_test=could_not_test_result,
-            not_exercised=bool(not_exercised),
+            configured_streams=configured_streams,
+            include_report_sections=False,
+            reproduction=reproduction,
+            target_only_streams=target_only_streams,
         )
-
-        # `regression_detected` stays with the strict checks: an incomplete run
-        # fails without claiming a regression it did not see.
-        success = (
-            outcome.success
-            and not record_comparison_failed
-            and not record_checks_failed
-            and not failed_comparisons
-            and not incomplete
-            and not not_exercised
-            and not setup_error
-            and not could_not_test_result
-        )
-        regression_detected = (
-            (
-                outcome.regression_detected
-                and not setup_error_clears_regression
-                and not could_not_test_result
-            )
-            or (record_comparison_failed and not comparison_errored)
-            or record_checks_regression
-            or bool(failed_comparisons)
-        )
-        if reproduction is not None:
-            success = (
-                reproduction.success
-                and not incomplete
-                and not not_exercised
-                and not setup_error
-                and not could_not_test_result
-            )
-            regression_detected = (
-                (
-                    reproduction.regression_detected
-                    and not setup_error_clears_regression
-                    and not could_not_test_result
-                )
-                or (record_comparison_failed and not comparison_errored)
-                or record_checks_regression
-                or bool(failed_comparisons)
-            )
-        # In case mode a failing control is the evidence sought, so "both
-        # failed" would misread a "not fixed" verdict as inconclusive.
-        both_failed = outcome.both_failed and reproduction is None
 
         # Annotate copies of each side, never the originals: `generate_regression_report`
         # below reads `result["success"]` as the exit status, so handing it a dict whose
@@ -4141,20 +4122,9 @@ def regression_test(
             "target": _annotate_run_verdict(command, target_result),
             "control": _annotate_run_verdict(command, control_result),
             "both_succeeded": outcome.both_succeeded,
-            "regression_detected": regression_detected,
-            # The authoritative verdict, so consumers of this payload (stdout and
-            # the `regression_report` output) never have to re-derive it from
-            # `regression_detected` -- which is false for an inconclusive run.
-            "success": success,
-            "both_failed": both_failed,
-            "incomplete": incomplete,
-            "not_exercised": not_exercised,
-            "setup_error": setup_error,
-            "could_not_test": could_not_test_result,
-            "strict_failed": strict_failed,
-            "comparison_errored": comparison_errored_for_label,
+            **report_model.verdict_flags(),
             "output_mode": output_mode,
-            "check_results": check_results,
+            "check_results": report_model.check_results(),
         }
         if record_checks_payload:
             combined_result["record_checks"] = record_checks_payload
@@ -4171,18 +4141,12 @@ def regression_test(
         print_json(_printable_payload(combined_result, output_mode))
 
         gh_outputs: dict[str, object] = {
-            "success": success,
+            **report_model.verdict_flags(github=True),
             "target_image": resolved_test_image,
             "control_image": resolved_control_image,
             "command": command,
             "target_exit_code": target_result["exit_code"],
             "control_exit_code": control_result["exit_code"],
-            "regression_detected": regression_detected,
-            "both_failed": both_failed,
-            "incomplete": incomplete,
-            "not_exercised": not_exercised,
-            "setup_error": setup_error,
-            "could_not_test": could_not_test_result,
             "output_mode": output_mode,
         }
 
@@ -4223,107 +4187,82 @@ def regression_test(
             )
             print_success(f"Wrote reproduction result: {result_path}")
 
-        report_target_result = {
-            **target_result,
-            "setup_error": setup_error,
-            "setup_error_clears_regression": setup_error_clears_regression,
-            "record_checks_regression": record_checks_regression,
-            "could_not_test": could_not_test_result,
-            "setup_error_detail": describe_setup_error(setup_error_streams),
-            "could_not_test_detail": describe_could_not_test(
-                config_errors, target_outputs.stream_errors or {}
-            ),
-            "excluded_not_exercised_streams": (
-                *setup_error_streams,
-                *config_errors,
-            ),
-        }
-        report_path = generate_regression_report(
-            target_image=resolved_test_image,
-            control_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
-            command=command,
-            target_result=report_target_result,
-            control_result=control_result,
-            output_dir=output_path,
-            record_comparison=(
-                record_comparison.to_dict() if record_comparison is not None else None
-            ),
-            # Without these the markdown report would announce "no regression"
-            # over the same run the HTML report and the CLI call a failure --
-            # and, for a warning, would show no finding at all where the other
-            # two surfaces show one.
-            comparison_findings=[
-                (check.status, f"{check.name}: {check.summary}")
-                for check in (*comparison_checks, *new_record_checks)
-                if check.status in {"fail", "warn"}
-            ],
-            inconclusive_findings=[
-                f"{check.name}: {check.summary}"
-                for check in new_record_checks
-                if check.status == "fail" and not record_checks_regression
-            ],
-            reproduction=reproduction,
-            target_only_streams=target_only_streams,
-        )
-        print_success(f"Generated regression report: {report_path}")
-
-        # Same rule as `generate_regression_report` above: the model reads
-        # `result["success"]` as the exit status and derives the per-version
-        # verdict itself, so it gets the unannotated originals. `outcome` is
-        # passed through so the run is evaluated exactly once.
-        report_model = build_comparison_report_model(
-            target_image=resolved_test_image,
-            control_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
-            command=command,
-            target_result=report_target_result,
-            control_result=control_result,
-            outcome=outcome,
-            record_comparison=record_comparison,
-            extra_checks=extra_checks,
-            extra_diff_blocks=comparison_diff_blocks,
-            configured_streams=_configured_stream_names(cmd, catalog_file),
-            connection_objects=_collect_connection_objects(
+        connection_objects = ()
+        with report_section("connection objects"):
+            connection_objects = _collect_connection_objects(
                 catalog_file,
                 state_file,
                 target_output / "airbyte_messages",
                 state_seeded=state_seeded,
                 mask_policy=report_mask_policy,
-            ),
-            reproduction=reproduction,
-            target_only_streams=target_only_streams,
+            )
+        for build_blocks in deferred_diff_blocks:
+            with report_section("comparison diff blocks"):
+                comparison_diff_blocks += build_blocks()
+        report_model = enrich_report_model(
+            report_model,
+            target_result=report_target_result,
+            control_result=control_result,
+            configured_streams=configured_streams,
+            record_comparison=record_comparison,
+            extra_diff_blocks=comparison_diff_blocks,
+            connection_objects=connection_objects,
         )
-        html_report_path = write_html_report(report_model, output_path)
-        print_success(f"Generated regression HTML report: {html_report_path}")
+
+        with report_section("markdown report"):
+            report_path = generate_regression_report(
+                report_model=report_model,
+                target_image=resolved_test_image,
+                control_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
+                command=command,
+                target_result=report_target_result,
+                control_result=control_result,
+                output_dir=output_path,
+                record_comparison=(
+                    record_comparison.to_dict()
+                    if record_comparison is not None
+                    else None
+                ),
+                # Without these the markdown report would announce "no regression"
+                # over the same run the HTML report and the CLI call a failure --
+                # and, for a warning, would show no finding at all where the other
+                # two surfaces show one.
+                comparison_findings=[
+                    (check.status, f"{check.name}: {check.summary}")
+                    for check in (*comparison_checks, *new_record_checks)
+                    if check.status in {"fail", "warn"}
+                ],
+                inconclusive_findings=[
+                    f"{check.name}: {check.summary}"
+                    for check in new_record_checks
+                    if check.status == "fail" and not record_checks_regression
+                ],
+                reproduction=reproduction,
+                target_only_streams=target_only_streams,
+            )
+            print_success(f"Generated regression report: {report_path}")
+
+        with report_section("HTML report"):
+            html_report_path = write_html_report(report_model, output_path)
+            print_success(f"Generated regression HTML report: {html_report_path}")
 
         # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
-        write_github_summary(render_inline_summary(report_model))
+        with report_section("GitHub step summary"):
+            write_github_summary(render_inline_summary(report_model))
 
-        if incomplete:
-            print_error(
-                f"Regression test incomplete for {resolved_test_image} vs "
-                f"{resolved_control_image}: a read was stopped early, so the "
-                + (
-                    "records read show a regression."
-                    if regression_detected
-                    else "records read could not clear the target."
-                )
-            )
-        elif not_exercised:
-            print_error(
-                f"Regression test not exercised for {resolved_test_image} vs "
-                f"{resolved_control_image}: {describe_not_exercised(unexercised)}"
-                + (
-                    "; the streams both versions read show a regression."
-                    if regression_detected
-                    else "; the PR's new code path never ran."
-                )
-            )
+        if (
+            report_model.incomplete
+            or report_model.setup_error
+            or report_model.could_not_test
+            or report_model.not_exercised
+        ):
+            print_error(f"{report_model.verdict_label} — {report_model.verdict_detail}")
         elif reproduction is not None:
             report_line = (
                 f"Reproduction case {repro_case.name if repro_case else ''}: "
                 f"{reproduction.label} -- {reproduction.detail}"
             )
-            if reproduction.success:
+            if report_model.passed:
                 print_success(report_line)
             else:
                 print_error(report_line)
@@ -4340,42 +4279,48 @@ def regression_test(
                     for check in failed_comparisons
                 )
             )
-        elif outcome.check_improvement:
+        elif report_model.outcome and report_model.outcome.check_improvement:
             print_success(
                 f"Regression test passed for {resolved_test_image} vs "
                 f"{resolved_control_image}: target connectionStatus SUCCEEDED "
                 "while control FAILED (improvement)."
             )
-        elif outcome.both_succeeded and comparison_errored:
+        elif report_model.comparison_errored:
             print_error(
                 f"Record comparison errored for {resolved_test_image} vs "
                 f"{resolved_control_image}. Test failed/inconclusive; this "
                 "is a tooling failure, not evidence of a regression."
             )
-        elif outcome.both_succeeded and record_comparison_failed:
+        elif report_model.strict_failed:
             print_error(
                 f"Regression detected between {resolved_test_image} and "
                 f"{resolved_control_image}: both versions ran, but the "
                 "record comparison failed."
             )
-        elif outcome.both_succeeded:
+        elif report_model.outcome and report_model.outcome.both_succeeded:
             print_success(
                 f"Regression test passed for {resolved_test_image} vs {resolved_control_image}"
             )
-        elif outcome.regression_detected:
+        elif report_model.regression_detected:
             print_error(
                 f"Regression detected between {resolved_test_image} and {resolved_control_image}"
             )
-        elif outcome.both_failed:
+        elif report_model.both_failed:
             print_error(
                 f"Both versions failed for {resolved_test_image} vs {resolved_control_image}. "
                 "Test failed/inconclusive; cannot rule out a regression."
             )
-        else:
+        elif report_model.outcome and report_model.outcome.control_failed_only:
             print_error(
                 f"Control {resolved_control_image} failed while target "
                 f"{resolved_test_image} succeeded. Test failed/inconclusive; "
                 "nothing to compare the target against."
+            )
+        else:
+            print_error(
+                f"Regression test failed for {resolved_test_image} vs "
+                f"{resolved_control_image}: {report_model.verdict_label} — "
+                f"{report_model.verdict_detail}"
             )
 
 

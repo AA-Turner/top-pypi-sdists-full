@@ -412,6 +412,42 @@ class UpdateHeartbeatResponse(google.protobuf.message.Message):
 global___UpdateHeartbeatResponse = UpdateHeartbeatResponse
 
 @typing.final
+class BatchUpdateHeartbeatRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    IDS_FIELD_NUMBER: builtins.int
+    @property
+    def ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """The ids of the activations being processed."""
+
+    def __init__(
+        self,
+        *,
+        ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["ids", b"ids"]) -> None: ...
+
+global___BatchUpdateHeartbeatRequest = BatchUpdateHeartbeatRequest
+
+@typing.final
+class BatchUpdateHeartbeatResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NOT_FOUND_IDS_FIELD_NUMBER: builtins.int
+    @property
+    def not_found_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """Ids from the request that are no longer processing. The worker should stop sending heartbeats for them."""
+
+    def __init__(
+        self,
+        *,
+        not_found_ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["not_found_ids", b"not_found_ids"]) -> None: ...
+
+global___BatchUpdateHeartbeatResponse = BatchUpdateHeartbeatResponse
+
+@typing.final
 class PushTaskRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

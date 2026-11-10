@@ -13,7 +13,7 @@ COMPONENTS:
     for general webhook/API calls (GitHub webhooks, Zendesk webhooks,
     Devin subscriptions)
 - slack-webhook-cloudrun: Cloud Run deployment with public HTTPS ingress,
-    exclusively for Slack interactive components
+    for Slack interactive components and the Devin Stop hook
 - GCLB (Google Cloud Load Balancer) fronting internal-agent-bus-cloudrun
 - Cloud Armor security policies (per-path IP allowlisting on GCLB)
 - Firestore database (subscription state with TTL auto-expiry)
@@ -29,6 +29,8 @@ Two ingress boundaries with distinct trust models:
     /health            -> Allow all (health checks)
   External (direct Cloud Run HTTPS):
     /slack/webhook     -> X-Slack-Signature HMAC validation (Slack best practice)
+    /devin/stop        -> Bearer token (Devin VM egress is not on the Cloud Armor allowlist;
+                          the internal service's default-deny rule blocks this request)
 """
 
 import pulumi
@@ -147,6 +149,9 @@ def define_secrets(
         "subscription-api-bearer-token",
         "devin-ai-api-key",
         "zendesk-webhook-signing-secret",
+        "devin-stop-hook-bearer-token",
+        "hydra-handoff-bot-app-id",
+        "hydra-handoff-bot-private-key",
     ]
     secrets: dict[str, gcp.secretmanager.Secret] = {}
     for secret_id in secret_ids:
@@ -238,6 +243,7 @@ def _secret_env(
 
 def _cloud_run_template_args(
     sa: gcp.serviceaccount.Account,
+    stop_wake_enabled: bool,
 ) -> gcp.cloudrunv2.ServiceTemplateArgs:
     """Build the shared Cloud Run template used by both deployments.
 
@@ -246,6 +252,63 @@ def _cloud_run_template_args(
     service-level settings (ingress, name) differ between them.
     """
     image = f"{REGION}-docker.pkg.dev/{PROJECT}/{SERVICE_NAME}/{SERVICE_NAME}:latest"
+    envs = [
+        gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+            name="GCP_PROJECT",
+            value=PROJECT,
+        ),
+        gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+            name="DEVIN_ORG_ID",
+            value=DEVIN_ORG_ID,
+        ),
+        _secret_env("GITHUB_WEBHOOK_SECRET", "github-webhook-secret"),
+        _secret_env("SLACK_SIGNING_SECRET", "slack-signing-secret"),
+        _secret_env(
+            "SUBSCRIPTION_API_BEARER_TOKEN",
+            "subscription-api-bearer-token",
+        ),
+        _secret_env("DEVIN_AI_API_KEY", "devin-ai-api-key"),
+    ]
+    if stop_wake_enabled:
+        envs.extend(
+            [
+                _secret_env(
+                    "DEVIN_STOP_HOOK_BEARER_TOKEN",
+                    "devin-stop-hook-bearer-token",
+                ),
+                _secret_env(
+                    "HYDRA_HANDOFF_BOT_APP_ID",
+                    "hydra-handoff-bot-app-id",
+                ),
+                _secret_env(
+                    "HYDRA_HANDOFF_BOT_PRIVATE_KEY",
+                    "hydra-handoff-bot-private-key",
+                ),
+            ]
+        )
+    envs.extend(
+        [
+            _secret_env("SLACK_BOT_TOKEN_HITL", "slack-bot-token-hitl"),
+            _secret_env(
+                "ZENDESK_WEBHOOK_SIGNING_SECRET",
+                "zendesk-webhook-signing-secret",
+            ),
+            # MoonBot Zendesk credentials, injected into resolution
+            # Devin sessions via `session_secrets`. The token secret
+            # is shared with internal-mcp-servers; the runtime SA's
+            # secretAccessor grant is a manual bootstrap step (see
+            # BOOTSTRAP.md), not Pulumi-managed.
+            gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+                name="ZENDESK_SUBDOMAIN",
+                value=ZENDESK_SUBDOMAIN,
+            ),
+            gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
+                name="ZENDESK_EMAIL",
+                value=ZENDESK_EMAIL,
+            ),
+            _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
+        ]
+    )
     return gcp.cloudrunv2.ServiceTemplateArgs(
         service_account=sa.email,
         scaling=gcp.cloudrunv2.ServiceTemplateScalingArgs(
@@ -264,42 +327,7 @@ def _cloud_run_template_args(
                         "memory": "512Mi",
                     },
                 ),
-                envs=[
-                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="GCP_PROJECT",
-                        value=PROJECT,
-                    ),
-                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="DEVIN_ORG_ID",
-                        value=DEVIN_ORG_ID,
-                    ),
-                    _secret_env("GITHUB_WEBHOOK_SECRET", "github-webhook-secret"),
-                    _secret_env("SLACK_SIGNING_SECRET", "slack-signing-secret"),
-                    _secret_env(
-                        "SUBSCRIPTION_API_BEARER_TOKEN",
-                        "subscription-api-bearer-token",
-                    ),
-                    _secret_env("DEVIN_AI_API_KEY", "devin-ai-api-key"),
-                    _secret_env("SLACK_BOT_TOKEN_HITL", "slack-bot-token-hitl"),
-                    _secret_env(
-                        "ZENDESK_WEBHOOK_SIGNING_SECRET",
-                        "zendesk-webhook-signing-secret",
-                    ),
-                    # MoonBot Zendesk credentials, injected into resolution
-                    # Devin sessions via `session_secrets`. The token secret
-                    # is shared with internal-mcp-servers; the runtime SA's
-                    # secretAccessor grant is a manual bootstrap step (see
-                    # BOOTSTRAP.md), not Pulumi-managed.
-                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="ZENDESK_SUBDOMAIN",
-                        value=ZENDESK_SUBDOMAIN,
-                    ),
-                    gcp.cloudrunv2.ServiceTemplateContainerEnvArgs(
-                        name="ZENDESK_EMAIL",
-                        value=ZENDESK_EMAIL,
-                    ),
-                    _secret_env("ZENDESK_API_TOKEN", ZENDESK_API_TOKEN_SECRET_ID),
-                ],
+                envs=envs,
             ),
         ],
     )
@@ -310,6 +338,7 @@ def define_cloud_run_services(
     secrets: dict[str, gcp.secretmanager.Secret],
     api_services: list[gcp.projects.Service],
     iam_bindings: list[pulumi.Resource],
+    stop_wake_enabled: bool,
 ) -> tuple[gcp.cloudrunv2.Service, gcp.cloudrunv2.Service]:
     """Define two Cloud Run v2 deployments of the same container image.
 
@@ -326,7 +355,7 @@ def define_cloud_run_services(
           X-Slack-Signature HMAC validation (Slack best practice).
     """
     depends = api_services + list(secrets.values()) + iam_bindings
-    template = _cloud_run_template_args(sa)
+    template = _cloud_run_template_args(sa, stop_wake_enabled)
 
     # ---- internal-agent-bus-cloudrun ----
     # Lives behind GCLB + Cloud Armor. Only accepts traffic forwarded by the
@@ -362,18 +391,17 @@ def define_cloud_run_services(
     )
 
     # ---- slack-webhook-cloudrun ----
-    # Public HTTPS ingress for Slack interactive components only.
-    # Security relies on X-Slack-Signature HMAC validation (Slack best practice).
-    # Slack does not publish source IPs, so signature validation is the
-    # correct trust boundary.
+    # Public HTTPS ingress for Slack interactive components and the Devin Stop
+    # hook. Slack uses HMAC validation; the Stop hook uses bearer-token auth
+    # because Devin VM egress is not on the Cloud Armor allowlist.
     slack_service = gcp.cloudrunv2.Service(
         SLACK_SERVICE_NAME,
         name=SLACK_SERVICE_NAME,
         project=PROJECT,
         location=REGION,
         description=(
-            "Public-facing Slack webhook receiver. Processes Slack interactive "
-            "components only. Security via X-Slack-Signature HMAC validation."
+            "Public-facing Slack webhook and Devin Stop hook receiver. Slack "
+            "uses X-Slack-Signature HMAC validation; Devin Stop uses bearer-token auth."
         ),
         ingress="INGRESS_TRAFFIC_ALL",
         scaling=gcp.cloudrunv2.ServiceScalingArgs(
@@ -629,11 +657,15 @@ def define_load_balancer(
 
 def define_firestore(
     api_services: list[gcp.projects.Service],
-) -> tuple[gcp.firestore.Database, gcp.firestore.Field]:
+) -> tuple[
+    gcp.firestore.Database,
+    gcp.firestore.Field,
+    gcp.firestore.Field,
+]:
     """Define Firestore database and TTL policy.
 
-    Creates the default Firestore database in Native mode and configures
-    a TTL policy on the expires_at field for automatic subscription expiry.
+    Creates the default Firestore database in Native mode and configures TTL
+    policies for subscriptions and Stop event deduplication.
     """
     database = gcp.firestore.Database(
         f"{SERVICE_NAME}-firestore-db",
@@ -655,7 +687,16 @@ def define_firestore(
         ttl_config=gcp.firestore.FieldTtlConfigArgs(),
         opts=pulumi.ResourceOptions(depends_on=[database]),
     )
-    return database, ttl_field
+    stop_events_ttl_field = gcp.firestore.Field(
+        f"{SERVICE_NAME}-stop-events-ttl-policy",
+        project=PROJECT,
+        database=FIRESTORE_DATABASE,
+        collection="devin_stop_events",
+        field="expires_at",
+        ttl_config=gcp.firestore.FieldTtlConfigArgs(),
+        opts=pulumi.ResourceOptions(depends_on=[database]),
+    )
+    return database, ttl_field, stop_events_ttl_field
 
 
 # =============================================================================
@@ -665,6 +706,8 @@ def define_firestore(
 
 def main() -> None:
     """Define and deploy all infrastructure resources."""
+    stop_wake_enabled = config.get_bool("stop-wake-enabled") or False
+
     # Enable APIs first
     api_services = define_apis()
 
@@ -679,7 +722,7 @@ def main() -> None:
 
     # Cloud Run services (two deployments of the same image)
     internal_service, slack_service = define_cloud_run_services(
-        sa, secrets, api_services, iam_bindings
+        sa, secrets, api_services, iam_bindings, stop_wake_enabled
     )
 
     # Cloud Armor policy (attached to GCLB, protects internal service only)
@@ -689,7 +732,7 @@ def main() -> None:
     lb_outputs = define_load_balancer(internal_service, armor_policy, api_services)
 
     # Firestore database and TTL policy
-    firestore_db, ttl_field = define_firestore(api_services)
+    firestore_db, ttl_field, stop_events_ttl_field = define_firestore(api_services)
 
     # Export outputs
     pulumi.export("project", PROJECT)
@@ -706,6 +749,7 @@ def main() -> None:
     pulumi.export("cloud_armor_policy", armor_policy.name)
     pulumi.export("firestore_database", firestore_db.name)
     pulumi.export("firestore_ttl_field", ttl_field.name)
+    pulumi.export("firestore_stop_events_ttl_field", stop_events_ttl_field.name)
 
     # Export secret names for reference
     for secret_id, secret in secrets.items():

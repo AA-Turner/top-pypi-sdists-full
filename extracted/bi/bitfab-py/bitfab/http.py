@@ -306,6 +306,31 @@ class _TraceDelivery:
         self.server_trace_id: str | None = None
 
 
+def _server_error_reason(response: requests.Response | None) -> str | None:
+    if response is None:
+        return None
+    try:
+        body = response.json()
+    except Exception:
+        return None
+    if not isinstance(body, dict):
+        return None
+    reason = body.get("error")
+    return reason if isinstance(reason, str) and reason else None
+
+
+def _raise_for_status(response: requests.Response) -> None:
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as error:
+        reason = _server_error_reason(error.response)
+        if reason is None:
+            raise
+        raise requests.exceptions.HTTPError(
+            f"{error}: {reason}", response=error.response, request=error.request
+        ) from error
+
+
 def _parse_retry_after_ms(header: str | None) -> float | None:
     """``Retry-After`` as milliseconds.
 
@@ -844,7 +869,7 @@ class HttpClient:
                         headers=headers,
                         timeout=request_timeout,
                     )
-                response.raise_for_status()
+                _raise_for_status(response)
 
                 result = response.json()
 
@@ -904,7 +929,7 @@ class HttpClient:
             headers=headers,
             timeout=request_timeout,
         )
-        response.raise_for_status()
+        _raise_for_status(response)
 
         result = response.json()
 
@@ -1016,6 +1041,7 @@ class HttpClient:
         code_change_files: list[dict[str, str]] | None = None,
         experiment_group_id: str | None = None,
         experiment_group_name: str | None = None,
+        baseline_experiment_id: str | None = None,
         include_db_branch_lease: bool = False,
         include_original_metadata: bool = False,
         dataset_ids: list[str] | None = None,
@@ -1067,6 +1093,9 @@ class HttpClient:
                 only when set. Applied when this replay creates the group or the
                 group has no name yet. A group that already has a name keeps it.
                 The server refuses it without ``experiment_group_id``.
+            baseline_experiment_id: Optional UUID of an earlier experiment to
+                compare this run against, sent only when set. The server
+                refuses an experiment outside the caller's organization.
             include_db_branch_lease: When True, the server resolves each root
                 span's ``db_snapshot_ref`` into a per-item ``dbBranchLease``
                 (Neon snapshot + restore) before returning. Set when the caller
@@ -1129,6 +1158,8 @@ class HttpClient:
             payload["experimentGroupId"] = experiment_group_id
         if experiment_group_name is not None:
             payload["experimentGroupName"] = experiment_group_name
+        if baseline_experiment_id is not None:
+            payload["baselineExperimentId"] = baseline_experiment_id
         if include_db_branch_lease:
             payload["includeDbBranchLease"] = True
             payload["lazyDbBranchLease"] = True

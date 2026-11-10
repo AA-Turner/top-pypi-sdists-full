@@ -29,6 +29,7 @@ __all__ = (
     "AgentUpdateStatusType",
     "ApplicationProtocolType",
     "AssignPublicIpType",
+    "AttestationPolicyStatusType",
     "AutoRepairActionsStatusType",
     "AvailabilityZoneRebalancingType",
     "BareMetalType",
@@ -96,6 +97,7 @@ __all__ = (
     "InstanceHealthCheckStateType",
     "InstanceHealthCheckTypeType",
     "IpcModeType",
+    "IsolationModeType",
     "LaunchTypeType",
     "ListAccountSettingsPaginatorName",
     "ListAttributesPaginatorName",
@@ -178,6 +180,8 @@ AcceleratorNameType = Literal[
     "inferentia",
     "k520",
     "k80",
+    "l4",
+    "l40s",
     "m60",
     "radeon-pro-v520",
     "t4",
@@ -190,6 +194,7 @@ AccessTypeType = Literal["PRIVATE", "PUBLIC"]
 AgentUpdateStatusType = Literal["FAILED", "PENDING", "STAGED", "STAGING", "UPDATED", "UPDATING"]
 ApplicationProtocolType = Literal["grpc", "http", "http2"]
 AssignPublicIpType = Literal["DISABLED", "ENABLED"]
+AttestationPolicyStatusType = Literal["CONFIGURED"]
 AutoRepairActionsStatusType = Literal["DISABLED", "ENABLED"]
 AvailabilityZoneRebalancingType = Literal["DISABLED", "ENABLED"]
 BareMetalType = Literal["excluded", "included", "required"]
@@ -308,6 +313,7 @@ InstanceHealthCheckTypeType = Literal[
     "ACCELERATED_COMPUTE", "AGENT_CONNECTIVITY", "CONTAINER_RUNTIME", "DAEMON"
 ]
 IpcModeType = Literal["host", "none", "task"]
+IsolationModeType = Literal["CONFIDENTIAL_SANDBOX", "ISOLATED_SANDBOX", "SHARED"]
 LaunchTypeType = Literal["EC2", "EXTERNAL", "FARGATE", "MANAGED_INSTANCES"]
 ListAccountSettingsPaginatorName = Literal["list_account_settings"]
 ListAttributesPaginatorName = Literal["list_attributes"]

@@ -1,25 +1,25 @@
 Metadata-Version: 2.3
 Name: ngboost
-Version: 0.5.11
+Version: 0.6.0
 Summary: Library for probabilistic predictions via gradient boosting.
 License: Apache-2.0
 Author: Stanford ML Group
 Author-email: avati@cs.stanford.edu
-Requires-Python: >=3.9,<3.15
+Requires-Python: >=3.10,<3.15
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: joblib (>=1.2)
 Requires-Dist: lifelines (>=0.25)
-Requires-Dist: matplotlib (>=3.0,<3.10) ; python_version < "3.10"
-Requires-Dist: matplotlib (>=3.10.0) ; python_version >= "3.10"
+Requires-Dist: matplotlib (>=3.10.0)
 Requires-Dist: numpy (>=1.21.2) ; python_version < "3.13"
 Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
-Requires-Dist: scikit-learn (>=1.6,<2.0)
+Requires-Dist: scikit-learn (>=1.6,<1.7) ; python_version < "3.14"
+Requires-Dist: scikit-learn (>=1.8.0,<2.0) ; python_version >= "3.14"
 Requires-Dist: scipy (>=1.14.1) ; python_version >= "3.13"
 Requires-Dist: scipy (>=1.7.2) ; python_version < "3.13"
 Requires-Dist: sympy (>=1.12)

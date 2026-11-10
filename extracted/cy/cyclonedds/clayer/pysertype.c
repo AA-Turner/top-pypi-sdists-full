@@ -192,7 +192,7 @@ static bool ddspy_serdata_populate_key (ddspy_serdata_t *this)
   // well-formed inputs.  So we'd better check.
   void * const cdr_data = (char *)this->data + 4;
   uint32_t act_size;
-  if (!dds_stream_normalize (cdr_data, (uint32_t)this->data_size - 4, needs_bswap, xcdr_version, &csertype(this)->cdrstream_desc, (this->c_data.kind == SDK_KEY), &act_size))
+  if (dds_stream_normalize (cdr_data, (uint32_t)this->data_size - 4, needs_bswap, xcdr_version, &csertype(this)->cdrstream_desc, (this->c_data.kind == SDK_KEY), &act_size) != DDS_STREAM_NORMALIZE_SUCCESS)
     return false;
   // Fixup encoding header if we byte-swapped the contents
   if (needs_bswap)
@@ -201,7 +201,7 @@ static bool ddspy_serdata_populate_key (ddspy_serdata_t *this)
   dds_ostream_t os;
   dds_ostream_init (&os, &cdrstream_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
   dds_istream_t is;
-  dds_istream_init (&is, (uint32_t)this->data_size - 4, cdr_data, xcdr_version);
+  dds_istream_init_well_formed (&is, (uint32_t)this->data_size - 4, cdr_data, xcdr_version);
 
   bool extract_result;
   if (this->c_data.kind == SDK_KEY)
@@ -414,7 +414,7 @@ static bool serdata_typeless_to_sample (const struct ddsi_sertype *type, const s
     switch (pyst->cdrstream_desc.ops.ops[0]) {
       case DDS_OP_PLC: header.enc = DDSI_RTPS_PL_CDR_BE; break;
       default: header.enc = DDSI_RTPS_CDR_BE; break;
-    }    
+    }
   }
 #elif DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
   if (pysd->is_v2) {
@@ -427,7 +427,7 @@ static bool serdata_typeless_to_sample (const struct ddsi_sertype *type, const s
     switch (pyst->cdrstream_desc.ops.ops[0]) {
       case DDS_OP_PLC: header.enc = DDSI_RTPS_PL_CDR_LE; break;
       default: header.enc = DDSI_RTPS_CDR_LE; break;
-    }    
+    }
   }
 #else
 #error "endianness not set properly"
@@ -443,7 +443,7 @@ static bool serdata_typeless_to_sample (const struct ddsi_sertype *type, const s
   else
   {
     dds_istream_t is;
-    dds_istream_init (&is, pysd->key_size, pysd->key, DDSI_RTPS_CDR_ENC_VERSION_2);
+    dds_istream_init_well_formed (&is, pysd->key_size, pysd->key, DDSI_RTPS_CDR_ENC_VERSION_2);
     dds_ostream_t os;
     dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, pysd->is_v2 ? DDSI_RTPS_CDR_ENC_VERSION_2 : DDSI_RTPS_CDR_ENC_VERSION_1);
     dds_stream_extract_key_from_key (&is, &os, DDS_CDR_KEY_SERIALIZATION_SAMPLE, &dds_cdrstream_default_allocator, &pyst->cdrstream_desc);
@@ -490,11 +490,11 @@ static void serdata_get_keyhash (const ddsi_serdata_t *d, struct ddsi_keyhash *b
   bool v1_key_maxsize_bigger_16 = csertype (cserdata(d))->v1_key_maxsize_bigger_16;
   bool v2_key_maxsize_bigger_16 = csertype (cserdata(d))->v2_key_maxsize_bigger_16;
 
-  assert (le_key != NULL);
-  assert (le_keysz > 0);
+  assert (cserdata(d)->key != NULL);
+  assert (cserdata(d)->key_size > 0);
 
   dds_istream_t is;
-  dds_istream_init (&is, cserdata(d)->key_size, cserdata(d)->key, DDSI_RTPS_CDR_ENC_VERSION_2);
+  dds_istream_init_well_formed (&is, cserdata(d)->key_size, cserdata(d)->key, DDSI_RTPS_CDR_ENC_VERSION_2);
   dds_ostreamBE_t os;
   dds_ostreamBE_init (&os, &cdrstream_allocator, 16, is_v2 ? DDSI_RTPS_CDR_ENC_VERSION_2 : DDSI_RTPS_CDR_ENC_VERSION_1);
   hexdump ("keyhash input", is.m_buffer, is.m_size);
@@ -752,7 +752,7 @@ static ddspy_sertype_t *ddspy_sertype_new (PyObject *pytype)
 
   const dds_data_type_properties_t data_type_props = PyLong_AsUnsignedLongLong (pydata_type_props);
   const bool keyless = !(data_type_props & DDS_DATA_TYPE_CONTAINS_KEY);
-  
+
   new = dds_alloc (sizeof (ddspy_sertype_t));
 
   Py_INCREF (pytype);
@@ -853,11 +853,15 @@ static dds_return_t init_cdrstream_descriptor (ddspy_sertype_t *sertype)
     goto err;
   }
 
-  dds_topic_descriptor_t desc;
+  dds_topic_descriptor_t desc = {0};
   if ((ret = ddsi_topic_descriptor_from_type (gv, &desc, ddsi_type)) != DDS_RETCODE_OK)
     goto err;
 
-  dds_cdrstream_desc_init (&sertype->cdrstream_desc, &cdrstream_allocator, desc.m_size, desc.m_align, desc.m_flagset, desc.m_ops, desc.m_keys, desc.m_nkeys);
+  if ((ret = dds_cdrstream_desc_init_with_nops (&sertype->cdrstream_desc, &cdrstream_allocator, desc.m_size, desc.m_align, desc.m_flagset, desc.m_ops, desc.m_nops, desc.m_keys, desc.m_nkeys)) != DDS_RETCODE_OK)
+  {
+    ddsi_topic_descriptor_fini (&desc);
+    goto err;
+  }
   sertype->v1_key_maxsize_bigger_16 = !(sertype->cdrstream_desc.flagset & DDS_TOPIC_FIXED_KEY);
   sertype->v2_key_maxsize_bigger_16 = !(sertype->cdrstream_desc.flagset & DDS_TOPIC_FIXED_KEY_XCDR2);
   ddsi_topic_descriptor_fini (&desc);
@@ -1135,7 +1139,7 @@ static PyObject *readtake_post (int32_t sts, collector_state_t *state)
   for (size_t i = 0; i < state->count; ++i)
   {
     PyObject *sampleinfo = get_sampleinfo_pyobject(&state->sample_infos[i]);
-    PyObject *item = Py_BuildValue("(y#O)", 
+    PyObject *item = Py_BuildValue("(y#O)",
                                    state->containers[i].usample,
                                    (Py_ssize_t)state->containers[i].usample_size,
                                    sampleinfo);
@@ -1163,7 +1167,7 @@ dds_return_t collector_callback_fn(
     // Grow allocation, this ensures amortized linear growth while keeping allocation calls minimal.
     // Doubling gives exponential growth this makes adding N items only require log2(N) reallocations - efficient!
     size_t new_capacity = state->capacity ? state->capacity * 2 : 8;
-    
+
     void *new_containers = dds_realloc(state->containers, new_capacity * sizeof(ddspy_sample_container_t));
     void *new_infos = dds_realloc(state->sample_infos, new_capacity * sizeof(dds_sample_info_t));
 
@@ -1460,11 +1464,11 @@ static PyObject *ddspy_calc_key (PyObject *self, PyObject *args)
   PyBuffer_Release (&sample_data);
 
   // Extract key in correct CDR version (pyserdata->key is now always XCDR2)
-  const uint32_t xcdr_version = pyserdata->is_v2 ? DDSI_RTPS_CDR_ENC_VERSION_2 : DDSI_RTPS_CDR_ENC_VERSION_1;
+  const enum dds_cdr_enc_version xcdr_version = pyserdata->is_v2 ? DDSI_RTPS_CDR_ENC_VERSION_2 : DDSI_RTPS_CDR_ENC_VERSION_1;
   dds_ostream_t os;
   dds_ostream_init (&os, &cdrstream_allocator, 0, xcdr_version);
   dds_istream_t is;
-  dds_istream_init (&is, (uint32_t) pyserdata->data_size - 4, (char *) pyserdata->data + 4, xcdr_version);
+  dds_istream_init_well_formed (&is, (uint32_t) pyserdata->data_size - 4, (char *) pyserdata->data + 4, xcdr_version);
   if (!dds_stream_extract_key_from_data (&is, &os, &cdrstream_allocator, &pysertype->cdrstream_desc))
   {
     ddsi_serdata_unref (serdata);
@@ -1924,6 +1928,176 @@ ddspy_get_matched_publication_data(PyObject *self, PyObject *args)
   return item;
 }
 
+static PyObject *logdata_descriptor;
+
+typedef struct {
+  PyObject *cb;
+  PyObject *userdata;
+} ddspy_sink_state_t;
+
+static ddspy_sink_state_t g_log_sink = { NULL, NULL };
+static ddspy_sink_state_t g_trace_sink = { NULL, NULL };
+
+static PyObject *get_logmessage_pyobject(const dds_log_data_t *d)
+{
+  if (d == NULL)
+  {
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+
+  PyObject *kwargs = Py_BuildValue(
+    "{s:I,s:I,s:s,s:I,s:s,s:s#,s:n,s:n}",
+    "priority", d->priority,
+    "domid", d->domid,
+    "file", d->file ? d->file : "",
+    "line", d->line,
+    "function", d->function ? d->function : "",
+    "message", d->message ? d->message : "", (Py_ssize_t)d->size,
+    "size", (Py_ssize_t)d->size,
+    "hdrsize", (Py_ssize_t)d->hdrsize
+  );
+  if (kwargs == NULL)
+    return NULL;
+
+  PyObject *args = PyTuple_New(0);
+  if (args == NULL)
+  {
+    Py_DECREF(kwargs);
+    return NULL;
+  }
+
+  PyObject *obj = PyObject_Call(logdata_descriptor, args, kwargs);
+  Py_DECREF(args);
+  Py_DECREF(kwargs);
+  return obj;
+}
+
+static void ddspy_invoke_sink(ddspy_sink_state_t *state, const dds_log_data_t *d)
+{
+  if (state == NULL || state->cb == NULL || d == NULL)
+    return;
+
+  PyGILState_STATE gil = PyGILState_Ensure();
+
+  PyObject *userdata = state->userdata ? state->userdata : Py_None;
+  Py_INCREF(userdata);
+
+  PyObject *msg = get_logmessage_pyobject(d);
+  if (msg != NULL)
+  {
+    PyObject *res = PyObject_CallFunctionObjArgs(state->cb, userdata, msg, NULL);
+    if (res == NULL)
+      PyErr_WriteUnraisable(state->cb);
+    else
+      Py_DECREF(res);
+    Py_DECREF(msg);
+  }
+  else
+  {
+    PyErr_WriteUnraisable(state->cb);
+  }
+
+  Py_DECREF(userdata);
+  PyGILState_Release(gil);
+}
+
+static void ddspy_log_sink_trampoline(void *p, const dds_log_data_t *d)
+{
+  (void)p;
+  ddspy_invoke_sink(&g_log_sink, d);
+}
+
+static void ddspy_trace_sink_trampoline(void *p, const dds_log_data_t *d)
+{
+  (void)p;
+  ddspy_invoke_sink(&g_trace_sink, d);
+}
+
+static PyObject *ddspy_set_log_sink(PyObject *self, PyObject *args)
+{
+  PyObject *cb;
+  PyObject *userdata = Py_None;
+  (void)self;
+
+  if (!PyArg_ParseTuple(args, "O|O", &cb, &userdata))
+    return NULL;
+
+  if (cb == Py_None)
+  {
+    Py_BEGIN_ALLOW_THREADS
+    dds_set_log_sink(NULL, NULL);
+    Py_END_ALLOW_THREADS
+    Py_XDECREF(g_log_sink.cb);
+    Py_XDECREF(g_log_sink.userdata);
+    g_log_sink.cb = NULL;
+    g_log_sink.userdata = NULL;
+    Py_RETURN_NONE;
+  }
+
+  if (!PyCallable_Check(cb))
+  {
+    PyErr_SetString(PyExc_TypeError, "callback must be callable or None");
+    return NULL;
+  }
+
+  Py_INCREF(cb);
+  Py_INCREF(userdata);
+
+  Py_XDECREF(g_log_sink.cb);
+  Py_XDECREF(g_log_sink.userdata);
+
+  g_log_sink.cb = cb;
+  g_log_sink.userdata = userdata;
+
+  Py_BEGIN_ALLOW_THREADS
+  dds_set_log_sink(ddspy_log_sink_trampoline, NULL);
+  Py_END_ALLOW_THREADS
+  Py_RETURN_NONE;
+}
+
+static PyObject *ddspy_set_trace_sink(PyObject *self, PyObject *args)
+{
+  PyObject *cb;
+  PyObject *userdata = Py_None;
+  (void)self;
+
+  if (!PyArg_ParseTuple(args, "O|O", &cb, &userdata))
+    return NULL;
+
+  if (cb == Py_None)
+  {
+    Py_BEGIN_ALLOW_THREADS
+    dds_set_trace_sink(NULL, NULL);
+    Py_END_ALLOW_THREADS
+    Py_XDECREF(g_trace_sink.cb);
+    Py_XDECREF(g_trace_sink.userdata);
+    g_trace_sink.cb = NULL;
+    g_trace_sink.userdata = NULL;
+    Py_RETURN_NONE;
+  }
+
+  if (!PyCallable_Check(cb))
+  {
+    PyErr_SetString(PyExc_TypeError, "callback must be callable or None");
+    return NULL;
+  }
+
+  Py_INCREF(cb);
+  Py_INCREF(userdata);
+
+  Py_XDECREF(g_trace_sink.cb);
+  Py_XDECREF(g_trace_sink.userdata);
+
+  g_trace_sink.cb = cb;
+  g_trace_sink.userdata = userdata;
+
+  Py_BEGIN_ALLOW_THREADS
+  dds_set_trace_sink(ddspy_trace_sink_trampoline, NULL);
+  Py_END_ALLOW_THREADS
+  Py_RETURN_NONE;
+}
+
 
 char ddspy_docs[] = "DDSPY module";
 
@@ -1961,6 +2135,8 @@ PyMethodDef ddspy_funcs[] = {
 #endif
   { "ddspy_get_matched_subscription_data", (PyCFunction)ddspy_get_matched_subscription_data, METH_VARARGS, ddspy_docs },
   { "ddspy_get_matched_publication_data", (PyCFunction)ddspy_get_matched_publication_data, METH_VARARGS, ddspy_docs },
+  { "ddspy_set_log_sink", (PyCFunction)ddspy_set_log_sink, METH_VARARGS, ddspy_docs },
+  { "ddspy_set_trace_sink", (PyCFunction)ddspy_set_trace_sink, METH_VARARGS, ddspy_docs },
   { NULL }
 };
 
@@ -1997,6 +2173,7 @@ PyMODINIT_FUNC PyInit__clayer (void)
   }
 
   sampleinfo_descriptor = PyObject_GetAttrString (import, "SampleInfo");
+  logdata_descriptor = PyObject_GetAttrString(import, "LogData");
 
   if (PyErr_Occurred ())
     return NULL;

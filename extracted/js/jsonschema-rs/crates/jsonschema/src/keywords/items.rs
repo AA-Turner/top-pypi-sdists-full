@@ -2,6 +2,7 @@ use crate::{
     compiler::{self, DeferredAbsoluteLocation},
     evaluation::{
         format_keyword_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
+        InstancePosition,
     },
     keywords::{BoxedValidator, CompilationResult},
     node::SchemaNode,
@@ -92,7 +93,7 @@ impl<F: Json> Validate<F> for ItemsArrayValidator<F> {
             let mut children = ChildList::default();
             for (idx, (item, node)) in array.elements().zip(self.items.iter()).enumerate() {
                 let child = node.evaluate_instance_below(&item, &location.push(idx), tracker, ctx);
-                children.push(&mut ctx.arena, child);
+                children.push(ctx.arena(), child);
             }
             EvaluationResult::from_children(children)
         } else {
@@ -115,7 +116,7 @@ fn evaluate_each_item<F: Json>(
     let mut children = ChildList::default();
     for (idx, item) in array.elements().enumerate() {
         let child = node.evaluate_instance_below(&item, &location.push(idx), tracker, ctx);
-        children.push(&mut ctx.arena, child);
+        children.push(ctx.arena(), child);
     }
     let mut result = EvaluationResult::from_children(children);
     result.annotate(Annotations::new(serde_json::json!(array.len() != 0)));
@@ -280,7 +281,7 @@ impl<F: Json> Validate<F> for ItemsObjectSkipPrefixValidator<F> {
                 let child =
                     self.node
                         .evaluate_instance_below(&item, &location.push(idx), tracker, ctx);
-                children.push(&mut ctx.arena, child);
+                children.push(ctx.arena(), child);
             }
             let schema_was_applied = array.len() > self.skip_prefix;
             let mut result = EvaluationResult::from_children(children);
@@ -429,20 +430,17 @@ impl<T: ItemType, F: Json> ItemsTypeValidator<T, F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationNode {
-        let instance_location = match ctx.instance_location() {
-            Some(parent) => parent.join_pointer_segment(location.segment()),
-            None => location.into(),
-        };
+        let instance_location = ctx.instance_position_below(location);
         let keyword_location = crate::paths::evaluation_path(tracker, &self.items.location, ctx);
         // A matching element passes `type` with no annotations, so its keyword node needs no call.
         let type_result = if T::matches::<F>(item) {
             EvaluationResult::valid_empty()
         } else {
-            let previous = ctx.enter_instance_location(instance_location.clone());
+            let previous = ctx.enter_instance_location(instance_location);
             let result = self.type_validator.evaluate_with_location(
                 item,
                 location,
-                &instance_location,
+                instance_location,
                 tracker,
                 ctx,
             );
@@ -457,7 +455,7 @@ impl<T: ItemType, F: Json> ItemsTypeValidator<T, F> {
                 crate::paths::evaluation_path(tracker, &self.type_.location, ctx),
                 self.type_.absolute_location().cloned(),
                 self.type_.schema_location(),
-                instance_location.clone(),
+                instance_location,
                 annotations,
                 children,
             ),
@@ -469,14 +467,14 @@ impl<T: ItemType, F: Json> ItemsTypeValidator<T, F> {
                 crate::paths::evaluation_path(tracker, &self.type_.location, ctx),
                 self.type_.absolute_location().cloned(),
                 self.type_.schema_location(),
-                instance_location.clone(),
+                instance_location,
                 annotations,
                 errors,
                 children,
             ),
         };
         let valid = type_node.valid;
-        let children = ChildList::of(&mut ctx.arena, type_node);
+        let children = ChildList::of(ctx.arena(), type_node);
         if valid {
             EvaluationNode::valid(
                 keyword_location,
@@ -580,7 +578,7 @@ impl<T: ItemType, F: Json> Validate<F> for ItemsTypeValidator<T, F> {
         let mut children = ChildList::default();
         for (idx, item) in array.elements().enumerate() {
             let child = self.evaluate_item(&item, &location.push(idx), tracker, ctx);
-            children.push(&mut ctx.arena, child);
+            children.push(ctx.arena(), child);
         }
         let mut result = EvaluationResult::from_children(children);
         result.annotate(Annotations::new(serde_json::json!(array.len() != 0)));
@@ -748,7 +746,7 @@ impl AbsorbedKeywords {
         &self,
         instance: &F::Node<'_>,
         is_array: bool,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationNode {
@@ -767,7 +765,7 @@ impl AbsorbedKeywords {
         &self,
         instance: &F::Node<'_>,
         count: Option<u64>,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
         children: &mut ChildList,
@@ -778,12 +776,12 @@ impl AbsorbedKeywords {
                 .then(|| {
                     ErrorDescription::from_validation_error(&self.min_items_error::<F>(
                         instance,
-                        instance_location.clone(),
+                        ctx.arena().render(instance_location),
                         tracker,
                     ))
                 });
             let node = unit(&constraint.site, error, instance_location, tracker, ctx);
-            children.push(&mut ctx.arena, node);
+            children.push(ctx.arena(), node);
         }
         if let Some(constraint) = &self.max_items {
             let error = count
@@ -791,12 +789,12 @@ impl AbsorbedKeywords {
                 .then(|| {
                     ErrorDescription::from_validation_error(&self.max_items_error::<F>(
                         instance,
-                        instance_location.clone(),
+                        ctx.arena().render(instance_location),
                         tracker,
                     ))
                 });
             let node = unit(&constraint.site, error, instance_location, tracker, ctx);
-            children.push(&mut ctx.arena, node);
+            children.push(ctx.arena(), node);
         }
     }
 }
@@ -805,7 +803,7 @@ impl AbsorbedKeywords {
 fn unit(
     site: &SchemaSite,
     error: Option<ErrorDescription>,
-    instance_location: &Location,
+    instance_location: InstancePosition,
     tracker: Option<&RefTracker>,
     ctx: &mut ValidationContext,
 ) -> EvaluationNode {
@@ -815,7 +813,7 @@ fn unit(
             evaluation_path,
             site.absolute_location().cloned(),
             site.schema_location(),
-            instance_location.clone(),
+            instance_location,
             None,
             ChildList::default(),
         ),
@@ -823,7 +821,7 @@ fn unit(
             evaluation_path,
             site.absolute_location().cloned(),
             site.schema_location(),
-            instance_location.clone(),
+            instance_location,
             None,
             vec![error],
             ChildList::default(),

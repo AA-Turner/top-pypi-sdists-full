@@ -6,8 +6,10 @@ from uuid import UUID
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class TranslationJob(Entity):
@@ -19,6 +21,7 @@ class TranslationJob(Entity):
         )
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def is_service_enabled(context: ClientContext, target_language: str) -> ClientResult[bool]:
         """Determines if translation to or from a given language is supported.
 
@@ -36,21 +39,25 @@ class TranslationJob(Entity):
     def entity_type_name(self) -> str:
         return "SP.Translation.TranslationJob"
 
+    @odata(name="JobId")
     @property
     def job_id(self) -> Optional[UUID]:
         """Gets the JobId property"""
         return self.properties.get("JobId", None)
 
+    @odata(name="Name")
     @property
     def name(self) -> Optional[str]:
         """Gets the Name property"""
         return self.properties.get("Name", None)
 
+    @odata(name="OutputSaveBehavior")
     @property
     def output_save_behavior(self) -> Optional[int]:
         """Gets the OutputSaveBehavior property"""
         return self.properties.get("OutputSaveBehavior", None)
 
+    @site_access(SiteLevel.WRITE)
     def translate_file(self, input_file: str, output_file: str) -> ClientResult[str]:
         """TranslateFile operation.
 
@@ -65,6 +72,7 @@ class TranslationJob(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def translate_folder(self, input_folder: str, output_folder: str, recursion: bool) -> ClientResult[str]:
         """TranslateFolder operation.
 
@@ -85,6 +93,7 @@ class TranslationJob(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def translate_library(self, input_library: str, output_library: str) -> ClientResult[str]:
         """TranslateLibrary operation.
 

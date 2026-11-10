@@ -28,6 +28,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import NamedTuple
 
+import claude_paths
+import process_liveness
+
 # ---- Audit-file location (shared by self-improve-audit.py writer + session-start reader) --
 
 def proj_key(proj):
@@ -62,7 +65,7 @@ def proj_key(proj):
 
 def audit_file(proj):
     """Where the SessionEnd audit writes candidate misses for the next SessionStart to read."""
-    return Path.home() / ".claude" / "self-improve-audit" / (proj_key(proj) + ".md")
+    return claude_paths.audit_dir() / (proj_key(proj) + ".md")
 
 
 # The characters that carry STRUCTURE in the frames a snippet is quoted into: the audit envelope's
@@ -227,7 +230,7 @@ def project_slug(proj):
 
 def memory_dir(proj):
     """The native Auto-memory dir for a project cwd."""
-    return Path.home() / ".claude" / "projects" / project_slug(proj) / "memory"
+    return claude_paths.config_dir() / "projects" / project_slug(proj) / "memory"
 
 
 # ---- curated store relocation: <proj>/.claude-bx-selflearning (the new per-project home) ----
@@ -461,7 +464,7 @@ def memory_lock(target_path, timeout=5.0, poll=0.05, now=None):
 
 def last_dream_file(proj):
     """Marker holding the unix timestamp of the last completed dream for this project."""
-    return Path.home() / ".claude" / "self-improve-audit" / (proj_key(proj) + ".dream")
+    return claude_paths.audit_dir() / (proj_key(proj) + ".dream")
 
 
 def dream_mode(proj=None):
@@ -658,6 +661,44 @@ def contrib_file(proj):
     return _audit_dir() / (_queue_file_key(proj) + ".contrib.jsonl")
 
 
+def _main_root_from_gitfile(repo, gitfile):
+    """The main checkout a linked worktree's `.git` FILE points at; `repo` itself for anything
+    else that uses a gitfile (a submodule is a repository of its own)."""
+    text = gitfile.read_text(encoding="utf-8", errors="replace").strip()
+    if not text.startswith("gitdir:"):
+        return repo
+    gitdir = (repo / text[len("gitdir:"):].strip()).resolve()
+    if gitdir.parent.name != "worktrees":
+        return repo
+    common = gitdir.parent.parent
+    return common.parent if common.name == ".git" else common
+
+
+def queue_home(proj):
+    """The directory whose contribution queue `proj` belongs to: the repo's MAIN checkout.
+
+    An entry is about the repo, not about where the session happened to stand, so one added from
+    a linked worktree or a subdirectory must land in the queue the repo's dream reads. Keyed on
+    the raw cwd, a worktree's entries sat under a key nothing looked at and outlived the
+    worktree. Read from the `.git` entry with no git process: this runs inside hooks. A path
+    outside any repository is its own home, so its key is the one it always had.
+    """
+    try:
+        start = Path(os.path.abspath(os.fspath(proj) if proj else os.getcwd()))
+    except (TypeError, ValueError):
+        return proj
+    for directory in (start, *start.parents):
+        dotgit = directory / ".git"
+        try:
+            if dotgit.is_dir():
+                return str(directory)
+            if dotgit.is_file():
+                return str(_main_root_from_gitfile(directory, dotgit))
+        except OSError:
+            return str(start)
+    return str(start)
+
+
 def _queue_file_key(proj):
     """The file key of `proj`'s queue AND its tombstones: a `queue_key:` pseudo-path names it
     directly, anything else is hashed. One resolver for both files, because a tombstone written
@@ -672,7 +713,7 @@ def _queue_file_key(proj):
             raise ValueError(
                 "not a queue key: %r - expected the 16 hex chars `contrib_queue.py queues` prints" % key)
         return key
-    return proj_key(proj)
+    return proj_key(queue_home(proj))
 
 
 def _read_jsonl_records(path):
@@ -768,7 +809,7 @@ def add_contribution(proj, record, max_items=100, strict=False):
             if (not rec.get("proj")
                     and not (isinstance(proj, str) and proj.startswith(QUEUE_KEY_PREFIX))):
                 try:
-                    rec["proj"] = os.path.abspath(os.fspath(proj) if proj else os.getcwd())
+                    rec["proj"] = os.path.abspath(queue_home(proj))
                 except (TypeError, ValueError):
                     pass
             cur.append(rec)
@@ -830,7 +871,11 @@ REJECTED = "rejected"
 
 def rejected_file(proj):
     """Tombstones for contributions that have left the queue, either outcome (never re-queued).
-    Keyed exactly like `contrib_file`, `queue_key:` included."""
+    Keyed exactly like `contrib_file`, `queue_key:` included.
+
+    The name says rejected but the file holds shipped records too; `outcome` tells them apart.
+    It is not renamed because every installed plugin version reads this path: an open session
+    on an older version would find no closed set and let a dream re-queue every closed entry."""
     return _audit_dir() / (_queue_file_key(proj) + ".contrib-rejected.jsonl")
 
 
@@ -927,12 +972,23 @@ def read_shipped(proj):
 def resolve_contribution(proj, index=None, match=None):
     """The 0-based position of exactly ONE queued contribution, by `index` (1-based) or `match`.
 
-    `match` is a case-insensitive substring of the entry's `what` or `target`, and exists because an
-    INDEX SHIFTS under the previous close: closing two entries by the indices of one listing hits
-    the wrong second entry, which silently destroys a contribution that was meant to stay queued.
-    Raises IndexError (out of range, no match, or an ambiguous match) rather than guessing, and
-    OSError when the queue cannot be read."""
+    `match` is a case-insensitive substring of the entry's `what` or `target`, or `<what> -> <target>`
+    as the listing prints it, which is the only way to tell apart two entries with one `what`. It
+    exists because an INDEX SHIFTS under the previous close: closing two entries by the indices of
+    one listing hits the wrong second entry, which silently destroys a contribution that was meant
+    to stay queued. Raises IndexError (out of range, no match, or an ambiguous match) rather than
+    guessing, and OSError when the queue cannot be read."""
     return _resolve_in(read_contributions(proj), index, match)
+
+
+def _contribution_matches(record, needle):
+    """Does lowercased `needle` select `record`: a substring of what or target, or `what -> target`."""
+    what = str(record.get("what") or "").lower()
+    target = str(record.get("target") or "").lower()
+    if needle in what or needle in target:
+        return True
+    head, arrow, tail = needle.partition(" -> ")
+    return bool(arrow) and head.strip() in what and tail.strip() in target
 
 
 def _resolve_in(cur, index=None, match=None):
@@ -940,9 +996,7 @@ def _resolve_in(cur, index=None, match=None):
     must select from the records it will rewrite, not from a second read)."""
     if match:
         needle = str(match).lower()
-        hits = [i for i, r in enumerate(cur)
-                if needle in str(r.get("what") or "").lower()
-                or needle in str(r.get("target") or "").lower()]
+        hits = [i for i, r in enumerate(cur) if _contribution_matches(r, needle)]
         if not hits:
             raise IndexError("no queued contribution matches %r (queue holds %d)" % (match, len(cur)))
         if len(hits) > 1:
@@ -1336,10 +1390,35 @@ def nap_owed_declined(proj):
     return rec if isinstance(rec, dict) and rec.get("by") else {}
 
 
-def nap_owed_blocks(proj):
-    """True while an owed nap still blocks a Stop: owed, and not declined. The Stop gate blocks on
-    this and the context watcher yields on it, so the two cannot disagree about a declined nap."""
-    return is_nap_owed(proj) and not nap_owed_declined(proj)
+def calling_session_id():
+    """The Claude Code session this process runs under, or "" outside one. The CLI exports it to
+    every Bash call, so a script knows whose transcript is its own without asking the cwd."""
+    return os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+
+
+def _live_sessions():
+    """The ids of the Claude Code sessions with a live process behind them."""
+    return process_liveness.live_session_ids(claude_paths.config_dir() / "sessions").ids
+
+
+def nap_owed_by_live_peer(proj, session_id):
+    """True when the owed nap names ANOTHER session that is still running.
+
+    That session's transcript is still growing and its own Stop gate owes the nap, so a second
+    session reviewing it can only duplicate the peer's capture, and each review finds a new stretch
+    to read. False when `session_id` is empty: with no caller to compare, the flag stands."""
+    owner = str(nap_owed_info(proj).get("session_id") or "")
+    if not owner or not session_id or owner == str(session_id):
+        return False
+    return owner in _live_sessions()
+
+
+def nap_owed_blocks(proj, session_id=""):
+    """True while an owed nap still blocks a Stop: owed, not declined, and not owed by a live peer
+    of `session_id`. The Stop gate blocks on this and the context watcher yields on it, so the two
+    cannot disagree about a declined nap."""
+    return (is_nap_owed(proj) and not nap_owed_declined(proj)
+            and not nap_owed_by_live_peer(proj, session_id))
 
 
 def clear_nap_owed(proj):
@@ -1399,7 +1478,7 @@ def unsatisfiable_nap_owed(proj, session_id=""):
 # re-nagged). The `meta-memory-settings` skill views / sets / resets it.
 
 def _config_path():
-    return Path.home() / ".claude" / ".bitranox-memory.json"
+    return claude_paths.config_dir() / ".bitranox-memory.json"
 
 
 DEFAULT_CONFIG = {
@@ -1417,11 +1496,9 @@ DEFAULT_CONFIG = {
     # keeps the full id including the `[1m]` suffix, which the transcript drops), so 0 means auto.
     # The context limit is min(pct of window, cap): the pct leg keeps a cushion on a small window,
     # and the cap catches a big-window session past the measured rot onset while still only 40%
-    # full. In compact mode that limit is the value CLAUDE_CODE_AUTO_COMPACT_WINDOW should hold:
-    # the watcher asks for a checkpoint before the harness compacts there, and the session goes
-    # on. In handover mode it is where a handover plus /clear is offered instead.
+    # full. That limit is the value CLAUDE_CODE_AUTO_COMPACT_WINDOW should hold: the watcher asks
+    # for a checkpoint before the harness compacts there, and the session goes on.
     "context_window": 0,           # 0 = detect; set a token count only to override the detection
-    "context_mode": "compact",     # compact (checkpoint, auto-compact, continue) | handover
     "context_handover_pct": 70,    # percentage leg of the context limit
     "context_handover_cap": 400000,  # absolute leg, in tokens (measured context-rot onset)
     # Opt-in text classifier (hooks/classifier.py). The backend is the master switch; each site
@@ -1606,7 +1683,7 @@ def discovery_roots():
 
 def _audit_dir():
     """Machine-local scratch dir the recall/gather caches and the stores-generation marker share."""
-    return Path.home() / ".claude" / "self-improve-audit"
+    return claude_paths.audit_dir()
 
 
 def _stores_gen_file():
@@ -1654,18 +1731,18 @@ def _is_dir(p):
 
 def find_claude_md_dirs(roots):
     """Every dir under `roots` that carries a `CLAUDE.md` - the raw material for tree discovery.
-    Prunes vendor/hidden/backup dirs, the store dirs themselves, `~/.claude`, and the excluded
-    anchor dirs; never follows symlinks (a link into another tree must not merge them)."""
+    Prunes vendor/hidden/backup dirs, the store dirs themselves, Claude's config dir, and the
+    excluded anchor dirs; never follows symlinks (a link into another tree must not merge them)."""
     out = set()
     excluded = {str(d) for d in _excluded_anchor_dirs()}
-    home_claude = str(Path.home() / ".claude")
+    config_dir = str(claude_paths.config_dir())
     for root in roots:
         try:
             for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
                 base = os.path.basename(dirpath)
                 if (base in VENDOR_DIRNAMES or base in (MEMORY_DIRNAME, CURATED_DIRNAME)
                         or ".bak-" in base or base.endswith(".bak")
-                        or dirpath == home_claude):
+                        or dirpath == config_dir):
                     dirnames[:] = []
                     continue
                 dirnames[:] = [d for d in dirnames
@@ -1991,14 +2068,50 @@ def unreviewed_transcript_text(proj, reviewer, transcript=None, max_bytes=2_000_
     return part.text, part.end
 
 
+def live_transcripts(proj):
+    """The transcripts in `proj`'s native dir whose session is running right now."""
+    native = memory_dir(proj).parent
+    return [str(native / (sid + ".jsonl")) for sid in _live_sessions()
+            if (native / (sid + ".jsonl")).is_file()]
+
+
+def _review_shown_file(proj):
+    # Per session as well as per project: two live sessions in one cwd review different transcripts.
+    return session_state_path("%s-%s" % (calling_session_id(), proj_key(proj)), ".review-shown")
+
+
+def record_review_shown(proj, transcript):
+    """Remember which transcript the calling session's last session-review showed.
+    Raises StateWriteError when the write does not land."""
+    _write_json_state(_review_shown_file(proj), {"path": str(transcript)})
+
+
+def last_review_shown(proj):
+    """The transcript the calling session's last session-review showed, or ""."""
+    try:
+        d = _decode_json_file(_review_shown_file(proj))
+    except (OSError, ValueError):
+        return ""
+    return str(d.get("path") or "") if isinstance(d, dict) else ""
+
+
 def resolve_transcript(proj):
-    """The transcript path for `proj`: the hook-recorded one, else the newest *.jsonl under the
-    project's native dir, else "".
+    """The transcript path for `proj`: the calling session's own when it has one here, else the
+    hook-recorded one, else the newest *.jsonl under the project's native dir, else "".
+
+    The session's own comes first because the hook-recorded path is per cwd: with two live sessions
+    in one cwd it names whichever stopped last, and a review would read and mark the peer's file.
 
     A manual session-review runs with NO Stop hook having recorded meta (right after /clear, or on a
     cwd-key mismatch). Without a fallback it reviews NOTHING while reporting "nothing new" - a silent
     miss of capture-first. The glob self-locates the live transcript so the review self-heals; newest
     by MTIME, never by name (a session-id prefix is not time-ordered)."""
+    sid = calling_session_id()
+    if sid and Path(sid).name == sid:
+        own = memory_dir(proj).parent / (sid + ".jsonl")
+        with contextlib.suppress(OSError):
+            if own.is_file():
+                return str(own)
     recorded = (read_session_meta(proj) or {}).get("transcript_path") or ""
     if recorded and os.path.exists(recorded):
         return recorded
@@ -2206,7 +2319,7 @@ def subject_levels(touched, cwd):
 
 def seeded_file(proj):
     """Marker that this project has been seed-nudged (so the bootstrap nudge fires once)."""
-    return Path.home() / ".claude" / "self-improve-audit" / (proj_key(proj) + ".seeded")
+    return claude_paths.audit_dir() / (proj_key(proj) + ".seeded")
 
 
 def mark_seeded(proj, now=None):
@@ -2247,7 +2360,7 @@ def promotion_file():
     SHARED across projects, not per-project, because the question it answers is "how many DISTINCT
     projects corroborate this?" - a per-project file structurally cannot see another project's
     sighting, so the count it could offer would only ever be one project's own repeats."""
-    return Path.home() / ".claude" / "self-improve-audit" / "promotion-candidates.json"
+    return claude_paths.audit_dir() / "promotion-candidates.json"
 
 
 def _read_sightings():
@@ -2382,7 +2495,7 @@ def store_changed(memory_dir_path, since_mtime):
 
 
 def _model_review_file():
-    return Path.home() / ".claude" / "self-improve-audit" / "model-review.txt"
+    return claude_paths.audit_dir() / "model-review.txt"
 
 
 def model_review_due(interval_days=30, now=None):
@@ -2412,7 +2525,7 @@ def mark_model_reviewed(now=None):
 
 
 def _backup_reminder_file():
-    return Path.home() / ".claude" / "self-improve-audit" / "offsite-backup-reminder.txt"
+    return claude_paths.audit_dir() / "offsite-backup-reminder.txt"
 
 
 def backup_reminder_due(interval_days=30, now=None):
@@ -2460,17 +2573,17 @@ def _filler_baseline_path():
 
 def _filler_local_path(proj):
     """PER-PROJECT learned filler blacklist (out-of-store, machine-local)."""
-    return Path.home() / ".claude" / "self-improve-audit" / (proj_key(proj) + ".filler.json")
+    return claude_paths.audit_dir() / (proj_key(proj) + ".filler.json")
 
 
 def _topical_words_path(proj):
     """PER-PROJECT learned topical whitelist - confirmed genuine topics, not re-queued for classification."""
-    return Path.home() / ".claude" / "self-improve-audit" / (proj_key(proj) + ".topical.json")
+    return claude_paths.audit_dir() / (proj_key(proj) + ".topical.json")
 
 
 def _recall_pending_path(proj):
     """PER-PROJECT queue of as-yet-unclassified recall keywords, drained by the dream classifier."""
-    return Path.home() / ".claude" / "self-improve-audit" / (proj_key(proj) + ".recall-unknown.txt")
+    return claude_paths.audit_dir() / (proj_key(proj) + ".recall-unknown.txt")
 
 
 def _read_word_json(path):
@@ -2672,7 +2785,7 @@ def knowledge_store_empty(proj=None):
     except OSError:
         pass
     try:
-        for memdir in (Path.home() / ".claude" / "projects").glob("*/memory"):
+        for memdir in (claude_paths.config_dir() / "projects").glob("*/memory"):
             for p in memdir.glob("*.md"):
                 if p.name != "MEMORY.md":
                     return False
@@ -3100,15 +3213,59 @@ def skills_invoked(transcript_text):
             obj = json.loads(line)
         except ValueError:
             continue
-        if obj.get("type") != "assistant":
-            continue
-        content = obj.get("message", {}).get("content")
-        if not isinstance(content, list):
-            continue
-        for b in content:
-            if not isinstance(b, dict) or b.get("type") != "tool_use" or b.get("name") != "Skill":
-                continue
-            name = (b.get("input") or {}).get("skill")
-            if isinstance(name, str) and name:
-                tally[name] = tally.get(name, 0) + 1
+        for name in _skill_calls(obj):
+            tally[name] = tally.get(name, 0) + 1
     return tally
+
+
+def _skill_calls(obj):
+    """The skill names an assistant transcript record invokes through the Skill tool, in order.
+
+    A record that is not a JSON object (a stray array or number line) names none, rather than
+    raising out of the caller's loop."""
+    if not isinstance(obj, dict) or obj.get("type") != "assistant":
+        return []
+    message = obj.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, list):
+        return []
+    names = []
+    for b in content:
+        if not isinstance(b, dict) or b.get("type") != "tool_use" or b.get("name") != "Skill":
+            continue
+        args = b.get("input")
+        name = args.get("skill") if isinstance(args, dict) else None
+        if isinstance(name, str) and name:
+            names.append(name)
+    return names
+
+
+def skills_loaded_since_compaction(lines):
+    """Bare names of the skills invoked after the transcript's LAST compaction boundary.
+
+    A skill invoked since the last compaction still has its whole body in the model's context, so
+    a block telling it to invoke that skill again only reloads the same text (a long SKILL.md, on
+    every block). One invoked BEFORE the boundary is different: the compaction summary keeps at
+    most a truncated copy of its body, so re-invoking it is the right advice there.
+
+    `lines` is any iterable of raw transcript lines (an open file streams it), and only the set of
+    names is held, so memory does not grow with the transcript. A `bitranox:` prefix is dropped,
+    because callers ask by the bare name. A sidechain record is a subagent's call, which loads
+    nothing into this context.
+    """
+    loaded = set()
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(obj, dict) or obj.get("isSidechain") is True:
+            continue
+        if obj.get("type") == "system" and obj.get("subtype") == "compact_boundary":
+            loaded.clear()
+            continue
+        loaded.update(name.rsplit(":", 1)[-1] for name in _skill_calls(obj))
+    return frozenset(loaded)

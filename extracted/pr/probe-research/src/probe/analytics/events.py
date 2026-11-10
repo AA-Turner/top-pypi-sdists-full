@@ -31,9 +31,11 @@ EVENT_WIZARD_IMPORTS_CHOSEN = Event.WIZARD_IMPORTS_CHOSEN.value
 EVENT_WIZARD_ONBOARDING_COMPLETED = Event.WIZARD_ONBOARDING_COMPLETED.value
 EVENT_WIZARD_UNINSTALL_STARTED = Event.WIZARD_UNINSTALL_STARTED.value
 EVENT_WIZARD_UNINSTALL_COMPLETED = Event.WIZARD_UNINSTALL_COMPLETED.value
+EVENT_WIZARD_AGENT_REMOVED = Event.WIZARD_AGENT_REMOVED.value
 EVENT_WIZARD_SIGNED_OUT = Event.WIZARD_SIGNED_OUT.value
 EVENT_WIZARD_RECORDER_CHANGED = Event.WIZARD_RECORDER_CHANGED.value
 EVENT_TRANSCRIPTS_SUMMARY = Event.TRANSCRIPTS_SUMMARY.value
+EVENT_IMPORT_REVIEW_MADE = Event.IMPORT_REVIEW_MADE.value
 EVENT_IMPORT_JOB_ENQUEUED = Event.IMPORT_JOB_ENQUEUED.value
 EVENT_IMPORT_JOB_STALLED = Event.IMPORT_JOB_STALLED.value
 EVENT_IMPORT_JOB_FINISHED = Event.IMPORT_JOB_FINISHED.value
@@ -57,8 +59,20 @@ EVENT_LIFEBOAT_ACTED = Event.LIFEBOAT_ACTED.value
 EVENT_UPDATES_PRIVATE_UV = Event.UPDATES_PRIVATE_UV.value
 EVENT_MCP_TOOL_SERVED = Event.MCP_TOOL_SERVED.value
 EVENT_EXCEPTION = Event.EXCEPTION.value
-#: The only events `emit_service_event` sends.
-SERVICE_EVENTS = frozenset({EVENT_SERVICE_STARTED, EVENT_SERVICE_STATE, EVENT_SERVICE_STOPPED, EVENT_LIFEBOAT_ACTED})
+EVENT_AGENT_INSTALL_SIGNIN_STARTED = Event.AGENT_INSTALL_SIGNIN_STARTED.value
+EVENT_AGENT_INSTALL_APPROVED = Event.AGENT_INSTALL_APPROVED.value
+EVENT_AGENT_INSTALL_CONFIGURED = Event.AGENT_INSTALL_CONFIGURED.value
+EVENT_AGENT_INSTALL_CHAT_RECORDING = Event.AGENT_INSTALL_CHAT_RECORDING.value
+EVENT_AGENT_INSTALL_REPASTE_CHOICE = Event.AGENT_INSTALL_REPASTE_CHOICE.value
+EVENT_AGENT_INSTALL_REFUSED = Event.AGENT_INSTALL_REFUSED.value
+EVENT_AGENT_INSTALL_DEMO_CHOICE = Event.AGENT_INSTALL_DEMO_CHOICE.value
+EVENT_AGENT_INSTALL_UPDATED = Event.AGENT_INSTALL_UPDATED.value
+EVENT_IMPORT_FOLDERS_SUGGESTED = Event.IMPORT_FOLDERS_SUGGESTED.value
+EVENT_REPAIR_FINISHED = Event.REPAIR_FINISHED.value
+EVENT_SESSION_SWITCHED = Event.SESSION_SWITCHED.value
+#: The only events `emit_service_event` sends (`agent_install.refused`: the refusal spool's, PR C).
+SERVICE_EVENTS = frozenset({EVENT_SERVICE_STARTED, EVENT_SERVICE_STATE, EVENT_SERVICE_STOPPED, EVENT_LIFEBOAT_ACTED,
+                            EVENT_AGENT_INSTALL_REFUSED})
 
 
 def emit_report_undeliverable(*, family: str, reason: str, base_url: str | None,
@@ -96,6 +110,30 @@ def emit_service_event(event: str, props: dict, *, base_url: str | None) -> bool
         return False  # observability must never become observable
 
 
+def emit_session_switched(*, scope: str, state: str, chat_agent: str | None, control: str | None = None,
+                          trigger: str | None = None) -> bool:
+    """`session.switched` (`by: agent`): a coding agent changed what Probe records for the person
+    (fixes-1107b PR C), on this command's context, or a new one when it started none. `control` (auto |
+    manual) and `trigger` (`SwitchTrigger`): probe auto mode. True when it was handed to the sender.
+    Never raises."""
+    try:
+        from probe.analytics import analytics
+
+        context = analytics.current()
+        if not analytics.has_context():
+            from probe.sdk.settings.settings import resolve
+
+            context = analytics.TelemetryContext.start(via=Via.COMMAND, interactive=False,
+                                                       base_url=resolve().base_url, surface=ProductSurface.CLI)
+        if not context.enabled:
+            return False
+        context.emit(EVENT_SESSION_SWITCHED, scope=scope, state=state, by="agent", chat_agent=chat_agent,
+                     control=control, trigger=trigger)
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
 def emit_outbox_drained(
     *,
     base_url: str | None,
@@ -108,13 +146,16 @@ def emit_outbox_drained(
     duration_s: float,
     dead_lettered_by_status: dict[str, int] | None = None,
     dead_lettered_no_such_run: int = 0,
+    dead_lettered_invalid_request: int = 0,
 ) -> None:
     """Report one finished drain episode. Never raises: the worker owns data.
     ``dead_lettered_by_status``: the server's answer per dead letter, keyed like
     `sdk.delivery.summary`'s (``"404"``; ``"none"`` with no HTTP answer).
     ``dead_lettered_no_such_run``: how many of them were the run resolver's own
     "run not found" (`errors.names_no_such_run`), so the loss alert can tell a
-    write naming no run from a 404 that lost it for reasons of ours."""
+    write naming no run from a 404 that lost it for reasons of ours.
+    ``dead_lettered_invalid_request``: how many the server refused for the values they carried
+    (`errors.names_invalid_request`), a caller's mistake the alert does not page on."""
     try:
         outbox_context(base_url, surface=surface).emit(
             EVENT_OUTBOX_DRAINED,
@@ -123,6 +164,7 @@ def emit_outbox_drained(
             dead_lettered=dead_lettered,
             dead_lettered_by_status=dict(dead_lettered_by_status or {}) or None,
             dead_lettered_no_such_run=int(dead_lettered_no_such_run) or None,
+            dead_lettered_invalid_request=int(dead_lettered_invalid_request) or None,
             remaining=remaining,
             passes=passes,
             duration_s=round(duration_s, 2),

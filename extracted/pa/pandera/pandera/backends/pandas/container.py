@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from pandera.api.base.error_handler import ErrorHandler, get_error_category
 from pandera.api.pandas.types import is_table
+from pandera.api.parsers import compile_column_parsers
 from pandera.backends.base import ColumnInfo, CoreCheckResult, CoreParserResult
 from pandera.backends.pandas.base import (
     PandasSchemaBackend,
@@ -653,9 +654,10 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
         # series is relatively slow due to copying the index for
         # each one. Coerce dtypes afterwards instead.
         for c in missing_obj.columns:
-            missing_obj[c] = missing_cols_schema[c].dtype.try_coerce(
-                missing_obj[c]
-            )
+            if missing_cols_schema[c].dtype is not None:
+                missing_obj[c] = missing_cols_schema[c].dtype.try_coerce(
+                    missing_obj[c]
+                )
 
         return missing_obj
 
@@ -917,7 +919,7 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
     def run_parsers(self, schema, check_obj: T) -> T:
         """Run parsers"""
         parser_results: list[CoreParserResult] = []
-        for parser_index, parser in enumerate(schema.parsers):
+        for parser_index, parser in enumerate(compile_column_parsers(schema)):
             result = self.run_parser(
                 check_obj,
                 parser,
@@ -1007,7 +1009,7 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
         keep_setting = convert_uniquesettings(schema.report_duplicates)
         temp_unique: list[list] = (
             [schema.unique]
-            if all(isinstance(x, str) for x in schema.unique)
+            if not any(isinstance(x, list) for x in schema.unique)
             else schema.unique
         )
         for lst in temp_unique:

@@ -581,7 +581,7 @@
 #define PACKAGE_NAME "libpff"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libpff 20260926"
+#define PACKAGE_STRING "libpff 20261030"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "libpff"
@@ -590,7 +590,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "20260926"
+#define PACKAGE_VERSION "20261030"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -619,7 +619,7 @@
 /* #undef TM_IN_SYS_TIME */
 
 /* Version number of package */
-#define VERSION "20260926"
+#define VERSION "20261030"
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Glances
-Version: 4.5.8
+Version: 4.5.9
 Summary: An all-in-one system monitoring tool
 Author-email: Nicolas Hennion <nicolas@nicolargo.com>
 License-Expression: LGPL-3.0-only
@@ -83,7 +83,7 @@ Provides-Extra: sparklines
 Requires-Dist: sparklines; extra == "sparklines"
 Provides-Extra: web
 Requires-Dist: fastapi>=0.82.0; extra == "web"
-Requires-Dist: python-jose[cryptography]>=3.3.0; extra == "web"
+Requires-Dist: PyJWT>=2.10.0; extra == "web"
 Requires-Dist: requests; extra == "web"
 Requires-Dist: uvicorn; extra == "web"
 Provides-Extra: wifi

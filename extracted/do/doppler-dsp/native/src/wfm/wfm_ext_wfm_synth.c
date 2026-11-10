@@ -977,9 +977,7 @@ static PyMethodDef _SynthEngine_methods[] = {
     "--------\n"
     "    >>> import numpy as np\n"
     "    >>> from doppler.wfm import _SynthEngine\n"
-    "    >>> obj = _SynthEngine(type=\"tone\", fs=1000000.0, freq=0.0, "
-    "snr=100.0, snr_mode=\"auto\", seed=1, sps=8, pn_length=7, pn_poly=0, "
-    "lfsr=\"galois\", f_end=0.0)\n"
+    "    >>> obj = _SynthEngine()\n"
     "    >>> obj.set_chirp_span(0)\n" },
   { "prod", (PyCFunction)(void (*) (void))_SynthEngine_prod,
     METH_VARARGS | METH_KEYWORDS,
@@ -1006,7 +1004,7 @@ static PyMethodDef _SynthEngine_methods[] = {
     "Parameters\n"
     "----------\n"
     "x : npt.NDArray[np.complex64]\n"
-    "    Input.\n"
+    "    Input block of ``n`` cf32 samples.\n"
     "out : npt.NDArray[np.complex64] | None\n"
     "    Output block of ``n`` cf32 samples (may be the input block itself).\n"
     "\n"

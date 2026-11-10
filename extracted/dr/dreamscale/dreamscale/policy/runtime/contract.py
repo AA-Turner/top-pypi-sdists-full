@@ -66,6 +66,16 @@ class RuntimeContract:
     # Hy-VLA: the frames this many EXECUTED actions before the observation, oldest first,
     # those the episode has reached (policy.context.TickHistory); the server fills the rest.
     history_ticks: tuple[int, ...] = ()
+    # Long-WAM: offsets the episode hasn't reached send its first frame once (the server
+    # repeats it, as upstream's window does) instead of nothing.
+    history_start: bool = False
+    # The server keeps the episode (Verne V0.5): the frames of every this-many executed steps
+    # are sent ahead, and each request names its step (policy.context.EpisodeTicks).
+    episode_tick_steps: int = 0
+    # Executed actions between two replans at least (0: as the control mode decides): the next
+    # request waits until the plan has this many fewer rows than a fresh chunk (Verne V0.5:
+    # 12 of 18, the per-robot request rate its units are sized for).
+    min_replan_steps: int = 0
     # Rows that aren't the state (end-effector poses) held at ``current_position``: each
     # action value's index in the state vector (-1: zero, e.g. a mobile base held still).
     # Empty: the hold is the observation's own (``hold_action`` or its joint positions).
@@ -103,16 +113,27 @@ class RuntimeContract:
         ticks = self.history_ticks
         if (
             not isinstance(ticks, tuple)
-            or len(ticks) > 5
+            or len(ticks) > 15
             or any(type(tick) is not int or not 1 <= tick <= 64 for tick in ticks)
             or list(ticks) != sorted(set(ticks), reverse=True)
         ):
-            raise ValueError("history_ticks must be at most five distinct ticks, oldest first")
+            # A camera's strip carries them and the current frame (at most 16, messages.py).
+            raise ValueError("history_ticks must be at most 15 distinct ticks, oldest first")
         if ticks and (offsets or self.history_anchor or self.state_history
                       or self.measured_state_steps):
             raise ValueError("a tick history takes no other observation history")
+        if self.history_start and not ticks:
+            raise ValueError("history_start needs a tick history")
         if type(self.measured_state_steps) is not int or not 0 <= self.measured_state_steps <= 31:
             raise ValueError("measured_state_steps must be 0-31")
+        if type(self.episode_tick_steps) is not int or not 0 <= self.episode_tick_steps <= 64:
+            raise ValueError("episode_tick_steps must be 0-64")
+        if type(self.min_replan_steps) is not int or not (
+                0 <= self.min_replan_steps < self.execution_chunk_size):
+            raise ValueError("min_replan_steps must be 0 to the executed rows - 1")
+        if self.episode_tick_steps and (ticks or offsets or self.history_anchor
+                                        or self.state_history or self.measured_state_steps):
+            raise ValueError("an episode kept by the server takes no other observation history")
         native = self.action_hz if self.native_action_hz is None else self.native_action_hz
         if not isfinite(float(native)) or float(native) <= 0.0:
             raise ValueError("native_action_hz must be finite and positive")

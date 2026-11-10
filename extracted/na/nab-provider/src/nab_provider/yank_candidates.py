@@ -16,21 +16,25 @@ __lazy_modules__ = (
 
 from typing import TYPE_CHECKING, ClassVar, Final
 
+from ._compat import override
 from ._provider.extras import version_provides_extra
 from ._provider.listing_diagnosis import MetadataBlock
 from ._provider.metadata_resolver import classify_requirement, dists_at_version
+from ._vendor.packaging.ranges import VersionRange
 from ._vendor.packaging.utils import canonicalize_name
 from .errors import MetadataError, MissingExtraError
 from .extra_keys import split_extra
 from .metadata import intern_version
-from .policy import DistPolicy, ExtrasMode
+from .policy import DistPolicy, ExtrasMode, MetadataPolicy
+from .preference import UnavailableMetadataError
 from .records import SdistFile, WheelFile
 from .value import HashableRecord, Record, field_names
+
+_UNRESTRICTED_RANGE = VersionRange.full()
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
-    from ._vendor.packaging.ranges import VersionRange
     from ._vendor.packaging.requirements import Requirement
     from ._vendor.packaging.version import Version
     from .provider import DistFile, Provider, ProviderStats
@@ -63,10 +67,75 @@ class Candidate(HashableRecord):
         self.withdrawn = withdrawn
         self.label = str(version)
 
+    @override
+    def _comparison_values(self) -> tuple[object, ...]:
+        """Return fixed identity fields, honoring subclass comparison declarations."""
+        if type(self) is not Candidate:
+            return super()._comparison_values()
+
+        return self.package, self.version, self.withdrawn, self.label
+
     @property
     def base(self) -> str:
         """Return the package name without an extra proxy."""
         return split_extra(self.package)[0]
+
+
+def _prefer_version(candidates: list[Candidate], preferred: Version) -> None:
+    """Move the preferred version text, or the first equal candidate, to the front."""
+    matching = next(
+        (
+            index
+            for index, candidate in enumerate(candidates)
+            if candidate.version == preferred
+        ),
+        None,
+    )
+    if matching is None:
+        return
+    label = str(preferred)
+    picked = next(
+        (
+            index
+            for index, candidate in enumerate(candidates)
+            if candidate.label == label
+        ),
+        matching,
+    )
+    candidates.insert(0, candidates.pop(picked))
+
+
+class _CandidateGroups:
+    """One listing's candidates grouped by withdrawal and sorted newest first."""
+
+    __slots__ = ("available", "groups")
+
+    def __init__(
+        self,
+        available: Sequence[Candidate],
+        groups: tuple[tuple[Candidate, ...], ...],
+    ) -> None:
+        self.available = available
+        self.groups = groups
+
+
+class _CandidateOrder:
+    """A preference-free query over one candidate snapshot."""
+
+    __slots__ = ("allowed", "available", "lowest", "result")
+
+    def __init__(
+        self,
+        available: Sequence[Candidate],
+        allowed: VersionRange,
+        result: tuple[Candidate, ...],
+        *,
+        lowest: bool,
+    ) -> None:
+        self.available = available
+        self.allowed = allowed
+        self.lowest = lowest
+        self.result = result
 
 
 class CandidateData(Record):
@@ -90,10 +159,6 @@ class CandidateData(Record):
         self.pins = pins
 
 
-class UnavailableMetadataError(Exception):
-    """An offline miss cannot establish that a live choice is impossible."""
-
-
 def is_pin(requirement: Requirement) -> bool:
     """Recognize original exact equality syntax, including redundant conjuncts."""
     return any(
@@ -112,6 +177,65 @@ def add_range(ranges: dict[str, VersionRange], name: str, value: VersionRange) -
 class YankCandidates:
     """Cache candidates and metadata without granting permission to use yanked files."""
 
+    @staticmethod
+    def candidate_package(candidate: Candidate) -> str:
+        """Return the candidate's package."""
+        return candidate.package
+
+    @staticmethod
+    def candidate_base(candidate: Candidate) -> str:
+        """Return the candidate's base."""
+        return candidate.base
+
+    @staticmethod
+    def candidate_label(candidate: Candidate) -> str:
+        """Return the candidate's label."""
+        return candidate.label
+
+    @staticmethod
+    def candidate_withdrawn(candidate: Candidate) -> bool:
+        """Return whether the candidate is yanked."""
+        return candidate.withdrawn
+
+    @staticmethod
+    def full_range() -> VersionRange:
+        """Return the identity for version-range intersection."""
+        return VersionRange.full()
+
+    @staticmethod
+    def intersect_ranges(left: VersionRange, right: VersionRange) -> VersionRange:
+        """Intersect two ranges using the native version algebra."""
+        return left & right
+
+    @staticmethod
+    def range_contains(candidate: Candidate, allowed: VersionRange) -> bool:
+        """Test a candidate version against native bounds."""
+        return candidate.version in allowed
+
+    @staticmethod
+    def pin_allows(pin: Requirement, candidate: Candidate) -> bool:
+        """Check whether an original pin permits this withdrawn candidate."""
+        return canonicalize_name(pin.name) == candidate.base and pin.specifier.contains(
+            candidate.version, prereleases=True
+        )
+
+    @staticmethod
+    def pin_project(pin: Requirement) -> str:
+        """Return the normalized project named by an original pin."""
+        return canonicalize_name(pin.name)
+
+    @staticmethod
+    def base_name(package: str) -> str:
+        """Remove an extras proxy from a package identifier."""
+        return split_extra(package)[0]
+
+    @staticmethod
+    def base_candidate(candidate: Candidate) -> Candidate:
+        """Return the matching base identity for an extra candidate."""
+        return Candidate(
+            candidate.base, candidate.version, withdrawn=candidate.withdrawn
+        )
+
     def __init__(
         self,
         provider: Provider,
@@ -124,6 +248,8 @@ class YankCandidates:
         self.factory = factory
         self.preferences = preferences
         self.candidates: dict[str, tuple[Candidate, ...]] = {}
+        self._default_orders: dict[tuple[str, bool], _CandidateOrder] = {}
+        self._candidate_groups: dict[str, _CandidateGroups] = {}
         self.facts: dict[Candidate, CandidateData | None] = {}
         self.unavailable: set[Candidate] = set()
         self.missing_listings: set[str] = set()
@@ -169,14 +295,14 @@ class YankCandidates:
         *,
         assume_sorted: bool = False,
     ) -> bool:
-        """Require an sdist for sdist-install; sorted inputs must be newest first."""
+        """Require an sdist for sdist-only; sorted inputs must be newest first."""
         if (
             self.provider.effective_dist_policy(
                 candidate.base,
                 candidate.version,
                 self.provider.serving_index(candidate.base),
             )
-            is not DistPolicy.SDIST_INSTALL
+            is not DistPolicy.SDIST_ONLY
         ):
             return True
         files = (
@@ -200,23 +326,34 @@ class YankCandidates:
             for file in files
         ):
             return self.provider
-        # Sdist-install can read metadata from an equivalent wheel without selecting it.
-        allow_equivalent_wheel_metadata = (
+
+        # A yanked source may use metadata from a live wheel of the same version.
+        allow_wheel_metadata = (
             self.provider.effective_dist_policy(
                 candidate.base,
                 candidate.version,
                 self.provider.serving_index(candidate.base),
             )
-            is DistPolicy.SDIST_INSTALL
+            is DistPolicy.SDIST_ONLY
+            and self.provider.effective_metadata_policy(
+                candidate.base,
+                candidate.version,
+                self.provider.serving_index(candidate.base),
+            )
+            is MetadataPolicy.PREFER_WHEEL
         )
         provider = self.factory()
         provider.versions_cache[candidate.base] = [
             (candidate.version, file)
             for file in files
-            if bool(file.yanked) == candidate.withdrawn
-            and (
-                str(intern_version(file.version)) == candidate.label
-                or (allow_equivalent_wheel_metadata and isinstance(file, WheelFile))
+            if (
+                bool(file.yanked) == candidate.withdrawn
+                and str(intern_version(file.version)) == candidate.label
+            )
+            or (
+                allow_wheel_metadata
+                and isinstance(file, WheelFile)
+                and (candidate.withdrawn or not file.yanked)
             )
         ]
         if candidate.withdrawn:
@@ -284,6 +421,34 @@ class YankCandidates:
                 pins.append(req)
         return CandidateData(provider, dict(dependencies), tuple(pins))
 
+    def _sorted_groups(
+        self,
+        package: str,
+        available: Sequence[Candidate],
+        *,
+        cacheable: bool,
+    ) -> tuple[tuple[Candidate, ...], ...]:
+        """Sort live and withdrawn groups; cache default listing snapshots."""
+        cached = self._candidate_groups.get(package) if cacheable else None
+        if cached is not None and cached.available is available:
+            return cached.groups
+
+        groups = []
+        for withdrawn in (False, True):
+            by_label = {
+                candidate.label: candidate
+                for candidate in available
+                if candidate.withdrawn == withdrawn
+            }
+            ordered = sorted(
+                by_label.values(), key=lambda candidate: candidate.version, reverse=True
+            )
+            groups.append(tuple(ordered))
+        result = tuple(groups)
+        if cacheable:
+            self._candidate_groups[package] = _CandidateGroups(available, result)
+        return result
+
     def ordered(
         self,
         package: str,
@@ -296,40 +461,53 @@ class YankCandidates:
         result: list[Candidate] = []
         base = split_extra(package)[0]
         lowest = self.provider.wants_lowest(base)
-        for withdrawn in (False, True):
-            candidates = {
-                candidate.label: candidate
-                for candidate in available
-                if candidate.withdrawn == withdrawn
-            }
-            versions = sorted(
-                (candidate.version for candidate in candidates.values()), reverse=True
-            )
-            while versions:
-                accepted = list(version_range.filter(versions))
+        cache_key = None
+        if choices is None and self.preferences.get(base) is None:
+            # Requirement filters should not evict the unrestricted selection order.
+            cache_key = (package, version_range == _UNRESTRICTED_RANGE)
+            cached = self._default_orders.get(cache_key)
+            if (
+                cached is not None
+                and cached.available is available
+                and cached.allowed == version_range
+                and cached.lowest == lowest
+            ):
+                return list(cached.result)
+
+        for group in self._sorted_groups(package, available, cacheable=choices is None):
+            remaining = list(group)
+            while remaining:
+                accepted = list(
+                    version_range.filter(
+                        remaining, key=lambda candidate: candidate.version
+                    )
+                )
                 if not accepted:
                     break
-                accepted.sort(key=lambda version: (len(version.release), str(version)))
-                accepted.sort(reverse=not lowest)
-                preferred = self.preferences.get(base)
-                if preferred is not None and preferred in accepted and not lowest:
-                    picked = next(
-                        (
-                            version
-                            for version in accepted
-                            if str(version) == str(preferred)
-                        ),
-                        accepted[accepted.index(preferred)],
+                accepted.sort(
+                    key=lambda candidate: (
+                        len(candidate.version.release),
+                        candidate.label,
                     )
-                    accepted = [
-                        version for version in accepted if str(version) != str(picked)
-                    ]
-                    accepted.insert(0, picked)
-                result.extend(candidates[str(version)] for version in accepted)
-                exhausted = {str(version) for version in accepted}
-                versions = [
-                    version for version in versions if str(version) not in exhausted
+                )
+                accepted.sort(
+                    key=lambda candidate: candidate.version, reverse=not lowest
+                )
+                preferred = self.preferences.get(base)
+                if preferred is not None and not lowest:
+                    _prefer_version(accepted, preferred)
+                result.extend(accepted)
+                exhausted = {candidate.label for candidate in accepted}
+                remaining = [
+                    candidate
+                    for candidate in remaining
+                    if candidate.label not in exhausted
                 ]
+
+        if cache_key is not None:
+            self._default_orders[cache_key] = _CandidateOrder(
+                available, version_range, tuple(result), lowest=lowest
+            )
         return result
 
     def adopt(

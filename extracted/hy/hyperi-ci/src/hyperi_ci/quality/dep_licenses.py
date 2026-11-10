@@ -15,7 +15,7 @@ cite, so a licence verdict never comes from anyone's memory.
 import hashlib
 import json
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
@@ -27,6 +27,9 @@ from packaging.licenses import InvalidLicenseExpression, canonicalize_license_ex
 from hyperi_ci import __version__
 from hyperi_ci.common import error, info, warn
 from hyperi_ci.config import CIConfig
+from hyperi_ci.quality import upstream_licences
+from hyperi_ci.quality.bsd_text import BARE_BSD, bsd_licence
+from hyperi_ci.quality.upstream_licences import Upstream
 
 _POLICY_PATH = Path(__file__).resolve().parents[1] / "config" / "license-policy.yaml"
 
@@ -93,6 +96,7 @@ class Policy:
         obligations: Obligation key to its description.
         exceptions: ``WITH`` exceptions judged as their base licence.
         digest: sha256 of the effective policy, so a citation names the table it used.
+        override_only: Groups whose verdict holds only when an override named them.
 
     """
 
@@ -102,6 +106,7 @@ class Policy:
     obligations: Mapping[str, str]
     exceptions: frozenset[str]
     digest: str
+    override_only: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,11 +198,14 @@ def load_policy(
     groups: dict[str, dict[Mode, Rule]] = {}
     group_of: dict[str, str] = {}
     canonical: dict[str, str] = {}
+    override_only: set[str] = set()
     for name, body in (raw.get("groups") or {}).items():
         ids = list(body.get("ids") or [])
         if not ids:
             raise PolicyError(f"group {name!r}: no `ids`")
         groups[name] = _parse_modes(body.get("modes"), name, obligations)
+        if body.get("override_only") is True:
+            override_only.add(name)
         aliases = body.get("aliases") or {}
         if not isinstance(aliases, Mapping):
             raise PolicyError(f"group {name!r}: `aliases` maps a name to its SPDX id")
@@ -235,9 +243,10 @@ def load_policy(
     }
     exceptions = frozenset(str(e) for e in raw.get("exceptions") or ())
     digest = hashlib.sha256(
-        json.dumps([effective, group_of, sorted(exceptions)], sort_keys=True).encode(
-            "utf-8"
-        )
+        json.dumps(
+            [effective, group_of, sorted(exceptions), sorted(override_only)],
+            sort_keys=True,
+        ).encode("utf-8")
     ).hexdigest()
     return Policy(
         groups=groups,
@@ -246,6 +255,7 @@ def load_policy(
         obligations=obligations,
         exceptions=exceptions,
         digest=digest,
+        override_only=frozenset(override_only),
     )
 
 
@@ -356,6 +366,66 @@ def _term_rule(term: str, policy: Policy, mode: Mode) -> tuple[str, Rule | None]
     return spdx, policy.groups[group][mode]
 
 
+def _split_top(expression: str, operator: str) -> list[str]:
+    """Split ``expression`` on ``operator`` outside any brackets."""
+    parts, depth, start = [], 0, 0
+    token = f" {operator} "
+    i = 0
+    while i < len(expression):
+        char = expression[i]
+        depth += (char == "(") - (char == ")")
+        if depth == 0 and expression.startswith(token, i):
+            parts.append(expression[start:i])
+            i += len(token)
+            start = i
+            continue
+        i += 1
+    parts.append(expression[start:])
+    return parts
+
+
+def _strip_brackets(expression: str) -> str:
+    """Drop brackets that wrap the whole of ``expression``."""
+    while expression.startswith("(") and expression.endswith(")"):
+        depth = 0
+        for i, char in enumerate(expression):
+            depth += (char == "(") - (char == ")")
+            if depth == 0 and i < len(expression) - 1:
+                return expression
+        expression = expression[1:-1].strip()
+    return expression
+
+
+def _evaluate(expression: str, policy: Policy, mode: Mode) -> Rule | None:
+    """Judge a bracketed SPDX expression, or None when a needed term is unknown.
+
+    AND binds tighter than OR. An OR takes its best branch and an AND its worst,
+    carrying every part's obligations.
+    """
+    expression = _strip_brackets(expression.strip())
+    for operator in ("OR", "AND"):
+        parts = _split_top(expression, operator)
+        if len(parts) == 1:
+            continue
+        rules = [_evaluate(part, policy, mode) for part in parts]
+        known = [rule for rule in rules if rule is not None]
+        if operator == "OR":
+            if not known:
+                return None
+            best = min(known, key=lambda r: (_RANK[r.verdict], len(r.obligations)))
+            # An unknown branch may be the one that permits it.
+            if len(known) < len(rules) and _RANK[best.verdict] >= _RANK[Verdict.ASK]:
+                return None
+            return best
+        if len(known) < len(rules):
+            return None
+        worst = max(known, key=lambda r: _RANK[r.verdict])
+        obligations = tuple(dict.fromkeys(o for r in known for o in r.obligations))
+        groups = "+".join(dict.fromkeys(r.group for r in known))
+        return Rule(worst.verdict, obligations, groups)
+    return _term_rule(expression, policy, mode)[1]
+
+
 def judge(
     raw_licence: str | None, mode: Mode, policy: Policy
 ) -> tuple[str | None, Verdict, tuple[str, ...], str]:
@@ -395,10 +465,11 @@ def judge(
         if expression.startswith("(") and expression.endswith(")"):
             if "(" not in inner and ")" not in inner:
                 expression = inner
-        if "(" in expression:
-            return expression, Verdict.ASK, (), "complex-expression"
-        if " AND " in expression and " OR " in expression:
-            return expression, Verdict.ASK, (), "complex-expression"
+        if "(" in expression or (" AND " in expression and " OR " in expression):
+            rule = _evaluate(expression, policy, mode)
+            if rule is None:
+                return expression, Verdict.ASK, (), "unrecognised"
+            return expression, rule.verdict, rule.obligations, rule.group
         operator = "AND" if " AND " in expression else "OR"
         terms = expression.split(f" {operator} ")
 
@@ -421,6 +492,14 @@ def judge(
     obligations = tuple(dict.fromkeys(o for rule in rules for o in rule.obligations))
     groups = "+".join(dict.fromkeys(rule.group for rule in rules))
     return spdx, worst.verdict, obligations, groups
+
+
+def restrict_override_only(finding: Finding, policy: Policy) -> Finding:
+    """Return ``finding`` as ask when an override-only group decided it without one."""
+    groups = set(finding.rule.split("+"))
+    if finding.source == "override" or not groups & policy.override_only:
+        return finding
+    return replace(finding, verdict=Verdict.ASK, obligations=(), rule="override-only")
 
 
 def blocking(findings: Iterable[Finding]) -> list[Finding]:
@@ -449,14 +528,41 @@ def report(
 
 _RULE = "-" * 78
 
+# GNU texts an `lgpl-texts` dependency ships with: its LGPL, and the GPL beside it.
+_GNU_TEXTS_DIR = _POLICY_PATH.parent / "licence-texts"
+_GNU_TEXTS = (
+    ("LGPL-3.0", ("LGPL-3.0-only", "GPL-3.0-only")),
+    ("LGPL-2.1", ("LGPL-2.1-only", "GPL-2.0-only")),
+    ("LGPL-2.0", ("LGPL-2.0-only", "GPL-2.0-only")),
+)
+_ALL_GNU_TEXTS = tuple(sorted({n for _, names in _GNU_TEXTS for n in names}))
+
+
+def _gnu_texts(findings: Iterable[Finding]) -> list[str]:
+    """Return the GNU licence texts the ``lgpl-texts`` findings need, sorted."""
+    needed: set[str] = set()
+    for finding in findings:
+        if "lgpl-texts" not in finding.obligations:
+            continue
+        spdx = finding.spdx or ""
+        matched = [names for prefix, names in _GNU_TEXTS if prefix in spdx]
+        # An unversioned LGPL could be any of them.
+        needed.update(*matched or [_ALL_GNU_TEXTS])
+    return sorted(needed)
+
 
 @dataclass(frozen=True, slots=True)
 class NoticeEntry:
-    """One dependency's attribution: its finding and the texts it shipped."""
+    """One dependency's attribution: its finding and the texts it shipped.
+
+    ``repository`` is where its licence text is read from when the package
+    ships none.
+    """
 
     finding: Finding
     licence_text: str | None
     notice_text: str | None
+    repository: str | None = None
 
 
 def render_notices(entries: Iterable[NoticeEntry]) -> str:
@@ -464,7 +570,8 @@ def render_notices(entries: Iterable[NoticeEntry]) -> str:
 
     Every shipped dependency is listed, an unanswered ask included, because
     its licence text ships whatever its verdict. Its licence file follows its
-    name, then its NOTICE file where the policy says to carry it.
+    name, then its NOTICE file where the policy says to carry it. The LGPL and
+    GPL texts an ``lgpl-texts`` dependency needs follow once, at the end.
 
     Args:
         entries: Each dependency's finding and the texts its package carries.
@@ -494,6 +601,10 @@ def render_notices(entries: Iterable[NoticeEntry]) -> str:
         ]
         if "carry-notice" in finding.obligations and _shipped(entry.notice_text):
             parts += ["", "NOTICE:", "", str(entry.notice_text).strip()]
+    for name in _gnu_texts(entry.finding for entry in listed):
+        text = (_GNU_TEXTS_DIR / f"{name}.txt").read_text(encoding="utf-8")
+        parts += [_RULE, f"{name}, for the LGPL dependencies above", _RULE, ""]
+        parts.append(text.strip())
     return "\n".join(parts).rstrip() + "\n"
 
 
@@ -565,6 +676,11 @@ def finish(
         True if the pipeline should continue, False on a blocking failure.
 
     """
+    findings, entries = fill_and_judge(findings, entries, policy, overrides)
+    findings = [restrict_override_only(f, policy) for f in findings]
+    entries = [
+        replace(e, finding=restrict_override_only(e.finding, policy)) for e in entries
+    ]
     REPORT_PATH.parent.mkdir(exist_ok=True)
     (REPORT_PATH.parent / ".gitignore").write_text(
         "*\n", encoding="utf-8", newline="\n"
@@ -577,7 +693,7 @@ def finish(
     info(
         f"  dep licences: {len(findings)} shipped dependencies judged, see {REPORT_PATH}"
     )
-    notices_current = check_notices(entries, mode, overrides)
+    notices_current = check_notices(entries, mode)
     held = blocking(findings)
     for finding in held:
         (warn if mode == "warn" else error)(f"  {finding.line()}")
@@ -611,20 +727,102 @@ def _with_licence_files(
     return filled
 
 
-def check_notices(
-    entries: Sequence[NoticeEntry], mode: str, overrides: Sequence[Override] = ()
-) -> bool:
+def _with_upstream_texts(
+    entries: Sequence[NoticeEntry],
+    fetch: Callable[[str, str, str | None], Upstream] = upstream_licences.fetch,
+) -> list[NoticeEntry]:
+    """Fill in missing licence text from the repository, else the SPDX standard text.
+
+    A repository git could not reach leaves the text missing, so a network
+    failure never changes the notices.
+    """
+    filled = []
+    for entry in entries:
+        if _shipped(entry.licence_text):
+            filled.append(entry)
+            continue
+        finding = entry.finding
+        found = fetch(finding.name, finding.version, entry.repository)
+        licence = found.licence
+        if licence is None and found.reachable:
+            licence = upstream_licences.standard_text(finding.spdx)
+        if licence is None:
+            if not found.reachable:
+                warn(f"  dep licences: could not reach {entry.repository}")
+            filled.append(entry)
+            continue
+        info(
+            f"  dep licences: {finding.name} {finding.version}: {licence.splitlines()[0]}"
+        )
+        notice = entry.notice_text if _shipped(entry.notice_text) else found.notice
+        filled.append(replace(entry, licence_text=licence, notice_text=notice))
+    return filled
+
+
+def _judged_from_text(entry: NoticeEntry, policy: Policy) -> NoticeEntry:
+    """Judge a bare BSD classifier from the licence text filled in for it."""
+    finding = entry.finding
+    bare = (finding.spdx or "").strip().upper() in BARE_BSD
+    if finding.source != "metadata" or finding.rule != "unrecognised" or not bare:
+        return entry
+    named = bsd_licence(upstream_licences.licence_body(entry.licence_text))
+    if named is None:
+        return entry
+    spdx, verdict, obligations, rule = judge(named, finding.mode, policy)
+    first_line = str(entry.licence_text).strip().splitlines()[0]
+    judged = replace(
+        finding,
+        spdx=spdx,
+        source="license-file",
+        evidence=f"{named} text, {first_line}",
+        verdict=verdict,
+        obligations=obligations,
+        rule=rule,
+    )
+    return replace(entry, finding=judged)
+
+
+def fill_and_judge(
+    findings: Sequence[Finding],
+    entries: Sequence[NoticeEntry],
+    policy: Policy,
+    overrides: Sequence[Override] = (),
+    fetch: Callable[[str, str, str | None], Upstream] = upstream_licences.fetch,
+) -> tuple[list[Finding], list[NoticeEntry]]:
+    """Fill in missing licence text, then judge a bare BSD classifier from it.
+
+    The text comes from an override's ``licence_file``, else the repository at
+    the version's tag, else the SPDX standard text.
+
+    Returns:
+        The findings with any bare BSD the text names judged, and the entries
+        with their texts.
+
+    """
+    filled = [
+        _judged_from_text(entry, policy)
+        for entry in _with_upstream_texts(
+            _with_licence_files(entries, overrides), fetch
+        )
+    ]
+    judged = {
+        (e.finding.ecosystem, e.finding.name, e.finding.version): e.finding
+        for e in filled
+    }
+    return [judged.get((f.ecosystem, f.name, f.version), f) for f in findings], filled
+
+
+def check_notices(entries: Sequence[NoticeEntry], mode: str) -> bool:
     """Write the generated notices and hold the repo's copy to them, if it has one.
 
-    A dependency with no licence text fails the check rather than shipping a
-    placeholder. Its override's ``licence_file`` supplies the text.
+    A dependency with no licence text, after :func:`fill_and_judge`, fails the
+    check rather than shipping a placeholder.
 
     Returns:
         True unless text is missing or the repo's copy is stale, and the mode
         blocks.
 
     """
-    entries = _with_licence_files(entries, overrides)
     generated = render_notices(entries)
     NOTICES_OUTPUT.write_text(generated, encoding="utf-8", newline="\n")
     missing = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyline
-Version: 2.0.4
+Version: 2.0.5
 Summary: A Python implementation of Google's Encoded Polyline Algorithm Format.
 Author: Frederick Jansen, Bruno M. Custódio
 License: Copyright (c) 2023 Frederick Jansen

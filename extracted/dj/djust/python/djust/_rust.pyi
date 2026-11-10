@@ -69,6 +69,50 @@ class CompiledTemplate:
 
     ...
 
+class LazyBlock:
+    """The ``block`` a bridged Django tag handler receives while a
+    ``{{ block.super }}`` is armed (#2918).
+
+    Built only by the engine, and good only for the bridged call it was handed
+    to: afterwards ``super()`` answers ``''``, as Django's ``BlockNode`` does
+    once the render is over. ``super()`` renders the parent block when READ and
+    again on every read (never memoized); asking whether ``super`` exists, or
+    for the keys, renders nothing. It has Django's shape
+    (``context["block"].super()``, and ``Variable("block.super")``).
+
+    .. deprecated:: 1.3
+        The dict-style reads ``block["super"]``, ``get("super")``, ``values()``,
+        ``items()`` and ``dict(block)`` (the shape of the ``dict`` this replaced)
+        still work but emit a ``DeprecationWarning``; they are removed no
+        earlier than 2.0.0. Use ``block.super()``. Django's own resolver never
+        reaches them: ``__getitem__`` answers it ``TypeError`` (not
+        subscriptable) exactly as a ``BlockNode`` does.
+    """
+
+    def super(self) -> str: ...
+    def get(self, key: object, default: object = None) -> object:
+        """.. deprecated:: 1.3  Reading ``"super"`` this way; use ``super()``."""
+        ...
+
+    def __getitem__(self, key: object) -> str:
+        """.. deprecated:: 1.3  Use ``super()``."""
+        ...
+
+    def __contains__(self, key: object) -> bool: ...
+    def __len__(self) -> int: ...
+    def __iter__(self) -> object: ...
+    def keys(self) -> list[str]: ...
+    def values(self) -> list[str]:
+        """.. deprecated:: 1.3  Use ``super()``."""
+        ...
+
+    def items(self) -> list[tuple[str, str]]:
+        """.. deprecated:: 1.3  Use ``super()``."""
+        ...
+
+    def __copy__(self) -> LazyBlock: ...
+    def __deepcopy__(self, memo: object) -> LazyBlock: ...
+
 class TemplateObject:
     """The shape an arbitrary Python object takes inside the context dict a
     bridged Django tag handler receives (#2731).
@@ -215,17 +259,92 @@ def render_markdown(
     """
     ...
 
+def fold_html_whitespace(html: str) -> str:
+    """Fold whitespace runs in markup and whitespace-only text to one space.
+
+    Text that has content keeps its whitespace. ``pre``/``code``/``textarea``/
+    ``script``/``style`` blocks are expected as ``__PRESERVED_BLOCK_<i>__``
+    placeholders already.
+    """
+    ...
+
+def strip_html_comments_and_whitespace(html: str) -> Optional[str]:
+    """The egress normalizer for a plain render, run without the GIL.
+
+    Byte-identical to ``TemplateMixin._strip_comments_and_whitespace_py``;
+    ``None`` for an input it does not model (the caller then runs Python).
+    """
+    ...
+
+def fold_html_whitespace_edits(html: str) -> List[Tuple[int, int]]:
+    """UTF-8 byte ranges ``fold_html_whitespace`` replaces with one space."""
+    ...
+
 def collapse_inter_tag_whitespace(html: str, block_tags: List[str]) -> str:
     """
     The egress normalizer's inter-tag whitespace pass (#2999).
 
-    ``html`` has every whitespace run collapsed to one space and its
+    ``html`` has been through ``fold_html_whitespace`` and has its
     pre/code/textarea/script/style blocks replaced by
     ``__PRESERVED_BLOCK_<i>__`` placeholders (tag ``block_tags[i]``). Drops a
     space between two tags unless its nearest sibling on each side is text or
     an inline-level element (custom elements count as inline) — the VDOM
     parser's rule.
     """
+    ...
+
+def inter_tag_whitespace_edits(html: str, block_tags: List[str]) -> List[Tuple[int, int]]:
+    """UTF-8 deletion ranges used to compose authored render intervals."""
+    ...
+
+def authored_lazy_elements(
+    html: str, spans: List[Tuple[int, int]]
+) -> List[Tuple[int, int, str, str]]:
+    """Final HTML5 elements backed by authored UTF-8 render intervals."""
+    ...
+
+def normalize_provenance_whitespace(
+    html: str, spans: List[Tuple[int, int]], origins: List[Tuple[int, int, int, str]]
+) -> Tuple[str, List[Tuple[int, int]], List[Tuple[int, int, int, str]]]:
+    """``fold_html_whitespace``, remapping authored intervals."""
+    ...
+
+def collapse_provenance_whitespace(
+    html: str,
+    spans: List[Tuple[int, int]],
+    origins: List[Tuple[int, int, int, str]],
+    block_tags: List[str],
+) -> Tuple[str, List[Tuple[int, int]], List[Tuple[int, int, int, str]]]:
+    """Drop inter-tag whitespace, remapping authored intervals."""
+    ...
+
+def template_needs_provenance(source: str, dirs: List[str]) -> bool:
+    """Whether a template tree contains an authored lazy container."""
+    ...
+
+def lazy_authority_spans(html: str, spans: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """Authored intervals that carry a live lazy container's authority bytes."""
+    ...
+
+def root_content_range(html: str) -> Optional[Tuple[int, int]]:
+    """``(start, end)`` character offsets of the LiveView root's content in
+    rendered ``html`` (the #3031 root rule), or ``None`` with no root or no
+    complete close tag."""
+    ...
+
+def root_element_span(
+    html: str, with_view: bool = True
+) -> Optional[Tuple[int, int, Optional[int], Optional[int]]]:
+    """``(open_start, open_end, close_start, close_end)`` character offsets of
+    the LiveView root element in rendered ``html``; the close offsets are
+    ``None`` without a complete close tag. ``None`` with no root.
+    ``with_view=False`` looks for ``dj-root`` only."""
+    ...
+
+def dj_root_stamp_offsets(html: str) -> List[int]:
+    """Character offsets in rendered ``html`` where ``dj-view="…"`` is
+    inserted: after the first ``dj-root`` attribute of every ``dj-root`` tag
+    without ``dj-view``, outside other views' containers (#2981, #3155)."""
     ...
 
 def diff_html(old_html: str, new_html: str) -> str:
@@ -247,6 +366,11 @@ def diff_html(old_html: str, new_html: str) -> str:
         patches_json = diff_html("<div>Old</div>", "<div>New</div>")
     """
     ...
+
+WALK_FLOOR_COVERS_FORMS: bool
+"""``True`` in a build that asks ``djust.serialization._protect_sidecar_walk`` (the leaf
+floor plus the model forms) after every segment of a template path (#3790). Absent from an
+older extension, which asks the leaf floor only."""
 
 MAX_VDOM_DEPTH: int
 """How many element levels the VDOM parser keeps, counted from the LiveView
@@ -477,6 +601,9 @@ def active_unlocalized_number_format() -> Optional[Tuple[str, str, List[int], bo
     rather than assume it (#2017). Its `use_grouping` is always False.
     """
 
+def clear_dj_model_fields_cache() -> None:
+    """Forget every cached ``RustLiveView.dj_model_fields(cache=True)`` result."""
+
 def dj_model_fields_from_template(
     template_source: str,
     template_dirs: Optional[List[str]] = None,
@@ -507,6 +634,7 @@ def dj_model_fields_from_template(
 def serialize_queryset(
     objects: List[Any],
     field_paths: List[str],
+    all_row_cap: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Serialize Django QuerySet objects efficiently.
@@ -527,6 +655,13 @@ def serialize_queryset(
     Args:
         objects: List of Django model instances
         field_paths: List of field paths to serialize (e.g., ["id", "user.name"])
+        all_row_cap: At most this many rows are read through a called ``all``
+            (a related manager's ``.all``): a SQL ``LIMIT`` on an unevaluated
+            QuerySet. ``None`` (the default for a direct call) reads every row;
+            ``djust.mixins.jit`` passes ``LIVEVIEW_CONFIG['queryset_all_row_cap']``.
+            A path ``X.all.count`` / ``X.all.exists`` / ``X.all.first`` /
+            ``X.all.last`` -- ``all`` read only through QuerySet methods -- is
+            shipped as ``{"count": n, ...}`` and never materializes the rows.
 
     Returns:
         List of dictionaries containing serialized objects
@@ -542,27 +677,42 @@ def serialize_queryset(
 
 def serialize_context(
     context: Dict[str, Any],
-    field_paths: Dict[str, List[str]],
 ) -> Dict[str, Any]:
     """
-    Serialize template context with field paths.
+    Convert a context dict's values to JSON-compatible form.
 
-    Efficiently serializes Django models and QuerySets in template context
-    using the provided field paths (from template variable extraction).
+    Nothing in djust's own render path calls this (the Python helper of the same
+    name in ``djust.template.serialization`` is a different function). It takes
+    exactly one argument; there is no ``field_paths`` parameter.
+
+    Lists, tuples and dicts are walked; ``datetime`` / ``date`` / ``time`` become
+    ISO strings, ``Decimal`` and ``UUID`` become strings, a ``QuerySet`` becomes a
+    list, and any other object becomes ``str(obj)``. Two arms call into the value:
+
+    - An object with a callable ``render`` is replaced by ``{"render": <result>}``.
+    - A Django model becomes ``model_to_dict`` plus ``get_full_name``,
+      ``get_short_name``, ``get_absolute_url`` and ``get_username`` as strings.
+
+    Both calls follow the template rule: a callable carrying ``alters_data`` or
+    ``do_not_call_in_templates`` is not called (a refused ``render`` falls back to
+    ``str(obj)``; a refused ``get_*`` is left out). Every model field and method
+    name also passes the serialization floor (``password``, ``is_superuser``,
+    ``is_staff``, ``DJUST_SENSITIVE_FIELDS``, per-model allow and deny lists); if
+    that gate is missing or raises the model is returned as ``str(obj)``; if the gate itself
+    fails internally it permits no names, so the model ships as an empty dict (still no field
+    leaves).
+
+    The walk is bounded (#3814). A container, or a model row (class and primary key), that the
+    walk is already inside of becomes ``str(obj)``, so a list that holds itself and a
+    ``ManyToManyField("self")`` that comes back to where it started end at the first return;
+    nesting past 128 levels (a chain of distinct rows) becomes ``str(obj)`` too. A ``render()``
+    that returns something other than a ``str`` falls back to ``str(obj)``.
 
     Args:
         context: Template context dictionary
-        field_paths: Mapping of variable names to field paths
 
     Returns:
         Serialized context dictionary
-
-    Example::
-
-        serialized = serialize_context(
-            {"user": user_obj, "articles": articles_qs},
-            {"user": ["name", "email"], "articles": ["id", "title"]}
-        )
     """
     ...
 
@@ -676,6 +826,16 @@ def register_tag_handler(tag_name: str, handler: Any) -> None:
     template compilation, before any context resolution or rendering, and
     may raise to reject invalid syntax. It must not render application code.
     Django library bridges use this hook to run Django's argument validation.
+
+    An INLINE handler may also implement ``rewrite_args_at_parse(args) ->
+    list[str]`` (#3664). It receives the same original tokens, once, at
+    compilation, and returns the argument list the tag keeps; raising refuses
+    the template. It exists for the one distinction a handler cannot recover
+    after resolution: a positional operand and a keyword one are both just
+    text by then (``{% tag v %}`` with ``v = "k=v"`` looks like the keyword
+    ``k``). djust's own components use it to name positional operands after
+    the Python tag's parameters (``djust._positional_args``). A handler
+    without the method gets its tokens unchanged.
 
     The return value is ESCAPED unless it is already HTML (#2379), mirroring
     Django's ``SimpleNode.render``, which runs ``conditional_escape`` over a
@@ -1166,10 +1326,15 @@ class RustLiveView:
         """
         ...
 
-    def dj_model_fields(self) -> List[str]:
+    def dj_model_fields(self, cache: bool = False) -> List[str]:
         """
         Return the fields bound via static ``dj-model="<field>"`` in this
         view's CURRENT template source (and any ``{% include %}``d templates).
+
+        With ``cache=True`` a successful walk is kept process-wide, keyed by
+        the exact template source and directories; pass it only while
+        templates are cached (DEBUG off). :func:`clear_dj_model_fields_cache`
+        forgets every entry.
 
         The immune source for the dj-model mass-assignment allowlist
         (CWE-915): values come from the parsed template AST's ``Node::Text``
@@ -1214,12 +1379,27 @@ class RustLiveView:
         """
         ...
 
+    def render_with_provenance(self) -> Tuple[str, List[Tuple[int, int]]]:
+        """Render HTML and result-local, disjoint authored UTF-8 intervals."""
+        ...
+
     def render_with_diff(self) -> Tuple[str, Optional[str], int]:
         """
         Render and compute diff from last render.
 
         Returns:
             Tuple of (html, patches_json, version)
+        """
+        ...
+
+    def release_baseline(self) -> None:
+        """
+        Drop the diff baseline (rendered tree, last HTML, render caches) and keep
+        the version counter (``static_render``, #3626).
+
+        The next ``render_with_diff`` returns full HTML and no patches; its
+        version is the next one in sequence, unlike after ``reset``. The state
+        is kept (``retain_state_keys([])`` clears it).
         """
         ...
 
@@ -1386,6 +1566,7 @@ __all__ = [
     "compile_template",
     "CompiledTemplate",
     "TemplateObject",
+    "LazyBlock",
     "template_cache_contains",
     "registry_generation",
     "new_registry_namespace",
@@ -1397,7 +1578,20 @@ __all__ = [
     "render_markdown",
     "diff_html",
     "MAX_VDOM_DEPTH",
+    "WALK_FLOOR_COVERS_FORMS",
     "collapse_inter_tag_whitespace",
+    "inter_tag_whitespace_edits",
+    "authored_lazy_elements",
+    "normalize_provenance_whitespace",
+    "fold_html_whitespace",
+    "fold_html_whitespace_edits",
+    "strip_html_comments_and_whitespace",
+    "collapse_provenance_whitespace",
+    "lazy_authority_spans",
+    "root_content_range",
+    "root_element_span",
+    "dj_root_stamp_offsets",
+    "template_needs_provenance",
     "resolve_template_inheritance",
     # Serialization
     "fast_json_dumps",
@@ -1408,6 +1602,7 @@ __all__ = [
     "MAX_CONVERSION_DEPTH",
     "MAX_MD_NESTING",
     "dj_model_fields_from_template",
+    "clear_dj_model_fields_cache",
     "serialize_queryset",
     "serialize_context",
     "serialize_models_fast",

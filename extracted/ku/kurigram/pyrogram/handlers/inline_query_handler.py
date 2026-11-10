@@ -18,17 +18,21 @@
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from pyrogram import types
 
 from .handler import Handler
 
 if TYPE_CHECKING:
     import pyrogram
-    from pyrogram import types
+    from pyrogram.filters import Filter
+
+InlineQueryCallbackType = Callable[["pyrogram.Client", types.InlineQuery], Any]
 
 
-class InlineQueryHandler(Handler):
+class InlineQueryHandler(Handler[InlineQueryCallbackType]):
     """The InlineQuery handler class. Used to handle inline queries.
     It is intended to be used with :meth:`~pyrogram.Client.add_handler`
 
@@ -52,5 +56,5 @@ class InlineQueryHandler(Handler):
             The received inline query.
     """
 
-    def __init__(self, callback: Callable[[pyrogram.Client, types.InlineQuery], Any], filters=None):
+    def __init__(self, callback: InlineQueryCallbackType, filters: Filter | None = None) -> None:
         super().__init__(callback, filters)

@@ -2,7 +2,6 @@
 from markdown import Extension, Markdown
 from markdown.inlinepatterns import InlineProcessor
 from . import util
-from .delimiterprocessor import MD_FAST
 import re
 import xml.etree.ElementTree as etree
 from markdown.extensions import attr_list
@@ -36,16 +35,21 @@ class BracketSpanProcessor(InlineProcessor):
         While getting next entry, flag the first match of `[` we encounter.
         We use this to correct our offset so we can jump to, and process the
         next entry without having to iterate all bad matches in between.
+
+        `cache_pos` is expected to hold the end of the last span returned.
         """
 
         span = None
         updated = False
+        previous_end = self.cache_pos
         for _ in range(len(self.stack)):
             entry = self.stack[0]
             if entry[1]:
                 span = entry[1].pop(0)
                 if not updated:
-                    self.cache_pos = span[1]
+                    # An unpaired `[` that contains the span comes before it. If it has not been passed
+                    # yet, Python Markdown will call us there first, not at the start of the span.
+                    self.cache_pos = entry[0] if entry[0] >= previous_end else span[1]
                 if not entry[1]:
                     self.stack.popleft()
                 break
@@ -66,11 +70,6 @@ class BracketSpanProcessor(InlineProcessor):
         # See if there is another span
         self.cache_pos = end
         self.span = self.get_next_entry()
-        # On earlier versions Python Markdown, we need another point
-        # that requires no updates to the offset as a minimum.
-        # The start of the replaced region is sufficient, and `cache_pos`
-        # should be right after it.
-        self.legacy_pos = start + offset
 
         # No more spans were found
         if self.span is None:
@@ -129,10 +128,6 @@ class BracketSpanProcessor(InlineProcessor):
         if not self.attr_list_enabled:
             return None, None, None
 
-        if not MD_FAST and self.legacy_pos >= 0 and m.start(0) < self.legacy_pos:
-            return None, m.start(0), m.end(0)
-        self.legacy_pos = -1
-
         if self.span is not None:
             return self.get_cached_result(m.start(0))
 
@@ -149,7 +144,7 @@ class BracketSpanProcessor(InlineProcessor):
                 if m2:
 
                     current = self.stack.pop()
-                    span, r_offset = self.build_element(data, i, current, m2.group(0)[1:-1])
+                    span, r_offset = self.build_element(data, i, current, m2.group(1) or '')
 
                     # Store the span
                     if self.stack:
@@ -171,11 +166,6 @@ class BracketSpanProcessor(InlineProcessor):
             # See if there are more spans
             self.cache_pos = result[2]
             self.span = self.get_next_entry()
-            # On earlier versions Python Markdown, we need another point
-            # that requires no updates to the offset as a minimum.
-            # The start of the replaced region is sufficient, and `cache_pos`
-            # should be right after it.
-            self.legacy_pos = result[1]
 
             # There are no more results
             if self.span is None:
@@ -194,7 +184,6 @@ class BracketSpanProcessor(InlineProcessor):
         self.stack.clear()
         self.span = None
         self.cache_pos = 0
-        self.legacy_pos = -1
 
 
 class BracketSpanExtension(Extension):
@@ -230,4 +219,3 @@ def makeExtension(*args, **kwargs):
     """Return extension."""
 
     return BracketSpanExtension(*args, **kwargs)
-

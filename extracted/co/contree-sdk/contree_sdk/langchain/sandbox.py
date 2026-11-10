@@ -1,43 +1,161 @@
-from asyncio import Lock, gather
-from pathlib import Path
+"""deepagents `BaseSandbox` backed by a ConTree session."""
+
+from __future__ import annotations
+
+import threading
+from asyncio import Lock
+from typing import Generic, TypeVar
 from uuid import uuid4
 
-from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
-from deepagents.backends.sandbox import BaseSandbox
+from contree_client.exceptions import NotFoundError, UnprocessableEntityError
+from contree_client.models import InstanceResult
 
-from contree_sdk._internals.utils.wrapper import coro_sync
-from contree_sdk.sdk.exceptions import NotFoundError, UnprocessableEntityError
-from contree_sdk.sdk.objects.session import ContreeSession, ContreeSessionSync
-from contree_sdk.utils.models.file import UploadFileSpec
+from contree_sdk.exceptions import FileWriteError
+from contree_sdk.execution import AsyncExecutor, RunRequest, SyncExecutor
+from contree_sdk.session.base import or_none
 
 
-class ContreeSandbox(BaseSandbox):
-    def __init__(self, session: ContreeSession | ContreeSessionSync):
-        self._session = session if isinstance(session, ContreeSession) else ContreeSession(session)
-        self._id = f"contree-{uuid4()}-from-{self._session.uuid}"
-        self._lock = Lock()
+try:
+    from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
+    from deepagents.backends.sandbox import BaseSandbox
+
+    DEEPAGENTS_AVAILABLE = True
+except ImportError:
+    DEEPAGENTS_AVAILABLE = False
+
+    class _MissingSandbox:
+        pass
+
+    BaseSandbox = _MissingSandbox  # ty: ignore[invalid-assignment]
+
+
+def to_execute_response(result: InstanceResult) -> ExecuteResponse:
+    stdout = or_none(result.stdout)
+    stderr = or_none(result.stderr)
+    state = or_none(result.state)
+    output = (stdout.as_text() if stdout is not None else "") + (stderr.as_text() if stderr is not None else "")
+    exit_code = or_none(state.exit_code) if state is not None else None
+    truncated = bool(or_none(stdout.truncated) if stdout is not None else False) or bool(
+        or_none(stderr.truncated) if stderr is not None else False
+    )
+    return ExecuteResponse(output=output, exit_code=exit_code, truncated=truncated)
+
+
+SyncExecutorT = TypeVar("SyncExecutorT", bound=SyncExecutor)
+AsyncExecutorT = TypeVar("AsyncExecutorT", bound=AsyncExecutor)
+
+
+class ContreeSandbox(BaseSandbox, Generic[SyncExecutorT]):
+    """A deepagents adapter for any SyncExecutor implementation.
+
+    Mutating calls on this adapter are serialized. The executor remains
+    caller-owned. deepagents may dispatch async calls through a thread pool;
+    use ContreeAsyncSandbox for a native async executor.
+    """
+
+    def __init__(self, session: SyncExecutorT) -> None:
+        if not DEEPAGENTS_AVAILABLE:
+            raise ImportError(
+                "ContreeSandbox requires the 'deepagents' package, which requires Python >= 3.11; "
+                'install it via `pip install "contree-sdk[langchain]"` on Python >= 3.11'
+            )
+        self.session = session
+        self.sandbox_id = f"contree-{session.session_id}-{uuid4().hex[:8]}"
+        self.lock = threading.Lock()
 
     @property
     def id(self) -> str:
-        return self._id
+        return self.sandbox_id
 
-    async def aupload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
-        valid: dict[str, str | Path | bytes | UploadFileSpec] = {
-            path: data for path, data in files if path.startswith("/")
-        }
-        if valid:
-            async with self._lock:
-                await self._session.apply_files(valid)
-        return [FileUploadResponse(path=path, error=None if path in valid else "invalid_path") for path, *_ in files]
+    def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
+        with self.lock:
+            result = self.session.execute(
+                RunRequest(shell=command, timeout=timeout, disposable=False, truncate_output_at=10 * 1024 * 1024)
+            )
+        return to_execute_response(result)
 
     def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
-        return coro_sync(self.aupload_files(files))
+        responses = []
+        with self.lock:
+            for path, content in files:
+                if not path.startswith("/") or "\x00" in path:
+                    responses.append(FileUploadResponse(path=path, error="invalid_path"))
+                    continue
+                try:
+                    self.session.write_file(path, content)
+                except FileWriteError as error:
+                    responses.append(FileUploadResponse(path=path, error=error.message))
+                else:
+                    responses.append(FileUploadResponse(path=path))
+        return responses
 
-    async def _adownload_file(self, path: str) -> FileDownloadResponse:
+    def download_one_file(self, path: str) -> FileDownloadResponse:
         if not path.startswith("/"):
             return FileDownloadResponse(path=path, error="invalid_path")
         try:
-            content = await self._session.read(path)
+            with self.lock:
+                content = self.session.read_file(path)
+            return FileDownloadResponse(path=path, content=content)
+        except NotFoundError:
+            return FileDownloadResponse(path=path, error="file_not_found")
+        except UnprocessableEntityError:
+            return FileDownloadResponse(path=path, error="invalid_path")
+
+    def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
+        return [self.download_one_file(path) for path in paths]
+
+
+class ContreeAsyncSandbox(BaseSandbox, Generic[AsyncExecutorT]):
+    """A deepagents sandbox with native asynchronous session operations."""
+
+    def __init__(self, session: AsyncExecutorT) -> None:
+        if not DEEPAGENTS_AVAILABLE:
+            raise ImportError('ContreeAsyncSandbox requires `pip install "contree-sdk[langchain]"`')
+        self.session = session
+        self.sandbox_id = f"contree-{session.session_id}-{uuid4().hex[:8]}"
+        self.lock = Lock()
+
+    @property
+    def id(self) -> str:
+        return self.sandbox_id
+
+    def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
+        raise NotImplementedError("Use aexecute() with ContreeAsyncSandbox")
+
+    def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
+        raise NotImplementedError("Use aupload_files() with ContreeAsyncSandbox")
+
+    def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
+        raise NotImplementedError("Use adownload_files() with ContreeAsyncSandbox")
+
+    async def aexecute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
+        async with self.lock:
+            result = await self.session.execute(
+                RunRequest(shell=command, timeout=timeout, disposable=False, truncate_output_at=10 * 1024 * 1024)
+            )
+        return to_execute_response(result)
+
+    async def aupload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
+        responses = []
+        async with self.lock:
+            for path, content in files:
+                if not path.startswith("/") or "\x00" in path:
+                    responses.append(FileUploadResponse(path=path, error="invalid_path"))
+                    continue
+                try:
+                    await self.session.write_file(path, content)
+                except FileWriteError as error:
+                    responses.append(FileUploadResponse(path=path, error=error.message))
+                else:
+                    responses.append(FileUploadResponse(path=path))
+        return responses
+
+    async def download_one_file(self, path: str) -> FileDownloadResponse:
+        if not path.startswith("/"):
+            return FileDownloadResponse(path=path, error="invalid_path")
+        try:
+            async with self.lock:
+                content = await self.session.read_file(path)
             return FileDownloadResponse(path=path, content=content)
         except NotFoundError:
             return FileDownloadResponse(path=path, error="file_not_found")
@@ -45,34 +163,4 @@ class ContreeSandbox(BaseSandbox):
             return FileDownloadResponse(path=path, error="invalid_path")
 
     async def adownload_files(self, paths: list[str]) -> list[FileDownloadResponse]:
-        async with self._lock:
-            return await gather(*(self._adownload_file(path) for path in paths))
-
-    def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
-        return coro_sync(self.adownload_files(paths))
-
-    async def aexecute(
-        self,
-        command: str,
-        *,
-        timeout: int | None = None,
-    ) -> ExecuteResponse:
-        async with self._lock:
-            result = (
-                await self._session.run(
-                    shell=command, timeout=timeout, disposable=False, truncate_output_at=10 * 1024 * 1024
-                )
-            ).result
-        output = ""
-        for part in (result.stdout, result.stderr):
-            if part is None:
-                continue
-            output += str(part)
-        return ExecuteResponse(
-            output=output,
-            exit_code=result.exit_code,
-            truncated=result.truncated,
-        )
-
-    def execute(self, command: str, *, timeout: int | None = None) -> ExecuteResponse:
-        return coro_sync(self.aexecute(command, timeout=timeout))
+        return [await self.download_one_file(path) for path in paths]

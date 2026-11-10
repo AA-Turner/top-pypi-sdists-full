@@ -2,6 +2,7 @@
 
 import functools
 import itertools
+import operator
 
 import numpy
 from autoray import (
@@ -48,7 +49,7 @@ def asarray(array):
 
         # is some kind of python container or element -> iterate or return
         try:
-            return list(_nd_py_iter(sub) for sub in x)
+            return [_nd_py_iter(sub) for sub in x]
         except TypeError:
             return x
 
@@ -226,11 +227,58 @@ def ndim(array):
 
 
 @compose
+def gram(x, axes=-1):
+    """Contract ``conj(x)`` with ``x`` over all axes except ``axes``.
+
+    The open axes of the conjugate copy precede those of the original copy,
+    each in their original order.
+    """
+    try:
+        axes = (operator.index(axes),)
+    except TypeError:
+        try:
+            axes = tuple(map(operator.index, axes))
+        except TypeError:
+            raise TypeError(
+                "axes must be an integer or iterable of integers"
+            ) from None
+
+    n = ndim(x)
+    axes = tuple(ax + n if ax < 0 else ax for ax in axes)
+    if not axes:
+        raise ValueError("axes must contain at least one axis")
+    if any((ax < 0) or (ax >= n) for ax in axes):
+        raise ValueError(f"axes {axes} are out of bounds for ndim {n}")
+    if len(set(axes)) != len(axes):
+        raise ValueError("axes cannot contain duplicates")
+
+    contracted = tuple(i for i in range(n) if i not in axes)
+    return do(
+        "tensordot",
+        do("conj", x),
+        x,
+        axes=(contracted, contracted),
+    )
+
+
+@compose
 def multiply_diagonal(x, v, axis, backend=None):
     """Multiply v into x as if contracting in a diagonal matrix."""
     newshape = tuple((-1 if i == axis else 1) for i in range(ndim(x)))
     v_broadcast = do("reshape", v, newshape, like=backend)
     return x * v_broadcast
+
+
+@compose
+def multiply_diagonals(x, vs, axes, backend=None):
+    """Multiply each vector in ``vs`` into ``x`` as if contracting in a
+    diagonal matrix along the matching axis in ``axes``. E.g. the gauge
+    weighting step in simple update like algorithms. Backends can override
+    this to do it in one pass.
+    """
+    for v, axis in zip(vs, axes, strict=True):
+        x = multiply_diagonal(x, v, axis, like=backend)
+    return x
 
 
 @compose
@@ -252,6 +300,32 @@ def iscomplex(x):
     if infer_backend(x) == "builtins":
         return isinstance(x, complex)
     return "complex" in get_dtype_name(x)
+
+
+_conj_check_lookup = {}
+
+
+def is_conj_needed(x):
+    """Check whether conjugation can change values or index metadata.
+    Always return True for lazy and block-sparse arrays. Cache checkers by
+    class. Check dense array dtypes on each call. This is a small optimization
+    to avoid certain unnecessary array copies.
+    """
+    cls = x.__class__
+    try:
+        check = _conj_check_lookup[cls]
+    except KeyError:
+        backend = infer_backend(x)
+        if backend == "autoray.lazy" or isblocksparse(x):
+            check = lambda x: True
+        elif isinstance(getattr(x, "dtype", None), numpy.dtype):
+            check = lambda x: x.dtype.kind == "c"
+        elif backend == "torch":
+            check = lambda x: x.is_complex()
+        else:
+            check = iscomplex
+        _conj_check_lookup[cls] = check
+    return check(x)
 
 
 @compose
@@ -592,7 +666,7 @@ class PArray:
     PTensor
     """
 
-    __slots__ = ("_fn", "_params", "_data", "_shape", "_shape_fn_id")
+    __slots__ = ("_data", "_fn", "_params", "_shape", "_shape_fn_id")
 
     def __init__(self, fn, params, shape=None):
         self.fn = fn

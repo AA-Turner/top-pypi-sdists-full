@@ -7179,8 +7179,11 @@ class API(object):
 
         When the backend redirects to the asset's location in S3, the asset is
         downloaded from there in parallel byte ranges; see the
-        `comet.s3_multipart.download_concurrency` and
-        `comet.s3_multipart.download_part_size` configuration options. The whole
+        `comet.s3_multipart.download_concurrency`,
+        `comet.s3_multipart.download_part_size` and
+        `comet.s3_multipart.download_chunk_size` configuration options. Setting
+        `comet.s3_multipart.http_client` to `pyreqwest` moves those bytes without
+        holding the GIL (Python 3.11+, `pip install comet_ml[fast-transfer]`). The whole
         download is bounded by the `comet.timeout.asset_download` configuration option;
         a download that does not finish in time is canceled, and output_path is left
         as it was.

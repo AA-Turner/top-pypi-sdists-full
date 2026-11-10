@@ -2,6 +2,7 @@
 credential re-reads."""
 
 from __future__ import annotations
+import contextlib
 import math
 import os
 import random
@@ -273,14 +274,21 @@ def _lease_beat(
         # From inside the work (0205): the beat stamps `attached_at`, as the
         # run-level `?attached=true` did -- an OWNER lease included.
         body["attached"] = True
-    if handle is not None:
-        body.update(handle._progress.snapshot())
-    delivery = _delivery_body(client, run_id)
-    if delivery:
-        body["delivery"] = delivery
-    resp = client.beat_writer(run_id, lease["session_id"], body)
+    # One beat of this handle at a time, each reading what is registered as it sends: the server keeps the last
+    # beat's capabilities, so one that read fewer must never land after one that read more (`CommandBox.beat_lock`).
+    with handle._commands.beat_lock if handle is not None else contextlib.nullcontext():
+        if handle is not None:
+            body.update(handle._progress.snapshot())
+            # What this script can be asked (agentic W&B W16); an older server ignores it.
+            body["capabilities"] = handle._get_command_capabilities()
+        delivery = _delivery_body(client, run_id)
+        if delivery:
+            body["delivery"] = delivery
+        resp = client.beat_writer(run_id, lease["session_id"], body)
     if handle is not None:
         handle._note_lease_answer(resp)
+        if isinstance(resp, dict):
+            handle._read_new_commands(client, lease["session_id"], resp.get("commands_seq"))
     return {
         "status": resp.get("run_status") if isinstance(resp, dict) else None,
         "write_epoch": resp.get("write_epoch") if isinstance(resp, dict) else None,
@@ -465,6 +473,10 @@ class HeartbeatMixin:
         thread.start()
 
     def stop_heartbeat(self) -> None:
+        # The run's command stream ends with its beat (agentic W&B W20).
+        stop_stream = getattr(self, "_stop_command_stream", None)
+        if stop_stream is not None:
+            stop_stream()
         if self._hb_stop is not None:
             self._hb_stop.set()
         if self._hb_finalizer is not None:

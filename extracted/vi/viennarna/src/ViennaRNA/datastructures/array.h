@@ -50,7 +50,7 @@ typedef struct vrna_array_header_s {
 /**
  *  @brief The default growth formula for array
  */
-#define VRNA_ARRAY_GROW_FORMULA(n)                      (1.4 * (n) + 8)
+#define VRNA_ARRAY_GROW_FORMULA(n)                      ((size_t)(1.4 * (n) + 8))
 #endif
 
 /**
@@ -93,7 +93,7 @@ vrna__array_set_capacity(void    *array,
  */
 #define vrna_array_init_size(a, init_size) do { \
   void **a_ptr = (void **)&(a); \
-  size_t size = sizeof(*(a)) * (size_t)(init_size) + sizeof(vrna_array_header_t); \
+  size_t size = sizeof(*(a)) * (init_size) + sizeof(vrna_array_header_t); \
   vrna_array_header_t *h = (void *)vrna_alloc(size); \
   h->num           = 0; \
   h->size          = (size_t)init_size; \
@@ -136,6 +136,34 @@ vrna__array_set_capacity(void    *array,
     new_capacity = (min_capacity); \
   vrna_array_set_capacity(a, new_capacity); \
 } while (0)
+
+
+/**
+ * Create/register a typedef for a #vrna_array of a particular type
+ *
+ *  @note This macro automatically adds the prefix `vrna_`
+ *        and the suffix `_array_t` to the @p TYPE argument
+ *        to build the new typename
+ */
+#define VRNA_ARRAY_REGISTER( TYPE )  \
+    VRNA_ARRAY_REGISTER_NAME( TYPE, vrna_## TYPE ##_t)
+
+
+/**
+ * Create a typedef for a #vrna_array of a particular type
+ *
+ *  Use @p TYPE and @p TYPENAME to specify the type and
+ *  new typename of the array.
+ */
+#define VRNA_ARRAY_REGISTER_NAME( TYPE, TYPENAME )  \
+    /** \
+     @brief Convenience typedef for #vrna_array( TYPE ) \
+     \
+     @note    Get the number of elements in the array via #vrna_array_size() and append elements via the #vrna_array_append() macro \
+     @warning Use the #vrna_array_free() macro to release memory for data of this type! \
+     */ \
+    typedef vrna_array(TYPE)  TYPENAME
+
 
 /**
  * @}

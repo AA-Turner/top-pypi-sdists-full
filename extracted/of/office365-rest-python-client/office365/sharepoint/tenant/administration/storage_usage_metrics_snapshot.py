@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class StorageUsageMetricsSnapshot(ClientValue):
     ActiveSitesCount: int | None = None
     ActiveUsedStorageMB: int | None = None
@@ -18,6 +17,8 @@ class StorageUsageMetricsSnapshot(ClientValue):
     AvailableFreeStorageMB: int | None = None
     GeoLocations: StringCollection = field(default_factory=StringCollection)
     MetricsAggregationScope: int | None = None
+    SharePointEmbeddedActiveUsedStorageMB: int | None = None
+    SharePointEmbeddedArchivedUsedStorageMB: int | None = None
     SnapshotDate: datetime | None = field(default_factory=lambda: datetime.min)
     TotalAvailableStorageMB: int | None = None
     VersionsUsedStorageMB: int | None = None

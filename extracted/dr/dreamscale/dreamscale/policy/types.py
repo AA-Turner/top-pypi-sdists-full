@@ -468,3 +468,6 @@ class RuntimeStats:
     rtc_overcoverage_steps: int = 0
     rtc_undercoverage_steps: int = 0
     rtc_hold_or_starvation_gap_steps: int = 0
+    # Ticks next_action() held with no session serving (its link was lost and a new
+    # session was opening): also counted in underruns and hold_position_count.
+    reconnect_holds: int = 0

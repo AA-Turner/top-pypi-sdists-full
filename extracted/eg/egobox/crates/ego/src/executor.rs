@@ -1,14 +1,17 @@
 //! Execution of the [`EgorSolver`] with the basin executor.
 
-use crate::egor::OptimizationObserver;
+use crate::outputs::{DOE_FILE, FAILED_POINTS_FILE, HISTORY_FILE, STATE_FILE_PREFIX};
 use crate::{
     CHECKPOINT_FILE, Constraints, CstrFn, EgoError, EgorSolver, EgorState, HotStartMode, ObjFn,
     ProblemFunc, SurrogateBuilder, TerminationReason as EgorReason, TerminationStatus,
 };
 use basin::{CountsMirror, EvalCounts, Executor, State, TerminationReason};
-use ndarray::{Array1, Array2};
+use log::info;
+use ndarray::{Array1, Array2, Axis, concatenate};
+use ndarray_npy::write_npy;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::sync::{
     OnceLock,
     atomic::{AtomicU64, Ordering},
@@ -115,6 +118,114 @@ where
     }
 }
 
+// The optimization observer collects best costs ans params
+// during the optimization execution allowing to get optimization history
+// saved as a numpy array for further analysis
+// Note: the observer is activated only when outdir is specified
+#[derive(Default)]
+pub(crate) struct OptimizationObserver {
+    pub dir: PathBuf,
+    pub best_params: Option<Array2<f64>>,
+    pub best_costs: Option<Array2<f64>>,
+    pub state_recording: bool,
+}
+
+impl OptimizationObserver {
+    pub(crate) fn new(dir: String, state_recording: bool) -> Self {
+        Self {
+            dir: PathBuf::from(dir),
+            best_params: None,
+            best_costs: None,
+            state_recording,
+        }
+    }
+}
+
+impl OptimizationObserver {
+    /// Save optimization history, current doe and optionally state in output directory
+    pub(crate) fn observe_iter(&mut self, state: &EgorState<f64>) -> crate::Result<()> {
+        if let Some((xdata, ydata, cdata)) = &state.surrogate.data {
+            let doe = concatenate![Axis(1), xdata.view(), ydata.view(), cdata.view()];
+            if !self.dir.exists() {
+                std::fs::create_dir_all(&self.dir)?
+            }
+
+            let filepath = self.dir.join(DOE_FILE);
+            info!(">>> Save doe shape {:?} in {:?}", doe.shape(), filepath);
+            write_npy(filepath, &doe)?;
+
+            if let Some(failed_points) = state.surrogate.x_fail.as_ref() {
+                let filepath = self.dir.join(FAILED_POINTS_FILE);
+                info!(
+                    ">>> Save failed points {:?} in {:?}",
+                    failed_points.shape(),
+                    filepath
+                );
+                write_npy(filepath, failed_points)?;
+            }
+
+            if self.best_params.is_none() {
+                // Have to initialize best params and full best costs
+                let mut state = state.clone();
+                state.update();
+                let bp = state.get_best_param().unwrap().to_owned();
+                self.best_params = Some(bp.insert_axis(Axis(0)));
+                let bc = state.get_full_best_cost().unwrap().to_owned();
+                self.best_costs = Some(bc.insert_axis(Axis(0)));
+            } else {
+                let bp = state.get_best_param().unwrap().to_owned();
+                let bp = bp.insert_axis(Axis(0));
+                self.best_params =
+                    Some(concatenate![Axis(0), self.best_params.take().unwrap(), bp]);
+                let bc = state.get_full_best_cost().unwrap().to_owned();
+                let bc = bc.insert_axis(Axis(0));
+                self.best_costs = Some(concatenate![Axis(0), self.best_costs.take().unwrap(), bc]);
+            };
+            let hist = concatenate![
+                Axis(1),
+                self.best_costs.clone().unwrap(),
+                self.best_params.clone().unwrap(),
+            ];
+
+            let filepath = std::path::Path::new(&self.dir).join(HISTORY_FILE);
+            info!(">>> Save history {:?} in {:?}", hist.shape(), filepath);
+            write_npy(filepath, &hist)?;
+
+            // Save EgorState if EGOR_USE_STATE_RECORDING equals "WITH_ITER_STATE"
+            if self.state_recording {
+                let state_filename = format!("{}_{:04}.json", STATE_FILE_PREFIX, state.iter);
+                let state_filepath = std::path::Path::new(&self.dir).join(state_filename);
+                // Do not embed the surrogate GP models in the per-iteration state
+                // dump: they are by far the largest part of the state (GP training
+                // data and Cholesky factorizations) and are saved separately as GP
+                // files by the run recorder. Hot start checkpoints still serialize
+                // them for exact continuation.
+                let json = serde_json::to_value(state)
+                    .map(|mut value| {
+                        if let Some(surrogate) = value.get_mut("surrogate")
+                            && let Some(map) = surrogate.as_object_mut()
+                        {
+                            map.remove("models");
+                        }
+                        value
+                    })
+                    .and_then(|value| serde_json::to_string_pretty(&value));
+                match json {
+                    Ok(json) => {
+                        if let Err(e) = std::fs::write(&state_filepath, json) {
+                            log::warn!("Failed to save EgorState to {:?}: {}", state_filepath, e);
+                        } else {
+                            log::debug!(">>> Saved EgorState to {:?}", state_filepath);
+                        }
+                    }
+                    Err(_) => log::warn!("Failed to serialize EgorState"),
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 static INTERRUPTS: AtomicU64 = AtomicU64::new(0);
 static SIGNAL_HANDLER: OnceLock<Result<(), String>> = OnceLock::new();
 
@@ -131,6 +242,10 @@ fn install_signal_handler() -> crate::Result<()> {
         .clone()
         .map_err(EgoError::InternalError)
 }
+
+/// A function telling whether the optimization has to be interrupted,
+/// used instead of the process-wide signal handler (see [crate::Egor::interrupt_check])
+pub(crate) type InterruptCheck = std::sync::Arc<dyn Fn() -> bool + Send + Sync>;
 
 struct Observer {
     inner: OptimizationObserver,
@@ -152,6 +267,7 @@ impl basin::Observe<BasinState> for Observer {
 pub(crate) fn run<O, C, SB>(
     problem: ProblemFunc<O, C>,
     solver: EgorSolver<SB, C>,
+    interrupt_check: Option<InterruptCheck>,
 ) -> crate::Result<EgorState<f64>>
 where
     O: ObjFn,
@@ -159,8 +275,14 @@ where
     SB: SurrogateBuilder + Serialize + DeserializeOwned,
 {
     use basin::{ExactCheckpoint, ExactCheckpointWriter, ObserverMode, read_exact_checkpoint};
-    install_signal_handler()?;
-    let interrupt = INTERRUPTS.load(Ordering::Relaxed);
+    let interrupted: Box<dyn Fn() -> bool> = match interrupt_check {
+        Some(check) => Box::new(move || check()),
+        None => {
+            install_signal_handler()?;
+            let interrupt = INTERRUPTS.load(Ordering::Relaxed);
+            Box::new(move || INTERRUPTS.load(Ordering::Relaxed) != interrupt)
+        }
+    };
     let config = solver.config.clone();
     let path = std::path::Path::new(config.outdir.as_deref().unwrap_or(".checkpoints"))
         .join(CHECKPOINT_FILE);
@@ -198,7 +320,7 @@ where
     let errors = observer_error.clone();
     let timeout = config.timeout.map(web_time::Duration::from_secs_f64);
     let mut exec = exec.max_iter(u64::MAX).stop_when(move |state| {
-        if INTERRUPTS.load(Ordering::Relaxed) != interrupt {
+        if interrupted() {
             return Some(TerminationReason::Cancelled);
         }
         if errors.borrow().is_some() {

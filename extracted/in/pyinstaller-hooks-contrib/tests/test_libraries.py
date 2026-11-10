@@ -24,6 +24,17 @@ from PyInstaller.utils.hooks import (
 from PyInstaller.utils.tests import importorskip, importable, requires, xfail
 
 
+@importorskip('webrtcvad')
+def test_webrtcvad(pyi_builder):
+    pyi_builder.test_source(
+        '''
+        import webrtcvad
+        assert webrtcvad.__version__ != "unknown"
+        assert not webrtcvad.Vad(1).is_speech(bytes(640), 16000)
+        '''
+    )
+
+
 @importorskip('fiona')
 def test_fiona(pyi_builder):
     pyi_builder.test_source(
@@ -2888,12 +2899,49 @@ def test_pypdfium2(pyi_builder):
     """)
 
 
+# python-dateutil 3.0.0 deprecated dateutil.zoneinfo and removed the package-provided timezone info file.
 @importorskip('dateutil')
-def test_dateutil(pyi_builder):
+@pytest.mark.skipif(is_module_satisfies('python-dateutil >= 3.0.0'),
+                    reason='This test is not applicable to python-dateutil >= 3.0.0')
+def test_dateutil_zoneinfo(pyi_builder):
     pyi_builder.test_source("""
         from dateutil.zoneinfo import getzoneinfofile_stream
 
         assert getzoneinfofile_stream()
+    """)
+
+
+@importorskip('dateutil')
+def test_dateutil(pyi_builder):
+    pyi_builder.test_source("""
+        import sys
+
+        import dateutil.parser
+        import dateutil.rrule
+        import dateutil.relativedelta
+
+        reference_datetime = dateutil.parser.parse("Sat Oct 11 17:13:46 UTC 2003")
+        reference_date = reference_datetime.date()
+
+        print(f"Reference date: {reference_date}", file=sys.stderr)
+
+        year = dateutil.rrule.rrule(
+            dateutil.rrule.YEARLY,
+            dtstart=reference_datetime,
+            bymonth=8,
+            bymonthday=13,
+            byweekday=dateutil.rrule.FR,
+        )[0].year
+
+        print(f"Year with next Aug 13th on a Friday is: {year}", file=sys.stderr)
+
+        rdelta = dateutil.relativedelta.relativedelta(
+            dateutil.easter.easter(year),
+            reference_date,
+        )
+
+        print(f"How far is the Easter of that year: {rdelta}", file=sys.stderr)
+        print(f"And the Easter of that year is: {reference_date + rdelta}", file=sys.stderr)
     """)
 
 
@@ -3572,3 +3620,44 @@ def test_dogpile_cache(pyi_builder):
             region.set('key', {'value': 42})
             assert region.get('key') == {'value': 42}
 """)
+
+
+@importorskip("pymupdf")
+def test_pymupdf(pyi_builder, tmp_path):
+    pdf_filename = tmp_path / 'output.pdf'
+    txt_filename = tmp_path / 'output.txt'
+
+    pyi_builder.test_source("""
+        # Based on examples at https://pymupdf.readthedocs.io/en/latest/the-basics.html
+        import sys
+
+        import pymupdf
+
+        pdf_filename = sys.argv[1]
+        txt_filename = sys.argv[2]
+
+        # Create new document and add a page with text
+        doc = pymupdf.open()
+        n = doc.insert_page(
+            -1,  # default insertion point
+            text="The quick brown fox jumped over the lazy dog",
+            fontsize=11,
+            width=595,
+            height=842,
+            fontname="Helvetica",  # default font
+            fontfile=None,  # any font file name
+            color=(0, 0, 0),  # text color (RGB)
+        )
+        doc.save(pdf_filename)
+
+        # Re-open the generated document and extract the text
+        doc = pymupdf.open(pdf_filename)
+        with open(txt_filename, "w") as fp:
+            for page in doc:
+                text = page.get_text()
+                fp.write(text)
+        doc.close()
+    """, app_args=[str(pdf_filename), str(txt_filename)])
+
+    text = txt_filename.read_text(encoding='utf-8').strip()
+    assert text == 'The quick brown fox jumped over the lazy dog'

@@ -1,28 +1,34 @@
 """Exercises prov.identifier.Namespace edges not otherwise covered by the
-serializer round-trip tests (planning/test-gap-checklist.md, T13), and the
-3.2.3 warning for a local part 3.3.0 rejects (#524)."""
+serializer round-trip tests (planning/test-gap-checklist.md, T13), and
+the local parts 3.3.0 rejects (#524)."""
 
-import copy
-import pickle
 import re
-import warnings
-from collections.abc import Callable
 from typing import Any, cast
 
 import pytest
 
 from prov.identifier import Identifier, Namespace, QualifiedName
-from prov.model import ProvDocument, ProvFutureRejectionWarning
+from prov.model import (
+    ProvBundle,
+    ProvDocument,
+    ProvExceptionInvalidQualifiedName,
+    ProvValueError,
+)
+from prov.tests.format_errors import READER_ERRORS
 
 
-def test_namespace_rejects_empty_uri() -> None:
-    with pytest.raises(ValueError):
-        Namespace("ex", "")
-
-
-def test_namespace_rejects_whitespace_only_uri() -> None:
-    with pytest.raises(ValueError):
-        Namespace("ex", "   ")
+@pytest.mark.parametrize(
+    ("uri", "message"),
+    [
+        ("", "Not a valid URI to create a namespace."),
+        ("   ", "Not a valid URI to create a namespace."),
+        (5, "the namespace IRI 5 is not a string"),
+        (None, "the namespace IRI None is not a string"),
+    ],
+)
+def test_namespace_rejects_a_blank_or_non_string_uri(uri: Any, message: str) -> None:
+    with pytest.raises(ProvValueError, match=f"^{re.escape(message)}$"):
+        Namespace("ex", uri)
 
 
 def test_contains_with_matching_str() -> None:
@@ -76,115 +82,258 @@ UNWRITABLE = [
     pytest.param("a|b", id="bar"),
     pytest.param("50%", id="bare-percent"),
     pytest.param("a%zz", id="percent-not-hex"),
-    pytest.param("\u00b7a", id="leading-middle-dot"),
+    pytest.param("·a", id="leading-middle-dot"),
+    pytest.param("e\udc80", id="lone-surrogate"),
 ]
 
 
 def _message(localpart: str) -> str:
     return re.escape(
-        f"the local part {localpart!r} of <{EX}{localpart}> contains a character "
-        "PROV-N cannot write. prov 3.3.0 will reject this (#524)"
+        f"Invalid Qualified Name: ex:{localpart}, the local part {localpart!r} of "
+        f"<{EX}{localpart}> contains a character PROV-N cannot write"
     )
 
 
 @pytest.mark.parametrize("localpart", UNWRITABLE)
-def test_local_part_provn_cannot_write_warns(localpart: str) -> None:
-    # #524: 3.3.0 rejects a local part that PROV-N cannot write without
-    # changing the IRI; 3.2.3 warns and keeps the name as given.
-    with pytest.warns(ProvFutureRejectionWarning, match=_message(localpart)) as record:
-        qname = Namespace("ex", EX)[localpart]
-    assert qname.localpart == localpart
-    assert qname.uri == EX + localpart
-    assert record[0].filename == __file__
+def test_local_part_provn_cannot_write_raises(localpart: str) -> None:
+    # #524: a local part that PROV-N can write only by percent-encoding it
+    # would read back as a different IRI, so no QualifiedName holds one.
+    with pytest.raises(ProvExceptionInvalidQualifiedName, match=_message(localpart)):
+        _ = Namespace("ex", EX)[localpart]
 
 
-def test_qualified_name_built_directly_warns() -> None:
-    with pytest.warns(ProvFutureRejectionWarning, match=_message("a b")):
+def test_qualified_name_built_directly_raises() -> None:
+    with pytest.raises(ProvExceptionInvalidQualifiedName, match=_message("a b")):
         QualifiedName(Namespace("ex", EX), "a b")
 
 
-def test_cached_name_warns_once() -> None:
-    namespace = Namespace("ex", EX)
-    with pytest.warns(ProvFutureRejectionWarning) as record:
-        first = namespace["a b"]
-        second = namespace["a b"]
-    assert first is second
-    assert len(record) == 1
+def test_unpickled_name_is_checked_too() -> None:
+    # A pickle from an earlier release may hold such a name; loading it runs
+    # the same check, so no document holds a name the writer cannot spell.
+    name = QualifiedName.__new__(QualifiedName)
+    state = {
+        "_uri": EX + "a b",
+        "_namespace": Namespace("ex", EX),
+        "_localpart": "a b",
+        "_str": "ex:a b",
+    }
+    with pytest.raises(ProvExceptionInvalidQualifiedName, match=_message("a b")):
+        name.__setstate__(state)
 
 
 @pytest.mark.parametrize(
     "localpart", ["e1", "run_1", "a-b.c", "a%20b", "na=me", "-a", "a.", "é", "1a", ""]
 )
-def test_local_part_provn_can_write_does_not_warn(localpart: str) -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", ProvFutureRejectionWarning)
-        assert Namespace("ex", EX)[localpart].localpart == localpart
+def test_local_part_provn_can_write_is_accepted(localpart: str) -> None:
+    assert Namespace("ex", EX)[localpart].localpart == localpart
 
 
-def _document_with_unwritable_name() -> ProvDocument:
-    document = ProvDocument()
-    document.add_namespace("ex", EX)
-    with pytest.warns(ProvFutureRejectionWarning, match=_message("a b")) as record:
-        document.entity("ex:a b")
-    assert [w.filename for w in record] == [__file__]
-    return document
-
-
-def _updated(document: ProvDocument) -> ProvDocument:
-    other = ProvDocument()
-    other.update(document)
-    return other
-
-
-COPIES: dict[str, Callable[[ProvDocument], ProvDocument]] = {
-    "pickle": lambda document: pickle.loads(pickle.dumps(document)),  # nosec B301 - nosemgrep
-    "deepcopy": copy.deepcopy,
-    "unified": lambda document: document.unified(),
-    "flattened": lambda document: document.flattened(),
-    "update": _updated,
+# The pattern that starts a reader's message for the record whose name is rejected.
+_READ_WHERE = {
+    "json": r"record 'ex:a b': ",
+    "xml": r"line \d+, <prov:entity> 'ex:a b': ",
+    "jsonld": r"prov:Entity 'ex:a b': ",
 }
 
 
-@pytest.mark.parametrize("copy_document", COPIES.values(), ids=COPIES.keys())
-def test_copies_of_a_name_do_not_warn_again(
-    copy_document: Callable[[ProvDocument], ProvDocument],
-) -> None:
-    document = _document_with_unwritable_name()
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", ProvFutureRejectionWarning)
-        copied = copy_document(document)
-    assert copied == document
+@pytest.mark.parametrize("fmt", list(_READ_WHERE))
+def test_local_part_raises_when_read(fmt: str) -> None:
+    # The readers build the name, so each raises its own error for the record,
+    # with the model's error as the cause.
+    # PROV-N cannot carry the name and PROV-O refuses to write it, so the
+    # text is written with an accepted name and edited.
+    document = ProvDocument()
+    document.add_namespace("ex", EX)
+    document.entity("ex:a_b")
+    text = document.serialize(format=fmt)
+    assert text is not None
+    assert text.count("a_b") == 1
+    with pytest.raises(
+        READER_ERRORS[fmt], match=f"^{_READ_WHERE[fmt]}{_message('a b')}$"
+    ) as ctx:
+        ProvDocument.deserialize(content=text.replace("a_b", "a b"), format=fmt)
+    assert isinstance(ctx.value.__cause__, ProvExceptionInvalidQualifiedName)
+
+
+_PREFIX_MESSAGE = "the prefix {!r} is not a PN_PREFIX, so no format can write it"
+
+
+@pytest.mark.parametrize("prefix", ["ex", "a.b", "a-b", "a_b", "é", "a·b"])
+def test_prefix_that_is_a_pn_prefix_is_accepted(prefix: str) -> None:
+    assert Namespace(prefix, EX).prefix == prefix
 
 
 @pytest.mark.parametrize(
-    "target_default", [EX, "http://other.org/"], ids=["same-default", "other-default"]
+    "prefix", [1, "1a", "_a", "_", "a.", ".a", "·a", "a b", "a\nb", "a:b", 'a"b']
 )
-def test_default_namespace_name_does_not_warn_again_on_update(
-    target_default: str,
-) -> None:
-    # The two default-namespace branches of the bundle's reconciliation: the
-    # same default namespace, and another one, which renames this one to dn.
-    document = ProvDocument()
-    document.set_default_namespace(EX)
-    with pytest.warns(ProvFutureRejectionWarning, match=_message("a b")):
-        document.entity("a b")
-    other = ProvDocument()
-    other.set_default_namespace(target_default)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", ProvFutureRejectionWarning)
-        other.update(document)
-    (record,) = other.get_records()
-    assert record.identifier is not None
-    assert record.identifier.uri == EX + "a b"
+def test_prefix_that_is_not_a_pn_prefix_is_rejected(prefix: Any) -> None:
+    message = f"^{re.escape(_PREFIX_MESSAGE.format(prefix))}$"
+    with pytest.raises(ProvValueError, match=message):
+        Namespace(prefix, EX)
 
 
-@pytest.mark.parametrize("fmt", ["json", "xml", "jsonld"])
-def test_local_part_warns_when_read(fmt: str) -> None:
-    # The readers build the name, so the model's warning reaches their caller.
-    # PROV-N writes the name percent-encoded and PROV-O refuses to write it.
-    document = _document_with_unwritable_name()
-    content = document.serialize(format=fmt)
-    with pytest.warns(ProvFutureRejectionWarning, match=_message("a b")) as record:
-        read = ProvDocument.deserialize(content=content, format=fmt)
-    assert read == document
-    assert [w.filename for w in record] == [__file__]
+def test_every_way_to_build_a_namespace_checks_the_prefix() -> None:
+    message = f"^{re.escape(_PREFIX_MESSAGE.format('1a'))}$"
+    with pytest.raises(ProvValueError, match=message) as ctx:
+        ProvDocument().add_namespace("1a", EX)
+    assert isinstance(ctx.value, ValueError)
+    with pytest.raises(ProvValueError, match=message):
+        ProvDocument(namespaces={"1a": EX})
+    with pytest.raises(ProvValueError, match=message):
+        ProvBundle(namespaces={"1a": EX})
+
+
+_IRI_MESSAGE = "the namespace IRI {!r} cannot start with '@'"
+
+
+def test_namespace_iri_starting_with_at_is_rejected() -> None:
+    # Every entry point refuses it and names the IRI.
+    message = f"^{re.escape(_IRI_MESSAGE.format('@foo/'))}$"
+    with pytest.raises(ProvValueError, match=message):
+        Namespace("ex", "@foo/")
+    with pytest.raises(ProvValueError, match=message):
+        ProvDocument().add_namespace("ex", "@foo/")
+    with pytest.raises(ProvValueError, match=message):
+        ProvDocument().set_default_namespace("@foo/")
+    # The IRI is checked before the prefix, so '_type' is never reported.
+    with pytest.raises(
+        ProvValueError, match=f"^{re.escape(_IRI_MESSAGE.format('@type'))}$"
+    ):
+        Namespace("_type", "@type")
+
+
+_RDF_PREFIXES = (
+    '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
+    'xmlns:prov="http://www.w3.org/ns/prov#" xmlns:_a="http://example.org/a/">'
+)
+# Case name -> format, the reader's extra arguments, document, whole message.
+_PREFIX_DOCUMENTS = {
+    "json document": (
+        "json",
+        {},
+        '{"prefix": {"1a": "http://example.org/"}}',
+        "prefix '1a', IRI 'http://example.org/': " + _PREFIX_MESSAGE.format("1a"),
+    ),
+    "json bundle": (
+        "json",
+        {},
+        '{"prefix": {"ex": "http://example.org/"}, "bundle": {"ex:b": '
+        '{"prefix": {"1a": "http://example.org/"}}}}',
+        "prefix '1a', IRI 'http://example.org/': " + _PREFIX_MESSAGE.format("1a"),
+    ),
+    "json at sign": (
+        "json",
+        {},
+        '{"prefix": {"ex": "@foo/"}}',
+        "prefix 'ex', IRI '@foo/': " + _IRI_MESSAGE.format("@foo/"),
+    ),
+    "json default": (
+        "json",
+        {},
+        '{"prefix": {"default": ""}}',
+        "prefix 'default', IRI '': Not a valid URI to create a namespace.",
+    ),
+    "xml bundleContent, unused": (
+        "xml",
+        {},
+        '<prov:document xmlns:prov="http://www.w3.org/ns/prov#" '
+        'xmlns:ex="http://example.org/">\n'
+        '<prov:bundleContent prov:id="ex:b" xmlns:_a="http://example.org/a/"/>'
+        "</prov:document>",
+        "line 2, <prov:bundleContent> 'ex:b': " + _PREFIX_MESSAGE.format("_a"),
+    ),
+    "xml document element, at sign": (
+        "xml",
+        {},
+        '<prov:document xmlns:prov="http://www.w3.org/ns/prov#" '
+        'xmlns:ex="@foo/">\n<prov:entity prov:id="ex:e"/></prov:document>',
+        "line 2, <prov:entity> 'ex:e': " + _IRI_MESSAGE.format("@foo/"),
+    ),
+    "xml document element default, at sign": (
+        "xml",
+        {},
+        '<prov:document xmlns:prov="http://www.w3.org/ns/prov#" '
+        'xmlns="@foo/">\n<prov:entity prov:id="e"/></prov:document>',
+        "line 1, <prov:document>: " + _IRI_MESSAGE.format("@foo/"),
+    ),
+    "xml bundleContent default, at sign": (
+        "xml",
+        {},
+        '<prov:document xmlns:prov="http://www.w3.org/ns/prov#" '
+        'xmlns:ex="http://example.org/">\n'
+        '<prov:bundleContent prov:id="ex:b" xmlns="@foo/"/></prov:document>',
+        "line 2, <prov:bundleContent> 'ex:b': " + _IRI_MESSAGE.format("@foo/"),
+    ),
+    "xml document element, underscore": (
+        "xml",
+        {},
+        '<prov:document xmlns:prov="http://www.w3.org/ns/prov#" '
+        'xmlns:_a="http://example.org/a/">\n<prov:entity prov:id="_a:e"/>'
+        "</prov:document>",
+        "line 2, <prov:entity> '_a:e': " + _PREFIX_MESSAGE.format("_a"),
+    ),
+    "jsonld document": (
+        "jsonld",
+        {},
+        '{"@context": {"1a": "http://example.org/"}, "@graph": []}',
+        "prefix '1a', IRI 'http://example.org/': " + _PREFIX_MESSAGE.format("1a"),
+    ),
+    "jsonld bundle": (
+        "jsonld",
+        {},
+        '{"@context": {"ex": "http://example.org/"}, "@graph": [{"@type": "Bundle", '
+        '"@id": "ex:b", "@context": {"1a": "http://example.org/"}, "@graph": []}]}',
+        "prefix '1a', IRI 'http://example.org/': " + _PREFIX_MESSAGE.format("1a"),
+    ),
+    "jsonld term definition": (
+        "jsonld",
+        {},
+        '{"@context": {"ex": "http://example.org/", '
+        '"ex:term": "http://example.org/term"}, "@graph": []}',
+        "prefix 'ex:term', IRI 'http://example.org/term': "
+        + _PREFIX_MESSAGE.format("ex:term"),
+    ),
+    "jsonld alias": (
+        "jsonld",
+        {},
+        '{"@context": {"id": "@id"}, "@graph": []}',
+        "prefix 'id', IRI '@id': " + _IRI_MESSAGE.format("@id"),
+    ),
+    "jsonld vocab alias": (
+        "jsonld",
+        {},
+        '{"@context": {"@vocab": "@id"}, "@graph": []}',
+        "prefix '@vocab', IRI '@id': " + _IRI_MESSAGE.format("@id"),
+    ),
+    "jsonld empty key alias": (
+        "jsonld",
+        {},
+        '{"@context": {"": "@id"}, "@graph": []}',
+        "prefix '', IRI '@id': " + _IRI_MESSAGE.format("@id"),
+    ),
+    "rdf xml": (
+        "rdf",
+        {"rdf_format": "xml"},
+        _RDF_PREFIXES + '<rdf:Description rdf:about="http://example.org/a/e">'
+        '<rdf:type rdf:resource="http://www.w3.org/ns/prov#Entity"/>'
+        "</rdf:Description></rdf:RDF>",
+        "prefix '_a', IRI 'http://example.org/a/': " + _PREFIX_MESSAGE.format("_a"),
+    ),
+    "rdf trig": (
+        "rdf",
+        {"rdf_format": "trig"},
+        "@prefix prov: <http://www.w3.org/ns/prov#> .\n"
+        "@prefix _a: <http://example.org/a/> .\n_a:e a prov:Entity .\n",
+        "prefix '_a', IRI 'http://example.org/a/': " + _PREFIX_MESSAGE.format("_a"),
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(_PREFIX_DOCUMENTS))
+def test_prefix_raises_when_read(name: str) -> None:
+    # The readers build the Namespace, so each raises its own error naming the
+    # declaration, with the model's error as the cause.
+    fmt, kwargs, text, message = _PREFIX_DOCUMENTS[name]
+    with pytest.raises(READER_ERRORS[fmt], match=f"^{re.escape(message)}$") as ctx:
+        ProvDocument.deserialize(content=text, format=fmt, **kwargs)
+    assert isinstance(ctx.value.__cause__, ProvValueError)

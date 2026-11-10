@@ -628,12 +628,13 @@ static void css_emit_function(css_buf *pool, token_vec *vec, Py_ssize_t name_ind
 /* Minify a function's argument list into out, recursing for nested functions. var()
    keeps its raw fallback; calc/min/max/clamp keep their spaced operators. */
 static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, const css_char *name,
-                                 Py_ssize_t name_len, css_buf *out) {
+                                 Py_ssize_t name_len, css_buf *out, int *raw_fallback) {
     int is_var = css_run_ieq(name, name_len, "var");
     int keep_ws = css_is_math_func(name, name_len);
     int is_color = css_run_ieq(name, name_len, "rgb") || css_run_ieq(name, name_len, "rgba") ||
                    css_run_ieq(name, name_len, "hsl") || css_run_ieq(name, name_len, "hsla");
     int pending_ws = 0;
+    int escaped_space = 0;
     Py_ssize_t index = start;
     while (index < end) {
         css_token *token = &vec->items[index];
@@ -647,6 +648,7 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             css_rtrim(out);
             cbuf_putc(out, ',');
             pending_ws = 0;
+            escaped_space = 0;
             index++;
             continue;
         }
@@ -667,6 +669,7 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 const css_token *last = &vec->items[end - 1];
                 out->len = 0;
                 cbuf_put_run(out, source, last->text + last->text_len + last->unit_len - source);
+                *raw_fallback = 1;
                 return;
             }
         }
@@ -682,15 +685,18 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             }
             cbuf_putc(out, ' ');
             pending_ws = 0;
+            escaped_space = 0;
             index++;
             continue;
         }
         /* a leading space is kept only between two value pieces, never after '(' or ',' */
-        if (pending_ws && out->len > 0 && out->data[out->len - 1] != ' ' && out->data[out->len - 1] != ',' &&
-            out->data[out->len - 1] != '(') {
+        /* A space consumed by a hex escape cannot also separate the next token. */
+        if (pending_ws && out->len > 0 && (out->data[out->len - 1] != ' ' || escaped_space) &&
+            out->data[out->len - 1] != ',' && out->data[out->len - 1] != '(') {
             cbuf_putc(out, ' ');
         }
         pending_ws = 0;
+        escaped_space = 0;
         if (token->kind == CSS_IDENT && index + 1 < end && vec->items[index + 1].kind == CSS_DELIM &&
             vec->items[index + 1].delim == '(') {
             Py_ssize_t close_index = css_match_paren(vec, index + 1, end);
@@ -706,8 +712,11 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 cbuf_put_run(out, pool->data + off, len);
             } else {
                 /* past the nesting cap the nested call goes out as its source text, which reparses to the same value */
-                const css_token *close = &vec->items[close_index];
-                cbuf_put_run(out, token->text, close->text + close->text_len - token->text);
+                const css_token *close = &vec->items[close_index < vec->len ? close_index : vec->len - 1];
+                cbuf_put_run(out, token->text, close->text + close->text_len + close->unit_len - token->text);
+                if (close_index == vec->len) {
+                    css_close_raw_blocks(vec, index + 1, close_index, out);
+                }
             }
             index = close_index + 1;
             continue;
@@ -751,6 +760,7 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
             }
         } else {
             cbuf_put_run(out, token->text, token->text_len);
+            escaped_space = token->kind == CSS_IDENT && css_is_ws(token->text[token->text_len - 1]);
         }
         index++;
     }

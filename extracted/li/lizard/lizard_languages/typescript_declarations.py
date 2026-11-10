@@ -88,7 +88,8 @@ class TypeScriptDeclarationsMixin:
                         if generic_depth[0] == 0:
                             phase[0] = 1
                 elif phase[0] == 4:
-                    if t == '{':
+                    # A template literal type's '${' closes with '}' too.
+                    if t in ('{', '${'):
                         brace_count[0] += 1
                     elif t == '}':
                         brace_count[0] -= 1
@@ -107,12 +108,13 @@ class TypeScriptDeclarationsMixin:
 
             def skip_interface(t):
                 nonlocal brace_count, interface_started
-                if t == '{':
-                    interface_started = True
+                # A template literal type's '${' closes with '}' too.
+                if t in ('{', '${'):
+                    interface_started = interface_started or t == '{'
                     brace_count += 1
-                elif t == '}' and interface_started:
+                elif t == '}' and brace_count:
                     brace_count -= 1
-                    if brace_count == 0:
+                    if brace_count == 0 and interface_started:
                         self.next(self._state_global)
                         return True
                 return False
@@ -137,19 +139,30 @@ class TypeScriptDeclarationsMixin:
         return ((self._prev_token == '.' or token not in _EXPRESSION_PREFIXES)
                 and (ends_expression(token) or token.isidentifier()))
 
-    def _consume_generic_type_params(self):
+    def _consume_generic_type_params(self, resume=None):
         """Consume <...> generic type parameters (e.g., method<T>(...))
-        so the method name in last_tokens is preserved."""
+        so the method name in last_tokens is preserved; then continue in
+        resume (the global state by default)."""
         depth = 1
+        braces = 0
 
         def consume(token):
-            nonlocal depth
+            nonlocal depth, braces
+            if token == '{':
+                braces += 1
+            elif token == '}' and braces:
+                braces -= 1
+            elif token in ('}', ';') and not braces:
+                # A comparison, not type parameters: `{i < n}`. Object
+                # types inside them (`Promise<{ a: T; }>`) keep their own.
+                self.next(resume or self._state_global, token)
+                return
             if token == '<':
                 depth += 1
             elif token == '>':
                 depth -= 1
                 if depth == 0:
-                    self.next(self._state_global)
+                    self.next(resume or self._state_global)
         self.next(consume)
 
     def _consume_type_annotation(self):

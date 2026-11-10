@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.policies.conditionalaccess.signinfrequencyauthenticationtype import (
     SignInFrequencyAuthenticationType,
 )
@@ -10,7 +8,6 @@ from office365.directory.policies.conditionalaccess.signinfrequencytype import S
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SignInFrequencySessionControl(ClientValue):
     authenticationType: SignInFrequencyAuthenticationType = (
         SignInFrequencyAuthenticationType.primaryAndSecondaryAuthentication

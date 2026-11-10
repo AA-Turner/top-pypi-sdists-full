@@ -63,22 +63,23 @@ def _query_agent(host: str, port: int = AGENT_PORT, timeout: float = 5.0) -> dic
 # Terminal statuses an agent reports in its /status `completed` history,
 # mapped to the board terminal status we persist. (#625)
 #
-# #2234/#3164: "refused_policy" (coord.agent.REFUSED_POLICY) and
-# "refused_premise" (coord.agent.REFUSED_PREMISE) join "advisory" as their
-# own pass-through entries — WITHOUT this, `reconcile_completed_
-# assignments` below (the daemon's passive tick, the primary production
-# path a completion is first observed on) reads `terminal = _AGENT_TERMINAL_
-# STATUS.get(...)` as `None` for an unrecognised status and just
-# `continue`s, leaving the board row on `status="running"` FOREVER — the
-# opposite of #2234's goal (the row would look perpetually in-flight,
-# `active_count` would never clear, and `coord drive` would wait forever
-# instead of ever reaching the terminal-status branch that avoids spending
-# an attempt).
+# #2234/#3164/#3931: "refused_policy" (coord.agent.REFUSED_POLICY),
+# "refused_premise" (coord.agent.REFUSED_PREMISE) and "needs_decomposition"
+# (coord.agent.NEEDS_DECOMPOSITION) join "advisory" as their own pass-through
+# entries — WITHOUT this, `reconcile_completed_assignments` below (the
+# daemon's passive tick, the primary production path a completion is first
+# observed on) reads `terminal = _AGENT_TERMINAL_STATUS.get(...)` as `None`
+# for an unrecognised status and just `continue`s, leaving the board row on
+# `status="running"` FOREVER — the opposite of #2234's goal (the row would
+# look perpetually in-flight, `active_count` would never clear, and `coord
+# drive` would wait forever instead of ever reaching the terminal-status
+# branch that avoids spending an attempt).
 _AGENT_TERMINAL_STATUS = {
     "done": "done",
     "advisory": "advisory",
     "refused_policy": "refused_policy",
     "refused_premise": "refused_premise",
+    "needs_decomposition": "needs_decomposition",
     "failed": "failed",
     "cancelled": "failed",
 }
@@ -148,7 +149,10 @@ _LATE_REPORT_CORRECTION_WINDOW_SECONDS = 6 * 3600.0
 # turns out to be `done` is left on its (safe, conservative) `failed`/
 # `advisory` guess — a human or `coord notify` can still promote it.
 _LATE_REPORT_SAFE_TARGETS = frozenset(
-    {"failed", "advisory", "refused_policy", "refused_premise"}
+    {
+        "failed", "advisory", "refused_policy", "refused_premise",
+        "needs_decomposition",
+    }
 )
 
 
@@ -2688,6 +2692,28 @@ def reconcile(board: Board, config: Config) -> list[str]:
             # NOTE: do NOT add to newly_failed — a premise refusal is never a
             # candidate for auto_reassign; retrying it reproduces the
             # identical, correct refusal every time.
+        elif agent_status == "needs_decomposition":
+            # #3931: worker exited cleanly, pushed 0 commits, and its own
+            # final message (or `WORK_OUTCOME: needs-decomposition` marker)
+            # concluded the issue needs epic decomposition — the #3922 shape.
+            # Mirrors the "refused_premise" branch immediately above exactly
+            # (move to completed, skip review, never a candidate for
+            # auto_reassign): a relaunch cannot produce a different split,
+            # only a second opinion on the one this leg already proposed.
+            done = board.mark_done_by_id(
+                a.assignment_id,
+                finished_at=entry.get("finished_at"),
+                branch=branch,
+            )
+            if done is not None:
+                # mark_done_by_id sets status="done"; correct it.
+                done.status = "needs_decomposition"
+                if done.type in WORK_LIKE_TYPES:
+                    # No code pushed → nothing to review.
+                    done.review_state = "advisory"
+                _record_usage_limit_reason(a.assignment_id, entry)
+            # NOTE: do NOT add to newly_failed — a relaunch would only
+            # re-propose the same split this leg already found.
         else:
             # Defensive: don't downgrade a DB-done assignment to failed when
             # the agent reports cancelled (e.g. after POST /cancel cleanup
@@ -2925,6 +2951,8 @@ def _post_human_required_comment_raw(
     *,
     semantic_escalation_note: str | None = None,
     closing_note: str | None = None,
+    headline: str | None = None,
+    exit_description: str | None = None,
 ) -> None:
     """Notify the user on GitHub that a conflict-fix worker gave up.
 
@@ -2940,6 +2968,14 @@ def _post_human_required_comment_raw(
     already-upstream verdict, where there is nothing to rebase or merge.
     Callers whose verdict doesn't call for "manual resolution" in that
     sense pass their own closing sentence instead of the default.
+
+    *headline*/*exit_description*: the defaults below (and their framing —
+    "could not auto-resolve", "exited non-zero") assume the worker actually
+    attempted a rebase and failed at it. That is false for a leg that
+    exited clean but never moved the branch (a missing or rejected push) —
+    callers describing THAT verdict pass both, so the comment an operator
+    reads first says what actually happened instead of asserting a failed
+    rebase attempt that never happened.
     """
     from coord import github_ops  # noqa: PLC0415
 
@@ -2949,12 +2985,15 @@ def _post_human_required_comment_raw(
         "coordinator will not re-dispatch a conflict-fix for this entry "
         "in the current session."
     )
+    default_exit_description = (
+        f"attempted to rebase `{entry.branch}` onto `{entry.target_branch}` "
+        "and exited non-zero"
+    )
     body = (
-        "## Conflict-fix worker could not auto-resolve\n\n"
-        f"Worker `{fix_assignment_id}` on "
-        f"`{machine_name}` attempted to rebase "
-        f"`{entry.branch}` onto `{entry.target_branch}` and exited "
-        "non-zero. The merge queue entry is now `HUMAN_REQUIRED`.\n\n"
+        f"## {headline or 'Conflict-fix worker could not auto-resolve'}\n\n"
+        f"Worker `{fix_assignment_id}` on `{machine_name}` "
+        f"{exit_description or default_exit_description}. The merge queue "
+        "entry is now `HUMAN_REQUIRED`.\n\n"
         f"**Last error:** `{entry.error or 'unknown'}`\n\n"
         + (f"{semantic_escalation_note}\n\n" if semantic_escalation_note else "")
         + (closing_note if closing_note is not None else default_closing_note)
@@ -3134,6 +3173,177 @@ def _try_ordinary_escalation_after_stale_mismatch(
         return None
 
 
+def _head_unmoved_verdict(
+    entry: "mq.QueuedMerge", fix_assignment_id: str,
+) -> tuple[bool, str | None]:
+    """(head_unmoved, live_sha) for a conflict-fix that reported no give-up
+    marker (#3871).
+
+    "Unmoved" means the branch's CURRENT HEAD SHA — read fresh from
+    GitHub, never cached — is IDENTICAL to the HEAD SHA it carried at the
+    moment this conflict-fix was dispatched (recorded on the dispatched
+    Assignment's own stored briefing, see
+    :func:`coord.conflict_fix.dispatched_branch_head_sha`): the worker
+    exited clean but never actually pushed anything (a missing push, or
+    one GitHub rejected), so the merge is still blocked on the exact
+    commit it was blocked on before this attempt ran — not because a real
+    conflict defeated the worker.
+
+    Best-effort and fails toward trusting the worker's own exit, exactly
+    like the pre-#3871 behaviour: any failure to find the dispatch record,
+    read its anchor, or reach GitHub for the live SHA returns
+    ``(False, None)`` rather than guessing.
+    """
+    if not entry.repo_github or not entry.branch or not fix_assignment_id:
+        return False, None
+
+    try:
+        from coord.state import load_dispatched  # noqa: PLC0415
+
+        dispatched_record = next(
+            (
+                r for r in load_dispatched()
+                if r.get("assignment_id") == fix_assignment_id
+            ),
+            None,
+        )
+    except Exception:  # noqa: BLE001 — best-effort, never block on this
+        dispatched_record = None
+    if dispatched_record is None:
+        return False, None
+
+    from coord.conflict_fix import dispatched_branch_head_sha  # noqa: PLC0415
+
+    dispatched_sha = dispatched_branch_head_sha(
+        dispatched_record.get("briefing"),
+    )
+    if dispatched_sha is None:
+        return False, None
+
+    try:
+        from coord import github_ops  # noqa: PLC0415
+
+        live_sha = github_ops.get_branch_sha(entry.repo_github, entry.branch)
+    except Exception:  # noqa: BLE001
+        live_sha = None
+    if live_sha is None:
+        return False, None
+
+    return (live_sha == dispatched_sha), live_sha
+
+
+def _ended_waiting_on_a_backgrounded_step(
+    *,
+    log_path: str | None,
+    host: str | None,
+    assignment_id: str | None,
+) -> bool:
+    """True when a finished conflict-fix leg's FINAL turn reads as "I
+    backgrounded the gate and am waiting for it" (#3870).
+
+    Explanatory only, and reached only for a leg :func:`_head_unmoved_
+    verdict` already confirmed did not move the branch: it sharpens the
+    parked entry's text, never the success/failure verdict. Best-effort —
+    an unreadable or unreachable transcript returns ``False``, which just
+    leaves the generic "the push appears to be missing or was rejected"
+    wording in place.
+    """
+    if not log_path and not (host and assignment_id):
+        return False
+    from coord.conflict_fix import detect_premature_wait  # noqa: PLC0415
+
+    try:
+        return detect_premature_wait(
+            log_path=log_path,
+            host=host,
+            assignment_id=assignment_id,
+        )
+    except Exception:  # noqa: BLE001 — never break reconcile on a log read
+        return False
+
+
+def _try_ordinary_escalation_after_head_unmoved(
+    entry: "mq.QueuedMerge",
+    *,
+    board: Board | None,
+    config: Config | None,
+    machine_name: str | None,
+    fix_assignment_id: str | None = None,
+    head_unmoved_sha: str | None = None,
+) -> Assignment | None:
+    """Dispatch a fresh ordinary conflict-fix after a prior attempt
+    completed clean without actually moving the branch (#3871).
+
+    Same shape as :func:`_try_ordinary_escalation_after_stale_mismatch` —
+    an ordinary (non-``semantic``, non-``stale_rebase``) dispatch — with
+    one difference: that sibling excludes a whole CLASS of prior rows by
+    title prefix (``ignore_stale_rebase_attempts``); this one excludes
+    exactly ONE row, the just-completed leg named by *fix_assignment_id*,
+    via :func:`coord.conflict_fix.dispatch_conflict_fix`'s
+    ``after_head_unmoved_fix_assignment_id``. Without that exclusion, the
+    just-completed leg's own ``done`` status would itself be read as "the
+    same blocker recurring unchanged" by the cap's identical-error rule —
+    its dispatch-time briefing embeds the SAME ``entry.error`` text — even
+    though a clean exit with an unmoved branch never demonstrated a
+    genuine failure, only a missing or rejected push. Every OTHER prior
+    attempt still counts normally, so this redispatches WITHIN the
+    existing per-entry budget rather than granting a fresh one. Returns
+    the dispatched ``Assignment``, or ``None`` when dispatch declined for
+    any of the ordinary reasons (no capable machine, already active, retry
+    cap already consumed by a genuinely different prior failure) — every
+    ``None`` case falls through to the caller's HUMAN_REQUIRED park.
+
+    *head_unmoved_sha* (the live SHA the caller already confirmed the
+    branch is still sitting on) is stamped onto ``entry.branch_head_sha``
+    before dispatching, so THIS redispatch gets a real pre-dispatch anchor
+    of its own rather than the ``unknown`` placeholder — a reconcile-
+    dispatched conflict-fix never otherwise has one, since
+    ``entry.branch_head_sha`` is transient and only backfilled inside
+    ``coord.merge_queue.process()``.
+
+    #3871: when *board*/*config* are both ``None`` — ``coord notify``'s
+    "no marker" call site, deliberately left without the eager
+    ``read_board``/config-load every OTHER marker arm there gets, since
+    that case is the overwhelming common one (a real fix, no marker) and
+    the extra cost must not land on it — this loads them itself, lazily,
+    paying that cost only on this rare "head unmoved" path rather than on
+    every ordinary conflict-fix completion. A load failure here still
+    degrades to the pre-#3871 HUMAN_REQUIRED park, same as a genuinely
+    unavailable board/config would.
+    """
+    if board is None or config is None:
+        try:
+            from coord.board_service import read_board  # noqa: PLC0415
+            from coord.config import load as _load_config  # noqa: PLC0415
+
+            board = read_board()
+            config = _load_config()
+        except Exception:  # noqa: BLE001
+            return None
+
+    from coord.conflict_fix import dispatch_conflict_fix  # noqa: PLC0415
+    from coord.network import fetch_status  # noqa: PLC0415
+
+    if head_unmoved_sha is not None:
+        entry.branch_head_sha = head_unmoved_sha
+
+    try:
+        return dispatch_conflict_fix(
+            entry,
+            board,
+            config,
+            prefer_machine=machine_name or None,
+            after_head_unmoved_fix_assignment_id=fix_assignment_id,
+            status_fetcher=fetch_status,
+        )
+    except Exception as exc:  # noqa: BLE001 — never break reconcile on this
+        import logging  # noqa: PLC0415
+        logging.warning(
+            "head-unmoved → ordinary conflict-fix redispatch failed: %s", exc,
+        )
+        return None
+
+
 def on_conflict_fix_done(
     *,
     parent_assignment_id: str,
@@ -3148,6 +3358,8 @@ def on_conflict_fix_done(
     config: Config | None = None,
     stuck_summary: str | None = None,
     usage_limit_reason: str | None = None,
+    fix_log_path: str | None = None,
+    fix_agent_host: str | None = None,
 ) -> None:
     """Update the parent merge entry after a conflict-fix worker finishes.
 
@@ -3222,6 +3434,34 @@ def on_conflict_fix_done(
     Called from both ``reconcile()`` (via mark_done/failed) and
     ``coord notify`` (via post_transition) — both paths must trigger this
     so the re-enqueue fires regardless of which polling command runs first.
+
+    #3871: BEFORE any of the marker verdicts above get a say, a *succeeded*
+    completion is independently re-checked against GitHub's LIVE branch
+    head — see :func:`_head_unmoved_verdict`. A clean exit with no marker
+    is not proof the branch moved: a missing push, or one GitHub rejected,
+    looks identical. When the live head is confirmed unchanged from the
+    HEAD this attempt was dispatched against, *succeeded* is treated as
+    ``False`` for a dedicated ``head_unmoved`` branch that tries an
+    ordinary redispatch (:func:`_try_ordinary_escalation_after_head_
+    unmoved`) WITHIN the existing retry cap, falling back to HUMAN_REQUIRED
+    with text that says what actually happened — never the "a real
+    conflict defeated an automated conflict-fix" framing the other
+    branches above use, and never one of
+    :data:`coord.merge_queue._NON_MERGEABILITY_HUMAN_REQUIRED_SIGNALS`'s
+    phrases, so the latch stays eligible for
+    :func:`coord.merge_queue.reconcile_conflict_entries`'s live-
+    mergeability re-test instead of parking forever on a stale verdict.
+
+    *fix_log_path* / *fix_agent_host* locate the finished leg's transcript
+    (a coordinator-local log file, and the agent that ran it). They are
+    read ONLY on that ``head_unmoved`` branch, to say WHY a leg that
+    provably didn't push ended anyway — a final turn announcing it was
+    waiting on a step it had backgrounded (#3870) names the single-shot-
+    session mistake in the parked entry's text instead of leaving "the push
+    appears to be missing" unexplained. The verdict itself never depends on
+    them: whether the branch moved is answered only by
+    :func:`_head_unmoved_verdict`, and omitting both simply loses the
+    explanation.
     """
     from coord import merge_queue as mq  # noqa: PLC0415
 
@@ -3230,17 +3470,140 @@ def on_conflict_fix_done(
     failed_entry: mq.QueuedMerge | None = None
     failed_entry_note: str | None = None
     failed_entry_closing_note: str | None = None
+    failed_entry_headline: str | None = None
+    failed_entry_exit_description: str | None = None
     escalated: tuple[mq.QueuedMerge, str, str, str] | None = None
     for entry in items:
         if entry.assignment_id != parent_assignment_id:
             continue
+        # #3871: a clean worker exit (no STUCK marker — `succeeded` still
+        # True here) is not proof the branch actually moved. Re-read the
+        # branch's LIVE head from GitHub and compare it against the HEAD it
+        # carried when THIS attempt was dispatched — only when both
+        # resolve and match is the push confirmed missing/rejected; any
+        # failure to read either side reads as "moved" (False), preserving
+        # the pre-#3871 behaviour of trusting the worker's own exit.
+        head_unmoved = False
+        head_unmoved_sha: str | None = None
         if succeeded:
+            head_unmoved, head_unmoved_sha = _head_unmoved_verdict(
+                entry, fix_assignment_id,
+            )
+        if succeeded and not head_unmoved:
             entry.state = mq.PENDING
             entry.error = None
             entry.last_attempt = None
         else:
             existing_error = entry.error or "conflict-fix failed"
-            if usage_limit_reason:
+            if head_unmoved:
+                # The leg exited clean and diagnosed nothing (no SEMANTIC/
+                # already-upstream/stale-rebase/reword marker), yet the
+                # branch is still sitting on the exact commit it was on
+                # before this attempt ran — the rebase, if any, was never
+                # pushed, or GitHub rejected the push. This is NOT a real
+                # conflict defeating a conflict-fix worker, so it must not
+                # read like one (see `coord.merge_queue.
+                # conflict_fix_actually_gave_up`, which `coord.drive`'s
+                # HUMAN_REQUIRED exit text keys off of) and it must not
+                # consume the entry's only shot at automated resolution:
+                # redispatch the ordinary mechanical attempt WITHIN the
+                # existing retry cap. The just-completed leg's own `done`
+                # status WOULD otherwise consume that cap on its own — its
+                # dispatch-time briefing embeds the same `entry.error` text,
+                # so the cap's identical-error rule would read it as a
+                # genuine recurring failure — so this passes the leg's own
+                # `fix_assignment_id` through to `dispatch_conflict_fix`'s
+                # `after_head_unmoved_fix_assignment_id`, which excludes
+                # exactly that one row from the cap walk. Only an earlier,
+                # different, genuinely-failed attempt still escalates
+                # straight to HUMAN_REQUIRED as if a worker had given up on
+                # a genuine conflict.
+                detail = (
+                    "the conflict-fix worker completed but the "
+                    f"{mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} (still "
+                    f"{head_unmoved_sha}) — the push appears to be missing "
+                    "or was rejected"
+                )
+                # Name the single-shot-session mistake when the leg's own
+                # final turn shows it: a `-p` session ends with the turn, so
+                # a worker that backgrounded its gate and signed off with
+                # "Waiting for the gate." never reached its push. Purely
+                # explanatory — the verdict above already stands on the live
+                # branch head.
+                if _ended_waiting_on_a_backgrounded_step(
+                    log_path=fix_log_path,
+                    host=fix_agent_host,
+                    assignment_id=fix_assignment_id,
+                ):
+                    detail += (
+                        "; its final message announced it was waiting for a "
+                        "step it had backgrounded, which a headless session "
+                        "never returns from"
+                    )
+                fix = _try_ordinary_escalation_after_head_unmoved(
+                    entry,
+                    board=board,
+                    config=config,
+                    machine_name=machine_name,
+                    fix_assignment_id=fix_assignment_id,
+                    head_unmoved_sha=head_unmoved_sha,
+                )
+                if fix is not None:
+                    # Stay in CONFLICT, not HUMAN_REQUIRED — the redispatched
+                    # worker is now in flight.
+                    entry.state = mq.CONFLICT
+                    entry.error = (
+                        f"{existing_error}; {detail}; redispatched an "
+                        f"ordinary conflict-fix (assignment "
+                        f"{fix.assignment_id}) on {fix.machine_name}."
+                    )
+                else:
+                    # No capable machine, already active, or the retry cap
+                    # was already consumed by a genuinely different failed
+                    # prior attempt — fall through to HUMAN_REQUIRED, but
+                    # with text that says what actually happened (a missing
+                    # push), not "a conflict-fix worker gave up on a real
+                    # conflict". Deliberately avoids every phrase in
+                    # `_NON_MERGEABILITY_HUMAN_REQUIRED_SIGNALS` so
+                    # `reconcile_conflict_entries` keeps re-testing this
+                    # latch against live mergeability instead of treating
+                    # it as permanently non-mergeable.
+                    entry.state = mq.HUMAN_REQUIRED
+                    entry.error = (
+                        f"{existing_error}; {detail}, and a fresh "
+                        "automated conflict-fix could not be dispatched "
+                        "(no capable machine, or one already active) — "
+                        "push the fix by hand, or re-run `coord merge` "
+                        "once a machine is free. "
+                        # #3902: record exactly WHICH leg produced this park
+                        # so a later periodic redispatch
+                        # (`coord.board_doctor_permissions.
+                        # sweep_redispatch_head_unmoved_conflict_fix`) can
+                        # exclude this one row from the retry-cap walk by id
+                        # rather than guessing "the latest done conflict-fix
+                        # for this entry" — see
+                        # `mq.head_unmoved_fix_assignment_id`.
+                        f"[{mq.HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX}"
+                        f"{fix_assignment_id}]"
+                    )
+                    failed_entry = entry
+                    # The leg that produced this latch exited ZERO, not
+                    # non-zero — the default comment headline/body
+                    # (`_post_human_required_comment_raw`) claims "attempted
+                    # to rebase ... and exited non-zero", which would be
+                    # false here. Override both with text that matches
+                    # what actually happened.
+                    failed_entry_headline = (
+                        "Conflict-fix worker completed, but nothing was "
+                        "pushed"
+                    )
+                    failed_entry_exit_description = (
+                        f"completed `{entry.branch}` → `{entry.target_branch}` "
+                        "cleanly (exit status 0), but the branch head never "
+                        f"moved (still `{head_unmoved_sha}`) — the push "
+                        "appears to be missing, or GitHub rejected it"
+                    )
+            elif usage_limit_reason:
                 entry.state = mq.HUMAN_REQUIRED
                 entry.error = (
                     f"{existing_error}; conflict-fix worker was killed by "
@@ -3453,6 +3816,8 @@ def on_conflict_fix_done(
             machine_name=machine_name,
             semantic_escalation_note=failed_entry_note,
             closing_note=failed_entry_closing_note,
+            headline=failed_entry_headline,
+            exit_description=failed_entry_exit_description,
         )
 
 
@@ -3529,6 +3894,14 @@ def _on_conflict_fix_done(
         return
 
     usage_limit_reason = (agent_entry or {}).get("usage_limit_reason")
+    log_path = (agent_entry or {}).get("log_path")
+    fix_machine = next(
+        (
+            m for m in (config.machines if config is not None else [])
+            if m.name == fix_assignment.machine_name
+        ),
+        None,
+    )
 
     semantic = False
     already_upstream = False
@@ -3581,6 +3954,8 @@ def _on_conflict_fix_done(
         config=config,
         stuck_summary=stuck_summary,
         usage_limit_reason=usage_limit_reason,
+        fix_log_path=log_path,
+        fix_agent_host=fix_machine.host if fix_machine is not None else None,
     )
 
 
@@ -4301,6 +4676,11 @@ def reconcile_board_merges(
             # `refused_policy`/`refused_premise` forever.
             or a.status == "refused_policy"
             or a.status == "refused_premise"
+            # #3931: same "ghost sibling" shape as refused_policy/
+            # refused_premise above — a needs_decomposition row should
+            # auto-settle to `merged` once GitHub confirms the issue went
+            # terminal, rather than sitting on the board forever.
+            or a.status == "needs_decomposition"
             or (
                 a.type == "work"
                 and a.status == "merged"
@@ -4372,6 +4752,19 @@ def reconcile_board_merges(
             if not dry_run:
                 a.status = "merged"
                 state.mark_refused_premise_settled(a.assignment_id or "")
+        elif a.status == "needs_decomposition":
+            # #3931: same settling as refused_premise above — once GitHub
+            # confirms the issue went terminal, a needs_decomposition row
+            # auto-settles to 'merged' rather than sitting on the board
+            # forever.
+            actions.append(
+                f"settle needs_decomposition {a.assignment_id} "
+                f"({a.repo_name} #{a.issue_number})"
+                + (" [dry-run]" if dry_run else "")
+            )
+            if not dry_run:
+                a.status = "merged"
+                state.mark_needs_decomposition_settled(a.assignment_id or "")
         elif a.type == "work":
             # #951: type=work, status=merged, review_state=pending — a row
             # that already fell out of sweep (b)'s status=='done' candidates

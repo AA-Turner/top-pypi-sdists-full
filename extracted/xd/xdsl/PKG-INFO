@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdsl
-Version: 0.74.0
+Version: 0.75.0
 Summary: xDSL
 Author-email: Mathieu Fehr <mathieu.fehr@ed.ac.uk>
 License: Apache License v2.0 with LLVM Exceptions
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -26,12 +27,12 @@ Requires-Dist: basedpyright==1.40.2; extra == "dev"
 Requires-Dist: coverage<8; extra == "dev"
 Requires-Dist: filecheck==1.0.6; extra == "dev"
 Requires-Dist: lit<24; extra == "dev"
-Requires-Dist: marimo<0.26,>=0.25; extra == "dev"
+Requires-Dist: marimo<0.26,>=0.25.2; extra == "dev"
 Requires-Dist: prek~=0.5.5; extra == "dev"
 Requires-Dist: pytest<9.2; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff==0.17.1; extra == "dev"
+Requires-Dist: ruff==0.17.3; extra == "dev"
 Requires-Dist: sympy==1.14; extra == "dev"
 Requires-Dist: textual-dev==1.8; extra == "dev"
 Requires-Dist: toml<0.11; extra == "dev"

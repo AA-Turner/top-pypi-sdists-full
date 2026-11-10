@@ -1,0 +1,687 @@
+#!/usr/bin/env python3
+# Copyright 2021 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Process documentation from HuggingFace doc-build dataset.
+Downloads and processes pre-built documentation markdown files.
+"""
+
+import io
+import json
+import os
+import tempfile
+import zipfile
+from datetime import datetime
+from math import ceil
+from pathlib import Path
+from urllib.parse import urljoin
+
+import httpx
+from packaging import version as package_version
+from tqdm import tqdm
+
+from .api_docs import extract_api_docstrings
+from .build_embeddings import Chunk, clean_heading, heading_anchor, split_markdown_by_headings
+
+HF_DATASET_REPO = "hf-doc-build/doc-build"
+HF_DATASET_API_URL = f"https://huggingface.co/api/datasets/{HF_DATASET_REPO}/tree/main"
+HF_DATASET_BASE_URL = f"https://huggingface.co/datasets/{HF_DATASET_REPO}/resolve/main"
+HF_BLOG_API_URL = "https://huggingface.co/api/blog"
+HF_COMMUNITY_BLOG_API_URL = f"{HF_BLOG_API_URL}/community"
+BLOG_LISTING_ATTEMPTS = 3
+HF_BASE_URL = "https://huggingface.co"
+
+
+def get_public_library_name(library_name: str) -> str:
+    return "llm-course" if library_name == "course" else library_name
+
+
+def get_dataset_library_name(library_name: str) -> str:
+    return "course" if library_name == "llm-course" else library_name
+
+
+def is_learning_library(library_name: str) -> bool:
+    library_name = library_name.lower()
+    return "course" in library_name or "cookbook" in library_name
+
+
+def is_compact_api_page(library_name: str, page_path: str) -> bool:
+    page_path = page_path.split("#", 1)[0].removesuffix(".md").removesuffix(".mdx")
+    if library_name == "transformers":
+        return page_path == "model_doc" or page_path.startswith("model_doc/")
+    if library_name == "diffusers":
+        return any(
+            page_path == prefix or page_path.startswith(prefix + "/") for prefix in ("api/models", "api/pipelines")
+        )
+    return False
+
+
+def should_embed_chunk(chunk: Chunk) -> bool:
+    library_name = chunk.package_name.lower()
+    if library_name == "blog" or is_learning_library(library_name):
+        return False
+    return not is_compact_api_page(library_name, chunk.page)
+
+
+def get_latest_version_zip(library_name: str) -> str | None:
+    """
+    Get the latest version zip filename for a library by querying the API.
+
+    Args:
+        library_name: Name of the library (e.g., 'reachy_mini')
+
+    Returns:
+        The filename of the latest version zip (e.g., 'v1.2.13.zip'), or None if not found
+    """
+    api_url = f"{HF_DATASET_API_URL}/{library_name}"
+    print(f"  Querying API for available versions: {api_url}")
+
+    try:
+        response = httpx.get(api_url, timeout=60, follow_redirects=True)
+        response.raise_for_status()
+        files = response.json()
+
+        # Filter for zip files (exclude _versions.yml and main.zip)
+        zip_files = [
+            f["path"].split("/")[-1]  # Get just the filename
+            for f in files
+            if f["type"] == "file" and f["path"].endswith(".zip") and "main.zip" not in f["path"]
+        ]
+
+        if not zip_files:
+            print(f"  No version zips found for {library_name}")
+            return None
+
+        # Sort by version (highest first) using packaging.version
+        # Filenames are like "v1.2.13.zip" -> extract "1.2.13" (strip 'v' prefix)
+        def version_key(filename):
+            version_str = filename.replace(".zip", "").lstrip("v")
+            try:
+                return package_version.parse(version_str)
+            except Exception:
+                return package_version.parse("0")
+
+        zip_files_sorted = sorted(zip_files, key=version_key, reverse=True)
+        latest = zip_files_sorted[0]
+
+        print(f"  Found {len(zip_files)} versions, latest: {latest}")
+        return latest
+
+    except Exception as e:
+        print(f"  Error querying API: {e}")
+        return None
+
+
+def fetch_library_directories() -> list[dict]:
+    """
+    Fetch the list of library directories from the HF doc-build dataset.
+
+    Returns:
+        List of directory metadata dictionaries with 'path' and 'oid' keys
+    """
+    print(f"Fetching library directories from {HF_DATASET_API_URL}...")
+    response = httpx.get(HF_DATASET_API_URL, timeout=60, follow_redirects=True)
+    response.raise_for_status()
+
+    data = response.json()
+
+    # Filter only directories
+    directories = [item for item in data if item.get("type") == "directory"]
+
+    print(f"Found {len(directories)} library directories")
+    return directories
+
+
+def download_and_extract_zip(library_name: str, output_dir: Path, zip_filename: str = "main.zip") -> Path | None:
+    """
+    Download and extract a zip file for a library.
+
+    Args:
+        library_name: Name of the library (e.g., 'accelerate')
+        output_dir: Directory to extract files to
+        zip_filename: Name of the zip file to download (default: 'main.zip')
+
+    Returns:
+        Path to extracted directory, or None if download failed
+    """
+    zip_url = f"{HF_DATASET_BASE_URL}/{library_name}/{zip_filename}"
+
+    try:
+        print(f"  Downloading {zip_url}...")
+        with httpx.stream("GET", zip_url, follow_redirects=True) as response:
+            response.raise_for_status()
+
+            # Get total size for progress bar
+            total_size = int(response.headers.get("content-length", 0))
+
+            # Download to memory
+            zip_content = io.BytesIO()
+            with tqdm(total=total_size, unit="B", unit_scale=True, desc=f"  {library_name}") as pbar:
+                for chunk in response.iter_bytes(chunk_size=8192):
+                    zip_content.write(chunk)
+                    pbar.update(len(chunk))
+
+        # Extract zip
+        zip_content.seek(0)
+        extract_path = output_dir / library_name
+        extract_path.mkdir(parents=True, exist_ok=True)
+
+        with zipfile.ZipFile(zip_content) as zip_ref:
+            zip_ref.extractall(extract_path)
+
+        print(f"  Extracted to {extract_path}")
+        return extract_path
+
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            if zip_filename == "main.zip":
+                # Try to find and download the latest version instead
+                print(f"  ⚠️  No main.zip found for {library_name}, looking for latest version...")
+                latest_zip = get_latest_version_zip(library_name)
+                if latest_zip:
+                    return download_and_extract_zip(library_name, output_dir, zip_filename=latest_zip)
+                else:
+                    print(f"  ⚠️  No versions found for {library_name}, skipping...")
+                    return None
+            else:
+                print(f"  ⚠️  {zip_filename} not found for {library_name}, skipping...")
+                return None
+        raise
+    except Exception as e:
+        print(f"  ❌ Error processing {library_name}: {e}")
+        return None
+
+
+def find_markdown_files(directory: Path) -> list[Path]:
+    """
+    Recursively find all markdown files in a directory.
+
+    Args:
+        directory: Root directory to search
+
+    Returns:
+        List of paths to markdown files
+    """
+    markdown_files = []
+    for file_path in directory.rglob("*"):
+        if file_path.is_file() and file_path.suffix in [".md", ".mdx"]:
+            markdown_files.append(file_path)
+    return markdown_files
+
+
+def markdown_file_to_url(file_path: Path, library_name: str, base_dir: Path) -> str:
+    """
+    Convert a file path to a HuggingFace docs URL.
+
+    Args:
+        file_path: Path to the markdown file
+        library_name: Name of the library
+        base_dir: Base directory (the extracted library folder)
+
+    Returns:
+        URL string
+    """
+    # Get relative path from base_dir
+    relative_path = file_path.relative_to(base_dir)
+
+    # Remove file extension
+    path_without_ext = relative_path.with_suffix("")
+
+    # Convert to URL format
+    url_path = str(path_without_ext).replace(os.sep, "/")
+
+    public_library_name = get_public_library_name(library_name)
+    if is_learning_library(public_library_name):
+        url = f"{HF_BASE_URL}/learn/{public_library_name}/en/{url_path}"
+    else:
+        url = f"{HF_BASE_URL}/docs/{public_library_name}/{url_path}"
+
+    return url
+
+
+def get_page_title(file_path: Path) -> str:
+    """
+    Generate a page title from file path.
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Formatted page title
+    """
+    # Use the filename without extension
+    name = file_path.stem
+    # Replace underscores and hyphens with spaces
+    formatted = name.replace("_", " ").replace("-", " ")
+    # Capitalize
+    return formatted.title()
+
+
+def process_markdown_file(
+    file_path: Path, library_name: str, base_dir: Path, excerpts_max_length: int = 1000
+) -> list[Chunk]:
+    """
+    Process a single markdown file into chunks.
+
+    Args:
+        file_path: Path to the markdown file
+        library_name: Name of the library
+        base_dir: Base directory for URL generation
+        excerpts_max_length: Maximum length of each excerpt
+
+    Returns:
+        List of Chunk objects
+    """
+    try:
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
+
+        # Split markdown by headings
+        sections = split_markdown_by_headings(content, excerpts_max_length)
+
+        # Generate base URL for this file
+        base_url = markdown_file_to_url(file_path, library_name, base_dir)
+        # The page's first heading is its rendered title, the file name is a fallback
+        page_title = next(
+            (clean_heading(s["headings"]["heading1"]) for s in sections if s["headings"].get("heading1")),
+            None,
+        ) or get_page_title(file_path)
+
+        public_library_name = get_public_library_name(library_name)
+
+        # Convert sections to Chunks
+        chunks = []
+        for section in sections:
+            headings_dict = section["headings"]
+
+            # Create heading list from the dictionary
+            heading_list = []
+            for i in range(1, 7):
+                heading_key = f"heading{i}"
+                if heading_key in headings_dict:
+                    # Reconstruct the heading with # marks
+                    heading_text = headings_dict[heading_key]
+                    heading_list.append("#" * i + " " + heading_text)
+
+            # Generate URL with anchor (use first heading as anchor)
+            url = base_url
+            if headings_dict:
+                # Use the deepest heading for anchor
+                last_heading = None
+                for i in range(6, 0, -1):
+                    if f"heading{i}" in headings_dict:
+                        last_heading = headings_dict[f"heading{i}"]
+                        break
+
+                anchor = last_heading and heading_anchor(last_heading)
+                if anchor:
+                    url = f"{base_url}#{anchor}"
+
+            # Create a chunk for each excerpt
+            # Get the page path (relative path without extension)
+            page_path = str(file_path.relative_to(base_dir).with_suffix("")).replace(os.sep, "/")
+            for excerpt in section["excerpts"]:
+                chunk = Chunk(
+                    text=excerpt,
+                    source_page_url=url,
+                    source_page_title=page_title,
+                    package_name=public_library_name,
+                    headings=heading_list,
+                    page=page_path,
+                )
+                chunks.append(chunk)
+
+        return chunks
+
+    except Exception as e:
+        print(f"    ⚠️  Error processing {file_path.name}: {e}")
+        return []
+
+
+def process_api_html_file(file_path: Path, library_name: str, base_dir: Path) -> list[Chunk]:
+    html_file = file_path.with_suffix(".html")
+    if not html_file.exists():
+        raise FileNotFoundError(f"Missing rendered HTML for API page: {html_file}")
+
+    with open(html_file, encoding="utf-8") as f:
+        api_docstrings = extract_api_docstrings(f.read())
+
+    base_url = markdown_file_to_url(file_path, library_name, base_dir)
+    page_path = str(file_path.relative_to(base_dir).with_suffix("")).replace(os.sep, "/")
+    chunks = []
+    seen_names = set()
+    for name, description in api_docstrings:
+        if not name:
+            raise ValueError(f"API docstring without an id in {html_file}")
+        if name in seen_names:
+            continue
+        seen_names.add(name)
+        text = f"{name}\n\n{description}" if description else name
+        chunks.append(
+            Chunk(
+                text=text,
+                source_page_url=f"{base_url}#{name}",
+                source_page_title=name,
+                package_name=get_public_library_name(library_name),
+                headings=[f"# {name}"],
+                page=f"{page_path}#{name}",
+            )
+        )
+    return chunks
+
+
+def fetch_blog_page(api_url: str, page_index: int, items_key: str) -> tuple[dict, list[dict]]:
+    """A page of a paginated blog listing, and its posts."""
+    response = httpx.get(api_url, params={"p": page_index}, timeout=60, follow_redirects=True)
+    response.raise_for_status()
+    page = response.json()
+
+    page_items = page.get(items_key)
+    if not isinstance(page_items, list):
+        raise ValueError(f"Blog API response is missing {items_key}")
+    for item in page_items:
+        title = item.get("title")
+        blog_url = item.get("url")
+        if not isinstance(title, str) or not title.strip() or not isinstance(blog_url, str) or not blog_url:
+            raise ValueError("Blog API returned an item without a title or URL")
+    return page, page_items
+
+
+def get_blog_pagination(first_page: dict) -> tuple[int, int]:
+    """The number of posts and of pages announced by the first page of a blog listing."""
+    total_items = first_page["numTotalItems"]
+    items_per_page = first_page["numItemsPerPage"]
+    if not isinstance(total_items, int) or not isinstance(items_per_page, int) or items_per_page <= 0:
+        raise ValueError("Blog API returned invalid pagination metadata")
+    return total_items, ceil(total_items / items_per_page)
+
+
+def get_published_at(blog_item: dict) -> datetime:
+    published_at = blog_item.get("publishedAt")
+    if not isinstance(published_at, str):
+        raise ValueError("Blog API returned an item without a publication date")
+    # datetime.fromisoformat only reads the "Z" suffix from Python 3.11
+    return datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+
+
+def fetch_blog_listing(api_url: str, items_key: str) -> dict[str, str]:
+    """Titles by URL of every post in a paginated blog listing."""
+    # The community listing pages through live posts with an offset, so a post published or removed mid-crawl shifts
+    # the pages: crawl again until the pages add up to the announced total
+    for _attempt in range(BLOG_LISTING_ATTEMPTS):
+        first_page, blog_items = fetch_blog_page(api_url, 0, items_key)
+        total_items, num_pages = get_blog_pagination(first_page)
+        for page_index in range(1, num_pages):
+            blog_items.extend(fetch_blog_page(api_url, page_index, items_key)[1])
+
+        unique_items = {item["url"]: item["title"].strip() for item in blog_items}
+        if len(unique_items) == total_items:
+            return unique_items
+
+    raise ValueError(f"Blog API returned {len(unique_items)} unique {items_key} items, expected {total_items}")
+
+
+def fetch_recent_blog_listing(api_url: str, items_key: str, published_after: datetime) -> dict[str, str]:
+    """Titles by URL of the posts published after a date in a paginated blog listing."""
+    first_page, page_items = fetch_blog_page(api_url, 0, items_key)
+    _total_items, num_pages = get_blog_pagination(first_page)
+
+    recent_items = {}
+    page_index = 0
+    while True:
+        for item in page_items:
+            if get_published_at(item) > published_after:
+                recent_items[item["url"]] = item["title"].strip()
+        page_index += 1
+        # Listings go from the newest post to the oldest, except for a post pinned to the top of the first page
+        if page_index >= num_pages or not page_items or get_published_at(page_items[-1]) <= published_after:
+            return recent_items
+        page_items = fetch_blog_page(api_url, page_index, items_key)[1]
+
+
+def fetch_blog_chunks(published_after: datetime | None = None) -> list[Chunk]:
+    """Chunks for the titles of every blog post, or of the posts published after a date."""
+    unique_items = {}
+    # Official posts and community posts are disjoint listings, both served under /blog
+    for api_url, items_key in [(HF_BLOG_API_URL, "allBlogs"), (HF_COMMUNITY_BLOG_API_URL, "posts")]:
+        if published_after is None:
+            unique_items.update(fetch_blog_listing(api_url, items_key))
+        else:
+            unique_items.update(fetch_recent_blog_listing(api_url, items_key, published_after))
+
+    return [
+        Chunk(
+            text=title,
+            source_page_url=urljoin(HF_BASE_URL, blog_url),
+            source_page_title=title,
+            package_name="blog",
+            headings=[f"# {title}"],
+            page=blog_url,
+        )
+        for blog_url, title in unique_items.items()
+    ]
+
+
+def process_library(
+    library_name: str, output_dir: Path, excerpts_max_length: int = 1000, skip_download: bool = False
+) -> list[Chunk]:
+    """
+    Process a single library: download, extract, and chunk all markdown files.
+
+    Args:
+        library_name: Name of the library
+        output_dir: Directory for temporary files
+        excerpts_max_length: Maximum length of each excerpt
+        skip_download: Skip download if files already exist
+
+    Returns:
+        List of all chunks for this library
+    """
+    print(f"\n📚 Processing library: {library_name}")
+
+    # Check if already extracted
+    extract_path = output_dir / library_name
+
+    if skip_download and extract_path.exists():
+        print(f"  ℹ️  Using existing files at {extract_path}")
+    else:
+        # Download and extract
+        extract_path = download_and_extract_zip(library_name, output_dir)
+        if extract_path is None:
+            return []
+
+    # The zip extracts to: extract_path/library_name/{version}/en/
+    # where {version} can be "main" or a version like "v1.2.13"
+    # We only process the 'en' (English) folder
+    library_dir = extract_path / library_name
+
+    # Find the version folder (main, v1.2.13, etc.)
+    version_folders = [d for d in library_dir.iterdir() if d.is_dir() and not d.name.startswith("_")]
+    if not version_folders:
+        print(f"  ⚠️  No version folder found for {library_name}")
+        return []
+
+    # Use the first (and typically only) version folder
+    version_folder = version_folders[0]
+    print(f"  Using version folder: {version_folder.name}")
+
+    base_dir = version_folder / "en"
+    if not base_dir.exists():
+        print(f"  ⚠️  No 'en' folder found in {version_folder.name} for {library_name}")
+        return []
+    print(f"  Using English docs at {base_dir}")
+
+    # Find all markdown files
+    markdown_files = find_markdown_files(base_dir)
+    print(f"  Found {len(markdown_files)} markdown files")
+
+    if not markdown_files:
+        print(f"  ⚠️  No markdown files found for {library_name}")
+        return []
+
+    # Process each markdown file
+    all_chunks = []
+    print("  Processing markdown files...")
+    for md_file in tqdm(markdown_files, desc=f"  {library_name}", unit="file"):
+        page_path = str(md_file.relative_to(base_dir)).replace(os.sep, "/")
+        if is_compact_api_page(library_name, page_path):
+            chunks = process_api_html_file(md_file, library_name, base_dir)
+        else:
+            chunks = process_markdown_file(md_file, library_name, base_dir, excerpts_max_length)
+        all_chunks.extend(chunks)
+
+    print(f"  ✅ Generated {len(all_chunks)} chunks from {len(markdown_files)} files")
+
+    return all_chunks
+
+
+def process_all_libraries(
+    output_dir: Path | None = None,
+    excerpts_max_length: int = 1000,
+    libraries: list[str] | None = None,
+    skip_download: bool = False,
+    blog_published_after: datetime | None = None,
+) -> dict:
+    """
+    Process all libraries from the HF doc-build dataset.
+
+    Args:
+        output_dir: Directory for temporary files (uses temp dir if None)
+        excerpts_max_length: Maximum length of each excerpt
+        libraries: List of specific libraries to process (None = all)
+        skip_download: Skip download if files already exist
+        blog_published_after: Only fetch the blog posts published after this date (None = every post)
+
+    Returns:
+        Dictionary mapping library names to their chunks
+    """
+    if output_dir is None:
+        output_dir = Path(tempfile.mkdtemp(prefix="hf_docs_"))
+        print(f"Using temporary directory: {output_dir}")
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    include_blog = libraries is None or "blog" in libraries
+    requested_dataset_libraries = None
+    if libraries:
+        requested_dataset_libraries = {get_dataset_library_name(name) for name in libraries if name != "blog"}
+
+    directories = (
+        fetch_library_directories() if requested_dataset_libraries is None or requested_dataset_libraries else []
+    )
+
+    # Filter if specific libraries requested
+    if requested_dataset_libraries is not None:
+        directories = [d for d in directories if d["path"] in requested_dataset_libraries]
+        print(f"Processing {len(directories)} requested libraries: {libraries}")
+
+    # Process each library
+    results = {}
+    for directory in directories:
+        library_name = directory["path"]
+        chunks = process_library(library_name, output_dir, excerpts_max_length, skip_download)
+        results[library_name] = chunks
+
+    if include_blog:
+        if blog_published_after is None:
+            print("\n📝 Processing blog titles")
+        else:
+            print(f"\n📝 Processing titles of blog posts published after {blog_published_after.isoformat()}")
+        results["blog"] = fetch_blog_chunks(published_after=blog_published_after)
+
+    # Summary
+    print("\n" + "=" * 80)
+    print("📊 SUMMARY")
+    print("=" * 80)
+    total_chunks = 0
+    for library_name, chunks in results.items():
+        print(f"  {library_name}: {len(chunks)} chunks")
+        total_chunks += len(chunks)
+    print(f"\n  Total: {total_chunks} chunks across {len(results)} libraries")
+    print("=" * 80)
+
+    return results
+
+
+def save_chunks_to_json(chunks: list[Chunk], output_file: Path):
+    """
+    Save chunks to a JSON file.
+
+    Args:
+        chunks: List of Chunk objects
+        output_file: Path to output JSON file
+    """
+    # Convert chunks to dictionaries
+    chunks_data = [
+        {
+            "text": chunk.text,
+            "source_page_url": chunk.source_page_url,
+            "source_page_title": chunk.source_page_title,
+            "package_name": chunk.package_name,
+            "headings": chunk.headings,
+            "page": chunk.page,
+        }
+        for chunk in chunks
+    ]
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(chunks_data, f, indent=2, ensure_ascii=False)
+
+    print(f"Saved {len(chunks)} chunks to {output_file}")
+
+
+if __name__ == "__main__":
+    # Example usage
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Process HuggingFace documentation from doc-build dataset")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory for downloaded/extracted files (uses temp dir if not specified)",
+    )
+    parser.add_argument(
+        "--libraries",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Specific libraries to process (e.g., accelerate diffusers)",
+    )
+    parser.add_argument(
+        "--excerpt-length", type=int, default=1000, help="Maximum length of each excerpt in characters (default: 1000)"
+    )
+    parser.add_argument(
+        "--skip-download", action="store_true", help="Skip download if files already exist in output-dir"
+    )
+    parser.add_argument("--save-json", type=str, default=None, help="Save all chunks to a JSON file")
+
+    args = parser.parse_args()
+
+    # Process libraries
+    results = process_all_libraries(
+        output_dir=Path(args.output_dir) if args.output_dir else None,
+        excerpts_max_length=args.excerpt_length,
+        libraries=args.libraries,
+        skip_download=args.skip_download,
+    )
+
+    # Save to JSON if requested
+    if args.save_json:
+        all_chunks = []
+        for chunks in results.values():
+            all_chunks.extend(chunks)
+        save_chunks_to_json(all_chunks, Path(args.save_json))

@@ -120,7 +120,7 @@ dp_specan_create (double fs, double span, double rbw, double src_center,
    * window is always Kaiser: beta is the analyzer's RBW knob. */
   s->psd = dp_psd_create (n, fs_out, DP_PSD_WINDOW_KAISER, (float)beta,
                           nfft / n, full_scale, bits, ACC_TRACE_MEAN, 0.1);
-  s->pwr = malloc (nfft * sizeof *s->pwr);
+  s->pwr = dp_mallocn (nfft, sizeof *s->pwr);
   if (!s->ddc || !s->psd || !s->pwr)
     {
       dp_specan_destroy (s);
@@ -204,7 +204,7 @@ dp_specan_set_state (dp_specan_state_t *s, const void *blob)
     return DP_ERR_INVALID;
   if (s->pend_cap < pend_len)
     {
-      float _Complex *p = realloc (s->pend, need * sizeof *p);
+      float _Complex *p = dp_reallocn (s->pend, need, sizeof *p);
       if (!p)
         return DP_ERR_INVALID;
       s->pend     = p;
@@ -228,7 +228,7 @@ dp_specan_execute (dp_specan_state_t *state, const float _Complex *x,
   /* Mix to DC and decimate; output length <= x_len since rate <= 1. */
   if (state->scratch_cap < x_len)
     {
-      float _Complex *p = realloc (state->scratch, x_len * sizeof *p);
+      float _Complex *p = dp_reallocn (state->scratch, x_len, sizeof *p);
       if (!p)
         return 0;
       state->scratch     = p;
@@ -245,7 +245,7 @@ dp_specan_execute (dp_specan_state_t *state, const float _Complex *x,
       size_t cap = state->pend_len + m;
       if (cap < need)
         cap = need;
-      float _Complex *p = realloc (state->pend, cap * sizeof *p);
+      float _Complex *p = dp_reallocn (state->pend, cap, sizeof *p);
       if (!p)
         return 0;
       state->pend     = p;

@@ -1,10 +1,8 @@
 import base64
 import string
 from datetime import timedelta
-from typing import Optional, Type
 
 import pytest
-
 from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
 from django.contrib.sessions.backends.cache import SessionStore as CacheSession
@@ -12,9 +10,7 @@ from django.core.cache import caches
 from django.test import override_settings
 from django.utils import timezone
 
-from django_valkey.cache import ValkeyCache
-
-SessionType = Type[SessionBase]
+SessionType = type[SessionBase]
 
 
 # Copied from Django's sessions test suite. Keep in sync with upstream.
@@ -24,7 +20,7 @@ class SessionTestsMixin:
     # class, which wouldn't work, and to allow different TestCase subclasses to
     # be used.
 
-    backend: Optional[SessionType] = None  # subclasses must specify
+    backend: SessionType | None = None  # subclasses must specify
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -368,10 +364,6 @@ class TestSession(SessionTestsMixin):
         self.session.save()
         assert caches["default"].get(self.session.cache_key) is not None
 
-    @pytest.mark.skipif(
-        caches["default"].client is not ValkeyCache,
-        reason="settings is set for normal server",
-    )
     def test_non_default_cache(self, settings):
         settings.CACHES = {
             "default": {
@@ -380,6 +372,11 @@ class TestSession(SessionTestsMixin):
             "sessions": {
                 "BACKEND": "django_valkey.cache.ValkeyCache",
                 "LOCATION": "valkey://localhost:6379",
+                # A plain server, even when DJANGO_VALKEY_CONNECTION_FACTORY
+                # points every cache at sentinel.
+                "OPTIONS": {
+                    "CONNECTION_FACTORY": "django_valkey.pool.ConnectionFactory",
+                },
             },
         }
         settings.SESSION_CACHE_ALIAS = "sessions"

@@ -9,7 +9,7 @@ from pysqlsync.model.properties import get_primary_key_name_type
 from strong_typing.inspection import DataclassInstance
 
 from .. import ui
-from ..api import DAPSession
+from ..api import DAPSession, TableAccess
 from ..dap_types import SnapshotQuery, Format, Mode
 from ..replicator import meta_schema
 from ..replicator.sql_metatable_handler import (
@@ -48,6 +48,11 @@ class SqlOpInit(SqlOp):
             raise ValueError("Internal error: session is not set")
 
         ui.info("Fetching schema and synchronizing with local schema")
+
+        await self.session.authenticate(
+            TableAccess(namespace=self.namespace, table=self.table_name)
+        )
+
         entity_type, schema, versioned_schema = await fetch_schema_for_table(
             self.session, self.namespace, self.table_name
         )
@@ -73,7 +78,11 @@ class SqlOpInit(SqlOp):
 
         async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
             await self.session.download_objects(
-                table_data.objects, temp_dir, decompress=True
+                table_data.objects,
+                self.namespace,
+                self.table_name,
+                temp_dir,
+                decompress=True,
             )
             ui.info(f"Downloaded data for table [bold]{self.table_name}[/bold]")
             await self.init_insert_data_from_files_to_db(

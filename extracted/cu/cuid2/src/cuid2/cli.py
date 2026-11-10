@@ -10,7 +10,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from cuid2.generator import Cuid, is_cuid
-from cuid2.utils import BIG_LENGTH, DEFAULT_LENGTH, MAXIMUM_LENGTH, MIN_LENGTH
+from cuid2.utils import BIG_LENGTH, DEFAULT_LENGTH, MIN_LENGTH
 
 __all__ = ["main"]
 
@@ -59,11 +59,11 @@ def _parse_length(raw: str) -> int:
     except ValueError as err:
         msg = f"invalid int value: {raw!r}"
         raise ArgumentTypeError(msg) from err
-    if value < 1:
-        msg = "length must be at least 1 character"
+    if value < MIN_LENGTH:
+        msg = f"length must be at least {MIN_LENGTH} characters"
         raise ArgumentTypeError(msg)
-    if value > MAXIMUM_LENGTH:
-        msg = f"length must never exceed {MAXIMUM_LENGTH} characters"
+    if value > BIG_LENGTH:
+        msg = f"length must never exceed {BIG_LENGTH} characters"
         raise ArgumentTypeError(msg)
     return value
 
@@ -93,12 +93,18 @@ def _fixed_fingerprint(random_generator: Random, *, fingerprint: str) -> str:
     return fingerprint
 
 
+_LENGTH_HELP: str = (
+    f"Length of CUID2 to generate or validate (allowed: {MIN_LENGTH}..{BIG_LENGTH}). "
+    f"Generation defaults to {DEFAULT_LENGTH}; validation accepts any allowed length unless one is given."
+)
+
+
 def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(
         prog="cuid2",
         description=(
             f"Generate or validate collision-resistant CUID2 identifiers "
-            f"(default length: {DEFAULT_LENGTH}, spec range: {MIN_LENGTH}..{BIG_LENGTH})."
+            f"(default generated length: {DEFAULT_LENGTH}, spec range: {MIN_LENGTH}..{BIG_LENGTH})."
         ),
         epilog=(
             "examples:\n"
@@ -117,7 +123,7 @@ def _build_parser() -> ArgumentParser:
         nargs="?",
         type=_parse_length,
         default=None,
-        help=f"Length of CUID2 to generate or validate (default: {DEFAULT_LENGTH}, spec: {MIN_LENGTH}..{BIG_LENGTH}).",
+        help=_LENGTH_HELP,
     )
     parser.add_argument(
         "-V",
@@ -134,7 +140,7 @@ def _build_parser() -> ArgumentParser:
         metavar="LENGTH",
         type=_parse_length,
         default=None,
-        help=f"Length of CUID2 to generate or validate (default: {DEFAULT_LENGTH}, spec: {MIN_LENGTH}..{BIG_LENGTH}).",
+        help=_LENGTH_HELP,
     )
     parser.add_argument(
         "--slug",
@@ -188,13 +194,11 @@ def _resolve_length(parser: ArgumentParser, cli_args: Namespace) -> int | None:
     return sources[0] if sources else None
 
 
-def _validate_mode_flags(parser: ArgumentParser, cli_args: Namespace, target_length: int | None) -> None:
+def _validate_mode_flags(parser: ArgumentParser, cli_args: Namespace) -> None:
     if cli_args.check is None and cli_args.quiet:
         parser.error("argument -q/--quiet: only allowed with --check/--validate")
     if cli_args.check is not None and (cli_args.count is not None or cli_args.fingerprint is not None):
         parser.error("arguments -n/-c/--count and -f/--fingerprint are not allowed with --check/--validate")
-    if cli_args.check is not None and target_length is not None and target_length < MIN_LENGTH:
-        parser.error(f"argument --check/--validate: length must be at least {MIN_LENGTH} characters")
 
 
 def _iter_candidates(check_arg: str) -> Iterator[str]:
@@ -213,7 +217,7 @@ def _iter_candidates(check_arg: str) -> Iterator[str]:
 
 def _run_check(check_arg: str, target_length: int | None, *, quiet: bool) -> int:
     min_len = target_length if target_length is not None else MIN_LENGTH
-    max_len = target_length if target_length is not None else MAXIMUM_LENGTH
+    max_len = target_length if target_length is not None else BIG_LENGTH
     all_valid = True
     exhausted = False
 
@@ -246,12 +250,13 @@ def main(args: Sequence[str] | None = None) -> None:
     ------
     SystemExit
         Raised with exit code ``0`` or ``1`` in ``--check``/``--validate`` or
-        ``--version``/``--help`` modes, or exit code ``2`` on invalid arguments.
+        ``--version``/``--help`` modes, or exit code ``2`` on invalid arguments,
+        including a length outside ``MIN_LENGTH``..``BIG_LENGTH`` (2..32).
     """
     parser = _build_parser()
     cli_args = parser.parse_args(args)
     target_length = _resolve_length(parser, cli_args)
-    _validate_mode_flags(parser, cli_args, target_length)
+    _validate_mode_flags(parser, cli_args)
 
     if cli_args.check is not None:
         exit_code = _run_check(cli_args.check, target_length, quiet=cli_args.quiet)

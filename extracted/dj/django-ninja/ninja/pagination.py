@@ -16,13 +16,17 @@ from typing import (
 )
 from urllib import parse
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.module_loading import import_string
 from pydantic import BaseModel, field_validator
+from pydantic import ValidationError as PydanticValidationError
+from typing_extensions import Annotated, get_args, get_origin
 from typing_extensions import get_args as get_collection_args
 
 from ninja import Field, Query, Router, Schema
+from ninja.compatibility.util import UNION_TYPES
 from ninja.conf import settings
 from ninja.constants import NOT_SET
 from ninja.errors import ConfigError, ValidationError
@@ -263,7 +267,8 @@ class CursorPagination(AsyncPaginationBase):
         o: int = Field(
             default=0,
             ge=0,
-            lt=settings.PAGINATION_MAX_OFFSET,
+            # the offset becomes SQL OFFSET, keep it within a 64-bit integer
+            lt=2**63,
             title="offset",
             description="Number of items to skip from the current position",
         )
@@ -298,7 +303,10 @@ class CursorPagination(AsyncPaginationBase):
                 raise ValidationError([{"cursor": "Invalid Cursor"}]) from e
 
             parsed_querystring = parse.parse_qs(decoded, keep_blank_values=True)
-            return cls.model_validate(parsed_querystring, context=context)
+            try:
+                return cls.model_validate(parsed_querystring, context=context)
+            except PydanticValidationError as e:
+                raise ValidationError([{"cursor": "Invalid Cursor"}]) from e
 
         def encode_as_param(self) -> str:
             """
@@ -464,7 +472,10 @@ class CursorPagination(AsyncPaginationBase):
 
         cmp = "gte" if cursor.r == self._order_attribute_reversed else "lte"
         filters = {f"{self._order_attribute}__{cmp}": cursor.p}
-        return queryset.filter(**filters)
+        try:
+            return queryset.filter(**filters)
+        except (DjangoValidationError, ValueError) as e:
+            raise ValidationError([{"cursor": "Invalid Cursor"}]) from e
 
     def paginate_queryset(
         self, queryset: QuerySet, pagination: Input, request: HttpRequest, **params: Any
@@ -740,11 +751,7 @@ def make_response_paginated(paginator: PaginationBase, op: Operation) -> None:
     status_code, item_schema = _find_collection_response(op)
 
     # Switching schema to Output schema
-    try:
-        new_name = f"Paged{item_schema.__name__}"
-    except AttributeError:  # pragma: no cover
-        # special case for `typing.Any`, only raised for Python < 3.10
-        new_name = f"Paged{str(item_schema).replace('.', '_')}"  # pragma: no cover
+    new_name = f"Paged{_get_item_schema_name(item_schema)}"
     new_schema = type(
         new_name,
         (paginator.Output,),
@@ -757,6 +764,28 @@ def make_response_paginated(paginator: PaginationBase, op: Operation) -> None:
 
     # Changing response model to newly created one
     op.response_models[status_code] = response
+
+
+def _get_item_schema_name(item_schema: Any) -> str:
+    """
+    Name of the item type used to build the paginated schema name.
+    Annotated types and unions are named after their members, so that
+    e.g. List[Union[A, B]] and List[Union[C, D]] do not both become "PagedUnion":
+        Annotated[Union[A, B], ...] -> "AOrB"
+        Optional[A]                 -> "AOrNone"
+    """
+    origin = get_origin(item_schema)
+    if origin is Annotated:
+        return _get_item_schema_name(get_args(item_schema)[0])
+    if origin in UNION_TYPES:
+        return "Or".join(_get_item_schema_name(arg) for arg in get_args(item_schema))
+    if item_schema is type(None):
+        return "None"
+    try:
+        return str(item_schema.__name__)
+    except AttributeError:  # pragma: no cover
+        # special case for `typing.Any`, only raised for Python < 3.10
+        return str(item_schema).replace(".", "_")  # pragma: no cover
 
 
 def _find_collection_response(op: Operation) -> Tuple[int, Any]:

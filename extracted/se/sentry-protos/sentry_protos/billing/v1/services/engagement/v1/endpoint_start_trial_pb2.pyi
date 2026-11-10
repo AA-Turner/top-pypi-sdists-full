@@ -20,11 +20,14 @@ class StartTrialRequest(google.protobuf.message.Message):
     PACKAGE_UID_FIELD_NUMBER: builtins.int
     START_DATE_FIELD_NUMBER: builtins.int
     END_DATE_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     line_item_uid: builtins.str
     """product trials"""
     package_uid: builtins.str
     """subscription trials"""
+    user_id: builtins.int
+    """The user who starts the trial. Not set when no user starts it."""
     @property
     def start_date(self) -> sentry_protos.billing.v1.date_pb2.Date:
         """defaults to current date"""
@@ -41,13 +44,16 @@ class StartTrialRequest(google.protobuf.message.Message):
         package_uid: builtins.str = ...,
         start_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         end_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
+        user_id: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "organization_id", b"organization_id", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "_user_id", b"_user_id", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date", "user_id", b"user_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "_user_id", b"_user_id", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "organization_id", b"organization_id", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date", "user_id", b"user_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_end_date", b"_end_date"]) -> typing.Literal["end_date"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_start_date", b"_start_date"]) -> typing.Literal["start_date"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_user_id", b"_user_id"]) -> typing.Literal["user_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["scope", b"scope"]) -> typing.Literal["line_item_uid", "package_uid"] | None: ...
 

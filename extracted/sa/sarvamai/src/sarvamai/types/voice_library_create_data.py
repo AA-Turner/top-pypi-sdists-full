@@ -22,6 +22,11 @@ class VoiceLibraryCreateData(UniversalBaseModel):
     Transcript of the reference audio, auto-generated via ASR. Stored with the voice and reused at synthesis time.
     """
 
+    background_noise_removed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True when background noise was successfully removed from the reference audio during create. False when you passed `remove_background_noise=false`, or when denoising was disabled or failed and the original clip was kept.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

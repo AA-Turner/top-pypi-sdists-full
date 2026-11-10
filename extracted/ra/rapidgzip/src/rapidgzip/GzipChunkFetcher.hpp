@@ -109,6 +109,10 @@ public:
     ~GzipChunkFetcher() override
     {
         m_cancelThreads = true;
+        /* Free the cached chunks while the worker threads are still alive so that the heaps of those threads
+         * collect the cross-thread frees when they exit. Freeing them after joining leaves the blocks in
+         * deferred free lists of heaps no thread owns anymore. */
+        this->clearCache();
         this->stopThreadPool();
 
         if ( BaseType::m_showProfileOnDestruction ) {
@@ -234,6 +238,29 @@ public:
     {
         const std::scoped_lock lock{ m_chunkConfigurationMutex };
         m_chunkConfiguration = configuration;
+    }
+
+    /**
+     * Waits for in-flight marker replacements before clearing the caches. Otherwise, a stale future for a newly
+     * decoded chunk with the same encoded offset would prevent the new chunk from being post-processed.
+     */
+    void
+    clearCache() override
+    {
+    #ifdef WITH_PYTHON_SUPPORT
+        const ScopedGILUnlock unlockedGIL;
+    #endif
+        for ( auto& [blockOffset, future] : m_markersBeingReplaced ) {
+            if ( future.valid() ) {
+                try {
+                    future.get();
+                } catch ( const std::exception& ) {
+                    /* Errors are rethrown when the chunk is requested directly. */
+                }
+            }
+        }
+        m_markersBeingReplaced.clear();
+        BaseType::clearCache();
     }
 
     /**
@@ -504,8 +531,11 @@ private:
 
             auto& future = it->second;
             if ( !future.valid() || ( future.wait_for( 0s ) == std::future_status::ready ) ) {
-                future.get();
+                /* Erase before get() so that a stored exception does not leave an invalid future in the map.
+                 * A later call would then call get() on it again and mask the original exception. */
+                auto futureToGet = std::move( future );
                 it = m_markersBeingReplaced.erase( it );
+                futureToGet.get();
             } else {
                 ++it;
             }
@@ -514,8 +544,9 @@ private:
         queuePrefetchedChunkPostProcessing();
         m_statistics.queuePostProcessingDuration += duration( t0 );
 
-        markerReplaceFuture->second.get();
+        auto futureToGet = std::move( markerReplaceFuture->second );
         m_markersBeingReplaced.erase( markerReplaceFuture );
+        futureToGet.get();
     }
 
     void
@@ -653,7 +684,7 @@ private:
                 /* This call given the exact block offset must always yield the correct data and should be equivalent
                  * to directly call @ref decodeBlock with that offset. */
                 chunkData = BaseType::get( blockOffset, blockIndex, getPartitionOffsetFromOffset );
-            } catch ( const gzip::BitReader::EndOfFileReached& exception ) {
+            } catch ( const EndOfFileReached& exception ) {
                 std::cerr << "Unexpected end of file when getting block at " << formatBits( blockOffset )
                           << " (block index: " << blockIndex << ") on demand\n";
                 throw exception;
@@ -724,7 +755,8 @@ private:
             /* decodedSize */ blockInfo ? blockInfo->decodedSizeInBytes : std::optional<size_t>{},
             m_cancelThreads,
             chunkDataConfiguration,
-            /* untilOffsetIsExact */ m_isBgzfFile || blockInfo );
+            /* untilOffsetIsExact */ blockInfo.has_value()
+            || ( m_isBgzfFile && ( nextBlockOffset != std::numeric_limits<size_t>::max() ) ) );
     }
 
 public:

@@ -73,7 +73,8 @@ enum TokenType {
   CASE_DEFINITION_KEYWORD,
   DEF_SEMICOLON,
   WILDCARD_BOUND_START,
-  WORD_OPERATOR_EOL
+  WORD_OPERATOR_EOL,
+  NAME_GATE
 };
 
 // Mirrors enum TokenType above.
@@ -133,7 +134,8 @@ const char* token_name[] = {
   "CASE_DEFINITION_KEYWORD",
   "DEF_SEMICOLON",
   "WILDCARD_BOUND_START",
-  "WORD_OPERATOR_EOL"
+  "WORD_OPERATOR_EOL",
+  "NAME_GATE"
 };
 
 typedef struct {
@@ -262,6 +264,25 @@ static bool advance_past_blanks(TSLexer *lexer) {
 
 static inline int16_t indent_width(int16_t entry) {
   return entry == -1 ? -1 : (int16_t)(entry & 0x3FFF);
+}
+
+// From anywhere on a line, the column of the next line that isn't blank, or
+// -1 at the end of the input. Advances the lexer, so call it after mark_end.
+static int16_t next_line_column(TSLexer *lexer) {
+  while (!lexer->eof(lexer) && lexer->lookahead != '\n') {
+    advance(lexer);
+  }
+  while (!lexer->eof(lexer)) {
+    advance(lexer);  // the '\n'
+    advance_past_blanks(lexer);
+    if (lexer->lookahead == '\r') {
+      advance(lexer);
+    }
+    if (lexer->lookahead != '\n' && !lexer->eof(lexer)) {
+      return (int16_t)lexer->get_column(lexer);
+    }
+  }
+  return -1;
 }
 
 // Does a line at `width` sit exactly at the width of a flagged same-width
@@ -1267,6 +1288,15 @@ static bool scan_impl(void *payload, TSLexer *lexer,
           !scan_rest_of_line(lexer).closes_bracket) {
         return false;
       }
+      // scalac closes an indentation region at a comma only inside brackets.
+      // A comma after a parent in an `extends` clause, where `with` or
+      // `derives` could come instead, separates parents: with the next
+      // parent on a deeper line, as `extends A,` + `B:` inside `object O:`,
+      // the region stays open.
+      if (ends_line && (valid_symbols[WITH] || valid_symbols[DERIVES]) &&
+          next_line_column(lexer) > prev_width) {
+        return false;
+      }
     }
     if (scanner->indents.size > 0) {
       array_pop(&scanner->indents);
@@ -1872,6 +1902,55 @@ static bool scan_impl(void *payload, TSLexer *lexer,
     return scan_float_with_separator(lexer);
   }
 
+  // Right after `enum`, a symbolic word may be the definition's name. The
+  // Scala 2 reading of `enum` as an identifier also admits an infix operator
+  // there, which the internal lexer would pick. The name wins only when an
+  // enum header follows it (`enum =:=[A, B] {`); otherwise `enum + 1` stays
+  // an infix expression. A `/` may open a comment, so names with one go to
+  // the internal lexer.
+  if (valid_symbols[NAME_GATE] && valid_symbols[OP_NAME] &&
+      !valid_symbols[ERROR_SENTINEL] && is_op_char(lexer->lookahead) &&
+      lexer->lookahead != '/') {
+    char op[4] = {0};
+    int op_len = 0;
+    do {
+      if (op_len < 3) {
+        op[op_len] = (char)lexer->lookahead;
+      }
+      op_len++;
+      advance(lexer);
+    } while (is_op_char(lexer->lookahead) && lexer->lookahead != '/');
+    if (lexer->lookahead == '/') {
+      return false;
+    }
+    lexer->mark_end(lexer);
+    // Reserved sequences are never names (`enum = 2`, `{ enum => 1 }`).
+    static const char *const reserved[] = {
+        "=", "#", "@", "=>", "<-", "<:", ">:", "<%", "?=>", "=>>", ":"};
+    if (op_len <= 3 &&
+        word_in(op, reserved, sizeof(reserved) / sizeof(reserved[0]))) {
+      return false;
+    }
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+      advance(lexer);
+    }
+    int32_t c = lexer->lookahead;
+    bool header = c == '[' || c == '{' || c == ':' || c == '(' ||
+                  c == '\n' || c == '\r' || lexer->eof(lexer);
+    if (!header && c >= 'a' && c <= 'z') {
+      static const char *const clause[] = {"extends", "derives"};
+      char next[sizeof "extends"];
+      int len = read_word(lexer, next, (int)sizeof next, NULL);
+      header = len > 0 &&
+               word_in(next, clause, sizeof(clause) / sizeof(clause[0]));
+    }
+    if (!header) {
+      return false;
+    }
+    lexer->result_symbol = OP_NAME;
+    return true;
+  }
+
   // A symbolic operator in postfix position is lexed here, as is the
   // fewer-braces colon. An operator that continues its expression, on the
   // same line or over a line break, stays with the internal per-class
@@ -2171,8 +2250,10 @@ static bool scan_impl(void *payload, TSLexer *lexer,
   //   prefix operator, though a fork may read `!` as the left operand.
   // - No operand can start here. In `if (c) foo`, a fork reads `foo` as
   //   the branch, which is right unless a `then` follows.
+  // Right after `enum` the word is the definition's name (see NAME_GATE).
   bool word_op = valid_symbols[WORD_OPERATOR_EOL] && newline_count == 0 &&
-                 indentation_size > 0 && !valid_symbols[SIMPLE_STRING_START];
+                 indentation_size > 0 && !valid_symbols[SIMPLE_STRING_START] &&
+                 !valid_symbols[NAME_GATE];
   if ((gate || word_op) && !valid_symbols[ERROR_SENTINEL] &&
       (is_word_start(lexer->lookahead) || lexer->lookahead == '`')) {
     lexer->mark_end(lexer);

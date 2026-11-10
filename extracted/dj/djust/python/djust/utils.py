@@ -3,6 +3,7 @@ Utility functions for djust.
 """
 
 import logging
+import threading
 from functools import lru_cache
 from typing import Any, Callable, Optional
 
@@ -20,7 +21,9 @@ logger = logging.getLogger(__name__)
 # fragment-only on the initial GET (#1801).
 #
 # ``djust.template_backend.DjustTemplateBackend`` is a back-compat shim that
-# re-exports the same class, so both dotted paths are recognized.
+# re-exports the same class, so both dotted paths are recognized. The literal
+# set is only the fast path: ``is_app_dirs_template_backend`` resolves any
+# other spelling (or a project subclass) through the class itself (#3307).
 _APP_DIRS_TEMPLATE_BACKENDS = frozenset(
     {
         "django.template.backends.django.DjangoTemplates",
@@ -28,6 +31,61 @@ _APP_DIRS_TEMPLATE_BACKENDS = frozenset(
         "djust.template_backend.DjustTemplateBackend",
     }
 )
+
+
+# Only SUCCESSFUL resolutions are remembered: a backend whose import failed
+# (a typo fixed mid-session by the dev server's reload, a transient import-time
+# error) must be looked up again, not pinned as "not a backend".
+_backend_class_cache: dict[str, type] = {}
+
+
+def _resolve_backend_class(path: str) -> Optional[type]:
+    """Import ``path`` and return the class, or ``None`` if it can't be resolved.
+
+    A ``BACKEND`` that does not import is Django's ``templates.E001`` to report,
+    not ours, so it is simply "not recognised" here. Anything an import can
+    raise counts (``ImportError``, a ``ValueError`` from a relative ``.foo``,
+    an exception at the module's import time).
+    """
+    cached = _backend_class_cache.get(path)
+    if cached is not None:
+        return cached
+    from django.utils.module_loading import import_string
+
+    try:
+        cls = import_string(path)
+    except Exception as exc:  # noqa: BLE001 — see docstring: any import failure means "not ours"
+        from ._exposure_diagnostics import log_failure
+
+        log_failure(logger, exc, "TEMPLATES BACKEND %r did not import", path, level="debug")
+        return None
+    if not isinstance(cls, type):
+        return None
+    _backend_class_cache[path] = cls
+    return cls
+
+
+def is_app_dirs_template_backend(backend: Any) -> bool:
+    """True when ``TEMPLATES[...]["BACKEND"]`` names the Django or the djust backend.
+
+    Matches by class, not by spelling (#3307): ``djust.template.backend`` and the
+    ``djust.template_backend`` shim name one class, and a project subclass of
+    either is the same kind of backend. djust's backend is identified by its
+    ``_is_djust_template_backend`` marker so this module never imports the
+    backend (which would drag in the Rust extension).
+    """
+    if not isinstance(backend, str):
+        return False
+    if backend in _APP_DIRS_TEMPLATE_BACKENDS:
+        return True
+    cls = _resolve_backend_class(backend)
+    if cls is None:
+        return False
+    from django.template.backends.django import DjangoTemplates
+
+    return issubclass(cls, DjangoTemplates) or bool(
+        getattr(cls, "_is_djust_template_backend", False)
+    )
 
 
 def is_model_list(value: Any) -> bool:
@@ -136,6 +194,10 @@ class BackendRegistry:
             primary ``config_key`` (``redis://``, ``rediss://``) are
             translated to ``backend_type="redis"`` and the URL is also
             stored under the ``REDIS_URL`` config key.
+        warn_on_default: Log the "falling back to in-memory" warning when
+            production (``DEBUG=False``) uses the default type. ``False``
+            for backends whose default is not an in-memory fallback
+            (e.g. the ``django`` account backend, ADR-039).
     """
 
     def __init__(
@@ -145,13 +207,19 @@ class BackendRegistry:
         factory: Callable[[str, dict], Any],
         name: str = "backend",
         top_level_aliases: Optional[dict] = None,
+        warn_on_default: bool = True,
     ):
         self._config_key = config_key
         self._default_type = default_type
         self._factory = factory
         self._name = name
         self._top_level_aliases = top_level_aliases or {}
+        self._warn_on_default = warn_on_default
         self._backend: Optional[Any] = None
+        # Serialises first-use creation (#3074): two threads that both saw
+        # ``_backend is None`` would each build a backend, and whatever was
+        # stored in the one that lost would be dropped with it.
+        self._init_lock = threading.RLock()
 
     # URL schemes that should auto-resolve to ``backend_type="redis"``
     # when the user sets a top-level URL-shaped value via
@@ -214,10 +282,19 @@ class BackendRegistry:
         return merged
 
     def get(self) -> Any:
-        """Return the cached backend, creating it on first call."""
-        if self._backend is not None:
-            return self._backend
+        """Return the cached backend, creating it on first call.
 
+        Thread-safe: the first calls from several threads build ONE backend.
+        """
+        backend = self._backend
+        if backend is not None:
+            return backend
+        with self._init_lock:
+            if self._backend is not None:
+                return self._backend
+            return self._create()
+
+    def _create(self) -> Any:
         from .config import get_djust_config
 
         cfg = get_djust_config()
@@ -237,7 +314,7 @@ class BackendRegistry:
             _debug = getattr(_dj_settings, "DEBUG", True)
         except Exception:
             _debug = True
-        if not _debug and backend_type == self._default_type:
+        if self._warn_on_default and not _debug and backend_type == self._default_type:
             logger.warning(
                 "Falling back to in-memory %s backend in production "
                 "(DEBUG=False) — multi-process deployments will lose %s "
@@ -286,7 +363,7 @@ def _get_template_dirs_cached() -> tuple[str, ...]:
     # ``_APP_DIRS_TEMPLATE_BACKENDS``). Gating on the stock backend name alone
     # dropped every app's templates under djust's own backend (#1801).
     for template_config in settings.TEMPLATES:
-        if template_config["BACKEND"] in _APP_DIRS_TEMPLATE_BACKENDS:
+        if is_app_dirs_template_backend(template_config.get("BACKEND")):
             if template_config.get("APP_DIRS", False):
                 from django.apps import apps
 

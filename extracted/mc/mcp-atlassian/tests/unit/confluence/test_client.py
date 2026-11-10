@@ -107,6 +107,11 @@ def test_init_with_token_auth():
             no_proxy=None,
         )
 
+        # The library's unbounded, Retry-After-driven retry is disabled so the
+        # bounded urllib3 Retry policy is the only retry layer (matters for
+        # gateways that emit ``Retry-After: 0``).
+        assert client.confluence.retry_with_header is False
+
 
 def test_init_from_env():
     """Test initializing the client from environment variables."""
@@ -422,7 +427,7 @@ def test_confluence_fetcher_attachment_method_calls():
             patch("os.path.isabs", return_value=True),
             patch("os.path.basename", return_value="test.txt"),
             patch("os.path.getsize", return_value=100),
-            patch("builtins.open", MagicMock()),
+            patch("mcp_atlassian.confluence.attachments.open_confined", MagicMock()),
         ):
             result = fetcher.upload_attachment("123", "/path/to/test.txt")
             assert result["success"] is True

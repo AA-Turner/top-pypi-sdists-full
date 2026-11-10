@@ -6,6 +6,7 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.webparts.webpart import WebPart
 
 
@@ -13,6 +14,7 @@ class WebPartDefinition(Entity):
     """Represents a Web Part on a Web Part Page. Provides operations for moving, deleting, and changing the state of
     the Web Part."""
 
+    @site_access(SiteLevel.MANAGE)
     def close_web_part(self) -> Self:
         """
         Closes the Web Part. If the Web Part is already closed, this method does nothing.
@@ -24,6 +26,7 @@ class WebPartDefinition(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def delete_web_part(self) -> Self:
         """
         Deletes the Web Part from the page.
@@ -34,6 +37,7 @@ class WebPartDefinition(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def open_web_part(self) -> Self:
         """
         Opens the Web Part. If the Web Part is already open, this method does nothing.
@@ -45,6 +49,7 @@ class WebPartDefinition(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def save_web_part_changes(self) -> Self:
         """
         Saves changes to the Web Part made by using other properties and methods on the WebPartDefinition object (1).
@@ -56,12 +61,13 @@ class WebPartDefinition(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="Id")
     @property
     def id(self) -> Optional[str]:
         """Gets a value that specifies the identifier of the Web Part."""
         return self.properties.get("Id", None)
 
-    @odata(name="WebPart")
+    @odata(name="WebPart", navigation=True)
     @property
     def web_part(self) -> WebPart:
         """The WebPart object, as specified in section 3.2.5.148, associated with this WebPartDefinition.
@@ -69,6 +75,7 @@ class WebPartDefinition(Entity):
         WebPartDefinition object"""
         return self.properties.get("WebPart", WebPart(self.context, ResourcePath("WebPart", self.resource_path)))
 
+    @odata(name="ZoneId")
     @property
     def zone_id(self) -> Optional[str]:
         """Gets the ZoneId property"""
@@ -78,6 +85,7 @@ class WebPartDefinition(Entity):
     def entity_type_name(self):
         return "SP.WebParts.WebPartDefinition"
 
+    @site_access(SiteLevel.MANAGE)
     def move_web_part_to(self, zone_id: str, zone_index: int) -> Self:
         """MoveWebPartTo operation.
 

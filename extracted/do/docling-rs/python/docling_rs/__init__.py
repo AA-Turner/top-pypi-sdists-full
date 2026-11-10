@@ -51,6 +51,7 @@ from .options import (
     DocumentStream,
     HeadingHierarchyOptions,
     InputFormat,
+    ScriptPositionOptions,
     PdfFormatOption,
     PdfPipelineOptions,
     TableFormerMode,
@@ -138,6 +139,7 @@ __all__ = [
     "PdfPipelineOptions",
     "PdfFormatOption",
     "TableStructureOptions",
+    "ScriptPositionOptions",
     "TableFormerMode",
     "AcceleratorOptions",
     "AcceleratorDevice",
@@ -284,6 +286,10 @@ class DocumentConverter:
       assembly (docling's ``HeadingHierarchyModel``, #302 — bookmarks >
       numbering > font style). Also accepted docling-shaped, via
       ``pipeline_options.heading_hierarchy_options.enabled``.
+    * ``script_positions`` — PDF: mark superscript and subscript text as
+      ``formatting.script`` runs (docling's ``ScriptPositionModel``, #1005);
+      off by default. Also accepted docling-shaped, via
+      ``pipeline_options.script_position_options.enabled``.
     * ``fetch_images`` — resolve remote/local ``<img src>`` for HTML/EPUB
       (the alias of ``image_sources="remote"``; #646).
     * ``image_sources`` — which image references resolve (#646): ``"none"``
@@ -491,6 +497,11 @@ class DocumentConverter:
       (docling only renders images then; without either, crops keep the
       engine's 2.0 px/pt render). Every picture's ``image.dpi`` is
       72·scale (#519).
+    * ``use_embedded_picture_images`` — docling's option of that name
+      (#1007, docling#5143; also read off ``PdfPipelineOptions``): a PDF
+      picture whose region holds exactly one embedded image with nothing
+      drawn over it gets that bitmap at native resolution (``dpi`` 72)
+      instead of the render crop.
     * ``artifacts_path`` — override the model cache dir (docling's
       ``artifacts_path``); defaults to ``~/.cache/docling.rs``.
     """
@@ -503,8 +514,10 @@ class DocumentConverter:
         do_ocr: bool = True,
         do_table_structure: bool = True,
         force_full_page_ocr: bool = False,
+        replace_broken_text_layer: bool = False,
         no_text_panels: bool = False,
         heading_hierarchy: bool = False,
+        script_positions: bool = False,
         do_picture_classification: bool = False,
         do_code_enrichment: bool = False,
         do_formula_enrichment: bool = False,
@@ -570,6 +583,7 @@ class DocumentConverter:
         page_range: Optional[Tuple[int, int]] = None,
         images_scale: Optional[float] = None,
         generate_page_images: bool = False,
+        use_embedded_picture_images: bool = False,
         text_layer_only: Union[bool, str] = False,
         list_attachments: bool = False,
         ebcdic_layout: Optional[str] = None,
@@ -606,10 +620,22 @@ class DocumentConverter:
             ) or getattr(
                 getattr(pdf_opts, "ocr_options", None), "force_full_page_ocr", False
             )
+            # docling's OcrOptions.replace_broken_text_layer (#1006); the
+            # direct field is accepted too.
+            replace_broken_text_layer = getattr(
+                pdf_opts, "replace_broken_text_layer", replace_broken_text_layer
+            ) or getattr(
+                getattr(pdf_opts, "ocr_options", None),
+                "replace_broken_text_layer",
+                False,
+            )
             no_text_panels = getattr(pdf_opts, "no_text_panels", no_text_panels)
             hh = getattr(pdf_opts, "heading_hierarchy_options", None)
             if hh is not None:
                 heading_hierarchy = bool(getattr(hh, "enabled", heading_hierarchy))
+            sp = getattr(pdf_opts, "script_position_options", None)
+            if sp is not None:
+                script_positions = bool(getattr(sp, "enabled", script_positions))
             do_picture_classification = getattr(
                 pdf_opts, "do_picture_classification", do_picture_classification
             )
@@ -670,6 +696,12 @@ class DocumentConverter:
                 scale = getattr(pdf_opts, "images_scale", None)
                 if scale is not None:
                     images_scale = float(scale)
+            # docling's use_embedded_picture_images (#1007, docling#5143).
+            use_embedded_picture_images = bool(
+                getattr(
+                    pdf_opts, "use_embedded_picture_images", use_embedded_picture_images
+                )
+            )
             # Map docling's ocr_options.lang (a list of language ids) onto the
             # engine's en/ch recognition-model switch. First entry wins;
             # anything that isn't recognisably English/Chinese is ignored with
@@ -779,8 +811,10 @@ class DocumentConverter:
             min_image_bytes=min_image_bytes,
             do_ocr=do_ocr,
             force_full_page_ocr=force_full_page_ocr,
+            replace_broken_text_layer=replace_broken_text_layer,
             no_text_panels=no_text_panels,
             heading_hierarchy=heading_hierarchy,
+            script_positions=script_positions,
             do_table_structure=do_table_structure,
             use_web_browser=use_web_browser,
             do_picture_classification=do_picture_classification,
@@ -839,6 +873,7 @@ class DocumentConverter:
             page_range=_page_range(page_range),
             images_scale=images_scale,
             generate_page_images=generate_page_images,
+            use_embedded_picture_images=use_embedded_picture_images,
             text_layer_only=text_layer_only,
             list_attachments=list_attachments,
             ebcdic_layout=ebcdic_layout,

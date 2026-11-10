@@ -3,7 +3,7 @@
 use crate::format::Dtype;
 
 /// 2^n for n in -149..=127, exactly.
-pub fn pow2(n: i32) -> f32 {
+pub(crate) fn pow2(n: i32) -> f32 {
     if n >= -126 {
         f32::from_bits(((n + 127) as u32) << 23)
     } else {
@@ -19,6 +19,7 @@ fn signed(negative: bool, v: f32) -> f32 {
     }
 }
 
+/// E4M3: no infinity; exponent 15 with mantissa 7 is NaN.
 pub fn e4m3(b: u8) -> f32 {
     let (e, m) = ((b >> 3) & 15, b & 7);
     let v = match (e, m) {
@@ -29,6 +30,7 @@ pub fn e4m3(b: u8) -> f32 {
     signed(b & 0x80 != 0, v)
 }
 
+/// E5M2: exponent 31 is infinity (mantissa 0) or NaN.
 pub fn e5m2(b: u8) -> f32 {
     let (e, m) = ((b >> 2) & 31, b & 3);
     let v = match (e, m) {
@@ -41,12 +43,12 @@ pub fn e5m2(b: u8) -> f32 {
 }
 
 /// E2M1, the low 4 bits of `n`.
-pub fn e2m1(n: u8) -> f32 {
+pub(crate) fn e2m1(n: u8) -> f32 {
     const MAGNITUDE: [f32; 8] = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0];
     signed(n & 8 != 0, MAGNITUDE[(n & 7) as usize])
 }
 
-pub fn e8m0(b: u8) -> f32 {
+pub(crate) fn e8m0(b: u8) -> f32 {
     match b {
         255 => f32::NAN,
         _ => pow2(b as i32 - 127),
@@ -55,7 +57,7 @@ pub fn e8m0(b: u8) -> f32 {
 
 /// UE4M3 as ggml reads it: E4M3's exponent and mantissa, no sign and no NaN; bit 7 is ignored
 /// and `0x7F` is zero.
-pub fn ue4m3(b: u8) -> f32 {
+pub(crate) fn ue4m3(b: u8) -> f32 {
     let (e, m) = ((b >> 3) & 15, b & 7);
     match (b, e) {
         (0x7f, _) => 0.0,
@@ -64,6 +66,7 @@ pub fn ue4m3(b: u8) -> f32 {
     }
 }
 
+/// IEEE half precision.
 pub fn f16(h: u16) -> f32 {
     let (e, m) = (((h >> 10) & 31) as i32, (h & 0x3ff) as u32);
     let v = match (e, m) {
@@ -75,13 +78,14 @@ pub fn f16(h: u16) -> f32 {
     signed(h & 0x8000 != 0, v)
 }
 
+/// BF16: the high 16 bits of an f32.
 pub fn bf16(h: u16) -> f32 {
     f32::from_bits((h as u32) << 16)
 }
 
 /// The value of every code of a dtype of at most 8 bits, indexed by code: `F4` (16 codes),
 /// `F8_E4M3`, `F8_E5M2`, `F8_E8M0`, `I8`, `U8` (256). The `table` core reads these.
-pub fn table(dtype: &Dtype) -> Option<Vec<f32>> {
+pub(crate) fn table(dtype: &Dtype) -> Option<Vec<f32>> {
     let f: fn(u8) -> f32 = match dtype {
         Dtype::F4 => return Some((0..16).map(e2m1).collect()),
         Dtype::F8_E4M3 => e4m3,

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use crate::err::{refuse, Code, Result};
 
-pub const ENV: &str = "TENSORFS_HOME";
+pub(crate) const ENV: &str = "TENSORFS_HOME";
 
 /// Where a resolved root came from. `Named` roots were asked for; `Fallback` is a guess.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,27 +28,6 @@ enum Origin {
 /// a Store would live; it neither requires nor creates one. `tfs home` prints exactly this.
 pub fn resolve(explicit: Option<&Path>) -> Result<PathBuf> {
     Ok(resolve_env(explicit)?.0)
-}
-
-/// The Store root of a command that needs a Store.
-///
-/// A named root — argument or `TENSORFS_HOME` — is used as given, and `tfs store init`/`ensure`
-/// may bring it into existence. The `$HOME/.cache/tensorfs` fallback is accepted only for a Store that
-/// ALREADY exists: with nothing named and nothing there, every command refuses instead of
-/// materializing a database nobody asked for.
-pub fn store_root(explicit: Option<&Path>) -> Result<PathBuf> {
-    let (root, origin) = resolve_env(explicit)?;
-    if origin == Origin::Named || root.is_dir() {
-        return Ok(root);
-    }
-    refuse(
-        Code::STORE_ROOT_ABSENT,
-        format!(
-            "no Store root was given and the default {} does not exist: name a root, set {ENV}, \
-             or create one with `tfs store init <root>`",
-            root.display()
-        ),
-    )
 }
 
 fn resolve_env(explicit: Option<&Path>) -> Result<(PathBuf, Origin)> {

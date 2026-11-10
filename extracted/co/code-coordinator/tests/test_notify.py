@@ -800,6 +800,138 @@ class TestRefusedPremiseNotify:
         )
 
 
+class TestNeedsDecompositionNotify:
+    """A needs-decomposition leg must post a distinctive GitHub comment with
+    the worker's proposed split, not be dropped and not be conflated with a
+    premise refusal.
+
+    Before this fix, `needs_decomposition` matched none of the
+    `entry_status` branches in `_collect_transitions`'s loop and fell into
+    the final `else: continue` — no comment was ever posted, exactly the
+    #2234-style regression the `refused_premise`/`refused_policy` arms this
+    status is modeled on were themselves added to fix.
+    """
+
+    def test_needs_decomposition_posts_comment(
+        self, coord_dir: Path, config: Config
+    ) -> None:
+        _record("ndc-run1")
+        agent_status = {
+            "active": [],
+            "completed": [
+                _agent_completed("ndc-run1", "needs_decomposition", exit_code=0)
+            ],
+        }
+        with patch.object(notify_mod, "_agent_status", return_value=agent_status), \
+             patch("coord.dispatch.github_ops.post_issue_comment") as mock_post:
+            posted, _stuck, _attn, _stalled, _liveness, _phantom, _stuck_test = notify_mod.run(config)
+        assert len(posted) == 1, "needs_decomposition transition must appear in posted list"
+        mock_post.assert_called_once()
+        body = mock_post.call_args.args[2]
+        assert "Decomposition" in body
+        assert "decompose" in body.lower()
+
+    def test_needs_decomposition_not_failure_comment(
+        self, coord_dir: Path, config: Config
+    ) -> None:
+        _record("ndc-run2")
+        agent_status = {
+            "active": [],
+            "completed": [
+                _agent_completed("ndc-run2", "needs_decomposition", exit_code=0)
+            ],
+        }
+        with patch.object(notify_mod, "_agent_status", return_value=agent_status), \
+             patch("coord.dispatch.github_ops.post_issue_comment") as mock_post:
+            notify_mod.run(config)
+        body = mock_post.call_args.args[2]
+        assert "Assignment Failed" not in body
+        assert "❌" not in body
+
+    def test_needs_decomposition_marked_notified(
+        self, coord_dir: Path, config: Config
+    ) -> None:
+        _record("ndc-run3")
+        agent_status = {
+            "active": [],
+            "completed": [
+                _agent_completed("ndc-run3", "needs_decomposition", exit_code=0)
+            ],
+        }
+        with patch.object(notify_mod, "_agent_status", return_value=agent_status), \
+             patch("coord.dispatch.github_ops.post_issue_comment"):
+            notify_mod.run(config)
+        assert "ndc-run3" in state_mod.load_notified()
+
+    def test_needs_decomposition_persists_status_column(
+        self, coord_dir: Path, config: Config
+    ) -> None:
+        """The `assignments.status` column must end up `needs_decomposition`,
+        not `failed` — mirrors `test_refused_premise_persists_status_column`
+        for the same `_mark_notified_local` gap."""
+        _record("ndc-run4")
+        agent_status = {
+            "active": [],
+            "completed": [
+                _agent_completed("ndc-run4", "needs_decomposition", exit_code=0)
+            ],
+        }
+        with patch.object(notify_mod, "_agent_status", return_value=agent_status), \
+             patch("coord.dispatch.github_ops.post_issue_comment"):
+            notify_mod.run(config)
+        row = state_mod.get_connection().execute(
+            "SELECT status FROM assignments WHERE assignment_id=?",
+            ("ndc-run4",),
+        ).fetchone()
+        assert row is not None, "assignment row must exist"
+        assert row["status"] == "needs_decomposition"
+
+    def test_needs_decomposition_idempotent(
+        self, coord_dir: Path, config: Config
+    ) -> None:
+        _record("ndc-run5")
+        agent_status = {
+            "active": [],
+            "completed": [
+                _agent_completed("ndc-run5", "needs_decomposition", exit_code=0)
+            ],
+        }
+        with patch.object(notify_mod, "_agent_status", return_value=agent_status), \
+             patch("coord.dispatch.github_ops.post_issue_comment") as mock_post:
+            notify_mod.run(config)
+            posted_again, _, _attn, _stalled, _liveness, _phantom, _stuck_test = notify_mod.run(config)
+        assert mock_post.call_count == 1, "needs_decomposition comment must post exactly once"
+        assert posted_again == []
+
+    def test_needs_decomposition_includes_needs_decomposition_reason(
+        self, coord_dir: Path, config: Config
+    ) -> None:
+        """When needs_decomposition_reason is set (the worker's proposed
+        split), it appears in the comment — Expected item 3's "the proposed
+        split is posted to the issue"."""
+        _record("ndc-run6")
+        reason = "Split into: (1) auth, (2) billing, (3) notifications, (4) UI, (5) docs"
+        agent_status = {
+            "active": [],
+            "completed": [
+                _agent_completed(
+                    "ndc-run6",
+                    "needs_decomposition",
+                    exit_code=0,
+                    needs_decomposition_reason=reason,
+                )
+            ],
+        }
+        with patch.object(notify_mod, "_agent_status", return_value=agent_status), \
+             patch("coord.dispatch.github_ops.post_issue_comment") as mock_post:
+            notify_mod.run(config)
+        body = mock_post.call_args.args[2]
+        assert reason in body, (
+            "needs_decomposition_reason must appear in the "
+            "needs_decomposition comment"
+        )
+
+
 class TestBranchCapture:
     def test_branch_stored_in_notified_ledger(self, coord_dir: Path, config: Config) -> None:
         _record("abc")
@@ -1928,7 +2060,10 @@ class TestClaudeSessionIdMissingQuery:
         from coord.db import get_connection
         conn = get_connection()
         for i, status in enumerate(
-            ("done", "failed", "advisory", "refused_policy", "refused_premise"),
+            (
+                "done", "failed", "advisory", "refused_policy",
+                "refused_premise", "needs_decomposition",
+            ),
         ):
             aid = f"term{i}"
             _record(aid)
@@ -1944,7 +2079,9 @@ class TestClaudeSessionIdMissingQuery:
                 max_age_seconds=3600,
             )
         }
-        assert pending_ids == {"term0", "term1", "term2", "term3", "term4"}
+        assert pending_ids == {
+            "term0", "term1", "term2", "term3", "term4", "term5",
+        }
 
 
 class TestClaudeSessionIdRetrySweep:
@@ -3078,6 +3215,128 @@ class TestSmokeCompletionVerdict:
         assert "environmental" in (row["test_reason"] or "").lower(), (
             f"expected the #3315 environmental tally — got {row['test_reason']!r}"
         )
+
+    def test_worktree_collision_losers_own_error_text_does_not_clobber_sibling_pass(
+        self, coord_db,
+    ) -> None:
+        """#3912 review (non-blocking): the collision-loser's own
+        `_GitError` text (`coord.agent._git_worktree_add`'s new #3912
+        liveness refusal — "...is still live (RUNNING/PENDING or an active
+        tmux session)") matches no environmental/infra signature of its
+        own. It only survives as a bounded silent-death retry today because
+        `entry["error"]` never feeds `coord.notify`'s `_failure_reason` —
+        the SAME mechanism `test_silent_fanout_leg_death_clears_the_leg_
+        for_a_bounded_retry` pins generically, pinned here specifically
+        against the actual #3912 collision message so a future change that
+        starts forwarding `entry["error"]` into `_failure_reason` is caught
+        by this test before it reintroduces #3912 end-to-end (a fan-out
+        leg that merely loses a worktree race would then clobber its
+        sibling's genuine pass)."""
+        from coord.notify import (  # noqa: PLC0415
+            EVENT_COMPLETION,
+            EVENT_FAILURE,
+            Transition,
+            post_transition,
+        )
+        from coord.state import (  # noqa: PLC0415
+            get_connection,
+            load_assignment_test_state,
+            record_test_verdict,
+        )
+
+        self._record_work("work-collision")
+        self._record_fanout_leg(
+            "leg-gtk-collision", parent_id="work-collision", capabilities=("gtk",),
+        )
+        self._record_fanout_leg(
+            "leg-win-collision", parent_id="work-collision",
+            capabilities=("windows",),
+        )
+        record_test_verdict(
+            assignment_id="work-collision", test_state="running",
+            test_reason=(
+                "[[smoke-fanout:leg-gtk-collision=gtk,"
+                "leg-win-collision=windows]]\n"
+                "Test stage running across 2 capability-partition leg(s) "
+                "(#3182): [gtk]; [windows]."
+            ),
+        )
+
+        patches = (
+            patch("coord.notify.post_completion"),
+            patch("coord.notify.post_failure"),
+            patch("coord.notify.mark_notified"),
+            patch("coord.notify._capture_cost"),
+            patch("coord.notify._capture_smoke_tests"),
+            patch("coord.notify._capture_completion_summary"),
+            patch("coord.notify._capture_claude_session_id"),
+        )
+
+        completion = Transition(
+            assignment_id="leg-gtk-collision", machine_name="dell64",
+            repo_name="api", issue_number=42, event=EVENT_COMPLETION,
+            exit_code=0,
+        )
+        completion_record = {
+            "repo_github": "acme/api", "type": "smoke",
+            "review_of_assignment_id": "work-collision",
+            "issue_title": "[smoke:gtk] Fix thing",
+        }
+        completion_entry = {
+            "started_at": 1000.0, "finished_at": 1010.0,
+            "branch": "issue-42-fix-thing", "log_path": None,
+        }
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+            post_transition(completion, completion_record, completion_entry)
+            # Simulate the worker printing a real `SMOKE: pass` — the
+            # shared `_record_smoke_verdict` path reads it from the log in
+            # production; here, record it directly for the same effect.
+        record_test_verdict(assignment_id="leg-gtk-collision", test_state="passed")
+
+        # The windows leg LOST the worktree race: `_git_worktree_add`
+        # refused the collision with the #3912 liveness error and the
+        # agent reports EVENT_FAILURE carrying that error text verbatim.
+        failure = Transition(
+            assignment_id="leg-win-collision", machine_name="dell64",
+            repo_name="api", issue_number=42, event=EVENT_FAILURE,
+            exit_code=None,
+        )
+        failure_record = {
+            "repo_github": "acme/api", "type": "smoke",
+            "review_of_assignment_id": "work-collision",
+            "issue_title": "[smoke:windows] Fix thing",
+        }
+        failure_entry = {
+            "started_at": 1000.0, "finished_at": 1010.0,
+            "branch": "issue-42-fix-thing", "log_path": None,
+            "error": (
+                "cannot create a worktree for branch 'issue-42-fix-thing': "
+                "the conflicting worktree '/state/worktrees/leg-gtk-"
+                "collision' belongs to assignment 'leg-gtk-collision', "
+                "which is still live (RUNNING/PENDING or an active tmux "
+                "session). Refusing to remove it (#3912) — re-dispatch "
+                "once that assignment finishes."
+            ),
+        }
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+            post_transition(failure, failure_record, failure_entry)
+
+        assert load_assignment_test_state("leg-win-collision") is None, (
+            "the collision loser must clear for a bounded automatic retry "
+            "of its own partition, never record a genuine `failed` verdict "
+            f"— got {load_assignment_test_state('leg-win-collision')!r}"
+        )
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT test_state, test_reason FROM assignments WHERE assignment_id=?",
+            ("work-collision",),
+        ).fetchone()
+        assert row["test_state"] == "running", (
+            "the sibling's genuine pass must survive the collision loser "
+            f"— got {row['test_state']!r}"
+        )
+        assert load_assignment_test_state("leg-gtk-collision") == "passed"
 
     def test_operator_cancelled_leg_does_not_fail_the_parent_while_sibling_runs(
         self, coord_db,
@@ -4468,6 +4727,201 @@ class TestMuteSmokeLegLoopTerminates:
         )
 
 
+class TestSmokeDispatchClaimReleasedByTerminalTransition:
+    """#3920: the `smoke_claims` row a Test-stage leg takes at dispatch is
+    released by the leg's own TERMINAL TRANSITION — not merely as a side
+    effect of the notification-ledger write (`mark_notified`), which routes
+    over HTTP to the board daemon and is stubbed out by several callers.
+
+    `coord.smoke._dispatch_smoke_single_leg` claims ONE fixed partition tag
+    per work row, so a claim that outlives its leg silently blocks every
+    future Test dispatch for that row: no leg, no verdict, and a `test_state`
+    no gate ever resolves.
+    """
+
+    @staticmethod
+    def _record(assignment_id: str, *, atype: str, title: str,
+                parent_id: str | None = None) -> None:
+        from coord.models import Assignment  # noqa: PLC0415
+        from coord.state import _record_dispatched_assignment_local  # noqa: PLC0415
+
+        _record_dispatched_assignment_local(
+            assignment=Assignment(
+                assignment_id=assignment_id,
+                machine_name="laptop",
+                repo_name="api",
+                issue_number=42,
+                issue_title=title,
+                type=atype,
+                status="running",
+                review_of_assignment_id=parent_id,
+                branch="issue-42-fix-thing",
+            ),
+            repo_github="acme/api",
+        )
+
+    @staticmethod
+    def _held(work_assignment_id: str, tag: str) -> bool:
+        from coord.state import get_connection  # noqa: PLC0415
+
+        return get_connection().execute(
+            "SELECT 1 FROM smoke_claims WHERE work_assignment_id=? "
+            "AND capability_partition=?",
+            (work_assignment_id, tag),
+        ).fetchone() is not None
+
+    @staticmethod
+    def _transition(assignment_id: str, event: str):
+        from coord.notify import Transition  # noqa: PLC0415
+
+        return Transition(
+            assignment_id=assignment_id,
+            machine_name="laptop",
+            repo_name="api",
+            issue_number=42,
+            event=event,
+            exit_code=0,
+        )
+
+    def _post(self, transition, record, entry) -> None:
+        """Drive the real `post_transition` with every GitHub-touching and
+        ledger-writing seam stubbed — `mark_notified` included, so only a
+        release derived from the transition itself can clear the claim."""
+        from coord.notify import post_transition  # noqa: PLC0415
+
+        with (
+            patch("coord.notify.post_completion"),
+            patch("coord.notify.post_failure"),
+            patch("coord.notify.mark_notified"),
+            patch("coord.notify._capture_cost"),
+            patch("coord.notify._capture_smoke_tests"),
+            patch("coord.notify._capture_completion_summary"),
+            patch("coord.notify._capture_claude_session_id"),
+            patch("coord.notify._agent_host", return_value=None),
+        ):
+            post_transition(transition, record, entry)
+
+    def test_single_leg_completion_releases_its_claim(self, coord_db, tmp_path) -> None:
+        from coord.notify import EVENT_COMPLETION  # noqa: PLC0415
+        from coord.smoke import SINGLE_LEG_SMOKE_PARTITION_TAG  # noqa: PLC0415
+        from coord.state import claim_smoke_dispatch  # noqa: PLC0415
+
+        self._record("work-1", atype="work", title="Fix thing")
+        self._record(
+            "leg-1", atype="smoke", title="[smoke] Fix thing", parent_id="work-1",
+        )
+        assert claim_smoke_dispatch("work-1", SINGLE_LEG_SMOKE_PARTITION_TAG) is True
+
+        log = tmp_path / "leg-1.log"
+        log.write_text(
+            '{"type":"assistant","message":{"content":[{"type":"text",'
+            '"text":"SMOKE: pass"}]}}\n',
+            encoding="utf-8",
+        )
+        self._post(
+            self._transition("leg-1", EVENT_COMPLETION),
+            {"repo_github": "acme/api", "type": "smoke",
+             "issue_title": "[smoke] Fix thing",
+             "review_of_assignment_id": "work-1"},
+            {"started_at": 1000.0, "finished_at": 1010.0,
+             "branch": "issue-42-fix-thing", "log_path": str(log)},
+        )
+
+        assert not self._held("work-1", SINGLE_LEG_SMOKE_PARTITION_TAG), (
+            "a completed single-leg Test dispatch left its claim held — the "
+            "work row can never be re-tested"
+        )
+
+    def test_single_leg_failure_releases_its_claim(self, coord_db) -> None:
+        from coord.notify import EVENT_FAILURE  # noqa: PLC0415
+        from coord.smoke import SINGLE_LEG_SMOKE_PARTITION_TAG  # noqa: PLC0415
+        from coord.state import claim_smoke_dispatch  # noqa: PLC0415
+
+        self._record("work-1", atype="work", title="Fix thing")
+        self._record(
+            "leg-1", atype="smoke", title="[smoke] Fix thing", parent_id="work-1",
+        )
+        assert claim_smoke_dispatch("work-1", SINGLE_LEG_SMOKE_PARTITION_TAG) is True
+
+        self._post(
+            self._transition("leg-1", EVENT_FAILURE),
+            {"repo_github": "acme/api", "type": "smoke",
+             "issue_title": "[smoke] Fix thing",
+             "review_of_assignment_id": "work-1"},
+            {"started_at": 1000.0, "finished_at": 1010.0,
+             "branch": "issue-42-fix-thing", "log_path": None,
+             "error": "the agent died"},
+        )
+
+        assert not self._held("work-1", SINGLE_LEG_SMOKE_PARTITION_TAG), (
+            "a leg that died without a verdict left its claim held — #1605's "
+            "bounded re-dispatch can never fire"
+        )
+
+    def test_fanout_leg_releases_only_its_own_partition(
+        self, coord_db, tmp_path
+    ) -> None:
+        """The release is per-partition: a sibling partition still in flight
+        keeps its claim, or one finishing leg would re-open the dispatch race
+        for every other partition of the same fan-out."""
+        from coord.notify import EVENT_COMPLETION  # noqa: PLC0415
+        from coord.smoke import smoke_leg_issue_title  # noqa: PLC0415
+        from coord.state import claim_smoke_dispatch  # noqa: PLC0415
+
+        title = smoke_leg_issue_title("Fix thing", ("macos",))
+        self._record("work-1", atype="work", title="Fix thing")
+        self._record("leg-mac", atype="smoke", title=title, parent_id="work-1")
+        assert claim_smoke_dispatch("work-1", "macos") is True
+        assert claim_smoke_dispatch("work-1", "gtk") is True
+
+        log = tmp_path / "leg-mac.log"
+        log.write_text(
+            '{"type":"assistant","message":{"content":[{"type":"text",'
+            '"text":"SMOKE: pass"}]}}\n',
+            encoding="utf-8",
+        )
+        self._post(
+            self._transition("leg-mac", EVENT_COMPLETION),
+            {"repo_github": "acme/api", "type": "smoke",
+             "issue_title": title, "review_of_assignment_id": "work-1"},
+            {"started_at": 1000.0, "finished_at": 1010.0,
+             "branch": "issue-42-fix-thing", "log_path": str(log)},
+        )
+
+        assert not self._held("work-1", "macos")
+        assert self._held("work-1", "gtk"), (
+            "a finishing leg released a SIBLING partition's claim — that "
+            "partition's own in-flight dispatch is no longer serialized"
+        )
+
+    def test_non_smoke_terminal_transition_releases_nothing(
+        self, coord_db, tmp_path
+    ) -> None:
+        """The gate can fail: a WORK row's own completion must leave the
+        smoke claim keyed on it alone. A leg is still in flight — only the
+        leg's terminal transition proves otherwise."""
+        from coord.notify import EVENT_COMPLETION  # noqa: PLC0415
+        from coord.smoke import SINGLE_LEG_SMOKE_PARTITION_TAG  # noqa: PLC0415
+        from coord.state import claim_smoke_dispatch  # noqa: PLC0415
+
+        self._record("work-1", atype="work", title="Fix thing")
+        assert claim_smoke_dispatch("work-1", SINGLE_LEG_SMOKE_PARTITION_TAG) is True
+
+        log = tmp_path / "work-1.log"
+        log.write_text("done\n", encoding="utf-8")
+        self._post(
+            self._transition("work-1", EVENT_COMPLETION),
+            {"repo_github": "acme/api", "type": "work", "issue_title": "Fix thing"},
+            {"started_at": 1000.0, "finished_at": 1010.0,
+             "branch": "issue-42-fix-thing", "log_path": str(log)},
+        )
+
+        assert self._held("work-1", SINGLE_LEG_SMOKE_PARTITION_TAG), (
+            "a non-smoke row's terminal transition released a smoke-dispatch "
+            "claim — the dedupe window is open while the leg still runs"
+        )
+
+
 class TestConfirmedPassVerdictSignalKill:
     """#2527: a confirmation subprocess killed by an external signal (a
     `coord-agent`/`coord-serve` restart landing mid-run, a manual `kill`, ...)
@@ -5448,6 +5902,37 @@ class TestConflictFixCompletionStaleRebaseMismatch:
         assert kwargs["succeeded"] is False
         assert kwargs["semantic"] is True
         assert kwargs["stale_rebase_mismatch"] is False
+
+    def test_forwards_the_log_location_for_the_head_unmoved_explanation(
+        self, tmp_path: Path,
+    ) -> None:
+        """#3870: on the no-marker path — the one that reaches the
+        head-unmoved check — `on_conflict_fix_done` needs the finished
+        leg's transcript location to say WHY a leg that never pushed ended
+        anyway. `coord notify` is the routinely-scheduled path, so it must
+        hand both over, not just `reconcile()`."""
+        from coord.notify import post_transition
+
+        log = tmp_path / "worker.log"
+        log.write_text("STATUS: rebase started\nWaiting for the gate.\n")
+
+        with (
+            patch("coord.notify.post_completion"),
+            patch("coord.notify.mark_notified"),
+            patch("coord.notify._capture_cost"),
+            patch("coord.notify._capture_smoke_tests"),
+            patch("coord.notify._capture_completion_summary"),
+            patch("coord.notify._capture_claude_session_id"),
+            patch("coord.notify._agent_host", return_value="laptop-host"),
+            patch("coord.reconcile.on_conflict_fix_done") as mock_done,
+        ):
+            post_transition(self._transition(), self._record(), self._entry(str(log)))
+
+        mock_done.assert_called_once()
+        kwargs = mock_done.call_args.kwargs
+        assert kwargs["succeeded"] is True
+        assert kwargs["fix_log_path"] == str(log)
+        assert kwargs["fix_agent_host"] == "laptop-host"
 
 
 # ── #3462: the conflict-fix completion arm must read the already-upstream ───

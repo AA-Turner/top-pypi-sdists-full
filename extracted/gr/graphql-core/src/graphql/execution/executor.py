@@ -126,6 +126,8 @@ UNEXPECTED_MULTIPLE_PAYLOADS = (
     " (due to @defer or @stream directive)"
 )
 
+SELECTIONS_NESTED_TOO_DEEPLY = "Selections are nested too deeply. Execution aborted."
+
 DEFER_NOT_SUPPORTED_ON_SUBSCRIPTIONS = (
     "`@defer` directive not supported on subscription operations."
     " Disable `@defer` by setting the `if` argument to `false`."
@@ -696,14 +698,21 @@ class Executor(Generic[TContext]):
                 raise GraphQLError(msg, operation)  # noqa: TRY301
             root_value = self.root_value
 
-            collected_fields = collect_fields(
-                schema,
-                self.fragments,
-                self.variable_values,
-                root_type,
-                operation,
-                self.hide_suggestions,
-            )
+            try:
+                collected_fields = collect_fields(
+                    schema,
+                    self.fragments,
+                    self.variable_values,
+                    root_type,
+                    operation,
+                    self.hide_suggestions,
+                )
+            except RecursionError:
+                collected_fields = None
+            # Leave the block above first, or the RecursionError would be kept as the
+            # context of this error and keep all the frames of the recursion alive.
+            if collected_fields is None:
+                raise GraphQLError(SELECTIONS_NESTED_TOO_DEEPLY, operation)  # noqa: TRY301
 
             grouped_field_set, new_defer_usages, _forbidden = collected_fields
 
@@ -956,12 +965,16 @@ class Executor(Generic[TContext]):
         try:
             # Build a dictionary of arguments from the field.arguments AST, using the
             # variables scope to fulfill any variable references.
-            args = get_argument_values(
-                field_def,
-                first_field_node,
-                self.variable_values,
-                first_field_details.fragment_variable_values,
-                self.hide_suggestions,
+            args = (
+                get_argument_values(
+                    field_def,
+                    first_field_node,
+                    self.variable_values,
+                    first_field_details.fragment_variable_values,
+                    self.hide_suggestions,
+                )
+                if field_def.args or first_field_node.arguments
+                else {}
             )
 
             # Note that contrary to the JavaScript implementation, we pass the context
@@ -988,11 +1001,17 @@ class Executor(Generic[TContext]):
             )
             if self.is_awaitable(completed):
 
-                async def await_completed() -> Any:
+                async def await_completed(
+                    executor: Executor,
+                    completed: Awaitable[Any],
+                    return_type: GraphQLOutputType,
+                    field_details_list: FieldDetailsList,
+                    path: Path,
+                ) -> Any:
                     try:
                         return await completed
                     except Exception as raw_error:
-                        self.handle_field_error(
+                        executor.handle_field_error(
                             raw_error,
                             return_type,
                             field_details_list,
@@ -1000,7 +1019,9 @@ class Executor(Generic[TContext]):
                         )
                         return None
 
-                return await_completed()
+                return await_completed(
+                    self, completed, return_type, field_details_list, path
+                )
 
         except Exception as raw_error:
             self.handle_field_error(
@@ -1024,7 +1045,7 @@ class Executor(Generic[TContext]):
 
         :meta private:
         """
-        # The resolve function's first argument is a collection of information about
+        # The resolve function's second argument is a collection of information about
         # the current execution state.
         return GraphQLResolveInfo(
             field_nodes[0].name.value,

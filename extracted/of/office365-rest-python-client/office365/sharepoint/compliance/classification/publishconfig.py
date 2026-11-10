@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.sharepoint.compliance.sensitivitylabels.config import (
 )
 
 
-@dataclass
 class SPClassificationPublishConfig(ClientValue):
     ClassifierId: Optional[str] = None
     ColumnName: Optional[str] = None

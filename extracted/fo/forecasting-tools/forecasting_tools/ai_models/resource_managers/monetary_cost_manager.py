@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 import litellm
 from litellm.integrations.custom_logger import CustomLogger as LitellmCustomLogger
@@ -21,6 +24,10 @@ class MonetaryCostManager(HardLimitManager):
     For instance if you run 50 coroutines in parallel that cost 10c, and your limit is $1,
     all 50 will be let through (not 10).
     The cost will not register until the coroutines finish.
+
+    Limits are enforced by calling raise_error_if_limit_would_be_reached() before each
+    model call. Code that calls a model some other way (e.g. litellm directly) has its
+    cost tracked but is not stopped by the limit.
     """
 
     def __enter__(self) -> MonetaryCostManager:
@@ -33,9 +40,29 @@ class LitellmCostTracker(LitellmCustomLogger):
     """
     A callback handler for litellm cost tracking.
     See LitellmCustomLogger for more callback functions (on failure, post/pre API call, etc)
+
+    Hard limits are not checked in a pre-call hook here, since litellm catches and logs
+    exceptions raised in those hooks instead of stopping the call.
     """
 
     _initialized = False
+    _caller_tracks_cost: ContextVar[bool] = ContextVar(
+        "_caller_tracks_cost", default=False
+    )
+
+    @classmethod
+    @contextmanager
+    def caller_tracks_cost(cls) -> Iterator[None]:
+        """
+        The success callback skips litellm calls made in this block, so the caller must
+        add their cost itself. Litellm runs the callback in a copy of the calling
+        context, so this holds however late the callback fires.
+        """
+        token = cls._caller_tracks_cost.set(True)
+        try:
+            yield
+        finally:
+            cls._caller_tracks_cost.reset(token)
 
     @staticmethod
     def initialize_cost_tracking() -> None:
@@ -59,12 +86,6 @@ class LitellmCostTracker(LitellmCustomLogger):
         litellm.callbacks.append(custom_handler)
         LitellmCostTracker._initialized = True
 
-    def log_pre_api_call(self, model, messages, kwargs):  # NOSONAR
-        MonetaryCostManager.raise_error_if_limit_would_be_reached()
-
-    async def async_log_pre_api_call(self, model, messages, kwargs):  # NOSONAR
-        MonetaryCostManager.raise_error_if_limit_would_be_reached()
-
     def log_success_event(
         self, kwargs: dict, response_obj, start_time, end_time  # NOSONAR
     ) -> None:
@@ -79,6 +100,8 @@ class LitellmCostTracker(LitellmCustomLogger):
         self._track_cost(kwargs, response_obj)
 
     def _track_cost(self, kwargs: dict, response_obj) -> None:  # NOSONAR
+        if self._caller_tracks_cost.get():
+            return
         tracked_cost = 0
         kwarg_cost = self.extract_cost_from_hidden_params(kwargs)
         obj_cost = self.extract_cost_from_response_obj(response_obj)

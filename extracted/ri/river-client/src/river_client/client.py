@@ -117,6 +117,11 @@ _GRPC_MAX_MESSAGE_SIZE_BYTES = 2 * 1024 * 1024 * 1024 - 1
 # sub-batches; the RL trainer pipelines them within its pending-request limit.
 _FORWARD_BACKWARD_SUB_BATCH_BYTES = 1024 * 1024 * 1024
 
+# A request's resolved size: its datums' encoded sizes (inline images
+# included) plus each distinct image handle once. A datum's encoded size plus
+# every handle occurrence in it has the same limit.
+_MAX_RESOLVED_REQUEST_BYTES = 2 * 1024 * 1024 * 1024 - 64 * 1024 * 1024
+
 _FORWARD_BACKWARD_SUM_METRIC_KEYS = frozenset(
     {
         "loss_sum",
@@ -183,14 +188,69 @@ def _routing_capture_unavailable(error: RiverConnectionError) -> bool:
     )
 
 
+def _resolved_request_size(
+    field_sizes: Iterable[int], datum_handles: Iterable[dict[str, int]]
+) -> int:
+    """A request's encoded datums plus each distinct handle's bytes."""
+    handles: dict[str, int] = {}
+    for datum in datum_handles:
+        handles.update(datum)
+    return sum(field_sizes) + sum(handles.values())
+
+
+def _measure_datum(sample: dict, index: int) -> tuple[int, dict[str, int]]:
+    """Return a sample's ``ForwardBackwardInput.data`` wire size and handles.
+
+    The handles map each distinct image handle ID to its size. Raise before
+    any request is sent when the datum cannot fit a request alone: a single
+    datum is never split across requests.
+    """
+    payload_size = _nested_encoded_size(_wire_datum(sample))
+    field_size = _length_delimited_field_size(
+        _length_delimited_field_size(payload_size)
+    )
+    handles: dict[str, int] = {}
+    handle_bytes = 0
+    # _wire_datum has validated every image chunk's data.
+    for chunk in sample.get("model_input") or ():
+        if chunk["type"] == "image" and isinstance(chunk["data"], ImageHandle):
+            handles[chunk["data"].id] = chunk["data"].byte_count
+            handle_bytes += chunk["data"].byte_count
+    # Each occurrence counts; this also bounds the datum's distinct handles.
+    resolved_size = field_size + handle_bytes
+    if resolved_size > _MAX_RESOLVED_REQUEST_BYTES:
+        raise RiverError(
+            f"forward_backward data[{index}] is {resolved_size} bytes once its "
+            "image handles resolve (each occurrence of a repeated handle "
+            f"counts); the server accepts at most {_MAX_RESOLVED_REQUEST_BYTES} "
+            "per datum. A datum is never split across requests, so reduce its "
+            "images."
+        )
+    return field_size, handles
+
+
 @dataclass(frozen=True)
 class _ForwardBackwardRequestPlan:
-    """Exact and conservative request sizes plus per-datum wire sizes."""
+    """Exact and conservative request sizes plus per-datum wire sizes.
+
+    ``datum_handles`` maps each datum's distinct image handles to their sizes;
+    a request must also fit the server's resolved request limit.
+    """
 
     static_input_size: int
     datum_field_sizes: tuple[int, ...]
     total_size: int
     maximum_total_size: int
+    datum_handles: tuple[dict[str, int], ...]
+
+    @property
+    def needs_sub_batches(self) -> bool:
+        """Whether the request exceeds the upload or resolved request limit."""
+        return (
+            self.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES
+            or _resolved_request_size(self.datum_field_sizes, self.datum_handles)
+            > _MAX_RESOLVED_REQUEST_BYTES
+        )
 
     def sub_batch_slices(
         self, request: pb2.ForwardBackwardRequest
@@ -199,21 +259,36 @@ class _ForwardBackwardRequestPlan:
 
         Validate the whole batch before any submission, including a single
         oversized datum at the end. Reserve maximum-width sequence IDs so
-        later submissions cannot outgrow these boundaries.
+        later submissions cannot outgrow these boundaries. Each sub-batch also
+        fits the resolved request limit, which every datum fits alone.
         """
         slices = []
         start, size = 0, 0
+        handles: set[str] = set()
+        handle_bytes = 0
         for index, datum_size in enumerate(self.datum_field_sizes):
+            datum_handles = self.datum_handles[index]
+            added_handle_bytes = sum(
+                count
+                for handle, count in datum_handles.items()
+                if handle not in handles
+            )
             candidate = _forward_backward_request_size(
                 request,
                 static_input_size=self.static_input_size,
                 datum_field_size=size + datum_size,
                 maximum_sequence_id_size=True,
             )
-            if candidate > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+            if (
+                candidate > _FORWARD_BACKWARD_SUB_BATCH_BYTES
+                or size + datum_size + handle_bytes + added_handle_bytes
+                > _MAX_RESOLVED_REQUEST_BYTES
+            ):
                 if index > start:
                     slices.append(slice(start, index))
                 start, size = index, 0
+                handles, handle_bytes = set(), 0
+                added_handle_bytes = sum(datum_handles.values())
                 if (
                     _forward_backward_request_size(
                         request,
@@ -228,6 +303,8 @@ class _ForwardBackwardRequestPlan:
                         f"sub-batch limit of {_FORWARD_BACKWARD_SUB_BATCH_BYTES} bytes"
                     )
             size += datum_size
+            handles.update(datum_handles)
+            handle_bytes += added_handle_bytes
         slices.append(slice(start, len(self.datum_field_sizes)))
         return tuple(slices)
 
@@ -302,14 +379,15 @@ def _forward_backward_request_size(
 
 def _forward_backward_request_plan(
     request: pb2.ForwardBackwardRequest,
-    datum_field_sizes: Iterable[int],
+    datums: Iterable[tuple[int, dict[str, int]]],
 ) -> _ForwardBackwardRequestPlan:
-    """Plan a request from its datums' wire sizes (see ``_datum_field_size``)."""
+    """Plan a request from its datums' measurements (see ``_measure_datum``)."""
     source_input = request.forward_backward_input
     if source_input.data:
         raise ValueError("forward/backward request plan requires an input without data")
     static_input_size = source_input.ByteSize()
-    datum_field_sizes = tuple(datum_field_sizes)
+    measured = tuple(datums)
+    datum_field_sizes = tuple(size for size, _ in measured)
     total_size = _forward_backward_request_size(
         request,
         static_input_size=static_input_size,
@@ -326,6 +404,7 @@ def _forward_backward_request_plan(
         datum_field_sizes=datum_field_sizes,
         total_size=total_size,
         maximum_total_size=maximum_total_size,
+        datum_handles=tuple(handles for _, handles in measured),
     )
 
 
@@ -1765,7 +1844,9 @@ class Model:
             self._step = policy.step
         return policy
 
-    def latest_auto_checkpoint(self) -> Checkpoint | None:
+    def latest_auto_checkpoint(
+        self, *, model_id: str | None = None
+    ) -> Checkpoint | None:
         """The newest committed auto checkpoint of a full-weight run, SFT or
         RL.
 
@@ -1773,8 +1854,13 @@ class Model:
         ``load_weights(checkpoint, load_optimizer=True)``. The server keeps a
         run's newest auto checkpoint for 7 days after the run ends. Returns
         None until the run has committed one.
+
+        Args:
+            model_id: Read another model you own instead of this one, such as
+                an ended run that this run resumes. Its ``model_id`` is
+                ``Model.model_id``.
         """
-        response = self._session._get_info(self._model_id)
+        response = self._session._get_info(model_id or self._model_id)
         if not response.HasField("latest_auto_checkpoint"):
             return None
         auto = response.latest_auto_checkpoint
@@ -1961,8 +2047,12 @@ class Model:
             response's per-item averaging. Its declared metrics use custom/;
             built-in loss diagnostics and per-token logprobs are not returned.
 
-        Requests larger than the 1 GiB upload limit are split at datum
-        boundaries into sequential gradient-accumulation sub-batches. The
+        Requests larger than the 1 GiB upload limit, or larger than 2 GiB
+        less 64 MiB once their image handles resolve (each distinct handle
+        once), are split at datum boundaries into sequential
+        gradient-accumulation sub-batches. A datum is never split: one over
+        that limit once its handles resolve, counting every occurrence,
+        raises ``RiverError`` before anything is submitted. The
         first sub-batch honors ``zero_out``; later sub-batches retain its
         gradients. A failed sub-batch stops the sequence and this method does
         not submit an optimizer step. ``timeout`` applies to each submitted
@@ -1987,7 +2077,7 @@ class Model:
             compute_expert_flip_metric=compute_expert_flip_metric,
             force_routing_replay=force_routing_replay,
         )
-        if plan.maximum_total_size <= _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+        if not plan.needs_sub_batches:
             request.seq_id = self._next_seq_id()
             chunk = self._session._single_forward_backward_chunk(request, data, plan)
             result = self._submit_forward_backward_request(
@@ -2132,7 +2222,7 @@ class Model:
             compute_expert_flip_metric=compute_expert_flip_metric,
             force_routing_replay=force_routing_replay,
         )
-        if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+        if plan.needs_sub_batches:
             fb_result = self._run_forward_backward_sub_batches(
                 request, data=data, plan=plan, timeout=timeout
             )
@@ -2211,11 +2301,12 @@ class Model:
             compute_expert_flip_metric=compute_expert_flip_metric,
             force_routing_replay=force_routing_replay,
         )
-        if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+        if plan.needs_sub_batches:
             # Custom-loss encoding keeps one datum per example, so these
             # slices index the caller's datums.
             raise _ForwardBackwardNeedsSubBatches(
-                "forward_backward batch exceeds the 1 GiB upload limit; use "
+                "forward_backward batch exceeds the 1 GiB upload limit or the "
+                "resolved request limit; use "
                 "forward_backward() so the client can submit accumulated "
                 "sub-batches sequentially",
                 plan.sub_batch_slices(request),
@@ -2422,9 +2513,10 @@ class Model:
             compute_expert_flip_metric=compute_expert_flip_metric,
             force_routing_replay=force_routing_replay,
         )
-        if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+        if plan.needs_sub_batches:
             raise RiverError(
-                "forward_backward batch exceeds the 1 GiB upload limit; use "
+                "forward_backward batch exceeds the 1 GiB upload limit or the "
+                "resolved request limit; use "
                 "train_step() so the client can submit accumulated sub-batches "
                 "before the optimizer step"
             )
@@ -4091,9 +4183,10 @@ class Session:
             force_routing_replay=force_routing_replay,
         )
         plan = self._plan_forward_backward_request(request, data)
-        if plan.maximum_total_size > _FORWARD_BACKWARD_SUB_BATCH_BYTES:
+        if plan.needs_sub_batches:
             raise RiverError(
-                "forward_backward batch exceeds the 1 GiB upload limit; use "
+                "forward_backward batch exceeds the 1 GiB upload limit or the "
+                "resolved request limit; use "
                 "Model.forward_backward() so the client can submit accumulated "
                 "sub-batches sequentially"
             )
@@ -4152,7 +4245,8 @@ class Session:
         bounded by the raw batch plus one sub-batch.
         """
         return _forward_backward_request_plan(
-            request, (_datum_field_size(_wire_datum(datum)) for datum in data)
+            request,
+            (_measure_datum(datum, index) for index, datum in enumerate(data)),
         )
 
     def _single_forward_backward_chunk(

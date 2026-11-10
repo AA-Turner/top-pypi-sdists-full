@@ -31,32 +31,62 @@ use crate::filters::CutFilter;
 use crate::filters::DateFilter;
 use crate::filters::DefaultFilter;
 use crate::filters::DefaultIfNoneFilter;
+use crate::filters::DictsortFilter;
+use crate::filters::DictsortreversedFilter;
 use crate::filters::DivisibleByFilter;
 use crate::filters::DjangoFilter;
 use crate::filters::EscapeFilter;
 use crate::filters::EscapejsFilter;
+use crate::filters::EscapeseqFilter;
 use crate::filters::ExternalFilter;
+use crate::filters::FilesizeformatFilter;
 use crate::filters::FilterType;
+use crate::filters::FirstFilter;
 use crate::filters::FloatFormatFilter;
 use crate::filters::ForceEscapeFilter;
+use crate::filters::GetDigitFilter;
+use crate::filters::IriencodeFilter;
 use crate::filters::JoinFilter;
+use crate::filters::JsonScriptFilter;
+use crate::filters::Justify;
+use crate::filters::JustifyFilter;
+use crate::filters::L10nFilter;
 use crate::filters::LastFilter;
 use crate::filters::LengthFilter;
 use crate::filters::LinebreaksFilter;
 use crate::filters::LinebreaksbrFilter;
+use crate::filters::LinenumbersFilter;
 use crate::filters::LowerFilter;
+use crate::filters::MakeListFilter;
+use crate::filters::Phone2numericFilter;
+use crate::filters::PluralizeFilter;
+use crate::filters::PprintFilter;
+use crate::filters::RandomFilter;
 use crate::filters::SafeFilter;
+use crate::filters::SafeseqFilter;
 use crate::filters::SliceArgument;
 use crate::filters::SliceFilter;
 use crate::filters::SlugifyFilter;
+use crate::filters::StringformatFilter;
+use crate::filters::StriptagsFilter;
 use crate::filters::TimesinceFilter;
 use crate::filters::TitleFilter;
 use crate::filters::TruncateCharsFilter;
+use crate::filters::TruncateCharsHtmlFilter;
 use crate::filters::TruncateWordsFilter;
+use crate::filters::TruncateWordsHtmlFilter;
+use crate::filters::TzConversion;
+use crate::filters::TzFilter;
+use crate::filters::UnorderedListFilter;
 use crate::filters::UpperFilter;
+use crate::filters::UrlencodeFilter;
+use crate::filters::UrlizeFilter;
+use crate::filters::UrlizetruncFilter;
 use crate::filters::WordcountFilter;
 use crate::filters::WordwrapFilter;
 use crate::filters::YesnoFilter;
+use crate::filters::{HumanizeFilter, HumanizeKind};
+use crate::filters::{LanguageField, LanguageInfoFilter};
 use dtl_lexer::common::{LexerError, get_all_at, text_content_at, translated_text_content_at};
 use dtl_lexer::core::{Lexer, TokenType};
 use dtl_lexer::tag::autoescape::{AutoescapeEnabled, AutoescapeError, lex_autoescape_argument};
@@ -151,11 +181,15 @@ pub struct InclusionTag {
     pub call: SimpleTag,
     pub filename: Gc<Py<PyAny>>,
     pub engine: Gc<Engine>,
+    /// Django admin's `InclusionAdminNode` template name. Its template is
+    /// chosen per render from `opts`, and its function sees the live context.
+    pub admin_template: Option<&'static str>,
 }
 
 impl PartialEq for InclusionTag {
     fn eq(&self, other: &Self) -> bool {
         self.call == other.call
+            && self.admin_template == other.admin_template
             && Gc::ptr_eq(&self.filename, &other.filename)
             && Gc::ptr_eq(&self.engine, &other.engine)
     }
@@ -166,12 +200,16 @@ pub struct Regroup {
     pub target: TagElement,
     pub expression: Gc<Py<PyAny>>,
     pub asvar: String,
+    /// The attribute path of a plain `by` key, such as `["country", "name"]`.
+    /// Keys with filters or literals resolve through `expression`.
+    pub lookup: Option<Vec<String>>,
 }
 
 impl PartialEq for Regroup {
     fn eq(&self, other: &Self) -> bool {
         self.target == other.target
             && self.asvar == other.asvar
+            && self.lookup == other.lookup
             && Gc::ptr_eq(&self.expression, &other.expression)
     }
 }
@@ -202,6 +240,113 @@ fn is_django_filter(py: Python<'_>, filter: &Py<PyAny>, name: &str) -> bool {
         .is_ok_and(|django| django.is(filter))
 }
 
+/// A filter from a loaded library. Django's own `{% load tz %}` filters get a
+/// native port; anything else, including replacements registered under the
+/// same names, calls the Python function.
+/// Finds which of `module`'s functions, if any, `filter` is.
+fn stock_filter<T: Copy>(
+    py: Python<'_>,
+    filter: &Bound<'_, PyAny>,
+    module: &str,
+    names: &[(&str, T)],
+) -> Option<T> {
+    let module = py.import(module).ok()?;
+    names
+        .iter()
+        .find(|(name, _)| module.getattr(*name).is_ok_and(|django| django.is(filter)))
+        .map(|(_, kind)| *kind)
+}
+
+const HUMANIZE: &str = "django.contrib.humanize.templatetags.humanize";
+
+/// A library filter, natively handled when it is one of Django's own
+/// `{% load tz %}`, `{% load l10n %}`, `{% load i18n %}` or
+/// `{% load humanize %}` filters.
+fn external_filter(py: Python<'_>, filter: Py<PyAny>, argument: Option<Argument>) -> FilterType {
+    let bound = filter.bind(py);
+    let tz = stock_filter(
+        py,
+        bound,
+        "django.templatetags.tz",
+        &[
+            ("localtime", TzConversion::Localtime),
+            ("utc", TzConversion::Utc),
+            ("do_timezone", TzConversion::Timezone),
+        ],
+    );
+    let l10n = || {
+        stock_filter(
+            py,
+            bound,
+            "django.templatetags.l10n",
+            &[("localize", true), ("unlocalize", false)],
+        )
+    };
+    let i18n = || {
+        stock_filter(
+            py,
+            bound,
+            "django.templatetags.i18n",
+            &[
+                ("language_name", LanguageField::Name),
+                ("language_name_local", LanguageField::NameLocal),
+                ("language_name_translated", LanguageField::NameTranslated),
+                ("language_bidi", LanguageField::Bidi),
+            ],
+        )
+    };
+    // Only check humanize when the filter comes from it, so templates that
+    // don't use it never import the module.
+    let humanize = || {
+        let from_humanize = bound
+            .getattr(intern!(py, "__module__"))
+            .is_ok_and(|module| module.eq(HUMANIZE).unwrap_or(false));
+        if !from_humanize {
+            return None;
+        }
+        stock_filter(
+            py,
+            bound,
+            HUMANIZE,
+            &[
+                ("apnumber", HumanizeKind::Apnumber),
+                ("intcomma", HumanizeKind::Intcomma),
+                ("intword", HumanizeKind::Intword),
+                ("naturalday", HumanizeKind::Naturalday),
+                ("naturaltime", HumanizeKind::Naturaltime),
+                ("ordinal", HumanizeKind::Ordinal),
+            ],
+        )
+    };
+    let django = || DjangoFilter {
+        filter: Gc::new(filter.clone_ref(py)),
+        argument: argument.clone(),
+    };
+    if let Some(conversion) = tz {
+        FilterType::Tz(TzFilter {
+            conversion,
+            django: django(),
+        })
+    } else if let Some(localize) = l10n() {
+        FilterType::L10n(L10nFilter {
+            localize,
+            django: django(),
+        })
+    } else if let Some(kind) = humanize() {
+        FilterType::Humanize(HumanizeFilter {
+            kind,
+            django: django(),
+        })
+    } else if let Some(field) = i18n() {
+        FilterType::LanguageInfo(LanguageInfoFilter {
+            field,
+            django: django(),
+        })
+    } else {
+        FilterType::External(ExternalFilter::new(filter, argument))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Filter {
     pub at: At,
@@ -224,7 +369,7 @@ impl Filter {
                 at,
                 all_at,
                 left,
-                filter: FilterType::External(ExternalFilter::new(filter.clone().unbind(), right)),
+                filter: external_filter(parser.py, filter.clone().unbind(), right),
             });
         }
         if let Some(builtin) = BuiltinFilter::from_name(parser.template.content(at)) {
@@ -247,6 +392,11 @@ impl Filter {
                     if is_django_filter(parser.py, &django.filter, builtin.name()) =>
                 {
                     FilterType::TruncateChars(TruncateCharsFilter { django })
+                }
+                BuiltinFilter::TruncatecharsHtml
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::TruncateCharsHtml(TruncateCharsHtmlFilter { django })
                 }
                 BuiltinFilter::Truncatewords
                     if is_django_filter(parser.py, &django.filter, builtin.name()) =>
@@ -276,6 +426,27 @@ impl Filter {
                     });
                     FilterType::Slice(SliceFilter { django, literal })
                 }
+                BuiltinFilter::Ljust
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Justify(JustifyFilter {
+                        django,
+                        side: Justify::Left,
+                    })
+                }
+                BuiltinFilter::Rjust
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Justify(JustifyFilter {
+                        django,
+                        side: Justify::Right,
+                    })
+                }
+                BuiltinFilter::First
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::First(FirstFilter)
+                }
                 BuiltinFilter::Join
                     if is_django_filter(parser.py, &django.filter, builtin.name()) =>
                 {
@@ -293,6 +464,11 @@ impl Filter {
                 {
                     FilterType::Linebreaksbr(LinebreaksbrFilter)
                 }
+                BuiltinFilter::Linenumbers
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Linenumbers(LinenumbersFilter)
+                }
                 BuiltinFilter::Timesince
                     if is_django_filter(parser.py, &django.filter, "timesince_filter") =>
                 {
@@ -308,6 +484,106 @@ impl Filter {
                         django,
                         until: true,
                     })
+                }
+                BuiltinFilter::Pluralize
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Pluralize(PluralizeFilter { django })
+                }
+                BuiltinFilter::GetDigit
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::GetDigit(GetDigitFilter { django })
+                }
+                BuiltinFilter::Phone2numeric
+                    if is_django_filter(parser.py, &django.filter, "phone2numeric_filter") =>
+                {
+                    FilterType::Phone2numeric(Phone2numericFilter { django })
+                }
+                BuiltinFilter::Urlencode
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Urlencode(UrlencodeFilter { django })
+                }
+                BuiltinFilter::Iriencode
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Iriencode(IriencodeFilter { django })
+                }
+                BuiltinFilter::MakeList
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::MakeList(MakeListFilter { django })
+                }
+                BuiltinFilter::Escapeseq
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Escapeseq(EscapeseqFilter { django })
+                }
+                BuiltinFilter::Safeseq
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Safeseq(SafeseqFilter { django })
+                }
+                BuiltinFilter::Random
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Random(RandomFilter { django })
+                }
+                BuiltinFilter::Pprint
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Pprint(PprintFilter { django })
+                }
+                BuiltinFilter::Filesizeformat
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Filesizeformat(FilesizeformatFilter { django })
+                }
+                BuiltinFilter::UnorderedList
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::UnorderedList(UnorderedListFilter { django })
+                }
+                BuiltinFilter::Striptags
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Striptags(StriptagsFilter { django })
+                }
+                BuiltinFilter::Stringformat
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Stringformat(StringformatFilter { django })
+                }
+                BuiltinFilter::Dictsort
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Dictsort(DictsortFilter { django })
+                }
+                BuiltinFilter::Dictsortreversed
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Dictsortreversed(DictsortreversedFilter { django })
+                }
+                BuiltinFilter::JsonScript
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::JsonScript(JsonScriptFilter { django })
+                }
+                BuiltinFilter::TruncatewordsHtml
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::TruncateWordsHtml(TruncateWordsHtmlFilter { django })
+                }
+                BuiltinFilter::Urlize
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Urlize(UrlizeFilter { django })
+                }
+                BuiltinFilter::Urlizetrunc
+                    if is_django_filter(parser.py, &django.filter, builtin.name()) =>
+                {
+                    FilterType::Urlizetrunc(UrlizetruncFilter { django })
                 }
                 _ => FilterType::Django(django),
             };
@@ -420,7 +696,7 @@ impl Filter {
                         });
                     }
                 };
-                FilterType::External(ExternalFilter::new(external, right))
+                external_filter(parser.py, external, right)
             }
         };
         Ok(Self {
@@ -1539,6 +1815,10 @@ enum TagContext<'py> {
         context: SimpleTagContext<'py>,
         filename: Bound<'py, PyAny>,
     },
+    AdminInclusion {
+        context: SimpleTagContext<'py>,
+        template_name: &'static str,
+    },
     SimpleBlock {
         end_tag_name: String,
         context: SimpleTagContext<'py>,
@@ -1585,7 +1865,9 @@ impl<'t, 'py> Parser<'t, 'py> {
         Self {
             py,
             template,
-            lexer: Lexer::new(template).with_modern_raw_blocks(engine.django_series >= (6, 2)),
+            lexer: Lexer::new(template)
+                .with_modern_raw_blocks(engine.django_series >= (6, 2))
+                .with_multiline_tags(engine.multiline_tags()),
             engine,
             origin,
             external_tags: HashMap::new(),
@@ -1619,7 +1901,9 @@ impl<'t, 'py> Parser<'t, 'py> {
         Self {
             py,
             template,
-            lexer: Lexer::new(template).with_modern_raw_blocks(engine.django_series >= (6, 2)),
+            lexer: Lexer::new(template)
+                .with_modern_raw_blocks(engine.django_series >= (6, 2))
+                .with_multiline_tags(engine.multiline_tags()),
             engine,
             origin: None,
             external_tags: HashMap::new(),
@@ -1662,7 +1946,9 @@ impl<'t, 'py> Parser<'t, 'py> {
         })();
         let filter = Gc::new(
             lookup
-                .map_err(|_| ParseError::InvalidFilter {
+                // A built-in missing from the filter library is what Django
+                // reports as an invalid filter, so the lookup error isn't needed.
+                .map_err(|_missing_filter| ParseError::InvalidFilter {
                     at: at.into(),
                     filter: name.to_string(),
                 })?
@@ -2020,11 +2306,24 @@ impl<'t, 'py> Parser<'t, 'py> {
         }
     }
 
+    /// The text Django compares when checking a named closing tag.
+    /// Django 6.2 joins the tag's words with single spaces, so the name may
+    /// sit on its own line.
+    fn end_tag_source(&self, at: At) -> Cow<'t, str> {
+        let source = self.template.content(at);
+        let source = source[START_TAG_LEN..source.len() - START_TAG_LEN].trim();
+        if self.engine.django_series >= (6, 2) {
+            Cow::Owned(source.split_whitespace().collect::<Vec<_>>().join(" "))
+        } else {
+            Cow::Borrowed(source)
+        }
+    }
+
     fn parse_comment(&mut self, at: At, _parts: TagParts) -> Result<Comment, PyParseError> {
         for token in self.lexer.by_ref() {
             if token.token_type == TokenType::Tag {
-                let content = token.content(self.template).trim();
-                if content.split_whitespace().next() == Some("endcomment") {
+                // Like Django's `skip_past`, only an exact `endcomment` closes.
+                if token.content(self.template).trim() == "endcomment" {
                     return Ok(Comment);
                 }
             }
@@ -2170,7 +2469,13 @@ impl<'t, 'py> Parser<'t, 'py> {
         }
         let target = tokens[0].parse(self)?;
         let asvar = self.template.content(tokens[4].at).to_string();
-        let expression = format!("{asvar}.{}", self.template.content(tokens[2].at));
+        let key = self.template.content(tokens[2].at);
+        let lookup = (!key.is_empty()
+            && key.split('.').all(|part| {
+                !part.is_empty() && part.chars().all(|c| c.is_alphanumeric() || c == '_')
+            }))
+        .then(|| key.split('.').map(str::to_string).collect());
+        let expression = format!("{asvar}.{key}");
         let builtins = pyo3::types::PyList::empty(self.py);
         for module in [
             "django.template.defaulttags",
@@ -2201,6 +2506,7 @@ impl<'t, 'py> Parser<'t, 'py> {
             target,
             expression,
             asvar,
+            lookup,
         })))
     }
 
@@ -2673,6 +2979,30 @@ impl<'t, 'py> Parser<'t, 'py> {
                             call,
                             filename: Gc::new(filename.clone().unbind()),
                             engine: self.engine.clone(),
+                            admin_template: None,
+                        })))
+                    }
+                    Some(TagContext::AdminInclusion {
+                        context,
+                        template_name,
+                    }) => {
+                        let template_name = *template_name;
+                        let TokenTree::Tag(Tag::SimpleTag(call)) =
+                            self.parse_simple_tag(context, at, tag.parts)?
+                        else {
+                            unreachable!("helper parser returns a simple tag")
+                        };
+                        // Django's `parse_bits` has no `as` form, so the
+                        // target counts as extra positional arguments.
+                        if call.target_var.is_some() {
+                            return Err(crate::template::django_rusty_templates::TemplateSyntaxError::new_err(format!("'{tag_name}' received too many positional arguments")).into());
+                        }
+                        Either::Left(TokenTree::Tag(Tag::InclusionTag(InclusionTag {
+                            id: CycleId(NEXT_CYCLE_ID.fetch_add(1, Ordering::Relaxed)),
+                            call,
+                            filename: Gc::new(self.py.None()),
+                            engine: self.engine.clone(),
+                            admin_template: Some(template_name),
                         })))
                     }
                     Some(TagContext::SimpleBlock {
@@ -2712,7 +3042,7 @@ impl<'t, 'py> Parser<'t, 'py> {
             Cow::Borrowed("partialdef"),
             at,
         )?;
-        let close = self.template.content((end.at.0 + 2, end.at.1 - 4)).trim();
+        let close = self.end_tag_source(end.at);
         if close != "endpartialdef" && close != format!("endpartialdef {name}") {
             return Err(TemplateSyntaxError::new_err("Invalid endpartialdef name").into());
         }
@@ -2758,8 +3088,7 @@ impl<'t, 'py> Parser<'t, 'py> {
             at,
         )?;
         if let Some(parts) = end.parts {
-            let end_source = self.template.content(end.at);
-            let end_source = end_source[START_TAG_LEN..end_source.len() - START_TAG_LEN].trim();
+            let end_source = self.end_tag_source(end.at);
             let end_name = self.template.content(parts.at).trim();
             if end_source != "endblock" && end_source != format!("endblock {name}") {
                 return Err(
@@ -3011,21 +3340,6 @@ impl<'t, 'py> Parser<'t, 'py> {
         name: &str,
         compiler: &Bound<'py, PyAny>,
     ) -> Result<(), PyParseError> {
-        // These tags share parse-time registries with arbitrary compilers. Keep
-        // that entire template on the compatibility path before invoking one.
-        let shared_state = Lexer::new(self.template).any(|token| {
-            token.token_type == TokenType::Tag
-                && token
-                    .content(self.template)
-                    .split_whitespace()
-                    .next()
-                    .is_some_and(|name| {
-                        matches!(
-                            name,
-                            "extends" | "block" | "cycle" | "resetcycle" | "partialdef" | "partial"
-                        )
-                    })
-        });
         let mixed_compilers = self
             .engine
             .libraries
@@ -3036,7 +3350,10 @@ impl<'t, 'py> Parser<'t, 'py> {
                     return true;
                 };
                 tags.iter().any(|(name, candidate)| {
-                    if stock::compiler(self.py, candidate).is_ok_and(|kind| kind.is_some()) {
+                    if stock::compiler(self.py, candidate).is_ok_and(|kind| kind.is_some())
+                        || stock::admin_inclusion(self.py, candidate)
+                            .is_ok_and(|kind| kind.is_some())
+                    {
                         return false;
                     }
                     let generated = candidate
@@ -3084,7 +3401,6 @@ impl<'t, 'py> Parser<'t, 'py> {
             || !compiler
                 .getattr("rusty_isolated_compiler")
                 .is_ok_and(|value| value.is_truthy().unwrap_or(false))
-            || shared_state
             || compiler
                 .getattr("rusty_requires_full_parser")
                 .is_ok_and(|value| value.is_truthy().unwrap_or(true))
@@ -3139,6 +3455,13 @@ impl<'t, 'py> Parser<'t, 'py> {
         let (node, end): (Py<PyAny>, usize) = parser
             .call_method1("compile", (at.0, compiler))?
             .extract()?;
+        if self.shares_parser_state(at.0 + at.1, end) {
+            // Django's parser compiled these tags inside the opaque body, out
+            // of reach of the native inheritance, cycle and partial
+            // registries. Compile the whole template with Django instead,
+            // which runs this compiler a second time.
+            return Err(Unimplemented::FullyCustomTag.into());
+        }
         let filters = self.get_filters(parser)?;
         let tags = self.get_tags(parser)?;
         self.external_filters.extend(filters);
@@ -3154,6 +3477,32 @@ impl<'t, 'py> Parser<'t, 'py> {
         }
         self.skip_until = end;
         Ok(TokenTree::Tag(Tag::PythonNode(PythonNode(Gc::new(node)))))
+    }
+
+    /// Whether a tag between `start` and `end` shares parse-time state that
+    /// native and Django parsers can't see across an opaque boundary.
+    fn shares_parser_state(&self, start: usize, end: usize) -> bool {
+        Lexer::new(self.template)
+            .skip_while(|token| token.at.0 < start)
+            .take_while(|token| token.at.0 < end)
+            .any(|token| {
+                token.token_type == TokenType::Tag
+                    && token
+                        .content(self.template)
+                        .split_whitespace()
+                        .next()
+                        .is_some_and(|name| {
+                            matches!(
+                                name,
+                                "extends"
+                                    | "block"
+                                    | "cycle"
+                                    | "resetcycle"
+                                    | "partialdef"
+                                    | "partial"
+                            )
+                        })
+            })
     }
 
     fn register_tag(&mut self, name: &str, tag: Bound<'py, PyAny>) -> PyResult<()> {
@@ -3192,6 +3541,17 @@ impl<'t, 'py> Parser<'t, 'py> {
         if let Some(kind) = stock::compiler(self.py, tag)? {
             self.external_tags
                 .insert(name.to_string(), TagContext::Stock(kind));
+            return Ok(());
+        }
+        if let Some(admin) = stock::admin_inclusion(self.py, tag)? {
+            let context = self.admin_inclusion_context(name, admin)?;
+            self.external_tags.insert(
+                name.to_string(),
+                TagContext::AdminInclusion {
+                    context,
+                    template_name: admin.template_name,
+                },
+            );
             return Ok(());
         }
         let Ok(closure) = tag.getattr("__closure__") else {
@@ -3372,6 +3732,42 @@ impl<'t, 'py> Parser<'t, 'py> {
         };
         self.external_tags.insert(name.to_string(), tag);
         Ok(())
+    }
+
+    /// The call signature `InclusionAdminNode` reads from its function.
+    fn admin_inclusion_context(
+        &self,
+        name: &str,
+        admin: stock::AdminInclusion,
+    ) -> PyResult<SimpleTagContext<'py>> {
+        let func = match admin.func {
+            Some(func) => self.py.import(admin.module)?.getattr(func)?,
+            None => self
+                .py
+                .import("django_rusty_templates.stock")?
+                .getattr("admin_context")?,
+        };
+        let spec = self
+            .py
+            .import("inspect")?
+            .getattr("getfullargspec")?
+            .call1((&func,))?;
+        let mut params: Vec<String> = spec.getattr("args")?.extract()?;
+        // Every admin function that takes the context names it first.
+        if admin.takes_context {
+            params.remove(0);
+        }
+        Ok(SimpleTagContext {
+            function_name: name.to_string(),
+            takes_context: admin.takes_context,
+            params,
+            defaults_count: get_defaults_count(&spec.getattr("defaults")?)?,
+            varargs: !spec.getattr("varargs")?.is_none(),
+            kwonly: spec.getattr("kwonlyargs")?.extract()?,
+            kwonly_defaults: get_kwonly_defaults(&spec.getattr("kwonlydefaults")?)?,
+            varkw: !spec.getattr("varkw")?.is_none(),
+            func,
+        })
     }
 
     fn get_tags(

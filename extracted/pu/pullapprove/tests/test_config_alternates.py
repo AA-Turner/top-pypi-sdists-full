@@ -45,6 +45,23 @@ def test_username_in_alternates_beats_team_in_reviewers() -> None:
     assert scope.counts_toward("bob")
 
 
+def test_outranked_reviewer_keeps_author_value() -> None:
+    """Moving a team member to alternates stops requesting them; it doesn't
+    take away their author_value on their own pull request."""
+    scope = compile_scope(
+        {
+            "reviewers": ["@acme/backend"],
+            "alternates": ["$admins"],
+            "require": 1,
+            "author_value": 1,
+        },
+        aliases={"admins": ["bob", "dave"]},
+    )
+
+    assert "bob" not in scope.reviewers
+    assert scope.author_points("bob") == 1
+
+
 def test_alias_in_alternates_beats_team_in_reviewers() -> None:
     """A reusable never-request alias works against any team."""
     scope = compile_scope(

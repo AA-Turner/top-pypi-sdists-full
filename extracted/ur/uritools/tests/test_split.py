@@ -340,7 +340,8 @@ class SplitTest(unittest.TestCase):
     def test_getport(self):
         for uri in ["foo://bar", "foo://bar:", "foo://bar/", "foo://bar:/"]:
             result = urisplit(uri)
-            if result.authority.endswith(":"):  # type: ignore
+            assert result.authority is not None
+            if result.authority.endswith(":"):
                 self.assertEqual(result.port, "")
             else:
                 self.assertEqual(result.port, None)
@@ -632,3 +633,25 @@ class SplitTest(unittest.TestCase):
         self.assertEqual(parts.getpath(encoding=None), b"")
         self.assertEqual(parts.getquerylist(encoding=None), [])
         self.assertEqual(dict(parts.getquerydict(encoding=None)), {})
+
+    def test_host_numeric(self):
+        # RFC 3986 3.2.2: a registered name may consist of digits only
+        cases = [
+            ("//12345", "12345", None),
+            ("//user@12345", "12345", None),
+            ("//12345/path?query#fragment", "12345", None),
+            ("//12345:", "12345", ""),
+            ("//12345:80", "12345", "80"),
+            ("//user@12345:80", "12345", "80"),
+        ]
+        for uri, host, port in cases:
+            result = urisplit(uri)
+            self.assertEqual(result.host, host)
+            self.assertEqual(result.port, port)
+            self.assertEqual(result.gethost(), host)
+            self.assertEqual(result.getport(), int(port) if port else None)
+            result = urisplit(uri.encode())
+            self.assertEqual(result.host, host.encode())
+            self.assertEqual(result.port, port.encode() if port is not None else None)
+            self.assertEqual(result.gethost(), host)
+            self.assertEqual(result.getport(), int(port) if port else None)

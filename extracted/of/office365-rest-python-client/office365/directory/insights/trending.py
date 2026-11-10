@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.directory.insights.resource_reference import ResourceReference
+from office365.directory.resource_visualization import ResourceVisualization
 from office365.entity import Entity
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
-
-if TYPE_CHECKING:
-    from office365.directory.resource_visualization import ResourceVisualization
 
 
 class Trending(Entity):
@@ -24,12 +22,13 @@ class Trending(Entity):
         """Gets date and time the item was last modified."""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
-    @odata(name="resourceReference")
+    @odata(name="resourceReference", readonly=True)
     @property
     def resource_reference(self) -> ResourceReference:
         """Reference properties of the trending document, such as the url and type of the document."""
         return self.properties.get("resourceReference", ResourceReference())
 
+    @odata(name="resource", navigation=True)
     @property
     def resource(self) -> Entity:
         """Used for navigating to the trending document."""
@@ -38,13 +37,13 @@ class Trending(Entity):
             Entity(self.context, ResourcePath("resource", self.resource_path)),
         )
 
+    @odata(name="resourceVisualization", readonly=True)
     @property
     def resource_visualization(self) -> ResourceVisualization:
         """Gets the resourceVisualization property"""
-        from office365.directory.resource_visualization import ResourceVisualization
-
         return self.properties.get("resourceVisualization", ResourceVisualization())
 
+    @odata(name="weight")
     @property
     def weight(self) -> Optional[float]:
         """Gets the weight property"""

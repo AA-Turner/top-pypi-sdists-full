@@ -17,40 +17,17 @@ from sarj_standards.libs.typed_containers import is_object_mapping
 from sarj_standards.libs.yaml_boundary import parse_yaml_documents
 
 from .native_byte_bridge import NativeInvocation
+from .oxfmt import CONFIG_NAMES as _OXFMT_CONFIGS
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Mapping
+    from collections.abc import Callable, Collection, Iterable, Mapping
 
     from pydantic import JsonValue
 
 
-_MAX_CONFIGURATION_DEPTH: Final = 64
 _EXACT_VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?")
-_FORMAT_SCRIPTS: Final[dict[str, Literal["biome", "prettier"]]] = {
-    "biome check --write .": "biome",
-    "biome format --write .": "biome",
-    "prettier --write .": "prettier",
-}
-_PRETTIER_CONFIGS = (
-    ".prettierrc",
-    ".prettierrc.json",
-    ".prettierrc.json5",
-    ".prettierrc.yml",
-    ".prettierrc.yaml",
-    ".prettierrc.js",
-    ".prettierrc.mjs",
-    ".prettierrc.cjs",
-    ".prettierrc.ts",
-    ".prettierrc.mts",
-    ".prettierrc.cts",
-    "prettier.config.js",
-    "prettier.config.mjs",
-    "prettier.config.cjs",
-    "prettier.config.ts",
-    "prettier.config.mts",
-    "prettier.config.cts",
-)
+_OXFMT_POLICY: Final = "oxfmt.strict.mts"
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,12 +61,6 @@ class _InstalledTool:
 
 
 @dataclass(frozen=True, slots=True)
-class _FormatProject:
-    path: Path
-    tool: Literal["biome", "prettier"]
-
-
-@dataclass(frozen=True, slots=True)
 class FormatterOwner:
     invocation: NativeInvocation
     version: str
@@ -120,13 +91,36 @@ def _read(path: Path) -> InputProof:
 
 
 def validate(owner: FormatterOwner) -> None:
+    validate_all((owner,))
+
+
+def validate_all(owners: Iterable[FormatterOwner]) -> None:
+    inputs: dict[Path, InputProof] = {}
+    runtimes: dict[Path, RuntimeProof] = {}
+    missing: set[Path] = set()
+    for owner in owners:
+        _collect_owner_proofs(owner, inputs, runtimes)
+        missing.update(owner.missing)
     if (
-        any(_read(proof.path) != proof for proof in owner.inputs)
-        or any(not _runtime_unchanged(proof) for proof in owner.runtimes)
-        or any(os.path.lexists(path) for path in owner.missing)
+        any(_read(proof.path) != proof for proof in inputs.values())
+        or any(not _runtime_unchanged(proof) for proof in runtimes.values())
+        or any(os.path.lexists(path) for path in missing)
     ):
         msg = "formatter owner, configuration or installed pin changed during native planning"
         raise ValueError(msg)
+
+
+def _collect_owner_proofs(
+    owner: FormatterOwner, inputs: dict[Path, InputProof], runtimes: dict[Path, RuntimeProof]
+) -> None:
+    for proof in owner.inputs:
+        if inputs.setdefault(proof.path, proof) != proof:
+            msg = "formatter ownership changed during native planning"
+            raise ValueError(msg)
+    for proof in owner.runtimes:
+        if runtimes.setdefault(proof.path, proof) != proof:
+            msg = "native runtime changed during native planning"
+            raise ValueError(msg)
 
 
 def _runtime_unchanged(proof: RuntimeProof) -> bool:
@@ -141,19 +135,6 @@ def _runtime_unchanged(proof: RuntimeProof) -> bool:
     )
 
 
-def _object(path: Path, inputs: dict[Path, InputProof]) -> dict[str, JsonValue]:
-    proof = inputs.setdefault(path, _read(path))
-    try:
-        parsed = parse_unique_json(proof.contents.decode("utf-8"))
-    except RecursionError as exc:
-        msg = "formatter ownership metadata is too deeply nested"
-        raise ValueError(msg) from exc
-    if type(parsed) is not dict:
-        msg = "formatter ownership metadata must be a unique JSON object"
-        raise ValueError(msg)
-    return parsed
-
-
 def _bounded(start: Path, root: Path) -> tuple[Path, ...]:
     return (start, *(parent for parent in start.parents if parent == root or root in parent.parents))
 
@@ -163,13 +144,56 @@ def _tracked(path: Path, root: Path, tracked: Collection[str], inputs: dict[Path
     if path.relative_to(root).as_posix() not in tracked:
         msg = "formatter owner and configuration must be tracked repository inputs"
         raise ValueError(msg)
-    return inputs.setdefault(path, _read(path))
+    if path not in inputs:
+        inputs[path] = _read(path)
+    return inputs[path]
+
+
+def configured(root: Path, relative: str) -> bool:
+    return any(
+        os.path.lexists(parent / name) for parent in _bounded((root / relative).parent, root) for name in _OXFMT_CONFIGS
+    )
+
+
+def select(
+    root: Path,
+    relative: str,
+    tracked: Collection[str],
+    *,
+    runtimes: dict[Path, RuntimeProof] | None = None,
+    _node: Callable[[Path], Path] | None = None,
+) -> FormatterOwner:
+    # oxfmt formats a source with the nearest oxfmt config, as `oxfmt` run in that directory would.
+    path = root / relative
+    inputs: dict[Path, InputProof] = {}
+    missing: set[Path] = set()
+    ancestors = _bounded(path.parent, root)
+    config = _configuration(root, ancestors, tracked, inputs, missing)
+    _format_inputs(root, ancestors, tracked, inputs, missing)
+    local = _local_tool(
+        root,
+        config.parent,
+        "oxfmt",
+        tracked=tracked,
+        inputs=inputs,
+        runtimes={} if runtimes is None else runtimes,
+        resolve_node=_node,
+    )
+    return FormatterOwner(
+        NativeInvocation(
+            "oxfmt", local.node, local.entrypoint, config.parent, (f"--config={config}", f"--stdin-filepath={path}")
+        ),
+        local.version,
+        tuple(inputs.values()),
+        (local.runtime,),
+        tuple(sorted(missing)),
+    )
 
 
 def _local_tool(
     root: Path,
     project: Path,
-    tool: Literal["eslint", "biome", "prettier"],
+    tool: Literal["oxfmt"],
     *,
     tracked: Collection[str],
     inputs: dict[Path, InputProof],
@@ -226,18 +250,18 @@ def _runtime(path: Path) -> RuntimeProof:
 def _installed_tool(
     root: Path,
     project: Path,
-    tool: Literal["eslint", "biome", "prettier"],
+    tool: Literal["oxfmt"],
     tracked: Collection[str],
     inputs: dict[Path, InputProof],
 ) -> _InstalledTool:
-    package_name = "@biomejs/biome" if tool == "biome" else tool
+    package_name = tool
     owner = _installation_owner(root, project, package_name)
     declaration = owner / "package.json"
     _tracked(declaration, root, tracked, inputs)
     version = _dependency(
         _object(declaration, inputs), package_name, project=owner, root=root, tracked=tracked, inputs=inputs
     )
-    package_file = _installed_package_file(root, owner, package_name)
+    package_file = _installed_package_file(root, owner, package_name, inputs)
     installed = _object(package_file, inputs)
     if installed.get("name") != package_name or installed.get("version") != version:
         msg = "installed native formatter does not match the declared immutable pin"
@@ -245,6 +269,21 @@ def _installed_tool(
     entrypoint = _package_entrypoint(package_file, installed, tool)
     inputs[entrypoint] = _read(entrypoint)
     return _InstalledTool(entrypoint, version)
+
+
+def _object(path: Path, inputs: dict[Path, InputProof]) -> dict[str, JsonValue]:
+    if path not in inputs:
+        inputs[path] = _read(path)
+    proof = inputs[path]
+    try:
+        parsed = parse_unique_json(proof.contents.decode("utf-8"))
+    except RecursionError as exc:
+        msg = "formatter ownership metadata is too deeply nested"
+        raise ValueError(msg) from exc
+    if type(parsed) is not dict:
+        msg = "formatter ownership metadata must be a unique JSON object"
+        raise ValueError(msg)
+    return parsed
 
 
 def _dependency(
@@ -329,18 +368,32 @@ def _installation_owner(root: Path, project: Path, package_name: str) -> Path:
     return owner
 
 
-def _installed_package_file(root: Path, owner: Path, package_name: str) -> Path:
+def _installed_package_file(root: Path, owner: Path, package_name: str, inputs: dict[Path, InputProof]) -> Path:
     modules = (owner / "node_modules").resolve()
     package_file = (modules / package_name / "package.json").resolve()
-    if not package_file.is_relative_to(modules) or not modules.is_relative_to(root):
+    if not modules.is_relative_to(root) or not (
+        package_file.is_relative_to(modules) or _in_pnpm_global_virtual_store(modules, package_file, inputs)
+    ):
         msg = "native formatter package resolves outside repository-local node_modules"
         raise ValueError(msg)
     return package_file
 
 
-def _package_entrypoint(
-    package_file: Path, installed: Mapping[str, JsonValue], tool: Literal["eslint", "biome", "prettier"]
-) -> Path:
+def _in_pnpm_global_virtual_store(modules: Path, package_file: Path, inputs: dict[Path, InputProof]) -> bool:
+    # pnpm's global virtual store links packages from its content-addressed store, outside the
+    # repository. Accept that location only where this install's own state records it.
+    state = modules / ".modules.yaml"
+    if not os.path.lexists(state):
+        return False
+    metadata = _object(state, inputs)
+    store = metadata.get("virtualStoreDir")
+    if metadata.get("nodeLinker") != "isolated" or not isinstance(store, str) or not store:
+        return False
+    links = (modules / store).resolve()
+    return links.name == "links" and package_file.is_relative_to(links)
+
+
+def _package_entrypoint(package_file: Path, installed: Mapping[str, JsonValue], tool: Literal["oxfmt"]) -> Path:
     bins = installed.get("bin")
     binary = bins.get(tool) if isinstance(bins, dict) else bins if isinstance(bins, str) else None
     if not isinstance(binary, str) or Path(binary).is_absolute() or ".." in Path(binary).parts:
@@ -353,42 +406,37 @@ def _package_entrypoint(
     return entrypoint
 
 
-def select(
+def _configuration(
     root: Path,
-    relative: str,
+    ancestors: tuple[Path, ...],
     tracked: Collection[str],
-    *,
-    runtimes: dict[Path, RuntimeProof] | None = None,
-    _node: Callable[[Path], Path] | None = None,
-) -> FormatterOwner:
-    path = root / relative
-    inputs: dict[Path, InputProof] = {}
-    missing: set[Path] = set()
-    ancestors = _bounded(path.parent, root)
-    project = _formatter_project(root, ancestors, tracked, inputs, missing)
-    config = _formatter_configuration(root, ancestors, project.tool, tracked=tracked, inputs=inputs, missing=missing)
-    _format_inputs(root, ancestors, tracked, inputs, missing)
-    local = _local_tool(
-        root,
-        project.path,
-        project.tool,
-        tracked=tracked,
-        inputs=inputs,
-        runtimes={} if runtimes is None else runtimes,
-        resolve_node=_node,
-    )
-    arguments = (
-        ("format", "--stdin-file-path", str(path), "--config-path", str(config))
-        if project.tool == "biome"
-        else ("--config", str(config), "--stdin-filepath", str(path))
-    )
-    return FormatterOwner(
-        NativeInvocation(project.tool, local.node, local.entrypoint, project.path, arguments),
-        local.version,
-        tuple(inputs.values()),
-        (local.runtime,),
-        tuple(sorted(missing)),
-    )
+    inputs: dict[Path, InputProof],
+    missing: set[Path],
+) -> Path:
+    for parent in ancestors:
+        present: list[Path] = []
+        for name in _OXFMT_CONFIGS:
+            candidate = parent / name
+            if os.path.lexists(candidate):
+                present.append(candidate)
+            else:
+                missing.add(candidate)
+        if len(present) > 1:
+            msg = "directive cleanup requires one unambiguous oxfmt configuration"
+            raise ValueError(msg)
+        if present:
+            config = present[0]
+            _tracked(config, root, tracked, inputs)
+            # The managed TypeScript config spreads the synced policy module next to it.
+            if config.suffix in {".ts", ".mts"}:
+                strict = parent / _OXFMT_POLICY
+                if os.path.lexists(strict):
+                    _tracked(strict, root, tracked, inputs)
+                else:
+                    missing.add(strict)
+            return config
+    msg = "directive cleanup requires an oxfmt configuration"
+    raise ValueError(msg)
 
 
 def _format_inputs(
@@ -444,196 +492,3 @@ def _format_inputs(
         inputs[exclude] = _read(exclude)
     else:
         missing.add(exclude)
-
-
-def _formatter_project(
-    root: Path,
-    ancestors: tuple[Path, ...],
-    tracked: Collection[str],
-    inputs: dict[Path, InputProof],
-    missing: set[Path],
-) -> _FormatProject:
-    for parent in ancestors:
-        package_file = parent / "package.json"
-        if not os.path.lexists(package_file):
-            missing.add(package_file)
-            continue
-        _tracked(package_file, root, tracked, inputs)
-        package = _object(package_file, inputs)
-        scripts = package.get("scripts")
-        script = scripts.get("format") if isinstance(scripts, dict) else None
-        if script is not None:
-            tool = _FORMAT_SCRIPTS.get(script) if isinstance(script, str) else None
-            if tool is None:
-                msg = "directive cleanup cannot infer an unsupported project formatter wrapper"
-                raise ValueError(msg)
-            return _FormatProject(parent, tool)
-    msg = "directive cleanup requires an explicit project-owned native formatter"
-    raise ValueError(msg)
-
-
-def _formatter_configuration(
-    root: Path,
-    ancestors: tuple[Path, ...],
-    tool: Literal["biome", "prettier"],
-    *,
-    tracked: Collection[str],
-    inputs: dict[Path, InputProof],
-    missing: set[Path],
-) -> Path:
-    config = _find_formatter_configuration(root, ancestors, tool, tracked=tracked, inputs=inputs, missing=missing)
-    _tracked(config, root, tracked, inputs)
-    if config.name not in {"biome.json", ".prettierrc", ".prettierrc.json"}:
-        msg = "dynamic, extended or non-JSON formatter configuration needs a separate owner proof"
-        raise ValueError(msg)
-    _validate_formatter_configuration(config, tool, inputs)
-    return config
-
-
-def _find_formatter_configuration(
-    root: Path,
-    ancestors: tuple[Path, ...],
-    tool: Literal["biome", "prettier"],
-    *,
-    tracked: Collection[str],
-    inputs: dict[Path, InputProof],
-    missing: set[Path],
-) -> Path:
-    names = ("biome.json", "biome.jsonc") if tool == "biome" else _PRETTIER_CONFIGS
-    for parent in ancestors:
-        package_file = parent / "package.json"
-        if os.path.lexists(package_file):
-            _tracked(package_file, root, tracked, inputs)
-            if tool == "prettier" and "prettier" in _object(package_file, inputs):
-                msg = "package-embedded Prettier configuration is outside the bounded projection protocol"
-                raise ValueError(msg)
-        else:
-            missing.add(package_file)
-        configs = _configuration_candidates(parent, names, missing)
-        if len(configs) > 1:
-            msg = "directive cleanup requires an unambiguous native formatter configuration"
-            raise ValueError(msg)
-        if configs:
-            return configs[0]
-    msg = "directive cleanup requires an explicit native formatter configuration"
-    raise ValueError(msg)
-
-
-def _configuration_candidates(parent: Path, names: tuple[str, ...], missing: set[Path]) -> tuple[Path, ...]:
-    present: list[Path] = []
-    for name in names:
-        path = parent / name
-        if os.path.lexists(path):
-            present.append(path)
-        else:
-            missing.add(path)
-    return tuple(present)
-
-
-def _validate_formatter_configuration(
-    config: Path, tool: Literal["biome", "prettier"], inputs: dict[Path, InputProof]
-) -> None:
-    configured = _object(config, inputs)
-    vcs = configured.get("vcs")
-    unsupported_biome_root = tool == "biome" and (
-        configured.get("root", True) is not True or (isinstance(vcs, dict) and "root" in vcs)
-    )
-    if _contains_key(configured, "extends") or _contains_key(configured, "plugins") or unsupported_biome_root:
-        msg = "extended or plugin formatter configuration needs a separate owner proof"
-        raise ValueError(msg)
-
-
-def _contains_key(value: JsonValue, key: str, depth: int = 0) -> bool:
-    if depth >= _MAX_CONFIGURATION_DEPTH:
-        msg = "formatter configuration is too deeply nested"
-        raise ValueError(msg)
-    match value:
-        case dict():
-            return key in value or any(_contains_key(item, key, depth + 1) for item in value.values())
-        case list():
-            return any(_contains_key(item, key, depth + 1) for item in value)
-        case _:
-            return False
-
-
-def eslint_engine(
-    root: Path,
-    project: Path,
-    tracked: Collection[str],
-    *,
-    runtimes: dict[Path, RuntimeProof] | None = None,
-    _node: Callable[[Path], Path] | None = None,
-) -> FormatterOwner:
-    inputs: dict[Path, InputProof] = {}
-    local = _local_tool(
-        root,
-        project,
-        "eslint",
-        tracked=tracked,
-        inputs=inputs,
-        runtimes={} if runtimes is None else runtimes,
-        resolve_node=_node,
-    )
-    return FormatterOwner(
-        NativeInvocation("eslint", local.node, local.entrypoint, project, ()),
-        local.version,
-        tuple(inputs.values()),
-        (local.runtime,),
-    )
-
-
-def eslint(
-    root: Path,
-    project: Path,
-    relative: str,
-    tracked: Collection[str],
-    *,
-    runtimes: dict[Path, RuntimeProof] | None = None,
-    _node: Callable[[Path], Path] | None = None,
-) -> FormatterOwner:
-    inputs: dict[Path, InputProof] = {}
-    configs = [
-        project / name
-        for name in (
-            "eslint.config.js",
-            "eslint.config.mjs",
-            "eslint.config.cjs",
-            "eslint.config.ts",
-            "eslint.config.mts",
-            "eslint.config.cts",
-        )
-        if (project / name).exists()
-    ]
-    if len(configs) != 1:
-        msg = "directive convergence requires the exact canonical ESLint configuration"
-        raise ValueError(msg)
-    config = configs[0]
-    _tracked(config, root, tracked, inputs)
-    local = _local_tool(
-        root,
-        project,
-        "eslint",
-        tracked=tracked,
-        inputs=inputs,
-        runtimes={} if runtimes is None else runtimes,
-        resolve_node=_node,
-    )
-    arguments = (
-        "--config",
-        str(config),
-        "--fix-dry-run",
-        "--fix-type",
-        "directive",
-        "--format",
-        "json",
-        "--no-cache",
-        "--stdin",
-        "--stdin-filename",
-        str(root / relative),
-    )
-    return FormatterOwner(
-        NativeInvocation("eslint", local.node, local.entrypoint, project, arguments),
-        local.version,
-        tuple(inputs.values()),
-        (local.runtime,),
-    )

@@ -1,12 +1,11 @@
 """PROV-RDF serializers for ProvDocument"""
 
 import base64
-import datetime
 import io
 import re
 import typing
 from collections import OrderedDict
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -15,7 +14,6 @@ from rdflib.graph import DATASET_DEFAULT_GRAPH_ID, Dataset, Graph
 from rdflib.term import BNode, Literal as RDFLiteral, Node, URIRef
 
 import prov.model as pm
-from prov import Error
 from prov._warnings import warn
 from prov.constants import (
     PROV,
@@ -43,6 +41,7 @@ from prov.constants import (
     PROV_LOCATION,
     PROV_MENTION,
     PROV_N_MAP,
+    PROV_QUALIFIEDNAME,
     PROV_ROLE,
     PROV_START,
     PROV_USAGE,
@@ -50,20 +49,19 @@ from prov.constants import (
     XSD_QNAME,
 )
 from prov.identifier import QualifiedName
-from prov.model.records import (
+from prov.model._values import (
     _offset_beyond_xsd_bound,
-    _xsd_datetime_text,
-    _xsd_double_text,
+    python_value_form,
 )
-from prov.serializers import Serializer, _is_text_stream
+from prov.serializers import ProvSerializationError, Serializer, _is_text_stream
 
 __author__ = "Satrajit S. Ghosh"
 __email__ = "satra@mit.edu"
 
 
-# Type aliases for convenience. Deliberately local to this module: records.py
-# carries no runtime dependency on rdflib, which is what makes the
-# minimal-install story work (see CLAUDE.md).
+# Type aliases for convenience. They live in this module because
+# ``prov.model`` imports nothing from rdflib (see
+# docs/explanation/architecture.md).
 RelationMapper: typing.TypeAlias = dict[URIRef, str]
 PredicateMapper: typing.TypeAlias = dict[URIRef, pm.QualifiedName]
 RecordTypeLabels: typing.TypeAlias = dict[pm.QualifiedName, str]
@@ -71,7 +69,7 @@ RdfTerm: typing.TypeAlias = URIRef | RDFLiteral
 RdfSubject: typing.TypeAlias = URIRef | BNode
 
 
-class ProvRDFException(Error):
+class ProvRDFException(ProvSerializationError):
     """Raised when a PROV-RDF/PROV-O graph cannot be decoded by this package."""
 
 
@@ -96,40 +94,41 @@ class AnonymousIDGenerator:
             The cached or newly minted blank-node identifier string for
             ``obj``.
         """
-        if obj not in self._cache:
+        anon_id = self._cache.get(obj)
+        if anon_id is None:
             self._count += 1
-            self._cache[obj] = f"_:{local_prefix}{self._count}"
-        return self._cache[obj]
+            anon_id = self._cache[obj] = f"_:{local_prefix}{self._count}"
+        return anon_id
 
 
 _XSD_GYEAR_RE = re.compile(r"^(-?\d{4,})(?:Z|[+-]\d{2}:\d{2})?$")
 _XSD_GYEARMONTH_RE = re.compile(r"^(-?\d{4,})-(\d{2})(?:Z|[+-]\d{2}:\d{2})?$")
 
-# Reverse map for prov.model.XSD_DATATYPE_PARSERS
+# The writer types plain values through ``python_value_form``; the map is kept
+# for code that reads it.
 LITERAL_XSDTYPE_MAP = {
     float: XSD["double"],
     # boolean, string values are supported natively by PROV-RDF: str falls
     # through to a plain (undecorated) rdflib.Literal -- RDF 1.1 treats a
     # plain literal and an explicit xsd:string one as the same value, and
-    # PROV-RDF now emits only the former as the canonical form (#89)
-    # int values are typed by magnitude, via canonical_xsd_datatype() (#256)
+    # PROV-RDF emits only the former as the canonical form (#89)
     # datetime values are converted separately
 }
 """Maps Python literal types to their RDF ``xsd:*`` datatype URIRef, for
 types not natively/simply representable in PROV-RDF."""
 
 
-class _FullPrecisionDoubleLiteral(RDFLiteral):
-    """An ``xsd:double`` ``rdflib.Literal`` that keeps its exact lexical form on output.
+class _LexicalFormLiteral(RDFLiteral):
+    """An ``rdflib.Literal`` that Turtle, TriG and N3 write quoted, in its
+    lexical form, as N-Triples and RDF/XML do.
 
-    rdflib's Turtle/TriG writer abbreviates ``xsd:double`` literals to a bare
-    (undecorated) numeric token via ``f"{float(self):e}"``, which is capped at
-    Python's default ``%e`` precision (~7 significant digits) -- discarding
-    precision regardless of the literal's actual stored lexical form (#225).
-    Forcing the non-abbreviated ``_literal_n3`` path keeps our full-precision
-    lexical (``_xsd_double_text(value)``, the XSD form with ``INF``, ``-INF`` and
-    ``NaN`` for non-finite values and float's repr otherwise) intact in every RDF
-    output format.
+    rdflib's Turtle writer abbreviates an ``xsd:double``, ``xsd:integer``,
+    ``xsd:decimal`` or ``xsd:boolean`` to a bare token built from the value,
+    which loses a double's precision (#225) and breaks on a kept text such as
+    ``maybe`` or ``05`` (#575), so the non-abbreviated ``_literal_n3`` path is
+    forced. That path still spells a non-finite double from its value, and
+    rdflib's JSON-LD writer does not take it, writing a boolean, integer or
+    double as a JSON value.
     """
 
     def _literal_n3(self, use_plain: bool = False, qname_callback: Any = None) -> str:
@@ -152,6 +151,9 @@ _LOSSLESS_COLLAPSE_DATATYPES = frozenset(
         XSD["string"],
     }
 )
+
+# Datatypes whose literal text is a QName the reader registers a prefix for.
+_QNAME_DATATYPES = frozenset({XSD["QName"], URIRef(PROV_QUALIFIEDNAME.uri)})
 
 RELATION_MAP = {
     URIRef(PROV["alternateOf"].uri): "alternate",
@@ -215,6 +217,12 @@ _DERIVATION_SUBTYPES = frozenset(
     {PROV["Revision"], PROV["Quotation"], PROV["PrimarySource"]}
 )
 
+#: Maps a PROV-O class URI to its base record type, e.g. ``prov:Revision`` to
+#: ``prov:Derivation``; a class with no base type maps to itself.
+_RECORD_TYPE_OF_CLASS = {
+    prov_type.uri: base_cls for prov_type, base_cls in PROV_BASE_CLS.items()
+}
+
 #: Relation types whose plain binary triple is always emitted (they are not
 #: gated by :data:`_QUALIFIED_ONLY_RELATIONS`) *and* whose second formal
 #: attribute is the relation's influencer per the PROV-O section 3.1
@@ -236,6 +244,14 @@ def _prov_uri(localpart: str) -> URIRef:
     return URIRef(PROV[localpart].uri)
 
 
+#: Rewrites shared by the timed relations in
+#: :data:`_RELATION_PREDICATE_REWRITES`.
+_TIMED_INFLUENCE_REWRITES = (
+    (PROV["time"].uri, _prov_uri("atTime")),
+    (PROV["ender"].uri, _prov_uri("hadActivity")),
+    (PROV["starter"].uri, _prov_uri("hadActivity")),
+    (PROV["location"].uri, _prov_uri("atLocation")),
+)
 #: Per-record-type predicate rewrites applied, in order, to the predicate
 #: chosen for a qualified relation's attribute. Each entry is a
 #: ``(needle, replacement)`` pair: when ``needle`` (a full ``prov:`` term URI)
@@ -243,19 +259,6 @@ def _prov_uri(localpart: str) -> URIRef:
 #: ``replacement``. Rewrites are sequential -- a later pair sees the result of
 #: an earlier one -- which is what lets e.g. ``prov:used`` become
 #: ``prov:entity`` on a usage before the shared time/location rewrites run.
-#:
-#: This table replaces the per-type ``if`` ladder that used to live inline in
-#: :meth:`ProvRDFSerializer.encode_container`; the ordering here reproduces
-#: that ladder exactly. The ladder's ``rec_type in [PROV_ACTIVITY]`` arm is
-#: deliberately absent: it was unreachable (this code only ever runs for
-#: records where ``is_relation()`` is true, so ``rec_type`` is never an
-#: element type) and would have raised ``TypeError`` had it been reached.
-_TIMED_INFLUENCE_REWRITES = (
-    (PROV["time"].uri, _prov_uri("atTime")),
-    (PROV["ender"].uri, _prov_uri("hadActivity")),
-    (PROV["starter"].uri, _prov_uri("hadActivity")),
-    (PROV["location"].uri, _prov_uri("atLocation")),
-)
 _RELATION_PREDICATE_REWRITES: dict[QualifiedName, tuple[tuple[str, URIRef], ...]] = {
     PROV_DELEGATION: ((PROV["activity"].uri, _prov_uri("hadActivity")),),
     PROV_END: ((PROV["trigger"].uri, _prov_uri("entity")), *_TIMED_INFLUENCE_REWRITES),
@@ -298,6 +301,7 @@ _ELEMENT_ATTR_PREDICATES = {
     PROV["label"]: RDFS.label,
     PROV_ATTR_STARTTIME: _prov_uri("startedAtTime"),
     PROV_ATTR_ENDTIME: _prov_uri("endedAtTime"),
+    PROV_LOCATION: _prov_uri("atLocation"),
 }
 
 #: Relation families that emit both a binary triple and a prov:qualified*
@@ -317,9 +321,8 @@ _QUALIFIED_RELATION_INFLUENCER: dict[str, URIRef] = {
 
 #: Per-record-type formal-attribute rewrites applied, in order, when decoding.
 #: Each ``(needle, replacement)`` pair replaces the predicate resolved so far
-#: with ``replacement`` when ``needle`` occurs in its string form -- the decode
-#: mirror of :data:`_RELATION_PREDICATE_REWRITES`, and likewise a faithful
-#: transcription of the ``if`` ladder it replaces.
+#: with ``replacement`` when ``needle`` occurs in its string form. This is the
+#: decode mirror of :data:`_RELATION_PREDICATE_REWRITES`.
 _DECODE_PREDICATE_REWRITES: dict[
     QualifiedName, tuple[tuple[str, QualifiedName], ...]
 ] = {
@@ -346,39 +349,65 @@ class _DecodeState:
     Attributes:
         record_types: Maps a subject to the record type decoded for it.
         formal_attributes: Per subject, the formal attribute values gathered
-            so far (``None`` where still unknown or ambiguous).
-        unique_sets: Per subject, every candidate value seen for each formal
-            attribute -- more than one means the attribute is ambiguous and
-            must be resolved by walking the combinations.
+            so far (``None`` where still unknown).
+        first_values: Maps a subject and a formal attribute to the first value
+            a directly matched predicate gave it. A later value is a repeat.
         other_attributes: Per subject, the non-formal attributes gathered so
             far. Entries are removed as they are consumed, so whatever
             remains at the end could not be converted.
+        anonymous: The subjects that are blank nodes typed as a relation. A
+            blank node names nothing, so their records get no identifier;
+            an element's blank-node label is its identifier.
+        blank_elements: The subjects that are blank nodes typed as an element.
+        unregistered_class: Maps a subject to the first class of a subject
+            typed with an element subclass alone.
     """
 
     record_types: dict[str, pm.QualifiedName] = field(default_factory=dict)
     formal_attributes: dict[str, dict[pm.QualifiedName, Any]] = field(
         default_factory=dict
     )
-    unique_sets: dict[str, dict[pm.QualifiedName, list[Any]]] = field(
-        default_factory=dict
-    )
+    first_values: dict[tuple[str, pm.QualifiedName], Any] = field(default_factory=dict)
     other_attributes: dict[str, list[pm.AttributePair]] = field(default_factory=dict)
+    anonymous: set[str] = field(default_factory=set)
+    blank_elements: set[str] = field(default_factory=set)
+    unregistered_class: dict[str, str] = field(default_factory=dict)
 
-    def register(self, subj: str, prov_obj: pm.QualifiedName) -> None:
+    def register(
+        self, subj: str, prov_obj: pm.QualifiedName, blank: bool = False
+    ) -> None:
         """Record ``subj``'s type and seed its empty formal-attribute slots.
 
         Args:
             subj: The subject being typed.
             prov_obj: The record type decoded for it.
+            blank: Whether the subject is a blank node; a blank-node relation
+                is emitted with no identifier.
         """
         self.record_types[subj] = prov_obj
         klass = pm.PROV_REC_CLS[prov_obj]
+        if blank:
+            if _is_relation(prov_obj):
+                self.anonymous.add(subj)
+            else:
+                self.blank_elements.add(subj)
         self.formal_attributes[subj] = OrderedDict(
             [(key, None) for key in klass.FORMAL_ATTRIBUTES]
         )
-        self.unique_sets[subj] = OrderedDict(
-            [(key, []) for key in klass.FORMAL_ATTRIBUTES]
-        )
+
+    def identifier_for(self, subj: str, bundle: pm.ProvBundle) -> str | None:
+        """The identifier ``subj``'s records get: ``None`` for an anonymous
+        relation, else ``subj``.
+
+        Raises:
+            ProvElementIdentifierRequired: If ``subj`` is a blank-node element
+                whose label no namespace of ``bundle`` resolves.
+        """
+        if subj in self.anonymous:
+            return None
+        if subj in self.blank_elements and bundle.valid_qualified_name(subj) is None:
+            raise pm.ProvElementIdentifierRequired()
+        return subj
 
 
 def attr2rdf(attr: QualifiedName) -> URIRef:
@@ -402,6 +431,18 @@ class ProvRDFSerializer(Serializer):
         {"rdf_format", "relation_mapper", "predicate_mapper"}
     )
 
+    serialize_options = frozenset({"rdf_format"})
+    """The :meth:`serialize` keywords the command line may name."""
+
+    # The (prefix, IRI) bindings of the graph being read that
+    # ``decode_document`` left unregistered because rdflib adds them to every
+    # graph.
+    _skipped_bindings: tuple[tuple[str, str], ...] = ()
+
+    # The source's (prefix, IRI) bindings, read when ``decode_document`` starts.
+    # None outside it.
+    _held_bindings: tuple[tuple[str, str], ...] | None = None
+
     def serialize(
         self,
         stream: io.IOBase,
@@ -424,7 +465,9 @@ class ProvRDFSerializer(Serializer):
                 used when building the relation predicates; defaults to
                 :data:`~prov.constants.PROV_N_MAP`.
             **kwargs: Extra keyword arguments passed through to rdflib's
-                ``Graph.serialize()``.
+                ``Graph.serialize()``. rdflib is asked for UTF-8, and a text
+                stream receives that output decoded as UTF-8, so do not pass
+                another ``encoding`` with a text stream.
 
         Raises:
             ProvRDFException: If ``self.document`` is ``None``.
@@ -433,16 +476,13 @@ class ProvRDFSerializer(Serializer):
             raise ProvRDFException("No document to serialize.")
 
         container = self.encode_document(self.document, PROV_N_MAP=PROV_N_MAP)
-        newargs = kwargs.copy()
-        newargs["format"] = rdf_format
+        newargs = {"encoding": "utf-8", **kwargs, "format": rdf_format}
 
         buf = io.BytesIO()
         try:
             container.serialize(buf, **newargs)
             buf.seek(0, 0)
-            # Right now this is a bytestream. If the object to stream to is
-            # a text object is must be decoded. We assume utf-8 here which
-            # should be fine for almost every case.
+            # The buffer holds rdflib's UTF-8 bytes, decoded for a text stream.
             if _is_text_stream(stream):
                 stream.write(buf.read().decode("utf-8"))
             else:
@@ -516,50 +556,38 @@ class ProvRDFSerializer(Serializer):
         """Encode a single attribute value to its RDF term representation.
 
         Args:
-            value: Attribute value to encode: a ``URIRef`` (returned as-is),
-                a :class:`~prov.model.Literal`, a :class:`datetime.datetime`,
-                a :class:`~prov.identifier.QualifiedName`, another
-                :class:`~prov.identifier.Identifier`, a plain ``int``
-                (typed by magnitude via
-                :func:`~prov.model.canonical_xsd_datatype`), a type listed in
-                :data:`LITERAL_XSDTYPE_MAP`, or another value passed straight
-                to ``rdflib.Literal``.
+            value: Attribute value to encode. A ``URIRef`` is returned as-is,
+                and a :class:`~prov.model.Literal` or a
+                :class:`~prov.identifier.QualifiedName` maps to its RDF term.
+                A ``str`` or ``bool`` becomes a native ``rdflib.Literal``.
+                Any other value with an XSD form (``python_value_form``) is
+                written as a typed literal in that form, and a ``float`` (or
+                float subclass) as a full-precision ``xsd:double``. A value
+                with no PROV form, or no lexical form, is handed to
+                ``rdflib.Literal`` as it is.
 
         Returns:
             The RDF term (``URIRef`` or ``rdflib.Literal``) for ``value``.
         """
         if isinstance(value, URIRef):
             return value
-        elif isinstance(value, pm.Literal):
+        if isinstance(value, pm.Literal):
             return literal_rdf_representation(value)
-        elif isinstance(value, datetime.datetime):
-            return RDFLiteral(_xsd_datetime_text(value), datatype=XSD["dateTime"])
-        elif isinstance(value, pm.QualifiedName):
+        if isinstance(value, pm.QualifiedName):
             return URIRef(value.uri)
-        elif isinstance(value, pm.Identifier):
-            return RDFLiteral(value.uri, datatype=XSD["anyURI"])
-        elif (
-            isinstance(value, int)
-            and (xsd_datatype := pm.canonical_xsd_datatype(value)) is not None
-        ):
-            # bool is an int subtype but canonical_xsd_datatype(bool) is
-            # None, so bools fall through unaffected (#256).
-            return RDFLiteral(str(value), datatype=XSD[xsd_datatype.localpart])
-        elif type(value) in LITERAL_XSDTYPE_MAP:
-            # LITERAL_XSDTYPE_MAP maps only `float -> XSD["double"]` today, so
-            # the full-precision lexical form always applies here: a datatype
-            # that skips rdflib's precision-losing bare-double abbreviation
-            # (#225) on output.
-
-            # normalize=False: rdflib would otherwise rewrite the lexical
-            # form to Python's str() ('inf', 'nan').
-            return _FullPrecisionDoubleLiteral(
-                _xsd_double_text(value),
-                datatype=LITERAL_XSDTYPE_MAP[type(value)],
-                normalize=False,
-            )
-        else:
+        if isinstance(value, (str, bool)):
+            # native rdflib literals
             return RDFLiteral(value)
+        form = python_value_form(value)
+        if form is None or form[0] is None:
+            # no PROV form, or no lexical form: handed to rdflib as it is
+            return RDFLiteral(value)
+        text, datatype = form
+        rdf_datatype: URIRef = XSD[datatype.localpart]
+        if datatype == XSD_DOUBLE:
+            # the full-precision lexical form, kept as written (#225)
+            return _LexicalFormLiteral(text, datatype=rdf_datatype, normalize=False)
+        return RDFLiteral(text, datatype=rdf_datatype)
 
     def _resolve_predicate_key(
         self, pred: URIRef | pm.QualifiedName, graph: Graph
@@ -615,8 +643,10 @@ class ProvRDFSerializer(Serializer):
         declared, which ``compute_qname`` refuses to split. Document
         namespaces are not consulted here: callers only reach this method
         after ``valid_identifier``/``valid_qualified_name`` returned
-        ``None``, which already scanned every document namespace for a
-        URI-prefix match, so any that applied would have resolved there.
+        ``None``, which already matched every document namespace against the
+        IRI, so any that applied would have resolved there.
+
+        Which bindings it reads is set out in :meth:`_source_bindings`.
 
         Args:
             iri: The IRI to resolve.
@@ -629,16 +659,47 @@ class ProvRDFSerializer(Serializer):
             ``iri``.
         """
         best_prefix, best_uri = None, ""
-        for prefix, uri_ref in graph.namespace_manager.namespaces():
-            uri = str(uri_ref)
+        for prefix, uri in self._source_bindings(graph, iri):
             if uri and len(uri) > len(best_uri) and iri.startswith(uri) and iri != uri:
                 best_prefix, best_uri = prefix, uri
         if best_prefix is None:
             return None
+        if not best_prefix:
+            return self._default_name(iri, best_uri)
         ns = self.document.add_namespace(  # type: ignore[union-attr]
             best_prefix, best_uri
         )
         return pm.QualifiedName(ns, iri[len(ns.uri) :])
+
+    def _source_bindings(self, graph: Graph, iri: str) -> tuple[tuple[str, str], ...]:
+        """``graph``'s (prefix, IRI) bindings to resolve ``iri`` against.
+
+        :meth:`decode_document` reads the source's bindings when it starts and
+        holds them until it ends, so a source with many bindings is not walked
+        again for every IRI. A binding the reader mints later is for a
+        namespace already registered on the document, which the caller resolves
+        first for every IRI the document can compact. A colon-less IRI and a
+        ``_:`` IRI are never compacted, so a binding minted mid-decode can be
+        the answer for them. They read the live bindings, as does any call
+        outside :meth:`decode_document`.
+        """
+        if self._held_bindings is not None and ":" in iri and not iri.startswith("_:"):
+            return self._held_bindings
+        return self._live_bindings(graph)
+
+    @staticmethod
+    def _live_bindings(graph: Graph) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (prefix, str(uri)) for prefix, uri in graph.namespace_manager.namespaces()
+        )
+
+    def _default_name(self, iri: str, uri: str) -> pm.QualifiedName | None:
+        """The name ``iri`` has in the document's default namespace when that
+        namespace is ``uri``, else ``None``."""
+        default = self.document.get_default_namespace()  # type: ignore[union-attr]
+        if default is None or default.uri != uri:
+            return None
+        return default[iri[len(uri) :]]
 
     def _resolve_iri(self, iri: str, graph: Graph) -> pm.QualifiedName:
         """Resolve an IRI to a QualifiedName, registering its namespace.
@@ -655,13 +716,14 @@ class ProvRDFSerializer(Serializer):
            ``graph`` that prefixes ``iri`` -- split there, reusing that
            prefix.
         2. Otherwise ``compute_qname``, preserving prefix-minting for ordinary
-           IRIs under no registered namespace.
+           IRIs under no registered namespace. A default binding (empty
+           prefix) names the IRI in the document's default namespace when
+           that namespace has the same URI.
         3. If ``compute_qname`` itself raises (a trailing metacharacter under
-           no known namespace -- the single-record case), split at the last
-           ``#`` or ``/`` and mint a namespace (the generated prefix is
-           irrelevant: :class:`~prov.identifier.QualifiedName` equality is
-           URI-based). An IRI with no ``#`` or ``/`` is genuinely unsplittable
-           and raises a clear error naming it.
+           no known namespace -- the single-record case) or binds the IRI to a
+           default namespace the document does not hold, split at the last
+           ``#`` or ``/`` and mint a namespace. An IRI with no ``#`` or ``/``
+           is genuinely unsplittable and raises a clear error naming it.
 
         Args:
             iri: The IRI to resolve.
@@ -672,7 +734,7 @@ class ProvRDFSerializer(Serializer):
             namespace is now registered on ``self.document``.
 
         Raises:
-            ValueError: If ``iri`` contains no ``#`` or ``/`` separator.
+            ProvRDFException: If ``iri`` contains no ``#`` or ``/`` separator.
         """
         assert self.document is not None
         # 1. Longest namespace URI bound in the graph that is a proper prefix
@@ -683,19 +745,64 @@ class ProvRDFSerializer(Serializer):
         # 2. compute_qname for ordinary IRIs (mints a fresh prefix).
         try:
             prefix, uri_ref, _local = graph.namespace_manager.compute_qname(iri)
-            uri = str(uri_ref)
         except ValueError:
-            # 3. Trailing metacharacter under no known namespace (#294): split
-            # at the last '#' or '/' ourselves. Any minted prefix works.
-            sep = max(iri.rfind("#"), iri.rfind("/"))
-            if sep < 0:
-                raise ValueError(
-                    f"Cannot split IRI {iri!r} into a namespace and a local "
-                    "part: it contains no '#' or '/' separator."
-                ) from None
-            prefix, uri = "ns", iri[: sep + 1]
-        ns = self.document.add_namespace(prefix, uri)
+            return self._split_at_separator(iri)
+        uri = str(uri_ref)
+        if not prefix:
+            qname = self._default_name(iri, uri)
+            return qname if qname is not None else self._split_at_separator(iri)
+        return self._mint(prefix, uri, iri)
+
+    def _mint(self, prefix: str, uri: str, iri: str) -> pm.QualifiedName:
+        """Register the namespace ``prefix``:``uri`` and name ``iri`` in it.
+
+        The one site that mints a namespace, so the skipped bindings under
+        ``uri`` are registered first (N56).
+
+        Args:
+            prefix: Prefix to register.
+            uri: IRI of the namespace; ``iri`` starts with it.
+            iri: The IRI to name.
+
+        Returns:
+            The :class:`~prov.identifier.QualifiedName` for ``iri``.
+        """
+        self._register_shadowed_bindings(uri)
+        ns = self.document.add_namespace(prefix, uri)  # type: ignore[union-attr]
         return pm.QualifiedName(ns, iri[len(ns.uri) :])
+
+    def _register_shadowed_bindings(self, uri: str) -> None:
+        """Register the skipped bindings whose IRI extends the namespace ``uri``.
+
+        The model resolves a full IRI against the first registered namespace
+        that prefixes it. A minted namespace such as ``http://`` would
+        otherwise capture IRIs under a skipped binding (``foaf``) that is
+        registered only when a name uses it, later (N56).
+
+        Args:
+            uri: The IRI of the namespace about to be minted.
+        """
+        for prefix, iri in self._skipped_bindings:
+            if len(iri) > len(uri) and iri.startswith(uri):
+                self.document.add_namespace(prefix, iri)  # type: ignore[union-attr]
+
+    def _split_at_separator(self, iri: str) -> pm.QualifiedName:
+        """Split ``iri`` at its last ``#`` or ``/`` and mint a namespace for
+        the part before it (#294).
+
+        The generated prefix is irrelevant, since
+        :class:`~prov.identifier.QualifiedName` equality is URI-based.
+
+        Raises:
+            ProvRDFException: If ``iri`` contains no ``#`` or ``/`` separator.
+        """
+        sep = max(iri.rfind("#"), iri.rfind("/"))
+        if sep < 0:
+            raise ProvRDFException(
+                f"Cannot split IRI {iri!r} into a namespace and a local "
+                "part: it contains no '#' or '/' separator."
+            )
+        return self._mint("ns", iri[: sep + 1], iri)
 
     def decode_rdf_representation(self, literal: Any, graph: Graph) -> Any:
         """Decode a single RDF term back to its PROV attribute value representation.
@@ -719,7 +826,7 @@ class ProvRDFSerializer(Serializer):
             for ``URIRef`` values, or ``literal`` unchanged otherwise.
         """
         if isinstance(literal, RDFLiteral):
-            return self._decode_literal_representation(literal)
+            return self._decode_literal_representation(literal, graph)
         elif isinstance(literal, URIRef):
             rval = self.valid_identifier(literal)
             if rval is None:
@@ -766,7 +873,26 @@ class ProvRDFSerializer(Serializer):
             value_overridden = True
         return value, datatype, langtag, value_overridden
 
-    def _decode_literal_representation(self, literal: RDFLiteral) -> Any:
+    def _register_qname_prefix(self, text: str, graph: Graph) -> None:
+        """Register the graph's binding for the prefix of a QName literal's text.
+
+        QName text resolves by prefix in the model, with no graph fallback,
+        and a binding that equals one of rdflib's defaults is not copied to
+        the document up front. A prefix the document already resolves, an
+        empty prefix and a prefix the graph does not bind are left alone.
+
+        Args:
+            text: Lexical form of an ``xsd:QName`` or ``prov:QUALIFIED_NAME``
+                literal.
+            graph: Graph the literal came from.
+        """
+        prefix, colon, _local = text.partition(":")
+        if prefix and colon and self.valid_identifier(text) is None:
+            uri = graph.namespace_manager.store.namespace(prefix)
+            if uri is not None:
+                self.document.add_namespace(prefix, str(uri))  # type: ignore[union-attr]
+
+    def _decode_literal_representation(self, literal: RDFLiteral, graph: Graph) -> Any:
         """Decode a single RDF literal term back to its PROV attribute value.
 
         Extracted from ``decode_rdf_representation()`` for the
@@ -776,23 +902,31 @@ class ProvRDFSerializer(Serializer):
 
         Args:
             literal: RDF literal term to decode.
+            graph: Graph ``literal`` came from, for resolving its datatype.
 
         Returns:
             A :class:`datetime.datetime` for a well-formed ``xsd:dateTime``
             literal with an offset within ±14:00, or a
             :class:`~prov.model.Literal` for any other typed/tagged literal,
             ill-formed ones included.
+
+        Raises:
+            ProvRDFException: If the datatype is an IRI neither rdflib nor
+                prov can split, such as ``urn:example:t=``.
         """
         value, datatype, langtag, value_overridden = self._normalize_literal_value(
             literal
         )
-        if datatype == XSD["QName"]:
-            return pm.Literal(literal, datatype=XSD_QNAME)
+        if datatype in _QNAME_DATATYPES:
+            self._register_qname_prefix(str(literal), graph)
+            if datatype == XSD["QName"]:
+                return pm.Literal(literal, datatype=XSD_QNAME)
         if datatype == XSD["dateTime"]:
             parsed = pm.parse_xsd_datetime(str(literal))
             # An ill-formed literal, or one whose offset is beyond ±14:00,
-            # goes to the model as a Literal. The model keeps the first and
-            # warns about the second.
+            # goes to the model as a Literal. As an ordinary attribute value
+            # the model keeps both as a Literal; as a time of the statement it
+            # raises.
             if parsed is None or _offset_beyond_xsd_bound(parsed):
                 return pm.Literal(str(literal), pm.XSD_DATETIME)
             return parsed
@@ -830,7 +964,9 @@ class ProvRDFSerializer(Serializer):
             # The literal of standard Python types is not converted here
             # It will be automatically converted when added to a record by
             # _auto_literal_conversion()
-            return pm.Literal(value, self.valid_identifier(datatype), langtag)
+            return pm.Literal(
+                value, self.decode_rdf_representation(datatype, graph), langtag
+            )
 
     def encode_document(
         self,
@@ -849,6 +985,14 @@ class ProvRDFSerializer(Serializer):
             plus one named graph per bundle in ``document.bundles``.
         """
         container = Dataset(default_union=True)
+
+        def new_graph(identifier: str | None = None) -> Graph:
+            # rdflib's SimpleMemory store skips the per-context bookkeeping
+            # that a plain Graph never uses, so these graphs fill faster.
+            graph = Graph(store="SimpleMemory", identifier=identifier)
+            graph.namespace_manager.bind("prov", PROV.uri)
+            return graph
+
         # Encode the document's own records into a plain Graph first, then
         # merge it into the Dataset's default graph via addN(), rather than
         # passing the Dataset itself as encode_container()'s `container`:
@@ -858,7 +1002,9 @@ class ProvRDFSerializer(Serializer):
         # wasn't updated), which trips DeprecationWarning even though we
         # never reference that property ourselves. addN() with an explicit
         # graph avoids it.
-        doc_graph = self.encode_container(document, PROV_N_MAP=PROV_N_MAP)
+        doc_graph = self.encode_container(
+            document, PROV_N_MAP=PROV_N_MAP, container=new_graph()
+        )
         for prefix, uri in doc_graph.namespaces():
             container.bind(prefix, uri)
         default_graph = container.graph(DATASET_DEFAULT_GRAPH_ID)
@@ -867,41 +1013,36 @@ class ProvRDFSerializer(Serializer):
             #  encoding the sub-bundle into a named graph carrying its IRI
             bundle = self.encode_container(
                 item,
-                identifier=item.identifier.uri,  # type: ignore[union-attr]
                 PROV_N_MAP=PROV_N_MAP,
+                container=new_graph(item.identifier.uri),  # type: ignore[union-attr]
             )
-            # #96: the context passed here must be a Dataset-owned graph
-            # (via container.graph(), mirroring `default_graph` above), not
-            # the standalone `bundle` Graph object itself -- passing that
-            # object directly makes older rdflib Datasets keep it as a
-            # distinct context with its own private NamespaceManager
-            # (unlike a container.graph()-obtained one, which shares the
-            # Dataset's own). The bundle's own bindings still reach the
-            # output that way, but the `override=False` collision guarantee
-            # below silently does not: a bundle-local prefix colliding with
-            # a document-level one may clobber it instead of being renamed.
-            # That outcome is *order-dependent, not version-dependent* --
-            # with the standalone-Graph form it varies run to run on the
-            # same rdflib (observed flipping on 7.0.0 and 7.1.0 across
-            # fresh interpreters), so sampling one run per release invents
-            # a version boundary that does not exist. container.graph() is
-            # deterministic and correct on the 7.0.0 floor and upwards.
+            # The context passed here must be a Dataset-owned graph (via
+            # container.graph(), mirroring `default_graph` above), not the
+            # standalone `bundle` Graph object itself (#96). A standalone Graph
+            # can become a distinct context with its own private
+            # NamespaceManager, unlike a container.graph() one, which shares
+            # the Dataset's own. The bundle's bindings still reach the output,
+            # but the `override=False` collision guarantee below can fail. A
+            # bundle-local prefix colliding with a document-level one may
+            # clobber it instead of being renamed. With a standalone Graph
+            # that outcome varies from run to run on the same rdflib, so it
+            # cannot be tied to a version. container.graph() is deterministic
+            # from the 7.0.0 floor upwards.
             named_graph = container.graph(bundle.identifier)
             container.addN((s, p, o, named_graph) for s, p, o in bundle)
-            # #96: bundle-local namespace bindings (and the bundle's own
-            # default namespace, bound by encode_container() below) are
-            # otherwise never copied into the Dataset, so TriG output falls
-            # back to an rdflib-minted `ns1:`-style prefix for them.
-            # override=False: rdflib's own collision handling already renames
-            # the *incoming* namespace (e.g. to `prefix1:`) whenever the
-            # prefix string is already bound to a different URI, regardless
-            # of `override` -- that flag only controls whether a namespace
-            # already bound under a different prefix gets *rebound* to this
-            # new preferred prefix. Passing False keeps every earlier
-            # binding (the document-level ones bound just above, and the
-            # core prov/xsd/rdf/rdfs ones bound in encode_container()) as
-            # the preferred spelling, so document-level prefixes always win
-            # on collision.
+            # Bundle-local namespace bindings (and the bundle's own default
+            # namespace, bound by encode_container() below) are otherwise
+            # never copied into the Dataset (#96), so TriG output falls back
+            # to an rdflib-minted `ns1:`-style prefix for them.
+            # override=False keeps the document-level prefixes on collision.
+            # rdflib's own collision handling already renames the *incoming*
+            # namespace (e.g. to `prefix1:`) whenever the prefix string is
+            # already bound to a different URI, regardless of `override`. That
+            # flag only controls whether a namespace already bound under a
+            # different prefix gets *rebound* to this new preferred prefix.
+            # Passing False keeps every earlier binding (the document-level
+            # ones bound just above, and the core prov/xsd/rdf/rdfs ones bound
+            # by new_graph() and rdflib) as the preferred spelling.
             for prefix, uri in bundle.namespaces():
                 container.bind(prefix, uri, override=False)
         return container
@@ -931,17 +1072,15 @@ class ProvRDFSerializer(Serializer):
                 defaults to :data:`~prov.constants.PROV_N_MAP`.
             container: Graph to add triples to. If ``None``, a new
                 ``Graph`` is created (with ``identifier``, and with the
-                ``prov`` namespace pre-bound). When called from
-                :meth:`encode_document`, ``container`` is always ``None``,
-                so this method builds a fresh plain ``Graph``;
-                :meth:`encode_document` then merges the returned triples
-                into its ``Dataset`` via ``addN()``. This method expects a
-                plain ``Graph`` here: passing a ``Dataset`` works, but its
-                ``.add()`` calls will surface rdflib's own internal
-                ``DeprecationWarning`` on ``Dataset.default_context`` (rdflib
-                >=7.3), which is exactly why :meth:`encode_document` uses a
-                plain ``Graph`` plus ``addN()`` instead of passing its
-                ``Dataset`` in here.
+                ``prov`` namespace pre-bound). :meth:`encode_document` passes
+                a fresh plain ``Graph`` on rdflib's ``SimpleMemory`` store, and
+                then merges the returned triples into its ``Dataset`` via
+                ``addN()``. This method expects a plain ``Graph`` here: passing
+                a ``Dataset`` works, but its ``.add()`` calls will surface
+                rdflib's own internal ``DeprecationWarning`` on
+                ``Dataset.default_context`` (rdflib >=7.3), which is exactly
+                why :meth:`encode_document` uses a plain ``Graph`` plus
+                ``addN()`` instead of passing its ``Dataset`` in here.
             identifier: Identifier for the new graph, used only when
                 ``container`` is ``None``.
 
@@ -957,14 +1096,12 @@ class ProvRDFSerializer(Serializer):
         for namespace in bundle.get_registered_namespaces():
             container.bind(namespace.prefix, namespace.uri)
         # #96: `get_registered_namespaces()` excludes the bundle's default
-        # namespace (a separate concept from the core prov/xsd/xsi
-        # namespaces that it also excludes -- `set_default_namespace` never
-        # writes to the registered-namespace dict), so it needs its own
-        # bind() call here, under the empty prefix, for its terms to render
-        # as `:local` rather than a full IRI. Note this widens the surface
-        # of #294: a default- or bundle-namespace term whose local part ends
-        # in a character rdflib cannot abbreviate is now bound but still
-        # emitted as a full IRI, and fails to decode.
+        # namespace, which `set_default_namespace` keeps apart from the
+        # registered ones, so it needs its own bind() call here, under the
+        # empty prefix, for its terms to render as `:local` rather than a
+        # full IRI. A term whose local part ends in a character rdflib cannot
+        # abbreviate is still written as a full IRI, which the reader
+        # resolves through `_resolve_iri` (#294).
         default_namespace = bundle.get_default_namespace()
         if default_namespace is not None:
             container.bind("", default_namespace.uri)
@@ -1010,27 +1147,16 @@ class ProvRDFSerializer(Serializer):
             real_or_anon_id: Resolves a referenced record to its identifier
                 string, minting a stable anonymous one where needed.
         """
-        all_attributes = list(record.formal_attributes) + list(record.attributes)
-        for attr, value in all_attributes:
+        for attr, value in record.attributes:
             if value is None:
                 continue
             if isinstance(value, pm.ProvRecord):
                 obj: RdfTerm = URIRef(str(real_or_anon_id(value)))
             else:
-                #  Assuming this is a datetime value
+                # any other value (a Literal, QualifiedName, datetime or plain
+                # Python value) becomes an RDF term
                 obj = self.encode_rdf_representation(value)
             pred: RdfTerm
-            if attr == PROV["location"]:
-                pred = _prov_uri("atLocation")
-                container.add(
-                    (
-                        # elements always carry an identifier here
-                        cast(RdfSubject, identifier),
-                        pred,
-                        self.encode_rdf_representation(obj),
-                    )
-                )
-                continue
             if isinstance(attr, pm.QualifiedName) and attr in _ELEMENT_ATTR_PREDICATES:
                 pred = _ELEMENT_ATTR_PREDICATES[attr]
             else:
@@ -1061,44 +1187,36 @@ class ProvRDFSerializer(Serializer):
                 is unidentified (in which case a blank node is minted).
             PROV_N_MAP: Maps record type QualifiedName to PROV-N keyword.
         """
-        bnode = None
-        formal_objects: list[pm.QualifiedName] = []
         used_objects: list[pm.QualifiedName] = []
-        all_attributes = list(record.formal_attributes) + list(record.attributes)
         formal_qualifiers = False
-        for attrid, (_attr, value) in enumerate(list(record.formal_attributes)):
+        for attrid, (_attr, value) in enumerate(record.formal_attributes):
             if (identifier is not None and value is not None) or (
                 identifier is None and value is not None and attrid > 1
             ):
                 formal_qualifiers = True
         has_qualifiers = len(record.extra_attributes) > 0 or formal_qualifiers
 
-        node: RdfSubject | None = identifier
-        for attr, value in all_attributes:
-            # The qualification head is (re)built until a blank node is minted
-            # for it; for an identified relation no blank node is ever minted,
-            # so this re-runs per attribute exactly as it always has -- every
-            # triple it emits is idempotent, so the repetition is harmless.
-            if bnode is None:
-                node, bnode, skip = self._encode_relation_head(
-                    container,
-                    record,
-                    rec_type,
-                    node,
-                    PROV_N_MAP,
-                    formal_objects,
-                    used_objects,
-                    has_qualifiers,
-                )
-                if skip:
-                    continue
+        node, skip = self._encode_relation_head(
+            container,
+            record,
+            rec_type,
+            identifier,
+            PROV_N_MAP,
+            used_objects,
+            has_qualifiers,
+        )
+        if skip:
+            return
+        for attr, value in record.attributes:
             if value is not None and attr not in used_objects:
                 container.add(
                     (
                         # a qualified relation always has a URIRef or
                         # BNode identifier by this point
                         cast(RdfSubject, node),
-                        self._qualified_attr_predicate(rec_type, attr, formal_objects),
+                        self._qualified_attr_predicate(
+                            rec_type, attr, record.FORMAL_ATTRIBUTES
+                        ),
                         self.encode_rdf_representation(value),
                     )
                 )
@@ -1110,11 +1228,14 @@ class ProvRDFSerializer(Serializer):
         rec_type: pm.QualifiedName,
         identifier: RdfSubject | None,
         PROV_N_MAP: RecordTypeLabels,
-        formal_objects: list[pm.QualifiedName],
         used_objects: list[pm.QualifiedName],
         has_qualifiers: bool,
-    ) -> tuple[RdfSubject | None, BNode | None, bool]:
+    ) -> tuple[RdfSubject | None, bool]:
         """Emit a relation's binary triple and its ``prov:qualified*`` node.
+
+        Runs before the caller writes any attribute, because the qualification
+        node may remove the record type's ``rdf:type`` triple, which an asserted
+        ``prov:type`` writes back.
 
         Args:
             container: Graph to add triples to.
@@ -1122,25 +1243,17 @@ class ProvRDFSerializer(Serializer):
             rec_type: ``record``'s record type QualifiedName.
             identifier: The relation's subject URIRef, or ``None``.
             PROV_N_MAP: Maps record type QualifiedName to PROV-N keyword.
-            formal_objects: Accumulator, extended with the record's formal
-                attribute names (used to recognise formal attributes later).
-            used_objects: Accumulator, replaced in place with the formal
-                attributes already consumed by the binary triple.
+            used_objects: Accumulator, filled with the formal attributes
+                consumed by the binary triple.
             has_qualifiers: Whether the relation carries anything beyond the
                 two attributes of its binary triple.
 
         Returns:
-            ``(node, bnode, skip)``: the subject to hang remaining attributes
-            off, the blank node minted for it (``None`` if none was), and
-            whether the caller should skip this attribute entirely.
+            ``(node, skip)``: the subject to hang remaining attributes off,
+            and whether the caller writes no further attributes.
         """
         pred = _prov_uri(PROV_N_MAP[rec_type])
-        valid_formal_indices = set()
-        for idx, (key, val) in enumerate(record.formal_attributes):
-            formal_objects.append(key)
-            if val:
-                valid_formal_indices.add(idx)
-        used_objects[:] = [record.formal_attributes[0][0]]
+        used_objects.append(record.formal_attributes[0][0])
         subj: RdfTerm | None = None
         if record.formal_attributes[0][1]:
             subj = URIRef(record.formal_attributes[0][1].uri)
@@ -1151,22 +1264,21 @@ class ProvRDFSerializer(Serializer):
                 rec_type,
                 pred,
                 subj,
-                valid_formal_indices,
                 used_objects,
                 has_qualifiers,
             )
         if rec_type in [PROV_ALTERNATE]:
-            # #258/#250 territory: alternateOf emits only its binary triple,
-            # so any extra attributes it carries are dropped. Preserved as-is.
-            return identifier, None, True
+            # alternateOf emits only its binary triple, so any extra
+            # attributes it carries are dropped.
+            return identifier, True
         if subj and (has_qualifiers or identifier):
             return (
-                *self._encode_qualification_node(
+                self._encode_qualification_node(
                     container, record, rec_type, identifier, subj
                 ),
                 False,
             )
-        return identifier, None, False
+        return identifier, False
 
     def _encode_relation_binary_triple(
         self,
@@ -1175,7 +1287,6 @@ class ProvRDFSerializer(Serializer):
         rec_type: pm.QualifiedName,
         pred: URIRef,
         subj: RdfTerm,
-        valid_formal_indices: set[int],
         used_objects: list[pm.QualifiedName],
         has_qualifiers: bool,
     ) -> bool:
@@ -1187,7 +1298,6 @@ class ProvRDFSerializer(Serializer):
             rec_type: ``record``'s record type QualifiedName.
             pred: The relation's PROV-O predicate.
             subj: Subject term for the binary triple.
-            valid_formal_indices: Indices of formal attributes that have a value.
             used_objects: Accumulator, extended with the formal attributes
                 consumed by the emitted triple(s).
             has_qualifiers: Current qualification flag.
@@ -1201,10 +1311,12 @@ class ProvRDFSerializer(Serializer):
             obj_val = None
         if not obj_val:
             return has_qualifiers
-        if rec_type in _QUALIFIED_ONLY_RELATIONS and not (
-            valid_formal_indices == {0, 1} and len(record.extra_attributes) == 0
-        ):
-            return has_qualifiers
+        if rec_type in _QUALIFIED_ONLY_RELATIONS:
+            filled = {
+                idx for idx, (_, val) in enumerate(record.formal_attributes) if val
+            }
+            if filled != {0, 1} or record.extra_attributes:
+                return has_qualifiers
         # #250: skip the object append when a qualification node will be
         # minted for this influencer relation and will assert the influencer
         # attribute directly (as a rewrite of the formal attribute).
@@ -1232,7 +1344,7 @@ class ProvRDFSerializer(Serializer):
         rec_type: pm.QualifiedName,
         identifier: RdfSubject | None,
         subj: RdfTerm,
-    ) -> tuple[RdfSubject, BNode | None]:
+    ) -> RdfSubject:
         """Link (and, when anonymous, create and type) a ``prov:qualified*`` node.
 
         A ``prov:type`` of ``prov:Revision``/``prov:Quotation``/
@@ -1248,8 +1360,8 @@ class ProvRDFSerializer(Serializer):
             subj: Subject the qualification node hangs off.
 
         Returns:
-            ``(node, bnode)``: the qualification node, and the blank node
-            minted for it (``None`` when ``identifier`` was already set).
+            The qualification node: ``identifier``, or the blank node minted
+            for it.
         """
         qualifier = rec_type._localpart
         rec_uri = rec_type.uri
@@ -1262,23 +1374,23 @@ class ProvRDFSerializer(Serializer):
         QRole = _prov_uri("qualified" + qualifier)
         if identifier is not None:
             container.add((subj, QRole, identifier))
-            return identifier, None
+            return identifier
         # #250: the anonymous qualification node's influencer property (e.g.
-        # `prov:agent` on an attribution/delegation node) is *not* added
-        # here -- for _BINARY_TRIPLE_INFLUENCER_RELATIONS it is asserted by
-        # the main _encode_relation() loop once this node exists (see the
-        # `used_objects.remove(...)` in _encode_relation_binary_triple),
-        # exactly like every other attribute hanging off the node.
+        # `prov:agent` on an attribution/delegation node) is not added here.
+        # _encode_relation_binary_triple skips the influencer's used_objects
+        # append for _BINARY_TRIPLE_INFLUENCER_RELATIONS, so the
+        # _encode_relation() loop writes it like every other attribute
+        # hanging off the node.
         bnode = BNode()
         container.add((subj, QRole, bnode))
         container.add((bnode, RDF.type, URIRef(rec_uri)))
-        return bnode, bnode
+        return bnode
 
     def _qualified_attr_predicate(
         self,
         rec_type: pm.QualifiedName,
         attr: pm.QualifiedNameCandidate,
-        formal_objects: list[pm.QualifiedName],
+        formal_attributes: Sequence[pm.QualifiedName],
     ) -> RdfTerm:
         """Return the PROV-O predicate for one attribute of a qualified relation.
 
@@ -1289,13 +1401,13 @@ class ProvRDFSerializer(Serializer):
         Args:
             rec_type: The relation's record type QualifiedName.
             attr: The attribute name being encoded.
-            formal_objects: The relation's formal attribute names.
+            formal_attributes: The relation's formal attribute names.
 
         Returns:
             The predicate term to use for ``attr``.
         """
         pred: RdfTerm
-        if attr in formal_objects:
+        if attr in formal_attributes:
             pred = attr2rdf(cast(QualifiedName, attr))
         elif isinstance(attr, pm.QualifiedName) and attr in _QUALIFIED_ATTR_PREDICATES:
             pred = _QUALIFIED_ATTR_PREDICATES[attr]
@@ -1328,6 +1440,17 @@ class ProvRDFSerializer(Serializer):
         is a plain ``Graph``, not a ``Dataset``), it is decoded directly as
         the document's own records.
 
+        A binding identical to one rdflib adds to every graph is not
+        registered here, because the source may not have declared it. A name
+        a record uses under such a binding registers its namespace as the
+        decoding reaches it, so only the namespaces the names need are kept.
+        The one exception is a namespace the reader mints for a short IRI,
+        which registers the skipped bindings under it first
+        (:meth:`_register_shadowed_bindings`).
+
+        The source's namespace bindings are read once, here, and held until
+        the decode ends (:meth:`_source_bindings`).
+
         Args:
             content: RDF graph (typically a ``Dataset``, as produced by
                 :meth:`encode_document`) to decode.
@@ -1337,9 +1460,41 @@ class ProvRDFSerializer(Serializer):
                 defaults to :data:`RELATION_MAP`.
             predicate_mapper: Maps PROV-O predicate URIRefs to formal
                 attribute QualifiedNames; defaults to :data:`PREDICATE_MAP`.
+
+        Raises:
+            ProvRDFException: If ``content`` binds a prefix or default
+                namespace the model refuses (``__cause__`` holds the
+                :class:`~prov.model.ProvException`).
         """
-        for prefix, url in content.namespaces():
-            document.add_namespace(prefix, str(url))
+        skipped = {(prefix, str(iri)) for prefix, iri in Graph().namespaces()}
+        shadowed = []
+        try:
+            for prefix, url in content.namespaces():
+                iri = str(url)
+                if not prefix:
+                    document.set_default_namespace(iri)
+                elif (prefix, iri) in skipped:
+                    shadowed.append((prefix, iri))
+                else:
+                    document.add_namespace(prefix, iri)
+        except pm.ProvException as exc:
+            raise ProvRDFException(f"prefix {prefix!r}, IRI {iri!r}: {exc}") from exc
+        self._skipped_bindings = tuple(shadowed)
+        self._held_bindings = self._live_bindings(content)
+        try:
+            self._decode_graphs(content, document, relation_mapper, predicate_mapper)
+        finally:
+            self._held_bindings = None
+
+    def _decode_graphs(
+        self,
+        content: Graph,
+        document: pm.ProvDocument,
+        relation_mapper: RelationMapper,
+        predicate_mapper: PredicateMapper,
+    ) -> None:
+        """Decode ``content``'s default graph into ``document`` and each named
+        graph into one of its bundles."""
         if hasattr(content, "graphs"):
             for graph in content.graphs():
                 if (
@@ -1353,14 +1508,19 @@ class ProvRDFSerializer(Serializer):
                         predicate_mapper=predicate_mapper,
                     )
                 else:
-                    # Resolve the bundle IRI to a qualified name; if no
-                    # registered namespace matches (rdflib >= 7 no longer
-                    # carries bundle-graph prefix bindings into TriG output,
-                    # so re-parsed documents may lack them), fall back to
-                    # minting a namespace via compute_qname, as
-                    # decode_rdf_representation does for all other IRIs.
-                    bundle_id = self.decode_rdf_representation(graph.identifier, graph)
-                    bundle = document.bundle(bundle_id)
+                    # Resolve the bundle IRI to a qualified name. When no
+                    # registered namespace matches, a namespace is minted via
+                    # compute_qname, as decode_rdf_representation does for
+                    # every other IRI.
+                    try:
+                        bundle_id = self.decode_rdf_representation(
+                            graph.identifier, graph
+                        )
+                        bundle = document.bundle(bundle_id)
+                    except pm.ProvException as exc:
+                        raise ProvRDFException(
+                            f"bundle {str(graph.identifier)!r}: {exc}"
+                        ) from exc
                     self.decode_container(
                         graph,
                         bundle,
@@ -1406,6 +1566,9 @@ class ProvRDFSerializer(Serializer):
                 attribute QualifiedNames; defaults to :data:`PREDICATE_MAP`.
 
         Raises:
+            ProvRDFException: If the model rejects a record, naming its
+                subject with the model's exception as the cause, or if an IRI
+                cannot be split into a namespace and a local part.
             ValueError: If a relation's object term cannot be decoded to a
                 usable attribute value.
 
@@ -1413,11 +1576,8 @@ class ProvRDFSerializer(Serializer):
             UserWarning: If, after decoding, some attributes could not be
                 matched to any formal attribute or converted.
         """
-        prov_cls_map = {
-            prov_type.uri: base_cls for prov_type, base_cls in PROV_BASE_CLS.items()
-        }
         state = _DecodeState()
-        self._decode_type_triples(graph, state, prov_cls_map)
+        self._decode_type_triples(graph, state)
         self._decode_triples(graph, bundle, state, relation_mapper, predicate_mapper)
         self._emit_decoded_records(bundle, state)
 
@@ -1430,36 +1590,37 @@ class ProvRDFSerializer(Serializer):
                 UserWarning,
             )
 
-    def _decode_type_triples(
-        self,
-        graph: Graph,
-        state: "_DecodeState",
-        prov_cls_map: dict[str, pm.QualifiedName],
-    ) -> None:
+    def _decode_type_triples(self, graph: Graph, state: "_DecodeState") -> None:
         """Reconstruct each subject's record type from its ``rdf:type`` triples.
 
         Registers a record type in ``state`` for every subject typed with a
         known PROV-O class; every other ``rdf:type`` object (and the extra
-        types of an already-registered subject) becomes a ``prov:type``
-        attribute instead.
+        types of an already-registered subject, other than its record type's
+        own class) becomes a ``prov:type`` attribute instead. A subject typed
+        with an element class and a relation class raises ``ProvRDFException``.
 
         Args:
             graph: The RDF (sub)graph being decoded.
             state: Decode state, mutated in place.
-            prov_cls_map: Maps a PROV-O class URI to its base record type.
         """
         for stmt in graph.triples((None, RDF.type, None)):
             subj = str(stmt[0])
             obj = str(stmt[2])
-            add_attr = (
-                self._register_record_type(graph, stmt, subj, obj, prov_cls_map, state)
-                if obj in prov_cls_map
-                else True
-            )
-            if add_attr:
-                state.other_attributes.setdefault(subj, []).append(
-                    (pm.PROV["type"], self.decode_rdf_representation(stmt[2], graph))
-                )
+            try:
+                # only an IRI names a class; a literal is a prov:type value
+                if (
+                    not isinstance(stmt[2], URIRef)
+                    or obj not in _RECORD_TYPE_OF_CLASS
+                    or self._register_record_type(graph, stmt, subj, obj, state)
+                ):
+                    state.other_attributes.setdefault(subj, []).append(
+                        (
+                            pm.PROV["type"],
+                            self.decode_rdf_representation(stmt[2], graph),
+                        )
+                    )
+            except pm.ProvException as exc:
+                raise ProvRDFException(f"subject {subj!r}: {exc}") from exc
 
     def _register_record_type(
         self,
@@ -1467,7 +1628,6 @@ class ProvRDFSerializer(Serializer):
         stmt: tuple[Node, Node, Node],
         subj: str,
         obj: str,
-        prov_cls_map: dict[str, pm.QualifiedName],
         state: "_DecodeState",
     ) -> bool:
         """Register one subject's record type, if this triple establishes it.
@@ -1477,31 +1637,32 @@ class ProvRDFSerializer(Serializer):
             stmt: The ``rdf:type`` triple.
             subj: ``stmt``'s subject, as a string.
             obj: ``stmt``'s object, as a string.
-            prov_cls_map: Maps a PROV-O class URI to its base record type.
             state: Decode state, mutated in place.
 
         Returns:
             Whether the triple's object should *also* be recorded as a
-            ``prov:type`` attribute (true for a derivation subtype or an
-            extra type on a blank node, and for any subject already typed).
+            ``prov:type`` attribute, which it is unless it is the class of the
+            subject's record type, such as ``prov:Derivation`` beside
+            ``prov:Revision``.
         """
-        if not isinstance(stmt[0], BNode) and self.valid_identifier(subj) is None:
+        prov_obj = _RECORD_TYPE_OF_CLASS[obj]
+        gives_type = prov_obj == PROV_DERIVATION or prov_obj.uri == obj
+        registered = state.record_types.get(subj)
+        if registered is not None:
+            if gives_type:
+                _refuse_element_and_relation(subj, registered, prov_obj, obj)
+            return registered.uri != obj
+        blank = isinstance(stmt[0], BNode)
+        if not blank and self.valid_identifier(subj) is None:
             # Register the subject's namespace (side effect) so a later
             # valid_identifier(subj) resolves; tolerates trailing PROV-N
             # metacharacters that compute_qname would refuse to split (#294).
             self._resolve_iri(subj, graph)
-        prov_obj = prov_cls_map[obj]
-        # objects of rdf:type triples are URIRefs (str subclass);
-        # rdflib types them only as Node
-        isderivation = any(
-            subtype.uri in cast(str, stmt[2]) for subtype in _DERIVATION_SUBTYPES
-        )
-        if subj in state.record_types or not (
-            prov_obj.uri == obj or isderivation or isinstance(stmt[0], BNode)
-        ):
-            return True
-        state.register(subj, prov_obj)
-        return (isinstance(stmt[0], BNode) or isderivation) and prov_obj.uri != obj
+        if blank or gives_type:
+            state.register(subj, prov_obj, blank=blank)
+        else:
+            state.unregistered_class.setdefault(subj, obj)
+        return prov_obj.uri != obj
 
     def _decode_triples(
         self,
@@ -1528,28 +1689,58 @@ class ProvRDFSerializer(Serializer):
             pred = cast(URIRef, pred_node)
             if pred == RDF.type:
                 continue
-            if pred in relation_mapper:
-                self._decode_relation_triple(
-                    graph, bundle, state, subj, pred, obj, relation_mapper
-                )
-            elif subj in state.record_types:
-                self._decode_attribute_triple(
-                    graph, state, subj, pred, obj, predicate_mapper
-                )
-            local_key = str(obj)
-            if local_key in state.record_types and "qualified" in pred:
-                # The qualification node's influencer: the subject that points
-                # at it fills the relation's first formal attribute.
-                state.formal_attributes[local_key][
-                    next(iter(state.formal_attributes[local_key].keys()))
-                ] = subj
+            try:
+                if pred in relation_mapper:
+                    self._decode_relation_triple(
+                        graph, bundle, state, subj_node, pred, obj, relation_mapper
+                    )
+                elif subj in state.record_types:
+                    self._decode_attribute_triple(
+                        graph, state, subj, pred, obj, predicate_mapper
+                    )
+                local_key = str(obj)
+                if local_key in state.record_types:
+                    points_at_qualifier = "qualified" in pred
+                else:
+                    # A node typed with an element subclass alone registers
+                    # nothing, so only a prov:qualified* predicate reaches it.
+                    points_at_qualifier = (
+                        local_key in state.unregistered_class
+                        and pred.startswith(_PROV_QUALIFIED)
+                    )
+                if points_at_qualifier:
+                    # The qualification node's influencer: the subject that
+                    # points at it fills the relation's first formal attribute.
+                    slots = _qualifier_slots(state, local_key, pred)
+                    slots[next(iter(slots))] = self._relation_node(subj_node, graph)
+            except pm.ProvException as exc:
+                raise ProvRDFException(f"subject {subj!r}: {exc}") from exc
+
+    def _relation_node(self, node: Node, graph: Graph) -> Any:
+        """Return what the model receives for a relation's subject or object.
+
+        A ``URIRef`` resolves as a typed subject's IRI does, minting a
+        namespace when none covers it. Any other node, a blank node's label
+        included, passes as its string.
+
+        Args:
+            node: The relation's subject or object.
+            graph: Graph ``node`` came from, for its namespace bindings.
+
+        Returns:
+            A :class:`~prov.identifier.QualifiedName` for a ``URIRef``,
+            else ``str(node)``.
+        """
+        if isinstance(node, URIRef):
+            return self.decode_rdf_representation(node, graph)
+        return str(node)
 
     def _decode_relation_triple(
         self,
         graph: Graph,
         bundle: pm.ProvBundle,
         state: "_DecodeState",
-        subj: str,
+        subj_node: Node,
         pred: URIRef,
         obj: Node,
         relation_mapper: RelationMapper,
@@ -1568,53 +1759,94 @@ class ProvRDFSerializer(Serializer):
             graph: The RDF (sub)graph being decoded.
             bundle: Bundle to add the relation to.
             state: Decode state, mutated in place.
-            subj: The triple's subject, as a string.
+            subj_node: The triple's subject.
             pred: The triple's relation predicate.
             obj: The triple's object.
             relation_mapper: Maps PROV-O relation predicate URIRefs to
                 :class:`~prov.model.ProvBundle` factory method names.
         """
         factory = getattr(bundle, relation_mapper[pred])
+        subj_name = self._relation_node(subj_node, graph)
+        obj_name = self._relation_node(obj, graph)
         if "alternateOf" in pred:
-            factory(subj, str(obj))
+            factory(subj_name, obj_name)
             return
         if "mentionOf" in pred:
-            mention_bundle = None
-            for stmt in graph.triples(
-                (URIRef(subj), URIRef(pm.PROV["asInBundle"].uri), None)
-            ):
-                mention_bundle = stmt[2]
-            factory(subj, str(obj), mention_bundle)
+            last_bundle = None
+            for stmt in graph.triples((subj_node, _prov_uri("asInBundle"), None)):
+                last_bundle = stmt[2]
+            mention_bundle = (
+                None if last_bundle is None else self._relation_node(last_bundle, graph)
+            )
+            factory(subj_name, obj_name, mention_bundle)
             return
         name = relation_mapper[pred]
         if name in _QUALIFIED_RELATION_INFLUENCER:
             qualifier = "qualified" + name.upper()[0] + name[1:]
+            qualifier_uri = _prov_uri(qualifier)
             qualifier_bnode = None
             influencer_pred = _QUALIFIED_RELATION_INFLUENCER[name]
-            for stmt in graph.triples(
-                (URIRef(subj), URIRef(pm.PROV[qualifier].uri), None)
-            ):
+            for stmt in graph.triples((subj_node, qualifier_uri, None)):
                 candidate = stmt[2]
                 # #226/#250: a subject may point at more than one
                 # qualification node of the same kind -- e.g. two
                 # delegations from the same delegate to the same activity,
                 # differing only in `responsible` -- which "last node seen"
-                # cannot tell apart. Since #250, a freshly-encoded node
-                # also carries its own influencer triple, so prefer
-                # whichever candidate's influencer matches this binary
-                # triple's object; only fall back to "last node seen" (the
-                # pre-#250 behaviour, which cannot do better) when no
-                # candidate carries that triple at all, i.e. legacy
-                # (pre-3.0) input.
+                # cannot tell apart. The encoder gives each node its own
+                # influencer triple, so prefer the candidate whose
+                # influencer matches this binary triple's object. Fall back
+                # to "last node seen" only when no candidate carries that
+                # triple, as in a graph written without influencer triples.
                 qualifier_bnode = candidate
                 if (candidate, influencer_pred, obj) in graph:
                     break
             if qualifier_bnode is not None:
-                fakeys = list(state.formal_attributes[str(qualifier_bnode)].keys())
-                state.formal_attributes[str(qualifier_bnode)][fakeys[0]] = subj
-                state.formal_attributes[str(qualifier_bnode)][fakeys[1]] = str(obj)
+                slots = _qualifier_slots(state, str(qualifier_bnode), qualifier_uri)
+                fakeys = list(slots)
+                slots[fakeys[0]] = subj_name
+                slots[fakeys[1]] = obj_name
                 return
-        factory(subj, str(obj))
+        factory(subj_name, obj_name)
+
+    def _attribute_object(
+        self,
+        obj: Node,
+        obj1: Any,
+        state: "_DecodeState",
+        subj: str,
+        pred: URIRef,
+        graph: Graph,
+    ) -> Any:
+        """Return the value to store for an attribute's object.
+
+        ``obj1`` for anything but a blank node; the identifier of the element a
+        blank node is the subject of, resolved as the element's own label is;
+        ``None``, after a ``ProvWarning``, for a blank node that names no record,
+        one typed as nothing or as a relation, which reads anonymous (#639).
+
+        Raises:
+            ProvElementIdentifierRequired: If the blank node is an element's
+                subject and its label resolves in no namespace, as the
+                element itself raises.
+        """
+        if not isinstance(obj, BNode):
+            return obj1
+        key = str(obj)
+        if key not in state.record_types or key in state.anonymous:
+            subject = (
+                f"an anonymous {state.record_types[subj]}"
+                if subj in state.anonymous
+                else graph.namespace_manager.normalizeUri(URIRef(subj))
+            )
+            warn(
+                f"{subject}: {graph.namespace_manager.normalizeUri(pred)} points at"
+                " a blank node that names no record; the attribute is dropped"
+            )
+            return None
+        qname = self.valid_identifier(key)
+        if qname is None:
+            raise pm.ProvElementIdentifierRequired()
+        return qname
 
     def _decode_attribute_triple(
         self,
@@ -1636,8 +1868,15 @@ class ProvRDFSerializer(Serializer):
             predicate_mapper: Maps PROV-O predicate URIRefs to formal
                 attribute QualifiedNames.
 
+        Warns:
+            ProvWarning: If ``obj`` is a blank node that names no record; the
+                attribute is dropped (#639).
+
         Raises:
             ValueError: If ``obj`` cannot be decoded to a usable value.
+            ProvElementIdentifierRequired: If ``obj`` is a blank node that is
+                an element's subject whose label resolves in no namespace
+                (see :meth:`_attribute_object`).
         """
         obj1 = self.decode_rdf_representation(obj, graph)
         if obj is not None and obj1 is None:
@@ -1652,31 +1891,38 @@ class ProvRDFSerializer(Serializer):
         # when `pred_new` came from `predicate_mapper` (a QualifiedName), but
         # `val.uri` below is always the full URI -- so a PREDICATE_MAP-routed
         # predicate (atTime/startedAtTime/endedAtTime/atLocation/hadRole/...)
-        # never matches here and falls through to `other_attributes` instead
-        # (a single occurrence is still recovered downstream, since
-        # ProvRecord.add_attributes() matches extras against formal
-        # attributes by qname on its own). This is deliberate, not an
-        # oversight: matching it here would route repeated instances of such
-        # a predicate into `unique_sets`, and `walk()` in
-        # `_emit_decoded_records` would then emit more than one record for
-        # the *same* identifier -- i.e. resurrect the rejected
-        # permutation-decode option (see docs/reference/conformance.md) for
-        # an identified qualified node. Do not "fix" this format mismatch.
-        # On a qualified Start/End node specifically, `startedAtTime`/
-        # `endedAtTime` have already been rewritten to `prov:time` by the
+        # never matches here and falls through to `other_attributes` instead.
+        # ProvRecord.add_attributes() matches extras against formal attributes
+        # by qname on its own, so a single occurrence is still recovered and a
+        # repeat raises, as C1 on the conformance page (#217) requires.
+        # On a qualified Start/End node, `startedAtTime`/`endedAtTime` have
+        # already been rewritten to `prov:time` by the
         # `_DECODE_PREDICATE_REWRITES` loop just above, so the name carried
         # into `other_attributes` for those two predicates is "prov:time",
-        # not "prov:startTime"/"prov:endTime" -- the fall-through-then-
-        # reconcile mechanism described here is otherwise unchanged.
-        if str(pred_new) in [val.uri for val in state.formal_attributes[subj]]:
+        # not "prov:startTime"/"prov:endTime".
+        is_formal = str(pred_new) in [val.uri for val in state.formal_attributes[subj]]
+        if not is_formal and (
+            "qualified" in str(pred_new) or "asInBundle" in str(pred_new)
+        ):
+            # The qualification node's own link, carried by the relation's
+            # triples; nothing to store here.
+            return
+        obj1 = self._attribute_object(obj, obj1, state, subj, pred, graph)
+        if obj1 is None:
+            return
+        if is_formal:
             qname_key = self._resolve_predicate_key(pred_new, graph)
-            state.formal_attributes[subj][qname_key] = obj1
-            state.unique_sets[subj][qname_key].append(obj1)
-            if len(state.unique_sets[subj][qname_key]) > 1:
-                # An ambiguous formal attribute is cleared here and resolved
-                # by walking every combination in _emit_decoded_records().
-                state.formal_attributes[subj][qname_key] = None
-        elif "qualified" not in str(pred_new) and "asInBundle" not in str(pred_new):
+            first = state.first_values.setdefault((subj, qname_key), obj1)
+            if obj1 is first:
+                state.formal_attributes[subj][qname_key] = obj1
+            else:
+                # A repeat takes the mapped predicates' route, so the model's
+                # rule of one value per formal attribute decides. Both values
+                # go, because a qualifier may have overwritten the slot.
+                state.other_attributes.setdefault(subj, []).extend(
+                    [(qname_key, first), (qname_key, obj1)]
+                )
+        else:
             key: pm.QualifiedNameCandidate = pred_new
             if isinstance(pred_new, URIRef):
                 # Resolve against the graph's bindings so a key under a
@@ -1690,62 +1936,56 @@ class ProvRDFSerializer(Serializer):
     ) -> None:
         """Add a record to ``bundle`` for every decoded subject.
 
-        A subject whose formal attributes picked up more than one candidate
-        value yields one record per combination of those values.
+        A relation whose subject is a blank node gets no identifier
+        (:attr:`_DecodeState.anonymous`).
 
         Args:
             bundle: Bundle to add the records to.
             state: Decode state; consumed attributes are removed from it, so
                 what remains afterwards is what could not be converted.
 
+        Warns:
+            ProvWarning: For a subject whose record the model refuses for a
+                missing party (``ProvMissingFormalAttribute``); the subject
+                and its attributes are skipped.
+
         Raises:
-            ProvException: If a subject carries more than one value for a
-                formal attribute that :attr:`_DecodeState.unique_sets`
-                doesn't track separately (e.g. two ``prov:atTime`` triples
-                on one identified qualified node) -- the documented,
-                permanent PROV-O representational limitation described in
+            ProvRDFException: If a subject carries more than one value for a
+                formal attribute (e.g. two ``prov:atTime`` triples on one
+                qualified node) -- the documented, permanent PROV-O
+                representational limitation described in
                 ``docs/reference/conformance.md``. Any other ``ProvException``
                 raised while constructing a record (e.g. an unresolvable
-                qualified name) propagates unchanged.
+                qualified name) is wrapped in a ``ProvRDFException`` naming
+                the subject, with the model's exception as the cause, other
+                than ``ProvMissingFormalAttribute``, which is warned and
+                skipped.
         """
         for subj in state.record_types:
             attrs = state.other_attributes.get(subj)
-            items_to_walk = [
-                (qname, values)
-                for qname, values in state.unique_sets[subj].items()
-                if values and len(values) > 1
-            ]
             try:
-                if items_to_walk:
-                    for subset in list(walk(items_to_walk)):
-                        for prov_type, value in subset.items():
-                            state.formal_attributes[subj][prov_type] = value
-                        bundle.new_record(
-                            state.record_types[subj],
-                            subj,
-                            state.formal_attributes[subj].items(),
-                            attrs,
-                        )
-                else:
-                    bundle.new_record(
-                        state.record_types[subj],
-                        subj,
-                        state.formal_attributes[subj].items(),
-                        attrs,
-                    )
+                identifier = state.identifier_for(subj, bundle)
+                bundle.new_record(
+                    state.record_types[subj],
+                    identifier,
+                    state.formal_attributes[subj].items(),
+                    attrs,
+                )
+            except pm.ProvMissingFormalAttribute as exc:
+                warn(f"subject {subj!r}: {exc}")
             except pm.ProvException as exc:
-                # Only relabel the specific #217 shape: a formal-attribute
-                # predicate repeated in `attrs` (see the duplicate-detection
-                # docstring below for why such repeats land there instead of
-                # being walked). Anything else -- e.g. an unresolvable
-                # qualified name -- is a genuinely different failure and
-                # must propagate with its original message, not this one.
+                # Only relabel the specific C1 shape (conformance page, #217),
+                # a formal-attribute predicate repeated in `attrs` (see the
+                # duplicate-detection docstring below for why such repeats
+                # land there). Anything else, such as an unresolvable
+                # qualified name, is a genuinely different failure and keeps
+                # its own message, behind the subject.
                 duplicate_attr = _repeated_formal_attribute(
                     state.record_types[subj], attrs
                 )
                 if duplicate_attr is None:
-                    raise
-                raise pm.ProvException(
+                    raise ProvRDFException(f"subject {subj!r}: {exc}") from exc
+                raise ProvRDFException(
                     f"Cannot decode {subj!r} as a single "
                     f"{state.record_types[subj]} record: more than one "
                     f"value for formal attribute {duplicate_attr!r} ({exc}). "
@@ -1763,28 +2003,100 @@ class ProvRDFSerializer(Serializer):
                 del state.other_attributes[subj]
 
 
+_PROV_QUALIFIED = pm.PROV.uri + "qualified"
+
+
+def _prov_name(iri: str) -> str:
+    """``iri`` as ``prov:<local part>`` inside the PROV namespace, else ``iri``."""
+    if iri.startswith(pm.PROV.uri):
+        return "prov:" + iri[len(pm.PROV.uri) :]
+    return iri
+
+
+def _is_relation(record_type: pm.QualifiedName) -> bool:
+    """Whether ``record_type`` is a relation and not an element."""
+    return issubclass(pm.PROV_REC_CLS[record_type], pm.ProvRelation)
+
+
+def _refuse_element_and_relation(
+    subj: str,
+    registered: pm.QualifiedName,
+    prov_obj: pm.QualifiedName,
+    obj: str,
+) -> None:
+    """Refuse a class that gives ``subj`` a record type of the other kind.
+
+    Only a class that gives a record type of its own is compared, with the
+    record type already registered for ``subj``. A blank node registers from
+    the first class it meets. An element class met before the relation's own
+    class raises, and the relation's own class met first keeps a later element
+    class as a ``prov:type``, so a blank relation's ``prov:type`` of
+    ``prov:Person`` reads only in that order. An element subclass alone, such
+    as ``prov:Person`` beside ``prov:Generation``, registers nothing and stays
+    a ``prov:type``, as prov's writer emits it for a relation's own type value.
+
+    Raises:
+        ProvRDFException: If ``registered`` is a relation and ``prov_obj`` is
+            an element, or the other way round (#743).
+    """
+    if _is_relation(registered) != _is_relation(prov_obj):
+        raise ProvRDFException(
+            f"subject {subj!r} is typed as both {_prov_name(registered.uri)} and "
+            f"{_prov_name(obj)}; an element and a relation cannot share an "
+            "identifier"
+        )
+
+
+def _qualifier_slots(
+    state: _DecodeState, node: str, predicate: str
+) -> dict[pm.QualifiedName, Any]:
+    """``node``'s formal-attribute slots, refusing a node typed only as an element.
+
+    ``predicate`` is the IRI of the ``prov:qualified*`` predicate that points
+    at ``node``.
+
+    Raises:
+        ProvRDFException: If ``node`` is the object of ``predicate`` but is
+            typed as an element and not as a relation (#743).
+        KeyError: If ``node`` has no known ``rdf:type`` at all.
+    """
+    record_type = state.record_types.get(node)
+    if record_type is not None and _is_relation(record_type):
+        return state.formal_attributes[node]
+    typed_as = record_type.uri if record_type else state.unregistered_class.get(node)
+    if typed_as is None:
+        # R6: a node with no known type is never in formal_attributes, so the
+        # read keeps its bare KeyError.
+        raise KeyError(node)
+    raise ProvRDFException(
+        f"subject {node!r} is the object of {_prov_name(predicate)} but is typed as "
+        f"{_prov_name(typed_as)}, which is not a relation"
+    )
+
+
 def _repeated_formal_attribute(
     record_type: pm.QualifiedName,
     attrs: list[pm.AttributePair] | None,
 ) -> str | None:
     """Return the formal-attribute name repeated in ``attrs``, if any.
 
+    This is the shape behind C1 on the conformance page (#217). PROV-O names a
+    relation by its identifier, so two same-identifier relations that disagree
+    on a formal attribute cannot both be represented.
+
     A predicate that :data:`PREDICATE_MAP` maps to a formal-attribute
     ``QualifiedName`` (e.g. ``prov:atTime``) never matches the URI-keyed
-    lookup in :meth:`ProvRDFSerializer._decode_attribute_triple`
-    (``str(pred_new)`` is the short prefixed form, e.g. ``"prov:time"``,
-    compared against the full-URI ``val.uri`` of each formal-attribute
-    ``QualifiedName`` -- deliberately left as-is, since "fixing" it would
-    route such predicates into ``unique_sets`` and make ``walk()`` emit
-    more than one record for the *same* identifier, i.e. the rejected
-    permutation-decode option). A second instance of such a predicate on
-    the same identified qualified node therefore lands in ``attrs`` as two
-    same-key entries instead of being tracked there, and reaches
-    :meth:`~prov.model.records.ProvRecord.add_attributes` as a duplicate
-    plain attribute, which raises ``ProvException``. This function
-    recognizes that specific shape so callers can relabel only it, leaving
-    every other ``ProvException`` (e.g. an unresolvable qualified name)
-    untouched.
+    lookup in :meth:`ProvRDFSerializer._decode_attribute_triple`, because
+    ``str(pred_new)`` is the short prefixed form, e.g. ``"prov:time"``, and the
+    lookup compares it with the full-URI ``val.uri`` of each formal-attribute
+    ``QualifiedName``. A second instance of such a predicate on one subject
+    therefore lands in ``attrs`` as two same-key entries, and so does a repeat
+    of a predicate the lookup matches. Either way the repeat reaches
+    :meth:`~prov.model.records.ProvRecord.add_attributes` as a duplicate plain
+    attribute, which raises ``ProvException``. This function recognises that
+    shape so that callers relabel only it; every other ``ProvException`` (e.g.
+    an unresolvable qualified name) is wrapped in a :class:`ProvRDFException`
+    that names the subject.
 
     Note: on a qualified node, ``Start``/``End`` carry their time as
     ``prov:atTime`` too, matching every other timed relation's generic
@@ -1817,68 +2129,12 @@ def _repeated_formal_attribute(
     return None
 
 
-def walk(
-    children: list[tuple[Any, Any]],
-    level: int = 0,
-    path: dict[Any, Any] | None = None,
-    usename: bool = True,
-) -> Generator[dict[Any, Any]]:
-    """Generate all the full paths in a tree, as a dict.
-
-    Args:
-        children: ``(name, iterable)`` pairs; each is one level of the tree,
-            enumerated in order. Each ``iterable`` must be an iterable of
-            values (not a callable) -- it is iterated directly.
-        level: Current recursion depth; only used as the dict key when
-            ``usename`` is ``False``.
-        path: Path accumulated so far; ``None`` (the default) starts a fresh
-            path at the top-level call.
-        usename: If ``True``, key each path dict by the level's ``name``;
-            if ``False``, key it by the level's integer depth instead.
-
-    Yields:
-        One dict per full path through ``children``, mapping each level's
-        key to the value chosen at that level.
-
-    Example:
-        >>> from prov.serializers.provrdf import walk
-        >>> iterables = [('a', [1, 2]), ('b', [3, 4])]
-        >>> [val['a'] for val in walk(iterables)]
-        [1, 1, 2, 2]
-        >>> [val['b'] for val in walk(iterables)]
-        [3, 4, 3, 4]
-    """
-    # Entry point
-    if path is None:
-        path = {}
-
-    # Exit condition
-    if not children:
-        yield path.copy()
-        return
-    # Tree recursion
-    head, tail = children[0], children[1:]
-    name, func = head
-    for child in func:
-        # We can use the arg name or the tree level as a key
-        if usename:
-            path[name] = child
-        else:
-            path[level] = child
-        # Recurse into the next level
-        yield from walk(tail, level + 1, path, usename)
-
-
 def literal_rdf_representation(literal: pm.Literal) -> RDFLiteral:
-    """Encode a :class:`~prov.model.Literal` to an ``rdflib.Literal``.
-
-    Args:
-        literal: Literal to encode.
-
-    Returns:
-        A language-tagged ``rdflib.Literal`` if ``literal`` has a language
-        tag, otherwise a datatype-tagged one (base64-encoding the value
-        first for ``xsd:base64Binary``).
+    """Encode a :class:`~prov.model.Literal` to an ``rdflib.Literal`` with the
+    literal's own text: language-tagged when it has a language tag, else
+    tagged with its datatype. ``normalize=False`` keeps the text as given,
+    where rdflib would rewrite ``05`` as ``5`` or an ill-formed ``xsd:boolean``
+    as ``false`` (#575); the reader has no such switch (C10).
 
     Raises:
         ValueError: If ``literal`` has neither a language tag nor a
@@ -1887,18 +2143,7 @@ def literal_rdf_representation(literal: pm.Literal) -> RDFLiteral:
     if literal.langtag:
         #  a language tag can only go with prov:InternationalizedString
         return RDFLiteral(literal.value, lang=literal.langtag)
-    else:
-        datatype = literal.datatype
-        if datatype is not None:
-            if "base64Binary" in datatype.uri:
-                return RDFLiteral(literal.value.encode(), datatype=datatype.uri)
-            elif datatype == XSD_DOUBLE:
-                # Same precision-preserving datatype as the plain-float path
-                # in encode_rdf_representation (#225): the literal's own
-                # lexical form is already the asserted value's string, so
-                # just skip rdflib's bare-double abbreviation on output.
-                return _FullPrecisionDoubleLiteral(literal.value, datatype=datatype.uri)
-            else:
-                return RDFLiteral(literal.value, datatype=datatype.uri)
-        else:
-            raise ValueError("Literal has no datatype")
+    datatype = literal.datatype
+    if datatype is None:
+        raise ValueError("Literal has no datatype")
+    return _LexicalFormLiteral(literal.value, datatype=datatype.uri, normalize=False)

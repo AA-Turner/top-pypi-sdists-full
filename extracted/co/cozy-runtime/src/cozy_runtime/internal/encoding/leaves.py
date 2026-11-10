@@ -26,8 +26,7 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, ClassVar, Protocol
 
-from cozy_runtime.author._context import device as placed_device
-from cozy_runtime.author.kernels import (
+from cozy_runtime.accel.kernels import (
     INT8_CONVROT,
     ROWWISE_FP8,
     PreQuantized,
@@ -35,6 +34,7 @@ from cozy_runtime.author.kernels import (
     readable,
     shared_operand,
 )
+from cozy_runtime.author._context import device as placed_device
 from cozy_runtime.internal import (
     fp8_linear,
     int8_linear,
@@ -195,6 +195,8 @@ def _leaf_class(torch: Any) -> Any:
 
         #: Whether `linear` takes `out` and its GEMM writes there (`forward`'s `out`).
         WRITES_INTO: ClassVar[bool] = False
+        #: A window reads its input and writes only its result, so `split` may run it again finer.
+        PURE_WINDOWS: ClassVar[bool] = True
 
         def forward(
             self, x: Any, *, prequantized: PreQuantized | None = None, out: Any = None

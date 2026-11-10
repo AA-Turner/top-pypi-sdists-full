@@ -325,7 +325,7 @@ rc_build_bank (int pulse, double beta, double sps, size_t span,
   size_t raw = (size_t)ceil ((2.0 * support + 1.0 / sps) * sps) + 1u;
   size_t nt  = comp ? raw + n_comp - 1u : raw;
 
-  float *bank = (float *)calloc (num_phases * nt, sizeof (float));
+  float *bank = (float *)dp_callocn (num_phases, nt, sizeof (float));
   if (!bank)
     return NULL;
 
@@ -835,10 +835,14 @@ dp_RateConverter_create_matched (double rate, int compensate, int pulse,
                                  double beta, size_t span, double pulse_sps,
                                  size_t num_phases)
 {
-  /* Written as !(x >= y) so a NaN parameter is rejected, not accepted. */
+  /* Written as !(x >= y) so a NaN parameter is rejected, not accepted.
+     num_phases is capped here, by the terminal stage's own constant, so a
+     count dp_resamp_create_custom() would refuse is refused before its
+     num_phases x ntaps bank is built rather than after. */
   if (!dp_resamp_rate_ok (rate) || !(beta >= 0.0) || !(beta <= 1.0) || span < 1
       || !(pulse_sps > 0.0) || num_phases < 2u
       || (num_phases & (num_phases - 1u)) != 0u
+      || (uint64_t)num_phases > RESAMP_MAX_PHASES
       || (pulse != RC_PULSE_IANDD && pulse != RC_PULSE_RRC))
     return NULL;
 
@@ -1064,8 +1068,10 @@ dp_RateConverter_execute (dp_RateConverter_state_t *s,
     {
       free (s->bufs[0]);
       free (s->bufs[1]);
-      s->bufs[0] = (float _Complex *)malloc (n_in * sizeof (float _Complex));
-      s->bufs[1] = (float _Complex *)malloc (n_in * sizeof (float _Complex));
+      s->bufs[0]
+          = (float _Complex *)dp_mallocn (n_in, sizeof (float _Complex));
+      s->bufs[1]
+          = (float _Complex *)dp_mallocn (n_in, sizeof (float _Complex));
       if (!s->bufs[0] || !s->bufs[1])
         {
           free (s->bufs[0]);
@@ -1137,8 +1143,10 @@ dp_RateConverter_execute_ctrl (dp_RateConverter_state_t *s,
     {
       free (s->bufs[0]);
       free (s->bufs[1]);
-      s->bufs[0] = (float _Complex *)malloc (n_in * sizeof (float _Complex));
-      s->bufs[1] = (float _Complex *)malloc (n_in * sizeof (float _Complex));
+      s->bufs[0]
+          = (float _Complex *)dp_mallocn (n_in, sizeof (float _Complex));
+      s->bufs[1]
+          = (float _Complex *)dp_mallocn (n_in, sizeof (float _Complex));
       if (!s->bufs[0] || !s->bufs[1])
         {
           free (s->bufs[0]);
@@ -1325,6 +1333,50 @@ dp_RateConverter_gain (const dp_RateConverter_state_t *s)
         break;
       }
   return g;
+}
+
+double
+dp_RateConverter_get_count_lag (const dp_RateConverter_state_t *s)
+{
+  /* Each stage's worst count lag in ITS input samples, scaled to the
+     converter's input by the rate the stages before it have applied: a
+     stage that is late hands every later stage its input late by as much. */
+  double lag = 0.0, rate_in = 1.0;
+  for (int i = 0; i < s->n_stages; i++)
+    switch (s->stage_types[i])
+      {
+      case RC_STAGE_HB:
+        /* Output m is formed as input 2m + 1 arrives: one input behind. */
+        lag += 1.0 / rate_in;
+        rate_in *= 0.5;
+        break;
+      case RC_STAGE_CIC:
+        {
+          /* Output k is formed as input kR + R - 1 arrives: R - 1 behind.
+             The droop compensator is an FIR at the output rate, one output
+             per input, so it adds none. */
+          const double R
+              = (double)((const rc_cic_stage_t *)s->stage_ptrs[i])->R;
+          lag += (R - 1.0) / rate_in;
+          rate_in /= R;
+        }
+        break;
+      case RC_STAGE_RESAMP:
+        {
+          /* dp_resamp_execute() decimating emits each output as its
+             interval closes, so the count is floor(m * rate): under one
+             output, 1 / rate inputs. Interpolating, and on a matched
+             cascade's push path at any rate, every output the newest input
+             reaches is emitted with it: never behind. */
+          const double r
+              = dp_resamp_get_rate ((const resamp_state_t *)s->stage_ptrs[i]);
+          if (r < 1.0 && s->pulse == RC_PULSE_NONE)
+            lag += 1.0 / (r * rate_in);
+          rate_in *= r;
+        }
+        break;
+      }
+  return lag;
 }
 
 size_t

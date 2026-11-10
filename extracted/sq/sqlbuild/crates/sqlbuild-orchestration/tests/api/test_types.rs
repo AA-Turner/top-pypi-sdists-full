@@ -8,10 +8,30 @@ pub(crate) struct ApiContractTestCase {
     pub(crate) expected_status: RunStatus,
 }
 
+pub(crate) struct PublishEncodingTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) forged_bearer: Option<&'static str>,
+    pub(crate) encoding: &'static str,
+    pub(crate) body: fn() -> Vec<u8>,
+    pub(crate) expected_status: reqwest::StatusCode,
+}
+
+pub(crate) struct OlderServerTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) refusal: reqwest::StatusCode,
+    pub(crate) expected_requests: usize,
+}
+
 pub(crate) struct DevelopmentTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
     pub(crate) expected_status: crate::declarations::models::TriggerStatus,
+}
+
+pub(crate) struct OlderServerReportTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) error_message: Option<&'static str>,
+    pub(crate) expected_upgrade_refusal: bool,
 }
 
 pub(crate) struct WorkerRedirectTestCase {
@@ -51,6 +71,13 @@ pub(crate) struct ResetProxy {
     pub(crate) task: tokio::task::JoinHandle<()>,
 }
 
+pub(crate) struct PersonLiveTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_denied_feed: reqwest::StatusCode,
+    pub(crate) expected_disabled_bootstrap: reqwest::StatusCode,
+}
+
 pub(crate) struct ChangesTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
@@ -67,6 +94,13 @@ pub(crate) struct LocationWorkTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
     pub(crate) expected_generation: i64,
+}
+
+pub(crate) struct ColumnLineageTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_orders_edges: Vec<(&'static str, &'static str)>,
+    pub(crate) expected_leaf_edges: usize,
 }
 
 pub(crate) struct WarehouseMetadataTestCase {
@@ -119,8 +153,63 @@ pub(crate) struct CliLoginTestCase {
     pub(crate) expected_exchanges: usize,
 }
 
+/// A refused request's URL and, for writes, its JSON body.
+pub(crate) type DenialRequest = (String, Option<serde_json::Value>);
+
+pub(crate) struct DenialTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) backend: Backend,
+    pub(crate) expected_status: u16,
+}
+
 pub(crate) struct CustomRoleApiTestCase {
     pub(crate) description: &'static str,
     pub(crate) backend: Backend,
     pub(crate) expected_statuses: [u16; 2],
+}
+
+pub(crate) struct UiAssetTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) method: reqwest::Method,
+    pub(crate) path: &'static str,
+    pub(crate) expected_status: u16,
+    pub(crate) expected_body: &'static str,
+    pub(crate) expected_cache: Option<&'static str>,
+}
+
+pub(crate) struct UiPathTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) path: &'static str,
+    pub(crate) expected_status: u16,
+    pub(crate) expected_body: &'static str,
+}
+
+pub(crate) struct ServerErrorTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) path: &'static str,
+    pub(crate) expected_status: u16,
+    pub(crate) expected_body: &'static str,
+}
+
+/// The node report shape a server had before failed nodes carried error text.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+pub(crate) struct OlderNodeReport {
+    event_id: uuid::Uuid,
+    run_id: uuid::Uuid,
+    claim_id: Option<uuid::Uuid>,
+    change: OlderNodeFinished,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+pub(crate) struct OlderNodeFinished {
+    kind: String,
+    node_key: String,
+    outcome: crate::runs::models::NodeOutcome,
+    rows_affected: Option<i64>,
+    error_code: Option<String>,
+    skipped_because_of: Option<String>,
 }

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -7,7 +7,6 @@ from office365.sharepoint.contentcenter.machinelearning.dependentmodel import (
 )
 
 
-@dataclass
 class SPModelDependencies(ClientValue):
     DependentModels: ClientValueCollection[SPDependentModel] = field(
         default_factory=lambda: ClientValueCollection(SPDependentModel)

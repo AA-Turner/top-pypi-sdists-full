@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.27.0
+Version: 0.28.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -23,6 +23,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: backoff>=2.2.0
+Requires-Dist: inspect-evals-utils[huggingface]==0.2.0
 Requires-Dist: datasets>=4.8.5
 Requires-Dist: huggingface_hub>=1.2.0
 Requires-Dist: hf_xet
@@ -85,7 +86,6 @@ Requires-Dist: sentence_transformers>=5.1.1; extra == "sevenllm"
 Requires-Dist: rouge==1.0.1; extra == "sevenllm"
 Requires-Dist: tf-keras; python_version < "3.13" and extra == "sevenllm"
 Provides-Extra: scicode
-Requires-Dist: inspect_evals[gdown]; extra == "scicode"
 Requires-Dist: h5py; extra == "scicode"
 Requires-Dist: scipy; extra == "scicode"
 Requires-Dist: sympy; extra == "scicode"

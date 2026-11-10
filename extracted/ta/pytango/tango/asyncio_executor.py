@@ -14,9 +14,9 @@ from asyncio import coroutines, futures
 from asyncio.tasks import ensure_future
 from collections.abc import Callable
 
-from tango._instrumentation import _get_non_tango_source_location
-from tango._telemetry import _telemetry_runtime
-from tango._warnings import warn_once
+from tango._internal.instrumentation import _get_non_tango_source_location
+from tango._internal.telemetry import _telemetry_runtime
+from tango._internal.warn import warn_once
 from tango.green import AbstractExecutor, get_thread_pool_executor
 from tango.utils import _is_coroutine_function
 
@@ -179,7 +179,7 @@ class AsyncioExecutor(AbstractExecutor):
             kwargs["trace_location"] = _get_non_tango_source_location()
             kwargs["trace_context"] = _telemetry_runtime.get_current_otel_context()
 
-        callback = functools.partial(fn, *args, **kwargs)
+        callback = _telemetry_runtime.wrap_device_telemetry_scope(fn, *args, **kwargs)
         executor_ref = self
 
         def _callback_with_executor():

@@ -584,6 +584,18 @@ def merge_computed_types(inputs: list[CONCRETE_TYPES]) -> CONCRETE_TYPES:
     return merge_datatypes(inputs)
 
 
+UNIQUE_ELEMENTS_TRAIT = "unique"
+
+
+def holds_unique_elements(datatype: Any) -> bool:
+    """A list declared `::unique` (`std.collection`): each element at most once."""
+    return (
+        isinstance(datatype, TraitDataType)
+        and isinstance(datatype.type, ArrayType)
+        and any(t.rsplit(".", 1)[-1] == UNIQUE_ELEMENTS_TRAIT for t in datatype.traits)
+    )
+
+
 def is_compatible_datatype(left, right):
     # for unknown types, we can't make any assumptions
     if isinstance(left, list):
@@ -828,3 +840,8 @@ def arg_to_datatype(arg) -> CONCRETE_TYPES:
             raise ValueError(
                 f"Cannot parse arg datatype for arg of raw type {type(arg)} value {arg}"
             )
+
+
+from trilogy.core.models.copying import install_dataclass_deepcopy
+
+install_dataclass_deepcopy(globals())

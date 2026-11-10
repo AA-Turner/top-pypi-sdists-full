@@ -1,7 +1,7 @@
 ### Project
 [project]
 name = "taskcluster-taskgraph"
-version = "24.6.0"
+version = "24.7.0"
 description = "Build taskcluster taskgraphs"
 readme = "README.rst"
 authors = [
@@ -92,6 +92,8 @@ xfail_strict = true
 [tool.coverage.run]
 branch = true
 source = ["src/taskgraph/", "src/taskgraph/run-task/", "packages", "test"]
+parallel = true
+patch = ["_exit"]
 
 ### Lint and Format
 [tool.ruff]

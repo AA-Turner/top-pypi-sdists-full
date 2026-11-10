@@ -14,13 +14,11 @@ from pyrig.core.iterate import deep_sorted_dict, traverse_structure
 from pyrig.core.resources import resource_content
 from pyrig.core.strings import (
     reformat_name,
-    split_on_uppercase,
 )
 from pyrig.core.subprocesses import Args
 from pyrig.rig import resources
 from pyrig.rig.configs.base.yaml import YMLDictConfigFile, commented_map
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
-from pyrig.rig.tools.formatting.shell import ShellFormatter
 from pyrig.rig.tools.linting.yaml import YAMLLinter
 from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.version_control.controller import VersionController
@@ -77,8 +75,8 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
         Returns:
             Top-level workflow configuration with `name`, `on`,
-            `permissions`, `concurrency`, `defaults`, `run-name`, and
-            `jobs` keys populated from the overridable methods. The default
+            `permissions`, `concurrency`, `run-name`, and `jobs` keys
+            populated from the overridable methods. The default
             permissions policy denies all `GITHUB_TOKEN` access.
         """
         return {
@@ -86,7 +84,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             "on": self.workflow_triggers(),
             "permissions": self.permissions(),
             "concurrency": self.concurrency(),
-            "defaults": self.defaults(),
             "run-name": self.run_name(),
             "jobs": self.jobs_configs(),
         }
@@ -525,14 +522,6 @@ class WorkflowConfigFile(YMLDictConfigFile):
             "cancel-in-progress": self.concurrency_cancel_in_progress(),
         }
 
-    def defaults(self) -> dict[str, Any]:
-        """Return the default settings applied to every step in the workflow.
-
-        Returns:
-            Dict of default settings.
-        """
-        return {"run": {"shell": ShellFormatter.I.dialect()}}
-
     def documented_permissions(self, permissions: dict[str, str]) -> CommentedMap:
         """Return `permissions` as a documented `CommentedMap`.
 
@@ -915,17 +904,18 @@ class WorkflowConfigFile(YMLDictConfigFile):
         return "VERSION"
 
     def workflow_name(self) -> str:
-        """Derive a human-readable name from the class name.
-
-        Removes the `WorkflowConfigFile` suffix and splits the remainder on
-        uppercase letters to produce a space-separated title.
+        """Return a human-readable title derived from the workflow file stem.
 
         Returns:
             Workflow name, e.g. `"Health Check"` for
-            `HealthCheckWorkflowConfigFile`.
+            `health-check`.
         """
-        name = self.__class__.__name__.removesuffix(WorkflowConfigFile.__name__)
-        return " ".join(split_on_uppercase(name))
+        return reformat_name(
+            self.stem(),
+            split_on="-",
+            join_on=" ",
+            capitalize=True,
+        )
 
     def action_checkout(self) -> tuple[str, str, str]:
         """Return action metadata for `actions/checkout`.

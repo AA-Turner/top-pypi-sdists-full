@@ -19,7 +19,8 @@ from office365.runtime.client_result import ClientResult
 from office365.runtime.operations import Progress, ProgressCallback
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.sharepoint.entity import Entity
-from office365.sharepoint.thresholds import Limits
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.thresholds import Limits, limit
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 
 if TYPE_CHECKING:
@@ -37,10 +38,14 @@ UploadSource = Union[
 ]
 
 
+#: The transfer ceilings: a move or copy is capped by both size and file count, and the ZIP
+#: download is the one other operation whose ceiling is stated in gigabytes.
+@limit(Limits.MOVE_COPY_BYTES, Limits.MOVE_COPY_FILES, Limits.ZIP_DOWNLOAD)
 class MoveCopyUtil(Entity):
     """A container class for static move/copy methods."""
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def copy_file_by_path(context, src_path, dest_path, overwrite, options=None):
         """Copies a file from a source URL to a destination URL.
 
@@ -71,6 +76,7 @@ class MoveCopyUtil(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def move_file(context, src_url, dest_url, options=None):
         """Moves a file from a source URL to a destination URL.
 
@@ -94,6 +100,7 @@ class MoveCopyUtil(Entity):
         return binding_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def move_file_by_path(context, src_path, dest_path, options=None):
         """Moves a file from a source path to a destination path.
 
@@ -117,6 +124,7 @@ class MoveCopyUtil(Entity):
         return binding_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def copy_folder(context, src_url, dest_url, options=None):
         """Copies a folder from a source URL to a destination URL.
 
@@ -139,6 +147,7 @@ class MoveCopyUtil(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def copy_folder_by_path(context, src_path, dest_path, options=None):
         """Copies a folder from a source URL to a destination URL.
 
@@ -167,6 +176,7 @@ class MoveCopyUtil(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def move_folder(context, src_url, dest_url, options):
         """Moves a folder from a source URL to a destination URL.
 
@@ -188,6 +198,7 @@ class MoveCopyUtil(Entity):
         return binding_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def move_folder_by_path(context, src_path, dest_path, options):
         """Moves a folder from a source URL to a destination URL.
 
@@ -420,6 +431,7 @@ class MoveCopyUtil(Entity):
         return entries
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def copy_file(
         context: ClientContext, src_url: str, dest_url: str, overwrite: bool, options: MoveCopyOptions
     ) -> None:

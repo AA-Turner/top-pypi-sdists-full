@@ -44,6 +44,7 @@ from trilogy.core.processing.grain_utility import (
     rows_unique_at_outputs,
 )
 from trilogy.core.processing.join_resolution import (
+    PlannedPairs,
     compute_outer_null_status,
     get_node_joins,
     held_region_spans,
@@ -126,9 +127,11 @@ def deduplicate_nodes(
     merged: dict[str, QueryDatasource | BuildDatasource],
     logging_prefix: str,
     environment: BuildEnvironment,
-) -> tuple[bool, dict[str, QueryDatasource | BuildDatasource], set[str]]:
+) -> tuple[bool, dict[str, QueryDatasource | BuildDatasource], dict[str, str]]:
+    """Drop one parent another binds completely; `removed` maps it to the
+    parent that subsumes it."""
     duplicates = False
-    removed: set[str] = set()
+    removed: dict[str, str] = {}
     set_map: dict[str, set[str]] = {}
     all_map: dict[str, set[str]] = {}
     for k, v in merged.items():
@@ -172,7 +175,7 @@ def deduplicate_nodes(
                     f"{logging_prefix}{LOGGER_PREFIX} extraneous parent node that is subset of another parent node {og.grain.issubset(subset_to.grain)} {og.grain.components} {subset_to.grain.components}"
                 )
                 merged = {k: v for k, v in merged.items() if k != k1}
-                removed.add(k1)
+                removed[k1] = k2
                 duplicates = True
                 found = True
                 break
@@ -187,12 +190,19 @@ def deduplicate_nodes_and_joins(
     merged: dict[str, QueryDatasource | BuildDatasource],
     logging_prefix: str,
     environment: BuildEnvironment,
-) -> tuple[list[NodeJoin] | None, dict[str, QueryDatasource | BuildDatasource]]:
+) -> tuple[
+    list[NodeJoin] | None,
+    dict[str, QueryDatasource | BuildDatasource],
+    dict[str, str],
+]:
+    """Also returns each folded parent's survivor, followed through later folds."""
+    folded: dict[str, str] = {}
     duplicates = True
     while duplicates:
         duplicates, merged, removed = deduplicate_nodes(
             merged, logging_prefix, environment=environment
         )
+        folded = {k: removed.get(v, v) for k, v in folded.items()} | removed
         if joins is not None:
             joins = [
                 j
@@ -203,7 +213,60 @@ def deduplicate_nodes_and_joins(
                     if side is not None
                 )
             ]
-    return joins, merged
+    return joins, merged, folded
+
+
+def _held_groups(
+    held: frozenset[str] | None,
+    parent: StrategyNode,
+    planned: PlannedPairs | None,
+    existence_only: bool,
+) -> frozenset[str] | None:
+    """What a merged source holds once `parent` is merged into it. A set read
+    only as a subselect holds no rows of the merge, so it adds no group."""
+    if existence_only:
+        return held
+    side = planned.sides.get(id(parent)) if planned is not None else None
+    return None if held is None or side is None else held | side
+
+
+def _credit_folded(
+    held: dict[str, frozenset[str] | None], folded: dict[str, str]
+) -> dict[str, frozenset[str] | None]:
+    """A parent folded away as redundant is bound completely by its survivor,
+    so the survivor stands for its groups too."""
+    out = {key: groups for key, groups in held.items() if key not in folded}
+    for gone, survivor in folded.items():
+        mine, theirs = out[survivor], held[gone]
+        out[survivor] = None if mine is None or theirs is None else mine | theirs
+    return out
+
+
+def _planned_source_pairs(
+    merged: dict[str, QueryDatasource | BuildDatasource],
+    held: dict[str, frozenset[str] | None],
+    planned: PlannedPairs | None,
+) -> dict[frozenset[str], frozenset[str]] | None:
+    """What each two joined sources may pair on, by identifier. Every joined
+    source holds planned groups: one the plan does not name is a planner bug.
+    An existence-only source is no side: it is read as a subselect, never
+    paired."""
+    if planned is None:
+        return None
+    unattributed = sorted(key for key in merged if not held[key])
+    if len(merged) > 1 and unattributed:
+        raise ValueError(
+            f"Merge sources {unattributed} hold no planned group, so their "
+            "join keys are unplanned. This is a planner bug."
+        )
+    out: dict[frozenset[str], frozenset[str]] = {}
+    keys = sorted(merged)
+    for i, left in enumerate(keys):
+        for right in keys[i + 1 :]:
+            out[frozenset({merged[left].identifier, merged[right].identifier})] = (
+                planned.between(held[left] or frozenset(), held[right] or frozenset())
+            )
+    return out
 
 
 def _resolve_node(node: StrategyNode) -> BuildDatasource | QueryDatasource:
@@ -236,7 +299,7 @@ class MergeNode(StrategyNode):
         preserve_parents: bool = False,
         host_stitch: bool = False,
         span_scope: SpanScope | None = None,
-        planned_keys: frozenset[str] | None = None,
+        planned_pairs: PlannedPairs | None = None,
     ):
         super().__init__(
             input_concepts=input_concepts,
@@ -271,9 +334,9 @@ class MergeNode(StrategyNode):
         # plain domain-preserving semantics.
         self.host_stitch = host_stitch
         self.span_scope = environment.span_scope if span_scope is None else span_scope
-        # The keys the planner's join plan pairs the parents on; join inference
-        # pairs on these alone.
-        self.planned_keys = planned_keys
+        # The planner's join plan: which two parents pair on which keys. Join
+        # inference pairs on these alone.
+        self.planned_pairs = planned_pairs
 
         final_joins: list[NodeJoin] = []
         if self.node_joins is not None:
@@ -335,6 +398,7 @@ class MergeNode(StrategyNode):
         pregrain: BuildGrain,
         grain: BuildGrain,
         environment: BuildEnvironment,
+        planned_pairs: dict[frozenset[str], frozenset[str]] | None = None,
     ) -> list[SourceJoin | UnnestJoin]:
         dataset_list: list[QueryDatasource | BuildDatasource] = sorted(
             final_datasets,
@@ -406,7 +470,12 @@ class MergeNode(StrategyNode):
                     demanded_domains=demanded_domains,
                     extent_free_spans=self.span_scope.extent_free,
                     keyspace=self.span_scope.keyspace,
-                    planned_keys=self.planned_keys,
+                    planned_keys=(
+                        self.planned_pairs.permitted
+                        if self.planned_pairs is not None
+                        else None
+                    ),
+                    planned_pairs=planned_pairs,
                 )
         elif final_joins:
             logger.info(
@@ -651,15 +720,30 @@ class MergeNode(StrategyNode):
             p.resolve() for p in self.parents
         ]
         merged: dict[str, QueryDatasource | BuildDatasource] = {}
+        # the planned groups each merged source holds; None for a source
+        # holding rows no planned group's
+        held: dict[str, frozenset[str] | None] = {}
         final_joins: list[NodeJoin] | None = self.node_joins
         # Two parents built under different extent ownership carry distinct
         # identifiers; when their resolved joins came out the same they are one
         # relation and fold like any other identifier match.
         by_shape: dict[tuple, str] = {}
-        for source in parent_sources:
+        # a condition's row argument is read by the row stream like an output
+        merge_output_addresses = {c.address for c in self.output_concepts} | (
+            {c.address for c in self.conditions.row_arguments}
+            if self.conditions
+            else set()
+        )
+        for parent, source in zip(self.parents, parent_sources):
             key = source.identifier
             if isinstance(source, QueryDatasource) and key not in merged:
                 key = by_shape.setdefault(source.shape, key)
+            held[key] = _held_groups(
+                held.get(key, frozenset()),
+                parent,
+                self.planned_pairs,
+                self._existence_only(source, merge_output_addresses),
+            )
             if key in merged:
                 logger.info(
                     f"{self.logging_prefix}{LOGGER_PREFIX} merging parent node with {source.identifier} into existing"
@@ -671,22 +755,25 @@ class MergeNode(StrategyNode):
         # drop redundant sources, unless every parent is a deliberate side of a
         # coalescing relation
         if not self.preserve_parents:
-            final_joins, merged = deduplicate_nodes_and_joins(
+            final_joins, merged, folded = deduplicate_nodes_and_joins(
                 final_joins, merged, self.logging_prefix, self.environment
             )
+            held = _credit_folded(held, folded)
         final_datasets: list[QueryDatasource | BuildDatasource] = sorted(
             merged.values(), key=lambda source: source.identifier
-        )
-
-        # a condition's row argument is read by the row stream like an output
-        merge_output_addresses = {c.address for c in self.output_concepts} | (
-            {c.address for c in self.conditions.row_arguments}
-            if self.conditions
-            else set()
         )
         existence_final = [
             x for x in final_datasets if self._existence_only(x, merge_output_addresses)
         ]
+        planned_pairs = _planned_source_pairs(
+            {
+                k: v
+                for k, v in merged.items()
+                if all(v is not x for x in existence_final)
+            },
+            held,
+            self.planned_pairs,
+        )
         # ``force_group is True`` means this merge exists to regroup its finer
         # parent to the output grain; returning a parent that merely covers the
         # output columns would drop that group. ``preserve_parents`` marks a
@@ -766,7 +853,12 @@ class MergeNode(StrategyNode):
         join_proofs = self._join_proofs(final_datasets, zero_filled)
         if len(join_candidates) > 1:
             joins: list[SourceJoin | UnnestJoin] = self.generate_joins(
-                join_candidates, final_joins, raw_pregrain, grain, self.environment
+                join_candidates,
+                final_joins,
+                raw_pregrain,
+                grain,
+                self.environment,
+                planned_pairs,
             )
         else:
             joins = []
@@ -1012,6 +1104,20 @@ class MergeNode(StrategyNode):
             if self.span_scope.held_on(concept.address, bound_partially)
         ]
 
+    def replace_parents(self, parents: list[StrategyNode]) -> None:
+        """Swap in `parents` for the current ones, position by position; the
+        authored joins and the join plan name parents, so they follow."""
+        original, self.parents = self.parents, parents
+        swap = {id(old): new for old, new in zip(original, parents)}
+        if self.node_joins:
+            self.node_joins = [
+                join.bind(lambda n: swap.get(id(n), n)) for join in self.node_joins
+            ]
+        if self.planned_pairs is not None:
+            self.planned_pairs = self.planned_pairs.rebound(
+                {key: id(new) for key, new in swap.items()}
+            )
+
     def copy(self) -> "MergeNode":
         node = type(self)(
             input_concepts=list(self.input_concepts),
@@ -1035,6 +1141,6 @@ class MergeNode(StrategyNode):
             preserve_parents=self.preserve_parents,
             host_stitch=self.host_stitch,
             span_scope=self.span_scope,
-            planned_keys=self.planned_keys,
+            planned_pairs=self.planned_pairs,
         )
         return self.with_marks(node)

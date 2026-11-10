@@ -624,6 +624,17 @@ class FreshnessSnapshot:
         """Read the lexical catalogue at `checkpoint`."""
         self._lexical[scope] = checkpoint
 
+    def lexical_view(
+        self, scope: str, checkpoint: freshness.RecallFreshnessCheckpoint
+    ) -> FreshnessSnapshot:
+        """Read a proved catalogue checkpoint without changing earlier request consumers."""
+        if self.lexical_checkpoint(scope) == checkpoint:
+            return self
+        view = copy.copy(self)
+        view._lexical = dict(self._lexical)
+        view.pin_lexical_checkpoint(scope, checkpoint)
+        return view
+
     def projection_key(self, scope: str) -> tuple:
         checkpoint = self.recall_checkpoint(scope)
         return (
@@ -3004,6 +3015,14 @@ class _UnitCandidate:
         return self.unit_view.get("verdict")
 
     @property
+    def as_of(self) -> str | None:
+        return self.selected_unit.as_of
+
+    @property
+    def until(self) -> str | None:
+        return self.selected_unit.until
+
+    @property
     def check_by(self) -> str | None:
         value = self.unit_view.get("check_by")
         return value.isoformat() if value is not None else None
@@ -3177,7 +3196,7 @@ def _finish_unit_candidates(
                 page.body, unit, occurrences[unit.occurrence_key], content=raw[unit.occurrence_key].content,
                 category_raw=raw[unit.occurrence_key].category_raw, category_key=raw[unit.occurrence_key].category_key,
                 tags=raw[unit.occurrence_key].tags, context=raw[unit.occurrence_key].context,
-                parent_ref=parent.structure.parent_ref, path=path,
+                parent_ref=parent.structure.parent_ref, path=path, language_registry=parent.language,
             ) for unit in parent.structure.units if unit.occurrence_key in raw and not any(
                 start < occurrences[unit.occurrence_key]["end_offset"]
                 and occurrences[unit.occurrence_key]["start_offset"] < end for start, end in spans
@@ -3500,6 +3519,8 @@ def _semantic_unit_hit(
         context=unit.context,
         verdict=getattr(unit, "verdict", None),
         check_by=getattr(unit, "check_by", None),
+        as_of=getattr(unit, "as_of", None),
+        until=getattr(unit, "until", None),
         relations=[relation.to_dict() for relation in unit.relations],
         source_anchor=unit.anchor,
         source_span=_unit_span(unit),
@@ -4665,13 +4686,11 @@ def _resolve_relation_filter(
     for raw in relations or ():
         resolution = registry.resolve(raw)
         if resolution.canonical is None or resolution.status == "unregistered":
+            suggestions = _nearest_relation_keys(registry, raw)
             raise cli_ops.OpError(
                 "INVALID_RELATION_FILTER",
                 f"unknown relation {raw!r}",
-                details={
-                    "relation": raw,
-                    "suggestions": _nearest_relation_keys(registry, raw),
-                },
+                details={"relation": raw, "suggestions": suggestions, "candidates": suggestions},
             )
     plan = traversal_profiles.relation_query_plan(registry, relations or [])
     result = graph_index.relation_participants(
@@ -7691,7 +7710,10 @@ def _get_query_resolver(vault_root: Path, freshness: tuple | None = None):
 
 
 def borrow_query_resolver(
-    vault_root: Path, visible: Callable[[str], bool] | None = None
+    vault_root: Path,
+    visible: Callable[[str], bool] | None = None,
+    *,
+    schedule_rebuild: bool = True,
 ):
     """The broad resolver if one is resident and current, else None. Never builds.
 
@@ -7702,6 +7724,7 @@ def borrow_query_resolver(
     cache the watcher's patch has not yet advanced is a miss, never a stale hit.
     For a reader other than the owner (`visible` given), a cache that lags only
     by pages that reader may not see is current for it and is not a miss.
+    Set `schedule_rebuild=False` for an advisory read that must not start a rebuild.
     Writers and explicit operations keep `_get_query_resolver`.
     """
     root = Path(vault_root)
@@ -7718,7 +7741,8 @@ def borrow_query_resolver(
             and view_lag.consumer_lag_only_withheld(root, checkpoint, visible)
         ):
             return cached[1]
-    _schedule_query_resolver_rebuild(root)
+    if schedule_rebuild:
+        _schedule_query_resolver_rebuild(root)
     return None
 
 
@@ -8017,11 +8041,13 @@ def writer_resolver_snapshot(
     potentially stale event-registry state. When the corpus route declines,
     the span records why as one closed `declined_<reason>` field.
 
-    A caller that cannot afford a walk of the vault passes `allow_disk=False`:
-    when both cheap routes decline it gets None and the span records
-    `disk_declined`, instead of a resolver built from disk. Inside
-    `planned_pages`, the snapshot also holds the planned pages.
+    With `allow_disk=False`, a miss returns None instead of building from disk.
+    The resident-corpus route still walks Markdown paths to prove membership.
+    Advisory reads that forbid that work pass `schedule_rebuild=False` to
+    `borrow_query_resolver`. Inside `planned_pages`, the snapshot also holds the
+    planned pages.
     """
+    request_budget.checkpoint()
     resolver = _writer_resolver_snapshot(
         vault_root, freshness_key=freshness_key, allow_disk=allow_disk
     )
@@ -8074,6 +8100,7 @@ def _writer_resolver_snapshot(
         if not allow_disk:
             measured["disk_declined"] = 1
             return None
+        request_budget.checkpoint()
         measured["disk"] = 1
         return WikilinkResolver(root)
 
@@ -8357,6 +8384,10 @@ def unload_ram_caches(
         from . import lexstore
 
         lexstore.release_admitted_recall_rows()
+    if not keep_recall_resolver:
+        from . import graph_read_publication
+
+        graph_read_publication.clear()
     with _RESOLVER_LOCK:
         resolver_entries = len(_RESOLVER_CACHE)
         _RESOLVER_CACHE.clear()
@@ -8391,14 +8422,22 @@ def release_idle_ram_caches() -> dict[str, int]:
     embedding model does not pay for that.
 
     Everything else still goes: the page cache is the large one, and the hot
-    find cache and recall path cache are cheap to refill.
+    find cache and recall path cache are cheap to refill. So does the container
+    module's memo of notes without a claim; one walk refills it.
     """
-    return unload_ram_caches(keep_recall_resolver=True, pages=True)
+    from . import document_containers
+
+    released = unload_ram_caches(keep_recall_resolver=True, pages=True)
+    released["unclaimed_notes"] = document_containers.clear_unclaimed_notes()
+    return released
 
 
 def evict_resolver_caches(vault_root: Path) -> int:
     """Withdraw both resolver projections for one vault after an event gap."""
     root = Path(vault_root)
+    from . import graph_read_publication
+
+    graph_read_publication.forget(root)
     with _RESOLVER_LOCK:
         removed = int(root in _RESOLVER_CACHE) + int(root in _RECALL_RESOLVER_CACHE)
         _evict_resolver(root)

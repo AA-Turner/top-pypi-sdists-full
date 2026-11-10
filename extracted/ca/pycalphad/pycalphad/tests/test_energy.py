@@ -186,6 +186,23 @@ def test_binary_xiong_twostate_einstein(load_database):
                  -86332.217, mode='sympy')
 
 
+@pytest.mark.parametrize("phase_name, x_ni, temperature, expected", [
+    ("BCC_A2", 0.3, 1600, 0.0),  # BMAGN < -1, TC < 0, NT < 0
+    ("BCC_A2", 0.01, 100, 0.0),  # -1 < BMAGN < 0, NT > 0
+    ("FCC_A1", 1.0, 630, -61.998),  # just below TC, Xiong et al. (2012) Eq. 13
+])
+@select_database("CrNi-21Hao-3g.tdb")
+def test_xiong_magnetic_energy(load_database, phase_name, x_ni, temperature, expected):
+    "Xiong magnetic energy is zero for non-positive BMAGN and follows Xiong et al. (2012) Eq. 13."
+    class MagneticModel(Model):
+        contributions = [('mag', 'magnetic_energy')]
+    dbf = load_database()
+    check_energy(MagneticModel(dbf, ['CR', 'NI', 'VA'], phase_name),
+                 {v.T: temperature, v.SiteFraction(phase_name, 0, 'CR'): 1 - x_ni,
+                  v.SiteFraction(phase_name, 0, 'NI'): x_ni, v.SiteFraction(phase_name, 1, 'VA'): 1},
+                 expected, mode='sympy')
+
+
 # TERNARY TESTS
 @select_database("alcrni.tdb")
 def test_ternary_rkm_solution(load_database):
@@ -421,7 +438,9 @@ def test_changing_model_ast_also_changes_mixing_energy(load_database):
     """If a models contribution is modified, the mixing energy should update accordingly."""
     dbf = load_database()
     m = Model(dbf, ['CU', 'MG', 'VA'], 'CU2MG')
-    m.models['mag'] = 1000
+    # Model contributions are per mole of formula units; CU2MG has 3 moles of
+    # atoms per mole of formula units, so 3000 J/mol-formula is 1000 J/mol-atom
+    m.models['mag'] = 3000
     statevars = {
                     v.T: 300,
                     v.SiteFraction('CU2MG', 0, 'CU'): 1, v.SiteFraction('CU2MG', 0, 'MG'): 0,
@@ -429,7 +448,7 @@ def test_changing_model_ast_also_changes_mixing_energy(load_database):
                 }
     check_output(m, statevars, 'GM_MIX', 1000)
 
-    m.endmember_reference_model.models['mag'] = 1000
+    m.endmember_reference_model.models['mag'] = 3000
     check_output(m, statevars, 'GM_MIX', 0)
 
 
@@ -468,6 +487,88 @@ def test_shift_reference_state_model_contribs_take_effect():
     check_output(m, statevars, 'GMR', idmix_val-1000.0)
 
 
+@pytest.mark.filterwarnings("ignore:shift_reference_state*:DeprecationWarning")
+def test_reference_states_with_species():
+    """Reference states apply to phases without pure element constituents and can be phases of species."""
+    TDB = """
+     ELEMENT CU   FCC_A1                     63.546     5004.1     33.15 !
+     ELEMENT O    1/2_MOLE_O2(G)             15.999     4341.0    102.52 !
+     SPECIES CU2O CU2O1 !
+     SPECIES O2 O2 !
+     TYPE_DEFINITION % SEQ * !
+     PHASE FCC_A1 % 1 1 !
+     CONSTITUENT FCC_A1 :CU: !
+     PHASE GAS % 1 1 !
+     CONSTITUENT GAS :O2: !
+     PHASE CUPRITE % 1 1 !
+     CONSTITUENT CUPRITE :CU2O: !
+     PARAMETER G(FCC_A1,CU;0) 1 -1000+5*T; 6000 N !
+     PARAMETER G(GAS,O2;0) 1 -4000+10*T; 6000 N !
+     PARAMETER G(CUPRITE,CU2O;0) 1 -30000+7*T; 6000 N !
+    """
+    dbf = Database(TDB)
+    m = Model(dbf, ['CU', 'O'], 'CUPRITE')
+    m.shift_reference_state([ReferenceState('CU', 'FCC_A1'), ReferenceState('O', 'GAS')], dbf)
+    # per mole of atoms: -30000/3 - 2/3*(-1000) - 1/3*(-4000/2)
+    check_output(m, {v.T: 300, v.SiteFraction('CUPRITE', 0, 'CU2O'): 1}, 'HMR', -26000/3)
+
+
+@pytest.mark.filterwarnings("ignore:shift_reference_state*:DeprecationWarning")
+def test_reference_state_uses_most_stable_endmember():
+    """A reference phase with several endmembers of the element uses the most stable one at the fixed temperature."""
+    TDB = """
+     ELEMENT CU   FCC_A1                     63.546     5004.1     33.15 !
+     ELEMENT O    1/2_MOLE_O2(G)             15.999     4341.0    102.52 !
+     SPECIES CU2O CU2O1 !
+     SPECIES O2 O2 !
+     TYPE_DEFINITION % SEQ * !
+     PHASE FCC_A1 % 1 1 !
+     CONSTITUENT FCC_A1 :CU: !
+     PHASE GAS % 1 1 !
+     CONSTITUENT GAS :O,O2: !
+     PHASE CUPRITE % 1 1 !
+     CONSTITUENT CUPRITE :CU2O: !
+     PARAMETER G(FCC_A1,CU;0) 1 -1000+5*T; 6000 N !
+     PARAMETER G(GAS,O;0) 1 -40*T; 6000 N !
+     PARAMETER G(GAS,O2;0) 1 -20000-20*T; 6000 N !
+     PARAMETER G(CUPRITE,CU2O;0) 1 -30000+7*T; 6000 N !
+    """
+    dbf = Database(TDB)
+    statevars = {v.T: 300, v.SiteFraction('CUPRITE', 0, 'CU2O'): 1}
+    # O2 is the most stable per mole of atoms at 298.15 K: -30000/3 - 2/3*(-1000) - 1/3*(-20000/2)
+    m = Model(dbf, ['CU', 'O'], 'CUPRITE')
+    m.shift_reference_state([ReferenceState('CU', 'FCC_A1'), ReferenceState('O', 'GAS')], dbf)
+    check_output(m, statevars, 'HMR', -6000)
+    # (-30000+7*300)/3 - 2/3*(-1000+5*300) - 1/3*(-20000-20*300)/2
+    check_output(m, statevars, 'GMR', -5300)
+    # O is the most stable at 2000 K: -30000/3 - 2/3*(-1000)
+    m = Model(dbf, ['CU', 'O'], 'CUPRITE')
+    m.shift_reference_state([ReferenceState('CU', 'FCC_A1'), ReferenceState('O', 'GAS', {v.T: 2000})], dbf)
+    check_output(m, statevars, 'HMR', -28000/3)
+
+
+@pytest.mark.filterwarnings("ignore:shift_reference_state*:DeprecationWarning")
+def test_reference_state_ignores_vacancy_endmember():
+    """The pure vacancy endmember of a reference phase is not a candidate reference endmember."""
+    TDB = """
+     ELEMENT VA   VACUUM                      0.0        0.0       0.0 !
+     ELEMENT ZN   HCP_ZN                     65.38    5656.8    41.631 !
+     TYPE_DEFINITION % SEQ * !
+     PHASE HCP % 2 1 1 !
+     CONSTITUENT HCP :VA,ZN:VA: !
+     PHASE LIQUID % 1 1 !
+     CONSTITUENT LIQUID :ZN: !
+     PARAMETER G(HCP,ZN:VA;0) 1 -2000+3*T; 6000 N !
+     PARAMETER G(HCP,VA:VA;0) 1 500; 6000 N !
+     PARAMETER G(LIQUID,ZN;0) 1 1000+2*T; 6000 N !
+    """
+    dbf = Database(TDB)
+    m = Model(dbf, ['ZN', 'VA'], 'LIQUID')
+    m.shift_reference_state([ReferenceState('ZN', 'HCP')], dbf)
+    # 1000 - (-2000)
+    check_output(m, {v.T: 300, v.SiteFraction('LIQUID', 0, 'ZN'): 1}, 'HMR', 3000)
+
+
 @select_database("femns.tdb")
 def test_ionic_liquid_energy_anion_sublattice(load_database):
     """Test that having anions, vacancies, and neutral species in the anion sublattice of a two sublattice ionic liquid produces the correct Gibbs energy"""
@@ -479,6 +580,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
     potentials = {v.P: 101325, v.T: 1600}
 
     # All values checked by Thermo-Calc using set-start-constitution and show gm(ionic_liq)
+    # gm(ionic_liq) is per mole of atoms, matching Model.GM
 
     # Test the three endmembers produce the corect energy
     em_FE_Sneg2 = {
@@ -487,7 +589,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 1e-12,
         v.Y('IONIC_LIQ', 1, v.Species('S', {'S': 1.0})): 1e-12,
     }
-    out = np.array(mod.ast.subs({**potentials, **em_FE_Sneg2}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **em_FE_Sneg2}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -148395.0, atol=0.1)
 
     em_FE_VA = {
@@ -496,7 +598,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 1.0,
         v.Y('IONIC_LIQ', 1, v.Species('S', {'S': 1.0})): 1e-12,
     }
-    out = np.array(mod.ast.subs({**potentials, **em_FE_VA}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **em_FE_VA}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -87735.077, atol=0.1)
 
     em_FE_S = {
@@ -505,7 +607,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 1e-12,
         v.Y('IONIC_LIQ', 1, v.Species('S', {'S': 1.0})): 1.0,
     }
-    out = np.array(mod.ast.subs({**potentials, **em_FE_S}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **em_FE_S}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -102463.52, atol=0.1)
 
     # Test some ficticious "nice" mixing cases
@@ -515,7 +617,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 0.33333333,
         v.Y('IONIC_LIQ', 1, v.Species('S', {'S': 1.0})): 0.33333333,
     }
-    out = np.array(mod.ast.subs({**potentials, **mix_equal}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **mix_equal}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -130358.2, atol=0.1)
 
     mix_unequal = {
@@ -524,7 +626,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 0.25,
         v.Y('IONIC_LIQ', 1, v.Species('S', {'S': 1.0})): 0.25,
     }
-    out = np.array(mod.ast.subs({**potentials, **mix_unequal}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **mix_unequal}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -138484.11, atol=0.1)
 
     # Test the energies for the two equilibrium internal DOF for the conditions
@@ -534,7 +636,7 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 1.00545E-04,
         v.Y('IONIC_LIQ', 1, v.Species('S-2', {'S': 1.0}, charge=-2)): 6.00994E-01,
     }
-    out = np.array(mod.ast.subs({**potentials, **eq_sf_1}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **eq_sf_1}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -141545.37, atol=0.1)
 
     eq_sf_2 = {
@@ -543,8 +645,129 @@ def test_ionic_liquid_energy_anion_sublattice(load_database):
         v.Y('IONIC_LIQ', 1, v.Species('VA')): 1.45273E-04,
         v.Y('IONIC_LIQ', 1, v.Species('S')): 9.84476E-01,
     }
-    out = np.array(mod.ast.subs({**potentials, **eq_sf_2}).n(real=True), dtype=np.complex128)
+    out = np.array(mod.GM.subs({**potentials, **eq_sf_2}).n(real=True), dtype=np.complex128)
     assert np.isclose(out, -104229.18, atol=0.1)
+
+
+@pytest.mark.filterwarnings("ignore:Type definitions using IF/THEN logic is not supported:UserWarning")
+@select_database("Al-Fe-O_Lindwall2015.tdb")
+def test_ionic_liquid_vacancy_neutral_interaction(load_database):
+    """Test that a cation:vacancy,neutral interaction in a two sublattice ionic liquid produces the correct Gibbs energy"""
+    dbf = load_database()
+    # Uses the sublattice model (AL+3)(O-2, VA, ALO3/2)
+    mod = Model(dbf, ['AL', 'O', 'VA'], 'IONIC_LIQ')
+    dof = {
+        v.T: 2000, v.P: 101325,
+        v.Y('IONIC_LIQ', 0, v.Species('AL+3', {'AL': 1.0}, charge=3)): 1.0,
+        v.Y('IONIC_LIQ', 1, v.Species('O-2', {'O': 1.0}, charge=-2)): 1e-12,
+        v.Y('IONIC_LIQ', 1, v.Species('VA')): 0.5,
+        v.Y('IONIC_LIQ', 1, v.Species('ALO3/2', {'AL': 1.0, 'O': 1.5})): 0.5,
+    }
+    check_energy(mod, dof, -299252.28)  # Thermo-Calc checked
+
+
+@pytest.mark.filterwarnings("ignore:Type definitions using IF/THEN logic is not supported:UserWarning")
+@select_database("Al-Fe-O_Lindwall2015.tdb")
+def test_ionic_liquid_cation_cation_vacancy_interaction(load_database):
+    """Test that a cation,cation:vacancy interaction in a two sublattice ionic liquid produces the correct Gibbs energy"""
+    dbf = load_database()
+    # Uses the sublattice model (AL+3, FE+2)(O-2, VA, ALO3/2, FEO3/2)
+    mod = Model(dbf, ['AL', 'FE', 'O', 'VA'], 'IONIC_LIQ')
+    dof = {
+        v.T: 2000, v.P: 101325,
+        v.Y('IONIC_LIQ', 0, v.Species('AL+3', {'AL': 1.0}, charge=3)): 0.25,
+        v.Y('IONIC_LIQ', 0, v.Species('FE+2', {'FE': 1.0}, charge=2)): 0.75,
+        v.Y('IONIC_LIQ', 1, v.Species('O-2', {'O': 1.0}, charge=-2)): 0.5,
+        v.Y('IONIC_LIQ', 1, v.Species('VA')): 0.5,
+        v.Y('IONIC_LIQ', 1, v.Species('ALO3/2', {'AL': 1.0, 'O': 1.5})): 1e-12,
+        v.Y('IONIC_LIQ', 1, v.Species('FEO3/2', {'FE': 1.0, 'O': 1.5})): 1e-12,
+    }
+    check_energy(mod, dof, -229223.95)  # Thermo-Calc checked
+
+
+@select_database("TiO-17Yan.tdb")
+def test_ionic_liquid_neutral_neutral_interaction(load_database):
+    """Test that a neutral,neutral interaction in a two sublattice ionic liquid produces the correct Gibbs energy"""
+    dbf = load_database()
+    # Uses the sublattice model (TI+2)(O-2, VA, O, TIO1.5, TIO2)
+    mod = Model(dbf, ['TI', 'O', 'VA'], 'ION')
+    dof = {
+        v.T: 2500, v.P: 101325,
+        v.Y('ION', 0, v.Species('TI+2', {'TI': 1.0}, charge=2)): 1.0,
+        v.Y('ION', 1, v.Species('O-2', {'O': 1.0}, charge=-2)): 1e-12,
+        v.Y('ION', 1, v.Species('VA')): 1e-12,
+        v.Y('ION', 1, v.Species('O', {'O': 1.0})): 1e-12,
+        v.Y('ION', 1, v.Species('TIO1.5', {'TI': 1.0, 'O': 1.5})): 0.25,
+        v.Y('ION', 1, v.Species('TIO2', {'TI': 1.0, 'O': 2.0})): 0.75,
+    }
+    check_energy(mod, dof, -436963.06)  # Thermo-Calc checked
+
+
+@pytest.mark.parametrize("phase_name", [
+    "CAT_NEU",
+    "CAT_CAT_CAT",
+    "CAT_CAT_NEU",
+    "CAT_NEU_NEU",
+    "NEU_NEU_NEU",
+    "CAT_CAT_CAT_DEP",
+    "CAT_CAT_NEU_DEP",
+    "CAT_NEU_NEU_DEP",
+])
+@select_database("ionic_liquid_no_anion_interactions.tdb")
+def test_ionic_liquid_no_anion_interactions(load_database, phase_name):
+    """Test that interactions without anions in a two sublattice ionic liquid match the equivalent regular solution"""
+    dbf = load_database()
+    comps = ['AL', 'CA', 'NA', 'C', 'N', 'SI', 'VA']
+    # Each phase uses the sublattice model (AL+3, CA+2, NA+1)(VA, C, N, SI) with one kind of interaction
+    mod = Model(dbf, comps, phase_name)
+    dof = {
+        v.T: 1000, v.P: 101325,
+        v.Y(phase_name, 0, v.Species('AL+3', {'AL': 1.0}, charge=3)): 0.2,
+        v.Y(phase_name, 0, v.Species('CA+2', {'CA': 1.0}, charge=2)): 0.3,
+        v.Y(phase_name, 0, v.Species('NA+1', {'NA': 1.0}, charge=1)): 0.5,
+        v.Y(phase_name, 1, v.Species('VA')): 0.4,
+        v.Y(phase_name, 1, v.Species('C', {'C': 1.0})): 0.3,
+        v.Y(phase_name, 1, v.Species('N', {'N': 1.0})): 0.2,
+        v.Y(phase_name, 1, v.Species('SI', {'SI': 1.0})): 0.1,
+    }
+    # Regular solution (AL, CA, NA, C, N, SI) with x(cation) = y(cation)*y(VA)
+    rs_phase_name = phase_name + '_RS'
+    rs_mod = Model(dbf, comps, rs_phase_name)
+    rs_dof = {
+        v.T: 1000, v.P: 101325,
+        v.Y(rs_phase_name, 0, v.Species('AL')): 0.2 * 0.4,
+        v.Y(rs_phase_name, 0, v.Species('CA')): 0.3 * 0.4,
+        v.Y(rs_phase_name, 0, v.Species('NA')): 0.5 * 0.4,
+        v.Y(rs_phase_name, 0, v.Species('C')): 0.3,
+        v.Y(rs_phase_name, 0, v.Species('N')): 0.2,
+        v.Y(rs_phase_name, 0, v.Species('SI')): 0.1,
+    }
+    check_energy(mod, dof, calculate_output(rs_mod, rs_dof, 'GM'))
+
+
+@pytest.mark.parametrize("phase_name, expected", [
+    ("WILD_VA_NEU", -12110.923),
+    ("WILD_ANI_VA", -12271.209),
+    ("WILD_VA_NEU_NEU_DEP", -12992.009),
+    ("WILD_ANI_VA_NEU_DEP", -13011.437),
+])
+@select_database("ionic_liquid_cation_wildcard_interactions.tdb")
+def test_ionic_liquid_cation_wildcard_interactions(load_database, phase_name, expected):
+    """Test that interactions with a wildcard for the cations in a two sublattice ionic liquid produce the correct Gibbs energy"""
+    dbf = load_database()
+    # Each phase uses the sublattice model (AL+3, CA+2, NA+1)(O-2, VA, C, SI) with one kind of interaction
+    mod = Model(dbf, ['AL', 'CA', 'NA', 'O', 'C', 'SI', 'VA'], phase_name)
+    dof = {
+        v.T: 1000, v.P: 101325,
+        v.Y(phase_name, 0, v.Species('AL+3', {'AL': 1.0}, charge=3)): 0.2,
+        v.Y(phase_name, 0, v.Species('CA+2', {'CA': 1.0}, charge=2)): 0.3,
+        v.Y(phase_name, 0, v.Species('NA+1', {'NA': 1.0}, charge=1)): 0.5,
+        v.Y(phase_name, 1, v.Species('O-2', {'O': 1.0}, charge=-2)): 0.2,
+        v.Y(phase_name, 1, v.Species('VA')): 0.4,
+        v.Y(phase_name, 1, v.Species('C', {'C': 1.0})): 0.3,
+        v.Y(phase_name, 1, v.Species('SI', {'SI': 1.0})): 0.1,
+    }
+    check_energy(mod, dof, expected)  # Thermo-Calc checked
 
 
 def test_order_disorder_interstitial_sublattice():
@@ -1426,3 +1649,11 @@ def test_never_disorder_model(load_database):
                 }
     # Values checked in Thermo-Calc
     check_output(m, statevars, 'GM', -73928.245)
+
+@select_database("WC-22He-3g.tdb")
+def test_general_einstein_model_multiple_theta(load_database):
+    """General Einstein model with several Einstein temperatures (LNTHETAn/THETAFn) matches Thermo-Calc."""
+    dbf = load_database()
+    mod = Model(dbf, ['W', 'C'], 'MC_SHP')
+    dof = {v.T: 300, v.P: 101325, v.SiteFraction('MC_SHP', 0, 'W'): 1, v.SiteFraction('MC_SHP', 1, 'C'): 1}
+    check_energy(mod, dof, -24881.965)  # Thermo-Calc checked

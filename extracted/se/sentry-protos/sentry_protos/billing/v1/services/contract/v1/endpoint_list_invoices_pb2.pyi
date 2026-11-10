@@ -21,6 +21,7 @@ class ListInvoicesRequest(google.protobuf.message.Message):
     MAX_ITEMS_FIELD_NUMBER: builtins.int
     OFFSET_FIELD_NUMBER: builtins.int
     CUSTOMER_RECEIPTS_ONLY_FIELD_NUMBER: builtins.int
+    CLIENT_ID_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     """Only invoices owned by this organization are returned."""
     max_items: builtins.int
@@ -36,6 +37,8 @@ class ListInvoicesRequest(google.protobuf.message.Message):
     """When true, omit invoices with hide_from_customer_receipts=true so the
     response (and total) match what customers should see on receipts.
     """
+    client_id: builtins.str
+    """When set, only off-cycle invoices requested by this client are returned."""
     def __init__(
         self,
         *,
@@ -43,9 +46,13 @@ class ListInvoicesRequest(google.protobuf.message.Message):
         max_items: builtins.int = ...,
         offset: builtins.int | None = ...,
         customer_receipts_only: builtins.bool = ...,
+        client_id: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_offset", b"_offset", "offset", b"offset"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_offset", b"_offset", "customer_receipts_only", b"customer_receipts_only", "max_items", b"max_items", "offset", b"offset", "organization_id", b"organization_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_client_id", b"_client_id", "_offset", b"_offset", "client_id", b"client_id", "offset", b"offset"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_client_id", b"_client_id", "_offset", b"_offset", "client_id", b"client_id", "customer_receipts_only", b"customer_receipts_only", "max_items", b"max_items", "offset", b"offset", "organization_id", b"organization_id"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_client_id", b"_client_id"]) -> typing.Literal["client_id"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_offset", b"_offset"]) -> typing.Literal["offset"] | None: ...
 
 global___ListInvoicesRequest = ListInvoicesRequest

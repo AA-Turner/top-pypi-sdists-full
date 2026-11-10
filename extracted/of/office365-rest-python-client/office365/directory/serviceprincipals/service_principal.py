@@ -11,18 +11,25 @@ from office365.directory.applications.roles.assignment_collection import (
 )
 from office365.directory.applications.roles.collection import AppRoleCollection
 from office365.directory.applications.roles.role import AppRole
+from office365.directory.applications.verifiedpublisher import VerifiedPublisher
 from office365.directory.certificates.self_signed import SelfSignedCertificate
 from office365.directory.key_credential import KeyCredential
+from office365.directory.objects.addin import AddIn
 from office365.directory.objects.collection import DirectoryObjectCollection
+from office365.directory.objects.customsecurityattributevalue import CustomSecurityAttributeValue
+from office365.directory.objects.informationalurl import InformationalUrl
 from office365.directory.objects.object import DirectoryObject
 from office365.directory.password_credential import PasswordCredential
 from office365.directory.permissions.grants.oauth2 import OAuth2PermissionGrant
 from office365.directory.permissions.grants.oauth2_collection import (
     OAuth2PermissionGrantCollection,
 )
+from office365.directory.permissions.grants.resourcespecificpermission import ResourceSpecificPermission
 from office365.directory.permissions.scope import PermissionScope
+from office365.directory.serviceprincipals.samlsinglesignonsettings import SamlSingleSignOnSettings
 from office365.directory.synchronization.synchronization import Synchronization
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.appid import AppIdPath
@@ -33,15 +40,6 @@ from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.common.endpoint import Endpoint
-    from office365.directory.applications.verifiedpublisher import VerifiedPublisher
-    from office365.directory.objects.addin import AddIn
-    from office365.directory.objects.customsecurityattributevalue import (
-        CustomSecurityAttributeValue,
-    )
-    from office365.directory.objects.informationalurl import InformationalUrl
-    from office365.directory.permissions.grants.resourcespecificpermission import (
-        ResourceSpecificPermission,
-    )
     from office365.directory.policies.app_management import AppManagementPolicy
     from office365.directory.policies.claims_mapping_policy import ClaimsMappingPolicy
     from office365.directory.policies.home_realm_discovery import (
@@ -58,9 +56,6 @@ if TYPE_CHECKING:
     from office365.directory.serviceprincipals.remote_desktop_security_configuration import (
         RemoteDesktopSecurityConfiguration,
     )
-    from office365.directory.serviceprincipals.samlsinglesignonsettings import (
-        SamlSingleSignOnSettings,
-    )
 
 
 class ServicePrincipal(DirectoryObject):
@@ -69,6 +64,10 @@ class ServicePrincipal(DirectoryObject):
     def __str__(self):
         return self.display_name or ""
 
+    @require_permission(
+        delegated=["Application.ReadWrite.All", "Directory.ReadWrite.All"],
+        application=["Application.ReadWrite.All", "Application.ReadWrite.OwnedBy", "Directory.ReadWrite.All"],
+    )
     def add_key(
         self,
         key_credential: KeyCredential,
@@ -97,6 +96,10 @@ class ServicePrincipal(DirectoryObject):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["Application.ReadWrite.All", "Directory.ReadWrite.All"],
+        application=["Application.ReadWrite.All", "Application.ReadWrite.OwnedBy", "Directory.ReadWrite.All"],
+    )
     def add_password(self, display_name: str | None = None) -> ClientResult[PasswordCredential]:
         """Adds a strong password to an application.
 
@@ -109,6 +112,10 @@ class ServicePrincipal(DirectoryObject):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["Application.ReadWrite.All", "Directory.ReadWrite.All"],
+        application=["Application.ReadWrite.All", "Application.ReadWrite.OwnedBy", "Directory.ReadWrite.All"],
+    )
     def add_token_signing_certificate(
         self, display_name: str, end_datetime: str | None = None
     ) -> ClientResult[SelfSignedCertificate]:
@@ -142,23 +149,42 @@ class ServicePrincipal(DirectoryObject):
         self.context.add_query(qry)
         return return_type
 
-    def get_delegated_permissions(self, app_id: str) -> ClientResult[StringCollection]:
-        """Gets delegated API permissions for the client app (AllPrincipals grants only)."""
+    def get_delegated_permissions(
+        self, app_id: str, consent_type: str | None = "AllPrincipals"
+    ) -> ClientResult[StringCollection]:
+        """Gets delegated API permissions for the client app on this resource.
+
+        Every grant is read, not the first one: a resource usually holds a tenant-wide grant
+        plus one per user who consented, and picking a single grant hid the rest.
+
+        Args:
+            app_id: Application (client) ID of the client app.
+            consent_type: ``"AllPrincipals"`` (tenant-wide, the default), ``"Principal"``
+                (consented by one user only) or ``None`` for every grant. The two are not the
+                same fact -- a per-user grant makes the call work for that user alone, so a
+                caller that asks for ``AllPrincipals`` must not read an answer about it.
+        """
         return_type = ClientResult(self.context, StringCollection())
 
-        def _on_grants_loaded(col: OAuth2PermissionGrantCollection):
-            found = next((g for g in col if g.resource_id == self.id), None)
-            if found is not None and found.scope is not None:
-                for name in found.scope.split(" "):
-                    return_type.value.add(name)
+        def _on_grants_loaded(col: OAuth2PermissionGrantCollection) -> None:
+            for grant in col:
+                if grant.resource_id != self.id or not grant.scope:
+                    continue
+                if consent_type is not None and grant.consent_type != consent_type:
+                    continue
+                for name in grant.scope.split():
+                    if name not in return_type.value:
+                        return_type.value.add(name)
 
-        def _resolve_application():
-            def _get_grant(sp: ServicePrincipal):
-                self.context.oauth2_permission_grants.get().filter(
-                    f"clientId eq '{sp.id}' and consentType eq 'AllPrincipals'"
-                ).after_execute(_on_grants_loaded)
+        def _resolve_application() -> None:
+            def _get_grants(sp: ServicePrincipal) -> None:
+                expression = f"clientId eq '{sp.id}'"
+                if consent_type is not None:
+                    expression += f" and consentType eq '{consent_type}'"
 
-            self.context.service_principals.get_by_app_id(app_id).get().after_execute(_get_grant)
+                self.context.oauth2_permission_grants.filter(expression).get_all(page_loaded=_on_grants_loaded)
+
+            self.context.service_principals.get_by_app_id(app_id).get().after_execute(_get_grants)
 
         self.ensure_property("id").after_execute(lambda _: _resolve_application())
         return return_type
@@ -198,22 +224,50 @@ class ServicePrincipal(DirectoryObject):
         return self
 
     def get_application_permissions(self, app_id: str) -> ClientResult[AppRoleCollection]:
-        """Gets application permissions (app roles) assigned to the client app on this resource."""
+        """Gets the application permissions (app roles) the client app holds on this resource.
+
+        The assignments are read from the client principal's ``appRoleAssignments``, paged and
+        filtered by ``resourceId``. The obvious reading -- the ``appRoleAssignedTo`` navigation
+        property, expanded or filtered -- is wrong twice over: Graph returns a single truncated
+        page for an expanded collection (21 of one tenant's 43 roles), and it accepts no
+        ``$filter`` on that property at all. So a resource with many grants reported a subset of
+        the client's permissions, and every reader believed it: skip decisions in live tests,
+        permission reports, and the "already granted" check before granting.
+        """
         return_type = ClientResult(self.context, AppRoleCollection())
 
-        def _get_application_permissions(client_sp_id: str) -> None:
-            assigned_role_ids = [a.app_role_id for a in self.app_role_assigned_to if a.principal_id == client_sp_id]
+        def _collect(assignments: AppRoleAssignmentCollection) -> None:
+            held_role_ids = {a.app_role_id for a in assignments}
+            reported_role_ids = {role.id for role in return_type.value}
             for role in self.app_roles:
-                if role.id in assigned_role_ids:
+                if role.id in held_role_ids and role.id not in reported_role_ids:
                     return_type.value.add(role)
 
-        def _resolve_app():
-            self.context.service_principals.get_by_app_id(app_id).get().after_execute(
-                lambda sp: _get_application_permissions(sp.id)
-            )
+        def _resolve_app() -> None:
+            def _load_assignments(sp: ServicePrincipal) -> None:
+                self._held_by(sp).get_all(page_loaded=_collect)
 
-        self.ensure_properties(["id", "appRoles", "appRoleAssignedTo"]).after_execute(lambda _: _resolve_app())
+            self.context.service_principals.get_by_app_id(app_id).select(["id"]).get().after_execute(_load_assignments)
+
+        self.ensure_properties(["id", "appRoles"]).after_execute(lambda _: _resolve_app())
         return return_type
+
+    def _held_by(self, client: ServicePrincipal) -> AppRoleAssignmentCollection:
+        """The app role assignments ``client`` holds on this resource.
+
+        Read from the *client's* side of the relationship, filtered by ``resourceId``: the
+        resource's own ``appRoleAssignedTo`` accepts no ``$filter`` (``principalId`` answers
+        "Links to EntitlementGrant are not supported between specified entities", ``appRoleId``
+        answers "Invalid filter clause"), so this is the only narrowing Graph agrees to.
+        """
+        assert self.id is not None and client.id is not None
+        # addressed by object id on purpose: ``client`` was resolved through its ``appId``
+        # alternate key, and a navigation off an alternate-key path is not the documented shape
+        assignments = AppRoleAssignmentCollection(
+            self.context,
+            ResourcePath("appRoleAssignments", ResourcePath(client.id, self.context.service_principals.resource_path)),
+        )
+        return assignments.filter(f"resourceId eq {self.id}")
 
     def grant_application_permissions(self, app_id: str, app_role: AppRole | str) -> Self:
         """Grants an app role assignment to a client service principal.
@@ -226,23 +280,24 @@ class ServicePrincipal(DirectoryObject):
             app_role: The role to grant, as an ``AppRole`` or its name.
         """
 
-        def _grant(sp: ServicePrincipal, app_role_id: str | None) -> None:
-            assert sp.id is not None
-            assert app_role_id is not None
-            already = any(a.app_role_id == app_role_id and a.principal_id == sp.id for a in self.app_role_assigned_to)
-            if not already:
-                self.app_role_assigned_to.add(principalId=sp.id, resourceId=self.id, appRoleId=app_role_id)
+        def _grant(held: AppRoleAssignmentCollection, principal_id: str, app_role_id: str) -> None:
+            # the query asked for this resource; a role is checked by name, which is what the
+            # caller asked about
+            if any(a.app_role_id == app_role_id for a in held):
+                return
+            self.app_role_assigned_to.add(principalId=principal_id, resourceId=self.id, appRoleId=app_role_id)
 
-        def _ensure_client():
+        def _ensure_client() -> None:
             def _after(sp: ServicePrincipal) -> None:
-                if isinstance(app_role, AppRole):
-                    _grant(sp, app_role.id)
-                else:
-                    _grant(sp, self.app_roles[app_role].id)
+                assert sp.id is not None
+                principal_id = sp.id
+                app_role_id = app_role.id if isinstance(app_role, AppRole) else self.app_roles[app_role].id
+                assert app_role_id is not None
+                self._held_by(sp).get().after_execute(lambda held: _grant(held, principal_id, app_role_id))
 
-            self.context.service_principals.get_by_app_id(app_id).get().after_execute(_after)
+            self.context.service_principals.get_by_app_id(app_id).select(["id"]).get().after_execute(_after)
 
-        self.ensure_properties(["id", "appRoles", "appRoleAssignedTo"]).after_execute(lambda _: _ensure_client())
+        self.ensure_properties(["id", "appRoles"]).after_execute(lambda _: _ensure_client())
         return self
 
     def revoke_application_permissions(self, app_id: str, app_role: AppRole | str) -> Self:
@@ -256,42 +311,57 @@ class ServicePrincipal(DirectoryObject):
             app_role: The role to revoke, as an ``AppRole`` or its name.
         """
 
-        def _revoke(principal_id: str | None, app_role_id: str | None) -> None:
-            assert principal_id is not None
-            assert app_role_id is not None
-            for item in self.app_role_assigned_to:
-                if item.principal_id == principal_id and item.app_role_id == app_role_id:
-                    assert item.id is not None
-                    self.app_role_assigned_to[item.id].delete_object()
+        def _revoke(held: AppRoleAssignmentCollection, app_role_id: str) -> None:
+            for item in held:
+                # the query only narrowed by resource; the role is the caller's question
+                if item.app_role_id != app_role_id:
+                    continue
+                assert item.id is not None
+                self.app_role_assigned_to[item.id].delete_object()
 
         def _ensure_app_role(sp: ServicePrincipal) -> None:
-            assert sp.id is not None
-            if isinstance(app_role, AppRole):
-                _revoke(sp.id, app_role.id)
-            else:
-                _revoke(sp.id, self.app_roles[app_role].id)
+            app_role_id = app_role.id if isinstance(app_role, AppRole) else self.app_roles[app_role].id
+            assert app_role_id is not None
+            self._held_by(sp).get().after_execute(lambda held: _revoke(held, app_role_id))
 
-        def _ensure_principal():
+        def _ensure_principal() -> None:
             self.context.service_principals.get_by_app_id(app_id).select(["id"]).get().after_execute(_ensure_app_role)
 
-        self.ensure_properties(["id", "appId", "appRoles", "appRoleAssignedTo"]).after_execute(
-            lambda _: _ensure_principal()
-        )
+        self.ensure_properties(["id", "appRoles"]).after_execute(lambda _: _ensure_principal())
         return self
 
     def revoke_delegated_permissions(self, client_id: str, scope: str) -> Self:
+        """Revokes an OAuth2 scope from the client app's grant on this resource.
+
+        Args:
+            client_id: Application (client) ID of the client app.
+            scope: The delegated permission to remove.
+        """
+
         def _revoke(all_grants: OAuth2PermissionGrantCollection) -> None:
             for g in all_grants:
-                assert g.scope is not None
+                # a scope name lives on one API: revoking it here must not delete the grant
+                # a *different* resource happens to spell the same way
+                if g.resource_id != self.id or not g.scope:
+                    continue
                 if scope in g.scope.split():
                     g.delete_object()
 
-        def _client_resolved(sp: ServicePrincipal):
-            self.context.oauth2_permission_grants.get().filter(f"clientId eq '{sp.id}'").after_execute(_revoke)
+        def _client_resolved(sp: ServicePrincipal) -> None:
+            def _get_grants() -> None:
+                self.context.oauth2_permission_grants.filter(f"clientId eq '{sp.id}'").get().after_execute(_revoke)
 
-        self.context.service_principals.get_by_app_id(client_id).get().after_execute(_client_resolved)
+            self.context.service_principals.get_by_app_id(client_id).get().after_execute(lambda _: _get_grants())
+
+        self.ensure_property("id").after_execute(
+            lambda _: self.context.service_principals.get_by_app_id(client_id).get().after_execute(_client_resolved)
+        )
         return self
 
+    @require_permission(
+        delegated=["Application.ReadWrite.All", "Directory.ReadWrite.All"],
+        application=["Application.ReadWrite.All", "Application.ReadWrite.OwnedBy", "Directory.ReadWrite.All"],
+    )
     def remove_password(self, key_id: str) -> Self:
         """Remove a password from a servicePrincipal object.
 
@@ -302,6 +372,7 @@ class ServicePrincipal(DirectoryObject):
         self.context.add_query(qry)
         return self
 
+    @odata(name="accountEnabled")
     @property
     def account_enabled(self) -> Optional[bool]:
         """
@@ -312,13 +383,14 @@ class ServicePrincipal(DirectoryObject):
 
     @odata(name="alternativeNames")
     @property
-    def alternative_names(self):
+    def alternative_names(self) -> StringCollection:
         """
         Used to retrieve service principals by subscription, identify resource group and full resource ids for
         managed identities. Supports $filter (eq, not, ge, le, startsWith).
         """
         return self.properties.get("alternativeNames", StringCollection())
 
+    @odata(name="appDescription")
     @property
     def app_description(self) -> Optional[str]:
         """
@@ -326,11 +398,13 @@ class ServicePrincipal(DirectoryObject):
         """
         return self.properties.get("appDescription", None)
 
+    @odata(name="appDisplayName")
     @property
     def app_display_name(self) -> Optional[str]:
         """The display name exposed by the associated application."""
         return self.properties.get("appDisplayName", None)
 
+    @odata(name="appId")
     @property
     def app_id(self) -> Optional[str]:
         """The unique identifier for the associated application (its appId property)."""
@@ -342,7 +416,7 @@ class ServicePrincipal(DirectoryObject):
         Not nullable."""
         return self.properties.get("appRoleAssignmentRequired", None)
 
-    @odata(name="appRoleAssignedTo")
+    @odata(name="appRoleAssignedTo", navigation=True)
     @property
     def app_role_assigned_to(self) -> AppRoleAssignmentCollection:
         """
@@ -353,7 +427,7 @@ class ServicePrincipal(DirectoryObject):
             AppRoleAssignmentCollection(self.context, ResourcePath("appRoleAssignedTo", self.resource_path)),
         )
 
-    @odata(name="appRoleAssignments")
+    @odata(name="appRoleAssignments", navigation=True)
     @property
     def app_role_assignments(self) -> AppRoleAssignmentCollection:
         """Get an event collection or an appRoleAssignments."""
@@ -364,15 +438,17 @@ class ServicePrincipal(DirectoryObject):
 
     @odata(name="appRoles")
     @property
-    def app_roles(self):
+    def app_roles(self) -> AppRoleCollection:
         """The roles exposed by the application which this service principal represents."""
         return self.properties.get("appRoles", AppRoleCollection())
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """The display name."""
         return self.properties.get("displayName", None)
 
+    @odata(name="homepage")
     @property
     def homepage(self) -> Optional[str]:
         """Home page or landing page of the application"""
@@ -396,6 +472,7 @@ class ServicePrincipal(DirectoryObject):
         """
         return self.properties.setdefault("passwordCredentials", ClientValueCollection(PasswordCredential))
 
+    @odata(name="loginUrl")
     @property
     def login_url(self) -> Optional[str]:
         """
@@ -406,6 +483,7 @@ class ServicePrincipal(DirectoryObject):
         """
         return self.properties.get("loginUrl", None)
 
+    @odata(name="logoutUrl")
     @property
     def logout_url(self) -> Optional[str]:
         """
@@ -424,6 +502,7 @@ class ServicePrincipal(DirectoryObject):
         """
         return self.properties.get("notificationEmailAddresses", StringCollection())
 
+    @odata(name="servicePrincipalType")
     @property
     def service_principal_type(self) -> Optional[str]:
         """
@@ -447,6 +526,7 @@ class ServicePrincipal(DirectoryObject):
         """
         return self.properties.get("servicePrincipalType", None)
 
+    @odata(name="owners", navigation=True)
     @property
     def owners(self):
         """Directory objects that are owners of this servicePrincipal.
@@ -457,7 +537,7 @@ class ServicePrincipal(DirectoryObject):
             DirectoryObjectCollection(self.context, ResourcePath("owners", self.resource_path)),
         )
 
-    @odata(name="oauth2PermissionScopes")
+    @odata(name="oauth2PermissionScopes", beta=False)
     @property
     def oauth2_permission_scopes(self) -> ClientValueCollection[PermissionScope]:
         """
@@ -466,7 +546,7 @@ class ServicePrincipal(DirectoryObject):
         """
         return self.properties.get("oauth2PermissionScopes", ClientValueCollection(PermissionScope))
 
-    @odata(name="oauth2PermissionGrants")
+    @odata(name="oauth2PermissionGrants", navigation=True)
     @property
     def oauth2_permission_grants(self) -> DeltaCollection[OAuth2PermissionGrant]:
         """"""
@@ -479,7 +559,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
-    @odata(name="createdObjects")
+    @odata(name="createdObjects", navigation=True)
     @property
     def created_objects(self):
         """Directory objects created by this service principal."""
@@ -488,7 +568,7 @@ class ServicePrincipal(DirectoryObject):
             DirectoryObjectCollection(self.context, ResourcePath("createdObjects", self.resource_path)),
         )
 
-    @odata(name="ownedObjects")
+    @odata(name="ownedObjects", navigation=True)
     @property
     def owned_objects(self):
         """Directory objects that are owned by this service principal."""
@@ -497,6 +577,7 @@ class ServicePrincipal(DirectoryObject):
             DirectoryObjectCollection(self.context, ResourcePath("ownedObjects", self.resource_path)),
         )
 
+    @odata(name="synchronization", navigation=True)
     @property
     def synchronization(self) -> Synchronization:
         """
@@ -508,6 +589,7 @@ class ServicePrincipal(DirectoryObject):
             Synchronization(self.context, ResourcePath("synchronization", self.resource_path)),
         )
 
+    @odata(name="tokenEncryptionKeyId")
     @property
     def token_encryption_key_id(self) -> Optional[str]:
         """
@@ -528,122 +610,124 @@ class ServicePrincipal(DirectoryObject):
     def entity_type_name(self):
         return "microsoft.graph.ServicePrincipal"
 
+    @odata(name="addIns")
     @property
     def add_ins(self) -> ClientValueCollection[AddIn]:
         """Gets the addIns property"""
-        from office365.directory.objects.addin import AddIn
-
         return self.properties.get("addIns", ClientValueCollection[AddIn](AddIn))
 
+    @odata(name="applicationTemplateId")
     @property
     def application_template_id(self) -> Optional[str]:
         """Gets the applicationTemplateId property"""
         return self.properties.get("applicationTemplateId", None)
 
+    @odata(name="appOwnerOrganizationId")
     @property
     def app_owner_organization_id(self) -> Optional[UUID]:
         """Gets the appOwnerOrganizationId property"""
         return self.properties.get("appOwnerOrganizationId", None)
 
+    @odata(name="createdByAppId")
     @property
     def created_by_app_id(self) -> Optional[str]:
         """Gets the createdByAppId property"""
         return self.properties.get("createdByAppId", None)
 
+    @odata(name="customSecurityAttributes")
     @property
     def custom_security_attributes(self) -> CustomSecurityAttributeValue:
         """Gets the customSecurityAttributes property"""
-        from office365.directory.objects.customsecurityattributevalue import (
-            CustomSecurityAttributeValue,
-        )
-
         return self.properties.get("customSecurityAttributes", CustomSecurityAttributeValue())
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description property"""
         return self.properties.get("description", None)
 
+    @odata(name="disabledByMicrosoftStatus")
     @property
     def disabled_by_microsoft_status(self) -> Optional[str]:
         """Gets the disabledByMicrosoftStatus property"""
         return self.properties.get("disabledByMicrosoftStatus", None)
 
+    @odata(name="info")
     @property
     def info(self) -> InformationalUrl:
         """Gets the info property"""
-        from office365.directory.objects.informationalurl import InformationalUrl
-
         return self.properties.get("info", InformationalUrl())
 
+    @odata(name="isDisabled")
     @property
     def is_disabled(self) -> Optional[bool]:
         """Gets the isDisabled property"""
         return self.properties.get("isDisabled", None)
 
+    @odata(name="notes")
     @property
     def notes(self) -> Optional[str]:
         """Gets the notes property"""
         return self.properties.get("notes", None)
 
+    @odata(name="preferredSingleSignOnMode")
     @property
     def preferred_single_sign_on_mode(self) -> Optional[str]:
         """Gets the preferredSingleSignOnMode property"""
         return self.properties.get("preferredSingleSignOnMode", None)
 
+    @odata(name="preferredTokenSigningKeyThumbprint")
     @property
     def preferred_token_signing_key_thumbprint(self) -> Optional[str]:
         """Gets the preferredTokenSigningKeyThumbprint property"""
         return self.properties.get("preferredTokenSigningKeyThumbprint", None)
 
+    @odata(name="replyUrls")
     @property
     def reply_urls(self) -> StringCollection:
         """Gets the replyUrls property"""
         return self.properties.get("replyUrls", StringCollection())
 
+    @odata(name="resourceSpecificApplicationPermissions")
     @property
     def resource_specific_application_permissions(self) -> ClientValueCollection[ResourceSpecificPermission]:
         """Gets the resourceSpecificApplicationPermissions property"""
-        from office365.directory.permissions.grants.resourcespecificpermission import (
-            ResourceSpecificPermission,
-        )
-
         return self.properties.get(
             "resourceSpecificApplicationPermissions",
             ClientValueCollection[ResourceSpecificPermission](ResourceSpecificPermission),
         )
 
+    @odata(name="samlSingleSignOnSettings")
     @property
     def saml_single_sign_on_settings(self) -> SamlSingleSignOnSettings:
         """Gets the samlSingleSignOnSettings property"""
-        from office365.directory.serviceprincipals.samlsinglesignonsettings import (
-            SamlSingleSignOnSettings,
-        )
-
         return self.properties.get("samlSingleSignOnSettings", SamlSingleSignOnSettings())
 
+    @odata(name="servicePrincipalNames")
     @property
     def service_principal_names(self) -> StringCollection:
         """Gets the servicePrincipalNames property"""
         return self.properties.get("servicePrincipalNames", StringCollection())
 
+    @odata(name="signInAudience")
     @property
     def sign_in_audience(self) -> Optional[str]:
         """Gets the signInAudience property"""
         return self.properties.get("signInAudience", None)
 
+    @odata(name="tags")
     @property
     def tags(self) -> StringCollection:
         """Gets the tags property"""
         return self.properties.get("tags", StringCollection())
 
+    @odata(name="verifiedPublisher")
     @property
     def verified_publisher(self) -> VerifiedPublisher:
         """Gets the verifiedPublisher property"""
-        from office365.directory.applications.verifiedpublisher import VerifiedPublisher
-
         return self.properties.get("verifiedPublisher", VerifiedPublisher())
 
+    @odata(name="appManagementPolicies", navigation=True)
     @property
     def app_management_policies(self) -> EntityCollection[AppManagementPolicy]:
         """Gets the appManagementPolicies property"""
@@ -656,6 +740,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="claimsMappingPolicies", navigation=True)
     @property
     def claims_mapping_policies(self) -> EntityCollection[ClaimsMappingPolicy]:
         """Gets the claimsMappingPolicies property"""
@@ -670,6 +755,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="delegatedPermissionClassifications", navigation=True)
     @property
     def delegated_permission_classifications(self) -> EntityCollection[DelegatedPermissionClassification]:
         """Gets the delegatedPermissionClassifications property"""
@@ -686,6 +772,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="endpoints", navigation=True)
     @property
     def endpoints(self) -> EntityCollection[Endpoint]:
         """Gets the endpoints property"""
@@ -696,6 +783,7 @@ class ServicePrincipal(DirectoryObject):
             EntityCollection[Endpoint](self.context, Endpoint, ResourcePath("endpoints", self.resource_path)),
         )
 
+    @odata(name="federatedIdentityCredentials", navigation=True)
     @property
     def federated_identity_credentials(self) -> EntityCollection[FederatedIdentityCredential]:
         """Gets the federatedIdentityCredentials property"""
@@ -712,6 +800,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="homeRealmDiscoveryPolicies", navigation=True)
     @property
     def home_realm_discovery_policies(self) -> EntityCollection[HomeRealmDiscoveryPolicy]:
         """Gets the homeRealmDiscoveryPolicies property"""
@@ -726,6 +815,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="memberOf", navigation=True)
     @property
     def member_of(self) -> EntityCollection[DirectoryObject]:
         """Gets the memberOf property"""
@@ -738,6 +828,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="remoteDesktopSecurityConfiguration", navigation=True)
     @property
     def remote_desktop_security_configuration(self) -> RemoteDesktopSecurityConfiguration:
         """Gets the remoteDesktopSecurityConfiguration property"""
@@ -752,6 +843,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="tokenIssuancePolicies", navigation=True)
     @property
     def token_issuance_policies(self) -> EntityCollection[TokenIssuancePolicy]:
         """Gets the tokenIssuancePolicies property"""
@@ -764,6 +856,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="tokenLifetimePolicies", navigation=True)
     @property
     def token_lifetime_policies(self) -> EntityCollection[TokenLifetimePolicy]:
         """Gets the tokenLifetimePolicies property"""
@@ -776,6 +869,7 @@ class ServicePrincipal(DirectoryObject):
             ),
         )
 
+    @odata(name="transitiveMemberOf", navigation=True)
     @property
     def transitive_member_of(self) -> EntityCollection[DirectoryObject]:
         """Gets the transitiveMemberOf property"""

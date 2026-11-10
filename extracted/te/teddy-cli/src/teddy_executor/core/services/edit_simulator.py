@@ -6,7 +6,10 @@ from teddy_executor.core.domain.models import (
 )
 from teddy_executor.core.domain.models.plan import DEFAULT_SIMILARITY_THRESHOLD
 from teddy_executor.core.ports.inbound.edit_simulator import EditPair, IEditSimulator
-from teddy_executor.core.services.validation_rules.edit_matcher import find_best_match
+from teddy_executor.core.services.validation_rules.edit_matcher import (
+    AMBIGUITY_HINT,
+    find_best_match_ex,
+)
 
 
 class EditSimulator(IEditSimulator):
@@ -25,15 +28,19 @@ class EditSimulator(IEditSimulator):
         """
         Applies a single find/replace operation to content with domain logic.
         """
-        best_match, score, is_ambiguous, offset = find_best_match(
-            content, find, threshold
-        )
+        result = find_best_match_ex(content, find, threshold)
+        best_match = result.match
+        score = result.score
+        offset = result.offset
 
-        if is_ambiguous and not match_all:
-            count = content.count(find) if score == 1.0 else 2
-            hint = " Please provide a larger FIND block to uniquely identify the section, refactor the code to avoid duplication. Alternatively you can use the list item `Match All: true` to change all occurrences in the file at once."
+        if result.is_ambiguous and not match_all:
+            noun = "candidate" if result.candidate_count == 1 else "candidates"
             raise MultipleMatchesFoundError(
-                message=f"Found {count} ambiguous occurrences of {find!r}. Aborting edit to prevent ambiguity.{hint}",
+                message=(
+                    f"Found {result.candidate_count} ambiguous {noun} for "
+                    f"{find!r}. Aborting edit to prevent ambiguity. "
+                    f"{AMBIGUITY_HINT}"
+                ),
                 content=content,
             )
 
@@ -47,17 +54,8 @@ class EditSimulator(IEditSimulator):
         if offset != 0:
             replace = self._apply_indent_offset(replace, offset)
 
-        # Align replacement newline with original match to prevent concatenation
-        final_replace = replace
-        if (
-            best_match.endswith("\n")
-            and not find.endswith("\n")
-            and not replace.endswith("\n")
-            and replace != ""
-        ):
-            # Detect original line ending to prevent "Git Noise"
-            terminator = "\r\n" if best_match.endswith("\r\n") else "\n"
-            final_replace += terminator
+        # Align the REPLACE terminal newline with the matched region.
+        final_replace = self._align_terminator(find, replace, best_match)
 
         if replace == "" and not match_all:
             # Newline cleanup logic for surgical deletions
@@ -88,6 +86,30 @@ class EditSimulator(IEditSimulator):
             else:
                 result.append(line)
         return "".join(result)
+
+    def _align_terminator(self, find: str, replace: str, best_match: str) -> str:
+        """
+        Aligns the REPLACE terminal newline with the matched region so a
+        line-oriented edit never injects or drops a newline.
+        """
+        if (
+            best_match.endswith("\n")
+            and not find.endswith("\n")
+            and not replace.endswith("\n")
+            and replace != ""
+        ):
+            # Detect original line ending to prevent "Git Noise"
+            terminator = "\r\n" if best_match.endswith("\r\n") else "\n"
+            return replace + terminator
+        if (
+            find.endswith("\n")
+            and not best_match.endswith("\n")
+            and replace.endswith("\n")
+        ):
+            # The intra-line fragment match dropped the FIND terminator, so drop
+            # the AUTHORED REPLACE terminator too to avoid injecting it mid-line.
+            return replace[:-2] if replace.endswith("\r\n") else replace[:-1]
+        return replace
 
     def simulate_edits(
         self,

@@ -1,6 +1,6 @@
 """waiter/: one waiter for every caller that waits on the worker (`finish()`, `probe run end`, R15)."""
 
-from probe.sdk.delivery.outbox.waiter.incomplete import DeliveryIncomplete, describe
+from probe.sdk.delivery.outbox.waiter.incomplete import DeliveryIncomplete, describe, get_recovery_server
 from probe.sdk.delivery.outbox.waiter.marks import (
     MARK_STALE_SECONDS,
     WAITING_DIR,
@@ -28,6 +28,7 @@ __all__ = [
     "WaitResult",
     "clear_mark",
     "describe",
+    "get_recovery_server",
     "mark_waiting",
     "touch_mark",
     "waited_runs",

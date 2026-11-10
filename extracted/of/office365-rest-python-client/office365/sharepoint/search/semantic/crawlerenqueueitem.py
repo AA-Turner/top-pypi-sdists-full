@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SemanticSearchCrawlerEnqueueItem(ClientValue):
     ItemId: int | None = None
     ItemUrl: str | None = None

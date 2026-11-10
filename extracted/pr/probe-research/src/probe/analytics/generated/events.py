@@ -18,7 +18,21 @@ class Event(StrEnum):
     WIZARD_STARTED = "wizard.started"
     WIZARD_ACTION_CHOSEN = "wizard.action_chosen"
     WIZARD_CONFIGURE_STARTED = "wizard.configure_started"
+    #: A sign-in finished. The wizard: `outcome`, `grants_needed`. An agent's `sign-in --wait` sends
+    #: it at every end: `outcome` (`AgentRunOutcome`), `reason` (`AgentInstallReason`, null on
+    #: success), `account_changed`, `team_changed`, `duration_seconds`, plus the agent-install
+    #: stamp.
     WIZARD_SIGNED_IN = "wizard.signed_in"
+    #: One coding agent's configure ended (`agent`): `outcome`, `tracking_newly_installed`,
+    #: `tracking_already_present`, `capture_newly_installed`, `capture_already_present` (a run with
+    #: nothing to change too), and that agent after it: `mcp` (`McpState`), `transcripts`
+    #: (`TranscriptState`), `agent_rules_installed`, `hooks_approved` (this run approved the agent's
+    #: hooks; absent when no approval step ran), `step_seconds` (each step's seconds, the sign-in
+    #: and the persistent install's wait included) and `refresh_seconds` (each agent's marketplace
+    #: refresh and plugin installs, run together in the first agent's refresh step; on an agent with
+    #: a refresh step). An agent's install (the install prompt) stamps every event of its command
+    #: with `agent_install: true`, `chat_agent` (the coding agent whose chat ran it),
+    #: `install_attempt` (the sign-in's id; `attempt` is a number elsewhere) and `profile`.
     WIZARD_CONFIGURE_COMPLETED = "wizard.configure_completed"
     INTEGRATION_REINSTALL_STARTED = "wizard.integration_reinstall_started"
     INTEGRATION_REINSTALL_COMPLETED = "wizard.integration_reinstall_completed"
@@ -40,35 +54,65 @@ class Event(StrEnum):
     #: `backfill.summary` and `import_job.finished` also carry the import's coding-agent props per
     #: lane (`probe.cli.imports.agent_settings.Meter.properties`): listed in DESIGN.md (events.py).
     #: The guided install settled: every selected coding agent done. Once per install, unlike
-    #: `configure_completed` (once per configure CALL).
+    #: `configure_completed` (once per configure CALL). An agent's install (the install prompt)
+    #: stamps every event of its command with `agent_install: true`, `chat_agent` (the coding agent
+    #: whose chat ran it), `install_attempt` (the sign-in's id; `attempt` is a number elsewhere) and
+    #: `profile`.
     WIZARD_INSTALL_SETTLED = "wizard.install_settled"
     #: The post-install import offer, answered. The EMPTY set (skip, the most common answer) is sent
-    #: too, or the skip would be invisible.
+    #: too, or the skip would be invisible. An agent's past-work offer sends it from `status
+    #: --past-work-choice` (`choices`, `choice_count`, `navigation` continue|skip), with
+    #: `agent_install: true` and `chat_agent`.
     WIZARD_IMPORTS_CHOSEN = "wizard.imports_chosen"
     #: The dashboard handoff page: the last screen of the guided install.
     WIZARD_ONBOARDING_COMPLETED = "wizard.onboarding_completed"
     #: Removal, client side: the only record of the DECISION (a confirmation backed out of reaches
     #: no server; `client.uninstalled` / `client.device_disconnected` see only removals done).
     WIZARD_UNINSTALL_STARTED = "wizard.uninstall_started"
+    #: `outcome`: `removed`, `declined`, or `stopped` with the uninstall's own `reason`
+    #: (unsent_research, live_users, in_session, offline, busy, partial, interrupted, cancelled,
+    #: confirm): an agent's `uninstall --yes --json` refusals included.
     WIZARD_UNINSTALL_COMPLETED = "wizard.uninstall_completed"
+    #: `probe wizard --action uninstall --agent A` took Probe out of one coding agent (its plugins,
+    #: hooks and rules; no key revoked, the CLI kept): `agent`, `was_set_up` (Probe was set up in it
+    #: before), `outcome` (`removed`, or `partial` when something is still there) and `left` (what
+    #: is: tracking, capture, agent_rules). The re-paste menu's Change settings runs it from a chat,
+    #: stamped as the agent's install (PR34).
+    WIZARD_AGENT_REMOVED = "wizard.agent_removed"
     #: Sign out (wizard Account, `--action logout`, the Mac app): credentials released, plugins
     #: kept. The server sees only a revoked token. Sent after release, identity pinned before (as
     #: Uninstall).
     WIZARD_SIGNED_OUT = "wizard.signed_out"
     #: The Who records row switched the daemon on or off: its adoption funnel, the only switch
     #: (Richard 2026-09-29). `recorder`: where it went; `outcome`: `RecorderOutcome`, refusals
-    #: included.
+    #: included. An agent's install sends it when it applies who records.
     WIZARD_RECORDER_CHANGED = "wizard.recorder_changed"
     #: Session transcripts were switched on or off (`probe capture`, the wizard row, the app,
     #: `--no-capture`): `state` (`on`/`off`), `by` (`SwitchedBy`: person/agent/app), `agents`,
     #: `outcome` (`done`/`failed`/`cancelled`). A chosen off, so nobody reads it as a fault.
     CAPTURE_SWITCHED = "capture.switched"
+    #: `probe repair` ended (the re-paste menu's Reinstall or repair, `no_service`'s fix, a
+    #: terminal): `outcome` (`RepairOutcome`: complete, incomplete, refused), `problems` (how many),
+    #: `agents` and `agents_with_problems` (coding agents), `duration_seconds`.
+    REPAIR_FINISHED = "repair.finished"
 
     # --- Past sessions and import jobs ---
     #: The past-sessions lane's verdict; not `backfill.summary`, whose properties are folder-shaped
     #: and whose insights count folder imports.
     TRANSCRIPTS_SUMMARY = "transcripts.summary"
-    #: Durable background imports. `kind` (transcripts|folder) is the breakdown.
+    #: `probe import folders` listed the folders past chats ran in (D74): `suggestions` (how many,
+    #: at most 5), `has_this_chat_folder`, `folder_agents` (the coding agents that can read a
+    #: folder). past-work.md runs it just before the past-work offer, so it also marks the offer
+    #: shown. Counts and kinds only, never a path.
+    IMPORT_FOLDERS_SUGGESTED = "import.folders_suggested"
+    #: `probe import review` saved a review of past work (the install prompt's offer, D54):
+    #: `choices` (chats, folder, wandb), `chats`, `folders` (how many the person picked),
+    #: `reader_agent` (the coding agent that reads them), `left_out` (agents whose chats stay out)
+    #: and `wandb_projects`, `wandb_folders`, `wandb_runs` (PR36: what the W&B part counted);
+    #: `agent` when an agent's chat ran it. Its start is `import_job.enqueued`; the offer's answer,
+    #: "Not now" included, is `wizard.imports_chosen`.
+    IMPORT_REVIEW_MADE = "import.review_made"
+    #: Durable background imports. `kind` (transcripts|folder|wandb) is the breakdown.
     IMPORT_JOB_ENQUEUED = "import_job.enqueued"
     #: A running import that has stopped making progress -- and, unlike `finished`, a LEVEL rather
     #: than an edge, so it is rate-limited at the call site.
@@ -148,6 +192,81 @@ class Event(StrEnum):
     #: The hosted MCP's per-tool accounting event (`probe.mcp.delivery.accounting`, its own sender).
     #: `surface` is `mcp`; `client_kind` is the caller's client.
     MCP_TOOL_SERVED = "mcp.tool_served"
+
+    # --- Agent install (the install prompt) ---
+    # A person pastes the install prompt into their coding agent and the agent installs Probe
+    # (agent-prompt install D14): the launcher starts the sign-in, the CLI finishes it, installs,
+    # and starts recording the chat it runs in. Each step also sends the wizard's own event for it
+    # (`wizard.signed_in`, `wizard.configure_*`, `wizard.install_settled`,
+    # `wizard.recorder_changed`, `wizard.imports_chosen`, `wizard.uninstall_*`), stamped
+    # `agent_install: true`, `chat_agent`, `install_attempt` and `profile`, in one `session_id` per
+    # command (PR24).
+    #: `npx probe-research sign-in` asked for a sign-in code and opened the tab (the npm launcher
+    #: sends it, before any CLI exists; anonymous, by machine): `chat_agent`, the coding agent it
+    #: runs in.
+    AGENT_INSTALL_SIGNIN_STARTED = "agent_install.signin_started"
+    #: `sign-in --wait` saved the approved sign-in. `account_changed`: this computer was signed in
+    #: as someone else before. `team_changed`: the same person, signed in for another team (the
+    #: re-paste menu's Account, PR34). `demo_offered`: the server offers this person the live demo
+    #: (PR38), so full.md and runs-only.md ask about it. Its every end, refusals included, is
+    #: `wizard.signed_in`.
+    AGENT_INSTALL_APPROVED = "agent_install.approved"
+    #: `install --attempt` (or `--profile`) ended, however it ended: `outcome` (`AgentRunOutcome`),
+    #: `reason` (null when it finished; an `AgentInstallReason` otherwise, setup_busy at the lock
+    #: included), `duration_seconds`, `profile` (full|runs) and `previous_profile`, `settings`
+    #: (`InstallSettings`: recommended, picked, kept) beside `recommended`, `fresh`,
+    #: `daemon_offered`, and what it applied: `who_records` and `session_default`, with
+    #: `who_records_before` and `session_default_before` (the re-paste menu's Change settings,
+    #: PR34), the agents Probe is set up in, `agents_before` and `agents`, and this chat's
+    #: recording, `chat_recording` (bool) and `chat_recording_reason` (`this_chat`'s word), so one
+    #: event says the whole install (#probe-usage, PR41). `stage_seconds` says what each stage took
+    #: (`agents`, `who_records`), and `unapplied` names each setting it read back otherwise
+    #: (`incomplete_settings`, fixes-1108b). The agents installed and added are on
+    #: `wizard.install_settled`, each agent's plugins, MCP and hooks on
+    #: `wizard.configure_completed`, all in its `session_id`.
+    AGENT_INSTALL_CONFIGURED = "agent_install.configured"
+    #: The install started recording the chat it ran in (`ok`), or why not (`reason`, `this_chat`'s
+    #: word), and for which agent.
+    AGENT_INSTALL_CHAT_RECORDING = "agent_install.chat_recording"
+    #: The install prompt was pasted on a computer already set up, and the person picked from its
+    #: menu (D84): `choice` is `repair`, `switch` (Full and Runs only), `backfill`, `example`,
+    #: `settings` (Change settings), `account` (Account), `uninstall`, `update` or `nothing`, and
+    #: `profile` the computer's. Sent by `status --repaste-choice`, which the agent runs once they
+    #: answer.
+    AGENT_INSTALL_REPASTE_CHOICE = "agent_install.repaste_choice"
+    #: An agent's command was refused. The npm launcher sends its own, before the CLI ran or around
+    #: it: `reason` (hosted_agent, downloading, sign_in_expired, uninstall_running, incomplete,
+    #: run_again at its backstop, and the `probe` shim's no_service / service_lost / updating, also
+    #: when the first download ended on one), `outcome` (`run_again` or `failed`), `step` (sign_in,
+    #: sign_in_wait, install, status, repair, uninstall, import, example, other) and `chat_agent`.
+    #: The CLI's write gate and Probe's hooks refuse Probe's own upkeep and install (fixes-1107b PR
+    #: C): `reason` (directed_required, other_session, server_override, daemon_chat, chat_not_on),
+    #: `step` (also session, service, update, sign_out, wandb, capture), `source` (cli|hook) and
+    #: `chat_agent`, at most one per chat per reason, spooled on the computer and sent by the Probe
+    #: service. The CLI's other refusals ride on its step's event as `outcome` + `reason`.
+    AGENT_INSTALL_REFUSED = "agent_install.refused"
+    #: The install's live-demo question, answered (full.md and runs-only.md ask it only when
+    #: `sign-in --wait` said `demo: true`, PR38): `choice` (yes|no) and `profile`. Sent by `status
+    #: --demo-choice`, which the agent runs once they answer; a yes also starts the example
+    #: (`example.stage_reached` project).
+    AGENT_INSTALL_DEMO_CHOICE = "agent_install.demo_choice"
+    #: The re-paste menu's Update (`npx probe-research update --json` from a coding agent's chat,
+    #: PR26) ended, however it ended: `outcome` (`AgentRunOutcome`), `reason` (null when it
+    #: finished; setup_busy while a live run holds updates off), `duration_seconds`, `updated` and
+    #: `not_current` (the parts that moved and the parts left behind: cli, plugin, tap; both empty:
+    #: already current) and `cli_from`/`cli_to` when the CLI moved.
+    AGENT_INSTALL_UPDATED = "agent_install.updated"
+    #: A coding agent changed what Probe records for the person, after they asked (`--directed`,
+    #: fixes-1107b T2/T3) or, in auto mode, on its own by the work: `scope` chat (this chat's
+    #: switch) | default (what new chats start as) | machine (Runs only, sign out, an agent removed,
+    #: uninstall, the service stopped), `state` (the new value: on, read, off or inline for a chat
+    #: or the default; runs, full, signed_out, removed, uninstalled, stopped or stopping for the
+    #: machine), `by` (agent), `chat_agent`, `control` (auto | manual: who sets a chat's switch on
+    #: this machine, probe auto mode) and `trigger` (agent: the agent ran the command after the
+    #: person asked | auto: the agent moved an auto chat's switch on its own | run_launch: a run
+    #: launched through Probe turned an auto chat on). Sent by the CLI as the change lands; a
+    #: person's own change sends none.
+    SESSION_SWITCHED = "session.switched"
 
     # --- Install refusals ---
     # Every front door that refuses to install says so once, so a person stuck on an unsupported

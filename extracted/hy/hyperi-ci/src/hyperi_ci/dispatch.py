@@ -37,7 +37,7 @@ from hyperi_ci.languages.quality_common import (
     note_quality_disabled,
     resolve_tool_mode,
 )
-from hyperi_ci.languages.rust._jobs import capped_cargo_jobs
+from hyperi_ci.languages.rust._jobs import capped_cargo_jobs, log_peak_memory
 from hyperi_ci.languages.tiering import (
     TEST_TIER_ENV,
     TIER_EXPORT_ENV,
@@ -457,9 +457,28 @@ def stage_build(language: str, config: CIConfig, *, local: bool = False) -> int:
                 error(f"Unknown build strategy: {strategy}")
                 return 1
 
+    if language == "rust" and _phase_packaged_nothing(Path.cwd()):
+        info("This build phase packaged no binary, so the one that does emits")
+        return 0
+
     from hyperi_ci.release.assemble import emit_contract
 
     return emit_contract(config, Path.cwd())
+
+
+def _phase_packaged_nothing(root: Path) -> bool:
+    """Return True for a release build phase that left no ``dist/``.
+
+    Only the phase that finishes the build packages, the same test rust-ci.yml
+    uses to pick which job's ``dist/`` it uploads.
+    """
+    from hyperi_ci.languages.rust import build_phase
+
+    try:
+        phase = build_phase.build_phase()
+    except build_phase.PhaseError:
+        return False
+    return bool(phase) and not (root / "dist").is_dir()
 
 
 def check_prepared(language: str) -> int:
@@ -638,6 +657,10 @@ def run_stage(
     except ReleaseVersionError as exc:
         error(f"{stage}: {exc}")
         return 1
+
+    # Build logs its own per-phase peaks, so this covers the other heavy stages.
+    if stage in ("quality", "test"):
+        log_peak_memory(stage)
 
     if rc == 0:
         success(f"{stage} complete")

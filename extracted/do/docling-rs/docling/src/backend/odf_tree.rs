@@ -303,9 +303,11 @@ fn formatting_of(fmt: Fmt) -> Option<Formatting> {
     })
 }
 
-/// `_normalize_odf_text_runs`: merge same-format/same-link neighbours, strip
-/// the whitespace at a hyperlink boundary, drop blank edge runs and trim the
-/// paragraph's two ends.
+/// `_normalize_odf_text_runs`: merge same-format/same-link neighbours and
+/// trim the paragraph's two ends (`trim_run_edges`). A hyperlink boundary is
+/// not special under the whitespace contract (docling#3891): the boundary
+/// space stays in whichever run owns it, and the serializer places it
+/// outside the link markup.
 fn normalize_runs(runs: Vec<Run>) -> Vec<Run> {
     let mut merged: Vec<Run> = Vec::new();
     for run in runs {
@@ -318,33 +320,9 @@ fn normalize_runs(runs: Vec<Run>) -> Vec<Run> {
                 continue;
             }
         }
-        let mut text = run.text;
-        if let Some(last) = merged.last_mut() {
-            if last.href != run.href {
-                last.text = last.text.trim_end().to_string();
-                text = text.trim_start().to_string();
-            }
-        }
-        merged.push(Run {
-            text,
-            fmt: run.fmt,
-            href: run.href,
-        });
+        merged.push(run);
     }
-    while merged.first().is_some_and(|r| r.text.trim().is_empty()) {
-        merged.remove(0);
-    }
-    if let Some(first) = merged.first_mut() {
-        first.text = first.text.trim_start().to_string();
-    }
-    while merged.last().is_some_and(|r| r.text.trim().is_empty()) {
-        merged.pop();
-    }
-    if let Some(last) = merged.last_mut() {
-        last.text = last.text.trim_end().to_string();
-    }
-    merged.retain(|r| !r.text.is_empty());
-    merged
+    docling_core::inline::trim_run_edges(merged, |r| r.text.as_str(), |r, t| r.text = t, |_| true)
 }
 
 /// `_odf_text_from_runs`.
@@ -613,7 +591,11 @@ fn data_bounds(grid: &Grid) -> (usize, usize, usize, usize) {
 impl<'s> Walker<'s> {
     fn new(styles: &'s Styles) -> Self {
         Walker {
-            tree: ItemTree::default(),
+            tree: ItemTree {
+                // The runs keep their boundary whitespace (schema 1.11.0, #997).
+                inline_whitespace: true,
+                ..ItemTree::default()
+            },
             styles,
             tables: 0,
             note_calls: Vec::new(),
@@ -1351,6 +1333,7 @@ impl<'s> Walker<'s> {
         }
         self.tables += 1;
         let kind = TreeKind::Table {
+            footnotes: Vec::new(),
             table: Table {
                 rows: vec![vec![String::new(); width]; height],
                 cells: Some(Vec::new()),
@@ -2193,5 +2176,115 @@ mod tests {
             _ => None,
         });
         assert_eq!(page, Some((1, 2.0, 3.0)), "right − left, bottom − top");
+    }
+
+    /// The tree items of the rich cell group `g`: its runs, flattening an
+    /// inline group.
+    fn group_runs(t: &ItemTree, g: usize) -> Vec<&TreeItem> {
+        let kids: Vec<usize> = (0..t.items.len())
+            .filter(|&i| t.items[i].parent == Some(g))
+            .collect();
+        assert_eq!(kids.len(), 1, "one child under the cell group");
+        let k = kids[0];
+        if matches!(&t.items[k].kind, TreeKind::Group { label, .. } if label == "inline") {
+            (0..t.items.len())
+                .filter(|&i| t.items[i].parent == Some(k))
+                .map(|i| &t.items[i])
+                .collect()
+        } else {
+            vec![&t.items[k]]
+        }
+    }
+
+    fn styled_cells(body_tag: &str, cells: &str) -> String {
+        format!(
+            r#"<office:document {NS} xmlns:xlink="l">
+            <office:automatic-styles>
+              <style:style style:name="Sub" style:family="text"><style:text-properties style:text-position="sub 58%"/></style:style>
+              <style:style style:name="I" style:family="text"><style:text-properties fo:font-style="italic"/></style:style>
+              <style:style style:name="B" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style>
+            </office:automatic-styles>
+            <office:body><office:{body_tag}><table:table table:name="Sheet1"><table:table-row>{cells}</table:table-row></table:table>
+            </office:{body_tag}></office:body></office:document>"#
+        )
+    }
+
+    /// docling's `test_odt_table_cell_is_rich_only_when_more_than_plain_text`
+    /// (docling#4809): a typed one-paragraph cell with a script, italic or
+    /// linked run is a rich cell over its runs; a span whose style does not
+    /// exist (no formatting) stays a plain cell.
+    #[test]
+    fn odt_table_cell_is_rich_only_when_more_than_plain_text() {
+        let xml = styled_cells(
+            "text",
+            r#"<table:table-cell office:value-type="string"><text:p>H<text:span text:style-name="Sub">2</text:span>O</text:p></table:table-cell>
+               <table:table-cell office:value-type="string"><text:p><text:span text:style-name="I">word</text:span></text:p></table:table-cell>
+               <table:table-cell office:value-type="string"><text:p><text:a xlink:href="https://example.com/">site</text:a></text:p></table:table-cell>
+               <table:table-cell office:value-type="string"><text:p><text:span text:style-name="none">word</text:span></text:p></table:table-cell>"#,
+        );
+        let doc = convert(&xml, InputFormat::Odt);
+        let t = doc.tree.as_ref().expect("tree");
+        let (ti, rich) = t
+            .items
+            .iter()
+            .enumerate()
+            .find_map(|(i, it)| match &it.kind {
+                TreeKind::Table { rich_cells, .. } => Some((i, rich_cells.clone())),
+                _ => None,
+            })
+            .unwrap();
+        let cols: Vec<usize> = rich.iter().map(|&(_, c, _)| c).collect();
+        assert_eq!(cols, [0, 1, 2], "the plain span cell stays plain");
+        for &(_, _, g) in &rich {
+            assert_eq!(t.items[g].parent, Some(ti));
+        }
+        let script = group_runs(t, rich[0].2);
+        assert_eq!(
+            script.iter().map(|i| text(i)).collect::<Vec<_>>(),
+            ["H", "2", "O"]
+        );
+        assert!(
+            matches!(&script[1].kind, TreeKind::Text { formatting: Some(f), .. }
+            if f.script == docling_core::Script::Sub)
+        );
+        assert!(matches!(&group_runs(t, rich[1].2)[0].kind,
+            TreeKind::Text { formatting: Some(f), .. } if f.italic));
+        assert!(matches!(&group_runs(t, rich[2].2)[0].kind,
+            TreeKind::Text { hyperlink: Some(h), text, .. } if h == "https://example.com/" && text == "site"));
+        let html = doc.export_to_html();
+        assert!(html.contains("H<sub>2</sub>O"), "got:\n{html}");
+    }
+
+    /// docling's `test_ods_singleton_with_formatting_or_link_stays_a_table`,
+    /// minus the `treat_singleton_as_text` option we do not have: a sheet
+    /// cell with a bold or linked run is a rich cell, its Markdown keeps the
+    /// markers; an unstyled span stays plain.
+    #[test]
+    fn ods_cell_with_formatting_or_link_is_rich() {
+        let xml = styled_cells(
+            "spreadsheet",
+            r#"<table:table-cell office:value-type="string"><text:p><text:span text:style-name="B">bold</text:span></text:p></table:table-cell>
+               <table:table-cell office:value-type="string"><text:p><text:a xlink:href="https://example.com/">site</text:a></text:p></table:table-cell>
+               <table:table-cell office:value-type="string"><text:p><text:span text:style-name="none">span</text:span></text:p></table:table-cell>"#,
+        );
+        let doc = convert(&xml, InputFormat::Ods);
+        let t = doc.tree.as_ref().expect("tree");
+        let rich: Vec<(usize, usize, usize)> = t
+            .items
+            .iter()
+            .find_map(|it| match &it.kind {
+                TreeKind::Table { rich_cells, .. } => Some(rich_cells.clone()),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(rich.iter().map(|&(_, c, _)| c).collect::<Vec<_>>(), [0, 1]);
+        assert!(matches!(&group_runs(t, rich[0].2)[0].kind,
+            TreeKind::Text { formatting: Some(f), .. } if f.bold));
+        let md = doc.export_to_markdown();
+        assert!(
+            md.contains("**bold**") && md.contains("[site](https://example.com/)"),
+            "got:\n{md}"
+        );
+        assert!(md.contains("| span"), "got:\n{md}");
     }
 }

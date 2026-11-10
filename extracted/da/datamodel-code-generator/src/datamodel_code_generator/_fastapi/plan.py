@@ -32,8 +32,11 @@ from datamodel_code_generator._openapi_wire_plan import (
     form_extras,
     form_members,
     form_styled,
+    media_encodings,
     parameter_plans,
+    part_json,
     plan_wire,
+    single_media,
 )
 from datamodel_code_generator._runtime.model_codecs.media import (
     JSON_MEDIA_TYPE,
@@ -44,10 +47,10 @@ from datamodel_code_generator._runtime.model_codecs.media import (
     declaring,
     essence,
     media_kind,
-    media_range,
     normalized,
 )
 from datamodel_code_generator._target_contract import (
+    OAUTH_SCHEMES,
     WRAPPER_KINDS,
     BuiltinType,
     ConstructorType,
@@ -59,6 +62,7 @@ from datamodel_code_generator._target_contract import (
     LiteralScalar,
     LiteralSequence,
     LiteralType,
+    PartSchema,
     Requirement,
     UnionType,
     api_key_place,
@@ -70,7 +74,6 @@ from datamodel_code_generator._target_contract import (
     label,
     literal_text,
     members_by_consumer,
-    openapi_release,
     operation_schemes,
     parameter_place,
     range_start,
@@ -107,7 +110,7 @@ from datamodel_code_generator._target_operations import (
 )
 from datamodel_code_generator._target_types import present, sole_present
 from datamodel_code_generator._url_redaction import redact_reference
-from datamodel_code_generator.enums import DataModelType
+from datamodel_code_generator.enums import DataModelType, OpenAPIVersion
 from datamodel_code_generator.imports import Import
 from datamodel_code_generator.python_literal import stable_repr
 
@@ -124,6 +127,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator._target_contract import (
         FrozenLiteral,
         ModelFieldFacts,
+        OpenAPIVersions,
         OperationContract,
         SymbolId,
         TypeArgument,
@@ -193,7 +197,6 @@ _CONSTRUCTORS: Final[dict[tuple[str | None, str], tuple[str, BuiltinType | None]
 _PLAIN_KEYWORDS: Final = _CONSTRAINTS | _DOCUMENTATION | {"default_factory"}
 _CONSTRAINED: Final = frozenset({"conbytes", "condecimal", "confloat", "conint", "constr"})
 _HTTP_SCHEMES: Final[dict[str, SchemeKind]] = {"basic": "basic", "bearer": "bearer", "digest": "digest"}
-_FLOWS: Final[dict[object, SchemeKind]] = {"oauth2": "oauth2", "openIdConnect": "openid"}
 _INFO: Final = (
     ("info", "title", "title", "text"),
     ("info", "summary", "summary", "text"),
@@ -257,7 +260,8 @@ class MediaSpec:
     """One declared media type of a body or response, with its type use when the content has a schema.
 
     A form an adapter reads comes with the plans of its members: a member is read as text in its field's kind, or,
-    as a multipart member without one, as JSON. A URL-encoded member whose encoding gives it a style or content is
+    as a multipart member without one, as JSON, and a multipart member holding files the models keep as bytes as its
+    parts' octets. A URL-encoded member whose encoding gives it a style or content is
     read by its query parameter plan in `encoded`, and its JSON content then as a JSON part. `additional` reads the
     properties the form's schema types without declaring them, when that is not as the text they come as, which any
     other member is, and `checked` is their type when they are text that the model keeps without one, as a dataclass
@@ -271,7 +275,8 @@ class MediaSpec:
     declaration: WireDeclaration
     fields: tuple[FieldPlan, ...] = ()
     json_parts: tuple[JsonPartSpec, ...] = ()
-    additional: FieldPlan | JsonPartSpec | None = None
+    file_parts: tuple[FilePartSpec, ...] = ()
+    additional: FieldPlan | JsonPartSpec | FilePartSpec | None = None
     checked: TypeView | None = None
     encoded: tuple[ParameterPlan, ...] = ()
     extras: bool = False
@@ -308,6 +313,23 @@ class JsonPartSpec:
     repeated: bool = False
     field: tuple[GeneratedSymbolType, str] | None = None
     untyped: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class FilePartSpec:
+    """One multipart member holding files the models keep as bytes: its wire name and its repeats.
+
+    Its parts are read as their octets, whether or not they name a filename. The one that reads a form's other
+    properties has no name.
+    """
+
+    name: str
+    repeated: bool = False
+
+
+def _octets(schema: PartSchema | str | None) -> TypeIs[PartSchema]:
+    """Return whether a multipart member holds files the models keep as bytes rather than as text (`PartSchema`)."""
+    return isinstance(schema, PartSchema) and schema.file and not schema.text
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -491,16 +513,9 @@ def invalid_links(operations: Iterable[OperationContract]) -> tuple[Diagnostic, 
     return tuple(problems)
 
 
-def _single_media(encoding: WireDeclaration) -> str | None:
-    """Return the one contentType of an encoding, or None when it names several media types or a range."""
-    if (found := content_types(encoding)) is None or len(found) != 1 or media_range(found[0]):
-        return None
-    return found[0]
-
-
 def _json_type(encoding: WireDeclaration) -> bool:
     """Return whether an encoding's contentType names one JSON media type, rather than several or a range."""
-    return (single := _single_media(encoding)) is not None and media_kind(single) == "json"
+    return (single := single_media(encoding)) is not None and media_kind(single) == "json"
 
 
 def _part_text(encoding: WireDeclaration) -> bool:
@@ -509,15 +524,15 @@ def _part_text(encoding: WireDeclaration) -> bool:
     Starlette reads a field part as UTF-8, whatever media type the part names.
     """
     return (
-        (single := _single_media(encoding)) is not None
+        (single := single_media(encoding)) is not None
         and media_kind(single) == "text"
         and charset(single, as_written=True).lower() in _PART_CHARSETS
     )
 
 
 def _encodings(media: MediaSpec) -> Iterator[WireDeclaration]:
-    """Return the encodings a media declares."""
-    return children_of(media.declaration, "encoding")
+    """Return the encodings a media declares for the members its model has in the request (`member_encodings`)."""
+    return media_encodings(media.use, media.declaration)
 
 
 def _files(media: MediaSpec) -> frozenset[str]:
@@ -525,7 +540,7 @@ def _files(media: MediaSpec) -> frozenset[str]:
     return frozenset(() if parts is None else (name for name, part in parts.members if part.file))
 
 
-def _json_members(media: MediaSpec, version: str) -> frozenset[str | None]:
+def _json_members(media: MediaSpec, versions: OpenAPIVersions) -> frozenset[str | None]:
     """Return the multipart members whose encodings send them as JSON: one JSON media type and no style.
 
     A style that the document's version applies leaves the media type unused, and a member holding files keeps its
@@ -538,11 +553,11 @@ def _json_members(media: MediaSpec, version: str) -> frozenset[str | None]:
     return frozenset(
         child.name
         for child in _encodings(media)
-        if child.name in texts and _json_type(child) and not form_styled(child, version, multipart=True)
+        if child.name in texts and _json_type(child) and not form_styled(child, versions, multipart=True)
     )
 
 
-def _typed_members(media: MediaSpec, kinds: LexicalKinds, version: str) -> frozenset[str | None]:
+def _typed_members(media: MediaSpec, kinds: LexicalKinds, versions: OpenAPIVersions) -> frozenset[str | None]:
     """Return the multipart members whose encodings name media types the adapters read their parts in.
 
     A member is read as JSON in a JSON media type; one of a single scalar kind, whose field parts Starlette reads as
@@ -551,7 +566,7 @@ def _typed_members(media: MediaSpec, kinds: LexicalKinds, version: str) -> froze
     assert media.use is not None
     files = _files(media)
     scalars = {member.name for member in form_members(kinds, media.use) if member.kind is not None}
-    return _json_members(media, version) | {
+    return _json_members(media, versions) | {
         child.name
         for child in _encodings(media)
         if (
@@ -561,7 +576,7 @@ def _typed_members(media: MediaSpec, kinds: LexicalKinds, version: str) -> froze
     }
 
 
-def _encoded(media: MediaSpec, kinds: LexicalKinds, version: str) -> WireDeclaration | None:
+def _encoded(media: MediaSpec, kinds: LexicalKinds, versions: OpenAPIVersions) -> WireDeclaration | None:
     """Return the first multipart encoding that the form adapter does not read.
 
     No adapter reads part headers, nor a style for a member holding files, which the client refuses too. A style that
@@ -569,14 +584,14 @@ def _encoded(media: MediaSpec, kinds: LexicalKinds, version: str) -> WireDeclara
     a member is read in the media types `_typed_members` says. A URL-encoded member's encoding, which carries no
     headers, is read by its query parameter plan.
     """
-    typed = _typed_members(media, kinds, version)
+    typed = _typed_members(media, kinds, versions)
     files = _files(media)
     return next(
         (
             child
             for child in _encodings(media)
             if child.children
-            or (child.name in files if form_styled(child, version, multipart=True) else _untyped(child, typed))
+            or (child.name in files if form_styled(child, versions, multipart=True) else _untyped(child, typed))
         ),
         None,
     )
@@ -586,13 +601,15 @@ def _untyped(encoding: WireDeclaration, typed: frozenset[str | None]) -> bool:
     return fact(encoding, "contentType") is not None and encoding.name not in typed
 
 
-def _planned(encoding: WireDeclaration, version: str, textless: frozenset[str], *, multipart: bool) -> bool:
+def _planned(
+    encoding: WireDeclaration, versions: OpenAPIVersions, textless: frozenset[str], *, multipart: bool
+) -> bool:
     """Return whether a form member's encoding is read by its query parameter plan rather than as plain text.
 
     A form's own text reads the default `form` style with explode of a member of one scalar kind; a URL-encoded
     member's content and allowReserved need the plan too, while a part is never percent-encoded.
     """
-    styled = form_styled(encoding, version, multipart=multipart)
+    styled = form_styled(encoding, versions, multipart=multipart)
     if multipart and not styled:
         return False
     return (
@@ -844,7 +861,12 @@ class Planner:  # noqa: PLR0904
             if (
                 name in self.schemes
                 and (declaration := declared.get(name)) is not None
-                and (problem := scope_problem(name, declaration, scopes, self.request.batch.openapi)) is not None
+                and (
+                    problem := scope_problem(
+                        name, declaration, scopes, self.request.batch.versions.of(operation.id.use_site)
+                    )
+                )
+                is not None
             ):
                 message = f"The security of {label(operation)} {problem}"
                 self.problems.append(_problem("F_SECURITY_INVALID", message, operation.id.use_site))
@@ -900,7 +922,7 @@ class Planner:  # noqa: PLR0904
             if argument.location == "path" and argument.name == argument.wire_name
         }
         taken = {*RESERVED, *(argument.name for argument in arguments if argument.name not in own)}
-        repeatable = openapi_release(self.wire.version, row="legacy-target-version-text") != (3, 2)
+        repeatable = self.wire.versions.root != OpenAPIVersion.V32
         try:
             return route_path(operation.path, taken, repeatable=repeatable)
         except RouteError as error:
@@ -1211,7 +1233,8 @@ class Planner:  # noqa: PLR0904
     def form_body(self, operation: OperationContract, spec: BodySpec, media: MediaSpec) -> BodySpec:
         """Read a URL-encoded BaseModel natively as a FastAPI form model; adapt other forms to the model.
 
-        A multipart body of a union of several schemas declares no members its parts could be read by.
+        A multipart body of a union of several schemas declares no members its parts could be read by, unless they are
+        objects that agree on the parts of each property (`PartFacts.object`).
         """
         if (
             (use := media.use) is None
@@ -1220,7 +1243,7 @@ class Planner:  # noqa: PLR0904
         ):
             self.unsupported(operation, (media,))
             return spec
-        if media.kind == "multipart" and (encoded := _encoded(media, self.wire.kinds, self.wire.version)) is not None:
+        if media.kind == "multipart" and (encoded := _encoded(media, self.wire.kinds, self.wire.versions)) is not None:
             self.unsupported(operation, (media,), f"the {encoded.name} encoding of ")
             return spec
         read = self.form_read(media)
@@ -1232,8 +1255,9 @@ class Planner:  # noqa: PLR0904
         """Return a form with how its members are read: each property of its model, then any other property.
 
         A member whose type, or whose items' type, has a lexical kind is text of that kind. Any other, such as an
-        object, is JSON in a multipart body, as is a member whose encoding names JSON and one that takes any value,
-        which keeps a part that is not JSON as it comes since it takes that too; a URL-encoded body carries
+        object, is JSON in a multipart body, as is a member whose encoding names JSON and one that takes any value
+        without a style or media type from its encoding (`part_json`), which keeps a part that is not JSON as it comes
+        since it takes that too; a URL-encoded body carries
         text alone, so generation stops for such a member, as it does for a parameter and for the client, unless its
         encoding gives it a style or content. A member whose encoding gives it a style or content that its own text
         does not read is read by its query parameter plan. The other properties a schema types are read by the same
@@ -1246,17 +1270,29 @@ class Planner:  # noqa: PLR0904
         assert media.use is not None
         members = tuple(form_members(self.wire.kinds, media.use))
         encoded = self.encoded(media, members)
-        json_members = _json_members(media, self.wire.version)
+        json_members = _json_members(media, self.wire.versions)
+        encodings = {encoding.name or "": encoding for encoding in _encodings(media)}
         multipart = media.kind == "multipart"
+        parts = media.use.parts if multipart else None
+        files = {
+            name: FilePartSpec(name, repeated=schema.repeated)
+            for name, schema in (() if parts is None else parts.members)
+            if _octets(schema)
+        }
         read = [
             (
                 member,
                 _content_part(member, encoded[member.name])
                 if member.name in encoded
-                else self.form_plan(
+                else files.get(member.name)
+                or self.form_plan(
                     media,
                     member,
-                    json=member.name in json_members,
+                    json=multipart
+                    and (
+                        member.name in json_members
+                        or part_json(self.wire.kinds, member.type, encodings.get(member.name), self.wire.versions)
+                    ),
                     untyped=multipart and self.wire.kinds.untyped(member.leaf),
                 ),
             )
@@ -1274,10 +1310,17 @@ class Planner:  # noqa: PLR0904
             and (name := field.slot.name) not in names
             and self.by_name(field.consumer)
         )
-        additional: FieldPlan | JsonPartSpec | None = None
-        if (extras := form_extras(self.wire.kinds, media.use)) is not None:
-            untyped = multipart and self.wire.kinds.untyped(extras.leaf)
-            additional = self.form_plan(media, extras, untyped=untyped)
+        additional: FieldPlan | JsonPartSpec | FilePartSpec | None = None
+        extras = form_extras(self.wire.kinds, media.use)
+        if parts is not None and _octets(extra := parts.extra):
+            additional = FilePartSpec("", repeated=extra.repeated)
+        elif extras is not None:
+            additional = self.form_plan(
+                media,
+                extras,
+                json=multipart and part_json(self.wire.kinds, extras.type, None, self.wire.versions),
+                untyped=multipart and self.wire.kinds.untyped(extras.leaf),
+            )
         elif multipart and (media.use.parts is None or media.use.parts.extra is None):
             additional = JsonPartSpec("", BuiltinType("object"), untyped=True)
         if media.kind == "form" and (encoding := media.use.encoding) is not None and encoding.form.problem is not None:
@@ -1287,6 +1330,7 @@ class Planner:  # noqa: PLR0904
             media,
             fields=tuple(plan for plan in plans if isinstance(plan, FieldPlan)),
             json_parts=tuple(plan for plan in plans if isinstance(plan, JsonPartSpec)),
+            file_parts=tuple(plan for plan in plans if isinstance(plan, FilePartSpec)),
             additional=None if additional == _TEXT else additional,
             checked=extras.type
             if extras is not None and isinstance(additional, FieldPlan) and self.wire.kinds.kept(media.use) is None
@@ -1316,7 +1360,7 @@ class Planner:  # noqa: PLR0904
         textless = frozenset(member.name for member in members if member.kind is None)
         multipart = media.kind == "multipart"
         encodings = tuple(
-            child for child in _encodings(media) if _planned(child, self.wire.version, textless, multipart=multipart)
+            child for child in _encodings(media) if _planned(child, self.wire.versions, textless, multipart=multipart)
         )
         if not encodings:
             return {}
@@ -1328,8 +1372,12 @@ class Planner:  # noqa: PLR0904
     def form_plan(
         self, media: MediaSpec, member: FormMember, *, json: bool = False, untyped: bool = False
     ) -> FieldPlan | JsonPartSpec | None:
-        """Return how one member of a form is read, reporting one that the adapters do not read."""
-        if member.kind is not None and not json and not untyped:
+        """Return how one member of a form is read, reporting one that the adapters do not read.
+
+        A member of a lexical kind is text of that kind unless it is JSON (`part_json`), and a JSON member that takes
+        any value (`untyped`) keeps a part that is not JSON as it comes.
+        """
+        if member.kind is not None and not json:
             return FieldPlan(member.name, member.kind, repeated=member.repeated)
         if media.kind == "multipart":
             binding = member.field
@@ -1523,8 +1571,8 @@ def _scheme(name: str, declaration: WireDeclaration) -> SchemeSpec | None:
             return SchemeSpec(name=name, kind=_HTTP_SCHEMES.get(scheme, "custom"), declaration=declaration)
         case "mutualTLS", _:
             return SchemeSpec(name=name, kind="custom", declaration=declaration)
-        case kind, _ if kind in _FLOWS:
-            return SchemeSpec(name=name, kind=_FLOWS[kind], declaration=declaration)
+        case kind, _ if kind in OAUTH_SCHEMES:
+            return SchemeSpec(name=name, kind=OAUTH_SCHEMES[kind], declaration=declaration)
         case _:
             pass
     return None
@@ -1569,12 +1617,16 @@ def _member(source: object, key: str) -> JSONValue | None:
 def _primary(
     operation: OperationContract, status: int, response: ResponseSpec, media: MediaSpec | None, *, null: bool
 ) -> PrimarySpec:
-    """Return the primary response, deciding whether a bare value goes to FastAPI's response_model or the codecs."""
+    """Return the primary response, deciding whether a bare value goes to FastAPI's response_model or the codecs.
+
+    A JSON media whose body is its raw octets (`body_kind`) is sent by the codecs, as the bytes they are.
+    """
     bodyless = response_bodyless(operation, str(status))
     native = (
         not bodyless
         and media is not None
         and media.media_type == JSON_MEDIA_TYPE
+        and media.kind == "json"
         and (use := media.use) is not None
         and use.type is not None
     )

@@ -10,6 +10,7 @@ from ..io.write_geometries import export_section_stl as export_section_stl
 from . import centerline_prep, labeling, mesh_regions, scaling, stitching
 from . import debug_plots as debug_plots
 from . import postprocessing as _postprocessing
+from ._results import branches_key, vessel_of_centerline
 
 if TYPE_CHECKING:
     from ..multimodars import (
@@ -195,7 +196,8 @@ def scale(
     3. Applies the scaling in sequence — distal, then aortic (``aorta_points``
        + ``rca_removed_points``), then proximal — using
        :func:`scaling.scale_region_centerline_morphing`, which displaces
-       each vertex radially around the nearest centerline point.
+       each vertex radially around its labelled branch of the centerline
+       (``"rca_branches"`` / ``"lca_branches"``, when present).
     4. After each aortic/proximal scaling step,
        :func:`scaling.sync_results_to_mesh` remaps all coordinate lists
        in *results* to the updated vertex positions.
@@ -244,11 +246,15 @@ def scale(
         results=results,
     )
 
+    # Read per call: every sync_results_to_mesh moves the labels with the mesh.
+    labels_key = branches_key(vessel_of_centerline(results, cl_vessel))
+
     scaled_distal = scaling.scale_region_centerline_morphing(
         mesh=results["mesh"],
         region_points=results["distal_points"],
         centerline=cl_vessel,
-        diameter_adjustment_mm=distal_scaling,
+        radius_adjustment_mm=distal_scaling,
+        branch_points=results.get(labels_key),
     )
     results = scaling.sync_results_to_mesh(results, results["mesh"], scaled_distal)
 
@@ -256,7 +262,7 @@ def scale(
         mesh=results["mesh"],
         region_points=results["aorta_points"] + results["rca_removed_points"],
         centerline=cl_aorta,
-        diameter_adjustment_mm=aortic_scaling,
+        radius_adjustment_mm=aortic_scaling,
     )
     results = scaling.sync_results_to_mesh(
         results, results["mesh"], scaled_distal_aortic
@@ -266,7 +272,8 @@ def scale(
         mesh=results["mesh"],
         region_points=results["proximal_points"],
         centerline=cl_vessel,
-        diameter_adjustment_mm=prox_scaling,
+        radius_adjustment_mm=prox_scaling,
+        branch_points=results.get(labels_key),
     )
     results = scaling.sync_results_to_mesh(results, results["mesh"], scaled_proximal)
 
@@ -401,7 +408,7 @@ def create_wall_mesh(
         mesh=sub_mesh_filled,
         region_points=filled_vertices,
         centerline=cl_aorta,
-        diameter_adjustment_mm=scaling_factor,
+        radius_adjustment_mm=scaling_factor,
     )
 
     # Extract and scale each coronary sub-mesh independently
@@ -410,7 +417,7 @@ def create_wall_mesh(
         mesh=rca_sub_dict["mesh"],
         region_points=rca_sub_dict["rca_points"],
         centerline=cl_rca,
-        diameter_adjustment_mm=coronary_scaling,
+        radius_adjustment_mm=coronary_scaling,
     )
 
     lca_sub_dict = mesh_regions.keep_labeled_points_from_mesh(results, ["lca_points"])
@@ -418,7 +425,7 @@ def create_wall_mesh(
         mesh=lca_sub_dict["mesh"],
         region_points=lca_sub_dict["lca_points"],
         centerline=cl_lca,
-        diameter_adjustment_mm=coronary_scaling,
+        radius_adjustment_mm=coronary_scaling,
     )
 
     results["mesh"] = trimesh.util.concatenate([scaled_aorta, scaled_rca, scaled_lca])

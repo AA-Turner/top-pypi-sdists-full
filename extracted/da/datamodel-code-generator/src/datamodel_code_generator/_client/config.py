@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 Transport: TypeAlias = Literal["httpx2"]
 SignatureStyle: TypeAlias = Literal["explicit", "unpack"]
 BodyArguments: TypeAlias = Literal["body", "both"]
+AsyncAPIPerspective: TypeAlias = Literal["server", "client"]
 RecordT = TypeVar("RecordT")
 
 OPTION_PREFIX: Final = "client"
@@ -122,6 +123,8 @@ class ClientGenerationConfig(TargetConfig):
     default_base_url: str | None = None
     server_base_url: str | None = None
     protocols: Mapping[str, object] | None = None
+    deep_object_brackets: bool = False
+    asyncapi_perspective: AsyncAPIPerspective = "server"
 
     def _problems(self, target_python_version: PythonVersion) -> Iterator[Diagnostic]:
         yield from TargetConfig._problems(self, target_python_version)  # noqa: SLF001

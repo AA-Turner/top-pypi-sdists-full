@@ -6,10 +6,10 @@ import dataclasses
 import functools
 import random
 import uuid
-from collections.abc import MutableMapping
+from collections.abc import AsyncGenerator, Callable, MutableMapping
 from contextlib import nullcontext, suppress
 from datetime import timedelta
-from typing import AsyncGenerator, Callable, get_args
+from typing import get_args
 
 import anyio
 
@@ -22,7 +22,6 @@ from pgqueuer.core import (
     tm,
 )
 from pgqueuer.domain import errors, models, types
-from pgqueuer.domain.settings import db_settings
 from pgqueuer.ports import RepositoryPort, tracing
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 
@@ -37,9 +36,8 @@ class QueueManager:
     """
 
     queries: RepositoryPort
-    channel: types.Channel = dataclasses.field(
-        default_factory=lambda: types.Channel(db_settings().channel),
-    )
+    # Empty: listen on ``queries.qbe.settings.channel``, where the queries notify.
+    channel: types.Channel = types.Channel("")
 
     shutdown: asyncio.Event = dataclasses.field(
         init=False,
@@ -83,6 +81,11 @@ class QueueManager:
     # round-trips an aggregation query for nothing.
     jobs_logged: int = dataclasses.field(init=False, default=0)
 
+    unwritten_job_logs: list[buffers.JobLogEntry] = dataclasses.field(
+        init=False,
+        default_factory=list,
+    )
+
     # Minimum sleep before re-checking the queue. Prevents busy-looping when a
     # deferred job's ETA is near zero or when the TOCTOU fallback detects
     # eligible work that the preceding dequeue narrowly missed.
@@ -91,9 +94,12 @@ class QueueManager:
         default=timedelta(seconds=0.1),
     )
 
+    def __post_init__(self) -> None:
+        self.channel = self.channel or types.Channel(self.queries.qbe.settings.channel)
+
     async def listener_healthy(
         self,
-        timeout: timedelta = timedelta(seconds=10),
+        timeout: timedelta = timedelta(seconds=10),  # noqa: ASYNC109 - public API
     ) -> models.HealthCheckEvent:
         """Round-trip a NOTIFY/LISTEN probe. Raises ``FailingListenerError`` on timeout."""
         health_check_event_id = types.HealthCheckId(uuid.uuid4())
@@ -117,11 +123,9 @@ class QueueManager:
         """Probe listener health every *interval*; raise on timeout via ``listener_healthy``."""
         while not self.shutdown.is_set():
             await self.listener_healthy(timeout=interval)
-            with suppress(TimeoutError, asyncio.TimeoutError):
-                await asyncio.wait_for(
-                    self.shutdown.wait(),
-                    timeout=interval.total_seconds(),
-                )
+            with suppress(TimeoutError):
+                async with asyncio.timeout(interval.total_seconds()):
+                    await self.shutdown.wait()
 
     async def _run_periodic_log_aggregation(self, interval: timedelta) -> None:
         """Aggregate log->statistics every *interval* (jittered) until shutdown.
@@ -136,15 +140,13 @@ class QueueManager:
             if self.jobs_logged:
                 try:
                     await self.queries.aggregate_logs()
-                except Exception:
+                except Exception:  # noqa: BLE001, S110 - retried on the next interval
                     pass
                 else:
                     self.jobs_logged = 0
-            with suppress(TimeoutError, asyncio.TimeoutError):
-                await asyncio.wait_for(
-                    self.shutdown.wait(),
-                    timeout=interval.total_seconds() * random.uniform(0.8, 1.2),
-                )
+            with suppress(TimeoutError):
+                async with asyncio.timeout(interval.total_seconds() * random.uniform(0.8, 1.2)):  # noqa: S311 - timing jitter, not crypto
+                    await self.shutdown.wait()
 
     def get_context(self, job_id: types.JobId) -> models.Context:
         return self.job_context[job_id]
@@ -198,12 +200,11 @@ class QueueManager:
         ``on_failure='delete'`` (default) removes a terminally-failed job;
         ``'hold'`` parks it with status ``'failed'`` for manual re-queue.
         """
-
         if types.QueueEntrypoint(name) in self.entrypoint_registry:
             raise RuntimeError(f"{name} already in registry, name must be unique.")
 
         if not isinstance(concurrency_limit, int):
-            raise ValueError("Concurrency limit must be int.")
+            raise ValueError("Concurrency limit must be int.")  # noqa: TRY004 - public behaviour
 
         if concurrency_limit < 0:
             raise ValueError("Concurrency limit must be greater or eq. to zero.")
@@ -248,7 +249,6 @@ class QueueManager:
         heartbeat_timeout: timedelta,
     ) -> AsyncGenerator[models.Job, None]:
         """Yield ready jobs one at a time, respecting per-entrypoint and global limits."""
-
         while not self.shutdown.is_set():
             entrypoints = {
                 x: EntrypointExecutionParameter(
@@ -273,7 +273,6 @@ class QueueManager:
 
     async def verify_structure(self) -> None:
         """Assert that required tables, columns, indexes, enums, and triggers exist."""
-
         for table in (
             self.queries.qbe.settings.queue_table,
             self.queries.qbe.settings.statistics_table,
@@ -410,6 +409,8 @@ class QueueManager:
         ``pgqueuer_log`` into ``pgqueuer_statistics`` on a timer instead of only
         on stats reads; pass ``timedelta(0)`` to disable (pure on-demand).
         """
+        # Drop the previous run's ends before anything here can raise.
+        self.unwritten_job_logs = []
         await self.verify_structure()
 
         # 0 has always meant unlimited; keep unlimited as None all the way to
@@ -423,6 +424,7 @@ class QueueManager:
             buffers.JobStatusLogBuffer(
                 max_size=batch_size,
                 repository=self.queries,
+                unwritten=self.unwritten_job_logs,
             ) as jbuff,
             buffers.HeartbeatBuffer(
                 # Flush will be mainly driven by timeouts, but allow flush if
@@ -487,16 +489,26 @@ class QueueManager:
                     periodic_health_check_task, mode, shutdown_on_listener_failure
                 )
 
+                # A failed health check ends the wait at once, not at the next
+                # dequeue_timeout. Only when it shuts us down: a finished task
+                # would otherwise wake every wait and spin the loop.
+                wake_on_listener_failure = (
+                    shutdown_on_listener_failure and mode is not types.QueueExecutionMode.drain
+                )
                 async with tm.cancel_on_exit(
                     listeners.wait_for_notice_event(
                         notice_event_listener,
                         await self._effective_dequeue_timeout(dequeue_timeout),
                     )
                 ) as event_task:
-                    await asyncio.wait(
-                        (shutdown_task, event_task),
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
+                    wake_on: set[asyncio.Task[object]] = {shutdown_task, event_task}
+                    if wake_on_listener_failure:
+                        wake_on.add(periodic_health_check_task)
+                    await asyncio.wait(wake_on, return_when=asyncio.FIRST_COMPLETED)
+
+    async def write_job_ends(self, logs: list[buffers.JobLogEntry]) -> None:
+        """Write *logs* through this manager's queries."""
+        await self.queries.log_jobs(logs)
 
     async def log_failure(
         self,
@@ -525,6 +537,38 @@ class QueueManager:
         )
         await jbuff.add((job, status, tbr))
 
+    async def write_retry(
+        self,
+        job: models.Job,
+        delay: timedelta,
+        traceback_record: models.TracebackRecord,
+    ) -> None:
+        """Persist a requested retry until the write succeeds.
+
+        Failures keep the job picked and heartbeating. Shutdown leaves the row
+        picked so stale recovery runs the handler again, with ``attempts`` unchanged.
+        """
+        pause = timedelta(milliseconds=50)
+        cap = timedelta(seconds=1)
+        while True:
+            try:
+                await self.queries.retry_job(job, delay, traceback_record)
+            except Exception:
+                logconfig.logger.exception(
+                    "Retry write failed for entrypoint/job-id: %s/%s",
+                    job.entrypoint,
+                    job.id,
+                )
+            else:
+                return
+            if self.shutdown.is_set():
+                return
+            with suppress(TimeoutError):
+                async with asyncio.timeout(pause.total_seconds()):
+                    await self.shutdown.wait()
+                return
+            pause = min(pause * 2, cap)
+
     async def _dispatch(
         self,
         job: models.Job,
@@ -533,7 +577,6 @@ class QueueManager:
         heartbeat_timeout: timedelta,
     ) -> None:
         """Run *job*'s executor, route retries/cancels/failures, log final status."""
-
         logconfig.logger.debug(
             "Dispatching entrypoint/id: %s/%s",
             job.entrypoint,
@@ -583,10 +626,7 @@ class QueueManager:
                 )
                 # Release before re-queueing, or our own dequeue skips the re-picked row.
                 self.job_context.pop(job.id, None)
-                try:
-                    await self.queries.retry_job(job, retry_exc.delay, tbr)
-                except Exception as e:
-                    await self.log_failure(job, executor, e, jbuff)
+                await self.write_retry(job, retry_exc.delay, tbr)
             except asyncio.CancelledError:
                 logconfig.logger.debug(
                     "Job canceled mid-flight for entrypoint/id: %s/%s",
@@ -596,7 +636,7 @@ class QueueManager:
                 # shield: same cancel would otherwise abort the log write.
                 await asyncio.shield(jbuff.add((job, "canceled", None)))
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - job code may raise anything; recorded as a failure
                 await self.log_failure(job, executor, e, jbuff)
             else:
                 logconfig.logger.debug(

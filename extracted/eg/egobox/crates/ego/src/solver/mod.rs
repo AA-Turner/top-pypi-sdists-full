@@ -13,7 +13,7 @@
 //! - [`EgorState`] - Optimizer state (iterations, best point, surrogate data, ...)
 //! - [`TerminationStatus`] / [`TerminationReason`] - Optimization termination status
 //! - [`EgorConfig`] / [`ValidEgorConfig`] - Configuration builders and validated config
-//! - [`EgorService`] - Ask-and-tell interface for external control
+//! - [`EgorServiceBuilder`] / [`EgorServiceApi`] - Ask-and-tell interface for external control
 //!
 //! ### State Organization ([`egor_state`])
 //!
@@ -78,6 +78,7 @@
 //!     .run()
 //! ```
 
+mod acquisition;
 pub mod activity_strategy;
 mod coego;
 mod egor_config;
@@ -85,9 +86,12 @@ mod egor_service;
 mod egor_solver;
 mod egor_state;
 pub mod iteration_strategy;
+mod multistart;
+mod point_selection;
 mod solver_computations;
 mod solver_impl;
 mod solver_infill_optim;
+mod surrogate_set;
 mod termination;
 mod trego;
 
@@ -97,6 +101,6 @@ pub use egor_service::*;
 pub use egor_solver::*;
 pub use egor_state::*;
 pub use iteration_strategy::{
-    IterationMode, IterationStrategy, StandardEgoStrategy, TregoStrategy,
+    IterationMode, IterationStrategy, LocalStepConfig, StandardEgoStrategy, TregoStrategy,
 };
 pub use termination::*;

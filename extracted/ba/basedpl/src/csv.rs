@@ -1,6 +1,5 @@
-use crate::execution::check;
+use crate::cancel::check;
 use crate::{Described, Error, Number, Span, Value, array::generated_len, data::{Types, text as string}, keyed};
-use num_bigint::BigInt;
 use rustymath::error::Kind;
 use std::sync::Arc;
 
@@ -21,7 +20,7 @@ impl Options {
     fn new(left: Option<&Value>, import: bool) -> Result<Self, Error> {
         let mut allowed = vec!["separator", "quotechar", "escapechar", "doublequote", "decimal", "thousands", "trim", "header", "fill"];
         allowed.extend(if import { &["missing", "types"][..] } else { &["forcequotes", "lineending"][..] });
-        let common = crate::data::Options::new(if import { "•csv" } else { "•csv⁻¹" }, left, None, &allowed)?;
+        let common = crate::data::Options::new(if import { "•csv" } else { "•csv⁻" }, left, None, &allowed)?;
         let width = crate::number::Numeric::current().width;
         let mut opts = Self { common, separator: b',', quote: Some(b'"'), escape: None, double_quote: true, trim: false, decimal: '.', thousands: None, width };
         let byte = |c: Option<char>| -> Result<Option<u8>, Error> {
@@ -71,10 +70,7 @@ impl Options {
             field = field.replace(self.decimal, ".");
         }
         let digits = field.trim_start_matches(['+', '-']);
-        if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
-            if let Ok(n) = field.parse::<i64>() { return Some(Number::from_integer(n)); }
-            return Some(field.parse::<BigInt>().ok()?.into());
-        }
+        if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) { return Number::decimal(&field).map(|n| Number::data_integer(n, self.width)); }
         let n = Number::float(field.parse::<f64>().ok()?, self.width);
         if n.is_infinite() && !matches!(digits.to_ascii_lowercase().as_str(), "inf" | "infinity") { return None; }
         Some(n)
@@ -84,7 +80,7 @@ impl Options {
 /// `•csv`: parse CSV text into a keyed vector of columns.
 pub(crate) fn parse(left: Option<&Value>, right: &Value, _: &Span) -> Result<Value, Error> { import(&string(right)?, &Options::new(left, true)?) }
 
-/// `•csv⁻¹`: CSV text for a vector of columns.
+/// `•csv⁻`: CSV text for a vector of columns.
 pub(crate) fn serialize(left: Option<&Value>, right: &Value, _: &Span) -> Result<Value, Error> { export(right, &Options::new(left, false)?) }
 
 fn import(source: &str, opts: &Options) -> Result<Value, Error> {

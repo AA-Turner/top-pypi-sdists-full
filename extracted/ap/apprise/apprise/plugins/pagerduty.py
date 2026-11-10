@@ -129,6 +129,10 @@ class NotifyPagerDuty(NotifyBase):
     # A URL that takes you to the setup/help of the specific protocol
     setup_url = "https://appriseit.com/services/pagerduty/"
 
+    # The body is sent as the event summary, which PagerDuty limits to
+    # 1024 characters
+    body_maxlen = 1024
+
     # We don't support titles for Pager Duty notifications
     title_maxlen = 0
 
@@ -357,7 +361,7 @@ class NotifyPagerDuty(NotifyBase):
         self.include_image = include_image
 
         # Resolve our action; partial names such as "r" are accepted
-        if action and isinstance(action, str):
+        if action and isinstance(action, str) and action.strip():
             self.action = next(
                 (
                     a

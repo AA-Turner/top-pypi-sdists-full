@@ -1,9 +1,9 @@
-"""finish a dead run's capture from another process (`--recover`) and report a writer that is gone (`--writer-gone`)."""
+"""finish a dead run's capture from another process (`--recover`), report a writer that is gone (`--writer-gone`),
+and send a log its helper finished after the close (`--late-log`)."""
 
 from __future__ import annotations
 import json
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -133,6 +133,8 @@ def recover(entry_path: str) -> dict | None:
             journal=journal,
             recovery=True,
             ignore=_ignore.from_record(record.get("ignore")),
+            # The attempt the dead process wrote under: the recovered log's `meta.write_epoch`.
+            writer=record.get("writer") or ({"write_epoch": record["write_epoch"]} if record.get("write_epoch") else None),
         )
         capture._entry = entry
         capture.log_name = str(record.get("log_name") or LOG_NAME)
@@ -168,6 +170,61 @@ def recover(entry_path: str) -> dict | None:
         return summary
     finally:
         for path in (entry, _claim_path(entry), *entry.parent.glob(f"{entry.name}.writer-*")):
+            path.unlink(missing_ok=True)
+
+
+def send_late_log(request_path: str) -> dict | None:
+    """The whole log a close sent only the head of (T21): its helper finished it late and hands
+    over the close's request (``<log>.late``). Sent once, as the log's next version with
+    ``log_incomplete`` false, through the run's journal; the local copy is then removed."""
+    request = Path(request_path)
+    try:
+        record = json.loads(request.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not _claim(request):
+        return None
+    log_path = str(record.get("log_path") or "")
+    try:
+        stats = read_stats(log_path) if log_path else None
+        if stats is None:
+            return None  # never finished: the head stays the run's log
+        client, journal = _recovery_client(record)
+        if client is None and journal is None:
+            return None
+        capture = OutputCapture(
+            client,
+            record["run_id"],
+            str(record.get("root") or os.path.dirname(log_path)),
+            tee=False,
+            launcher=bool(record.get("launcher")),
+            journal=journal,
+            recovery=True,
+        )
+        capture.log_name = str(record.get("log_name") or LOG_NAME)
+        meta = {
+            **dict(record.get("meta") or {}),
+            **{k: v for k, v in stats.items() if k in ("total_bytes", "omitted_bytes")},
+            "log_incomplete": False,
+        }
+        raw = Path(log_path).read_bytes()
+        queued = bool(raw) and bool(capture._queue_log_bytes(raw, meta, log_path))
+        if queued:
+            _discard_local_log(log_path)
+            if client is not None:
+                from ...delivery.transport.deadlines import deadline_scope
+
+                try:
+                    with deadline_scope(time.monotonic() + AFTER_FINISH_SEND_SECONDS):
+                        client._drain_for_close(record["run_id"], lock_timeout=AFTER_FINISH_SEND_SECONDS)
+                except Exception:  # noqa: BLE001 -- left queued for the drainer
+                    pass
+                client._kick_drainer(force=True)  # a no-op when nothing is left
+        return {"queued": queued}
+    except OSError:
+        return None
+    finally:
+        for path in (request, _claim_path(request)):
             path.unlink(missing_ok=True)
 
 
@@ -377,7 +434,7 @@ def _default_signals() -> None:
         except (OSError, ValueError, RuntimeError):
             pass
 from probe.sdk.capture.outputs.host_registry import _entries, _helper_alive, _record_alive, _registry, _write_json  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.capture.outputs.log import LOG_NAME, _prune  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.capture.outputs.log import AFTER_FINISH_SEND_SECONDS, LOG_NAME, _discard_local_log, _prune  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.capture.outputs.outputs import OutputCapture  # noqa: E402 -- pieces need each other; the front door loads this one first
 
 
@@ -389,3 +446,6 @@ def run_command(argv: list[str]) -> None:
     elif len(argv) == 2 and argv[0] == "--writer-gone":
         _default_signals()
         writer_gone(argv[1])
+    elif len(argv) == 2 and argv[0] == "--late-log":
+        _default_signals()
+        send_late_log(argv[1])

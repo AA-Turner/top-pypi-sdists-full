@@ -8,11 +8,11 @@ Phase 8 for the object designed in `docs/design/dsss-burst-receiver.md` and
 characterized in
 `src/doppler/dsss/tests/characterization/dsss_burst_receiver/`.
 
-The three parts it composes — `BurstAcquisition`, `BurstDespreader`,
-`BurstDemod` — are certified in their own folders and **nothing here
-re-derives them**. What this object owns is the seam: the epoch, the fold,
-the look-back that reaches back to a burst start already gone past, and the
-refine stage that decides which repetition of the preamble a detection
+The three parts it composes — the burst-search `Correlator`, `BurstDespreader`,
+`BurstDemod` — are certified in their own folders and **nothing here re-derives
+them**. What this object owns is the seam: the epoch, the fold, the look-back
+that reaches back to a burst start already gone past, and the refine stage that
+decides which repetition of the preamble a detection
 landed on. Every claim below is about that.
 
 The criterion the object was built against is stronger than "it decodes":
@@ -540,8 +540,9 @@ def _sec_pd(d: Data) -> None:
         "CORRECTLY. This asks how often it gets one at all, which is the "
         "number a link is sized with — and until now no report in this "
         "chain gated one. `acq`'s certification pins `underpowered`, the "
-        "engine's own *prediction*; `Acquisition` has a measured Pd gate in "
-        "`test_acq_characterization.py`; the burst path had neither."
+        "engine's own *prediction*; `Correlator`'s continuous search has a "
+        "measured Pd gate in `test_acq_characterization.py`; the burst path "
+        "had neither."
     )
     R.md()
     R.md(
@@ -958,7 +959,7 @@ def review(d: Data) -> None:
         "bin_frequency_fold_restated_four",
         "FIXED",
         "**One bin-to-frequency fold was restated in four Python call "
-        "sites, three ways** — one of them the exact form `acq_core.h` "
+        "sites, three ways** — one of them the exact form `correlator_core.h` "
         "records as a past full-span sign inversion. It is `fftfreq`, and "
         "the engine's private helper had deviated from it at one index: an "
         "even grid's Nyquist bin. Fixed by giving the fold one home "
@@ -1067,7 +1068,8 @@ def review(d: Data) -> None:
         "first -- 6/6 decoded with 333-sample blocks against 1/6 with one "
         "large one. Three separate sites: an early return that never looked "
         "at `x` at all, a `break` that left the remainder unwritten, and a "
-        "single `dp_acq_push` per chunk, which stops once its result array is "
+        "single `dp_correlator_push` per chunk, which stops once its result "
+        "array is "
         "full and abandons its own input suffix. All three are gone: the "
         "loop runs to the end of `x`, acq is re-fed until it has absorbed "
         "the chunk, and `push()` returns EVERY burst it completed. "

@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from an.adapters._base import RenderContext
+from an.capabilities.subjects import SVG_FILTER_PRIMITIVES
 from an.stage.canvas_capture import (
     CanvasCaptureError,
     canvas_frame_png,
@@ -278,6 +279,8 @@ def context_compile_args(shot: Shot, ctx: RenderContext) -> dict:
     stage engine compiles (``StageEngine.open``) and what the shot cache keys
     (:func:`an.stage.cache_key.compiled_document`), so the two cannot drift
     (an#713). The rules themselves are :func:`an.stage.compile.compile_args`'.
+    The frame clock's sample instants go in too: a follow or a dolly is keyed
+    at them (an#626).
 
     >>> from pathlib import Path
     >>> ctx = RenderContext(mall={}, work_dir=Path("."), fps=29.97, step_hz=15.0)
@@ -295,6 +298,7 @@ def context_compile_args(shot: Shot, ctx: RenderContext) -> dict:
         scene_step_hz=ctx.step_hz,
         style_pack=ctx.style_pack,
         default_easing=ctx.default_easing,
+        frame_samples=ctx.frame_samples,
     )
 
 
@@ -1028,6 +1032,10 @@ class CutoutRenderer(FrameStageRenderer):
     #: items sorted (``applyPaintOrder``) and one list across containers
     #: (``applyGlobalPaint``). Read as the ``engine.paint_order`` capability.
     paint_orders: tuple[str, ...] = ("container", "global")
+    #: The SVG filter primitives the stage draws inside an SVG texture
+    #: (an#701): Chromium rasterises every texture, filters included. Read
+    #: as the ``engine.svg_filter`` capability; a text ``halo`` needs them.
+    svg_filters: tuple[str, ...] = SVG_FILTER_PRIMITIVES
 
 
 # -----------------------------------------------------------------------------

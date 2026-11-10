@@ -28,6 +28,7 @@ from .ApiImpl import (
     _vehicle_temperature_unit,
 )
 from .const import (
+    CHARGING_CONNECTOR_LOCK_STATE,
     CONNECTOR_FASTENING_STATE,
     DISTANCE_UNITS,
     DOMAIN,
@@ -59,9 +60,11 @@ from .utils import (
     bool_or_none,
     ccs2_reservation_time_or_none,
     flag_or_none,
+    float_or_none,
     get_child_value,
     get_hex_temp_into_index,
     get_index_into_hex_temp,
+    int_or_none,
     normalize_battery_soc,
     normalize_battery_soh,
     parse_datetime,
@@ -717,6 +720,12 @@ class ApiImplType1(ApiImpl):
             vehicle.steering_wheel_heater_is_on = False
         elif steer_wheel_heat == 1:
             vehicle.steering_wheel_heater_is_on = True
+        vehicle.steering_wheel_heat_step = int_or_none(
+            get_child_value(state, "Cabin.SteeringWheel.Heat.RemoteControl.Step")
+        )
+        vehicle.windshield_front_heater_is_on = bool_or_none(
+            get_child_value(state, "Body.Windshield.Front.Heat.State")
+        )
 
         defrost_rear_is_on = get_child_value(state, "Body.Windshield.Rear.Defog.State")
         if defrost_rear_is_on in [0, 2]:
@@ -774,6 +783,9 @@ class ApiImplType1(ApiImpl):
         )
         vehicle.turn_signal_right_rear = get_child_value(
             state, "Body.Lights.Rear.Right.TurnSignal.Warning"
+        )
+        vehicle.hazard_lights_on = bool_or_none(
+            get_child_value(state, "Body.Lights.Hazard.Alert")
         )
 
         vehicle.front_left_door_is_open = get_child_value(
@@ -922,6 +934,15 @@ class ApiImplType1(ApiImpl):
                 state, "Drivetrain.InternalCombustionEngine.OilLevelWarning"
             )
         )
+        vehicle.transmission_condition = get_child_value(
+            state, "Drivetrain.Transmission.ParkingPosition"
+        )
+        vehicle.gear_position = int_or_none(
+            get_child_value(state, "Drivetrain.Transmission.GearPosition")
+        )
+        vehicle.auto_cut_battery_prewarning_on = bool_or_none(
+            get_child_value(state, "Electronics.AutoCut.BatteryPreWarning")
+        )
         # 12V auxiliary battery fault warning. None when unreported.
         vehicle.battery_auxiliary_fail_warning_is_on = bool_or_none(
             get_child_value(state, "Electronics.Battery.Auxiliary.FailWarning")
@@ -1033,6 +1054,21 @@ class ApiImplType1(ApiImpl):
                     fastening_raw,
                 )
                 vehicle.ev_connector_fastening_state = None
+        if (
+            lock_raw := get_child_value(state, "Green.ChargingConnector.LockState")
+        ) is not None:
+            try:
+                vehicle.ev_connector_lock_state = CHARGING_CONNECTOR_LOCK_STATE(
+                    int(lock_raw)
+                )
+            except ValueError:
+                _LOGGER.debug(
+                    "%s - ChargingConnector.LockState %r not in {0: idle, "
+                    "1: unlocked, 2: locked, 3: releasing, 4: locking, "
+                    "5: released}",
+                    DOMAIN,
+                    lock_raw,
+                )
         vehicle.ev_battery_is_plugged_in = (
             True
             if vehicle.ev_connector_fastening_state
@@ -1076,6 +1112,12 @@ class ApiImplType1(ApiImpl):
                     float(ev_range),
                     vehicle.total_driving_range_unit,
                 )
+            fuel_range = get_child_value(state, "Drivetrain.FuelSystem.DTE.ICE")
+            if fuel_range is not None:
+                vehicle.fuel_driving_range = (
+                    float(fuel_range),
+                    vehicle.total_driving_range_unit,
+                )
 
         vehicle.washer_fluid_warning_is_on = get_child_value(
             state, "Body.Windshield.Front.WasherFluid.LevelLow"
@@ -1108,6 +1150,18 @@ class ApiImplType1(ApiImpl):
         )
         vehicle.ev_v2l_discharge_limit = get_child_value(
             state, "Green.Electric.SmartGrid.VehicleToLoad.DischargeLimitation.SoC"
+        )
+        vehicle.ev_v2l_discharge_remain_time = int_or_none(
+            get_child_value(
+                state,
+                "Green.Electric.SmartGrid.VehicleToLoad.DischargeLimitation.RemainTime",
+            )
+        )
+        vehicle.ev_v2l_discharge_dte = int_or_none(
+            get_child_value(
+                state,
+                "Green.Electric.SmartGrid.VehicleToLoad.DischargeLimitation.DTE",
+            )
         )
         vehicle.ev_target_range_charge_AC = (
             get_child_value(
@@ -1153,9 +1207,12 @@ class ApiImplType1(ApiImpl):
         )
 
         # Green.Reservation.OffPeakTime — off-peak charging window + priority mode.
-        # Mode 0 = off, 2 = target-priority (off-peak tariffs prioritized),
-        # 3 = time-priority (charge only during off-peak). 1 is reserved/unused.
-        # When the block is absent (HEV / unconfigured EV) all fields stay None —
+        # Wire enum: 0 = manual charge, 1 = undefined, 2 = target-priority
+        # (off-peak tariffs prioritized), 3 = time-priority (charge only
+        # during off-peak). Ecosystem clients treat every mode other than
+        # 2/3 as scheduling off, so 1 maps like 0 (kia_uvo #2089: legacy
+        # EU and BR CCS2 payloads ship 1). When the block is absent (HEV /
+        # unconfigured EV) all fields stay None —
         # do NOT synthesise dt.time(0,0), which would create phantom time
         # entities downstream and collide with a legitimate midnight window.
         # The 31:70 "unconfigured" sentinel (#1269) is handled silently by
@@ -1175,7 +1232,7 @@ class ApiImplType1(ApiImpl):
                 vehicle.ev_off_peak_end_time = None
 
             mode = off_peak.get("Mode")
-            if mode == 0:
+            if mode in (0, 1):
                 vehicle.ev_schedule_charge_enabled = False
                 vehicle.ev_off_peak_charge_only_enabled = None
             elif mode == 2:
@@ -1299,8 +1356,26 @@ class ApiImplType1(ApiImpl):
         vehicle.fuel_level_is_low = get_child_value(
             state, "Drivetrain.FuelSystem.LowFuelWarning"
         )
+        # Unit enum differs per powertrain, so values and unit stay raw.
+        fuel_economy = get_child_value(
+            state, "Drivetrain.FuelSystem.AverageFuelEconomy"
+        )
+        if isinstance(fuel_economy, dict):
+            vehicle.average_fuel_economy_accumulated = float_or_none(
+                fuel_economy.get("Accumulated")
+            )
+            vehicle.average_fuel_economy_drive = float_or_none(
+                fuel_economy.get("Drive")
+            )
+            vehicle.average_fuel_economy_after_refuel = float_or_none(
+                fuel_economy.get("AfterRefuel")
+            )
+            vehicle.average_fuel_economy_unit = int_or_none(fuel_economy.get("Unit"))
         vehicle.air_control_is_on = get_child_value(
             state, "Cabin.HVAC.Row1.Driver.Blower.SpeedLevel"
+        )
+        vehicle.air_cleaning_is_on = bool_or_none(
+            get_child_value(state, "Cabin.HVAC.Vent.AirCleaning.Indicator")
         )
         vehicle.smart_key_battery_warning_is_on = bool(
             get_child_value(state, "Electronics.FOB.LowBattery")

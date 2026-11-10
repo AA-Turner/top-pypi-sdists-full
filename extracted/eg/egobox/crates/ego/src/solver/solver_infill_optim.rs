@@ -1,34 +1,46 @@
 use crate::optimizers::*;
 use crate::types::*;
 
-use crate::EgorSolver;
 use crate::moo::criterion::MooCriterion;
-use crate::utils::{pofs, pofs_grad};
+use crate::{DEFAULT_CSTR_TOL, EgorSolver};
 
 use egobox_moe::MixtureGpSurrogate;
-use log::info;
+use log::{debug, info};
 use ndarray::{Array, Array1, Array2};
 
 use rayon::prelude::*;
 use serde::{Serialize, de::DeserializeOwned};
 
+use super::acquisition::{Acquisition, PofWeighting, infill_objective};
 use super::coego;
+use super::multistart::MultiStarter;
 
 /// Minimal probability of viability required for an infill point
 /// when viability failsafe strategy is used
 const MIN_PROBA_OF_VIABILITY: f64 = 0.25;
 
-/// A trait for multi start initial points computation
-pub(crate) trait MultiStarter {
-    /// Return initial points for optimization multistart
-    /// taking into account active components given as a set of indices
-    fn multistart(&mut self, n_start: usize, active: &[usize]) -> Array2<f64>;
+/// Number of bisection iterations to repair an infill point violating function constraints
+const FCSTR_REPAIR_ITERS: usize = 30;
 
-    /// Return the bounds of the design space
-    /// Compared to xlimits which are given by the user for all x components,
-    /// xbounds are the actual bounds used during optimization taking into account
-    /// active components and possibly trust region restrictions
-    fn xbounds(&self, active: &[usize]) -> Array2<f64>;
+/// Bisection on the segment from `x_ref` (feasible) to `x` (infeasible): returns the feasible
+/// point found closest to `x` after `n_iter` halvings
+fn repair_on_segment(
+    x_ref: &Array1<f64>,
+    x: &Array1<f64>,
+    mut feasible: impl FnMut(&[f64]) -> bool,
+    n_iter: usize,
+) -> Array1<f64> {
+    let point = |t: f64| x_ref + &((x - x_ref) * t);
+    let (mut lo, mut hi) = (0., 1.);
+    for _ in 0..n_iter {
+        let mid = 0.5 * (lo + hi);
+        if feasible(&point(mid).to_vec()) {
+            lo = mid
+        } else {
+            hi = mid
+        }
+    }
+    point(lo)
 }
 
 pub(crate) struct InfillOptProblem<'a, CstrFn> {
@@ -101,7 +113,9 @@ where
             moo_criterion,
         } = infill_optpb;
         let mut infill_data = infill_data.clone();
+        let cstr_tols_vec = cstr_tols.to_vec();
 
+        let x_ref = current_best.0.to_owned();
         let mut best_point = (current_best.1[0], current_best.0.to_owned());
         let mut current_best_point = current_best.to_owned();
 
@@ -111,26 +125,27 @@ where
                 .as_deref()
                 .filter(|_| self.config.feasibility_infill.is_enabled());
 
-            // Infill objective: when `cstr_infill` is true, the infill criterion
-            // is weighted by the probability of feasibility (PoF) of the
-            // metamodelized constraints, otherwise the criterion is used as is
-            // and the metamodelized constraints are handled by the optimizer.
-            let make_obj = |cstr_infill: bool| {
+            // Infill objective: the multi-objective criterion if any, the infill criterion
+            // otherwise. When `weighted` (`cstr_infill`), it is weighted by the probability
+            // of feasibility (PoF) of the metamodelized constraints, otherwise it is used
+            // as is and the metamodelized constraints are handled by the optimizer.
+            let mono = self.mono_acquisition(obj_model, viab_model, alpha);
+            let acquisition: &dyn Acquisition = match moo_criterion {
+                Some(criterion) => criterion,
+                None => &mono,
+            };
+            let pof = PofWeighting {
+                models: cstr_models,
+                tols: &cstr_tols_vec,
+            };
+            let make_obj = |weighted: bool| {
                 let active = active.clone();
+                let pof = weighted.then_some(&pof);
                 move |x: &[f64],
                       gradient: Option<&mut [f64]>,
                       params: &mut InfillObjData<f64>|
                       -> f64 {
-                    let InfillObjData {
-                        scale_infill_obj,
-                        scale_wb2,
-                        xbest: xcoop,
-                        fmin,
-                        feasibility,
-                        sigma_weight,
-                        ..
-                    } = params;
-                    let mut xcoop = xcoop.clone();
+                    let mut xcoop = params.xbest.clone();
                     coego::set_active_x(&mut xcoop, &active, x);
 
                     // Defensive programming COBYLA may pass NaNs
@@ -138,103 +153,13 @@ where
                         return f64::INFINITY;
                     }
 
-                    if let Some(criterion) = moo_criterion {
-                        // Multi-objective criterion (linear composition with PoF)
-                        let with_grad = gradient.is_some();
-                        let (mut obj, mut g_obj) = if cstr_infill && !*feasibility {
-                            // neutral factor: only use the probability of feasibility
-                            (-1., Array1::zeros(xcoop.len()))
-                        } else if with_grad {
-                            let (v, g) = criterion.value_grad(&xcoop);
-                            (-v / *scale_infill_obj, -g / *scale_infill_obj)
-                        } else {
-                            (
-                                -criterion.value(&xcoop) / *scale_infill_obj,
-                                Array1::zeros(xcoop.len()),
-                            )
-                        };
-                        if cstr_infill {
-                            let tols = cstr_tols.to_vec();
-                            let pof = pofs(&xcoop, cstr_models, &tols);
-                            if with_grad {
-                                g_obj = g_obj * pof + pofs_grad(&xcoop, cstr_models, &tols) * obj;
-                            }
-                            obj *= pof;
-                        }
-                        if let Some(grad) = gradient {
-                            let g_obj = g_obj
-                                .iter()
-                                .enumerate()
-                                .filter(|(i, _)| active.contains(i))
-                                .map(|(_, &g)| g)
-                                .collect::<Vec<_>>();
-                            grad[..].copy_from_slice(&g_obj);
-                        }
-                        return obj;
+                    let (obj, g_obj) =
+                        infill_objective(acquisition, pof, &xcoop, params, gradient.is_some());
+                    if let (Some(grad), Some(g_obj)) = (gradient, g_obj) {
+                        let g_obj = g_obj.to_vec();
+                        grad[..].copy_from_slice(&coego::get_active_grad(&g_obj, &active));
                     }
-
-                    if let Some(grad) = gradient {
-                        let g_infill_obj = if cstr_infill {
-                            // Use constrained infill criterion
-                            self.eval_grad_infill_obj_with_cstrs(
-                                &xcoop,
-                                obj_model,
-                                cstr_models,
-                                cstr_tols,
-                                *fmin,
-                                viab_model,
-                                alpha,
-                                *scale_infill_obj,
-                                *scale_wb2,
-                                *feasibility,
-                                *sigma_weight,
-                            )
-                        } else {
-                            self.eval_grad_infill_obj(
-                                &xcoop,
-                                obj_model,
-                                *fmin,
-                                viab_model,
-                                alpha,
-                                *scale_infill_obj,
-                                *scale_wb2,
-                            )
-                        };
-                        let g_infill_obj = g_infill_obj
-                            .iter()
-                            .enumerate()
-                            .filter(|(i, _)| active.contains(i))
-                            .map(|(_, &g)| g)
-                            .collect::<Vec<_>>();
-                        grad[..].copy_from_slice(&g_infill_obj);
-                    }
-                    if cstr_infill {
-                        // Use constrained infill criterion
-                        self.eval_infill_obj_with_cstrs(
-                            &xcoop,
-                            obj_model,
-                            cstr_models,
-                            cstr_tols,
-                            *fmin,
-                            viab_model,
-                            alpha,
-                            *scale_infill_obj,
-                            *scale_wb2,
-                            *feasibility,
-                            *sigma_weight,
-                        )
-                    } else {
-                        self.eval_infill_obj(
-                            &xcoop,
-                            obj_model,
-                            *fmin,
-                            viab_model,
-                            alpha,
-                            *scale_infill_obj,
-                            *scale_wb2,
-                            *sigma_weight,
-                        )
-                    }
+                    obj
                 }
             };
             let obj = make_obj(self.config.cstr_infill);
@@ -254,9 +179,15 @@ where
 
                         let scale_cstr = params.scale_cstr.as_ref().expect("constraint scaling")[i];
                         if self.config.cstr_strategy == ConstraintStrategy::MeanConstraint {
-                            Self::mean_cstr(&*cstr_models[i], &xcoop, gradient, scale_cstr, &active)
+                            Self::scaled_mean_cstr(
+                                &*cstr_models[i],
+                                &xcoop,
+                                gradient,
+                                scale_cstr,
+                                &active,
+                            )
                         } else {
-                            Self::upper_trust_bound_cstr(
+                            Self::scaled_upper_trust_bound_cstr(
                                 &*cstr_models[i],
                                 &xcoop,
                                 gradient,
@@ -270,9 +201,35 @@ where
                 })
                 .collect();
 
+            // Function constraints get full points: active components set to the
+            // optimized variables, the other ones to the current point values.
+            // Being exact, they are handled in user units (see `repair_fcstrs_violation`)
+            let fcstrs: Vec<_> = cstr_funcs
+                .iter()
+                .map(|cstr| {
+                    let active = active.clone();
+                    move |x: &[f64],
+                          gradient: Option<&mut [f64]>,
+                          params: &mut InfillObjData<f64>|
+                          -> f64 {
+                        let mut xcoop = params.xbest.clone();
+                        coego::set_active_x(&mut xcoop, &active, x);
+                        match gradient {
+                            Some(grad) => {
+                                let mut gcoop = vec![0.; xcoop.len()];
+                                let value = cstr(&xcoop, Some(&mut gcoop), params);
+                                grad.copy_from_slice(&coego::get_active_grad(&gcoop, &active));
+                                value
+                            }
+                            None => cstr(&xcoop, None, params),
+                        }
+                    }
+                })
+                .collect();
+
             // Constraints always handled by the optimizer: function constraints
             // and viability constraint (if viability strategy)
-            let mut other_cstr_refs: Vec<_> = cstr_funcs
+            let mut other_cstr_refs: Vec<_> = fcstrs
                 .iter()
                 .map(|cstr| cstr as &(dyn OptFn<InfillObjData<f64>> + Sync))
                 .collect::<Vec<_>>();
@@ -286,7 +243,7 @@ where
                         let InfillObjData { xbest: xcoop, .. } = params;
                         let mut xcoop = xcoop.clone();
                         coego::set_active_x(&mut xcoop, &active, x);
-                        let pov = Self::mean_cstr(
+                        let pov = Self::scaled_mean_cstr(
                             &**viab_model,
                             &xcoop,
                             gradient.as_deref_mut(),
@@ -395,7 +352,52 @@ where
                 current_best_point = (xopt_coop, current_best_point.1, current_best_point.2);
             }
         }
-        best_point
+        // The infill criterion value is kept as is: the repaired point is very close
+        let (value, x) = best_point;
+        let x = self.repair_fcstrs_violation(
+            x,
+            &x_ref,
+            cstr_funcs,
+            cstr_models.len(),
+            cstr_tols,
+            &mut infill_data,
+        );
+        (value, x)
+    }
+
+    /// Point satisfying the function constraints within their tolerances: `x` when it does
+    /// or when `x_ref` does not, otherwise the point found by bisection on the segment from
+    /// `x_ref` to `x`. Indeed the infill optimizer may stop slightly outside the feasible domain.
+    fn repair_fcstrs_violation(
+        &self,
+        x: Array1<f64>,
+        x_ref: &Array1<f64>,
+        cstr_funcs: &[impl CstrFn],
+        n_cstr_models: usize,
+        cstr_tols: &Array1<f64>,
+        params: &mut InfillObjData<f64>,
+    ) -> Array1<f64> {
+        let mut feasible = |x: &[f64]| {
+            cstr_funcs.iter().enumerate().all(|(k, cstr)| {
+                let tol = cstr_tols
+                    .get(n_cstr_models + k)
+                    .copied()
+                    .unwrap_or(DEFAULT_CSTR_TOL);
+                cstr(x, None, params) <= tol
+            })
+        };
+        if cstr_funcs.is_empty() || feasible(&x.to_vec()) {
+            return x;
+        }
+        if !feasible(&x_ref.to_vec()) {
+            debug!(
+                "Infill point {x} violates function constraints, no feasible point to repair it"
+            );
+            return x;
+        }
+        let repaired = repair_on_segment(x_ref, &x, feasible, FCSTR_REPAIR_ITERS);
+        info!("Infill point {x} violates function constraints, repaired to {repaired}");
+        repaired
     }
 
     /// Minimize `obj` subject to `cstrs` from several starting points,
@@ -436,5 +438,26 @@ where
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use approx::assert_abs_diff_eq;
+    use ndarray::array;
+
+    #[test]
+    fn test_repair_on_segment_reaches_boundary() {
+        let feasible = |x: &[f64]| x[0] - 17. <= 1e-4;
+        let repaired = repair_on_segment(&array![3.], &array![17.0005], feasible, 30);
+        assert!(feasible(&repaired.to_vec()));
+        assert_abs_diff_eq!(repaired[0], 17.0001, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_repair_on_segment_keeps_feasible_reference() {
+        let repaired = repair_on_segment(&array![0., 0.], &array![1., 1.], |_| false, 30);
+        assert_eq!(repaired, array![0., 0.]);
     }
 }

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -19,7 +20,8 @@ from typing import Any, Callable
 
 from seq.cli_json import _print_json
 from seq.clock import stamp
-from seq.errors import SeqAuthoringError, build_failed, state_said, still_building
+from seq.errors import (CANCELED, TIME_LIMIT, SeqAuthoringError, build_failed, canceled, following, out_of_time,
+                        state_said, still_building)
 from sequence_ai._core.names import segment
 from sequence_ai.errors import AuthError, Conflict, InvalidRequest, SequencesError
 
@@ -49,17 +51,6 @@ def _request_of(kind: str, cls: type, *, name: str | None = None, require_cap: b
         raise SeqAuthoringError("; ".join(f"{'.'.join(map(str, e['loc'])) or 'request'}: {e['msg']}"
                                           for e in exc.errors())) from None
     return request
-
-
-def build_wait_s(request: Any) -> float:
-    """How long `seq deploy` follows a policy's build: as long as the platform may take to start its worker - the most
-    its startup limit is, the platform's own (sequence-base STARTUP_TIMEOUT_MAX_S, raised from its floor by what an
-    earlier version's check measured), so one that loads for 2 hours is not given up on at 30 minutes while the
-    platform still loads it. {worker 7's std3 list A11; contract 0.5.46}"""
-    from seq._deploy_gateway import DEFAULT_WAIT_TIMEOUT_S
-    from sequence_base.constants.serving import STARTUP_TIMEOUT_MAX_S
-
-    return max(DEFAULT_WAIT_TIMEOUT_S, float(STARTUP_TIMEOUT_MAX_S))
 
 
 def max_gpus_required_message() -> str:
@@ -595,7 +586,7 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
         print(f"override: the version of {request.name} serving now is deleted for good once this one has passed its "
               "check and its workers have ended; if this one fails, nothing is deleted")
 
-    accepted = client.submit(request, override=override)
+    accepted = client.submit(request, override=override, time_limit_s=getattr(args, "timeout", None))
 
     name = accepted.deployment_id
     if getattr(accepted, "unread", False):
@@ -618,7 +609,8 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
     for line in _kept_lines(name, request, args.base_url):
         print(line)
 
-    stopped = _stopped_how(request.name, _deployment_row(request.name, args.base_url), args.base_url)
+    before = _deployment_row(request.name, args.base_url)
+    stopped = _stopped_how(request.name, before, args.base_url)
     if stopped:
         print(f"stopped: {request.name} is stopped, and a deploy keeps it so - {stopped}")
     if not args.wait:
@@ -627,14 +619,18 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
 
 
 
+
     gpus = [str(g) for g in (getattr(getattr(request, "resources", None), "gpu", None) or [])]
     progress = _BuildProgress(name, args.base_url, acts=build_acts(request.policy), sample=sample,
                               card=gpus[0] if gpus else None,
                               plans=getattr(request.policy, "plan_every_s", None) is not None)
 
-    kwargs: dict = {"on_poll": progress, "poll_interval_s": DEPLOY_POLL_S}
-    kwargs["timeout_s"] = build_wait_s(request)
-    final = client.wait(name, **kwargs)
+
+    stop = (f"`seq{_tier_suffix(args.base_url)} policy rm {name}` stops it now and deletes the policy"
+            if (before or {}).get("status") == "building" else None)
+
+    with following(name, getattr(args, "timeout", None), stop):
+        final = client.wait(name, on_poll=progress, poll_interval_s=DEPLOY_POLL_S, timeout_s=math.inf)
     row = _deployment_row(request.name, args.base_url)
     if final.status == DeploymentState.READY:
         ver = f" v{row['version']}" if row and row.get("version") else ""
@@ -685,18 +681,23 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
 
         storage_note.after_write(args.base_url)
         return 0
-    if final.status == DeploymentState.FAILED:
 
-        said = progress.failure(request.name, final.error)
-        sure = said[1] if said else None
-        error = said[0] if said else (final.error or "no reason reported")
+    serving = (f"{request.name} v{row.get('version')} is still serving; " if row and row.get("status") == "ready"
+               else "")
+    limit = out_of_time(final.error, "seq deploy")
+    if limit:
+        raise build_failed(name, final.error, hint=f"{serving}{limit}")
 
-        serving = (f"{request.name} v{row.get('version')} is still serving; " if row and row.get("status") == "ready"
-                   else "")
-        raise build_failed(name, error, hint=(f"{sure}; " if sure else "")
-                           + f"{serving}fix what the build names and run seq deploy again")
+    said = progress.failure(request.name, final.error)
+    sure = said[1] if said else None
+    error = said[0] if said else (final.error or "no reason reported")
 
-    raise still_building(name, f"seq policy status {name} --wait")
+
+
+    ours = any(PLATFORMS_TO_FIX in (text or "") for text in (error, final.error))
+    raise build_failed(name, error, hint=(f"{sure}; " if sure else "")
+                       + (f"{serving}nothing in this version needs changing: run seq deploy again later" if ours
+                          else f"{serving}fix what the build names and run seq deploy again"))
 
 
 def _kept_lines(name: str, request: Any, base_url: str | None) -> list[str]:
@@ -717,7 +718,7 @@ def _kept_lines(name: str, request: Any, base_url: str | None) -> list[str]:
 def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
     """POST /v1/benchmarks (the declaration and its source), then (by default) wait for the platform to build its sim
     image. `seq deploy` registers a benchmark the way it deploys a policy: one command for both."""
-    from seq._eval_gateway import BENCHMARK_WAIT_S, EvalGatewayClient
+    from seq._eval_gateway import EvalGatewayClient
 
     client = EvalGatewayClient(base_url=args.base_url)
     override = bool(getattr(args, "override", False))
@@ -731,7 +732,7 @@ def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
 
         print(f"override: the version of {request.name} evals run now is deleted for good once this one has passed its "
               "check and no eval runs it; if this one fails, nothing is deleted")
-    registered = client.register(request, override=override)
+    registered = client.register(request, override=override, time_limit_s=getattr(args, "timeout", None))
     print(f"accepted: benchmark {request.name} is building (its sim image builds on the platform, not here)")
     if registered.adapters:
         print(adapters_line(registered.adapters, "its template pairs with its template policies"))
@@ -748,19 +749,14 @@ def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
 
     from seq.eval_cli import lost_line
 
-    stalled: list[float] = []
-    final = client.wait_benchmark(request.name, timeout_s=BENCHMARK_WAIT_S, on_poll=_show,
-                                  on_retry=lost_line, while_moving=True,
-                                  on_more=more_line(request.name), on_stall=stalled.append)
+
+    with following(f"benchmark {request.name}", getattr(args, "timeout", None),
+                   f"`seq{_tier_suffix(args.base_url)} benchmark cancel {request.name}` stops it now"):
+        final = client.wait_benchmark(request.name, timeout_s=math.inf, on_poll=_show, on_retry=lost_line)
     if final.status.value == "ready":
         print(f"ready: evaluate a deployed policy on it with `seq eval run <policy> --benchmark {request.name}`")
         return 0
-    if final.status.value == "failed":
-        raise build_failed(f"benchmark {request.name}", final.error)
-    from seq._eval_gateway import BUILD_MOVED_S
-
-    raise still_building(f"benchmark {request.name}", f"seq benchmark status {request.name} --wait",
-                         stalled_s=BUILD_MOVED_S if stalled else None)
+    raise build_failed(f"benchmark {request.name}", final.error, hint=out_of_time(final.error, "seq deploy"))
 
 
 def _price_before(client: Any, request: Any, override: bool) -> list[str]:
@@ -819,7 +815,7 @@ def adapters_line(adapters: list[str], whose: str) -> str:
 
 
 def more_line(name: str) -> Callable[[float], None]:
-    """The line a benchmark wait prints as it waits on a build that still moves."""
+    """The line `seq benchmark status --wait` prints as it waits on a build that still moves."""
     from seq._eval_gateway import BENCHMARK_WAIT_MAX_S, BUILD_MORE_S
 
     return lambda waited: print(f"  {name}: still building after {waited / 60:.0f} min, its build log still moving: "
@@ -963,8 +959,8 @@ def status(name: str, *, wait: bool = False, timeout: float | None = None, base_
 
         if serving:
             if warn is not None:
-                warn(f"warning: {name} v{latest.get('version')} failed to build: "
-                     f"{resp.error or 'no reason reported'}; v{row.get('version')} goes on serving")
+                said = build_failed(f"{name} v{latest.get('version')}", resp.error).message
+                warn(f"warning: {said}; v{row.get('version')} goes on serving")
             return data
         raise build_failed(name, resp.error)
     if wait and resp.status != DeploymentState.READY:
@@ -1037,6 +1033,18 @@ def elapsed(seconds: float) -> str:
     return f"{s // 60} min {s % 60} s" if s >= 60 else f"{s} s"
 
 
+
+
+PLATFORMS_TO_FIX = "the platform's to fix"
+
+
+def _cut(text: str, most: int = 160) -> str:
+    """A build's line as its step says it: whole up to `most` characters, else cut with "…" where it was cut, so a
+    cut line reads as one (`seq policy logs NAME@vN --build` keeps it whole).
+"""
+    return text if len(text) <= most else text[:most - 1] + "…"
+
+
 class _BuildProgress:
     """`seq deploy`'s live view of its build, step by step (GET .../build `stages`): each step's line as it begins,
     every line the build writes under the step it belongs to - read after the last one shown (after_seq) - each step's
@@ -1063,6 +1071,8 @@ class _BuildProgress:
         self._now = 0.0
         self._said: dict[str, str] = {}
         self._shown: set[str] = set()
+        self._printed: dict[str, set[str]] = {}
+        self._open: str | None = None
         self._furthest = -1
         self._out = out or sys.stdout
         self._live = bool(getattr(self._out, "isatty", lambda: False)())
@@ -1073,6 +1083,19 @@ class _BuildProgress:
             self._out.write("\r\x1b[K")
             self._status_on = False
         print(text, file=self._out, flush=True)
+
+    def _line(self, step: str, text: str) -> None:
+        """A line the build wrote, said under its step - its step's line said again first where another step's came
+        after it - and kept as said, for the step's failure to point to."""
+        if self._open != step:
+            self._again(step)
+        self._print(f"      {_cut(text)}")
+        self._printed.setdefault(step, set()).add(text)
+
+    def _again(self, step: str) -> None:
+        """Its step's line said again - "· load, continued" - so what follows it reads as that step's."""
+        self._print(f"  · {_STAGE_SHORT.get(step, step)}, continued")
+        self._open = step
 
     def _label(self, s: dict) -> str:
         name = s.get("stage")
@@ -1098,7 +1121,7 @@ class _BuildProgress:
         if state == "reused":
             return f"    reused from v{s.get('from_version')}" + (f" · {elapsed(took)}" if took is not None else "")
         if state == "failed":
-            return "    failed" + (f" after {elapsed(took)}" if took is not None else "")
+            return f"    {_how_it_ended(s)}" + (f" after {elapsed(took)}" if took is not None else "")
         return None
 
     def _steps(self, got: dict) -> None:
@@ -1124,12 +1147,14 @@ class _BuildProgress:
                 if was is None:
                     self._print(f"  · {_STAGE_SHORT.get(name, name)}: {s['summary']}")
                     self._furthest = max(self._furthest, i)
+                    self._open = name
                 self._said[name] = state
                 continue
             if was is None:
                 self._print(f"  · {self._label(s)}{self._usual(s)}")
                 self._shown.add(name)
                 self._furthest = max(self._furthest, i)
+                self._open = name
             if was in _ENDED and name in self._shown and name != "upload":
 
 
@@ -1139,9 +1164,9 @@ class _BuildProgress:
                 late = [str(ln.get("line") or "") for ln in lines if ln.get("stage") == name]
                 late = [text for text in late if text and text not in said]
                 if late:
-                    self._print(f"  · {_STAGE_SHORT.get(name, name)}, continued")
+                    self._again(name)
                     for text in late:
-                        self._print(f"      {text[:160]}")
+                        self._line(name, text)
             if was not in _ENDED:
 
 
@@ -1152,11 +1177,14 @@ class _BuildProgress:
                 for ln in lines:
                     text = str(ln.get("line") or "")
                     if ln.get("stage") == name and name != "upload" and not (text and text in said):
-                        self._print(f"      {text[:160]}")
+                        self._line(name, text)
                 if state in _ENDED:
                     end = self._end(s)
                     if end:
-                        self._print(end)
+
+
+
+                        self._print(end if self._open == name else f"    {_STAGE_SHORT.get(name, name)} {end.strip()}")
             if state == "running":
                 running = s
             if state == "failed":
@@ -1196,7 +1224,7 @@ class _BuildProgress:
             if state == "failed" and self.failed is not None:
 
                 step = self.failed.get("stage")
-                self._print(f"  {resp.model}: failed in its {_STAGE_SHORT.get(step, step)} step")
+                self._print(f"  {resp.model}: {_how_it_ended(self.failed)} in its {_STAGE_SHORT.get(step, step)} step")
             else:
                 self._print(status_text(resp))
         if state == "building":
@@ -1219,16 +1247,22 @@ class _BuildProgress:
 
     def failure(self, name: str, fallback: str | None) -> tuple[str, str | None] | None:
         """(what failed, its hint) for the step the build failed in, said once: its message, its last lines and the
-        platform's hint where it is sure of one - None where no step failed with its words."""
+        platform's hint where it is sure of one - None where no step failed with its words. A last line this view said
+        under its step is not said again: where each one was, the failure says they are above.
+"""
         if self.failed is None or not isinstance(self.failed.get("error"), dict):
             return None
-        err = self.failed["error"]
-        short = _STAGE_SHORT.get(self.failed.get("stage"), self.failed.get("stage"))
+        err, step = self.failed["error"], self.failed.get("stage")
+        short = _STAGE_SHORT.get(step, step)
         text = f"its {short} step failed: {err.get('message') or fallback or 'no reason reported'}"
         lines = [str(ln.get("line")) for ln in err.get("last_lines") or [] if isinstance(ln, dict)]
-        if lines:
-            text += (f"\n  its last lines (all of it: seq policy logs {name} --build):\n"
-                     + "\n".join(f"    {line}" for line in lines))
+        unsaid = [line for line in lines if line not in self._printed.get(step, set())]
+        whole = f"all of it: seq policy logs {name} --build"
+        if unsaid:
+            some = " not shown above" if len(unsaid) < len(lines) else ""
+            text += f"\n  its last lines{some} ({whole}):\n" + "\n".join(f"    {line}" for line in unsaid)
+        elif lines:
+            text += f"\n  its last lines are above ({whole})"
         return text, err.get("hint")
 
 
@@ -1283,8 +1317,18 @@ def _print_steps(got: dict) -> None:
         print(f"      {stamp(ln.get('ts'), unit='second')}  {ln.get('line')}")
 
 
+def _how_it_ended(step: dict) -> str:
+    """How a step that did not finish ended, as its own error says it: stopped, at the time its deploy gave it, or failed.
+    WHY its own: the build's state is read apart from its steps, so a step can be read ended while the state still says
+    building. {dev 11-06, w9t_pol3_user: "failed after 1 min 35 s", then "stopped in its image step"}"""
+    error = step.get("error") if isinstance(step.get("error"), dict) else {}
+    return "stopped" if str(error.get("message") or "").startswith(TIME_LIMIT.removeprefix(CANCELED)) else "failed"
+
+
 def status_text(resp: Any) -> str:
     """The line for an observed build state — the transition the user watches (building → ready | failed)."""
+    if resp.status.value == "failed" and canceled(resp.error):
+        return f"  {resp.model}: canceled — {resp.error.removeprefix(CANCELED)}"
     if resp.status.value == "failed":
         return f"  {resp.model}: failed — {resp.error or 'no reason reported'}"
     return f"  {resp.model}: {resp.status.value}"

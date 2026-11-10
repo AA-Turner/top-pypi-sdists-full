@@ -18,6 +18,7 @@ from autoray import (
     astype,
     compose,
     dag,
+    do,
     get_dtype_name,
     get_lib_fn,
     get_namespace,
@@ -28,7 +29,7 @@ from autoray import (
 from ..core import njit
 from ..linalg import base_linalg, rand_linalg
 from ..utils import ensure_dict, parse_info_extras
-from .array_ops import isblocksparse, isfermionic
+from .array_ops import is_conj_needed, isblocksparse, isfermionic
 
 
 def array_split(
@@ -36,8 +37,8 @@ def array_split(
     method="auto",
     absorb="auto",
     max_bond=None,
-    cutoff=1e-10,
-    cutoff_mode="rsum2",
+    cutoff="auto",
+    cutoff_mode="rel",
     renorm=None,
     info=None,
     **kwargs,
@@ -64,19 +65,22 @@ def array_split(
         - ``'svd'``: full SVD, allowing all truncation options.
         - ``'svd:eig'``: full SVD via eigendecomposition, allowing all
           truncation options. This can be faster than the standard SVD, but
-          entails some loss of precision.
-        - ``'svd:rand'``: low-rank SVD via randomized projection, allows
-          (and is only beneficial for) static truncation
+          loses some precision.
+        - ``'svd:rand'``: low-rank SVD via randomized projection, allowing
+          static and non-cumulative dynamic truncation.
         - ``'qr'``: QR decomposition, by default left factor is isometric.
         - ``'qr:cholesky'``: QR decomposition via Cholesky factorization, by
           default left factor is isometric. This can be faster than the
-          standard QR, but entails some loss of precision.
+          standard QR, but can lose orthogonality.
 
-        All of these can return different forms (and take various shortucts)
-        based on ``absorb``. Other methods are:
+        These methods can skip work based on the factors requested by
+        ``absorb``. Other methods are:
 
-        - ``'lq'``: LQ decomposition, right factor is isometric. This is simply
-          an alias for ``method='qr'`` with ``absorb='left'``.
+        - ``'lq'``: LQ decomposition, right factor is isometric. Alias for
+          ``method='qr'`` with ``absorb='left'``.
+        - ``'qr:auto'``: try two passes of Cholesky QR for large, tall, narrow
+          matrices. Use ``'qr'`` for other shapes, if Cholesky QR fails, or
+          if it loses too much orthogonality.
         - ``'eigh'``: full eigen-decomposition, array must be hermitian.
         - ``'eigsh'``: iterative eigen-decomposition, array must be hermitian.
         - ``'svds'``: iterative SVD, allows truncation.
@@ -92,8 +96,8 @@ def array_split(
           definite.
 
     absorb : str or None, optional
-        Desired form the decomposition / where to absorb the singular- or
-        eigen- values. Common options are:
+        Which factors to return and where to absorb singular or eigenvalues.
+        Common options are:
 
         - ``'auto'``: use the method's default absorb mode.
         - ``'both'`` / ``'Usq,sqVH'``: absorb ``sqrt(s)`` into both factors.
@@ -114,29 +118,33 @@ def array_split(
           absorbed (the R in a QR decomposition).
         - ``'s'``: return only the singular values.
 
-        Note in all cases unrequested factors are returned as ``None``.
+        Unrequested factors are returned as ``None``.
     max_bond : int or None, optional
         The maximum bond dimension (number of singular values) to keep.
         ``None`` means no limit.
-    cutoff : float, optional
+    cutoff : float or "auto", optional
         Threshold for discarding singular values, only used by methods that
-        support dynamic truncation.
-    cutoff_mode : {'rsum2', 'rel', 'abs', 'sum2', 'rsum1', 'sum1'}, optional
+        support dynamic truncation. With ``"auto"``, use ``1e-10`` for exact
+        rank-revealing methods and no cutoff for randomized SVD.
+    cutoff_mode : {"rel", "rsum2", "rsum1", "abs", "sum2", "sum1"}, optional
         How to interpret ``cutoff`` when discarding singular values:
 
         - ``'rel'``: values less than ``cutoff * s[0]`` discarded.
-        - ``'abs'``: values less than ``cutoff`` discarded.
-        - ``'sum2'``: sum squared of values discarded must be ``< cutoff``.
         - ``'rsum2'``: sum squared of values discarded must be less than
           ``cutoff`` times the total sum of squared values.
-        - ``'sum1'``: sum values discarded must be ``< cutoff``.
         - ``'rsum1'``: sum of values discarded must be less than ``cutoff``
           times the total sum of values.
+        - ``'abs'``: values less than ``cutoff`` discarded.
+        - ``'sum2'``: sum squared of values discarded must be ``< cutoff``.
+        - ``'sum1'``: sum values discarded must be ``< cutoff``.
 
+        For batched arrays, ``'abs'`` and ``'rel'`` use one threshold and
+        retain the smallest common bond dimension that keeps every required
+        singular value. Cumulative modes are not supported for batched arrays.
     renorm : int or bool, optional
         Whether to renormalize the kept singular values to maintain the
         Frobenius or nuclear norm. ``0`` or ``False`` means no renormalization.
-        ``True`` automatically picks the power based on ``cutoff_mode``.
+        ``True`` uses power 1 for ``sum1``/``rsum1`` and power 2 otherwise.
     info : dict or None, optional
         If a dict is passed, store truncation info in the dict. Currently only
         supports the key 'error' for the truncation error, which is only
@@ -364,31 +372,37 @@ def parse_method_absorb(
     return method, absorb
 
 
-@functools.cache
+# typed to distinguish e.g. between 1 / True
+@functools.lru_cache(maxsize=None, typed=True)
 def parse_split_opts(
     method="auto",
     absorb="auto",
     max_bond=None,
-    cutoff=1e-10,
-    cutoff_mode="rsum2",
+    cutoff="auto",
+    cutoff_mode="rel",
     renorm=None,
 ):
     """Automatically select method and absorb, convert defaults and settings to
     numeric type for numba, and only supply valid options for given method.
     """
-    # first normalize main truncation opts
+    # normalize None to the numeric sentinels the low level functions expect
     max_bond = _MAX_BOND_LOOKUP.get(max_bond, max_bond)
     cutoff = _CUTOFF_LOOKUP.get(cutoff, cutoff)
 
-    # note: default options are truncating
-    truncation = (max_bond > 0) or (cutoff > 0.0)
+    # note: default options are truncating, we treat "auto" as truncating since
+    # if method resolves to a non-truncating method, cutoff will be ignored
+    truncation = (cutoff == "auto") or (max_bond > 0) or (cutoff > 0.0)
 
-    # first we resolve the the possibly automatically chosen method and absorb
+    # resolve the possibly automatically chosen method and absorb
     method, absorb = parse_method_absorb(method, absorb, truncation=truncation)
+
+    if cutoff == "auto":
+        # svd:rand truncates via max_bond, the rest need an explicit cutoff
+        cutoff = 0.0 if method == "svd:rand" else 1e-10
 
     # finally we check which options to inject based on method capabilities
     signature = inspect.signature(_SPLIT_FNS[method])
-    opts = dict()
+    opts = {}
 
     if "absorb" in signature.parameters:
         opts["absorb"] = absorb
@@ -397,7 +411,7 @@ def parse_split_opts(
             # no singular value options should be supplied
             raise ValueError(
                 "You can't return the singular values separately when "
-                "`method='{}'`.".format(method)
+                f"`method='{method}'`."
             )
 
     if "max_bond" in signature.parameters:
@@ -414,7 +428,7 @@ def parse_split_opts(
             if "renorm" in signature.parameters:
                 if renorm is True:
                     # match renorm power to cutoff mode
-                    renorm = _RENORM_LOOKUP.get(cutoff_mode, 0)
+                    renorm = _RENORM_LOOKUP.get(cutoff_mode, 2)
                     opts["renorm"] = renorm
                 else:
                     # turn off, or use explicitly supplied power
@@ -497,17 +511,80 @@ def dag_numba(x):
     return np.conjugate(x.T)
 
 
-def safe_inverse(s, cutoff):
-    return s / (s**2 + cutoff**2)
+def safe_inverse(x, cutoff=None, power=1.0):
+    """Compute ``x**-power`` elementwise, damping entries at or below
+    ``cutoff`` so that (near) zeros map to zero rather than infinity. The
+    damped form ``x / (x**(power + 1) + cutoff**(power + 1))`` is smooth, and
+    thus gradient friendly, with a finite derivative at zero, and matches
+    ``x**-power`` to relative accuracy ``(cutoff / x)**(power + 1)``.
+
+    Parameters
+    ----------
+    x : array_like
+        The values to invert, assumed non-negative, e.g. singular values. The
+        last axis is the vector axis, any others are treated as batch dims.
+    cutoff : float or None, optional
+        The scale below which to damp entries towards zero. If ``None``, take
+        ``max(x) * eps``, the smallest scale resolvable given the largest
+        entry.
+    power : float, optional
+        The (positive) power to invert to, e.g. ``0.5`` for an inverse square
+        root. Note the damping is always relative to ``x`` itself, not
+        ``x**power``.
+
+    Returns
+    -------
+    array_like
+    """
     # NOTE: other options, possibly less gradient friendly
-    # return 1 / s
-    # return 1 / (s + (s == 0.0))
-    # return np.where(s > cutoff, 1 / np.maximum(s, cutoff), 0.0)
+    # return 1 / x
+    # return 1 / (x + (x == 0.0))
+    # return np.where(x > cutoff, 1 / np.maximum(x, cutoff), 0.0)
+    xp = get_namespace(x)
+
+    # work in units of xmax so powers can't over- or underflow
+    if xp.ndim(x) == 1:
+        xmax = xp.max(x)
+    else:
+        xmax = xp.expand_dims(xp.max(x, axis=-1), -1)
+    # reducing can change backend, e.g. block sparse arrays -> scalar
+    xmax = do("where", xmax > 0.0, xmax, 1.0)
+    if cutoff is None:
+        try:
+            # backend finfo, which knows about e.g. torch's bfloat16
+            c = xp.finfo(x.dtype).eps
+        except (ImportError, TypeError, ValueError):
+            # no finfo or no concrete dtype, e.g. lazy: assume double
+            c = np.finfo(np.float64).eps
+    else:
+        c = cutoff / xmax
+
+    y = x / xmax
+    q = power + 1.0
+    return y / ((y**q + c**q) * xmax**power)
 
 
 @njit  # pragma: no cover
-def safe_inverse_numba(s, cutoff):
-    return s / (s**2 + cutoff**2)
+def safe_inverse_numba(x, cutoff=None):
+    # see `safe_inverse`, numba has no axis aware `max`, so we loop manually
+    shape = x.shape
+    d = shape[-1]
+    xf = np.ascontiguousarray(x).reshape(-1, d)
+    out = np.empty_like(xf)
+    eps = np.finfo(x.dtype).eps
+    for i in range(xf.shape[0]):
+        xi = xf[i]
+        xmax = np.max(xi)
+        if xmax <= 0.0:
+            xmax = 1.0
+        if cutoff is None:
+            c = eps
+        else:
+            c = cutoff / xmax
+        for j in range(d):
+            y = xi[j] / xmax
+            out[i, j] = y / ((y * y + c * c) * xmax)
+    return out.reshape(shape)
 
 
 # some convenience functions for multiplying diagonals
@@ -529,12 +606,15 @@ def rddiv(x, d):
     """Right-multiplication of a matrix by a vector representing an inverse
     diagonal.
     """
-    return x / d[..., None, :]
+    dinv = safe_inverse(d)
+    return x * dinv[..., None, :]
 
 
+@rddiv.register("numpy")
 @njit  # pragma: no cover
 def rddiv_numba(x, d):
-    return x / d[None, :]
+    dinv = safe_inverse_numba(d)
+    return x * dinv[..., None, :]
 
 
 @compose
@@ -553,12 +633,15 @@ def lddiv(d, x):
     """Left-multiplication of a matrix by a vector representing an inverse
     diagonal.
     """
-    return x / d[..., :, None]
+    dinv = safe_inverse(d)
+    return x * dinv[..., :, None]
 
 
+@lddiv.register("numpy")
 @njit  # pragma: no cover
 def lddiv_numba(d, x):
-    return x / d[..., :, None]
+    dinv = safe_inverse_numba(d)
+    return x * dinv[..., :, None]
 
 
 @compose
@@ -681,22 +764,32 @@ def _trim_and_renorm_svd_result(
 
     *batch_dims, d = xp.shape(sabs)
 
+    cumulative_modes = (
+        cutoff_mode_sum2,
+        cutoff_mode_rsum2,
+        cutoff_mode_sum1,
+        cutoff_mode_rsum1,
+    )
+    if batch_dims and (cutoff > 0.0) and (cutoff_mode in cumulative_modes):
+        raise ValueError(
+            "Cumulative cutoff modes are not supported for batched "
+            "decompositions. Use cutoff_mode='abs' or 'rel'."
+        )
+
     if (cutoff > 0.0) or (renorm > 0):
         # need to dynamically truncate based on spectrum
         if cutoff_mode == cutoff_mode_abs:
             n_chi = xp.count_nonzero(sabs > cutoff, axis=-1)
 
         elif cutoff_mode == cutoff_mode_rel:
-            n_chi = xp.count_nonzero(sabs > cutoff * sabs[..., 0:1], axis=-1)
+            # keep the leading-value axis for torch vectorization
+            smax = sabs[..., 0:1]
+            if batch_dims:
+                # treat the batch as a single spectrum spread across blocks
+                smax = xp.max(smax)
+            n_chi = xp.count_nonzero(sabs > cutoff * smax, axis=-1)
 
-        elif cutoff_mode in (
-            cutoff_mode_sum2,
-            cutoff_mode_rsum2,
-            cutoff_mode_sum1,
-            cutoff_mode_rsum1,
-        ):
-            # TODO: if we are truncating a batch result, we might want to treat
-            # all singular values together, assuming block diagonal form
+        elif cutoff_mode in cumulative_modes:
             if cutoff_mode in (cutoff_mode_sum2, cutoff_mode_rsum2):
                 pow = 2
                 sp = sabs**pow
@@ -718,7 +811,7 @@ def _trim_and_renorm_svd_result(
             # batch -> take maximum bond needed for any single batch
             n_chi = xp.max(n_chi)
 
-        n_chi = max(n_chi, 1)
+        n_chi = max(int(n_chi), 1)
         if max_bond > 0:
             # need to take both cutoff and max bond into account
             n_chi = min(n_chi, max_bond)
@@ -737,7 +830,16 @@ def _trim_and_renorm_svd_result(
         VH = VH[..., :n_chi, :]
 
         if renorm > 0:
-            norm = (tot / csp[n_chi - 1]) ** (1 / pow)
+            # norm preservation is independent of the truncation criterion
+            if cutoff_mode in cumulative_modes and renorm == pow:
+                total = tot
+                kept = csp[..., n_chi - 1 : n_chi]
+            else:
+                weights = sabs**renorm
+                total = xp.sum(weights, axis=-1, keepdims=True)
+                kept = xp.sum(weights[..., :n_chi], axis=-1, keepdims=True)
+            norm = (total / xp.where(kept > 0, kept, 1)) ** (1 / renorm)
+            norm = xp.where(kept > 0, norm, 1)
             s *= norm
 
         if "error" in info:
@@ -761,17 +863,20 @@ def _trim_and_renorm_svd_result(
 def svd_truncated(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
     info=None,
+    **kwargs,
 ):
     """Singular value decomposition of raw 2d array ``x``, with optional
     truncation based on `max_bond` and/or dynamically on `cutoff`.
 
     Parameters
     ----------
+    x : array_like
+        The 2D array or batch of 2D arrays to decompose.
     cutoff : float, optional
         Singular value cutoff threshold, if ``cutoff <= 0.0``, then only
         ``max_bond`` is used.
@@ -811,7 +916,8 @@ def svd_truncated(
     cutoff_mode = _CUTOFF_MODE_MAP[cutoff_mode]
 
     xp = get_namespace(x)
-    U, s, VH = xp.linalg.svd(x)
+    U, s, VH = xp.linalg.svd(x, **kwargs)
+
     return _trim_and_renorm_svd_result(
         U,
         s,
@@ -961,7 +1067,7 @@ def _trim_and_renorm_svd_result_numba(
 def svd_truncated_numba(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -987,7 +1093,7 @@ def svd_truncated_numba(
 def svd_truncated_numpy(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1051,7 +1157,7 @@ def svd_truncated_numpy(
 def svd_truncated_lazy(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1100,17 +1206,17 @@ def svd_via_eig(
     descending=True,
     right=None,
 ):
-    """Singular value decomposition of raw 2d array ``x``, via hermitian
-    eigen-decomposition of the Gram matrix (xdag @ x or x @ xdag), with
-    static truncation (``max_bond`` only) and various ``absorb`` return
-    options, each with their own shortcuts.
+    """Compute an SVD from eigenvectors of the Gram matrix, ``xdag @ x`` or
+    ``x @ xdag``, where ``xdag`` is the conjugate transpose of ``x``. Limit
+    rank with ``max_bond``. Skip work based on the factors requested by
+    ``absorb``.
 
     Parameters
     ----------
-    x : array-like
-        The 2d array to decompose.
+    x : array_like
+        Input must have shape ``(..., m, n)``.
     absorb : str or None, optional
-        What to compute / where to absorb the singular values:
+        Which factors to return and where to absorb singular values:
 
         - ``None`` / ``'U,s,VH'``: return ``s`` as the middle element of the
           3-tuple, unabsorbed.
@@ -1128,13 +1234,12 @@ def svd_via_eig(
         - ``'s'``: return only the singular values.
 
     max_bond : int, optional
-        An explicit maximum bond dimension, use -1 for no truncation.
+        Maximum number of singular values to keep. Use -1 for no limit.
     descending : bool, optional
-        Whether to return singular values in descending order, default False.
+        Return singular values in descending order. Default is True.
     right : bool, optional
-        Whether to use decompose (xdag @ x: True) or (x @ xdag: False).
-        If None (default), then will choose based on shape of x, and if square,
-        then based on what is requested in ``absorb``.
+        Use ``xdag @ x`` if True, or ``x @ xdag`` if False. With None, choose
+        the smaller Gram matrix. For square matrices, choose from ``absorb``.
 
     Returns
     -------
@@ -1149,7 +1254,8 @@ def svd_via_eig(
     """
     xp = get_namespace(x)
     *_, m, n = xp.shape(x)
-    xdag = xp.conj(xp.swapaxes(x, -2, -1))
+    need_to_conj = is_conj_needed(x)
+    xdag = xp.swapaxes(xp.conj(x) if need_to_conj else x, -2, -1)
     absorb = _ABSORB_MAP[absorb]
 
     if right is None:
@@ -1162,13 +1268,13 @@ def svd_via_eig(
             right = absorb in (get_VH, get_sVH, get_sqVH, get_Us_VH)
 
     if right:
-        # tall: eigendecompose xdag @ x
+        # eigendecompose xdag @ x
         s2, V = xp.linalg.eigh(xdag @ x)
         if 0 < max_bond < min(m, n):
             s2 = s2[..., -max_bond:]
             V = V[..., :, -max_bond:]
         if descending:
-            # maybe match svd convention, by default eigh is *ascending*
+            # eigh returns ascending values, svd uses descending values
             s2 = xp.flip(s2, axis=-1)
             V = xp.flip(V, axis=-1)
         s2 = xp.clip(s2, 0.0, None)
@@ -1197,7 +1303,7 @@ def svd_via_eig(
             VH = xp.conj(xp.swapaxes(V, -2, -1))
             return Us, None, VH
 
-        # for all other options we need U
+        # remaining modes need U
         s = xp.sqrt(s2)
         eps = xp.finfo(s.dtype).eps
         if descending:
@@ -1215,7 +1321,7 @@ def svd_via_eig(
             Usq = U * sq[..., None, :]
             return Usq, None, None
 
-        # need U and VH for all remaining options
+        # remaining modes need both U and VH
         VH = xp.conj(xp.swapaxes(V, -2, -1))
         if absorb == get_U_s_VH:  # 'full'
             return U, s, VH
@@ -1229,13 +1335,13 @@ def svd_via_eig(
             return Usq, None, sqVH
 
     else:
-        # wide: eigendecompose x @ xdag
+        # eigendecompose x @ xdag
         s2, U = xp.linalg.eigh(x @ xdag)
         if 0 < max_bond < min(m, n):
             s2 = s2[..., -max_bond:]
             U = U[..., :, -max_bond:]
         if descending:
-            # maybe match svd convention, by default eigh is *ascending*
+            # eigh returns ascending values, svd uses descending values
             s2 = xp.flip(s2, axis=-1)
             U = xp.flip(U, axis=-1)
         s2 = xp.clip(s2, 0.0, None)
@@ -1254,13 +1360,13 @@ def svd_via_eig(
             Usq = U * sq[..., None, :]
             return Usq, None, None
 
-        sVH = xp.conj(xp.swapaxes(U, -2, -1)) @ x
+        sVH = xp.swapaxes(xp.conj(U) if need_to_conj else U, -2, -1) @ x
         if absorb == get_sVH:  # 'rfactor'
             return None, None, sVH
         if absorb == get_U_sVH:  # 'right'
             return U, None, sVH
 
-        # for all other options we need VH
+        # remaining modes need VH
         s = xp.sqrt(s2)
         eps = xp.finfo(s.dtype).eps
         if descending:
@@ -1294,7 +1400,7 @@ def svd_via_eig(
 def svd_via_eig_truncated(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1306,6 +1412,8 @@ def svd_via_eig_truncated(
 
     Parameters
     ----------
+    x : array-like
+        The 2D array or batch of 2D arrays to decompose.
     cutoff : float, optional
         Singular value cutoff threshold, if ``cutoff <= 0.0``, then only
         ``max_bond`` is used.
@@ -1380,21 +1488,24 @@ def _svd_via_eig_numba(
     descending=True,
     right=None,
 ):
-    """Numba-accelerated SVD via eigendecomposition of the Gram matrix,
-    with static truncation (``max_bond`` only) and all ``absorb`` return
-    options, each with their own shortcuts. Mirrors the structure of
-    ``svd_via_eig``.
+    """Compute an SVD from eigenvectors of the Gram matrix using Numba.
+    Limit rank with ``max_bond``. Skip work based on the factors requested
+    by ``absorb``.
 
     Parameters
     ----------
-    x : array-like
-        The 2d array to decompose.
+    x : array_like
+        Input must be a 2D NumPy array.
     absorb : int or None, optional
-        Numeric absorb code controlling what to compute / return.
+        Numeric code for the factors to return and singular values to absorb.
     max_bond : int, optional
-        An explicit maximum bond dimension, use -1 for no truncation.
+        Maximum number of singular values to keep. Use -1 for no limit.
     descending : bool, optional
-        Whether to return singular values in descending order.
+        Return singular values in descending order. Default is True.
+    right : bool or None, optional
+        Use ``x.conj().T @ x`` if True, or ``x @ x.conj().T`` if False. With
+        None, choose the smaller Gram matrix. For square matrices, choose
+        from ``absorb``.
 
     Returns
     -------
@@ -1418,8 +1529,9 @@ def _svd_via_eig_numba(
         right = bool(right)
 
     if right:
-        # tall: eigendecompose xdag @ x
-        xx = dag_numba(x) @ x
+        # eigendecompose xdag @ x
+        xdag = dag_numba(x) if np.iscomplexobj(x) else x.T
+        xx = xdag @ x
         s2, V = np.linalg.eigh(xx)
         if 0 < max_bond < min(m, n):
             s2 = s2[-max_bond:]
@@ -1427,7 +1539,7 @@ def _svd_via_eig_numba(
         if descending:
             s2 = s2[::-1]
             V = np.ascontiguousarray(V[:, ::-1])
-        s2 = np.maximum(s2, 0.0)
+        s2 = np.maximum(s2, np.zeros_like(s2))
         if absorb == get_s:  # 'svals'
             return None, np.sqrt(s2), None
         if absorb == get_VH:  # 'rorthog'
@@ -1462,8 +1574,9 @@ def _svd_via_eig_numba(
         if absorb == get_sqVH:  # 'rsqrt'
             return None, None, ldmul_numba(sq, VH)
     else:
-        # wide: eigendecompose x @ xdag
-        xx = x @ dag_numba(x)
+        # eigendecompose x @ xdag
+        xdag = dag_numba(x) if np.iscomplexobj(x) else x.T
+        xx = x @ xdag
         s2, U = np.linalg.eigh(xx)
         if 0 < max_bond < min(m, n):
             s2 = s2[-max_bond:]
@@ -1471,8 +1584,7 @@ def _svd_via_eig_numba(
         if descending:
             s2 = s2[::-1]
             U = np.ascontiguousarray(U[:, ::-1])
-        # clip small/negative eigenvalues
-        s2 = np.maximum(s2, 0.0)
+        s2 = np.maximum(s2, np.zeros_like(s2))
         if absorb == get_s:  # 'svals'
             return None, np.sqrt(s2), None
         if absorb == get_U:  # 'lorthog'
@@ -1480,7 +1592,8 @@ def _svd_via_eig_numba(
         if absorb == get_Us:  # 'lfactor'
             return rdmul_numba(U, np.sqrt(s2)), None, None
         U = np.ascontiguousarray(U)
-        sVH = dag_numba(U) @ x
+        Udag = dag_numba(U) if np.iscomplexobj(U) else U.T
+        sVH = Udag @ x
         if absorb == get_sVH:  # 'rfactor'
             return None, None, sVH
         if absorb == get_U_sVH:  # 'right'
@@ -1514,7 +1627,7 @@ def _svd_via_eig_numba(
 def _svd_via_eig_truncated_numba(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1561,7 +1674,7 @@ def _svd_via_eig_truncated_numba(
 def svd_via_eig_truncated_numpy(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1601,11 +1714,14 @@ def svd_via_eig_truncated_numpy(
 @register_svals_driver("svd:eig")
 @njit  # pragma: no cover
 def svdvals_eig(x):
-    """SVD-decomposition via eigen, but return singular values only."""
+    """Compute singular values from Gram matrix eigenvalues using Numba.
+    ``x`` must be a 2D NumPy array.
+    """
+    xdag = dag_numba(x) if np.iscomplexobj(x) else x.T
     if x.shape[0] > x.shape[1]:
-        s2 = np.linalg.eigvalsh(dag_numba(x) @ x)
+        s2 = np.linalg.eigvalsh(xdag @ x)
     else:
-        s2 = np.linalg.eigvalsh(x @ dag_numba(x))
+        s2 = np.linalg.eigvalsh(x @ xdag)
 
     s2[s2 < 0.0] = 0.0
     return np.sqrt(s2[::-1])
@@ -1619,6 +1735,8 @@ def svdvals_eig(x):
 def svd_rand_truncated(
     x,
     max_bond,
+    cutoff=0.0,
+    cutoff_mode=cutoff_mode_rel,
     absorb=get_Usq_sqVH,
     oversample=10,
     num_iterations=2,
@@ -1628,22 +1746,29 @@ def svd_rand_truncated(
     lorthog_opts=None,
     reduced_opts=None,
     seed=None,
+    noise_dist="normal",
 ):
-    """Singular value decomposition of raw 2d array ``x``, via randomized
-    sketching, with static truncation (``max_bond`` only) and various
-    ``absorb`` return options, each with their own shortcuts. The speedup
-    over full SVD is proportional to the truncation.
+    """Compute a low-rank SVD from random projections. Limit rank with
+    ``max_bond``. Optionally discard small singular values with ``cutoff``.
+    Only absolute and relative cutoffs are supported.
 
     Parameters
     ----------
     x : array_like
-        The 2d array to decompose.
+        Input must have shape ``(..., m, n)``.
     max_bond : int
-        An explicit maximum bond dimension / target rank for the randomized
-        sketch. You can use ``None`` or a negative value to indicate no
-        truncation, though this is not recommended as there is no speedup.
+        Maximum number of singular values to keep. Use ``None`` or a negative
+        value for no limit. Keeping all values removes the benefit of a
+        low-rank sketch.
+    cutoff : float, optional
+        Absolute or relative threshold for discarding singular values from
+        the sketched spectrum. Disabled by default.
+    cutoff_mode : {1, 2, "abs", "rel"}, optional
+        How to interpret ``cutoff``. ``"abs"`` discards values below
+        ``cutoff`` and ``"rel"`` discards values below ``cutoff * s[0]``.
+        Cumulative modes require the full spectrum and are not supported.
     absorb : str or None, optional
-        What to compute / where to absorb the singular values:
+        Which factors to return and where to absorb singular values:
 
         - ``None`` / ``'U,s,VH'``: return ``s`` as the middle element of the
           3-tuple, unabsorbed.
@@ -1665,24 +1790,24 @@ def svd_rand_truncated(
         default 10.
     num_iterations : int, optional
         Number of power iterations to improve accuracy, default 2.
-    method_reduced : str, optional
-        The decomposition method to use for the reduced matrix, e.g.
-        ``'svd'``, ``'svd:eig'``, etc. Default is ``'svd'``.
     method_lorthog : str, optional
-        The decomposition method to use for forming the orthonormal basis
-        of the random sketch, e.g. ``'qr'``, ``'svd:eig'``, ``'svd'``,
-        etc. Default is ``'qr'``.
+        Decomposition used to form an orthonormal basis for the random sketch,
+        e.g. ``'qr'``, ``'svd:eig'`` or ``'svd'``. Default is ``'qr'``.
+    method_reduced : str, optional
+        Decomposition used for the reduced matrix, e.g. ``'svd'`` or
+        ``'svd:eig'``. Default is ``'svd'``.
     right : bool, optional
-        Whether to sketch from the right or left. If None (default), then will
-        choose based on value of ``absorb``.
+        Sketch from the right if True, or the left if False. With None, choose
+        from ``absorb`` to avoid a reduced SVD where possible. Otherwise,
+        sketch from the right for tall matrices, or the left for wide ones.
     lorthog_opts : dict or None, optional
-        Extra options to pass to the decomposition method for forming the
-        orthonormal basis of the random sketch.
+        Extra options for the decomposition set by ``method_lorthog``.
     reduced_opts : dict or None, optional
-        Extra options to pass to the decomposition method for the reduced
-        matrix.
+        Extra options for the decomposition set by ``method_reduced``.
     seed : int, Generator or None, optional
         Random seed or existing generator for reproducibility.
+    noise_dist : {"normal", "rademacher"}, optional
+        Distribution used to generate the random sketch.
 
     Returns
     -------
@@ -1694,11 +1819,39 @@ def svd_rand_truncated(
     if max_bond is None:
         max_bond = -1
 
+    # options for the sketch basis
     lorthog_opts = ensure_dict(lorthog_opts)
     lorthog_opts.setdefault("method", method_lorthog)
+    lorthog_opts.setdefault("cutoff", 0.0)
+
+    # options for the reduced SVD
+    reduced_opts = ensure_dict(reduced_opts)
+    reduced_opts.setdefault("method", method_reduced)
+    reduced_opts.setdefault("cutoff", cutoff)
+    reduced_opts.setdefault("cutoff_mode", cutoff_mode)
+    cutoff = reduced_opts["cutoff"]
+    if cutoff == "auto":
+        cutoff = 1e-10
+    else:
+        cutoff = _CUTOFF_LOOKUP.get(cutoff, cutoff)
+    cutoff_mode = _CUTOFF_MODE_MAP[reduced_opts["cutoff_mode"]]
+    reduced_opts.update(cutoff=cutoff, cutoff_mode=cutoff_mode)
+
+    if (cutoff > 0.0) and cutoff_mode not in (
+        cutoff_mode_abs,
+        cutoff_mode_rel,
+    ):
+        raise ValueError(
+            "Cumulative cutoff modes are not supported by "
+            "svd_rand_truncated. Use cutoff_mode='abs' or 'rel'."
+        )
+
+    # a cutoff requires the reduced SVD
+    dynamic_cutoff = cutoff > 0.0
 
     xp = get_namespace(x)
     *batch_dims, m, n = xp.shape(x)
+    need_to_conj = is_conj_needed(x)
 
     # determine target rank and sketch size
     if max_bond < 0:
@@ -1718,73 +1871,77 @@ def svd_rand_truncated(
         elif absorb in (get_Us_VH, get_Us, get_VH):
             right = False
         else:
-            # note unlike svd via eig, tall vs wide is secondary consideration
+            # other modes choose by shape
             right = m > n
 
-    rng = xp.random.default_rng(seed)
-
     if right:
-        # tall: sketch from the right
-        omega = rng.normal(size=(*batch_dims, n, k_sketch))
+        # sketch from the right
+        omega = xp.random.array(
+            (*batch_dims, n, k_sketch), dist=noise_dist, rng=seed
+        )
         y = x @ omega
         if num_iterations:
-            xdag = xp.conj(xp.swapaxes(x, -2, -1))
+            xdag = xp.swapaxes(xp.conj(x) if need_to_conj else x, -2, -1)
             for _ in range(num_iterations):
                 y = xdag @ y
                 y = x @ y
 
-        # form orthonormal basis of column space / 'U'
+        # orthonormal basis for sampled columns
         Q, _, _ = array_split(y, absorb=get_U, **lorthog_opts)
 
-        # X ≈ Q @ B, maybe shortcut for some absorb if no truncation needed
-        if k >= k_sketch:
+        # X ≈ Q @ B, skip the reduced SVD if no truncation is needed
+        if (not dynamic_cutoff) and (k >= k_sketch):
             if absorb == get_U_sVH:  # 'right'
-                return Q, None, xp.conj(xp.swapaxes(Q, -2, -1)) @ x
+                Qdag = xp.swapaxes(xp.conj(Q) if need_to_conj else Q, -2, -1)
+                return Q, None, Qdag @ x
             if absorb == get_sVH:  # 'rfactor'
-                return None, None, xp.conj(xp.swapaxes(Q, -2, -1)) @ x
+                Qdag = xp.swapaxes(xp.conj(Q) if need_to_conj else Q, -2, -1)
+                return None, None, Qdag @ x
             if absorb == get_U:  # 'lorthog'
                 return Q, None, None
 
         # form reduced factor
-        B = xp.conj(xp.swapaxes(Q, -2, -1)) @ x
+        Qdag = xp.swapaxes(xp.conj(Q) if need_to_conj else Q, -2, -1)
+        B = Qdag @ x
     else:
-        # wide: sketch from the left
-        omega = rng.normal(size=(*batch_dims, k_sketch, m))
+        # sketch from the left
+        omega = xp.random.array(
+            (*batch_dims, k_sketch, m), dist=noise_dist, rng=seed
+        )
         y = omega @ x
         if num_iterations:
-            xdag = xp.conj(xp.swapaxes(x, -2, -1))
+            xdag = xp.swapaxes(xp.conj(x) if need_to_conj else x, -2, -1)
             for _ in range(num_iterations):
                 y = y @ xdag
                 y = y @ x
-        y = xp.conj(xp.swapaxes(y, -2, -1))
+        y = xp.swapaxes(xp.conj(y) if need_to_conj else y, -2, -1)
 
-        # form orthonormal basis of row space / 'V'
+        # orthonormal basis for sampled rows
         Q, _, _ = array_split(y, absorb=get_U, **lorthog_opts)
 
-        # X ≈ B @ Qdag, maybe shortcut for some absorb if no truncation needed
-        if k >= k_sketch:
+        # X ≈ B @ Qdag, skip the reduced SVD if no truncation is needed
+        if (not dynamic_cutoff) and (k >= k_sketch):
             if absorb == get_Us_VH:  # 'left'
-                return x @ Q, None, xp.conj(xp.swapaxes(Q, -2, -1))
+                Qdag = xp.swapaxes(xp.conj(Q) if need_to_conj else Q, -2, -1)
+                return x @ Q, None, Qdag
             if absorb == get_Us:  # 'lfactor'
                 return x @ Q, None, None
             if absorb == get_VH:  # 'rorthog'
-                return None, None, xp.conj(xp.swapaxes(Q, -2, -1))
+                Qdag = xp.swapaxes(xp.conj(Q) if need_to_conj else Q, -2, -1)
+                return None, None, Qdag
 
         # form reduced factor
         B = x @ Q
 
-    reduced_opts = ensure_dict(reduced_opts)
-    reduced_opts.setdefault("method", method_reduced)
-    reduced_opts.setdefault("cutoff", 0.0)
-
-    # decompose and maybe further truncate reduced matrix
+    # decompose and truncate reduced matrix
     U, s, VH = array_split(B, absorb=absorb, max_bond=k, **reduced_opts)
 
-    # expand back out from reduced space
+    # map factors back to original space
     if (U is not None) and right:
         U = Q @ U
     if (VH is not None) and not right:
-        VH = VH @ xp.conj(xp.swapaxes(Q, -2, -1))
+        Qdag = xp.swapaxes(xp.conj(Q) if need_to_conj else Q, -2, -1)
+        VH = VH @ Qdag
 
     return U, s, VH
 
@@ -1829,7 +1986,7 @@ def _with_diag_shift_numba(x, shift=0.0):
 def eigh_truncated(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1841,6 +1998,35 @@ def eigh_truncated(
 
     Parameters
     ----------
+    x : array_like
+        The 2D array or batch of 2D arrays to decompose.
+    cutoff : float, optional
+        Singular value cutoff threshold, if ``cutoff <= 0.0``, then only
+        ``max_bond`` is used.
+    cutoff_mode : {1, 2, 3, 4, 5, 6}, optional
+        How to perform the truncation based on ``cutoff``:
+
+        - 1 / 'abs': trim values below ``cutoff``
+        - 2 / 'rel': trim values below ``s[0] * cutoff``
+        - 3 / 'sum2': trim s.t. ``sum(s_trim**2) < cutoff``.
+        - 4 / 'rsum2': trim s.t. ``sum(s_trim**2) < sum(s**2) * cutoff``.
+        - 5 / 'sum1': trim s.t. ``sum(s_trim**1) < cutoff``.
+        - 6 / 'rsum1': trim s.t. ``sum(s_trim**1) < sum(s**1) * cutoff``.
+
+    max_bond : int, optional
+        An explicit maximum bond dimension, use -1 for none.
+    absorb : int or None, optional
+        How to absorb the singular values, as a pre-converted numeric code
+        (``get_Us_VH=-1``: left, ``get_Usq_sqVH=0``: both,
+        ``get_U_sVH=1``: right, ``None``: return separately). Use
+        ``array_split`` with string aliases (e.g. ``'left'``, ``'both'``,
+        ``'right'``, ``None``) for a friendlier interface.
+    renorm : int, optional
+        Whether to renormalize the kept singular values. ``0`` means
+        no renormalization, ``1`` maintains the trace norm, ``2``
+        maintains the Frobenius norm.
+    positive : bool, optional
+        Whether to assume the operator is positive semi-definite.
     shift : bool or float, optional
         Whether to add a small shift to the diagonal of ``x`` for
         regularization. The valid options are:
@@ -1901,7 +2087,7 @@ def eigh_truncated(
 def eigh_truncated_numba(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1952,7 +2138,7 @@ def eigh_truncated_numba(
 def eigh_truncated_numpy(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -1988,7 +2174,7 @@ def qr_stabilized(x, absorb=get_U_sVH, stabilized=True, **kwargs):
     Parameters
     ----------
     x : array_like
-        The 2d array to decompose.
+        The 2D array or batch of 2D arrays to decompose.
     absorb : str or int, optional
         What form to compute / where to 'absorb' the singular values:
 
@@ -2178,7 +2364,7 @@ def _cholesky_maybe_with_diag_shift(x, absorb=get_Usq_sqVH, shift=0.0):
         # can compute the right factor directly using upper
         return None, None, xp.linalg.cholesky(x, upper=True)
 
-    left = xp.linalg.cholesky(x, upper=False)
+    left = xp.linalg.cholesky(x)
 
     if absorb == get_Usq:
         return left, None, None
@@ -2204,7 +2390,7 @@ def cholesky_regularized(x, absorb=get_Usq_sqVH, shift=True):
     Parameters
     ----------
     x : array_like
-        The 2D array to decompose.
+        The 2D array or batch of 2D arrays to decompose.
     absorb : int, optional
         How to absorb the factors. The valid options are:
 
@@ -2239,7 +2425,7 @@ def cholesky_regularized(x, absorb=get_Usq_sqVH, shift=True):
         try:
             # try without shift
             return _cholesky_maybe_with_diag_shift(x, absorb, shift=0.0)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             warnings.warn(
                 f"Cholesky decomposition failed with error: {e}. "
                 "retrying with small regularization added to the diagonal."
@@ -2274,7 +2460,7 @@ def cholesky_regularized_numpy(x, absorb=get_Usq_sqVH, shift=True):
         try:
             # try without shift
             return _cholesky_regularized_numba(x, absorb, shift=0.0)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             warnings.warn(
                 f"Cholesky decomposition failed with error: {e}. "
                 "retrying with small regularization added to the diagonal."
@@ -2286,19 +2472,86 @@ def cholesky_regularized_numpy(x, absorb=get_Usq_sqVH, shift=True):
 
 @register_split_driver("qr:cholesky", default_absorb=get_U_sVH)
 @compose
-def qr_via_cholesky(x, absorb=get_Us_VH, shift=True, solve_triangular=True):
-    """Perform a QR-like or LQ-like decomposition via Cholesky decomposition
-    of the Gram matrix.
+def qr_via_cholesky(
+    x,
+    absorb=get_Us_VH,
+    shift=True,
+    solve_triangular=True,
+    passes=1,
+    tol_orthog=None,
+):
+    """Compute QR or LQ factors from the Gram matrix using Cholesky.
+    This can be faster for tall, narrow matrices. Ill-conditioned inputs
+    can lose orthogonality. Additional `passes` can restore it.
+
+    Parameters
+    ----------
+    x : array_like
+        Input must have shape ``(..., m, n)``. For QR, ``m`` should be at least
+        ``n``. For LQ, ``n`` should be at least ``m``.
+    absorb : str or int, optional
+        Use ``'right'`` for QR or ``'left'`` for LQ. To return one factor, use
+        ``'lorthog'`` or ``'rorthog'`` for the left or right isometry, or
+        ``'lfactor'`` or ``'rfactor'`` for the left or right triangular factor.
+    shift : "auto", bool or float, optional
+        Shift added to the Gram matrix diagonal in each pass. Here ``eps`` is
+        machine epsilon for the dtype, and ``trace`` is the Gram matrix trace.
+
+        - ``True``: add ``trace * eps``.
+        - ``"auto"``: try without a shift, then add ``trace * eps`` if it fails.
+        - ``False``: do not add a shift.
+        - float: add ``shift * trace``. Negative values use ``eps`` instead of
+          ``shift``.
+
+    solve_triangular : bool, optional
+        Use a triangular solve if True, or a general solve if False.
+    passes : int, optional
+        Positive number of orthogonalization passes. Each new pass
+        orthogonalizes the previous result. Two passes (CholeskyQR2) can give
+        orthogonality to machine precision for condition numbers up to about
+        ``1 / sqrt(eps)``. Three passes with ``shift`` can handle full-rank
+        inputs with condition numbers close to ``1 / eps``. Here ``eps`` is
+        machine epsilon.
+
+        For rank-deficient inputs, regularization can preserve reconstruction.
+        It does not ensure orthogonality. Use ``'qr'`` or ``'qr:auto'`` when
+        orthogonality is required.
+    tol_orthog : float, optional
+        Before each pass after the first, check the previous result's Gram
+        matrix. Raise ``ValueError`` if its distance from the identity is at
+        least this value. The distance is the Frobenius norm over the whole
+        batch. Large errors can stop the next pass restoring orthogonality.
+        None skips this check.
+
+    Returns
+    -------
+    left : array_like or None
+        Left factor, or ``None`` if not requested.
+    s : None
+    right : array_like or None
+        Right factor, or ``None`` if not requested.
+
+    Raises
+    ------
+    TypeError
+        If ``passes`` is not an integer.
+    ValueError
+        If ``passes`` is not positive, or the Gram matrix error is at least
+        ``tol_orthog``.
     """
+    try:
+        passes = operator.index(passes)
+    except TypeError:
+        raise TypeError("passes must be an integer") from None
+    if passes < 1:
+        raise ValueError("passes must be a positive integer")
+
     absorb = _ABSORB_MAP[absorb]
 
     if absorb in (get_U_sVH, get_U, get_sVH):
-        # performing QR-like decomposition
-        #     NOTE: the cholesky method naturally gives us LQ-like
-        #     decomposition so *this* is the case we transpose
+        # cholesky produces LQ factors, so transpose for QR
         transposed = True
     elif absorb in (get_Us_VH, get_Us, get_VH):
-        # performing LQ-like decomposition
         transposed = False
     else:
         raise ValueError(f"Invalid absorb mode for qr_via_cholesky: {absorb}")
@@ -2307,12 +2560,7 @@ def qr_via_cholesky(x, absorb=get_Us_VH, shift=True, solve_triangular=True):
 
     if transposed:
         absorb = _ABSORB_TRANSPOSE_MAP[absorb]
-        # avoid transposing twice
-        xT = xp.swapaxes(x, -2, -1)
-        xx = xT @ xp.conj(x)
-        x = xT
-    else:
-        xx = x @ xp.conj(xp.swapaxes(x, -2, -1))
+        x = xp.swapaxes(x, -2, -1)
 
     *_, m, n = xp.shape(x)
     if m > n:
@@ -2320,21 +2568,34 @@ def qr_via_cholesky(x, absorb=get_Us_VH, shift=True, solve_triangular=True):
             f"qr_via_cholesky not well-defined for tall matrices ({m} > {n})."
         )
 
-    L, _, _ = cholesky_regularized(xx, absorb=get_Usq, shift=shift)
+    need_to_conj = is_conj_needed(x)
 
-    if absorb != get_Us:
-        # need Q / rorthog
-        if solve_triangular:
-            right = xp.scipy.linalg.solve_triangular(L, x, lower=True)
-        else:
-            right = xp.linalg.solve(L, x)
-    else:
-        right = None
+    left = None
+    for p in range(passes):
+        xx = x @ xp.swapaxes(xp.conj(x) if need_to_conj else x, -2, -1)
 
-    if absorb != get_VH:
-        # need lfactor
-        left = L
-    else:
+        if p and (tol_orthog is not None):
+            err = xp.sum(xp.abs(xx - xp.eye(m)) ** 2) ** 0.5
+            if not (err < tol_orthog):
+                raise ValueError(
+                    f"Cholesky QR lost orthogonality, pass {p} has Gram "
+                    f"matrix error {err}, above tol_orthog={tol_orthog}."
+                )
+
+        L, _, _ = cholesky_regularized(xx, absorb=get_Usq, shift=shift)
+        # accumulate triangular factors to reconstruct the input
+        left = L if left is None else left @ L
+
+        if (absorb != get_Us) or (p + 1 < passes):
+            # compute Q when requested or needed for another pass
+            if solve_triangular:
+                x = xp.scipy.linalg.solve_triangular(L, x, lower=True)
+            else:
+                x = xp.linalg.solve(L, x)
+
+    right = x if absorb != get_Us else None
+
+    if absorb == get_VH:
         left = None
 
     if transposed:
@@ -2350,6 +2611,60 @@ def qr_via_cholesky(x, absorb=get_Us_VH, shift=True, solve_triangular=True):
             right = None
 
     return left, None, right
+
+
+@register_split_driver("qr:auto", default_absorb=get_U_sVH)
+@compose
+def qr_auto(
+    x, absorb=get_U_sVH, stabilized=True, min_aspect=8, min_work=2**20
+):
+    """Compute QR or LQ factors. Try two passes of Cholesky QR for large,
+    narrow matrices. Use :func:`qr_stabilized` for other shapes, if Cholesky
+    QR fails, or if the first pass loses too much orthogonality.
+
+    Parameters
+    ----------
+    x : array_like
+        Input must have shape ``(..., m, n)``.
+    absorb : str or int, optional
+        Use ``'right'`` for QR or ``'left'`` for LQ. To return one factor, use
+        ``'lorthog'`` or ``'rorthog'`` for the left or right isometry, or
+        ``'lfactor'`` or ``'rfactor'`` for the left or right triangular factor.
+    stabilized : bool, optional
+        Make the triangular factor's diagonal real and nonnegative when using
+        :func:`qr_stabilized`. Cholesky QR already gives positive diagonals.
+    min_aspect : float, optional
+        Minimum aspect ratio for Cholesky QR. For QR, require
+        ``m >= min_aspect * n``. For LQ, swap ``m`` and ``n``.
+    min_work : int, optional
+        Minimum ``m * n**2`` for Cholesky QR. For LQ, swap ``m`` and ``n``.
+        Below this, standard QR is used, as the extra calls cost more than
+        they save.
+
+    Returns
+    -------
+    left : array_like or None
+        Left factor, or ``None`` if not requested.
+    s : None
+    right : array_like or None
+        Right factor, or ``None`` if not requested.
+    """
+    absorb = _ABSORB_MAP[absorb]
+    *_, m, n = get_namespace(x).shape(x)
+    if absorb in (get_Us_VH, get_Us, get_VH):
+        # swap dimensions for LQ
+        m, n = n, m
+
+    if (m >= min_aspect * n) and (m * n**2 >= min_work):
+        try:
+            return qr_via_cholesky(
+                x, absorb=absorb, shift=False, passes=2, tol_orthog=0.5
+            )
+        except Exception:  # noqa: BLE001, S110
+            # use standard QR if cholesky QR fails
+            pass
+
+    return qr_stabilized(x, absorb=absorb, stabilized=stabilized)
 
 
 # ------------------------ iterative decompositions ------------------------- #
@@ -2374,7 +2689,7 @@ def _choose_k(x, cutoff, max_bond):
 def svds(
     x,
     cutoff=0.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -2408,7 +2723,7 @@ def svds(
 def isvd(
     x,
     cutoff=0.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -2442,7 +2757,7 @@ def isvd(
 def _rsvd_numpy(
     x,
     cutoff=0.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -2466,7 +2781,7 @@ def _rsvd_numpy(
 def rsvd(
     x,
     cutoff=0.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -2504,7 +2819,7 @@ def rsvd(
 def eigsh(
     x,
     cutoff=0.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -2545,7 +2860,7 @@ def eigsh(
 def lu_truncated(
     x,
     cutoff=-1.0,
-    cutoff_mode=cutoff_mode_rsum2,
+    cutoff_mode=cutoff_mode_rel,
     max_bond=-1,
     absorb=get_Usq_sqVH,
     renorm=0,
@@ -2771,7 +3086,7 @@ def _similarity_compress_svd_numba(X, max_bond, renorm, asymm):
 
 def _similarity_compress_biorthog(X, max_bond, renorm):
     xp = get_namespace(X)
-    U, s, VH = xp.linalg.svd(X)
+    U, _s, VH = xp.linalg.svd(X)
 
     B = U[:, :max_bond]
     AH = VH[:max_bond, :]
@@ -2795,7 +3110,7 @@ def _similarity_compress_biorthog(X, max_bond, renorm):
 
 @njit  # pragma: no cover
 def _similarity_compress_biorthog_numba(X, max_bond, renorm):
-    U, s, VH = np.linalg.svd(X)
+    U, _s, VH = np.linalg.svd(X)
 
     B = U[:, :max_bond]
     AH = VH[:max_bond, :]
@@ -2918,7 +3233,7 @@ def isometrize_modified_gram_schmidt(A):
     Q = []
     for j in range(A.shape[1]):
         q = A[:, j]
-        for i in range(0, j):
+        for i in range(j):
             rij = xp.tensordot(xp.conj(Q[i]), q, 1)
             q = q - rij * Q[i]
         Q.append(q / xp.linalg.norm(q))
@@ -3120,14 +3435,19 @@ def compute_oblique_projectors(
 
     .. math::
 
-        A' = Q_L P_L P_R' Q_R
+        A' = Q_L R_L P_L P_R R_R Q_R
+
+    The bond can also be left as several unfused axes, which can avoid
+    alignment issues with block sparse arrays.
 
     Parameters
     ----------
     Rl : array
-        The left reduced factor matrix.
+        The left reduced factor, with its outer axis first and then one or
+        more bond axes.
     Rr : array
-        The right reduced factor matrix.
+        The right reduced factor, with the bond axes first, in the same order
+        as for ``Rl``, and then its outer axis.
     max_bond : int, optional
         The maximum bond dimension to compress to.
     cutoff : float, optional
@@ -3155,17 +3475,25 @@ def compute_oblique_projectors(
     Returns
     -------
     Pl : array
-        The left oblique projector.
+        The left oblique projector, with the bond axes of ``Rr`` and then the
+        new bond.
     Pr : array
-        The right oblique projector.
+        The right oblique projector, with the new bond and then the bond axes
+        of ``Rl``.
     """
     if max_bond is None:
         max_bond = -1
     absorb = _ABSORB_MAP[absorb]
     cutoff_mode = _CUTOFF_MODE_MAP[cutoff_mode]
 
+    # contract all bond axes directly, so they never need fusing
+    xp = get_namespace(Rl)
+    nbond = xp.ndim(Rl) - 1
+
     Ut, st, VHt = array_split(
-        Rl @ Rr,
+        xp.tensordot(
+            Rl, Rr, (tuple(range(1, nbond + 1)), tuple(range(nbond)))
+        ),
         max_bond=max_bond,
         cutoff=cutoff,
         absorb=None,
@@ -3174,28 +3502,34 @@ def compute_oblique_projectors(
         **compress_opts,
     )
 
+    # find the small matrices that map Rr and Rl to the projectors
     if absorb is None:
-        Pl = Rr @ rddiv(dag(VHt), st)
-        Pr = lddiv(st, dag(Ut)) @ Rl
-        return Pl, st, Pr
+        st_inv = safe_inverse(st)
+        Xr = rdmul(dag(VHt), st_inv)
+        Xl = ldmul(st_inv, dag(Ut))
 
     elif absorb == get_Usq_sqVH:
-        st_sqrt = get_namespace(st).sqrt(st)
-
-        # then form the 'oblique' projectors
-        Pl = Rr @ rddiv(dag(VHt), st_sqrt)
-        Pr = lddiv(st_sqrt, dag(Ut)) @ Rl
+        # note we damp based on st, not sqrt(st), to match the other branches
+        st_sqrt_inv = safe_inverse(st, power=0.5)
+        Xr = rdmul(dag(VHt), st_sqrt_inv)
+        Xl = ldmul(st_sqrt_inv, dag(Ut))
 
     elif absorb == get_Us_VH:
-        Pl = Rr @ dag(VHt)
-        Pr = lddiv(st, dag(Ut)) @ Rl
+        Xr = dag(VHt)
+        Xl = lddiv(st, dag(Ut))
 
     elif absorb == get_U_sVH:
-        Pl = Rr @ rddiv(dag(VHt), st)
-        Pr = dag(Ut) @ Rl
+        Xr = rddiv(dag(VHt), st)
+        Xl = dag(Ut)
     else:
         raise ValueError(f"Unrecognized absorb={absorb}.")
 
+    # then form the 'oblique' projectors
+    Pl = xp.tensordot(Rr, Xr, ((nbond,), (0,)))
+    Pr = xp.tensordot(Xl, Rl, ((1,), (0,)))
+
+    if absorb is None:
+        return Pl, st, Pr
     return Pl, Pr
 
 

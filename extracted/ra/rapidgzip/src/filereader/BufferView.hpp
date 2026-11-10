@@ -91,7 +91,7 @@ public:
           size_t nMaxBytesToRead ) override
     {
         if ( closed() ) {
-            throw std::invalid_argument( "Cannot read from closed file!" );
+            throw ReaderClosed();
         }
 
         if ( ( nMaxBytesToRead == 0 ) || ( m_bufferPosition >= m_size ) ) {
@@ -99,7 +99,9 @@ public:
         }
 
         const auto nBytesToReadFromBuffer = std::min( m_size - m_bufferPosition, nMaxBytesToRead );
-        std::memcpy( buffer, m_buffer + m_bufferPosition, nBytesToReadFromBuffer );
+        if ( buffer != nullptr ) {
+            std::memcpy( buffer, m_buffer + m_bufferPosition, nBytesToReadFromBuffer );
+        }
         m_bufferPosition += nBytesToReadFromBuffer;
         return nBytesToReadFromBuffer;
     }
@@ -109,18 +111,18 @@ public:
           int           origin = SEEK_SET ) override
     {
         if ( closed() ) {
-            throw std::invalid_argument( "Cannot seek closed file!" );
+            throw ReaderClosed();
         }
 
-        const auto newBufferPosition = effectiveOffset( offset, origin );
+        const auto newBufferPosition = resolveOffset( offset, origin );
 
-        /* Check if we can simply seek inside the buffer. */
-        if ( newBufferPosition <= m_size ) {
-            m_bufferPosition = newBufferPosition;
-            return tell();
+        /* An in-memory view cannot seek outside its contents. effectiveOffset() would silently clamp to the end. */
+        if ( ( newBufferPosition < 0 ) || ( static_cast<size_t>( newBufferPosition ) > m_size ) ) {
+            throw std::invalid_argument( "Cannot seek outside of in-memory file range!" );
         }
 
-        throw std::invalid_argument( "Cannot seek outside of in-memory file range!" );
+        m_bufferPosition = static_cast<size_t>( newBufferPosition );
+        return tell();
     }
 
     [[nodiscard]] std::optional<size_t>

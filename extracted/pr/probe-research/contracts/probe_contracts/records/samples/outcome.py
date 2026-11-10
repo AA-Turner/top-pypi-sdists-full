@@ -1,0 +1,75 @@
+"""SampleOutcome: what training did with an attempt, derived on read from the parts, commits and supersedes."""
+
+from __future__ import annotations
+
+import re
+
+from ...compat import StrEnum
+
+
+class SampleSplit(StrEnum):
+    """Which pass made the attempt: a training rollout, an eval pass, or an SFT example."""
+
+    TRAIN = "train"
+    EVAL = "eval"
+    SFT = "sft"
+
+
+class SampleOutcome(StrEnum):
+    """Never written by a producer: a read derives it (`derive_outcome`, DESIGN.md "Outcome")."""
+
+    IN_FLIGHT = "in_flight"  # an attempt started (attempt part), not finished
+    #: An attempt whose end part came but no final part of its own key: its samples carry other keys (Miles
+    #: leaves), or its final part still waits on the step's bundles. Never counted, never in flight.
+    ENDED = "ended"
+    GENERATED = "generated"  # finished and kept; no trainer has consumed it yet
+    CONSUMED = "consumed"  # drained by the trainer; its step has no commit
+    TRAINED = "trained"  # consumed AND the consuming step committed
+    DROPPED = "dropped"  # with `drop_reason`
+    EVAL = "eval"
+    SFT = "sft"
+    SUPERSEDED = "superseded"  # a later attempt replaced it (a Harbor retry)
+
+
+class DropReason(StrEnum):
+    """Why a finished attempt was not trained on. `filter` is written `filter:<name>`."""
+
+    ZERO_VARIANCE = "zero_variance"
+    STALE = "stale"
+    ABORTED = "aborted"
+    FILTER = "filter"
+    OVERSAMPLING = "oversampling"
+    INVALID_REWARD = "invalid_reward"
+    ERROR = "error"
+
+
+FILTER_PREFIX = f"{DropReason.FILTER}:"
+_FILTER_NAME = re.compile(r"^[A-Za-z0-9_.\-]{1,64}$")
+
+
+def validate_drop_reason(value: str) -> str:
+    """A drop reason as samples and seals spell it: a fixed reason, or `filter:<name>`."""
+    if value.startswith(FILTER_PREFIX) and _FILTER_NAME.match(value[len(FILTER_PREFIX):]):
+        return value
+    if value != DropReason.FILTER and value in {reason.value for reason in DropReason}:
+        return value
+    raise ValueError(f"unknown drop reason {value!r}: one of {sorted(r.value for r in DropReason)}, "
+                     f"with `filter` written `filter:<name>`")
+
+
+def derive_outcome(*, is_finished: bool, split: SampleSplit, drop_reason: str | None = None,
+                   is_superseded: bool = False, is_consumed: bool = False,
+                   is_committed: bool = False, has_ended: bool = False) -> SampleOutcome:
+    """One attempt's outcome. `is_finished` = a final part arrived (`SamplePartIn.is_final`); `has_ended` = an
+    attempt end part arrived."""
+    if is_superseded:
+        return SampleOutcome.SUPERSEDED
+    if not is_finished:
+        return SampleOutcome.ENDED if has_ended else SampleOutcome.IN_FLIGHT
+    if drop_reason is not None:
+        return SampleOutcome.DROPPED
+    if split is not SampleSplit.TRAIN:
+        return SampleOutcome(split.value)
+    if is_consumed:
+        return SampleOutcome.TRAINED if is_committed else SampleOutcome.CONSUMED
+    return SampleOutcome.GENERATED

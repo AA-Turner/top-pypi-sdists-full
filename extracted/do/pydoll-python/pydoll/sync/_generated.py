@@ -38,6 +38,7 @@ from pydoll.utils import validate_browser_paths
 from pydoll.browser.options import ChromiumOptions
 import asyncio
 import json
+import math
 import os
 import shutil
 from abc import ABC, abstractmethod
@@ -48,18 +49,18 @@ from urllib.parse import urlsplit, urlunsplit
 from pydoll.browser.managers import BrowserProcessManager, ProxyManager, TempDirectoryManager
 from pydoll.commands import BrowserCommands, EmulationCommands, FetchCommands, RuntimeCommands, StorageCommands, TargetCommands
 from pydoll.connection import ConnectionHandler
-from pydoll.exceptions import BrowserNotRunning, CommandFailed, FailedToStartBrowser, InvalidConnectionPort, InvalidWebSocketAddress, MissingTargetOrWebSocket, NoValidTabFound
+from pydoll.exceptions import BrowserNotRunning, CommandFailed, FailedToStartBrowser, InvalidConnectionPort, InvalidWebSocketAddress, MissingTargetOrWebSocket, NoValidTabFound, PydollException
 from pydoll.protocol.browser.types import DownloadBehavior
 from pydoll.protocol.fetch.events import FetchEvent
 from pydoll.protocol.fetch.types import AuthChallengeResponseType
 from pydoll.protocol.target.events import TargetEvent
 from pydoll.protocol.target.types import FilterEntry
-from pydoll.utils import PollInterval, find_free_port
+from pydoll.utils import PollInterval, find_free_port, is_port_free
 from pydoll.utils.fingerprint_builder import build_fingerprint_worker_js
 from pydoll.utils.user_agent_parser import ParsedUserAgent, UserAgentParser
 from tempfile import TemporaryDirectory
 from pydoll.browser.interfaces import BrowserOptionsManager, Options
-from pydoll.protocol.base import Command, T_CommandParams, T_CommandResponse
+from pydoll.protocol.base import Command, EmptyResponse, T_CommandParams, T_CommandResponse
 from pydoll.protocol.browser.methods import GetVersionResponse, GetVersionResult, GetWindowForTargetResponse
 from pydoll.protocol.browser.types import Bounds, PermissionType
 from pydoll.protocol.fetch.events import RequestPausedEvent
@@ -83,11 +84,12 @@ from pydoll.browser.fingerprint_applier import FingerprintApplier
 from pydoll.commands import DomCommands, FetchCommands, NetworkCommands, PageCommands, RuntimeCommands, StorageCommands, TargetCommands
 from pydoll.constants import PageLoadState
 from pydoll.elements.mixins import FindElementsMixin
-from pydoll.exceptions import CommandExecutionTimeout, CommandFailed, DownloadTimeout, InvalidFileExtension, InvalidScriptWithElement, InvalidTabInitialization, MissingScreenshotPath, NavigationError, NetworkEventsNotEnabled, NoDialogPresent, PageLoadTimeout, ScriptEvaluationError, TopLevelTargetRequired, WaitElementTimeout, WaitTimeout, WebSocketConnectionClosed
+from pydoll.exceptions import CommandExecutionTimeout, CommandFailed, DownloadTimeout, InvalidFileExtension, InvalidScriptWithElement, InvalidTabInitialization, MissingScreenshotPath, NavigationError, NetworkEventsNotEnabled, NoDialogPresent, PageLoadTimeout, ScriptEvaluationError, TargetCrashed, TopLevelTargetRequired, WaitElementTimeout, WaitTimeout, WebSocketConnectionClosed
 from pydoll.extractor.engine import ExtractionEngine
 from pydoll.interactions.iframe import IFrameContext
 from pydoll.protocol.browser.types import DownloadBehavior, DownloadProgressState
 from pydoll.protocol.dom.types import Node, ShadowRootType
+from pydoll.protocol.inspector.events import InspectorEvent
 from pydoll.protocol.network.events import NetworkEvent
 from pydoll.protocol.network.types import ResourceType
 from pydoll.protocol.page.events import PageEvent
@@ -106,7 +108,7 @@ from pydoll.protocol.network.methods import GetCookiesResponse as NetworkGetCook
 from pydoll.protocol.network.methods import GetResponseBodyResponse
 from pydoll.protocol.network.types import Cookie, CookieParam, ErrorReason, RequestMethod
 from pydoll.protocol.page.events import FileChooserOpenedEvent
-from pydoll.protocol.page.methods import CaptureScreenshotResponse, GetResourceContentResponse, GetResourceTreeResponse, NavigateResponse, PrintToPDFResponse
+from pydoll.protocol.page.methods import CaptureScreenshotResponse, GetNavigationHistoryResponse, GetResourceContentResponse, GetResourceTreeResponse, NavigateResponse, PrintToPDFResponse
 from pydoll.protocol.runtime.methods import EvaluateResponse
 from pydoll.protocol.target.methods import AttachToTargetResponse, GetTargetsResponse
 T = TypeVar('T', bound='ExtractionModel')
@@ -118,6 +120,7 @@ from pydoll.elements.utils import SelectorParser
 from pydoll.exceptions import CommandFailed, ElementNotFound, ScriptException, WaitElementTimeout
 from pydoll.utils import PollInterval
 from typing import Literal
+from pydoll.protocol.base import Command, T_CommandParams, T_CommandResponse
 from pydoll.protocol.dom.methods import DescribeNodeResponse
 from pydoll.protocol.dom.types import Node
 from pydoll.protocol.runtime.methods import CallFunctionOnParams, CallFunctionOnResponse, EvaluateParams, EvaluateResponse, GetPropertiesResponse
@@ -150,7 +153,6 @@ from pydoll.interactions.keyboard import CommandExecutor
 from pydoll.interactions.keyboard import TypoResult
 from pydoll.interactions.keyboard import TimingConfig
 from pydoll.interactions.keyboard import TypoConfig
-import math
 from pydoll.commands import InputCommands, RuntimeCommands
 from pydoll.constants import PRESSED_POINTER_FORCE
 from pydoll.interactions.utils import bezier_2d, fitts_duration, minimum_jerk, random_control_points
@@ -230,29 +232,49 @@ class Chrome(SyncBase):
         Returns:
             Initial tab for interaction.
 
+        A start that fails or is cancelled at any point after the process was
+        launched ends that process and removes its temporary profile before the
+        error propagates.
+
         Raises:
-            FailedToStartBrowser: If the executable cannot be launched, exits before
-                answering, or does not answer within ``options.start_timeout``. The
-                message carries the exit code and the last lines the browser wrote
-                to stderr, which is where Chrome explains what went wrong.
+            FailedToStartBrowser: If the browser this object started is still
+                running, if another process already listens on the debugging
+                port, or if the executable cannot be launched, exits before
+                answering, or does not answer within ``options.start_timeout``.
+                The message carries the exit code and the last lines the browser
+                wrote to stderr, which is where Chrome explains what went wrong.
         """
         return mapping.from_impl(self._run(self._impl.start()))
 
     def stop(self):
         """
-        Stop browser process and cleanup resources.
+        Stop the browser and clean up what start() left behind.
 
-        Sends Browser.close command, terminates process, removes temp directories,
-        and closes WebSocket connections.
+        Asks the browser to close with ``Browser.close`` while it still
+        answers, then ends the process start() launched, closes the WebSocket
+        connection and removes the temporary profile. A browser that crashed
+        or froze cannot answer, so it is ended without CDP, and
+        ``Browser.close`` gets a short timeout after which the process is
+        ended anyway. Either way nothing is left behind, even when stop() is
+        cancelled midway: the cleanup completes before the cancellation
+        propagates.
+
+        Only a browser this object launched, or reached with ``connect()``,
+        is asked to close: after a start() refused because another browser
+        holds the port, that browser is left alone.
 
         Raises:
-            BrowserNotRunning: If the browser is not currently running.
+            BrowserNotRunning: If there is nothing to stop: no process was
+                launched and no browser reached with ``connect()`` answers.
         """
         return mapping.from_impl(self._run(self._impl.stop()))
 
     def close(self):
         """
-        Closes the WebSocket connection and releases resources.
+        Closes the WebSocket connections and releases resources.
+
+        The connections of the tabs this browser handed out are closed too, and
+        the tabs are dropped from it.
         """
         return mapping.from_impl(self._run(self._impl.close()))
 
@@ -280,7 +302,9 @@ class Chrome(SyncBase):
         The default browser context cannot be deleted.
 
         Note:
-            Closes all associated tabs immediately.
+            Closes all associated tabs immediately. Their Tab objects are
+            dropped from the browser and their connections closed, so they
+            release their callbacks and network logs.
         """
         return mapping.from_impl(self._run(self._impl.delete_browser_context(browser_context_id=mapping.to_impl(browser_context_id))))
 
@@ -319,12 +343,22 @@ class Chrome(SyncBase):
         Tabs that are already opened will be returned as is. If a new target is opened,
         a new Tab instance will be created.
 
+        Only Tabs whose target is gone are dropped (and their connections
+        closed); a Tab created in a context created with
+        ``create_browser_context`` reports that context.
+
         Returns:
             List of Tab instances. The last tab is the most recent one.
         """
         return mapping.from_impl(self._run(self._impl.get_opened_tabs()))
 
     def get_tab_by_target(self, target: TargetInfo) -> Tab:
+        """The Tab of a target, in the context it belongs to when that one was created.
+
+        A target that already has a Tab gets that same Tab back. A new one is
+        kept by the browser like every other tab, so ``close()``, ``stop()``
+        and ``delete_browser_context()`` close its connection.
+        """
         return mapping.from_impl(self._run(self._impl.get_tab_by_target(target=mapping.to_impl(target))))
 
     def set_download_path(self, path: str, browser_context_id: str | None=None):
@@ -555,29 +589,49 @@ class Edge(SyncBase):
         Returns:
             Initial tab for interaction.
 
+        A start that fails or is cancelled at any point after the process was
+        launched ends that process and removes its temporary profile before the
+        error propagates.
+
         Raises:
-            FailedToStartBrowser: If the executable cannot be launched, exits before
-                answering, or does not answer within ``options.start_timeout``. The
-                message carries the exit code and the last lines the browser wrote
-                to stderr, which is where Chrome explains what went wrong.
+            FailedToStartBrowser: If the browser this object started is still
+                running, if another process already listens on the debugging
+                port, or if the executable cannot be launched, exits before
+                answering, or does not answer within ``options.start_timeout``.
+                The message carries the exit code and the last lines the browser
+                wrote to stderr, which is where Chrome explains what went wrong.
         """
         return mapping.from_impl(self._run(self._impl.start()))
 
     def stop(self):
         """
-        Stop browser process and cleanup resources.
+        Stop the browser and clean up what start() left behind.
 
-        Sends Browser.close command, terminates process, removes temp directories,
-        and closes WebSocket connections.
+        Asks the browser to close with ``Browser.close`` while it still
+        answers, then ends the process start() launched, closes the WebSocket
+        connection and removes the temporary profile. A browser that crashed
+        or froze cannot answer, so it is ended without CDP, and
+        ``Browser.close`` gets a short timeout after which the process is
+        ended anyway. Either way nothing is left behind, even when stop() is
+        cancelled midway: the cleanup completes before the cancellation
+        propagates.
+
+        Only a browser this object launched, or reached with ``connect()``,
+        is asked to close: after a start() refused because another browser
+        holds the port, that browser is left alone.
 
         Raises:
-            BrowserNotRunning: If the browser is not currently running.
+            BrowserNotRunning: If there is nothing to stop: no process was
+                launched and no browser reached with ``connect()`` answers.
         """
         return mapping.from_impl(self._run(self._impl.stop()))
 
     def close(self):
         """
-        Closes the WebSocket connection and releases resources.
+        Closes the WebSocket connections and releases resources.
+
+        The connections of the tabs this browser handed out are closed too, and
+        the tabs are dropped from it.
         """
         return mapping.from_impl(self._run(self._impl.close()))
 
@@ -605,7 +659,9 @@ class Edge(SyncBase):
         The default browser context cannot be deleted.
 
         Note:
-            Closes all associated tabs immediately.
+            Closes all associated tabs immediately. Their Tab objects are
+            dropped from the browser and their connections closed, so they
+            release their callbacks and network logs.
         """
         return mapping.from_impl(self._run(self._impl.delete_browser_context(browser_context_id=mapping.to_impl(browser_context_id))))
 
@@ -644,12 +700,22 @@ class Edge(SyncBase):
         Tabs that are already opened will be returned as is. If a new target is opened,
         a new Tab instance will be created.
 
+        Only Tabs whose target is gone are dropped (and their connections
+        closed); a Tab created in a context created with
+        ``create_browser_context`` reports that context.
+
         Returns:
             List of Tab instances. The last tab is the most recent one.
         """
         return mapping.from_impl(self._run(self._impl.get_opened_tabs()))
 
     def get_tab_by_target(self, target: TargetInfo) -> Tab:
+        """The Tab of a target, in the context it belongs to when that one was created.
+
+        A target that already has a Tab gets that same Tab back. A new one is
+        kept by the browser like every other tab, so ``close()``, ``stop()``
+        and ``delete_browser_context()`` close its connection.
+        """
         return mapping.from_impl(self._run(self._impl.get_tab_by_target(target=mapping.to_impl(target))))
 
     def set_download_path(self, path: str, browser_context_id: str | None=None):
@@ -1031,7 +1097,11 @@ class Tab(SyncBase):
         Close this browser tab.
 
         Note:
-            Tab instance becomes invalid after calling this method.
+            Tab instance becomes invalid after calling this method. It is
+            removed from the browser and its connection is closed, which drops
+            its callbacks, even when closing fails because the tab was already
+            closed elsewhere. Another Tab object the browser keeps for the same
+            target is dropped and closed with it.
         """
         return mapping.from_impl(self._run(self._impl.close()))
 
@@ -1151,6 +1221,9 @@ class Tab(SyncBase):
         Args:
             url: Target URL to navigate to.
             timeout: Maximum seconds to wait for page load (default 300).
+
+        On a tab whose renderer crashed, the navigation starts a new renderer
+        first, so the tab recovers.
 
         Raises:
             NavigationError: If the navigation fails (e.g., DNS error).
@@ -1299,6 +1372,10 @@ class Tab(SyncBase):
     def refresh(self, ignore_cache: bool=False, script_to_evaluate_on_load: str | None=None):
         """
         Reload current page and wait for completion.
+
+        On a tab whose renderer crashed, there is no live page to reload: the
+        tab loads the crashed page's URL again in a new renderer, and
+        ``ignore_cache`` and ``script_to_evaluate_on_load`` do not apply.
 
         Args:
             ignore_cache: Bypass browser cache if True.

@@ -1,0 +1,1 @@
+var e=new URL(`json.worker-CV9fqkUp.js`,import.meta.url).href;export{e as default};

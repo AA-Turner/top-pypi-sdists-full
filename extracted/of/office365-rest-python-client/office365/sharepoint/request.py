@@ -16,7 +16,7 @@ from office365.runtime.client_request import ASYNC_AUTHENTICATED_FLAG
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.http.url import get_absolute_url
-from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.odata.json_format import JsonProfile
 from office365.runtime.odata.request import ODataRequest
 from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.queries.client_query import ClientQuery
@@ -45,7 +45,7 @@ class SharePointRequest(ODataRequest):
         allow_ntlm: bool = False,
         browser_mode: bool = False,
         authority: Optional[str] = None,
-        json_format: Optional[ODataJsonFormat] = None,
+        profile: Optional[JsonProfile] = None,
     ):
         """
         Initialize SharePoint request client
@@ -56,10 +56,10 @@ class SharePointRequest(ODataRequest):
             allow_ntlm: Whether NTLM authentication is enabled (default: False)
             browser_mode: Enable browser authentication (default: False)
             authority: Override the MSAL authority URL (e.g. https://<tenant>.ciamlogin.com)
-            json_format: Response JSON format (default: V3 JsonLightFormat; pass a V4
+            profile: Response JSON profile (default: V3 JsonLightFormat; pass a V4
               format for the ``_api/v2.1`` OData V4 endpoints)
         """
-        super().__init__(base_url, json_format or JsonLightFormat())
+        super().__init__(base_url, profile or JsonLightFormat())
         self._auth_context = AuthenticationContext(
             url=base_url,
             environment=environment,
@@ -125,7 +125,7 @@ class SharePointRequest(ODataRequest):
 
     def build_request(self, query: ClientQuery) -> RequestOptions:
         request = super().build_request(query)
-        if isinstance(self.json_format, JsonLightFormat):
+        if self.json_format.dialect.tunnels_methods:
             if isinstance(query, DeleteEntityQuery):
                 request.ensure_header("X-HTTP-Method", "DELETE")
                 request.ensure_header("IF-MATCH", "*")
@@ -149,10 +149,8 @@ class SharePointRequest(ODataRequest):
             request = RequestOptions(f"{self.service_root_url}/contextInfo")
             request.method = HttpMethod.Post
             response = client.execute_request_direct(request)
-            json_format = JsonLightFormat()
-            json_format.function = "GetContextWebInformation"
             return_value = ContextWebInformation()
-            client.map_json(response.json(), return_value, json_format)
+            client.hydrate(return_value, response.json(), wrapper="GetContextWebInformation")
             return return_value
 
         return retry(

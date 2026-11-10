@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.sharing.role import Role
 
 
-@dataclass
 class UserSharingResult(ClientValue):
     """Specifies a sharing result for an individual user that method UpdateDocumentSharingInfo
     (section 3.2.5.187.2.1.1) returns.

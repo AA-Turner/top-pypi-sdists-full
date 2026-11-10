@@ -66,7 +66,6 @@ class OrderDetails:
         error_message (Union[Unset, str]):
         error_traceback (Union[Unset, str]):
         error_updated_at (Union[None, Unset, datetime.datetime]):
-        callback_url (Union[None, Unset, str]):
         completed_at (Union[None, Unset, datetime.datetime]):
         request_comment (Union[None, Unset, str]):
         attachment (Union[None, Unset, str]):
@@ -178,7 +177,6 @@ class OrderDetails:
     error_message: Union[Unset, str] = UNSET
     error_traceback: Union[Unset, str] = UNSET
     error_updated_at: Union[None, Unset, datetime.datetime] = UNSET
-    callback_url: Union[None, Unset, str] = UNSET
     completed_at: Union[None, Unset, datetime.datetime] = UNSET
     request_comment: Union[None, Unset, str] = UNSET
     attachment: Union[None, Unset, str] = UNSET
@@ -393,12 +391,6 @@ class OrderDetails:
             error_updated_at = self.error_updated_at.isoformat()
         else:
             error_updated_at = self.error_updated_at
-
-        callback_url: Union[None, Unset, str]
-        if isinstance(self.callback_url, Unset):
-            callback_url = UNSET
-        else:
-            callback_url = self.callback_url
 
         completed_at: Union[None, Unset, str]
         if isinstance(self.completed_at, Unset):
@@ -763,8 +755,6 @@ class OrderDetails:
             field_dict["error_traceback"] = error_traceback
         if error_updated_at is not UNSET:
             field_dict["error_updated_at"] = error_updated_at
-        if callback_url is not UNSET:
-            field_dict["callback_url"] = callback_url
         if completed_at is not UNSET:
             field_dict["completed_at"] = completed_at
         if request_comment is not UNSET:
@@ -1142,15 +1132,6 @@ class OrderDetails:
             return cast(Union[None, Unset, datetime.datetime], data)
 
         error_updated_at = _parse_error_updated_at(d.pop("error_updated_at", UNSET))
-
-        def _parse_callback_url(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        callback_url = _parse_callback_url(d.pop("callback_url", UNSET))
 
         def _parse_completed_at(data: object) -> Union[None, Unset, datetime.datetime]:
             if data is None:
@@ -1666,7 +1647,6 @@ class OrderDetails:
             error_message=error_message,
             error_traceback=error_traceback,
             error_updated_at=error_updated_at,
-            callback_url=callback_url,
             completed_at=completed_at,
             request_comment=request_comment,
             attachment=attachment,

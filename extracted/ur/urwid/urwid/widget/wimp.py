@@ -31,7 +31,7 @@ from urwid.text_layout import calc_coords
 from urwid.util import is_mouse_press
 
 from .columns import Columns
-from .constants import Align, WrapMode
+from .constants import Align, MouseButton, WrapMode
 from .text import Text
 from .widget import WidgetError, WidgetWrap
 
@@ -476,7 +476,7 @@ class CheckBox(WidgetWrap[Columns]):
         >>> cb.state
         True
         """
-        if button != 1 or not is_mouse_press(event):
+        if button != MouseButton.LEFT or not is_mouse_press(event):
             return False
         self.toggle_state()
         return True
@@ -533,6 +533,7 @@ class RadioButton(CheckBox):
 
         This function will append the new radio button to group.
         "first True" will set to True if group is empty.
+        A button created with state True clears the other buttons of the group, as :meth:`set_state` does.
 
         Signals supported: ``'change'``, ``"postchange"``
 
@@ -569,6 +570,8 @@ class RadioButton(CheckBox):
             user_data=user_data,
         )
         group.append(self)
+        if state is True:
+            self._clear_others()
 
     def set_state(self, state: bool | Literal["mixed"], do_callback: bool = True) -> None:
         """
@@ -609,8 +612,14 @@ class RadioButton(CheckBox):
         if state is not True:
             return
 
-        # clear the state of each other radio button, unless a signal handler has
-        # since cleared this one: the selection then belongs to whoever did that
+        self._clear_others()
+
+    def _clear_others(self) -> None:
+        """Clear the state of each other radio button of the group.
+
+        It stops once a signal handler clears this button.
+        The selection then belongs to whoever did that.
+        """
         for cb in self.group:
             if self._state is not True:
                 break
@@ -634,6 +643,25 @@ class RadioButton(CheckBox):
         (False, True)
         """
         self.set_state(True)
+
+    @property
+    def selected_button(self) -> RadioButton | None:
+        """Get the button of the group that is selected.
+
+        :returns: the first button of ``group`` whose state is True,
+            or ``None`` when no button of the group is selected, for example when every button was created
+            with ``state=False``.
+
+        >>> bgroup = []  # button group
+        >>> b1 = RadioButton(bgroup, "Agree")
+        >>> b2 = RadioButton(bgroup, "Disagree")
+        >>> b2.selected_button is b1
+        True
+        >>> b2.set_state(True)
+        >>> b1.selected_button.label
+        'Disagree'
+        """
+        return next((button for button in self.group if button.state is True), None)
 
     # Re-bind so ``radio.state = True`` uses this class's exclusive setter, not CheckBox.state.
     state = property(CheckBox.get_state, set_state)
@@ -860,7 +888,7 @@ class Button(WidgetWrap[Columns]):
         >>> clicked_buttons
         ['Ok']
         """
-        if button != 1 or not is_mouse_press(event):
+        if button != MouseButton.LEFT or not is_mouse_press(event):
             return False
 
         self._emit("click")

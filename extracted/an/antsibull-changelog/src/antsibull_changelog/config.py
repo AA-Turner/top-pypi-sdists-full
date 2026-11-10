@@ -19,10 +19,13 @@ from collections.abc import Sequence as _Sequence
 
 import annotated_types as at
 import pydantic as p
-from antsibull_fileutils.yaml import load_yaml_file, store_yaml_file
+from antsibull_fileutils.yaml import load_yaml_bytes, load_yaml_file, store_yaml_file
 
 from .errors import ChangelogError
 from .logger import LOGGER
+
+CHANGELOGS_DIR = "changelogs"
+CONFIG_FILENAME = "config.yaml"
 
 
 def _is_sequence(value: t.Any) -> bool:
@@ -72,6 +75,52 @@ class TextFormat(enum.Enum):
         raise ValueError(f"Unknown extension {extension!r}")
 
 
+class OutputTextFormat(enum.Enum):
+    """
+    Supported text formats.
+    """
+
+    RESTRUCTURED_TEXT = "restructuredtext"
+    MARKDOWN = "markdown"
+    TEXT = "text"
+
+    def to_extension(self) -> str:
+        """
+        Convert an output text format to the associated extension (without leading dot).
+        """
+        if self == OutputTextFormat.RESTRUCTURED_TEXT:
+            return "rst"
+        if self == OutputTextFormat.MARKDOWN:
+            return "md"
+        if self == OutputTextFormat.TEXT:
+            return "txt"
+        raise ValueError(f"Unknown text format {self}")  # pragma: no cover
+
+    @staticmethod
+    def from_extension(extension: str) -> OutputTextFormat:
+        """
+        Convert a file extension (without leading dot) to the corresponding output text format.
+        """
+        if extension == "rst":
+            return OutputTextFormat.RESTRUCTURED_TEXT
+        if extension == "md":
+            return OutputTextFormat.MARKDOWN
+        if extension == "txt":
+            return OutputTextFormat.TEXT
+        raise ValueError(f"Unknown extension {extension!r}")
+
+    @staticmethod
+    def from_format(text_format: TextFormat):
+        """
+        Convert a ``TextFormat`` to the corresponding ``OutputTextFormat``.
+        """
+        if text_format == TextFormat.RESTRUCTURED_TEXT:
+            return OutputTextFormat.RESTRUCTURED_TEXT
+        if text_format == TextFormat.MARKDOWN:
+            return OutputTextFormat.MARKDOWN
+        raise ValueError(f"Unknown text format {text_format!r}")
+
+
 def _is_other_project_config(config_path: str) -> bool:
     try:
         config = load_yaml_file(config_path)
@@ -96,11 +145,11 @@ class PathsConfig:
 
     @staticmethod
     def _changelog_dir(base_dir: str) -> str:
-        return os.path.join(base_dir, "changelogs")
+        return os.path.join(base_dir, CHANGELOGS_DIR)
 
     @staticmethod
     def _config_path(changelog_dir: str) -> str:
-        return os.path.join(changelog_dir, "config.yaml")
+        return os.path.join(changelog_dir, CONFIG_FILENAME)
 
     def __init__(
         self,
@@ -275,6 +324,17 @@ class CollectionDetails:
         if self.flatmap is None and galaxy_yaml.get("type") is not None:
             self.flatmap = galaxy_yaml["type"] == "flatmap"
 
+    def set_galaxy_yaml_content(self, content: bytes) -> None:
+        """
+        Set the galaxy.yml content directly, instead of lazily loading the file from disk.
+        """
+        try:
+            galaxy_yaml = load_yaml_bytes(content)
+        except Exception as exc:
+            raise ChangelogError(f"Error while parsing galaxy.yml: {exc}") from exc
+
+        self._parse_galaxy_yaml(galaxy_yaml)
+
     def _load_galaxy_yaml(
         self, needed_var: str, what_for: str | None = None, help_text: str | None = None
     ):
@@ -388,25 +448,31 @@ class ChangelogOutput(ChangelogRenderConfig):
 
     file: str
     filename_version_depth: p.NonNegativeInt = 0
-    format: TextFormat
+    format: t.Union[TextFormat, OutputTextFormat]
+
+    # Format specific:
+    text_use_ansi_formatting: t.Literal["always", "never"] = "never"
+    text_max_columns: int = 120
 
     @p.field_validator("format", mode="before")
     @classmethod
-    def parse_format(cls, value: t.Any) -> TextFormat:
+    def parse_format(cls, value: t.Any) -> TextFormat | OutputTextFormat:
         """
         Parse the value of format.
         """
-        if isinstance(value, TextFormat):
+        if isinstance(value, OutputTextFormat):
             return value
+        if isinstance(value, TextFormat):
+            return OutputTextFormat.from_format(value)
         if not isinstance(value, str):
             raise ValueError("format must be a string")
         try:
-            return TextFormat.from_extension(value)
+            return OutputTextFormat.from_extension(value)
         except ValueError as exc:
             raise ValueError(f"format is an unknown extension: {exc}") from exc
 
     @p.field_serializer("format")
-    def serialize_format(self, output_format: TextFormat) -> str:
+    def serialize_format(self, output_format: TextFormat | OutputTextFormat) -> str:
         """
         Serialize the format field.
         """
@@ -679,10 +745,10 @@ class ChangelogConfig(p.BaseModel):
         if "output" not in adjusted_config:
             adjusted_config["output"] = [
                 ChangelogOutput(
-                    file="changelogs/CHANGELOG-v%s.rst",
+                    file=f"{CHANGELOGS_DIR}/CHANGELOG-v%s.rst",
                     filename_version_depth=2,
                     title_version_depth=2,
-                    format=TextFormat.RESTRUCTURED_TEXT,
+                    format=OutputTextFormat.RESTRUCTURED_TEXT,
                 )
             ]
 

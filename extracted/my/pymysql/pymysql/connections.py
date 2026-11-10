@@ -277,12 +277,17 @@ class Connection:
         self._ssl_required = False
         if not ssl_disabled:
             if ssl_ca or ssl_cert or ssl_key or ssl_verify_cert or ssl_verify_identity:
+                ssl_verify_identity = bool(ssl_verify_identity)
+                if ssl_verify_identity:
+                    verify_mode = True
+                elif ssl_verify_cert is not None:
+                    verify_mode = ssl_verify_cert
+                else:
+                    verify_mode = False
                 ssl = {
                     "ca": ssl_ca,
-                    "check_hostname": bool(ssl_verify_identity),
-                    "verify_mode": ssl_verify_cert
-                    if ssl_verify_cert is not None
-                    else False,
+                    "check_hostname": ssl_verify_identity,
+                    "verify_mode": verify_mode,
                 }
                 if ssl_cert is not None:
                     ssl["cert"] = ssl_cert
@@ -537,6 +542,11 @@ class Connection:
 
         if isinstance(obj, (bytes, bytearray)):
             return f"X'{obj.hex()}'"
+
+        # don't use isinstance here. it breaks subclasses like time.struct_time.
+        if type(obj) in (tuple, list, set, frozenset):
+            escape = self.escape
+            return "(" + ",".join([escape(item, mapping) for item in obj]) + ")"
 
         if mapping is None:
             mapping = self.encoders

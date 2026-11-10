@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.partners.billing.azure_usage import AzureUsage
@@ -7,9 +9,14 @@ from office365.partners.billing.manifest import Manifest
 from office365.partners.billing.operation import Operation
 from office365.partners.billing.reconciliation import BillingReconciliation
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
+
+if TYPE_CHECKING:
+    from office365.partners.billing.azure_aggregated_usage import AzureAggregatedUsage
 
 
 class Billing(Entity):
+    @odata(name="manifests", navigation=True)
     @property
     def manifests(self) -> EntityCollection[Manifest]:
         """Gets the manifests property"""
@@ -18,6 +25,7 @@ class Billing(Entity):
             EntityCollection[Manifest](self.context, Manifest, ResourcePath("manifests", self.resource_path)),
         )
 
+    @odata(name="operations", navigation=True)
     @property
     def operations(self) -> EntityCollection[Operation]:
         """Gets the operations property"""
@@ -26,6 +34,7 @@ class Billing(Entity):
             EntityCollection[Operation](self.context, Operation, ResourcePath("operations", self.resource_path)),
         )
 
+    @odata(name="reconciliation", navigation=True)
     @property
     def reconciliation(self) -> BillingReconciliation:
         """Gets the reconciliation property"""
@@ -33,6 +42,7 @@ class Billing(Entity):
             "reconciliation", BillingReconciliation(self.context, ResourcePath("reconciliation", self.resource_path))
         )
 
+    @odata(name="usage", navigation=True)
     @property
     def usage(self) -> AzureUsage:
         """Gets the usage property"""
@@ -41,3 +51,13 @@ class Billing(Entity):
     @property
     def entity_type_name(self) -> str:
         return "microsoft.graph.partners.billing.Billing"
+
+    @odata(name="aggregatedUsage", navigation=True)
+    @property
+    def aggregated_usage(self) -> AzureAggregatedUsage:
+        """Gets the aggregatedUsage property"""
+        from office365.partners.billing.azure_aggregated_usage import AzureAggregatedUsage
+
+        return self.properties.get(
+            "aggregatedUsage", AzureAggregatedUsage(self.context, ResourcePath("aggregatedUsage", self.resource_path))
+        )

@@ -9,7 +9,10 @@ T = TypeVar("T", bound="ResourceApiKeyCreateRequestLimitsType0")
 
 @_attrs_define
 class ResourceApiKeyCreateRequestLimitsType0:
-    """Limits per component type; zero or absent means no limit."""
+    """Month limits per component type; zero or absent means no month limit. Replaces the month limits of spending_limits
+    and keeps the other periods. Not together with spending_limits.
+
+    """
 
     additional_properties: dict[str, float] = _attrs_field(init=False, factory=dict)
 

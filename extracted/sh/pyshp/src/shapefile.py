@@ -8,7 +8,7 @@ Compatible with Python versions >=3.9
 
 from __future__ import annotations
 
-__version__ = "3.1.6"
+__version__ = "3.1.8"
 
 import abc
 import array
@@ -2834,6 +2834,10 @@ class ShapefileException(Exception):
     """An exception to handle shapefile specific problems."""
 
 
+class CorruptShpShapeRecord(ShapefileException):
+    """Indicates invalid metadata in Shape record headers."""
+
+
 class dbfFileException(ShapefileException):
     """Indicates a problem with the .dbf file."""
 
@@ -2978,7 +2982,7 @@ class DbfReader(_HasCheckedReadableFile):
         self.encodingErrors = encodingErrors
         self.strict = strict
 
-        self.fields: list[Field] = []
+        self.data_fields: list[Field] = []
         self._fieldLookup: dict[str, int] = {}
 
         self._dbfHeader()
@@ -3001,7 +3005,7 @@ class DbfReader(_HasCheckedReadableFile):
         # read fields
         numFields = (self._dbfHdrLength - 33) // 32
         for __ in range(numFields):
-            self.fields.append(
+            self.data_fields.append(
                 Field.from_byte_stream(
                     b_io=self.file,
                     encoding=self.encoding,
@@ -3015,48 +3019,46 @@ class DbfReader(_HasCheckedReadableFile):
                 "Dbf header lacks expected terminator. (likely corrupt?)"
             )
 
-        # insert deletion field at start
-        self.fields.insert(0, Field("DeletionFlag", FieldType.C, 1, 0))
-
         # store all field positions for easy lookups
         # note: fieldLookup gives the index position of a field inside Reader.fields
-        self._fieldLookup = {f.name: i for i, f in enumerate(self.fields)}
+        self._fieldLookup = {f.name: i for i, f in enumerate(self.data_fields)}
 
-        # by default, read all fields except the deletion flag, hence "[1:]"
         # note: recLookup gives the index position of a field inside a _Record list
-        fieldnames = [f.name for f in self.fields[1:]]
+        fieldnames = [f.name for f in self.data_fields]
         __fieldTuples, recLookup, recStruct = self._record_fields(fieldnames)
         self._fullRecStruct = recStruct
         self._fullRecLookup = recLookup
 
     @property
-    def data_fields(self) -> list[Field]:
-        """All fields except the DeletionFlag."""
-        return self.fields[1:]
+    def fields(self) -> list[Field]:
+        """To preserve legacy behaviour, preppend data fields with the DeletionFlag."""
+        return [Field("DeletionFlag", FieldType.C, 1, 0), *self.data_fields]
 
-    def _record_fmt(self, fields: Container[str] | None = None) -> tuple[str, int]:
-        """Calculates the format and size of a .dbf record. Optional 'fields' arg
+    def _record_fmt(self, fields: Container[str] | None = None) -> str:
+        """Calculates the struct format string for of a .dbf record. Optional 'fields' arg
         specifies which fieldnames to unpack and which to ignore. Note that this
-        always includes the DeletionFlag at index 0, regardless of the 'fields' arg.
+        The DeletionFlag is always included at index 0 (to correctly unpack the dbf record).
+        The items in fields may appear in any order.
         """
-        structcodes = [f"{fieldinfo.size}s" for fieldinfo in self.fields]
-        if fields is not None:
-            # only unpack specified fields, ignore others using padbytes (x)
-            structcodes = [
-                code
-                if fieldinfo.name in fields
-                or fieldinfo.name == "DeletionFlag"  # always unpack delflag
-                else f"{fieldinfo.size}x"
-                for fieldinfo, code in zip(self.fields, structcodes)
-            ]
+        structcodes = ["s"]  # Always unpack DeletionFlag
+        for fieldinfo in self.data_fields:
+            if (
+                fieldinfo.size >= 2
+            ):  # "1s" or "s", makes no difference to struct fmt strs
+                structcodes.append(str(fieldinfo.size))
+            structcodes.append(
+                "s" if fields is None or fieldinfo.name in fields else "x"
+            )
+
         fmt = "".join(structcodes)
         fmt_size = calcsize(fmt)
         # total size of fields should add up to recordlength from the header
-        while fmt_size < self._record_length:
-            # if not, pad byte until reaches recordlength
-            fmt += "x"
-            fmt_size += 1
-        return (fmt, fmt_size)
+        # so calculate the difference, and concat a field of that many pad bytes.
+        if fmt_size < self._record_length:
+            num_pad_bytes = self._record_length - fmt_size
+            fmt = f"{fmt}{num_pad_bytes}x"
+
+        return fmt
 
     def _record_fields(
         self, fields: Iterable[str] | None = None
@@ -3064,30 +3066,29 @@ class DbfReader(_HasCheckedReadableFile):
         """Returns the necessary info required to unpack a record's fields,
         restricted to a subset of fieldnames 'fields' if specified.
         Returns a list of field info tuples, a name-index lookup dict,
-        and a Struct instance for unpacking these fields. Note that DeletionFlag
-        is not a valid field.
+        and a Struct instance for unpacking these fields.
         """
         if fields is not None:
             # restrict info to the specified fields
             # first ignore repeated field names (order doesn't matter)
-            unique_fields = list(set(fields))
+            unique_fields = set(fields)
             # get the struct
-            fmt, __fmt_size = self._record_fmt(fields=unique_fields)
+            fmt = self._record_fmt(fields=unique_fields)
             recStruct = Struct(fmt)
             # make sure the given fieldnames exist
             for name in unique_fields:
-                if name not in self._fieldLookup or name == "DeletionFlag":
+                if name not in self._fieldLookup:
                     raise ValueError(f'"{name}" is not a valid field name')
             # fetch relevant field info tuples
-            fieldTuples = []
-            for fieldinfo in self.fields[1:]:
-                if fieldinfo.name in unique_fields:
-                    fieldTuples.append(fieldinfo)
+            fieldTuples = [
+                fieldinfo
+                for fieldinfo in self.data_fields
+                if fieldinfo.name in unique_fields
+            ]
             # store the field positions
             recLookup = {f.name: i for i, f in enumerate(fieldTuples)}
         else:
-            # use all the dbf fields
-            fieldTuples = self.fields[1:]  # sans deletion flag
+            fieldTuples = self.data_fields
             recStruct = self._fullRecStruct
             recLookup = self._fullRecLookup
         return fieldTuples, recLookup, recStruct
@@ -3099,13 +3100,15 @@ class DbfReader(_HasCheckedReadableFile):
         recStruct: Struct,
         oid: int | None = None,
     ) -> _Record | None:
-        """Reads and returns a dbf record row as a list of values. Requires specifying
-        a list of field info Field namedtuples 'fieldTuples', a record name-index dict 'recLookup',
-        and a Struct instance 'recStruct' for unpacking these fields.
+        """Reads and returns a dbf record row as a list of values. Requires self.file
+        to already be pointing to the start of the record (e.g. from a previous call
+        to self.file.seek).  Also requires specifying a list of field info Field
+        namedtuples 'fieldTuples', a record name-index dict 'recLookup', and a Struct
+        instance 'recStruct' for unpacking these fields.
 
         None is returned for 'deleted' records (those with their deletion flag marked).
         """
-        # The only format chars in from self._record_fmt, in recStruct from _record_fields,
+        # The only format chars from self._record_fmt, in recStruct from _record_fields,
         # are s and x (ascii encoded str and pad byte) so everything in recordContents is bytes
         # https://docs.python.org/3/library/struct.html#format-characters
         recordContents = recStruct.unpack(self.file.read(recStruct.size))
@@ -3202,9 +3205,7 @@ class DbfReader(_HasCheckedReadableFile):
         Returns None if record's deletion flag is marked.
         """
         i = ensure_within_bounds(i, self.numRecords)
-        recSize = self._record_length
-        self.file.seek(0)
-        self.file.seek(self._dbfHdrLength + (i * recSize))
+        self.seek_to_rec(index=i)
         fieldTuples, recLookup, recStruct = self._record_fields(fields)
         return self._record(
             oid=i, fieldTuples=fieldTuples, recLookup=recLookup, recStruct=recStruct
@@ -3231,9 +3232,7 @@ class DbfReader(_HasCheckedReadableFile):
         Set deleted_as_None=True to insert None for these, to preserve
         the indexing, as for DbfReader.record
         """
-        return [
-            record for record in self.iterRecords(fields, start, stop, deleted_as_None)
-        ]
+        return list(self.iterRecords(fields, start, stop, deleted_as_None))
 
     def iterRecords(
         self,
@@ -3275,8 +3274,7 @@ class DbfReader(_HasCheckedReadableFile):
             )
         elif stop < 0:
             stop = range(self.numRecords)[stop]
-        recSize = self._record_length
-        self.file.seek(self._dbfHdrLength + (start * recSize))
+        self.seek_to_rec(index=start)
         fieldTuples, recLookup, recStruct = self._record_fields(fields)
         for i in range(start, stop):
             r = self._record(
@@ -3284,6 +3282,10 @@ class DbfReader(_HasCheckedReadableFile):
             )
             if r is not None or deleted_as_None:
                 yield r
+
+    def seek_to_rec(self, index: int) -> None:
+        recSize = self._record_length
+        self.file.seek(self._dbfHdrLength + (index * recSize))
 
 
 class ShxReader(_HasCheckedReadableFile):
@@ -3402,7 +3404,11 @@ class ShpReader(_HasCheckedReadableFile):
             self.file.seek(header_pos)
             # Unpack the shape header only
             recNum, recLength_16bw = unpack(">2i", self.file.read(8))
-
+            if recLength_16bw <= 0:
+                raise CorruptShpShapeRecord(
+                    f"At offset: {header_pos} in .shp file got claimed record num: {recNum}"
+                    f" and non-positive shape record length: {recLength_16bw} (16 bit words)"
+                )
             shp_length_B = 2 * recLength_16bw
             shape_header_data = header_pos, shp_length_B, recNum
             self.headers_cache.append(shape_header_data)
@@ -3446,7 +3452,7 @@ class ShpReader(_HasCheckedReadableFile):
         """
         if offset is None or shape_len_B is None:
             offset, shape_len_B, _recNum = self.shape_header(index)
-        # Seek to 8B after the offset (past the shape's 8B header).
+        # Seek to 8B after the offset (past the shape's 8 byte header).
         self.file.seek(offset + 8)
         shape = self._shape(shape_len_B=shape_len_B, oid=index, bbox=bbox)
         return shape
@@ -3476,6 +3482,12 @@ class ShpReader(_HasCheckedReadableFile):
         except StructError as e:
             raise e
 
+        if shapeType not in (NULL, self.shapeType):
+            raise CorruptShpShapeRecord(
+                f"Shape type code in .shp file header: {self.shapeType} does not match "
+                f"the non-null shape type code in the shape record: {shapeType} (oid: {oid!r})"
+            )
+
         ShapeClass = SHAPE_CLASS_FROM_SHAPETYPE[shapeType]
         shape = ShapeClass.from_byte_stream(
             shapeType=shapeType,
@@ -3484,11 +3496,6 @@ class ShpReader(_HasCheckedReadableFile):
             oid=oid,
             bbox=bbox,
         )
-
-        # Seek to the end of this record as defined by the record header because
-        # the shapefile spec doesn't require the actual content to meet the header
-        # definition.  Probably allowed for lazy feature deletion.
-        # self.file.seek(next_shape_pos)
 
         return shape
 
@@ -3839,11 +3846,11 @@ class Reader(_HasExitStack):
 
     @property
     def fields(self) -> list[Field]:
+        """Includes DeletionFlag to preserve legacy behaviour."""
         return self.dbf_reader.fields
 
     @property
     def data_fields(self) -> list[Field]:
-        """All fields except the DeletionFlag."""
         return self.dbf_reader.data_fields
 
     def record(self, i: int = 0, fields: list[str] | None = None) -> _Record | None:
@@ -4147,16 +4154,23 @@ class Reader(_HasExitStack):
         shapes = Shapes(self.iterShapes(bbox=bbox))
         return shapes
 
-    def iterShapes(self, bbox: BBox | None = None) -> Iterator[Shape | None]:
+    def iterShapes(
+        self,
+        bbox: BBox | None = None,
+        outside_bbox_as_None: bool = False,
+    ) -> Iterator[Shape | None]:
         """Returns a generator of shapes in a shapefile. Useful
         for handling large shapefiles.
         To only read shapes within a given spatial region, specify the 'bbox'
-        arg as a list or tuple of xmin,ymin,xmax,ymax.
+        arg as a list or tuple of xmin,ymin,xmax,ymax.  To return None for
+        shapes outside bbox instead of skipping them, use outside_bbox_as_None=True.
         """
         shape_lengths_B = self.shx_reader.shape_lengths_B if self._shx else None
         bbox = BBox(*bbox) if bbox is not None else None
         yield from self.shp_reader.iterShapes(
-            shape_lengths_B=shape_lengths_B, bbox=bbox
+            shape_lengths_B=shape_lengths_B,
+            bbox=bbox,
+            outside_bbox_as_None=outside_bbox_as_None,
         )
         self.numShapes = len(self.shp_reader.headers_cache)
 
@@ -4218,14 +4232,22 @@ class Reader(_HasExitStack):
                 yield ShapeRecord(shape=shape, record=record)
         else:
             # Only yield ShapeRecords whose shape.bbox overlaps with bbox.
-            # TODO: internal _record method should be faster but would have to
-            # make sure to seek to correct file location...
 
-            # fieldTuples,recLookup,recStruct = self._record_fields(fields)
-            for shape in self.iterShapes(bbox=bbox):
+            fieldTuples, recLookup, recStruct = self.dbf_reader._record_fields(fields)
+            last_oid: None | int = None
+            for shape in self.iterShapes(bbox=bbox, outside_bbox_as_None=True):
                 if shape:
-                    # record = self._record(oid=i, fieldTuples=fieldTuples, recLookup=recLookup, recStruct=recStruct)
-                    record = self.dbf_reader.record(i=shape.oid, fields=fields)
+                    if shape.oid - 1 != last_oid:
+                        self.dbf_reader.seek_to_rec(index=shape.oid)
+
+                    record = self.dbf_reader._record(
+                        fieldTuples=fieldTuples,
+                        recLookup=recLookup,
+                        recStruct=recStruct,
+                        oid=shape.oid,
+                    )
+                    last_oid = shape.oid
+
                     yield ShapeRecord(shape=shape, record=record)
 
 
@@ -4337,21 +4359,20 @@ class DbfWriter(_HasCheckedWriteableFile):
         version = 3
         year, month, day = time.localtime()[:3]
         year -= 1900
-        # Get all fields, ignoring DeletionFlag if specified
-        fields = [field for field in self.fields if field.name != "DeletionFlag"]
         # Ensure has at least one field
-        if not fields:
+        if not self.fields:
             raise dbfFileException(
                 "Shapefile dbf file must contain at least one field."
             )
         numRecs = self.recNum
-        numFields = len(fields)
+        numFields = len(self.fields)
         headerLength = numFields * 32 + 33
         if headerLength >= 65535:
             raise dbfFileException(
                 "Shapefile dbf header length exceeds maximum length."
             )
-        recordLength = sum(field.size for field in fields) + 1
+        # + 1 for deletion flag.
+        recordLength = sum(field.size for field in self.fields) + 1
         header = pack(
             "<BBBBLHH20x",
             version,
@@ -4365,7 +4386,7 @@ class DbfWriter(_HasCheckedWriteableFile):
         f.write(header)
 
         # Field descriptors
-        for field in fields:
+        for field in self.fields:
             f.write(
                 field.encode_field_descriptor(
                     encoding=self.encoding,
@@ -4390,16 +4411,14 @@ class DbfWriter(_HasCheckedWriteableFile):
         field/value pairs only fields matching the already registered fields
         will be added."""
         record: list[RecordValue]
-        fieldCount = sum(1 for field in self.fields if field[0] != "DeletionFlag")
+        fieldCount = len(self.fields)
         if recordList:
             record = list(recordList)
-            while len(record) < fieldCount:
-                record.append("")
+            record += [""] * (fieldCount - len(record))
+
         elif recordDict:
             record = []
             for field in self.fields:
-                if field[0] == "DeletionFlag":
-                    continue  # ignore deletionflag field in case it was specified
                 if field[0] in recordDict:
                     val = recordDict[field[0]]
                     if val is None:
@@ -4424,14 +4443,12 @@ class DbfWriter(_HasCheckedWriteableFile):
             # allowing us to write the dbf header
             # cannot change the fields after this point
             self._header()
-        # first byte of the record is deletion flag, always disabled
+        # first byte of the record is deletion flag
+        # (b" " for not deleted, b"*" for deleted).
         record_stream.write(b" ")
         # begin
-        fields = (
-            field for field in self.fields if field[0] != "DeletionFlag"
-        )  # ignore deletionflag field in case it was specified
 
-        for (fieldName, fieldType, size, deci), value in zip(fields, record):
+        for (fieldName, fieldType, size, deci), value in zip(self.fields, record):
             # write
             # fieldName, fieldType, size and deci were already checked
             # when their Field instance was created and added to self.fields
@@ -4741,7 +4758,7 @@ class ShpWriter(_ShpWriterInfo):
         self,
         s: Shape | HasGeoInterface | GeoJSONHomogeneousGeometryObject,
     ) -> tuple[int, int]:
-        """Appends s to the file.  Returns shape's offset and length in B"""
+        """Appends s to the file.  Returns shape's offset and length in Bytes"""
         if not isinstance(s, Shape):
             if isinstance(s, HasGeoInterface):
                 shape_dict = s.__geo_interface__
@@ -4758,7 +4775,7 @@ class ShpWriter(_ShpWriterInfo):
         return self._shp_record(s)
 
     def _shp_record(self, s: Shape) -> tuple[int, int]:
-        """Appends s to the file.  Returns shape's offset and length in B"""
+        """Appends s to the file.  Returns shape's offset and length in Bytes"""
         offset = self.file.tell()
         self.shpNum += 1
 
@@ -4767,8 +4784,8 @@ class ShpWriter(_ShpWriterInfo):
             self.shapeType = s.shapeType
         if s.shapeType not in (NULL, self.shapeType):
             raise ShapefileException(
-                f"The shape's type ({s.shapeType}) must match "
-                f"the type of the shapefile ({self.shapeType})."
+                f"The shape's type: {s.shapeType} must be Null, or match "
+                f"the type of the shapefile: {self.shapeType}."
             )
 
         # For both single point and multiple-points non-null shapes,

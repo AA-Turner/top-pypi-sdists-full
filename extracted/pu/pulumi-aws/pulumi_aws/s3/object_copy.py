@@ -73,7 +73,7 @@ class ObjectCopyArgs:
         :param pulumi.Input[_builtins.str] acl: [Canned ACL](https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl) to apply. Valid values are `private`, `public-read`, `public-read-write`, `authenticated-read`, `aws-exec-read`, `bucket-owner-read`, and `bucket-owner-full-control`. Conflicts with `grant`.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether to use an S3 Bucket Key for object encryption with server-side encryption using KMS (SSE-KMS).
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain. Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         :param pulumi.Input[_builtins.str] content_disposition: Presentational information for the object. Read [w3c content_disposition](http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.5.1) for further information.
         :param pulumi.Input[_builtins.str] content_encoding: Content encodings that have been applied to the object and thus what decoding mechanisms must be applied to obtain the media-type referenced by the Content-Type header field. Read [w3c content encoding](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.11) for further information.
         :param pulumi.Input[_builtins.str] content_language: Language the content is in e.g., en-US or en-GB.
@@ -266,7 +266,7 @@ class ObjectCopyArgs:
     @pulumi.getter(name="checksumAlgorithm")
     def checksum_algorithm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         """
         return pulumi.get(self, "checksum_algorithm")
 
@@ -745,7 +745,7 @@ class _ObjectCopyState:
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to put the file in.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether to use an S3 Bucket Key for object encryption with server-side encryption using KMS (SSE-KMS).
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain. Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         :param pulumi.Input[_builtins.str] checksum_crc32: Base64-encoded, 32-bit CRC32 checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc32c: Base64-encoded, 32-bit CRC32C checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc64nvme: Base64-encoded, 64-bit CRC64NVME checksum of the object.
@@ -969,7 +969,7 @@ class _ObjectCopyState:
     @pulumi.getter(name="checksumAlgorithm")
     def checksum_algorithm(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         """
         return pulumi.get(self, "checksum_algorithm")
 
@@ -1648,7 +1648,7 @@ class ObjectCopy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to put the file in.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether to use an S3 Bucket Key for object encryption with server-side encryption using KMS (SSE-KMS).
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain. Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         :param pulumi.Input[_builtins.str] content_disposition: Presentational information for the object. Read [w3c content_disposition](http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.5.1) for further information.
         :param pulumi.Input[_builtins.str] content_encoding: Content encodings that have been applied to the object and thus what decoding mechanisms must be applied to obtain the media-type referenced by the Content-Type header field. Read [w3c content encoding](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.11) for further information.
         :param pulumi.Input[_builtins.str] content_language: Language the content is in e.g., en-US or en-GB.
@@ -1937,7 +1937,7 @@ class ObjectCopy(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] bucket: Name of the bucket to put the file in.
         :param pulumi.Input[_builtins.bool] bucket_key_enabled: Whether to use an S3 Bucket Key for object encryption with server-side encryption using KMS (SSE-KMS).
         :param pulumi.Input[_builtins.str] cache_control: Caching behavior along the request/reply chain. Read [w3c cache_control](http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9) for further details.
-        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        :param pulumi.Input[_builtins.str] checksum_algorithm: Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         :param pulumi.Input[_builtins.str] checksum_crc32: Base64-encoded, 32-bit CRC32 checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc32c: Base64-encoded, 32-bit CRC32C checksum of the object.
         :param pulumi.Input[_builtins.str] checksum_crc64nvme: Base64-encoded, 64-bit CRC64NVME checksum of the object.
@@ -2048,6 +2048,120 @@ class ObjectCopy(pulumi.CustomResource):
         __props__.__dict__["website_redirect"] = website_redirect
         return ObjectCopy(resource_name, opts=opts, __props__=__props__)
 
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            acl: pulumi.Input[Optional[_builtins.str]] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            bucket: pulumi.Input[Optional[_builtins.str]] = None,
+            bucket_key_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            cache_control: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_crc32: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_crc32c: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_crc64nvme: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_sha1: pulumi.Input[Optional[_builtins.str]] = None,
+            checksum_sha256: pulumi.Input[Optional[_builtins.str]] = None,
+            content_disposition: pulumi.Input[Optional[_builtins.str]] = None,
+            content_encoding: pulumi.Input[Optional[_builtins.str]] = None,
+            content_language: pulumi.Input[Optional[_builtins.str]] = None,
+            content_type: pulumi.Input[Optional[_builtins.str]] = None,
+            copy_if_match: pulumi.Input[Optional[_builtins.str]] = None,
+            copy_if_modified_since: pulumi.Input[Optional[_builtins.str]] = None,
+            copy_if_none_match: pulumi.Input[Optional[_builtins.str]] = None,
+            copy_if_unmodified_since: pulumi.Input[Optional[_builtins.str]] = None,
+            customer_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+            customer_key: pulumi.Input[Optional[_builtins.str]] = None,
+            customer_key_md5: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            expected_bucket_owner: pulumi.Input[Optional[_builtins.str]] = None,
+            expected_source_bucket_owner: pulumi.Input[Optional[_builtins.str]] = None,
+            expiration: pulumi.Input[Optional[_builtins.str]] = None,
+            expires: pulumi.Input[Optional[_builtins.str]] = None,
+            force_destroy: pulumi.Input[Optional[_builtins.bool]] = None,
+            grants: pulumi.Input[Optional[Sequence[pulumi.Input[Union['ObjectCopyGrantArgs', 'ObjectCopyGrantArgsDict', 'outputs.ObjectCopyGrant']]]]] = None,
+            key: pulumi.Input[Optional[_builtins.str]] = None,
+            kms_encryption_context: pulumi.Input[Optional[_builtins.str]] = None,
+            kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
+            last_modified: pulumi.Input[Optional[_builtins.str]] = None,
+            metadata: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            metadata_directive: pulumi.Input[Optional[_builtins.str]] = None,
+            object_lock_legal_hold_status: pulumi.Input[Optional[_builtins.str]] = None,
+            object_lock_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            object_lock_retain_until_date: pulumi.Input[Optional[_builtins.str]] = None,
+            override_provider: pulumi.Input[Optional[Union['ObjectCopyOverrideProviderArgs', 'ObjectCopyOverrideProviderArgsDict', 'outputs.ObjectCopyOverrideProvider']]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            request_charged: pulumi.Input[Optional[_builtins.bool]] = None,
+            request_payer: pulumi.Input[Optional[_builtins.str]] = None,
+            server_side_encryption: pulumi.Input[Optional[_builtins.str]] = None,
+            source: pulumi.Input[Optional[_builtins.str]] = None,
+            source_customer_algorithm: pulumi.Input[Optional[_builtins.str]] = None,
+            source_customer_key: pulumi.Input[Optional[_builtins.str]] = None,
+            source_customer_key_md5: pulumi.Input[Optional[_builtins.str]] = None,
+            source_version_id: pulumi.Input[Optional[_builtins.str]] = None,
+            storage_class: pulumi.Input[Optional[_builtins.str]] = None,
+            tagging_directive: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            version_id: pulumi.Input[Optional[_builtins.str]] = None,
+            website_redirect: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["acl"] = acl
+        __props__["arn"] = arn
+        __props__["bucket"] = bucket
+        __props__["bucketKeyEnabled"] = bucket_key_enabled
+        __props__["cacheControl"] = cache_control
+        __props__["checksumAlgorithm"] = checksum_algorithm
+        __props__["checksumCrc32"] = checksum_crc32
+        __props__["checksumCrc32c"] = checksum_crc32c
+        __props__["checksumCrc64nvme"] = checksum_crc64nvme
+        __props__["checksumSha1"] = checksum_sha1
+        __props__["checksumSha256"] = checksum_sha256
+        __props__["contentDisposition"] = content_disposition
+        __props__["contentEncoding"] = content_encoding
+        __props__["contentLanguage"] = content_language
+        __props__["contentType"] = content_type
+        __props__["copyIfMatch"] = copy_if_match
+        __props__["copyIfModifiedSince"] = copy_if_modified_since
+        __props__["copyIfNoneMatch"] = copy_if_none_match
+        __props__["copyIfUnmodifiedSince"] = copy_if_unmodified_since
+        __props__["customerAlgorithm"] = customer_algorithm
+        __props__["customerKey"] = customer_key
+        __props__["customerKeyMd5"] = customer_key_md5
+        __props__["etag"] = etag
+        __props__["expectedBucketOwner"] = expected_bucket_owner
+        __props__["expectedSourceBucketOwner"] = expected_source_bucket_owner
+        __props__["expiration"] = expiration
+        __props__["expires"] = expires
+        __props__["forceDestroy"] = force_destroy
+        __props__["grants"] = grants
+        __props__["key"] = key
+        __props__["kmsEncryptionContext"] = kms_encryption_context
+        __props__["kmsKeyId"] = kms_key_id
+        __props__["lastModified"] = last_modified
+        __props__["metadata"] = metadata
+        __props__["metadataDirective"] = metadata_directive
+        __props__["objectLockLegalHoldStatus"] = object_lock_legal_hold_status
+        __props__["objectLockMode"] = object_lock_mode
+        __props__["objectLockRetainUntilDate"] = object_lock_retain_until_date
+        __props__["overrideProvider"] = override_provider
+        __props__["region"] = region
+        __props__["requestCharged"] = request_charged
+        __props__["requestPayer"] = request_payer
+        __props__["serverSideEncryption"] = server_side_encryption
+        __props__["source"] = source
+        __props__["sourceCustomerAlgorithm"] = source_customer_algorithm
+        __props__["sourceCustomerKey"] = source_customer_key
+        __props__["sourceCustomerKeyMd5"] = source_customer_key_md5
+        __props__["sourceVersionId"] = source_version_id
+        __props__["storageClass"] = storage_class
+        __props__["taggingDirective"] = tagging_directive
+        __props__["tags"] = tags
+        __props__["tagsAll"] = tags_all
+        __props__["versionId"] = version_id
+        __props__["websiteRedirect"] = website_redirect
+        return pulumi.runtime.exists_resource(None, 'aws:s3/objectCopy:ObjectCopy', id, __props__, opts or pulumi.ResourceOptions())
+
     @_builtins.property
     @pulumi.getter
     def acl(self) -> pulumi.Output[_builtins.str]:
@@ -2092,7 +2206,7 @@ class ObjectCopy(pulumi.CustomResource):
     @pulumi.getter(name="checksumAlgorithm")
     def checksum_algorithm(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME` `SHA1`, `SHA256`.
+        Algorithm used to create the checksum for the object. If a value is specified and the object is encrypted with KMS, you must have permission to use the `kms:Decrypt` action. Valid values: `CRC32`, `CRC32C`, `CRC64NVME`, `SHA1`, `SHA256`, `SHA512`, `MD5`, `XXHASH64`, `XXHASH3`, `XXHASH128`.
         """
         return pulumi.get(self, "checksum_algorithm")
 

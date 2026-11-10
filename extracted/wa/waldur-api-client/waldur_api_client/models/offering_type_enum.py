@@ -6,6 +6,7 @@ class OfferingTypeEnum(str, Enum):
     MARKETPLACE_BOOKING = "Marketplace.Booking"
     MARKETPLACE_RANCHER = "Marketplace.Rancher"
     MARKETPLACE_SCRIPT = "Marketplace.Script"
+    MARKETPLACE_SITEAGENT = "Marketplace.SiteAgent"
     MARKETPLACE_SLURM = "Marketplace.Slurm"
     OPENSTACK_INSTANCE = "OpenStack.Instance"
     OPENSTACK_TENANT = "OpenStack.Tenant"

@@ -4,12 +4,14 @@ from collections.abc import Callable
 from types import MethodType
 from typing import Any, override
 
+from pyrig.core.subprocesses import Args
 from pyrig.rig import resources
 from pyrig.rig.configs.base.workflow import WorkflowConfigFile
 from pyrig.rig.configs.version_control.remote.configure import (
     ConfigureRepositoryConfigFile,
 )
 from pyrig.rig.tools.docs.builder import DocsBuilder
+from pyrig.rig.tools.formatting.shell import ShellFormatter
 from pyrig.rig.tools.packages.manager import PackageManager
 
 
@@ -36,7 +38,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
 
     @override
     def stem(self) -> str:
-        """Return `"deploy"`, the workflow file's stem."""
+        """Return the workflow file stem, `deploy`."""
         return "deploy"
 
     @override
@@ -85,7 +87,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return (self.job_build_documentation,)
 
-    def job_deploy_documentation_permissions(self) -> dict[str, Any]:
+    def job_deploy_documentation_permissions(self) -> dict[str, str]:
         """Return the permissions for the documentation deployment job.
 
         Requests only `pages: write` and `id-token: write`, required by the
@@ -99,7 +101,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
             **self.permission_pages(write=True),
         }
 
-    def job_repository_permissions(self) -> dict[str, Any]:
+    def job_repository_permissions(self) -> dict[str, str]:
         """Return the permissions for the repository job.
 
         Requests `contents: read` to check out the repository; the
@@ -172,7 +174,12 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.step(
             self.step_configure_repository,
-            run=f"bash {ConfigureRepositoryConfigFile.I.path().as_posix()}",
+            run=str(
+                Args(
+                    ShellFormatter.I.dialect(),
+                    ConfigureRepositoryConfigFile.I.path().as_posix(),
+                ),
+            ),
             env={"GH_TOKEN": self.insert_repo_token()},
         )
 
@@ -208,7 +215,7 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.action_from_resource(self.action_deploy_pages, resources)
 
-    def job_build_documentation_permissions(self) -> dict[str, Any]:
+    def job_build_documentation_permissions(self) -> dict[str, str]:
         """Return read-only checkout permissions for the documentation build.
 
         Returns:

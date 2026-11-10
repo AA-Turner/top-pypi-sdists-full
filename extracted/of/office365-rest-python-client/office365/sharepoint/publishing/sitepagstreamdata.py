@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -6,7 +6,6 @@ from office365.sharepoint.publishing.pages.coauth_state import SitePageCoAuthSta
 from office365.sharepoint.publishing.pages.stream_content import SitePageStreamContent
 
 
-@dataclass
 class SitePagStreamData(ClientValue):
     CoAuthState: SitePageCoAuthState = field(default_factory=SitePageCoAuthState)
     StreamContents: ClientValueCollection[SitePageStreamContent] = field(

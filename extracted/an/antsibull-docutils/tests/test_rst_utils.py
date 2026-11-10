@@ -24,7 +24,7 @@ from antsibull_docutils.rst_utils import column_width, rst_escape
         (r"\<>_*`", False, r"\\\<\>\_\*\`"),
     ],
 )
-def test_rst_escape(text, escape_ending_whitespace, escaped):
+def test_rst_escape(text: str, escape_ending_whitespace: bool, escaped: str) -> None:
     result = rst_escape(text, escape_ending_whitespace=escape_ending_whitespace)
     assert result == escaped
 
@@ -39,6 +39,6 @@ def test_rst_escape(text, escape_ending_whitespace, escaped):
         ("学校", 4),
     ],
 )
-def test_column_width(text, width):
+def test_column_width(text: str, width: int) -> None:
     result = column_width(text)
     assert result == width

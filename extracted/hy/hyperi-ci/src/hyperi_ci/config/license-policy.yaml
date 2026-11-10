@@ -19,7 +19,8 @@
 # classifiers, free text) to the SPDX id they mean. A name with no exact id
 # maps to a LicenseRef, which the group still judges. A name that does not
 # say which licence it is (`BSD License` covers BSD-4-Clause too) is left
-# out, so it is ask.
+# out, so it is ask, unless the package's licence file is the full
+# BSD-2-Clause or BSD-3-Clause text (quality/bsd_text.py).
 #
 # Only what ships is judged: tools CI runs and never ships are out of scope
 # whatever their licence (reuse is GPL-3.0-or-later).
@@ -51,7 +52,7 @@ groups:
       modified: {verdict: allow}
 
   permissive:
-    ids: [MIT, MIT-0, 0BSD, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, BSL-1.0, Unicode-3.0, Unicode-DFS-2016, PSF-2.0, Python-2.0, CNRI-Python, X11, curl, HPND]
+    ids: [MIT, MIT-0, 0BSD, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, BSL-1.0, Unicode-3.0, Unicode-DFS-2016, PSF-2.0, Python-2.0, CNRI-Python, X11, curl, HPND, CDLA-Permissive-2.0]
     aliases:
       "MIT License": MIT
       "BSD 2-Clause": BSD-2-Clause
@@ -141,6 +142,17 @@ groups:
       static: {verdict: allow-with-obligations, obligations: [notice]}
       vendored: {verdict: allow-with-obligations, obligations: [notice]}
       modified: {verdict: ask}
+
+  # HyperI's own packages. Only an override can name this id: package
+  # metadata claiming it stays ask, so a squatted name cannot pass as ours.
+  first-party:
+    ids: [LicenseRef-HyperI]
+    override_only: true
+    modes:
+      import: {verdict: allow}
+      static: {verdict: allow}
+      vendored: {verdict: allow}
+      modified: {verdict: allow}
 
   share-alike-data:
     ids: [CC-BY-SA-4.0, CC-BY-SA-3.0]

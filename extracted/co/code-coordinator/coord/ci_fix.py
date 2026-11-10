@@ -29,19 +29,38 @@ re-review wiring needed here. The merge queue's own ``branch_head_sha``/
 ``branch_patch_id`` staleness check (see ``has_approved_review``) already
 invalidates the stale approval once the new commit lands, so the PR
 naturally cannot merge again until it clears Test + Review + CI fresh.
+
+#3900: when the briefing's own #3882 sealed-path guard fires, the worker
+stops with a ``STUCK:`` line carrying the machine-parseable
+:data:`SEALED_STUCK_MARKER`. Before this module read nothing back from
+that line — a sealed-confined leg looked identical to any other no-op
+(see :func:`dispatch_was_noop`) and was silently refunded into another
+retry, up to :data:`MAX_CI_FIX_NOOP_STREAK`, indistinguishable from a
+genuinely unattributable failure until the streak cap hit. :func:`
+sealed_stuck_from_last_fix` reads the finished leg's own transcript back
+and lets ``coord.commands.merge._dispatch_ci_fixes`` latch straight to a
+human "needs a design decision" page instead — the post-dispatch
+counterpart to ``coord.board_doctor_policy._sealed_confined_lines``'s
+PRE-dispatch recognition of the same shape.
 """
 
 from __future__ import annotations
 
 import logging
+import re
+from typing import TYPE_CHECKING
 
 import httpx
 
 from coord import github_ops
 from coord.ci_store import CIFailureDetail
 from coord.config import Config
+from coord.dispatch import AGENT_PORT
 from coord.merge_queue import QueuedMerge, _chain_work_ids
-from coord.models import Assignment, Board
+from coord.models import Assignment, Board, WORK_LIKE_TYPES
+
+if TYPE_CHECKING:  # pragma: no cover — typing only
+    from collections.abc import Sequence
 
 _log = logging.getLogger(__name__)
 
@@ -69,6 +88,17 @@ MAX_CI_FIX_NOOP_STREAK = 2
 # Pipeline row and the fix briefing itself both make it obvious WHY this
 # round was dispatched (a CI failure, not a review request-changes bounce).
 CI_FIX_TITLE_PREFIX = "[ci-fix]"
+
+# #3900: the machine-parseable marker a ci-fix leg's `STUCK:` line carries
+# when `build_ci_fix_briefing`'s sealed-path guard (#3882) fires — mirrors
+# `coord.conflict_fix.SEMANTIC_STUCK_MARKER`'s shape (a fixed token, never
+# a prose regex over "sealed"/"acceptance"/… which would rot the first
+# time a worker phrased its give-up differently), except the sealed
+# path(s) are appended directly after `=` (comma-separated, no space)
+# rather than following in free text — see `sealed_stuck_paths_in_text`.
+SEALED_STUCK_MARKER = "coord:sealed="
+
+_SEALED_STUCK_RE = re.compile(re.escape(SEALED_STUCK_MARKER) + r"(\S+)")
 
 
 def _detail_has_content(detail: CIFailureDetail) -> bool:
@@ -226,6 +256,7 @@ def build_ci_fix_briefing(
     attempt: int,
     detail: CIFailureDetail | None = None,
     issue_body: str | None = None,
+    sealed_paths: Sequence[str] = (),
 ) -> str:
     """Assemble the CI-fix worker's briefing. Pure function — testable.
 
@@ -240,6 +271,15 @@ def build_ci_fix_briefing(
     :func:`_fetch_issue_body` at dispatch time — optional and additive,
     same shape as *detail*: ``None`` or blank leaves the briefing
     byte-identical to before #3456.
+
+    *sealed_paths* (#3882) is this repo's sealed acceptance-oracle path set
+    (:meth:`coord.config.AcceptanceConfig.sealed_paths`). When non-empty,
+    one extra numbered step tells the worker to stop with a ``STUCK:``
+    line instead of attempting a fix if the merged-tree failure lives only
+    inside one of those paths — see the "## What to do" steps below for
+    the merge-ref step every ci-fix briefing now carries unconditionally,
+    the reason this module is no longer blind to a green-branch/red-CI
+    split (quadraui#2028).
     """
     lines: list[str] = [
         f"# CI failure fix: {entry.repo_github} branch `{entry.branch}`",
@@ -264,19 +304,64 @@ def build_ci_fix_briefing(
         "",
         "## What to do",
         "",
-        "1. You are already on this issue's existing branch — continue on "
+    ]
+
+    # GitHub Actions CI builds the PR's MERGE REF (this branch plus the
+    # CURRENT target branch) — never this branch in isolation. A fix leg
+    # that skips bringing the base in can stay green on its own branch
+    # while CI stays red for a reason that only exists once the two are
+    # combined (a sibling PR landing on the base while this one was in
+    # flight is the shape that produces it). So reproducing that exact
+    # tree is step 2, right after confirming the branch — not an
+    # optional/later step. A REBASE, not a merge: a merge commit on this
+    # branch would make it ineligible for a rebase-merge on GitHub
+    # (`coord.github_ops.branch_has_merge_commit`) and silently fall every
+    # ci-fix PR back to the squash-merge path; a rebase reproduces the
+    # identical merged tree without leaving one behind.
+    steps: list[str] = [
+        "You are already on this issue's existing branch — continue on "
         "it, do NOT start a fresh branch.",
-        "2. Reproduce the failure locally if the project's test command "
+        "Before anything else, run `git fetch origin && git rebase "
+        f"origin/{entry.target_branch}` — even if it reports "
+        '"Current branch is up to date". GitHub Actions CI built the '
+        f"PR's merge ref (this branch plus the current "
+        f"`{entry.target_branch}`), not this branch alone, so skipping "
+        "this step can leave a local `cargo`/`pytest` run green while CI "
+        "stays red for the exact same commit. Rebase (not merge) so this "
+        "branch stays free of merge commits and eligible for GitHub's "
+        "rebase-merge.",
+        "Reproduce the failure locally if the project's test command "
         "covers it (`coord`'s Test stage already runs the same diff-scoped "
-        "suite CI reruns in full — a failure CI alone caught may live in a "
-        "suite that only runs in CI, e.g. a sealed acceptance suite).",
-        "3. Fix the actual regression. Do not edit the failing check's "
+        "suite CI reruns in full, now against the SAME merged tree the "
+        "previous step just built — a failure CI alone caught may live in "
+        "a suite that only runs in CI, e.g. a sealed acceptance suite).",
+        "Fix the actual regression. Do not edit the failing check's "
         "workflow config to make it pass without fixing the underlying "
         "issue, and do not skip/xfail the failing test unless the test "
         "itself is proven wrong.",
-        "4. Commit and push to the SAME branch. The coordinator re-runs "
-        "Test, Review, and CI from scratch on the new commit — this is not "
-        "a force-merge shortcut.",
+    ]
+    if sealed_paths:
+        steps.append(
+            "If, after rebasing, the failure reproduces ONLY inside a "
+            "sealed acceptance-oracle path you are not authorized to "
+            "modify (" + ", ".join(sealed_paths) + "), do NOT attempt a "
+            "fix. End your session with a line starting `STUCK:` that "
+            f"includes the exact marker `{SEALED_STUCK_MARKER}<path>"
+            "[,<path>]` naming the sealed file(s), e.g.\n"
+            f"    STUCK: {SEALED_STUCK_MARKER}tests/acceptance/test_x.py "
+            "— failure is confined to a sealed path this worker is not "
+            "authorized to touch\n"
+            "and stop — the coordinator reads that marker from your "
+            "transcript and escalates for a design decision instead of "
+            "spending another fix round."
+        )
+    steps.append(
+        "Commit and push to the SAME branch. The coordinator re-runs "
+        "Test, Review, and CI from scratch on the new commit — this is "
+        "not a force-merge shortcut."
+    )
+    lines += [f"{i}. {step}" for i, step in enumerate(steps, start=1)]
+    lines += [
         "",
         "You will NOT use `gh` — the coordinator owns PR/issue interaction "
         "and CI status reads.",
@@ -304,6 +389,171 @@ def _has_active_fix(board: Board, entry: QueuedMerge) -> bool:
         if aid in active_ids and getattr(a, "status", None) in ("running", "pending"):
             return True
     return False
+
+
+def _find_last_ci_fix_assignment(board: Board, entry: QueuedMerge) -> Assignment | None:
+    """The most recently dispatched ci-fix leg for *entry*'s chain — the
+    SAME leg :func:`dispatch_was_noop` just inferred pushed no commit — or
+    ``None`` when no such leg exists (#3900).
+
+    Filters the chain (:func:`_chain_work_ids`) down to assignments whose
+    ``issue_title`` carries :data:`CI_FIX_TITLE_PREFIX`, since the chain
+    also contains the original work assignment and any unrelated
+    review-bounce fixes — only a ci-fix leg's own transcript can carry the
+    :data:`SEALED_STUCK_MARKER` :func:`build_ci_fix_briefing` tells it to
+    use. Picks the latest by ``dispatched_at`` so a multi-attempt streak
+    reads the MOST RECENT leg's verdict, never a stale earlier one.
+    """
+    pool = list(board.completed) + list(board.active)
+    chain_ids = _chain_work_ids(entry, pool)
+    candidates = [
+        a for a in pool
+        if getattr(a, "assignment_id", None) in chain_ids
+        and getattr(a, "type", None) in WORK_LIKE_TYPES
+        and str(getattr(a, "issue_title", "") or "").startswith(CI_FIX_TITLE_PREFIX)
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda a: getattr(a, "dispatched_at", None) or 0.0)
+    return candidates[-1]
+
+
+def _decode_worker_text(raw: str) -> str:
+    """Return the human-readable text of a worker log — handles both
+    plain-text logs and the agent's default stream-json format (each
+    line a JSON event), decoding only the assistant text blocks in the
+    latter case.
+
+    A self-contained copy of the identical decode step
+    :func:`coord.conflict_fix._decode_worker_text` implements — each
+    module defines and reads its OWN marker (#2096's "one question, one
+    answer" is about the marker, not this generic decode step, which is
+    already duplicated by convention across ``coord.review``/``coord.
+    plan_parser``/``coord.conflict_fix`` for the same reason).
+    """
+    stripped_first: str | None = None
+    for line in raw.splitlines():
+        candidate = line.strip()
+        if not candidate or candidate.startswith("#"):
+            continue
+        stripped_first = candidate
+        break
+    if stripped_first is None or not stripped_first.startswith("{"):
+        return raw
+
+    from coord.worker_events import _assistant_text, parse_event  # noqa: PLC0415
+
+    decoded: list[str] = []
+    for line in raw.splitlines():
+        event = parse_event(line.rstrip("\n"))
+        if event is None or event.type != "assistant":
+            continue
+        text = _assistant_text(event)
+        if text:
+            decoded.append(text)
+    return "\n".join(decoded)
+
+
+def sealed_stuck_paths_in_text(text: str | None) -> tuple[str, ...] | None:
+    """Parse the :data:`SEALED_STUCK_MARKER` marker out of a finished
+    ci-fix leg's own transcript (#3900).
+
+    This is the post-dispatch counterpart to ``coord.board_doctor_policy.
+    _sealed_confined_lines``'s PRE-dispatch check: that function recognizes
+    a CI failure confined to a sealed acceptance path before a leg is ever
+    dispatched; this recognizes a worker that reached the identical
+    conclusion itself, from inside the leg :func:`build_ci_fix_briefing`
+    told to stop rather than attempt a fix it isn't authorized to make.
+
+    Returns ``None`` when no marker is present — never confused with an
+    empty tuple, which the regex (requiring at least one non-whitespace
+    character after ``=``) cannot produce.
+    """
+    if not text:
+        return None
+    decoded = _decode_worker_text(text)
+    match = _SEALED_STUCK_RE.search(decoded)
+    if not match:
+        return None
+    paths = tuple(p for p in match.group(1).split(",") if p)
+    return paths or None
+
+
+def detect_sealed_stuck(
+    *,
+    log_path: str | None = None,
+    host: str | None = None,
+    assignment_id: str | None = None,
+    port: int = AGENT_PORT,
+    timeout: float = 15.0,
+) -> tuple[str, ...] | None:
+    """True (returning the named path(s)) when the finished ci-fix leg at
+    *log_path*/(*host*, *assignment_id*) reported the sealed-confined
+    :data:`SEALED_STUCK_MARKER` verdict. Mirrors
+    :func:`coord.conflict_fix.detect_semantic_conflict`'s local-log-then-
+    agent-endpoint lookup and best-effort-``None``-on-any-failure posture
+    exactly.
+    """
+    if log_path:
+        try:
+            from pathlib import Path  # noqa: PLC0415
+
+            p = Path(log_path)
+            if p.exists():
+                raw = p.read_text(encoding="utf-8", errors="replace")
+                paths = sealed_stuck_paths_in_text(raw)
+                if paths is not None:
+                    return paths
+        except OSError:
+            pass
+
+    if host and assignment_id:
+        try:
+            resp = httpx.get(
+                f"http://{host}:{port}/logs/{assignment_id}", timeout=timeout
+            )
+            resp.raise_for_status()
+            return sealed_stuck_paths_in_text(resp.text)
+        except (httpx.HTTPError, httpx.TimeoutException):
+            return None
+
+    return None
+
+
+def sealed_stuck_from_last_fix(
+    entry: QueuedMerge, board: Board, config: Config,
+) -> tuple[str, ...] | None:
+    """The sealed path(s) named on *entry*'s last-dispatched ci-fix leg's
+    own ``STUCK:`` line, or ``None`` when no such leg exists or it
+    reported something else (#3900).
+
+    Called by ``coord.commands.merge._dispatch_ci_fixes`` exactly when
+    :func:`dispatch_was_noop` is ``True`` — i.e. the SHA comparison alone
+    already says the last leg pushed no commit, but cannot say WHY. This
+    is the only way to tell "declined because the failure is confined to
+    a sealed path it isn't authorized to touch" (page a human for a design
+    decision, never retry) apart from an ordinary not-attributable-to-this-
+    branch no-op (refund and retry, up to :data:`MAX_CI_FIX_NOOP_STREAK`).
+
+    Best-effort end to end, the same posture as every other log read in
+    this module and in ``coord.conflict_fix``: no matching leg found, no
+    machine resolvable for it, or any network/read failure all degrade to
+    ``None`` — "can't tell", which falls through to the ordinary no-op
+    refund path rather than ever being misread as "confirmed not sealed".
+    """
+    fix = _find_last_ci_fix_assignment(board, entry)
+    if fix is None:
+        return None
+    machine = next(
+        (m for m in config.machines if m.name == fix.machine_name), None,
+    )
+    try:
+        return detect_sealed_stuck(
+            host=machine.host if machine is not None else None,
+            assignment_id=fix.assignment_id,
+        )
+    except Exception:  # noqa: BLE001 — best-effort, see docstring
+        return None
 
 
 def dispatch_was_noop(entry: QueuedMerge) -> bool:
@@ -437,9 +687,17 @@ def dispatch_ci_fix(
 
     summary = checks_summary or entry.error or "CI checks failed"
     issue_body = _fetch_issue_body(entry)
+    # #3882: thread this repo's sealed acceptance-oracle paths into the
+    # briefing so a worker whose merged-tree failure lives only there
+    # knows to stop (`STUCK:`) rather than trip the mandatory
+    # `tests/acceptance/**` tamper rule in `coord/review.py` attempting a
+    # fix it isn't authorized to make. `[]` for a repo with no acceptance
+    # driver at all — same "leaves the briefing unaffected" posture as
+    # every other optional section above.
+    sealed_paths = config.acceptance.sealed_paths(entry.repo_name)
     briefing = build_ci_fix_briefing(
         entry=entry, checks_summary=summary, attempt=entry.ci_fix_dispatches + 1,
-        detail=detail, issue_body=issue_body,
+        detail=detail, issue_body=issue_body, sealed_paths=sealed_paths,
     )
 
     from coord.auto_loop import _dispatch_fix  # noqa: PLC0415

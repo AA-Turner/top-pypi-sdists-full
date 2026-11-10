@@ -52,7 +52,7 @@ from ..ros2.commands import (
     SteerAccelCommand,
     TrajectoryCommand,
 )
-from ..ros2.config import Ros2EgoConfig
+from ..ros2.config import CommandSourceConfig, Ros2EgoConfig
 from ..ros2.transport import CameraFrame, Ros2EgoTransport
 from ..sensor.carla_camera import CarlaCameraSensor
 from ..utils.powertrain import ChaosPowertrain
@@ -159,8 +159,14 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
     #: The last finite Ackermann command applied: ``(steer_rad, speed_mps,
     #: acceleration_mps2, jerk_mps3)``, CARLA's sign; ``None`` before any.
     _last_ackermann: Optional[Tuple[float, float, float, float]]
+    #: The steer_accel command last applied and its Ackermann tuple, computed
+    #: from the speed at the tick it was first applied: a held or repeated
+    #: command keeps its target, as a relay node's does.
+    _steer_accel: Optional[Tuple[SteerAccelCommand, Tuple[float, float, float, float]]]
     #: Non-finite commands refused so far (the log's rate limit).
     _non_finite: int
+    #: Whether a control command's negative jerk has been logged.
+    _negative_jerk_logged: bool
 
     def __init__(
         self,
@@ -185,7 +191,9 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
         self._plan_steps = 0
         self._tracking = False
         self._last_ackermann = None
+        self._steer_accel = None
         self._non_finite = 0
+        self._negative_jerk_logged = False
 
     # ------------------------------------------------------------------
     # Properties
@@ -217,6 +225,8 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
             RuntimeError: If the ego actor has not been spawned yet.
             ImportError: If no transport was given and ``cyclonedds`` is not
                 installed.
+            Exception: Whatever the transport's ``open()`` raises, once the
+                transport is closed; a later start opens it again.
         """
         actor = self.actor
         if actor is None:
@@ -233,7 +243,18 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
         )
         if self._transport is None:
             self._transport = _cyclone_transport(self._config)
-        self._transport.open()
+        transport = self._transport
+        try:
+            transport.open()
+        except Exception:
+            # A transport that failed half-way may hold what it made so far:
+            # closed here, as on_scenario_end closes only an open one, so a
+            # retry of the scenario opens it afresh (#1870).
+            try:
+                transport.close()
+            except Exception:  # noqa: BLE001 - the open's error is raised
+                logger.exception("Failed to close the ROS 2 transport")
+            raise
         self._open = True
         self._turn_command = None
         # A retried scenario runs this entity again: nothing the previous
@@ -246,6 +267,8 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
         self._plan_steps = 0
         self._tracking = False
         self._last_ackermann = None
+        self._steer_accel = None
+        self._negative_jerk_logged = False
         self._transport.publish_state(self._state(world, actor)[0])
         # The actor, not narrowed by the check above for the camera's attach().
         mount: "carla.Actor" = actor
@@ -405,6 +428,7 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
             # A refused command falls back on the source's own last good one.
             self._planned = None
             self._last_ackermann = None
+            self._steer_accel = None
         elif self._active_fresh and not fresh:
             logger.warning(
                 "Command source %r went stale; %s",
@@ -465,13 +489,9 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
             return
         if isinstance(command, SteerAccelCommand):
             steer_accel: SteerAccelCommand = command
-            steer_rad = source.steering_sign * steer_accel.steering_rad
-            speed_mps = (
-                observation.speed_mps
-                + steer_accel.acceleration_mps2 * source.speed_horizon_s
+            steer_rad, speed_mps, acceleration_mps2, jerk_mps3 = (
+                self._steer_accel_target(steer_accel, source, observation.speed_mps)
             )
-            acceleration_mps2 = steer_accel.acceleration_mps2
-            jerk_mps3 = source.jerk_mps3
         else:
             control: ControlCommand = command
             # Autoware steers positive to the left; CARLA's Ackermann
@@ -483,6 +503,12 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
             control_jerk = control.jerk_mps3
             if control_jerk is not None:
                 jerk_mps3 = control_jerk
+                if control_jerk < 0.0:
+                    # Autoware's jerk is signed (negative while the
+                    # deceleration grows); CARLA's Ackermann jerk is a limit,
+                    # so it takes the magnitude.
+                    self._note_negative_jerk(control_jerk)
+                    jerk_mps3 = -control_jerk
         if (
             math.isfinite(steer_rad)
             and math.isfinite(speed_mps)
@@ -491,7 +517,7 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
         ):
             self._last_ackermann = (steer_rad, speed_mps, acceleration_mps2, jerk_mps3)
         else:
-            # max(0.0, nan) is 0.0 and CARLA would take NaN steering as given.
+            # CARLA would take a NaN steering or speed as given.
             self._refuse_non_finite("Ackermann command")
             last = self._last_ackermann
             if last is None:
@@ -504,11 +530,60 @@ class Ros2EgoEntity(ExternallyDrivenEgo):
             _carla.VehicleAckermannControl(
                 steer=float(steer_rad),
                 steer_speed=0.0,
-                speed=float(max(0.0, speed_mps)),
+                # Signed: CARLA's Ackermann controller reverses for a negative
+                # target speed, as Autoware's velocity is negative when it
+                # reverses (it comes to a stop before changing direction).
+                speed=float(speed_mps),
                 acceleration=float(acceleration_mps2),
                 jerk=float(jerk_mps3),
             )
         )
+
+    def _steer_accel_target(
+        self,
+        command: SteerAccelCommand,
+        source: CommandSourceConfig,
+        speed_mps: float,
+    ) -> Tuple[float, float, float, float]:
+        """The Ackermann tuple of *command*, computed once while it is the one
+        applied.
+
+        VisionPilot's ``carla_control_publisher`` turns each message into the
+        target speed ``speed + acceleration * speed_horizon_s`` once, and CARLA
+        holds it: the entity does the same, from the speed at the tick the
+        command is first applied, so that re-applying it (on a later tick, or
+        holding it once its source is stale) does not climb by
+        ``acceleration * speed_horizon_s`` a tick.  The cache is keyed on the
+        command object, so a new command with the same values recomputes.
+        """
+        cached = self._steer_accel
+        if cached is None or cached[0] is not command:
+            # Never below zero: a deceleration past standstill is a stop, not
+            # the reverse a negative target speed asks CARLA for.
+            target = (
+                source.steering_sign * command.steering_rad,
+                max(
+                    0.0,
+                    speed_mps + command.acceleration_mps2 * source.speed_horizon_s,
+                ),
+                command.acceleration_mps2,
+                source.jerk_mps3,
+            )
+            self._steer_accel = (command, target)
+            return target
+        return cached[1]
+
+    def _note_negative_jerk(self, jerk_mps3: float) -> None:
+        """Log, once a session, that a negative jerk was taken as its magnitude."""
+        if not self._negative_jerk_logged:
+            logger.info(
+                "Command source %r sent a negative jerk (%g m/s^3); CARLA's "
+                "Ackermann controller takes its magnitude as the jerk limit "
+                "(logged once)",
+                self._active,
+                jerk_mps3,
+            )
+            self._negative_jerk_logged = True
 
     def _refuse_non_finite(self, what: str) -> None:
         """Log a refused non-finite *what*: the first time, then once in a hundred."""

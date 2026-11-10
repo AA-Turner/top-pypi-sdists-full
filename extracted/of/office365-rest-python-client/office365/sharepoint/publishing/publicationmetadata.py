@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -7,7 +7,6 @@ from office365.sharepoint.publishing.amplify.amplifiedchannels import AmplifiedC
 from office365.sharepoint.publishing.sharepointids import SharePointIds as _SharePointIds
 
 
-@dataclass
 class PublicationMetadata(ClientValue):
     AmplifiedChannels: _AmplifiedChannels = field(default_factory=_AmplifiedChannels)
     BannerImageUrl: Optional[str] = None

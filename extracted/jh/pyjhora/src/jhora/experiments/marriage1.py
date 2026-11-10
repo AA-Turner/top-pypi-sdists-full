@@ -358,7 +358,7 @@ def predict_marriage_windows_from_jd_place(jd, place, start_year=None, end_year=
         navamsa_planet_positions, chart_1d_d9, p_to_h_d9
     )
 
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
 
     candidates = []
@@ -513,7 +513,7 @@ def _collect_marriage_primitives(jd, place, pp_rasi, chart_1d_rasi, p_to_h_rasi,
 
 
 def _get_vimsottari_md_ad_pd(jd, place, divisional_chart_factor=1):
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
     return segments
 
@@ -710,7 +710,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
     muntha_lord = house.house_owner_from_planet_positions(annual_pp, muntha_sign)
 
     jd_vf_local = _gregorian_to_jd(vf_y_m_d[0], vf_y_m_d[1], vf_y_m_d[2], vf_hours)
-    patyayini_raw = patyayini.get_dhasa_bhukthi(jd_vf_local, place, divisional_chart_factor=1, chart_method=1)
+    patyayini_raw = patyayini.get_dhasa_antardhasa(jd_vf_local, place, divisional_chart_factor=1, chart_method=1)
     patyayini_schedule = _expand_patyayini_schedule(patyayini_raw)
 
     tajaka = {
@@ -1044,7 +1044,7 @@ def _score_kalachakra_support(jd, place, year, derived):
     tob = (H, M, S)
 
     try:
-        kcd_rows = kalachakra.get_dhasa_bhukthi(
+        kcd_rows = kalachakra.get_dhasa_antardhasa(
             dob, tob, place,
             divisional_chart_factor=1,
             dhasa_starting_planet=1,

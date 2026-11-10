@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from datamodel_code_generator._json_output import OUTPUT_HEAD, dump_json
 from datamodel_code_generator._message_text import counted, wrapped_lines
 from datamodel_code_generator._option_names import hyphenated, option_flag
-from datamodel_code_generator._recommend._rules import format_text, values_arguments
+from datamodel_code_generator._recommend._rules import format_text
 from datamodel_code_generator._recommend._signals import Signals
 
 if TYPE_CHECKING:
@@ -124,14 +124,12 @@ def _effect_lines(option: Option) -> list[str]:
     return [*wrapped_lines(text, _DETAIL_INDENT), *_example_lines(effect.changes)]
 
 
-def _option_lines(option: Option, signals: Signals, *, against: bool = False) -> list[str]:
+def _option_lines(option: Option, signals: Signals) -> list[str]:
     rule = option.decision.rule
     lines = [
         f"  {' '.join(option.arguments)}   [{rule.id}]",
         *wrapped_lines(format_text(rule.reason, signals), _DETAIL_INDENT),
     ]
-    if against:
-        lines.extend(wrapped_lines(f"against: {format_text(rule.contested_reason, signals)}", _DETAIL_INDENT))
     lines.extend(
         line
         for caveat in rule.caveats
@@ -277,15 +275,14 @@ def render_text(recommendation: Recommendation, *, command: str | None, pyprojec
         lines.extend(_signal_lines(signals, recommendation.input_file_type))
     if recommendation.runnable:
         lines.extend(_start_lines(recommendation, signals))
-    for title, options, against in (
-        ("Left out after the trial (the rules recommend these)", recommendation.left_out, False),
-        ("Consider (the schema also has signals against these)", recommendation.consider, True),
-        *((title, _optional(recommendation, section), False) for section, title in _OPTIONAL_SECTIONS),
-        ("Not recommended", recommendation.not_recommended, False),
+    for title, options in (
+        ("Left out after the trial (the rules recommend these)", recommendation.left_out),
+        *((title, _optional(recommendation, section)) for section, title in _OPTIONAL_SECTIONS),
+        ("Not recommended", recommendation.not_recommended),
     ):
         if options:
             lines.extend(("", title))
-            lines.extend(line for option in options for line in _option_lines(option, signals, against=against))
+            lines.extend(line for option in options for line in _option_lines(option, signals))
     if recommendation.trial is not None:
         lines.extend(_trial_lines(recommendation.trial))
     if recommendation.disagreements:
@@ -316,13 +313,14 @@ def _candidate_payload(outcome: CandidateOutcome) -> RecommendCandidatePayload:
         RecommendNameMetricsPayload,
         RecommendNameStabilityPayload,
     )
+    from datamodel_code_generator.cli_options import _values_arguments  # noqa: PLC0415
 
     candidate, metrics, stability = outcome.candidate, outcome.metrics, outcome.stability
     return RecommendCandidatePayload(
         label=candidate.label,
         preset=candidate.preset,
         set=dict(candidate.options),
-        arguments=values_arguments(candidate.options),
+        arguments=_values_arguments(candidate.options.items()),
         selectable=candidate.selectable,
         error=outcome.error,
         dropped_constraint_warnings=outcome.dropped_constraints,
@@ -365,7 +363,6 @@ def _option_payload(option: Option, signals: Signals) -> RecommendOptionPayload:
         set=dict(option.values),
         arguments=option.arguments,
         reason=format_text(rule.reason, signals),
-        contested_reason=format_text(rule.contested_reason, signals) if option.decision.contested else None,
         caveats=[format_text(caveat, signals) for caveat in rule.caveats],
         evidence=list(rule.evidence),
         trial=None
@@ -439,7 +436,6 @@ def recommendation_payload(recommendation: Recommendation, *, content: str, argu
         ),
         recommendations=[_option_payload(option, signals) for option in recommendation.recommendations],
         left_out=[_option_payload(option, signals) for option in recommendation.left_out],
-        consider=[_option_payload(option, signals) for option in recommendation.consider],
         validation=[_option_payload(option, signals) for option in _optional(recommendation, "validation")],
         policy=[_option_payload(option, signals) for option in _optional(recommendation, "policy")],
         not_recommended=[_option_payload(option, signals) for option in recommendation.not_recommended],

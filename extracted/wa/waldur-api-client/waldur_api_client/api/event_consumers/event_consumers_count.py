@@ -7,11 +7,13 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.backend_resource_req_o_enum import BackendResourceReqOEnum
+from ...models.delivery_enum import DeliveryEnum
 from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -20,6 +22,12 @@ def _get_kwargs(
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_delivery: Union[Unset, str] = UNSET
+    if not isinstance(delivery, Unset):
+        json_delivery = delivery.value
+
+    params["delivery"] = json_delivery
 
     params["is_global"] = is_global
 
@@ -83,6 +91,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -93,6 +102,7 @@ def sync_detailed(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -109,6 +119,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        delivery=delivery,
         is_global=is_global,
         o=o,
         page=page,
@@ -127,6 +138,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -137,6 +149,7 @@ def sync(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -154,6 +167,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        delivery=delivery,
         is_global=is_global,
         o=o,
         page=page,
@@ -166,6 +180,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -176,6 +191,7 @@ async def asyncio_detailed(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -192,6 +208,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        delivery=delivery,
         is_global=is_global,
         o=o,
         page=page,
@@ -208,6 +225,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -218,6 +236,7 @@ async def asyncio(
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -236,6 +255,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            delivery=delivery,
             is_global=is_global,
             o=o,
             page=page,

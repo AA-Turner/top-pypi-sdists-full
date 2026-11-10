@@ -3,11 +3,13 @@ import itertools
 import pickle
 import re
 import unicodedata
+import warnings
 
 import pytest
 
 from nameparser import (
-    Lexicon, Locale, Parser, Policy, PolicyPatch, locales, parse, parser_for,
+    Lexicon, Locale, Parser, Policy, PolicyPatch, Script, locales, parse,
+    parser_for,
 )
 from nameparser._policy import (
     CapsSuffixes, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST,
@@ -57,8 +59,12 @@ def test_degenerate_inputs_are_total() -> None:
     assert parse(".,").original == ".,"     # but the raw input is kept
     single = parse("John")
     assert single.given == "John"
+    # a lone word's field is Policy.lone_name_word's, not the order's
+    # (rules/O5, #1111)
     family_first = Parser(policy=Policy(name_order=FAMILY_FIRST))
-    assert family_first.parse("Yamada").family == "Yamada"
+    assert family_first.parse("Yamada").given == "Yamada"
+    surnames = Parser(policy=Policy(lone_name_word=Role.FAMILY))
+    assert surnames.parse("Yamada").family == "Yamada"
     title_only = parse("Dr.")
     assert title_only.title == "Dr." and not title_only.given
     unbalanced = parse('Jon "Nick Smith')
@@ -96,7 +102,7 @@ def test_module_parse_reuses_the_default_parser() -> None:
 
 def test_parser_for_stacks_locales() -> None:
     ru = Locale(code="ru",
-                lexicon=Lexicon.empty().add(titles={"г-н"}),
+                lexicon=Lexicon.empty().add("г-н", kind="title"),
                 policy=PolicyPatch(patronymic_rules=frozenset(
                     {PatronymicRule.EAST_SLAVIC})))
     p = parser_for(ru)
@@ -131,6 +137,65 @@ def test_parser_for_warns_on_scalar_conflict() -> None:
     with pytest.warns(UserWarning, match="strip_emoji"):
         p = parser_for(a, b)
     assert p.policy.strip_emoji is True  # later wins
+
+
+# Each scalar PolicyPatch field, with two values of it that differ, and
+# for a mapping-shaped field a respelling of the first in another key
+# order: the same value written differently. Held to the patch's own
+# field list below, so a new scalar field cannot escape the two tests.
+_HAN_FIRST = {Script.HAN: FAMILY_FIRST, Script.HANGUL: GIVEN_FIRST}
+_SCALARS: dict[str, tuple[object, object, object]] = {
+    "name_order": (GIVEN_FIRST, FAMILY_FIRST, GIVEN_FIRST),
+    "script_orders": (_HAN_FIRST, {Script.HAN: GIVEN_FIRST},
+                      dict(reversed(list(_HAN_FIRST.items())))),
+    "unlisted_caps_suffixes": (CapsSuffixes.OFF, CapsSuffixes.AFTER_COMMA,
+                               CapsSuffixes.OFF),
+    "lone_name_word": (Role.FAMILY, Role.GIVEN, "family"),
+    **{flag: (False, True, False) for flag in (
+        "middle_as_family", "lenient_comma_suffixes", "strip_emoji",
+        "strip_bidi", "unlisted_dotted_suffixes", "two_family_names",
+        "two_given_names")},
+}
+
+
+def test_the_scalar_table_is_every_scalar_patch_field() -> None:
+    assert set(_SCALARS) == {f.name for f in dataclasses.fields(PolicyPatch)
+                             if f.metadata.get("compose") != "union"}
+
+
+def _pack(code: str, field: str, value: object) -> Locale:
+    return Locale(code=code, lexicon=Lexicon.empty(),
+                  policy=PolicyPatch(**{field: value}))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("field", sorted(_SCALARS))
+def test_parser_for_warns_where_two_packs_set_a_scalar_differently(field: str) -> None:
+    first, other, _ = _SCALARS[field]
+    with pytest.warns(UserWarning, match=f"'bb' overrides scalar policy field {field!r} "
+                                         f"already set by locale 'aa'; later wins"):
+        stacked = parser_for(_pack("aa", field, first), _pack("bb", field, other))
+    # later wins: the field reads as the second pack alone sets it
+    assert getattr(stacked.policy, field) == getattr(
+        parser_for(_pack("bb", field, other)).policy, field)
+
+
+@pytest.mark.parametrize("field", sorted(_SCALARS))
+def test_parser_for_is_silent_where_two_packs_set_a_scalar_alike(field: str) -> None:
+    # two packs agreeing on a value override nothing, whatever spelling of
+    # it each writes (filterwarnings = error makes any warning a failure);
+    # the warning is for a value that differs, test above
+    first, _, respelled = _SCALARS[field]
+    for second in (first, respelled):
+        stacked = parser_for(_pack("aa", field, first), _pack("bb", field, second))
+        assert stacked.policy == parser_for(_pack("aa", field, first)).policy
+
+
+def test_parser_for_is_silent_over_the_shipped_packs_that_agree() -> None:
+    # cs, sk and es all turn two_family_names on: their stacks, in either
+    # order, must not fail a caller running with warnings as errors
+    for stack in ((locales.CS, locales.SK), (locales.SK, locales.CS),
+                  (locales.ES, locales.CS, locales.SK)):
+        assert parser_for(*stack).policy.two_family_names is True
 
 
 def test_matches_component_wise_case_insensitive() -> None:
@@ -195,6 +260,104 @@ def test_phd_split_mid_name_is_a_suffix() -> None:
     assert pn.middle == ""
 
 
+def _without_phd(label: str) -> Parser:
+    """A parser whose lexicon lists no unambiguous `phd` (#1000)."""
+    with warnings.catch_warnings():
+        # an empty lexicon holds no hangul surnames to segment on
+        warnings.filterwarnings(
+            "ignore", message="Policy.segment_scripts activates hangul")
+        return {
+            "removed": lambda: Parser(lexicon=Lexicon.default().remove(
+                "phd", kind="credential")),
+            "ambiguous": lambda: Parser(lexicon=Lexicon.default().add(
+                "phd", kind="family")),
+            # an ambiguous suffix WORD, which the split-credential path
+            # would admit as a counted member (#1000's third review)
+            "ambiguous word": lambda: Parser(lexicon=Lexicon.default()
+                                             .remove("phd", kind="credential")
+                                             .add("phd", kind="family")
+                                             .add("phd", kind="credential",
+                                                  acronym=False)),
+            "empty": lambda: Parser(lexicon=Lexicon.empty()),
+            # a strict choice reads mul.toml, `phd` among it (#1005), so
+            # its base removes it
+            "strict pt": lambda: parser_for(locales.PT, strict=True, base=Parser(
+                lexicon=Lexicon.default().remove("phd", kind="credential"))),
+            "strict pt, family first": lambda: parser_for(
+                locales.PT, strict=True, base=Parser(
+                    lexicon=Lexicon.default().remove("phd", kind="credential"),
+                    policy=Policy(name_order=FAMILY_FIRST))),
+        }[label]()
+
+
+# Each of these read suffix 'Ph. D.' under every lexicon before #1000,
+# the pair asking no vocabulary.
+_PHD_SHAPES = (
+    "John Smith Ph. D.",
+    "John Smith, Ph. D.",
+    "John Smith Ph D",
+    "John Smith Ph. D. Jr.",
+    "John Ph. D.",
+    "Smith, John Ph. D.",
+    "John Ph. D. Smith",
+)
+
+
+@pytest.mark.parametrize("text", _PHD_SHAPES)
+@pytest.mark.parametrize("label", [
+    "removed", "ambiguous", "ambiguous word", "empty", "strict pt",
+    "strict pt, family first"])
+def test_phd_pair_is_no_credential_where_the_lexicon_lists_no_phd(
+        label: str, text: str) -> None:
+    # decisions/phd-merge (#1000): a lexicon without `phd` as an
+    # unambiguous credential asks the pair as any other split credential,
+    # and its fold being unlisted or ambiguous, the pair is its two words
+    parser = _without_phd(label)
+    words = [t for t in parser.parse(text).tokens
+             if t.text in ("Ph.", "Ph", "D.", "D")]
+    assert len(words) == 2
+    assert all(t.role is not Role.SUFFIX for t in words)
+
+
+@pytest.mark.parametrize("label", ["removed", "ambiguous", "ambiguous word"])
+def test_phd_pair_reads_its_two_words_where_it_does_not_merge(
+        label: str) -> None:
+    parser = _without_phd(label)
+    n = parser.parse("John Smith Ph. D.")
+    assert (n.middle, n.family, n.suffix) == ("Smith Ph.", "D.", "")
+    h = parser.parse("John Smith, Ph. D.")
+    assert (h.title, h.given, h.family) == ("Ph.", "D.", "John Smith")
+    # the dotted joined spelling stays a suffix by its shape (rules/S3)
+    assert parser.parse("John Smith Ph.D.").suffix == "Ph.D."
+
+
+@pytest.mark.parametrize("text", [
+    # mid-name only the merged pair is a suffix, a bare `PhD` a name word
+    # (decisions/phd-merge), so no mid-name row
+    "Smith, Ph. D.", "John Ph. D.", "John Smith Ph. D."])
+def test_phd_listed_as_a_suffix_word_reads_both_spellings_alike(
+        text: str) -> None:
+    # the gate is unambiguous suffix vocabulary of either kind, as the
+    # joined spelling reads it (#1000's second review)
+    parser = Parser(lexicon=Lexicon.default().remove(
+        "phd", kind="credential").add("phd", kind="suffix"))
+    spaced = parser.parse(text)
+    joined = parser.parse(text.replace("Ph. D.", "PhD"))
+    assert spaced.suffix == "Ph. D."
+    assert joined.suffix == "PhD"
+    assert spaced.ambiguities == joined.ambiguities
+
+
+def test_phd_pair_outranks_an_overlapping_pair_only_where_it_merges() -> None:
+    # 'Dr. Ph.' folds to the listed 'drph': the Ph./D. pair takes the
+    # overlap where `phd` is an unambiguous credential, and leaves it to
+    # that pair where it is not
+    assert parse("Jane Doe Dr. Ph. D.").title == "Dr."
+    for label in ("removed", "ambiguous"):
+        n = _without_phd(label).parse("Jane Doe Dr. Ph. D.")
+        assert (n.title, n.suffix) == ("", "Dr. Ph. D."), label
+
+
 def test_ambiguous_acronym_reports_the_reading_it_took() -> None:
     # 'ma' is both a post-nominal and a surname, so whichever way the
     # peel resolves it is a guess -- the same shape as the leading
@@ -238,7 +401,7 @@ def test_no_suffix_ambiguity_when_nothing_was_guessed(text: str) -> None:
 
 def test_delimited_ambiguous_acronym_reports_suffix_or_nickname() -> None:
     # inside delimiters the competing readings are suffix and nickname:
-    # "(MBA)" is unambiguously a credential and escapes to suffix, while
+    # "(MPH)" is unambiguously a credential and escapes to suffix, while
     # "(JD)" could be either, so it keeps the nickname reading -- a
     # guess, and until now a silent one
     n = parse("JEFFREY (JD) BRICKEN")
@@ -247,7 +410,7 @@ def test_delimited_ambiguous_acronym_reports_suffix_or_nickname() -> None:
         [AmbiguityKind.SUFFIX_OR_NICKNAME]
     assert [t.text for t in n.ambiguities[0].tokens] == ["JD"]
     # the unambiguous one decided on vocabulary, so it is not a guess
-    assert parse("Andrew Perkins (MBA)").ambiguities == ()
+    assert parse("Andrew Perkins (MPH)").ambiguities == ()
 
 
 def test_every_ambiguous_acronym_in_a_name_is_reported() -> None:
@@ -399,16 +562,17 @@ def _overlap_parser(policy: Policy | None = None) -> Parser:
     needs, whatever the shipped data says today: the leading words become
     titles and particles, the chained words ambiguous particles.
 
-    `particles` covers both because `_SUBSET_FIELDS` requires
-    `particles_ambiguous <= particles`; the leading words are deliberately
-    NOT made ambiguous, since that membership does nothing for them and
-    asserting it is how the wrong set got written down in the first place.
+    Both get a particle reading; the chained words a given reading too,
+    which is what makes a particle ambiguous. The leading words are given
+    none here, since that membership does nothing for them and asserting
+    it is how the wrong set got written down in the first place (the
+    shipped `freiherr`, `do` and `st` hold one of their own, which this
+    leaves as it is).
     """
-    lex = Lexicon.default().add(
-        titles=_TITLE_PARTICLES,
-        particles=_TITLE_PARTICLES | _CHAINED_PARTICLES,
-        particles_ambiguous=_CHAINED_PARTICLES,
-    )
+    lex = (Lexicon.default()
+           .add(*sorted(_TITLE_PARTICLES), kind="title")
+           .add(*sorted(_TITLE_PARTICLES | _CHAINED_PARTICLES), kind="particle")
+           .add(*sorted(_CHAINED_PARTICLES), kind="given"))
     return Parser(lexicon=lex, policy=policy or Policy())
 
 
@@ -418,21 +582,22 @@ def test_the_chained_emitter_is_reachable_by_construction() -> None:
 
     Asserted against a lexicon built here, so what it pins is the emitter
     rather than today's word lists. Three controls carry the weight, one
-    per membership the claim rests on: drop the leading word's `particles`
-    and the chain is gone; drop the chained word's `particles_ambiguous`
-    and the report is gone; drop the leading word's `particles_ambiguous`
-    and nothing moves at all -- which is the whole correction, since
+    per reading the claim rests on: drop the leading word's particle
+    reading and the chain is gone; drop the chained word's given reading
+    (its `particles_ambiguous` membership) and the report is gone; give
+    the leading word a given reading too and nothing moves at all -- which is the whole correction, since
     asserting THAT membership is what this file used to do.
 
     If this test fails, the emitter is gone or broken, or one of the two
-    words this test builds has lost a membership it supplies itself. An
+    words this test builds has lost a reading it supplies itself. An
     empty `titles & particles_ambiguous` in the SHIPPED vocabulary does
     not fail it and does not mean the emitter is unreachable.
     """
     word = "zzoverlap"
-    base = Lexicon.default().add(
-        particles=_CHAINED_PARTICLES, particles_ambiguous=_CHAINED_PARTICLES)
-    overlap = base.add(titles={word}, particles={word})
+    base = (Lexicon.default()
+            .add(*sorted(_CHAINED_PARTICLES), kind="particle")
+            .add(*sorted(_CHAINED_PARTICLES), kind="given"))
+    overlap = base.add(word, kind="title").add(word, kind="particle")
     text = f"{word} van Johnson"
 
     # the emitter, reached by construction
@@ -446,7 +611,7 @@ def test_the_chained_emitter_is_reachable_by_construction() -> None:
 
     # control 1 -- leading word a plain title, NOT a particle: no chain
     # at all, and _assign reports the other side of the same fork.
-    title_only = Parser(lexicon=base.add(titles={word})).parse(text)
+    title_only = Parser(lexicon=base.add(word, kind="title")).parse(text)
     assert (title_only.given, title_only.family) == ("van", "Johnson")
     assert [a.detail for a in title_only.ambiguities] == [
         "leading 'van' may be a family-name particle; read as a given name"]
@@ -456,8 +621,7 @@ def test_the_chained_emitter_is_reachable_by_construction() -> None:
     # that there is no decision left to report. Without this control the
     # assertion above could not tell "the emitter ran" from "the chain
     # happened to produce this grouping".
-    unambiguous = dataclasses.replace(
-        overlap, particles_ambiguous=overlap.particles_ambiguous - {"van"})
+    unambiguous = overlap.remove("van", kind="given")
     quiet = Parser(lexicon=unambiguous).parse(text)
     assert (quiet.given, quiet.family) == (chained.given, chained.family)
     assert quiet.ambiguities == ()
@@ -468,7 +632,7 @@ def test_the_chained_emitter_is_reachable_by_construction() -> None:
     # executable half of the correction; without it the claim that
     # `titles & particles` is the right set lives only in a comment, and
     # a fixture supplying all three sets could never contradict it.
-    also_ambiguous = overlap.add(particles_ambiguous={word})
+    also_ambiguous = overlap.add(word, kind="given")
     same = Parser(lexicon=also_ambiguous).parse(text)
     assert (same.given, same.family) == (chained.given, chained.family)
     assert [a.detail for a in same.ambiguities] == [amb.detail]
@@ -969,7 +1133,7 @@ def test_each_suffix_or_name_branch_describes_itself() -> None:
 
 
 def test_parser_matches_uses_its_own_config() -> None:
-    p = Parser(lexicon=Lexicon.default().add(titles=["moff"]))
+    p = Parser(lexicon=Lexicon.default().add("moff", kind="title"))
     a = p.parse("Moff Tarkin")
     # ParsedName.matches falls back to the DEFAULT parser for the str
     # argument, which reads "Moff" as a given name -- mismatch.
@@ -1150,7 +1314,7 @@ def test_revise_writes_a_connective_mark_the_sub_parse_did_not(
     # rather than by any stage. Without it the 'y' carries no mark at
     # all, drops as an ordinary family particle, and the field and
     # the view disagree again.
-    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
     revised = p.revise(p.parse("John Smith"), family="and y")
     assert revised.family == "and y"
     assert revised.initials() == "J. a. y."
@@ -1168,9 +1332,9 @@ def test_revise_keeps_r2s_precedence_over_the_connective_mark(
     # all-particle part, so R2's mark readmits every word of it --
     # the connective included -- and #461's is not written there. The
     # rendered answer is the same either way, which is why this
-    # asserts the TAGS: the facade's own connective predicate reads
-    # the second mark, so writing it here would move that view alone.
-    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    # asserts the TAGS: the contract is that one mark is written, and
+    # no rendered view tells the two apart.
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
     revised = p.revise(p.parse("John Smith"), family="de y")
     assert revised.initials() == "J. d. y."
     y = [t for t in revised.tokens if t.text == "y"][0]
@@ -1311,7 +1475,7 @@ def test_the_known_round_trip_exceptions_are_one_limit() -> None:
     # suffix-bearing corpus (two, measured 2026-09-10; three since
     # 2026-10-06).
     p = Parser()
-    tails = Lexicon.default().honorific_tails
+    tails = Lexicon.default()._sets.honorific_tails
 
     def ends_in_a_tail_without_being_one(name: str) -> bool:
         return any(word not in tails
@@ -1363,8 +1527,7 @@ def test_revise_keeps_the_sub_parses_within_piece_mark() -> None:
     # nothing there depends on the sub-parse's own. The between-piece
     # mark a sub-parse leaves on a token forced to another role
     # predates #511; on a ParsedName only the suffix string view reads
-    # the tag, and no path puts a revised name into a HumanName, whose
-    # list views would heal it.
+    # the tag.
     p = Parser()
     r = p.revise(p.parse("John Smith"), family="John Ph. D. Smith")
     family = r.tokens_for(Role.FAMILY)
@@ -1399,10 +1562,11 @@ def test_wholly_cjk_names_read_family_first_by_default() -> None:
 def test_nfd_korean_input_still_reads_family_first() -> None:
     # fix(#271) classification, landed via the #272 NFC-classification
     # amendment: NFD decomposes each Hangul syllable onto bare jamo,
-    # entirely outside the HANGUL range, so raw NFD input used to miss
+    # then outside the HANGUL range, so raw NFD input used to miss
     # script_orders' family-first rule and fall back to the positional
-    # default -- a live gap in #294's shipped behavior until
-    # single_script started classifying an NFC-normalized copy.
+    # default until single_script classified an NFC-normalized copy.
+    # Since #1087 the jamo are in HANGUL, so this passes with or
+    # without that fold; it pins the reading, not the fold.
     n = parse(unicodedata.normalize("NFD", "김 민준"))
     # classification-only: the rendered text is exactly what was
     # typed (still NFD, spans untouched), so compare NFC-normalized --
@@ -1751,7 +1915,7 @@ _LATIN = re.compile(r"^[\x00-\u024f]*$")
 def _clause_free_latin_corpus_names() -> list[str]:
     from nameparser import DEFAULT_NICKNAME_DELIMITERS
     from nameparser._pipeline._vocab import maiden_marker_run
-    from nameparser.config.maiden_markers import MAIDEN_MARKERS
+    from nameparser.config._compiled import MAIDEN_MARKERS
 
     from ._differential_fixtures import _CORPUS_NAMES
     # "Does this name already carry a marker" is the parser's own
@@ -1784,7 +1948,7 @@ def _clause_free_latin_corpus_names() -> list[str]:
     # import re, sys; sys.path.insert(0, 'tests')
     # from nameparser import DEFAULT_NICKNAME_DELIMITERS as D
     # from nameparser._pipeline._vocab import maiden_marker_run as run
-    # from nameparser.config.maiden_markers import MAIDEN_MARKERS as M
+    # from nameparser.config._compiled import MAIDEN_MARKERS as M
     # from v2._differential_fixtures import _CORPUS_NAMES
     # base = [n for n in _CORPUS_NAMES if re.match(r'^[\x00-\u024f]*$', n) and ',' not in n]
     # strip = ''.join({c for p in D for c in p}) + '.'
@@ -1923,6 +2087,80 @@ def test_a_maiden_clause_changes_nothing_else(name: str) -> None:
             f"{getattr(with_clause, field)!r} with a maiden clause")
 
 
+#: rules/N3's suffix clause (#815), swept over the ways the grid writes
+#: a nickname and a name word (quoted or bracketed, before or after the
+#: word), suffixes of each kind the trailing peel takes whole (a
+#: generation, a numeral listed and one read by shape, a credential
+#: dotted, merged and joined, a run), and the default and FAMILY_FIRST
+#: orders -- FAMILY_FIRST_GIVEN_LAST read every row as FAMILY_FIRST
+#: does, by token roles, tags and reports, so it is left out. Also left
+#: out on purpose, each a word read as a second name word so that N3
+#: never applies: a gated word (`fils`, `Junior`, S11), an ambiguous
+#: acronym in Title case (`Ing`, S4) and the one-letter numeral (`V`,
+#: S10); cases.py's `nickname_word_and_*` boundary rows hold them. The
+#: walk parses 480 names in 0.05s (measured 2026-11-05, py3.11).
+_N3_NICKNAMES = ("'Smitty' {w}", '"Smitty" {w}', "{w} (Smitty)",
+                 "(Smitty) {w}", "{w} 'Smitty'")
+_N3_WORDS = ("Jones", "JONES", "jones", "Jones-Smith")
+_N3_SUFFIXES = ("Jr.", "Sr", "III", "VI", "PhD", "Ph. D.", "MD", "Esq.",
+                "MD/PhD", "Jr. PhD", "CPA")
+_N3_ORDERS = (GIVEN_FIRST, FAMILY_FIRST)
+#: The grid's size, every row of which failed the test below on master
+#: 90a9a86f (2026-11-05), where N3's suffix clause did not exist, its
+#: negative control: under the default order the word read given with
+#: the family empty, and under FAMILY_FIRST it read family but still
+#: reported `given-or-family`, so there only the report's check bites.
+_N3_GRID_ROWS = 440
+
+
+def test_a_suffix_beside_a_nickname_and_one_word_moves_nothing() -> None:
+    """rules/N3 sets a suffix aside (#815): the one name word beside a
+    nickname is the family name with a suffix as without one, so
+    appending a suffix adds it and moves no other field, and the word
+    is decided, so nothing reports `given-or-family`."""
+    rows = 0
+    failed = []
+    for order in _N3_ORDERS:
+        parser = Parser(policy=Policy(name_order=order))
+        for nick in _N3_NICKNAMES:
+            for word in _N3_WORDS:
+                base = nick.format(w=word)
+                bare = parser.parse(base)
+                assert bare.family and not bare.given, base
+                for suffix in _N3_SUFFIXES:
+                    rows += 1
+                    suffixed = parser.parse(f"{base} {suffix}")
+                    if (suffixed.as_dict()
+                            != {**bare.as_dict(), "suffix": suffix}
+                            or AmbiguityKind.GIVEN_OR_FAMILY in {
+                                a.kind for a in suffixed.ambiguities}):
+                        failed.append((base, suffix, order))
+    assert rows == _N3_GRID_ROWS
+    assert not failed, failed
+
+
+#: rules/N3's Except: a word read as an initial (dotted, bare, or a
+#: one-case letter, T4), a bound given name or a particle keeps that
+#: reading where a suffix stands beside it, while the bare spelling,
+#: which the early count decides, reads it family (N3's Accepted).
+#: Negative control, measured 2026-11-05 by moving the nickname test
+#: ahead of the claim clause: every row read family under the default
+#: order.
+_N3_CLAIMED = (("'Smitty' J.", "Jr."), ("'Smitty' J", "Jr."),
+               ("'smitty' j", "jr"), ("'Smitty' Abdul", "Jr."),
+               ("'Smitty' de", "Jr."))
+
+
+@pytest.mark.parametrize("base,suffix", _N3_CLAIMED)
+def test_a_claimed_word_keeps_its_claim_beside_a_suffix(
+        base: str, suffix: str) -> None:
+    word = base.split()[-1]
+    assert parse(base).family == word
+    suffixed = parse(f"{base} {suffix}")
+    assert (suffixed.given, suffixed.family) == (word, "")
+    assert not suffixed.ambiguities
+
+
 def test_a_phrase_marker_outranks_the_word_it_starts_with() -> None:
     # Longest first, and the row cases.py cannot hold: a Case carries a
     # Policy or a Locale, never a Lexicon, so the one marker fork that
@@ -1936,7 +2174,7 @@ def test_a_phrase_marker_outranks_the_word_it_starts_with() -> None:
     # vocabulary reads, so the control below is what makes the first
     # assertion mean anything.
     configured = Parser(lexicon=Lexicon.default().add(
-        maiden_markers=["geb von"]))
+        "geb von", kind="birth_marker"))
     assert configured.parse("Jane Smith geb von Braun").maiden == "Braun"
     assert configured.parse("Jane Smith geb Braun").maiden == "Braun"
     assert parse("Jane Smith geb von Braun").maiden == "von Braun"
@@ -1949,12 +2187,14 @@ def test_the_catalan_recipe_unmarks_the_link_for_one_case_names() -> None:
     `i` ships in the MARKED subset, so a name written wholly in one
     case reads it as an initial and reports the fork. A caller whose
     data is Catalan knows better, and the knob the rule names is
-    `remove(conjunctions_ambiguous={"i"})` -- which leaves the letter
+    `add("i", kind="conjunction", may_be_initial=False)` -- which
+    leaves the letter
     a connective and takes the one-case fork out of its way. The
     prose said so; nothing ran it.
     """
     catalan = Parser(
-        lexicon=Lexicon.default().remove(conjunctions_ambiguous={"i"}))
+        lexicon=Lexicon.default().add(
+            "i", kind="conjunction", may_be_initial=False))
     for text in ("JOSEP CAROD I ROVIRA", "josep carod i rovira"):
         name = catalan.parse(text)
         assert name.family == text.split(" ", 1)[1]
@@ -2026,7 +2266,7 @@ _NFD_ROWS = [
     "Smith, John й Jones",
     # ... and the veto on scripts that write no initials (#320), asked
     # of the composed spelling too: decomposed hangul is conjoining
-    # jamo, outside every _NO_INITIALS range, so composing the initial
+    # jamo, outside every _NO_INITIALS range until #1087, so composing the initial
     # shape alone made a decomposed '씨.' an initial (a title or a
     # given name). Spaced or after a comma, since an UNSPACED
     # decomposed hangul name is not split (docs/usage.rst) and so has
@@ -2036,7 +2276,79 @@ _NFD_ROWS = [
     "김 민준, 씨.",
     ", 씨.",
     "김. 민준",
+    # #1087: the interpunct's flank guard reads raw characters, which a
+    # decomposed syllable writes as conjoining jamo (rules/T3), in each
+    # comma shape
+    "이서연·김민준",
+    "김민준·Smith",
+    "이서연·김민준, 씨.",
+    "김, 이서연·김민준",
+    ", 이서연·김민준",
+    "(Bob), 이서연·김민준",
+    "Smith, 이서연·김민준",
+    "이서연·김민준·박지훈",
 ]
+# Jamo that compose to no syllable (archaic, lone, Extended-A U+A960 and
+# Extended-B U+D7B0), which NFC leaves as written and so reach every
+# reader as jamo: hangul to all of them since #1087 (decisions/nfd-shapes).
+# Each row: the text, its reading (non-empty fields, report kinds,
+# initials()), and the reading before #1087, recorded 2026-11-05 against
+# 4109b026 -- the control, which moves on every row.
+_UNCOMPOSED_JAMO: list[tuple[str, dict[str, str], list[AmbiguityKind], str,
+                            tuple[object, ...]]] = [
+    # the H2 veto: no title by shape
+    ("ꥠᅡ. Smith", {"given": "ꥠᅡ.", "family": "Smith"}, [], "S.",
+     ({"title": "ꥠᅡ.", "family": "Smith"}, [], "S.")),
+    ("ᄒᆞᆫ. Smith", {"given": "ᄒᆞᆫ.", "family": "Smith"}, [], "S.",
+     ({"title": "ᄒᆞᆫ.", "family": "Smith"}, [], "S.")),
+    # the W4 order: wholly hangul reads family-first
+    ("ᄀ. 김민준", {"given": "김민준", "family": "ᄀ."}, [], "",
+     ({"given": "ᄀ.", "middle": "김", "family": "민준"}, [], "ᄀ.")),
+    ("ᄒᆞᆫ 김민준", {"given": "김민준", "family": "ᄒᆞᆫ"}, [], "",
+     ({"given": "ᄒᆞᆫ", "middle": "김", "family": "민준"}, [], "ᄒ.")),
+    ("ꥠᅡᆨ 민준", {"given": "민준", "family": "ꥠᅡᆨ"}, [], "",
+     ({"given": "ꥠᅡᆨ", "middle": "민", "family": "준"}, [], "ꥠ.")),
+    ("김민준 ᄒ", {"given": "민준", "middle": "ᄒ", "family": "김"}, [], "",
+     ({"given": "김", "middle": "민준", "family": "ᄒ"}, [], "ᄒ.")),
+    # the W1 division: a composed surname divides from them
+    ("김ᄒᆞᆫ", {"given": "ᄒᆞᆫ", "family": "김"}, [], "",
+     ({"given": "김ᄒᆞᆫ"}, [AmbiguityKind.GIVEN_OR_FAMILY], "")),
+    # the W2 peel: the honorific peels behind them
+    ("김민ힰ씨", {"given": "민ힰ", "family": "김", "suffix": "씨"}, [], "",
+     ({"given": "김민ힰ", "suffix": "씨"}, [AmbiguityKind.GIVEN_OR_FAMILY], "")),
+    # the R7 view: no initial
+    ("Mary ᄀ. Smith", {"given": "Mary", "middle": "ᄀ.", "family": "Smith"},
+     [], "M. S.",
+     ({"given": "Mary", "middle": "ᄀ.", "family": "Smith"}, [], "M. ᄀ. S.")),
+    ("John Smith, ꥠᅡ", {"given": "ꥠᅡ", "family": "John Smith"}, [], "J. S.",
+     ({"given": "ꥠᅡ", "family": "John Smith"}, [], "ꥠ. J. S.")),
+    # the T3 flank: an Extended-A or Extended-B neighbour flanks the interpunct
+    ("ꥠᅡ·김민준", {"given": "ꥠᅡ", "family": "김민준"}, [], "",
+     ({"given": "ꥠᅡ·김민준"}, [AmbiguityKind.GIVEN_OR_FAMILY], "ꥠ.")),
+    ("김ힰ·김민준", {"given": "김ힰ", "family": "김민준"}, [], "",
+     ({"given": "김ힰ·김민준"}, [AmbiguityKind.GIVEN_OR_FAMILY], "")),
+    # the ACCEPTED fillers U+1160 and U+115F, invisible and hangul
+    ("김\u1160 민준", {"given": "\u1160", "middle": "민준", "family": "김"},
+     [], "",
+     ({"given": "김\u1160", "middle": "민", "family": "준"}, [], "")),
+    ("\u115fJohn Smith", {"given": "\u115fJohn", "family": "Smith"}, [], "S.",
+     ({"given": "\u115fJohn", "family": "Smith"}, [], "\u115f. S.")),
+]
+
+
+@pytest.mark.parametrize(("text", "fields", "kinds", "initials", "before"),
+                         _UNCOMPOSED_JAMO)
+def test_uncomposed_jamo_read_as_hangul(
+        text: str, fields: dict[str, str], kinds: list[AmbiguityKind],
+        initials: str, before: tuple[object, ...]) -> None:
+    assert unicodedata.is_normalized("NFC", text)  # NFC leaves it as jamo
+    name = parse(text)
+    got = ({k: v for k, v in name.as_dict().items() if v},
+           [a.kind for a in name.ambiguities], name.initials())
+    assert got == (fields, kinds, initials)
+    assert got != before
+
+
 _NFD_POLICIES = [
     Policy(),
     Policy(name_order=FAMILY_FIRST),
@@ -2094,7 +2406,15 @@ def test_a_decomposed_abbreviation_reads_as_its_composed_twin(
     alone is reverted, since the composed initial shape without the
     composed veto made a decomposed '씨.' an initial. `Ivan й Petrov
     Sidorov` and `Smith, John й Jones` pass everywhere and pin parity
-    only."""
+    only. That control is the #665 population at f9b2b81c: since #1087
+    the jamo are HANGUL, so the hangul rows no longer fail with the
+    veto's compose reverted and pin parity.
+
+    #1087 adds eight interpunct rows, across the comma shapes. Recorded
+    control, measured 2026-11-05 against 4109b026's nameparser/: of
+    their 32 twin cases 28 fail, the seven whose interpunct stands
+    between hangul under all four policies, and `김민준·Smith`, whose
+    Latin flank never divides, passes everywhere."""
     composed = unicodedata.normalize("NFC", text)
     decomposed = unicodedata.normalize("NFD", text)
     assert decomposed != composed
@@ -2109,7 +2429,7 @@ def test_a_decomposed_conjunction_reports_as_its_composed_twin() -> None:
     by `й` only once a caller marks it ambiguous -- no default entry is
     decomposable."""
     parser = Parser(lexicon=Lexicon.default().add(
-        conjunctions_ambiguous={"й"}))
+        "й", kind="conjunction", may_be_initial=True))
     text = "ivan й petrov"
     composed = parser.parse(text)
     assert [a.kind for a in composed.ambiguities] == [
@@ -2131,8 +2451,8 @@ def test_a_decomposed_chunked_credential_reads_as_its_composed_twin() -> None:
     default policy; with that off and the acronym listed, the chunked
     gate is the only reader, and it read NFD `Ž.Šč.` as no credential."""
     parser = Parser(
-        lexicon=Lexicon.default().add(suffix_acronyms={"žšč"},
-                                      suffix_acronyms_ambiguous={"žšč"}),
+        lexicon=Lexicon.default().add("žšč", kind="credential")
+                                 .add("žšč", kind="family"),
         policy=Policy(unlisted_dotted_suffixes=False))
     text = "John Smith Ž.Šč."
     decomposed = unicodedata.normalize("NFD", text)
@@ -2149,6 +2469,22 @@ def test_a_decomposed_dotted_letter_is_dotted() -> None:
     differ), so it is pinned directly."""
     from nameparser._pipeline._vocab import _dotted
     assert _dotted(unicodedata.normalize("NFD", "Ž.")) is True
+
+
+@pytest.mark.parametrize("mark", ["\u0301", "\u1ab0", "\u1dc0",
+                                  "\u20d0", "\ufe20"])
+def test_a_mark_from_each_combining_block_stays_in_its_word(
+        mark: str) -> None:
+    """`_vocab._MARKS` names five combining blocks (#652), and NFD of a
+    letter only ever produces the first, so the twin rows above reach
+    one. A mark from each block, written after a letter, keeps the
+    abbreviation one word and its shape a title. Until 3.0 the class
+    was also pinned to config's copy, which #1008 removed; measured
+    2026-11-02, dropping U+1AB0-1AFF from `_MARKS` failed nothing else
+    in the suite."""
+    name = parse(f"Dr. inz{mark}. Janez Novak")
+    assert name.title == f"Dr. inz{mark}."
+    assert name.given == "Janez"
 
 
 # #671: the credential, office and generational words, one spelling each
@@ -2188,13 +2524,13 @@ def test_a_vetted_cjk_credential_word_peels_off_a_glued_name(
 def test_a_declined_cjk_credential_word_does_not_peel_off_a_glued_name(
         word: str) -> None:
     # 長 alone is a borne given name, so 阿部長 can be 阿部 + 長 (#707).
-    assert word not in Parser().lexicon.honorific_tails
+    assert word not in Parser().lexicon._sets.honorific_tails
     assert Parser().parse(f"田中{word}").suffix == ""
 
 
 # rules/S13 (#810): where a bracketed member reads differently from its
 # twin, a bracketed unambiguous credential in the same place. The twin
-# is MBA, a word no head holds, so the twin's reading maps back by
+# is MPH, a word no head holds, so the twin's reading maps back by
 # replacing its text. 1,080 texts, about 2s.
 _TWIN_HEADS = (
     "John Smith {c}", "Jack {c}", "{c}", "John {c}", "JOHN SMITH {c}",
@@ -2225,16 +2561,15 @@ def _twin_reading(name: ParsedName, twin: str | None, word: str) -> tuple[
 
 
 #: The census, by head and by whether the member was settled or left
-#: the nickname, recorded 2026-10-26 (#810). rules/S13's Accepted bullets
-#: and its Except bullets name each shape: a lone name word stays N3's
-#: family name beside a settled member where its twin's is given; the
-#: maiden clause stays the maiden name where the twin's credential run
-#: takes it; a part past a second comma reports what is left without
-#: the member; a name written in one case settles no capitals; a name
+#: the nickname, recorded 2026-10-26 (#810) and re-recorded 2026-11-04
+#: (#792), when rules/S1's set-apart reading of the twin left no
+#: settled member reading otherwise than it. rules/S13's Accepted
+#: bullet and its Except bullets name each shape left: a name written
+#: in one case settles no capitals; a name
 #: with no word of its own (a title, a nickname, nothing) settles no
-#: clause, where the twin escapes, read as the name ('(MBA)' given
-#: 'MBA', 'Dr. (MBA)' given 'Dr.') or as the suffix behind a comma
-#: (', (MBA)'); and a clause another
+#: clause, where the twin is set apart all the same ('(MPH)' suffix
+#: 'MPH' and no name, 'Dr. (MPH)' title 'Dr.', suffix 'MPH'; before
+#: #792 the escape read '(MPH)' as given 'MPH'); and a clause another
 #: settled one would make settle, on a second reading, is left the
 #: nickname.
 _TWIN_CENSUS = {
@@ -2243,11 +2578,6 @@ _TWIN_CENSUS = {
     ("Dr. {c}", "nickname"): 36,
     ("JOHN SMITH (m.a) {c}", "nickname"): 24,
     ("JOHN SMITH {c}", "nickname"): 24,
-    ("Jack {c}", "settled"): 36,
-    ("John Smith {c} née Jones", "settled"): 36,
-    ("John {c}", "settled"): 36,
-    ("Smith, John, Bob {c}", "settled"): 36,
-    ("Smith, John, X.Y.Z. {c}", "settled"): 36,
     ("john smith (M.A) {c}", "nickname"): 24,
     ("{c}", "nickname"): 36,
 }
@@ -2267,10 +2597,944 @@ def test_where_a_bracketed_member_reads_otherwise_than_its_twin() -> None:
             _TWIN_PAIRS, _TWIN_MEMBERS, _TWIN_HEADS, _TWIN_ORDERS):
         parser = Parser(policy=Policy(name_order=order))
         name = parser.parse(head.format(c=f"{open_}{word}{close}"))
-        twin = parser.parse(head.format(c=f"{open_}MBA{close}"))
+        twin = parser.parse(head.format(c=f"{open_}MPH{close}"))
         if _twin_reading(name, None, word) != _twin_reading(
-                twin, "MBA", word):
+                twin, "MPH", word):
             key = (head, "nickname" if word in name.nickname.split()
                    else "settled")
             census[key] = census.get(key, 0) + 1
     assert census == _TWIN_CENSUS
+
+
+def test_the_joined_tag_never_reaches_a_title() -> None:  # #429 regression guard
+    """The "joined" tag is role-blind, so a tag placed for a suffix entry
+    would be read by a title too.
+
+    So the pass that writes it (post_rules' R1 entry pass, #436) walks
+    the SUFFIX tokens alone and reads every other role as transparent
+    to the run rather than as part of it. #429's first draft let any
+    piece open an entry: a title piece doing so tagged the title behind
+    it. Asserted on the tags because the string views cannot see it --
+    titles render space-joined either way.
+    """
+    def joined(text: str) -> list[str]:
+        return [t.text for t in parse(text).tokens if "joined" in t.tags]
+
+    n = parse("Smith, Rev. Dr.")
+    assert n.title == "Rev. Dr."
+    assert joined("Smith, Rev. Dr.") == []
+    # with a suffix already standing from the pre-comma segment, a
+    # title opening the entry glued the next suffix backward across
+    # the writer's own comma
+    assert parse("Smith Jr., Mr. Jr.").suffix == "Jr., Jr."
+    assert joined("Smith Jr., Mr. Jr.") == []
+    # the control: where the pieces really are one entry, they DO join
+    assert joined("Smith, MD PhD") == ["PhD"]
+    # a role that renders elsewhere is stepped OVER by the pass and
+    # never stepped onto: it needs a suffix word FIRST, so a run is
+    # legitimately open, and then TWO titles
+    j = parse("Smith, MD Rev. Dr.")
+    assert (j.suffix, j.title) == ("MD", "Rev. Dr.")
+    assert joined("Smith, MD Rev. Dr.") == []
+
+
+def test_the_ph_d_pair_reads_by_the_vocabulary() -> None:
+    # v1's fix_phd merged 'Ph. D.' by its spelling alone, and through 2.8
+    # a config without 'phd' still read the pair as one suffix; since
+    # #1000 the lexicon defines both spellings (decisions/phd-merge)
+    p = Parser(lexicon=Lexicon.default().remove("phd", kind="credential"))
+    s = p.parse("John Smith Ph. D.")
+    assert (s.middle, s.family, s.suffix) == ("Smith Ph.", "D.", "")
+    h = p.parse("John Smith, Ph. D.")
+    assert (h.title, h.given, h.family, h.suffix) == (
+        "Ph.", "D.", "John Smith", "")
+
+
+def test_a_given_name_written_short_listed_as_a_title_is_a_title() -> None:
+    # #789: the caller who reads the word as a title gets 1.4's reading
+    # back, the leading peel asking the titles before the shape the
+    # given_name_abbreviations set outranks. Since 3.0's 4i-b the word
+    # leaves that set on the way: its given reading, which made it an
+    # abbreviation, would also keep a title reading one only inside a
+    # phrase (rules/H9), so a title everywhere is the given reading
+    # removed, and 2.x's title beside an abbreviation has no spelling
+    assert parse("Chas. Smith").given == "Chas."   # baseline
+    p = Parser(lexicon=Lexicon.default().remove("chas", kind="given")
+               .add("chas", kind="title"))
+    assert p.parse("Chas. Smith").title == "Chas."
+
+
+# -- a choice of languages (Locale.languages, phase 3b) --
+
+
+def _choosing(*tags: str, code: str = "choice",
+              lexicon: Lexicon | None = None) -> Locale:
+    return Locale(code=code, lexicon=lexicon or Lexicon.empty(),
+                  languages=frozenset(tags))
+
+
+def test_the_compiled_fields_are_the_default_lexicons() -> None:
+    from nameparser._lexicon import _KIND_FIELDS, _VOCAB_FIELDS, _vocab_fields
+    from nameparser._reading_index import compile_choice
+    default = Lexicon.default()
+    fields = _vocab_fields(compile_choice(frozenset()))
+    # surnames is KOREAN_SURNAMES and given_names a pack's list (#959),
+    # neither compiled from the vocabulary; the kind sets the views read
+    # are compiled beside the 2.x fields
+    assert {f for f in fields} | {"surnames", "given_names"} == set(
+        _VOCAB_FIELDS) | set(_KIND_FIELDS)
+    for name, words in fields.items():
+        assert getattr(default._sets, name) == words, name
+
+
+def test_a_pack_choosing_no_language_leaves_the_vocabulary_as_it_is() -> None:
+    base = Parser(lexicon=Lexicon.default().add("zzq", kind="title"))
+    assert parser_for(Locale(code="xx", lexicon=Lexicon.empty()),
+                      base=base).lexicon == base.lexicon
+
+
+def test_building_a_parser_with_no_choice_never_loads_the_reading_index() -> None:
+    # the index loads on its first lookup (decisions/vocabulary-model,
+    # 3a): a parse makes one, for Reading.languages, but building a
+    # parser choosing no language never does, where a choice must
+    import subprocess
+    import sys
+    code = ("import sys, nameparser; from nameparser import locales; "
+            "nameparser.parser_for(locales.RU, locales.TR_AZ); "
+            "assert 'nameparser.config._index' not in sys.modules; "
+            "nameparser.parser_for(nameparser.Locale('pt', "
+            "nameparser.Lexicon.empty(), languages={'pt'})); "
+            "assert 'nameparser.config._index' in sys.modules")
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize("tags,name,field,before,after", [
+    # prefer, against a shape: the one-case conjunction holds under pt
+    (("pt",), "ANA SILVA E SOUZA", "family", "SOUZA", "SILVA E SOUZA"),
+    # prefer: ar's bound given name stays, en's credential leaves
+    (("ar",), "Haddad, Abd", "given", "", "Abd"),
+    # turning on: cs's generation joins, en's Saint readings leave
+    (("cs",), "Jiří Dienstbier st.", "suffix", "", "st."),
+    # prefer: pt's preposition, en's credential gone
+    (("pt",), "John Smith DO", "family", "Smith", "DO"),
+    # and the other way: en's credential, pt's preposition gone
+    (("en",), "Maria do Carmo", "family", "do Carmo", "Carmo"),
+    # both chosen, both kept, gated as in the default
+    (("pt", "en"), "John Smith DO", "suffix", "DO", "DO"),
+    (("pt", "en"), "Maria do Carmo", "family", "do Carmo", "do Carmo"),
+])
+def test_a_choice_selects_the_readings_of_its_languages(
+        tags: tuple[str, ...], name: str, field: str, before: str,
+        after: str) -> None:
+    assert getattr(parse(name), field) == before
+    assert getattr(parser_for(_choosing(*tags)).parse(name), field) == after
+
+
+def test_a_choice_settled_by_a_name_reading_keeps_the_gate_on() -> None:
+    # en's given reading of `st` still gates the generation cs turns on
+    got = parser_for(_choosing("cs")).parse("Jiří Dienstbier st.")
+    assert [a.kind for a in got.ambiguities] == [AmbiguityKind.SUFFIX_OR_NAME]
+
+
+def test_the_packs_choices_are_one_choice_in_any_order() -> None:
+    pt, en = _choosing("pt", code="aa"), _choosing("en", code="bb")
+    both = parser_for(_choosing("pt", "en")).lexicon
+    assert parser_for(pt, en).lexicon == parser_for(en, pt).lexicon == both
+
+
+def test_a_choice_keeps_a_callers_vocabulary() -> None:
+    base = Parser(lexicon=Lexicon.default().add("zzq", kind="title"))
+    got = parser_for(_choosing("pt"), base=base)
+    assert "zzq" in got.lexicon._sets.titles
+    assert got.parse("ANA SILVA E SOUZA").family == "SILVA E SOUZA"
+
+
+def test_a_packs_own_fragment_is_unioned_on_after_the_choice() -> None:
+    # pt drops en's credential reading of `do`; the pack's fragment puts
+    # it back, as a caller listing a word has always asked for
+    pack = _choosing("pt", lexicon=Lexicon.empty().add("do", kind="credential"))
+    assert parser_for(pack).parse("John Smith DO").suffix == "DO"
+
+
+@pytest.mark.parametrize("tag,match", [
+    ("xx", "while applying locale 'choice': no vocabulary file holds"),
+    ("mul", "while applying locale 'choice': 'mul' is not a language"),
+])
+def test_a_choice_no_file_can_serve_is_refused_with_the_pack(
+        tag: str, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        parser_for(_choosing(tag))
+
+
+def test_a_lowercase_region_selects_the_regions_file() -> None:
+    assert (parser_for(_choosing("pt-br")).lexicon
+            == parser_for(_choosing("pt-BR")).lexicon)
+
+
+def test_a_word_a_choice_drops_leaves_the_callers_markers_of_it_too() -> None:
+    # a caller marked `vd` possibly given (a given reading beside its
+    # particle one); en's credential drops nl's preposition, so the word
+    # leaves `particles`, and the caller's mark with it, a marker
+    # compiling only beside its base (found by review, 3b)
+    base = Parser(lexicon=Lexicon.default().add("vd", kind="given"))
+    got = parser_for(_choosing("en"), base=base).lexicon._sets
+    assert "vd" not in got.particles and "vd" not in got.particles_ambiguous
+
+
+@pytest.mark.parametrize("mask,error", [
+    # a value not a string: a TypeError
+    (5, TypeError),
+    # a mask spelling other letters: _lexicon._MaskValueError, whose
+    # constructor takes three arguments, rewrapped as a plain ValueError
+    ("Abc", ValueError),
+])
+def test_an_error_applying_a_choice_names_the_choice(
+        monkeypatch: pytest.MonkeyPatch, mask: object,
+        error: type[Exception]) -> None:
+    # an error the Lexicon raises while the choice is applied names the
+    # languages chosen, as a patch error names its pack. A shipped
+    # choice raises only on a caller's clashing reading (the `st` test
+    # below), so a choice moving a mask the Lexicon refuses stands in
+    import nameparser._parser as parser_mod
+    monkeypatch.setattr(parser_mod, "_rechosen_masks",
+                        lambda lexicon, chosen, strict: (("zzq", mask),))
+    with pytest.raises(error, match="while applying the languages chosen, "
+                                    "en, pt \\(by 'aa', 'bb'\\): "
+                                    "capitalization_exceptions"):
+        parser_for(_choosing("pt", code="aa"), _choosing("en", code="bb"))
+
+
+def test_a_choice_moves_case_masks_as_it_moves_words() -> None:
+    # cs's credentials carry masks the default leaves off (`mga` ->
+    # MgA), a strict choice drops the masks of every file it drops
+    # (en.toml's `dphil` under ko) and keeps mul.toml's (`phd`, #1005),
+    # and a caller's own mask the choice does not touch is kept
+    from nameparser import locales
+    mine = dataclasses.replace(Lexicon.default(), capitalization_exceptions=(
+        *Lexicon.default().capitalization_exceptions, ("abcq", "AbcQ")))
+    cs = parser_for(locales.CS, base=Parser(lexicon=mine)).lexicon
+    assert "mga" not in Lexicon.default().capitalization_exceptions_map
+    assert cs.capitalization_exceptions_map["mga"] == "MgA"
+    assert cs.capitalization_exceptions_map["abcq"] == "AbcQ"
+    ko = parser_for(_choosing("ko"), strict=True).lexicon
+    assert "dphil" not in ko.capitalization_exceptions_map
+    assert ko.capitalization_exceptions_map["phd"] == "PhD"
+    # chained, the masks move as the union's do: what ko's strict choice
+    # dropped and en's keeps comes back
+    en, ko_pack = _choosing("en", code="en"), _choosing("ko", code="ko")
+    chained = parser_for(en, base=parser_for(ko_pack, strict=True),
+                         strict=True)
+    assert "dphil" in chained.lexicon.capitalization_exceptions_map
+    assert chained.lexicon == parser_for(ko_pack, en, strict=True).lexicon
+
+
+def test_a_choice_chained_through_base_unions_with_the_bases() -> None:
+    # decisions/vocabulary-model, 2026-11-02 #754, item 4: the lexicon
+    # records its choice, so en chained on pt's parser chooses both, as
+    # one call choosing both does (superseding 2026-10-29's chained
+    # choices, where en dropped pt's particle after pt dropped en's
+    # credential: family `Carmo`, family `DO`)
+    pt, en = _choosing("pt", code="pt"), _choosing("en", code="en")
+    chained = parser_for(en, base=parser_for(pt))
+    assert chained.parse("Maria do Carmo").family == "do Carmo"
+    assert chained.parse("John Smith DO").suffix == "DO"
+    together = parser_for(pt, en)
+    assert chained.lexicon == together.lexicon
+    assert chained.languages == together.languages == {"en", "pt"}
+
+
+def test_a_choice_whose_reading_clashes_with_the_callers_is_refused() -> None:
+    # cs turns on `st`'s generation beside a caller's credential, and a
+    # word holds one suffix kind: refused at parser_for, naming the
+    # languages, the edit, and the remove that resolves it
+    # (decisions/vocabulary-model, 2026-11-02 #754, item 3)
+    from nameparser import locales
+    mine = Parser(lexicon=Lexicon.default().add("st", kind="credential"))
+    with pytest.raises(ValueError, match=(
+            r"while applying the languages chosen, cs \(by 'cs'\): the "
+            r"lexicon's "
+            r"\.add\('st', kind='credential'\) clashes with a reading the "
+            r"choice turns on: 'st' would hold two suffix kinds.*"
+            r"\.remove\('st', kind='generation'\)")) as raised:
+        parser_for(locales.CS, base=mine)
+    # the remove it offers applies after the choice, so it runs
+    offered = re.search(r"(\.remove\(.*\))$", str(raised.value))
+    assert offered is not None
+    fixed = eval("Lexicon.default().add('st', kind='credential')"  # noqa: S307
+                 + offered.group(1), {"Lexicon": Lexicon})
+    got = parser_for(locales.CS, base=Parser(lexicon=fixed))
+    assert got.parse("Jiří Dienstbier st.").suffix == "st."
+
+
+def test_a_clash_the_log_makes_without_the_choice_is_not_the_choices(
+        ) -> None:
+    # an edit made on a chosen lexicon that clashes with the base alone
+    # is refused as it is with no choice, the choice not named
+    chosen = parser_for(_choosing("pt")).lexicon
+    with pytest.raises(ValueError, match="would hold two suffix kinds") as e:
+        chosen.add("jr", kind="credential")
+    assert "the choice" not in str(e.value)
+
+
+def test_a_callers_reading_survives_a_choice_whoever_wrote_first() -> None:
+    # superseding 2026-10-29's chained choices item 2, where the delta
+    # dropped what the choice removed whoever listed it: a caller's
+    # reading applies after the choice
+    mine = Lexicon(surnames=Lexicon.default().surnames).add(
+        "do", "van", kind="preposition")
+    got = parser_for(_choosing("en"), base=Parser(lexicon=mine)).lexicon
+    assert got._sets.particles == {"do", "van"}
+    # and a caller's removal too: with en's credential of `do` taken out
+    # after en preferred it over pt's particle, `do` reads as neither
+    removed = Lexicon.default().remove("do", kind="credential")
+    en = parser_for(_choosing("en"), base=Parser(lexicon=removed))
+    assert en.parse("Maria do Carmo").middle == "do"
+
+
+def test_a_choice_selects_nothing_in_an_empty_base() -> None:
+    # a base built from Lexicon.empty() holds no shipped reading, so a
+    # choice turns none on (the 2026-11-02 #754 entry's item 4)
+    # (the Korean surnames kept, so the default policy's hangul
+    # segmentation has its list)
+    empty = Lexicon(surnames=Lexicon.default().surnames)
+    got = parser_for(_choosing("cs"), base=Parser(lexicon=empty))
+    assert got.languages == {"cs"}
+    from nameparser._lexicon import _fields_of
+    assert _fields_of(got.lexicon._sets) == _fields_of(empty._sets)
+
+
+def test_the_choice_is_recorded_and_read_through_the_parser() -> None:
+    plain = parser_for(_choosing("pt-br"))
+    assert plain.languages == plain.lexicon.languages == {"pt-BR"}
+    assert plain.strict is plain.lexicon.strict is False
+    strict = parser_for(_choosing("ko"), strict=True)
+    assert strict.strict is strict.lexicon.strict is True
+    assert Parser().languages == frozenset() and Parser().strict is False
+    # a pack choosing nothing chained on a choice keeps it, a strict one
+    # included, whatever strict the call leaves at its default (found by
+    # review of 4i-c: a policy-only pack on a strict parser raised)
+    nothing = Locale(code="xx", lexicon=Lexicon.empty())
+    assert parser_for(nothing, base=plain).lexicon == plain.lexicon
+    assert parser_for(nothing, base=strict).lexicon == strict.lexicon
+    assert parser_for(base=strict, segmenter=None).strict is True
+
+
+def test_strict_has_three_states_on_a_chained_call() -> None:
+    # decided 2026-11-02 (decisions/vocabulary-model, 2026-11-02 #754,
+    # sub-phase 4i-c): strict defaults to UNSET, as segmenter does
+    ko, en = _choosing("ko", code="ko"), _choosing("en", code="en")
+    strict, plain = parser_for(ko, strict=True), parser_for(ko)
+    # omitted on a strict base: stays strict
+    assert parser_for(en, base=strict).strict is True
+    assert parser_for(base=strict).lexicon == strict.lexicon
+    # an explicit False on a strict base: refused, naming both spellings
+    for packs in ((), (en,)):
+        with pytest.raises(ValueError, match=(
+                r"chosen with strict=True.*leave strict out or pass "
+                r"strict=True.*parser_for\(\*packs, strict=False\)")):
+            parser_for(*packs, base=strict, strict=False)
+    # an explicit True on a plain base with a choice: becomes strict
+    got = parser_for(en, base=plain, strict=True)
+    assert got.strict is True
+    assert got.lexicon == parser_for(ko, en, strict=True).lexicon
+    # omitted on a plain base: stays plain
+    assert parser_for(en, base=plain).strict is False
+    # an explicit True with no language anywhere: refused, as 3j
+    with pytest.raises(ValueError, match="no pack was given"):
+        parser_for(strict=True)
+
+
+def test_a_chained_choice_redoes_a_mask_the_default_lacks() -> None:
+    # cs sets `mga`'s mask, which the default holds none of; chained
+    # under en, the base's move is undone (the mask deleted) and the
+    # union's applied again, as the single call does
+    from nameparser import locales
+    en = _choosing("en", code="en")
+    chained = parser_for(en, base=parser_for(locales.CS))
+    assert chained.lexicon.capitalization_exceptions_map["mga"] == "MgA"
+    assert chained.lexicon == parser_for(locales.CS, en).lexicon
+
+
+def test_a_join_that_cannot_be_made_names_where_it_failed() -> None:
+    # two packs whose lexicons record different choices name the pack;
+    # a pack's lexicon built on another release's base names the join
+    # with base's (rules/D2)
+    from nameparser.config._index import READINGS
+    pt = Locale(code="aa", lexicon=dataclasses.replace(
+        Lexicon.empty(), _languages=frozenset({"pt"})))
+    en = Locale(code="bb", lexicon=dataclasses.replace(
+        Lexicon.empty(), _languages=frozenset({"en"})))
+    with pytest.raises(ValueError, match="while applying locale 'bb': "
+                                         "cannot join two lexicons compiled"):
+        parser_for(pt, en)
+    older = Locale(code="cc", lexicon=Lexicon(_base=READINGS[1:]))
+    with pytest.raises(ValueError, match="while applying locale 'cc': "
+                                         "cannot join two lexicons built "
+                                         "on different bases"):
+        parser_for(older)
+
+
+@pytest.mark.parametrize("packs,match", [
+    # a fragment that clashes with base's readings names its pack, as a
+    # patch error does (rules/D2; found by review of 4i-c, where the
+    # join named no pack): `dc` is a credential in the default
+    (("mypack",), "while applying locale 'mypack': 'dc' would hold two "
+                  "suffix kinds"),
+    # and behind a pack that joins cleanly, the one that clashes
+    (("clean", "mypack"), "while applying locale 'mypack': "),
+    # a fragment that clashes with a reading the choice turns on: `st`
+    # as a credential beside cs's generation
+    (("cs_credential",), "while applying locale 'cs_credential': the "
+                         "lexicon's \\.add\\('st', kind='credential'\\)"),
+])
+def test_a_fragments_clash_names_its_pack(packs: tuple[str, ...],
+                                          match: str) -> None:
+    built = {
+        "mypack": Locale(code="mypack",
+                         lexicon=Lexicon.empty().add("dc", kind="generation")),
+        "clean": Locale(code="clean",
+                        lexicon=Lexicon.empty().add("zzq", kind="title")),
+        "cs_credential": _choosing("cs", code="cs_credential", lexicon=(
+            Lexicon.empty().add("st", kind="credential"))),
+    }
+    with pytest.raises(ValueError, match=match):
+        parser_for(*(built[p] for p in packs))
+
+
+def test_a_clash_of_base_with_a_choice_it_joins_names_base_too() -> None:
+    # base chose pt and added `st` as a credential; chained under cs,
+    # which turns on `st`'s generation, the clash is base's own with the
+    # union, and the layer names the pack that chose cs and base
+    from nameparser import locales
+    mine = Parser(lexicon=Lexicon.default().add("st", kind="credential"))
+    pt = parser_for(_choosing("pt"), base=mine)
+    with pytest.raises(ValueError, match=(
+            r"while applying the languages chosen, cs, pt "
+            r"\(by 'cs', base\): the lexicon's \.add\('st'")):
+        parser_for(locales.CS, base=pt)
+
+
+def test_a_chained_choice_restores_a_mask_it_had_changed(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # no shipped choice changes a mask the default holds, only adds or
+    # drops one, so a stand-in choice does: chained under another
+    # language, the base's change is undone to the default's value and
+    # the union's applied again, as the single call does
+    import nameparser._lexicon as lexicon_mod
+    real = lexicon_mod._choice_masks.__wrapped__  # type: ignore[attr-defined]
+
+    def stand_in(chosen: frozenset[str], strict: bool = False) -> object:
+        gone, joined = real(chosen, strict)
+        if "ga" in chosen:
+            joined = (*joined, ("phd", "PHD"))
+        return gone, tuple(sorted(joined))
+    monkeypatch.setattr(lexicon_mod, "_choice_masks", stand_in)
+    ga, en = _choosing("ga", code="ga"), _choosing("en", code="en")
+    base = parser_for(ga)
+    assert base.lexicon.capitalization_exceptions_map["phd"] == "PHD"
+    chained = parser_for(en, base=base)
+    assert chained.lexicon == parser_for(ga, en).lexicon
+    assert chained.lexicon.capitalization_exceptions_map["phd"] == "PHD"
+
+
+def test_a_packs_masks_are_laid_over_the_choices() -> None:
+    # the choice moves base's masks, and a pack's are laid over them, so
+    # a pack's mask of a word the choice joins or drops stands, as on
+    # master before 4i-c (found by review of 4i-c); a caller's own mask
+    # on a word the choice joins is the choice's, as it was
+    from nameparser import locales
+    fm = Locale(code="fm", lexicon=dataclasses.replace(
+        Lexicon.empty(), capitalization_exceptions=(
+            ("phd", "PHD"), ("mga", "MGA"))))
+    for strict in (False, True):
+        p = parser_for(fm, locales.CS, strict=strict)
+        cap = p.lexicon.capitalization_exceptions_map
+        assert (cap["phd"], cap["mga"]) == ("PHD", "MGA"), strict
+        rendered = str(p.capitalized(p.parse("jan novák phd mga")))
+        assert "PHD" in rendered and "MGA" in rendered, strict
+    mine = dataclasses.replace(Lexicon.default(), capitalization_exceptions=(
+        *Lexicon.default().capitalization_exceptions, ("mga", "Mga")))
+    p = parser_for(locales.CS, base=Parser(lexicon=mine))
+    assert p.lexicon.capitalization_exceptions_map["mga"] == "MgA"
+
+
+def test_a_packs_fragment_joins_under_the_callers_lexicon() -> None:
+    # the caller's lexicon goes last, so its own statement outranks a
+    # pack's: a pack's credential `do` against a caller's removal of it,
+    # and a pack's mask against the caller's (decisions/vocabulary-model,
+    # 2026-11-02 #754, item 3)
+    fragment = dataclasses.replace(
+        Lexicon.empty().add("do", kind="credential"),
+        capitalization_exceptions=(("zzq", "ZZq"),))
+    pack = _choosing("en", lexicon=fragment)
+    mine = dataclasses.replace(
+        Lexicon.default().remove("do", kind="credential"),
+        capitalization_exceptions=(
+            *Lexicon.default().capitalization_exceptions, ("zzq", "ZzQ")))
+    got = parser_for(pack, base=Parser(lexicon=mine))
+    assert got.parse("John Smith DO").suffix == ""
+    assert got.lexicon.capitalization_exceptions_map["zzq"] == "ZzQ"
+    # a shipped mask the caller left as shipped is no statement of the
+    # caller's, so a pack's mask of the word wins, as its readings win
+    # over shipped ones; one the caller changed outranks the pack's
+    # (found by review of 4i-c)
+    phd = _choosing("en", lexicon=dataclasses.replace(
+        Lexicon.empty(), capitalization_exceptions=(("phd", "PHD"),)))
+    assert (parser_for(phd).lexicon.capitalization_exceptions_map["phd"]
+            == "PHD")
+    changed = dataclasses.replace(Lexicon.default(), capitalization_exceptions=(
+        *(p for p in Lexicon.default().capitalization_exceptions
+          if p[0] != "phd"), ("phd", "Phd")))
+    assert (parser_for(phd, base=Parser(lexicon=changed))
+            .lexicon.capitalization_exceptions_map["phd"] == "Phd")
+    # the accepted limit: a caller's mask written as the shipped value
+    # cannot be told from the shipped one, so the pack's wins it
+    # (decisions/vocabulary-model, 2026-11-02 #754, sub-phase 4i-c)
+    shipped_value = Parser(lexicon=dataclasses.replace(
+        Lexicon.default(), capitalization_exceptions=(("phd", "PhD"),)))
+    p = parser_for(phd, base=shipped_value)
+    assert str(p.capitalized(p.parse("jan novák phd"))) == "Jan Novák PHD"
+    # and a later pack's fragment after an earlier one's
+    first = _choosing("en", code="aa",
+                      lexicon=Lexicon.empty().add("zzq", kind="title"))
+    second = _choosing("en", code="bb",
+                       lexicon=Lexicon.empty().remove("zzq", kind="title"))
+    assert parser_for(first, second).parse("Zzq Smith").title == ""
+    assert parser_for(second, first).parse("Zzq Smith").title == "Zzq"
+
+
+def _languages_of(parser: Parser, name: str, text: str) -> tuple[str, ...]:
+    token = next(t for t in parser.parse(name).tokens if t.text == text)
+    assert token.reading is not None
+    return token.reading.languages
+
+
+def test_reading_languages_follow_the_choice() -> None:
+    # decisions/vocabulary-model, 2026-11-02 #754, sub-phase 4i-d: the
+    # field names the files whose reading is on in the parse's own
+    # lexicon. Under pt, `it`'s reading of `e`, which pt's preference
+    # drops, is no longer named; under cs, the generation `st` the
+    # choice turns on names cs; a word only an unchosen file holds keeps
+    # that file (`van`, nl's), the plain choice keeping its reading on.
+    # These were ('it', 'pt'), () and ('es', 'fr', 'it', 'nl', 'pt')
+    # before 4i-d, the files on by default whatever the choice
+    pt, cs = parser_for(_choosing("pt")), parser_for(_choosing("cs"))
+    assert pt.parse("ANA SILVA E SOUZA").family == "SILVA E SOUZA"
+    assert _languages_of(pt, "ANA SILVA E SOUZA", "E") == ("pt",)
+    assert cs.parse("Jiří Dienstbier st.").suffix == "st."
+    assert _languages_of(cs, "Jiří Dienstbier st.", "st.") == ("cs",)
+    assert _languages_of(pt, "Ana de Souza", "de") == ("pt",)
+    assert _languages_of(pt, "Vincent van Gogh", "van") == ("nl",)
+    # with no choice, the files on by default, as before
+    assert _languages_of(Parser(), "Ana de Souza", "de") == (
+        "ca", "es", "fil", "fr", "it", "nl", "pt", "si")
+
+
+def test_reading_languages_under_a_strict_choice_name_the_chosen_files() -> None:
+    # a strict choice keeps only the chosen files' readings and
+    # mul.toml's (#1005), so nothing else is named; a reading the strict
+    # lexicon does not hold is no reading at all (the Pharm/D pair, read
+    # as a credential only where the lexicon lists `pharmd`, as the
+    # Ph./D. pair is by `phd`: decisions/phd-merge, #1000)
+    en = parser_for(_choosing("en"), strict=True)
+    assert _languages_of(Parser(), "Baron John Smith", "Baron") == (
+        "de", "en", "fr", "nl")
+    assert _languages_of(en, "Baron John Smith", "Baron") == ("en",)
+    pt = parser_for(_choosing("pt"), strict=True)
+    assert _languages_of(pt, "John Smith Ph. D.", "Ph.") == ("mul",)
+    assert pt.parse("John Smith Pharm D").suffix == ""
+    assert _languages_of(Parser(), "John Smith Pharm D", "Pharm") == ("en",)
+
+
+def test_an_empty_lexicon_names_no_file() -> None:
+    # a word the default lists, asked of a lexicon with no readings: no
+    # parse under Lexicon.empty() takes a vocabulary reading since #1000
+    # (the Ph./D. pair was the one that did), so the lookup is asked
+    # directly
+    credential = frozenset({"credential"})
+    assert Lexicon.default()._files.languages("phd", credential) == ("mul",)
+    assert Lexicon.empty()._files.languages("phd", credential) == ()
+
+
+def test_reading_languages_follow_a_callers_readings() -> None:
+    # the same rule over a caller's log, with no choice: a caller's own
+    # reading names no file; an add of a kind a file holds off by
+    # default turns that file's reading on, and names it; a remove
+    # stops naming the file whose reading it took out
+    zzq = Parser(lexicon=Lexicon.default().add("zzq", kind="title"))
+    assert zzq.parse("Zzq John Smith").title == "Zzq"
+    assert _languages_of(zzq, "Zzq John Smith", "Zzq") == ()
+    st = Parser(lexicon=Lexicon.default().add("st", kind="generation"))
+    assert st.parse("Jiří Dienstbier st.").suffix == "st."
+    assert _languages_of(st, "Jiří Dienstbier st.", "st.") == (
+        "cs", "hr", "sk", "sl")
+    mine = Lexicon.default().remove("baron", kind="title").add(
+        "baron", kind="title")
+    assert _languages_of(Parser(lexicon=mine), "Baron John Smith",
+                         "Baron") == ()
+    # a caller's add under a choice turns its kind on as with none
+    chosen = parser_for(_choosing("pt"), base=st)
+    assert _languages_of(chosen, "Jiří Dienstbier st.", "st.") == (
+        "cs", "hr", "sk", "sl")
+    # the empty lexicon lists nothing, so names nothing: no parse under
+    # it takes a vocabulary reading since #1000, so
+    # test_an_empty_lexicon_names_no_file asks the lookup directly
+
+
+def test_an_alternative_reading_names_the_files_on_under_the_choice() -> None:
+    name = "da Silva Sr. José Pedro Eduardo Jr., MP"
+    def alternatives(parser: Parser) -> list[tuple[str, ...]]:
+        return [a.alternative.languages for a in parser.parse(name).ambiguities
+                if a.alternative is not None]
+    assert alternatives(Parser()) == [("it", "pt")]
+    assert alternatives(parser_for(_choosing("pt"))) == [("pt",)]
+
+
+def test_reading_languages_survive_a_pickled_parser() -> None:
+    # the lexicon's key is rebuilt on load, never pickled, and equal
+    # lexicons share it, so a loaded parser reads as the one written
+    pt = parser_for(_choosing("pt"))
+    loaded = pickle.loads(pickle.dumps(pt))
+    assert loaded.lexicon._files is pt.lexicon._files
+    assert _languages_of(loaded, "Ana de Souza", "de") == ("pt",)
+    assert "_files" not in pt.lexicon.__getstate__()
+
+
+def test_a_choice_that_changes_nothing_leaves_the_sets_as_they_are() -> None:
+    # sv.toml holds no reading the default leaves off or another file's
+    # reading clashes with, so choosing it changes no compiled set; the
+    # lexicon records the choice all the same
+    from nameparser._reading_index import changed_words, selected
+    assert changed_words(selected(["sv"])) == frozenset()
+    mine = Lexicon.default().add("zzq", kind="title")
+    got = parser_for(_choosing("sv"), base=Parser(lexicon=mine)).lexicon
+    from nameparser._lexicon import _fields_of
+    assert _fields_of(got._sets) == _fields_of(mine._sets)
+    assert got.languages == {"sv"}
+
+
+# -- strict (#753, 3j: file-strict, decisions/vocabulary-model's
+# 2026-10-30 #753, file-strict entry) ---------------------------------
+
+@pytest.mark.parametrize("tags,name,before,after", [
+    # romanized Korean: every word below is a common Korean syllable
+    # another file holds a vocabulary reading of
+    (("ko",), "Kim Do Hyun", {"family": "Do Hyun"},  # pt's particle
+     {"middle": "Do", "family": "Hyun"}),
+    (("ko",), "Kim Bin Hyun", {"family": "Bin Hyun"},  # ar's and ms's
+     {"middle": "Bin", "family": "Hyun"}),
+    (("ko",), "Ra Min Jun", {"title": "Ra"},  # de's academic title
+     {"given": "Ra", "title": ""}),
+    (("ko",), "Kim Min Ra", {"suffix": "Ra"},  # en's credential
+     {"family": "Ra", "suffix": ""}),
+    # what adding en costs: its credential is back
+    (("ko", "en"), "Kim Min Ra", {"suffix": "Ra"}, {"suffix": "Ra"}),
+    # en's rank; 'Gen Hoshino' stood here until #999 made 'gen' a
+    # title only in a phrase, which reads given 'Gen' with no choice
+    (("ja",), "Capt Hoshino", {"title": "Capt"}, {"given": "Capt"}),
+    (("zh",), "De Xu", {"family": "De Xu"},
+     {"given": "De", "family": "Xu"}),
+    # a strict vi choice drops pt.toml's particle do and nl.toml's van
+    (("vi",), "Do Van Minh", {"family": "Van Minh"},
+     {"middle": "Van", "family": "Minh"}),
+])
+def test_a_strict_choice_reads_only_the_chosen_files(
+        tags: tuple[str, ...], name: str, before: dict[str, str],
+        after: dict[str, str]) -> None:
+    default = parse(name)
+    for field, value in before.items():
+        assert getattr(default, field) == value, field
+    got = parser_for(_choosing(*tags), strict=True).parse(name)
+    for field, value in after.items():
+        assert getattr(got, field) == value, field
+
+
+def test_a_strict_choice_keeps_mul_and_native_script_vocabulary() -> None:
+    strict = parser_for(_choosing("vi"), strict=True)
+    # mul.toml's words are every language's, so a strict choice reads
+    # them (#1005): its titles, credentials and numerals
+    assert strict.parse("Dr Minh Do").title == "Dr"
+    assert strict.parse("Mr Minh Do").title == "Mr"
+    assert strict.parse("Minh Do, PhD").suffix == "PhD"
+    assert strict.parse("Minh Do III").suffix == "III"
+    # jr, junior and jnr, written after names in every country's data
+    # (2026-11-03, the strict-gap batches)
+    assert strict.parse("Minh Do Jr.").suffix == "Jr."
+    assert strict.parse("Do, Minh, Junior").suffix == "Junior"
+    assert strict.parse("Mrs Minh Do").title == "Mrs"
+    # `ms` and `miss` whole, the salutation with the credential and the
+    # family reading (2026-11-03): `MS` after a comma stays the degree,
+    # and South Indian initials read as the default reads them
+    assert strict.parse("Ms Minh Do").title == "Ms"
+    assert strict.parse("Miss Minh Do").title == "Miss"
+    # `mister` with its family reading and `madam` (2026-11-03, #1038),
+    # forms of address an English-language register writes for everyone
+    assert strict.parse("Mister Minh Do").title == "Mister"
+    assert strict.parse("Madam Minh Do").title == "Madam"
+    assert strict.parse("Do, Madam Minh").title == "Madam"
+    assert strict.parse("Do, Minh Madam").title == "Madam"
+    assert strict.parse("A Israni, MD, MS").suffix == "MS"
+    assert strict.parse("Radha MS").suffix == parse("Radha MS").suffix == "MS"
+    # the five degrees #1021 moved (and `ms`'s, above), each after a
+    # comma and in a run
+    assert strict.parse("Minh Do, MSc, MBA").suffix == "MSc, MBA"
+    assert strict.parse("Minh Do, MPH, BSc").suffix == "MPH, BSc"
+    # en.toml's leave: `md`, kept there since a leading Md abbreviates
+    # Muhammad, `mx`, the abbreviation for Mexico, and `rn`
+    assert strict.parse("Minh Do, MD").given == "MD"
+    assert strict.parse("Mx Minh Do").given == "Mx"
+    # and `sir`, a British honour, and the job titles `director` and
+    # `ceo` (#1038)
+    assert strict.parse("Sir Minh Do").given == "Sir"
+    assert strict.parse("Director Minh Do").given == "Director"
+    assert strict.parse("Ceo Minh Do").given == "Ceo"
+    assert strict.parse("Minh Do, RN").given == "RN"
+    # every reading of `do` (en.toml's credential and name readings,
+    # pt.toml's particle) is in a file strict vi does not read, so `Do`
+    # is a plain name word beside mul.toml's `PhD`
+    assert strict.parse("Minh Do, PhD").family == "Do"
+    # a native-script word selects itself by script, whatever its file
+    assert strict.parse("김민준 씨").suffix == "씨"
+    # and the Korean surname list is outside the per-word model
+    assert strict.lexicon.surnames == Lexicon.default().surnames
+
+
+@pytest.mark.parametrize("packs,match", [
+    ((), "no pack was given"),
+    (("ZH",), "the pack 'zh' chooses none"),
+    (("ZH", "RU"), "the packs 'zh', 'ru' choose none"),
+    # a code that is no language: the fix offered chooses en
+    (("TR_AZ",), "the pack 'tr_az' chooses none.*'en'"),
+])
+def test_a_strict_call_choosing_no_language_is_refused_with_a_fix_that_runs(
+        packs: tuple[str, ...], match: str) -> None:
+    from nameparser import locales
+    given = tuple(getattr(locales, p) for p in packs)
+    with pytest.raises(ValueError, match=match) as info:
+        parser_for(*given, strict=True)
+    # the message hands the reader a pack to add: it must run
+    offered = re.search(r"e\.g\. (Locale\(.*\)\)), or", str(info.value))
+    assert offered is not None
+    pack = eval(offered.group(1), {"Locale": Locale, "Lexicon": Lexicon})
+    assert parser_for(*given, pack, strict=True).lexicon != Lexicon.default()
+
+
+def test_a_file_with_no_reading_is_a_strict_choice_only() -> None:
+    # hu.toml holds only exclusions (vi.toml did until #1108)
+    with pytest.raises(ValueError, match=r"hu\.toml holds no reading yet.*"
+                                         r"strict=True"):
+        parser_for(_choosing("hu"))
+    assert "do" not in parser_for(_choosing("hu"), strict=True).lexicon._sets.particles
+
+
+def test_md_stays_out_of_a_strict_choice_that_does_not_read_en() -> None:
+    # `md` stays in en.toml (#1005): a leading Md abbreviates Muhammad
+    # (#853), and after a family comma a strict choice reading `md`
+    # from mul.toml took the given name as a credential
+    bn = parser_for(_choosing("bn"), strict=True)
+    for text, given, middle in (("Rahman, Md", "Md", ""),
+                                ("Rahman, MD", "MD", ""),
+                                ("Karim, Md Abdul", "Md", "Abdul")):
+        got = bn.parse(text)
+        assert (got.given, got.middle, got.suffix) == (given, middle, ""), text
+    assert bn.parse("Md Rahman").given == "Md"
+
+
+def test_a_strict_filipino_choice_reads_the_one_word_and_plural_particles() -> None:
+    # #1037: fil.toml holds delos (de los written as one word) and las,
+    # so strict fil reads them as the default does; las was es.toml's
+    # alone, and strict fil read Las Piñas as a middle and a family
+    fil = parser_for(_choosing("fil"), strict=True)
+    for text, given, middle, family in (
+            ("Juan Delos Reyes", "Juan", "", "Delos Reyes"),
+            ("Ma. Luisa Delos Santos", "Ma.", "Luisa", "Delos Santos"),
+            ("Maria Las Piñas", "Maria", "", "Las Piñas"),
+            # a saint run, which rules/P10 never reads as a given
+            # name's second half (#725)
+            ("Juan Sta. Maria Reyes", "Juan", "", "Sta. Maria Reyes"),
+            ("Juan Sto. Tomas", "Juan", "", "Sto. Tomas")):
+        for parser in (Parser(), fil):
+            got = parser.parse(text)
+            assert (got.given, got.middle, got.family) == (given, middle, family), text
+    # their masks: case repair keeps the title case Filipino surnames
+    # write, where a particle is otherwise lowercased (rules/R4)
+    for parser in (Parser(), fil):
+        for text, repaired in (("JUAN DELOS REYES", "Juan Delos Reyes"),
+                               ("juan dela cruz", "Juan Dela Cruz"),
+                               ("JUAN STA. MARIA", "Juan Sta. Maria"),
+                               ("juan sto. tomas", "Juan Sto. Tomas")):
+            assert str(parser.parse(text).capitalized()) == repaired, text
+        # a name written in mixed case keeps its own case unless forced
+        written = parser.parse("Juan dela Cruz")
+        assert str(written.capitalized()) == "Juan dela Cruz"
+        assert str(written.capitalized(force=True)) == "Juan Dela Cruz"
+
+
+def test_a_caller_removes_a_mul_word_as_any_other() -> None:
+    # a mul.toml reading is a default reading like any other: a caller's
+    # remove drops it, with or without a choice, strict included (#1005)
+    kept = parser_for(_choosing("pt"), strict=True)
+    assert kept.parse("Ana Souza, PhD").suffix == "PhD"
+    assert kept.parse("Dr Ana Souza").title == "Dr"
+    lexicon = Lexicon.default().remove("phd", kind="credential")
+    assert Parser(lexicon=lexicon).parse("Ana Souza, PhD").given == "PhD"
+    for strict in (False, True):
+        got = parser_for(_choosing("pt"), base=Parser(lexicon=lexicon),
+                         strict=strict)
+        assert got.parse("Ana Souza, PhD").given == "PhD"
+    stripped = kept.lexicon.remove("dr", kind="academic")
+    assert Parser(lexicon=stripped).parse("Dr Ana Souza").given == "Dr"
+
+
+def test_a_strict_choice_still_refuses_mul_and_an_unknown_tag() -> None:
+    for tag, match in (("mul", "every choice, plain or strict, keeps"),
+                       ("xx", "no vocabulary file holds")):
+        with pytest.raises(ValueError, match=match):
+            parser_for(_choosing(tag), strict=True)
+
+
+def test_strict_is_a_bool() -> None:
+    with pytest.raises(TypeError, match="strict must be True or False"):
+        parser_for(_choosing("ko"), strict=1)  # type: ignore[arg-type]
+
+
+def test_a_strict_choice_keeps_a_callers_readings_over_the_union(
+        ) -> None:
+    # a caller's reading of a word strict drops stays, as one of a word
+    # no file holds does (superseding 3j's clause that the delta dropped
+    # it, decisions/vocabulary-model, 2026-11-02 #754, item 4); the
+    # union, then strict
+    base = Parser(lexicon=Lexicon.default().add("rev", "zzq", kind="title"))
+    got = parser_for(_choosing("vi"), base=base, strict=True).lexicon._sets
+    assert {"zzq", "rev"} <= got.titles
+    assert "rev" not in parser_for(_choosing("vi"), strict=True).lexicon._sets.titles
+    ko, en = _choosing("ko", code="aa"), _choosing("en", code="bb")
+    assert (parser_for(ko, en, strict=True).lexicon
+            == parser_for(en, ko, strict=True).lexicon
+            == parser_for(_choosing("ko", "en"), strict=True).lexicon)
+
+
+def test_a_packs_fragment_is_unioned_on_after_the_strict_compile() -> None:
+    pack = _choosing("ko", lexicon=Lexicon.empty().add("ra", kind="credential"))
+    assert parser_for(pack, strict=True).parse("Kim Min Ra").suffix == "Ra"
+
+
+def _choice_tags() -> list[tuple[str, bool]]:
+    from nameparser._reading_index import UNCHOOSABLE, files, tags
+    return ([(t, False) for t in sorted(tags() - UNCHOOSABLE)]
+            + [(t, True) for t in sorted(files() - UNCHOOSABLE)])
+
+
+#: The lexicons a choice is filtered under: the default, the empty one,
+#: and one a caller configured (a removed gate, an added title, two
+#: added particles, one of them a word a choice turns a suffix on for)
+_CHOICE_BASES = {
+    "default": lambda: Lexicon.default(),
+    "empty": lambda: Lexicon.empty(),
+    "configured": lambda: Lexicon.default().remove("van", "dean", kind="given")
+    .add("dean", kind="title").add("zzz", "st", kind="preposition"),
+}
+
+
+@pytest.mark.parametrize("tag,strict", _choice_tags(),
+                         ids=lambda v: str(v))
+def test_a_choice_moves_only_the_words_the_callers_log_leaves_alone(
+        tag: str, strict: bool) -> None:
+    # 4i-c filters the base's readings by the choice and applies the
+    # caller's log after it (decisions/vocabulary-model, 2026-11-02
+    # #754, item 4): for every single file tag a choice may name, plain
+    # and strict, the default under the choice compiles as the shipped
+    # index does under it, the empty lexicon stays empty, and a
+    # configured lexicon differs from the choice alone only in entries
+    # holding a word its log names
+    from nameparser._lexicon import _NO_SETS, _built, _fields_of, _vocab_fields
+    from nameparser._reading_index import compile_choice, selected
+    chosen = selected(frozenset({tag}), strict=strict)
+    want = _vocab_fields(compile_choice(chosen, strict))
+    for name, build in _CHOICE_BASES.items():
+        lexicon = build()
+        got = dataclasses.replace(lexicon, _languages=frozenset({tag}),
+                                  _strict=strict)
+        assert got.languages == {tag} and got.strict is strict
+        sets = _fields_of(got._sets)
+        if name == "empty":
+            assert sets == _fields_of(_NO_SETS), name
+            continue
+        if name == "default":
+            # the shortcut every pack takes, and the compile it stands for
+            assert sets == _fields_of(want), name
+            assert _fields_of(_built("default", (), chosen, strict)[1]) == sets
+            continue
+        touched = {w for e in lexicon._edits for w in e.words}
+        for field, words in sets.items():
+            def kept(entries: frozenset[str]) -> frozenset[str]:
+                return frozenset(e for e in entries
+                                 if not touched & set(e.split()))
+            assert kept(words) == kept(want[field]), (name, field)
+
+
+def test_a_chinese_choice_reads_hon_as_a_given_name() -> None:
+    # #999: zh.toml's given reading of 'hon', off by default, is the one
+    # word a Chinese choice changes; under it the Cantonese given name
+    # reads as one and the style is a title only in a phrase (rules/H9)
+    from nameparser._reading_index import changed_words, selected
+    assert changed_words(selected(["zh"])) == {"hon"}
+    zh = parser_for(_choosing("zh"))
+    assert parse("Hon Wah Yeung").title == "Hon"
+    assert (zh.parse("Hon Wah Yeung").given, zh.parse("Hon Wah Yeung").title) == ("Hon", "")
+    assert zh.parse("CHAN, HON WAH").given == "HON"
+    # the formal styles keep the title: an article, a title before it
+    # that attaches to it ('Rt'), a salutation or title after it that it
+    # attaches to, and its period at the head
+    for text, (title, given, family) in {
+            "The Hon John Smith": ("The Hon", "John", "Smith"),
+            "The Hon. John Smith": ("The Hon.", "John", "Smith"),
+            "Rt Hon John Smith": ("Rt Hon", "John", "Smith"),
+            "The Rt Hon John Smith": ("The Rt Hon", "John", "Smith"),
+            "Hon Mrs I Cawley": ("Hon Mrs", "I", "Cawley"),
+            "Hon Lord Smith": ("Hon Lord", "", "Smith"),
+            "Hon Lady Smith": ("Hon Lady", "", "Smith"),
+            "Hon Justice Mary Smith": ("Hon Justice", "Mary", "Smith"),
+            "Hon Sir John Smith": ("Hon Sir", "John", "Smith"),
+            "Smith, Hon Sir John": ("Hon Sir", "John", "Smith"),
+            "Hon. John Smith": ("Hon.", "John", "Smith")}.items():
+        got = zh.parse(text)
+        assert (got.title, got.given, got.family) == (title, given, family), text
+    # the cost: the style written bare, as Hong Kong writes a legislator,
+    # and alone after one comma, which reverses the name
+    cheung = zh.parse("Hon Tommy Cheung")
+    assert (cheung.title, cheung.given, cheung.middle, cheung.family) == ("", "Hon", "Tommy", "Cheung")
+    assert (zh.parse("John Smith, Hon").given, zh.parse("John Smith, Hon").family) == ("Hon", "John Smith")
+
+
+def test_a_spanish_choice_reads_lady_as_a_given_name() -> None:
+    # #913: es.toml's given reading of 'lady', off by default, a given
+    # name in Spanish-speaking Latin America; under a Spanish choice, and
+    # so under locales.ES, the title is one only in a phrase (rules/H9)
+    from nameparser._reading_index import changed_words, selected
+    assert "lady" in changed_words(selected(["es"]))
+    # the default keeps the title, as 1.4.0 through 2.8.1 did
+    default = parse("Lady Heidenreich")
+    assert (default.title, default.given) == ("Lady", "")
+    for p in (parser_for(_choosing("es")), parser_for(locales.ES)):
+        got = p.parse("Lady Heidenreich")
+        assert (got.title, got.given, got.family) == ("", "Lady", "Heidenreich")
+        assert p.parse("DISIMULACION, LADY KIMA").given == "LADY"
+        # the phrases keep the title: a title before it that attaches to
+        # it, the offices it attaches to, and 'of'
+        for text, title in {"Hon Lady Smith": "Hon Lady",
+                            "Lady Justice Smith": "Lady Justice",
+                            "Lady Chief Justice Smith": "Lady Chief Justice",
+                            "Lady Mayor Smith": "Lady Mayor",
+                            "Lady Provost Smith": "Lady Provost",
+                            "Lady Captain Smith": "Lady Captain",
+                            "Lady of Shalott": "Lady of Shalott"}.items():
+            assert p.parse(text).title == title, text
+        # the costs: a peeress written with the bare title, and alone
+        # after one comma, which reverses the name
+        assert p.parse("Lady Annabel Goldsmith").given == "Lady"
+        reversed_ = p.parse("John Smith, Lady")
+        assert (reversed_.given, reversed_.family) == ("Lady", "John Smith")
+    # under the pack two family names follow, so the peeress's own given
+    # name lands in the family (rules/O6)
+    assert parser_for(locales.ES).parse("Lady Annabel Goldsmith").family == "Annabel Goldsmith"

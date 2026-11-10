@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: k8s-agent-sandbox
-Version: 1.0.9
+Version: 1.0.10
 Summary: A client library to interact with the Agentic Sandbox on Kubernetes.
 Project-URL: Homepage, https://github.com/kubernetes-sigs/agent-sandbox
 Project-URL: Bug Tracker, https://github.com/kubernetes-sigs/agent-sandbox/issues
@@ -16,7 +16,8 @@ Requires-Dist: pydantic
 Requires-Dist: prometheus-client
 Provides-Extra: async
 Requires-Dist: httpx; extra == "async"
-Requires-Dist: kubernetes_asyncio<34.0.0; extra == "async"
+Requires-Dist: certifi; extra == "async"
+Requires-Dist: kubernetes_asyncio<37.0.0; extra == "async"
 Provides-Extra: grpc
 Requires-Dist: grpcio>=1.83.0; extra == "grpc"
 Requires-Dist: protobuf>=7.36.1; extra == "grpc"
@@ -25,14 +26,15 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: httpx; extra == "test"
-Requires-Dist: kubernetes_asyncio<34.0.0; extra == "test"
+Requires-Dist: certifi; extra == "test"
+Requires-Dist: kubernetes_asyncio<37.0.0; extra == "test"
 Requires-Dist: mypy~=1.14; extra == "test"
 Requires-Dist: grpcio>=1.83.0; extra == "test"
 Requires-Dist: protobuf>=7.36.1; extra == "test"
 Provides-Extra: tracing
-Requires-Dist: opentelemetry-api<1.42,>=1.39; extra == "tracing"
-Requires-Dist: opentelemetry-sdk<1.42,>=1.39; extra == "tracing"
-Requires-Dist: opentelemetry-exporter-otlp<1.42,>=1.39; extra == "tracing"
+Requires-Dist: opentelemetry-api<1.46,>=1.39; extra == "tracing"
+Requires-Dist: opentelemetry-sdk<1.46,>=1.39; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp<1.46,>=1.39; extra == "tracing"
 Requires-Dist: opentelemetry-instrumentation-requests~=0.60b0; extra == "tracing"
 
 # Agentic Sandbox Client Python

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ibm-runtime
-Version: 0.51.0
+Version: 0.52.0
 Summary: IBM Quantum client for IBM Quantum Compute (formerly Qiskit Runtime).
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License: Apache 2.0
@@ -36,13 +36,13 @@ Requires-Dist: pydantic>=2.13.0
 Requires-Dist: qiskit<3,>=2.3.0
 Requires-Dist: pybase64>=1.4.0
 Requires-Dist: samplomatic>=0.21.0
-Requires-Dist: qiskit-mitigation>=0.1.1
+Requires-Dist: qiskit-mitigation>=0.2.0
 Provides-Extra: visualization
 Requires-Dist: plotly>=5.23.0; extra == "visualization"
 Provides-Extra: performance
 Requires-Dist: qiskit-aer>=0.17.0; extra == "performance"
 Provides-Extra: noise-learning
-Requires-Dist: qiskit-noise-learning>=0.1.0; extra == "noise-learning"
+Requires-Dist: qiskit-noise-learning>=0.2.0; extra == "noise-learning"
 Provides-Extra: style
 Requires-Dist: mypy==2.3.0; extra == "style"
 Requires-Dist: pre-commit>=4; extra == "style"
@@ -53,7 +53,7 @@ Provides-Extra: test
 Requires-Dist: pytest>=9.1; extra == "test"
 Requires-Dist: pproxy==2.7.8; extra == "test"
 Requires-Dist: coverage>=7.13.5; extra == "test"
-Requires-Dist: pytest-benchmark==5.2.3; extra == "test"
+Requires-Dist: pytest-benchmark==5.3.1; extra == "test"
 Requires-Dist: responses>=0.26.2; extra == "test"
 Provides-Extra: doc
 Requires-Dist: autodoc_pydantic==2.2.0; extra == "doc"

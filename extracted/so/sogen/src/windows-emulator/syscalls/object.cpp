@@ -469,7 +469,8 @@ namespace sogen
                     break;
                 }
                 case handle_types::process: {
-                    if (!c.proc.processes.get(effective_handle))
+                    if (effective_handle != STEAM_PROCESS_HANDLE && effective_handle != PARENT_PROCESS_HANDLE &&
+                        !c.proc.processes.get(effective_handle))
                     {
                         return STATUS_INVALID_HANDLE;
                     }
@@ -780,7 +781,8 @@ namespace sogen
             }
             case handle_types::process:
                 // The synthetic Steam process never signals, so a liveness wait times out ("alive").
-                return (h == STEAM_PROCESS_HANDLE || c.proc.processes.get(h)) ? STATUS_SUCCESS : STATUS_INVALID_HANDLE;
+                return (h == STEAM_PROCESS_HANDLE || h == PARENT_PROCESS_HANDLE || c.proc.processes.get(h)) ? STATUS_SUCCESS
+                                                                                                            : STATUS_INVALID_HANDLE;
 
             case handle_types::managed_thread:
                 return validate_handle_in_store(c.proc.managed_threads);
@@ -883,6 +885,7 @@ namespace sogen
             t.await_any = false;
             t.await_msg_mask = {};
             t.await_time = {};
+            t.await_time_absolute = false; // the timeout is milliseconds, an interval
 
             std::vector<handle> wait_handles{};
             wait_handles.reserve(count);
@@ -986,7 +989,9 @@ namespace sogen
 
             if (timeout.value() && !t.await_time.has_value())
             {
-                t.await_time = utils::convert_delay_interval_to_time_point(c.win_emu.clock(), timeout.read());
+                const auto due = timeout.read();
+                t.await_time = utils::convert_delay_interval_to_time_point(c.win_emu.clock(), due);
+                t.await_time_absolute = utils::is_absolute_due_time(due);
             }
 
             return wait_or_yield(c, alertable);
@@ -1044,7 +1049,9 @@ namespace sogen
 
             if (timeout.value() && !t.await_time.has_value())
             {
-                t.await_time = utils::convert_delay_interval_to_time_point(c.win_emu.clock(), timeout.read());
+                const auto due = timeout.read();
+                t.await_time = utils::convert_delay_interval_to_time_point(c.win_emu.clock(), due);
+                t.await_time_absolute = utils::is_absolute_due_time(due);
             }
 
             return wait_or_yield(c, alertable);
@@ -1066,7 +1073,9 @@ namespace sogen
 
             if (timeout.value() && !t.await_time.has_value())
             {
-                t.await_time = utils::convert_delay_interval_to_time_point(c.win_emu.clock(), timeout.read());
+                const auto due = timeout.read();
+                t.await_time = utils::convert_delay_interval_to_time_point(c.win_emu.clock(), due);
+                t.await_time_absolute = utils::is_absolute_due_time(due);
             }
 
             return wait_or_yield(c, alertable);

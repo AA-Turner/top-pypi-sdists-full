@@ -23,14 +23,19 @@ macro_rules! table {
 }
 
 /// The built-in tables.
-pub const TABLES: [&str; 11] = [
+pub(crate) const TABLES: [&str; 16] = [
     table!("sdxl.single_file"),
     table!("anima.single_file"),
+    table!("qwenimage21.comfy"),
     table!("h3.native"),
     table!("h3.comfy"),
     table!("h3.lora"),
     table!("sdxl.lora"),
     table!("krea2.lora"),
+    table!("qwenimage21.lora"),
+    table!("flux2.lora"),
+    table!("flux3klein.lora"),
+    table!("fibo2.lora"),
     table!("seedvr2"),
     table!("h3.latent_upscaler"),
     table!("ideogram4.fp8"),
@@ -39,7 +44,7 @@ pub const TABLES: [&str; 11] = [
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Table {
+pub(crate) struct Table {
     pub name: String,
     /// A pinned repository (`hf://org/repo@<commit>`) whose index, configs and tokenizers the
     /// output takes when its source carries none.
@@ -51,7 +56,8 @@ pub struct Table {
     #[serde(default)]
     pub producers: Option<Vec<Producer>>,
     /// A LoRA table: rows are modules, any non-empty subset may be present. It claims a file most
-    /// of whose keys it knows; the rest are left out, and said (`plan`'s `skipped`).
+    /// of whose keys it knows; any other key refuses the conversion, but for those a component
+    /// leaves out by name (`optional`), which are said (`plan`'s `ignored`).
     #[serde(default)]
     pub lora: Option<Lora>,
     /// Documents the output carries, by path.
@@ -71,7 +77,7 @@ pub struct Table {
 /// `__metadata__` fields.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Producer {
+pub(crate) struct Producer {
     pub name: String,
     /// Most of a source's keys start with one of these.
     pub keys: Vec<String>,
@@ -83,7 +89,7 @@ pub struct Producer {
 /// A `__metadata__` value a producer writes.
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-pub enum Match {
+pub(crate) enum Match {
     Is(String),
     Prefix { prefix: String },
     /// A JSON object holding these fields (ai-toolkit's `software`).
@@ -92,7 +98,7 @@ pub enum Match {
 
 impl Producer {
     /// Whether `group` is this producer's file.
-    pub fn wrote(&self, group: &Group) -> bool {
+    pub(crate) fn wrote(&self, group: &Group) -> bool {
         let its = (group.tensors.keys()).filter(|k| self.keys.iter().any(|p| k.starts_with(p.as_str()))).count();
         its * 2 > group.tensors.len() && self.metadata.iter().all(|(field, want)| {
             let Some(value) = group.metadata.get(field) else { return false };
@@ -109,25 +115,27 @@ impl Producer {
 /// A fixed tensor stated in the table: its bytes (base64) and their digest.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Constant {
+pub(crate) struct Constant {
     pub dtype: Dtype,
     pub shape: Vec<u64>,
     pub sha256: String,
     pub base64: String,
 }
 
-/// Source key suffixes of each factor; the output spells them PEFT's way.
+/// Source key suffixes of each factor; the output spells them PEFT's way. `magnitude` is a DoRA's
+/// per-output-channel magnitude (`[out]` or `[out, 1]`), stored as `<module>.lora_magnitude_vector` `[out]`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Lora {
+pub(crate) struct Lora {
     pub a: Vec<String>,
     pub b: Vec<String>,
     pub alpha: Vec<String>,
+    pub magnitude: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Component {
+pub(crate) struct Component {
     pub name: String,
     /// The source keys this component owns in a shared file (longest prefix wins).
     #[serde(default)]
@@ -140,7 +148,7 @@ pub struct Component {
     /// Source keys every matching source has and the output does not take.
     #[serde(default)]
     pub drop: Vec<String>,
-    /// Source keys a source may have; never taken.
+    /// Source keys a source may have; never taken. A LoRA table's are left out by name and said.
     #[serde(default)]
     pub optional: Vec<String>,
     /// Shape preconditions on source keys.
@@ -148,6 +156,10 @@ pub struct Component {
     pub expect: BTreeMap<String, Vec<u64>>,
     #[serde(deserialize_with = "rows")]
     pub rows: Vec<Row>,
+    /// A LoRA table's plain tensors, renamed beside the factors: a parallel decoder's per-step
+    /// output heads (PDD's `proj_out.weight`), `[steps, out, in]` for a row's `io` `[in, out]`.
+    #[serde(default, deserialize_with = "rows")]
+    pub keep: Vec<Row>,
 }
 
 /// A component's rows. `[target, source, ops, {"e": n}]` stands for n rows, `e` = 0..n: `{e}`
@@ -189,7 +201,7 @@ fn rows<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Vec<Row>,
 
 #[derive(Debug, Deserialize)]
 #[serde(from = "RowRepr")]
-pub struct Row {
+pub(crate) struct Row {
     pub target: String,
     pub source: Src,
     pub ops: Ops,
@@ -220,7 +232,7 @@ impl From<RowRepr> for Row {
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-pub enum Src {
+pub(crate) enum Src {
     Key(String),
     /// A byte range of a file the source set holds, found by its digest (no parser runs).
     Raw(Raw),
@@ -228,7 +240,7 @@ pub enum Src {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Raw {
+pub(crate) struct Raw {
     pub sha256: String,
     pub length: u64,
     pub offset: u64,
@@ -236,9 +248,9 @@ pub struct Raw {
     pub shape: Vec<u64>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Ops {
+pub(crate) struct Ops {
     #[serde(default)]
     pub view: Option<Vec<i64>>,
     #[serde(default)]
@@ -263,7 +275,7 @@ pub struct Ops {
 }
 
 /// Every built-in table, parsed once.
-pub fn tables() -> &'static [Table] {
+pub(crate) fn tables() -> &'static [Table] {
     static PARSED: std::sync::OnceLock<Vec<Table>> = std::sync::OnceLock::new();
     PARSED.get_or_init(|| {
         TABLES
@@ -283,7 +295,7 @@ pub fn tables_digest() -> &'static str {
 
 /// One table component matched to one source group.
 #[derive(Debug, Clone)]
-pub struct Claim {
+pub(crate) struct Claim {
     pub table: usize,
     pub component: usize,
     pub group: usize,
@@ -292,7 +304,7 @@ pub struct Claim {
 }
 
 #[derive(Debug, Default)]
-pub struct Recognized {
+pub(crate) struct Recognized {
     pub claims: Vec<Claim>,
     /// Table indices used, in order.
     pub tables: Vec<usize>,
@@ -304,7 +316,7 @@ pub struct Recognized {
 
 impl Recognized {
     /// The tables used, each with the producer that chose it: `h3.lora (musubi-tuner)`.
-    pub fn formats(&self, tables: &[Table]) -> Vec<String> {
+    pub(crate) fn formats(&self, tables: &[Table]) -> Vec<String> {
         (self.tables.iter())
             .map(|t| match self.producers.get(t) {
                 Some(p) => format!("{} ({p})", tables[*t].name),
@@ -315,7 +327,7 @@ impl Recognized {
 }
 
 /// The format a caller names to keep a source's keys as they are, for code that reads them raw.
-pub const AS_IS: &str = "as-is";
+pub(crate) const AS_IS: &str = "as-is";
 
 fn lora_split<'k>(lora: &Lora, key: &'k str) -> Option<(&'k str, Factor)> {
     let mut best: Option<(&str, Factor)> = None;
@@ -323,6 +335,7 @@ fn lora_split<'k>(lora: &Lora, key: &'k str) -> Option<(&'k str, Factor)> {
         (&lora.a, Factor::A),
         (&lora.b, Factor::B),
         (&lora.alpha, Factor::Alpha),
+        (&lora.magnitude, Factor::Magnitude),
     ] {
         for s in suffixes {
             if let Some(stem) = key.strip_suffix(s.as_str()) {
@@ -340,20 +353,52 @@ enum Factor {
     A,
     B,
     Alpha,
+    Magnitude,
 }
 
-/// Whether `key`, past `c`'s prefix, is a factor of one of its modules.
-fn lora_module(lora: &Lora, c: &Component, key: &str) -> bool {
-    lora_split(lora, key).is_some_and(|(stem, _)| c.rows.iter().any(|r| r.key() == Some(stem)))
-}
-
-/// The keys of `group` no module of LoRA `table` holds.
-fn lora_strays<'g>(table: &Table, lora: &Lora, group: &'g Group) -> Vec<&'g str> {
-    let known = |key: &str| {
-        let owner = (table.components.iter()).filter(|c| key.starts_with(c.prefix.as_str())).max_by_key(|c| c.prefix.len());
-        owner.is_some_and(|c| lora_module(lora, c, &key[c.prefix.len()..]))
+/// Whether `key`, past `c`'s prefix, is a factor of one of its modules shaped for it (A
+/// `[r, in, kernel…]`, B `[out, r, 1…]` as stored, a scalar alpha, a magnitude `[out]`, `[out, 1]`
+/// or another axis's `[1, in]`), or a tensor it keeps. By shape, so families whose module names
+/// coincide (H3's and Qwen-Image 2.1's Diffusers `transformer_blocks.*.attn.to_q`) claim only their own files.
+fn lora_module(lora: &Lora, c: &Component, key: &str, t: &Tensor) -> bool {
+    if let Some(r) = c.keep.iter().find(|r| r.key() == Some(key)) {
+        return kept(r, t);
+    }
+    let Some((stem, factor)) = lora_split(lora, key) else { return false };
+    let shaped = |r: &Row| {
+        let (Some((input, output)), kernel, s) = (r.ops.io, &r.ops.kernel, &t.shape) else { return true };
+        let plain = s.len() == 2 + kernel.len();
+        match factor {
+            Factor::A => plain && s[0] > 0 && s[1] == input && s[2..] == kernel[..],
+            Factor::B => plain && s[0] == output && s[1] > 0 && s[2..].iter().all(|k| *k == 1),
+            Factor::Alpha => s.is_empty(),
+            Factor::Magnitude => matches!(s.as_slice(), [o] | [o, 1] if *o == output) || s.as_slice() == [1, input],
+        }
     };
-    group.tensors.keys().map(String::as_str).filter(|k| !known(k)).collect()
+    c.rows.iter().any(|r| r.key() == Some(stem) && shaped(r))
+}
+
+/// Whether `t` is the tensor keep row `r` names: `[steps, out, in]` for its `io`.
+fn kept(r: &Row, t: &Tensor) -> bool {
+    r.ops.io.is_none_or(|(input, output)| t.shape.len() == 3 && t.shape[1..] == [output, input])
+}
+
+/// The component of LoRA `table` that owns `key`: the longest prefix.
+fn owner<'t>(table: &'t Table, key: &str) -> Option<&'t Component> {
+    (table.components.iter()).filter(|c| key.starts_with(c.prefix.as_str())).max_by_key(|c| c.prefix.len())
+}
+
+/// The keys of `group` no module of LoRA `table` holds, and those it leaves out by name (`optional`).
+fn lora_strays<'g>(table: &Table, lora: &Lora, group: &'g Group) -> (Vec<&'g str>, Vec<&'g str>) {
+    let (mut strays, mut ignored) = (vec![], vec![]);
+    for (key, t) in &group.tensors {
+        match owner(table, key) {
+            Some(c) if lora_module(lora, c, &key[c.prefix.len()..], t) => {}
+            Some(c) if c.optional.iter().any(|o| *o == key[c.prefix.len()..]) => ignored.push(key.as_str()),
+            _ => strays.push(key.as_str()),
+        }
+    }
+    (strays, ignored)
 }
 
 /// Why one bucket of keys is not one component's layout: unknown and missing keys.
@@ -361,9 +406,11 @@ fn mismatch(
     table: &Table,
     c: &Component,
     keys: &BTreeSet<&str>,
+    group: &Group,
 ) -> Option<(Vec<String>, Vec<String>)> {
     if let Some(lora) = &table.lora {
-        let unknown: Vec<String> = keys.iter().filter(|k| !lora_module(lora, c, k)).map(|k| k.to_string()).collect();
+        let known = |k: &str| lora_module(lora, c, k, &group.tensors[&format!("{}{k}", c.prefix)]) || c.optional.iter().any(|o| o == k);
+        let unknown: Vec<String> = keys.iter().filter(|k| !known(k)).map(|k| k.to_string()).collect();
         return (unknown.len() == keys.len()).then_some((unknown, vec![]));
     }
     let required: BTreeSet<&str> = c
@@ -398,7 +445,7 @@ impl Row {
 /// component whose layout it is. `Err` names the closest mismatch.
 fn project(table: &Table, group: &Group) -> std::result::Result<Vec<usize>, String> {
     if let Some(lora) = &table.lora {
-        let strays = lora_strays(table, lora, group);
+        let (strays, _) = lora_strays(table, lora, group);
         if strays.len() * 2 >= group.tensors.len() {
             return Err(format!("{} of {} keys are no module's", strays.len(), group.tensors.len()));
         }
@@ -435,7 +482,7 @@ fn project(table: &Table, group: &Group) -> std::result::Result<Vec<usize>, Stri
                 if c.prefix != *prefix {
                     return false;
                 }
-                match mismatch(table, c, keys) {
+                match mismatch(table, c, keys, group) {
                     None => true,
                     Some((unknown, missing)) => {
                         if unknown.len() + missing.len() < closest.0 {
@@ -478,7 +525,7 @@ fn output_name(c: &Component, folder: &str) -> String {
 
 /// Which tables claim which groups. `named` restricts recognition to that table and makes
 /// a mismatch a refusal ([`AS_IS`]: to none); otherwise an unmatched group is unclaimed.
-pub fn recognize(set: &SourceSet, tables: &[Table], named: Option<&str>) -> Result<Recognized> {
+pub(crate) fn recognize(set: &SourceSet, tables: &[Table], named: Option<&str>) -> Result<Recognized> {
     if named == Some(AS_IS) {
         let unclaimed = (0..set.groups.len()).collect();
         return Ok(Recognized { unclaimed, ..Recognized::default() });
@@ -588,9 +635,21 @@ pub fn recognize(set: &SourceSet, tables: &[Table], named: Option<&str>) -> Resu
     Ok(out)
 }
 
+/// The family whose LoRA tables claim a LoRA's tensors, by key and shape as recognition does: one kept as its
+/// source spelled it (stored before a table read it) says its family too. None when no family's do, or two's.
+pub(crate) fn lora_family<'a>(tensors: impl Iterator<Item = (&'a str, &'a [u64])>) -> Option<&'static crate::family::Family> {
+    let tensor = |shape: &[u64]| Tensor { dtype: Dtype::BF16, shape: shape.to_vec(), file: 0, start: 0, len: 0, encoded: None, derive: None };
+    let tensors = tensors.map(|(key, shape)| (key.to_owned(), tensor(shape))).collect();
+    let group = Group { folder: String::new(), stem: String::new(), tensors, metadata: BTreeMap::new() };
+    let claim = |t: &&Table| t.lora.is_some() && project(t, &group).is_ok_and(|claimed| !claimed.is_empty());
+    let names: BTreeSet<&str> = (tables().iter().filter(claim)).filter_map(|t| crate::family::of_table(&t.name)).map(|f| f.name.as_str()).collect();
+    let mut names = names.into_iter();
+    names.next().filter(|_| names.next().is_none()).and_then(crate::family::named)
+}
+
 /// The tables that know any of `group`'s keys, by how many, most first: `h3.lora (580 of 600
 /// keys)`.
-pub fn closest(group: &Group, tables: &[Table]) -> Vec<String> {
+pub(crate) fn closest(group: &Group, tables: &[Table]) -> Vec<String> {
     let knows = |table: &Table, key: &str| {
         table.components.iter().any(|c| {
             let Some(rest) = key.strip_prefix(c.prefix.as_str()) else { return false };
@@ -621,7 +680,7 @@ fn raw_present(set: &SourceSet, c: &Component) -> bool {
 
 /// One output tensor and how its bytes are read.
 #[derive(Debug, Clone)]
-pub struct Planned {
+pub(crate) struct Planned {
     pub component: String,
     pub key: String,
     pub dtype: Dtype,
@@ -632,7 +691,7 @@ pub struct Planned {
 }
 
 #[derive(Debug, Clone)]
-pub struct PlannedPart {
+pub(crate) struct PlannedPart {
     pub role: String,
     pub dtype: Dtype,
     pub shape: Vec<u64>,
@@ -640,7 +699,7 @@ pub struct PlannedPart {
 }
 
 #[derive(Debug, Clone)]
-pub struct Reading {
+pub(crate) struct Reading {
     pub file: usize,
     /// The source tensor's first byte in `file`, and its length.
     pub start: u64,
@@ -699,7 +758,7 @@ impl Reading {
 
 /// The output as contiguous source runs: `base + Σ index·stride` over the outer dims.
 #[derive(Debug, Clone)]
-pub struct Runs {
+pub(crate) struct Runs {
     pub run: u64,
     base: u64,
     outer: Vec<Dim>,
@@ -713,12 +772,12 @@ struct Dim {
 }
 
 impl Runs {
-    pub fn count(&self) -> u64 {
+    pub(crate) fn count(&self) -> u64 {
         self.outer.iter().map(|d| d.size).product()
     }
 
     /// Element offset of run `n`.
-    pub fn offset(&self, mut n: u64) -> u64 {
+    pub(crate) fn offset(&self, mut n: u64) -> u64 {
         let mut at = self.base;
         for d in self.outer.iter().rev() {
             let i = n % d.size;
@@ -749,7 +808,7 @@ fn resolve_dims(what: &str, dims: &[i64], numel: u64) -> Result<Vec<u64>> {
 }
 
 /// The output shape and source runs of `ops` over a contiguous `shape`.
-pub fn layout(what: &str, shape: &[u64], ops: &Ops) -> Result<(Vec<u64>, Runs)> {
+pub(crate) fn layout(what: &str, shape: &[u64], ops: &Ops) -> Result<(Vec<u64>, Runs)> {
     let numel: u64 = shape.iter().product();
     let dims = match &ops.view {
         Some(v) => resolve_dims(what, v, numel)?,
@@ -913,7 +972,7 @@ fn planned(
         let cut = ops.view.is_some() || ops.take.is_some() || ops.permute.is_some() || ops.shape.is_some();
         let rows = match cut {
             false => None,
-            true if folded.encoding.scheme.ends_with(".rowwise") => {
+            true if folded.encoding.scheme.ends_with(".rowwise") || folded.encoding.scheme == "int8.convrot" => {
                 Some(selected_rows(&what, &t.shape, ops)?)
             }
             true => {
@@ -991,12 +1050,12 @@ fn planned(
 /// Every output tensor, in construction order: claimed groups through their tables' rows in
 /// row order (the target's `state_dict()` order), then unclaimed groups as they are, under
 /// `identity(group)`'s component name.
-pub fn plan(
+pub(crate) fn plan(
     set: &SourceSet,
     tables: &[Table],
     r: &Recognized,
     identity: &dyn Fn(&Group) -> String,
-    skipped: &mut Vec<String>,
+    ignored: &mut Vec<String>,
 ) -> Result<Vec<Planned>> {
     let mut out = Vec::new();
     for &t in &r.tables {
@@ -1025,7 +1084,7 @@ pub fn plan(
                     }
                 }
                 match &table.lora {
-                    Some(lora) => plan_lora(table, lora, c, claim, group, skipped, &mut out)?,
+                    Some(lora) => plan_lora(table, lora, c, claim, group, &mut out)?,
                     None => {
                         for row in &c.rows {
                             let Src::Key(k) = &row.source else { continue };
@@ -1046,9 +1105,15 @@ pub fn plan(
     let mut told = BTreeSet::new();
     for claim in r.claims.iter().filter(|claim| told.insert(claim.group)) {
         let (table, group) = (&tables[claim.table], &set.groups[claim.group]);
-        let strays = table.lora.as_ref().map_or(vec![], |lora| lora_strays(table, lora, group));
-        if let Some(first) = strays.first() {
-            skipped.push(format!("{}: {} of {} keys are no module's, and were left out ({first}…)", group.label(), strays.len(), group.tensors.len()));
+        let Some(lora) = &table.lora else { continue };
+        let (strays, left) = lora_strays(table, lora, group);
+        if !strays.is_empty() {
+            return refuse(Code::UNPLACED_KEYS, format!(
+                "{}: {} of its {} keys are no module's of {}: {}. Keep it unconverted (--source-format {AS_IS}) to store every key as it is",
+                group.label(), strays.len(), group.tensors.len(), table.name, named(&strays)));
+        }
+        if !left.is_empty() {
+            ignored.push(format!("ignored: {}: {} keys {} leaves out by name: {}", group.label(), left.len(), table.name, named(&left)));
         }
     }
     // Unclaimed groups are stored as they are, in the construction order of the class their
@@ -1092,6 +1157,15 @@ pub fn plan(
     Ok(out)
 }
 
+/// The first few of `keys`, and how many more.
+fn named(keys: &[&str]) -> String {
+    let shown = keys[..keys.len().min(4)].join(", ");
+    match keys.len() > 4 {
+        true => format!("{shown} and {} more", keys.len() - 4),
+        false => shown,
+    }
+}
+
 fn plan_raw(set: &SourceSet, c: &Component, out: &mut Vec<Planned>) -> Result<()> {
     for row in &c.rows {
         let Src::Raw(raw) = &row.source else { continue };
@@ -1131,10 +1205,9 @@ fn plan_lora(
     c: &Component,
     claim: &Claim,
     group: &Group,
-    skipped: &mut Vec<String>,
     out: &mut Vec<Planned>,
 ) -> Result<()> {
-    let mut factors: BTreeMap<&str, [Option<(&str, &Tensor)>; 3]> = BTreeMap::new();
+    let mut factors: BTreeMap<&str, [Option<(&str, &Tensor)>; 4]> = BTreeMap::new();
     let longest = |key: &str| {
         table
             .components
@@ -1159,12 +1232,12 @@ fn plan_lora(
         }
     }
     for row in &c.rows {
-        let Some([a, b, alpha]) = row.key().and_then(|k| factors.get(k)) else {
+        let Some([a, b, alpha, magnitude]) = row.key().and_then(|k| factors.get(k)) else {
             continue;
         };
         let (Some((ka, a)), Some((_, b))) = (a, b) else {
-            skipped.push(format!("{}: left out: no A and B factor pair", row.target));
-            continue;
+            let held = [a, b, alpha, magnitude].into_iter().flatten().map(|(k, _)| *k).collect::<Vec<_>>();
+            return refuse(Code::UNPLACED_KEYS, format!("{}: {} has no A and B factor pair to apply", row.target, named(&held)));
         };
         let Some((input, output)) = row.ops.io else {
             return refuse(
@@ -1186,8 +1259,7 @@ fn plan_lora(
             || !float(&a.dtype)
             || alpha.is_some_and(|(_, t)| !t.shape.is_empty() || !float(&t.dtype))
         {
-            skipped.push(format!("{ka}: left out: not float A {want_a:?}, B {want_b:?} and a scalar alpha"));
-            continue;
+            return refuse(Code::UNPLACED_KEYS, format!("{ka}: not float A {want_a:?}, B {want_b:?} and a scalar alpha"));
         }
         let none = Ops::default();
         for (suffix, t, ops) in [
@@ -1203,11 +1275,40 @@ fn plan_lora(
             let key = format!("{}{suffix}", row.target);
             out.push(planned(&claim.name, &key, t, ops, None)?);
         }
+        if let Some((km, m)) = magnitude {
+            out.push(plan_magnitude(&claim.name, row, km, m, output)?);
+        }
         if let Some(name) = &row.ops.table {
             out.push(constant(table, name, &claim.name, &format!("{}.table", row.target))?);
         }
     }
+    for row in &c.keep {
+        let Some(t) = row.key().and_then(|k| group.tensors.get(&format!("{}{k}", c.prefix))) else { continue };
+        if kept(row, t) && t.encoded.is_none() {
+            out.push(planned(&claim.name, &row.target, t, &Ops::default(), None)?);
+        }
+    }
     Ok(())
+}
+
+/// A DoRA's magnitude for `row`, `<target>.lora_magnitude_vector` `[out]`: per output channel, so it is cut as
+/// B's rows are. Another axis's (LyCORIS' `wd_on_out=False`, `[1, in]`), a convolution's or an AdaLN curve's
+/// is no PEFT DoRA, and refused.
+fn plan_magnitude(component: &str, row: &Row, key: &str, m: &Tensor, output: u64) -> Result<Planned> {
+    let target = format!("{}.lora_magnitude_vector", row.target);
+    let unsupported = |why: &str| refuse(Code::ADAPTER_TARGET_UNSUPPORTED, format!("{key}: {why}"));
+    if !row.ops.kernel.is_empty() || row.ops.table.is_some() {
+        return unsupported("a DoRA magnitude on a convolution or a curve site; only a linear's applies");
+    }
+    if m.shape.first() != Some(&output) {
+        return unsupported("a DoRA magnitude of the input axis (LyCORIS wd_on_out=False); only the output axis's (PEFT's) applies");
+    }
+    if m.encoded.is_some() || !matches!(m.dtype, Dtype::F16 | Dtype::BF16 | Dtype::F32) {
+        return unsupported("a DoRA magnitude that is not plain float");
+    }
+    let mut ops = row.ops.b.as_deref().cloned().unwrap_or_default();
+    ops.shape = Some(vec![-1]);
+    planned(component, &target, m, &ops, None)
 }
 
 /// A table's constant as one planned tensor, its bytes checked against their digest.
@@ -1238,7 +1339,7 @@ fn constant(table: &Table, name: &str, component: &str, key: &str) -> Result<Pla
 // ------------------------------------------------------------------------------ bytes
 
 /// Streams one planned part's bytes out of its source file.
-pub struct TensorReader<'f> {
+pub(crate) struct TensorReader<'f> {
     file: &'f File,
     r: &'f Reading,
     what: String,
@@ -1260,7 +1361,7 @@ const STEP: u64 = 8 << 20;
 
 impl<'f> TensorReader<'f> {
     /// `what` names the tensor in errors.
-    pub fn new(file: &'f File, r: &'f Reading, what: String) -> Result<TensorReader<'f>> {
+    pub(crate) fn new(file: &'f File, r: &'f Reading, what: String) -> Result<TensorReader<'f>> {
         let whole = if let Some(bytes) = &r.inline {
             Some(bytes.clone())
         } else if let Some(d) = &r.derive {
@@ -1371,7 +1472,7 @@ fn io(what: &str, e: std::io::Error) -> Refusal {
 }
 
 /// numpy's `astype(float16)` from f32 bits: round to nearest even, NaN payload kept.
-pub fn f32_to_f16(f: u32) -> u16 {
+pub(crate) fn f32_to_f16(f: u32) -> u16 {
     let sign = ((f & 0x8000_0000) >> 16) as u16;
     let exp = f & 0x7f80_0000;
     if exp >= 0x4780_0000 {

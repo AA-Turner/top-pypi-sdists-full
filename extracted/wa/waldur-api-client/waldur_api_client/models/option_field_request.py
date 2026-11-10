@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from ..models.component_formula_config_request import ComponentFormulaConfigRequest
     from ..models.component_multiplier_config_request import ComponentMultiplierConfigRequest
     from ..models.component_sum_config_request import ComponentSumConfigRequest
+    from ..models.display_limit_config_request import DisplayLimitConfigRequest
     from ..models.k8s_default_configuration_request import K8SDefaultConfigurationRequest
+    from ..models.option_transform_request import OptionTransformRequest
     from ..models.option_validator_request import OptionValidatorRequest
     from ..models.option_visible_if_request import OptionVisibleIfRequest
     from ..models.storage_folder_config_request import StorageFolderConfigRequest
@@ -37,6 +39,7 @@ class OptionFieldRequest:
         component_multiplier_config (Union[Unset, ComponentMultiplierConfigRequest]):
         component_formula_config (Union[Unset, ComponentFormulaConfigRequest]):
         component_sum_config (Union[Unset, ComponentSumConfigRequest]):
+        display_limit_config (Union[Unset, DisplayLimitConfigRequest]):
         storage_folder_config (Union[Unset, StorageFolderConfigRequest]):
         default_configs (Union[Unset, K8SDefaultConfigurationRequest]):
         validators (Union[Unset, list['OptionValidatorRequest']]):
@@ -47,6 +50,9 @@ class OptionFieldRequest:
             Use syntax common to Python and JavaScript, so the order form can check it too; \w, \d, \s and \b match ASCII
             characters only. Blank means no pattern.
         pattern_error (Union[Unset, str]): Error shown when the value does not match the pattern.
+        transform (Union['OptionTransformRequest', None, Unset]): Rewrite the value before it is stored: add a prefix or
+            suffix, or change its case. Only for string and text options. The pattern is checked against the value the user
+            typed. A value that already carries the prefix or suffix does not get it twice.
     """
 
     type_: OptionFieldTypeEnum
@@ -61,6 +67,7 @@ class OptionFieldRequest:
     component_multiplier_config: Union[Unset, "ComponentMultiplierConfigRequest"] = UNSET
     component_formula_config: Union[Unset, "ComponentFormulaConfigRequest"] = UNSET
     component_sum_config: Union[Unset, "ComponentSumConfigRequest"] = UNSET
+    display_limit_config: Union[Unset, "DisplayLimitConfigRequest"] = UNSET
     storage_folder_config: Union[Unset, "StorageFolderConfigRequest"] = UNSET
     default_configs: Union[Unset, "K8SDefaultConfigurationRequest"] = UNSET
     validators: Union[Unset, list["OptionValidatorRequest"]] = UNSET
@@ -68,9 +75,12 @@ class OptionFieldRequest:
     unique: Union[Unset, bool] = UNSET
     pattern: Union[Unset, str] = UNSET
     pattern_error: Union[Unset, str] = UNSET
+    transform: Union["OptionTransformRequest", None, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.option_transform_request import OptionTransformRequest
+
         type_ = self.type_.value
 
         label = self.label
@@ -105,6 +115,10 @@ class OptionFieldRequest:
         if not isinstance(self.component_sum_config, Unset):
             component_sum_config = self.component_sum_config.to_dict()
 
+        display_limit_config: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.display_limit_config, Unset):
+            display_limit_config = self.display_limit_config.to_dict()
+
         storage_folder_config: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.storage_folder_config, Unset):
             storage_folder_config = self.storage_folder_config.to_dict()
@@ -129,6 +143,14 @@ class OptionFieldRequest:
         pattern = self.pattern
 
         pattern_error = self.pattern_error
+
+        transform: Union[None, Unset, dict[str, Any]]
+        if isinstance(self.transform, Unset):
+            transform = UNSET
+        elif isinstance(self.transform, OptionTransformRequest):
+            transform = self.transform.to_dict()
+        else:
+            transform = self.transform
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -158,6 +180,8 @@ class OptionFieldRequest:
             field_dict["component_formula_config"] = component_formula_config
         if component_sum_config is not UNSET:
             field_dict["component_sum_config"] = component_sum_config
+        if display_limit_config is not UNSET:
+            field_dict["display_limit_config"] = display_limit_config
         if storage_folder_config is not UNSET:
             field_dict["storage_folder_config"] = storage_folder_config
         if default_configs is not UNSET:
@@ -172,6 +196,8 @@ class OptionFieldRequest:
             field_dict["pattern"] = pattern
         if pattern_error is not UNSET:
             field_dict["pattern_error"] = pattern_error
+        if transform is not UNSET:
+            field_dict["transform"] = transform
 
         return field_dict
 
@@ -181,7 +207,9 @@ class OptionFieldRequest:
         from ..models.component_formula_config_request import ComponentFormulaConfigRequest
         from ..models.component_multiplier_config_request import ComponentMultiplierConfigRequest
         from ..models.component_sum_config_request import ComponentSumConfigRequest
+        from ..models.display_limit_config_request import DisplayLimitConfigRequest
         from ..models.k8s_default_configuration_request import K8SDefaultConfigurationRequest
+        from ..models.option_transform_request import OptionTransformRequest
         from ..models.option_validator_request import OptionValidatorRequest
         from ..models.option_visible_if_request import OptionVisibleIfRequest
         from ..models.storage_folder_config_request import StorageFolderConfigRequest
@@ -231,6 +259,13 @@ class OptionFieldRequest:
         else:
             component_sum_config = ComponentSumConfigRequest.from_dict(_component_sum_config)
 
+        _display_limit_config = d.pop("display_limit_config", UNSET)
+        display_limit_config: Union[Unset, DisplayLimitConfigRequest]
+        if isinstance(_display_limit_config, Unset):
+            display_limit_config = UNSET
+        else:
+            display_limit_config = DisplayLimitConfigRequest.from_dict(_display_limit_config)
+
         _storage_folder_config = d.pop("storage_folder_config", UNSET)
         storage_folder_config: Union[Unset, StorageFolderConfigRequest]
         if isinstance(_storage_folder_config, Unset):
@@ -265,6 +300,23 @@ class OptionFieldRequest:
 
         pattern_error = d.pop("pattern_error", UNSET)
 
+        def _parse_transform(data: object) -> Union["OptionTransformRequest", None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                transform_type_1 = OptionTransformRequest.from_dict(data)
+
+                return transform_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union["OptionTransformRequest", None, Unset], data)
+
+        transform = _parse_transform(d.pop("transform", UNSET))
+
         option_field_request = cls(
             type_=type_,
             label=label,
@@ -278,6 +330,7 @@ class OptionFieldRequest:
             component_multiplier_config=component_multiplier_config,
             component_formula_config=component_formula_config,
             component_sum_config=component_sum_config,
+            display_limit_config=display_limit_config,
             storage_folder_config=storage_folder_config,
             default_configs=default_configs,
             validators=validators,
@@ -285,6 +338,7 @@ class OptionFieldRequest:
             unique=unique,
             pattern=pattern,
             pattern_error=pattern_error,
+            transform=transform,
         )
 
         option_field_request.additional_properties = d

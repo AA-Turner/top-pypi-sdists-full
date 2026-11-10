@@ -183,6 +183,103 @@ def test_cargo_env_disabled_by_env_var(tmp_path: Path) -> None:
     assert cargo_cache.cargo_env("api", tmp_path, {cargo_cache.ENABLE_ENV: "1"})
 
 
+# ── #3912: per-#3182-fan-out-leg target dir isolation ───────────────────────
+
+
+def test_leg_suffix_none_is_unaffected(tmp_path: Path) -> None:
+    """The common case — no `leg_suffix` — is byte-for-byte the pre-#3912
+    bare per-repo target dir."""
+    assert (
+        cargo_cache.target_dir_for_repo("api", tmp_path, None)
+        == tmp_path / "cargo-target" / "api"
+    )
+    assert cargo_cache.cargo_env("api", tmp_path, {}, leg_suffix=None) == {
+        "CARGO_TARGET_DIR": str(tmp_path / "cargo-target" / "api"),
+    }
+
+
+def test_leg_suffix_nests_under_a_distinct_subdirectory(tmp_path: Path) -> None:
+    """Two sibling #3182 fan-out legs get DISTINCT target dirs, nested under
+    the same repo's cache root (so the existing repo-keyed GC protection
+    still covers both)."""
+    gtk = cargo_cache.target_dir_for_repo("api", tmp_path, "gtk")
+    windows = cargo_cache.target_dir_for_repo("api", tmp_path, "windows")
+    assert gtk != windows
+    assert gtk == tmp_path / "cargo-target" / "api" / "fanout-leg" / "gtk"
+    assert windows == tmp_path / "cargo-target" / "api" / "fanout-leg" / "windows"
+    repo_root = tmp_path / "cargo-target" / "api"
+    assert gtk.is_relative_to(repo_root)
+    assert windows.is_relative_to(repo_root)
+
+
+def test_leg_suffix_is_stable_across_retries_of_the_same_partition(
+    tmp_path: Path,
+) -> None:
+    """A RETRY of the same capability partition on the same machine still
+    warms the SAME leg-scoped cache — only concurrent DIFFERENT partitions
+    must never share a directory."""
+    first = cargo_cache.target_dir_for_repo("api", tmp_path, "gtk+windows")
+    second = cargo_cache.target_dir_for_repo("api", tmp_path, "gtk+windows")
+    assert first == second
+
+
+def test_leg_suffix_plus_joined_capabilities_sanitized_to_a_safe_path(
+    tmp_path: Path,
+) -> None:
+    """A multi-capability tag (`+`-joined, per `smoke_leg_issue_title`) is
+    remapped to a single safe path component rather than rejected."""
+    d = cargo_cache.target_dir_for_repo("api", tmp_path, "gtk+windows")
+    assert d == tmp_path / "cargo-target" / "api" / "fanout-leg" / "gtk-windows"
+
+
+def test_leg_suffix_unusable_falls_back_to_the_bare_repo_root(tmp_path: Path) -> None:
+    """An unusable suffix must never be WORSE than having none — it falls
+    back to the shared per-repo cache rather than opting the repo out."""
+    d = cargo_cache.target_dir_for_repo("api", tmp_path, "../escape")
+    assert d == tmp_path / "cargo-target" / "api"
+
+
+def test_cargo_env_forwards_leg_suffix(tmp_path: Path) -> None:
+    env = cargo_cache.cargo_env("api", tmp_path, {}, leg_suffix="gtk")
+    assert env == {
+        "CARGO_TARGET_DIR": str(
+            tmp_path / "cargo-target" / "api" / "fanout-leg" / "gtk"
+        ),
+    }
+
+
+def test_fanout_leg_profile_and_incremental_dirs_reachable(tmp_path: Path) -> None:
+    """#3912 review: a fan-out leg's cache nests two levels deeper than an
+    ordinary repo's (``<repo>/fanout-leg/<tag>/debug`` vs ``<repo>/debug``)
+    — ``_MAX_PROFILE_DEPTH`` must reach it, or ``profile_dirs``/
+    ``incremental_dirs`` silently stop seeing a leg's cache at all, and tier
+    1/2 GC can never reclaim a single byte of it."""
+    root = tmp_path / "cargo-target"
+    repo = root / "api"
+    leg_profile = repo / "fanout-leg" / "gtk-a1b2c3d4" / "debug"
+    (leg_profile / ".fingerprint").mkdir(parents=True, exist_ok=True)
+    _fill(leg_profile / "incremental", 300, name="chunk.bin")
+
+    assert leg_profile in cargo_cache.profile_dirs(repo)
+    assert (leg_profile / "incremental") in cargo_cache.incremental_dirs(repo)
+
+
+def test_fanout_leg_build_lock_detected_at_nested_depth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#3912 review: ``_build_lock_held`` (via ``build_active``) — "the most
+    reliable 'is something compiling in here right now' signal" — must see
+    a fan-out leg's own ``.cargo-lock``, not just an ordinary repo's."""
+    monkeypatch.setattr(cargo_cache, "fcntl", _FakeFcntlHeld())
+    root = tmp_path / "cargo-target"
+    repo = root / "api"
+    leg_profile = repo / "fanout-leg" / "gtk-a1b2c3d4" / "debug"
+    leg_profile.mkdir(parents=True, exist_ok=True)
+    (leg_profile / cargo_cache.BUILD_LOCK_NAME).write_text("")
+
+    assert cargo_cache.build_active(repo) is True
+
+
 # ── the cap ─────────────────────────────────────────────────────────────────
 
 
@@ -1074,6 +1171,62 @@ def test_stash_falls_back_to_shared_cargo_target_dir(tmp_path: Path) -> None:
     assert copied == 1
     assert unmatched == []
     assert (state / "artifacts" / "api" / "issue-1-x" / "coord-tui").exists()
+
+
+def test_stash_falls_back_to_the_fanout_leg_cargo_target_dir(tmp_path: Path) -> None:
+    """#3912 review: a #3182 fan-out leg builds into its OWN nested target
+    dir (``<cache>/<repo>/fanout-leg/<tag>/...``), not the bare per-repo
+    cache — the stash fallback must look in the SAME place the build
+    actually used, via the same ``leg_suffix`` the build itself passed to
+    ``cargo_env``, or a fan-out leg's artifacts silently miss."""
+    state = tmp_path / "state"
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    _fill(
+        state / "cargo-target" / "api" / "fanout-leg" / "gtk-abcd1234" / "debug",
+        4096, name="coord-tui",
+    )
+
+    unmatched: list[str] = []
+    copied = stash_artifacts_for_branch(
+        worktree,
+        "issue-1-x",
+        "api",
+        ["tui/target/debug/coord-tui"],
+        state,
+        unmatched_out=unmatched,
+        leg_suffix="gtk-abcd1234",
+    )
+
+    assert copied == 1
+    assert unmatched == []
+    assert (state / "artifacts" / "api" / "issue-1-x" / "coord-tui").exists()
+
+
+def test_stash_without_leg_suffix_misses_a_fanout_leg_build(tmp_path: Path) -> None:
+    """The flip side: with no ``leg_suffix`` (the pre-#3912 call shape), a
+    fan-out leg's nested build is NOT where the fallback looks — pinning
+    that this parameter is load-bearing, not cosmetic."""
+    state = tmp_path / "state"
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    _fill(
+        state / "cargo-target" / "api" / "fanout-leg" / "gtk-abcd1234" / "debug",
+        4096, name="coord-tui",
+    )
+
+    unmatched: list[str] = []
+    copied = stash_artifacts_for_branch(
+        worktree,
+        "issue-1-x",
+        "api",
+        ["tui/target/debug/coord-tui"],
+        state,
+        unmatched_out=unmatched,
+    )
+
+    assert copied == 0
+    assert unmatched == ["tui/target/debug/coord-tui"]
 
 
 def test_stash_prefers_the_worktree_copy_when_present(tmp_path: Path) -> None:

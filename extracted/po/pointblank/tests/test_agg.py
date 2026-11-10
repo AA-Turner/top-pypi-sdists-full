@@ -1,4 +1,5 @@
 import pytest
+from decimal import Decimal
 from itertools import product
 
 from pointblank import Validate, ref
@@ -1489,3 +1490,230 @@ def test_register_adds_comparator():
     assert "test_op_xyz" in COMPARATOR_REGISTRY
     assert COMPARATOR_REGISTRY["test_op_xyz"] is comp_test_op_xyz
     del COMPARATOR_REGISTRY["test_op_xyz"]
+
+
+def test_fractional_tolerance_not_truncated():
+    data = pl.DataFrame({"a": [1, 2, 3, 4, 5]})  # mean is 3.0
+
+    # A relative tolerance of 10% around 3.2 gives [2.88, 3.52], which includes 3.0
+    Validate(data).col_avg_eq("a", 3.2, tol=0.1).interrogate().assert_passing()
+
+    # An absolute tolerance of 1.5 around 1.4 gives [-0.1, 2.9], which excludes 3.0
+    v = Validate(data).col_avg_eq("a", 1.4, tol=1.5).interrogate()
+    assert v.validation_info[0].all_passed is False
+    assert v.validation_info[0].val_info["upper_bound"] == pytest.approx(2.9)
+
+    # For `gt`, the tolerance lowers the bar: 3.0 > 3.2 - 0.32
+    Validate(data).col_avg_gt("a", 3.2, tol=0.1).interrogate().assert_passing()
+
+
+def test_relative_tolerance_negative_target():
+    data = pl.DataFrame({"a": [-10.0, -10.0, -10.0]})
+
+    # 10% of |-10.5| is 1.05, so the range [-11.55, -9.45] includes -10
+    Validate(data).col_avg_eq("a", -10.5, tol=0.1).interrogate().assert_passing()
+
+
+def test_col_value_compares_aggregates():
+    from pointblank import col
+
+    data = pl.DataFrame({"a": [1, 2, 3, 4, 5], "b": [2, 2, 2, 2, 2]})
+
+    v = (
+        Validate(data)
+        .col_sum_gt("a", col("b"))  # 15 > 10
+        .col_avg_gt("a", col("b"))  # 3.0 > 2.0
+        .col_sd_lt("b", col("a"))  # 0.0 < 1.58
+        .col_sum_eq("a", col("b"))  # 15 != 10
+        .interrogate()
+    )
+
+    assert [step.all_passed for step in v.validation_info] == [True, True, True, False]
+    assert v.validation_info[0].val_info["target"] == 10
+
+
+def test_col_value_missing_column_is_eval_error():
+    from pointblank import col
+
+    data = pl.DataFrame({"a": [1, 2, 3]})
+    v = Validate(data).col_sum_gt("a", col("zz")).interrogate()
+
+    assert v.validation_info[0].eval_error is True
+
+
+def test_col_value_selector_raises():
+    from pointblank import col, starts_with
+
+    data = pl.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3]})
+
+    with pytest.raises(ValueError, match="single column name"):
+        Validate(data).col_sum_gt("a", col(starts_with("b")))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Decimal columns, and aggregates that can't be computed
+# ──────────────────────────────────────────────────────────────────────
+
+DECIMAL_VALUES = [Decimal("1.10"), Decimal("2.20"), Decimal("3.30")]
+
+
+def _decimal_table(backend: str, values: list = DECIMAL_VALUES):
+    import pandas as pd
+
+    floats = [None if v is None else float(v) for v in values]
+    df = pl.DataFrame({"d": pl.Series(values, dtype=pl.Decimal(10, 2)), "f": floats})
+    if backend == "polars":
+        return df
+    if backend == "polars-lazy":
+        return df.lazy()
+    if backend == "pandas-object":
+        return pd.DataFrame({"d": pd.Series(values, dtype=object), "f": floats})
+    if backend == "pandas-arrow":
+        return df.to_pandas(use_pyarrow_extension_array=True)
+    if backend == "duckdb":
+        import ibis
+
+        return ibis.memtable(df.to_arrow())
+    raise ValueError(backend)
+
+
+DECIMAL_BACKENDS = ["polars", "polars-lazy", "pandas-object", "pandas-arrow", "duckdb"]
+
+
+@pytest.mark.parametrize("backend", DECIMAL_BACKENDS)
+def test_aggregates_of_decimal_columns(backend: str):
+    from pointblank import col
+
+    v = (
+        Validate(_decimal_table(backend))
+        .col_sum_eq("d", 6.6)
+        .col_avg_eq("d", 2.2)
+        .col_sd_eq("d", 1.1, tol=1e-9)
+        .col_sum_eq("d", Decimal("6.6"))
+        .col_avg_le("d", Decimal("2.2"))
+        .col_sum_gt("d", Decimal("6.6"))
+        .col_avg_eq("d", col("f"), tol=1e-9)
+        .col_sd_ge("d", 1.2)
+        .interrogate()
+    )
+
+    assert [step.eval_error for step in v.validation_info] == [None] * 8
+    assert [step.all_passed for step in v.validation_info] == [True] * 5 + [False, True, False]
+    assert v.validation_info[0].val_info["actual"] == 6.6
+    assert isinstance(v.validation_info[0].val_info["actual"], float)
+    assert v.validation_info[3].val_info["target"] == 6.6
+
+
+@pytest.mark.parametrize("backend", DECIMAL_BACKENDS)
+def test_aggregates_of_decimal_columns_with_nulls(backend: str):
+    values = [Decimal("1.10"), None, Decimal("3.30")]
+    v = (
+        Validate(_decimal_table(backend, values))
+        .col_sum_eq("d", 4.4)
+        .col_avg_eq("d", 2.2)
+        .col_sd_eq("d", 1.555635, tol=1e-6)
+        .interrogate()
+    )
+
+    assert [step.all_passed for step in v.validation_info] == [True, True, True]
+
+
+@pytest.mark.parametrize("backend", DECIMAL_BACKENDS)
+def test_aggregates_of_decimal_reference_columns(backend: str):
+    v = (
+        Validate(_decimal_table(backend), reference=_decimal_table(backend))
+        .col_sum_eq("d")
+        .col_avg_eq("d", ref("d"))
+        .col_sd_eq("d")
+        .col_sum_eq("f", ref("d"), tol=1e-9)
+        .interrogate()
+    )
+
+    assert [step.all_passed for step in v.validation_info] == [True] * 4
+
+
+@pytest.mark.parametrize("backend", DECIMAL_BACKENDS)
+def test_decimal_mean_and_sd_not_rounded_to_column_scale(backend: str):
+    # Ibis gives the mean and standard deviation of a Decimal column the column's scale
+    # (1.67 and 0.58 here)
+    values = [Decimal("1.00"), Decimal("2.00"), Decimal("2.00")]
+    v = Validate(_decimal_table(backend, values)).col_avg_gt("d", 0).col_sd_gt("d", 0).interrogate()
+
+    assert v.validation_info[0].val_info["actual"] == pytest.approx(5 / 3, abs=1e-12)
+    assert v.validation_info[1].val_info["actual"] == pytest.approx(3**-0.5, abs=1e-12)
+
+
+def test_agg_functions_return_floats_for_decimals():
+    frame = nw.from_native(pl.DataFrame({"d": pl.Series(DECIMAL_VALUES, dtype=pl.Decimal(10, 2))}))
+
+    for agg, expected in [(agg_sum, 6.6), (agg_avg, 2.2), (agg_sd, 1.1)]:
+        result = agg(frame)
+        assert isinstance(result, float)
+        assert result == pytest.approx(expected)
+
+
+def _missing_aggregate_table(backend: str):
+    import pandas as pd
+
+    df = pl.DataFrame(
+        {
+            "empty": pl.Series([None, None, None], dtype=pl.Float64),
+            "one": [1.0, None, None],
+            "s": ["a", "b", "c"],
+        }
+    )
+    if backend == "polars":
+        return df
+    if backend == "pandas":
+        return df.to_pandas()
+    if backend == "pandas-object":
+        return pd.DataFrame(
+            {"empty": [None] * 3, "one": [Decimal("1"), None, None], "s": list("abc")}
+        )
+    if backend == "duckdb":
+        import ibis
+
+        return ibis.memtable(df.to_arrow())
+    raise ValueError(backend)
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas", "pandas-object", "duckdb"])
+@pytest.mark.parametrize(
+    ("method", "column", "note"),
+    [
+        ("col_avg_gt", "empty", "The average of column 'empty' is missing"),
+        ("col_sd_le", "empty", "The standard deviation of column 'empty' is missing"),
+        ("col_sd_le", "one", "fewer than two non-missing values"),
+        ("col_sum_gt", "s", "The sum of column 's' can't be computed"),
+        ("col_avg_gt", "s", "and aggregate checks need"),
+    ],
+)
+def test_aggregate_that_cant_be_computed_is_eval_error(
+    backend: str, method: str, column: str, note: str
+):
+    v = getattr(Validate(_missing_aggregate_table(backend)), method)(column, 0).interrogate()
+    step = v.validation_info[0]
+
+    assert step.eval_error is True
+    assert step.all_passed is None
+    assert note in step.notes["eval_error"]["text"]
+    assert "couldn't be evaluated" in v.get_step_report(1)
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas", "pandas-object", "duckdb"])
+def test_sum_of_all_missing_column_is_zero(backend: str):
+    v = Validate(_missing_aggregate_table(backend)).col_sum_eq("empty", 0).interrogate()
+
+    assert v.validation_info[0].all_passed is True
+
+
+def test_missing_reference_aggregate_is_eval_error():
+    data = pl.DataFrame({"a": [1.0, 2.0]})
+    reference = pl.DataFrame({"a": pl.Series([None, None], dtype=pl.Float64)})
+    v = Validate(data, reference=reference).col_avg_eq("a").col_sum_eq("a", 3).interrogate()
+
+    assert v.validation_info[0].eval_error is True
+    assert (
+        "The average of column 'a' is missing" in v.validation_info[0].notes["eval_error"]["text"]
+    )
+    assert v.validation_info[1].all_passed is True

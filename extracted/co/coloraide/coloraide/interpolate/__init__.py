@@ -247,8 +247,7 @@ def multi_mix(
                 if abs(sin) < util.ACHROMATIC_THRESHOLD_SM and abs(cos) < util.ACHROMATIC_THRESHOLD_SM:
                     avgs[i] = math.nan
                 else:
-                    avg_theta = math.atan2(sin, cos) * to_hue
-                    avgs[i] = (avg_theta + hue_max) if avg_theta < 0 else avg_theta
+                    avgs[i] = util.constrain_hue(math.atan2(sin, cos) * to_hue, hue_max)
         elif factor:
             avgs[i] /= factor
 

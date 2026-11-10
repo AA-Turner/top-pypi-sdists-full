@@ -15,6 +15,9 @@ __lazy_modules__ = (
     "itertools",
     "nab_index.file_urls",
     "nab_markersets.python_versions",
+    "nab_project.lock_policy",
+    "nab_project",
+    "tomli",
     "nab_project.paths",
     "nab_project.workspace",
     "nab_provider._vendor.packaging.specifiers",
@@ -44,14 +47,19 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar, cast
 from urllib.parse import urlsplit
 
+import tomli
+
+from nab.policy_migrations import DIST_POLICY_REPLACEMENTS
 from nab_index.file_urls import is_file_url
 from nab_markersets.python_versions import validate_python_version
+from nab_project import toml_io
 from nab_project.conflicts import (
     ConflictKind,
     ConflictMember,
     ConflictPolicy,
     ConflictSet,
 )
+from nab_project.lock_policy import LockPolicy
 from nab_project.paths import is_usable_path_name, resolve_path
 from nab_project.value import ValueType
 from nab_project.workspace import WorkspaceConfig
@@ -69,6 +77,7 @@ from nab_provider.policy import (
     DecisionOrder,
     DistPolicy,
     LocalSource,
+    MetadataPolicy,
     ResolutionStrategy,
     ResolveMode,
     VcsSource,
@@ -126,6 +135,7 @@ __all__ = [
     "parse_local_sources",
     "parse_marker_environment",
     "parse_matrix",
+    "parse_metadata_policy",
     "parse_mode",
     "parse_package_rules",
     "parse_packages_sugar",
@@ -414,6 +424,27 @@ def parse_uploaded_prior_to(value: object, where: str, *, anchor: datetime) -> d
 _DIST_POLICY_TABLE_KEYS = frozenset({"policy", "trust-unverified-deps"})
 
 
+def _parse_dist_policy_value(value: object, where: str) -> DistPolicy:
+    """Read an artifact policy or explain how to replace a combined policy."""
+    if isinstance(value, str) and value in DIST_POLICY_REPLACEMENTS:
+        replacement = DIST_POLICY_REPLACEMENTS[value]
+        change = (
+            f"set policy = {replacement!r} in the existing dist-policy table"
+            if where.endswith(".policy")
+            else f"use dist-policy = {replacement!r}"
+        )
+        placement = (
+            "beside dist-policy" if where.endswith(".policy") else "at the same scope"
+        )
+        msg = (
+            f"{where}: dist-policy = {value!r} was removed; {change} and"
+            f" metadata-policy = 'prefer-wheel' {placement}"
+        )
+        raise SourceConfigError(msg)
+
+    return parse_enum(value, where, DistPolicy, DistPolicy.WHEEL_OR_SDIST)
+
+
 def parse_dist_policy(value: object, where: str) -> tuple[DistPolicy, bool]:
     """Parse ``dist-policy``: an enum string or a policy table.
 
@@ -423,7 +454,7 @@ def parse_dist_policy(value: object, where: str) -> tuple[DistPolicy, bool]:
     """
     if not isinstance(value, dict):
         return (
-            parse_enum(value, where, DistPolicy, DistPolicy.WHEEL_OR_SDIST),
+            _parse_dist_policy_value(value, where),
             False,
         )
     unknown = sorted(set(value) - _DIST_POLICY_TABLE_KEYS)
@@ -436,15 +467,18 @@ def parse_dist_policy(value: object, where: str) -> tuple[DistPolicy, bool]:
     if "policy" not in value:
         msg = f"{where} table must set 'policy'"
         raise SourceConfigError(msg)
-    policy = parse_enum(
-        value["policy"], f"{where}.policy", DistPolicy, DistPolicy.WHEEL_OR_SDIST
-    )
+    policy = _parse_dist_policy_value(value["policy"], f"{where}.policy")
     trust = _parse_bool(
         f"{where}.trust-unverified-deps",
         value.get("trust-unverified-deps"),
         default=False,
     )
     return (policy, trust)
+
+
+def parse_metadata_policy(value: object, where: str) -> MetadataPolicy:
+    """Parse the dependency metadata source independently of install artifacts."""
+    return parse_enum(value, where, MetadataPolicy, MetadataPolicy.MATCH_ARTIFACT)
 
 
 def _parse_bool(key: str, value: object, *, default: bool) -> bool:
@@ -537,6 +571,43 @@ def parse_http_backend(value: object, where: str) -> str:
     return lowered
 
 
+def parse_lock_policy(value: object, where: str) -> LockPolicy:
+    """Read how an existing lockfile participates in locking."""
+    return parse_enum(value, where, LockPolicy, LockPolicy.RESOLVE)
+
+
+def parse_toml_value(value: str, where: str) -> object:
+    """Read one TOML value supplied outside a configuration document."""
+    try:
+        parsed = toml_io.loads("value = " + value)
+    except tomli.TOMLDecodeError as exc:
+        msg = f"{where}: expected a TOML value: {exc}"
+        raise SourceConfigError(msg) from exc
+
+    # Parsing a value must not accept additional TOML assignments.
+    if set(parsed) != {"value"}:
+        msg = f"{where}: expected one TOML value"
+        raise SourceConfigError(msg)
+
+    return parsed["value"]
+
+
+def parse_run_selection(value: object, where: str) -> tuple[str, ...]:
+    """Read selected extras or groups as a TOML array, including in the environment."""
+    if isinstance(value, str):
+        value = parse_toml_value(value, where)
+    return parse_string_list(value, where)
+
+
+def parse_lock_format(value: object, where: str) -> str:
+    """Read the output format selected for lock generation."""
+    formats = ("pylock", "requirements", "requirements-without-hashes")
+    if not isinstance(value, str) or value not in formats:
+        msg = f"{where} must be one of {formats!r}, got {value!r}"
+        raise SourceConfigError(msg)
+    return value
+
+
 def parse_max_concurrency(value: object, where: str) -> int:
     """Return the ``max-concurrency`` row's positive count."""
     # TOML supplies an int; env/CLI supply a string.  bool is an int
@@ -594,7 +665,7 @@ def parse_build_policy(value: object, where: str) -> BuildPolicy:
 
 def parse_decision_order(value: object, where: str) -> DecisionOrder:
     """Read ``decision-order``: the order the resolver decides packages in."""
-    return parse_enum(value, where, DecisionOrder, DecisionOrder.ARRIVAL)
+    return parse_enum(value, where, DecisionOrder, DecisionOrder.STABLE)
 
 
 def parse_marker_environment(value: object, where: str) -> dict[str, str]:
@@ -804,7 +875,9 @@ def _check_index_name_uniqueness(indexes: Sequence[IndexConfig]) -> None:
 _PACKAGE_OVERRIDE_BODY_KEYS = frozenset(
     {
         "dist-policy",
+        "metadata-policy",
         "assume-universal-deps",
+        "assume-consistent-metadata",
         "allow-zip-sdists",
         "build-policy",
         "uploaded-prior-to",
@@ -820,7 +893,9 @@ _PACKAGE_RULE_KEYS = frozenset({"match"}) | _PACKAGE_OVERRIDE_BODY_KEYS
 _INDEX_OVERRIDE_KEYS = frozenset(
     {
         "dist-policy",
+        "metadata-policy",
         "assume-universal-deps",
+        "assume-consistent-metadata",
         "allow-zip-sdists",
         "build-policy",
         "uploaded-prior-to",
@@ -838,8 +913,10 @@ _OVERRIDE_DEFERRED_KEYS = frozenset(
 # the ``false`` disable form, so both forms share one row (see _override_sets).
 _PACKAGE_POLICY_FIELDS = (
     ("dist-policy", "dist_policy"),
+    ("metadata-policy", "metadata_policy"),
     ("dist-policy.trust-unverified-deps", "dist_trust_unverified_deps"),
     ("assume-universal-deps", "assume_universal_deps"),
+    ("assume-consistent-metadata", "assume_consistent_metadata"),
     ("allow-zip-sdists", "allow_zip_sdists"),
     ("build-policy", "build_policy"),
     ("uploaded-prior-to", "uploaded_prior_to"),
@@ -981,6 +1058,11 @@ def _build_package_overrides(
 ) -> list[PackageOverride]:
     """Turn a validated selector and body into one override per requirement."""
     dist_policy, dist_trust = _parse_override_dist(body.get("dist-policy"), where)
+    metadata_policy = (
+        parse_metadata_policy(body["metadata-policy"], f"{where}.metadata-policy")
+        if "metadata-policy" in body
+        else None
+    )
     assume_universal_deps = (
         _parse_bool(
             f"{where}.assume-universal-deps",
@@ -988,6 +1070,15 @@ def _build_package_overrides(
             default=False,
         )
         if "assume-universal-deps" in body
+        else None
+    )
+    assume_consistent_metadata = (
+        _parse_bool(
+            f"{where}.assume-consistent-metadata",
+            body["assume-consistent-metadata"],
+            default=False,
+        )
+        if "assume-consistent-metadata" in body
         else None
     )
     allow_zip_sdists = (
@@ -1025,8 +1116,10 @@ def _build_package_overrides(
 
     has_body = (
         dist_policy is not None
+        or metadata_policy is not None
         or dist_trust is not None
         or assume_universal_deps is not None
+        or assume_consistent_metadata is not None
         or allow_zip_sdists is not None
         or build_policy is not None
         or uploaded_prior_to is not None
@@ -1060,8 +1153,10 @@ def _build_package_overrides(
             name=canonicalize_name(requirement.name),
             version_range=requirement.specifier.to_range(),
             dist_policy=dist_policy,
+            metadata_policy=metadata_policy,
             dist_trust_unverified_deps=dist_trust,
             assume_universal_deps=assume_universal_deps,
+            assume_consistent_metadata=assume_consistent_metadata,
             allow_zip_sdists=allow_zip_sdists,
             build_policy=build_policy,
             uploaded_prior_to=uploaded_prior_to,
@@ -1210,6 +1305,11 @@ def _parse_index_override_body(
         raise SourceConfigError(msg)
 
     dist_policy, dist_trust = _parse_override_dist(body.get("dist-policy"), where)
+    metadata_policy = (
+        parse_metadata_policy(body["metadata-policy"], f"{where}.metadata-policy")
+        if "metadata-policy" in body
+        else None
+    )
     assume_universal_deps = (
         _parse_bool(
             f"{where}.assume-universal-deps",
@@ -1217,6 +1317,15 @@ def _parse_index_override_body(
             default=False,
         )
         if "assume-universal-deps" in body
+        else None
+    )
+    assume_consistent_metadata = (
+        _parse_bool(
+            f"{where}.assume-consistent-metadata",
+            body["assume-consistent-metadata"],
+            default=False,
+        )
+        if "assume-consistent-metadata" in body
         else None
     )
     allow_zip_sdists = (
@@ -1250,8 +1359,10 @@ def _parse_index_override_body(
 
     has_body = (
         dist_policy is not None
+        or metadata_policy is not None
         or dist_trust is not None
         or assume_universal_deps is not None
+        or assume_consistent_metadata is not None
         or allow_zip_sdists is not None
         or build_policy is not None
         or uploaded_prior_to is not None
@@ -1267,8 +1378,10 @@ def _parse_index_override_body(
 
     return IndexOverride(
         dist_policy=dist_policy,
+        metadata_policy=metadata_policy,
         dist_trust_unverified_deps=dist_trust,
         assume_universal_deps=assume_universal_deps,
+        assume_consistent_metadata=assume_consistent_metadata,
         allow_zip_sdists=allow_zip_sdists,
         build_policy=build_policy,
         uploaded_prior_to=uploaded_prior_to,
@@ -1302,9 +1415,7 @@ def _parse_override_dist(
         return (None, None)
     if isinstance(value, str):
         return (
-            parse_enum(
-                value, f"{where}.dist-policy", DistPolicy, DistPolicy.WHEEL_OR_SDIST
-            ),
+            _parse_dist_policy_value(value, f"{where}.dist-policy"),
             None,
         )
     if not isinstance(value, dict):
@@ -1323,12 +1434,7 @@ def _parse_override_dist(
     if "policy" not in value:
         msg = f"{where}.dist-policy table must set 'policy'"
         raise SourceConfigError(msg)
-    policy = parse_enum(
-        value["policy"],
-        f"{where}.dist-policy.policy",
-        DistPolicy,
-        DistPolicy.WHEEL_OR_SDIST,
-    )
+    policy = _parse_dist_policy_value(value["policy"], f"{where}.dist-policy.policy")
     trust = value.get("trust-unverified-deps")
     if trust is not None and not isinstance(trust, bool):
         msg = f"{where}.dist-policy.trust-unverified-deps must be a boolean"

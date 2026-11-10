@@ -8,14 +8,15 @@ from office365.teams.schedule.change_request import ScheduleChangeRequest
 class OfferShiftRequest(ScheduleChangeRequest):
     """Represents a request to offer a shift to another user in the team."""
 
-    @odata(name="recipientActionDateTime")
+    @odata(name="recipientActionDateTime", readonly=True)
     @property
-    def recipient_action_datetime(self):
+    def recipient_action_datetime(self) -> datetime:
         """
         The Timestamp type represents date and time information using ISO 8601 format and is always in UTC time.
         """
         return self.properties.get("recipientActionDateTime", datetime.min)
 
+    @odata(name="recipientActionMessage")
     @property
     def recipient_action_message(self) -> Optional[str]:
         """
@@ -23,6 +24,7 @@ class OfferShiftRequest(ScheduleChangeRequest):
         """
         return self.properties.get("recipientActionMessage", None)
 
+    @odata(name="recipientUserId")
     @property
     def recipient_user_id(self) -> Optional[str]:
         """
@@ -30,6 +32,7 @@ class OfferShiftRequest(ScheduleChangeRequest):
         """
         return self.properties.get("recipientUserId", None)
 
+    @odata(name="senderShiftId")
     @property
     def sender_shift_id(self) -> Optional[str]:
         """

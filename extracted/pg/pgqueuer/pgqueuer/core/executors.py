@@ -4,8 +4,9 @@ import dataclasses
 import functools
 import inspect
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
-from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
+from typing import TypeAlias, TypeVar, cast
 
 from croniter import croniter
 
@@ -31,7 +32,7 @@ def is_async_callable(obj: object) -> bool:
         obj = obj.func
 
     return inspect.iscoroutinefunction(obj) or (
-        callable(obj) and inspect.iscoroutinefunction(getattr(obj, "__call__", None))
+        callable(obj) and inspect.iscoroutinefunction(getattr(obj, "__call__", None))  # noqa: B004 - inspects __call__
     )
 
 
@@ -119,10 +120,14 @@ class DatabaseRetryEntrypointExecutor(EntrypointExecutor):
                 raise retry from e
             if job.attempts >= self.max_attempts:
                 raise
-            delay = min(
-                self.initial_delay * (self.backoff_multiplier**job.attempts),
-                self.max_delay,
-            )
+            try:
+                delay = min(
+                    self.initial_delay * (self.backoff_multiplier**job.attempts),
+                    self.max_delay,
+                )
+            except OverflowError:
+                # The uncapped delay no longer fits a timedelta (or a float), so the cap applies.
+                delay = self.max_delay
             raise errors.RetryRequested(delay=delay, reason=str(e)) from e
 
 
@@ -148,7 +153,7 @@ class AbstractScheduleExecutor(ABC):
         """Next scheduled fire time in UTC."""
         return datetime.fromtimestamp(
             croniter(self.parameters.expression, start_time=utc_now()).get_next(),
-            timezone.utc,
+            UTC,
         )
 
     def next_in(self) -> timedelta:

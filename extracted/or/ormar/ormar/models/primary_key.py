@@ -1,0 +1,676 @@
+"""
+Primary key of a model: which fields form it, their database columns, and how
+to read, write, bind and compare its value.
+
+Every consumer of a model's key goes through this object instead of a single
+primary key field name, so the same code serves single-column keys and
+(later) keys spanning several columns.
+"""
+
+import abc
+import operator
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, cast
+
+import sqlalchemy
+from pydantic import BaseModel
+
+from ormar.exceptions import QueryDefinitionError
+from ormar.fields.link import column_value, key_value
+from ormar.queryset.templates.slots import PK_SLOT
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ormar.fields import ForeignKeyField
+    from ormar.models import Model, NewBaseModel
+
+NOT_SCALAR = (tuple, list, dict, BaseModel)
+
+
+@dataclass(frozen=True)
+class KeyLayout:
+    """
+    The columns of a primary key, resolved once (and again after the owner's
+    column caches are reset, e.g. when forward references resolve).
+
+    :ivar key: primary key the layout belongs to
+    :ivar column_aliases: database column names in key order
+    :ivar column_fields: per key column, the first key field storing it
+    :ivar simple: whether every key field stores exactly one column of its
+        own (no foreign key of several columns, no shared column), so the
+        key value has one part per key field
+    :ivar bind_slots: names of the bind parameters of the key columns
+    """
+
+    key: "PrimaryKey"
+    column_aliases: tuple[str, ...]
+    column_fields: tuple[str, ...]
+    simple: bool
+    bind_slots: tuple[str, ...]
+
+
+def not_scalar(parts: tuple[Any, ...]) -> bool:
+    """
+    :param parts: values of the key columns
+    :type parts: tuple[Any, ...]
+    :return: whether any column got a tuple, list, dict or model instead of
+        a single value
+    :rtype: bool
+    """
+    for part in parts:
+        if isinstance(part, NOT_SCALAR):
+            return True
+    return False
+
+
+class PrimaryKey(abc.ABC):
+    """
+    Primary key of a model class.
+
+    Column names are resolved from the owner once (``layout``) and cached
+    until the owner's column caches are reset. Inheritance and proxies get
+    their own key (``rebind``), and a cached layout is used only by the key
+    it was built for, so a key copied together with a config cannot point
+    at another model's table.
+
+    :ivar owner: model class the key belongs to
+    :ivar fields: ormar field names forming the key, in key order
+    """
+
+    def __init__(self, *, owner: type["Model"], fields: tuple[str, ...]) -> None:
+        """
+        :param owner: model class the key belongs to
+        :type owner: type[Model]
+        :param fields: ormar field names forming the key, in key order
+        :type fields: tuple[str, ...]
+        """
+        self.owner = owner
+        self.fields = fields
+        self.cached_layout: Optional[KeyLayout] = None
+        model_fields = owner.ormar_config.model_fields
+        self.relation_parts: dict[str, "ForeignKeyField"] = {
+            field: cast("ForeignKeyField", model_fields[field])
+            for field in fields
+            if model_fields[field].is_relation
+        }
+
+    def part_value(self, field: str, value: Any) -> Any:
+        """
+        Turn the value a model holds for a key field into the key part: a
+        related model in a relation part is replaced by the value its foreign
+        key stores (e.g. the related model's pk), raw values pass through.
+
+        :param field: key field name
+        :type field: str
+        :param value: value held for the field
+        :type value: Any
+        :return: key part
+        :rtype: Any
+        """
+        relation_field = self.relation_parts.get(field)
+        if relation_field is None or not isinstance(value, BaseModel):
+            return value
+        return column_value(
+            model=self.owner, data={field: value}, column=relation_field.get_alias()
+        )
+
+    def part_type(self, field: str) -> Any:
+        """
+        :param field: key field name
+        :type field: str
+        :return: python type of the key part
+        :rtype: Any
+        """
+        relation_field = self.relation_parts.get(field)
+        if relation_field is not None:
+            return relation_field.target_value_type()
+        return self.owner.ormar_config.model_fields[field].__type__
+
+    @property
+    @abc.abstractmethod
+    def is_composite(self) -> bool:
+        """
+        :return: whether the key spans more than one column
+        :rtype: bool
+        """
+
+    def layout(self) -> KeyLayout:
+        """
+        :return: the key's columns, built once and cached until the owner's
+            column caches are reset (not cached while a relation part still
+            points at a forward reference)
+        :rtype: KeyLayout
+        """
+        layout = self.cached_layout
+        if layout is None or layout.key is not self:
+            layout = self.build_layout()
+            if not any(
+                field.has_unresolved_forward_refs()
+                for field in self.relation_parts.values()
+            ):
+                self.cached_layout = layout
+        return layout
+
+    def build_layout(self) -> KeyLayout:
+        """
+        Resolve the key's database columns: the columns of each key field in
+        key order (all link columns of a foreign key), each column several
+        key fields share (e.g. a ``tenant_id`` of two foreign keys) listed
+        once, where it first appears.
+
+        :return: the key's columns
+        :rtype: KeyLayout
+        """
+        model_fields = self.owner.ormar_config.model_fields
+        field_columns = [model_fields[field].column_aliases() for field in self.fields]
+        column_fields: dict[str, str] = {}
+        for field, columns in zip(self.fields, field_columns):
+            for column in columns:
+                column_fields.setdefault(column, field)
+        column_aliases = tuple(column_fields)
+        return KeyLayout(
+            key=self,
+            column_aliases=column_aliases,
+            column_fields=tuple(column_fields.values()),
+            simple=len(column_aliases) == len(self.fields)
+            and all(len(columns) == 1 for columns in field_columns),
+            bind_slots=self.slot_names(count=len(column_aliases)),
+        )
+
+    def slot_names(self, count: int) -> tuple[str, ...]:
+        """
+        :param count: number of key columns
+        :type count: int
+        :return: names of the bind parameters the key is bound to in writes
+        :rtype: tuple[str, ...]
+        """
+        return (PK_SLOT,)
+
+    def column_parts(self, data: Any) -> tuple[Any, ...]:
+        """
+        :param data: an instance of the owner, or its values by field name
+            (e.g. a model dict)
+        :type data: Any
+        :return: the value of each key column, ``None`` for missing ones (see
+            ``column_value``)
+        :rtype: tuple[Any, ...]
+        """
+        return tuple(
+            column_value(model=self.owner, data=data, column=column)
+            for column in self.column_aliases()
+        )
+
+    def column_aliases(self) -> tuple[str, ...]:
+        """
+        :return: database column names of the key, in key order
+        :rtype: tuple[str, ...]
+        """
+        return self.layout().column_aliases
+
+    def columns(self) -> tuple[sqlalchemy.Column, ...]:
+        """
+        :return: SQLAlchemy columns of the key, in key order
+        :rtype: tuple[sqlalchemy.Column, ...]
+        """
+        table_columns = self.owner.ormar_config.table.c
+        return tuple(table_columns[alias] for alias in self.column_aliases())
+
+    @property
+    def autoincrement(self) -> bool:
+        """
+        :return: whether every key field is generated by the database
+        :rtype: bool
+        """
+        model_fields = self.owner.ormar_config.model_fields
+        return all(model_fields[field].autoincrement for field in self.fields)
+
+    def bind_slots(self) -> tuple[str, ...]:
+        """
+        :return: names of the bind parameters the key is bound to in writes
+        :rtype: tuple[str, ...]
+        """
+        return self.layout().bind_slots
+
+    def where_clause(
+        self, *, slots: tuple[str, ...], typed: bool = True
+    ) -> sqlalchemy.ColumnElement:
+        """
+        Build the condition matching one row by key, each key column compared
+        with a named bind parameter::
+
+            authors.id = :ormar_pk
+
+        :param slots: bind parameter names, one per key column
+        :type slots: tuple[str, ...]
+        :param typed: give each bind its column's type, so values get the
+            column's bind processing (e.g. UUID)
+        :type typed: bool
+        :return: condition over the key columns
+        :rtype: sqlalchemy.ColumnElement
+        """
+        comparisons = [
+            column
+            == (
+                sqlalchemy.bindparam(key=slot, type_=column.type)
+                if typed
+                else sqlalchemy.bindparam(key=slot)
+            )
+            for column, slot in zip(self.columns(), slots)
+        ]
+        return sqlalchemy.and_(*comparisons)
+
+    def expand_pk_kwarg(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """
+        Replace a ``pk`` keyword with the key fields it stands for::
+
+            {"pk": 4, "title": "a"} -> {"id": 4, "title": "a"}
+
+        :param kwargs: keyword arguments, possibly holding ``pk``
+        :type kwargs: dict[str, Any]
+        :return: new keyword arguments without ``pk``
+        :rtype: dict[str, Any]
+        """
+        if "pk" not in kwargs:
+            return dict(kwargs)
+        expanded = {name: value for name, value in kwargs.items() if name != "pk"}
+        expanded.update(self.to_dict(value=kwargs["pk"]))
+        return expanded
+
+    def lookup(self, kwargs: dict[str, Any]) -> Optional[dict[str, Any]]:
+        """
+        :param kwargs: keyword arguments by field name
+        :type kwargs: dict[str, Any]
+        :return: the key fields and their values, ``None`` when any key field
+            is missing or ``None``
+        :rtype: Optional[dict[str, Any]]
+        """
+        if any(kwargs.get(field) is None for field in self.fields):
+            return None
+        return {field: kwargs[field] for field in self.fields}
+
+    def rebind(self, *, owner: type["Model"]) -> "PrimaryKey":
+        """
+        :param owner: model class the new key belongs to
+        :type owner: type[Model]
+        :return: the same key for another model class (inheritance, proxies)
+        :rtype: PrimaryKey
+        """
+        return type(self)(owner=owner, fields=self.fields)
+
+    @abc.abstractmethod
+    def python_type(self) -> Any:
+        """
+        :return: python type of the key value
+        :rtype: Any
+        """
+
+    @abc.abstractmethod
+    def value(self, instance: "NewBaseModel") -> Any:
+        """
+        :param instance: model instance
+        :type instance: NewBaseModel
+        :return: key value of the instance
+        :rtype: Any
+        """
+
+    @abc.abstractmethod
+    def to_dict(self, value: Any) -> dict[str, Any]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: key value split into its fields, by field name
+        :rtype: dict[str, Any]
+        """
+
+    @abc.abstractmethod
+    def getter(self, keys: tuple[str, ...]) -> Callable[[Mapping[str, Any]], Any]:
+        """
+        :param keys: names under which the key parts are stored in a mapping
+            (field names in a model dict, column names in a row)
+        :type keys: tuple[str, ...]
+        :return: callable reading the key value out of such a mapping
+        :rtype: Callable[[Mapping[str, Any]], Any]
+        """
+
+    def item_reader(self) -> Callable[[Mapping[str, Any]], Any]:
+        """
+        :return: callable reading the key value out of a model dict (values
+            by field name, a foreign key stored in several columns holding
+            the tuple of its columns)
+        :rtype: Callable[[Mapping[str, Any]], Any]
+        """
+        if self.layout().simple:
+            return self.getter(keys=self.fields)
+        return self.value_from
+
+    @abc.abstractmethod
+    def value_from(self, data: Mapping[str, Any]) -> Any:
+        """
+        :param data: values by field name (e.g. a model dict)
+        :type data: Mapping[str, Any]
+        :return: key value held in the mapping, ``None`` when not set
+        :rtype: Any
+        """
+
+    @abc.abstractmethod
+    def flat_parts(self, value: Any) -> tuple[Any, ...]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: the raw value of each key column, in key order
+        :rtype: tuple[Any, ...]
+        """
+
+    @abc.abstractmethod
+    def bind_params(self, value: Any) -> dict[str, Any]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: parameters binding the value to ``bind_slots()``
+        :rtype: dict[str, Any]
+        """
+
+
+class SingleColumnKey(PrimaryKey):
+    """
+    Primary key of one column, whose value is a plain scalar.
+
+    :ivar field: name of the key field
+    """
+
+    def __init__(self, *, owner: type["Model"], fields: tuple[str, ...]) -> None:
+        """
+        :param owner: model class the key belongs to
+        :type owner: type[Model]
+        :param fields: the one key field name
+        :type fields: tuple[str, ...]
+        """
+        super().__init__(owner=owner, fields=fields)
+        self.field = fields[0]
+
+    @property
+    def is_composite(self) -> bool:
+        """
+        :return: always ``False``
+        :rtype: bool
+        """
+        return False
+
+    def python_type(self) -> Any:
+        """
+        :return: python type of the key field
+        :rtype: Any
+        """
+        return self.part_type(field=self.field)
+
+    def value(self, instance: "NewBaseModel") -> Any:
+        """
+        :param instance: model instance
+        :type instance: NewBaseModel
+        :return: value of the key field, ``None`` if not set
+        :rtype: Any
+        """
+        value = instance.__dict__.get(self.field)
+        if self.relation_parts:
+            return self.part_value(field=self.field, value=value)
+        return value
+
+    def to_dict(self, value: Any) -> dict[str, Any]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: ``{key field: value}``
+        :rtype: dict[str, Any]
+        """
+        return {self.fields[0]: value}
+
+    def getter(self, keys: tuple[str, ...]) -> Callable[[Mapping[str, Any]], Any]:
+        """
+        :param keys: one name under which the key is stored
+        :type keys: tuple[str, ...]
+        :return: ``operator.itemgetter`` of that name
+        :rtype: Callable[[Mapping[str, Any]], Any]
+        """
+        return operator.itemgetter(keys[0])
+
+    def value_from(self, data: Mapping[str, Any]) -> Any:
+        """
+        :param data: values by field name (e.g. a model dict)
+        :type data: Mapping[str, Any]
+        :return: value of the key field, ``None`` when not set
+        :rtype: Any
+        """
+        value = data.get(self.field)
+        if self.relation_parts:
+            return self.part_value(field=self.field, value=value)
+        return value
+
+    def flat_parts(self, value: Any) -> tuple[Any, ...]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: ``(value,)``, a related model replaced by its raw value
+        :rtype: tuple[Any, ...]
+        """
+        return (self.part_value(field=self.field, value=value),)
+
+    def bind_params(self, value: Any) -> dict[str, Any]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: ``{"ormar_pk": value}``
+        :rtype: dict[str, Any]
+        """
+        return {PK_SLOT: value}
+
+
+class CompositeKeyGetter:
+    """
+    Reads a composite key out of a mapping: a tuple of the parts, or ``None``
+    when any part is ``None``.
+    """
+
+    __slots__ = ("read",)
+
+    def __init__(self, *, keys: tuple[str, ...]) -> None:
+        """
+        :param keys: names under which the key parts are stored, in key order
+        :type keys: tuple[str, ...]
+        """
+        self.read = operator.itemgetter(*keys)
+
+    def __call__(self, data: Mapping[str, Any]) -> Any:
+        """
+        :param data: mapping holding the key parts
+        :type data: Mapping[str, Any]
+        :return: tuple of the parts, ``None`` when any part is ``None``
+        :rtype: Any
+        """
+        parts = self.read(data)
+        return None if None in parts else parts
+
+
+class CompositeKey(PrimaryKey):
+    """
+    Primary key spanning several columns, whose value is a tuple of the parts
+    in key order.
+    """
+
+    @property
+    def is_composite(self) -> bool:
+        """
+        :return: always ``True``
+        :rtype: bool
+        """
+        return True
+
+    @property
+    def autoincrement(self) -> bool:
+        """
+        :return: always ``False``, no part of a composite key is generated by
+            the database (field objects may be shared with sibling models
+            inheriting them, so the rule lives on the key)
+        :rtype: bool
+        """
+        return False
+
+    def python_type(self) -> Any:
+        """
+        :return: ``tuple``
+        :rtype: Any
+        """
+        return tuple
+
+    def value(self, instance: "NewBaseModel") -> Any:
+        """
+        :param instance: model instance
+        :type instance: NewBaseModel
+        :return: tuple of the key parts, ``None`` when any part is not set
+        :rtype: Any
+        """
+        return self.value_from(data=instance.__dict__)
+
+    def value_from(self, data: Mapping[str, Any]) -> Any:
+        """
+        :param data: values by field name (e.g. a model dict)
+        :type data: Mapping[str, Any]
+        :return: tuple of the key parts, ``None`` when any part is not set
+        :rtype: Any
+        """
+        if self.layout().simple:
+            parts = tuple(
+                self.part_value(field=field, value=data.get(field))
+                for field in self.fields
+            )
+        else:
+            parts = self.column_parts(data=data)
+        return None if None in parts else parts
+
+    def flat_parts(self, value: Any) -> tuple[Any, ...]:
+        """
+        Turn a key value given as a tuple/list of the key columns or as a dict
+        of exactly the key fields into the raw value of each key column
+        (related models in relation parts replaced by the values they are
+        referenced by).
+
+        :raises QueryDefinitionError: if the value does not match the key or a
+            column gets a tuple, list, dict or model instead of a single value
+        :param value: key value
+        :type value: Any
+        :return: the value of each key column, in key order
+        :rtype: tuple[Any, ...]
+        """
+        parts = self.split_value(value=value)
+        if not_scalar(parts=parts):
+            raise self.mismatch_error(value=value)
+        return parts
+
+    def split_value(self, value: Any) -> tuple[Any, ...]:
+        """
+        ``flat_parts`` without checking that each column gets a single value,
+        for key values ormar built itself (e.g. a model's ``pk``).
+
+        :raises QueryDefinitionError: if the value does not match the key
+        :param value: key value
+        :type value: Any
+        :return: the value of each key column, in key order
+        :rtype: tuple[Any, ...]
+        """
+        if isinstance(value, dict) and set(value) == set(self.fields):
+            for field, part in value.items():
+                if isinstance(part, (tuple, list)) and len(part) != len(
+                    self.owner.ormar_config.model_fields[field].column_aliases()
+                ):
+                    raise self.mismatch_error(value=value)
+            return self.column_parts(data=value)
+        layout = self.layout()
+        if isinstance(value, (tuple, list)) and len(value) == len(layout.column_fields):
+            model_fields = self.owner.ormar_config.model_fields
+            return tuple(
+                self.part_value(field=field, value=part)
+                if len(model_fields[field].column_aliases()) == 1
+                else part
+                for field, part in zip(layout.column_fields, value)
+            )
+        raise self.mismatch_error(value=value)
+
+    def mismatch_error(self, value: Any) -> QueryDefinitionError:
+        """
+        :param value: key value that doesn't match the key
+        :type value: Any
+        :return: error describing the expected key value
+        :rtype: QueryDefinitionError
+        """
+        return QueryDefinitionError(
+            f"{self.owner.__name__} primary key has fields {self.fields} "
+            f"(columns {self.column_aliases()}), got {value!r}; give one value "
+            "per column"
+        )
+
+    def to_dict(self, value: Any) -> dict[str, Any]:
+        """
+        Split a key value given as a tuple/list of the key columns or as a dict
+        of exactly the key fields into the value of each key field: a foreign
+        key stored in several columns gets the tuple of its columns.
+
+        :raises QueryDefinitionError: if the value does not match the key
+        :param value: key value
+        :type value: Any
+        :return: key parts by field name
+        :rtype: dict[str, Any]
+        """
+        by_column = dict(zip(self.column_aliases(), self.flat_parts(value=value)))
+        model_fields = self.owner.ormar_config.model_fields
+        return {
+            field: key_value(
+                parts=tuple(
+                    by_column[column] for column in model_fields[field].column_aliases()
+                )
+            )
+            for field in self.fields
+        }
+
+    def getter(self, keys: tuple[str, ...]) -> Callable[[Mapping[str, Any]], Any]:
+        """
+        :param keys: names under which the key parts are stored, in key order
+        :type keys: tuple[str, ...]
+        :return: reader returning the key tuple or ``None``
+        :rtype: Callable[[Mapping[str, Any]], Any]
+        """
+        return CompositeKeyGetter(keys=keys)
+
+    def slot_names(self, count: int) -> tuple[str, ...]:
+        """
+        :param count: number of key columns
+        :type count: int
+        :return: ``ormar_pk_0``, ``ormar_pk_1``, ... one per key column
+        :rtype: tuple[str, ...]
+        """
+        return tuple(f"{PK_SLOT}_{index}" for index in range(count))
+
+    def bind_params(self, value: Any) -> dict[str, Any]:
+        """
+        :param value: key value
+        :type value: Any
+        :return: parameters binding the parts to ``bind_slots()``
+        :rtype: dict[str, Any]
+        """
+        return dict(zip(self.layout().bind_slots, self.split_value(value=value)))
+
+
+def build_primary_key(*, owner: type["Model"], fields: tuple[str, ...]) -> PrimaryKey:
+    """
+    Create the primary key of a model from the fields marked as primary key.
+
+    :param owner: model class the key belongs to
+    :type owner: type[Model]
+    :param fields: ormar field names marked as primary key, in declaration order
+    :type fields: tuple[str, ...]
+    :return: primary key of the model
+    :rtype: PrimaryKey
+    """
+    if (
+        len(fields) > 1
+        or len(owner.ormar_config.model_fields[fields[0]].column_aliases()) > 1
+    ):
+        return CompositeKey(owner=owner, fields=fields)
+    return SingleColumnKey(owner=owner, fields=fields)

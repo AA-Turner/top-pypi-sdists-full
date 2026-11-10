@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +14,18 @@
 
 import importlib.machinery
 import importlib.util
+import json
 import os
+import re
 import shutil
 import subprocess
+from collections.abc import Sequence
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import quote
 
 import yaml
 from packaging import version as package_version
-
 
 hf_cache_home = os.path.expanduser(
     os.getenv("HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface"))
@@ -39,8 +42,7 @@ def get_default_branch_name(repo_folder):
     try:
         p = subprocess.run(
             "git symbolic-ref refs/remotes/origin/HEAD".split(),
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             check=True,
             encoding="utf-8",
             cwd=repo_folder,
@@ -60,7 +62,7 @@ def update_versions_file(build_path, version, doc_folder):
     main_branch = get_default_branch_name(doc_folder)
     if version == main_branch:
         return
-    with open(os.path.join(build_path, "_versions.yml"), "r") as versions_file:
+    with open(os.path.join(build_path, "_versions.yml")) as versions_file:
         versions = yaml.load(versions_file, yaml.FullLoader)
 
         if versions[0]["version"] != main_branch:
@@ -119,12 +121,11 @@ def is_doc_builder_repo(path):
     """
     Detects whether a folder is the `doc_builder` or not.
     """
-    setup_file = Path(path) / "setup.py"
-    if not setup_file.exists():
+    pyproject_file = Path(path) / "pyproject.toml"
+    if not pyproject_file.exists():
         return False
-    with open(os.path.join(path, "setup.py")) as f:
-        first_line = f.readline()
-    return first_line == "# Doc-builder package setup.\n"
+    content = pyproject_file.read_text(encoding="utf-8")
+    return re.search(r"""^name\s*=\s*["']hf-doc-builder["']""", content, flags=re.MULTILINE) is not None
 
 
 def locate_kit_folder():
@@ -173,8 +174,7 @@ def get_cached_repo():
     else:
         _ = subprocess.run(
             ["git", "pull"],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             check=True,
             encoding="utf-8",
             cwd=cache_repo_path,
@@ -182,14 +182,522 @@ def get_cached_repo():
     return cache_repo_path
 
 
+_SCRIPT_BLOCK_RE = re.compile(r"^\s*<script\b[^>]*>.*?</script>\s*", re.DOTALL)
+_SCRIPT_MARKERS = ("HF_DOC_BODY_START", "HF_DOC_BODY_END")
+_DOCBUILD_COMMENT_RE = re.compile(r"<!--\s*HF\s*DOCBUILD\s*BODY\s*(?:START|END)\s*-->", re.IGNORECASE)
+_DOCBODY_LINE_RE = re.compile(r"^\s*HF_DOC_BODY_(?:START|END)\s*$", re.MULTILINE)
+
+
 def sveltify_file_route(filename):
-    """
-    Given `filename` /path/abc/xyz.mdx, return /path/abc/xyz/+page.svelte
-    """
-    # filename can be PosixPath or str
+    """Convert an `.mdx` file path into the corresponding SvelteKit `+page.svelte` route."""
     filename = str(filename)
-    # Check if the filename ends with '.svelte'
     if filename.endswith(".mdx"):
-        # Replace the '{name}.mdx' with '{name}/+page.svelte'
         return filename.rsplit(".", 1)[0] + "/+page.svelte"
     return filename
+
+
+def markdownify_file_route(filename):
+    """Return the `.md` companion file path for a given `.mdx` route."""
+    filename = str(filename)
+    if filename.endswith(".mdx"):
+        return filename.rsplit(".", 1)[0] + ".md"
+    return filename
+
+
+def convert_mdx_to_markdown_text(content: str) -> str:
+    """Reduce MDX content to Markdown-only text suitable for distribution."""
+
+    content = _SCRIPT_BLOCK_RE.sub("", content, count=1)
+
+    heading_match = re.search(r"^#", content, flags=re.MULTILINE)
+    if heading_match:
+        cleaned = content[heading_match.start() :]
+    else:
+        index_candidates = [content.find(marker) for marker in _SCRIPT_MARKERS if marker in content]
+        index_candidates = [idx for idx in index_candidates if idx >= 0]
+        cleaned = content[min(index_candidates) :] if index_candidates else content
+
+    cleaned = _DOCBUILD_COMMENT_RE.sub("", cleaned)
+    cleaned = _DOCBODY_LINE_RE.sub("", cleaned)
+    cleaned = cleaned.replace("HF_DOC_BODY_START", "").replace("HF_DOC_BODY_END", "")
+    return cleaned.lstrip().rstrip()
+
+
+def write_markdown_route_file(source_file, destination_file):
+    """
+    Convert a generated `.mdx` file into the Markdown format expected by SvelteKit routes.
+
+    The transformation removes a leading `<script>...</script>` block and ensures the
+    resulting file starts directly with Markdown content.
+    """
+
+    with open(source_file, encoding="utf-8") as f:
+        content = convert_mdx_to_markdown_text(f.read())
+
+    # Strip HTML from the markdown content before writing
+    content = strip_html_from_markdown(content)
+
+    destination_path = Path(destination_file)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(destination_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(content)
+
+    return content
+
+
+def _collect_markdown_from_output(output_dir: Path) -> list[tuple[str, str]]:
+    markdown_items: list[tuple[str, str]] = []
+    for mdx_file in sorted(output_dir.glob("**/*.mdx")):
+        relative_path = mdx_file.relative_to(output_dir).with_suffix(".md").as_posix()
+        with open(mdx_file, encoding="utf-8") as f:
+            markdown_text = convert_mdx_to_markdown_text(f.read())
+        markdown_items.append((relative_path, markdown_text))
+    return markdown_items
+
+
+def write_llms_feeds(
+    output_dir: Path,
+    markdown_items: Sequence[tuple[str, str]] | None = None,
+    base_url: str | None = None,
+    package_name: str | None = None,
+    version: str | None = None,
+    language: str | None = None,
+    is_python_module: bool = True,
+):
+    """Generate llms.txt and llms-full.txt files alongside the documentation output."""
+
+    output_dir = Path(output_dir)
+    if markdown_items is None:
+        markdown_items = _collect_markdown_from_output(output_dir)
+    else:
+        markdown_items = [(str(path).replace(os.sep, "/"), text) for path, text in markdown_items]
+
+    markdown_items = [item for item in markdown_items if item[0]]
+    if not markdown_items:
+        return
+
+    parts = list(output_dir.parts)
+    if len(parts) >= 1 and language is None:
+        language = parts[-1]
+    if len(parts) >= 2 and version is None:
+        version = parts[-2]
+    if len(parts) >= 3 and package_name is None:
+        package_name = parts[-3]
+
+    base_host = "https://huggingface.co/docs"
+    normalized_package = (package_name or "").strip()
+    if normalized_package.endswith("course") or normalized_package == "cookbook":
+        base_host = "https://huggingface.co/learn"
+
+    def should_include_language(lang: str | None) -> bool:
+        return bool(lang and lang.lower() != "en")
+
+    def should_include_version(is_module: bool, ver: str | None) -> bool:
+        return is_module and ver is not None
+
+    if base_url is None and package_name:
+        url_parts = [base_host, quote(package_name, safe="")]
+        if should_include_version(is_python_module, version):
+            url_parts.append(quote(version, safe=""))
+        if should_include_language(language):
+            url_parts.append(quote(language, safe=""))
+        base_url = "/".join(url_parts)
+    elif base_url is not None and base_url.startswith("https://") and package_name:
+        normalized_base = base_url.rstrip("/")
+        # Ensure host respects learn/docs rules when caller passes a minimal base_url
+        if normalized_base.endswith(f"/docs/{package_name}") and (
+            normalized_package.endswith("course") or normalized_package == "cookbook"
+        ):
+            base_url = normalized_base.replace("/docs/", "/learn/", 1)
+
+    header_title = normalized_package.title() if normalized_package else "Documentation"
+
+    def build_url(relative_path: str) -> str:
+        relative_path = relative_path.lstrip("/")
+        if base_url:
+            return f"{base_url.rstrip('/')}/{quote(relative_path, safe='/')}"
+        return f"/{relative_path}"
+
+    def extract_title(markdown_text: str, fallback: str) -> str:
+        for line in markdown_text.splitlines():
+            if line.startswith("#"):
+                return line.lstrip("#").strip() or fallback
+        return fallback
+
+    bullet_lines: list[str] = []
+    sections: list[str] = []
+
+    for relative_path, markdown_text in markdown_items:
+        url = build_url(relative_path)
+        fallback_title = Path(relative_path).name.replace(".md", "").replace("-", " ").replace("_", " ").title()
+        title = extract_title(markdown_text, fallback_title)
+        bullet_lines.append(f"- [{title}]({url})")
+        markdown_body = markdown_text.strip()
+        sections.extend([f"### {title}", url, "", markdown_body, ""] if markdown_body else [f"### {title}", url, ""])
+
+    header_lines = [f"# {header_title}", "", "## Docs", ""]
+    llms_lines = header_lines + bullet_lines + [""]
+    llms_full_lines = header_lines + bullet_lines + [""] + sections
+
+    output_dir.joinpath("llms.txt").write_text("\n".join(llms_lines).rstrip() + "\n", encoding="utf-8")
+    output_dir.joinpath("llms-full.txt").write_text("\n".join(llms_full_lines).rstrip() + "\n", encoding="utf-8")
+
+
+def chunk_list(lst, n):
+    """
+    Create a list of chunks
+    """
+    return [lst[i : i + n] for i in range(0, len(lst), n)]
+
+
+class HTMLStripper(HTMLParser):
+    """Helper class to strip HTML tags while preserving text content."""
+
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.strict = False
+        self.convert_charrefs = True
+        self.text = []
+
+    def handle_data(self, data):
+        self.text.append(data)
+
+    def get_data(self):
+        return "".join(self.text)
+
+
+def strip_html_tags(text: str) -> str:
+    """Strip HTML tags from text while preserving content."""
+    stripper = HTMLStripper()
+    stripper.feed(text)
+    return stripper.get_data()
+
+
+def _extract_svelte_prop(props: str, prop_name: str):
+    """
+    Read the JSON value of a `name={<json>}` svelte attribute out of an opening-tag
+    attribute string, or return `None` if the prop is absent or malformed.
+
+    The JSON is parsed with `raw_decode` so values containing `}` or `>` (type
+    annotations, defaults, ...) don't confuse the extraction.
+    """
+    match = re.search(rf"\b{prop_name}=\{{", props)
+    if match is None:
+        return None
+    try:
+        value, end = json.JSONDecoder().raw_decode(props, match.end())
+    except ValueError:
+        return None
+    if not props[end:].lstrip().startswith("}"):
+        return None
+    return value
+
+
+def _extract_section(block: str, tag: str):
+    """Return the (stripped) content of `<tag>...</tag>` in `block`, or `None`."""
+    match = re.search(rf"<{tag}>(.*?)</{tag}>", block, re.DOTALL)
+    return match.group(1).strip() if match else None
+
+
+def extract_docstring_info(docstring_block: str) -> dict:
+    """
+    Extract information from a `<Docstring ...>...</Docstring>` block.
+
+    Metadata (name, anchor, source, signature) comes from the component props, the
+    markdown-bearing sections (parameters, returns, ...) from the component body.
+    See `doc_builder.autodoc.get_signature_component_svelte` for the emitted shape.
+    """
+    info = {
+        "name": None,
+        "anchor": None,
+        "source": None,
+        "parameters": None,
+        "paramsdesc": None,
+        "paramsgroups": [],
+        "rettype": None,
+        "retdesc": None,
+        "yieldtype": None,
+        "yielddesc": None,
+        "raisederrors": None,
+        "raises": None,
+        "is_getset_descriptor": False,
+    }
+
+    open_tag = re.match(r"<Docstring\s(?P<props>[^\n]*)>", docstring_block)
+    props = open_tag.group("props") if open_tag else ""
+
+    name = _extract_svelte_prop(props, "name")
+    if name:
+        # Remove "class " or "def " prefix if present
+        info["name"] = re.sub(r"^(class|def)\s+", "", name.strip())
+
+    anchor = _extract_svelte_prop(props, "anchor")
+    # `anchor` is stringified python-side, so a missing anchor arrives as `"None"`.
+    if anchor and anchor != "None":
+        info["anchor"] = anchor.strip()
+
+    source = _extract_svelte_prop(props, "source")
+    if source:
+        info["source"] = source.strip()
+
+    parameters = _extract_svelte_prop(props, "parameters")
+    if isinstance(parameters, list):
+        info["parameters"] = parameters
+
+    info["is_getset_descriptor"] = bool(_extract_svelte_prop(props, "isGetSetDescriptor"))
+
+    for key, tag in (
+        ("paramsdesc", "paramsdesc"),
+        ("rettype", "rettype"),
+        ("retdesc", "retdesc"),
+        ("yieldtype", "yieldtype"),
+        ("yielddesc", "yielddesc"),
+        ("raisederrors", "raisederrors"),
+        ("raises", "raises"),
+    ):
+        info[key] = _extract_section(docstring_block, tag)
+
+    # Extra parameter groups, e.g. transformers' "Parameters for sequence generation".
+    for group in re.findall(r"<paramsgroup>(.*?)</paramsgroup>", docstring_block, re.DOTALL):
+        info["paramsgroups"].append(
+            {
+                "title": _extract_section(group, "paramsgrouptitle"),
+                "desc": _extract_section(group, "paramsgroupdesc"),
+            }
+        )
+
+    return info
+
+
+def format_parameters(paramsdesc: str) -> str:
+    """
+    Format parameter descriptions by:
+    - Removing bullets (-)
+    - Removing bold formatting (**)
+    - Changing -- to :
+    - Adding blank lines between parameters
+    """
+    lines = paramsdesc.split("\n")
+    formatted_params = []
+    current_param = []
+
+    for line in lines:
+        # Check if this is a new parameter line (starts with "- **")
+        if re.match(r"^\s*-\s+\*\*", line):
+            # Save the previous parameter if exists
+            if current_param:
+                param_text = " ".join(current_param)
+                # Remove - and ** formatting
+                param_text = re.sub(r"^\s*-\s+\*\*([^*]+)\*\*", r"\1", param_text)
+                # Change -- to :
+                param_text = re.sub(r"\s+--\s+", " : ", param_text, count=1)
+                formatted_params.append(param_text)
+                formatted_params.append("")  # Add blank line between parameters
+                current_param = []
+
+            # Start new parameter
+            current_param.append(line)
+        elif current_param:
+            # Continuation of current parameter description
+            current_param.append(line.strip())
+
+    # Don't forget the last parameter
+    if current_param:
+        param_text = " ".join(current_param)
+        param_text = re.sub(r"^\s*-\s+\*\*([^*]+)\*\*", r"\1", param_text)
+        param_text = re.sub(r"\s+--\s+", " : ", param_text, count=1)
+        formatted_params.append(param_text)
+
+    return "\n".join(formatted_params)
+
+
+def format_call_signature(name: str, parameters) -> str:
+    """
+    Render the `parameters` prop (a list of `{"name": ..., "val": ...}`) as a call
+    signature, e.g. ``HfApi.merge_pull_request(discussion_num: int, token = None)``.
+    """
+    args = ", ".join(f"{param.get('name', '')}{param.get('val', '')}".strip() for param in parameters)
+    return f"{name}({args})"
+
+
+def format_type(value: str) -> str:
+    """
+    Wrap a return/yield/raise type in backticks, unless it already carries markup
+    (a resolved `[Name](url)` doc link, inline code, ...) that backticks would break.
+    """
+    return value if re.search(r"[`\[\]<>]", value) else f"`{value}`"
+
+
+def process_docstring_block(docstring_block: str) -> str:
+    """
+    Process a docstring block by:
+    1. Extracting the class/function name and relevant info
+    2. Stripping all HTML tags
+    3. Converting to clean markdown with level 4 header
+    """
+    # Extract structured information from the docstring
+    info = extract_docstring_info(docstring_block)
+
+    # Build the cleaned markdown
+    parts = []
+
+    # Add the name as level 4 header with anchor
+    if info["name"]:
+        if info["anchor"]:
+            parts.append(f"#### {info['name']}[[{info['anchor']}]]")
+        else:
+            parts.append(f"#### {info['name']}")
+        parts.append("")
+
+        # Add the call signature (properties are not callable, so they have none)
+        if info["parameters"] is not None and not info["is_getset_descriptor"]:
+            parts.append("```python")
+            parts.append(format_call_signature(info["name"], info["parameters"]))
+            parts.append("```")
+            parts.append("")
+
+    # Add source link if available
+    if info["source"]:
+        # Strip any HTML from source
+        source_clean = strip_html_tags(info["source"])
+        parts.append(f"[Source]({source_clean})")
+        parts.append("")
+
+    # Add parameters description
+    if info["paramsdesc"]:
+        parts.append("**Parameters:**")
+        parts.append("")
+        # Format parameters: remove bullets and bold, change -- to :, add blank lines
+        formatted_params = format_parameters(info["paramsdesc"])
+        parts.append(formatted_params)
+        parts.append("")
+
+    # Add the extra parameter groups, if any
+    for group in info["paramsgroups"]:
+        if not group["desc"]:
+            continue
+        parts.append(f"**{group['title'] or 'Parameters'}:**")
+        parts.append("")
+        parts.append(format_parameters(group["desc"]))
+        parts.append("")
+
+    # Add the returns / yields / raises sections
+    for type_key, desc_key, label in (
+        ("rettype", "retdesc", "Returns"),
+        ("yieldtype", "yielddesc", "Yields"),
+        ("raisederrors", "raises", "Raises"),
+    ):
+        if not info[type_key] and not info[desc_key]:
+            continue
+        header = f"**{label}:**"
+        if info[type_key]:
+            header += f" {format_type(info[type_key])}"
+        parts.append(header)
+        parts.append("")
+        if info[desc_key]:
+            parts.append(info[desc_key])
+            parts.append("")
+
+    result = "\n".join(parts)
+
+    # Clean up excessive newlines
+    result = re.sub(r"\n{3,}", "\n\n", result)
+
+    return result.strip()
+
+
+def strip_remaining_html(content: str) -> str:
+    """
+    Strip remaining HTML tags while preserving markdown structure.
+    Handles tags like <Tip>, <ExampleCodeBlock>, etc.
+
+    Fenced code blocks and inline code are preserved verbatim so literal
+    angle-bracketed content (e.g. ``<YOUR_TOKEN>`` placeholders, or code
+    such as ``if idx < n:``) survives the cleanup.
+    """
+    # Stash code blocks before any HTML stripping so brackets inside code are untouched.
+    code_segments: list[str] = []
+
+    def stash(match: re.Match) -> str:
+        code_segments.append(match.group(0))
+        return f"\x00DOCBUILDER_CODE_{len(code_segments) - 1}\x00"
+
+    # Fenced code blocks (```...```) — match across newlines.
+    content = re.sub(r"```.*?```", stash, content, flags=re.DOTALL)
+    # Inline code (`...`) — single line only.
+    content = re.sub(r"`[^`\n]+`", stash, content)
+
+    # Remove HTML comments, but preserve special flags like <!-- WRAP CODE BLOCKS --> and <!-- STRETCH TABLES -->
+    content = re.sub(r"<!--(?!\s*(WRAP CODE BLOCKS|STRETCH TABLES)\s*-->).*?-->", "", content, flags=re.DOTALL)
+
+    # Remove common component tags while preserving their content
+    # (Tip, TipEnd, ExampleCodeBlock, hfoptions, hfoption, etc.)
+    tags_to_remove = [
+        "Tip",
+        "TipEnd",
+        "ExampleCodeBlock",
+        "hfoptions",
+        "hfoption",
+        "EditOnGithub",
+        "div",
+        "span",
+        "anchor",
+    ]
+
+    for tag in tags_to_remove:
+        # Remove opening tags with any attributes
+        content = re.sub(rf"<{tag}[^>]*>", "", content, flags=re.IGNORECASE)
+        # Remove closing tags
+        content = re.sub(rf"</{tag}>", "", content, flags=re.IGNORECASE)
+
+    # Generic HTML-tag cleanup. Require the character after `<` to look like the start
+    # of a tag (letter, `/`, or `!`) and forbid newlines inside the match so a stray
+    # `<` in prose can't swallow content up to the next `>` further down the page.
+    content = re.sub(r"<[a-zA-Z/!][^>\n]*>", "", content)
+
+    # Restore protected code segments.
+    if code_segments:
+        content = re.sub(
+            r"\x00DOCBUILDER_CODE_(\d+)\x00",
+            lambda m: code_segments[int(m.group(1))],
+            content,
+        )
+
+    # Clean up multiple consecutive blank lines
+    content = re.sub(r"\n{3,}", "\n\n", content)
+
+    return content
+
+
+def strip_html_from_markdown(content: str) -> str:
+    """
+    Strip HTML from markdown content.
+
+    Handles:
+    - `<Docstring ...>...</Docstring>` components emitted by autodoc, which become a
+      level-4 heading with the signature, then the `**Parameters:**`/`**Returns:**`
+      sections. The object description follows the component in the source, so it
+      keeps its place right after those (same order as the rendered HTML page).
+    - Other HTML tags throughout the document
+    """
+    result = content
+
+    # The opening tag's attribute values are single-line JSON (see
+    # `get_signature_component_svelte`), so it ends at the last `>` on its own line.
+    docstring_pattern = r"<Docstring\s[^\n]*>\n.*?</Docstring>"
+
+    def replace_docstring(match):
+        block = match.group(0)
+        # Trailing newline: the object description directly follows the component (with a
+        # single newline in between), and must not end up glued to the last section.
+        return process_docstring_block(block) + "\n"
+
+    result = re.sub(docstring_pattern, replace_docstring, result, flags=re.DOTALL)
+
+    # Strip remaining HTML tags (like <Tip>, </Tip>, <ExampleCodeBlock>, etc.)
+    # But preserve markdown code blocks
+    result = strip_remaining_html(result)
+
+    return result

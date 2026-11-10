@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal, Optional
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SameSite = Literal["Strict", "Lax", "None"]
 
@@ -97,7 +97,7 @@ class ClosedTab(BaseModel):
 
 
 class Download(BaseModel):
-    """A download into ``~/Downloads``; completed, with where it landed, its size and its sha256."""
+    """A download into ``~/Downloads``; when completed, with where it landed, and its size and sha256 when available."""
     guid: str
     url: str
     filename: str
@@ -134,6 +134,71 @@ class LaunchEntry(BaseModel):
     signal: Optional[str] = None
 
 
+class TabToOpen(BaseModel):
+    """A tab a load opens: its URL, and whether it's the active one. A snapshot's tab, with its id and times, is one."""
+    model_config = ConfigDict(extra="ignore")
+
+    url: str
+    active: bool = False
+
+
+class StateToLoad(BaseModel):
+    """What ``data/add`` applies of the browser's state: its cookies, its local storage and, when given, its tabs.
+    A snapshot's state loads as it is: what it records of the past, its closed tabs, downloads and clock, is left."""
+    model_config = ConfigDict(extra="ignore")
+
+    cookies: list[CookieToSet] = []
+    local_storage: list[OriginStorage] = []
+    tabs: Optional[list[TabToOpen]] = None
+
+
+class SiteNames(BaseModel):
+    """A site of the env, which ``sites/set`` hands the browser: its ``name`` and the ``domains`` it's served under, a
+    ``*.`` name matching one label more, as a certificate's wildcard does."""
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    domains: list[str] = Field(min_length=1)
+
+
+class StartTab(BaseModel):
+    """How a start tab loaded: the ``url`` asked for, the ``final_url`` it ended on, its document's final HTTP
+    ``status``, the network ``error`` that kept it from loading, how long it took, the env's ``site`` it's on, None for
+    a live one, and its ``outcome``: ``loaded``, ``failed`` (an error, or a 4xx or 5xx status) or ``timed_out``."""
+    tab: str
+    url: str
+    final_url: Optional[str] = None
+    status: Optional[int] = None
+    error: Optional[str] = None
+    load_ms: int
+    site: Optional[str] = None
+    outcome: Literal["loaded", "failed", "timed_out"]
+
+
+class StartTabsLaunch(BaseModel):
+    """The start tabs of one launch of the browser, ``at`` when it began, in ``start_urls`` order."""
+    at: str
+    tabs: list[StartTab]
+
+
+class Clock(BaseModel):
+    """The clock the browser's pages see: the computer's own, ``real``, until a browser follows a universe's."""
+    mode: Literal["real"]
+    now: str
+
+
+class BrowserState(BaseModel):
+    """``data/get``'s state of the browser, read at one moment and kept as ``browser-state.json`` in a snapshot."""
+    cookies: list[Cookie]
+    local_storage: list[OriginStorage]
+    tabs: list[OpenTab]
+    closed_tabs: list[ClosedTab]
+    downloads: list[Download]
+    clock: Clock
+    #: The start tabs of its latest launch.
+    start_tabs: list[StartTab] = []
+
+
 class BrowserRecord(BaseModel):
     """``browser/v1 record``: what agentenv's connection saw ``since`` its server started, and each launch since the
     computer booted."""
@@ -144,6 +209,8 @@ class BrowserRecord(BaseModel):
     dialogs: list[Dialog]
     launches: list[LaunchEntry]
     cdp_connections: list[dict]
+    #: The start tabs of each launch since its server started.
+    start_tabs: list[StartTabsLaunch] = []
 
 
 def origin_of(url: str, *, strict: bool = False) -> Optional[str]:

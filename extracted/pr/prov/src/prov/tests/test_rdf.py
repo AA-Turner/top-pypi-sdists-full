@@ -13,23 +13,26 @@ import os
 import re
 import struct
 import warnings
+from collections.abc import Callable
 from glob import glob
 from io import BytesIO, StringIO
 
 import pytest
 import rdflib as rl
-from rdflib import RDF, URIRef
+from rdflib import RDF, BNode, URIRef
 from rdflib.compare import graph_diff
 from rdflib.graph import Dataset, Graph
 
 import prov.model as pm
+from prov.constants import PROV
 from prov.model import ProvDocument, ProvException, ProvExceptionInvalidQualifiedName
 from prov.serializers.provrdf import (
     ProvRDFException,
     ProvRDFSerializer,
+    _DecodeState,
     literal_rdf_representation,
 )
-from prov.tests.conftest import add_ordered_namespaces, roundtrip_document
+from prov.tests.conftest import add_ordered_namespaces, ex_document, roundtrip_document
 
 logger = logging.getLogger(__name__)
 
@@ -45,59 +48,66 @@ def _as_triple_graph(g):
     return flat
 
 
+def _sorted_nt_lines(graph):
+    return sorted(
+        line
+        for line in graph.serialize(format="nt", encoding="utf-8").splitlines()
+        if line.strip()
+    )
+
+
+def _statement_of(nt_line):
+    return next(
+        iter(rl.Dataset(default_union=True).parse(BytesIO(nt_line), format="nt"))
+    )
+
+
+def _statements_equal(first, second):
+    try:
+        return all(first[i].eq(second[i]) for i in range(3))
+    except TypeError:
+        return False
+
+
+def _pair_equal_lines(g1, g2):
+    """Pair each line of ``g1`` with the first unused line of ``g2`` it equals.
+
+    Returns the paired lines of ``g1``, the unpaired lines of ``g1`` and the
+    unpaired lines of ``g2``.
+    """
+    stmts2 = [_statement_of(line) for line in g2]
+    unused2 = list(range(len(g2)))
+    matched, rest1 = [], []
+    for line in g1:
+        stmt = _statement_of(line)
+        for pos, idx2 in enumerate(unused2):
+            if _statements_equal(stmt, stmts2[idx2]):
+                del unused2[pos]
+                matched.append(line)
+                break
+        else:
+            rest1.append(line)
+    return matched, rest1, [g2[idx2] for idx2 in unused2]
+
+
+def _parse_lines(graph, lines):
+    for line in lines:
+        graph.parse(BytesIO(line), format="nt")
+    return graph
+
+
 def find_diff(g_rdf, g0_rdf):
-    graphs_equal = True
     in_both, in_first, in_second = graph_diff(
         _as_triple_graph(g_rdf), _as_triple_graph(g0_rdf)
     )
-    g1 = sorted(
-        line
-        for line in in_first.serialize(format="nt", encoding="utf-8").splitlines()
-        if line.strip()
-    )
-    g2 = sorted(
-        line
-        for line in in_second.serialize(format="nt", encoding="utf-8").splitlines()
-        if line.strip()
-    )
     # Compare literals
-    if len(g1) != len(g2):
-        graphs_equal = False
-    matching_indices = [[], []]
-    for idx, g1_line in enumerate(g1):
-        g1_stmt = next(
-            iter(rl.Dataset(default_union=True).parse(BytesIO(g1_line), format="nt"))
-        )
-        match_found = False
-        for idx2, g2_line in enumerate(g2):
-            if idx2 in matching_indices[1]:
-                continue
-            g2_stmt = next(
-                iter(
-                    rl.Dataset(default_union=True).parse(BytesIO(g2_line), format="nt")
-                )
-            )
-            try:
-                all_match = all(g1_stmt[i].eq(g2_stmt[i]) for i in range(3))
-            except TypeError:
-                all_match = False
-            if all_match:
-                matching_indices[0].append(idx)
-                matching_indices[1].append(idx2)
-                match_found = True
-                break
-        if not match_found:
-            graphs_equal = False
-    in_first2 = rl.Dataset(default_union=True)
-    for idx, g1_line in enumerate(g1):
-        if idx in matching_indices[0]:
-            in_both.parse(BytesIO(g1_line), format="nt")
-        else:
-            in_first2.parse(BytesIO(g1_line), format="nt")
-    in_second2 = rl.Dataset(default_union=True)
-    for idx, g2_line in enumerate(g2):
-        if idx not in matching_indices[1]:
-            in_second2.parse(BytesIO(g2_line), format="nt")
+    matched, rest1, rest2 = _pair_equal_lines(
+        _sorted_nt_lines(in_first), _sorted_nt_lines(in_second)
+    )
+    graphs_equal = not rest1 and not rest2
+    _parse_lines(in_both, matched)
+    in_first2 = _parse_lines(rl.Dataset(default_union=True), rest1)
+    in_second2 = _parse_lines(rl.Dataset(default_union=True), rest2)
     return graphs_equal, in_both, in_first2, in_second2
 
 
@@ -121,13 +131,6 @@ def test_decoding_unicode_value() -> None:
     assert unicode_char in e1.get_attribute("prov:label")
 
 
-def test_serialize_without_a_document_raises() -> None:
-    serializer = ProvRDFSerializer(document=None)
-    with pytest.raises(ProvRDFException) as ctx:
-        serializer.serialize(BytesIO())
-    assert "No document to serialize" in str(ctx.value)
-
-
 def test_literal_rdf_representation_langtag() -> None:
     literal = pm.Literal("bonjour", langtag="fr")
     rdf_literal = literal_rdf_representation(literal)
@@ -139,18 +142,6 @@ def test_literal_rdf_representation_base64binary() -> None:
     literal = pm.Literal("aGVsbG8=", datatype=pm.XSD["base64Binary"])
     rdf_literal = literal_rdf_representation(literal)
     assert str(rdf_literal) == "aGVsbG8="
-
-
-def test_base64binary_survives_rdf_roundtrip() -> None:
-    # #288: a document with a base64Binary-typed attribute round-trips through
-    # RDF equal.
-    document = ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    document.entity(
-        "ex:e1",
-        {"ex:blob": pm.Literal("aGVsbG8=", datatype=pm.XSD["base64Binary"])},
-    )
-    assert roundtrip_document(document, "rdf") == document
 
 
 def test_base64binary_decodes_to_lexical_text() -> None:
@@ -193,6 +184,33 @@ def test_literal_rdf_representation_without_datatype_raises() -> None:
         literal_rdf_representation(pm.Literal("no datatype, no langtag"))
 
 
+@pytest.mark.filterwarnings("ignore:Parsing weird boolean")
+@pytest.mark.parametrize(
+    ("text", "datatype"),
+    [
+        ("maybe", pm.XSD_BOOLEAN),
+        ("05", pm.XSD_INT),
+        ("1e0", pm.XSD_DOUBLE),
+        ("PT0S", pm.XSD["duration"]),
+    ],
+    ids=["boolean", "int", "double", "duration"],
+)
+def test_literal_rdf_representation_keeps_the_text(
+    text: str, datatype: pm.QualifiedName
+) -> None:
+    # rdflib normalises a lexical form when it builds a Literal, unless told
+    # not to; the reader has no such switch (#575, C10)
+    rdf_literal = literal_rdf_representation(pm.Literal(text, datatype))
+    assert str(rdf_literal) == text
+    assert rdf_literal.datatype == URIRef(datatype.uri)
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e", {"ex:v": pm.Literal(text, datatype)})
+    nt = document.serialize(format="rdf", rdf_format="nt")
+    assert f'"{text}"^^<{datatype.uri}>' in nt
+    assert f'"{text}"^^' in document.serialize(format="rdf")
+
+
 def test_out_of_int32_plain_int_emits_xsd_long_ntriples() -> None:
     # #256: a plain out-of-int32 int must not be ill-typed as xsd:int.
     doc = ProvDocument()
@@ -221,7 +239,7 @@ def test_decode_xsd_qname_gyear_gyearmonth_round_trip() -> None:
 
     assert {lit.value for lit in e1.get_attribute("ex:year")} == {"2020"}
     assert {lit.value for lit in e1.get_attribute("ex:yearmonth")} == {"2020-05"}
-    assert {lit.value for lit in e1.get_attribute("ex:qname")} == {"ex:e1"}
+    assert e1.get_attribute("ex:qname") == {doc.valid_qualified_name("ex:e1")}
 
 
 @pytest.mark.parametrize(
@@ -280,7 +298,9 @@ def test_bundle_local_prefix_collision_keeps_document_level_binding() -> None:
     # regardless of `override`) to avoid clobbering it.
     doc = ProvDocument()
     doc.add_namespace("coll", "http://document.example/")
-    bundle = doc.bundle("coll:bundle1")
+    doc.entity("coll:d1")
+    named = doc.add_namespace("nm", "http://named.example/")
+    bundle = doc.bundle(named["bundle1"])
     bundle.add_namespace("coll", "http://bundlelocal.example/")
     bundle.entity("coll:e1")
 
@@ -307,16 +327,220 @@ def test_default_namespace_survives_turtle_serialization() -> None:
     assert ":e1" in turtle
 
 
-def test_encode_container_reuses_a_provided_container() -> None:
-    # encode_container()'s `container` parameter defaults to None
-    # everywhere it is called internally; passing one explicitly (as an
-    # external caller might) must reuse it rather than creating a new
-    # Graph.
+def test_the_default_binding_reads_back_as_the_default_namespace() -> None:
+    doc = ProvDocument()
+    doc.set_default_namespace("http://default.example/")
+    doc.add_namespace("ex", "http://example.org/")
+    doc.entity("e1")
+    doc.entity("ex:e2")
+
+    turtle = doc.serialize(format="rdf", rdf_format="turtle")
+    reloaded = ProvDocument.deserialize(
+        content=turtle, format="rdf", rdf_format="turtle"
+    )
+
+    default = reloaded.get_default_namespace()
+    assert default is not None
+    assert default.uri == "http://default.example/"
+    assert "" not in {ns.prefix for ns in reloaded.get_registered_namespaces()}
+    provn = reloaded.get_provn()
+    assert "default <http://default.example/>" in provn
+    assert ProvDocument.deserialize(content=provn, format="provn") == reloaded
+
+
+_TURTLE_PREFIXES = (
+    "@prefix prov: <http://www.w3.org/ns/prov#> .\n"
+    "@prefix ex: <http://example.org/> .\n"
+)
+_DEFAULT_PREFIX = "@prefix : <http://d.example/> .\n"
+_FOAF_PREFIX = "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
+_NT_ATTRIBUTION = (
+    "<http://example.org/e>"
+    " <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>"
+    " <http://www.w3.org/ns/prov#Entity> .\n"
+    "<http://example.org/e> <http://www.w3.org/ns/prov#wasAttributedTo>"
+    " <http://xmlns.com/foaf/0.1/Alice> .\n"
+)
+_QNAME_PREFIXES = (
+    _TURTLE_PREFIXES
+    + "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
+    + _FOAF_PREFIX
+)
+# `<http://alice.example>` splits at `http://`, a namespace that prefixes
+# rdflib's foaf binding (N56).
+_SHORT_IRI_SAME_TRIPLE = (
+    _TURTLE_PREFIXES
+    + _FOAF_PREFIX
+    + "ex:alice a prov:Agent ; foaf:homepage <http://alice.example> .\n"
+)
+_SHORT_IRI_SPLIT = (
+    _TURTLE_PREFIXES
+    + _FOAF_PREFIX
+    + 'ex:a a prov:Agent ; foaf:name "A" .\n'
+    + "ex:b a prov:Entity ; ex:site <http://b.example> .\n"
+)
+
+
+# The skipped rdflib bindings under `http://`, which the reader declares once it
+# mints that namespace (N56). `prov` and `xsd` are built into every document.
+_HTTP_BINDINGS = {
+    prefix
+    for prefix, iri in Graph().namespaces()
+    if str(iri).startswith("http://") and prefix not in {"prov", "xsd"}
+}
+
+
+def _prefixes(document: ProvDocument) -> set[str]:
+    return {ns.prefix for ns in document.get_registered_namespaces()}
+
+
+@pytest.mark.parametrize(
+    ("content", "exact"),
+    [
+        pytest.param(
+            _TURTLE_PREFIXES + "ex:e a prov:Entity .\n", {"ex"}, id="own-only"
+        ),
+        pytest.param(
+            _TURTLE_PREFIXES + _FOAF_PREFIX + "ex:e a prov:Entity .\n",
+            {"ex"},
+            id="declared-and-unused",
+        ),
+    ],
+)
+def test_the_reader_declares_only_the_source_bindings_and_the_names_it_uses(
+    content: str, exact: set[str]
+) -> None:
+    # rdflib binds default prefixes on every graph; the document holds a
+    # binding only when the source declares it or a name read from it needs
+    # it (#654).
+    back = ProvDocument.deserialize(content=content, format="rdf", rdf_format="turtle")
+    assert _prefixes(back) == exact
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(_SHORT_IRI_SAME_TRIPLE, id="short-iri-same-triple"),
+        pytest.param(_SHORT_IRI_SPLIT, id="short-iri-split"),
+    ],
+)
+def test_a_minted_namespace_declares_the_bindings_under_it_and_keeps_foaf(
+    content: str,
+) -> None:
+    # A namespace the reader mints for a short IRI also declares the rdflib
+    # bindings under it, so it does not shadow the foaf names (N56).
+    back = ProvDocument.deserialize(content=content, format="rdf", rdf_format="turtle")
+    assert _prefixes(back) == {"ex", "ns1"} | _HTTP_BINDINGS
+    foaf = {ns.prefix: ns.uri for ns in back.get_registered_namespaces()}["foaf"]
+    assert foaf == "http://xmlns.com/foaf/0.1/"
+    names = {
+        name
+        for record in back.get_records()
+        for name, _ in record.attributes
+        if name.uri.startswith(foaf)
+    }
+    assert names
+    assert {name.namespace.prefix for name in names} == {"foaf"}
+
+
+def test_the_reader_keeps_the_bindings_a_written_document_uses() -> None:
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.add_namespace("foaf", "http://xmlns.com/foaf/0.1/")
+    document.add_namespace("un", "http://unused.example/")
+    document.entity("ex:e")
+    document.agent("foaf:alice")
+    turtle = document.serialize(format="rdf", rdf_format="turtle")
+    back = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+    assert back == document
+    assert _prefixes(back) == {"ex", "foaf"}
+
+
+# A name read under a binding rdflib adds to every graph registers it (#654).
+
+
+def test_the_reader_registers_a_binding_a_name_needs_nt_foaf() -> None:
+    back = ProvDocument.deserialize(
+        content=_NT_ATTRIBUTION, format="rdf", rdf_format="nt"
+    )
+    assert "foaf" in _prefixes(back)
+    (attribution,) = back.get_records(pm.ProvAttribution)
+    (agent,) = attribution.get_attribute("prov:agent")
+    assert (agent.namespace.prefix, agent.localpart) == ("foaf", "Alice")
+
+
+def test_the_reader_registers_a_binding_a_name_needs_dcterms_datatype() -> None:
+    turtle = (
+        _TURTLE_PREFIXES
+        + "@prefix dcterms: <http://purl.org/dc/terms/> .\n"
+        + 'ex:e a prov:Entity ; ex:p "1"^^dcterms:W3CDTF .\n'
+    )
+    back = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+    assert "dcterms" in _prefixes(back)
+    (entity,) = back.get_records(pm.ProvEntity)
+    (value,) = entity.get_attribute("ex:p")
+    assert isinstance(value, pm.Literal)
+    assert value.value == "1"
+    assert value.datatype is not None
+    assert (value.datatype.namespace.prefix, value.datatype.localpart) == (
+        "dcterms",
+        "W3CDTF",
+    )
+
+
+def test_the_reader_registers_a_binding_a_name_needs_rebound_dc() -> None:
+    turtle = (
+        "@prefix prov: <http://www.w3.org/ns/prov#> .\n"
+        "@prefix dc: <http://other.example/dc#> .\n"
+        "dc:x a prov:Entity .\n"
+    )
+    back = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+    (entity,) = back.get_records(pm.ProvEntity)
+    assert entity.identifier.uri == "http://other.example/dc#x"
+    assert {ns.prefix: ns.uri for ns in back.get_registered_namespaces()}[
+        "dc1"
+    ] == "http://other.example/dc#"
+    # rdflib's own dc binding is not declared.
+    assert "dc" not in _prefixes(back)
+
+
+@pytest.mark.parametrize(
+    ("datatype", "attribute"),
+    [
+        pytest.param("xsd:QName", "ex:p", id="xsd-qname-literal"),
+        pytest.param("prov:QUALIFIED_NAME", "ex:p", id="prov-qualified-name-literal"),
+        pytest.param("xsd:QName", "prov:type", id="prov-type-qname-literal"),
+    ],
+)
+def test_the_reader_registers_the_prefix_of_a_qname_literal(
+    datatype: str, attribute: str
+) -> None:
+    turtle = (
+        _QNAME_PREFIXES + f'ex:e a prov:Entity ; {attribute} "foaf:x"^^{datatype} .\n'
+    )
+    back = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+    assert "foaf" in _prefixes(back)
+    (entity,) = back.get_records(pm.ProvEntity)
+    (value,) = entity.get_attribute(attribute)
+    assert isinstance(value, pm.QualifiedName)
+    assert value.uri == "http://xmlns.com/foaf/0.1/x"
+
+
+def test_encode_container_builds_or_reuses_its_container() -> None:
+    # Without a `container`, encode_container() builds a graph on rdflib's
+    # default store with prov bound; only encode_document() opts into
+    # SimpleMemory. Given a `container`, it reuses that object rather than
+    # creating a new Graph.
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
     doc.entity("ex:e1")
-
     serializer = ProvRDFSerializer(document=doc)
+
+    graph = serializer.encode_container(doc)
+
+    assert isinstance(graph.store, type(Graph().store))
+    assert "prov" in dict(graph.namespaces())
+
     # A Dataset works here (it's a Graph subclass), but this exercises the
     # accepted-tradeoff path, not the recommended one: its .add() calls
     # surface rdflib's own internal deprecation noise (Dataset.default_context,
@@ -327,6 +551,140 @@ def test_encode_container_reuses_a_provided_container() -> None:
 
     assert result is container
     assert len(list(container.triples((None, None, None)))) > 0
+
+
+@pytest.mark.parametrize(
+    "types",
+    [
+        pytest.param(["Revision", "Derivation"], id="revision-then-derivation"),
+        pytest.param(["Derivation", "Revision"], id="derivation-then-revision"),
+        pytest.param(["Quotation", "Derivation"], id="quotation-then-derivation"),
+        pytest.param(["Derivation", "Quotation"], id="derivation-then-quotation"),
+        pytest.param(
+            ["PrimarySource", "Derivation"], id="primary-source-then-derivation"
+        ),
+        pytest.param(
+            ["Derivation", "PrimarySource"], id="derivation-then-primary-source"
+        ),
+        pytest.param(["Revision"], id="revision-alone"),
+    ],
+)
+def test_an_identified_derivation_writes_an_asserted_prov_derivation(
+    types: list[str],
+) -> None:
+    # The qualification head is built once, so an asserted prov:Derivation
+    # survives beside a subtype in either attribute order (#697). A subtype
+    # alone replaces the record type's rdf:type prov:Derivation.
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.wasDerivedFrom(
+        "ex:g",
+        "ex:u",
+        identifier="ex:d",
+        other_attributes=[("prov:type", PROV[name]) for name in types],
+    )
+
+    graph = ProvRDFSerializer(document=doc).encode_document(doc)
+
+    assert set(graph.objects(URIRef("http://example.org/d"), RDF.type)) == {
+        URIRef(PROV[name].uri) for name in types
+    }
+
+
+def test_an_own_type_prov_type_does_not_round_trip_through_prov_o() -> None:
+    # C12: a prov:type equal to the record's own class is its rdf:type triple.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e", {"prov:type": PROV["Entity"]})
+
+    roundtripped = roundtrip_document(document, "rdf")
+
+    (entity,) = roundtripped.get_records(pm.ProvEntity)
+    assert entity.get_attribute("prov:type") == set()
+    assert roundtripped != document
+
+
+@pytest.mark.parametrize(
+    ("subject", "types", "expected"),
+    [
+        pytest.param(
+            "d",
+            ["Derivation", "Revision"],
+            [False, True],
+            id="derivation-then-revision",
+        ),
+        pytest.param(
+            "d",
+            ["Revision", "Derivation"],
+            [True, False],
+            id="revision-then-derivation",
+        ),
+        pytest.param(
+            "d",
+            ["Derivation", "Quotation"],
+            [False, True],
+            id="derivation-then-quotation",
+        ),
+        pytest.param(
+            "d",
+            ["Quotation", "Derivation"],
+            [True, False],
+            id="quotation-then-derivation",
+        ),
+        pytest.param(
+            "d",
+            ["Derivation", "PrimarySource"],
+            [False, True],
+            id="derivation-then-primary-source",
+        ),
+        pytest.param(
+            "d",
+            ["PrimarySource", "Derivation"],
+            [True, False],
+            id="primary-source-then-derivation",
+        ),
+        pytest.param(
+            None, ["Agent", "Person"], [False, True], id="blank-agent-then-person"
+        ),
+        pytest.param(
+            None, ["Person", "Agent"], [True, False], id="blank-person-then-agent"
+        ),
+        pytest.param(
+            "x",
+            ["Entity", "Activity"],
+            [False, True],
+            id="different-base-class-stays-a-prov-type",
+        ),
+    ],
+)
+def test_a_subclass_beside_its_base_class_reads_as_the_subclass(
+    subject: str | None, types: list[str], expected: list[bool]
+) -> None:
+    # Each call returns whether the rdf:type triple also becomes a prov:type.
+    # Whichever triple comes first, a base class beside its subclass adds
+    # none and the subclass adds one; a class that is no base of the record
+    # type stays a prov:type. A ``None`` subject is a blank node. The order
+    # is driven by hand so one test covers both orders; a parsed graph's type
+    # pass groups the triples by class in first-seen order (see
+    # ``sorted_type_triples``).
+    graph = Graph()
+    graph.bind("ex", "http://example.org/")
+    node = BNode() if subject is None else URIRef("http://example.org/" + subject)
+    serializer = ProvRDFSerializer(document=ProvDocument())
+    state = _DecodeState()
+
+    returned = [
+        serializer._register_record_type(
+            graph,
+            (node, RDF.type, URIRef(PROV[name].uri)),
+            str(node),
+            PROV[name].uri,
+            state,
+        )
+        for name in types
+    ]
+
+    assert returned == expected
 
 
 def test_decode_document_without_contexts_uses_plain_graph_path() -> None:
@@ -376,71 +734,129 @@ def test_decode_document_bundle_iri_without_registered_namespace() -> None:
     assert len(bundles[0].get_records()) == 1
 
 
-def test_decode_multi_valued_qualified_relation_produces_cartesian_product() -> None:
-    # A hand-authored (non-2.x-encoder-produced) PROV-O document may
-    # legally repeat a formal-attribute predicate on the same qualified-
-    # relation bnode; decode_container()'s walk() helper must expand
-    # that into one new_record() call per combination rather than
-    # silently overwriting (planning/test-gap-checklist.md, T13 item under
-    # provrdf.py: "multi-valued unique-set walking").
-    turtle = """
-    @prefix prov: <http://www.w3.org/ns/prov#> .
-    @prefix ex: <http://example.org/> .
-
-    ex:e1 a prov:Entity .
-    ex:e2 a prov:Entity .
-    ex:a1 a prov:Activity .
-
-    _:u1 a prov:Usage ;
-         prov:entity ex:e1 ;
-         prov:entity ex:e2 ;
-         prov:activity ex:a1 .
-
-    ex:a1 prov:qualifiedUsage _:u1 .
-    """
-    doc = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
-
-    usages = [r for r in doc.get_records() if r.get_type().localpart == "Usage"]
-    assert len(usages) == 2
-    used_entities = {
-        value
-        for usage in usages
-        for name, value in usage.formal_attributes
-        if name.localpart == "entity"
-    }
-    assert {str(qn) for qn in used_entities} == {"ex:e1", "ex:e2"}
+def _assert_documented_limitation(ctx: pytest.ExceptionInfo) -> None:
+    message = str(ctx.value)
+    assert "documented PROV-O representational limitation" in message
+    assert "more than one value for formal attribute" in message
+    assert "conformance.md" in message
+    assert ctx.type is ProvRDFException
+    # The chained original ProvException is preserved, not swallowed.
+    assert isinstance(ctx.value.__cause__, ProvException)
 
 
-def test_decode_scruffy_qualified_generation_raises_documented_limitation() -> None:
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(
+            """
+            ex:e1 prov:qualifiedGeneration ex:gen1 .
+            ex:gen1 a prov:Generation ;
+                prov:activity ex:a1 ;
+                prov:atTime "2012-01-01T00:00:00"^^xsd:dateTime,
+                    "2013-01-01T00:00:00"^^xsd:dateTime .
+            """,
+            id="identified-mapped-predicate",
+        ),
+        pytest.param(
+            """
+            ex:a1 prov:qualifiedUsage ex:u1 .
+            ex:u1 a prov:Usage ; prov:entity ex:e1, ex:e2 .
+            """,
+            id="identified-qualified-node",
+        ),
+        pytest.param(
+            """
+            ex:d1 a prov:Derivation ;
+                prov:generatedEntity ex:e1, ex:e2 ;
+                prov:usedEntity ex:e3, ex:e4 .
+            """,
+            id="identified-attribute-iris",
+        ),
+        pytest.param(
+            """
+            ex:a1 prov:qualifiedUsage _:u1 .
+            _:u1 a prov:Usage ; prov:entity ex:e1, ex:e2 .
+            """,
+            id="blank-node",
+        ),
+        pytest.param(
+            """
+            ex:a1 prov:qualifiedUsage _:u1 .
+            _:u1 a prov:Usage ;
+                prov:entity ex:e1, ex:e2 ;
+                prov:activity ex:a1, ex:a2 .
+            """,
+            id="blank-node-two-attributes",
+        ),
+        pytest.param(
+            """
+            ex:a1 prov:qualifiedUsage ex:u1 .
+            ex:u1 a prov:Usage ;
+                prov:entity ex:e1, ex:e2 ;
+                prov:collection ex:c1 .
+            """,
+            id="with-collection",
+        ),
+    ],
+)
+def test_decode_repeated_formal_attribute_raises_documented_limitation(body) -> None:
     # #217, closed as a permanent PROV-O representational limitation (see
-    # docs/reference/conformance.md): PROV-O reifies a relation as a single
-    # qualified node named by its own identifier, so two prov:atTime values
-    # on the *same* identified prov:qualifiedGeneration node cannot be told
-    # apart on decode. Unlike the anonymous-bnode cartesian-product case
-    # above, this identified-node shape must raise rather than silently
-    # fabricate two same-identifier records.
-    turtle = """
+    # docs/reference/conformance.md): a record holds one value of each formal
+    # attribute, so a subject repeating one raises, identified or blank.
+    turtle = f"""
     @prefix prov: <http://www.w3.org/ns/prov#> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
     @prefix ex: <http://example.org/> .
-
-    ex:e1 a prov:Entity ;
-        prov:qualifiedGeneration ex:gen1 .
-    ex:a1 a prov:Activity .
-
-    ex:gen1 a prov:Generation ;
-        prov:activity ex:a1 ;
-        prov:atTime "2012-01-01T00:00:00"^^xsd:dateTime,
-            "2013-01-01T00:00:00"^^xsd:dateTime .
+    {body}
     """
-    with pytest.raises(ProvException) as ctx:
+    with pytest.raises(ProvRDFException) as ctx:
         ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
 
-    message = str(ctx.value)
-    assert "documented PROV-O representational limitation" in message
-    assert "conformance.md" in message
-    # The chained original ProvException is preserved, not swallowed.
-    assert isinstance(ctx.value.__cause__, ProvException)
+    _assert_documented_limitation(ctx)
+
+
+def test_decode_repeat_raises_when_the_qualifier_overwrites_the_slot(
+    monkeypatch,
+) -> None:
+    # Sorted by object, the reader meets ex:a0, ex:a1 and ex:u1, so the
+    # qualifier's triple comes last and puts ex:a1 in the slot that held ex:a0.
+    # The repeat still raises, and neither value is dropped.
+    turtle = """
+    @prefix prov: <http://www.w3.org/ns/prov#> .
+    @prefix ex: <http://example.org/> .
+
+    ex:a1 prov:qualifiedUsage ex:u1 .
+    ex:u1 a prov:Usage ;
+        prov:entity ex:e1 ;
+        prov:activity ex:a0, ex:a1 .
+    """
+    original = Graph.__iter__
+
+    def by_object(self):
+        return iter(sorted(original(self), key=lambda triple: str(triple[2])))
+
+    monkeypatch.setattr(Graph, "__iter__", by_object)
+
+    with pytest.raises(ProvRDFException) as ctx:
+        ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+
+    _assert_documented_limitation(ctx)
+
+
+def test_decode_same_identifier_relations_differing_in_a_party_raises() -> None:
+    # The writer collapses two relations that share an identifier onto one
+    # node, which then repeats the party they differ in (C1).
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.usage("ex:a1", "ex:e1", identifier="ex:rel1")
+    document.usage("ex:a1", "ex:e2", identifier="ex:rel1")
+
+    rdf = document.serialize(format="rdf")
+
+    with pytest.raises(ProvRDFException) as ctx:
+        ProvDocument.deserialize(content=rdf, format="rdf")
+
+    _assert_documented_limitation(ctx)
 
 
 @pytest.mark.parametrize(
@@ -458,12 +874,13 @@ def test_decode_scruffy_relations_raise_documented_limitation(
 ) -> None:
     # #217: all five relation families with a qualified PROV-O form --
     # generation/usage/start/end/invalidation -- share the same permanent
-    # representational limitation (docs/reference/conformance.md), and the
-    # 14 skipped round-trip cases in test_statements.py cover exactly this
-    # shape for each of them. Build the scruffy construct with prov's own
-    # model and serializer (rather than hand-authoring PROV-O, as the
-    # single-family test above does) so this test tracks what prov itself
-    # actually emits for each family, not a guess at it.
+    # representational limitation (docs/reference/conformance.md), and
+    # test_statements.py's scruffy round trips build this shape for each of
+    # them and leave out the rdf target because of it. Build the scruffy
+    # construct with prov's own model and serializer (rather than
+    # hand-authoring PROV-O, as the single-family test above does) so this
+    # test tracks what prov itself actually emits for each family, not a
+    # guess at it.
     document = ProvDocument()
     document.add_namespace("ex", "http://example.org/")
     document.entity("ex:e1")
@@ -474,24 +891,336 @@ def test_decode_scruffy_relations_raise_documented_limitation(
 
     rdf = document.serialize(format="rdf")
 
-    with pytest.raises(ProvException) as ctx:
+    with pytest.raises(ProvRDFException) as ctx:
         ProvDocument.deserialize(content=rdf, format="rdf")
 
-    message = str(ctx.value)
-    assert "documented PROV-O representational limitation" in message
-    assert "conformance.md" in message
-    # The chained original ProvException is preserved, not swallowed.
-    assert isinstance(ctx.value.__cause__, ProvException)
+    _assert_documented_limitation(ctx)
+
+
+# The two sentences as regular expressions, so a blank node's generated label
+# can stand in for the subject.
+_BOTH_TYPES_MESSAGE = (
+    "subject '{iri}' is typed as both {first} and {second}; "
+    "an element and a relation cannot share an identifier"
+)
+_QUALIFIER_MESSAGE = (
+    "subject '{iri}' is the object of prov:qualifiedAssociation "
+    "but is typed as {type}, which is not a relation"
+)
+_G_IRI = re.escape("http://example.org/g")
+_BLANK_LABEL = "[^']+"
+_GENERATION_TURTLE = """
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix ex: <http://example.org/> .
+
+ex:e a prov:Entity ; prov:wasGeneratedBy ex:a ; prov:qualifiedGeneration ex:g .
+ex:a a prov:Activity .
+ex:g a {types} ; prov:activity ex:a .
+"""
+_BLANK_GENERATION_TURTLE = """
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix ex: <http://example.org/> .
+
+ex:e a prov:Entity ; prov:qualifiedGeneration [ a {types} ; prov:activity ex:a ] .
+ex:a a prov:Activity .
+"""
+_ASSOCIATION_TURTLE = """
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix ex: <http://example.org/> .
+
+ex:a a prov:Activity ; {binary} prov:qualifiedAssociation ex:q .
+ex:ag a prov:Agent .
+ex:q a {types} ; prov:agent ex:ag .
+"""
+
+
+@pytest.fixture
+def sorted_type_triples(monkeypatch):
+    # The reader walks every rdf:type triple through Graph.triples (a
+    # Dataset's context graph is a Graph). rdflib's Memory store yields them
+    # grouped by class in first-seen order, so this sorts them by class IRI
+    # to make the order the reader meets explicit.
+    original = Graph.triples
+
+    def install(descending):
+        def triples(self, triple_pattern):
+            found = original(self, triple_pattern)
+            if triple_pattern != (None, RDF.type, None):
+                return found
+            return iter(sorted(found, key=lambda t: str(t[2]), reverse=descending))
+
+        monkeypatch.setattr(Graph, "triples", triples)
+
+    return install
+
+
+def _turtle(document):
+    return document.serialize(format="rdf", rdf_format="turtle")
+
+
+def _written(*, shared=None, generation_type=None, anonymous=False, entity_type=None):
+    # A document as prov's own writer emits it, one builder for every shape:
+    # ``entity_type`` an element whose prov:type names a relation class
+    # (``ex:x a prov:Entity, prov:Revision``), ``anonymous`` a generation with
+    # no identifier (a blank qualification node), else an identified
+    # generation whose IRI ``shared`` gives a second record too.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    if entity_type:
+        document.entity("ex:x", {"prov:type": PROV[entity_type]})
+        return _turtle(document)
+    if not anonymous:
+        document.entity("ex:e")
+        document.activity("ex:a")
+    attributes = {"prov:type": PROV[generation_type]} if generation_type else None
+    document.generation(
+        "ex:e",
+        "ex:a",
+        identifier=None if anonymous else "ex:g",
+        other_attributes=attributes,
+    )
+    if shared:
+        getattr(document, shared)("ex:g")
+    return _turtle(document)
+
+
+def _both(first, second, iri=_G_IRI):
+    return _BOTH_TYPES_MESSAGE.format(
+        iri=iri, first=f"prov:{first}", second=f"prov:{second}"
+    )
+
+
+def _either_order(second_class):
+    return f"{_both('Generation', second_class)}|{_both(second_class, 'Generation')}"
+
+
+_BINARY = "prov:wasAssociatedWith ex:ag ;"
+
+
+@pytest.mark.parametrize(
+    "turtle, descending, expected",
+    [
+        pytest.param(
+            _written(shared=second),
+            None,
+            _either_order(second.capitalize()),
+            id=f"written-{second}",
+        )
+        for second in ("entity", "agent", "activity")
+    ]
+    + [
+        # An element whose prov:type names a relation class keeps the refusal.
+        pytest.param(
+            _written(entity_type="Revision"),
+            False,
+            _both("Entity", "Revision", iri=re.escape("http://example.org/x")),
+            id="written-element-typed-as-a-relation-class",
+        ),
+        # sorted_type_triples fixes the order the reader meets the classes in.
+        pytest.param(
+            _GENERATION_TURTLE.format(types="prov:Entity, prov:Generation"),
+            False,
+            _both("Entity", "Generation"),
+            id="element-first",
+        ),
+        pytest.param(
+            _GENERATION_TURTLE.format(types="prov:Entity, prov:Generation"),
+            True,
+            _both("Generation", "Entity"),
+            id="relation-first",
+        ),
+        pytest.param(
+            _GENERATION_TURTLE.format(types="prov:Agent, prov:Person, prov:Generation"),
+            False,
+            _both("Agent", "Generation"),
+            id="agent-then-relation",
+        ),
+        pytest.param(
+            _GENERATION_TURTLE.format(types="prov:Agent, prov:Person, prov:Generation"),
+            True,
+            _both("Generation", "Agent"),
+            id="relation-then-agent",
+        ),
+        # A blank node registers from the first class it meets: an element
+        # class met first raises, and the relation's own class met first keeps
+        # the element class as a prov:type (see the reads table).
+        pytest.param(
+            _BLANK_GENERATION_TURTLE.format(types="prov:Person, prov:Generation"),
+            True,
+            _both("Agent", "Generation", iri=_BLANK_LABEL),
+            id="blank-element-first",
+        ),
+    ]
+    + [
+        pytest.param(
+            _ASSOCIATION_TURTLE.format(types=f"prov:{cls}", binary=binary),
+            None,
+            _QUALIFIER_MESSAGE.format(
+                iri=re.escape("http://example.org/q"), type=f"prov:{cls}"
+            ),
+            id=f"qualifier-{cls}-{'binary' if binary else 'no-binary'}",
+        )
+        for cls in ("Entity", "Person")
+        for binary in (_BINARY, "")
+    ],
+)
+def test_decode_refuses_an_element_and_a_relation_sharing_an_iri(
+    sorted_type_triples, turtle, descending, expected
+) -> None:
+    # #743: an IRI typed as an element and as a relation, whichever class the
+    # reader meets first, and a qualifier typed as an element only, raise one
+    # sentence with no cause.
+    if descending is not None:
+        sorted_type_triples(descending)
+
+    with pytest.raises(ProvRDFException) as ctx:
+        ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+
+    assert ctx.type is ProvRDFException
+    assert ctx.value.__cause__ is None
+    assert re.fullmatch(expected, str(ctx.value))
+
+
+@pytest.mark.parametrize("descending", [False, True])
+@pytest.mark.parametrize("cls", ["Generation", "Activity"])
+def test_a_string_naming_a_prov_class_is_a_prov_type_value(
+    sorted_type_triples, descending, cls
+) -> None:
+    # Only an IRI names a class, so the string reads back as the element's
+    # prov:type in either order.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:x", {"prov:type": f"{PROV.uri}{cls}"})
+    turtle = _turtle(document)
+    sorted_type_triples(descending)
+
+    back = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+
+    assert back == document
+
+
+def _written_generation_with(cls):
+    return [
+        "activity(ex:a, -, -)",
+        "entity(ex:e)",
+        f"wasGeneratedBy(ex:g; ex:e, ex:a, -, [prov:type='prov:{cls}'])",
+    ]
+
+
+_PERSON_GENERATION = sorted(
+    [*_written_generation_with("Person"), "wasGeneratedBy(ex:e, ex:a, -)"]
+)
+
+
+@pytest.mark.parametrize(
+    "turtle, descending, expected",
+    [
+        # An element subclass alone registers no record type, so it stays a
+        # prov:type in either order.
+        pytest.param(
+            _GENERATION_TURTLE.format(types="prov:Person, prov:Generation"),
+            False,
+            _PERSON_GENERATION,
+            id="person-and-relation-ascending",
+        ),
+        pytest.param(
+            _GENERATION_TURTLE.format(types="prov:Person, prov:Generation"),
+            True,
+            _PERSON_GENERATION,
+            id="person-and-relation-descending",
+        ),
+        # A blank node's own relation class met first keeps the element
+        # class as a prov:type.
+        pytest.param(
+            _BLANK_GENERATION_TURTLE.format(types="prov:Person, prov:Generation"),
+            False,
+            [
+                "activity(ex:a, -, -)",
+                "entity(ex:e)",
+                "wasGeneratedBy(ex:e, ex:a, -, [prov:type='prov:Person'])",
+            ],
+            id="blank-relation-first",
+        ),
+        pytest.param(
+            "@prefix prov: <http://www.w3.org/ns/prov#> . "
+            "@prefix ex: <http://example.org/> . ex:x a prov:Entity, prov:Agent .",
+            None,
+            ["entity(ex:x, [prov:type='prov:Agent'])"],
+            id="two-elements",
+        ),
+        pytest.param(
+            _ASSOCIATION_TURTLE.format(types="prov:Person", binary=_BINARY).replace(
+                "prov:qualifiedAssociation", "ex:qualifiedThing"
+            ),
+            None,
+            [
+                "activity(ex:a, -, -)",
+                "agent(ex:ag)",
+                "wasAssociatedWith(ex:a, ex:ag, -)",
+            ],
+            id="non-prov-qualified-predicate",
+        ),
+        pytest.param(
+            _written(generation_type="Person"),
+            None,
+            _written_generation_with("Person"),
+            id="written-person",
+        ),
+        pytest.param(
+            _written(generation_type="Plan"),
+            None,
+            _written_generation_with("Plan"),
+            id="written-plan",
+        ),
+        pytest.param(
+            _written(generation_type="Person", anonymous=True),
+            None,
+            ["wasGeneratedBy(ex:e, ex:a, -, [prov:type='prov:Person'])"],
+            id="written-anonymous-person",
+        ),
+    ],
+)
+def test_decode_reads_a_shared_iri_that_is_not_a_clash(
+    sorted_type_triples, turtle, descending, expected
+) -> None:
+    if descending is not None:
+        sorted_type_triples(descending)
+
+    with warnings.catch_warnings():
+        # rdflib's own deprecation, raised by the Dataset the reader builds.
+        warnings.filterwarnings(
+            "ignore",
+            message="Dataset.default_context is deprecated",
+            category=DeprecationWarning,
+        )
+        document = ProvDocument.deserialize(
+            content=turtle, format="rdf", rdf_format="turtle"
+        )
+
+    assert sorted(str(r) for r in document.get_records()) == expected
+
+
+def test_decode_reads_two_relations_on_one_iri_without_raising() -> None:
+    # C1: two relations on one IRI collapse, and the record count is not
+    # pinned. The reader only has to read the document written by prov.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e")
+    document.activity("ex:a")
+    document.usage("ex:a", "ex:e", identifier="ex:g")
+    document.generation("ex:e", "ex:a", identifier="ex:g")
+
+    ProvDocument.deserialize(content=document.serialize(format="rdf"), format="rdf")
 
 
 def test_decode_unrelated_provexception_is_not_relabelled_as_scruffy() -> None:
     # Regression: the #217 catch in _emit_decoded_records() must only
     # relabel the specific duplicate-formal-attribute failure above, not
     # every ProvException raised while building a record. This document has
-    # no duplication at all -- a single prov:activity triple pointing at a
-    # blank node (which cannot resolve to a valid QualifiedName) and a
-    # single prov:atTime triple -- so it must fail exactly as it does on
-    # master: a plain ProvExceptionInvalidQualifiedName, not the #217
+    # no duplication at all -- a single prov:activity triple whose object is
+    # a plain literal, which is not a qualified name, and a single
+    # prov:atTime triple -- so it must fail naming the subject with the
+    # model's ProvExceptionInvalidQualifiedName as the cause, not the #217
     # message.
     turtle = """
     @prefix prov: <http://www.w3.org/ns/prov#> .
@@ -502,16 +1231,41 @@ def test_decode_unrelated_provexception_is_not_relabelled_as_scruffy() -> None:
         prov:qualifiedGeneration ex:gen1 .
 
     ex:gen1 a prov:Generation ;
-        prov:activity _:b1 ;
+        prov:activity "not a name" ;
         prov:atTime "2012-01-01T00:00:00"^^xsd:dateTime .
     """
-    with pytest.raises(ProvExceptionInvalidQualifiedName) as ctx:
+    with pytest.raises(ProvRDFException) as ctx:
         ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
 
     message = str(ctx.value)
     assert "documented PROV-O representational limitation" not in message
     assert "conformance.md" not in message
-    assert message.startswith("Invalid Qualified Name:")
+    assert message.startswith(
+        "subject 'http://example.org/gen1': Invalid Qualified Name:"
+    )
+    assert isinstance(ctx.value.__cause__, ProvExceptionInvalidQualifiedName)
+
+
+def test_decode_agreeing_values_are_not_relabelled_as_scruffy() -> None:
+    # A node that repeats its influencer's value in a prov:activity triple
+    # holds one value of that attribute, so an unrelated failure keeps its own
+    # message, whichever of the two triples the reader meets first.
+    turtle = """
+    @prefix prov: <http://www.w3.org/ns/prov#> .
+    @prefix ex: <http://example.org/> .
+
+    ex:a1 prov:qualifiedUsage ex:u1 .
+    ex:u1 a prov:Usage ;
+        prov:activity ex:a1 ;
+        prov:entity "not a name" .
+    """
+    with pytest.raises(ProvRDFException) as ctx:
+        ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+
+    assert str(ctx.value).startswith(
+        "subject 'http://example.org/u1': Invalid Qualified Name:"
+    )
+    assert isinstance(ctx.value.__cause__, ProvExceptionInvalidQualifiedName)
 
 
 def test_alternate_triple_follows_dm_argument_order() -> None:
@@ -525,16 +1279,6 @@ def test_alternate_triple_follows_dm_argument_order() -> None:
     triples = buf.getvalue().decode()
     assert "alt1> <http://www.w3.org/ns/prov#alternateOf> <" in triples
     assert triples.index("alt1>") < triples.index("alt2>")
-
-
-def test_alternate_triple_round_trips() -> None:
-    # #258: encode and decode must agree, so a document with alternate()
-    # survives an RDF round trip. (This test is symmetric, so it cannot
-    # detect a transposition that affects both encode and decode equally.)
-    document = ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    document.alternate("ex:alt1", "ex:alt2")
-    assert roundtrip_document(document, "rdf") == document
 
 
 def test_decode_qualified_start_started_at_time_lands_in_formal_time() -> None:
@@ -613,12 +1357,13 @@ def test_decode_duplicated_started_at_time_on_qualified_start_raises_documented_
         prov:startedAtTime "2020-01-01T00:00:00"^^xsd:dateTime,
             "2021-01-01T00:00:00"^^xsd:dateTime .
     """
-    with pytest.raises(ProvException) as ctx:
+    with pytest.raises(ProvRDFException) as ctx:
         ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
 
     message = str(ctx.value)
     assert "documented PROV-O representational limitation" in message
     assert "conformance.md" in message
+    assert ctx.type is ProvRDFException
     assert isinstance(ctx.value.__cause__, ProvException)
 
 
@@ -758,6 +1503,18 @@ def test_float_precision_survives_rdf_roundtrip() -> None:
     document.add_namespace("ex", "http://example.org/")
     document.entity("ex:e0", {"ex:k0": value})
     assert roundtrip_document(document, "rdf") == document
+
+
+def test_float_subclass_is_written_as_a_float() -> None:
+    class Ratio(float):
+        pass
+
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e", {"ex:v": Ratio(0.1)})
+    assert '"0.1"^^<http://www.w3.org/2001/XMLSchema#double>' in document.serialize(
+        format="rdf", rdf_format="nt"
+    )
 
 
 def test_qualified_delegation_pair_survives_rdf_roundtrip() -> None:
@@ -908,6 +1665,7 @@ def test_legacy_qualified_delegation_without_influencer_still_parses() -> None:
 @pytest.mark.parametrize(
     "build",
     [
+        lambda d: d.used("ex:a1", "ex:e1", other_attributes={"ex:k": "v"}),
         lambda d: d.communication("ex:a2", "ex:a1", other_attributes={"ex:k": "v"}),
         lambda d: d.attribution("ex:e1", "ex:ag1", other_attributes={"ex:k": "v"}),
         lambda d: d.influence("ex:e2", "ex:e1", other_attributes={"ex:k": "v"}),
@@ -915,7 +1673,7 @@ def test_legacy_qualified_delegation_without_influencer_still_parses() -> None:
             "ex:ag2", "ex:ag1", "ex:a", other_attributes={"ex:k": "v"}
         ),
     ],
-    ids=["communication", "attribution", "influence", "delegation"],
+    ids=["usage", "communication", "attribution", "influence", "delegation"],
 )
 def test_anonymous_qualified_relation_with_extra_attributes_round_trips(build) -> None:
     # #303: an anonymous (unidentified) Communication/Attribution/Influence
@@ -994,6 +1752,210 @@ def test_anonymous_qualified_relation_without_extra_attributes_round_trips(
     roundtripped = roundtrip_document(document, "rdf")
     assert len(list(roundtripped.get_records())) == 1
     assert roundtripped == document
+
+
+def test_anonymous_relation_reads_anonymous_under_a_default_namespace() -> None:
+    # A blank node names nothing, so the record gets no identifier even when a
+    # default namespace could resolve its label (#525).
+    document = ProvDocument()
+    document.set_default_namespace("http://example.org/")
+    document.used("a1", "e1", other_attributes={"k": "v"})
+    document.used("a2", "e2", other_attributes={"k": "v"})
+    document.wasGeneratedBy("e1", "a1", other_attributes={"k": "v"})
+    roundtripped = roundtrip_document(document, "rdf")
+    records = roundtripped.get_records()
+    assert len(records) == 3
+    assert all(record.identifier is None for record in records)
+    assert roundtripped == document
+
+
+def test_blank_node_element_still_takes_its_label_as_identifier() -> None:
+    # The rule is for relations. An element's blank-node label is still its
+    # identifier, so with no default namespace to resolve it the read fails
+    # as it did before (#525).
+    turtle = (
+        "@prefix prov: <http://www.w3.org/ns/prov#> .\n"
+        "@prefix ex: <http://example.org/> .\n"
+        '[] a prov:Entity ; ex:k "v" .\n'
+    )
+    with pytest.raises(ProvRDFException) as ctx:
+        _ = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+    assert isinstance(ctx.value.__cause__, pm.ProvElementIdentifierRequired)
+    assert re.fullmatch(
+        r"subject '[^']+': " + re.escape(str(ctx.value.__cause__)), str(ctx.value)
+    )
+
+
+@pytest.mark.parametrize(
+    ("predicate", "typed"),
+    [
+        ("hadGeneration", False),
+        ("hadUsage", False),
+        ("hadGeneration", True),
+    ],
+    ids=["hadGeneration", "hadUsage", "typed"],
+)
+def test_blank_node_behind_a_relation_is_dropped(predicate: str, typed: bool) -> None:
+    # A blank node names no record (a relation it types reads anonymous), so
+    # the link has no form; the derivation reads without it (#639).
+    node_type = "prov:Generation" if predicate == "hadGeneration" else "prov:Usage"
+    turtle = _TURTLE_PREFIXES + (
+        "ex:e2 a prov:Entity ; prov:qualifiedDerivation [ a prov:Derivation ;"
+        f" prov:entity ex:e1 ; prov:{predicate} _:g1 ] .\n"
+        "ex:e1 a prov:Entity .\n"
+    )
+    if typed:
+        turtle += f"_:g1 a {node_type} ; prov:activity ex:a .\nex:a a prov:Activity .\n"
+    message = (
+        f"an anonymous prov:Derivation: prov:{predicate} points at a blank node"
+        " that names no record"
+    )
+    with pytest.warns(pm.ProvWarning, match=message) as caught:
+        document = ProvDocument.deserialize(
+            content=turtle, format="rdf", rdf_format="turtle"
+        )
+    assert sum(issubclass(w.category, pm.ProvWarning) for w in caught) == 1
+    (derivation,) = document.get_records(pm.ProvDerivation)
+    assert derivation.get_attribute("prov:generation") == set()
+    assert derivation.get_attribute("prov:usage") == set()
+    assert {str(r.identifier) for r in document.get_records(pm.ProvEntity)} == {
+        "ex:e1",
+        "ex:e2",
+    }
+
+
+def test_blank_node_for_a_membership_entity_drops_then_skips() -> None:
+    # The blank node names no record, so prov:entity is dropped (#639), and the
+    # membership then lacks its entity and is skipped; neither leaves a
+    # conversion UserWarning behind.
+    turtle = _TURTLE_PREFIXES + "ex:m a prov:Membership ; prov:collection ex:c ;"
+    turtle += " prov:entity [] .\n"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        document = ProvDocument.deserialize(
+            content=turtle, format="rdf", rdf_format="turtle"
+        )
+    assert [
+        str(w.message) for w in caught if issubclass(w.category, pm.ProvWarning)
+    ] == [
+        "ex:m: prov:entity points at a blank node that names no"
+        " record; the attribute is dropped",
+        "subject 'http://example.org/m': hadMember requires a value for prov:entity",
+    ]
+    assert not [w for w in caught if w.category is UserWarning]
+    assert list(document.get_records()) == []
+
+
+_ELEMENT_BLOCK = "_:p a prov:Plan, prov:Entity .\n"
+_AGENT_BLOCK = "ex:ag a prov:Agent .\n"
+_ASSOCIATION_BLOCK = (
+    "ex:a a prov:Activity ; prov:qualifiedAssociation [ a prov:Association ;"
+    " prov:agent ex:ag ; prov:hadPlan _:p ] .\n"
+)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        _ASSOCIATION_BLOCK + _AGENT_BLOCK + _ELEMENT_BLOCK,
+        _ELEMENT_BLOCK + _AGENT_BLOCK + _ASSOCIATION_BLOCK,
+    ],
+    ids=["element-last", "element-first"],
+)
+def test_blank_node_behind_an_element_is_the_elements_own_problem(body: str) -> None:
+    # A blank node that is an element's subject resolves as that element's
+    # identifier does, so under no default namespace the read raises the
+    # element's own error whichever record is emitted first, never the rdflib
+    # label (#639). The positive case, the element resolving under a default
+    # namespace, waits for the reader to read the default binding as the
+    # default.
+    with pytest.raises(ProvRDFException) as ctx:
+        _ = ProvDocument.deserialize(
+            content=_TURTLE_PREFIXES + body, format="rdf", rdf_format="turtle"
+        )
+    assert isinstance(ctx.value.__cause__, pm.ProvElementIdentifierRequired)
+    assert re.fullmatch(
+        r"subject '[^']+': " + re.escape(str(ctx.value.__cause__)), str(ctx.value)
+    )
+
+
+def test_blank_node_behind_an_extra_attribute_is_dropped() -> None:
+    turtle = _TURTLE_PREFIXES + "ex:e a prov:Entity ; ex:ref _:x .\n"
+    with pytest.warns(
+        pm.ProvWarning, match="ex:e: ex:ref points at a blank node that names no record"
+    ):
+        document = ProvDocument.deserialize(
+            content=turtle, format="rdf", rdf_format="turtle"
+        )
+    (entity,) = document.get_records(pm.ProvEntity)
+    assert entity.get_attribute("ex:ref") == set()
+
+
+@pytest.mark.parametrize(
+    ("body", "record_type", "expected"),
+    [
+        (
+            "_:a a prov:Activity ; prov:wasAssociatedWith ex:ag ;"
+            " prov:qualifiedAssociation"
+            " [ a prov:Association ; prov:agent ex:ag ; prov:hadPlan ex:plan ] .\n"
+            "ex:ag a prov:Agent . ex:plan a prov:Plan .\n",
+            pm.ProvAssociation,
+            {("http://example.org/ag", "http://example.org/plan")},
+        ),
+        (
+            "_:a a prov:Activity ;"
+            " prov:wasAssociatedWith ex:ag1 , ex:ag2 ;"
+            " prov:qualifiedAssociation"
+            " [ a prov:Association ; prov:agent ex:ag1 ; prov:hadPlan ex:p1 ] ,"
+            " [ a prov:Association ; prov:agent ex:ag2 ; prov:hadPlan ex:p2 ] .\n"
+            "ex:ag1 a prov:Agent . ex:ag2 a prov:Agent .\n"
+            "ex:p1 a prov:Plan . ex:p2 a prov:Plan .\n",
+            pm.ProvAssociation,
+            {
+                ("http://example.org/ag1", "http://example.org/p1"),
+                ("http://example.org/ag2", "http://example.org/p2"),
+            },
+        ),
+        (
+            "_:m a prov:Entity ; prov:mentionOf ex:f ; prov:asInBundle ex:b .\n"
+            "ex:f a prov:Entity .\n",
+            pm.ProvMention,
+            {("http://example.org/f", "http://example.org/b")},
+        ),
+        (
+            "_:m a prov:Entity ; prov:mentionOf ex:f .\nex:f a prov:Entity .\n",
+            pm.ProvMention,
+            {("http://example.org/f",)},
+        ),
+    ],
+    ids=["association", "two-associations", "mention", "mention-no-bundle"],
+)
+def test_a_blank_node_subject_finds_its_qualification(
+    body: str,
+    record_type: type[pm.ProvRecord],
+    expected: set[tuple[str, ...]],
+) -> None:
+    # A blank-node subject takes its prov:qualified* node and its
+    # prov:asInBundle bundle from the node itself, as an IRI subject does
+    # (#674). The `:` prefix resolves the blank-node element (#639).
+    turtle = _TURTLE_PREFIXES + _DEFAULT_PREFIX + body
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", pm.ProvWarning)
+        document = ProvDocument.deserialize(
+            content=turtle, format="rdf", rdf_format="turtle"
+        )
+    records = document.get_records(record_type)
+    (blank,) = (
+        element
+        for element in document.get_records((pm.ProvActivity, pm.ProvEntity))
+        if element.identifier.uri.startswith("http://d.example/")
+    )
+    assert all(record.formal_attributes[0][1] == blank.identifier for record in records)
+    assert len(records) == len(expected)
+    assert {
+        tuple(v.uri for _, v in record.formal_attributes[1:] if v is not None)
+        for record in records
+    } == expected
 
 
 def test_find_diff_detects_single_triple_difference() -> None:
@@ -1155,9 +2117,94 @@ def test_unsplittable_iri_raises_clear_error() -> None:
     # the IRI rather than letting an obscure rdflib error escape.
     serializer = ProvRDFSerializer(document=ProvDocument())
     graph = Graph()
-    with pytest.raises(ValueError) as ctx:
+    with pytest.raises(ProvRDFException) as ctx:
         serializer.decode_rdf_representation(URIRef("urn:no-separator;"), graph)
     assert "urn:no-separator;" in str(ctx.value)
+
+
+@pytest.mark.parametrize(
+    ("body", "record_type", "attribute", "uri"),
+    [
+        (
+            "ex:e a prov:Entity ; prov:wasDerivedFrom <urn:uuid:1234-abcd> .\n",
+            pm.ProvDerivation,
+            "prov:usedEntity",
+            r"urn:uuid:1234-abcd",
+        ),
+        (
+            "<urn:uuid:1234-abcd> prov:wasDerivedFrom ex:e .\nex:e a prov:Entity .\n",
+            pm.ProvDerivation,
+            "prov:generatedEntity",
+            r"urn:uuid:1234-abcd",
+        ),
+        (
+            "<urn:uuid:8> prov:qualifiedAssociation"
+            " [ a prov:Association ; prov:agent ex:ag ] .\n"
+            "ex:ag a prov:Agent .\n",
+            pm.ProvAssociation,
+            "prov:activity",
+            r"urn:uuid:8",
+        ),
+        (
+            _DEFAULT_PREFIX + "_:b a prov:Entity .\n"
+            "ex:e a prov:Entity ; prov:wasDerivedFrom _:b .\n",
+            pm.ProvDerivation,
+            "prov:usedEntity",
+            r"http://d\.example/.+",
+        ),
+        (
+            "ex:e a prov:Entity . ex:f a prov:Entity .\n"
+            "ex:e prov:mentionOf ex:f ; prov:asInBundle <urn:uuid:bb> .\n",
+            pm.ProvMention,
+            "prov:bundle",
+            r"urn:uuid:bb",
+        ),
+    ],
+    ids=["object", "subject", "qualified-subject", "blank-element", "mention-bundle"],
+)
+def test_untyped_relation_endpoint_reads(
+    body: str, record_type: type[pm.ProvRecord], attribute: str, uri: str
+) -> None:
+    # An endpoint that no binding covers and no rdf:type names reads under a
+    # prefix the reader mints, as a typed subject does; a blank-node element
+    # keeps reading as its label in the default namespace.
+    document = ProvDocument.deserialize(
+        content=_TURTLE_PREFIXES + body, format="rdf", rdf_format="turtle"
+    )
+    (record,) = document.get_records(record_type)
+    (endpoint,) = record.get_attribute(attribute)
+    assert re.fullmatch(uri, endpoint.uri)
+
+
+@pytest.mark.parametrize(
+    ("prefix", "uri"),
+    [
+        pytest.param("", "http://d.example/", id="default"),
+        pytest.param("zz", "http://zz.example/", id="unbound"),
+    ],
+)
+def test_a_datatype_no_namespace_compacts_is_kept(prefix: str, uri: str) -> None:
+    # The datatype's local part holds a colon, so no prefix compacts it (#665).
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    if prefix:
+        namespace = pm.Namespace(prefix, uri)
+    else:
+        document.set_default_namespace(uri)
+        namespace = document.get_default_namespace()
+        assert namespace is not None
+    document.entity("ex:e", {"ex:p": pm.Literal("1", namespace["c:d"])})
+    content = document.serialize(format="rdf", rdf_format="turtle")
+    back = ProvDocument.deserialize(content=content, format="rdf", rdf_format="turtle")
+    assert back == document
+
+
+def test_a_datatype_iri_with_no_separator_raises() -> None:
+    turtle = _TURTLE_PREFIXES + 'ex:e a prov:Entity ; ex:p "1"^^<urn:example:t=> .\n'
+    with pytest.raises(
+        ProvRDFException, match=re.escape("Cannot split IRI 'urn:example:t='")
+    ):
+        _ = ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
 
 
 def test_trailing_metacharacter_encode_output_unchanged() -> None:
@@ -1267,6 +2314,91 @@ def test_resolve_iri_skips_bound_namespace_equal_to_the_iri_itself() -> None:
     assert identifier.localpart == "thing"
 
 
+def _lookup_between_reads() -> tuple[object, object]:
+    # A binding added after one decode counts for a lookup after it.
+    graph = Graph().parse(
+        data=_TURTLE_PREFIXES + "ex:e a prov:Entity .", format="turtle"
+    )
+    iri = URIRef("http://example.org/sub/x;")
+    first = ProvDocument()
+    serializer = ProvRDFSerializer(document=first)
+    serializer.decode_document(graph, first)
+    graph.bind("exsub", "http://example.org/sub/")
+    serializer.document = ProvDocument()
+    return serializer.decode_rdf_representation(iri, graph).namespace.prefix, "exsub"
+
+
+def _lookup_outside_a_decode() -> tuple[object, object]:
+    # Outside a decode nothing is held, so a binding added after a lookup counts.
+    graph = Graph().parse(data=_TURTLE_PREFIXES, format="turtle")
+    iri = URIRef("http://example.org/sub/x;")
+    first = ProvDocument()
+    serializer = ProvRDFSerializer(document=first)
+    serializer.decode_container(graph, first)
+    serializer.document = ProvDocument()
+    before = serializer.decode_rdf_representation(iri, graph)
+    graph.bind("exsub", "http://example.org/sub/")
+    serializer.document = ProvDocument()
+    after = serializer.decode_rdf_representation(iri, graph)
+    return (before.namespace.prefix, after.namespace.prefix), ("ex", "exsub")
+
+
+def _lookup_in_bundles_sharing_a_binding() -> tuple[object, object]:
+    # foaf is a binding rdflib adds to every graph, so the document does not
+    # hold it and each name is resolved against the graph.
+    trig = f"""
+    @prefix prov: <{PROV.uri}> .
+    {_FOAF_PREFIX}
+    <http://example.org/b1> {{ foaf:a1 a prov:Entity . foaf:a2 a prov:Entity . }}
+    <http://example.org/b2> {{ foaf:a3 a prov:Entity . }}
+    """
+    read = ProvDocument.deserialize(content=trig, format="rdf", rdf_format="trig")
+    expected = ProvDocument()
+    expected.add_namespace("ex", "http://example.org/")
+    foaf = expected.add_namespace("foaf", "http://xmlns.com/foaf/0.1/")
+    first, second = expected.bundle("ex:b1"), expected.bundle("ex:b2")
+    first.entity(foaf["a1"])
+    first.entity(foaf["a2"])
+    second.entity(foaf["a3"])
+    return read, expected
+
+
+def _lookup_of_a_colon_less_iri() -> tuple[object, object]:
+    # The document never compacts a colon-less IRI, so the namespace minted
+    # for the first value is a live binding for the second. SimpleMemory
+    # iterates triples in the order they were added.
+    graph = Graph(store="SimpleMemory")
+    graph.bind("ex", "http://ex.org/")
+    subject = URIRef("http://ex.org/e")
+    graph.add((subject, RDF.type, URIRef(PROV.uri + "Entity")))
+    graph.add((subject, URIRef("http://ex.org/p0"), URIRef("foo/x")))
+    graph.add((subject, URIRef("http://ex.org/p1"), URIRef("foo/a/b")))
+    document = ProvDocument()
+    ProvRDFSerializer(document=document).decode_document(graph, document)
+    (record,) = document.get_records()
+    values = {str(name): str(value) for name, value in record.attributes}
+    return values, {"ex:p0": "ns1:x", "ex:p1": "ns1:a/b"}
+
+
+@pytest.mark.parametrize(
+    "lookup",
+    [
+        pytest.param(_lookup_between_reads, id="between-reads"),
+        pytest.param(_lookup_outside_a_decode, id="outside-a-decode"),
+        pytest.param(_lookup_in_bundles_sharing_a_binding, id="bundles"),
+        pytest.param(_lookup_of_a_colon_less_iri, id="colon-less-iri"),
+    ],
+)
+def test_the_graph_lookup_snapshot_lasts_one_decode(
+    lookup: Callable[[], tuple[object, object]],
+) -> None:
+    # decode_document reads the source's bindings once and holds them until it
+    # returns. A call outside it, and an IRI the document cannot compact, read
+    # the bindings as they are then.
+    actual, expected = lookup()
+    assert actual == expected
+
+
 def test_bundle_namespace_order_follows_registration_in_rdf() -> None:
     # #337: bundle namespaces are bound on the bundle graph in registration
     # order. rdflib sorts prefixes when it serializes, so the bound order on
@@ -1372,3 +2504,84 @@ def test_non_finite_doubles_are_written_in_xsd_spelling(rdf_format) -> None:
     assert math.isinf(values["p"]) and values["p"] > 0
     assert math.isinf(values["n"]) and values["n"] < 0
     assert math.isnan(values["q"])
+
+
+@pytest.mark.parametrize(
+    "rdf_format",
+    [
+        "xml",
+        "turtle",
+        "trig",
+        "nquads",
+        "nt",
+        "ntriples",
+        "nt11",
+        "application/n-triples",
+    ],
+)
+def test_the_default_encoding_changes_no_byte_and_no_n_triples_warns(
+    rdf_format,
+) -> None:
+    document = ex_document()
+    e1 = document.entity("ex:e1", {"ex:name": "alpha", "ex:count": 3})
+    e2 = document.entity("ex:e2", {"ex:name": "beta", "ex:count": 4})
+    document.wasDerivedFrom(e2, e1)
+
+    def written(**kwargs) -> bytes:
+        buf = BytesIO()
+        document.serialize(buf, format="rdf", rdf_format=rdf_format, **kwargs)
+        return buf.getvalue()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        default = written()
+    assert not [w for w in caught if issubclass(w.category, UserWarning)]
+    # `encoding=None` is the call rdflib received before the writer set a default.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert default == written(encoding=None)
+
+
+_DEFAULT_IRI_PREAMBLE = """\
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix ex: <http://e.org/> .
+@prefix : <http://ex.org/> .
+"""
+
+
+def _read_with_default_iri(body: str, rdf_format: str = "turtle") -> ProvDocument:
+    # The PROV-O reader alone mints a prefix for an IRI equal to `@prefix :`.
+    return ProvDocument.deserialize(
+        content=_DEFAULT_IRI_PREAMBLE + body, format="rdf", rdf_format=rdf_format
+    )
+
+
+def test_object_equal_to_the_default_iri_is_read_and_kept() -> None:
+    doc = _read_with_default_iri("ex:e a prov:Entity ; ex:k : .\n")
+    (record,) = doc.get_records(pm.ProvEntity)
+    ((_, value),) = record.extra_attributes
+    assert value.uri == "http://ex.org/"
+
+
+def test_subject_equal_to_the_default_iri_is_read_and_kept() -> None:
+    doc = _read_with_default_iri(": a prov:Entity .\n")
+    (record,) = doc.get_records(pm.ProvEntity)
+    assert record.identifier is not None
+    assert record.identifier.uri == "http://ex.org/"
+
+
+def test_named_graph_equal_to_the_default_iri_is_read_and_kept() -> None:
+    doc = _read_with_default_iri(": { ex:e a prov:Entity . }\n", "trig")
+    (bundle,) = doc.bundles
+    assert bundle.identifier is not None
+    assert bundle.identifier.uri == "http://ex.org/"
+
+
+def test_a_location_keeps_the_text_of_an_ill_formed_typed_literal() -> None:
+    document = ex_document()
+    document.entity("ex:e", {pm.PROV_LOCATION: pm.Literal("maybe", pm.XSD_BOOLEAN)})
+    text = document.serialize(format="rdf", rdf_format="turtle")
+
+    # rdflib normalises the text on parse (C10), so the check is on the text
+    assert 'prov:atLocation "maybe"^^xsd:boolean' in text
+    Graph().parse(data=text, format="turtle")

@@ -76,10 +76,11 @@ We're not sure if this meant as SPDX "AND" or "OR", so use the conservative (saf
 path = [
     "tests/resources/box_fallback.in",
     "tests/resources/box_fallback.pdf",
+    "patches/armhf_scanline.patch",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = [
-    "2022 PDFium developers",
+    "2022-2026 PDFium developers",
     "2026 geisserml <geisserml@gmail.com>",
 ]
 SPDX-License-Identifier = "BSD-3-Clause AND Apache-2.0"
@@ -106,6 +107,7 @@ path = [
     "patches/win/use_resources_rc.patch",
     "patches/win/build.patch",
     "patches/win/resources.rc",
+    "patches/mips_highway.patch",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = [

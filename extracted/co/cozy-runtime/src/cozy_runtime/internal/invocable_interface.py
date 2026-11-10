@@ -12,8 +12,10 @@ from typing import Any, get_args, get_origin
 
 import msgspec
 
-from cozy_runtime.author import ConformanceError, Memoize
+from cozy_runtime.author import Memoize
 from cozy_runtime.author._artifacts import ModelArtifact
+from cozy_runtime.author._errors import ConformanceError
+from cozy_runtime.author._tool import Prompt
 from cozy_runtime.author._walker import is_struct, strip
 from cozy_runtime.internal import canonical, schema
 
@@ -42,7 +44,7 @@ def from_types(
 
     def walk(annotation: object, path: str) -> None:
         base, _ = strip(annotation)
-        if base is ModelArtifact:
+        if base is ModelArtifact or (get_origin(base) or base) is Prompt:
             return
         origin = get_origin(base)
         if isinstance(base, type) and is_struct(base):
@@ -57,7 +59,7 @@ def from_types(
                 nested = path + "/" + field.encode_name
                 walk(field.type, nested)
                 if field.default is not msgspec.NODEFAULT:
-                    default = msgspec.to_builtins(field.default)
+                    default = msgspec.to_builtins(field.default, enc_hook=schema.wire)
                     canonical.write(default)
                     defaults[nested] = default
                 elif serving and field.default_factory in (list, dict):
@@ -195,26 +197,14 @@ class Invocable(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     memo_requires: tuple[str, ...] | msgspec.UnsetType = msgspec.UNSET
     """Optional parameters a request must explicitly provide to be memoizable."""
     operation_identity: str | msgspec.UnsetType = msgspec.UNSET
-    operation_identity_unavailable: str | msgspec.UnsetType = msgspec.UNSET
 
 
 def validate(value: Invocable, request: object, result: object) -> None:
     """Validate every token the pure generator can turn into Python source."""
-    outcomes = (value.operation_identity is not msgspec.UNSET) + (
-        value.operation_identity_unavailable is not msgspec.UNSET
-    )
-    if outcomes > 1:
-        raise ConformanceError(
-            "operation identity has one outcome at most", code="invocable_interface"
-        )
     if value.operation_identity is not msgspec.UNSET and (
         re.fullmatch(r"sha256:[0-9a-f]{64}", value.operation_identity) is None
     ):
         raise ConformanceError("invalid operation identity", code="invocable_interface")
-    if value.operation_identity_unavailable is not msgspec.UNSET and not (
-        1 <= len(value.operation_identity_unavailable) <= 256
-    ):
-        raise ConformanceError("invalid operation identity reason", code="invocable_interface")
     if value.memoize and set(value.capabilities) & {"egress", "secrets"}:
         raise ConformanceError(
             "memoized interface declares external or secret-dependent work",
@@ -256,6 +246,7 @@ def validate(value: Invocable, request: object, result: object) -> None:
     def walk(node: Any, path: str) -> None:
         nodes[path] = node
         if isinstance(node, dict):
+            node = node.get("pickup", node)
             if "fields" in node:
                 if path not in value.type_names:
                     raise ConformanceError(
@@ -284,7 +275,7 @@ def validate(value: Invocable, request: object, result: object) -> None:
         if (
             not _identifier(name)
             or not isinstance(nodes[path], dict)
-            or not ("fields" in nodes[path] or "literal" in nodes[path])
+            or not ({"fields", "literal", "pickup"} & set(nodes[path]))
         ):
             raise ConformanceError(
                 "invocable type name has no matching schema", code="invocable_interface"

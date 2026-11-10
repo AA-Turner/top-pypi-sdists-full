@@ -24,6 +24,16 @@ _DO_NOT_PREFIX = frozenset(
         "uploading",
         "vertical",
         "horizontal",
+        # Emitted without ``{{ css_prefix }}`` by their templates
+        # (``theme_mode_button.html``, ``nav.html``, ``nav_item.html``,
+        # ``preset_selector_{grid,list}.html``), and ``djust.auth`` styles
+        # ``.theme-mode-toggle`` by that name (#3277).
+        "theme-mode-toggle",
+        "theme-nav-link",
+        "theme-preset-grid",
+        "theme-preset-btn",
+        "theme-preset-list",
+        "theme-preset-item",
     }
 )
 
@@ -120,8 +130,10 @@ def generate_component_css(prefix: str = "") -> str:
     Returns:
         Complete component CSS string.
     """
-    from ._config import get_theme_config
+    from ._config import _validate_css_prefix, get_theme_config
 
+    # The prefix is printed into selectors of a ``<style>`` block (#3779).
+    _validate_css_prefix(prefix)
     css = _read_static_css()
     css = _apply_prefix(css, prefix)
 

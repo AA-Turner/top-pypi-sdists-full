@@ -43,8 +43,7 @@ class HttpDistributor(Distributor):
         # - which writes results to the database - be able to complete, or will it be blocked? Do we have to copy the
         # pending work as we used to do?
 
-        # TODO: Will there be an event loop? Where should we ensure that there is?
-        asyncio.get_event_loop().run_until_complete(self._process(*args, **kwargs))
+        asyncio.run(self._process(*args, **kwargs))
 
     async def _process(self, pending_work, test_command, timeout, config, on_task_complete):
         urls = config.get("worker-urls", [])
@@ -117,7 +116,10 @@ async def send_request(url, work_item: WorkItem, test_command, timeout):
         "timeout": timeout,
     }
     log.info("Sending HTTP request to %s", url)
-    async with aiohttp.request("POST", url, json=parameters) as resp:
+    # Allow mutation setup, source restoration, and result delivery beyond the
+    # worker's test deadline, while still bounding an unresponsive worker.
+    request_timeout = aiohttp.ClientTimeout(total=timeout + 60, connect=30)
+    async with aiohttp.request("POST", url, json=parameters, timeout=request_timeout) as resp:
         result = await resp.json()
         # TODO: Account for possibility that `data` is the wrong shape.
         return WorkResult(

@@ -8,13 +8,13 @@ module-name = "grimp._rustgrimp"
 
 [project]
 name = "grimp"
-version = "3.18"
+version = "3.19"
 license = {text = "BSD 2-Clause License"}
 description = "Builds a queryable graph of the imports within one or more Python packages."
 authors = [
     {name = "David Seddon", email = "david@seddonym.me"},
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = []
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -24,7 +24,6 @@ classifiers = [
     "Operating System :: POSIX",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -60,6 +59,7 @@ dev = [
     "requests==2.32.3",
     "sqlalchemy==2.0.35",
     "google-cloud-audit-log==0.3.0",
+    "pyupgrade>=3.21.2",
 ]
 docs = [
     "sphinx>=7.4.7",

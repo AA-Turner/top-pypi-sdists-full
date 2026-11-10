@@ -1,4 +1,4 @@
-"""SDK exceptions mapped from the Probe Research error contract.
+"""SDK exceptions mapped from the Probe error contract.
 
 The API returns a FastAPI envelope ``{"detail": <string | object>}``. 409 carries
 an object ``{message, existing_id, suggestion?, deleted?}``; everything else is a
@@ -215,6 +215,21 @@ def names_no_such_run(exc: BaseException) -> bool:
     )
 
 
+def names_invalid_request(exc: BaseException) -> bool:
+    """The server refused the values the request carried, field by field (FastAPI's 422 list,
+    e.g. an artifact name with a leading '/'): what the caller sent, not a write we lost. A
+    422 this client raises itself (staged bytes gone) has no server answer, so never matches."""
+    detail = getattr(exc, "detail", None)
+    return (
+        isinstance(exc, ValidationError)
+        and exc.status == 422
+        and exc.server_message is not None
+        and isinstance(detail, list)
+        and bool(detail)
+        and all(isinstance(item, dict) and "loc" in item for item in detail)
+    )
+
+
 class ConflictError(RosError):
     """409 - natural-key conflict, or a delete blocked because a published
     experiment version pins something in the subtree. The detail is an object;
@@ -350,13 +365,14 @@ class WorkspaceRequired(ValidationError):
 
 
 class ProjectRequired(ValidationError):
-    """A run was opened with no project or experiment, and none is set on this computer.
+    """A run was opened with no project or experiment, and none came from where it may look.
 
     Raised before any request: every run has a home. Fix: `project=` / `experiment=`
-    (`--project` / `--experiment`), `PROBE_PROJECT`, the session's project (the daemon's), or
-    `probe project use <slug>`. Its message names the fix that fits why none came
-    (`runs.home.MISSING_HOME_FIXES`): a script run by hand, a session the daemon does not record,
-    a daemon that is not running, or one that did not pick in time.
+    (`--project` / `--experiment`), or `project=probe.FROM_ENV` (`--project-from-env`) to read
+    `PROBE_PROJECT`, the session's project (the daemon's) or `probe project use <slug>`. Its
+    message names the fix that fits (`runs.home.MISSING_HOME_FIXES`): nothing named and no
+    `FROM_ENV`, a script run by hand, a session the daemon does not record, a daemon that is not
+    running, or one that did not pick in time.
     """
 
     def __init__(self, message: str = "", **kw: Any):
@@ -365,11 +381,10 @@ class ProjectRequired(ValidationError):
 
 #: What a run with no home is told (`ProjectRequired`): every way to name one.
 PROJECT_REQUIRED_FIX = (
-    "A run needs a project. Pass project= (or experiment=; CLI: --project / --experiment), "
-    "set PROBE_PROJECT, or run `probe project use <slug>`. Where the Probe daemon records the "
-    "session, a run on this machine goes to the session's project, waiting for the daemon to set "
-    "it (`probe session home show` prints it). If none fits, create one: `probe project create "
-    "<slug> --kind <kind>`."
+    'A run needs a project. Pass project="<slug>" (or experiment=; CLI: --project / --experiment); '
+    "a new slug creates the project. project=probe.FROM_ENV (CLI: --project-from-env) uses "
+    "PROBE_PROJECT, this session's project (where the Probe daemon records the session, waiting "
+    "for it to set one) or `probe project use <slug>`."
 )
 
 
@@ -422,7 +437,7 @@ class CapabilityUnavailable(RosError):
 
     def __init__(self, capability: str, message: str | None = None):
         self.capability = capability
-        super().__init__(message or f"Probe Research capability is unavailable: {capability}")
+        super().__init__(message or f"Probe capability is unavailable: {capability}")
 
 
 _BY_STATUS: dict[int, type[RosError]] = {

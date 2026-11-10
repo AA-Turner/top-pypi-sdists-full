@@ -8,6 +8,7 @@ from pysqlsync.data.exchange import AsyncTextReader
 from pysqlsync.model.properties import get_primary_key_name_type
 from strong_typing.inspection import DataclassInstance
 
+from ..api import TableAccess
 from ..dap_types import IncrementalQuery, Format, Mode
 from ..integration.database_errors import (
     MissingMetaActionInSync,
@@ -39,6 +40,11 @@ class SqlOpSync(SqlOp):
             raise ValueError("Internal error: session is not set")
 
         ui.info("Fetching schema and synchronizing with local schema")
+
+        await self.session.authenticate(
+            TableAccess(namespace=self.namespace, table=self.table_name)
+        )
+
         entity_type, schema, versioned_schema = await fetch_schema_for_table(
             self.session, self.namespace, self.table_name
         )
@@ -48,7 +54,9 @@ class SqlOpSync(SqlOp):
             self.conn, self.namespace, self.table_name
         )
         if not table_meta:
-            raise ValueError("Table not initialized. Please run initdb first.")
+            raise ValueError(
+                "Table not initialized. Please run initdb first, or check that the namespace, table name and connection string are correct."
+            )
 
         await self.explorer.synchronize(modules=[meta_schema, self.namespace_module])
 
@@ -70,7 +78,11 @@ class SqlOpSync(SqlOp):
 
         async with aiofiles.tempfile.TemporaryDirectory() as temp_dir:
             await self.session.download_objects(
-                result.objects, temp_dir, decompress=True
+                result.objects,
+                self.namespace,
+                self.table_name,
+                temp_dir,
+                decompress=True,
             )
             ui.info(f"Downloaded data for table [bold]{self.table_name}[/bold]")
             await self.sync_insert_data_from_files_to_db(

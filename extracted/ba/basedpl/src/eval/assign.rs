@@ -1,8 +1,17 @@
 //! Assignment: plain, destructuring, modified and selective.
 
 use super::tree::{Fact, Facts};
-use super::*;
+use super::{
+    ArrayBinding, Binding, Function, INVALID_SELECTION, NO_TARGET, OperatorNode, STRAND_TARGET, Session,
+    binder::{Binder, Category, Entity, Rule, Term, atop, narrow}, bindings::Place, fusion_report, undefined
+};
+use crate::{
+    At, Described, Error, ErrorKind, Span, Value, array::Frame as ResultFrame, name::Name,
+    primitive::{Builtin, OperatorKind, Primitive, Selection, Superscript, Targets}, syntax::{DefinitionKind, ListForm, Node, NodeKind}
+};
 use rustymath::error::Kind;
+use rustymath::hashing::{HashMap, HashMapExt};
+use std::sync::Arc;
 
 impl Session {
     /// Whether `nodes` is one name that can hold an array, or brackets of such names, as in `[a b]←`.
@@ -26,17 +35,18 @@ impl Session {
     /// Whether `node` holds an array (`static_category`).
     pub(super) fn holds_array(&self, node: &Node, log: &mut Facts) -> bool { self.static_category(node, log) == Category::Value }
 
-    /// The category of what `node` holds, read without evaluating anything. A name has its binding's category, and a dot path such as `m.f` has its field's (`path_category`). Any other group or run has its expression's category, as the operand grammar reads it (`assignment_operand`): `(M←-)` and `(⌽@ 1⌷)` are functions. While a statement records, `log` keeps each name and dot path read (`tree::Fact`).
+    /// The category of what `node` holds, read without evaluating anything. A name has its binding's category, and a dot path such as `m.f` has its field's (`path_category`). Any other group or run has its expression's category, as the operand grammar reads it (`trailing_operand`): `(M←-)` and `(⌽@ 1⌷)` are functions. While a statement records, `log` keeps each name and dot path read (`tree::Fact`).
     pub(super) fn static_category(&self, node: &Node, log: &mut Facts) -> Category {
         use Category::*;
         match &node.kind {
             NodeKind::Function(_) | NodeKind::System(_) => Function,
             NodeKind::Operator(op) => Category::of_operator(&self::OperatorNode::Primitive(*op)),
+            NodeKind::Script(..) => Operator,
             NodeKind::Name(name, _) => self.path_category(*name, &[], log),
             NodeKind::Dfn(d) => match d.kind {
                 DefinitionKind::Function => Function, DefinitionKind::MonadicOperator => Operator, DefinitionKind::DyadicOperator => DyadicOperator
             },
-            NodeKind::Group(_) | NodeKind::Run(_) => self.assignment_operand(std::slice::from_ref(node), 1, log).map_or(NoResult, |(_, c)| c),
+            NodeKind::Group(_) | NodeKind::Run(_) => self.trailing_operand(std::slice::from_ref(node), 1, log).map_or(NoResult, |(_, c)| c),
             _ => Value,
         }
     }
@@ -52,7 +62,7 @@ impl Session {
         category
     }
 
-    fn assignment_operand(&self, nodes: &[Node], end: usize, log: &mut Facts) -> Result<(usize, Category), Error> {
+    pub(super) fn trailing_operand(&self, nodes: &[Node], end: usize, log: &mut Facts) -> Result<(usize, Category), Error> {
         use Category::*;
         if end == 0 { return Err(Error::new(ErrorKind::Syntax, "missing assignment operand").at(&nodes[0].span)); }
         let mut start = end - 1;
@@ -61,23 +71,26 @@ impl Session {
                 Some((name, keys)) => self.path_category(name, &keys, log),
                 None if inner.is_empty() => return Err(Error::new(ErrorKind::Syntax, "empty assignment operand").at(&nodes[start].span)),
                 // Rewrite the group's own dot access first, so that `(x.a).b` reads `(x.a)` as the field it names.
-                None => { let inner = self.members_with(inner, log); self.assignment_operand(&inner, inner.len(), log)?.1 }
+                None => { let inner = self.members_with(inner, log); self.trailing_operand(&inner, inner.len(), log)?.1 }
             },
             _ => self.static_category(&nodes[start], log),
         };
         if matches!(category, Operator) && start > 0 {
             let superscript = match &nodes[start].kind { NodeKind::Operator(OperatorKind::Super(s)) => Some(*s), _ => None };
-            let (operand, operand_category) = self.assignment_operand(nodes, start, log)?;
+            let (operand, operand_category) = self.trailing_operand(nodes, start, log)?;
             start = operand;
             // `ᵘ` always gives an array, and the other superscripts give one on an array.
-            category = match superscript { Some(Superscript::Unit) => Value, Some(_) if matches!(operand_category, Value) => Value, _ => Function };
+            category = match superscript {
+                Some(Superscript::Unit) => Value,
+                _ if matches!(operand_category, Value) && (superscript.is_some() || matches!(nodes[end - 1].kind, NodeKind::Script(..))) => Value, _ => Function
+            };
         }
         if start > 0 && matches!(&nodes[start - 1].kind, NodeKind::Run(inner) if self.ends_in_dyadic_operator(inner, log)) {
             // A run that ends in a dyadic operator holds its left operand, and takes this operand as its right one, as in `(⌽@ 1⌷)`.
             start -= 1;
             category = Function;
         } else if start > 0 && matches!(Rule::get(self.static_category(&nodes[start - 1], log), category), Rule::BindRight) {
-            start = self.assignment_operand(nodes, start - 1, log)?.0;
+            start = self.trailing_operand(nodes, start - 1, log)?.0;
             category = Function;
         }
         Ok((start, category))
@@ -87,11 +100,11 @@ impl Session {
     pub(super) fn assignment_start(&self, nodes: &[Node]) -> Result<usize, Error> {
         if self.rule_target(nodes).is_some() { return Ok(0); }
         let end = nodes.len();
-        let (operand, category) = self.assignment_operand(nodes, end, &mut None)?;
+        let (operand, category) = self.trailing_operand(nodes, end, &mut None)?;
         // Inside a dfn a name before `←` is a target, unless an array comes directly before it. Then the name's value decides, as at top level: a function makes a modified assignment, as in `a(f)←3` and `(a)f←3`.
         let modified = operand > 0 && matches!(category, Category::Function)
             && (self.holds_array(&nodes[operand - 1], &mut None) || !self.assignment_names(&nodes[operand..]));
-        let start = if modified { operand - 1 } else { end - 1 };
+        let start = if modified { self.trailing_operand(nodes, operand, &mut None)?.0 } else { operand };
         if start > 0 && self.holds_array(&nodes[start], &mut None) && self.holds_array(&nodes[start - 1], &mut None) {
             let span = Span { source: nodes[start].span.source.clone(), range: nodes[start - 1].span.range.start..nodes[start].span.range.end };
             return Err(Error::new(ErrorKind::Syntax, STRAND_TARGET).at(&span));
@@ -103,7 +116,7 @@ impl Session {
     fn assignable(&self, name: Name) -> bool { name.implicit().is_none() || name == Name::OMEGA && self.bindings.current().is_some() }
     fn store(&self, name: Name, value: Binding, span: &Span) -> Result<(), Error> {
         if !self.assignable(name) { return Err(Error::new(ErrorKind::Syntax, "arguments and operands cannot be assigned here").at(span)); }
-        self.bindings.insert(self.bindings.here(name), value);
+        self.bindings.insert(self.bindings.here(name), value.stored());
         Ok(())
     }
 
@@ -129,7 +142,9 @@ impl Session {
             return if self.modify_monadic(target)? { Ok(Binding::NoResult) } else { Err(Error::new(ErrorKind::Syntax, NO_TARGET).at(span)) };
         };
         match local {
-            Some(k) => self.bindings.insert(Place::Slot(self.bindings.current().expect("a compiled statement runs in its dfn's frame"), k), value.clone()),
+            Some(k) => {
+                self.bindings.insert(Place::Slot(self.bindings.current().expect("a compiled statement runs in its dfn's frame"), k), value.clone().stored())
+            }
             None => self.assign(target, &value)?,
         }
         Ok(value)
@@ -184,20 +199,19 @@ impl Session {
             }
         }
         if let Some((name, derivative)) = self.rule_target(target) { return self.attach_rule(name, derivative, value, span); }
-        let Some((array, modifier)) = self.modified_target(target)? else {
-            return Err(Error::new(ErrorKind::Syntax, "assignment needs a name or selection").at(span));
-        };
-        self.modify(array, modifier, value)
+        match self.modified_target(target)? {
+            Some((array, modifier)) => self.modify(array, modifier, value), None => self.assign_selected(target, None, value)
+        }
     }
 
-    /// The name in a target that attaches a hand-written rule to the function it holds, with whether the rule is its derivative: `f∂` for the derivative, or `f⁻¹` for the inverse.
+    /// The name in a target that attaches a hand-written rule to the function it holds, with whether the rule is its derivative: `f∂` for the derivative, or `f⁻` for the inverse.
     fn rule_target(&self, nodes: &[Node]) -> Option<(Name, bool)> {
         let [Node { kind: NodeKind::Name(name, _), .. }, Node { kind: NodeKind::Operator(op), .. }] = nodes else { return None };
-        let derivative = match op { OperatorKind::Differentiate => true, OperatorKind::Super(Superscript::Power(-1)) => false, _ => return None };
+        let derivative = match op { OperatorKind::Differentiate => true, OperatorKind::Super(Superscript::Inverse) => false, _ => return None };
         matches!(self.bindings.category(*name), Some(Category::Function)).then_some((*name, derivative))
     }
 
-    /// `f⁻¹←g` or `f∂←g`: the nearest binding of `f` gets `g` attached as its inverse or derivative.
+    /// `f⁻←g` or `f∂←g`: the nearest binding of `f` gets `g` attached as its inverse or derivative.
     fn attach_rule(&self, name: Name, derivative: bool, value: &Binding, span: &Span) -> Result<(), Error> {
         if !self.assignable(name) { return Err(Error::new(ErrorKind::Syntax, "arguments and operands cannot be assigned here").at(span)); }
         let Binding::Function(g) = value else { return Err(Error::domain("an inverse or derivative must be a function").at(span)) };
@@ -210,7 +224,7 @@ impl Session {
 
     /// Splits a modified assignment's target into its array part and its function, as `a` and `f` in `a(f)←`.
     fn modified_target<'a>(&self, target: &'a [Node]) -> Result<Option<(&'a [Node], Function)>, Error> {
-        let (operand, category) = self.assignment_operand(target, target.len(), &mut None)?;
+        let (operand, category) = self.trailing_operand(target, target.len(), &mut None)?;
         if operand == 0 || !matches!(category, Category::Function) { return Ok(None); }
         Ok(self.modifier(&target[operand..])?.map(|f| (&target[..operand], f)))
     }
@@ -219,10 +233,7 @@ impl Session {
     fn modify(&self, array: &[Node], modifier: Function, value: &Binding) -> Result<(), Error> {
         let span = &array[0].span;
         if self.assignment_names(array) { return self.modify_names(array, &value.clone().into_value(span)?, &modifier); }
-        match array {
-            [Node { kind: NodeKind::Group(nodes), .. }] => self.assign_selected(nodes, Some(modifier), value),
-            _ => Err(Error::new(ErrorKind::Syntax, "assignment needs a name or selection").at(span)),
-        }
+        self.assign_selected(array, Some(modifier), value)
     }
 
     /// `a(f)←` with no value sets `a` to `f a`, and gives whether `target` has that form. It runs as the dyadic form with `f∘⊣`, which ignores its right argument of 0.
@@ -240,7 +251,7 @@ impl Session {
             NodeKind::Name(name, _) => {
                 let binding = self.array_binding(*name, &node.span)?;
                 // Joining along the leading axis grows the array in place.
-                if let Some(p @ (Primitive::Ravel | Primitive::CatenateFirst)) = modifier.as_primitive() {
+                if let Some(p @ (Primitive::Ravel | Primitive::CatenateFirst)) = modifier.dyadic_primitive() {
                     let first = matches!(p, Primitive::CatenateFirst);
                     if let Some((cells, names)) = crate::primitive::append_plan(&binding.value, right, first)? {
                         if cells.environment() > binding.place.frame() { return Err(Error::domain("array would export a local closure").at(&node.span)); }
@@ -344,7 +355,7 @@ impl Session {
 
     /// The `←` of an assignment on the path from a selection target to its root array, as in `(U←T).[k]←v`. The root is the last node at each level.
     fn root_assignment(&self, nodes: &[Node]) -> Option<Span> {
-        let nodes = self.members(nodes);
+        let nodes = self.selection_members(nodes);
         if let Some(node) = nodes.iter().find(|n| matches!(n.kind, NodeKind::Assign)) { return Some(node.span.clone()); }
         match &nodes.last()?.kind { NodeKind::Group(inner) | NodeKind::Run(inner) => self.root_assignment(inner), _ => None }
     }
@@ -354,20 +365,18 @@ impl Session {
         let right = &value.clone().into_value(&nodes[0].span)?;
         let span = crate::syntax::cover(nodes);
         let mark = crate::explain::itemwise_mark();
-        let mut nodes = self.members(nodes).into_owned();
-        if modifier.is_none() { self.extend_selected(&mut nodes, false)?; }
+        let mut nodes = self.selection_members(nodes).into_owned();
+        self.extend_selected(&mut nodes, false)?;
         let (binding, selection, values) = match self.direct_target(&mut nodes)? {
             Some((binding, selection)) => (binding, selection, right.clone()),
             None => {
-                let level = self.begin(crate::transform::Kind::Label);
-                let selected = self.selection_expression(&nodes, level);
-                self.end();
+                let (level, selected) = self.with_level(crate::transform::Kind::Label, |level| (level, self.selection_expression(&nodes, level)));
                 let (binding, mut labels, selected) = selected?;
                 let read = labels.read(&selected, level);
                 // The labelled value holds the array too, so dropping it lets the write change the array in place.
                 drop(selected);
                 let read = read.ok_or_else(|| Error::domain("function is not valid for selective assignment").at(&span))?;
-                let (selection, values) = labels.replacements(read, right, &span).at(&span)?;
+                let (selection, values) = labels.replacements(read, right).at(&span)?;
                 (binding, selection, values)
             }
         };
@@ -409,7 +418,7 @@ impl Session {
         match nodes {
             [Node { kind: NodeKind::Group(inner) | NodeKind::Run(inner), .. }] => self.direct_target(inner),
             [left, Node { kind: NodeKind::Function(Builtin::Primitive(p @ (Primitive::Index | Primitive::Bracket | Primitive::Mix))), .. }, rest @ ..]
-                if self.holds_array(left, &mut None) =>
+                if !rest.is_empty() && self.holds_array(left, &mut None) =>
             {
                 let Some((binding, path)) = self.direct_item(rest)? else { return Ok(None) };
                 let left = self.evaluate_once(left)?;
@@ -446,14 +455,14 @@ impl Session {
 
     /// The target `nodes` evaluated on its root name's array, labelled at label level `level` (`selection::labelled`), with the binding the name kept and the labels that turn the result's labels back into places. A group or run that ends the target is the root of the nodes before it.
     fn selection_expression(&self, nodes: &[Node], level: u64) -> Result<(ArrayBinding, crate::selection::Labels, Value), Error> {
-        let members = self.members(nodes);
+        let members = self.selection_members(nodes);
         let nodes = &members[..];
         let root = nodes.len() - 1;
         let span = &nodes[root].span;
         let (binding, labels, selected) = match &nodes[root].kind {
             NodeKind::Name(name, _) => {
                 let binding = self.array_binding(*name, span)?;
-                let (labels, selected) = crate::selection::labelled(&binding.value, level, span)?;
+                let (labels, selected) = crate::selection::labelled(&binding.value, level)?;
                 (binding, labels, selected)
             }
             NodeKind::Group(inner) | NodeKind::Run(inner) => self.selection_expression(inner, level)?,
@@ -472,17 +481,17 @@ impl Session {
     /// Writes the new value of each target of `selection` into `binding`. `f` takes the target's item on its left and its value from `right` on its right. A target that repeats a position reads the result of the earlier one, so repeats accumulate. A target at a fill reads the fill, and its write is dropped. An error leaves the array unchanged. A pervasive primitive combines at the targets' places, as accumulation does (`Primitive::at`): in place where it can, reading a walk's targets without listing them, and otherwise in one call, with repeated positions taking rounds. Any other `f` runs once for each target. `•explain` records each path as an accumulation.
     fn write_modified(&self, binding: ArrayBinding, selection: &Selection, f: &Function, right: &Value, span: &Span) -> Result<(), Error> {
         let right = selection.checked(right).at(span)?;
-        if let (ResultFrame::Array(_), Some(writes), Some(p)) = (&selection.frame, selection.targets.writes(), f.as_primitive()) {
+        if let (ResultFrame::Array(_), Some(writes), Some(p)) = (&selection.frame, selection.targets.writes(), f.dyadic_primitive()) {
             if p.facts(true).pervasive() { return self.write_kept(binding, span, |z| p.at(z, writes, &right, span)); }
         }
         // Each cell's own targets in a batched run combine on the batch's whole. Any other function stops the run. Its cells then run one at a time.
         if let Targets::Cells(cells) = &selection.targets {
-            let Some(p) = f.as_primitive().filter(|p| p.facts(true).pervasive()) else { return Err(cells.stop().into()) };
+            let Some(p) = f.dyadic_primitive().filter(|p| p.facts(true).pervasive()) else { return Err(cells.stop().into()) };
             return self.write_kept(binding, span, |z| { *z = cells.combined(z, &right, p, span)?; Ok(()) });
         }
         // Each target's path is read below, and the modifier never runs for a target at a fill.
         if let Some(listed) = selection.listed() { return self.write_modified(binding, &listed, f, &right, span); }
-        if let Some((kept, right)) = selection.without_fills(&right, span).at(span)? { return self.write_modified(binding, &kept, f, &right, span); }
+        if let Some((kept, right)) = selection.without_fills(&right).at(span)? { return self.write_modified(binding, &kept, f, &right, span); }
         let original = &binding.value;
         let mut results: Vec<Value> = Vec::with_capacity(selection.targets.len());
         let mut latest: HashMap<&[usize], usize> = HashMap::new();
@@ -493,7 +502,7 @@ impl Session {
             latest.insert(path, i);
         }
         crate::explain::accumulated(selection.targets.len(), original.len(), "item by item");
-        crate::explain::itemwise(rustymath::events::Route::Accumulation, selection.targets.len());
+        crate::explain::itemwise(crate::events::routes::Accumulation, selection.targets.len());
         let values = match &selection.frame {
             ResultFrame::Direct => results.pop().unwrap_or(right),
             ResultFrame::Array(layout) if !results.is_empty() => {
@@ -506,7 +515,7 @@ impl Session {
 }
 
 /// The name and keys of the dot path that the group `node` is, such as `m.a.f`, which dot access writes as `"f"⊃"a"⊃m`. `None` for any other group.
-fn dot_path(node: &Node) -> Option<(Name, Vec<Arc<str>>)> {
+pub(super) fn dot_path(node: &Node) -> Option<(Name, Vec<Arc<str>>)> {
     let (mut node, mut keys) = (node, Vec::new());
     while let NodeKind::Group(inner) = &node.kind {
         let [Node { kind: NodeKind::Literal(key), .. }, Node { kind: NodeKind::Function(Builtin::Primitive(Primitive::Mix)), .. }, root] = &inner[..] else {

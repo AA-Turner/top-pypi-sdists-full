@@ -67,22 +67,28 @@ def run(
     paths: Sequence[str],
     *,
     trusted: bool = False,
-    eslint: bool = True,
+    typescript: bool = True,
     machine_output: bool = False,
     default_scope: bool = False,
+    format_only_paths: frozenset[str] = frozenset(),
 ) -> FixResult:
     from sarj_standards.libs.adoption import lifecycle  # ruff: ignore[import-outside-top-level] -- third-party execution is needed only for explicit fix operations.
 
     policy = Policy.from_manifest(root, manifest.load(root))
     selection = _selection(root, paths, policy=policy, default_scope=default_scope)
     selected = selection.formatter
+    format_only_paths |= _historical_paths(root, selected)
     targets = tuple(Path(path) for path in selected)
     transaction.validate_targets(root, targets)
     originals = {path: path.read_bytes() for path in targets}
-    fix_paths(root, selection.native, policy=policy)
+    fix_paths(
+        root, tuple(path for path in selection.native if policy.relative(path) not in format_only_paths), policy=policy
+    )
     commands = [
-        _with_local_eslint(command, root)
-        for command in lifecycle.selected_format_commands(root, selected, trusted=trusted, eslint=eslint)
+        _with_local_oxlint(command, root)
+        for command in lifecycle.selected_format_commands(
+            root, selected, trusted=trusted, typescript=typescript, format_only_paths=format_only_paths
+        )
     ]
     status = 0
     for command in commands:
@@ -96,12 +102,29 @@ def run(
     return FixResult(status, tuple(path for path, original in originals.items() if path.read_bytes() != original))
 
 
-def _with_local_eslint(command: Command, root: Path) -> Command:
-    from .external import local_node_binary_argv  # ruff: ignore[import-outside-top-level] -- the checking adapter imports lifecycle at module load; resolve its local binary only for ESLint fix commands.
+def _historical_paths(root: Path, paths: Sequence[str]) -> frozenset[str]:
+    from sarj_standards.libs.diagnostics import baseline  # ruff: ignore[import-outside-top-level] -- baseline parsing is needed only for explicit fix operations.
+    from sarj_standards.libs.linting import oxlint  # ruff: ignore[import-outside-top-level] -- Oxlint imports lifecycle; discover ledger owners only at execution time.
 
-    if "eslint" not in command.argv:
+    adopted = manifest.load(root)
+    protected = set(
+        baseline.historical_paths(root / adopted.diagnostic_baseline)
+        if adopted is not None and adopted.diagnostic_baseline is not None
+        else ()
+    )
+    for command in oxlint.select_oxlint_commands(root, paths).commands:
+        for path, rules in oxlint.read_suppressions(command.cwd).items():
+            if any(count > 0 for count in rules.values()):
+                protected.add((command.cwd / path).relative_to(root).as_posix())
+    return frozenset(protected)
+
+
+def _with_local_oxlint(command: Command, root: Path) -> Command:
+    from .external import local_node_binary_argv  # ruff: ignore[import-outside-top-level] -- the checking adapter imports lifecycle at module load; resolve its local binary only for Oxlint fix commands.
+
+    if "oxlint" not in command.argv:
         return command
-    argv = local_node_binary_argv("eslint", command.argv, command.cwd, root)
+    argv = local_node_binary_argv("oxlint", command.argv, command.cwd, root)
     return command if argv is None else replace(command, argv=argv)
 
 
@@ -116,7 +139,7 @@ def _selection(root: Path, paths: Sequence[str], *, policy: Policy, default_scop
     grouped = runner.group_format_paths([str(root / path) for path in paths], policy=policy, python_roots=python_roots)
     python = tuple(grouped.python)
     native_other = (*grouped.sql, *grouped.iac, *grouped.text)
-    if default_scope and adopted is not None and set(adopted.configs) == {"eslint"}:
+    if default_scope and adopted is not None and set(adopted.configs) == set(manifest.TYPESCRIPT_CONFIGS):
         native_other = ()
     return _Selection(
         tuple(

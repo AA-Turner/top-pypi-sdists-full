@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.communications.callrecords.endpoint import Endpoint
+from office365.communications.callrecords.failure_info import FailureInfo
 from office365.communications.callrecords.modality import Modality
 from office365.communications.callrecords.segment import Segment
 from office365.entity import Entity
@@ -12,13 +13,11 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 
-if TYPE_CHECKING:
-    from office365.communications.callrecords.failure_info import FailureInfo
-
 
 class Session(Entity):
     """Represents a user-user communication or a user-meeting communication in the case of a conference call."""
 
+    @odata(name="segments", navigation=True)
     @property
     def segments(self) -> EntityCollection[Segment]:
         """
@@ -28,11 +27,13 @@ class Session(Entity):
             "segments", EntityCollection(self.context, Segment, ResourcePath("segments", self.resource_path))
         )
 
+    @odata(name="callee")
     @property
     def callee(self) -> Endpoint:
         """Gets the callee property"""
         return self.properties.get("callee", Endpoint())
 
+    @odata(name="caller")
     @property
     def caller(self) -> Endpoint:
         """Gets the caller property"""
@@ -44,11 +45,13 @@ class Session(Entity):
         """Gets the endDateTime property"""
         return self.properties.get("endDateTime", datetime.min)
 
+    @odata(name="isTest")
     @property
     def is_test(self) -> Optional[bool]:
         """Gets the isTest property"""
         return self.properties.get("isTest", None)
 
+    @odata(name="modalities")
     @property
     def modalities(self) -> ClientValueCollection[Modality]:
         """Gets the modalities property"""
@@ -64,9 +67,8 @@ class Session(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.callRecords.Session"
 
+    @odata(name="failureInfo")
     @property
     def failure_info(self) -> FailureInfo:
         """Gets the failureInfo property"""
-        from office365.communications.callrecords.failure_info import FailureInfo
-
         return self.properties.get("failureInfo", FailureInfo())

@@ -46,6 +46,19 @@ def _compute_indices(img: "ee.Image", indices: list) -> "ee.Image":
             index = fr.expression("((GV / (1 - SHADE)) - (NPV + SOIL)) / ((GV / (1 - SHADE)) + NPV + SOIL)",
                                   {"GV": fr.select(0), "SHADE": fr.select(1), "NPV": fr.select(2),
                                    "SOIL": fr.select(3)})
+        elif name in ("TCB", "TCG", "TCW", "TCD"):
+            from .._tasseled import CRIST_1985
+
+            def component(key):
+                letters = ("B", "G", "R", "N", "S1", "S2")
+                return refl.expression(
+                    " + ".join(f"({c}) * {r}" for c, r in zip(CRIST_1985[key], letters)),
+                    {r: band(role) for r, role in zip(letters, INDICES[name])})
+
+            if name == "TCD":
+                index = component("brightness").subtract(component("greenness")).subtract(component("wetness"))
+            else:
+                index = component({"TCB": "brightness", "TCG": "greenness", "TCW": "wetness"}[name])
         elif name == "EVI":
             index = refl.expression(
                 "2.5 * (NIR - RED) / (NIR + 6 * RED - 7.5 * BLUE + 1)",
@@ -103,7 +116,7 @@ def compute_stm(col: "ee.ImageCollection", indices: Optional[list] = None,
     one combined reducer. Bands are named "<band>_<metric>" (e.g. "NDVI_p10"), ordered
     band by band, as in `zeit.cube.build_spectral_temporal_metrics`.
     """
-    metrics = parse_metrics(metrics)
+    metrics = parse_metrics(metrics, extended=False)
     names = _band_names(indices)
     pct, simple = _stm_reducer_plan(metrics)
     reducers = ([ee.Reducer.percentile(pct)] if pct else []) + [
@@ -261,7 +274,7 @@ def download_gee_timeseries(
         raise NotImplementedError(f"Composite type '{composite_type}' is not currently supported.")
     indices = _resolve_indices(indices, bands)
     if composite_type == 'stm':
-        metrics = parse_metrics(metrics)
+        metrics = parse_metrics(metrics, extended=False)
     initialize_gee(project=project)
     
     geom = resolve_roi(roi)

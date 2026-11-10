@@ -177,11 +177,11 @@ adr_build_refine_chain (
   dp_carrier_acq_state_t *ca = adr_new_carrier_acq (s, target_rate);
 
   float _Complex *dll_out_buf
-      = dp_xmalloc (s->refine_segments * sizeof (*dll_out_buf));
+      = dp_xmallocn (s->refine_segments, sizeof (*dll_out_buf));
 
   size_t rc_out_cap
       = (size_t)((double)s->refine_segments * refine_rc->rate) + 64;
-  float _Complex *rc_out_buf = dp_xmalloc (rc_out_cap * sizeof (*rc_out_buf));
+  float _Complex *rc_out_buf = dp_xmallocn (rc_out_cap, sizeof (*rc_out_buf));
 
   *refine_dll_out  = refine_dll;
   *refine_rc_out   = refine_rc;
@@ -241,6 +241,8 @@ adr_rebuild_refine_chain (dp_async_dsss_receiver_state_t *s, double chip_phase,
   s->refine_samples_fed = 0;
   s->refine_periods     = 0;
   s->car_carry_len      = 0;
+  s->refine_hist_len    = 0;
+  s->refine_hist_head   = 0;
 }
 
 /* Allocate a fresh live-tracking chain (Dll/RateConverter/MpskReceiver +
@@ -405,7 +407,8 @@ adr_tlm_attach (dp_async_dsss_receiver_state_t *s)
      scratch context of its own, checked before it registers anything), so
      an out-of-memory refusal comes before any loop has put a name on the
      caller's table (#2846). The loops after it only register. */
-  int r = s->acq ? dp_acq_set_telemetry (s->acq, t, acq, d) : DP_OK;
+  int r
+      = s->acq ? dp_correlator_set_telemetry (s->acq, t, acq, d, NULL) : DP_OK;
   if (r == DP_OK)
     r = dp_costas_set_telemetry (&s->car, t, car, d);
   if (r == DP_OK)
@@ -451,7 +454,7 @@ adr_tlm_detach (dp_async_dsss_receiver_state_t *s)
   (void)dp_RateConverter_set_telemetry (s->rc, NULL, p, 1);
   (void)dp_mpsk_receiver_set_telemetry (s->rx, NULL, p, 1);
   if (s->acq)
-    (void)dp_acq_set_telemetry (s->acq, NULL, p, 1);
+    (void)dp_correlator_set_telemetry (s->acq, NULL, p, 1, NULL);
   s->tlm_sym_lock = s->tlm_sym_locked = -1;
   s->tlm_state = s->tlm_handover = s->tlm_refused = -1;
 }
@@ -469,13 +472,13 @@ adr_size_track_scratch (dp_async_dsss_receiver_state_t *s)
     {
       free (s->track_dll_out_buf);
       s->track_dll_out_buf
-          = dp_xmalloc (need_dll * sizeof *s->track_dll_out_buf);
+          = dp_xmallocn (need_dll, sizeof *s->track_dll_out_buf);
       s->track_dll_out_cap = need_dll;
     }
   if (s->track_rc_out_cap < need_rc)
     {
       free (s->track_rc_out_buf);
-      s->track_rc_out_buf = dp_xmalloc (need_rc * sizeof *s->track_rc_out_buf);
+      s->track_rc_out_buf = dp_xmallocn (need_rc, sizeof *s->track_rc_out_buf);
       s->track_rc_out_cap = need_rc;
     }
 }
@@ -593,13 +596,67 @@ adr_refine_decided (const dp_async_dsss_receiver_state_t *s)
   return ca->ready || ca->n_blocks >= cap;
 }
 
+/* The first sample a live chain can start on at or past @p at: the smallest
+ * ceil(k * period), k whole periods from the hand-off, that is >= at. With a
+ * fractional period (17.5) the starts are 0, 18, 35, 53 ...; the phase
+ * carries each one's fraction (adr_handover_phase()). The same rounding as
+ * the hand-over's estimate, `ceil(k * period - 1e-9)`. The first guess is
+ * within one of k, so each loop runs at most once or twice. */
+static uint64_t
+adr_period_start_at (double period, uint64_t at)
+{
+  uint64_t k = (uint64_t)floor ((double)at / period);
+  while (k > 0 && (uint64_t)ceil ((double)(k - 1) * period - 1e-9) >= at)
+    k--;
+  while ((uint64_t)ceil ((double)k * period - 1e-9) < at)
+    k++;
+  return (uint64_t)ceil ((double)k * period - 1e-9);
+}
+
+/* Keep a refine call's input in the hand-over's ring: its last
+ * refine_hist_cap samples at most, so one bounded copy a call. */
+static void
+adr_refine_hist_push (dp_async_dsss_receiver_state_t *s,
+                      const float _Complex *x, size_t x_len)
+{
+  const size_t cap = s->refine_hist_cap;
+  if (x_len >= cap)
+    {
+      memcpy (s->refine_hist, x + x_len - cap, cap * sizeof *x);
+      s->refine_hist_head = 0;
+      s->refine_hist_len  = cap;
+      return;
+    }
+  const size_t first
+      = cap - s->refine_hist_head < x_len ? cap - s->refine_hist_head : x_len;
+  memcpy (s->refine_hist + s->refine_hist_head, x, first * sizeof *x);
+  memcpy (s->refine_hist, x + first, (x_len - first) * sizeof *x);
+  s->refine_hist_head = (s->refine_hist_head + x_len) % cap;
+  s->refine_hist_len
+      = s->refine_hist_len + x_len < cap ? s->refine_hist_len + x_len : cap;
+}
+
+/* The ring's newest @p n samples, oldest first, into @p dst (n <= len). */
+static void
+adr_refine_hist_tail (const dp_async_dsss_receiver_state_t *s,
+                      float _Complex *dst, size_t n)
+{
+  const size_t cap   = s->refine_hist_cap;
+  const size_t start = (s->refine_hist_head + cap - n) % cap;
+  const size_t first = cap - start < n ? cap - start : n;
+  memcpy (dst, s->refine_hist + start, first * sizeof *dst);
+  memcpy (dst + first, s->refine_hist, (n - first) * sizeof *dst);
+}
+
 /* Refine-stage entry point: buffer raw samples into whole `tsamps`-sample
  * periods (the shared car_carry_buf -- refine and track never run
  * concurrently) and run adr_refine_period() on each complete one, up to
  * the period the refine decides in. The rest of the call is the tracking
  * chain's: steps() feeds it the tail, so folding it here too would pay for
- * those samples twice (#2395). */
-static void
+ * those samples twice (#2395). Returns how many of x the refine took: all
+ * of them until it decides, up to the end of the period it decides in on
+ * that call, and none after. */
+static size_t
 adr_process_refine (dp_async_dsss_receiver_state_t *s, const float _Complex *x,
                     size_t x_len)
 {
@@ -613,7 +670,7 @@ adr_process_refine (dp_async_dsss_receiver_state_t *s, const float _Complex *x,
       s->car_carry_len += take;
       pos = take;
       if (s->car_carry_len < s->tsamps)
-        return;
+        return pos;
       adr_refine_period (s, s->car_carry_buf);
       s->refine_periods++;
       s->car_carry_len = 0;
@@ -633,12 +690,13 @@ adr_process_refine (dp_async_dsss_receiver_state_t *s, const float _Complex *x,
   if (adr_refine_decided (s))
     {
       s->car_carry_len = 0;
-      return;
+      return pos;
     }
   size_t leftover = x_len - pos;
   if (leftover > 0)
     memcpy (s->car_carry_buf, x + pos, leftover * sizeof (*x));
   s->car_carry_len = leftover;
+  return x_len;
 }
 
 /* One carrier-wiped code period through dll -> ONE costas_update() call per
@@ -843,7 +901,7 @@ adr_track_chain (dp_async_dsss_receiver_state_t *s, const float _Complex *x,
 static void
 adr_restart_search (dp_async_dsss_receiver_state_t *s, uint64_t at)
 {
-  dp_acq_reset (s->acq);
+  dp_correlator_reset (s->acq);
   s->align_pending = true;
   /* The search's resampler restarts with it, at input index @p at (the
      next sample the search will see), so its timebase maps back from
@@ -907,8 +965,9 @@ adr_search_to_input (const dp_async_dsss_receiver_state_t *s, uint64_t n)
 static size_t
 adr_align_skip (dp_async_dsss_receiver_state_t *s, size_t x_len)
 {
-  const uint64_t block = (uint64_t)s->acq->coherent_bins * s->acq->code_bins;
-  const uint64_t pos   = adr_search_index (s, s->srch_n);
+  const uint64_t block
+      = (uint64_t)s->acq->search->coherent_bins * s->acq->search->code_bins;
+  const uint64_t pos = adr_search_index (s, s->srch_n);
   /* The first boundary past the resampler's start-up: the search samples
      before srch_warm carry the filter's transient (input before the
      restart is zeros to it), so a dwell starting in them would see a
@@ -953,11 +1012,11 @@ adr_same_code_phase (double a, double b, size_t code_len)
  *    only when that noise alone would have cleared the gate: the
  *    false-alarm rate the search already runs at. The bound
  *    (adr_sidelobe_bound()) is per cell: each stronger emitter's
- *    statistic on its own lag (acq_result_t::test_stat_peak: the straddle
- *    between two lag columns put back, since its sidelobes keep their
+ *    statistic on its own lag (dp_correlator_hit_t::test_stat_peak: the
+ * straddle between two lag columns put back, since its sidelobes keep their
  *    level) times the code's cross-ambiguity from that emitter to this
- *    cell (dp_acq_sidelobe_ratio()), which is dsl only at the worst cells.
- *    Bounded by dsl everywhere, an emitter at the design floor was never
+ *    cell (dp_correlator_sidelobe_ratio()), which is dsl only at the worst
+ * cells. Bounded by dsl everywhere, an emitter at the design floor was never
  *    taken beside any stronger one its sidelobes could reach.
  * 3. In an excluded zone: another receiver's signal. It is still an
  *    emitter, so it still counts in rule 2's bound.
@@ -990,52 +1049,57 @@ adr_same_code_phase (double a, double b, size_t code_len)
  * strongest alone bounds it. */
 static double
 adr_sidelobe_bound (const dp_async_dsss_receiver_state_t *s,
-                    const acq_result_t *cand, const acq_result_t *const *em,
-                    const double *stat, size_t n)
+                    const dp_correlator_hit_t            *cand,
+                    const dp_correlator_hit_t *const *em, const double *stat,
+                    size_t n)
 {
-  const double fe    = s->acq->chip_rate / (double)s->code_len;
-  const double reach = 1.5 * s->acq->doppler_res_hz;
-  const double f_c   = acq_bin_doppler_hz (s->acq, cand->doppler_bin);
+  const double fe    = s->acq->search->chip_rate / (double)s->code_len;
+  const double reach = 1.5 * s->acq->search->doppler_res_hz;
+  const double f_c   = dp_correlator_bin_doppler_hz (s->acq, cand->row);
   /* On a deep block the per-cell ambiguity is not yet the whole story: with
      data inside the block, a strong emitter's own data splatter adds to a
      cell, and a cell was measured at 0.134 of the emitter's peak where its
      ambiguity at that lag tops out at 0.116 over every Doppler offset. The
      code's worst sidelobe (dsl, 0.142 there) covers it, so a deep block
      keeps it as a floor until the splatter is modelled (doppler#2730). */
-  const double floor_ratio = s->acq->coherent_bins > 1
-                                 ? pow (10.0, dp_acq_dsl_db (s->acq) / 20.0)
-                                 : 0.0;
-  double       strongest = 0.0, on_row = 0.0;
+  const double floor_ratio
+      = s->acq->search->coherent_bins > 1
+            ? pow (10.0, dp_correlator_dsl_db (s->acq) / 20.0)
+            : 0.0;
+  double strongest = 0.0, on_row = 0.0;
   for (size_t j = 0; j < n; j++)
     {
       /* what emitter j's sidelobe can read at this cell */
       const double v
           = stat[j]
-            * fmax (floor_ratio, dp_acq_sidelobe_ratio (s->acq, em[j], cand));
+            * fmax (floor_ratio,
+                    dp_correlator_sidelobe_ratio (s->acq, em[j], cand));
       strongest = fmax (strongest, v);
       double d
-          = fmod (f_c - acq_bin_doppler_hz (s->acq, em[j]->doppler_bin), fe);
+          = fmod (f_c - dp_correlator_bin_doppler_hz (s->acq, em[j]->row), fe);
       d = d < 0.0 ? d + fe : d;
       if (fmin (d, fe - d) <= reach)
         on_row += v;
     }
-  return s->acq->coherent_bins > 1 ? fmax (strongest, on_row) : strongest;
+  return s->acq->search->coherent_bins > 1 ? fmax (strongest, on_row)
+                                           : strongest;
 }
 
 static int
-adr_pick (const dp_async_dsss_receiver_state_t *s, const acq_result_t *hits,
-          size_t n_hits, double shift, acq_handoff_t *pick)
+adr_pick (const dp_async_dsss_receiver_state_t *s,
+          const dp_correlator_hit_t *hits, size_t n_hits, double shift,
+          dp_correlator_handoff_t *pick)
 {
-  const double gate = dp_acq_gate_stat (s->acq);
+  const double gate = dp_correlator_gate_stat (s->acq);
   double       seen[ASYNC_DSSS_RX_MAX_PEAKS];
   /* The emitters so far, strongest first: statistic and Doppler. */
-  double              em_stat[ASYNC_DSSS_RX_MAX_PEAKS];
-  const acq_result_t *em_hit[ASYNC_DSSS_RX_MAX_PEAKS];
-  size_t              n_seen = 0, n_kept = 0, n_em = 0;
+  double                     em_stat[ASYNC_DSSS_RX_MAX_PEAKS];
+  const dp_correlator_hit_t *em_hit[ASYNC_DSSS_RX_MAX_PEAKS];
+  size_t                     n_seen = 0, n_kept = 0, n_em = 0;
   for (size_t i = 0; i < n_hits; i++)
     {
-      acq_handoff_t ho;
-      dp_acq_build_handoff (s->acq, &hits[i], s->code_len, &ho);
+      dp_correlator_handoff_t ho;
+      dp_correlator_build_handoff (s->acq, &hits[i], s->code_len, &ho);
       /* Carried to the hand-off sample (adr_steps()): every phase this
          compares -- the others in the dwell, the exclusions a controller
          read off receivers fed the same stream -- is a phase at that
@@ -1058,8 +1122,8 @@ adr_pick (const dp_async_dsss_receiver_state_t *s, const acq_result_t *hits,
         continue;
       /* An emitter's sidelobes keep their level when its own peak falls
          between two lag columns, so the bound they set is its statistic
-         on its own lag (acq_result_t::test_stat_peak), not as read: else
-         a strong emitter's straddle lets its sidelobe pass for a second
+         on its own lag (dp_correlator_hit_t::test_stat_peak), not as read:
+         else a strong emitter's straddle lets its sidelobe pass for a second
          emitter, by more the stronger it is. */
       em_stat[n_em]  = (double)hits[i].test_stat_peak;
       em_hit[n_em++] = &hits[i];
@@ -1106,7 +1170,8 @@ dp_async_dsss_receiver_create (
       || !(symbol_rate > 0.0 && isfinite (symbol_rate)) || !(spc >= 1.0)
       || (m != 2 && m != 4 && m != 8) || refine_samples_per_symbol < 1
       || refine_n_fft < 1 || refine_zero_pad < 1
-      || !dp_acq_carrier_freq_ok (carrier_freq_hz, chip_rate * (double)spc)
+      || !dp_correlator_carrier_freq_ok (carrier_freq_hz,
+                                         chip_rate * (double)spc)
       || !(lost_confirm_s >= 0.0))
     return NULL;
   /* Reacquire's release is its only way back to searching, so a release
@@ -1168,16 +1233,16 @@ dp_async_dsss_receiver_create (
   /* The search runs at the caller's rate when its period is a whole number
      of samples (an awkward length such as 2 * 1,023 = 2 * 3 * 11 * 31 is
      read on a padded lag grid), else where one code period is a power of
-     two samples (dp_acq_search_period()), resampled from the caller's rate:
-     2,048 for 1,023 chips at 11 MSa/s over 5 Mcps. The searcher checks
+     two samples (dp_correlator_search_period()), resampled from the caller's
+     rate: 2,048 for 1,023 chips at 11 MSa/s over 5 Mcps. The searcher checks
      its own domain (pfa, pd, C/N0 ...), so its refusal is this create's, not
      an abort under dp_xnn (doppler#2103). */
   const size_t n_period
-      = dp_acq_search_period (code_len, sample_rate, chip_rate);
+      = dp_correlator_search_period (code_len, sample_rate, chip_rate);
   const double search_rate = chip_rate * (double)n_period / (double)code_len;
   obj->srch_ratio          = search_rate / sample_rate;
   obj->acq                 = n_period
-                                 ? dp_acq_create_continuous (
+                                 ? dp_correlator_create_continuous (
                                        obj->code, code_len, search_rate, chip_rate,
                                        symbol_rate, cn0_dbhz, doppler_uncertainty, pfa, pd,
                                        0 /* noise_mode=mean */, code_only_epochs, doppler_rate)
@@ -1187,7 +1252,7 @@ dp_async_dsss_receiver_create (
       obj->srch_rs = dp_resamp_create (obj->srch_ratio);
       if (!obj->srch_rs)
         {
-          dp_acq_destroy (obj->acq);
+          dp_correlator_destroy (obj->acq);
           obj->acq = NULL;
         }
       else
@@ -1200,7 +1265,7 @@ dp_async_dsss_receiver_create (
                               * obj->srch_ratio)
                 + 1;
           obj->srch_hist
-              = dp_xmalloc (obj->srch_hist_cap * sizeof *obj->srch_hist);
+              = dp_xmallocn (obj->srch_hist_cap, sizeof *obj->srch_hist);
         }
     }
   if (!obj->acq)
@@ -1216,7 +1281,8 @@ dp_async_dsss_receiver_create (
   /* The carrier rebuilds the searcher's map, so it can fail: a receiver
      without the carrier it was asked for is not built. */
   if (carrier_freq_hz > 0.0
-      && dp_acq_set_carrier_freq_hz (obj->acq, carrier_freq_hz) != DP_OK)
+      && dp_correlator_set_carrier_freq_hz (obj->acq, carrier_freq_hz)
+             != DP_OK)
     {
       /* The search resampler and its history may be built by now; destroy
          frees whatever the zeroed object holds. */
@@ -1226,13 +1292,13 @@ dp_async_dsss_receiver_create (
   /* A dwell's whole peak list, for adr_pick() to rank. Its first entry is
      the one-peak detector's pick, so rank 0 with no exclusions takes what
      max_peaks 1 took. */
-  (void)dp_acq_set_max_peaks (obj->acq, ASYNC_DSSS_RX_MAX_PEAKS);
+  (void)dp_correlator_set_max_peaks (obj->acq, ASYNC_DSSS_RX_MAX_PEAKS, NULL);
   /* A deep block bounds rule 2 with the code's worst sidelobe as a floor
      (adr_sidelobe_bound()), which the searcher computes on the first read.
      Read it here, so that sweep is this create's cost and never a stall
      inside push(); a one-epoch search never reads it. */
-  if (obj->acq->coherent_bins > 1)
-    (void)dp_acq_dsl_db (obj->acq);
+  if (obj->acq->search->coherent_bins > 1)
+    (void)dp_correlator_dsl_db (obj->acq);
   obj->spc          = spc;
   obj->m            = m;
   obj->differential = differential;
@@ -1275,8 +1341,8 @@ dp_async_dsss_receiver_create (
   obj->tsamps = (size_t)floor ((double)code_len * spc + 1e-9);
   obj->refine_segments
       = dp_dll_lookback_segments (obj->tsamps, refine_max_error_db);
-  obj->car_wiped_buf = dp_xmalloc (obj->tsamps * sizeof (*obj->car_wiped_buf));
-  obj->car_carry_buf = dp_xmalloc (obj->tsamps * sizeof (*obj->car_carry_buf));
+  obj->car_wiped_buf = dp_xmallocn (obj->tsamps, sizeof (*obj->car_wiped_buf));
+  obj->car_carry_buf = dp_xmallocn (obj->tsamps, sizeof (*obj->car_carry_buf));
   obj->car_carry_len = 0;
 
   /* Placeholder chains (phase 0, no Doppler) -- always allocated, seeded
@@ -1308,6 +1374,22 @@ dp_async_dsss_receiver_create (
                    ASYNC_DSSS_RX_LOCK_DOWN, ASYNC_DSSS_RX_LOCK_N_UP,
                    ASYNC_DSSS_RX_LOCK_N_DOWN);
   adr_reset_lock (obj);
+  /* How far past its estimate the refine can decide, from the
+     configuration (the field's comment has the terms). The refine's
+     RateConverter is the same at every rebuild: its rate is fixed here.
+     Allocated last, so everything the search and tracking use is where it
+     was before the ring. */
+  {
+    const double period  = (double)code_len * spc;
+    const double partial = period / (double)obj->refine_segments;
+    obj->refine_hist_cap = (size_t)ceil (
+        dp_RateConverter_get_count_lag (obj->refine_rc) * partial + partial
+        + period + (double)obj->tsamps);
+    obj->refine_hist
+        = dp_xmallocn (obj->refine_hist_cap, sizeof *obj->refine_hist);
+    obj->refine_hist_len  = 0;
+    obj->refine_hist_head = 0;
+  }
   return obj;
 }
 
@@ -1322,10 +1404,11 @@ dp_async_dsss_receiver_destroy (dp_async_dsss_receiver_state_t *state)
   free (state->track_rc_out_buf);
   free (state->car_wiped_buf);
   free (state->car_carry_buf);
-  dp_acq_destroy (state->acq);
+  dp_correlator_destroy (state->acq);
   dp_resamp_destroy (state->srch_rs);
   free (state->srch_buf);
   free (state->srch_hist);
+  free (state->refine_hist);
   free (state->code);
   free (state);
 }
@@ -1435,9 +1518,9 @@ dp_async_dsss_receiver_seed_ok (const dp_async_dsss_receiver_state_t *state,
                                 double chip_phase, double doppler_hz_est)
 {
   /* A Doppler is reportable only below half the sample rate, which is what
-     dp_acq_carrier_freq_ok() relies on to keep doppler / carrier finite; a
-     seed near 1e308 sent the hand-off's phase to NaN (doppler#2103). The
-     comparisons are written so a NaN fails them. */
+     dp_correlator_carrier_freq_ok() relies on to keep doppler / carrier
+     finite; a seed near 1e308 sent the hand-off's phase to NaN (doppler#2103).
+     The comparisons are written so a NaN fails them. */
   return isfinite (chip_phase) && chip_phase >= 0.0
          && chip_phase < (double)state->code_len
          && fabs (doppler_hz_est)
@@ -1516,8 +1599,9 @@ adr_unheld (const dp_async_dsss_receiver_state_t *s)
  * too, nominally -- a holder's own Doppler dilation over one call is a
  * hundredth of a chip at 20 ppm, far inside the one-chip key. */
 static void
-adr_collect_picks (dp_async_dsss_receiver_state_t *s, const acq_result_t *hits,
-                   size_t n_hits, double t, uint64_t in0)
+adr_collect_picks (dp_async_dsss_receiver_state_t *s,
+                   const dp_correlator_hit_t *hits, size_t n_hits, double t,
+                   uint64_t in0)
 {
   const double L     = (double)s->code_len;
   const double end   = (double)s->samples_in; /* the sample after the call */
@@ -1530,7 +1614,7 @@ adr_collect_picks (dp_async_dsss_receiver_state_t *s, const acq_result_t *hits,
   for (size_t r = 0; r < s->pick_want && s->n_picks < ASYNC_DSSS_RX_MAX_PEAKS;
        r++)
     {
-      acq_handoff_t ho;
+      dp_correlator_handoff_t ho;
       s->rank = r;
       if (!adr_pick (s, hits, n_hits, (end - t) / s->spc, &ho))
         break;
@@ -1584,7 +1668,7 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
           if (need > state->srch_cap)
             {
               free (state->srch_buf);
-              state->srch_buf = dp_xmalloc (need * sizeof *state->srch_buf);
+              state->srch_buf = dp_xmallocn (need, sizeof *state->srch_buf);
               state->srch_cap = need;
             }
           ny = dp_resamp_execute (state->srch_rs, x, x_len, state->srch_buf,
@@ -1607,30 +1691,31 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
           /* The engine's own position and the hit's, one timebase, and the
            * same fail-closed bound -- the rule and why are at
            * dsss_receiver_core.c's steps(), which hands off the same way. */
-          const uint64_t before = dp_acq_position (state->acq);
-          acq_result_t   hits[ASYNC_DSSS_RX_MAX_PEAKS];
-          size_t n_hits = dp_acq_push (state->acq, y + yp, ny - yp, hits,
-                                       ASYNC_DSSS_RX_MAX_PEAKS);
+          const uint64_t      before = dp_correlator_position (state->acq);
+          dp_correlator_hit_t hits[ASYNC_DSSS_RX_MAX_PEAKS];
+          size_t n_hits = dp_correlator_push (state->acq, y + yp, ny - yp,
+                                              hits, ASYNC_DSSS_RX_MAX_PEAKS);
           /* With room for a whole dwell's list the push reports ONE dwell,
              every peak sharing its samples_consumed, and may frame on past
              it to the next dwell boundary. The hand-off resumes at the
              dwell's end; a search that goes on resumes where the ENGINE
-             stopped, dp_acq_consumed(), so no sample is pushed twice. */
+             stopped, dp_correlator_consumed(), so no sample is pushed twice.
+           */
           const uint64_t at = n_hits ? hits[0].samples_consumed - before : 0;
           if (n_hits == 0 || at == 0 || at > (uint64_t)(ny - yp))
             {
               state->srch_n += ny - yp;
               break;
             }
-          const size_t taken = dp_acq_consumed (state->acq);
+          const size_t taken = dp_correlator_consumed (state->acq);
 
           /* A hit is a seed the object made for itself -- the same path an
            * outside detection takes. The list is filtered first
            * (adr_pick(): exclusions, duplicates, rank); a dwell with no
            * peak at this receiver's rank seeds nothing and the search goes
-           * on. dp_acq_build_handoff() folds the phase into [0, code_len),
-           * but not the Doppler: a hit at or past fs/2 is outside the seed
-           * domain. Such a hit is refused as a seed and counted in
+           * on. dp_correlator_build_handoff() folds the phase into [0,
+           * code_len), but not the Doppler: a hit at or past fs/2 is outside
+           * the seed domain. Such a hit is refused as a seed and counted in
            * refused_hits, and the search goes on, as it would after no
            * hit. */
           /* The dwell ends at search sample srch_n + at, which carries input
@@ -1656,8 +1741,8 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
               yp += taken;
               continue;
             }
-          acq_handoff_t ho;
-          const int     picked
+          dp_correlator_handoff_t ho;
+          const int               picked
               = adr_pick (state, hits, n_hits, (i0 - t) / state->spc, &ho);
           if (!picked
               || !dp_async_dsss_receiver_seed_ok (state, ho.chip_phase,
@@ -1680,13 +1765,17 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
               const size_t off = (size_t)((uint64_t)i0 - in0);
               return adr_steps (state, x + off, x_len - off, out, max_out);
             }
-          const size_t    need = (size_t)(in0 - (uint64_t)i0);
-          float _Complex *join = dp_xmalloc ((need + x_len) * sizeof *join);
+          const size_t need = (size_t)(in0 - (uint64_t)i0);
+          /* Trusted, like every allocation on this path: a sum that does
+             not fit aborts, and so does the byte product (dp_xmallocn). */
+          size_t join_len;
+          if (!dp_size_add (need, x_len, &join_len))
+            abort ();
+          float _Complex *join = dp_xmallocn (join_len, sizeof *join);
           memcpy (join, state->srch_hist + state->srch_hist_len - need,
                   need * sizeof *join);
           memcpy (join + need, x, x_len * sizeof *join);
-          const size_t n_out
-              = adr_steps (state, join, need + x_len, out, max_out);
+          const size_t n_out = adr_steps (state, join, join_len, out, max_out);
           free (join);
           return n_out;
         }
@@ -1696,13 +1785,16 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
 
   if (state->state == ASYNC_DSSS_RX_REFINING)
     {
-      uint64_t before = state->refine_samples_fed;
+      const uint64_t before = state->refine_samples_fed; /* x[0]'s index */
       state->refine_samples_fed += x_len;
-      adr_process_refine (state, x, x_len);
+      const size_t taken = adr_process_refine (state, x, x_len);
 
       dp_carrier_acq_state_t *ca = state->ca;
       if (!adr_refine_decided (state))
-        return 0; /* still refining, no output yet */
+        {
+          adr_refine_hist_push (state, x, x_len);
+          return 0; /* still refining, no output yet */
+        }
 
       double refined_doppler_hz_est
           = state->seed_doppler_hz_est
@@ -1753,18 +1845,62 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
       samples_consumed_refine
           = (uint64_t)ceil (n_periods_consumed * period - 1e-9);
 
-      /* Only a tail within THIS call's own x can be safely recovered --
-       * a prior call's buffer is already gone (the same rule
-       * dsss_receiver_core.c's own search->track transition follows).
-       * If the estimate implies more was unused than this call
-       * provided, there's nothing left to recover; start tracking from
-       * zero backlog rather than guess. */
-      uint64_t fed_total = before + (uint64_t)x_len;
-      uint64_t unused    = (fed_total > samples_consumed_refine)
-                               ? (fed_total - samples_consumed_refine)
-                               : 0;
-      size_t   tail_len  = (unused > (uint64_t)x_len) ? 0 : (size_t)unused;
-      const float _Complex *tail = x + (x_len - tail_len);
+      /* The live chain starts there whatever the chunking (#2974). The
+       * estimate ignores the refine chain's lag (the Dll's framing, the
+       * RateConverter's), so the refine decides at D, up to that lag past
+       * it -- 7 samples at 2.5 samples a chip, 231 at 3 samples a chip and
+       * 3000 sym/s -- and the start can lie in input an earlier call
+       * passed. The ring holds the last refine_hist_cap samples before
+       * this call, the most the refine can decide past its estimate (the
+       * field's comment derives it), so the start is reached at every
+       * chunking. A start the input has not reached yet is waited for, the
+       * refine decided and the receiver still refining.
+       *
+       * The fallback, for a refine whose lag the cap does not cover (a
+       * refine Dll drifting on noise; no signal geometry measured): a
+       * start before D - cap, the oldest sample held at every chunking,
+       * moves on to the first ceil(k * period) at or past it, k whole
+       * periods, the fraction carried in the phase. Where the cap covers the
+       * lag that point is at or before the estimate, so the estimate stands. A
+       * call that took nothing (the refine decided before it) holds a start at
+       * or past its first sample, so it needs nothing older. */
+      const uint64_t fed_total = state->refine_samples_fed;
+      uint64_t       held      = before;
+      if (taken)
+        {
+          const uint64_t d   = before + (uint64_t)taken;
+          const uint64_t cap = (uint64_t)state->refine_hist_cap;
+          /* The ring holds min(before, cap) samples behind x (set_state
+             takes no other count), so a start at or past this is held. */
+          held = d > cap ? d - cap : 0;
+        }
+      const uint64_t held_start = adr_period_start_at (period, held);
+      if (samples_consumed_refine < held_start)
+        samples_consumed_refine = held_start;
+      if (samples_consumed_refine > fed_total)
+        {
+          adr_refine_hist_push (state, x, x_len);
+          return 0; /* the live chain's first sample is still to come */
+        }
+      const size_t tail_len = (size_t)(fed_total - samples_consumed_refine);
+      const float _Complex *tail;
+      float _Complex       *join = NULL;
+      if (tail_len > x_len)
+        {
+          /* Behind this call: the ring's newest samples, which end at
+             x[0]. */
+          const size_t need = tail_len - x_len;
+          join              = dp_xmallocn (tail_len, sizeof *join);
+          adr_refine_hist_tail (state, join, need);
+          memcpy (join + need, x, x_len * sizeof *join);
+          tail = join;
+        }
+      else
+        tail = x + (x_len - tail_len);
+      /* This call is the refine's too, so the ring keeps every refine
+         sample, the hand-over's included: it always holds
+         min(refine_samples_fed, cap), the one count set_state accepts. */
+      adr_refine_hist_push (state, x, x_len);
 
       /* The code phase the live chain starts from: the seed's, ADVANCED by
        * the clock dilation over the refine. A whole number of periods is
@@ -1808,16 +1944,18 @@ adr_steps (dp_async_dsss_receiver_state_t *state, const float _Complex *x,
           state->doppler_hz_est      = 0.0;
           adr_restart_search (state, state->samples_in - tail_len);
           adr_enter (state, adr_unheld (state));
-          return adr_steps (state, tail, tail_len, out, max_out);
         }
-      adr_rebuild_track_chain (state, handover_chip_phase,
-                               refined_doppler_hz_est, state->segments,
-                               state->sps, state->n);
-
-      adr_enter (state, ASYNC_DSSS_RX_TRACKING);
-      state->doppler_hz_est = refined_doppler_hz_est;
-
-      return adr_steps (state, tail, tail_len, out, max_out);
+      else
+        {
+          adr_rebuild_track_chain (state, handover_chip_phase,
+                                   refined_doppler_hz_est, state->segments,
+                                   state->sps, state->n);
+          adr_enter (state, ASYNC_DSSS_RX_TRACKING);
+          state->doppler_hz_est = refined_doppler_hz_est;
+        }
+      const size_t n_out = adr_steps (state, tail, tail_len, out, max_out);
+      free (join);
+      return n_out;
     }
 
   size_t n_out = adr_track_chain (state, x, x_len, out, max_out);
@@ -1853,10 +1991,10 @@ dp_async_dsss_receiver_configure_search_raw (
     dp_async_dsss_receiver_state_t *state, size_t doppler_bins,
     size_t n_noncoh)
 {
-  const int rc
-      = dp_acq_configure_search_raw (state->acq, doppler_bins, n_noncoh);
-  /* An accepted search config drains the engine (dp_acq_reset()), so its
-     next dwell starts on the block grid like any restarted search's. */
+  const int rc = dp_correlator_configure_search_raw (state->acq, doppler_bins,
+                                                     n_noncoh, NULL);
+  /* An accepted search config drains the engine (dp_correlator_reset()), so
+     its next dwell starts on the block grid like any restarted search's. */
   if (rc == 0)
     state->align_pending = true;
   return rc;
@@ -1866,7 +2004,7 @@ int
 dp_async_dsss_receiver_set_threads (dp_async_dsss_receiver_state_t *state,
                                     int                             n)
 {
-  return dp_acq_set_threads (state->acq, n);
+  return dp_correlator_set_threads (state->acq, n);
 }
 
 int
@@ -1961,14 +2099,14 @@ int
 dp_async_dsss_receiver_get_threads (
     const dp_async_dsss_receiver_state_t *state)
 {
-  return state->acq->threads;
+  return state->acq->search->threads;
 }
 
 size_t
 dp_async_dsss_receiver_get_coherent_bins (
     const dp_async_dsss_receiver_state_t *state)
 {
-  return state->acq->coherent_bins;
+  return state->acq->search->coherent_bins;
 }
 
 int
@@ -2206,7 +2344,8 @@ size_t
 dp_async_dsss_receiver_state_bytes (const dp_async_dsss_receiver_state_t *s)
 {
   return sizeof (dp_state_hdr_t) + sizeof (async_dsss_receiver_extra_t)
-         + dp_acq_state_bytes (s->acq) + dp_costas_state_bytes (&s->car_frozen)
+         + dp_correlator_state_bytes (s->acq)
+         + dp_costas_state_bytes (&s->car_frozen)
          + dp_dll_state_bytes (s->refine_dll)
          + dp_RateConverter_state_bytes (s->refine_rc)
          + dp_carrier_acq_state_bytes (s->ca) + dp_costas_state_bytes (&s->car)
@@ -2215,7 +2354,8 @@ dp_async_dsss_receiver_state_bytes (const dp_async_dsss_receiver_state_t *s)
          + dp_mpsk_receiver_state_bytes (s->rx)
          + (s->srch_rs ? dp_resamp_state_bytes (s->srch_rs) : 0)
          + s->srch_hist_cap * sizeof (float _Complex)
-         + s->tsamps * sizeof (float _Complex);
+         + s->tsamps * sizeof (float _Complex)
+         + s->refine_hist_cap * sizeof (float _Complex);
 }
 
 void
@@ -2249,7 +2389,7 @@ dp_async_dsss_receiver_get_state (const dp_async_dsss_receiver_state_t *s,
     .refine_min_blocks   = (uint64_t)s->refine_min_blocks,
     .samples_in          = s->samples_in,
     .align_pending       = (uint64_t)(s->align_pending != 0),
-    .threads             = (int64_t)s->acq->threads,
+    .threads             = (int64_t)s->acq->search->threads,
     .rank                = (uint64_t)s->rank,
     .n_excl              = (uint64_t)s->n_excl,
     .srch_origin         = s->srch_origin,
@@ -2258,13 +2398,15 @@ dp_async_dsss_receiver_get_state (const dp_async_dsss_receiver_state_t *s,
     .pooled              = (uint64_t)(s->pooled != 0),
     .pick_want           = (uint64_t)s->pick_want,
     .n_picks             = (uint64_t)s->n_picks,
+    .refine_hist_cap     = (uint64_t)s->refine_hist_cap,
+    .refine_hist_len     = (uint64_t)s->refine_hist_len,
   };
   memcpy (extra.excl, s->excl, sizeof extra.excl); /* tail kept zeroed */
   memcpy (extra.pick_phase, s->pick_phase, sizeof extra.pick_phase);
   memcpy (extra.pick_doppler, s->pick_doppler, sizeof extra.pick_doppler);
   memcpy (extra.pick_cn0, s->pick_cn0, sizeof extra.pick_cn0);
   dp_w_bytes (&_w, &extra, sizeof extra);
-  DP_W_CHILD (&_w, dp_acq, s->acq);
+  DP_W_CHILD (&_w, dp_correlator, s->acq);
   DP_W_CHILD (&_w, dp_costas, &s->car_frozen);
   DP_W_CHILD (&_w, dp_dll, s->refine_dll);
   DP_W_CHILD (&_w, dp_RateConverter, s->refine_rc);
@@ -2286,6 +2428,16 @@ dp_async_dsss_receiver_get_state (const dp_async_dsss_receiver_state_t *s,
      earlier period's or dp_xmalloc's, not state (#2076's sibling). */
   dp_w_cf32 (&_w, s->car_carry_buf, s->car_carry_len);
   dp_w_zeros (&_w, (s->tsamps - s->car_carry_len) * sizeof (float _Complex));
+  /* The hand-over's ring, oldest first, then zeros. */
+  {
+    const size_t cap   = s->refine_hist_cap;
+    const size_t len   = s->refine_hist_len;
+    const size_t start = (s->refine_hist_head + cap - len) % cap;
+    const size_t first = cap - start < len ? cap - start : len;
+    dp_w_cf32 (&_w, s->refine_hist + start, first);
+    dp_w_cf32 (&_w, s->refine_hist, len - first);
+    dp_w_zeros (&_w, (cap - len) * sizeof (float _Complex));
+  }
 }
 
 int
@@ -2310,7 +2462,12 @@ dp_async_dsss_receiver_set_state (dp_async_dsss_receiver_state_t *s,
       || extra.rank >= ASYNC_DSSS_RX_MAX_PEAKS
       || extra.n_excl > ASYNC_DSSS_RX_MAX_EXCLUSIONS
       || extra.srch_origin > extra.samples_in
-      || extra.srch_hist_len > (uint64_t)s->srch_hist_cap)
+      || extra.srch_hist_len > (uint64_t)s->srch_hist_cap
+      || extra.refine_hist_cap != (uint64_t)s->refine_hist_cap
+      || extra.refine_hist_len
+             != (extra.refine_samples_fed < extra.refine_hist_cap
+                     ? extra.refine_samples_fed
+                     : extra.refine_hist_cap))
     return DP_ERR_INVALID;
   /* Only what set_exclusions() can leave: folded phases, a zeroed tail. */
   for (size_t i = 0; i < ASYNC_DSSS_RX_MAX_EXCLUSIONS; i++)
@@ -2340,7 +2497,7 @@ dp_async_dsss_receiver_set_state (dp_async_dsss_receiver_state_t *s,
   if (!dp_async_dsss_receiver_seed_ok (s, extra.seed_chip_phase,
                                        extra.seed_doppler_hz_est))
     return DP_ERR_INVALID;
-  DP_R_CHILD (&_r, dp_acq, s->acq);
+  DP_R_CHILD (&_r, dp_correlator, s->acq);
   DP_R_CHILD (&_r, dp_costas, &s->car_frozen);
   DP_R_CHILD (&_r, dp_dll, s->refine_dll);
   DP_R_CHILD (&_r, dp_RateConverter, s->refine_rc);
@@ -2355,6 +2512,9 @@ dp_async_dsss_receiver_set_state (dp_async_dsss_receiver_state_t *s,
   if (s->srch_hist_cap)
     dp_r_cf32 (&_r, s->srch_hist, s->srch_hist_cap);
   dp_r_cf32 (&_r, s->car_carry_buf, s->tsamps);
+  dp_r_cf32 (&_r, s->refine_hist, s->refine_hist_cap);
+  s->refine_hist_len     = (size_t)extra.refine_hist_len;
+  s->refine_hist_head    = s->refine_hist_len % s->refine_hist_cap;
   s->state               = extra.state;
   s->seed_chip_phase     = extra.seed_chip_phase;
   s->seed_doppler_hz_est = extra.seed_doppler_hz_est;
@@ -2389,7 +2549,7 @@ dp_async_dsss_receiver_set_state (dp_async_dsss_receiver_state_t *s,
   memcpy (s->pick_cn0, extra.pick_cn0, sizeof s->pick_cn0);
   /* set_threads()'s value (#2022): the same request the writer's last
      call made, which on a machine with as many cores runs as many. */
-  if (extra.threads != (int64_t)s->acq->threads)
-    (void)dp_acq_set_threads (s->acq, (int)extra.threads);
+  if (extra.threads != (int64_t)s->acq->search->threads)
+    (void)dp_correlator_set_threads (s->acq, (int)extra.threads);
   return DP_OK;
 }

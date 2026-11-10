@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
     from datetime import timedelta
 
 
-@dataclass
 class MediaStream(ClientValue):
     audioCodec: AudioCodec = AudioCodec.unknown
     averageAudioDegradation: float | None = None

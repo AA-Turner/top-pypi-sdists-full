@@ -1,7 +1,12 @@
 """abtest CLI: init, seal, run (dry and fake-live), score, prune-run, resume; through the fake claude."""
+import hashlib
+import importlib.util
 import json
 import os
+import re
 import shutil
+import signal
+import subprocess
 import sys
 import tarfile
 import time
@@ -329,6 +334,7 @@ def test_ctrl_c_still_writes_result_and_journal_then_reraises(tmp_path, scratch_
     res = json.loads((arm / "result.json").read_text(encoding="utf-8"))
     assert res["stop_reason"] == "interrupted" and not (arm / "cfg").exists()
     assert not (scratch_repo / ".claude" / "worktrees" / f"abx-{run_dir.name}-r1-C").exists()
+    assert _lock_is_free(run_dir), "a Ctrl-C left the run dir locked"
 
 
 def _fabricate_arm(run_dir, round_no, *, cache_read, stop_reason="finished", guard_changes=()):
@@ -378,6 +384,40 @@ def test_score_flags_an_arm_whose_store_changed_without_voiding_it(tmp_path, scr
     assert data["arms"]["r2-C"]["store_guard"] == "clean" and data["arms"]["r2-C"]["store_changes"] == []
 
 
+def test_score_text_names_subagents_ideas_and_the_suite_outcome(tmp_path, scratch_repo, skills_repo, capsys):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo, n=2)
+    assert T.main(["seal", str(run_dir)]) == 0
+    _fabricate_arm(run_dir, 1, cache_read=11000)
+    _fabricate_arm(run_dir, 2, cache_read=11000)
+    arm = run_dir / "arms" / "r1-C"
+    sub = arm / "transcripts" / "-ws" / "s1" / "subagents"
+    sub.mkdir(parents=True)
+    for name in ("a", "b"):
+        stamps = [json.dumps({"timestamp": f"2026-11-08T10:0{m}:00Z"}) for m in (0, 5)]
+        (sub / f"agent-{name}.jsonl").write_text("\n".join(stamps) + "\n", encoding="utf-8")
+    bash = {"type": "tool_use", "id": "t1", "name": "Bash",
+            "input": {"command": 'echo "[abx] idea=3 reviewed twice" >> .bitranox/sdd/progress.md'}}
+    (arm / "stream.jsonl").write_text(json.dumps({"type": "assistant", "message": {"id": "m", "content": [bash]}})
+                                      + "\n", encoding="utf-8")
+    (arm / "floor-suite.log").write_text((FIXTURES / "cargo-test-failed.log").read_text(encoding="utf-8"),
+                                         encoding="utf-8")
+    res = json.loads((arm / "result.json").read_text(encoding="utf-8"))
+    res["floor"] = {"passed": False, "steps": [{"name": "gate", "rc": 0, "error": None},
+                                               {"name": "suite", "rc": 101, "error": None}]}
+    (arm / "result.json").write_text(json.dumps(res), encoding="utf-8")
+    capsys.readouterr()
+    assert T.main(["score", str(run_dir)]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    r1 = next(ln for ln in lines if ln.startswith("r1-C:"))
+    r2 = next(ln for ln in lines if ln.startswith("r2-C:"))
+    assert "subagents=2(max 2 at once)" in r1 and "ideas=3x1" in r1 and "suite=tests_failed(2 of 10)" in r1, r1
+    assert "gate=passed" in r1, r1
+    assert "  r1-C idea 3: [abx] idea=3 reviewed twice" in lines, lines
+    assert "subagents=- ideas=- suite=- gate=-" in r2, r2
+    assert re.search(r"gate=passed commits=\d+", r1), r1
+    assert lines[-1] == T.SUITE_LEGEND, lines
+
+
 def test_prune_run_deletes_the_branches(tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch):
     run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
     env, creds = _env(fake_claude_path, tmp_path)
@@ -386,6 +426,45 @@ def test_prune_run_deletes_the_branches(tmp_path, scratch_repo, skills_repo, fak
     assert T.main(_run_args(run_dir, creds, skills_repo, "--dry-run")) == 0
     assert T.main(["prune-run", str(run_dir)]) == 0
     assert L.git(scratch_repo, "branch", "--list", f"abx/{run_dir.name}/*").stdout.strip() == ""
+
+
+def test_prune_run_bundles_every_branch_before_deleting_them(tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--dry-run")) == 0
+    # a set-aside attempt branch: no arm's own bundle.git covers it, the run-wide bundle must
+    L.git(scratch_repo, "branch", f"abx/{run_dir.name}/r1-C.attempt-1", "HEAD")
+    before = sorted(L.git(scratch_repo, "branch", "--list", f"abx/{run_dir.name}/*", "--format=%(refname)").stdout.split())
+    assert len(before) >= 2
+    assert T.main(["prune-run", str(run_dir)]) == 0
+    bundle = run_dir / "branches.bundle"
+    assert bundle.is_file()
+    heads = subprocess.run(["git", "bundle", "list-heads", str(bundle)], capture_output=True, text=True, check=True).stdout
+    assert sorted(line.split()[1] for line in heads.splitlines()) == before
+    # a second prune finds no branch and must not replace the bundle with an empty one
+    assert T.main(["prune-run", str(run_dir)]) == 0
+    assert bundle.is_file() and len(heads.splitlines()) == len(before)
+
+
+def test_prune_run_deletes_no_branch_when_the_bundle_cannot_be_written(tmp_path, scratch_repo, skills_repo, fake_claude_path,
+                                                                      monkeypatch):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--dry-run")) == 0
+    before = L.git(scratch_repo, "branch", "--list", f"abx/{run_dir.name}/*").stdout
+    assert before.strip()
+    run_dir.chmod(0o555)  # the bundle cannot be created in a read-only run dir
+    try:
+        if os.access(run_dir, os.W_OK):
+            pytest.skip("the run dir stays writable here (running as root)")
+        assert T.main(["prune-run", str(run_dir)]) == 2
+    finally:
+        run_dir.chmod(0o755)
+    assert L.git(scratch_repo, "branch", "--list", f"abx/{run_dir.name}/*").stdout == before
 
 
 # --- review round: pause on a refused request, leftovers of a killed attempt, refusals ------------
@@ -1376,3 +1455,377 @@ def test_run_refuses_a_prompt_whose_sha_differs_from_the_seal_row(tmp_path, scra
     capsys.readouterr()
     assert T.main(_run_args(run_dir, creds, skills_repo, "--dry-run", "--only", "C", "--json")) == 2
     assert "the prompt of arm Vbare (task-bare.md) differs from the seal" in json.loads(capsys.readouterr().out)["data"]["error"]
+
+
+def _moved_config(tmp_path, monkeypatch):
+    """HOME at tmp/home, CLAUDE_CONFIG_DIR at tmp/arm: (home, arm)."""
+    home, arm = tmp_path / "home", tmp_path / "arm"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(arm))
+    return home, arm
+
+
+def test_the_default_login_and_skills_clone_follow_claude_config_dir(tmp_path, monkeypatch):
+    _, arm = _moved_config(tmp_path, monkeypatch)
+    assert T.default_credentials() == arm / ".credentials.json"
+    assert T.default_skills_repo() == arm / "plugins" / "marketplaces" / "bitranox-skills"
+    args = T.build_parser().parse_args(["run", str(tmp_path / "run")])
+    assert (args.credentials, args.skills_repo) == (None, None)    # resolved per run, not at build
+
+
+def test_user_config_dir_answers_like_the_plugin_rule(tmp_path, monkeypatch):
+    # abarm keeps a copy of hooks/claude_paths.config_dir(); pin the two to the same answers.
+    hooks = Path(__file__).resolve().parents[3] / "hooks" / "claude_paths.py"
+    spec = importlib.util.spec_from_file_location("_claude_paths_for_parity", hooks)
+    rule = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rule)
+    home, arm = _moved_config(tmp_path, monkeypatch)
+    for value in (str(arm), "", "   ", None):
+        if value is None:
+            monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+        else:
+            monkeypatch.setenv("CLAUDE_CONFIG_DIR", value)
+        assert A.user_config_dir() == rule.config_dir(), value
+    assert A.user_config_dir() == home / ".claude"
+
+
+# --- one `run` per run dir: the lock, and SIGTERM taking the Ctrl-C path -------------------------
+
+ABTEST = Path(T.__file__).resolve()
+LOCK_FILE = "run.lock"  # spelt out, so the test reads RED (not AttributeError) on a harness without it
+# Run by the fake claude after its commit: says the session started, then holds it until the
+# test writes RELEASE (bounded, so a run that is never released still ends).
+_HOLDS_THE_SESSION = """
+import time
+from pathlib import Path
+Path(MARKER).write_text("held", encoding="utf-8")
+for _ in range(400):
+    if Path(RELEASE).exists():
+        break
+    time.sleep(0.05)
+"""
+
+
+def _lock_is_free(run_dir):
+    """Whether run.lock exists and nobody holds it (a fresh flock on it succeeds at once)."""
+    fcntl = pytest.importorskip("fcntl")
+    path = run_dir / LOCK_FILE
+    if not path.is_file():
+        return False
+    with path.open("r+", encoding="utf-8") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        fcntl.flock(fh, fcntl.LOCK_UN)
+    return True
+
+
+def _wait_for(path, seconds=90.0):
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def _held_child(tmp_path, run_dir, creds, skills_repo, env):
+    """`abtest.py run` in a child process whose one arm's session is held open; (child, marker, release, script)."""
+    marker, release, script = tmp_path / "session-held", tmp_path / "release", tmp_path / "hold.py"
+    script.write_text(_HOLDS_THE_SESSION.replace("MARKER", repr(str(marker))).replace("RELEASE", repr(str(release))),
+                      encoding="utf-8")
+    child_env = dict(os.environ, **env, FAKE_CLAUDE_SCRIPT=str(script))
+    argv = [sys.executable, str(ABTEST), *_run_args(run_dir, creds, skills_repo, "--only", "C", "--stop-grace-s", "1")]
+    child = subprocess.Popen(argv, env=child_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,  # nosec B603
+                             text=True, encoding="utf-8", start_new_session=True)
+    return child, marker, release, script
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="flock and SIGTERM delivery are POSIX here")
+def test_a_second_run_on_a_held_run_dir_is_refused_and_sigterm_ends_the_first_like_ctrl_c(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch, capsys):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path)
+    assert T.main(["seal", str(run_dir)]) == 0
+    child, marker, release, script = _held_child(tmp_path, run_dir, creds, skills_repo, env)
+    cfg = run_dir / "arms" / "r1-C" / "cfg"
+    try:
+        assert _wait_for(marker), "the first run's session never started"
+        assert cfg.is_dir() and not _lock_is_free(run_dir)
+        # The first run's own environment: a harness without the lock would sweep the held arm's
+        # config dir and set its arm aside before running it again.
+        _use_env(monkeypatch, dict(env, FAKE_CLAUDE_SCRIPT=str(script)))
+        capsys.readouterr()
+        rc = T.main(_run_args(run_dir, creds, skills_repo, "--only", "C", "--json"), login_check=_Probe("ok"))
+        out = json.loads(capsys.readouterr().out)
+        assert rc == 2 and out["ok"] is False, out
+        assert LOCK_FILE in out["data"]["error"] and f"pid {child.pid}" in out["data"]["error"], out
+        assert cfg.is_dir(), "the refused run swept the held arm's config dir"
+        assert not (run_dir / "arms" / "r1-C.attempt-1").exists(), "the refused run set the held arm aside"
+        os.kill(child.pid, signal.SIGTERM)
+        _, err = child.communicate(timeout=120)
+    finally:
+        release.write_text("go", encoding="utf-8")
+        if child.poll() is None:
+            os.killpg(child.pid, signal.SIGKILL)
+            child.wait()
+    assert child.returncode == 130, err
+    assert "interrupted" in err
+    assert _arm_rows(run_dir) == [(1, "C", "interrupted")]
+    res = json.loads((run_dir / "arms" / "r1-C" / "result.json").read_text(encoding="utf-8"))
+    assert res["stop_reason"] == "interrupted" and not cfg.exists()
+    assert _lock_is_free(run_dir), "SIGTERM left the run dir locked"
+
+
+def test_a_run_takes_the_lock_and_frees_it_and_the_sigterm_handler_at_its_end(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    before = signal.getsignal(signal.SIGTERM)
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    assert signal.getsignal(signal.SIGTERM) is before, "run left its SIGTERM handler installed"
+    assert _lock_is_free(run_dir), "a finished run left the run dir locked"
+    assert (run_dir / LOCK_FILE).read_text(encoding="utf-8").strip() == str(os.getpid()), "the lock names its holder"
+    assert LOCK_FILE not in L.git(run_dir, "status", "--porcelain").stdout, "the lock file is gitignored"
+
+
+# --- [workpiece] link: a gitignored build prerequisite linked into every arm's worktree ----------
+
+PROTOC = Path(".packages") / "protoc" / "bin" / "protoc"
+NEEDS_PROTOC = '["sh", "-c", "test -x .packages/protoc/bin/protoc"]'
+
+
+def _plant_packages(repo, *, exclude_line="/.packages"):
+    """A gitignored .packages dir holding an executable protoc, as a build script would leave it."""
+    tool = repo / PROTOC
+    tool.parent.mkdir(parents=True)
+    tool.write_text("#!/bin/sh\necho protoc\n", encoding="utf-8")
+    tool.chmod(0o755)
+    if exclude_line is not None:
+        with (repo / ".git" / "info" / "exclude").open("a", encoding="utf-8") as fh:
+            fh.write(f"\n{exclude_line}\n")
+
+
+def _with_link(run_dir, entries='[".packages"]'):
+    toml = run_dir / "abtest.toml"
+    text = toml.read_text(encoding="utf-8")
+    assert text.count('task_file = "task.md"\n') == 1
+    toml.write_text(text.replace('task_file = "task.md"\n', f'task_file = "task.md"\nlink = {entries}\n'), encoding="utf-8")
+
+
+def test_a_linked_prerequisite_reaches_the_arms_floor_and_survives_prune_run(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch, capsys):
+    _plant_packages(scratch_repo)
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo, gate=NEEDS_PROTOC)
+    _with_link(run_dir)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    arm = run_dir / "arms" / "r1-C"
+    res = json.loads((arm / "result.json").read_text(encoding="utf-8"))
+    assert res["floor"]["passed"] is True, res["floor"]
+    assert res["linked"] == [".packages"]
+    assert not (arm / A.UNTRACKED_TAR).exists(), "the link was saved as the arm's own untracked work"
+    assert T.main(["prune-run", str(run_dir)]) == 0
+    assert (scratch_repo / PROTOC).is_file(), "removing the arm's worktree deleted the workpiece's real dir"
+    assert not _ws(scratch_repo, run_dir, "r1-C").exists()
+
+
+def test_without_the_link_the_same_gate_fails(tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch):
+    _plant_packages(scratch_repo)
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo, gate=NEEDS_PROTOC)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    res = json.loads((run_dir / "arms" / "r1-C" / "result.json").read_text(encoding="utf-8"))
+    assert res["floor"]["passed"] is False and res["linked"] == []
+
+
+# CI has no global git identity: a commit made through L.git needs its own.
+_IDENTITY = ("-c", "user.name=t", "-c", "user.email=t@x")
+
+
+def _track_packages(repo):
+    for args in (("add", "-f", str(PROTOC)), (*_IDENTITY, "commit", "-q", "-m", "vendor protoc")):
+        assert L.git(repo, *args).returncode == 0
+
+
+@pytest.mark.parametrize(("setup", "named"), [
+    ("missing", "workpiece.link: .packages does not exist in the workpiece"),
+    ("tracked", "workpiece.link: .packages is tracked by git"),
+    ("not_ignored", "workpiece.link: .packages is not ignored by git"),
+    ("negated", "workpiece.link: .packages is not ignored by git"),
+    ("dir_only", "workpiece.link: .packages is ignored only as a directory (.packages/)"),
+])
+def test_seal_refuses_a_link_that_is_not_ignored_build_output(tmp_path, scratch_repo, skills_repo, capsys, setup, named):
+    if setup != "missing":
+        _plant_packages(scratch_repo, exclude_line={"tracked": "/.packages", "not_ignored": None,
+                                                    "negated": "/.packages\n!/.packages",
+                                                    "dir_only": ".packages/"}[setup])
+    if setup == "tracked":
+        _track_packages(scratch_repo)
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    _with_link(run_dir)
+    capsys.readouterr()
+    assert T.main(["seal", str(run_dir)]) == 2
+    err = capsys.readouterr().err
+    assert named in err, err
+    assert not (run_dir / "journal.jsonl").exists(), "a refused seal recorded nothing"
+
+
+def _commit_file(repo, rel, text):
+    (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+    (repo / rel).write_text(text, encoding="utf-8")
+    for args in (("add", rel), (*_IDENTITY, "commit", "-q", "-m", f"add {rel}")):
+        assert L.git(repo, *args).returncode == 0
+
+
+@pytest.mark.parametrize("layout", ["dir_only_beside_a_symlink_pattern", "nested_gitignore"])
+def test_seal_accepts_a_link_git_ignores_as_a_symlink_and_the_arm_gets_it(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch, layout):
+    """The .gitignore files that decide are the ones a worktree has, so the seal check reads those."""
+    if layout == "dir_only_beside_a_symlink_pattern":
+        # The tracked .gitignore wins over info/exclude for the directory, but not for the symlink.
+        _commit_file(scratch_repo, ".gitignore", "CLAUDE.local.md\n.packages/\n")
+        _plant_packages(scratch_repo)
+        entry, gate = ".packages", NEEDS_PROTOC
+    else:
+        _commit_file(scratch_repo, "third_party/.gitignore", "/protoc\n")
+        (scratch_repo / "third_party" / "protoc").mkdir()
+        (scratch_repo / "third_party" / "protoc" / "README").write_text("vendored\n", encoding="utf-8")
+        entry, gate = "third_party/protoc", '["test", "-f", "third_party/protoc/README"]'
+    (scratch_repo / ".base").write_text(L.git(scratch_repo, "rev-parse", "HEAD").stdout.strip(), encoding="utf-8")
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo, gate=gate)
+    _with_link(run_dir, f'["{entry}"]')
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    res = json.loads((run_dir / "arms" / "r1-C" / "result.json").read_text(encoding="utf-8"))
+    assert res["floor"]["passed"] is True and res["linked"] == [entry]
+
+
+# --- [run] unattended_note and the ended-with-a-question flag -------------------------------------
+
+NOTE = "No human reads this session. Never stop to ask; decide, record why, and finish."
+
+
+def _with_note(run_dir, note=NOTE):
+    toml = run_dir / "abtest.toml"
+    text = toml.read_text(encoding="utf-8")
+    assert text.count("\nmax_tokens = ") == 1
+    toml.write_text(text.replace("\nmax_tokens = ", f"\nunattended_note = {json.dumps(note)}\nmax_tokens = "),
+                    encoding="utf-8")
+
+
+def test_the_unattended_note_reaches_every_arms_prompt_and_every_record_names_it(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch, capsys):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    _add_bare(run_dir)
+    _with_note(run_dir)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    for arm in ("C", "V1", "Vbare"):
+        assert T.main(_run_args(run_dir, creds, skills_repo, "--only", arm), login_check=_Probe("ok")) == 0
+    prompts = {arm: _session_line(run_dir, f"r1-{arm}")["prompt"] for arm in ("C", "V1", "Vbare")}
+    assert prompts == {"C": f"Do the task.\n\n{NOTE}\n", "V1": f"Do the task.\n\n{NOTE}\n",
+                       "Vbare": f"{BARE_TASK}\n{NOTE}\n"}, "every arm, the bare one too, gets the same note"
+    sha = hashlib.sha256(NOTE.encode("utf-8")).hexdigest()
+    rows = [r for r in L.read_jsonl(run_dir / "journal.jsonl") if r["step"] == "arm"]
+    assert [(r["arm"], r["unattended_note_sha256"]) for r in rows] == [("C", sha), ("V1", sha), ("Vbare", sha)]
+    for arm in ("C", "V1", "Vbare"):
+        res = json.loads((run_dir / "arms" / f"r1-{arm}" / "result.json").read_text(encoding="utf-8"))
+        assert res["unattended_note_sha256"] == sha
+
+
+def test_without_a_note_the_prompt_is_the_task_alone_and_the_record_says_none(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    assert _session_line(run_dir, "r1-C")["prompt"] == "Do the task.\n"
+    (row,) = [r for r in L.read_jsonl(run_dir / "journal.jsonl") if r["step"] == "arm"]
+    assert row["unattended_note_sha256"] is None
+
+
+def _question_stream(tmp_path, last_words):
+    """The control session with one more opus message whose text is `last_words`."""
+    rows = [json.loads(line) for line in (FIXTURES / "stream-control.jsonl").read_text(encoding="utf-8").splitlines()]
+    said = {"type": "assistant", "message": {"id": "msg_2", "model": "claude-opus-5-5",
+                                             "content": [{"type": "text", "text": last_words}],
+                                             "usage": {"input_tokens": 1, "output_tokens": 1}}}
+    path = tmp_path / "stream-question.jsonl"
+    path.write_text("".join(json.dumps(r) + "\n" for r in [*rows[:2], said, rows[2]]), encoding="utf-8")
+    return path
+
+
+def test_score_flags_an_arm_that_ended_by_asking_and_still_counts_it(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch, capsys):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path, stream=_question_stream(tmp_path, "The plan is ready. Shall I start?"))
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    res = json.loads((run_dir / "arms" / "r1-C" / "result.json").read_text(encoding="utf-8"))
+    assert res["last_text"] == "The plan is ready. Shall I start?"
+    capsys.readouterr()
+    assert T.main(["score", str(run_dir), "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)["data"]
+    assert data["arms"]["r1-C"]["ended_with_question"] is True and data["arms"]["r1-C"]["void"] == []
+    assert data["flags"] == {"r1-C": "ended with a question: The plan is ready. Shall I start?"}
+    assert T.main(["score", str(run_dir)]) == 0
+    assert "FLAG ended with a question: The plan is ready. Shall I start?" in capsys.readouterr().out
+
+
+def test_the_question_flag_shows_the_end_of_a_long_last_text(
+        tmp_path, scratch_repo, skills_repo, fake_claude_path, monkeypatch, capsys):
+    words = "Report: " + "all done, " * 40 + "but which release branch should I tag?"
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    env, creds = _env(fake_claude_path, tmp_path, stream=_question_stream(tmp_path, words))
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    capsys.readouterr()
+    assert T.main(["score", str(run_dir), "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)["data"]
+    assert data["flags"] == {"r1-C": f"ended with a question: ...{words[-T.QUESTION_SHOWN:]}"}
+    assert data["arms"]["r1-C"]["last_text"] == words, "the score keeps the whole text"
+
+
+def test_a_store_change_and_a_question_flag_the_arm_together(tmp_path, scratch_repo, skills_repo, capsys):
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo)
+    assert T.main(["seal", str(run_dir)]) == 0
+    _fabricate_arm(run_dir, 1, cache_read=11000, guard_changes=["changed facts/x.md"])
+    arm = run_dir / "arms" / "r1-C"
+    said = {"type": "assistant", "message": {"id": "m", "model": "claude-opus-5-5",
+                                             "content": [{"type": "text", "text": "Merge it?"}]}}
+    (arm / "stream.jsonl").write_text(json.dumps(said) + "\n", encoding="utf-8")
+    capsys.readouterr()
+    assert T.main(["score", str(run_dir), "--json"]) == 0
+    flag = json.loads(capsys.readouterr().out)["data"]["flags"][arm.name]
+    assert flag == (f"store changed: 1 entries, adjudicate against arms/{arm.name}/transcripts/; "
+                    "ended with a question: Merge it?")
+
+
+def test_a_link_adds_no_bind_to_the_sandbox(tmp_path, scratch_repo, skills_repo, fake_claude_path, fake_bwrap, monkeypatch):
+    _plant_packages(scratch_repo)
+    run_dir = _init_and_fill(tmp_path, scratch_repo, skills_repo, gate=NEEDS_PROTOC, sandbox="bwrap")
+    _with_link(run_dir)
+    env, creds = _env(fake_claude_path, tmp_path)
+    _use_env(monkeypatch, env)
+    assert T.main(["seal", str(run_dir)]) == 0
+    assert T.main(_run_args(run_dir, creds, skills_repo, "--only", "C"), login_check=_Probe("ok")) == 0
+    session = [json.loads(line) for line in fake_bwrap.read_text(encoding="utf-8").splitlines()][-1]
+    assert not any(".packages" in a for a in session), "the link reaches the arm through the workpiece's read-only bind"
+    assert str(scratch_repo) in session
+    res = json.loads((run_dir / "arms" / "r1-C" / "result.json").read_text(encoding="utf-8"))
+    assert res["floor"]["passed"] is True and res["linked"] == [".packages"]

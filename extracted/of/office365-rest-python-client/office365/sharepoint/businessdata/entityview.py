@@ -3,17 +3,21 @@ from typing import Optional
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.businessdata.entityfield import EntityField
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class EntityView(Entity):
+    @odata(name="Name")
     @property
     def name(self) -> Optional[str]:
         """Gets the Name property"""
         return self.properties.get("Name", None)
 
+    @odata(name="RelatedSpecificFinderName")
     @property
     def related_specific_finder_name(self) -> Optional[str]:
         """Gets the RelatedSpecificFinderName property"""
@@ -23,6 +27,7 @@ class EntityView(Entity):
     def entity_type_name(self):
         return "SP.BusinessData.EntityView"
 
+    @odata(name="Fields", navigation=True)
     @property
     def fields(self) -> EntityCollection[EntityField]:
         """Gets the Fields property"""
@@ -31,6 +36,7 @@ class EntityView(Entity):
             EntityCollection[EntityField](self.context, EntityField, ResourcePath("Fields", self.resource_path)),
         )
 
+    @site_access(SiteLevel.READ)
     def get_type(self, field_dot_notation: str) -> ClientResult[str]:
         """GetType operation.
 
@@ -42,6 +48,7 @@ class EntityView(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_xml_schema(self) -> ClientResult[str]:
         """GetXmlSchema operation."""
         return_type = ClientResult(self.context, str())

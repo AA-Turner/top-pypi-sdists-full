@@ -42,6 +42,7 @@ from .paginator import (
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
     ListClusterEventsPaginator,
+    ListClusterExtensionsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -160,6 +161,8 @@ from .type_defs import (
     CreateAutoMLJobResponseTypeDef,
     CreateAutoMLJobV2RequestTypeDef,
     CreateAutoMLJobV2ResponseTypeDef,
+    CreateClusterExtensionRequestTypeDef,
+    CreateClusterExtensionResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
     CreateClusterSchedulerConfigRequestTypeDef,
@@ -298,6 +301,8 @@ from .type_defs import (
     DeleteArtifactResponseTypeDef,
     DeleteAssociationRequestTypeDef,
     DeleteAssociationResponseTypeDef,
+    DeleteClusterExtensionRequestTypeDef,
+    DeleteClusterExtensionResponseTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
     DeleteClusterSchedulerConfigRequestTypeDef,
@@ -386,6 +391,8 @@ from .type_defs import (
     DescribeAutoMLJobV2ResponseTypeDef,
     DescribeClusterEventRequestTypeDef,
     DescribeClusterEventResponseTypeDef,
+    DescribeClusterExtensionRequestTypeDef,
+    DescribeClusterExtensionResponseTypeDef,
     DescribeClusterNodeRequestTypeDef,
     DescribeClusterNodeResponseTypeDef,
     DescribeClusterRequestTypeDef,
@@ -564,6 +571,8 @@ from .type_defs import (
     ListCandidatesForAutoMLJobResponseTypeDef,
     ListClusterEventsRequestTypeDef,
     ListClusterEventsResponseTypeDef,
+    ListClusterExtensionsRequestTypeDef,
+    ListClusterExtensionsResponseTypeDef,
     ListClusterNodesRequestTypeDef,
     ListClusterNodesResponseTypeDef,
     ListClusterSchedulerConfigsRequestTypeDef,
@@ -781,6 +790,8 @@ from .type_defs import (
     UpdateAppImageConfigResponseTypeDef,
     UpdateArtifactRequestTypeDef,
     UpdateArtifactResponseTypeDef,
+    UpdateClusterExtensionRequestTypeDef,
+    UpdateClusterExtensionResponseTypeDef,
     UpdateClusterRequestTypeDef,
     UpdateClusterResponseTypeDef,
     UpdateClusterSchedulerConfigRequestTypeDef,
@@ -1142,6 +1153,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_cluster.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#create_cluster)
+        """
+
+    def create_cluster_extension(
+        self, **kwargs: Unpack[CreateClusterExtensionRequestTypeDef]
+    ) -> CreateClusterExtensionResponseTypeDef:
+        """
+        Installs an extension, such as <code>sagemaker-observability</code>, on a
+        SageMaker HyperPod cluster orchestrated by Slurm.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_cluster_extension.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#create_cluster_extension)
         """
 
     def create_cluster_scheduler_config(
@@ -1871,6 +1893,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#delete_cluster)
         """
 
+    def delete_cluster_extension(
+        self, **kwargs: Unpack[DeleteClusterExtensionRequestTypeDef]
+    ) -> DeleteClusterExtensionResponseTypeDef:
+        """
+        Deletes an extension from a SageMaker HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_cluster_extension.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#delete_cluster_extension)
+        """
+
     def delete_cluster_scheduler_config(
         self, **kwargs: Unpack[DeleteClusterSchedulerConfigRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -2531,6 +2563,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_cluster_event.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_cluster_event)
+        """
+
+    def describe_cluster_extension(
+        self, **kwargs: Unpack[DescribeClusterExtensionRequestTypeDef]
+    ) -> DescribeClusterExtensionResponseTypeDef:
+        """
+        Retrieves information about an extension installed on a SageMaker HyperPod
+        cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_cluster_extension.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_cluster_extension)
         """
 
     def describe_cluster_node(
@@ -3437,6 +3480,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_events.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_events)
+        """
+
+    def list_cluster_extensions(
+        self, **kwargs: Unpack[ListClusterExtensionsRequestTypeDef]
+    ) -> ListClusterExtensionsResponseTypeDef:
+        """
+        Lists the extensions installed on a SageMaker HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_extensions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_extensions)
         """
 
     def list_cluster_nodes(
@@ -4632,6 +4685,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#update_cluster)
         """
 
+    def update_cluster_extension(
+        self, **kwargs: Unpack[UpdateClusterExtensionRequestTypeDef]
+    ) -> UpdateClusterExtensionResponseTypeDef:
+        """
+        Updates the configuration or the version of an extension installed on a
+        SageMaker HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_cluster_extension.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#update_cluster_extension)
+        """
+
     def update_cluster_scheduler_config(
         self, **kwargs: Unpack[UpdateClusterSchedulerConfigRequestTypeDef]
     ) -> UpdateClusterSchedulerConfigResponseTypeDef:
@@ -5208,6 +5272,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cluster_events"]
     ) -> ListClusterEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cluster_extensions"]
+    ) -> ListClusterExtensionsPaginator:
         """
         Create a paginator for an operation.
 

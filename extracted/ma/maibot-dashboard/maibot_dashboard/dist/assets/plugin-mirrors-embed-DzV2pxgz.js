@@ -1,0 +1,1 @@
+import{j as r}from"./index-B4TYyLv3.js";import{E as e}from"./embed-page-shell-BtLG72IT.js";import{PluginMirrorsPage as i}from"./plugin-mirrors-CCXzQc8o.js";function s(){return r.jsx(e,{shellId:"embed-plugin-mirrors",title:"插件商店设置 - MaiBot Dashboard",children:r.jsx(i,{embedded:!0})})}export{s as PluginMirrorsEmbedPage};

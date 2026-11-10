@@ -13,14 +13,16 @@
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
+import inspect
 import json
 import logging
-import math
 import posixpath
 import time
 from typing import Any, Mapping, Sequence
 
+from pathwaysutils import tpu_utils
 import yaml
 
 try:
@@ -42,10 +44,10 @@ PATHWAYS_HEAD_JOB_NAME = "pathways-head"
 PATHWAYS_WORKER_JOB_NAME = "pathways-worker"
 
 DEFAULT_PATHWAYS_RM_AND_WORKER_IMAGE = (
-    "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server"
+    "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server"
 )
 DEFAULT_PATHWAYS_PROXY_IMAGE = (
-    "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server"
+    "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server"
 )
 
 PATHWAYS_PROXY_PORT = 29000
@@ -86,6 +88,51 @@ MACHINE_TYPE_TO_GKE_ACCELERATOR_TYPE_MAP = {
 }
 
 
+@dataclasses.dataclass
+class _WorkerJob:
+  replicas: int
+  template: client.V1JobTemplateSpec
+  instance_type: str | None = None
+  name: str | None = None
+  overridden_env: frozenset[str] = frozenset()
+
+
+def _worker_job_names(worker_jobs: Sequence[_WorkerJob]) -> list[str]:
+  """Returns the replicatedJob names for worker_jobs."""
+  if len(worker_jobs) == 1:
+    return [PATHWAYS_WORKER_JOB_NAME]
+  return [
+      job.name if job.name is not None else f"{PATHWAYS_WORKER_JOB_NAME}-{i}"
+      for i, job in enumerate(worker_jobs)
+  ]
+
+
+def _parse_worker_topology(
+    tpu_type: str, topology: str, num_slices: int
+) -> tuple[str, str, int, int]:
+  """Validates worker slice settings and returns TPU and VM sizing."""
+  if num_slices <= 0:
+    raise ValueError(f"num_slices ({num_slices}) must be positive")
+  tpu_version = MACHINE_TYPE_TO_TPU_VERSION_MAP.get(tpu_type.lower())
+  if not tpu_version:
+    raise ValueError(f"Unsupported TPU type: {tpu_type}")
+  gke_accel_type = MACHINE_TYPE_TO_GKE_ACCELERATOR_TYPE_MAP[tpu_type.lower()]
+
+  total_chips = tpu_utils.parse_topology(topology)
+  chips_per_vm = 8 if tpu_type.lower().endswith("8t") else 4
+  if total_chips < chips_per_vm:
+    num_vms = 1
+  elif total_chips % chips_per_vm != 0:
+    raise ValueError(
+        f"Total chips ({total_chips}) for topology {topology!r} must be"
+        f" divisible by chips_per_vm ({chips_per_vm}) for {tpu_type!r}"
+    )
+  else:
+    num_vms = total_chips // chips_per_vm
+
+  return f"{tpu_version}:{topology}", gke_accel_type, num_vms, chips_per_vm
+
+
 def _format_image(image: str, default_tag: str) -> str:
   """Appends default_tag if image does not already specify a tag or digest."""
   if "@" in image:
@@ -99,12 +146,17 @@ def _format_image(image: str, default_tag: str) -> str:
 def _deserialize_dict(
     api_client: Any, data_dict: Mapping[str, Any], klass: Any
 ) -> Any:
+  """Deserializes a dictionary into a Kubernetes client model instance."""
+  raw = json.dumps(data_dict)
+  if "content_type" in inspect.signature(api_client.deserialize).parameters:
+    return api_client.deserialize(raw, klass, "application/json")
+
   class FakeResponse:
 
     def __init__(self, data):
       self.data = data
 
-  return api_client.deserialize(FakeResponse(json.dumps(data_dict)), klass)
+  return api_client.deserialize(FakeResponse(raw), klass)
 
 
 def _make_env_var(
@@ -195,7 +247,8 @@ def _apply_container_kwargs(
     container.env = merged_env
 
   for field, value in kwargs.items():
-    if getattr(container, field) is not None:
+    existing = getattr(container, field)
+    if existing is not None and existing != value:
       _logger.warning(
           "Replacing the default %s of the %s container.",
           field,
@@ -314,6 +367,10 @@ def _build_rm_container(
           ),
           client.V1ContainerPort(container_port=29002, protocol="TCP"),
       ],
+      readiness_probe=client.V1Probe(
+          tcp_socket=client.V1TCPSocketAction(port=PATHWAYS_RM_PORT),
+          period_seconds=1,
+      ),
       resources=client.V1ResourceRequirements(
           limits={"cpu": "8", "memory": "32G"}
       ),
@@ -346,7 +403,7 @@ def _build_proxy_container(
       f"--gcs_scratch_location={pathways_dir}",
   ]
   if elastic_slices > 0:
-    proxy_args.append(f"--num_elastic_slices={elastic_slices}")
+    proxy_args.append(f"--num_elastic_instances={elastic_slices}")
 
   proxy_env = [
       client.V1EnvVar(
@@ -375,6 +432,10 @@ def _build_proxy_container(
               container_port=PATHWAYS_PROXY_PORT, protocol="TCP"
           )
       ],
+      readiness_probe=client.V1Probe(
+          tcp_socket=client.V1TCPSocketAction(port=PATHWAYS_PROXY_PORT),
+          period_seconds=1,
+      ),
       resources=client.V1ResourceRequirements(
           limits={"cpu": "16", "memory": "100G"}
       ),
@@ -472,36 +533,25 @@ class PathwaysJobSet:
 
     self._name = name
     self._namespace = namespace
+    self._pathways_dir = pathways_dir
     self._jobset_api_version = jobset_api_version
     self._max_restarts = max_restarts
-    self._worker_replicas = num_slices
+    self._max_slice_restarts = max_slice_restarts
     self._labels = dict(labels) if labels else {}
     self._annotations = dict(annotations) if annotations else {}
 
+    instance_type, gke_accel_type, num_vms, chips_per_vm = (
+        _parse_worker_topology(tpu_type, topology, num_slices)
+    )
+    if elastic_slices < 0:
+      raise ValueError(f"elastic_slices ({elastic_slices}) cannot be negative")
     if elastic_slices > num_slices:
       raise ValueError(
           f"elastic_slices ({elastic_slices}) cannot be greater than "
           f"num_slices ({num_slices})"
       )
-    tpu_version = MACHINE_TYPE_TO_TPU_VERSION_MAP.get(tpu_type.lower())
-    if not tpu_version:
-      raise ValueError(f"Unsupported TPU type: {tpu_type}")
-
-    gke_accel_type = MACHINE_TYPE_TO_GKE_ACCELERATOR_TYPE_MAP.get(
-        tpu_type.lower()
-    )
-
-    # Calculate VMs.
-    dims = [int(x) for x in topology.split("x")]
-    total_chips = math.prod(dims)
-    chips_per_vm = 8 if tpu_type.lower().endswith("8t") else 4
-    if total_chips < chips_per_vm:
-      num_vms = 1
-    else:
-      num_vms = total_chips // chips_per_vm
-
-    instance_type = f"{tpu_version}:{topology}"
     image_tag = pathways_version
+    self._image_tag = image_tag
 
     # Build head template.
     self._head_job_template = self._build_head_job_template(
@@ -525,13 +575,17 @@ class PathwaysJobSet:
       worker_kwargs.setdefault(
           "termination_grace_period_seconds", termination_grace_period_seconds
       )
+    self._worker_pod_spec_kwargs = worker_kwargs
+    self._worker_container_kwargs = (
+        dict(worker_container_kwargs) if worker_container_kwargs else None
+    )
 
     # Build worker template.
     self._worker_job_template = self._build_worker_job_template(
         pathways_dir=pathways_dir,
         num_vms=num_vms,
         chips_per_vm=chips_per_vm,
-        gke_accel_type=gke_accel_type,  # pyrefly: ignore[bad-argument-type]
+        gke_accel_type=gke_accel_type,
         topology=topology,
         image_tag=image_tag,
         max_slice_restarts=max_slice_restarts,
@@ -539,6 +593,16 @@ class PathwaysJobSet:
         worker_pod_spec_kwargs=worker_kwargs,
         worker_container_kwargs=worker_container_kwargs,
     )
+    self._worker_jobs = [
+        _WorkerJob(
+            replicas=num_slices,
+            template=self._worker_job_template,
+            instance_type=instance_type,
+            overridden_env=frozenset(
+                (worker_container_kwargs or {}).get("env") or ()
+            ),
+        )
+    ]
 
     self._success_policy = None
 
@@ -549,6 +613,10 @@ class PathwaysJobSet:
   @property
   def worker_job_template(self) -> client.V1JobTemplateSpec:
     return self._worker_job_template
+
+  @property
+  def worker_job_templates(self) -> tuple[client.V1JobTemplateSpec, ...]:
+    return tuple(job.template for job in self._worker_jobs)
 
   @property
   def pathways_rm_and_worker_image(self) -> str:
@@ -658,6 +726,7 @@ class PathwaysJobSet:
       pathways_rm_and_worker_image: str,
       worker_pod_spec_kwargs: Mapping[str, Any] | None = None,
       worker_container_kwargs: Mapping[str, Any] | None = None,
+      job_name: str = PATHWAYS_WORKER_JOB_NAME,
   ) -> client.V1JobTemplateSpec:
     """Builds the worker job template for the JobSet."""
     worker_image = _format_image(pathways_rm_and_worker_image, image_tag)
@@ -773,7 +842,7 @@ class PathwaysJobSet:
             "restart_policy": "OnFailure",
         },
         worker_pod_spec_kwargs,
-        PATHWAYS_WORKER_JOB_NAME,
+        job_name,
     )
 
     worker_pod_spec = client.V1PodSpec(**pod_spec_kwargs)
@@ -798,6 +867,147 @@ class PathwaysJobSet:
         ),
     )
     return worker_job_template
+
+  def add_worker_topology(
+      self,
+      tpu_type: str,
+      topology: str,
+      num_slices: int,
+      *,
+      name: str | None = None,
+      worker_pod_spec_kwargs: Mapping[str, Any] | None = None,
+      worker_container_kwargs: Mapping[str, Any] | None = None,
+  ) -> "PathwaysJobSet":
+    """Adds an additional worker TPU slice topology as a replicatedJob.
+
+    Call before worker mutators such as `add_gcsfuse`, `add_external_sidecar`,
+    or `with_custom_libtpu` so they apply across all worker templates.
+
+    Args:
+      tpu_type: TPU type (e.g., "v5e" or "ct5lp-hightpu-8t").
+      topology: TPU topology (e.g., "2x4").
+      num_slices: Number of slices for this topology.
+      name: Optional `replicatedJob` name. Defaults to `pathways-worker-<index>`
+        when multiple worker topologies are present.
+      worker_pod_spec_kwargs: Optional `client.V1PodSpec` overrides merged onto
+        the `worker_pod_spec_kwargs` passed to `__init__`.
+      worker_container_kwargs: Optional `client.V1Container` overrides applied
+        after the `worker_container_kwargs` passed to `__init__`.
+
+    Returns:
+      The `PathwaysJobSet` instance for chaining.
+
+    Raises:
+      ValueError: If called on an imported JobSet or an argument is invalid.
+    """
+    if any(job.instance_type is None for job in self._worker_jobs):
+      raise ValueError(
+          "add_worker_topology cannot be called on an imported JobSet."
+      )
+    if name is not None and (
+        not name.strip() or name in (PATHWAYS_HEAD_JOB_NAME, "head", "worker")
+    ):
+      raise ValueError(f"Invalid worker job name: {name!r}")
+
+    instance_type, gke_accel_type, num_vms, chips_per_vm = (
+        _parse_worker_topology(tpu_type, topology, num_slices)
+    )
+    job_name = (
+        name
+        if name is not None
+        else f"{PATHWAYS_WORKER_JOB_NAME}-{len(self._worker_jobs)}"
+    )
+    existing_names = [
+        job.name if job.name is not None else f"{PATHWAYS_WORKER_JOB_NAME}-{i}"
+        for i, job in enumerate(self._worker_jobs)
+    ]
+    if job_name in existing_names:
+      raise ValueError(f"Duplicate worker job name: {job_name!r}")
+
+    merged_pod_kwargs = _merge_pod_spec_kwargs(
+        self._worker_pod_spec_kwargs, worker_pod_spec_kwargs, job_name
+    )
+    worker_template = self._build_worker_job_template(
+        pathways_dir=self._pathways_dir,
+        num_vms=num_vms,
+        chips_per_vm=chips_per_vm,
+        gke_accel_type=gke_accel_type,
+        topology=topology,
+        image_tag=self._image_tag,
+        max_slice_restarts=self._max_slice_restarts,
+        pathways_rm_and_worker_image=self._pathways_rm_and_worker_image,
+        worker_pod_spec_kwargs=merged_pod_kwargs,
+        worker_container_kwargs=self._worker_container_kwargs,
+        job_name=job_name,
+    )
+    if worker_container_kwargs:
+      _apply_container_kwargs(
+          worker_template.spec.template.spec.containers[0],
+          worker_container_kwargs,
+      )
+
+    overridden_env = frozenset({
+        *((self._worker_container_kwargs or {}).get("env") or ()),
+        *((worker_container_kwargs or {}).get("env") or ()),
+    })
+    self._worker_jobs.append(
+        _WorkerJob(
+            replicas=num_slices,
+            template=worker_template,
+            instance_type=instance_type,
+            name=name,
+            overridden_env=overridden_env,
+        )
+    )
+    self._sync_multi_topology_config()
+    return self
+
+  def _sync_multi_topology_config(self) -> None:
+    """Updates RM expected_instances and worker MegaScale slice env vars."""
+    expected_instances: list[str] = []
+    for job in self._worker_jobs:
+      expected_instances.extend([f"{job.instance_type}"] * job.replicas)
+    expected = ",".join(expected_instances)
+    head_spec = self._head_job_template.spec.template.spec
+    for container in head_spec.containers + (head_spec.init_containers or []):
+      if container.name == "pathways-rm":
+        new_args = []
+        inserted = False
+        for arg in container.args:
+          if arg.startswith((
+              "--instance_count=",
+              "--instance_type=",
+              "--expected_instances=",
+          )):
+            if not inserted:
+              new_args.append(f"--expected_instances={expected}")
+              inserted = True
+          else:
+            new_args.append(arg)
+        container.args = new_args
+
+    total_slices = sum(job.replicas for job in self._worker_jobs)
+    slice_offset = 0
+    for job in self._worker_jobs:
+      for container in job.template.spec.template.spec.containers:
+        if container.name == "pathways-worker":
+          for i, env_var in enumerate(container.env):
+            if (
+                env_var.name == "MEGASCALE_NUM_SLICES"
+                and "MEGASCALE_NUM_SLICES" not in job.overridden_env
+            ):
+              container.env[i] = client.V1EnvVar(
+                  name="MEGASCALE_NUM_SLICES", value=str(total_slices)
+              )
+            elif (
+                env_var.name == "MEGASCALE_SLICE_ID"
+                and "MEGASCALE_SLICE_ID" not in job.overridden_env
+                and job.replicas == 1
+            ):
+              container.env[i] = client.V1EnvVar(
+                  name="MEGASCALE_SLICE_ID", value=str(slice_offset)
+              )
+      slice_offset += job.replicas
 
   def _filter_matching_containers(
       self,
@@ -902,14 +1112,15 @@ class PathwaysJobSet:
 
     return self
 
-  def add_colocated_python(
+  def add_external_sidecar(
       self,
       image: str,
       shm_mount_path: str = "/tmp/shared-memory",
       shm_size_limit: str | None = None,
+      name: str = "external",
       **container_kwargs: Any,
   ) -> "PathwaysJobSet":
-    """Adds colocated python sidecar to the worker pods.
+    """Adds an external sidecar to the worker pods.
 
     The sidecar runs as a native sidecar (an init container with
     `restartPolicy: Always`), so Kubernetes starts it before `pathways-worker`,
@@ -921,14 +1132,16 @@ class PathwaysJobSet:
     tensors are transferred through shared host memory.
 
     Args:
-      image: Docker image for the colocated python sidecar.
+      image: Docker image for the external sidecar.
       shm_mount_path: Mount path of the shared memory volume in both the sidecar
         and the `pathways-worker` container.
       shm_size_limit: Optional size limit of the shared memory volume (e.g.,
-        "16Gi"). If `None`, no `sizeLimit` is set: the memory-backed volume
-        can grow up to the pod's memory limit (or the node's allocatable
-        memory if the pod has no limit), and data written to it counts toward
-        the pod's memory usage.
+        "16Gi"). If `None`, no `sizeLimit` is set: the memory-backed volume can
+        grow up to the pod's memory limit (or the node's allocatable memory if
+        the pod has no limit), and data written to it counts toward the pod's
+        memory usage.
+      name: Name prefix for the sidecar container, formatted as `<name>-sidecar`
+        (default: 'external').
       **container_kwargs: Optional `client.V1Container` fields for the sidecar
         (e.g., `env`, `resources`, `volume_mounts`), merged like
         `rm_container_kwargs` of `__init__`. `env` maps names to values, which
@@ -939,7 +1152,27 @@ class PathwaysJobSet:
     Returns:
       The PathwaysJobSet instance for chaining.
     """
-    pod_spec = self._worker_job_template.spec.template.spec
+    for worker_template in self.worker_job_templates:
+      self._add_sidecar_to_pod_spec(
+          worker_template.spec.template.spec,
+          image=image,
+          shm_mount_path=shm_mount_path,
+          shm_size_limit=shm_size_limit,
+          name=name,
+          container_kwargs=container_kwargs,
+      )
+    return self
+
+  def _add_sidecar_to_pod_spec(
+      self,
+      pod_spec: client.V1PodSpec,
+      image: str,
+      shm_mount_path: str,
+      shm_size_limit: str | None,
+      name: str,
+      container_kwargs: Mapping[str, Any],
+  ) -> None:
+    """Adds an external sidecar container and shared memory to pod_spec."""
 
     # Add shared memory volume if not exists.
     volumes = pod_spec.volumes or []
@@ -956,9 +1189,9 @@ class PathwaysJobSet:
       )
       pod_spec.volumes = volumes
 
-    # Add colocated python container.
-    colocated_container = client.V1Container(
-        name="colocated-python-sidecar",
+    # Add external sidecar container.
+    sidecar_container = client.V1Container(
+        name=f"{name}-sidecar",
         image=image,
         image_pull_policy="Always",
         env=[
@@ -976,13 +1209,16 @@ class PathwaysJobSet:
             ),
         ],
     )
-    _apply_container_kwargs(colocated_container, container_kwargs)
+    _apply_container_kwargs(sidecar_container, container_kwargs)
     # Run the sidecar as a native sidecar so that it is started before, and
     # stopped after, pathways-worker.
-    colocated_container.restart_policy = "Always"  # pyrefly: ignore[missing-attribute]
+    sidecar_container.restart_policy = "Always"  # pyrefly: ignore[missing-attribute]
 
-    init_containers = list(pod_spec.init_containers or [])
-    init_containers.append(colocated_container)
+    sidecar_name = f"{name}-sidecar"
+    init_containers = [
+        c for c in (pod_spec.init_containers or []) if c.name != sidecar_name
+    ]
+    init_containers.append(sidecar_container)
     pod_spec.init_containers = init_containers
 
     # Add volume mount and shared memory flag to pathways-worker.
@@ -1000,24 +1236,66 @@ class PathwaysJobSet:
           )
         container.args = args
         volume_mounts = container.volume_mounts or []
-        volume_mounts.append(
-            client.V1VolumeMount(
-                name=shm_volume_name, mount_path=shm_mount_path
-            )
+        existing_shm_mount = next(
+            (vm for vm in volume_mounts if vm.name == shm_volume_name), None
         )
-        container.volume_mounts = volume_mounts
+        if existing_shm_mount is not None:
+          if existing_shm_mount.mount_path != shm_mount_path:
+            raise ValueError(
+                f"Conflicting shm_mount_path {shm_mount_path!r};"
+                f" {shm_volume_name!r} is already mounted at"
+                f" {existing_shm_mount.mount_path!r}."
+            )
+        else:
+          volume_mounts.append(
+              client.V1VolumeMount(
+                  name=shm_volume_name, mount_path=shm_mount_path
+              )
+          )
+          container.volume_mounts = volume_mounts
         # Add env var for shm dir.
         worker_env = container.env or []
-        worker_env.append(
-            client.V1EnvVar(
-                name="CLOUD_PATHWAYS_SIDECAR_SHM_DIRECTORY",
-                value=shm_mount_path,
-            )
-        )
-        container.env = worker_env
+        if not any(
+            e.name == "CLOUD_PATHWAYS_SIDECAR_SHM_DIRECTORY" for e in worker_env
+        ):
+          worker_env.append(
+              client.V1EnvVar(
+                  name="CLOUD_PATHWAYS_SIDECAR_SHM_DIRECTORY",
+                  value=shm_mount_path,
+              )
+          )
+          container.env = worker_env
         break
 
-    return self
+  def add_colocated_python(
+      self,
+      image: str,
+      shm_mount_path: str = "/tmp/shared-memory",
+      shm_size_limit: str | None = None,
+      **container_kwargs: Any,
+  ) -> "PathwaysJobSet":
+    """Adds colocated python sidecar to the worker pods.
+
+    Args:
+      image: Docker image for the colocated python sidecar.
+      shm_mount_path: Mount path of the shared memory volume in both the sidecar
+        and the `pathways-worker` container.
+      shm_size_limit: Optional size limit of the shared memory volume (e.g.,
+        "16Gi"). If `None`, no `sizeLimit` is set.
+      **container_kwargs: Optional `client.V1Container` fields for the sidecar
+        (e.g., `env`, `resources`, `volume_mounts`), forwarded to
+        `add_external_sidecar`.
+
+    Returns:
+      The PathwaysJobSet instance for chaining.
+    """
+    return self.add_external_sidecar(
+        image=image,
+        shm_mount_path=shm_mount_path,
+        shm_size_limit=shm_size_limit,
+        name="colocated-python",
+        **container_kwargs,
+    )
 
   def add_gcsfuse(
       self,
@@ -1046,7 +1324,7 @@ class PathwaysJobSet:
         read_only=read_only,
     )
 
-    for job_template in (self._head_job_template, self._worker_job_template):
+    for job_template in (self._head_job_template, *self.worker_job_templates):
       pod_spec = job_template.spec.template.spec
       all_containers = (pod_spec.containers or []) + (
           pod_spec.init_containers or []
@@ -1060,7 +1338,11 @@ class PathwaysJobSet:
       self._add_volume_to_pod_spec(pod_spec, volume)
 
       for container in matching:
-        volume_mounts = container.volume_mounts or []
+        volume_mounts = [
+            vm
+            for vm in (container.volume_mounts or [])
+            if vm.mount_path != mount_path
+        ]
         volume_mounts.append(volume_mount)
         container.volume_mounts = volume_mounts
 
@@ -1070,22 +1352,18 @@ class PathwaysJobSet:
       self,
       libtpu_path: str,
       containers: str | Sequence[str] = "all",
-      mount_host_dir: bool = False,
   ) -> "PathwaysJobSet":
     """Overrides `TPU_LIBRARY_PATH` in the selected Pathways containers.
 
     Args:
       libtpu_path: Absolute container path to `libtpu.so`.
       containers: Target container selector (e.g. `"all"` or `"worker"`).
-      mount_host_dir: If True, mounts the parent directory of `libtpu_path` from
-        the host node into matching containers.
 
     Returns:
       Self for method chaining.
 
     Raises:
-      ValueError: If `libtpu_path` is not a valid absolute file path or has no
-        parent subdirectory when `mount_host_dir=True`.
+      ValueError: If `libtpu_path` is not a valid absolute file path.
     """
     stripped = libtpu_path.strip()
     if not stripped.startswith("/") or stripped.endswith("/"):
@@ -1094,67 +1372,57 @@ class PathwaysJobSet:
           f" {libtpu_path!r})."
       )
     path = posixpath.normpath(stripped)
-    parent_dir = posixpath.dirname(path)
-    if mount_host_dir and parent_dir == "/":
-      raise ValueError(
-          f"mount_host_dir=True requires a subdirectory (got {libtpu_path!r})."
-      )
 
-    for job_template in (self._head_job_template, self._worker_job_template):
+    target_containers: str | Sequence[str] = (
+        ("pathways-rm", "pathways-proxy", "pathways-worker")
+        if containers == "all"
+        else containers
+    )
+
+    for job_template in (self._head_job_template, *self.worker_job_templates):
       pod_spec = job_template.spec.template.spec
       all_containers = (pod_spec.containers or []) + (
           pod_spec.init_containers or []
       )
-      matching = self._filter_matching_containers(containers, all_containers)
+      matching = self._filter_matching_containers(
+          target_containers, all_containers
+      )
       if not matching:
         continue
 
-      if mount_host_dir:
-        self._add_volume_to_pod_spec(
-            pod_spec,
-            client.V1Volume(
-                name=CUSTOM_LIBTPU_VOLUME_NAME,
-                host_path=client.V1HostPathVolumeSource(
-                    path=parent_dir, type="DirectoryOrCreate"
-                ),
-            ),
-        )
       for container in matching:
-        if mount_host_dir:
-          volume_mounts = container.volume_mounts or []
-          volume_mounts.append(
-              client.V1VolumeMount(
-                  name=CUSTOM_LIBTPU_VOLUME_NAME,
-                  mount_path=parent_dir,
-                  read_only=True,
-              )
-          )
-          container.volume_mounts = volume_mounts
-        env = container.env or []
-        env.append(client.V1EnvVar(name="TPU_LIBRARY_PATH", value=path))
+        env = list(container.env or [])
+        new_env_var = client.V1EnvVar(name="TPU_LIBRARY_PATH", value=path)
+        for i, existing_env in enumerate(env):
+          if existing_env.name == "TPU_LIBRARY_PATH":
+            env[i] = new_env_var
+            break
+        else:
+          env.append(new_env_var)
         container.env = env
 
     return self
 
   def _compile_config(self) -> dict[str, Any]:
     """Compiles the JobSet configuration into a dictionary."""
+    job_names = _worker_job_names(self._worker_jobs)
     with client.ApiClient() as api_client:
       serialized_head = api_client.sanitize_for_serialization(
           self._head_job_template
       )
-      serialized_worker = api_client.sanitize_for_serialization(
-          self._worker_job_template
-      )
+      worker_jobs = [
+          {
+              "name": job_name,
+              "replicas": job.replicas,
+              "template": api_client.sanitize_for_serialization(job.template),
+          }
+          for job_name, job in zip(job_names, self._worker_jobs)
+      ]
 
     head_job = {
         "name": PATHWAYS_HEAD_JOB_NAME,
         "replicas": 1,
         "template": serialized_head,
-    }
-    worker_job = {
-        "name": PATHWAYS_WORKER_JOB_NAME,
-        "replicas": self._worker_replicas,
-        "template": serialized_worker,
     }
 
     coordinator = {
@@ -1182,7 +1450,7 @@ class PathwaysJobSet:
                 "publishNotReadyAddresses": True,
             },
             "coordinator": coordinator,
-            "replicatedJobs": [head_job, worker_job],
+            "replicatedJobs": [head_job, *worker_jobs],
         },
     }
     if self._labels:
@@ -1226,7 +1494,7 @@ class PathwaysJobSet:
 
     # Extract replicated jobs and deserialize.
     head_job_template: client.V1JobTemplateSpec | None = None
-    worker_job_template: client.V1JobTemplateSpec | None = None
+    worker_jobs: list[_WorkerJob] = []
 
     with client.ApiClient() as api_client:
       for job in config["spec"]["replicatedJobs"]:
@@ -1234,24 +1502,31 @@ class PathwaysJobSet:
           head_job_template = _deserialize_dict(
               api_client, job["template"], client.V1JobTemplateSpec
           )
-        elif job["name"] in ("worker", PATHWAYS_WORKER_JOB_NAME):
-          worker_job_template = _deserialize_dict(
-              api_client, job["template"], client.V1JobTemplateSpec
+        else:
+          worker_jobs.append(
+              _WorkerJob(
+                  replicas=job["replicas"],
+                  template=_deserialize_dict(
+                      api_client, job["template"], client.V1JobTemplateSpec
+                  ),
+                  name=job["name"],
+              )
           )
-          instance._worker_replicas = job["replicas"]
 
     if head_job_template is None:
       raise ValueError(f"Missing head job ({PATHWAYS_HEAD_JOB_NAME}) in config")
-    if worker_job_template is None:
+    if not worker_jobs:
       raise ValueError(
           f"Missing worker job ({PATHWAYS_WORKER_JOB_NAME}) in config"
       )
 
     instance._head_job_template = head_job_template
-    instance._worker_job_template = worker_job_template
+    instance._worker_job_template = worker_jobs[0].template
+    instance._worker_jobs = worker_jobs
 
     rm_image = DEFAULT_PATHWAYS_RM_AND_WORKER_IMAGE
     proxy_image = DEFAULT_PATHWAYS_PROXY_IMAGE
+    has_proxy = False
     if (
         head_job_template.spec
         and head_job_template.spec.template
@@ -1264,8 +1539,11 @@ class PathwaysJobSet:
       for c in all_containers:
         if c.name == "pathways-rm" and c.image:
           rm_image = c.image
-        elif c.name == "pathways-proxy" and c.image:
-          proxy_image = c.image
+        elif c.name == "pathways-proxy":
+          has_proxy = True
+          if c.image:
+            proxy_image = c.image
+    instance._shared_pathways_service = not has_proxy
     instance._pathways_rm_and_worker_image = rm_image
     instance._pathways_proxy_image = proxy_image
 
@@ -1277,17 +1555,16 @@ class PathwaysJobSet:
     """Validates that the config is a valid Pathways JobSet."""
     if config.get("kind") != "JobSet":
       raise ValueError("Resource kind is not JobSet")
-    jobs = {
-        j["name"]: j for j in config.get("spec", {}).get("replicatedJobs", [])
-    }
-    if "head" not in jobs and PATHWAYS_HEAD_JOB_NAME not in jobs:
+    job_names = [
+        j["name"] for j in config.get("spec", {}).get("replicatedJobs", [])
+    ]
+    if PATHWAYS_HEAD_JOB_NAME not in job_names:
       raise ValueError(
-          f"Missing head replicated job ('head' or '{PATHWAYS_HEAD_JOB_NAME}')"
+          f"Missing head replicated job ('{PATHWAYS_HEAD_JOB_NAME}')"
       )
-    if "worker" not in jobs and PATHWAYS_WORKER_JOB_NAME not in jobs:
+    if "worker" in job_names or len(job_names) < 2:
       raise ValueError(
-          "Missing worker replicated job ('worker' or"
-          f" '{PATHWAYS_WORKER_JOB_NAME}')"
+          f"Missing worker replicated job ('{PATHWAYS_WORKER_JOB_NAME}')"
       )
 
   def apply(

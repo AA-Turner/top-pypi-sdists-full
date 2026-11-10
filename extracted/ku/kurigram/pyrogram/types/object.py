@@ -23,8 +23,16 @@ from datetime import datetime
 from enum import Enum
 from json import dumps
 
+if typing.TYPE_CHECKING:
+    import pyrogram
 
-import pyrogram
+
+def _public_attributes(instance: Object) -> dict[str, typing.Any]:
+    return {
+        attribute: value
+        for attribute, value in instance.__dict__.items()
+        if not attribute.startswith("_")
+    }
 
 
 class Object:
@@ -32,12 +40,12 @@ class Object:
         self._client = client
 
     def bind(self, client: pyrogram.Client):
-        """Bind a Client instance to this and to all nested Pyrogram objects.
+        """Bind a Client instance to this and to all nested Kurigram objects.
 
         Parameters:
             client (:obj:`~pyrogram.Client`):
                 The Client instance to bind this object with. Useful to re-enable bound methods after serializing and
-                deserializing Pyrogram objects with ``repr`` and ``eval``.
+                deserializing Kurigram objects with ``repr`` and ``eval``.
         """
         self._client = client
 
@@ -93,17 +101,12 @@ class Object:
         )
 
     def __eq__(self, other: object) -> bool:
-        for attr in self.__dict__:
-            try:
-                if attr.startswith("_"):
-                    continue
+        # Comparing attribute values alone makes an attribute-less type equal to anything,
+        #  `None` and `42` included; `NotImplemented` leaves the verdict to the other operand.
+        if type(other) is not type(self):
+            return NotImplemented
 
-                if getattr(self, attr) != getattr(other, attr):
-                    return False
-            except AttributeError:
-                return False
-
-        return True
+        return _public_attributes(self) == _public_attributes(other)
 
     # Equality is by mutable attribute value (see `__eq__` above), so a stable hash across
     #  the object's lifetime cannot be guaranteed. Declared explicitly rather than relying on

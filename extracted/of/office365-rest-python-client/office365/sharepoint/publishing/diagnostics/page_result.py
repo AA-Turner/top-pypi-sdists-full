@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -9,7 +9,6 @@ from office365.sharepoint.publishing.ruleresult import RuleResult
 from office365.sharepoint.publishing.tooldetails import ToolDetails as _ToolDetails
 
 
-@dataclass
 class PageDiagnosticsResult(ClientValue):
     CreatedDate: Optional[datetime] = None
     PageDetails: _PageDetails = field(default_factory=_PageDetails)

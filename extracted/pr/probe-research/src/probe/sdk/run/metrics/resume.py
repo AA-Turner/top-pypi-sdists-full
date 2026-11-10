@@ -1,5 +1,5 @@
-"""ResumeGuardMixin, Run's methods: after a reopen, drop writes at or below the resume point and
-keep the resume span's counts."""
+"""ResumeGuardMixin, Run's methods: after a reopen, drop writes at or below where the first execution
+got to, key by key, and keep the resume span's counts."""
 
 from __future__ import annotations
 
@@ -11,13 +11,45 @@ from ..context import context as unit_context
 class ResumeGuardMixin:
     """Part of Run: its methods run with `self` the Run; compose() folds them into Run."""
 
-    def arm_resume_guard(self, last_step: int) -> None:
+    def arm_resume_guard(
+        self, last_step: int, *, key_floors: dict[tuple[str, str], int] | None = None
+    ) -> None:
         """Called on attach after a reopen: refuse explicit steps the first
         execution already wrote, and start auto-steps above them — a resumed
-        process must continue the curve, never re-log it."""
+        process must continue the curve, never re-log it.
+
+        ``key_floors`` (#364, D18): ``(kind, key) -> the last step the server
+        holds for that key``. A key is refused only at or below its OWN floor,
+        so an eval key that lagged training keeps its later steps; a key the
+        first execution never logged has no floor. None (the catalog could not
+        be read) keeps the one floor, ``last_step``, for every key."""
         self._resume_from_step = last_step
+        self._resume_key_floors = key_floors
         with self._steps_lock:
             self._auto_step_floor = last_step + 1
+
+    def _keep_above_key_floors(
+        self, kind: str, step: int, numeric: dict, other: dict, *, is_strict: bool | None
+    ) -> tuple[dict, dict, bool]:
+        """Per-key guard (#364): drop the keys the first execution already
+        logged at ``step`` or later. Returns ``(numeric, other, dropped)``.
+
+        Step attributes (``other``) form one step record the server replaces
+        whole, so they keep the run's one floor: writing them would wipe the
+        first execution's record at that step."""
+        floors = self._resume_key_floors or {}
+        stale = [
+            key for key in numeric
+            if (floor := floors.get((kind, key))) is not None and step <= floor
+        ]
+        record_stale = bool(other) and step <= (self._resume_from_step or 0)
+        if not stale and not record_stale:
+            return numeric, other, False
+        names = stale + (sorted(other) if record_stale else [])
+        floor = max([floors[(kind, key)] for key in stale] or [self._resume_from_step or 0])
+        self._drop_below_resume(step, strict=is_strict, keys=names, floor=floor)
+        kept = {key: value for key, value in numeric.items() if key not in stale}
+        return kept, ({} if record_stale else other), True
 
     def _resume_exits(self, step: int) -> tuple[str, str, str]:
         """(overwrite, start over, keep both): what each intent does from HERE.
@@ -51,8 +83,12 @@ class ResumeGuardMixin:
             "under the fork",
         )
 
-    def _drop_below_resume(self, step, *, strict: bool | None) -> None:
+    def _drop_below_resume(
+        self, step, *, strict: bool | None, keys: list[str] | None = None, floor: int | None = None
+    ) -> None:
         """A write at or below the resume point: dropped, with one warning (D6).
+        ``keys`` names what the per-key guard dropped (``floor``: the highest
+        of their last steps); None means the whole call.
 
         The first execution already wrote these steps. A relaunch that restarted
         from an OLDER checkpoint re-logs them, and appending would splice two
@@ -65,11 +101,12 @@ class ResumeGuardMixin:
         metadata, which a PATCH replaces whole. The span is written on the 1st,
         10th, 100th... drop and when logging climbs past the resume point, so
         its counts stay current in O(log n) writes."""
-        resume_point = self._resume_from_step
+        resume_point = self._resume_from_step if floor is None else floor
         overwrite, start_over, keep_both = self._resume_exits(step)
+        named = f" for {', '.join(keys[:5])}{' …' if len(keys) > 5 else ''}" if keys else ""
         if strict or (strict is None and not self._client.fail_open):
             raise errors.ValidationError(
-                f"step {step} <= resume point {resume_point} on a "
+                f"step {step} <= resume point {resume_point}{named} on a "
                 "resumed run — the first execution already wrote this step. "
                 "Three exits, by intent: restarted from an EARLIER checkpoint "
                 f"and want the old range overwritten -> {overwrite}; "
@@ -86,7 +123,17 @@ class ResumeGuardMixin:
                 self._resume_first_dropped = step
                 self._resume_first_drop_at = _now()
             self._resume_last_dropped = step
-        if drops == 1:
+        if drops == 1 and keys:
+            _diagnostics.warn(
+                f"probe: step {step} is at or below this resumed run's resume point "
+                f"({resume_point}){named}: the first execution already logged that "
+                "there, so those values are DROPPED, not sent, and so is every later "
+                "write of a key at or below the last step the first execution logged "
+                "for it. Keys it had not reached (an eval that lagged training) are "
+                f"kept. To overwrite that range instead: {overwrite}; to keep both "
+                f"curves: {keep_both}."
+            )
+        elif drops == 1:
             _diagnostics.warn(
                 f"probe: step {step} is at or below this resumed run's resume point "
                 f"({resume_point}): the first execution already logged it, so this call "
@@ -164,5 +211,23 @@ class ResumeGuardMixin:
             drops = self._resume_drops
         if drops:
             self._write_resume_span(closing=True)
+def read_key_floors(client, run_id: str) -> dict[tuple[str, str], int] | None:
+    """``(kind, key) -> last step`` from the run's series catalog (#364), the
+    highest over a key's dimension variants. Hardware is left out: its steps
+    are minutes since the epoch, and the guard never applies to it. None when
+    the catalog cannot be read: the caller keeps one floor for every key."""
+    try:
+        rows = client.run_series(run_id)
+    except Exception:  # noqa: BLE001 -- a resume must never fail on a read
+        return None
+    floors: dict[tuple[str, str], int] = {}
+    for row in rows or []:
+        kind, key, last = row.get("kind") or "model", row.get("key"), row.get("last_step_index")
+        if kind == "hardware" or not isinstance(key, str) or not isinstance(last, int):
+            continue
+        floors[(kind, key)] = max(last, floors.get((kind, key), last))
+    return floors
+
+
 from probe.sdk.run.launch.host_claims import _global_rank  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.metrics.values import _now  # noqa: E402 -- pieces need each other; the front door loads this one first

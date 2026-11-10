@@ -95,6 +95,7 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v1/files/source/list/{os_workspace}/{path}": "Source-backed file peek (by path)",
     "/api/v1/files/source/bytes/{os_workspace}": "Source-backed byte stream (peek-before-export; HEAD/GET with Range)",
     "/api/v1/files/source/export/{os_workspace}": "Source-backed bulk export (files + folders, two-phase upsert)",
+    "/api/v1/files/source/extract/{os_workspace}": "Selection extraction job from a zip (frontend Archive Previewer)",
     "/api/v1/files/stat/{os_workspace}": "File stat",
     "/api/v1/files/stat/{os_workspace}/{path}": "File stat at path",
     "/api/v1/files/upload-blob/{filename}": "Blob upload",
@@ -113,7 +114,6 @@ SPEC_ROUTES_WITHOUT_SDK = {
     # v2 Report export
     "/api/v2/report-export/capabilities": "Composer export dialog limits; no SDK export flow",
     "/api/v2/report-export/download/{tracking_id}": "Composer temporary export download; no SDK export flow",
-    "/api/v2/report-export/download/{tracking_id}/checksum": "Composer temporary export checksum download; no SDK export flow",
     "/api/v2/report-export/{os_workspace}/{entity_uid}": "Report export job started from the Composer (202; poll tasks/status)",
     # v2 Workspaces
     "/api/v2/workspaces/{os_workspace}": "Whole-workspace delete (202 background job; poll tasks/status)",

@@ -11,7 +11,7 @@
 # PR-Agent host's filesystem, so letting a repo set it would allow a malicious repo to read
 # sensitive host files (e.g. ~/.ssh/*) into the LLM prompt. `paths` therefore stays host-only.
 #
-# push_outputs: routes review data to operator-controlled sinks (webhook/slack/telegram/file). Letting a
+# push_outputs: routes review data to operator-controlled sinks (webhook/slack/telegram/teams/file). Letting a
 # repo set any of these would let a malicious repo exfiltrate review data to an arbitrary host,
 # reach internal endpoints (SSRF), or append to arbitrary host files. The whole section is
 # therefore host-only (empty allowlist -> every key dropped).
@@ -19,10 +19,16 @@
 # prompt_fragments: contains Jinja source rendered by the host before it is inserted into tool
 # prompts. Keep the whole section host-only so repository settings and comment arguments cannot
 # supply executable template expressions.
+#
+# bedrock: guardrail settings are host-only so a repository cannot disable or swap the guardrail.
+# custom_labels and config.enable_custom_labels are host-only because every configured custom label
+# is treated as PR-Agent-owned and may be removed when it is absent from the generated label set.
 REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION = {
     "skills": frozenset({"enabled", "max_skills_tokens"}),
     "push_outputs": frozenset(),
     "prompt_fragments": frozenset(),
+    "bedrock": frozenset(),
+    "custom_labels": frozenset(),
 }
 
 _CONNECTION_KEY_SUFFIXES = ("url", "base_url", "endpoint", "org", "key", "token", "secret")
@@ -30,7 +36,7 @@ _REPO_OVERRIDABLE_SUFFIX_KEYS_BY_SECTION = {
     "config": frozenset({"progress_gif_url"}),
     "gitea": frozenset({"web_url"}),
 }
-_REPO_OVERRIDABLE_SUFFIX_SECTIONS = frozenset({"custom_labels", "language_extension_map_org"})
+_REPO_OVERRIDABLE_SUFFIX_SECTIONS = frozenset({"language_extension_map_org"})
 
 
 # Keep individual settings in otherwise repository-configurable sections host-only.
@@ -41,13 +47,19 @@ REPO_HOST_ONLY_KEYS_BY_SECTION = {
     # Keep api_base, api_type and api_version host-controlled, matching the comment-argument filter.
     "azure_ad": frozenset({"api_base"}),
     "azure_devops": frozenset({"pat"}),
+    # agent_identity decides which Azure DevOps comments PR-Agent treats as its own and may edit,
+    # so the reviewed repository must not choose it.
+    "azure_devops_server": frozenset({"agent_identity"}),
     "bitbucket": frozenset({"auth_type"}),
     "databricks": frozenset({"api_base"}),
     "gerrit": frozenset({"command_timeout_seconds", "webhook_password", "webhook_username"}),
     "gitea": frozenset({"skip_ssl_verification", "ssl_ca_cert"}),
     # agent_login decides which comments PR-Agent treats as its own and may edit, so the
     # reviewed repository must not choose it.
-    "github": frozenset({"agent_login", "deployment_type", "polling_repositories"}),
+    "github": frozenset({
+        "agent_login", "deployment_type", "polling_repositories",
+        "seconds_between_requests", "seconds_between_writes", "api_retries", "ratelimit_retries",
+    }),
     "gitlab": frozenset({"auth_type", "ssl_verify"}),
     "huggingface": frozenset({"api_base"}),
     # Jira lookups use the host's Atlassian credentials, so the reviewed repository must not
@@ -60,7 +72,9 @@ REPO_HOST_ONLY_KEYS_BY_SECTION = {
     "ollama": frozenset({"api_base"}),
     "openai": frozenset({"api_base", "api_type", "api_version"}),
     "openrouter": frozenset({"api_base"}),
-    "pr_reviewer": frozenset({"publish_error_details"}),
+    # structural_reach_input_file is read from the host and echoed into the review, and outside
+    # GITHUB_WORKSPACE nothing bounds the path.
+    "pr_reviewer": frozenset({"publish_error_details", "structural_reach_input_file"}),
     # List the sibling repositories whose files and GitHub tickets a consuming repo
     # (or a comment command) may select into model context. A repo's .pr_agent.toml alone must
     # not be able to name an arbitrary same-owner private sibling: the actor check bounds who
@@ -89,14 +103,22 @@ REPO_HOST_ONLY_KEYS_BY_SECTION = {
     # for it are already blocked; the repo-settings entry point now matches.
     # Provider request timeouts stay host-controlled so repository settings cannot lengthen
     # worker occupancy across SDK retries. Command arguments enforce this same boundary.
+    # enable_auto_approval lets a reviewed repository switch on an approval action taken with
+    # the host's credentials, so only the operator may enable it.
+    # system_instructions is appended to every model system prompt. A repository or comment
+    # must not be able to remove or replace an operator's mandatory policy.
     "config": frozenset({
         "extra_config_url",
         "description_issue_regex",
+        "enable_auto_approval",
+        "enable_custom_labels",
         "global_settings_repo",
         "use_group_settings_file",
         "http_request_timeout",
         "repo_context_max_sibling_files",
         "repo_context_sibling_repos",
+        "num_retries",
+        "system_instructions",
     }),
 }
 
@@ -105,6 +127,9 @@ def is_repo_host_only_key(section: str, key: str) -> bool:
     """Return whether a repository must not override a setting."""
     section = section.lower()
     key = key.lower()
+    allowed_keys = REPO_OVERRIDABLE_KEYS_BY_HOST_SECTION.get(section)
+    if allowed_keys is not None and key not in allowed_keys:
+        return True
     if key in REPO_HOST_ONLY_KEYS_BY_SECTION.get(section, frozenset()):
         return True
     return (
@@ -131,7 +156,8 @@ def should_skip_config_key(section: str, key: str, skip_keys=()) -> bool:
 # by the repo's maintainers in .pr_agent.toml stay accepted (apply_repo_settings does not consult
 # this map); only CliArgs.validate_user_args enforces it, so repo settings and comment args do
 # not drift. repo_context_max_glob_matches bounds how many files those entries fetch, so it
-# follows the same rule.
+# follows the same rule. repo_context_expand_imports adds repository-controlled provider
+# fetches, so a comment argument cannot enable it either.
 # github_action_config.fail_on_tool_errors decides whether a tool's recorded failure fails the
 # GitHub Action. The runner reads it after the command has applied its arguments, so a comment
 # such as `/review --github_action_config.fail_on_tool_errors=false` could turn a failed review
@@ -139,17 +165,22 @@ def should_skip_config_key(section: str, key: str, skip_keys=()) -> bool:
 CLI_HOST_ONLY_KEYS_BY_SECTION = {
     "config": frozenset({
         "branch_issue_regex",
+        "ai_timeout",
+        "enable_custom_labels",
         "fallback_models",
         "num_retries",
         "output_relevant_configurations",
         "repo_context_files",
         "repo_context_max_glob_matches",
+        "repo_context_expand_imports",
+        "system_instructions",
     }),
     "github_action_config": frozenset({"fail_on_tool_errors"}),
     "ignore": frozenset({"regex"}),
-    "pr_code_suggestions": frozenset({"parallel_calls"}),
+    "pr_code_suggestions": frozenset({"parallel_calls", "max_number_of_calls"}),
     "pr_questions": frozenset({"resolve_threads"}),
-    "pr_reviewer": frozenset({"max_number_of_calls"}),
+    # A commenter must not choose which host file the structural-reach row reads.
+    "pr_reviewer": frozenset({"max_number_of_calls", "structural_reach_input_file"}),
     "pr_similar_issue": frozenset({"force_update_dataset"}),
     "pr_update_changelog": frozenset({"push_changelog_changes"}),
 }
@@ -166,10 +197,9 @@ CLI_HOST_ONLY_KEYS_BY_SECTION = {
 # bypass the operator's choice of which PR fields the bot edits. Ticket extraction
 # (require_ticket_analysis_review) stays root-controlled too: enabling it from a nested
 # file would make the bot run authenticated Jira lookups the root config already disabled.
-# Self-review workflow controls (demand_code_suggestions_self_review and
-# approve_pr_on_self_review) stay root-controlled as well: a nested file must not be able
-# to make /improve demand a checklist and then auto-approve the pull request when the
-# author ticks it. Thread-history collection (pr_questions.use_conversation_history) is
+# The self-review workflow control (demand_code_suggestions_self_review) stays
+# root-controlled as well: a nested file must not be able to make /improve demand a
+# checklist. Thread-history collection (pr_questions.use_conversation_history) is
 # also root-controlled so a nested file cannot re-enable sending private review-thread
 # discussion bodies to the model after the operator opted out.
 # Similarly, budget/call-count controls (max_number_of_calls, max_ai_calls, parallel_calls,
@@ -197,8 +227,11 @@ PER_DIRECTORY_HOST_ONLY_KEYS_BY_SECTION = {
         # an unrecognized key survives the merge, so leaving the alias out of this set would
         # hand a nested file the very control the canonical name is denied.
         "commitable_code_suggestions",
+        # Dual publishing posts every suggestion at or above the threshold through the same
+        # inline path, so a nested file must not be able to turn it on either.
+        "dual_publishing_score_threshold",
         "max_number_of_calls", "parallel_calls", "max_discussion_context_chars",
-        "approve_pr_on_self_review", "demand_code_suggestions_self_review",
+        "demand_code_suggestions_self_review",
     }),
     "pr_similar_issue": frozenset({"force_update_dataset", "max_issues_to_scan", "vectordb", "skip_comments"}),
 }

@@ -2,6 +2,7 @@
 
 __all__ = (
     "Cache",
+    "CacheInfo",
     "FIFOCache",
     "LFUCache",
     "LRUCache",
@@ -12,7 +13,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "7.3.0"
+__version__ = "8.0.0"
 
 import collections
 import collections.abc
@@ -740,11 +741,17 @@ class TLRUCache(_TimedCache):
             cache_delitem(self, key)
 
 
-# note that the runtime __name__ is "CacheInfo", as in stdlib:
-# https://github.com/python/cpython/blob/3.14/Lib/functools.py#L520
-_CacheInfo = collections.namedtuple(
-    "CacheInfo", ["hits", "misses", "maxsize", "currsize"]
-)
+class CacheInfo(collections.namedtuple("CacheInfo", "hits misses maxsize currsize")):
+    """Named tuple holding cache statistics."""
+
+    __slots__ = ()
+
+    @classmethod
+    def _make_info(cls, cache, hits, misses):
+        if isinstance(cache, Cache):
+            return cls(hits, misses, cache.maxsize, cache.currsize)
+        else:
+            return cls(hits, misses, None, len(cache))
 
 
 def cached(cache, key=keys.hashkey, lock=None, condition=None, info=False):
@@ -754,26 +761,12 @@ def cached(cache, key=keys.hashkey, lock=None, condition=None, info=False):
     """
     from ._cached import _wrapper
 
+    if cache is None:  # no longer supported since v8.0.0
+        raise TypeError("cache must not be None")
+
     def decorator(func):
-        if info:
-            if isinstance(cache, Cache):
-
-                def make_info(hits, misses):
-                    return _CacheInfo(hits, misses, cache.maxsize, cache.currsize)
-
-            elif isinstance(cache, collections.abc.Mapping):
-
-                def make_info(hits, misses):
-                    return _CacheInfo(hits, misses, None, len(cache))
-
-            else:
-
-                def make_info(hits, misses):
-                    return _CacheInfo(hits, misses, 0, 0)
-
-            return _wrapper(func, cache, key, lock, condition, info=make_info)
-        else:
-            return _wrapper(func, cache, key, lock, condition)
+        make_info = CacheInfo._make_info if info else None
+        return _wrapper(func, cache, key, lock, condition, make_info)
 
     return decorator
 
@@ -786,18 +779,7 @@ def cachedmethod(cache, key=keys.methodkey, lock=None, condition=None, info=Fals
     from ._cachedmethod import _wrapper
 
     def decorator(method):
-        if info:
-
-            def make_info(cache, hits, misses):
-                if isinstance(cache, Cache):
-                    return _CacheInfo(hits, misses, cache.maxsize, cache.currsize)
-                elif isinstance(cache, collections.abc.Mapping):
-                    return _CacheInfo(hits, misses, None, len(cache))
-                else:
-                    raise TypeError("cache(self) must return a mutable mapping")
-
-            return _wrapper(method, cache, key, lock, condition, info=make_info)
-        else:
-            return _wrapper(method, cache, key, lock, condition)
+        make_info = CacheInfo._make_info if info else None
+        return _wrapper(method, cache, key, lock, condition, make_info)
 
     return decorator

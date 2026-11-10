@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import timedelta
 from itertools import groupby
-from typing import Generator
 
 from pgqueuer.models import LogStatistics, QueueStatistics
 from pgqueuer.ports.repository import QueueRepositoryPort
@@ -11,8 +11,7 @@ from pgqueuer.ports.repository import QueueRepositoryPort
 
 @dataclass
 class MetricNames:
-    """
-    Configuration for Prometheus metric names.
+    """Configuration for Prometheus metric names.
 
     Allows customization of the metric names emitted by the collector.
     Use this when you need to align with existing naming conventions
@@ -32,25 +31,32 @@ class MetricNames:
 def prometheus_format(
     metric_name: str,
     labels: dict[str, str],
-    value: float | int,
+    value: float,
 ) -> str:
-    """
-    Format a single metric into Prometheus exposition format.
+    """Format a single metric into Prometheus exposition format.
 
     Example:
         >>> prometheus_format("queue_size", {"entrypoint": "send_email"}, 42)
         'queue_size{entrypoint="send_email"} 42'
     """
-    label_parts = ",".join(f'{k}="{v}"' for k, v in labels.items())
+    label_parts = ",".join(f'{k}="{_escape_label_value(v)}"' for k, v in labels.items())
     return f"{metric_name}{{{label_parts}}} {value}"
+
+
+def _escape_label_value(value: str) -> str:
+    """Escape a label value as the text exposition format requires.
+
+    A backslash, double quote or newline in a value (an entrypoint name, say)
+    would otherwise end the value early or split the line.
+    """
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def aggregated_queue_statistics(
     queue_statistics: list[QueueStatistics],
     metric_names: MetricNames,
 ) -> Generator[str, None, None]:
-    """
-    Generate Prometheus-formatted lines for queue statistics.
+    """Generate Prometheus-formatted lines for queue statistics.
 
     Aggregates queue statistics by entrypoint and status, summing
     the counts for each group.
@@ -74,8 +80,7 @@ def aggregated_log_statistics(
     log_statistics: list[LogStatistics],
     metric_names: MetricNames,
 ) -> Generator[str, None, None]:
-    """
-    Generate Prometheus-formatted lines for log statistics.
+    """Generate Prometheus-formatted lines for log statistics.
 
     Aggregates log statistics by entrypoint and status, summing
     the counts for each group. This reflects job processing history
@@ -113,8 +118,7 @@ async def collect_metrics(
     metric_names: MetricNames | None = None,
     last: timedelta = timedelta(minutes=5),
 ) -> str:
-    """
-    Collect and format all PgQueuer metrics for Prometheus.
+    """Collect and format all PgQueuer metrics for Prometheus.
 
     This is the main entry point for metrics collection. It queries the
     database for current queue sizes and recent job processing statistics,

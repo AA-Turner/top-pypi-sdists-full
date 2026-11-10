@@ -381,6 +381,33 @@ PROVIDER_GHCND = ProviderSpec(
     module="meteostat.providers.noaa.ghcnd",
 )
 
+PROVIDER_GHCNH = ProviderSpec(
+    id=Provider.GHCNH,
+    name="NOAA GHCN-Hourly",
+    granularity=Granularity.HOURLY,
+    priority=Priority.HIGH,
+    grade=Grade.OBSERVATION,
+    license=License(
+        commercial=True,
+        name="CC0 1.0 Universal",
+        url="https://creativecommons.org/publicdomain/zero/1.0/",
+    ),  # source: https://registry.opendata.aws/noaa-ghcnh/
+    parameters=[
+        Parameter.TEMP,
+        Parameter.DWPT,
+        Parameter.RHUM,
+        Parameter.PRES,
+        Parameter.WDIR,
+        Parameter.WSPD,
+        Parameter.WPGT,
+        Parameter.PRCP,
+        Parameter.SNWD,
+        Parameter.VSBY,
+    ],
+    start=date(1750, 1, 1),
+    module="meteostat.providers.noaa.ghcnh",
+)
+
 PROVIDER_CLIMAT = ProviderSpec(
     id=Provider.CLIMAT,
     name="DWD CLIMAT",
@@ -559,6 +586,55 @@ PROVIDER_GSA_MONTHLY = ProviderSpec(
 )
 
 
+PROVIDER_ERA5 = ProviderSpec(
+    id=Provider.ERA5,
+    name="ERA5-Land",
+    granularity=Granularity.HOURLY,
+    priority=Priority.LOWEST - 3,  # ERA5-Land showed the highest bias compared to forecasts
+    grade=Grade.ANALYSIS,
+    license=License(
+        commercial=True,
+        attribution="ECMWF ERA5-Land",
+        name="CC BY 4.0",
+        url="https://creativecommons.org/licenses/by/4.0/",
+    ),
+    parameters=[
+        Parameter.TEMP,
+        Parameter.DWPT,
+        Parameter.RHUM,
+        Parameter.PRCP,
+        Parameter.SNOW,
+        Parameter.SNWD,
+        Parameter.WDIR,
+        Parameter.WSPD,
+    ],
+    start=date(1950, 1, 1),
+    module="meteostat.providers.era5.hourly",
+)
+
+PROVIDER_REANALYSIS = ProviderSpec(
+    id="reanalysis",
+    name="ERA5-Land (Bias-Corrected)",
+    granularity=Granularity.HOURLY,
+    priority=Priority.LOWEST - 2,  # Bias-corrected ERA5-Land is slightly more reliable than raw ERA5-Land
+    grade=Grade.ANALYSIS,
+    license=License(
+        commercial=True,
+        attribution="ECMWF ERA5-Land",
+        name="CC BY 4.0",
+        url="https://creativecommons.org/licenses/by/4.0/",
+    ),
+    parameters=[
+        Parameter.TEMP,
+        Parameter.RHUM,
+        Parameter.WSPD,
+        Parameter.SNWD,
+        Parameter.WDIR,
+    ],  # Bias-corrected parameters plus raw wind direction passthrough
+    start=date(1950, 1, 1),
+)
+
+
 DEFAULT_PROVIDERS = [
     PROVIDER_HOURLY,
     PROVIDER_DAILY,
@@ -575,6 +651,7 @@ DEFAULT_PROVIDERS = [
     PROVIDER_ECCC_MONTHLY,
     PROVIDER_ISD_LITE,
     PROVIDER_GHCND,
+    PROVIDER_GHCNH,
     PROVIDER_CLIMAT,
     PROVIDER_METAR,
     PROVIDER_METNO_FORECAST,
@@ -582,4 +659,6 @@ DEFAULT_PROVIDERS = [
     PROVIDER_GSA_SYNOP,
     PROVIDER_GSA_DAILY,
     PROVIDER_GSA_MONTHLY,
+    PROVIDER_ERA5,
+    PROVIDER_REANALYSIS,
 ]

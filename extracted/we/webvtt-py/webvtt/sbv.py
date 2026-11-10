@@ -2,9 +2,12 @@
 
 import typing
 import re
+from collections.abc import Iterable, Sequence
 
 from . import utils
-from .models import Caption, _caption_from_timings
+from .models import (
+    Caption, ParseIssue, Timestamp, _caption_from_timings, _skipped_block
+    )
 from .errors import MalformedFileError
 
 
@@ -20,7 +23,7 @@ class SBVCueBlock:
             self,
             start: str,
             end: str,
-            payload: typing.Sequence[str]
+            payload: Sequence[str]
             ):
         """
         Initialize.
@@ -36,7 +39,7 @@ class SBVCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a cue time block.
@@ -46,14 +49,14 @@ class SBVCueBlock:
         """
         return bool(
           len(lines) >= 2 and
-          re.match(cls.CUE_TIMINGS_PATTERN, lines[0]) and
+          cls.CUE_TIMINGS_PATTERN.match(lines[0]) and
           lines[1].strip()
           )
 
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> 'SBVCueBlock':
         """
         Create a `SBVCueBlock` from lines of text.
@@ -61,7 +64,7 @@ class SBVCueBlock:
         :param lines: the lines of text
         :returns: `SBVCueBlock` instance
         """
-        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[0])
+        match = cls.CUE_TIMINGS_PATTERN.match(lines[0])
         assert match is not None
 
         payload = lines[1:]
@@ -69,11 +72,15 @@ class SBVCueBlock:
         return cls(match.group(1), match.group(2), payload)
 
 
-def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
+def parse(
+        lines: Sequence[str],
+        issues: list[ParseIssue] | None = None
+        ) -> list[Caption]:
     """
     Parse SBV captions from lines of text.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
 
     :raises MalformedFileError: if the content is not in SBV format
@@ -81,10 +88,10 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
     if not _is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return _parse_captions(lines)
+    return _parse_captions(lines, [] if issues is None else issues)
 
 
-def _is_valid_content(lines: typing.Sequence[str]) -> bool:
+def _is_valid_content(lines: Sequence[str]) -> bool:
     """
     Validate lines of text for valid SBV content.
 
@@ -97,11 +104,14 @@ def _is_valid_content(lines: typing.Sequence[str]) -> bool:
     first_block = next(utils.iter_blocks_of_lines(lines), None)
     return bool(
         first_block and
-        re.match(SBVCueBlock.CUE_TIMINGS_PATTERN, first_block[0])
+        SBVCueBlock.CUE_TIMINGS_PATTERN.match(first_block[0])
         )
 
 
-def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
+def _parse_captions(
+        lines: Sequence[str],
+        issues: list[ParseIssue]
+        ) -> list[Caption]:
     """
     Parse captions from the text.
 
@@ -109,20 +119,82 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     over, as in ``0:61:00.000``.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
     :returns: list of `Caption` objects
     """
     captions = []
 
-    for block_lines in utils.iter_blocks_of_lines(lines):
-        if not SBVCueBlock.is_valid(block_lines):
-            continue
-
-        cue_block = SBVCueBlock.from_lines(block_lines)
-        caption = _caption_from_timings(cue_block.start,
-                                        cue_block.end,
-                                        cue_block.payload
-                                        )
-        if caption is not None:
+    for number, block_lines in utils._iter_numbered_blocks(lines):
+        caption = _parse_cue(block_lines)
+        if caption is None:
+            kind = _skipped_block_kind(block_lines)
+            issues.append(_skipped_block(number, kind, block_lines))
+        else:
             captions.append(caption)
 
     return captions
+
+
+def _parse_cue(lines: Sequence[str]) -> Caption | None:
+    """
+    Parse a cue from the lines of a block.
+
+    :param lines: the lines of the block
+    :returns: a `Caption`, or None if the block is not a valid cue
+    """
+    if not SBVCueBlock.is_valid(lines):
+        return None
+
+    cue_block = SBVCueBlock.from_lines(lines)
+    return _caption_from_timings(cue_block.start,
+                                 cue_block.end,
+                                 cue_block.payload
+                                 )
+
+
+def _skipped_block_kind(lines: Sequence[str]) -> str:
+    """
+    Return the description of a block that is not a valid cue.
+
+    :param lines: the lines of the block
+    :returns: the description of what is wrong with the block
+    """
+    if not SBVCueBlock.CUE_TIMINGS_PATTERN.match(lines[0]):
+        return 'Invalid block'
+    return 'Invalid cue block' if len(lines) > 1 else 'Cue without text'
+
+
+def write(f: typing.IO[str], captions: Iterable[Caption]) -> None:
+    """
+    Write captions to an output in SBV format.
+
+    The cue tags are removed, as SBV has no formatting, and captions
+    without text, such as text of blank lines or only of cue tags, are left
+    out, as a cue without text cannot be read back from SBV. The blank
+    lines of the text are removed, as a blank line ends the cue.
+
+    :param f: file or file-like object
+    :param captions: Iterable of `Caption` objects
+    """
+    output = []
+    for caption in captions:
+        if not caption.text.strip():
+            continue
+        output.extend([
+            f'{_timestamp(caption.start_time)},'
+            f'{_timestamp(caption.end_time)}',
+            *(line for line in caption.text.split('\n') if line.strip()),
+            ''
+            ])
+    f.write('\n'.join(output))
+
+
+def _timestamp(timestamp: Timestamp) -> str:
+    """
+    Return a timestamp as it is written in SBV, as in ``0:01:02.500``.
+
+    :param timestamp: the timestamp
+    :returns: the timestamp with the hours not padded
+    """
+    return (f'{timestamp.hours}:{timestamp.minutes:02d}:'
+            f'{timestamp.seconds:02d}.{timestamp.milliseconds:03d}')

@@ -914,6 +914,13 @@ def test_minify_css_unclosed_invalid_rgb_stays_invalid() -> None:
     assert minify_css(expected) == expected
 
 
+def test_minify_css_unclosed_function_at_nesting_limit() -> None:
+    source = "a{n:" + "x(" * 101 + "1px"
+    expected = source + ")" * 101 + "}"
+    assert minify_css(source) == expected
+    assert minify_css(expected) == expected
+
+
 @pytest.mark.parametrize(
     ("zeroes", "expected"),
     [
@@ -1034,6 +1041,9 @@ _ESCAPED_NAME: Final[list[ParameterSet]] = [
     pytest.param("a{e:1\\65 -x}", "a{e:1e-x}", id="unit-e-hyphen-letter"),
     pytest.param("a{e:1e3\\65 2}", "a{e:1e3e2}", id="unit-e-digit-after-exponent"),
     pytest.param("a{e:\\31  a}", "a{e:\\31  a}", id="whitespace-after-escape-space"),
+    pytest.param("a{e:c(\\3  a)}", "a{e:c(\\3  a)}", id="function-hex-escape-before-hex-letter"),
+    pytest.param("a{e:c(\\3  x)}", "a{e:c(\\3  x)}", id="function-hex-escape-before-other-letter"),
+    pytest.param("a{e:c(\\3/**/x)}", "a{e:c(\\3  x)}", id="function-comment-after-hex-escape"),
     pytest.param("a{e:a\\31  b}", "a{e:a1 b}", id="whitespace-after-inner-escape-space"),
     pytest.param(".\\31  a{x:1}", ".\\31  a{x:1}", id="descendant-after-escape-space"),
     pytest.param("a{e:\\31/**/a}", "a{e:\\31  a}", id="comment-after-escape"),
@@ -4756,6 +4766,7 @@ _MATH_CASES: Final[list[ParameterSet]] = [
         "a { width:calc(1px+ </**//style) }", "a{width:calc(1px+ </**//style)}", id="synthetic-space-inside-span"
     ),
     pytest.param("a { width:calc(1px+ 2em", "a{width:calc(1px+ 2em)}", id="eof-numeric-unit"),
+    pytest.param('a{width:calc({+""fn([}}', 'a{width:calc({+""fn([}}])})}', id="eof-raw-nested-function"),
     pytest.param("a { width:calc(1px+ 2", "a{width:calc(1px+ 2)}", id="eof-number"),
     pytest.param("a { width:max(1px+ 2em,3px) }", "a{width:max(1px+ 2em,3px)}", id="maximum-missing-space"),
     pytest.param("a { width:clamp(0px,1px+ 2em,3px) }", "a{width:clamp(0px,1px+ 2em,3px)}", id="clamp-missing-space"),

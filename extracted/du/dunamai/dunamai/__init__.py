@@ -443,6 +443,9 @@ def _find_higher_file(name: str, start: Optional[Path], limit: Optional[str] = N
 
     if start is None:
         start = Path.cwd()
+    else:
+        # `parents` is lexical, so make relative paths like `.` or `..` absolute first.
+        start = Path(os.path.abspath(str(start)))
     for level in [start, *start.parents]:
         if (level / name).is_file():
             return level / name
@@ -1134,10 +1137,14 @@ class Version:
                         describe = describe[:-6]
                     else:
                         dirty = False
-                    parts = describe.rsplit("-", 2)
-                    tag = parts[0]
-                    if len(parts) > 1:
-                        distance = int(parts[1])
+                    # On a tagged commit, this is just the tag, which may contain hyphens.
+                    # Otherwise, it ends with `-<distance>-g<commit>`.
+                    describe_match = re.match(r"^(.+)-(\d+)-g[0-9a-f]+$", describe)
+                    if describe_match:
+                        tag = describe_match.group(1)
+                        distance = int(describe_match.group(2))
+                    else:
+                        tag = describe
 
                 if tag is None:
                     return cls._fallback(

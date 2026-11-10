@@ -39,6 +39,7 @@ PythonConstruct: TypeAlias = Literal[
     "python.union_operator",
     "python.type_alias_annotation",
     "python.kw_only_dataclass",
+    "python.dataclass_weakref_slot",
     "python.typed_dict_required",
     "python.typed_dict_not_required",
     "python.builtin_generic_strings",
@@ -107,7 +108,7 @@ PydanticConstruct: TypeAlias = Literal[
     "pydantic.compiled_pattern",
     "pydantic.model_type_alias",
     "pydantic.type_statement",
-    "pydantic.encoded_bytes_length",
+    "pydantic.encoded_text_constraints",
     "pydantic.dataclass_own_name",
     "pydantic.protected_namespaces",
     "pydantic.type_alias_module_namespace",
@@ -150,6 +151,7 @@ _ROWS: Final[tuple[Requirement, ...]] = (
     Requirement("python.union_operator", "python", "3.10"),
     Requirement("python.type_alias_annotation", "python", "3.10"),
     Requirement("python.kw_only_dataclass", "python", "3.10"),
+    Requirement("python.dataclass_weakref_slot", "python", "3.11"),
     Requirement(
         "python.typed_dict_required", "python", "3.11", form="typing.Required", backport="typing_extensions.Required"
     ),
@@ -245,7 +247,7 @@ _ROWS: Final[tuple[Requirement, ...]] = (
     Requirement("pydantic.compiled_pattern", "pydantic", "2.8", label="a pattern compiled with re.compile"),
     Requirement("pydantic.model_type_alias", "pydantic", "2.10", label="a TypeAliasType alias of a model or alias"),
     Requirement("pydantic.type_statement", "pydantic", "2.10", label="a type statement"),
-    Requirement("pydantic.encoded_bytes_length", "pydantic", "2.10"),
+    Requirement("pydantic.encoded_text_constraints", "pydantic", "2.10"),
     Requirement("pydantic.dataclass_own_name", "pydantic", "2.10"),
     Requirement("pydantic.protected_namespaces", "pydantic", "2.10"),
     Requirement("pydantic.type_alias_module_namespace", "pydantic", "2.10"),

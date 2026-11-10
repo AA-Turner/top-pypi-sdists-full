@@ -21,12 +21,7 @@ pub(crate) struct MinLengthValidator {
 
 impl<F: Json> Validate<F> for MinLengthValidator {
     fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
-        if let Some(length) = instance.string_length() {
-            if length < self.limit {
-                return false;
-            }
-        }
-        true
+        instance.string_length_within(self.limit, u64::MAX) != Some(false)
     }
 
     fn validate<'i>(
@@ -36,16 +31,14 @@ impl<F: Json> Validate<F> for MinLengthValidator {
         tracker: Option<&RefTracker>,
         _ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Some(length) = instance.string_length() {
-            if length < self.limit {
-                return Err(ValidationError::min_length(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
-                    location.into(),
-                    instance.lazy_value(),
-                    self.limit,
-                ));
-            }
+        if instance.string_length_within(self.limit, u64::MAX) == Some(false) {
+            return Err(ValidationError::min_length(
+                self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
+                location.into(),
+                instance.lazy_value(),
+                self.limit,
+            ));
         }
         Ok(())
     }
@@ -53,11 +46,11 @@ impl<F: Json> Validate<F> for MinLengthValidator {
     fn evaluate(
         &self,
         instance: &F::Node<'_>,
-        location: &LazyLocation,
-        tracker: Option<&RefTracker>,
+        _location: &LazyLocation,
+        _tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        evaluate_assertion::<F, _>(self, instance, location, tracker, ctx)
+        evaluate_assertion::<F, _>(self, instance, ctx)
     }
 }
 
@@ -106,12 +99,7 @@ impl LengthRangeValidator {
 
 impl<F: Json> Validate<F> for LengthRangeValidator {
     fn is_valid(&self, instance: &F::Node<'_>, _ctx: &mut ValidationContext) -> bool {
-        if let Some(length) = instance.string_length() {
-            if length < self.minimum || length > self.maximum {
-                return false;
-            }
-        }
-        true
+        instance.string_length_within(self.minimum, self.maximum) != Some(false)
     }
 
     fn validate<'i>(
@@ -176,7 +164,7 @@ impl<F: Json> Validate<F> for LengthRangeValidator {
                 error,
                 ctx,
             );
-            children.push(&mut ctx.arena, child);
+            children.push(ctx.arena(), child);
         }
         let mut result = EvaluationResult::from_children(children);
         if length < self.minimum {

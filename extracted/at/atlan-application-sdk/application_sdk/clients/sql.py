@@ -15,6 +15,7 @@ import hashlib
 import math
 import re
 import threading
+import time
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
@@ -50,6 +51,7 @@ from application_sdk.clients.sql_errors import (
 )
 from application_sdk.clients.sql_typecasters import install_tolerant_text_decoder_hook
 from application_sdk.common.aws_utils import (
+    _RDS_AUTH_TOKEN_REFRESH_SECONDS,
     _sts_deadline,
     generate_aws_rds_token_with_iam_role,
     generate_aws_rds_token_with_iam_user,
@@ -153,7 +155,7 @@ def _bound_params(
 if TYPE_CHECKING:
     import pandas as pd
     from sqlalchemy.engine import URL, Connection
-    from sqlalchemy.engine.interfaces import DBAPICursor, ExecutionContext
+    from sqlalchemy.engine.interfaces import DBAPICursor, Dialect, ExecutionContext
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
     from sqlalchemy.orm import Session
 
@@ -232,6 +234,130 @@ def _invalidate_if_cancelled(connection: "Connection", handle: CancelHandle) -> 
     """
     if handle.requested:
         connection.invalidate()
+
+
+class _ChunksHoldingConnection(Iterator["pd.DataFrame"]):
+    """*frames*, keeping *connection* checked out until they are done.
+
+    A chunked ``read_sql_query`` reads each chunk lazily from the cursor, so the
+    connection must stay open until the last one. Closing it as soon as the
+    iterator was built (what a ``with`` around the call did) handed it back to
+    the pool while its cursor was still being read: a server-side cursor could
+    then share a connection with its next borrower, and a buffered one had
+    already loaded the whole result, so ``chunksize`` saved nothing.
+
+    Released on exhaustion, on a failed read, or on :meth:`close` — including a
+    close before the first chunk, which a generator's ``finally`` would skip.
+    Dropped instead of pooled when the read that closes it was cancelled.
+    """
+
+    def __init__(
+        self, connection: "Connection", frames: Iterator["pd.DataFrame"]
+    ) -> None:
+        self._connection = connection
+        self._frames = frames
+        self._closed = False
+
+    def __next__(self) -> "pd.DataFrame":
+        if self._closed:
+            raise StopIteration
+        try:
+            return next(self._frames)
+        except BaseException:
+            # StopIteration included: the last chunk is read, release now.
+            self.close()
+            raise
+
+    def close(self) -> None:
+        """Stop reading and release the connection; idempotent."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            close_frames = getattr(self._frames, "close", None)
+            if close_frames is not None:
+                close_frames()
+        finally:
+            read = _ACTIVE_READ.get()
+            if read is not None:
+                _invalidate_if_cancelled(self._connection, read.handle)
+            self._connection.close()
+
+
+#: What :meth:`_BatchedResults._next_frame` returns once the frames run out.
+#: ``StopIteration`` cannot cross a future, so the end travels as a value.
+_NO_MORE_FRAMES = object()
+
+
+class _BatchedResults(Iterator["pd.DataFrame"], AsyncIterator["pd.DataFrame"]):
+    """``get_batched_results``' return: the same frames, iterable either way.
+
+    ``for frame in results`` behaves exactly as the plain iterator did, which
+    is what every existing caller relies on. ``async for frame in results``
+    fetches each chunk with ``run_in_thread`` instead, so the cursor read and
+    the DataFrame build stay off the event loop. A cancel stops any further
+    chunk being read and closes (and drops) the connection once the fetch in
+    flight returns; that fetch itself is not interrupted, since the cursor's
+    cancel is registered only at execute. The SDK's writers take the async
+    path whenever it is offered.
+    """
+
+    def __init__(self, frames: Iterator["pd.DataFrame"], read: _CancellableRead):
+        self._frames = frames
+        self._read = read
+        # Held by every fetch and by close: a close handed to the pool after a
+        # cancel waits for the abandoned fetch instead of closing a generator
+        # that is still running.
+        self._in_use = threading.Lock()
+        # Set when a failed or cancelled fetch has already handed close to a
+        # thread; aclose then returns at once instead of waiting on that fetch.
+        self._close_scheduled = False
+
+    def __iter__(self) -> "_BatchedResults":
+        return self
+
+    def __next__(self) -> "pd.DataFrame":
+        with self._in_use:
+            return next(self._frames)
+
+    def __aiter__(self) -> "_BatchedResults":
+        return self
+
+    def _next_frame(self) -> object:
+        with self._in_use, _reading(self._read):
+            return next(self._frames, _NO_MORE_FRAMES)
+
+    def close(self) -> None:
+        """Stop iterating and release the connection; idempotent."""
+        close = getattr(self._frames, "close", None)
+        if close is None:
+            return
+        with self._in_use, _reading(self._read):
+            close()
+
+    async def __anext__(self) -> "pd.DataFrame":
+        try:
+            frame = await run_in_thread(self._read.handle.bind(self._next_frame))
+        except BaseException:
+            # Cancelled or failed: release the connection once the fetch the
+            # thread may still be running returns.
+            self._close_scheduled = True
+            submit_in_thread(self.close)
+            raise
+        if frame is _NO_MORE_FRAMES:
+            raise StopAsyncIteration
+        return cast("pd.DataFrame", frame)
+
+    async def aclose(self) -> None:
+        """Async counterpart of :meth:`close`, run off the event loop.
+
+        Returns at once when a failed or cancelled fetch already scheduled the
+        close: waiting would hold the caller (often unwinding a cancel) until
+        the abandoned fetch returns.
+        """
+        if self._close_scheduled:
+            return
+        await run_in_thread(self.close)
 
 
 #: The connect-timeout keyword of each driver that has no connect timeout by
@@ -327,6 +453,195 @@ def _cap_next_connect_timeout(
         cparams[arg] = min(current, cap)
 
     event.listen(engine, "do_connect", _cap, once=True)
+
+
+#: ``authType`` values whose password is a short-lived RDS IAM auth token.
+_IAM_TOKEN_AUTH_TYPES = frozenset({"iam_user", "iam_role"})
+
+
+class _FreshIamToken:
+    """``do_connect`` listener: give every new connection an unexpired RDS IAM token.
+
+    The engine's URL holds the token generated in ``load()``, and RDS accepts it
+    for new connections for only 15 minutes. Any connect after that — a second
+    pooled connection, a reconnect after pre-ping or after a cancelled read
+    invalidated the connection — would fail auth. Once the token is
+    ``_RDS_AUTH_TOKEN_REFRESH_SECONDS`` old, the connection string is built
+    again through ``build`` (the client's ``get_sqlalchemy_connection_string``,
+    so a connector's override is honoured), and every driver argument it
+    changes is swapped into the connect. Only arguments still as the engine's
+    URL set them are swapped: a ``connect_args`` value or another listener's
+    change is kept.
+
+    Arguments are compared through the dialect's own ``create_connect_args``,
+    so the token reaches the driver under whatever keyword it takes
+    (``password``, ``passwd``) without naming one here.
+
+    ``build`` blocks (for IAM-role auth it runs an STS ``AssumeRole``). A sync
+    engine connects on a worker thread, so it is called there. An async
+    engine's connect runs on the event loop, inside SQLAlchemy's greenlet;
+    with ``on_loop`` the build is offloaded through ``run_in_thread`` and
+    awaited from that greenlet, so the loop stays free while STS answers.
+
+    One refresh runs at a time: a connect that finds one in flight waits for
+    it instead of calling STS again. The lock guards only the listener's
+    state and is never held while waiting, so a connect on the loop cannot
+    block it. A failed build propagates out of the connect that ran it,
+    already typed; a connect that was waiting on it then tries itself.
+    """
+
+    def __init__(
+        self,
+        build: Callable[[], str],
+        connection_string: str,
+        issued_at: float,
+        *,
+        on_loop: bool = False,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        from sqlalchemy.engine import make_url  # noqa: PLC0415 — optional dep: sqlalchemy
+
+        self._build = build
+        self._on_loop = on_loop
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._engine_url = make_url(connection_string)
+        self._issued_at = issued_at
+        #: The refresh in flight, if any; connects that find it wait on it.
+        self._refreshing: concurrent.futures.Future[None] | None = None
+        #: Positional and keyword driver arguments to swap in, by the URL that
+        #: last refreshed them; empty while the engine's own token is fresh.
+        self._cargs: dict[int, Any] = {}
+        self._cparams: dict[str, Any] = {}
+        #: The engine URL's own driver arguments, which a swap must still find.
+        self._baseline: tuple[list[Any], dict[str, Any]] = ([], {})
+
+    def _built_connection_string(self) -> str:
+        if not self._on_loop:
+            return self._build()
+        from sqlalchemy.util import (  # noqa: PLC0415 — optional dep: sqlalchemy
+            await_only,
+        )
+
+        return await_only(run_in_thread(self._build))
+
+    def _wait(self, refreshing: "concurrent.futures.Future[None]") -> None:
+        if not self._on_loop:
+            refreshing.result()
+            return
+        from sqlalchemy.util import (  # noqa: PLC0415 — optional dep: sqlalchemy
+            await_only,
+        )
+
+        # Shielded: wrap_future passes a cancel through to the wrapped future,
+        # so a cancelled waiter would cancel the refresh every other connect
+        # shares, and the owner's set_result would then raise.
+        await_only(asyncio.shield(asyncio.wrap_future(refreshing)))
+
+    def _stale(self) -> bool:
+        with self._lock:
+            return self._clock() - self._issued_at >= _RDS_AUTH_TOKEN_REFRESH_SECONDS
+
+    def _refresh(self, dialect: "Dialect") -> None:
+        """Rebuild the token, or wait for the refresh another connect started.
+
+        A failed build raises here, out of the connect that ran it.
+        """
+        from sqlalchemy.engine import make_url  # noqa: PLC0415 — optional dep: sqlalchemy
+
+        with self._lock:
+            refreshing = self._refreshing
+            if refreshing is None:
+                refreshing = self._refreshing = concurrent.futures.Future()
+                owner = True
+            else:
+                owner = False
+        if not owner:
+            self._wait(refreshing)
+            return
+        try:
+            # Taken before the build, so the token's age is never understated.
+            issued_at = self._clock()
+            fresh = make_url(self._built_connection_string())
+            old_args, old_params = dialect.create_connect_args(self._engine_url)
+            new_args, new_params = dialect.create_connect_args(fresh)
+            with self._lock:
+                self._cargs = {
+                    i: new
+                    for i, (old, new) in enumerate(zip(old_args, new_args))
+                    if old != new
+                }
+                self._cparams = {
+                    key: value
+                    for key, value in new_params.items()
+                    if old_params.get(key, _MISSING) != value
+                }
+                self._baseline = (list(old_args), dict(old_params))
+                self._issued_at = issued_at
+            logger.debug("Refreshed the RDS IAM auth token for new connections")
+        finally:
+            # Released whether or not the build succeeded: a waiter re-checks
+            # the token's age, and refreshes itself if this one failed or was
+            # cancelled, rather than inheriting another connect's error.
+            with self._lock:
+                self._refreshing = None
+            refreshing.set_result(None)
+
+    def __call__(
+        self,
+        dialect: "Dialect",
+        conn_rec: object,
+        cargs: list[Any],
+        cparams: dict[str, Any],
+    ) -> None:
+        while self._stale():
+            self._refresh(dialect)
+        with self._lock:
+            swap_args, swap_params = self._cargs, self._cparams
+            old_args, old_params = self._baseline
+        for i, value in swap_args.items():
+            if i < len(cargs) and cargs[i] == old_args[i]:
+                cargs[i] = value
+        for key, value in swap_params.items():
+            if cparams.get(key, _MISSING) == old_params.get(key, _MISSING):
+                cparams[key] = value
+
+
+#: Stands in for an absent driver argument, which no real value equals.
+_MISSING = object()
+
+
+def _install_iam_token_refresh(
+    engine: object,
+    client: "BaseSQLClient",
+    connection_string: str,
+    issued_at: float,
+    *,
+    on_loop: bool = False,
+) -> None:
+    """Refresh ``engine``'s RDS IAM token on new connections, for IAM auth only.
+
+    ``engine`` is a sync Engine (an async engine's ``sync_engine``, with
+    ``on_loop``: its connects run on the event loop); anything else, such as
+    a test double, is left alone, as is every other ``authType``.
+    """
+    from sqlalchemy import event  # noqa: PLC0415 — optional dep: sqlalchemy
+    from sqlalchemy.engine import Engine  # noqa: PLC0415 — optional dep: sqlalchemy
+
+    if not isinstance(engine, Engine):
+        return
+    if client.credentials.get("authType") not in _IAM_TOKEN_AUTH_TYPES:
+        return
+    event.listen(
+        engine,
+        "do_connect",
+        _FreshIamToken(
+            client.get_sqlalchemy_connection_string,
+            connection_string,
+            issued_at,
+            on_loop=on_loop,
+        ),
+    )
 
 
 def _budget_left(budget: asyncio.Timeout) -> float:
@@ -445,6 +760,7 @@ class BaseSQLClient(ClientInterface):
                 # a network round trip that would otherwise block the loop.
                 # Cancelling the await does not stop the thread, so the STS
                 # call is fitted into the budget too.
+                issued_at = time.monotonic()
                 with _sts_deadline(_budget_left(budget)):
                     connection_string = await run_in_thread(
                         self.get_sqlalchemy_connection_string
@@ -468,6 +784,11 @@ class BaseSQLClient(ClientInterface):
                 # to be remapped once per process, before any connection is opened —
                 # see sql_typecasters for why. Tracking: WARE-970, CONAT-767.
                 install_tolerant_text_decoder_hook(self.engine)
+
+                # The URL's IAM token expires; later connects need a fresh one.
+                _install_iam_token_refresh(
+                    self.engine, self, connection_string, issued_at
+                )
 
                 # Test connection briefly to validate credentials.
                 # Wrapped in run_in_thread because SQLAlchemy's synchronous
@@ -703,6 +1024,13 @@ class BaseSQLClient(ClientInterface):
         parameters and credentials. It handles different authentication methods
         and includes necessary connection parameters.
 
+        For ``authType`` ``iam_user`` and ``iam_role`` this is called again
+        after ``load()``, each time the RDS IAM token it put in the URL is
+        about to expire and a new connection is opened. It always runs on a
+        worker thread, never the event loop, but not necessarily the one
+        ``load()`` used. An override must therefore be safe to call repeatedly
+        and from any thread, and return a fresh token each time.
+
         Returns:
             str: Complete SQLAlchemy connection string.
 
@@ -912,13 +1240,40 @@ class BaseSQLClient(ClientInterface):
         if not self.engine:
             raise EngineNotInitializedError()
 
-        with self.engine.connect() as conn:
-            try:
-                return self._execute_pandas_query(conn, query, chunksize)
-            finally:
-                read = _ACTIVE_READ.get()
-                if read is not None:
-                    _invalidate_if_cancelled(conn, read.handle)
+        if chunksize is None:
+            with self.engine.connect() as conn:
+                try:
+                    return self._execute_pandas_query(conn, query, chunksize)
+                finally:
+                    read = _ACTIVE_READ.get()
+                    if read is not None:
+                        _invalidate_if_cancelled(conn, read.handle)
+
+        # Chunked: the frames are read lazily from the cursor, so the
+        # connection stays checked out until they are done, not until this
+        # returns.
+        conn = self.engine.connect()
+        try:
+            frames = self._execute_pandas_query(conn, query, chunksize)
+        except BaseException:
+            read = _ACTIVE_READ.get()
+            if read is not None:
+                _invalidate_if_cancelled(conn, read.handle)
+            conn.close()
+            raise
+        read = _ACTIVE_READ.get()
+        if read is not None and read.handle.requested:
+            # The caller was cancelled during the execute and will never read
+            # or close the result: drop the connection now rather than leave it
+            # checked out until garbage collection pools it again.
+            _invalidate_if_cancelled(conn, read.handle)
+            conn.close()
+            raise asyncio.CancelledError
+        if not isinstance(frames, Iterator):
+            # An override that materialised the result: nothing left to read.
+            conn.close()
+            return frames
+        return _ChunksHoldingConnection(conn, frames)
 
     async def _execute_async_read_operation(
         self, query: str, chunksize: int | None
@@ -976,6 +1331,14 @@ class BaseSQLClient(ClientInterface):
     ) -> AsyncIterator["pd.DataFrame"] | Iterator["pd.DataFrame"]:  # type: ignore
         """Get query results as batched pandas DataFrames asynchronously.
 
+        The result is iterable both ways. ``async for frame in results`` reads
+        each chunk off the event loop, and a cancel stops further reads and
+        releases the connection once the chunk in flight returns; prefer it.
+        ``for frame in results`` still works as it always has, but every chunk
+        is then read on the iterating thread — the event loop, from async code.
+        The query's connection stays checked out until the chunks are read or
+        the result is closed (``close()`` / ``await aclose()``).
+
         Returns:
             AsyncIterator["pd.DataFrame"]: Async iterator yielding batches of query results.
 
@@ -986,7 +1349,18 @@ class BaseSQLClient(ClientInterface):
         try:
             # We cast to Iterator because passing chunk_size guarantees an Iterator return
             result = await self._execute_async_read_operation(query, self.chunk_size)
-            return cast(Iterator["pd.DataFrame"], result)
+            frames = cast(Iterator["pd.DataFrame"], result)
+            from sqlalchemy.ext.asyncio import (  # noqa: PLC0415 — optional dep: sqlalchemy
+                AsyncEngine,
+            )
+
+            if isinstance(self.engine, AsyncEngine) or not isinstance(frames, Iterator):
+                # An async engine's frames come off a greenlet-bound session;
+                # pulling them on a worker thread is not supported there.
+                return frames
+            return _BatchedResults(
+                frames, _CancellableRead(CancelHandle(), self.cancel_cursor)
+            )
         except AppError:
             raise
         # conformance: ignore[E004] exception re-raised immediately as typed SqlPandasResultError; cause chain preserved via `from e`
@@ -1079,6 +1453,7 @@ class AsyncBaseSQLClient(BaseSQLClient):
                 # a network round trip that would otherwise block the loop.
                 # Cancelling the await does not stop the thread, so the STS
                 # call is fitted into the budget too.
+                issued_at = time.monotonic()
                 with _sts_deadline(_budget_left(budget)):
                     connection_string = await run_in_thread(
                         self.get_sqlalchemy_connection_string
@@ -1098,6 +1473,15 @@ class AsyncBaseSQLClient(BaseSQLClient):
                 # Same WARE-970 tolerant-decoder hook as the sync client. Async
                 # engines surface DBAPI events on the underlying sync_engine.
                 install_tolerant_text_decoder_hook(self.engine.sync_engine)
+
+                # The URL's IAM token expires; later connects need a fresh one.
+                _install_iam_token_refresh(
+                    self.engine.sync_engine,
+                    self,
+                    connection_string,
+                    issued_at,
+                    on_loop=True,
+                )
 
                 # Test connection briefly to validate credentials
                 async with self.engine.connect() as _:

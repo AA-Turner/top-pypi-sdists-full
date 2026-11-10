@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 from office365.runtime.client_value import ClientValue
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from office365.security.container_evidence import ContainerEvidence
 
 
-@dataclass
 class KubernetesPodEvidence(ClientValue):
     containers: ClientValueCollection[ContainerEvidence] | None = None
     controller: KubernetesControllerEvidence = field(default_factory=KubernetesControllerEvidence)

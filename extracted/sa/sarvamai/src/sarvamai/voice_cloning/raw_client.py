@@ -57,6 +57,7 @@ class RawVoiceCloningClient:
         enable_qc: typing.Optional[bool] = OMIT,
         enable_cached_responses: typing.Optional[bool] = OMIT,
         enable_vad: typing.Optional[bool] = OMIT,
+        remove_background_noise: typing.Optional[bool] = OMIT,
         enable_text_normalization: typing.Optional[bool] = OMIT,
         min_audio_duration: typing.Optional[float] = OMIT,
         max_audio_duration: typing.Optional[float] = OMIT,
@@ -138,6 +139,9 @@ class RawVoiceCloningClient:
         enable_vad : typing.Optional[bool]
             Enable VAD-based silence trimming of the generated audio. Default is `true`. Applies to single-chunk (short) generations; long text that is split into sentence chunks is returned untrimmed.
 
+        remove_background_noise : typing.Optional[bool]
+            Remove background noise from the reference audio before synthesis. Uses ML-powered vocal extraction to isolate the speaker's voice. Only applies when `ref_audio` is provided; ignored when using `voice_id` (a saved voice keeps whatever processing it received when it was created). Adds processing latency -- roughly 1 second for a typical reference clip.
+
         enable_text_normalization : typing.Optional[bool]
             Enable pre-TTS text normalization: numbers, currencies and dates are converted to their spoken form before synthesis (e.g. `9840950950` becomes the spoken digit sequence). Defaults to the server-side setting. Supported for all 12 languages accepted by `language_code`; any other code passes through unchanged.
 
@@ -173,6 +177,7 @@ class RawVoiceCloningClient:
                 "enable_qc": enable_qc,
                 "enable_cached_responses": enable_cached_responses,
                 "enable_vad": enable_vad,
+                "remove_background_noise": remove_background_noise,
                 "enable_text_normalization": enable_text_normalization,
                 "min_audio_duration": min_audio_duration,
                 "max_audio_duration": max_audio_duration,
@@ -313,6 +318,7 @@ class RawVoiceCloningClient:
         output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
         speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
         enable_text_normalization: typing.Optional[bool] = OMIT,
+        remove_background_noise: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[typing.Iterator[bytes]]]:
         """
@@ -386,6 +392,9 @@ class RawVoiceCloningClient:
         enable_text_normalization : typing.Optional[bool]
             Enable pre-TTS text normalization: numbers, currencies and dates are converted to their spoken form before synthesis (e.g. `9840950950` becomes the spoken digit sequence). Defaults to the server-side setting.
 
+        remove_background_noise : typing.Optional[bool]
+            Remove background noise from the reference audio before synthesis. Uses ML-powered vocal extraction to isolate the speaker's voice. Only applies when `ref_audio` is provided; ignored when using `voice_id` (a saved voice keeps whatever processing it received when it was created). Adds processing latency before the first audio chunk -- roughly 1 second for a typical reference clip.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
 
@@ -408,6 +417,7 @@ class RawVoiceCloningClient:
                 "output_audio_bitrate": output_audio_bitrate,
                 "speech_sample_rate": speech_sample_rate,
                 "enable_text_normalization": enable_text_normalization,
+                "remove_background_noise": remove_background_noise,
             },
             files={
                 **({"ref_audio": ref_audio} if ref_audio is not None else {}),
@@ -541,12 +551,13 @@ class RawVoiceCloningClient:
         language: str,
         style: typing.Optional[Style] = OMIT,
         gender: typing.Optional[Gender] = OMIT,
+        remove_background_noise: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[VoiceLibraryCreateResponse]:
         """
-        **Beta.** Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together. No polling or status endpoint is needed; the voice is ready to use immediately with POST /voices/clone.
+        **Beta.** Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together.
 
-        A background job improves the reference audio (noise reduction) after the voice is created; this does not block the response.
+        `remove_background_noise` defaults to `true`: background noise is removed from the reference audio using ML vocal extraction before the voice is saved. Pass `false` to keep the original clip. The response includes `background_noise_removed` to indicate whether denoise was actually applied.
 
         Accepts `multipart/form-data` - send the audio as the `file` upload and everything else as form fields.
 
@@ -574,6 +585,9 @@ class RawVoiceCloningClient:
         gender : typing.Optional[Gender]
             Optional gender tag for the cloned voice.
 
+        remove_background_noise : typing.Optional[bool]
+            Remove background noise from the reference audio before saving. Uses ML-powered vocal extraction to isolate the speaker's voice. Defaults to `true`. Pass `false` to keep the original clip.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -591,6 +605,7 @@ class RawVoiceCloningClient:
                 "language": language,
                 "style": style,
                 "gender": gender,
+                "remove_background_noise": remove_background_noise,
             },
             files={
                 "file": file,
@@ -956,6 +971,7 @@ class AsyncRawVoiceCloningClient:
         enable_qc: typing.Optional[bool] = OMIT,
         enable_cached_responses: typing.Optional[bool] = OMIT,
         enable_vad: typing.Optional[bool] = OMIT,
+        remove_background_noise: typing.Optional[bool] = OMIT,
         enable_text_normalization: typing.Optional[bool] = OMIT,
         min_audio_duration: typing.Optional[float] = OMIT,
         max_audio_duration: typing.Optional[float] = OMIT,
@@ -1037,6 +1053,9 @@ class AsyncRawVoiceCloningClient:
         enable_vad : typing.Optional[bool]
             Enable VAD-based silence trimming of the generated audio. Default is `true`. Applies to single-chunk (short) generations; long text that is split into sentence chunks is returned untrimmed.
 
+        remove_background_noise : typing.Optional[bool]
+            Remove background noise from the reference audio before synthesis. Uses ML-powered vocal extraction to isolate the speaker's voice. Only applies when `ref_audio` is provided; ignored when using `voice_id` (a saved voice keeps whatever processing it received when it was created). Adds processing latency -- roughly 1 second for a typical reference clip.
+
         enable_text_normalization : typing.Optional[bool]
             Enable pre-TTS text normalization: numbers, currencies and dates are converted to their spoken form before synthesis (e.g. `9840950950` becomes the spoken digit sequence). Defaults to the server-side setting. Supported for all 12 languages accepted by `language_code`; any other code passes through unchanged.
 
@@ -1072,6 +1091,7 @@ class AsyncRawVoiceCloningClient:
                 "enable_qc": enable_qc,
                 "enable_cached_responses": enable_cached_responses,
                 "enable_vad": enable_vad,
+                "remove_background_noise": remove_background_noise,
                 "enable_text_normalization": enable_text_normalization,
                 "min_audio_duration": min_audio_duration,
                 "max_audio_duration": max_audio_duration,
@@ -1212,6 +1232,7 @@ class AsyncRawVoiceCloningClient:
         output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
         speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
         enable_text_normalization: typing.Optional[bool] = OMIT,
+        remove_background_noise: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]:
         """
@@ -1285,6 +1306,9 @@ class AsyncRawVoiceCloningClient:
         enable_text_normalization : typing.Optional[bool]
             Enable pre-TTS text normalization: numbers, currencies and dates are converted to their spoken form before synthesis (e.g. `9840950950` becomes the spoken digit sequence). Defaults to the server-side setting.
 
+        remove_background_noise : typing.Optional[bool]
+            Remove background noise from the reference audio before synthesis. Uses ML-powered vocal extraction to isolate the speaker's voice. Only applies when `ref_audio` is provided; ignored when using `voice_id` (a saved voice keeps whatever processing it received when it was created). Adds processing latency before the first audio chunk -- roughly 1 second for a typical reference clip.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
 
@@ -1307,6 +1331,7 @@ class AsyncRawVoiceCloningClient:
                 "output_audio_bitrate": output_audio_bitrate,
                 "speech_sample_rate": speech_sample_rate,
                 "enable_text_normalization": enable_text_normalization,
+                "remove_background_noise": remove_background_noise,
             },
             files={
                 **({"ref_audio": ref_audio} if ref_audio is not None else {}),
@@ -1441,12 +1466,13 @@ class AsyncRawVoiceCloningClient:
         language: str,
         style: typing.Optional[Style] = OMIT,
         gender: typing.Optional[Gender] = OMIT,
+        remove_background_noise: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[VoiceLibraryCreateResponse]:
         """
-        **Beta.** Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together. No polling or status endpoint is needed; the voice is ready to use immediately with POST /voices/clone.
+        **Beta.** Creates a cloned voice from a reference audio clip in **one shot**. The whole pipeline runs inline: the audio is stored, validated for quality, transcribed via ASR, and cloned - the response returns the new `voice_id` and the auto-generated transcript (`reference_text`) together.
 
-        A background job improves the reference audio (noise reduction) after the voice is created; this does not block the response.
+        `remove_background_noise` defaults to `true`: background noise is removed from the reference audio using ML vocal extraction before the voice is saved. Pass `false` to keep the original clip. The response includes `background_noise_removed` to indicate whether denoise was actually applied.
 
         Accepts `multipart/form-data` - send the audio as the `file` upload and everything else as form fields.
 
@@ -1474,6 +1500,9 @@ class AsyncRawVoiceCloningClient:
         gender : typing.Optional[Gender]
             Optional gender tag for the cloned voice.
 
+        remove_background_noise : typing.Optional[bool]
+            Remove background noise from the reference audio before saving. Uses ML-powered vocal extraction to isolate the speaker's voice. Defaults to `true`. Pass `false` to keep the original clip.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1491,6 +1520,7 @@ class AsyncRawVoiceCloningClient:
                 "language": language,
                 "style": style,
                 "gender": gender,
+                "remove_background_noise": remove_background_noise,
             },
             files={
                 "file": file,

@@ -2,7 +2,6 @@ import itertools
 import json
 import pickle
 import re
-import warnings
 import webbrowser
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -13,7 +12,7 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
-import httpx
+import httpx2
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -55,9 +54,6 @@ from edgar.documents import HTMLParser, ParserConfig
 from edgar.documents.exceptions import ParsingError
 from edgar.documents.extractors.chunk_extractor import chunk_html
 from edgar.exceptions import TransportError, http_status
-from edgar.files._deprecation import PAGE_BREAK_DEPRECATION as _PAGE_BREAK_DEPRECATION
-from edgar.files.html_documents import get_clean_html
-from edgar.files.markdown import to_markdown
 from edgar.filesystem import EdgarPath
 from edgar.filtering import filter_by_accession_number, filter_by_cik, filter_by_date, filter_by_exchange, filter_by_form, filter_by_ticker
 from edgar.headers import FilingDirectory, IndexHeaders
@@ -453,9 +449,9 @@ def fetch_filing_index(year_and_quarter: YearAndQuarter,
     try:
         index_table = fetch_filing_index_at_url(url, index)
         return (year, quarter), index_table
-    except (httpx.HTTPStatusError, TransportError) as e:
-        # Dual-era: httpx raises the status error today, TransportError under the
-        # strict wrap and in 6.0. http_status() reads either.
+    except (httpx2.HTTPStatusError, TransportError) as e:
+        # The boundary wrap raises TransportError; an unwrapped path would raise
+        # the httpx2 status error. http_status() reads either.
         if is_start_of_quarter() and http_status(e) == 403:
             # Return an empty filing index
             return (year, quarter), _empty_filing_index()
@@ -564,7 +560,8 @@ class Filings:
                  compress: bool = True,
                  compression_level: int = 6,
                  upload_to_cloud: bool = False,
-                 disable_progress: bool = False):
+                 disable_progress: bool = False,
+                 source: str = 'submission'):
         """
         Download the filings based on the accession numbers in this Filings object.
 
@@ -577,11 +574,14 @@ class Filings:
             compression_level: Compression level for gzip (1-9, with 9 being highest compression). Default is 6.
             upload_to_cloud: If True, upload downloaded filings to cloud storage after download. Default is False.
             disable_progress: If True, suppress progress bars. Useful for logging environments. Default is False.
+            source: 'submission' (default) fetches each filing on its own; 'feed' downloads the
+                daily feed files that hold them. Filings already stored are not downloaded again.
         """
         from edgar.storage import download_filings
         download_filings(data_directory=data_directory,
-                         overwrite_existing=True,
+                         overwrite_existing=False,
                          filings=self,
+                         source=source,
                          compress=compress,
                          compression_level=compression_level,
                          upload_to_cloud=upload_to_cloud,
@@ -1767,7 +1767,7 @@ class Filing:
         assert downloaded is not None
         return str(downloaded)
 
-    def markdown(self, include_page_breaks: bool = False, start_page_number: int = 0) -> str:
+    def markdown(self) -> str:
         """
         Return the markdown version of this filing html
 
@@ -1775,40 +1775,23 @@ class Filing:
         (GH #886) and tables render through the same pipeline as ``text()``,
         ``view()`` and the section extractors. Relative image ``src`` values are
         resolved against the filing's SEC archive directory, so the markdown is
-        a self-contained document with working image links.
-
-        Args:
-            include_page_breaks: If True, include ``{N}----`` page break
-                delimiters in the markdown. **Deprecated.** Page breaks exist
-                only in the legacy ``edgar.files`` renderer, so passing True
-                routes the whole document through it and forfeits images and
-                the newer table rendering. Removed in 6.0.
-            start_page_number: Starting page number for page break markers
-                (default: 0). Only meaningful with ``include_page_breaks=True``.
+        a self-contained document with working image links. Page-break markers
+        are not rendered: the parser treats page-break rules and page-number
+        footers as print layout and drops them.
         """
         html = self.html()
         if html:
-            if include_page_breaks:
-                warnings.warn(_PAGE_BREAK_DEPRECATION.format(cls="Filing"),
-                              DeprecationWarning, stacklevel=2)
-                clean_html = get_clean_html(html)
-                if clean_html:
-                    markdown_result = to_markdown(clean_html, include_page_breaks=True,
-                                                  start_page_number=start_page_number)
-                    if markdown_result:
-                        return markdown_result
-            else:
-                try:
-                    document = HTMLParser(ParserConfig(form=self.form)).parse(html)
-                    # Base for resolving relative image src. Trailing slash matters:
-                    # urljoin() drops the last path segment without it. base_dir is a
-                    # pure string property, so this costs no request.
-                    document.metadata.url = f"{self.base_dir}/"
-                    markdown_result = document.to_markdown()
-                except ParsingError:
-                    markdown_result = None
-                if markdown_result:
-                    return markdown_result
+            try:
+                document = HTMLParser(ParserConfig(form=self.form)).parse(html)
+                # Base for resolving relative image src. Trailing slash matters:
+                # urljoin() drops the last path segment without it. base_dir is a
+                # pure string property, so this costs no request.
+                document.metadata.url = f"{self.base_dir}/"
+                markdown_result = document.to_markdown()
+            except ParsingError:
+                markdown_result = None
+            if markdown_result:
+                return markdown_result
         text_content = self.text()
         # Return empty string for empty content (e.g., XML-only filings)
         if not text_content:
@@ -2124,8 +2107,8 @@ class Filing:
             >>> filing.obj_type is None  # unsupported form
             True
         """
-        from edgar import get_obj_info
-        has_obj, obj_type_name, _ = get_obj_info(self.form)
+        from edgar import _get_obj_info
+        has_obj, obj_type_name, _ = _get_obj_info(self.form)
         return obj_type_name if has_obj else None
 
     def open_homepage(self):
@@ -2468,7 +2451,7 @@ class Filing:
               - Use .document for the primary document (Attachment)
               - Use .attachments for exhibits (5 documents)
         """
-        from edgar import get_obj_info
+        from edgar import _get_obj_info
 
         lines = []
 
@@ -2501,7 +2484,7 @@ class Filing:
             lines.append("AVAILABLE ACTIONS:")
 
             # Check if this form has a structured data object
-            has_obj, obj_type, obj_desc = get_obj_info(self.form)
+            has_obj, obj_type, obj_desc = _get_obj_info(self.form)
             if has_obj:
                 lines.append("  - Use .obj() to parse as structured data")
                 lines.append(f"    Returns: {obj_type} ({obj_desc})")
@@ -2720,6 +2703,20 @@ def summarize_files(data: pd.DataFrame) -> pd.DataFrame:
             )
 
 
+def _efts_is_down(exc: BaseException) -> bool:
+    """True when EFTS failed in a way the quarterly index can route around.
+
+    That is the search backend being broken while SEC's archive may be fine: an
+    HTTP 200 error body (``getaddrinfo EBUSY`` on 2026-10-14), a 5xx, or no
+    answer at all (``is_unreachable``). Anything else is an answer the index
+    route would get too -- a 429, a 4xx, SSL, a missing identity.
+    """
+    if is_unreachable(exc):
+        return True
+    status = http_status(exc)
+    return status == 200 or (status is not None and status >= 500)
+
+
 def _filing_from_efts(accession_number: str):
     """Resolve an accession through EDGAR full-text search, or None.
 
@@ -2729,13 +2726,32 @@ def _filing_from_efts(accession_number: str):
     41 MB to parse (bead edgartools-vx29).
 
     None means "ask the quarterly index" — EFTS indexes 2001 onward, so older
-    filings legitimately miss here, and a network failure is deliberately also a
-    miss rather than an error. The index route stays correct for everything;
-    this only makes the common case cheap.
+    filings legitimately miss here. The index route stays correct for
+    everything; this only makes the common case cheap.
+
+    An EFTS outage is also None here, with a warning. ``resolve_accession``
+    raises it (edgartools-07lk.10), but for this caller EFTS is a shortcut with
+    a correct fallback, and SEC's search backend fails on its own (an HTTP 200
+    error body, a 5xx) while the archive answers. Raising made
+    ``find(accession)`` fail for a filing the index would have found.
+
+    Only that kind of failure falls back (see ``_efts_is_down``). A 429, an SSL
+    failure or a missing identity re-raises: the index fetch goes to the same
+    SEC, so it would hit the same wall after a 41 MB detour, and a 429 answered
+    with that download is the worst reply to "slow down" (GH #1554 review).
     """
+    from edgar.httprequests import TRANSPORT_ERRORS
     from edgar.search.efts import resolve_accession
 
-    fields = resolve_accession(accession_number)
+    try:
+        fields = resolve_accession(accession_number)
+    except TRANSPORT_ERRORS as exc:
+        if not _efts_is_down(exc):
+            raise
+        log.warning("EDGAR full-text search could not resolve %s (%s: %s); "
+                    "looking it up in the quarterly filing index instead",
+                    accession_number, type(exc).__name__, str(exc)[:120])
+        return None
     if not fields:
         return None
     return Filing(

@@ -48,7 +48,8 @@ def sync_detailed(
     """Retry a failed API key command
 
      Sends the command that left the key Erred to the site agent again, with the key's current limits and
-    models. An Erred key accepts only this, the same command, or a delete.
+    models. An Erred key accepts only this, the same command, or a delete. The key's assignee can retry
+    a failed rotation, and no other command.
 
     Args:
         uuid (UUID):
@@ -80,7 +81,8 @@ def sync(
     """Retry a failed API key command
 
      Sends the command that left the key Erred to the site agent again, with the key's current limits and
-    models. An Erred key accepts only this, the same command, or a delete.
+    models. An Erred key accepts only this, the same command, or a delete. The key's assignee can retry
+    a failed rotation, and no other command.
 
     Args:
         uuid (UUID):
@@ -107,7 +109,8 @@ async def asyncio_detailed(
     """Retry a failed API key command
 
      Sends the command that left the key Erred to the site agent again, with the key's current limits and
-    models. An Erred key accepts only this, the same command, or a delete.
+    models. An Erred key accepts only this, the same command, or a delete. The key's assignee can retry
+    a failed rotation, and no other command.
 
     Args:
         uuid (UUID):
@@ -137,7 +140,8 @@ async def asyncio(
     """Retry a failed API key command
 
      Sends the command that left the key Erred to the site agent again, with the key's current limits and
-    models. An Erred key accepts only this, the same command, or a delete.
+    models. An Erred key accepts only this, the same command, or a delete. The key's assignee can retry
+    a failed rotation, and no other command.
 
     Args:
         uuid (UUID):

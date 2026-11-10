@@ -142,11 +142,12 @@ from .shortnumberinfo import (SUPPORTED_SHORT_REGIONS,
                               is_carrier_specific_for_region,
                               is_sms_service_for_region)
 from .phonenumbermatcher import PhoneNumberMatch, PhoneNumberMatcher, Leniency
+from .re_util import enable_pattern_cache
 
 
 # Version number is taken from the upstream libphonenumber version
 # together with an indication of the version of the Python-specific code.
-__version__ = "9.0.42"
+__version__ = "9.0.43"
 
 __all__ = ['PhoneNumber', 'CountryCodeSource', 'FrozenPhoneNumber',
            'REGION_CODE_FOR_NON_GEO_ENTITY', 'NumberFormat', 'PhoneNumberDesc', 'PhoneMetadata',
@@ -219,6 +220,7 @@ __all__ = ['PhoneNumber', 'CountryCodeSource', 'FrozenPhoneNumber',
            'is_sms_service_for_region',
            # end of items from shortnumberinfo.py
            'PhoneNumberMatch', 'PhoneNumberMatcher', 'Leniency',
+           'enable_pattern_cache',
            ]
 
 if __name__ == '__main__':  # pragma no cover

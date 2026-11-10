@@ -5,21 +5,23 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from contextlib import AbstractContextManager, nullcontext
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Annotated, Any, Callable, TypedDict
 
 try:
     from langchain.agents.middleware import AgentMiddleware
-    from langchain.agents.middleware.types import AgentState, ModelRequest
+    from langchain.agents.middleware.types import AgentState, ModelRequest, PrivateStateAttr
     from langchain_core.messages import (
         AIMessage,
         BaseMessage,
         HumanMessage,
-        SystemMessage,
         ToolMessage,
     )
+    from langgraph.config import get_config
 except ImportError as exc:  # pragma: no cover - exercised by optional import path
     from langchain_openviking.client import missing_dependency
 
@@ -34,6 +36,7 @@ from langchain_openviking.client import (
     OpenVikingCommitPolicy,
     extract_message_text,
     get_latest_user_text,
+    get_message_role,
 )
 from langchain_openviking.context import (
     OpenVikingAssembledContext,
@@ -52,6 +55,7 @@ _SESSION_ID_ERROR = (
     'config={"configurable": {"thread_id": "..."}}, set state["session_id"], '
     "or provide session_id_resolver."
 )
+_RECALL_LEDGER_MAX_ENTRIES = 500
 _CaptureKey = tuple[str, str] | tuple[str, str, str]
 _ActorPeerResolver = Callable[
     [dict[str, Any], Any],
@@ -72,13 +76,31 @@ class _CapturePlan:
     unchanged: bool = False
 
 
-class OpenVikingContextMiddleware(AgentMiddleware):
+class _PendingContext(TypedDict):
+    delivery_id: str
+    parts: list[dict[str, Any]]
+
+
+class OpenVikingCaptureState(AgentState):
+    # Persist delivery IDs in the host checkpointer, independently of message
+    # retention, so a compacted tail is not recorded again after a restart.
+    openviking_captured_message_ids: dict[str, list[str]]
+    # Recall is request-only, so keep the exact block separately and replay it
+    # onto the same user message when the host rebuilds model-bound history.
+    openviking_recall_ledger: Annotated[dict[str, dict[str, str]], PrivateStateAttr]
+    # References are pending only until their assistant message is acknowledged.
+    openviking_pending_context: Annotated[dict[str, _PendingContext], PrivateStateAttr]
+
+
+class OpenVikingContextMiddleware(AgentMiddleware[OpenVikingCaptureState]):
     """Inject OpenViking recall into LangGraph agent model calls.
 
     The middleware mirrors the OpenClaw-style lifecycle at LangGraph's extension
     points: recall before model calls and optional session capture after agent
     execution.
     """
+
+    state_schema = OpenVikingCaptureState
 
     def __init__(
         self,
@@ -88,11 +110,11 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         retriever: OpenVikingRetriever | None = None,
         url: str | None = None,
         api_key: str | None = None,
+        auth_mode: str | None = None,
         account: str | None = None,
         user: str | None = None,
         user_id: str | None = None,
         actor_peer_id: str | None = None,
-        path: str | None = None,
         target_uri: str | list[str] = "",
         limit: int = 5,
         peer_id: str | None = None,
@@ -105,6 +127,7 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         commit_on_after_agent: bool = False,
         commit_policy: OpenVikingCommitPolicy | None = None,
         recall_header: str = "Relevant OpenViking context:",
+        include_session_context: bool = False,
         include_active_messages: bool = False,
     ):
         super().__init__()
@@ -113,18 +136,17 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             client=client,
             async_client=async_client,
             retriever=retriever,
-            path=path,
         )
         self.recorder = OpenVikingSessionRecorder(
             client=client,
             async_client=async_client,
             url=url,
             api_key=api_key,
+            auth_mode=auth_mode,
             account=account,
             user=user,
             user_id=user_id,
             actor_peer_id=actor_peer_id,
-            path=path,
             commit_policy=None,
         )
         self._owns_retriever = retriever is None
@@ -133,11 +155,11 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             async_client=async_client,
             url=url,
             api_key=api_key,
+            auth_mode=auth_mode,
             account=account,
             user=user,
             user_id=user_id,
             actor_peer_id=actor_peer_id,
-            path=path,
             target_uri=target_uri,
             limit=limit,
             score_threshold=score_threshold,
@@ -149,16 +171,16 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             retriever=self.retriever,
             url=url,
             api_key=api_key,
+            auth_mode=auth_mode,
             account=account,
             user=user,
             user_id=user_id,
             actor_peer_id=actor_peer_id,
-            path=path,
             target_uri=target_uri,
             limit=limit,
             score_threshold=score_threshold,
             token_budget=token_budget,
-            include_session_context=True,
+            include_session_context=include_session_context,
             include_active_messages=include_active_messages,
             include_recall=True,
             recall_header=recall_header,
@@ -173,7 +195,9 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             self.commit_policy = OpenVikingCommitPolicy(mode="always")
         self.recall_header = recall_header
         self._captured_signatures: dict[_CaptureKey, tuple[str, ...]] = {}
+        self._captured_message_ids: dict[_CaptureKey, set[str]] = {}
         self._pending_context_parts: dict[_CaptureKey, list[dict[str, Any]]] = {}
+        self._pending_recall_blocks: dict[_CaptureKey, tuple[str, str]] = {}
 
     async def aclose(self) -> None:
         """Release all clients internally owned by this middleware."""
@@ -196,18 +220,20 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         if plan is None:
             return handler(request)
         session_id, pending_key, query, actor_peer_id = plan
-        with self._actor_peer_scope(actor_peer_id):
-            assembled = self.assembler.assemble(
-                session_id=session_id,
-                query=query,
-            )
-        updated_request = self._request_with_context(request, pending_key, assembled)
-        if updated_request is None:
-            return handler(request)
+        if self._has_current_recall(request, pending_key):
+            updated_request = self._request_with_replayed_context(request, pending_key)
+        else:
+            self._discard_pending_recall(pending_key)
+            with self._actor_peer_scope(actor_peer_id):
+                assembled = self.assembler.assemble(
+                    session_id=session_id,
+                    query=query,
+                )
+            updated_request = self._request_with_context(request, pending_key, assembled)
         try:
-            return handler(updated_request)
-        except Exception:
-            self._pending_context_parts.pop(pending_key, None)
+            return handler(updated_request or request)
+        except BaseException:
+            self._discard_pending_recall(pending_key)
             raise
 
     async def awrap_model_call(
@@ -221,20 +247,22 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         if plan is None:
             return await handler(request)
         session_id, pending_key, query, actor_peer_id = plan
-        with self._actor_peer_scope(actor_peer_id):
-            assembled = await self.assembler.aassemble(
-                session_id=session_id,
-                query=query,
-            )
-        updated_request = self._request_with_context(request, pending_key, assembled)
-        if updated_request is None:
-            return await handler(request)
+        if self._has_current_recall(request, pending_key):
+            updated_request = self._request_with_replayed_context(request, pending_key)
+        else:
+            self._discard_pending_recall(pending_key)
+            with self._actor_peer_scope(actor_peer_id):
+                assembled = await self.assembler.aassemble(
+                    session_id=session_id,
+                    query=query,
+                )
+            updated_request = self._request_with_context(request, pending_key, assembled)
         try:
-            return await handler(updated_request)
+            return await handler(updated_request or request)
         except BaseException:
             # CancelledError is a BaseException, so cancellation must also discard
             # context references prepared for the interrupted model call.
-            self._pending_context_parts.pop(pending_key, None)
+            self._discard_pending_recall(pending_key)
             raise
 
     def _model_context_plan(
@@ -250,8 +278,11 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         peer_id = self._resolve_peer_id(state, runtime)
         actor_peer_id = self._resolve_actor_peer_id(state, runtime)
         pending_key = _capture_key(session_id, peer_id, actor_peer_id)
-        self._pending_context_parts.pop(pending_key, None)
         return session_id, pending_key, query, actor_peer_id
+
+    def _discard_pending_recall(self, pending_key: _CaptureKey) -> None:
+        self._pending_context_parts.pop(pending_key, None)
+        self._pending_recall_blocks.pop(pending_key, None)
 
     def _request_with_context(
         self,
@@ -260,29 +291,160 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         assembled: OpenVikingAssembledContext,
     ) -> ModelRequest | None:
         context_block = assembled.block
-        if not context_block:
-            return None
         if assembled.context_parts:
             self._pending_context_parts[pending_key] = assembled.context_parts
+        message_key = _latest_user_recall_key(request.messages)
+        if message_key is not None:
+            self._pending_recall_blocks[pending_key] = (message_key, context_block)
+            return self._request_with_replayed_context(request, pending_key)
+        return self._request_with_replayed_context(
+            request,
+            pending_key,
+            untracked_current_block=context_block,
+        )
 
-        system_message = request.system_message
-        if system_message is None:
-            updated_system = SystemMessage(content=context_block)
-        else:
-            content = extract_message_text(system_message.content)
-            updated_system = SystemMessage(content=f"{content}\n\n{context_block}".strip())
-        return request.override(system_message=updated_system)
+    def _has_current_recall(self, request: ModelRequest, pending_key: _CaptureKey) -> bool:
+        message_key = _latest_user_recall_key(request.messages)
+        if message_key is None:
+            return False
+        ledger = _recall_ledger(getattr(request, "state", {}) or {}, pending_key)
+        if message_key in ledger:
+            return True
+        pending = self._pending_recall_blocks.get(pending_key)
+        return pending is not None and pending[0] == message_key
 
-    def after_agent(self, state: AgentState[Any], runtime: Any) -> dict[str, Any] | None:
+    def _request_with_replayed_context(
+        self,
+        request: ModelRequest,
+        pending_key: _CaptureKey,
+        *,
+        untracked_current_block: str | None = None,
+    ) -> ModelRequest | None:
+        messages = list(request.messages)
+        latest_user_index = _latest_user_index(messages)
+        if latest_user_index is None:
+            return None
+        ledger = _recall_ledger(getattr(request, "state", {}) or {}, pending_key)
+        pending = self._pending_recall_blocks.get(pending_key)
+        if pending is not None:
+            ledger[pending[0]] = pending[1]
+
+        changed = False
+        for index, message in enumerate(messages):
+            if get_message_role(message) != "user":
+                continue
+            message_key = _recall_message_key(message)
+            if message_key is not None and message_key in ledger:
+                block = ledger[message_key]
+            elif index == latest_user_index and untracked_current_block is not None:
+                block = untracked_current_block
+            else:
+                continue
+            if not block:
+                continue
+            messages[index] = _message_with_recall(message, block)
+            changed = True
+        return request.override(messages=messages) if changed else None
+
+    def before_model(self, state: OpenVikingCaptureState, runtime: Any) -> dict[str, Any] | None:
+        """Place this middleware before the host summarizer to capture its input."""
+        return self._capture(state, runtime, commit=False)
+
+    def after_model(
+        self,
+        state: OpenVikingCaptureState,
+        runtime: Any,
+    ) -> dict[str, Any] | None:
+        return self._save_pending_recall(state, runtime)
+
+    async def abefore_model(
+        self, state: OpenVikingCaptureState, runtime: Any
+    ) -> dict[str, Any] | None:
+        return await self._acapture(state, runtime, commit=False)
+
+    async def aafter_model(
+        self,
+        state: OpenVikingCaptureState,
+        runtime: Any,
+    ) -> dict[str, Any] | None:
+        return self._save_pending_recall(state, runtime)
+
+    def _save_pending_recall(
+        self,
+        state: OpenVikingCaptureState,
+        runtime: Any,
+    ) -> dict[str, Any] | None:
+        if not self._pending_recall_blocks:
+            return None
+        pending_key = _capture_key(
+            self._resolve_session_id(state, runtime),
+            self._resolve_peer_id(state, runtime),
+            self._resolve_actor_peer_id(state, runtime),
+        )
+        pending = self._pending_recall_blocks.pop(pending_key, None)
+        if pending is None:
+            return None
+        message_key, block = pending
+        ledgers = dict(state.get("openviking_recall_ledger") or {})
+        scope_key = _stable_json(pending_key)
+        ledger = dict(ledgers.get(scope_key) or {})
+        update: dict[str, Any] = {}
+        if ledger.get(message_key) != block:
+            ledger[message_key] = block
+            while len(ledger) > _RECALL_LEDGER_MAX_ENTRIES:
+                del ledger[next(iter(ledger))]
+            ledgers[scope_key] = ledger
+            update["openviking_recall_ledger"] = ledgers
+
+        parts = self._pending_context_parts.get(pending_key)
+        messages = state.get("messages") or []
+        delivery_id = _message_delivery_id(messages[-1]) if messages else None
+        if parts and delivery_id:
+            pending_context = dict(state.get("openviking_pending_context") or {})
+            pending_context[scope_key] = {
+                "delivery_id": delivery_id,
+                "parts": deepcopy(parts),
+            }
+            update["openviking_pending_context"] = pending_context
+        return update or None
+
+    def _capture_state_update(
+        self, state: OpenVikingCaptureState, plan: _CapturePlan
+    ) -> dict[str, Any]:
+        delivered = dict(state.get("openviking_captured_message_ids") or {})
+        delivered[_stable_json(plan.key)] = sorted(self._captured_message_ids.get(plan.key, set()))
+        update: dict[str, Any] = {"openviking_captured_message_ids": delivered}
+        pending_context = state.get("openviking_pending_context") or {}
+        scope_key = _stable_json(plan.key)
+        pending = pending_context.get(scope_key)
+        if pending and pending["delivery_id"] in self._captured_message_ids.get(plan.key, set()):
+            pending_context = dict(pending_context)
+            del pending_context[scope_key]
+            update["openviking_pending_context"] = pending_context
+        return {key: value for key, value in update.items() if state.get(key) != value}
+
+    def _remember_capture_ids(self, plan: _CapturePlan, end: int | None = None) -> None:
+        delivered = self._captured_message_ids.setdefault(plan.key, set())
+        for message in plan.messages[:end]:
+            message_id = _message_delivery_id(message)
+            if message_id:
+                delivered.add(message_id)
+
+    def after_agent(self, state: OpenVikingCaptureState, runtime: Any) -> dict[str, Any] | None:
+        return self._capture(state, runtime, commit=True)
+
+    def _capture(
+        self, state: OpenVikingCaptureState, runtime: Any, *, commit: bool
+    ) -> dict[str, Any] | None:
         plan = self._capture_plan(state, runtime)
         if plan is None:
             return None
-        self.recorder.commit_policy = self.commit_policy
+        policy = self.commit_policy if commit else None
         if plan.unchanged:
             with self._actor_peer_scope(plan.actor_peer_id):
-                self.recorder.record(plan.session_id, ())
+                self.recorder.record(plan.session_id, (), commit_policy=policy)
             self._pending_context_parts.pop(plan.key, None)
-            return None
+            return self._capture_state_update(state, plan) or None
         try:
             with self._actor_peer_scope(plan.actor_peer_id):
                 result = self.recorder.record(
@@ -290,30 +452,35 @@ class OpenVikingContextMiddleware(AgentMiddleware):
                     plan.messages[plan.start :],
                     peer_id=plan.peer_id,
                     context_parts=plan.context_parts,
+                    commit_policy=policy,
                 )
         except OpenVikingPartialWriteError as exc:
             self._handle_partial_capture(plan, exc)
             raise
 
         self._complete_capture(plan, context_attached=result.context_attached)
-        return None
+        return self._capture_state_update(state, plan)
 
     async def aafter_agent(
         self,
-        state: AgentState[Any],
+        state: OpenVikingCaptureState,
         runtime: Any,
     ) -> dict[str, Any] | None:
         """Asynchronously capture messages after an agent run."""
+        return await self._acapture(state, runtime, commit=True)
 
+    async def _acapture(
+        self, state: OpenVikingCaptureState, runtime: Any, *, commit: bool
+    ) -> dict[str, Any] | None:
         plan = self._capture_plan(state, runtime)
         if plan is None:
             return None
-        self.recorder.commit_policy = self.commit_policy
+        policy = self.commit_policy if commit else None
         if plan.unchanged:
             with self._actor_peer_scope(plan.actor_peer_id):
-                await self.recorder.arecord(plan.session_id, ())
+                await self.recorder.arecord(plan.session_id, (), commit_policy=policy)
             self._pending_context_parts.pop(plan.key, None)
-            return None
+            return self._capture_state_update(state, plan) or None
         try:
             with self._actor_peer_scope(plan.actor_peer_id):
                 result = await self.recorder.arecord(
@@ -321,6 +488,7 @@ class OpenVikingContextMiddleware(AgentMiddleware):
                     plan.messages[plan.start :],
                     peer_id=plan.peer_id,
                     context_parts=plan.context_parts,
+                    commit_policy=policy,
                 )
         except OpenVikingPartialWriteError as exc:
             self._handle_partial_capture(plan, exc)
@@ -332,11 +500,11 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             raise
 
         self._complete_capture(plan, context_attached=result.context_attached)
-        return None
+        return self._capture_state_update(state, plan)
 
     def _capture_plan(
         self,
-        state: AgentState[Any],
+        state: OpenVikingCaptureState,
         runtime: Any,
     ) -> _CapturePlan | None:
         if not self.capture_on_after_agent:
@@ -348,9 +516,18 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         peer_id = self._resolve_peer_id(state, runtime)
         actor_peer_id = self._resolve_actor_peer_id(state, runtime)
         key = _capture_key(session_id, peer_id, actor_peer_id)
+        delivered = self._captured_message_ids.setdefault(key, set())
+        delivered.update(
+            (state.get("openviking_captured_message_ids") or {}).get(_stable_json(key), [])
+        )
+        messages = [
+            message
+            for message in messages
+            if _message_delivery_id(message) not in delivered and not _is_host_summary(message)
+        ]
         previous_signatures = self._captured_signatures.get(key, ())
         signatures = tuple(_message_signature(message) for message in messages)
-        unchanged = signatures == previous_signatures
+        unchanged = not messages or signatures == previous_signatures
         start = 0
         if (
             not unchanged
@@ -359,6 +536,14 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             and signatures[: len(previous_signatures)] == previous_signatures
         ):
             start = len(previous_signatures)
+        context_parts = list(self._pending_context_parts.get(key, []))
+        if not context_parts:
+            # Restore references only for their still-uncaptured assistant message.
+            pending = (state.get("openviking_pending_context") or {}).get(_stable_json(key))
+            if pending and any(
+                _message_delivery_id(message) == pending["delivery_id"] for message in messages
+            ):
+                context_parts = list(pending["parts"])
         return _CapturePlan(
             session_id=session_id,
             peer_id=peer_id,
@@ -367,7 +552,7 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             messages=messages,
             signatures=signatures,
             start=start,
-            context_parts=list(self._pending_context_parts.get(key, [])),
+            context_parts=context_parts,
             unchanged=unchanged,
         )
 
@@ -379,6 +564,7 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         if error.input_messages_consumed:
             consumed_end = plan.start + error.input_messages_consumed
             self._captured_signatures[plan.key] = plan.signatures[:consumed_end]
+            self._remember_capture_ids(plan, consumed_end)
         if error.context_attached:
             self._pending_context_parts.pop(plan.key, None)
 
@@ -389,6 +575,7 @@ class OpenVikingContextMiddleware(AgentMiddleware):
         context_attached: bool,
     ) -> None:
         self._captured_signatures[plan.key] = plan.signatures
+        self._remember_capture_ids(plan)
         if context_attached:
             self._pending_context_parts.pop(plan.key, None)
 
@@ -409,6 +596,14 @@ class OpenVikingContextMiddleware(AgentMiddleware):
             resolved = _normalize_session_id(candidate)
             if resolved:
                 return resolved
+        # The framework Runtime does not expose config; its runnable context does.
+        try:
+            config = get_config()
+        except RuntimeError:
+            config = {}
+        resolved = _normalize_session_id(_nested_get(config, "configurable", "thread_id"))
+        if resolved:
+            return resolved
         raise ValueError(_SESSION_ID_ERROR)
 
     def _resolve_peer_id(self, state: Any, runtime: Any) -> str | None:
@@ -497,13 +692,10 @@ def _validate_actor_peer_transport(
     client: Any,
     async_client: Any,
     retriever: OpenVikingRetriever | None,
-    path: str | None,
 ) -> None:
     if actor_peer_resolver is None:
         return
     require_request_actor_peer_support()
-    if path is not None or (retriever is not None and retriever.path is not None):
-        raise ValueError("actor_peer_resolver requires an OpenViking HTTP connection")
     transports = [client, async_client]
     if retriever is not None:
         transports.extend([retriever.client, retriever.async_client])
@@ -542,12 +734,78 @@ def _message_content(message: Any) -> str:
     return extract_message_text(getattr(message, "content", ""))
 
 
+def _is_host_summary(message: Any) -> bool:
+    metadata = (
+        message.get("additional_kwargs", {})
+        if isinstance(message, dict)
+        else getattr(message, "additional_kwargs", {})
+    )
+    return metadata.get("lc_source") == "summarization"
+
+
 def _message_stable_id(message: Any) -> str | None:
     if isinstance(message, dict):
         value = message.get("id")
     else:
         value = getattr(message, "id", None)
     return str(value) if value else None
+
+
+def _latest_user_index(messages: list[Any]) -> int | None:
+    for index in range(len(messages) - 1, -1, -1):
+        if get_message_role(messages[index]) == "user":
+            return index
+    return None
+
+
+def _recall_message_key(message: Any) -> str | None:
+    if get_message_role(message) != "user":
+        return None
+    message_id = _message_stable_id(message)
+    if message_id is None:
+        return None
+    digest = hashlib.sha256(_message_content(message).encode()).hexdigest()
+    return f"{message_id}:{digest}"
+
+
+def _latest_user_recall_key(messages: list[Any]) -> str | None:
+    index = _latest_user_index(messages)
+    return None if index is None else _recall_message_key(messages[index])
+
+
+def _recall_ledger(
+    state: dict[str, Any],
+    pending_key: _CaptureKey,
+) -> dict[str, str]:
+    ledgers = state.get("openviking_recall_ledger") or {}
+    if not isinstance(ledgers, dict):
+        return {}
+    raw = ledgers.get(_stable_json(pending_key)) or {}
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        key: block for key, block in raw.items() if isinstance(key, str) and isinstance(block, str)
+    }
+
+
+def _message_with_recall(message: Any, block: str) -> Any:
+    content = message.get("content", "") if isinstance(message, dict) else message.content
+    if isinstance(content, list):
+        updated_content: Any = [{"type": "text", "text": block}, *content]
+    else:
+        text = content if isinstance(content, str) else extract_message_text(content)
+        updated_content = f"{block}\n\n{text}" if text else block
+    if isinstance(message, dict):
+        return {**message, "content": updated_content}
+    return message.model_copy(update={"content": updated_content})
+
+
+def _message_delivery_id(message: Any) -> str | None:
+    if not _message_stable_id(message):
+        return None
+    # Editing a message with the same ID is a new capture; an unchanged retained
+    # tail must remain deduplicated across host compaction and process restarts.
+    return hashlib.sha256(_message_signature(message).encode()).hexdigest()
 
 
 def _message_signature(message: Any) -> str:

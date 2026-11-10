@@ -2,6 +2,7 @@ from enum import StrEnum
 
 class MergeStatus(StrEnum):
     BLOCKED = "blocked"
+    CHECKING = "checking"
     CONFLICTING = "conflicting"
     MERGEABLE = "mergeable"
     UNKNOWN = "unknown"

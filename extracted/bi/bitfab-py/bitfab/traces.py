@@ -16,6 +16,12 @@ from bitfab.warn_once import warn_once
 TraceTargetOccurrence = Literal["first", "last"] | int
 
 TraceAssertionSource = Literal["human", "agent"]
+AssertionKind = Literal["bitfab", "external"]
+"""Who decides an assertion. ``"bitfab"`` (the default): Bitfab decides it on
+every replay, with its code where it has some and the LLM judge otherwise.
+``"external"``: Bitfab never judges it; your own system posts each verdict with
+``verdicts.save_external``. An external assertion takes no code, and an
+assertion's kind is set when it is created and never changes."""
 AssertionEvidenceParameterType = Literal[
     "string", "number", "boolean", "object", "array", "null", "unknown"
 ]
@@ -97,8 +103,10 @@ class TraceAssertion(ApprovalFields):
     passCriteria: str | None
     failCriteria: str | None
     targetOnEvaluatedTrace: TraceTarget | None
+    kind: AssertionKind
     code: AssertionCode | None
     codeBrokenReason: str | None
+    codeOff: bool
     source: TraceAssertionSource
     justification: Justification | None
     categoryJustification: Justification | None
@@ -471,6 +479,17 @@ class SaveAssertion(TypedDict):
     before saving, and the save is refused when it throws, runs out of time,
     or returns something other than a result. Bitfab may also write code for
     an assertion on its own after the save, in the background.
+
+    Pass ``codeOff=True`` to keep the code but have the LLM judge decide every
+    run, for code that turns out to be wrong, and ``False`` to use the code
+    again. Bitfab writes no code for an assertion whose code is off, and new
+    code leaves the setting as it is. Removing the code turns it back on.
+    Omit it to keep the current setting.
+
+    Pass ``kind="external"`` only on the save that creates the assertion, for
+    one Bitfab never judges: your own system posts its verdicts with
+    ``verdicts.save_external``, and it takes no code. A different kind on an
+    edit is refused, so omit it there.
     """
 
     category_id: NotRequired[str | None]
@@ -481,7 +500,9 @@ class SaveAssertion(TypedDict):
     passCriteria: NotRequired[str | None]
     failCriteria: NotRequired[str | None]
     targetOnEvaluatedTrace: NotRequired[TraceTarget | None]
+    kind: NotRequired[AssertionKind | None]
     code: NotRequired[AssertionCode | None]
+    codeOff: NotRequired[bool]
     justification: NotRequired[Justification | None]
     categoryJustification: NotRequired[Justification | None]
     assigneeEmail: NotRequired[str | None]

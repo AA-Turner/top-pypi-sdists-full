@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import os
 import shutil
 import sys
@@ -996,6 +995,17 @@ def _rich_print_gt_table(
         )
 
 
+def _step_note_text(step: Any) -> str | None:
+    """Return the plain-text form of a step's first note, or None if it has no notes."""
+    notes = getattr(step, "notes", None)
+    if not isinstance(notes, dict):
+        return None
+    for note in notes.values():
+        if isinstance(note, dict) and note.get("text"):
+            return note["text"]
+    return None
+
+
 def _display_validation_summary(validation: Any) -> None:
     """Display a validation summary in a compact Rich table format."""
     try:
@@ -1005,19 +1015,24 @@ def _display_validation_summary(validation: Any) -> None:
             info = validation.validation_info
             n_steps = len(info)
 
+            # Steps that couldn't be evaluated and inactive steps have no test units, so
+            # they're counted separately rather than as passing
+            eval_error_steps = [step for step in info if step.eval_error]
+            n_eval_error = len(eval_error_steps)
+            n_inactive = sum(1 for step in info if not step.eval_error and not step.active)
+            evaluated = [step for step in info if step.active and not step.eval_error]
+            n_evaluated = len(evaluated)
+
             # Count steps based on their threshold status
             n_passed = sum(
-                1 for step in info if not step.warning and not step.error and not step.critical
+                1 for step in evaluated if not step.warning and not step.error and not step.critical
             )
-            n_all_passed = sum(1 for step in info if step.all_passed)
-            n_failed = n_steps - n_passed
+            n_all_passed = sum(1 for step in evaluated if step.all_passed)
 
             # Calculate severity counts
             n_warning = sum(1 for step in info if step.warning)
             n_error = sum(1 for step in info if step.error)
             n_critical = sum(1 for step in info if step.critical)
-
-            all_passed = n_failed == 0
 
             # Determine highest severity and its color
             if n_critical > 0:
@@ -1029,7 +1044,11 @@ def _display_validation_summary(validation: Any) -> None:
             elif n_warning > 0:
                 highest_severity = "warning"
                 severity_color = "bright_black"  # gray
-            elif n_all_passed == n_steps:
+            elif n_eval_error > 0:
+                # No threshold was exceeded, but some steps couldn't be checked at all
+                highest_severity = "incomplete"
+                severity_color = "red"
+            elif n_all_passed == n_evaluated:
                 # All steps passed AND all steps had 100% pass rate
                 highest_severity = "all passed"
                 severity_color = "bold green"
@@ -1040,11 +1059,16 @@ def _display_validation_summary(validation: Any) -> None:
 
             # Create compact summary header
             # Format: Steps: 6 / P: 3 (3 AP) / W: 3 / E: 0 / C: 0 / warning
+            # (with "/ Not evaluated: k" and "/ Inactive: m" added only when nonzero)
             summary_header = (
                 f"Steps: {n_steps} / P: {n_passed} ({n_all_passed} AP) / "
                 f"W: {n_warning} / E: {n_error} / C: {n_critical} / "
-                f"[{severity_color}]{highest_severity}[/{severity_color}]"
             )
+            if n_eval_error > 0:
+                summary_header += f"Not evaluated: {n_eval_error} / "
+            if n_inactive > 0:
+                summary_header += f"Inactive: {n_inactive} / "
+            summary_header += f"[{severity_color}]{highest_severity}[/{severity_color}]"
 
             # Print the report title and summary
             console.print()
@@ -1181,21 +1205,45 @@ def _display_validation_summary(validation: Any) -> None:
                     else:
                         ext_status = "[bright_black]—[/bright_black]"
 
+                    # A step with no test units (inactive or not evaluable) shows dashes
+                    # instead of counts, and inactive steps are dimmed
+                    if step.active and not step.eval_error:
+                        units_str = _format_units(step.n)
+                        pass_str = _format_pass_fail(step.n_passed, step.n)
+                        fail_str = _format_pass_fail(step.n_failed, step.n)
+                        row_style = None
+                    else:
+                        units_str = "—"
+                        pass_str = "—/—"
+                        fail_str = "—/—"
+                        row_style = None if step.eval_error else "dim"
+
                     steps_table.add_row(
                         str(step.i),
                         step.assertion_type,
                         str(step.column) if step.column else "—",
                         values_str,
-                        _format_units(step.n),
-                        _format_pass_fail(step.n_passed, step.n),
-                        _format_pass_fail(step.n - step.n_passed, step.n),
+                        units_str,
+                        pass_str,
+                        fail_str,
                         w_status,
                         e_status,
                         c_status,
                         ext_status,
+                        style=row_style,
                     )
 
                 console.print(steps_table)
+
+                # Say why each step that couldn't be evaluated was left out
+                from rich.markup import escape
+
+                for step in eval_error_steps:
+                    reason = _step_note_text(step)
+                    message = f"[red]✗ Step {step.i} couldn't be evaluated[/red]"
+                    if reason:
+                        message += f": {escape(reason)}"
+                    console.print(message)
 
             # Display status with appropriate color
             if highest_severity == "all passed":
@@ -1211,6 +1259,16 @@ def _display_validation_summary(validation: Any) -> None:
                     Panel(
                         "[dim green]⚠ Some steps had failing test units[/dim green]",
                         border_style="dim green",
+                        expand=False,
+                    )
+                )
+            elif highest_severity == "incomplete":
+                plural = "step" if n_eval_error == 1 else "steps"
+                console.print(
+                    Panel(
+                        f"[red]✗ Validation incomplete: {n_eval_error} {plural} couldn't be "
+                        "evaluated[/red]",
+                        border_style="red",
                         expand=False,
                     )
                 )
@@ -2283,7 +2341,7 @@ def validate(
                 # Check if this validation failed
                 if hasattr(validation, "validation_info") and len(validation.validation_info) > i:
                     step_info = validation.validation_info[i]
-                    if step_info.n_failed > 0:
+                    if (step_info.n_failed or 0) > 0:
                         any_failed = True
 
             # Show tip about --show-extract if any failed and not already used
@@ -3634,6 +3692,14 @@ def _resolve_column_indices(columns_list: list[str], data):
     return resolved
 
 
+def _not_evaluated_message(check: str, source: str) -> str:
+    """Summary message for a `pb validate` check that couldn't be evaluated."""
+    return (
+        f"[red]✗ Validation NOT EVALUATED: the {check} check couldn't be performed on "
+        f"{source} (see the reason above)[/red]"
+    )
+
+
 def _display_validation_result(
     validation: Any,
     checks_list: list[str],
@@ -3769,7 +3835,19 @@ def _display_validation_result(
         result_table.add_row("Comparison Value", f"{operator} {value}")
 
     # Get validation details
-    if step_info:
+    if step_info and step_info.n_failed is None:
+        # The step couldn't be evaluated (e.g., the column doesn't exist or has the wrong
+        # type), so there are no test-unit counts to show
+        from rich.markup import escape
+
+        result_table.add_row("Total Rows Tested", "—")
+        result_table.add_row("Passing Rows", "—")
+        result_table.add_row("Failing Rows", "—")
+        result_table.add_row("Result", "[red]✗ NOT EVALUATED[/red]")
+        reason = _step_note_text(step_info)
+        if reason:
+            result_table.add_row("Reason", f"[red]{escape(reason)}[/red]")
+    elif step_info:
         result_table.add_row("Total Rows Tested", f"{step_info.n:,}")
         result_table.add_row("Passing Rows", f"{step_info.n_passed:,}")
         result_table.add_row("Failing Rows", f"{step_info.n_failed:,}")
@@ -3848,7 +3926,15 @@ def _display_validation_result(
         )
     else:
         # For multiple checks, show summary panel and handle extract if needed
-        if step_info:
+        if step_info and step_info.n_failed is None:
+            console.print(
+                Panel(
+                    _not_evaluated_message(check, data_source),
+                    border_style="red",
+                    expand=False,
+                )
+            )
+        elif step_info:
             step_passed = step_info.n_failed == 0
             if step_passed:
                 # Create success message for this step
@@ -4109,6 +4195,18 @@ def _show_extract_and_summary(
             display_source = "Polars expression from `pb pl`"
     else:
         display_source = data_source
+
+    # A step that couldn't be evaluated has no failing rows to extract
+    if step_info and step_info.n_failed is None:
+        console.print()
+        console.print(
+            Panel(
+                _not_evaluated_message(check, display_source),
+                border_style="red",
+                expand=False,
+            )
+        )
+        return
 
     # Show extract if requested and validation failed
     if (show_extract or write_extract) and not step_passed:
@@ -4468,8 +4566,8 @@ steps:
 
   # Data freshness check (uncomment and modify as needed)
   # - data_freshness:
-  #     columns: event_date
-  #     freshness: "24h"
+  #     column: event_date
+  #     max_age: "24h"
 
 # Add more validation steps as needed
 # See the Pointblank documentation for the full list of available validation functions
@@ -4572,7 +4670,18 @@ validation = (
 @click.option(
     "--fail-on",
     type=click.Choice(["critical", "error", "warning", "any"], case_sensitive=False),
-    help="Exit with non-zero code when validation reaches this threshold level",
+    help=(
+        "Exit with non-zero code when validation reaches this threshold level ('any' also "
+        "counts failing test units and steps that couldn't be evaluated)"
+    ),
+)
+@click.option(
+    "--allow-python",
+    is_flag=True,
+    help=(
+        "Run Python code in a YAML config (python: blocks and the expr/pre/active shortcuts). "
+        "The code has full access to your system, so only use this with YAML you trust"
+    ),
 )
 def run(
     validation_file: str | None,
@@ -4583,6 +4692,7 @@ def run(
     write_extract: str | None,
     limit: int,
     fail_on: str | None,
+    allow_python: bool,
 ) -> None:
     """
     Run a Pointblank validation script or YAML configuration.
@@ -4596,6 +4706,10 @@ def run(
 
     If --data is provided, it will automatically replace the data source in your
     validation objects (Python scripts) or override the 'tbl' field (YAML configs).
+
+    Python code in a YAML config isn't run unless you use --allow-python. Only do that
+    for YAML you trust, since the code runs with full access to your system (as a
+    Python script does).
 
     To get started quickly, use 'pb make-template' to create templates.
 
@@ -4618,6 +4732,7 @@ def run(
     pb run validation_config.yaml --data small_table --output-html report.html
     pb run validation_script.py --show-extract --fail-on error
     pb run validation_config.yaml --write-extract extracts_folder --fail-on critical
+    pb run trusted_config.yaml --allow-python  # Run Python code in the YAML
     """
     try:
         # Handle missing validation_file with concise help
@@ -4669,11 +4784,11 @@ def run(
                         config["tbl"] = cli_data
 
                         # Build and execute validation with modified config
-                        validation = validator.execute_workflow(config)
+                        validation = validator.execute_workflow(config, allow_python=allow_python)
 
                     else:
                         # Use YAML config as-is
-                        validation = yaml_interrogate(validation_file)
+                        validation = yaml_interrogate(validation_file, allow_python=allow_python)
 
                     validations.append(validation)
 
@@ -4757,40 +4872,13 @@ def run(
                 if hasattr(validation, "data") and hasattr(validation, "interrogate"):
                     console.print("[cyan]Updating validation with new data source...[/cyan]")
 
-                    # Store the original validation_info as our "plan"
-                    original_validation_info = validation.validation_info.copy()
-
-                    # Replace the data
-                    validation.data = cli_data
-
-                    # Re-process the data (same as what happens in __post_init__)
+                    # Replace the data (processing it as `Validate()` does)
                     from pointblank.validate import _process_data
 
-                    validation.data = _process_data(validation.data)
+                    validation.data = _process_data(cli_data)
 
-                    # Reset validation results but keep the plan
-                    validation.validation_info = []
-
-                    # Re-add each validation step from the original plan
-                    for val_info in original_validation_info:
-                        # Create a copy and reset any interrogation results
-                        new_val_info = copy.deepcopy(val_info)
-                        # Reset interrogation-specific attributes if they exist
-                        if hasattr(new_val_info, "n_passed"):
-                            new_val_info.n_passed = None
-                        if hasattr(new_val_info, "n_failed"):
-                            new_val_info.n_failed = None
-                        if hasattr(new_val_info, "all_passed"):
-                            new_val_info.all_passed = None
-                        if hasattr(new_val_info, "warning"):
-                            new_val_info.warning = None
-                        if hasattr(new_val_info, "error"):
-                            new_val_info.error = None
-                        if hasattr(new_val_info, "critical"):
-                            new_val_info.critical = None
-                        validation.validation_info.append(new_val_info)
-
-                    # Re-interrogate with the new data
+                    # Re-interrogate with the new data (interrogation starts over from the steps
+                    # as they were defined, so no results from the original data remain)
                     console.print("[cyan]Re-interrogating with new data...[/cyan]")
                     validation.interrogate()
 
@@ -4799,6 +4887,7 @@ def run(
         overall_critical = False
         overall_error = False
         overall_warning = False
+        overall_eval_error = False
 
         for i, validation in enumerate(validations, 1):
             if len(validations) > 1:
@@ -4824,9 +4913,12 @@ def run(
                     if step_info.warning:
                         has_warning = True
                         overall_warning = True
-                    if step_info.n_failed > 0:
+                    # Inactive steps and steps that couldn't be evaluated have no counts
+                    if (step_info.n_failed or 0) > 0:
                         validation_failed = True
                         overall_failed = True
+                    if step_info.eval_error:
+                        overall_eval_error = True
 
             # Handle extract functionality for failed validations
             failed_steps = []
@@ -4836,7 +4928,7 @@ def run(
                 and validation.validation_info
             ):
                 for j, step_info in enumerate(validation.validation_info, 1):
-                    if step_info.n_failed > 0:
+                    if (step_info.n_failed or 0) > 0:
                         failed_steps.append((j, step_info))
 
             if validation_failed and failed_steps and (show_extract or write_extract):
@@ -5040,9 +5132,12 @@ def run(
             ):
                 should_exit = True
                 exit_reason = "warning, error, or critical validation failures"
-            elif fail_on.lower() == "any" and overall_failed:
+            elif fail_on.lower() == "any" and (overall_failed or overall_eval_error):
                 should_exit = True
-                exit_reason = "validation failures"
+                if overall_failed:
+                    exit_reason = "validation failures"
+                else:
+                    exit_reason = "steps that couldn't be evaluated"
 
             if should_exit:
                 console.print(f"[red]Exiting with error due to {exit_reason}[/red]")
@@ -5109,7 +5204,7 @@ def edit(
 
     \b
     pb edit plan.py -i "add a not-null check on user_id" -m anthropic:claude-opus-4-8
-    pb edit plan.yaml -i "tighten the price range to 0-1000" -m openai:gpt-4o --data sales.csv
+    pb edit plan.yaml -i "tighten the price range to 0-1000" -m openai:gpt-6-luna --data sales.csv
     pb edit plan.py -i "drop the email regex check" -m anthropic:claude-opus-4-8 -o plan2.py -y
     """
     if not validation_file:

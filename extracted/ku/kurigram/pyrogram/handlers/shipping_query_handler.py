@@ -18,17 +18,21 @@
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from pyrogram import types
 
 from .handler import Handler
 
 if TYPE_CHECKING:
     import pyrogram
-    from pyrogram import types
+    from pyrogram.filters import Filter
+
+ShippingQueryCallbackType = Callable[["pyrogram.Client", types.ShippingQuery], Any]
 
 
-class ShippingQueryHandler(Handler):
+class ShippingQueryHandler(Handler[ShippingQueryCallbackType]):
     """The ShippingQueryHandler handler class. Used to handle shipping queries coming only from invoice buttons with flexible price.
 
     It is intended to be used with :meth:`~pyrogram.Client.add_handler`
@@ -53,7 +57,5 @@ class ShippingQueryHandler(Handler):
             New incoming shipping query. Only for invoices with flexible price.
     """
 
-    def __init__(
-        self, callback: Callable[[pyrogram.Client, types.ShippingQuery], Any], filters=None
-    ):
+    def __init__(self, callback: ShippingQueryCallbackType, filters: Filter | None = None) -> None:
         super().__init__(callback, filters)

@@ -1,9 +1,10 @@
 [package]
 name = "docling-pdf"
 description = "PDF/image backend for docling.rs: pure-Rust text layer and page renderer + ONNX layout/table/OCR pipeline."
-version = "2.65.1"
+version = "2.76.0"
 edition = "2021"
-license = "MIT"
+# Adobe's CID -> Unicode tables in data/mapping-resources-pdf/ are BSD-3-Clause.
+license = "MIT AND BSD-3-Clause"
 repository = "https://github.com/docling-project/docling.rs"
 homepage = "https://github.com/docling-project/docling.rs"
 readme = "README.md"
@@ -12,7 +13,11 @@ categories = ["text-processing", "parser-implementations"]
 rust-version = "1.92.0"
 
 [features]
-default = ["ml"]
+default = ["ml", "cid-collections"]
+# Adobe's CID -> Unicode tables for CJK fonts without ToUnicode, which
+# build.rs packs into about 350 KB. The wasm build leaves them out; enable
+# them there with `--features docling-pdf/cid-collections`.
+cid-collections = []
 # The full pipeline: the pure-Rust page renderer/raster + ONNX
 # layout/OCR/TableFormer/enrichment. Without it only the pure-Rust text-layer path remains
 # (`convert_text_layer` — lopdf content-stream parsing + the docling-parse
@@ -87,10 +92,10 @@ serde_json = { version = "1", optional = true }
 # what current LTS distros ship (Ubuntu 24.04 = 1.17). Newer libheif-rs
 # requires libheif >= 1.18 and can be selected once baselines move.
 libheif-rs = { version = "~1.0", default-features = false, optional = true }
-docling-core = { path = "../docling-core", version = "2.65.1", default-features = false }
+docling-core = { path = "../docling-core", version = "2.76.0", default-features = false }
 # Shared ONNX execution-provider selection (DOCLING_RS_EP, #74/#288);
 # re-exported as `docling_pdf::ep`.
-docling-onnx = { path = "../docling-onnx", version = "2.65.1", optional = true }
+docling-onnx = { path = "../docling-onnx", version = "2.76.0", optional = true }
 pdfium-render = { version = "0.8", optional = true }
 # Runtime loading of the opt-in docling-parse renderer plugin (#478,
 # `dparse_render.rs`) — the same mechanism pdfium-render uses for libpdfium.
@@ -106,6 +111,9 @@ flate2 = { version = "1", optional = true }
 tar = { version = "0.4", optional = true }
 regex = { version = "1.11", optional = true }
 lopdf = "0.45"
+# Scoped NFKC of Arabic presentation-form runs in extracted text
+# (docling#3929, #1001) — pure Rust, already in the workspace lock (docling).
+unicode-normalization = "0.1"
 fast_image_resize = { version = "5.1.4", optional = true }
 # `/LZWDecode` image data for the pure-Rust raster of image-only pages
 # (`raster/filters.rs`) — lopdf's own LZW crate. (The raster's JPEG decoder

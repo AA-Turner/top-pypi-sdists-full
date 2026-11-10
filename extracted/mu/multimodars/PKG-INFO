@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: multimodars
-Version: 0.9.1
+Version: 0.10.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: MIT License
 Requires-Dist: numpy>=2.0.0,<3.0.0
-Requires-Dist: trimesh>=4.8.0
+Requires-Dist: trimesh>=5.2.0
 Requires-Dist: scipy>=1.15.0
 Requires-Dist: networkx>=3.0
 Requires-Dist: pymeshlab>=2023.12 ; extra == 'meshlab'

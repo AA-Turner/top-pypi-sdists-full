@@ -34,6 +34,7 @@ class TrailArgs:
                  is_organization_trail: pulumi.Input[Optional[_builtins.bool]] = None,
                  kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 recursive_logging: pulumi.Input[Optional[_builtins.bool]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
                  sns_topic_name: pulumi.Input[Optional[_builtins.str]] = None,
@@ -56,6 +57,7 @@ class TrailArgs:
         :param pulumi.Input[_builtins.bool] is_organization_trail: Whether the trail is an AWS Organizations trail. Organization trails log events for the master account and all member accounts. Can only be created in the organization master account. Defaults to `false`.
         :param pulumi.Input[_builtins.str] kms_key_id: KMS key ARN to use to encrypt the logs delivered by CloudTrail.
         :param pulumi.Input[_builtins.str] name: Name of the trail.
+        :param pulumi.Input[_builtins.bool] recursive_logging: Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] s3_key_prefix: S3 key prefix that follows the name of the bucket you have designated for log file delivery.
         :param pulumi.Input[_builtins.str] sns_topic_name: Name of the Amazon SNS topic defined for notification of log file delivery. Specify the SNS topic ARN if it resides in another region.
@@ -86,6 +88,8 @@ class TrailArgs:
             pulumi.set(__self__, "kms_key_id", kms_key_id)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if recursive_logging is not None:
+            pulumi.set(__self__, "recursive_logging", recursive_logging)
         if region is not None:
             pulumi.set(__self__, "region", region)
         if s3_key_prefix is not None:
@@ -254,6 +258,18 @@ class TrailArgs:
         pulumi.set(self, "name", value)
 
     @_builtins.property
+    @pulumi.getter(name="recursiveLogging")
+    def recursive_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
+        """
+        return pulumi.get(self, "recursive_logging")
+
+    @recursive_logging.setter
+    def recursive_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "recursive_logging", value)
+
+    @_builtins.property
     @pulumi.getter
     def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -319,6 +335,7 @@ class _TrailState:
                  is_organization_trail: pulumi.Input[Optional[_builtins.bool]] = None,
                  kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 recursive_logging: pulumi.Input[Optional[_builtins.bool]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
@@ -343,6 +360,7 @@ class _TrailState:
         :param pulumi.Input[_builtins.bool] is_organization_trail: Whether the trail is an AWS Organizations trail. Organization trails log events for the master account and all member accounts. Can only be created in the organization master account. Defaults to `false`.
         :param pulumi.Input[_builtins.str] kms_key_id: KMS key ARN to use to encrypt the logs delivered by CloudTrail.
         :param pulumi.Input[_builtins.str] name: Name of the trail.
+        :param pulumi.Input[_builtins.bool] recursive_logging: Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] s3_bucket_name: Name of the S3 bucket designated for publishing log files.
                
@@ -381,6 +399,8 @@ class _TrailState:
             pulumi.set(__self__, "kms_key_id", kms_key_id)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if recursive_logging is not None:
+            pulumi.set(__self__, "recursive_logging", recursive_logging)
         if region is not None:
             pulumi.set(__self__, "region", region)
         if s3_bucket_name is not None:
@@ -565,6 +585,18 @@ class _TrailState:
         pulumi.set(self, "name", value)
 
     @_builtins.property
+    @pulumi.getter(name="recursiveLogging")
+    def recursive_logging(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
+        """
+        return pulumi.get(self, "recursive_logging")
+
+    @recursive_logging.setter
+    def recursive_logging(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "recursive_logging", value)
+
+    @_builtins.property
     @pulumi.getter
     def region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
@@ -669,6 +701,7 @@ class Trail(pulumi.CustomResource):
                  is_organization_trail: pulumi.Input[Optional[_builtins.bool]] = None,
                  kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 recursive_logging: pulumi.Input[Optional[_builtins.bool]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
@@ -952,6 +985,7 @@ class Trail(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] is_organization_trail: Whether the trail is an AWS Organizations trail. Organization trails log events for the master account and all member accounts. Can only be created in the organization master account. Defaults to `false`.
         :param pulumi.Input[_builtins.str] kms_key_id: KMS key ARN to use to encrypt the logs delivered by CloudTrail.
         :param pulumi.Input[_builtins.str] name: Name of the trail.
+        :param pulumi.Input[_builtins.bool] recursive_logging: Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] s3_bucket_name: Name of the S3 bucket designated for publishing log files.
                
@@ -1256,6 +1290,7 @@ class Trail(pulumi.CustomResource):
                  is_organization_trail: pulumi.Input[Optional[_builtins.bool]] = None,
                  kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
                  name: pulumi.Input[Optional[_builtins.str]] = None,
+                 recursive_logging: pulumi.Input[Optional[_builtins.bool]] = None,
                  region: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
                  s3_key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1282,6 +1317,7 @@ class Trail(pulumi.CustomResource):
             __props__.__dict__["is_organization_trail"] = is_organization_trail
             __props__.__dict__["kms_key_id"] = kms_key_id
             __props__.__dict__["name"] = name
+            __props__.__dict__["recursive_logging"] = recursive_logging
             __props__.__dict__["region"] = region
             if s3_bucket_name is None and not opts.urn:
                 raise TypeError("Missing required property 's3_bucket_name'")
@@ -1317,6 +1353,7 @@ class Trail(pulumi.CustomResource):
             is_organization_trail: pulumi.Input[Optional[_builtins.bool]] = None,
             kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
             name: pulumi.Input[Optional[_builtins.str]] = None,
+            recursive_logging: pulumi.Input[Optional[_builtins.bool]] = None,
             region: pulumi.Input[Optional[_builtins.str]] = None,
             s3_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
             s3_key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
@@ -1345,6 +1382,7 @@ class Trail(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] is_organization_trail: Whether the trail is an AWS Organizations trail. Organization trails log events for the master account and all member accounts. Can only be created in the organization master account. Defaults to `false`.
         :param pulumi.Input[_builtins.str] kms_key_id: KMS key ARN to use to encrypt the logs delivered by CloudTrail.
         :param pulumi.Input[_builtins.str] name: Name of the trail.
+        :param pulumi.Input[_builtins.bool] recursive_logging: Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] s3_bucket_name: Name of the S3 bucket designated for publishing log files.
                
@@ -1373,6 +1411,7 @@ class Trail(pulumi.CustomResource):
         __props__.__dict__["is_organization_trail"] = is_organization_trail
         __props__.__dict__["kms_key_id"] = kms_key_id
         __props__.__dict__["name"] = name
+        __props__.__dict__["recursive_logging"] = recursive_logging
         __props__.__dict__["region"] = region
         __props__.__dict__["s3_bucket_name"] = s3_bucket_name
         __props__.__dict__["s3_key_prefix"] = s3_key_prefix
@@ -1381,6 +1420,56 @@ class Trail(pulumi.CustomResource):
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
         return Trail(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            advanced_event_selectors: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrailAdvancedEventSelectorArgs', 'TrailAdvancedEventSelectorArgsDict', 'outputs.TrailAdvancedEventSelector']]]]] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            cloud_watch_logs_group_arn: pulumi.Input[Optional[_builtins.str]] = None,
+            cloud_watch_logs_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_log_file_validation: pulumi.Input[Optional[_builtins.bool]] = None,
+            enable_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            event_selectors: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrailEventSelectorArgs', 'TrailEventSelectorArgsDict', 'outputs.TrailEventSelector']]]]] = None,
+            home_region: pulumi.Input[Optional[_builtins.str]] = None,
+            include_global_service_events: pulumi.Input[Optional[_builtins.bool]] = None,
+            insight_selectors: pulumi.Input[Optional[Sequence[pulumi.Input[Union['TrailInsightSelectorArgs', 'TrailInsightSelectorArgsDict', 'outputs.TrailInsightSelector']]]]] = None,
+            is_multi_region_trail: pulumi.Input[Optional[_builtins.bool]] = None,
+            is_organization_trail: pulumi.Input[Optional[_builtins.bool]] = None,
+            kms_key_id: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            recursive_logging: pulumi.Input[Optional[_builtins.bool]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            s3_bucket_name: pulumi.Input[Optional[_builtins.str]] = None,
+            s3_key_prefix: pulumi.Input[Optional[_builtins.str]] = None,
+            sns_topic_arn: pulumi.Input[Optional[_builtins.str]] = None,
+            sns_topic_name: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["advancedEventSelectors"] = advanced_event_selectors
+        __props__["arn"] = arn
+        __props__["cloudWatchLogsGroupArn"] = cloud_watch_logs_group_arn
+        __props__["cloudWatchLogsRoleArn"] = cloud_watch_logs_role_arn
+        __props__["enableLogFileValidation"] = enable_log_file_validation
+        __props__["enableLogging"] = enable_logging
+        __props__["eventSelectors"] = event_selectors
+        __props__["homeRegion"] = home_region
+        __props__["includeGlobalServiceEvents"] = include_global_service_events
+        __props__["insightSelectors"] = insight_selectors
+        __props__["isMultiRegionTrail"] = is_multi_region_trail
+        __props__["isOrganizationTrail"] = is_organization_trail
+        __props__["kmsKeyId"] = kms_key_id
+        __props__["name"] = name
+        __props__["recursiveLogging"] = recursive_logging
+        __props__["region"] = region
+        __props__["s3BucketName"] = s3_bucket_name
+        __props__["s3KeyPrefix"] = s3_key_prefix
+        __props__["snsTopicArn"] = sns_topic_arn
+        __props__["snsTopicName"] = sns_topic_name
+        __props__["tags"] = tags
+        __props__["tagsAll"] = tags_all
+        return pulumi.runtime.exists_resource(None, 'aws:cloudtrail/trail:Trail', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="advancedEventSelectors")
@@ -1493,6 +1582,14 @@ class Trail(pulumi.CustomResource):
         Name of the trail.
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="recursiveLogging")
+    def recursive_logging(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Whether CloudTrail logs events it generates when delivering log files to the trail's destinations, such as Amazon S3 and CloudWatch Logs. Set to `false` to suppress these events. See [Recursive logging](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-recursive-logging.html) for details. If not specified, defaults to `true`.
+        """
+        return pulumi.get(self, "recursive_logging")
 
     @_builtins.property
     @pulumi.getter

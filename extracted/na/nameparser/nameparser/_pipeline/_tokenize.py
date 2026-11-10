@@ -21,14 +21,12 @@ import re
 from nameparser._pipeline._state import (
     COMMA_CHARS, ParseState, WorkToken, copy_with,
 )
-from nameparser._policy import Policy, _SCRIPT_RANGES, _script_matcher
+from nameparser._policy import Policy, _classified_char
 from nameparser._types import Role, Span
 
-# Ported from v1 (nameparser/config/regexes.py, "emoji" and "bidi") --
-# layering forbids importing the config package here, so the tables are
-# duplicated by design with this provenance note. When editing, keep
-# both copies in sync (regexes.py builds its public re_emoji from the
-# SAME codepoint pairs). Integer ranges, not a regex character class:
+# Ported from v1's "emoji" and "bidi" patterns (the 1.x and 2.x
+# nameparser.config.regexes, removed in 3.0, #1008); this is now the
+# only copy. Integer ranges, not a regex character class:
 # the per-char test needs no regex, and CodeQL's py/overly-large-range
 # false-positives on literal astral ranges (surrogate decomposition).
 _EMOJI_RANGES = ((0x1F300, 0x1F64F), (0x1F680, 0x1F6FF),
@@ -42,22 +40,25 @@ _BIDI = re.compile('[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]+')
 # transcription marker; only the Chinese 间隔号 is (#298).
 _NAME_DOT_SEPARATORS = frozenset({"\u30FB", "\uFF65"})
 
-# rules/T1: "a zero-width space and a byte-order mark have no such
-# opt-out" -- the Except clause: they separate under every policy,
-# carrying nothing a caller would keep. Not here: U+200C and U+200D,
-# which decide how the letters around them join, the word joiner
-# U+2060, which means no break, and the soft hyphen U+00AD, which
-# marks a break inside one word (decisions/T1, #851).
-_INVISIBLE_SEPARATORS = frozenset({"\u200B", "\uFEFF"})
+# rules/T1: "a zero-width space, an invisible separator and a
+# byte-order mark have no such opt-out" -- the Except clause: they
+# separate under every policy, carrying nothing a caller would keep.
+# Not here: U+200C and U+200D, which decide how the letters around
+# them join, the word joiner U+2060, which means no break, the soft
+# hyphen U+00AD, which marks a break inside one word, the invisible
+# math operators U+2061, U+2062 and U+2064, and the Mongolian vowel
+# separator U+180E, which shapes the letters beside it
+# (decisions/T1, #851).
+_INVISIBLE_SEPARATORS = frozenset({"\u200B", "\u2063", "\uFEFF"})
 
 _INTERPUNCT = "\u00B7"
 # rules/T3: "the interpunct divides a name only between two
 # characters of a classified East Asian script; anywhere else it is
-# part of the word" (history: decisions/T3). Per-CHAR classifier
-# for the flank guard: a one-char string is wholly-classified iff the
-# character is. Context-sensitivity is why this lives in
-# _tokenize_region (where the index exists) and not in _ignorable.
-_classified_char = _script_matcher(*_SCRIPT_RANGES, whole=True)
+# part of the word" (history: decisions/T3). The flank guard asks
+# _policy._classified_char per CHAR: a one-char string is
+# wholly-classified iff the character is. Context-sensitivity is why the
+# guard lives in _tokenize_region (where the index exists) and not in
+# _ignorable.
 
 
 def _is_emoji(ch: str) -> bool:
@@ -73,8 +74,8 @@ def _stripped(ch: str, policy: Policy) -> bool:
     character the strip policy removes must not occupy a flank
     position either, so a new strip class added here stays transparent
     to the interpunct guard by construction. The separators (whitespace,
-    the name dots, the zero-width space and the byte-order mark) are
-    not in this set and do occupy one."""
+    the name dots and _INVISIBLE_SEPARATORS) are not in this set and do
+    occupy one."""
     if policy.strip_bidi and _BIDI.match(ch):
         return True
     return bool(policy.strip_emoji and _is_emoji(ch))
@@ -108,7 +109,8 @@ def _ignorable(ch: str, state: ParseState) -> bool:
     # COMMA_CHARS (commas RECORD an offset; these must not -- only the
     # 间隔号 marks a transcription and records, #298, see
     # _NAME_DOT_SEPARATORS above). The only load-bearing constraint is
-    # "after the isascii fast path" (all four are non-ASCII).
+    # "after the isascii fast path" (every member of both sets is
+    # non-ASCII).
     if ch in _NAME_DOT_SEPARATORS or ch in _INVISIBLE_SEPARATORS:
         return True
     return _stripped(ch, state.policy)
@@ -133,10 +135,11 @@ def _tokenize_region(state: ParseState, start: int, end: int,
             # Region-local flanks: a B7 at a region edge stays token
             # text, and the bound also stops a custom delimiter's
             # classified edge character from acting as a flank across
-            # a mask seam. The scan reads raw text like segmentation
-            # matching does (#272's stance): NFD hangul degrades to
-            # no-split, never wrong-split -- classification
-            # NFC-normalizes but the guard does not.
+            # a mask seam. The scan reads raw characters, not the NFC
+            # copy classification reads; the script table holds the
+            # conjoining jamo a decomposed syllable is written in, so
+            # decomposed hangul flanks as composed hangul does
+            # (decisions/nfd-shapes, #1087).
             left = _flank(text, range(i - 1, start - 1, -1),
                           state.policy)
             if left is not None and _classified_char(left):

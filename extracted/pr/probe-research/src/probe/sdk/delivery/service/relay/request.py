@@ -57,6 +57,11 @@ class ApiCall:
     expires_at: float | None = None
     #: The caller may be in a sandbox (plan D25): it may reach only the API and its storage.
     is_fenced: bool = False
+    #: A held stream (`stream: true`, the live events' SSE): answered at its headers, its body written into
+    #: the passed socket (`sink_fd`) as it comes, on the held streams' own threads (`streams.py`).
+    is_stream: bool = False
+    #: The calling process (its pid, from the connection): a held stream's budget is also per caller.
+    caller_pid: int | None = None
     #: The fds this call holds (closed when it is done).
     fds: list[int] = field(default_factory=list)
 
@@ -97,6 +102,10 @@ def _parse(parameters: dict, fds: list[int]) -> ApiCall:
         raise invalid_params(f"headers must be a list of at most {MAX_HEADERS} [name, value] strings")
     call = ApiCall(method=method, url=url, headers=[(n, v) for n, v in headers if n.lower() not in HOP_HEADERS])
     call.fds = list(fds)
+    stream = parameters.get("stream")
+    if stream is not None and stream is not True:
+        raise invalid_params("stream must be true or left out")
+    call.is_stream = stream is True
     if parameters.get("body") is not None:
         try:
             call.body = base64.b64decode(parameters["body"], validate=True)
@@ -109,7 +118,7 @@ def _parse(parameters: dict, fds: list[int]) -> ApiCall:
         raise invalid_params("pass body or body_fd, not both")
     sink = parameters.get("body_sink")
     if sink is not None:
-        call.sink_fd = _need_sink(sink, call.fds)
+        call.sink_fd = _need_sink(sink, call.fds, is_stream=call.is_stream)
     max_bytes = parameters.get("max_bytes")
     if max_bytes is not None:
         if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes < 0:
@@ -119,6 +128,11 @@ def _parse(parameters: dict, fds: list[int]) -> ApiCall:
     if lane not in LANES:
         raise invalid_params(f"lane must be one of {sorted(LANES)}")
     call.lane = "bulk" if call.file_body is not None else lane
+    if call.is_stream:
+        if method != "GET" or call.body is not None or call.file_body is not None or call.sink_fd is None:
+            raise invalid_params("a stream is a GET with no body, read from a passed socket (body_sink)")
+        if call.max_bytes is not None:
+            raise invalid_params("a stream has no max_bytes")
     deadline = parameters.get("deadline")
     if deadline is not None:
         if not isinstance(deadline, (int, float)) or isinstance(deadline, bool) or not 0 <= deadline <= MAX_DEADLINE_S:
@@ -144,14 +158,18 @@ def _need_file_body(value: object, fds: list[int]) -> FileBody:
     return FileBody(fds[index], offset, length)
 
 
-def _need_sink(value: object, fds: list[int]) -> int:
-    """A passed fd open for writing, a regular file (never a pipe or socket the relay could block on)."""
+def _need_sink(value: object, fds: list[int], *, is_stream: bool) -> int:
+    """A passed fd open for writing: a regular file, or for a stream a socket (written by its own thread, never
+    a lane's, so a reader that stops blocks only its own stream; the caller's shutdown reaches it even when a
+    forked child still holds a copy)."""
     index = value.get("index") if isinstance(value, dict) else None
     if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(fds):
         raise invalid_params("body_sink needs the index of a passed fd")
+    is_right_kind = stat.S_ISSOCK if is_stream else stat.S_ISREG
     try:
-        if not stat.S_ISREG(os.fstat(fds[index]).st_mode):
-            raise invalid_params("body_sink must be a regular file")
+        if not is_right_kind(os.fstat(fds[index]).st_mode):
+            raise invalid_params("a stream's body_sink must be a socket" if is_stream
+                                 else "body_sink must be a regular file")
     except OSError:
         raise invalid_params("body_sink is not an open file") from None
     return fds[index]

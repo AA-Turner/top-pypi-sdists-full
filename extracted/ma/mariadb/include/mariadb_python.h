@@ -36,12 +36,6 @@
 #define CHECK_TYPE_NO_NONE(obj, type) \
 (obj != Py_None && (Py_TYPE((obj)) == type || PyType_IsSubtype(Py_TYPE((obj)), type)))
 
-#if PY_VERSION_HEX < 0x030900A4 && !defined(Py_SET_TYPE)
-static inline void _Py_SET_TYPE(PyObject *ob, PyTypeObject *type)
-{ ob->ob_type = type; }
-#define Py_SET_TYPE(ob, type) _Py_SET_TYPE((PyObject*)(ob), type)
-#endif
-
 #if defined(_WIN32)
 #include <config_win.h>
 #include <windows.h>
@@ -59,6 +53,15 @@ typedef CRITICAL_SECTION pthread_mutex_t;
 #include <pthread.h>
 #include <limits.h>
 #endif /* defined(_WIN32) */
+
+/* Constants added in C/C 3.4.10 */
+#ifndef MAX_ZEROFILL_LEN
+#define MAX_ZEROFILL_LEN 255
+#endif
+
+#ifndef MAX_DECIMAL_LEN
+#define MAX_DECIMAL_LEN 83
+#endif
 
 enum mariadb_info
 {
@@ -216,15 +219,75 @@ enum enum_paramstyle
     PYFORMAT= 3
 };
 
+#define MA_BIND_STR_SIZE 256
+
+typedef struct
+{
+  union
+  {
+    long long   ll;
+    float       f;
+    double      d;
+    MYSQL_TIME  tm;
+    char        str[MA_BIND_STR_SIZE];
+  } u;
+} MA_BIND_BUF;
+
+typedef struct
+{
+  unsigned int   count;
+  MYSQL_BIND    *bind;
+  MA_BIND_BUF   *buf;
+  unsigned long *length;
+  my_bool       *is_null;
+  my_bool       *error;
+} MA_BIND_STATE;
+
+enum
+{
+  MA_COL_UNKNOWN= 0,
+  MA_COL_NULL,
+  MA_COL_INT,
+  MA_COL_FLOAT,
+  MA_COL_DOUBLE,
+  MA_COL_DATE,
+  MA_COL_TIME,
+  MA_COL_DATETIME,
+  MA_COL_DECIMAL,     /* NEWDECIMAL: text -> decimal_type */
+  MA_COL_BLOB,        /* blob types and BIT */
+  MA_COL_STRING       /* all other text like types */
+};
+
+typedef struct
+{
+  unsigned char  cls;          /* MA_COL_*, 0 = MA_COL_UNKNOWN */
+  unsigned char  bind_type;    /* enum_field_types value used for the bind */
+  unsigned short buf_size;     /* bytes needed in the bind buffer,
+                                  0 = the string buffer */
+} MA_COL_INFO;
+
+#define MA_INT_ENTRY   {MA_COL_INT, MYSQL_TYPE_LONGLONG, sizeof(long long)}
+#define MA_TIME_ENTRY(c, t) {(c), (t), sizeof(MYSQL_TIME)}
+#define MA_STR_ENTRY(c)     {(c), MYSQL_TYPE_STRING, 0}
+
+
+
 typedef struct st_ext_field_type {
   enum enum_extended_field_type ext_type;
   MARIADB_CONST_STRING str;
 } Mrdb_ExtFieldType;
 
+typedef enum {
+    LIT_NONE = 0,
+    LIT_SINGLE_QUOTE,
+    LIT_DOUBLE_QUOTE,
+    LIT_BACKTICK
+} enumLiteral;
+
 typedef struct st_parser {
     MrdbString statement;
     MrdbString *keys;
-    uint8_t in_literal[3];
+    enumLiteral in_literal;
     uint8_t in_comment;
     uint8_t in_values;
     uint8_t is_insert;
@@ -267,6 +330,7 @@ typedef struct {
     PyObject *last_executed_stmt;
     PyObject *converter;
     uint8_t tls_in_use;
+    PyObject *weakreflist;
 } MrdbConnection;
 
 typedef struct {
@@ -339,7 +403,10 @@ typedef struct {
     uint8_t fetched;
     uint8_t closed;
     uint8_t reprepare;
+    uint8_t use_result_cb;
+    MA_BIND_STATE *bindstate;
     enum enum_paramstyle paramstyle;
+    PyObject *weakreflist;
 } MrdbCursor;
 
 typedef struct
@@ -369,7 +436,8 @@ extern PyObject *Mariadb_NotSupportedError;
 extern PyObject *Mariadb_Warning;
 
 extern PyObject *decimal_module,
-                *decimal_type;
+                *decimal_type,
+                *keyword_iskeyword;
 
 /* Object types */
 extern PyTypeObject MrdbPool_Type;
@@ -464,6 +532,10 @@ MrdbParser_end(MrdbParser *p);
 uint8_t
 MrdbParser_parse(MrdbParser *p, uint8_t is_batch, char *errmsg, size_t errmsg_len);
 
+int ma_bind_result_setup(MrdbCursor *self);
+
+void ma_bind_result_free(MrdbCursor *self);
+int ma_values_from_bind(MrdbCursor *self);
 /* Global defines */
 
 
@@ -535,6 +607,7 @@ MrdbParser_parse(MrdbParser *p, uint8_t is_batch, char *errmsg, size_t errmsg_le
 /* MariaDB protocol macros */
 #define int1store(T,A) *((int8_t*) (T)) = (A)
 #define uint1korr(A)   (*(((uint8_t*)(A))))
+#define sint1korr(A)   (*(((int8_t*)(A))))
 #if defined(__i386__) || defined(_WIN32)
 #define sint2korr(A)	(*((int16_t *) (A)))
 #define sint3korr(A)	((int32_t) ((((unsigned char) (A)[2]) & 128) ? \

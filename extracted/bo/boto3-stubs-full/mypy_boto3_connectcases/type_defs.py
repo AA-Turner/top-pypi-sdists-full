@@ -47,12 +47,22 @@ __all__ = (
     "AuditEventTypeDef",
     "BasicLayoutOutputTypeDef",
     "BasicLayoutTypeDef",
+    "BatchCreateRelatedItemErrorEntryTypeDef",
+    "BatchCreateRelatedItemIdentifierTypeDef",
+    "BatchCreateRelatedItemRequestTypeDef",
+    "BatchCreateRelatedItemResponseTypeDef",
+    "BatchCreateRelatedItemSuccessEntryTypeDef",
     "BatchGetCaseRuleRequestTypeDef",
     "BatchGetCaseRuleResponseTypeDef",
     "BatchGetFieldRequestTypeDef",
     "BatchGetFieldResponseTypeDef",
     "BatchPutFieldOptionsRequestTypeDef",
     "BatchPutFieldOptionsResponseTypeDef",
+    "BatchUpdateCaseErrorEntryTypeDef",
+    "BatchUpdateCaseIdentifierTypeDef",
+    "BatchUpdateCaseRequestTypeDef",
+    "BatchUpdateCaseResponseTypeDef",
+    "BatchUpdateCaseSuccessEntryTypeDef",
     "BooleanConditionOutputTypeDef",
     "BooleanConditionTypeDef",
     "BooleanOperandsOutputTypeDef",
@@ -61,6 +71,8 @@ __all__ = (
     "CaseEventIncludedDataTypeDef",
     "CaseFilterPaginatorTypeDef",
     "CaseFilterTypeDef",
+    "CaseIdentifierTypeDef",
+    "CaseIdentifierUnionTypeDef",
     "CaseRuleDetailsOutputTypeDef",
     "CaseRuleDetailsTypeDef",
     "CaseRuleDetailsUnionTypeDef",
@@ -119,12 +131,14 @@ __all__ = (
     "FieldGroupOutputTypeDef",
     "FieldGroupTypeDef",
     "FieldIdentifierTypeDef",
+    "FieldIdentifierUnionTypeDef",
     "FieldItemTypeDef",
     "FieldOptionErrorTypeDef",
     "FieldOptionTypeDef",
     "FieldOptionsCaseRuleOutputTypeDef",
     "FieldOptionsCaseRuleTypeDef",
     "FieldSummaryTypeDef",
+    "FieldValueInputTypeDef",
     "FieldValueOutputTypeDef",
     "FieldValueTypeDef",
     "FieldValueUnionExtraTypeDef",
@@ -245,6 +259,25 @@ class UserUnionTypeDef(TypedDict):
     customEntity: NotRequired[str]
 
 
+class CaseIdentifierTypeDef(TypedDict):
+    caseId: NotRequired[str]
+    referenceNumber: NotRequired[str]
+    referenceId: NotRequired[str]
+
+
+class CaseIdentifierUnionTypeDef(TypedDict):
+    caseId: NotRequired[str]
+    referenceId: NotRequired[str]
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
 CaseRuleIdentifierTypeDef = TypedDict(
     "CaseRuleIdentifierTypeDef",
     {
@@ -259,16 +292,6 @@ CaseRuleErrorTypeDef = TypedDict(
         "message": NotRequired[str],
     },
 )
-
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 FieldIdentifierTypeDef = TypedDict(
     "FieldIdentifierTypeDef",
     {
@@ -445,6 +468,13 @@ FieldItemTypeDef = TypedDict(
         "id": str,
     },
 )
+FieldIdentifierUnionTypeDef = TypedDict(
+    "FieldIdentifierUnionTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+    },
+)
 
 
 class ParentChildFieldOptionsMappingOutputTypeDef(TypedDict):
@@ -618,9 +648,34 @@ class AuditEventPerformedByTypeDef(TypedDict):
     user: NotRequired[UserUnionTypeDef]
 
 
-class BatchGetCaseRuleRequestTypeDef(TypedDict):
-    domainId: str
-    caseRules: Sequence[CaseRuleIdentifierTypeDef]
+class BatchCreateRelatedItemErrorEntryTypeDef(TypedDict):
+    caseIdentifier: CaseIdentifierTypeDef
+    errorCode: str
+    errorMessage: str
+
+
+class BatchCreateRelatedItemSuccessEntryTypeDef(TypedDict):
+    caseIdentifier: CaseIdentifierTypeDef
+    relatedItemId: str
+    relatedItemArn: str
+
+
+class BatchUpdateCaseErrorEntryTypeDef(TypedDict):
+    caseIdentifier: CaseIdentifierTypeDef
+    errorCode: str
+    errorMessage: str
+
+
+class BatchUpdateCaseSuccessEntryTypeDef(TypedDict):
+    caseIdentifier: CaseIdentifierTypeDef
+
+
+class BatchCreateRelatedItemIdentifierTypeDef(TypedDict):
+    caseIdentifier: CaseIdentifierUnionTypeDef
+
+
+class BatchUpdateCaseIdentifierTypeDef(TypedDict):
+    caseIdentifier: CaseIdentifierUnionTypeDef
 
 
 class CreateCaseResponseTypeDef(TypedDict):
@@ -683,6 +738,11 @@ class GetDomainResponseTypeDef(TypedDict):
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchGetCaseRuleRequestTypeDef(TypedDict):
+    domainId: str
+    caseRules: Sequence[CaseRuleIdentifierTypeDef]
 
 
 class BatchGetFieldRequestTypeDef(TypedDict):
@@ -856,6 +916,18 @@ AuditEventTypeDef = TypedDict(
 )
 
 
+class BatchCreateRelatedItemResponseTypeDef(TypedDict):
+    successfulItems: list[BatchCreateRelatedItemSuccessEntryTypeDef]
+    failedItems: list[BatchCreateRelatedItemErrorEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchUpdateCaseResponseTypeDef(TypedDict):
+    successfulCases: list[BatchUpdateCaseSuccessEntryTypeDef]
+    failedCases: list[BatchUpdateCaseErrorEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class EventIncludedDataOutputTypeDef(TypedDict):
     caseData: NotRequired[CaseEventIncludedDataOutputTypeDef]
     relatedItemData: NotRequired[RelatedItemEventIncludedDataTypeDef]
@@ -956,6 +1028,11 @@ class SearchCasesResponseItemTypeDef(TypedDict):
 
 class SlaContentTypeDef(TypedDict):
     slaConfiguration: SlaConfigurationTypeDef
+
+
+class FieldValueInputTypeDef(TypedDict):
+    fieldIdentifier: FieldIdentifierUnionTypeDef
+    value: FieldValueUnionUnionTypeDef
 
 
 FieldValueTypeDef = TypedDict(
@@ -1076,6 +1153,17 @@ class RelatedItemContentTypeDef(TypedDict):
     sla: NotRequired[SlaContentTypeDef]
     connectCase: NotRequired[ConnectCaseContentTypeDef]
     custom: NotRequired[CustomContentTypeDef]
+
+
+class BatchUpdateCaseRequestTypeDef(TypedDict):
+    domainId: str
+    cases: Sequence[BatchUpdateCaseIdentifierTypeDef]
+    fields: Sequence[FieldValueInputTypeDef]
+    performedBy: NotRequired[UserUnionTypeDef]
+    title: NotRequired[str]
+    status: NotRequired[str]
+    customerId: NotRequired[str]
+    clientToken: NotRequired[str]
 
 
 FieldValueUnionExtraTypeDef = Union[FieldValueTypeDef, FieldValueOutputTypeDef]
@@ -1318,6 +1406,16 @@ class GetLayoutResponseTypeDef(TypedDict):
 
 
 LayoutContentUnionTypeDef = Union[LayoutContentTypeDef, LayoutContentOutputTypeDef]
+
+
+class BatchCreateRelatedItemRequestTypeDef(TypedDict):
+    domainId: str
+    content: RelatedItemInputContentTypeDef
+    cases: Sequence[BatchCreateRelatedItemIdentifierTypeDef]
+    performedBy: NotRequired[UserUnionTypeDef]
+    clientToken: NotRequired[str]
+
+
 CreateRelatedItemRequestTypeDef = TypedDict(
     "CreateRelatedItemRequestTypeDef",
     {

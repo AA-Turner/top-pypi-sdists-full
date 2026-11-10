@@ -4,6 +4,8 @@
 import datetime
 import unittest
 import os
+import gc
+import sys
 import decimal
 import json
 from decimal import Decimal
@@ -43,10 +45,71 @@ class TestCursor(unittest.TestCase):
         cursor.close()
         del cursor
 
+    @unittest.skipUnless(hasattr(sys, "getrefcount"),
+                         "sys.getrefcount() is CPython only")
+    def test_conpy369_cursor_owns_connection_ref(self):
+        connection = create_connection()
+        try:
+            before = sys.getrefcount(connection)
+            cursor = connection.cursor()
+            # +1 for Cursor._connection (Python), +1 for self->connection (C).
+            self.assertEqual(sys.getrefcount(connection) - before, 2)
+            cursor.close()
+            del cursor
+            gc.collect()
+            self.assertEqual(sys.getrefcount(connection), before)
+        finally:
+            connection.close()
+
+    @unittest.skipUnless(hasattr(sys, "getrefcount"),
+                         "sys.getrefcount() is CPython only")
+    def test_conpy369_gc_collected_cursor(self):
+        # Reclaiming a cursor through the cyclic collector must leave the
+        # connection's refcount untouched. If the cursor's reference is borrowed
+        # rather than owned, this over-decrefs the connection and frees it early;
+        # the regression then shows up as a segfault here rather than a failure.
+        connection = create_connection()
+        try:
+            baseline = sys.getrefcount(connection)
+            for _ in range(50):
+                cursor = connection.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchall()
+                # A reference cycle forces the collector, rather than
+                # refcounting, to reclaim the cursor -- that is the only path
+                # that reaches tp_clear.
+                cycle = {}
+                cycle["self"] = cycle
+                cycle["cursor"] = cursor
+                del cursor, cycle
+                gc.collect()
+            self.assertEqual(sys.getrefcount(connection), baseline)
+        finally:
+            connection.close()
+
     @unittest.skipIf(
         os.environ.get('PYTHON_VERSION', '').startswith('pypy'),
         "Test skipped for PyPy"
     )
+    def test_conpy328(self):
+        cursor= self.connection.cursor(binary=True)
+        cursor.execute("CREATE TEMPORARY TABLE t1 (a tinyint, b tinyint unsigned)")
+        cursor.execute("INSERT INTO t1 VALUES (-1, 255)")
+        cursor.execute("SELECT * FROM t1")
+        row= cursor.fetchone()
+        self.assertEqual(row[0],-1)
+        self.assertEqual(row[1], 255)
+        cursor.execute("DROP TABLE t1")
+
+    def test_conpy329(self):
+        cursor= self.connection.cursor(binary=True)
+        cursor.execute("CREATE TEMPORARY TABLE t1 (a date)")
+        cursor.execute("INSERT INTO t1 VALUES ('0000-01-01')")
+        cursor.execute("SELECT * FROM t1")
+        row= cursor.fetchone()
+        self.assertEqual(row[0],None)
+        cursor.execute("DROP TABLE t1")
+
     def test_conpy306(self):
         with create_connection() as conn:
             cursor=conn.cursor(binary=False)
@@ -56,10 +119,10 @@ class TestCursor(unittest.TestCase):
             except Exception:
                 pass
             cursor.close()
-            cursor=conn.cursor(binary=True)
+            cursor=conn.cursor(binary=False)
             cursor.execute("SELECT CAST(0xEDA080 AS CHAR CHARSET UTF8MB3)");
             try:
-                cursor.fetchone()
+                cursor.fetchall()
             except Exception:
                 pass
             cursor.close()
@@ -217,6 +280,67 @@ class TestCursor(unittest.TestCase):
                                                     microseconds=123456))
         self.assertEqual(row[2], c3)
         self.assertEqual(row[3], c4)
+        cursor.close()
+
+    def test_conpy368(self):
+        # Dates with a zero component (day=0 or 0000-00-00) that the server
+        # accepts under a lenient sql_mode are not representable in Python.
+        # Before the fix, fetch raised SystemError; now they must yield None.
+        if is_mysql():
+            self.skipTest("MySQL rejects these zero-date values")
+        cursor = self.connection.cursor()
+        cursor.execute("SET SESSION sql_mode=''")
+        cursor.execute("CREATE TEMPORARY TABLE test_zero_dates("
+                       "id INT PRIMARY KEY, d DATE, dt DATETIME, ts TIMESTAMP NULL)")
+        cursor.execute("INSERT INTO test_zero_dates VALUES "
+                       "(1, '2008-08-00', '2008-08-00 12:34:56', '0000-00-00 00:00:00')")
+
+        # text protocol (execute without parameters)
+        cursor.execute("SELECT d, dt, ts FROM test_zero_dates WHERE id=1")
+        row = cursor.fetchone()
+        self.assertEqual(row, (None, None, None))
+
+        # binary protocol (prepared statement, with a parameter)
+        cursor.execute("SELECT d, dt, ts FROM test_zero_dates WHERE id=?", (1,))
+        row = cursor.fetchone()
+        self.assertEqual(row, (None, None, None))
+        cursor.close()
+
+    def test_conpy368_allow_invalid_dates(self):
+        # Under ALLOW_INVALID_DATES the server stores an impossible day as it
+        # was given instead of zeroing the date, so '2008-02-30' really reaches
+        # the client. A zero month or year does too. None of these have a
+        # Python equivalent and must come back as None on both protocols.
+        if is_mysql():
+            self.skipTest("MySQL rejects these date values")
+        cursor = self.connection.cursor()
+        cursor.execute("SET SESSION sql_mode='ALLOW_INVALID_DATES'")
+        cursor.execute("CREATE TEMPORARY TABLE test_invalid_dates("
+                       "id INT PRIMARY KEY, d DATE, dt DATETIME(6))")
+        cases = ("2008-02-30", "2009-02-29", "2008-04-31",
+                 "2008-00-15", "0000-08-15", "2008-00-00")
+        for i, value in enumerate(cases):
+            cursor.execute("INSERT INTO test_invalid_dates VALUES (?,?,?)",
+                           (i, value, "%s 12:34:56.789012" % value))
+
+        for i, value in enumerate(cases):
+            with self.subTest(value=value, protocol="text"):
+                cursor.execute("SELECT d, dt FROM test_invalid_dates "
+                               "WHERE id=%d" % i)
+                self.assertEqual(cursor.fetchone(), (None, None))
+            with self.subTest(value=value, protocol="binary"):
+                cursor.execute("SELECT d, dt FROM test_invalid_dates WHERE id=?",
+                               (i,))
+                self.assertEqual(cursor.fetchone(), (None, None))
+
+        # a genuinely valid leap day must still round-trip
+        cursor.execute("INSERT INTO test_invalid_dates VALUES "
+                       "(99, '2008-02-29', '2008-02-29 12:34:56.789012')")
+        cursor.execute("SELECT d, dt FROM test_invalid_dates WHERE id=?", (99,))
+        row = cursor.fetchone()
+        self.assertEqual(row[0], datetime.date(2008, 2, 29))
+        self.assertEqual(row[1],
+                         datetime.datetime(2008, 2, 29, 12, 34, 56, 789012))
         cursor.close()
 
     def test_numbers(self):
@@ -1411,43 +1535,73 @@ class TestCursor(unittest.TestCase):
     def test_conpy133(self):
         if is_mysql():
             self.skipTest("Skip (MySQL)")
+
         with create_connection() as conn:
+            server_version = conn.server_version  # tuple like (10, 6, 12) or integer version depending on helper
 
-            cursor = conn.cursor()
-            cursor.execute("SELECT /*! ? */", (1,))
-            row = cursor.fetchone()
-            self.assertEqual(row[0], 1)
-            del cursor
+            if isinstance(server_version, tuple):
+                srv_ver_int = server_version[0] * 10000 + server_version[1] * 100 + server_version[2]
+            else:
+                srv_ver_int = server_version
 
-            cursor = conn.cursor()
-            cursor.execute("SELECT /*M! ? */", (1,))
-            row = cursor.fetchone()
-            self.assertEqual(row[0], 1)
-            del cursor
+            # 1. Valid Executable Comments active on the current server version
+            valid_cases = [
+                ("SELECT /*! ? */", (1,), 1),
+                ("SELECT /*M! ? */", (1,), 1),
+                ("SELECT /*M!50601 ? */", (1,), 1),
+                ("SELECT /*!40301 ? */", (1,), 1),
+                ("SELECT /*! ? */, /*M! ? */", (1, 2), 1),
+                ("SELECT /*M!50601 ? + ? */", (1, 2), 3),
+            ]
 
-            cursor = conn.cursor()
-            cursor.execute("SELECT /*M!50601 ? */", (1,))
-            row = cursor.fetchone()
-            self.assertEqual(row[0], 1)
-            del cursor
+            # Only add version-conditional cases if the running server version supports them
+            version_conditional_cases = [
+                (100201, "SELECT /*M!100201 ? */", (1,), 1),
+                (100500, "SELECT /*M!100500 ? */", (1,), 1),
+                (110000, "SELECT /*M!110000 ? */", (1,), 1),
+            ]
 
-            cursor = conn.cursor()
-            cursor.execute("SELECT /*!40301 ? */", (1,))
-            row = cursor.fetchone()
-            self.assertEqual(row[0], 1)
-            del cursor
+            for required_ver, query, params, expected_first_col in version_conditional_cases:
+                if srv_ver_int >= required_ver:
+                    valid_cases.append((query, params, expected_first_col))
 
-            with conn.cursor() as cursor:
-                try:
-                    cursor.execute("SELECT /*!50701 ? */", (1,))
-                except mariadb.ProgrammingError:
-                    pass
+            for query, params, expected_first_col in valid_cases:
+                with self.subTest(query=query):
+                    with conn.cursor() as cursor:
+                        cursor.execute(query, params)
+                        row = cursor.fetchone()
+                        self.assertIsNotNone(row)
+                        self.assertEqual(row[0], expected_first_col)
 
-            with conn.cursor() as cursor:
-                try:
-                    cursor.execute("SELECT /*!250701 ? */", (1,))
-                except mariadb.ProgrammingError:
-                    pass
+            # 2. Executable Comments with Unsupported/Future Server Versions
+            # Using 999999 ensures it is higher than any current MariaDB version.
+            invalid_version_cases = [
+                ("SELECT 1 /*!999999 , ? */", ()),
+                ("SELECT 1 /*M!999999 , ? */", ()),
+            ]
+
+            for query, params in invalid_version_cases:
+                with self.subTest(query=query):
+                    with conn.cursor() as cursor:
+                        cursor.execute(query, params)
+                        row = cursor.fetchone()
+                        self.assertIsNotNone(row)
+                        self.assertEqual(row[0], 1)
+
+            # 3. Parameters both inside and outside comments
+            with self.subTest(query="WHERE parameters inside and outside comments"):
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT /*M! ? */ AS result WHERE 1=?", (1, 1))
+                    row = cursor.fetchone()
+                    self.assertIsNotNone(row)
+                    self.assertEqual(row[0], 1)
+
+            with self.subTest(query="WHERE parameters inside version comments"):
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT ? /*!999999 , ? */", (1,))  # Only 1 parameter passed
+                    row = cursor.fetchone()
+                    self.assertIsNotNone(row)
+                    self.assertEqual(row[0], 1)
 
     def check_closed(self):
         with create_connection() as conn:
@@ -1760,6 +1914,18 @@ class TestCursor(unittest.TestCase):
             self.assertEqual(row[0], 123)
             cursor.close()
 
+    def test_conpy334(self):
+        with create_connection() as connection:
+            cursor = connection.cursor()
+            placeholder = 'some "quoted" text'
+            cursor.execute("""SELECT LOWER(CONVERT(TRIM(BOTH '"' FROM CONVERT('Some "quoted" text', CHAR)) USING utf8mb4)) LIKE LOWER(?)""", (placeholder,))
+            row= cursor.fetchone()
+            self.assertEqual(row[0], 1)
+            cursor.execute("""SELECT LOWER(CONVERT /* we have a double quote (") inside comment */ (TRIM(BOTH '"' FROM CONVERT('Some "quoted" text', CHAR)) USING utf8mb4)) LIKE LOWER(?)""", (placeholder,))
+            row= cursor.fetchone()
+            self.assertEqual(row[0], 1)
+            cursor.close()
+
     def test_conpy291(self):
         if is_mysql:
             self.skipTest("Skip (MySQL doesn't support batch/indicators)")
@@ -1850,6 +2016,24 @@ class TestCursor(unittest.TestCase):
                                                     dummy=1))
                                 [[value, _]] = cursor.fetchall()
                                 self.assertEqual(value, 1)
+
+    def test_conpy152(self):
+        with create_connection() as connection:
+            cursor = connection.cursor()
+
+            cursor.execute("DROP TABLE IF EXISTS t1")
+            cursor.execute("CREATE TABLE t1 (a int not null auto_increment "
+                           "primary key, b int default 3)")
+
+            # a statement without placeholders has nothing to send in bulk
+            cursor.executemany("INSERT INTO t1 (b) VALUES (DEFAULT)",
+                               [(), (), ()])
+            self.assertEqual(cursor.rowcount, 3)
+            cursor.execute("SELECT count(*), min(b), max(b) FROM t1")
+            self.assertEqual(cursor.fetchone(), (3, 3, 3))
+
+            cursor.execute("DROP TABLE IF EXISTS t1")
+            del cursor
 
 
 if __name__ == '__main__':

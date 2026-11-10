@@ -19,9 +19,12 @@ without error until the next re-render of that level drops it.
 
 `bx:pin` is a WRITE-PERMISSION gate, not just render-ordering advice: an
 ordinary `add` targeting an already-pinned slug raises `PinnedEntry` before any write (see
-`add_or_update_entry`); the only way through is the separate `amend-pinned` verb. The movers (`move`,
+`upsert_entry`); the only way through is the separate `amend-pinned` verb. The movers (`move`,
 `relocate`, `rename`) are unaffected - they carry pin through untouched, never refuse. All output is
 ASCII (` - ` separators, never an em dash).
+
+The pin gate's recorded decision (the rejected `bx:owner=human` partition it replaced) is in the
+`Decisions` block of `upsert_entry`'s docstring.
 
 Pure standard library; cross-platform (pathlib, UTF-8, the O_EXCL lock in self_improve_signals).
 """
@@ -369,7 +372,18 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
 
     Under BITRANOX_MEMORY_WRITES=off it raises `sig.MemoryWritesOff` as its first statement, before
     the lock is taken and before anything is read: this is the entry write path the skill scripts
-    (reconcile, migrate) call directly, so a guard on the CLI verbs alone left it open."""
+    (reconcile, migrate) call directly, so a guard on the CLI verbs alone left it open.
+
+    Decisions:
+        - Rejected: a `bx:owner=human` partition on the pointer line, refusing an autonomous
+          overwrite of a "human-owned" fact (53c54a85, reverted c59cb953). Why: every fact in the
+          store is written by a model, so "human-owned" only ever labelled the model's own write,
+          and `bx:pin` already marks exactly the facts that need protecting; the pin gate above
+          replaced it (f1278a93). Evidence: argued: the review recorded in f1278a93, which also
+          found the movers silently stripped the owner marker. Reopen if: facts start being
+          written by a person rather than a model, and a pin cannot express which of them must
+          not be overwritten.
+          Pinned by: tests/test_memory_pin_gate.py::test_add_refuses_a_pinned_target_and_leaves_the_original_hook_on_disk"""
     sig.refuse_if_memory_writes_off()
     proj = os.path.abspath(str(proj))
     _require_known_type(type_)
@@ -448,6 +462,9 @@ def upsert_entry(proj, title, hook, body="", type_=None, pin=False,
                                                      _framed_body(slug, hook, type_, body)),
                                        skill), pin=pin)
             entries.append(e)
+        # The body carries the pointer's title as data (`title:`); every write through here,
+        # amend-pinned and factedit's apply included, keeps the two equal.
+        e.body = _with_title(e.body, e.title)
         bodies[slug] = e.body
         _commit_store(proj, scope or scope_default, entries, bodies)
     if not store_existed and store_dir.exists():      # this add created a brand-new store dir:
@@ -648,6 +665,40 @@ def _reframe_description(text, hook):
     inner, n = re.subn(r"(?m)^(description:)[ \t]*[^\r\n]*",
                        lambda d: "%s %s" % (d.group(1), desc), m.group(1), count=1)
     return _with_frame(head, m, inner) if n else text
+
+
+def _body_title(text):
+    """The `title:` value from a framed body's frontmatter, or '' if absent. Scoped to the leading
+    frontmatter block (see `_frontmatter`), like `_body_description`."""
+    _head, m = _frontmatter(text)
+    if m is None:
+        return ""
+    t = re.search(r"(?m)^title:[ \t]*([^\r\n]*)", m.group(1))
+    return t.group(1).strip() if t else ""
+
+
+def _with_title(text, title):
+    """Return framed `text` with its frontmatter `title:` set to `title` (one line), prose untouched.
+
+    The pointer line is the title's only other home, so the title is kept in the body as data and a
+    pointer line can be rebuilt from the body alone. A frame without the key gains it after
+    `description:` (or after `name:` when there is no description). An unframed `text`, or an empty
+    title, is returned unchanged: every write path frames first, and a title is never invented.
+    The replacement is a lambda, as in `_reframe_description`: a title can carry backslashes."""
+    head, m = _frontmatter(text)
+    title = _normalised_title(title)
+    if m is None or not title:
+        return text
+    inner = m.group(1)
+    nl = "\r\n" if inner.endswith("\r\n") else "\n"
+    new_inner, n = re.subn(r"(?m)^(title:)[ \t]*[^\r\n]*", lambda t: "%s %s" % (t.group(1), title),
+                           inner, count=1)
+    for key in ("description", "name"):
+        if n:
+            break
+        new_inner, n = re.subn(r"(?m)^(%s:[^\r\n]*)(?=\r?$)" % key,
+                               lambda t: "%s%stitle: %s" % (t.group(1), nl, title), inner, count=1)
+    return _with_frame(head, m, new_inner) if n else text
 
 
 def _retype_body(slug, hook, type_, text):
@@ -1218,6 +1269,54 @@ def heal(proj):
     return report
 
 
+def backfill_titles(proj):
+    """Copy each pointer's title into its body's frontmatter where the body has none, across the
+    WHOLE tree of `proj`'s anchor. A body that already has a `title:` is never rewritten, an
+    unframed body is left alone and counted, and a missing body is counted, never fabricated.
+
+    Separate from `heal`, which SessionStart runs on every start and which never opens a body: a
+    back-fill reads every body of the tree and writes most of them once, a one-off for stores
+    written before titles were kept as data. Returns {'filled': [slugs], 'kept': n, 'unframed':
+    [slugs], 'untitled': [slugs], 'missing': [slugs]}; `untitled` is a framed body whose pointer
+    has an empty link text, so there is no title to copy (kept apart from `unframed`, which would
+    report a frame that is there as absent). A slug pointed at from two levels is filled from the
+    first level the walk meets, and each body is read and written under the lock of that first
+    level only: an engine write to the same slug through another level holds that level's lock.
+    Raises TreeWalkError (exit 2 on the CLI) when a level or a body cannot be read: a back-fill
+    that skipped part of the tree would read as done. Missing is decided by the read itself, never
+    by a `Path.is_file()` pre-check, which answers False for a body it cannot stat (EACCES) and
+    would report an unreadable store as a store of missing bodies."""
+    sig.refuse_if_memory_writes_off()
+    anchor = _anchor(proj)
+    rep = {"filled": [], "kept": 0, "unframed": [], "untitled": [], "missing": []}
+    seen = set()
+    for level in curated_levels_under(anchor):
+        with sig.memory_lock(sig.claude_local_md_path(level)):
+            text = read_store_text(sig.claude_local_md_path(level))
+            for ptr in us.parse_pointer_index(text)[1]:
+                if ptr.legacy or ptr.slug in seen:
+                    continue
+                seen.add(ptr.slug)
+                raw = read_store_text(us.body_path(anchor, ptr.slug))   # "" only when absent
+                if raw == "":
+                    rep["missing"].append(ptr.slug)
+                    continue
+                body = raw.rstrip("\n")
+                if _body_title(body):
+                    rep["kept"] += 1
+                    continue
+                if _frontmatter(body)[1] is None:
+                    rep["unframed"].append(ptr.slug)
+                    continue
+                filled = _with_title(body, ptr.title)
+                if filled == body:
+                    rep["untitled"].append(ptr.slug)
+                    continue
+                us.put_body(str(anchor), ptr.slug, filled)
+                rep["filled"].append(ptr.slug)
+    return rep
+
+
 def _heal_one_level(level, report):
     """heal's per-level pass: record invalid pointers, repair the level if it needs it, then list
     pointers whose body is missing. Raises TreeWalkError before any write when the level's files
@@ -1592,9 +1691,8 @@ def retitle_entry(level, slug, to_title):
     call, so a title fix meant re-supplying the stored 500-char text and risking a drift in what
     actually fires, and `rename` changes the slug and never the title.
 
-    Same slug, same body, same hook: only the label changes. The body is not opened at all - a title
-    is stored ONLY in the pointer line (`_framed_body` writes `name:` and `description:`, never a
-    title), so there is nothing else to keep in sync.
+    Same slug, same hook, same prose: only the label changes - in the pointer line and in the
+    body's frontmatter `title:`, which carries it as data. A body with no frame is left as it is.
 
     A PINNED fact is refused here and goes through `amend_pinned_entry` instead, which is the single
     deliberate route through the pin gate. Returns
@@ -1637,6 +1735,15 @@ def retitle_entry(level, slug, to_title):
     us.add_pointer(str(lvl), slug=slug, title=title, hook=entry.hook,
                    pin=entry.pin)
     rep["levels"].append(str(lvl))
+    # The body is re-read under the level lock rather than taken from `entry`: that copy was read
+    # unlocked, and an `add` on the same slug in another session (which rewrites the body under
+    # this lock) can land between that read and this write - writing the stale copy back loses its
+    # prose. The lock is non-reentrant, so it is taken only after `add_pointer` released its own.
+    with sig.memory_lock(sig.claude_local_md_path(str(lvl))):
+        current = read_store_text(us.body_path(anchor, slug)).rstrip("\n")
+        retitled_body = _with_title(current, title)
+        if current and retitled_body != current:     # "" is an absent body: writing it back
+            us.put_body(str(anchor), slug, retitled_body)   # would create one for a dangler
 
     # A slug carried by more than one level is a pre-existing violation, but leaving the OTHER
     # pointers on the old title is not neutral: `move_entry` and `relocate_entry` both refuse when
@@ -1972,6 +2079,10 @@ def _main(argv=None):
                           "it re-types the stored body; omit it to keep the stored kind")
     h = sub.add_parser("heal", help="self-heal missing/malformed pointer blocks/markers across the chain")
     h.add_argument("--proj", required=True, help="project cwd (heals its whole altitude chain)")
+    h.add_argument("--backfill-titles", action="store_true", dest="backfill_titles",
+                   help="instead of healing the chain, copy each pointer's title into its body's "
+                        "frontmatter where the body has none, across the WHOLE tree (a one-off for "
+                        "stores written before titles were kept as data; reads every body)")
     s = sub.add_parser("set-scope", help="upsert (overwrite) a level's pointer-block scope descriptor")
     s.add_argument("--proj", required=True, help="the altitude dir whose scope to set")
     s.add_argument("--scope", default=None, help="the scope-descriptor text (what this level is about)")
@@ -2144,6 +2255,18 @@ def _main(argv=None):
         _scope, pointers = us.parse_pointer_index(text)
         changed = us.write_if_changed(local, us.upsert_pointer_block(text, scope.strip(), pointers))
         print("scope %s: %s" % ("updated" if changed else "unchanged", local))
+        return 0
+
+    if args.cmd == "heal" and args.backfill_titles:
+        rep = backfill_titles(args.proj)
+        print("back-filled %d title(s); %d body(ies) already had one"
+              % (len(rep["filled"]), rep["kept"]))
+        for slug in rep["unframed"]:
+            print("    ~ body has no frontmatter, left as it is: %s" % slug)
+        for slug in rep["untitled"]:
+            print("    ~ pointer has no title to copy, body left as it is: %s" % slug)
+        for slug in rep["missing"]:
+            print("    ! missing central body (not fabricated): %s" % slug)
         return 0
 
     if args.cmd == "heal":

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import cast
 
 from fpdf import FPDF
+from fpdf.bidi import BidiParagraph
 from fpdf.enums import PDFResourceType, TextMode
 from fpdf.fonts import TTFFont
 from pikepdf import Matrix, Rectangle
@@ -25,6 +26,23 @@ from ocrmypdf.font import FontManager, MultiFontManager
 from ocrmypdf.models.ocr_element import OcrClass, OcrElement
 
 log = logging.getLogger(__name__)
+
+# A line whose box reaches this far above the OCR engine's own line metrics is
+# taken to be stretched by one word reaching into a neighbouring line.
+STRETCHED_LINE_RATIO = 1.5
+
+
+def _visual_order(text: str) -> str:
+    """Reorder a right-to-left word from logical into visual order.
+
+    Text extractors apply the Unicode bidirectional algorithm to recover the
+    logical order from glyph positions, so glyphs must be laid out left to
+    right in visual order. That is a plain reversal only for words that are
+    right-to-left throughout: digits and Latin letters inside a Hebrew or
+    Arabic word keep their left-to-right order (issue #1781). No mirroring is
+    applied, since brackets are not mirrored in extraction either.
+    """
+    return BidiParagraph(text=text).get_reordered_string()
 
 
 def _is_rtl_text(text: str) -> bool:
@@ -125,17 +143,27 @@ def transform_box(
     )
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
+class TextRun:
+    """Part of a word drawn in one font."""
+
+    font_family: str
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
 class WordRenderData:
     """Rendering parameters for a single word on a line."""
 
     text: str
     x_baseline: float
-    font_family: str
+    # Font runs in drawing order: visual order for right-to-left words
+    runs: tuple[TextRun, ...]
     word_tz: float
     is_rtl: bool
     shaped: bool
     width: float = 0.0  # word length along the baseline, in points
+    space_width: float = 0.0  # natural width of a space in the first run's font
 
 
 @dataclass
@@ -150,6 +178,7 @@ class DebugRenderOptions:
     render_word_bbox: bool = False  # Green rectangles around words
 
 
+@dataclass(frozen=True, slots=True)
 class CoordinateTransform:
     """Manages coordinate transformations for fpdf2 rendering.
 
@@ -157,11 +186,9 @@ class CoordinateTransform:
     PDF points. fpdf2 uses top-left origin like hOCR, so no Y-flip needed.
     """
 
-    def __init__(self, dpi: float, page_width_px: float, page_height_px: float):
-        """Initialize coordinate transform."""
-        self.dpi = dpi
-        self.page_width_px = page_width_px
-        self.page_height_px = page_height_px
+    dpi: float
+    page_width_px: float
+    page_height_px: float
 
     @property
     def page_width_pt(self) -> float:
@@ -479,10 +506,38 @@ class Fpdf2PdfRenderer:
             .rotated(slope_angle_deg)  # Rotate by baseline slope
         )
 
-        # Calculate font size: height from baseline to top of line
+        # Calculate font size: height from baseline to top of line. A sloped
+        # line's box is the hull of its slanted text, so its top is level with
+        # the tops of the glyphs where the baseline is highest: the left end of
+        # a falling line, where the intercept is measured, but the right end of
+        # a rising one (negative slope, since y increases downward). Measure
+        # from the baseline there, or the rise inflates the text.
         font_size = line_size_height + intercept_pt
+        if slope < 0.0:
+            font_size += slope * line_size_width
         if font_size < 1.0:
             font_size = line_size_height * 0.8
+
+        # The line box is the union of its words' boxes, so one word that reaches
+        # into the neighbouring line (a capital touching a descender above)
+        # stretches it, and the height above the baseline overstates the text
+        # size. The engine's own metrics for the line are not affected: x_size
+        # less the descenders is the distance from the baseline to the top of
+        # the line's ascenders. Such a stretch roughly doubles the height, while
+        # ordinary lines stay within about 1.3x of the metrics (the ascender
+        # estimate is a guess on short lines), so only a box well beyond the
+        # metrics is treated as stretched. Lines without a usable baseline are
+        # left alone: their baseline was placed assuming the text fills the box.
+        if (
+            has_meaningful_baseline
+            and line.x_size is not None
+            and line.x_descenders is not None
+        ):
+            metrics_size = self.coord_transform.px_to_pt(
+                line.x_size - line.x_descenders
+            )
+            if metrics_size >= 1.0 and font_size > STRETCHED_LINE_RATIO * metrics_size:
+                font_size = metrics_size
 
         # Total rotation for rendering (textangle + slope)
         total_rotation_deg = -textangle + slope_angle_deg
@@ -560,20 +615,13 @@ class Fpdf2PdfRenderer:
                 word_bottom_pt,
             )
 
-            # Select font and compute word-only Tz
-            font_manager = self.multi_font_manager.select_font_for_word(
-                word.text, line_language
-            )
-            font_family = self._register_font(pdf, font_manager)
-            pdf.set_font(font_family, size=font_size)
-
             # For RTL words with invisible text, we use encode_text()
-            # (which maps characters 1:1 in logical order) combined with
-            # a -1 x-scale text matrix. This avoids an fpdf2 issue where
-            # shaped RTL ligature glyphs (e.g. lam-alef) get multi-char
-            # CMap entries whose character order is reversed by the bidi
-            # algorithm during text extraction.
-            # Since the text is invisible, glyph mirroring is harmless.
+            # (which maps characters 1:1) on the word in visual order. This
+            # avoids an fpdf2 issue where shaped RTL ligature glyphs (e.g.
+            # lam-alef) get multi-char CMap entries whose character order is
+            # reversed by the bidi algorithm during text extraction.
+            # Since the text is invisible, the missing joining forms are
+            # harmless.
             #
             # Invisible text in scripts that do not need shaping (Latin,
             # Greek, Cyrillic, CJK, ...) is also encoded 1:1. Shaping would
@@ -587,13 +635,28 @@ class Fpdf2PdfRenderer:
             word_shaped = not self.invisible_text or (
                 not word_is_rtl and _needs_complex_shaping(word.text)
             )
-            if word_shaped:
-                natural_width = pdf.get_string_width(word.text)
-            else:
-                saved_shaping = pdf.text_shaping
+            draw_text = _visual_order(word.text) if word_is_rtl else word.text
+
+            # A word no single font covers is split into runs, one per font,
+            # so that all of it has glyphs to highlight (issue #1783).
+            runs = tuple(
+                TextRun(self._register_font(pdf, font_manager), segment)
+                for segment, font_manager in (
+                    self.multi_font_manager.select_fonts_for_word(
+                        draw_text, line_language
+                    )
+                )
+            )
+            saved_shaping = pdf.text_shaping
+            if not word_shaped:
                 pdf.text_shaping = None
-                natural_width = pdf.get_string_width(word.text)
-                pdf.text_shaping = saved_shaping
+            natural_width = 0.0
+            for run in runs:
+                pdf.set_font(run.font_family, size=font_size)
+                natural_width += pdf.get_string_width(run.text)
+            pdf.set_font(runs[0].font_family, size=font_size)
+            space_width = pdf.get_string_width(' ')
+            pdf.text_shaping = saved_shaping
             if natural_width > 0 and word_width_pt > 0:
                 word_tz = (word_width_pt / natural_width) * 100
             else:
@@ -603,11 +666,12 @@ class Fpdf2PdfRenderer:
                 WordRenderData(
                     text=word.text,
                     x_baseline=box_llx,
-                    font_family=font_family,
+                    runs=runs,
                     word_tz=word_tz,
                     is_rtl=word_is_rtl,
                     shaped=word_shaped,
                     width=word_width_pt,
+                    space_width=space_width,
                 )
             )
 
@@ -667,10 +731,9 @@ class Fpdf2PdfRenderer:
             if _is_rtl_text(''.join(w.text or '' for w in words)):
                 # Right-to-left words advance against the baseline direction
                 progress = -progress
-        elif words and self._is_cjk_only(words[0].text or ''):
-            if abs(uy) > abs(ux):
-                # Vertical CJK: read downward
-                progress = uy
+        elif words and self._is_cjk_only(words[0].text or '') and abs(uy) > abs(ux):
+            # Vertical CJK: read downward
+            progress = uy
         if progress < 0:
             textangle = textangle - 180.0 if textangle > 0 else textangle + 180.0
         return textangle
@@ -709,12 +772,12 @@ class Fpdf2PdfRenderer:
             return True
 
         # Measure the natural rendered width of the line text
-        font_manager = self.multi_font_manager.select_font_for_word(
+        natural_width = 0.0
+        for segment, font_manager in self.multi_font_manager.select_fonts_for_word(
             line_text, line_language
-        )
-        font_family = self._register_font(pdf, font_manager)
-        pdf.set_font(font_family, size=round(font_size))
-        natural_width = pdf.get_string_width(line_text)
+        ):
+            pdf.set_font(self._register_font(pdf, font_manager), size=round(font_size))
+            natural_width += pdf.get_string_width(segment)
 
         if natural_width <= 0:
             return True
@@ -811,62 +874,18 @@ class Fpdf2PdfRenderer:
         tr = 3 if self.invisible_text else 0
         ops.append(f'{tr} Tr')
 
-        # Initial text position
-        first_x_baseline = word_render_data[0].x_baseline
-        if has_rotation:
-            # In the cm-transformed space, origin is at the baseline start
-            ops.append(f'{first_x_baseline:.2f} 0 Td')
-        else:
-            # Direct PDF coordinates
-            page_x, page_y_fpdf = transform_point(baseline_matrix, first_x_baseline, 0)
-            page_y_pdf = page_height - page_y_fpdf
-            ops.append(f'{page_x:.2f} {page_y_pdf:.2f} Td')
-
         prev_font_family: str | None = None
-        prev_x_baseline = first_x_baseline
+        prev_start = 0.0
 
         for i, word in enumerate(word_render_data):
             is_last = i == len(word_render_data) - 1
-
-            # Set font if changed
-            if word.font_family != prev_font_family:
-                pdf.set_font(word.font_family, size=font_size)
-                # We only ever register fonts via add_font() with a TTF file
-                # (see _register_font), so set_font() always resolves to a
-                # TTFFont, never a built-in CoreFont or leaves it unset.
-                assert pdf.current_font is not None
-                # Register font resource on this page
-                pdf._resource_catalog.add(
-                    PDFResourceType.FONT, pdf.current_font.i, pdf.page
-                )
-                ops.append(f'/F{pdf.current_font.i} {pdf.font_size_pt:.2f} Tf')
-                prev_font_family = word.font_family
-
-            # Relative positioning (for words after the first)
-            if i > 0:
-                if has_rotation:
-                    # In rotated space, advance is purely along x-axis
-                    dx_baseline = word.x_baseline - prev_x_baseline
-                    ops.append(f'{dx_baseline:.2f} 0 Td')
-                else:
-                    # Non-rotated: compute delta in PDF coordinates
-                    px_prev, py_prev_f = transform_point(
-                        baseline_matrix, prev_x_baseline, 0
-                    )
-                    px_curr, py_curr_f = transform_point(
-                        baseline_matrix, word.x_baseline, 0
-                    )
-                    dx_pdf = px_curr - px_prev
-                    # Flip y delta for PDF coordinates (y-up)
-                    dy_pdf = -(py_curr_f - py_prev_f)
-                    ops.append(f'{dx_pdf:.2f} {dy_pdf:.2f} Td')
 
             # Use word_tz (fits word into its hOCR bbox) — Td handles
             # inter-word gaps, so Tz should not stretch to fill them,
             # except between CJK words as described below.
             word_tz = word.word_tz
 
-            # Determine text to render
+            # Decide whether the word gets a separating space
             if not is_last:
                 next_word = word_render_data[i + 1]
                 advance = next_word.x_baseline - word.x_baseline
@@ -874,24 +893,19 @@ class Fpdf2PdfRenderer:
                 both_cjk = self._is_cjk_only(word.text) and self._is_cjk_only(
                     next_word.text
                 )
-                # Add trailing space for text extraction unless both are CJK
-                if advance > 0 and not both_cjk:
-                    text_to_render = word.text + ' '
-                else:
-                    text_to_render = word.text
-                    # CJK words carry no separator, so stretch the word to
-                    # meet the next one; otherwise extractors infer a space
-                    # from the gap. Word boxes hug the ink, so punctuation
-                    # leaves up to about an em of gap. Wider gaps are left
-                    # alone, since they probably separate unrelated text.
-                    gap = advance - word.width
-                    if (
-                        both_cjk
-                        and word.width > 0
-                        and advance > 0
-                        and gap <= 2 * font_size
-                    ):
-                        word_tz = word.word_tz * advance / word.width
+                # Add a space for text extraction unless both are CJK. Words
+                # of a right-to-left line advance leftwards, so any change of
+                # position marks a word break (issue #1782).
+                separated = advance != 0 and not both_cjk
+                space_on_left = advance < 0
+                # CJK words carry no separator, so stretch the word to
+                # meet the next one; otherwise extractors infer a space
+                # from the gap. Word boxes hug the ink, so punctuation
+                # leaves up to about an em of gap. Wider gaps are left
+                # alone, since they probably separate unrelated text.
+                gap = advance - word.width
+                if both_cjk and word.width > 0 and advance > 0 and gap <= 2 * font_size:
+                    word_tz = word.word_tz * advance / word.width
             else:
                 # Line-final words also need a trailing space, or extractors
                 # that skip positional analysis (pdfminer defaults, pypdf)
@@ -899,19 +913,67 @@ class Fpdf2PdfRenderer:
                 # PDF renderer does the same. Skip for CJK, which must
                 # concatenate across lines without separators, and for
                 # whitespace-only words, which need no further separation.
-                if word.text.strip() and not self._is_cjk_only(word.text):
-                    text_to_render = word.text + ' '
+                separated = bool(word.text.strip()) and not self._is_cjk_only(word.text)
+                # Continue in the direction the line advances
+                if i > 0 and word.x_baseline != word_render_data[i - 1].x_baseline:
+                    space_on_left = word.x_baseline < word_render_data[i - 1].x_baseline
                 else:
-                    text_to_render = word.text
+                    space_on_left = word.is_rtl
+
+            # The space belongs between this word and the next, which in a
+            # right-to-left line is to the left, even of a number or Latin
+            # word. There, draw it first, starting the word that much earlier
+            # so its glyphs still fill its box rather than overlapping the
+            # word to its right.
+            space_on_left = separated and space_on_left
+            start = word.x_baseline
+            if space_on_left:
+                start -= word.space_width * word_tz / 100
+
+            if i == 0:
+                if has_rotation:
+                    # In the cm-transformed space, origin is at the baseline start
+                    ops.append(f'{start:.2f} 0 Td')
+                else:
+                    # Direct PDF coordinates
+                    page_x, page_y_fpdf = transform_point(baseline_matrix, start, 0)
+                    page_y_pdf = page_height - page_y_fpdf
+                    ops.append(f'{page_x:.2f} {page_y_pdf:.2f} Td')
+            elif has_rotation:
+                # In rotated space, advance is purely along x-axis
+                ops.append(f'{start - prev_start:.2f} 0 Td')
+            else:
+                # Non-rotated: compute delta in PDF coordinates
+                px_prev, py_prev_f = transform_point(baseline_matrix, prev_start, 0)
+                px_curr, py_curr_f = transform_point(baseline_matrix, start, 0)
+                dx_pdf = px_curr - px_prev
+                # Flip y delta for PDF coordinates (y-up)
+                dy_pdf = -(py_curr_f - py_prev_f)
+                ops.append(f'{dx_pdf:.2f} {dy_pdf:.2f} Td')
+            prev_start = start
+
+            runs = list(word.runs)
+            if space_on_left:
+                runs[0] = TextRun(runs[0].font_family, ' ' + runs[0].text)
+            elif separated:
+                runs[-1] = TextRun(runs[-1].font_family, runs[-1].text + ' ')
 
             ops.append(f'{word_tz:.2f} Tz')
-            ops.append(
-                self._encode_shaped_text(
-                    pdf, text_to_render, word.is_rtl, shaped=word.shaped
-                )
-            )
-
-            prev_x_baseline = word.x_baseline
+            for run in runs:
+                # Set font if changed
+                if run.font_family != prev_font_family:
+                    pdf.set_font(run.font_family, size=font_size)
+                    # We only ever register fonts via add_font() with a TTF
+                    # file (see _register_font), so set_font() always resolves
+                    # to a TTFFont, never a built-in CoreFont or leaves it unset.
+                    assert pdf.current_font is not None
+                    # Register font resource on this page
+                    pdf._resource_catalog.add(
+                        PDFResourceType.FONT, pdf.current_font.i, pdf.page
+                    )
+                    ops.append(f'/F{pdf.current_font.i} {pdf.font_size_pt:.2f} Tf')
+                    prev_font_family = run.font_family
+                ops.append(self._encode_shaped_text(pdf, run.text, shaped=word.shaped))
 
         # End text object
         ops.append('ET')
@@ -925,9 +987,7 @@ class Fpdf2PdfRenderer:
         # don't think Tz is still set from our raw operators
         pdf.font_stretching = 100
 
-    def _encode_shaped_text(
-        self, pdf: FPDF, text: str, is_rtl: bool = False, shaped: bool = True
-    ) -> str:
+    def _encode_shaped_text(self, pdf: FPDF, text: str, shaped: bool = True) -> str:
         """Encode text using HarfBuzz text shaping for complex script support.
 
         Unlike font.encode_text() which maps unicode characters one-by-one to
@@ -936,31 +996,25 @@ class Fpdf2PdfRenderer:
         back to encode_text() when text shaping is not enabled, or when
         ``shaped`` is False because the word gains nothing from shaping.
 
-        For RTL words with invisible text, we use encode_text() instead of
-        shape_text(). fpdf2's shape_text() produces RTL ligature glyphs
+        RTL words with invisible text are not shaped, and arrive here in
+        visual order. fpdf2's shape_text() produces RTL ligature glyphs
         (e.g. lam-alef) with multi-character CMap entries whose character
         order gets reversed by the bidi algorithm during text extraction,
         producing garbled output (e.g. "سالح" instead of "سلاح").
-        encode_text() maps characters 1:1 in logical order, giving correct
-        extraction. Since the text is invisible (Tr=3), the lack of proper
-        joining forms and ligature shaping is harmless.
+        encode_text() maps characters 1:1, giving correct extraction. Since
+        the text is invisible (Tr=3), the lack of proper joining forms and
+        ligature shaping is harmless.
         """
         font = pdf.current_font
         # We only ever register fonts via add_font() with a TTF file (see
         # _register_font), so current_font is always a TTFFont - never the
         # built-in CoreFont (which lacks shape_text()/escape_text()) or None.
         assert isinstance(font, TTFFont)
-        if is_rtl:
-            # Reverse the text so that after bidi reversal by the text
-            # extractor, the characters end up in correct logical order.
-            # The text cursor advances left-to-right from the word's left
-            # edge (set by Td), so characters are positioned left-to-right
-            # in the PDF. The extractor sees RTL characters in L-to-R
-            # positions and applies bidi reversal, which reverses them.
-            # By pre-reversing, the double reversal yields the original.
-            return font.encode_text(text[::-1])
         if shaped and pdf.text_shaping and pdf.text_shaping.get("use_shaping_engine"):
-            glyphs = font.shape_text(text, pdf.font_size_pt, pdf.text_shaping)
+            # fpdf2 leaves the direction of whatever text it last measured in
+            # text_shaping, so clear it and let HarfBuzz judge this text.
+            params = {**pdf.text_shaping, 'fragment_direction': None}
+            glyphs = font.shape_text(text, pdf.font_size_pt, params)
             if glyphs:
                 mapped = "".join(
                     chr(ti["mapped_char"])

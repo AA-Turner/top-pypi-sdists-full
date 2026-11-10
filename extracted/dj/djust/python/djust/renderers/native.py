@@ -28,6 +28,8 @@ from typing import Any, Optional, Tuple
 
 from django.template.loader import render_to_string
 
+from .._include_guard import include_guard_scope
+
 __all__ = ["NativeRenderer", "SwiftUIRenderer", "ComposeRenderer"]
 
 
@@ -166,11 +168,14 @@ class NativeRenderer:
         if preloaded_context is not None:
             context = preloaded_context
         else:
-            context = self.view.get_context_data()
+            from ..sync_turn import run_sync_step
+
+            context = run_sync_step(self.view, "render", self.view.get_context_data)
 
         # Hoisted-import call site so tests can patch
         # djust.renderers.native.render_to_string.
-        html_text = render_to_string(template_name, context)
+        with include_guard_scope():
+            html_text = render_to_string(template_name, context)
 
         builder = _VNodeBuilder()
         builder.feed(html_text)

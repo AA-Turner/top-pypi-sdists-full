@@ -16,6 +16,7 @@ from mistralai.vibe.sdk.execution_record.state import (
     TaskCallEntry,
     TaskResultEntry,
     TaskState,
+    ThinkingContentBlock,
     content_text,
 )
 from mistralai.vibe.sdk.execution_record.utils import model_context_projection
@@ -42,6 +43,12 @@ _PROVIDER_ID_PREFIX = "llm:"
 DEFAULT_MAX_TOOL_RESULT_CHARS = 40_000
 MIN_MAX_TOOL_RESULT_CHARS = 256
 _TOOL_RESULT_TRUNCATION_MARKER = "\n...[tool result truncated for model context]...\n"
+
+
+@dataclass(frozen=True)
+class _Reasoning:
+    text: str
+    signature: str | None
 
 
 @dataclass(frozen=True)
@@ -102,10 +109,12 @@ def build_completion_request_from_state(
                 messages.append(Message(role="user", content=content))
             elif role == "assistant":
                 text_content = content_text(entry.payload.content)
+                entry_reasoning = reasoning.get(index)
                 msg = Message(
                     role="assistant",
                     content=text_content or None,
-                    reasoning_content=reasoning.get(index),
+                    reasoning_content=entry_reasoning.text if entry_reasoning else None,
+                    reasoning_signature=entry_reasoning.signature if entry_reasoning else None,
                 )
                 tool_calls = _collect_assistant_tool_calls(history, index)
                 if tool_calls:
@@ -161,14 +170,21 @@ def build_completion_request_from_state(
     )
 
 
-def _assistant_reasoning(entries: list[tuple[int, HistoryEntry]]) -> dict[int, str]:
+def _thinking_signature(entry: MessageEntry) -> str | None:
+    blocks = [block for block in entry.payload.content if isinstance(block, ThinkingContentBlock)]
+    return blocks[-1].signature if blocks else None
+
+
+def _assistant_reasoning(entries: list[tuple[int, HistoryEntry]]) -> dict[int, _Reasoning]:
     """Map each visible assistant message index to the thinking of its completion.
 
     One completion writes at most one thinking entry and one visible entry, next to each
     other in either order. Thinking with no visible entry in its run has nothing to ride on.
+    The Mistral API takes one thinking chunk per message, so merged thinking carries the last
+    block's signature: the provider then keeps that block, where unsigned it would keep none.
     """
-    reasoning: dict[int, list[str]] = {}
-    pending: list[str] = []
+    reasoning: dict[int, list[tuple[str, str | None]]] = {}
+    pending: list[tuple[str, str | None]] = []
     last_visible: int | None = None
 
     def flush() -> None:
@@ -183,14 +199,20 @@ def _assistant_reasoning(entries: list[tuple[int, HistoryEntry]]) -> dict[int, s
             continue
         if entry.payload.channel == "thinking":
             if text := content_text(entry.payload.content):
-                pending.append(text)
+                pending.append((text, _thinking_signature(entry)))
             continue
         if pending:
             reasoning.setdefault(index, []).extend(pending)
             pending.clear()
         last_visible = index
     flush()
-    return {index: "".join(parts) for index, parts in reasoning.items()}
+    return {
+        index: _Reasoning(
+            text="".join(text for text, _signature in parts),
+            signature=parts[-1][1],
+        )
+        for index, parts in reasoning.items()
+    }
 
 
 def _bounded_tool_result(value: Any, *, max_chars: int) -> str:

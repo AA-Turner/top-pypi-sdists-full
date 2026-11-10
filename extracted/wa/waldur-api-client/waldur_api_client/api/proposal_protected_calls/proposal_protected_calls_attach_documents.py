@@ -7,13 +7,19 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.call_attach_documents_request import CallAttachDocumentsRequest
+from ...models.call_attach_documents_request_form import CallAttachDocumentsRequestForm
+from ...models.call_attach_documents_request_multipart import CallAttachDocumentsRequestMultipart
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
     *,
-    body: CallAttachDocumentsRequest,
+    body: Union[
+        CallAttachDocumentsRequest,
+        CallAttachDocumentsRequestForm,
+        CallAttachDocumentsRequestMultipart,
+    ],
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -22,9 +28,16 @@ def _get_kwargs(
         "url": f"/api/proposal-protected-calls/{uuid}/attach_documents/",
     }
 
-    _kwargs["json"] = body.to_dict()
+    if isinstance(body, CallAttachDocumentsRequest):
+        _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+        headers["Content-Type"] = "application/json"
+    if isinstance(body, CallAttachDocumentsRequestForm):
+        _kwargs["data"] = body.to_dict()
+
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if isinstance(body, CallAttachDocumentsRequestMultipart):
+        _kwargs["files"] = body.to_multipart()
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -51,13 +64,19 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: CallAttachDocumentsRequest,
+    body: Union[
+        CallAttachDocumentsRequest,
+        CallAttachDocumentsRequestForm,
+        CallAttachDocumentsRequestMultipart,
+    ],
 ) -> Response[Any]:
     """Attach documents to call.
 
     Args:
         uuid (UUID):
         body (CallAttachDocumentsRequest):
+        body (CallAttachDocumentsRequestForm):
+        body (CallAttachDocumentsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -83,13 +102,19 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: CallAttachDocumentsRequest,
+    body: Union[
+        CallAttachDocumentsRequest,
+        CallAttachDocumentsRequestForm,
+        CallAttachDocumentsRequestMultipart,
+    ],
 ) -> Response[Any]:
     """Attach documents to call.
 
     Args:
         uuid (UUID):
         body (CallAttachDocumentsRequest):
+        body (CallAttachDocumentsRequestForm):
+        body (CallAttachDocumentsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -6,7 +6,6 @@ from office365.runtime.client_value import ClientValue
 from office365.sharepoint.publishing.statusresponse import PublishingStatusResponse
 
 
-@dataclass
 class AmplifyPublishingHistoryResult(ClientValue):
     AmplifyId: Optional[str] = None
     PageId: Optional[int] = None

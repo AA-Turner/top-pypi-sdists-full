@@ -304,6 +304,88 @@ class MetricsMixin:
                 "calls)"
             )
 
+    #: The built-in x axes; any other `x_axis` names a metric, `[kind:]key`.
+    _SERIES_BUILT_IN_AXES = ("step", "wall_clock", "relative")
+
+    def _build_series_selectors(
+        self,
+        run_ids: list[str],
+        keys: list[str],
+        *,
+        smoothing: str | None,
+        smoothing_factor: float | None,
+        smoothing_window: int | None,
+        sample_every: int | None,
+        x_axis: str | None,
+        dimensions: dict[str, dict] | None,
+    ) -> list[dict]:
+        """One exact `SeriesSelector` per (kind, key) the runs logged, carrying the per-chart
+        settings. A selector needs its kind, which the caller never names, so it comes from the
+        catalog (`POST /v1/series/latest`, no point scan). `dimensions` maps a key to the exact
+        coordinates to read; a key left out reads every variant. A metric x axis needs exact
+        coordinates on the y series, so each logged variant gets its own selector then."""
+        unknown = sorted(set(dimensions or {}) - set(keys))
+        if unknown:
+            raise errors.ValidationError(
+                f"dimensions names keys that are not in `keys`: {', '.join(unknown)}", status=422
+            )
+        axis: str | dict[str, Any] | None = None
+        x_metric: tuple[str | None, str] | None = None
+        if x_axis is not None:
+            if x_axis in self._SERIES_BUILT_IN_AXES:
+                axis = x_axis
+            else:
+                kind, sep, key = str(x_axis).partition(":")
+                x_metric = (kind, key) if sep and key else (None, str(x_axis))
+        logged: dict[tuple[str, str], list[dict]] = {}
+        try:
+            catalog = self.source.latest_scalars(run_ids, keys=keys) or {}
+        except errors.RosError:
+            catalog = {}
+        for row in catalog.get("scalars") or []:
+            if isinstance(row, dict) and row.get("kind") and row.get("key"):
+                variants = logged.setdefault((row["kind"], row["key"]), [])
+                coordinates = row.get("dimensions") or {}
+                if coordinates not in variants:
+                    variants.append(coordinates)
+        for key in keys:
+            if not any(logged_key == key for _kind, logged_key in logged):
+                logged[("model", key)] = [{}]  # not in the catalog (a provider read): the default kind
+        tuning: dict[str, Any] = {}
+        if smoothing is not None:
+            tuning["smoothing"] = str(smoothing)
+        if smoothing_factor is not None:
+            tuning["smoothing_factor"] = smoothing_factor
+        if smoothing_window is not None:
+            tuning["smoothing_window"] = smoothing_window
+        if sample_every is not None:
+            tuning["sample_every"] = sample_every
+        selectors: list[dict] = []
+        for (kind, key), variants in sorted(logged.items()):
+            if key not in keys:
+                continue
+            wanted = (dimensions or {}).get(key)
+            if wanted is not None:
+                reads: list[dict | None] = [wanted]
+            elif x_metric is not None:
+                reads = list(variants)
+            else:
+                reads = [None]
+            for coordinates in reads:
+                selector: dict[str, Any] = {"kind": kind, "key": key, **tuning}
+                if coordinates is not None:
+                    selector["dimensions"] = coordinates
+                if x_metric is not None:
+                    selector["x_axis"] = {
+                        "kind": x_metric[0] or kind,
+                        "key": x_metric[1],
+                        "dimensions": {},
+                    }
+                elif axis is not None:
+                    selector["x_axis"] = axis
+                selectors.append(selector)
+        return selectors
+
     def metrics_series(
         self,
         run_ids: list[str],
@@ -312,11 +394,20 @@ class MetricsMixin:
         step_from: int | None = None,
         step_to: int | None = None,
         smoothing: str | None = None,
+        smoothing_factor: float | None = None,
+        smoothing_window: int | None = None,
+        sample_every: int | None = None,
+        x_axis: str | None = None,
+        dimensions: dict[str, dict] | None = None,
         max_points: int | None = None,
         offset: int = 0,
         token_budget: int = 2000,
     ) -> dict:
         """Several runs x several keys in one read (`POST /v1/series/query`).
+
+        `x_axis`, `dimensions`, `smoothing_factor`/`smoothing_window` and
+        `sample_every` ride one exact selector per series (`_build_series_selectors`);
+        without them the read is the keys-only one it always was.
 
         One ROW per series (run x key x dimensions). The read is one backend
         call; the response carries as many WHOLE series as `token_budget`
@@ -338,6 +429,22 @@ class MetricsMixin:
             body["step_to"] = step_to
         if smoothing is not None:
             body["smoothing"] = str(smoothing)
+        selector_args = {
+            "smoothing": smoothing,
+            "smoothing_factor": smoothing_factor,
+            "smoothing_window": smoothing_window,
+            "sample_every": sample_every,
+            "x_axis": x_axis,
+            "dimensions": dimensions,
+        }
+        if smoothing is None and (smoothing_factor is not None or smoothing_window is not None):
+            raise errors.ValidationError(
+                "smoothing_factor and smoothing_window tune `smoothing`: name the kind "
+                "(ema, twema take a factor; sma, gaussian a window)",
+                status=422,
+            )
+        if any(value is not None for name, value in selector_args.items() if name != "smoothing"):
+            body["series"] = self._build_series_selectors(ids, list(keys), **selector_args)
         result = self.source.query_series(ids, **body) or {}
         raw = [series for series in result.get("series") or [] if isinstance(series, dict)]
         self._check_series_identity(raw)
@@ -350,6 +457,11 @@ class MetricsMixin:
             for point in series.get("points") or []
         )
         fields = ["step_index", "value"]
+        if any(
+            series.get("x_axis") == "relative" or isinstance(series.get("x_axis"), dict)
+            for series in raw
+        ):
+            fields.append("x_value")
         if timed:
             fields.append("wall_clock")
         if smoothing is not None:

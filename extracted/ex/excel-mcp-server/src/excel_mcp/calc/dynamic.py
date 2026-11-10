@@ -21,6 +21,7 @@ from excel_mcp.calc.parser import (
     Ref,
     TableRef,
     Unary,
+    left_chain,
     parse,
 )
 from excel_mcp.calc.registry import FUNCTIONS
@@ -122,8 +123,14 @@ class _Analysis:
                 return self._name(node, scope)
             case Unary(_, operand) | Percent(operand):
                 return self._operator(self.array(operand, scope))
-            case Binary(_, left, right):
-                return self._operator(self.array(left, scope), self.array(right, scope))
+            case Binary():
+                base, chain = left_chain(node)
+                shape = self.array(base, scope)
+                for step in chain:
+                    right = self.array(step.right, scope)
+                    # The common cells of two ranges are a range, and need no array evaluation.
+                    shape = shape or right if step.op == " " else self._operator(shape, right)
+                return shape
             case Call():
                 return self._call(node, scope)
         return False

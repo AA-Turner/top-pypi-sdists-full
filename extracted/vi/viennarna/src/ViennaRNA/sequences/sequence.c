@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "ViennaRNA/datastructures/basic.h"
 #include "ViennaRNA/utils/basic.h"
@@ -45,6 +46,14 @@ update_sequence(vrna_fold_compound_t *fc);
 
 PRIVATE void
 update_encodings(vrna_fold_compound_t *fc);
+
+
+PRIVATE void
+mutate_strand(vrna_fold_compound_t  *fc,
+              unsigned int          sn,
+              const unsigned int    *positions,
+              const char            *nucleotides,
+              size_t                nmods);
 
 
 /*
@@ -567,6 +576,166 @@ vrna_sequence_order_update(vrna_fold_compound_t *fc,
 }
 
 
+PUBLIC size_t
+vrna_sequence_mutate_strand(vrna_fold_compound_t *fc,
+                            unsigned int         sn,
+                            unsigned int         *positions,
+                            char                 *nucleotides,
+                            size_t               nmods)
+{
+  if ((fc) &&
+      (nmods) &&
+      (sn < fc->strands) &&
+      (positions) &&
+      (nucleotides) &&
+      (nucleotides[0] != '\0')) {
+
+    /* modify the nucleotide */
+    mutate_strand(fc, sn, positions, nucleotides, nmods);
+
+    update_sequence(fc);
+    update_encodings(fc);
+
+    /*
+     * hacking min_loop_size here for multistrand context
+     * only works as long as we use the actual constraints
+     * framework for checking whether a base pair is allowed
+     * or not.
+     */
+    int mls_bak = fc->params->model_details.min_loop_size;
+    if (fc->strands > 1)
+      fc->params->model_details.min_loop_size = 0;
+
+    /* rebuilding the ptype array here is costly! We
+     * should better update only the relevant base pairs
+     * where the modified base pairs with anything else...
+     * this should cost at most O(n) steps.
+     */
+    if (fc->ptype) {
+       free(fc->ptype);
+       fc->ptype = vrna_ptypes(fc->sequence_encoding2, &(fc->params->model_details));
+     }
+#ifndef VRNA_DISABLE_BACKWARD_COMPATIBILITY
+    if (fc->ptype_pf_compat) {
+        /* backward compatibility ptypes */
+        free(fc->ptype_pf_compat);
+        fc->ptype_pf_compat = get_ptypes(fc->sequence_encoding2, &(fc->params->model_details), 1);
+    }
+#endif
+    fc->params->model_details.min_loop_size = mls_bak;
+
+    /* render the hard constraints dirty, so they will be rebuild on vrna_hc_prepare() */
+    fc->hc->state = (unsigned char)2;
+
+    return nmods;
+  }
+
+  return 0;
+}
+
+
+
+PUBLIC size_t
+vrna_sequence_mutate(vrna_fold_compound_t *fc,
+                     const unsigned int   *positions,
+                     const char           *nucleotides,
+                     size_t               nmut)
+{
+  size_t ret = 0;
+
+  if ((fc) &&
+      (positions) &&
+      (nucleotides) &&
+      (nucleotides[0] != '\0') &&
+      (nmut != 0)) {
+
+    unsigned int  *sn = fc->strand_number;
+    unsigned int  *ss = fc->strand_start;
+
+    /* store modification sites on a per-strand basis */
+    for (size_t i = 0; i < nmut; i++) {
+      unsigned int msite        = positions[i];
+      unsigned int strand       = sn[msite];
+      unsigned int actual_msite = msite - ss[strand] + 1;
+
+      mutate_strand(fc, strand, &actual_msite, nucleotides + i, 1);
+
+      ret++;
+    }
+
+    update_sequence(fc);
+    update_encodings(fc);
+
+    /*
+     * hacking min_loop_size here for multistrand context
+     * only works as long as we use the actual constraints
+     * framework for checking whether a base pair is allowed
+     * or not.
+     */
+    int mls_bak = fc->params->model_details.min_loop_size;
+    if (fc->strands > 1)
+      fc->params->model_details.min_loop_size = 0;
+
+    /* rebuilding the ptype array here is costly! We
+     * should better update only the relevant base pairs
+     * where the modified base pairs with anything else...
+     * this should cost at most O(n) steps.
+     */
+    if (fc->ptype) {
+       free(fc->ptype);
+       fc->ptype = vrna_ptypes(fc->sequence_encoding2, &(fc->params->model_details));
+     }
+#ifndef VRNA_DISABLE_BACKWARD_COMPATIBILITY
+    if (fc->ptype_pf_compat) {
+        /* backward compatibility ptypes */
+        free(fc->ptype_pf_compat);
+        fc->ptype_pf_compat = get_ptypes(fc->sequence_encoding2, &(fc->params->model_details), 1);
+    }
+#endif
+    fc->params->model_details.min_loop_size = mls_bak;
+
+    /* render the hard constraints dirty, so they will be rebuild on vrna_hc_prepare() */
+    fc->hc->state = (unsigned char)2;
+  }
+
+  return ret;
+}
+
+
+PRIVATE void
+mutate_strand(vrna_fold_compound_t  *fc,
+              unsigned int          sn,
+              const unsigned int    *positions,
+              const char            *nucleotides,
+              size_t                nmods)
+{
+  char          nt;
+  unsigned int  msite;
+  int           enc;
+  vrna_md_t     *md     = &(fc->params->model_details);
+  vrna_seq_t    *strand = fc->nucleotides + sn;
+
+  /* modify the nucleotides of this strand */
+  for (size_t i = 0; i < nmods; i++) {
+    msite = positions[i];
+    nt    = toupper(nucleotides[i]);
+    enc   = vrna_nucleotide_encode(nt, md);
+
+    vrna_log_debug("mutating position %u, strand %u from %c to %c",
+                   msite,
+                   sn,
+                   strand->string[msite - 1],
+                   nt);
+
+    strand->string[msite - 1] = nt;
+    strand->encoding[msite] = enc;
+    /* update neighbor encodings */
+    strand->encoding5[msite + 1] = enc;
+    strand->encoding3[msite - 1] = enc;
+  }
+}
+
+
 PRIVATE void
 update_strand_positions(vrna_fold_compound_t *fc)
 {
@@ -659,8 +828,8 @@ set_sequence(vrna_seq_t   *obj,
   }
 
   obj->encoding   = vrna_seq_encode(obj->string, md);
-  obj->encoding5  = (short *)vrna_alloc(sizeof(short) * (obj->length + 1));
-  obj->encoding3  = (short *)vrna_alloc(sizeof(short) * (obj->length + 1));
+  obj->encoding5  = (short *)vrna_alloc(sizeof(short) * (obj->length + 2));
+  obj->encoding3  = (short *)vrna_alloc(sizeof(short) * (obj->length + 2));
 
   if (md->circ) {
     for (size_t i = obj->length; i > 0; i--) {

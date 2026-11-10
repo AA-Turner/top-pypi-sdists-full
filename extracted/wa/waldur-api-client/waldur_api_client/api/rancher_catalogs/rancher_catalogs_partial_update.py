@@ -6,15 +6,15 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.patched_rancher_catalog_request import PatchedRancherCatalogRequest
-from ...models.rancher_catalog import RancherCatalog
+from ...models.patched_rancher_catalog_update_request import PatchedRancherCatalogUpdateRequest
+from ...models.rancher_catalog_update import RancherCatalogUpdate
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
     *,
-    body: PatchedRancherCatalogRequest,
+    body: PatchedRancherCatalogUpdateRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -31,11 +31,11 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> RancherCatalog:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> RancherCatalogUpdate:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
     if response.status_code == 200:
-        response_200 = RancherCatalog.from_dict(response.json())
+        response_200 = RancherCatalogUpdate.from_dict(response.json())
 
         return response_200
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
@@ -43,7 +43,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[RancherCatalog]:
+) -> Response[RancherCatalogUpdate]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -56,19 +56,19 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: PatchedRancherCatalogRequest,
-) -> Response[RancherCatalog]:
+    body: PatchedRancherCatalogUpdateRequest,
+) -> Response[RancherCatalogUpdate]:
     """
     Args:
         uuid (UUID):
-        body (PatchedRancherCatalogRequest):
+        body (PatchedRancherCatalogUpdateRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[RancherCatalog]
+        Response[RancherCatalogUpdate]
     """
 
     kwargs = _get_kwargs(
@@ -87,19 +87,19 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: PatchedRancherCatalogRequest,
-) -> RancherCatalog:
+    body: PatchedRancherCatalogUpdateRequest,
+) -> RancherCatalogUpdate:
     """
     Args:
         uuid (UUID):
-        body (PatchedRancherCatalogRequest):
+        body (PatchedRancherCatalogUpdateRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        RancherCatalog
+        RancherCatalogUpdate
     """
 
     return sync_detailed(
@@ -113,19 +113,19 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: PatchedRancherCatalogRequest,
-) -> Response[RancherCatalog]:
+    body: PatchedRancherCatalogUpdateRequest,
+) -> Response[RancherCatalogUpdate]:
     """
     Args:
         uuid (UUID):
-        body (PatchedRancherCatalogRequest):
+        body (PatchedRancherCatalogUpdateRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[RancherCatalog]
+        Response[RancherCatalogUpdate]
     """
 
     kwargs = _get_kwargs(
@@ -142,19 +142,19 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: PatchedRancherCatalogRequest,
-) -> RancherCatalog:
+    body: PatchedRancherCatalogUpdateRequest,
+) -> RancherCatalogUpdate:
     """
     Args:
         uuid (UUID):
-        body (PatchedRancherCatalogRequest):
+        body (PatchedRancherCatalogUpdateRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        RancherCatalog
+        RancherCatalogUpdate
     """
 
     return (

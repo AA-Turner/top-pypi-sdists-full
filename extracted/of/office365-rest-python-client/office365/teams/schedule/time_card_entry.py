@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -8,7 +8,6 @@ from office365.teams.schedule.time_card_break import TimeCardBreak
 from office365.teams.schedule.time_card_event import TimeCardEvent
 
 
-@dataclass
 class TimeCardEntry(ClientValue):
     breaks: ClientValueCollection[TimeCardBreak] = field(default_factory=lambda: ClientValueCollection(TimeCardBreak))
     clockInEvent: TimeCardEvent = field(default_factory=TimeCardEvent)

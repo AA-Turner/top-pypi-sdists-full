@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scenedetect-headless
-Version: 0.7.2
+Version: 0.7.3
 Summary: Video scene cut/shot detection program and Python library (bundles the opencv-python-headless OpenCV variant and the scenedetect CLI; for servers without GUI libraries).
 Author-email: Brandon Castellano <brandon248@gmail.com>
 License-Expression: BSD-3-Clause

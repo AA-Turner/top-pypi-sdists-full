@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class TestCredentials:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = response.parse()
         assert_matches_type(CredentialCreateResponse, credential, path=["response"])
 
@@ -57,7 +57,7 @@ class TestCredentials:
             value={"foo": "string"},
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = response.parse()
             assert_matches_type(CredentialCreateResponse, credential, path=["response"])
@@ -85,7 +85,7 @@ class TestCredentials:
         response = client.credentials.with_raw_response.update()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = response.parse()
         assert_matches_type(CredentialUpdateResponse, credential, path=["response"])
 
@@ -93,7 +93,7 @@ class TestCredentials:
     def test_streaming_response_update(self, client: Steel) -> None:
         with client.credentials.with_streaming_response.update() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = response.parse()
             assert_matches_type(CredentialUpdateResponse, credential, path=["response"])
@@ -119,7 +119,7 @@ class TestCredentials:
         response = client.credentials.with_raw_response.list()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = response.parse()
         assert_matches_type(CredentialListResponse, credential, path=["response"])
 
@@ -127,7 +127,7 @@ class TestCredentials:
     def test_streaming_response_list(self, client: Steel) -> None:
         with client.credentials.with_streaming_response.list() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = response.parse()
             assert_matches_type(CredentialListResponse, credential, path=["response"])
@@ -157,7 +157,7 @@ class TestCredentials:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = response.parse()
         assert_matches_type(CredentialDeleteResponse, credential, path=["response"])
 
@@ -167,7 +167,7 @@ class TestCredentials:
             origin="origin",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = response.parse()
             assert_matches_type(CredentialDeleteResponse, credential, path=["response"])
@@ -205,7 +205,7 @@ class TestAsyncCredentials:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = await response.parse()
         assert_matches_type(CredentialCreateResponse, credential, path=["response"])
 
@@ -215,7 +215,7 @@ class TestAsyncCredentials:
             value={"foo": "string"},
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = await response.parse()
             assert_matches_type(CredentialCreateResponse, credential, path=["response"])
@@ -243,7 +243,7 @@ class TestAsyncCredentials:
         response = await async_client.credentials.with_raw_response.update()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = await response.parse()
         assert_matches_type(CredentialUpdateResponse, credential, path=["response"])
 
@@ -251,7 +251,7 @@ class TestAsyncCredentials:
     async def test_streaming_response_update(self, async_client: AsyncSteel) -> None:
         async with async_client.credentials.with_streaming_response.update() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = await response.parse()
             assert_matches_type(CredentialUpdateResponse, credential, path=["response"])
@@ -277,7 +277,7 @@ class TestAsyncCredentials:
         response = await async_client.credentials.with_raw_response.list()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = await response.parse()
         assert_matches_type(CredentialListResponse, credential, path=["response"])
 
@@ -285,7 +285,7 @@ class TestAsyncCredentials:
     async def test_streaming_response_list(self, async_client: AsyncSteel) -> None:
         async with async_client.credentials.with_streaming_response.list() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = await response.parse()
             assert_matches_type(CredentialListResponse, credential, path=["response"])
@@ -315,7 +315,7 @@ class TestAsyncCredentials:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         credential = await response.parse()
         assert_matches_type(CredentialDeleteResponse, credential, path=["response"])
 
@@ -325,7 +325,7 @@ class TestAsyncCredentials:
             origin="origin",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             credential = await response.parse()
             assert_matches_type(CredentialDeleteResponse, credential, path=["response"])

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,20 +14,25 @@
 
 
 import argparse
-import os
-import platform
 import shutil
-import subprocess
 import tempfile
 import time
 from pathlib import Path
 from threading import Thread
 
 from doc_builder import build_doc
-from doc_builder.commands.build import check_node_is_available, locate_kit_folder
+from doc_builder.commands.build import check_node_is_available, docs_node_env, run_npm, stage_kit_routes
 from doc_builder.commands.convert_doc_file import find_root_git
-from doc_builder.utils import is_watchdog_available, read_doc_config
-
+from doc_builder.mock_imports import get_registry_mock_deps, mock_deps
+from doc_builder.utils import (
+    is_watchdog_available,
+    locate_kit_folder,
+    markdownify_file_route,
+    read_doc_config,
+    sveltify_file_route,
+    write_llms_feeds,
+    write_markdown_route_file,
+)
 
 if is_watchdog_available():
     from watchdog.events import FileSystemEventHandler
@@ -69,12 +73,8 @@ if is_watchdog_available():
             if not event.is_directory:
                 if src_path.endswith(".py") and src_path in self.source_files_mapping:
                     src_path = self.source_files_mapping[src_path]
-                # if src_path.endswith(".md"):
-                #     # src_path += "x"
-                #     relative_path += "x"
-                if src_path.endswith(".mdx") or src_path.endswith(".md"):
+                if src_path.endswith((".mdx", ".md")):
                     is_valid_file = True
-                    return is_valid_file, src_path, relative_path
             return is_valid_file, src_path, relative_path
 
         def build(self, src_path, relative_path):
@@ -83,27 +83,29 @@ if is_watchdog_available():
             """
             print(f"Building: {src_path}")
             try:
-                # copy the built files into the actual build folder dawg
-                with tempfile.TemporaryDirectory() as tmp_input_dir:
+                with tempfile.TemporaryDirectory() as tmp_input_dir, tempfile.TemporaryDirectory() as tmp_out_dir:
                     # copy the file into tmp_input_dir
                     shutil.copy(src_path, tmp_input_dir)
 
-                    with tempfile.TemporaryDirectory() as tmp_out_dir:
-                        build_doc(
-                            self.args.library_name,
-                            tmp_input_dir,
-                            tmp_out_dir,
-                            version=self.args.version,
-                            language=self.args.language,
-                            is_python_module=not self.args.not_python_module,
-                            watch_mode=True,
-                        )
-                        if str(src_path).endswith(".md"):
-                            src_path += "x"
-                            relative_path += "x"
-                        src = Path(tmp_out_dir) / Path(src_path).name
-                        dest = self.kit_routes_folder / relative_path
-                        shutil.move(src, dest)
+                    build_doc(
+                        self.args.library_name,
+                        tmp_input_dir,
+                        tmp_out_dir,
+                        version=self.args.version,
+                        language=self.args.language,
+                        is_python_module=not self.args.not_python_module,
+                        watch_mode=True,
+                    )
+
+                    if str(src_path).endswith(".md"):
+                        src_path += "x"
+                        relative_path += "x"
+                    src = Path(tmp_out_dir) / Path(src_path).name
+                    svelte_dest = sveltify_file_route(self.kit_routes_folder / relative_path)
+                    markdown_dest = markdownify_file_route(self.kit_routes_folder / relative_path)
+                    write_markdown_route_file(src, markdown_dest)
+                    Path(svelte_dest).parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(src, svelte_dest)
             except Exception as e:
                 print(f"Error building: {src_path}\n{e}")
 
@@ -124,33 +126,26 @@ def start_watcher(path, event_handler):
     observer.join()
 
 
-def start_sveltekit_dev(tmp_dir, env, args):
+def start_sveltekit_dev(kit_dir, env):
     """
-    Installs sveltekit node dependencies & starts sveltekit in dev mode in a temp dir.
+    Installs sveltekit node dependencies & starts sveltekit in dev mode.
     """
-    working_dir = str(tmp_dir / "kit")
     print("Installing node dependencies")
-    subprocess.run(
-        ["npm", "ci"],
-        stdout=subprocess.PIPE,
-        check=True,
-        encoding="utf-8",
-        cwd=working_dir,
-        shell=platform.system() == "Windows",
-    )
+    run_npm(["ci"], cwd=kit_dir)
 
     # start sveltekit in dev mode
-    subprocess.run(
-        ["npm", "run", "dev"],
-        check=True,
-        encoding="utf-8",
-        cwd=working_dir,
-        env=env,
-        shell=platform.system() == "Windows",
-    )
+    run_npm(["run", "dev"], cwd=kit_dir, env=env, quiet=False)
 
 
 def preview_command(args):
+    # heavy deps that can be mocked come from the per-library registry
+    # (doc_builder/mock_deps/<library>.txt); --mock_deps adds extra ones.
+    # Must happen before the documented library is imported; packages that are
+    # actually installed are never mocked.
+    registry_deps = get_registry_mock_deps(args.library_name)
+    extra_deps = args.mock_deps.split(",") if args.mock_deps else []
+    if registry_deps or extra_deps:
+        mock_deps(registry_deps + extra_deps)
     if not is_watchdog_available():
         raise ImportError(
             "Please install `watchdog` to run `doc-builder preview` command.\nYou can do so through pip: `pip install watchdog`"
@@ -162,7 +157,7 @@ def preview_command(args):
     # Error at the beginning if we can't locate the kit folder
     kit_folder = locate_kit_folder()
     if kit_folder is None:
-        raise EnvironmentError(
+        raise OSError(
             "Requires the kit subfolder of the doc-builder repo. We couldn't find it with "
             "the doc-builder package installed, so you need to run the command from inside the doc-builder repo."
         )
@@ -181,33 +176,29 @@ def preview_command(args):
             is_python_module=not args.not_python_module,
         )
 
-        # convert the MDX files into HTML files.
-        tmp_dir = Path(tmp_dir)
-        # Copy everything in a tmp dir
-        shutil.copytree(kit_folder, tmp_dir / "kit")
-        # Manual copy and overwrite from output_path to tmp_dir / "kit" / "src" / "routes"
-        # We don't use shutil.copytree as tmp_dir / "kit" / "src" / "routes" exists and contains important files.
-        kit_routes_folder = tmp_dir / "kit" / "src" / "routes"
         # files/folders cannot have a name that starts with `__` since it is a reserved Sveltekit keyword
         for p in output_path.glob("**/*__*"):
-            if p.exists():
-                p.rmdir if p.is_dir() else p.unlink()
-        for f in output_path.iterdir():
-            dest = kit_routes_folder / f.name
-            if f.is_dir():
-                # Remove the dest folder if it exists
-                if dest.is_dir():
-                    shutil.rmtree(dest)
-                shutil.copytree(f, dest)
+            if not p.exists():
+                continue
+            if p.is_dir():
+                shutil.rmtree(p)
             else:
-                shutil.copy(f, dest)
+                p.unlink()
 
-        # Node
-        env = os.environ.copy()
-        env["DOCS_LIBRARY"] = env["package_name"] or args.library_name if "package_name" in env else args.library_name
-        env["DOCS_VERSION"] = args.version
-        env["DOCS_LANGUAGE"] = args.language
-        Thread(target=start_sveltekit_dev, args=(tmp_dir, env, args)).start()
+        kit_dir, kit_routes_folder, markdown_exports = stage_kit_routes(kit_folder, tmp_dir, output_path)
+
+        write_llms_feeds(
+            kit_routes_folder,
+            markdown_exports,
+            package_name=args.library_name,
+            version=args.version,
+            language=args.language,
+            is_python_module=not args.not_python_module,
+        )
+
+        # Node dev server (daemon: it must not keep the process alive after Ctrl-C)
+        env = docs_node_env(args.library_name, args.version, args.language)
+        Thread(target=start_sveltekit_dev, args=(kit_dir, env), daemon=True).start()
 
         git_folder = find_root_git(args.path_to_docs)
         event_handler = WatchEventHandler(args, source_files_mapping, kit_routes_folder)
@@ -233,6 +224,14 @@ def preview_command_parser(subparsers=None):
         "--not_python_module",
         action="store_true",
         help="Whether docs files do NOT have corresponding python module (like HF course & hub docs).",
+    )
+    parser.add_argument(
+        "--mock_deps",
+        type=str,
+        default=None,
+        help="Comma-separated list of heavy dependencies (e.g. `torch,tensorflow`) to mock instead of importing, so "
+        "the documented library can be introspected without installing them. Packages that are actually installed "
+        "are never mocked.",
     )
 
     if subparsers is not None:

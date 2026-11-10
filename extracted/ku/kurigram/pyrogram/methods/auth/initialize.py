@@ -18,9 +18,12 @@
 
 from __future__ import annotations as _annotations
 
+import asyncio
 import logging
+from typing import TYPE_CHECKING
 
-import pyrogram
+if TYPE_CHECKING:
+    import pyrogram
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +49,7 @@ class Initialize:
 
         await self.dispatcher.start()
 
-        self.updates_watchdog_task = self.loop.create_task(self.updates_watchdog())
+        if not self.no_updates:
+            self.updates_watchdog_task = asyncio.create_task(self.updates_watchdog())
 
         self.is_initialized = True

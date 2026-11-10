@@ -453,10 +453,11 @@ PRIVATE int
 apply_soft_constraint(vrna_fold_compound_t  *vc,
                       void                  *data)
 {
-  int               i, j, k, l, h, cnt1, cnt2, cnt3;
+  int               ret, i, j, k, l, h, cnt1, cnt2, cnt3;
   float             e;
   constraint_struct *constraint = (constraint_struct *)data;
 
+  ret = 0;
   i = constraint->i;
   j = constraint->j;
   k = constraint->k;
@@ -464,16 +465,22 @@ apply_soft_constraint(vrna_fold_compound_t  *vc,
   h = constraint->size;
   e = constraint->e;
 
-  for (cnt1 = i; cnt1 <= j; cnt1++)
-    for (cnt2 = k; cnt2 <= l; cnt2++)
-      for (cnt3 = h; cnt3 != 0; cnt3--) {
-        if ((cnt2 == 0) || ((i == j) && (j == k) && (k == l)))  /* enforce nucleotide constraint */
-          vrna_sc_add_up(vc, cnt1 + (cnt3 - 1), e, VRNA_OPTION_DEFAULT);
-        else                                                    /* enforce base pair constraint */
-          vrna_sc_add_bp(vc, cnt1 + (cnt3 - 1), cnt2 - (cnt3 - 1), e, VRNA_OPTION_DEFAULT);
-      }
+  if (h == 0) {
+    /* interacting interval pair constraint */
+    ret = vrna_sc_add_iip(vc, i, j, k, l, e, 0);
+  } else {
+    ret = 1;
+    for (cnt1 = i; cnt1 <= j; cnt1++)
+      for (cnt2 = k; cnt2 <= l; cnt2++)
+        for (cnt3 = h; cnt3 != 0; cnt3--) {
+          if ((cnt2 == 0) || ((i == j) && (j == k) && (k == l)))  /* enforce nucleotide constraint */
+            ret &= vrna_sc_add_up(vc, cnt1 + (cnt3 - 1), e, VRNA_OPTION_DEFAULT);
+          else                                                    /* enforce base pair constraint */
+            ret &= vrna_sc_add_bp(vc, cnt1 + (cnt3 - 1), cnt2 - (cnt3 - 1), e, VRNA_OPTION_DEFAULT);
+        }
+  }
 
-  return 1;
+  return ret;
 }
 
 
@@ -698,8 +705,9 @@ parse_constraint(const char *line,
         }
       } else if ((i < j) && (k < l) && (i <= k) && (j <= l) && (orientation == '\0')) {
         /* range [i:j] and [k:l] */
-        if (command == 'P') {
-          /* we only allow this for 'prohibit pairing between two ranges' */
+        if ((command == 'P') ||
+            (command == 'E')) {
+          /* we only allow this for 'prohibit pairing between two ranges' or to apply interval pair soft constraints */
           h     = 0;
           valid = 1;
         }
@@ -815,11 +823,11 @@ parse_constraints_line(const char     *line,
 
   /* now lets scan the entire line for content */
   while (!ret && (entries_seen < max_entries) &&
-         (sscanf(line + pos, "%15s%ln", &buf[0], &pp) == 1)) {
+         (sscanf(line + pos, "%15s%zn", &buf[0], &pp) == 1)) {
     pos += pp;
     switch (entries_seen) {
       case 0: /* must be i, or range */
-        if (sscanf(buf, "%d-%d%ln", &v1, &v2, &pp) == 2) {
+        if (sscanf(buf, "%d-%d%zn", &v1, &v2, &pp) == 2) {
           if (pp == strlen(buf)) {
             *i          = v1;
             *j          = v2;
@@ -827,7 +835,7 @@ parse_constraints_line(const char     *line,
             --max_entries;       /* no orientation allowed now */
             break;
           }
-        } else if (sscanf(buf, "%d%ln", &v1, &pp) == 1) {
+        } else if (sscanf(buf, "%d%zn", &v1, &pp) == 1) {
           if (pp == strlen(buf)) {
             *i = v1;
             break;
@@ -837,7 +845,7 @@ parse_constraints_line(const char     *line,
         ret = 1;
         break;
       case 1: /* must be j, or range */
-        if (sscanf(buf, "%d-%d%ln", &v1, &v2, &pp) == 2) {
+        if (sscanf(buf, "%d-%d%zn", &v1, &v2, &pp) == 2) {
           if (pp == strlen(buf)) {
             *k  = v1;
             *l  = v2;
@@ -848,13 +856,13 @@ parse_constraints_line(const char     *line,
             break;
           }
         } else if (range_mode) {
-          if (sscanf(buf, "%d%ln", &v1, &pp) == 1) {
+          if (sscanf(buf, "%d%zn", &v1, &pp) == 1) {
             if (pp == strlen(buf)) {
               *l = v1;
               break;
             }
           }
-        } else if (sscanf(buf, "%d%ln", &v1, &pp) == 1) {
+        } else if (sscanf(buf, "%d%zn", &v1, &pp) == 1) {
           if (pp == strlen(buf)) {
             *j = v1;
             break;
@@ -866,7 +874,7 @@ parse_constraints_line(const char     *line,
       case 2: /* skip if in range_mode */
         if (!range_mode) {
           /* must be k */
-          if (sscanf(buf, "%d%ln", &v1, &pp) == 1) {
+          if (sscanf(buf, "%d%zn", &v1, &pp) == 1) {
             if (pp == strlen(buf)) {
               *k = v1;
               break;
@@ -883,7 +891,7 @@ parse_constraints_line(const char     *line,
       case 3:
         if (command == 'E') {
           /* must be pseudo energy */
-          if (sscanf(buf, "%g%ln", &energy, &pp) == 1) {
+          if (sscanf(buf, "%g%zn", &energy, &pp) == 1) {
             if (pp == strlen(buf)) {
               *e = energy;
               break;
@@ -891,7 +899,7 @@ parse_constraints_line(const char     *line,
           }
         } else {
           /*  must be loop type, or orientation */
-          if (sscanf(buf, "%8s%ln", &buf2[0], &pp) == 1) {
+          if (sscanf(buf, "%8s%zn", &buf2[0], &pp) == 1) {
             buf2[8] = '\0';
             if (pp == strlen(buf)) {
               for (c = &(buf2[0]); (*c != '\0') && (!ret); c++) {

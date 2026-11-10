@@ -55,6 +55,25 @@ pub trait CorrelationModel<F: Float>: Clone + Copy + Default + fmt::Display + Sy
         weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
     ) -> Array2<F>;
 
+    /// Transform `distances` once before repeated correlation computations with
+    /// [`CorrelationModel::rval_from_prepared_distances`] for varying `theta`
+    /// (e.g. during likelihood optimization). Default: distances are kept unchanged.
+    fn prepare_distances(&self, distances: Array2<F>) -> Array2<F> {
+        distances
+    }
+
+    /// Compute correlation function r(x, x') given distances transformed by
+    /// [`CorrelationModel::prepare_distances`], `theta` parameters and PLS `weights`
+    /// (see [`CorrelationModel::rval_from_distances`]).
+    fn rval_from_prepared_distances(
+        &self,
+        prepared: &ArrayBase<impl Data<Elem = F>, Ix2>,
+        theta: &ArrayBase<impl Data<Elem = F>, Ix1>,
+        weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
+    ) -> Array2<F> {
+        self.rval_from_distances(prepared, theta, weights)
+    }
+
     /// Compute gradients of `r(x, x')` at given `x` given a set of `x'` training samples, aka `xtrain`,
     /// `theta` parameters, and PLS `weights`.
     /// The returned jacobian matrix is dr/dx where r is the correlation function vector between x and xtrain (shape nt).
@@ -123,10 +142,24 @@ impl<F: Float> CorrelationModel<F> for SquaredExponentialCorr {
         theta: &ArrayBase<impl Data<Elem = F>, Ix1>,
         weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
     ) -> Array2<F> {
+        self.rval_from_prepared_distances(&self.prepare_distances(d.to_owned()), theta, weights)
+    }
+
+    /// Squared distances
+    fn prepare_distances(&self, distances: Array2<F>) -> Array2<F> {
+        distances.mapv_into(|v| v * v)
+    }
+
+    fn rval_from_prepared_distances(
+        &self,
+        d_sq: &ArrayBase<impl Data<Elem = F>, Ix2>,
+        theta: &ArrayBase<impl Data<Elem = F>, Ix1>,
+        weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
+    ) -> Array2<F> {
         let theta_w_sq = (theta * weights).mapv(|v| v * v).sum_axis(Axis(1));
-        let r = d.mapv(|v| v * v).dot(&theta_w_sq);
+        let r = d_sq.dot(&theta_w_sq);
         r.mapv(|v| F::exp(F::cast(-0.5) * v))
-            .into_shape_with_order((d.nrows(), 1))
+            .into_shape_with_order((d_sq.nrows(), 1))
             .unwrap()
     }
 
@@ -217,10 +250,24 @@ impl<F: Float> CorrelationModel<F> for AbsoluteExponentialCorr {
         theta: &ArrayBase<impl Data<Elem = F>, Ix1>,
         weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
     ) -> Array2<F> {
+        self.rval_from_prepared_distances(&self.prepare_distances(d.to_owned()), theta, weights)
+    }
+
+    /// Absolute distances
+    fn prepare_distances(&self, distances: Array2<F>) -> Array2<F> {
+        distances.mapv_into(|v| v.abs())
+    }
+
+    fn rval_from_prepared_distances(
+        &self,
+        d_abs: &ArrayBase<impl Data<Elem = F>, Ix2>,
+        theta: &ArrayBase<impl Data<Elem = F>, Ix1>,
+        weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
+    ) -> Array2<F> {
         let theta_w = weights.mapv(|v| v.abs()).dot(theta);
-        let r = d.mapv(|v| v.abs()).dot(&theta_w);
+        let r = d_abs.dot(&theta_w);
         r.mapv(|v| F::exp(-v))
-            .into_shape_with_order((d.nrows(), 1))
+            .into_shape_with_order((d_abs.nrows(), 1))
             .unwrap()
     }
 
@@ -275,6 +322,23 @@ impl fmt::Display for AbsoluteExponentialCorr {
     }
 }
 
+/// Non-zero `theta_l * |weight_j_l|` factors for each input dimension j (rows of weights).
+///
+/// Matern correlations are products over these factors: without PLS dimension reduction
+/// weights are the identity, so each dimension has a single non-zero factor. Skipping
+/// zero factors, which contribute exact identities to the products and sums,
+/// gives the same results while avoiding O(d^2) work per pair of points.
+fn nonzero_theta_weights<F: Float>(
+    theta: &ArrayBase<impl Data<Elem = F>, Ix1>,
+    weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
+) -> Vec<Vec<F>> {
+    (theta * weights.mapv(|v| v.abs()))
+        .rows()
+        .into_iter()
+        .map(|tw_j| tw_j.iter().copied().filter(|tw| *tw != F::zero()).collect())
+        .collect()
+}
+
 /// Matern 3/2 correlation model
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(
@@ -313,13 +377,13 @@ impl<F: Float> CorrelationModel<F> for Matern32Corr {
         weights: &ArrayBase<impl Data<Elem = F>, Ix2>,
     ) -> Array2<F> {
         let sqrt3 = F::cast(3.).sqrt();
-        let theta_w = theta * weights.mapv(|v| v.abs());
+        let theta_w = nonzero_theta_weights(theta, weights);
 
         let mut r = Array1::zeros(d.nrows());
         Zip::from(&mut r).and(d.rows()).for_each(|r_i, d_i| {
             let mut a = F::one();
             let mut b_sum = F::zero();
-            Zip::from(&d_i).and(theta_w.rows()).for_each(|&d_ij, tw_j| {
+            d_i.iter().zip(&theta_w).for_each(|(&d_ij, tw_j)| {
                 let abs_d = d_ij.abs();
                 let mut prod = F::one();
                 for &tw in tw_j.iter() {
@@ -385,15 +449,17 @@ impl Matern32Corr {
         let three = F::cast(3.);
         let sqrt3 = three.sqrt();
         let neg3 = F::cast(-3.);
-        let theta_w = theta * weights.mapv(|v| v.abs());
+        let theta_w = nonzero_theta_weights(theta, weights);
 
         let mut jr = Array2::zeros((d.nrows(), d.ncols()));
         Zip::from(jr.rows_mut())
             .and(d.rows())
             .and(r.column(0))
             .for_each(|mut jr_i, d_i, &r_i| {
-                Zip::from(&mut jr_i).and(&d_i).and(theta_w.rows()).for_each(
-                    |jr_ij, &d_ij, tw_j| {
+                jr_i.iter_mut()
+                    .zip(&d_i)
+                    .zip(&theta_w)
+                    .for_each(|((jr_ij, &d_ij), tw_j)| {
                         let abs_d = d_ij.abs();
                         let sign_d = d_ij.signum();
                         let mut sum = F::zero();
@@ -402,8 +468,7 @@ impl Matern32Corr {
                             sum += tw * tw * abs_d / f;
                         }
                         *jr_ij = neg3 * sign_d * r_i * sum;
-                    },
-                );
+                    });
             });
         jr
     }
@@ -448,13 +513,13 @@ impl<F: Float> CorrelationModel<F> for Matern52Corr {
     ) -> Array2<F> {
         let sqrt5 = F::cast(5.).sqrt();
         let div5_3 = F::cast(5. / 3.);
-        let theta_w = theta * weights.mapv(|v| v.abs());
+        let theta_w = nonzero_theta_weights(theta, weights);
 
         let mut r = Array1::zeros(d.nrows());
         Zip::from(&mut r).and(d.rows()).for_each(|r_i, d_i| {
             let mut a = F::one();
             let mut b_sum = F::zero();
-            Zip::from(&d_i).and(theta_w.rows()).for_each(|&d_ij, tw_j| {
+            d_i.iter().zip(&theta_w).for_each(|(&d_ij, tw_j)| {
                 let abs_d = d_ij.abs();
                 let mut prod = F::one();
                 for &tw in tw_j.iter() {
@@ -523,15 +588,17 @@ impl Matern52Corr {
         let sqrt5 = F::cast(5.).sqrt();
         let div5_3 = F::cast(5. / 3.);
         let neg5_3 = F::cast(-5. / 3.);
-        let theta_w = theta * weights.mapv(|v| v.abs());
+        let theta_w = nonzero_theta_weights(theta, weights);
 
         let mut jr = Array2::zeros((d.nrows(), d.ncols()));
         Zip::from(jr.rows_mut())
             .and(d.rows())
             .and(r.column(0))
             .for_each(|mut jr_i, d_i, &r_i| {
-                Zip::from(&mut jr_i).and(&d_i).and(theta_w.rows()).for_each(
-                    |jr_ij, &d_ij, tw_j| {
+                jr_i.iter_mut()
+                    .zip(&d_i)
+                    .zip(&theta_w)
+                    .for_each(|((jr_ij, &d_ij), tw_j)| {
                         let abs_d = d_ij.abs();
                         let sign_d = d_ij.signum();
                         let mut sum = F::zero();
@@ -541,8 +608,7 @@ impl Matern52Corr {
                             sum += tw * tw * abs_d * (F::one() + sqrt5 * u) / f;
                         }
                         *jr_ij = neg5_3 * sign_d * r_i * sum;
-                    },
-                );
+                    });
             });
         jr
     }

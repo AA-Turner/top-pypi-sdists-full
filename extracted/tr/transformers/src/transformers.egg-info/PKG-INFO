@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.22.1
+Version: 5.22.2
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -68,7 +68,7 @@ Requires-Dist: blobfile; extra == "tiktoken"
 Provides-Extra: mistral-common
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "mistral-common"
 Provides-Extra: chat-template
-Requires-Dist: jinja2>=3.1.0; extra == "chat-template"
+Requires-Dist: jinja2>=3.1.6; extra == "chat-template"
 Provides-Extra: sklearn
 Requires-Dist: scikit-learn; extra == "sklearn"
 Provides-Extra: accelerate
@@ -219,7 +219,7 @@ Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "all"
 Requires-Dist: protobuf; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: blobfile; extra == "all"
-Requires-Dist: jinja2>=3.1.0; extra == "all"
+Requires-Dist: jinja2>=3.1.6; extra == "all"
 Requires-Dist: num2words; extra == "all"
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "all"
 Provides-Extra: dev
@@ -239,7 +239,7 @@ Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
 Requires-Dist: tiktoken; extra == "dev"
 Requires-Dist: blobfile; extra == "dev"
-Requires-Dist: jinja2>=3.1.0; extra == "dev"
+Requires-Dist: jinja2>=3.1.6; extra == "dev"
 Requires-Dist: num2words; extra == "dev"
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "dev"
 Requires-Dist: pytest<9.0.0,>=7.2.0; extra == "dev"

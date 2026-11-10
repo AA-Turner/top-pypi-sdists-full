@@ -47,6 +47,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Collection, Literal, Mapping, Sequence
 
 from an.base import (
+    BESIDE_HOST_OVERRIDE,
+    GROUND_OVERRIDE,
     PAINT_KEYS_OVERRIDE,
     PLANE_FACTORS_OVERRIDE,
     RIDER_BEHIND,
@@ -101,6 +103,8 @@ from an.timing.easing import apply_easing
 __all__ = [
     "Box",
     "Extents",
+    "GroundAt",
+    "MEMBER_FLOOR_ALONG",
     "HAND_PLACEMENT_TOLERANCE_PX",
     "HAND_SCALE_TOLERANCE",
     "PERSPECTIVE_TOLERANCE",
@@ -116,6 +120,7 @@ __all__ = [
     "frame_poses",
     "has_world",
     "lower_world",
+    "frame_moving_members",
     "member_of",
     "member_placements",
     "planes_at_infinity",
@@ -124,6 +129,8 @@ __all__ = [
     "stream_instances",
     "stream_slots",
     "viewpoint_of",
+    "world_ground_at",
+    "world_ground_mark",
 ]
 
 #: A member's native extent: ``(x0, y0, x1, y1)`` in its art's pixels at
@@ -416,6 +423,30 @@ def _world_box(at: Point3, box: Box, m: float) -> tuple[float, float, float, flo
     )
 
 
+def _band_box(
+    box: tuple[float, float, float, float], top: float, bottom: float
+) -> tuple[float, float, float, float]:
+    """``box`` cut to a shot size's band: rows ``top``..``bottom`` (fractions of
+    its height), at the box's own aspect, about its centre column (an#732).
+
+    A band is a cut of the subject's height; its width is not measured, so it
+    keeps the box's proportions. Fitting the whole box's width instead let a
+    tall frame's width limit every size alike, and a medium and a close-up got
+    one distance. The price: a partial size may crop the subject's sides (a
+    head as wide as the body, an arm reaching out of the box's centre), which
+    a kind's own band extents would fix (see the follow-up of an#732).
+
+    >>> _band_box((-1.0, 0.0, 1.0, 10.0), 0.0, 0.5)
+    (-0.5, 0.0, 0.5, 5.0)
+    >>> _band_box((-1.0, 0.0, 1.0, 10.0), 0.0, 1.0)
+    (-1.0, 0.0, 1.0, 10.0)
+    """
+    x0, y0, x1, y1 = box
+    frac = bottom - top
+    half, cx = (x1 - x0) * frac / 2.0, (x0 + x1) / 2.0
+    return (cx - half, y0 + top * (y1 - y0), cx + half, y0 + bottom * (y1 - y0))
+
+
 def resolve_viewpoint(
     world: World | None,
     viewpoint: str | Viewpoint,
@@ -434,10 +465,11 @@ def resolve_viewpoint(
 
     A viewpoint with ``at`` is that camera. One with a ``subject`` is computed:
     on the look direction, at the distance that fills ``fill`` of the frame
-    with the subject's band (`SHOT_SIZES`), shifted so the band's centre lands
-    at ``subject_at``. With several subjects the band is their union, aimed at
-    their mean depth, and the distance is what the NEAREST subject needs from
-    its own depth, so every subject fits the frame's height and width.
+    with the subject's band (`SHOT_SIZES`; its rows at its box's aspect,
+    :func:`_band_box`), shifted so the band's centre lands at ``subject_at``.
+    With several subjects the band is their union, aimed at their mean depth,
+    and the distance is what the NEAREST subject needs from its own depth, so
+    every subject's band fits the frame's height and width.
 
     >>> from an.ir.schema import World, WorldMember
     >>> world = World(members=[WorldMember(kind="prop", id="p", store="props", ref="p", at=(3.0, 0.0, 10.0), height=2.0)])
@@ -487,13 +519,9 @@ def resolve_viewpoint(
         boxes.append(_world_box(position, box, m))
         positions.append(position)
         cuts.append(((bands or {}).get(sid) or {}).get(size, (top, bottom)))
-    x0 = min(b[0] for b in boxes)
-    x1 = max(b[2] for b in boxes)
-    spans = [
-        (b[1] + t * (b[3] - b[1]), b[1] + u * (b[3] - b[1]))
-        for b, (t, u) in zip(boxes, cuts)
-    ]
-    y0, y1 = min(b[0] for b in spans), max(b[1] for b in spans)
+    bands_at = [_band_box(b, t, u) for b, (t, u) in zip(boxes, cuts)]
+    x0, x1 = min(b[0] for b in bands_at), max(b[2] for b in bands_at)
+    y0, y1 = min(b[1] for b in bands_at), max(b[3] for b in bands_at)
     n = float(len(positions))
     centre: Point3 = (
         (x0 + x1) / 2.0,
@@ -1764,8 +1792,12 @@ def _with_paint_keys(
     :func:`_attachment_riders`) rides its host the same way, on the side of
     it the built order gave it (:data:`an.base.RIDER_BEHIND` when built before
     it), and is built right beside it: painted with its host at every frame,
-    however the host or anything around it moves (an#678). Not yet when the
-    host itself rides another entity's keys (an#692)."""
+    however the host or anything around it moves (an#678). Where the host is
+    drawn away from its built place (placed ``after`` an entity or a plane),
+    the compiler draws the attachment beside it (:data:`an.base.BESIDE_HOST_OVERRIDE`,
+    an#692). Riders of one host on one side are ordered by their built place
+    (``n``): ``after`` riders first, then attachments, so the keys agree with
+    the order the compiler draws them in."""
     if not any(len(ks) > 1 for ks in pass_keys.values()):
         return ordered
     after = {
@@ -1774,8 +1806,10 @@ def _with_paint_keys(
     hosts = {eid: a for eid, a in after.items() if a in entity_ids}
     attached = attached or {}
     hosts.update((eid, r.host) for eid, r in attached.items())
-    # An attachment's `n` follows the built order, past every `after` rider's.
-    first = len(hosts)
+    # A rider's `n` is its built place, an attachment's past every `after`
+    # rider's: the compiler draws riders of one anchor in the built order.
+    place = {e.id: i for i, (_, e, _) in enumerate(ordered)}
+    first = len(ordered)
 
     keys = {
         e.id: [[t, list(k)] for t, k in pass_keys.get(e.id) or [(0.0, key)]]
@@ -1785,10 +1819,10 @@ def _with_paint_keys(
     riding = True
     while riding:  # a chain of `after`s rides from its first keyed entity
         riding = False
-        for n, (eid, host) in enumerate(sorted(hosts.items())):
+        for eid, host in list(hosts.items()):
             if host in keys and eid in members:
                 r = attached.get(eid)
-                at, m = (r.side, first + r.place) if r else (RIDER_IN_FRONT, n)
+                at, m = (r.side, first + r.place) if r else (RIDER_IN_FRONT, place[eid])
                 keys[eid] = [[t, rider_key(k, side=at, n=m)] for t, k in keys[host]]
                 del hosts[eid]
                 riding = True
@@ -2471,6 +2505,55 @@ class Lowered:
         return [n for n in self.notes if n.index == index]
 
 
+def frame_moving_members(
+    scene: SceneIR, index: int, *, film_start: float | None = None
+) -> frozenset[str]:
+    """The positioned members of shot ``index``'s world that stand in a frame
+    moving relative to the viewpoint's over the shot (the rule
+    :func:`lower_world` samples their motion by), or that a ``reframe``
+    carries between frames. A stage floor does not stay under them, so a
+    check measuring against it (``skate`` on ``solve.ground`` or the member's
+    own floor, an#519) cannot judge them; a world that declares ``ground``
+    gives each its own floor and reference point, keyed as the camera sees it
+    (``overrides.ground``, :func:`world_ground_at`). Empty for a shot no world
+    frames; raises :class:`WorldError` as lowering would.
+
+    >>> frame_moving_members(SceneIR(), 0)
+    frozenset()
+    """
+    if not 0 <= index < len(scene.timeline):
+        return frozenset()
+    shot, world = scene.timeline[index], scene.world
+    if shot.viewpoint is None or world is None:
+        return frozenset()
+    vp = viewpoint_of(world, shot.viewpoint)
+    if vp is None:
+        return frozenset()
+    start = film_start if film_start is not None else _film_starts(scene)[index]
+    frames = world.all_frames()
+    positioned = {m.id: m for m in world.members if m.at is not None}
+    split = _split_frame_actions(
+        shot,
+        default_easing=scene.meta.default_easing,
+        frames=frames,
+        members=positioned,
+    )
+    try:
+        tree = FrameTree(frames, tracks=split.frame_tracks)
+    except FrameError as e:
+        raise WorldError(f"shot {shot.id!r}: {e}") from None
+    vp_frame = vp.frame or world.default_frame()
+    duration = float(shot.duration)
+    moving = set(split.reframes)
+    for mid, member in positioned.items():
+        fx = member.frame or world.default_frame()
+        if fx != vp_frame and not tree.is_static(
+            fx, vp_frame, duration, film_start=start
+        ):
+            moving.add(mid)
+    return frozenset(moving)
+
+
 def _film_starts(scene: SceneIR) -> list[float]:
     """Where each shot starts in the film, ignoring dissolves: the fallback
     when the caller has not laid the film out."""
@@ -2519,6 +2602,330 @@ def _perspective_note(
         "the row's distance below the horizon). Set `stage.scale` to that, or "
         "drop `stage.at` to let the world place it.",
     )
+
+
+# --- the floor (an#519 PR 4) ---------------------------------------------------
+
+#: How far the floor line's unit direction (a component of it) may stray from
+#: the straight line between two of a member's floor keys before another key is
+#: kept. The floor point, the lateral and the scale are thinned to the travel's
+#: ``tolerance_px``, as the member's own channels are fitted to it.
+GROUND_DIRECTION_TOLERANCE: float = 1e-4
+
+
+@dataclass(frozen=True)
+class GroundAt:
+    """A member's floor at one instant (:data:`an.base.GROUND_OVERRIDE`), in
+    the coordinates of its ``stage.at``: the floor point under its placement
+    point (``at``), the floor line's unit direction (``along``), the stage px
+    one world unit along the floor spans there (``scale``: focal over depth),
+    and where that floor point lies along the floor in the frame the member
+    stands in, in world units from where it stood as the shot opens
+    (``lateral``). A stage point on the floor is at ``lateral + (p - at) ·
+    along / scale`` world units along it, in the member's own frame: a foot
+    that keeps that number keeps its place on the floor, however the member,
+    its frame or the camera carry it across the stage."""
+
+    at: tuple[float, float]
+    along: tuple[float, float]
+    scale: float = 1.0
+    lateral: float = 0.0
+
+    def position(self, p: tuple[float, float]) -> float:
+        """Where stage point ``p`` lies along the floor, in world units in the
+        member's frame (see the class).
+
+        >>> GroundAt((10.0, 50.0), (1.0, 0.0), 2.0, 3.0).position((30.0, 50.0))
+        13.0
+        """
+        off = (p[0] - self.at[0]) * self.along[0] + (p[1] - self.at[1]) * self.along[1]
+        return self.lateral + off / self.scale
+
+
+def world_ground_mark(shot: Any, entity: Any) -> Any | None:
+    """``entity``'s :data:`an.base.GROUND_OVERRIDE` mark on ``shot``, or
+    ``None``. It is read only on a shot lowered from a world (one with a
+    ``viewpoint``): the lowering owns it there (:func:`lower_world` writes it
+    under a world that declares ``ground`` and drops any other), and the
+    compiler refuses it on any other shot, so a hand-written one is never
+    taken for the world's floor.
+
+    >>> from an.ir.schema import AssetRef, Shot
+    >>> e = AssetRef(kind="prop", id="p", store="props", ref="r",
+    ...              overrides={"ground": {"at": [0, 60], "along": [1, 0]}})
+    >>> world_ground_mark(Shot(id="s", duration=1.0, viewpoint="v"), e)
+    {'at': [0, 60], 'along': [1, 0]}
+    >>> world_ground_mark(Shot(id="s", duration=1.0), e) is None
+    True
+    """
+    if getattr(shot, "viewpoint", None) is None or entity is None:
+        return None
+    return (entity.overrides or {}).get(GROUND_OVERRIDE)
+
+
+def world_ground_at(spec: Any, t: float) -> GroundAt | None:
+    """The floor ``spec`` (an entity's ``overrides.ground``, as the world's
+    lowering writes it) gives at shot time ``t``: a member's keys
+    interpolated linearly, held past either end. ``None`` for a spec that is
+    not one of the lowering's two shapes.
+
+    >>> world_ground_at({"at": [3.0, 120.0], "along": [1.0, 0.0], "scale": 60.0}, 0.5)
+    GroundAt(at=(3.0, 120.0), along=(1.0, 0.0), scale=60.0, lateral=0.0)
+    >>> world_ground_at({"keys": [[0.0, 0.0, 100.0, 1.0, 0.0, 60.0, 0.0],
+    ...                           [1.0, 0.0, 140.0, 1.0, 0.0, 80.0, 0.5]]}, 0.25)
+    GroundAt(at=(0.0, 110.0), along=(1.0, 0.0), scale=65.0, lateral=0.125)
+    >>> world_ground_at(240, 1.0), world_ground_at("nonsense", 0.0)
+    (None, None)
+    """
+    if not isinstance(spec, Mapping):
+        return None
+    try:
+        keys = spec.get("keys")
+        if keys is None:
+            at, along = spec["at"], spec["along"]
+            row = [
+                float(at[0]),
+                float(at[1]),
+                float(along[0]),
+                float(along[1]),
+                float(spec.get("scale", 1.0)),
+                float(spec.get("lateral", 0.0)),
+            ]
+        else:
+            rows = [[float(v) for v in r] for r in keys]
+            if not rows or any(len(r) != 7 for r in rows):
+                return None
+            j = bisect.bisect_right([r[0] for r in rows], t)
+            if j == 0 or j == len(rows):
+                row = rows[0 if j == 0 else -1][1:]
+            else:
+                a, b = rows[j - 1], rows[j]
+                span = b[0] - a[0]
+                w = (t - a[0]) / span if span > 0 else 1.0
+                row = [x + (y - x) * w for x, y in zip(a[1:], b[1:])]
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+    n = math.hypot(row[2], row[3])
+    if n == 0 or row[4] <= 0:
+        return None
+    return GroundAt((row[0], row[1]), (row[2] / n, row[3] / n), row[4], row[5])
+
+
+#: The stage direction of a member's floor line. Members are billboards that
+#: never roll with the camera: an upright figure stands on a level line, so
+#: under a rolled camera its floor is level too (the horizon's tilt would put
+#: its downhill foot into the floor). When members roll, this is the
+#: horizon's stage direction.
+MEMBER_FLOOR_ALONG: tuple[float, float] = (1.0, 0.0)
+
+
+def _floor_level(eye: Projection) -> Point3:
+    """The world direction of the floor's lines that keep their depth (level,
+    square to the camera's look), turned to run left to right on the stage:
+    what a member's ``lateral`` is measured along.
+
+    >>> eye = Projection((0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 100.0)
+    >>> _floor_level(eye)
+    (1.0, 0.0, -0.0)
+    >>> turned = Projection((0.0, 0.0, 0.0), *_basis(180.0, 0.0, 0.0), focal=100.0)
+    >>> [round(v, 6) + 0.0 for v in _floor_level(turned)]   # facing back: still left to right
+    [-1.0, 0.0, 0.0]
+    """
+    fx, _, fz = eye.forward
+    n = math.hypot(fx, fz)
+    level = (fz / n, 0.0, -fx / n) if n > _MIN_DEPTH else eye.right
+    dx, dy = _dot(level, eye.right), _dot(level, eye.down)
+    if dx < 0 or (dx == 0 and dy > 0):
+        level = _mul(level, -1.0)
+    return level
+
+
+def _thin_keys(
+    rows: list[list[float]], *, tol: float, reach: float
+) -> list[list[float]]:
+    """``rows`` (``[t, x, y, dx, dy, scale, lateral]``, by time) without the
+    ones the straight line between their kept neighbours gives within ``tol``
+    stage px (the travel's ``tolerance_px``): on the floor point, on the
+    lateral (in world units, times its scale), and on the scale over
+    ``reach`` world units (the member's extent: how far from its floor point
+    a contact can be); the direction within
+    :data:`GROUND_DIRECTION_TOLERANCE`.
+
+    >>> rows = [[t, 10.0 * t, 5.0, 1.0, 0.0, 60.0, 0.0] for t in (0.0, 0.5, 1.0)]
+    >>> [r[0] for r in _thin_keys(rows, tol=1.0, reach=1.0)]
+    [0.0, 1.0]
+    """
+    if len(rows) <= 2:
+        return rows
+
+    def off(row: list[float], want: list[float]) -> bool:
+        rel = GROUND_DIRECTION_TOLERANCE
+        return (
+            abs(row[1] - want[1]) > tol
+            or abs(row[2] - want[2]) > tol
+            or abs(row[3] - want[3]) > rel
+            or abs(row[4] - want[4]) > rel
+            or abs(row[5] - want[5]) * reach > tol
+            or abs(row[6] - want[6]) * row[5] > tol
+        )
+
+    def fits(a: list[float], b: list[float], mids: list[list[float]]) -> bool:
+        span = b[0] - a[0]
+        for m in mids:
+            w = (m[0] - a[0]) / span if span > 0 else 1.0
+            if off(m, [x + (y - x) * w for x, y in zip(a, b)]):
+                return False
+        return True
+
+    kept, start = [rows[0]], 0
+    for j in range(2, len(rows)):
+        if not fits(rows[start], rows[j], rows[start + 1 : j]):
+            start = j - 1
+            kept.append(rows[start])
+    kept.append(rows[-1])
+    return kept
+
+
+def _member_ground(
+    ctx: _FrameCtx,
+    frame: str,
+    point_at: Callable[[float], Point3],
+    *,
+    ground: float,
+    times: Sequence[float],
+    near: float,
+    tol: float,
+    reach: float,
+) -> dict[str, Any] | None:
+    """The floor under a member standing in ``frame`` at ``point_at(t)`` (in
+    that frame's units): the world's ``ground`` plane projected at the
+    member's depth (:class:`GroundAt`, written as
+    :data:`an.base.GROUND_OVERRIDE`), at ``times[0]`` alone when ``times``
+    has one instant, else keyed at each and thinned to ``tol`` stage px
+    (:func:`_thin_keys`, ``reach`` the member's extent in world units). Its
+    line is level on the stage (:data:`MEMBER_FLOOR_ALONG`). Its ``lateral``
+    is measured in ``frame`` from the ground point under the member as the
+    shot opens, so a member carried by its frame, or walking straight in
+    depth, keeps its feet where they are along the floor. ``None`` when the
+    camera never sees that ground point in front of it."""
+    focal = ctx.projection.focal
+    pose0 = ctx.pose(frame, 0.0)
+    w0 = pose0.apply(point_at(0.0))
+    held = pose0.unapply((w0[0], ground, w0[2]))
+    dx, dy = MEMBER_FLOOR_ALONG
+    rows: list[list[float]] = []
+    depths: list[float] = []
+    for t in times:
+        eye, pose = ctx.eye_at(t), ctx.pose(frame, t)
+        w = pose.apply(point_at(t))
+        under = (w[0], ground, w[2])
+        rx, ry, depth = eye.view(under)
+        depths.append(depth)
+        depth = max(depth, near)  # clamped as the member's own channels are
+        level = _floor_level(eye)
+        lateral = _dot(_sub(pose.unapply(under), held), pose.inverse().rotate(level))
+        rows.append(
+            [t, focal * rx / depth, focal * ry / depth, dx, dy, focal / depth, lateral]
+        )
+    if len(times) == 1:
+        if depths[0] <= near:
+            return None  # behind the camera: nothing it sees to stand on
+        _, x, y, dx, dy, scale, _lateral = rows[0]
+        return {"at": [x, y], "along": [dx, dy], "scale": scale}
+    # Keyed where the member's own passes are (:func:`_sight`): the stretches
+    # in front of the camera, widened by a sample each side.
+    runs = _depth_runs(times, depths, near)
+    kept = [r for r in rows if any(a <= r[0] <= b for a, b in runs)]
+    if not kept:
+        return None
+    return {"keys": _thin_keys(kept, tol=tol, reach=reach)}
+
+
+def _member_floors(
+    ordered: Sequence[tuple[Any, AssetRef, int | None]],
+    *,
+    ground: float | None,
+    ctx: _FrameCtx,
+    positioned: Mapping[str, WorldMember],
+    extents: Extents,
+    courses: Mapping[str, Any],
+    member_tracks: Mapping[str, Mapping[str, Track]],
+    frame_of: Mapping[str, str],
+    moving: Collection[str],
+    by_hand: Collection[str],
+    grid: Sequence[float],
+    near: float,
+    tol: float,
+    note: Callable[[str, str, str, str], None],
+) -> list[tuple[Any, AssetRef, int | None]]:
+    """``ordered`` with the world's floor (``ground``) under each positioned
+    member (:func:`_member_ground`, written as
+    :data:`an.base.GROUND_OVERRIDE`; an environment has no position, and is
+    not in ``ordered``): not a stream slot, a member the world cannot
+    measure, nor one whose hand ``stage.at`` wins
+    (``by_hand``: the world's floor is under the world's point, not the
+    hand's, so it gets none and ``ground`` is its own floor). Keyed on
+    ``grid`` for a member the camera sees move (``moving``), else at the
+    opening instant.
+
+    The lowering owns the mark on a framed shot: an entity's incoming one is
+    dropped, and replaced when the world gives it a floor; one that differs
+    from what the lowering writes (a hand-written one, not a lowered shot
+    lowered again) is noted as ``ground`` (a warning)."""
+    floors: dict[str, dict[str, Any]] = {}
+    for _, e, _ in ordered:
+        member = positioned.get(e.id)
+        if ground is None or member is None or _is_slot(e) or e.id in by_hand:
+            continue
+        box = extents.get(e.id)
+        m = _unit_scale(member, box, where=f"member {e.id!r}")
+        if box is None or m is None:
+            continue  # not drawn: the static path says so
+        course = courses.get(e.id)
+        tracks = member_tracks.get(e.id)
+        floor = _member_ground(
+            ctx,
+            WORLD_FRAME if course is not None else frame_of[e.id],
+            course.world_at
+            if course is not None
+            else (lambda t, mem=member, tr=tracks: _member_point(mem, tr, t)),
+            ground=float(ground),
+            times=grid if e.id in moving else [0.0],
+            near=near,
+            tol=tol,
+            reach=max(box[2] - box[0], box[3] - box[1]) * m,
+        )
+        if floor is not None:
+            floors[e.id] = floor
+    out = []
+    for key, e, j in ordered:
+        incoming = (e.overrides or {}).get(GROUND_OVERRIDE)
+        floor = floors.get(e.id)
+        if incoming is not None and incoming != floor:
+            replaced = (
+                "replaced by the world's floor under it"
+                if floor is not None
+                else "dropped (the world gives it no floor"
+                + (": its hand `stage.at` wins)" if e.id in by_hand else ")")
+            )
+            note(
+                "warning",
+                "ground",
+                e.id,
+                f"`overrides.{GROUND_OVERRIDE}` is the world's lowering's own mark, "
+                f"not an authoring field: {replaced}. Declare the floor as "
+                "`world: {ground: y}` (the world's) or `solve: {ground: y}` (the "
+                "shot's stage floor).",
+            )
+        if floor is not None:
+            e = _marked(e, GROUND_OVERRIDE, floor)
+        elif incoming is not None:
+            rest = {
+                k: v for k, v in (e.overrides or {}).items() if k != GROUND_OVERRIDE
+            }
+            e = e.model_copy(update={"overrides": rest or None})
+        out.append((key, e, j))
+    return out
 
 
 def _lower_shot(
@@ -2752,6 +3159,7 @@ def _lower_shot(
     )
 
     ordered: list[tuple[tuple[float, float, float], AssetRef, int | None]] = []
+    by_hand: set[str] = set()  # a hand `stage.at` wins over the world's (an#519)
     envs: list[tuple[AssetRef, int | None]] = [
         (e, j) for j, e in enumerate(shot.entities) if e.kind == "environment"
     ]
@@ -2776,6 +3184,7 @@ def _lower_shot(
         if stage is not None and stage.at is not None:
             w = projected[entity.id]
             if entity.id in moving and entity.id not in already:
+                by_hand.add(entity.id)
                 note(
                     "warning",
                     "hand_moving",
@@ -2789,6 +3198,8 @@ def _lower_shot(
             elif w.at is not None and w.scale is not None and entity.id not in already:
                 off = math.hypot(stage.at[0] - w.at[0], stage.at[1] - w.at[1])
                 _, eff_scale = hand[entity.id]
+                if off > HAND_PLACEMENT_TOLERANCE_PX:
+                    by_hand.add(entity.id)
                 if (
                     off > HAND_PLACEMENT_TOLERANCE_PX
                     or abs(eff_scale - w.scale) > HAND_SCALE_TOLERANCE
@@ -2801,6 +3212,8 @@ def _lower_shot(
                         f"puts it at {_fmt(w.at)} scale {w.scale:.3g}. The hand placement wins; "
                         "drop `stage.at` to follow the world, or move the member.",
                     )
+            elif w.at is None:
+                by_hand.add(entity.id)  # the world cannot place it: the hand does
             _, eff_scale = hand[entity.id]
             if entity.id not in moving and not members[entity.id].attached:
                 _perspective_note(
@@ -3086,6 +3499,17 @@ def _lower_shot(
         members=members.keys(),
         attached=riders,
     )
+    ordered = [  # drawn beside its host wherever the host is drawn (an#692)
+        (
+            key,
+            _marked(e, BESIDE_HOST_OVERRIDE, {"host": r.host, "side": r.side})
+            if (r := riders.get(e.id)) is not None
+            and (e.stage is None or e.stage.after is None)
+            else e,
+            j,
+        )
+        for key, e, j in ordered
+    ]
     if sightings:
         _depth_order_notes(
             [e for _, e, _ in ordered],
@@ -3101,6 +3525,22 @@ def _lower_shot(
             ],
             note=note,
         )
+    ordered = _member_floors(  # the floor under each member (an#519)
+        ordered,
+        ground=world.ground,
+        ctx=ctx,
+        positioned=positioned,
+        extents=extents,
+        courses=courses,
+        member_tracks=split.member_tracks,
+        frame_of=frame_of,
+        moving=moving,
+        by_hand=by_hand,
+        grid=grid,
+        near=near,
+        tol=tol,
+        note=note,
+    )
     entities = [e for e, _ in envs] + [e for _, e, _ in ordered]
     origins = [j for _, j in envs] + [j for _, _, j in ordered]
     from an.stage.world import UNDRAWN_KINDS

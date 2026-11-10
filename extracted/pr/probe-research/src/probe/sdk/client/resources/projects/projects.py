@@ -169,8 +169,9 @@ class ProjectsMixin:
             body["workspace_id"] = home
             row = self.transport.post("/v1/projects", body)
         except errors.ValidationError as exc:
-            # This computer's pin names a deleted workspace (A6): drop it and send
-            # once more as a fresh computer would, into the home when there is one.
+            # This computer's pin (or this session's, D68) names a deleted workspace (A6):
+            # drop it and send once more as a fresh computer would, into the home when
+            # there is one; after a session's pin, into what the computer itself would pick.
             if not (
                 is_computer_workspace
                 and isinstance(exc.detail, str)
@@ -178,7 +179,7 @@ class ProjectsMixin:
                 and self._drop_dead_pin(body["workspace_id"])
             ):
                 raise
-            home = self._pin_home_workspace()
+            home = self.computer_workspace_id() or self._pin_home_workspace()
             if home is None:
                 del body["workspace_id"]  # the server files a lone workspace, else 422s
             else:

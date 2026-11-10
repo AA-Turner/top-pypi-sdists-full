@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class Image(ClientValue):
     """
     The Image resource groups image-related properties into a single structure. If a DriveItem has a

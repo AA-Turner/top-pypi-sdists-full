@@ -14,24 +14,30 @@
 
 template <typename T, int tangoTypeConst>
 inline void scalar_cpp_data_to_python(T &self, py::object &py_value) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-
-    TangoScalarType data;
-
-    // to make live of Tango developer "easier", cppTango uses different operators to extract value in different object
-    // Don't let your guard down, it`s TANGO!!!
-    bool res;
-    if constexpr(std::is_same_v<T, Tango::DeviceData>) {
-        res = self >> data;
+    if constexpr(tangoTypeConst == Tango::DEV_VOID) {
+        py_value = py::none();
+    } else if constexpr(tangoTypeConst == Tango::DEV_PIPE_BLOB) {
+        assert(false);
     } else {
-        res = self >>= data;
-    }
+        using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
-    if(!res) {
-        throw_bad_type(Tango::CmdArgTypeName[tangoTypeConst], TANGO_EXCEPTION_ORIGIN);
-    }
+        TangoScalarType data;
 
-    py_value = cpp_to_python_scalar<tangoTypeConst>::convert(data);
+        // to make live of Tango developer "easier", cppTango uses different operators to extract value in different
+        // object Don't let your guard down, it`s TANGO!!!
+        bool res;
+        if constexpr(std::is_same_v<T, Tango::DeviceData>) {
+            res = self >> data;
+        } else {
+            res = self >>= data;
+        }
+
+        if(!res) {
+            throw_bad_type(Tango::CmdArgTypeName[tangoTypeConst], TANGO_EXCEPTION_ORIGIN);
+        }
+
+        py_value = cpp_to_python_scalar<tangoTypeConst>::convert(data);
+    }
 }
 
 template <>
@@ -64,30 +70,6 @@ inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_ENCODED>(CORBA::Any
     }
 
     py_value = cpp_to_python_scalar<Tango::DEV_ENCODED>::convert(*data);
-}
-
-template <>
-inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_VOID>([[maybe_unused]] CORBA::Any &self,
-                                                                   [[maybe_unused]] py::object &py_value) {
-    py_value = py::none();
-}
-
-template <>
-inline void scalar_cpp_data_to_python<Tango::DeviceData, Tango::DEV_VOID>([[maybe_unused]] Tango::DeviceData &self,
-                                                                          [[maybe_unused]] py::object &py_value) {
-    py_value = py::none();
-}
-
-template <>
-inline void scalar_cpp_data_to_python<CORBA::Any, Tango::DEV_PIPE_BLOB>([[maybe_unused]] CORBA::Any &self,
-                                                                        [[maybe_unused]] py::object &py_value) {
-    assert(false);
-}
-
-template <>
-inline void scalar_cpp_data_to_python<Tango::DeviceData, Tango::DEV_PIPE_BLOB>([[maybe_unused]] Tango::DeviceData &self,
-                                                                               [[maybe_unused]] py::object &py_value) {
-    assert(false);
 }
 
 template <int tangoArrayTypeConst>
@@ -129,51 +111,57 @@ inline py::object
     return to_py_list(tg_array);
 }
 
+template <int tangoArrayTypeConst>
+inline py::object numeric_string_array_to_python_buffer(const typename TANGO_const2type(tangoArrayTypeConst) * tg_array,
+                                                        py::object parent) {
+    using traits = numeric_string_array_traits<typename TANGO_const2type(tangoArrayTypeConst)>;
+
+    py::list result;
+    result.append(
+        cpp_to_python_buffer_no_copy<traits::numeric_array_const>(&(tg_array->*traits::numeric_member), parent));
+    result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_STRINGARRAY>(&(tg_array->*traits::string_member), parent));
+    return result;
+}
+
 template <>
 inline py::object
     cpp_to_python_buffer_no_copy<Tango::DEVVAR_LONGSTRINGARRAY>(const Tango::DevVarLongStringArray *tg_array,
                                                                 py::object parent) {
-    py::list result;
-
-    result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_LONGARRAY>(&tg_array->lvalue, parent));
-    result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_STRINGARRAY>(&tg_array->svalue, parent));
-
-    return result;
+    return numeric_string_array_to_python_buffer<Tango::DEVVAR_LONGSTRINGARRAY>(tg_array, parent);
 }
 
 template <>
 inline py::object
     cpp_to_python_buffer_no_copy<Tango::DEVVAR_DOUBLESTRINGARRAY>(const Tango::DevVarDoubleStringArray *tg_array,
                                                                   py::object parent) {
-    py::list result;
-
-    result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_DOUBLEARRAY>(&tg_array->dvalue, parent));
-    result.append(cpp_to_python_buffer_no_copy<Tango::DEVVAR_STRINGARRAY>(&tg_array->svalue, parent));
-
-    return result;
+    return numeric_string_array_to_python_buffer<Tango::DEVVAR_DOUBLESTRINGARRAY>(tg_array, parent);
 }
 
 template <int tangoTypeConst>
 inline void array_cpp_data_to_python(CORBA::Any &self, py::object &py_result) {
-    using TangoArrayType = typename TANGO_const2type(tangoTypeConst);
+    if constexpr(tangoTypeConst == Tango::DEV_PIPE_BLOB) {
+        assert(false);
+    } else {
+        using TangoArrayType = typename TANGO_const2type(tangoTypeConst);
 
-    TangoArrayType *data;
+        TangoArrayType *data;
 
-    if(!(self >>= data)) {
-        throw_bad_type(Tango::CmdArgTypeName[tangoTypeConst], TANGO_EXCEPTION_ORIGIN);
+        if(!(self >>= data)) {
+            throw_bad_type(Tango::CmdArgTypeName[tangoTypeConst], TANGO_EXCEPTION_ORIGIN);
+        }
+
+        // But I cannot manage memory inside our 'any' object, because it is
+        // const and handles it's memory itself. So I need a copy before
+        // creating the object.
+        data = new TangoArrayType(*data);
+
+        // For numpy we need a 'guard' object that handles the memory used
+        // by the numpy object (releases it).
+
+        py::capsule guard(data, dev_var_command_array_deleter<TangoArrayType>);
+
+        py_result = cpp_to_python_buffer_no_copy<tangoTypeConst>(data, guard);
     }
-
-    // But I cannot manage memory inside our 'any' object, because it is
-    // const and handles it's memory itself. So I need a copy before
-    // creating the object.
-    data = new TangoArrayType(*data);
-
-    // For numpy we need a 'guard' object that handles the memory used
-    // by the numpy object (releases it).
-
-    py::capsule guard(data, dev_var_command_array_deleter<TangoArrayType>);
-
-    py_result = cpp_to_python_buffer_no_copy<tangoTypeConst>(data, guard);
 }
 
 template <int tangoTypeConst>
@@ -181,42 +169,32 @@ inline void array_cpp_data_to_python(Tango::DeviceData &self,
                                      py::object &py_self,
                                      py::object &py_result,
                                      PyTango::ExtractAs extract_as) {
-    using TangoArrayType = typename TANGO_const2type(tangoTypeConst);
+    if constexpr(tangoTypeConst == Tango::DEVVAR_STATEARRAY) {
+        assert(false);
+    } else {
+        using TangoArrayType = typename TANGO_const2type(tangoTypeConst);
 
-    const TangoArrayType *data;
+        const TangoArrayType *data;
 
-    if((self >> data) == false) {
-        throw_bad_type(Tango::CmdArgTypeName[tangoTypeConst], TANGO_EXCEPTION_ORIGIN);
+        if((self >> data) == false) {
+            throw_bad_type(Tango::CmdArgTypeName[tangoTypeConst], TANGO_EXCEPTION_ORIGIN);
+        }
+
+        switch(extract_as) {
+        default:
+        case PyTango::ExtractAsNumpy:
+            py_result = cpp_to_python_buffer_no_copy<tangoTypeConst>(data, py_self);
+            break;
+        case PyTango::ExtractAsList:
+        case PyTango::ExtractAsPyTango3:
+            py_result = to_py_list(data);
+            break;
+        case PyTango::ExtractAsTuple:
+            py_result = to_py_tuple(data);
+            break;
+        case PyTango::ExtractAsString: /// @todo
+        case PyTango::ExtractAsNothing:
+            py_result = py::none();
+        }
     }
-
-    switch(extract_as) {
-    default:
-    case PyTango::ExtractAsNumpy:
-        py_result = cpp_to_python_buffer_no_copy<tangoTypeConst>(data, py_self);
-        break;
-    case PyTango::ExtractAsList:
-    case PyTango::ExtractAsPyTango3:
-        py_result = to_py_list(data);
-        break;
-    case PyTango::ExtractAsTuple:
-        py_result = to_py_tuple(data);
-        break;
-    case PyTango::ExtractAsString: /// @todo
-    case PyTango::ExtractAsNothing:
-        py_result = py::none();
-    }
-}
-
-template <>
-inline void array_cpp_data_to_python<Tango::DEV_PIPE_BLOB>([[maybe_unused]] CORBA::Any &any,
-                                                           [[maybe_unused]] py::object &py_result) {
-    assert(false);
-}
-
-template <>
-inline void array_cpp_data_to_python<Tango::DEVVAR_STATEARRAY>([[maybe_unused]] Tango::DeviceData &self,
-                                                               [[maybe_unused]] py::object &py_self,
-                                                               [[maybe_unused]] py::object &py_result,
-                                                               [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    assert(false);
 }

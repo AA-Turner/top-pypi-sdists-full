@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.identitygovernance.entitlementmanagement.accesspackage.question import AccessPackageQuestion
 from office365.directory.identitygovernance.entitlementmanagement.schedule import EntitlementManagementSchedule
@@ -8,7 +8,6 @@ from office365.entity_collection import EntityCollection
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AccessPackageAssignmentRequestRequirements(ClientValue):
     allowCustomAssignmentSchedule: bool | None = None
     isApprovalRequiredForAdd: bool | None = None

@@ -1,9 +1,13 @@
+import copy
 import datetime
 import re
 import time
 import unittest
+import unittest.mock
 
-from webvtt.models import Timestamp, Caption, CueSettings, Region, Style
+from webvtt.models import (
+    Timestamp, Caption, CueSettings, ParseIssue, Region, Style
+    )
 from webvtt.errors import MalformedCaptionError, MalformedRegionError
 
 
@@ -306,7 +310,7 @@ class TestCaption(unittest.TestCase):
     def test_timestamp_wrong_type(self):
         with self.assertRaises(MalformedCaptionError):
             Caption(
-                start=1234,
+                start=['00:00:07.000'],
                 end='00:00:11.890',
                 text='Hello test!',
                 identifier='A test caption'
@@ -372,6 +376,19 @@ class TestCaption(unittest.TestCase):
             )
         self.assertEqual(caption.start_in_seconds, 7)
         self.assertEqual(caption.end_in_seconds, 11)
+
+    def test_in_milliseconds(self):
+        caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
+        self.assertEqual(caption.start_in_milliseconds, 7000)
+        self.assertEqual(caption.end_in_milliseconds, 11890)
+
+    def test_duration(self):
+        caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
+        self.assertEqual(caption.duration, 4.89)
+
+    def test_duration_caption_ends_before_start(self):
+        caption = Caption('00:00:05.000', '00:00:01.000', 'x')
+        self.assertEqual(caption.duration, 0.0)
 
     def test_shift(self):
         caption = Caption('00:00:07.000', '00:00:11.890', 'Hello test!')
@@ -511,7 +528,7 @@ class TestCaption(unittest.TestCase):
         self.assertRaises(
             MalformedCaptionError,
             Caption,
-            start=1234,
+            start=['00:00:07.000'],
             end='00:00:11.890',
             text='Hello Test!'
             )
@@ -530,9 +547,101 @@ class TestCaption(unittest.TestCase):
             MalformedCaptionError,
             Caption,
             start='00:00:07.000',
-            end=1234,
+            end=['00:00:11.890'],
             text='Hello Test!'
             )
+
+    def test_times_of_other_types(self):
+        for start, end in (
+                (1.5, 2),
+                (Timestamp(0, 0, 1, 500), Timestamp(0, 0, 2, 0)),
+                (datetime.timedelta(seconds=1.5),
+                 datetime.timedelta(seconds=2)),
+                ('00:00:01.500', 2.0)):
+            with self.subTest(start=start, end=end):
+                caption = Caption(start, end, 'x')
+                self.assertEqual(caption.start, '00:00:01.500')
+                self.assertEqual(caption.end, '00:00:02.000')
+
+    def test_times_of_other_types_set(self):
+        caption = Caption('00:00:01.000', '00:00:02.000', 'x')
+
+        caption.start = Timestamp(0, 0, 3, 0)
+        caption.end = 4.25
+        self.assertEqual((caption.start, caption.end),
+                         ('00:00:03.000', '00:00:04.250'))
+
+        caption.start = datetime.timedelta(minutes=1)
+        self.assertEqual(caption.start, '00:01:00.000')
+
+    def test_times_zero(self):
+        for value in (0, 0.0, datetime.timedelta(0), Timestamp(), '', None):
+            with self.subTest(value=value):
+                caption = Caption(value, value, 'x')
+                self.assertEqual(caption.start, '00:00:00.000')
+                self.assertEqual(caption.end, '00:00:00.000')
+
+    def test_times_rounded_to_milliseconds(self):
+        caption = Caption(1.0005, datetime.timedelta(microseconds=2_499_500))
+        self.assertEqual(caption.start, '00:00:01.001')
+        self.assertEqual(caption.end, '00:00:02.500')
+
+    def test_timestamp_copied(self):
+        timestamp = Timestamp(0, 0, 3, 0)
+        caption = Caption(timestamp, timestamp, 'x')
+        timestamp.seconds = 9
+
+        self.assertEqual((caption.start, caption.end),
+                         ('00:00:03.000', '00:00:03.000'))
+        self.assertIsNot(caption.start_time, caption.end_time)
+
+    def test_timestamp_fields_normalized(self):
+        caption = Caption(Timestamp(0, 0, 75, 0), Timestamp(0, 90, 0, 0))
+        self.assertEqual(caption.start, '00:01:15.000')
+        self.assertEqual(caption.end, '01:30:00.000')
+
+    def test_invalid_times_of_other_types(self):
+        for value in (-1, -0.5, float('nan'), float('inf'), True, False,
+                      10 ** 20, datetime.timedelta(seconds=-1),
+                      Timestamp(0, 0, -1, 0), Timestamp(0, 0, 1.5, 0),
+                      Timestamp(0, 0, True, 0), b'00:00:01.000', [1]):
+            with self.subTest(value=value):
+                with self.assertRaises(MalformedCaptionError):
+                    Caption(value, '00:00:02.000', 'x')
+                with self.assertRaises(MalformedCaptionError):
+                    Caption('00:00:01.000', value, 'x')
+
+                caption = Caption('00:00:01.000', '00:00:02.000', 'x')
+                with self.assertRaises(MalformedCaptionError):
+                    caption.start = value
+                with self.assertRaises(MalformedCaptionError):
+                    caption.end = value
+                self.assertEqual((caption.start, caption.end),
+                                 ('00:00:01.000', '00:00:02.000'))
+
+    def test_copy(self):
+        caption = Caption('00:00:01.000', '00:00:02.000', ['a', 'b'],
+                          identifier='1', settings='line:0')
+        caption.comments.append('note')
+
+        copied = caption.copy()
+        self.assertIsNot(copied, caption)
+        self.assertEqual(copied, caption)
+        self.assertEqual(copied.comments, ['note'])
+
+        copied.lines.append('c')
+        copied.comments.append('other')
+        copied.settings.line = '1'
+        copied.start_time.seconds = 5
+        copied.end_time.seconds = 6
+        copied.identifier = '2'
+
+        self.assertEqual(caption.lines, ['a', 'b'])
+        self.assertEqual(caption.comments, ['note'])
+        self.assertEqual(str(caption.settings), 'line:0')
+        self.assertEqual((caption.start, caption.end),
+                         ('00:00:01.000', '00:00:02.000'))
+        self.assertEqual(caption.identifier, '1')
 
     def test_equality(self):
         caption1 = Caption(
@@ -883,11 +992,40 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(caption.raw_text, 'This is a test')
         self.assertIsNone(caption.voice)
 
-    def test_voice_span_long_whitespace_is_linear(self):
-        caption = Caption(text='<v' + ' ' * 80000)
-        start = time.perf_counter()
-        self.assertIsNone(caption.voice)
-        self.assertLess(time.perf_counter() - start, 1)
+    def test_voices(self):
+        for raw_text, voices in (
+                ('<v Homer Simpson>Hello there!</v>', ['Homer Simpson']),
+                ('Hi <v Bob>there</v>', ['Bob']),
+                ('<v Bob>Hi</v> <v.loud Alice>Hello</v>', ['Bob', 'Alice']),
+                ('<v Bob>Hi\n<v Alice>Hello</v>\n<v Bob>Bye',
+                 ['Bob', 'Alice', 'Bob']),
+                ('<b><v.quiet.slow Lisa Simpson>I am Lisa</v></b>',
+                 ['Lisa Simpson']),
+                ('No voice <b>here</b>', []),
+                ('', []),
+                ('<v>no name</v> <v  >spaces</v> <V Bob>upper</V>', []),
+                ('<vBob>no space</v> <voice Bob>other tag</voice>', []),
+                ('</v Bob> end tag', []),
+                ('<v Lets eat donuts', []),
+                ('<v Bob>Hi <v Alice', ['Bob'])):
+            with self.subTest(raw_text=raw_text):
+                self.assertEqual(Caption(text=raw_text).voices, voices)
+
+    def test_voices_first_is_voice(self):
+        for raw_text in ('<v Homer Simpson>Hello there!</v>',
+                         '<v.quiet.slow Lisa Simpson>I am Lisa</v>',
+                         '<v Bob  >trailing spaces</v> <v Alice>x</v>'):
+            with self.subTest(raw_text=raw_text):
+                caption = Caption(text=raw_text)
+                self.assertEqual(caption.voices[0], caption.voice)
+
+    def test_voices_follow_the_text(self):
+        caption = Caption(text='This is a test')
+        self.assertEqual(caption.voices, [])
+        caption.text = ['<v Bob>One</v>', '<v Alice>Two</v>']
+        self.assertEqual(caption.voices, ['Bob', 'Alice'])
+        caption.lines.append('<v Carol>Three</v>')
+        self.assertEqual(caption.voices, ['Bob', 'Alice', 'Carol'])
 
     def test_text_strips_tags_like_regex(self):
         for raw_text in (
@@ -903,12 +1041,58 @@ class TestCaption(unittest.TestCase):
                 re.sub('<.*?>', '', raw_text)
             )
 
-    def test_text_unclosed_tags_are_linear(self):
-        # re.sub('<.*?>', ...) took about 10 seconds on this input
-        caption = Caption(text='<' * 64000)
-        start = time.perf_counter()
-        self.assertEqual(caption.text, '<' * 64000)
-        self.assertLess(time.perf_counter() - start, 1)
+
+class TestLinearTime(unittest.TestCase):
+    """
+    The text and voices of captions, which were quadratic in the length of
+    a line.
+
+    The lines are long enough for a quadratic time to take many minutes, as
+    re.sub('<.*?>', '', line) for the text took about 10 seconds on 64000
+    "<", while a linear one takes less than a second.
+    """
+
+    LENGTH = 10 ** 6
+    # seconds, for slow machines
+    LIMIT = 5
+
+    def assertLinear(self, cases, attribute):
+        """Check the attribute of captions with each text and its value."""
+        for name, text, expected in cases:
+            with self.subTest(name):
+                caption = Caption(text=text)
+                start = time.perf_counter()
+                value = getattr(caption, attribute)
+                self.assertLess(time.perf_counter() - start, self.LIMIT)
+                self.assertEqual(value, expected)
+
+    def test_text(self):
+        n = self.LENGTH
+        lines = '\n'.join(['<'] * (n // 4))
+        self.assertLinear((
+            ('unclosed tags', '<' * n, '<' * n),
+            ('text and unclosed tags', 'a<' * n, 'a<' * n),
+            ('tags', '<b>a' * (n // 4), 'a' * (n // 4)),
+            ('lines', lines, lines),
+            ), 'text')
+
+    def test_voice(self):
+        n = self.LENGTH
+        self.assertLinear((
+            ('whitespace', '<v' + ' ' * n, None),
+            ('unclosed name', '<v' + ' ' * n + 'a' * n, None),
+            ('words', '<v' + ' a' * n, None),
+            ('classes', '<v' + '.a' * n, None),
+            ), 'voice')
+
+    def test_voices(self):
+        n = self.LENGTH
+        self.assertLinear((
+            ('whitespace', '<v' + ' ' * n + '>', []),
+            ('unclosed spans', '<v ' * n, []),
+            ('classes', '<v' + '.a' * n + '>', []),
+            ('spans', '<v Bob>a' * (n // 10), ['Bob'] * (n // 10)),
+            ), 'voices')
 
 
 class TestStyle(unittest.TestCase):
@@ -958,6 +1142,28 @@ class TestStyle(unittest.TestCase):
         self.assertEqual(
             style.text,
             '::cue(b) {\n  color: peachpuff;\n}'
+            )
+
+    def test_equality(self):
+        style = Style('::cue(b) {\ncolor: peachpuff;\n}')
+        other = Style(['::cue(b) {', 'color: peachpuff;', '}'])
+        other.comments.append('Comments are not compared')
+        self.assertEqual(style, other)
+        self.assertNotEqual(style, Style('::cue(b) {}'))
+        self.assertNotEqual(style, '::cue(b) {\ncolor: peachpuff;\n}')
+
+    def test_equality_subclass_and_other_types(self):
+        class MyStyle(Style):
+            pass
+
+        self.assertEqual(Style('a'), MyStyle('a'))
+        self.assertEqual(MyStyle('a'), Style('a'))
+        self.assertEqual(Style('a'), unittest.mock.ANY)
+
+    def test_repr(self):
+        self.assertEqual(
+            repr(Style('::cue(b) {\ncolor: peachpuff;\n}')),
+            "<Style text='::cue(b) {\\ncolor: peachpuff;\\n}'>"
             )
 
 
@@ -1419,3 +1625,27 @@ class TestRegion(unittest.TestCase):
             repr(Region(id='fred', width='40%')),
             "<Region text='id:fred width:40%'>"
             )
+
+
+class TestDeepCopy(unittest.TestCase):
+
+    def test_deepcopy(self):
+        caption = Caption('00:00:01.000', '00:00:02.000', ['a', 'b'],
+                          identifier='1', settings='line:0')
+        caption.comments.append('note')
+        region = Region(id='fred', width='40%')
+        region.comments.append('note')
+        style = Style('::cue(b) {}')
+        style.comments.append('note')
+
+        for value in (Timestamp(1, 2, 3, 4),
+                      CueSettings.from_string('line:0 align:start'),
+                      caption,
+                      style,
+                      region,
+                      ParseIssue(3, 'Invalid cue block', ['x'])):
+            with self.subTest(value=value):
+                copied = copy.deepcopy(value)
+                self.assertIsNot(copied, value)
+                self.assertEqual(copied, value)
+                self.assertEqual(vars(copied), vars(value))

@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import field
 from enum import Enum
-from typing import Any, Generic, Iterator, TypeVar, cast
+from typing import Any, Generic, Iterator, Optional, TypeVar, cast
 
 from typing_extensions import Self
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.converters.scalars import parse_enum
 from office365.runtime.converters.value import serialize_value
-from office365.runtime.odata.json_format import ODataJsonFormat
-from office365.runtime.odata.v3.json_light_format import JsonLightFormat
+from office365.runtime.odata.edm import collection_type_name
+from office365.runtime.odata.json_format import JsonProfile
 
 ValueT = TypeVar("ValueT")
 
 
-@dataclass(init=False)
 class ClientValueCollection(ClientValue, Generic[ValueT]):
     """A type-safe collection of ClientValue objects or primitives.
 
@@ -61,10 +60,18 @@ class ClientValueCollection(ClientValue, Generic[ValueT]):
             Self: For method chaining
 
         Raises:
-            TypeError: If value doesn't match collection type
+            TypeError: If value doesn't match collection type and is not a flags
+                combination the item type cannot spell
         """
         if self._item_type is not None and not isinstance(value, self._item_type):
-            raise TypeError(f"Expected {self._item_type}, got {type(value)}")
+            # An enum cannot spell a combined flags value, so a collection of them keeps
+            # the wire spelling: Graph returns one ``authenticationMethodModes`` item as
+            # "password,softwareOath", and ``parse_enum`` answers that combination with
+            # the string it was given (``_parse_flags``). Refusing it here dropped the
+            # whole response — a strength policy, for instance, cannot be read at all.
+            item_type = self._item_type
+            if not (isinstance(value, str) and issubclass(item_type, Enum) and parse_enum(item_type, value) == value):
+                raise TypeError(f"Expected {item_type}, got {type(value)}")
         self._data.append(value)
         return self
 
@@ -102,25 +109,38 @@ class ClientValueCollection(ClientValue, Generic[ValueT]):
         """Concatenate two collections into a plain list."""
         return list(self._data) + list(other._data)
 
+    def values(self) -> list[ValueT]:
+        """The items as a plain list.
+
+        A collection is a model object; a caller that has to compare, sort, checksum
+        or reserialize the items needs them as data, without the wrapping type.
+        """
+        return list(self._data)
+
     def clear(self) -> None:
         """Remove all items from the collection."""
         self._data.clear()
 
     def _display_name(self) -> str:
-        """Name used in rendered previews."""
-        if self._item_type is not None:
+        """Type label used by ``repr`` and by report/notebook headers."""
+        if type(self) is ClientValueCollection and self._item_type is not None:
             return f"ClientValueCollection[{self._item_type.__name__}]"
-        return "ClientValueCollection"
+        return type(self).__name__
 
     def __str__(self) -> str:
-        """Items as a bounded list (primitive) or aligned table (complex)."""
+        """Items as a bounded list (scalars) or an aligned table (records)."""
         from office365.runtime.display import describe_collection
 
-        return describe_collection(self._data, self._display_name())
+        return describe_collection(self._data)
 
     def __repr__(self) -> str:
-        """Return the same bounded preview as :meth:`__str__`."""
-        return self.__str__()
+        """A type-qualified, quoted preview: ``StringCollection(['a', 'b'])``."""
+        from office365.runtime.display import MAX_ITEMS
+
+        items: list[Any] = list(self._data[:MAX_ITEMS])
+        if len(self._data) > MAX_ITEMS:
+            items.append("…")
+        return f"{self._display_name()}({items!r})"
 
     def _repr_html_(self) -> str:
         """Render the items as an HTML table (Jupyter/rich display)."""
@@ -138,15 +158,15 @@ class ClientValueCollection(ClientValue, Generic[ValueT]):
         """
         from office365.runtime.display import describe_collection
 
-        return describe_collection(self._data, self._display_name(), max_items=max_items, max_column_width=None)
+        return describe_collection(self._data, max_items=max_items, max_column_width=None)
 
-    def to_json(self, json_format: ODataJsonFormat | None = None) -> list[Any] | dict[str, Any]:
+    def to_json(self, profile: JsonProfile | None = None) -> list[Any] | dict[str, Any]:  # type: ignore[override]
         """Serializes the collection to OData JSON format.
 
         Args:
-            json_format: Controls serialization behavior:
-                - None: Returns simple array
-                - JsonLightFormat: Returns metadata-enriched structure
+            profile: The profile that spells the payload:
+                - None: the items as the model holds them, bare array
+                - JsonProfile: the same items under the profile's envelope
 
         Returns:
             list or dict: Serialized data
@@ -158,13 +178,10 @@ class ClientValueCollection(ClientValue, Generic[ValueT]):
                 "__metadata": {"type": "Collection(Edm.String)"}
             }
         """
-        json: list[Any] | dict[str, Any] = [serialize_value(v) for v in self]
-        if isinstance(json_format, JsonLightFormat) and json_format.include_control_information:
-            json = {
-                json_format.collection: json,
-                json_format.metadata_type: {"type": self.entity_type_name},
-            }
-        return json
+        items = [serialize_value(v, profile) for v in self]
+        if profile is None:
+            return items
+        return profile.wrap(self, items)
 
     def create_typed_value(self, initial_value: ValueT | None = None) -> ValueT:
         """Creates a new item of the collection's type.
@@ -217,14 +234,15 @@ class ClientValueCollection(ClientValue, Generic[ValueT]):
         return self
 
     @property
-    def entity_type_name(self) -> str:
+    def entity_type_name(self) -> Optional[str]:
         """Gets the OData type name for this collection.
 
         Returns:
-            str: The collection type name (e.g., "Collection(Edm.String)")
+            The collection type name (e.g. "Collection(Edm.String)"), or ``None``
+            when no element type was declared: a collection built without one has
+            no name to declare, and a marker naming a type nobody declared is
+            worse than no marker at all.
         """
-        from office365.runtime.odata.type import ODataType
-
         if self._item_type is None:
-            return "Collection(Edm.Unknown)"
-        return f"Collection({ODataType.resolve_type_name(self._item_type)})"
+            return None
+        return collection_type_name(self._item_type)

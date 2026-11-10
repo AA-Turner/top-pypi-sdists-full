@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: docling-slim
-Version: 2.148.0
+Version: 2.150.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -49,6 +49,7 @@ Requires-Dist: huggingface-hub<3,>=0.23; extra == 'all'
 Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'all'
 Requires-Dist: mail-parser<5.0.0,>=4.1.4; extra == 'all'
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'all'
+Requires-Dist: mlx-audio<0.7.0,>=0.6.4; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
 Requires-Dist: mlx-vlm<1.0.0,>=0.7.0; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
 Requires-Dist: mlx-whisper>=0.4.3; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
 Requires-Dist: numba>=0.63.0; extra == 'all'
@@ -83,9 +84,12 @@ Requires-Dist: scipy<2.0.0,>=1.9.0; extra == 'all'
 Requires-Dist: tesserocr<3.0.0,>=2.7.1; extra == 'all'
 Requires-Dist: timm<2.0.0,>=1.0.22; extra == 'all'
 Requires-Dist: torch<3.0.0,>=2.2.2; extra == 'all'
+Requires-Dist: torchaudio<3.0.0,>=2.2.2; extra == 'all'
 Requires-Dist: torchvision<1,>=0; extra == 'all'
 Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.10.*,!=5.11.*,!=5.12.*,!=5.13.*,!=5.14.*,!=5.15.*,!=5.2.*,!=5.3.*,!=5.9.*,<6.0.0,>=4.42.0; (sys_platform == 'darwin') and extra == 'all'
 Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.13.0,!=5.2.*,!=5.3.*,<6.0.0,>=4.42.0; (sys_platform != 'darwin') and extra == 'all'
+Requires-Dist: transformers<6.0.0,>=5.16.0; extra == 'all'
+Requires-Dist: transformers<6.0.0,>=5.16.0; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'all'
 Requires-Dist: tritonclient[grpc]<3.0.0,>=2.65.0; extra == 'all'
 Requires-Dist: typer<0.28.0,>=0.19.0; extra == 'all'
 Requires-Dist: websockets<18.0,>=14.0; extra == 'all'
@@ -105,6 +109,9 @@ Requires-Dist: pillow<14.0.0,>=10.0.0; extra == 'extract-core'
 Requires-Dist: polyfactory>=2.22.2; extra == 'extract-core'
 Requires-Dist: rtree<2.0.0,>=1.3.0; extra == 'extract-core'
 Requires-Dist: scipy<2.0.0,>=1.9.0; extra == 'extract-core'
+Provides-Extra: feat-asr-mlx-audio
+Requires-Dist: mlx-audio<0.7.0,>=0.6.4; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'feat-asr-mlx-audio'
+Requires-Dist: transformers<6.0.0,>=5.16.0; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'feat-asr-mlx-audio'
 Provides-Extra: feat-asr-transformers
 Requires-Dist: mlx-whisper>=0.4.3; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'feat-asr-transformers'
 Requires-Dist: numba>=0.63.0; extra == 'feat-asr-transformers'
@@ -191,6 +198,15 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-xml-uspto'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'format-xml-uspto'
 Provides-Extra: format-xml-xbrl
 Requires-Dist: arelle-release<3.0.0,>=2.38.17; extra == 'format-xml-xbrl'
+Provides-Extra: models-asr-inline
+Requires-Dist: mlx-audio<0.7.0,>=0.6.4; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'models-asr-inline'
+Requires-Dist: mlx-whisper>=0.4.3; (python_version >= '3.10' and sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'models-asr-inline'
+Requires-Dist: numba>=0.63.0; extra == 'models-asr-inline'
+Requires-Dist: openai-whisper>=20250625; extra == 'models-asr-inline'
+Requires-Dist: torchaudio<3.0.0,>=2.2.2; extra == 'models-asr-inline'
+Requires-Dist: transformers<6.0.0,>=5.16.0; extra == 'models-asr-inline'
+Requires-Dist: transformers<6.0.0,>=5.16.0; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'models-asr-inline'
+Requires-Dist: whisper-s2t-reborn<2.0.0,>=1.8.0; (sys_platform != 'darwin' or platform_machine != 'arm64') and extra == 'models-asr-inline'
 Provides-Extra: models-local
 Requires-Dist: accelerate<2,>=1.0.0; extra == 'models-local'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'models-local'
@@ -349,6 +365,8 @@ pip install docling-slim[service-client]
 | `format-xml-xbrl` | XBRL financial reports | Financial documents |
 | `format-html-render` | HTML rendering with Playwright | Dynamic web content |
 | `format-audio` | Audio transcription (Whisper) | .wav, .mp3 files |
+| `feat-asr-transformers` | Audio transcription with Transformers models | Granite Speech, Parakeet, Nemotron |
+| `feat-asr-mlx-audio` | Audio transcription with mlx-audio, without torch | Apple Silicon only; needs macOS 14 or later |
 
 ### OCR Engines
 
@@ -368,6 +386,7 @@ pip install docling-slim[service-client]
 | `models-remote` | Remote model serving (Triton) | Production deployments |
 | `models-onnxruntime` | ONNX Runtime acceleration | Optimized inference |
 | `models-vlm-inline` | Vision Language Models | Image understanding, inline processing |
+| `models-asr-inline` | All inline ASR engines (Whisper, Transformers, mlx-audio) | Speech recognition; needs macOS 14 or later on Apple Silicon |
 
 ### Other features
 

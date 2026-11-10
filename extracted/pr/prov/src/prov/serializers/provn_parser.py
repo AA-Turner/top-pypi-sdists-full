@@ -1,36 +1,73 @@
 """Recursive-descent parser for PROV-N (https://www.w3.org/TR/prov-n/).
 
-Every statement opens with a keyword, so the parser reads one token and
-enters the matching rule; there is no backtracking. Records are built
-through :meth:`ProvBundle.new_record` with the same arguments the PROV-JSON
-deserializer passes, so attribute typing, literal parsing and namespace
+The parser reads one token ahead. Every statement opens with a keyword and every
+keyword is followed by ``(``, so after one token the parser knows which rule it is in,
+and there is no backtracking. Each grammar production is a method (document,
+declarations, bundle, statement, expression, attributes, literal).
+
+The expression rule is table-driven, with no method per keyword. ``_KEYWORDS`` maps a
+statement keyword's ``(prefix, local)`` to a ``_Rule``: its record type, its legal
+argument counts and whether it is an element. ``_classify`` looks the keyword up.
+``_arguments`` reads the parenthesised part as a flat list of arguments and an
+attribute block. ``_expression`` checks the argument count, maps each position onto
+the record class's ``FORMAL_ATTRIBUTES`` in order, with ``-`` markers omitted, and
+builds the record. An element takes its identifier first. A relation's optional
+identifier is the one place the grammar needs a second token of lookahead, so
+``_arguments`` reads the first argument and then checks for ``;``.
+
+Records are built through :meth:`ProvBundle.new_record` with the same arguments the
+PROV-JSON deserializer passes, so attribute typing, literal parsing and namespace
 registration match every other format.
 
-Profiles:
+Profiles share this one parser. ``_PROFILES`` maps each profile name to a ``_Profile``
+of two flags, and ``PROFILES`` lists the names:
 
-- ``strict``: the Recommendation grammar only.
-- ``default``: also the bare ``mentionOf`` keyword that ``prov`` and
-  ProvToolbox write (the Recommendation grammar has no Mention production;
-  PROV-Links spells it ``prov:mentionOf``), and the ``-`` marker where the
-  grammar has a plain identifier (see ``_STRICT_REQUIRED_LEADING``).
-- ``lenient``: as ``default``; a statement that fails to parse, including
-  one the model rejects, is skipped and parsing resumes at the next
-  statement. Tokenisation errors are fatal in every profile.
+- ``strict``: ``extensions`` and ``recover`` both off, the Recommendation grammar
+  only.
+- ``default``: ``extensions`` on. The parser also accepts the bare ``mentionOf``
+  keyword that ``prov`` and ProvToolbox write (the Recommendation grammar has no
+  Mention production; PROV-Links spells it ``prov:mentionOf``), and the ``-`` marker
+  where the grammar has a plain identifier (each rule's smallest ``arities`` entry in
+  ``_KEYWORDS``); for ``hadMember``, ``alternateOf``, ``specializationOf`` and
+  ``mentionOf`` the model then refuses the marker and the statement is skipped. It
+  also accepts an identifier or an attribute block on a relation whose production has
+  neither, a statement after a bundle, a ``default`` declaration after a ``prefix``
+  declaration, and a declaration of ``prov`` or ``xsd`` to its predeclared IRI.
+- ``lenient``: ``recover`` on as well. A statement that fails to parse, including one
+  the model rejects, is skipped and parsing resumes at the next statement. A bundle
+  whose identifier the model rejects is skipped too.
+
+Under every profile, a statement whose keyword has a prefix and no rule is an
+extensibility expression ([49] to [51]). The parser reads it by the grammar and
+drops it with one ``skipped`` message naming its predicate and position. An
+expression nests at most 32 levels, counting each bracket an argument opens
+(``(`` or ``{``), and nothing in it resolves, so a prefix declared nowhere is not an
+error there. A bare unknown keyword is still an error.
+
+Recovery is panic-mode. It records the error and skips tokens to a synchronisation
+point. A name followed by ``(`` is one, and so is a structural keyword (``document``,
+``endDocument``, ``bundle``, ``endBundle``) unless a ``,``, ``]``, ``)``, ``}``,
+``;`` or ``=`` follows it, at any bracket depth. The parser then resumes.
 
 Skipped-statement messages are collected on ``skipped`` rather than warned
 here, so :class:`~prov.serializers.provn.ProvNSerializer` can issue the
 :class:`~prov.model.ProvWarning` itself with a stack level that points at
 the caller of ``deserialize()``, whether the skip happened at document
 level or inside a bundle.
+
+Errors are :class:`~prov.serializers.provn.ProvNSyntaxError` and carry the line and
+column of the token at fault. ``parse`` tokenises the whole input before it parses a
+statement, so a tokenisation error is raised first in every profile and recovery never
+applies to it.
 """
 
 from __future__ import annotations
 
-import re
+from dataclasses import dataclass
 from typing import Any
 
-from prov._warnings import future_rejection_message
 from prov.constants import (
+    _PROV_N_BARE_RELATIONS,
     PROV,
     PROV_ACTIVITY,
     PROV_AGENT,
@@ -54,20 +91,25 @@ from prov.constants import (
     PROV_USAGE,
     XSD,
     XSD_QNAME,
-    XSI,
 )
-from prov.identifier import Namespace, QualifiedName
+from prov.identifier import (
+    _PN_PREFIX_NAME,
+    Namespace,
+    QualifiedName,
+    _check_namespace_uri,
+)
 from prov.model import (
     PROV_REC_CLS,
     Literal,
     ProvBundle,
     ProvDocument,
     ProvException,
+    ProvMissingFormalAttribute,
+    ProvValueError,
     parse_xsd_datetime,
 )
-from prov.model.records import _reader_checking_names
+from prov.model._values import resolve_name, resolve_pair
 from prov.serializers.provn_lexer import (
-    _PN_PREFIX,
     ProvNSyntaxError,
     Token,
     TokenKind,
@@ -76,63 +118,83 @@ from prov.serializers.provn_lexer import (
 
 __all__ = ["PROFILES", "ProvNParser"]
 
-PROFILES = ("strict", "default", "lenient")
+
+@dataclass(frozen=True, slots=True)
+class _Profile:
+    extensions: bool  # accept the default profile's extensions (see module docstring)
+    recover: bool  # skip a statement that fails and resync
 
 
-def _default_namespace(bundle: ProvBundle) -> Namespace | None:
-    """The bundle's default namespace, falling back to its document's."""
-    default = bundle.get_default_namespace()
-    if default is None and bundle.document is not None:
-        default = bundle.document.get_default_namespace()
-    return default
-
-
-# keyword -> (record type, allowed argument counts after the identifier)
-_ELEMENTS: dict[str, tuple[QualifiedName, tuple[int, ...]]] = {
-    "entity": (PROV_ENTITY, (0,)),
-    "activity": (PROV_ACTIVITY, (0, 2)),
-    "agent": (PROV_AGENT, (0,)),
+_PROFILES = {
+    "strict": _Profile(extensions=False, recover=False),
+    "default": _Profile(extensions=True, recover=False),
+    "lenient": _Profile(extensions=True, recover=True),
 }
-# keyword -> (record type, allowed argument counts)
-_RELATIONS: dict[str, tuple[QualifiedName, tuple[int, ...]]] = {
-    "wasGeneratedBy": (PROV_GENERATION, (1, 3)),
-    "used": (PROV_USAGE, (1, 3)),
-    "wasInvalidatedBy": (PROV_INVALIDATION, (1, 3)),
-    "wasStartedBy": (PROV_START, (1, 4)),
-    "wasEndedBy": (PROV_END, (1, 4)),
-    "wasInformedBy": (PROV_COMMUNICATION, (2,)),
-    "wasAttributedTo": (PROV_ATTRIBUTION, (2,)),
-    "wasAssociatedWith": (PROV_ASSOCIATION, (1, 3)),
-    "actedOnBehalfOf": (PROV_DELEGATION, (2, 3)),
-    "wasDerivedFrom": (PROV_DERIVATION, (2, 5)),
-    "wasInfluencedBy": (PROV_INFLUENCE, (2,)),
-    "alternateOf": (PROV_ALTERNATE, (2,)),
-    "specializationOf": (PROV_SPECIALIZATION, (2,)),
-    "hadMember": (PROV_MEMBERSHIP, (2,)),
+PROFILES = tuple(_PROFILES)
+
+
+@dataclass(frozen=True, slots=True)
+class _Rule:
+    record_type: QualifiedName
+    arities: tuple[int, ...]  # allowed argument counts after the identifier, if any
+    element: bool  # an element takes its identifier first, a relation an optional 'id;'
+
+
+# An attribute block's pairs: name, value and the token that names it.
+_AttributeBlock = list[tuple[QualifiedName, Any, Token]]
+
+# (prefix, local) of a statement keyword -> its rule. A relation's compact form
+# (no ';') lists exactly its required identifiers, so its smallest arity is the
+# number of leading arguments the strict profile refuses '-' in (#257). Bare
+# 'mentionOf' is not a key, because the profile decides it.
+_KEYWORDS: dict[tuple[str, str], _Rule] = {
+    ("", "entity"): _Rule(PROV_ENTITY, (0,), element=True),
+    ("", "activity"): _Rule(PROV_ACTIVITY, (0, 2), element=True),
+    ("", "agent"): _Rule(PROV_AGENT, (0,), element=True),
+    ("", "wasGeneratedBy"): _Rule(PROV_GENERATION, (1, 3), element=False),
+    ("", "used"): _Rule(PROV_USAGE, (1, 3), element=False),
+    ("", "wasInvalidatedBy"): _Rule(PROV_INVALIDATION, (1, 3), element=False),
+    ("", "wasStartedBy"): _Rule(PROV_START, (1, 4), element=False),
+    ("", "wasEndedBy"): _Rule(PROV_END, (1, 4), element=False),
+    ("", "wasInformedBy"): _Rule(PROV_COMMUNICATION, (2,), element=False),
+    ("", "wasAttributedTo"): _Rule(PROV_ATTRIBUTION, (2,), element=False),
+    ("", "wasAssociatedWith"): _Rule(PROV_ASSOCIATION, (1, 3), element=False),
+    ("", "actedOnBehalfOf"): _Rule(PROV_DELEGATION, (2, 3), element=False),
+    ("", "wasDerivedFrom"): _Rule(PROV_DERIVATION, (2, 5), element=False),
+    ("", "wasInfluencedBy"): _Rule(PROV_INFLUENCE, (2,), element=False),
+    ("", "alternateOf"): _Rule(PROV_ALTERNATE, (2,), element=False),
+    ("", "specializationOf"): _Rule(PROV_SPECIALIZATION, (2,), element=False),
+    ("", "hadMember"): _Rule(PROV_MEMBERSHIP, (2,), element=False),
+    ("prov", "mentionOf"): _Rule(PROV_MENTION, (3,), element=False),
 }
-_MENTION: tuple[QualifiedName, tuple[int, ...]] = (PROV_MENTION, (3,))
 _STRUCTURAL = frozenset({"document", "endDocument", "bundle", "endBundle"})
+_IDENTIFIER_FOLLOW = (
+    TokenKind.COMMA,
+    TokenKind.RPAREN,
+    TokenKind.SEMICOLON,
+    TokenKind.RBRACE,
+)
+_DATATYPE_FOLLOW = (
+    TokenKind.COMMA,
+    TokenKind.RBRACKET,
+    TokenKind.RPAREN,
+    TokenKind.RBRACE,
+)
+_ATTRIBUTE_NAME_FOLLOW = (TokenKind.EQUALS,)
+# Recovery treats a structural keyword as data wherever a guarded read accepts it.
+_DATA_FOLLOW = (*_IDENTIFIER_FOLLOW, *_DATATYPE_FOLLOW, *_ATTRIBUTE_NAME_FOLLOW)
 _ARGUMENT_KINDS = (TokenKind.NAME, TokenKind.MARKER, TokenKind.DATETIME)
 
-# keyword -> number of leading arguments (after any 'id;') that the
-# Recommendation's grammar makes a plain identifier, not an identifierOrMarker;
-# '-' there is only ever accepted under the default/lenient extensions,
-# matching the model's scruffy-statement policy (#257).
-#
-# A relation's compact form (no ';') lists exactly its required identifiers,
-# so the smallest allowed arity is that required count.
-_STRICT_REQUIRED_LEADING: dict[str, int] = {
-    name: min(arities) for name, (_, arities) in _RELATIONS.items()
-} | {"mentionOf": min(_MENTION[1])}
-
-# Productions 24 to 26 give these relations neither an identifier nor an
-# attribute block.
-_BARE_RELATIONS = frozenset({"alternateOf", "specializationOf", "hadMember"})
+_MAX_EXTENSION_DEPTH = 32
+# Brackets an extensibility argument may open (N53): [50] and [51].
+_TUPLE_CLOSERS = {
+    TokenKind.LBRACE: TokenKind.RBRACE,
+    TokenKind.LPAREN: TokenKind.RPAREN,
+}
+_LITERAL_KINDS = (TokenKind.STRING, TokenKind.INT, TokenKind.QNAME_LITERAL)
 
 # PROV-N predeclares these two prefixes; ``xsi`` is an ordinary prefix.
 _RESERVED_PREFIXES: dict[str, Namespace] = {"prov": PROV, "xsd": XSD}
-
-_PN_PREFIX_NAME = re.compile(_PN_PREFIX)
 
 
 class ProvNParser:
@@ -143,53 +205,38 @@ class ProvNParser:
         profile: One of :data:`PROFILES`.
 
     Attributes:
-        skipped: Messages for the statements the ``lenient`` profile
-            skipped, in source order; empty for every other profile. Read
-            after :meth:`parse` returns.
-        warnings: Messages for input that ``prov`` 3.3.0 rejects or reads
-            differently, each built by
-            :func:`prov._warnings.future_rejection_message`. The lexer's
-            messages come first, then the parser's, each in source order.
-            Read after :meth:`parse` returns.
+        skipped: Messages for the extensibility expressions dropped under
+            every profile and for the statements the ``lenient`` profile
+            skipped, in source order. Read after :meth:`parse` returns.
 
     Raises:
         ValueError: If ``profile`` is not one of :data:`PROFILES`.
     """
+
+    # Set by parse(); _current is self._tokens[self._pos], kept by _advance().
+    _current: Token
+    _profile: _Profile
 
     def __init__(self, text: str, profile: str = "default"):
         if profile not in PROFILES:
             raise ValueError(f"profile must be one of {PROFILES}, got {profile!r}")
         self.profile = profile
         self.skipped: list[str] = []
-        self.warnings: list[str] = []
-        # Namespaces declared in the scope being parsed, by prefix: the
-        # document's, overlaid with the current bundle's.
-        self._scope: dict[str, Namespace] = {}
         self._text = text
         self._tokens: list[Token] = []
         self._pos = 0
-        self._depth = 0  # bracket nesting, read only by lenient resync
-        self._previous_kind: TokenKind | None = None  # last consumed token's kind
 
     # -- token helpers -----------------------------------------------------
-
-    @property
-    def _current(self) -> Token:
-        return self._tokens[self._pos]
 
     def _peek(self) -> Token:
         index = min(self._pos + 1, len(self._tokens) - 1)
         return self._tokens[index]
 
     def _advance(self) -> Token:
-        token = self._tokens[self._pos]
-        if token.kind in (TokenKind.LPAREN, TokenKind.LBRACKET):
-            self._depth += 1
-        elif token.kind in (TokenKind.RPAREN, TokenKind.RBRACKET):
-            self._depth = max(0, self._depth - 1)
-        self._previous_kind = token.kind
+        token = self._current
         if self._pos < len(self._tokens) - 1:
             self._pos += 1
+            self._current = self._tokens[self._pos]
         return token
 
     def _error(self, message: str, token: Token | None = None) -> ProvNSyntaxError:
@@ -239,29 +286,29 @@ class ProvNParser:
             self._reject_unclosed_structural_keyword()
         return self._expect(TokenKind.NAME, "an identifier")
 
-    def _reject_unclosed_structural_keyword(self) -> None:
-        """Refuse a bare structural keyword as an identifier or argument
-        unless it is immediately followed by ',', ')' or ';' -- the only
-        tokens that follow a real identifier inside a statement's
-        parentheses. Anything else means a statement left open by a
-        missing ')'/']' has read straight through a following 'bundle',
-        'endBundle' or 'endDocument' as if it were data; raising here
-        without consuming the token lets lenient resync (and, outside
-        lenient, the enclosing loop) still find it.
+    def _reject_unclosed_structural_keyword(
+        self,
+        follow: tuple[TokenKind, ...] = _IDENTIFIER_FOLLOW,
+        expected: str = "an identifier",
+    ) -> None:
+        """Refuse a bare structural keyword where a name is read inside a
+        statement's brackets, unless a token in ``follow`` comes next. Anything
+        else means a statement left open by a missing ')'/']'/'}' has read
+        straight through a following 'bundle', 'endBundle' or 'endDocument' as
+        if it were data. Raising without consuming the token lets lenient
+        resync (and, outside lenient, the enclosing loop) still find it.
         """
+        if self._unclosed_keyword(follow):
+            raise self._error(f"expected {expected}, found {self._found()}")
+
+    def _unclosed_keyword(self, follow: tuple[TokenKind, ...]) -> bool:
+        """Whether the current token is a bare structural keyword that no
+        token in ``follow`` comes after."""
         current = self._current
         if current.kind is not TokenKind.NAME:
-            return
+            return False
         prefix, local = current.value
-        if prefix or local not in _STRUCTURAL:
-            return
-        if self._peek().kind in (
-            TokenKind.COMMA,
-            TokenKind.RPAREN,
-            TokenKind.SEMICOLON,
-        ):
-            return
-        raise self._error(f"expected an identifier, found {self._found()}")
+        return not prefix and local in _STRUCTURAL and self._peek().kind not in follow
 
     def _at_keyword(self, keyword: str) -> bool:
         return self._current.kind is TokenKind.NAME and self._current.value == (
@@ -278,19 +325,13 @@ class ProvNParser:
 
     def parse(self) -> ProvDocument:
         """Parse the whole input and return the document."""
-        # The parser warns about its own qualified-name values, with their
-        # position, so the model does not warn about them again.
-        with _reader_checking_names():
-            return self._parse()
-
-    def _parse(self) -> ProvDocument:
-        self._tokens = list(tokenize(self._text, self.warnings))
+        self._profile = _PROFILES[self.profile]
+        self._tokens = list(tokenize(self._text))
         self._pos = 0
-        self._depth = 0
+        self._current = self._tokens[0]
         document = ProvDocument()
         self._expect_keyword("document")
         namespaces, default = self._declarations()
-        self._scope = {namespace.prefix: namespace for namespace in namespaces}
         self._apply_declarations(document, namespaces, default)
         after_bundle = False
         while not self._at_keyword("endDocument"):
@@ -301,15 +342,11 @@ class ProvNParser:
                 after_bundle = True
             else:
                 # Production 1 puts every expression before the first bundle.
-                if after_bundle and self.profile == "strict":
-                    self._future(
+                if after_bundle and not self._profile.extensions:
+                    raise self._error(
                         "a statement follows a bundle, which the strict profile"
-                        " does not allow",
-                        self._current,
-                        "reject this under the strict profile",
-                        issue=519,
+                        " does not allow"
                     )
-                after_bundle = False
                 self._statement(document)
         self._advance()
         if self._current.kind is not TokenKind.EOF:
@@ -323,6 +360,11 @@ class ProvNParser:
         :meth:`_apply_declarations`) and by :meth:`_bundle` (which needs the
         bundle's own declarations before the bundle exists, to resolve its
         identifier against them).
+
+        Raises at a repeated default, at a prefix that is not a PN_PREFIX as
+        written (so an escape fails the check), at an IRI that is empty or
+        starts with ``@``, and under the strict profile at a default that
+        follows a prefix and at a declaration of prov or xsd.
         """
         namespaces: list[Namespace] = []
         default: str | None = None
@@ -338,98 +380,71 @@ class ProvNParser:
                     raise self._error(
                         f"prefix '{local}' is declared twice in this scope", name
                     )
-                iri = self._expect(TokenKind.IRI, "an IRI in angle brackets")
-                if not iri.value:
-                    raise self._error("a namespace IRI cannot be empty", iri)
+                iri = self._namespace_iri()
                 self._check_reserved_prefix(local, iri.value, name)
-                if not _PN_PREFIX_NAME.fullmatch(local):
-                    self._future(
-                        f"'{local}' is not a PROV-N prefix name, so no qualified"
+                if not _PN_PREFIX_NAME.fullmatch(name.text):
+                    raise self._error(
+                        f"'{name.text}' is not a PROV-N prefix name, so no qualified"
                         " name can use it",
                         name,
-                        issue=511,
                     )
                 namespaces.append(Namespace(local, iri.value))
                 seen.add(local)
             elif self._at_keyword("default"):
                 keyword = self._advance()
-                iri = self._expect(TokenKind.IRI, "an IRI in angle brackets")
-                if not iri.value:
-                    raise self._error("a namespace IRI cannot be empty", iri)
+                iri = self._namespace_iri()
                 if default is not None:
-                    self._future(
-                        "'default' is declared twice in this scope; the last one"
-                        " is used",
-                        keyword,
-                        issue=508,
+                    raise self._error(
+                        "'default' is declared twice in this scope", keyword
                     )
-                if namespaces and self.profile == "strict":
-                    self._future(
+                if namespaces and not self._profile.extensions:
+                    raise self._error(
                         "'default' follows a 'prefix' declaration, which the"
                         " strict profile does not allow",
                         keyword,
-                        "reject this under the strict profile",
-                        issue=519,
                     )
                 default = iri.value
             else:
                 return namespaces, default
 
+    def _namespace_iri(self) -> Token:
+        """Consume the IRI of a declaration.
+
+        An empty IRI is refused here with its own sentence. Any other IRI the
+        model refuses is a positioned syntax error carrying the model's error
+        as its cause.
+        """
+        iri = self._expect(TokenKind.IRI, "an IRI in angle brackets")
+        if not iri.value:
+            raise self._error("a namespace IRI cannot be empty", iri)
+        try:
+            _check_namespace_uri(iri.value)
+        except ProvValueError as exc:
+            raise self._error(str(exc), iri) from exc
+        return iri
+
     def _check_reserved_prefix(self, prefix: str, uri: str, token: Token) -> None:
         reserved = _RESERVED_PREFIXES.get(prefix)
-        if reserved is not None and reserved.uri != uri:
+        if reserved is None:
+            return
+        if reserved.uri != uri:
             raise self._error(
                 f"prefix '{prefix}' is reserved for <{reserved.uri}> and cannot"
                 " be redeclared",
                 token,
             )
-        if reserved is not None and self.profile == "strict":
-            self._future(
+        if not self._profile.extensions:
+            raise self._error(
                 f"prefix '{prefix}' is predeclared, and the strict profile does"
                 " not allow declaring it",
                 token,
-                "reject this under the strict profile",
-                issue=519,
             )
-
-    def _future(
-        self, detail: str, token: Token, outcome: str = "reject this", *, issue: int
-    ) -> None:
-        """Record a message for input that 3.3.0 rejects or reads differently."""
-        self.warnings.append(
-            future_rejection_message(
-                f"line {token.line}, column {token.column}: {detail}",
-                outcome,
-                issue=issue,
-            )
-        )
-
-    def _xsi_name(self, token: Token, local: str | None = None) -> QualifiedName | None:
-        """Resolve an ``xsi:`` name against this scope's own declaration.
-
-        The local part comes from ``token`` unless ``local`` is given, as
-        for a name held in a string literal. Returns ``None``, after
-        recording a 3.3.0 message at ``token``, when no declaration is in
-        scope, so the caller falls back to the built-in namespace.
-        """
-        declared = self._scope.get("xsi")
-        if declared is not None:
-            return declared[token.value[1] if local is None else local]
-        self._future(
-            f"prefix 'xsi' is not declared; it resolves to <{XSI.uri}>",
-            token,
-            issue=510,
-        )
-        return None
 
     def _apply_declarations(
         self, target: ProvBundle, namespaces: list[Namespace], default: str | None
     ) -> None:
         for namespace in namespaces:
-            # The model may register the namespace under a different prefix, so
-            # resolve names through what it returns to keep parsed values
-            # writable.
-            self._scope[namespace.prefix] = target.add_namespace(namespace)
+            target.add_namespace(namespace)
         if default is not None:
             target.set_default_namespace(default)
 
@@ -437,54 +452,29 @@ class ProvNParser:
         self._advance()  # 'bundle'
         id_token = self._identifier_token(inside_parens=False)
         namespaces, default = self._declarations()
-        # PROV-N 3.1.3: the bundle identifier is resolved with the bundle's
-        # own declarations. Only take the bundle-based resolution path when
-        # the identifier actually needs one of those declarations (a
-        # bundle-local prefix, or a bare name and the bundle sets its own
-        # default) -- document.add_bundle() then normalises the identifier
-        # against the bundle's own namespaces, not the document's, so a
-        # bundle-local prefix is never registered on the document. Otherwise
-        # resolve against the document directly, exactly as a bundle with no
-        # declarations of its own would, so a document-level prefix used for
-        # the identifier is not redundantly copied onto the bundle too.
-        outer_scope = self._scope
-        self._scope = {
-            **outer_scope,
-            **{namespace.prefix: namespace for namespace in namespaces},
-        }
+        # PROV-N 3.1.3: the bundle identifier resolves with the bundle's own
+        # declarations first, then the document's.
+        bundle = ProvBundle(_parent=document)
+        self._apply_declarations(bundle, namespaces, default)
         try:
-            prefix, _ = id_token.value
-            try:
-                if (prefix and prefix in {ns.prefix for ns in namespaces}) or (
-                    not prefix and default is not None
-                ):
-                    bundle = ProvBundle(document=document)
-                    self._apply_declarations(bundle, namespaces, default)
-                    identifier = self._resolve(id_token, bundle)
-                    document.add_bundle(bundle, identifier)
-                else:
-                    identifier = self._resolve(id_token, document)
-                    bundle = document.bundle(identifier)
-                    self._apply_declarations(bundle, namespaces, default)
-            except ProvNSyntaxError:
-                raise
-            except ProvException as exc:
-                error = ProvNSyntaxError(str(exc), id_token.line, id_token.column)
-                if self.profile != "lenient":
-                    raise error from exc
-                error.__cause__ = exc
-                self.skipped.append(f"PROV-N bundle skipped: {error}")
-                self._skip_bundle_body()
-                return
-            while not self._at_keyword("endBundle"):
-                if self._current.kind is TokenKind.EOF:
-                    raise self._error("expected 'endBundle', found end of input")
-                if self._at_keyword("bundle"):
-                    raise self._error("a bundle cannot contain a bundle")
-                self._statement(bundle)
-            self._advance()
-        finally:
-            self._scope = outer_scope
+            document.add_bundle(bundle, self._resolve(id_token, bundle))
+        except ProvNSyntaxError:
+            raise
+        except ProvException as exc:
+            error = ProvNSyntaxError(str(exc), id_token.line, id_token.column)
+            if not self._profile.recover:
+                raise error from exc
+            error.__cause__ = exc
+            self.skipped.append(f"PROV-N bundle skipped: {error}")
+            self._skip_bundle_body()
+            return
+        while not self._at_keyword("endBundle"):
+            if self._current.kind is TokenKind.EOF:
+                raise self._error("expected 'endBundle', found end of input")
+            if self._at_keyword("bundle"):
+                raise self._error("a bundle cannot contain a bundle")
+            self._statement(bundle)
+        self._advance()
 
     def _skip_bundle_body(self) -> None:
         """Consume everything up to and including the next 'endBundle'."""
@@ -496,89 +486,68 @@ class ProvNParser:
 
     def _statement(self, bundle: ProvBundle) -> None:
         start = self._current
-        start_depth = self._depth
         try:
             self._expression(bundle)
         except ProvNSyntaxError as error:
-            self._skip_or_raise(error, start_depth)
+            self._skip_or_raise(error)
+        except ProvMissingFormalAttribute as exc:
+            # The model refuses the relation after its closing ')' is consumed,
+            # so the skip needs no resync and the tokens that follow still parse.
+            self.skipped.append(
+                "PROV-N statement skipped: "
+                f"{ProvNSyntaxError(str(exc), start.line, start.column)}"
+            )
         except (ProvException, ValueError, OverflowError) as exc:
             # A model rejection (e.g. from new_record()) is reported as a
             # positioned syntax error and, under lenient, skipped.
             wrapped = ProvNSyntaxError(str(exc), start.line, start.column)
             wrapped.__cause__ = exc
-            self._skip_or_raise(wrapped, start_depth)
+            self._skip_or_raise(wrapped)
 
-    def _skip_or_raise(self, error: ProvNSyntaxError, start_depth: int) -> None:
-        if self.profile != "lenient":
+    def _skip_or_raise(self, error: ProvNSyntaxError) -> None:
+        if not self._profile.recover:
             raise error
         self.skipped.append(f"PROV-N statement skipped: {error}")
-        self._resync(start_depth)
+        self._resync()
 
-    def _looks_like_statement_start(self) -> bool:
-        """A NAME immediately followed by '(' opens a statement.
-
-        No production puts '(' after a name inside a statement body
-        (arguments and attribute values are followed by ',', ']' or ')'),
-        so the pair marks a boundary whatever the name is: a keyword, an
-        unknown keyword or a prefixed extensibility expression. Testing the
-        name against the keyword tables instead would run a skip through
-        every following statement the tables do not know, reporting a run
-        of bad statements as one.
-        """
-        return self._peek().kind is TokenKind.LPAREN
-
-    def _resync(self, start_depth: int) -> None:
+    def _resync(self) -> None:
         """Skip to the next statement boundary.
 
-        A statement missing a closing ``)``/``]`` leaves ``self._depth``
-        above ``start_depth`` forever, since ``_advance()`` only lowers it
-        on a matching close. Gating every boundary on depth would then
-        reject every statement keyword that follows, so a name immediately
-        followed by ``(`` is trusted at any depth (it is never legal inside
-        a statement body) and forces the depth back down to where the
-        failed statement started, clearing whatever imbalance it left.
+        A name followed by ``(`` is a boundary at any bracket depth. Only an
+        extensibility expression puts ``(`` after a name inside a statement
+        body ([50]), so the pair marks a boundary whatever the name is, known
+        or not. Testing the name against the keyword tables would run a skip
+        through every following statement they do not know and report a run of
+        bad statements as one. Recovery inside an expression can stop at a
+        nested predicate and read it as a statement of its own.
 
-        A bare structural keyword (``document``, ``bundle``, ...) is not
-        followed by ``(``, so it cannot be told apart this way from the
-        same word used as an ordinary attribute value (e.g.
-        ``[ex:k=bundle]``); that case is instead gated on whether the token
-        before it is ``=``, since only an attribute value follows one.
+        A structural keyword (``document``, ``bundle``, ...) is a boundary
+        unless a token in ``_DATA_FOLLOW`` comes after it. The attribute-name
+        and datatype guards also judge a keyword by the token after it. The
+        word is data in ``[ex:k=bundle]`` and ``"x" %% endBundle]``.
         """
         while self._current.kind is not TokenKind.EOF:
-            token = self._current
-            if token.kind is TokenKind.NAME:
-                prefix, local = token.value
-                if not prefix and local in _STRUCTURAL:
-                    # A structural keyword is a boundary unless it is an
-                    # attribute value ([ex:k=bundle]), which only follows '='.
-                    if self._previous_kind is not TokenKind.EQUALS:
-                        self._depth = start_depth
-                        return
-                elif self._looks_like_statement_start():
-                    self._depth = start_depth
-                    return
+            if self._unclosed_keyword(_DATA_FOLLOW) or (
+                self._current.kind is TokenKind.NAME
+                and self._peek().kind is TokenKind.LPAREN
+            ):
+                return
             self._advance()
 
     # -- expressions -------------------------------------------------------------
 
-    def _classify(self, token: Token) -> tuple[QualifiedName, tuple[int, ...], bool]:
-        """Return (record type, arities, is_element) for a keyword token."""
+    def _classify(self, token: Token) -> _Rule | None:
+        """Return the rule for a statement keyword token, or ``None`` for an
+        extensibility expression ([49]): a prefixed name no rule claims."""
         prefix, local = token.value
-        extensions = self.profile != "strict"
-        if (prefix, local) == ("prov", "mentionOf") or (
-            extensions and (prefix, local) == ("", "mentionOf")
-        ):
-            return (*_MENTION, False)
+        rule = _KEYWORDS.get(token.value)
+        if rule is not None:
+            return rule
         if prefix:
-            raise self._error(
-                f"extensibility expression '{token.text}(...)' is not supported", token
-            )
-        if local in _ELEMENTS:
-            return (*_ELEMENTS[local], True)
-        if local in _RELATIONS:
-            return (*_RELATIONS[local], False)
+            return None
         if local == "mentionOf":
-            # Only reachable under strict; default and lenient matched above.
+            if self._profile.extensions:
+                return _KEYWORDS[("prov", "mentionOf")]
             raise self._error(
                 "unknown statement keyword 'mentionOf' under the strict profile: "
                 "write 'prov:mentionOf', or parse with profile='default' to accept "
@@ -588,98 +557,108 @@ class ProvNParser:
         raise self._error(f"unknown statement keyword '{local}'", token)
 
     def _expression(self, bundle: ProvBundle) -> None:
+        """Parse one statement, production ``expression``, and add its record."""
         keyword = self._expect(TokenKind.NAME, "a statement keyword")
-        rec_type, arities, is_element = self._classify(keyword)
+        rule = self._classify(keyword)
+        if rule is None:
+            self._extension(keyword)
+            return
+        identifier, args, attribute_block = self._arguments(keyword, rule, bundle)
+
+        if len(args) not in rule.arities:
+            allowed = " or ".join(str(n) for n in rule.arities)
+            raise self._error(
+                f"'{keyword.text}' takes {allowed} arguments, got {len(args)}", keyword
+            )
+        self._check_strict_required_positions(keyword, rule, args)
+        formal_names = PROV_REC_CLS[rule.record_type].FORMAL_ATTRIBUTES
+        attributes = []
+        for attr, token in zip(formal_names, args, strict=False):
+            value = self._argument_value(token, attr, bundle)
+            if value is not None:
+                attributes.append((attr, value))
+        self._check_formal_attributes(keyword, formal_names, attribute_block)
+        other_attributes = [(name, value) for name, value, _ in attribute_block]
+        bundle.new_record(rule.record_type, identifier, attributes, other_attributes)
+
+    def _arguments(
+        self, keyword: Token, rule: _Rule, bundle: ProvBundle
+    ) -> tuple[QualifiedName | None, list[Token], _AttributeBlock]:
+        """Read the parenthesised part of production ``expression``.
+
+        Return the identifier, the positional arguments and the attribute block.
+        """
         self._expect(TokenKind.LPAREN)
-        identifier: QualifiedName | str | None = None
+        identifier: QualifiedName | None = None
         args: list[Token] = []
-        if is_element:
+        if rule.element:
             id_token = self._identifier_token()
-            identifier = self._identifier_text(id_token, bundle)
+            identifier = self._resolve(id_token, bundle)
         else:
             first = self._argument()
             if self._current.kind is TokenKind.SEMICOLON:
-                self._check_strict_bare_relation(keyword, first, "an identifier")
-                if first.kind is TokenKind.MARKER:
-                    identifier = None
-                elif first.kind is TokenKind.NAME:
-                    identifier = self._identifier_text(first, bundle)
-                else:
+                self._check_strict_bare_relation(keyword, rule, first, "an identifier")
+                if first.kind is TokenKind.NAME:
+                    identifier = self._resolve(first, bundle)
+                elif first.kind is not TokenKind.MARKER:
                     raise self._error("expected an identifier before ';'", first)
                 self._advance()
                 args.append(self._argument())
             else:
                 args.append(first)
-        attribute_block: list[tuple[QualifiedName, Any, Token]] = []
+        attribute_block: _AttributeBlock = []
         separator = self._current.kind
         while separator is TokenKind.COMMA:
             self._advance()
             if self._current.kind is TokenKind.LBRACKET:
                 self._check_strict_bare_relation(
-                    keyword, self._current, "an attribute block"
+                    keyword, rule, self._current, "an attribute block"
                 )
                 attribute_block = self._attributes(bundle)
                 break
             args.append(self._argument())
             separator = self._current.kind
         self._expect(TokenKind.RPAREN)
-
-        if len(args) not in arities:
-            allowed = " or ".join(str(n) for n in arities)
-            raise self._error(
-                f"'{keyword.text}' takes {allowed} arguments, got {len(args)}", keyword
-            )
-        self._check_strict_required_positions(keyword, args)
-        formal_names = PROV_REC_CLS[rec_type].FORMAL_ATTRIBUTES
-        attributes = []
-        for attr, token in zip(formal_names, args, strict=False):
-            value = self._argument_value(token, attr, bundle)
-            if value is not None:
-                attributes.append((attr, value))
-        other_attributes = [(name, value) for name, value, _ in attribute_block]
-        bundle.new_record(rec_type, identifier, attributes, other_attributes)
-        self._check_formal_attributes(keyword, formal_names, attribute_block)
+        return identifier, args, attribute_block
 
     def _check_strict_bare_relation(
-        self, keyword: Token, token: Token, what: str
+        self, keyword: Token, rule: _Rule, token: Token, what: str
     ) -> None:
-        """Under ``strict``, record a 3.3.0 message for an identifier or an
-        attribute block on a relation whose production has neither."""
-        if self.profile == "strict" and keyword.value[1] in _BARE_RELATIONS:
-            self._future(
+        """Under ``strict``, reject an identifier or an attribute block on a
+        relation whose production has neither (productions 24 to 26)."""
+        if not self._profile.extensions and rule.record_type in _PROV_N_BARE_RELATIONS:
+            raise self._error(
                 f"'{keyword.text}' has {what}, which the strict profile does not allow",
                 token,
-                "reject this under the strict profile",
-                issue=519,
             )
 
     def _check_formal_attributes(
         self,
         keyword: Token,
         formal_names: tuple[QualifiedName, ...],
-        attribute_block: list[tuple[QualifiedName, Any, Token]],
+        attribute_block: _AttributeBlock,
     ) -> None:
-        """Record a 3.3.0 message for each attribute named after one of the
-        statement's own arguments; new_record() reads it as that argument."""
+        """Reject an attribute named after one of the statement's own
+        arguments, which PROV-N gives only by position (#523)."""
         for name, _, token in attribute_block:
             if name in formal_names:
-                self._future(
+                raise self._error(
                     f"'{token.text}' names the '{name.localpart}' argument of"
                     f" '{keyword.text}', which PROV-N gives only by position",
                     token,
-                    issue=523,
                 )
 
     def _check_strict_required_positions(
-        self, keyword: Token, args: list[Token]
+        self, keyword: Token, rule: _Rule, args: list[Token]
     ) -> None:
         """Under ``strict``, reject '-' where the grammar has a plain
-        identifier (no ``OrMarker``); ``default``/``lenient`` keep accepting
-        it there, matching the model's scruffy-statement policy."""
-        if self.profile != "strict":
+        identifier (no ``OrMarker``); ``default``/``lenient`` accept it at the
+        grammar, and for ``hadMember``, ``alternateOf``, ``specializationOf``
+        and ``mentionOf`` the model then refuses it and the statement is
+        skipped."""
+        if self._profile.extensions:
             return
-        _, local = keyword.value
-        required = _STRICT_REQUIRED_LEADING.get(local, 0)
+        required = min(rule.arities)
         for index, arg in enumerate(args[:required]):
             if arg.kind is TokenKind.MARKER:
                 raise self._error(
@@ -687,6 +666,109 @@ class ProvNParser:
                     f" {index + 1}, found '-'",
                     arg,
                 )
+
+    # -- extensibility expressions ([49] to [51]) --------------------------------
+    #
+    # Syntax only (N52): nothing in an expression resolves against a namespace,
+    # so these methods take no declaration scope and look no name up.
+
+    def _extension(self, keyword: Token) -> None:
+        """Consume an extensibility expression [49] after its predicate and
+        record its drop."""
+        self._extension_call(0)
+        self.skipped.append(
+            "PROV-N extensibility expression dropped:"
+            f" line {keyword.line}, column {keyword.column}: '{keyword.text}'"
+        )
+
+    def _extension_open(self, kind: TokenKind, depth: int) -> None:
+        """Consume the bracket that opens level ``depth`` (N53)."""
+        if depth > _MAX_EXTENSION_DEPTH:
+            raise self._error(
+                f"extensibility expression nested more than {_MAX_EXTENSION_DEPTH}"
+                " levels"
+            )
+        self._expect(kind)
+
+    def _extension_call(self, depth: int) -> None:
+        """Consume ``( [identifier ;] argument {, argument} [, [...]] )`` [49]."""
+        self._extension_open(TokenKind.LPAREN, depth)
+        if self._peek().kind is TokenKind.SEMICOLON and self._extension_identifier():
+            self._advance()
+        self._extension_list(depth, TokenKind.RPAREN, attributes=True)
+
+    def _extension_tuple(self, depth: int) -> None:
+        """Consume ``{ argument {, argument} }`` or the ``( ... )`` form [51]."""
+        kind = self._current.kind
+        self._extension_open(kind, depth)
+        self._extension_list(depth, _TUPLE_CLOSERS[kind], attributes=False)
+
+    def _extension_list(
+        self, depth: int, closer: TokenKind, *, attributes: bool
+    ) -> None:
+        """Consume the comma-separated arguments up to ``closer``; an
+        expression ([49]) may end with an attribute block, a tuple may not."""
+        self._extension_argument(depth)
+        separator = self._current.kind
+        while separator is TokenKind.COMMA:
+            self._advance()
+            if attributes and self._current.kind is TokenKind.LBRACKET:
+                self._extension_attributes()
+                break
+            self._extension_argument(depth)
+            separator = self._current.kind
+        self._expect(closer)
+
+    def _extension_argument(self, depth: int) -> None:
+        """Consume one argument [50], inside a bracket at level ``depth``."""
+        current = self._current
+        if current.kind is TokenKind.NAME and self._peek().kind is TokenKind.LPAREN:
+            # A nested expression; its '(' opens a level (N53).
+            predicate = self._advance()
+            if not predicate.value[0]:
+                raise self._error(
+                    f"the predicate '{predicate.text}' of an extensibility"
+                    " expression has no prefix",
+                    predicate,
+                )
+            self._extension_call(depth + 1)
+        elif current.kind in _TUPLE_CLOSERS:
+            self._extension_tuple(depth + 1)
+        elif current.kind is TokenKind.DATETIME:
+            self._advance()
+        elif current.kind in _LITERAL_KINDS:
+            # An unsigned INT is an identifier or an integer, one token either way.
+            self._literal_tokens()
+        elif not self._extension_identifier():
+            raise self._error(
+                f"expected an extensibility argument, found {self._found()}"
+            )
+
+    def _extension_identifier(self) -> bool:
+        """Consume an identifier or ``-`` and return ``True``, or return
+        ``False`` and consume nothing at any other token."""
+        if self._digit_run_as_name() is not None:
+            return True
+        if self._current.kind not in (TokenKind.NAME, TokenKind.MARKER):
+            return False
+        self._reject_unclosed_structural_keyword()
+        self._advance()
+        return True
+
+    def _extension_attributes(self) -> None:
+        """Consume ``[ name = literal {, name = literal} ]`` [4], [5]."""
+        self._expect(TokenKind.LBRACKET)
+        if self._current.kind is not TokenKind.RBRACKET:
+            self._extension_pair()
+            while self._current.kind is TokenKind.COMMA:
+                self._advance()
+                self._extension_pair()
+        self._expect(TokenKind.RBRACKET)
+
+    def _extension_pair(self) -> None:
+        self._name(_ATTRIBUTE_NAME_FOLLOW, "an attribute name")
+        self._expect(TokenKind.EQUALS)
+        self._literal_tokens()
 
     def _argument(self) -> Token:
         # A relation argument is always an identifier, a time or '-', never
@@ -722,85 +804,32 @@ class ProvNParser:
             )
         return self._resolve(token, bundle)
 
-    def _identifier_text(self, token: Token, bundle: ProvBundle) -> QualifiedName | str:
-        """Validate an identifier and return its literal text where possible,
-        rather than a resolved ``QualifiedName``.
-
-        ``new_record()``/``document.bundle()`` call ``valid_qualified_name()``
-        on the identifier themselves; handing them an already-resolved
-        ``QualifiedName`` for a name delegated from a parent's default
-        namespace makes that call reconcile it onto this bundle as its OWN
-        default namespace, which the plain-string path does not do.
-        """
-        # Resolving here, even though the common case below discards
-        # ``resolved`` and returns plain text, validates the prefix and
-        # reports an unknown one at this token's position rather than at
-        # new_record()'s later, unpositioned resolution.
-        resolved = self._resolve(token, bundle)
-        prefix, local = token.value
-        if prefix == "xsi" and "xsi" in self._scope:
-            # new_record() would resolve the text against the built-in xsi.
-            return resolved
-        if not prefix and ":" in local:
-            # An escaped colon in a bare local part can't be turned back
-            # into text without looking like a (wrong) prefixed name, so
-            # this one shape is passed on already resolved -- accepted,
-            # documented limitation: inside a bundle with no default of its
-            # own, this resolves against the enclosing document's default,
-            # and passing the already-resolved QualifiedName on to
-            # new_record() then makes the bundle adopt that default as its
-            # own (visible as an extra 'default <...>' line inside the
-            # bundle on re-serialisation), unlike a plain bare name, which
-            # goes through the string path and is not cached this way.
-            return resolved
-        return f"{prefix}:{local}" if prefix else local
-
     def _resolve(self, token: Token, bundle: ProvBundle) -> QualifiedName:
+        # A name resolves by its prefix in scope, never by compacting an IRI,
+        # so http://example.org/e is the undeclared prefix 'http'.
         prefix, local = token.value
-        if prefix:
-            if prefix == "xsi":
-                declared = self._xsi_name(token)
-                if declared is not None:
-                    return declared
-            qname = bundle.valid_qualified_name(f"{prefix}:{local}")
-            if qname is None:
-                raise self._error(
-                    f"cannot resolve {token.text!r}: prefix '{prefix}' is not declared",
-                    token,
-                )
-            return qname
-        if ":" in local:
-            # An escaped colon inside a bare (unprefixed) local part would be
-            # mis-split by valid_qualified_name()'s string-based prefix
-            # lookup, so this one shape still resolves against the default
-            # namespace directly.
-            default = _default_namespace(bundle)
-            if default is None:
-                raise self._error(
-                    f"cannot resolve {token.text!r}: no default namespace declared",
-                    token,
-                )
-            return default[local]
-        qname = bundle.valid_qualified_name(local)
-        if qname is None:
-            raise self._error(
-                f"cannot resolve {token.text!r}: no default namespace declared", token
-            )
+        qname = resolve_pair(bundle, prefix, local, shown=token.text)
+        if isinstance(qname, str):
+            raise self._error(qname, token)
         return qname
 
     # -- attributes and literals -----------------------------------------------
 
-    def _attributes(self, bundle: ProvBundle) -> list[tuple[QualifiedName, Any, Token]]:
+    def _name(self, follow: tuple[TokenKind, ...], expected: str) -> Token:
+        """Consume an attribute name or a datatype, refusing an unclosed
+        structural keyword unless a token in ``follow`` comes next."""
+        self._reject_unclosed_structural_keyword(follow, expected)
+        return self._digit_run_as_name() or self._expect(TokenKind.NAME, expected)
+
+    def _attributes(self, bundle: ProvBundle) -> _AttributeBlock:
         """Parse an attribute block into (name, value, name token) triples."""
         self._expect(TokenKind.LBRACKET)
-        pairs: list[tuple[QualifiedName, Any, Token]] = []
+        pairs: _AttributeBlock = []
         if self._current.kind is TokenKind.RBRACKET:
             self._advance()
             return pairs
         while True:
-            name = self._digit_run_as_name() or self._expect(
-                TokenKind.NAME, "an attribute name"
-            )
+            name = self._name(_ATTRIBUTE_NAME_FOLLOW, "an attribute name")
             attr = self._resolve(name, bundle)
             self._expect(TokenKind.EQUALS)
             pairs.append((attr, self._literal(bundle), name))
@@ -810,94 +839,57 @@ class ProvNParser:
             self._expect(TokenKind.RBRACKET)
             return pairs
 
-    def _literal(self, bundle: ProvBundle) -> Any:
+    def _literal_tokens(self) -> tuple[Token, Token | None]:
+        """Consume a literal's tokens [40] to [43] without resolving any name.
+
+        Return the value token and, for a string, the language tag or the
+        datatype name that follows it.
+        """
         token = self._current
         if token.kind is TokenKind.STRING:
             self._advance()
             if self._current.kind is TokenKind.LANGTAG:
-                return Literal(token.value, langtag=self._advance().value)
+                return token, self._advance()
             if self._current.kind is TokenKind.TYPED:
                 self._advance()
-                datatype_token = self._digit_run_as_name() or self._expect(
-                    TokenKind.NAME, "a datatype"
-                )
-                datatype = self._resolve(datatype_token, bundle)
-                if datatype == PROV_QUALIFIEDNAME and token.value.startswith("xsi:"):
-                    # The model would look the text up in its own prefix map.
-                    declared = self._xsi_name(token, token.value.partition(":")[2])
-                    if declared is not None:
-                        return declared
-                self._check_typed_name_value(token, datatype, bundle)
-                return Literal(token.value, datatype)
-            return token.value
+                return token, self._name(_DATATYPE_FOLLOW, "a datatype")
+            return token, None
+        if token.kind not in _LITERAL_KINDS:
+            raise self._error(f"expected a literal value, found {self._found()}")
+        self._advance()
+        return token, None
+
+    def _literal(self, bundle: ProvBundle) -> Any:
+        token, suffix = self._literal_tokens()
         if token.kind is TokenKind.INT:
-            return self._advance().value
+            return token.value
         if token.kind is TokenKind.QNAME_LITERAL:
-            self._advance()
-            prefix, local = token.value
-            if prefix == "xsi":
-                declared = self._xsi_name(token)
-                if declared is not None:
-                    return declared
-            if not prefix and ":" in local:
-                # Mirrors _resolve()'s bare-local branch: an escaped colon
-                # inside an unprefixed local part would otherwise be
-                # mis-split by valid_qualified_name()'s string-based prefix
-                # lookup below.
-                default = _default_namespace(bundle)
-                if default is None:
-                    raise self._error(
-                        f"cannot resolve {token.text!r}: no default namespace declared",
-                        token,
-                    )
-                return default[local]
-            text = f"{prefix}:{local}" if prefix else local
-            qname = bundle.valid_qualified_name(text)
-            self._check_name_value(text, token, bundle, True)
-            # An unresolvable prefix stays an opaque literal, as it does when
-            # decoded from PROV-JSON.
-            return qname if qname is not None else Literal(text, PROV_QUALIFIEDNAME)
-        raise self._error(f"expected a literal value, found {self._found()}")
-
-    def _check_typed_name_value(
-        self, token: Token, datatype: QualifiedName, bundle: ProvBundle
-    ) -> None:
-        """Check the text of the string ``token`` when ``datatype`` is a
-        qualified-name datatype."""
+            return self._resolve_name_value(token, bundle)
+        if suffix is None:
+            return token.value
+        if suffix.kind is TokenKind.LANGTAG:
+            return Literal(token.value, langtag=suffix.value)
+        datatype = self._resolve(suffix, bundle)
         if datatype in (PROV_QUALIFIEDNAME, XSD_QNAME):
-            # The model resolves a prov:QUALIFIED_NAME text and keeps an
-            # xsd:QName one as a Literal.
-            self._check_name_value(
-                token.value, token, bundle, datatype == PROV_QUALIFIEDNAME
-            )
+            return self._resolve_name_value(token, bundle)
+        return Literal(token.value, datatype)
 
-    def _check_name_value(
-        self, text: str, token: Token, bundle: ProvBundle, resolves: bool
-    ) -> None:
-        """Record a 3.3.0 message at ``token`` when the qualified-name value
-        ``text`` does not resolve by its prefix (#510, #516, #553).
-
-        ``resolves`` says whether the model resolves ``text`` today, possibly
-        by compacting an IRI, rather than keeping it as a Literal.
-        """
-        if not resolves and text.startswith("xsi:") and "xsi" not in self._scope:
-            # The model keeps the text as a Literal, so nothing else reports
-            # the undeclared prefix.
-            reason: str | None = "its prefix 'xsi' is not declared"
-            issue: int | None = 510
-        else:
-            reason = bundle._unresolved_reason(text)
-            issue = None
-        if reason is None:
-            return
-        qname = bundle.valid_qualified_name(text) if resolves else None
-        if issue is None:
-            issue = 553 if qname is not None else 516
-        today = (
-            f"it reads as {qname}" if qname is not None else "it is kept as a Literal"
-        )
-        self._future(
-            f"the qualified name {text!r} does not resolve, because {reason}; {today}",
-            token,
-            issue=issue,
-        )
+    def _resolve_name_value(self, token: Token, bundle: ProvBundle) -> QualifiedName:
+        """The qualified-name value at ``token``: a lexed pair for a
+        ``'ex:x'`` literal, a string for ``"ex:x" %% xsd:QName``; rejected
+        at the token when it does not resolve by its prefix (#516, #553)."""
+        text = token.value
+        if not isinstance(text, tuple):
+            name = resolve_name(bundle, text)
+            if isinstance(name, str):
+                raise self._error(name, token)
+            return name
+        prefix, local = text
+        if not prefix and ":" in local:
+            # An escaped colon has no text form the resolver would split
+            # correctly, so the token itself reports the failure.
+            return self._resolve(token, bundle)
+        qname = resolve_pair(bundle, prefix, local)
+        if isinstance(qname, str):
+            raise self._error(qname, token)
+        return qname

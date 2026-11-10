@@ -3,9 +3,12 @@
 This module hosts :func:`deprecated_callable` (the strict callable-only decorator) and :func:`deprecated`
 (the friendly front door that dispatches classes to :func:`~deprecate.proxy.deprecated_class` and routes
 callables to :func:`deprecated_callable`), plus the decoration-time ``packing`` descriptors.  The target
-resolution and call-plan machinery lives in :mod:`deprecate._dispatch`; the warning templates and emitters
-in :mod:`deprecate.messaging`.  The legacy import path :mod:`deprecate.deprecation` re-exports the public
-decorators for backward compatibility.
+resolution lives in :mod:`deprecate._validate` and the call-plan machinery in :mod:`deprecate._dispatch`; the warning
+templates and emitters live in :mod:`deprecate.messaging`.  The legacy import path :mod:`deprecate.deprecation`
+re-exports the public decorators for backward compatibility.
+
+Callable targets with unreadable signatures can be decorated; forwarding that needs their signature raises the
+original introspection error at call time, including keyword validation without argument remapping.
 
 Key Components:
     - :func:`~deprecate.routine.deprecated_callable`: Canonical strict decorator (rejects classes)
@@ -19,69 +22,160 @@ Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 
 import inspect
 import warnings
-from contextvars import ContextVar
-from functools import cached_property, wraps
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Generator, Iterator
+from enum import Enum
+from functools import cached_property, partial, wraps
 from typing import Any, Callable, Literal, Optional, TypeVar, Union, cast
 
 from deprecate._dispatch import (
+    _build_call_facts,
     _build_call_plan,
-    _check_cross_class_method_target,
-    _detect_positional_only,
+    _enter_cycle_guard,
+    _exit_cycle_guard,
     _invoke_async,
     _invoke_sync,
-    _normalize_target,
-    _precompute_target_facts,
-    _reject_bare_decorator,
-    _resolve_stored_target,
-    _warn_stacking_misconfiguration,
+    _precompute_forward_defaults,
+    _skips_call_plan,
+    _WrapperContext,
 )
+from deprecate._frames import _caller_stacklevel
 from deprecate._properties import _DeprecatedProperty
 from deprecate._types import (
     DeprecationConfig,
     TargetMode,
+    _CallFacts,
+    _CallPlan,
     _DeprecatedCallable,
     _has_deprecation_meta,
     _WrapperState,
 )
+from deprecate._validate import (
+    _DESCRIPTOR_SOURCE_TYPES,
+    _check_cross_class_method_target,
+    _classmethod_target_error,
+    _normalize_target,
+    _reject_bare_decorator,
+    _resolve_stored_target,
+    _validate_callable_mode,
+    _warn_stacking_misconfiguration,
+)
 from deprecate.docstring.inject import _update_docstring_with_deprecation, normalize_docstring_style
 from deprecate.messaging import (
+    _callable_display_name,
+    _eval_skip_if,
     _render_static_deprecation_message,
     _resolve_message_template_alias,
     _source_display_name,
     _validate_message_template,
     deprecation_warning,
 )
-from deprecate.utils import _get_signature, _unwrap_descriptor_target
+from deprecate.utils import _unwrap_descriptor_target
 
-# ContextVar storing the active-wrapper id-set for the current async task or sync call stack.
-# Each asyncio.Task inherits a snapshot of the parent context at creation time; because this
-# ContextVar defaults to None and is only set() to a fresh set() inside the wrapper call, tasks
-# spawned from user code (e.g. asyncio.gather) see None and create independent sets — no sharing.
-# A synchronous recursive chain (same task/stack) shares one set — correct for cycle detection.
-# Lives here (not in _dispatch) because only the ``wrapped_fn`` closures below read/write it.
-_cycle_detection: ContextVar[Optional[set[int]]] = ContextVar("_cycle_detection", default=None)
+__all__ = ["deprecated_callable"]
 
 #: Decorated source type: preserve callable/descriptor signatures while rejecting non-callable values statically.
 _SourceT = TypeVar("_SourceT", bound=Union[Callable[..., Any], classmethod, staticmethod, property, cached_property])
 
 
-def _packing_descriptor(  # noqa: C901 — property-path guards (fget/fset/fdel validation + TypeError raises) are one coherent story; splitting further adds indirection without reducing real complexity
-    source: Union[Callable, classmethod, staticmethod, "property", cached_property],
+def _reject_property_options(
+    source: property,
+    target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
+    args_mapping: Optional[dict[str, Optional[str]]],
+    args_extra: Optional[dict[str, Any]],
+) -> None:
+    """Reject a re-deprecated ``property`` and the ``@deprecated`` options a ``property`` source cannot honour.
+
+    First guard of the ``property`` arm of :func:`_packing_descriptor`, run before any accessor is wrapped. The
+    checks run in this order: an already-deprecated property, then ``args_mapping``, ``args_extra``, a callable
+    ``target``, ``TargetMode.ARGS_REMAP`` (or legacy ``True``) and ``TargetMode.ATTRS_REMAP``.
+
+    Args:
+        source: The ``property`` being decorated.
+        target: Raw ``target`` argument from ``@deprecated``.
+        args_mapping: Raw ``args_mapping`` argument.
+        args_extra: Raw ``args_extra`` argument.
+
+    Raises:
+        TypeError: When *source* is already a ``_DeprecatedProperty``, or when any of the options above is set.
+
+    """
+    if isinstance(source, _DeprecatedProperty):
+        # Double-decorating an already-deprecated property would wrap every accessor twice,
+        # emitting two FutureWarnings per access and triggering _warn_stacking_misconfiguration
+        # three times. Raise early with a clear message instead of silently double-wrapping.
+        _accessor = source.fget or source.fset or source.fdel
+        _src_name = _accessor.__qualname__ if _accessor is not None else "<property>"
+        raise TypeError(
+            f"`@deprecated` cannot be applied twice to the already-deprecated property `{_src_name}`."
+            " Apply `@deprecated(...)` once; use `.setter()`/`.deleter()` rebinding for additional accessors."
+        )
+    if args_mapping:
+        raise TypeError(f"`args_mapping` is not supported when decorating a `property`. Got: {args_mapping!r}.")
+    if args_extra:
+        raise TypeError(f"`args_extra` is not supported when decorating a `property`. Got: {args_extra!r}.")
+    if callable(target):
+        raise TypeError(
+            f"`target` as a callable is not supported when decorating a `property`. Got: {target!r}."
+            " Use `TargetMode.NOTIFY` or omit `target`."
+        )
+    if target is True or target is TargetMode.ARGS_REMAP:
+        raise TypeError(
+            f"`target=TargetMode.ARGS_REMAP` (or legacy `True`) is not supported when decorating a `property`."
+            f" Got: {target!r}. Use `TargetMode.NOTIFY` or omit `target`."
+        )
+    if target is TargetMode.ATTRS_REMAP:
+        raise TypeError(
+            "`target=TargetMode.ATTRS_REMAP` is not valid for `@deprecated` on a `property`."
+            " `TargetMode.ATTRS_REMAP` is a proxy-only mode — use "
+            "`deprecated_class(attrs_mapping=...)` to deprecate class attribute names."
+        )
+
+
+def _reject_deprecated_accessors(source: property) -> None:
+    """Reject a ``property`` whose ``fget``, ``fset`` or ``fdel`` is already a ``@deprecated`` wrapper.
+
+    Second guard of the ``property`` arm of :func:`_packing_descriptor`, run after :func:`_reject_property_options`.
+
+    Args:
+        source: The ``property`` being decorated.
+
+    Raises:
+        TypeError: When any accessor already carries deprecation metadata; the first one found, in ``fget``,
+            ``fset``, ``fdel`` order, is named.
+
+    """
+    # Guard against pre-deprecated individual accessors fed into property(...) then
+    # decorated again: property(deprecated_fget) wrapped with @deprecated would double-wrap
+    # fget, emitting two FutureWarnings per read. The _DeprecatedProperty guard in
+    # _reject_property_options only catches property-objects that are themselves already
+    # _DeprecatedProperty instances.
+    for _acc_name, _acc in (("fget", source.fget), ("fset", source.fset), ("fdel", source.fdel)):
+        if _acc is not None and _has_deprecation_meta(_acc):
+            raise TypeError(
+                f"`@deprecated` cannot wrap accessor `{getattr(_acc, '__qualname__', repr(_acc))}` of property"
+                f" `{_acc_name}` — it is already decorated with `@deprecated`."
+                " Apply `@deprecated` once per accessor."
+            )
+
+
+def _packing_descriptor(
+    source: Union[classmethod, staticmethod, property, cached_property],
     packing_fn: Callable,
     target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
     args_mapping: Optional[dict[str, Optional[str]]],
     args_extra: Optional[dict[str, Any]],
-    _stacklevel: int,
-) -> Optional[Callable]:
+) -> Union[classmethod, staticmethod, property, cached_property]:
     """Wrap descriptor sources (classmethod/staticmethod/property/cached_property).
 
     Handles order-agnostic descriptor dispatch: unwraps the descriptor, applies
     *packing_fn* to the underlying callable, and rewraps in the same descriptor type.
     The ``property`` path validates that incompatible ``@deprecated`` options are not
-    mixed with property decoration.
+    mixed with property decoration (:func:`_reject_property_options`, then
+    :func:`_reject_deprecated_accessors`).
 
     Args:
-        source: The callable or descriptor being decorated.
+        source: The descriptor being decorated; ``packing`` routes only the
+            ``_DESCRIPTOR_SOURCE_TYPES`` kinds here.
         packing_fn: The ``packing`` closure from the enclosing ``deprecated()`` call.
             Passed explicitly so this module-level helper can recurse without capturing
             a closure variable.
@@ -89,12 +183,10 @@ def _packing_descriptor(  # noqa: C901 — property-path guards (fget/fset/fdel 
             validation guards only.
         args_mapping: Raw ``args_mapping`` argument; used for ``property`` validation only.
         args_extra: Raw ``args_extra`` argument; used for ``property`` validation only.
-        _stacklevel: Threaded through to recursive *packing_fn* calls so the decoration-site
-            stacklevel stays correct across nesting levels.
 
     Returns:
-        Wrapped descriptor when *source* is a descriptor, or ``None`` when *source* is a
-        plain callable (caller should continue to the regular callable path).
+        The rewrapped descriptor, of the same kind as *source* (a ``_DeprecatedProperty``
+        for a ``property``).
 
     Raises:
         TypeError: When incompatible ``@deprecated`` options are combined with a ``property``
@@ -110,87 +202,573 @@ def _packing_descriptor(  # noqa: C901 — property-path guards (fget/fset/fdel 
         # the wrong type") does not apply — thread ``_is_static`` through so ``packing`` skips the guard
         # for the unwrapped function, whose qualname alone cannot reveal it was a staticmethod.
         _is_static = isinstance(source, staticmethod)
-        wrapped_inner = packing_fn(source.__func__, _stacklevel + 2, _is_static=_is_static)
-        return classmethod(wrapped_inner) if isinstance(source, classmethod) else staticmethod(wrapped_inner)  # type: ignore[return-value]
+        wrapped_inner = packing_fn(source.__func__, _is_static=_is_static)
+        return classmethod(wrapped_inner) if isinstance(source, classmethod) else staticmethod(wrapped_inner)
 
     if isinstance(source, property):
         # Order-agnostic @property: unwrap → deprecate fget/fset/fdel → rewrap preserving doc.
         # All three accessors are wrapped so attribute read, write, and delete each fire the warning.
-        if isinstance(source, _DeprecatedProperty):
-            # Double-decorating an already-deprecated property would wrap every accessor twice,
-            # emitting two FutureWarnings per access and triggering _warn_stacking_misconfiguration
-            # three times. Raise early with a clear message instead of silently double-wrapping.
-            _accessor = source.fget or source.fset or source.fdel
-            _src_name = _accessor.__qualname__ if _accessor is not None else "<property>"
-            raise TypeError(
-                f"`@deprecated` cannot be applied twice to the already-deprecated property `{_src_name}`."
-                " Apply `@deprecated(...)` once; use `.setter()`/`.deleter()` rebinding for additional accessors."
-            )
-        if args_mapping:
-            raise TypeError(f"`args_mapping` is not supported when decorating a `property`. Got: {args_mapping!r}.")
-        if args_extra:
-            raise TypeError(f"`args_extra` is not supported when decorating a `property`. Got: {args_extra!r}.")
-        if callable(target):
-            raise TypeError(
-                f"`target` as a callable is not supported when decorating a `property`. Got: {target!r}."
-                " Use `TargetMode.NOTIFY` or omit `target`."
-            )
-        if target is True or target is TargetMode.ARGS_REMAP:
-            raise TypeError(
-                f"`target=TargetMode.ARGS_REMAP` (or legacy `True`) is not supported when decorating a `property`."
-                f" Got: {target!r}. Use `TargetMode.NOTIFY` or omit `target`."
-            )
-        if target is TargetMode.ATTRS_REMAP:
-            raise TypeError(
-                "`target=TargetMode.ATTRS_REMAP` is not valid for `@deprecated` on a `property`."
-                " `TargetMode.ATTRS_REMAP` is a proxy-only mode — use "
-                "`deprecated_class(attrs_mapping=...)` to deprecate class attribute names."
-            )
-        # Guard against pre-deprecated individual accessors fed into property(...) then
-        # decorated again: property(deprecated_fget) wrapped with @deprecated would double-wrap
-        # fget, emitting two FutureWarnings per read. The _DeprecatedProperty guard above only
-        # catches property-objects that are themselves already _DeprecatedProperty instances.
-        for _acc_name, _acc in (("fget", source.fget), ("fset", source.fset), ("fdel", source.fdel)):
-            if _acc is not None and _has_deprecation_meta(_acc):
-                raise TypeError(
-                    f"`@deprecated` cannot wrap accessor `{getattr(_acc, '__qualname__', repr(_acc))}` of property"
-                    f" `{_acc_name}` — it is already decorated with `@deprecated`."
-                    " Apply `@deprecated` once per accessor."
-                )
+        _reject_property_options(source, target, args_mapping, args_extra)
+        _reject_deprecated_accessors(source)
         # Preserve explicit doc only when it differs from fget's doc (author override)
         # or when fget is absent (setter/deleter-only property with doc= supplied).
         # Otherwise pass None so property() inherits the deprecation-injected fget.__doc__.
         explicit_doc = source.__doc__ if (source.fget is None or source.__doc__ != source.fget.__doc__) else None
 
-        # Closure captured on the returned ``_DeprecatedProperty`` so chain-style
+        # ``packing_fn`` is captured on the returned ``_DeprecatedProperty`` so chain-style
         # ``@value.setter`` / ``@value.deleter`` can re-wrap freshly-supplied accessors
         # with the same packing config (message_template, stream, deprecated_in, remove_in,
-        # num_warns, skip_if, stacklevel). args_mapping / args_extra / callable target are
+        # num_warns, skip_if). args_mapping / args_extra / callable target are
         # blocked above by TypeError guards and are never reachable here.
         # Without this, ``property.setter(fn)`` would build a plain ``property`` whose new
         # accessor is raw — silently dropping the deprecation warning on attribute writes.
-        _accessor_sl = _stacklevel + 2
-
-        def _wrap_accessor(fn: Callable) -> Callable:
-            """Apply packing_fn to a property accessor with the adjusted stacklevel."""
-            return packing_fn(fn, _accessor_sl)
-
-        return _DeprecatedProperty(  # type: ignore[return-value]
-            packing_fn(source.fget, _stacklevel + 2) if source.fget is not None else None,
-            packing_fn(source.fset, _stacklevel + 2) if source.fset is not None else None,
-            packing_fn(source.fdel, _stacklevel + 2) if source.fdel is not None else None,
+        return _DeprecatedProperty(
+            packing_fn(source.fget) if source.fget is not None else None,
+            packing_fn(source.fset) if source.fset is not None else None,
+            packing_fn(source.fdel) if source.fdel is not None else None,
             explicit_doc,
-            _wrap=_wrap_accessor,
+            _wrap=packing_fn,
         )
 
-    if isinstance(source, cached_property):
-        # Order-agnostic @cached_property: unwrap → deprecate func → rewrap.
-        return cached_property(packing_fn(source.func, _stacklevel + 2))  # type: ignore[return-value]
-
-    return None
+    # Order-agnostic @cached_property: unwrap → deprecate func → rewrap.
+    return cached_property(packing_fn(source.func))
 
 
-def deprecated_callable(  # noqa: C901
+def _validate_callable_source(
+    source: Callable[..., Any],
+    target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
+    *,
+    is_static: bool,
+    message_template: Optional[str],
+    deprecated_in: str,
+    stream: Optional[Callable[..., Any]],
+) -> None:
+    """Run the decoration-time guards of :func:`deprecated_callable` on a non-descriptor source.
+
+    The guards run in this order, so the first problem found is the one reported: the missing-parentheses check
+    (:func:`~deprecate._validate._reject_bare_decorator`), the class rejection, the ``message_template`` probe, the
+    missing-``deprecated_in`` notice, the cross-class method guard, the static-source rejection for a ``classmethod``
+    descriptor target and the ``TargetMode.ATTRS_REMAP`` rejection.
+
+    Args:
+        source: The object ``packing`` received. A descriptor never reaches here: ``packing`` hands it to
+            :func:`_packing_descriptor`, whose recursion validates the unwrapped function instead.
+        target: Raw ``target`` argument, before :func:`~deprecate._validate._normalize_target`.
+        is_static: ``True`` when *source* is the function unwrapped from a ``staticmethod``; skips the cross-class
+            guard, since no ``self`` is passed, and rejects a ``classmethod`` descriptor target, since no class is
+            passed either.
+        message_template: The resolved ``message_template`` (after the ``template_mgs`` alias).
+        deprecated_in: The ``deprecated_in`` version; an empty value triggers the missing-version notice.
+        stream: Warning stream; ``None`` silences the missing-version notice.
+
+    Raises:
+        TypeError: When ``@deprecated`` was applied without parentheses, when *source* is a class, when a method
+            source forwards to a method of a different class, when a ``staticmethod`` source forwards to a
+            ``classmethod`` descriptor target, or when *target* is ``TargetMode.ATTRS_REMAP``.
+        ValueError: When ``message_template`` is malformed.
+
+    Warns:
+        UserWarning: When ``deprecated_in`` is empty, ``stream`` is not ``None`` and no ``message_template`` is set.
+
+    """
+    _reject_bare_decorator(source)
+    # Strict callable-only contract: a class source is rejected up front rather than delegated to
+    # `deprecated_class`. `deprecated()` is the dispatcher that routes classes; this is its callable arm.
+    if inspect.isclass(source):
+        raise TypeError(
+            f"`@deprecated_callable` cannot decorate class `{source.__name__}` — it is the strict"
+            " callable-only form. Use `@deprecated_class(...)` to deprecate a class, or `@deprecated`"
+            " for automatic class/callable dispatch."
+        )
+    # Probe ``message_template`` against every documented placeholder so typos and malformed
+    # conversion specifiers fail at decoration time instead of inside ``wrapped_fn``.
+    _validate_message_template(message_template)
+    # Note: message_template intentionally bypasses this guard — callers with custom templates
+    # control their own messaging and may not rely on deprecated_in being present.
+    if not deprecated_in and stream is not None and not message_template:
+        warnings.warn(
+            f"`@deprecated` on `{source.__name__}` has no `deprecated_in` set."
+            " Deprecation notices and generated documentation will omit the `deprecated_in` version."
+            " Pass `deprecated_in` for a meaningful deprecation notice.",
+            UserWarning,
+            stacklevel=_caller_stacklevel(),
+        )
+    # Cross-class guard runs before ``_normalize_target``; class targets skip it because
+    # constructor forwarding (target=NewCls on __init__) is always valid.
+    # Descriptor targets: unwrap __func__ so the guard can inspect the qualname;
+    # raw staticmethod/classmethod descriptors lack __qualname__ on the instance.
+    # A staticmethod *source* skips the guard: no ``self`` is passed, so cross-class forwarding
+    # cannot carry a wrong-typed receiver (see ``is_static``).  A staticmethod *target* is NOT a
+    # skip signal — an instance-method source forwarding to a staticmethod would still leak ``self``
+    # across classes, so that case must keep raising.
+    _guard_target = _unwrap_descriptor_target(target)
+    if callable(_guard_target) and not inspect.isclass(_guard_target) and not is_static:
+        _check_cross_class_method_target(source, _guard_target)
+    # A ``staticmethod`` source never receives the class, so it has nothing to hand a ``classmethod`` target as its
+    # receiver.  Only the ``@deprecated`` above ``@staticmethod`` order reveals the staticmethod here; in the other
+    # order the source is a plain function, which the call-time receiver check covers instead.
+    if is_static and isinstance(target, classmethod):
+        raise _classmethod_target_error(
+            source.__name__, target.__func__, f"'{source.__name__}' is a @staticmethod, which never receives the class"
+        )
+    # ATTRS_REMAP is a proxy-only mode — it is meaningless on @deprecated functions/methods
+    # because there is no attribute-access surface to intercept. Raise at decoration time
+    # rather than silently producing a wrapper whose stored target has no runtime effect.
+    # The raw ``target`` is checked: ``_normalize_target`` passes a ``TargetMode`` through unchanged and maps no
+    # legacy sentinel to ``ATTRS_REMAP``, so this equals the check on the normalised target.
+    if target is TargetMode.ATTRS_REMAP:
+        raise TypeError(
+            f"`target=TargetMode.ATTRS_REMAP` is not valid for `@deprecated` on `{source.__name__}`. "
+            "`TargetMode.ATTRS_REMAP` is a proxy-only mode — use "
+            "`deprecated_class(attrs_mapping=...)` to deprecate class attribute names."
+        )
+
+
+def _build_callable_config(
+    *,
+    source: Callable[..., Any],
+    target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod],
+    facts: _CallFacts,
+    function_misconfigured: bool,
+    deprecated_in: str = "",
+    remove_in: str = "",
+    args_mapping: Optional[dict[str, Optional[str]]] = None,
+    args_extra: Optional[dict[str, Any]] = None,
+    docstring_style: Literal["rst", "mkdocs"] = "rst",
+    message_template: Optional[str] = None,
+    as_exception: Optional[bool] = None,
+) -> DeprecationConfig:
+    """Build the frozen :class:`~deprecate._types.DeprecationConfig` a ``@deprecated`` wrapper carries.
+
+    Derives the per-source fields: ``name`` from *source*, the stored ``target``
+    (:func:`~deprecate._validate._resolve_stored_target`), ``misconfigured`` (legacy ``target=False`` or
+    *function_misconfigured*) and the eight signature cache fields from *facts*. ``args_mapping`` and ``args_extra``
+    are copied, so mutating the caller's dicts after decoration cannot reach the frozen config and silently change
+    forwarding at call time. The keyword defaults equal the ``DeprecationConfig`` field defaults.
+
+    Args:
+        source: The decorated callable.
+        target: Raw ``target`` argument, before :func:`~deprecate._validate._normalize_target`.
+        facts: Signature facts from :func:`~deprecate._dispatch._build_call_facts`.
+        function_misconfigured: Result of :func:`~deprecate._validate._validate_callable_mode` for an explicit mode.
+        deprecated_in: Version the source was deprecated in.
+        remove_in: Version the source will be removed in.
+        args_mapping: Caller's ``args_mapping``; stored as a copy.
+        args_extra: Caller's ``args_extra``; stored as a copy.
+        docstring_style: Normalised docstring style.
+        message_template: Resolved ``message_template``.
+        as_exception: Per-decorator fatal switch.
+
+    Returns:
+        The config stored as ``wrapper.__deprecation_config__``.
+
+    Example:
+        >>> def old_func(old_arg=0): pass
+        >>> mapping = {"old_arg": "new_arg"}
+        >>> cfg = _build_callable_config(
+        ...     source=old_func, target=TargetMode.ARGS_REMAP, facts=_CallFacts(), function_misconfigured=False,
+        ...     args_mapping=mapping,
+        ... )
+        >>> mapping["old_arg"] = "other"
+        >>> cfg.name, cfg.args_mapping
+        ('old_func', {'old_arg': 'new_arg'})
+
+    """
+    return DeprecationConfig(
+        deprecated_in=deprecated_in,
+        remove_in=remove_in,
+        name=source.__name__,
+        target=_resolve_stored_target(target),
+        args_mapping=dict(args_mapping) if isinstance(args_mapping, dict) else args_mapping,
+        args_extra=dict(args_extra) if isinstance(args_extra, dict) else args_extra,
+        misconfigured=target is False or function_misconfigured,
+        docstring_style=docstring_style,
+        message_template=message_template,
+        as_exception=as_exception,
+        target_positional_only=facts.target_positional_only,
+        target_positional_only_order=facts.target_positional_only_order,
+        source_positional_only=facts.source_positional_only,
+        source_positional_only_order=facts.source_positional_only_order,
+        source_var_positional_prefix=facts.source_var_positional_prefix,
+        target_all_param_names=facts.target_all_param_names,
+        target_accepts_var_positional=facts.target_accepts_var_positional,
+        target_accepts_var_keyword=facts.target_accepts_var_keyword,
+    )
+
+
+class _WrapperKind(Enum):
+    """The shape of the ``@deprecated`` wrapper, matching the kind of its source so the ``inspect`` flags survive.
+
+    Frameworks pick how to run a callable from :func:`inspect.iscoroutinefunction`, :func:`inspect.isgeneratorfunction`
+    and :func:`inspect.isasyncgenfunction` (pytest's fixture runner, for one), and those flags come from the wrapper's
+    own code object, so each source kind needs a wrapper of the same kind.
+
+    """
+
+    FUNCTION = "function"
+    COROUTINE = "coroutine"
+    GENERATOR = "generator"
+    ASYNC_GENERATOR = "async_generator"
+
+
+def _wrapper_kind(source: Callable) -> _WrapperKind:
+    """Pick the wrapper shape for ``source`` from its own ``inspect`` flags.
+
+    An async generator function is not a coroutine function, so the generator checks come first only for clarity. A
+    generator-based coroutine (a generator function decorated with :func:`types.coroutine`, whose code object carries
+    ``CO_ITERABLE_COROUTINE``) gets the plain function wrapper: ``await`` accepts the generator the source returns, but
+    not one made by a generator wrapper, whose own code object lacks that flag.
+
+    Args:
+        source: The callable being deprecated.
+
+    Returns:
+        The matching :class:`_WrapperKind`.
+
+    Examples:
+        >>> import types
+        >>> def gen():
+        ...     yield 1
+        >>> async def agen():
+        ...     yield 1
+        >>> async def coro(): ...
+        >>> @types.coroutine
+        ... def legacy_coro():
+        ...     yield
+        >>> [_wrapper_kind(fn).value for fn in (gen, agen, coro, legacy_coro, len)]
+        ['generator', 'async_generator', 'coroutine', 'function', 'function']
+
+    """
+    if inspect.isasyncgenfunction(source):
+        return _WrapperKind.ASYNC_GENERATOR
+    if inspect.isgeneratorfunction(source):
+        code_flags = getattr(getattr(source, "__code__", None), "co_flags", 0)
+        if code_flags & inspect.CO_ITERABLE_COROUTINE:
+            return _WrapperKind.FUNCTION
+        return _WrapperKind.GENERATOR
+    if inspect.iscoroutinefunction(source):
+        return _WrapperKind.COROUTINE
+    return _WrapperKind.FUNCTION
+
+
+def _sync_call_path(ctx: _WrapperContext) -> Callable[..., Any]:
+    """Return the call path the plain function wrapper runs: ``skip_if``, the fast path, the planned call.
+
+    A call that ``skip_if`` skips runs the source unchanged; so does a call that warns nothing and needs no rewrite
+    (:func:`~deprecate._dispatch._skips_call_plan`, for example a ``TargetMode.NOTIFY`` call after the warn budget is
+    spent); any other call enters the target-chain cycle guard, builds the call plan and invokes it, and leaves the
+    guard before it returns. Only :func:`_function_wrapper` uses this closure. The generator wrappers repeat the
+    ``skip_if`` and fast-path checks themselves and then run :func:`_guarded_first_step` /
+    :func:`_guarded_first_async_step`, which deliberately hold the guard across creating the inner generator and
+    taking its first item; this closure releases the guard as soon as the call returns, so routing them through it
+    would lose generator-cycle detection.
+
+    Args:
+        ctx: The decoration-time context the wrapper hands to every call.
+
+    Returns:
+        The call path, taking the caller's arguments and returning what the source or target returned.
+
+    """
+
+    def wrapped_fn(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if _eval_skip_if(ctx.skip_if):
+            return ctx.source(*args, **kwargs)
+        if _skips_call_plan(ctx, args, kwargs):
+            return ctx.source(*args, **kwargs)
+        handle = _enter_cycle_guard(ctx)
+        try:
+            return _invoke_sync(ctx, _build_call_plan(ctx, args, kwargs), args)
+        finally:
+            _exit_cycle_guard(ctx, handle)
+
+    return wrapped_fn
+
+
+def _function_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
+    """Build the plain ``def`` wrapper: the sync call path itself, with the source's ``functools.wraps`` metadata."""
+    return wraps(ctx.source)(_sync_call_path(ctx))
+
+
+def _coroutine_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
+    """Build the ``async def`` wrapper, whose call path matches :func:`_sync_call_path` but awaits the source."""
+
+    @wraps(ctx.source)
+    async def async_wrapped_fn(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        if _eval_skip_if(ctx.skip_if):
+            return await ctx.source(*args, **kwargs)
+        if _skips_call_plan(ctx, args, kwargs):
+            return await ctx.source(*args, **kwargs)
+        handle = _enter_cycle_guard(ctx)
+        try:
+            return await _invoke_async(ctx, _build_call_plan(ctx, args, kwargs), args)
+        finally:
+            _exit_cycle_guard(ctx, handle)
+
+    return async_wrapped_fn
+
+
+def _guarded_first_step(
+    ctx: _WrapperContext, args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> tuple[Iterator[Any], Any, Optional[StopIteration]]:
+    """Run a generator wrapper's call plan and take the first item of what it returns, under the cycle guard.
+
+    The guard spans the inner iterator's creation and its first step, so a ``target=`` cycle made only of generator
+    wrappers re-enters it and raises the cycle ``RuntimeError`` instead of nesting generators until ``RecursionError``.
+    It is released before the wrapper yields, so a generator suspended at a ``yield`` holds no guard entry and two live
+    generators of one wrapper on one thread cannot raise a false cycle.
+
+    Returns:
+        Tuple of ``(inner, first_item, stop)``: ``stop`` is the ``StopIteration`` of an inner iterator that ended on
+        its first step (``first_item`` is then ``None``), otherwise ``None``.
+
+    """
+    handle = _enter_cycle_guard(ctx)
+    try:
+        inner = iter(_invoke_sync(ctx, _build_call_plan(ctx, args, kwargs), args))
+        try:
+            return inner, next(inner), None
+        except StopIteration as stop:
+            return inner, None, stop
+    finally:
+        _exit_cycle_guard(ctx, handle)
+
+
+def _resume_generator(inner: Iterator[Any], item: Any) -> Generator[Any, Any, Any]:  # noqa: ANN401
+    """Yield ``item``, then delegate to ``inner`` as ``yield from`` would, forwarding ``send``, ``throw`` and ``close``.
+
+    ``item`` was already taken from ``inner``, so the consumer's resumption after a held item is forwarded by hand: a
+    sent value goes on through ``send``, a thrown exception through ``throw`` (re-raised here when ``inner`` has no
+    ``throw``, as for a list iterator), and ``close`` reaches ``inner``; each of those yields a new held item. The first
+    plain ``next()`` holds nothing, so ``yield from`` takes over there and returns ``inner``'s return value.
+
+    While an item is held, a thrown exception reaches ``inner`` as the single-argument ``throw(exc)``: the ``except``
+    block sees only the raised exception, not how the consumer called ``throw``, so the three-argument form of ``throw``
+    is not preserved in this phase. Once ``yield from`` has taken over, the consumer's ``throw`` arguments reach
+    ``inner`` as given.
+
+    """
+    while True:
+        try:
+            sent = yield item
+        except GeneratorExit:
+            close = getattr(inner, "close", None)
+            if close is not None:
+                close()
+            raise
+        except BaseException as exc:
+            throw = getattr(inner, "throw", None)
+            if throw is None:
+                raise
+            try:
+                item = throw(exc)
+            except StopIteration as stop:
+                return stop.value
+            continue
+        if sent is None:
+            # Drop the held item before handing over: this frame stays suspended in ``yield from`` until ``inner``
+            # ends, and the consumer may expect the item to be freed once it has moved past it.
+            item = None
+            return (yield from inner)
+        try:
+            # A plain iterator without ``send`` raises ``AttributeError`` here, as PEP 380 ``yield from`` does.
+            item = cast(Generator[Any, Any, Any], inner).send(sent)
+        except StopIteration as stop:
+            return stop.value
+
+
+def _generator_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
+    """Build the generator wrapper of a generator function: the call path runs on the first ``next()``.
+
+    Calling the wrapper only creates the generator object, so the warning, the ``num_warns`` budget, an
+    :func:`~deprecate.as_exceptions` error, the ``skip_if`` evaluation and argument binding and remapping (with their
+    arity and ``Failed mapping`` ``TypeError``) all wait for the first step, and a generator that is never iterated
+    never warns. ``send``/``throw``/``close`` and the return value are forwarded; a target that returns any other
+    iterable (a list, an iterator) has its items yielded. A call that ``skip_if`` skips, or that needs no call plan,
+    delegates to the source with ``yield from`` and no cycle guard, as the function wrapper runs it.
+
+    """
+
+    @wraps(ctx.source)
+    def generator_wrapped_fn(*args: Any, **kwargs: Any) -> Generator[Any, Any, Any]:  # noqa: ANN401
+        if _eval_skip_if(ctx.skip_if) or _skips_call_plan(ctx, args, kwargs):
+            return (yield from ctx.source(*args, **kwargs))
+        inner, item, stop = _guarded_first_step(ctx, args, kwargs)
+        if stop is not None:
+            return stop.value
+        resume = _resume_generator(inner, item)
+        # ``resume`` now holds the first item; this frame stays suspended for the generator's lifetime, so it must
+        # not keep its own reference to that item.
+        del item
+        return (yield from resume)
+
+    return generator_wrapped_fn
+
+
+async def _await_step(step: Callable[[], Awaitable[Any]]) -> tuple[Any, bool]:
+    """Take one step of an async iterator; return ``(item, done)`` with ``done`` set when it ended instead.
+
+    ``step`` is called inside the ``try`` as well as awaited there: a custom async iterator may raise
+    ``StopAsyncIteration`` from a plain ``def`` ``__anext__`` (or ``asend`` / ``athrow``) instead of from the awaitable
+    it returns, and native ``async for`` treats both as the end of the iteration.
+
+    Args:
+        step: Zero-argument callable returning the awaitable of the step, such as a bound ``__anext__``.
+
+    Returns:
+        Tuple of ``(item, done)``; ``item`` is ``None`` when ``done`` is set.
+
+    """
+    try:
+        return await step(), False
+    except StopAsyncIteration:
+        return None, True
+
+
+def _async_iterator_of(ctx: _WrapperContext, plan: _CallPlan, result: Any) -> AsyncIterator[Any]:  # noqa: ANN401
+    """Return the async iterator of what an async generator wrapper's call plan returned, or raise a curated error.
+
+    An async generator's target must return an async iterable; a target returning a list or another sync iterable
+    would otherwise fail with a bare ``AttributeError`` on ``__aiter__``.
+
+    Raises:
+        TypeError: If ``result`` has no ``__aiter__``; the message names the source, the target and the result type.
+
+    """
+    if not hasattr(result, "__aiter__"):
+        target = plan.target_func
+        target_name = ctx.source.__name__ if target is None else _callable_display_name(target)[0]
+        raise TypeError(
+            f"Target `{target_name}` of async generator `{ctx.source.__name__}` returned `{type(result).__name__}`,"
+            " which is not an async iterable. Make the target an async generator function, or a callable that returns"
+            " an async iterator."
+        )
+    return cast(AsyncIterator[Any], result.__aiter__())
+
+
+async def _guarded_first_async_step(
+    ctx: _WrapperContext, args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> tuple[AsyncIterator[Any], Any, bool]:
+    """Async twin of :func:`_guarded_first_step`: create the inner async iterator and await its first item, guarded.
+
+    Returns:
+        Tuple of ``(inner, first_item, done)``; ``done`` is set when ``inner`` ended on its first step.
+
+    """
+    handle = _enter_cycle_guard(ctx)
+    try:
+        plan = _build_call_plan(ctx, args, kwargs)
+        inner = _async_iterator_of(ctx, plan, _invoke_sync(ctx, plan, args))
+        item, done = await _await_step(inner.__anext__)
+        return inner, item, done
+    finally:
+        _exit_cycle_guard(ctx, handle)
+
+
+async def _open_async_generator(
+    ctx: _WrapperContext, args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> tuple[AsyncIterator[Any], Any, bool]:
+    """Take an async generator wrapper's first step, guarded only when the call runs its call plan.
+
+    A call that ``skip_if`` skips, or that needs no call plan, starts the source unguarded; any other call goes through
+    :func:`_guarded_first_async_step`.
+
+    Returns:
+        Tuple of ``(inner, first_item, done)``; ``done`` is set when ``inner`` ended on its first step.
+
+    """
+    if _eval_skip_if(ctx.skip_if) or _skips_call_plan(ctx, args, kwargs):
+        inner = ctx.source(*args, **kwargs).__aiter__()
+        item, done = await _await_step(inner.__anext__)
+        return inner, item, done
+    return await _guarded_first_async_step(ctx, args, kwargs)
+
+
+def _async_generator_wrapper(ctx: _WrapperContext) -> Callable[..., Any]:
+    """Build the async generator wrapper of an async generator function: the call path runs on the first step.
+
+    Timing and the cycle guard match :func:`_generator_wrapper`: nothing runs until the first ``async for`` step, and
+    the guard covers only the first step. Async generators have no ``yield from``, so the inner async iterator is driven
+    by hand, duck-typed as the sync wrapper does: each value the consumer sends goes on through ``asend``, each
+    exception thrown in through ``athrow`` (re-raised here when the inner iterator has none), and ``aclose`` reaches it,
+    when it has one, as the wrapper is closed. A plain ``__anext__`` serves a resumption that sends nothing.
+
+    """
+
+    @wraps(ctx.source)
+    async def async_generator_wrapped_fn(*args: Any, **kwargs: Any) -> AsyncGenerator[Any, Any]:  # noqa: ANN401
+        inner, item, done = await _open_async_generator(ctx, args, kwargs)
+        step: Callable[[], Awaitable[Any]]
+        while not done:
+            try:
+                sent = yield item
+            except GeneratorExit:
+                aclose = getattr(inner, "aclose", None)
+                if aclose is not None:
+                    await aclose()
+                raise
+            # Not swallowed: ``athrow`` raises the exception inside the inner iterator, which handles or re-raises it.
+            except BaseException as exc:
+                athrow = getattr(inner, "athrow", None)
+                if athrow is None:
+                    raise
+                step = partial(athrow, exc)
+            else:
+                # An inner async iterator without ``asend`` raises ``AttributeError`` on a sent value, as the sync
+                # wrapper's ``send`` does, after PEP 380 ``yield from``.
+                step = inner.__anext__ if sent is None else partial(cast(AsyncGenerator[Any, Any], inner).asend, sent)
+            # Called inside ``_await_step``, so a step that raises ``StopAsyncIteration`` directly ends the loop.
+            item, done = await _await_step(step)
+
+    return async_generator_wrapped_fn
+
+
+#: Wrapper builder per source kind; :func:`_make_wrapper` attaches the deprecation metadata to what they return.
+_WRAPPER_BUILDERS: dict[_WrapperKind, Callable[[_WrapperContext], Callable[..., Any]]] = {
+    _WrapperKind.FUNCTION: _function_wrapper,
+    _WrapperKind.COROUTINE: _coroutine_wrapper,
+    _WrapperKind.GENERATOR: _generator_wrapper,
+    _WrapperKind.ASYNC_GENERATOR: _async_generator_wrapper,
+}
+
+
+def _make_wrapper(ctx: _WrapperContext, *, kind: _WrapperKind, update_docstring: bool) -> _DeprecatedCallable:
+    """Build the ``@deprecated`` wrapper around ``ctx.source`` and attach its deprecation metadata.
+
+    ``kind`` selects the wrapper shape so the wrapper reports the same ``inspect`` flags as the source: a plain
+    function and a coroutine function run the call path (:func:`_sync_call_path` or its awaiting twin) on every call,
+    while a generator and an async generator function run the same steps on their first step, under a cycle guard held
+    across that step, and then drive the inner (async) generator the planned call returned. The wrapper carries the
+    ``functools.wraps`` metadata of the source (``__wrapped__`` included), ``__deprecation_config__`` (``ctx.cfg``),
+    the PEP 702 ``__deprecated__`` message rendered from ``ctx.cfg``, and ``_state`` — the very ``ctx.state`` object,
+    so a counter reset through the wrapper reaches the call path.
+
+    Args:
+        ctx: The decoration-time context the wrapper hands to every call.
+        kind: The wrapper shape; ``packing`` passes :func:`_wrapper_kind` of the source.
+        update_docstring: Inject the deprecation notice into the wrapper's docstring.
+
+    Returns:
+        The wrapper.
+
+    """
+    wrapper = cast(_DeprecatedCallable, _WRAPPER_BUILDERS[kind](ctx))
+    # The PEP-702-conformant ``__deprecated__`` message string, computed statically at decoration time from the
+    # config alone.
+    source_name = _source_display_name(ctx.source)
+    wrapper.__deprecation_config__ = ctx.cfg
+    wrapper.__deprecated__ = _render_static_deprecation_message(
+        ctx.cfg, source_name, f"{ctx.source.__module__}.{source_name}"
+    )
+    wrapper._state = ctx.state
+
+    if update_docstring:
+        _update_docstring_with_deprecation(wrapper)
+
+    return wrapper
+
+
+def deprecated_callable(
     target: Union[bool, None, Callable, TargetMode, staticmethod, classmethod] = TargetMode.NOTIFY,
     deprecated_in: str = "",
     remove_in: str = "",
@@ -220,8 +798,16 @@ def deprecated_callable(  # noqa: C901
     implementation.  It supports argument mapping, custom warning messages, and flexible warning control.
 
     For **generator functions** (``def gen(): yield``) and **async generator functions** (``async def gen(): yield``),
-    the deprecation warning fires at call time — when the (async) generator object is created — not at first
-    iteration.  The generator body executes lazily as normal when iterated (``next()`` / ``async for``).
+    the wrapper is itself a generator (async generator) function, so :func:`inspect.isgeneratorfunction` /
+    :func:`inspect.isasyncgenfunction` stay ``True`` and frameworks such as pytest's fixture runner treat it like the
+    original.  Calling it only creates the generator object: the deprecation warning, the ``num_warns`` budget, an
+    ``as_exception`` / :func:`~deprecate.as_exceptions` error, the ``skip_if`` evaluation and argument binding and
+    remapping (with their ``TypeError``) come on the first ``next()`` / ``async for`` step, and a generator that is
+    never iterated never warns.  ``send``/``throw``/``close`` (``asend``/``athrow``/``aclose``) and
+    the return value reach the inner generator; a sync generator's target returning another iterable has its items
+    yielded, while an async generator's target must return an async iterable.  The wrapper kind follows the source,
+    so a generator stub must itself contain ``yield``.  A generator-based coroutine (a :func:`types.coroutine`
+    generator) keeps the plain wrapper, which warns at call time and stays awaitable.
 
     Args:
         target: How to handle the deprecation. Defaults to :attr:`~deprecate.TargetMode.NOTIFY` (warn-only; source
@@ -246,8 +832,15 @@ def deprecated_callable(  # noqa: C901
 
         deprecated_in: Version when the function was deprecated (e.g., "1.0.0"). Default is empty string.
         remove_in: Version when the function will be removed (e.g., "2.0.0"). Default is empty string.
-        stream: Function to output warnings (default: :func:`~deprecate.deprecation.deprecation_warning`, which is
+        stream: Function to output warnings (default: :func:`~deprecate.messaging.deprecation_warning`, which is
             :func:`warnings.warn` with ``FutureWarning`` category). Set to ``None`` to disable warnings entirely.
+            A custom ``stream`` is called once per warning, with ``stacklevel=`` only when its signature declares a
+            ``stacklevel`` parameter or ``**kwargs`` (:func:`warnings.warn` and its partials always qualify); a
+            C-level callable without an introspectable signature gets the message alone and loses caller attribution.
+            The ``stacklevel`` passed is counted from the frame that calls ``stream``, so it points at the caller
+            for :func:`warnings.warn` and a C-level :func:`functools.partial` of it; a pure-Python stream, and the
+            module-level :func:`logging.warning` before Python 3.11, land one frame short (see
+            ``deprecate._frames._caller_stacklevel`` for the full rule).
         num_warns: Number of times to show warning per function or per deprecated argument:
             - ``1`` (default): Show warning once per function/argument
             - ``-1``: Show warning on every call
@@ -294,10 +887,11 @@ def deprecated_callable(  # noqa: C901
             target is never invoked, and the source body never runs (so ``TargetMode.NOTIFY`` and
             ``TargetMode.ARGS_REMAP`` stop instead of falling through). A fatal deprecation ignores
             ``num_warns`` and raises on **every** call, and ``stream=None`` silences only the message, never
-            the raise; ``skip_if`` still suppresses it entirely. ``None`` (default) defers to the process-wide
-            ``deprecate.AS_EXCEPTIONS`` switch (seeded from the ``DEPRECATE_AS_EXCEPTIONS`` environment
-            variable); ``True`` is always fatal; ``False`` means "not fatal by default" and still yields to a
-            ``True`` global, so a consumer's strict run cannot be opted out of by an upstream wrapper.
+            the raise; ``skip_if`` still suppresses it entirely. ``None`` (default) follows the open
+            :func:`~deprecate._fatal.as_exceptions` scope, else ``deprecate.AS_EXCEPTIONS`` (seeded from the
+            ``DEPRECATE_AS_EXCEPTIONS`` environment variable); ``True`` is always fatal; ``False`` means "not
+            fatal by default" and still yields to a ``True`` global, so a consumer's strict run cannot be opted out
+            of by an upstream wrapper.
             Python's own ``-W error::FutureWarning`` is the alternative when you want *every* library's
             ``FutureWarning`` to raise; this flag is scoped to pyDeprecate's own deprecations and also works
             when ``stream`` is not a warnings function (e.g. :func:`logging.warning`).
@@ -367,277 +961,77 @@ def deprecated_callable(  # noqa: C901
         )
     normalized_docstring_style = normalize_docstring_style(docstring_style)
 
-    def packing(  # noqa: C901
+    def packing(
         source: Union[Callable, classmethod, staticmethod, property, cached_property],
-        _stacklevel: int = 2,
         _is_static: bool = False,
-    ) -> Callable:
-        _reject_bare_decorator(source)
-        # Strict callable-only contract: a class source is rejected up front rather than delegated to
-        # `deprecated_class`. `deprecated()` is the dispatcher that routes classes; this is its callable arm.
-        if inspect.isclass(source):
-            raise TypeError(
-                f"`@deprecated_callable` cannot decorate class `{source.__name__}` — it is the strict"
-                " callable-only form. Use `@deprecated_class(...)` to deprecate a class, or `@deprecated`"
-                " for automatic class/callable dispatch."
-            )
-        _descriptor_result = _packing_descriptor(source, packing, target, args_mapping, args_extra, _stacklevel)
-        if _descriptor_result is not None:
-            return _descriptor_result
-        # mypy narrowing: _packing_descriptor handles all descriptor types via early return;
-        # remaining code (including captured closures) only executes for plain Callable.
-        # isinstance guard is required — cast() does not propagate narrowing into closure bodies.
-        if isinstance(source, (classmethod, staticmethod, property, cached_property)):  # pragma: no cover
-            raise AssertionError(  # pragma: no cover
-                f"unreachable: {type(source)!r} was not handled by _packing_descriptor"
-            )
-        # Probe ``message_template`` against every documented placeholder so typos and malformed
-        # conversion specifiers fail at decoration time instead of inside ``wrapped_fn``.
-        _validate_message_template(message_template)
-        # Note: message_template intentionally bypasses this guard — callers with custom templates
-        # control their own messaging and may not rely on deprecated_in being present.
-        if not deprecated_in and stream is not None and not message_template:
-            warnings.warn(
-                f"`@deprecated` on `{source.__name__}` has no `deprecated_in` set."
-                " Deprecation notices and generated documentation will omit the `deprecated_in` version."
-                " Pass `deprecated_in` for a meaningful deprecation notice.",
-                UserWarning,
-                stacklevel=_stacklevel,
-            )
-        # Cross-class guard runs before remapping; class targets skip it because
-        # constructor forwarding (target=NewCls on __init__) is always valid.
-        # Descriptor targets: unwrap __func__ so the guard can inspect the qualname;
-        # raw staticmethod/classmethod descriptors lack __qualname__ on the instance.
-        # A staticmethod *source* skips the guard: no ``self`` is passed, so cross-class forwarding
-        # cannot carry a wrong-typed receiver (see ``_is_static``).  A staticmethod *target* is NOT a
-        # skip signal — an instance-method source forwarding to a staticmethod would still leak ``self``
-        # across classes, so that case must keep raising.
-        _guard_target = _unwrap_descriptor_target(target)
-        if callable(_guard_target) and not inspect.isclass(_guard_target) and not _is_static:
-            _check_cross_class_method_target(source, _guard_target)
-        _target = _normalize_target(source, target)
-        # ATTRS_REMAP is a proxy-only mode — it is meaningless on @deprecated functions/methods
-        # because there is no attribute-access surface to intercept. Raise at decoration time
-        # rather than silently producing a wrapper whose stored target has no runtime effect.
-        if _target is TargetMode.ATTRS_REMAP:
-            raise TypeError(
-                f"`target=TargetMode.ATTRS_REMAP` is not valid for `@deprecated` on `{source.__name__}`. "
-                "`TargetMode.ATTRS_REMAP` is a proxy-only mode — use "
-                "`deprecated_class(attrs_mapping=...)` to deprecate class attribute names."
-            )
-
-        if _has_deprecation_meta(source):
-            _source_is_stacked = True
-            # +1: this warning has one packing frame above it; when routed through the `deprecated`
-            # dispatcher a second frame is added, so the site-pointing stacklevel tracks `_stacklevel`.
-            _warn_stacking_misconfiguration(source, _target, _stacklevel + 1)
-        else:
-            _source_is_stacked = False
-
+    ) -> Union[Callable, classmethod, staticmethod, property, cached_property]:
+        # A descriptor is unwrapped and its function re-enters ``packing``, which validates that function; the
+        # source guards have nothing to reject on the descriptor object itself.  The ``isinstance`` check also
+        # narrows ``source`` to a plain callable for everything below.
+        if isinstance(source, _DESCRIPTOR_SOURCE_TYPES):
+            return _packing_descriptor(source, packing, target, args_mapping, args_extra)
+        _validate_callable_source(
+            source,
+            target,
+            is_static=_is_static,
+            message_template=message_template,
+            deprecated_in=deprecated_in,
+            stream=stream,
+        )
+        _target = _normalize_target(source, target, args_mapping=args_mapping, args_extra=args_extra)
+        _source_is_stacked = _has_deprecation_meta(source)
+        if _source_is_stacked:
+            _warn_stacking_misconfiguration(source, _target)
         # Skip for legacy sentinels: _normalize_target already fired a FutureWarning;
         # re-running the guard here would report the wrong migration path.
         _function_misconfigured = False
         if isinstance(_target, TargetMode) and isinstance(target, TargetMode):
-            _function_misconfigured = TargetMode._validate(
-                _target, source.__name__, args_mapping=args_mapping, args_extra=args_extra, stacklevel=_stacklevel + 1
+            _function_misconfigured = _validate_callable_mode(
+                _target, source.__name__, args_mapping=args_mapping, args_extra=args_extra
             )
-
-        _source_params = list(_get_signature(source).parameters.values())
-        source_has_var_positional = any(param.kind is inspect.Parameter.VAR_POSITIONAL for param in _source_params)
-        # Named positional params preceding *args — the wrapper forwards args[prefix:] as the
-        # surplus positional tail when forwarding to a callable target.
-        _source_var_positional_prefix = (
-            next(i for i, param in enumerate(_source_params) if param.kind is inspect.Parameter.VAR_POSITIONAL)
-            if source_has_var_positional
-            else 0
-        )
-        # Source-side POSITIONAL_ONLY params: the wrapper converts positional args to kwargs
-        # internally, so the dispatcher must split these back out before invoking the source
-        # body (NOTIFY / ARGS_REMAP / migrated-caller short-circuit) — mirror of the
-        # target-side machinery below.
-        _source_positional_only = frozenset(
-            param.name for param in _source_params if param.kind is inspect.Parameter.POSITIONAL_ONLY
-        )
-        _source_positional_only_order: tuple[str, ...] = (
-            tuple(param.name for param in _source_params) if _source_positional_only else ()
-        )
-
-        _target_positional_only, _target_positional_only_order = _detect_positional_only(
-            _target, source, stream, _stacklevel + 1
-        )
-        # Precompute the target signature facts the call-time kwarg validation needs (accepted-name set
-        # and var-arg flags) so no forwarded call re-inspects the target via inspect.getfullargspec.
-        (
-            _target_all_names,
-            _target_accepts_var_positional,
-            _target_accepts_var_keyword,
-        ) = _precompute_target_facts(_target)
-
-        stored_target = _resolve_stored_target(target)
-        misconfigured = target is False or _function_misconfigured
-        # Copy caller-owned mutable mappings so the frozen ``DeprecationConfig`` cannot be mutated through the
-        # caller's original dict after decoration (which would silently change forwarding behavior at call time).
-        _args_mapping = dict(args_mapping) if isinstance(args_mapping, dict) else args_mapping
-        _args_extra = dict(args_extra) if isinstance(args_extra, dict) else args_extra
-        dep_meta = DeprecationConfig(
+        # Source and target signature facts, read once here so no call re-inspects either signature; this also fires
+        # the POSITIONAL_ONLY target warning.
+        _facts = _build_call_facts(source, _target, stream)
+        dep_meta = _build_callable_config(
+            source=source,
+            target=target,
+            facts=_facts,
+            function_misconfigured=_function_misconfigured,
             deprecated_in=deprecated_in,
             remove_in=remove_in,
-            name=source.__name__,
-            target=stored_target,
-            args_mapping=_args_mapping,
-            args_extra=_args_extra,
-            misconfigured=misconfigured,
+            args_mapping=args_mapping,
+            args_extra=args_extra,
             docstring_style=normalized_docstring_style,
             message_template=message_template,
             as_exception=as_exception,
-            target_positional_only=_target_positional_only,
-            target_positional_only_order=_target_positional_only_order,
-            source_positional_only=_source_positional_only,
-            source_positional_only_order=_source_positional_only_order,
-            source_var_positional_prefix=_source_var_positional_prefix,
-            target_all_param_names=_target_all_names,
-            target_accepts_var_positional=_target_accepts_var_positional,
-            target_accepts_var_keyword=_target_accepts_var_keyword,
         )
-        _dep_cfg = dep_meta
-        # Rendered once and reused by both the sync and async wrapper branches below — the PEP-702-conformant
-        # ``__deprecated__`` message string, computed statically at decoration time from `dep_meta` alone.
-        _source_name = _source_display_name(source)
-        _static_message = _render_static_deprecation_message(
-            dep_meta, _source_name, f"{source.__module__}.{_source_name}"
+        # One context per wrapper; its ``state`` is the very object ``_make_wrapper`` installs as ``wrapper._state``,
+        # so counter resets through the wrapper reach the call path.  Which source defaults a forwarded call must
+        # drop depends only on the target and the (copied) mapping, so it is derived once here; ``None`` (unreadable
+        # target signature) defers it to call time.
+        ctx = _WrapperContext(
+            source=source,
+            raw_target=target,
+            target=_target,
+            cfg=dep_meta,
+            facts=_facts,
+            state=_WrapperState(),
+            stream=stream,
+            num_warns=num_warns,
+            skip_if=skip_if,
+            is_stacked=_source_is_stacked,
+            forward_defaults=_precompute_forward_defaults(_target, dep_meta.args_mapping),
         )
-
-        #
-        # Known false-negatives of ``inspect.iscoroutinefunction`` — these sources silently receive the sync
-        # wrapper, meaning ``await wrapper(...)`` will fail or return a bare coroutine:
+        # The wrapper kind follows the source's own ``inspect`` flags.  Known false-negatives of
+        # ``inspect.iscoroutinefunction`` — these sources silently receive the plain sync wrapper, meaning
+        # ``await wrapper(...)`` will fail or return a bare coroutine:
         #   • async function wrapped by a decorator that does NOT propagate ``__wrapped__`` / use
         #     ``functools.wraps`` (``inspect.iscoroutinefunction`` walks ``__wrapped__``, not ``__call__``).
         #   • callable objects whose ``__call__`` is ``async def`` — use ``async def`` thin wrapper instead.
-        #   • ``functools.partial(async_fn)`` on Python ≤ 3.11 (``partial`` does not copy ``__wrapped__``).
-        # Workaround for all three: wrap the callable in a plain ``async def my_wrapper(*a, **kw): return
+        # Workaround for both: wrap the callable in a plain ``async def my_wrapper(*a, **kw): return
         # await callable(*a, **kw)`` before applying ``@deprecated``.
-        if inspect.iscoroutinefunction(source):
+        return _make_wrapper(ctx, kind=_wrapper_kind(source), update_docstring=update_docstring)
 
-            @wraps(source)
-            async def async_wrapped_fn(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-                shall_skip = skip_if() if callable(skip_if) else bool(skip_if)
-                if not isinstance(shall_skip, bool):
-                    raise TypeError(f"User function 'skip_if' shall return bool, but got: {type(shall_skip)}")
-                if shall_skip:
-                    return await source(*args, **kwargs)
-
-                _active_async: Optional[set[int]] = None
-                _token_async = None
-                if callable(_target):
-                    _active_async = _cycle_detection.get()
-                    if _active_async is None:
-                        _active_async = set()
-                        _token_async = _cycle_detection.set(_active_async)
-                    if id(source) in _active_async:
-                        _source_name = getattr(source, "__qualname__", repr(source))
-                        raise RuntimeError(
-                            f"Circular deprecation cycle detected: `{_source_name}` re-entered"
-                            " via its own target chain. Point to a non-deprecated final implementation."
-                        )
-                    _active_async.add(id(source))
-
-                try:
-                    # Read DeprecationConfig from the closure rather than re-reading
-                    # ``async_wrapped_fn.__deprecated__``: a PEP 702 ``typing_extensions.deprecated``
-                    # decorator stacked outside this one overwrites that attribute with a plain string.
-                    plan = _build_call_plan(
-                        wrapper_fn=async_wrapped_fn,
-                        source=source,
-                        target=target,
-                        normalized_target=_target,
-                        args=args,
-                        kwargs=kwargs,
-                        dep_cfg=_dep_cfg,
-                        stream=stream,
-                        num_warns=num_warns,
-                        source_has_var_positional=source_has_var_positional,
-                        source_is_stacked=_source_is_stacked,
-                    )
-                    return await _invoke_async(source, plan, _dep_cfg, source_has_var_positional, args)
-                finally:
-                    if _active_async is not None:
-                        _active_async.discard(id(source))
-                        if _token_async is not None:
-                            _cycle_detection.reset(_token_async)
-
-            async_wrapped_fn_typed = cast(_DeprecatedCallable, async_wrapped_fn)
-            async_wrapped_fn_typed.__deprecation_config__ = dep_meta
-            async_wrapped_fn_typed.__deprecated__ = _static_message
-            async_wrapped_fn_typed._state = _WrapperState()
-
-            if update_docstring:
-                _update_docstring_with_deprecation(async_wrapped_fn)
-
-            return async_wrapped_fn
-
-        # Async generator sources (``async def`` + ``yield``) fall through to the sync ``wrapped_fn`` below:
-        # ``source(**kwargs)`` returns the async generator object without executing any body code — same as
-        # sync generators.  Warning fires at sync call time; callers iterate with ``async for``.  The
-        # ``iscoroutinefunction`` guard below does not fire for async gen targets (they are not coroutines).
-
-        @wraps(source)
-        def wrapped_fn(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-            shall_skip = skip_if() if callable(skip_if) else bool(skip_if)
-            if not isinstance(shall_skip, bool):
-                raise TypeError(f"User function 'skip_if' shall return bool, but got: {type(shall_skip)}")
-            if shall_skip:
-                return source(*args, **kwargs)
-
-            _active: Optional[set[int]] = None
-            _token = None
-            if callable(_target):
-                _active = _cycle_detection.get()
-                if _active is None:
-                    _active = set()
-                    _token = _cycle_detection.set(_active)
-                if id(source) in _active:
-                    _source_name = getattr(source, "__qualname__", repr(source))
-                    raise RuntimeError(
-                        f"Circular deprecation cycle detected: `{_source_name}` re-entered"
-                        " via its own target chain. Point to a non-deprecated final implementation."
-                    )
-                _active.add(id(source))
-
-            try:
-                # Read DeprecationConfig from the closure rather than re-reading
-                # ``wrapped_fn.__deprecated__``: a PEP 702 ``typing_extensions.deprecated``
-                # decorator stacked outside this one overwrites that attribute with a plain
-                # string, which then crashes on ``.misconfigured`` access.
-                plan = _build_call_plan(
-                    wrapper_fn=wrapped_fn,
-                    source=source,
-                    target=target,
-                    normalized_target=_target,
-                    args=args,
-                    kwargs=kwargs,
-                    dep_cfg=_dep_cfg,
-                    stream=stream,
-                    num_warns=num_warns,
-                    source_has_var_positional=source_has_var_positional,
-                    source_is_stacked=_source_is_stacked,
-                )
-                return _invoke_sync(source, plan, _dep_cfg, source_has_var_positional, args)
-            finally:
-                if _active is not None:
-                    _active.discard(id(source))
-                    if _token is not None:
-                        _cycle_detection.reset(_token)
-
-        wrapped_fn_typed = cast(_DeprecatedCallable, wrapped_fn)
-        wrapped_fn_typed.__deprecation_config__ = dep_meta
-        wrapped_fn_typed.__deprecated__ = _static_message
-        wrapped_fn_typed._state = _WrapperState()
-
-        if update_docstring:
-            _update_docstring_with_deprecation(wrapped_fn)
-
-        return wrapped_fn
-
-    # ``packing`` also takes private ``_stacklevel``/``_is_static`` arguments the front door passes; the public
+    # ``packing`` also takes a private ``_is_static`` argument the front door passes; the public
     # contract is the identity signature above.
     return cast(Callable[[_SourceT], _SourceT], packing)

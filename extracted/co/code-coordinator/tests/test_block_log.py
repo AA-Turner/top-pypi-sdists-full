@@ -886,6 +886,251 @@ def test_a_probe_that_raises_becomes_an_abstention_not_an_exception():
     assert "probe raised RuntimeError: boom" in got[0].evidence[-1]
 
 
+# ── #3874: a never-dispatched row's prereq lands, but it has no branch for ──
+# ── any merge-gate/PR probe to ever read ─────────────────────────────────────
+#
+# claude-coordinator#3874 (quadraui#2035): a drive-queue row blocked only on
+# an `after=` pre-req that has since landed, never dispatched at all (no
+# branch, no PR, no merge-queue row), looped forever on "could not be read"
+# once the queue's own #3536 resume stagger overwrote the one marker its
+# `after=`-chain resume needed to recognise it again. `coord drive-queue
+# sweep --dry-run` did not even list the row, because the plain abstention
+# (`CAUSE_UNKNOWN`) this diagnostician produced for it exhausts
+# `MAX_DIAGNOSES_PER_EPISODE` and then drops out of `_episode_stuck_row`
+# entirely. These pin the fix: the diagnostician names the shape instead of
+# abstaining, but ONLY off the structural "no branch exists" signal — never
+# off a probe that merely failed for an unrelated reason.
+
+
+def test_a_never_dispatched_row_is_named_instead_of_abstained():
+    got = qd.diagnose(
+        stalled(
+            11,
+            f"{REPO}#11's merge gate could not be read this tick (no "
+            "merge-queue row for this entry, even after the self-heal "
+            "enqueue attempt) — this is NOT a confirmed-still-shut gate",
+            attempts=0,
+        ),
+        qd.LiveState(
+            probe_errors=(f"gh: no branch known for {REPO}#11",),
+            no_assignment_ever=True,
+        ),
+    )
+    assert got.cause == qd.CAUSE_NEVER_DISPATCHED
+    assert got.confidence == qd.CONFIDENCE_HIGH
+    assert "no branch known" in got.evidence[-1]
+
+
+def test_a_probe_that_merely_fails_is_still_an_abstention_not_never_dispatched():
+    """The same empty `LiveState` shape as the `Exploding`-probe test above,
+    but checked directly against `diagnose`: a generic probe failure must
+    never be promoted to `CAUSE_NEVER_DISPATCHED` just because
+    `attempts == 0` — only a confirmed `no_assignment_ever=True` may."""
+    got = qd.diagnose(
+        stalled(12, "blocked: whatever", attempts=0),
+        qd.LiveState(probe_errors=("gh pr view: RuntimeError: gh: not found",)),
+    )
+    assert got.cause == qd.CAUSE_UNKNOWN
+
+
+def test_a_dispatched_entry_with_no_attempts_is_never_misclassified_never_dispatched():
+    """#2978's lesson, reapplied: `attempts == 0` alone does not mean
+    "never dispatched" — a successful launch never increments it either.
+    `is_unreachable_wait_shape` already excludes the two shapes that are
+    `_reconcile_blocked_after`'s/the permanent-block guard's alone to
+    resolve; this pins that a row outside both of those, but whose probe
+    simply found nothing (e.g. a transient `coord gates` hiccup), still
+    abstains rather than guessing "never dispatched" at a row that may have
+    a real, in-flight branch behind it."""
+    got = qd.diagnose(
+        stalled(13, "blocked: CI red, 2/2 attempts", attempts=0),
+        qd.LiveState(probe_errors=("coord gates: TimeoutError: 30s",)),
+    )
+    assert got.cause == qd.CAUSE_UNKNOWN
+
+
+def test_a_gh_rate_limit_during_the_gates_probe_never_reads_as_never_dispatched(
+    monkeypatch,
+):
+    """The exact ambiguity the #3874 review caught: `GhLiveProbe._gates`
+    catches EVERY exception `build_gate_report` raises — including an
+    ordinary `gh`/network flake, the failure mode `coord.github_throttle`
+    exists for — appends `coord gates: <Type>: <exc>` to `probe_errors`,
+    and returns an empty branch. `GhLiveProbe._github` then gets handed that
+    empty branch and appends ITS OWN `gh: no branch known for ...` line too.
+
+    Both strings land in `probe_errors` together on a plain timeout, which
+    is why the real "never dispatched" signal is `LiveState.no_assignment_ever`
+    (set only by a `_gates` call that did NOT raise) and never a substring
+    match against `probe_errors` — this drives the actual
+    `GhLiveProbe._gates`/`_github` code, not a hand-built `LiveState`, so a
+    future change that goes back to string-sniffing fails here.
+    """
+
+    def boom(*a, **k):
+        raise TimeoutError("30s")
+
+    monkeypatch.setattr("coord.gates.build_gate_report", boom)
+
+    class _RepoCfg:
+        github = "acme/widgets"
+
+    class _Config:
+        def repo(self, name):
+            return _RepoCfg()
+
+    probe = qd.GhLiveProbe(board=object(), config=_Config())
+    e = stalled(14, "blocked: whatever", attempts=0)
+    errors: list[str] = []
+    (
+        branch, gate_ready, blockers, no_assignment_ever, _branch_test_state,
+        _review_stale, _test_stale,
+    ) = probe._gates(e, errors)  # noqa: SLF001
+    assert branch == ""
+    assert no_assignment_ever is None
+    assert any(err.startswith("coord gates: TimeoutError") for err in errors)
+
+    state = probe.probe(e)
+    assert any("coord gates: TimeoutError" in err for err in state.probe_errors)
+    assert any("no branch known for" in err for err in state.probe_errors)
+    assert state.no_assignment_ever is None
+
+    got = qd.diagnose(e, state)
+    assert got.cause == qd.CAUSE_UNKNOWN
+
+
+def test_a_clean_board_read_with_zero_assignments_sets_no_assignment_ever(
+    monkeypatch,
+):
+    """The other half: `build_gate_report` returning normally (no
+    exception) having found zero assignments for the issue — the ONE real
+    code path `coord.gates.build_gate_report` takes that is a positive
+    "never dispatched" reading — is read straight into
+    `LiveState.no_assignment_ever`, and that alone (paired with
+    `is_unreachable_wait_shape`) is enough for `diagnose` to name
+    `CAUSE_NEVER_DISPATCHED`."""
+    from coord.gates import GateReport
+
+    def no_rows(board, config, repo, issue, *, gh_ops=None):
+        report = GateReport(repo_name=repo, issue_number=issue)
+        report.notes.append(f"no assignments found on the board for {repo}#{issue}")
+        return report
+
+    monkeypatch.setattr("coord.gates.build_gate_report", no_rows)
+
+    probe = qd.GhLiveProbe(board=object(), config=object())
+    e = stalled(
+        15,
+        f"{REPO}#15's merge gate could not be read this tick (no "
+        "merge-queue row for this entry, even after the self-heal "
+        "enqueue attempt)",
+        attempts=0,
+    )
+    state = probe.probe(e)
+    assert state.no_assignment_ever is True
+    assert not any("coord gates:" in err for err in state.probe_errors)
+
+    got = qd.diagnose(e, state)
+    assert got.cause == qd.CAUSE_NEVER_DISPATCHED
+    assert got.confidence == qd.CONFIDENCE_HIGH
+
+
+def _gate_row(**overrides):
+    from coord.gates import AssignmentGateRow
+
+    base = dict(
+        assignment_id="asn-1", type="work", status="done", branch="fix-branch",
+        machine_name="mac1", provider_name="claude", dispatched_at=0.0,
+        is_interactive=None, issue_number=99, for_issue_number=None,
+        test_state="passed", smoke_test=None, test_reason=None,
+        test_toolchain=None, test_confirmation=None, review_state=None,
+        review_verdict=None, review_of_assignment_id=None, verdict_source=None,
+        verdict_source_reason=None, mode="single",
+    )
+    base.update(overrides)
+    return AssignmentGateRow(**base)
+
+
+class TestBranchTestStateReadsTheGateDecisionNotTheRawColumn:
+    """#3882 review (blocking finding #1): `GhLiveProbe._gates` must read
+    `branch_test_state` off the Test gate's own DECISION
+    (`GateDecision.required`/`.ok`), never off the raw `test_state` column
+    directly — the two can disagree on a #1479-STALE verdict, where
+    `coord gates` is actively refusing (`anchor="branch"`, exactly the
+    shape a branch reads right after its own fix push) while the raw
+    column still says `"passed"`. These drive the REAL `GhLiveProbe._gates`
+    / `probe()` code via a monkeypatched `build_gate_report`, not a
+    hand-built `LiveState` — the shape `tests/test_block_log.py` already
+    uses for `no_assignment_ever` just above."""
+
+    @staticmethod
+    def _probe(monkeypatch, report) -> qd.GhLiveProbe:
+        monkeypatch.setattr("coord.gates.build_gate_report", lambda *a, **k: report)
+
+        class _RepoCfg:
+            github = "acme/widgets"
+
+        class _Config:
+            def repo(self, name):
+                return _RepoCfg()
+
+        return qd.GhLiveProbe(board=object(), config=_Config())
+
+    def test_a_stale_refusal_reads_failed_even_though_the_raw_column_says_passed(
+        self, monkeypatch,
+    ) -> None:
+        from coord.gates import GateDecision, GateReport
+
+        row = _gate_row(test_state="passed")
+        decision = GateDecision(
+            gate="test", required=True, ok=False, reason="stale",
+            anchor="branch", assignment_id="asn-1",
+        )
+        report = GateReport(
+            repo_name="acme/widgets", issue_number=99, branch="fix-branch",
+            rows=[row], decisions=[decision],
+        )
+        probe = self._probe(monkeypatch, report)
+        entry = stalled(20, "blocked: whatever", attempts=0)
+
+        errors: list[str] = []
+        _, _, _, _, branch_test_state, _, _ = probe._gates(entry, errors)  # noqa: SLF001
+        assert branch_test_state == "failed"
+
+        state = probe.probe(entry)
+        assert state.branch_test_state == "failed"
+
+    def test_a_genuinely_green_decision_reads_the_raw_column(
+        self, monkeypatch,
+    ) -> None:
+        from coord.gates import GateDecision, GateReport
+
+        row = _gate_row(test_state="passed")
+        decision = GateDecision(gate="test", required=True, ok=True, assignment_id="asn-1")
+        report = GateReport(
+            repo_name="acme/widgets", issue_number=99, branch="fix-branch",
+            rows=[row], decisions=[decision],
+        )
+        probe = self._probe(monkeypatch, report)
+        entry = stalled(21, "blocked: whatever", attempts=0)
+
+        state = probe.probe(entry)
+        assert state.branch_test_state == "passed"
+
+    def test_no_test_gate_at_all_reads_none(self, monkeypatch) -> None:
+        from coord.gates import GateReport
+
+        report = GateReport(
+            repo_name="acme/widgets", issue_number=99, branch="fix-branch",
+            rows=[_gate_row()], decisions=[],
+        )
+        probe = self._probe(monkeypatch, report)
+        entry = stalled(22, "blocked: whatever", attempts=0)
+
+        state = probe.probe(entry)
+        assert state.branch_test_state is None
+
+
 def test_a_partial_picture_downgrades_a_medium_verdict_but_not_a_high_one():
     partial = {"probe_errors": ("coord gates: TimeoutError: 30s",)}
     medium = qd.diagnose(

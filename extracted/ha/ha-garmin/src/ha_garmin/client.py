@@ -818,6 +818,30 @@ def _local_timestamp_ms_to_datetime(
     return datetime.fromtimestamp(timestamp_ms / 1000, tz=UTC)
 
 
+def _sleep_stress_series(raw: Any) -> list[dict[str, Any]]:
+    """Simplify the sleep response's stress samples to [{time, value}].
+
+    Garmin reports one sample per few minutes with an epoch-ms startGMT;
+    negative values mark samples it could not measure and are dropped.
+    """
+    if not isinstance(raw, list):
+        return []
+    series = []
+    for sample in raw:
+        if not isinstance(sample, dict):
+            continue
+        start = sample.get("startGMT")
+        value = sample.get("value")
+        if not isinstance(start, int | float) or not isinstance(value, int | float):
+            continue
+        if value < 0:
+            continue
+        series.append(
+            {"time": datetime.fromtimestamp(start / 1000, tz=UTC), "value": value}
+        )
+    return series
+
+
 def _project_time_of_day_to_date(
     target_date: date | None,
     timestamp_ms: int | float | None,
@@ -3162,6 +3186,16 @@ class GarminClient:
         avg_sleep_respiration_value = None
         skin_temp_deviation = None
         skin_temp_calibration_days = None
+        avg_sleep_stress = None
+        awake_count = None
+        restless_moments_count = None
+        avg_sleep_heart_rate = None
+        sleep_body_battery_change = None
+        sleep_stress = None
+        sleep_scores = None
+        sleep_score_feedback = None
+        sleep_score_insight = None
+        sleep_score_personalized_insight = None
 
         if sleep_data:
             # Skin temperature sits at the root of the sleep response, not in
@@ -3171,12 +3205,29 @@ class GarminClient:
             if sleep_data.get("skinTempDataExists"):
                 skin_temp_deviation = sleep_data.get("avgSkinTempDeviationC")
                 skin_temp_calibration_days = sleep_data.get("skinTempCalibrationDays")
+            # Restless moments and the overnight body battery change also sit
+            # at the root of the response, next to their time series.
+            restless_moments_count = sleep_data.get("restlessMomentsCount")
+            sleep_body_battery_change = sleep_data.get("bodyBatteryChange")
+            sleep_stress = _sleep_stress_series(sleep_data.get("sleepStress"))
             try:
                 daily_sleep = sleep_data.get("dailySleepDTO") or {}
                 sleep_alignment = daily_sleep.get("sleepAlignment") or {}
-                sleep_score = (
-                    (daily_sleep.get("sleepScores") or {}).get("overall") or {}
-                ).get("value")
+                # Per-component qualifiers (EXCELLENT/GOOD/FAIR/POOR) with
+                # their optimal ranges: the score breakdown Garmin shows
+                # under the sleep score. Passed through as-is for attributes.
+                sleep_scores = daily_sleep.get("sleepScores") or None
+                sleep_score = ((sleep_scores or {}).get("overall") or {}).get("value")
+                sleep_score_feedback = daily_sleep.get("sleepScoreFeedback")
+                sleep_score_insight = daily_sleep.get("sleepScoreInsight")
+                sleep_score_personalized_insight = daily_sleep.get(
+                    "sleepScorePersonalizedInsight"
+                )
+                # Stress, heart rate and awakenings averaged/counted over the
+                # sleep window only; the summary endpoint has day-wide values.
+                avg_sleep_stress = daily_sleep.get("avgSleepStress")
+                avg_sleep_heart_rate = daily_sleep.get("avgHeartRate")
+                awake_count = daily_sleep.get("awakeCount")
                 sleep_time_seconds = daily_sleep.get("sleepTimeSeconds")
                 deep_sleep_seconds = daily_sleep.get("deepSleepSeconds")
                 light_sleep_seconds = daily_sleep.get("lightSleepSeconds")
@@ -3270,6 +3321,16 @@ class GarminClient:
             "avgSleepRespirationValue": avg_sleep_respiration_value,
             "avgSkinTempDeviationC": skin_temp_deviation,
             "skinTempCalibrationDays": skin_temp_calibration_days,
+            "avgSleepStress": avg_sleep_stress,
+            "awakeCount": awake_count,
+            "restlessMomentsCount": restless_moments_count,
+            "avgSleepHeartRate": avg_sleep_heart_rate,
+            "sleepBodyBatteryChange": sleep_body_battery_change,
+            "sleepStress": sleep_stress,
+            "sleepScores": sleep_scores,
+            "sleepScoreFeedback": sleep_score_feedback,
+            "sleepScoreInsight": sleep_score_insight,
+            "sleepScorePersonalizedInsight": sleep_score_personalized_insight,
         }
         if latest_heart_rate:
             data.update(

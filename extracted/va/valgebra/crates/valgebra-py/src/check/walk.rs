@@ -68,6 +68,8 @@ use scalar::{
 };
 use sequence::{check_frozenset, check_seq, check_set};
 
+pub(crate) use scalar::root_scalar;
+
 /// Where a walk is, and what it has found there, beside the context it reads.
 ///
 /// The three travel together through every arm of the walk, and passing them
@@ -763,9 +765,18 @@ fn push_branch_label_within(
                 out.joined = true;
             }
         },
-        // A refinement's type is its base, matching `Schema::expected`; the
-        // constraints report themselves when one of them is what failed.
-        Schema::Refine { base, .. } => push_branch_label_within(base, ctx, py, out, unfolded),
+        // A refinement's set is its base and its bounds, as it names itself alone:
+        // `int and >= 10`, where the base would call `5` no int.
+        Schema::Refine { base, constraints } => {
+            let mut parts = vec![operand_label(base, ctx, py, unfolded)];
+            parts.extend(
+                constraints
+                    .iter()
+                    .map(|constraint| scalar::constraint_label(constraint, ctx, py)),
+            );
+            out.push(parts.join(" and "));
+            out.joined = true;
+        }
         other => out.push(other.expected().to_owned()),
     }
 }
@@ -1110,12 +1121,24 @@ fn explain_union(members: &[Schema], value: &Value<'_, '_>, frame: &mut Frame<'_
         return false;
     }
     let chosen = chosen_record(&refused);
-    let mut best: Option<(usize, Vec<Violation>)> = None;
-    // The first branch the walk could not answer for, kept aside. A branch that
-    // ran out of levels, found the value inside itself, or raised inside a
-    // predicate has not said "this value is not a member" -- it has said the
-    // walk stopped -- and its failure sits at the union's own location, so the
-    // progress rule below would fold it into a summary and drop the reason.
+    // The branch whose first failure lies furthest past the union's location,
+    // in levels of the value. A path longer than the location's goes at least
+    // one level past it, since a key's mark, which is no level, follows its
+    // key. How far is counted only between two branches that both went past:
+    // a union with one such branch reads no path, so a refusal under a union at
+    // every level is not counted at each of them.
+    let mut best: Option<Vec<Violation>> = None;
+    let progress = |branch: &[Violation]| {
+        branch
+            .first()
+            .and_then(|v| v.path.get(base_depth..))
+            .map_or(0, PathSegment::steps)
+    };
+    // The first branch the walk could not answer for at the union's own
+    // location, kept aside. A branch that ran out of levels, found the value
+    // inside itself, or raised inside a predicate has not said "this value is
+    // not a member" -- it has said the walk stopped -- and the progress rule
+    // would fold a failure at the location into a summary and drop the reason.
     let mut declined: Option<Vec<Violation>> = None;
     // Each branch explained is one more of the union's, armed as the deciding
     // scan arms it ([`again`]).
@@ -1146,22 +1169,22 @@ fn explain_union(members: &[Schema], value: &Value<'_, '_>, frame: &mut Frame<'_
                 branch
             }
         };
-        let first = branch.first();
-        let progress = first
-            .map_or(base_depth, |v| v.path.len())
-            .saturating_sub(base_depth);
-        if declined.is_none() && first.is_some_and(|v| walk_declined(v.code)) {
-            declined = Some(branch.clone());
+        let Some(first) = branch.first() else {
+            continue;
+        };
+        if first.path.len() <= base_depth {
+            if declined.is_none() && walk_declined(first.code) {
+                declined = Some(branch);
+            }
+            continue;
         }
-        // Strictly greater keeps the earliest branch on a tie.
-        let replace = best
-            .as_ref()
-            .is_none_or(|(best_progress, _)| progress > *best_progress);
-        if replace {
-            best = Some((progress, branch));
-        }
+        // Strictly greater replaces, which keeps the earliest branch on a tie.
+        best = match best {
+            Some(held) if progress(&held) >= progress(&branch) => Some(held),
+            _ => Some(branch),
+        };
     }
-    if let Some(branch) = declined.filter(|_| best.as_ref().is_none_or(|(p, _)| *p == 0)) {
+    if let Some(branch) = declined.filter(|_| best.is_none()) {
         let reported = if ctx.mode.stops_at_first() {
             1
         } else {
@@ -1173,7 +1196,7 @@ fn explain_union(members: &[Schema], value: &Value<'_, '_>, frame: &mut Frame<'_
     match best {
         // A fail-fast walk recorded one violation, the one the full walk leads
         // with; a full walk recorded every one, and all are reported.
-        Some((progress, branch)) if progress > 0 => {
+        Some(branch) => {
             let reported = if ctx.mode.stops_at_first() {
                 1
             } else {
@@ -1181,20 +1204,28 @@ fn explain_union(members: &[Schema], value: &Value<'_, '_>, frame: &mut Frame<'_
             };
             frame.out.extend(branch.into_iter().take(reported));
         }
-        _ => {
-            let mut labels = BranchLabels::new();
-            for member in members {
-                push_branch_label(member, ctx, value.py(), &mut labels);
-            }
-            frame.out.push(Violation {
-                code: UNION_ERROR.as_str(),
-                path: frame.path.clone(),
-                expected: labels.render(),
-                value_summary: summarize_value(value, ctx),
-            });
-        }
+        None => refused_as_a_union(members.iter(), value, frame),
     }
     false
+}
+
+/// `value`'s refusal by a union of `members`, naming each as it names itself.
+fn refused_as_a_union<'s>(
+    members: impl Iterator<Item = &'s Schema>,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) {
+    let ctx = frame.ctx;
+    let mut labels = BranchLabels::new();
+    for member in members {
+        push_branch_label(member, ctx, value.py(), &mut labels);
+    }
+    frame.out.push(Violation {
+        code: UNION_ERROR.as_str(),
+        path: frame.path.clone(),
+        expected: labels.render(),
+        value_summary: summarize_value(value, ctx),
+    });
 }
 
 /// The branches of a union that refuse `value`, in branch order, for a report
@@ -1587,6 +1618,7 @@ fn remembered_ref(id: DefIx, value: &Value<'_, '_>, frame: &mut Frame<'_, '_>) -
     let ctx = frame.ctx;
     let memo = &ctx.state.memo;
     if ctx.mode.stops_at_first() && !frame.out.is_empty() {
+        note_reach(ctx, BOUNDS);
         return check_ref(id, value, frame);
     }
     let key = (value.id(), id.get());
@@ -1616,6 +1648,14 @@ fn remembered_ref(id: DefIx, value: &Value<'_, '_>, frame: &mut Frame<'_, '_>) -
         found
     };
     if let Some(found) = found {
+        note_reach(
+            ctx,
+            if found.stop().is_some() {
+                BOUNDS
+            } else {
+                shifted(room, BOUNDS, found.deepest)
+            },
+        );
         if !found.admitted
             && let Some(code) = found.stop()
         {
@@ -1627,12 +1667,21 @@ fn remembered_ref(id: DefIx, value: &Value<'_, '_>, frame: &mut Frame<'_, '_>) -
     if !memo.is_armed() {
         return check_ref(id, value, frame);
     }
-    let earlier = ctx.state.signals.stopped.take();
     let start = frame.out.len();
-    let admitted = check_ref(id, value, frame);
-    let met = ctx.state.signals.stopped.get();
-    ctx.state.signals.stopped.set(earlier.or(met));
-    if !ctx.state.signals.fatal_seen.get() {
+    let (admitted, met, outer) = walked_reaching(id, value, frame, room);
+    let fatal = ctx.state.signals.fatal_seen.get();
+    let (path, out) = (&*frame.path, &*frame.out);
+    // One borrow reads how far the walk reached, puts back the reach of the
+    // walk around it, and keeps the answer.
+    ctx.state.keep(|kept| {
+        let reach = if met.is_some() { BOUNDS } else { kept.reached };
+        kept.reached = furthest(outer, reach);
+        if fatal {
+            return;
+        }
+        // A walk begun deeper by what this one left of each bound reaches the
+        // bounds and no further.
+        let deepest = shifted(room, BOUNDS, reach);
         // Kept as a walk that refuses on a stop reads it: a member keeps no
         // stop, a refusal keeps the one it met, and a settling walk's `true`
         // with a stop is that refusal, while its plain refusal decided and
@@ -1641,27 +1690,90 @@ fn remembered_ref(id: DefIx, value: &Value<'_, '_>, frame: &mut Frame<'_, '_>) -
             (true, Some(code)) if settling => Answer {
                 admitted: false,
                 stopped: Some((code, room)),
+                deepest,
             },
             (true, _) => Answer {
                 admitted: true,
                 stopped: None,
+                deepest,
             },
             (false, met) => Answer {
                 admitted: false,
                 stopped: met.filter(|_| !settling).map(|code| (code, room)),
+                deepest,
             },
         };
         if ctx.mode.explains() {
-            let reported = frame.out.get(start..).unwrap_or_default();
-            let from = frame.path.len();
-            ctx.state
-                .keep(|kept| kept.keep_explained(key, value, answer, from, reported));
+            let reported = out.get(start..).unwrap_or_default();
+            kept.keep_explained(key, value, answer, path.len(), reported);
         } else {
-            ctx.state
-                .keep(|kept| kept.keep_decided(key, value, answer, settling));
+            kept.keep_decided(key, value, answer, settling);
         }
-    }
+    });
     admitted
+}
+
+/// The definition walked at the value, with the stop cell cleared for it and
+/// put back after: its answer, the stop it met, and the reach of the walk
+/// around it, which the caller puts back once it reads this walk's own.
+///
+/// What a walk reaches is read at the references it enters: this one's body to
+/// its own depth, read once a validator (`MemoPlan::levels`), and each
+/// reference below by this same reading, so no node the walk reads carries a
+/// count for it. A walk that met a stop reached the bounds.
+fn walked_reaching(
+    id: DefIx,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+    room: Room,
+) -> (bool, Option<Code>, Room) {
+    let ctx = frame.ctx;
+    let own = Room {
+        levels: room
+            .levels
+            .saturating_add(ctx.index.memo.levels(id))
+            .min(MAX_WALK_DEPTH),
+        unfolded: (room.unfolded + 1).min(MAX_RECURSION_DEPTH),
+    };
+    let mut outer = Room::default();
+    ctx.state
+        .keep(|kept| outer = std::mem::replace(&mut kept.reached, own));
+    let earlier = ctx.state.signals.stopped.take();
+    let admitted = check_ref(id, value, frame);
+    let met = ctx.state.signals.stopped.get();
+    ctx.state.signals.stopped.set(earlier.or(met));
+    (admitted, met, outer)
+}
+
+/// How far a walk inside the one being kept reached, for that walk to read.
+fn note_reach(ctx: Ctx<'_>, reach: Room) {
+    ctx.state.keep(|kept| {
+        kept.reached = furthest(kept.reached, reach);
+    });
+}
+
+/// `room` moved by what lies from `from` to `to`, count by count: a walk's
+/// reach from its room and the deepest room it answers for, and back.
+fn shifted(room: Room, to: Room, from: Room) -> Room {
+    Room {
+        levels: room.levels + to.levels.saturating_sub(from.levels),
+        unfolded: room.unfolded + to.unfolded.saturating_sub(from.unfolded),
+    }
+}
+
+/// Every level and every unfolding the walk's two bounds allow: the reach of
+/// a walk that met a stop, whose answer no walk with less room shares.
+const BOUNDS: Room = Room {
+    levels: MAX_WALK_DEPTH,
+    unfolded: MAX_RECURSION_DEPTH,
+};
+
+/// The further of two reaches, count by count.
+fn furthest(a: Room, b: Room) -> Room {
+    Room {
+        levels: a.levels.max(b.levels),
+        unfolded: a.unfolded.max(b.unfolded),
+    }
 }
 
 /// The refusal an explaining walk kept where it stopped, said again by an

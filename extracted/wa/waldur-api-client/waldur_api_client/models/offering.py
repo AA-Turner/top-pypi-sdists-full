@@ -15,7 +15,6 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.base_public_plan import BasePublicPlan
-    from ..models.google_calendar import GoogleCalendar
     from ..models.merged_plugin_options import MergedPluginOptions
     from ..models.nested_endpoint import NestedEndpoint
     from ..models.nested_offering_access_subnet import NestedOfferingAccessSubnet
@@ -135,7 +134,6 @@ class Offering:
         user_has_offering_user (Union[Unset, bool]):
         is_accessible (Union[Unset, bool]):
         open_for_proposals (Union[Unset, bool]):
-        googlecalendar (Union[Unset, GoogleCalendar]):
     """
 
     url: Union[Unset, str] = UNSET
@@ -225,7 +223,6 @@ class Offering:
     user_has_offering_user: Union[Unset, bool] = UNSET
     is_accessible: Union[Unset, bool] = UNSET
     open_for_proposals: Union[Unset, bool] = UNSET
-    googlecalendar: Union[Unset, "GoogleCalendar"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -633,10 +630,6 @@ class Offering:
 
         open_for_proposals = self.open_for_proposals
 
-        googlecalendar: Union[Unset, dict[str, Any]] = UNSET
-        if not isinstance(self.googlecalendar, Unset):
-            googlecalendar = self.googlecalendar.to_dict()
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -814,15 +807,12 @@ class Offering:
             field_dict["is_accessible"] = is_accessible
         if open_for_proposals is not UNSET:
             field_dict["open_for_proposals"] = open_for_proposals
-        if googlecalendar is not UNSET:
-            field_dict["googlecalendar"] = googlecalendar
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.base_public_plan import BasePublicPlan
-        from ..models.google_calendar import GoogleCalendar
         from ..models.merged_plugin_options import MergedPluginOptions
         from ..models.nested_endpoint import NestedEndpoint
         from ..models.nested_offering_access_subnet import NestedOfferingAccessSubnet
@@ -1429,13 +1419,6 @@ class Offering:
 
         open_for_proposals = d.pop("open_for_proposals", UNSET)
 
-        _googlecalendar = d.pop("googlecalendar", UNSET)
-        googlecalendar: Union[Unset, GoogleCalendar]
-        if isinstance(_googlecalendar, Unset):
-            googlecalendar = UNSET
-        else:
-            googlecalendar = GoogleCalendar.from_dict(_googlecalendar)
-
         offering = cls(
             url=url,
             uuid=uuid,
@@ -1524,7 +1507,6 @@ class Offering:
             user_has_offering_user=user_has_offering_user,
             is_accessible=is_accessible,
             open_for_proposals=open_for_proposals,
-            googlecalendar=googlecalendar,
         )
 
         offering.additional_properties = d

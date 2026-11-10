@@ -34,7 +34,6 @@ class OfferingFieldEnum(str, Enum):
     FILES = "files"
     FULL_DESCRIPTION = "full_description"
     GETTING_STARTED = "getting_started"
-    GOOGLECALENDAR = "googlecalendar"
     HAS_COMPLIANCE_REQUIREMENTS = "has_compliance_requirements"
     HELPDESK_URL = "helpdesk_url"
     IMAGE = "image"

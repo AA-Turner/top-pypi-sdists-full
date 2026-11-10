@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import contextlib
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
@@ -16,6 +14,7 @@ from pyqwest import (
     Transport,
     WriteError,
 )
+from pyqwest._runtime import current_runtime
 
 from ._asgi_compatibility import guarantee_single_callable
 from ._decompress import Decompressor, get_decompressor
@@ -35,15 +34,17 @@ if TYPE_CHECKING:
         LifespanStartupEvent,
     )
 
+    from pyqwest._runtime import Queue, Task
+
 _asgi: ASGIVersions = {"version": "3.0", "spec_version": "2.5"}
 _extensions = {"http.response.trailers": {}}
 
 
 @dataclass(frozen=True)
 class Lifespan:
-    task: asyncio.Task[None]
-    receive_queue: asyncio.Queue[LifespanStartupEvent | LifespanShutdownEvent]
-    send_queue: asyncio.Queue[ASGISendEvent | Exception]
+    task: Task
+    receive_queue: Queue[LifespanStartupEvent | LifespanShutdownEvent]
+    send_queue: Queue[ASGISendEvent | Exception]
 
 
 class ASGITransport(Transport):
@@ -124,8 +125,10 @@ class ASGITransport(Transport):
             "root_path": "",
         }
 
-        receive_queue: asyncio.Queue[bytes | Exception | None] = asyncio.Queue(1)
-        receive_started = asyncio.Event()
+        runtime = current_runtime()
+        receive_queue: Queue[bytes | Exception | None] = runtime.new_queue(1)
+        receive_started = runtime.new_event()
+        request_body = RequestBody()
 
         async def read_request_content() -> None:
             try:
@@ -141,6 +144,7 @@ class ASGITransport(Transport):
                     await receive_queue.put(chunk)
                 await receive_queue.put(None)
             except Exception as e:
+                request_body.exception = e
                 await receive_queue.put(e)
             finally:
                 try:
@@ -148,29 +152,25 @@ class ASGITransport(Transport):
                 except AttributeError:
                     pass
                 else:
-                    await aclose()
+                    # The task closes the request content even when it was
+                    # cancelled, so the shield keeps the close from failing.
+                    with runtime.shield():
+                        await aclose()
 
         # Need a separate task to read the request body to allow
         # cancelling when response closes.
-        request_task = asyncio.create_task(read_request_content())
+        request_task = runtime.spawn(read_request_content, "pyqwest ASGI request body")
 
         async def receive() -> ASGIReceiveEvent:
             receive_started.set()
             chunk = await receive_queue.get()
             if chunk is None:
                 return {"type": "http.request", "body": b"", "more_body": False}
-            if isinstance(chunk, Exception):
-                if self._http_version != HTTPVersion.HTTP2:
-                    msg = f"Request failed: {chunk}"
-                else:
-                    # With HTTP/2, reqwest seems to squash the original error message.
-                    msg = "Request failed: stream error sent by user"
-                raise WriteError(msg) from chunk
             if isinstance(chunk, BaseException):
                 raise chunk
             return {"type": "http.request", "body": chunk, "more_body": True}
 
-        send_queue: asyncio.Queue[ASGISendEvent | Exception] = asyncio.Queue()
+        send_queue: Queue[ASGISendEvent | Exception] = runtime.new_queue()
 
         async def send(message: ASGISendEvent) -> None:
             await send_queue.put(message)
@@ -184,14 +184,20 @@ class ASGITransport(Transport):
                 self._app_exception = e
                 send_queue.put_nowait(e)
 
-        app_task = asyncio.create_task(run_app())
-        message = await send_queue.get()
+        app_task = runtime.spawn(run_app, "pyqwest ASGI app")
+        try:
+            message = await send_queue.get()
+        except BaseException:
+            request_task.cancel()
+            app_task.cancel()
+            raise
         if isinstance(message, Exception):
             request_task.cancel()
-            with contextlib.suppress(BaseException):
-                await app_task
-                await request_task
-            if isinstance(message, (ConnectionError, TimeoutError)):
+            await app_task.wait()
+            await request_task.wait()
+            if message is request_body.exception or isinstance(
+                message, (ConnectionError, TimeoutError)
+            ):
                 raise message
             return Response(
                 status=500,
@@ -219,6 +225,7 @@ class ASGITransport(Transport):
         response_content = ResponseContent(
             send_queue,
             request_task,
+            request_body,
             trailers,
             app_task,
             decompressor,
@@ -247,14 +254,15 @@ class ASGITransport(Transport):
     async def run_lifespan(self) -> None:
         scope: LifespanScope = {"type": "lifespan", "asgi": _asgi, "state": self._state}
 
-        receive_queue: asyncio.Queue[LifespanStartupEvent | LifespanShutdownEvent] = (
-            asyncio.Queue()
+        runtime = current_runtime()
+        receive_queue: Queue[LifespanStartupEvent | LifespanShutdownEvent] = (
+            runtime.new_queue()
         )
 
         async def receive() -> LifespanStartupEvent | LifespanShutdownEvent:
             return await receive_queue.get()
 
-        send_queue: asyncio.Queue[ASGISendEvent | Exception] = asyncio.Queue()
+        send_queue: Queue[ASGISendEvent | Exception] = runtime.new_queue()
 
         async def send(message: ASGISendEvent) -> None:
             await send_queue.put(message)
@@ -265,13 +273,13 @@ class ASGITransport(Transport):
             except Exception as e:
                 send_queue.put_nowait(e)
 
-        task = asyncio.create_task(run_app())
+        task = runtime.spawn(run_app, "pyqwest ASGI lifespan")
 
         receive_queue.put_nowait({"type": "lifespan.startup"})
         message = await send_queue.get()
         if isinstance(message, Exception):
             # Lifespan not supported
-            await task
+            await task.wait()
             return
 
         self._lifespan = Lifespan(
@@ -292,7 +300,7 @@ class ASGITransport(Transport):
 
         await self._lifespan.receive_queue.put({"type": "lifespan.shutdown"})
         message = await self._lifespan.send_queue.get()
-        await self._lifespan.task
+        await self._lifespan.task.wait()
         if isinstance(message, Exception):
             raise message
         match message["type"]:
@@ -316,19 +324,28 @@ class CancelResponse(Exception):
     pass
 
 
+@dataclass
+class RequestBody:
+    """Holds the exception the request body raised, if any."""
+
+    exception: Exception | None = None
+
+
 class ResponseContent(AsyncIterator[bytes]):
     def __init__(
         self,
-        send_queue: asyncio.Queue[ASGISendEvent | Exception],
-        request_task: asyncio.Task[None],
+        send_queue: Queue[ASGISendEvent | Exception],
+        request_task: Task,
+        request_body: RequestBody,
         trailers: Headers | None,
-        task: asyncio.Task[None],
+        task: Task,
         decompressor: Decompressor,
         *,
         read_trailers: bool,
     ) -> None:
         self._send_queue = send_queue
         self._request_task = request_task
+        self._request_body = request_body
         self._trailers = trailers
         self._task = task
         self._decompressor = decompressor
@@ -352,6 +369,9 @@ class ResponseContent(AsyncIterator[bytes]):
             finally:
                 self._read_pending = False
             if isinstance(message, Exception):
+                if message is self._request_body.exception:
+                    err = message
+                    break
                 match message:
                     case CancelResponse():
                         err = StopAsyncIteration()
@@ -392,8 +412,6 @@ class ResponseContent(AsyncIterator[bytes]):
     async def _cleanup(self) -> None:
         self._closed = True
         self._request_task.cancel()
-        with contextlib.suppress(BaseException):
-            await self._request_task
         self._task.cancel()
-        with contextlib.suppress(BaseException):
-            await self._task
+        await self._request_task.wait()
+        await self._task.wait()

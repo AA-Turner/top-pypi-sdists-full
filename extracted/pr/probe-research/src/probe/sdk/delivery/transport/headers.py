@@ -177,7 +177,7 @@ class RequestHeadersMixin:
                         "`cd x && probe ...`): the daemon writes to Probe only that way, with its checks."
                     )
                 raise errors.AuthError(
-                    f"no API token configured ({session_marker.WIZARD_HINT}, or set "
+                    f"no API token configured ({session_marker.SIGN_IN_HINT}, or set "
                     "PROBE_SERVICE_TOKEN)"
                 )
             headers["Authorization"] = f"Bearer {bearer}"

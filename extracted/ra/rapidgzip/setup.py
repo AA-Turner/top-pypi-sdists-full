@@ -40,10 +40,20 @@ print("\nRapidgzip build options:")
 for key, value in buildConfig.items():
     print(f"  {key}={value}")
 
+# Target the 3.14 stable ABI. The goal is forward compatibility for future CPython versions, not support
+# for older interpreters. 3.14 also provides Py_REFCNT and Py_IsFinalizing in the limited API, which
+# keeps the Python interface changes to the GIL check and the opaque type diagnostic.
+# Opt-in invocation, e.g.:
+#   CIBW_BUILD="cp314-*" RAPIDGZIP_ABI3=enable python -m cibuildwheel python/rapidgzip
+# The default build remains per-version; do not set this globally in pyproject.toml.
+withAbi3 = os.environ.get('RAPIDGZIP_ABI3', 'disable').lower() not in ('', '0', 'disable', 'off', 'false')
+abi3Version = '0x030E0000'
+abi3WheelTag = 'cp314'
 
-def getDependencyOption(key):
+
+def getDependencyOption(key, default='enable'):
     key = optionsPrefix + key
-    option = buildConfig.get(key, 'enable')
+    option = buildConfig.get(key, default)
     validValues = ['enable', 'disable', 'system']
     if option not in validValues:
         print(f"Unrecognized option for rapidgzip dependency: {key}={option}. Valid values are: {validValues}")
@@ -55,8 +65,13 @@ withIsal = getDependencyOption('ISAL')
 withRpmalloc = getDependencyOption('RPMALLOC')
 withZlibng = getDependencyOption('ZLIB')
 
+# rpmalloc 2.0.2 does not support 32-bit builds.
+if withRpmalloc != 'disable' and sys.maxsize <= 2**32:
+    print("[Warning] rpmalloc does not support 32-bit builds. Will disable it.")
+    withRpmalloc = 'disable'
+
 if withCxxopts == 'disable':
-    print("[Warning] Cxxopts can not be disabled! Will enable it.")
+    print("[Warning] Cxxopts cannot be disabled! Will enable it.")
     withCxxopts = 'enable'
 
 # ISA-l does not compile on 32-bit because it contains statements such as [bits 64].
@@ -84,6 +99,7 @@ print(f"  isal: {withIsal}")
 print(f"  zlib-ng: {withZlibng}")
 print(f"  rpmalloc: {withRpmalloc}")
 print(f"  cxxopts: {withCxxopts}")
+print(f"  abi3: {withAbi3}")
 
 zlib_sources = []
 if withZlibng == 'enable':
@@ -266,6 +282,7 @@ extensions = [
         include_dirs = include_dirs,
         libraries    = libraries,
         language     = 'c++',
+        py_limited_api = withAbi3,
         # fmt: on
     ),
 ]
@@ -411,6 +428,8 @@ class Build(build_ext):
         }
         if withZlibng:
             defines["ZLIB_COMPAT"] = None
+        if withAbi3:
+            defines["Py_LIMITED_API"] = abi3Version
 
         for ext in self.extensions:
             ext.extra_compile_args = [
@@ -501,5 +520,6 @@ setup(
     # fmt: off
     ext_modules = extensions,
     cmdclass    = {'build_ext': Build},
+    options     = {'bdist_wheel': {'py_limited_api': abi3WheelTag}} if withAbi3 else {},
     # fmt: on
 )

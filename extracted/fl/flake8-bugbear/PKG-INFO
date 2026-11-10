@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-bugbear
-Version: 26.10.27
+Version: 26.11.9
 Summary: A plugin for flake8 finding likely bugs and design problems in your program. Contains warnings that don't belong in pyflakes and pycodestyle.
 Author-email: Łukasz Langa <lukasz@langa.pl>
 License: MIT
@@ -15,7 +15,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -24,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: flake8>=7.2.0
@@ -36,6 +35,8 @@ Requires-Dist: hypothesis; extra == "dev"
 Requires-Dist: hypothesmith>=0.2; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: types-flake8; extra == "dev"
 Dynamic: license-file
 
 ==============
@@ -588,7 +589,11 @@ Tests / Lints
 
 Just run::
 
-    coverage run tests/test_bugbear.py
+    coverage run -m pytest tests/test_bugbear.py
+
+For seeing the report afterwards run::
+
+    coverage report
 
 
 For linting::
@@ -604,6 +609,32 @@ MIT
 
 Change Log
 ----------
+
+26.11.9
+~~~~~~~
+
+* Drop Python 3.10 support (flake8 itself now requires >=3.11)
+* B018: only report a ``map()``, ``filter()``, ``reversed()``, ``zip()`` or
+  ``enumerate()`` statement when the name is the builtin, not when the module
+  defines or imports its own function under that name, which may well do the work
+* B031, B911: a bare ``groupby``/``batched`` imported from ``itertools`` no longer
+  counts as ``itertools`` when a later module-level ``def`` or assignment replaces it
+* B031, B911: an annotated ``batched: Callable = itertools.batched`` counts as
+  ``itertools``, like the same assignment without the annotation
+* B912, B913: only report ``map()`` and ``zip()`` when the name is the builtin, not
+  when a module-level ``def``, ``class``, import or assignment replaces it with
+  something else
+* B905, B910: only report ``zip()`` and ``defaultdict(int)`` when the name is the
+  builtin ``zip``/``collections.defaultdict``, not when a module-level ``def``,
+  ``class``, import or assignment replaces it with something else
+* B018, B031, B905, B910, B911: an import or ``zip = builtins.zip`` style alias
+  inside a function or class no longer overrides the module's own ``def``,
+  ``class`` or import of that name, since it only binds the name locally
+* B042: don't report an ``__init__`` that calls a direct base class's ``__init__``
+  explicitly and forwards its own arguments unchanged and in order, like
+  ``Exception.__init__(self, msg, opt)``, also after another base's ``__init__``
+  such as a mixin's
+* Add type hints throughout bugbear, checked with ``mypy --strict`` in tox and CI
 
 26.10.27
 ~~~~~~~~

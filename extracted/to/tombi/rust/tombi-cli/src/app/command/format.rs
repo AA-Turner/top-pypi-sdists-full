@@ -34,11 +34,12 @@ pub struct Args {
     #[arg(long)]
     stdin_filename: Option<String>,
 
-    /// Quiet mode
+    /// Exit with error code on warnings
     ///
-    /// If `true`, the program will not print summary output messages.
+    /// If `true`, the program will exit with error code if there are warnings,
+    /// such as a schema that could not be fetched.
     #[arg(long, default_value_t = false)]
-    quiet: bool,
+    error_on_warnings: bool,
 
     #[command(flatten)]
     diagnostics: DiagnosticsArgs,
@@ -104,8 +105,8 @@ fn record_task_result<P>(
     }
 }
 
-pub fn run(args: Args) -> Result<(), crate::Error> {
-    let quiet = args.quiet;
+pub fn run(args: Args, quiet: bool) -> Result<(), crate::Error> {
+    let error_on_warnings = args.error_on_warnings;
 
     // Validate options before reading stdin, which is copied to stdout if the config fails to load.
     let is_stdin = FileInputType::from(args.files.as_ref()) == FileInputType::Stdin;
@@ -171,7 +172,10 @@ pub fn run(args: Args) -> Result<(), crate::Error> {
         };
     }
 
-    if error_num > 0 {
+    if error_num > 0
+        || crate::app::tombi_log::has_error()
+        || (error_on_warnings && crate::app::tombi_log::has_warning())
+    {
         std::process::exit(1);
     }
 
@@ -186,16 +190,24 @@ fn inner_run<P>(
 where
     crate::Error: Print<P>,
 {
-    let (config, config_path, config_level) = serde_tombi::config::load_with_path_and_level(
-        std::env::current_dir().ok(),
-    )
-    .inspect_err(|_| {
-        if FileInputType::from(args.files.as_ref()) == FileInputType::Stdin
-            && let Err(error) = std::io::copy(&mut std::io::stdin(), &mut std::io::stdout())
-        {
-            log::error!("failed to copy stdin to stdout: {}", error);
-        }
-    })?;
+    let runtime = super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)
+        .map_err(|error| format!("failed to create tokio runtime: {error}"))?;
+    let (config, config_path, config_level) = runtime
+        .block_on(serde_tombi::config::load_with_path_and_level(
+            std::env::current_dir().ok(),
+            tombi_schema_store::http_client(tombi_schema_store::HttpClientOptions {
+                offline: args.common.offline,
+                cache: Some(args.common.cache_options()),
+            })
+            .as_ref(),
+        ))
+        .inspect_err(|_| {
+            if FileInputType::from(args.files.as_ref()) == FileInputType::Stdin
+                && let Err(error) = std::io::copy(&mut std::io::stdin(), &mut std::io::stdout())
+            {
+                log::error!("failed to copy stdin to stdout: {}", error);
+            }
+        })?;
 
     let toml_version = config.toml_version.unwrap_or_default();
     let schema_options = config.schema.as_ref();
@@ -208,9 +220,6 @@ where
             cache: Some(args.common.cache_options()),
             trusted_hosts: None,
         });
-
-    let runtime = super::runtime(FileInputType::from(args.files.as_ref()) == FileInputType::Stdin)
-        .map_err(|error| format!("failed to create tokio runtime: {error}"))?;
 
     // The tasks convert the spans of the diagnostics before their sources are dropped.
     let encoding = diagnostics_reporter.encoding();

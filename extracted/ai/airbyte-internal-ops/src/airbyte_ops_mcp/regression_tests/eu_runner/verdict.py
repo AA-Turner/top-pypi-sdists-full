@@ -78,6 +78,22 @@ def _command_from_report(path: Path, report: dict[str, Any]) -> dict[str, Any] |
     }
 
 
+def _summary_command_passed(summary: dict[str, Any], command: str) -> bool:
+    """Require all known matching runner results to pass; allow missing evidence."""
+    commands = summary.get("commands")
+    if not isinstance(commands, list):
+        return True
+    for item in commands:
+        if not isinstance(item, dict) or item.get("command") != command:
+            continue
+        if item.get("passed") is False:
+            return False
+        exit_code = item.get("exit_code")
+        if type(exit_code) is int and exit_code != 0:
+            return False
+    return True
+
+
 def _checks(report: dict[str, Any]) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     target = report.get("target")
@@ -86,27 +102,6 @@ def _checks(report: dict[str, Any]) -> list[dict[str, Any]]:
     control = control if isinstance(control, dict) else {}
     target_exit = target.get("exit_code")
     control_exit = control.get("exit_code")
-    if type(target_exit) is int:
-        checks.append(
-            {
-                "check_name": "Command execution",
-                "passed": target_exit == 0
-                and (
-                    control_exit is None
-                    or (type(control_exit) is int and control_exit == 0)
-                ),
-                "status": (
-                    "pass"
-                    if target_exit == 0
-                    and (
-                        control_exit is None
-                        or (type(control_exit) is int and control_exit == 0)
-                    )
-                    else "fail"
-                ),
-            }
-        )
-
     source = report.get("check_results", [])
     if isinstance(source, list):
         for item in source:
@@ -126,6 +121,20 @@ def _checks(report: dict[str, Any]) -> list[dict[str, Any]]:
                 "pass" if passed else "warn" if severity == "diagnostic" else "fail"
             )
             checks.append({"check_name": name, "passed": passed, "status": status})
+    if type(target_exit) is int and not any(
+        check["check_name"] == "Command execution" for check in checks
+    ):
+        passed = target_exit == 0 and (
+            control_exit is None or (type(control_exit) is int and control_exit == 0)
+        )
+        checks.insert(
+            0,
+            {
+                "check_name": "Command execution",
+                "passed": passed,
+                "status": "pass" if passed else "fail",
+            },
+        )
     return checks
 
 
@@ -154,6 +163,9 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
     for path, report in reports:
         command = _command_from_report(path, report)
         if command is not None:
+            command["passed"] = command["passed"] and _summary_command_passed(
+                summary, command["command"]
+            )
             commands.append(command)
         target = report.get("target")
         control = report.get("control")
@@ -189,11 +201,15 @@ def build_verdict(output_dir: Path) -> dict[str, Any]:
     if reports:
         # The CLI exits 0 on a failed verdict, so the summary alone can call a
         # regression a pass. A report can fail the run but never pass one the
-        # summary failed: a command that crashed wrote no report.
-        success = summary.get("success", True) is True and all(
-            report.get("success") is True
-            and report.get("regression_detected") is not True
-            for _, report in reports
+        # summary failed: the CLI can write a report before a later crash.
+        success = (
+            summary.get("success", True) is True
+            and all(item["passed"] for item in commands)
+            and all(
+                report.get("success") is True
+                and report.get("regression_detected") is not True
+                for _, report in reports
+            )
         )
     elif "success" in summary:
         success = summary.get("success") is True

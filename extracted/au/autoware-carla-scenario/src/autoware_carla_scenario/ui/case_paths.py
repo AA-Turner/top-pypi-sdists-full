@@ -37,14 +37,18 @@ from ..run_outputs import (
 )
 
 __all__ = [
+    "INDEX_DIGITS",
+    "MAX_INDEX",
     "SESSION_TYPES",
     "CaseFiles",
+    "is_index",
     "batch_stamp",
     "contained",
     "job_dir",
     "last_result_path",
     "result_path",
     "session_dir",
+    "session_order",
     "stem_order",
 ]
 
@@ -56,10 +60,21 @@ SESSION_TYPES = ("multirun", "batch", "single")
 #: fails as "not found" rather than with ENAMETOOLONG.
 _COMPONENT = re.compile(r"^[A-Za-z0-9_.:+-]{1,255}$")
 
+#: The most digits a case index the viewer reads from a request has (its URL
+#: converter's and ``/compare/runs``'s): more is no case, and a longer one
+#: makes a file name longer than NAME_MAX (ENAMETOOLONG) or an integer longer
+#: than Python converts (#1964).
+INDEX_DIGITS = 18
+#: The largest case index :func:`job_dir` makes a directory of.
+MAX_INDEX = 999_999_999_999_999_999
+
 _TRAJECTORY = TRAJECTORY_SUFFIX
 _RESULT = RESULT_SUFFIX
 _COVERAGE = COVERAGE_SUFFIX
 _STEM_NUMBER = re.compile(r"^(?P<base>.*?)-(?P<n>\d+)$")
+#: A session's time directory that ``run_dirs.reserve_timestamped_dir``
+#: numbered: ``{HH-MM-SS}-{n}``, a run started in the same second as another.
+_SESSION_NUMBER = re.compile(r"^(?P<base>[^-]+-[^-]+-[^-]+)-(?P<n>\d+)$")
 
 
 @dataclass(frozen=True)
@@ -129,11 +144,18 @@ def session_dir(base: Path, session_type: str, date: str, time: str) -> Optional
     return contained(base / root, date, time)
 
 
+def is_index(text: str) -> bool:
+    """Whether *text* is a case index: ASCII digits (``"²".isdigit()`` is
+    true too, and ``int()`` refuses it), no more than :data:`INDEX_DIGITS`."""
+    return text.isascii() and text.isdigit() and len(text) <= INDEX_DIGITS
+
+
 def job_dir(base: Path, date: str, time: str, index: int) -> Optional[Path]:
     """The directory of job *index* of multirun session *date*/*time*, or
-    ``None`` when the names do not make one under *base*."""
+    ``None`` when the names do not make one under *base* (also for an index
+    above :data:`MAX_INDEX`, #1964)."""
     directory = session_dir(base, "multirun", date, time)
-    if directory is None or index < 0:
+    if directory is None or index < 0 or index > MAX_INDEX:
         return None
     return contained(directory, str(index))
 
@@ -144,6 +166,18 @@ def stem_order(stem: str) -> tuple[str, int]:
     match = _STEM_NUMBER.match(stem)
     if match is None:
         return stem, 0
+    return match["base"], int(match["n"])
+
+
+def session_order(time: str) -> tuple[str, int]:
+    """Where a session's *time* directory comes among those of its date:
+    ``HH-MM-SS``, then ``HH-MM-SS-1``, ``HH-MM-SS-2``, ... ``HH-MM-SS-10``
+    (by number, not by text), the order ``run_dirs.reserve_timestamped_dir``
+    hands them out in (#1845).  Only a number after the three fields of the
+    time is one: ``12-00-01`` is not ``12-00`` numbered 1."""
+    match = _SESSION_NUMBER.match(time)
+    if match is None:
+        return time, 0
     return match["base"], int(match["n"])
 
 

@@ -92,6 +92,7 @@ class Provider(StrEnum):
     ISD_LITE = "isd_lite"
     METAR = "metar"
     GHCND = "ghcnd"
+    GHCNH = "ghcnh"
     CLIMAT = "climat"
     DWD_HOURLY = "dwd_hourly"
     DWD_POI = "dwd_poi"
@@ -106,6 +107,7 @@ class Provider(StrEnum):
     GSA_SYNOP = "gsa_synop"
     GSA_DAILY = "gsa_daily"
     GSA_MONTHLY = "gsa_monthly"
+    ERA5 = "era5"
 
     HOURLY = "hourly"
     DAILY = "daily"

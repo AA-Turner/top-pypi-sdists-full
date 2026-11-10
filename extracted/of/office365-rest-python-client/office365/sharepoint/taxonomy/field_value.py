@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TaxonomyFieldValue(ClientValue):
     """Represents a single value held in a TaxonomyField (section 3.1.5.27) object.
 
@@ -21,7 +18,9 @@ class TaxonomyFieldValue(ClientValue):
     WssId: int = -1
 
     def __str__(self):
-        return f"{self.WssId};#{self.Label}|{self.TermGuid}"
+        # The note text has no place for a missing part: a ``None`` label was written
+        # to the column as the literal label "None" (``#None|guid`` on read-back).
+        return f"{self.WssId};#{self.Label or ''}|{self.TermGuid or ''}"
 
     @property
     def entity_type_name(self) -> str:

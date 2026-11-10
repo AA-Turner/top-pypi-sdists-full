@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TeamSummary(ClientValue):
     """Contains information about a team in Microsoft Teams, including number of owners, members, and guests.
 

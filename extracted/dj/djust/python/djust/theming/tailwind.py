@@ -79,12 +79,15 @@ def _generate_color_config(preset: ThemePreset, extend: bool = True) -> Dict[str
     colors = {
         "border": "hsl(var(--border))",
         "input": "hsl(var(--input))",
+        "input-background": "hsl(var(--input-background))",
         "ring": "hsl(var(--ring))",
         "background": "hsl(var(--background))",
         "foreground": "hsl(var(--foreground))",
         "primary": {
             "DEFAULT": "hsl(var(--primary))",
             "foreground": "hsl(var(--primary-foreground))",
+            # Primary as TEXT (#2885): ``text-primary-text``. ``DEFAULT`` is the fill.
+            "text": "hsl(var(--primary-text))",
         },
         "secondary": {
             "DEFAULT": "hsl(var(--secondary))",
@@ -93,6 +96,9 @@ def _generate_color_config(preset: ThemePreset, extend: bool = True) -> Dict[str
         "destructive": {
             "DEFAULT": "hsl(var(--destructive))",
             "foreground": "hsl(var(--destructive-foreground))",
+            # Error TEXT (#3320): ``text-destructive-text``. ``DEFAULT`` is the
+            # fill and can sit under 4.5:1 as text (dark ``default`` is 1.9:1).
+            "text": "hsl(var(--destructive-text))",
         },
         "muted": {
             "DEFAULT": "hsl(var(--muted))",
@@ -113,10 +119,12 @@ def _generate_color_config(preset: ThemePreset, extend: bool = True) -> Dict[str
         "success": {
             "DEFAULT": "hsl(var(--success))",
             "foreground": "hsl(var(--success-foreground))",
+            "text": "hsl(var(--success-text))",  # status as TEXT (#2885)
         },
         "warning": {
             "DEFAULT": "hsl(var(--warning))",
             "foreground": "hsl(var(--warning-foreground))",
+            "text": "hsl(var(--warning-text))",  # status as TEXT (#2885)
         },
     }
 
@@ -193,20 +201,24 @@ def export_preset_as_tailwind_colors(preset_name: str = "default") -> Dict[str, 
         "light-foreground": light.foreground.to_hsl_func(),
         "light-primary": light.primary.to_hsl_func(),
         "light-primary-foreground": light.primary_foreground.to_hsl_func(),
+        "light-primary-text": light.primary_text.to_hsl_func(),
         "light-secondary": light.secondary.to_hsl_func(),
         "light-muted": light.muted.to_hsl_func(),
         "light-accent": light.accent.to_hsl_func(),
         "light-destructive": light.destructive.to_hsl_func(),
+        "light-destructive-text": light.destructive_text.to_hsl_func(),
         "light-border": light.border.to_hsl_func(),
         # Dark mode colors
         "dark-background": dark.background.to_hsl_func(),
         "dark-foreground": dark.foreground.to_hsl_func(),
         "dark-primary": dark.primary.to_hsl_func(),
         "dark-primary-foreground": dark.primary_foreground.to_hsl_func(),
+        "dark-primary-text": dark.primary_text.to_hsl_func(),
         "dark-secondary": dark.secondary.to_hsl_func(),
         "dark-muted": dark.muted.to_hsl_func(),
         "dark-accent": dark.accent.to_hsl_func(),
         "dark-destructive": dark.destructive.to_hsl_func(),
+        "dark-destructive-text": dark.destructive_text.to_hsl_func(),
         "dark-border": dark.border.to_hsl_func(),
     }
 
@@ -226,16 +238,19 @@ def generate_tailwind_apply_examples() -> str:
 
 /* Button styles */
 .btn-primary {
+  font-family: inherit;
   @apply bg-primary text-primary-foreground px-4 py-2 rounded-md;
   @apply hover:opacity-90 transition-opacity;
 }
 
 .btn-secondary {
+  font-family: inherit;
   @apply bg-secondary text-secondary-foreground px-4 py-2 rounded-md;
   @apply hover:bg-secondary/80;
 }
 
 .btn-destructive {
+  font-family: inherit;
   @apply bg-destructive text-destructive-foreground px-4 py-2 rounded-md;
   @apply hover:bg-destructive/90;
 }
@@ -248,7 +263,7 @@ def generate_tailwind_apply_examples() -> str:
 
 /* Input styles */
 .input {
-  @apply bg-background border border-input rounded-md px-3 py-2;
+  @apply bg-input-background border border-input rounded-md px-3 py-2;
   @apply text-foreground placeholder:text-muted-foreground;
   @apply focus:outline-none focus:ring-2 focus:ring-ring;
 }
@@ -259,18 +274,23 @@ def generate_tailwind_apply_examples() -> str:
 }
 
 /* Alert variants */
+.alert-info {
+  @apply bg-info/10 text-info-text border border-info/20;
+  @apply rounded-md p-4;
+}
+
 .alert-success {
-  @apply bg-success/10 text-success border border-success/20;
+  @apply bg-success/10 text-success-text border border-success/20;
   @apply rounded-md p-4;
 }
 
 .alert-warning {
-  @apply bg-warning/10 text-warning border border-warning/20;
+  @apply bg-warning/10 text-warning-text border border-warning/20;
   @apply rounded-md p-4;
 }
 
 .alert-destructive {
-  @apply bg-destructive/10 text-destructive border border-destructive/20;
+  @apply bg-destructive/10 text-destructive-text border border-destructive/20;
   @apply rounded-md p-4;
 }
 """
@@ -299,6 +319,7 @@ def _tokens_to_theme_vars(tokens: ThemeTokens, prefix: str = "") -> list[tuple[s
         ("popover-foreground", f"hsl({tokens.popover_foreground.to_hsl()})"),
         ("primary", f"hsl({tokens.primary.to_hsl()})"),
         ("primary-foreground", f"hsl({tokens.primary_foreground.to_hsl()})"),
+        ("primary-text", f"hsl({tokens.primary_text.to_hsl()})"),
         ("secondary", f"hsl({tokens.secondary.to_hsl()})"),
         ("secondary-foreground", f"hsl({tokens.secondary_foreground.to_hsl()})"),
         ("muted", f"hsl({tokens.muted.to_hsl()})"),
@@ -307,12 +328,16 @@ def _tokens_to_theme_vars(tokens: ThemeTokens, prefix: str = "") -> list[tuple[s
         ("accent-foreground", f"hsl({tokens.accent_foreground.to_hsl()})"),
         ("destructive", f"hsl({tokens.destructive.to_hsl()})"),
         ("destructive-foreground", f"hsl({tokens.destructive_foreground.to_hsl()})"),
+        ("destructive-text", f"hsl({tokens.destructive_text.to_hsl()})"),
         ("success", f"hsl({tokens.success.to_hsl()})"),
         ("success-foreground", f"hsl({tokens.success_foreground.to_hsl()})"),
+        ("success-text", f"hsl({tokens.success_text.to_hsl()})"),
         ("warning", f"hsl({tokens.warning.to_hsl()})"),
         ("warning-foreground", f"hsl({tokens.warning_foreground.to_hsl()})"),
+        ("warning-text", f"hsl({tokens.warning_text.to_hsl()})"),
         ("info", f"hsl({tokens.info.to_hsl()})"),
         ("info-foreground", f"hsl({tokens.info_foreground.to_hsl()})"),
+        ("info-text", f"hsl({tokens.info_text.to_hsl()})"),
         ("link", f"hsl({tokens.link.to_hsl()})"),
         ("link-hover", f"hsl({tokens.link_hover.to_hsl()})"),
         ("code", f"hsl({tokens.code.to_hsl()})"),
@@ -321,6 +346,7 @@ def _tokens_to_theme_vars(tokens: ThemeTokens, prefix: str = "") -> list[tuple[s
         ("selection-foreground", f"hsl({tokens.selection_foreground.to_hsl()})"),
         ("border", f"hsl({tokens.border.to_hsl()})"),
         ("input", f"hsl({tokens.input.to_hsl()})"),
+        ("input_background", f"hsl({tokens.input_background.to_hsl()})"),
         ("ring", f"hsl({tokens.ring.to_hsl()})"),
         ("surface_1", f"hsl({tokens.surface_1.to_hsl()})"),
         ("surface_2", f"hsl({tokens.surface_2.to_hsl()})"),

@@ -111,11 +111,6 @@ def create_file(
         if excluded is not None:
             _field, reason = excluded
             raise CreateFileError(code=EXCLUDED_FIELD_CODE, reason=reason)
-        page_type = frontmatter.get("type")
-        for key in frontmatter:
-            governed = governed_frontmatter_reason(str(key), frontmatter[key], page_type)
-            if governed is not None:
-                raise CreateFileError(code="INVALID_OUTCOME", reason=governed)
 
     try:
         abs_path, rel_path = resolve_under_vault(
@@ -126,6 +121,15 @@ def create_file(
     respelled = respell_new_path(vault_root, rel_path)
     if respelled != rel_path:
         abs_path, rel_path = vault_root / respelled, respelled
+    if frontmatter:
+        # After the path resolves: the page's instance decides which verdicts an outcome takes.
+        page_type = frontmatter.get("type")
+        for key in frontmatter:
+            governed = governed_frontmatter_reason(
+                str(key), frontmatter[key], page_type, page=(vault_root, rel_path, frontmatter)
+            )
+            if governed is not None:
+                raise CreateFileError(code="INVALID_OUTCOME", reason=governed)
 
     from .governance import connector_boundary
 
@@ -351,6 +355,7 @@ def create_file(
                 relation_disposition=relation_disposition,
                 relation_review_hash=relation_review_hash,
                 relation_review_reason=relation_review_reason,
+                draft_bound=any(item is not None for item in (draft_id, draft_hash, draft_token)),
             )
         except semantic_writes.SemanticWriteError as error:
             raise CreateFileError(error.code, error.reason) from error

@@ -1,5 +1,6 @@
 # interp/interp.pyi — type stubs for the interp C extension.
-from typing import final, Literal
+from typing import Literal, final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -72,7 +73,7 @@ class InterpolatedTable:
         Parameters
         ----------
         x : npt.NDArray[np.float64]
-            Input.
+            Points to evaluate, length n_in.
         out : npt.NDArray[np.complex128] | None
             Output buffer; must hold at least n_in values.
 

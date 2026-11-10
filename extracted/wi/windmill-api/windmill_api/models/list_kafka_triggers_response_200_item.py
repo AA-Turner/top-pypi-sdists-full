@@ -48,6 +48,9 @@ class ListKafkaTriggersResponse200Item:
             top-level filters. 'and' requires all of them to match, 'or' requires any of them to match. Nested
             `any_of`/`all_of`/`none_of` groups carry their own logic. Default:
             ListKafkaTriggersResponse200ItemFilterLogic.AND.
+        run_on_filter_error (Union[Unset, bool]): Whether a message the filters cannot read (not UTF-8, or not JSON)
+            still runs the target, as if the trigger had no filters. A preprocessor then finds the reason in
+            `event.filter_error`. When false, such a message is skipped.
         auto_offset_reset (Union[Unset, ListKafkaTriggersResponse200ItemAutoOffsetReset]): Initial offset behavior when
             consumer group has no committed offset. 'latest' starts from new messages only, 'earliest' starts from the
             beginning. Default: ListKafkaTriggersResponse200ItemAutoOffsetReset.LATEST.
@@ -87,6 +90,7 @@ class ListKafkaTriggersResponse200Item:
     filter_logic: Union[
         Unset, ListKafkaTriggersResponse200ItemFilterLogic
     ] = ListKafkaTriggersResponse200ItemFilterLogic.AND
+    run_on_filter_error: Union[Unset, bool] = False
     auto_offset_reset: Union[
         Unset, ListKafkaTriggersResponse200ItemAutoOffsetReset
     ] = ListKafkaTriggersResponse200ItemAutoOffsetReset.LATEST
@@ -125,6 +129,7 @@ class ListKafkaTriggersResponse200Item:
         if not isinstance(self.filter_logic, Unset):
             filter_logic = self.filter_logic.value
 
+        run_on_filter_error = self.run_on_filter_error
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
@@ -173,6 +178,8 @@ class ListKafkaTriggersResponse200Item:
         )
         if filter_logic is not UNSET:
             field_dict["filter_logic"] = filter_logic
+        if run_on_filter_error is not UNSET:
+            field_dict["run_on_filter_error"] = run_on_filter_error
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -242,6 +249,8 @@ class ListKafkaTriggersResponse200Item:
         else:
             filter_logic = ListKafkaTriggersResponse200ItemFilterLogic(_filter_logic)
 
+        run_on_filter_error = d.pop("run_on_filter_error", UNSET)
+
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, ListKafkaTriggersResponse200ItemAutoOffsetReset]
         if isinstance(_auto_offset_reset, Unset):
@@ -299,6 +308,7 @@ class ListKafkaTriggersResponse200Item:
             is_flow=is_flow,
             mode=mode,
             filter_logic=filter_logic,
+            run_on_filter_error=run_on_filter_error,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             server_id=server_id,

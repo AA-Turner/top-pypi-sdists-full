@@ -24,11 +24,13 @@ from datamodel_code_generator.model._decisions.tag_value import (
     union_tag_values,
 )
 from datamodel_code_generator.model.base import sanitize_module_name
+from datamodel_code_generator.parser._naming import Ordinal, Tag, composed_name
 from datamodel_code_generator.parser._schema_object import Discriminator, JsonSchemaObject
 
 if TYPE_CHECKING:
     from collections.abc import Container, Iterable, Iterator, Mapping, Sequence
 
+    from datamodel_code_generator.parser._naming import Claim, NamingScope
     from datamodel_code_generator.parser._schema_graph import _TargetNode
     from datamodel_code_generator.parser._schema_object import JsonSchemaLiteral
     from datamodel_code_generator.reference import ModelResolver, SchemaLocation
@@ -69,6 +71,9 @@ class UnionTagsHost(Protocol):
     @property
     def use_tag_as_union_variant_name(self) -> bool:
         """Whether union branches are named after their tags (``--use-tag-as-union-variant-name``)."""
+
+    def _claiming(self, claim: Claim | None) -> NamingScope:
+        """Return the naming frame that makes ``claim`` for the model its block builds, while L1 records them."""
 
     @property
     def _tag_key_variants(self) -> dict[SchemaLocation | None, tuple[str, str]]:
@@ -169,8 +174,13 @@ class _SchemaTagFacts:
         return None if value is None else FieldTag(value, "referenced-schema")
 
 
-def _get_union_variant_name(name: str, literal: JsonSchemaLiteral) -> str | None:
+def _variant_prefix(name: str) -> str:
+    """Return what the branch names composed from a union's name ``name`` start with: its module, its class, ``_``."""
     module_name, separator, class_name = name.rpartition(".")
+    return f"{module_name}{separator}{class_name or name}_" if module_name else f"{class_name or name}_"
+
+
+def _get_union_variant_name(name: str, literal: JsonSchemaLiteral) -> str | None:
     if isinstance(literal, str):
         literal_text = literal
     elif isinstance(literal, bool):
@@ -180,8 +190,16 @@ def _get_union_variant_name(name: str, literal: JsonSchemaLiteral) -> str | None
     literal_name = sanitize_module_name(literal_text, treat_dot_as_module=False)
     if not literal_name:
         return None
-    variant_name = f"{class_name or name}_{literal_name}"
-    return f"{module_name}{separator}{variant_name}" if module_name else variant_name
+    return f"{_variant_prefix(name)}{literal_name}"
+
+
+def union_variant_tag(name: str, variant_name: str) -> str | None:
+    """Return the part of a branch name that ``_get_union_variant_name`` gave after the union's name ``name``.
+
+    None for a name it did not compose from ``name``.
+    """
+    prefix = _variant_prefix(name)
+    return variant_name.removeprefix(prefix) if variant_name.startswith(prefix) else None
 
 
 def get_single_literal_value(
@@ -490,17 +508,32 @@ def parse_combined_schema_items(  # noqa: PLR0913, PLR0917
     variant_names: Sequence[str | None] | None,
     variant_keys: Mapping[int, str],
 ) -> list[DataType]:
-    """Parse the branches of a union, recording the key and name of each branch named after its key by its node."""
+    """Parse the branches of a union, recording the key and name of each branch named after its key by its node.
+
+    A branch without a name of its own takes the union's name, and its position as its claim while L1 records naming
+    frames (``Ordinal``); a branch named after its tag claims the part of its name the tag gives (``Tag``).
+    """
+    parent_name = composed_name(name, "variant-parent")
     if variant_names:
         for index, key in variant_keys.items():
-            parser._tag_key_variants[combined_schemas[index].schema_location] = (key, variant_names[index] or name)  # noqa: SLF001
-    return [
-        parser.parse_item(
-            (variant_names[index] or name) if variant_names else name,
-            item,
-            [*path, str(index)],
-            singular_name=False,
-            parent=obj,
+            location = combined_schemas[index].schema_location
+            parser._tag_key_variants[location] = (key, variant_names[index] or parent_name)  # noqa: SLF001
+    data_types: list[DataType] = []
+    for index, item in enumerate(combined_schemas):
+        variant_name = variant_names[index] if variant_names else None
+        claim = (
+            Ordinal(index + 1)
+            if not variant_name
+            else Tag(tag)
+            if (tag := union_variant_tag(name, variant_name))
+            else None
         )
-        for index, item in enumerate(combined_schemas)
-    ]
+        with parser._claiming(claim) as claimed:  # noqa: SLF001
+            data_types.append(
+                claimed.built(
+                    parser.parse_item(
+                        variant_name or parent_name, item, [*path, str(index)], singular_name=False, parent=obj
+                    )
+                )
+            )
+    return data_types

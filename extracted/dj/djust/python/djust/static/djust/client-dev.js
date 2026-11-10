@@ -102,7 +102,7 @@
      */
     function initHotReload(retryCount = 0) {
         // Wait for LiveViewWebSocket to be defined by client.js
-        if (typeof window.LiveViewWebSocket === 'undefined') {
+        if (typeof window.djust?.LiveViewWebSocket === 'undefined') {
             if (retryCount < 20) {  // Max 1 second (20 * 50ms)
                 console.log('[djust:dev] Waiting for LiveViewWebSocket to load...');
                 // Retry after a short delay
@@ -115,10 +115,10 @@
         }
 
         // Store original handleMessage
-        const originalHandleMessage = window.LiveViewWebSocket.prototype.handleMessage;
+        const originalHandleMessage = window.djust.LiveViewWebSocket.prototype.handleMessage;
 
         // Override handleMessage to add hot reload logging and visual feedback
-        window.LiveViewWebSocket.prototype.handleMessage = function(data) {
+        window.djust.LiveViewWebSocket.prototype.handleMessage = function(data) {
             // Log hot reload patches
             if (data.type === 'patch' && data.hotreload) {
                 const fileName = data.file.split('/').pop();
@@ -251,7 +251,7 @@
                 const shortcut = navigator.userAgent.includes('Mac') ? 'Cmd+Shift+D' : 'Ctrl+Shift+D';
                 console.log(`[djust:dev] Debug panel available - Press ${shortcut} to toggle`);
             } else {
-                console.log('[djust:dev] Debug panel not available (set DJUST_DEBUG_INFO)');
+                console.log('[djust:dev] Debug panel off (DJUST_CONFIG["debug_panel"] is False, or DEBUG is off)');
             }
         }, 2000);
     }
@@ -266,7 +266,10 @@
     // ============================================================================
 
     function initDebugPanel() {
-        // Initialize global debug panel if debug info is available
+        // Initialize global debug panel if debug info is available. With
+        // DJUST_CONFIG["debug_panel"] = False the server serves neither
+        // debug-panel.js nor DJUST_DEBUG_INFO, so this is a no-op and the rest
+        // of client-dev.js (hot reload, toasts, error overlay) still runs.
         if (typeof window.DJUST_DEBUG_INFO !== 'undefined' && typeof window.DjustDebugPanel !== 'undefined') {
             // Clean up existing debug panel if it exists
             if (window.djustDebugPanel && typeof window.djustDebugPanel.destroy === 'function') {

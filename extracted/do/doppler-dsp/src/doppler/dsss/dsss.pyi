@@ -1,5 +1,6 @@
 # dsss/dsss.pyi — type stubs for the dsss C extension.
-from typing import Any, final, Literal
+from typing import Any, Literal, final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -1196,7 +1197,7 @@ class PolynomialPhaseEstimator:
     Create with defaults:
 
     >>> from doppler.dsss import PolynomialPhaseEstimator
-    >>> obj = PolynomialPhaseEstimator(max_len=4096, max_rate=0.0)
+    >>> obj = PolynomialPhaseEstimator()
 
     """
 
@@ -1797,8 +1798,8 @@ class DsssReceiver:
         Chip rate, Hz. Required.
     symbol_rate : float, default 1000.0
         Data-symbol rate, Hz. Required — passed straight to the embedded
-        Acquisition's own `symbol_rate` (diagnostic there; see
-        `dp_acq_create_continuous()`).
+        search's own `symbol_rate` (diagnostic there; see
+        `dp_correlator_create_continuous()`).
     sample_rate : float, default 0.0
         Input sample rate, Hz: a whole number of samples a chip (to a part in
         1e9), at least one, or 0 for two a chip (the default). A fractional
@@ -1898,26 +1899,26 @@ class DsssReceiver:
         out: npt.NDArray[np.complex64] | None = None,
     ) -> NDArray[np.complex64]:
         """Stream raw cf32 samples through the receiver. While searching,
-        samples feed the embedded Acquisition and nothing is emitted (an empty
-        array is normal, not an error). The moment a hit fires,
-        Dll/RateConverter/MpskReceiver are built and seeded from it -- the same
-        phase-inversion hand-off and rate-bridging this project's
+        samples feed the embedded continuous search (a Correlator) and nothing
+        is emitted (an empty array is normal, not an error). The moment a hit
+        fires, Dll/RateConverter/MpskReceiver are built and seeded from it --
+        the same phase-inversion hand-off and rate-bridging this project's
         async-DSSS-receiver gallery story validated by hand -- and the
         unconsumed tail of this same call is handed straight to them, so no
         samples are dropped at the transition. While tracking, samples feed Dll
         -> RateConverter -> MpskReceiver in sequence and demodulated symbols
         are returned. Accepts any block size; state carries across calls.
 
-        While searching, samples feed the embedded Acquisition and nothing is
+        While searching, samples feed the embedded search and nothing is
         emitted (0 return is normal, not an error). The moment a hit fires,
         `Dll`/`RateConverter`/`MpskReceiver` are built and seeded from it, and
         the rest of THIS call from where the hit's frame ended — the hit's own
         `samples_consumed`, so no samples are dropped or double-fed — is handed
         straight to them in the same call. While tracking, samples feed `Dll ->
         RateConverter -> MpskReceiver` in sequence. Accepts any block size;
-        state carries across calls (`Acquisition`/`Dll`/
-        `RateConverter`/`MpskReceiver` are all already block-size invariant;
-        the only buffering this object adds is the carrier loop's
+        state carries across calls (the
+        search/`Dll`/`RateConverter`/`MpskReceiver` are all already block-size
+        invariant; the only buffering this object adds is the carrier loop's
         partial-code-period carry). While tracking, each call allocates two
         scratch buffers (abort on OOM).
 
@@ -1983,16 +1984,16 @@ class DsssReceiver:
         """
 
     def configure_search_raw(self, doppler_bins: int, n_noncoh: int) -> None:
-        """Pin the embedded Acquisition's search grid directly, bypassing the
-        symbol_rate-driven auto-sizing -- the escape hatch for a power user who
-        wants a specific (doppler_bins, n_noncoh). Only meaningful while
-        searching.
+        """Pin the embedded continuous search (a Correlator)'s search grid
+        directly, bypassing the symbol_rate-driven auto-sizing -- the escape
+        hatch for a power user who wants a specific (doppler_bins, n_noncoh).
+        Only meaningful while searching.
 
         Parameters
         ----------
         doppler_bins : int
             Coherent depth to pin, in `[1, reps]` as
-            dp_acq_configure_search_raw() defines it.
+            dp_correlator_configure_search_raw() defines it.
         n_noncoh : int
             Non-coherent looks accumulated per grid cell (1..256); more looks
             buys sensitivity at the cost of dwell, replacing the auto-sized
@@ -2001,9 +2002,18 @@ class DsssReceiver:
         Raises
         ------
         ValueError
-            If the C call returns a non-zero status. The exception message is
-            ``configure_search_raw failed``, with the return code appended
-            (gh-869).
+            If the C call returns ``DP_ERR_INVALID``. The exception message is
+            ``configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh
+            in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks
+            (n_noncoh > 1) need rate_hypotheses 1``.
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``configure_search_raw: rebuilding the engine's grid could not
+            allocate; the engine keeps its prior grid``.
+        ValueError
+            If the C call returns any other non-zero status. The exception
+            message is ``configure_search_raw failed``, with the return code
+            appended (gh-869).
 
         Examples
         --------
@@ -2082,9 +2092,10 @@ class DsssReceiver:
         independently overridable here, still bridged by a freshly-sized
         `RateConverter` -- never coupled to each other (see the module
         docstring). It rebuilds `dll`/`rc`/`rx` at once, allocating every
-        replacement before freeing the old ones (`Acquisition`'s `acq_regrid()`
-        discipline), and the pinned grid is the one every later chain is built
-        on: the next hit's hand-off and reset() both rebuild at it.
+        replacement before freeing the old ones (the search's
+        `dp_correlator_regrid()` discipline), and the pinned grid is the one
+        every later chain is built on: the next hit's hand-off and reset() both
+        rebuild at it.
 
         The new grid is checked before anything is rebuilt, and refused with
         the receiver left on its prior grid: segments >= 1, sps >= 2, a symbol
@@ -2128,9 +2139,9 @@ class DsssReceiver:
         """
 
     def reset(self) -> None:
-        """Return to the searching state: resets the embedded Acquisition and
-        frees Dll/RateConverter/MpskReceiver (rebuilt from scratch on the next
-        hit).
+        """Return to the searching state: resets the embedded continuous search
+        (a Correlator) and frees Dll/RateConverter/MpskReceiver (rebuilt from
+        scratch on the next hit).
 
         Examples
         --------
@@ -2308,13 +2319,13 @@ class AsyncDsssReceiver:
         The rate of the samples pushed, Hz: any ratio to chip_rate of at least
         one, or 0 for two samples a chip (the default). Refine and tracking run
         at this rate. The search runs at it too when one code period is a whole
-        number of samples (dp_acq_search_period()); a fractional period is
-        resampled, for the search alone, to a power of two.
+        number of samples (dp_correlator_search_period()); a fractional period
+        is resampled, for the search alone, to a power of two.
     m : int, default 2
         PSK order, 2/4/8; default 2 (BPSK).
     cn0_dbhz : float, default 55.0
-        Design C/N0, dB-Hz; default 55.0 -- feeds BOTH the embedded
-        Acquisition's own sizing AND (derated by `refine_design_margin_db`)
+        Design C/N0, dB-Hz; default 55.0 -- feeds BOTH the embedded search's
+        own sizing AND (derated by `refine_design_margin_db`)
         CarrierAcquisition's `design_snr`.
     pfa : float, default 1e-3
         Acquisition false-alarm target; default 1e-3. Also CarrierAcquisition's
@@ -2365,7 +2376,8 @@ class AsyncDsssReceiver:
         dp_dll_set_rate_aid() so the code loop rides a dilated clock the
         discriminator alone can't pull in at low SNR. Set to the receiver's own
         downlink RF frequency for a physically-coupled Doppler capture.
-        Coupled, it is above half the sample rate (dp_acq_carrier_freq_ok()).
+        Coupled, it is above half the sample rate
+        (dp_correlator_carrier_freq_ok()).
     lost_confirm_s : float, default 0.0
         Release rule: both lock flags down, continuously, for longer than this
         many seconds puts the receiver in the lost state (see get_lost()). Size
@@ -2393,11 +2405,12 @@ class AsyncDsssReceiver:
         floor(code_only_s * chip_rate / code_len) - 1` (at least 1), and the
         searcher's slow-time depth follows: `coherent_bins = D`, at most
         `(code_only_epochs + 1)/2`, rounded down to a 7-smooth length
-        (dp_acq_create_continuous()). Default 0: no window, D = 1.
+        (dp_correlator_create_continuous()). Default 0: no window, D = 1.
     doppler_rate : float, default 0.0
         Doppler rate in Hz/s, >= 0 and finite, that the slow-time depth is
         bounded against: at most `f_epoch / sqrt(2 * doppler_rate)` epochs
-        (dp_acq_create_continuous()). Default 0: the window is the only bound.
+        (dp_correlator_create_continuous()). Default 0: the window is the only
+        bound.
 
     Raises
     ------
@@ -2566,13 +2579,13 @@ class AsyncDsssReceiver:
 
         The hand-off of docs/design/async-dsss-receiver.md §2.2: the three
         numbers a searcher's hit carries that this receiver uses --
-        `acq_handoff_t`'s `chip_phase`, `doppler_hz_est` and `cn0_dbhz_est` --
-        exactly as its own hit would have produced them (`steps()` calls this
-        on its own hit). `chip_phase` is the code's instantaneous phase in
-        chips, Dll's convention, at the FIRST sample of the next `steps()`
-        call; dp_acq_build_handoff() makes it from a hit's lag. The refine
-        chain is rebuilt from the seed and the state becomes refining; the
-        unconsumed tail is the caller's to feed.
+        `dp_correlator_handoff_t`'s `chip_phase`, `doppler_hz_est` and
+        `cn0_dbhz_est` -- exactly as its own hit would have produced them
+        (`steps()` calls this on its own hit). `chip_phase` is the code's
+        instantaneous phase in chips, Dll's convention, at the FIRST sample of
+        the next `steps()` call; dp_correlator_build_handoff() makes it from a
+        hit's lag. The refine chain is rebuilt from the seed and the state
+        becomes refining; the unconsumed tail is the caller's to feed.
 
         Refused (`DP_ERR_INVALID`, nothing changes) on a receiver that is not
         waiting for one -- refining, tracking or lost -- because "assigned
@@ -2671,12 +2684,13 @@ class AsyncDsssReceiver:
         """
 
     def configure_search_raw(self, doppler_bins: int, n_noncoh: int) -> None:
-        """Pin the embedded Acquisition's search grid directly. Forwards to
-        `dp_acq_configure_search_raw()` -- the escape hatch under this object's
-        `symbol_rate`-driven auto-sizing, for a power user who wants a specific
-        `(doppler_bins, n_noncoh)`. The pin replaces the whole auto-sized grid,
-        the window-tiled search included. Only meaningful while searching; the
-        search does not run again until the next `reset()`.
+        """Pin the embedded search's grid directly. Forwards to
+        `dp_correlator_configure_search_raw()` -- the escape hatch under this
+        object's `symbol_rate`-driven auto-sizing, for a power user who wants a
+        specific `(doppler_bins, n_noncoh)`. The pin replaces the whole
+        auto-sized grid, the window-tiled search included. Only meaningful
+        while searching; the search does not run again until the next
+        `reset()`.
 
         Parameters
         ----------
@@ -2691,9 +2705,18 @@ class AsyncDsssReceiver:
         Raises
         ------
         ValueError
-            If the C call returns a non-zero status. The exception message is
-            ``configure_search_raw failed``, with the return code appended
-            (gh-869).
+            If the C call returns ``DP_ERR_INVALID``. The exception message is
+            ``configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh
+            in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks
+            (n_noncoh > 1) need rate_hypotheses 1``.
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``configure_search_raw: rebuilding the engine's grid could not
+            allocate; the engine keeps its prior grid``.
+        ValueError
+            If the C call returns any other non-zero status. The exception
+            message is ``configure_search_raw failed``, with the return code
+            appended (gh-869).
 
         Examples
         --------
@@ -2859,7 +2882,7 @@ class AsyncDsssReceiver:
         """
 
     def reset(self) -> None:
-        """Return to the searching state. Resets the embedded Acquisition and
+        """Return to the searching state. Resets the embedded search and
         rebuilds the refine-stage chain and the live tracking chain back to
         their placeholder seed (phase 0, no Doppler). A receiver that has
         locked cannot be "reset back to tracking the same signal," only back to
@@ -2923,8 +2946,8 @@ class AsyncDsssReceiver:
           (dp_mpsk_receiver_set_telemetry(): its lock, its carrier and timing
           loops, the symbols, its AGC), once per recovered symbol (the AGC's
           pair once per gain update);
-        - "<prefix>.acq" -- the acquisition engine (dp_acq_set_telemetry()),
-          once per decided dwell;
+        - "<prefix>.acq" -- the acquisition engine
+          (dp_correlator_set_telemetry()), once per decided dwell;
         - "<prefix>.rc" -- the rate converter between the code loop and the
           demodulator (dp_RateConverter_set_telemetry()). It reports only an
           AGC, and this receiver builds it without one, so it registers no
@@ -2994,15 +3017,15 @@ class AsyncDsssReceiver:
     def set_threads(self, n: int) -> None:
         """Set the workers the searcher fans its Doppler tiles across.
 
-        Forwards to dp_acq_set_threads() on the receiver's searcher. The search
-        is bit-identical at every count, so this changes the cost of a steps()
-        call and nothing about its output. A pool that steps its receivers in
-        parallel sets each one to 1. A mutator's value, so it travels in the
-        state blob (#2022). The blob carries the count that RAN, not the
-        request: set_threads(0) on a writer restores as the count the writer
-        ran (its online cores, at most one worker a tile) on any reader, by
-        design -- a resumed receiver runs as the one that was checkpointed, and
-        a pool's 1 is 1 everywhere. Setup path; not while another thread is
+        Forwards to dp_correlator_set_threads() on the receiver's searcher. The
+        search is bit-identical at every count, so this changes the cost of a
+        steps() call and nothing about its output. A pool that steps its
+        receivers in parallel sets each one to 1. A mutator's value, so it
+        travels in the state blob (#2022). The blob carries the count that RAN,
+        not the request: set_threads(0) on a writer restores as the count the
+        writer ran (its online cores, at most one worker a tile) on any reader,
+        by design -- a resumed receiver runs as the one that was checkpointed,
+        and a pool's 1 is 1 everywhere. Setup path; not while another thread is
         inside steps().
 
         Parameters
@@ -3039,26 +3062,27 @@ class AsyncDsssReceiver:
         peak at this rank hands nothing off and the search goes on.
 
         The sidelobe rule, per cell: a strong signal's list also holds its
-        code's Doppler-offset sidelobes, up to dp_acq_dsl_db() below it and
-        hundreds of chips from its phase (design acq-surface.md §8). A peak
+        code's Doppler-offset sidelobes, up to dp_correlator_dsl_db() below it
+        and hundreds of chips from its phase (design acq-surface.md §8). A peak
         counts as a second signal only if its test_stat exceeds what the
         stronger signals' sidelobes can read AT ITS CELL by more than the
-        detector's own gate (dp_acq_gate_stat()). Each stronger signal reads
-        its statistic on its own lag (acq_result_t::test_stat_peak) times the
-        code's cross-ambiguity from it to this cell (dp_acq_sidelobe_ratio()),
-        which reaches dp_acq_dsl_db() only at the worst cells. The bound is the
+        detector's own gate (dp_correlator_gate_stat()). Each stronger signal
+        reads its statistic on its own lag
+        (dp_correlator_hit_t::test_stat_peak) times the code's cross-ambiguity
+        from it to this cell (dp_correlator_sidelobe_ratio()), which reaches
+        dp_correlator_dsl_db() only at the worst cells. The bound is the
         strongest of these; on a deep block (get_coherent_bins() > 1) it is the
         sum over the stronger signals on the peak's own Doppler row, modulo the
         epoch rate, when that is larger, since their fixed sidelobes can stack
-        on one cell, and each is floored at dp_acq_dsl_db() until a strong
-        signal's data splatter is modelled (doppler#2730). So the range does
-        not narrow with the number of signals on the air (doppler#2554), and a
-        sidelobe passes only when the noise on it alone would have cleared the
-        gate, the rate the search already runs at. A second signal is taken
-        well past dp_acq_dsl_db() below a stronger one at most cells: on a
-        one-epoch search, measured, in every stream to 10 dB below and in a
-        fifth of them at 20 dB (design async-dsss-receiver.md §7.2, the
-        near-far limit). The model is one clean code period: when a data
+        on one cell, and each is floored at dp_correlator_dsl_db() until a
+        strong signal's data splatter is modelled (doppler#2730). So the range
+        does not narrow with the number of signals on the air (doppler#2554),
+        and a sidelobe passes only when the noise on it alone would have
+        cleared the gate, the rate the search already runs at. A second signal
+        is taken well past dp_correlator_dsl_db() below a stronger one at most
+        cells: on a one-epoch search, measured, in every stream to 10 dB below
+        and in a fifth of them at 20 dB (design async-dsss-receiver.md §7.2,
+        the near-far limit). The model is one clean code period: when a data
         transition falls inside the stronger signal's epoch -- common, 55% of
         epochs at the specification's 1.8 epochs a symbol -- its sidelobes read
         far above it at some cells (20.4 dB at one, measured by
@@ -3278,10 +3302,11 @@ class AsyncDsssReceiver:
     @property
     def chip_phase(self) -> float:
         """The live Dll's code phase, chips, in the Dll's instantaneous
-        convention -- the mirror of acq_result_t::code_phase's correlation-lag
-        convention (dp_acq_build_handoff()). While refining there is no live
-        Dll: it is the seed's phase advanced by the clock dilation since, the
-        phase the hand-over starts the live chain from.
+        convention -- the mirror of dp_correlator_hit_t::code_phase's
+        correlation-lag convention (dp_correlator_build_handoff()). While
+        refining there is no live Dll: it is the seed's phase advanced by the
+        clock dilation since, the phase the hand-over starts the live chain
+        from.
         """
 
     @property
@@ -3996,10 +4021,10 @@ class DsssBurstReceiver:
         out: npt.NDArray[np.uint8] | None = None,
     ) -> NDArray[np.uint8]:
         """Stream raw cf32 samples and get back the FRAME BITS of every burst
-        that completed. Samples feed the embedded BurstAcquisition and are
-        retained in a history ring; when a detection fires, the refine stage
-        correlates the whole preamble to recover the exact preamble start --
-        the one quantity acquisition structurally cannot report, since its
+        that completed. Samples feed the embedded burst search (a Correlator)
+        and are retained in a history ring; when a detection fires, the refine
+        stage correlates the whole preamble to recover the exact preamble start
+        -- the one quantity acquisition structurally cannot report, since its
         code_phase is a lag modulo one code period -- and the burst is
         demodulated the moment its last sample has arrived. Every sample is
         consumed and every burst that completes is returned by the call that
@@ -4197,6 +4222,27 @@ class DsssBurstReceiver:
         NDArray[Any]
             Records written to out -- `min(events_max_out(), max_out)`.
 
+            One row per `dsss_br_event_t` record, with fields:
+
+            preamble_start : int
+                Refined stream position of the preamble.
+            doppler_hz_est : float
+                Signed coarse Doppler, Hz.
+            doppler_res_hz : float
+                Acquisition's native bin width, Hz.
+            cn0_dbhz_est : float
+                C/N0 estimate from the hit, dB-Hz.
+            est_freq_hz : float
+                Demod's residual-frequency estimate.
+            est_rate_hz : float
+                Demod's chirp-rate estimate.
+            demod_cn0_dbhz : float
+                Demod's C/N0, dB-Hz, channel-referred.
+            demod_timing_chips : float
+                Start error the demod measured, chips.
+            frame_valid : int
+                The frame passed its error detection.
+
         Examples
         --------
         >>> import numpy as np
@@ -4224,9 +4270,9 @@ class DsssBurstReceiver:
         """
 
     def configure_search_raw(self, doppler_bins: int, n_noncoh: int) -> None:
-        """Pin the embedded BurstAcquisition's search grid directly, bypassing
-        the auto-sizing -- the escape hatch for a caller who wants a specific
-        (doppler_bins, n_noncoh). Forwards to the engine unchanged.
+        """Pin the embedded burst search (a Correlator)'s search grid directly,
+        bypassing the auto-sizing -- the escape hatch for a caller who wants a
+        specific (doppler_bins, n_noncoh). Forwards to the engine unchanged.
 
         The escape hatch for a caller who wants a specific (doppler_bins,
         n_noncoh) rather than the grid the cn0_dbhz/pfa/pd sizing chooses.
@@ -4242,9 +4288,19 @@ class DsssBurstReceiver:
         Raises
         ------
         ValueError
-            If the C call returns a non-zero status. The exception message is
-            ``configure_search_raw failed``, with the return code appended
-            (gh-869).
+            If the C call returns ``DP_ERR_INVALID``. The exception message is
+            ``configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh
+            in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks
+            (n_noncoh > 1) need rate_hypotheses 1; and n_noncoh x doppler_bins
+            must not exceed the code periods refine reaches back (k_lo)``.
+        MemoryError
+            If the C call returns ``DP_ERR_MEMORY``. The exception message is
+            ``configure_search_raw: rebuilding the engine's grid could not
+            allocate; the engine keeps its prior grid``.
+        ValueError
+            If the C call returns any other non-zero status. The exception
+            message is ``configure_search_raw failed``, with the return code
+            appended (gh-869).
 
         Examples
         --------

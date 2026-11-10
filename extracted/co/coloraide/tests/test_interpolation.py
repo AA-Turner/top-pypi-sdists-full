@@ -1598,6 +1598,29 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
         self.assertColorEqual(i(87), Color('red'))
         self.assertColorEqual(i(100), Color('red'))
 
+    def test_discrete_easing_not_counted(self):
+        """Easing functions between colors are not colors and should not create additional steps."""
+
+        points = [i / 10 for i in range(11)]
+        expected = [Color.discrete(['red', 'blue'], space='srgb')(p) for p in points]
+        actual = [Color.discrete(['red', ease_in, 'blue'], space='srgb')(p) for p in points]
+        for e, a in zip(expected, actual):
+            self.assertColorEqual(a, e)
+
+        expected = [Color.discrete(['red', 'blue', 'green'], space='srgb')(p) for p in points]
+        actual = [Color.discrete(['red', ease_in, 'blue', ease_in, 'green'], space='srgb')(p) for p in points]
+        for e, a in zip(expected, actual):
+            self.assertColorEqual(a, e)
+
+    def test_discrete_stops_counted(self):
+        """Colors wrapped in stops are still colors and should create a step."""
+
+        points = [i / 10 for i in range(11)]
+        actual = [Color.discrete(['red', stop('blue', 0.5), 'green'], space='srgb')(p) for p in points]
+
+        # Three colors, one of which is wrapped in a stop, means three ranges
+        self.assertEqual(len({c.to_string() for c in actual}), 3)
+
     def test_discrete_zero(self):
         """Cannot create discrete steps of zero."""
 
@@ -1987,6 +2010,22 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
             'hsl(240 50 75)'
         )
 
+    def test_average_hue_wraps_to_zero(self):
+        """Test that a circular mean of zero is 0 and not rounded up to the maximum hue."""
+
+        for colors in (
+            ['hsl(350 100% 50%)', 'hsl(10 100% 50%)'],
+            ['hsl(10 100% 50%)', 'hsl(350 100% 50%)'],
+            ['hsl(0 100% 50%)', 'hsl(360 100% 50%)'],
+            ['hsl(355 100% 50%)', 'hsl(5 100% 50%)']
+        ):
+            self.assertEqual(Color.average(colors, space='hsl')['hue'], 0.0)
+
+        self.assertEqual(
+            Color.average(['oklch(0.5 0.1 350)', 'oklch(0.5 0.1 10)'], space='oklch')['hue'],
+            0.0
+        )
+
     def test_average_no_colors(self):
         """Test averaging no colors."""
 
@@ -2206,6 +2245,45 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
         self.assertColorEqual(c[6], Color('color(srgb-linear 0 0.0751 0.39286 / 0.84848)'))
         self.assertColorEqual(c[9], Color('color(srgb-linear 0 0.06783 0.35484 / 0.93939)'))
         self.assertColorEqual(c[11], Color('color(srgb-linear 0 0.06372 0.33333)'))
+
+    def test_class_defaults_carryforward_powerless(self):
+        """Test that `interpolate()`, `average()` and `weighted_mix()` all respect the class defaults."""
+
+        class Custom(Color):
+            CARRYFORWARD = True
+            POWERLESS = True
+
+        colors = ['color(srgb 0.5 none 0.8)', 'white']
+        hsl = ['hsl(120 0% 50%)', 'hsl(240 100% 50%)']
+
+        # Base class does not carry forward or treat hues as powerless
+        green = Color.average(colors, space='display-p3').get('green')
+        self.assertNotEqual(green, 1.0)
+        self.assertEqual(Color.weighted_mix(colors, [1, 1], space='display-p3').get('green'), green)
+        self.assertEqual(Color.weighted_mix(hsl, [1, 1], space='hsl')['hue'], 180)
+
+        # The custom class uses its own defaults everywhere
+        self.assertColorEqual(
+            Custom.average(colors, space='display-p3'),
+            Color.average(colors, space='display-p3', carryforward=True)
+        )
+        self.assertColorEqual(
+            Custom.weighted_mix(colors, [1, 1], space='display-p3'),
+            Color.weighted_mix(colors, [1, 1], space='display-p3', carryforward=True)
+        )
+        self.assertColorEqual(
+            Custom.interpolate(colors, space='display-p3')(0.5),
+            Color.interpolate(colors, space='display-p3', carryforward=True)(0.5)
+        )
+        self.assertEqual(Custom.weighted_mix(hsl, [1, 1], space='hsl')['hue'], 240)
+
+        # Explicit arguments still override the class defaults
+        self.assertEqual(Custom.average(colors, space='display-p3', carryforward=False).get('green'), green)
+        self.assertEqual(
+            Custom.weighted_mix(colors, [1, 1], space='display-p3', carryforward=False).get('green'),
+            green
+        )
+        self.assertEqual(Custom.weighted_mix(hsl, [1, 1], space='hsl', powerless=False)['hue'], 180)
 
     def test_spectral_blue_yellow(self):
         """Test yellow and blue mixing."""
@@ -2432,6 +2510,36 @@ class TestInterpolation(util.ColorAsserts, unittest.TestCase):
             c1.mix(c2, 0.5, method='spectral'),
             Color.weighted_mix([c1, c2], [0.5, 0.5], method='spectral')
         )
+
+    def test_spectral_weighted_out_of_gamut_scale(self):
+        """Test that relative weights give the same result regardless of scale, even with a residual."""
+
+        # Colors outside the sRGB gamut have a residual that is not represented by the spectral curves
+        colors = ['color(display-p3 0 1 0)', 'color(display-p3 1 0 0.3)']
+        expected = Color.weighted_mix(colors, [1, 1], method='spectral')
+        for scale in (0.5, 2, 10):
+            self.assertColorEqual(
+                Color.weighted_mix(colors, [scale, scale], method='spectral'),
+                expected
+            )
+
+        colors.append('color(rec2020 0.2 0.9 0.1)')
+        expected = Color.weighted_mix(colors, [1, 2, 3], method='spectral')
+        for scale in (0.25, 3, 10):
+            self.assertColorEqual(
+                Color.weighted_mix(colors, [scale, scale * 2, scale * 3], method='spectral'),
+                expected
+            )
+
+    def test_spectral_weighted_out_of_gamut_matches_mix(self):
+        """Test that weighted mixing of out of gamut colors matches interpolation."""
+
+        colors = ['color(display-p3 0 1 0)', 'color(display-p3 1 0 0.3)']
+        for t in (0.25, 0.5, 0.75):
+            self.assertColorEqual(
+                Color.weighted_mix(colors, [1 - t, t], method='spectral'),
+                Color.interpolate(colors, method='spectral')(t)
+            )
 
     def test_spectral_no_alpha(self):
         """Test with no alpha."""

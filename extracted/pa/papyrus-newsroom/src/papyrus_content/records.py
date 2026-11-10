@@ -6,10 +6,12 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
+from .content_item_lifecycle import HEAD_STAGE_KEY_FIELD, head_stage_fields
 from .graphql_authoring import PapyrusGraphQLAuthoringClient, strip_unsupported_payload_fields
 from .ids import hash_short
 from .model_attachments import expand_private_payload_records, upload_attachment_body
 from .reference_capture_state import EXTRACTED_TEXT_ROLES, sync_capture_state
+from .reference_reads import REFERENCE_BY_LINEAGE, RELATIONS_BY_SUBJECT_STATE, reference_state_key
 from .reference_feed_keys import CARD_FIELDS, feed_keys, prediction_sort_key, star_feed_key
 
 LOGGER = logging.getLogger(__name__)
@@ -146,6 +148,11 @@ def build_record_change_from_current(
                 next_expected.pop(key, None)
     if current and model_name in APPEND_ONLY_EXISTING_NOOP_MODELS:
         return {"modelName": model_name, "expected": current, "current": current, "action": "noop"}
+    if model_name == "Item":
+        # The head stage key follows the row's stage and version state (docs/plans/story-head-stage-index.md); it rides on the write this change makes.
+        next_expected.update(head_stage_fields({**(current or {}), **next_expected}))
+        if not current and next_expected.get(HEAD_STAGE_KEY_FIELD) is None:
+            next_expected.pop(HEAD_STAGE_KEY_FIELD)
     action = "create" if not current else ("noop" if records_equal_for_model(model_name, current, next_expected) else "update")
     return {
         "modelName": model_name,
@@ -157,6 +164,8 @@ def build_record_change_from_current(
 
 def records_equal_for_model(model_name: str, current: dict[str, Any], expected: dict[str, Any]) -> bool:
     ignored = {"updatedAt", "createdAt", "importedAt", "versionCreatedAt"}
+    if model_name == "Item":
+        ignored.add(HEAD_STAGE_KEY_FIELD)   # derived; a row read from a site without the field must not look changed (the backfill writes it)
     if model_name == "Reference":
         ignored |= {"newsroomFeedKey", "curationStatusUpdatedAt", *KEPT_FEED_FIELDS}
     keys = {key for key in {*current.keys(), *expected.keys()} if key not in ignored}
@@ -272,7 +281,13 @@ def prepare_versioned_knowledge_records(
     if not reference_records:
         return {"records": records, "postChanges": []}
 
-    existing_references = client.list_records("Reference")
+    # Only the lineages being written matter: read each one's versions through the lineage index, not the whole table.
+    written_lineages = list(dict.fromkeys(
+        str(record["expected"]["lineageId"]) for record in reference_records if record["expected"].get("lineageId")
+    ))
+    existing_references = [
+        row for lineage in written_lineages for row in client.list_by_index(REFERENCE_BY_LINEAGE, lineage)
+    ]
     current_by_lineage: dict[str, dict[str, Any]] = {}
     for reference in existing_references:
         lineage_id = reference.get("lineageId")
@@ -358,7 +373,10 @@ def prepare_versioned_knowledge_records(
             mapped_records.append(record)
 
     if changed_lineages:
-        existing_relations = client.list_records("SemanticRelation")
+        # A superseded version's current relations start at its lineage: read them by the subject state key of each changed lineage.
+        existing_relations = [
+            row for lineage in sorted(changed_lineages) for row in client.list_by_index(RELATIONS_BY_SUBJECT_STATE, reference_state_key(lineage))
+        ]
         for relation in existing_relations:
             if relation.get("relationState") == "current" and relation.get("subjectLineageId") in changed_lineages:
                 post_changes.append(

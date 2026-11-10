@@ -4,8 +4,34 @@ import asyncio
 import logging
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from river_client._run_metrics import MAX_BATCH_VALUES, _check_values
+
+from .losses import _positive
+
+
+@dataclass(frozen=True)
+class Metrics:
+    """Opt-in AsyncTrainer reporting to River Console through ``model.log()``.
+
+    Both streams are off by default; enable only those your script does not
+    already publish. ``RIVER_METRICS_DISABLED=1`` disables both.
+
+    Attributes:
+        steps: Publish each completed Step's metrics.
+        interval: Seconds between ``progress/*`` snapshots, such as 60.
+            ``None`` disables progress reporting independently of steps.
+    """
+
+    steps: bool = False
+    interval: float | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.steps, bool):
+            raise TypeError("steps must be a bool")
+        if self.interval is not None:
+            _positive(self.interval, "interval")
 
 
 def _scalar_metrics(values, prefix="", *, skip_metadata=False):

@@ -4,8 +4,18 @@ import html
 
 from typing import Any, Optional
 
-import markdown as md_lib  # type: ignore[import-untyped]  # PyPI markdown ships no py.typed
-import nh3
+from django.core.exceptions import ImproperlyConfigured
+
+try:
+    import markdown as md_lib  # type: ignore[import-untyped]  # PyPI markdown ships no py.typed
+    import nh3
+except ModuleNotFoundError as exc:
+    if exc.name not in {"markdown", "nh3"}:
+        raise
+    raise ImproperlyConfigured(
+        "djust.components requires the optional dependency %s. "
+        'Install the components extra with: pip install "djust[components]"' % exc.name
+    ) from exc
 
 from djust import Component
 
@@ -97,7 +107,7 @@ class Markdown(Component):
         --dj-prose-font-size: base font size (default: 1rem)
         --dj-prose-line-height: line height (default: 1.6)
         --dj-prose-heading-color: heading color (default: var(--foreground))
-        --dj-prose-link-color: link color (default: var(--primary))
+        --dj-prose-link-color: link color (default: var(--primary-text, var(--primary)))
         --dj-prose-code-bg: inline code background (default: var(--muted))
         --dj-prose-code-color: inline code text (default: var(--foreground))
         --dj-prose-blockquote-border: blockquote left border color (default: var(--border))

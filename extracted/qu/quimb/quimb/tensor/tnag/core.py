@@ -17,6 +17,7 @@ from ..tensor_core import (
     Tensor,
     TensorNetwork,
     oset,
+    parse_layer_tags,
     rand_uuid,
     tags_to_oset,
     tensor_canonize_bond,
@@ -527,6 +528,8 @@ def tensor_network_ag_gate(
     *,
     which=None,
     contract=False,
+    dagger=False,
+    transpose=False,
     tags=None,
     tags_upper=None,
     tags_lower=None,
@@ -567,6 +570,12 @@ def tensor_network_ag_gate(
 
         X \rightarrow X G_\mathrm{where}^T
 
+    In each case :math:`G` is replaced by :math:`G^\dagger` if ``dagger``, or
+    by :math:`G^T` if ``transpose``. For example the default operator mode with
+    ``dagger=True`` becomes
+    :math:`X \rightarrow G^\dagger_\mathrm{where} X G_\mathrm{where}`, as
+    required for Heisenberg evolution.
+
 
     Parameters
     ----------
@@ -594,6 +603,12 @@ def tensor_network_ag_gate(
                 'swap-split-gate', 'auto-split-gate'}, optional
         How to apply the gate, see
         :meth:`~quimb.tensor.gating.tensor_network_gate_inds`.
+    dagger : bool, optional
+        Whether to apply the conjugate transpose of the gate instead, e.g. for
+        a sandwich this gives ``G† @ X @ G``.
+    transpose : bool, optional
+        Whether to apply the transpose of the gate instead, with no
+        conjugation. Implied by ``dagger``.
     tags : str or sequence of str, optional
         Tags to add to the new gate tensor(s).
     tags_upper : str or sequence of str, optional
@@ -687,6 +702,8 @@ def tensor_network_ag_gate(
             inds_upper,
             inds_lower,
             contract=contract,
+            dagger=dagger,
+            transpose=transpose,
             tags=tags,
             tags_upper=tags_upper,
             tags_lower=tags_lower,
@@ -698,6 +715,8 @@ def tensor_network_ag_gate(
             G,
             inds,
             contract=contract,
+            dagger=dagger,
+            transpose=transpose,
             tags=tags,
             info=info,
             **compress_opts,
@@ -718,6 +737,8 @@ def tensor_network_ag_gate_simple(
     where,
     gauges,
     *,
+    dagger=False,
+    transpose=False,
     max_bond=None,
     cutoff=1e-10,
     renorm=True,
@@ -743,6 +764,12 @@ def tensor_network_ag_gate_simple(
     gauges : dict[str, array_like]
         The store of gauge bonds, the keys being indices and the values
         being the vectors. Only keys present in this dictionary will be used.
+    dagger : bool, optional
+        Whether to apply the conjugate transpose of the gate instead, see
+        :func:`tensor_network_ag_gate`.
+    transpose : bool, optional
+        Whether to apply the transpose of the gate instead, see
+        :func:`tensor_network_ag_gate`.
     max_bond : int, optional
         The maximum bond dimension to keep when applying the gate.
     cutoff : float, optional
@@ -788,6 +815,8 @@ def tensor_network_ag_gate_simple(
             G=G,
             where=where,
             contract=True,
+            dagger=dagger,
+            transpose=transpose,
             inplace=True,
         )
 
@@ -801,6 +830,8 @@ def tensor_network_ag_gate_simple(
             G=G,
             where=where,
             gauges=gauges,
+            dagger=dagger,
+            transpose=transpose,
             max_bond=max_bond,
             cutoff=cutoff,
             renorm=renorm,
@@ -830,6 +861,8 @@ def tensor_network_ag_gate_simple(
             tn_where,
             G=G,
             where=where,
+            dagger=dagger,
+            transpose=transpose,
             info=info,
             inplace=True,
             max_bond=max_bond,
@@ -852,6 +885,8 @@ def tensor_network_ag_gate_simple_long_range(
     where,
     gauges,
     *,
+    dagger=False,
+    transpose=False,
     max_bond=None,
     cutoff=1e-10,
     renorm=True,
@@ -881,6 +916,12 @@ def tensor_network_ag_gate_simple_long_range(
     gauges : dict[str, array_like]
         The store of gauge bonds, the keys being indices and the values
         being the vectors. Only keys present in this dictionary will be used.
+    dagger : bool, optional
+        Whether to apply the conjugate transpose of the gate instead, see
+        :func:`tensor_network_ag_gate`.
+    transpose : bool, optional
+        Whether to apply the transpose of the gate instead, see
+        :func:`tensor_network_ag_gate`.
     max_bond : int, optional
         The maximum bond dimension to keep when applying the gate.
     cutoff : float, optional
@@ -967,7 +1008,12 @@ def tensor_network_ag_gate_simple_long_range(
     #    │   │
     #     lix
     G = maybe_factor_gate(G, uix, tn=tn)
-    tG = Tensor(G, inds=(*uix, *lix))
+    if dagger:
+        # G† = conjugate, then transpose
+        G = do("conj", G)
+        transpose = True
+    gix = (*lix, *uix) if transpose else (*uix, *lix)
+    tG = Tensor(G, inds=gix)
 
     # then split spatially
     #    uix[0] uix[1]
@@ -1389,6 +1435,7 @@ class TensorNetworkGen(TensorNetwork):
         grow_from="all",
         num_joins=1,
         join_overlap=2,
+        allow_dangling=False,
     ):
         """Generate sets of sites that represent 'generalized loops' where
         every node is connected to at least two other loop nodes. This is a
@@ -1401,21 +1448,17 @@ class TensorNetworkGen(TensorNetwork):
             The maximum number of tensors that can appear in a loop. If
             ``None``, grow the loops until every target site, i.e. ``sites``
             or every site, appears in at least one loop, then use that size.
-            Targets outside the 2-core never appear in a loop and are
-            ignored, with a warning if ``sites`` was given or the network is
-            tree like. If ``"min"``, instead use the size of the first valid
-            loop found.
+            Targets that are not in a loop are ignored, with a warning if
+            ``sites`` was given or the network is tree like. If ``"min"``, use
+            the size of the first non-dangling loop found.
         sites : None or sequence[hashable]
             If supplied, only consider loops containing these sites.
-        grow_from : {'all', 'any', 'alldangle', 'anydangle'}, optional
+        grow_from : {'all', 'any'}, optional
             Only if ``sites`` is specified, this determines how to filter
             loops. If 'all', only yield loops containing *all* of the sites
             in ``sites``, if 'any', yield loops containing *any* of the sites
-            in ``sites``. If 'alldangle' or 'anydangle', the sites are allowed
-            to be dangling, i.e. 1-degree connected. This is useful for
-            computing local expectations where the operator insertion breaks
-            the loop assumption locally. Any loop covers a dangling target,
-            so with these ``max_size=None`` acts like ``"min"``.
+            in ``sites``. ``'alldangle'`` and ``'anydangle'`` are old names
+            for ``'all'`` and ``'any'`` that also set ``allow_dangling=True``.
         num_joins : int, optional
             If larger than 1, repeatedly generate larger loops by joining
             together the initial set (individually those with size up to
@@ -1423,8 +1466,13 @@ class TensorNetworkGen(TensorNetwork):
             overlap on at least ``join_overlap`` sites.
         join_overlap : {1, 2}, optional
             When joining loops together, the minimum number of overlapping
-            sites they much share. 1 allows merging on a single site, 2
+            sites they must share. 1 allows merging on a single site, 2
             requires sharing a bond, which leads to fewer but 'denser' loops.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded regions. An automatic size is still taken from
+            non-dangling loops. If no target is in a loop, warn and return the
+            target region only.
 
         Yields
         ------
@@ -1444,6 +1492,7 @@ class TensorNetworkGen(TensorNetwork):
             grow_from=grow_from,
             num_joins=num_joins,
             join_overlap=join_overlap,
+            allow_dangling=allow_dangling,
         ):
             yield tuple(tid2site[tid] for tid in gloop)
 
@@ -1693,6 +1742,7 @@ class TensorNetworkGen(TensorNetwork):
         num_joins=1,
         strict_size=False,
         info=None,
+        allow_dangling=True,
     ):
         r"""Parse the ``gloops`` argument to get the relevant generalized
         loops for the given ``where`` sites. If ``gloops`` is an integer,
@@ -1707,7 +1757,7 @@ class TensorNetworkGen(TensorNetwork):
             -A---B-
              |   |
 
-        Setting ``grow_from='any'`` in would also generates loops like::
+        Setting ``grow_from='any'`` would also generate loops like::
 
              |   |
             -o---o-
@@ -1715,9 +1765,10 @@ class TensorNetworkGen(TensorNetwork):
             -o---A---B-
              |   |   |
 
-        where only site A is part of the original, generating loop, but both
-        A and B are part of the returned cluster. For ``"alldangle"`` the same
-        cluster would be generated but its size would be considered 5.
+        where only site A is part of the generating loop, but both A and B
+        appear in the returned cluster, which is treated as size 4. With
+        ``grow_from='all'`` and ``allow_dangling=True``, the same cluster is
+        generated with B dangling in the generating region, so its size is 5.
 
         Parameters
         ----------
@@ -1734,9 +1785,14 @@ class TensorNetworkGen(TensorNetwork):
             sequences, use those gloops.
         grow_from : {"all", "any"}, optional
             Whether to generate gloops that originally contain all or just
-            any of the target sites in ``where``. The base sites are always
-            included in all returned gloops, even if they were not part of
-            the supplied or auto-generated cluster.
+            any of the target sites in ``where``. ``"alldangle"`` and
+            ``"anydangle"`` are old names that also set
+            ``allow_dangling=True``. The base sites are always included in all
+            returned gloops, even if they were not part of the supplied or
+            auto-generated cluster.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded regions.
 
         Returns
         -------
@@ -1744,6 +1800,11 @@ class TensorNetworkGen(TensorNetwork):
         """
         if tids is None and where is None:
             raise ValueError("Either `tids` or `where` must be supplied.")
+
+        if grow_from in ("alldangle", "anydangle"):
+            grow_from = grow_from.removesuffix("dangle")
+            allow_dangling = True
+        check_opt("grow_from", grow_from, ("all", "any"))
 
         if isinstance(gloops, (int, str)):
             max_size = gloops
@@ -1779,6 +1840,7 @@ class TensorNetworkGen(TensorNetwork):
                         sites=where,
                         grow_from=grow_from,
                         num_joins=num_joins,
+                        allow_dangling=allow_dangling,
                     )
                 )
             else:
@@ -1790,6 +1852,7 @@ class TensorNetworkGen(TensorNetwork):
                         tids=tids,
                         grow_from=grow_from,
                         num_joins=num_joins,
+                        allow_dangling=allow_dangling,
                     )
                 )
         else:
@@ -1826,14 +1889,9 @@ class TensorNetworkGen(TensorNetwork):
             if grow_from == "all":
                 # get all gloops which contain *all* sites in `where`
                 gloops = set.intersection(*(lookup[coo] for coo in where))
-            elif grow_from == "any":
+            else:  # "any"
                 # get all gloops which contain *any* site in `where`
                 gloops = set.union(*(lookup[coo] for coo in where))
-            else:
-                raise ValueError(
-                    f"Invalid `grow_from` value: {grow_from}."
-                    "Should be 'all' or 'any'."
-                )
 
         if grow_from == "any":
             # gloops only guaranteed to include any 1 site from `where`
@@ -1844,6 +1902,9 @@ class TensorNetworkGen(TensorNetwork):
             # gloops guaranteed to include all sites from `where`, but might
             # not include the base region if its not a valid cluster on its own
             clusters = (r0, *map(frozenset, gloops))
+
+        # remove duplicates, dangling regions can already yield r0
+        clusters = tuple(dict.fromkeys(clusters))
 
         if strict_size:
             # only allow clusters below max_size *including* base region,
@@ -2000,6 +2061,228 @@ _LAZY_GATE_CONTRACT = {
     "swap-split-gate",
     "auto-split-gate",
 }
+
+
+def get_bra_inds(tn, where, *, warn=False):
+    """Name the bra indices for sites ``where``. Replace a leading ``k`` with
+    ``b``, e.g. ``"k1,2"`` becomes ``"b1,2"``. Otherwise prepend ``b``. If any
+    name already exists in ``tn``, use unique names for all bra indices.
+
+    Parameters
+    ----------
+    tn : TensorNetworkGenVector
+        The tensor network the sites belong to.
+    where : sequence[node]
+        The sites to get bra indices for.
+    warn : bool, optional
+        Whether to warn when falling back to unique names. Only needed when
+        the names are returned to the caller.
+
+    Returns
+    -------
+    tuple[str]
+    """
+    kix = map(tn.site_ind, where)
+    bix = tuple("b" + ix.removeprefix("k") for ix in kix)
+    if any(ix in tn.ind_map for ix in bix):
+        if warn:
+            warnings.warn(
+                f"The bra indices {bix} already exist in the tensor network, "
+                "so using rand_uuid unique names instead."
+            )
+        bix = tuple(rand_uuid() for _ in bix)
+    return bix
+
+
+def contract_reduced_density_matrix(
+    tn, k_inds, b_inds, *, normalized=True, get="matrix", **contract_opts
+):
+    """Contract a reduced density matrix network. Keep ket indices ``k_inds``
+    and bra indices ``b_inds`` open. Return the form specified by ``get``.
+
+    Parameters
+    ----------
+    tn : TensorNetwork
+        The reduced density matrix tensor network, for example from
+        :meth:`TensorNetworkGenVector.make_reduced_density_matrix`.
+    k_inds : sequence[str]
+        The ket indices.
+    b_inds : sequence[str]
+        The bra indices, in the same site order as ``k_inds``.
+    normalized : bool or "return", optional
+        Whether to normalize the result to unit trace. If "return", return
+        the trace separately, without dividing by it. Ignored if ``get="tn"``,
+        which returns the unnormalized network without a separate trace.
+    get : {'matrix', 'array', 'tensor', 'tn'}, optional
+        How to return the reduced density matrix:
+
+        - 'matrix': a dense matrix, with the ket sites fused into rows
+          and the bra sites fused into columns.
+        - 'array': the raw array, with one axis per ket site then one
+          axis per bra site.
+        - 'tensor': a :class:`~quimb.tensor.tensor_core.Tensor` with the
+          ket and bra indices.
+        - 'tn': the uncontracted tensor network.
+
+    contract_opts
+        Supplied to
+        :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+    Returns
+    -------
+    array or Tensor or TensorNetwork or (array, float) or (Tensor, float)
+    """
+    if get == "tn":
+        return tn
+    if get not in ("matrix", "array", "tensor"):
+        raise ValueError(
+            f"Unrecognized get: {get}, should be one of: "
+            "'matrix', 'array', 'tensor', 'tn'."
+        )
+
+    k_inds, b_inds = tuple(k_inds), tuple(b_inds)
+    rho = tn.contract(output_inds=k_inds + b_inds, **contract_opts)
+
+    if normalized:
+        nfactor = rho.trace(k_inds, b_inds)
+        if normalized is True:
+            rho = rho / nfactor
+
+    if get == "matrix":
+        rho = rho.to_dense(k_inds, b_inds)
+    elif get == "array":
+        rho = rho.data
+
+    if normalized == "return":
+        return rho, nfactor
+    return rho
+
+
+def rho_expectation(rho, G):
+    """Compute ``tr(rho G)``. Both arrays can be matrices or have one axis per
+    ket site followed by one per bra site.
+
+    Parameters
+    ----------
+    rho : array_like
+        The reduced density matrix.
+    G : array_like
+        The local operator.
+
+    Returns
+    -------
+    scalar
+    """
+    ndim = do("ndim", rho)
+    if do("ndim", G) != ndim:
+        # match the matrix or per-site shape of rho
+        G = do("reshape", G, rho.shape)
+    n = ndim // 2
+    return do(
+        "tensordot",
+        rho,
+        G,
+        axes=(tuple(range(2 * n)), tuple(range(n, 2 * n)) + tuple(range(n))),
+    )
+
+
+def partial_traces_from_environment(
+    tn,
+    wheres,
+    ket,
+    bra,
+    environment,
+    *,
+    normalized=True,
+    get="matrix",
+    **contract_opts,
+):
+    """Compute reduced density matrices with a shared environment.
+    The local ``ket`` and ``bra`` must cover all requested sites. The
+    ``environment`` represents the rest of the norm network.
+
+    Parameters
+    ----------
+    tn : TensorNetworkGenVector
+        The state, used for the site indices and to name the bra indices.
+    wheres : sequence[node or sequence[node]]
+        The site or sites to keep for each reduced density matrix.
+    ket, bra : TensorNetwork
+        The local ket and bra tensors, with shared physical indices.
+    environment : TensorNetwork
+        The environment of ``ket`` and ``bra`` in the norm network.
+    normalized : bool or "return", optional
+        Whether to normalize each result to unit trace. If "return", give each
+        as ``(rho, trace)`` without dividing by the trace. Ignored if
+        ``get="tn"``, which returns the unnormalized network without a separate
+        trace.
+    get : {'matrix', 'array', 'tensor', 'tn'}, optional
+        How to return each reduced density matrix, see
+        :func:`contract_reduced_density_matrix`.
+    contract_opts
+        Supplied to
+        :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+    Returns
+    -------
+    dict[node or tuple[node], array or Tensor or TensorNetwork]
+    """
+    rhos = {}
+    for where in wheres:
+        sites = (where,) if tn.has_site(where) else tuple(where)
+        # cut the ket-bra bonds of the kept sites
+        k_inds = tuple(map(tn.site_ind, sites))
+        b_inds = get_bra_inds(tn, sites, warn=get in ("tensor", "tn"))
+        bra_cut = bra.reindex(dict(zip(k_inds, b_inds)))
+        rhos[where] = contract_reduced_density_matrix(
+            ket | bra_cut | environment,
+            k_inds,
+            b_inds,
+            normalized=normalized,
+            get=get,
+            **contract_opts,
+        )
+    return rhos
+
+
+def expectations_from_rhos(terms, rhos, *, normalized=True, return_all=False):
+    """Compute ``tr(rho G)`` for each operator in ``terms``. Read its reduced
+    density matrix from the matching key in ``rhos``.
+
+    Parameters
+    ----------
+    terms : dict[node or tuple[node], array_like]
+        The local operators.
+    rhos : dict[node or tuple[node], array_like]
+        The reduced density matrix for each key of ``terms``, or
+        ``(rho, trace)`` pairs if ``normalized="return"``.
+    normalized : bool or "return", optional
+        How ``rhos`` were normalized. If "return" and ``return_all=True``,
+        give each term as ``(expec, trace)``, else divide by the trace.
+    return_all : bool, optional
+        Whether to return each expectation separately, or sum them all
+        together (the default).
+
+    Returns
+    -------
+    scalar or dict
+    """
+    expecs = {}
+    for where, G in terms.items():
+        if normalized == "return":
+            rho, nfactor = rhos[where]
+            expecs[where] = rho_expectation(rho, G), nfactor
+        else:
+            expecs[where] = rho_expectation(rhos[where], G)
+
+    if return_all:
+        return expecs
+
+    if normalized == "return":
+        return functools.reduce(
+            add, (expec / nfactor for expec, nfactor in expecs.values())
+        )
+    return functools.reduce(add, expecs.values())
 
 
 class TensorNetworkGenVector(TensorNetworkGen):
@@ -2280,13 +2563,12 @@ class TensorNetworkGenVector(TensorNetworkGen):
         self,
         where,
         allow_dangling=True,
-        bra_ind_id="b{}",
+        bra_ind_id=None,
         mangle_append="*",
         layer_tags=("KET", "BRA"),
     ):
-        """Form the tensor network representation of the reduced density
-        matrix, taking special care to handle potential hyper inner and outer
-        indices.
+        """Build a reduced density matrix as a tensor network. Supports
+        internal and output indices shared by more than two tensors.
 
         Parameters
         ----------
@@ -2296,24 +2578,40 @@ class TensorNetworkGenVector(TensorNetworkGen):
             Whether to allow dangling indices in the resulting density matrix.
             These are non-physical indices, that usually result from having
             cut a region of the tensor network.
-        bra_ind_id : str, optional
-            The string format to use for the bra indices.
+        bra_ind_id : None, str or sequence[str], optional
+            How to name the bra indices of ``where``. By default derive ``b``
+            names from the ket indices, see :func:`get_bra_inds`. Supply a
+            format string to generate them, or a sequence of str to use them
+            directly.
         mangle_append : str, optional
             The string to append to indices that are not traced out.
-        layer_tags : tuple of str, optional
-            The tags to apply to the ket and bra tensor network layers.
+        layer_tags : None, bool, int or tuple[str, str], optional
+            Tags for the ket and bra layers, in that order. Use ``True`` or
+            ``1`` for ``("KET", "BRA")``, or ``False``, ``0`` or ``None`` for
+            no layer tags.
         """
+        layer_tags = parse_layer_tags(layer_tags, create=True)
         if self.has_site(where):
             where = (where,)
+        where = tuple(where)
 
-        where = set(where)
+        if bra_ind_id is None:
+            bra_inds = get_bra_inds(self, where, warn=True)
+        elif not isinstance(bra_ind_id, str):
+            bra_inds = tuple(bra_ind_id)
+        elif bra_ind_id.count("{}") > 1:
+            bra_inds = [bra_ind_id.format(*coo) for coo in where]
+        else:
+            bra_inds = [bra_ind_id.format(coo) for coo in where]
+        bra_map = dict(zip(map(self.site_ind, where), bra_inds))
+
         reindex_map = {}
         phys_inds = set()
 
         for coo in self.gen_site_coos():
             kix = self.site_ind(coo)
-            if coo in where:
-                reindex_map[kix] = bra_ind_id.format(coo)
+            if kix in bra_map:
+                reindex_map[kix] = bra_map[kix]
             phys_inds.add(kix)
 
         for ix, tids in self.ind_map.items():
@@ -2351,77 +2649,118 @@ class TensorNetworkGenVector(TensorNetworkGen):
 
         Parameters
         ----------
-        where : sequence[node]
-            The sites to keep.
+        where : node or sequence[node]
+            The site or sites to keep.
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use, when exactly contracting the
             full tensor network.
         normalized : bool or "return", optional
             Whether to normalize the result. If "return", return the norm
-            separately.
+            separately. Ignored if ``get="tn"``, which returns the unnormalized
+            network without a separate trace.
         rehearse : bool, optional
             Whether to perform the computation or not, if ``True`` return a
             rehearsal info dict.
-        get : {'matrix', 'array', 'tensor'}, optional
-            Whether to return the result as a dense array, the data itself, or
-            a tensor network.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return the reduced density matrix:
+
+            - 'matrix': a dense matrix, with the ket sites fused into rows
+              and the bra sites fused into columns.
+            - 'array': the raw array, with one axis per ket site then one
+              axis per bra site.
+            - 'tensor': a :class:`~quimb.tensor.tensor_core.Tensor` with the
+              ket and bra indices.
+            - 'tn': the uncontracted tensor network.
 
         Returns
         -------
-        array or Tensor or dict or (array, float), (Tensor, float)
+        array or Tensor or TensorNetwork or dict or (array, float) or
+        (Tensor, float)
         """
         if self.has_site(where):
             where = (where,)
 
         k_inds = tuple(map(self.site_ind, where))
-        bra_ind_id = "_bra{}"
-        b_inds = tuple(map(bra_ind_id.format, where))
-
-        tn = self.make_reduced_density_matrix(where, bra_ind_id=bra_ind_id)
+        b_inds = get_bra_inds(
+            self, where, warn=bool(rehearse) or (get in ("tensor", "tn"))
+        )
+        tn = self.make_reduced_density_matrix(where, bra_ind_id=b_inds)
 
         if rehearse:
             return _handle_rehearse(
                 rehearse, tn, optimize, output_inds=k_inds + b_inds
             )
 
-        rho = tn.contract(
-            output_inds=(*k_inds, *b_inds),
+        return contract_reduced_density_matrix(
+            tn,
+            k_inds,
+            b_inds,
+            normalized=normalized,
+            get=get,
             optimize=optimize,
             **contract_opts,
         )
 
-        if normalized:
-            rho_array_fused = rho.to_dense(k_inds, b_inds)
-            nfactor = do("trace", rho_array_fused)
-        else:
-            rho_array_fused = nfactor = None
+    def compute_partial_traces_exact(
+        self,
+        wheres,
+        optimize="auto-hq",
+        *,
+        normalized=True,
+        get="matrix",
+        rehearse=False,
+        executor=None,
+        progbar=False,
+        **contract_opts,
+    ):
+        """Compute reduced density matrices for several sets of sites. Contract
+        the full overlap network separately for each with
+        :meth:`partial_trace_exact`.
 
-        if get == "matrix":
-            if rho_array_fused is None:
-                # might have computed already
-                rho_array_fused = rho.to_dense(k_inds, b_inds)
-            if normalized is True:
-                # multiply norm in
-                rho = rho_array_fused / nfactor
-            else:
-                rho = rho_array_fused
-        elif get == "array":
-            if normalized is True:
-                # multiply norm in
-                rho = rho.data / nfactor
-            else:
-                rho = rho.data
-        elif get == "tensor":
-            if normalized is True:
-                # multiply norm in, inplace
-                rho.multiply_(1 / nfactor)
-        else:
-            raise ValueError(f"Unrecognized 'get' value: {get}")
+        Parameters
+        ----------
+        wheres : sequence[node or sequence[node]]
+            The site or sites to keep for each reduced density matrix.
+        optimize : str or PathOptimizer, optional
+            The contraction path optimizer to use, when exactly contracting the
+            full tensor network.
+        normalized : bool or "return", optional
+            Whether to normalize each result. If "return", give each as
+            ``(rho, trace)`` without dividing by the trace. Ignored if
+            ``get="tn"``, which returns the unnormalized network without a
+            separate trace.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return each reduced density matrix, see
+            :meth:`partial_trace_exact`.
+        rehearse : bool, optional
+            If ``True``, return contraction information for each set of sites
+            without contracting.
+        executor : Executor, optional
+            Compute the reduced density matrices in parallel with this
+            executor.
+        progbar : bool, optional
+            Whether to show a progress bar.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
 
-        if normalized == "return":
-            return rho, nfactor
-        else:
-            return rho
+        Returns
+        -------
+        dict[node or tuple[node], array or Tensor or TensorNetwork]
+        """
+        return _compute_expecs_maybe_in_parallel(
+            fn=_tn_partial_trace_exact,
+            tn=self,
+            terms=dict.fromkeys(wheres),
+            return_all=True,
+            executor=executor,
+            progbar=progbar,
+            optimize=optimize,
+            normalized=normalized,
+            get=get,
+            rehearse=rehearse,
+            **contract_opts,
+        )
 
     def local_expectation_exact(
         self,
@@ -2439,8 +2778,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
         ----------
         G : array_like
             The operator to compute the expectation of.
-        where : sequence[node]
-            The sites to compute the expectation at.
+        where : node or sequence[node]
+            The site or sites to compute the expectation at.
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use, when exactly contracting the
             full tensor network.
@@ -2474,27 +2813,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         if normalized == "return":
             # separate out the norm
             rho, nfactor = rho
+            return rho_expectation(rho, G), nfactor
 
-        ng = len(where)
-        if do("ndim", G) != 2 * ng:
-            # might be supplied in matrix form
-            G = do("reshape", G, rho.shape)
-
-        # contract the expectation!
-        expec = do(
-            "tensordot",
-            rho,
-            G,
-            axes=(
-                tuple(range(2 * ng)),
-                tuple(range(ng, 2 * ng)) + tuple(range(ng)),
-            ),
-        )
-
-        if normalized == "return":
-            return expec, nfactor
-        else:
-            return expec
+        return rho_expectation(rho, G)
 
     def compute_local_expectation_exact(
         self,
@@ -2519,8 +2840,10 @@ class TensorNetworkGenVector(TensorNetworkGen):
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use, when exactly contracting the
             full tensor network.
-        normalized : bool, optional
-            Whether to normalize the result.
+        normalized : bool or "return", optional
+            Normalize each expectation by its trace. If "return", return
+            ``(expec, trace)`` pairs with ``return_all=True``, or sum the
+            normalized values with ``return_all=False``.
         return_all : bool, optional
             Whether to return all results, or just the summed expectation.
         rehearse : {False, 'tn', 'tree', True}, optional
@@ -2661,8 +2984,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
 
         Parameters
         ----------
-        where : sequence[node]
-            The sites to keep.
+        where : node or sequence[node]
+            The site or sites to keep.
         gauges : dict[str, array_like], optional
             The store of gauge bonds, the keys being indices and the values
             being the vectors. Only bonds present in this dictionary will be
@@ -2672,7 +2995,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
             local tensors.
         normalized : bool or "return", optional
             Whether to normalize the result. If "return", return the norm
-            separately.
+            separately. Ignored if ``get="tn"``, which returns the unnormalized
+            network without a separate trace.
         max_distance : int, optional
             The maximum graph distance to include tensors neighboring ``where``
             when computing the expectation. The default 0 means only the
@@ -2697,9 +3021,17 @@ class TensorNetworkGenVector(TensorNetworkGen):
         power : float, optional
             The power to raise the singular values to before multiplying them
             in and inverting them.
-        get : {'matrix', 'array', 'tensor'}, optional
-            Whether to return the result as a fused matrix (i.e. always 2D),
-            unfused array, or still labeled Tensor.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return the reduced density matrix:
+
+            - 'matrix': a dense matrix, with the ket sites fused into rows
+              and the bra sites fused into columns.
+            - 'array': the raw array, with one axis per ket site then one
+              axis per bra site.
+            - 'tensor': a :class:`~quimb.tensor.tensor_core.Tensor` with the
+              ket and bra indices.
+            - 'tn': the uncontracted tensor network.
+
         rehearse : bool, optional
             Whether to perform the computation or not, if ``True`` return a
             rehearsal info dict.
@@ -2707,6 +3039,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
             Supplied to
             :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
         """
+        if self.has_site(where):
+            where = (where,)
+
         k = self.get_cluster(
             where,
             gauges=gauges,
@@ -2727,6 +3062,101 @@ class TensorNetworkGenVector(TensorNetworkGen):
             **contract_opts,
         )
 
+    def compute_partial_traces_cluster(
+        self,
+        wheres,
+        *,
+        max_distance=0,
+        mode="graphdistance",
+        fillin=0,
+        grow_from="all",
+        normalized=True,
+        get="matrix",
+        gauges=None,
+        smudge=1e-12,
+        power=1.0,
+        optimize="auto-hq",
+        rehearse=False,
+        executor=None,
+        progbar=False,
+        **contract_opts,
+    ):
+        """Compute approximate reduced density matrices for sets of sites.
+        Contract a local cluster for each with :meth:`partial_trace_cluster`.
+        Supply ``gauges`` to include bond weights on the cluster boundary.
+
+        Parameters
+        ----------
+        wheres : sequence[node or sequence[node]]
+            The site or sites to keep for each reduced density matrix.
+        max_distance : int, optional
+            The maximum graph distance to include tensors neighboring each
+            ``where``, see :meth:`partial_trace_cluster`.
+        mode : {'graphdistance', 'loopunion'}, optional
+            How to select the local tensors, see
+            :meth:`partial_trace_cluster`.
+        fillin : bool or int, optional
+            Whether and how many times to 'fill-in' corner tensors attached
+            multiple times to the local region.
+        grow_from : {"all", "any"}, optional
+            If mode is 'loopunion', whether each loop should contain *all* of
+            the initial tagged tensors, or just *any* of them.
+        normalized : bool or "return", optional
+            Whether to normalize each result. If "return", give each as
+            ``(rho, trace)`` without dividing by the trace. Ignored if
+            ``get="tn"``, which returns the unnormalized network without a
+            separate trace.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return each reduced density matrix, see
+            :meth:`partial_trace_exact`.
+        gauges : dict[str, array_like], optional
+            The store of gauge bonds, the keys being indices and the values
+            being the vectors. Only bonds present in this dictionary will be
+            used.
+        smudge : float, optional
+            A small value to add to the gauges before multiplying them in.
+        power : float, optional
+            The power to raise the gauges to before multiplying them in.
+        optimize : str or PathOptimizer, optional
+            The contraction path optimizer to use, when exactly contracting the
+            local tensors.
+        rehearse : bool, optional
+            If ``True``, return contraction information for each set of sites
+            without contracting.
+        executor : Executor, optional
+            Compute the reduced density matrices in parallel with this
+            executor.
+        progbar : bool, optional
+            Whether to show a progress bar.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        dict[node or tuple[node], array or Tensor or TensorNetwork]
+        """
+        return _compute_expecs_maybe_in_parallel(
+            fn=_tn_partial_trace_cluster,
+            tn=self,
+            terms=dict.fromkeys(wheres),
+            return_all=True,
+            executor=executor,
+            progbar=progbar,
+            max_distance=max_distance,
+            mode=mode,
+            fillin=fillin,
+            grow_from=grow_from,
+            normalized=normalized,
+            get=get,
+            gauges=gauges,
+            smudge=smudge,
+            power=power,
+            optimize=optimize,
+            rehearse=rehearse,
+            **contract_opts,
+        )
+
     def local_expectation_cluster(
         self,
         G,
@@ -2737,9 +3167,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         fillin=False,
         grow_from="all",
         gauges=None,
-        smudge=0.0,
+        smudge=1e-12,
         power=1.0,
-        optimize="auto",
+        optimize="auto-hq",
         max_bond=None,
         rehearse=False,
         **contract_opts,
@@ -2772,9 +3202,10 @@ class TensorNetworkGenVector(TensorNetworkGen):
             The gate to compute the expecation of.
         where : node or sequence[node]
             The sites to compute the expectation at.
-        normalized : bool, optional
-            Whether to locally normalize the result, i.e. divide by the
-            expectation value of the identity.
+        normalized : bool or "return", optional
+            Normalize the expectation by its local trace. With
+            ``max_bond=None``, also accept "return" to give ``(expec, trace)``
+            without dividing by the trace.
         max_distance : int, optional
             The maximum graph distance to include tensors neighboring ``where``
             when computing the expectation. The default 0 means only the
@@ -2797,6 +3228,10 @@ class TensorNetworkGenVector(TensorNetworkGen):
             The store of gauge bonds, the keys being indices and the values
             being the vectors. Only bonds present in this dictionary will be
             used.
+        smudge : float, optional
+            A small value to add to the gauges before multiplying them in.
+        power : float, optional
+            The power to raise the gauges to before multiplying them in.
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use, when exactly contracting the
             local tensors.
@@ -2817,6 +3252,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         -------
         expectation : float
         """
+        if self.has_site(where):
+            where = (where,)
+
         k = self.get_cluster(
             where,
             gauges=gauges,
@@ -2829,7 +3267,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         )
 
         if max_bond is not None:
-            return k.local_expectation(
+            # use the generic contraction algorithm
+            return TensorNetworkGenVector.local_expectation(
+                k,
                 G=G,
                 where=where,
                 max_bond=max_bond,
@@ -2864,7 +3304,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         grow_from="all",
         normalized=True,
         gauges=None,
-        optimize="auto",
+        smudge=1e-12,
+        power=1.0,
+        optimize="auto-hq",
         max_bond=None,
         return_all=False,
         rehearse=False,
@@ -2918,14 +3360,18 @@ class TensorNetworkGenVector(TensorNetworkGen):
             If mode is 'loopunion', whether each loop should contain *all* of
             the initial tagged tensors, or just *any* of them (generating a
             larger region).
-        normalized : bool, optional
-            Whether to locally normalize the result, i.e. divide by the
-            expectation value of the identity. This implies that a different
-            normalization factor is used for each term.
+        normalized : bool or "return", optional
+            Normalize each expectation by its local trace. With
+            ``max_bond=None``, also accept "return": return ``(expec, trace)``
+            pairs if ``return_all=True``, otherwise sum the normalized values.
         gauges : dict[str, array_like], optional
             The store of gauge bonds, the keys being indices and the values
             being the vectors. Only bonds present in this dictionary will be
             used.
+        smudge : float, optional
+            A small value to add to the gauges before multiplying them in.
+        power : float, optional
+            The power to raise the gauges to before multiplying them in.
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use, when exactly contracting the
             local tensors.
@@ -2972,6 +3418,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
             fillin=fillin,
             grow_from=grow_from,
             gauges=gauges,
+            smudge=smudge,
+            power=power,
             optimize=optimize,
             rehearse=rehearse,
             max_bond=max_bond,
@@ -3194,6 +3642,7 @@ class TensorNetworkGenVector(TensorNetworkGen):
         info=None,
         tn_cache_maxsize=512,
         progbar=False,
+        allow_dangling=True,
         **contract_opts,
     ):
         """Compute the expectation of operator ``G`` at site(s) ``where`` by
@@ -3238,7 +3687,11 @@ class TensorNetworkGenVector(TensorNetworkGen):
             If auto generating loops, whether generate only those which contain
             *all* sites in the term, or just *any*. The loops generated by
             "any" are a superset of those generated by "all", giving a more
-            accuracte estimate.
+            accurate estimate.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded regions. An automatic size is still taken from
+            non-dangling loops.
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use.
         info : dict, optional
@@ -3270,6 +3723,7 @@ class TensorNetworkGenVector(TensorNetworkGen):
             num_joins=num_joins,
             strict_size=strict_size,
             info=info,
+            allow_dangling=allow_dangling,
         )
 
         if autoreduce:
@@ -3478,6 +3932,7 @@ class TensorNetworkGenVector(TensorNetworkGen):
         return_all=False,
         executor=None,
         progbar=False,
+        allow_dangling=True,
         **contract_opts,
     ):
         """Contract many local expectations using generalized loop expansion.
@@ -3522,7 +3977,11 @@ class TensorNetworkGenVector(TensorNetworkGen):
             If auto generating loops, whether generate only those which contain
             *all* sites in the term, or just *any*. The loops generated by
             "any" are a superset of those generated by "all", giving a more
-            accuracte estimate.
+            accurate estimate.
+        allow_dangling : bool, optional
+            Whether target sites can have fewer than two internal bonds in
+            yielded regions. An automatic size is still taken from
+            non-dangling loops.
         optimize : str or PathOptimizer, optional
             The contraction path optimizer to use.
         info : dict, optional
@@ -3584,6 +4043,7 @@ class TensorNetworkGenVector(TensorNetworkGen):
             return_all=return_all,
             executor=executor,
             progbar=progbar,
+            allow_dangling=allow_dangling,
             **contract_opts,
         )
 
@@ -3605,8 +4065,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
 
         Parameters
         ----------
-        keep : iterable of hashable
-            The sites to keep.
+        keep : node or sequence[node]
+            The site or sites to keep.
         max_bond : int
             The maximum bond dimensions to use while compressed contracting.
         optimize : str or PathOptimizer, optional
@@ -3644,6 +4104,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         rho : array_like
             The reduce density matrix of sites in ``keep``.
         """
+        if self.has_site(keep):
+            keep = (keep,)
+
         if symmetrized == "auto":
             symmetrized = not flatten
 
@@ -3656,9 +4119,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
 
         # b = k.conj().reindex_(dict(zip(k_inds, b_inds)))
         # tn = (b | k)
-        bra_ind_id = "_bra{}"
-        b_inds = tuple(map(bra_ind_id.format, keep))
-        tn = k.make_reduced_density_matrix(keep, bra_ind_id=bra_ind_id)
+        b_inds = get_bra_inds(self, keep, warn=bool(rehearse))
+        tn = k.make_reduced_density_matrix(keep, bra_ind_id=b_inds)
         output_inds = k_inds + b_inds
 
         if flatten:
@@ -3744,8 +4206,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
         ----------
         G : array_like
             The local operator to compute the expectation of.
-        where : node or sequence of nodes
-            The sites to compute the expectation for.
+        where : node or sequence[node]
+            The site or sites to compute the expectation for.
         max_bond : int
             The maximum bond dimensions to use while compressed contracting.
         optimize : str or PathOptimizer, optional
@@ -3783,7 +4245,9 @@ class TensorNetworkGenVector(TensorNetworkGen):
         -------
         expec : float
         """
-        rho = self.partial_trace(
+        # use the generic contraction algorithm
+        rho = TensorNetworkGenVector.partial_trace(
+            self,
             keep=where,
             max_bond=max_bond,
             optimize=optimize,
@@ -3797,7 +4261,7 @@ class TensorNetworkGenVector(TensorNetworkGen):
         if rehearse:
             return rho
 
-        return do("tensordot", rho, G, axes=((0, 1), (1, 0)))
+        return rho_expectation(rho, G)
 
     def compute_local_expectation(
         self,
@@ -4339,11 +4803,13 @@ class TensorNetworkGenOperator(TensorNetworkGen):
     def gate_sandwich_with_op_lazy(
         self,
         A,
+        dagger=False,
         inplace=False,
     ):
         r"""Act lazily with the operator tensor network ``A``, which should
         have matching structure, on this operator tensor network (``B``), like
-        :math:`B \rightarrow A B A^\dagger`. The returned tensor network will
+        :math:`B \rightarrow A B A^\dagger`, or if ``dagger=True`` like
+        :math:`B \rightarrow A^\dagger B A`. The returned tensor network will
         have the same structure as this one, but with the operator gated in
         lazily, i.e. uncontracted.
 
@@ -4352,6 +4818,9 @@ class TensorNetworkGenOperator(TensorNetworkGen):
         A : TensorNetworkGenOperator
             The operator tensor network to gate with, or apply to this tensor
             network.
+        dagger : bool, optional
+            Whether to apply the reversed sandwich :math:`A^\dagger B A`
+            instead, e.g. for Heisenberg evolution.
         inplace : bool, optional
             Whether to perform the gate operation inplace on this tensor
 
@@ -4360,8 +4829,12 @@ class TensorNetworkGenOperator(TensorNetworkGen):
         TensorNetworkGenOperator
         """
         B = self if inplace else self.copy()
-        B.gate_upper_with_op_lazy_(A)
-        B.gate_lower_with_op_lazy_(A.conj(), transpose=True)
+        if dagger:
+            B.gate_upper_with_op_lazy_(A.conj(), transpose=True)
+            B.gate_lower_with_op_lazy_(A)
+        else:
+            B.gate_upper_with_op_lazy_(A)
+            B.gate_lower_with_op_lazy_(A.conj(), transpose=True)
         return B
 
     gate_sandwich_with_op_lazy_ = functools.partialmethod(
@@ -4574,22 +5047,38 @@ def _compute_expecs_maybe_in_parallel(
     if progbar:
         results = Progbar(results, total=len(terms))
 
-    expecs = dict(zip(terms.keys(), results))
+    # exhaust the progress iterator so it closes
+    expecs = dict(zip(terms.keys(), results, strict=True))
 
     if return_all or kwargs.get("rehearse", False):
         return expecs
 
+    if kwargs.get("normalized") == "return":
+        return functools.reduce(
+            add, (expec / trace for expec, trace in expecs.values())
+        )
     return functools.reduce(add, expecs.values())
 
 
 def _tn_local_expectation(tn: TensorNetworkGenVector, *args, **kwargs):
     """Define as function for pickleability."""
-    return tn.local_expectation(*args, **kwargs)
+    # use the generic contraction algorithm
+    return TensorNetworkGenVector.local_expectation(tn, *args, **kwargs)
 
 
 def _tn_local_expectation_cluster(tn: TensorNetworkGenVector, *args, **kwargs):
     """Define as function for pickleability."""
     return tn.local_expectation_cluster(*args, **kwargs)
+
+
+def _tn_partial_trace_exact(tn: TensorNetworkGenVector, _, where, **kwargs):
+    """Module-level wrapper for pickling. The operator argument is unused."""
+    return tn.partial_trace_exact(where, **kwargs)
+
+
+def _tn_partial_trace_cluster(tn: TensorNetworkGenVector, _, where, **kwargs):
+    """Module-level wrapper for pickling. The operator argument is unused."""
+    return tn.partial_trace_cluster(where, **kwargs)
 
 
 def _tn_local_expectation_exact(tn: TensorNetworkGenVector, *args, **kwargs):

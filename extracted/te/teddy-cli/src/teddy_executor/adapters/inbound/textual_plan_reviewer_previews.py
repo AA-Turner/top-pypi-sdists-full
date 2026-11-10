@@ -266,12 +266,18 @@ async def view_details_handler(app: "ReviewerApp") -> None:
 
 
 async def view_plan_handler(app: "ReviewerApp") -> None:
-    """Implementation for viewing the full plan."""
+    """Implementation for viewing the full plan.
+
+    The viewer always opens the real ``plan.md`` read-only in place, so the user
+    inspects exactly what will run. When the plan has no on-disk path (e.g.
+    ``--plan-content``), ``launch_editor`` opens a temp copy carrying the content
+    instead.
+    """
     content: Optional[str] = None
     plan_path = app.plan.plan_path
     if plan_path and app._file_system:
         try:
-            content = app._file_system.read_file(plan_path)
+            content = app._file_system.read_raw_file(plan_path)
         except Exception as e:
             logger.debug("Failed to read plan file for viewing: %s", e)
     if not content:
@@ -279,16 +285,17 @@ async def view_plan_handler(app: "ReviewerApp") -> None:
     if not content:
         content = f"# Plan: {app.plan.title}\n\n{app.plan.rationale}\n\n"
 
-    if content:
-        # If we have a persistent path, we use it. We skip confirmation because
-        # 'view' is intended to be a read-only or informational action.
-        await launch_editor(
-            app,
-            content,
-            suffix=".md",
-            persistent_path=plan_path,
-            skip_confirm=True,
-        )
+    if not content:
+        return
+
+    # 'view' is a read-only or informational action, so we skip confirmation.
+    await launch_editor(
+        app,
+        content,
+        suffix=".md",
+        persistent_path=plan_path,
+        skip_confirm=True,
+    )
 
 
 async def add_message_handler(app: "ReviewerApp") -> None:

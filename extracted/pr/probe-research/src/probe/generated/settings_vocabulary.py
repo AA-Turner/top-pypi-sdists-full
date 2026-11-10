@@ -29,6 +29,8 @@ class SettingKey(_StrEnum):
     TRANSCRIPTS = "transcripts"
     RECORDER = "recorder"
     WORKSPACE = "workspace"
+    PROFILE = "profile"
+    SESSION_CONTROL = "session_control"
 
 
 class SetBy(_StrEnum):

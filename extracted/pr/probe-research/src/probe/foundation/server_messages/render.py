@@ -12,8 +12,11 @@ from .server_messages import Action, ServerMessage
 
 #: How a script's own environment updates the SDK.
 UPGRADE_COMMAND = "pip install -U probe-research"
-#: How the CLI and its MCP server update (`probe.sdk.session_marker.WIZARD_HINT`; a test pins the two).
-WIZARD_HINT = "run the Probe wizard: probe wizard or npx probe-research"
+#: How the CLI and its MCP server update, from the chat (`probe.sdk.session_marker.UPDATE_HINT`; a test
+#: pins the two).
+UPDATE_HINT = "run `npx -y probe-research update --json`"
+#: How a broken install is put back, from the chat (already-set-up.md's Reinstall or repair).
+REPAIR_COMMAND = "npx -y probe-research repair --json"
 #: Where a person writes to Probe.
 SUPPORT_ADDRESS = "support@prbe.ai"
 
@@ -41,11 +44,12 @@ def _make_same_words(text: str) -> Mapping[Surface, str]:
 ACTION_LINES: Mapping[Action, ActionLine] = {
     Action.UPDATE: ActionLine(
         words={Surface.SDK: f"Upgrade to {{target}}: `{UPGRADE_COMMAND}`.",
-               Surface.CLI: f"Upgrade to {{target}}: {WIZARD_HINT}.",
-               Surface.MCP: f"Upgrade to {{target}}: {WIZARD_HINT}."},
-        said_by=("pip install", "probe wizard", "npx probe-research"),
+               Surface.CLI: f"Upgrade to {{target}}: {UPDATE_HINT}.",
+               Surface.MCP: f"Upgrade to {{target}}: {UPDATE_HINT}."},
+        said_by=("pip install", "probe wizard", "npx probe-research", "npx -y probe-research"),
     ),
-    Action.REINSTALL: ActionLine(_make_same_words("Reinstall Probe: `npx probe-research`."), said_by=("npx probe-research",)),
+    Action.REINSTALL: ActionLine(_make_same_words(f"Reinstall Probe: `{REPAIR_COMMAND}`."),
+                                 said_by=("npx probe-research", "npx -y probe-research")),
     Action.CONTACT_SUPPORT: ActionLine(_make_same_words(f"Write to {SUPPORT_ADDRESS}."), said_by=(SUPPORT_ADDRESS,)),
 }
 

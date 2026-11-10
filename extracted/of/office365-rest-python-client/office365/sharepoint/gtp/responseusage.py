@@ -1,11 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.internal.prompt_token_details import PromptTokenDetails
 
 
-@dataclass
 class GptResponseUsage(ClientValue):
     CompletionTokens: Optional[int] = None
     PromptTokens: Optional[int] = None

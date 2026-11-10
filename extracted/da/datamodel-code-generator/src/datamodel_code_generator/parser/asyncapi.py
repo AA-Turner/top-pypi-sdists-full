@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import replace
-from functools import partial
+from functools import partial, reduce
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
@@ -20,6 +20,7 @@ from datamodel_code_generator._document_reader import (
     CHANNEL_OPERATIONS,
     as_mapping,
     is_multi_format_schema_object,
+    schema_format_media_type,
     string_keys,
 )
 from datamodel_code_generator._json_pointer import escape_token
@@ -31,16 +32,14 @@ from datamodel_code_generator._name_words import pascal_words
 from datamodel_code_generator._records import record
 from datamodel_code_generator._url_redaction import redact_path
 from datamodel_code_generator.deprecations import warn_deprecated
-from datamodel_code_generator.enums import AsyncAPIVersion
+from datamodel_code_generator.parser import _schema_documents, _schema_refs
 from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaParser,
     _named_path,
-    _VersionSource,
     get_model_by_path,
     unescape_json_pointer_segment,
 )
-from datamodel_code_generator.parser.openapi import OpenAPIParser
-from datamodel_code_generator.parser.schema_version import OpenAPISchemaFeatures, detect_asyncapi_version
+from datamodel_code_generator.parser.openapi import OpenAPIParser, _DiscriminatorScan
 from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import is_url
 from datamodel_code_generator.util import BaseModel, create_module_getattr
@@ -52,6 +51,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator._source import YamlValue
     from datamodel_code_generator._types import AsyncAPIParserConfigDict
     from datamodel_code_generator.config import AsyncAPIParserConfig
+    from datamodel_code_generator.parser.schema_version import OpenAPISchemaFeatures, SchemaKind
     from datamodel_code_generator.reference import SchemaLocation
 
 
@@ -158,6 +158,27 @@ def _iter_trait_items(traits: Any, path: list[str]) -> Iterator[tuple[dict[str, 
         yield trait, [*path, str(index)] if is_trait_list else path
 
 
+def _merge_patch(target: YamlValue, patch: YamlValue, *, deref: Callable[[YamlValue], YamlValue]) -> YamlValue:
+    """Return ``target`` with ``patch`` applied as a JSON Merge Patch (RFC 7386), reading references by ``deref``.
+
+    Where both are objects, each is read as the object a reference names, the members of ``patch`` replace those of
+    ``target`` member by member, and a member of ``patch`` that is null removes it. A value that meets no object of
+    ``target`` is kept as written, so it keeps its location in its document.
+    """
+    if not isinstance(patch, dict) or not isinstance(target, dict):
+        return patch
+    read_target, read_patch = deref(target), deref(patch)
+    if read_target is not target or read_patch is not patch:
+        return _merge_patch(read_target, read_patch, deref=deref)
+    merged = dict(target)
+    for key, value in patch.items():
+        if value is None:
+            merged.pop(key, None)
+        else:
+            merged[key] = _merge_patch(merged.get(key), value, deref=deref)
+    return merged
+
+
 def _path_to_string(path: list[str]) -> str:
     """Return ``path`` as a message names it; a key on it may be no string, such as a YAML key ``1``."""
     return redact_path(map(str, path))
@@ -205,10 +226,6 @@ def _escape_context_path_part(part: str) -> str:
     return escape_token(part.removeprefix("#/"))
 
 
-def _schema_format_media_type(schema_format: str) -> str:
-    return schema_format.split(";", maxsplit=1)[0].strip().lower()
-
-
 def _parse_multi_format_schema_object(
     raw_schema: YamlValue,
     path: list[str],
@@ -240,7 +257,7 @@ def _unsupported_schema_format_error(schema_format: str, path: list[str]) -> Err
 def _schema_format_kind(schema_format: str | None, path: list[str]) -> str:
     if schema_format is None:
         return "asyncapi"
-    media_type = _schema_format_media_type(schema_format)
+    media_type = schema_format_media_type(schema_format)
     if kind := SCHEMA_FORMAT_KIND_BY_MEDIA_TYPE.get(media_type):
         return kind
     raise _unsupported_schema_format_error(schema_format, path)
@@ -294,8 +311,18 @@ class AsyncAPIParser(OpenAPIParser):
         """Initialize the AsyncAPI parser."""
         super().__init__(source=source, config=config, **options)
 
-    _version_source: ClassVar[_VersionSource] = _VersionSource(
-        "asyncapi_version", AsyncAPIVersion.Auto, detect_asyncapi_version, OpenAPISchemaFeatures.from_asyncapi_version
+    @property
+    def _placeholder_titles(self) -> bool:
+        """Whether a converted payload that names no type of its own keeps the converter's title ``Model``.
+
+        Row ``legacy-converter-placeholder-title``; under ``--name-converted-payloads-by-message`` such a payload takes
+        no title, so it is named after its message as a JSON Schema payload is.
+        """
+        return not self.config.name_converted_payloads_by_message
+
+    _schema_kind: ClassVar[SchemaKind] = "asyncapi"
+    _discriminator_scan: ClassVar[_DiscriminatorScan] = _DiscriminatorScan(
+        components_only=True, string_discriminators=True
     )
 
     @property
@@ -309,18 +336,8 @@ class AsyncAPIParser(OpenAPIParser):
         self._discriminator_documents.clear()
         self._discriminator_schemas.clear()
         self._discriminator_subtypes.clear()
+        self._string_discriminators.clear()
         self._collect_discriminator_document(self.raw_obj)
-
-    def _collect_discriminator_document(self, raw: dict[str, Any]) -> None:
-        """Retain AsyncAPI's component-only policy when reference loading indexes documents.
-
-        The components are read as ``_iter_asyncapi_schemas`` reads them: a value that is no object holds no schema.
-        """
-        self._discriminator_documents.add(f"{'/'.join(self.model_resolver.current_root)}#")
-        for schema_name, schema in as_mapping(as_mapping(raw.get("components")).get("schemas")).items():
-            if not isinstance(schema, dict):
-                continue
-            self._register_discriminator_schema(f"#/components/schemas/{schema_name}", schema)
 
     @override
     def _index_document(self, raw: dict[str, Any], path_parts: list[str]) -> dict[str, Any]:
@@ -394,9 +411,10 @@ class AsyncAPIParser(OpenAPIParser):
         converted_schema_key = "_".join(_escape_context_path_part(part) for part in path) or name
         ref_prefix = f"#/{INTERNAL_SCHEMA_CONTAINER}/{converted_schema_key}/components/schemas"
         converted_schema = _move_json_schema_definitions_to_components(converted_schema, ref_prefix=ref_prefix)
-        converted_schema.setdefault("title", name)
-        converted_schema = self._mount_converted_schema(
-            converted_schema, location, f"/{INTERNAL_SCHEMA_CONTAINER}/{converted_schema_key}"
+        if self._placeholder_titles:
+            converted_schema.setdefault("title", name)
+        converted_schema = _schema_documents.mount_converted_schema(
+            self, converted_schema, location, f"/{INTERNAL_SCHEMA_CONTAINER}/{converted_schema_key}"
         )
         self._graph.mount_in(context.raw_obj, INTERNAL_SCHEMA_CONTAINER, converted_schema_key, converted_schema)
         root_path = [*context.root_parts, f"#/{INTERNAL_SCHEMA_CONTAINER}", converted_schema_key]
@@ -450,10 +468,11 @@ class AsyncAPIParser(OpenAPIParser):
             case "avro":
                 from datamodel_code_generator.parser.avro import convert_avro_schema_data  # noqa: PLC0415
 
-                converted_schema = convert_avro_schema_data(raw_schema)
-                converted_schema.setdefault("title", name)
+                converted_schema = convert_avro_schema_data(raw_schema, placeholder_title=self._placeholder_titles)
+                if self._placeholder_titles:
+                    converted_schema.setdefault("title", name)
                 home = self.model_resolver.join_path(tuple(self._converted_schema_root_parts(path))).partition("#")[0]
-                converted_schema = self._mount_converted_schema(converted_schema, location, home=home)
+                converted_schema = _schema_documents.mount_converted_schema(self, converted_schema, location, home=home)
                 context = replace(
                     self._current_asyncapi_context(),
                     raw_obj=converted_schema,
@@ -472,6 +491,7 @@ class AsyncAPIParser(OpenAPIParser):
                         base_path=context.base_path,
                         encoding=self.encoding,
                         source_safe_non_finite=True,
+                        untrusted_input=self.untrusted_input,
                     ),
                     path,
                     location=location,
@@ -487,6 +507,8 @@ class AsyncAPIParser(OpenAPIParser):
                         base_path=context.base_path,
                         encoding=self.encoding,
                         source_safe_non_finite=True,
+                        placeholder_title=self._placeholder_titles,
+                        input_files=self._input_files if self.untrusted_input else None,
                     ),
                     path,
                     include_root_schema=True,
@@ -501,7 +523,9 @@ class AsyncAPIParser(OpenAPIParser):
     ) -> AsyncAPIResolvedRef | None:
         if not isinstance(value, dict) or not isinstance(ref := value.get("$ref"), str):
             return None
-        resolved = self._resolve_asyncapi_ref(self._derived_ref(ref, self._raw_location(value), "$ref", ref))
+        resolved = self._resolve_asyncapi_ref(
+            _schema_refs.derived_ref(self, ref, self._raw_location(value), "$ref", ref)
+        )
         return None if tuple(resolved.path) in seen_paths else resolved
 
     def _recurse_into_ref(
@@ -586,6 +610,11 @@ class AsyncAPIParser(OpenAPIParser):
         path: list[str],
         seen_paths: set[tuple[str, ...]] | None = None,
     ) -> list[AsyncAPISchema]:
+        """Return the schemas of a message: its payload, its headers, those of its traits and its bindings.
+
+        Under ``--merge-message-trait-headers`` the headers of a message with two or more sources of them are those of
+        its traits and its own merged in order (``_message_headers``); else row ``legacy-one-inline-trait-headers``.
+        """
         if (schemas := self._follow(message, name, seen_paths, self._iter_message_payload_schemas)) is not None:
             return schemas
         if isinstance(one_of := message.get("oneOf"), list):
@@ -597,13 +626,59 @@ class AsyncAPIParser(OpenAPIParser):
         schemas = self._member_format_schemas(
             message, "payload", _make_model_name(name, "Payload"), path, payload_schema_format
         )
-        headers_name = None if "headers" in message else _make_model_name(name, "Headers")
-        schemas.extend(self._member_format_schemas(message, "headers", _make_model_name(name, "Headers"), path))
+        headers_name = _make_model_name(name, "Headers")
+        trait_headers_name = None if "headers" in message else headers_name
+        if self.config.merge_message_trait_headers and len(headers := self._message_headers(message, path)) > 1:
+            trait_headers_name = None
+            if (merged := reduce(partial(_merge_patch, deref=self._dereferenced), headers)) is not None:
+                schemas.extend(self._merged_headers_schemas(headers_name, merged, message, path))
+        else:
+            schemas.extend(self._member_format_schemas(message, "headers", headers_name, path))
         schemas.extend(
-            _member_schemas(message, "traits", self._iter_trait_schemas, name, path, seen_paths, headers_name)
+            _member_schemas(message, "traits", self._iter_trait_schemas, name, path, seen_paths, trait_headers_name)
         )
         schemas.extend(_member_schemas(message, "bindings", self._iter_binding_schemas, name, path, seen_paths))
         return schemas
+
+    def _message_headers(self, message: dict[str, Any], path: list[str]) -> list[YamlValue]:
+        """Return the headers of each trait of a message that defines them, in order, then the message's own.
+
+        Under ``--merge-message-trait-headers`` they are merged in this order, as the traits of AsyncAPI 2 and 3 are
+        (a JSON Merge Patch each, the message's own fields winning); a trait that is a reference is its target.
+        """
+        headers: list[YamlValue] = []
+        for trait, _ in _iter_trait_items(message.get("traits"), [*path, "traits"]):
+            if isinstance(resolved := self._dereferenced(trait, siblings=True), dict) and "headers" in resolved:
+                headers.append(resolved["headers"])
+        if "headers" in message:
+            headers.append(message["headers"])
+        return headers
+
+    def _merged_headers_schemas(
+        self, name: str, merged: YamlValue, message: dict[str, Any], path: list[str]
+    ) -> list[AsyncAPISchema]:
+        """Return the schemas of the merged headers of a message, located where the message's own headers are."""
+        location = self._member_location(message, "headers")
+        if isinstance(merged, dict):
+            merged = _schema_documents.mount_converted_schema(self, merged, location)
+        return self._iter_schema_format_schemas(name, merged, [*path, "headers"], location=location)
+
+    def _dereferenced(
+        self, value: YamlValue, seen_paths: frozenset[tuple[str, ...]] = frozenset(), *, siblings: bool = False
+    ) -> YamlValue:
+        """Return the value a reference names, following references to references, else ``value``.
+
+        An object that holds ``$ref`` alone is a reference, and with ``siblings`` one beside other keywords too, as a
+        trait is read; a reference to one already met ends there.
+        """
+        if (
+            not isinstance(value, dict)
+            or (len(value) > 1 and not siblings)
+            or (resolved := self._resolve_ref_object(value, set(seen_paths))) is None
+        ):
+            return value
+        with self._asyncapi_context(resolved.context):
+            return self._dereferenced(resolved.value, seen_paths | {tuple(resolved.path)}, siblings=siblings)
 
     def _iter_binding_schemas(
         self,
@@ -662,10 +737,11 @@ class AsyncAPIParser(OpenAPIParser):
         """Return the schemas of a trait or a list of traits of a message or an operation.
 
         A trait that is a new reference gives the schemas of its target; any other gives its headers, as
-        ``headers_name``, when a message trait may define them (at most one trait does), then its bindings, named
-        after ``name`` with the suffix ``Trait``.
+        ``headers_name``, when a message trait may define them (at most one trait of ``traits`` that is no reference
+        does, wherever the references stand), then its bindings, named after ``name`` with the suffix ``Trait``.
         """
         schemas: list[AsyncAPISchema] = []
+        inline_headers: list[AsyncAPISchema] = []
         for trait, trait_path in _iter_trait_items(traits, path):
             if (
                 followed := self._recurse_into_ref(
@@ -675,10 +751,11 @@ class AsyncAPIParser(OpenAPIParser):
                 schemas.extend(followed)
                 continue
             if "headers" in trait and headers_name is not None:
-                if any(schema.name == headers_name for schema in schemas):
+                if any(schema.name == headers_name for schema in inline_headers):
                     msg = f"Multiple AsyncAPI message traits define headers for {_path_to_string(path)}"
                     raise Error(msg)
-                schemas.extend(self._member_format_schemas(trait, "headers", headers_name, trait_path))
+                inline_headers = self._member_format_schemas(trait, "headers", headers_name, trait_path)
+                schemas.extend(inline_headers)
             schemas.extend(
                 _member_schemas(
                     trait,
@@ -812,7 +889,9 @@ class AsyncAPIParser(OpenAPIParser):
                 if not self.reserved_refs.get(root_key):
                     continue
                 with self._asyncapi_context(context):
-                    for target in self._reserved_targets(list(root_key), context.raw_obj, self._reserved_ref_loaded):
+                    for target in _schema_documents.reserved_targets(
+                        self, list(root_key), context.raw_obj, self._reserved_ref_loaded
+                    ):
                         self.parse_json_pointer(context.raw_obj, target["key"], list(root_key))
             if model_count == len(self.results):
                 return
@@ -822,23 +901,29 @@ class AsyncAPIParser(OpenAPIParser):
         parsed_paths: set[tuple[str, ...]] = set()
         context_sources: dict[tuple[str, ...], AsyncAPIContext] = {}
         with self._parsing_session(lambda: self._resolve_asyncapi_unparsed_json_pointer(context_sources)):
-            for source, path_parts in self._get_context_source_path_parts():
+            for source, path_parts in _schema_documents.get_context_source_path_parts(self):
                 if self.validation:
                     warn_deprecated("cli.validation", stacklevel=2)
 
                 specification = self._index_document(self._load_source_dict(source), path_parts)
                 self.raw_obj = specification
+                _schema_documents.record_document_dialect(
+                    self, specification, self._schema_resource_document(path_parts)
+                )
                 context_sources[tuple(path_parts)] = self._current_asyncapi_context()
                 self._collect_discriminator_schemas()
                 for schema in self._iter_asyncapi_schemas(specification, path_parts):
                     context_sources[tuple(schema.context.root_parts)] = schema.context
-                    raw_schema = schema.raw_schema
                     path_key = tuple(schema.path)
                     if path_key in parsed_paths:
                         continue
                     parsed_paths.add(path_key)
-                    with self._asyncapi_context(schema.context):
-                        if schema.parse_as_file:
-                            self._parse_file(raw_schema, schema.name, schema.path)
-                        else:
-                            self._parse_raw_at(schema.name, raw_schema, schema.path, schema.location)
+                    self._parse_asyncapi_schema(schema)
+
+    def _parse_asyncapi_schema(self, schema: AsyncAPISchema) -> None:
+        """Parse one schema a document holds, in the document context it is read in, the first time its path is met."""
+        with self._asyncapi_context(schema.context):
+            if schema.parse_as_file:
+                self._parse_file(schema.raw_schema, schema.name, schema.path)
+            else:
+                self._parse_raw_at(schema.name, schema.raw_schema, schema.path, schema.location)

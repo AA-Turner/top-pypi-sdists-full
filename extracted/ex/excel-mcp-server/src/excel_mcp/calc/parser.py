@@ -8,7 +8,7 @@ from openpyxl.formula import Tokenizer
 from openpyxl.formula.tokenizer import Token, TokenizerError
 from openpyxl.utils.cell import column_index_from_string
 
-from excel_mcp.calc.values import ERRORS, REF, UncalculableError
+from excel_mcp.calc.values import ERRORS, REF, UncalculableError, number_literal
 from excel_mcp.structured import StructuredRef, parse_structured
 
 MAX_NESTING = 64  # Excel's limit on nested function calls
@@ -99,12 +99,28 @@ def children(node: Node) -> tuple[Node, ...]:
     return ()
 
 
+def left_chain(node: Binary) -> tuple[Node, list[Binary]]:
+    """The innermost left operand of a run of operators, and the operators from there out.
+
+    A formula such as ``=A1+A1+...`` is a tree as deep as it is long; walking it by recursion
+    would overflow the stack, so every walk over it loops over this chain instead.
+    """
+    chain: list[Binary] = []
+    current: Node = node
+    while isinstance(current, Binary):
+        chain.append(current)
+        current = current.left
+    chain.reverse()
+    return current, chain
+
+
 _PRECEDENCE = {
     "=": 1, "<>": 1, "<": 1, ">": 1, "<=": 1, ">=": 1,
     "&": 2,
     "+": 3, "-": 3,
     "*": 4, "/": 4,
     "^": 5,
+    " ": 6,
 }  # fmt: skip
 _CELL = r"(\$?)([A-Za-z]{1,3})(\$?)(\d+)"
 _RANGE = re.compile(rf"{_CELL}(:{_CELL})?")
@@ -117,7 +133,7 @@ def parse(formula: str) -> Node:
     if len(formula) > MAX_FORMULA_LENGTH:
         raise UncalculableError("formula too long")
     try:
-        tokens = [t for t in Tokenizer(formula).items if t.type != Token.WSPACE]
+        tokens = _with_intersections(Tokenizer(formula).items)
     except TokenizerError:
         raise UncalculableError("unparseable formula") from None
     parser = _Parser(tokens)
@@ -127,16 +143,45 @@ def parse(formula: str) -> Node:
     return node
 
 
+def _with_intersections(items: list[Token]) -> list[Token]:
+    """The tokens without white space, except that a space between two operands is the
+    intersection operator."""
+    tokens: list[Token] = []
+    for index, token in enumerate(items):
+        if token.type != Token.WSPACE:
+            tokens.append(token)
+            continue
+        following = next((t for t in items[index + 1 :] if t.type != Token.WSPACE), None)
+        if tokens and following and _ends_operand(tokens[-1]) and _starts_operand(following):
+            tokens.append(Token(" ", Token.OP_IN))
+    return tokens
+
+
+def _ends_operand(token: Token) -> bool:
+    return token.type in (Token.OPERAND, Token.OP_POST) or (
+        token.type in (Token.FUNC, Token.PAREN, Token.ARRAY) and token.subtype == Token.CLOSE
+    )
+
+
+def _starts_operand(token: Token) -> bool:
+    return token.type == Token.OPERAND or (
+        token.type in (Token.FUNC, Token.PAREN, Token.ARRAY) and token.subtype == Token.OPEN
+    )
+
+
 class _Parser:
     def __init__(self, tokens: list[Token]) -> None:
         self.tokens = tokens
         self.position = 0
         self.depth = 0
 
-    def nested(self, build: Callable[[], Node]) -> Node:
+    def enter(self) -> None:
         self.depth += 1
         if self.depth > MAX_NESTING:
             raise UncalculableError(f"formula nested more than {MAX_NESTING} levels")
+
+    def nested(self, build: Callable[[], Node]) -> Node:
+        self.enter()
         try:
             return build()
         finally:
@@ -155,6 +200,8 @@ class _Parser:
     def expression(self, minimum: int) -> Node:
         left = self.unary()
         while (token := self.peek()) and token.type == Token.OP_IN:
+            if token.value == ",":
+                break  # separates the areas of a union inside parentheses
             precedence = _PRECEDENCE.get(token.value)
             if precedence is None:
                 raise UncalculableError(f"operator {token.value}")
@@ -170,9 +217,12 @@ class _Parser:
             self.take()
             return self.nested(lambda: Unary(token.value, self.unary()))
         node = self.primary()
+        outer = self.depth
         while (token := self.peek()) and token.type == Token.OP_POST:
             self.take()
+            self.enter()
             node = Percent(node)
+        self.depth = outer
         return node
 
     def primary(self) -> Node:
@@ -188,9 +238,12 @@ class _Parser:
         raise UncalculableError("unparseable formula")
 
     def parenthesized(self) -> Node:
-        node = self.expression(0)
+        areas = [self.expression(0)]
+        while (token := self.peek()) and token.type == Token.OP_IN and token.value == ",":
+            self.take()
+            areas.append(self.expression(0))
         self.expect(Token.PAREN)
-        return node
+        return areas[0] if len(areas) == 1 else Call("UNION", tuple(areas), False)
 
     def expect(self, kind: str) -> None:
         token = self.take()
@@ -244,7 +297,7 @@ def normalize_name(raw: str) -> str:
 def _operand(token: Token) -> Node:
     text = token.value
     if token.subtype == Token.NUMBER:
-        return Literal(float(text))
+        return Literal(number_literal(text))
     if token.subtype == Token.TEXT:
         return Literal(text[1:-1].replace('""', '"'))
     if token.subtype == Token.LOGICAL:

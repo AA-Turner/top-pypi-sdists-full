@@ -68,12 +68,13 @@ from datamodel_code_generator.types import DataType, StrictTypes, chain_as_tuple
 
 if TYPE_CHECKING:
     from collections import defaultdict
-    from collections.abc import Collection, Iterator, Sequence
+    from collections.abc import Collection, Iterator, Mapping, Sequence
     from pathlib import Path
 
     from datamodel_code_generator.enums import DataclassArguments
     from datamodel_code_generator.imports import Import
     from datamodel_code_generator.model._decisions.assignment import AssignmentRow, DataclassItems, WrittenData
+    from datamodel_code_generator.model._decisions.hashability import SetItemHash
     from datamodel_code_generator.model._render_plan import Omitted
     from datamodel_code_generator.reference import Reference
 
@@ -237,6 +238,20 @@ class _DataclassReuseMixin:
     def has_keyword_only_definition(self) -> bool:
         """Return whether a dataclass declaration enables keyword-only fields."""
         return bool(cast("DataModel", self).dataclass_arguments.get("kw_only"))
+
+    def _class_hash(self, generic_base_config: Mapping[str, Any] | None) -> SetItemHash:  # noqa: ARG002
+        """Return how the dataclass hashes: by value where it compares by value (``eq``, the default) and is frozen.
+
+        ``unsafe_hash`` hashes the values of its fields as ``frozen`` does; one that compares by value without either
+        sets ``__hash__`` to None, and ``eq=False`` keeps the identity hash. Its decorator alone decides, whatever its
+        bases, read as it writes them (``written_dataclass_arguments``): an argument it leaves out takes its default.
+        """
+        model = cast("DataModel", self)
+        arguments = model.written_dataclass_arguments
+        return model._compared_class_hash(  # noqa: SLF001
+            compares_by_value=bool(arguments.get("eq", True)),
+            frozen=bool(arguments.get("frozen")) or bool(arguments.get("unsafe_hash")),
+        )
 
     def _derived_options(self) -> dict[str, Any]:
         """Return the constructor options a model built from this one carries over, frozen and its arguments too."""

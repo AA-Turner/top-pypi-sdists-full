@@ -5,7 +5,7 @@ Heuristic matching logic for the EDIT action validator.
 import difflib
 import os
 import time
-from typing import List, Set
+from typing import List, NamedTuple, Set
 
 from teddy_executor.core.domain.models.plan import DEFAULT_SIMILARITY_THRESHOLD
 from teddy_executor.core.services.validation_rules.edit_matcher_heuristics import (
@@ -16,7 +16,57 @@ from teddy_executor.core.services.validation_rules.edit_matcher_heuristics impor
 LARGE_BLOCK_LINE_LIMIT = 20
 SUB_SAMPLE_RATIO_THRESHOLD = 0.7
 SUB_SAMPLE_PASS_THRESHOLD = 0.7
-CANDIDATE_EVALUATION_CAP = 5
+# A runner-up exists only once refinement yields two or more candidate ratios.
+MIN_RATIOS_FOR_RUNNER_UP = 2
+
+# Shared hint appended to every ambiguity message (executor and validator).
+AMBIGUITY_HINT = (
+    "Please provide a larger FIND block to uniquely identify the section, "
+    "refactor the code to avoid duplication. Alternatively you can use the "
+    "list item `Match All: true` to change all occurrences in the file at once."
+)
+
+
+class MatchResult(NamedTuple):
+    """The complete decision for one FIND block match."""
+
+    match: str
+    score: float
+    is_ambiguous: bool
+    offset: int
+    runner_up: float
+    candidate_count: int
+
+
+def find_best_match_ex(
+    file_content: str,
+    find_block: str,
+    threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+) -> MatchResult:
+    """
+    Returns the complete decision record for the closest window.
+
+    ``score`` and ``runner_up`` are raw difflib ratios; ``candidate_count``
+    counts the refined candidates at or above ``threshold``.
+    """
+    file_lines = file_content.splitlines(keepends=True)
+    find_lines = find_block.splitlines(keepends=True)
+    num_find_lines = len(find_lines)
+
+    if not file_lines or not find_lines:
+        return MatchResult("", 0.0, False, 0, 0.0, 0)
+
+    # If the file is smaller than the find block, just compare against the whole file
+    if len(file_lines) < num_find_lines:
+        matcher = difflib.SequenceMatcher(None, find_lines, file_lines)
+        score = matcher.ratio()
+        candidate_count = 1 if score >= threshold else 0
+        return MatchResult("".join(file_lines), score, False, 0, 0.0, candidate_count)
+
+    candidate_starts = gather_candidate_starts(file_lines, find_lines, threshold)
+    return _evaluate_candidates(
+        file_lines, find_lines, candidate_starts, find_block, threshold
+    )
 
 
 def find_best_match(
@@ -28,27 +78,10 @@ def find_best_match(
     Finds the most similar block of text in the file content.
 
     Returns:
-        tuple[str, float, bool, int]: (best_match_string, best_score, is_ambiguous, offset)
+        tuple[str, float, bool, int]: (best_match_string, raw_score, is_ambiguous, offset)
     """
-    file_lines = file_content.splitlines(keepends=True)
-    find_lines = find_block.splitlines(keepends=True)
-    num_find_lines = len(find_lines)
-
-    if not file_lines or not find_lines:
-        return "", 0.0, False, 0
-
-    # If the file is smaller than the find block, just compare against the whole file
-    if len(file_lines) < num_find_lines:
-        matcher = difflib.SequenceMatcher(None, find_lines, file_lines)
-        score = matcher.ratio()
-        return "".join(file_lines), round(score, 2), False, 0
-
-    candidate_starts = gather_candidate_starts(file_lines, find_lines, threshold)
-    best_match_lines, score, is_ambiguous, offset = _evaluate_candidates(
-        file_lines, find_lines, candidate_starts, find_block, threshold
-    )
-
-    return "".join(best_match_lines), round(score, 2), is_ambiguous, offset
+    result = find_best_match_ex(file_content, find_block, threshold)
+    return result.match, result.score, result.is_ambiguous, result.offset
 
 
 def find_best_match_and_diff(
@@ -73,7 +106,6 @@ def find_best_match_and_diff(
     res = ""
     if best_match_str and not is_ambiguous:
         # Generate character-level diff only for non-perfect matches
-        # Note: score is already rounded to 2 decimal places by find_best_match
         if 0 < score < 1.0:
             find_lines = find_block.splitlines(keepends=True)
             match_lines = best_match_str.splitlines(keepends=True)
@@ -95,8 +127,8 @@ def _evaluate_candidates(
     candidate_starts: Set[int],
     find_block: str,
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-) -> tuple[List[str], float, bool, int]:
-    """Evaluates candidates using difflib ratio, with sub-sampling and priority capping."""
+) -> MatchResult:
+    """Evaluates every candidate, sub-sampling the ratio for large blocks."""
     num_find_lines = len(find_lines)
     scored_candidates = []
 
@@ -112,13 +144,11 @@ def _evaluate_candidates(
             score = matcher.ratio()
             scored_candidates.append((score, window))
 
-    # Sort by score descending and cap evaluation
+    # Rank the pool by coarse score, then refine every candidate so the
+    # reported candidate count is exact. The sort keeps the winner tie-break
+    # when two distinct windows promote to the same refined ratio.
     scored_candidates.sort(key=lambda x: x[0], reverse=True)
-    candidates_to_refine = scored_candidates[:CANDIDATE_EVALUATION_CAP]
-
-    # FALLBACK: pick first block if no candidates found
-    if not candidates_to_refine and file_lines:
-        candidates_to_refine = [(0.0, file_lines[:num_find_lines])]
+    candidates_to_refine = scored_candidates or [(0.0, file_lines[:num_find_lines])]
 
     return _refine_and_select_best(
         candidates_to_refine, find_lines, num_find_lines, find_block, threshold
@@ -131,13 +161,18 @@ def _refine_and_select_best(
     num_find_lines: int,
     find_block: str,
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-) -> tuple[List[str], float, bool, int]:
-    """Refines top candidates and returns the best match with ambiguity info."""
+) -> MatchResult:
+    """Refines candidates and returns the decision record for the best match.
+
+    The verdict follows the refined ambiguity rule (see
+    ``_decide_refined_ambiguity``); an intra-window ambiguity reported by the
+    substring boost on the winning window also blocks the edit.
+    """
     best_ratio = -1.0
     best_match_lines: List[str] = []
-    is_ambiguous = False
+    winner_is_ambiguous = False
     best_offset = 0
-    ratio_calls = 0
+    refined_ratios: List[float] = []
 
     for score, window in candidates:
         if num_find_lines > LARGE_BLOCK_LINE_LIMIT:
@@ -153,20 +188,51 @@ def _refine_and_select_best(
             window, find_lines, ratio
         )
 
-        ratio_calls += 1
+        refined_ratios.append(ratio)
         if ratio > best_ratio:
             best_ratio = ratio
             best_match_lines = current_match_lines
-            is_ambiguous = current_is_ambiguous
+            winner_is_ambiguous = current_is_ambiguous
             best_offset = current_offset
-        elif ratio == best_ratio and ratio > 0 and ratio >= threshold:
-            is_ambiguous = True
 
     if os.environ.get("TEDDY_DEBUG"):
         print(f"Top Candidates Refined: {len(candidates)}")
-        print(f"Ratio Calls: {ratio_calls}")
+        print(f"Ratio Calls: {len(refined_ratios)}")
 
-    return best_match_lines, best_ratio, is_ambiguous, best_offset
+    runner_up = (
+        sorted(refined_ratios, reverse=True)[1]
+        if len(refined_ratios) >= MIN_RATIOS_FOR_RUNNER_UP
+        else 0.0
+    )
+    candidate_count = sum(1 for ratio in refined_ratios if ratio >= threshold)
+    is_ambiguous = winner_is_ambiguous or _decide_refined_ambiguity(
+        refined_ratios, threshold
+    )
+    return MatchResult(
+        "".join(best_match_lines),
+        best_ratio,
+        is_ambiguous,
+        best_offset,
+        runner_up,
+        candidate_count,
+    )
+
+
+def _decide_refined_ambiguity(refined_ratios: List[float], threshold: float) -> bool:
+    """Applies the refined ambiguity rule to the refined candidate ratios.
+
+    A FIND block is ambiguous when two candidates tie at or above the threshold,
+    or when a sub-verbatim winner (``top < 1.0``, i.e. no verbatim or
+    indentation-only promotion) still has a runner-up at or above the threshold.
+    A sub-threshold winner is never ambiguous.
+    """
+    if not refined_ratios:
+        return False
+    ordered = sorted(refined_ratios, reverse=True)
+    top = ordered[0]
+    second = ordered[1] if len(ordered) > 1 else 0.0
+    ties = sum(1 for ratio in ordered if ratio == top)
+    return (ties > 1 and top >= threshold) or (top < 1.0 and second >= threshold)
 
 
 def _apply_indentation_bonus(

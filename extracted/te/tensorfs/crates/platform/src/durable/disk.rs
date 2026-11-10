@@ -19,6 +19,7 @@
 #![allow(unsafe_code)]
 use std::{fs::File, path::Path};
 
+/// What a crash can take from a filesystem's bytes, by the rule in the module docs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiskClass {
     Ephemeral,
@@ -32,13 +33,6 @@ impl DiskClass {
         filesystem(path).class
     }
 
-    pub fn as_str(self) -> &'static str {
-        match self {
-            DiskClass::Ephemeral => "ephemeral",
-            DiskClass::Persistent => "persistent",
-            DiskClass::Network => "network",
-        }
-    }
 }
 
 /// The filesystem holding a path: its class and the name it was recognised by.
@@ -50,6 +44,7 @@ pub struct Filesystem {
     pub kind: &'static str,
 }
 
+/// The filesystem holding `path`, from `statfs`; Persistent and `unknown` when that fails.
 #[cfg(target_os = "linux")]
 pub fn filesystem(path: &Path) -> Filesystem {
     #[allow(clippy::unnecessary_cast)] // f_type's width differs by target
@@ -102,6 +97,43 @@ fn classify(magic: u64) -> Filesystem {
     Filesystem { class, kind }
 }
 
+/// Whether a rename over a file in `dir` reaches the disk only after the new file's bytes do, with
+/// no flush asked: ext4 in its default ordered mode, whose `auto_da_alloc` writes a file renamed
+/// over another before the rename commits, and anything a crash erases. Elsewhere a writer flushes
+/// first (`ordered`).
+#[cfg(target_os = "linux")]
+pub fn renames_after_data(dir: &Path) -> bool {
+    use std::{collections::HashMap, os::unix::fs::MetadataExt, sync::Mutex};
+    static SEEN: Mutex<Option<HashMap<u64, bool>>> = Mutex::new(None);
+    let fs = filesystem(dir);
+    if fs.class == DiskClass::Ephemeral {
+        return true;
+    }
+    let Some(dev) = std::fs::metadata(dir).ok().map(|meta| meta.dev()).filter(|_| fs.kind == "ext4") else {
+        return false;
+    };
+    let mut seen = SEEN.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    *seen.get_or_insert_with(HashMap::new).entry(dev).or_insert_with(|| ordered_ext4(dev))
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn renames_after_data(_dir: &Path) -> bool {
+    false
+}
+
+/// Whether device `dev`'s ext4 orders data before a rename: neither `noauto_da_alloc` nor
+/// `data=writeback` among its mount's options (`/proc/self/mountinfo`).
+#[cfg(target_os = "linux")]
+fn ordered_ext4(dev: u64) -> bool {
+    let (major, minor) = (((dev >> 8) & 0xfff) | ((dev >> 32) & !0xfff), (dev & 0xff) | ((dev >> 12) & !0xff));
+    let Ok(mounts) = std::fs::read_to_string("/proc/self/mountinfo") else { return false };
+    let named = format!("{major}:{minor}");
+    mounts.lines().filter(|line| line.split(' ').nth(2) == Some(named.as_str())).any(|line| {
+        let options = line.split(" - ").nth(1).and_then(|rest| rest.split(' ').nth(2)).unwrap_or_default();
+        !options.split(',').any(|option| option == "noauto_da_alloc" || option == "data=writeback")
+    })
+}
+
 /// A second description of `file`'s inode that bypasses the page cache, or `None` where the
 /// filesystem refuses it. Linux reopens through `/proc/self/fd` with `O_DIRECT`; elsewhere no
 /// direct read is offered and callers read buffered.
@@ -122,9 +154,15 @@ pub fn open_direct(file: &File) -> crate::Result<Option<File>> {
 /// Whether the page cache holds every page of `[off, off+len)`; `None` where the OS cannot say,
 /// which callers treat as cold.
 pub fn cached(file: &File, off: u64, len: u64) -> Option<bool> {
+    cached_pages(file, off, len).map(|(held, of)| held >= of)
+}
+
+/// How many of the pages of `[off, off+len)` the page cache holds, and of how many; `None` where
+/// the OS cannot say.
+pub fn cached_pages(file: &File, off: u64, len: u64) -> Option<(u64, u64)> {
     #[cfg(target_os = "linux")]
     {
-        linux::cached(file, off, len)
+        linux::cached_pages(file, off, len)
     }
     #[cfg(not(target_os = "linux"))]
     {
@@ -183,7 +221,7 @@ mod linux {
     /// a miss). Where that cannot answer, the pages are counted through a mapping: a kernel
     /// without it (< 6.5), a container whose seccomp filter refuses it, and overlayfs (a
     /// container's root), whose files report no pages of their own.
-    pub(super) fn cached(file: &File, off: u64, len: u64) -> Option<bool> {
+    pub(super) fn cached_pages(file: &File, off: u64, len: u64) -> Option<(u64, u64)> {
         #[repr(C)]
         struct Range {
             off: u64,
@@ -200,14 +238,15 @@ mod linux {
         }
         const SYS_CACHESTAT: libc::c_long = 451;
         let page = page_size();
+        let of = (off + len).div_ceil(page) - off / page;
         let range = Range { off, len };
         let mut stat = Stat::default();
         // SAFETY: the documented cachestat ABI; both structs outlive the call.
         let rc = unsafe { libc::syscall(SYS_CACHESTAT, file.as_raw_fd(), &range, &mut stat, 0) };
-        if rc == 0 && stat.nr_cache >= (off + len).div_ceil(page) - off / page {
-            return Some(true);
+        if rc == 0 && (stat.nr_cache >= of || !overlay(file)) {
+            return Some((stat.nr_cache.min(of), of));
         }
-        Some((rc != 0 || overlay(file)) && resident(file, off, len, page))
+        resident(file, off, len, page).map(|held| (held, of))
     }
 
     pub(super) fn page_size() -> u64 {
@@ -252,12 +291,12 @@ mod linux {
         rustix::fs::fstatfs(file).is_ok_and(|fs| fs.f_type as i64 == OVERLAYFS_SUPER_MAGIC)
     }
 
-    /// Every page of `[off, off+len)` is in core, by `mincore(2)` over a mapping (never faults).
-    fn resident(file: &File, off: u64, len: u64, page: u64) -> bool {
+    /// The pages of `[off, off+len)` in core, by `mincore(2)` over a mapping (never faults).
+    fn resident(file: &File, off: u64, len: u64, page: u64) -> Option<u64> {
         let start = off - off % page;
         let n = (off + len - start) as usize;
         if n == 0 {
-            return true;
+            return Some(0);
         }
         // SAFETY: a read-only shared mapping of our descriptor, unmapped below.
         let p = unsafe {
@@ -271,14 +310,13 @@ mod linux {
             )
         };
         if p == libc::MAP_FAILED {
-            return false;
+            return None;
         }
         let mut pages = vec![0u8; n.div_ceil(page as usize)];
         // SAFETY: the vector holds one byte per page of the mapping.
-        let ok = unsafe { libc::mincore(p, n, pages.as_mut_ptr()) } == 0
-            && pages.iter().all(|b| b & 1 == 1);
+        let ok = unsafe { libc::mincore(p, n, pages.as_mut_ptr()) } == 0;
         // SAFETY: unmaps the mapping made above, which nothing else references.
         unsafe { libc::munmap(p, n) };
-        ok
+        ok.then(|| pages.iter().filter(|b| *b & 1 == 1).count() as u64)
     }
 }

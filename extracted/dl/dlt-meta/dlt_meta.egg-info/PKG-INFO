@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt-meta
-Version: 0.1.0
+Version: 0.1.1
 Summary: DLT-META Framework (Compatibility wrapper - please migrate to databricks-labs-sdp-meta)
 Home-page: https://github.com/databrickslabs/sdp-meta
 Author: Ravi Gawai
@@ -11,17 +11,18 @@ Project-URL: Source, https://github.com/databrickslabs/sdp-meta
 Project-URL: Migration Guide, https://databrickslabs.github.io/sdp-meta/docs/operations/migration
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 7 - Inactive
 Classifier: Intended Audience :: Developers
-Requires-Python: >=3.8, <3.13
+Requires-Python: >=3.10, <3.13
 Description-Content-Type: text/markdown
-Requires-Dist: databricks-labs-sdp-meta<0.2.0,>=0.1.0
+Requires-Dist: databricks-labs-sdp-meta<0.2.0,>=0.1.1
+Requires-Dist: setuptools<85,>=65
+Requires-Dist: databricks-sdk<1,>=0.138.0
+Requires-Dist: PyYAML<7,>=6.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -39,8 +40,9 @@ Dynamic: summary
 
 **DEPRECATED**: This package is a compatibility wrapper for
 [databricks-labs-sdp-meta](https://pypi.org/project/databricks-labs-sdp-meta/)
-(DLT-META is now SDP-META). Installing it pulls in the new package and keeps
-existing `dlt_meta` / `src.*` imports working unchanged.
+(DLT-META is now SDP-META). Installing it pulls in the new package and directly
+declares the same runtime dependencies for Databricks serverless Job
+Environments. Existing `dlt_meta` / `src.*` imports keep working unchanged.
 
 ## Migration
 

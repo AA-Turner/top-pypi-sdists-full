@@ -1,10 +1,7 @@
-from dataclasses import dataclass
-
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.fields.lookup_value import FieldLookupValue
 
 
-@dataclass(init=False)
 class FieldMultiLookupValue(ClientValueCollection[FieldLookupValue]):
     """A collection of FieldLookupValue items."""
 

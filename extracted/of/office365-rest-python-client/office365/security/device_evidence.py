@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.intune.devices.healthstatus import DeviceHealthStatus
@@ -15,7 +15,6 @@ from office365.security.riskscore import DeviceRiskScore
 from office365.security.vm_metadata import VmMetadata
 
 
-@dataclass
 class DeviceEvidence(ClientValue):
     azureAdDeviceId: str | None = None
     defenderAvStatus: DefenderAvStatus = DefenderAvStatus.notReporting

@@ -10,7 +10,7 @@ from ..brief import identity
 from ..config import load_config
 from ..log import get_logger
 from ..messages import store
-from . import delivery, doc_version, notes, pr_roles, scouts, subscription_state, waits
+from . import clip, delivery, doc_version, notes, pr_roles, scouts, subscription_state, waits
 
 _CHILDREN_EVERY = 10.0  # seconds between rereads of the children's PRs
 
@@ -114,8 +114,11 @@ def wait(
     loop with event *pacing* sleeps until its brief, mailbox, a detector or the *harness* files
     and pids change, or `waits.idle` passes.
     """
-    vaults = tuple(load_config().brief.vaults)
-    read_subscriptions = subscription_state.reader(path, root, cwd, mailbox.name, vaults)
+    config = load_config()
+    vaults = tuple(config.brief.vaults)
+    read_subscriptions = subscription_state.reader(
+        path, root, cwd, mailbox.name, vaults, config.watch.pr.link_nudge
+    )
     wordy = identity.brief_name(mailbox.name) or mailbox.name
     signatures = tuple(f"{role} ({wordy})" for role in ("Author", "Reviewer", "Parent", "Lead"))
     output: queue.Queue[scouts.Pending] = queue.Queue()
@@ -176,10 +179,12 @@ def wait(
                     )
                     deliver(
                         "\n\n".join(
-                            [
-                                *(f"[{p.source}] {p.message}" for p in pending),
-                                *(f"[mailbox] {body.rstrip()}" for _, body in messages),
-                            ]
+                            clip.share(
+                                [
+                                    *(f"[{p.source}] {p.message}" for p in pending),
+                                    *(f"[mailbox] {body.rstrip()}" for _, body in messages),
+                                ]
+                            )
                         )
                     )
                     for message, _ in messages:

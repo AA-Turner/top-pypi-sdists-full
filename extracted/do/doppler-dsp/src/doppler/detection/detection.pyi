@@ -1,5 +1,6 @@
 # detection/detection.pyi — type stubs for the detection C extension.
 from typing import final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -63,7 +64,7 @@ class LockDet:
     Create with defaults:
 
     >>> from doppler.detection import LockDet
-    >>> obj = LockDet(up_thresh=1.0, down_thresh=1.0, n_up=1, n_down=1)
+    >>> obj = LockDet()
 
     """
 

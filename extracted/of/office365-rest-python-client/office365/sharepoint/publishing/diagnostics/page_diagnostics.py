@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Any, Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PageDiagnostics(ClientValue):
     Results: Any = None
     LatestDraftVersion: Optional[str] = None

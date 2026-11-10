@@ -105,8 +105,9 @@ import sys
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Callable, NamedTuple, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Protocol, Sequence
 
+from coord.entry_truth import NEXT_ACTION_DISPATCH_REVIEW
 from coord.filelock import FileLock, LockBusy, notify_lock_path
 from coord.drive_state import (
     BoardFetcher,
@@ -134,6 +135,7 @@ from coord.models import (
     DELIVERABLE_ANALYSIS_LABEL,
     EPIC_DECOMPOSE_TYPE,
     MERGE_LANDED_MARKER,
+    NEEDS_DECOMPOSITION_MARKER,
     POLICY_REFUSAL_MARKER,
     PREMISE_REFUSAL_MARKER,
 )
@@ -164,13 +166,19 @@ from coord.worker_events import is_usage_limit_reason
 from coord.merge_queue import (
     STALE_SMOKE_MARKERS as _mq_stale_smoke_markers,
     UNKNOWN_BRANCH_HEAD_REASON as _mq_unknown_branch_head_reason,
+    conflict_fix_actually_gave_up,
     is_ci_absent_reason,
     is_ci_flaky_reason,
     is_ci_infra_reason,
     is_ci_pending_reason,
     is_ci_unreadable_reason,
+    is_merge_gate_reserved_reason,
     is_stale_smoke_reason as _mq_is_stale_smoke_reason,
+    stale_smoke_anchor as _mq_stale_smoke_anchor,
 )
+
+if TYPE_CHECKING:  # avoid a hard import cycle / heavy load-time import
+    from coord.entry_truth import EntryTruth
 
 # ── exit codes (unchanged from drive-issue.sh) ───────────────────────────────
 
@@ -630,19 +638,27 @@ class DriveCounters:
     # forced retry.
     gate_wait_rounds: int = 0
     # #2229: the value `merge_attempts` held when the #1738 stale-smoke
-    # re-test last fired off a reason read out of `last_merge_diagnostic`
-    # rather than off the board (`-1` = never). A de-duplication latch in the
-    # same spirit as `review_fix_dispatched_for` above, for the same reason:
-    # `coord diagnose --stage test --reset` clears `test_state`, but the board
-    # this driver polls needs a beat to show it, and until it does the state
-    # is byte-for-byte identical to the one that triggered the re-test —
-    # except that, unlike a board `merge_reason`, the captured diagnostic is
-    # frozen and CANNOT change on its own. Without the latch a lagging board
-    # would burn the whole `max_fix_rounds` budget re-testing off one stale
-    # snapshot. Releases when `merge_attempts` advances, i.e. when a real
-    # `coord merge --only` attempt has re-captured the diagnostic — which is
-    # #2149's rule (act on the snapshot, then go re-validate it for real)
-    # expressed as a latch rather than a wait counter.
+    # re-test last fired. A de-duplication latch in the same spirit as
+    # `review_fix_dispatched_for` above, for the same reason: `coord
+    # diagnose --stage test --reset` clears `test_state`, but the board this
+    # driver polls needs a beat to show it, and until it does the state is
+    # byte-for-byte identical to the one that triggered the re-test. Without
+    # the latch a lagging board would burn the whole `max_fix_rounds` budget
+    # re-testing off one stale reading. Releases when `merge_attempts`
+    # advances, i.e. when a real `coord merge --only` attempt has
+    # re-evaluated the gate for real — #2149's rule (act on the snapshot,
+    # then go re-validate it for real) expressed as a latch rather than a
+    # wait counter.
+    #
+    # #3917: originally armed only for a reason read out of the frozen
+    # `last_merge_diagnostic` snapshot (`gate_reason_from_diagnostic=True`)
+    # — a reason read straight off the BOARD was assumed to self-refresh on
+    # its own. It doesn't: the persisted `QueuedMerge.error` a board
+    # `merge_reason` falls back to (`_effective_merge_gate_reason`) is
+    # itself only rewritten by a real merge attempt (#420), so it is
+    # exactly as frozen as the diagnostic snapshot until one happens. This
+    # latch now arms for either source — see `_decide_merge`'s stale-smoke
+    # arm.
     stale_smoke_diagnostic_attempt: int = -1
     # #2199: bounded retry for the trust gate's OWN dispatch — distinct from
     # `fix_rounds` (which bounds "the work needs another round" once a
@@ -1851,6 +1867,10 @@ class MergeVerifier(Protocol):
 
     def github_backoff_active(self) -> bool: ...
 
+    def entry_truth(self, state: IssueState) -> "EntryTruth | None": ...
+
+    def set_config(self, config: Any) -> None: ...
+
 
 def _remote_matches_repo(remote_url: str, repo_github: str) -> bool:
     """Loosely compare a ``git remote get-url origin`` URL against the
@@ -1882,10 +1902,15 @@ class GitMergeVerifier:
 
     ``repo_path`` is the local checkout used for fetches; defaults to
     ``~/src/<repo>``.
+
+    ``config`` (#3933) is threaded through from :attr:`Driver.config` solely
+    for :meth:`entry_truth` — every other method here answers a narrower,
+    repo-agnostic git/gh question that never needed it.
     """
 
     repo_path: str = ""
     warn: Callable[[str], None] = lambda msg: None
+    config: Any = None
     # #2437: memoizes which (base, reason) pairs have already been warned
     # about, so a checkout that stays broken across many drive-loop polls
     # gets exactly one loud warning instead of one per poll. Keyed on the
@@ -2143,6 +2168,54 @@ class GitMergeVerifier:
         return EpicChecklistSnapshot(
             children=tuple(children), queued_keys=queued_keys, epic_after=epic_after,
         )
+
+    def entry_truth(self, state: IssueState) -> "EntryTruth | None":
+        """Live :class:`~coord.entry_truth.EntryTruth` for ``(state.repo,
+        state.issue)`` (#3933).
+
+        ``None`` means "could not be computed" (no local board, a config
+        that failed to resolve, or any exception from the live reads
+        :func:`~coord.entry_truth.reconcile_entry` itself performs) — never
+        a stand-in for a verdict. Callers must treat that exactly like "no
+        live truth available", falling back to whatever this module's own
+        board-snapshot classification already does, never to a default
+        outcome the issue hasn't actually observed.
+
+        Mirrors the one existing production call site
+        (``coord.commands.gates.gates``) almost exactly: same ``gh_ops``
+        (the :mod:`coord.github_ops` module itself, duck-typed to the
+        ``GhOps`` Protocol), same :class:`~coord.ci_github.GitHubCi`. The one
+        difference is *board*: that command's daemon-reroute guarantees a
+        local, authoritative board; this runs on whatever host happens to be
+        driving, so :func:`~coord.state.build_board` is wrapped in the same
+        try/except as every other live read below rather than assumed to
+        succeed.
+        """
+        if self.config is None:
+            return None
+        from coord.ci_github import GitHubCi  # noqa: PLC0415
+        from coord import github_ops  # noqa: PLC0415
+        from coord.entry_truth import reconcile_entry  # noqa: PLC0415
+        from coord.state import build_board  # noqa: PLC0415
+
+        try:
+            board = build_board()
+            return reconcile_entry(
+                board, self.config, state.repo, state.issue,
+                gh_ops=github_ops, ci_store=GitHubCi(),
+            )
+        except Exception:  # noqa: BLE001 — fail closed: no truth, not a guess
+            return None
+
+    def set_config(self, config: Any) -> None:
+        """Replace the config :meth:`entry_truth` reads (#3933).
+
+        Called by :meth:`Driver._reload_config` on every successful
+        ``coordinator.yml`` reload, so a mid-run pipeline/review-gate edit
+        reaches this verifier's live truth reads for the rest of the run —
+        `__post_init__` only sets ``self.config`` once, at construction.
+        """
+        self.config = config
 
 
 # ── preflight (pure) ─────────────────────────────────────────────────────────
@@ -3036,6 +3109,44 @@ def decide(
             f"{state.work_machine or machine}\n"
             f"   {PREMISE_REFUSAL_MARKER}"
         )
+    elif state.work_status == "needs_decomposition":
+        # #3931: the worker exited cleanly, pushed 0 commits, and concluded
+        # the issue itself needs epic decomposition — either its own
+        # `WORK_OUTCOME: needs-decomposition` marker, or an
+        # `ISSUE_RESOLUTION: investigation` 0-commit exit with no other
+        # marker (`coord.agent.NEEDS_DECOMPOSITION` — see
+        # `coord.worker_events.classify_zero_commit_outcome`). Like
+        # `refused_premise` immediately above there is no #2871-style
+        # staleness/retarget bypass: a title rewrite does not make an issue
+        # smaller, so a fresh dispatch on the same row would just reproduce
+        # the identical split proposal (#3922's incident — three legs, same
+        # proposal, no new information). This is terminal after ONE leg;
+        # `_die()` here, like `refused_policy`/`refused_premise` above,
+        # embeds `NEEDS_DECOMPOSITION_MARKER` so `coord/drive_queue.py`'s
+        # `_reconcile_running` parks the queue entry without spending an
+        # attempt rather than relaunching into the same answer.
+        age_seconds = (
+            time.time() - state.work_finished_at
+            if state.work_finished_at is not None
+            else None
+        )
+        age = _format_age(age_seconds) if age_seconds is not None else "unknown age"
+        remedy = (
+            "Needs the coordinator: decompose the issue into the proposed "
+            "sub-issues (posted to the issue — see the worker's own split "
+            "proposal) and close or re-scope this one. Once replaced, "
+            "dispatch the new sub-issues normally; this row does not "
+            "auto-resume."
+        )
+        return _die(
+            f"pre-dispatch refusal on assignment {state.work_aid} "
+            f"(needs_decomposition, {age} old) — the worker concluded the "
+            "issue itself needs epic decomposition rather than one leg of "
+            f"work; the worker did the CORRECT thing (#3931). {remedy}\n"
+            f"   inspect: coord log {state.work_aid} --machine "
+            f"{state.work_machine or machine}\n"
+            f"   {NEEDS_DECOMPOSITION_MARKER}"
+        )
     elif state.work_status == "cancelled":
         return _die(
             f"work {state.work_aid} was cancelled — re-dispatch with: "
@@ -3208,14 +3319,77 @@ def decide(
         return replace(test, warnings=warnings + test.warnings)
 
     review = _decide_review(state, opts, counters, machine)
-    if review is not None:
+    # The merge queue's OWN gate (`merge_queue.has_approved_review`, matched
+    # by branch / the `review_of_assignment_id` chain rather than this
+    # driver's own exact-work-id match — see that function's #292 docstring)
+    # can confirm an approval even when `drive_state.project`'s narrower
+    # match finds no review row for the CURRENT round at all: a scoped
+    # re-review's verdict can land on an older round of the same chain.
+    # Narrowed to exactly that shape — a bare WAIT with no verdict and no
+    # review assignment on this round — so it can never swallow a genuine
+    # WAIT that already has a review row to explain itself, such as the
+    # #1584 usage-limit wait or the request-changes fix-dispatched latch;
+    # both of those must still wait regardless of what the queue reports.
+    #
+    # #3938: the live confirmation that the queue's review gate passed is
+    # NOT "merge_status == READY" — that was quadraui#2226's bug. The queue
+    # entry's own gates are evaluated in a fixed order every real attempt
+    # follows (review -> smoke -> uat -> CI -> merge mechanics; see
+    # `merge_queue._entry_gate_status`'s docstring, which `process()` mirrors
+    # byte-for-byte), and EVERY branch short-circuits: `entry.error`/
+    # `merge_reason` is only ever written past the review check once that
+    # check has already passed. So a PENDING entry whose recorded reason
+    # names anything OTHER than the review gate itself — a CI failure, a
+    # #2252/#3809 flake re-check, a #1892 CI-infra reason, a #3886
+    # merge-gate reservation, a stale/missing smoke verdict, a UAT verdict,
+    # or a real merge-mechanics CONFLICT — could only have been recorded
+    # AFTER the review gate passed, exactly like READY itself. Only an empty
+    # reason (never evaluated past "is this entry even enqueued yet") or one
+    # the review gate itself produced ("review not approved"/"review
+    # required…") leaves the review question genuinely unanswered; the
+    # ambiguous `unknown_head` reason (which review's OWN scan, or a LATER
+    # gate's, can equally produce — see `_merge_gate_kind`'s docstring) is
+    # treated the same way, out of caution.
+    _queue_reason_kind = _merge_gate_kind(state.merge_reason)
+    queue_review_gate_passed = (
+        (state.merge_status or "").upper() == "READY"
+        or (
+            bool((state.merge_reason or "").strip())
+            and _queue_reason_kind not in ("review", "unknown_head")
+        )
+    )
+    review_gate_overridden_by_queue = (
+        review is not None
+        and review.kind == WAIT
+        and state.review_verdict == ""
+        and not state.review_aid
+        and state.active_count == 0
+        and queue_review_gate_passed
+    )
+    if review is not None and not review_gate_overridden_by_queue:
         return replace(review, warnings=warnings + review.warnings)
+    if review_gate_overridden_by_queue:
+        warnings = warnings + review.warnings + (
+            "review gate found no review on this round, but the merge "
+            "queue's own gate already passed review "
+            f"(status={state.merge_status or '(none)'}, "
+            f"reason={state.merge_reason or '(none)'}) — proceeding to the "
+            "merge arm instead of waiting indefinitely (#3891/#3938)",
+        )
 
     if not opts.do_merge:
         return replace(
             _succeed(
-                "✓ review approved — stopping here (--no-merge)\n"
-                f"  merge with: coord merge --only {state.work_aid}"
+                (
+                    "✓ merge queue's own review gate already passed — "
+                    "stopping here (--no-merge)\n"
+                    f"  merge with: coord merge --only {state.work_aid}"
+                )
+                if review_gate_overridden_by_queue
+                else (
+                    "✓ review approved — stopping here (--no-merge)\n"
+                    f"  merge with: coord merge --only {state.work_aid}"
+                )
             ),
             warnings=warnings,
         )
@@ -4254,6 +4428,7 @@ def _merge_gate_kind(reason: str) -> str | None:
 # not copies: `tests/test_merge_queue.py` asserts identity.
 _STALE_SMOKE_MARKERS = _mq_stale_smoke_markers
 _is_stale_smoke_reason = _mq_is_stale_smoke_reason
+_stale_smoke_anchor = _mq_stale_smoke_anchor
 
 # #2229: `coord merge --only` prints a gate line per REFUSED gate, and the
 # same run prints a "waived by this run" variant of that line for a gate the
@@ -4319,12 +4494,13 @@ def _effective_merge_gate_reason(
       own resolution path (#1474/#241's conflict-fix dispatch, reached
       through the bounded retry below). A re-test does not rebase a branch,
       and diverting to one is the same stall this issue is about, inverted.
-    - a CI reason (#1891/#1892/#2252/#2347) — `merge_reason` already carries
-      a live, recognised signal whose only resolution is more real time
-      (#1891/#2814's own arm now spends that time on a real, budget-exempt
-      `coord merge --only` re-check rather than a bare wait — see that
-      branch's docstring — but the "board's own reading wins over the
-      diagnostic fallback" contract here is unchanged). These CI-reason
+    - a CI reason (#1891/#1892/#2252/#2347) or the #3886 merge-gate
+      reservation — `merge_reason` already carries a live, recognised
+      signal whose only resolution is more real time (#1891/#2814's own
+      arm now spends that time on a real, budget-exempt `coord merge
+      --only` re-check rather than a bare wait — see that branch's
+      docstring — but the "board's own reading wins over the diagnostic
+      fallback" contract here is unchanged). These self-refreshing-reason
       checks sit right after the divergence check and must keep winning.
 
     The bool is the caller's warning label: a diagnostic-derived reason is a
@@ -4343,6 +4519,7 @@ def _effective_merge_gate_reason(
         or is_ci_infra_reason(state.merge_reason)
         or is_ci_flaky_reason(state.merge_reason)
         or is_ci_unreadable_reason(state.merge_reason)
+        or is_merge_gate_reserved_reason(state.merge_reason)
     ):
         return state.merge_reason, False
     fallback = _extract_gate_refusal_reason(counters.last_merge_diagnostic)
@@ -4861,17 +5038,104 @@ def _decide_merge(
         )
     divergence = _merge_gate_divergence(state, reason=gate_reason)
     if (
-        gate_reason_from_diagnostic
-        and divergence == "smoke"
+        divergence == "smoke"
+        and _is_stale_smoke_reason(gate_reason)
+        and _stale_smoke_anchor(gate_reason) == "branch"
+        and state.work_test_head_sha
+        and verifier.branch_head_sha(state) == state.work_test_head_sha
+    ):
+        # #3861: the refusal names a BRANCH anchor ("recorded against
+        # branch <old sha>, branch is now <new sha>") — but THIS work row's
+        # own `test_head_sha` already matches a LIVE probe of the branch
+        # head, confirmed here rather than merely trusted from the
+        # refusal's own (possibly equally stale) embedded SHA text. That
+        # can only mean a fresher Test pass already landed against the
+        # current head AFTER this refusal was persisted.
+        #
+        # `merge_queue.process()` only (re)writes `entry.error`/
+        # `merge_reason` on a REAL merge attempt — the #1738 re-test arm
+        # below never touches it — so this exact latched text would
+        # otherwise keep reproducing on every poll even once a fresh,
+        # passing verdict already covers it, discarding that verdict and
+        # spending a `fix_rounds` unit each time (quadraui#1975/PR#2008's
+        # incident: a branch that passed Test on its current head twice
+        # still never merged). A merge RE-ATTEMPT — which re-evaluates the
+        # gate against live state — is what actually refreshes this,
+        # not another re-test of evidence that isn't stale.
+        aid = state.merge_aid or state.work_aid
+        return Action(
+            kind=RUN,
+            label=(
+                "MERGE: smoke verdict stale → refusal predates a fresh "
+                "pass already on the live head; re-attempting merge, not "
+                f"re-testing (#3861): {gate_reason}"
+            ),
+            command=("merge", "--only", aid, "--method", opts.merge_method),
+            on_error="warn",
+            error_message=(
+                "coord merge returned non-zero (or the merge lock timed "
+                "out) while re-attempting a merge whose stale-smoke "
+                "refusal was already superseded by a fresher Test pass — "
+                "re-checking next poll"
+            ),
+            serialize_merge=True,
+        )
+    if (
+        divergence == "smoke"
         and _is_stale_smoke_reason(gate_reason)
         and counters.stale_smoke_diagnostic_attempt == counters.merge_attempts
     ):
-        # A re-test already fired off THIS snapshot and no real attempt has
-        # re-captured it since, so re-firing would spend a second fix round
-        # on evidence that literally cannot have changed. Drop to the bounded
-        # retry below instead: that attempt refreshes the diagnostic, which
-        # either lands the merge or re-arms this arm against fresh evidence.
+        # A re-test already fired off THIS exact snapshot and no real
+        # `coord merge` attempt has re-captured it since, so re-firing would
+        # spend a second fix round on evidence that literally cannot have
+        # changed. Drop to the bounded retry below instead: that attempt
+        # re-evaluates the gate for real, which either lands the merge or
+        # re-arms this arm against fresh evidence.
+        #
+        # #3917: this used to gate on `gate_reason_from_diagnostic` — i.e.
+        # only when *gate_reason* came from this driver's own captured
+        # `last_merge_diagnostic` snapshot. A `gate_reason` read straight off
+        # the BOARD (`gate_reason_from_diagnostic=False`) is no less stale
+        # when nothing has cleared the persisted `QueuedMerge.error` it is
+        # read from (#420) — quadraui#2173's incident re-tested a
+        # board-sourced stale-smoke reason five times across two drive runs,
+        # all passing, because this latch never armed for that source. The
+        # latch's own contract (one re-test per snapshot, released only by a
+        # real merge attempt) applies identically regardless of which of
+        # `_effective_merge_gate_reason`'s two sources produced the text.
         divergence = None
+    if divergence == "smoke" and not verifier.github_backoff_active():
+        # #3933 (quadraui#2173): *gate_reason* is a string this driver only
+        # CLASSIFIES ("smoke"/"review") from whatever word a PAST merge
+        # attempt happened to persist — and that classification itself can
+        # go stale while `state.work_test_state` still reads passed/
+        # skipped, keeping this function re-testing a suite that was never
+        # the real problem. A live `EntryTruth` (#3922) answers the same
+        # "which gate is actually unmet right now" question from fresh
+        # `gh`/board reads, not a persisted word — so it is consulted here,
+        # the one point a stale-smoke self-service action (re-test, or the
+        # escalation right below) is actually about to be taken, past the
+        # #3861 fresh-head fast path and the #3917 one-attempt latch above.
+        # A verifier that can't produce one (no config, a read failure, or
+        # a GitHub backoff window in force) changes nothing below.
+        truth = verifier.entry_truth(state)
+        if truth is not None and truth.next_action == NEXT_ACTION_DISPATCH_REVIEW:
+            # The live read disagrees with the persisted "smoke"
+            # classification: test is genuinely fine, review is the gate
+            # actually unmet. `coord review` itself would hard-refuse here
+            # whenever this work row already carries a recorded verdict
+            # (#3670, one review per leg) — exactly the voided-approval
+            # shape quadraui#2173 replays — so this escalates through the
+            # SAME path the "review" divergence case below already uses,
+            # which proposes the real remedy (a scoped `coord
+            # review-reaffirm`, or a full `coord review` otherwise) to a
+            # human instead of attempting a dispatch that cannot succeed.
+            return _escalate_merge(
+                state,
+                state.merge_status,
+                gate_kind="review",
+                gate_reason=truth.next_action_reason,
+            )
     if divergence == "smoke" and _is_stale_smoke_reason(gate_reason):
         # #1738: a STALE (not missing) smoke verdict has a safe, bounded
         # self-service fix this driver can take without a human — re-run the
@@ -4891,10 +5155,11 @@ def _decide_merge(
                 gate_reason=gate_reason,
             )
         counters.fix_rounds += 1
-        if gate_reason_from_diagnostic:
-            # #2229: arm the latch above — one re-test per captured
-            # diagnostic, then a real attempt has to re-validate it.
-            counters.stale_smoke_diagnostic_attempt = counters.merge_attempts
+        # #2229/#3917: arm the latch above — one re-test per captured
+        # reason (diagnostic-sourced OR read straight off the board), then
+        # a real `coord merge` attempt has to re-validate it before another
+        # re-test can fire.
+        counters.stale_smoke_diagnostic_attempt = counters.merge_attempts
         return Action(
             kind=RUN,
             label=(
@@ -5103,6 +5368,39 @@ def _decide_merge(
             serialize_merge=True,
         )
 
+    # #3886: not a CI reason, but the identical self-refreshing shape — a
+    # DIFFERENT entry in this repo holds the per-repo merge-gate reservation
+    # (`coord.merge_queue.is_merge_gate_reserved_reason`), so this entry
+    # defers until the holder merges, leaves the queue, or the reservation's
+    # own TTL expires. Nothing about retrying resolves it faster, but
+    # nothing else on the standalone drive path (same #2814 gap the four CI
+    # siblings above close) ever re-reads the board to notice it cleared
+    # either — so this dispatches the same real, attempt-exempt `coord
+    # merge --only` re-check every poll, never a bare wait. Checked before
+    # `status.upper() not in _RETRYABLE_MERGE_STATUSES` below: `merge_status`
+    # stays PENDING/READY while this holds, which is retryable but would
+    # otherwise spend `counters.merge_attempts` on every poll for up to the
+    # reservation's 2h TTL and kill the drive session on
+    # `--max-merge-attempts` — the opposite of deferring.
+    if is_merge_gate_reserved_reason(state.merge_reason):
+        aid = state.merge_aid or state.work_aid
+        return Action(
+            kind=RUN,
+            label=(
+                "MERGE: another entry in this repo holds the merge-gate "
+                f"reservation — re-checking, not spending an attempt "
+                f"(#3886): {state.merge_reason}"
+            ),
+            command=("merge", "--only", aid, "--method", opts.merge_method),
+            on_error="warn",
+            error_message=(
+                "coord merge returned non-zero (or the merge lock timed out) "
+                "while re-checking the merge-gate reservation — re-checking "
+                "next poll"
+            ),
+            serialize_merge=True,
+        )
+
     # #3254: the FIFTH CI-outcome case, checked right after the four
     # self-refreshing siblings above — `coord.merge_queue.is_ci_absent_reason`
     # (#1904's `checks_absent`: this repo declares CI but reported ZERO
@@ -5137,10 +5435,25 @@ def _decide_merge(
 
     status = state.merge_status
     if status.upper() == "HUMAN_REQUIRED":
+        reason = state.merge_reason or "no reason recorded"
+        # #3871: this latch's cause isn't always a conflict-fix worker
+        # giving up on a real conflict — a usage-limit kill, content
+        # already upstream, a declined escalation, or a worker that exited
+        # clean without ever pushing (`CONFLICT_FIX_HEAD_UNMOVED_SIGNAL`)
+        # all land here too. Only claim the "already gave up" framing when
+        # `conflict_fix_actually_gave_up` confirms one actually did — the
+        # ONE function that answers this, so this exit text and
+        # `reconcile_conflict_entries`'s re-evaluability check can never
+        # disagree about what the latch means (#2096).
+        explanation = (
+            "An automated conflict-fix already gave up."
+            if conflict_fix_actually_gave_up(reason)
+            else "No conflict-fix worker was defeated by a real conflict here "
+            "— see the reason above."
+        )
         return _die(
-            f"merge entry is HUMAN_REQUIRED: {state.merge_reason or 'no reason recorded'}\n"
-            "   An automated conflict-fix already gave up. Resolve by hand, or "
-            "override:\n"
+            f"merge entry is HUMAN_REQUIRED: {reason}\n"
+            f"   {explanation} Resolve by hand, or override:\n"
             f"     coord merge --only {state.merge_aid or state.work_aid} "
             "--override-human-required '<reason>'"
         )
@@ -5791,7 +6104,7 @@ class Driver:
         self.err = self.err or sys.stderr
         if self.verifier is None:
             self.verifier = GitMergeVerifier(
-                repo_path=self.opts.repo_path, warn=self.warn
+                repo_path=self.opts.repo_path, warn=self.warn, config=self.config
             )
         if self.oracle_gate is None:
             self.oracle_gate = GitHubAcceptanceGateChecker(config=self.config)
@@ -5868,6 +6181,16 @@ class Driver:
             self._config_reload_broken = False
         self._log_config_change(self.config, new_config)
         self.config = new_config
+        # #3933: keep GitMergeVerifier.entry_truth()'s own config in step
+        # with a reload — it only reads *self.config* once, at
+        # `__post_init__` construction time, so without this a reloaded
+        # pipeline/review-gate edit would never reach its live truth reads
+        # for the rest of this run. `set_config` (declared on the
+        # `MergeVerifier` Protocol itself, defaulting to a no-op) rather
+        # than a generic `hasattr(self.verifier, "config")` — that would
+        # silently clobber an unrelated same-named attribute on some future
+        # double that isn't `GitMergeVerifier` and never meant it this way.
+        self.verifier.set_config(new_config)
 
     def _log_config_change(self, old: Any, new: Any) -> None:
         """Narrate a reload that changes a decision this loop actually makes
@@ -6402,6 +6725,19 @@ class Driver:
                     f"no state change in {(now - last_change) / 60.0:g}m "
                     f"({','.join(state.active_types) or 'nothing'} active)"
                 )
+                # A `review_state="dispatched"` row with no live review
+                # assignment on the board (a scoped re-review's verdict
+                # landed on an older round, leaving this one wedged) is
+                # exactly the shape `coord.review.heal_unreviewed_newest_
+                # work_legs` resets to "pending" before the eligibility
+                # filter runs — `dispatch_pending_reviews` calls it, and
+                # `coord notify` (just below) routes through
+                # `dispatch_pending_reviews`. No separate repair belongs
+                # here: `coord diagnose --stage review --reset` answers a
+                # different question (an existing review ASSIGNMENT's own
+                # stale state) and, for a plain `type="work"` row with no
+                # review assignment at all, neither resets nor re-dispatches
+                # anything.
                 self.run_notify()
                 last_nudge = now
                 # #1632: publish the nudge so the phone notifier can ask

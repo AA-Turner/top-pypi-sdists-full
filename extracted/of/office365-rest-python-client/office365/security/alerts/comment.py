@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AlertComment(ClientValue):
     """An analyst-generated comment that is associated with an alert or incident."""
 

@@ -358,6 +358,7 @@ from .sandbox_build_post import SandboxBuildPOST
 from .sandbox_build_post_registry_credential import SandboxBuildPOSTRegistryCredential
 from .sandbox_build_source import SandboxBuildSource
 from .sandbox_build_status import SandboxBuildStatus
+from .sandbox_build_with_cursor import SandboxBuildWithCursor
 from .sandbox_connect_request import SandboxConnectRequest
 from .sandbox_connect_response import SandboxConnectResponse
 from .sandbox_credential import SandboxCredential
@@ -379,6 +380,7 @@ from .sandbox_network_policy_type import SandboxNetworkPolicyType
 from .sandbox_plan import SandboxPlan
 from .sandbox_post import SandboxPOST
 from .sandbox_post_env import SandboxPOSTEnv
+from .sandbox_shared_filesystem import SandboxSharedFilesystem
 from .sandbox_snapshot import SandboxSnapshot
 from .sandbox_snapshot_kind import SandboxSnapshotKind
 from .sandbox_snapshot_post import SandboxSnapshotPOST
@@ -419,6 +421,7 @@ from .service_type import ServiceType
 from .service_type_short import ServiceTypeShort
 from .service_with_cursor import ServiceWithCursor
 from .setup_postgres_replication_response_201 import SetupPostgresReplicationResponse201
+from .shared_filesystem import SharedFilesystem
 from .snapshot_restore_post import SnapshotRestorePOST
 from .start_flow_run import StartFlowRun
 from .static_site_details import StaticSiteDetails
@@ -830,6 +833,7 @@ __all__ = (
     "SandboxBuildPOSTRegistryCredential",
     "SandboxBuildSource",
     "SandboxBuildStatus",
+    "SandboxBuildWithCursor",
     "SandboxConnectRequest",
     "SandboxConnectResponse",
     "SandboxCredential",
@@ -851,6 +855,7 @@ __all__ = (
     "SandboxPlan",
     "SandboxPOST",
     "SandboxPOSTEnv",
+    "SandboxSharedFilesystem",
     "SandboxSnapshot",
     "SandboxSnapshotKind",
     "SandboxSnapshotPOST",
@@ -891,6 +896,7 @@ __all__ = (
     "ServiceTypeShort",
     "ServiceWithCursor",
     "SetupPostgresReplicationResponse201",
+    "SharedFilesystem",
     "SnapshotRestorePOST",
     "StartFlowRun",
     "StaticSiteDetails",

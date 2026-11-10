@@ -535,16 +535,46 @@
       const form = document.querySelector("#page-view [data-mark-read]");
       if (!form) return goView(1);
       htmx.trigger(form, "submit");
+    } else if (event.key.toLowerCase() === "s" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      // S: stars or unstars the newest message, as in Gmail.
+      const star = document.querySelector("#page-view [data-email-star]");
+      if (!star) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      star.click();
     }
   }, true);
 
+  // A message's star sits in its head, which folds the message when clicked: the star only stars.
+  document.addEventListener("click", (event) => {
+    if (event.target.closest?.("summary [data-email-star]")) event.preventDefault();
+  });
+
   // Marked as read in the view, by M or the button alike: on to the next email. Listened on
-  // the form itself, as the answer replaces it before the request ends.
+  // the form itself, as the answer replaces it before the request ends. Not marked (Gmail said
+  // no, and the email came back with why), it stays.
   document.addEventListener("htmx:beforeRequest", (event) => {
     const form = event.detail.elt;
     if (!form.matches?.("#page-view [data-mark-read]")) return;
-    form.addEventListener("htmx:afterRequest", (done) => done.detail.successful && goView(1), { once: true });
+    form.addEventListener("htmx:afterRequest", (done) => {
+      if (done.detail.xhr?.getResponseHeader("HX-Trigger")?.includes("myorb:row-done")) goView(1);
+      else if (!done.detail.successful) markReadFailed();
+    }, { once: true });
   });
+
+  // No answer at all, or one that is no email: said under the buttons, so the press is not lost.
+  function markReadFailed() {
+    const place = document.querySelector("#page-view #email-draft");
+    if (!place) return;
+    document.querySelector("#page-view [data-mark-read-error]")?.remove();
+    const alert = document.createElement("div");
+    alert.className = "alert alert-error panel-narrow";
+    alert.setAttribute("role", "alert");
+    alert.dataset.markReadError = "";
+    const tag = Object.assign(document.createElement("span"), { className: "alert-tag", textContent: "✕ ERROR" });
+    alert.append(tag, Object.assign(document.createElement("span"), { textContent: "It could not be marked as read. Try again." }));
+    place.before(alert);
+  }
 
   // A day of a row's status history (the bars under a monitor): its 24 hours below them, red
   // where anything was down; clicked again, they go. An hour opens its 60 minutes the same way.

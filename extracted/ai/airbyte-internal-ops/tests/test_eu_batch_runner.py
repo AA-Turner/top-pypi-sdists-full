@@ -17,7 +17,6 @@ from urllib.parse import unquote, urlsplit
 import pytest
 import yaml
 
-from airbyte_ops_mcp.cli.cloud import _check_results
 from airbyte_ops_mcp.regression_tests.eu_runner.cli import render_summary
 from airbyte_ops_mcp.regression_tests.eu_runner.job_spec import (
     build_batch_job,
@@ -34,7 +33,7 @@ from airbyte_ops_mcp.regression_tests.regression.comparators import (
 from airbyte_ops_mcp.regression_tests.report import (
     CheckResult,
     build_comparison_report_model,
-    comparison_label_inputs,
+    build_single_version_report_model,
 )
 from tests.test_regression_test_workflow_inputs import _EXPRESSION, _run_step
 
@@ -568,6 +567,8 @@ def test_finalize_deletes_run_prefix_only_after_a_clean_pass(
     "scenario",
     [
         "clean-pass",
+        "single-version-pass",
+        "single-version-fail",
         "diagnostic-new-stream",
         "diagnostic-catalog",
         "strict-new-stream-failure",
@@ -585,7 +586,6 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
 ) -> None:
     extra_checks: tuple[CheckResult, ...] = ()
     record_comparison: RecordComparisonSummary | None = None
-    record_checks_regression: bool | None = None
     target_only_streams: tuple[str, ...] = ()
     flags: dict[str, bool] = {}
     success = True
@@ -593,7 +593,10 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
     target_result: dict[str, Any] = {"exit_code": 0, "success": True}
     control_result: dict[str, Any] = {"exit_code": 0, "success": True}
 
-    if scenario == "diagnostic-new-stream":
+    if scenario == "single-version-fail":
+        success = False
+        target_result.update(success=False, exit_code=1)
+    elif scenario == "diagnostic-new-stream":
         extra_checks = (
             CheckResult(
                 name="Record schema (new streams)",
@@ -608,7 +611,6 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
     elif scenario == "strict-new-stream-failure":
         success = False
         regression_detected = True
-        record_checks_regression = True
         target_result["record_checks_regression"] = True
         extra_checks = (
             CheckResult(
@@ -639,7 +641,6 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
         target_only_streams = ("new_stream",)
         target_result["record_counts_per_stream"] = {"new_stream": 0}
         target_result["record_checks_regression"] = False
-        record_checks_regression = False
         extra_checks = (
             CheckResult(
                 name="Record schema (new streams)",
@@ -661,17 +662,24 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
             errors=["Record comparison errored"],
         )
 
-    strict_failed, comparison_errored = comparison_label_inputs(
-        record_comparison=record_comparison,
-        extra_checks=extra_checks,
-        record_checks_regression=record_checks_regression,
-        regression_detected=regression_detected,
-        both_failed=False,
-        stopped=False,
-        setup_error=flags.get("setup_error", False),
-        could_not_test=flags.get("could_not_test", False),
-        not_exercised=flags.get("not_exercised", False),
-    )
+    if scenario.startswith("single-version"):
+        model = build_single_version_report_model(
+            connector_image="target",
+            command="read",
+            result=target_result,
+            extra_checks=extra_checks,
+        )
+    else:
+        model = build_comparison_report_model(
+            target_image="target",
+            control_image="control",
+            command="read",
+            target_result=target_result,
+            control_result=control_result,
+            record_comparison=record_comparison,
+            extra_checks=extra_checks,
+            target_only_streams=target_only_streams,
+        )
     output_dir = tmp_path / "out"
     read_dir = output_dir / "read"
     read_dir.mkdir(parents=True)
@@ -686,11 +694,14 @@ def test_eu_finalize_and_us_final_status_agree_on_read_verdict(
         "not_exercised": False,
         "setup_error": False,
         "could_not_test": False,
-        "check_results": _check_results(extra_checks, record_comparison),
-        "strict_failed": strict_failed,
-        "comparison_errored": comparison_errored,
+        "check_results": model.check_results(),
+        "strict_failed": model.strict_failed,
+        "comparison_errored": model.comparison_errored,
         **flags,
     }
+    if scenario.startswith("single-version"):
+        report.pop("control")
+        report["target"] = target_result
     injection_setup_error = scenario == "injection-setup-error"
     if injection_setup_error:
         report["success"] = False

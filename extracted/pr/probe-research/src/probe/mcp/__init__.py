@@ -1,4 +1,4 @@
-"""Read-only Model Context Protocol surface for Probe Research."""
+"""Read-only Model Context Protocol surface for Probe."""
 
 from .tools.tools import ResearchReadService
 from .source.source import ResearchOSSource

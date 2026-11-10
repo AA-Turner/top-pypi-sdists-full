@@ -73,6 +73,7 @@ from river_client.renderers.qwen3 import (
     Qwen35Renderer,
 )
 from river_client.renderers.qwen3_vl import Qwen35VLRenderer
+from river_client.renderers.ripple import RippleRenderer, parse_ripple_content_blocks
 
 
 def _is_qwen35_template(name_lower: str) -> bool:
@@ -137,8 +138,8 @@ def _is_kimi_k3(name_lower: str) -> bool:
     )
 
 
-def _is_glm53_flash(name_lower: str) -> bool:
-    """Detect GLM-5.3 Flash deployment aliases by normalized name segments.
+def _has_joined_segments(name_lower: str, target: str) -> bool:
+    """Whether adjacent name segments join to ``target``.
 
     This matches River API ingress: separators and common deployment suffixes
     are accepted, while a longer unrelated segment such as paglm53flash is
@@ -146,10 +147,20 @@ def _is_glm53_flash(name_lower: str) -> bool:
     """
     segments = [segment for segment in re.split(r"[^a-z0-9]+", name_lower) if segment]
     return any(
-        "".join(segments[start : start + width]) == "glm53flash"
+        "".join(segments[start : start + width]) == target
         for width in range(1, 5)
         for start in range(len(segments) - width + 1)
     )
+
+
+def _is_glm53_flash(name_lower: str) -> bool:
+    """Detect GLM-5.3 Flash deployment aliases by normalized name segments."""
+    return _has_joined_segments(name_lower, "glm53flash")
+
+
+def _is_ripple_65b(name_lower: str) -> bool:
+    """Detect Ripple-65B (``ricursiveAI/Ripple-65B-Preview`` and its aliases)."""
+    return _has_joined_segments(name_lower, "ripple65b")
 
 
 def _is_deepseek_v4(name_lower: str) -> bool:
@@ -200,7 +211,8 @@ def get_renderer(
         strip_thinking_from_history: For thinking-enabled renderers, whether
             to strip <think> blocks from non-last assistant messages. None
             (default) takes the model family's own default — True for
-            Qwen3.5/3.6, Kimi K2 and Nemotron, False for GLM5.2, Qwen3.8 and Kimi K3.
+            Qwen3.5/3.6, Kimi K2 and Nemotron, False for GLM5.2, Qwen3.8, Kimi K3
+            and Ripple.
             RL continuations preserve the already sampled token prefix.
         tokenizer: Pre-loaded tokenizer. If None, loads via AutoTokenizer.
         tokenizer_revision: Optional immutable Hugging Face revision used when
@@ -257,6 +269,17 @@ def get_renderer(
             if strip_thinking_from_history is None
             else strip_thinking_from_history,
             reasoning_effort=reasoning_effort or "max",
+        )
+
+    if _is_ripple_65b(name_lower):
+        if reasoning_effort is not None or thinking is False:
+            raise ValueError(
+                f"{model_name}'s chat template has no reasoning_effort or "
+                f"thinking switch; the model decides whether to reason."
+            )
+        return RippleRenderer(
+            tokenizer,
+            strip_thinking_from_history=bool(strip_thinking_from_history),
         )
 
     if reasoning_effort is not None and not (
@@ -393,10 +416,12 @@ __all__ = [
     "Qwen35DisableThinkingRenderer",
     "Qwen35Renderer",
     "Qwen35VLRenderer",
+    "RippleRenderer",
     "dsml_tools_block",
     "parse_deepseek_content_blocks",
     "parse_glm53_content_blocks",
     "parse_kimi_k2_content_blocks",
+    "parse_ripple_content_blocks",
     "strip_deepseek_thinking_from_text",
     # Factory
     "get_renderer",

@@ -28,8 +28,10 @@ from __future__ import annotations as _annotations
 
 import importlib
 import pathlib
-from typing import Any, Final
-from collections.abc import Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Final
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
 
 REPOSITORY_ROOT: Final[pathlib.Path] = pathlib.Path(__file__).resolve().parents[2]
 PACKAGE_ROOT: Final[pathlib.Path] = REPOSITORY_ROOT / "pyrogram"
@@ -54,6 +56,25 @@ TOOLING_ROOTS: Final[tuple[pathlib.Path, ...]] = (
 )
 
 
+# Where a `#` comment lives outside the package: the tooling configuration at the repository
+#  root, `.gitignore` beside it, and the workflows and issue templates under `.github`. Nothing
+#  under `pyrogram/`, `tests/` or `compiler/` is one of these formats. The root is read flat on
+#  purpose, since a recursive walk from there descends into `.venv` and into every ignored
+#  directory.
+CONFIGURATION_GLOBS: Final[tuple[str, ...]] = ("*.toml", "*.yml", "*.yaml")
+
+
+def source_of(path: pathlib.Path) -> str:
+    """Read a file of the tree as text, always as UTF-8.
+
+    Every sweep reads the sources itself, and `read_text()` with no argument takes the
+    encoding from the locale of the process: on Windows that is `cp1251`, and the first
+    byte outside ASCII ends the read. The tree is written in UTF-8 whatever the machine,
+    so the encoding is named here once rather than repeated at every call.
+    """
+    return path.read_text(encoding="utf-8")
+
+
 def is_generated(path: pathlib.Path) -> bool:
     return path in GENERATED or any(tree in path.parents for tree in GENERATED)
 
@@ -69,6 +90,17 @@ def tooling_files() -> Iterator[pathlib.Path]:
     """Every module beside the package: the suite and the code generators."""
     for root in TOOLING_ROOTS:
         yield from sorted(root.rglob("*.py"))
+
+
+def configuration_files() -> Iterator[pathlib.Path]:
+    """Every file beside the package that is not Python and whose comments open with `#`."""
+    found: set[pathlib.Path] = {REPOSITORY_ROOT / "Makefile", REPOSITORY_ROOT / ".gitignore"}
+
+    for pattern in CONFIGURATION_GLOBS:
+        found.update(REPOSITORY_ROOT.glob(pattern))
+        found.update((REPOSITORY_ROOT / ".github").rglob(pattern))
+
+    yield from sorted(path for path in found if path.is_file())
 
 
 def attribute_chain(root: Any, *, names: Sequence[str]) -> bool:

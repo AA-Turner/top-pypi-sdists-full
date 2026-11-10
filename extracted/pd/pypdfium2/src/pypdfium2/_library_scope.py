@@ -4,14 +4,14 @@
 import atexit
 import logging
 import pypdfium2.raw as pdfium_c
-import pypdfium2.internal as pdfium_i
+from pypdfium2.internal import bases
 from pypdfium2_cfg import DEBUG_AUTOCLOSE
 
 logger = logging.getLogger("pypdfium2")
 
 
 def init_lib():
-    assert not pdfium_i.LIBRARY_AVAILABLE
+    assert not bases.LIBRARY_AVAILABLE
     if DEBUG_AUTOCLOSE:  # pragma: no cover
         logger.debug("Initialize PDFium")
     
@@ -26,36 +26,33 @@ def init_lib():
         # m_RendererType = pdfium_c.FPDF_RENDERERTYPE_AGG,  # v4
     )
     pdfium_c.FPDF_InitLibraryWithConfig(config)
-    pdfium_i.LIBRARY_AVAILABLE.value = True
+    bases.LIBRARY_AVAILABLE = True
 
 
 def _close_objects():
-    
-    need_close = []
-    for cls, obj_wrefs in pdfium_i.ObjectTracker.items():
+    for cls, obj_wrefs in bases.ObjectTracker.items():
         # pdfium_i._debug_close(f"{cls and cls.__name__}: {obj_wrefs}")
-        for wref in obj_wrefs:
+        # retain copy() as an extra precaution for now
+        for wref in obj_wrefs.copy():
             obj = wref()
             if obj is None:
-                pdfium_i._warn_close(f"Weakref {wref} was not cleaned up from ObjectTracker.")
+                bases._warn_close(f"Weakref {wref} was not cleaned up from ObjectTracker?")
             else:
-                # outsource actual closing to avoid "RuntimeError: Set changed size during iteration" (because closing removes the object from the set of weakrefs)
-                need_close.append(obj)
-    
-    if need_close:
-        pdfium_i._warn_close(f"The following objects are still open and will now be closed: {need_close}")
-        for obj in need_close:
-            obj.close()
+                bases._warn_close(f"The following object was still open and will be closed now: {obj}")
+                obj.close()
+        obj_wrefs.clear()
 
 
 def destroy_lib():  # pragma: no cover
-    assert pdfium_i.LIBRARY_AVAILABLE
+    assert bases.LIBRARY_AVAILABLE
+    bases.REMOVE_FROM_TRACKER = False
     try:
         _close_objects()
     finally:
-        pdfium_i._debug_close("Destroy PDFium")
+        bases.REMOVE_FROM_TRACKER = True
+        bases._debug_close("Destroy PDFium")
         pdfium_c.FPDF_DestroyLibrary()
-        pdfium_i.LIBRARY_AVAILABLE.value = False
+        bases.LIBRARY_AVAILABLE = False
 
 
 # Load pdfium

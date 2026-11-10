@@ -1,5 +1,6 @@
 # track/track.pyi — type stubs for the track C extension.
-from typing import final, Literal
+from typing import Literal, final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -30,7 +31,7 @@ class LoopFilter:
     Create with defaults:
 
     >>> from doppler.track import LoopFilter
-    >>> obj = LoopFilter(bn=0.01, zeta=0.707, t=1.0)
+    >>> obj = LoopFilter()
 
     """
 
@@ -340,13 +341,7 @@ class Costas:
     Create with defaults:
 
     >>> from doppler.track import Costas
-    >>> obj = Costas(
-    ...     bn=0.05,
-    ...     zeta=0.707,
-    ...     init_norm_freq=0.0,
-    ...     tsamps=64,
-    ...     bn_fll=0.0,
-    ... )
+    >>> obj = Costas()
 
     """
 
@@ -1659,13 +1654,7 @@ class SymbolSync:
     Create with defaults:
 
     >>> from doppler.track import SymbolSync
-    >>> obj = SymbolSync(
-    ...     sps=4,
-    ...     bn=0.01,
-    ...     zeta=0.707,
-    ...     order="cubic",
-    ...     ted="gardner",
-    ... )
+    >>> obj = SymbolSync()
 
     """
 
@@ -2177,17 +2166,7 @@ class RateSync:
     Create with defaults:
 
     >>> from doppler.track import RateSync
-    >>> obj = RateSync(
-    ...     sps=4.0,
-    ...     pulse="rrc",
-    ...     beta=0.35,
-    ...     span=8,
-    ...     m=2,
-    ...     num_phases=1024,
-    ...     bn=0.01,
-    ...     zeta=0.707,
-    ...     ted="gardner",
-    ... )
+    >>> obj = RateSync()
 
     """
 
@@ -2632,14 +2611,7 @@ class CarrierMpsk:
     Create with defaults:
 
     >>> from doppler.track import CarrierMpsk
-    >>> obj = CarrierMpsk(
-    ...     bn=0.05,
-    ...     zeta=0.707,
-    ...     init_norm_freq=0.0,
-    ...     tsamps=64,
-    ...     bn_fll=0.0,
-    ...     m=4,
-    ... )
+    >>> obj = CarrierMpsk()
 
     """
 
@@ -2990,14 +2962,7 @@ class CarrierNda:
     Create with defaults:
 
     >>> from doppler.track import CarrierNda
-    >>> obj = CarrierNda(
-    ...     bn=0.01,
-    ...     zeta=0.707,
-    ...     init_norm_freq=0.0,
-    ...     sps=8,
-    ...     n=4,
-    ...     m=4,
-    ... )
+    >>> obj = CarrierNda()
 
     """
 
@@ -3493,23 +3458,7 @@ class MpskReceiver:
     Create with defaults:
 
     >>> from doppler.track import MpskReceiver
-    >>> obj = MpskReceiver(
-    ...     m=4,
-    ...     sps=8.0,
-    ...     m_out=0,
-    ...     pulse="iandd",
-    ...     rrc_beta=0.35,
-    ...     rrc_span=8,
-    ...     bn_carrier=0.01,
-    ...     zeta=0.0,
-    ...     bn_timing=0.01,
-    ...     lock_thresh=0.0,
-    ...     init_norm_freq=0.0,
-    ...     differential=0,
-    ...     num_phases=0,
-    ...     agc=1,
-    ...     bn_agc_ratio=0.0,
-    ... )
+    >>> obj = MpskReceiver()
 
     """
 
@@ -4753,23 +4702,7 @@ class MpskReceiverR:
     Create with defaults:
 
     >>> from doppler.track import MpskReceiverR
-    >>> obj = MpskReceiverR(
-    ...     m=4,
-    ...     sps=32.0,
-    ...     m_out=0,
-    ...     pulse="iandd",
-    ...     rrc_beta=0.35,
-    ...     rrc_span=8,
-    ...     bn_carrier=0.01,
-    ...     zeta=0.0,
-    ...     bn_timing=0.01,
-    ...     lock_thresh=0.0,
-    ...     init_norm_freq=0.0,
-    ...     differential=0,
-    ...     num_phases=0,
-    ...     agc=1,
-    ...     bn_agc_ratio=0.0,
-    ... )
+    >>> obj = MpskReceiverR()
 
     """
 
@@ -4916,29 +4849,14 @@ class MpskReceiverR:
         x: npt.NDArray[np.float32],
         out: npt.NDArray[np.complex64] | None = None,
     ) -> NDArray[np.complex64]:
-        """Demodulate a real f32 block and return the recovered M-PSK symbols
-        (one cf32 per recovered symbol period, ~ len(x)/sps outputs). Per
-        sample the receiver pushes x through the matched DDCR -- an R2C
-        halfband that decimates 2:1, then LO mix, decimating cascade, and a
-        terminal polyphase stage whose bank IS the matched filter and whose
-        selected arm IS the fractional symbol-timing delay -- then folds every
-        output that stage produced into two loops: a Gardner symbol-timing loop
-        steering the cascade's rate_ctrl port, and a carrier loop steering the
-        LO's freq_ctrl port. That fold is one shared implementation with the
-        complex face; only the front end above it differs. The carrier
-        discriminator runs on the on-time strobe only -- a non-strobe output
-        straddles two symbols, so its M-th power is intersymbol interference
-        rather than carrier phase -- and it is the non-data-aided M-th-power
-        error throughout, needing no data and no symbol timing: there is one
-        discriminator, running from the first symbol to the last. The loop
-        locks to one of m phases (M-fold ambiguity); resolve it with
-        bits(differential) or a sync word. Read norm_freq for the tracked
-        carrier and lock for the carrier lock metric.
+        """Demodulate a real f32 block and emit the recovered symbols.
 
         dp_mpsk_receiver_steps() taking real samples: the R2C halfband makes
         them complex before anything else touches them, and the per-sample body
         is the same one. Requires a state built by
-        dp_mpsk_receiver_create_real().
+        dp_mpsk_receiver_create_real(). One cf32 symbol per recovered symbol
+        period, about x_len / sps of them; the carrier loop locks to one of m
+        phases.
 
         Parameters
         ----------
@@ -4989,15 +4907,12 @@ class MpskReceiverR:
         x: npt.NDArray[np.float32],
         out: npt.NDArray[np.uint8] | None = None,
     ) -> NDArray[np.uint8]:
-        """Demodulate a real f32 block and return hard Gray-coded bits (log2(m)
-        bytes of 0/1 per recovered symbol, LSB-first). Coherent by default; if
-        the receiver was created with differential=1, each symbol's bits come
-        from the phase DIFFERENCE between consecutive symbols
-        (rotation-invariant — resolves the m-fold carrier ambiguity at ~2x the
-        symbol-error rate). Same per-sample carrier/timing recovery as steps().
+        """Demodulate a real f32 block and emit hard Gray-coded bits.
 
         dp_mpsk_receiver_bits() taking real samples. Requires a state built by
-        dp_mpsk_receiver_create_real().
+        dp_mpsk_receiver_create_real(). Hard Gray-coded bits, log2(m) bytes of
+        0/1 per recovered symbol, LSB-first: coherent, or from the phase
+        difference of consecutive symbols when created with differential = 1.
 
         Parameters
         ----------

@@ -15,21 +15,26 @@ from collections.abc import Callable, Iterator
 
 from probe.foundation.service_api.vocabularies import RelayFailure
 from .request import ApiCall, FileBody
+from .streams import HeldStreams
 from .targets import AllowedTargets
+from .upstream import (  # noqa: F401 -- _get_proxy_mounts: read here by its tests
+    DECODED_DROPS,
+    INLINE_BYTES,
+    _get_proxy_mounts,
+    get_failure_kind,
+    get_timeout_parts,
+    make_client,
+)
 
 #: Requests sent at once per lane, at most (never the hooks' or commands' threads).
 SMALL_THREADS = 8
 BULK_THREADS = 8
-#: A response body up to this size rides in the answer (base64 keeps the line under 1 MiB).
-INLINE_BYTES = 512 * 1024
 #: A body is read and written this much at a time.
 CHUNK_BYTES = 1 << 20
 #: While a body streams into the caller's file, a progress event at least this often.
 PROGRESS_EVERY_S = 1.0
 #: httpx clients kept, one per set of network settings, at most.
 MAX_CLIENTS = 8
-#: Headers that describe the wire, not the body handed back (it is decoded here).
-DECODED_DROPS = frozenset({"content-encoding", "content-length", "transfer-encoding"})
 
 
 class Relay:
@@ -47,6 +52,8 @@ class Relay:
         #: key -> [client, users]; a client in use is never closed by an eviction (L5).
         self._clients: dict[tuple, list] = {}
         self.targets = AllowedTargets()
+        #: Held streams (`stream: true`): their own threads and connections, never a lane's.
+        self.streams = HeldStreams(targets=self.targets, log=log)
         self.sent = self.failed = self.expired = self.refused = 0
         #: Calls from a fenced caller (D25): they reach only the API and its storage.
         self.fenced = 0
@@ -57,7 +64,10 @@ class Relay:
         with self._lock:
             self._in_flight += 1
         try:
-            future = self._lanes[call.lane].submit(self._send, call, progress)
+            if call.is_stream:
+                future = self.streams.open(call)  # answered at its headers; the body goes on after
+            else:
+                future = self._lanes[call.lane].submit(self._send, call, progress)
         except BaseException:
             call.close()
             self._settle()
@@ -76,10 +86,12 @@ class Relay:
 
     def public(self) -> dict:
         with self._lock:
-            return {"sent": self.sent, "failed": self.failed, "expired": self.expired, "refused": self.refused,
-                    "fenced": self.fenced, "in_flight": self._in_flight, "clients": len(self._clients)}
+            counts = {"sent": self.sent, "failed": self.failed, "expired": self.expired, "refused": self.refused,
+                      "fenced": self.fenced, "in_flight": self._in_flight, "clients": len(self._clients)}
+        return {**counts, "streams": self.streams.get_counts()}
 
     def close(self) -> None:
+        self.streams.close()
         for pool in self._lanes.values():
             pool.shutdown(wait=False, cancel_futures=True)
         with self._lock:
@@ -104,7 +116,7 @@ class Relay:
             return self._exchange(call, progress)
         except Exception as exc:  # noqa: BLE001 -- one bad call never stops the relay
             self._count("failed")
-            return {"failed": _get_failure(exc), "message": f"{type(exc).__name__}: {exc}"[:2000]}
+            return {"failed": get_failure_kind(exc), "message": f"{type(exc).__name__}: {exc}"[:2000]}
         finally:
             call.close()
 
@@ -116,7 +128,7 @@ class Relay:
             content = call.body if call.file_body is None else _read_file(call.file_body)
             request = client.build_request(
                 call.method, call.url, headers=call.headers, content=content,
-                timeout=httpx.Timeout(**_get_timeout_parts(call.timeout)),
+                timeout=httpx.Timeout(**get_timeout_parts(call.timeout)),
             )
             response = client.send(request, stream=True)
             try:
@@ -173,21 +185,14 @@ class Relay:
         service's own, set by `SdkMethods.call_api`), counted as in use until `_release_client`."""
         import httpx
 
-        from probe.foundation.tls.tls import ssl_context
-
         key = tuple(sorted(env.items()))
         with self._lock:
             entry = self._clients.get(key)
             if entry is not None:
                 entry[1] += 1
                 return key, entry[0]
-        verify = ssl_context(env)
-        mounts = {pattern: (None if proxy is None else httpx.HTTPTransport(proxy=proxy, verify=verify))
-                  for pattern, proxy in _get_proxy_mounts(env).items()}
-        client = httpx.Client(
-            verify=verify, mounts=mounts, trust_env=False, follow_redirects=False,
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=60.0),
-        )
+        client = make_client(env, httpx.Limits(max_connections=100, max_keepalive_connections=20,
+                                                keepalive_expiry=60.0))
         evicted = []
         with self._lock:
             entry = self._clients.get(key)
@@ -231,48 +236,3 @@ def _read_file(body: FileBody) -> Iterator[bytes]:
             break  # it shrank: short, and the length the caller declared fails the request
         done += len(chunk)
         yield chunk
-
-
-def _get_timeout_parts(parts: dict) -> dict:
-    """httpx's four timeouts from `api.call`'s (30 s each when the caller named none)."""
-    return {name: parts.get(name, 30.0) for name in ("connect", "read", "write", "pool")}
-
-
-def _get_failure(exc: Exception) -> str:
-    import httpx
-
-    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout, httpx.UnsupportedProtocol)):
-        return RelayFailure.CONNECT
-    if isinstance(exc, httpx.TimeoutException):
-        return RelayFailure.TIMEOUT
-    if isinstance(exc, (httpx.RemoteProtocolError, httpx.ReadError, httpx.WriteError, httpx.LocalProtocolError)):
-        return RelayFailure.PROTOCOL
-    return RelayFailure.OTHER
-
-
-def _get_proxy_mounts(env: dict) -> dict:
-    """httpx's mounts for `env`'s proxy variables, as httpx reads its own environment
-    (`httpx._utils.get_environment_proxies`): lower case first, NO_PROXY hosts go direct."""
-    proxies: dict[str, str] = {}
-    for name, value in sorted(env.items(), key=lambda item: item[0].islower()):
-        if value and name.lower().endswith("_proxy"):
-            proxies[name.lower()[: -len("_proxy")]] = value
-    mounts: dict[str, str | None] = {}
-    for scheme in ("http", "https", "all"):
-        url = proxies.get(scheme)
-        if url:
-            mounts[f"{scheme}://"] = url if "://" in url else f"http://{url}"
-    for host in (h.strip() for h in proxies.get("no", "").split(",")):
-        if host == "*":
-            return {}
-        if not host:
-            continue
-        if "://" in host:
-            mounts[host] = None
-        elif host.replace(".", "").isdigit() or host.lower() == "localhost":
-            mounts[f"all://{host}"] = None
-        elif ":" in host:
-            mounts[f"all://[{host}]"] = None
-        else:
-            mounts[f"all://*{host}"] = None
-    return mounts

@@ -20,6 +20,9 @@ class CreditTransaction:
         uuid (UUID):
         created (datetime.datetime):
         amount (str):
+        granted_change (Union[None, str]):
+        paid_change (Union[None, str]):
+        earned_change (Union[None, str]):
         transaction_type (TransactionTypeEnum):
         transaction_type_display (str):
         customer_uuid (Union[None, UUID]):
@@ -33,6 +36,9 @@ class CreditTransaction:
     uuid: UUID
     created: datetime.datetime
     amount: str
+    granted_change: Union[None, str]
+    paid_change: Union[None, str]
+    earned_change: Union[None, str]
     transaction_type: TransactionTypeEnum
     transaction_type_display: str
     customer_uuid: Union[None, UUID]
@@ -49,6 +55,15 @@ class CreditTransaction:
         created = self.created.isoformat()
 
         amount = self.amount
+
+        granted_change: Union[None, str]
+        granted_change = self.granted_change
+
+        paid_change: Union[None, str]
+        paid_change = self.paid_change
+
+        earned_change: Union[None, str]
+        earned_change = self.earned_change
 
         transaction_type = self.transaction_type.value
 
@@ -84,6 +99,9 @@ class CreditTransaction:
                 "uuid": uuid,
                 "created": created,
                 "amount": amount,
+                "granted_change": granted_change,
+                "paid_change": paid_change,
+                "earned_change": earned_change,
                 "transaction_type": transaction_type,
                 "transaction_type_display": transaction_type_display,
                 "customer_uuid": customer_uuid,
@@ -109,6 +127,27 @@ class CreditTransaction:
         created = isoparse(d.pop("created"))
 
         amount = d.pop("amount")
+
+        def _parse_granted_change(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        granted_change = _parse_granted_change(d.pop("granted_change"))
+
+        def _parse_paid_change(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        paid_change = _parse_paid_change(d.pop("paid_change"))
+
+        def _parse_earned_change(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        earned_change = _parse_earned_change(d.pop("earned_change"))
 
         transaction_type = TransactionTypeEnum(d.pop("transaction_type"))
 
@@ -163,6 +202,9 @@ class CreditTransaction:
             uuid=uuid,
             created=created,
             amount=amount,
+            granted_change=granted_change,
+            paid_change=paid_change,
+            earned_change=earned_change,
             transaction_type=transaction_type,
             transaction_type_display=transaction_type_display,
             customer_uuid=customer_uuid,

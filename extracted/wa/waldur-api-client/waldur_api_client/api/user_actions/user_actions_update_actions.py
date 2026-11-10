@@ -55,7 +55,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     body: UpdateActionsRequest,
 ) -> Response[UpdateActionsResponse]:
-    """Trigger update of user actions
+    """Staff-only action to trigger recalculation of the actions of every user.
 
     Args:
         body (UpdateActionsRequest):
@@ -84,7 +84,7 @@ def sync(
     client: AuthenticatedClient,
     body: UpdateActionsRequest,
 ) -> UpdateActionsResponse:
-    """Trigger update of user actions
+    """Staff-only action to trigger recalculation of the actions of every user.
 
     Args:
         body (UpdateActionsRequest):
@@ -108,7 +108,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     body: UpdateActionsRequest,
 ) -> Response[UpdateActionsResponse]:
-    """Trigger update of user actions
+    """Staff-only action to trigger recalculation of the actions of every user.
 
     Args:
         body (UpdateActionsRequest):
@@ -135,7 +135,7 @@ async def asyncio(
     client: AuthenticatedClient,
     body: UpdateActionsRequest,
 ) -> UpdateActionsResponse:
-    """Trigger update of user actions
+    """Staff-only action to trigger recalculation of the actions of every user.
 
     Args:
         body (UpdateActionsRequest):

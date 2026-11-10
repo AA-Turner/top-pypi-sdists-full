@@ -124,6 +124,8 @@ from .type_defs import (
     RevokeVpcEndpointAccessRequestTypeDef,
     StartElasticsearchServiceSoftwareUpdateRequestTypeDef,
     StartElasticsearchServiceSoftwareUpdateResponseTypeDef,
+    UpdateCloneRequestTypeDef,
+    UpdateCloneResponseTypeDef,
     UpdateElasticsearchDomainConfigRequestTypeDef,
     UpdateElasticsearchDomainConfigResponseTypeDef,
     UpdatePackageRequestTypeDef,
@@ -674,6 +676,16 @@ class ElasticsearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/es/client/start_elasticsearch_service_software_update.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_es/client/#start_elasticsearch_service_software_update)
+        """
+
+    def update_clone(
+        self, **kwargs: Unpack[UpdateCloneRequestTypeDef]
+    ) -> UpdateCloneResponseTypeDef:
+        """
+        Manages a cloned blue/green upgrade that is in progress on a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/es/client/update_clone.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_es/client/#update_clone)
         """
 
     def update_elasticsearch_domain_config(

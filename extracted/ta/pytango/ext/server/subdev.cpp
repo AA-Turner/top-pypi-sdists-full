@@ -52,6 +52,7 @@ void export_sub_dev_diag(py::module_ &m) {
              )doc")
         .def("store_sub_devices",
              &Tango::SubDevDiag::store_sub_devices,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Store the list of sub devices for the devices of the server.
                 The sub device names are stored as a string array

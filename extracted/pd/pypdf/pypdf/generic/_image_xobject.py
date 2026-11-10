@@ -1,8 +1,7 @@
 """Functions to convert an image XObject to an image"""
-
-import sys
+from collections.abc import Sequence
 from io import BytesIO
-from typing import Any, Literal, Optional, Union, cast
+from typing import IO, Any, Literal, TypeAlias, cast
 
 from .._configuration import get_configuration
 from .._utils import check_if_whitespace_only, logger_warning
@@ -17,12 +16,6 @@ from ..generic import (
     TextStringObject,
     is_null_or_none,
 )
-
-if sys.version_info[:2] >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
-
 
 try:
     from PIL import Image, UnidentifiedImageError
@@ -40,7 +33,7 @@ MAX_IMAGE_MODE_NESTING_DEPTH: int = 10
 
 
 def _get_image_mode(
-    color_space: Union[str, list[Any], Any],
+    color_space: str | list[Any] | Any,
     color_components: int,
     prev_mode: ImageMode,
     depth: int = 0,
@@ -177,7 +170,7 @@ def _expand_low_bit_samples(
     mode: ImageMode,
     size: tuple[int, int],
     data: bytes,
-    color_space: Union[str, ArrayObject],
+    color_space: str | ArrayObject,
 ) -> tuple[ImageMode, bytes]:
     """
     Expand 2- or 4-bit-per-component samples to one byte per component.
@@ -200,12 +193,57 @@ def _expand_low_bit_samples(
     return "P", bits2byte(data, size, bits)
 
 
-def _image_from_bytes(
-    mode: str, size: tuple[int, int], data: bytes
-) -> Image.Image:
+# Bytes per pixel Pillow allocates for a single-band image, keyed by mode.
+# Pillow keeps one sample of "1", "L" and "P" in one byte, the 16-bit family in
+# two and "I"/"F" in four. Image.getmodetype() cannot tell them apart: it
+# reports "L" for "1", "L", "P" and the whole 16-bit family.
+_SINGLE_BAND_BYTES_PER_PIXEL: dict[str, int] = {
+    "1": 1,
+    "L": 1,
+    "P": 1,
+    "I;16": 2,
+    "I;16B": 2,
+    "I;16L": 2,
+    "I;16N": 2,
+    "I": 4,
+    "F": 4,
+}
+
+
+def _get_allocated_bytes_per_pixel(mode: str) -> int:
+    """Bytes Pillow allocates per pixel for a decoded image in the given mode.
+
+    This is the size of the internal pixel, not the size of the raw data: every
+    mode with two or more bands is stored in a four-byte pixel, so "RGB",
+    "YCbCr", "LAB", "HSV", "LA", "La" and "PA" all take four bytes although
+    they have three or two bands. The length of the mode name says nothing
+    about it either: "I" and "F" need four bytes per pixel and the 16-bit modes
+    two.
+
+    The number of bands is taken from Pillow, so the multi-band half needs no
+    table. The four bytes are Pillow's image32 storage, which the API does not
+    report: it holds for every mode Pillow had from 8.0.0 to 12.3.0, and the
+    test over Image.MODES fails when a release adds a mode, so the assumption
+    cannot go stale unnoticed. The width of a single sample is not exposed in a
+    version-independent way either, so those modes stay in a table; an unknown
+    mode takes four bytes, the safe direction for a limit.
+    """
+    try:
+        bands = Image.getmodebands(mode)
+    except KeyError:
+        # Not a mode Pillow knows: _get_mode_and_invert_color() returns an empty
+        # mode when the color space is missing, and _handle_flate() builds an
+        # image from it. Keep the name length so that such data is still
+        # reported by Pillow instead of failing here.
+        return len(mode)
+    if bands > 1:
+        return 4
+    return _SINGLE_BAND_BYTES_PER_PIXEL.get(mode, 4)
+
+
+def _validate_image_size(*, mode: str, size: tuple[int, int]) -> tuple[int, int]:
     pixel_count = size[0] * size[1]
-    bytes_per_pixel = len(mode)
-    required_byte_count = pixel_count * bytes_per_pixel
+    required_byte_count = pixel_count * _get_allocated_bytes_per_pixel(mode)
 
     configuration = get_configuration()
     if required_byte_count > configuration.image_maximum_buffer_size:
@@ -213,6 +251,14 @@ def _image_from_bytes(
             f"Requested image buffer size {required_byte_count} exceeds limit "
             f"{configuration.image_maximum_buffer_size}."
         )
+
+    return pixel_count, required_byte_count
+
+
+def _create_image_from_bytes(
+    mode: str, size: tuple[int, int], data: bytes
+) -> Image.Image:
+    pixel_count, _ = _validate_image_size(mode=mode, size=size)
 
     try:
         img = Image.frombytes(mode, size, data)
@@ -224,10 +270,33 @@ def _image_from_bytes(
             ) from exc
         if data_length % pixel_count != 0:
             raise
-        k = required_byte_count / data_length
+        # The expansion factor counts raw samples per pixel, not the bytes
+        # Pillow allocates: the modes that reach this function are "1", "L",
+        # "P", "RGB", "RGBA" and "CMYK", whose names spell out their samples,
+        # so len(mode) is the sample count.
+        raw_byte_count = pixel_count * len(mode)
+        k = raw_byte_count / data_length
         data = b"".join(bytes((x,) * int(k)) for x in data)
         img = Image.frombytes(mode, size, data)
     return img
+
+
+def _create_image_from_buffer(*, buf: IO[bytes], formats: tuple[str, ...] | None = None) -> Image.Image:
+    image = Image.open(fp=buf, formats=formats)
+    _validate_image_size(mode=image.mode, size=image.size)
+    return image
+
+
+def _convert_image(*, image: Image.Image, mode: str) -> Image.Image:
+    _validate_image_size(mode=mode, size=image.size)
+    return image.convert(mode)
+
+
+def _merge_image(*, mode: str, bands: Sequence[Image.Image]) -> Image.Image:
+    if not bands:
+        return Image.merge(mode=mode, bands=bands)
+    _validate_image_size(mode=mode, size=bands[0].size)
+    return Image.merge(mode=mode, bands=bands)
 
 
 def __handle_flate__indexed(color_space: ArrayObject) -> tuple[Any, Any, Any, Any]:
@@ -252,7 +321,7 @@ def _handle_flate(
     size: tuple[int, int],
     data: bytes,
     mode: ImageMode,
-    color_space: Union[str, ArrayObject],
+    color_space: str | ArrayObject,
     colors: int,
     obj_as_text: str,
 ) -> tuple[Image.Image, str, str, bool]:
@@ -266,7 +335,7 @@ def _handle_flate(
     if isinstance(color_space, ArrayObject) and color_space[0] == "/Indexed":
         color_space, base, hival, lookup = __handle_flate__indexed(color_space)
     mode, data = _expand_low_bit_samples(mode, size, data, color_space)
-    img = _image_from_bytes(mode, size, data)
+    img = _create_image_from_bytes(mode, size, data)
     if color_space == "/Indexed":
         if isinstance(lookup, (EncodedStreamObject, DecodedStreamObject)):
             lookup = lookup.get_data()
@@ -321,16 +390,16 @@ def _handle_flate(
                         )
                     lookup = lookup[:expected_count]
                 colors_arr = [lookup[:nb], lookup[nb:]]
-                source = img.convert("L")
+                source = _convert_image(image=img, mode="L")
                 bands = [
                     source.point(
                         [low_value] * 128 + [high_value] * 128
                     )
                     for low_value, high_value in zip(colors_arr[0], colors_arr[1])
                 ]
-                img = bands[0] if nb == 1 else Image.merge(mode, bands)
+                img = bands[0] if nb == 1 else _merge_image(mode=mode, bands=bands)
             else:
-                img = img.convert(conv)
+                img = _convert_image(image=img, mode=conv)
                 if len(lookup) != (hival + 1) * nb:
                     logger_warning("Invalid Lookup Table in %(obj_as_text)s", source=__name__, obj_as_text=obj_as_text)
                     lookup = None
@@ -338,9 +407,15 @@ def _handle_flate(
                     # gray lookup does not work: it is converted to a similar RGB lookup
                     lookup = b"".join([bytes([b, b, b]) for b in lookup])
                     mode = "RGB"
-                # TODO: https://github.com/py-pdf/pypdf/pull/2039
-                # this is a work around until PIL is able to process CMYK images
                 elif mode == "CMYK":
+                    # Convert the CMYK palette to RGB manually. Pillow can unpack
+                    # CMYK palettes natively since 10.1.0 (see
+                    # https://github.com/python-pillow/Pillow/pull/7310),
+                    # but this is not reliable across versions: Starting with
+                    # Pillow 12.2.0, the palette stays CMYK and `convert("RGB")`
+                    # does not convert its colors anymore.
+                    # Pillow rounds the values while this code truncates them, so
+                    # results can differ by one for some channels.
                     _rgb = []
                     for _c, _m, _y, _k in (
                         lookup[n : n + 4] for n in range(0, 4 * (len(lookup) // 4), 4)
@@ -353,17 +428,20 @@ def _handle_flate(
                     mode = "RGB"
                 if lookup is not None:
                     img.putpalette(lookup, rawmode=mode)
-            img = img.convert("L" if base == ColorSpaces.DEVICE_GRAY else "RGB")
+            img = _convert_image(image=img, mode="L" if base == ColorSpaces.DEVICE_GRAY else "RGB")
     elif not is_null_or_none(color_space) and color_space[0] == "/ICCBased":
         # Exclude pure black-and-white images.
-        # TODO: The remaining code still does not look correct. Shouldn't the proper way be
-        #       to use the original image and apply the ICC transformation on it?
-        #       For now, this just loads the original image with a different color space.
+        # TODO: The ICC profile itself is never applied; only the number of components
+        #       (/N) and the alternate color space are used to pick the image mode.
+        #       Applying the profile would require an actual color transformation,
+        #       for example using PIL.ImageCms.
+        #       The reload below uses the same mode, size and data as the image which
+        #       has already been created above, so it currently does not change the result.
         if mode != "1":
             # Table 65 - Additional Entries Specific to an ICC Profile Stream Dictionary
             mode2 = _get_image_mode(color_space, colors, mode)[0]
             if mode != mode2:
-                img = Image.frombytes(mode, size, data)  # reloaded as mode may have changed
+                img = _create_image_from_bytes(mode, size, data)  # reloaded as mode may have changed
     if mode == "CMYK":
         image_format = "TIFF"
         extension = ".tif"
@@ -384,7 +462,7 @@ def _handle_jpx(
     Process image encoded as JPX/JPEG2000
     Returns img, image_format, extension, inversion
     """
-    img1: Image.Image = Image.open(BytesIO(data), formats=("JPEG2000",))
+    img1: Image.Image = _create_image_from_buffer(buf=BytesIO(data), formats=("JPEG2000",))
     mode, invert_color = _get_image_mode(color_space, colors, mode)
     if mode == "":
         mode = cast(ImageMode, img1.mode)
@@ -398,13 +476,13 @@ def _handle_jpx(
     elif {img1.mode, mode} == {"RGBA", "CMYK"}:
         # RGBA / CMYK are 4bytes encoding where
         # the encoding should be corrected
-        img = Image.frombytes(mode, img1.size, img1.tobytes())
+        img = _create_image_from_bytes(mode, img1.size, img1.tobytes())
     else:  # pragma: no cover
-        img = img1.convert(mode)
+        img = _convert_image(image=img1, mode=mode)
     # CMYK conversion
     # https://stackverflow.com/questions/38855022/
     if img.mode == "CMYK" and color_space == "/ICCBased":
-        img = img.convert("RGB")
+        img = _convert_image(image=img, mode="RGB")
     return img, "JPEG2000", ".jp2", invert_color
 
 
@@ -412,7 +490,7 @@ def _apply_decode(
     img: Image.Image,
     x_object: dict[str, Any],
     lfilters: FT,
-    color_space: Union[str, list[Any], Any],
+    color_space: str | list[Any] | Any,
     invert_color: bool,
 ) -> Image.Image:
     # CMYK image and other color spaces without decode
@@ -480,7 +558,7 @@ def _apply_decode(
 
 
 def _get_mode_and_invert_color(
-    x_object: dict[str, Any], colors: int, color_space: Union[str, list[Any], Any]
+    x_object: dict[str, Any], colors: int, color_space: str | list[Any] | Any
 ) -> tuple[ImageMode, bool]:
     bits = x_object.get("/BitsPerComponent", 8)
     if (
@@ -549,11 +627,11 @@ def _apply_alpha(
     else:
         # TODO: implement mask
         if alpha.mode != "L":
-            alpha = alpha.convert("L")
+            alpha = _convert_image(image=alpha, mode="L")
         if img.mode == "P":
-            img = img.convert("RGB")
+            img = _convert_image(image=img, mode="RGB")
         elif img.mode == "1":
-            img = img.convert("L")
+            img = _convert_image(image=img, mode="L")
         img.putalpha(alpha)
 
     if "JPEG" in image_format:
@@ -568,9 +646,9 @@ def _apply_alpha(
 
 def _xobj_to_image(
         x_object: dict[str, Any],
-        pillow_parameters: Union[dict[str, Any], None] = None,
-        visited: Optional[set[int]] = None,
-) -> tuple[Optional[str], bytes, Any]:
+        pillow_parameters: dict[str, Any] | None = None,
+        visited: set[int] | None = None,
+) -> tuple[str | None, bytes, Any]:
     """
     Args:
         x_object:
@@ -634,24 +712,24 @@ def _xobj_to_image(
             obj_as_text,
         )
     elif last_filter in (FT.LZW_DECODE, FT.ASCII_85_DECODE):
-        # I'm not sure if the following logic is correct.
-        # There might not be any relationship between the filter and the
-        # extension
-        if last_filter == FT.LZW_DECODE:
-            image_format = "TIFF"
-            extension = ".tiff"  # mime_type = "image/tiff"
-        else:
-            image_format = "PNG"
-            extension = ".png"  # mime_type = "image/png"
+        # The filter does not tell which image format the decoded data has, so
+        # let Pillow detect it.
         try:
-            img = Image.open(BytesIO(data), formats=("TIFF", "PNG"))
+            img = _create_image_from_buffer(buf=BytesIO(data), formats=("TIFF", "PNG"))
         except UnidentifiedImageError:
+            # Not a TIFF or PNG container: interpret the data as raw pixel samples.
             fallback_mode, fallback_data = _expand_low_bit_samples(
                 mode, size, data, color_space
             )
-            img = _image_from_bytes(fallback_mode, size, fallback_data)
+            img = _create_image_from_bytes(fallback_mode, size, fallback_data)
+            # There is no format information, thus fall back to the usual one
+            # for the filter.
+            image_format = "TIFF" if last_filter == FT.LZW_DECODE else "PNG"
+        else:
+            image_format = cast(str, img.format)
+        extension = ".tiff" if image_format == "TIFF" else ".png"
     elif last_filter == FT.DCT_DECODE:
-        img, image_format, extension = Image.open(BytesIO(data), formats=("JPEG",)), "JPEG", ".jpg"
+        img, image_format, extension = _create_image_from_buffer(buf=BytesIO(data), formats=("JPEG",)), "JPEG", ".jpg"
         # invert_color kept unchanged
     elif last_filter == FT.JPX_DECODE:
         img, image_format, extension, invert_color = _handle_jpx(
@@ -659,21 +737,21 @@ def _xobj_to_image(
         )
     elif last_filter == FT.CCITT_FAX_DECODE:
         img, image_format, extension, invert_color = (
-            Image.open(BytesIO(data), formats=("TIFF",)),
+            _create_image_from_buffer(buf=BytesIO(data), formats=("TIFF",)),
             "TIFF",
             ".tiff",
             False,
         )
     elif last_filter == FT.JBIG2_DECODE:
         img, image_format, extension, invert_color = (
-            Image.open(BytesIO(data), formats=("PNG", "PPM")),
+            _create_image_from_buffer(buf=BytesIO(data), formats=("PNG", "PPM")),
             "PNG",
             ".png",
             False,
         )
     elif mode == "CMYK":
         img, image_format, extension, invert_color = (
-            _image_from_bytes(mode, size, data),
+            _create_image_from_bytes(mode, size, data),
             "TIFF",
             ".tif",
             False,
@@ -685,7 +763,7 @@ def _xobj_to_image(
         # directly, so low-bit samples have to be expanded here as well.
         mode, data = _expand_low_bit_samples(mode, size, data, color_space)
         img, image_format, extension, invert_color = (
-            _image_from_bytes(mode, size, data),
+            _create_image_from_bytes(mode, size, data),
             "PNG",
             ".png",
             False,
@@ -713,18 +791,18 @@ def _xobj_to_image(
         img.save(img_byte_arr, format=image_format, **pillow_parameters)
     except OSError:  # pragma: no cover  # covered with pillow 10.3
         # in case of we convert to RGBA and then to PNG
-        img1 = img.convert("RGBA")
+        img1 = _convert_image(image=img, mode="RGBA")
         image_format = "PNG"
         extension = ".png"
         img_byte_arr = BytesIO()
         img1.save(img_byte_arr, format=image_format)
     data = img_byte_arr.getvalue()
 
-    try:  # temporary try/except until other fixes of images
-        img = Image.open(BytesIO(data))
+    try:
+        img = _create_image_from_buffer(buf=BytesIO(data), formats=None)
     except MemoryError:  # pragma: no cover  # TODO: BLE001
         raise
     except Exception as exception:
         logger_warning("Failed loading image: %(exception)s", source=__name__, exception=exception)
-        img = None  # type: ignore[assignment,unused-ignore]  # TODO: Remove unused-ignore on Python 3.10
+        img = None  # type: ignore[assignment,unused-ignore]
     return extension, data, img

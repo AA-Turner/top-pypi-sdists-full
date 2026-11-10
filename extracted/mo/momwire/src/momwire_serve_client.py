@@ -26,6 +26,7 @@ the word Windows.
 
 from __future__ import annotations
 
+import io
 import os
 
 # How long a client waits for a server it spawned before giving up. Generous
@@ -347,6 +348,14 @@ def version_line(dialect: str, name: str, modes: str = LAUNCHER_MODES) -> str:
     square brackets (``[sb]``; ``[]`` would mean one deck per call only), and
     the full momwire version, e.g. ``NEC5 momwire-nec5-razor-2p [sb] 0.82.0``.
 
+    This is the Python launchers' line. The C++ executables under
+    ``standalone/`` answer the same line with NAME suffixed
+    ``-standalone-<variant>`` (``avx2``, ``sse2``, or ``legacy`` on macOS),
+    e.g. ``NEC5 momwire-nec5-razor-2p-standalone-avx2 [sb] 0.82.0``, so a
+    user can tell the two apart (momwire#1831); every rule below holds for
+    both. Nothing reads the line back to choose a basis: that comes from the
+    program's file name.
+
     The dialect comes first for the SimNEC builds already deployed: they take
     the engine number from the first digit of the line (``Options.getEngine``,
     ``[a-zA-Z]*([0-9])+?(.*)`` over the whole line), and their NEC-2 and
@@ -388,6 +397,40 @@ def junction_rule_identity() -> list[str]:
     else nothing -- so every key without the override is the key it was."""
     value = os.environ.get(JUNCTION_RULE_ENV)
     return [f"junction_rule={value}"] if value else []
+
+
+# The experimental features (`momwire._features`) are read from the
+# environment by the engine behind every launcher, and a server inherits that
+# environment from the client that spawned it, so the features on are
+# identity too: a warm server started with none must not answer a call that
+# asks for one (or the other way round). Read here without importing momwire
+# (these clients stay thin): any ``MOMWIRE_X_<NAME>`` and the registry's older
+# spellings (`Feature.aliases`; tests/test_features_registry.py holds the
+# list equal), on as `_features` reads "on".
+FEATURE_ENV_PREFIX = "MOMWIRE_X_"
+FEATURE_ALIASES = {
+    "MOMWIRE_EXACT_KERNEL_SERIES": "exact_kernel_series",
+    "MOMWIRE_RAZOR_CXX": "razor_cxx",
+}
+_FEATURE_ON = frozenset({"1", "true", "yes", "on"})
+
+
+def feature_identity(environ=None) -> list[str]:
+    """``["feature=<name>", ...]`` (sorted) for the features the environment
+    turns on, else nothing -- so every key with them all off is the key it
+    was."""
+    env = os.environ if environ is None else environ
+    names = set()
+    for var, value in env.items():
+        if var.startswith(FEATURE_ENV_PREFIX):
+            name = var[len(FEATURE_ENV_PREFIX) :].lower()
+        elif var in FEATURE_ALIASES:
+            name = FEATURE_ALIASES[var]
+        else:
+            continue
+        if value.strip().lower() in _FEATURE_ON:
+            names.add(name)
+    return [f"feature={n}" for n in sorted(names)]
 
 
 def digest(parts: list[str]) -> str:
@@ -490,6 +533,127 @@ def filename_nec4(prog: str) -> tuple[bool, str | None]:
 # took its file names from stdin: the deck may end without EN. A deck never
 # starts with NUL, so the line cannot be mistaken for a card.
 EN_OPTIONAL_REQUEST = b"\x00EN-OPTIONAL\n"
+
+# momwire#1822: the deck's frame is its LENGTH, never the client's EOF. A
+# launcher sends DECK_FRAME_TAG, a space, the byte count in ASCII digits and
+# "\n", then exactly that many bytes (EN_OPTIONAL_REQUEST and TIMES_REQUEST
+# ride inside them as before), and never half-closes. macOS loses the EOF of a
+# `shutdown(SHUT_WR)` that races the server's blocking `recv` -- the call
+# succeeds, every byte arrives, the EOF never does, about once in 10^4
+# connections on a macos-15 runner -- so a wire whose frame was that EOF
+# deadlocked: the server waiting for the end of the deck, the launcher for the
+# answer. The answer's frame is still the
+# server's close, which is a full close, not a half-close. A deck never starts
+# with NUL, so the tag cannot be mistaken for a card; the server still reads a
+# request without it to EOF, as the pre-#1822 wire did.
+DECK_FRAME_TAG = b"\x00DECK"
+# The longest frame line the server reads before deciding it has none.
+DECK_FRAME_LINE_MAX = 32
+# Hashed into every launcher's server key, so a launcher that frames never
+# reaches a resident server of the same minor version that reads to EOF.
+WIRE = "wire=deck-length"
+
+
+def deck_frame(body: bytes) -> bytes:
+    """``body`` as the resident engine reads a deck: its length, then it."""
+    return DECK_FRAME_TAG + b" " + str(len(body)).encode("ascii") + b"\n" + body
+
+
+def _frame_size(line: bytes) -> int | None:
+    """The byte count a frame line announces; ``None`` for a line without
+    the tag, ``-1`` for a tagged line whose length is not digits."""
+    if not line.startswith(DECK_FRAME_TAG + b" "):
+        return None
+    digits = line[len(DECK_FRAME_TAG) + 1 :]
+    if not digits.endswith(b"\n") or not digits[:-1].isdigit():
+        return -1
+    return int(digits[:-1])
+
+
+def read_deck_frame(stream) -> bytes | None:
+    """The deck off a binary ``stream`` the way :func:`deck_frame` wrote it.
+
+    ``None`` when the frame is cut short (the launcher died mid-deck) or its
+    length is not digits: neither is a deck, and solving the fragment would
+    answer a question nobody asked. A request without the tag is the
+    pre-#1822 wire, and its frame is EOF.
+    """
+    first = stream.readline(DECK_FRAME_LINE_MAX)
+    size = _frame_size(first)
+    if size is None:
+        return first + stream.read()
+    if size < 0:
+        return None
+    body = stream.read(size)
+    return body if len(body) == size else None
+
+
+# momwire#1831: the NEC-2 drop-in's STREAM rides the same frame. Its session
+# is a stream of decks on stdin (``NX``-framed, answered as they arrive), so no
+# one length frames it: the launcher sends each piece of stdin as one
+# :func:`deck_frame` as it reads it, and at stdin's end the EMPTY frame,
+# STREAM_END. The empty frame is the stream's end, never the client's
+# half-close, for the reason above. A NEC-5 request is the one-frame case.
+STREAM_END = DECK_FRAME_TAG + b" 0\n"
+
+
+class FrameReader(io.RawIOBase):
+    """The bytes a framing launcher streamed, frame bodies in order.
+
+    Ends at :data:`STREAM_END`, at the peer's EOF, at a frame cut short (the
+    launcher died mid-frame: its fragment is dropped, as
+    :func:`read_deck_frame` drops one) and at a malformed frame line. A
+    stream whose first line carries no tag is the unframed wire, read through
+    to EOF, as a hand-driven ``nc -U`` speaks it.
+
+    Nothing is read until the first ``readinto``: the NEC-2 server greets
+    before it reads, and a client may wait for the greeting before it sends.
+    Each ``readinto`` returns at most one frame's bytes, so a reader is
+    answered as soon as a frame is in rather than when its buffer is full.
+    """
+
+    def __init__(self, stream) -> None:
+        self._stream = stream
+        self._framed: bool | None = None
+        self._body = b""
+        self._done = False
+
+    def readable(self) -> bool:
+        return True
+
+    def _next(self) -> None:
+        line = self._stream.readline(DECK_FRAME_LINE_MAX)
+        size = _frame_size(line)
+        if self._framed is None:
+            self._framed = size is not None
+            if not self._framed:
+                self._body = line
+                return
+        if size is None or size <= 0:
+            self._done = True
+            return
+        body = self._stream.read(size)
+        if len(body) != size:
+            self._done = True
+            return
+        self._body = body
+
+    def readinto(self, buffer) -> int:
+        while not self._body:
+            if self._done:
+                return 0
+            if self._framed is False:
+                self._body = self._stream.read1(len(buffer))
+                if not self._body:
+                    self._done = True
+                    return 0
+                break
+            self._next()
+        count = min(len(buffer), len(self._body))
+        buffer[:count] = self._body[:count]
+        self._body = self._body[count:]
+        return count
+
 
 # An answer that carries a `.GMO` file starts with GMO_FRAME_START, then the
 # file's bytes, then GMO_FRAME_END, then the printout's bytes. A printout never

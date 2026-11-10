@@ -327,9 +327,6 @@ def translate_list_to_dict(  # noqa: CCR001
     :type list_to_trans: Union[list, set]
     :param default: value to use as a default value
     :type default: Any
-    :param is_order: flag if change affects order_by clauses are they require special
-    default value with sort order.
-    :type is_order: bool
     :return: converted to dictionary input list
     :rtype: dict
     """
@@ -383,18 +380,23 @@ def update(current_dict: Any, updating_dict: Any) -> dict:  # noqa: CCR001
 
 def subtract_dict(current_dict: Any, updating_dict: Any) -> dict:  # noqa: CCR001
     """
-    Update one dict with another but with regard for nested keys.
+    Subtract one dict from another with regard for nested keys.
 
-    That way nested sets are unionised, dicts updated and
-    only other values are overwritten.
+    That way nested sets are differenced, nested dicts subtracted and keys
+    left empty removed. Returns a new dict and leaves ``current_dict`` (and
+    the dicts nested in it) unchanged, so it can be a shared cached map::
 
-    :param current_dict: dict to update
+        subtract_dict({"a": {"b": ..., "c": ...}}, {"a": {"b": ...}})
+        # -> {"a": {"c": ...}}
+
+    :param current_dict: dict to subtract from
     :type current_dict: dict[str, ellipsis]
-    :param updating_dict: dict with values to update
+    :param updating_dict: dict with values to subtract
     :type updating_dict: dict
-    :return: combination of both dicts
+    :return: current_dict without the values of updating_dict
     :rtype: dict
     """
+    current_dict = dict(current_dict)
     for key, value in updating_dict.items():
         old_key = current_dict.get(key, {})
         new_value: Optional[Union[dict, set]] = None

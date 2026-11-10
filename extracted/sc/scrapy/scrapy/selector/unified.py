@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import weakref
 from typing import Any, Literal
 
 from parsel import Selector as _ParselSelector
+from w3lib.encoding import resolve_encoding
 
 from scrapy.http import HtmlResponse, JsonResponse, TextResponse, XmlResponse
+from scrapy.utils._deps_compat import PARSEL_BODY_ENCODING_FIXED
 from scrapy.utils.python import to_bytes
-from scrapy.utils.response import get_base_url
 from scrapy.utils.trackref import object_ref
 
 __all__ = ["Selector", "SelectorList"]
@@ -70,7 +72,7 @@ class Selector(_ParselSelector, object_ref):
        supported.
     """
 
-    __slots__ = ["response"]
+    __slots__ = ["_response"]
     selectorlist_cls = SelectorList
 
     def __init__(
@@ -100,12 +102,34 @@ class Selector(_ParselSelector, object_ref):
             response = _response_from_text(text, type)
 
         if response is not None:
-            text = response.text
-            kwargs.setdefault("base_url", get_base_url(response))
+            # parsel only treats bytes and text equivalently for "html" and
+            # "xml", and treats an empty body as absent, unlike empty text.
+            if PARSEL_BODY_ENCODING_FIXED and type in ("html", "xml") and response.body:
+                encoding = response.encoding
+                # parsel decodes non-UTF-8 bodies with Python's codecs, which
+                # differ from the browser decoding of response.text.
+                if (
+                    response._cached_ubody is None
+                    and resolve_encoding(encoding) == "utf-8"
+                ):
+                    kwargs["body"] = response.body
+                    kwargs["encoding"] = encoding
+                    text = None
+                else:
+                    text = response.text
+            else:
+                text = response.text
+            kwargs.setdefault("base_url", response.base_url)
 
-        self.response = response
+        self._response: TextResponse | weakref.ref[TextResponse] | None = response
 
         if root is not _NOT_SET:
             kwargs["root"] = root
 
         super().__init__(text=text, type=type, **kwargs)
+
+    @property
+    def response(self) -> TextResponse | None:
+        if isinstance(self._response, weakref.ref):
+            return self._response()
+        return self._response

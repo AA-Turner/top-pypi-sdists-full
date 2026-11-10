@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ from office365.sharepoint.tenant.administration.spofileversionfiletypepolicysett
 )
 
 
-@dataclass
 class SPSyntexApplicationProperties(ClientValue):
     ApplicationId: UUID | None = None
     ApplicationName: str | None = None

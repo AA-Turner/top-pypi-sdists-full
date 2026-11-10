@@ -19,12 +19,12 @@ class IdentityProviderRequest:
     Attributes:
         provider (str):
         client_id (str): ID of application used for OAuth authentication.
-        client_secret (str): Application secret key.
         discovery_url (str): The endpoint for endpoint discovery.
         label (str): Human-readable identity provider is label.
         protected_fields (Union[Unset, list[str]]):
         allowed_redirects (Union[Unset, list[str]]):
         is_active (Union[Unset, bool]):
+        client_secret (Union[Unset, str]): Application secret key.
         verify_ssl (Union[Unset, bool]):
         enable_post_logout_redirect (Union[Unset, bool]):
         enable_pkce (Union[Unset, bool]):
@@ -40,12 +40,12 @@ class IdentityProviderRequest:
 
     provider: str
     client_id: str
-    client_secret: str
     discovery_url: str
     label: str
     protected_fields: Union[Unset, list[str]] = UNSET
     allowed_redirects: Union[Unset, list[str]] = UNSET
     is_active: Union[Unset, bool] = UNSET
+    client_secret: Union[Unset, str] = UNSET
     verify_ssl: Union[Unset, bool] = UNSET
     enable_post_logout_redirect: Union[Unset, bool] = UNSET
     enable_pkce: Union[Unset, bool] = UNSET
@@ -62,8 +62,6 @@ class IdentityProviderRequest:
 
         client_id = self.client_id
 
-        client_secret = self.client_secret
-
         discovery_url = self.discovery_url
 
         label = self.label
@@ -77,6 +75,8 @@ class IdentityProviderRequest:
             allowed_redirects = self.allowed_redirects
 
         is_active = self.is_active
+
+        client_secret = self.client_secret
 
         verify_ssl = self.verify_ssl
 
@@ -112,7 +112,6 @@ class IdentityProviderRequest:
             {
                 "provider": provider,
                 "client_id": client_id,
-                "client_secret": client_secret,
                 "discovery_url": discovery_url,
                 "label": label,
             }
@@ -123,6 +122,8 @@ class IdentityProviderRequest:
             field_dict["allowed_redirects"] = allowed_redirects
         if is_active is not UNSET:
             field_dict["is_active"] = is_active
+        if client_secret is not UNSET:
+            field_dict["client_secret"] = client_secret
         if verify_ssl is not UNSET:
             field_dict["verify_ssl"] = verify_ssl
         if enable_post_logout_redirect is not UNSET:
@@ -153,8 +154,6 @@ class IdentityProviderRequest:
 
         client_id = d.pop("client_id")
 
-        client_secret = d.pop("client_secret")
-
         discovery_url = d.pop("discovery_url")
 
         label = d.pop("label")
@@ -164,6 +163,8 @@ class IdentityProviderRequest:
         allowed_redirects = cast(list[str], d.pop("allowed_redirects", UNSET))
 
         is_active = d.pop("is_active", UNSET)
+
+        client_secret = d.pop("client_secret", UNSET)
 
         verify_ssl = d.pop("verify_ssl", UNSET)
 
@@ -205,12 +206,12 @@ class IdentityProviderRequest:
         identity_provider_request = cls(
             provider=provider,
             client_id=client_id,
-            client_secret=client_secret,
             discovery_url=discovery_url,
             label=label,
             protected_fields=protected_fields,
             allowed_redirects=allowed_redirects,
             is_active=is_active,
+            client_secret=client_secret,
             verify_ssl=verify_ssl,
             enable_post_logout_redirect=enable_post_logout_redirect,
             enable_pkce=enable_pkce,

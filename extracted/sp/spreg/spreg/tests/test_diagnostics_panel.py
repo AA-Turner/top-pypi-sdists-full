@@ -6,6 +6,7 @@ from spreg.diagnostics_panel import panel_LMlag, panel_LMerror, panel_rLMlag
 from spreg.diagnostics_panel import panel_rLMerror, panel_Hausman
 from spreg.panel_fe import Panel_FE_Lag
 from spreg.panel_re import Panel_RE_Lag
+from spreg.panel import ML_LagFE, ML_LagRE
 from libpysal.common import RTOL
 
 class Test_Panel_Diagnostics(unittest.TestCase):
@@ -25,7 +26,7 @@ class Test_Panel_Diagnostics(unittest.TestCase):
 
     def test_LM(self):
         lmlag = panel_LMlag(self.y, self.x, self.w)
-        exp = np.array([1.472807526666869, 0.22490325114767176])
+        exp = np.array([52.06732964449592, 5.36298288480122e-13])
         np.testing.assert_allclose(lmlag, exp, RTOL)
         lmerror = panel_LMerror(self.y, self.x, self.w)
         exp = np.array([81.69630396101608, 1.5868998506678388e-19])
@@ -43,11 +44,18 @@ class Test_Panel_Diagnostics(unittest.TestCase):
         re_lag = Panel_RE_Lag(self.y, self.x, self.w)
 #        re_error = Panel_RE_Error(self.y, self.x, self.w)
         Hlag = panel_Hausman(fe_lag, re_lag)
-        exp = np.array([-67.26822586935438, 1.0])
+        exp = np.array([67.26822586935438, 1.6407966665540482e-14])
         np.testing.assert_allclose(Hlag, exp, RTOL)
 #        Herror = panel_Hausman(fe_error, re_error)
 #        exp = np.array([-84.38351088621853, 1.0])
 #        np.testing.assert_allclose(Herror, exp, RTOL)
+
+    def test_Hausman_ML_lag(self):
+        fe_lag = ML_LagFE(self.y, self.x, self.w)
+        re_lag = ML_LagRE(self.y, self.x, self.w)
+        Hlag = panel_Hausman(fe_lag, re_lag)
+        exp = np.array([67.26822703188164, 1.640790543222799e-14])
+        np.testing.assert_allclose(Hlag, exp, RTOL)
 
 
 if __name__ == "__main__":

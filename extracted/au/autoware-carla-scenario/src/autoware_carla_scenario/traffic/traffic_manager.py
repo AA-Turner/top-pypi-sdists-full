@@ -27,6 +27,7 @@ from ..constants import (
 from ..coordinate.map_manager import run_carla_map
 from ..kinematics.angle import normalize_angle_deg
 from .base import (
+    crossing_safe_speed,
     BACKGROUND_MAX_OFFSET_M,
     DrivenEntity,
     LaneChangeDirection,
@@ -186,6 +187,70 @@ _PROGRESS_LOST_M: float = _PROGRESS_WINDOW * ROUTE_POINT_STEP_M
 #: told to change lanes.
 _LANE_CHANGE_AHEAD_M = 8.0
 
+#: The bits of ``carla.Waypoint.lane_change`` (``carla.LaneChange``) that say a
+#: lane change is allowed to the right and to the left.
+_LANE_CHANGE_RIGHT_BIT = 1
+_LANE_CHANGE_LEFT_BIT = 2
+#: How far (m) the vehicle may drift the wrong way at the start of a crossing
+#: before the TrafficManager is taken to have refused it, over how far (m) of
+#: driving that is told apart from the road bending.
+_CROSSING_REFUSED_M = 0.5
+_CROSSING_REFUSED_WITHIN_M = 15.0
+
+
+class _LaneChangeRequest:
+    """A lane change asked for at a given place or over a given length.
+
+    What :meth:`TrafficManagerBackend.tick` carries out a tick at a time.
+    """
+
+    entity: DrivenEntity
+    actor: "carla.Actor"
+    direction: LaneChangeDirection
+    start_after_m: float
+    length_m: float
+    last_location: "carla.Location"
+    #: Driven since asked, m; since the crossing started, once it has.
+    travelled_m: float
+    started: bool
+    #: The lane offset the crossing starts from: where the vehicle was, from
+    #: the centre of the lane it goes to, m to the right.
+    start_offset_m: float
+    #: Where the crossing started, and the unit vector across, towards the lane.
+    start_location: "carla.Location"
+    across_x: float
+    across_y: float
+    #: Slowed for something in the way, so to be given its own speed back.
+    slowed: bool
+    #: Being given a lane offset, so to have it taken off.
+    stretched: bool
+    #: Its own lane changes turned off for this, so to be given them back.
+    locked_lanes: bool
+
+    def __init__(
+        self,
+        entity: DrivenEntity,
+        actor: "carla.Actor",
+        direction: LaneChangeDirection,
+        start_after_m: float,
+        length_m: float,
+    ) -> None:
+        self.entity = entity
+        self.actor = actor
+        self.direction = direction
+        self.start_after_m = start_after_m
+        self.length_m = length_m
+        self.last_location = actor.get_location()
+        self.travelled_m = 0.0
+        self.started = False
+        self.start_offset_m = 0.0
+        self.start_location = self.last_location
+        self.across_x = 0.0
+        self.across_y = 0.0
+        self.slowed = False
+        self.stretched = False
+        self.locked_lanes = False
+
 
 def _lane_change_marks(
     path: List["carla.Location"],
@@ -321,6 +386,7 @@ class TrafficManagerBackend(TrafficBackend):
     _released: set[int]
     _skipped: set[int]
     _lane_changed: List[DrivenEntity]
+    _lane_change_requests: List[_LaneChangeRequest]
     _visibility: Optional[float]
     _draws: Optional[random.Random]
     _drawn: set[int]
@@ -336,7 +402,8 @@ class TrafficManagerBackend(TrafficBackend):
     _kept: dict[int, _Kept]
     _desired_mps: dict[int, float]
     _given: dict[int, List["carla.Location"]]
-    _lane_locked: set[int]
+    _route_locked: set[int]
+    _crossing_locked: set[int]
     _paused: dict[int, _Kept]
     _lead_from: dict[int, "carla.Location"]
     _lead_route: dict[int, List["carla.Location"]]
@@ -379,6 +446,7 @@ class TrafficManagerBackend(TrafficBackend):
         #: it), forgotten when the run closes: the queue keeps a finished
         #: run's scenarios, and their entities with them.
         self._lane_changed = []
+        self._lane_change_requests = []
         #: How far drivers see, m, as last reported; ``None``: nothing set.
         self._visibility = None
         #: Every vehicle put on autopilot here, by actor id.
@@ -426,8 +494,14 @@ class TrafficManagerBackend(TrafficBackend):
         #: The path each vehicle was last given, by actor id, kept or not yet.
         self._given = {}
         #: The vehicles :meth:`follow_route` turned the TrafficManager's own
-        #: lane changes off for, which their first draw keeps off.
-        self._lane_locked = set()
+        #: lane changes off for, until their route ends.
+        self._route_locked = set()
+        #: The vehicles a delayed or stretched :meth:`change_lane` turned them
+        #: off for, until the crossing ends.  Two reasons kept apart: the end
+        #: of one gives the lane changes back only if the other does not hold
+        #: (:meth:`_unlock_lanes`), and either keeps them off at the first
+        #: draw.
+        self._crossing_locked = set()
         #: Kept vehicles taken back (:meth:`release_actor`), by actor id: their
         #: path and their progress along it, which goes on while the scenario
         #: drives them, for when they are resumed.
@@ -525,6 +599,7 @@ class TrafficManagerBackend(TrafficBackend):
         logged, with the speed it would hold a car to.
         """
         self._keep_scenario_vehicles(world, elapsed)
+        self._carry_out_lane_changes(world)
         seen = world_visibility(episode_of(world))
         follows = self.vehicle_parameters.follow_visibility is True
         changed = seen != self._visibility
@@ -645,6 +720,7 @@ class TrafficManagerBackend(TrafficBackend):
         for entity in self._lane_changed:
             entity.forget_lane_change()
         self._lane_changed = []
+        self._lane_change_requests = []
         for actor in self._background.values():
             try:
                 actor.destroy()
@@ -671,7 +747,8 @@ class TrafficManagerBackend(TrafficBackend):
         self._kept = {}
         self._desired_mps = {}
         self._given = {}
-        self._lane_locked = set()
+        self._route_locked = set()
+        self._crossing_locked = set()
         self._paused = {}
         self._lead_from = {}
         self._lead_route = {}
@@ -803,7 +880,12 @@ class TrafficManagerBackend(TrafficBackend):
     # ------------------------------------------------------------------
 
     def change_lane(
-        self, entity: DrivenEntity, world: "carla.World", direction: LaneChangeDirection
+        self,
+        entity: DrivenEntity,
+        world: "carla.World",
+        direction: LaneChangeDirection,
+        start_after_m: float = 0.0,
+        lane_change_length_m: float = 0.0,
     ) -> None:
         """Move *entity* one lane in *direction*.
 
@@ -818,6 +900,19 @@ class TrafficManagerBackend(TrafficBackend):
         state of *that vehicle's* manoeuvre: a backend is shared by every
         vehicle in the run, and the entity is the one thing there is exactly one
         of per manoeuvre.
+
+        With *start_after_m*, the TrafficManager is told only once the vehicle
+        has driven that far.  With *lane_change_length_m*, the crossing is
+        stretched over that much driving: the TrafficManager has no setting for
+        it (it crosses in 1.5 s of driving, between 5 m and 20 m), so the vehicle
+        is told to change lanes with a lane offset that keeps it where it is,
+        and the offset is taken down to nothing as it drives
+        (:meth:`_carry_out_lane_changes`).
+
+        The TrafficManager then looks for vehicles to follow only along the lane
+        it goes to, so a stretched crossing also slows for one ahead anywhere
+        between where the vehicle is and that lane's centre, and stops crossing
+        while it stands.  Vehicles beside and behind it are not looked at.
         """
         actor = _require_actor(entity, "change_lane")
         if actor is None:
@@ -826,6 +921,45 @@ class TrafficManagerBackend(TrafficBackend):
         if tm is None:
             return
 
+        # Asked again: the new request replaces one still being carried out.
+        for pending in self._lane_change_requests:
+            if pending.entity is entity:
+                self._end_lane_change_request(pending, tm)
+                self._lane_change_requests.remove(pending)
+                break
+        if start_after_m > 0.0 or lane_change_length_m > 0.0:
+            entity._lane_change_target = None
+            request = _LaneChangeRequest(
+                entity, actor, direction, start_after_m, lane_change_length_m
+            )
+            # Its own lane changes would have it cross elsewhere, or round
+            # what is in the way, or back.
+            actor_id = int(actor.id)
+            if actor_id not in self._crossing_locked:
+                if actor_id not in self._route_locked:
+                    tm.auto_lane_change(_vehicle(actor), False)
+                self._crossing_locked.add(actor_id)
+                request.locked_lanes = True
+            self._lane_change_requests.append(request)
+            if start_after_m > 0.0:
+                return
+            self._start_lane_change_request(request, tm, world)
+            return
+        self._aim_lane_change(entity, actor, world, direction)
+        tm.force_lane_change(_vehicle(actor), direction.to_carla_bool())
+        logger.info(
+            "%s: forced a %s lane change", _entity_name(entity), direction.value
+        )
+
+    def _aim_lane_change(
+        self,
+        entity: DrivenEntity,
+        actor: "carla.Actor",
+        world: "carla.World",
+        direction: LaneChangeDirection,
+    ) -> Optional["carla.Waypoint"]:
+        """Record the lane *entity* goes to (:meth:`change_lane`), and return
+        its waypoint beside the vehicle; ``None`` when there is no such lane."""
         carla_map = run_carla_map(world)
         here = carla_map.get_waypoint(actor.get_location(), project_to_road=True)
         neighbour: Optional["carla.Waypoint"] = None
@@ -852,11 +986,181 @@ class TrafficManagerBackend(TrafficBackend):
                 _entity_name(entity),
                 direction.value,
             )
+        return neighbour
 
-        tm.force_lane_change(_vehicle(actor), direction.to_carla_bool())
+    def _carry_out_lane_changes(self, world: "carla.World") -> None:
+        """Start each asked-for lane change once its vehicle has driven far
+        enough, and take a started one's lane offset down as it drives."""
+        if len(self._lane_change_requests) == 0:
+            return
+        tm = self._require_tm("change_lane")
+        if tm is None:
+            return
+        for request in list(self._lane_change_requests):
+            if not request.actor.is_alive:
+                self._lane_change_requests.remove(request)
+                continue
+            location = request.actor.get_location()
+            request.travelled_m += location.distance(request.last_location)
+            request.last_location = location
+            if not request.started:
+                if request.travelled_m < request.start_after_m:
+                    continue
+                self._start_lane_change_request(request, tm, world)
+                if request not in self._lane_change_requests:
+                    continue
+            if self._crossing_refused(request):
+                logger.warning(
+                    "%s: the TrafficManager did not start the lane change %s; "
+                    "staying in lane",
+                    _entity_name(request.entity),
+                    request.direction.value,
+                )
+                self._end_lane_change_request(request, tm)
+                self._lane_change_requests.remove(request)
+                continue
+            progress = request.travelled_m / request.length_m
+            if progress >= 1.0:
+                self._end_lane_change_request(request, tm)
+                self._lane_change_requests.remove(request)
+                continue
+            offset = request.start_offset_m * 0.5 * (1.0 + math.cos(math.pi * progress))
+            tm.vehicle_lane_offset(_vehicle(request.actor), offset)
+            self._slow_for_way_ahead(request, tm, world, offset)
+
+    def _start_lane_change_request(
+        self,
+        request: _LaneChangeRequest,
+        tm: "carla.TrafficManager",
+        world: "carla.World",
+    ) -> None:
+        """Tell the TrafficManager to change lanes, from a lane offset that
+        keeps the vehicle where it is when the crossing is to be stretched."""
+        entity = request.entity
+        actor = request.actor
+        direction = request.direction
+        neighbour = self._aim_lane_change(entity, actor, world, direction)
+        here = entity._lane_change_origin
+        vehicle = _vehicle(actor)
+        request.started = True
+        request.travelled_m = 0.0
+        stretched = False
+        if request.length_m > 0.0 and neighbour is not None and here is not None:
+            # Codon does not narrow an Optional (docs/typecheck.md).
+            lane: "carla.Waypoint" = neighbour
+            origin: "carla.Waypoint" = here
+            if _lane_change_allowed(origin, direction):
+                location = actor.get_location()
+                centre = lane.transform.location
+                right = lane.transform.get_right_vector()
+                offset = (location.x - centre.x) * right.x + (
+                    location.y - centre.y
+                ) * right.y
+                request.start_offset_m = offset
+                request.start_location = location
+                sign = -1.0 if offset > 0.0 else 1.0
+                request.across_x = sign * right.x
+                request.across_y = sign * right.y
+                tm.vehicle_lane_offset(vehicle, offset)
+                stretched = True
+            else:
+                # An offset would carry it the wrong way: the TrafficManager
+                # takes no lane change the marking forbids, or in a junction.
+                logger.warning(
+                    "%s: a lane change %s is not allowed here",
+                    _entity_name(entity),
+                    direction.value,
+                )
+        request.stretched = stretched
+        tm.force_lane_change(vehicle, direction.to_carla_bool())
         logger.info(
-            "%s: forced a %s lane change", _entity_name(entity), direction.value
+            "%s: forced a %s lane change over %.1f m",
+            _entity_name(entity),
+            direction.value,
+            request.length_m,
         )
+        if not stretched:
+            self._end_lane_change_request(request, tm)
+            self._lane_change_requests.remove(request)
+
+    def _crossing_refused(self, request: _LaneChangeRequest) -> bool:
+        """Whether a crossing's vehicle is moving away from the lane it goes
+        to: the TrafficManager took no lane change, and the lane offset is
+        carrying it the other way."""
+        if request.travelled_m > _CROSSING_REFUSED_WITHIN_M:
+            return False
+        location = request.last_location
+        start = request.start_location
+        across = (location.x - start.x) * request.across_x + (
+            location.y - start.y
+        ) * request.across_y
+        return across < -_CROSSING_REFUSED_M
+
+    def _end_lane_change_request(
+        self, request: _LaneChangeRequest, tm: "carla.TrafficManager"
+    ) -> None:
+        """Leave the vehicle to the TrafficManager: no lane offset, and its own
+        speed and lane changes back."""
+        if not request.actor.is_alive:
+            return
+        if request.locked_lanes:
+            request.locked_lanes = False
+            self._unlock_lanes(request.actor, _entity_name(request.entity), False)
+        if not request.stretched:
+            return
+        tm.vehicle_lane_offset(_vehicle(request.actor), 0.0)
+        if request.slowed:
+            self._give_own_speed_back(tm, request.actor)
+            request.slowed = False
+
+    def _give_own_speed_back(
+        self, tm: "carla.TrafficManager", actor: "carla.Actor"
+    ) -> None:
+        """Undo a slowing for what is in the way of a crossing."""
+        actor_id = int(actor.id)
+        if actor_id in self._exact_kmh:
+            self._give_speed(tm, actor, self._exact_kmh[actor_id])
+            return
+        difference = self._speed_differences.get(
+            actor_id, TM_DEFAULT_SPEED_DIFFERENCE_PCT
+        )
+        if actor_id in self._held:
+            difference = self._held[actor_id]
+        tm.vehicle_percentage_speed_difference(_vehicle(actor), difference)
+
+    def _own_speed_kmh(self, actor: "carla.Actor") -> float:
+        """What *actor* drives at when nothing is in its way, km/h."""
+        actor_id = int(actor.id)
+        if actor_id in self._exact_kmh:
+            return self._exact_kmh[actor_id]
+        difference = self._speed_differences.get(
+            actor_id, TM_DEFAULT_SPEED_DIFFERENCE_PCT
+        )
+        road_kmh = float(_vehicle(actor).get_speed_limit())
+        return road_kmh * (1.0 - difference / 100.0)
+
+    def _slow_for_way_ahead(
+        self,
+        request: _LaneChangeRequest,
+        tm: "carla.TrafficManager",
+        world: "carla.World",
+        offset: float,
+    ) -> None:
+        """Hold a crossing vehicle to the speed it can slow to the speed of
+        what is ahead of it from, anywhere between it and the lane's centre.
+
+        The TrafficManager's own following looks along the lane the vehicle goes
+        to, not along the way it gets there.
+        """
+        actor = request.actor
+        safe_mps = _crossing_safe_speed(world, actor, offset)
+        own_kmh = self._own_speed_kmh(actor)
+        if safe_mps >= 0.0 and safe_mps * 3.6 < own_kmh:
+            tm.set_desired_speed(_vehicle(actor), safe_mps * 3.6)
+            request.slowed = True
+        elif request.slowed:
+            self._give_own_speed_back(tm, actor)
+            request.slowed = False
 
     def lane_change_finished(self, entity: DrivenEntity, world: "carla.World") -> bool:
         """Whether *entity* has settled onto the lane it was sent to.
@@ -1082,7 +1386,7 @@ class TrafficManagerBackend(TrafficBackend):
         # The route says where to change lane; the TrafficManager's own lane
         # changes would take the vehicle off it.
         tm.auto_lane_change(_vehicle(actor), False)
-        self._lane_locked.add(int(actor.id))
+        self._route_locked.add(int(actor.id))
         tm.set_path(_vehicle(actor), path)
         self._remember_path(actor, path)
         self._drive_on(actor)
@@ -1105,16 +1409,26 @@ class TrafficManagerBackend(TrafficBackend):
         if actor is None:
             return
         vehicle: "carla.Actor" = actor
-        self._unlock_lanes(vehicle, _entity_name(entity))
+        self._unlock_lanes(vehicle, _entity_name(entity), True)
 
-    def _unlock_lanes(self, vehicle: "carla.Actor", name: str) -> None:
-        """Give *vehicle* its own lane changes back, if :meth:`follow_route`
-        turned them off: the run's ``lane_changes`` with its entity's
-        overrides, or, unset, the TrafficManager's default, on."""
+    def _unlock_lanes(self, vehicle: "carla.Actor", name: str, route: bool) -> None:
+        """End the lock :meth:`follow_route` (*route*) or :meth:`change_lane`
+        (not *route*) put on *vehicle*'s own lane changes, and give them back
+        unless the other lock still holds: the run's ``lane_changes`` with its
+        entity's overrides, or, unset, the TrafficManager's default, on."""
         actor_id = int(vehicle.id)
-        if actor_id not in self._lane_locked:
-            return
-        self._lane_locked.discard(actor_id)
+        if route:
+            if actor_id not in self._route_locked:
+                return
+            self._route_locked.discard(actor_id)
+            if actor_id in self._crossing_locked:
+                return  # Its crossing gives them back when it ends.
+        else:
+            if actor_id not in self._crossing_locked:
+                return
+            self._crossing_locked.discard(actor_id)
+            if actor_id in self._route_locked:
+                return  # Its route gives them back when it ends.
         tm = self._require_tm("end_route")
         if tm is None:
             return
@@ -1124,7 +1438,7 @@ class TrafficManagerBackend(TrafficBackend):
             allowed = bool(lane_changes)
         tm.auto_lane_change(_vehicle(vehicle), allowed)
         logger.info(
-            "%s: its route is over; its own lane changes are %s again",
+            "%s: its own lane changes are %s again",
             name,
             "on" if allowed else "off",
         )
@@ -1136,10 +1450,13 @@ class TrafficManagerBackend(TrafficBackend):
         up and drives on as it likes, which is what a route handed over with
         nothing to watch it (an untimed ``RoutingAction``) ends in (#1100).
         Not merely near that point: a route that ends near where it starts
-        is near it from the start (#1105)."""
+        is near it from the start (#1105).  The route's lock alone: a crossing's
+        is not ended by a path used up before it (an earlier route's or a
+        turn's), and a route's lock, once ended, is gone, so its used-up path
+        ends nothing more (#2005)."""
         if not kept.path or kept.progress < len(kept.path):
             return
-        self._unlock_lanes(kept.actor, _actor_name(kept.actor))
+        self._unlock_lanes(kept.actor, _actor_name(kept.actor), True)
 
     def _follow_progress(self, kept: _Kept) -> None:
         """Move *kept*'s progress along its path on to where its vehicle is
@@ -1337,6 +1654,11 @@ class TrafficManagerBackend(TrafficBackend):
             del self._lead_route[actor.id]
             self._lead_out(actor, start, route, self._kept[actor.id].path)
 
+    def _lanes_locked(self, actor_id: int) -> bool:
+        """Whether a route or a crossing has the vehicle *actor_id*'s own lane
+        changes off: its first draw leaves them so."""
+        return actor_id in self._route_locked or actor_id in self._crossing_locked
+
     def _parameters_of(self, actor: "carla.Actor") -> VehicleParameters:
         """The run's parameters, overridden by those of *actor*'s entity
         overrides: what a draw of all of them for it is made from."""
@@ -1352,7 +1674,8 @@ class TrafficManagerBackend(TrafficBackend):
         if actor_id in self._entity_overrides:
             del self._entity_overrides[actor_id]
         self._drawn.discard(actor_id)
-        self._lane_locked.discard(actor_id)
+        self._route_locked.discard(actor_id)
+        self._crossing_locked.discard(actor_id)
         if actor_id in self._paused:
             del self._paused[actor_id]
         self._forget_lead_out(actor_id)
@@ -1417,7 +1740,7 @@ class TrafficManagerBackend(TrafficBackend):
                 vehicle, min_gap.draw(rng, VEHICLE_BOUNDS["min_gap_m"])
             )
         lane_changes = parameters.lane_changes
-        if lane_changes is not None and not (first and actor_id in self._lane_locked):
+        if lane_changes is not None and not (first and self._lanes_locked(actor_id)):
             tm.auto_lane_change(vehicle, lane_changes)
         # The TrafficManager's are percentages, the parameters' probabilities.
         # An emergency vehicle on a call keeps running them (set_emergency):
@@ -1490,7 +1813,7 @@ class TrafficManagerBackend(TrafficBackend):
                 continue
             if not kept.held and len(kept.lane_changes) > 0:
                 self._change_lanes_on_path(kept)
-            if actor_id in self._lane_locked:
+            if actor_id in self._route_locked:
                 self._end_route_at_path_end(kept)
             if kept.held or elapsed < kept.check_due:
                 continue
@@ -1730,7 +2053,7 @@ class TrafficManagerBackend(TrafficBackend):
         for undrawn in list(self._exact_kmh):
             if undrawn not in self._drawn:
                 self._given_before_draw(undrawn, overrides)
-        for undrawn in list(self._lane_locked):
+        for undrawn in list(self._route_locked):
             if undrawn not in self._drawn:
                 self._given_before_draw(undrawn, overrides)
         for actor_id in list(self._entity_overrides):
@@ -1831,7 +2154,9 @@ class TrafficManagerBackend(TrafficBackend):
         if overrides.speed_factor is not None and actor_id in self._exact_kmh:
             del self._exact_kmh[actor_id]
         if overrides.lane_changes is not None:
-            self._lane_locked.discard(actor_id)
+            # The route's lock, not a crossing's: that one gives them back,
+            # as these overrides say, when the crossing ends.
+            self._route_locked.discard(actor_id)
 
     def _require_tm(self, what: str) -> Optional["carla.TrafficManager"]:
         """Return the TrafficManager handle, or ``None`` with a warning."""
@@ -2199,6 +2524,59 @@ def _adjacent_lane(
     else:
         neighbour = waypoint.get_left_lane()
     return neighbour
+
+
+def _lane_change_allowed(
+    waypoint: "carla.Waypoint", direction: LaneChangeDirection
+) -> bool:
+    """Whether the TrafficManager would take a lane change at *waypoint*: it
+    links lanes only where the marking lets it cross, and starts none in a
+    junction."""
+    if waypoint.is_junction:
+        return False
+    bit = _LANE_CHANGE_LEFT_BIT
+    if direction is LaneChangeDirection.RIGHT:
+        bit = _LANE_CHANGE_RIGHT_BIT
+    return (int(waypoint.lane_change) & bit) != 0
+
+
+def _crossing_safe_speed(
+    world: "carla.World", actor: "carla.Actor", offset: float
+) -> float:
+    """The speed (m/s) *actor* can slow from to the nearest vehicle in the way
+    of its crossing (:func:`~.base.crossing_safe_speed`); negative: none.
+
+    In the lane's frame, as the vehicle's own heading is off it while crossing.
+    """
+    here = actor.get_transform().location
+    waypoint = run_carla_map(world).get_waypoint(here, project_to_road=True)
+    if waypoint is None:
+        return -1.0
+    # Codon does not narrow an Optional (docs/typecheck.md).
+    lane: "carla.Waypoint" = waypoint
+    forward = lane.transform.get_forward_vector()
+    right = lane.transform.get_right_vector()
+    extent = actor.bounding_box.extent
+    safest = -1.0
+    for other in world.get_actors().filter("vehicle.*"):
+        if int(other.id) == int(actor.id):
+            continue
+        there = other.get_transform().location
+        other_extent = other.bounding_box.extent
+        velocity = other.get_velocity()
+        safe = crossing_safe_speed(
+            (there.x - here.x) * forward.x + (there.y - here.y) * forward.y,
+            (there.x - here.x) * right.x + (there.y - here.y) * right.y,
+            offset,
+            extent.x,
+            extent.y,
+            other_extent.x,
+            other_extent.y,
+            velocity.x * forward.x + velocity.y * forward.y,
+        )
+        if safe >= 0.0 and (safest < 0.0 or safe < safest):
+            safest = safe
+    return safest
 
 
 def _lane_key_of(waypoint: "carla.Waypoint") -> Tuple[int, int]:

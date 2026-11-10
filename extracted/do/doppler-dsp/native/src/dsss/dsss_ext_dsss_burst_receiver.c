@@ -60,7 +60,7 @@ DsssBurstReceiverObj_init (DsssBurstReceiverObject *self, PyObject *args,
   PyObject          *spc_obj             = NULL;
   unsigned long long spc_raw             = 4;
   double             chip_rate           = 1000000.0;
-  double             cn0_dbhz            = ACQ_CN0_NONE;
+  double             cn0_dbhz            = DP_CORRELATOR_CN0_NONE;
   double             doppler_uncertainty = 0.0;
   double             pfa                 = 1e-3;
   double             pd                  = 0.9;
@@ -896,6 +896,28 @@ DsssBurstReceiverObj_configure_search_raw (DsssBurstReceiverObject *self,
       self->handle, doppler_bins, n_noncoh);
   if (_rc != 0)
     {
+      switch (_rc)
+        {
+        case DP_ERR_INVALID:
+          PyErr_SetString (
+              PyExc_ValueError,
+              "configure_search_raw: doppler_bins must lie in 1..reps, "
+              "n_noncoh in "
+              "1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent "
+              "looks "
+              "(n_noncoh > 1) need rate_hypotheses 1; and n_noncoh x "
+              "doppler_bins "
+              "must not exceed the code periods refine reaches back (k_lo)");
+          return NULL;
+        case DP_ERR_MEMORY:
+          PyErr_SetString (
+              PyExc_MemoryError,
+              "configure_search_raw: rebuilding the engine's grid could not "
+              "allocate; the engine keeps its prior grid");
+          return NULL;
+        default:
+          break;
+        }
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
                     "configure_search_raw failed", (long long)_rc);
       return NULL;
@@ -1336,22 +1358,23 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "push(x, out) -> ndarray\n"
     "\n"
     "Stream raw cf32 samples and get back the FRAME BITS of every burst that "
-    "completed. Samples feed the embedded BurstAcquisition and are retained "
-    "in a history ring; when a detection fires, the refine stage correlates "
-    "the whole preamble to recover the exact preamble start -- the one "
-    "quantity acquisition structurally cannot report, since its code_phase is "
-    "a lag modulo one code period -- and the burst is demodulated the moment "
-    "its last sample has arrived. Every sample is consumed and every burst "
-    "that completes is returned by the call that completed it, with frames "
-    "concatenated: burst i occupies frame_syms bits starting at i*frame_syms, "
-    "and events() returns the matching record for each. The bits are the "
-    "frame as RECEIVED -- sync word first, every symbol after it -- because "
-    "this object stops at decisions: undoing the frame (a CRC, an outer code, "
-    "a randomiser) needs its description and is `wfm.Frame.deframe`'s job. An "
-    "empty return is normal, not an error: it means no burst completed in "
-    "this call. Accepts any block size -- the history ring is a contiguous "
-    "window over the stream and is never reset between bursts, so a payload "
-    "whose tail falls outside one call is completed by a later one.\n"
+    "completed. Samples feed the embedded burst search (a Correlator) and are "
+    "retained in a history ring; when a detection fires, the refine stage "
+    "correlates the whole preamble to recover the exact preamble start -- the "
+    "one quantity acquisition structurally cannot report, since its "
+    "code_phase is a lag modulo one code period -- and the burst is "
+    "demodulated the moment its last sample has arrived. Every sample is "
+    "consumed and every burst that completes is returned by the call that "
+    "completed it, with frames concatenated: burst i occupies frame_syms bits "
+    "starting at i*frame_syms, and events() returns the matching record for "
+    "each. The bits are the frame as RECEIVED -- sync word first, every "
+    "symbol after it -- because this object stops at decisions: undoing the "
+    "frame (a CRC, an outer code, a randomiser) needs its description and is "
+    "`wfm.Frame.deframe`'s job. An empty return is normal, not an error: it "
+    "means no burst completed in this call. Accepts any block size -- the "
+    "history ring is a contiguous window over the stream and is never reset "
+    "between bursts, so a payload whose tail falls outside one call is "
+    "completed by a later one.\n"
     "\n"
     "Retains x in the history ring and feeds the embedded acquisition. When\n"
     "a detection fires, the refine stage correlates the whole preamble to\n"
@@ -1532,6 +1555,27 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "NDArray[Any]\n"
     "    Records written to out -- `min(events_max_out(), max_out)`.\n"
     "\n"
+    "    One row per `dsss_br_event_t` record, with fields:\n"
+    "\n"
+    "    preamble_start : int\n"
+    "        Refined stream position of the preamble.\n"
+    "    doppler_hz_est : float\n"
+    "        Signed coarse Doppler, Hz.\n"
+    "    doppler_res_hz : float\n"
+    "        Acquisition's native bin width, Hz.\n"
+    "    cn0_dbhz_est : float\n"
+    "        C/N0 estimate from the hit, dB-Hz.\n"
+    "    est_freq_hz : float\n"
+    "        Demod's residual-frequency estimate.\n"
+    "    est_rate_hz : float\n"
+    "        Demod's chirp-rate estimate.\n"
+    "    demod_cn0_dbhz : float\n"
+    "        Demod's C/N0, dB-Hz, channel-referred.\n"
+    "    demod_timing_chips : float\n"
+    "        Start error the demod measured, chips.\n"
+    "    frame_valid : int\n"
+    "        The frame passed its error detection.\n"
+    "\n"
     "Examples\n"
     "--------\n"
     ">>> import numpy as np\n"
@@ -1546,28 +1590,7 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "...     rng.integers(0, 2, 8).astype(np.uint8), desc, reps=4, spc=4)\n"
     ">>> bits = rx.push(np.zeros(4096, dtype=np.complex64))\n"
     ">>> len(rx.events()) == bits.size // 32   # one record per payload\n"
-    "True\n"
-    "\n"
-    "Fields\n"
-    "------\n"
-    "preamble_start : int\n"
-    "    Refined stream position of the preamble.\n"
-    "doppler_hz_est : float\n"
-    "    Signed coarse Doppler, Hz.\n"
-    "doppler_res_hz : float\n"
-    "    Acquisition's native bin width, Hz.\n"
-    "cn0_dbhz_est : float\n"
-    "    C/N0 estimate from the hit, dB-Hz.\n"
-    "est_freq_hz : float\n"
-    "    Demod's residual-frequency estimate.\n"
-    "est_rate_hz : float\n"
-    "    Demod's chirp-rate estimate.\n"
-    "demod_cn0_dbhz : float\n"
-    "    Demod's C/N0, dB-Hz, channel-referred.\n"
-    "demod_timing_chips : float\n"
-    "    Start error the demod measured, chips.\n"
-    "frame_valid : int\n"
-    "    The frame passed its error detection.\n" },
+    "True\n" },
   { "events_max_out", (PyCFunction)DsssBurstReceiverObj_events_max_out,
     METH_NOARGS,
     "events_max_out() -> int\n"
@@ -1583,9 +1606,9 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "configure_search_raw(doppler_bins, n_noncoh) -> None\n"
     "\n"
-    "Pin the embedded BurstAcquisition's search grid directly, bypassing the "
-    "auto-sizing -- the escape hatch for a caller who wants a specific "
-    "(doppler_bins, n_noncoh). Forwards to the engine unchanged.\n"
+    "Pin the embedded burst search (a Correlator)'s search grid directly, "
+    "bypassing the auto-sizing -- the escape hatch for a caller who wants a "
+    "specific (doppler_bins, n_noncoh). Forwards to the engine unchanged.\n"
     "\n"
     "The escape hatch for a caller who wants a specific (doppler_bins,\n"
     "n_noncoh) rather than the grid the cn0_dbhz/pfa/pd sizing chooses.\n"
@@ -1601,9 +1624,19 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "Raises\n"
     "------\n"
     "ValueError\n"
-    "    If the C call returns a non-zero status. The exception message is\n"
-    "    ``configure_search_raw failed``, with the return code appended\n"
-    "    (gh-869).\n"
+    "    If the C call returns ``DP_ERR_INVALID``. The exception message is\n"
+    "    ``configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh\n"
+    "    in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks\n"
+    "    (n_noncoh > 1) need rate_hypotheses 1; and n_noncoh x doppler_bins\n"
+    "    must not exceed the code periods refine reaches back (k_lo)``.\n"
+    "MemoryError\n"
+    "    If the C call returns ``DP_ERR_MEMORY``. The exception message is\n"
+    "    ``configure_search_raw: rebuilding the engine's grid could not\n"
+    "    allocate; the engine keeps its prior grid``.\n"
+    "ValueError\n"
+    "    If the C call returns any other non-zero status. The exception\n"
+    "    message is ``configure_search_raw failed``, with the return code\n"
+    "    appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"

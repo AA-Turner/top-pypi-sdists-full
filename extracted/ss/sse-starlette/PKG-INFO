@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sse-starlette
-Version: 3.6.0
+Version: 3.7.0
 Summary: SSE plugin for Starlette
 Author-email: sysid <sysid@gmx.de>
 License-Expression: BSD-3-Clause
@@ -308,6 +308,7 @@ cancellation on server shutdown.
 | `ping_message_factory` | `Callable` | `None` | Custom ping message creator |
 | `shutdown_event` | `anyio.Event` | `None` | Event set by library on server shutdown |
 | `shutdown_grace_period` | `float` | `0` | Seconds to wait after setting `shutdown_event` before force-cancel |
+| `cleanup_timeout` | `float` | `30.0` | Seconds to wait for the generator's cleanup after an encoding failure or interrupted send, then cancel it and log a warning (`None` = no limit). Cannot stop a nested shield or a blocking call |
 
 ### Client Disconnection
 
@@ -485,10 +486,8 @@ The `experimentation` group is opt-in (kept out of the default `dev` install) to
 contributor footprint small. See `tests/experimentation/` for the tests it enables.
 
 <!-- Badges -->
-[pypi-image]: https://badge.fury.io/py/sse-starlette.svg
+[pypi-image]: https://img.shields.io/pypi/v/sse-starlette.svg
 [pypi-url]: https://pypi.org/project/sse-starlette/
 [build-image]: https://github.com/sysid/sse-starlette/actions/workflows/build.yml/badge.svg
 [build-url]: https://github.com/sysid/sse-starlette/actions/workflows/build.yml
-[coverage-image]: https://codecov.io/gh/sysid/sse-starlette/branch/master/graph/badge.svg
-<!--[coverage-url]: https://codecov.io/gh/sysid/sse-starlette-->
 

@@ -4,6 +4,7 @@ import datetime
 import io
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lxml import etree
@@ -16,66 +17,71 @@ from prov.identifier import _NCNAME_CHARS, _NCNAME_START_CHARS
 from prov.model import (
     DEFAULT_NAMESPACES,
     NameValuePair,
-    canonical_xsd_datatype,
+    ProvException,
+    ProvExceptionInvalidQualifiedName,
+    ProvMissingFormalAttribute,
     sorted_attributes,
 )
-from prov.model.records import _xsd_datetime_text, _xsd_double_text
-from prov.serializers import Serializer, _is_text_stream
+from prov.model._values import (
+    _xsd_datetime_text,
+    _xsd_double_text,
+    python_value_form,
+    resolve_name,
+    resolve_pair,
+)
+from prov.model.namespaces import _first_free
+from prov.serializers import ProvSerializationError, Serializer, _is_text_stream
+from prov.serializers._json_common import _add_memberships
 
 __author__ = "Lion Krischer"
 __email__ = "krischer@geophysik.uni-muenchen.de"
 
 logger = logging.getLogger(__name__)
 
-# Create a dictionary containing all top-level PROV XML elements for an easy
-# mapping.
-FULL_NAMES_MAP = dict(PROV_N_MAP)
-FULL_NAMES_MAP.update(ADDITIONAL_N_MAP)
 # Maps every PROV record/subtype QualifiedName (including PROV-XML's
 # top-level subtypes from ADDITIONAL_N_MAP in prov.constants) to its
 # PROV-XML element name.
-# Inverse mapping.
+FULL_NAMES_MAP = dict(PROV_N_MAP)
+FULL_NAMES_MAP.update(ADDITIONAL_N_MAP)
+# Inverse of FULL_NAMES_MAP, mapping each PROV-XML element name back to its
+# record/subtype QualifiedName.
 FULL_PROV_RECORD_IDS_MAP = {
     FULL_NAMES_MAP[rec_type_id]: rec_type_id for rec_type_id in FULL_NAMES_MAP
 }
-# Inverse of FULL_NAMES_MAP: maps each PROV-XML element name back to its
-# record/subtype QualifiedName.
 
 XML_XSD_URI = "http://www.w3.org/2001/XMLSchema"
 
-# Hardened against XXE / entity expansion (#273): PROV-XML documents have no
-# legitimate use for DTD entity resolution or network access, so both are
-# switched off explicitly rather than left to whatever lxml's own default
-# parser happens to do. This matters for three distinct reasons, not just
-# one: lxml's own default for `resolve_entities` only became safe ('internal')
-# in lxml 5.0 -- this package's floor (`lxml>=3.3.5`) still admits older
-# releases that default to `True` (full external entity resolution); even on
-# a safe lxml release, any other library sharing the process can repoint the
-# *global* default parser via `etree.set_default_parser(...)`, which is what
-# a bare `etree.parse(...)` call (no `parser=`) silently inherits; and prov
-# is embedded in other applications that may load such libraries. Passing this parser explicitly at both parse sites closes all
-# three regardless of the installed lxml version or what else is loaded in
-# the process. `huge_tree` is left at its lxml default of `False`: raising it
-# disables libxml2's own hard limits on tree depth/text length/entity
-# amplification, which is the opposite of what a hardened parser wants here.
-#
-# Shared module-level instance, not one constructed per parse: lxml's own
-# documentation for `XMLParser` states that sharing a parser across threads
-# "is not harmful", only less efficient than per-thread instances under
-# heavy concurrent load (access is internally serialized). PROV-XML
-# deserialization is not expected to be a high-frequency, highly concurrent
-# hot path even in a web service, so the simplicity of a single shared
-# parser wins over per-parse allocation; if profiling ever
-# shows lock contention here, switch to constructing a parser per call.
+# Entity resolution and network access are switched off, against XXE and
+# entity expansion. Both parse sites pass this parser, because lxml before 5.0
+# (the floor is 3.3.5) resolves external entities by default and another
+# library in the process can replace the global default parser. `huge_tree`
+# stays False, so libxml2 keeps its limits on depth, text length and entity
+# amplification. The two sites share one parser so the settings live in one
+# place, and lxml serialises access to it across threads.
 _XML_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 
-class ProvXMLException(prov.Error):
-    """Raised when a PROV-XML document cannot be serialized or parsed by this package."""
+class ProvXMLException(ProvSerializationError):
+    """Raised when this package cannot serialize or parse a PROV-XML document."""
+
+
+def _line(element: etree._Element) -> str:
+    """``"line N, "`` for an element that has a line, else nothing."""
+    return "" if element.sourceline is None else f"line {element.sourceline}, "
+
+
+def _element_position(element: etree._Element, rec_id: str | None) -> str:
+    """Where an error about ``element`` starts: its line, if it has one, its
+    tag and its ``prov:id``."""
+    named = repr(rec_id) if rec_id is not None else "with no prov:id"
+    return f"{_line(element)}<prov:{etree.QName(element).localname}> {named}: "
 
 
 class ProvXMLSerializer(Serializer):
     """PROV-XML serializer for :class:`~prov.model.ProvDocument`"""
+
+    serialize_options = frozenset({"force_types"})
+    """The :meth:`serialize` keywords the command line may name."""
 
     def serialize(
         self, stream: io.IOBase, force_types: bool = False, **kwargs: Any
@@ -148,6 +154,7 @@ class ProvXMLSerializer(Serializer):
         # Build the namespace map for lxml and attach it to the root XML
         # element.
         nsmap = self._build_nsmap(bundle)
+        _declare_a_prefix_for_colon_names(nsmap, bundle)
 
         if element is not None:
             xml_bundle_root = etree.SubElement(
@@ -157,7 +164,9 @@ class ProvXMLSerializer(Serializer):
             xml_bundle_root = etree.Element(_ns_prov("document"), nsmap=nsmap)
 
         if bundle.identifier:
-            xml_bundle_root.attrib[_ns_prov("id")] = str(bundle.identifier)
+            xml_bundle_root.attrib[_ns_prov("id")] = _name_text(
+                xml_bundle_root, bundle.identifier
+            )
 
         for record in bundle._records:
             self._encode_record(xml_bundle_root, record, force_types)
@@ -169,8 +178,9 @@ class ProvXMLSerializer(Serializer):
         Insertion order is significant: lxml emits namespace declarations in
         the order of the mapping, so the registered namespaces of
         ``self.document`` come first, then its default namespace (under the
-        ``None`` key), then ``bundle``'s own namespaces, then
-        :data:`~prov.model.DEFAULT_NAMESPACES`.
+        ``None`` key), replaced by ``bundle``'s own default where it has one,
+        then ``bundle``'s own namespaces, then
+        :data:`~prov.model.DEFAULT_NAMESPACES` and ``xsi``.
 
         Args:
             bundle: The bundle or document being serialized.
@@ -183,8 +193,11 @@ class ProvXMLSerializer(Serializer):
             for ns in self.document._namespaces.get_registered_namespaces()  # type: ignore[union-attr]
         }
         if self.document._namespaces._default:  # type: ignore[union-attr]
-            # TODO: Check if the below works as expected.
             nsmap[None] = self.document._namespaces._default.uri  # type: ignore[union-attr, index]
+        own_default = bundle.get_default_namespace()
+        if own_default is not None:
+            # a bundle's own default replaces the document's on its element
+            nsmap[None] = own_default.uri  # type: ignore[index]
         for namespace in bundle.get_registered_namespaces():
             if namespace not in nsmap:
                 nsmap[namespace.prefix] = namespace.uri
@@ -196,6 +209,14 @@ class ProvXMLSerializer(Serializer):
                 # for PROV XML, but for all other serializations it does.
                 uri = uri.rstrip("#")
             nsmap[value.prefix] = uri
+        # xsi:type carries every typed value's datatype (PROV-XML section 2.1).
+        bound = nsmap.pop(XSI.prefix, XSI.uri)
+        if bound != XSI.uri:
+            raise ProvXMLException(
+                f"PROV-XML binds the prefix '{XSI.prefix}' to <{XSI.uri}>, "
+                f"but the document binds it to <{bound}>"
+            )
+        nsmap[XSI.prefix] = XSI.uri
         return nsmap
 
     def _encode_record(
@@ -214,7 +235,11 @@ class ProvXMLSerializer(Serializer):
             force_types: See :meth:`serialize`.
         """
         rec_type = record.get_type()
-        identifier = str(record._identifier) if record._identifier else None
+        identifier = (
+            _name_text(xml_bundle_root, record._identifier)
+            if record._identifier
+            else None
+        )
 
         attrs = {_ns_prov("id"): identifier} if identifier else None
 
@@ -257,37 +282,66 @@ class ProvXMLSerializer(Serializer):
             p.remove(c)  # type: ignore[union-attr, arg-type]
 
         document = prov.model.ProvDocument()
-        self.deserialize_subtree(xml_doc, document)
+        namespaces: dict[tuple[str, str], prov.identifier.Namespace] = {}
+        self.deserialize_subtree(xml_doc, document, namespaces=namespaces)
         return document
 
     def deserialize_subtree(
         self,
         xml_doc: etree._Element,
         bundle: prov.model.ProvDocument | prov.model.ProvBundle,
+        *,
+        namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None = None,
     ) -> prov.model.ProvDocument | prov.model.ProvBundle:
         """Deserialize an etree element containing a PROV document or bundle.
 
         Mutates ``bundle`` in place, adding one record per child element of
         ``xml_doc``; ``<prov:bundleContent>`` children are recursively
         deserialized into new named bundles added to ``bundle`` (which must
-        then be a :class:`~prov.model.ProvDocument`). A ``<prov:other>``
-        child (non-PROV information) is skipped with a warning.
+        then be a :class:`~prov.model.ProvDocument`). An ``xmlns`` on
+        ``xml_doc`` that differs from the enclosing default becomes
+        ``bundle``'s default namespace. A ``<prov:other>`` child
+        (non-PROV information) is skipped with a warning.
 
         Args:
             xml_doc: The etree element (document or bundle content) to read.
             bundle: The document or bundle object to populate.
+            namespaces: The read's ``(prefix, uri)`` map of
+                :class:`~prov.identifier.Namespace` objects, shared with
+                nested bundles; ``None`` creates a namespace per call.
 
         Returns:
             ``bundle``, mutated in place.
 
         Raises:
             ProvXMLException: If a child element is not in the PROV
-                namespace.
+                namespace; if a ``<prov:bundleContent>`` has no
+                ``prov:id`` or is nested in a bundle; or, naming the
+                element and, when it has one, its line, if the element is
+                not a PROV element or the model rejects a record, a bundle
+                or the default namespace ``xml_doc`` declares, such as one
+                that starts with ``@`` (the model's error is the
+                ``__cause__``), other than for a missing party.
 
         Warns:
             UserWarning: For each ``<prov:other>`` child, which is otherwise
                 ignored.
+            ProvWarning: For each record the model refuses for a missing
+                party (``ProvMissingFormalAttribute``); the record is
+                skipped, and the warning names the element and, when it has
+                one, its line.
         """
+
+        # Adopts the element's own xmlns as the default namespace when it
+        # differs from the one in scope. For a bundleContent,
+        # _read_bundle_content has already done so, so this call changes
+        # something for the document element only.
+        try:
+            _adopt_own_default(xml_doc, bundle)
+        except ProvException as exc:
+            raise ProvXMLException(
+                f"{_line(xml_doc)}<prov:{etree.QName(xml_doc).localname}>: {exc}"
+            ) from exc
 
         for element in xml_doc:
             qname = etree.QName(element)
@@ -306,44 +360,108 @@ class ProvXMLSerializer(Serializer):
 
             id_tag = _ns_prov("id")
             rec_id = element.attrib.get(id_tag, None)
-            # Try to make a qualified name out of it!
-            prov_rec_id = (
-                xml_qname_to_QualifiedName(element, rec_id)
-                if rec_id is not None
-                else None
-            )
 
-            # Recursively read bundles.
-            if qname.localname == "bundleContent":
-                if not isinstance(bundle, prov.model.ProvDocument):
-                    # Only a document may directly contain named bundles;
-                    # nested bundleContent would mean a bundle-within-a-bundle.
-                    raise AssertionError("bundleContent found outside a ProvDocument")
-                if prov_rec_id is None:
-                    raise AssertionError("bundleContent element has no id")
-                b = bundle.bundle(identifier=prov_rec_id)
-                self.deserialize_subtree(element, b)
-                continue
+            try:
+                # Recursively read bundles.
+                if qname.localname == "bundleContent":
+                    self._read_bundle_content(element, bundle, rec_id, namespaces)
+                    continue
 
-            attributes = _extract_attributes(element)
-
-            # Map the record type to its base type.
-            q_prov_name = FULL_PROV_RECORD_IDS_MAP[qname.localname]
-            rec_type = PROV_BASE_CLS[q_prov_name]
-
-            if _ns_xsi("type") in element.attrib:
-                value = xml_qname_to_QualifiedName(
-                    element,
-                    element.attrib[_ns_xsi("type")],  # type: ignore[arg-type]
-                )
-                attributes.append((PROV["type"], value))
-
-            rec = bundle.new_record(rec_type, prov_rec_id, attributes)
-
-            # Add the actual type in case a base type has been used.
-            if rec_type != q_prov_name:
-                rec.add_asserted_type(q_prov_name)
+                self._read_record(element, qname.localname, rec_id, bundle, namespaces)
+            except ProvMissingFormalAttribute as exc:
+                warn(f"{_element_position(element, rec_id)}{exc}")
+            except ProvException as exc:
+                raise ProvXMLException(
+                    f"{_element_position(element, rec_id)}{exc}"
+                ) from exc
         return bundle
+
+    def _read_record(
+        self,
+        element: etree._Element,
+        localname: str,
+        rec_id: str | None,
+        bundle: prov.model.ProvDocument | prov.model.ProvBundle,
+        namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None,
+    ) -> None:
+        """Add the record that ``element`` encodes to ``bundle``."""
+        # Try to make a qualified name out of it!
+        prov_rec_id = (
+            xml_qname_to_QualifiedName(
+                element, rec_id, namespaces=namespaces, scope=bundle
+            )
+            if rec_id is not None
+            else None
+        )
+
+        attributes = _extract_attributes(element, namespaces, bundle)
+
+        # Map the record type to its base type.
+        q_prov_name = FULL_PROV_RECORD_IDS_MAP.get(localname)
+        if q_prov_name is None:
+            raise ProvXMLException(
+                _element_position(element, rec_id) + "it is not a PROV element"
+            )
+        rec_type = PROV_BASE_CLS[q_prov_name]
+
+        if _ns_xsi("type") in element.attrib:
+            value = xml_qname_to_QualifiedName(
+                element,
+                element.attrib[_ns_xsi("type")],  # type: ignore[arg-type]
+                namespaces=namespaces,
+                scope=bundle,
+            )
+            attributes.append((PROV["type"], value))
+
+        if rec_type == PROV_MEMBERSHIP and _add_split_memberships(
+            bundle, prov_rec_id, attributes
+        ):
+            return
+
+        rec = bundle.new_record(rec_type, prov_rec_id, attributes)
+
+        # Add the actual type in case a base type has been used.
+        if rec_type != q_prov_name:
+            rec.add_asserted_type(q_prov_name)
+
+    def _read_bundle_content(
+        self,
+        element: etree._Element,
+        document: prov.model.ProvDocument | prov.model.ProvBundle,
+        rec_id: str | None,
+        namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None,
+    ) -> None:
+        """Read a ``<prov:bundleContent>`` into a new bundle of ``document``.
+
+        The bundle takes its own ``xmlns`` as its default, and the prefixes
+        declared on the element as its own namespaces, before its ``prov:id``
+        is resolved, so the identifier and the records read in its scope.
+
+        Raises:
+            ProvXMLException: If ``document`` is not a document, or ``rec_id``
+                is ``None``.
+        """
+        if not isinstance(document, prov.model.ProvDocument):
+            # Only a document may directly contain named bundles;
+            # nested bundleContent would mean a bundle-within-a-bundle.
+            raise ProvXMLException("bundleContent found outside a ProvDocument")
+        if rec_id is None:
+            raise ProvXMLException("bundleContent element has no id")
+        bundle = prov.model.ProvBundle(_parent=document)
+        _adopt_own_default(element, bundle)
+        own_prefixes = _own_prefixes(element)
+        for prefix, uri in own_prefixes:
+            bundle.add_namespace(_namespace(namespaces, prefix, uri))
+        identifier = xml_qname_to_QualifiedName(
+            element, rec_id, namespaces=namespaces, scope=bundle
+        )
+        if identifier.namespace.prefix and identifier.namespace.prefix not in (
+            prefix for prefix, _ in own_prefixes
+        ):
+            # a prefix read from the document or an ancestor is the document's
+            identifier = document.mandatory_valid_qname(identifier)
+        document.add_bundle(bundle, identifier)
+        self.deserialize_subtree(element, bundle, namespaces=namespaces)
 
     def _derive_record_label(
         self,
@@ -381,6 +499,75 @@ class ProvXMLSerializer(Serializer):
                 rec_label = FULL_NAMES_MAP[value]
                 break
         return rec_label
+
+
+def _prefix_bound_to(
+    bindings: Iterable[tuple[str | None, str]], uri: str
+) -> str | None:
+    """A prefix among ``bindings`` bound to ``uri``, or ``None``."""
+    return next((p for p, u in bindings if p is not None and u == uri), None)
+
+
+def _names_written_by(
+    bundle: prov.model.ProvBundle,
+) -> Iterator[prov.identifier.QualifiedName]:
+    """The names ``bundle`` writes as text: its identifier, its records'
+    identifiers, and their name values and literal datatypes."""
+    if bundle.identifier is not None:
+        yield bundle.identifier
+    for record in bundle._records:
+        if record._identifier is not None:
+            yield record._identifier
+        for values in record._attributes.values():
+            for value in values:
+                if isinstance(value, prov.model.Literal):
+                    if value.datatype is not None:
+                        yield value.datatype
+                elif isinstance(value, prov.identifier.QualifiedName):
+                    yield value
+
+
+def _holds_a_colon_name_in(bundle: prov.model.ProvBundle, uri: str) -> bool:
+    """Whether ``bundle`` writes a name in the namespace ``uri`` whose local
+    part contains ``:``, which has no QName."""
+    return any(
+        ":" in name.localpart and name.namespace.uri == uri
+        for name in _names_written_by(bundle)
+    )
+
+
+def _declare_a_prefix_for_colon_names(
+    nsmap: dict[str, str], bundle: prov.model.ProvBundle
+) -> None:
+    """Bind ``dn`` (``dn_1``, ... when taken) in ``nsmap`` to the default
+    namespace in scope when ``bundle`` writes a name in it whose local part
+    contains ``:``, and no prefix is bound to it yet; the name is then written
+    under that prefix, as the PROV-JSON writer does (#570, #677). lxml fixes
+    an element's declarations at creation, so this runs before the element is
+    built."""
+    default = next((uri for prefix, uri in nsmap.items() if prefix is None), None)
+    if default is None or _prefix_bound_to(nsmap.items(), default) is not None:
+        return
+    if _holds_a_colon_name_in(bundle, default):
+        nsmap[_first_free("dn", nsmap.__contains__)] = default
+
+
+def _name_text(elem: etree._Element, name: prov.identifier.QualifiedName) -> str:
+    """The QName text that names ``name`` under ``elem``: ``prefix:local``; a
+    bare local part under the element's ``xmlns`` when the namespace has no
+    prefix; and, when that local part contains ``:`` and so has no QName, the
+    local part under the prefix bound to the IRI on the bundle element, which
+    the pre-scan declares for the default namespace, the only prefix-less one
+    a bundle can hold."""
+    namespace = name.namespace
+    if namespace.prefix:
+        return str(name)
+    local = name.localpart
+    if ":" in local:
+        prefix = _prefix_bound_to(elem.nsmap.items(), namespace.uri)
+        if prefix:
+            return f"{prefix}:{local}"
+    return local
 
 
 def _encode_attribute(
@@ -444,36 +631,26 @@ def _encode_attribute_value(
             value.datatype is not None
             and value.datatype != PROV_INTERNATIONALIZEDSTRING
         ):
-            subelem.attrib[_ns_xsi("type")] = (
-                f"{value.datatype.namespace.prefix}:{value.datatype.localpart}"
-            )
+            subelem.attrib[_ns_xsi("type")] = _name_text(subelem, value.datatype)
         if value.langtag is not None:
             subelem.attrib[_ns_xml("lang")] = value.langtag
         return value.value
     elif isinstance(value, prov.identifier.QualifiedName):
         if attr not in PROV_ATTRIBUTE_QNAMES:
             subelem.attrib[_ns_xsi("type")] = "xsd:QName"
-        return str(value)
+        return _name_text(subelem, value)
     elif isinstance(value, datetime.datetime):
         return _xsd_datetime_text(value)
     elif isinstance(value, float):
         return _xsd_double_text(value)
+    elif isinstance(value, int) and not isinstance(value, bool):
+        return int.__repr__(value)
     else:
         return str(value)
 
 
-# To enable a mapping of Python types to XML and back, the XSD type must be
-# written for values of these types. Membership is tested against the value's
-# exact type, deliberately not with isinstance().
-_ALWAYS_CHECK = frozenset(
-    {
-        bool,
-        datetime.datetime,
-        float,
-        int,
-        prov.identifier.Identifier,
-    }
-)
+_ANY_VALUE_ATTRIBUTES = frozenset({PROV_TYPE, PROV_LOCATION, PROV_VALUE})
+_UNTYPED_ATTRIBUTES = frozenset({PROV_ATTR_TIME, PROV_LABEL})
 
 
 def _needs_xsd_type_inference(
@@ -485,13 +662,10 @@ def _needs_xsd_type_inference(
 ) -> bool:
     """Decide whether an ``xsi:type`` should be inferred for an attribute.
 
-    This is a bit messy and there are all kinds of special rules but it
-    appears to get the job done.
-
-    If it is a type element and does not yet have an associated xsi type, try
-    to infer it from the value. The not startswith("prov:") check is a little
-    bit hacky to avoid type interference when the type is a standard prov
-    type.
+    A ``bool``, ``int``, ``float`` or ``datetime`` value, a subclass included
+    (#657), is typed so that it reads back as the same Python type; the three
+    ``prov:`` attributes that take any value are typed for the same reason.
+    The not startswith("prov:") check avoids typing a standard PROV type.
 
     Args:
         has_xsi_type: Whether the attribute's XML element, as written so
@@ -508,13 +682,13 @@ def _needs_xsd_type_inference(
     return (
         (
             force_types
-            or type(value) in _ALWAYS_CHECK
-            or attr in [PROV_TYPE, PROV_LOCATION, PROV_VALUE]
+            or isinstance(value, (int, float, datetime.datetime))
+            or attr in _ANY_VALUE_ATTRIBUTES
         )
         and not has_xsi_type
         and not str(value).startswith("prov:")
         and not (attr in PROV_ATTRIBUTE_QNAMES and v)
-        and attr not in [PROV_ATTR_TIME, PROV_LABEL]
+        and attr not in _UNTYPED_ATTRIBUTES
     )
 
 
@@ -525,9 +699,6 @@ def _infer_xsd_type(
 ) -> tuple[prov.identifier.QualifiedName | None, str]:
     """Infer an attribute's ``xsd`` datatype from its Python value.
 
-    The order of the checks is significant -- ``bool`` is a subclass of
-    ``int`` and must be tested first.
-
     Args:
         attr: The attribute's name.
         value: The attribute's value.
@@ -535,49 +706,78 @@ def _infer_xsd_type(
 
     Returns:
         A ``(xsd_type, v)`` pair: the inferred datatype (``None`` if none
-        applies) and the value's string rendering, which the ``bool`` case
-        lower-cases.
+        applies) and the value's text in that datatype's lexical form, which
+        lower-cases a ``bool``.
     """
-    xsd_type = None
-    if isinstance(value, bool):
-        xsd_type = XSD_BOOLEAN
-        v = v.lower()
-    elif isinstance(value, str):
-        xsd_type = XSD_STRING
-    elif isinstance(value, float):
-        xsd_type = XSD_DOUBLE
-    elif isinstance(value, int):
-        # bool is handled above (isinstance(value, bool));
-        # ints are typed by magnitude (#244).
-        xsd_type = canonical_xsd_datatype(value)
-    elif isinstance(value, datetime.datetime):
-        # Exception of the exception, while technically still correct, do
-        # not write XSD dateTime type for attributes in the PROV namespaces
-        # as the type is already declared in the XSD and PROV XML also does
-        # not specify it in the docs.
-        if attr.namespace.prefix != "prov" or "time" not in attr.localpart.lower():
-            xsd_type = XSD_DATETIME
-    elif isinstance(value, prov.identifier.Identifier):
-        xsd_type = XSD_ANYURI
-    return xsd_type, v
+    if isinstance(value, datetime.datetime) and (
+        attr.namespace.prefix == "prov" and "time" in attr.localpart.lower()
+    ):
+        # A time attribute in the PROV namespace (prov:startTime and the
+        # like) is written without an xsi:type, because the PROV-XML schema
+        # already declares it as xsd:dateTime.
+        return None, v
+    form = python_value_form(value)
+    if form is None or (text := form[0]) is None:
+        return None, v
+    return form[1], text
+
+
+def _add_split_memberships(
+    bundle: prov.model.ProvDocument | prov.model.ProvBundle,
+    identifier: prov.model.OptionalID,
+    attributes: list[NameValuePair],
+) -> bool:
+    """Add one ``hadMember`` record per ``prov:entity`` of a membership element.
+
+    PROV-DM's ``hadMember`` is binary, so an element that lists several members
+    becomes one record per distinct member, as in the PROV-JSON and PROV-JSONLD
+    readers.
+
+    Args:
+        bundle: Bundle to add the records to.
+        identifier: The element's ``prov:id``, or ``None``.
+        attributes: The element's ``(name, value)`` pairs.
+
+    Returns:
+        ``True`` when the element lists two or more members and the records are
+        added; ``False`` when it lists fewer and nothing is added.
+    """
+    members = [value for name, value in attributes if name == PROV_ATTR_ENTITY]
+    if len(members) < 2:
+        return False
+    collection = [pair for pair in attributes if pair[0] == PROV_ATTR_COLLECTION]
+    others = [
+        pair
+        for pair in attributes
+        if pair[0] not in (PROV_ATTR_ENTITY, PROV_ATTR_COLLECTION)
+    ]
+    _add_memberships(bundle, identifier, collection, others, members)
+    return True
 
 
 def _extract_attributes(
     element: etree._Element,
+    namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None,
+    scope: prov.model.ProvBundle,
 ) -> list[NameValuePair]:
     """Extract a record's attributes from its PROV-XML etree element.
 
     Each child of ``element`` becomes one ``(QualifiedName, value)`` pair:
     a ``prov:ref`` attribute yields a :class:`~prov.identifier.QualifiedName`
     value, an ``xsi:type`` attribute yields a typed
-    :class:`~prov.model.Literal` (or, for ``xsd:QName``, a
-    :class:`~prov.identifier.QualifiedName`), an ``xml:lang`` attribute
-    yields a language-tagged :class:`~prov.model.Literal`, and a child with
-    no attributes yields its plain text content.
+    :class:`~prov.model.Literal` (or, for ``xsd:QName`` and
+    ``prov:QUALIFIED_NAME``, a :class:`~prov.identifier.QualifiedName`), an
+    ``xml:lang`` attribute yields a language-tagged
+    :class:`~prov.model.Literal`, and a child with no attributes yields its
+    plain text content.
 
     Args:
         element: The PROV-XML record element whose children are its
             attributes.
+        namespaces: The read's ``(prefix, uri)`` map of namespaces; ``None``
+            creates a namespace per call.
+        scope: The document or bundle the record is read into; a bare name
+            resolves against its default namespace.
 
     Returns:
         The extracted ``(QualifiedName, value)`` pairs, in document order.
@@ -597,20 +797,23 @@ def _extract_attributes(
     attributes: list[NameValuePair] = []
     _unassigned = object()
     for subel in element:
-        sqname = etree.QName(subel)
-        localname = _unescape_ncname_localpart(sqname.localname)
-        qname_str = f"{subel.prefix}:{localname}" if subel.prefix else localname
-        _t = xml_qname_to_QualifiedName(subel, qname_str)
+        _t = _attribute_name(subel, namespaces, scope)
 
         _v: Any = _unassigned
         for key, value in subel.attrib.items():
             value_str = value.decode("utf-8") if isinstance(value, bytes) else value
             if key == _ns_prov("ref"):
-                _v = xml_qname_to_QualifiedName(subel, value_str)
+                _v = xml_qname_to_QualifiedName(
+                    subel, value_str, namespaces=namespaces, scope=scope
+                )
             elif key == _ns_xsi("type"):
-                datatype = xml_qname_to_QualifiedName(subel, value_str)
-                if datatype == XSD_QNAME:
-                    _v = xml_qname_to_QualifiedName(subel, subel.text)  # type: ignore[arg-type]
+                datatype = xml_qname_to_QualifiedName(
+                    subel, value_str, namespaces=namespaces, scope=scope
+                )
+                if datatype in (XSD_QNAME, PROV_QUALIFIEDNAME):
+                    _v = xml_qname_to_QualifiedName(
+                        subel, _stripped_text(subel), namespaces=namespaces, scope=scope
+                    )
                 else:
                     # An empty XSD-typed text value (e.g. prov:value="")
                     # round-trips through lxml as .text is None rather than
@@ -634,7 +837,7 @@ def _extract_attributes(
 
         if not subel.attrib:
             if _t in PROV_ATTRIBUTE_QNAMES:
-                _v = _nested_reference(subel, _t)
+                _v = _nested_reference(subel, _t, namespaces, scope)
             else:
                 # A plain-text attribute value (no xsi:type/xml:lang/prov:ref):
                 # lxml reports an empty element's .text as None rather than ""
@@ -656,24 +859,53 @@ def _extract_attributes(
     return attributes
 
 
+def _attribute_name(
+    subel: etree._Element,
+    namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None,
+    scope: prov.model.ProvBundle,
+) -> prov.identifier.QualifiedName:
+    """The name an attribute element spells. Its local part may hold ``:``
+    (escaped on write), so it is resolved in the namespace the tag carries
+    and never split."""
+    qname = etree.QName(subel)
+    local = _unescape_ncname_localpart(qname.localname)
+    if qname.namespace is None:
+        return _resolved(resolve_pair(scope, "", local), local)
+    if subel.prefix is None:
+        return _bare_name(qname.namespace, local, scope)
+    return _namespace(namespaces, subel.prefix, qname.namespace)[local]
+
+
+def _stripped_text(element: etree._Element) -> str:
+    """The text of ``element`` read as a name, as ``xsd:QName``'s whitespace
+    facet reads it: stripped, and empty when the element has none."""
+    return (element.text or "").strip()
+
+
 def _nested_reference(
-    subel: etree._Element, attr: prov.identifier.QualifiedName
-) -> prov.identifier.QualifiedName | str:
+    subel: etree._Element,
+    attr: prov.identifier.QualifiedName,
+    namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None,
+    scope: prov.model.ProvBundle,
+) -> prov.identifier.QualifiedName:
     """Value of a reference-valued formal attribute element with no ``prov:ref``.
 
     PROV-XML puts the reference on the element itself
     (``<prov:entity prov:ref="ex:e1"/>``). ProvToolbox 2.0.4 writes a
     ``hadMember`` member inside a wrapper,
     ``<entity><entity prov:ref="ex:e1"/></entity>``; the single child's
-    reference is taken, with a warning. Non-blank text is returned as the
-    reference. A blank element with no reference anywhere has no value.
+    reference is taken, with a warning. Non-blank text is the reference,
+    resolved through the element's ``nsmap`` as a ``prov:ref`` is. A blank
+    element with no reference anywhere has no value.
 
     Returns:
-        The referenced qualified name, or the element's non-blank text.
+        The referenced qualified name.
 
     Raises:
         ProvXMLException: If ``subel`` has neither a ``prov:ref`` child nor
             text.
+        ProvExceptionInvalidQualifiedName: If the reference does not
+            resolve (see :func:`xml_qname_to_QualifiedName`).
 
     Warns:
         ProvWarning: When the reference is taken from a nested child.
@@ -687,17 +919,113 @@ def _nested_reference(
             "itself; the nested reference is used. The shape is not "
             "PROV-XML schema-valid (ProvToolbox writes it for hadMember)."
         )
-        return xml_qname_to_QualifiedName(children[0], str(children[0].attrib[ref]))
-    if subel.text is not None and subel.text.strip():
-        return subel.text
+        return xml_qname_to_QualifiedName(
+            children[0],
+            str(children[0].attrib[ref]),
+            namespaces=namespaces,
+            scope=scope,
+        )
+    text = _stripped_text(subel)
+    if text:
+        return xml_qname_to_QualifiedName(
+            subel, text, namespaces=namespaces, scope=scope
+        )
     raise ProvXMLException(
         f"The reference element '{attr}' has no prov:ref attribute and no "
         "reference text."
     )
 
 
+def _adopt_own_default(
+    element: etree._Element,
+    bundle: prov.model.ProvDocument | prov.model.ProvBundle,
+) -> None:
+    """Make the ``xmlns`` of ``element`` the default of ``bundle`` when it
+    differs from the default in scope at ``bundle``."""
+    default = element.nsmap.get(None)
+    in_scope = bundle._namespaces._binding_in_scope("")
+    if default is not None and (in_scope is None or default != in_scope.uri):
+        bundle.set_default_namespace(default)
+
+
+# PROV-XML spells the xsd namespace without its trailing "#" (see _build_nsmap).
+_BUILT_IN_URIS = frozenset({PROV.uri, XSD.uri, XML_XSD_URI, XSI.uri})
+
+
+def _own_prefixes(element: etree._Element) -> list[tuple[str, str]]:
+    """The ``(prefix, uri)`` declarations made on ``element`` itself, leaving
+    out those inherited from its parent and the built-in ``xsd``, ``prov`` and
+    ``xsi`` namespaces."""
+    parent = element.getparent()
+    inherited = {} if parent is None else parent.nsmap
+    return [
+        (prefix, uri)
+        for prefix, uri in element.nsmap.items()
+        if prefix is not None
+        and inherited.get(prefix) != uri
+        and uri not in _BUILT_IN_URIS
+    ]
+
+
+def _namespace(
+    namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None,
+    prefix: str,
+    uri: str,
+) -> prov.identifier.Namespace:
+    """The namespace a ``prefix`` bound to ``uri`` names. The XSD and PROV
+    namespaces are this package's canonical objects; any other is one
+    ``Namespace`` per ``(prefix, uri)`` for the length of a read, and ``None``
+    returns a new one.
+    """
+    if uri == XML_XSD_URI:
+        return XSD  # use the standard xsd namespace (i.e. with #)
+    if uri == PROV.uri:
+        return PROV
+    if namespaces is None:
+        return prov.identifier.Namespace(prefix, uri)
+    key = (prefix, uri)
+    namespace = namespaces.get(key)
+    if namespace is None:
+        namespace = namespaces[key] = prov.identifier.Namespace(prefix, uri)
+    return namespace
+
+
+def _resolved(
+    name: prov.identifier.QualifiedName | str, shown: str
+) -> prov.identifier.QualifiedName:
+    """``name``, or the model's refusal when it is the sentence saying why
+    ``shown`` does not resolve."""
+    if isinstance(name, str):
+        raise ProvExceptionInvalidQualifiedName(shown, name)
+    return name
+
+
+def _bare_name(
+    ns_uri: str, qname_str: str, scope: prov.model.ProvBundle | None
+) -> prov.identifier.QualifiedName:
+    """A bare name under the in-scope ``xmlns`` ``ns_uri``."""
+    if ns_uri == XML_XSD_URI:
+        return XSD[qname_str]  # use the standard xsd namespace (i.e. with #)
+    if scope is None:
+        raise ProvXMLException(
+            f'Could not create a valid QualifiedName for "{qname_str}"'
+        )
+    default = scope._namespaces._binding_in_scope("")
+    if default is not None and default.uri == ns_uri:
+        return default[qname_str]
+    raise ProvXMLException(
+        f'the name "{qname_str}" is under an xmlns declaration ({ns_uri}) on an '
+        "element, which has no scope in PROV; declare the default on the "
+        "document or the bundle, or use a prefix"
+    )
+
+
 def xml_qname_to_QualifiedName(
-    element: etree._Element, qname_str: str
+    element: etree._Element,
+    qname_str: str,
+    *,
+    namespaces: dict[tuple[str, str], prov.identifier.Namespace] | None = None,
+    scope: prov.model.ProvBundle | None = None,
 ) -> prov.identifier.QualifiedName:
     """Resolve an XML QName-like string to a :class:`~prov.identifier.QualifiedName`.
 
@@ -706,46 +1034,44 @@ def xml_qname_to_QualifiedName(
             ``nsmap`` (in scope at that point in the document) is used to
             resolve the prefix.
         qname_str: A ``"prefix:localpart"`` string, or a bare local name to
-            be resolved against the default namespace.
+            be resolved against the default namespace; an empty prefix
+            (``":localpart"``) reads as a name with no colon. A name the
+            ``nsmap`` does not resolve goes to the model when ``scope`` is
+            given.
+        namespaces: The read's ``(prefix, uri)`` map of namespaces; ``None``
+            creates a namespace per call.
+        scope: The document or bundle a bare name resolves in; its default
+            namespace names the bare name when it has the in-scope ``xmlns``
+            IRI.
 
     Returns:
         The resolved qualified name. The XSD and PROV namespaces are mapped
         to this package's canonical :data:`~prov.constants.XSD`/
         :data:`~prov.constants.PROV` namespace objects; any other namespace
-        URI becomes a new :class:`~prov.identifier.Namespace`.
+        URI becomes one :class:`~prov.identifier.Namespace` per
+        ``(prefix, uri)`` for the length of a read.
 
     Raises:
-        ProvXMLException: If ``qname_str`` has no recognized prefix and
-            ``element`` has no default namespace in scope.
+        ProvExceptionInvalidQualifiedName: If ``scope`` is given and the
+            model refuses ``qname_str``, a name whose prefix ``element``
+            does not declare or one with no colon and no default
+            namespace in scope.
+        ProvXMLException: If ``scope`` is ``None`` and the ``nsmap`` does
+            not resolve ``qname_str``, or a bare name sits under an
+            ``xmlns`` that is not the XSD namespace and not the default of
+            ``scope``.
     """
-    if ":" in qname_str:
-        prefix, localpart = qname_str.split(":", 1)
-        if prefix in element.nsmap:
-            ns_uri = element.nsmap[prefix]
-            if ns_uri == XML_XSD_URI:
-                ns = XSD  # use the standard xsd namespace (i.e. with #)
-            elif ns_uri == PROV.uri:
-                ns = PROV
-            else:
-                ns = prov.identifier.Namespace(prefix, ns_uri)
-            return ns[localpart]
-    # case 1: no colon
-    # case 2: unknown prefix
-    if None in element.nsmap:
-        ns_uri = element.nsmap[None]
-        if ns_uri == XML_XSD_URI:  # noqa: SIM108
-            ns = XSD  # use the standard xsd namespace (i.e. with #)
-        else:
-            # Deliberately not mapping PROV.uri to the canonical PROV namespace
-            # here (unlike the prefixed branch above): doing so would change the
-            # serialized output for previously-accepted documents, breaking the
-            # 2.x output-compatibility promise. Kept as an if/else (not a
-            # ternary) so this explanation stays attached to the branch it
-            # documents.
-            ns = prov.identifier.Namespace("", ns_uri)
-        return ns[qname_str]
-    # no default namespace
-    raise ProvXMLException(f'Could not create a valid QualifiedName for "{qname_str}"')
+    nsmap = element.nsmap
+    prefix, local = qname_str.split(":", 1) if ":" in qname_str else ("", qname_str)
+    if prefix and prefix in nsmap:
+        return _namespace(namespaces, prefix, nsmap[prefix])[local]
+    if not prefix and None in nsmap:
+        return _bare_name(nsmap[None], local, scope)
+    if scope is None:
+        raise ProvXMLException(
+            f'Could not create a valid QualifiedName for "{qname_str}"'
+        )
+    return _resolved(resolve_name(scope, qname_str), qname_str)
 
 
 def _ns(ns: str, tag: str) -> str:
@@ -758,7 +1084,7 @@ def _ns_prov(tag: str) -> str:
 
 
 def _ns_xsi(tag: str) -> str:
-    return _ns(DEFAULT_NAMESPACES["xsi"].uri, tag)
+    return _ns(XSI.uri, tag)
 
 
 def _ns_xml(tag: str) -> str:
@@ -769,7 +1095,7 @@ def _ns_xml(tag: str) -> str:
 # NCName character classes (XML 1.0 5th-edition Name productions, minus ':')
 # live in prov.identifier, shared with the PROV-N lexer's PN_CHARS classes.
 # Used here to detect/escape attribute-name local parts that are not legal
-# NCNames when used as PROV-XML element tags (#289).
+# NCNames when used as PROV-XML element tags.
 _NCNAME_START_RE = re.compile(f"[{_NCNAME_START_CHARS}]")
 _NCNAME_CHAR_RE = re.compile(f"[{_NCNAME_CHARS}]")
 _NCNAME_RE = re.compile(f"[{_NCNAME_START_CHARS}][{_NCNAME_CHARS}]*")

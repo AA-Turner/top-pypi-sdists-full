@@ -170,6 +170,40 @@ fn a_literal_reports_the_kind_its_value_has() {
 }
 
 #[test]
+fn a_literal_of_no_kind_has_neither_a_scalar_nor_a_container_type() {
+    // `literal_of_no_kind` is the positive fact `literal_kind`'s `None` does
+    // not state: a scalar and a container are each of a kind, so neither
+    // is of none, while a class or a plain instance is.
+    Python::attach(|py| {
+        let values = [
+            "7",
+            "(1,)",
+            "[1]",
+            "{1: 2}",
+            "{1}",
+            "frozenset({1})",
+            "int",
+            "object()",
+        ]
+        .into_iter()
+        .map(|source| built(py, source).unbind())
+        .collect();
+        asking(py, values, |oracle| {
+            let of_no_kind = |slot| oracle.literal_of_no_kind(ConstIx::new(slot));
+            assert!(!of_no_kind(0), "an int is of its kind");
+            // One container of each type, so each type's own test is read.
+            for (slot, container) in [(1, "tuple"), (2, "list"), (3, "dict"), (4, "set")] {
+                assert!(!of_no_kind(slot), "a {container} is of its kind");
+            }
+            assert!(!of_no_kind(5), "a frozenset is of its kind");
+            assert!(of_no_kind(6), "a class is of no kind");
+            assert!(of_no_kind(7), "a plain instance is of no kind");
+            assert!(!of_no_kind(8), "a slot past the pool states nothing");
+        });
+    });
+}
+
+#[test]
 fn an_operand_reports_the_kind_its_value_has() {
     // `operand_kind` reads a bound or a step as `literal_kind` reads a
     // constant, and at any size: an `int` past the machine word is an `int`,
@@ -268,16 +302,20 @@ fn a_decimal_bound_past_the_rounded_digits_is_not_rounded() {
 
 #[test]
 fn a_fraction_or_a_decimal_operand_is_read_at_its_floor_and_its_ceiling() {
-    // Python compares an `int` with either exactly, so the two integers around
-    // one are what a bound over the integers reads. Only the two classes the
+    // Python compares an `int` and a `float` with either exactly, so the integers
+    // and the floats around one are what a bound reads. Only the two classes the
     // standard library binds, with a finite value inside the integers an `i64`
     // holds: a subclass, an infinity, a NaN and a value past the range are not
-    // read.
+    // read. `0.1` lands above its decimal and `Fraction(1, 3)` below its own, and
+    // `1e-400` rounds to zero, whose next float is the least there is.
     Python::attach(|py| {
         let values = [
             "__import__('fractions').Fraction(-3, 2)",
             "__import__('decimal').Decimal('2.0')",
             "__import__('decimal').Decimal('0.25')",
+            "__import__('decimal').Decimal('0.1')",
+            "__import__('fractions').Fraction(1, 3)",
+            "__import__('decimal').Decimal('1e-400')",
             "__import__('decimal').Decimal('Infinity')",
             "__import__('decimal').Decimal('NaN')",
             "__import__('decimal').Decimal('1e30')",
@@ -288,16 +326,22 @@ fn a_fraction_or_a_decimal_operand_is_read_at_its_floor_and_its_ceiling() {
         .collect();
         asking(py, values, |oracle| {
             let read = |slot| oracle.operand(OperandIx::new(slot));
-            assert_eq!(
-                read(0),
+            let rational = |floor, ceil, below, above| {
                 Some(Operand::Rational {
-                    floor: -2,
-                    ceil: -1
+                    floor,
+                    ceil,
+                    below,
+                    above,
                 })
-            );
-            assert_eq!(read(1), Some(Operand::Rational { floor: 2, ceil: 2 }));
-            assert_eq!(read(2), Some(Operand::Rational { floor: 0, ceil: 1 }));
-            for slot in 3..7 {
+            };
+            assert_eq!(read(0), rational(-2, -1, -1.5, -1.5));
+            assert_eq!(read(1), rational(2, 2, 2.0, 2.0));
+            assert_eq!(read(2), rational(0, 1, 0.25, 0.25));
+            assert_eq!(read(3), rational(0, 1, 0.1_f64.next_down(), 0.1));
+            let third = 1.0_f64 / 3.0;
+            assert_eq!(read(4), rational(0, 1, third, third.next_up()));
+            assert_eq!(read(5), rational(0, 1, 0.0, 0.0_f64.next_up()));
+            for slot in 6..10 {
                 assert_eq!(read(slot), None, "the operand at {slot} is not read");
             }
         });
@@ -1517,10 +1561,11 @@ fn two_classes_whose_slots_add_a_slot_lay_down_layouts_that_conflict() {
             assert!(!empty.disjoint_from(&a) && !pointers.disjoint_from(&a));
             assert!(!empty.lays_down_a_layout() && !pointers.lays_down_a_layout());
             // And a slotted class over no builtin holds values of no kind, where
-            // a plain one declines.
+            // a plain one declines, but for `bool`, which takes no subclass.
             for kind in Kind::ALL {
                 assert_eq!(oracle.class_admits_kind(ClassIx::new(0), kind), Some(false));
-                assert_eq!(oracle.class_admits_kind(ClassIx::new(4), kind), None);
+                let plain = (kind == Kind::Bool).then_some(false);
+                assert_eq!(oracle.class_admits_kind(ClassIx::new(4), kind), plain);
             }
         });
     });

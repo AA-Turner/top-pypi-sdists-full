@@ -1,5 +1,5 @@
-"""Locale packs: named (lexicon fragment, PolicyPatch) deltas folded in
-by parser_for (mechanisms.md#LOCALE-PACKS-PURE-DATA). Packs are
+"""Locale packs: named (languages, lexicon fragment, PolicyPatch) deltas
+folded in by parser_for (mechanisms.md#LOCALE-PACKS-PURE-DATA). Packs are
 pure data with no
 privileged capabilities; they dissolve at parser construction.
 
@@ -8,7 +8,7 @@ pack module; ``locales.RU`` triggers ``nameparser.locales.ru`` on
 first access and caches the Locale here.
 
 Layering: this package imports pack modules, which import _locale/
-_lexicon/_policy only (enforced by tests/v2/test_layering.py).
+_lexicon/_policy/_types only (enforced by tests/v2/test_layering.py).
 """
 from __future__ import annotations
 
@@ -23,9 +23,23 @@ if TYPE_CHECKING:
 #: attribute name -> (module name, module attribute). Codes are the
 #: lowercase module names; attribute constants are uppercase.
 _REGISTRY = {
+    "BN": ("nameparser.locales.bn", "BN"),
+    "CS": ("nameparser.locales.cs", "CS"),
+    "ES": ("nameparser.locales.es", "ES"),
+    "ES_AR": ("nameparser.locales.es_ar", "ES_AR"),
+    "GA": ("nameparser.locales.ga", "GA"),
+    "GD": ("nameparser.locales.gd", "GD"),
+    "HI": ("nameparser.locales.hi", "HI"),
+    "HR": ("nameparser.locales.hr", "HR"),
     "JA": ("nameparser.locales.ja", "JA"),
+    "NE": ("nameparser.locales.ne", "NE"),
+    "PT": ("nameparser.locales.pt", "PT"),
+    "PT_BR": ("nameparser.locales.pt_br", "PT_BR"),
     "RU": ("nameparser.locales.ru", "RU"),
+    "SK": ("nameparser.locales.sk", "SK"),
+    "SL": ("nameparser.locales.sl", "SL"),
     "TR_AZ": ("nameparser.locales.tr_az", "TR_AZ"),
+    "VI": ("nameparser.locales.vi", "VI"),
     "ZH": ("nameparser.locales.zh", "ZH"),
 }
 
@@ -59,8 +73,10 @@ def available() -> tuple[str, ...]:
 
 def ja_segmenter(*, gbdt: bool = False) -> Segmenter:
     """The Japanese segmenter factory (#272), needing the optional
-    ``pip install nameparser[ja]``; see :mod:`nameparser.locales.ja` for
-    what it wraps, what it declines, and its licensing.
+    ``pip install 'nameparser[ja]'``; the docstring of
+    ``nameparser.locales.ja`` says what it wraps, what it declines, and
+    its licensing, and :ref:`segmenter-contract` what a segmenter owes
+    its caller.
 
     A real function rather than a _REGISTRY entry, because the registry
     resolves LOCALES: __getattr__ is annotated to return one, so routing

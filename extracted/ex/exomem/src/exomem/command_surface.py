@@ -750,7 +750,7 @@ def rendering_annotations(rendering: operation_entries.Rendering) -> ToolAnnotat
         title=rendering.title,
         readOnlyHint=rendering.read_only,
         destructiveHint=False if rendering.read_only else rendering.destructive,
-        idempotentHint=rendering.read_only,
+        idempotentHint=rendering.idempotent,
         openWorldHint=False,
     )
 
@@ -850,6 +850,35 @@ def _published_parameters(
     return sig, visible, resolved
 
 
+def agent_refusal_result(
+    refusal: dict[str, typing.Any],
+    error: BaseException | None,
+    command_name: str,
+    arguments: dict[str, typing.Any],
+    parameters: Iterable[str],
+    *,
+    write: bool,
+    default_detail: str | None = None,
+) -> dict[str, typing.Any]:
+    """The MCP error result for a refusal: what happened, and the exact retry.
+
+    `default_detail` is the command's own `response_detail` default, which an omitted argument means.
+    """
+    from . import agent_refusal, cli_ops
+
+    detail = arguments.get("response_detail") or default_detail
+    return agent_refusal.reply(
+        refusal,
+        error if error is not None else ValueError(refusal.get("message")),
+        command=command_name,
+        called=arguments,
+        parameters=set(parameters),
+        write=write,
+        full=detail == "full",
+        envelope=cli_ops.envelope(False, error=dict(refusal)),
+    )
+
+
 def bind_vault(
     leaf: Callable,
     *injected: object,
@@ -903,7 +932,15 @@ def bind_vault(
                 )
                 from . import cli_ops
 
-                return cli_ops.envelope(False, error=refusal)
+                return agent_refusal_result(
+                    refusal,
+                    None,
+                    command.name,
+                    kwargs,
+                    (p.name for p in visible),
+                    write=False,
+                    default_detail=getattr(command, "response_detail", None),
+                )
             from .commands import invocation_is_read_only
             from .governance.egress import SelectorCoverageError
             from .writer_lease import invoke_command
@@ -1038,7 +1075,15 @@ def bind_vault(
                     message=str(refusal.get("message") or ""),
                     retry_scope=retry_scope,
                 )
-                return cli_ops.envelope(False, error=refusal)
+                return agent_refusal_result(
+                    refusal,
+                    error,
+                    command.name,
+                    kwargs,
+                    (p.name for p in visible),
+                    write=not invocation_read_only,
+                    default_detail=getattr(command, "response_detail", None),
+                )
 
     wrapper.__signature__ = new_sig  # type: ignore[attr-defined]
     wrapper.__name__ = name or leaf.__name__
@@ -1273,6 +1318,17 @@ def canonical_request_id(value: object) -> str | None:
 
 
 @contextmanager
+def mcp_request_correlation(request_id: str | None = None):
+    """Bind correlation through outer middleware without starting a call budget."""
+    request_id = mcp_request_id() if request_id is None else request_id
+    token = _MCP_REQUEST_ID.set(request_id)
+    try:
+        yield request_id
+    finally:
+        _MCP_REQUEST_ID.reset(token)
+
+
+@contextmanager
 def mcp_request_context(
     request_id: str,
     *,
@@ -1290,25 +1346,24 @@ def mcp_request_context(
     and `arguments` are read only to exempt the reconcile-class commands, whose
     terminal is the derived state and whose graph join is unbounded by design.
     """
-    token = _MCP_REQUEST_ID.set(request_id)
-    call_token = uuid.uuid4().hex
-    call_reset = _MCP_CALL_TOKEN.set(call_token)
-    budget = (
-        None
-        if request_budget.is_reconcile_class(tool, arguments)
-        else request_budget.RequestBudget(seconds=request_budget.budget_seconds())
-    )
-    budget_reset = request_budget.set_current(budget)
-    activation_reset = _MCP_ACTIVATION_RESULT.set(
-        activation_result.Observation() if tool == "activate_context" else None
-    )
-    try:
-        yield call_token
-    finally:
-        _MCP_ACTIVATION_RESULT.reset(activation_reset)
-        request_budget.reset_current(budget_reset)
-        _MCP_CALL_TOKEN.reset(call_reset)
-        _MCP_REQUEST_ID.reset(token)
+    with mcp_request_correlation(request_id):
+        call_token = uuid.uuid4().hex
+        call_reset = _MCP_CALL_TOKEN.set(call_token)
+        budget = (
+            None
+            if request_budget.is_reconcile_class(tool, arguments)
+            else request_budget.RequestBudget(seconds=request_budget.budget_seconds())
+        )
+        budget_reset = request_budget.set_current(budget)
+        activation_reset = _MCP_ACTIVATION_RESULT.set(
+            activation_result.Observation() if tool == "activate_context" else None
+        )
+        try:
+            yield call_token
+        finally:
+            _MCP_ACTIVATION_RESULT.reset(activation_reset)
+            request_budget.reset_current(budget_reset)
+            _MCP_CALL_TOKEN.reset(call_reset)
 
 
 _SCHEMA_MAPPING_KEYS = ("properties", "$defs", "patternProperties")

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AutomaticRepliesSetting(ClientValue):
     """
     Configuration settings to automatically notify the sender of an incoming email with a message from the signed-in

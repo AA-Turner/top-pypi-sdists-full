@@ -510,7 +510,7 @@ class DefaultApi(object):
     def add_user_group_members_api_v2_user_groups_group_id_members_post(self, group_id, user_group_members_request, **kwargs):  # noqa: E501
         """Add User Group Members  # noqa: E501
 
-        Add users to a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to add  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Add users to a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to add  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.add_user_group_members_api_v2_user_groups_group_id_members_post(group_id, user_group_members_request, async_req=True)
@@ -536,7 +536,7 @@ class DefaultApi(object):
     def add_user_group_members_api_v2_user_groups_group_id_members_post_with_http_info(self, group_id, user_group_members_request, **kwargs):  # noqa: E501
         """Add User Group Members  # noqa: E501
 
-        Add users to a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to add  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Add users to a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to add  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.add_user_group_members_api_v2_user_groups_group_id_members_post_with_http_info(group_id, user_group_members_request, async_req=True)
@@ -1634,7 +1634,7 @@ class DefaultApi(object):
     def apply_policy_api_v2_role_bindings_resource_type_resource_id_policy_put(self, resource_type, resource_id, role_binding_policy, **kwargs):  # noqa: E501
         """Apply Policy  # noqa: E501
 
-        Make the resource hold the role bindings the policy states, and only those. The caller must manage IAM on that resource. What the policy is missing is revoked, what it adds is granted, and what already matches is left untouched, so applying the same policy twice changes nothing the second time. Bindings held above the resource are not the policy's to change. The response names what the call changed.  # noqa: E501
+        Make the resource hold the role bindings the policy states, and only those. The caller must manage IAM on that resource, and see a group the policy newly grants a role: one they cannot see is not found. What the policy is missing is revoked, what it adds is granted, and what already matches is left untouched, so applying the same policy twice changes nothing the second time. Bindings held above the resource are not the policy's to change. The response names what the call changed.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.apply_policy_api_v2_role_bindings_resource_type_resource_id_policy_put(resource_type, resource_id, role_binding_policy, async_req=True)
@@ -1662,7 +1662,7 @@ class DefaultApi(object):
     def apply_policy_api_v2_role_bindings_resource_type_resource_id_policy_put_with_http_info(self, resource_type, resource_id, role_binding_policy, **kwargs):  # noqa: E501
         """Apply Policy  # noqa: E501
 
-        Make the resource hold the role bindings the policy states, and only those. The caller must manage IAM on that resource. What the policy is missing is revoked, what it adds is granted, and what already matches is left untouched, so applying the same policy twice changes nothing the second time. Bindings held above the resource are not the policy's to change. The response names what the call changed.  # noqa: E501
+        Make the resource hold the role bindings the policy states, and only those. The caller must manage IAM on that resource, and see a group the policy newly grants a role: one they cannot see is not found. What the policy is missing is revoked, what it adds is granted, and what already matches is left untouched, so applying the same policy twice changes nothing the second time. Bindings held above the resource are not the policy's to change. The response names what the call changed.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.apply_policy_api_v2_role_bindings_resource_type_resource_id_policy_put_with_http_info(resource_type, resource_id, role_binding_policy, async_req=True)
@@ -4282,7 +4282,7 @@ class DefaultApi(object):
     def batch_role_bindings_api_v2_role_bindings_batch_post(self, batch_role_bindings_request, **kwargs):  # noqa: E501
         """Batch Role Bindings  # noqa: E501
 
-        Revoke and grant roles in one call, all or nothing. Each element is validated as its single call would be, and an error names the element that failed. At most 200 role bindings across both lists.  # noqa: E501
+        Revoke and grant roles in one call, all or nothing. Each element is validated as its single call would be, and an error names the element that failed. A group the caller cannot see is not found where it is granted a role. At most 200 role bindings across both lists.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.batch_role_bindings_api_v2_role_bindings_batch_post(batch_role_bindings_request, async_req=True)
@@ -4307,7 +4307,7 @@ class DefaultApi(object):
     def batch_role_bindings_api_v2_role_bindings_batch_post_with_http_info(self, batch_role_bindings_request, **kwargs):  # noqa: E501
         """Batch Role Bindings  # noqa: E501
 
-        Revoke and grant roles in one call, all or nothing. Each element is validated as its single call would be, and an error names the element that failed. At most 200 role bindings across both lists.  # noqa: E501
+        Revoke and grant roles in one call, all or nothing. Each element is validated as its single call would be, and an error names the element that failed. A group the caller cannot see is not found where it is granted a role. At most 200 role bindings across both lists.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.batch_role_bindings_api_v2_role_bindings_batch_post_with_http_info(batch_role_bindings_request, async_req=True)
@@ -10839,7 +10839,7 @@ class DefaultApi(object):
     def create_role_binding_api_v2_role_bindings_post(self, create_role_binding_request, **kwargs):  # noqa: E501
         """Create Role Binding  # noqa: E501
 
-        Grant a role to a user or user group on an organization, cloud or project. The caller must manage IAM on that resource. A role binding is immutable: to change a principal's role, revoke and grant in one batch.  # noqa: E501
+        Grant a role to a user or user group on an organization, cloud or project. The caller must manage IAM on that resource, and see the group: a group that reaches a resource the caller does not manage IAM on is not found. A role binding is immutable: to change a principal's role, revoke and grant in one batch.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.create_role_binding_api_v2_role_bindings_post(create_role_binding_request, async_req=True)
@@ -10864,7 +10864,7 @@ class DefaultApi(object):
     def create_role_binding_api_v2_role_bindings_post_with_http_info(self, create_role_binding_request, **kwargs):  # noqa: E501
         """Create Role Binding  # noqa: E501
 
-        Grant a role to a user or user group on an organization, cloud or project. The caller must manage IAM on that resource. A role binding is immutable: to change a principal's role, revoke and grant in one batch.  # noqa: E501
+        Grant a role to a user or user group on an organization, cloud or project. The caller must manage IAM on that resource, and see the group: a group that reaches a resource the caller does not manage IAM on is not found. A role binding is immutable: to change a principal's role, revoke and grant in one batch.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.create_role_binding_api_v2_role_bindings_post_with_http_info(create_role_binding_request, async_req=True)
@@ -11316,7 +11316,7 @@ class DefaultApi(object):
     def create_user_group_api_v2_user_groups_post(self, create_user_group_request, **kwargs):  # noqa: E501
         """Create User Group  # noqa: E501
 
-        Create a new user group in the authenticated user's organization.  # noqa: E501
+        Create a new user group in the authenticated user's organization.  Permission requirements: - Caller must manage IAM on the organization: a new group has no role   bindings, and a group with none stays with the callers who do  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.create_user_group_api_v2_user_groups_post(create_user_group_request, async_req=True)
@@ -11341,7 +11341,7 @@ class DefaultApi(object):
     def create_user_group_api_v2_user_groups_post_with_http_info(self, create_user_group_request, **kwargs):  # noqa: E501
         """Create User Group  # noqa: E501
 
-        Create a new user group in the authenticated user's organization.  # noqa: E501
+        Create a new user group in the authenticated user's organization.  Permission requirements: - Caller must manage IAM on the organization: a new group has no role   bindings, and a group with none stays with the callers who do  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.create_user_group_api_v2_user_groups_post_with_http_info(create_user_group_request, async_req=True)
@@ -13635,6 +13635,120 @@ class DefaultApi(object):
 
         return self.api_client.call_api(
             '/api/v2/organizations/{organization_id}/domains/{domain_id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete(self, organization_id, **kwargs):  # noqa: E501
+        """Delete Organization Ip Allowlist  # noqa: E501
+
+        Remove an organization's IP allowlist. Internal only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete(organization_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete_with_http_info(organization_id, **kwargs)  # noqa: E501
+
+    def delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete_with_http_info(self, organization_id, **kwargs):  # noqa: E501
+        """Delete Organization Ip Allowlist  # noqa: E501
+
+        Remove an organization's IP allowlist. Internal only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete_with_http_info(organization_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'organization_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'organization_id' is set
+        if self.api_client.client_side_validation and ('organization_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['organization_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `organization_id` when calling `delete_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'organization_id' in local_var_params:
+            path_params['organization_id'] = local_var_params['organization_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/{organization_id}/ip_allowlist', 'DELETE',
             path_params,
             query_params,
             header_params,
@@ -33045,6 +33159,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get(self, organization_id, **kwargs):  # noqa: E501
+        """Get Organization Ip Allowlist  # noqa: E501
+
+        Get an organization's IP allowlist; 404 when it has none. Internal only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get(organization_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: IpallowlistResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get_with_http_info(organization_id, **kwargs)  # noqa: E501
+
+    def get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get_with_http_info(self, organization_id, **kwargs):  # noqa: E501
+        """Get Organization Ip Allowlist  # noqa: E501
+
+        Get an organization's IP allowlist; 404 when it has none. Internal only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get_with_http_info(organization_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(IpallowlistResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'organization_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'organization_id' is set
+        if self.api_client.client_side_validation and ('organization_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['organization_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `organization_id` when calling `get_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'organization_id' in local_var_params:
+            path_params['organization_id'] = local_var_params['organization_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/{organization_id}/ip_allowlist', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='IpallowlistResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_organization_metronome_usage_alerts_api_v2_organization_billing_alerts_get(self, **kwargs):  # noqa: E501
         """Get Organization Metronome Usage Alerts  # noqa: E501
 
@@ -33363,7 +33591,7 @@ class DefaultApi(object):
     def get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """Get Principal  # noqa: E501
 
-        What one principal holds anywhere in the organization. The caller must manage IAM on the organization. A principal that holds nothing answers with an empty page; one that is not in the organization is not found.  # noqa: E501
+        What one principal holds anywhere in the organization. The caller must manage IAM on the organization or on a resource in it. On the organization, the page is everything the principal holds. Otherwise it is what the principal holds on the resources the caller manages IAM on. A principal that holds nothing, one that is not in the organization, and a user group the caller cannot see all answer with an empty page.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get(principal_type, principal_id, async_req=True)
@@ -33391,7 +33619,7 @@ class DefaultApi(object):
     def get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get_with_http_info(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """Get Principal  # noqa: E501
 
-        What one principal holds anywhere in the organization. The caller must manage IAM on the organization. A principal that holds nothing answers with an empty page; one that is not in the organization is not found.  # noqa: E501
+        What one principal holds anywhere in the organization. The caller must manage IAM on the organization or on a resource in it. On the organization, the page is everything the principal holds. Otherwise it is what the principal holds on the resources the caller manages IAM on. A principal that holds nothing, one that is not in the organization, and a user group the caller cannot see all answer with an empty page.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_principal_api_v2_role_bindings_principals_principal_type_principal_id_get_with_http_info(principal_type, principal_id, async_req=True)
@@ -39835,7 +40063,7 @@ class DefaultApi(object):
     def get_user_group_api_v2_user_groups_group_id_get(self, group_id, **kwargs):  # noqa: E501
         """Get User Group  # noqa: E501
 
-        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_user_group_api_v2_user_groups_group_id_get(group_id, async_req=True)
@@ -39860,7 +40088,7 @@ class DefaultApi(object):
     def get_user_group_api_v2_user_groups_group_id_get_with_http_info(self, group_id, **kwargs):  # noqa: E501
         """Get User Group  # noqa: E501
 
-        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Get a specific user group by ID.  Returns details for a single user group if it exists in the authenticated user's organization. Includes the group's organization-level permission levels.  Path Parameters: - **group_id**: The ID of the user group to retrieve  Returns: - User group with id, name, and permission_levels  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_user_group_api_v2_user_groups_group_id_get_with_http_info(group_id, async_req=True)
@@ -45452,7 +45680,7 @@ class DefaultApi(object):
     def list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """List Effective Bindings For Principal  # noqa: E501
 
-        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors.  # noqa: E501
+        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors. Without a resource, a caller who manages IAM on some resources but not the organization sees the bindings held on those resources, and not what comes through a group the caller cannot see.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get(principal_type, principal_id, async_req=True)
@@ -45482,7 +45710,7 @@ class DefaultApi(object):
     def list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get_with_http_info(self, principal_type, principal_id, **kwargs):  # noqa: E501
         """List Effective Bindings For Principal  # noqa: E501
 
-        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors.  # noqa: E501
+        Every role that reaches one principal, with where each comes from: held by the principal itself, or by a group it is a member of. The caller manages IAM on the organization, for the principal's whole reach, or on the resource named by resource_type and resource_id together, in which case the read covers that resource and its ancestors. Without a resource, a caller who manages IAM on some resources but not the organization sees the bindings held on those resources, and not what comes through a group the caller cannot see.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_effective_bindings_for_principal_api_v2_role_bindings_effective_principals_principal_type_principal_id_get_with_http_info(principal_type, principal_id, async_req=True)
@@ -52054,7 +52282,7 @@ class DefaultApi(object):
     def list_user_group_memberships_api_v2_user_groups_memberships_list_get(self, **kwargs):  # noqa: E501
         """List User Group Memberships  # noqa: E501
 
-        List all user groups with their members.  # noqa: E501
+        List the user groups the caller may see with their members.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_user_group_memberships_api_v2_user_groups_memberships_list_get(async_req=True)
@@ -52078,7 +52306,7 @@ class DefaultApi(object):
     def list_user_group_memberships_api_v2_user_groups_memberships_list_get_with_http_info(self, **kwargs):  # noqa: E501
         """List User Group Memberships  # noqa: E501
 
-        List all user groups with their members.  # noqa: E501
+        List the user groups the caller may see with their members.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_user_group_memberships_api_v2_user_groups_memberships_list_get_with_http_info(async_req=True)
@@ -52273,7 +52501,7 @@ class DefaultApi(object):
     def list_user_groups_api_v2_user_groups_get(self, **kwargs):  # noqa: E501
         """List User Groups  # noqa: E501
 
-        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see the groups that reach only resources they manage IAM on  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_user_groups_api_v2_user_groups_get(async_req=True)
@@ -52299,7 +52527,7 @@ class DefaultApi(object):
     def list_user_groups_api_v2_user_groups_get_with_http_info(self, **kwargs):  # noqa: E501
         """List User Groups  # noqa: E501
 
-        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        List all user groups in the user's organization.  This endpoint returns all user groups that belong to the authenticated user's organization. User groups are used for managing permissions on resources.  Query Parameters: - **count**: Number of results per page (required) - **paging_token**: Token for pagination (optional)  Returns: - List of user groups with id and name - Pagination metadata  Permission requirements: - Caller must manage IAM on the organization, a cloud or a project; they   see the groups that reach only resources they manage IAM on  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_user_groups_api_v2_user_groups_get_with_http_info(async_req=True)
@@ -57856,7 +58084,7 @@ class DefaultApi(object):
     def remove_user_group_members_api_v2_user_groups_group_id_members_delete(self, group_id, user_group_members_request, **kwargs):  # noqa: E501
         """Remove User Group Members  # noqa: E501
 
-        Remove users from a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to remove  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Remove users from a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to remove  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.remove_user_group_members_api_v2_user_groups_group_id_members_delete(group_id, user_group_members_request, async_req=True)
@@ -57882,7 +58110,7 @@ class DefaultApi(object):
     def remove_user_group_members_api_v2_user_groups_group_id_members_delete_with_http_info(self, group_id, user_group_members_request, **kwargs):  # noqa: E501
         """Remove User Group Members  # noqa: E501
 
-        Remove users from a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to remove  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must be an organization admin  # noqa: E501
+        Remove users from a user group.  Path Parameters: - **group_id**: The ID of the user group  Request Body: - **user_ids**: The IDs of the users to remove  Directory-synced user groups are managed by the identity provider and cannot be edited through this endpoint.  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.remove_user_group_members_api_v2_user_groups_group_id_members_delete_with_http_info(group_id, user_group_members_request, async_req=True)
@@ -61376,6 +61604,133 @@ class DefaultApi(object):
 
         return self.api_client.call_api(
             '/api/v2/clouds/{cloud_id}/gateway-migration/canary-weight', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put(self, organization_id, ip_allowlist, **kwargs):  # noqa: E501
+        """Set Organization Ip Allowlist  # noqa: E501
+
+        Set an organization's IP allowlist. Internal only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put(organization_id, ip_allowlist, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: (required)
+        :param IpAllowlist ip_allowlist: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put_with_http_info(organization_id, ip_allowlist, **kwargs)  # noqa: E501
+
+    def set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put_with_http_info(self, organization_id, ip_allowlist, **kwargs):  # noqa: E501
+        """Set Organization Ip Allowlist  # noqa: E501
+
+        Set an organization's IP allowlist. Internal only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put_with_http_info(organization_id, ip_allowlist, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: (required)
+        :param IpAllowlist ip_allowlist: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'organization_id',
+            'ip_allowlist'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'organization_id' is set
+        if self.api_client.client_side_validation and ('organization_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['organization_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `organization_id` when calling `set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put`")  # noqa: E501
+        # verify the required parameter 'ip_allowlist' is set
+        if self.api_client.client_side_validation and ('ip_allowlist' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ip_allowlist'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ip_allowlist` when calling `set_organization_ip_allowlist_api_v2_organizations_organization_id_ip_allowlist_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'organization_id' in local_var_params:
+            path_params['organization_id'] = local_var_params['organization_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'ip_allowlist' in local_var_params:
+            body_params = local_var_params['ip_allowlist']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/{organization_id}/ip_allowlist', 'PUT',
             path_params,
             query_params,
             header_params,
@@ -68453,7 +68808,7 @@ class DefaultApi(object):
     def update_user_group_name_api_v2_user_groups_group_id_patch(self, group_id, update_user_group_name, **kwargs):  # noqa: E501
         """Update User Group Name  # noqa: E501
 
-        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must be an organization admin  All users, Service accounts and the organization admin group cannot be renamed (409).  # noqa: E501
+        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  All users, Service accounts and the organization admin group cannot be renamed (409).  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.update_user_group_name_api_v2_user_groups_group_id_patch(group_id, update_user_group_name, async_req=True)
@@ -68479,7 +68834,7 @@ class DefaultApi(object):
     def update_user_group_name_api_v2_user_groups_group_id_patch_with_http_info(self, group_id, update_user_group_name, **kwargs):  # noqa: E501
         """Update User Group Name  # noqa: E501
 
-        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must be an organization admin  All users, Service accounts and the organization admin group cannot be renamed (409).  # noqa: E501
+        Update a user group's name.  Path Parameters: - **group_id**: The ID of the user group to update  Request Body: - **name**: New name for the user group (1-255 characters)  Returns: - Updated user group  Permission requirements: - Caller must manage IAM on every resource the group reaches; any other   group is not found  All users, Service accounts and the organization admin group cannot be renamed (409).  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.update_user_group_name_api_v2_user_groups_group_id_patch_with_http_info(group_id, update_user_group_name, async_req=True)

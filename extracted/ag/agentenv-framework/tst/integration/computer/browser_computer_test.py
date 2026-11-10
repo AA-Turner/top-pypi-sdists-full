@@ -7,18 +7,28 @@ started again by supervisord and the computer is ready again; and chromium kille
 saying why and the tools answering with it. Through its cdp address, Playwright and Puppeteer drive it two at once,
 each on its own session, by http_url and by ws_url; a wrong token is refused, and so is code in the computer without
 one; one client's close leaves the browser up for the other, which can't open file: URLs; the address outlives a
-relaunch, and the computer's reset ends it. browser_connect_cdp hands the echo agent its address, with the computer's
+relaunch by its app server's restart, and the browser's reset and the computer's end it. browser_connect_cdp hands the echo agent its address, with the computer's
 tools hidden from its role; after reset_env that address fails until the task runs browser_connect_cdp again, whose
-fresh one its next turn opens the site through. Through an app server and a driver restart and a relaunch, the agent's
-address keeps working, and two agents connected at once each drive the browser through their own. browser/v1 reads
-and sets its cookies, local storage and downloads. Needs Docker and the local registry on
+fresh one its next turn opens the site through. Through an app server's restart, which relaunches the browser, and a
+driver's, the agent's address keeps working, and two agents connected at once each drive the browser through their own. browser/v1 reads
+and sets its cookies, local storage and downloads, and its data plane signs it in, snapshots it, resets it, loads a
+snapshot back and holds up under chaos; the browser task steps set its cookies and storage and open, activate and
+close its tabs by URL; a task whose deploy_env pins a version of the browser, its latest one with none, passes
+preflight on the version pinned and runs its browser steps through task.run; and each start tab's page sees the
+window's size from its first script. Routing sites, it goes out only through the shared site proxy's forward port:
+start tabs on a site over HTTPS and on a .localhost one load through it, an event stream comes through as it's sent,
+any other host and loopback are refused and logged, the session user can't stop the port, killed it comes back, and
+after a reset it serves the sites and refuses the rest again.
+Needs Docker and the local registry on
 localhost:5000, and Node 20 or later and npm for the CDP clients."""
 
 import asyncio
+import itertools
 import json
 import platform
 import re
 import shlex
+import subprocess
 import time
 import urllib.parse
 import uuid
@@ -29,6 +39,7 @@ import pytest
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 from PIL import Image
+from websockets.asyncio.client import connect
 
 from agentenv_protocol import client as protocol_v1
 from agentenv_protocol.computer import COMPUTER_PAGE, COMPUTER_READY
@@ -39,14 +50,20 @@ from agent_env.a2a_agent import conversation_store
 from agent_env.artifact.artifacts.file import FileArtifact
 from agent_env.env import Env
 from agent_env.env.envs.computer.utils import inside
+from agent_env.env.store import get_env_store
+from agent_env.providers.sandbox_providers.local_docker.provider import LocalSandboxProvider
 from agent_env.store.routing import namespace_routing
+from agent_env.task import Task
 from agent_env.task.teardown import teardown_run
 from agent_env.task_step.context import TaskStepContext
-from agent_env.task_step.task_steps.browser_connect_cdp import BrowserConnectCdpTaskStep
+from agent_env.task_step.task_steps.browser.connect_cdp import BrowserConnectCdpTaskStep
 from agent_env.task_step.task_steps.deploy_agent import DeployAgentTaskStep
 from agent_env.task_step.task_steps.prompt_agent import PromptAgentTaskStep
 from agent_env.task_step.task_steps.reset_env import ResetEnvTaskStep
+from tst.integration.computer.browser_data import SITE as DATA_SITE, check_browser_data, check_browser_data_under_chaos
+from tst.integration.computer.browser_steps import check_browser_steps
 from tst.integration.computer.browser_state import check_browser_state, check_browser_state_under_chaos
+from tst.integration.computer.start_tabs import host_pages, tabs_of
 from tst.util.a2a_test_agent import put_test_agent
 
 pytestmark = [pytest.mark.integration, pytest.mark.int_test_slow]
@@ -117,6 +134,10 @@ time.sleep(float(sys.argv[1]))
 SERVE_START_S = 3
 #: A page that needs no server, so killing the driver, whose child a served site is, leaves it to open.
 DATA_PAGE = "data:text/html,<title>Home</title><h1>Home</h1>"
+#: A page a task's tab steps open, bring to the front and close by its URL.
+PINNED_PAGE = "data:text/html,pinned"
+#: A page whose title is the window's size as its first script sees it, told apart by ``{}``.
+SIZED = "data:text/html,<title>{}</title><script>document.title = innerWidth + 'x' + innerHeight</script>"
 # Every TCP port something in the computer listens on, and whether any process is an X server.
 LISTENING = """import glob
 ports = set()
@@ -320,6 +341,127 @@ async def test_its_state_operations_hold_up_at_once_through_a_server_restart_and
     assert not report.failed
 
 
+@pytest.mark.asyncio
+async def test_its_data_plane_signs_it_in_snapshots_it_resets_it_and_loads_a_snapshot_back_whole(browser_computer):
+    with namespace_routing():
+        deployed = await Env.get(browser_computer.id).deploy(
+            env_params={"app_settings": {"chromium": {"start_urls": [DATA_SITE]}}})
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            await _ready(deployed)
+            card = (await _get(deployed, "/.well-known/agent-env.json")).json()
+            app = next(child for child in card["children_environments"] if child["name"] == "chromium")
+
+            async def act():
+                async with streamablehttp_client(deployed.mcp_url) as (read, write, _):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        assert not (await session.call_tool("computer_screenshot", {"space": "frame"})).isError
+
+            await check_browser_data(deployed, browser_computer.id, lambda op: deployed.environment_url
+                                     + protocol_v1.find_extension_method(app, BROWSER, op)["endpoint"], act)
+        finally:
+            report = await teardown_run(context)
+
+    assert not report.failed
+
+
+@pytest.mark.asyncio
+async def test_its_task_steps_set_cookies_and_storage_open_a_tab_behind_and_activate_and_close_it_by_its_url(
+        browser_computer):
+    with namespace_routing():
+        deployed = await Env.get(browser_computer.id).deploy(
+            env_params={"app_settings": {"chromium": {"start_urls": [DATA_SITE]}}})
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            await _ready(deployed)
+            card = (await _get(deployed, "/.well-known/agent-env.json")).json()
+            app = next(child for child in card["children_environments"] if child["name"] == "chromium")
+            await check_browser_steps(deployed, browser_computer.id, lambda op: deployed.environment_url
+                                      + protocol_v1.find_extension_method(app, BROWSER, op)["endpoint"])
+        finally:
+            report = await teardown_run(context)
+
+    assert not report.failed
+
+
+@pytest.mark.asyncio
+async def test_a_task_pinning_a_version_of_the_browser_passes_preflight_on_it_and_runs_its_steps_through_task_run(
+        browser_computer):
+    suffix = uuid.uuid4().hex[:8]
+    with namespace_routing():
+        env = Env.get(browser_computer.id)
+        stored, env_id = env.to_dict(), f"{browser_computer.id}-pinned-{suffix}"
+        pinned = get_env_store().put_document(type(env).from_dict({**stored, "id": env_id, "version": None}))
+        no_browser = {key: value for key, value in stored["declaration"].items() if key != "browser"}
+        get_env_store().put_document(type(env).from_dict({**stored, "id": env_id, "version": None,
+                                                          "declaration": no_browser}))
+        steps = [{"id": "env", "type": "deploy_env", "env_id": env_id, "env_version": pinned.version},
+                 {"id": "sign-in", "type": "browser_set_cookies", "env_id": env_id,
+                  "cookies": [{"name": "sid", "value": "ada", "url": DATA_SITE, "max_age": 3600}]},
+                 {"id": "open", "type": "browser_open_tab", "env_id": env_id, "url": PINNED_PAGE, "background": True},
+                 {"id": "front", "type": "browser_activate_tab", "env_id": env_id, "url": PINNED_PAGE},
+                 {"id": "close", "type": "browser_close_tab", "env_id": env_id, "url": PINNED_PAGE},
+                 {"id": "sign-out", "type": "browser_delete_cookies", "env_id": env_id, "name": "sid"}]
+        task_id = f"@local/agentenv-framework/browsers/pinned-steps-{suffix}"
+        task = Task.put(id=task_id, steps=Task.from_dict({"id": task_id, "steps": steps}).steps)
+        unpinned = Task.from_dict({"id": task_id, "steps": [{**steps[0], "env_version": None}, *steps[1:]]})
+        problems, unpinned_problems = task.preflight(), unpinned.preflight()
+        context = TaskStepContext()
+        try:
+            await task.run(context=context)
+        finally:
+            report = await teardown_run(context)
+
+    assert problems == [], problems
+    assert [problem for problem in unpinned_problems if "has no website browser" in problem] == [
+        f"step {step!r}: env {env_id!r} has no website browser: browser steps act on a computer env's browser app, "
+        "or a browser deployed alone" for step in ("sign-in", "open", "front", "close", "sign-out")], unpinned_problems
+    assert not context.metadata.get("failed_steps"), context.metadata.get("failed_steps")
+    assert [(deployed.env_id, deployed.env_version) for deployed in context.deployed_envs] == [(env_id, pinned.version)]
+    records = context.metadata["browser_steps"]
+    assert records["open"]["tab"] == records["front"]["tab"] == records["close"]["tab"], records
+    assert records["sign-out"]["deleted"] == 1 and not report.failed, (records, report)
+
+
+@pytest.mark.asyncio
+async def test_each_start_tabs_page_sees_the_windows_size_from_its_first_script_in_order_the_first_active(
+        browser_computer):
+    urls = [SIZED.format(index) for index in range(3)]
+    with namespace_routing():
+        deployed = await Env.get(browser_computer.id).deploy(
+            env_params={"app_settings": {"chromium": {"start_urls": urls}}})
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            tabs = await tabs_of(deployed)
+        finally:
+            report = await teardown_run(context)
+
+    start_tabs = deployed.metadata["computer"]["start_tabs"]["chromium"]
+    assert [tab["outcome"] for tab in start_tabs] == ["loaded"] * 3
+    assert [tab["id"] for tab in tabs] == [tab["tab"] for tab in start_tabs]
+    assert [(tab["title"], tab["active"]) for tab in tabs] == [("1280x800", True), ("1280x800", False),
+                                                               ("1280x800", False)]
+    assert not report.failed
+
+
+@pytest.mark.asyncio
+async def test_its_data_calls_take_turns_a_server_restart_takes_a_load_and_with_the_browser_gone_they_fail_at_once(
+        browser_computer):
+    with namespace_routing():
+        deployed = await Env.get(browser_computer.id).deploy()
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            await _ready(deployed)
+            await check_browser_data_under_chaos(
+                deployed, lambda pattern: _kill(deployed, pattern, oldest=pattern.startswith("[-]")),
+                lambda: _ready(deployed))
+        finally:
+            report = await teardown_run(context)
+
+    assert not report.failed
+
+
 async def _shown(session: ClientSession, holds) -> dict:
     """A screenshot's result once the page it shows is what ``holds`` waits for, within ``WAIT_S``."""
     last, deadline = None, time.monotonic() + WAIT_S
@@ -382,6 +524,192 @@ async def _ready(deployed) -> dict:
     return await _until(deployed, lambda status: status["ready"])
 
 
+#: Loads its URL through the proxy it's given, as a browser alone does, printing the status, the seconds it took and the
+#: first line of the body, or the error.
+THROUGH_PROXY = """import sys, time, urllib.request
+proxy = urllib.request.ProxyHandler({"http": sys.argv[2], "https": sys.argv[2]})
+began = time.monotonic()
+try:
+    with urllib.request.build_opener(proxy).open(sys.argv[1], timeout=20) as answer:
+        print(answer.status, round(time.monotonic() - began), answer.readline().decode().strip())
+except Exception as e:
+    print("error", getattr(e, "code", ""), e)
+"""
+
+
+async def _through_port(deployed, url: str, proxy: str = "http://127.0.0.1:3129") -> str:
+    done = await inside.run(deployed, ["python3", "-c", THROUGH_PROXY, url, proxy], timeout_s=60)
+    return done["stdout"].strip()
+
+
+#: What a CDP agent sees of the tab it navigates: its title, its first words, and whether it finished loading.
+PAGE_SEEN = ("JSON.stringify({ready: document.readyState, title: document.title, "
+             "text: document.body ? document.body.innerText.slice(0, 200) : ''})")
+
+
+async def _cdp_agent_loads(ws_url: str, urls: list[str]) -> dict:
+    """What a CDP agent at ``ws_url`` sees navigating a tab of its own to each of ``urls``, one after another:
+    ``Page.navigate``'s error, if any, and the page once it has loaded."""
+    async with connect(ws_url, max_size=None, open_timeout=60) as ws:
+        ids = itertools.count(1)
+
+        async def call(method: str, params: dict, session: str | None = None) -> dict:
+            message_id = next(ids)
+            await ws.send(json.dumps({"id": message_id, "method": method, "params": params,
+                                      **({"sessionId": session} if session else {})}))
+            while (reply := json.loads(await asyncio.wait_for(ws.recv(), 90))).get("id") != message_id:
+                pass
+            return reply
+
+        target = (await call("Target.createTarget", {"url": "about:blank"}))["result"]["targetId"]
+        session = (await call("Target.attachToTarget", {"targetId": target, "flatten": True}))["result"]["sessionId"]
+        seen = {}
+        for url in urls:
+            navigated = await call("Page.navigate", {"url": url}, session)
+            page, deadline = {}, time.monotonic() + 30
+            while page.get("ready") != "complete" and time.monotonic() < deadline:
+                await asyncio.sleep(1)
+                evaluated = await call("Runtime.evaluate", {"expression": PAGE_SEEN, "returnByValue": True}, session)
+                page = json.loads(evaluated.get("result", {}).get("result", {}).get("value") or "{}")
+            seen[url] = {"error": navigated.get("result", {}).get("errorText") or navigated.get("error", {}).get(
+                "message"), **page}
+        return seen
+
+
+async def _container_of(deployed) -> str:
+    """The Docker container ``deployed``'s computer runs in, on this machine's local provider."""
+    return (await LocalSandboxProvider().get_sandbox(deployed.sandbox_id)).container_name
+
+
+async def _serve_pid(deployed) -> str:
+    return (await inside.run(deployed, ["pgrep", "-f", "[s]ite_proxy.py serve"], timeout_s=30))["stdout"].strip()
+
+
+def _as_root(container: str, script: str) -> str:
+    return subprocess.run(["docker", "exec", "-u", "0", container, "sh", "-c", script], capture_output=True,
+                          text=True).stdout
+
+
+@pytest.mark.asyncio
+async def test_routing_sites_it_goes_out_only_through_the_forward_port_which_the_agent_cant_stop_and_comes_back(
+        browser_computer):
+    with host_pages() as port, namespace_routing():
+        params = {"site_routing": True,
+                  "sites": [{"name": "shop", "url": f"http://127.0.0.1:{port}/website/shop/", "domains": ["shop.test"]},
+                            {"name": "notes", "url": f"http://127.0.0.1:{port}/website/notes/",
+                             "domains": ["notes.localhost"]}],
+                  "app_settings": {"chromium": {"start_urls": ["https://shop.test/", "http://notes.localhost/"]}}}
+        deployed = await Env.get(browser_computer.id).deploy(env_params=params)
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            tabs = await tabs_of(deployed)
+            named = (await inside.run(deployed, ["sh", "-c", "echo $AGENTENV_SITE_PROXY"], timeout_s=30))["stdout"]
+            pages = {url: await _through_port(deployed, url) for url in (
+                "https://shop.test/alpha", "http://notes.localhost/bravo", "http://shop.test/charlie?x=1",
+                "https://shop.test/events", "https://example.com/", "http://127.0.0.1:18765/",
+                "https://127.0.0.1:18765/")}
+            container = await _container_of(deployed)
+            logged = _as_root(container, "cat /etc/agentenv/sites/site-proxy.log")
+            serving = await _serve_pid(deployed)
+            stopped = await inside.run(deployed, ["pkill", "-f", "[s]ite_proxy.py serve"], timeout_s=30)
+            after_stop = await _through_port(deployed, "https://shop.test/alpha")
+            still = await _serve_pid(deployed)
+            _as_root(container, "pkill -9 -f '[s]ite_proxy.py serve'")
+            deadline, back = time.monotonic() + 30, ""
+            while time.monotonic() < deadline and not back.startswith("200 "):
+                await asyncio.sleep(1)
+                back = await _through_port(deployed, "https://shop.test/alpha")
+            restarted = await _serve_pid(deployed)
+            await ResetEnvTaskStep(id="reset", version=None, env_id=browser_computer.id,
+                                   fail_task_on_error=True).execute(context)
+            after_reset = await _through_port(deployed, "https://shop.test/alpha")
+            refused_after_reset = await _through_port(deployed, "https://example.com/")
+            named_after_reset = (await inside.run(deployed, ["sh", "-c", "echo $AGENTENV_SITE_PROXY"],
+                                                  timeout_s=30))["stdout"]
+            tabs_after_reset = await tabs_of(deployed)
+        finally:
+            report = await teardown_run(context)
+
+    start_tabs = deployed.metadata["computer"]["start_tabs"]["chromium"]
+    assert [(tab["url"], tab["site"], tab["outcome"]) for tab in start_tabs] == [
+        ("https://shop.test/", "shop", "loaded"), ("http://notes.localhost/", "notes", "loaded")], start_tabs
+    assert [(tab["url"], tab["title"]) for tab in tabs] == [("https://shop.test/landed", "landed"),
+                                                            ("http://notes.localhost/", "notes")], tabs
+    assert named.strip() == "http://127.0.0.1:3129"
+    assert deployed.metadata["computer"]["sites"]["forward_port"] == {
+        "proxy": "http://127.0.0.1:3129", "url": "https://shop.test/", "status": 200}
+    assert pages["https://shop.test/alpha"].startswith("200 ") and pages["https://shop.test/alpha"].endswith(
+        "<title>alpha</title>"), pages
+    assert pages["http://notes.localhost/bravo"].endswith("<title>bravo</title>"), pages
+    assert pages["http://shop.test/charlie?x=1"].endswith("<title>charlie?x=1</title>"), pages
+    status, seconds, line = pages["https://shop.test/events"].split(" ", 2)
+    assert (status, line) == ("200", "data: first") and int(seconds) < 15, pages
+    assert all(pages[url].startswith("error") and "403" in pages[url] for url in (
+        "https://example.com/", "http://127.0.0.1:18765/", "https://127.0.0.1:18765/")), pages
+    refused = [json.loads(line)["refused"] for line in logged.splitlines() if line.startswith('{"refused"')]
+    assert {"method": "CONNECT", "host": "example.com:443", "reason": "no site of this computer"} in refused, logged
+    assert {"method": "GET", "host": "127.0.0.1:18765", "reason": "no site of this computer"} in refused, logged
+    assert stopped["exit_code"] != 0 and still == serving and after_stop.startswith("200 "), (stopped, after_stop)
+    assert back.startswith("200 ") and restarted and restarted != serving, (back, restarted)
+    assert after_reset.startswith("200 ") and after_reset.endswith("<title>alpha</title>"), after_reset
+    assert refused_after_reset.startswith("error") and "403" in refused_after_reset, refused_after_reset
+    assert named_after_reset.strip() == "http://127.0.0.1:3129"
+    assert [(tab["url"], tab["title"]) for tab in tabs_after_reset] == [("https://shop.test/landed", "landed"),
+                                                                        ("http://notes.localhost/", "notes")]
+    assert not report.failed
+
+
+@pytest.mark.asyncio
+async def test_routing_sites_beside_live_ones_its_forward_port_takes_the_live_hosts_straight_to_the_real_site(
+        browser_computer):
+    live = ("github.com", "*.githubassets.com")
+    with host_pages() as port, namespace_routing():
+        params = {"site_routing": True,
+                  "sites": [{"name": "shop", "url": f"http://127.0.0.1:{port}/website/shop/", "domains": ["shop.test"]}],
+                  "app_settings": {"chromium": {"start_urls": ["https://github.com/"]}}}
+        deployed = await Env.get(browser_computer.id).deploy(env_params=params, live_hosts=live)
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            pages = {url: await _through_port(deployed, url) for url in (
+                "https://github.com/", "http://github.com/", "https://github.githubassets.com/favicons/favicon.svg",
+                "https://shop.test/alpha", "https://example.com/")}
+            tabs = await tabs_of(deployed)
+        finally:
+            report = await teardown_run(context)
+
+    assert deployed.metadata["computer"]["live_hosts"] == list(live)
+    assert all(pages[url].startswith("200 ") for url in (
+        "https://github.com/", "http://github.com/", "https://github.githubassets.com/favicons/favicon.svg",
+        "https://shop.test/alpha")), pages
+    assert pages["https://example.com/"].startswith("error") and "403" in pages["https://example.com/"], pages
+    assert any(tab["url"].startswith("https://github.com/") and "GitHub" in (tab.get("title") or "") for tab in tabs), tabs
+    assert not report.failed
+
+
+@pytest.mark.asyncio
+async def test_alone_on_the_open_web_it_loads_a_public_site_through_its_proxy_and_an_agents_tab_and_logs_each_connection(
+        browser_computer):
+    public, nowhere = "https://github.com/", "https://agentenv-no-such-host.invalid/"
+    with namespace_routing():
+        deployed = await Env.get(browser_computer.id).deploy(
+            env_params={"app_settings": {"chromium": {"start_urls": [DATA_PAGE]}}})
+        context = TaskStepContext(deployed_envs=[deployed])
+        try:
+            through = {url: await _through_port(deployed, url, "http://127.0.0.1:3128") for url in (public, nowhere)}
+            seen = await _cdp_agent_loads((await _cdp(deployed, "ada"))["ws_url"], [public])
+            logged = _as_root(await _container_of(deployed), "cat /var/log/agentenv/site-proxy.log")
+        finally:
+            report = await teardown_run(context)
+
+    assert through[public].startswith("200 ") and "502" in through[nowhere], through
+    assert seen[public]["title"].startswith("GitHub") and not seen[public]["error"], seen
+    entries = [json.loads(line) for line in logged.splitlines() if line.startswith("{")]
+    github = [entry["connection"] for entry in entries if entry.get("connection", {}).get("host") == "github.com"]
+    assert github and all(entry["bytes_received"] > 0 for entry in github), logged[-2000:]
+    assert any(entry.get("failed", {}).get("host") == "agentenv-no-such-host.invalid" for entry in entries), logged[-2000:]
+    assert not report.failed
+
+
 async def _kill(deployed, pattern: str, oldest: bool = False) -> None:
     """SIGKILL the newest, or oldest, process matching ``pattern``, a second after computer-exec has answered, since the
     driver that runs the command may be the one killed."""
@@ -420,9 +748,11 @@ async def test_playwright_and_puppeteer_drive_it_through_its_cdp_address_which_a
             record = await _record(deployed)
             guarded = await _clients(cdp_clients, "guard", ada)
             guarded_record = await _record(deployed)
-            await protocol_v1.reset_data(f"{deployed.environment_url}/svc/chromium", headers=deployed.control_headers)
-            relaunched_address = await _cdp(deployed, "ada")
+            await _kill(deployed, "[s]erve_app")
+            await _ready(deployed)
             relaunched = await _clients(cdp_clients, "together", ada)
+            await protocol_v1.reset_data(f"{deployed.environment_url}/svc/chromium", headers=deployed.control_headers)
+            after_data_reset = await _clients(cdp_clients, "refused", ada, wrong=False)
             await ResetEnvTaskStep(id="reset", version=None, env_id=browser_computer.id,
                                    fail_task_on_error=True).execute(context)
             after_reset = await _clients(cdp_clients, "refused", ada, wrong=False)
@@ -443,7 +773,7 @@ async def test_playwright_and_puppeteer_drive_it_through_its_cdp_address_which_a
     assert "agentenv refuses Page.navigate: file:" in guarded["file"].get("error", ""), guarded
     assert {("Browser.close", "closed"), ("Page.navigate", "refused"), ("Browser.setDownloadBehavior", "changed")} <= {
         (entry["method"], entry["did"]) for c in guarded_record["cdp_connections"] for entry in c["guarded"]}
-    assert relaunched_address == ada
+    assert "error" in after_data_reset["playwright"] and "error" in after_data_reset["puppeteer"], after_data_reset
     assert "error" in after_reset["playwright"] and "error" in after_reset["puppeteer"], after_reset
     assert fresh != ada and not report.failed
 
@@ -507,13 +837,11 @@ async def test_a_cdp_agent_keeps_its_address_through_an_app_server_and_a_driver_
             await _kill(deployed, "[c]omputer.serve driver.py:PageDriver")
             await _ready(deployed)
             after_driver = await _opened_over_cdp(context, "after-driver", url=DATA_PAGE)
-            await protocol_v1.reset_data(f"{deployed.environment_url}/svc/chromium", headers=deployed.control_headers)
-            after_relaunch = await _opened_over_cdp(context, "after-relaunch", url=DATA_PAGE)
         finally:
             report = await teardown_run(context)
 
-    assert [title for _, title in (first, after_server, after_driver, after_relaunch)] == ["Home"] * 4
-    assert first[0] == after_server[0] == after_driver[0] == after_relaunch[0]
+    assert [title for _, title in (first, after_server, after_driver)] == ["Home"] * 3
+    assert first[0] == after_server[0] == after_driver[0]
     assert not report.failed
 
 

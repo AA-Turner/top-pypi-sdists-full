@@ -408,9 +408,12 @@ class T4Recording:
         if lanelet2_path is not None and Path(lanelet2_path).is_file():
             self._writer.add_lanelet2_map(Path(lanelet2_path))
             from .coordinate.projection import PROJECTOR_INFO_FILENAME  # noqa: PLC0415
+            from .maps.resolver import projector_info_path  # noqa: PLC0415
 
-            info = Path(lanelet2_path).parent / PROJECTOR_INFO_FILENAME
-            if info.is_file():
+            # Only the descriptor the run read the map with (a link out of
+            # the map directory is ignored there, and so here).
+            info = projector_info_path(Path(lanelet2_path).parent)
+            if info is not None:
                 shutil.copy(
                     info, self.path / _VERSION / "map" / PROJECTOR_INFO_FILENAME
                 )
@@ -493,8 +496,12 @@ class T4Recording:
                     cfg.yaw,
                     self._rear_axle,
                 )
+                # The driver LiDAR's logical id, as the driver entity gives
+                # it, keeps its weather noise apart from the others' (#2018).
                 lidar = CarlaLidarSensor(
-                    cfg, sweep_interval_s=interval * FIXED_DELTA_SECONDS
+                    cfg,
+                    sweep_interval_s=interval * FIXED_DELTA_SECONDS,
+                    sensor_id=str(getattr(cfg, "logical_id", "")),
                 )
                 lidar.attach(world, ego)
                 self._lidars.append((lidar, mount))

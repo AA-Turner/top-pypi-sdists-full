@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class DisableGroupify(ClientValue):
     IsReadOnly: bool | None = None
     Value: bool | None = None
@@ -15,7 +12,6 @@ class DisableGroupify(ClientValue):
         return "Microsoft.Online.SharePoint.TenantAdministration.DisableGroupify"
 
 
-@dataclass
 class EnableAutoNewsDigest(ClientValue):
     IsReadOnly: bool | None = None
     Value: bool | None = None
@@ -25,7 +21,6 @@ class EnableAutoNewsDigest(ClientValue):
         return "Microsoft.Online.SharePoint.TenantAdministration.EnableAutoNewsDigest"
 
 
-@dataclass
 class DisableSelfServiceSiteCreation(ClientValue):
     IsReadOnly: bool | None = None
     Value: bool | None = None
@@ -35,7 +30,6 @@ class DisableSelfServiceSiteCreation(ClientValue):
         return "Microsoft.Online.SharePoint.TenantAdministration.DisableSelfServiceSiteCreation"
 
 
-@dataclass
 class AutoQuotaEnabled(ClientValue):
     """Automatic quota management type"""
 

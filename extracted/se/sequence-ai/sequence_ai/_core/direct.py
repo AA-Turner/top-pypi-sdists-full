@@ -149,14 +149,19 @@ def _moving_words(notice: dict, *, moved: bool = False) -> str:
            "version": "the deployment now serves another version",
            "over": "its worker cannot answer it in time beside the robots nearer it",
 
-           "more robots than seats": "its worker now seats fewer robots than it holds"}.get(reason,
-                                                                                            "its worker is leaving")
+           "more robots than seats": "its worker now seats fewer robots than it holds",
+
+
+
+           "credit": "its account has nothing left to spend"}.get(reason, "its worker is leaving")
     if moved:
         return why.replace("is being replaced", "was replaced") + ", and the robot had not reached an episode boundary"
-    to = "to it" if reason == "version" else "to a new worker"
     by = notice.get("by")
-    return (f"{why}; the robot moves {to} at an episode boundary"
-            + (f", by {_clock_face(by)} at the latest" if by and _soon(by) else ""))
+    latest = f", by {_clock_face(by)} at the latest" if by and _soon(by) else ""
+    if reason == "credit":
+        return f"{why}; the robot stops at the end of its episode{latest}"
+    to = "to it" if reason == "version" else "to a new worker"
+    return f"{why}; the robot moves {to} at an episode boundary{latest}"
 
 
 def _soon(stamp: Any) -> bool:
@@ -1339,6 +1344,12 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
 
                 stale.gone = True
+                ended = sys.exc_info()[1]
+                if isinstance(ended, NewVersion):
+
+
+
+                    raise ended from None
                 raise
 
     def _renew_ahead(self) -> None:
@@ -1480,7 +1491,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         over = self._ended
         if over is not None:
             raise NewVersion(f"version {over['version']} of {self._model} went live, which ended this robot's connection "
-                             f"to version {over['on_version']}: connect() again to use it", status=409, details=over)
+                             f"to version {over['on_version']}: connect() again to use it", status=409, details=over) from None
 
 
 def _refused_in(exc: BaseException) -> str:

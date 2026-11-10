@@ -40,7 +40,7 @@ from jhora.horoscope.dhasa.graha import vimsottari
 from jhora.horoscope.dhasa.raasi import kalachakra
 from jhora.horoscope.dhasa.annual import patyayini
 from jhora.horoscope.transit.tajaka import annual_chart, both_planets_within_their_deeptamsa
-from jhora.horoscope.transit.saham import vivaha_saham_from_jd_place
+from jhora.horoscope.transit.saham import vivaha_saham
 
 # ---------- Public wrapper (jd/place) ----------
 _marriage_age_year_range = (20, 32)
@@ -92,7 +92,7 @@ def predict_marriage_windows_from_jd_place(jd, place, start_year=None, end_year=
         navamsa_planet_positions, chart_1d_d9, p_to_h_d9
     )
 
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
 
     candidates = []
@@ -229,7 +229,7 @@ def _get_vimsottari_md_ad_pd(jd, place, divisional_chart_factor=1):
     """
     Keep for parity — not used directly anymore. We prepare segments using _expand_to_md_ad_segments().
     """
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
     return segments
 
@@ -508,7 +508,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
 
     # --- Patyayini from Varshaphala LOCAL JD ---
     jd_vf_local = _gregorian_to_jd(vf_y_m_d[0], vf_y_m_d[1], vf_y_m_d[2], vf_hours)
-    patyayini_raw = patyayini.get_dhasa_bhukthi(jd_vf_local, place, divisional_chart_factor=1, chart_method=1)
+    patyayini_raw = patyayini.get_dhasa_antardhasa(jd_vf_local, place, divisional_chart_factor=1, chart_method=1)
     patyayini_schedule = _expand_patyayini_schedule(patyayini_raw)
 
     tajaka = {
@@ -945,7 +945,7 @@ def _score_kalachakra_support(jd, place, year, derived):
 
     try:
         # include_antardhasa=True to get MD/AD rows with start dates (string)
-        kcd_rows = kalachakra.get_dhasa_bhukthi(
+        kcd_rows = kalachakra.get_dhasa_antardhasa(
             dob, tob, place,
             divisional_chart_factor=1,
             dhasa_starting_planet=1,          # default from your doc (Moon)
@@ -1202,24 +1202,24 @@ def _astrological_event_checker(jd, place, gender=0):
         pp_annual,_ = annual_chart(jd, place, divisional_chart_factor=divisional_chart_factor, years=years)
         chart_annual = utils.get_house_planet_list_from_planet_positions(pp_annual)
         return chart_annual, pp_annual
-    def _vivaha_saham(jd,place,divisional_chart_factor=1,years=1, months=1, sixty_hours=1):
+    def _vivaha_saham(jd,place,years=1, months=1, sixty_hours=1):
         jd_years = drik.next_solar_date(jd, place, years=years, months=months, sixty_hours=sixty_hours)
-        vs = vivaha_saham_from_jd_place(jd_years, place, divisional_chart_factor)
-        vs_sign, vs_long = drik.dasavarga_from_long(vs, divisional_chart_factor)
+        vs = vivaha_saham(jd_years, place)
+        vs_sign, vs_long = drik.dasavarga_from_long(vs)
         return vs_sign, vs_long
     def _planets_close_to_vivaha_saham(jd,place,divisional_chart_factor=1,years=1,
                                        vivaha_saham_tolerance=30):
         pp_annual,_ = annual_chart(jd, place, divisional_chart_factor, years=years)
         jd_years = drik.next_solar_date(jd, place, years=years)
-        vs_abs_long = vivaha_saham_from_jd_place(jd_years, place, divisional_chart_factor)
-        vs_sign,vs_long = drik.dasavarga_from_long(vs_abs_long, divisional_chart_factor)
+        vs_abs_long = vivaha_saham(jd_years, place)
+        vs_sign,vs_long = drik.dasavarga_from_long(vs_abs_long)
         #return [(p,long) for p,(h,long) in pp_annual if abs(((h*30+long)%360)-vs_long) <= vivaha_saham_tolerance]
         return [(p,vs_sign) for p,(h,_) in pp_annual if h==vs_sign]
 
     _collect_basic_chart_info()
     _evalulate_lords_and_houses()
     _db_candidates = _get_possible_dhasa_bhukthi_candidates()
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place,dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place,dhasa_level_index=const.MAHA_DHASA_DEPTH.ANTARA)
     
     inputs['vimsottari_info'] = vdb_info
     vdb_segs = _expand_vimsottari_db_to_md_ad_segments(vdb_info)

@@ -12,13 +12,15 @@ from urllib.parse import urlparse
 
 import requests
 from tenacity import (
+    RetryCallState,
     retry,
+    retry_if_exception,
     retry_if_not_exception_type,
     stop_after_attempt,
     wait_exponential_jitter,
 )
 
-from .result import BadRequestException, Result
+from .result import BadRequestException, RateLimitedException, Result
 
 
 class NotSet:
@@ -29,6 +31,11 @@ AUTHORIZATION_HEADER = "Authorization"
 AUTHORIZATION_HEADER_ENV_VAR = "ANOMALO_AUTHORIZATION_HEADER"
 USER_AGENT_HEADER = "User-Agent"
 NOT_SET = NotSet()
+
+# Longest a 429 makes the client wait before retrying. The endpoint limits
+# answer within a minute; anything longer is a cooldown the caller should
+# see rather than sit through, so it raises instead.
+RATE_LIMIT_MAX_RETRY_AFTER_SECONDS = 60
 
 # Synthetic label id that matches tables with no labels. Pass it as label_id to
 # tables()/filter_tables_by_label() to filter to unlabeled tables. Kept in sync
@@ -46,6 +53,35 @@ def client_version() -> str:
         return package_version("anomalo")
     except PackageNotFoundError:
         return "unknown"
+
+
+def _retry_after(response: requests.Response) -> float | None:
+    header = response.headers.get("Retry-After")
+    if header is None:
+        return None
+    try:
+        return float(header)
+    except ValueError:
+        return None
+
+
+def _is_short_rate_limit(exception: BaseException) -> bool:
+    return (
+        isinstance(exception, RateLimitedException)
+        and exception.retry_after is not None
+        and exception.retry_after <= RATE_LIMIT_MAX_RETRY_AFTER_SECONDS
+    )
+
+
+def _wait_before_retry(retry_state: RetryCallState) -> float:
+    outcome = retry_state.outcome
+    exception = outcome.exception() if outcome is not None else None
+    if (
+        isinstance(exception, RateLimitedException)
+        and exception.retry_after is not None
+    ):
+        return exception.retry_after
+    return wait_exponential_jitter(initial=1, max=10)(retry_state)
 
 
 class Client:
@@ -126,8 +162,11 @@ class Client:
         return self._server_version
 
     @retry(
-        retry=retry_if_not_exception_type(BadRequestException),
-        wait=wait_exponential_jitter(initial=1, max=10),
+        retry=(
+            retry_if_not_exception_type(BadRequestException)
+            | retry_if_exception(_is_short_rate_limit)
+        ),
+        wait=_wait_before_retry,
         stop=stop_after_attempt(5),
         reraise=True,
     )
@@ -149,6 +188,10 @@ class Client:
         )
 
         if not response.ok:
+            if response.status_code == 429:
+                raise RateLimitedException(
+                    response.text, response.status_code, _retry_after(response)
+                )
             if 400 <= response.status_code < 500:
                 raise BadRequestException(response.text, response.status_code)
             else:

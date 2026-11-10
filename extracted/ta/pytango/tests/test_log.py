@@ -38,6 +38,10 @@ def check_log(received_logs, device_name, log_level, method_name, arg, kwarg, re
     entry_log = LogConsumerEntry(*received_logs[-2])
     exit_log = LogConsumerEntry(*received_logs[-1])
 
+    # Logs may arrive in reverse order
+    if exit_log.message.startswith("-> "):
+        entry_log, exit_log = exit_log, entry_log
+
     assert entry_log.source == "test/logdevice/1"
     assert exit_log.source == "test/logdevice/1"
     assert log_level == entry_log.level

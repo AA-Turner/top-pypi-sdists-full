@@ -5,20 +5,20 @@ from pycalphad.core.composition_set cimport CompositionSet
 from pycalphad.core.constants import MIN_SITE_FRACTION
 cimport scipy.linalg.cython_lapack as cython_lapack
 from libc.stdlib cimport malloc, free
-from libc.math cimport isnan
+from libc.math cimport isnan, INFINITY
 
 @cython.boundscheck(False)
-cdef void lstsq(double *A, int M, int N, double* x, double rcond) nogil:
+cdef void lstsq(double *A, int M, int N, double* x, double rcond) noexcept nogil:
     # Note: This function will destroy input matrix A
     cdef int i
     cdef int NRHS = 1
-    cdef int iwork = 0
     cdef int info = 0
     cdef int SMLSIZ = 50  # this is a guess
     cdef int NLVL = 10  # this is also a guess
     cdef int lwork = 12*N + 2*N*SMLSIZ + 8*N*NLVL + N*NRHS + (SMLSIZ+1)**2
     cdef int rank = 0
     cdef double* work = <double*>malloc(lwork * sizeof(double))
+    cdef int* iwork = <int*>malloc((3*N*NLVL + 11*N + 1) * sizeof(int))
     cdef double* singular_values = <double*>malloc(N * sizeof(double))
     cdef bint isfinite = True
 
@@ -31,7 +31,8 @@ cdef void lstsq(double *A, int M, int N, double* x, double rcond) nogil:
             x[i] = 0
     else:
         cython_lapack.dgelsd(&M, &N, &NRHS, A, &N, x, &M, singular_values, &rcond, &rank,
-                            work, &lwork, &iwork, &info)
+                            work, &lwork, iwork, &info)
+    free(iwork)
     free(singular_values)
     free(work)
     if info != 0:
@@ -50,7 +51,7 @@ cpdef void lstsq_check_infeasible(double[:,::] A, double[::] b, double[::] out_x
         out_x[:] = np.nan
 
 @cython.boundscheck(False)
-cdef void invert_matrix(double *A, int N, int* ipiv) nogil:
+cdef void invert_matrix(double *A, int N, int* ipiv) noexcept nogil:
     "A will be overwritten."
     cdef int info = 0
     cdef int i
@@ -76,8 +77,9 @@ cdef void invert_matrix(double *A, int N, int* ipiv) nogil:
 @cython.boundscheck(False)
 cdef void compute_phase_matrix(double[:,::1] phase_matrix, double[:,::1] hess,
                                double[:, ::1] cons_jac_tmp, double[:, ::1] phase_local_jac_tmp,
+                               double[:, ::1] mass_hess_tmp,
                                CompositionSet compset, int num_statevars, double[::1] chemical_potentials,
-                               double[::1] phase_dof) nogil:
+                               double[::1] phase_dof) noexcept nogil:
     "Compute the LHS of Eq. 41, Sundman 2015."
     cdef int comp_idx, i, j
     cdef int num_components = chemical_potentials.shape[0]
@@ -88,6 +90,17 @@ cdef void compute_phase_matrix(double[:,::1] phase_matrix, double[:,::1] hess,
     for i in range(compset.phase_record.phase_dof):
         for j in range(compset.phase_record.phase_dof):
             phase_matrix[i, j] = hess[num_statevars+i, num_statevars+j]
+
+    # Special case for ionic liquids where P/Q make the moles non-linear in the
+    # site fractions. Eq. 37 of Sundman only does a Taylor expansion of G, but for this
+    # model we should also linearize the $\partial M / \partial y$ term by an expansion.
+    # This introduces chemical potentials into the phase matrix and we use the ones
+    # from the previous iteration.
+    for comp_idx in range(num_components):
+        compset.phase_record.formulamole_hess(mass_hess_tmp, phase_dof, comp_idx)
+        for i in range(compset.phase_record.phase_dof):
+            for j in range(compset.phase_record.phase_dof):
+                phase_matrix[i, j] -= chemical_potentials[comp_idx] * mass_hess_tmp[num_statevars+i, num_statevars+j]
 
     for i in range(compset.phase_record.num_internal_cons):
         for j in range(compset.phase_record.phase_dof):
@@ -234,7 +247,7 @@ cdef void fill_equilibrium_system(double[::1,:] equilibrium_matrix, double[::1] 
     cdef int num_stable_phases = state.free_stable_compset_indices.shape[0]
     cdef int num_fixed_phases = spec.fixed_stable_compset_indices.shape[0]
     cdef int num_fixed_mole_fraction_conditions = spec.prescribed_mole_fraction_rhs.shape[0]
-    cdef double prefactor
+    cdef double prefactor, component_residual, system_residual
 
     for stable_idx in range(state.free_stable_compset_indices.shape[0]):
         idx = state.free_stable_compset_indices[stable_idx]
@@ -323,7 +336,10 @@ cdef void fill_equilibrium_system(double[::1,:] equilibrium_matrix, double[::1] 
     component_row_offset = num_stable_phases + num_fixed_phases
     system_amount_index = component_row_offset + num_fixed_mole_fraction_conditions
     for fixed_molefrac_cond_idx in range(num_fixed_mole_fraction_conditions):
-        component_residual = np.dot(spec.prescribed_mole_fraction_coefficients[fixed_molefrac_cond_idx, :], state.mole_fractions) - spec.prescribed_mole_fraction_rhs[fixed_molefrac_cond_idx]
+        component_residual = 0.0
+        for comp_idx in range(spec.prescribed_mole_fraction_coefficients.shape[1]):
+            component_residual += spec.prescribed_mole_fraction_coefficients[fixed_molefrac_cond_idx, comp_idx] * state.mole_fractions[comp_idx]
+        component_residual -= spec.prescribed_mole_fraction_rhs[fixed_molefrac_cond_idx]
         equilibrium_rhs[component_row_offset + fixed_molefrac_cond_idx] -= component_residual
     system_residual = state.system_amount - spec.prescribed_system_amount
     equilibrium_rhs[system_amount_index] -= system_residual
@@ -334,7 +350,7 @@ cdef class SystemSpecification:
                    double[::1] initial_chemical_potentials, double[:, ::1] prescribed_mole_fraction_coefficients,
                    double[::1] prescribed_mole_fraction_rhs, int[::1] free_chemical_potential_indices,
                    int[::1] free_statevar_indices, int[::1] fixed_chemical_potential_indices,
-                   int[::1] fixed_statevar_indices, int[::1] fixed_stable_compset_indices):
+                   int[::1] fixed_statevar_indices, int[::1] fixed_stable_compset_indices, bint debugging_output=False):
         self.num_statevars = num_statevars
         self.num_components = num_components
         self.prescribed_system_amount = prescribed_system_amount
@@ -347,18 +363,32 @@ cdef class SystemSpecification:
         self.fixed_statevar_indices = fixed_statevar_indices
         self.fixed_stable_compset_indices = fixed_stable_compset_indices
         self.max_num_free_stable_phases = num_components + len(free_statevar_indices) - len(fixed_stable_compset_indices)
+        self.debugging_output = debugging_output
 
-        # Assuming the prescribed_mole_fraction_rhs doesn't change, this is
-        # constant and we can keep extra computation (especially calls into
-        # NumPy out of the run loop)
-        if self.prescribed_mole_fraction_rhs.shape[0] > 0:
-            # With linear combinations of conditions, RHS can now be exactly zero
-            # This means the smallest allowed mass residual needs to be limited to prevent instability
-            self.ALLOWED_MASS_RESIDUAL = max(1e-12, min(1e-8, np.min(np.abs(self.prescribed_mole_fraction_rhs))/10.0))
-            # Also adjust mass residual if we are near the edge of composition space
-            self.ALLOWED_MASS_RESIDUAL = min(self.ALLOWED_MASS_RESIDUAL, (1-np.sum(np.abs(self.prescribed_mole_fraction_rhs)))/10.0)
-        else:
-            self.ALLOWED_MASS_RESIDUAL = 1e-8
+        # The prescribed mole fraction conditions, together with the
+        # normalization condition (mole fractions sum to one), may uniquely
+        # determine the mole fractions of some components. Convergence of the
+        # composition residuals (check_convergence) tests each determined
+        # component against its unique value. Prescribed rows involving any
+        # undetermined component are not covered by those tests and are
+        # checked directly as row residuals.
+        num_conditions = self.prescribed_mole_fraction_rhs.shape[0]
+        condition_matrix = np.empty((num_conditions + 1, num_components))
+        condition_matrix[:num_conditions, :] = self.prescribed_mole_fraction_coefficients
+        condition_matrix[num_conditions, :] = 1.0
+        condition_rhs = np.empty(num_conditions + 1)
+        condition_rhs[:num_conditions] = self.prescribed_mole_fraction_rhs
+        condition_rhs[num_conditions] = 1.0
+        u, singular_values, vt = np.linalg.svd(condition_matrix)
+        rank = int(np.sum(singular_values > max(condition_matrix.shape) * np.finfo(np.float64).eps * singular_values[0]))
+        # Minimum-norm least-squares solution of the conditions; unique for determined components
+        target_mole_fractions = vt[:rank].T @ ((u[:, :rank].T @ condition_rhs) / singular_values[:rank])
+        # A component is determined iff no null space direction of the conditions can change it
+        determined_components = ~np.any(np.abs(vt[rank:]) > 1e-10, axis=0)
+        self.determined_component_indices = np.array(np.nonzero(determined_components)[0], dtype=np.int32)
+        self.determined_component_mole_fractions = target_mole_fractions[np.nonzero(determined_components)[0]]
+        undetermined_coefficients = np.array(self.prescribed_mole_fraction_coefficients)[:, ~determined_components]
+        self.undetermined_condition_row_indices = np.array(np.nonzero(np.any(np.abs(undetermined_coefficients) > 1e-14, axis=1))[0], dtype=np.int32)
 
     def __getstate__(self):
         return (self.num_statevars, self.num_components, self.prescribed_system_amount,
@@ -372,13 +402,56 @@ cdef class SystemSpecification:
     cpdef bint check_convergence(self, SystemState state):
         # convergence criteria
         cdef double ALLOWED_DELTA_Y = 5e-09
-        cdef double ALLOWED_DELTA_PHASE_AMT = 1e-10
+        cdef double ALLOWED_DELTA_PHASE_AMT = 1e-8
         cdef double ALLOWED_DELTA_STATEVAR = 1e-5  # changes defined as percent change
-        cdef bint solution_is_feasible = (
+        cdef double MASS_RESIDUAL_RTOL = 1e-6
+        cdef double MASS_RESIDUAL_ATOL = 1e-11
+        cdef int i, comp_idx, row_idx
+        cdef double target, residual, scale
+        cdef bint mass_residuals_converged = True
+        cdef bint solution_is_feasible
+        # Determined components are checked against their unique prescribed values
+        for i in range(self.determined_component_indices.shape[0]):
+            comp_idx = self.determined_component_indices[i]
+            target = self.determined_component_mole_fractions[i]
+            mass_residuals_converged = mass_residuals_converged and (
+                abs(state.mole_fractions[comp_idx] - target) < MASS_RESIDUAL_RTOL * abs(target) + MASS_RESIDUAL_ATOL)
+        # Prescribed rows involving undetermined components are checked as row
+        # residuals, relative to the magnitudes of the terms in the linear combination
+        for i in range(self.undetermined_condition_row_indices.shape[0]):
+            row_idx = self.undetermined_condition_row_indices[i]
+            residual = -self.prescribed_mole_fraction_rhs[row_idx]
+            scale = 0.0
+            for comp_idx in range(self.num_components):
+                residual += self.prescribed_mole_fraction_coefficients[row_idx, comp_idx] * state.mole_fractions[comp_idx]
+                scale += abs(self.prescribed_mole_fraction_coefficients[row_idx, comp_idx] * state.mole_fractions[comp_idx])
+            mass_residuals_converged = mass_residuals_converged and (
+                abs(residual) < MASS_RESIDUAL_RTOL * scale + MASS_RESIDUAL_ATOL)
+        if self.debugging_output:
+            # Recomputed with NumPy here so the converged path stays free of debugging work
+            mole_fractions = np.asarray(state.mole_fractions)
+            determined_indices = np.asarray(self.determined_component_indices)
+            determined_targets = np.asarray(self.determined_component_mole_fractions)
+            determined_residuals = np.abs(mole_fractions[determined_indices] - determined_targets)
+            determined_passing = determined_residuals < MASS_RESIDUAL_RTOL * np.abs(determined_targets) + MASS_RESIDUAL_ATOL
+            undetermined_indices = np.asarray(self.undetermined_condition_row_indices)
+            undetermined_coefficients = np.asarray(self.prescribed_mole_fraction_coefficients)[undetermined_indices]
+            undetermined_residuals = np.abs(undetermined_coefficients @ mole_fractions - np.asarray(self.prescribed_mole_fraction_rhs)[undetermined_indices])
+            undetermined_scales = np.abs(undetermined_coefficients * mole_fractions).sum(axis=1)
+            undetermined_passing = undetermined_residuals < MASS_RESIDUAL_RTOL * undetermined_scales + MASS_RESIDUAL_ATOL
+            print(
+                f"state.largest_phase_amt_change[0]  ={state.largest_phase_amt_change[0]} (passing={state.largest_phase_amt_change[0] < ALLOWED_DELTA_PHASE_AMT})\n" \
+                f"state.largest_y_change[0]          ={state.largest_y_change[0]} (passing={state.largest_y_change[0] < ALLOWED_DELTA_Y})\n" \
+                f"state.largest_statevar_change[0]   ={state.largest_statevar_change[0]} (passing={state.largest_statevar_change[0] < ALLOWED_DELTA_STATEVAR})\n" \
+                f"determined component residuals     ={determined_residuals} (components={determined_indices}, passing={determined_passing})\n" \
+                f"undetermined condition residuals   ={undetermined_residuals} (rows={undetermined_indices}, passing={undetermined_passing})"
+                )
+
+        solution_is_feasible = (
             (state.largest_phase_amt_change[0] < ALLOWED_DELTA_PHASE_AMT) and
             (state.largest_y_change[0] < ALLOWED_DELTA_Y) and
             (state.largest_statevar_change[0] < ALLOWED_DELTA_STATEVAR) and
-            (state.mass_residual < self.ALLOWED_MASS_RESIDUAL)
+            mass_residuals_converged
         )
         if solution_is_feasible and (state.iterations_since_last_phase_change >= 10):
             return True
@@ -394,10 +467,15 @@ cdef class SystemSpecification:
     cpdef bint run_loop(self, SystemState state, int max_iterations):
         cdef double step_size = 1.0
         cdef double target_step_size = 1.0
+        cdef double step_size_inital
+        cdef double[::1] eq_soln
         cdef bint converged = False
         cdef bint phases_changed = False
         cdef size_t iteration
         for iteration in range(max_iterations):
+            if self.debugging_output:
+                print(f"---------------")
+                print(f"iteration {iteration+1}")
             state.iteration = iteration
             if not self.pre_solve_hook(state):
                 break
@@ -432,8 +510,9 @@ cdef class SystemSpecification:
         return SystemState(self, compsets)
 
 cdef class CompsetState:
-    cdef double[::1] x
+    cdef double[::1] trial_x_tmp
     cdef double energy
+    cdef double[::1] energy_view
     cdef double[::1] grad
     cdef double[:,::1] hess
     cdef double[:,::1] masses
@@ -451,9 +530,13 @@ cdef class CompsetState:
     cdef int[::1] ipiv
     cdef double[:, ::1] cons_jac_tmp
     cdef double[:, ::1] phase_local_jac_tmp
+    cdef double[:, ::1] mass_hess_tmp
+
+    def __cinit__(self, *args, **kwargs):
+        self.energy_view = <double[:1]>&self.energy
 
     def __init__(self, SystemSpecification spec, CompositionSet compset):
-        self.x = np.zeros(spec.num_statevars + compset.phase_record.phase_dof)
+        self.trial_x_tmp = np.zeros(spec.num_statevars + compset.phase_record.phase_dof)
         self.energy = 0
         self.grad = np.zeros(spec.num_statevars + compset.phase_record.phase_dof)
         self.hess = np.zeros((spec.num_statevars + compset.phase_record.phase_dof,
@@ -476,15 +559,17 @@ cdef class CompsetState:
         self.delta_y = np.zeros(compset.phase_record.phase_dof)
         self.cons_jac_tmp = np.zeros((compset.phase_record.num_internal_cons, spec.num_statevars + compset.phase_record.phase_dof))
         self.phase_local_jac_tmp = np.zeros((compset.num_phase_local_conditions, spec.num_statevars + compset.phase_record.phase_dof))
+        self.mass_hess_tmp = np.zeros((spec.num_statevars + compset.phase_record.phase_dof,
+                                       spec.num_statevars + compset.phase_record.phase_dof))
 
     def __getstate__(self):
-        return (np.array(self.x), self.energy, np.array(self.grad), np.array(self.hess),
+        return (np.array(self.trial_x_tmp), self.energy, np.array(self.grad), np.array(self.hess),
                 np.array(self.phase_matrix), np.array(self.full_e_matrix),
                 np.array(self.masses), np.array(self.mass_jac), np.array(self.c_G), np.array(self.c_statevars),
                 np.array(self.c_component), self.moles_normalization, np.array(self.internal_cons), np.array(self.moles_normalization_grad),
                 np.array(self.fixed_phase_dof_indices, dtype=np.int32), np.array(self.ipiv, dtype=np.int32))
     def __setstate__(self, state):
-        (self.x, self.energy, self.grad, self.hess, self.phase_matrix, self.full_e_matrix,
+        (self.trial_x_tmp, self.energy, self.grad, self.hess, self.phase_matrix, self.full_e_matrix,
          self.masses, self.mass_jac, self.c_G, self.c_statevars,
          self.c_component, self.moles_normalization, self.internal_cons, self.moles_normalization_grad, self.fixed_phase_dof_indices,
          self.ipiv) = state
@@ -494,6 +579,8 @@ cdef class SystemState:
     def __init__(self, SystemSpecification spec, list compsets):
         cdef CompositionSet compset
         cdef int idx, comp_idx
+        cdef int max_num_dof = 0
+        cdef double[::1] x
         self.compsets = compsets
         cdef double phase_comp_sum
         for compset in compsets:
@@ -502,12 +589,17 @@ cdef class SystemState:
             compset = compsets[idx]
             compset.fixed = True
         self.cs_states = [CompsetState(spec, compset) for compset in compsets]
-        self.dof = [np.array(compset.dof) for compset in compsets]
+        for compset in compsets:
+            max_num_dof = max(max_num_dof, compset.dof.shape[0])
+        self.dof = np.zeros((len(compsets), max_num_dof))
+        for idx in range(len(compsets)):
+            compset = compsets[idx]
+            self.dof[idx, :compset.dof.shape[0]] = compset.dof
         self.iteration = 0
         self.iterations_since_last_phase_change = 0
         self.metastable_phase_iterations = np.zeros(len(compsets), dtype=np.int32)
         self.times_compset_removed = np.zeros(len(compsets), dtype=np.int32)
-        self.mass_residual = 1e10
+        self._compset_removal_flags = np.zeros(len(compsets), dtype=np.int32)
         # Phase fractions need to be converted to moles of formula
         self.phase_amt = np.array([compset.NP for compset in compsets])
         self.chemical_potentials = np.zeros(spec.num_components)
@@ -530,7 +622,7 @@ cdef class SystemState:
         cdef double[:, ::1] masses_tmp = np.zeros((spec.num_components, 1))
         for idx in range(self.phase_amt.shape[0]):
             compset = self.compsets[idx]
-            x = self.dof[idx]
+            x = self.dof[idx, :compset.dof.shape[0]]
             phase_comp_sum = 0.0
             for comp_idx in range(spec.num_components):
                 compset.phase_record.formulamole_obj(masses_tmp[comp_idx, :], x, comp_idx)
@@ -541,18 +633,19 @@ cdef class SystemState:
             self.phase_amt[idx] /= phase_comp_sum
 
     def __getstate__(self):
-        return (self.compsets, self.cs_states, self.dof, self.iteration, self.iterations_since_last_phase_change,
-                self.metastable_phase_iterations, self.times_compset_removed, self.mass_residual,
+        return (self.compsets, self.cs_states, np.asarray(self.dof), self.iteration, self.iterations_since_last_phase_change,
+                self.metastable_phase_iterations, self.times_compset_removed,
                 np.array(self.phase_amt), np.array(self.chemical_potentials), np.array(self.previous_chemical_potentials),
                 np.array(self.delta_ms), np.array(self.phase_compositions), self.largest_chemical_potential_difference,
                 self.largest_statevar_change[0], self.largest_phase_amt_change[0], self.largest_y_change[0],
                 np.array(self.free_stable_compset_indices), self.system_amount, np.array(self.mole_fractions))
     def __setstate__(self, state):
         (self.compsets, self.cs_states, self.dof, self.iteration, self.iterations_since_last_phase_change,
-         self.metastable_phase_iterations, self.times_compset_removed, self.mass_residual,
+         self.metastable_phase_iterations, self.times_compset_removed,
          self.phase_amt, self.chemical_potentials, self.previous_chemical_potentials,
          self.delta_ms, self.phase_compositions, self.largest_chemical_potential_difference, self.largest_statevar_change[0],
          self.largest_phase_amt_change[0], self.largest_y_change[0], self.free_stable_compset_indices, self.system_amount, self.mole_fractions) = state
+        self._compset_removal_flags = np.zeros(len(self.compsets), dtype=np.int32)
 
     @cython.boundscheck(False)
     cpdef void recompute(self, SystemSpecification spec):
@@ -560,7 +653,7 @@ cdef class SystemState:
         cdef CompositionSet compset
         cdef CompsetState csst
         cdef double[::1] x
-        cdef int idx, comp_idx, cons_idx, i, j, stable_idx, fixed_idx, fixed_molefrac_cond_idx, num_phase_dof
+        cdef int idx, comp_idx, cons_idx, i, j, stable_idx, fixed_idx, num_phase_dof
         cdef double mu_c_sum
         cdef double phase_comp_sum
         self.mole_fractions[:] = 0
@@ -568,8 +661,8 @@ cdef class SystemState:
         self.system_amount = 0
         # Compute normalized global quantities
         for idx in range(len(self.compsets)):
-            x = self.dof[idx]
             compset = self.compsets[idx]
+            x = self.dof[idx, :compset.dof.shape[0]]
             csst = self.cs_states[idx]
             csst.masses[:,:] = 0
             for comp_idx in range(num_components):
@@ -581,16 +674,11 @@ cdef class SystemState:
         for comp_idx in range(self.mole_fractions.shape[0]):
             self.mole_fractions[comp_idx] /= self.system_amount
 
-        self.mass_residual = 0.0
-        for fixed_molefrac_cond_idx in range(spec.prescribed_mole_fraction_rhs.shape[0]):
-            self.mass_residual += abs(np.dot(spec.prescribed_mole_fraction_coefficients[fixed_molefrac_cond_idx,:], self.mole_fractions) - spec.prescribed_mole_fraction_rhs[fixed_molefrac_cond_idx])
-
         for idx in range(len(self.compsets)):
             compset = self.compsets[idx]
             csst = self.cs_states[idx]
-            # TODO: Use better dof storage
             # Calculate key phase quantities starting here
-            x = self.dof[idx]
+            x = self.dof[idx, :compset.dof.shape[0]]
             phase_comp_sum = 0.0
             for comp_idx in range(num_components):
                 phase_comp_sum += self.phase_compositions[idx, comp_idx]
@@ -603,14 +691,14 @@ cdef class SystemState:
             csst.hess[:,:] = 0
             csst.grad[:] = 0
 
-            compset.phase_record.formulaobj(<double[:1]>&csst.energy, x)
+            compset.phase_record.formulaobj(csst.energy_view, x)
             for comp_idx in range(num_components):
                 compset.phase_record.formulamole_grad(csst.mass_jac[comp_idx, :], x, comp_idx)
             compset.phase_record.formulahess(csst.hess, x)
             compset.phase_record.formulagrad(csst.grad, x)
             compset.phase_record.internal_cons_func(csst.internal_cons, x)
 
-            compute_phase_matrix(csst.phase_matrix, csst.hess, csst.cons_jac_tmp, csst.phase_local_jac_tmp, compset, spec.num_statevars, self.chemical_potentials, x)
+            compute_phase_matrix(csst.phase_matrix, csst.hess, csst.cons_jac_tmp, csst.phase_local_jac_tmp, csst.mass_hess_tmp, compset, spec.num_statevars, self.chemical_potentials, x)
             # Copy the phase matrix into the e matrix and invert the e matrix
             for i in range(csst.full_e_matrix.shape[0]):
                 for j in range(csst.full_e_matrix.shape[1]):
@@ -654,7 +742,7 @@ cdef class SystemState:
         self._driving_forces[:] = 0
         for idx in range(len(self.compsets)):
             compset = self.compsets[idx]
-            x = self.dof[idx]
+            x = self.dof[idx, :compset.dof.shape[0]]
             for comp_idx in range(num_components):
                 compset.phase_record.mass_obj(self._phase_amounts_per_mole_atoms[idx, comp_idx, :], x, comp_idx)
                 self._driving_forces[idx] += self.chemical_potentials[comp_idx] * self._phase_amounts_per_mole_atoms[idx, comp_idx, 0]
@@ -664,15 +752,20 @@ cdef class SystemState:
 
     cdef void increment_phase_metastability_counters(self):
         cdef int idx
+        cdef int i
+        cdef bint stable
         for idx in range(len(self.compsets)):
-            if idx in self.free_stable_compset_indices or self.compsets[idx].fixed:
+            stable = False
+            for i in range(self.free_stable_compset_indices.shape[0]):
+                if self.free_stable_compset_indices[i] == idx:
+                    stable = True
+                    break
+            if stable or self.compsets[idx].fixed:
                 self.metastable_phase_iterations[idx] = 0
             else:
                 self.metastable_phase_iterations[idx] += 1
 
-cpdef construct_equilibrium_system(SystemSpecification spec, SystemState state, int num_reserved_rows) except *:
-    cdef double[::1,:] equilibrium_matrix  # Fortran ordering required by call into lapack
-    cdef double[::1] equilibrium_soln
+cdef int equilibrium_system_size(SystemSpecification spec, SystemState state, int num_reserved_rows) except -1:
     cdef int num_stable_phases, num_fixed_phases, num_fixed_mole_fraction_conditions, num_free_variables
 
     num_stable_phases = state.free_stable_compset_indices.shape[0]
@@ -680,14 +773,34 @@ cpdef construct_equilibrium_system(SystemSpecification spec, SystemState state, 
     num_fixed_mole_fraction_conditions = spec.prescribed_mole_fraction_rhs.shape[0]
     num_free_variables = spec.free_chemical_potential_indices.shape[0] + num_stable_phases + \
                          spec.free_statevar_indices.shape[0]
-
-    equilibrium_matrix = np.zeros((num_stable_phases + num_fixed_phases + num_fixed_mole_fraction_conditions + num_reserved_rows + 1,
-                                   num_free_variables), order='F')
-    equilibrium_rhs = np.zeros(equilibrium_matrix.shape[0])
-    if (equilibrium_matrix.shape[0] != equilibrium_matrix.shape[1]):
+    if num_stable_phases + num_fixed_phases + num_fixed_mole_fraction_conditions + num_reserved_rows + 1 != num_free_variables:
         raise ValueError('Conditions do not obey Gibbs Phase Rule')
+    return num_free_variables
+
+cpdef construct_equilibrium_system(SystemSpecification spec, SystemState state, int num_reserved_rows) except *:
+    cdef int size = equilibrium_system_size(spec, state, num_reserved_rows)
+    equilibrium_matrix = np.zeros((size, size), order='F')  # Fortran ordering required by call into lapack
+    equilibrium_rhs = np.zeros(size)
     fill_equilibrium_system(equilibrium_matrix, equilibrium_rhs, spec, state)
-    return np.asarray(equilibrium_matrix), np.asarray(equilibrium_rhs)
+    return equilibrium_matrix, equilibrium_rhs
+
+cdef void phase_amount_differentials_to_atoms(SystemSpecification spec, SystemState state,
+                                               double[::1] delta_chemical_potentials,
+                                               double[::1] delta_statevars, double[::1] delta_phase_amounts):
+    # The equilibrium system is solved for changes in SystemState.phase_amt (moles of formula units);
+    # convert them to changes in CompositionSet.NP (moles of atoms). With M the moles of atoms per
+    # formula unit, NP = phase_amt * M, so dNP = d(phase_amt) * M + phase_amt * dM.
+    cdef CompsetState csst
+    cdef double[::1] delta_y
+    cdef double delta_moles
+    cdef int idx, i
+    for idx in range(len(state.compsets)):
+        csst = state.cs_states[idx]
+        delta_y = site_fraction_differential(csst, delta_chemical_potentials, delta_statevars)
+        delta_moles = 0
+        for i in range(delta_y.shape[0]):
+            delta_moles += csst.moles_normalization_grad[spec.num_statevars + i] * delta_y[i]
+        delta_phase_amounts[idx] = delta_phase_amounts[idx] * csst.moles_normalization + state.phase_amt[idx] * delta_moles
 
 cpdef state_variable_differential(SystemSpecification spec, SystemState state, int target_statevar_index):
     # Sundman et al 2015, Eq. 74
@@ -721,6 +834,7 @@ cpdef state_variable_differential(SystemSpecification spec, SystemState state, i
             statevar_idx = spec.free_statevar_indices[i]
             delta_statevars[statevar_idx] = equilibrium_soln[spec.free_chemical_potential_indices.shape[0] +
                                                              state.free_stable_compset_indices.shape[0] + i]
+        phase_amount_differentials_to_atoms(spec, state, delta_chemical_potentials, delta_statevars, delta_phase_amounts)
         return np.asarray(delta_chemical_potentials), np.asarray(delta_statevars), np.asarray(delta_phase_amounts)
     finally:
         spec.fixed_statevar_indices = orig_fixed_statevar_indices
@@ -769,6 +883,7 @@ cpdef fixed_component_differential(SystemSpecification spec, SystemState state, 
         statevar_idx = spec.free_statevar_indices[i]
         delta_statevars[statevar_idx] = equilibrium_soln[spec.free_chemical_potential_indices.shape[0] +
                                                             state.free_stable_compset_indices.shape[0] + i]
+    phase_amount_differentials_to_atoms(spec, state, delta_chemical_potentials, delta_statevars, delta_phase_amounts)
     return np.asarray(delta_chemical_potentials), np.asarray(delta_statevars), np.asarray(delta_phase_amounts)
 
 cpdef chemical_potential_differential(SystemSpecification spec, SystemState state, int target_component_index):
@@ -797,7 +912,7 @@ cpdef chemical_potential_differential(SystemSpecification spec, SystemState stat
     try:
         equilibrium_matrix, equilibrium_soln = construct_equilibrium_system(spec, state, 1)
         equilibrium_soln[:] = 0
-        equilibrium_matrix[-1, target_component_index] = 1
+        equilibrium_matrix[-1, spec.free_chemical_potential_indices.shape[0] - 1] = 1
         equilibrium_soln[-1] = 1
         lstsq_check_infeasible(equilibrium_matrix, equilibrium_soln, equilibrium_soln)
         for i in range(spec.free_chemical_potential_indices.shape[0]):
@@ -810,6 +925,7 @@ cpdef chemical_potential_differential(SystemSpecification spec, SystemState stat
             statevar_idx = spec.free_statevar_indices[i]
             delta_statevars[statevar_idx] = equilibrium_soln[spec.free_chemical_potential_indices.shape[0] +
                                                              state.free_stable_compset_indices.shape[0] + i]
+        phase_amount_differentials_to_atoms(spec, state, delta_chemical_potentials, delta_statevars, delta_phase_amounts)
         return np.asarray(delta_chemical_potentials), np.asarray(delta_statevars), np.asarray(delta_phase_amounts)
     finally:
         spec.fixed_chemical_potential_indices = orig_fixed_chemical_potential_indices
@@ -827,18 +943,45 @@ cpdef site_fraction_differential(CompsetState csst, double[::1] delta_chempots, 
             delta_y[i] += csst.c_component[chempot_idx, i] * delta_chempots[chempot_idx]
     return np.asarray(delta_y)
 
-cpdef solve_state(SystemSpecification spec, SystemState state):
+cpdef double[::1] solve_state(SystemSpecification spec, SystemState state):
     cdef double[::1,:] equilibrium_matrix  # Fortran ordering required by call into lapack
     cdef double[::1] equilibrium_soln
-    cdef int chempot_idx, comp_idx
+    cdef int chempot_idx, comp_idx, i, cs_idx, size
+    cdef CompsetState csst
 
     state.previous_chemical_potentials[:] = state.chemical_potentials[:]
     state.recompute(spec)
 
-    equilibrium_matrix, equilibrium_soln = construct_equilibrium_system(spec, state, 0)
+    if spec.debugging_output:
+        for i in range(state.free_stable_compset_indices.shape[0]):
+            cs_idx = state.free_stable_compset_indices[i]
+            csst = state.cs_states[cs_idx]
+            print(state.compsets[cs_idx])
+            print(f"phase matrix:\n{np.asarray(csst.phase_matrix)}")
+            print(f"inv phase matrix:\n{np.asarray(csst.full_e_matrix)}")
+
+
+    size = equilibrium_system_size(spec, state, 0)
+    if state._equilibrium_size != size:
+        state._equilibrium_matrix = np.zeros((size, size), order='F')
+        state._equilibrium_rhs = np.zeros(size)
+        state._equilibrium_size = size
+    else:
+        state._equilibrium_matrix[:, :] = 0
+        state._equilibrium_rhs[:] = 0
+    equilibrium_matrix = state._equilibrium_matrix
+    equilibrium_soln = state._equilibrium_rhs
+    fill_equilibrium_system(equilibrium_matrix, equilibrium_soln, spec, state)
+
+    if spec.debugging_output:
+        print(f"equilibrium matrix:\n{np.asarray(equilibrium_matrix)}")
+        print(f"equilibrium rhs: {np.asarray(equilibrium_soln)}")
 
     lstsq(&equilibrium_matrix[0,0], equilibrium_matrix.shape[0], equilibrium_matrix.shape[1],
           &equilibrium_soln[0], 1e-16)
+
+    if spec.debugging_output:
+        print(f"equilibrium solution: {np.asarray(equilibrium_soln)}")
 
     # set the chemical potentials from the solution
     for i in range(spec.free_chemical_potential_indices.shape[0]):
@@ -850,7 +993,7 @@ cpdef solve_state(SystemSpecification spec, SystemState state):
         comp_idx = spec.fixed_chemical_potential_indices[chempot_idx]
         state.chemical_potentials[comp_idx] = spec.initial_chemical_potentials[comp_idx]
 
-    state.largest_chemical_potential_difference = -np.inf
+    state.largest_chemical_potential_difference = -INFINITY
     for comp_idx in range(spec.num_components):
         state.largest_chemical_potential_difference = max(state.largest_chemical_potential_difference, abs(state.chemical_potentials[comp_idx] - state.previous_chemical_potentials[comp_idx]))
 
@@ -865,6 +1008,7 @@ cpdef advance_state(SystemSpecification spec, SystemState state, double[::1] equ
     cdef int i, idx, cons_idx, compset_idx, statevar_idx, chempot_idx
     cdef int soln_index_offset = spec.free_chemical_potential_indices.shape[0]  # Chemical potentials handled after solving
     cdef double[::1] new_y, x
+    cdef CompositionSet compset
     cdef CompsetState csst
 
     cdef double MIN_PHASE_AMOUNT = 1e-16
@@ -881,11 +1025,17 @@ cpdef advance_state(SystemSpecification spec, SystemState state, double[::1] equ
             # The largest allowable step size satisfies the equation: (NP + step_size * delta_NP = MIN_PHASE_AMOUNT)
             if abs(equilibrium_soln[soln_index_offset + i]) > MIN_PHASE_AMOUNT:
                 phase_amt_step_size = min(phase_amt_step_size, (MIN_PHASE_AMOUNT - state.phase_amt[compset_idx]) / equilibrium_soln[soln_index_offset + i])
+    # enforce a non-negative step size in case floating point precision near
+    # MIN_PHASE_AMOUNT causes phase_amt_step_size to be a negative step
+    phase_amt_step_size = max(phase_amt_step_size, 0.0)
     # Update the phase amounts using the largest allowable step size
     state.largest_phase_amt_change[0] = 0
     for i in range(state.free_stable_compset_indices.shape[0]):
         compset_idx = state.free_stable_compset_indices[i]
         state.phase_amt[compset_idx] += phase_amt_step_size * equilibrium_soln[soln_index_offset + i]
+        if state.phase_amt[compset_idx] < MIN_PHASE_AMOUNT:
+            # force non-zero, positive amounts to avoid divide by zero
+            state.phase_amt[compset_idx] = MIN_PHASE_AMOUNT
         state.largest_phase_amt_change[0] = max(state.largest_phase_amt_change[0], abs(phase_amt_step_size * equilibrium_soln[soln_index_offset + i]))
     soln_index_offset += state.free_stable_compset_indices.shape[0]
 
@@ -895,10 +1045,10 @@ cpdef advance_state(SystemSpecification spec, SystemState state, double[::1] equ
     for i in range(spec.free_statevar_indices.shape[0]):
         statevar_idx = spec.free_statevar_indices[i]
         state.delta_statevars[statevar_idx] = equilibrium_soln[soln_index_offset + i]
-        if state.dof[0][statevar_idx] == 0:
-            psc = np.inf
+        if state.dof[0, statevar_idx] == 0:
+            psc = INFINITY
         else:
-            psc = abs(state.delta_statevars[statevar_idx] / state.dof[0][statevar_idx])
+            psc = abs(state.delta_statevars[statevar_idx] / state.dof[0, statevar_idx])
         state.largest_statevar_change[0] = max(state.largest_statevar_change[0], psc)
     # Update state variables in the `x` array
     for idx in range(len(state.compsets)):
@@ -908,9 +1058,10 @@ cpdef advance_state(SystemSpecification spec, SystemState state, double[::1] equ
         # We need real state variable bounds support
 
     # 3. Step in phase internal degrees of freedom
+    state.largest_y_change[0] = 0.0
     for idx in range(len(state.compsets)):
-        # TODO: Use better dof storage
-        x = state.dof[idx]
+        compset = state.compsets[idx]
+        x = state.dof[idx, :compset.dof.shape[0]]
         csst = state.cs_states[idx]
 
         # Construct delta_y from Eq. 43 in Sundman 2015
@@ -925,7 +1076,8 @@ cpdef advance_state(SystemSpecification spec, SystemState state, double[::1] equ
             for cons_idx in range(csst.internal_cons.shape[0]):
                 csst.delta_y[i] -= csst.full_e_matrix[csst.delta_y.shape[0] + cons_idx, i] * csst.internal_cons[cons_idx]
 
-        new_y = np.array(x)
+        new_y = csst.trial_x_tmp
+        new_y[:] = x
         minimum_step_size = 1e-20 * step_size
         while step_size >= minimum_step_size:
             exceeded_bounds = False
@@ -946,9 +1098,10 @@ cpdef advance_state(SystemSpecification spec, SystemState state, double[::1] equ
                 step_size *= 0.5
                 continue
             break
-        state.largest_y_change[0] = 0.0
-        for i in range(spec.num_statevars, new_y.shape[0]):
-            state.largest_y_change[0] = max(state.largest_y_change[0], abs(x[i] - new_y[i]))
+        # Only allow stable or fixed phases can contribute to state.largest_y_change
+        if (state.phase_amt[idx] > 0) or compset.fixed:
+            for i in range(spec.num_statevars, new_y.shape[0]):
+                state.largest_y_change[0] = max(state.largest_y_change[0], abs(x[i] - new_y[i]))
         x[:] = new_y
 
 
@@ -962,18 +1115,22 @@ cdef bint remove_and_consolidate_phases(SystemSpecification spec, SystemState st
     cdef bint phases_changed = False
     cdef double composition_difference
     cdef double COMPSET_CONSOLIDATE_DISTANCE = 1e-4
+    # Flags (by compset index) of the composition sets to remove
+    cdef int[::1] to_remove = state._compset_removal_flags
+    cdef int num_to_remove = 0
 
-    compset_indices_to_remove = set()
+    to_remove[:] = 0
     for i in range(len(state.free_stable_compset_indices)):
         idx = state.free_stable_compset_indices[i]
         compset = state.compsets[idx]
         if compset.fixed:
             continue
-        if idx in compset_indices_to_remove:
+        if to_remove[idx]:
             continue
         # Remove unstable phases
         if state.phase_amt[idx] < 1e-10:
-            compset_indices_to_remove.add(idx)
+            to_remove[idx] = 1
+            num_to_remove += 1
             state.phase_amt[idx] = 0
             continue
         for j in range(len(state.free_stable_compset_indices)):
@@ -985,7 +1142,7 @@ cdef bint remove_and_consolidate_phases(SystemSpecification spec, SystemState st
                 continue
             if compset.phase_record.phase_name != compset2.phase_record.phase_name:
                 continue
-            if idx2 in compset_indices_to_remove:
+            if to_remove[idx2]:
                 continue
             # Detect if these compsets describe the same internal configuration inside a miscibility gap
             compsets_should_be_consolidated = True
@@ -997,13 +1154,14 @@ cdef bint remove_and_consolidate_phases(SystemSpecification spec, SystemState st
                     compsets_should_be_consolidated = False
                     break
             if compsets_should_be_consolidated:
-                compset_indices_to_remove.add(idx2)
+                to_remove[idx2] = 1
+                num_to_remove += 1
                 if idx not in spec.fixed_stable_compset_indices:
                     # ensure that the consolidated phase is stable
                     state.phase_amt[idx] = max(state.phase_amt[idx] + state.phase_amt[idx2], 1e-8)
                 state.phase_amt[idx2] = 0
-    if len(compset_indices_to_remove) > 0:
-        if len(compset_indices_to_remove) - len(state.free_stable_compset_indices) == 0:
+    if num_to_remove > 0:
+        if num_to_remove - len(state.free_stable_compset_indices) == 0:
             # Do not allow all phases to leave the system
             for phase_idx in state.free_stable_compset_indices:
                 state.phase_amt[phase_idx] = 1
@@ -1013,9 +1171,9 @@ cdef bint remove_and_consolidate_phases(SystemSpecification spec, SystemState st
                 comp_idx = spec.fixed_chemical_potential_indices[cp_idx]
                 state.chemical_potentials[comp_idx] = spec.initial_chemical_potentials[comp_idx]
         else:
-            state.free_stable_compset_indices = np.array(sorted(set(state.free_stable_compset_indices) - compset_indices_to_remove), dtype=np.int32)
-            for idx in compset_indices_to_remove:
-                state.times_compset_removed[idx] += 1
+            state.free_stable_compset_indices = np.array([idx for idx in state.free_stable_compset_indices if not to_remove[idx]], dtype=np.int32)
+            for idx in range(to_remove.shape[0]):
+                state.times_compset_removed[idx] += to_remove[idx]
             phases_changed = True
     return phases_changed
 

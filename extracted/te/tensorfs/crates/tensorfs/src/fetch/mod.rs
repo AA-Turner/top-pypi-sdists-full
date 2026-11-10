@@ -12,29 +12,31 @@ mod download;
 mod endpoint;
 mod net;
 mod origin;
-pub mod policy;
-pub mod token;
+pub(crate) mod policy;
+pub(crate) mod token;
 mod volume;
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use futures::stream::{FuturesUnordered, TryStreamExt};
+use futures_util::stream::{FuturesUnordered, TryStreamExt};
 
+pub(crate) use endpoint::streaming_writer;
 pub use endpoint::{upload_commit, Endpoint, Hardware, Payload, Resolved, Stream, UploadControl, Uploaded};
-pub use net::Client;
+pub use net::{http, pem_roots, Client, STALL};
 pub(crate) use net::GetError;
-pub use origin::{Location, Origin};
-pub use policy::SourcePolicy;
-pub use token::{bearer, SigV4, TokenProvider};
+pub use origin::{Boxed, Location, Origin};
+pub use policy::{is_loopback_origin, SourcePolicy};
+pub use token::{bearer, HeaderMap, Request, SigV4, TokenProvider};
 pub use volume::VolumeOrigin;
 
 use crate::err::{refuse, Code, Refusal, Result};
 use crate::format::{self, Header, ObjectRef, Tree};
-pub use ask::ATTEMPTS;
+pub use ask::{Backoff, ATTEMPTS};
 pub use download::{Fetching, Phase};
 use download::{Shared, Task};
 
@@ -48,12 +50,44 @@ pub async fn get_pinned(url: &str, from: u64, sink: &mut (dyn FnMut(u64, &[u8]) 
     get_body(policy, url, &[], from, sink).await
 }
 
+/// [`get_pinned`] into the file at `part`, from the bytes it holds (what an earlier fetch reached resumes), telling
+/// `moved` each byte position reached; answers the file and its sha256 for the caller to hold to its pin. Once nothing
+/// moves for the stall rule it is refused, its bytes kept for the next fetch. Another fetch of the same file holds it:
+/// this one is refused.
+pub async fn get_pinned_into(url: &str, part: &Path, moved: &mut (dyn FnMut(u64) + Send)) -> std::result::Result<(File, String), String> {
+    let failed = |e: std::io::Error| format!("{}: {e}", part.display());
+    let mut file = OpenOptions::new().create(true).truncate(false).read(true).write(true).open(part).map_err(failed)?;
+    if !platform::lock::try_claim(&file).map_err(|e| e.to_string())? {
+        return Err(format!("another cozy command is fetching {url} now; run this again once it has"));
+    }
+    let (from, mut at) = (file.metadata().map_err(failed)?.len(), 0);
+    moved(from);
+    let mut sink = |start: u64, frame: &[u8]| -> Result<()> {
+        let written = (|| {
+            if start != at {
+                file.set_len(start)?;
+                file.seek(SeekFrom::Start(start))?;
+            }
+            file.write_all(frame)
+        })();
+        written.map_err(|e| Refusal { code: Code::IO_FAILED, detail: failed(e) })?;
+        at = start + frame.len() as u64;
+        moved(at);
+        Ok(())
+    };
+    get_pinned(url, from, &mut sink).await.map_err(|e| e.to_string())?;
+    file.rewind().map_err(failed)?;
+    let mut hash = sha2::Sha256::default();
+    std::io::copy(&mut file, &mut hash).map_err(failed)?;
+    file.rewind().map_err(failed)?;
+    Ok((file, crate::sha256::hex(&sha2::Digest::finalize(hash))))
+}
+
 /// GET a link a person wrote into `sink`, for a caller that judges what it gets itself: http or https, a public
 /// address at every hop, 5 redirects at most, asked as [`get_pinned`] asks. Nothing makes it local.
 pub async fn get_link(url: &str, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
     let policy = SourcePolicy { any_host: true, plaintext: true, max_redirects: 5, ..Default::default() };
-    // Some hosts refuse a request that names no client.
-    get_body(policy, url, &[("user-agent".into(), "cozy".into())], 0, sink).await
+    get_body(policy, url, &[], 0, sink).await
 }
 
 async fn get_body(policy: SourcePolicy, url: &str, headers: &[(String, String)], from: u64, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
@@ -67,40 +101,9 @@ async fn get_body(policy: SourcePolicy, url: &str, headers: &[(String, String)],
     }
 }
 
-/// The store objects are admitted into (design §4).
-pub trait ObjectStore: Send + Sync + 'static {
-    /// Whether the store holds `object` (verified when it was admitted).
-    fn has(&self, object: &ObjectRef) -> bool;
-    /// A held object's bytes.
-    fn open(&self, object: &ObjectRef) -> std::io::Result<File>;
-    /// The one door for a fetch of `object`: its bytes at their offsets, then `commit`, which hashes them
-    /// and refuses anything but `object` (`OBJECT_ID_MISMATCH`). A fetch may be cut at any moment: what it
-    /// wrote stays for the next fetch of `object` ([`Admission::held`]).
-    fn admit(&self, object: &ObjectRef) -> Result<Box<dyn Admission>>;
-    /// Claims `object`'s download among everything sharing this store, until the claim drops. None:
-    /// another holds it now.
-    fn claim(&self, object: &ObjectRef) -> Option<Box<dyn Send + Sync>>;
-}
-
-/// One object on its way into a store.
-pub trait Admission: Send + Sync {
-    /// What an earlier fetch left: sorted, disjoint `[start, end)` stretches. `commit` judges them too.
-    fn held(&self) -> Vec<(u64, u64)>;
-    /// A writer of bytes at their offsets, one per request.
-    fn writer(&self) -> Result<Box<dyn RangeWrite>>;
-    fn commit(self: Box<Self>) -> Result<()>;
-    /// Ends it, nothing kept.
-    fn discard(self: Box<Self>);
-}
-
-/// Bytes of an object at their offsets.
-pub trait RangeWrite: Send {
-    fn write_at(&mut self, at: u64, bytes: &[u8]) -> Result<()>;
-}
-
 /// Where an object came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Tier {
+pub(crate) enum Tier {
     Local,
     Volume,
     Origin,
@@ -135,6 +138,7 @@ impl Landed {
     }
 }
 
+/// How a `Fetcher` runs: its budget of requests in flight.
 #[derive(Debug, Clone)]
 pub struct Config {
     /// The most requests in flight at once, across every object; the ramp reaches it while that pays.
@@ -190,11 +194,15 @@ pub struct Pulled {
     pub landed: Landed,
 }
 
+/// A fetcher's counts since it started: requests, retries, steals, bytes, statuses, volume writes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stats {
     pub requests: u64,
     pub retries: u64,
     pub steals: u64,
+    /// Bytes received from the origin, over the time any of them was arriving.
+    pub received: u64,
+    pub receiving: std::time::Duration,
     /// Answers that were not 2xx, by status.
     pub statuses: std::collections::BTreeMap<u16, u64>,
     pub volume_written: u64,
@@ -216,7 +224,7 @@ impl Drop for Fetcher {
 impl Fetcher {
     /// Fetches into `store` over `client`, reading `volume` first when one is given.
     pub fn new(
-        store: Arc<dyn ObjectStore>,
+        store: Arc<crate::store::Store>,
         client: Client,
         volume: Option<VolumeOrigin>,
         config: Config,
@@ -237,6 +245,8 @@ impl Fetcher {
             requests: counters.requests.load(Ordering::Relaxed),
             retries: counters.retries.load(Ordering::Relaxed),
             steals: counters.steals.load(Ordering::Relaxed),
+            received: counters.received.load(Ordering::Relaxed),
+            receiving: std::time::Duration::from_millis(counters.receiving_ms.load(Ordering::Relaxed)),
             statuses: counters.statuses.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone(),
             volume_written: counters.volume_written.load(Ordering::Relaxed),
             volume_skipped: counters.volume_skipped.load(Ordering::Relaxed),
@@ -250,12 +260,12 @@ impl Fetcher {
     }
 
     /// Resolves once nothing is queued, downloading or being written back to the volume.
-    pub async fn settled(&self) {
+    pub(crate) async fn settled(&self) {
         self.shared.settled().await
     }
 
     /// The commit `tree`: its repo files, and its header with the components `want` selects.
-    pub async fn pull_tree(&self, origin: &Arc<dyn Origin>, tree: &ObjectRef, want: &Want<'_>) -> Result<Pulled> {
+    pub(crate) async fn pull_tree(&self, origin: &Arc<dyn Origin>, tree: &ObjectRef, want: &Want<'_>) -> Result<Pulled> {
         let mut landed = self.objects(origin, std::slice::from_ref(tree), want).await?;
         let parsed = Tree::from_json(&self.read(tree).await?).map_err(|e| invalid(tree, e))?;
         let header = parsed.header().map_err(|e| invalid(tree, e))?.1.clone();
@@ -300,7 +310,7 @@ impl Fetcher {
             if let Some(progress) = want.progress {
                 progress.total.fetch_add(object.length, Ordering::Relaxed);
             }
-            match self.shared.store.has(object) {
+            match self.shared.store.reuse(object).unwrap_or(false) {
                 true => {
                     landed.add(Tier::Local, object.length, 0);
                     if let Some(progress) = want.progress {
@@ -342,7 +352,7 @@ impl Fetcher {
         let (store, object) = (Arc::clone(&self.shared.store), object.clone());
         let read = tokio::task::spawn_blocking(move || {
             let mut bytes = Vec::with_capacity(object.length as usize);
-            store.open(&object)?.read_to_end(&mut bytes).map(|_| bytes)
+            volume::open(&store, &object)?.read_to_end(&mut bytes).map(|_| bytes)
         });
         read.await
             .map_err(|error| Refusal {

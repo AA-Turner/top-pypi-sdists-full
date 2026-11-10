@@ -22,9 +22,9 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from .exclusions import should_exclude, EXCLUDED_TAGS
+from .exclusions import EXCLUDED_TAGS, should_exclude
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +114,15 @@ class ReverseIndex:
 
     def __init__(self,
                  gaap_mappings_path: Optional[str] = None,
-                 display_names_path: Optional[str] = None):
+                 display_names_path: Optional[str] = None,
+                 total_membership_path: Optional[str] = None):
         """
         Initialize the reverse index.
 
         Args:
             gaap_mappings_path: Path to gaap_mappings.json. If None, uses default.
             display_names_path: Path to display_names.json. If None, uses default.
+            total_membership_path: Path to total_membership.json. If None, uses default.
         """
         module_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -128,10 +130,19 @@ class ReverseIndex:
             gaap_mappings_path = os.path.join(module_dir, "gaap_mappings.json")
         if display_names_path is None:
             display_names_path = os.path.join(module_dir, "display_names.json")
+        if total_membership_path is None:
+            total_membership_path = os.path.join(module_dir, "total_membership.json")
 
         # Load the mappings
         self._gaap_mappings: Dict[str, dict] = self._load_json(gaap_mappings_path)
         self._display_names: Dict[str, str] = self._load_json(display_names_path)
+
+        # Closed membership of each total concept: the only index keys that may
+        # resolve to it (GH #1444).
+        self._total_members: Dict[str, frozenset] = {
+            concept: frozenset(keys)
+            for concept, keys in self._load_json(total_membership_path).get("totals", {}).items()
+        }
 
         # Extract and store metadata from new-format concept_mappings
         self._metadata: Optional[dict] = self._gaap_mappings.pop("_metadata", None)
@@ -139,7 +150,7 @@ class ReverseIndex:
         # Build embedded display names from entries (new format has display_name per entry)
         # Only use non-ambiguous entries or the primary (first) concept in ambiguous ones
         self._embedded_display_names: Dict[str, str] = {}
-        for tag, entry in self._gaap_mappings.items():
+        for entry in self._gaap_mappings.values():
             if isinstance(entry, dict) and entry.get("display_name"):
                 std_tags = entry.get("standard_tags", [])
                 if not entry.get("ambiguous") and len(std_tags) == 1:
@@ -196,7 +207,7 @@ class ReverseIndex:
         Normalize an XBRL tag to match index keys.
 
         Handles:
-        - Namespace prefixes (us-gaap:, us-gaap_, ifrs-full:, dei:)
+        - Namespace prefixes (us-gaap:, us-gaap_, srt:, srt_, ifrs-full:, dei:)
         - Case variations
 
         Args:
@@ -231,7 +242,9 @@ class ReverseIndex:
 
         # Strip namespace prefix if present
         normalized = tag
-        for prefix in ("us-gaap:", "us-gaap_", "dei:"):
+        # SRT shares no element name with us-gaap, so a bare srt key cannot answer
+        # for a different taxonomy's concept the way a bare IFRS one could.
+        for prefix in ("us-gaap:", "us-gaap_", "srt:", "srt_", "dei:"):
             if tag.startswith(prefix):
                 normalized = tag[len(prefix):]
                 break
@@ -324,33 +337,35 @@ class ReverseIndex:
             display_names.append(dn)
 
         # A tag that is not itself a total must not resolve to a TOTAL concept.
-        # The generated mappings assign fuzzy matches a Total* concept regardless
+        # The generated mappings assign fuzzy matches a total concept regardless
         # of what the tag means, and the consumer surfaced those as
         # authoritative: us-gaap:BankOwnedLifeInsurance resolved to "Total
         # Assets" at confidence 0.319, so a standardized balance sheet returned
         # several rows all claiming to be total assets and taking the first gave
         # $7.9B instead of $226.4B for Citizens Financial (edgartools-gnx5).
         #
-        # The test is `is_total is False`, not a confidence threshold. The
-        # confidence distribution is not bimodal over the whole index -- 1,504
-        # entries sit at exactly 0.5 and 564 at 0.4 -- so any threshold that
-        # caught the fuzzy matches would also discard about a third of the
-        # mappings. `is_total` says what the entry means, and it is exactly the
-        # signal needed: every canonical total (Assets, Liabilities,
-        # AssetsCurrent, ...) carries is_total=True at confidence 1.0, while the
-        # 48 bad entries carry is_total=False.
+        # A total concept listed in total_membership.json is closed: it is
+        # returned only for the keys listed under it (GH #1444). The older
+        # signals could not express that. `is_total` is a usage statistic, not a
+        # property of the element (LimitedPartnersCapitalAccount carries True
+        # and resolved to "Total Stockholders' Equity"), and only display names
+        # starting with "Total" were guarded, so "Net Cash from Operating
+        # Activities", "Revenue" and "Operating Income" took 94 parts between
+        # them. The list is applied after any industry override, so an override
+        # cannot reopen a total either.
         #
-        # A MISSING is_total is left alone rather than treated as False: those
-        # are the IFRS entries (ifrs-full:Assets -> "Total Assets"), which are
-        # correct totals that simply carry no such metadata.
-        if entry.get("is_total") is False:
-            kept = [
-                (tag, dn) for tag, dn in zip(standard_tags, display_names, strict=True)
-                if not _denotes_total(dn)
-            ]
+        # A total concept the list does not know keeps the earlier rule: an
+        # entry with is_total False does not resolve to a concept displayed
+        # "Total ...". A MISSING is_total is not treated as False: those are the
+        # ifrs-full_ entries, which carry no such metadata.
+        kept = [
+            (tag, dn) for tag, dn in zip(standard_tags, display_names, strict=True)
+            if self._may_resolve_to(normalized, entry, tag, dn)
+        ]
+        if len(kept) != len(standard_tags) or (not standard_tags and entry.get("is_total") is False):
             if not kept:
-                # Every candidate claimed to be a total and this tag is not one.
-                # No mapping is the right answer; a wrong total is worse than a
+                # Every candidate was a total this tag is not a member of. No
+                # mapping is the right answer; a wrong total is worse than a
                 # missing one, because a caller cannot tell it is wrong.
                 return None
             standard_tags = [tag for tag, _ in kept]
@@ -364,6 +379,13 @@ class ReverseIndex:
             deprecated_year=deprecated if deprecated else None,
             comment=comment,
         )
+
+    def _may_resolve_to(self, key: str, entry: dict, concept: str, display_name: str) -> bool:
+        """Whether the index entry `key` may resolve to `concept` (the total guard in lookup())."""
+        members = self._total_members.get(concept)
+        if members is not None:
+            return key in members
+        return not (entry.get("is_total") is False and _denotes_total(display_name))
 
     def get_standard_concept(
         self,
@@ -494,14 +516,30 @@ class ReverseIndex:
                         )
                         return candidate
 
-            # Phase 3+: Use tag name hints for current/noncurrent disambiguation
+            # The statement section, when the caller knows it, decides first.
+            # A ...CurrentAndNoncurrent element can sit in either section, so
+            # its name must not override where the filer actually put it (#1434).
+            # A role URI is not a section_membership key, so fall back to the
+            # untyped lookup instead of treating the section as unknown.
+            if section:
+                for candidate in candidates:
+                    candidate_section = (
+                        get_section_for_concept(candidate, statement_type)
+                        or get_section_for_concept(candidate)
+                    )
+                    if candidate_section and self._sections_match(section, candidate_section):
+                        return candidate
+
+            # Phase 3+: Use tag name hints for current/noncurrent disambiguation.
+            # 'nonoperating' is not 'noncurrent': OtherNonOperatingCurrentAssets is current.
             tag_lower = xbrl_tag.lower()
-            if any(hint in tag_lower for hint in ('noncurrent', 'longterm', 'long_term')):
+            unclassified = 'currentandnoncurrent' in tag_lower
+            if not unclassified and any(hint in tag_lower for hint in ('noncurrent', 'longterm', 'long_term')):
                 for candidate in candidates:
                     cl = candidate.lower()
-                    if 'noncurrent' in cl or 'nonoperating' in cl or 'longterm' in cl:
+                    if 'noncurrent' in cl or 'longterm' in cl:
                         return candidate
-            elif 'current' in tag_lower and 'noncurrent' not in tag_lower:
+            elif not unclassified and 'current' in tag_lower and 'noncurrent' not in tag_lower:
                 for candidate in candidates:
                     cl = candidate.lower()
                     if 'current' in cl and 'noncurrent' not in cl:
@@ -518,15 +556,25 @@ class ReverseIndex:
                 if candidate_section and self._sections_match(effective_section, candidate_section):
                     return candidate
 
-            # Secondary: check if section name is in concept name
+            # Secondary: check if section name is in concept name.
+            # 'non-current' contains 'current', so the noncurrent spellings
+            # have to be tested first. 'long-term' / 'longterm' are noncurrent.
             section_lower = effective_section.lower()
+            section_compact = section_lower.replace('-', '').replace(' ', '').replace('_', '')
+            section_is_noncurrent = (
+                'non-current' in section_lower
+                or 'noncurrent' in section_lower
+                or 'non current' in section_lower
+                or 'long-term' in section_lower
+                or 'longterm' in section_compact
+            )
             for candidate in candidates:
                 candidate_lower = candidate.lower()
-                if 'current' in section_lower and 'noncurrent' not in section_lower:
-                    if 'current' in candidate_lower and 'noncurrent' not in candidate_lower:
+                if section_is_noncurrent:
+                    if 'noncurrent' in candidate_lower or 'longterm' in candidate_lower:
                         return candidate
-                elif 'noncurrent' in section_lower or 'non-current' in section_lower:
-                    if 'noncurrent' in candidate_lower or 'nonoperating' in candidate_lower:
+                elif 'current' in section_lower:
+                    if 'current' in candidate_lower and 'noncurrent' not in candidate_lower:
                         return candidate
 
         except Exception as e:
@@ -547,12 +595,34 @@ class ReverseIndex:
         if ctx == cpt:
             return True
 
-        # Determine if sections are current vs non-current
-        ctx_is_current = 'current' in ctx and 'non' not in ctx.split('current')[0]
-        ctx_is_noncurrent = 'non current' in ctx or 'noncurrent' in ctx or ('non' in ctx and 'current' in ctx)
+        # Determine if sections are current vs non-current.
+        # 'long term' / 'longterm' name the noncurrent side. Hyphens and
+        # underscores are already spaces, so 'long-term' is 'long term'.
+        ctx_is_noncurrent = (
+            'non current' in ctx
+            or 'noncurrent' in ctx
+            or ('non' in ctx and 'current' in ctx)
+            or 'long term' in ctx
+            or 'longterm' in ctx.replace(' ', '')
+        )
+        ctx_is_current = (
+            'current' in ctx
+            and 'non' not in ctx.split('current')[0]
+            and not ctx_is_noncurrent
+        )
 
-        cpt_is_current = 'current' in cpt and 'non' not in cpt.split('current')[0]
-        cpt_is_noncurrent = 'non current' in cpt or 'noncurrent' in cpt or ('non' in cpt and 'current' in cpt)
+        cpt_is_noncurrent = (
+            'non current' in cpt
+            or 'noncurrent' in cpt
+            or ('non' in cpt and 'current' in cpt)
+            or 'long term' in cpt
+            or 'longterm' in cpt.replace(' ', '')
+        )
+        cpt_is_current = (
+            'current' in cpt
+            and 'non' not in cpt.split('current')[0]
+            and not cpt_is_noncurrent
+        )
 
         # Current vs Non-Current must match
         if ctx_is_current != cpt_is_current:
@@ -649,7 +719,7 @@ class ReverseIndex:
         if result is None:
             return []
 
-        return list(zip(result.standard_concepts, result.display_names))
+        return list(zip(result.standard_concepts, result.display_names, strict=True))
 
     def concept_to_display_name(self, standard_concept: str) -> str:
         """

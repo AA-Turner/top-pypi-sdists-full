@@ -1,6 +1,6 @@
 """Memoized Model methods, executor side (tracker #298, design pipeline-memoization.md).
 
-One general mechanism: every method marked `@uses_components(..., memoize=True)` takes this
+One general mechanism: every method marked `@memoize` takes this
 path, and nothing here names a package, model or component. The key binds the method's code
 and declared helpers, the installation (third-party versions, the Runtime and TensorFS builds),
 the weights of the components it declares, the checkpoint's non-tensor assets, the call's
@@ -37,22 +37,13 @@ from typing import TYPE_CHECKING, Protocol, cast
 import msgspec
 import numpy as np
 from PIL import Image
+from tensorfs.executor import Answer, MemoSettings, Request, StageMemoLookup, StageMemoStore
 
-from cozy_runtime.author._executor_requests import (
-    Answer,
-    MemoEntry,
-    MemoStored,
-    Request,
-    StageMemoLookup,
-    StageMemoStore,
-)
 from cozy_runtime.author._files import File
-from cozy_runtime.author._model import WARNINGS
+from cozy_runtime.author._model import WARNINGS, deterministic
 from cozy_runtime.author._stage_memo import exactness
-from cozy_runtime.internal import attention, hostfacts, installed
-from cozy_runtime.internal.executor_commands import MemoSettings
+from cozy_runtime.internal import attention, hostfacts, installed, memo_implementation
 from cozy_runtime.internal.hostfacts import HostFacts
-from cozy_runtime.internal.memo_implementation import describe
 from cozy_runtime.internal.numerical_environment import fingerprint
 
 if TYPE_CHECKING:
@@ -82,7 +73,7 @@ _DTYPES = {
     "bool": "BOOL",
 }
 
-type Exchange = Callable[[Request, type[Answer]], Answer]
+type Exchange = Callable[[Request], Answer]
 
 
 class Tensor(Protocol):
@@ -484,7 +475,7 @@ class Engine:
         found = self._stages.get(fn)
         if found is None:
             found = self._stages[fn] = (
-                describe(fn).get("operation_identity"),
+                memo_implementation.stage(fn),
                 inspect.signature(fn),
             )
         return found
@@ -525,8 +516,8 @@ class Engine:
         exchange = self.exchange
         if exchange is None:
             return None
-        answer = exchange(StageMemoLookup(key=key, stage=stage, numerics=numerics), MemoEntry)
-        if not isinstance(answer, MemoEntry) or not answer.ok:
+        answer = exchange(StageMemoLookup(key=key, stage=stage, numerics=numerics))
+        if not answer.ok:
             return None
         if answer.disputed:
             self.disputed.add((stage, numerics))
@@ -562,16 +553,15 @@ class Engine:
                 length=entry.nbytes if entry is not None else 0,
                 cost_ms=round(entry.cost_s * 1000, 3) if entry is not None else 0.0,
                 reason=reason,
-            ),
-            MemoStored,
+            )
         )
-        stored = isinstance(answer, MemoStored) and answer.ok and answer.stored
-        if isinstance(answer, MemoStored) and answer.disputed:
+        stored = answer.ok and answer.stored
+        if answer.disputed:
             self.disputed.add((stage, numerics))
         if not local:
             return reason
         Path(local).unlink(missing_ok=True)  # the Worker keeps its own copy
-        return "" if stored else getattr(answer, "reason", "") or "worker_declined"
+        return "" if stored else answer.reason or "worker_declined"
 
     def worth_storing(self, stats: MethodStats, entry: Entry) -> str:
         """Why not to write this entry to disk, or "" to write it."""
@@ -606,7 +596,9 @@ class GenerationMemo:
     sites: Mapping[str, tuple[object, ...]]
     engine: Engine = dataclasses.field(default_factory=lambda: ENGINE)
 
-    def numerics(self, components: tuple[str, ...]) -> str:
+    def numerics(self, components: tuple[str, ...], deterministic_cudnn: bool) -> str:
+        """What changes a call's arithmetic. Its cuDNN mode is the call's own (`deterministic`),
+        not the process flag a scope on another thread may hold."""
         backends = self.torch.backends
         matmul = backends.cuda.matmul
         return _hash(
@@ -617,7 +609,7 @@ class GenerationMemo:
                 bool(matmul.allow_fp16_reduced_precision_reduction),
                 bool(matmul.allow_bf16_reduced_precision_reduction),
                 bool(self.torch.are_deterministic_algorithms_enabled()),
-                bool(backends.cudnn.deterministic),
+                deterministic_cudnn,
                 str(self.torch.get_float32_matmul_precision()),
                 [
                     [str(getattr(p, "_attention_backend", "")) for p in self.sites.get(name, ())]
@@ -636,6 +628,7 @@ class GenerationMemo:
         run: Callable[[], object],
     ) -> object:
         started = time.perf_counter()
+        components = components or tuple(sorted(self.components))  # no hint: all of them
         engine, name = self.engine, f"{type(model).__qualname__}.{fn.__name__}"
         stats = engine.stats.setdefault(name, MethodStats())
         stage, signature = engine.stage(fn)
@@ -647,7 +640,7 @@ class GenerationMemo:
             bound = signature.bind(model, *args, **kwargs)
             bound.apply_defaults()
             arguments = arguments_digest(dict(list(bound.arguments.items())[1:]), self.torch)
-            numerics = self.numerics(components)
+            numerics = self.numerics(components, deterministic(model, fn.__name__))
             if (stage, numerics) in engine.disputed:
                 raise Unmemoizable("disputed")
         except Unmemoizable as exc:

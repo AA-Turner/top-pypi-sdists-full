@@ -106,7 +106,7 @@ def _create_resources_rc(build_ver):
     content = content.replace("$VERSION", str(build_ver))
     output_path.write_text(content)
 
-def patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc):
+def patch_pdfium(build_ver, target_cpu, target_os, patch_clang):
     # TODO in the future, we might want to extract separate DLLs for the imaging libraries (e.g. libjpeg, libpng)
     
     shared_autopatches(PDFiumDir)
@@ -121,17 +121,18 @@ def patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc):
             git_apply_patch(PatchDir/"win"/"arm64_native.patch", PDFiumDir_build)
     
     if target_os == "android":
-        # without this patch, we end up with a tiny binary that has no symbols
+        # Without this patch, we end up with a tiny binary that has no symbols
+        # FIXME(geisserml) This is actually a negative side effect of not declaring a proper component build. Perhaps is_component_build = True and changing dependencies to static would be cleaner than setting is_component_build = False and patching the top-level component to shared? I've never really liked that bit of monkeypatching.
         git_apply_patch(PatchDir/"android_cross.patch", PDFiumDir_build)
     
     if sys.platform.startswith("linux"):
         is_mips = target_cpu in ("mips64el", "mipsel")
-        is_mips_clang = is_mips and not prefer_gcc
         if target_cpu == "ppc64":
             git_apply_patch(PatchDir/"unknown_cpu.patch", PDFiumDir)
-        if is_mips_clang:
+        if is_mips:
             git_apply_patch(PatchDir/"mips_cross.patch", PDFiumDir_build)
-        if (PORTABLE_MODE and patch_clang) or is_mips_clang:
+            git_apply_patch(PatchDir/"mips_highway.patch", PDFiumDir/"third_party"/"highway"/"src")
+        if (PORTABLE_MODE and patch_clang) or is_mips:
             git_apply_patch(PatchDir/"no_libclang_rt.patch", PDFiumDir_build)
         if PORTABLE_MODE and patch_clang:
             git_apply_patch(PatchDir/"clang_22_compat.patch", PDFiumDir_build)
@@ -180,6 +181,7 @@ def handle_portable_mode(config, use_sysroot, clang_path):
         config.update({
             "is_clang": False,
             "use_custom_libcxx": False,
+            "pdf_use_libyuv": False,
         })
         if use_sysroot:
             log("Warning: --use-sysroot with GCC / system libcxx. This may or may not work. If it fails, bring your own clang and pass --clang-path.")
@@ -237,7 +239,6 @@ def main(
         win_sdk_dir  = None,
         target_cpu   = None,
         target_os    = None,
-        prefer_gcc   = None,
         use_sysroot  = None,
         clang_path   = None,
     ):
@@ -253,15 +254,13 @@ def main(
     
     v_full, pdfium_rev, chromium_rev = handle_sbuild_vers(build_ver)
     config = DefaultConfig.copy()
-    if prefer_gcc:
-        config["is_clang"] = False
     patch_clang = handle_portable_mode(config, use_sysroot, clang_path)
     handle_windows(win_sdk_dir)
     
     orig_path = dl_depottools(do_update)
     did_pdfium_sync = dl_pdfium(do_update, pdfium_rev, target_os, orig_path)
     if did_pdfium_sync:
-        patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc)
+        patch_pdfium(build_ver, target_cpu, target_os, patch_clang)
     
     is_cross = handle_cross(config, target_cpu, target_os)
     config_str = serialize_gn_config(config)
@@ -304,11 +303,6 @@ def parse_args(argv):
     parser.add_argument(
         "--target-os",
         help = "The target operating system, similar to --target-cpu. This is intended for compiling the mobile platforms (e.g. Android) from a desktop device. Note, this script has some issues with rebuilds - you may need to pass --update so that new patches can be applied."
-    )
-    parser.add_argument(
-        "--prefer-gcc",
-        action = "store_true",
-        help = "Attempt to use GCC for (cross-)compilation. This will set is_clang = false but leave use_custom_libcxx unchanged. This may or may not work for you, as the vendored libc++ requires a very cutting edge compiler. This option is effectively ignored in PORTABLE_MODE, where GCC & system libc++ are default.",
     )
     parser.add_argument(
         "--use-sysroot",

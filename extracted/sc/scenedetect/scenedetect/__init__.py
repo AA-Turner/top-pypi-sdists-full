@@ -80,7 +80,7 @@ from scenedetect.scene_manager import SceneManager
 
 # Used for module identification and when printing version & about info
 # (e.g. calling `scenedetect version` or `scenedetect about`).
-__version__ = "0.7.2"
+__version__ = "0.7.3"
 
 init_logger()
 logger = getLogger("pyscenedetect")
@@ -193,7 +193,7 @@ def detect(
             is unavailable or fails to open the video.
 
     Returns:
-        List of scenes as pairs of (start, end) :class:`FrameTimecode` objects.
+        List of scenes as pairs of (start, end) :class:`~scenedetect.common.FrameTimecode` objects.
 
     Raises:
         :class:`VideoOpenFailure`: `video_path` could not be opened.

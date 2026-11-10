@@ -98,6 +98,43 @@ else:
     extensions.append("sphinx.ext.mathjax")
     mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
 
+# -- Options for the example gallery -----------------------------------------
+
+# The sections of the example gallery, each with its examples in order. Examples that no
+# section lists are shown in a final section, and listed examples that are not found are
+# skipped.
+gallery_groups = [
+    (
+        "Getting Started",
+        [
+            "plot_qrf_predictions",
+            "plot_qrf_prediction_intervals",
+            "plot_qrf_vs_rf_predictions",
+            "plot_qrf_vs_gbm_quantiles",
+        ],
+    ),
+    (
+        "Intervals and Calibration",
+        [
+            "plot_qrf_conformalized_intervals",
+            "plot_qrf_extrapolation",
+            "plot_qrf_monotonic_constraints",
+            "plot_qrf_sample_weights",
+        ],
+    ),
+    (
+        "Model Details",
+        [
+            "plot_qrf_interpolation_methods",
+            "plot_qrf_quantile_ranks",
+            "plot_qrf_proximity_counts",
+            "plot_qrf_custom_functions",
+            "plot_qrf_multitarget",
+        ],
+    ),
+    ("Integrations", ["plot_qrf_shap_explanations", "plot_qrf_huggingface_inference"]),
+]
+
 # -- Options for bibtex -------------------------------------------------------
 
 bibtex_bibfiles = ["refs.bib"]
@@ -131,6 +168,10 @@ html_context = {"default_mode": "light"}
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_images", "_static", "_static/css"]
+
+# Pages that redirect from the old addresses of moved pages (e.g., renamed examples), copied
+# to the output directory. They can be removed once the old addresses are no longer in use.
+html_extra_path = ["_redirects"]
 
 # Output file base name for HTML help builder.
 html_short_title = "quantile-forest"

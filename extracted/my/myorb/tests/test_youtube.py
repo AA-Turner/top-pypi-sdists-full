@@ -59,6 +59,13 @@ def fake_google() -> FakeGoogle:
             "items": [
                 {"snippet": {"title": "Server Side", "resourceId": {"channelId": "UC1"}}},
                 {"snippet": {"title": "Gone", "resourceId": {"channelId": "UC2"}}},
+                {
+                    "snippet": {
+                        "title": "Chess",
+                        "resourceId": {"channelId": "UC3"},
+                        "thumbnails": {"default": {"url": "https://yt3.ggpht.com/chess"}},
+                    }
+                },
             ]
         },
     )
@@ -67,7 +74,8 @@ def fake_google() -> FakeGoogle:
             ("new", "Fresh <video>", now - timedelta(hours=3)),
             ("old", "Last week", now - timedelta(days=5)),
             ("ancient", "Long ago", now - timedelta(days=30)),
-        )
+        ),
+        "UC3": feed(("pawn", "The pawn", now - timedelta(days=2))),
     }
 
     def youtube_feed(request: httpx2.Request) -> httpx2.Response:
@@ -102,7 +110,10 @@ def test_new_videos_from_subscriptions(client: TestClient, fake_google: FakeGoog
     assert '<img class="row-image" src="https://i.ytimg.com/vi/new/mqdefault.jpg"' in text
     assert "Last week" in text
     assert "Long ago" not in text
-    assert ">2</div><div" in text  # channels, including one whose feed is gone
+    assert ">3</div><div" in text  # channels, including one whose feed is gone
+    # The channels to narrow the list to, with their logos where YouTube has one.
+    assert '<img class="group-image" src="https://yt3.ggpht.com/chess"' in text
+    assert text.count('class="group-image"') == 1
 
 
 def test_youtube_needs_its_permission(client: TestClient, fake_google: FakeGoogle):
@@ -119,8 +130,8 @@ def test_seen_videos_leave_the_count(client: TestClient, fake_google: FakeGoogle
     assert '<span class="node-value">1</span>' in text
     # Opened from myOrb: on to YouTube in a new tab, and counted as seen.
     assert 'href="/youtube/watch/new" target="_blank" rel="noopener" data-refresh-after' in text
-    assert 'data-group-value="Server Side"' not in text  # one channel: no list
-    assert 'hx-vals=\'{"ids": "new old"}\'' in text  # "Mark all as seen" sends what is listed
+    assert 'data-group-value="Server Side"' in text  # the channels, to narrow the list
+    assert 'hx-vals=\'{"ids": "new pawn old"}\'' in text  # "Mark all as seen" sends what is listed
 
     response = client.post("/youtube/seen/new", headers={"HX-Request": "true"})
     assert response.headers["HX-Trigger"] == "myorb:refresh"
@@ -128,7 +139,7 @@ def test_seen_videos_leave_the_count(client: TestClient, fake_google: FakeGoogle
     assert '<span class="node-value">0</span>' in text
     assert "✓ Seen" in text
 
-    client.post("/youtube/seen", data={"ids": "old <script>"})
+    client.post("/youtube/seen", data={"ids": "old pawn <script>"})
     assert "Mark all as seen" not in client.get("/welcome/widgets").text
 
 

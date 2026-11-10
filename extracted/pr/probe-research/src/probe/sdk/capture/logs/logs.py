@@ -39,9 +39,24 @@ destination that stops accepting (``| head`` exited) closes the program's end
 too, so the program gets EPIPE exactly as it would have. Restoring the streams
 leaves alone a descriptor the program itself redirected meanwhile.
 
-LIVE (plan item (h)). When ``<log>.live/`` exists as the helper starts, it
-also appends every byte it reads, in order, to ``LIVE_SEGMENT_BYTES`` segment
-files there (:class:`LiveSpool`), named by the raw offset of their first byte.
+ONE TEE PER PROCESS, MANY RUNS (run-logs plan T14/T15). ``import probe`` may
+start the helper before any run exists (``--held``: :mod:`.early`); the run a
+``probe.init()`` opens takes it over (``<log>.adopt``: the recovery record and
+the live stream, acked by ``<log>.adopted``), and its close asks for
+``<log>.rotate``: the helper finishes the current file as that run's log
+(``<log>.meta.json`` is the ack), empties its buffers and goes on teeing into
+the file the request names, held for whatever comes next. ``<log>.discard``
+drops a held file no run took. A held file nobody asked to keep is deleted at
+EOF. Every byte lands in exactly one file.
+
+THE SAVED FILE COLLAPSES REDRAWS (T20): a line a ``\\r`` progress bar redrew
+is kept as its last frame (:func:`keep_last_frames`, the live stream's rule
+too) BEFORE the cap counts it; the terminal still gets the exact bytes.
+
+LIVE (plan item (h)). When ``<log>.live/`` exists as the helper starts (or a
+run's adoption asks for it), it also appends every byte it reads, in order, to
+``LIVE_SEGMENT_BYTES`` segment files there (:class:`LiveSpool`), named by the
+raw offset of their first byte.
 A shipper in the process that owns the tee (:mod:`probe.sdk.capture.logs.stream`) reads
 them, sends complete lines to the server while the run is alive, and deletes
 each segment it has sent. The spool never holds more than
@@ -52,7 +67,9 @@ log above is unchanged by any of this.
 
 STDLIB ONLY, and runnable as a script (``python logs.py ...``): the
 helper is spawned from this FILE, not the package, so it starts in tens of
-milliseconds and never imports httpx beside a training loop.
+milliseconds and never imports httpx beside a training loop. The owner's side
+(swapping the streams, starting this file, asking it things) is tee.py; its
+names are still served here (:func:`__getattr__`).
 """
 
 from __future__ import annotations
@@ -97,6 +114,16 @@ LIVE_SEGMENT_PREFIX = "seg-"
 LIVE_SEGMENT_SUFFIX = ".log"
 #: Written by the helper when the stream ends, holding its final raw offset.
 LIVE_EOF_NAME = "eof"
+#: A spool a run's adoption starts begins with the newest output held before it, at most this.
+LIVE_SEED_BYTES = 1024 * 1024
+#: The saved log holds a line still being drawn as its last frame, at most this; past it the
+#: line goes to the log as it is (a progress bar with no newline, a minified dump).
+MAX_HELD_LINE_BYTES = 64 * 1024
+#: After a rotate request the helper reads what the writers had already written (a pty's line
+#: discipline may lag) until nothing comes for ROTATE_QUIET_SECONDS, at most ROTATE_DRAIN_SECONDS:
+#: a writer that never pauses must not hold the rotate past its owner's wait.
+ROTATE_QUIET_SECONDS = 0.05
+ROTATE_DRAIN_SECONDS = 0.25
 #: Signals whose default action ends a process and that someone else may send
 #: to a whole group or job step. The helper ignores them all.
 _IGNORED_SIGNALS = (
@@ -109,6 +136,50 @@ _IGNORED_SIGNALS = (
 
 def omitted_marker(n: int) -> bytes:
     return f"\n[probe: {n:,} bytes of output omitted here]\n".encode()
+
+
+def keep_last_frames(text):
+    """Each line as a terminal left it: the last frame a ``\\r`` redraw drew (``str`` or ``bytes``).
+    A text that ends in a redraw keeps that ``\\r``: the next piece's first frame then replaces
+    this one where the pieces are joined, instead of being appended to it. THE one redraw rule:
+    the live stream (stream.py) and the saved log (:class:`RedrawCollapse`) both use it."""
+    cr, lf = ("\r", "\n") if isinstance(text, str) else (b"\r", b"\n")
+    empty = text[:0]
+    lines = text.replace(cr + lf, lf).split(lf)
+    for index, line in enumerate(lines):
+        if cr in line:
+            frames = [frame for frame in line.split(cr) if frame.strip()]
+            redraw = cr if index == len(lines) - 1 and line.endswith(cr) else empty
+            lines[index] = (frames[-1] if frames else empty) + redraw
+    return lf.join(lines)
+
+
+class RedrawCollapse:
+    """:func:`keep_last_frames` fed the stream piece by piece, for the saved log: complete lines
+    go out collapsed; the line still being drawn is held as its last frame, at most
+    ``MAX_HELD_LINE_BYTES`` (past it, it goes out as it is)."""
+
+    def __init__(self) -> None:
+        self._line = b""
+
+    def push(self, data: bytes) -> bytes:
+        pending = self._line + data
+        end = pending.rfind(b"\n") + 1
+        if b"\r" not in pending:
+            done, self._line = pending[:end], pending[end:]
+        else:
+            done = keep_last_frames(pending[:end]) if end else b""
+            # The frame after the last redraw is still being drawn: kept as it is, never judged blank yet.
+            drawn, cr, drawing = pending[end:].rpartition(b"\r")
+            self._line = (keep_last_frames(drawn + cr) if cr else b"") + drawing
+        if len(self._line) > MAX_HELD_LINE_BYTES:
+            done, self._line = done + self._line, b""
+        return done
+
+    def flush(self) -> bytes:
+        """The line still held: the stream (or this file of it) ends here."""
+        line, self._line = self._line, b""
+        return line
 
 
 class CappedLog:
@@ -124,7 +195,8 @@ class CappedLog:
         self.path = path
         self.head_bytes = head_bytes
         self.tail_bytes = tail_bytes
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        # Read too: a live stream a run starts later begins with what is held (`read_recent`).
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_TRUNC, 0o600)
         self._file = os.fdopen(fd, "wb", buffering=0)
         self._head = 0
         self._tail: collections.deque[bytes] = collections.deque()
@@ -170,6 +242,30 @@ class CappedLog:
 
     def stats(self) -> dict:
         return {"total_bytes": self.total, "omitted_bytes": self.omitted}
+
+    def read_recent(self, limit: int) -> bytes:
+        """The newest ``limit`` bytes held, contiguous: the tail, and the head's end when
+        nothing was dropped between them."""
+        tail = b"".join(self._tail)
+        if len(tail) >= limit:
+            return tail[-limit:]
+        if self.closed or self.total > self._head + len(tail):
+            return tail
+        want = min(limit - len(tail), self._head)
+        head = os.pread(self._file.fileno(), want, self._head - want) if want else b""
+        return head + tail
+
+    def discard(self) -> None:
+        """No one keeps this log: close it and delete the file."""
+        if self.closed:
+            return
+        self.closed = True
+        self._tail.clear()
+        try:
+            self._file.close()
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(self.path)
 
 
 def live_dir(log_path: str) -> str:
@@ -317,7 +413,7 @@ def _write_all(fd: int, data: bytes) -> None:
         view = view[written:]
 
 
-def pump(pairs, log, *, stop: threading.Event | None = None, on_tick=None) -> None:
+class Pump:
     """Copy each ``(src_fd, dst_fd)`` to its destination and into ``log``
     until every source ends (EOF, or EIO from a pty whose writers are gone).
     ``log`` is anything with ``write(bytes)`` (a :class:`CappedLog`), or None.
@@ -326,56 +422,75 @@ def pump(pairs, log, *, stop: threading.Event | None = None, on_tick=None) -> No
     SOURCE: the writer then gets EPIPE, as it would have writing there itself,
     instead of running on into a stream nobody reads. A log that fails is
     dropped and the forwarding carries on. ``stop`` ends the pump early;
-    ``on_tick`` runs between reads, at least every 0.2s.
+    ``on_tick`` runs between reads, at least every 0.2s, and may call
+    :meth:`drain` to take in what the writers have written by then.
     """
-    selector = selectors.DefaultSelector()
-    live: dict[int, int] = {}
-    for src, dst in pairs:
-        selector.register(src, selectors.EVENT_READ)
-        live[src] = dst
-    try:
-        while live:
-            if stop is not None and stop.is_set():
-                return
-            if on_tick is not None:
-                on_tick()
-            for key, _ in selector.select(timeout=0.2):
-                src = key.fd
+
+    def __init__(self, pairs, log, *, stop: threading.Event | None = None, on_tick=None):
+        self.log = log
+        self._stop = stop
+        self._on_tick = on_tick
+        self._selector = selectors.DefaultSelector()
+        self._live: dict[int, int] = {}
+        for src, dst in pairs:
+            self._selector.register(src, selectors.EVENT_READ)
+            self._live[src] = dst
+
+    def run(self) -> None:
+        try:
+            while self._live:
+                if self._stop is not None and self._stop.is_set():
+                    return
+                if self._on_tick is not None:
+                    self._on_tick()
+                self._step(0.2)
+        finally:
+            self._selector.close()
+
+    def drain(self, quiet: float = ROTATE_QUIET_SECONDS, longest: float = ROTATE_DRAIN_SECONDS) -> None:
+        """Read until nothing more arrives for ``quiet`` seconds, at most ``longest``: what the
+        writers wrote before asking."""
+        deadline = time.monotonic() + longest
+        while self._live and time.monotonic() < deadline and self._step(quiet):
+            pass
+
+    def _step(self, timeout: float) -> bool:
+        """One wait for input; True when something was read."""
+        has_read = False
+        for key, _ in self._selector.select(timeout=timeout):
+            has_read = True
+            src = key.fd
+            try:
+                data = os.read(src, _CHUNK)
+            except OSError as exc:
+                if exc.errno not in (errno.EIO, errno.EBADF):
+                    raise
+                data = b""
+            if not data:
+                self._selector.unregister(src)
+                self._live.pop(src, None)
+                continue
+            try:
+                _write_all(self._live[src], data)
+            except OSError:
+                self._selector.unregister(src)
+                self._live.pop(src, None)
+                _close(src)
+            if self.log is not None:
                 try:
-                    data = os.read(src, _CHUNK)
-                except OSError as exc:
-                    if exc.errno not in (errno.EIO, errno.EBADF):
-                        raise
-                    data = b""
-                if not data:
-                    selector.unregister(src)
-                    live.pop(src, None)
-                    continue
-                try:
-                    _write_all(live[src], data)
-                except OSError:
-                    selector.unregister(src)
-                    live.pop(src, None)
-                    _close(src)
-                if log is not None:
-                    try:
-                        log.write(data)
-                    except Exception:  # noqa: BLE001
-                        # A full disk under the log must never stop the
-                        # forwarding: a reader that stops reading lets the pipe
-                        # fill, and the writer -- the training job -- blocks
-                        # forever. Drop the log, keep the stream moving.
-                        log = None
-    finally:
-        selector.close()
+                    self.log.write(data)
+                except Exception:  # noqa: BLE001
+                    # A full disk under the log must never stop the
+                    # forwarding: a reader that stops reading lets the pipe
+                    # fill, and the writer -- the training job -- blocks
+                    # forever. Drop the log, keep the stream moving.
+                    self.log = None
+        return has_read
 
 
-# -- stream plumbing -------------------------------------------------------------
-def _terminal(fd: int) -> bool:
-    try:
-        return os.isatty(fd)
-    except OSError:
-        return False
+def pump(pairs, log, *, stop: threading.Event | None = None, on_tick=None) -> None:
+    """:class:`Pump` run to the end."""
+    Pump(pairs, log, stop=stop, on_tick=on_tick).run()
 
 
 def copy_winsize(src_fd: int, dst_fd: int) -> None:
@@ -389,59 +504,6 @@ def copy_winsize(src_fd: int, dst_fd: int) -> None:
         pass
 
 
-def open_stream(like_fd: int) -> tuple[int, int, bool]:
-    """``(read_end, write_end, is_pty)`` standing in for the stream ``like_fd``.
-
-    A pty when ``like_fd`` is a terminal, so the writer keeps seeing one; a
-    plain pipe otherwise (a job whose output goes to a file or a pipe already
-    sees no terminal, and must keep seeing none).
-    """
-    if _terminal(like_fd):
-        try:
-            import pty
-            import termios
-
-            master, slave = pty.openpty()
-            master, slave = _high(master), _high(slave)
-            attrs = termios.tcgetattr(slave)
-            attrs[1] &= ~termios.OPOST  # no \n -> \r\n: the bytes pass untouched
-            termios.tcsetattr(slave, termios.TCSANOW, attrs)
-            copy_winsize(like_fd, master)
-            os.set_inheritable(master, False)
-            return master, slave, True
-        except Exception:  # noqa: BLE001 -- no pty available: a pipe still works
-            pass
-    read_end, write_end = os.pipe()
-    return _high(read_end), _high(write_end), False
-
-
-def _high(fd: int) -> int:
-    """``fd`` moved to 3 or above. With stdin closed (``python train.py <&-``)
-    a new descriptor takes number 0, where a child's ``stdin=DEVNULL`` -- or
-    the program itself -- would later overwrite it."""
-    if fd >= 3:
-        return fd
-    import fcntl
-
-    moved = fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3)
-    os.close(fd)
-    return moved
-
-
-def _dup_high(fd: int) -> int:
-    import fcntl
-
-    return fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3)
-
-
-def _identity(fd: int) -> tuple[int, int] | None:
-    try:
-        info = os.fstat(fd)
-    except OSError:
-        return None
-    return info.st_dev, info.st_ino
-
-
 def _close(*fds: int | None) -> None:
     for fd in fds:
         if fd is None:
@@ -450,284 +512,6 @@ def _close(*fds: int | None) -> None:
             os.close(fd)
         except OSError:
             pass
-
-
-class _Tee:
-    """Stand-in streams for fds 1 and 2, read by a helper process that forwards
-    to the originals and writes the log.
-
-    :meth:`open` starts the helper and fills :attr:`writers` (``{fd: write
-    end}``); the caller hands those to whoever writes. :meth:`finish` tells the
-    helper to stop and returns the log's stats once it has written them.
-    """
-
-    def __init__(
-        self, log_path: str, *, recovery_entry: str | None = None, watch_parent: bool = False
-    ):
-        self.log_path = log_path
-        #: The capture record the helper hands to a recovery process if its
-        #: parent exits without stopping the tee (see `_helper_main`).
-        self.recovery_entry = recovery_entry
-        #: 2.2: report the parent's death as soon as it is reparented, not at
-        #: EOF. Only for a tee of the WRITER itself (`InProcessTee`): under
-        #: `run_teed` the parent is a launcher, whose death says nothing about
-        #: the child still writing.
-        self.watch_parent = watch_parent
-        self.writers: dict[int, int] = {}
-        self.saved: dict[int, int] = {}
-        self.helper: subprocess.Popen | None = None
-
-    def open(self) -> None:
-        _flush_python_streams()
-        # A name is reused once its owner dropped the log, but not its stop marker: left
-        # there, that marker cut this log at the helper's first tick (#4240's DDP ranks).
-        for stale in (_stopped_path(self.log_path), _meta_path(self.log_path), _ready_path(self.log_path)):
-            with contextlib.suppress(OSError):
-                os.unlink(stale)
-        reads: list[int] = []
-        specs: list[str] = []
-        try:
-            for fd in (1, 2):
-                self.saved[fd] = _dup_high(fd)
-            same = _identity(1) is not None and _identity(1) == _identity(2)
-            for fd in ((1,) if same else (1, 2)):
-                read_end, write_end, is_pty = open_stream(self.saved[fd])
-                reads.append(read_end)
-                self.writers[fd] = write_end
-                specs.append(f"{read_end}:{self.saved[fd]}:{1 if is_pty else 0}")
-            if same:
-                # `> log 2>&1`: one stream, so the order the program wrote in
-                # is the order the file and the log keep.
-                self.writers[2] = self.writers[1]
-            extra = ["--recover", self.recovery_entry] if self.recovery_entry else []
-            if os.path.isdir(live_dir(self.log_path)):
-                # The owner asked for a live stream (probe.sdk.capture.logs.stream).
-                extra += ["--live", live_dir(self.log_path)]
-            if self.recovery_entry and self.watch_parent:
-                extra = ["--watch-parent", *extra]
-            self.helper = subprocess.Popen(
-                [sys.executable, "-I", "-S", os.path.abspath(__file__), *extra, self.log_path, *specs],
-                pass_fds=[*reads, *self.saved.values()],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=self.saved[2],
-                close_fds=True,
-            )
-        except BaseException:
-            _close(*reads, *set(self.writers.values()), *self.saved.values())
-            self.writers.clear()
-            self.saved.clear()
-            raise
-        _close(*reads)
-        # Until the helper has set its signals aside, a signal to the group
-        # would kill it: wait (tens of milliseconds) for it to say so. A
-        # helper that died starting (an interpreter that cannot run `-I -S`)
-        # must never be handed the program's output: nothing would read it.
-        deadline = time.monotonic() + READY_WAIT_SECONDS
-        while time.monotonic() < deadline:
-            if os.path.exists(_ready_path(self.log_path)):
-                break
-            if self.helper.poll() is not None:
-                break
-            time.sleep(0.005)
-        if self.helper.poll() is not None:
-            self.close_writers()
-            _close(*self.saved.values())
-            self.saved = {}
-            raise OSError("the output helper exited as it started")
-
-    def close_writers(self) -> None:
-        _close(*set(self.writers.values()))
-        self.writers = {}
-
-    def finish(self) -> dict | None:
-        """Tell the helper to stop and wait, briefly, for the log.
-
-        The helper exits at EOF. If a straggler still holds a stream, it writes
-        the log ``DRAIN_GRACE_SECONDS`` after the stop marker and keeps
-        forwarding without it. Returns the log's stats, or None when no
-        complete log exists yet."""
-        try:
-            with open(_stopped_path(self.log_path), "w"):
-                pass
-        except OSError:
-            pass
-        _close(*self.saved.values())
-        self.saved = {}
-        helper = self.helper
-        if helper is None:
-            return None
-        deadline = time.monotonic() + DRAIN_GRACE_SECONDS + FLUSH_WAIT_SECONDS
-        while time.monotonic() < deadline:
-            if helper.poll() is not None or os.path.exists(_meta_path(self.log_path)):
-                break
-            time.sleep(0.02)
-        return read_stats(self.log_path)
-
-
-# -- probe exec: tee a child -----------------------------------------------------
-def run_teed(
-    argv,
-    *,
-    cwd=None,
-    env=None,
-    log_path: str,
-    recovery_entry: str | None = None,
-    on_helper=None,
-    teed_env: dict | None = None,
-):
-    """Run ``argv`` like ``subprocess.run(argv, check=False)``, teeing its
-    stdout and stderr to this process's own and to ``log_path``.
-
-    Returns ``(CompletedProcess, stats)``. stdin is inherited untouched, so an
-    interactive child reads the real terminal. Signals are not intercepted:
-    SIGTERM, SIGUSR1 ... reach this process and the child exactly as before.
-    Ctrl-C behaves as ``subprocess.run`` does: the child gets
-    ``SIGINT_GRACE_SECONDS`` to exit, is then killed, and KeyboardInterrupt
-    propagates. When the tee cannot be set up the command runs untouched and
-    ``stats`` is None. ``on_helper(pid)`` learns the helper's pid; ``teed_env``
-    is added to the child's environment only once the tee is live.
-    """
-    tee = _Tee(log_path, recovery_entry=recovery_entry)
-    try:
-        tee.open()
-    except Exception:  # noqa: BLE001 -- capture is never a reason not to run the command
-        return subprocess.run(argv, cwd=cwd, env=env, check=False), None
-    if teed_env:
-        env = {**(os.environ if env is None else env), **teed_env}
-    if on_helper is not None and tee.helper is not None:
-        try:
-            on_helper(tee.helper.pid)
-        except Exception:  # noqa: BLE001
-            pass
-    try:
-        from ...run.launch.program import start_program
-
-        # Here, or by the `probe` shim when this runs in the service (T42).
-        proc = start_program(argv, cwd=cwd, env=env, stdout=tee.writers[1], stderr=tee.writers[2])
-    except BaseException:
-        tee.close_writers()
-        tee.finish()
-        raise
-    tee.close_writers()  # only the child holds the writing ends now
-    try:
-        try:
-            returncode = proc.wait()
-        except KeyboardInterrupt:
-            try:
-                proc.wait(timeout=SIGINT_GRACE_SECONDS)
-            except subprocess.TimeoutExpired:
-                pass
-            proc.kill()
-            proc.wait()
-            raise
-    finally:
-        stats = tee.finish()
-    return subprocess.CompletedProcess(argv, returncode), stats
-
-
-# -- probe.init(): tee this process ----------------------------------------------
-class InProcessTee:
-    """Swap fds 1 and 2 for streams a helper process tees to the originals and
-    to a capped log. :meth:`stop` puts the originals back and returns the stats.
-
-    A watcher thread restores the originals if the helper ever dies first (it
-    ignores every signal it can, so only SIGKILL or the OOM killer can do that).
-    """
-
-    def __init__(
-        self, log_path: str, *, recovery_entry: str | None = None, watch_parent: bool = False
-    ):
-        self.log_path = log_path
-        self._tee = _Tee(log_path, recovery_entry=recovery_entry, watch_parent=watch_parent)
-        self._saved: dict[int, int] = {}
-        self._ours: dict[int, tuple[int, int] | None] = {}
-        self._active = False
-        self._lock = threading.Lock()
-
-    @property
-    def helper_pid(self) -> int | None:
-        helper = self._tee.helper
-        return helper.pid if helper is not None else None
-
-    def start(self) -> None:
-        tee = self._tee
-        tee.open()
-        try:
-            # Our own copies for restoring, separate from the helper's
-            # destinations, which `_Tee.finish` closes.
-            for fd in (1, 2):
-                self._saved[fd] = _dup_high(fd)
-        except BaseException:
-            _close(*self._saved.values())
-            self._saved.clear()
-            tee.close_writers()
-            tee.finish()
-            raise
-        for fd, write_end in tee.writers.items():
-            os.dup2(write_end, fd)
-            self._ours[fd] = _identity(fd)
-        tee.close_writers()
-        self._active = True
-        # After `_active`: a helper that dies from here on is seen, and the
-        # original streams go back.
-        try:
-            threading.Thread(target=self._watch, name="probe-log-watch", daemon=True).start()
-        except BaseException:
-            self._restore()
-            _close(*self._saved.values())
-            self._saved = {}
-            tee.finish()
-            raise
-
-    def _restore(self) -> None:
-        with self._lock:
-            if not self._active:
-                return
-            self._active = False
-            _flush_python_streams()
-            for fd, saved in self._saved.items():
-                # Only a descriptor that is still ours: a program that
-                # redirected fd 1 itself after init keeps its redirection.
-                if _identity(fd) != self._ours.get(fd):
-                    continue
-                try:
-                    os.dup2(saved, fd)
-                except OSError:
-                    pass
-
-    def _watch(self) -> None:
-        helper = self._tee.helper
-        if helper is None:
-            return
-        helper.wait()
-        if self._active:
-            self._restore()
-            try:
-                os.write(
-                    self._saved.get(2, 2),
-                    b"probe: output capture stopped (its helper exited); "
-                    b"output is no longer being logged\n",
-                )
-            except OSError:
-                pass
-
-    def stop(self) -> dict | None:
-        """Restore the originals; wait briefly for the helper to finish the
-        log. Returns the log's stats, or None when no complete log exists."""
-        _flush_c_streams()
-        # The marker goes down BEFORE the streams close: the helper reads EOF
-        # right after, and a missing marker at that moment is how it tells a
-        # crash from a stop.
-        try:
-            with open(_stopped_path(self.log_path), "w"):
-                pass
-        except OSError:
-            pass
-        self._restore()
-        _close(*self._saved.values())
-        self._saved = {}
-        return self._tee.finish()
 
 
 def _meta_path(log_path: str) -> str:
@@ -740,6 +524,47 @@ def _stopped_path(log_path: str) -> str:
 
 def _ready_path(log_path: str) -> str:
     return log_path + ".ready"
+
+
+def _adopt_path(log_path: str) -> str:
+    return log_path + ".adopt"
+
+
+def _get_adopted_path(log_path: str) -> str:
+    return log_path + ".adopted"
+
+
+def _rotate_path(log_path: str) -> str:
+    return log_path + ".rotate"
+
+
+def _discard_path(log_path: str) -> str:
+    return log_path + ".discard"
+
+
+def write_request(path: str, body: dict) -> None:
+    """A control file, whole or not at all: the helper never reads half of one."""
+    partial = path + ".partial"
+    with open(partial, "w", encoding="utf-8") as fh:
+        json.dump(body, fh)
+    os.replace(partial, path)
+
+
+def get_late_path(log_path: str) -> str:
+    """The request a close leaves when the helper had not finished the log (T21)."""
+    return log_path + ".late"
+
+
+def _read_request(path: str) -> dict | None:
+    """A control file's body, or None when there is none (or it was withdrawn meanwhile)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            body = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    with contextlib.suppress(OSError):
+        os.unlink(path)
+    return body if isinstance(body, dict) else {}
 
 
 #: Popen keywords for a child that outlives this process and its Ctrl-C: a new
@@ -771,6 +596,24 @@ def _spawn_recovery(entry: str) -> None:
             close_fds=True,
         )
     except Exception:  # noqa: BLE001 -- the next capture start retries it
+        pass
+
+
+def spawn_late_log(request: str) -> None:
+    """The log a close sent unfinished is complete now: send the whole of it, from a normal
+    interpreter, detached, like `_spawn_recovery` (`recovery.send_late_log`, which claims the
+    request once)."""
+    try:
+        subprocess.Popen(
+            [sys.executable, "-m", "probe.sdk.outputs", "--late-log", request],
+            cwd=os.path.dirname(os.path.abspath(request)),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            **_DETACHED,
+            close_fds=True,
+        )
+    except Exception:  # noqa: BLE001 -- the head is still the run's log
         pass
 
 
@@ -807,34 +650,6 @@ def _write_stats(log: CappedLog) -> None:
     os.replace(tmp, _meta_path(log.path))
 
 
-def _flush_python_streams() -> None:
-    # Not on the SIGTERM close's worker thread: the main thread, parked in the
-    # handler, may hold a stream's lock for good (CPython runs a handler inside
-    # a buffered flush), and waiting on it spent the whole close budget.
-    # `sys.modules`, not an import: this module also runs as a `-I -S` script.
-    guard = sys.modules.get("probe.foundation.safe_warn.safe_warn")
-    if guard is not None and not guard.streams_allowed():
-        return
-    for stream in (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__):
-        try:
-            if stream is not None:
-                stream.flush()
-        except Exception:  # noqa: BLE001
-            pass
-
-
-def _flush_c_streams() -> None:
-    """``fflush(NULL)``: C stdio buffered in this process lands in the capture
-    rather than after it."""
-    _flush_python_streams()
-    try:
-        import ctypes
-
-        ctypes.CDLL(None).fflush(None)
-    except Exception:  # noqa: BLE001 -- no libc symbol table: skip
-        pass
-
-
 def _ignore_signals() -> None:
     for name in _IGNORED_SIGNALS:
         signum = getattr(signal, name, None)
@@ -867,15 +682,16 @@ def _parent_exited(parent: int, stopped: str) -> bool:
 
 
 def _helper_main(argv: list[str]) -> int:
-    """``logs.py [--watch-parent] [--recover ENTRY] [--live DIR] LOG_PATH SRC:DST:PTY ...``
+    """``logs.py [--held] [--watch-parent] [--recover ENTRY] [--live DIR] LOG_PATH SRC:DST:PTY ...``
     -- the helper."""
     _ignore_signals()
     recovery_entry = None
     live_path = None
-    watch_parent = False
-    while argv and argv[0] in ("--watch-parent", "--recover", "--live"):
-        if argv[0] == "--watch-parent":
-            watch_parent, argv = True, argv[1:]
+    flags: set[str] = set()
+    while argv and argv[0] in ("--held", "--watch-parent", "--recover", "--live"):
+        if argv[0] in ("--held", "--watch-parent"):
+            flags.add(argv[0])
+            argv = argv[1:]
             continue
         if argv[0] == "--recover":
             recovery_entry = argv[1]
@@ -889,7 +705,6 @@ def _helper_main(argv: list[str]) -> int:
             pass
     except OSError:
         pass
-    stopped = _stopped_path(log_path)
     pairs, ptys = [], []
     for spec in specs:
         src, dst, is_pty = (int(part) for part in spec.split(":"))
@@ -903,7 +718,19 @@ def _helper_main(argv: list[str]) -> int:
                 copy_winsize(tty, master)
 
         signal.signal(signal.SIGWINCH, _resize)
-    state: dict = {"log": None, "stop_seen": None, "live": None, "gone_reported": False}
+    # `path`: the file being written now (a rotate moves it on). `held`: no run owns it yet, so
+    # nobody asked to keep it. `recover` / `watch`: the record of the run that does own it.
+    state: dict = {
+        "path": log_path,
+        "held": "--held" in flags,
+        "recover": recovery_entry,
+        "watch": "--watch-parent" in flags,
+        "log": None,
+        "collapse": RedrawCollapse(),
+        "stop_seen": None,
+        "live": None,
+        "gone_reported": False,
+    }
     try:
         state["log"] = CappedLog(log_path)
     except OSError:
@@ -931,35 +758,104 @@ def _helper_main(argv: list[str]) -> int:
         if log is None:
             return
         try:
+            log.write(state["collapse"].flush())
             log.close()
             _write_stats(log)
         except Exception:  # noqa: BLE001 -- a full disk loses the tail, not the stream
-            pass
+            return
+        if os.path.exists(get_late_path(log.path)):
+            spawn_late_log(get_late_path(log.path))  # its run's close sent only the head (T21)
+
+    def _discard() -> None:
+        _close_live()
+        log, state["log"] = state["log"], None
+        path = state["path"]
+        if log is not None:
+            with contextlib.suppress(Exception):
+                log.discard()
+        for marker in (_discard_path(path), _ready_path(path), _adopt_path(path), _stopped_path(path)):
+            with contextlib.suppress(OSError):
+                os.unlink(marker)
+
+    def _adopt() -> None:
+        path = state["path"]
+        request = _read_request(_adopt_path(path))
+        if request is None:
+            return
+        state["held"] = False
+        state["recover"] = request.get("recover") or None
+        state["watch"] = bool(request.get("watch_parent")) and bool(state["recover"])
+        if request.get("live") and state["live"] is None and os.path.isdir(live_dir(path)):
+            try:
+                spool = LiveSpool(live_dir(path))
+                if state["log"] is not None:
+                    # The run's live view starts with the newest output held before it, at a line.
+                    seed = state["log"].read_recent(LIVE_SEED_BYTES)
+                    if state["log"].total > len(seed) and b"\n" in seed:
+                        seed = seed[seed.index(b"\n") + 1 :]
+                    spool.write(seed)
+                state["live"] = spool
+            except OSError:
+                pass  # no spool: the live view goes without
+        with contextlib.suppress(OSError):
+            with open(_get_adopted_path(path), "w"):
+                pass
+
+    def _rotate(the_pump: "Pump") -> None:
+        path = state["path"]
+        request = _read_request(_rotate_path(path))
+        if request is None or not request.get("next"):
+            return
+        # What the writers wrote before they asked belongs to the log being finished.
+        the_pump.drain()
+        _flush_log()  # its stats are the owner's ack
+        state.update(
+            path=str(request["next"]),
+            held=True,
+            recover=None,
+            watch=False,
+            collapse=RedrawCollapse(),
+            stop_seen=None,
+            gone_reported=False,
+        )
+        try:
+            state["log"] = CappedLog(state["path"])
+        except OSError:
+            pass  # no log for what comes next; forwarding goes on
 
     def _report_gone() -> None:
         state["gone_reported"] = True
-        if recovery_entry:
-            _spawn_writer_gone(recovery_entry)
+        if state["recover"]:
+            _spawn_writer_gone(state["recover"])
 
     def _tick() -> None:
+        path = state["path"]
+        stopped = _stopped_path(path)
         # 2.2: the parent (the run's writer) is gone the moment we are
         # reparented, whether or not anyone still holds the streams -- a
         # grandchild keeping stdout open delays EOF forever. Checked every
         # tick (<= 0.2 s), and never after a stop: a clean close is no death.
         if (
-            watch_parent
+            state["watch"]
             and not state["gone_reported"]
             and os.getppid() != parent
             and state["stop_seen"] is None
             and not os.path.exists(stopped)
         ):
             _report_gone()
+        if state["held"] and os.path.exists(_adopt_path(path)):
+            _adopt()
         if state["log"] is None:
             _close_live()  # a straggler's output after the log was taken is not streamed either
+            return
+        if os.path.exists(_discard_path(path)):
+            _discard()
             return
         if state["stop_seen"] is None:
             if os.path.exists(stopped):
                 state["stop_seen"] = time.monotonic()
+            elif os.path.exists(_rotate_path(path)):
+                _rotate(the_pump)
         elif time.monotonic() - state["stop_seen"] >= DRAIN_GRACE_SECONDS:
             # Stopped, but someone still holds a stream: take the log now and
             # keep forwarding for them.
@@ -975,24 +871,45 @@ def _helper_main(argv: list[str]) -> int:
             if state["log"] is None:
                 return
             try:
-                state["log"].write(data)
+                state["log"].write(state["collapse"].push(data))
             except Exception:  # noqa: BLE001
                 _flush_log()
 
+    the_pump = Pump(pairs, _Log(), on_tick=_tick)
     try:
-        pump(pairs, _Log(), on_tick=_tick)
+        the_pump.run()
     finally:
         # Before the log is handed back: once it is, the caller may clean up.
-        stopped_seen = state["stop_seen"] is not None or os.path.exists(stopped)
-        _flush_log()
+        path = state["path"]
+        stopped_seen = state["stop_seen"] is not None or os.path.exists(_stopped_path(path))
+        if state["held"] and os.path.exists(_adopt_path(path)):
+            _adopt()  # a run took it as the writers went: it is that run's
+        if os.path.exists(_discard_path(path)) or (state["held"] and not stopped_seen):
+            _discard()  # no run took it, and nobody asked to keep it
+        else:
+            _flush_log()
     # EOF with no stop marker and the parent gone: it died mid-run (a segfault,
     # an abort, the OOM killer, a SIGTERM). Its outputs and this log are still
     # on disk, and nothing else will ever send them.
-    if recovery_entry and not stopped_seen and _parent_exited(parent, stopped):
-        if watch_parent and not state["gone_reported"]:
+    recovery_entry = state["recover"]
+    if recovery_entry and not stopped_seen and _parent_exited(parent, _stopped_path(path)):
+        if state["watch"] and not state["gone_reported"]:
             _report_gone()
         _spawn_recovery(recovery_entry)
     return 0
+
+
+#: Names that moved to tee.py (the owner's side), still read here by older callers and the old
+#: `probe.sdk.logcapture` path.
+_OWNER_SIDE = frozenset({"InProcessTee", "run_teed", "open_stream", "_Tee", "_flush_python_streams", "_flush_c_streams"})
+
+
+def __getattr__(name: str):
+    if name in _OWNER_SIDE:
+        from . import tee  # never when run as the helper script: nothing there reads these
+
+        return getattr(tee, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 if __name__ == "__main__":

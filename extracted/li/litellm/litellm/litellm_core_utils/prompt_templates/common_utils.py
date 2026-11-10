@@ -9,7 +9,8 @@ import json
 import mimetypes
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from itertools import groupby, islice
+from graphlib import CycleError, TopologicalSorter
+from itertools import chain, groupby, islice
 from os import PathLike
 from pathlib import Path
 from types import MappingProxyType
@@ -19,6 +20,7 @@ from pydantic import TypeAdapter
 
 import litellm
 from litellm import verbose_logger
+from litellm.litellm_core_utils.core_helpers import as_str_mapping
 from litellm.router_utils.batch_utils import InMemoryFile
 from litellm.types.llms.openai import (
     AllMessageValues,
@@ -1426,6 +1428,123 @@ def _schema_levels(schema: Mapping[str, object]) -> Iterator[tuple[Mapping[str, 
         frontier = tuple(child for node in frontier for child in _subschemas(node))
 
 
+def schema_fragment_ref(ref: str) -> str:
+    return f"#{ref}" if ref.startswith(("/$defs/", "/definitions/")) else ref
+
+
+def schema_has_unresolvable_ref(schema: Mapping[str, object]) -> bool:
+    definitions: Final = MappingProxyType(dict(_root_definitions(schema)))
+    if not _refs_in(schema) <= definitions.keys():
+        return True
+    try:
+        tuple(TopologicalSorter({pointer: _refs_in(body) for pointer, body in definitions.items()}).static_order())
+    except CycleError:
+        return True
+    return False
+
+
+def schema_union_property_count(schema: Mapping[str, object]) -> int:
+    return sum(1 for _, node in _property_schemas(schema) if _is_union(node))
+
+
+def schema_optional_property_count(schema: Mapping[str, object]) -> int:
+    return sum(len(_optional_property_names(node)) for node in _schema_nodes(schema))
+
+
+def schema_property_count(schema: Mapping[str, object]) -> int:
+    return sum(len(properties) for node in _schema_nodes(schema) if (properties := _schema_at(node, "properties")))
+
+
+def schema_grammar_branch_count(schema: Mapping[str, object]) -> int:
+    return sum(_grammar_branches(node) for node in _schema_nodes(schema))
+
+
+def schema_has_open_object(schema: Mapping[str, object]) -> bool:
+    return any(_is_open_object(node) for node in _schema_nodes(schema))
+
+
+def schema_has_lookaround_pattern(schema: Mapping[str, object]) -> bool:
+    return any(
+        isinstance(pattern := node.get("pattern"), str) and _uses_regex_lookaround(pattern)
+        for node in _schema_nodes(schema)
+    )
+
+
+def schema_string_formats(schema: Mapping[str, object]) -> frozenset[str]:
+    return frozenset(
+        value for node in _schema_nodes(schema) if _may_be_string(node) and isinstance(value := node.get("format"), str)
+    )
+
+
+def _may_be_string(node: Mapping[str, object]) -> bool:
+    node_type: Final = node.get("type")
+    return node_type is None or node_type == "string" or "string" in _list_at(node, "type")
+
+
+def is_object_schema(node: Mapping[str, object]) -> bool:
+    node_type: Final = node.get("type")
+    return node_type == "object" or (isinstance(node_type, list) and "object" in node_type)
+
+
+def _schema_nodes(schema: Mapping[str, object]) -> Iterator[Mapping[str, object]]:
+    return chain.from_iterable(islice(_schema_levels(schema), _MAX_SCHEMA_NESTING))
+
+
+_SCHEMA_LIST: Final = TypeAdapter(tuple[object, ...])
+
+
+def _list_at(container: Mapping[str, object], key: str) -> tuple[object, ...]:
+    value: Final = container.get(key)
+    return _SCHEMA_LIST.validate_python(value) if isinstance(value, list) else ()
+
+
+def _named_schemas(container: Mapping[str, object] | None) -> Iterator[tuple[str, Mapping[str, object]]]:
+    if container is None:
+        return iter(())
+    return ((key, value) for key in container if (value := _schema_at(container, key)) is not None)
+
+
+def _root_definitions(schema: Mapping[str, object]) -> Iterator[tuple[str, Mapping[str, object]]]:
+    for defs_key in ("$defs", "definitions"):
+        yield from ((f"#/{defs_key}/{name}", body) for name, body in _named_schemas(_schema_at(schema, defs_key)))
+
+
+def _refs_in(schema: Mapping[str, object]) -> frozenset[str]:
+    return frozenset(
+        schema_fragment_ref(ref) for node in _schema_nodes(schema) if isinstance(ref := node.get("$ref"), str)
+    )
+
+
+def _property_schemas(schema: Mapping[str, object]) -> Iterator[tuple[str, Mapping[str, object]]]:
+    return chain.from_iterable(_named_schemas(_schema_at(node, "properties")) for node in _schema_nodes(schema))
+
+
+def _is_union(node: Mapping[str, object]) -> bool:
+    return isinstance(node.get("anyOf"), list) or isinstance(node.get("oneOf"), list) or len(_list_at(node, "type")) > 1
+
+
+def _grammar_branches(node: Mapping[str, object]) -> int:
+    properties: Final = _schema_at(node, "properties")
+    if properties is None:
+        return 0
+    optional: Final = len(_optional_property_names(node))
+    return 2**optional * (len(properties) - optional + 1)
+
+
+def _optional_property_names(node: Mapping[str, object]) -> frozenset[str]:
+    properties: Final = _schema_at(node, "properties")
+    if properties is None:
+        return frozenset()
+    return frozenset(properties) - frozenset(name for name in _list_at(node, "required") if isinstance(name, str))
+
+
+def _is_open_object(node: Mapping[str, object]) -> bool:
+    additional_properties: Final = node.get("additionalProperties")
+    if additional_properties is True or isinstance(additional_properties, dict) or "patternProperties" in node:
+        return True
+    return is_object_schema(node) and "properties" not in node and additional_properties is not False
+
+
 def _subschemas(node: Mapping[str, object]) -> Iterator[Mapping[str, object]]:
     for key, value in node.items():
         if key in _SUBSCHEMA_MAP_KEYWORDS and isinstance(value, dict):
@@ -1646,12 +1765,14 @@ def infer_content_type_from_url_and_content(
     """
     from litellm.litellm_core_utils.token_counter import get_image_type
 
+    media_type: Final = current_content_type.split(";", 1)[0].strip().lower() if current_content_type else None
+
     # If we have a valid content type that's not generic, use it
-    if current_content_type and current_content_type not in [
+    if media_type and media_type not in [
         "binary/octet-stream",
         "application/octet-stream",
     ]:
-        return current_content_type
+        return media_type
 
     # Extension to MIME type mapping
     # Supports images, documents, and other common file types
@@ -2169,6 +2290,89 @@ def encrypted_content_of_block(block: Mapping[str, object]) -> str | None:
     return encrypted_content_from_signature(_encrypted_reasoning_field(block))
 
 
+_REASONING_SUMMARY_SEPARATOR: Final = "\n\n"
+
+_OBJECT_TUPLE: Final = TypeAdapter(tuple[object, ...])
+
+
+def _object_sequence(value: object) -> tuple[object, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    return _OBJECT_TUPLE.validate_python(value)
+
+
+def _iter_mappings(value: object) -> tuple[Mapping[str, object], ...]:
+    return tuple(mapping for item in _object_sequence(value) if (mapping := as_str_mapping(item)) is not None)
+
+
+def _reasoning_summary_part_text(part: object) -> str:
+    mapping: Final = as_str_mapping(part)
+    if mapping is not None:
+        text: Final = mapping.get("text")
+        return text if isinstance(text, str) else ""
+    text_attr: Final = getattr(part, "text", None)
+    return text_attr if isinstance(text_attr, str) else ""
+
+
+def _reasoning_item_summary_text(item: Mapping[str, object]) -> str:
+    parts: Final = tuple(_reasoning_summary_part_text(part) for part in _object_sequence(item.get("summary")))
+    return _REASONING_SUMMARY_SEPARATOR.join(part for part in parts if part)
+
+
+def thinking_block_from_reasoning_item(
+    item: object,
+) -> ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock | None:
+    """The chat thinking block that carries one Responses `reasoning` item back to an Anthropic client.
+
+    `encrypted_content` rides the same `litellm_encrypted_reasoning:` signature the Responses
+    adapter uses. A summary becomes thinking text. Bytes with no summary become `redacted_thinking`,
+    because an empty thinking string is not something the client can replay.
+    """
+    mapping: Final = as_str_mapping(item)
+    if mapping is None or mapping.get("type") not in (None, "reasoning"):
+        return None
+    encrypted_content: Final = mapping.get("encrypted_content")
+    if not isinstance(encrypted_content, str) or not encrypted_content:
+        return None
+    signature: Final = encrypted_reasoning_signature(encrypted_content)
+    text: Final = _reasoning_item_summary_text(mapping)
+    if not text:
+        return ChatCompletionRedactedThinkingBlock(type="redacted_thinking", data=signature)
+    return ChatCompletionThinkingBlock(type="thinking", thinking=text, signature=signature)
+
+
+def thinking_blocks_from_reasoning_items(
+    items: object,
+) -> tuple[ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock, ...]:
+    return tuple(
+        block for item in _object_sequence(items) if (block := thinking_block_from_reasoning_item(item)) is not None
+    )
+
+
+def _block_encrypted_content(block: object) -> str | None:
+    mapping: Final = as_str_mapping(block)
+    if mapping is None:
+        return None
+    return encrypted_content_of_block(mapping)
+
+
+def thinking_blocks_with_encrypted_reasoning(
+    thinking_blocks: object,
+    reasoning_items: object,
+) -> tuple[Mapping[str, object], ...]:
+    """Thinking blocks already on the message, plus any encrypted reasoning item they do not already carry."""
+    direct: Final = _iter_mappings(thinking_blocks)
+    represented: Final = frozenset(
+        content for block in direct if (content := _block_encrypted_content(block)) is not None
+    )
+    extra: Final = tuple(
+        block
+        for block in thinking_blocks_from_reasoning_items(_iter_mappings(reasoning_items))
+        if _block_encrypted_content(block) not in represented
+    )
+    return (*extra, *direct)
+
+
 def is_encrypted_reasoning_block(block: object) -> bool:
     """A thinking or redacted_thinking block carrying Responses API encrypted reasoning.
 
@@ -2258,6 +2462,14 @@ def anthropic_content_lists(messages: Sequence[object]) -> Iterator[object]:
         for content in (cast(Mapping[str, object], message).get("content"),)  # cast-ok: narrowed by isinstance
         if isinstance(content, list)
     )
+
+
+def _content_carries_encrypted_reasoning(content: object) -> bool:
+    return any(is_encrypted_reasoning_block(block) for block in _object_sequence(content))
+
+
+def messages_carry_encrypted_reasoning(messages: Sequence[object]) -> bool:
+    return any(_content_carries_encrypted_reasoning(content) for content in anthropic_content_lists(messages))
 
 
 def _strip_encrypted_reasoning_from_blocks(

@@ -50,7 +50,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
-        python: ["3.11", "3.12", "3.13", "3.14"]
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
         include:
           - os: ubuntu-22.04
             tesseract_ppa: "ppa"
@@ -58,6 +58,8 @@ jobs:
           - os: ubuntu-24.04
             python: "3.14"
             runslow: "runslow"
+          - python: "3.15"
+            experimental: true
 
     env:
       OS: ${{ matrix.os }}
@@ -148,7 +150,10 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        python: ["3.11", "3.12", "3.13", "3.14"]
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        include:
+          - python: "3.15"
+            experimental: true
 
     env:
       OS: ${{ matrix.os }}
@@ -233,7 +238,10 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        python: ["3.11", "3.12", "3.13", "3.14"]
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        include:
+          - python: "3.15"
+            experimental: true
 
     env:
       OS: ${{ matrix.os }}
@@ -261,7 +269,20 @@ jobs:
         run: |
           choco install --yes --no-progress tesseract
           choco install --yes --no-progress --ignore-checksums ghostscript --version 9.56.1
-          choco install --yes --no-progress poppler --version=25.11.0
+          # Chocolatey's poppler package holds only source code, and the runner's
+          # own pdftotext is xpdf's, which tests cannot use. Fetch a poppler build.
+          $zip = "$env:RUNNER_TEMP\poppler.zip"
+          Invoke-WebRequest -Uri https://github.com/oschwartz10612/poppler-windows/releases/download/v26.09.0-0/Release-26.09.0-0.zip -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne '7a6f256a0ddf7536182246a5733331bf4677cbcc34f4663774947ad34556c8d0') { throw "poppler download checksum mismatch" }
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\poppler"
+          $pdftotext = Get-ChildItem "$env:RUNNER_TEMP\poppler" -Recurse -Filter pdftotext.exe | Select-Object -First 1
+          if (-not $pdftotext) { throw "poppler's pdftotext.exe not found" }
+          $pdftotext.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Show which pdftotext tests will use
+        run: |
+          Get-Command pdftotext -All | Format-Table -AutoSize Source
+          pdftotext -v 2>&1
 
       - name: Install Python packages
         # Pin uv to the interpreter from setup-python; otherwise uv may skip a

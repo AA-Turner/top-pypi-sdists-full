@@ -1,6 +1,6 @@
 [project]
 name = "autoware-carla-scenario"
-version = "25.10.85"
+version = "26.7.0"
 description = "CARLA scenario testing framework for Autoware"
 readme = "README.md"
 license = "Apache-2.0"
@@ -34,7 +34,7 @@ dependencies = [
     "jinja2>=3.1.0",
     "python-multipart>=0.0.9",
     "pyyaml>=6.0",
-    "openodd-py>=0.19.2",
+    "openodd-py>=0.47.0",
     "packaging>=23.0",
     "tomli>=1.1.0; python_version < '3.11'",
     "pydantic>=2.0.0",
@@ -66,16 +66,16 @@ sumo = [
 map = ["roadgen>=0.42.0"]
 ros2 = ["cyclonedds>=11.0.1; sys_platform == 'linux' and platform_machine == 'x86_64' and python_version < '3.14'"]
 rerun = [
-    "autoware-carla-scenario-rerun>=0.2,<0.3",
+    "autoware-carla-scenario-rerun>=0.3,<0.4",
     "rerun-sdk>=0.38.1,<0.39",
 ]
 rerun-lidar = [
-    "autoware-carla-scenario-rerun>=0.2,<0.3",
+    "autoware-carla-scenario-rerun>=0.3,<0.4",
     "rerun-sdk>=0.38.1,<0.39",
 ]
 t4 = ["autoware-carla-scenario-t4>=0.1,<0.2"]
 hils = ["hilspy>=0.16,<0.17"]
-viewer = ["autoware-carla-scenario-rerun[viewer]>=0.2,<0.3"]
+viewer = ["autoware-carla-scenario-rerun[viewer]>=0.3,<0.4"]
 
 [project.scripts]
 scenario = "autoware_carla_scenario.examples.run:main"

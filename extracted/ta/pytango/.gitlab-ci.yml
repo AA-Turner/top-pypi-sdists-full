@@ -7,7 +7,24 @@ stages:
   - release
 
 default:
-  interruptible: false
+  # A merge request pipeline is superseded by the next push, let GitLab cancel
+  # it (needs "Auto-cancel redundant pipelines" in the project CI settings).
+  # The jobs that publish something opt out below.
+  interruptible: true
+
+# Run a merge request pipeline for every open merge request, and a branch
+# pipeline only for a branch that has no open merge request, so that a push
+# never creates two pipelines for the same commit. A branch pushed before its
+# merge request exists still gets a branch pipeline, but every job of it is
+# manual, see .manual-on-branch-push.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
 
 include:
   - local: '.windows-gitlab-ci.yml'
@@ -17,28 +34,63 @@ include:
     file: 'ArchiveWithSubmodules.gitlab-ci.yml'
 
 variables:
-  CPP_TANGO_VERSION: "10.3.3"
-  CPP_TANGO_VERSION_TAG: "10.3.3"
-  LINUX_WHEEL_DOCKER_IMAGE_VERSION: "2.3.3-1"
+  CPP_TANGO_VERSION: "10.3.4"
+  CPP_TANGO_VERSION_TAG: "10.3.4"
+  LINUX_WHEEL_DOCKER_IMAGE_VERSION: "2.3.4-1"
   TANGO_TEST_VERSION: "3.14"
   PYTHONUNBUFFERED: "1"
   FF_USE_WINDOWS_JOB_OBJECT: 1
+
+.manual-on-branch-push:
+  rules:
+    # A push to a feature branch gets a pipeline where nothing starts by itself:
+    # the merge request pipeline is the one that runs, and it cannot supersede a
+    # branch pipeline, as the two are different refs. Start the jobs by hand to
+    # get CI before opening the merge request, linux:build-sdist first, as the
+    # test and documentation jobs need its artifact. Every other job is manual
+    # on a branch pipeline already.
+    - if: >-
+        $CI_PIPELINE_SOURCE == "push" &&
+        $CI_COMMIT_BRANCH &&
+        $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH &&
+        $CI_COMMIT_BRANCH !~ /^maintenance\/.*/ &&
+        $CI_COMMIT_BRANCH != "stable"
+      when: manual
+      allow_failure: true
+
+.only-docs:
+  rules:
+    # Docs-only opt out of the full CI: the only heavy job that starts
+    # automatically is linux:test-source (one job per Python version);
+    # everything else is manual already. Skip it when the merge request carries
+    # the "Only docs" label, or when its title or the tip commit message carries
+    # the case-sensitive marker [ONLY DOCS] (the marker also works on the branch
+    # pipeline of a branch with no merge request). Skipped jobs are manual, not
+    # never, so they can still be started from the pipeline view. The default
+    # branch, the maintenance branches and tags are never affected.
+    - if: >-
+        $CI_COMMIT_TAG == null && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH &&
+        $CI_COMMIT_BRANCH !~ /^maintenance\/.*/ &&
+        ($CI_COMMIT_MESSAGE =~ /\[ONLY DOCS\]/ ||
+        $CI_MERGE_REQUEST_TITLE =~ /\[ONLY DOCS\]/ ||
+        $CI_MERGE_REQUEST_LABELS =~ /Only docs/)
+      when: manual
+      allow_failure: true
 
 .rules-wheel:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
     - if: '$CI_COMMIT_TAG'
-    - if: $CI_JOB_NAME =~ /.*win:.*-wheel.*/ && $CPP_TANGO_VERSION =~ /.*dev.*/ && $CI_PIPELINE_SOURCE != "merge_request_event"
+    - if: $CI_JOB_NAME =~ /.*win:.*-wheel.*/ && $CPP_TANGO_VERSION =~ /.*dev.*/
       when: manual
       allow_failure: true
-    - if: $CI_JOB_NAME =~ /.*macos:.*-wheel.*/ && $CPP_TANGO_VERSION =~ /.*dev.*/ && $CI_PIPELINE_SOURCE != "merge_request_event"
+    - if: $CI_JOB_NAME =~ /.*macos:.*-wheel.*/ && $CPP_TANGO_VERSION =~ /.*dev.*/
       when: manual
       allow_failure: true
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_BRANCH =~ /^maintenance\/.*/
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
-      when: manual
+    - when: manual
       allow_failure: true
 
 .build-wheel:
@@ -66,8 +118,7 @@ variables:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: '$CI_COMMIT_TAG'
       when: never
-    - if: $CI_PIPELINE_SOURCE != "merge_request_event"
-      when: manual
+    - when: manual
       allow_failure: true
 
 run-triage:
@@ -98,11 +149,14 @@ run-prek:
       - ${PREK_HOME}
   script:
     - prek run --all-files --show-diff-on-failure
+  rules:
+    - !reference [.manual-on-branch-push, rules]
+    - when: on_success
 
 test-docs:
   # official build is on https://readthedocs.org/projects/pytango/ but we test doc generation
   stage: test
-  image: ghcr.io/prefix-dev/pixi:0.70.0
+  image: ghcr.io/prefix-dev/pixi:0.82.1
   tags:
     - linux
     - docker
@@ -120,9 +174,13 @@ test-docs:
     name: Docs-dev/$CI_COMMIT_REF_SLUG
     auto_stop_in: 1 week
     url: "https://$CI_PROJECT_NAMESPACE.gitlab.io/-/$CI_PROJECT_NAME/-/jobs/$CI_JOB_ID/artifacts/build/sphinx/index.html"
+  rules:
+    - !reference [.manual-on-branch-push, rules]
+    - when: on_success
 
 generate-pypi-attestations:
   stage: pre-release
+  interruptible: false
   image: ghcr.io/astral-sh/uv:python3.13-bookworm
   needs:
     - job: linux:build-sdist
@@ -147,6 +205,7 @@ generate-pypi-attestations:
 
 release-pypi-package:
   stage: release
+  interruptible: false
   image: ghcr.io/astral-sh/uv:python3.13-bookworm
   id_tokens:
     PYPI_ID_TOKEN:
@@ -164,6 +223,7 @@ release-pypi-package:
 
 release-debug-packages:
   stage: release
+  interruptible: false
   variables:
     PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/${CI_PROJECT_NAME}/${CI_COMMIT_TAG}"
     RELEASE_API_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"

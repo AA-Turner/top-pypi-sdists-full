@@ -55,6 +55,12 @@ class ExternallyDrivenEgo(EgoVehicle):
     #: Autoware stack", "the driver policy stack".
     stack_name: str = "external"
 
+    #: Whether the stack is told of the other road users by the framework
+    #: (CARLA's ground truth) rather than perceiving them itself: what a
+    #: :class:`~autoware_carla_scenario.actions.PerceptionFaultInjectionAction`
+    #: alters, and refuses to act on when it is not.
+    road_users_from_framework: bool = False
+
     _termination_requested: bool
     _termination_reason: Optional[str]
 
@@ -110,7 +116,11 @@ class ExternallyDrivenEgo(EgoVehicle):
     # ------------------------------------------------------------------
 
     def change_lane(
-        self, world: "carla.World", direction: "LaneChangeDirection"
+        self,
+        world: "carla.World",
+        direction: "LaneChangeDirection",
+        start_after_m: float = 0.0,
+        lane_change_length_m: float = 0.0,
     ) -> None:
         """Refuse a TrafficManager manoeuvre: nothing here is driven by it.
 

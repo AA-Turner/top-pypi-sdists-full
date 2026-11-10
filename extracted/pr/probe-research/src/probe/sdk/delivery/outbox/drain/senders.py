@@ -11,7 +11,7 @@ import threading
 from typing import Any
 
 from probe.sdk import errors
-from probe.sdk.session_marker import WIZARD_HINT
+from probe.sdk.session_marker import SIGN_IN_HINT
 
 
 #: Ops looked at per parallel window, as a multiple of the worker count. Bounded because a
@@ -195,7 +195,7 @@ class DrainSendersMixin:
             # holding anyone else's writes up.
             raise CredentialNotHere(
                 f"its credential was refused by the API at {refused_at}; it waits for a "
-                f"new sign-in ({WIZARD_HINT}), or for the process that holds that credential"
+                f"new sign-in ({SIGN_IN_HINT}), or for the process that holds that credential"
             )
 
     def _refuse_adopted_route(self, op: dict | None, stamped_fp, ingest: bool, asked) -> None:
@@ -236,7 +236,7 @@ class DrainSendersMixin:
                 if login_refused:
                     raise CredentialNotHere(
                         f"adopted by the login stored here, which the API refused at "
-                        f"{login_refused}; it waits for a new sign-in ({WIZARD_HINT})"
+                        f"{login_refused}; it waits for a new sign-in ({SIGN_IN_HINT})"
                     )
             account = self.accounts.get((stamp or {}).get("fingerprint") or "")
             settings = _settings_for_op(context, ingest=ingest, account=account)
@@ -245,7 +245,7 @@ class DrainSendersMixin:
             raise
         if not settings.token and not settings.ingest_token:
             raise errors.AuthError(
-                f"no credentials for context {key[0] or '<default>'} ({WIZARD_HINT})"
+                f"no credentials for context {key[0] or '<default>'} ({SIGN_IN_HINT})"
             )
         self.clients[key] = self.sender_clients.take_client(key, settings, self.client_class)
 
@@ -304,11 +304,15 @@ class DrainSendersMixin:
         return True
 
     # -- sending --------------------------------------------------------------------------------
-    def _send_batch(self, path: Path, op: dict, lane: Any, metric_ops: list, step_ops: list) -> bool:
+    def _send_batch(
+        self, path: Path, op: dict, lane: Any, metric_ops: list, step_ops: list, sample_ops: list = ()
+    ) -> bool:
         """Plans 1.2 and T4: this op and the telemetry queued behind it in its run: its metric ops
         as ONE `/metrics` POST, its step records as ONE `/steps/batch` POST (one each on an older
-        server), head's kind first. False ends the pass."""
-        batch = [*metric_ops, *step_ops]
+        server), head's kind first; or its sample ops as ONE `/samples/batch` POST. False ends
+        the pass."""
+        sample_ops = list(sample_ops)
+        batch = [*metric_ops, *step_ops, *sample_ops]
         # Settled OUTSIDE the per-op `try`: an error while settling must not send the head
         # through `settle_failure` again after it landed (review of #2053).
         try:
@@ -327,6 +331,7 @@ class DrainSendersMixin:
         parts = [(metric_ops, _send_merged), (step_ops, None)]
         if not metric_ops or metric_ops[0][0] != path:
             parts.reverse()
+        parts.append((sample_ops, _send_samples))
         for part, send in parts:
             if not part:
                 continue
@@ -423,7 +428,7 @@ from probe.sdk.delivery.outbox.drain.report import OpHeldHere  # noqa: E402 -- p
 from probe.sdk.delivery.outbox.drain.report import OpInProgress  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.lock import _LockNotBack  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.credentials import _cooling_refusals  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.outbox.drain.coalesce import _deliver_items, _send_merged, _send_steps, steps_batch_supported  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.drain.coalesce import _deliver_items, _send_merged, _send_samples, _send_steps, steps_batch_supported  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _delivery_scope  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import _execute  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.credentials import _identity_of  # noqa: E402 -- pieces need each other; the front door loads this one first

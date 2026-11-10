@@ -1,7 +1,9 @@
-"""Core runner over the shared case table. The facade
-runner (migration plan) consumes the same CASES."""
+"""The runner over the shared case table, tests/v2/cases.py."""
+import dataclasses
 import functools
 import re
+from collections import Counter
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -24,6 +26,43 @@ def _parser_for_case(case: Case) -> Parser:
     if case.locale is not None:
         return parser_for(locales.get(case.locale))
     return Parser(policy=case.policy) if case.policy else Parser()
+
+
+def test_the_lone_name_word_switch_moves_only_a_lone_word() -> None:
+    # rules/O5 (#1111): Policy.lone_name_word decides one thing, which
+    # of the two primary fields a name of one name word fills. Over
+    # every row of the table, its policy or its pack, the two settings
+    # may differ only by that word swapping given for family -- no
+    # other field, no reported kind -- and the table holds rows where
+    # they do differ.
+    def parsers(case: Case) -> Iterator[Parser]:
+        for r in (Role.GIVEN, Role.FAMILY):
+            if case.locale is None:
+                yield Parser(policy=dataclasses.replace(
+                    case.policy or Policy(), lone_name_word=r))
+            else:
+                # the pack's parser with only the switch replaced, as a
+                # caller stacking a patch on the pack would get it
+                pack = _parser_for_case(case)
+                yield dataclasses.replace(pack, policy=dataclasses.replace(
+                    pack.policy, lone_name_word=r))
+
+    moved = 0
+    for case in CASES:
+        given, family = (p.parse(case.text) for p in parsers(case))
+        g, f = given.as_dict(), family.as_dict()
+        kinds = ([a.kind for a in given.ambiguities],
+                 [a.kind for a in family.ambiguities])
+        assert kinds[0] == kinds[1], case.id
+        if g == f:
+            continue
+        rest = ("given", "family")
+        assert ({k: v for k, v in g.items() if k not in rest}
+                == {k: v for k, v in f.items() if k not in rest}), case.id
+        assert (g["family"], f["given"], g["middle"]) == ("", "", ""), case.id
+        assert g["given"] == f["family"] != "", case.id
+        moved += 1
+    assert moved
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
@@ -71,7 +110,7 @@ def _swept(case_id: str,
 
 
 @pytest.mark.parametrize("case,order", _SWEPT_ROWS, ids=_SWEPT_IDS)
-def test_the_family_partitions_into_particles_and_base(
+def test_the_family_and_the_suffix_partition_into_their_views(
         case: Case, order: tuple[Role, Role, Role] | None) -> None:
     """rules/R2's invariant: a particle needs a base to attach to,
     so a family made only of particles is a family whose words are not
@@ -85,8 +124,24 @@ def test_the_family_partitions_into_particles_and_base(
     strings, because the family renders in written order while the two
     views render particles first ("Vega, de la" is family 'Vega de la',
     particles 'de la', base 'Vega').
+
+    rules/R8's views partition the suffix the same way, its words
+    exactly the generation's, the credentials' and the honorifics', and join this
+    walk rather than parsing the grid again; so does rules/R9's
+    patronymic, which names words the name fields and the maiden name
+    keep.
     """
     pn = _swept(case.id, order)
+    named = Counter(f"{pn.given} {pn.middle} {pn.family} {pn.maiden}".split())
+    assert not Counter(pn.patronymic.split()) - named, (
+        f"{case.text!r}: patronymic={pn.patronymic!r} names a word no "
+        f"name field holds")
+    assert sorted(pn.suffix.replace(",", " ").split()) == sorted(
+        (pn.generation + " " + pn.credentials + " " + pn.honorifics)
+        .replace(",", " ").split()), (
+        f"{case.text!r}: suffix={pn.suffix!r} is not partitioned by "
+        f"generation={pn.generation!r} + credentials={pn.credentials!r} "
+        f"+ honorifics={pn.honorifics!r}")
     if not pn.family:
         return
     assert pn.family_base, (
@@ -304,10 +359,74 @@ def test_the_field_sweep_sees_the_claims_it_checks() -> None:
     # King, Queen, Prince and Princess now reporting title-or-name, and
     # 'Royal Smith', each under three orders; 1448 -> 1451 on 2026-10-28,
     # #913's 'Chancellor Smith', reporting title-or-name under three
-    # orders.
-    assert claims == 1451, (
-        f"the field sweep checks {claims} claims, recorded as 1451 on "
-        f"2026-10-28")
+    # orders; 1451 -> 1452 on 2026-10-30, #954's 'bin Ali Hassan', which
+    # carries its own policy, one particle-or-given claim; 1452 -> 1476
+    # the same day, #965's eight KC rows, each reporting suffix-or-name
+    # under three orders; 1476 -> 1482 on 2026-11-02, rules/C3's
+    # leading-credential rows 'Dr. Md Rahman, Ing' (suffix-or-name) and
+    # 'Sr. van der Berg, PhD' (particle-or-given), each under three
+    # orders; 1482 -> 1488 the same day, #1019's 'John Smith MD Jones'
+    # and 'Smith, John Md Jones', each reporting suffix-or-name under
+    # three orders; 1488 -> 1503 the same day, #1019's review rows,
+    # five credential runs ('md', 'M.d.', 'M.a.', 'Pa-c', one case)
+    # each reporting suffix-or-name under three orders; 1503 -> 1521
+    # the same day, #1023's generation-word rows: two lose their
+    # suffix-or-name report, six new ones carry one and one carries
+    # two, each under three orders; 1521 on 2026-11-03 still, #993's
+    # listing of MBBS dropping the 'Nasreen Sultana, MBBS' row's
+    # suffix-or-name report and its 'Jane Doe Mot' row adding one, each
+    # under three orders; 1521 -> 1527 the same day, #999's 'Maj
+    # Sjöwall' and 'Mr Maj Zura', each reporting title-or-name under
+    # three orders; 1527 -> 1533 the same day, #999's 'Gen Goto' and
+    # 'Mr Gen Zhang', each reporting title-or-name under three orders;
+    # 1533 -> 1536 the same day, #999's 'Brig Klyce', reporting
+    # title-or-name under three orders; 1536 -> 1542 the same day,
+    # #913's 'Saint Clair Soares' and 'Mr Saint Martin Sterling', each
+    # reporting title-or-name under three orders; 1542 -> 1545 the same
+    # day, #1037's 'Delos Wheeler', reporting particle-or-given under
+    # three orders; 1545 -> 1546 the same day, #1024's 'du Ménil Thi
+    # Mai', reporting particle-or-given; 1546 -> 1552 the same day, #684's
+    # 'Alexandre Dumas père' and 'Olivier Père', each reporting
+    # suffix-or-name under three orders; 1552 -> 1582 the same day,
+    # #1039's given reading of junior and júnior: nine more
+    # suffix-or-name reports (five new rows one each, the 'Pedro Junior
+    # Filho' row two, 'Pedro Júnior Neto' a second, 'José Silva Júnior'
+    # one), each under three orders, and its review row 'Smith,
+    # Junior.', reporting suffix-or-name under three orders; 1582 ->
+    # 1600 on 2026-11-04, #877's report on a bare letter ending the
+    # given part after a comma, six rows each under three orders; 1600 ->
+    # 1609 the same day, its test review's particle-run and connective
+    # rows, three reports each under three orders; 1609 -> 1597 the
+    # same day, #670: six rows opening with a lowercase ambiguous
+    # particle no longer report particle-or-given under the two
+    # family-first orders, the fold having taken it; 1597 -> 1606 on
+    # 2026-11-05, #1080's two boundary rows and its paired-initials row,
+    # each reporting suffix-or-name under three orders; 1606 -> 1612 the
+    # same day, #1093's two boundary rows under three orders; 1612 ->
+    # 1615 the same day, its test review's joined-connective row under
+    # three orders; 1615 -> 1624 the same day, #1088's three kept-comma
+    # member rows ('Jean (M.A,) Smith' and its review's two) reporting
+    # suffix-or-nickname under three orders; 1624 -> 1627 the same day,
+    # #1097 and #1098: the 'Smith i V, John' and 'Josep Lluis Carod i V'
+    # rows stop reporting and 'Smith Jones y VI, John', 'John Smith y VI'
+    # and 'Smith y V' report, each under three orders; 1627 -> 1647 the
+    # same day, the rows the reviews of #1097 and #1098 added, three of
+    # them reporting suffix-or-name, and the FAMILY_FIRST row; 1647 ->
+    # 1662 the same day, #815: "'Smitty' Jones Jr." stops reporting
+    # given-or-family (-3), and its six boundary rows (a one-letter
+    # numeral, a Title case acronym, three gated words, a title word)
+    # each report under three orders (+18); 1662 -> 1665 on 2026-11-06,
+    # #1130: 'Begum, Mst Amina' reports suffix-or-name under three orders;
+    # 1665 -> 1668 the same day, its review's 'Akther, Mst. Nasima' the same;
+    # 1668 -> 1672 the same day, #1111's four rows carrying their own
+    # policy that report given-or-family (FAMILY_FIRST_GIVEN_LAST, the
+    # switch set to family under the default order and under
+    # FAMILY_FIRST, and 'Anh,'), one claim each; 1672 -> 1675 on
+    # 2026-11-07, #1138's 'John (MA/PhD) Smith' reporting
+    # suffix-or-nickname under three orders.
+    assert claims == 1675, (
+        f"the field sweep checks {claims} claims, recorded as 1675 on "
+        f"2026-11-07")
 
 
 #: The kinds that report a fork between two readings of a word, so carry
@@ -320,8 +439,10 @@ _FORK_KINDS = frozenset(AmbiguityKind) - {
 #: The field a non-name reading names by what it is.
 _FIELD_OF_KIND = {
     **dict.fromkeys((ReadingKind.CREDENTIAL, ReadingKind.GENERATION,
-                     ReadingKind.AGNOMEN, ReadingKind.POST_NOMINAL), Role.SUFFIX),
+                     ReadingKind.AGNOMEN, ReadingKind.POST_NOMINAL,
+                     ReadingKind.HONORIFIC), Role.SUFFIX),
     ReadingKind.TITLE: Role.TITLE, ReadingKind.PARTICLE: Role.FAMILY,
+    ReadingKind.PATRONYMIC: Role.FAMILY,
 }
 
 #: A plain word of each kind the oracle below writes in place of the
@@ -350,6 +471,17 @@ _STAND_IN_REREADS = {
     ("Andrew Perkins (X.Y.Z.)", 2),
     ("John Smith VI Ma", None), ("John Smith VI Jones", None),
     ("John Smith VI Jones", 2),
+    # a name word in VI's place stops 'JNR' starting the run (S8)
+    ("JOHN SMITH JNR VI JONES", None),
+    ("JOHN SMITH JNR VI JONES", 2),
+    # a stand-in for the last of two words the trailing read reported
+    # leaves the first unreported, so the family-first fold cuts the
+    # chain it held whole (decisions/P1's 2026-11-04 #828 entry)
+    ("Freiherr von Berg X.Y.Z. X.Y.Z.", 1),
+    ("Freiherr von Berg X.Y.Z. X.Y.Z.", 2),
+    # a name word in VI's place gives the 'y' a word to link, so P3's
+    # join takes it with 'Smith' (#1098)
+    ("John Smith y VI", 1),
 }
 
 #: Reports whose deferred field assign could not name: the particle the
@@ -482,7 +614,20 @@ _REVIEW_SHAPES = ("PhD VI", "Jr VI", "III VI", "Smith, John van VI",
                   "Sir abdul VI", "Dr. mc VI", "de VI", "Smith, Dr. de VI",
                   # the PR review's: a given-name title licenses the
                   # bound join only from the leading run, as group asks
-                  "abdul VI Sir.", "Sir Dr. abdul VI", "Dr. Sir abdul VI")
+                  "abdul VI Sir.", "Sir Dr. abdul VI", "Dr. Sir abdul VI",
+                  # #877's review: P1's fold opening the given part takes
+                  # a numeral standing past the part's first word into
+                  # the family
+                  "Smith, de Mesnil V", "Smith, de Mesnil VI",
+                  "Smith, Mc John V I",
+                  # #828's fix review: a particle that is suffix
+                  # vocabulary, opening a chain the family-first fold
+                  # cuts, names the field the cut gives
+                  "St Mc Mesnil VI", "St vd Mesnil Jean VI",
+                  "St de Mesnil Jean V", "Freiherr von J. ma",
+                  # its test review: a chain of particles only, and an
+                  # inner particle before the cut
+                  "St de Mc VI", "St van der Berg VI")
 
 
 @pytest.mark.parametrize("order", _INVARIANT_ORDERS)
@@ -512,12 +657,22 @@ _EXPECTED_ALTERNATIVES: dict[tuple[str, tuple[tuple[str, Any], ...]],
                              tuple[tuple[AmbiguityKind,
                                          tuple[ReadingKind, Role,
                                                ReadingSource] | None], ...]] = {
+    # a bound given name read as a name keeps the source it had before
+    # Token.reading named the taken one by the same predicate (4a's
+    # review): declared where a marker says so, else position
+    ("Smith, John Abu", ()): ((AmbiguityKind.PARTICLE_OR_GIVEN, (
+        ReadingKind.NAME, Role.MIDDLE, ReadingSource.DECLARED)),),
+    ("Smith, PhD Abdul", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
+        ReadingKind.NAME, Role.GIVEN, ReadingSource.POSITION)),),
     # suffix_reading: agnomen, generation word, listed and shaped
     # numeral, other post-nominal word, listed and shaped credential
     ("Joao Neto", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.AGNOMEN, Role.SUFFIX, ReadingSource.VOCABULARY)),),
     ("Jean Fils", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.GENERATION, Role.SUFFIX, ReadingSource.VOCABULARY)),),
+    # a credential gated as a generation word is (#965) names a credential
+    ("Ram KC", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
+        ReadingKind.CREDENTIAL, Role.SUFFIX, ReadingSource.VOCABULARY)),),
     ("John V", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.GENERATION, Role.SUFFIX, ReadingSource.VOCABULARY)),),
     ("John Smith Vi", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
@@ -641,8 +796,40 @@ def test_the_alternative_sweep_sees_the_fields_it_checks() -> None:
     # 436 -> 437 on 2026-10-27, #892's ', Jane van Jr.' row under
     # FAMILY_FIRST, a particle-or-given report P6's attachment decides;
     # 437 -> 443 the same day, #843's two abbreviated-agnomen rows read
-    # as the suffix, each under the three orders
-    assert (checked, skipped) == (443, 302), (checked, skipped)
+    # as the suffix, each under the three orders; 443 -> 452 and 302 ->
+    # 305 on 2026-10-30, #965's KC rows under the three orders, nine
+    # stand-ins landing in the alternative's field and three keeping the
+    # taken one; 452 -> 455 on 2026-11-02, rules/C3's leading-credential
+    # rows, three stand-ins landing in the alternative's field; 305 ->
+    # 311 the same day, #1019's 'John Smith MD Jones' and 'Smith, John
+    # Md Jones' under the three orders, each stand-in keeping the taken
+    # one; 311 -> 326 the same day, #1019's review rows, five credential
+    # runs under the three orders, each stand-in keeping the taken one;
+    # 455 -> 459 and 326 -> 333 the same day, #1023's generation-word
+    # rows; 333 -> 330 on 2026-11-03, #993's listing of MBBS, the
+    # 'Nasreen Sultana, MBBS' row reporting no fork under the three
+    # orders; 459 -> 462 the same day, #684's two père rows under the
+    # three orders; 462 -> 477 the same day, #1039's junior rows under
+    # the three orders; 477 -> 495 on 2026-11-04, #877's report on a bare
+    # letter ending the given part after a comma, six rows under the
+    # three orders, each stand-in landing in the alternative's field;
+    # 495 -> 504 the same day, its test review's two rows, three
+    # reports under the three orders; 504 -> 502 and 330 -> 328 the same day,
+    # #828's 'Freiherr von Berg X.Y.Z. X.Y.Z.' joining _STAND_IN_REREADS
+    # under the two family-first orders; 502 -> 508 on 2026-11-05,
+    # #1080's two boundary rows under the three orders; 508 -> 514 the
+    # same day, #1093's two boundary rows under the three orders; 514 ->
+    # 517 the same day, its test review's joined-connective row under the
+    # three orders; 517 -> 519 the same day, #1097 and #1098's rows (two
+    # reports gone and three added under the three orders, 'John Smith y
+    # VI' under the family-first order joining _STAND_IN_REREADS)
+    # 519 -> 537 the same day, the reviews of #1097 and #1098's rows;
+    # 328 -> 331 skipped on 2026-11-06, #1130's 'Begum, Mst Amina'
+    # under the three orders; 331 -> 334 the same day, its review's
+    # 'Akther, Mst. Nasima' the same; 334 -> 335 the same day, #1111's
+    # 'Sir Freiherr von Richthofen' under its own policy, whose stand-in
+    # for 'von' lands in the family with the chain, as the particle did
+    assert (checked, skipped) == (537, 335), (checked, skipped)
 
 
 def test_every_case_name_is_unique() -> None:

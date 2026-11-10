@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ from office365.security.detonation_chain import DetonationChain
 from office365.security.detonation_observables import DetonationObservables
 
 
-@dataclass
 class DetonationDetails(ClientValue):
     analysisDateTime: datetime | None = field(default_factory=lambda: datetime.min)
     detonationBehaviourDetailsV2: str | None = None

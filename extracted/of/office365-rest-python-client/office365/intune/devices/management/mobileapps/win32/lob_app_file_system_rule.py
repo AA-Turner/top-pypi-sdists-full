@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.intune.devices.management.mobileapps.win32.filesystemoperationtype import (
     Win32LobAppFileSystemOperationType,
 )
@@ -11,7 +9,6 @@ from office365.intune.devices.management.mobileapps.win32.ruleoperator import (
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class Win32LobAppFileSystemRule(ClientValue):
     check32BitOn64System: bool | None = None
     comparisonValue: str | None = None

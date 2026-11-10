@@ -19,7 +19,7 @@ class CategoryColumnRequest:
         title (str): Title is rendered as column header.
         category (str):
         attribute (Union[Unset, str]): Resource attribute is rendered as table cell.
-        widget (Union[BlankEnum, None, Unset, WidgetEnum]): Widget field allows to customise table cell rendering.
+        widget (Union[BlankEnum, None, Unset, WidgetEnum]): Widget field allows to customize table cell rendering.
     """
 
     index: int

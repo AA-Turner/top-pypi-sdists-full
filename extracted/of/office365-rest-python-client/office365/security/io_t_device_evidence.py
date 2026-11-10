@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -12,7 +12,6 @@ from office365.security.nic_evidence import NicEvidence
 from office365.security.url_evidence import UrlEvidence
 
 
-@dataclass
 class IoTDeviceEvidence(ClientValue):
     deviceId: str | None = None
     deviceName: str | None = None

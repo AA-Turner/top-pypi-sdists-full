@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: mlx-audio
-Version: 0.6.4
+Version: 0.6.5
 Summary: MLX-Audio is a package for inference of text-to-speech (TTS) and speech-to-speech (STS) models locally on your Mac using MLX
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License-Expression: MIT
-Project-URL: Homepage, https://github.com/Blaizzy/mlx-audio
+Project-URL: Homepage, https://www.neywalabs.ai
 Project-URL: Repository, https://github.com/Blaizzy/mlx-audio
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
@@ -14,7 +14,7 @@ License-File: LICENSE
 Requires-Dist: huggingface_hub>=1.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: miniaudio>=1.71
-Requires-Dist: mlx==0.32.4
+Requires-Dist: mlx>=0.32.4
 Requires-Dist: numpy>=1.26.4
 Requires-Dist: scipy>=1.10.0
 Requires-Dist: sentencepiece>=0.2.0
@@ -61,17 +61,38 @@ Requires-Dist: mkdocstrings[python]>=0.29; extra == "docs"
 Requires-Dist: pymdown-extensions<12.2; python_version < "3.11" and extra == "docs"
 Dynamic: license-file
 
+<h1 align="center">MLX-Audio</h1>
 
-# MLX-Audio
+[![Every voice task, one engine. Runs locally on your Mac. Install with pip install -U mlx-audio or try it in Nativ.](https://raw.githubusercontent.com/Blaizzy/mlx-audio/70f6291ee79fcfe1a3cbfdde2ea6170bfa91339d/docs/assets/mlx-audio-banner.png)](https://runnativ.ai/)
 
-<a href="https://trendshift.io/repositories/13625" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13625" alt="Blaizzy%2Fmlx-audio | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<p align="center">
+  <strong>Run audio models on Apple Silicon.</strong> Text-to-speech, speech-to-text, speech-to-speech, and music generation. Built on MLX.
+</p>
 
-[![PyPI version](https://img.shields.io/pypi/v/mlx-audio.svg)](https://pypi.org/project/mlx-audio/)
-[![Python](https://img.shields.io/pypi/pyversions/mlx-audio.svg)](https://pypi.org/project/mlx-audio/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/Blaizzy/mlx-audio.svg?style=social)](https://github.com/Blaizzy/mlx-audio)
+<p align="center">
+  <a href="#installation"><strong>Installation</strong></a> &middot;
+  <a href="https://blaizzy.github.io/mlx-audio/">Documentation</a> &middot;
+  <a href="https://github.com/Blaizzy/mlx-audio/releases">Releases</a>
+</p>
 
-The best audio processing library built on Apple's MLX framework, providing fast and efficient text-to-speech (TTS), speech-to-text (STT), speech-to-speech (STS), music generation, and more on Apple Silicon.
+<p align="center">
+  macOS &middot; Apple silicon
+</p>
+
+<p align="center">
+  Built by <a href="https://www.neywalabs.ai/">Neywa Labs</a>, the local AI company behind <a href="https://runnativ.ai/">Nativ</a>.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Blaizzy/mlx-audio/actions/workflows/python-publish.yml"><img src="https://github.com/Blaizzy/mlx-audio/actions/workflows/python-publish.yml/badge.svg" alt="Upload Python Package"></a>
+  <a href="https://pypi.org/project/mlx-audio/"><img src="https://img.shields.io/pypi/v/mlx-audio" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/mlx-audio/"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
+  <a href="https://github.com/Blaizzy/mlx-audio/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Blaizzy/mlx-audio" alt="MIT license"></a>
+</p>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/13625" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13625" alt="Blaizzy/mlx-audio | Trendshift" width="250" height="55"></a>
+</p>
 
 ## Table of Contents
 
@@ -104,7 +125,7 @@ The best audio processing library built on Apple's MLX framework, providing fast
 
 ### Using pip
 ```bash
-pip install mlx-audio
+pip install -U mlx-audio
 ```
 
 ### Using uv to install only the command line tools
@@ -225,6 +246,7 @@ for result in model.generate(
 | **Phonon-2 / 2.5** | Five-value Parakeet TDT | EN / 25 European languages | [2.5](https://huggingface.co/FermionResearch/Phonon-2.5) · [2.5 English](https://huggingface.co/FermionResearch/Phonon-2.5-English) · [2](https://huggingface.co/mlx-community/Phonon-2) · [README](mlx_audio/stt/models/phonon2/README.md) |
 | **Nemotron 3.5 Transcribe** | Hybrid speech language model with word timestamps, MTP speculative decoding, translation, speaker attribution, and audio prompts | Multilingual | [NVIDIA checkpoints](https://huggingface.co/collections/nvidia/nemotron-35-transcribe) · [MLX checkpoints](https://huggingface.co/collections/nativ-community/nemotron-35-transcribe) · [Support and usage](mlx_audio/stt/models/nemotron_transcribe/README.md) |
 | **Nemotron 3.5 ASR (streaming)** | NVIDIA's cache-aware streaming FastConformer-RNNT with language-ID prompting | 40 language-locales | [mlx-community/nemotron-3.5-asr-streaming-0.6b](https://huggingface.co/mlx-community/nemotron-3.5-asr-streaming-0.6b) · [README](mlx_audio/stt/models/nemotron_asr/README.md) |
+| **Nemotron Unified ASR** | NVIDIA's FastConformer-RNNT for offline and buffered streaming in one checkpoint, 160 ms-2.08 s latency | 25 European languages | [8-bit](https://huggingface.co/mlx-community/nemotron-labs-unified-asr-0.6b-8bit) · [README](mlx_audio/stt/models/nemotron_asr/README.md) |
 | **Nemotron Speech Streaming 0.6B** | NVIDIA's English FastConformer-RNNT with 80/160/560/1120 ms streaming modes | EN | [nvidia/nemotron-speech-streaming-en-0.6b](https://huggingface.co/nvidia/nemotron-speech-streaming-en-0.6b) · [README](mlx_audio/stt/models/nemotron_asr/README.md) |
 | **Voxtral** | Mistral's speech model | Multiple | [mlx-community/Voxtral-Mini-3B-2507-bf16](https://huggingface.co/mlx-community/Voxtral-Mini-3B-2507-bf16) |
 | **Voxtral Realtime** | Mistral's 4B streaming STT | Multiple | [4bit](https://huggingface.co/mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit), [fp16](https://huggingface.co/mlx-community/Voxtral-Mini-4B-Realtime-2602-fp16) |

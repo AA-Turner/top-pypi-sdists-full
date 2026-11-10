@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: bracex
-Version: 3.2.1
+Version: 3.2.2
 Summary: Bash style brace expander.
 Project-URL: Homepage, https://github.com/facelessuser/bracex
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>

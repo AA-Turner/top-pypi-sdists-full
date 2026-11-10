@@ -26,7 +26,7 @@ from functools import partial
 from types import ModuleType
 from typing import TYPE_CHECKING
 
-from cozy_runtime.author.kernels import (
+from cozy_runtime.accel.kernels import (
     Launch,
     TritonEntry,
     TritonKernels,
@@ -64,6 +64,8 @@ try:
     import triton
     import triton.language as tl
 except ImportError as _absent:  # pragma: no cover - a CPU-only or non-Linux environment
+    if TYPE_CHECKING:
+        raise
     TRITON_ABSENT = f"triton does not import ({_absent})"
 else:
     TRITON_ABSENT = ""
@@ -280,7 +282,7 @@ def _entries() -> list[TritonEntry]:
     return entries
 
 
-#: Built on every executor's GPUs when it starts (`author.kernels`): a request never compiles.
+#: Built on every executor's GPUs when it starts (`accel.kernels`): a request never compiles.
 KERNELS = TritonKernels("cozy-nvfp4", _entries())
 
 

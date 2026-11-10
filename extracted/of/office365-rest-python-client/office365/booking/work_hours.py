@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.booking.work_time_slot import BookingWorkTimeSlot
 from office365.outlook.calendar.dayofweek import DayOfWeek
@@ -8,7 +8,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class BookingWorkHours(ClientValue):
     """Represents the set of working hours in a single day of the week, for a bookingBusiness or bookingStaffMember.
 

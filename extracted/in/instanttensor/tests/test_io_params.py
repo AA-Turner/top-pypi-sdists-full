@@ -15,9 +15,9 @@ from unittest import mock
 
 import torch
 from instanttensor import Backend, safe_open
+from instanttensor._internal import cgroup, resources
 
-import instanttensor._cpu_count as cpu_count_impl
-import instanttensor._impl as impl
+import instanttensor._internal.loader as impl
 
 
 IO_ENV_VARS = [
@@ -30,47 +30,76 @@ IO_ENV_VARS = [
 ]
 
 
-class CPUCountTest(unittest.TestCase):
-    def test_cpu_count_uses_smallest_constraint(self):
-        with mock.patch.object(cpu_count_impl.os, "cpu_count", return_value=64), \
-             mock.patch.object(
-                 cpu_count_impl.os, "sched_getaffinity", return_value=set(range(8))
-             ), \
-             mock.patch.object(cpu_count_impl, "_cgroup_cpu_limit", return_value=3):
-            self.assertEqual(cpu_count_impl.cpu_count(), 3)
+class DistributedBackendSelectionTest(unittest.TestCase):
+    def test_without_group_uses_local_order_without_distributed_calls(self):
+        with mock.patch.object(impl._C, "backend_status",
+                               side_effect=lambda backend: (backend != Backend.URING.value, "", "")), \
+             mock.patch.object(impl.dist, "all_reduce") as reduce, \
+             mock.patch.object(impl.dist, "get_rank") as get_rank, \
+             mock.patch.object(impl.torch, "tensor") as tensor:
+            backend = impl.select_distributed_backend(
+                [Backend.URING, Backend.URING_BUFFERED, Backend.MMAP], "cpu", None,
+            )
+        self.assertEqual(backend, Backend.URING_BUFFERED)
+        reduce.assert_not_called()
+        get_rank.assert_not_called()
+        tensor.assert_not_called()
 
-    def test_cpu_count_is_at_least_one(self):
-        with mock.patch.object(cpu_count_impl.os, "cpu_count", return_value=None), \
-             mock.patch.object(cpu_count_impl.os, "sched_getaffinity", return_value=set()), \
-             mock.patch.object(cpu_count_impl, "_cgroup_cpu_limit", return_value=None):
-            self.assertEqual(cpu_count_impl.cpu_count(), 1)
+    def test_rank_zero_selects_from_intersection(self):
+        # The first local candidate is unavailable remotely, and IDs (not list
+        # positions) identify the common candidates in both reductions.
+        group = object()
+        calls = []
 
-    def test_cpu_count_cgroup_v2(self):
-        cpu_max = mock.mock_open(read_data="150000 100000")
-        with mock.patch.object(cpu_count_impl.os.path, "exists", return_value=True), \
-             mock.patch("builtins.open", cpu_max):
-            self.assertEqual(cpu_count_impl._cgroup_cpu_limit(), 2)
+        def reduce(values, op, group):
+            self.assertEqual(op, impl.dist.ReduceOp.MIN)
+            calls.append(values.clone())
+            if len(calls) == 1:
+                values[Backend.URING.value] = 0
 
-    def test_cpu_count_cgroup_v1(self):
-        quota_file = mock.mock_open(read_data="150000").return_value
-        period_file = mock.mock_open(read_data="100000").return_value
-        exists = lambda path: path != cpu_count_impl._CGROUP_V2_CPU_MAX
-        with mock.patch.object(cpu_count_impl.os.path, "exists", side_effect=exists), \
-             mock.patch("builtins.open", side_effect=[quota_file, period_file]):
-            self.assertEqual(cpu_count_impl._cgroup_cpu_limit(), 2)
+        with mock.patch.object(impl._C, "backend_status", return_value=(True, "", "")), \
+             mock.patch.object(impl.dist, "get_rank", return_value=0), \
+             mock.patch.object(impl.dist, "all_reduce", side_effect=reduce):
+            result = impl.select_distributed_backend(
+                [Backend.URING, Backend.MMAP, Backend.URING_BUFFERED],
+                "cpu", group,
+            )
+        self.assertEqual(result, Backend.MMAP)
+        self.assertEqual(calls[0].numel(), max(backend.value for backend in Backend) + 1)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1].sum().item(), 1)
+        self.assertEqual(calls[1][Backend.MMAP.value].item(), 1)
 
-    def test_cpu_count_cgroup_unlimited(self):
-        cpu_max = mock.mock_open(read_data="max 100000")
-        with mock.patch.object(cpu_count_impl.os.path, "exists", return_value=True), \
-             mock.patch("builtins.open", cpu_max):
-            self.assertIsNone(cpu_count_impl._cgroup_cpu_limit())
+    def test_other_rank_retains_intersection_until_second_reduce(self):
+        calls = []
+
+        def reduce(values, **kwargs):
+            calls.append(values.clone())
+            if len(calls) == 2:
+                self.assertEqual(values.sum().item(), 2)
+                values.zero_()
+                values[Backend.MMAP.value] = 1
+
+        with mock.patch.object(impl._C, "backend_status", return_value=(True, "", "")), \
+             mock.patch.object(impl.dist, "get_rank", return_value=1), \
+             mock.patch.object(impl.dist, "all_reduce", side_effect=reduce):
+            result = impl.select_distributed_backend(
+                [Backend.URING_BUFFERED, Backend.MMAP], "cpu", object(),
+            )
+        self.assertEqual(result, Backend.MMAP)
+        self.assertEqual(len(calls), 2)
+
+    def test_empty_intersection_rejects_after_first_reduce(self):
+        for candidates in ([], [Backend.URING]):
+            with self.subTest(candidates=candidates), \
+                 mock.patch.object(impl._C, "backend_status", return_value=(False, "unavailable", "")), \
+                 mock.patch.object(impl.dist, "all_reduce") as reduce:
+                with self.assertRaisesRegex(RuntimeError, "every rank"):
+                    impl.select_distributed_backend(candidates, "cpu", object())
+                self.assertEqual(reduce.call_count, 1)
 
 
 class IOParamsTest(unittest.TestCase):
-    def test_tensor_filter_rejects_collective_loading(self):
-        with self.assertRaisesRegex(ValueError, "tensor_filter requires process_group=None"):
-            safe_open([], "pt", 0, process_group=object(), tensor_filter=["weight"])
-
     def test_tensor_filter_requires_string_list(self):
         for filters in ("weight", [1], lambda name: True):
             with self.subTest(filters=filters), self.assertRaises(TypeError):
@@ -106,8 +135,9 @@ class IOParamsTest(unittest.TestCase):
 
         with ExitStack() as stack:
             stack.enter_context(mock.patch.object(impl, "file_in_memory", return_value=in_memory))
-            stack.enter_context(mock.patch.object(impl, "select_backend", return_value=selected_backend))
-            stack.enter_context(mock.patch.object(impl, "cpu_count", return_value=cpus))
+            stack.enter_context(mock.patch.object(impl, "select_distributed_backend", return_value=selected_backend))
+            stack.enter_context(mock.patch.object(impl, "negotiate_resources",
+                return_value=resources.ResourceBudget(cpus, free_bytes, free_bytes)))
             stack.enter_context(mock.patch.object(
                 impl.torch.cuda, "get_device_properties", return_value=mock.Mock(is_integrated=False),
             ))
@@ -116,7 +146,7 @@ class IOParamsTest(unittest.TestCase):
                 "mem_get_info",
                 return_value=(free_bytes, free_bytes),
             ))
-            config = impl._resolve_open_config(
+            config = impl.resolve_open_config(
                 buffer_size=buffer_size,
                 chunk_size=chunk_size,
                 concurrency=concurrency,
@@ -165,7 +195,7 @@ class IOParamsTest(unittest.TestCase):
         self.assertEqual(loader.io_depth, 2 * loader.concurrency)
 
     def test_cpu_reservation_is_per_rank_with_minimum_one(self):
-        for cpus, world_size, workers in ((64, 1, 28), (64, 2, 12), (8, 2, 1), (1, 8, 1)):
+        for cpus, world_size, workers in ((64, 1, 28), (64, 2, 28), (8, 2, 4), (1, 8, 1)):
             with self.subTest(cpus=cpus, world_size=world_size):
                 loader = self.determine_io_params(selected_backend=impl.Backend.MMAP,
                     in_memory=False, cpus=cpus, world_size=world_size)
@@ -443,7 +473,7 @@ class IOParamsTest(unittest.TestCase):
             ))
             stack.enter_context(mock.patch.object(impl, "file_in_memory", return_value=False))
             stack.enter_context(mock.patch.object(
-                impl, "select_backend", return_value=impl.Backend.URING,
+                impl, "select_distributed_backend", return_value=impl.Backend.URING,
             ))
             stack.enter_context(mock.patch.object(
                 impl.torch.cuda,
@@ -451,7 +481,7 @@ class IOParamsTest(unittest.TestCase):
                 return_value=(1 << 50, 1 << 50),
             ))
 
-            config = impl._resolve_open_config(
+            config = impl.resolve_open_config(
                 buffer_size=None,
                 chunk_size=chunk_size,
                 concurrency=0,
@@ -475,7 +505,7 @@ class IOParamsTest(unittest.TestCase):
             impl._C, "backend_status", backend_status,
         ):
             with self.assertRaises(RuntimeError) as raised:
-                impl.select_backend([impl.Backend.URING])
+                impl.select_distributed_backend([impl.Backend.URING], "cpu", None)
 
         self.assertEqual(
             str(raised.exception),
@@ -502,7 +532,7 @@ class IOParamsTest(unittest.TestCase):
             ))
 
             with self.assertWarnsRegex(RuntimeWarning, "Linux 5.15 or newer"):
-                backend = impl.select_backend([impl.Backend.URING])
+                backend = impl.select_distributed_backend([impl.Backend.URING], "cpu", None)
 
         self.assertEqual(backend, impl.Backend.URING)
 
@@ -522,8 +552,8 @@ class IOParamsTest(unittest.TestCase):
             ))
             warn = stack.enter_context(mock.patch.object(impl.warnings, "warn"))
 
-            impl.select_backend([impl.Backend.URING])
-            impl.select_backend([impl.Backend.URING_BUFFERED])
+            impl.select_distributed_backend([impl.Backend.URING], "cpu", None)
+            impl.select_distributed_backend([impl.Backend.URING_BUFFERED], "cpu", None)
 
         warn.assert_called_once()
 
@@ -536,7 +566,7 @@ class IOParamsTest(unittest.TestCase):
             ))
             warn = stack.enter_context(mock.patch.object(impl.warnings, "warn"))
 
-            backend = impl.select_backend([impl.Backend.URING_BUFFERED])
+            backend = impl.select_distributed_backend([impl.Backend.URING_BUFFERED], "cpu", None)
 
         self.assertEqual(backend, impl.Backend.URING_BUFFERED)
         warn.assert_not_called()
@@ -549,7 +579,7 @@ def write_weights(path, size):
         file.truncate(file.tell() + size)  # Sparse payload: these tests only load metadata.
 
 
-def open_metadata(path, *, integrated=False, platform="linux", fraction=0.1,
+def open_metadata(path, *, integrated=False, fraction=0.1,
                   host_info="MemAvailable: 28311552 kB\n", cuda_free=1031131130,
                   buffer_size=None, device="cuda:0", group=None):
     real_open = open
@@ -562,10 +592,11 @@ def open_metadata(path, *, integrated=False, platform="linux", fraction=0.1,
         return real_open(name, *args, **kwargs)
 
     with ExitStack() as stack:
-        stack.enter_context(mock.patch.object(sys, "platform", platform))
         stack.enter_context(mock.patch.object(torch.cuda, "get_device_properties",
             return_value=SimpleNamespace(is_integrated=integrated, managed_memory=True, unified_addressing=True)))
-        stack.enter_context(mock.patch.object(torch.cuda, "mem_get_info", return_value=(cuda_free, cuda_free)))
+        stack.enter_context(mock.patch.object(torch.cuda, "mem_get_info",
+            side_effect=cuda_free if isinstance(cuda_free, Exception) else None,
+            return_value=(cuda_free, cuda_free)))
         stack.enter_context(mock.patch("builtins.open", side_effect=open_file))
         return safe_open(str(path), "pt", device, process_group=group, backend=Backend.MMAP,
                          concurrency=1, chunk_size=1 << 20, io_depth=1,
@@ -586,11 +617,11 @@ class MemoryBudgetTest(unittest.TestCase):
     def test_budget_source_selection(self):
         size = 128 << 20
         write_weights(self.path, size)
-        for platform, integrated, accepted in (("linux", True, True), ("linux", False, False), ("win32", True, False)):
-            with self.subTest(platform=platform, integrated=integrated):
-                options = dict(platform=platform, integrated=integrated, buffer_size=size,
+        for integrated in (True, False):
+            with self.subTest(integrated=integrated):
+                options = dict(integrated=integrated, buffer_size=size,
                                host_info="MemAvailable: 1048576 kB\n", cuda_free=64 << 20, fraction=1.0)
-                if accepted:
+                if integrated:
                     self.assertEqual(open_metadata(self.path, **options).keys(), ["weight"])
                 else:
                     with self.assertRaises((ValueError, RuntimeError)):
@@ -614,7 +645,7 @@ class MemoryBudgetTest(unittest.TestCase):
     def test_fraction_controls_admission(self):
         size = 128 << 20
         write_weights(self.path, size)
-        options = dict(integrated=True, buffer_size=size, host_info="MemAvailable: 262144 kB\n")
+        options = dict(integrated=True, buffer_size=size, host_info="MemAvailable: 524288 kB\n")
         self.assertEqual(open_metadata(self.path, fraction=0.75, **options).keys(), ["weight"])
         with self.assertRaises((ValueError, RuntimeError)):
             open_metadata(self.path, fraction=0.25, **options)
@@ -628,6 +659,11 @@ class MemoryBudgetTest(unittest.TestCase):
         for info in ("MemTotal: 1048576 kB\n", "MemAvailable: invalid kB\n", OSError("meminfo unavailable")):
             with self.subTest(info=info), self.assertRaises((OSError, ValueError, RuntimeError)):
                 open_metadata(self.path, integrated=True, host_info=info)
+
+    def test_discrete_gpu_budget_is_not_capped_by_host_memory(self):
+        loader = open_metadata(self.path, host_info="MemAvailable: 0 kB\n")
+        self.assertEqual(loader.host_memory_budget, 0)
+        self.assertGreater(loader.device_memory_budget, 0)
 
 
 class DistributedMemoryBudgetTest(unittest.TestCase):
@@ -652,23 +688,85 @@ def exercise_distributed():
     try:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "weights.safetensors"
-            for scenario in ("mixed_accept", "mixed_reject", "invalid_fraction", "unreadable_host"):
-                size = (64 if scenario == "mixed_reject" else 16) << 20
+            for scenario in ("discrete_accept", "discrete_reject", "integrated_accept", "integrated_reject",
+                             "mixed_gpu_types", "different_fractions", "invalid_fraction",
+                             "unreadable_host", "cuda_query_error"):
+                size = (64 if scenario.endswith("_reject") else 16) << 20
                 write_weights(path, size)
-                options = dict(integrated=(rank == 0), cuda_free=64 << 20,
+                options = dict(integrated=scenario.startswith("integrated_") or scenario == "unreadable_host",
+                               cuda_free=64 << 20,
                                host_info="MemAvailable: 262144 kB\n", fraction=0.5)
+                if scenario == "mixed_gpu_types":
+                    options["integrated"] = rank == 0
+                if rank == 0 and scenario == "different_fractions":
+                    options["fraction"] = 0.25
                 if rank == 0 and scenario == "invalid_fraction":
                     options["fraction"] = 0.0
                 if rank == 0 and scenario == "unreadable_host":
                     options["host_info"] = OSError("meminfo unavailable")
+                if rank == 1 and scenario == "cuda_query_error":
+                    options["cuda_free"] = RuntimeError("CUDA query failed")
                 try:
                     open_metadata(path, buffer_size=size, device=f"cuda:{rank}", group=dist.group.WORLD, **options)
                     accepted = True
-                except (OSError, ValueError, RuntimeError):
+                except (OSError, ValueError, RuntimeError) as error:
+                    if scenario in ("mixed_gpu_types", "different_fractions"):
+                        field = "is_integrated" if scenario == "mixed_gpu_types" else "max_free_mem_usage"
+                        assert field + " must be identical" in str(error), error
                     accepted = False
                 outcomes = [None, None]
                 dist.all_gather_object(outcomes, accepted)
-                assert outcomes == [scenario == "mixed_accept"] * 2, (scenario, outcomes)
+                assert outcomes == [scenario.endswith("_accept")] * 2, (scenario, outcomes)
+
+            write_weights(path, 1 << 20)
+            for chosen in (Backend.MMAP, Backend.URING_BUFFERED):
+                other = Backend.URING_BUFFERED if chosen == Backend.MMAP else Backend.MMAP
+                # Backend preferences differ; resources have already been agreed.
+                candidates = [Backend.URING, chosen, other] if rank == 0 else [other, chosen]
+                with mock.patch.object(impl, "negotiate_resources", return_value=resources.ResourceBudget(8, 1 << 30, 128 << 20)), \
+                     mock.patch.object(impl.dist, "all_reduce", wraps=dist.all_reduce) as reduce:
+                    loader = safe_open(str(path), "pt", rank, process_group=dist.group.WORLD,
+                                       backend=candidates, tensor_filter=["weight"], load_now=False)
+                assert reduce.call_count == 2
+                assert loader.backend == chosen
+                assert loader.device_memory_budget == 128 << 20
+                assert loader.concurrency == (4 if chosen == Backend.MMAP else 0)
+                assert loader.io_depth == (12 if chosen == Backend.MMAP else 4)
+                actual = (loader.chunk_size, loader.io_depth, loader.concurrency,
+                          loader.buffer_size, loader.tensor_offsets, loader.tensor_keep)
+                outcomes = [None, None]
+                dist.all_gather_object(outcomes, actual)
+                assert outcomes[0] == outcomes[1], outcomes
+
+            # Exercise real resource negotiation through safe_open, including defaults.
+            boot_id = "12345678-1234-5678-9abc-def012345678"
+            root = cgroup.CgroupResources(cgroup.CgroupKey(boot_id, 0, 29, 1),
+                                          "/", 14, 300 << 20)
+            local = resources.RankResources(boot_id, 32,
+                frozenset(range(0, 12) if rank == 0 else range(4, 16)), 512 << 20,
+                cgroup.CgroupSnapshot((root,), True), 64 << 20, True, 0.5)
+            with mock.patch.object(resources, "query_rank_resources", return_value=local), \
+                 mock.patch.object(impl.dist, "all_reduce", wraps=dist.all_reduce) as reduce, \
+                 mock.patch.object(impl.dist, "all_gather_into_tensor", wraps=dist.all_gather_into_tensor) as gather:
+                loader = safe_open(str(path), "pt", rank, process_group=dist.group.WORLD,
+                                   backend=Backend.MMAP, load_now=False)
+            assert reduce.call_count == 3, reduce.call_count
+            # Resource negotiation and final open-parameter validation each gather once.
+            assert gather.call_count == 2, gather.call_count
+            assert loader.concurrency == 3, loader.concurrency
+            assert loader.io_depth == 9, loader.io_depth
+            assert loader.host_memory_budget == 75 << 19, loader.host_memory_budget
+            assert loader.device_memory_budget == 75 << 19, loader.device_memory_budget
+
+            # A rank with no usable candidates must still join the first round.
+            with mock.patch.object(impl._C, "backend_status", return_value=(rank == 0, "unavailable", "")):
+                try:
+                    safe_open(str(path), "pt", rank, process_group=dist.group.WORLD,
+                              backend=Backend.MMAP, load_now=False)
+                except RuntimeError as error:
+                    assert "every rank" in str(error), error
+                else:
+                    raise AssertionError("expected empty backend intersection")
     finally:
         dist.destroy_process_group()
 

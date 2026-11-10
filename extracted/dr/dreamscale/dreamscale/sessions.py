@@ -91,6 +91,10 @@ async def wait_until_ready(
                 noted = True
                 progress(current.starting_note)
             if current.status in ("ready", "active"):
+                if not fallback and current.region_notice and current.region_fallback:
+                    # The fallback can become ready between polls, without the client ever
+                    # observing its loading note. The ready response still records the move.
+                    fallback = current.region
                 if fallback and region_label(current.region) == region_label(fallback):
                     progress(
                         f"Running in {region_label(current.region) or current.region}, the "

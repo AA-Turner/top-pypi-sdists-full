@@ -9,9 +9,13 @@ any machine, including a Modal/Ray/Slurm job nothing else can see. It captures:
   no hashing). At the end every file created or changed since is captured as
   ``outputs/<its path in the folder>``.
 * **The log.** Everything the run printed, as ``probe/run.log`` (see
-  :mod:`probe.sdk.capture.logs.logs`). While the run is alive the same output is also
+  :mod:`probe.sdk.capture.logs.logs`). A script is teed from ``import probe``
+  (:mod:`probe.sdk.capture.logs.early`), so what it printed before the run
+  opened is the head of the run's log; the run's close rotates the tee rather
+  than stopping it, so what prints next is the next run's head, or this log's
+  next version at exit. While the run is alive the same output is also
   streamed to the server, complete lines every 15 s, for the run page's Logs
-  panel (:mod:`probe.sdk.capture.logs.stream`); the artifact stays the durable copy.
+  tab (:mod:`probe.sdk.capture.logs.stream`); the artifact stays the durable copy.
 
 WHY THE PREFIXES. The server keeps a run artifact's history by NAME: an upload
 whose name matches an existing artifact becomes its next VERSION. The code
@@ -137,19 +141,21 @@ from ..logs import stream as _logstream
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ....foundation.compose.compose import compose
 from probe.sdk.capture.outputs.host_registry import CaptureRegistryMixin, _registry, _warn_shared, log_owned_here
+from ..logs import early as _early
 from probe.sdk.capture.outputs.log import (
     LOG_NAME,
     LogTeeMixin,
     _OFF,
     _distributed_log_name,
-    in_process_log_supported,
     log_enabled,
+    log_unsaved_reason,
     reserve_log_path,
+    warn_log_unsaved,
 )
 from probe.sdk.capture.outputs.queue import OutputQueueMixin
 from probe.sdk.capture.outputs.sweep import BUDGET_ENV, OutputSweepMixin, _walk, _warn_unreachable_patterns
 
-CAPTURE_ENV = "PROBE_CAPTURE_OUTPUTS"
+CAPTURE_ENV = _early.OUTPUTS_ENV
 #: Seconds a close may spend inspecting files, unless ``PROBE_CAPTURE_BUDGET_SEC``
 #: or the finish timeout says otherwise.
 CLOSE_BUDGET_SECONDS = 120.0
@@ -305,13 +311,16 @@ class OutputCapture(
         ignore: Any = None,
         epoch: Any = None,
         writer: dict | None = None,
+        log_name: str | None = None,
     ) -> "OutputCapture | None":
         """Open the window, or return None (never raise): capture is never a
         reason for a run not to start. ``sweep=False`` keeps the log only.
         ``ignore`` (the run's ``.probeignore`` rules) keeps matching files out
         of the baseline and the sweep. ``epoch``: reads the run's write epoch
         (`logstream.handle_epoch`), so the live log names the attempt it
-        belongs to."""
+        belongs to. ``log_name``: the saved log's name when the caller knows
+        this process's place (a rank's lease, a producer), else from the
+        environment and the host's registry."""
         capture = None
         try:
             _recover_stale_logs()
@@ -334,6 +343,8 @@ class OutputCapture(
             )
             _warn_unreachable_patterns(ignore, root)
             capture.sweeps = sweep
+            if log_name:
+                capture.log_name = log_name
             if sweep:
                 capture._open_baseline()
             capture._start_log()
@@ -391,39 +402,65 @@ class OutputCapture(
         self.baseline = baseline
 
     def _start_log(self) -> None:
-        if not (self._want_tee and log_enabled() and in_process_log_supported()):
+        if not self._want_tee:
+            return
+        if not log_enabled():
+            _early.end_held_window()  # `PROBE_CAPTURE_LOG=0` set after the import: the held tee stops too
             return
         if log_owned_here():
             return  # the launcher on this host tees this process already
+        why = log_unsaved_reason()
+        if why is not None:
+            warn_log_unsaved(why)  # T19: once, and only when nobody turned the log off
+            return
         with _live_lock:
             if any(c._tee is not None for c in _live):
                 return  # fds 1/2 are one per process: the first open run owns them
         try:
-            from ..logs.logs import InProcessTee
-
-            self._log_path = reserve_log_path(self.run_id)
             self._entry = _registry() / f"{self._key}.json"
+            # 2.2: the helper reports this process's death the moment it is
+            # reparented, rather than at EOF (which a grandchild still holding
+            # stdout can postpone forever).
+            should_watch = bool(self.writer.get("session_id"))
+            if self._take_running_tee(should_watch):
+                return
+            self._log_path = reserve_log_path(self.run_id)
             # Before the helper starts: the spool directory is what asks it
             # to stream (the log helper's LIVE mode).
             self._live = _logstream.prepare(self.client, self._log_path)
-            tee = InProcessTee(
-                self._log_path,
-                recovery_entry=str(self._entry),
-                # 2.2: the helper reports this process's death the moment it
-                # is reparented, rather than at EOF (which a grandchild still
-                # holding stdout can postpone forever).
-                watch_parent=bool(self.writer.get("session_id")),
-            )
-            tee.start()
+            tee = _early.start_for_run(self._log_path, recovery_entry=str(self._entry), should_watch_parent=should_watch)
+            tee.take(self, recovery_entry=str(self._entry), should_watch_parent=should_watch, is_live=self._live)
             self._tee = tee
             self._helper_pid = tee.helper_pid
         except Exception as exc:  # noqa: BLE001
             self._tee = None
             self._drop_live()
             _diagnostics.warn(
-                f"probe: this run's output will not be saved as {LOG_NAME} "
+                f"probe: this run's output will not be saved as {self.log_name} "
                 f"({type(exc).__name__}): {exc}"
             )
+
+    def _take_running_tee(self, should_watch: bool) -> bool:
+        """The tee this process already runs (started at `import probe`, or left by a run that
+        finished here) becomes this run's: what was printed since is the head of its log (T14).
+        False when there is none to take; one whose helper does not answer is stopped."""
+        running = _early.get_current()
+        if running is None or running.owner is not None:
+            return False
+        self._log_path = running.path
+        self._live = _logstream.prepare(self.client, self._log_path)
+        if running.take(self, recovery_entry=str(self._entry), should_watch_parent=should_watch, is_live=self._live):
+            self._tee = running
+            self._helper_pid = running.helper_pid
+            return True
+        self._drop_live()
+        self._log_path = None
+        try:
+            running.tee.discard()  # the helper drops the held file as it goes, rather than keep it complete
+            running.stop()
+        except Exception:  # noqa: BLE001 -- a fresh tee follows; the old one is left as it is
+            pass
+        return False
 
     # -- close ----------------------------------------------------------------------
     def finalize(
@@ -451,12 +488,15 @@ class OutputCapture(
         with _live_lock:
             _live.discard(self)
         summary: dict[str, Any] = {}
+        is_continuing = False
         if self._tee is not None:
+            # T15: the tee goes on into a fresh file (what prints next is the next run's head,
+            # or this log's next version at exit); without an answer it is stopped, as before.
             try:
-                log_stats = self._tee.stop()
+                log_path, log_stats, is_continuing = self._tee.release(self, after_run=self._send_after_finish)
             except Exception:  # noqa: BLE001
-                log_stats = None
-            log_path, self._tee = self._log_path, None
+                log_path, log_stats = self._log_path, None
+            self._tee = None
         elif log_path is None:
             log_path = self._log_path
         try:
@@ -467,7 +507,11 @@ class OutputCapture(
         # must not wait behind a slow sweep.
         if not self._log_done:
             try:
-                sent = self._queue_log(log_path, log_stats, shared) if log_path and log_enabled() else None
+                sent = (
+                    self._queue_log(log_path, log_stats, shared, should_keep_local=is_continuing)
+                    if log_path and log_enabled()
+                    else None
+                )
                 if sent is not None:
                     summary["log"] = sent
                 self._log_done = sent is not False

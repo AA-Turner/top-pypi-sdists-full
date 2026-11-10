@@ -236,7 +236,7 @@ class Compound(Formula):
         """
         Reduces the depth of nested AND, OR, and NOT statements.
         """
-        memo = memo if memo else set()
+        memo = set(memo or ())
         memo.add(id(self))
         flattened: list[Formula] = []
         for item in self.components:
@@ -244,6 +244,8 @@ class Compound(Formula):
                 raise CircularFormulaError(item)
             if isinstance(item, Compound) and item.operator == self.operator:
                 flattened.extend(item.flatten(memo=memo).components)
+            elif isinstance(item, Compound):
+                flattened.append(item.flatten(memo=memo))
             else:
                 flattened.append(item.flatten())
 

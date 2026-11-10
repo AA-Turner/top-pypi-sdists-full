@@ -14,7 +14,7 @@ type Fetch = dyn Fn(&[crate::format::ObjectRef]) -> Result<()> + Send + Sync;
 
 /// A checkpoint's chunks as an owned placement source for the portable read engine.
 #[derive(Clone)]
-pub(crate) struct View {
+pub struct View {
     header: Arc<Header>,
     chunks: Arc<BTreeMap<String, (u64, usize)>>,
     stored: Checkpoint,
@@ -29,6 +29,7 @@ pub struct Span {
     pub source: ItemSource,
 }
 
+/// A stored part's place in its checkpoint: component, key, role, and its stored dtype and shape.
 pub struct StoredPart {
     pub component: String,
     pub key: String,
@@ -53,7 +54,7 @@ impl From<&Checkpoint> for View {
 impl View {
 
     /// Keep the source context and use its one downloader for the selected chunks.
-    pub(crate) fn with_fetch(
+    pub fn with_fetch(
         mut self,
         fetch: impl Fn(&[crate::format::ObjectRef]) -> Result<()> + Send + Sync + 'static,
     ) -> Self {
@@ -122,7 +123,7 @@ fn locate<'a>(header: &Header, name: &'a str) -> Option<(usize, usize, Option<&'
 }
 
 /// The stored spans of the parts `regions` name, in header order, and the chunks they read.
-pub(crate) fn plan(header: &Header, regions: &[Vec<String>]) -> Result<(Vec<Span>, Vec<usize>)> {
+pub fn plan(header: &Header, regions: &[Vec<String>]) -> Result<(Vec<Span>, Vec<usize>)> {
     let mut wanted = Vec::new();
     for name in regions.iter().flatten() {
         wanted.push(locate(header, name).ok_or_else(|| crate::failure::Failure {
@@ -171,7 +172,8 @@ pub(crate) fn plan(header: &Header, regions: &[Vec<String>]) -> Result<(Vec<Span
     Ok((items, chunks))
 }
 
-pub(crate) fn part(header: &Header, name: &str) -> Option<StoredPart> {
+/// `header`'s part `component/key#role` (`#value`: plain data), when it has one.
+pub fn part(header: &Header, name: &str) -> Option<StoredPart> {
     let (tensor, role) = name.rsplit_once('#')?;
     let (component, key) = tensor.split_once('/')?;
     let tensor = header.tensor(component, key)?;

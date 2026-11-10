@@ -205,8 +205,12 @@ PAT_PSEUDO_NTH_TYPE = fr'''
 PAT_PSEUDO_LANG = fr'{PAT_PSEUDO_CLASS_SPECIAL}(?P<values>{VALUE}(?:{WSC}*+,{WSC}*+{VALUE})*+){WSC}*+\)'
 # Pseudo class direction (`:dir(ltr)`)
 PAT_PSEUDO_DIR = fr'{PAT_PSEUDO_CLASS_SPECIAL}(?P<dir>{IDENTIFIER}){WSC}*+\)'
-# Combining characters (`>`, `~`, ` `, `+`, `,`)
-PAT_COMBINE = fr'{COMMENTS}*+(?={WS}|[,+>~]){WSC}*+(?P<relation>[,+>~])?+{WSC}*+'
+# Combining characters (`>`, `~`, ` `, `+`, `,`) along with any comments and whitespace around them.
+# A run of comments and whitespace is matched all at once. `ws` captures whether the run has whitespace
+# before the relation, as a run of only comments does not combine selectors.
+PAT_COMBINE = fr'''
+(?=[,+>~]|{WS}|/\*){COMMENTS}*+(?:(?P<ws>{WS}){WSC}*+)?+(?P<relation>[,+>~])?+{WSC}*+
+'''
 # Extra: Contains (`:contains(text)`)
 PAT_PSEUDO_CONTAINS = fr'{PAT_PSEUDO_CLASS_SPECIAL}(?P<values>{VALUE}(?:{WSC}*+,{WSC}*+{VALUE})*+){WSC}*+\)'
 
@@ -220,8 +224,6 @@ RE_NTH = re.compile(fr'(?P<s1>[-+])?+(?P<a>[0-9]++n?+|n)(?:(?<=n){WSC}*+(?P<s2>[
 RE_VALUES = re.compile(fr'(?:(?P<value>{VALUE})|(?P<split>{WSC}*+,{WSC}*+))', re.X)
 # Whitespace checks
 RE_WS = re.compile(WS)
-RE_WS_BEGIN = re.compile(fr'^{WSC}*+')
-RE_WS_END = re.compile(fr'^(?:[ \t]|(?>\n\r|[\n\f\r])|{COMMENTS})*+')
 RE_CUSTOM = re.compile(fr'^{PAT_PSEUDO_CLASS_CUSTOM}$', re.X)
 RE_PSEUDO_CLASS_SPECIAL = re.compile(PAT_PSEUDO_CLASS_SPECIAL, re.I | re.X | re.U)
 RE_PSEUDO_IGNORE = re.compile(PAT_PSEUDO_CLASS, re.X | re.I | re.U)
@@ -351,7 +353,13 @@ def escape(ident: str) -> str:
 
 
 class SelectorPattern:
-    """Selector pattern."""
+    """
+    Selector pattern.
+
+    Patterns are shared by all parsers, so they must not hold any per-match state.
+    `match` returns the token name along with the match; a name of `None` means the
+    match is consumed without being processed further.
+    """
 
     def __init__(self, name: str, pattern: str) -> None:
         """Initialize."""
@@ -369,15 +377,37 @@ class SelectorPattern:
                 self._re_pattern = re.compile(self.pattern, re.I | re.X | re.U)
         return self._re_pattern
 
-    def get_name(self) -> str:
-        """Get name."""
-
-        return self.name
-
-    def match(self, selector: str, index: int, flags: int) -> Match[str] | None:
+    def match(self, selector: str, index: int, flags: int) -> tuple[str | None, Match[str]] | None:
         """Match the selector."""
 
-        return self.re_pattern.match(selector, index)
+        m = self.re_pattern.match(selector, index)
+        return None if m is None else (self.name, m)
+
+
+class SelectorPatternCombinator(SelectorPattern):
+    """
+    A run of comments and whitespace might be a combinator or might just be consumed.
+
+    Process all combinators except whitespace at the start or end, and runs of only comments.
+    """
+
+    def match(self, selector: str, index: int, flags: int) -> tuple[str | None, Match[str]] | None:
+        """
+        Match the selector.
+
+        If we match at the start or end of the string and have a non-whitespace combinator, the match is bogus.
+        If we are at the start or end and the combinator is white space, then it can be consumed with no further
+        processing. Comments are not whitespace, so a run of only comments is consumed as well.
+        """
+
+        m = self.re_pattern.match(selector, index)
+        # An unterminated comment matches nothing, which must not be consumed or the parser would never advance.
+        if m is None or m.end(0) == index:
+            return None
+        relation = m.group('relation')
+        if m.start(0) == 0 or m.end(0) == len(selector):
+            return None if relation else (None, m)
+        return (self.name if relation or m.group('ws') else None), m
 
 
 class SpecialPseudoPattern(SelectorPattern):
@@ -393,27 +423,15 @@ class SpecialPseudoPattern(SelectorPattern):
             for pseudo in p[1]:
                 self.patterns[pseudo] = pattern
 
-        self.matched_name: SelectorPattern | None = None
-
-    def get_name(self) -> str:
-        """Get name."""
-
-        return '' if self.matched_name is None else self.matched_name.get_name()
-
-    def match(self, selector: str, index: int, flags: int) -> Match[str] | None:
+    def match(self, selector: str, index: int, flags: int) -> tuple[str | None, Match[str]] | None:
         """Match the selector."""
 
-        pseudo = None
         m = RE_PSEUDO_CLASS_SPECIAL.match(selector, index)
         if m:
-            name = util.lower(css_unescape(m.group('name')))
-            pattern = self.patterns.get(name)
+            pattern = self.patterns.get(util.lower(css_unescape(m.group('name'))))
             if pattern:
-                pseudo = pattern.match(selector, index, flags)
-                if pseudo:
-                    self.matched_name = pattern
-
-        return pseudo
+                return pattern.match(selector, index, flags)
+        return None
 
 
 class _Selector:
@@ -796,7 +814,7 @@ class CSSParser:
         SelectorPattern("class", PAT_CLASS),
         SelectorPattern("tag", PAT_TAG),
         SelectorPattern("attribute", PAT_ATTR),
-        SelectorPattern("combine", PAT_COMBINE)
+        SelectorPatternCombinator("combine", PAT_COMBINE)
     )
 
     # Pseudos that expand to selectors
@@ -857,64 +875,73 @@ class CSSParser:
         ns = css_unescape(m.group('attr_ns')[:-1]) if m.group('attr_ns') else ''
         attr = css_unescape(m.group('attr_name'))
         html_insensitive = False
+        pattern = None
         pattern2 = None
-        value = ''
         inverse = False
 
         if case:
-            flags = (re.I | re.ASCII if case == 'i' else 0) | re.DOTALL
+            ignore_case = case == 'i'
         elif util.lower(attr) in HTML_CASE_INSENSITIVE_ATTRIBUTES:
-            flags = re.I | re.ASCII | re.DOTALL
+            ignore_case = True
             html_insensitive = True
         else:
-            flags = re.DOTALL
+            ignore_case = False
 
         if op:
             value = css_unescape(m.group('value'))
-
-        if not op:
-            # Attribute name
-            pattern = None
-        elif op.startswith('^'):
-            # Value start with
-            # `^=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
-            value = r'(?!)' if not value else re.escape(value)
-            pattern = re.compile(r'^%s.*' % value, flags)
-        elif op.startswith('$'):
-            # Value ends with
-            # `$=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
-            value = r'(?!)' if not value else re.escape(value)
-            pattern = re.compile(r'.*?%s$' % value, flags)
-        elif op.startswith('*'):
-            # Value contains
-            # `*=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
-            value = r'(?!)' if not value else re.escape(value)
-            pattern = re.compile(r'.*?%s.*' % value, flags)
-        elif op.startswith('~'):
-            # Value contains word within space separated list
-            # `*~` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
-            value = r'(?!)' if not value or RE_WS.search(value) else re.escape(value)
-            pattern = re.compile(r'.*?(?:(?<=^)|(?<=[ \t\r\n\f]))%s(?=(?:[ \t\r\n\f]|$)).*' % value, flags)
-        elif op.startswith('|'):
-            # Value starts with word in dash separated list
-            pattern = re.compile(r'^%s(?:-.*)?$' % re.escape(value), flags)
-        elif op.startswith('!'):
-            # Value does not matches
-            pattern = re.compile(r'^(?!%s$)' % re.escape(value), flags)
-            inverse = True
-        else:
-            # Value matches
-            pattern = re.compile(r'^%s$' % re.escape(value), flags)
-
-        if html_insensitive and pattern:
-            pattern2 = re.compile(pattern.pattern, re.DOTALL)
+            pattern = self.parse_attribute_pattern(op, util.lower(value) if ignore_case else value)
+            if html_insensitive:
+                # Outside HTML, the value is matched case sensitive.
+                pattern2 = self.parse_attribute_pattern(op, value)
+            inverse = op.startswith('!')
 
         # Append the attribute selector
-        sel_attr = ct.SelectorAttribute(attr, ns, pattern, pattern2, inverse)
+        sel_attr = ct.SelectorAttribute(attr, ns, pattern, pattern2, inverse, ignore_case)
         sel.attributes.append(sel_attr)
 
         has_selector = True
         return has_selector
+
+    @staticmethod
+    def parse_attribute_pattern(op: str, value: str) -> re.Pattern[str]:
+        """
+        Create the pattern for an attribute selector's value.
+
+        The pattern is applied with `search()`, so it must not need a leading `.*?` to find the value, which would make
+        the regular expression engine retry the value at every position instead of scanning for it as a literal.
+
+        A case insensitive pattern is compiled case sensitive for the value converted to ASCII lowercase and is matched
+        against the attribute value converted the same way. We purposely avoid using `re.I` as the regular expression
+        engine cannot then scan as a literal, making the search take quadratic time depending on the pattern.
+        """
+
+        if op.startswith('^'):
+            # Value start with
+            # `^=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
+            source = r'^(?!)' if not value else fr'^{re.escape(value)}'
+        elif op.startswith('$'):
+            # Value ends with
+            # `$=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
+            source = r'(?!)' if not value else fr'{re.escape(value)}\Z'
+        elif op.startswith('*'):
+            # Value contains
+            # `*=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
+            source = r'(?!)' if not value else re.escape(value)
+        elif op.startswith('~'):
+            # Value contains word within space separated list
+            # `~=` should match nothing if the value is empty, so use `(?!)` which cannot be matched.
+            value = r'(?!)' if not value or RE_WS.search(value) else re.escape(value)
+            source = fr'(?:(?<=^)|(?<=[ \t\r\n\f])){value}(?=(?:[ \t\r\n\f]|\Z))'
+        elif op.startswith('|'):
+            # Value starts with word in dash separated list
+            source = fr'^{re.escape(value)}(?:-.*)?\Z'
+        elif op.startswith('!'):
+            # Value does not matches
+            source = fr'^(?!{re.escape(value)}\Z)'
+        else:
+            # Value matches
+            source = fr'^{re.escape(value)}\Z'
+        return re.compile(source, re.DOTALL)
 
     def parse_tag_pattern(self, sel: _Selector, m: Match[str], has_selector: bool) -> bool:
         """Parse tag pattern from regex match."""
@@ -1474,27 +1501,24 @@ class CSSParser:
     def selector_iter(self, pattern: str) -> Iterator[tuple[str, Match[str]]]:
         """Iterate selector tokens."""
 
-        # Ignore whitespace and comments at start and end of pattern
-        m = RE_WS_BEGIN.search(pattern)
-        index = m.end(0) if m else 0
-        m = RE_WS_END.search(pattern[::-1])
-        offset = m.end(0) if m else 0
-        end = len(pattern) - (1 + offset)
+        index = 0
+        end = len(pattern) - 1
 
         if self.debug:  # pragma: no cover
             print(f'## PARSING: {pattern!r}')
         while index <= end:
-            m = None
+            token = None
             for v in self.CSS_TOKENS:
-                m = v.match(pattern, index, self.flags)
-                if m:
-                    name = v.get_name()
+                token = v.match(pattern, index, self.flags)
+                if token is not None:
+                    name, m = token
                     if self.debug:  # pragma: no cover
-                        print(f"TOKEN: '{name}' --> {m.group(0)!r} at position {m.start(0)}")
+                        print(f"TOKEN: '{name or 'consumed'}' --> {m.group(0)!r} at position {m.start(0)}")
                     index = m.end(0)
-                    yield name, m
+                    if name is not None:
+                        yield name, m
                     break
-            if m is None:
+            if token is None:
                 c = pattern[index]
                 # If the character represents the start of one of the known selector types,
                 # throw an exception mentioning that the known selector type is in error;

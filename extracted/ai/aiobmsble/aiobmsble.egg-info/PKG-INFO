@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobmsble
-Version: 0.32.0
+Version: 0.33.0
 Summary: Asynchronous Python library to query battery management systems via Bluetooth Low Energy.
 Author: @patman15, @daubman, @krahabb, @KrzysztofHajdamowicz
 Maintainer: Patrick Loschmidt

@@ -32,27 +32,43 @@ static const unsigned char parameter_set_rna_turner2004[] = {
 #include "misc/rna_turner2004.hex"
 };
 
-static const unsigned char parameter_set_rna_mod_7DA_parameters[] = {
+static const unsigned char parameter_set_rna_mod_7DA[] = {
 #include "misc/rna_mod_7DA_parameters.hex"
 };
 
-static const unsigned char parameter_set_rna_mod_inosine_parameters[] = {
+static const unsigned char parameter_set_rna_mod_inosine[] = {
 #include "misc/rna_mod_inosine_parameters.hex"
 };
 
-static const unsigned char parameter_set_rna_mod_m6A_parameters[] = {
+static const unsigned char parameter_set_rna_mod_m5C[] = {
+#include "misc/rna_mod_m5C_parameters.hex"
+};
+
+static const unsigned char parameter_set_rna_mod_m6A[] = {
 #include "misc/rna_mod_m6A_parameters.hex"
 };
 
-static const unsigned char parameter_set_rna_mod_pseudouridine_parameters[] = {
+static const unsigned char parameter_set_rna_mod_n1methylpseudouridine_dutta[] = {
+#include "misc/rna_mod_n1methylpseudouridine_dutta_parameters.hex"
+};
+
+static const unsigned char parameter_set_rna_mod_n1methylpseudouridine_kierzek[] = {
+#include "misc/rna_mod_n1methylpseudouridine_kierzek_parameters.hex"
+};
+
+static const unsigned char parameter_set_rna_mod_pseudouridine[] = {
 #include "misc/rna_mod_pseudouridine_parameters.hex"
 };
 
-static const unsigned char parameter_set_rna_mod_purine_parameters[] = {
+static const unsigned char parameter_set_rna_mod_pseudouridine_shabangu[] = {
+#include "misc/rna_mod_pseudouridine_shabangu_parameters.hex"
+};
+
+static const unsigned char parameter_set_rna_mod_purine[] = {
 #include "misc/rna_mod_purine_parameters.hex"
 };
 
-static const unsigned char parameter_set_rna_mod_dihydrouridine_parameters[] = {
+static const unsigned char parameter_set_rna_mod_dihydrouridine[] = {
 #include "misc/rna_mod_dihydrouridine_parameters.hex"
 };
 

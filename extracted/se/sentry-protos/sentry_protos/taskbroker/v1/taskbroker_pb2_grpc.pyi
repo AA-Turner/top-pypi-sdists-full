@@ -50,6 +50,12 @@ class ConsumerServiceStub:
     Returns NOT_FOUND if the activation is no longer processing.
     """
 
+    BatchUpdateHeartbeat: grpc.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatResponse,
+    ]
+    """Signal that multiple activations are still being processed."""
+
 class ConsumerServiceAsyncStub:
     """//////////////////////////
     RPC messages and services
@@ -81,6 +87,12 @@ class ConsumerServiceAsyncStub:
     """Signal that an activation is still being processed.
     Returns NOT_FOUND if the activation is no longer processing.
     """
+
+    BatchUpdateHeartbeat: grpc.aio.UnaryUnaryMultiCallable[
+        sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatRequest,
+        sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatResponse,
+    ]
+    """Signal that multiple activations are still being processed."""
 
 class ConsumerServiceServicer(metaclass=abc.ABCMeta):
     """//////////////////////////
@@ -121,6 +133,14 @@ class ConsumerServiceServicer(metaclass=abc.ABCMeta):
         """Signal that an activation is still being processed.
         Returns NOT_FOUND if the activation is no longer processing.
         """
+
+    @abc.abstractmethod
+    def BatchUpdateHeartbeat(
+        self,
+        request: sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatRequest,
+        context: _ServicerContext,
+    ) -> typing.Union[sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatResponse, collections.abc.Awaitable[sentry_protos.taskbroker.v1.taskbroker_pb2.BatchUpdateHeartbeatResponse]]:
+        """Signal that multiple activations are still being processed."""
 
 def add_ConsumerServiceServicer_to_server(servicer: ConsumerServiceServicer, server: typing.Union[grpc.Server, grpc.aio.Server]) -> None: ...
 

@@ -223,9 +223,13 @@ dp_RateConverter_state_t *dp_RateConverter_create (double rate, int compensate);
  *                   two samples per symbol out). This is a shape parameter,
  *                   not a rate-planning one: a matched filter has a symbol
  *                   duration, and the planner still knows nothing of symbols.
- * @param num_phases Terminal-stage arms; power of two. Sets the fractional
- *                   timing resolution to `1/num_phases` of an output period.
- * @return Non-NULL on success; NULL on a bad parameter or OOM.
+ * @param num_phases Terminal-stage arms; a power of two from 2 to
+ *                   RESAMP_MAX_PHASES (2^32), the most the terminal
+ *                   resampler's 32-bit phase word can address. Sets the
+ *                   fractional timing resolution to `1/num_phases` of an
+ *                   output period.
+ * @return Non-NULL on success; NULL on a bad parameter (a larger
+ *         @p num_phases is refused before its bank is built) or OOM.
  */
 dp_RateConverter_state_t *
 dp_RateConverter_create_matched (double rate, int compensate, int pulse,
@@ -304,6 +308,44 @@ size_t dp_RateConverter_num_stages (const dp_RateConverter_state_t *s);
  * @endcode
  */
 double dp_RateConverter_gain (const dp_RateConverter_state_t *s);
+/**
+ * @brief How far the output COUNT can trail the rate, in INPUT samples:
+ *        after `m` inputs a fresh converter has emitted at least
+ *        `(m - lag) * rate` outputs, whatever the call sizes.
+ *
+ * Not the group delay -- the signal's -- but when outputs appear: a
+ * decimator emits from its first input, so its outputs are about one
+ * output late in number, not a filter's length. Each stage's worst lag, in
+ * its input samples, scaled to the converter's input by the rate the
+ * stages before it apply (a late stage hands every later one its input
+ * late by as much):
+ *
+ * - halfband: 1 -- output m is formed as input 2m + 1 arrives;
+ * - CIC(R): R - 1 -- output k as input kR + R - 1 arrives; the droop
+ *   compensator runs one output per input and adds none;
+ * - Resampler: `1 / rate` decimating (each output is emitted as its interval
+ *   closes, so the count is floor(m * rate)); 0 interpolating, and 0 for a
+ *   matched cascade's terminal at any rate (its push path emits every output
+ *   the newest input reaches with it).
+ *
+ * Computed from the plan, never measured; `test_RateConverter_core.c` feeds
+ * one sample a call at rates that build every plan and holds the measured
+ * worst lag to it: never above it, and on a plain decimating cascade within
+ * a hundredth of an output (the bound is reached). What it
+ * is for: a caller that waits on the output count -- a block of N outputs
+ * -- and must bound how much input it will have taken by then
+ * (AsyncDsssReceiver sizes its hand-over ring from it).
+ *
+ * @param s State. Must be non-NULL.
+ * @return The worst count lag, in input samples (>= 0).
+ *
+ * @code
+ * dp_RateConverter_state_t *rc = dp_RateConverter_create (0.5, 0);
+ * printf ("%.1f\n", dp_RateConverter_get_count_lag (rc));   // 1.0
+ * dp_RateConverter_destroy (rc);
+ * @endcode
+ */
+double dp_RateConverter_get_count_lag (const dp_RateConverter_state_t *s);
 /**
  * @brief Label of stage @p i, e.g. "CIC(8)+FIR" or "Resampler(0.923,rrc)".
  *

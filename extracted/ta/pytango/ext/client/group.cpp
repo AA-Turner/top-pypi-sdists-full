@@ -17,16 +17,20 @@ void export_group_reply(py::module &m);
 using GroupUniquePtr = std::unique_ptr<Tango::Group, DeleterWithoutGIL>;
 
 namespace PyGroup {
-void add(Tango::Group &self, Tango::Group *grp, int timeout_ms) {
-    if(grp == nullptr) {
-        raise_(PyExc_TypeError,
-               "Param \"group\" is null. It probably means that it has"
-               " already been inserted in another group.");
+// Taking the argument as a unique_ptr makes pybind11 disown the Python-side
+// __Group instance: it hands us the pointer and empties its own holder. That is
+// required because Tango::Group::add() takes over the child, and its destructor
+// deletes it -- if Python kept ownership too we would double-delete.
+// Re-adding a group that already belongs to another one is rejected by pybind11
+// itself, with "Python instance was disowned".
+void add(Tango::Group &self, GroupUniquePtr grp, int timeout_ms) {
+    // release() only after add() returned: on throw the unique_ptr still owns
+    // the child and cleans it up.
+    {
+        py::gil_scoped_release no_gil;
+        self.add(grp.get(), timeout_ms);
     }
-    // After adding grp_ptr into self, self is the responsible for deleting grp.
-    self.add(grp, timeout_ms);
-    // I am not sure about this line - looks dangerous. But without it, I regularly get SEGFAULTs
-    py::cast(grp).release();
+    static_cast<void>(grp.release());
 }
 
 static void __update_data_format(Tango::Group &self, Tango::GroupAttrReplyList &r) {
@@ -38,7 +42,11 @@ static void __update_data_format(Tango::Group &self, Tango::GroupAttrReplyList &
     // device_proxy argument, in PyGroupAttrReply::get_data().
     Tango::GroupAttrReplyList::iterator i, e = r.end();
     for(i = r.begin(); i != e; ++i) {
-        Tango::DeviceProxy *dev_proxy = self.get_device(i->dev_name());
+        Tango::DeviceProxy *dev_proxy;
+        {
+            py::gil_scoped_release no_gil;
+            dev_proxy = self.get_device(i->dev_name());
+        }
         if(dev_proxy == nullptr) {
             continue;
         }
@@ -82,7 +90,11 @@ long write_attribute_asynch(Tango::Group &self,
         attr_name = attr.cast<std::string>();
     }
 
-    Tango::DeviceProxy *dev_proxy = self.get_device(1);
+    Tango::DeviceProxy *dev_proxy;
+    {
+        py::gil_scoped_release no_gil;
+        dev_proxy = self.get_device(1);
+    }
     if(dev_proxy == nullptr) {
         Tango::DeviceAttribute dev_attr;
         dev_attr.set_name(attr_name.c_str());
@@ -141,24 +153,31 @@ void export_group(py::module &m) {
     export_group_reply(m);
     export_group_reply_list(m);
 
-    py::class_<Tango::Group, GroupUniquePtr>(m, "__Group")
-        .def(py::init<const std::string &>())
+    // py::smart_holder (not the plain GroupUniquePtr holder) is what allows
+    // PyGroup::add to receive a unique_ptr and thereby disown the instance.
+    // The custom init keeps DeleterWithoutGIL as the deleter Python owns it with.
+    py::class_<Tango::Group, py::smart_holder>(m, "__Group")
+        .def(py::init([](const std::string &name) { return GroupUniquePtr(new Tango::Group(name)); }))
         .def("_add",
              py::overload_cast<const std::string &, int>(&Tango::Group::add),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("pattern"),
              py::arg("timeout_ms") = -1)
         .def("_add",
              py::overload_cast<const StdStringVector &, int>(&Tango::Group::add),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("patterns"),
              py::arg("timeout_ms") = -1)
         .def("_add", &PyGroup::add, py::arg("group"), py::arg("timeout_ms") = -1)
 
         .def("_remove",
              py::overload_cast<const std::string &, bool>(&Tango::Group::remove),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("pattern"),
              py::arg("forward") = true)
         .def("_remove",
              py::overload_cast<const StdStringVector &, bool>(&Tango::Group::remove),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("patterns"),
              py::arg("forward") = true)
 
@@ -236,6 +255,7 @@ void export_group(py::module &m) {
 
         .def("remove_all",
              &Tango::Group::remove_all,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Removes all elements in the _RealGroup. After such a call, the _RealGroup is empty.)doc")
 
@@ -294,13 +314,16 @@ void export_group(py::module &m) {
         .def("get_device",
              py::overload_cast<const std::string &>(&Tango::Group::get_device),
              py::return_value_policy::reference_internal,
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("dev_name"))
         .def("get_device",
              py::overload_cast<long>(&Tango::Group::get_device),
              py::return_value_policy::reference_internal,
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("idx"))
         .def("ping",
              &Tango::Group::ping,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Ping all devices in a group. This method returns true if all devices in the group are alive, false otherwise.
 
@@ -311,6 +334,7 @@ void export_group(py::module &m) {
              py::arg("forward") = true)
         .def("set_timeout_millis",
              &Tango::Group::set_timeout_millis,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Set client side timeout for all devices composing the group in
                 milliseconds. Any method which takes longer than this time to execute
@@ -361,12 +385,14 @@ void export_group(py::module &m) {
 
         .def("command_inout_asynch",
              static_cast<long (Tango::Group::*)(const std::string &, bool, bool)>(&Tango::Group::command_inout_asynch),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("cmd_name"),
              py::arg("forget") = false,
              py::arg("forward") = true)
         .def("command_inout_asynch",
              static_cast<long (Tango::Group::*)(const std::string &, const Tango::DeviceData &, bool, bool)>(
                  &Tango::Group::command_inout_asynch),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
 
                 Executes a Tango command on each device in the group asynchronously.
@@ -400,6 +426,7 @@ void export_group(py::module &m) {
              static_cast<long (Tango::Group::*)(
                  const std::string &, const std::vector<Tango::DeviceData> &, bool, bool)>(
                  &Tango::Group::command_inout_asynch),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Executes a Tango command on each device in the group asynchronously.
                 The method sends the request to all devices and returns immediately.
@@ -451,6 +478,7 @@ void export_group(py::module &m) {
              py::arg("timeout_ms") = 0)
         .def("read_attribute_asynch",
              &Tango::Group::read_attribute_asynch,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Reads an attribute on each device in the group asynchronously.
                 The method sends the request to all devices and returns immediately.
@@ -489,6 +517,7 @@ void export_group(py::module &m) {
              py::arg("timeout_ms") = 0)
         .def("read_attributes_asynch",
              &Tango::Group::read_attributes_asynch,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Reads the attributes on each device in the group asynchronously.
                 The method sends the request to all devices and returns immediately.

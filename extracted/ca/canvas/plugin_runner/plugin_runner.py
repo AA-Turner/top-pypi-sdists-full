@@ -20,6 +20,7 @@ import grpc
 import redis
 import sentry_sdk
 from django.apps import apps as django_apps
+from django.core.exceptions import ImproperlyConfigured
 from django.core.signals import request_finished, request_started
 from redis.backoff import ExponentialBackoff
 from redis.exceptions import ConnectionError, TimeoutError
@@ -90,6 +91,18 @@ from settings import (
     SENTRY_DSN,
 )
 
+
+def sentry_release() -> str:
+    """
+    The runner version to report to Sentry: CANVAS_PLUGINS_RUNNER_REF, the ref home-app
+    built the runner from, when the image was built from that ref; else the public pin.
+    """
+    runner_ref = None
+    if os.getenv("CANVAS_PLUGINS_RUNNER_SOURCE") == "private":
+        runner_ref = os.getenv("CANVAS_PLUGINS_RUNNER_REF")
+    return runner_ref or os.getenv("CANVAS_PLUGINS_REPO_VERSION") or "unknown"
+
+
 if SENTRY_DSN:
     # Lazy import for faster reload time in dev
     from sentry_sdk.integrations.executing import ExecutingIntegration
@@ -102,7 +115,7 @@ if SENTRY_DSN:
             ExecutingIntegration(),
             PureEvalIntegration(),
         ],
-        release=os.getenv("CANVAS_PLUGINS_REPO_VERSION", "unknown"),
+        release=sentry_release(),
         send_default_pii=True,
         spotlight=False,
         traces_sample_rate=0.0,
@@ -1492,6 +1505,13 @@ def reload_plugin(path: pathlib.Path) -> None:
 # NOTE: specified_plugin_paths powers the `canvas run-plugins` command
 def main(specified_plugin_paths: list[str] | None = None) -> None:
     """Run the server and the synchronize_plugins loop."""
+    if not settings.PLUGIN_RUNNER_SIGNING_KEY:
+        raise ImproperlyConfigured(
+            "PLUGIN_RUNNER_SIGNING_KEY is not set. Deployed runners need it to sign each "
+            "plugin's GraphQL token; with ENV other than production a development key "
+            "is used."
+        )
+
     port = "50051"
 
     # A stamp left by a previous runner process describes routes this process has

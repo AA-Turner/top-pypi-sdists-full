@@ -18,17 +18,21 @@
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from pyrogram import types
 
 from .handler import Handler
 
 if TYPE_CHECKING:
     import pyrogram
-    from pyrogram import types
+    from pyrogram.filters import Filter
+
+PurchasedPaidMediaCallbackType = Callable[["pyrogram.Client", types.PurchasedPaidMedia], Any]
 
 
-class PurchasedPaidMediaHandler(Handler):
+class PurchasedPaidMediaHandler(Handler[PurchasedPaidMediaCallbackType]):
     """The PurchasedPaidMedia handler class. Used to handle purchased paid medias.
     It is intended to be used with :meth:`~pyrogram.Client.add_handler`
 
@@ -54,7 +58,7 @@ class PurchasedPaidMediaHandler(Handler):
 
     def __init__(
         self,
-        callback: Callable[[pyrogram.Client, types.PurchasedPaidMedia], Any],
-        filters=None,
-    ):
+        callback: PurchasedPaidMediaCallbackType,
+        filters: Filter | None = None,
+    ) -> None:
         super().__init__(callback, filters)

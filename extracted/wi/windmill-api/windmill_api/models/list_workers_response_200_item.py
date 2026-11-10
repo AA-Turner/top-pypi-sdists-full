@@ -1,11 +1,15 @@
 import datetime
-from typing import Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.list_workers_response_200_item_job_stats import ListWorkersResponse200ItemJobStats
+
 
 T = TypeVar("T", bound="ListWorkersResponse200Item")
 
@@ -36,6 +40,10 @@ class ListWorkersResponse200Item:
         job_isolation (Union[Unset, str]):
         native_mode (Union[Unset, bool]):
         draining (Union[Unset, bool]): the worker received its shutdown signal and exits once its current job is done
+        job_stats (Union[Unset, ListWorkersResponse200ItemJobStats]): script and flow-step jobs this worker ran and how
+            many of them failed, over its whole life, the last 24 hours and its last 100 jobs. A flow's own outcome is not
+            counted, since its failure is that of a step already counted on the worker that ran it. Canceled jobs count as
+            executed, not failed.
     """
 
     worker: str
@@ -60,6 +68,7 @@ class ListWorkersResponse200Item:
     job_isolation: Union[Unset, str] = UNSET
     native_mode: Union[Unset, bool] = UNSET
     draining: Union[Unset, bool] = UNSET
+    job_stats: Union[Unset, "ListWorkersResponse200ItemJobStats"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -89,6 +98,9 @@ class ListWorkersResponse200Item:
         job_isolation = self.job_isolation
         native_mode = self.native_mode
         draining = self.draining
+        job_stats: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.job_stats, Unset):
+            job_stats = self.job_stats.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -133,11 +145,15 @@ class ListWorkersResponse200Item:
             field_dict["native_mode"] = native_mode
         if draining is not UNSET:
             field_dict["draining"] = draining
+        if job_stats is not UNSET:
+            field_dict["job_stats"] = job_stats
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_workers_response_200_item_job_stats import ListWorkersResponse200ItemJobStats
+
         d = src_dict.copy()
         worker = d.pop("worker")
 
@@ -183,6 +199,13 @@ class ListWorkersResponse200Item:
 
         draining = d.pop("draining", UNSET)
 
+        _job_stats = d.pop("job_stats", UNSET)
+        job_stats: Union[Unset, ListWorkersResponse200ItemJobStats]
+        if isinstance(_job_stats, Unset):
+            job_stats = UNSET
+        else:
+            job_stats = ListWorkersResponse200ItemJobStats.from_dict(_job_stats)
+
         list_workers_response_200_item = cls(
             worker=worker,
             worker_instance=worker_instance,
@@ -206,6 +229,7 @@ class ListWorkersResponse200Item:
             job_isolation=job_isolation,
             native_mode=native_mode,
             draining=draining,
+            job_stats=job_stats,
         )
 
         list_workers_response_200_item.additional_properties = d

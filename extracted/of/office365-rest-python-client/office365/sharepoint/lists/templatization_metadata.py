@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +10,6 @@ from office365.sharepoint.documents.contentassemblyfileinfo import (
 from office365.sharepoint.documents.placeholderv2 import PlaceholderV2
 
 
-@dataclass
 class TemplatizationMetaData(ClientValue):
     FileInfo: ContentAssemblyFileInfo = field(default_factory=ContentAssemblyFileInfo)
     IsTemplateViewDefault: Optional[bool] = None

@@ -1,8 +1,7 @@
 [build-system]
 requires = [
-    "setuptools>=42",
-    "wheel",
-    "cython"
+    "setuptools>=77",
+    "cython>=3.1",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -11,21 +10,20 @@ authors = [{name = "Alen Buhanec", email = "alen.buhanec@gmail.com"}]
 name = "spookyhash"
 description = "A Python wrapper for SpookyHash version 2"
 readme = "README.md"
+requires-python = ">=3.9"
 keywords = ["SpookyHash", "hashlib"]
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Topic :: Software Development :: Libraries",
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
@@ -37,10 +35,22 @@ Repository = "https://github.com/buhanec/spookyhash"
 Issues = "https://github.com/buhanec/spookyhash/issues"
 
 [project.optional-dependencies]
-test = ["pytest", "hypothesis"]
+typing = [
+    "mypy>=1.18",
+    "typing-extensions",
+]
+test = [
+    "pytest",
+    "hypothesis",
+    # only publishes win_arm64 wheels for CPython 3.11+
+    "numpy; python_version >= '3.11' or sys_platform != 'win32' or platform_machine != 'ARM64'",
+]
 
 [tool.setuptools]
-py-modules = ["spookyhash"]
+packages = ["spookyhash"]
+
+[tool.setuptools.package-data]
+spookyhash = ["py.typed", "_spookyhash.pyi"]
 
 [tool.setuptools.dynamic]
 version = {attr = "spookyhash.__version__"}

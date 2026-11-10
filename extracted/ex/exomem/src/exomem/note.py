@@ -218,11 +218,8 @@ PATTERN_TYPE_VALUES = (
 STATUS_BASIC = ("active", "draft")
 STATUS_EXPERIMENT = ("active", "draft", "archived", "concluded")
 
-# How a finished experiment turned out. Deliberately the same closed vocabulary
-# as a semantic unit's `verdict` (see `semantic_units.EPISTEMIC_OUTCOMES`), so a
-# reader never translates between a unit's judgment and its parent's. Never a
-# number: this vault stores no confidence score.
-EXPERIMENT_OUTCOME_VALUES = semantic_units.EPISTEMIC_OUTCOMES
+# An experiment's `outcome:` takes a key of the verdict registry, the same keys as a unit's
+# `verdict`; `vault.governed_frontmatter_reason` states that policy once.
 STATUS_PRODUCTION = (
     "planned",
     "recorded",
@@ -2204,6 +2201,7 @@ def note(
             predecessor_content_hash=_predecessor_content_hash,
             vocabulary_binding=domain_binding,
             resolver=resolver,
+            draft_bound=any(item is not None for item in (draft_id, draft_hash, draft_token)),
         )
     except (semantic_writes.SemanticWriteError, relation_review.RelationReviewError) as error:
         raise _note_error(error) from error

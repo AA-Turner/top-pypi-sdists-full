@@ -9,7 +9,7 @@ T = TypeVar("T", bound="CeleryStatsResponseRevokedType0")
 
 @_attrs_define
 class CeleryStatsResponseRevokedType0:
-    """IDs of revoked (cancelled) tasks per worker. Keys are worker names, values are lists of task IDs."""
+    """IDs of revoked (canceled) tasks per worker. Keys are worker names, values are lists of task IDs."""
 
     additional_properties: dict[str, list[str]] = _attrs_field(init=False, factory=dict)
 

@@ -25,6 +25,7 @@ use crate::descr::budget;
 use crate::descr::interval::IntervalSet;
 use crate::descr::lower::WORK;
 use crate::ir::{Constraint, LONGEST, REACHED, Schema};
+use crate::joined_in_rounds;
 use crate::verdict::Relation;
 
 use super::MAX_DECISION_DEPTH;
@@ -70,6 +71,34 @@ impl Schema {
 }
 
 impl ByLength<'_> {
+    /// Whether this term holds more words than `constants` constants are: a
+    /// length of a `str` or a `bytes` holds the alphabet to its power in words,
+    /// so where the term holds a length past what that many constants can name,
+    /// one of its words is no constant of them. A code point is a `str`'s
+    /// letter, lone surrogates included, and a byte a `bytes`'s.
+    pub(super) fn holds_more_words_than(&self, constants: usize) -> bool {
+        let letters: u128 = match self.base {
+            Some(Schema::Str) => 0x11_0000,
+            Some(Schema::Bytes) => 256,
+            _ => return false,
+        };
+        let Ok(constants) = u128::try_from(constants) else {
+            return false;
+        };
+        let mut length: i64 = 1;
+        let mut words = letters;
+        while words <= constants {
+            length += 1;
+            words = words.saturating_mul(letters);
+        }
+        !self
+            .lengths
+            .intersect(&lengths_held())
+            .intersect(&lengths_up_to(REACHED))
+            .intersect(&IntervalSet::between(Some(length), None))
+            .is_empty()
+    }
+
     /// Nothing: no length, and no value beyond a base.
     fn nothing() -> Self {
         ByLength {
@@ -210,24 +239,7 @@ fn joined<'a>(
     identity: impl FnOnce() -> ByLength<'a>,
     join: impl Fn(ByLength<'a>, ByLength<'a>) -> Option<ByLength<'a>>,
 ) -> Option<ByLength<'a>> {
-    let mut read = members
-        .iter()
-        .map(|member| lengths_of(member, depth))
-        .collect::<Option<Vec<_>>>()?;
-    // Read as the shape of the list, two members or more, so the loop's end
-    // is no comparison a slip could keep open.
-    while let [_, _, ..] = read.as_slice() {
-        let mut pairs = read.into_iter();
-        let mut next = Vec::with_capacity(pairs.len().div_ceil(2));
-        while let Some(first) = pairs.next() {
-            next.push(match pairs.next() {
-                Some(second) => join(first, second)?,
-                None => first,
-            });
-        }
-        read = next;
-    }
-    Some(read.pop().unwrap_or_else(identity))
+    joined_in_rounds(members, |member| lengths_of(member, depth), identity, join)
 }
 
 /// The base two parts of a term count over: the one either names, or `None`

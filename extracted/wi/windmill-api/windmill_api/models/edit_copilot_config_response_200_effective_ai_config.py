@@ -33,6 +33,9 @@ if TYPE_CHECKING:
     from ..models.edit_copilot_config_response_200_effective_ai_config_providers import (
         EditCopilotConfigResponse200EffectiveAiConfigProviders,
     )
+    from ..models.edit_copilot_config_response_200_effective_ai_config_web_search import (
+        EditCopilotConfigResponse200EffectiveAiConfigWebSearch,
+    )
 
 
 T = TypeVar("T", bound="EditCopilotConfigResponse200EffectiveAiConfig")
@@ -62,6 +65,9 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         sessions_retention_days (Union[Unset, int]): The server deletes the backup of a session no push has reached for
             this many days. Unset keeps backups until the user deletes the session. Read from the workspace's own settings
             like `copilot_disabled`.
+        web_search (Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigWebSearch]): The search API the AI chat
+            searches the web and reads pages through when the model's provider has no built-in web search. Read from the
+            workspace's own settings like `copilot_disabled`.
     """
 
     providers: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigProviders"] = UNSET
@@ -76,6 +82,7 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
     copilot_disabled: Union[Unset, bool] = UNSET
     sessions_storage_disabled: Union[Unset, bool] = UNSET
     sessions_retention_days: Union[Unset, int] = UNSET
+    web_search: Union[Unset, "EditCopilotConfigResponse200EffectiveAiConfigWebSearch"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -118,6 +125,9 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         copilot_disabled = self.copilot_disabled
         sessions_storage_disabled = self.sessions_storage_disabled
         sessions_retention_days = self.sessions_retention_days
+        web_search: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.web_search, Unset):
+            web_search = self.web_search.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -146,6 +156,8 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             field_dict["sessions_storage_disabled"] = sessions_storage_disabled
         if sessions_retention_days is not UNSET:
             field_dict["sessions_retention_days"] = sessions_retention_days
+        if web_search is not UNSET:
+            field_dict["web_search"] = web_search
 
         return field_dict
 
@@ -177,6 +189,9 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
         )
         from ..models.edit_copilot_config_response_200_effective_ai_config_providers import (
             EditCopilotConfigResponse200EffectiveAiConfigProviders,
+        )
+        from ..models.edit_copilot_config_response_200_effective_ai_config_web_search import (
+            EditCopilotConfigResponse200EffectiveAiConfigWebSearch,
         )
 
         d = src_dict.copy()
@@ -255,6 +270,13 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
 
         sessions_retention_days = d.pop("sessions_retention_days", UNSET)
 
+        _web_search = d.pop("web_search", UNSET)
+        web_search: Union[Unset, EditCopilotConfigResponse200EffectiveAiConfigWebSearch]
+        if isinstance(_web_search, Unset):
+            web_search = UNSET
+        else:
+            web_search = EditCopilotConfigResponse200EffectiveAiConfigWebSearch.from_dict(_web_search)
+
         edit_copilot_config_response_200_effective_ai_config = cls(
             providers=providers,
             default_model=default_model,
@@ -268,6 +290,7 @@ class EditCopilotConfigResponse200EffectiveAiConfig:
             copilot_disabled=copilot_disabled,
             sessions_storage_disabled=sessions_storage_disabled,
             sessions_retention_days=sessions_retention_days,
+            web_search=web_search,
         )
 
         edit_copilot_config_response_200_effective_ai_config.additional_properties = d

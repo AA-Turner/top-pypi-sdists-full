@@ -95,6 +95,7 @@ __all__ = (
     "CaptionDestinationTypeType",
     "CaptionSourceByteRateLimitType",
     "CaptionSourceConvertPaintOnToPopOnType",
+    "CaptionSourceType",
     "CaptionSourceTypeType",
     "CaptionSourceUpconvertSTLToTeletextType",
     "ChromaPositionModeType",
@@ -692,6 +693,7 @@ CaptionDestinationTypeType = Literal[
 ]
 CaptionSourceByteRateLimitType = Literal["DISABLED", "ENABLED"]
 CaptionSourceConvertPaintOnToPopOnType = Literal["DISABLED", "ENABLED"]
+CaptionSourceType = Literal["INPUT_CAPTION_SELECTOR", "SMART_SUBTITLE"]
 CaptionSourceTypeType = Literal[
     "ANCILLARY",
     "DVB_SUB",
@@ -932,7 +934,7 @@ Eac3PhaseControlType = Literal["NO_SHIFT", "SHIFT_90_DEGREES"]
 Eac3StereoDownmixType = Literal["DPL2", "LO_RO", "LT_RT", "NOT_INDICATED"]
 Eac3SurroundExModeType = Literal["DISABLED", "ENABLED", "NOT_INDICATED"]
 Eac3SurroundModeType = Literal["DISABLED", "ENABLED", "NOT_INDICATED"]
-ElementalInferenceFeatureType = Literal["SMART_CROP"]
+ElementalInferenceFeatureType = Literal["SMART_CROP", "SMART_SUBTITLE"]
 ElementalInferenceFeedManagementStateType = Literal[
     "ASSOCIATED", "CREATED", "DELETED", "PENDING_DELETION"
 ]

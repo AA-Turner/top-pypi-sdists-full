@@ -1,6 +1,8 @@
 """Stage: classify.
 
-Consumes: tokens, comma_offsets (with token roles, the two halves of
+Consumes: tokens, segments (the part a title phrase or a split
+credential's pair is read within), extracted (whether a delimited
+clause holds a word with a comma on it, rules/S1), comma_offsets (with token roles, the two halves of
 the structural-boundary test the marker pass applies -- see
 _vocab.tag_marker_runs), and one_case where an earlier stage recorded
 it -- segment writes it lazily where C2's flag on a part past the
@@ -12,7 +14,18 @@ one_case -- whether the name's own words are written in one case,
 recorded for the later stages that read it (#289/#516) and left alone
 where an earlier stage already asked.
 Reads: every Lexicon vocabulary field except surnames and
-honorific_tails, which script_segment consumes upstream; and, since
+honorific_tails, which script_segment consumes upstream, and
+given_names, which only post_rules reads (rules/O6); and the kinds
+of its suffix words and particles (Lexicon's generation_words,
+credential_words, honorific_words and patronymic_particles, internal
+sets, 3.0) and the
+suffix words whose Title case leans to the name
+(title_case_name_words, rules/S6, #1039) and the
+titles written short (title_abbreviations, #999) and the names a
+community gives every member (shared_names) and the given names
+written behind a particle (particle_given_names, #704) and the
+two-word given names a bound word completes into (bound_phrases,
+#694); and, since
 2.4, Policy.unlisted_dotted_suffixes and Policy.unlisted_caps_suffixes,
 which decide whether an UNLISTED dotted or all-caps token joins the
 ambiguous credential class by SHAPE (#516) -- the all-caps half here
@@ -33,14 +46,25 @@ namespaced (unstable): "vocab:title", "vocab:given-title",
 "vocab:after-given-title", "vocab:title-ambiguous",
 "vocab:suffix", "vocab:suffix-word", "vocab:suffix-ambiguous",
 "vocab:suffix-word-ambiguous", "vocab:agnomen",
+"vocab:generation-word", "vocab:credential-word",
+"vocab:honorific-word", "vocab:patronymic", "vocab:trailing-title"
+and "vocab:joined-title" (read by the later stages and dropped by
+assemble, Token.reading carrying the kind out, save the last two,
+which mark no kind), "vocab:title-case-name" (a suffix word whose
+Title case leans to the name, rules/S6, kept on the published token),
 "vocab:particle-ambiguous", "vocab:bound-given",
-"vocab:given-abbreviation", "vocab:maiden-marker",
+"vocab:given-abbreviation", "vocab:shared-name" (which rules/P10, O6
+and O7 read), "vocab:particle-given" (which P10 and O6 read) and
+"vocab:bound-phrase" (on a bound word and the word after it being a
+listed pair, which P12 joins and O6 counts once, #694), each
+dropped by assemble and carrying no kind out, "vocab:maiden-marker",
 "vocab:maiden-marker-cont"; in a namespace of its own,
 "shape:acronym"; and in another, "split:credential" and
 "split:member", written on the first word of a credential split across
 a space (`_vocab.split_pair`) to name the piece the pair merges into:
-the Ph./D. pair's unambiguous suffix, or any other pair's member of the
-ambiguous class (rules/S12).
+the Ph./D. pair's unambiguous suffix where the lexicon lists `phd` as
+an unambiguous credential, or any other pair's member of the ambiguous
+class (rules/S12).
 "vocab:maiden-marker" tags the HEAD of a maiden marker, which is a
 whole marker whenever the marker is one word; the continuation tag
 carries the rest of a PHRASE marker ("z domu"), so a site asking
@@ -68,17 +92,21 @@ import unicodedata
 from nameparser._lexicon import _normalize, _spells_an_initial
 from nameparser._policy import CapsSuffixes
 from nameparser._pipeline._state import (
-    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG,
-    GIVEN_ABBREVIATION_TAG, SHAPE_ACRONYM_TAG,
-    SPLIT_CREDENTIAL_TAG, SPLIT_MEMBER_TAG, TITLE_AMBIGUOUS_TAG, ParseState,
+    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, CREDENTIAL_WORD_TAG,
+    GENERATION_WORD_TAG, GIVEN_ABBREVIATION_TAG, HONORIFIC_WORD_TAG,
+    BOUND_PHRASE_TAG, PARTICLE_GIVEN_TAG, PATRONYMIC_TAG, SHAPE_ACRONYM_TAG, SHARED_NAME_TAG, SPLIT_CREDENTIAL_TAG, SPLIT_MEMBER_TAG, TITLE_AMBIGUOUS_TAG,
+    TITLE_CASE_NAME_TAG,
+    JOINED_TITLE_TAG, TRAILING_TITLE_TAG, ParseState,
     Deferred, PendingAmbiguity, PendingReading,
     WorkToken, copy_with,
 )
 from nameparser._types import AmbiguityKind, ReadingKind, ReadingSource
 from nameparser._pipeline._vocab import (
-    BUILTIN_GLUED_DELIMITERS, SPLIT_CHUNK, SPLIT_PAIR_OPENS, _INITIAL, caps_shape_candidate,
+    BUILTIN_GLUED_DELIMITERS, SPLIT_CHUNK, SPLIT_PAIR_OPENS, _INITIAL, _JOINED_WORD, caps_shape_candidate,
     composed_len, glued_cores, glued_stem, is_cased_paired_initials,
-    is_initial, is_one_case, period_joined_vocab, split_pair,
+    is_initial, is_one_case,
+    period_joined_title, period_joined_vocab,
+    split_pair,
     suffix_as_written, tag_marker_runs, title_readings,
 )
 from nameparser._pipeline._pieces import own_words
@@ -135,36 +163,70 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     tags = set(token.tags)
     if marker_tag is not None:
         tags.add(marker_tag)
-    if n in lex.titles:
+    if n in lex._sets.titles:
         tags.add("vocab:title")
-    if n in lex.given_name_titles:
+        # rules/H5: "a title the vocabulary lists whole with a period
+        # inside it chains without a final one" -- marked here, where
+        # the listing is known whole; a period, since a hyphen alone
+        # joins whole words as often as abbreviations ('co-founder'), and
+        # the one hyphenated abbreviation ending a name in the corpora,
+        # 'д-р', is a credential there to CLDR (decisions/H5, #1104)
+        if "." in n and _JOINED_WORD.match(n):
+            tags.add(JOINED_TITLE_TAG)
+    if n in lex._sets.given_name_titles:
         tags.add("vocab:given-title")
+    # rules/H5: "a title that may be a given name is title vocabulary
+    # there where its title reading is written short" -- marked here,
+    # where the sets are at hand, so the chain reads a tag
+    if (n in lex._sets.title_abbreviations
+            and n in lex._sets.titles_ambiguous):
+        tags.add(TRAILING_TITLE_TAG)
     # rules/H8: "the word joins the title field" -- tagged only where the
     # word is a title too, so an entry outside `titles` is inert
-    if n in lex.after_given_titles and n in lex.titles:
+    if n in lex._sets.after_given_titles and n in lex._sets.titles:
         tags.add("vocab:after-given-title")
     if suffix_as_written(n, token.text, lex):
         tags.add("vocab:suffix")
-    if n in lex.suffix_words_ambiguous:
-        # rules/S11: "it reads as the generation only where the name has
-        # words to spare" -- the ambiguous class's tag, so every site
+    if n in lex._sets.suffix_words_ambiguous:
+        # rules/S11: "it reads as the suffix only where the name has words
+        # to spare" -- the ambiguous class's tag, so every site
         # that weighs a member weighs this one, and the cue tags that
         # tell `_pieces.listed_lean` how its writing leans
         tags.add(AMBIGUOUS_ACRONYM_TAG)
         tags.add(AMBIGUOUS_WORD_TAG)
-        if n in lex.agnomens:
+        if n in lex._sets.title_case_name_words:
+            tags.add(TITLE_CASE_NAME_TAG)
+        if n in lex._sets.agnomens:
             tags.add(AGNOMEN_TAG)
-    elif n in lex.suffix_words:
+        # rules/R8: "The kind of a word listed as a suffix word is the
+        # lexicon's" -- a gated credential (`kc`, #965) reads as a
+        # credential, not the generation the class otherwise holds
+        elif n in lex._sets.credential_words:
+            tags.add(CREDENTIAL_WORD_TAG)
+    elif n in lex._sets.suffix_words:
         tags.add("vocab:suffix-word")
-    if n in lex.suffix_acronyms_ambiguous:
+        # rules/R8: "The kind of a word listed as a suffix word is the
+        # lexicon's" -- read here, from the word as this stage reads it
+        # (decisions/R8, #326; #754, 4i-b)
+        if n in lex._sets.generation_words:
+            tags.add(GENERATION_WORD_TAG)
+        elif n in lex._sets.credential_words:
+            tags.add(CREDENTIAL_WORD_TAG)
+        elif n in lex._sets.honorific_words:
+            tags.add(HONORIFIC_WORD_TAG)
+    if n in lex._sets.suffix_acronyms_ambiguous:
         tags.add(AMBIGUOUS_ACRONYM_TAG)
     # rules/P7: "A one-letter word written with its period is an
     # initial and not a particle" -- both particle tags, so 'Ó.' is
     # neither half of the vocabulary
-    if n in lex.particles and not _spells_an_initial(n, token.text):
+    if n in lex._sets.particles and not _spells_an_initial(n, token.text):
         tags.add("particle")
-        if n in lex.particles_ambiguous:
+        if n in lex._sets.particles_ambiguous:
             tags.add("vocab:particle-ambiguous")
+        # rules/R9: "a particle the lexicon holds as a patronymic" -- its
+        # kind, read here as a suffix word's is (decisions/R9, #754)
+        if n in lex._sets.patronymic_particles:
+            tags.add(PATRONYMIC_TAG)
     # rules/P8: "a single-letter connective reads as an initial
     # where the writing says so: written as a bare Latin capital in a
     # name that is not written wholly in one case, or — in a name
@@ -174,7 +236,7 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     # one letter as the writer sees it: a decomposed 'й' is two code
     # points (#665), so non-ASCII text is counted composed, after the
     # C-level tests have declined everything else
-    single_letter_connective = (n in lex.conjunctions
+    single_letter_connective = (n in lex._sets.conjunctions
                                 and token.text.upper() != token.text.lower()
                                 and (len(token.text) == 1
                                      or not token.text.isascii()
@@ -187,7 +249,7 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         # emit where the branch is taken, not where an ambiguous tag
         # sits, and a vocab: tag records MEMBERSHIP, not the branch
         # taken, so it is the wrong shape of record here.
-        if n in lex.conjunctions_ambiguous:
+        if n in lex._sets.conjunctions_ambiguous:
             tags.add("initial")
         else:
             # a bare capital y joins here, where mixed case vetoes it
@@ -215,18 +277,27 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         initial = is_initial(token.text) or (
             letter_one_case and len(token.text) == 1
             and _INITIAL.fullmatch(token.text.upper()) is not None)
-        if n in lex.conjunctions and not initial:
+        if n in lex._sets.conjunctions and not initial:
             tags.add("conjunction")
         if initial:
             tags.add("initial")
-    if n in lex.bound_given_names:
+    if n in lex._sets.bound_given_names:
         tags.add("vocab:bound-given")
     # rules/H2: "an abbreviation the vocabulary reads as a given name
     # written short is that given name" -- the reading H2's shape test
     # weighs (`_pieces.is_leading_title`); a membership, so any spelling
     # carries it and only that test acts on it
-    if n in lex.given_name_abbreviations:
+    if n in lex._sets.given_name_abbreviations:
         tags.add(GIVEN_ABBREVIATION_TAG)
+    # rules/O6, O7 and P10 read this: a name a community gives every
+    # member is neither taken nor completed by the two-name switches,
+    # nor completed by P10's particle phrase (#704)
+    if n in lex._sets.shared_names:
+        tags.add(SHARED_NAME_TAG)
+    # rules/P10 and O6 read this: a given name written behind a particle
+    # completes the given name it follows (#704)
+    if n in lex._sets.particle_given_names:
+        tags.add(PARTICLE_GIVEN_TAG)
     # maiden markers are NOT tagged here: an entry may be a phrase whose
     # words are not markers on their own, and this function sees one
     # token with no neighbours. `_vocab.tag_marker_runs` does the whole
@@ -237,7 +308,7 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     # period-joined derivation (parse_pieces): a token with a period
     # not at the end, ANY of whose period chunks is a title, is a
     # title as a whole ('Lt.Gov.', and by the ANY rule 'Mr.Smith');
-    # else ANY suffix chunk makes it a suffix ('JD.CPA'). Title wins
+    # else a suffix where EVERY chunk counts ('JD.CPA', #1131). Title wins
     # (v1's continue). The third and fourth are 2.4's by-shape halves
     # (#516; rules/S9: "joins the ambiguous class (S4) by SHAPE, in
     # the positions each shape is admitted") and reach only a
@@ -265,10 +336,15 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         derived = period_joined_vocab(token.text, lex)
         if derived == "title":
             tags.add("vocab:title")
+            # rules/H5: "a word with interior periods every one of whose
+            # chunks is a title chains without a final period" -- marked
+            # as a title listed whole is (decisions/H5, #1131)
+            if period_joined_title(token.text, lex):
+                tags.add(JOINED_TITLE_TAG)
         elif derived == "suffix":
             tags.add("vocab:suffix")
         elif (derived == "shape" and token.role is None
-                and n not in lex.suffix_acronyms_ambiguous):
+                and n not in lex._sets.suffix_acronyms_ambiguous):
             # This branch and `_vocab.ambiguous_class_candidate` ask
             # the SAME question twice, of necessity -- `segment` runs
             # before `classify` and has no tags to read yet -- kept
@@ -305,7 +381,7 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
                 # what the predicate would decline anyway, asked first in
                 # C: a listed member ('John Smith, MA'), and a word that
                 # is not alphabetic capitals ('John Smith, Ph. D.')
-                and n not in lex.suffix_acronyms_ambiguous
+                and n not in lex._sets.suffix_acronyms_ambiguous
                 and (token.text.isupper()
                      and (token.text.isalpha() or "-" in token.text
                           or "/" in token.text)
@@ -355,7 +431,7 @@ def classify(state: ParseState) -> ParseState:
     # _normalize(text), passed in so callers normalize once").
     folded = [_normalize(t.text) for t in state.tokens]
     marker_tags = tag_marker_runs(state.tokens, state.comma_offsets,
-                                  state.lexicon.maiden_markers, folded)
+                                  state.lexicon._sets.maiden_markers, folded)
     # rules/P3 says a maiden marker, taken as one, and the words it
     # takes, are not among the name's own words -- so the span and its
     # clause cut are _pieces.own_words', shared with the site that
@@ -365,7 +441,7 @@ def classify(state: ParseState) -> ParseState:
     # walking the texts again, and classify's answer is the one it was
     # before the helper existed.
     own, clause_at = own_words(state.tokens, state.comma_offsets,
-                               state.lexicon.maiden_markers, marker_tags)
+                               state.lexicon._sets.maiden_markers, marker_tags)
     # ONE fact per parse, and it is recorded now (ParseState.one_case):
     # segment writes it first where C2's flag on a tail part asks, and
     # a fact two stages decide apart is what recording it prevents
@@ -409,6 +485,19 @@ def classify(state: ParseState) -> ParseState:
                         folded[i] = _normalize(stem)
                         stemmed.add(i)
                     break
+    # rules/S1: "the comma is no part of the word it is written against"
+    # -- a word of a delimited clause keeps a comma written beside it
+    # (N1), and is tagged as the word without it, so a clause S1 sets apart
+    # gives each word its vocabulary whichever side of the comma it
+    # stands ('(Jr, PhD)', '(MBA, PhD)'); a maiden marker's comma
+    # unmakes the marker (M3), which the marker pass above has already
+    # read off the word as written (decisions/S1, #792)
+    if state.extracted:
+        for i, t in enumerate(state.tokens):
+            if (t.role is not None and i not in marker_tags
+                    and (bare := t.text.strip(",")) and bare != t.text):
+                readers[i] = copy_with(t, text=bare)
+                folded[i] = _normalize(bare)
     tokens = tuple(
         copy_with(
             t, tags=_tags_for(readers[i], folded[i], state, marker_tags.get(i),
@@ -426,6 +515,25 @@ def classify(state: ParseState) -> ParseState:
         tokens = tuple(
             copy_with(t, tags=t.tags - _JOINING_TAGS) if i in stemmed else t
             for i, t in enumerate(tokens))
+    # rules/P12: "the two words are one name unit past the first name word"
+    # -- the phrase test over each word and the word after it, asked
+    # only of a name holding a bound word, in a plain loop, so that no
+    # other name pays a frame; the tag goes on the bound word, and
+    # group joins the pair (decisions/P12, #694)
+    phrases = state.lexicon._sets.bound_phrases
+    if phrases and not state.lexicon._sets.bound_given_names.isdisjoint(
+            folded):
+        heads = set()
+        for i in range(len(folded) - 1):
+            # rules/C10: "no join, maiden clause or connective reaches
+            # across it", so a delimiter glued to the bound word ends it
+            if (f"{folded[i]} {folded[i + 1]}" in phrases
+                    and i not in stemmed):
+                heads.add(i)
+        if heads:
+            tokens = tuple(
+                copy_with(t, tags=t.tags | {BOUND_PHRASE_TAG})
+                if i in heads else t for i, t in enumerate(tokens))
     # rules/H9: "the word is a title only inside a title phrase, and
     # elsewhere a name word" -- the phrase test (_vocab.title_readings)
     # asked per part, of the words carrying no role, and only of a part
@@ -434,14 +542,14 @@ def classify(state: ParseState) -> ParseState:
     # a contested word keeps TITLE_AMBIGUOUS_TAG either way, for the
     # report where it opens the name (assign)
     lex = state.lexicon
-    if not (lex.titles_ambiguous.isdisjoint(folded)
-            and lex.title_modifiers.isdisjoint(folded)):
+    if not (lex._sets.titles_ambiguous.isdisjoint(folded)
+            and lex._sets.title_modifiers.isdisjoint(folded)):
         written = list(tokens)
         for at, seg in enumerate(state.segments):
             own_part = [i for i in seg if written[i].role is None]
             norms = [folded[i] for i in own_part]
-            if (lex.titles_ambiguous.isdisjoint(norms)
-                    and lex.title_modifiers.isdisjoint(norms)):
+            if (lex._sets.titles_ambiguous.isdisjoint(norms)
+                    and lex._sets.title_modifiers.isdisjoint(norms)):
                 continue
             readings = title_readings(
                 [readers[i].text for i in own_part], norms, lex,
@@ -450,9 +558,9 @@ def classify(state: ParseState) -> ParseState:
             for i, title in zip(own_part, readings):
                 tags = written[i].tags
                 n = folded[i]
-                if n not in lex.titles_ambiguous and n not in lex.title_modifiers:
+                if n not in lex._sets.titles_ambiguous and n not in lex._sets.title_modifiers:
                     continue
-                if n in lex.titles_ambiguous and n not in lex.titles:
+                if n in lex._sets.titles_ambiguous and n not in lex._sets.titles:
                     tags = tags | {TITLE_AMBIGUOUS_TAG}
                     if title:
                         # in a title phrase: a title (its given-name title
@@ -471,8 +579,8 @@ def classify(state: ParseState) -> ParseState:
     # of words pays no frame; a token carrying a role is delimited
     # content, which no pair reaches.
     split: dict[int, str] | None = None
-    acronyms = state.lexicon.suffix_acronyms
-    words = state.lexicon.suffix_words
+    acronyms = state.lexicon._sets.suffix_acronyms
+    words = state.lexicon._sets.suffix_words
     for seg in state.segments:
         for j in range(len(seg) - 1):
             a, b = tokens[seg[j]], tokens[seg[j + 1]]
@@ -485,8 +593,8 @@ def classify(state: ParseState) -> ParseState:
                     and (len(a.text.rstrip(".")) >= 2
                          or a.text.endswith(".") and b.text.endswith(".")
                          and (len(b.text) == 2 or not b.text.isascii()))
-                    # the Ph./D. pair whatever the vocabulary, as v1's
-                    # fix_phd merged it; any other only where its words
+                    # the Ph./D. pair, which `split_pair` answers by the
+                    # lexicon's `phd` (#1000); any other only where its words
                     # are not two suffix words, two credentials already,
                     # and its fold is listed, composed in C where it is
                     # not ASCII
@@ -557,8 +665,8 @@ def classify(state: ParseState) -> ParseState:
         # token -- 'e and e e' emits twice; assemble withdraws the
         # report on a letter no name word follows (rules/P8, #721).
         if (one_case and "initial" in token.tags
-                and folded[i] in state.lexicon.conjunctions_ambiguous
-                and folded[i] in state.lexicon.conjunctions
+                and folded[i] in state.lexicon._sets.conjunctions_ambiguous
+                and folded[i] in state.lexicon._sets.conjunctions
                 and i < clause_at and token.role is None
                 and (len(token.text) == 1
                      or not token.text.isascii()

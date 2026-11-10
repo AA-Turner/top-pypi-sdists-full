@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.40                                                                                #
-# Generated on 2026-10-29T20:14:39.443200                                                            #
+# MF version: 2.19.41                                                                                #
+# Generated on 2026-11-06T18:55:47.715450                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
 import metaflow
+import abc
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.packaging_sys.backend
     import typing
     import _io
-    import tarfile
     import abc
-    import metaflow.packaging_sys.backend
+    import tarfile
 
 from .backend import PackagingBackend as PackagingBackend
 

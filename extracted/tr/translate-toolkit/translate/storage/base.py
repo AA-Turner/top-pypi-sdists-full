@@ -183,6 +183,20 @@ def prepare_input(value: Any, *, close_handle: bool = False) -> PreparedInput:
     return PreparedInput(value, from_handle)
 
 
+def validate_xml_id(value: str) -> None:
+    """Reject code points forbidden in XML 1.0 attributes."""
+    if any(
+        codepoint not in {9, 10, 13}
+        and not (
+            32 <= codepoint <= 0xD7FF
+            or 0xE000 <= codepoint <= 0xFFFD
+            or 0x10000 <= codepoint <= 0x10FFFF
+        )
+        for codepoint in map(ord, value)
+    ):
+        raise ValueError("XML identifier contains an invalid character")
+
+
 class TranslationUnit:
     """
     Base class for translation units.
@@ -423,6 +437,24 @@ class TranslationUnit:
         identifier for each unit in the store.
         """
         return self.source
+
+    def validate_id(self, value: str) -> None:
+        """
+        Check common constraints on *value* without changing the unit.
+
+        Format-specific units can additionally check exact representation and
+        should raise :class:`ValueError` for invalid identifiers. A successful
+        check guarantees a round trip only for units whose identifier is an
+        editable, independent field. Composite identifiers and formats that
+        normalize identifiers in ``setid`` have format-specific semantics.
+        """
+        if not isinstance(value, str):
+            raise TypeError("unit identifier must be a string")
+        if any(
+            (ord(char) < 32 and char not in "\t\n\r") or char in "\ufffe\uffff"
+            for char in value
+        ):
+            raise ValueError("unit identifier contains an invalid control character")
 
     def setid(self, value) -> None:
         """
@@ -695,10 +727,10 @@ class TranslationUnit:
         return False
 
     def getsourcelanguage(self):
-        return self._store.getsourcelanguage()  # ty:ignore[unresolved-attribute]
+        return self._store.getsourcelanguage()  # ty:ignore[missing-union-attribute]
 
     def gettargetlanguage(self):
-        return self._store.gettargetlanguage()  # ty:ignore[unresolved-attribute]
+        return self._store.gettargetlanguage()  # ty:ignore[missing-union-attribute]
 
     def merge(
         self, otherunit, overwrite=False, comments=True, authoritative=False
@@ -1417,13 +1449,21 @@ class UnitId:
 
 
 class DictUnit(TranslationUnit):
+    """
+    A unit whose ID is a path of keys and indexes.
+
+    The shared ``validate_id`` checks basic safety only. A path can be
+    normalized or interpreted differently by a concrete dictionary format;
+    it does not promise an exact round trip for JSON, TOML, YAML, or plist.
+    """
+
     IdClass = UnitId
 
     def __init__(self, source=None) -> None:
         super().__init__(source)
         self._unitid = None
 
-    def get_unitid(self):
+    def get_unitid(self) -> UnitId:
         if self._unitid is None:
             self._unitid = self.IdClass.from_string(self._id)
         return self._unitid

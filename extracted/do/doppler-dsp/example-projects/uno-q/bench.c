@@ -34,8 +34,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "doppler/corr2d/corr2d_core.h"
-#include "doppler/detector2d/detector2d_core.h"
+#include "doppler/correlator/correlator_core.h"
 #include "doppler/fft/fft_core.h"
 #include "doppler/fft2d/fft2d_core.h"
 #include "doppler/fir/fir_core.h"
@@ -98,18 +97,18 @@ must (void *p)
 
 typedef struct
 {
-  dp_detector2d_state_t *det;
+  dp_correlator_state_t *det;
   const float _Complex  *in;
-  det_result2d_t         res[MAX_RESULTS];
+  dp_correlator_hit_t    res[MAX_RESULTS];
 } det_ctx_t;
 
 static void
 run_detector (void *c)
 {
   det_ctx_t *d = c;
-  dp_detector2d_reset (d->det);
+  dp_correlator_reset (d->det);
   for (int f = 0; f < DET_FRAMES; f++)
-    (void)dp_detector2d_push (d->det, d->in + (size_t)f * DET_BINS, DET_BINS,
+    (void)dp_correlator_push (d->det, d->in + (size_t)f * DET_BINS, DET_BINS,
                               d->res, MAX_RESULTS);
 }
 
@@ -120,8 +119,8 @@ run_detector (void *c)
 
 typedef struct
 {
-  dp_corr2d_state_t *obj;
-  float _Complex    *in, *out;
+  dp_correlator_state_t *obj;
+  float _Complex        *in, *out;
 } corr_ctx_t;
 
 static void
@@ -129,7 +128,7 @@ run_corr2d (void *c)
 {
   corr_ctx_t  *k = c;
   const size_t n = (size_t)C2_NY * C2_NX;
-  dp_corr2d_execute (k->obj, k->in, n, k->out, n);
+  dp_correlator_execute (k->obj, k->in, n, k->out, n, NULL);
 }
 
 /* ── fft / fft2d, forward, complex float ─────────────────────────────── */
@@ -219,7 +218,7 @@ main (int argc, char **argv)
   for (int i = 0; i < 2; i++)
     {
       det[i].in  = din;
-      det[i].det = must (dp_detector2d_create (
+      det[i].det = must (dp_correlator_create_detector_2d (
           dref, dny[i], dnx[i], 1, 1, DET_BINS - 1, DET_NOISE_MEAN, 0.0f, 1));
       (void)snprintf (dname[i], sizeof dname[i], "%zu x %zu bins", dny[i],
                       dnx[i]);
@@ -240,7 +239,8 @@ main (int argc, char **argv)
       cor[i].in  = must (malloc (cn * sizeof *cor[i].in));
       cor[i].out = must (malloc (cn * sizeof *cor[i].out));
       chirp (cor[i].in, cn, 3e-6);
-      cor[i].obj = must (dp_corr2d_create (ref, C2_NY, C2_NX, 1, 1, 0, 0, -1));
+      cor[i].obj
+          = must (dp_correlator_create_2d (ref, C2_NY, C2_NX, 1, 1, 0, 0, -1));
       free (ref);
       ADD ("corr2d", cname[i], "MSa/s", cn, run_corr2d, &cor[i]);
     }

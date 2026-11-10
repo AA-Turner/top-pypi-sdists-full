@@ -101,6 +101,8 @@ from .type_defs import (
     SetDefaultPermissionVersionResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdatePermissionRequestTypeDef,
+    UpdatePermissionResponseTypeDef,
     UpdateResourceShareRequestTypeDef,
     UpdateResourceShareResponseTypeDef,
 )
@@ -543,6 +545,16 @@ class RAMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#untag_resource)
+        """
+
+    def update_permission(
+        self, **kwargs: Unpack[UpdatePermissionRequestTypeDef]
+    ) -> UpdatePermissionResponseTypeDef:
+        """
+        Updates the status of the specified customer managed permission.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ram/client/update_permission.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ram/client/#update_permission)
         """
 
     def update_resource_share(

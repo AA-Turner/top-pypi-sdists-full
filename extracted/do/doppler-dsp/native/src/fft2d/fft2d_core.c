@@ -12,8 +12,10 @@ static double _Complex *
 trunc_buf (dp_fft2d_state_t *state)
 {
   if (!state->work_trunc)
-    state->work_trunc = (double _Complex *)dp_xcalloc (
-        state->ny * state->nx, sizeof *state->work_trunc);
+    /* The plan already exists for ny * nx, so the count is trusted: a wrap
+       is a broken invariant and aborts, like the OOM it would become. */
+    state->work_trunc = (double _Complex *)dp_xcallocn (
+        state->ny, state->nx, sizeof *state->work_trunc);
   return state->work_trunc;
 }
 

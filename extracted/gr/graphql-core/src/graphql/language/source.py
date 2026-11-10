@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, TypeGuard
 
-from .location import SourceLocation
+from .location import SourceLocation, _re_newline
 
 __all__ = ["Source", "is_source"]
 
@@ -87,14 +87,14 @@ class Source:
         >>> Source('type Query {\n  hello: String\n}').get_location(15)
         SourceLocation(line=2, column=3)
         """
-        lines = self.body[:position].splitlines()
-        if lines:
-            line = len(lines)
-            column = len(lines[-1]) + 1
-        else:
-            line = 1
-            column = 1
-        return SourceLocation(line, column)
+        line = 1
+        line_start = 0
+        for match in _re_newline.finditer(self.body):
+            if match.start() >= position:
+                break
+            line_start = match.end()
+            line += 1
+        return SourceLocation(line, position + 1 - line_start)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} name={self.name!r}>"

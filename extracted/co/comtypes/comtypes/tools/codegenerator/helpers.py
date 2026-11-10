@@ -1,10 +1,12 @@
 import keyword
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, TypeVar, overload
 from typing import Union as _UnionT
 
 from comtypes.tools import typedesc
 from comtypes.tools.codegenerator.modulenamer import name_wrapper_module
+
+_TD = TypeVar("_TD")
 
 
 class lcid:
@@ -53,10 +55,12 @@ ctypes_names = {
 }
 
 
+@overload
+def get_real_type(tp: typedesc.Typedef[_TD]) -> _TD: ...
+@overload
+def get_real_type(tp: _TD) -> _TD: ...
 def get_real_type(tp):
-    if type(tp) is typedesc.Typedef:
-        return get_real_type(tp.typ)
-    elif isinstance(tp, typedesc.CvQualifiedType):
+    if isinstance(tp, typedesc.Typedef):
         return get_real_type(tp.typ)
     return tp
 
@@ -307,15 +311,6 @@ class TypeNamer:
             return f"{'POINTER(' * pcnt}{self(_t)}{')' * pcnt}"
         elif isinstance(t, typedesc.ArrayType):
             return f"{self(t.typ)} * {int(t.max) + 1}"
-        elif isinstance(t, typedesc.FunctionType):
-            args = [self(x) for x in [t.returns] + list(t.iterArgTypes())]
-            if "__stdcall__" in t.attributes:
-                return f"WINFUNCTYPE({', '.join(args)})"
-            else:
-                return f"CFUNCTYPE({', '.join(args)})"
-        elif isinstance(t, typedesc.CvQualifiedType):
-            # const and volatile are ignored
-            return f"{self(t.typ)}"
         elif isinstance(t, typedesc.FundamentalType):
             return ctypes_names[t.name]
         elif isinstance(t, typedesc.Structure):
@@ -345,8 +340,6 @@ class TypeNamer:
                     return typedesc.Typedef("STRING", x), count
                 elif x.name == "wchar_t":
                     return typedesc.Typedef("WSTRING", x), count
-        if isinstance(t.typ, typedesc.FunctionType):
-            return t.typ, count
         if isinstance(t.typ, typedesc.FundamentalType):
             if t.typ.name == "void":
                 return typedesc.Typedef("c_void_p", t.typ), count

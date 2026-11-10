@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.audit.provisioning.detailsinfo import DetailsInfo
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ProvisioningSystem(ClientValue):
     details: DetailsInfo = field(default_factory=DetailsInfo)
 

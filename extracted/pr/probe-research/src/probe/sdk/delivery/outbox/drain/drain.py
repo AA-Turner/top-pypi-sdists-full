@@ -380,12 +380,22 @@ class DrainPass(_DrainPassParts):
                 still_queued=self.is_still_queued if self.drain_hold.let_go else self.is_unsent,
             )
         )
-        batch = [*metric_ops, *step_ops]
+        sample_ops = (
+            []
+            if self.journal.receipt_enabled or metric_ops or step_ops
+            else _collect_sample_batch(
+                self.lanes.get(lane) or [],
+                self.lane_index.get(path, 0),
+                self.held_back.get(lane),
+                still_queued=self.is_still_queued if self.drain_hold.let_go else self.is_unsent,
+            )
+        )
+        batch = [*metric_ops, *step_ops, *sample_ops]
         for item_path, _ in batch:
             self.journal._scan_forget(item_path.name)
 
         if batch:
-            return self._send_batch(path, op, lane, metric_ops, step_ops)
+            return self._send_batch(path, op, lane, metric_ops, step_ops, sample_ops)
         return self._send_one(path, op, lane)
 
     # -- after the pass -------------------------------------------------------------------------
@@ -466,7 +476,7 @@ from probe.sdk.delivery.ops.ops import (  # noqa: E402 -- pieces need each other
     CREDENTIAL_NAMESPACE,
     _lane_of,
 )
-from probe.sdk.delivery.outbox.drain.coalesce import _partition  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.outbox.drain.coalesce import _partition, _collect_sample_batch  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.holds import restore_abandoned_holds  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.lanes import _multipart_pending_count  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.lock import _DrainHold, _LockNotBack, _take_drain_lock  # noqa: E402 -- pieces need each other; the front door loads this one first

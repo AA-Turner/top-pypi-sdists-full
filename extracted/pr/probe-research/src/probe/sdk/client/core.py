@@ -17,7 +17,7 @@ from ...foundation.safe_warn import safe_warn as _diagnostics
 
 from .. import errors
 from ..settings.settings import Settings, resolve
-from ..session_marker import WIZARD_HINT
+from ..session_marker import SIGN_IN_HINT
 from ..delivery.outbox.drain.credentials import (
     CredentialSource,
     credential_fingerprint)
@@ -263,7 +263,7 @@ class CoreMixin:
         ):
             # F7: an op nothing can deliver would fail hours later in the drainer log.
             raise errors.ValidationError(
-                f"async_writes needs deliverable credentials: {WIZARD_HINT} "
+                f"async_writes needs deliverable credentials: {SIGN_IN_HINT} "
                 "or set PROBE_TOKEN -- or pass auto_drain=False to queue "
                 "offline and deliver later via flush()/`probe outbox drain`"
             )

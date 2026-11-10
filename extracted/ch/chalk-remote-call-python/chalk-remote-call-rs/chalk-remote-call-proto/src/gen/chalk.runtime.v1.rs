@@ -309,6 +309,12 @@ pub struct FunctionCallInfo {
     /// When the latest authorized attempt was dispatched to a worker.
     #[prost(message, optional, tag="9")]
     pub last_attempt_at: ::core::option::Option<::prost_types::Timestamp>,
+    /// Initial Stream queue wait; absent before delivery or when unavailable.
+    #[prost(message, optional, tag="11")]
+    pub queue_duration: ::core::option::Option<::prost_types::Duration>,
+    /// Final-attempt worker processing time, including batching wait; matches the call duration metric.
+    #[prost(message, optional, tag="12")]
+    pub call_duration: ::core::option::Option<::prost_types::Duration>,
 }
 /// Request the most recent calls to a given function.
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -494,6 +500,9 @@ pub struct ReportResultsRequest {
     /// Links this execution's trace to the call's history.
     #[prost(string, tag="3")]
     pub processing_trace_id: ::prost::alloc::string::String,
+    /// Worker-measured call duration; present only on terminal end/error reports.
+    #[prost(message, optional, tag="8")]
+    pub call_duration: ::core::option::Option<::prost_types::Duration>,
     #[prost(oneof="report_results_request::Result", tags="4, 5, 6, 7")]
     pub result: ::core::option::Option<report_results_request::Result>,
 }

@@ -35,7 +35,7 @@ public:
         m_fileDescriptor( ::fileno( fp() ) ),
         m_filePath( std::move( filePath ) ),
         m_seekable( determineSeekable( m_fileDescriptor ) ),
-        m_fileSizeBytes( std::filesystem::file_size( m_filePath ) )
+        m_fileSizeBytes( m_seekable ? std::filesystem::file_size( m_filePath ) : 0 )
     {
         init();
     }
@@ -64,7 +64,7 @@ public:
         m_fileDescriptor( ::fileno( fp() ) ),
         m_filePath( fdFilePath( m_fileDescriptor ) ),
         m_seekable( determineSeekable( m_fileDescriptor ) ),
-        m_fileSizeBytes( fileSize( m_fileDescriptor ) )
+        m_fileSizeBytes( m_seekable ? fileSize( m_fileDescriptor ) : 0 )
     {
         init();
     }
@@ -154,13 +154,20 @@ public:
         size_t nBytesRead = 0;
         if ( buffer == nullptr ) {
             if ( seekable() ) {
-                nBytesRead = std::min( nMaxBytesToRead, m_fileSizeBytes - m_currentPosition );
+                /* Seeking beyond EOF is allowed, so the remaining byte count must not underflow. */
+                nBytesRead = std::min( nMaxBytesToRead,
+                                       m_currentPosition < m_fileSizeBytes
+                                       ? m_fileSizeBytes - m_currentPosition
+                                       : 0 );
                 fileSeek( m_file.get(), static_cast<long long int>( nBytesRead ), SEEK_CUR );
             } else {
                 std::array<char, 16_Ki> tmpBuffer{};
                 while ( nBytesRead < nMaxBytesToRead ) {
+                    /* Only request the remaining bytes. Otherwise the last chunk could consume up to a whole
+                     * temporary buffer more than the skip requested, so the returned count would exceed it. */
+                    const auto nBytesToRead = std::min( tmpBuffer.size(), nMaxBytesToRead - nBytesRead );
                     const auto nBytesReadPerCall =
-                        std::fread( tmpBuffer.data(), /* element size */ 1, tmpBuffer.size(), m_file.get() );
+                        std::fread( tmpBuffer.data(), /* element size */ 1, nBytesToRead, m_file.get() );
                     if ( nBytesReadPerCall == 0 ) {
                         break;
                     }
@@ -230,6 +237,11 @@ public:
     [[nodiscard]] std::optional<size_t>
     size() const override
     {
+        /* A non-seekable stream such as a pipe reports st_size == 0, which is not its length.
+         * Returning nullopt also keeps effectiveOffset() from clamping seeks to a bogus zero size. */
+        if ( !m_seekable && ( m_fileSizeBytes == 0 ) ) {
+            return std::nullopt;
+        }
         return m_fileSizeBytes;
     }
 
@@ -265,8 +277,16 @@ private:
     determineSeekable( int fileNumber )
     {
         struct stat fileStats{};
-        fstat( fileNumber, &fileStats );
+        if ( fstat( fileNumber, &fileStats ) != 0 ) {
+            return false;
+        }
+    #if defined( _MSC_VER )
         return !S_ISFIFO( fileStats.st_mode );
+    #else
+        /* Only regular files and block devices have a meaningful size and support fseek.
+         * Pipes, sockets, character devices, and directories do not. */
+        return S_ISREG( fileStats.st_mode ) || S_ISBLK( fileStats.st_mode );
+    #endif
     }
 
     [[nodiscard]] FILE*

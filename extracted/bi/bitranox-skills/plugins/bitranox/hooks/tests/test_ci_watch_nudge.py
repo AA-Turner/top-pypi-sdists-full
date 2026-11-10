@@ -6,6 +6,7 @@ shape of the mock instead of the behaviour that matters.
 """
 
 import json
+import shlex
 import subprocess
 
 import ci_watch_nudge as hook
@@ -56,6 +57,15 @@ def _head(repo, ref="HEAD"):
 def _event(command, cwd, session="sess-1", tool="Bash"):
     return json.dumps({"tool_name": tool, "cwd": str(cwd), "session_id": session,
                        "tool_input": {"command": command}})
+
+
+def test_the_printed_command_names_the_pushed_repo_not_the_session_cwd(repo, tmp_path, capsys):
+    # Run as printed from a session sitting in another repo, a bare --sha polled that repo's forge.
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    assert hook.main(_event("git -C %s push" % repo, elsewhere)) == 0
+    context = json.loads(capsys.readouterr().out)["hookSpecificOutput"]["additionalContext"]
+    assert "--repo %s" % shlex.quote(str(repo.resolve())) in context
 
 
 def test_a_landed_push_is_recorded_and_announced(repo, capsys):

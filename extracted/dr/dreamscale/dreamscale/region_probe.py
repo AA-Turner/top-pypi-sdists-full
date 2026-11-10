@@ -75,6 +75,7 @@ async def create_session_with_rtt_region_order(
     model: str,
     *,
     region: RegionPreference | None = "auto",
+    region_fallback: bool | None = None,
     provider: str | None = None,
     idle_timeout: int | None = None,
     keep_warm: int = 0,
@@ -85,6 +86,8 @@ async def create_session_with_rtt_region_order(
     validate_provider_selection(model, provider, region)
     region = validate_speed_selection(model, speed, provider, region)
     resolved_region = _validate_region_preference(region)
+    if region_fallback is not None and type(region_fallback) is not bool:
+        raise ValueError("region_fallback must be a boolean")
     if resolved_region not in _REGION_MODES:
         return await _create_session(
             control,
@@ -92,6 +95,7 @@ async def create_session_with_rtt_region_order(
             provider=provider,
             speed=speed,
             region_mode="custom",
+            region_fallback=region_fallback,
             preferred_region=_WIRE_NAMES.get(resolved_region, resolved_region),
             region_pin=True,
             idle_timeout=idle_timeout,
@@ -108,6 +112,12 @@ async def create_session_with_rtt_region_order(
             control, model, optimization_config=optimization_config, provider=provider
         )
     )
+    entry = catalog.entry(model)
+    if (entry is not None and entry.pool is not None and provider in (None, "modal")
+            and region in (None, "auto") and probe_result is None):
+        # Modal routes have no AWS candidates. An AWS route (including an implicit one)
+        # keeps its existing probe and hard nearest-region preference.
+        resolved_region = "available"
     preferred_region = probe_result.order[0] if probe_result and probe_result.order else None
     if resolved_region == "nearest":
         return await _create_session(
@@ -116,6 +126,7 @@ async def create_session_with_rtt_region_order(
             provider=provider,
             speed=speed,
             region_mode="nearest",
+            region_fallback=region_fallback,
             preferred_region=preferred_region,
             region_pin=True,
             idle_timeout=idle_timeout,
@@ -130,6 +141,7 @@ async def create_session_with_rtt_region_order(
         provider=provider,
         speed=speed,
         region_mode="available",
+        region_fallback=region_fallback,
         preferred_region=None,
         region_pin=False,
         idle_timeout=idle_timeout,
@@ -367,6 +379,7 @@ async def _create_session(
     speed: str | None = None,
     preferred_region: str | None = None,
     region_pin: bool = False,
+    region_fallback: bool | None = None,
     idle_timeout: int | None = None,
     keep_warm: int = 0,
     optimization_config: OptimizationConfig | dict[str, Any] | None = None,
@@ -381,6 +394,8 @@ async def _create_session(
     }
     if provider is not None:
         kwargs["provider"] = provider
+    if region_fallback is not None:
+        kwargs["region_fallback"] = region_fallback
     if speed == "fast":
         kwargs["speed"] = speed
     if keep_warm:
@@ -400,6 +415,8 @@ async def _create_session(
             if probe_result.confident_winner is not None:
                 kwargs["region_probe_confident_winner"] = probe_result.confident_winner
     accepted = _accepted_kwargs(control.create_session, kwargs)
+    if region_fallback is not None and "region_fallback" not in accepted:
+        raise RuntimeError("control-plane client does not support region fallback selection")
     if provider is not None and "provider" not in accepted:
         raise RuntimeError("control-plane client does not support provider selection")
     if speed == "fast" and "speed" not in accepted:
@@ -446,6 +463,10 @@ def validate_speed_selection(
 def validate_provider_selection(model: str, provider: str | None, region: str | None) -> None:
     from dreamscale.policy.runtime import served
 
+    entry = catalog.entry(model)
+    if entry is not None and entry.pool is not None and provider in (None, "modal"):
+        validate_region(region)  # actual region availability comes from the server
+        return
     # A model's wire may settle its placement itself (policy.runtime.served: ``placement``).
     placement = served.hook(model, "placement")
     if placement is not None and placement(model, provider, region):

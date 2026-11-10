@@ -8,6 +8,7 @@ from office365.directory.objects.object import DirectoryObject
 from office365.directory.permissions.scoped_role_membership import ScopedRoleMembership
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.directory.objects.collection import DirectoryObjectCollection
@@ -21,6 +22,15 @@ class DirectoryRole(DirectoryObject):
 
     def __str__(self):
         return f"Name: {self.display_name}"
+
+    @property
+    def entity_type_name(self):
+        # A role is a ``directoryRole``, not the ``directoryObject`` it inherits from: activating one
+        # is a POST to ``directoryRoles``, and the base type name made the server answer
+        # "Invalid payload '@odata.type': 'microsoft.graph.directoryObject' is not a subtype of
+        # 'microsoft.graph.directoryRole'" - a message about the payload, for a call that had none
+        # of the caller's facts in it.
+        return "microsoft.graph.DirectoryRole"
 
     def add_member(self, user_principal_name: str) -> Self:
         """Add a user to this directory role by their user principal name.
@@ -48,16 +58,19 @@ class DirectoryRole(DirectoryObject):
         self.context.users.get_by_principal_name(user_principal_name).get().after_execute(_remove)
         return self
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """The description for the directory role."""
-        return self.properties.get("Description", None)
+        return self.properties.get("description", None)
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """The display name for the directory role."""
         return self.properties.get("displayName", None)
 
+    @odata(name="members", navigation=True)
     @property
     def members(self) -> DirectoryObjectCollection:
         """Users that are members of this directory role."""
@@ -68,10 +81,12 @@ class DirectoryRole(DirectoryObject):
             DirectoryObjectCollection(self.context, ResourcePath("members", self.resource_path)),
         )
 
+    @odata(name="roleTemplateId")
     @property
     def role_template_id(self) -> Optional[str]:
         return self.properties.get("roleTemplateId", None)
 
+    @odata(name="scopedMembers", navigation=True)
     @property
     def scoped_members(self) -> EntityCollection[ScopedRoleMembership]:
         """Members of this directory role that are scoped to administrative units."""

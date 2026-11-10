@@ -192,8 +192,10 @@ using LiteralOrLengthHuffmanCoding = HuffmanCodingShortBitsCached<
  * @todo Make it such that the implementations can handle the case that the construction might result in
  *       larger symbol values than are allowed to appear in the first place! I.e., cut-off construction there.
  *       Note that changing this from 286 to 512, lead to an increase of the runtime! We need to reduce it again! */
+/* The fixed DEFLATE Huffman tree uses code lengths 7 to 9, so a 9-bit cache suffices. Using the full 15-bit cache
+ * here would make the per-decode peek runtime-counted and blow the LUT out of L1 for no reason. */
 using FixedHuffmanCoding =
-    HuffmanCodingReversedBitsCached<uint16_t, MAX_CODE_LENGTH, uint16_t, MAX_LITERAL_OR_LENGTH_SYMBOLS + 2>;
+    HuffmanCodingReversedBitsCached<uint16_t, /* MAX_CODE_LENGTH */ 9, uint16_t, MAX_LITERAL_OR_LENGTH_SYMBOLS + 2>;
 
 
 
@@ -568,6 +570,18 @@ public:
     [[nodiscard]] std::pair<DecodedDataView, Error>
     read( gzip::BitReader& bitReader,
           size_t           nMaxToDecode = std::numeric_limits<size_t>::max() );
+
+    [[nodiscard]] DecodedDataView
+    lastDecodedData( size_t size )
+    {
+        DecodedDataView result;
+        if ( m_containsMarkerBytes ) {
+            result.dataWithMarkers = lastBuffers( m_window16, m_windowPosition, size );
+        } else {
+            result.data = lastBuffers( getWindow(), m_windowPosition, size );
+        }
+        return result;
+    }
 
     /**
      * @tparam treatLastBlockAsError This parameter is intended when using readHeader for finding valid headers.
@@ -1015,7 +1029,7 @@ try {
     m_backreferences.clear();
 
     return error;
-} catch ( const gzip::BitReader::EndOfFileReached& ) {
+} catch ( const EndOfFileReached& ) {
     return Error::END_OF_FILE;
 }
 
@@ -1180,7 +1194,7 @@ Block<ENABLE_STATISTICS>::getDistance( gzip::BitReader& bitReader ) const
         const auto extraBits = bitReader.read( extraBitsCount );
         distance = distanceLUT[distance] + extraBits;
     } else {
-        throw std::logic_error( "Invalid distance codes encountered!" );
+        return { 0, Error::EXCEEDED_DISTANCE_RANGE };
     }
 
     return { distance, Error::NONE };
@@ -1197,14 +1211,13 @@ Block<ENABLE_STATISTICS>::read( gzip::BitReader& bitReader,
     }
 
     if ( m_compressionType == CompressionType::RESERVED ) {
-        throw std::domain_error( "Invalid deflate compression type!" );
+        return { {}, Error::INVALID_COMPRESSION };
     }
 
     if constexpr ( ENABLE_STATISTICS ) {
         times.readDataStart = now();
     }
 
-    DecodedDataView result;
     const auto window = getWindow();
 
     if ( m_compressionType == CompressionType::UNCOMPRESSED ) {
@@ -1258,13 +1271,12 @@ Block<ENABLE_STATISTICS>::read( gzip::BitReader& bitReader,
             m_atEndOfBlock = true;
             m_decodedBytes += *nBytesRead;
 
-            result.data = lastBuffers( window, m_windowPosition, *nBytesRead );
-
             if constexpr ( ENABLE_STATISTICS ) {
                 durations.readData += duration( times.readDataStart );
             }
 
-            return { result, *nBytesRead == m_uncompressedSize ? Error::NONE : Error::EOF_UNCOMPRESSED };
+            return { lastDecodedData( *nBytesRead ),
+                     *nBytesRead == m_uncompressedSize ? Error::NONE : Error::EOF_UNCOMPRESSED };
         }
     }
 
@@ -1281,20 +1293,16 @@ Block<ENABLE_STATISTICS>::read( gzip::BitReader& bitReader,
              || ( ( m_distanceToLastMarkerByte >= MAX_WINDOW_SIZE )
                   && ( m_distanceToLastMarkerByte == m_decodedBytes ) ) ) {
             setInitialWindow();
-            result.data = lastBuffers( window, m_windowPosition, nBytesRead );
-        } else {
-            result.dataWithMarkers = lastBuffers( m_window16, m_windowPosition, nBytesRead );
         }
     } else {
         std::tie( nBytesRead, error ) = readInternal( bitReader, nMaxToDecode, window );
-        result.data = lastBuffers( window, m_windowPosition, nBytesRead );
     }
 
     if constexpr ( ENABLE_STATISTICS ) {
         durations.readData += duration( times.readDataStart );
     }
 
-    return { result, error };
+    return { lastDecodedData( nBytesRead ), error };
 }
 
 
@@ -1370,7 +1378,52 @@ Block<ENABLE_STATISTICS>::resolveBackreference( Window&        window,
     /* Note: NOT "<= window.size()" but only "<" because for equality I would have to
      *       compute modulo window.size() instead of simply: m_windowPosition += length. */
     if ( LIKELY( m_windowPosition + length < window.size() ) ) [[likely]] {
-        if ( LIKELY( ( length <= distance ) && ( distance <= m_windowPosition ) ) ) [[likely]] {
+        /**
+         * Window is a circular buffer of size W = window.size(), linearized at 0.
+         * Let P = m_windowPosition, L = length, D = distance, offset O = ( P + W - D ) % W, and S/D mark the
+         * source/destination ranges. A direct memcpy needs all four conditions to be met:
+         *   1. destination fits before the end: P + L < W (The outer guard above. Equality takes the fallback.)
+         *   2. source fits before the end: O + L <= W
+         *   3. source ends before the destination from behind: L <= D
+         *   4. source ends before the destination around the wrap:
+         *      D + L <= W <=> D <= W - L <=> D <= W - L <=> W - D >= L
+         *      because target and source overlapping in memcpy is undefined behavior!
+         *      This condition looks so simply because of the circularity.
+         *      It basically states that source and target must be at least L apart from each other to not collide.
+         *      Use the additive version to avoid unsigned underflows.
+         *
+         * Conditions 3 and 4 make the ranges disjoint.
+         *
+         * @verbatim
+         * Case A: source before destination, O = P - D.
+         * 0            O         P         P+L                         W
+         * |------------[SSSSSSSS][DDDDDDDDD]---------------------------|
+         *              O <------- D -----> P
+         *
+         * Case B: source after destination, D > P, O = P + W - D.
+         * 0            P          P+L         O         O+L            W
+         * |------------[DDDDDDDDD]------------[SSSSSSSS]---------------|
+         *
+         * Case C: source crosses the end (O + L > W): the non-wrapping per-byte loop fallback handles it.
+         * 0            P          P+L                O                 W
+         * |SSSSSSS]----[DDDDDDDDD]-------------------[SSSSSSSSSSSSSSSSS|
+         *
+         * Case D: destination crosses the end (P + L >= W): the wrapping per-byte loop fallback handles it.
+         * 0            O                             P                 W
+         * |DDDDDDD]----[SSSSSSSS]--------------------[DDDDDDDDDDDDDDDDD|
+         * @endverbatim
+         *
+         * Borders:
+         *   L == D                  : adjacent source/destination.
+         *   D + L == W => O == P + L: adjacent source/destination around the wrap.
+         *   O + L == W              : source ends exactly at W; one memcpy is still safe.
+         *   P + L == W              : destination ends exactly at W; the outer guard is strict, so this takes D.
+         *   D == W => O == P        : the ranges overlap, so this takes the per-byte fallback.
+         */
+        const auto rangesAreDisjoint = ( length <= distance )
+                                       && ( static_cast<size_t>( distance ) + length <= window.size() );
+        const auto sourceIsContiguous = offset + length <= window.size();
+        if ( LIKELY( rangesAreDisjoint && sourceIsContiguous ) ) [[likely]] {
             std::memcpy( &window[m_windowPosition], &window[offset], length * sizeof( window.front() ) );
             m_windowPosition += length;
 
@@ -1507,7 +1560,7 @@ Block<ENABLE_STATISTICS>::readInternalUncompressed( gzip::BitReader& bitReader,
     for ( ; totalBytesRead < m_uncompressedSize; ++totalBytesRead ) {
         try {
             appendToWindow( window, static_cast<uint8_t>( bitReader.read<BYTE_SIZE>() ) );
-        } catch ( const gzip::BitReader::EndOfFileReached& ) {
+        } catch ( const EndOfFileReached& ) {
             m_atEndOfBlock = true;
             m_decodedBytes += totalBytesRead;
             return { totalBytesRead, Error::EOF_UNCOMPRESSED };

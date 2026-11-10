@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.security.resource_access_event import ResourceAccessEvent
 
 
-@dataclass
 class UserAccount(ClientValue):
     accountName: str | None = None
     activeDirectoryObjectGuid: UUID | None = None

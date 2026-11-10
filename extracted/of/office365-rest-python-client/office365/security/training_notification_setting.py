@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.security.base_end_user_notification import (
@@ -11,7 +11,6 @@ from office365.security.training_reminder_notification import (
 )
 
 
-@dataclass
 class TrainingNotificationSetting(ClientValue):
     trainingAssignment: BaseEndUserNotification = field(default_factory=BaseEndUserNotification)
     trainingReminder: TrainingReminderNotification = field(default_factory=TrainingReminderNotification)

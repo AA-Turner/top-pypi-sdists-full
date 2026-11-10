@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from fastapi import FastAPI
@@ -48,6 +48,33 @@ def test_prometheus_format_includes_labels() -> None:
     assert formatted == 'pgqueuer_queue_count{entrypoint="default",status="pending"} 3'
 
 
+def test_prometheus_format_escapes_label_values() -> None:
+    formatted = metrics.prometheus_format(
+        metric_name="pgqueuer_queue_count",
+        labels={"entrypoint": 'send "welcome"\nC:\\jobs\\nightly', "status": "queued"},
+        value=1,
+    )
+    assert formatted == (
+        "pgqueuer_queue_count"
+        '{entrypoint="send \\"welcome\\"\\nC:\\\\jobs\\\\nightly",status="queued"} 1'
+    )
+
+
+async def test_collect_metrics_keeps_one_line_per_sample_for_any_entrypoint() -> None:
+    queue_stats = [
+        QueueStatistics(
+            entrypoint=QueueEntrypoint("line\nbreak"), status="queued", count=1, priority=0
+        ),
+    ]
+    fake_repo = cast(QueueRepositoryPort, FakeQueries(queue_stats=queue_stats))
+
+    metrics_payload = await metrics.collect_metrics(fake_repo)
+
+    assert metrics_payload.splitlines() == [
+        'pgqueuer_queue_count{aggregation="sum",entrypoint="line\\nbreak",status="queued"} 1'
+    ]
+
+
 def test_custom_metric_names_are_used() -> None:
     metric_names = metrics.MetricNames(
         queue_count="custom_queue_count",
@@ -62,7 +89,7 @@ def test_custom_metric_names_are_used() -> None:
             status="successful",
             count=5,
             priority=0,
-            created=datetime.now(tz=timezone.utc),
+            created=datetime.now(tz=UTC),
         )
     ]
 
@@ -97,7 +124,7 @@ async def test_collect_metrics_with_statistics() -> None:
             status="successful",
             count=25,
             priority=0,
-            created=datetime.now(tz=timezone.utc),
+            created=datetime.now(tz=UTC),
         ),
     ]
 

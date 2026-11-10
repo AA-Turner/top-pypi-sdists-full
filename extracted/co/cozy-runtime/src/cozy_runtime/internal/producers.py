@@ -14,9 +14,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import TYPE_CHECKING, Protocol
 
-from cozy_runtime.author._attention import AttentionProducer, ProducerCall
-from cozy_runtime.author._attention_scope import _ACTIVE_LAYOUT
-from cozy_runtime.author.kernels import PreQuantized
+from cozy_runtime.accel.attention import _ACTIVE_LAYOUT, AttentionProducer, ProducerCall
+from cozy_runtime.accel.kernels import PreQuantized
 from cozy_runtime.internal import attention_sol, attention_ulysses, fp8_linear
 
 if TYPE_CHECKING:
@@ -79,9 +78,9 @@ class Processor:
             return self.original(attn, *args, **kwargs)
         layout, state = _ACTIVE_LAYOUT.get(), self.producer.request_state()
         if layout is None or state is None:
-            raise ValueError(
-                f"{self.producer.name} requires the model's attention layout and a request scope"
-            )
+            # Outside an `attention_scope` (or a request) the model's default layout holds: dense.
+            attention_sol._count("dense_default")
+            return self.original(attn, *args, **kwargs)
         if attention_sol.outlier_keys(getattr(attn, "norm_k", None)):
             # Its dense rows are exact on Runtime's route: the producer leaves it, as an exact path.
             layout = replace(layout, exact_paths=(*layout.exact_paths, self.path))
@@ -100,7 +99,9 @@ class Processor:
         ) -> Tensor:
             if group is None:
                 raise ValueError(f"{self.producer.name}: no Ulysses group to exchange over")
-            return attention_ulysses.exchange(query, key, value, group, compute)
+            return attention_ulysses.exchange(
+                query, key, value, group, compute, f"{self.component}/{self.path}"
+            )
 
         def served(implementation: str) -> None:
             attention_ulysses.record(self.backend, implementation)

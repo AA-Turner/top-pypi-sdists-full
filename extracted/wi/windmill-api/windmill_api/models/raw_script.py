@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.raw_script_language import RawScriptLanguage
+from ..models.raw_script_on_concurrency_limit import RawScriptOnConcurrencyLimit
 from ..models.raw_script_type import RawScriptType
 from ..types import UNSET, Unset
 
@@ -31,6 +32,9 @@ class RawScript:
             tag (Union[Unset, str]): Worker group tag for execution routing
             concurrent_limit (Union[Unset, float]): Maximum concurrent executions of this script
             concurrency_time_window_s (Union[Unset, float]): Time window for concurrent_limit
+            on_concurrency_limit (Union[Unset, RawScriptOnConcurrencyLimit]): What a run of this step does when its
+                concurrency limit is reached. `queue` (default) re-queues it to a later slot, `fail` ends it immediately as
+                failed.
             custom_concurrency_key (Union[Unset, str]): Custom key for grouping concurrent executions
             is_trigger (Union[Unset, bool]): If true, this script is a trigger that can start the flow
             assets (Union[Unset, List['RawScriptAssetsItem']]): External resources this script accesses (S3 objects,
@@ -46,6 +50,7 @@ class RawScript:
     tag: Union[Unset, str] = UNSET
     concurrent_limit: Union[Unset, float] = UNSET
     concurrency_time_window_s: Union[Unset, float] = UNSET
+    on_concurrency_limit: Union[Unset, RawScriptOnConcurrencyLimit] = UNSET
     custom_concurrency_key: Union[Unset, str] = UNSET
     is_trigger: Union[Unset, bool] = UNSET
     assets: Union[Unset, List["RawScriptAssetsItem"]] = UNSET
@@ -64,6 +69,10 @@ class RawScript:
         tag = self.tag
         concurrent_limit = self.concurrent_limit
         concurrency_time_window_s = self.concurrency_time_window_s
+        on_concurrency_limit: Union[Unset, str] = UNSET
+        if not isinstance(self.on_concurrency_limit, Unset):
+            on_concurrency_limit = self.on_concurrency_limit.value
+
         custom_concurrency_key = self.custom_concurrency_key
         is_trigger = self.is_trigger
         assets: Union[Unset, List[Dict[str, Any]]] = UNSET
@@ -94,6 +103,8 @@ class RawScript:
             field_dict["concurrent_limit"] = concurrent_limit
         if concurrency_time_window_s is not UNSET:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
+        if on_concurrency_limit is not UNSET:
+            field_dict["on_concurrency_limit"] = on_concurrency_limit
         if custom_concurrency_key is not UNSET:
             field_dict["custom_concurrency_key"] = custom_concurrency_key
         if is_trigger is not UNSET:
@@ -127,6 +138,13 @@ class RawScript:
 
         concurrency_time_window_s = d.pop("concurrency_time_window_s", UNSET)
 
+        _on_concurrency_limit = d.pop("on_concurrency_limit", UNSET)
+        on_concurrency_limit: Union[Unset, RawScriptOnConcurrencyLimit]
+        if isinstance(_on_concurrency_limit, Unset):
+            on_concurrency_limit = UNSET
+        else:
+            on_concurrency_limit = RawScriptOnConcurrencyLimit(_on_concurrency_limit)
+
         custom_concurrency_key = d.pop("custom_concurrency_key", UNSET)
 
         is_trigger = d.pop("is_trigger", UNSET)
@@ -148,6 +166,7 @@ class RawScript:
             tag=tag,
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,
+            on_concurrency_limit=on_concurrency_limit,
             custom_concurrency_key=custom_concurrency_key,
             is_trigger=is_trigger,
             assets=assets,

@@ -53,12 +53,16 @@ class TestCheckResponseForErrors:
             ("7404", AuthenticationInvalidCredentialsError),
             ("7435", AuthenticationInvalidCredentialsError),
             ("7603", AuthenticationInvalidCredentialsError),
+            ("7312", AuthenticationInvalidCredentialsError),
+            ("7314", AuthenticationInvalidCredentialsError),
             ("7402", AuthenticationBlockedError),
             ("7530", AuthenticationBlockedError),
             ("7531", AuthenticationBlockedError),
             ("7532", AuthenticationBlockedError),
+            ("7316", AuthenticationBlockedError),
             ("7403", AuthenticationTokenExpiredError),
             ("7602", AuthenticationTokenExpiredError),
+            ("7313", AuthenticationTokenExpiredError),
             ("7549", AuthenticationError),
         ],
     )
@@ -129,7 +133,7 @@ class TestCheckActionStatus:
     def api(self) -> KiaUvoApiCA:
         api = KiaUvoApiCA.__new__(KiaUvoApiCA)
         api.API_URL = "https://example.com/"
-        api.API_HEADERS = {}
+        api.brand = 2  # Hyundai; the property selects a profile from the brand
         api._sessions = MagicMock()
         api._get_pin_token = MagicMock(return_value="pin-token")
         return api
@@ -194,3 +198,48 @@ class TestCheckActionStatus:
             }
         )
         assert api.check_action_status(token, vehicle, "t1") is ORDER_STATUS.PENDING
+
+
+class TestGetPinTokenErrors:
+    @pytest.fixture
+    def api(self) -> KiaUvoApiCA:
+        api = KiaUvoApiCA(region=2, brand=2, language="en")
+        api._sessions = MagicMock()
+        return api
+
+    @staticmethod
+    def _pin_response(api: KiaUvoApiCA, payload: dict) -> None:
+        api._sessions.post.return_value.json.return_value = payload
+
+    @pytest.mark.parametrize(
+        "code, expected_class",
+        [
+            ("7403", AuthenticationTokenExpiredError),
+            ("7602", AuthenticationTokenExpiredError),
+            ("7603", AuthenticationInvalidCredentialsError),
+        ],
+    )
+    def test_error_response_raises_typed_exception(self, api, code, expected_class):
+        self._pin_response(
+            api,
+            {
+                "responseHeader": {"responseCode": 1},
+                "error": {"errorCode": code, "errorDesc": "rejected"},
+            },
+        )
+        with pytest.raises(expected_class, match="rejected"):
+            api._get_pin_token(
+                Token(username="u", password="p", pin="1234"), Vehicle(id="v1")
+            )
+
+    def test_success_returns_pauth(self, api):
+        self._pin_response(
+            api,
+            {"responseHeader": {"responseCode": 0}, "result": {"pAuth": "PT"}},
+        )
+        assert (
+            api._get_pin_token(
+                Token(username="u", password="p", pin="1234"), Vehicle(id="v1")
+            )
+            == "PT"
+        )

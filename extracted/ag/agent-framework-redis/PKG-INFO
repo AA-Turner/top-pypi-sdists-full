@@ -1,9 +1,9 @@
 Metadata-Version: 2.5
 Name: agent-framework-redis
-Version: 1.0.0b261030
+Version: 1.0.0b261106
 Summary: Redis integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 4 - Beta
@@ -13,11 +13,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: agent-framework-core>=1.19.0,<2
 Requires-Dist: redis>=6.4.0,<7.2.1
-Requires-Dist: redisvl>=0.11.0,<0.16
+Requires-Dist: redisvl>=0.11.0,<0.32
 Requires-Dist: numpy>=2.2.6,<3
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -45,9 +46,8 @@ records. Import them from `agent_framework.redis` or `agent_framework_redis`.
 
 ## Install
 
-Supports Python 3.11–3.14. Python 3.10 installation remains permitted, but
-compatibility is not guaranteed. RedisVL currently declares `Requires-Python <3.15`,
-so pip cannot install this connector on Python 3.15 yet:
+Supports Python 3.11–3.15. Python 3.15 requires RedisVL 0.31; earlier Python
+versions can use older compatible RedisVL releases:
 
 ```bash
 pip install agent-framework-redis --pre
@@ -100,8 +100,9 @@ with `SecretString`; use `rediss://` when your server requires TLS.
 `RedisHistoryProvider` can create its own client from a URL or credential
 provider, or borrow a standalone `redis.asyncio.Redis` client configured with
 `decode_responses=True`. A borrowed client lets the application configure
-connection policy such as bounded timeouts and health checks. It remains
-caller-owned and must not be combined with `redis_url` or `credential_provider`.
+connection policy such as bounded timeouts and health checks. It takes
+precedence over `redis_url`, `credential_provider`, and the individual
+connection settings, which are ignored, and remains caller-owned.
 Retry behavior also remains caller-controlled; transcript appends are not
 idempotent if a client replays a write after an ambiguous connection loss.
 

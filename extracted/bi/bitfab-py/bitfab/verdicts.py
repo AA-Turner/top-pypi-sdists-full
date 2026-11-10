@@ -34,6 +34,7 @@ _EVIDENCE_UNSET = _EvidenceUnset()
 
 VERDICTS_PATH = "/api/sdk/traces/verdicts"
 HUMAN_VERDICTS_PATH = "/api/sdk/traces/verdicts/human"
+EXTERNAL_VERDICTS_PATH = "/api/sdk/traces/verdicts/external"
 
 
 class VerdictUpdate(TypedDict):
@@ -113,6 +114,31 @@ class HumanVerdictOutcome(TypedDict):
     label: NotRequired[bool]
 
 
+class ExternalVerdictUpdate(TypedDict):
+    """One verdict your own system decided for an external assertion, which Bitfab never judges.
+
+    It names only the assertion: Bitfab finds the trace the assertion is on.
+    ``attempt`` picks the replay attempt when an ``experiment_id`` is passed.
+    """
+
+    assertionId: str
+    verdict: Literal["pass", "fail"]
+    attempt: NotRequired[int]
+    annotation: NotRequired[str]
+    confidence: NotRequired[VerdictConfidence]
+    evidence: NotRequired[Justification | None]
+
+
+class ExternalVerdictOutcome(TypedDict):
+    """A saved external assertion verdict and the trace it was saved on."""
+
+    assertionId: str
+    traceId: str
+    attempt: int
+    verdict: Literal["pass", "fail"]
+    action: Literal["set"]
+
+
 class VerdictEvidenceItem(TypedDict):
     """One span a saved verdict cites. ``spanId`` and ``text`` are always present.
 
@@ -147,6 +173,8 @@ class AssertionVerdict(TypedDict):
     """One assertion's verdict on a trace.
 
     ``verdictStatus`` says whether it was judged, skipped, or not judged yet, and ``source`` who judged it.
+    ``counted`` is True on the one verdict per assertion that counts toward the trace's verdict: a person's
+    counts over a coding agent's, and a coding agent's over Bitfab's judge's, which then reads ``counted`` False.
     ``labelStatus``, ``label``, and ``labelSource`` are deprecated: read ``verdictStatus``, ``verdict``, and ``source``.
     """
 
@@ -159,6 +187,7 @@ class AssertionVerdict(TypedDict):
     confidence: VerdictConfidence | None
     source: VerdictSource
     approved: bool
+    counted: NotRequired[bool]
     labelStatus: NotRequired[LabelStatus]
     label: NotRequired[bool | None]
     labelSource: NotRequired[VerdictSource]
@@ -381,6 +410,49 @@ class VerdictsClient:
             HUMAN_VERDICTS_PATH, {"verdicts": normalized}
         )
         return [with_legacy_label(outcome) for outcome in result["verdicts"]]
+
+    def save_external(
+        self,
+        assertion_id: str,
+        verdict: Literal["pass", "fail"],
+        annotation: str | None = None,
+        confidence: VerdictConfidence | None = None,
+        evidence: Justification | _EvidenceUnset | None = _EVIDENCE_UNSET,
+        experiment_id: str | None = None,
+        attempt: int | None = None,
+    ) -> ExternalVerdictOutcome:
+        """Save one verdict for an external assertion, which Bitfab never judges.
+
+        It counts in every pass rate as soon as it is saved; a person's or an
+        agent's verdict on the same assertion still counts over it. Pass
+        ``experiment_id`` to save it on that experiment's replay of the
+        assertion's trace instead.
+        """
+        update: ExternalVerdictUpdate = {
+            "assertionId": assertion_id,
+            "verdict": verdict,
+        }
+        if attempt is not None:
+            update["attempt"] = attempt
+        if annotation is not None:
+            update["annotation"] = annotation
+        if confidence is not None:
+            update["confidence"] = confidence
+        if not isinstance(evidence, _EvidenceUnset):
+            update["evidence"] = evidence
+        return self.save_external_all([update], experiment_id=experiment_id)[0]
+
+    def save_external_all(
+        self,
+        verdicts: Sequence[ExternalVerdictUpdate],
+        experiment_id: str | None = None,
+    ) -> list[ExternalVerdictOutcome]:
+        """Save several external assertion verdicts, all or nothing."""
+        body: dict[str, Any] = {"verdicts": list(verdicts)}
+        if experiment_id is not None:
+            body["experimentId"] = experiment_id
+        result = self._http_client.request(EXTERNAL_VERDICTS_PATH, body)
+        return cast(list[ExternalVerdictOutcome], result["verdicts"])
 
     def get(self, trace_id: str) -> TraceVerdicts | None:
         """Read one trace's effective verdict and its per-assertion verdicts, or ``None`` when it has none."""

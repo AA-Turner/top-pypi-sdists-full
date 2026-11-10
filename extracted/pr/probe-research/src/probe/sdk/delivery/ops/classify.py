@@ -22,6 +22,17 @@ _PERMANENT_STATUSES = {501}
 TRANSIENT_BUDGET_SECONDS = 24 * 60 * 60.0
 
 
+#: The server's answer when another write of the same run held its write lock past the wait (`MetricWriteBusy`,
+#: `app/runs/telemetry/errors.py:61`): a 503 with a 1-2 s Retry-After, from a server that is up.
+WRITE_BUSY_DETAIL = "concurrent telemetry write"
+
+
+def is_write_busy(exc: BaseException) -> bool:
+    """Whether ``exc`` is the server's busy-lock answer: retried within seconds, never a climbing backoff."""
+    detail = getattr(exc, "detail", None)
+    return getattr(exc, "status", None) == 503 and isinstance(detail, str) and detail.startswith(WRITE_BUSY_DETAIL)
+
+
 def _transient_budget_seconds() -> float:
     """Read at failure time (rare) so a test or operator can change it without a reload;
     a malformed value warns and keeps the default."""

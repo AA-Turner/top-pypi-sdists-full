@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: conda_lock
-Version: 4.0.5
+Version: 4.1.0
 Summary: Lockfiles for conda
 Project-URL: Homepage, https://github.com/conda/conda-lock
 Project-URL: Repository, https://github.com/conda/conda-lock
@@ -32,12 +32,11 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: boltons>=23.0.0
 Requires-Dist: build<2.0.0,>=1.2.1
 Requires-Dist: cachecontrol[filecache]<0.15.0,>=0.14.0
@@ -48,9 +47,8 @@ Requires-Dist: crashtest<0.5.0,>=0.4.1
 Requires-Dist: dulwich<2,>=1.2.20
 Requires-Dist: ensureconda>=1.4.7
 Requires-Dist: fastjsonschema<3.0.0,>=2.18.0
-Requires-Dist: filelock
+Requires-Dist: filelock<5,>=4.2.1
 Requires-Dist: gitpython>=3.1.30
-Requires-Dist: importlib-metadata>=4.4; python_version < '3.10'
 Requires-Dist: installer<2.0.0,>=1.0.1
 Requires-Dist: jinja2
 Requires-Dist: keyring<26.0.0,>=25.1.0
@@ -66,11 +64,10 @@ Requires-Dist: ruamel-yaml
 Requires-Dist: semver<4,>=3
 Requires-Dist: setuptools
 Requires-Dist: shellingham<2.0,>=1.5
-Requires-Dist: tomli<3.0.0,>=2.0.1; python_version < '3.11'
 Requires-Dist: tomlkit<1.0.0,>=0.11.4
 Requires-Dist: trove-classifiers>=2022.5.19
 Requires-Dist: typing-extensions>=4.6.1
-Requires-Dist: virtualenv<21.0.0,>=20.26.6
+Requires-Dist: virtualenv<22.0.0,>=21.15.2
 Requires-Dist: xattr<2.0.0,>=1.0.0; sys_platform == 'darwin'
 Requires-Dist: zstandard>=0.15
 Description-Content-Type: text/markdown
@@ -321,11 +318,21 @@ conda-lock install --auth-file auth.json conda-linux-64.lock
 
 ### --virtual-package-spec
 
-Conda makes use of [virtual packages](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-virtual.html) that are available at
-runtime to gate dependency on system features.  Due to these not generally existing on your local execution platform conda-lock will inject
-them into the solution environment with a reasonable guess at what a default system configuration should be.
+Conda uses [virtual packages](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-virtual.html) to describe system-level
+features like the glibc version, macOS version, or CUDA version.  Since conda-lock generates
+lockfiles independently of a target system, it assumes a default set of virtual package versions
+that represent a reasonable minimum system configuration.
 
-If you want to override which virtual packages are injected you can create a file like
+Each virtual package version acts as an upper bound on which packages are considered by
+the solver (packages requiring a newer version are excluded) and as a lower bound on
+compatible target systems (the lockfile is installable on systems that meet or exceed
+these versions).
+
+There is a tradeoff: increasing a version widens the set of candidate packages but narrows
+the set of compatible target systems.  If a package you need is being filtered out, increase the
+relevant version.  If the lockfile is incompatible with your target system, decrease it.
+
+To override the defaults, create a `virtual-packages.yml` file like
 
 ```yaml
 # virtual-packages.yml

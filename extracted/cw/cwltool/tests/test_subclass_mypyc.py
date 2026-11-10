@@ -5,6 +5,7 @@ Especially if those classes are (or become) compiled with mypyc.
 """
 
 import pickle
+from typing import Any
 
 import pytest
 from ruamel.yaml.comments import CommentedMap
@@ -26,11 +27,23 @@ from .util import get_data
 def test_subclass_CLT(snippet: CommentedMap) -> None:
     """We can subclass CommandLineTool."""
 
-    class TestCLT(CommandLineTool):
+    class ToilTool:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self._test2 = ["foo"]
+
+    class ToilCommandLineTool(ToilTool, CommandLineTool):
         test = True
 
-    a = TestCLT(snippet, LoadingContext())
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+
+        def test_inherited_attribute(self) -> list[str]:
+            return self._test2
+
+    a = ToilCommandLineTool(snippet, LoadingContext())
     assert a.test is True
+    assert a.test_inherited_attribute() == ["foo"]
 
 
 @pytest.mark.parametrize("snippet", snippet)
@@ -40,8 +53,13 @@ def test_subclass_exprtool(snippet: CommentedMap) -> None:
     class TestExprTool(ExpressionTool):
         test = False
 
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self.test2: list[str] = []
+
     a = TestExprTool(snippet, LoadingContext())
     assert a.test is False
+    assert a.test2 == []
 
 
 @pytest.mark.parametrize("snippet", snippet)

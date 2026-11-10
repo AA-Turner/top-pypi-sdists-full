@@ -5,10 +5,10 @@ from typing import Any, Iterator
 from django.conf import settings
 from django.core.checks import CheckMessage, Error, Warning, register, Tags
 
-from ._config import get_theme_config
+from ._config import _merged_theme_config, get_theme_config, parse_preset_names
 from .accessibility import AccessibilityValidator
 from ._registry_accessor import get_registry
-from .a11y_exemptions import A11Y_EXEMPTIONS, CONTRAST_PAIRS
+from .a11y_exemptions import A11Y_EXEMPTIONS, CONTRAST_PAIRS, DERIVED_TEXT_TOKENS
 
 
 # Foreground/background pairs to check — the canonical matrix defined in
@@ -64,6 +64,31 @@ def _presets_to_check() -> Iterator[tuple[str, Any]]:
     yield active_name, registry.list_presets()[active_name]
 
 
+def _contrast_hint(fg_attr: str, bg_attr: str, minimum: float) -> str:
+    if fg_attr in DERIVED_TEXT_TOKENS:
+        # Derived (#3320, #2885): solved from the fill by lightness against the page
+        # and card, so a preset author cannot set it. It only misses when those
+        # surfaces are so mid-tone that neither a dark nor a light text clears the
+        # bar, and the surfaces are what to change. (Not to be confused with the
+        # ``destructive_text`` / ``primary_text`` / ... LABELS of the label-on-fill
+        # pairs in ``AccessibilityValidator``, which are ``*_foreground`` on the fill.)
+        fill = fg_attr[: -len("_text")]
+        return (
+            f"{fg_attr} is derived from {fill} and cannot be set. It misses 4.5:1 only "
+            "when the page and card are mid-tone; make background or card lighter or darker, "
+            f"or change {fill}'s hue or saturation, to reach at least {minimum}:1 contrast."
+        )
+    if bg_attr.endswith("_tint"):
+        # ``*_tint`` is derived (the colour at 10% over the page or a card), so
+        # a preset author has no such token to set: they change the colour itself.
+        return (
+            f"Adjust {fg_attr}: the alert background is {fg_attr} at 10% over the page or a "
+            f"card, so a darker or lighter {fg_attr} is the only way to reach at least "
+            f"{minimum}:1 contrast."
+        )
+    return f"Adjust {fg_attr} or {bg_attr} to achieve at least {minimum}:1 contrast."
+
+
 @register(Tags.compatibility)
 def check_preset_contrast(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     """Validate the active theme preset meets WCAG AA contrast ratios.
@@ -96,8 +121,7 @@ def check_preset_contrast(app_configs: Any, **kwargs: Any) -> list[CheckMessage]
                         Warning(
                             f'Preset "{preset_name}" {mode_name} mode: {label} '
                             f"contrast ratio {ratio:.2f}:1 < {minimum}:1 (WCAG AA)",
-                            hint=f"Adjust {fg_attr} or {bg_attr} to achieve at least "
-                            f"{minimum}:1 contrast.",
+                            hint=_contrast_hint(fg_attr, bg_attr, minimum),
                             id="djust_theming.W001",
                         )
                     )
@@ -111,14 +135,15 @@ def check_css_prefix(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     import re
 
     errors: list[CheckMessage] = []
-    config = get_theme_config()
-    prefix = config.get("css_prefix", "")
+    # The unvalidated config: ``get_theme_config()`` raises on a prefix this check exists to
+    # report (#3779), which would turn E004 into a traceback.
+    prefix = _merged_theme_config().get("css_prefix", "")
 
     if not prefix:
         return errors
 
     # Security: reject characters that could break CSS selectors or inject HTML
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9-]*$", prefix):
+    if not isinstance(prefix, str) or not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9-]*", prefix):
         errors.append(
             Error(
                 f'css_prefix "{prefix}" contains invalid characters. '
@@ -224,3 +249,37 @@ def check_design_system_valid(app_configs: Any, **kwargs: Any) -> list[CheckMess
         )
 
     return errors
+
+
+@register(Tags.compatibility)
+def check_selectable_presets(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """Validate ``LIVEVIEW_CONFIG["theme"]["selectable_presets"]``.
+
+    At render time a bad value is logged and ignored (the setting is read on
+    every request, and a preset can be renamed or removed in a later release, so
+    it must not 500 the site). This is where the mistake is reported.
+    """
+    raw = get_theme_config().get("selectable_presets")
+    hint = "Use a list of preset names, e.g. ['default', 'legal']; run `python manage.py djust_theme list-presets` for the registered names."
+    try:
+        names = parse_preset_names(raw)
+    except ValueError as exc:
+        return [
+            Warning(
+                f'LIVEVIEW_CONFIG["theme"]["selectable_presets"] is invalid: {exc}',
+                hint=hint,
+                id="djust_theming.W003",
+            )
+        ]
+    registered = get_registry().list_presets()
+    unknown = [name for name in names or () if name not in registered]
+    if not unknown:
+        return []
+    return [
+        Warning(
+            f'LIVEVIEW_CONFIG["theme"]["selectable_presets"] names unknown preset(s) '
+            f"{', '.join(map(repr, unknown))}, which are ignored.",
+            hint=hint,
+            id="djust_theming.W003",
+        )
+    ]

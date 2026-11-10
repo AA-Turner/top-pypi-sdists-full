@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
 import enum
+import functools
 import os
 import re
 import textwrap
@@ -59,6 +60,7 @@ from tango.test_utils import (
     UTF8_STRING,
     DeviceTestContext,
     GoodEnum,
+    MultiDeviceTestContext,
     assert_close,
     check_attr_type,
     check_read_attr,
@@ -452,6 +454,698 @@ def test_read_write_attribute_decorated_methods(server_green_mode):
             _ = proxy.attr
 
 
+def _recording_decorator(func):
+    """User-style decorator that records, on the device instance, that it ran."""
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        self.decorator_calls = [*getattr(self, "decorator_calls", []), func.__name__]
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def _recording_decorator_async(func):
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        self.decorator_calls = [*getattr(self, "decorator_calls", []), func.__name__]
+        return await func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def test_attribute_access_decorated(server_green_mode):
+    """``self.my_attr.read()/.write()/.is_allowed()`` call the user handlers,
+    with the user's decorators applied, on the native Attribute object."""
+    if server_green_mode == GreenMode.Asyncio:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+            _value = 10
+            _allowed = True
+
+            @attribute(access=AttrWriteType.READ_WRITE)
+            @_recording_decorator_async
+            async def attr(self):
+                return self._value
+
+            @attr.write
+            @_recording_decorator_async
+            async def attr(self, value):
+                self._value = value
+
+            @attr.is_allowed
+            @_recording_decorator_async
+            async def attr(self, req_type):
+                assert req_type in (AttReqType.READ_REQ, AttReqType.WRITE_REQ)
+                return self._allowed
+
+            @command(dtype_out=str)
+            async def exercise(self):
+                assert isinstance(self.attr, WAttribute)
+                allowed = await self.attr.is_allowed(AttReqType.READ_REQ)
+                value = await self.attr.read()
+                await self.attr.write(value + 5)
+                new_value = await self.attr.read()
+                name = self.attr.get_name()
+                return f"{allowed},{value},{new_value},{name},{len(self.decorator_calls)}"
+
+    else:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+            _value = 10
+            _allowed = True
+
+            @attribute(access=AttrWriteType.READ_WRITE)
+            @_recording_decorator
+            def attr(self):
+                return self._value
+
+            @attr.write
+            @_recording_decorator
+            def attr(self, value):
+                self._value = value
+
+            @attr.is_allowed
+            @_recording_decorator
+            def attr(self, req_type):
+                assert req_type in (AttReqType.READ_REQ, AttReqType.WRITE_REQ)
+                return self._allowed
+
+            @command(dtype_out=str)
+            def exercise(self):
+                assert isinstance(self.attr, WAttribute)
+                allowed = self.attr.is_allowed(AttReqType.READ_REQ)
+                value = self.attr.read()
+                self.attr.write(value + 5)
+                new_value = self.attr.read()
+                name = self.attr.get_name()
+                return f"{allowed},{value},{new_value},{name},{len(self.decorator_calls)}"
+
+    with DeviceTestContext(TestDevice) as proxy:
+        result = proxy.exercise()
+        allowed, value, new_value, name, log_len = result.split(",")
+        assert allowed == "True"
+        assert value == "10"
+        assert new_value == "15"
+        assert name == "attr"
+        # is_allowed + read + write + read => the user decorator ran 4 times
+        assert int(log_len) == 4
+        # the write went through the real handler
+        assert proxy.attr == 15
+
+
+def test_attribute_access_named_methods(server_green_mode):
+    """Direct access also works when handlers are defined as named methods
+    (``read_voltage`` / ``write_voltage`` / ``is_voltage_allowed``) rather than
+    via the decorator.
+
+    The device class is subclassed, so that the attribute methods are patched
+    twice: the proxy must still call the user handlers, and not the wrappers
+    created during the first patching.
+    """
+    if server_green_mode == GreenMode.Asyncio:
+
+        class BaseTestDevice(Device):
+            green_mode = server_green_mode
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._voltage = 7
+                self.handler_log = []
+
+            voltage = attribute(dtype=int, access=AttrWriteType.READ_WRITE)
+
+            async def read_voltage(self):
+                self.handler_log.append("read")
+                return self._voltage
+
+            async def write_voltage(self, value):
+                self.handler_log.append("write")
+                self._voltage = value
+
+            async def is_voltage_allowed(self, req_type):
+                assert req_type in (AttReqType.READ_REQ, AttReqType.WRITE_REQ)
+                self.handler_log.append("is_allowed")
+                return True
+
+            @command(dtype_out=str)
+            async def exercise(self):
+                self.handler_log = []
+                assert isinstance(self.voltage, WAttribute)
+                assert await self.voltage.is_allowed(AttReqType.WRITE_REQ)
+                await self.voltage.write(await self.voltage.read() + 1)
+                return ",".join(self.handler_log)
+
+    else:
+
+        class BaseTestDevice(Device):
+            green_mode = server_green_mode
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._voltage = 7
+                self.handler_log = []
+
+            voltage = attribute(dtype=int, access=AttrWriteType.READ_WRITE)
+
+            def read_voltage(self):
+                self.handler_log.append("read")
+                return self._voltage
+
+            def write_voltage(self, value):
+                self.handler_log.append("write")
+                self._voltage = value
+
+            def is_voltage_allowed(self, req_type):
+                assert req_type in (AttReqType.READ_REQ, AttReqType.WRITE_REQ)
+                self.handler_log.append("is_allowed")
+                return True
+
+            @command(dtype_out=str)
+            def exercise(self):
+                self.handler_log = []
+                assert isinstance(self.voltage, WAttribute)
+                assert self.voltage.is_allowed(AttReqType.WRITE_REQ)
+                self.voltage.write(self.voltage.read() + 1)
+                return ",".join(self.handler_log)
+
+    class TestDevice(BaseTestDevice):
+        pass
+
+    with DeviceTestContext(TestDevice) as proxy:
+        # each handler runs exactly once, and only the user handler runs
+        assert proxy.exercise() == "is_allowed,read,write"
+        assert proxy.voltage == 8
+
+
+def test_attribute_access_errors(server_green_mode):
+    """Calling ``.write()`` on a read-only attribute (or ``.read()`` on a
+    write-only attribute) raises a clear ``AttributeError``.
+
+    Missing direct handlers raise synchronously (before any handler runs).
+    """
+    if server_green_mode == GreenMode.Asyncio:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+            _value = 0
+
+            @attribute(access=AttrWriteType.READ)
+            async def ro_attr(self):
+                return 1
+
+            wo_attr = attribute(dtype=int, access=AttrWriteType.WRITE)
+
+            async def write_wo_attr(self, value):
+                self._value = value
+
+            @command(dtype_out=bool)
+            async def write_on_readonly_raises(self):
+                try:
+                    self.ro_attr.write(5)
+                except AttributeError:
+                    return True
+                return False
+
+            @command(dtype_out=bool)
+            async def read_on_writeonly_raises(self):
+                try:
+                    self.wo_attr.read()
+                except AttributeError:
+                    return True
+                return False
+
+    else:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+            _value = 0
+
+            @attribute(access=AttrWriteType.READ)
+            def ro_attr(self):
+                return 1
+
+            wo_attr = attribute(dtype=int, access=AttrWriteType.WRITE)
+
+            def write_wo_attr(self, value):
+                self._value = value
+
+            @command(dtype_out=bool)
+            def write_on_readonly_raises(self):
+                try:
+                    self.ro_attr.write(5)
+                except AttributeError:
+                    return True
+                return False
+
+            @command(dtype_out=bool)
+            def read_on_writeonly_raises(self):
+                try:
+                    self.wo_attr.read()
+                except AttributeError:
+                    return True
+                return False
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert proxy.write_on_readonly_raises() is True
+        assert proxy.read_on_writeonly_raises() is True
+
+
+def test_attribute_access_missing_is_allowed_method(server_green_mode):
+    """Without an is_allowed handler the answer is True, in the device's green mode."""
+    if server_green_mode == GreenMode.Asyncio:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+
+            @attribute(access=AttrWriteType.READ)
+            async def attr(self):
+                return 10
+
+            @command(dtype_out=bool)
+            async def exercise_is_allowed(self):
+                return await self.attr.is_allowed(AttReqType.READ_REQ)
+
+    else:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+
+            @attribute(access=AttrWriteType.READ)
+            def attr(self):
+                return 10
+
+            @command(dtype_out=bool)
+            def exercise_is_allowed(self):
+                return self.attr.is_allowed(AttReqType.READ_REQ)
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert proxy.exercise_is_allowed() is True
+
+
+def test_attribute_access_lookup_routes():
+    class CustomAttribute(attribute):
+        pass
+
+    class TestDevice(Device):
+        value = 3
+        attr = CustomAttribute(dtype=int, access=AttrWriteType.READ_WRITE)
+
+        def read_attr(self):
+            return self.value
+
+        def write_attr(self, value):
+            self.value = value
+
+        @command(dtype_out=bool)
+        def check_access(self):
+            multi_attr = self.get_device_attr()
+            index = multi_attr.get_attr_ind_by_name("attr")
+            routes = (
+                self.attr,
+                multi_attr.get_attr_by_name("attr"),
+                multi_attr.get_attr_by_ind(index),
+                multi_attr.get_w_attr_by_name("attr"),
+                multi_attr.get_w_attr_by_ind(index),
+                multi_attr.get_attribute_list()[index],
+            )
+            assert all(isinstance(attr, Attribute) for attr in routes)
+            for runtime_attr in routes:
+                assert runtime_attr.read() == self.value
+                runtime_attr.write(self.value + 1)
+            expected = 3 + len(routes)
+            return all(runtime_attr.read() == expected for runtime_attr in routes)
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert proxy.check_access() is True
+
+
+def test_attribute_access_low_level_dynamic_not_supported():
+    """Dynamic attributes added as low-level Attr/AttrData have no high-level
+    handlers, so direct access is not available for them."""
+
+    class TestDevice(Device):
+        @command(dtype_out=bool)
+        def check_access(self):
+            multi_attr = self.get_device_attr()
+            for name in ("classic_attr", "low_level_attr"):
+                runtime_attr = multi_attr.get_attr_by_name(name)
+                assert not hasattr(runtime_attr, "write")
+                for method, args in (
+                    (runtime_attr.read, ()),
+                    (runtime_attr.is_allowed, (AttReqType.READ_REQ,)),
+                ):
+                    with pytest.raises(NotImplementedError, match=r"high-level tango.server.attribute"):
+                        method(*args)
+            return True
+
+        def initialize_dynamic_attributes(self):
+            self.add_attribute(
+                Attr("classic_attr", DevLong, AttrWriteType.READ),
+                r_meth=lambda device, attr: attr.set_value(1),
+            )
+            self.add_attribute(
+                AttrData("low_level_attr", None, attr_info=[(DevLong, SCALAR, AttrWriteType.READ)]),
+                r_meth=lambda device, attr: attr.set_value(1),
+            )
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert proxy.check_access() is True
+
+
+def test_attribute_access_classic_api_not_supported():
+    class ClassicAPIClass(DeviceClass):
+        attr_list: ClassVar[dict] = {"classic_attr": [[DevLong, SCALAR, AttrWriteType.READ_WRITE]]}
+        cmd_list: ClassVar[dict] = {"check_access": [[DevVoid, "none"], [DevBoolean, "result"]]}
+
+    class ClassicAPIDeviceImpl(LatestDeviceImpl):
+        def read_classic_attr(self, attr):
+            attr.set_value(1)
+
+        def write_classic_attr(self, attr):
+            pass
+
+        def check_access(self):
+            runtime_attr = self.get_device_attr().get_attr_by_name("classic_attr")
+            assert isinstance(runtime_attr, WAttribute)
+            for method, args in (
+                (runtime_attr.read, ()),
+                (runtime_attr.write, (1,)),
+                (runtime_attr.is_allowed, (AttReqType.READ_REQ,)),
+            ):
+                try:
+                    method(*args)
+                except NotImplementedError as exc:
+                    assert "tango.server.attribute" in str(exc)
+                else:
+                    return False
+            return True
+
+    with DeviceTestContext(ClassicAPIDeviceImpl, ClassicAPIClass) as proxy:
+        assert proxy.check_access() is True
+
+
+def test_attribute_access_is_available_in_init_device():
+    class TestDevice(Device):
+        attr = attribute(dtype=int)
+
+        def read_attr(self):
+            return 4
+
+        def init_device(self):
+            super().init_device()
+            self.initial_value = self.attr.read()
+
+        @command(dtype_out=int)
+        def get_initial_value(self):
+            return self.initial_value
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert proxy.get_initial_value() == 4
+
+
+def test_attribute_access_when_child_changes_access_mode():
+    """A redeclared attribute uses the handlers of the class that declared it,
+    and the handlers it does not have stay unavailable."""
+
+    class ReadOnlyParent(Device):
+        _value = "parent"
+        attr = attribute(dtype=str, access=AttrWriteType.READ)
+
+        def read_attr(self):
+            return self._value
+
+        def is_attr_allowed(self, req_type):
+            return req_type == AttReqType.READ_REQ
+
+    class WriteOnlyChild(ReadOnlyParent):
+        attr = attribute(dtype=str, access=AttrWriteType.WRITE)
+
+        def write_attr(self, value):
+            self._value = value
+
+        def is_attr_allowed(self, req_type):
+            return req_type == AttReqType.WRITE_REQ
+
+        @command(dtype_out=bool)
+        def check_access(self):
+            assert self.attr.is_allowed(AttReqType.WRITE_REQ)
+            assert not self.attr.is_allowed(AttReqType.READ_REQ)
+
+            with pytest.raises(AttributeError, match="has no read handler"):
+                self.attr.read()
+
+            self.attr.write("child")
+            assert self._value == "child"
+            return True
+
+    class WriteOnlyParent(Device):
+        _value = "parent"
+        attr = attribute(dtype=str, access=AttrWriteType.WRITE)
+
+        def write_attr(self, value):
+            self._value = value
+
+        def is_attr_allowed(self, req_type):
+            return req_type == AttReqType.WRITE_REQ
+
+    class ReadOnlyChild(WriteOnlyParent):
+        attr = attribute(dtype=str, access=AttrWriteType.READ)
+
+        def read_attr(self):
+            return self._value
+
+        def is_attr_allowed(self, req_type):
+            return req_type == AttReqType.READ_REQ
+
+        @command(dtype_out=bool)
+        def check_access(self):
+            assert self.attr.is_allowed(AttReqType.READ_REQ)
+            assert not self.attr.is_allowed(AttReqType.WRITE_REQ)
+
+            # the attribute is read only now, so it is not even a WAttribute
+            assert not isinstance(self.attr, WAttribute)
+            with pytest.raises(AttributeError, match="has no attribute 'write'"):
+                self.attr.write("child")
+
+            assert self.attr.read() == "parent"
+            return True
+
+    devices_info = (
+        {
+            "class": WriteOnlyChild,
+            "devices": [{"name": "test/access/write_only"}],
+        },
+        {
+            "class": ReadOnlyChild,
+            "devices": [{"name": "test/access/read_only"}],
+        },
+    )
+
+    with MultiDeviceTestContext(devices_info) as context:
+        assert context.get_device("test/access/write_only").check_access() is True
+        assert context.get_device("test/access/read_only").check_access() is True
+
+
+def test_attribute_access_after_static_attribute_replaced():
+    """A static attribute that is removed and added back dynamically uses the
+    handlers it was added with, not the ones of the class."""
+
+    class TestDevice(Device):
+        attr = attribute(dtype=int, access=AttrWriteType.READ)
+
+        def read_attr(self):
+            return 1
+
+        @command(dtype_out=bool)
+        def check_access(self):
+            assert self.attr.read() == 1
+
+            self.remove_attribute("attr")
+            with pytest.raises(DevFailed, match="attribute not found"):
+                self.attr.read()
+
+            self.add_attribute(
+                attribute(
+                    name="attr",
+                    dtype=int,
+                    access=AttrWriteType.READ,
+                    fget=lambda device, runtime_attr: 2,
+                )
+            )
+            return self.attr.read() == 2
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert proxy.check_access() is True
+
+
+def test_dynamic_high_level_attribute_direct_access(server_green_mode):
+    class CustomAttribute(attribute):
+        pass
+
+    if server_green_mode == GreenMode.Asyncio:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+            value = 2
+            allowed = True
+            text = "first"
+            replaced_allowed = True
+
+            async def read_dynamic(self, attr):
+                return self.value
+
+            async def write_dynamic(self, attr):
+                self.value = attr.get_write_value()
+
+            async def is_dynamic_allowed(self, request_type):
+                return self.allowed
+
+            async def read_replaced(self, attr):
+                return self.text
+
+            async def write_replaced(self, attr):
+                self.text = attr.get_write_value()
+
+            async def is_replaced_allowed(self, request_type):
+                return self.replaced_allowed
+
+            @command
+            async def add_dynamic(self):
+                self.add_attribute(
+                    CustomAttribute(
+                        name="dynamic",
+                        dtype=int,
+                        access=AttrWriteType.READ_WRITE,
+                        fget=self.read_dynamic,
+                        fset=self.write_dynamic,
+                        fisallowed=self.is_dynamic_allowed,
+                    )
+                )
+
+            @command(dtype_out=bool)
+            async def check_dynamic(self):
+                runtime_attr = self.get_device_attr().get_attr_by_name("dynamic")
+                expected = self.value
+                assert await runtime_attr.is_allowed(AttReqType.WRITE_REQ)
+                assert await runtime_attr.read() == expected
+                await runtime_attr.write(5)
+                return await runtime_attr.read() == 5
+
+            @command
+            async def replace_dynamic(self):
+                # Keep the Python wrapper alive to exercise cleanup, but do not
+                # access it after removal because its C++ Attribute is deleted.
+                self.retained_dynamic = self.get_device_attr().get_attr_by_name("dynamic")
+                await self.async_remove_attribute("dynamic")
+                # Make the handlers of the removed attribute answer differently,
+                # so the checks below can only pass with the new ones.
+                self.allowed = False
+                await self.async_add_attribute(
+                    CustomAttribute(
+                        name="dynamic",
+                        dtype=str,
+                        access=AttrWriteType.READ_WRITE,
+                        fget=self.read_replaced,
+                        fset=self.write_replaced,
+                        fisallowed=self.is_replaced_allowed,
+                    )
+                )
+
+            @command(dtype_out=bool)
+            async def check_replaced(self):
+                runtime_attr = self.get_device_attr().get_attr_by_name("dynamic")
+                assert await runtime_attr.is_allowed(AttReqType.WRITE_REQ)
+                assert await runtime_attr.read() == "first"
+                await runtime_attr.write("second")
+                return await runtime_attr.read() == "second"
+
+    else:
+
+        class TestDevice(Device):
+            green_mode = server_green_mode
+            value = 2
+            allowed = True
+            text = "first"
+            replaced_allowed = True
+
+            def read_dynamic(self, attr):
+                return self.value
+
+            def write_dynamic(self, attr):
+                self.value = attr.get_write_value()
+
+            def is_dynamic_allowed(self, request_type):
+                return self.allowed
+
+            def read_replaced(self, attr):
+                return self.text
+
+            def write_replaced(self, attr):
+                self.text = attr.get_write_value()
+
+            def is_replaced_allowed(self, request_type):
+                return self.replaced_allowed
+
+            @command
+            def add_dynamic(self):
+                self.add_attribute(
+                    CustomAttribute(
+                        name="dynamic",
+                        dtype=int,
+                        access=AttrWriteType.READ_WRITE,
+                        fget=self.read_dynamic,
+                        fset=self.write_dynamic,
+                        fisallowed=self.is_dynamic_allowed,
+                    )
+                )
+
+            @command(dtype_out=bool)
+            def check_dynamic(self):
+                runtime_attr = self.get_device_attr().get_attr_by_name("dynamic")
+                expected = self.value
+                assert runtime_attr.is_allowed(AttReqType.WRITE_REQ)
+                assert runtime_attr.read() == expected
+                runtime_attr.write(5)
+                return runtime_attr.read() == 5
+
+            @command
+            def replace_dynamic(self):
+                # Keep the Python wrapper alive to exercise cleanup, but do not
+                # access it after removal because its C++ Attribute is deleted.
+                self.retained_dynamic = self.get_device_attr().get_attr_by_name("dynamic")
+                self.remove_attribute("dynamic")
+                # Make the handlers of the removed attribute answer differently,
+                # so the checks below can only pass with the new ones.
+                self.allowed = False
+                self.add_attribute(
+                    CustomAttribute(
+                        name="dynamic",
+                        dtype=str,
+                        access=AttrWriteType.READ_WRITE,
+                        fget=self.read_replaced,
+                        fset=self.write_replaced,
+                        fisallowed=self.is_replaced_allowed,
+                    )
+                )
+
+            @command(dtype_out=bool)
+            def check_replaced(self):
+                runtime_attr = self.get_device_attr().get_attr_by_name("dynamic")
+                assert runtime_attr.is_allowed(AttReqType.WRITE_REQ)
+                assert runtime_attr.read() == "first"
+                runtime_attr.write("second")
+                return runtime_attr.read() == "second"
+
+    with DeviceTestContext(TestDevice) as proxy:
+        proxy.add_dynamic()
+        assert proxy.check_dynamic() is True
+        proxy.replace_dynamic()
+        assert proxy.check_replaced() is True
+
+
 def test_read_write_wvalue_attribute(attribute_typed_values):
     dtype, values, expected = attribute_typed_values
 
@@ -519,6 +1213,16 @@ def test_get_set_attribute_value_warning_and_alarm_thresholds():
             w_attr.set_max_value(22)
             assert w_attr.get_min_value() == -22
             assert w_attr.get_max_value() == 22
+
+            attr.set_min_alarm("-13")
+            attr.set_max_warning("3")
+            assert attr.get_min_alarm() == -13
+            assert attr.get_max_warning() == 3
+
+            w_attr.set_min_value("-23")
+            w_attr.set_max_value("23")
+            assert w_attr.get_min_value() == -23
+            assert w_attr.get_max_value() == 23
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.check_limits()

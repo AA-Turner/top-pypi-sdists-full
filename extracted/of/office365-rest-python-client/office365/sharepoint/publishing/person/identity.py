@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PersonIdentity(ClientValue):
     AadObjectId: Optional[str] = None
     DisplayName: Optional[str] = None

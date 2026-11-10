@@ -104,6 +104,12 @@ pub(super) fn kill(handle: &Handle, _: &Birth) -> io::Result<()> {
 
 pub(super) fn background_thread() {}
 
+pub(super) fn background_process() {
+    use windows_sys::Win32::System::Threading::{BELOW_NORMAL_PRIORITY_CLASS, GetCurrentProcess, SetPriorityClass};
+    // SAFETY: the pseudo-handle of this process, always valid. Processes it starts inherit the class.
+    unsafe { SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS) };
+}
+
 pub(super) fn set_name(_: &str) -> crate::Result<()> {
     Err(crate::Error::unsupported(crate::Seam::Process))
 }
@@ -156,13 +162,6 @@ pub(super) fn become_subreaper() -> crate::Result<()> {
 
 pub(super) fn die_with_parent(_: u32) -> crate::Result<bool> {
     Err(crate::Error::unsupported(crate::Seam::Process))
-}
-
-pub(super) fn transient(error: &io::Error) -> bool {
-    matches!(
-        error.kind(),
-        io::ErrorKind::OutOfMemory | io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
-    )
 }
 
 /// A process id that names no process any more.
@@ -441,19 +440,6 @@ pub(super) fn in_kernel(_pid: u32) -> Option<String> {
     None
 }
 
-pub(super) fn threads(_pid: u32) -> Vec<(String, usize)> {
-    Vec::new()
-}
-
-pub(super) fn usage(pid: u32) -> io::Result<super::Usage> {
-    let process = open_process(pid, PROCESS_QUERY_LIMITED_INFORMATION)?;
-    let [_, _, kernel, user] = times(raw(&process))?;
-    Ok(super::Usage {
-        cpu: ticks(kernel) + ticks(user),
-        running: false,
-    })
-}
-
 /// The kernel's boot time in seconds (100 ns ticks since 1601), which a clock step can move:
 /// then this boot reads as an earlier one, the safe side.
 pub(super) fn boot_id() -> io::Result<String> {
@@ -477,22 +463,6 @@ pub(super) fn boot_id() -> io::Result<String> {
         )));
     }
     Ok(format!("{}", info[0] / 10_000_000))
-}
-
-pub(super) fn peak_resident() -> io::Result<u64> {
-    use windows_sys::Win32::System::{
-        ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
-        Threading::GetCurrentProcess,
-    };
-    // SAFETY: plain-old-data; all-zero is a valid value.
-    let mut counters: PROCESS_MEMORY_COUNTERS = unsafe { mem::zeroed() };
-    let size = mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
-    // SAFETY: the current process's pseudo-handle, which needs no closing, and a writable struct
-    // of the `size` passed.
-    if unsafe { K32GetProcessMemoryInfo(GetCurrentProcess(), &mut counters, size) } == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(counters.PeakWorkingSetSize as u64)
 }
 
 /// Marks `handle` inheritable: std hands a child every inheritable handle.
@@ -545,9 +515,7 @@ fn snapshot() -> io::Result<Vec<(u32, u32)>> {
         return Err(io::Error::last_os_error());
     }
     let snapshot = owned(snapshot)?;
-    // SAFETY: plain-old-data with its size set, as the call requires.
-    let mut entry: PROCESSENTRY32W = unsafe { mem::zeroed() };
-    entry.dwSize = mem::size_of::<PROCESSENTRY32W>() as u32;
+    let mut entry = PROCESSENTRY32W { dwSize: mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
     // SAFETY: a live snapshot and an entry sized above.
     let mut more = unsafe { Process32FirstW(raw(&snapshot), &mut entry) } != 0;
     let mut table = vec![];

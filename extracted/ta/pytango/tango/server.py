@@ -17,14 +17,23 @@ try:
 except ImportError:
     parse_docstring = None
 
-from tango import AttrDataFormat, AttrWriteType, CmdArgType, DevFailed, DevState, GreenMode, SerialModel
-from tango._instrumentation import _force_tracing, _forcefully_traced_method
-from tango._telemetry import (
+from tango import (
+    AttrDataFormat,
+    AttrWriteType,
+    CmdArgType,
+    DevFailed,
+    DevState,
+    GreenMode,
+    SerialModel,
+)
+from tango._internal.attribute_access import associate_device_attributes
+from tango._internal.instrumentation import _force_tracing, _forcefully_traced_method
+from tango._internal.telemetry import (
     _call_tracer_provider_factory,
     _DummyTracer,
     _telemetry_runtime,
 )
-from tango._warnings import warn_once
+from tango._internal.warn import warn_once
 from tango.asyncio_executor import AsyncioExecutor
 from tango.attr_data import AttrData
 from tango.constants import TELEMETRY_SUPPORTED, StatusNotSet
@@ -153,6 +162,12 @@ def __patch_read_method(tango_device_klass, attribute):
         method_name = attribute.read_method_name
         read_method = getattr(tango_device_klass, method_name)
 
+    # Remember the user method (with the user's decorators applied, but not yet
+    # the green/telemetry wrapper) so it can be called directly from device code.
+    # Guard against re-capturing an already-wrapped method during inheritance.
+    if not getattr(read_method, "__access_wrapped__", False):
+        attribute._read_user_method = read_method
+
     read_attr = __get_wrapped_read_method(attribute, read_method)
     method_name = f"__read_{attribute.attr_name}_wrapper__"
     attribute.read_method_name = method_name
@@ -202,6 +217,10 @@ def __patch_write_method(tango_device_klass, attribute):
     if not write_method:
         method_name = attribute.write_method_name
         write_method = getattr(tango_device_klass, method_name)
+
+    # See note in __patch_read_method.
+    if not getattr(write_method, "__access_wrapped__", False):
+        attribute._write_user_method = write_method
 
     write_attr = __get_wrapped_write_method(attribute, write_method)
     method_name = f"__write_{attribute.attr_name}_wrapper__"
@@ -254,6 +273,10 @@ def __patch_isallowed_method(tango_device_klass, attribute):
     if not isallowed_method:
         method_name = attribute.is_allowed_name
         isallowed_method = getattr(tango_device_klass, method_name, None)
+
+    # See note in __patch_read_method.
+    if isallowed_method and not getattr(isallowed_method, "__access_wrapped__", False):
+        attribute._isallowed_user_method = isallowed_method
 
     if isallowed_method:
         isallowed_attr = __get_wrapped_isallowed_method(attribute, isallowed_method)
@@ -792,6 +815,7 @@ class BaseDevice(LatestDeviceImpl):
         dev_state = self.DEVICE_CLASS_INITIAL_STATE
         dev_status = self.DEVICE_CLASS_INITIAL_STATUS
         LatestDeviceImpl.__init__(self, cl, name, dev_desc, dev_state, dev_status)
+        associate_device_attributes(self)
         self.__refresh_telemetry_tracer(force=True)
         self.init_device()
 
@@ -1034,6 +1058,70 @@ class attribute(AttrData):
 
     In this second format, defining the `write` implicitly sets the attribute
     access to READ_WRITE.
+
+    From within device code, the read, write and is_allowed handlers of a
+    statically defined attribute can be called directly via the attribute,
+    using ``self.<attr>.read()``, ``self.<attr>.write(value)`` and
+    ``self.<attr>.is_allowed(request_type)``. These run the user handlers with
+    the user's own decorators applied (e.g. :class:`~tango.DebugIt`), so for::
+
+        class PowerSupply(Device):
+
+            @attribute(dtype=int, access=AttrWriteType.READ_WRITE)
+            @DebugIt()
+            def current(self):
+                return self._current
+
+            @current.write
+            @DebugIt()
+            def current(self, value):
+                self._current = value
+
+            @command
+            def step_up(self):
+                if self.current.is_allowed(AttReqType.WRITE_REQ):
+                    self.current.write(self.current.read() + 1)
+
+    ``self.current.read()`` runs the ``DebugIt``-decorated read handler.
+    Similarly, ``self.current.write(...)`` runs the decorated write handler.
+    The same would apply for the `is_allowed` method, if it was defined.
+    In this example, there isn't one, but PyTango provides a default implementation
+    that always returns ``True``.
+    These accessors are a shortcut allowing a direct call to your methods, so Tango's
+    internal mechanisms that run when remote clients access your attributes:
+    i.e., `always_executed_hook`, `read_attr_hardware`, is_allowed handlers,
+    and telemetry, are not triggered.
+    The direct calls will also skip the side effect of setting the attribute value
+    that PyTango does for you with high-level API.
+    The direct methods are available on any :class:`~tango.Attribute` object of
+    a high-level attribute, whether it comes from the attribute itself or from a
+    :class:`~tango.MultiAttribute` lookup.
+    The ``write`` method is provided only by writable
+    :class:`~tango.WAttribute` objects.
+    This facility supports static and dynamically added high-level
+    :class:`tango.server.attribute` objects. Classic API attributes, and dynamic
+    attributes added as low-level :class:`~tango.Attr`/:class:`~tango.AttrData`
+    objects, raise :class:`NotImplementedError` when these methods are called.
+
+    Your handler is called exactly as you wrote it, so the call returns an
+    awaitable only if your handler is a coroutine function. In
+    :obj:`~tango.GreenMode.Asyncio` green mode that is normally the case::
+
+        @command
+        async def step_up(self):
+            value = await self.current.read()
+            await self.current.write(value + 1)
+
+    When the attribute has no is_allowed handler, ``is_allowed`` answers
+    ``True`` in the green mode of your device, so it can be awaited like the
+    rest.
+
+    .. warning::
+        Do not keep a reference to a runtime attribute object across a
+        :meth:`~tango.server.Device.remove_attribute` call. Removing an attribute
+        destroys the C++ object the wrapper points at, and any later use of it,
+        these direct calls included, works on freed memory. Look the attribute up
+        again after the removal instead.
 
     Receives multiple keyword arguments:
 
@@ -1365,9 +1453,19 @@ class attribute(AttrData):
         change_event_implemented, change_event_detect,
         archive_event_implemented, archive_event_detect,
         data_ready_event_implemented options
+
+    .. versionadded:: 10.3.2
+        read, write and is_allowed handlers can be called from device code via
+        ``self.<attr>.read()``, ``self.<attr>.write(value)`` and
+        ``self.<attr>.is_allowed(request_type)``
     '''
 
     def __init__(self, fget=None, **kwargs):
+        # User read/write/is_allowed methods will be captured during method patching
+        self._read_user_method = None
+        self._write_user_method = None
+        self._isallowed_user_method = None
+
         self._kwargs = dict(kwargs)
         self.name = kwargs.pop("name", None)
         class_name = kwargs.pop("class_name", None)
@@ -1809,12 +1907,22 @@ class device_property(_BaseProperty):
     :param default_value: default value for the property (optional)
     :type default_value: :py:obj:`typing.Any`
 
+    In general, property values are resolved in the following order:
+    a device database value,
+    a same-named class database value,
+    a same-named class property default,
+    and the device property default.
+    However, with the high-level API, we cannot declare same-name class property defaults.
+
     :param update_db: tells if set value should write the value to database.
                      [default: False]
     :type update_db: bool
 
     .. versionadded:: 8.1.7
         added update_db option
+
+    .. versionchanged:: 10.3.2
+        Added fallback to same-named class property values.
     """
 
     def __init__(

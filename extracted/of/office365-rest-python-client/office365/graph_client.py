@@ -49,6 +49,7 @@ from office365.directory.users.user import User
 from office365.education.root import EducationRoot
 from office365.entity_collection import EntityCollection
 from office365.graph_request import GraphRequest
+from office365.graph_version import GraphVersion
 from office365.intune.devices.collection import DeviceCollection
 from office365.intune.devices.management.app_management import DeviceAppManagement
 from office365.intune.devices.management.management import DeviceManagement
@@ -61,11 +62,14 @@ from office365.onedrive.sites.sites_with_root import SitesWithRoot
 from office365.onedrive.storage.storage import Storage
 from office365.outlook.calendar.place_collection import PlaceCollection
 from office365.outlook.calendar.rooms.list import RoomList
+from office365.outlook.quotas import OUTLOOK_BATCH
+from office365.permissions.resource import ResourceName
 from office365.planner.planner import Planner
 from office365.reports.root import ReportRoot
 from office365.runtime.auth.certificate import CertificateData
 from office365.runtime.client_runtime_context import ClientRuntimeContext
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.limits import limit
 from office365.runtime.odata.v4.batch_request import DEFAULT_MAX_BATCH_BYTES, ODataV4BatchRequest
 from office365.runtime.odata.v4.json_format import V4JsonFormat
 from office365.runtime.paths.resource_path import ResourcePath
@@ -106,6 +110,7 @@ class GraphClient(ClientRuntimeContext):
         token_cache: Any = None,
         environment: AzureEnvironment = AzureEnvironment.Global,
         authority: Optional[str] = None,
+        version: GraphVersion = GraphVersion.default(),
     ):
         """
         Initialize Microsoft Graph client
@@ -118,9 +123,18 @@ class GraphClient(ClientRuntimeContext):
                 https://msal-python.readthedocs.io/en/latest/#msal.SerializableTokenCache
             environment: Azure environment (default: AzureEnvironment.Global)
             authority: Override the MSAL authority URL (e.g. https://<tenant>.ciamlogin.com)
+            version: Graph API version to address, ``v1.0`` (default) or ``beta``.
+                The version selects the service root, not what the model offers: a
+                member only the beta metadata declares is still spellable here, and
+                reports itself when a request would carry it to ``v1.0``.
         """
 
         super().__init__()
+        #: Seeds the first :class:`GraphRequest`; the request owns the version afterwards,
+        #: so :attr:`version` reads it there instead of keeping a second copy to disagree
+        #: with (``client.pending_request().version = ...`` predates this client having a
+        #: ``version``, and must not leave the two saying different things).
+        self._version = version
         self._token_callback = token_callback
         self._tenant = tenant
         self._token_cache = token_cache
@@ -370,7 +384,7 @@ class GraphClient(ClientRuntimeContext):
             verify: SSL verification — ``True``, ``False``, or a CA bundle path.
                 ``None`` (default) defers to the session/environment default.
             timeout: Request timeout — a number or a ``(connect, read)`` tuple.
-                When ``None`` the bundled default (10 s connect, unbounded read)
+                When ``None`` the bundled default (10 s connect, 300 s read)
                 applies; pass
                 :data:`~office365.runtime.transport.base.NO_TIMEOUT` to disable.
             session: Custom ``requests.Session`` with pre-configured adapters
@@ -420,6 +434,7 @@ class GraphClient(ClientRuntimeContext):
         self.pending_request().before_execute(_set_header, once=False)
         return self
 
+    @limit(OUTLOOK_BATCH)
     def execute_batch(
         self,
         items_per_batch: int = 20,
@@ -548,7 +563,10 @@ class GraphClient(ClientRuntimeContext):
         """Get or create the pending request"""
         if self._pending_request is None:
             self._pending_request = GraphRequest(
-                tenant=self._tenant, environment=self._environment, authority=self._authority
+                version=self._version,
+                tenant=self._tenant,
+                environment=self._environment,
+                authority=self._authority,
             )
             if callable(self._token_callback):
                 self._pending_request.with_access_token(self._token_callback)
@@ -895,101 +913,124 @@ class GraphClient(ClientRuntimeContext):
         """Tenant id or domain name"""
         return self._tenant
 
-    def has_delegated_permission(self, scope: str, app_id: str) -> bool:
-        """Check if an app has a delegated permission on Microsoft Graph.
+    @property
+    def version(self) -> GraphVersion:
+        """The API version this client addresses.
+
+        The pending request decides it, because the request is what spells the base
+        URL; reading it there keeps a direct ``pending_request().version = ...`` and
+        this property from ever disagreeing.
+
+        Passing ``GraphVersion.BETA`` sends every request to ``/beta``. The model is
+        the same either way, because what a version declares is a fact about the
+        declaration, not about the client in front of it.
+        """
+        return self.pending_request().version
+
+    @version.setter
+    def version(self, value: GraphVersion) -> None:
+        # The seed is load-bearing only while no request exists: it is what that request
+        # gets built with. Once one does, the request is updated instead -- and both are
+        # kept current so a replacement request cannot resurrect the old version.
+        self._version = value
+        if isinstance(self._pending_request, GraphRequest):
+            self._pending_request.version = value
+
+    def has_delegated_permission(self, scope: str, app_id: str, resource: str = ResourceName.Graph) -> bool:
+        """Check if an app has a delegated permission on ``resource``.
 
         Args:
             scope (str): Permission scope name (e.g. 'Mail.Read')
             app_id (str): Application (client) ID of the app to check
+            resource (str): The API the name belongs to, e.g. ``ResourceName.SharePoint``;
+                a name is only a grant on the API that defines it
         """
         from office365.directory.permissions.guard import has_delegated_permission as _check
 
-        return _check(self, scope, app_id)
+        return _check(self, scope, app_id, resource)
 
-    def has_application_permissions(self, scope: str, app_id: str) -> bool:
-        """Check if an app has an application permission on Microsoft Graph.
+    def has_application_permissions(self, scope: str, app_id: str, resource: str = ResourceName.Graph) -> bool:
+        """Check if an app has an application permission on ``resource``.
 
         Args:
-            scope (str): Permission scope name (e.g. 'Mail.Read')
+            scope (str): Permission name (e.g. 'Mail.Read')
             app_id (str): Application (client) ID of the app to check
+            resource (str): The API the name belongs to, e.g. ``ResourceName.SharePoint``
         """
-        granted = self.get_application_permissions(app_id).execute_query().value
-        return any(role.value == scope for role in granted)
+        from office365.directory.permissions.guard import has_application_permission as _check
 
-    def grant_delegated_permissions(self, app_id: str, scope: AppRole | str) -> Self:
-        """Grants a delegated permission on Microsoft Graph (AllPrincipals).
+        return _check(self, scope, app_id, resource)
+
+    def grant_delegated_permissions(self, app_id: str, scope: AppRole | str, resource: str = ResourceName.Graph) -> Self:
+        """Grants a delegated permission on ``resource`` (AllPrincipals).
 
         Args:
             app_id (str): Application (client) ID of the client app
             scope (AppRole or str): Permission scope to grant
+            resource (str): The API the name belongs to, e.g. ``ResourceName.SharePoint``
         """
-        from office365.directory.permissions.resource_name import ResourceName
-
-        self.service_principals.find_by_name(ResourceName.Graph, required=True).grant_delegated_permissions(
-            app_id, scope
-        )
+        self.service_principals.find_by_name(resource, required=True).grant_delegated_permissions(app_id, scope)
         return self
 
-    def get_delegated_permissions(self, app_id: str) -> ClientResult[StringCollection]:
-        """Gets delegated permissions granted on Microsoft Graph.
+    def get_delegated_permissions(
+        self, app_id: str, consent_type: str | None = "AllPrincipals", resource: str = ResourceName.Graph
+    ) -> ClientResult[StringCollection]:
+        """Gets delegated permissions granted on ``resource``.
 
         Args:
             app_id (str): Application (client) ID of the client app
+            consent_type (str or None): ``"AllPrincipals"`` (tenant-wide, default),
+                ``"Principal"`` (one user) or ``None`` for every grant
+            resource (str): The API the names belong to, e.g. ``ResourceName.SharePoint``
         """
-        from office365.directory.permissions.resource_name import ResourceName
+        return self.service_principals.find_by_name(resource, required=True).get_delegated_permissions(
+            app_id, consent_type
+        )
 
-        return self.service_principals.find_by_name(ResourceName.Graph, required=True).get_delegated_permissions(app_id)
-
-    def grant_application_permissions(self, app_id: str, app_role: AppRole | str) -> Self:
-        """Grants an application permission on Microsoft Graph.
+    def grant_application_permissions(
+        self, app_id: str, app_role: AppRole | str, resource: str = ResourceName.Graph
+    ) -> Self:
+        """Grants an application permission on ``resource``.
 
         Args:
             app_id (str): Application (client) ID of the client app
             app_role (AppRole or str): App role to grant
+            resource (str): The API the name belongs to, e.g. ``ResourceName.SharePoint``
         """
-        from office365.directory.permissions.resource_name import ResourceName
-
-        self.service_principals.find_by_name(ResourceName.Graph, required=True).grant_application_permissions(
-            app_id, app_role
-        )
+        self.service_principals.find_by_name(resource, required=True).grant_application_permissions(app_id, app_role)
         return self
 
-    def get_application_permissions(self, app_id: str) -> ClientResult[AppRoleCollection]:
-        """Gets application permissions granted on Microsoft Graph.
+    def get_application_permissions(
+        self, app_id: str, resource: str = ResourceName.Graph
+    ) -> ClientResult[AppRoleCollection]:
+        """Gets application permissions granted on ``resource``.
 
         Args:
             app_id (str): Application (client) ID of the client app
+            resource (str): The API the names belong to, e.g. ``ResourceName.SharePoint``
         """
-        from office365.directory.permissions.resource_name import ResourceName
+        return self.service_principals.find_by_name(resource, required=True).get_application_permissions(app_id)
 
-        return self.service_principals.find_by_name(ResourceName.Graph, required=True).get_application_permissions(
-            app_id
-        )
-
-    def revoke_delegated_permissions(self, client_id: str, scope: str) -> Self:
-        """Revokes a delegated permission on Microsoft Graph.
+    def revoke_delegated_permissions(self, client_id: str, scope: str, resource: str = ResourceName.Graph) -> Self:
+        """Revokes a delegated permission on ``resource``.
 
         Args:
             client_id (str): Application (client) ID of the client app
             scope (str): Permission scope to revoke
+            resource (str): The API the name belongs to, e.g. ``ResourceName.SharePoint``
         """
-        from office365.directory.permissions.resource_name import ResourceName
-
-        self.service_principals.find_by_name(ResourceName.Graph, required=True).revoke_delegated_permissions(
-            client_id, scope
-        )
+        self.service_principals.find_by_name(resource, required=True).revoke_delegated_permissions(client_id, scope)
         return self
 
-    def revoke_application_permissions(self, app_id: str, app_role: AppRole | str) -> Self:
-        """Revokes an application permission on Microsoft Graph.
+    def revoke_application_permissions(
+        self, app_id: str, app_role: AppRole | str, resource: str = ResourceName.Graph
+    ) -> Self:
+        """Revokes an application permission on ``resource``.
 
         Args:
             app_id (str): Application (client) ID of the client app
             app_role (AppRole or str): App role to revoke
+            resource (str): The API the name belongs to, e.g. ``ResourceName.SharePoint``
         """
-        from office365.directory.permissions.resource_name import ResourceName
-
-        self.service_principals.find_by_name(ResourceName.Graph, required=True).revoke_application_permissions(
-            app_id, app_role
-        )
+        self.service_principals.find_by_name(resource, required=True).revoke_application_permissions(app_id, app_role)
         return self

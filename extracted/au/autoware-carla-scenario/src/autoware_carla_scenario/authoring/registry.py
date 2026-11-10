@@ -4,8 +4,8 @@ Actions, conditions, spawn constraints and bindings all grow over time.  If the
 editor's templates branched on ``type`` the HTML would have to grow with them,
 so instead every primitive is described *here*, in Python, by a small spec
 object.  The templates render specs, not types: adding a primitive means adding
-one entry below (and a builder in :mod:`autoware_carla_scenario.authoring.builders`),
-with no template change at all.
+one entry below (and regenerating the builders with
+:mod:`autoware_carla_scenario.authoring.codegen`), with no template change at all.
 
 Each spec carries three things:
 
@@ -14,9 +14,9 @@ Each spec carries three things:
   *metric* and *value* so the swimlane can render ``NPC1 -> Ego | Distance | < 20 m``;
 * how to **edit** it -- an ordered tuple of :class:`FieldSpec` the inspector
   turns into form controls;
-* how to **build** it -- the name of a factory in
-  :mod:`autoware_carla_scenario.authoring.builders` that returns the *existing*
-  runtime object.
+* how to **build** it -- the *existing* runtime class it builds (``target``)
+  and the name of the builder :mod:`autoware_carla_scenario.authoring.codegen`
+  generates for it from that class's constructor.
 
 Importing this module must stay free of CARLA and lanelet2: it is imported by
 the editor process, which never talks to a simulator.
@@ -401,11 +401,10 @@ class ActionSpec:
     title: str
     category: str
     builder: str
-    #: Runtime class this builds, as ``<relative module>:<name>``.  When it is
-    #: set the builder named above is *generated* from the constructor's
-    #: signature; when it is empty the builder is hand-written in
-    #: :mod:`autoware_carla_scenario.authoring.builders`.  Exactly one of the
-    #: two, which ``test_authoring_registry`` enforces.
+    #: Runtime class this builds, as ``<relative module>:<name>``.  Every spec
+    #: names one, and the builder named above is *generated* from the
+    #: constructor's signature by :mod:`autoware_carla_scenario.authoring.codegen`
+    #: (``test_authoring_registry`` enforces both).
     target: str = ""
     #: Field name -> constructor keyword, for the pairs that differ.  Fields
     #: whose name already matches the constructor need no entry.  A field
@@ -605,6 +604,24 @@ _TURN_INDICATOR_STATES: tuple[SelectOption, ...] = (
     SelectOption("LEFT", "Left"),
     SelectOption("RIGHT", "Right"),
     SelectOption("HAZARD", "Hazard (both)"),
+)
+
+#: Mirrors ``perception_fault.PerceivedCategory``.
+_PERCEIVED_CATEGORIES: tuple[SelectOption, ...] = (
+    SelectOption("ACTUAL", "Actual"),
+    SelectOption("UNKNOWN", "Unknown"),
+    SelectOption("VEHICLE", "Vehicle"),
+    SelectOption("CAR", "Car"),
+    SelectOption("TRUCK", "Truck"),
+    SelectOption("BUS", "Bus"),
+    SelectOption("MOTORCYCLE", "Motorcycle"),
+    SelectOption("BICYCLE", "Bicycle"),
+    SelectOption("PEDESTRIAN", "Pedestrian"),
+    SelectOption("TRAILER", "Trailer"),
+    SelectOption("ANIMAL", "Animal"),
+    SelectOption("HAZARD", "Hazard"),
+    SelectOption("OVER_DRIVABLE", "Over drivable"),
+    SelectOption("UNDER_DRIVABLE", "Under drivable"),
 )
 
 #: Mirrors ``carla.TrafficLightState`` (same reason as above).
@@ -1084,6 +1101,26 @@ register_action_spec(
                 default="left",
                 options=_DIRECTIONS,
             ),
+            FieldSpec(
+                name="start_after_m",
+                label="Start after",
+                kind="number",
+                minimum=0.0,
+                default=0.0,
+                unit="m",
+                required=False,
+                help="How far to drive before starting to cross; 0: at once.",
+            ),
+            FieldSpec(
+                name="lane_change_length_m",
+                label="Lane change length",
+                kind="number",
+                minimum=0.0,
+                default=0.0,
+                unit="m",
+                required=False,
+                help="How far to drive while crossing; 0: as far as the backend takes.",
+            ),
         ),
         description=(
             "Ask a vehicle to change one lane, through the traffic backend "
@@ -1113,6 +1150,72 @@ register_action_spec(
         description=(
             "Light the vehicle's turn indicators (or hazard lights, or neither); "
             "they stay so until set again."
+        ),
+    )
+)
+
+register_action_spec(
+    ActionSpec(
+        type_id="perception_fault_injection",
+        title="Perception Fault Injection",
+        category="Perception",
+        builder="build_perception_fault_injection_action",
+        target="..actions:PerceptionFaultInjectionAction",
+        actor_kinds=("vehicle", "pedestrian"),
+        visual_kind="instant",
+        fields=(
+            FieldSpec(
+                name="category",
+                label="Reported as",
+                kind="select",
+                default="ACTUAL",
+                options=_PERCEIVED_CATEGORIES,
+                help="The category the ego's driver is told; Actual keeps its own.",
+            ),
+            FieldSpec(
+                name="length_m",
+                label="Length",
+                kind="number",
+                minimum=0.0,
+                default=0.0,
+                unit="m",
+                required=False,
+                help="The box length the ego's driver is told; 0 keeps its own.",
+            ),
+            FieldSpec(
+                name="width_m",
+                label="Width",
+                kind="number",
+                minimum=0.0,
+                default=0.0,
+                unit="m",
+                required=False,
+                help="The box width the ego's driver is told; 0 keeps its own.",
+            ),
+            FieldSpec(
+                name="height_m",
+                label="Height",
+                kind="number",
+                minimum=0.0,
+                default=0.0,
+                unit="m",
+                required=False,
+                help="The box height the ego's driver is told; 0 keeps its own.",
+            ),
+            FieldSpec(
+                name="visible",
+                label="Seen",
+                kind="bool",
+                default=True,
+                required=False,
+                help="Unchecked: the ego's driver is not told of it at all.",
+            ),
+        ),
+        description=(
+            "Report this road user to the ego's driver policy as another "
+            "category, another size, or not at all, from now on; every other "
+            "road user, and what the run records, stay as they are.  Not yet "
+            "for an ego driven by Autoware, which perceives for itself."
         ),
     )
 )
@@ -1325,7 +1428,7 @@ register_action_spec(
         description=(
             "Background traffic, as OpenSCENARIO's TrafficSourceAction, placed "
             "on the lanelets the constraints match.  The traffic backend drives "
-            "it.  Runs until its end condition fires, or the scenario ends."
+            "it.  Runs until the scenario ends."
         ),
     )
 )
@@ -1357,8 +1460,7 @@ register_action_spec(
         ),
         description=(
             "Removes background traffic on the lanelets the constraints match, "
-            "as OpenSCENARIO's TrafficSinkAction.  Runs until its end condition "
-            "fires, or the scenario ends."
+            "as OpenSCENARIO's TrafficSinkAction.  Runs until the scenario ends."
         ),
     )
 )
@@ -1594,8 +1696,10 @@ register_action_spec(
                 kind="int",
                 minimum=0,
                 maximum=MAX_SEED,
-                default=0,
-                help="The motion generator's draws.",
+                default=None,
+                required=False,
+                help="The motion generator's draws. Leave empty to follow the "
+                "run's seed.",
             ),
         ),
         description=(
@@ -1693,7 +1797,8 @@ register_action_spec(
                 required=False,
                 help=(
                     "The lanelet of the place it enters at. None (0): where "
-                    "it was declared to spawn, which it waits under."
+                    "it was declared to spawn -- which an entity spawned on no "
+                    "lanelet of its own does not have."
                 ),
             ),
             FieldSpec(
@@ -3234,7 +3339,7 @@ register_action_spec(
                 kind="int_list",
                 default=[],
                 required=False,
-                help="Only used when Target is 'Selected Lanelet2 IDs'.",
+                help="Required, and only used, when Target is 'Selected Lanelet2 IDs'.",
             ),
             FieldSpec(
                 name="freeze",
@@ -5087,11 +5192,12 @@ register_condition_spec(
                     "change is only complete once the vehicle has settled onto "
                     "the next lane, not when the command was issued.  Running "
                     "and End are only reached by an action that runs on -- one "
-                    "with an until condition, or one that re-sends its command "
-                    "every tick.  An action that is over the moment it is "
-                    "commanded (a traffic light set, say) goes from Start "
-                    "straight to Complete (or back to Standby when it repeats), "
-                    "so waiting on Running or End for it never holds: wait on "
+                    "whose completion criteria the world takes time to meet (a "
+                    "lane change settling, a trajectory being followed), or one "
+                    "that re-sends its command every tick.  An action that is "
+                    "over the moment it is commanded (a traffic light set, say) "
+                    "goes from Start straight to Complete (or back to Standby "
+                    "when it repeats), so waiting on Running or End for it never holds: wait on "
                     "Complete."
                 ),
             ),
@@ -5422,6 +5528,7 @@ register_binding_spec(
                 label="Distance before the stop line",
                 kind="number",
                 default=15.0,
+                minimum=0.0,
                 unit="m",
             ),
         ),
@@ -5504,6 +5611,7 @@ register_binding_spec(
                 label="Distance before the stop line",
                 kind="number",
                 default=15.0,
+                minimum=0.0,
                 unit="m",
             ),
         ),

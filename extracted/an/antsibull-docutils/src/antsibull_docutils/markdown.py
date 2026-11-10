@@ -10,23 +10,21 @@ Code for conversion to MarkDown.
 
 from __future__ import annotations
 
-import io
 import typing as t
 from urllib.parse import quote as _urllib_quote
 
 from docutils import nodes, writers
-from docutils.core import publish_parts
 from docutils.writers.html5_polyglot import HTMLTranslator
 from docutils.writers.html5_polyglot import Writer as HTMLWriter
 
+from ._utils import ContextBase as _ContextBase
+from ._utils import DocumentContextBase as _DocumentContextBase
+from ._utils import add_skip as _add_skip
+from ._utils import add_unsupported_classes as _add_unsupported_classes
+from ._utils import render as _render
 from .html_utils import html_argument_escape, html_escape
 from .md_utils import md_escape
-from .utils import (
-    _PARSER_NAME_ARG,
-    RenderResult,
-    SupportedParser,
-    get_docutils_publish_settings,
-)
+from .utils import RenderResult, SupportedParser
 
 
 class GlobalContext:
@@ -70,7 +68,7 @@ class GlobalContext:
         return full_fragment
 
 
-class Context:
+class Context(_ContextBase["Context"]):
     """
     Base context class for MarkDown conversion.
     """
@@ -171,6 +169,25 @@ class ListContext(Context):
         self.next_indent = " " * len(indent)
 
 
+class AdmonitionContext(Context):
+    """
+    Context for an admonition.
+    """
+
+    def __init__(self, identifier: str):
+        super().__init__()
+        self.identifier = identifier
+
+    def close(self) -> None:
+        self.ensure_double_newline()
+        lines = self.get_text().rstrip("\n").splitlines()
+        # See https://github.com/orgs/community/discussions/16925 for the syntax
+        self.replace_main(
+            [f"> [!{self.identifier}]\n"]
+            + [f"> {line}\n" if line else ">\n" for line in lines]
+        )
+
+
 def get_language_from_literal_block(node: nodes.literal_block) -> str | None:
     """
     Obtain programming language from a literal block.
@@ -196,71 +213,17 @@ def count_leading_backticks(line: str) -> int:
     return count
 
 
-class DocumentContext:
+class DocumentContext(_DocumentContextBase[GlobalContext, Context]):
     """
     Conversion context for a document.
     """
 
-    section_depth: int
-    global_context: GlobalContext
-    unknown_node_types: set[str]
-    created_labels: set[str]
-
-    _contexts: list[Context]
-
-    def __init__(self, global_context: GlobalContext):
-        self.section_depth = 0
-        self.global_context = global_context
-        self.unknown_node_types = set()
-        self.created_labels = set()
+    def __init__(self, global_context: GlobalContext) -> None:
+        super().__init__(global_context)
         self._contexts = [Context(has_top=True)]
-
-    def push_context(self, context: Context) -> None:
-        """
-        Add a new context on the context stack.
-        """
-        self._contexts.append(context)
-
-    def pop_context(self) -> None:
-        """
-        Pop the top-most context from the context stack.
-
-        The last context cannot be popped, trying to do so will result in a
-        ``ValueError`` exception.
-        """
-        if len(self._contexts) < 2:
-            raise ValueError("Cannot pop last element")
-        context = self._contexts.pop()
-        context.close()
-        self._contexts[-1].append(context)
-
-    @property
-    def top(self) -> Context:
-        """
-        Return the top-most context from the context stack.
-        """
-        return self._contexts[-1]
 
 
 _Class = t.TypeVar("_Class")
-
-
-def _add_unsupported_classes(clazz: _Class) -> _Class:
-    def get_visit(class_name: str):
-        # pylint: disable-next=unused-argument
-        def visit_unsupported(self: t.Any, node: nodes.Node):
-            # pylint: disable-next=protected-access
-            self._context.unknown_node_types.add(class_name)
-            raise nodes.SkipNode
-
-        return visit_unsupported
-
-    for class_name in nodes.node_class_names:
-        function_name = f"visit_{class_name}"
-        if not hasattr(clazz, function_name):
-            setattr(clazz, function_name, get_visit(class_name))
-
-    return clazz
 
 
 def _add_simple(
@@ -293,13 +256,30 @@ def _add_simple(
     return decorator
 
 
-def _add_skip(class_names: list[str]) -> t.Callable[[_Class], _Class]:
+def _add_admonitions(
+    definitions: dict[str, str],
+) -> t.Callable[[_Class], _Class]:
     def decorator(clazz: _Class) -> _Class:
-        def visit(self: t.Any, node: nodes.Node) -> None:
-            raise nodes.SkipNode
+        def get_visit(identifier: str):
+            # pylint: disable-next=unused-argument
+            def visit(self: t.Any, node: nodes.Node) -> None:
+                # pylint: disable=protected-access
+                self._context.top.ensure_double_newline()
+                self._context.push_context(AdmonitionContext(identifier=identifier))
 
-        for class_name in class_names:
-            setattr(clazz, f"visit_{class_name}", visit)
+            return visit
+
+        def get_depart():
+            # pylint: disable-next=unused-argument
+            def depart(self: t.Any, node: nodes.Node) -> None:
+                # pylint: disable=protected-access
+                self._context.pop_context()
+
+            return depart
+
+        for class_name, identifier in definitions.items():
+            setattr(clazz, f"visit_{class_name}", get_visit(identifier))
+            setattr(clazz, f"depart_{class_name}", get_depart())
         return clazz
 
     return decorator
@@ -316,6 +296,16 @@ def _add_skip(class_names: list[str]) -> t.Callable[[_Class], _Class]:
         "strong": ("<strong>", "</strong>"),
         "subscript": ("<sub>", "</sub>"),
         "superscript": ("<sup>", "</sup>"),
+    }
+)
+@_add_admonitions(
+    {
+        "note": "NOTE",
+        "tip": "TIP",
+        "important": "IMPORTANT",
+        "warning": "WARNING",
+        "caution": "CAUTION",
+        # Missing admonitions: attention, danger, error, hint
     }
 )
 @_add_skip(
@@ -570,31 +560,6 @@ class Translator(nodes.NodeVisitor):  # pylint: disable=too-many-public-methods
         self._context.top.ensure_double_newline()
         self._context.top.add_main("</details>\n\n")
 
-    # Node: system_message
-
-    # pylint: disable-next=missing-function-docstring,unused-argument
-    def visit_note(self, node: nodes.note) -> None:
-        class NoteContext(Context):
-            """
-            Context for a note.
-            """
-
-            def close(self) -> None:
-                self.ensure_double_newline()
-                lines = self.get_text().rstrip("\n").splitlines()
-                # See https://github.com/orgs/community/discussions/16925 for the syntax
-                self.replace_main(
-                    ["> [!NOTE]\n"]
-                    + [f"> {line}\n" if line else ">\n" for line in lines]
-                )
-
-        self._context.top.ensure_double_newline()
-        self._context.push_context(NoteContext())
-
-    # pylint: disable-next=missing-function-docstring,unused-argument
-    def depart_note(self, node: nodes.note) -> None:
-        self._context.pop_context()
-
     # Node: topic
 
     # pylint: disable-next=missing-function-docstring,unused-argument
@@ -730,27 +695,13 @@ def render_as_markdown(
     if global_context is None:
         global_context = GlobalContext()
     document_context = DocumentContext(global_context)
-    # pylint: disable=duplicate-code
-    warnings_stream = io.StringIO()
-    opts: dict[str, t.Any] = {
-        _PARSER_NAME_ARG: parser_name,
-    }
-    parts = publish_parts(
-        source=source,
+    return _render(
+        source,
+        writer=MarkDownWriter(document_context),
+        get_unknown_node_types=lambda: document_context.unknown_node_types,
+        parser_name=parser_name,
         source_path=source_path,
         destination_path=destination_path,
-        writer=MarkDownWriter(document_context),
-        settings_overrides=get_docutils_publish_settings(
-            warnings_stream=warnings_stream
-        ),
-        **opts,
-    )
-    # pylint: enable=duplicate-code
-    whole = parts["whole"]
-    return RenderResult(
-        whole.decode("utf-8") if isinstance(whole, bytes) else whole,
-        document_context.unknown_node_types,
-        warnings_stream.getvalue().splitlines(),
     )
 
 

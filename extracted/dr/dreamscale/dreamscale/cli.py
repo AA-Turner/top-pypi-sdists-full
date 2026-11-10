@@ -702,7 +702,23 @@ def sim(
 
         _ensure_extras(["sim"], label="LIBERO", setup_command=errors.COMMAND_SIM)
     from dreamscale.sim.sim_arm import _sim_contract, run_sim
+    from dreamscale.sim.verne_libero import is_verne_libero
 
+    if benchmark == "libero" and is_verne_libero(model):
+        # Verne V0.5 LIBERO (a catalog model on Verne deployments): upstream's own loop, its
+        # 30 Hz poses driving LIBERO's 20 Hz OSC_POSE controller.
+        from dreamscale.sim.verne_libero import run_verne_libero
+
+        if not str(task_id).isdigit():
+            raise typer.BadParameter("--task-id is a task number", param_hint="--task-id")
+        _run(
+            run_verne_libero,
+            model=model, task_suite=task_suite, task_id=int(task_id), task_seed=task_seed,
+            max_steps=max_steps if max_duration is None else max(1, ceil(max_duration * 20)),
+            region=region, real_time=True, json_output=non_interactive,
+            output_root=output_root,
+        )
+        return
     try:
         task_id = validate_selection(benchmark, model, task_suite, task_id)
         contract = _sim_contract(model)
@@ -850,9 +866,9 @@ _RTC_HELP = (
 @deployments_app.command("create", help=_CREATE_HELP)
 @endpoints_app.command("create", help=_CREATE_HELP)
 def deployments_create(
-    repo: str = typer.Argument(
-        ..., help="Hugging Face repo (hf://owner/name, owner/name or a huggingface.co link), "
-        "or a local checkpoint folder (./folder)."
+    repo: str | None = typer.Argument(
+        None, help="Hugging Face repo (hf://owner/name, owner/name or a huggingface.co link), "
+        "or a local checkpoint folder (./folder). Omit with --official."
     ),
     base: str | None = typer.Option(
         None, "--base",
@@ -953,6 +969,14 @@ def deployments_create(
         "checkpoint's step).",
     ),
     region_fallback: bool | None = _REGION_FALLBACK_OPTION,
+    official: str | None = typer.Option(
+        None, "--official", help="Instead of a repo: one of the base's own published "
+        "checkpoints by name (Verne V0.5: base, robotwin, libero; `deployments list` shows "
+        "them)."
+    ),
+    arm: str | None = typer.Option(
+        None, "--arm", help="Verne V0.5 custom robot: right for one arm (default both)."
+    ),
 ) -> None:
     """Deploy fine-tuned weights (``_CREATE_HELP``: every registered deployment base)."""
     from dreamscale.checkpoints_cmd import (
@@ -973,16 +997,40 @@ def deployments_create(
         "chunk": chunk, "dataset": dataset, "context": context, "path": path,
         "horizon": horizon, "executed": executed, "token_length": token_length,
         "no_state_in_prompt": no_state_in_prompt or None, "delta_mask": delta_mask, "rtc": rtc,
-        "rtc_max_delay": rtc_max_delay,
+        "rtc_max_delay": rtc_max_delay, "arm": arm,
     }
+    from dreamscale import deploy_bases
     from dreamscale.local_checkpoint import is_local_folder
 
+    if official is not None:
+        if repo is not None:
+            raise typer.BadParameter("give a repo or --official, not both", param_hint="'repo'")
+        if base is None:
+            raise typer.BadParameter("an official checkpoint names its base with --base",
+                                     param_hint="'--base'")
+        try:
+            chosen = parse_base(base)
+        except ValueError as error:
+            raise typer.BadParameter(str(error), param_hint="'--base'") from None
+        create_official = deploy_bases.named(chosen).create_official
+        if create_official is None:
+            raise typer.BadParameter(f"{BASE_LABELS.get(chosen, chosen)} has no official "
+                                     "checkpoints", param_hint="'--official'")
+        create_official(
+            official=official, preset=preset, camera=camera,
+            given={k: v for k, v in given.items() if v is not None}, rtc=rtc, name=name,
+            region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
+            region_fallback=region_fallback,
+        )
+        return
+    if repo is None:
+        raise typer.BadParameter("a repo or local folder is required (or --official)",
+                                 param_hint="'repo'")
     local = is_local_folder(repo)
     try:
         chosen = parse_base(base or downloaded_base(repo, path))
     except ValueError as error:
         raise typer.BadParameter(str(error), param_hint="'--base'") from None
-    from dreamscale import deploy_bases
 
     # A base with its own create (every base but Isaac 0.5's legacy path) takes every option;
     # Isaac 0.5 follows.
@@ -1357,6 +1405,11 @@ _TRAIN_DATASETS = typer.Option(
     show_default=False,
 )
 
+_TRAIN_INPUT_OPTION = typer.Option(
+    None, "--input", metavar="NAME=FILE.json",
+    help="Something the base takes beside the dataset, as a JSON file (e.g. urdf=robot.json, "
+    "the robot's URDF and its arms). Repeat for more.",
+)
 _TRAIN_CAMERA_OPTION = typer.Option(
     None, "--camera", help="A camera and its image slot, e.g. top=base (base, left_wrist, "
     "right_wrist); repeat for each. Default: chosen by the cameras' names."
@@ -1453,6 +1506,20 @@ def train_create(
         None, "--action", help="The action's columns, joined in order (a+b). Default: action."
     ),
     camera: list[str] | None = _TRAIN_CAMERA_OPTION,
+    ee_state: str | None = typer.Option(
+        None, "--ee-state", metavar="COLUMNS",
+        help="For a base that learns end-effector poses: the measured pose columns, each arm's "
+        "xyz then its rotation (a+b, or column[0-8,10-18]). With --ee-action and --ee-rotation.",
+    ),
+    ee_action: str | None = typer.Option(
+        None, "--ee-action", metavar="COLUMNS",
+        help="The commanded end-effector pose columns, laid out as --ee-state.",
+    ),
+    ee_rotation: str | None = typer.Option(
+        None, "--ee-rotation",
+        help="The poses' rotation: quat_xyzw, quat_wxyz, matrix, axis_angle or rot6d.",
+    ),
+    run_input: list[str] | None = _TRAIN_INPUT_OPTION,
     sample_weight: str | None = typer.Option(
         None, "--sample-weight", metavar="COLUMN",
         help="A one-value column with each episode's sample weight (the same value on every "
@@ -1475,7 +1542,7 @@ def train_create(
     """Quote and fine-tune a base model on a dataset (one confirm)."""
     from dreamscale import errors
     from dreamscale.train_cmd import run_create
-    from dreamscale.trainings import parse_mapping, upload_first
+    from dreamscale.trainings import parse_inputs, parse_mapping, upload_first
 
     if positional:
         # The form before --dataset: a folder uploads first; a name moves to the flag.
@@ -1504,6 +1571,7 @@ def train_create(
     if schedule not in (None, "cosine", "constant"):
         raise typer.BadParameter("--schedule: cosine or constant")
     no_hardware_check = no_hardware_check or no_clean  # the older, hidden spelling
+    inputs = _run_train(parse_inputs, specs=run_input) if run_input else None
     run = _run_train(
         run_create, dataset=dataset[0] if len(dataset) == 1 else dataset, base=base,
         steps=steps, max_usd=max_usd,
@@ -1513,8 +1581,9 @@ def train_create(
         wait=not no_wait, json_output=json_output, quote_only=quote, eval_fraction=eval_fraction,
         mapping=_run_train(
             parse_mapping, state=state, action=action, cameras=camera, weight=sample_weight,
-            loss_mask=loss_mask,
+            loss_mask=loss_mask, ee_state=ee_state, ee_action=ee_action, ee_rotation=ee_rotation,
         ),
+        inputs=inputs,
         base_step=base_step, normalization=normalization, batch_size=batch_size,
         warmup_steps=warmup_steps, lr_schedule=schedule, checkpoint_every=checkpoint_every,
     )
@@ -2076,6 +2145,11 @@ def _robot_run_command(embodiment):
         ("max_actions", int | None, _max_actions_option()),
         ("keep_warm", int | None, _keep_warm_option()),
         ("region", str, _region_option()),
+        ("region_fallback", bool | None, typer.Option(
+            None, "--region-fallback/--no-region-fallback",
+            help="Allow a shared-model session to start in the next supported region if "
+            "its preferred region has no GPU. An explicit --region is strict by default.",
+        )),
         ("provider", str | None, _provider_option()),
         ("speed", str, _speed_option()),
         ("rtc", str, _rtc_option()),
@@ -2186,6 +2260,15 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
                **options) -> None:
     from dreamscale.model_names import resolve_llm_model
 
+    region_fallback = options.pop("region_fallback", None)
+    connect_options = {}
+    if region_fallback is not None:
+        from dreamscale.policy.remote import aconnect
+
+        async def regional_connect(*args, **kwargs):
+            return await aconnect(*args, region_fallback=region_fallback, **kwargs)
+
+        connect_options["connect"] = regional_connect
     model, options["checkpoint"] = _model_or_deployment(model, options.get("checkpoint"))
     model = _deployment_model(embodiment, model, options.get("checkpoint"))
     if model is None:
@@ -2266,6 +2349,7 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
             )
         _run_robot_command(
             embodiment.load(embodiment.run_policy),
+            **connect_options,
             model=model,
             instruction=instruction,
             **({"config_path": config} if config is not None else {}),

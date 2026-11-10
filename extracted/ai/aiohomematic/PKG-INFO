@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomematic
-Version: 2026.11.3
+Version: 2026.11.5
 Summary: Async Python library for Homematic(IP) devices via OpenCCU, CCU3, CUxD and CCU-Jack.
 Home-page: https://github.com/sukramj/aiohomematic
 Author-email: SukramJ <sukramj@icloud.com>, Daniel Perna <danielperna84@gmail.com>

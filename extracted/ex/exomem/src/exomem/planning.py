@@ -151,8 +151,8 @@ def require_planning_profile(
         raise CollectionError(
             "PLANNING_PROFILE_REQUIRED", "Planning actions require a planning semantic profile"
         )
-    if manifest.storage.strategy != "markdown-items":
-        raise CollectionError("INVALID_PLAN", "Planning requires markdown-items storage")
+    if not manifest.storage.item_rows:
+        raise CollectionError("INVALID_PLAN", "Planning requires sqlite or markdown-items storage")
     required_types = {
         "title": "string",
         "kind": "string",
@@ -179,6 +179,7 @@ def create_collection(
     record_governance.require_candidate_manifest_visibility(root, manifest_path)
     manifest = collections.parse_manifest_bytes(root, manifest_path, manifest_text.encode("utf-8"))
     require_planning_profile(manifest)
+    records.require_file_create(root, manifest)
     if scaffold:
         manifest_text = _with_default_scaffold(manifest_text, manifest, vault_root=root)
         manifest = collections.parse_manifest_bytes(
@@ -209,6 +210,7 @@ def validate(
             manifest_text,
             semantic_profile="planning",
             scaffold=scaffold,
+            require=partial(records.require_create_manifest, root),
         )
         manifest = require_planning_profile(
             collections.parse_manifest_bytes(
@@ -226,6 +228,7 @@ def validate(
             effective_text,
             semantic_profile="planning",
             scaffold=scaffold,
+            require=partial(records.require_create_manifest, root),
         )
         require_planning_profile(
             collections.parse_manifest_bytes(
@@ -313,9 +316,11 @@ def _with_default_scaffold(
     if len(closing) < 2:
         raise CollectionError("INVALID_COLLECTION_MANIFEST", "manifest requires frontmatter")
     additions: list[str] = []
-    if manifest.item_filename is None and manifest.schema.natural_key == ("title",):
+    # A summary collection renders no item view, so it gets no per-item recipe.
+    per_item = manifest.view_mode != "summary"
+    if per_item and manifest.item_filename is None and manifest.schema.natural_key == ("title",):
         additions.extend(("item_filename:", "  version: 1", "  fields: [title]"))
-    if manifest.item_presentation is None:
+    if per_item and manifest.item_presentation is None:
         summary = [
             name
             for name in (
@@ -392,6 +397,8 @@ def add(
     expected_container_hash: str | None = None,
     body: str = "",
     why: str,
+    _prepare: Callable[[dict[str, Any]], None] | None = None,
+    _validate_inputs: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
     """Capture one Planning item through the shared Markdown-item writer."""
     manifest = record_governance.resolve_collection_for_mutation(vault_root, collection)
@@ -418,7 +425,93 @@ def add(
         body=body,
         why=why,
         validate_snapshot=partial(_validate_final_relationships, vault_root),
+        hold=_prepare is None,
+        _prepare=_prepare,
+        _validate_inputs=_validate_inputs,
     )
+
+
+def prepare(vault_root: Path, action: str, args: Mapping[str, Any], *, _validate_inputs=None) -> dict[str, Any]:
+    """Run the same Planning facade through its final native rollback-only boundary."""
+    from . import plan_memory, vocabulary_gate
+    from .vault import _NativePrepared
+
+    def stop(value):
+        raise _NativePrepared(value)
+
+    with vocabulary_gate.preparation_context(vault_root):
+        try:
+            plan_memory._write(vault_root, action, args, _prepare=stop, _validate_inputs=_validate_inputs)  # noqa: SLF001
+        except _NativePrepared as stopped:
+            result = dict(stopped.value)
+        else:
+            raise CollectionError("RECORD_PREPARE_INCOMPLETE", "Planning did not reach final preparation")
+    manifest = result.pop("manifest", None)
+    if manifest is not None:
+        result.update(collection_id=manifest.collection_id, manifest_path=manifest.path,
+                      semantic_profile=manifest.semantic_profile, strategy=manifest.storage.strategy)
+        result["store"] = {"collection_id": manifest.collection_id, "expected_container_hash": result.pop("container_hash")}
+        if "item_version" in result:
+            result["store"]["expected_item_version"] = result.pop("item_version")
+        result["path"] = collections.plan_ref(manifest.collection_id, result["item_key"])
+    if result["semantic_profile"] != "planning":
+        raise CollectionError("PLANNING_PROFILE_REQUIRED", "Planning collection is required")
+    values = result.pop("values")
+    normalized = {"collection": result["collection_id"], "plan_id": result["item_key"], "why": args["why"],
+                  "expected_container_hash": args["expected_container_hash"]}
+    if action == "add":
+        normalized.update(item=values, body=result["body"])
+    else:
+        before = result.pop("prior_values")
+        changed = {name: value for name, value in values.items() if name not in before or value != before[name]}
+        changed.update({name: None for name in before if name not in values})
+        normalized["transition" if action == "triage" else "changes"] = changed
+        normalized["expected_item_version"] = args["expected_item_version"]
+        if action == "update" and result["body"] is not None:
+            normalized["body"] = result["body"]
+    result["normalized_native_args"] = normalized
+    return result
+
+
+def add_receipt(vault_root: Path, collection, *, item_key: str, payload_hash: str) -> dict | None:
+    """Authenticate exactly one native Planning add through its audit owner."""
+    try:
+        manifest = require_planning_profile(record_governance.resolve_collection_for_mutation(vault_root, collection))
+    except CollectionError:
+        return None
+    return records.append_receipt(vault_root, manifest, item_key=item_key, payload_hash=payload_hash)
+
+
+def update_receipt(vault_root: Path, collection, *, operation: str, **args) -> dict | None:
+    # These two operation tokens are fixed by the Planning receipt protocol.
+    if operation not in {"update", "triage"}:
+        return None
+    return records._update_receipt(vault_root, collection, _profile="planning", _operation="plan_" + operation, **args)  # noqa: SLF001
+
+
+def store_receipt(writer, request_id: str, *, prepared: Mapping, after: Mapping, action: str) -> bool:
+    """Authenticate the native Planning transaction and current canonical row, never its file view."""
+    try:
+        with writer.read_snapshot():
+            found = writer.request_receipt(request_id)
+            if found is None:
+                return False
+            receipt = found["receipt"]
+            cid, key = prepared["collection_id"], prepared["item_key"]
+            writer._collection(cid, facade_profile="planning")  # noqa: SLF001
+            item = writer._item(cid, key)  # noqa: SLF001
+            return bool(
+                item is not None and receipt.get("_plan_receipt") == "exomem.planning-mutation"
+                and receipt.get("operation") == action and receipt.get("collection_id") == cid
+                and receipt.get("plan_id") == key and receipt.get("outcome") == "committed"
+                and receipt.get("before_container_hash") == prepared["store"]["expected_container_hash"]
+                and (action == "add" or receipt.get("before_item_hash") == prepared["store"]["expected_item_version"])
+                and item["payload_hash"] == prepared["payload_hash"]
+                and after == {"path": collections.plan_ref(cid, key), "content_hash": receipt.get("after_item_hash")}
+                and writer.current_guards(cid, key)[1] == receipt["after_item_hash"]
+            )
+    except (CollectionError, KeyError, TypeError):
+        return False
 
 
 def query(
@@ -491,7 +584,8 @@ def query(
                 raise CollectionError(
                     "INVALID_PLAN_ARGUMENTS", "hierarchy cannot be combined with aggregate or CSV"
                 )
-            _validate_authorized_snapshot(
+            # The hierarchy and its sources reuse these rows, so a hierarchy reads no row again.
+            authorized = _validate_authorized_snapshot(
                 vault_root,
                 manifest,
                 adapter_authorize_path,
@@ -538,13 +632,11 @@ def query(
                     authorize_path=authorize_path,
                 )
             hierarchy = _hierarchy(
-                vault_root,
-                manifest,
+                authorized,
                 result.rows,
                 mode=hierarchy_mode,
                 depth=hierarchy_depth,
                 limit=hierarchy_limit,
-                authorize_path=adapter_authorize_path,
             )
             source_versions = list(result.source_versions)
             hierarchy_contributors = ()
@@ -554,16 +646,13 @@ def query(
                     for node in hierarchy["nodes"]
                     if isinstance(node, Mapping) and isinstance(node.get("plan_id"), str)
                 }
-                snapshot = record_formats.load_adapter(
-                    vault_root, manifest, authorize_path=adapter_authorize_path
-                ).read()
                 hierarchy_contributors = tuple((record.identity.key, record.source.hash)
-                                               for record in snapshot.records
+                                               for record in authorized
                                                if record.identity.key in hierarchy_ids)
                 known_paths = {version.path for version in source_versions}
                 source_versions.extend(
                     record.source
-                    for record in snapshot.records
+                    for record in authorized
                     if record.identity.key in hierarchy_ids and record.source.path not in known_paths
                 )
             projected = _project_query(
@@ -900,25 +989,21 @@ def _json_value(value: Any, *, depth: int = 0, nodes: list[int] | None = None) -
 
 
 def _hierarchy(
-    vault_root: Path,
-    manifest: collections.CollectionManifest,
+    authorized: tuple[record_formats.Record, ...],
     roots: list[dict[str, Any]],
     *,
     mode: str,
     depth: int,
     limit: int,
-    authorize_path: Callable[[str], bool] | None,
 ) -> dict[str, Any] | None:
+    """The hierarchy around `roots` among the `authorized` rows that the query itself read."""
     if mode == "none":
         return None
     if mode not in {"ancestors", "descendants"} or not 0 <= depth <= 8 or not 1 <= limit <= 500:
         raise CollectionError("INVALID_PLAN_ARGUMENTS", "hierarchy controls are invalid")
-    snapshot = record_formats.load_adapter(
-        vault_root, manifest, authorize_path=authorize_path
-    ).read()
     rows = {
         record.identity.key: {**record.values, "plan_id": record.identity.key}
-        for record in snapshot.records
+        for record in authorized
     }
     root_ids = [row["plan_id"] for row in roots]
     truncated = len(root_ids) > limit
@@ -1144,10 +1229,12 @@ def _valid_inspection(payload: Mapping[str, Any], manifest: collections.Collecti
         "audit",
         "saved_views",
     }
-    optional = {name for name in ("presentation", "lifecycle_guards") if name in payload}
+    optional = {name for name in _OPTIONAL_INSPECTION_KEYS if name in payload}
     if not required <= set(payload) or set(payload) - required != optional:
         return False
     contract = payload["contract"]
+    # A summary collection's inspection names its view mode and its page bounds.
+    summary = manifest.view_mode == "summary"
     if not isinstance(contract, Mapping) or set(contract) != {
         "collection_id",
         "path",
@@ -1155,7 +1242,8 @@ def _valid_inspection(payload: Mapping[str, Any], manifest: collections.Collecti
         "semantic_profile",
         "schema_version",
         "storage",
-    }:
+        *(("view_mode",) if summary else ()),
+    } or ("capacity" in payload) != summary or (summary and contract["view_mode"] != "summary"):
         return False
     storage = contract["storage"]
     if (
@@ -1329,6 +1417,10 @@ def _validate_query_egress(value: Mapping[str, Any]) -> dict[str, Any] | None:
     return dict(value)
 
 
+#: The inspection keys a collection's shape adds: recipes in items mode, page bounds in summary mode.
+_OPTIONAL_INSPECTION_KEYS = ("presentation", "lifecycle_guards", "capacity")
+
+
 def _validate_inspection_egress(value: Mapping[str, Any]) -> dict[str, Any] | None:
     expected = {
         "kind",
@@ -1340,7 +1432,7 @@ def _validate_inspection_egress(value: Mapping[str, Any]) -> dict[str, Any] | No
         "audit",
         "saved_views",
     }
-    optional = {name for name in ("presentation", "lifecycle_guards") if name in value}
+    optional = {name for name in _OPTIONAL_INSPECTION_KEYS if name in value}
     if (
         not expected <= set(value)
         or set(value) - expected != optional
@@ -1371,6 +1463,9 @@ def update(
     expected_container_hash: str,
     expected_item_version: str,
     why: str,
+    _prepare: Callable[[dict[str, Any]], None] | None = None,
+    _validate_inputs: Callable[[], None] | None = None,
+    _history_binding: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply a guarded authored-property update through the shared writer."""
     manifest = record_governance.resolve_collection_for_mutation(vault_root, collection)
@@ -1417,6 +1512,10 @@ def update(
         delete_fields=deleted,
         body=body,
         validate_snapshot=partial(_validate_final_relationships, vault_root),
+        hold=_prepare is None,
+        _prepare=_prepare,
+        _validate_inputs=_validate_inputs,
+        _history_binding=_history_binding,
     )
 
 
@@ -1429,6 +1528,9 @@ def triage(
     expected_container_hash: str,
     expected_item_version: str,
     why: str,
+    _prepare: Callable[[dict[str, Any]], None] | None = None,
+    _validate_inputs: Callable[[], None] | None = None,
+    _history_binding: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Apply the deliberately narrow Planning transition workflow."""
     if not transition or set(transition) - TRIAGE_FIELDS:
@@ -1480,6 +1582,10 @@ def triage(
         operation="triage",
         delete_fields=tuple(name for name, value in transition.items() if value is None),
         validate_snapshot=partial(_validate_final_relationships, vault_root),
+        hold=_prepare is None,
+        _prepare=_prepare,
+        _validate_inputs=_validate_inputs,
+        _history_binding=_history_binding,
     )
 
 
@@ -1585,6 +1691,11 @@ def _validate_relationships(
         )
         write = HierarchyWrite(vault_root, plan_id, stored)
     validate_hierarchy(manifest, plans, write=write)
+
+
+#: The fields through which a Planning item names another item of its collection. The hierarchy
+#: rules in `validate_hierarchy` follow only these, which the named validator declares.
+HIERARCHY_FIELDS = ("parent", "area")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1955,8 +2066,7 @@ egress.register_projector(
         "diagnostics",
         "audit",
         "saved_views",
-        "presentation",
-        "lifecycle_guards",
+        *_OPTIONAL_INSPECTION_KEYS,
     ),
     validator=_validate_inspection_egress,
 )

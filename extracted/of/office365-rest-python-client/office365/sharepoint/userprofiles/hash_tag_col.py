@@ -1,4 +1,5 @@
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.userprofiles.hash_tag import HashTag
 
@@ -7,8 +8,9 @@ class HashTagCollection(Entity):
     """The HashTagCollection class specifies a collection of HashTags. For information about the HashTag type,
     see section 3.1.5.55"""
 
+    @odata(name="Items")
     @property
-    def items(self):
+    def items(self) -> ClientValueCollection[HashTag]:
         return self.properties.get("Items", ClientValueCollection(HashTag))
 
     @property

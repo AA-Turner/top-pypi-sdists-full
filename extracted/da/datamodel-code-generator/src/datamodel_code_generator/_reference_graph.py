@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Generic, Protocol, TypeVar, final
 from typing_extensions import NamedTuple, Self
 
 from datamodel_code_generator._all_or_none import all_or_none
-from datamodel_code_generator._graph import reach, stable_toposort
+from datamodel_code_generator._graph import post_order, reach, stable_toposort
 from datamodel_code_generator._parse_memo import note_reads
 from datamodel_code_generator._records import record
 from datamodel_code_generator._scc import find_circular_sccs, strongly_connected_components
@@ -53,6 +53,8 @@ class EdgeKind(Enum):
     ALIAS = "alias"
     """The type alias that a type alias writes as its whole value, by nothing but its name; a root model whose root
     names the model itself names itself."""
+    ALIAS_VALUE = "alias-value"
+    """The type aliases that the value of a type alias names, at any nesting."""
     RULE_TYPE = "rule-type"
     """The other models that the schema validator rules of a model name, which its class body evaluates."""
     CLASS_BODY = "class-body"
@@ -88,6 +90,8 @@ class GraphSnapshot(Enum):
     """L6: the msgspec structs below tagged bases, each after the bases among the processed models it inherits from."""
     ALIAS_LOOPS = "alias loops"
     """IMPORTS: the type aliases of a ``$ref`` chain that loops back without reaching a schema."""
+    MSGSPEC_ALIAS_RECURSION = "msgspec alias recursion"
+    """IMPORTS: the msgspec type aliases on a cycle that no Struct breaks."""
     INHERITED_FIELDS = "inherited fields"
     """On demand: the models whose fields a model inherits, each once, bases first."""
     ANCESTORS = "ancestors"
@@ -107,6 +111,9 @@ class GraphSnapshot(Enum):
     SET_ITEM_HASH = "set item hash"
     """L6: the set item models and the generated models they inherit from, whose classes decide which set item models
     keep their builtin hash."""
+    SET_ITEM_CLASSES = "set item classes"
+    """On demand: a msgspec struct that the items of a uniqueItems array name and the generated structs it inherits
+    from, whose options decide whether its instances can hash at all."""
     DICT_KEY_ROOT_TYPES = "dict key root types"
     """On demand: a root model that a dict key names and the generated models it inherits from, whose configuration
     decides whether its instances can be dict keys."""
@@ -159,19 +166,7 @@ class ReferenceGraph:
 
         A model of ``met`` is left out with the models reached only through it; every model returned is added to it.
         """
-        order: list[ModelKey] = []
-        entered: list[ModelKey] = []
-        stack = [iter((key,))]
-        while stack:
-            if (target := next(stack[-1], None)) is None:
-                stack.pop()
-                if entered:
-                    order.append(entered.pop())
-            elif target not in met:
-                met.add(target)
-                entered.append(target)
-                stack.append(iter(self.ordered_targets(target, kind)))
-        return order
+        return [*post_order((key,), lambda current: self.ordered_targets(current, kind), entered=met)]
 
     def meets_a_group_twice(
         self, keys: Iterable[ModelKey], group_of: Callable[[ModelKey], Hashable], kinds: Collection[EdgeKind]

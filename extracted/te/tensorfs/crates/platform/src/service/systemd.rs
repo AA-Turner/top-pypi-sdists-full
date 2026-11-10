@@ -46,36 +46,28 @@ pub(super) fn current(dir: &Path, spec: &ServiceSpec) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-/// A start the manager refuses for having started it too often lately (`start-limit-hit`: every
-/// restart of a cozy update, a swap or a skew counts) is cleared and asked once more; any other
-/// failure, or the same one twice, is the refusal.
 pub(super) fn start(_: &Path, spec: &ServiceSpec) -> Result<()> {
-    let unit = unit(&spec.name);
-    run(MANAGER, systemctl().args(["start", &unit])).or_else(|first| {
-        let limited = systemctl().args(["show", "--property=Result", "--value", &unit]).output();
-        if !limited.is_ok_and(|out| String::from_utf8_lossy(&out.stdout).trim() == "start-limit-hit") {
-            return Err(first);
-        }
-        run(MANAGER, systemctl().args(["reset-failed", &unit]))?;
-        run(MANAGER, systemctl().args(["start", &unit]))
-    })
+    run(MANAGER, systemctl().args(["start", &unit(&spec.name)]))
+}
+
+/// systemd refuses a unit started more than `StartLimitBurst` times in `StartLimitIntervalSec` (5 in
+/// 10 s) until `reset-failed`, and says so by the Result of its first failure since it last
+/// started (a kill's `signal`), `start-limit-hit` only when there was none. A start asked while a
+/// killed unit is still stopping counts again at each step of its stop: a few kills reach it.
+pub(super) fn clear(_: &Path, spec: &ServiceSpec) -> Result<()> {
+    run(MANAGER, systemctl().args(["reset-failed", &unit(&spec.name)]))
 }
 
 pub(super) fn announce(_: &Path, _: &str) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn stop(dir: &Path, name: &str) -> Result<()> {
-    if !dir.join(unit(name)).exists() {
-        return Ok(());
-    }
-    run(MANAGER, systemctl().args(["stop", &unit(name)]))
-}
-
 /// `spec` in a transient scope of its own (`systemd-run --scope` execs it in place), out of the
-/// cgroup of the unit that starts it, which systemd ends whole when that unit stops.
+/// cgroup of the unit that starts it, which systemd ends whole when that unit stops. Delegated:
+/// the machine arranges the cgroups below it (its executors', with their memory limit) and
+/// systemd leaves them alone.
 pub(super) fn scope(spec: &ServiceSpec) -> Option<(PathBuf, Vec<OsString>)> {
-    let run = ["--user", "--scope", "--quiet", "--collect", "--"].map(OsString::from);
+    let run = ["--user", "--scope", "--quiet", "--collect", "--property=Delegate=yes", "--"].map(OsString::from);
     let command = std::iter::once(spec.program.clone().into_os_string());
     Some(("systemd-run".into(), run.into_iter().chain(command).chain(spec.args.iter().cloned()).collect()))
 }

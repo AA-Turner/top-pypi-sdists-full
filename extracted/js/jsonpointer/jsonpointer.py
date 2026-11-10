@@ -32,7 +32,7 @@
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = 'Stefan Kögl <stefan@skoegl.net>'
-__version__ = '3.9'
+__version__ = '3.10'
 __website__ = 'https://github.com/stefankoegl/python-json-pointer'
 __license__ = 'Modified BSD License'
 
@@ -341,6 +341,12 @@ class JsonPointer:
 
         # Else the object is a mapping or supports __getitem__(so assume custom indexing)
         try:
+            # Check membership first so that mappings with a fallback for
+            # missing keys (e.g. defaultdict.__missing__) are not mutated and
+            # absent members are reported as missing.
+            if isinstance(doc, Mapping) and part not in doc:
+                raise KeyError(part)
+
             return doc[part]
 
         except KeyError:

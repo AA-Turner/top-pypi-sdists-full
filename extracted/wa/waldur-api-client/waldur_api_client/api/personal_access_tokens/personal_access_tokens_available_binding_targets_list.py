@@ -68,7 +68,7 @@ def sync_detailed(
 ) -> Response[list["AvailableBindingTarget"]]:
     """List entity types the caller can bind each permission to
 
-     For each permission, which TYPE_MAP keys the caller could bind a PAT to.
+     For each permission, which scope types the caller could bind a PAT to.
 
     Drives the create-PAT frontend's type picker. For staff users every
     type is offered for every permission (they bypass UserRole checks).
@@ -108,7 +108,7 @@ def sync(
 ) -> list["AvailableBindingTarget"]:
     """List entity types the caller can bind each permission to
 
-     For each permission, which TYPE_MAP keys the caller could bind a PAT to.
+     For each permission, which scope types the caller could bind a PAT to.
 
     Drives the create-PAT frontend's type picker. For staff users every
     type is offered for every permission (they bypass UserRole checks).
@@ -143,7 +143,7 @@ async def asyncio_detailed(
 ) -> Response[list["AvailableBindingTarget"]]:
     """List entity types the caller can bind each permission to
 
-     For each permission, which TYPE_MAP keys the caller could bind a PAT to.
+     For each permission, which scope types the caller could bind a PAT to.
 
     Drives the create-PAT frontend's type picker. For staff users every
     type is offered for every permission (they bypass UserRole checks).
@@ -181,7 +181,7 @@ async def asyncio(
 ) -> list["AvailableBindingTarget"]:
     """List entity types the caller can bind each permission to
 
-     For each permission, which TYPE_MAP keys the caller could bind a PAT to.
+     For each permission, which scope types the caller could bind a PAT to.
 
     Drives the create-PAT frontend's type picker. For staff users every
     type is offered for every permission (they bypass UserRole checks).

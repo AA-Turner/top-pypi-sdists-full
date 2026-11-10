@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -12,7 +12,6 @@ from office365.sharepoint.sharing.inherited_from import InheritedFrom
 from office365.sharepoint.sharing.principal import Principal
 
 
-@dataclass
 class PrincipalInfo(ClientValue):
     """
     Represents principal information.

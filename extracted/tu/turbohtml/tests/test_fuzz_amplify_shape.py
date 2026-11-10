@@ -673,6 +673,19 @@ def test_markdown_unsupported_element() -> None:
         pytest.param('<h3><a href="/t">t<br>a</a></h3>', id="heading-link-break"),
         pytest.param("<table><tr><td>a<p>b</p></td></tr></table>", id="cell-paragraph"),
         pytest.param("<table><tr><td><p></p></td></tr></table>", id="cell-empty-paragraph"),
+        pytest.param("<table><tr><td><b>a<p>x</p></b></td></tr></table>", id="cell-paragraph-keeps-emphasis"),
+        pytest.param("<table><tr><th><b>a<p>x</p></b></th></tr></table>", id="header-cell-paragraph-keeps-emphasis"),
+        pytest.param(
+            "<table><tr><td><blockquote><em>alpha<p>beta</p></em></blockquote></td></tr></table>",
+            id="cell-block-splits-emphasis",
+        ),
+        pytest.param(
+            "<table><tr><td><table><tr><td>&#13;</td></tr></table></td></tr></table>",
+            id="nested-table-carriage-return",
+        ),
+        pytest.param("<table><tr><td><ul><li>&#13;</li></ul></td></tr></table>", id="list-in-cell-carriage-return"),
+        pytest.param("<b><table><td><td><tr><td><", id="bold-irregular-table"),
+        pytest.param("<b><table><td><table><td>x</table><td>y</table>", id="bold-nested-table"),
         pytest.param("<h1><pre><code>x</code></pre></h1>", id="heading-code-block"),
         pytest.param("<strong><p></p></strong> i", id="text-after-emphasis-around-block"),
         pytest.param("<em>d <p>e</p></em>", id="space-before-block-in-emphasis"),
@@ -682,6 +695,8 @@ def test_markdown_unsupported_element() -> None:
         pytest.param("<span>a</span>  <span>b</span>", id="spaces-between-inline-elements"),
         pytest.param('<img src="a\nb" alt="ok">', id="plain-image-url-line-break"),
         pytest.param('<img src="a\nb" alt="ok" odd"="">', id="image-url-line-break"),
+        pytest.param("<strong>" * 9 + "<p>alpha</p><p>beta</p>" + "</strong>" * 9, id="deep-emphasis-paragraphs"),
+        pytest.param("<strong>" * 9 + "<p>alpha</p>beta" + "</strong>" * 9, id="deep-emphasis-trailing-text"),
     ],
 )
 def test_markdown_supported_html_meaning(markup: str) -> None:
@@ -741,6 +756,17 @@ def _materialized_shape(case: Generated, *, html: bool) -> tuple[int, int]:
     return len(records), max(depths)
 
 
+@pytest.mark.parametrize(
+    "markup",
+    [
+        pytest.param('<table><td><table><td><img src="a\nb">', id="nested-table"),
+        pytest.param('<table><td><ul><li><img src="a\nb"></li></ul>', id="nested-list"),
+    ],
+)
+def test_markdown_cell_html_preserves_attribute_line_break(markup: str) -> None:
+    assert markdown_html_check(markup) is None
+
+
 @pytest.mark.parametrize("space", ["\u00a0", "\u2007", "\u202f"], ids=["nbsp", "figure-space", "narrow-nbsp"])
 def test_markdown_unicode_spacing_preserved(space: str) -> None:
     assert markdown_html_check(f"<p>x{space}y</p>") is None
@@ -751,9 +777,12 @@ def test_markdown_unicode_spacing_loss_detected(space: str) -> None:
     assert markdown_html_check(f"<p>x{space}y</p>", lambda _node: "x y") == "Markdown conversion changes meaning"
 
 
-def test_markdown_reader_drops_control_whitespace_at_paragraph_edge() -> None:
+@pytest.mark.parametrize(
+    "markup", [pytest.param("<p>\x0bx</p>", id="literal"), pytest.param("<p>&#11;x</p>", id="entity")]
+)
+def test_markdown_reader_drops_control_whitespace_at_paragraph_edge(markup: str) -> None:
     with pytest.raises(MarkdownProfileError, match="Markdown reader discards control whitespace"):
-        markdown_html_check("<p>\x0bx</p>")
+        markdown_html_check(markup)
 
 
 def test_markdown_reader_drops_control_whitespace_beside_a_kept_copy() -> None:

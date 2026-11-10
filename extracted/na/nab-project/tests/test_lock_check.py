@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,13 +23,12 @@ from nab_project.lock_check import (
     _check_target_slices,
     _current_local_metadata,
     _fork_selections,
+    can_reuse_saved_lock,
     check_saved_lock,
 )
-from nab_project.lock_validation import (
-    content_digest,
-    snapshot_inputs,
-)
-from nab_project.lockfile import render_lock
+from nab_project.lock_policy import LockPolicy
+from nab_project.lock_validation import content_digest, snapshot_inputs
+from nab_project.lockfile import ArchivePin, LockInput, TargetLock, render_lock
 from nab_project.resolve import (
     ResolveFork,
     build_lock_input,
@@ -40,10 +41,11 @@ from nab_provider._vendor.packaging.version import Version
 from nab_provider.metadata import parse_metadata
 from nab_provider.overrides import PackageOverride
 from nab_provider.pep508 import parse_requirement
-from nab_provider.policy import LocalSource
+from nab_provider.policy import ArchiveSource, DecisionOrder, LocalSource, VcsSource
+from nab_provider.records import IndexConfig
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, MatrixInclude, ResolveTarget
-from nab_provider.testing import make_metadata, make_wheel
+from nab_provider.testing import make_metadata, make_wheel, pkg_override
 
 
 def _saved(
@@ -88,6 +90,32 @@ def _check(case: tuple[Path, Path, ResolveInputs, list[ResolveTarget]]) -> None:
     )
 
 
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX filesystem byte paths")
+def test_local_index_changes_keep_distinct_filesystem_bytes(tmp_path: Path) -> None:
+    """A different file-URL byte path changes the saved selection policy."""
+    first = tmp_path / os.fsdecode(b"index-\xff")
+    second = tmp_path / os.fsdecode(b"index-\xfe")
+    inputs = ResolveInputs(indexes=(IndexConfig("local", first.as_uri()),))
+    case = _saved(tmp_path, inputs=inputs)
+    _check(case)
+
+    lock, path, _, targets = case
+    changed = ResolveInputs(indexes=(IndexConfig("local", second.as_uri()),))
+    with pytest.raises(LockConsistencyError, match="selections or policy changed"):
+        _check((lock, path, changed, targets))
+
+
+def test_default_order_keeps_a_saved_arrival_solution(tmp_path: Path) -> None:
+    """Checking a saved solution does not repeat its search preference."""
+    case = _saved(tmp_path, inputs=ResolveInputs(decision_order=DecisionOrder.ARRIVAL))
+    lock, path, _, targets = case
+    before = lock.read_bytes()
+
+    _check((lock, path, ResolveInputs(), targets))
+
+    assert lock.read_bytes() == before
+
+
 def test_unchanged_inputs_skip_graph_planning(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -100,6 +128,88 @@ def test_unchanged_inputs_skip_graph_planning(
     monkeypatch.setattr("nab_project.lock_check.plan_project_inputs", unexpected)
     _check(case)
     assert case[0].read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("first_suffix", "second_suffix"),
+    [
+        ("%FF", "%FE"),
+        ("%FF", "%EF%BF%BD"),
+        ("%C3%A9", "%C3%A8"),
+        ("%3Fselector", "?selector"),
+        ("%23selector", "#selector"),
+        ("%253Fselector", "%3Fselector"),
+    ],
+    ids=[
+        "undecodable-bytes",
+        "replacement-character",
+        "utf8",
+        "query",
+        "fragment",
+        "percent",
+    ],
+)
+def test_file_index_changes_need_update(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    first_suffix: str,
+    second_suffix: str,
+) -> None:
+    # Exercise POSIX filename decoding on every test platform.
+    monkeypatch.setattr(sys, "platform", "linux")
+    index_url = tmp_path.as_uri() + "/index-"
+    case = _saved(
+        tmp_path,
+        inputs=ResolveInputs(indexes=(IndexConfig("local", index_url + first_suffix),)),
+    )
+    lock, path, _, targets = case
+    before = lock.read_bytes()
+    _check(case)
+    assert lock.read_bytes() == before
+
+    changed = ResolveInputs(indexes=(IndexConfig("local", index_url + second_suffix),))
+    with pytest.raises(LockConsistencyError, match="policy changed"):
+        _check((lock, path, changed, targets))
+    assert lock.read_bytes() == before
+
+
+@pytest.mark.parametrize("url_kind", ["file", "localhost", "https"])
+def test_archive_subdirectory_changes_need_update(
+    tmp_path: Path, url_kind: str
+) -> None:
+    path = tmp_path / "pyproject.toml"
+    path.write_text('[project]\nname="app"\nversion="1"\ndependencies=["demo"]\n')
+
+    archive = tmp_path / "source archive.tar.gz"
+    archive.write_bytes(b"reviewed archive bytes")
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    url = archive.as_uri()
+    if url_kind == "localhost":
+        url = url.replace("file:///", "file://localhost/")
+    elif url_kind == "https":
+        url = "https://example.com/archive.tar.gz"
+
+    source = ArchiveSource("demo", f"{url}#sha256={digest}&subdirectory=first")
+    inputs = ResolveInputs(archive_sources=(source,))
+    targets = [ResolveTarget.for_host()]
+    pin = ArchivePin("demo", "1.0", url, (("sha256", digest),), "first")
+    lock_input = LockInput(
+        targets={"host": TargetLock(targets[0], {"demo": pin})},
+        validation_inputs=snapshot_inputs(path, inputs, targets),
+    )
+    lock = tmp_path / "pylock.toml"
+    lock.write_text(render_lock(lock_input, lock_dir=tmp_path))
+
+    before = lock.read_bytes()
+    _check((lock, path, inputs, targets))
+
+    changed = inputs.replace(
+        archive_sources=(ArchiveSource("demo", source.url.replace("first", "second")),)
+    )
+    with pytest.raises(LockConsistencyError, match="selections or policy changed"):
+        _check((lock, path, changed, targets))
+
+    assert lock.read_bytes() == before
 
 
 @pytest.mark.parametrize("bound", [">=0", "==1", "<2", ">=2"])
@@ -522,3 +632,134 @@ def test_standard_requires_python_keeps_every_admitted_micro_slice(
         target.marker_env["python_full_version"]
         for target in _check_target_slices(lock, case[3][0], requirements)
     ] == ["3.14.3", "3.14.5"]
+
+
+def test_reuse_policy_preserves_the_standard_saved_check(tmp_path: Path) -> None:
+    lock, path, inputs, targets = _saved(tmp_path)
+    current = snapshot_inputs(path, inputs, targets)
+
+    assert can_reuse_saved_lock(lock, path, current, inputs, targets)
+
+    path.write_text(path.read_text().replace("demo>=1", "demo>=2"))
+    current = snapshot_inputs(path, inputs, targets)
+
+    assert not can_reuse_saved_lock(lock, path, current, inputs, targets)
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        "local",
+        "vcs",
+        "archive",
+        "local-snapshot",
+        "file-index",
+        "root-url",
+        "constraint-url",
+        "override-url",
+    ],
+)
+def test_reuse_policy_refuses_unqualified_source_contexts(
+    tmp_path: Path, context: str
+) -> None:
+    lock, path, inputs, targets = _saved(tmp_path)
+    current = snapshot_inputs(path, inputs, targets)
+    if context == "local":
+        inputs = inputs.replace(local_sources=(LocalSource("source", str(tmp_path)),))
+    elif context == "vcs":
+        inputs = inputs.replace(
+            vcs_sources=(VcsSource("source", "git+https://example.test/repo"),)
+        )
+    elif context == "archive":
+        inputs = inputs.replace(
+            archive_sources=(
+                ArchiveSource("source", "https://example.test/source.tar.gz"),
+            )
+        )
+    elif context == "local-snapshot":
+        current["local"]["source"] = {"name": "source", "version": "1"}
+    elif context == "file-index":
+        inputs = inputs.replace(indexes=(IndexConfig("local", tmp_path.as_uri()),))
+    elif context == "root-url":
+        current["roots"]["base"] = ["demo @ https://example.test/demo.whl"]
+    elif context == "constraint-url":
+        current["constraints"] = ["demo @ https://example.test/demo.whl"]
+    else:
+        inputs = inputs.replace(
+            package_overrides=(
+                pkg_override(
+                    "demo",
+                    dependencies=(
+                        parse_requirement("dep @ https://example.test/dep.whl"),
+                    ),
+                ),
+            )
+        )
+
+    assert not can_reuse_saved_lock(lock, path, current, inputs, targets)
+
+
+@pytest.mark.parametrize("location", ["path", "url"])
+def test_reuse_policy_declines_valid_local_artifact_records(
+    tmp_path: Path, location: str
+) -> None:
+    case = _saved(tmp_path)
+    lock, path, inputs, targets = case
+    document = toml_io.load_path(lock)
+    artifact = tmp_path / "demo-1-py3-none-any.whl"
+    artifact.write_bytes(b"reviewed local artifact")
+    wheel = document["packages"][0]["wheels"][0]
+    wheel.pop("url")
+    wheel[location] = artifact.name if location == "path" else artifact.as_uri()
+    wheel["hashes"] = {"sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()}
+    document["tool"]["nab"]["validation"]["contents-sha256"] = content_digest(document)
+    _replace_record(lock, document)
+    _check(case)
+
+    assert not can_reuse_saved_lock(
+        lock, path, snapshot_inputs(path, inputs, targets), inputs, targets
+    )
+
+
+@pytest.mark.parametrize(
+    "source", ["directory", "vcs", "archive", "sdist-http", "sdist-file"]
+)
+def test_reuse_policy_limits_saved_source_kinds(tmp_path: Path, source: str) -> None:
+    lock, path, inputs, targets = _saved(tmp_path)
+    document = toml_io.load_path(lock)
+    package = document["packages"][0]
+    artifact = package.pop("wheels")[0]
+    if source == "directory":
+        package["directory"] = {"path": "source", "editable": False}
+    elif source == "vcs":
+        package["vcs"] = {
+            "type": "git",
+            "url": "https://example.test/repo",
+            "commit-id": "a" * 40,
+        }
+    elif source == "archive":
+        package["archive"] = {
+            "url": "https://example.test/source.tar.gz",
+            "hashes": artifact["hashes"],
+        }
+    else:
+        artifact["url"] = (
+            "https://example.test/demo-1.tar.gz"
+            if source == "sdist-http"
+            else (tmp_path / "demo-1.tar.gz").as_uri()
+        )
+        artifact["name"] = "demo-1.tar.gz"
+        package["sdist"] = artifact
+
+    Pylock.from_dict(document)
+    document["tool"]["nab"]["validation"]["contents-sha256"] = content_digest(document)
+    _replace_record(lock, document)
+
+    assert can_reuse_saved_lock(
+        lock, path, snapshot_inputs(path, inputs, targets), inputs, targets
+    ) is (source == "sdist-http")
+
+
+def test_unknown_lock_policy_is_refused() -> None:
+    with pytest.raises(ValueError, match="unsupported-policy"):
+        LockPolicy("unsupported-policy")

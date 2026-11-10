@@ -285,9 +285,21 @@ def source(
 def use(run: "Run", target: Any, *, role: str = Role.TRAIN.value, share: Any = None, what: str = "use_dataset") -> dict | None:
     """`POST /v1/runs/{run}/uses`: the run used ``target`` (dataset version, source or checkpoint)
     for ``role``. The server pins what a bare `dataset:<name>` means NOW, so a later version
-    never rewrites it; for that reason a moving ref is never queued (see `_send`). Never raises."""
-    label = f"{what}({ref_of(target) or getattr(target, 'name', None) or target!r})"
+    never rewrites it; for that reason a moving ref is never queued (see `_send`). A `SourceRef`
+    not registered (no ``ref``, a ``uri``) goes by its uri: the server finds or registers the
+    source in the same request, which a run token may do. Never raises."""
+    uri = getattr(target, "uri", None) if isinstance(target, SourceRef) else None
+    if isinstance(uri, str) and credential_in_uri(uri) is not None:
+        uri = "a uri carrying a credential"  # never into a warning
+    named = ref_of(target) or uri or getattr(target, "name", None)
+    label = f"{what}({named or repr(target)})"
     try:
+        if isinstance(target, SourceRef) and not target.ref and target.uri:
+            wire = source_body(target.uri, kind=target.kind, revision=target.revision)
+            body: dict[str, Any] = {"source": wire, "roles": [_role(role)], "provenance": OBSERVED}
+            if share is not None:
+                body["share"] = check_share(share)
+            return _send(run._client, f"/v1/runs/{run.id}/uses", body, what=label)
         if isinstance(target, DatasetRef) and target.pending and not target.ref:
             # Registered moments ago, still landing: wait briefly.
             target.wait(REQUEST_SECONDS)
@@ -299,7 +311,7 @@ def use(run: "Run", target: Any, *, role: str = Role.TRAIN.value, share: Any = N
         ref = ref_of(target)
         if not ref:
             raise CatalogRefused("no ref to record (a source or dataset that was never registered?)")
-        body: dict[str, Any] = {"target": ref, "roles": [_role(role)], "provenance": OBSERVED}
+        body = {"target": ref, "roles": [_role(role)], "provenance": OBSERVED}
         if share is not None:
             body["share"] = check_share(share)
         return _send(run._client, f"/v1/runs/{run.id}/uses", body, what=label, queue=not is_moving_ref(ref))

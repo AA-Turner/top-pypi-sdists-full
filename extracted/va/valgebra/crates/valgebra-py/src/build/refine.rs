@@ -20,7 +20,7 @@ use valgebra_core::{
     carries_length, carries_pattern,
 };
 
-use super::{Pool, build_schema, not_implemented};
+use super::{Pool, build_schema, each_within_the_bound, not_implemented};
 use crate::validator::Validator;
 
 /// `numbers.Number`, the register a remainder's comparison and an order bound's
@@ -226,7 +226,10 @@ pub(super) fn build_refine(
     for set in &sets {
         members.push(build_schema(set, lits, defs)?);
     }
-    Ok(Schema::meet(members))
+    // Within the definitions the build holds, as `intersection` folds: a
+    // reference is a set only through its definition, and the complement law
+    // read without them left `K & ~K` standing for a recursive `K`.
+    Ok(Schema::meet_within(members, defs))
 }
 
 /// The group Python orders `operand` within, or `None` for a value of no group.
@@ -1093,7 +1096,7 @@ fn parse_grouped<'py>(
             summarize(marker)?
         )));
     }
-    for inner in marker.try_iter()? {
+    for inner in each_within_the_bound(marker)? {
         parse_constraint_within(&inner?, out, sets, lits, depth + 1)?;
     }
     Ok(())
@@ -1232,6 +1235,17 @@ fn parse_constraint_within<'py>(
             // and dropping it would leave a schema that admits every value of
             // its base, which is the opposite of what a pattern is written for,
             // so the refusal names what was found rather than a kind it guessed.
+            // A `str` that does not extract holds a lone surrogate, a code
+            // point no UTF-8 text spells, and the engine reads UTF-8 alone.
+            if attr.is_instance_of::<PyString>() {
+                return Err(not_implemented(format!(
+                    "the pattern {} holds a lone surrogate, which the pattern \
+                     engine has no reading of: it matches UTF-8 text, and no \
+                     UTF-8 text holds a surrogate code point. Write the pattern \
+                     without it",
+                    summarize(&attr)?
+                )));
+            }
             let what = if attr.is_instance_of::<PyBytes>() {
                 "a bytes pattern".to_owned()
             } else {

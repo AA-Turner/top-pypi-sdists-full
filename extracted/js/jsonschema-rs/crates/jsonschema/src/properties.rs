@@ -4,11 +4,12 @@ use crate::{
     compiler,
     keywords::pattern_properties::invalid_regex,
     node::SchemaNode,
-    regex::{analyze_pattern, contains_ecma_whitespace, PatternOptimization},
-    validator::Validate as _,
+    regex::{
+        analyze_pattern, contains_ecma_whitespace, Compiled, LazyRegex, PatternOptimization,
+        RegexBackendPanic, SequenceMatcher,
+    },
     Json, Object, SerdeJson, ValidationContext,
 };
-use ahash::AHashMap;
 use serde_json::{Map, Value};
 
 use crate::ValidationError;
@@ -24,11 +25,16 @@ pub(crate) enum CompiledPattern<R> {
     Alternation(Arc<[String]>),
     /// `^\S*$` — no ECMA-262 whitespace characters.
     NoWhitespace,
+    /// An anchored class/literal sequence, with a lazily built regex for what it cannot decide.
+    Sequence(Arc<SequenceMatcher<LazyRegex>>),
     /// Full regex pattern.
     Regex(R),
 }
 
-impl<R: crate::regex::RegexEngine> crate::regex::RegexEngine for CompiledPattern<R> {
+impl<R: crate::regex::RegexEngine> crate::regex::RegexEngine for CompiledPattern<R>
+where
+    R::Error: From<RegexBackendPanic>,
+{
     type Error = R::Error;
 
     #[inline]
@@ -38,6 +44,7 @@ impl<R: crate::regex::RegexEngine> crate::regex::RegexEngine for CompiledPattern
             CompiledPattern::Exact(exact) => Ok(text == exact.as_ref()),
             CompiledPattern::Alternation(alts) => Ok(alts.iter().any(|a| a.as_str() == text)),
             CompiledPattern::NoWhitespace => Ok(!contains_ecma_whitespace(text)),
+            CompiledPattern::Sequence(sequence) => sequence.is_match(text).map_err(Into::into),
             CompiledPattern::Regex(re) => re.is_match(text),
         }
     }
@@ -54,7 +61,10 @@ pub(crate) trait PropertyPattern: crate::regex::RegexEngine {
     ) -> bool;
 }
 
-impl<R: crate::regex::RegexEngine> PropertyPattern for CompiledPattern<R> {
+impl<R: crate::regex::RegexEngine> PropertyPattern for CompiledPattern<R>
+where
+    R::Error: From<RegexBackendPanic>,
+{
     #[inline]
     fn is_match_in(
         &self,
@@ -67,15 +77,16 @@ impl<R: crate::regex::RegexEngine> PropertyPattern for CompiledPattern<R> {
             CompiledPattern::Exact(exact) => text == exact.as_ref(),
             CompiledPattern::Alternation(alts) => alts.iter().any(|a| a.as_str() == text),
             CompiledPattern::NoWhitespace => !contains_ecma_whitespace(text),
+            CompiledPattern::Sequence(sequence) => ctx.is_match(&**sequence, text, site),
             CompiledPattern::Regex(re) => ctx.is_match(re, text, site),
         }
     }
 }
 
 pub(crate) type FancyRegexValidators<F = SerdeJson> =
-    Vec<(CompiledPattern<fancy_regex::Regex>, SchemaNode<F>)>;
+    Vec<(CompiledPattern<Compiled<fancy_regex::Regex>>, SchemaNode<F>)>;
 pub(crate) type RegexValidators<F = SerdeJson> =
-    Vec<(CompiledPattern<regex::Regex>, SchemaNode<F>)>;
+    Vec<(CompiledPattern<Compiled<regex::Regex>>, SchemaNode<F>)>;
 
 /// A value that can look up property validators by name.
 pub(crate) trait PropertiesValidatorsMap<F: Json = SerdeJson>: Send + Sync {
@@ -85,6 +96,40 @@ pub(crate) trait PropertiesValidatorsMap<F: Json = SerdeJson>: Send + Sync {
 
 /// Threshold for switching from linear scan to `HashMap`.
 pub(crate) const HASHMAP_THRESHOLD: usize = 15;
+
+/// Whether one pass over an object's members beats a lookup per declared property.
+///
+/// A members pass costs about one cheap `KeyHead` compare per pair; a lookup is a tree descent or a
+/// hash of the key. Past four members per declared property the lookups win under both map orders.
+#[inline]
+pub(crate) fn scan_members(members: usize, properties: usize) -> bool {
+    members <= properties.saturating_mul(4)
+}
+
+/// Lengths of a set of names, one bit per length modulo 64; a key whose length has no bit cannot be
+/// among them.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct NameLengths(u64);
+
+impl NameLengths {
+    pub(crate) fn of<'a>(names: impl IntoIterator<Item = &'a str>) -> Self {
+        NameLengths(
+            names
+                .into_iter()
+                .fold(0, |bits, name| bits | Self::bit(name.len())),
+        )
+    }
+
+    #[inline]
+    fn bit(len: usize) -> u64 {
+        1 << (len & 63)
+    }
+
+    #[inline]
+    pub(crate) fn may_contain(self, len: usize) -> bool {
+        self.0 & Self::bit(len) != 0
+    }
+}
 
 /// A name's length with its first and last eight bytes, read as two overlapping words. Names of up
 /// to 16 bytes are decided by the head alone; longer ones only reach `memcmp` when heads agree.
@@ -125,6 +170,11 @@ impl KeyHead {
         };
         KeyHead { len, first, last }
     }
+
+    #[inline]
+    fn fold(self) -> u64 {
+        self.first ^ self.last.rotate_left(32) ^ self.len as u64
+    }
 }
 
 /// A declared property name alongside its head, for scans that test it against many keys.
@@ -157,7 +207,81 @@ impl PropertyName {
 }
 
 pub(crate) type SmallValidatorsMap<F = SerdeJson> = Vec<(PropertyName, SchemaNode<F>)>;
-pub(crate) type BigValidatorsMap<F = SerdeJson> = AHashMap<String, SchemaNode<F>>;
+
+/// Declared names bucketed by a multiply-shift of their `KeyHead`.
+pub(crate) struct BigValidatorsMap<F: Json = SerdeJson> {
+    entries: Box<[(PropertyName, SchemaNode<F>)]>,
+    /// `entries[starts[slot]..starts[slot + 1]]` is the bucket of `slot`.
+    starts: Box<[u32]>,
+    seed: u64,
+    shift: u32,
+}
+
+const SEEDS: [u64; 4] = [
+    0x9e37_79b9_7f4a_7c15,
+    0xc2b2_ae3d_27d4_eb4f,
+    0x1656_67b1_9e37_79f9,
+    0xd6e8_feb8_6659_fd93,
+];
+
+// The shift keeps only slot-index bits.
+#[allow(clippy::cast_possible_truncation)]
+#[inline]
+fn slot(fold: u64, seed: u64, shift: u32) -> usize {
+    (fold.wrapping_mul(seed) >> shift) as usize
+}
+
+impl<F: Json> BigValidatorsMap<F> {
+    pub(crate) fn new(names: Vec<(PropertyName, SchemaNode<F>)>) -> Self {
+        let bits = names.len().next_power_of_two().trailing_zeros() + 1;
+        let shift = 64 - bits;
+        let slots = 1_usize << bits;
+        let folds: Vec<u64> = names.iter().map(|(name, _)| name.head.fold()).collect();
+        let mut sizes = vec![0_u32; slots];
+        let (mut seed, mut fewest) = (SEEDS[0], usize::MAX);
+        for candidate in SEEDS {
+            sizes.fill(0);
+            // Sum of squared bucket sizes.
+            let mut compares = 0;
+            for &fold in &folds {
+                let size = &mut sizes[slot(fold, candidate, shift)];
+                compares += 2 * *size as usize + 1;
+                *size += 1;
+            }
+            if compares < fewest {
+                (seed, fewest) = (candidate, compares);
+                if compares == folds.len() {
+                    break;
+                }
+            }
+        }
+        let mut entries = names;
+        entries.sort_by_cached_key(|(name, _)| slot(name.head.fold(), seed, shift));
+        let mut starts = vec![0_u32; slots + 1];
+        for &fold in &folds {
+            starts[slot(fold, seed, shift) + 1] += 1;
+        }
+        for index in 1..=slots {
+            starts[index] += starts[index - 1];
+        }
+        BigValidatorsMap {
+            entries: entries.into_boxed_slice(),
+            starts: starts.into_boxed_slice(),
+            seed,
+            shift,
+        }
+    }
+
+    #[inline]
+    fn find(&self, key: &str) -> Option<&(PropertyName, SchemaNode<F>)> {
+        let head = KeyHead::of(key);
+        let slot = slot(head.fold(), self.seed, self.shift);
+        let bucket = self.starts[slot] as usize..self.starts[slot + 1] as usize;
+        self.entries[bucket]
+            .iter()
+            .find(|(name, _)| name.matches(head, key))
+    }
+}
 
 impl<F: Json> PropertiesValidatorsMap<F> for SmallValidatorsMap<F> {
     #[inline]
@@ -185,13 +309,13 @@ impl<F: Json> PropertiesValidatorsMap<F> for SmallValidatorsMap<F> {
 impl<F: Json> PropertiesValidatorsMap<F> for BigValidatorsMap<F> {
     #[inline]
     fn get_validator(&self, property: &str) -> Option<&SchemaNode<F>> {
-        self.get(property)
+        self.find(property).map(|(_, node)| node)
     }
 
     #[inline]
     fn get_key_validator(&self, property: &str) -> Option<(&str, &SchemaNode<F>)> {
-        self.get_key_value(property)
-            .map(|(key, node)| (key.as_str(), node))
+        self.find(property)
+            .map(|(name, node)| (name.as_str(), node))
     }
 }
 
@@ -215,16 +339,7 @@ pub(crate) fn compile_big_map<'a, F: Json>(
     ctx: &compiler::Context<F>,
     map: &'a Map<String, Value>,
 ) -> Result<BigValidatorsMap<F>, ValidationError<'a>> {
-    let mut properties = AHashMap::with_capacity(map.len());
-    let kctx = ctx.new_at_location("properties");
-    for (key, subschema) in map {
-        let pctx = kctx.new_at_location(key.as_str());
-        properties.insert(
-            key.clone(),
-            compiler::compile(&pctx, pctx.as_resource_ref(subschema))?,
-        );
-    }
-    Ok(properties)
+    Ok(BigValidatorsMap::new(compile_small_map(ctx, map)?))
 }
 
 pub(crate) fn are_properties_valid<'i, F, M, O, C>(
@@ -241,7 +356,7 @@ where
 {
     for (property, instance) in object.members() {
         if let Some(validator) = prop_map.get_validator(property.as_ref()) {
-            if !validator.is_valid(&instance, ctx) {
+            if !validator.is_valid_child(&instance, ctx) {
                 return false;
             }
         } else if !check(&instance, ctx) {
@@ -270,10 +385,14 @@ pub(crate) fn compile_fancy_regex_patterns<'a, F: Json>(
             }
             Some(PatternOptimization::NoWhitespace) => CompiledPattern::NoWhitespace,
             None => {
-                let regex = ctx
-                    .get_or_compile_regex(pattern)
-                    .map_err(|()| invalid_regex(&pctx, pattern))?;
-                CompiledPattern::Regex((*regex).clone())
+                if let Some(sequence) = ctx.sequence_without_limits(pattern) {
+                    CompiledPattern::Sequence(sequence)
+                } else {
+                    let regex = ctx
+                        .get_or_compile_regex(pattern)
+                        .map_err(|()| invalid_regex(&pctx, pattern))?;
+                    CompiledPattern::Regex((*regex).clone())
+                }
             }
         };
         let node = compiler::compile(&pctx, pctx.as_resource_ref(subschema))?;
@@ -301,10 +420,14 @@ pub(crate) fn compile_regex_patterns<'a, F: Json>(
             }
             Some(PatternOptimization::NoWhitespace) => CompiledPattern::NoWhitespace,
             None => {
-                let regex = ctx
-                    .get_or_compile_standard_regex(pattern)
-                    .map_err(|()| invalid_regex(&pctx, pattern))?;
-                CompiledPattern::Regex((*regex).clone())
+                if let Some(sequence) = ctx.sequence_without_limits(pattern) {
+                    CompiledPattern::Sequence(sequence)
+                } else {
+                    let regex = ctx
+                        .get_or_compile_standard_regex(pattern)
+                        .map_err(|()| invalid_regex(&pctx, pattern))?;
+                    CompiledPattern::Regex((*regex).clone())
+                }
             }
         };
         let node = compiler::compile(&pctx, pctx.as_resource_ref(subschema))?;

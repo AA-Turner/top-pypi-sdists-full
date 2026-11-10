@@ -43,7 +43,7 @@ fn calls_with_array_arguments() {
     let s = Session::new();
     s.eval("x←42 ⋄ mean←+/÷≢ ⋄ bad←{⎕←⍵ ⋄ 1÷⍵}");
     for (function, codes, expected) in [
-        ("mean", vec!["1 2 3"], "2"), ("-", vec!["10ₓ", "[1 2]ₓ"], "[9 8]ₓ"), ("#⍠0", vec!["1 0", "2 2⍴⍳4"], "[0 1⋄]"),
+        ("mean", vec!["1 2 3"], "2"), ("-", vec!["10ₓ", "[1 2]ₓ"], "[9 8]ₓ"), ("#₀", vec!["1 0", "2 2⍴⍳4"], "[0 1⋄]"),
         ("⊢", vec![r#"[1r3 2ₓ;"ab";0 3⍴0ₓ]"#], r#"[1r3 2ₓ;"ab";0 3⍴0ₓ]"#), ("{k←⍵ ⋄ {k+⍵}⍵}", vec!["3ₓ"], "6ₓ"),
         ("{x←⍵}", vec!["7"], "7"),
     ] {
@@ -120,13 +120,13 @@ fn exact_results_and_readback() {
     for code in ["0.1|0.3", "3|6.000000000000001"] { assert!(run(code).unwrap().unwrap().same(&float(0.0)), "{code}"); }
     for code in ["1j2÷3j4", "×3j4", "÷1j2", "¯.5j2E¯1", "1E2j¯4E¯1", "1.7E308÷0.5j0.5", "5E¯324 ¯1.2345678901234567E200 1E¯100j2E100"] {
         let a = run(code).unwrap().unwrap();
-        assert!(run(&a.to_string()).unwrap().unwrap().same(&a), "{code}");
+        assert!(run(&a.literal()).unwrap().unwrap().same(&a), "{code}");
     }
     let huge = format!("1{}", "0".repeat(400));
-    assert_same(run(&format!("{huge}ₓ÷{huge}ₓ")).unwrap().unwrap(), &exact(1, 1));
+    assert_same(run(&format!("{huge}ᵣ÷{huge}ᵣ")).unwrap().unwrap(), &exact(1, 1));
     assert_same(run(&format!("{huge}1r{huge}0+0.5")).unwrap().unwrap(), &float(1.5));
-    assert_same(run(&format!("{huge}ₓ+0")).unwrap().unwrap(), &float(f64::INFINITY));
-    assert_same(run(&format!("{huge}ₓ+0j1")).unwrap().unwrap(), &number(num_complex::Complex64::new(f64::INFINITY, 1.0)));
+    assert_same(run(&format!("{huge}ᵣ+0")).unwrap().unwrap(), &float(f64::INFINITY));
+    assert_same(run(&format!("{huge}ᵣ+0j1")).unwrap().unwrap(), &number(num_complex::Complex64::new(f64::INFINITY, 1.0)));
 }
 #[test]
 fn array_literal_completeness() {
@@ -156,11 +156,11 @@ fn shy_results_and_signal_messages() {
 fn exact(n: i64, d: i64) -> AplValue { AplValue::number(num_rational::BigRational::new(n.into(), d.into())).unwrap() }
 
 #[test]
-fn huge_shapes_count_exactly() {
+fn huge_shapes_saturate() {
     let session = Session::new();
     session.set("a", AplValue::empty(vec![usize::MAX, 0], float(0.)).unwrap()).unwrap();
-    equiv_in(&session, "≢a", &format!("{}ₓ", usize::MAX));
-    equiv_in(&session, "⍴a", &format!("[{} 0]ₓ", usize::MAX));
+    equiv_in(&session, "≢a", &format!("{}ₓ", i64::MAX));
+    equiv_in(&session, "⍴a", &format!("[{} 0]ₓ", i64::MAX));
 }
 
 #[test]
@@ -276,6 +276,8 @@ fn declared_ranks_match_rank() {
     use basedpl::symbols::symbols;
     let s = Session::new();
     s.eval(r#"n←2 ⋄ v←1 2 3 ⋄ w←3 1 2 ⋄ u←1 0 1 ⋄ m←2 3⍴⍳6 ⋄ q←3 3⍴2 7 6 9 5 1 4 3 8 ⋄ t←2 2 3⍴⍳12 ⋄ c←"abc" ⋄ k←2 3⍴"abcdef" ⋄ e←[1 2;3 4 5]"#);
+    fails_in(&s, "LENGTH", &["1 2⌽2", "1 2⊖2"]);
+    equiv_in(&s, "[⌽2;1⌽2;[1]⌽2;⌽⊂2]", "[2;2;2;⊂2]");
     let args = ["n", "v", "w", "u", "m", "q", "t", "c", "k", "e"];
     let mut differ = Vec::new();
     let mut compare = |direct: String, ranked: String| {
@@ -293,6 +295,8 @@ fn declared_ranks_match_rank() {
         }
     }
     assert!(differ.is_empty(), "these differ from Rank at their declared ranks: {differ:?}");
+    for body in ["{2×⍠⍬⍵}", "{⍵×⍠⍬2}"] { equiv(&format!("({body}⍤0)1 2 3"), "2 4 6"); }
+    equiv("2({⍺×⍠⍬⍵}⍤[0 0])1 2 3", "2 4 6");
 }
 
 #[test]
@@ -333,6 +337,60 @@ fn persistent_arrays_and_functions() {
 }
 
 #[test]
+fn stored_inputs_and_live_proofs() {
+    let s = Session::new();
+    equiv_in(&s, "x←2ₓ×⍳3ₓ ⋄ ⎕←x ⋄ (x+240ₓ)≡[240 242 244]ₓ", "$t");
+    equiv_in(&s, "x←10ₓ×⍳3ₓ ⋄ ⎕←x ⋄ (x+240ₓ)≡[240 250 260]ₓ", "$t");
+    equiv_in(&s, "v←¯3 4 ⋄ x←⊼v ⋄ y←√x ⋄ ⎕←x ⋄ y≡3 4", "$t");
+}
+#[test]
+fn observed_counts_refill_shapes() {
+    let s = Session::new();
+    equiv_in(&s, "n←3 4 ⋄ f←{n⍴⍵} ⋄ ∧/(⍴f 1)=[3 4]", "$t");
+    equiv_in(&s, "n←5 6 ⋄ ∧/(⍴f 1)=[5 6]", "$t");
+}
+
+#[test]
+fn derivative_replay_tracks_input_layouts() {
+    let s = Session::new();
+    assert!(s.eval("f←{+/(w×w)×⍵} ⋄ g←{(+/w×w)×+/⍵}").error.is_none());
+    for (n, sum) in [(5, 30), (7, 91), (3, 5), (5, 30)] {
+        equiv_in(&s, &format!("w←⍳{n} ⋄ f∂2"), &sum.to_string());
+        equiv_in(&s, "g∂1 2", &format!("{sum} {sum}"));
+        equiv_in(&s, &format!("g∂⍳{n}"), &format!("{n}⍴{sum}"));
+    }
+    equiv_in(&s, "rows←2 ⋄ h←{+/, [rows 2]⍴⍵} ⋄ h∂1 2 3 4", "1 1 1 1");
+    equiv_in(&s, r#"(•explain "h∂1 2 3 4").programs.event"#, r#"["replayed"]"#);
+    equiv_in(&s, "rows←3 ⋄ h∂1 2 3 4", "2 2 1 1");
+    equiv_in(&s, r#"0<≢(•explain "{+/, [⍵₀ 2]⍴⍵}∂2 3 4 5").stopped"#, "$t");
+}
+
+#[test]
+fn primitive_bodies_share_fold_facts() {
+    for (body, monad) in [("{⍺+⍵}", Some("+3")), ("{x←⍺ ⋄ x+⍵}", None)] {
+        let s = Session::new();
+        s.eval(&format!("f←{body}"));
+        for argument in ["⍳3", "⍳5"] { equiv_in(&s, &format!("f/{argument}"), &format!("+/{argument}")); }
+        equiv_in(&s, "f\\⍳5", "+\\⍳5");
+        equiv_in(&s, "f/₁2 3⍴⍳6", "+/₁2 3⍴⍳6");
+        if let Some(expected) = monad {
+            equiv_in(&s, "f/⍬", "+/⍬");
+            equiv_in(&s, "f 3", expected);
+        } else {
+            fails_in(&s, "DOMAIN", &["f/⍬"]);
+            fails_in(&s, "VALUE", &["f 3"]);
+        }
+    }
+    let s = Session::new();
+    equiv_in(&s, "g←+ ⋄ f←{⍺ g ⍵} ⋄ f/⍳3", "+/⍳3");
+    equiv_in(&s, "g←× ⋄ f/1+⍳5", "×/1+⍳5");
+    equiv_in(&s, "calls←0 ⋄ f←{calls+←1 ⋄ ⍺+⍵} ⋄ r←f/1 2 3 ⋄ (r=6)∧calls=2", "$t");
+    equiv_in(&s, "h←{⍵} ⋄ h∂←{7×⍺} ⋄ f←{⍺+h ⍵} ⋄ {f/⍵}∂1 2 3", "1 7 49");
+    equiv_in(&s, "f←{1+⍵} ⋄ f/1 2 3", "5");
+    fails_in(&s, "DOMAIN", &["f/⍬"]);
+}
+
+#[test]
 fn result_output_and_nonexecuting_parse() {
     let s = Session::new();
     equiv_in(&s, "x←2", "2");
@@ -361,6 +419,16 @@ fn binding_error_recovery() {
     fails_in(&s, "LIMIT", &["loop←{1+∇⍵} ⋄ loop 0"]);
     equiv_in(&s, "2+2", "4");
     fails_in(&s, "SYNTAX", &["⍵←1"]);
+}
+
+#[test]
+fn selective_error_preserves_binding() {
+    let s = Session::new();
+    equiv_in(&s, "x←1 2 3", "1 2 3");
+    fails_in(&s, "LENGTH", &["x.[[0 1]]←9 8 7"]);
+    equiv_in(&s, "x", "1 2 3");
+    assert!(s.eval("{\"LENGTH\"::x ⋄ x.[[0 1]]←9 8 7}0").error.is_none());
+    equiv_in(&s, "x", "1 2 3");
 }
 
 #[test]
@@ -432,7 +500,7 @@ fn tolerant_equality_agrees_between_array_and_item_paths() {
 fn lexical_frames_are_reclaimed() {
     // At most 20,000 lexical frames can be alive at once. Each result below depends on frames being freed: 25,000 calls in one input, 25,000 tail calls, a recursion 15,000 deep in two inputs, and recursion after a LIMIT error. The tail calls in `keep` and `pass` still read `x` from the frame that defined their function.
     let s = Session::new();
-    for (code, expected) in [
+    let cases = [
         ("outer←{x←2 ⋄ add←{x+⍵} ⋄ +/add¨⍵⍴1} ⋄ outer 25000", 75000.), ("+/outer¨25000⍴1", 75000.),
         ("deep←{⍵=0?0;1+∇⍵-1} ⋄ deep 15000", 15000.), ("deep 15000", 15000.),
         ("count←{⍺←0 ⋄ ⍵=0?⍺;(⍺+1)∇⍵-1} ⋄ count 25000", 25000.),
@@ -440,7 +508,11 @@ fn lexical_frames_are_reclaimed() {
         ("keep←{x←42 ⋄ loop←{⍵=0?x;∇⍵-1} ⋄ loop ⍵} ⋄ keep 25000", 42.),
         ("pass←{x←42 ⋄ op←{⍵=0?⍶ ⍵;∇⍵-1} ⋄ ({x}op)⍵} ⋄ pass 25000", 42.), ("loop←{⍵=0?a←7;(∇⍵-1)} ⋄ loop 25000", 7.),
         ("f←{\"DOMAIN\"::7 ⋄ ⍵=0?1÷'a';∇⍵-1} ⋄ f 2000", 7.),
-    ] { check_in(&s, code, float(expected)); }
+    ];
+    let skipped = basedpl_testkit::reference::skipped("lexical_frames_are_reclaimed", cases.iter().map(|(code, _)| ("", *code))).unwrap();
+    for (_, (code, expected)) in cases.into_iter().enumerate().filter(|(index, _)| !skipped.iter().any(|(i, _)| i == index)) {
+        check_in(&s, code, float(expected));
+    }
     assert_eq!(s.eval("f 20000").error.unwrap().kind.name(), "LIMIT");
     check_in(&s, "deep 15000", float(15000.));
     let source = Source::new("calls", "outer 25000");
@@ -471,4 +543,35 @@ fn diagnostic_width_and_call_context() {
     assert!(result.error.is_none() && result.value.is_none());
     s.eval("f←+");
     assert!(weak.upgrade().is_none());
+}
+
+#[test]
+fn numeric_scripts_share_rank_index_and_power() {
+    let s = Session::new();
+    assert!(s.eval("a←2 3⍴⍳6").error.is_none());
+    for (code, explicit) in [
+        ("+/¹a", "+/⍤1 a"), ("10 20+⁰ ¹a", "10 20(+⍤[0 1])a"), ("↑¹ ⁰ ¹a", "↑⍤[1 0 1]a"), ("⌽⁻¹a", "⌽⍤¯1 a"),
+        ("⍴¹²a", "⍴⍤12 a"), ("⌽⁻ ¹a", "(⌽⁻)⍤1 a"), ("f←+/ ⋄ f¹a", "+/⍤1 a"), ("a₀ ₁", "a.[0 1]"), ("+/₀a", "+/⍠0 a"),
+        ("2 3² ³", "8 729"), ("v←2 3 ⋄ v² ³", "64 729"), ("v←2 4 ⋄ v⁻¹", "0.5 0.25"), ("s←² ⋄ 2 s 99", "4 99"),
+    ] {
+        let actual = evaluated(&s, code).unwrap();
+        let wanted = run(&format!("a←2 3⍴⍳6 ⋄ {explicit}")).unwrap_or_else(|e| panic!("{explicit}: {e}")).unwrap();
+        assert!(actual.same(&wanted), "{code}: {actual:?} != {wanted:?}");
+    }
+    fails_in(&s, "LENGTH", &["+⁰ ¹ ² ³a"]);
+    // The displayed inverse reparses; its minus cannot attach to the bound number.
+    let output = s.eval("(+↢3)⁻");
+    assert!(output.error.is_none());
+    assert_eq!(output.output_text(), ["(+↢3)⁻"]);
+    equiv_in(&s, "((+↢3)⁻)8", "5");
+    equiv_in(&s, "f←{⍵+3} ⋄ f⁻←{⍵-3} ⋄ f⁻8", "5");
+    for (script, input, expected) in [("²", "2", "4 99"), ("⁻¹", "2", "0.5 99"), ("₁", "10 20", "20 99")] {
+        assert!(s.eval(&format!("op←{script}")).error.is_none());
+        let shown = s.name_source("op").unwrap();
+        equiv_in(&s, &format!("op←{shown} ⋄ {input} op 99"), expected);
+    }
+    let tree = basedpl::syntax_tree("2 3²");
+    let strand = &tree.children[0].children[0];
+    assert_eq!(strand.kind, "Strand");
+    assert_eq!(strand.children.iter().map(|n| &"2 3²"[n.range.clone()]).collect::<Vec<_>>(), ["2", "3²"]);
 }

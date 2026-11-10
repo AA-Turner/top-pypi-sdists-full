@@ -78,6 +78,7 @@ class ListExtendedJobsResponse200JobsItemType1:
         is_retry (Union[Unset, bool]):
         trigger_kind (Union[Unset, ListExtendedJobsResponse200JobsItemType1TriggerKind]): job trigger kind (schedule,
             http, websocket...)
+        trigger_path (Union[Unset, str]): Path of the trigger, schedule or app that started the job, if any
         worker (Union[Unset, str]):
         type (Union[Unset, ListExtendedJobsResponse200JobsItemType1Type]):
     """
@@ -118,6 +119,7 @@ class ListExtendedJobsResponse200JobsItemType1:
     preprocessed: Union[Unset, bool] = UNSET
     is_retry: Union[Unset, bool] = UNSET
     trigger_kind: Union[Unset, ListExtendedJobsResponse200JobsItemType1TriggerKind] = UNSET
+    trigger_path: Union[Unset, str] = UNSET
     worker: Union[Unset, str] = UNSET
     type: Union[Unset, ListExtendedJobsResponse200JobsItemType1Type] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -190,6 +192,7 @@ class ListExtendedJobsResponse200JobsItemType1:
         if not isinstance(self.trigger_kind, Unset):
             trigger_kind = self.trigger_kind.value
 
+        trigger_path = self.trigger_path
         worker = self.worker
         type: Union[Unset, str] = UNSET
         if not isinstance(self.type, Unset):
@@ -264,6 +267,8 @@ class ListExtendedJobsResponse200JobsItemType1:
             field_dict["is_retry"] = is_retry
         if trigger_kind is not UNSET:
             field_dict["trigger_kind"] = trigger_kind
+        if trigger_path is not UNSET:
+            field_dict["trigger_path"] = trigger_path
         if worker is not UNSET:
             field_dict["worker"] = worker
         if type is not UNSET:
@@ -411,6 +416,8 @@ class ListExtendedJobsResponse200JobsItemType1:
         else:
             trigger_kind = ListExtendedJobsResponse200JobsItemType1TriggerKind(_trigger_kind)
 
+        trigger_path = d.pop("trigger_path", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         _type = d.pop("type", UNSET)
@@ -457,6 +464,7 @@ class ListExtendedJobsResponse200JobsItemType1:
             preprocessed=preprocessed,
             is_retry=is_retry,
             trigger_kind=trigger_kind,
+            trigger_path=trigger_path,
             worker=worker,
             type=type,
         )

@@ -8,6 +8,8 @@ bool query_satisfies_predicates(Query *query, TSQueryMatch match, Tree *tree, Py
 
 #define QUERY_ERROR(...) PyErr_Format(state->query_error, __VA_ARGS__)
 
+#define NAME_EQ(x) (length == (sizeof(x) - 1) && strncmp(predicate_name, x, length) == 0)
+
 #define CHECK_INDEX(query, index)                                                                  \
     do {                                                                                           \
         uint32_t count = ts_query_pattern_count(query);                                            \
@@ -30,15 +32,12 @@ void query_dealloc(Query *self) {
     Py_XDECREF(self->predicates);
     Py_XDECREF(self->settings);
     Py_XDECREF(self->assertions);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwargs)) {
-    Query *query = (Query *)cls->tp_alloc(cls, 0);
-    if (query == NULL) {
-        return NULL;
-    }
-
     PyObject *language_obj;
     char *source;
     Py_ssize_t source_len;
@@ -52,6 +51,10 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
     TSQueryError error_type;
     PyObject *pattern_predicates = NULL, *pattern_settings = NULL, *pattern_assertions = NULL;
     TSLanguage *language_id = ((Language *)language_obj)->language;
+    Query *query = (Query *)cls->tp_alloc(cls, 0);
+    if (query == NULL) {
+        return NULL;
+    }
     query->query =
         ts_query_new(language_id, source, (uint32_t)source_len, &error_offset, &error_type);
     query->predicates = NULL;
@@ -59,26 +62,14 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
     query->assertions = NULL;
 
     if (!query->query) {
-        uint32_t start = 0, end = 0, row = 0, column;
-#ifndef _MSC_VER
-        char *line = strtok(source, "\n");
-#else
-        char *next_token = NULL;
-        char *line = strtok_s(source, "\n", &next_token);
-#endif
-        while (line != NULL) {
-            end = start + strlen(line) + 1;
-            if (end > error_offset)
-                break;
-            start = end;
-            row += 1;
-#ifndef _MSC_VER
-            line = strtok(NULL, "\n");
-#else
-            line = strtok_s(NULL, "\n", &next_token);
-#endif
+        uint32_t row = 0, start = 0, end = 0, column;
+        for (uint32_t i = 0; i < error_offset && i < (uint32_t)source_len; ++i) {
+            if (source[i] == '\n') {
+                row += 1;
+                start = i + 1;
+            }
         }
-        column = error_offset - start, end = 0;
+        column = error_offset - start;
 
         switch (error_type) {
             case TSQueryErrorSyntax: {
@@ -167,6 +158,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
             goto error;
         }
 
+        PyObject *predicate_obj = NULL;
         const TSQueryPredicateStep *predicate_step =
             ts_query_predicates_for_pattern(query->query, i, &steps);
         for (uint32_t j = 0; j < steps; ++j) {
@@ -185,10 +177,8 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
             const char *predicate_name =
                 ts_query_string_value_for_id(query->query, predicate_step->value_id, &length);
 
-            if (strncmp(predicate_name, "eq?", length) == 0 ||
-                strncmp(predicate_name, "not-eq?", length) == 0 ||
-                strncmp(predicate_name, "any-eq?", length) == 0 ||
-                strncmp(predicate_name, "any-not-eq?", length) == 0) {
+            if (NAME_EQ("eq?") || NAME_EQ("not-eq?") || NAME_EQ("any-eq?") ||
+                NAME_EQ("any-not-eq?")) {
                 if (predicate_len != 3) {
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
                                 "#%s expects 2 arguments, got %u",
@@ -205,37 +195,39 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     goto error;
                 }
 
-                PyObject *predicate_obj;
-                bool is_any = strncmp("any", predicate_name, 3) == 0;
-                bool is_positive = strncmp(predicate_name, "eq?", length) == 0 ||
-                                   strncmp(predicate_name, "any-eq?", length) == 0;
+                bool is_any = strncmp("any-", predicate_name, 4) == 0;
+                bool is_positive = NAME_EQ("eq?") || NAME_EQ("any-eq?");
                 if ((predicate_step + 2)->type == TSQueryPredicateStepTypeCapture) {
                     QueryPredicateEqCapture *predicate = PyObject_New(
                         QueryPredicateEqCapture, state->query_predicate_eq_capture_type);
+                    if (predicate == NULL) {
+                        goto error;
+                    }
                     predicate->capture1_id = (predicate_step + 1)->value_id;
                     predicate->capture2_id = (predicate_step + 2)->value_id;
                     predicate->is_any = is_any;
                     predicate->is_positive = is_positive;
-                    predicate_obj = PyObject_Init((PyObject *)predicate,
-                                                  state->query_predicate_eq_capture_type);
+                    predicate_obj = (PyObject *)predicate;
                 } else {
-                    QueryPredicateEqString *predicate =
-                        PyObject_New(QueryPredicateEqString, state->query_predicate_eq_string_type);
-                    predicate->capture_id = (predicate_step + 1)->value_id;
                     const char *second_arg = ts_query_string_value_for_id(
                         query->query, (predicate_step + 2)->value_id, &length);
-                    predicate->string_value = PyBytes_FromStringAndSize(second_arg, length);
+                    PyObject *bytes = PyBytes_FromStringAndSize(second_arg, length);
+                    if (bytes == NULL) {
+                        goto error;
+                    }
+                    QueryPredicateEqString *predicate =
+                        PyObject_New(QueryPredicateEqString, state->query_predicate_eq_string_type);
+                    if (predicate == NULL) {
+                        goto error;
+                    }
+                    predicate->capture_id = (predicate_step + 1)->value_id;
+                    predicate->string_value = bytes;
                     predicate->is_any = is_any;
                     predicate->is_positive = is_positive;
-                    predicate_obj =
-                        PyObject_Init((PyObject *)predicate, state->query_predicate_eq_string_type);
+                    predicate_obj = (PyObject *)predicate;
                 }
-                PyList_Append(pattern_predicates, predicate_obj);
-                Py_XDECREF(predicate_obj);
-            } else if (strncmp(predicate_name, "match?", length) == 0 ||
-                       strncmp(predicate_name, "not-match?", length) == 0 ||
-                       strncmp(predicate_name, "any-match?", length) == 0 ||
-                       strncmp(predicate_name, "any-not-match?", length) == 0) {
+            } else if (NAME_EQ("match?") || NAME_EQ("not-match?") || NAME_EQ("any-match?") ||
+                       NAME_EQ("any-not-match?")) {
 
                 if (predicate_len != 3) {
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
@@ -262,9 +254,8 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     goto error;
                 }
 
-                bool is_any = strncmp("any", predicate_name, 3) == 0;
-                bool is_positive = strncmp(predicate_name, "match?", length) == 0 ||
-                                   strncmp(predicate_name, "any-match?", length) == 0;
+                bool is_any = strncmp("any-", predicate_name, 4) == 0;
+                bool is_positive = NAME_EQ("match?") || NAME_EQ("any-match?");
                 const char *second_arg = ts_query_string_value_for_id(
                     query->query, (predicate_step + 2)->value_id, &length);
                 PyObject *pattern =
@@ -302,16 +293,16 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
 
                 QueryPredicateMatch *predicate =
                     PyObject_New(QueryPredicateMatch, state->query_predicate_match_type);
+                if (predicate == NULL) {
+                    Py_DECREF(pattern);
+                    goto error;
+                }
                 predicate->capture_id = (predicate_step + 1)->value_id;
                 predicate->pattern = pattern;
                 predicate->is_any = is_any;
                 predicate->is_positive = is_positive;
-                PyObject *predicate_obj =
-                    PyObject_Init((PyObject *)predicate, state->query_predicate_match_type);
-                PyList_Append(pattern_predicates, predicate_obj);
-                Py_XDECREF(predicate_obj);
-            } else if (strncmp(predicate_name, "any-of?", length) == 0 ||
-                       strncmp(predicate_name, "not-any-of?", length) == 0) {
+                predicate_obj = (PyObject *)predicate;
+            } else if (NAME_EQ("any-of?") || NAME_EQ("not-any-of?")) {
                 if (predicate_len < 3) {
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
                                 "#%s expects at least 2 arguments, got %u",
@@ -330,6 +321,9 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
 
                 bool is_positive = length == 7; // any-of?
                 PyObject *values = PyList_New(predicate_len - 2);
+                if (values == NULL) {
+                    goto error;
+                }
                 for (uint32_t k = 2; k < predicate_len; ++k) {
                     if ((predicate_step + k)->type != TSQueryPredicateStepTypeString) {
                         const char *arg = ts_query_capture_name_for_id(
@@ -342,20 +336,24 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     }
                     const char *arg = ts_query_string_value_for_id(
                         query->query, (predicate_step + k)->value_id, &length);
-                    PyList_SetItem(values, k - 2, PyBytes_FromStringAndSize(arg, length));
+                    PyObject *bytes = PyBytes_FromStringAndSize(arg, length);
+                    if (bytes == NULL) {
+                        goto error;
+                    }
+                    PyList_SetItem(values, k - 2, bytes);
                 }
 
                 QueryPredicateAnyOf *predicate =
                     PyObject_New(QueryPredicateAnyOf, state->query_predicate_anyof_type);
+                if (predicate == NULL) {
+                    Py_DECREF(values);
+                    goto error;
+                }
                 predicate->capture_id = (predicate_step + 1)->value_id;
                 predicate->is_positive = is_positive;
                 predicate->values = values;
-                PyObject *predicate_obj =
-                    PyObject_Init((PyObject *)predicate, state->query_predicate_anyof_type);
-                PyList_Append(pattern_predicates, predicate_obj);
-                Py_XDECREF(predicate_obj);
-            } else if (strncmp(predicate_name, "is?", length) == 0 ||
-                       strncmp(predicate_name, "is-not?", length) == 0) {
+                predicate_obj = (PyObject *)predicate;
+            } else if (NAME_EQ("is?") || NAME_EQ("is-not?")) {
                 if (predicate_len == 1 || predicate_len > 3) {
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
                                 "#%s expects 1-2 arguments, got %u",
@@ -372,9 +370,9 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     goto error;
                 }
 
+                PyObject *is_positive = PyBool_FromLong(length == 3); // is?
                 const char *first_arg = ts_query_string_value_for_id(
                     query->query, (predicate_step + 1)->value_id, &length);
-                PyObject *is_positive = PyBool_FromLong(length == 3); // is?
                 if (predicate_len == 2) {
                     PyObject *assertion = PyTuple_Pack(2, Py_None, is_positive);
                     Py_DECREF(is_positive);
@@ -384,21 +382,28 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     const char *second_arg = ts_query_string_value_for_id(
                         query->query, (predicate_step + 2)->value_id, &length);
                     PyObject *value = PyUnicode_FromString(second_arg);
+                    if (value == NULL) {
+                        goto error;
+                    }
                     PyObject *assertion = PyTuple_Pack(2, value, is_positive);
                     Py_DECREF(value);
                     Py_DECREF(is_positive);
+                    if (assertion == NULL) {
+                        goto error;
+                    }
                     PyDict_SetItemString(pattern_assertions, first_arg, assertion);
                     Py_DECREF(assertion);
                 } else {
                     const char *second_arg = ts_query_capture_name_for_id(
-                        query->query, (predicate_step + 1)->value_id, &length);
+                        query->query, (predicate_step + 2)->value_id, &length);
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
                                 "second argument to #%s must be a string literal, got @%s",
                                 row, predicate_name, second_arg);
+                    Py_DECREF(is_positive);
                     goto error;
                 }
 
-            } else if (strncmp(predicate_name, "set!", length) == 0) {
+            } else if (NAME_EQ("set!")) {
                 if (predicate_len == 1 || predicate_len > 3) {
                     QUERY_ERROR("Invalid predicate in pattern at row %u: "
                                 "#%s expects 1-2 arguments, got %u",
@@ -423,6 +428,9 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
                     const char *second_arg = ts_query_string_value_for_id(
                         query->query, (predicate_step + 2)->value_id, &length);
                     PyObject *value = PyUnicode_FromString(second_arg);
+                    if (value == NULL) {
+                        goto error;
+                    }
                     PyDict_SetItemString(pattern_settings, first_arg, value);
                     Py_DECREF(value);
                 } else {
@@ -436,28 +444,45 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
             } else {
                 QueryPredicateGeneric *predicate =
                     PyObject_New(QueryPredicateGeneric, state->query_predicate_generic_type);
+                if (predicate == NULL) {
+                    goto error;
+                }
                 predicate->predicate = PyUnicode_FromStringAndSize(predicate_name, length);
                 predicate->arguments = PyList_New(predicate_len - 1);
+                if (predicate->predicate == NULL || predicate->arguments == NULL) {
+                    Py_DECREF(predicate);
+                    goto error;
+                }
                 predicate->pattern_index = i;
                 for (uint32_t k = 1; k < predicate_len; ++k) {
                     PyObject *item;
                     if ((predicate_step + k)->type == TSQueryPredicateStepTypeCapture) {
                         const char *arg_value = ts_query_capture_name_for_id(
                             query->query, (predicate_step + k)->value_id, &length);
-                        item = PyTuple_Pack(2, PyUnicode_FromStringAndSize(arg_value, length),
-                                            PyUnicode_FromString("capture"));
+                        item = Py_BuildValue("(s#s)", arg_value, (Py_ssize_t)length, "capture");
                     } else {
                         const char *arg_value = ts_query_string_value_for_id(
                             query->query, (predicate_step + k)->value_id, &length);
-                        item = PyTuple_Pack(2, PyUnicode_FromStringAndSize(arg_value, length),
-                                            PyUnicode_FromString("string"));
+                        item = Py_BuildValue("(s#s)", arg_value, (Py_ssize_t)length, "string");
                     }
-                    PyList_SetItem(predicate->arguments, k - 1, item);
+                    if (item == NULL) {
+                        Py_DECREF(predicate);
+                        goto error;
+                    }
+                    if (PyList_SetItem(predicate->arguments, k - 1, item) < 0) {
+                        Py_DECREF(predicate);
+                        goto error;
+                    }
                 }
-                PyObject *predicate_obj =
-                    PyObject_Init((PyObject *)predicate, state->query_predicate_generic_type);
-                PyList_Append(pattern_predicates, predicate_obj);
-                Py_XDECREF(predicate_obj);
+                predicate_obj = (PyObject *)predicate;
+            }
+
+            if (predicate_obj != NULL) {
+                int rc = PyList_Append(pattern_predicates, predicate_obj);
+                Py_DECREF(predicate_obj);
+                if (rc < 0) {
+                    goto error;
+                }
             }
 
             j += predicate_len;
@@ -467,6 +492,7 @@ PyObject *query_new(PyTypeObject *cls, PyObject *args, PyObject *Py_UNUSED(kwarg
         PyList_SetItem(query->predicates, i, pattern_predicates);
         PyList_SetItem(query->settings, i, pattern_settings);
         PyList_SetItem(query->assertions, i, pattern_assertions);
+        pattern_predicates = NULL, pattern_settings = NULL, pattern_assertions = NULL;
     }
 
     return (PyObject *)query;
@@ -475,7 +501,7 @@ error:
     Py_XDECREF(pattern_predicates);
     Py_XDECREF(pattern_settings);
     Py_XDECREF(pattern_assertions);
-    query_dealloc(query);
+    Py_DECREF(query);
     return NULL;
 }
 

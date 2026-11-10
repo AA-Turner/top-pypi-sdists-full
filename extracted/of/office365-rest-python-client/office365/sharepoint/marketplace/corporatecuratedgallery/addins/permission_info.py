@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ from office365.sharepoint.marketplace.corporatecuratedgallery.tenantscopedpermis
 )
 
 
-@dataclass
 class SPAddinPermissionInfo(ClientValue):
     absoluteUrl: Optional[str] = None
     allowAppOnly: Optional[bool] = None

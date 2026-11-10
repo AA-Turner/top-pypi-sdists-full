@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TopicModelingSettings(ClientValue):
     dynamicallyAdjustTopicCount: bool | None = None
     ignoreNumbers: bool | None = None

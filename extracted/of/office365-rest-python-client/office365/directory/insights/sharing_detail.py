@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.insights.identity import InsightIdentity
@@ -8,7 +8,6 @@ from office365.directory.insights.resource_reference import ResourceReference
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SharingDetail(ClientValue):
     """Complex type containing properties of sharedInsight items.
 

@@ -47,9 +47,9 @@ LIBERO_POLICY_IMAGE_SIZE = 224
 _DREAMZERO_MAX_CAMERA_SKEW_NS = 50_000_000
 
 
-def encode_jpeg(frame: np.ndarray, quality: int = OBS_JPEG_QUALITY) -> bytes:
+def encode_jpeg(frame: np.ndarray, quality: int = OBS_JPEG_QUALITY, chroma: str = "420") -> bytes:
     """Encode an RGB camera frame as JPEG bytes for worker-side PIL RGB decode."""
-    return encode_rgb_jpeg(frame, quality=quality)
+    return encode_rgb_jpeg(frame, quality=quality, chroma=chroma)
 
 
 @dataclass(frozen=True)
@@ -113,9 +113,10 @@ def encoded_frames(observation: Any) -> dict[str, bytes]:
     """Each camera of an observation as it would be sent alone (sized, JPEG), by camera id."""
     encoding = _ENCODING.get() or _Encoding()
     quality = OBS_JPEG_QUALITY if encoding.image is None else encoding.image.quality
+    chroma = "420" if encoding.image is None else encoding.image.chroma
     with captured_frames() as frames:
         observation.to_wire(session_id="history", observation_id=0, instruction="history")
-    return {camera: encode_jpeg(frame, quality) for camera, frame in frames.items()}
+    return {camera: encode_jpeg(frame, quality, chroma) for camera, frame in frames.items()}
 
 
 @contextmanager
@@ -155,7 +156,8 @@ def _camera_frame(camera_id: str, frame: np.ndarray) -> tuple[CameraFrame, bytes
         elif older:
             frame, frames = tile_frames([*older, frame]), len(older) + 1
         quality = OBS_JPEG_QUALITY if encoding.image is None else encoding.image.quality
-        payload = encode_jpeg(frame, quality)
+        chroma = "420" if encoding.image is None else encoding.image.chroma
+        payload = encode_jpeg(frame, quality, chroma)
     return CameraFrame(
         camera_id=camera_id,
         width=int(frame.shape[1]),

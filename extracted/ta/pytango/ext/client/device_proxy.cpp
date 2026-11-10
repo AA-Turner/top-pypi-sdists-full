@@ -203,8 +203,8 @@ static inline void read_attributes_asynch(Tango::DeviceProxy &self,
     PyCallBackAutoDie *cb = py_cb.cast<PyCallBackAutoDie *>();
     cb->set_extract_as(extract_as);
 
-    py::gil_scoped_release no_gil;
     try {
+        py::gil_scoped_release no_gil;
         self.read_attributes_asynch(attr_names, *cb);
     } catch(...) {
         cb->delete_me();
@@ -260,8 +260,8 @@ static inline void write_attribute_asynch(Tango::DeviceProxy &self,
 
     PyCallBackAutoDie *cb = py_cb.cast<PyCallBackAutoDie *>();
 
-    py::gil_scoped_release no_gil;
     try {
+        py::gil_scoped_release no_gil;
         self.write_attribute_asynch(dev_attr, *cb);
     } catch(...) {
         cb->delete_me();
@@ -290,8 +290,8 @@ static inline void write_attributes_asynch(Tango::DeviceProxy &self,
 
     PyCallBackAutoDie *cb = py_cb.cast<PyCallBackAutoDie *>();
 
-    py::gil_scoped_release no_gil;
     try {
+        py::gil_scoped_release no_gil;
         self.write_attributes_asynch(dev_attrs, *cb);
     } catch(...) {
         cb->delete_me();
@@ -403,7 +403,10 @@ static py::object
     Tango::DeviceProxy &self = py_self.cast<Tango::DeviceProxy &>();
 
     EDList event_list;
-    self.get_events(event_id, event_list);
+    {
+        py::gil_scoped_release no_gil;
+        self.get_events(event_id, event_list);
+    }
 
     py::list r;
 
@@ -427,7 +430,10 @@ static py::object
 static void get_events__callback(py::object py_self, int event_id, PyEventCallBack *cb, PyTango::ExtractAs extract_as) {
     Tango::DeviceProxy &self = py_self.cast<Tango::DeviceProxy &>();
     cb->set_extract_as(extract_as);
-    self.get_events(event_id, cb);
+    {
+        py::gil_scoped_release no_gil;
+        self.get_events(event_id, cb);
+    }
 }
 
 static py::object get_events__attr_conf(py::object py_self, int event_id) {
@@ -539,7 +545,8 @@ void export_device_proxy(py::module &m) {
                     throw std::runtime_error("Invalid state!");
                 }
                 std::string trl = py_tuple[0].cast<std::string>();
-                return Tango::DeviceProxy(trl.c_str());
+                py::gil_scoped_release no_gil{};
+                return std::shared_ptr<Tango::DeviceProxy>(new Tango::DeviceProxy(trl.c_str()), DeleterWithoutGIL());
             }))
 
         //
@@ -668,8 +675,8 @@ void export_device_proxy(py::module &m) {
 
         .def("_get_command_config",
              py::overload_cast<const std::string &>(&Tango::DeviceProxy::get_command_config),
-             py::arg("attr_name"),
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("attr_name"))
 
         .def("command_query",
              &Tango::DeviceProxy::command_query,
@@ -729,36 +736,36 @@ void export_device_proxy(py::module &m) {
         //
         .def("_get_property",
              py::overload_cast<const std::string &, Tango::DbData &>(&Tango::DeviceProxy::get_property),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("propname"),
-             py::arg("propdata"),
-             py::call_guard<py::gil_scoped_release>())
+             py::arg("propdata"))
 
         .def("_get_property",
              py::overload_cast<const std::vector<std::string> &, Tango::DbData &>(&Tango::DeviceProxy::get_property),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("propnames"),
-             py::arg("propdata"),
-             py::call_guard<py::gil_scoped_release>())
+             py::arg("propdata"))
 
         .def("_get_property",
              py::overload_cast<Tango::DbData &>(&Tango::DeviceProxy::get_property),
-             py::arg("propdata"),
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("propdata"))
 
         .def("_put_property",
              &Tango::DeviceProxy::put_property,
-             py::arg("propdata"),
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("propdata"))
 
         .def("_delete_property",
              py::overload_cast<const Tango::DbData &>(&Tango::DeviceProxy::delete_property),
-             py::arg("propname"),
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("propname"))
 
         .def("_get_property_list",
              &Tango::DeviceProxy::get_property_list,
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("filter"),
-             py::arg("array"),
-             py::call_guard<py::gil_scoped_release>())
+             py::arg("array"))
 
         //
         // attribute methods
@@ -784,8 +791,8 @@ void export_device_proxy(py::module &m) {
 
         .def("_get_attribute_config",
              py::overload_cast<const std::string &>(&Tango::DeviceProxy::get_attribute_config),
-             py::arg("attr_name"),
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("attr_name"))
 
         .def("_get_attribute_config_ex",
              &Tango::DeviceProxy::get_attribute_config_ex,
@@ -1269,6 +1276,7 @@ void export_device_proxy(py::module &m) {
         // methods to access data in event queues
         .def("event_queue_size",
              &Tango::DeviceProxy::event_queue_size,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Returns the number of stored events in the event reception
                 buffer. After every call to DeviceProxy.get_events(), the event
@@ -1287,6 +1295,7 @@ void export_device_proxy(py::module &m) {
 
         .def("get_last_event_date",
              &Tango::DeviceProxy::get_last_event_date,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Returns the arrival time of the last event stored in the event
                 reception buffer. After every call to DeviceProxy:get_events(),
@@ -1306,6 +1315,7 @@ void export_device_proxy(py::module &m) {
 
         .def("is_event_queue_empty",
              &Tango::DeviceProxy::is_event_queue_empty,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Returns true when the event reception buffer is empty. During
                 event subscription the client must have chosen the 'pull model'

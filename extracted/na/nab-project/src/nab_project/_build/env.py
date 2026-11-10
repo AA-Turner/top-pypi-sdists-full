@@ -51,6 +51,7 @@ __lazy_modules__ = (
     "nab_provider.tags",
     "nab_provider.target",
     "nab_provider.vcs_admission",
+    "nab_resolver.diagnostics",
     "os",
     "pathlib",
     "subprocess",
@@ -106,6 +107,7 @@ from nab_provider.tags import TagSet
 from nab_provider.target import ResolveTarget, host_environment
 from nab_provider.value import Record, replace
 from nab_provider.vcs_admission import UnsupportedVcsError
+from nab_resolver.diagnostics import error_message
 from nab_resolver.errors import ResolutionError, ResolutionTerminatedError
 
 from .. import toml_writer
@@ -766,6 +768,7 @@ class NabBuildEnv:
             except ValueError as exc:
                 msg = f"build requirement {label} could not be extracted: {exc}"
                 raise BuildEnvError(msg) from exc
+
             try:
                 built = build_wheel_for_install(
                     source_dir,
@@ -776,8 +779,10 @@ class NabBuildEnv:
                     transport_factory=self._transport_factory,
                 )
             except BuildBackendError as exc:
-                msg = f"build requirement {label} could not be built: {exc}"
-                raise BuildEnvError(msg) from exc
+                report = error_message(exc).prefixed(
+                    f"build requirement {label} could not be built: "
+                )
+                raise BuildEnvError(report) from exc
 
             _check_built_wheel(pending, built)
             _check_built_requires_python(pending, built, self._config.package_overrides)
@@ -877,7 +882,7 @@ def _wheel_barring_dist_policy(
     """Return the ``dist-policy`` in force for ``pin`` when it bars wheels.
 
     ``None`` when neither a per-package nor a per-index override sets
-    ``sdist-only`` or ``sdist-install``. Only those policies bar wheels
+    ``sdist-only`` or ``sdist-only``. Only those policies bar wheels
     here because the build env's own resolve runs at ``wheel-or-sdist``.
     Whether the index published a wheel to bar is
     not known here, so a returned policy says the env would have refused
@@ -904,7 +909,7 @@ def _wheel_barring_dist_policy(
     if policy is None:
         policy = _serving_index_dist_policy(inputs, pin.index)
 
-    if policy is DistPolicy.SDIST_ONLY or policy is DistPolicy.SDIST_INSTALL:
+    if policy is DistPolicy.SDIST_ONLY:
         return policy
     return None
 
@@ -983,6 +988,7 @@ def _inner_resolve_inputs(inputs: ResolveInputs) -> ResolveInputs:
         uploaded_prior_to=inputs.uploaded_prior_to,
         decision_order=inputs.decision_order,
         dist_policy=DistPolicy.WHEEL_OR_SDIST,
+        metadata_policy=inputs.metadata_policy,
         build_policy=BuildPolicy.NEVER,
     )
 

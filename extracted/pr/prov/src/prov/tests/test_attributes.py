@@ -1,58 +1,48 @@
-"""Pytest-native shared attribute round-trip tests.
+"""Shared attribute round-trip tests.
 
-Migrated from the ``TestAttributesBase`` mixin (``attributes.py``): the 28
-single-type-attribute cases collapse into one parametrized function (node ids
-``attr-0``..``attr-7``, ``attr-9``..``attr-27`` -- ``attr-8``, the
-``xsd:decimal`` case, is isolated below), plus the multi-attribute and
-multi-value-attribute cases. Each runs once per target in
-``SHARED_TARGETS``. The legacy mixin remains for the not-yet-migrated
-``test_dot.py``; both share ``ATTRIBUTE_VALUES``.
-
-The multi-attribute cases were RDF-xfailed for #218 (a superset of #77,
-decimal comparison, and #89, typed/untyped string): with both fixed, the
-``xsd:decimal`` value was the only one in ``ATTRIBUTE_VALUES`` that did not
-survive an RDF round trip, so these two reproductions now pass and run
-under the plain module-wide ``fmt`` fixture like everything else here. #218
-is now fixed in full: ``test_examples.py``'s ``datatypes`` example, which
-hit a distinct RDF multi-datatype fidelity loss (``xsd:double`` precision),
-now round-trips through RDF too.
+The ``ATTRIBUTE_VALUES`` corpus (``attribute_values.py``) runs once per target
+in ``SHARED_TARGETS``: each value alone on ``prov:type`` (node ids ``attr-N``,
+with the ``xsd:decimal`` case, index 8, as its own test), every value as a
+separate attribute of one entity, and every value on ``prov:value`` of one
+entity. The tests after the corpus cover values the corpus cannot hold.
 """
 
 import datetime
 import math
 import re
+from typing import Any
 
 import pytest
 
 from prov.model import XSD_BOOLEAN, Literal, ProvDocument
 from prov.tests.attribute_values import ATTRIBUTE_VALUES, EX_NS
-from prov.tests.conftest import ROUNDTRIP_FORMATS, roundtrip_document
+from prov.tests.conftest import ROUNDTRIP_FORMATS, Roundtrip, roundtrip_document
 
 
 @pytest.mark.parametrize(
     "value",
     [pytest.param(v, id=f"attr-{i}") for i, v in enumerate(ATTRIBUTE_VALUES) if i != 8],
 )
-def test_entity_with_one_type_attribute(roundtrip, value) -> None:
+def test_entity_with_one_type_attribute(roundtrip: Roundtrip, value: Any) -> None:
     document = ProvDocument()
     document.entity(EX_NS["et"], {"prov:type": value})
     roundtrip(document)
 
 
-def test_entity_with_one_type_attribute_decimal(roundtrip) -> None:
+def test_entity_with_one_type_attribute_decimal(roundtrip: Roundtrip) -> None:
     document = ProvDocument()
     document.entity(EX_NS["et"], {"prov:type": ATTRIBUTE_VALUES[8]})
     roundtrip(document)
 
 
-def test_entity_with_multiple_attribute(roundtrip) -> None:
+def test_entity_with_multiple_attribute(roundtrip: Roundtrip) -> None:
     document = ProvDocument()
     attributes = [(EX_NS[f"v_{i}"], value) for i, value in enumerate(ATTRIBUTE_VALUES)]
     document.entity(EX_NS["emov"], attributes)
     roundtrip(document)
 
 
-def test_entity_with_multiple_value_attribute(roundtrip) -> None:
+def test_entity_with_multiple_value_attribute(roundtrip: Roundtrip) -> None:
     document = ProvDocument()
     attributes = [("prov:value", value) for value in ATTRIBUTE_VALUES]
     document.entity(EX_NS["emv"], attributes)
@@ -60,7 +50,7 @@ def test_entity_with_multiple_value_attribute(roundtrip) -> None:
 
 
 @pytest.mark.parametrize("fmt", ROUNDTRIP_FORMATS)
-def test_sub_minute_utc_offset_round_trips_as_utc(fmt) -> None:
+def test_sub_minute_utc_offset_round_trips_as_utc(fmt: str) -> None:
     # xsd:dateTime allows no seconds in a timezone offset (#341 scope
     # extension): a historical LMT-style +00:00:30 offset must serialize as
     # its UTC equivalent, not as an xsd:dateTime-illegal string. A round trip
@@ -77,9 +67,7 @@ def test_sub_minute_utc_offset_round_trips_as_utc(fmt) -> None:
     expected = ProvDocument()
     expected.activity(
         EX_NS["a"],
-        startTime=datetime.datetime(
-            2026, 9, 12, 10, 0, 0, tzinfo=datetime.timezone.utc
-        ),
+        startTime=datetime.datetime(2026, 9, 12, 10, 0, 0, tzinfo=datetime.UTC),
     )
     assert "+00:00:30" not in document.serialize(format=fmt)
     assert roundtrip_document(document, fmt) == expected
@@ -96,7 +84,7 @@ def _non_finite_document() -> ProvDocument:
 
 
 @pytest.mark.parametrize("fmt", ROUNDTRIP_FORMATS)
-def test_nan_round_trips(fmt) -> None:
+def test_nan_round_trips(fmt: str) -> None:
     # NaN is not equal to itself, so it stays out of ATTRIBUTE_VALUES, whose
     # round trips compare whole documents with ==.
     (record,) = roundtrip_document(_non_finite_document(), fmt).get_records()
@@ -109,7 +97,7 @@ _SPELLING = {"provn": '"{}"', "json": '"{}"', "jsonld": '"{}"', "xml": ">{}<"}
 
 
 @pytest.mark.parametrize("fmt", list(_SPELLING))
-def test_non_finite_floats_are_written_in_xsd_spelling(fmt) -> None:
+def test_non_finite_floats_are_written_in_xsd_spelling(fmt: str) -> None:
     text = _non_finite_document().serialize(format=fmt)
     for spelling in ("INF", "-INF", "NaN"):
         assert _SPELLING[fmt].format(spelling) in text
@@ -122,7 +110,7 @@ class _ReprFloat(float):
 
 
 @pytest.mark.parametrize("fmt", list(_SPELLING))
-def test_float_subclass_is_written_as_the_float_it_holds(fmt) -> None:
+def test_float_subclass_is_written_as_the_float_it_holds(fmt: str) -> None:
     document = ProvDocument()
     document.add_namespace(EX_NS)
     document.entity("ex:e", {"ex:p": _ReprFloat(1.5)})
@@ -138,7 +126,8 @@ def test_float_subclass_is_written_as_the_float_it_holds(fmt) -> None:
             fmt,
             marks=pytest.mark.xfail(
                 strict=True,
-                reason="#575: rdflib rewrites an ill-formed xsd:boolean as false",
+                reason="C10: rdflib normalises the text on parse; the writer keeps "
+                "it (#575)",
             ),
         )
         if fmt == "rdf"
@@ -146,7 +135,7 @@ def test_float_subclass_is_written_as_the_float_it_holds(fmt) -> None:
         for fmt in ROUNDTRIP_FORMATS
     ],
 )
-def test_ill_formed_boolean_stays_a_literal(fmt) -> None:
+def test_ill_formed_boolean_stays_a_literal(fmt: str) -> None:
     # Outside ATTRIBUTE_VALUES, whose whole-corpus round trips would fail
     # through RDF on this one value.
     document = ProvDocument()

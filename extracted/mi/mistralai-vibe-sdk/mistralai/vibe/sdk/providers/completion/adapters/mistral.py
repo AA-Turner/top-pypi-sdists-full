@@ -37,11 +37,15 @@ _MISTRAL_USAGE_NESTED_ALIASES = {
 def _dump_messages_for_mistral(messages: list[Message]) -> list[dict[str, Any]]:
     dumped = [message.model_dump(exclude_none=True) for message in messages]
     for message in dumped:
+        signature = message.pop("reasoning_signature", None)
         if (reasoning := message.pop("reasoning_content", None)) is not None:
-            message["content"] = [
-                {"type": "thinking", "thinking": [{"type": "text", "text": reasoning}]},
-                *_content_chunks(message.get("content")),
-            ]
+            thinking: dict[str, Any] = {
+                "type": "thinking",
+                "thinking": [{"type": "text", "text": reasoning}],
+            }
+            if signature is not None:
+                thinking["signature"] = signature
+            message["content"] = [thinking, *_content_chunks(message.get("content"))]
         content = message.get("content")
         if not isinstance(content, list):
             continue
@@ -84,24 +88,29 @@ def _is_retryable_mistral_exception(exc: BaseException) -> bool:
     return status_code is not None and status_code in utils.RETRYABLE_STATUS_CODES
 
 
-def _extract_deltas(content: object) -> tuple[str | None, str | None]:
-    """Extract visible text and thinking text from a Mistral delta content field.
+def _extract_deltas(content: object) -> tuple[str | None, str | None, str | None]:
+    """Extract visible text, thinking text and its signature from a Mistral delta content field.
 
     The Mistral SDK's DeltaMessage.content can be:
     - str: plain text delta (common in streaming)
     - list[ContentChunk]: list of typed chunks (TextChunk, ThinkChunk, etc.)
 
     We split visible answer text from thinking/reasoning text so reasoning
-    does not get flattened into user-visible assistant content.
+    does not get flattened into user-visible assistant content. The signature
+    lets the provider accept the reasoning back on the next turn; without it,
+    replayed reasoning is dropped.
     """
     if isinstance(content, str):
-        return (content, None)
+        return (content, None, None)
     if isinstance(content, list):
         content_parts: list[str] = []
         thinking_parts: list[str] = []
+        signature: str | None = None
         for chunk in content:
             chunk_type = getattr(chunk, "type", None)
             if chunk_type == "thinking" or hasattr(chunk, "thinking"):
+                if isinstance(chunk_signature := getattr(chunk, "signature", None), str):
+                    signature = chunk_signature
                 thinking_content = getattr(chunk, "thinking", None)
                 if thinking_content:
                     for inner in thinking_content:
@@ -113,8 +122,8 @@ def _extract_deltas(content: object) -> tuple[str | None, str | None]:
                 content_parts.append(chunk.text)
         content_delta = "".join(content_parts) if content_parts else None
         thinking_delta = "".join(thinking_parts) if thinking_parts else None
-        return (content_delta, thinking_delta)
-    return (None, None)
+        return (content_delta, thinking_delta, signature)
+    return (None, None, None)
 
 
 class MistralCompletion(CompletionModel):
@@ -266,10 +275,11 @@ class MistralCompletion(CompletionModel):
 
             content_delta = None
             thinking_delta = None
+            thinking_signature = None
             tool_call_deltas = None
 
             if delta.content:
-                content_delta, thinking_delta = _extract_deltas(delta.content)
+                content_delta, thinking_delta, thinking_signature = _extract_deltas(delta.content)
                 if content_delta:
                     content_chunk_count += 1
                 if thinking_delta:
@@ -308,6 +318,7 @@ class MistralCompletion(CompletionModel):
             yield CompletionChunk(
                 content_delta=content_delta,
                 thinking_delta=thinking_delta,
+                thinking_signature=thinking_signature,
                 tool_call_deltas=tool_call_deltas,
                 finish_reason=choice.finish_reason,
                 usage=usage,

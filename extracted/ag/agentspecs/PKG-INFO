@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentspecs
-Version: 0.0.144
+Version: 0.0.170
 Project-URL: Home, https://github.com/datalayer/agentspecs
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -46,6 +46,8 @@ Requires-Dist: httpx>=0.24
 Requires-Dist: jsonschema>=4.18
 Requires-Dist: mcp[cli]>=2.0
 Requires-Dist: pydantic>=2.0
+Provides-Extra: cedar
+Requires-Dist: cedarpy<5,>=4.12; extra == 'cedar'
 Provides-Extra: lint
 Requires-Dist: mdformat-gfm>=0.3.5; extra == 'lint'
 Requires-Dist: mdformat>0.7; extra == 'lint'
@@ -54,6 +56,7 @@ Provides-Extra: pydantic-ai
 Requires-Dist: pydantic-ai-slim>=1.94.0; extra == 'pydantic-ai'
 Requires-Dist: pydantic-graph>=1.94.0; extra == 'pydantic-ai'
 Provides-Extra: test
+Requires-Dist: cedarpy<5,>=4.12; extra == 'test'
 Requires-Dist: datalayer-agent-shield>=0.2.7; extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
 Requires-Dist: jsonschema>=4.18; extra == 'test'
@@ -97,6 +100,9 @@ agentspecs/
 ├── guards/           # Guard specs: a check, extending a Policy
 ├── gates/            # Gate specs: what happens on what the Guards found
 ├── tracks/           # Track specs: the evidence kept, and for how long
+├── battles/          # Battle specs: scenes composed against each other, a clock, a referee
+├── identities/       # Identity specs: who acts, issued by whom, proven how
+├── stages/           # Stage specs: a scene, an app or a Battle on stage, and where it plays
 ├── apps/             # Application specs (Appspec): a chat, a widget, a decision, a worker
 ├── fragments/        # Capability fragments an agent includes
 ├── mcp-servers/      # MCP server specs
@@ -119,23 +125,26 @@ agentspecs/
 
 Current YAML file counts:
 
-- Agents: 168
+- Agents: 179
 - Teams: 11
-- Frames: 5
+- Frames: 6
 - Cogs: 3
 - Ops: 1
-- Guards: 12
+- Guards: 13
 - Gates: 8
-- Tracks: 2
-- Applications: 4
+- Tracks: 4
+- Battles: 5
+- Stages: 13
+- Identities: 12
+- Applications: 37
 - Fragments: 1
-- MCP servers: 14
-- Skills: 7
+- MCP servers: 19
+- Skills: 9
 - Tools: 18
 - Frontend tools: 6
-- Env vars: 10
-- Models: 39
-- Model providers: 7
+- Env vars: 23
+- Models: 40
+- Model providers: 8
 - Memory backends: 4
 - Evals: 9
 - Benchmarks: 8
@@ -325,6 +334,20 @@ Gates decide whether the work proceeds. Tracks make the work accountable.*
 - **Tracks** (`agentspecs/tracks`): `retain_for`, `include`, `readers`,
   `redact`; never `exchangeable`.
 
+- **Battles** (`agentspecs/battles`): scenes composed against each other —
+  a `variant` (`race`, `game`, `challenge`), a `goal` said to every
+  contestant, a `clock_seconds`, two or more `contestants` (a `scene` of the
+  catalogue played whole, or an `app`), a `referee` (`first_done`, `score`
+  or the Guard that `measure`s), and for a game its `arena` (`pong`,
+  `invaders`). A referee that does not decide as its variant does is refused.
+
+- **Stages** (`agentspecs/stages`): something of the catalogue put on stage
+  and where it plays — exactly one of a `scene` played whole, an `app` or a
+  `battle`; `deployments`, each member on a runtime to the slug of the
+  deployment that answers for it (none for a scripted scene or a Battle);
+  `public`, whether it has a page that needs no account. Its name, face and
+  description are what it stages says unless it says otherwise.
+
 `ops/op-sales-pipeline-board-report.yaml` is the comprehensive example: one
 Cog with its Frames, twelve Guards of all seven categories at all four stages,
 eight Gates and a seven-year Track.
@@ -366,8 +389,10 @@ Defines MCP integrations and process startup configuration.
 Common fields:
 
 - `id`, `version`, `name`, `description`
-- `command`, `args`, `transport`
-- `env`, `envvars` (usually versioned)
+- `command`, `args`, `transport`; `url` and `headers` for a remote server
+- `env`, `envvars` (usually versioned), `sandbox_envvars`
+- `documentation_url`, `signup_url`, `api_key_url`, `setup`: where to read about it, sign up and make the key it needs, and how, in a sentence of Markdown — its links render as links on the server's page (7 November 2026)
+- `actions`: what each tool does to the world (`read`, `write`, …), when it was checked, and a note
 - `tags`, `icon`, `emoji`
 
 ### Skills (`agentspecs/skills`)
@@ -402,6 +427,7 @@ Common fields:
 
 - `id`, `version`, `name`, `description`, `enabled`
 - `toolset` (the names of the tools of the set)
+- `streams` (the tools of the set that stream: called once, each keeps pushing events the harness tells the model as turns it did not ask for — the Pong arena's `arena_watch`)
 - `tags`, `icon`, `emoji`
 
 ### Marks: `icon` and `emoji`

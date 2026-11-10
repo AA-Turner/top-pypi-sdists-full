@@ -58,15 +58,21 @@ class CMakeExtension(Extension):
         self.sourcedir = os.path.abspath(sourcedir)
 
 
+def copy_binaries(names, install_dir):
+    for target in (Path(install_dir) / "chiavdf", Path(install_dir)):
+        target.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            shutil.copy(f"src/{name}", target)
+
+
 def copy_vdf_client(build_dir, install_dir):
-    shutil.copy("src/vdf_client", install_dir)
-    shutil.copy("src/prover_test", install_dir)
-    shutil.copy("src/1weso_test", install_dir)
-    shutil.copy("src/2weso_test", install_dir)
+    copy_binaries(
+        ["vdf_client", "prover_test", "1weso_test", "2weso_test"], install_dir
+    )
 
 
 def copy_vdf_bench(build_dir, install_dir):
-    shutil.copy("src/vdf_bench", install_dir)
+    copy_binaries(["vdf_bench"], install_dir)
 
 
 def invoke_make(**kwargs):
@@ -144,7 +150,7 @@ setup(
     author_email="florin@chia.net",
     description="Chia vdf verification (wraps C++)",
     license="Apache-2.0",
-    python_requires=">=3.11, <4",
+    python_requires=">=3.10, <4",
     long_description=_long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Chia-Network/chiavdf",

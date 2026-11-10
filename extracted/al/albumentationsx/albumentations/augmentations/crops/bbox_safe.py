@@ -4,6 +4,7 @@ from typing import Annotated, Any, ClassVar
 
 from numpy.typing import NDArray
 
+from albumentations.core.bbox_utils import BboxProcessor
 from albumentations.core.invocation import SamplingContext
 from albumentations.core.transform_params import SampledParams, TargetSet
 
@@ -73,7 +74,7 @@ class BBoxSafeRandomCrop(BaseCrop):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:
@@ -229,7 +230,7 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:
@@ -387,6 +388,18 @@ class RandomSizedBBoxSafeCrop(BBoxSafeRandomCrop):
         crop = fcrops.crop(mask, *crop_coords)
         return fgeometric.resize(crop, (self.height, self.width), self.mask_interpolation)
 
+    def apply_to_bboxes(
+        self,
+        bboxes: np.ndarray,
+        crop_coords: tuple[int, int, int, int],
+        shape: tuple[int, int],
+        **params: Any,
+    ) -> np.ndarray:
+        processor = self.get_processor("bboxes")
+        if isinstance(processor, BboxProcessor) and processor.params.bbox_type == "obb":
+            return fcrops.crop_and_resize_bboxes(bboxes, crop_coords, shape[:2], (self.height, self.width), "obb")
+        return super().apply_to_bboxes(bboxes, crop_coords, shape, **params)
+
     def apply_to_keypoints(
         self,
         keypoints: np.ndarray,
@@ -444,7 +457,7 @@ class BBoxSubsetSafeRandomCrop(BBoxSafeRandomCrop):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Supported bboxes:
         hbb, obb
@@ -633,7 +646,7 @@ class AtLeastOneBBoxRandomCrop(BaseCrop):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:

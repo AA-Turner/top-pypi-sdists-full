@@ -2,7 +2,20 @@
 #ifndef VIENNA_RNA_PACKAGE_SNOFOLD_H
 #define VIENNA_RNA_PACKAGE_SNOFOLD_H
 
+#ifdef VRNA_WARN_DEPRECATED
+# if defined(__clang__)
+#  define DEPRECATED(func, msg) func __attribute__ ((deprecated("", msg)))
+# elif defined(__GNUC__)
+#  define DEPRECATED(func, msg) func __attribute__ ((deprecated(msg)))
+# else
+#  define DEPRECATED(func, msg) func
+# endif
+#else
+# define DEPRECATED(func, msg) func
+#endif
+
 #include <ViennaRNA/datastructures/basic.h>
+#include <ViennaRNA/model.h>
 
 #ifndef VRNA_DISABLE_BACKWARD_COMPATIBILITY
 
@@ -70,9 +83,6 @@ char *alisnobacktrack_fold_from_pair(const char **sequence,
                                      int        j,
                                      int        *cov);
 
-
-extern double cv_fact /* =1 */;
-extern double nc_fact /* =1 */;
 
 /* max number of mismatch >>>>>..((   )).>>>> */
 #define MISMATCH 3

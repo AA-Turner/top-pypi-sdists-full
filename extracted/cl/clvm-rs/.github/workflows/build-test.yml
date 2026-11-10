@@ -23,10 +23,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15-intel, ubuntu-latest, windows-latest]
-        python: ["3.10"]
+        python: ["3.12"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -87,23 +87,11 @@ jobs:
           . .\venv\Scripts\Activate.ps1
           ln -s venv\Scripts\Activate.ps1 activate
           maturin build -m wheel/Cargo.toml -i python --release --strip
-          # this will install into the venv
-          # it'd be better to use the wheel, but I can't figure out how to do that
-          # TODO: figure this out
-          # this does NOT work: pip install target/wheels/clvm_rs-*.whl
-          maturin develop --release -m wheel/Cargo.toml
-          # the line above also doesn't seem to work
 
       - name: Install clvm_rs wheel
-        if: ${{ !startsWith(matrix.os, 'windows') }}
         run: |
           . ./activate
-          ls target/wheels/
-          # this mess puts the name of the `.whl` file into `$WHEEL_PATH`
-          # remove the dot, use the `glob` lib to grab the file from the directory
-          WHEEL_PATH=$(echo ${{ matrix.python }} | python -c 'DOTLESS=input().replace(".", ""); import glob; print(" ".join(glob.glob("target/wheels/clvm_rs-*-cp%s-abi3-*.whl" % DOTLESS)))' )
-          echo ${WHEEL_PATH}
-          pip install ${WHEEL_PATH}
+          python -m pip install --no-index --no-deps --find-links target/wheels/ clvm_rs
 
       - name: Install other wheels
         run: |
@@ -132,17 +120,17 @@ jobs:
     needs: build_wheels
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Install python
         uses: Chia-Network/actions/setup-python@main
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           merge-multiple: true
           pattern: wheels-*
@@ -159,7 +147,7 @@ jobs:
     runs-on: ubuntu-22.04
     name: Checks
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Set up rusts
@@ -178,9 +166,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15-intel, ubuntu-latest]
-        python: ["3.10"]
+        python: ["3.12"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Set up rusts
@@ -196,7 +184,7 @@ jobs:
       - name: cargo-fuzz
         run: cargo install cargo-fuzz
       - name: Restore fuzz corpus
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: fuzz/corpus
           key: fuzz-corpus-${{ matrix.os }}-${{ hashFiles('fuzz/fuzz_targets/**/*.rs') }}
@@ -210,7 +198,7 @@ jobs:
             cargo +nightly fuzz run "$target" -- -max_total_time=30 || exit 1
           done
       - name: Save fuzz corpus
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: always()
         with:
           path: fuzz/corpus
@@ -226,9 +214,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15-intel, ubuntu-latest, windows-latest]
-        python: ["3.10"]
+        python: ["3.12"]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Set up rusts
@@ -263,12 +251,10 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Run for coverage
         run: |
-          sudo apt-get update
-          sudo apt-get install lcov -y
           rustup component add llvm-tools-preview
           export CARGOFLAGS="-j $(nproc)"
           cargo install grcov
@@ -276,16 +262,20 @@ jobs:
           export LLVM_PROFILE_FILE=$(pwd)/target/clvm_rs-%p-%m.profraw
           export CARGO_TARGET_DIR=$(pwd)/target
           export RUST_TEST_THREADS=$(nproc)
-          cargo test --release --workspace
+          cargo test --release --workspace --features=pre-eval
           python -m venv venv
           source venv/bin/activate
           pip install colorama maturin pytest pytest-cov
           maturin develop --release -m wheel/Cargo.toml --features=openssl
           (cd tests && python generate-programs.py && python run-programs.py) || true
           pytest wheel/python/tests --cov=clvm_rs --cov-report lcov:py_cov.info --cov-branch
-          grcov . --binary-path target -s . --branch --ignore-not-existing --ignore='*/.cargo/*' --ignore='target/*' -o pre_rust_cov.info
+          # Only read Rust profiles; grcov cannot parse coverage.py's LCOV function records.
+          # Keep mangled names to distinguish functions built with different feature flags.
+          grcov target --binary-path target -s . --branch --no-demangle --ignore-not-existing --ignore='*/.cargo/*' --ignore='target/*' -o pre_rust_cov.info
           python -c 'with open("pre_rust_cov.info") as f: lines = [l for l in f if not (l.startswith("DA:") and int(l.split(",")[1].strip()) >= 2**63)]; open("rust_cov.info", "w").writelines(lines)'
-          lcov --add-tracefile rust_cov.info -a py_cov.info -o lcov.info
+          # Rust and Python cover separate files, so their complete LCOV records can be
+          # concatenated without lcov's C-style function/line hit consistency checks.
+          cat rust_cov.info py_cov.info > lcov.info
       - name: Upload to Coveralls
         uses: coverallsapp/github-action@v2
         if: always()

@@ -25,6 +25,7 @@ from langchain_openviking.client import (
     call_openviking,
     compact_json,
     ensure_client,
+    extract_message_text,
     item_value,
     iter_result_items,
     stringify,
@@ -49,11 +50,11 @@ def create_openviking_tools(
     client: Any = None,
     url: str | None = None,
     api_key: str | None = None,
+    auth_mode: str | None = None,
     account: str | None = None,
     user: str | None = None,
     user_id: str | None = None,
     actor_peer_id: str | None = None,
-    path: str | None = None,
     timeout: float = 60.0,
     extra_headers: dict[str, str] | None = None,
     auto_initialize: bool = True,
@@ -79,11 +80,11 @@ def create_openviking_tools(
                     client=client,
                     url=url,
                     api_key=api_key,
+                    auth_mode=auth_mode,
                     account=account,
                     user=user,
                     user_id=user_id,
                     actor_peer_id=actor_peer_id,
-                    path=path,
                     timeout=timeout,
                     extra_headers=extra_headers,
                     auto_initialize=auto_initialize,
@@ -143,6 +144,32 @@ def create_openviking_tools(
             score_threshold=min_score,
         )
         return _format_retrieval_result(result)
+
+    def viking_rule_search(
+        task_context: Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=64000,
+                description="User goal, planned action, and facts affecting Rule applicability.",
+            ),
+        ],
+        rule_probability_threshold: Annotated[
+            float,
+            Field(ge=0, le=1, description="Minimum applicability probability."),
+        ] = 0.65,
+    ) -> str:
+        """Check constraints before a planned action or response and return complete compiled Rules."""
+        result = call_openviking(
+            get_client(),
+            "rule_search",
+            task_context=task_context,
+            options={"rule_probability_threshold": rule_probability_threshold},
+        )
+        rendered = item_value(result, "rendered")
+        if not isinstance(rendered, str):
+            raise ValueError("OpenViking Rule search returned no rendered Rules")
+        return rendered
 
     def viking_browse(
         uri: Annotated[
@@ -408,10 +435,6 @@ def create_openviking_tools(
             bool,
             Field(description="Whether to wait for resource ingestion to finish before returning."),
         ] = False,
-        timeout: Annotated[
-            float | None,
-            Field(description="Optional wait timeout in seconds for resource ingestion."),
-        ] = None,
     ) -> str:
         """Import an explicit resource into OpenViking.
 
@@ -434,7 +457,6 @@ def create_openviking_tools(
                 reason=reason,
                 instruction=instruction,
                 wait=wait,
-                timeout=timeout,
             )
         except Exception as exc:
             if _is_probably_local_path(path) and "direct host filesystem paths" in str(exc):
@@ -460,10 +482,6 @@ def create_openviking_tools(
             bool,
             Field(description="Whether to wait for skill registration to finish before returning."),
         ] = False,
-        timeout: Annotated[
-            float | None,
-            Field(description="Optional wait timeout in seconds for skill registration."),
-        ] = None,
     ) -> str:
         """Register a reusable OpenViking skill for trusted admin workflows."""
 
@@ -472,7 +490,6 @@ def create_openviking_tools(
             "add_skill",
             data=data,
             wait=wait,
-            timeout=timeout,
         )
         return stringify(result, max_chars=8_000)
 
@@ -507,6 +524,7 @@ def create_openviking_tools(
     all_tools: dict[str, StructuredTool] = {
         "viking_find": StructuredTool.from_function(viking_find),
         "viking_search": StructuredTool.from_function(viking_search),
+        "viking_rule_search": StructuredTool.from_function(viking_rule_search),
         "viking_browse": StructuredTool.from_function(viking_browse),
         "viking_read": StructuredTool.from_function(viking_read),
         "viking_grep": StructuredTool.from_function(viking_grep),
@@ -530,6 +548,7 @@ def _profile_tool_names(profile: str, *, allow_forget: bool) -> list[str]:
     retrieval = [
         "viking_find",
         "viking_search",
+        "viking_rule_search",
         "viking_browse",
         "viking_read",
         "viking_grep",
@@ -645,6 +664,8 @@ def _infer_health_state(status: Any) -> str:
             return "unhealthy"
         if state in {"degraded", "initializing", "starting", "pending"}:
             return state
+        if isinstance(status.get("is_healthy"), bool):
+            return "healthy" if status["is_healthy"] else "unhealthy"
     return "unknown"
 
 
@@ -653,7 +674,7 @@ def _safe_status_summary(status: Any) -> dict[str, Any]:
         return {"type": type(status).__name__}
 
     summary: dict[str, Any] = {}
-    for key in ("healthy", "ok", "status", "state", "state_detail"):
+    for key in ("healthy", "ok", "status", "state", "state_detail", "is_healthy"):
         if key in status:
             value = _safe_status_value(status[key])
             if value is not None:
@@ -693,7 +714,10 @@ def _normalize_messages(messages: str | list[dict[str, Any]]) -> list[dict[str, 
                 }
             )
             continue
-        content = str(message.get("content", ""))
+        raw_content = message.get("content", "")
+        content = (
+            extract_message_text(raw_content) if isinstance(raw_content, list) else str(raw_content)
+        )
         if role == "tool":
             normalized.append(
                 {
@@ -735,7 +759,7 @@ def _search_archive_payload(
     *,
     max_matches: int,
 ) -> dict[str, Any]:
-    tokens = [token for token in re.findall(r"[a-z0-9_]+", query.lower()) if len(token) > 1]
+    tokens = _archive_query_tokens(query)
     sections = _archive_sections(payload)
     matches: list[dict[str, str]] = []
     for label, text in sections:
@@ -756,7 +780,7 @@ def _grep_session_history(
     max_matches: int,
 ) -> dict[str, Any]:
     session = call_openviking(client, "get_session", session_id=session_id, auto_create=False)
-    session_uri = item_value(session, "uri", f"viking://user/sessions/{session_id}")
+    session_uri = item_value(session, "uri", f"viking://~/sessions/{session_id}")
     history_uri = f"{str(session_uri).rstrip('/')}/history"
     tokens = _archive_query_tokens(query)
     try:
@@ -793,7 +817,11 @@ def _archive_grep_pattern(query: str) -> str:
 
 
 def _archive_query_tokens(query: str) -> list[str]:
-    return [token for token in re.findall(r"[a-z0-9_]+", query.lower()) if len(token) > 1]
+    return [
+        token
+        for token in re.findall(r"\w+", query.lower())
+        if len(token) > 1 or not token.isascii()
+    ]
 
 
 def _filter_grep_result(

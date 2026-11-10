@@ -8,7 +8,7 @@ use crate::qei_config::QEiConfig;
 use crate::types::*;
 
 use egobox_ego::{EGO_DEFAULT_N_START, find_compromise_index, find_pareto_front_indices};
-use ndarray::{Array1, Array2, ArrayView2, Axis, concatenate, s};
+use ndarray::{Array1, Array2, ArrayView2, Axis};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray2, ToPyArray};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -254,6 +254,12 @@ impl Belfegor {
     ///     y values hold the raw constraint values as returned by `fun` (not transformed
     ///     by `cstr_specs`).
     ///
+    /// Notes
+    /// -----
+    /// Ctrl-C (KeyboardInterrupt) stops the optimization after the current iteration and the
+    /// result obtained so far is returned with status.exit == ExitStatus.INTERRUPT.
+    /// An objective evaluation interrupted by Ctrl-C counts as a failed evaluation.
+    ///
     #[pyo3(signature = (fun, fcstrs=None, fcstr_specs=None, max_iters = 20, run_info = None, outdir = None, warm_start = false, hot_start = None, seed = None, timeout = None, verbose = None, stop_on_error = false))]
     #[allow(clippy::too_many_arguments)]
     fn minimize(
@@ -431,18 +437,7 @@ impl Belfegor {
         let y = match self.egor.cstr_specs.as_ref() {
             Some(specs) => {
                 let specs = specs.iter().map(|s| s.inner.clone()).collect::<Vec<_>>();
-                // constraints transformation expects [obj, cstr_1, ...] rows
-                let y1 = concatenate![
-                    Axis(1),
-                    y_doe.slice(s![.., ..1]),
-                    y_doe.slice(s![.., n_obj..])
-                ];
-                let cstrs = egobox_ego::transform_constraints(&y1, &specs);
-                concatenate![
-                    Axis(1),
-                    y_doe.slice(s![.., ..n_obj]),
-                    cstrs.slice(s![.., 1..])
-                ]
+                egobox_ego::transform_constraints_at(&y_doe.to_owned(), n_obj, &specs)
             }
             None => y_doe.to_owned(),
         };

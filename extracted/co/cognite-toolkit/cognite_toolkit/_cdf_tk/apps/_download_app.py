@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Annotated, Any, TypeVar
@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.dataio import (
     InstanceIO,
     RawIO,
     RecordIO,
+    SequenceRowIO,
     T_Selector,
     TimeSeriesDataIO,
 )
@@ -47,6 +48,7 @@ from cognite_toolkit._cdf_tk.dataio.selectors import (
     RawTableSelector,
     SelectedTable,
     SelectedView,
+    SequenceRowSelector,
 )
 from cognite_toolkit._cdf_tk.dataio.selectors._records import (
     RecordContainerSelector,
@@ -66,6 +68,8 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import (
     InteractiveChartSelect,
     RawTableInteractiveSelect,
     RecordInteractiveSelect,
+    SelectedDocuments,
+    SequenceInteractiveSelect,
     TimeSeriesInteractiveSelect,
     ViewSelectFilter,
 )
@@ -124,6 +128,12 @@ class RecordFormats(StrEnum):
     ndjson = "ndjson"
 
 
+class SequenceFormats(StrEnum):
+    csv = "csv"
+    parquet = "parquet"
+    ndjson = "ndjson"
+
+
 class InstanceTypes(StrEnum):
     node = "node"
     edge = "edge"
@@ -142,6 +152,71 @@ class CompressionFormat(StrEnum):
 DEFAULT_DOWNLOAD_DIR = Path(DATA_DEFAULT_DIR)
 
 
+def _prompt_file_format(display_name: str, options: Iterable[T_Format], default: T_Format) -> T_Format:
+    """Prompt for the file format. Skips the prompt if there is only one option."""
+    available = list(options)
+    if len(available) == 1:
+        return available[0]
+    choices = [Choice(title=str(format_.value), value=format_) for format_ in available]
+    default_choice = next((choice for choice in choices if choice.value == default), choices[0])
+    return questionary.select(
+        f"Select format to download the {display_name} in:", choices=choices, default=default_choice
+    ).unsafe_ask()
+
+
+def _prompt_api_format(display_name: str, default: ApiFormat) -> ApiFormat:
+    return questionary.select(
+        f"Select the API format to download the {display_name} in:",
+        choices=[
+            Choice(title="Request payload format", value=ApiFormat.request),
+            Choice(title="API response format", value=ApiFormat.response),
+        ],
+        default=default,
+    ).unsafe_ask()
+
+
+def _prompt_compression(display_name: str, default: CompressionFormat) -> CompressionFormat:
+    return questionary.select(
+        f"Select compression format to use when downloading the {display_name}:",
+        choices=[Choice(title=compression.value, value=compression) for compression in CompressionFormat],
+        default=default,
+    ).unsafe_ask()
+
+
+def _prompt_output_dir(display_name: str, default: Path) -> Path:
+    return Path(
+        questionary.path(
+            f"Where to download the {display_name}:", default=str(default), only_directories=True
+        ).unsafe_ask()
+    )
+
+
+def _validate_limit(value: str, max_limit: int | None) -> bool | str:
+    try:
+        limit = int(value)
+    except ValueError:
+        return "Enter a whole number."
+    if limit != -1 and limit < 1:
+        return "Enter a positive number, or -1 for no limit."
+    if max_limit is not None and limit > max_limit:
+        return f"Enter a number no greater than {max_limit:,}."
+    return True
+
+
+def _prompt_limit(message: str, default: int, max_limit: int | None = None) -> int:
+    return int(
+        questionary.text(
+            message,
+            default=str(default),
+            validate=lambda value: _validate_limit(value, max_limit),
+        ).unsafe_ask()
+    )
+
+
+def _prompt_verbose(default: bool) -> bool:
+    return questionary.confirm("Do you want verbose output?", default=default).unsafe_ask()
+
+
 class DownloadApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -157,6 +232,8 @@ class DownloadApp(typer.Typer):
         self.command("instances")(self.download_instances_cmd)
         self.command("charts")(self.download_charts_cmd)
         self.command("canvas")(self.download_canvas_cmd)
+        if Flags.EXTEND_DOWNLOAD.is_enabled():
+            self.command("sequences")(self.download_sequences_cmd)
 
     @staticmethod
     def download_main(ctx: typer.Context) -> None:
@@ -169,7 +246,8 @@ class DownloadApp(typer.Typer):
         tables: Annotated[
             list[str] | None,
             typer.Argument(
-                help="List of tables to download. If not provided, an interactive selection will be made.",
+                help="List of tables to download. If not provided, the command runs in interactive mode and "
+                "prompts for all options.",
             ),
         ] = None,
         database: Annotated[
@@ -177,7 +255,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--database",
                 "-d",
-                help="Database to download from. If not provided, the user will be prompted to select a database.",
+                help="Database to download from. Required when tables are provided.",
             ),
         ] = None,
         file_format: Annotated[
@@ -231,7 +309,32 @@ class DownloadApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will download RAW tables from CDF into a temporary directory."""
-        if file_format in {RawFormats.csv, RawFormats.parquet} and not Flags.v010.is_enabled():
+        alpha_formats = {RawFormats.csv, RawFormats.parquet}
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+
+        if not tables:
+            selected_tables = RawTableInteractiveSelect(client, "download").select_tables()
+            available_formats = [
+                format_ for format_ in RawFormats if Flags.v010.is_enabled() or format_ not in alpha_formats
+            ]
+            file_format = _prompt_file_format("raw tables", available_formats, file_format)
+            api_format = _prompt_api_format("raw tables", api_format)
+            compression = _prompt_compression("raw tables", compression)
+            output_dir = _prompt_output_dir("raw tables", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of records to download from each table. Use -1 to download all records.", limit
+            )
+            verbose = _prompt_verbose(verbose)
+        elif database:
+            selected_tables = [RawTableId(db_name=database, name=table) for table in tables]
+        else:
+            raise typer.BadParameter(
+                "The '--database' option is required when specifying tables as arguments.",
+                param_hint="--database",
+            )
+
+        if file_format in alpha_formats and not Flags.v010.is_enabled():
             raise typer.BadParameter(
                 (
                     f"Downloading RAW tables as {file_format.value} is currently behind an alpha feature flag "
@@ -239,20 +342,6 @@ class DownloadApp(typer.Typer):
                 ),
                 param_hint="--format",
             )
-        client = EnvironmentVariables.create_from_environment().get_client()
-        cmd = DownloadCommand(client=client)
-
-        if tables and database:
-            selected_tables = [RawTableId(db_name=database, name=table) for table in tables]
-        elif tables and not database:
-            raise typer.BadParameter(
-                "The '--database' option is required when specifying tables as arguments.",
-                param_hint="--database",
-            )
-        elif not tables and database:
-            selected_tables = RawTableInteractiveSelect(client, "download").select_tables(database=database)
-        else:
-            selected_tables = RawTableInteractiveSelect(client, "download").select_tables()
 
         cmd.run(
             lambda: cmd.download(
@@ -280,7 +369,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="List of data sets to download assets from. If this is not provided, an interactive selection will be made.",
+                help="List of data sets to download assets from. If this is not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         file_format: Annotated[
@@ -335,13 +424,17 @@ class DownloadApp(typer.Typer):
         """This command will download assets from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
-                AssetInteractiveSelect(client, "download"),
-                file_format,
-                compression,
-                output_dir,
-                limit,
-                "assets",
+            data_sets, file_format, api_format, compression, output_dir, limit, verbose = (
+                self._asset_centric_interactive(
+                    AssetInteractiveSelect(client, "download"),
+                    "assets",
+                    file_format,
+                    api_format,
+                    compression,
+                    output_dir,
+                    limit,
+                    verbose,
+                )
             )
 
         selectors = [
@@ -365,53 +458,32 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @classmethod
+    @staticmethod
     def _asset_centric_interactive(
-        cls,
         selector: AssetCentricInteractiveSelect,
+        display_name: str,
         file_format: AssetCentricFormats,
+        api_format: ApiFormat,
         compression: CompressionFormat,
         output_dir: Path,
         limit: int,
-        display_name: str,
-        max_limit: int | None = None,
-        available_formats: type[Enum] = AssetCentricFormats,
-    ) -> tuple[list[str], AssetCentricFormats, CompressionFormat, Path, int, ApiFormat]:
+        verbose: bool,
+    ) -> tuple[list[str], AssetCentricFormats, ApiFormat, CompressionFormat, Path, int, bool]:
+        """Prompts for all options shared by the asset-centric download commands."""
         data_sets = selector.select_data_sets()
-        file_format = questionary.select(
-            f"Select format to download the {display_name} in:",
-            choices=[Choice(title=format_.value, value=format_) for format_ in available_formats],
-            default=file_format,
-        ).unsafe_ask()
-        compression = questionary.select(
-            f"Select compression format to use when downloading the {display_name}:",
-            choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
-            default=compression,
-        ).unsafe_ask()
-        output_dir = Path(
-            questionary.path(
-                f"Where to download the {display_name}:",
-                default=str(output_dir),
-                only_directories=True,
-            ).unsafe_ask()
+        return (
+            data_sets,
+            _prompt_file_format(display_name, AssetCentricFormats, file_format),
+            _prompt_api_format(display_name, api_format),
+            _prompt_compression(display_name, compression),
+            _prompt_output_dir(display_name, output_dir),
+            _prompt_limit(
+                f"The maximum number of {display_name} to download from each dataset. "
+                f"Use -1 to download all {display_name}.",
+                limit,
+            ),
+            _prompt_verbose(verbose),
         )
-        limit = int(
-            questionary.text(
-                f"The maximum number of {display_name} to download from each dataset. Use -1 to download all {display_name}.",
-                default=str(limit),
-                validate=lambda value: value.lstrip("-").isdigit() and (max_limit is None or int(value) <= max_limit),
-            ).unsafe_ask()
-        )
-        api_format = ApiFormat.request
-        api_format = questionary.select(
-            message=f"Select the API format to download the {display_name}:",
-            choices=[
-                Choice(title="Request payload format", value=ApiFormat.request),
-                Choice(title="API response format", value=ApiFormat.response),
-            ],
-            default=ApiFormat.request,
-        ).unsafe_ask()
-        return data_sets, file_format, compression, output_dir, limit, api_format
 
     def download_timeseries_cmd(
         self,
@@ -421,7 +493,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="List of data sets to download time series from. If this is not provided, an interactive selection will be made.",
+                help="List of data sets to download time series from. If this is not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         file_format: Annotated[
@@ -476,13 +548,17 @@ class DownloadApp(typer.Typer):
         """This command will download time series from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
-                TimeSeriesInteractiveSelect(client, "download"),
-                file_format,
-                compression,
-                output_dir,
-                limit,
-                "time series",
+            data_sets, file_format, api_format, compression, output_dir, limit, verbose = (
+                self._asset_centric_interactive(
+                    TimeSeriesInteractiveSelect(client, "download"),
+                    "time series",
+                    file_format,
+                    api_format,
+                    compression,
+                    output_dir,
+                    limit,
+                    verbose,
+                )
             )
 
         selectors = [
@@ -512,7 +588,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="List of data sets to download events from. If this is not provided, an interactive selection will be made.",
+                help="List of data sets to download events from. If this is not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         file_format: Annotated[
@@ -567,13 +643,17 @@ class DownloadApp(typer.Typer):
         """This command will download events from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         if data_sets is None:
-            data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
-                EventInteractiveSelect(client, "download"),
-                file_format,
-                compression,
-                output_dir,
-                limit,
-                "events",
+            data_sets, file_format, api_format, compression, output_dir, limit, verbose = (
+                self._asset_centric_interactive(
+                    EventInteractiveSelect(client, "download"),
+                    "events",
+                    file_format,
+                    api_format,
+                    compression,
+                    output_dir,
+                    limit,
+                    verbose,
+                )
             )
 
         selectors = [
@@ -602,7 +682,7 @@ class DownloadApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="List of data sets to download file metadata from. If this is not provided, an interactive selection will be made.",
+                help="List of data sets to download file metadata from. If this is not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         include_file_contents: Annotated[
@@ -665,26 +745,29 @@ class DownloadApp(typer.Typer):
     ) -> None:
         """This command will download file metadata from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
+        selected: SelectedDocuments | None = None
         if data_sets is None:
-            include_file_contents = questionary.select(
-                "Do you want to include file contents when downloading file metadata?",
-                choices=[
-                    Choice(title="Yes", value=True),
-                    Choice(title="No", value=False),
-                ],
+            include_file_contents = questionary.confirm(
+                "Do you want to include file contents when downloading file metadata? "
+                "If yes, you can download up to 100 files at a time.",
+                default=include_file_contents,
             ).unsafe_ask()
-            if not include_file_contents:
-                # Continue with regular interactive selection
-                data_sets, file_format, compression, output_dir, limit, api_format = self._asset_centric_interactive(
-                    FileMetadataInteractiveSelect(client, "download"),
-                    file_format,
-                    compression,
-                    output_dir,
-                    limit if not include_file_contents else 1000,
-                    "file metadata",
-                    max_limit=1000 if include_file_contents else None,
-                    available_formats=AssetCentricFormats,
-                )
+            if include_file_contents:
+                selected = DocumentsInteractiveSelect(client, max_selected=100).select_documents()
+            else:
+                data_sets = FileMetadataInteractiveSelect(client, "download").select_data_sets()
+            file_format = _prompt_file_format("file metadata", AssetCentricFormats, file_format)
+            api_format = _prompt_api_format("file metadata", api_format)
+            compression = _prompt_compression("file metadata", compression)
+            output_dir = _prompt_output_dir("file metadata", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of file metadata to download from each dataset. "
+                "Use -1 to download all file metadata.",
+                limit,
+            )
+            verbose = _prompt_verbose(verbose)
+        elif include_file_contents:
+            selected = DocumentsInteractiveSelect(client, max_selected=100).select_documents()
         cmd = DownloadCommand(client=client)
 
         def run_download(selectors: Sequence[T_Selector], io: DataIO[T_Selector, Any]) -> None:
@@ -700,19 +783,7 @@ class DownloadApp(typer.Typer):
                 )
             )
 
-        if include_file_contents:
-            selector = DocumentsInteractiveSelect(client, max_selected=100)
-            file_format = questionary.select(
-                "Select format for the downloaded file metadata:",
-                choices=[Choice(title=format_.value, value=format_) for format_ in AssetCentricFormats],
-                default=file_format,
-            ).unsafe_ask()
-            output_dir = Path(
-                questionary.path(
-                    "Where to download the file metadata and contents:", default=str(output_dir), only_directories=True
-                ).unsafe_ask()
-            )
-            selected = selector.select_documents()
+        if selected is not None:
             if selected.selection.file_type == "dms":
                 download_dir_name = "cognite-file-with-content"
                 run_download(
@@ -775,7 +846,8 @@ class DownloadApp(typer.Typer):
         hierarchy: Annotated[
             str | None,
             typer.Argument(
-                help="The asset hierarchy to download.",
+                help="The asset hierarchy to download. If not provided, the command runs in interactive mode and "
+                "prompts for all options.",
             ),
         ] = None,
         file_format: Annotated[
@@ -832,8 +904,15 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         if hierarchy is None:
-            selector = AssetInteractiveSelect(client, "download")
-            hierarchy = selector.select_hierarchy(allow_empty=False)
+            hierarchy = AssetInteractiveSelect(client, "download").select_hierarchy(allow_empty=False)
+            file_format = _prompt_file_format("asset hierarchy", HierarchyFormats, file_format)
+            api_format = _prompt_api_format("asset hierarchy", api_format)
+            compression = _prompt_compression("asset hierarchy", compression)
+            output_dir = _prompt_output_dir("asset hierarchy", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of resources to download for each type. Use -1 to download all resources.", limit
+            )
+            verbose = _prompt_verbose(verbose)
 
         selectors = [
             # MyPy cannot see that resource_type is one of the allowed literals.
@@ -957,16 +1036,7 @@ class DownloadApp(typer.Typer):
         cmd = DownloadCommand(client=client)
 
         selectors: list[InstanceSelector]
-        if instance_spaces and schema_space is None and view_external_ids is None:
-            selectors = [
-                InstanceSpaceSelector(
-                    instance_space=space,
-                    instance_type=instance_type.value,
-                    download_dir_name=space,
-                )
-                for space in instance_spaces
-            ]
-        elif schema_space is None and view_external_ids is None:
+        if not instance_spaces and schema_space is None and view_external_ids is None:
             selector = DataModelingSelect(client, "download instances")
             data_model = selector.select_data_model(
                 inline_views=True,
@@ -1024,9 +1094,23 @@ class DownloadApp(typer.Typer):
                         endpoint="sync",
                     )
                 )
-            output_dir, file_format, compression, limit = cls._interactive_select_shared(
-                output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
+            file_format = _prompt_file_format("instances", InstanceFormats, file_format)
+            api_format = _prompt_api_format("instances", api_format)
+            compression = _prompt_compression("instances", compression)
+            output_dir = _prompt_output_dir("instances", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of instances to download from each view. Use -1 to download all instances.", limit
             )
+            verbose = _prompt_verbose(verbose)
+        elif instance_spaces and schema_space is None and view_external_ids is None:
+            selectors = [
+                InstanceSpaceSelector(
+                    instance_space=space,
+                    instance_type=instance_type.value,
+                    download_dir_name=space,
+                )
+                for space in instance_spaces
+            ]
         elif schema_space is not None and view_external_ids is not None:
             selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
             download_dir_name = sanitize_filename(schema_space)
@@ -1075,62 +1159,12 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @classmethod
-    def _interactive_select_shared(
-        cls,
-        output_dir: Path,
-        file_format: T_Format,
-        file_format_options: type[T_Format],
-        compression: CompressionFormat,
-        limit: int,
-        display_name: str,
-        selector_type: str,
-        max_limit: int | None = None,
-    ) -> tuple[Path, T_Format, CompressionFormat, int]:
-        """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
-        selected_output_dir = Path(
-            questionary.path("Where to download the data:", default=str(output_dir), only_directories=True).unsafe_ask()
-        )
-
-        file_formats = [Choice(title=format_.value, value=format_) for format_ in file_format_options]
-        if len(file_formats) == 1:
-            selected_file_format = file_formats[0].value
-        else:
-            selected_file_format = questionary.select(
-                "Select format to download the data in:",
-                choices=file_formats,
-                default=file_format.value,
-            ).unsafe_ask()
-        if not isinstance(selected_file_format, file_format_options):
-            raise ValueError(f"Expected a {file_format_options.__name__} value, got {selected_file_format!r}.")
-
-        selected_compression = questionary.select(
-            "Select compression format to use when downloading the data:",
-            choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
-            default=compression,
-        ).unsafe_ask()
-        if not isinstance(selected_compression, CompressionFormat):
-            raise ValueError(f"Expected a compression format, got {selected_compression!r}.")
-        limit_prompt = f"The maximum number of {display_name} to download per {selector_type}. "
-        if max_limit is not None:
-            limit_prompt += f"Use -1 to download up to the maximum of {max_limit:,} {display_name}."
-        else:
-            limit_prompt += f"Use -1 to download all {display_name}."
-        selected_limit = int(
-            questionary.text(
-                limit_prompt,
-                default=str(limit),
-                validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
-            ).unsafe_ask()
-        )
-        return selected_output_dir, selected_file_format, selected_compression, selected_limit
-
     @staticmethod
     def download_datapoints_cmd(
         dataset: Annotated[
             str | None,
             typer.Argument(
-                help="The dataset to download timeseries from. If not provided, an interactive selection will be made.",
+                help="The dataset to download timeseries from. If not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         start_time: Annotated[
@@ -1226,24 +1260,16 @@ class DownloadApp(typer.Typer):
                 ).unsafe_ask()
                 or None
             )
-            file_format = questionary.select(
-                "Select format to download the datapoints in:",
-                choices=[Choice(title=format_.value, value=format_) for format_ in DatapointFormats],
-                default=file_format,
-            ).unsafe_ask()
-            output_dir = Path(
-                questionary.path(
-                    "Where to download the datapoints:", default=str(output_dir), only_directories=True
-                ).unsafe_ask()
+            file_format = _prompt_file_format("datapoints", DatapointFormats, file_format)
+            api_format = _prompt_api_format("datapoints", api_format)
+            output_dir = _prompt_output_dir("datapoints", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries. "
+                "The maximum number of datapoints in total is 10 million and 100 000 per timeseries.",
+                limit,
+                max_limit=10_000_000,
             )
-            limit = int(
-                questionary.text(
-                    "The maximum number of timeseries to download datapoints from. Use -1 to download all timeseries."
-                    "The maximum number of datapoints in total is 10 million and 100 000 per timeseries.",
-                    default=str(limit),
-                    validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
-                ).unsafe_ask()
-            )
+            verbose = _prompt_verbose(verbose)
 
         cmd = DownloadCommand(client=client)
         selector = DataPointsDataSetSelector(
@@ -1271,7 +1297,7 @@ class DownloadApp(typer.Typer):
         external_ids: Annotated[
             list[str] | None,
             typer.Argument(
-                help="List of chart external IDs to download. If not provided, an interactive selection will be made.",
+                help="List of chart external IDs to download. If not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         file_format: Annotated[
@@ -1333,12 +1359,20 @@ class DownloadApp(typer.Typer):
         """This command will download Charts from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
-        selector: ChartSelector
         if external_ids is None:
-            selected_external_ids = InteractiveChartSelect(client).select_external_ids()
-            selector = ChartExternalIdSelector(external_ids=tuple(selected_external_ids), download_dir_name="charts")
-        else:
-            selector = ChartExternalIdSelector(external_ids=tuple(external_ids), download_dir_name="charts")
+            external_ids = InteractiveChartSelect(client).select_external_ids()
+            file_format = _prompt_file_format("charts", ChartFormats, file_format)
+            api_format = _prompt_api_format("charts", api_format)
+            skip_backend_services = questionary.confirm(
+                "Do you want to skip downloading backend services for the charts, i.e., monitoring jobs and "
+                "scheduled calculations?",
+                default=skip_backend_services,
+            ).unsafe_ask()
+            compression = _prompt_compression("charts", compression)
+            output_dir = _prompt_output_dir("charts", output_dir)
+            limit = _prompt_limit("The maximum number of charts to download. Use -1 to download all charts.", limit)
+            verbose = _prompt_verbose(verbose)
+        selector: ChartSelector = ChartExternalIdSelector(external_ids=tuple(external_ids), download_dir_name="charts")
 
         cmd.run(
             lambda: cmd.download(
@@ -1358,7 +1392,7 @@ class DownloadApp(typer.Typer):
         external_ids: Annotated[
             list[str] | None,
             typer.Argument(
-                help="List of canvas external IDs to download. If not provided, an interactive selection will be made.",
+                help="List of canvas external IDs to download. If not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         file_format: Annotated[
@@ -1413,12 +1447,17 @@ class DownloadApp(typer.Typer):
         """This command will download Canvas from CDF into a temporary directory."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
-        selector: CanvasSelector
         if external_ids is None:
-            selected_external_ids = InteractiveCanvasSelect(client).select_external_ids()
-            selector = CanvasExternalIdSelector(external_ids=tuple(selected_external_ids), download_dir_name="canvas")
-        else:
-            selector = CanvasExternalIdSelector(external_ids=tuple(external_ids), download_dir_name="canvas")
+            external_ids = InteractiveCanvasSelect(client).select_external_ids()
+            file_format = _prompt_file_format("canvas", CanvasFormats, file_format)
+            api_format = _prompt_api_format("canvas", api_format)
+            compression = _prompt_compression("canvas", compression)
+            output_dir = _prompt_output_dir("canvas", output_dir)
+            limit = _prompt_limit("The maximum number of canvas to download. Use -1 to download all canvas.", limit)
+            verbose = _prompt_verbose(verbose)
+        selector: CanvasSelector = CanvasExternalIdSelector(
+            external_ids=tuple(external_ids), download_dir_name="canvas"
+        )
 
         cmd.run(
             lambda: cmd.download(
@@ -1441,7 +1480,7 @@ class DownloadApp(typer.Typer):
                 "--stream",
                 "-s",
                 help="The external ID of the stream to download records from. "
-                "If not provided, an interactive selection will be made.",
+                "If not provided, the command runs in interactive mode and prompts for all options.",
             ),
         ] = None,
         instance_spaces: Annotated[
@@ -1534,15 +1573,12 @@ class DownloadApp(typer.Typer):
             download_dir_name = sanitize_filename(selected_stream.external_id)
 
             selected_instance_spaces: tuple[str, ...] | None = None
-            if instance_spaces:
-                selected_instance_spaces = tuple(instance_spaces)
-            else:
-                select_instance_space = questionary.confirm(
-                    "Do you want to filter records by space? If no, records from all spaces will be downloaded.",
-                    default=False,
-                ).unsafe_ask()
-                if select_instance_space:
-                    selected_instance_spaces = tuple(record_select.select_instance_spaces())
+            select_instance_space = questionary.confirm(
+                "Do you want to filter records by space? If no, records from all spaces will be downloaded.",
+                default=bool(instance_spaces),
+            ).unsafe_ask()
+            if select_instance_space:
+                selected_instance_spaces = tuple(record_select.select_instance_spaces())
             selected_initialize_cursor = record_select.select_initialize_cursor(default=initialize_cursor)
             selectors = [
                 RecordContainerSelector(
@@ -1554,16 +1590,17 @@ class DownloadApp(typer.Typer):
                 )
                 for container in selected_containers
             ]
-            output_dir, file_format, compression, limit = cls._interactive_select_shared(
-                output_dir,
-                file_format,
-                RecordFormats,
-                compression,
+            file_format = _prompt_file_format("records", RecordFormats, file_format)
+            api_format = _prompt_api_format("records", api_format)
+            compression = _prompt_compression("records", compression)
+            output_dir = _prompt_output_dir("records", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of records to download per container. "
+                f"Use -1 to download up to the maximum of {RecordIO.MAX_TOTAL_RECORDS:,} records.",
                 limit,
-                "records",
-                "container",
                 max_limit=RecordIO.MAX_TOTAL_RECORDS,
             )
+            verbose = _prompt_verbose(verbose)
         elif stream is not None and containers is not None:
             selected_instance_spaces = tuple(instance_spaces) if instance_spaces else None
             parsed_containers: list[SelectedContainer] = []
@@ -1595,6 +1632,94 @@ class DownloadApp(typer.Typer):
             lambda: cmd.download(
                 selectors=selectors,
                 io=RecordIO(client, api_format=api_format.value),
+                output_dir=output_dir,
+                file_format=f".{file_format.value}",
+                compression=compression.value,
+                limit=limit if limit != -1 else None,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def download_sequences_cmd(
+        ctx: typer.Context,
+        external_ids: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="List of sequence external IDs to download rows from. If not provided, the command runs in "
+                "interactive mode and prompts for all options.",
+            ),
+        ] = None,
+        file_format: Annotated[
+            SequenceFormats,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to download the sequence rows in.",
+            ),
+        ] = SequenceFormats.csv,
+        api_format: Annotated[
+            ApiFormat,
+            typer.Option(
+                "--api-format",
+                help="API communication format. 'request' uses the request payload format, 'response' uses the API response format.",
+            ),
+        ] = ApiFormat.request,
+        compression: Annotated[
+            CompressionFormat,
+            typer.Option(
+                "--compression",
+                "-z",
+                help="Compression format to use when downloading the sequence rows.",
+            ),
+        ] = CompressionFormat.none,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to download the sequence rows.",
+                allow_dash=True,
+            ),
+        ] = DEFAULT_DOWNLOAD_DIR,
+        limit: Annotated[
+            int,
+            typer.Option(
+                "--limit",
+                "-l",
+                help="The maximum number of rows to download from each sequence. Use -1 to download all rows.",
+            ),
+        ] = 100_000,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will download sequence rows from CDF into a temporary directory."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DownloadCommand(client=client)
+        if not external_ids:
+            external_ids = SequenceInteractiveSelect(client, "download").select_sequences()
+            file_format = _prompt_file_format("sequence rows", SequenceFormats, file_format)
+            api_format = _prompt_api_format("sequence rows", api_format)
+            compression = _prompt_compression("sequence rows", compression)
+            output_dir = _prompt_output_dir("sequence rows", output_dir)
+            limit = _prompt_limit(
+                "The maximum number of rows to download from each sequence. Use -1 to download all rows.", limit
+            )
+            verbose = _prompt_verbose(verbose)
+
+        selectors = [
+            SequenceRowSelector(external_id=external_id, download_dir_name="sequences") for external_id in external_ids
+        ]
+        cmd.run(
+            lambda: cmd.download(
+                selectors=selectors,
+                io=SequenceRowIO(client, api_format=api_format.value),
                 output_dir=output_dir,
                 file_format=f".{file_format.value}",
                 compression=compression.value,

@@ -220,6 +220,100 @@ class TestIssueResolutionMarker:
         )
         assert parse_issue_resolution(text).value == "resolved"
 
+    # ── #3915: the marker must start its own line, not just appear in it ──
+
+    def test_mid_line_mention_is_not_a_claim(self) -> None:
+        """A sentence that happens to contain the marker text mid-line (not
+        at the start) is prose about the marker, not a real claim — reads
+        as the "resolved" default (#3915, the #3901 false positive)."""
+        from coord.models import parse_issue_resolution
+
+        text = (
+            "The merge gate logic whose merge carried ISSUE_RESOLUTION: "
+            "partial drives the real behaviour here."
+        )
+        result = parse_issue_resolution(text)
+        assert result.value == "resolved"
+        assert result.reason == ""
+
+    def test_quoted_marker_inside_a_sentence_is_not_a_claim(self) -> None:
+        """Prose that quotes the marker mid-sentence (the #3889 false
+        positive) must not count, even with backticks around it."""
+        from coord.models import parse_issue_resolution
+
+        text = (
+            "The commit message states `ISSUE_RESOLUTION: partial`. "
+            "This matches exactly what the review expected."
+        )
+        result = parse_issue_resolution(text)
+        assert result.value == "resolved"
+        assert result.reason == ""
+
+    def test_real_marker_still_wins_over_later_mid_line_mention(self) -> None:
+        """A genuine marker at the start of its own line still parses
+        correctly even when followed by prose that later mentions the
+        marker mid-line (#3915) — the mid-line mention is simply never a
+        match, so the real one (the only match) is used."""
+        from coord.models import parse_issue_resolution
+
+        text = (
+            "ISSUE_RESOLUTION: partial — root cause not fixed yet\n\n"
+            "Note: the merge gate logic whose merge carried "
+            "ISSUE_RESOLUTION: partial drives the real behaviour."
+        )
+        result = parse_issue_resolution(text)
+        assert result.value == "partial"
+        assert result.reason == "root cause not fixed yet"
+
+    def test_emphasis_prefixed_marker_at_line_start_still_parses(self) -> None:
+        """Markdown emphasis (`**ISSUE_RESOLUTION:**`) or blockquote/backtick
+        decoration right before the marker at the START of a line is still
+        a real claim, not prose (#3915)."""
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution("**ISSUE_RESOLUTION:** partial — still broken")
+        assert result.value == "partial"
+        assert result.reason == "still broken"
+
+        result = parse_issue_resolution("> ISSUE_RESOLUTION: investigation — n/a")
+        assert result.value == "investigation"
+
+    def test_list_and_heading_prefixed_marker_still_parses(self) -> None:
+        """#3928: `-`/`+`/`#` prefixes (Markdown list items/headings) are a
+        real claim, just like `*` already was — not a fail-open default."""
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution("- ISSUE_RESOLUTION: partial — X")
+        assert result.value == "partial"
+        assert result.reason == "X"
+
+        result = parse_issue_resolution("## ISSUE_RESOLUTION: partial — X")
+        assert result.value == "partial"
+        assert result.reason == "X"
+
+    def test_backtick_quoted_marker_at_line_start_is_not_a_claim(self) -> None:
+        """#3928: a line-leading backtick-quoted mention of the marker
+        (its code span closing again later on the same line) is a
+        quotation, not a claim — this is the exact #3916 review-text shape
+        that made #3915 itself merge as "partial"."""
+        from coord.models import parse_issue_resolution
+
+        text = "`ISSUE_RESOLUTION: partial`. This matches exactly what review expected."
+        result = parse_issue_resolution(text)
+        assert result.value == "resolved"
+
+    def test_punctuation_only_reason_reads_as_empty(self) -> None:
+        """A reason left over after separator-stripping that is nothing but
+        trailing punctuation (e.g. the quoting sentence's own "`.") must
+        read as empty, not a dangling fragment (#3915)."""
+        from coord.models import parse_issue_resolution
+
+        result = parse_issue_resolution(
+            "ISSUE_RESOLUTION: partial.\n\nMore prose after it."
+        )
+        assert result.value == "partial"
+        assert result.reason == ""
+
     def test_reviewer_partial_overrides_worker_resolved(self) -> None:
         from coord.models import IssueResolution, effective_issue_resolution
 
@@ -1034,6 +1128,55 @@ class TestProcess:
         assert call_args[1] == 1
         assert "quadraui#999" in call_args[2]
         assert call_kwargs.get("repo_github") == "acme/api"
+
+    def test_punctuation_only_reason_falls_back_to_generic_remainder_text(
+        self,
+    ) -> None:
+        # #3915: a `ISSUE_RESOLUTION: partial` marker whose reason is
+        # nothing but trailing punctuation (parsed as an empty reason) must
+        # fall back to the generic "What remains:" wording, never print a
+        # dangling "What remains: ." fragment.
+        board = self._board_with_work("ISSUE_RESOLUTION: partial.")
+        items = [_q("a", assignment_type="work")]
+        with patch("coord.merge_queue.comment_on_issue") as fake_comment:
+            events = process(items, FakeGh(), board=board)
+        assert items[0].state == MERGED
+        assert any(e.kind == "merged_partial" for e in events)
+        assert fake_comment.call_count == 1
+        call_args, _call_kwargs = fake_comment.call_args
+        comment_body = call_args[2]
+        assert "What remains:" in comment_body
+        assert "What remains: ." not in comment_body
+        assert "What remains: \n" not in comment_body
+        assert "marked this PR as not fully" in comment_body
+
+    def test_remainder_builder_falls_back_on_a_handbuilt_blank_reason(
+        self,
+    ) -> None:
+        # #3928: `coord.models.parse_issue_resolution` already normalises a
+        # punctuation-only reason down to `""`, so the generic fallback
+        # inside `_issue_resolution_remainder_text` is unreachable through
+        # that parser alone — every `IssueResolution` it returns already
+        # satisfies `is_blank_issue_resolution_reason` only when the raw
+        # reason is actually empty. Exercise the builder directly with a
+        # hand-built `IssueResolution` whose `reason` is non-empty but
+        # still blank (nothing but markdown punctuation) to prove the
+        # fallback itself still fires, rather than only re-testing the
+        # parser's own normalisation under a different name.
+        from coord.merge_queue import _issue_resolution_remainder_text
+        from coord.models import IssueResolution
+
+        remainder = _issue_resolution_remainder_text(
+            IssueResolution("partial", "**`.`**")
+        )
+        assert remainder == (
+            "the worker/reviewer marked this PR as not fully "
+            "resolving the issue — see the PR for details."
+        )
+        assert _issue_resolution_remainder_text(
+            IssueResolution("partial", "root cause elsewhere")
+        ) == "root cause elsewhere"
+        assert _issue_resolution_remainder_text(IssueResolution("resolved", "")) == ""
 
     def test_comment_failure_does_not_revert_the_merge(self) -> None:
         # Same best-effort posture as `close_issue` failures (#806).
@@ -7397,6 +7540,69 @@ class TestRefreshEntryAssignment:
         assert load_queue() == []
 
 
+class TestClearStaleSmokeErrorForAssignment:
+    """#3917: a fresh terminal test verdict clears a persisted stale-smoke
+    `error`, mirroring `refresh_entry_assignment`'s review-error clear above
+    for the one gate that had no analogous eager clear."""
+
+    def _work(self, aid: str, branch: str = "worker/orig") -> Assignment:
+        return Assignment(
+            machine_name="m1",
+            repo_name="api",
+            issue_number=1,
+            issue_title="t",
+            assignment_id=aid,
+            type="work",
+            status="done",
+            branch=branch,
+        )
+
+    def test_clears_stale_smoke_error(self, coord_db) -> None:
+        work = self._work("w1")
+        mq.enqueue(work, repo_github="acme/api", target_branch="main")
+        items = load_queue()
+        items[0].error = (
+            "smoke test verdict is stale: recorded against branch "
+            "c6ef8e6, branch is now 4fb8bea — re-verify against the "
+            "current base, then `coord test w1 --passed`"
+        )
+        mq.save_queue(items)
+
+        result = mq.clear_stale_smoke_error_for_assignment("w1")
+        assert result is True
+        assert load_queue()[0].error is None
+
+    def test_noop_when_no_matching_entry(self, coord_db) -> None:
+        assert mq.clear_stale_smoke_error_for_assignment("does-not-exist") is False
+
+    def test_noop_when_error_is_not_stale_smoke(self, coord_db) -> None:
+        work = self._work("w1")
+        mq.enqueue(work, repo_github="acme/api", target_branch="main")
+        items = load_queue()
+        items[0].error = "review required but not approved"
+        mq.save_queue(items)
+
+        result = mq.clear_stale_smoke_error_for_assignment("w1")
+        assert result is False
+        assert load_queue()[0].error == "review required but not approved"
+
+    def test_does_not_touch_merged_entry(self, coord_db) -> None:
+        work = self._work("w1")
+        mq.enqueue(work, repo_github="acme/api", target_branch="main")
+        items = load_queue()
+        items[0].state = mq.MERGED
+        items[0].error = "smoke test verdict is stale: recorded against branch a, branch is now b"
+        mq.save_queue(items)
+
+        result = mq.clear_stale_smoke_error_for_assignment("w1")
+        assert result is False
+        assert load_queue()[0].error is not None
+
+    def test_empty_assignment_id_is_noop(self, coord_db) -> None:
+        assert mq.clear_stale_smoke_error_for_assignment("") is False
+        assert mq.clear_stale_smoke_error_for_assignment(None) is False
+
+
 class TestReconcileConflictEntries:
     """#1477: a CONFLICT entry re-tests its cached verdict on every tick
     instead of trusting the `gh pr merge` failure recorded whenever the
@@ -7651,6 +7857,79 @@ class TestReconcileHumanRequiredConflictLatch:
         assert gh.mergeable_calls == []
         reloaded = load_queue()[0]
         assert reloaded.state == mq.HUMAN_REQUIRED
+
+    def test_unparks_head_unmoved_latch_once_mergeable_again(self, coord_db) -> None:
+        """#3871: unlike the latches above, a "branch head did not move"
+        HUMAN_REQUIRED latch IS a genuine mergeability question — the
+        branch may clear on its own (another push, a settled retry), so
+        this must stay eligible for re-probing rather than parking
+        forever like the non-mergeability causes."""
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = (
+            "Pull request #100 is not mergeable; the conflict-fix worker "
+            "completed but the branch head did not move (still abc123) "
+            "— the push appears to be missing or was rejected, and a "
+            "fresh automated conflict-fix could not be dispatched (no "
+            "capable machine, or one already active) — push the fix by "
+            "hand, or re-run `coord merge` once a machine is free."
+        )
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert len(events) == 1
+        assert events[0].kind == "reopened"
+        reloaded = load_queue()[0]
+        assert reloaded.state == PENDING
+        assert reloaded.error is None
+
+
+class TestConflictFixActuallyGaveUp:
+    """#3871: `coord.drive`'s HUMAN_REQUIRED exit text, and any other
+    caller describing a latch to a human, must use this ONE function to
+    decide whether an automated conflict-fix actually gave up on a real
+    conflict — rather than assuming it always did, which was simply false
+    for every escalation shape below."""
+
+    def test_true_for_an_ordinary_mechanical_give_up(self) -> None:
+        assert mq.conflict_fix_actually_gave_up(
+            "Pull request #100 is not mergeable; conflict-fix worker did "
+            "not resolve. Manual rebase required.",
+        ) is True
+
+    def test_false_for_head_unmoved(self) -> None:
+        assert mq.conflict_fix_actually_gave_up(
+            "Pull request #100 is not mergeable; the conflict-fix worker "
+            "completed but the branch head did not move (still abc123) "
+            "— the push appears to be missing or was rejected, and a "
+            "fresh automated conflict-fix could not be dispatched (no "
+            "capable machine, or one already active) — push the fix by "
+            "hand, or re-run `coord merge` once a machine is free.",
+        ) is False
+
+    def test_false_for_usage_limit_kill(self) -> None:
+        assert mq.conflict_fix_actually_gave_up(
+            "conflict-fix worker was killed by the account's 5-hour "
+            "usage limit — not a real conflict.",
+        ) is False
+
+    def test_false_for_already_upstream(self) -> None:
+        assert mq.conflict_fix_actually_gave_up(
+            "stale-rebase worker found: no unique commits. Branch "
+            "content is already present on main — nothing to merge.",
+        ) is False
+
+    def test_false_for_declined_escalation(self) -> None:
+        assert mq.conflict_fix_actually_gave_up(
+            "the rebase was not content-preserving against the new "
+            "base, and the ordinary conflict-fix escalation could not "
+            "be dispatched either — manual resolution required.",
+        ) is False
+
+    def test_false_for_none_or_empty(self) -> None:
+        assert mq.conflict_fix_actually_gave_up(None) is False
+        assert mq.conflict_fix_actually_gave_up("") is False
 
 
 class TestReconcileConflictEntriesRebaseRefusalGuard:
@@ -9048,6 +9327,43 @@ class TestPlan:
         assert plan[0].reason is None
         assert plan[0].rank == 1
         assert plan[0].size == 100
+
+    def test_blocked_by_another_rows_merge_gate_reservation(self, coord_db) -> None:
+        """#3886: `plan()` (the `coord merge --plan`/TUI panel read) must
+        render the SAME reservation block `process()` would apply live —
+        otherwise an operator sees PLAN_READY for an entry a live merge
+        attempt actually defers."""
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#99", ttl_seconds=600) is True
+        items = [_q("w1", size=100)]
+        save_queue(items)
+        board = self._board(completed=[
+            self._work("w1", test_state="passed"),
+            self._review("w1", verdict="approve"),
+        ])
+        cfg = self._config()
+        plan = mq.plan(board, cfg)
+        assert len(plan) == 1
+        assert plan[0].status == mq.PLAN_BLOCKED
+        assert "api#99" in plan[0].reason
+
+    def test_not_blocked_by_its_own_merge_gate_reservation(self, coord_db) -> None:
+        """The holder's own entry must keep reading READY — only a
+        DIFFERENT entry in the same repo defers."""
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("w1", size=100)]
+        save_queue(items)
+        board = self._board(completed=[
+            self._work("w1", test_state="passed"),
+            self._review("w1", verdict="approve"),
+        ])
+        cfg = self._config()
+        plan = mq.plan(board, cfg)
+        assert len(plan) == 1
+        assert plan[0].status == mq.PLAN_READY
 
     def test_ready_when_gh_ops_backfills_null_branch_patch_id(self, coord_db) -> None:
         """#1506: an entry whose approved review predates #1475
@@ -14815,6 +15131,29 @@ class TestStaleSmokeConflictProbe:
         assert mq.is_stale_smoke_reason(reason) is True
 
 
+def test_stale_smoke_anchor_reads_which_side_moved_from_the_prose() -> None:
+    """#3861: `coord.drive`'s latched-reason check needs to tell "the BRANCH
+    moved past the recorded SHA" apart from "the BASE moved" over the same
+    rendered prose `is_stale_smoke_reason` already classifies."""
+    assert mq.stale_smoke_anchor(
+        "smoke test verdict is stale: recorded against branch 3d2a8c8, "
+        "branch is now e8c8948 — re-verify against the current base, then "
+        "`coord test w1 --passed`"
+    ) == "branch"
+    assert mq.stale_smoke_anchor(
+        "test verdict stale (recorded against base f6216e4, base now "
+        "c50e30c)"
+    ) == "base"
+    assert mq.stale_smoke_anchor(
+        "test verdict stale (Test stage stuck at 'running' with no live "
+        "worker)"
+    ) == "run"
+    assert mq.stale_smoke_anchor("smoke test required but no verdict recorded") is None
+    assert mq.stale_smoke_anchor("review required but not approved") is None
+    assert mq.stale_smoke_anchor("") is None
+    assert mq.stale_smoke_anchor(None) is None
+
+
 # ── #2246: post-merge sibling conflict sweep ─────────────────────────────────
 
 class _SweepGh:
@@ -15597,6 +15936,26 @@ class TestAttemptDirectMergeForInertBaseMove:
         assert gh.close_calls == [(entry.repo_github, entry.issue_number)]
         assert any(e.kind == "merged" for e in events)
 
+    def test_confirmed_success_releases_the_entrys_own_merge_gate_reservation(
+        self, coord_db,
+    ) -> None:
+        """#3886: this takeover is a real landing just like `process()`'s
+        own success path — it must release a reservation THIS entry holds
+        too, via the shared `_finalize_merged_entry`, not leave it held for
+        the rest of its TTL."""
+        from coord.state import get_merge_reservation, reserve_merge_slot
+
+        entry = _q("w1", pr=42, state=CONFLICT, issue_number=1)
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        gh = FakeGh(merge_results={42: (True, "merged via API")})
+
+        mq.attempt_direct_merge_for_inert_base_move(
+            entry, gh, None, None,
+            issue_resolution=self._resolved, issue_close_block_reason=None,
+        )
+
+        assert get_merge_reservation("api") is None
+
     def test_declined_merge_returns_none_and_leaves_entry_untouched(self) -> None:
         entry = _q("w1", pr=42, state=CONFLICT)
         entry.error = "original conflict error"
@@ -15640,4 +15999,254 @@ class TestAttemptDirectMergeForInertBaseMove:
 
         assert events is None
         assert entry.state == CONFLICT
-        assert entry.error == "original conflict error"
+
+
+# ── #3886 (#3859 remainder): process() honors the per-repo merge-gate
+# reservation ──────────────────────────────────────────────────────────────
+
+
+class TestProcessHonorsMergeGateReservation:
+    """`coord.state.get_merge_reservation`/`release_merge_reservation` are
+    written by the board-doctor stale-rebase sweep
+    (`coord.commands.drive_queue._run_auto_revalidate_checks_stale`, #3859)
+    but, before this, never READ by any merge path — a sibling could still
+    merge while the reserving row's re-run CI was in flight and invalidate
+    its green, approved PR all over again. `process()` is the one place
+    `coord merge`, the daemon `/merge` endpoint, and a live `coord drive`
+    session's merge step (which shells out to `coord merge`) all converge,
+    so checking the reservation there is the single answer for all three."""
+
+    def test_defers_mergeable_sibling_while_reservation_is_held(self, coord_db) -> None:
+        from coord.state import get_merge_reservation, reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("a", issue_number=1), _q("b", issue_number=2)]
+        gh = FakeGh()
+        events = process(items, gh)
+
+        by_aid = {e.entry.assignment_id: e for e in events if e.kind in (
+            "merged", "merge_gate_reserved",
+        )}
+        assert by_aid["a"].kind == "merged"
+        assert by_aid["b"].kind == "merge_gate_reserved"
+        assert "api#1" in by_aid["b"].message
+        assert items[0].state == MERGED  # holder "a" merges normally
+        assert items[1].state == PENDING  # sibling "b" deferred, not failed
+        assert items[1].error == by_aid["b"].message
+        # Only the holder's PR was ever actually merged — the sibling's was
+        # never touched.
+        assert gh.merge_calls == [(items[0].repo_github, items[0].pr_number, "rebase")]
+        # The holder's own merge released its reservation — nothing left
+        # to block "b" on a later pass.
+        assert get_merge_reservation("api") is None
+
+    def test_sibling_merges_once_the_holder_has_merged(self, coord_db) -> None:
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("a", issue_number=1), _q("b", issue_number=2)]
+        gh = FakeGh()
+        process(items, gh)
+        assert items[0].state == MERGED
+        assert items[1].state == PENDING
+
+        # Second pass: "a" is no longer PENDING so it's filtered out of this
+        # tick's group entirely; "b" is no longer deferred since the
+        # reservation released the instant "a" landed.
+        events = process(items, gh)
+        merged = [e for e in events if e.kind == "merged"]
+        assert [e.entry.assignment_id for e in merged] == ["b"]
+        assert items[1].state == MERGED
+
+    def test_sibling_merges_once_the_reservation_expires(self, coord_db) -> None:
+        from coord.state import reserve_merge_slot
+
+        # A negative TTL puts `expires_at` in the past immediately — the
+        # same "already expired" shape a real TTL timeout eventually
+        # reaches, without a test needing to sleep through it.
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=-1) is True
+        items = [_q("b", issue_number=2)]
+        gh = FakeGh()
+        events = process(items, gh)
+
+        assert any(e.kind == "merged" for e in events)
+        assert items[0].state == MERGED
+
+    def test_holder_itself_is_never_deferred_by_its_own_reservation(
+        self, coord_db,
+    ) -> None:
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("a", issue_number=1)]
+        gh = FakeGh()
+        events = process(items, gh)
+
+        assert not any(e.kind == "merge_gate_reserved" for e in events)
+        assert items[0].state == MERGED
+
+    def test_force_merge_does_not_bypass_the_reservation(self, coord_db) -> None:
+        """#3886: explicit — `--force-merge` skips the CI gate, never the
+        merge-gate reservation. No new bypass surface is added for it."""
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("a", issue_number=1), _q("b", issue_number=2)]
+        gh = FakeGh()
+        events = process(items, gh, force_merge=True)
+
+        by_aid = {e.entry.assignment_id: e.kind for e in events}
+        assert by_aid["b"] == "merge_gate_reserved"
+        assert items[1].state == PENDING
+
+    def test_3859_race_sibling_does_not_merge_while_holder_ci_is_pending(
+        self, coord_db,
+    ) -> None:
+        """Regression for the exact #3859 race: row A reserves the gate
+        for a checks_stale re-run; while THAT re-run's CI is still pending
+        (A itself cannot merge yet either), a fully mergeable sibling B
+        must not leapfrog it — not merged, not even attempted."""
+        from types import SimpleNamespace
+
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("a", issue_number=1, pr=200), _q("b", issue_number=2, pr=201)]
+
+        class _Ci:
+            is_available = True
+
+            def list_checks_for_pr(self, repo, number):
+                if number == 200:
+                    return [SimpleNamespace(
+                        name="build", status="in_progress", conclusion=None,
+                        started_at=None, completed_at=None,
+                    )]
+                return [SimpleNamespace(
+                    name="build", status="completed", conclusion="success",
+                    started_at=2000.0, completed_at=None,
+                )]
+
+        class _Gh(FakeGh):
+            # #3886: the reservation gate now runs AFTER the CI-staleness
+            # gate (`_ci_checks_are_stale`) rather than before it, so B's
+            # green check must actually read as FRESH to reach it — a plain
+            # `FakeGh` has no `get_branch_commit_timestamp` at all, which
+            # fails CLOSED (stale) regardless of `started_at` (see that
+            # function's docstring).
+            def get_branch_commit_timestamp(self, repo, branch):
+                return 1000.0
+
+        gh = _Gh()
+        events = process(items, gh, ci_store=_Ci())
+
+        kinds = {e.entry.assignment_id: e.kind for e in events}
+        # A is blocked on its own still-pending CI — never reaches the
+        # reservation check's own "holder" branch at all here, which is
+        # fine: it simply never merges this tick either.
+        assert kinds["a"] == "checks_pending"
+        # B, otherwise fully mergeable, is deferred by the reservation —
+        # the #3859 race this issue closes.
+        assert kinds["b"] == "merge_gate_reserved"
+        assert items[0].state == PENDING
+        assert items[1].state == PENDING
+        assert gh.merge_calls == []
+
+    def test_a_real_block_reason_wins_over_the_reservation_text(
+        self, coord_db,
+    ) -> None:
+        """The reservation is evaluated LAST, after every other gate — a
+        sibling that is ALSO missing a required review must keep showing
+        the review block, not have it hidden behind the reservation text
+        for the length of the reservation's TTL."""
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("b", issue_number=2, pr=201)]
+        gh = FakeGh()
+        config = TestPlan._config(gates=["review"])
+
+        events = process(items, gh, config=config, board=None)
+
+        by_kind = {e.kind for e in events}
+        assert "review_required" in by_kind
+        assert "merge_gate_reserved" not in by_kind
+        assert items[0].error == "review required but board unavailable to confirm approval"
+
+    def test_already_merged_by_another_driver_releases_its_own_reservation(
+        self, coord_db,
+    ) -> None:
+        """#3886: the #2143 'already merged by another driver' arm observes
+        a landing it did not itself perform — it must never repeat
+        `_finalize_merged_entry`'s bookkeeping (some other `process()` call
+        already did that), but it must still release a reservation THIS
+        entry might hold, the same as every other landing path."""
+        from coord.state import get_merge_reservation, reserve_merge_slot
+
+        assert reserve_merge_slot("api", "api#1", ttl_seconds=600) is True
+        items = [_q("a", issue_number=1)]
+        gh = FakeGh(merged_branches={items[0].branch})
+
+        events = process(items, gh)
+
+        assert any(e.kind == "already_merged" for e in events)
+        assert items[0].state == MERGED
+        assert get_merge_reservation("api") is None
+
+    def test_a_reservation_with_no_holder_is_treated_as_no_reservation(
+        self, coord_db,
+    ) -> None:
+        """A malformed reservation row (missing `holder`) must fail open
+        rather than render `merge gate reserved for None until ...` and
+        defer a sibling against a claim nobody actually holds."""
+        from coord import sql
+        from coord.state import get_connection
+
+        conn = get_connection()
+        sql.upsert(
+            conn, "board_meta", ["key", "value"],
+            (
+                "checks_stale_merge_reservations",
+                '{"api": {"expires_at": 9999999999}}',
+            ),
+            conflict_columns=["key"],
+        )
+        conn.commit()
+
+        items = [_q("b", issue_number=2)]
+        gh = FakeGh()
+        events = process(items, gh)
+
+        assert any(e.kind == "merged" for e in events)
+        assert items[0].state == MERGED
+
+
+class TestHeadUnmovedFixAssignmentId:
+    """#3902 review: `entry.error` ACCUMULATES a new head-unmoved marker
+    on every repeat park of the same row (`coord.reconcile` and
+    `coord.board_doctor_permissions` both append rather than replace), so
+    reading it back must return the id from the LATEST marker -- the leg
+    that produced the row's current park -- never the oldest one."""
+
+    def test_returns_the_last_marker_when_a_row_parks_twice(self) -> None:
+        error = (
+            f"conflict-fix failed; {mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} "
+            "(still deadbeef), and a fresh automated conflict-fix could "
+            "not be dispatched -- push the fix by hand. "
+            f"[{mq.HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX}legA]; "
+            f"{mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} (still deadbeef) again, "
+            "and redispatch was refused once more. "
+            f"[{mq.HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX}legB]"
+        )
+
+        assert mq.head_unmoved_fix_assignment_id(error) == "legB"
+
+    def test_returns_none_without_a_marker(self) -> None:
+        assert mq.head_unmoved_fix_assignment_id("some other error") is None
+        assert mq.head_unmoved_fix_assignment_id(None) is None
+        assert mq.head_unmoved_fix_assignment_id("") is None
+
+    def test_returns_none_for_an_empty_captured_id(self) -> None:
+        error = f"parked. [{mq.HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX}]"
+
+        assert mq.head_unmoved_fix_assignment_id(error) is None

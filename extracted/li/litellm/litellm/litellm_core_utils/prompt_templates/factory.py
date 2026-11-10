@@ -29,6 +29,7 @@ from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import 
     place_mid_conversation_system,
     split_leading_system_run,
 )
+from litellm.litellm_core_utils.tool_fields import tools_without_hosted_mcp
 from litellm.litellm_core_utils.url_utils import async_safe_get, safe_get
 from litellm.llms.custom_httpx.http_handler import HTTPHandler, get_async_httpx_client, header_value
 from litellm.types.files import get_file_extension_from_mime_type
@@ -906,9 +907,9 @@ def create_anthropic_image_param(
     image_url_input: str | dict,
     format: str | None = None,
     is_bedrock_invoke: bool = False,
-) -> AnthropicMessagesImageParam:
+) -> AnthropicMessagesImageParam | AnthropicMessagesDocumentParam:
     """
-    Create an AnthropicMessagesImageParam from an image URL input.
+    Create an Anthropic content block from an image URL input.
 
     Supports both URL references (for HTTP/HTTPS URLs) and base64 encoding.
     """
@@ -927,14 +928,7 @@ def create_anthropic_image_param(
         if is_bedrock_invoke or image_url.startswith("http://"):
             base64_url: Final = convert_url_to_base64(url=image_url)
             image_chunk = convert_to_anthropic_image_obj(openai_image_url=base64_url, format=format)
-            return AnthropicMessagesImageParam(
-                type="image",
-                source=AnthropicContentParamSource(
-                    type="base64",
-                    media_type=image_chunk["media_type"],
-                    data=image_chunk["data"],
-                ),
-            )
+            return _anthropic_content_element_factory(image_chunk)
         else:
             # HTTPS URL - pass directly for regular Anthropic
             return AnthropicMessagesImageParam(
@@ -947,14 +941,7 @@ def create_anthropic_image_param(
     else:
         # Convert to base64 for data URIs or other formats
         image_chunk = convert_to_anthropic_image_obj(openai_image_url=image_url, format=format)
-        return AnthropicMessagesImageParam(
-            type="image",
-            source=AnthropicContentParamSource(
-                type="base64",
-                media_type=image_chunk["media_type"],
-                data=image_chunk["data"],
-            ),
-        )
+        return _anthropic_content_element_factory(image_chunk)
 
 
 # The following XML functions will be deprecated once JSON schema support is available on Bedrock and Vertex
@@ -1794,7 +1781,12 @@ def convert_to_anthropic_tool_result(
                         anthropic_content_element=_anthropic_image_param,
                         original_content_element=content,
                     )
-                    anthropic_content_list.append(cast(AnthropicMessagesImageParam, _anthropic_image_param))
+                    anthropic_content_list.append(
+                        cast(
+                            AnthropicMessagesImageParam | AnthropicMessagesDocumentParam,
+                            _anthropic_image_param,
+                        )
+                    )
             elif content["type"] == "tool_reference":
                 anthropic_content_list.append(ToolReference(type="tool_reference", tool_name=content["tool_name"]))
             elif content["type"] == "file":
@@ -4607,6 +4599,16 @@ def get_assistant_message_block_or_continue_message(
     raise ValueError(f"Unsupported content type: {type(content_block)}")
 
 
+def _as_thinking_block(item: object) -> ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock | None:
+    match item:
+        case {"type": "thinking" | "redacted_thinking"}:
+            return cast(  # cast-ok: the mapping pattern matched a thinking block's type tag
+                ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock, item
+            )
+        case _:
+            return None
+
+
 class BedrockConverseMessagesProcessor:
     @staticmethod
     def _initial_message_setup(
@@ -4655,11 +4657,15 @@ class BedrockConverseMessagesProcessor:
         deployment_model: str | None = None,
         base_model: str | None = None,
     ) -> list[BedrockMessageBlock]:
-        from litellm.llms.bedrock.common_utils import bedrock_converse_accepts_redacted_thinking
+        from litellm.llms.bedrock.common_utils import (
+            bedrock_converse_accepts_redacted_thinking,
+            bedrock_converse_rejects_signed_thinking,
+        )
 
         contents: list[BedrockMessageBlock] = []
         msg_i = 0
         to_claude: Final = bedrock_converse_accepts_redacted_thinking(model, base_model)
+        drop_signed_thinking: Final = bedrock_converse_rejects_signed_thinking(model, base_model)
 
         messages = BedrockConverseMessagesProcessor._initial_message_setup(
             messages, model, llm_provider, user_continue_message
@@ -4811,7 +4817,7 @@ class BedrockConverseMessagesProcessor:
                 if thinking_blocks is not None:
                     converted_thinking_blocks = (
                         BedrockConverseMessagesProcessor.translate_thinking_blocks_to_reasoning_content_blocks(
-                            thinking_blocks, to_claude=to_claude
+                            thinking_blocks, to_claude=to_claude, drop_signed=drop_signed_thinking
                         )
                     )
                     assistant_content = BedrockConverseMessagesProcessor.add_thinking_blocks_to_assistant_content(
@@ -4825,7 +4831,7 @@ class BedrockConverseMessagesProcessor:
                         if isinstance(element, dict):
                             if element["type"] == "thinking" or element["type"] == "redacted_thinking":
                                 thinking_block = BedrockConverseMessagesProcessor.translate_thinking_blocks_to_reasoning_content_blocks(
-                                    thinking_blocks=[element], to_claude=to_claude
+                                    thinking_blocks=[element], to_claude=to_claude, drop_signed=drop_signed_thinking
                                 )
                                 assistants_parts = (
                                     BedrockConverseMessagesProcessor.add_thinking_blocks_to_assistant_content(
@@ -4852,7 +4858,9 @@ class BedrockConverseMessagesProcessor:
                             model=model,
                             deployment_model=deployment_model,
                         )
-                        if _cache_point_block is not None:
+                        if _cache_point_block is not None and BedrockConverseMessagesProcessor.keeps_cache_point(
+                            element, drop_signed=drop_signed_thinking
+                        ):
                             assistants_parts.append(_cache_point_block)
                     assistant_content.extend(assistants_parts)
                 elif _assistant_content is not None and isinstance(_assistant_content, str):
@@ -4900,6 +4908,7 @@ class BedrockConverseMessagesProcessor:
         thinking_blocks: Sequence[ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock],
         *,
         to_claude: bool = False,
+        drop_signed: bool = False,
     ) -> list[BedrockContentBlock]:
         return [
             BedrockContentBlock(
@@ -4909,7 +4918,24 @@ class BedrockConverseMessagesProcessor:
             )
             for thinking_block in thinking_blocks
             if not (to_claude and is_encrypted_reasoning_block(thinking_block))
+            and not (drop_signed and BedrockConverseMessagesProcessor._is_signed(thinking_block))
         ]
+
+    @staticmethod
+    def keeps_cache_point(element: object, *, drop_signed: bool) -> bool:
+        match _as_thinking_block(element):
+            case None:
+                return True
+            case thinking_block:
+                return not (drop_signed and BedrockConverseMessagesProcessor._is_signed(thinking_block))
+
+    @staticmethod
+    def _is_signed(thinking_block: ChatCompletionThinkingBlock | ChatCompletionRedactedThinkingBlock) -> bool:
+        match thinking_block:
+            case {"signature": signature} if signature:
+                return True
+            case _:
+                return False
 
     @staticmethod
     def _to_reasoning_content_block(
@@ -5067,11 +5093,15 @@ def _bedrock_converse_messages_pt(
     - Please ensure that function response turn comes immediately after a function call turn
     - Conversation blocks and tool result blocks cannot be provided in the same turn. Issue: https://github.com/BerriAI/litellm/issues/6053
     """
-    from litellm.llms.bedrock.common_utils import bedrock_converse_accepts_redacted_thinking
+    from litellm.llms.bedrock.common_utils import (
+        bedrock_converse_accepts_redacted_thinking,
+        bedrock_converse_rejects_signed_thinking,
+    )
 
     contents: list[BedrockMessageBlock] = []
     msg_i = 0
     to_claude: Final = bedrock_converse_accepts_redacted_thinking(model, base_model)
+    drop_signed_thinking: Final = bedrock_converse_rejects_signed_thinking(model, base_model)
 
     messages = BedrockConverseMessagesProcessor._initial_message_setup(
         messages, model, llm_provider, user_continue_message
@@ -5224,7 +5254,7 @@ def _bedrock_converse_messages_pt(
             if thinking_blocks is not None:
                 converted_thinking_blocks = (
                     BedrockConverseMessagesProcessor.translate_thinking_blocks_to_reasoning_content_blocks(
-                        thinking_blocks, to_claude=to_claude
+                        thinking_blocks, to_claude=to_claude, drop_signed=drop_signed_thinking
                     )
                 )
                 assistant_content = BedrockConverseMessagesProcessor.add_thinking_blocks_to_assistant_content(
@@ -5239,7 +5269,7 @@ def _bedrock_converse_messages_pt(
                         if element["type"] == "thinking" or element["type"] == "redacted_thinking":
                             thinking_block = (
                                 BedrockConverseMessagesProcessor.translate_thinking_blocks_to_reasoning_content_blocks(
-                                    thinking_blocks=[element], to_claude=to_claude
+                                    thinking_blocks=[element], to_claude=to_claude, drop_signed=drop_signed_thinking
                                 )
                             )
                             assistants_parts = (
@@ -5268,7 +5298,9 @@ def _bedrock_converse_messages_pt(
                             model=model,
                             deployment_model=deployment_model,
                         )
-                        if _cache_point_block is not None:
+                        if _cache_point_block is not None and BedrockConverseMessagesProcessor.keeps_cache_point(
+                            element, drop_signed=drop_signed_thinking
+                        ):
                             assistants_parts.append(_cache_point_block)
                 assistant_content.extend(assistants_parts)
             elif _assistant_content is not None and isinstance(_assistant_content, str):
@@ -5477,14 +5509,14 @@ def _bedrock_tools_pt(
             description = name
 
         defs = parameters.pop("$defs", {})
-        defs_copy = copy.deepcopy(defs)
+        defs_copy = copy.deepcopy(defs) if isinstance(defs, dict) else {}
         # Expand $ref references in parameters using the definitions
         # Note: We don't pre-flatten defs as that causes exponential memory growth
         # with circular references (see issue #19098). unpack_defs handles nested
         # refs recursively and correctly detects/skips circular references.
         unpack_defs(parameters, defs_copy)
         normalize_json_schema_custom_types_to_object(parameters)
-        if parameters.get("type") not in _valid_json_schema_root_types:
+        if not (isinstance(root_type := parameters.get("type"), str) and root_type in _valid_json_schema_root_types):
             parameters["type"] = "object"
         tool_block = cast(
             BedrockToolBlock,
@@ -5547,8 +5579,13 @@ def function_call_prompt(
     llm_provider: str,
     drop_params: bool,
 ) -> list[dict[str, object]]:
+    prompt_functions: Final = tools_without_hosted_mcp(
+        functions, model=model, route=llm_provider, drop_params=drop_params
+    )
+    if not prompt_functions:
+        return messages
     header: Final = """To call a function, reply with JSON ONLY in this format {"name": "function_name", "arguments":{"argument_name": "argument_value"}}. Once a function result answers the request, reply to the user in plain text instead of calling a function again. The following functions are available to you:"""
-    function_prompt: Final = header + "".join(f"\n{function}\n" for function in functions)
+    function_prompt: Final = header + "".join(f"\n{function}\n" for function in prompt_functions)
     if not any(_is_system_message(message) for message in messages):
         return [*messages, {"role": "system", "content": function_prompt}]
     return [

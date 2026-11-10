@@ -84,11 +84,13 @@ class MainBranch:
                 else explains the state. A run held for approval: on a pull request
                 `awaitingWorkflowApproval` says that. A cancelled run: a push or a
                 concurrency group superseded it, and the overall state does not read it
-                as a failure while others still run. When cancelled runs (and, on a
-                branch, held ones) are the only reason a pipeline reads as failed, they
-                count as `failed` (a held run first, where both are there), so a failed
-                pipeline always has a failed count on GitHub. A branch whose status is
-                `cancelled` has `failed` at 0. A timed-out or stale check counts as `failed`, a skipped,
+                as a failure while others still run. When a held run (and, on a
+                branch, cancelled ones) is the only reason a pipeline reads as failed,
+                the held run counts as `failed` with the cancelled ones, so a failed
+                pipeline always has a failed count on GitHub. A pull request whose `ci`
+                is `cancelled`, and a branch whose status is `cancelled`, have `failed`
+                at 0; the pull request counts its cancelled runs in `cancelled`. A timed-out or stale check counts as `failed`,
+                a skipped,
                 neutral or bare completed one as `passed`, on Forgejo too.
 
                 `skipped` is a newer field and says how many of the `passed` checks

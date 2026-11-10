@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ __all__ = ["ClientScrapeParams"]
 
 class ClientScrapeParams(TypedDict, total=False):
     url: Required[str]
-    """URL of the webpage to scrape"""
+    """URL of the webpage to scrape. A URL without a scheme is fetched over HTTPS."""
 
     delay: float
     """Delay before scraping (in milliseconds)"""

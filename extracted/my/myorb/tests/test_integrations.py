@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from collections.abc import Callable
@@ -645,3 +646,30 @@ def test_jira_with_expired_credentials_is_a_problem_not_an_empty_list():
                 await request_json(http, "GET", "https://a.atlassian.net/x", "Jira")
 
     asyncio.run(run())
+
+
+def test_jira_asks_whether_a_project_plans_in_sprints_only_now_and_then():
+    from myorb.plugins.jira import SCRUM_RECHECK, Jira
+
+    asked: list[str] = []
+
+    def api(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path.endswith("/board"):
+            project = request.url.params["projectKeyOrId"]
+            asked.append(project)
+            return httpx2.Response(200, json={"values": [{"id": 1}] if project == "APP" else []})
+        return httpx2.Response(200, json={"issues": [], "isLast": True})
+
+    now = [1000.0]
+    jira = Jira(clock=lambda: now[0])
+    credentials = {"site": "https://stark.atlassian.net", "email": "t@s.example", "token": "x"}
+
+    async def sprints() -> set[str]:
+        async with httpx2.AsyncClient(transport=httpx2.MockTransport(api)) as http:
+            return (await jira._sprints(http, credentials, {"APP", "OPS"}))[1]
+
+    assert asyncio.run(sprints()) == {"APP"} and sorted(asked) == ["APP", "OPS"]
+    asked.clear()
+    assert asyncio.run(sprints()) == {"APP"} and asked == []
+    now[0] += SCRUM_RECHECK
+    assert asyncio.run(sprints()) == {"APP"} and sorted(asked) == ["APP", "OPS"]

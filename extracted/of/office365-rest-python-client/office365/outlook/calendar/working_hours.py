@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.outlook.calendar.timezones.base import TimeZoneBase
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class WorkingHours(ClientValue):
     """
     Represents the days of the week and hours in a specific time zone that the user works.

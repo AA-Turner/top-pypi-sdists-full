@@ -45,6 +45,10 @@ from exp.runtime.models.providers.streaming_requests import (
 )
 from exp.runtime.openai_protocol.errors import OpenAIProtocolError
 from exp.runtime.openai_protocol.model_adapter import model_request
+from exp.runtime.openai_protocol.nullable_params import (
+    CHAT_NULLABLE_PARAMS,
+    RESPONSES_NULLABLE_PARAMS,
+)
 from exp.runtime.openai_protocol.requests import (
     DecodedGatewayRequest,
     decode_chat,
@@ -2874,6 +2878,110 @@ def test_a_malformed_function_tool_declaration_still_fails_closed() -> None:
         )
     assert rejection.value.status_code == 400
     assert "tools" in (rejection.value.detail.param or "")
+
+
+_AGNO_TOOL_KEYS: tuple[JsonObject, ...] = (
+    {"requires_confirmation": True},
+    {"external_execution": True},
+    {"approval_type": "required"},
+)
+"""Agno's client-side approval keys, serialized into each function by ``Function.to_dict``.
+
+None is in OpenAI's function tool schema on Chat or Responses (openai-python
+3.37.0 ``FunctionDefinition`` / ``FunctionToolParam``), so each stays refused,
+but by name, as an unknown field to remove rather than as a value fault.
+"""
+
+
+@pytest.mark.parametrize("extra", _AGNO_TOOL_KEYS)
+def test_an_undefined_chat_function_key_is_refused_as_unknown_by_name(extra: JsonObject) -> None:
+    """The Chat refusal names the stray key and the fix, never a value fault."""
+    (key,) = extra
+    with pytest.raises(OpenAIProtocolError) as rejection:
+        decode_chat(
+            {
+                "model": "coding",
+                "messages": [{"role": "user", "content": "Remove notes.txt."}],
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "delete_file",
+                            "description": "Delete one file.",
+                            "parameters": {"type": "object", "properties": {}},
+                            "strict": True,
+                            **extra,
+                        },
+                    }
+                ],
+            }
+        )
+    param = f"tools.0.function.{key}"
+    assert rejection.value.status_code == 400
+    assert rejection.value.detail.code == "invalid_parameter"
+    assert rejection.value.detail.param == param
+    assert rejection.value.detail.message == (
+        f"Unknown parameter '{param}': this field is not supported. Remove it and resend."
+    )
+
+
+@pytest.mark.parametrize("extra", _AGNO_TOOL_KEYS)
+def test_an_undefined_responses_function_key_is_refused_as_unknown_by_name(
+    extra: JsonObject,
+) -> None:
+    """The Responses tool is flat, so the stray key sits directly on ``tools.N``."""
+    (key,) = extra
+    with pytest.raises(OpenAIProtocolError) as rejection:
+        decode_responses(
+            {
+                "model": "coding",
+                "input": "Remove notes.txt.",
+                "tools": [
+                    {"type": "function", "name": "keep", "parameters": {}},
+                    {
+                        "type": "function",
+                        "name": "delete_file",
+                        "parameters": {"type": "object", "properties": {}},
+                        "strict": True,
+                        "defer_loading": False,
+                        **extra,
+                    },
+                ],
+            }
+        )
+    param = f"tools.1.{key}"
+    assert rejection.value.detail.code == "invalid_parameter"
+    assert rejection.value.detail.param == param
+    assert rejection.value.detail.message == (
+        f"Unknown parameter '{param}': this field is not supported. Remove it and resend."
+    )
+
+
+def test_the_defined_function_tool_keys_still_decode_on_both_surfaces() -> None:
+    """``strict`` and ``defer_loading``, the defined optional keys, are unaffected."""
+    chat = decode_chat(
+        {
+            "model": "coding",
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "defer_loading": True,
+                    "function": {"name": "f", "parameters": {}, "strict": True},
+                },
+                {"type": "openrouter:tool_search"},
+            ],
+        }
+    )
+    responses = decode_responses(
+        {
+            "model": "coding",
+            "input": "hi",
+            "tools": [{"type": "function", "name": "f", "parameters": {}, "strict": True}],
+        }
+    )
+    assert chat.request.tools[0].strict is True
+    assert responses.request.tools[0].strict is True
 
 
 def test_embeddings_decoder_preserves_supported_fields() -> None:
@@ -6023,3 +6131,78 @@ def test_chat_image_url_accepts_original_detail() -> None:
     (image,) = decoded.request.messages[0].content_parts
     assert isinstance(image, ImageContentPart)
     assert image.detail == "original"
+
+
+_CHAT_BODY: JsonObject = {"model": "coding", "messages": [{"role": "user", "content": "hi"}]}
+_RESPONSES_BODY: JsonObject = {"model": "coding", "input": "hi"}
+
+
+def test_chat_stream_null_decodes_as_non_streaming() -> None:
+    """``"stream": null`` decodes as a non-streaming request, as OpenAI serves it."""
+    decoded = decode_chat({**_CHAT_BODY, "stream": None, "stream_options": None})
+    assert decoded.request.stream is False
+    assert decoded == decode_chat(_CHAT_BODY)
+
+
+@pytest.mark.parametrize("value", [1, 1.0])
+def test_a_numeric_true_stream_streams_with_its_stream_options(value: float) -> None:
+    """``stream: 1`` streams on both surfaces and keeps ``stream_options`` like ``true``."""
+    chat = decode_chat(
+        {**_CHAT_BODY, "stream": value, "stream_options": {"include_usage": True}}
+    ).request
+    assert chat.stream is True
+    assert chat.include_usage is True
+    assert chat.ignored_parameters == ()
+    responses = decode_responses(
+        {**_RESPONSES_BODY, "stream": value, "stream_options": {"include_obfuscation": False}}
+    ).request
+    assert responses.stream is True
+    assert responses.ignored_parameters == ()
+
+
+@pytest.mark.parametrize("field", sorted(CHAT_NULLABLE_PARAMS))
+def test_every_chat_nullable_null_decodes_as_absent(field: str) -> None:
+    """A null on any OpenAI-nullable Chat field is the default, with no disclosure."""
+    assert decode_chat({**_CHAT_BODY, field: None}) == decode_chat(_CHAT_BODY)
+
+
+@pytest.mark.parametrize("field", sorted(RESPONSES_NULLABLE_PARAMS))
+def test_every_responses_nullable_null_decodes_as_absent(field: str) -> None:
+    """A null on any OpenAI-nullable Responses field is the default, with no disclosure."""
+    assert decode_responses({**_RESPONSES_BODY, field: None}) == decode_responses(_RESPONSES_BODY)
+
+
+@pytest.mark.parametrize(
+    ("body", "field"),
+    [
+        (_CHAT_BODY, "model"),
+        (_CHAT_BODY, "messages"),
+        (_CHAT_BODY, "tool_choice"),
+        (_CHAT_BODY, "response_format"),
+        (_RESPONSES_BODY, "model"),
+        (_RESPONSES_BODY, "input"),
+        (_RESPONSES_BODY, "tool_choice"),
+    ],
+)
+def test_a_null_openai_refuses_is_still_refused_by_name(body: JsonObject, field: str) -> None:
+    """Fields OpenAI does not let be null keep a 400 that names them, never ``stream``."""
+    decode = decode_chat if "messages" in body else decode_responses
+    with pytest.raises(OpenAIProtocolError) as raised:
+        decode({**body, field: None})
+    assert raised.value.status_code == 400
+    assert raised.value.detail.param == field
+
+
+def test_a_non_string_chat_model_is_named_not_reported_as_a_missing_stream() -> None:
+    """A non-string ``model`` is named, never reported as a missing ``stream``.
+
+    A body whose ``model`` is not a string (PowerShell 5.1's ``ConvertTo-Json`` of a
+    ``Get-Content`` string emits an object) fails both official union branches;
+    validating only the branch ``stream`` selects keeps the error on ``model``.
+    """
+    with pytest.raises(OpenAIProtocolError) as raised:
+        decode_chat({**_CHAT_BODY, "model": {"value": "coding", "PSPath": "C:\\model.txt"}})
+    assert raised.value.detail.param == "model"
+    assert str(raised.value) == (
+        "Invalid value for 'model': expected a string, but got an object instead."
+    )

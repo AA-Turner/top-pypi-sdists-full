@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +10,6 @@ from office365.sharepoint.viva.spotlightconfiguration import SpotlightConfigurat
 from office365.sharepoint.viva.spotlightnews import SpotlightNews
 
 
-@dataclass
 class ConnectionsConfigurationAndData(ClientValue):
     IsConfigured: Optional[bool] = None
     SpotlightConfiguration: SpotlightConfiguration = field(default_factory=SpotlightConfiguration)

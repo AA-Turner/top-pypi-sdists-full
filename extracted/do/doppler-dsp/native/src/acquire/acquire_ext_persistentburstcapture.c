@@ -59,7 +59,7 @@ PersistentBurstCaptureObj_init (PersistentBurstCaptureObject *self,
   PyObject          *reps_obj            = NULL;
   unsigned long long reps_raw            = 5;
   double             fs                  = 1.0;
-  double             cn0_dbhz            = ACQ_CN0_NONE;
+  double             cn0_dbhz            = DP_CORRELATOR_CN0_NONE;
   double             doppler_uncertainty = 0.0;
   double             pfa                 = 1e-3;
   double             pd                  = 0.9;
@@ -959,6 +959,28 @@ PersistentBurstCaptureObj_configure_search_raw (
                                                    n_noncoh);
   if (_rc != 0)
     {
+      switch (_rc)
+        {
+        case DP_ERR_INVALID:
+          PyErr_SetString (
+              PyExc_ValueError,
+              "configure_search_raw: doppler_bins must lie in 1..reps, "
+              "n_noncoh in "
+              "1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent "
+              "looks "
+              "(n_noncoh > 1) need rate_hypotheses 1; and n_noncoh x "
+              "doppler_bins "
+              "must not exceed the code periods refine reaches back (k_lo)");
+          return NULL;
+        case DP_ERR_MEMORY:
+          PyErr_SetString (
+              PyExc_MemoryError,
+              "configure_search_raw: rebuilding the engine's grid could not "
+              "allocate; the engine keeps its prior grid");
+          return NULL;
+        default:
+          break;
+        }
       PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
                     "configure_search_raw failed", (long long)_rc);
       return NULL;
@@ -1569,9 +1591,9 @@ static PyGetSetDef PersistentBurstCapture_getset[] = {
     "coherent depth when a design cn0_dbhz asks for one, and a hit's "
     "doppler_bin indexes all of window_bins * depth rows. This is the count "
     "to fold a hit's bin over (bin_to_signed(bin, doppler_bins) * "
-    "doppler_res_hz is the signed Doppler); it is acq_grid_bins(), and the "
-    "same number BurstAcquisition.doppler_bins reads. `configure_search_raw` "
-    "pins it.\n",
+    "doppler_res_hz is the signed Doppler); it is dp_correlator_grid_bins(), "
+    "and the same number the burst search's doppler_bins reads. "
+    "`configure_search_raw` pins it.\n",
     NULL },
   { "n_noncoh", (getter)PersistentBurstCapture_getprop_n_noncoh, NULL,
     "Non-coherent looks combined per decision. Above 1 the object needs that "
@@ -1674,18 +1696,18 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Stream raw cf32 samples and get back the SAMPLES of every burst whose "
     "window has fully arrived, concatenated: burst i occupies burst_len "
     "samples starting at i*burst_len, and events() returns the matching "
-    "record for each. Samples feed the embedded BurstAcquisition and are "
-    "retained in a history ring; when a detection fires, the refine stage "
-    "correlates one code period at each preamble position to recover the "
-    "exact preamble start -- the one quantity acquisition structurally cannot "
-    "report, since its code_phase is a lag modulo one code period -- and the "
-    "window is emitted the moment its last sample has arrived. It stops "
-    "there: what to DO with a burst (demodulate it, write it to a file, ship "
-    "it to another process) is the caller's. An empty return is normal, not "
-    "an error: it means no burst completed in this call. Accepts any block "
-    "size -- the history ring is a contiguous window over the stream and is "
-    "never reset between bursts, so a burst whose tail falls outside one call "
-    "is completed by a later one.\n"
+    "record for each. Samples feed the embedded burst search (a Correlator) "
+    "and are retained in a history ring; when a detection fires, the refine "
+    "stage correlates one code period at each preamble position to recover "
+    "the exact preamble start -- the one quantity acquisition structurally "
+    "cannot report, since its code_phase is a lag modulo one code period -- "
+    "and the window is emitted the moment its last sample has arrived. It "
+    "stops there: what to DO with a burst (demodulate it, write it to a file, "
+    "ship it to another process) is the caller's. An empty return is normal, "
+    "not an error: it means no burst completed in this call. Accepts any "
+    "block size -- the history ring is a contiguous window over the stream "
+    "and is never reset between bursts, so a burst whose tail falls outside "
+    "one call is completed by a later one.\n"
     "\n"
     "Windows are concatenated: burst `i` occupies `burst_len` samples\n"
     "starting at `i*burst_len`, and events() returns the matching record for\n"
@@ -1779,6 +1801,19 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "    min(detections held, max_out): the rows copied, or with a NULL out\n"
     "    the rows that would have been.\n"
     "\n"
+    "    One row per `burst_capture_detection_t` record, with fields:\n"
+    "\n"
+    "    epoch : int\n"
+    "        Stream-absolute code epoch of the hit.\n"
+    "    doppler_hz : float\n"
+    "        Signed coarse Doppler, folded, Hz.\n"
+    "    cn0_dbhz : float\n"
+    "        C/N0 estimate from the hit, dB-Hz.\n"
+    "    test_stat : float\n"
+    "        The CFAR gating statistic, peak over noise.\n"
+    "    peak_mag : float\n"
+    "        Raw CFAR peak magnitude.\n"
+    "\n"
     "Examples\n"
     "--------\n"
     ">>> import numpy as np\n"
@@ -1789,20 +1824,7 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     ">>> _ = cap.push(np.zeros(4096, dtype=np.complex64))\n"
     ">>> # what the search found, against what became a burst\n"
     ">>> len(cap.detections()) >= len(cap.events())\n"
-    "True\n"
-    "\n"
-    "Fields\n"
-    "------\n"
-    "epoch : int\n"
-    "    Stream-absolute code epoch of the hit.\n"
-    "doppler_hz : float\n"
-    "    Signed coarse Doppler, folded, Hz.\n"
-    "cn0_dbhz : float\n"
-    "    C/N0 estimate from the hit, dB-Hz.\n"
-    "test_stat : float\n"
-    "    The CFAR gating statistic, peak over noise.\n"
-    "peak_mag : float\n"
-    "    Raw CFAR peak magnitude.\n" },
+    "True\n" },
   { "detections_max_out",
     (PyCFunction)PersistentBurstCaptureObj_detections_max_out, METH_VARARGS,
     "detections_max_out(n) -> int\n"
@@ -1845,30 +1867,19 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "    min(windows of the last push, max_out): the rows copied, or with a\n"
     "    NULL out the rows that would have been.\n"
     "\n"
-    "Examples\n"
-    "--------\n"
-    ">>> import numpy as np\n"
-    ">>> from doppler.acquire import BurstCapture\n"
-    ">>> code = np.array([1, 1, 1, 0, 1, 0, 0], dtype=np.uint8)\n"
-    ">>> pre = np.repeat(np.where(code, -1.0, 1.0), 2).astype(np.complex64)\n"
-    ">>> cap = BurstCapture(pre, burst_len=512, reps=4, fs=2e6)\n"
-    ">>> win = cap.push(np.zeros(4096, dtype=np.complex64))\n"
-    ">>> len(cap.events()) == win.size // cap.burst_len\n"
-    "True\n"
+    "    One row per `burst_capture_event_t` record, with fields:\n"
     "\n"
-    "Fields\n"
-    "------\n"
-    "preamble_start : int\n"
-    "    Refined stream position of the preamble.\n"
-    "doppler_hz_est : float\n"
-    "    Signed coarse Doppler, Hz.\n"
-    "doppler_res_hz : float\n"
-    "    Acquisition's native bin width, Hz.\n"
-    "cn0_dbhz_est : float\n"
-    "    C/N0 estimate from the hit, dB-Hz.\n"
-    "doppler_rate_hz_s : float\n"
-    "    Refine's winning rate hypothesis, Hz/s: the rate whose de-chirp made "
-    "the whole preamble's coherent sum largest at preamble_start. One of "
+    "    preamble_start : int\n"
+    "        Refined stream position of the preamble.\n"
+    "    doppler_hz_est : float\n"
+    "        Signed coarse Doppler, Hz.\n"
+    "    doppler_res_hz : float\n"
+    "        Acquisition's native bin width, Hz.\n"
+    "    cn0_dbhz_est : float\n"
+    "        C/N0 estimate from the hit, dB-Hz.\n"
+    "    doppler_rate_hz_s : float\n"
+    "        Refine's winning rate hypothesis, Hz/s: the rate whose de-chirp "
+    "made the whole preamble's coherent sum largest at preamble_start. One of "
     "refine's R grid points from -doppler_rate to +doppler_rate, spaced "
     "2*doppler_rate/(R - 1); 0 without a declared rate (doppler_rate 0). "
     "Refine searches the grid whenever a rate is declared, with one "
@@ -1879,8 +1890,18 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "whose rate is ON a grid point, but in 51% of those 0.4 of a step off "
     "one, where the neighbouring point is only 0.6 of a step away "
     "(validate_acq_rate_pd's event-rate rows; docs/design/burst-capture.md). "
-    "Appended last, so positional initialisers do not shift "
-    "(doppler#2219).\n" },
+    "Appended last, so positional initialisers do not shift (doppler#2219).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.acquire import BurstCapture\n"
+    ">>> code = np.array([1, 1, 1, 0, 1, 0, 0], dtype=np.uint8)\n"
+    ">>> pre = np.repeat(np.where(code, -1.0, 1.0), 2).astype(np.complex64)\n"
+    ">>> cap = BurstCapture(pre, burst_len=512, reps=4, fs=2e6)\n"
+    ">>> win = cap.push(np.zeros(4096, dtype=np.complex64))\n"
+    ">>> len(cap.events()) == win.size // cap.burst_len\n"
+    "True\n" },
   { "events_max_out", (PyCFunction)PersistentBurstCaptureObj_events_max_out,
     METH_VARARGS,
     "events_max_out(n) -> int\n"
@@ -1901,9 +1922,9 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "configure_search_raw(doppler_bins, n_noncoh) -> None\n"
     "\n"
-    "Pin the embedded BurstAcquisition's search grid directly, bypassing the "
-    "auto-sizing -- the escape hatch for a caller who wants a specific "
-    "(doppler_bins, n_noncoh). Forwards to the engine unchanged.\n"
+    "Pin the embedded burst search (a Correlator)'s search grid directly, "
+    "bypassing the auto-sizing -- the escape hatch for a caller who wants a "
+    "specific (doppler_bins, n_noncoh). Forwards to the engine unchanged.\n"
     "\n"
     "The escape hatch for a caller who wants a specific (doppler_bins,\n"
     "n_noncoh). Forwards to the engine, with one refusal of this object's\n"
@@ -1918,7 +1939,7 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "doppler_bins : int\n"
-    "    Coherent depth to pin (see dp_burst_acq_configure_search_raw()).\n"
+    "    Coherent depth to pin (see dp_correlator_configure_search_raw()).\n"
     "n_noncoh : int\n"
     "    Non-coherent looks to pin; `n_noncoh * doppler_bins` must not\n"
     "    exceed the refine reach.\n"
@@ -1926,9 +1947,19 @@ static PyMethodDef PersistentBurstCaptureObj_methods[] = {
     "Raises\n"
     "------\n"
     "ValueError\n"
-    "    If the C call returns a non-zero status. The exception message is\n"
-    "    ``configure_search_raw failed``, with the return code appended\n"
-    "    (gh-869).\n"
+    "    If the C call returns ``DP_ERR_INVALID``. The exception message is\n"
+    "    ``configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh\n"
+    "    in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks\n"
+    "    (n_noncoh > 1) need rate_hypotheses 1; and n_noncoh x doppler_bins\n"
+    "    must not exceed the code periods refine reaches back (k_lo)``.\n"
+    "MemoryError\n"
+    "    If the C call returns ``DP_ERR_MEMORY``. The exception message is\n"
+    "    ``configure_search_raw: rebuilding the engine's grid could not\n"
+    "    allocate; the engine keeps its prior grid``.\n"
+    "ValueError\n"
+    "    If the C call returns any other non-zero status. The exception\n"
+    "    message is ``configure_search_raw failed``, with the return code\n"
+    "    appended (gh-869).\n"
     "\n"
     "Examples\n"
     "--------\n"
@@ -2144,7 +2175,7 @@ static PyTypeObject PersistentBurstCaptureObjType = {
     "    Sample rate, Hz (> 0).\n"
     "cn0_dbhz : float\n"
     "    C/N0 the search is sized for, dB-Hz: any finite value, or NaN\n"
-    "    (ACQ_CN0_NONE) for no design point.\n"
+    "    (DP_CORRELATOR_CN0_NONE) for no design point.\n"
     "doppler_uncertainty : float, default 0.0\n"
     "    Doppler search half-range, Hz (0 = native).\n"
     "pfa : float, default 1e-3\n"

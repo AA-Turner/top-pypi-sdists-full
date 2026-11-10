@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "setuptools-scm>=8.0", "wheel"]
+requires = ["setuptools>=77.0", "setuptools-scm>=8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,6 +12,7 @@ authors = [
     {name = "ByteDance", email = "noreply@bytedance.com"},
 ]
 license = "AGPL-3.0"
+license-files = ["LICENSE", "examples/LICENSE"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -25,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "langchain-core>=1.0.0,<2.0.0",
-    "openviking-sdk>=0.1.1",
+    "openviking-sdk>=0.1.18",
     "pydantic>=2.0.0",
 ]
 
@@ -62,7 +63,7 @@ include = ["langchain_openviking*"]
 langchain_openviking = ["py.typed"]
 
 [tool.setuptools_scm]
-root = "../.."
+root = "../../.."
 local_scheme = "no-local-version"
 tag_regex = "^langchain-openviking@(?P<version>[0-9]+(?:\\.[0-9]+)*)$"
 git_describe_command = "git describe --dirty --tags --long --match langchain-openviking@*"

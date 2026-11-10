@@ -21,11 +21,10 @@ DATA = {}
 
 
 def setup_module():
-    global DATA
-    DATA['empty_filenames'] = [pjoin(data_path, 'empty' + ext) for ext in FORMATS.keys()]
-    DATA['simple_filenames'] = [pjoin(data_path, 'simple' + ext) for ext in FORMATS.keys()]
+    DATA['empty_filenames'] = [pjoin(data_path, f'empty{ext}') for ext in FORMATS.keys()]
+    DATA['simple_filenames'] = [pjoin(data_path, f'simple{ext}') for ext in FORMATS.keys()]
     DATA['complex_filenames'] = [
-        pjoin(data_path, 'complex' + ext)
+        pjoin(data_path, f'complex{ext}')
         for ext, cls in FORMATS.items()
         if (cls.SUPPORTS_DATA_PER_POINT or cls.SUPPORTS_DATA_PER_STREAMLINE)
     ]
@@ -126,19 +125,19 @@ def test_is_supported_detect_format(tmp_path):
 
     # Good extension, string only
     for ext, tfile_cls in FORMATS.items():
-        f = 'my_tractogram' + ext
+        f = f'my_tractogram{ext}'
         assert nib.streamlines.is_supported(f)
         assert nib.streamlines.detect_format(f) == tfile_cls
 
     # Good extension, Path only
     for ext, tfile_cls in FORMATS.items():
-        f = Path('my_tractogram' + ext)
+        f = Path(f'my_tractogram{ext}')
         assert nib.streamlines.is_supported(f)
         assert nib.streamlines.detect_format(f) == tfile_cls
 
     # Extension should not be case-sensitive.
     for ext, tfile_cls in FORMATS.items():
-        f = 'my_tractogram' + ext.upper()
+        f = f'my_tractogram{ext.upper()}'
         assert nib.streamlines.detect_format(f) is tfile_cls
 
 
@@ -208,6 +207,7 @@ class TestLoadSave(unittest.TestCase):
                 with pytest.warns(Warning) if lazy_load else error_warnings():
                     assert_tractogram_equal(tfile.tractogram, tractogram)
 
+    @pytest.mark.thread_unsafe
     def test_save_tractogram_file(self):
         tractogram = Tractogram(DATA['streamlines'], affine_to_rasmm=np.eye(4))
         trk_file = trk.TrkFile(tractogram)
@@ -232,24 +232,27 @@ class TestLoadSave(unittest.TestCase):
             tfile = nib.streamlines.load('dummy.trk', lazy_load=False)
             assert_tractogram_equal(tfile.tractogram, tractogram)
 
+    @pytest.mark.thread_unsafe
     def test_save_empty_file(self):
         tractogram = Tractogram(affine_to_rasmm=np.eye(4))
         for ext in FORMATS:
             with InTemporaryDirectory():
-                filename = 'streamlines' + ext
+                filename = f'streamlines{ext}'
                 nib.streamlines.save(tractogram, filename)
                 tfile = nib.streamlines.load(filename, lazy_load=False)
                 assert_tractogram_equal(tfile.tractogram, tractogram)
 
+    @pytest.mark.thread_unsafe
     def test_save_simple_file(self):
         tractogram = Tractogram(DATA['streamlines'], affine_to_rasmm=np.eye(4))
         for ext in FORMATS:
             with InTemporaryDirectory():
-                filename = 'streamlines' + ext
+                filename = f'streamlines{ext}'
                 nib.streamlines.save(tractogram, filename)
                 tfile = nib.streamlines.load(filename, lazy_load=False)
                 assert_tractogram_equal(tfile.tractogram, tractogram)
 
+    @pytest.mark.thread_unsafe
     def test_save_complex_file(self):
         complex_tractogram = Tractogram(
             DATA['streamlines'],
@@ -260,7 +263,7 @@ class TestLoadSave(unittest.TestCase):
 
         for ext, cls in FORMATS.items():
             with InTemporaryDirectory():
-                filename = 'streamlines' + ext
+                filename = f'streamlines{ext}'
 
                 # If streamlines format does not support saving data
                 # per point or data per streamline, warning messages
@@ -286,12 +289,13 @@ class TestLoadSave(unittest.TestCase):
                 tfile = nib.streamlines.load(filename, lazy_load=False)
                 assert_tractogram_equal(tfile.tractogram, tractogram)
 
+    @pytest.mark.thread_unsafe
     def test_save_sliced_tractogram(self):
         tractogram = Tractogram(DATA['streamlines'], affine_to_rasmm=np.eye(4))
         original_tractogram = tractogram.copy()
         for ext in FORMATS:
             with InTemporaryDirectory():
-                filename = 'streamlines' + ext
+                filename = f'streamlines{ext}'
                 nib.streamlines.save(tractogram[::2], filename)
                 tfile = nib.streamlines.load(filename, lazy_load=False)
                 assert_tractogram_equal(tfile.tractogram, tractogram[::2])
@@ -306,6 +310,7 @@ class TestLoadSave(unittest.TestCase):
         with pytest.raises(ValueError):
             nib.streamlines.save(Tractogram(), '')
 
+    @pytest.mark.thread_unsafe
     def test_save_from_generator(self):
         tractogram = Tractogram(DATA['streamlines'], affine_to_rasmm=np.eye(4))
 
@@ -315,7 +320,7 @@ class TestLoadSave(unittest.TestCase):
             lazy_tractogram = LazyTractogram(lambda: filtered, affine_to_rasmm=np.eye(4))
 
             with InTemporaryDirectory():
-                filename = 'streamlines' + ext
+                filename = f'streamlines{ext}'
                 nib.streamlines.save(lazy_tractogram, filename)
                 tfile = nib.streamlines.load(filename, lazy_load=False)
                 assert_tractogram_equal(tfile.tractogram, tractogram)

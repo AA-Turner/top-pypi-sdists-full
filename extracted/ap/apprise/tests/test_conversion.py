@@ -29,6 +29,8 @@ from inspect import cleandoc
 
 # Disable logging for a cleaner testing output
 import logging
+import sys
+from time import process_time
 from timeit import default_timer
 from unittest import mock
 
@@ -39,6 +41,7 @@ from apprise.conversion import (
     BLOCKQUOTE_DEPTH_MAX,
     LIST_DEPTH_MAX,
     MAX_FRAME_DEPTH,
+    MAX_LINK_DEPTH,
     HTMLMarkdownConverter,
     HTMLTagReducer,
     commonmark as commonmark_module,
@@ -51,6 +54,7 @@ from apprise.conversion import (
     commonmark_index_backtick_runs,
     commonmark_match_emphasis,
     commonmark_materialize_repair,
+    commonmark_open_link_label,
     commonmark_pick_emphasis_sentinel,
     commonmark_render_emphasis_events,
     commonmark_render_emphasis_markers,
@@ -61,6 +65,7 @@ from apprise.conversion import (
     commonmark_scan_paren_dest,
     commonmark_scan_repair_region,
     commonmark_sections,
+    commonmark_take_link_label,
     convert_between,
     html_to_markdown,
     markdown_to_html,
@@ -2973,6 +2978,35 @@ def test_conversion_markdown_to_html():
     assert "<td>Content Cell4</td>" in response
 
 
+def test_conversion_markdown_missing(monkeypatch):
+    """Markdown is sent as escaped text when Python-Markdown is missing."""
+
+    # A None entry in sys.modules makes import markdown raise ImportError.
+    monkeypatch.setitem(sys.modules, "markdown", None)
+
+    with mock.patch("apprise.conversion.format.logger") as mock_logger:
+        response = convert_between(
+            NotifyFormat.MARKDOWN,
+            NotifyFormat.HTML,
+            "# Hi *there* <b>x</b> & y\nline2",
+        )
+
+    # The Markdown is kept as typed, made safe to place inside HTML.
+    assert response == (
+        "#&nbsp;Hi&nbsp;*there*&nbsp;&lt;b&gt;x&lt;/b&gt;"
+        "&nbsp;&amp;&nbsp;y<br/>line2"
+    )
+
+    # The user is told why the Markdown was not rendered.
+    assert mock_logger.warning.call_count == 1
+
+    # Conversions that never needed Python-Markdown still work.
+    assert (
+        convert_between(NotifyFormat.HTML, NotifyFormat.MARKDOWN, "<b>x</b>")
+        == "**x**"
+    )
+
+
 def test_conversion_commonmark_repair_chunk():
     """Test dialect-neutral repair of split or truncated CommonMark."""
 
@@ -4105,20 +4139,23 @@ def test_conversion_commonmark_match_emphasis():
     assert delimiters[1]["numdelims"] == 1
     assert delimiters[1]["events"] == []
 
-    # Compare two adversarial sizes so quadratic matching approaches 4x
-    # growth. The ratio also tolerates slower test hosts.
-    small_n = 6000
+    # Compare two adversarial sizes 4x apart. Linear matching grows about
+    # 4x while quadratic matching grows about 16x, which leaves a wide gap
+    # between the two for a busy test host to fall into.
+    small_n = 3000
     large_n = 12000
     small_body = ("*a " * small_n) + ("b* " * small_n)
     large_body = ("*a " * large_n) + ("b* " * large_n)
 
     # Interleave several rounds and keep each size's fastest result. This
     # reduces noise from scheduling, garbage collection, and background load.
+    # CPU time is used so time spent waiting on other processes is not
+    # counted.
     small_time = large_time = None
     for _ in range(5):
-        start = default_timer()
+        start = process_time()
         text, pending = commonmark_repair_chunk(small_body, {})
-        elapsed = default_timer() - start
+        elapsed = process_time() - start
         small_time = (
             elapsed if small_time is None else min(small_time, elapsed)
         )
@@ -4126,18 +4163,18 @@ def test_conversion_commonmark_match_emphasis():
         assert text == small_body
         assert pending == {}
 
-        start = default_timer()
+        start = process_time()
         text, pending = commonmark_repair_chunk(large_body, {})
-        elapsed = default_timer() - start
+        elapsed = process_time() - start
         large_time = (
             elapsed if large_time is None else min(large_time, elapsed)
         )
         assert text == large_body
         assert pending == {}
 
-    # Doubling input should remain near linear; the additive margin covers
-    # timer noise at these short runtimes.
-    assert large_time < small_time * 3.0 + 0.1
+    # Growth should stay near linear; the additive margin covers timer
+    # noise at these short runtimes.
+    assert large_time < small_time * 8.0 + 0.1
 
 
 def test_conversion_commonmark_render_emphasis_events():
@@ -4573,6 +4610,16 @@ def test_conversion_html_tag_reducer_line_breaks():
     assert "\n" not in reducer.reduce(
         "<table>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</table>"
     )
+    assert "\n" not in reducer.reduce(
+        "<table><tr><td><b>a</b></td>\n<td>b</td></tr></table>"
+    )
+
+    # A break written between two inline tags is kept like one in text
+    assert reducer.reduce("<b>a</b>\n<i>b</i>") == "a\nb"
+    assert reducer.reduce("<span>a</span>\n\n<span>b</span>") == "a\n\nb"
+
+    # A space between inline tags is still just a space
+    assert reducer.reduce("<b>a</b> <i>b</i>") == "a b"
 
 
 def test_conversion_sentinel_exhausted_partners_is_fast():
@@ -4600,3 +4647,26 @@ def test_conversion_sentinel_exhausted_partners_is_fast():
     assert default_timer() - start < 5.0
     assert picked == chr(0xE00A) + chr(0xE00C)
     assert picked not in body
+
+
+def test_commonmark_link_label_helpers():
+    """Link labels are buffered, recovered and capped in depth."""
+    out = ["a "]
+    link_stack = []
+
+    # A label is buffered from its "["
+    assert commonmark_open_link_label(out, link_stack) is True
+    out.append("label")
+    assert out == ["a ", "[", "label"]
+    assert link_stack == [1]
+
+    # Taking it back returns the text and removes it from the output
+    assert commonmark_take_link_label(out, link_stack) == "label"
+    assert out == ["a "]
+    assert link_stack == []
+
+    # Past the depth limit a "[" is left for the caller to keep as text
+    for _ in range(MAX_LINK_DEPTH):
+        assert commonmark_open_link_label(out, link_stack) is True
+    assert commonmark_open_link_label(out, link_stack) is False
+    assert len(link_stack) == MAX_LINK_DEPTH

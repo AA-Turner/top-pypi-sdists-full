@@ -1715,6 +1715,11 @@ def test_trailing_break_at_an_inline_root_is_dropped() -> None:
             id="table-nested-becomes-cell-html",
         ),
         pytest.param(
+            "<table><tr><td><blockquote><em>alpha<p>beta</p></em></blockquote></td></tr></table>",
+            "| *alpha* *beta* |\n| --- |",
+            id="table-block-splits-cell-emphasis",
+        ),
+        pytest.param(
             "<table><tr><td><ul><li>x</li><li>y</li></ul></td></tr><tr><td>z</td></tr></table>",
             "| <ul><li>x</li><li>y</li></ul> |\n| --- |\n| z |",
             id="table-list-in-cell-becomes-html",
@@ -1723,6 +1728,16 @@ def test_trailing_break_at_an_inline_root_is_dropped() -> None:
             "<table><tr><td><table><tr><td>a|b</td></tr></table></td></tr></table>",
             "| <table><tr><td>a\\|b</td></tr></table> |\n| --- |",
             id="table-pipe-inside-nested-escaped-once",
+        ),
+        pytest.param(
+            "<table><tr><td><table><tr><td>&#13;</td></tr></table></td></tr></table>",
+            "| <table><tr><td>&#13;</td></tr></table> |\n| --- |",
+            id="table-nested-carriage-return",
+        ),
+        pytest.param(
+            "<table><tr><td><ul><li>&#13;</li></ul></td></tr></table>",
+            "| <ul><li>&#13;</li></ul> |\n| --- |",
+            id="table-list-carriage-return",
         ),
         pytest.param(
             "<table><tr><td><code>a|b</code></td></tr><tr><td>c</td></tr></table>",
@@ -1755,6 +1770,24 @@ def test_trailing_break_at_an_inline_root_is_dropped() -> None:
             "<table><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></table>",
             "<table><tbody><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></tbody></table>",
             id="table-short-row-keeps-html",
+        ),
+        pytest.param(
+            "<b><table><tr><th>a</th></tr><tr><td>b</td><td>c</td></tr></table></b>",
+            "<table><tbody><tr><th><strong>a</strong></th></tr><tr><td><strong>b</strong></td>"
+            "<td><strong>c</strong></td></tr></tbody></table>",
+            id="table-raw-keeps-strong-in-each-cell",
+        ),
+        pytest.param(
+            "<b><table><tr><td><table><tr><td>a</td></tr></table></td></tr><tr><td>b</td><td>c</td></tr></table></b>",
+            "<table><tbody><tr><td><strong><table><tbody><tr><td>a</td></tr></tbody></table></strong></td>"
+            "</tr><tr><td><strong>b</strong></td><td><strong>c</strong></td></tr></tbody></table>",
+            id="table-raw-wraps-outer-cells-only",
+        ),
+        pytest.param(
+            "<b><table><tr><td><svg><text>x</text></svg></td></tr><tr><td>y</td><td>z</td></tr></table></b>",
+            "<table><tbody><tr><td><strong><svg><text>x</text></svg></strong></td></tr>"
+            "<tr><td><strong>y</strong></td><td><strong>z</strong></td></tr></tbody></table>",
+            id="table-raw-keeps-foreign-cell-content",
         ),
         pytest.param("<em><table><tr><th>a</th></tr></table></em>", "| *a* |\n| --- |", id="table-in-emphasis"),
         pytest.param(
@@ -1792,10 +1825,37 @@ def test_trailing_break_at_an_inline_root_is_dropped() -> None:
             "| [x](/t) |\n| --- |",
             id="table-list-in-link-in-cell-flattens",
         ),
+        pytest.param(
+            '<table><tr><td><img alt="  "></td></tr></table>',
+            '| <img src="" alt="&#32;&#32;"> |\n| --- |',
+            id="table-image-alt-spaces",
+        ),
+        pytest.param(
+            '<table><tr><td><img src="a  b" alt="x"></td></tr></table>',
+            '| <img src="a&#32;&#32;b" alt="x"> |\n| --- |',
+            id="table-image-src-spaces",
+        ),
+        pytest.param(
+            '<table><tr><td><img src="x" alt="a b" title="c  d"></td></tr></table>',
+            '| <img src="x" alt="a&#32;b" title="c&#32;&#32;d"> |\n| --- |',
+            id="table-image-title-spaces",
+        ),
+        pytest.param(
+            '<table><tr><td><img src="x" alt="a b"></td></tr></table>',
+            "| ![a b](x) |\n| --- |",
+            id="table-image-single-alt-space",
+        ),
     ],
 )
 def test_tables(html: str, expected: str) -> None:
     assert md(html) == expected
+
+
+def test_raw_table_respects_ignored_emphasis() -> None:
+    options: Final = Markdown(inline=Markdown.Inline(ignore_emphasis=True))
+    assert parse("<b><table><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></table></b>").to_markdown(options) == (
+        "<table><tbody><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></tbody></table>"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1981,6 +2041,9 @@ def test_escaping_none(html: str, options: Markdown, expected: str) -> None:
         pytest.param('<a href="a\nb">x</a>', "[x](ab)", id="newline-dropped"),
         pytest.param('<a href="a\tb">x</a>', "[x](ab)", id="tab-dropped"),
         pytest.param('<img src="i&#13;e">', '<img src="i&#13;e" alt="">', id="image-carriage-return-preserved"),
+        pytest.param(
+            '<img src="a &#13;b" alt="x y">', '<img src="a &#13;b" alt="x y">', id="image-raw-attribute-space"
+        ),
         pytest.param('<a href="é\nx">t</a>', "[t](éx)", id="newline-dropped-after-non-ascii"),
         pytest.param('<a href="\n&lt;">x</a>', "[x](<\\<>)", id="leading-angle-after-dropped-newline"),
         pytest.param('<a href="a\x01b">x</a>', "[x](<a\x01b>)", id="control-takes-angle-form"),
@@ -2085,6 +2148,13 @@ def test_document_structure(html: str, expected: str) -> None:
 )
 def test_edge_cases(html: str, expected: str) -> None:
     assert md(html) == expected
+
+
+@pytest.mark.parametrize(("container", "expected"), [("pre", "```\nshown\n```"), ("code", "`shown`")])
+@pytest.mark.parametrize("hidden", ["title", "datalist"])
+def test_code_omits_hidden_descendants(container: str, expected: str, hidden: str) -> None:
+    fragment: Final = parse_fragment(f"<{container}><{hidden}>secret</{hidden}>shown</{container}>")
+    assert fragment.to_markdown() == expected
 
 
 @pytest.mark.parametrize(
@@ -3749,6 +3819,12 @@ def test_images(html: str, opts: Markdown, expected: str) -> None:
             id="cell-html-keeps-a-tbody-that-carries-attributes",
         ),
         pytest.param(
+            '<table><tr><td><table><tr><td><!--a\nb--><img src="a\nb"></td></tr></table></td></tr></table>',
+            Markdown(),
+            '| <table><tr><td><!--a b--><img src="a&#10;b"></td></tr></table> |\n| --- |',
+            id="cell-html-preserves-line-break-in-attribute",
+        ),
+        pytest.param(
             "<table><tr><td>a|b</td></tr></table>",
             Markdown(escaping=Markdown.Escaping(mode="all")),
             "| a\\|b |\n| --- |",
@@ -3807,6 +3883,12 @@ def test_images(html: str, opts: Markdown, expected: str) -> None:
             Markdown(),
             "| `a\\|b` |\n| --- |",
             id="cell-pipe-escaped-in-preformatted-text",
+        ),
+        pytest.param(
+            "<table><tr><td><b>a<p>x</p></b></td></tr></table>",
+            Markdown(),
+            "| **a x** |\n| --- |",
+            id="cell-paragraph-keeps-emphasis",
         ),
         pytest.param(
             "<table><tr><td><span><p>x</p></span></td></tr></table>",

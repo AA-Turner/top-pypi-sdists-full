@@ -38,6 +38,8 @@ from probe.sdk.run.closing.heartbeat import HeartbeatMixin, _Progress
 from probe.sdk.run.closing.lease import WriterLeaseMixin
 from probe.sdk.run.closing.status import StatusMixin
 from probe.sdk.run.closing.terminal import TerminalMixin
+from probe.sdk.run.commands.commands import CommandBox, RunCommandsMixin
+from probe.sdk.run.resume.resume import ResumeMixin
 from probe.sdk.run.config import ConfigMixin
 from probe.sdk.run.files.capture import CaptureMixin
 from probe.sdk.run.files.code_files import CodeFilesMixin
@@ -54,6 +56,7 @@ from probe.sdk.run.metrics.metrics import MetricsMixin
 from probe.sdk.run.metrics.pending import PendingRowsMixin, _PendingRow
 from probe.sdk.run.metrics.resume import ResumeGuardMixin
 from probe.sdk.run.metrics.spans import SpansMixin
+from probe.sdk.run.samples.mixin import SamplesMixin
 
 
 @compose
@@ -65,6 +68,7 @@ class Run(
     ResumeGuardMixin,
     DerivedMetricsMixin,
     SpansMixin,
+    SamplesMixin,
     FilesMixin,
     ArtifactRegistryMixin,
     UploadsMixin,
@@ -81,6 +85,8 @@ class Run(
     StatusMixin,
     ExecuteMixin,
     HostClaimsMixin,
+    RunCommandsMixin,
+    ResumeMixin,
 ):
     def __init__(self, client: "Client", data: dict):
         self._client = client
@@ -141,6 +147,8 @@ class Run(
         # execution wrote. Explicit steps at or below it are refused, and
         # auto-steps start above it.
         self._resume_from_step: int | None = None
+        # (kind, key) -> that key's last step on the server (#364); None = one floor for every key.
+        self._resume_key_floors: dict[tuple[str, str], int] | None = None
         self._auto_step_floor = 0
         # D17: what this run produces, captured when it ends. Set by
         # `_start_capture` (Client.run / probe.init) or `execute`.
@@ -182,6 +190,7 @@ class Run(
         #: server never saw would close nothing.
         self._lease_registered = False
         self._progress = _Progress()
+        self._commands = CommandBox()
         # (status, exception) an integration reported through
         # `fluent.note_exit` for an ending no process hook sees (Lightning's
         # SIGTERMException: a code-less SystemExit). `__exit__` prefers it to

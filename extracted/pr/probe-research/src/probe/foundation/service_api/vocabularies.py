@@ -130,14 +130,17 @@ class Cap:
     #: `api.call`, `files.hash` and `credentials.hold` (plan D10, D20, D21): a training
     #: process sends no HTTP and hashes nothing itself.
     SDK_RELAY = "sdk.relay.v1"
+    #: `api.call` with `stream: true` (the live events' SSE, rl-next W55): a held response whose
+    #: body goes into a socket the caller passed, as it comes.
+    SDK_RELAY_STREAM = "sdk.relay.stream.v1"
 
 
 CAPS = frozenset({
     Cap.ACTION_SANDBOX, Cap.UPDATE_APP, Cap.SETTINGS_KEEPER, Cap.HOOKS_PROXY, Cap.HOOKS_PROXY_V2,
-    Cap.OUTBOX_JOURNAL, Cap.SDK_RELAY,
+    Cap.OUTBOX_JOURNAL, Cap.SDK_RELAY, Cap.SDK_RELAY_STREAM,
 })
 #: What a delivery service (the SDK's own, `probe.sdk.delivery.service`) serves: the SDK's parts only.
-DELIVERY_CAPS = frozenset({Cap.OUTBOX_JOURNAL, Cap.SDK_RELAY})
+DELIVERY_CAPS = frozenset({Cap.OUTBOX_JOURNAL, Cap.SDK_RELAY, Cap.SDK_RELAY_STREAM})
 
 
 class ServiceRole(_StrEnum):
@@ -673,6 +676,17 @@ class ShimExit(IntEnum):
     SERVICE_LOST = 70
     #: An update kept the command from starting (EX_TEMPFAIL, as the update barrier's busy).
     UPDATING = 75
+
+
+class ShimReason:
+    """What the shim's own exits say under `--json` (`{"ok": false, "reason"}`, plan D71): the
+    words `probe.core.events.AgentInstallReason` has for them."""
+
+    UPDATING = "updating"
+    NO_SERVICE = "no_service"
+    SERVICE_LOST = "service_lost"
+
+    BY_EXIT = {ShimExit.UPDATING: UPDATING, ShimExit.UNAVAILABLE: NO_SERVICE, ShimExit.SERVICE_LOST: SERVICE_LOST}
 
 
 class CommandStdio:

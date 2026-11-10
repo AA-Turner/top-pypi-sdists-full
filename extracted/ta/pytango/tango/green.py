@@ -10,7 +10,7 @@ import textwrap
 from functools import wraps
 from threading import get_ident
 
-from tango._instrumentation import _forcefully_traced_method
+from tango._internal.instrumentation import _forcefully_traced_method
 
 # Tango imports
 from tango._tango import GreenMode

@@ -100,14 +100,26 @@ public:
     [[nodiscard]] forceinline std::optional<Symbol>
     decode( BitReader& bitReader ) const
     {
+        /* An all-zero alphabet has no symbols and m_lutBitsCount is zero in that case. Peeking zero bits would
+         * assert in the BitReader. */
+        if ( UNLIKELY( m_lutBitsCount == 0 ) ) [[unlikely]] {
+            return std::nullopt;
+        }
+
         try {
-            const auto [length, symbol] = m_codeCache[bitReader.peek( m_lutBitsCount )];
+            /* Use the compile-time peek when the full LUT is in use so the index mask and size become
+             * constants. m_lutBitsCount only differs from LUT_BITS_COUNT when the alphabet's maximum code
+             * length is smaller than the LUT (then peeking LUT_BITS_COUNT bits may read past valid codes). */
+            const auto index = LUT_BITS_COUNT == m_lutBitsCount
+                               ? static_cast<HuffmanCode>( bitReader.template peek<LUT_BITS_COUNT>() )
+                               : static_cast<HuffmanCode>( bitReader.peek( m_lutBitsCount ) );
+            const auto [length, symbol] = m_codeCache[index];
             if ( length == 0 ) {
                 return decodeLong( bitReader );
             }
             bitReader.seekAfterPeek( length );
             return symbol;
-        } catch ( const typename BitReader::EndOfFileReached& ) {
+        } catch ( const EndOfFileReached& ) {
             /* Should only happen at the end of the file and probably not even there
              * because the bzip2 footer (EOS block) should be longer than the peek length. */
             return BaseType::decode( bitReader );

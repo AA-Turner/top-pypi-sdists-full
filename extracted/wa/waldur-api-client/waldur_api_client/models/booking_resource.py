@@ -18,17 +18,20 @@ if TYPE_CHECKING:
     from ..models.backend_metadata import BackendMetadata
     from ..models.booking_resource_attributes import BookingResourceAttributes
     from ..models.booking_resource_current_usages import BookingResourceCurrentUsages
+    from ..models.booking_resource_display_limits import BookingResourceDisplayLimits
     from ..models.booking_resource_limit_usage import BookingResourceLimitUsage
     from ..models.booking_resource_limits import BookingResourceLimits
     from ..models.booking_resource_offering_plugin_options import BookingResourceOfferingPluginOptions
     from ..models.booking_resource_options_type_0 import BookingResourceOptionsType0
     from ..models.booking_resource_renewal_date_type_0 import BookingResourceRenewalDateType0
+    from ..models.booking_resource_spending_limits import BookingResourceSpendingLimits
     from ..models.booking_slot import BookingSlot
     from ..models.nested_endpoint import NestedEndpoint
     from ..models.offering_account_settings import OfferingAccountSettings
     from ..models.offering_component import OfferingComponent
     from ..models.order_details import OrderDetails
     from ..models.report_section import ReportSection
+    from ..models.spending_limit_status import SpendingLimitStatus
 
 
 T = TypeVar("T", bound="BookingResource")
@@ -113,17 +116,31 @@ class BookingResource:
             for termination.
         end_date_requested_by (Union[None, Unset, str]):
         end_date_updated_at (Union[None, Unset, datetime.datetime]): Timestamp of the last end_date change.
+        terminated_at (Union[None, Unset, datetime.datetime]): When the resource was terminated. Unlike end_date, which
+            is the planned date, this is the moment it happened. It stays set during a restore and is cleared once the
+            resource is OK again, so check the state before reading it as the end of a live resource. Empty if the date is
+            not known.
         username (Union[None, Unset, str]):
         limit_usage (Union[Unset, BookingResourceLimitUsage]): Dictionary mapping limit-based component types to their
             consumed usage. Sums the ComponentUsage rows of the component's current period (the monthly billing period
             unless the component defines a longer limit_period), i.e. the period's high-watermark rather than the
             instantaneous current_usages value.
+        prepaid_total_component_types (Union[Unset, list[str]]): Component types whose limit_usage covers the whole
+            subscription, so the UI shows their limit as the monthly limit times the months ordered. Empty unless the
+            offering shows prepaid limits as a total (display_prepaid_limits_as_total).
         downscaled (Union[Unset, bool]):
         restrict_member_access (Union[Unset, bool]):
         paused (Union[Unset, bool]):
         usage_limit_restriction (Union[BlankEnum, Unset, UsageLimitRestrictionEnum]): Which restriction (paused or
             downscaled) was automatically applied because reported usage reached a component limit. Empty when no such
             restriction is active. Used so the automatic lift never clears a restriction that was set for another reason.
+        usage_limit_resumes_at (Union[None, Unset, datetime.datetime]): When the spending limits that restrict the
+            resource reset and the restriction lifts. Empty when no spending limit restricts the resource, when a limit-
+            based component's limit does too, or while a reached total limit holds it: a total never resets, so the
+            restriction lifts only when that limit is raised or cleared.
+        spending_limits (Union[Unset, BookingResourceSpendingLimits]): Spending limits on usage-based components, per
+            period. Changed with the set_spending_limits action.
+        spending_limit_status (Union[Unset, list['SpendingLimitStatus']]):
         endpoints (Union[Unset, list['NestedEndpoint']]):
         error_message (Union[Unset, str]):
         error_traceback (Union[Unset, str]):
@@ -143,6 +160,8 @@ class BookingResource:
         has_api_keys (Union[Unset, bool]): Whether the resource owns any API keys, so the portal can offer key
             management without knowing which backend serves the resource.
         offering_account_settings (Union[Unset, OfferingAccountSettings]):
+        display_limits (Union[Unset, BookingResourceDisplayLimits]): Resource option values shown as the limits of
+            usage-based components. Display only: not stored in limits, billed or enforced.
         created_by (Union[Unset, str]):
         created_by_username (Union[Unset, str]): Required. 128 characters or fewer. Lowercase letters, numbers and
             @/./+/-/_ characters
@@ -219,12 +238,17 @@ class BookingResource:
     end_date: Union[None, Unset, datetime.date] = UNSET
     end_date_requested_by: Union[None, Unset, str] = UNSET
     end_date_updated_at: Union[None, Unset, datetime.datetime] = UNSET
+    terminated_at: Union[None, Unset, datetime.datetime] = UNSET
     username: Union[None, Unset, str] = UNSET
     limit_usage: Union[Unset, "BookingResourceLimitUsage"] = UNSET
+    prepaid_total_component_types: Union[Unset, list[str]] = UNSET
     downscaled: Union[Unset, bool] = UNSET
     restrict_member_access: Union[Unset, bool] = UNSET
     paused: Union[Unset, bool] = UNSET
     usage_limit_restriction: Union[BlankEnum, Unset, UsageLimitRestrictionEnum] = UNSET
+    usage_limit_resumes_at: Union[None, Unset, datetime.datetime] = UNSET
+    spending_limits: Union[Unset, "BookingResourceSpendingLimits"] = UNSET
+    spending_limit_status: Union[Unset, list["SpendingLimitStatus"]] = UNSET
     endpoints: Union[Unset, list["NestedEndpoint"]] = UNSET
     error_message: Union[Unset, str] = UNSET
     error_traceback: Union[Unset, str] = UNSET
@@ -242,6 +266,7 @@ class BookingResource:
     offering_components: Union[Unset, list["OfferingComponent"]] = UNSET
     has_api_keys: Union[Unset, bool] = UNSET
     offering_account_settings: Union[Unset, "OfferingAccountSettings"] = UNSET
+    display_limits: Union[Unset, "BookingResourceDisplayLimits"] = UNSET
     created_by: Union[Unset, str] = UNSET
     created_by_username: Union[Unset, str] = UNSET
     created_by_full_name: Union[Unset, str] = UNSET
@@ -497,6 +522,14 @@ class BookingResource:
         else:
             end_date_updated_at = self.end_date_updated_at
 
+        terminated_at: Union[None, Unset, str]
+        if isinstance(self.terminated_at, Unset):
+            terminated_at = UNSET
+        elif isinstance(self.terminated_at, datetime.datetime):
+            terminated_at = self.terminated_at.isoformat()
+        else:
+            terminated_at = self.terminated_at
+
         username: Union[None, Unset, str]
         if isinstance(self.username, Unset):
             username = UNSET
@@ -506,6 +539,10 @@ class BookingResource:
         limit_usage: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.limit_usage, Unset):
             limit_usage = self.limit_usage.to_dict()
+
+        prepaid_total_component_types: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.prepaid_total_component_types, Unset):
+            prepaid_total_component_types = self.prepaid_total_component_types
 
         downscaled = self.downscaled
 
@@ -520,6 +557,25 @@ class BookingResource:
             usage_limit_restriction = self.usage_limit_restriction.value
         else:
             usage_limit_restriction = self.usage_limit_restriction.value
+
+        usage_limit_resumes_at: Union[None, Unset, str]
+        if isinstance(self.usage_limit_resumes_at, Unset):
+            usage_limit_resumes_at = UNSET
+        elif isinstance(self.usage_limit_resumes_at, datetime.datetime):
+            usage_limit_resumes_at = self.usage_limit_resumes_at.isoformat()
+        else:
+            usage_limit_resumes_at = self.usage_limit_resumes_at
+
+        spending_limits: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.spending_limits, Unset):
+            spending_limits = self.spending_limits.to_dict()
+
+        spending_limit_status: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.spending_limit_status, Unset):
+            spending_limit_status = []
+            for spending_limit_status_item_data in self.spending_limit_status:
+                spending_limit_status_item = spending_limit_status_item_data.to_dict()
+                spending_limit_status.append(spending_limit_status_item)
 
         endpoints: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.endpoints, Unset):
@@ -598,6 +654,10 @@ class BookingResource:
         offering_account_settings: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.offering_account_settings, Unset):
             offering_account_settings = self.offering_account_settings.to_dict()
+
+        display_limits: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.display_limits, Unset):
+            display_limits = self.display_limits.to_dict()
 
         created_by = self.created_by
 
@@ -751,10 +811,14 @@ class BookingResource:
             field_dict["end_date_requested_by"] = end_date_requested_by
         if end_date_updated_at is not UNSET:
             field_dict["end_date_updated_at"] = end_date_updated_at
+        if terminated_at is not UNSET:
+            field_dict["terminated_at"] = terminated_at
         if username is not UNSET:
             field_dict["username"] = username
         if limit_usage is not UNSET:
             field_dict["limit_usage"] = limit_usage
+        if prepaid_total_component_types is not UNSET:
+            field_dict["prepaid_total_component_types"] = prepaid_total_component_types
         if downscaled is not UNSET:
             field_dict["downscaled"] = downscaled
         if restrict_member_access is not UNSET:
@@ -763,6 +827,12 @@ class BookingResource:
             field_dict["paused"] = paused
         if usage_limit_restriction is not UNSET:
             field_dict["usage_limit_restriction"] = usage_limit_restriction
+        if usage_limit_resumes_at is not UNSET:
+            field_dict["usage_limit_resumes_at"] = usage_limit_resumes_at
+        if spending_limits is not UNSET:
+            field_dict["spending_limits"] = spending_limits
+        if spending_limit_status is not UNSET:
+            field_dict["spending_limit_status"] = spending_limit_status
         if endpoints is not UNSET:
             field_dict["endpoints"] = endpoints
         if error_message is not UNSET:
@@ -797,6 +867,8 @@ class BookingResource:
             field_dict["has_api_keys"] = has_api_keys
         if offering_account_settings is not UNSET:
             field_dict["offering_account_settings"] = offering_account_settings
+        if display_limits is not UNSET:
+            field_dict["display_limits"] = display_limits
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if created_by_username is not UNSET:
@@ -819,17 +891,20 @@ class BookingResource:
         from ..models.backend_metadata import BackendMetadata
         from ..models.booking_resource_attributes import BookingResourceAttributes
         from ..models.booking_resource_current_usages import BookingResourceCurrentUsages
+        from ..models.booking_resource_display_limits import BookingResourceDisplayLimits
         from ..models.booking_resource_limit_usage import BookingResourceLimitUsage
         from ..models.booking_resource_limits import BookingResourceLimits
         from ..models.booking_resource_offering_plugin_options import BookingResourceOfferingPluginOptions
         from ..models.booking_resource_options_type_0 import BookingResourceOptionsType0
         from ..models.booking_resource_renewal_date_type_0 import BookingResourceRenewalDateType0
+        from ..models.booking_resource_spending_limits import BookingResourceSpendingLimits
         from ..models.booking_slot import BookingSlot
         from ..models.nested_endpoint import NestedEndpoint
         from ..models.offering_account_settings import OfferingAccountSettings
         from ..models.offering_component import OfferingComponent
         from ..models.order_details import OrderDetails
         from ..models.report_section import ReportSection
+        from ..models.spending_limit_status import SpendingLimitStatus
 
         d = dict(src_dict)
         offering = d.pop("offering", UNSET)
@@ -1219,6 +1294,23 @@ class BookingResource:
 
         end_date_updated_at = _parse_end_date_updated_at(d.pop("end_date_updated_at", UNSET))
 
+        def _parse_terminated_at(data: object) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                terminated_at_type_0 = isoparse(data)
+
+                return terminated_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        terminated_at = _parse_terminated_at(d.pop("terminated_at", UNSET))
+
         def _parse_username(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -1234,6 +1326,8 @@ class BookingResource:
             limit_usage = UNSET
         else:
             limit_usage = BookingResourceLimitUsage.from_dict(_limit_usage)
+
+        prepaid_total_component_types = cast(list[str], d.pop("prepaid_total_component_types", UNSET))
 
         downscaled = d.pop("downscaled", UNSET)
 
@@ -1259,6 +1353,37 @@ class BookingResource:
             return usage_limit_restriction_type_1
 
         usage_limit_restriction = _parse_usage_limit_restriction(d.pop("usage_limit_restriction", UNSET))
+
+        def _parse_usage_limit_resumes_at(data: object) -> Union[None, Unset, datetime.datetime]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                usage_limit_resumes_at_type_0 = isoparse(data)
+
+                return usage_limit_resumes_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.datetime], data)
+
+        usage_limit_resumes_at = _parse_usage_limit_resumes_at(d.pop("usage_limit_resumes_at", UNSET))
+
+        _spending_limits = d.pop("spending_limits", UNSET)
+        spending_limits: Union[Unset, BookingResourceSpendingLimits]
+        if isinstance(_spending_limits, Unset):
+            spending_limits = UNSET
+        else:
+            spending_limits = BookingResourceSpendingLimits.from_dict(_spending_limits)
+
+        spending_limit_status = []
+        _spending_limit_status = d.pop("spending_limit_status", UNSET)
+        for spending_limit_status_item_data in _spending_limit_status or []:
+            spending_limit_status_item = SpendingLimitStatus.from_dict(spending_limit_status_item_data)
+
+            spending_limit_status.append(spending_limit_status_item)
 
         endpoints = []
         _endpoints = d.pop("endpoints", UNSET)
@@ -1384,6 +1509,13 @@ class BookingResource:
         else:
             offering_account_settings = OfferingAccountSettings.from_dict(_offering_account_settings)
 
+        _display_limits = d.pop("display_limits", UNSET)
+        display_limits: Union[Unset, BookingResourceDisplayLimits]
+        if isinstance(_display_limits, Unset):
+            display_limits = UNSET
+        else:
+            display_limits = BookingResourceDisplayLimits.from_dict(_display_limits)
+
         created_by = d.pop("created_by", UNSET)
 
         created_by_username = d.pop("created_by_username", UNSET)
@@ -1469,12 +1601,17 @@ class BookingResource:
             end_date=end_date,
             end_date_requested_by=end_date_requested_by,
             end_date_updated_at=end_date_updated_at,
+            terminated_at=terminated_at,
             username=username,
             limit_usage=limit_usage,
+            prepaid_total_component_types=prepaid_total_component_types,
             downscaled=downscaled,
             restrict_member_access=restrict_member_access,
             paused=paused,
             usage_limit_restriction=usage_limit_restriction,
+            usage_limit_resumes_at=usage_limit_resumes_at,
+            spending_limits=spending_limits,
+            spending_limit_status=spending_limit_status,
             endpoints=endpoints,
             error_message=error_message,
             error_traceback=error_traceback,
@@ -1492,6 +1629,7 @@ class BookingResource:
             offering_components=offering_components,
             has_api_keys=has_api_keys,
             offering_account_settings=offering_account_settings,
+            display_limits=display_limits,
             created_by=created_by,
             created_by_username=created_by_username,
             created_by_full_name=created_by_full_name,

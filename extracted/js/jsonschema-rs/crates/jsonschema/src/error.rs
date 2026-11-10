@@ -59,6 +59,9 @@ pub struct ValidationError<'a> {
     repr: Box<ValidationErrorRepr<'a>>,
 }
 
+#[cfg(all(target_arch = "x86_64", target_pointer_width = "64"))]
+const _: () = assert!(std::mem::size_of::<ValidationError<'static>>() == 8);
+
 struct ValidationErrorRepr<'a> {
     instance: LazyInstance<'a>,
     kind: ValidationErrorKind,
@@ -342,7 +345,13 @@ pub enum ValidationErrorKind {
 impl ValidationErrorKind {
     #[must_use]
     pub fn keyword(&self) -> &str {
-        match self {
+        self.keyword_name().unwrap_or_else(|custom| custom)
+    }
+
+    /// The keyword: `Ok` for a built-in kind, whose keyword is `'static`, and `Err` with the
+    /// keyword a `Custom` kind owns.
+    pub(crate) fn keyword_name(&self) -> Result<&'static str, &str> {
+        Ok(match self {
             ValidationErrorKind::AdditionalItems { .. } => "additionalItems",
             ValidationErrorKind::AdditionalProperties { .. } => "additionalProperties",
             ValidationErrorKind::AnyOf { .. } => "anyOf",
@@ -355,7 +364,7 @@ impl ValidationErrorKind {
                 "contentEncoding"
             }
             ValidationErrorKind::ContentMediaType { .. } => "contentMediaType",
-            ValidationErrorKind::Custom { keyword, .. } => keyword,
+            ValidationErrorKind::Custom { keyword, .. } => return Err(keyword),
             ValidationErrorKind::Enum { .. } => "enum",
             ValidationErrorKind::ExclusiveMaximum { .. } => "exclusiveMaximum",
             ValidationErrorKind::ExclusiveMinimum { .. } => "exclusiveMinimum",
@@ -380,7 +389,7 @@ impl ValidationErrorKind {
             ValidationErrorKind::UnevaluatedProperties { .. } => "unevaluatedProperties",
             ValidationErrorKind::UniqueItems => "uniqueItems",
             ValidationErrorKind::Referencing(_) => "$ref",
-        }
+        })
     }
 }
 

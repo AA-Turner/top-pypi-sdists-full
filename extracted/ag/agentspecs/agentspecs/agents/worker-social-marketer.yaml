@@ -28,6 +28,7 @@ delegable:
 enabled: false
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
 harness: pydantic-ai
+identity: datalayer-acting-agent
 
 sandbox_variant: jupyter-server
 
@@ -40,10 +41,16 @@ mcp_servers:
   - slack:0.0.1
 
 # Skills available to this agent
+# The six skills the user named for the marketer agents (7 November 2026): web crawl, events,
+# GitHub, image, video and PDF; the summarizer stays.
 skills:
   - text-summarizer:0.0.1
   - crawl:0.0.1
   - events:0.0.1
+  - github:0.0.1
+  - image:0.0.1
+  - video:0.0.1
+  - pdf:0.0.1
 
 # Runtime tools — publishing requires human approval
 backend_tools:
@@ -158,3 +165,8 @@ welcome_document: null
 
 # No trigger — this is an interactive chat agent
 trigger: null
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

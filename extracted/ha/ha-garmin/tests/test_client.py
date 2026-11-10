@@ -1377,9 +1377,30 @@ class TestGarminClient:
                     "optimalSleepWindowStartMins": 10,
                     "optimalSleepWindowEndMins": 20,
                 },
-                "sleepScores": {"overall": {"value": 85}},
+                "sleepScores": {
+                    "overall": {"value": 85, "qualifierKey": "GOOD"},
+                    "stress": {
+                        "qualifierKey": "FAIR",
+                        "optimalStart": 0.0,
+                        "optimalEnd": 15.0,
+                    },
+                },
+                "sleepScoreFeedback": "POSITIVE_LONG_AND_DEEP",
+                "sleepScoreInsight": "NONE",
+                "sleepScorePersonalizedInsight": "RHYTHM_POS_GOOD_SLEEP",
                 "averageRespirationValue": 14.2,
+                "avgSleepStress": 21.0,
+                "avgHeartRate": 58.0,
+                "awakeCount": 2,
             },
+            "restlessMomentsCount": 50,
+            "bodyBatteryChange": 48,
+            "sleepStress": [
+                {"startGMT": 1775944800000, "value": 18.0},
+                {"startGMT": 1775944980000, "value": -1.0},
+                {"startGMT": 1775945160000, "value": 22.0},
+                {"startGMT": None, "value": 5.0},
+            ],
             "skinTempDataExists": True,
             "avgSkinTempDeviationC": 0.2,
             "avgSkinTempDeviationF": 0.3,
@@ -1423,6 +1444,25 @@ class TestGarminClient:
         assert data["avgSleepRespirationValue"] == 14.2
         assert data["avgSkinTempDeviationC"] == 0.2
         assert data["skinTempCalibrationDays"] == 19
+        assert data["avgSleepStress"] == 21.0
+        assert data["avgSleepHeartRate"] == 58.0
+        assert data["awakeCount"] == 2
+        assert data["restlessMomentsCount"] == 50
+        assert data["sleepBodyBatteryChange"] == 48
+        # Unmeasured (negative) and malformed samples are dropped.
+        assert data["sleepStress"] == [
+            {"time": datetime(2026, 4, 11, 22, 0, tzinfo=UTC), "value": 18.0},
+            {"time": datetime(2026, 4, 11, 22, 6, tzinfo=UTC), "value": 22.0},
+        ]
+        assert data["sleepScores"]["overall"]["qualifierKey"] == "GOOD"
+        assert data["sleepScores"]["stress"] == {
+            "qualifierKey": "FAIR",
+            "optimalStart": 0.0,
+            "optimalEnd": 15.0,
+        }
+        assert data["sleepScoreFeedback"] == "POSITIVE_LONG_AND_DEEP"
+        assert data["sleepScoreInsight"] == "NONE"
+        assert data["sleepScorePersonalizedInsight"] == "RHYTHM_POS_GOOD_SLEEP"
 
     async def test_fetch_core_data_bedtime_uses_gmt_local_delta_for_offset(self):
         """bedtime/wake_time must not silently assume UTC+0.
@@ -1486,6 +1526,15 @@ class TestGarminClient:
         # No skin temperature sensor data in this payload.
         assert data["avgSkinTempDeviationC"] is None
         assert data["skinTempCalibrationDays"] is None
+        # Sleep-only fields absent from the payload stay None.
+        assert data["avgSleepStress"] is None
+        assert data["awakeCount"] is None
+        assert data["restlessMomentsCount"] is None
+        assert data["avgSleepHeartRate"] is None
+        assert data["sleepBodyBatteryChange"] is None
+        assert data["sleepStress"] == []
+        assert data["sleepScores"] == {"overall": {"value": 84}}
+        assert data["sleepScoreFeedback"] is None
 
     async def test_fetch_core_data_transient_error_does_not_use_yesterday(self):
         """Test a transient 502/503 does not get papered over with yesterday's summary.

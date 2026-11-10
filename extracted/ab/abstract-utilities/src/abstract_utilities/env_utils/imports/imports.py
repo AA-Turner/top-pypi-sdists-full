@@ -6,5 +6,6 @@ from ...safe_utils import safe_split
 from ...compare_utils import line_contains
 from ...type_utils import is_list,is_bool
 from ...directory_utils import get_slash,path_join,if_not_last_child_join,get_home_folder,simple_path_join
-DEFAULT_FILE_NAME = '.env'
-DEFAULT_KEY = 'MY_PASSWORD'
+# The .env tools are abstract_security's (the single source); re-exported here so
+# abstract_utilities.env_utils keeps its import paths.
+from abstract_security.envs.imports import DEFAULT_FILE_NAME, DEFAULT_KEY

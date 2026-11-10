@@ -19,12 +19,14 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from torch import Tensor
 
-from cozy_runtime.author.kernels import Launch, TritonEntry, TritonKernels
+from cozy_runtime.accel.kernels import Launch, TritonEntry, TritonKernels
 
 try:
     import triton
     import triton.language as tl
 except ImportError:  # pragma: no cover - a CPU-only or non-Linux environment
+    if TYPE_CHECKING:
+        raise
     triton = None
 
 #: The largest finite e4m3fn magnitude, and the value a head's amax is mapped onto instead.

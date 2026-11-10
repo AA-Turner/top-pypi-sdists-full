@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.communications.callrecords.pstn_call_duration_source import (
@@ -9,7 +8,6 @@ from office365.communications.callrecords.pstn_call_duration_source import (
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PstnCallLogRow(ClientValue):
     callDurationSource: PstnCallDurationSource = PstnCallDurationSource.microsoft
     calleeNumber: str | None = None

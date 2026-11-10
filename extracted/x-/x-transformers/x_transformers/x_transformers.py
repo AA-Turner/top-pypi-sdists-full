@@ -29,6 +29,7 @@ from einops import rearrange, repeat, reduce, pack, unpack
 from torch_einops_utils import (
     masked_mean,
     pad_at_dim,
+    pad_or_truncate_at_dim,
     safe_cat,
     slice_right_at_dim,
     tree_flatten_with_inverse,
@@ -171,6 +172,75 @@ def layer_schedule(start, end, depth, schedule = 'cosine'):
         schedule = lambda start, end, t: start + (end - start) * 0.5 * (1 - math.cos(math.pi * t))
 
     return tuple(schedule(start, end, l / (depth - 1)) for l in range(depth))
+
+# variable-width transformer - https://arxiv.org/abs/2606.18246
+# x-shaped widths, parameter matched to a constant-width baseline of `dim`
+
+def variable_width_schedule(
+    dim,
+    depth,
+    bottleneck_layer_ratio = 0.75,
+    bottleneck_width_ratio = 0.3,
+    expansion_factor = 4,
+    num_mlp_projections = 3,
+    round_to = 32
+):
+    assert depth >= 3, 'variable width schedules need at least 3 blocks'
+    assert 0. < bottleneck_layer_ratio < 1.
+    assert 0. < bottleneck_width_ratio < 1.
+    assert round_to >= 1
+
+    bottleneck_ind = round(bottleneck_layer_ratio * (depth - 1))
+    bottleneck_ind = min(max(bottleneck_ind, 1), depth - 2)
+
+    # block parameter count ~ num_projections * d_l^2, plus unused endpoint projections
+
+    num_projections = 4 + num_mlp_projections * expansion_factor
+    endpoint_correction = 3 + expansion_factor
+
+    def factors(alpha):
+        right_ratio = alpha ** (-bottleneck_ind / (depth - 1 - bottleneck_ind))
+
+        return tuple(
+            alpha ** l if l <= bottleneck_ind else alpha ** bottleneck_ind * right_ratio ** (l - bottleneck_ind)
+            for l in range(depth)
+        )
+
+    def parameter_matched_endpoint(factors):
+        sum_sq = sum(f * f for f in factors)
+        uncorrected = dim * math.sqrt(depth / sum_sq)
+
+        if uncorrected <= dim:
+            return uncorrected
+
+        # appendix a quadratic, corrected for unused qkv / mlp endpoint projections
+
+        a = num_projections * sum_sq - endpoint_correction
+        b = endpoint_correction * dim
+        c = -depth * num_projections * dim * dim
+        return (-b + math.sqrt(b * b - 4 * a * c)) / (2 * a)
+
+    target = bottleneck_width_ratio * dim
+
+    # solve the early-layer shrink rate
+
+    lo, hi = 1e-6, 1.
+
+    for _ in range(100):
+        alpha = math.sqrt(lo * hi)
+        fs = factors(alpha)
+        bottleneck = parameter_matched_endpoint(fs) * fs[bottleneck_ind]
+
+        if bottleneck < target:
+            lo = alpha
+        else:
+            hi = alpha
+
+    alpha = math.sqrt(lo * hi)
+    factors = factors(alpha)
+    endpoint = parameter_matched_endpoint(factors)
+
+    return tuple(max(round_to, round(endpoint * f / round_to) * round_to) for f in factors)
 
 # recurrent depth related
 
@@ -899,7 +969,7 @@ def rotate_half(x):
     return rearrange(x, '... d r -> ... (d r)')
 
 @disable_autocast
-def apply_rotary_pos_emb(t, freqs, scale = 1):
+def apply_rotary_pos_emb(t, freqs, scale = 1, inverse = False):
     rot_dim, seq_len, orig_dtype = freqs.shape[-1], t.shape[-2], t.dtype
 
     freqs = freqs[:, -seq_len:, :]
@@ -913,7 +983,11 @@ def apply_rotary_pos_emb(t, freqs, scale = 1):
 
     # partial rotary embeddings, Wang et al. GPT-J
     t, t_unrotated = t[..., :rot_dim], t[..., rot_dim:]
-    t = (t * freqs.cos() * scale) + (rotate_half(t) * freqs.sin() * scale)
+
+    cos, sin = freqs.cos() * scale, freqs.sin() * scale
+    sin = -sin if inverse else sin
+
+    t = (t * cos) + (rotate_half(t) * sin)
     out = cat((t, t_unrotated), dim = -1)
 
     return out.type(orig_dtype)
@@ -1917,8 +1991,13 @@ class Attention(Module):
         value_dim_head = None,
         dim_out = None,
         add_zero_kv = False,         # same as add_zero_attn in pytorch
-        head_learned_sink = False,
+        head_learned_sink = False,   # gpt-oss style learned per-head sink
+        # scaled sink attention - https://openreview.net/forum?id=a5yCiLOjGB
+        head_learned_sink_input_dependent = False,   # per-token sink logit from hidden state
+        head_learned_sink_add_gain = False,          # add back the gain on surviving attention
+        head_learned_sink_reference_mass = 0.2,      # surviving mass at which gain = 1
         rotate_num_heads = None,
+        qkvo_rope = False,           # rotate values forward, then inverse rotate output (RoPER)
         data_dependent_alibi = False,
         data_dependent_alibi_per_row = False,
         data_dependent_alibi_per_row_dim_head = 8,
@@ -1955,6 +2034,24 @@ class Attention(Module):
     ):
         super().__init__()
         dim_kv = default(dim_context, dim)
+
+        # scaled sink attention variants
+
+        assert not (head_learned_sink_input_dependent and not head_learned_sink)
+        assert not (head_learned_sink_add_gain and not head_learned_sink)
+        assert not (head_learned_sink_input_dependent and flash)
+        assert not (head_learned_sink_input_dependent and inverted_attention)
+        assert not (head_learned_sink_input_dependent and (sigmoid or hard or exists(sparse_topk) or gumbel_softmax or exists(custom_attn_fn)))
+
+        self.sink_gain = None
+        if head_learned_sink_add_gain:
+            assert 0. < head_learned_sink_reference_mass <= 1.
+            self.sink_gain = 1. / head_learned_sink_reference_mass
+
+        self.to_sink = None
+        if head_learned_sink_input_dependent:
+            self.to_sink = LinearNoBias(dim, heads)
+            nn.init.zeros_(self.to_sink.weight)
 
         self.scale = dim_head ** -0.5
 
@@ -2164,7 +2261,7 @@ class Attention(Module):
             cog_signed = cog_signed,
             custom_attn_fn = custom_attn_fn,
             add_zero_kv = add_zero_kv,
-            head_learned_sink = head_learned_sink,
+            head_learned_sink = head_learned_sink and not head_learned_sink_input_dependent,
             flash = flash,
             softclamp_logits = softclamp_logits,
             logit_softclamp_value = logit_softclamp_value,
@@ -2257,6 +2354,8 @@ class Attention(Module):
 
         self.rotate_num_heads = rotate_num_heads
 
+        self.qkvo_rope = qkvo_rope
+
         # whether parent can kv cache
 
         self.can_cache_kv = not selective
@@ -2329,6 +2428,11 @@ class Attention(Module):
         b, n, h, kv_h, head_scale, num_mem_kv, device, has_context, qkv_receive_diff_residuals, is_multi_latent_attn = x.shape[0], x.shape[1], self.heads, self.kv_heads, self.head_scale, self.num_mem_kv, x.device, exists(context), self.qkv_receive_diff_residuals, self.use_latent_kv
 
         causal = default(causal, self.causal)
+
+        rotate_num_heads = self.rotate_num_heads
+        partial_rotate_heads = rotate_num_heads < h
+
+        assert not (self.qkvo_rope and not has_context and not exists(rotary_pos_emb)), 'qkvo_rope requires rotary_pos_emb'
 
         # an interesting possibility with hyper connections
         # having queries, keys, values be routed from different layers
@@ -2459,29 +2563,38 @@ class Attention(Module):
                 cached_kv = (k[..., mem_len:, :], v[..., mem_len:, :])
 
         if exists(rotary_pos_emb):
-            rotate_num_heads = self.rotate_num_heads
-            partial_rotate_heads = rotate_num_heads < h
-
-            freqs, xpos_scale = rotary_pos_emb
+            q_freqs, xpos_scale = rotary_pos_emb
             q_xpos_scale, k_xpos_scale = (xpos_scale, xpos_scale ** -1.) if exists(xpos_scale) else (1., 1.)
 
             if partial_rotate_heads:
                 q_rest, q = q[:, :-rotate_num_heads], q[:, -rotate_num_heads:]
                 k_rest, k = k[:, :-rotate_num_heads], k[:, -rotate_num_heads:]
 
-            q = apply_rotary_pos_emb(q, freqs, q_xpos_scale)
+                if self.qkvo_rope:
+                    v_rest, v = v[:, :-rotate_num_heads], v[:, -rotate_num_heads:]
+
+            q = apply_rotary_pos_emb(q, q_freqs, q_xpos_scale)
+
+            kv_freqs = q_freqs
 
             if has_context:
                 # override with `context_rotary_pos_emb` if provided
 
-                freqs, xpos_scale = context_rotary_pos_emb
+                kv_freqs, xpos_scale = context_rotary_pos_emb
                 _, k_xpos_scale = (xpos_scale, xpos_scale ** -1.) if exists(xpos_scale) else (1., 1.)
 
-            k = apply_rotary_pos_emb(k, freqs, k_xpos_scale)
+            k = apply_rotary_pos_emb(k, kv_freqs, k_xpos_scale)
+
+            if self.qkvo_rope:
+                assert v.shape[-1] >= kv_freqs.shape[-1], 'qkvo rope requires value head dim >= rotary dim'
+                v = apply_rotary_pos_emb(v, kv_freqs)
 
             if partial_rotate_heads:
                 q = cat((q_rest, q), dim = 1)
                 k = cat((k_rest, k), dim = 1)
+
+                if self.qkvo_rope:
+                    v = cat((v_rest, v), dim = 1)
 
         if exists(polar_pos_emb):
             freqs, bias = polar_pos_emb
@@ -2613,6 +2726,12 @@ class Attention(Module):
             v = softclamp(v, self.laser_softclamp_value)
             v = v.exp()
 
+        # scaled sink attention
+
+        sink_logits = None
+        if exists(self.to_sink):
+            sink_logits = rearrange(self.to_sink(x), 'b n h -> b h n')
+
         # attention is all we need
 
         out, intermediates = self.attend(
@@ -2622,14 +2741,27 @@ class Attention(Module):
             prev_attn = prev_attn,
             attn_delta = attn_delta,
             row_mask = mask,
+            sink_logits = sink_logits,
             flash_pack_seq_kwargs = flash_pack_seq_kwargs,
             causal = causal,
         )
+
+        # scaled sink gain
+
+        if exists(self.sink_gain):
+            out = out * self.sink_gain
 
         # laser
 
         if self.laser:
             out = log(out)
+
+        if self.qkvo_rope and exists(rotary_pos_emb):
+            if partial_rotate_heads:
+                out_rest, out_rot = out[:, :-rotate_num_heads], out[:, -rotate_num_heads:]
+                out = cat((out_rest, apply_rotary_pos_emb(out_rot, q_freqs, inverse = True)), dim = 1)
+            else:
+                out = apply_rotary_pos_emb(out, q_freqs, inverse = True)
 
         # store the values for resformer
 
@@ -2769,6 +2901,7 @@ class AttentionLayers(Module):
         depth = None,
         heads = 8,
         causal = False,
+        variable_width = None,
         cross_attend = False,
         only_cross = False,
         only_attn = False, # Ndubuaku et al., https://arxiv.org/abs/2607.18363
@@ -2801,6 +2934,7 @@ class AttentionLayers(Module):
         rotary_xpos_scale_base = 512,
         rotary_base_rescale_factor = 1.,
         rotate_num_heads = None,
+        qkvo_rope = False,           # rotate values forward, then inverse rotate output (RoPER)
         polar_pos_emb = False,
         polar_bias_uniform_init = False,
         weight_tie_layers = False,
@@ -2879,7 +3013,6 @@ class AttentionLayers(Module):
         has_hyper_connections = num_residual_streams > 1 and not gated_multi_residual
 
         self.num_residual_streams = num_residual_streams
-        self.stream_emb = nn.Parameter(torch.zeros(num_residual_streams, dim)) if num_residual_streams > 1 else None
 
         assert not (has_hyper_connections and (gate_residual or orthog_residual or mv_split_residual))
 
@@ -2905,6 +3038,16 @@ class AttentionLayers(Module):
         assert at_most_one_of(rotary_pos_emb, polar_pos_emb), f'either rotary positional embedding or polar positional embedding can be turned on'
         assert not (rotary_xpos and not causal), 'rotary xpos is not compatible with bidirectional attention'
         assert not flash_pack_seq or rotary_pos_emb, 'block masking only tested for rotary positional embeddings'
+
+        # self and cross attention, per-layer kwargs override
+
+        if qkvo_rope:
+            attn_kwargs = {'qkvo_rope': True, **attn_kwargs}
+            cross_attn_kwargs = {'qkvo_rope': True, **cross_attn_kwargs}
+
+        self.qkvo_rope = attn_kwargs.get('qkvo_rope', False) or cross_attn_kwargs.get('qkvo_rope', False)
+        assert not self.qkvo_rope or rotary_pos_emb, 'qkvo_rope requires rotary_pos_emb'
+
         self.rotary_pos_emb = RotaryEmbedding(rotary_emb_dim, use_xpos = rotary_xpos, scale_base = rotary_xpos_scale_base, interpolation_factor = rotary_interpolation_factor, base_rescale_factor = rotary_base_rescale_factor) if rotary_pos_emb else None
 
         # polar positional embedding (PoPE) - https://arxiv.org/abs/2509.10534
@@ -2992,11 +3135,16 @@ class AttentionLayers(Module):
         else:
             norm_class = LayerNorm
 
-        norm_fn = partial(norm_class, dim)
+        def norm_fn_for_dim(layer_dim):
+            fn = partial(norm_class, layer_dim)
 
-        if not norm_need_condition and norm_add_unit_offset:
-            # researcher Ohad Rubin shares in a blog post by adding an offset to gammas, they can be subjected to weight decay safely
-            norm_fn = partial(norm_fn, unit_offset = True)
+            if not norm_need_condition and norm_add_unit_offset:
+                # researcher Ohad Rubin shares in a blog post by adding an offset to gammas, they can be subjected to weight decay safely
+                fn = partial(fn, unit_offset = True)
+
+            return fn
+
+        norm_fn = norm_fn_for_dim(dim)
 
         self.norm_need_condition = norm_need_condition
         self.dim_condition = dim_condition
@@ -3103,6 +3251,64 @@ class AttentionLayers(Module):
         self.layer_types = layer_types
         self.layers_execute_order = default(layers_execute_order, tuple(range(len(layer_types))))
 
+        # variable width - each block reads from / writes to a prefix of a shared residual stream
+        # https://arxiv.org/abs/2606.18246
+
+        self.has_variable_width = exists(variable_width) and variable_width is not False
+        num_blocks = len(layer_types) // len_default_block
+
+        if not self.has_variable_width:
+            self.layer_dims = (dim,) * len(layer_types)
+            self.residual_dim = dim
+        else:
+            assert not weight_tie_layers, 'variable width cannot be used with `weight_tie_layers`'
+            assert not unet_skips, 'variable width cannot be used with `unet_skips`'
+            assert not integrate_layers, 'variable width cannot be used with `integrate_layers`'
+            assert not attn_aggregated_residuals, 'variable width cannot be used with `attn_aggregated_residuals`'
+            assert not add_value_residual, 'variable width cannot be used with `add_value_residual`'
+            assert not residual_attn, 'variable width cannot be used with `residual_attn`'
+            assert not cross_residual_attn, 'variable width cannot be used with `cross_residual_attn`'
+            assert not qkv_receive_diff_residuals, 'variable width cannot be used with `qkv_receive_diff_residuals`'
+            assert not sandwich_coef, 'variable width cannot be used with `sandwich_coef`'
+            assert not exists(attn_kwargs.get('dim_out')), 'variable width cannot be used with `attn_dim_out`'
+            assert not exists(cross_attn_kwargs.get('dim_out')), 'variable width cannot be used with `cross_attn_dim_out`'
+            assert not exists(ff_kwargs.get('dim_out')), 'variable width cannot be used with `ff_dim_out`'
+
+            if isinstance(variable_width, (tuple, list)):
+                config = dict()
+                widths = variable_width
+            else:
+                assert variable_width is True or isinstance(variable_width, dict), 'variable_width must be a bool, dict, or tuple of block widths'
+                config = variable_width if isinstance(variable_width, dict) else dict()
+                widths = config.get('widths')
+
+            if not exists(widths):
+                ff_mult = ff_kwargs.get('mult', 4)
+                ff_glu = ff_kwargs.get('glu', False)
+
+                assert not isinstance(ff_mult, (tuple, list)), 'variable width cannot be used with a schedule of ff multipliers'
+                assert not isinstance(ff_glu, (tuple, list)), 'variable width cannot be used with a schedule of ff glu settings'
+
+                widths = variable_width_schedule(
+                    dim = dim,
+                    depth = num_blocks,
+                    bottleneck_layer_ratio = config.get('bottleneck_layer_ratio', 0.75),
+                    bottleneck_width_ratio = config.get('bottleneck_width_ratio', 0.3),
+                    expansion_factor = ff_mult,
+                    num_mlp_projections = 3 if ff_glu else 2,
+                    round_to = default(config.get('round_to'), dim_head)
+                )
+
+            widths = tuple(widths)
+
+            assert len(widths) == num_blocks, f'expected {num_blocks} block widths but received {len(widths)}'
+            assert all(w > 0 and divisible_by(w, dim_head) for w in widths), f'all widths must be divisible by the attention head dimension {dim_head}'
+
+            self.layer_dims = tuple(w for w in widths for _ in range(len_default_block))
+            self.residual_dim = max(dim, *widths)
+
+        self.stream_emb = nn.Parameter(torch.zeros(num_residual_streams, self.residual_dim)) if num_residual_streams > 1 else None
+
         assert all([i < len(self.layer_types) for i in self.layers_execute_order])
 
         self.num_attn_layers = len(list(filter(equals('a'), layer_types)))
@@ -3174,8 +3380,8 @@ class AttentionLayers(Module):
         # whether there is reinjection of input at every layer
 
         self.reinject_input = reinject_input
-        self.reinject_input_proj = nn.Linear(dim, dim, bias = False) if reinject_input else None
-        self.learned_reinject_input_gate = nn.Linear(dim, 1, bias = False) if learned_reinject_input_gate else None
+        self.reinject_input_proj = nn.Linear(self.residual_dim, self.residual_dim, bias = False) if reinject_input else None
+        self.learned_reinject_input_gate = nn.Linear(self.residual_dim, 1, bias = False) if learned_reinject_input_gate else None
 
         # add the value from the first self attention block to all latter projected self attention values as a residual
 
@@ -3219,6 +3425,11 @@ class AttentionLayers(Module):
             block_begin = divisible_by(ind, len_default_block)
             block_ind = ind // len_default_block
 
+            # per-block width
+
+            layer_dim = self.layer_dims[ind]
+            layer_heads = heads if not self.has_variable_width else layer_dim // dim_head
+
             # depth of the current residual branch, for the depth scaled output projection init
 
             output_proj_depth = (block_ind + 1) if depth_scale_branch_output else None
@@ -3230,14 +3441,20 @@ class AttentionLayers(Module):
             if layer_type == 'a':
                 self_attn_learned_value_residual = learned_value_residual_mix and not is_first_self_attn
 
-                layer = Attention(dim, heads = heads, causal = causal, qkv_receive_diff_residuals = layer_qkv_receives_diff_view, learned_value_residual_mix = self_attn_learned_value_residual, rotate_num_heads = rotate_num_heads, output_proj_depth = output_proj_depth, **next(attn_kwargs_iter))
+                layer = Attention(layer_dim, heads = layer_heads, causal = causal, qkv_receive_diff_residuals = layer_qkv_receives_diff_view, learned_value_residual_mix = self_attn_learned_value_residual, rotate_num_heads = rotate_num_heads, output_proj_depth = output_proj_depth, **next(attn_kwargs_iter))
                 is_first_self_attn = False
 
             elif layer_type == 'c':
-                layer = Attention(dim, heads = heads, inverted_attention = next(cross_attn_inverted_attention_iter), output_proj_depth = output_proj_depth, **next(cross_attn_kwargs_iter))
+                layer_cross_attn_kwargs = next(cross_attn_kwargs_iter)
+
+                if self.has_variable_width:
+                    # cross attention reads the base-width context unless explicitly overridden
+                    layer_cross_attn_kwargs = dict(dim_context = self.dim, **layer_cross_attn_kwargs)
+
+                layer = Attention(layer_dim, heads = layer_heads, inverted_attention = next(cross_attn_inverted_attention_iter), output_proj_depth = output_proj_depth, **layer_cross_attn_kwargs)
 
             elif layer_type == 'f':
-                layer = FeedForward(dim, output_proj_depth = output_proj_depth, **next(ff_kwargs_iter))
+                layer = FeedForward(layer_dim, output_proj_depth = output_proj_depth, **next(ff_kwargs_iter))
                 layer = layer if not macaron else Scale(0.5, layer)
 
             else:
@@ -3249,7 +3466,7 @@ class AttentionLayers(Module):
                 layer = ShiftTokens(range(shift_range_lower, shift_range_upper), layer)
 
             if exists(post_branch_fn):
-                layer = post_branch_fn(layer)
+                layer = partial(post_branch_fn, dim = layer_dim)(layer)
 
             layer = maybe_scale_output(layer)
 
@@ -3259,12 +3476,12 @@ class AttentionLayers(Module):
                 num_layer_hiddens = ind + 1
                 layer_integrate_num_view = 3 if layer_qkv_receives_diff_view else 1
 
-                layer_integrate = DynamicLIMe(dim, num_layer_hiddens, num_views = layer_integrate_num_view, use_softmax = layer_integrate_use_softmax)
+                layer_integrate = DynamicLIMe(layer_dim, num_layer_hiddens, num_views = layer_integrate_num_view, use_softmax = layer_integrate_use_softmax)
 
             elif attn_aggregated_residuals:
                 layer_integrate_num_view = 3 if layer_qkv_receives_diff_view else 1
                 layer_integrate = AttentionResidual(
-                    dim,
+                    layer_dim,
                     num_views = layer_integrate_num_view,
                     **attn_aggregated_residual_kwargs
                 )
@@ -3290,7 +3507,7 @@ class AttentionLayers(Module):
             else:
                 residual_fn = Residual
 
-            residual = residual_fn(dim, layer_index = ind, scale_residual = scale_residual, scale_residual_constant = scale_residual_constant, **residual_fn_kwargs)
+            residual = residual_fn(layer_dim, layer_index = ind, scale_residual = scale_residual, scale_residual_constant = scale_residual_constant, **residual_fn_kwargs)
 
             # handle unet skip connection
 
@@ -3302,9 +3519,11 @@ class AttentionLayers(Module):
 
             # all normalizations of the layer
 
-            pre_branch_norm = norm_fn() if pre_norm else None
-            post_branch_norm = norm_fn() if sandwich_norm else None
-            post_main_norm = norm_fn() if (not pre_norm or self.pre_and_post_norm) else None
+            layer_norm_fn = norm_fn_for_dim(layer_dim)
+
+            pre_branch_norm = layer_norm_fn() if pre_norm else None
+            post_branch_norm = layer_norm_fn() if sandwich_norm else None
+            post_main_norm = layer_norm_fn() if (not pre_norm or self.pre_and_post_norm) else None
 
             norms = ModuleList([
                 pre_branch_norm,
@@ -3401,6 +3620,14 @@ class AttentionLayers(Module):
         assert not (exists(flash_pack_seq_kwargs) and (exists(attn_mask) or exists(mask))), 'attn_mask or mask cannot be used with flash block masking'
         assert not (exists(flash_pack_seq_context_kwargs) and (exists(context_mask))), 'context_mask cannot be used with flash block masking'
         assert not (self.training and self.cross_attn_tokens_dropout > 0. and exists(context_pos)), 'context_pos cannot be used with cross_attn_tokens_dropout'
+
+        # variable width - pad input to the global residual stream width
+
+        if self.has_variable_width:
+            x = pad_or_truncate_at_dim(x, self.residual_dim)
+
+            if exists(mems):
+                mems = [pad_or_truncate_at_dim(mem, self.residual_dim) for mem in mems]
 
         # expand per cross attention layer values - broadcast if not a tuple / list
         # keyed by layer index so reordering and layer dropout cannot misalign them
@@ -3571,7 +3798,8 @@ class AttentionLayers(Module):
             self.skip_combines,
             self.layers,
             self.layer_dropouts,
-            self.layer_integrators
+            self.layer_integrators,
+            self.layer_dims
         )
 
         # able to override the layers execution order on forward, for trying to depth extrapolate
@@ -3649,7 +3877,7 @@ class AttentionLayers(Module):
 
         block_hiddens = []
 
-        for ind, (layer_type, skip_combine, (norm, block, residual_fn), layer_dropout, layer_integrator) in enumerate(zip(*layer_variables)):
+        for ind, (layer_type, skip_combine, (norm, block, residual_fn), layer_dropout, layer_integrator, layer_dim) in enumerate(zip(*layer_variables)):
             is_last = ind == (len(self.layers) - 1)
 
             block_begin = divisible_by(ind, self.len_default_block)
@@ -3684,12 +3912,16 @@ class AttentionLayers(Module):
                 layer_mem = mems.pop(0) if mems else None
                 layer_mem_mask = mem_masks.pop(0) if mem_masks else None
 
-            x, inner_residual, residual_kwargs = residual_fn.prepare(x)
+            # each block reads / writes the first `layer_dim` coordinates
+            # the rest of the residual stream bypasses the block
 
-            layer_hiddens.append(x)
+            x_slice = x[..., :layer_dim]
+            x_slice, inner_residual, residual_kwargs = residual_fn.prepare(x_slice)
+
+            layer_hiddens.append(x if self.has_variable_width else x_slice)
 
             if exists(layer_integrator):
-                x = layer_integrator(x, layer_hiddens)
+                x_slice = layer_integrator(x_slice, layer_hiddens)
 
             pre_norm, post_branch_norm, post_main_norm = norm
 
@@ -3699,13 +3931,13 @@ class AttentionLayers(Module):
                 post_main_norm = maybe(partial)(post_main_norm, **norm_kwargs)
 
             if exists(inp_inject):
-                x = x + inp_inject
+                x_slice = x_slice + pad_or_truncate_at_dim(inp_inject, layer_dim)
 
             if exists(pre_norm):
-                x = pre_norm(x)
+                x_slice = pre_norm(x_slice)
 
                 if layer_type == 'a' and exists(layer_mem):
-                    layer_mem = pre_norm(layer_mem)
+                    layer_mem = pre_norm(pad_or_truncate_at_dim(layer_mem, layer_dim))
 
             block = partial(block, **block_forward_kwargs)
 
@@ -3724,7 +3956,7 @@ class AttentionLayers(Module):
             # forward depending on layer type
 
             if layer_type == 'a':
-                out, inter = block(x, mask = mask, context_mask = self_attn_kv_mask, attn_mask = attn_mask, rel_pos = self.rel_pos, pos = pos, rotary_pos_emb = rotary_pos_emb, polar_pos_emb = polar_pos_emb, additional_key_values = next(iter_self_attn_kv, None), additional_key_value_mask = additional_kv_mask, prev_attn = prev_attn, cache = next(iter_attn_cache, None), mem = layer_mem, mem_mask = layer_mem_mask, attn_bias = attn_bias, kv_input_residual = next(self_attn_kv_residuals_iter, None), value_residual = maybe_self_attn_value_residual, flash_pack_seq_kwargs = flash_pack_seq_kwargs, return_intermediates = True, causal = causal)
+                out, inter = block(x_slice, mask = mask, context_mask = self_attn_kv_mask, attn_mask = attn_mask, rel_pos = self.rel_pos, pos = pos, rotary_pos_emb = rotary_pos_emb, polar_pos_emb = polar_pos_emb, additional_key_values = next(iter_self_attn_kv, None), additional_key_value_mask = additional_kv_mask, prev_attn = prev_attn, cache = next(iter_attn_cache, None), mem = layer_mem, mem_mask = layer_mem_mask, attn_bias = attn_bias, kv_input_residual = next(self_attn_kv_residuals_iter, None), value_residual = maybe_self_attn_value_residual, flash_pack_seq_kwargs = flash_pack_seq_kwargs, return_intermediates = True, causal = causal)
             elif layer_type == 'c':
                 layer_ind = layers_execute_order[ind]
 
@@ -3743,9 +3975,11 @@ class AttentionLayers(Module):
                 if exists(mask):
                     layer_mask = mask if not exists(layer_mask) else mask & layer_mask
 
-                out, inter = block(x, context = layer_context, mask = layer_mask, context_mask = layer_context_mask, attn_mask = layer_attn_mask, prev_attn = prev_cross_attn, cache = next(iter_attn_cache, None), kv_input_residual = next(cross_attn_kv_residuals_iter, None), value_residual = maybe_cross_attn_value_residual, **cross_attn_rotary_pos_embs.get(layer_ind, dict()), flash_pack_seq_kwargs = layer_flash_pack_seq_kwargs, return_intermediates = True)
+                out, inter = block(x_slice, context = layer_context, mask = layer_mask, context_mask = layer_context_mask, attn_mask = layer_attn_mask, prev_attn = prev_cross_attn, cache = next(iter_attn_cache, None), kv_input_residual = next(cross_attn_kv_residuals_iter, None), value_residual = maybe_cross_attn_value_residual, **cross_attn_rotary_pos_embs.get(layer_ind, dict()), flash_pack_seq_kwargs = layer_flash_pack_seq_kwargs, return_intermediates = True)
             elif layer_type == 'f':
-                out = block(x, deep_embed = next(deep_embeds_iter, None))
+                deep_embed = next(deep_embeds_iter, None)
+                deep_embed = pad_or_truncate_at_dim(deep_embed, layer_dim) if exists(deep_embed) else None
+                out = block(x_slice, deep_embed = deep_embed)
 
             # store first self or cross attention intermediate for value residual
 
@@ -3758,7 +3992,7 @@ class AttentionLayers(Module):
             if exists(post_branch_norm):
                 out = post_branch_norm(out)
 
-            x = residual_fn(out, inner_residual, layer_hiddens = layer_hiddens, mask = mask, **residual_kwargs)
+            x_slice = residual_fn(out, inner_residual, layer_hiddens = layer_hiddens, mask = mask, **residual_kwargs)
 
             if layer_type in ('a', 'c') and return_hiddens:
                 inter.layer_type = layer_type
@@ -3770,7 +4004,11 @@ class AttentionLayers(Module):
                 prev_cross_attn = inter.pre_softmax_attn
 
             if exists(post_main_norm):
-                x = post_main_norm(x)
+                x_slice = post_main_norm(x_slice)
+
+            # carry inactive coordinates forward through the residual stream
+
+            x = cat((x_slice, x[..., layer_dim:]), dim = -1) if layer_dim < self.residual_dim else x_slice
 
             if block_end:
                 block_hiddens.append(x)
@@ -3790,6 +4028,11 @@ class AttentionLayers(Module):
 
         if is_multistream:
             x = reduce(x, '(b s) n d -> b n d', 'sum', s = streams)
+
+        # match the embedding width expected by the wrapper
+
+        if self.has_variable_width:
+            x = x[..., :self.dim]
 
         x = final_norm(x)
 

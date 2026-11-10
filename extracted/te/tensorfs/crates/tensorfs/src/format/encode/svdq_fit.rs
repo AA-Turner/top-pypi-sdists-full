@@ -26,15 +26,8 @@ use std::sync::OnceLock;
 use super::super::{OwnedPart, QuantizationStats, elem, nvfp4};
 use crate::format::{Dtype, Error, Result};
 
+/// The SVDQuant producer: a rank-32 branch fitted with faer over an NVFP4 residual.
 pub const SVDQ_FIT_STRATEGY: &str = "svdq-nvfp4-r32-faer/1";
-pub const SVDQ_NUMERICAL_IDENTITY: &str = concat!(
-    "faer=0.24.4;tensorfs-householder-block1/1;f32;seq;qr-bidiag-threshold128;",
-    "rank32;oversample16;power4;alpha0,.2,.3,.4,.5,.6,.7,.8;",
-    "rand=0.9.5;rand_chacha=0.9.0;ChaCha20Rng::seed_from_u64;",
-    "rand_distr=0.5.1;StandardNormal<f32>;sketch-column-major;",
-    "bf16-rne;canonical-smooth=recip(stored-pre);final-residual-ordered-f32;",
-    "faer-nano-gemm-16cubed;score-f64-norms;final-activation-mul-pre;logical-decode-f32"
-);
 const RANK: usize = 32;
 const Q: usize = RANK + 16;
 const TILE: usize = 16;
@@ -144,6 +137,7 @@ fn padded(rows: usize, cols: usize) -> Result<usize> {
     mul(rows.div_ceil(TILE) * TILE, cols.div_ceil(TILE) * TILE)
 }
 
+/// The working bytes `svdq_fit` needs for an `[N, K]` weight and `samples` calibration rows.
 pub fn svdq_fit_workspace(rows: usize, cols: usize, samples: usize) -> Result<usize> {
     add(shared_workspace(rows, cols, samples)?, alpha_workspace(rows, cols, samples)?)
 }

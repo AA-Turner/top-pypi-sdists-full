@@ -22,6 +22,7 @@ Revision History:
 #include "util/warning.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
@@ -1051,21 +1052,34 @@ namespace datatype {
 
     bool util::is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const {
         array_util autil(m);
-        if (!autil.is_array(s)) {
-            return true;
+        seq_util sutil(m);
+        finite_set_util fsutil(m);
+        while (true) {
+            sort* base = nullptr;
+            if (autil.is_array(s)) {
+                subsorts.reset();
+                for (unsigned i = 0; i < get_array_arity(s); ++i)
+                    get_subsorts(get_array_domain(s, i), subsorts);
+                for (sort* r : subsorts)
+                    if (mark.is_marked(r))
+                        return false;
+                s = get_array_range(s);
+                if (is_datatype(s))
+                    return true;
+                if (!autil.is_array(s) && !sutil.is_seq(s) && !fsutil.is_finite_set(s)) {
+                    subsorts.reset();
+                    get_subsorts(s, subsorts);
+                    for (sort* r : subsorts)
+                        if (mark.is_marked(r))
+                            return false;
+                    return true;
+                }
+            }
+            else if (sutil.is_seq(s, base) || fsutil.is_finite_set(s, base))
+                s = base;
+            else
+                return true;
         }
-        unsigned n = get_array_arity(s);
-        subsorts.reset();
-        for (unsigned i = 0; i < n; ++i) {
-            get_subsorts(get_array_domain(s, i), subsorts);
-        }
-        if (!is_datatype(get_array_range(s))) {
-            get_subsorts(get_array_range(s), subsorts);
-        }
-        for (sort* r : subsorts) {
-            if (mark.is_marked(r)) return false;
-        }
-        return true;
     }
 
     def const& util::get_def(sort* s) const {
@@ -1276,6 +1290,11 @@ namespace datatype {
     }
 
 
+    bool util::is_non_rec_constructor(func_decl * c) {
+        SASSERT(is_constructor(c));
+        return all_of(*c, [&](sort* s) { return !is_datatype(s) && !is_recursive_nested(s); });
+    }
+
     /**
        \brief Return a constructor mk(T_1, ... T_n)
        where each T_i is not a datatype or it is a datatype that contains 
@@ -1324,7 +1343,7 @@ namespace datatype {
         unsigned start = rand();
         for (unsigned cj = 0; cj < constructors.size(); ++cj) {
             func_decl* c = constructors[(start + cj) % constructors.size()];
-            if (all_of(*c, [&](sort* s) { return !is_datatype(s) && !is_recursive_nested(s); })) {
+            if (is_non_rec_constructor(c)) {
                 TRACE(util_bug, tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
                 result.first = c;
                 result.second = 1;

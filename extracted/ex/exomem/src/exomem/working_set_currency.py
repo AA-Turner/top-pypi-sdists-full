@@ -5,8 +5,7 @@ context slot (the compact `(context)` or the rich `context:` row), never a date
 its prose happens to mention and never one the context marks as a deadline. A
 unit is history only when an authored supersession says so: its page is
 superseded or archived (the lifecycle already carries that), or a unit on the
-SAME page carries a `supersedes` relation naming it. Nothing is inferred from
-dates, categories or shared words.
+SAME page carries a `supersedes` relation naming it. No untyped date, category or shared word determines expiry.
 
 Same page only, deliberately: a relation authored on another page could be on
 a page the reader may not see, and marking the released unit "replaced" would
@@ -32,6 +31,7 @@ SUPERSEDED = "superseded"
 #: Lifecycles that are history. Draft, planned and dropped material is not
 #: history: it has not been replaced, it has not happened yet.
 #: Provenance keys the compiler uses internally and never publishes.
+# Debt (K21): these provenance keys carry the same successor-pointer rule the readers repeat.
 INTERNAL_PROVENANCE = frozenset({"page_updated", "supersedes_targets", "supersession"})
 
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4}-\d{2}-\d{2})(?!\d)")
@@ -70,8 +70,7 @@ def relation_targets(relations: Sequence[Mapping[str, Any]] | None, *,
     registry = registry or relation_registry.core_registry()
     for relation in relations or ():
         definition = registry.resolve(str(relation.get("kind") or "")).definition
-        # `supersession` is a closed family implemented by the relation schema.
-        if definition is not None and definition.family == "supersession":
+        if definition is not None and registry.has(definition.key, "replaces"):
             target = str(relation.get("target") or "").strip()
             if target:
                 out.append(target)
@@ -189,3 +188,17 @@ def annotate(
     if checkpoint is not None and not freshness.recall_checkpoint_is_current(status_basis.root, "vault", checkpoint):
         raise CurrencyUnavailable("current page resolution changed")
     return annotated
+
+
+def state(item: LaneItem, *, today: date | None = None, status_basis: lifecycle_statuses.Basis | None = None) -> tuple[bool, str | None]:
+    """History and review date, in the order fixed by the currency contract."""
+    basis = status_basis or lifecycle_statuses.Basis(None)
+    ordering = basis.ordering(item.lifecycle, path=item.path or None)
+    if ordering is not None and ordering.historical:
+        return True, None
+    today = today or date.today()
+    until = item.provenance.get("until")
+    if until and date.fromisoformat(until) < today:
+        return True, None
+    check_by = item.provenance.get("check_by")
+    return False, check_by if check_by and date.fromisoformat(check_by) < today else None

@@ -103,8 +103,20 @@ public:
     [[nodiscard]] forceinline std::optional<Symbol>
     decode( gzip::BitReader& bitReader ) const
     {
+        /* An all-zero alphabet has no symbols. Deflate allows this for the distance alphabet of a block without
+         * back-references. Peeking zero bits would assert in the BitReader. */
+        if ( UNLIKELY( this->m_maxCodeLength == 0 ) ) [[unlikely]] {
+            return std::nullopt;
+        }
+
         try {
-            const auto value = bitReader.peek( this->m_maxCodeLength );
+            /* Use the compile-time peek when the alphabet reaches the full template code length so the
+             * index mask becomes a constant. m_maxCodeLength is the actual maximum code length from the
+             * tree, which is below MAX_CODE_LENGTH whenever the alphabet does not use the longest codes
+             * (peeking MAX_CODE_LENGTH bits would then index unfilled high entries). */
+            const auto value = MAX_CODE_LENGTH == this->m_maxCodeLength
+                               ? bitReader.template peek<MAX_CODE_LENGTH>()
+                               : bitReader.peek( this->m_maxCodeLength );
 
             assert( value < m_codeCache.size() );
             const auto [length, symbol] = m_codeCache[(int)value];
@@ -117,7 +129,7 @@ public:
 
             bitReader.seekAfterPeek( length );
             return symbol;
-        } catch ( const gzip::BitReader::EndOfFileReached& ) {
+        } catch ( const EndOfFileReached& ) {
             /* Should only happen at the end of the file and probably not even there
              * because the gzip footer should be longer than the peek length. */
             return BaseType::decode( bitReader );

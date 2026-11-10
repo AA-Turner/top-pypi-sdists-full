@@ -10,6 +10,7 @@ from ..models.action_on_usage_limit_enum import ActionOnUsageLimitEnum
 from ..models.billing_source_enum import BillingSourceEnum
 from ..models.blank_enum import BlankEnum
 from ..models.deployment_mode_enum import DeploymentModeEnum
+from ..models.instance_metrics_enum import InstanceMetricsEnum
 from ..models.posix_id_source_enum import PosixIdSourceEnum
 from ..models.resource_projects_limit_policy_enum import ResourceProjectsLimitPolicyEnum
 from ..models.storage_mode_enum import StorageModeEnum
@@ -31,7 +32,7 @@ class MergedPluginOptionsRequest:
     """
     Attributes:
         account_scope (Union[AccountScope, BlankEnum, Unset]): Where accounts are held: 'offering' keeps one account per
-            offering (the historical behaviour); 'provider' shares one account per user across the provider's offerings.
+            offering (the historical behavior); 'provider' shares one account per user across the provider's offerings.
         username_generation_policy (Union[BlankEnum, Unset, UsernameGenerationPolicyEnum]): How the usernames of
             offering users are generated.
         username_anonymized_prefix (Union[Unset, str]): Prefix for anonymized usernames; the name is the prefix followed
@@ -156,6 +157,12 @@ class MergedPluginOptionsRequest:
             tenants from this offering.
         usage_poll_interval_minutes (Union[Unset, int]): Interval in minutes between usage polling for this offering
             (default: 60)
+        instance_metrics_enabled (Union[Unset, bool]): Collect custom metrics of the instances in tenants of this
+            offering and show them to their projects.
+        instance_metrics (Union[Unset, list[InstanceMetricsEnum]]): Instance and volume metrics shown to projects; empty
+            shows all of them.
+        instance_metrics_poll_interval_minutes (Union[Unset, int]): Minutes between custom metrics polls of each
+            instance in tenants of this offering (default: 360).
         billing_source (Union[Unset, BillingSourceEnum]):
         heappe_cluster_id (Union[None, Unset, str]): HEAppE cluster id
         heappe_local_base_path (Union[None, Unset, str]): HEAppE local base path
@@ -222,6 +229,10 @@ class MergedPluginOptionsRequest:
         slurm_periodic_policy_enabled (Union[Unset, bool]): Enable SLURM periodic usage policy configuration. When
             enabled, allows configuring QoS-based threshold enforcement, carryover logic, and fairshare decay for site-agent
             managed SLURM offerings. Default: False.
+        slurm_maintenance_sync_enabled (Union[Unset, bool]): When enabled, the site agent turns published maintenance
+            announcements for this offering into Slurm MAINT reservations (full outage: all nodes; partial outage: the named
+            partitions), so the scheduler holds back jobs that would run into them, and imports maintenance reservations
+            made on the cluster as draft announcements. Default: False.
         enforce_qos (Union[Unset, bool]): When enabled, the site agent enforces the offering's QoS selection by granting
             the chosen QoS on the SLURM association (QosLevel/DefaultQOS). When disabled (default), QoS is informational
             only — profiles are shown and the selection is recorded on the resource, but the agent does not touch SLURM QoS.
@@ -230,6 +241,24 @@ class MergedPluginOptionsRequest:
             by one: request, assign, limit, pause, resume and delete them. Without it a resource's keys can only be revealed
             and rotated. Nothing checks the claim: turn it on only if the agent's backend supports per-key commands (such as
             the Envoy AI Gateway); on one that does not (such as Ceph S3) every such command errs.
+        api_key_limits (Union[Unset, bool]): Lets consumers set spending limits on API keys one by one. On unless set to
+            false; needs enable_api_key_provisioning. Turned off, no new key limit is accepted, and limits keys already hold
+            stay until cleared.
+        api_key_daily_usage (Union[Unset, bool]): Declares that the site agent reports each API key's usage per day.
+            Only then are keys offered the day and week periods, and the quarter and year, that a component offers to
+            resources; month, and total where the component offers it, are offered without it, as they need no usage per
+            day. Off unless set; needs enable_api_key_provisioning. Nothing checks the claim: turn it on only if the agent
+            reports per-key daily usage, or those limits are never reached.
+        firecrest_api_url (Union[None, Unset, str]): FirecREST v2 API URL users of this SLURM offering work through
+            (jobs, files, cluster status). Must also be listed in the FIRECREST_ALLOWED_API_URLS setting. Leave empty to run
+            no jobs through Waldur; with a slurm-monitor URL the workspace is then read-only.
+        firecrest_system_name (Union[None, Unset, str]): Name of the cluster in FirecREST's systems list.
+        slurm_monitor_api_url (Union[None, Unset, str]): slurm-monitor API URL (ending in /api/v2) with the cluster's
+            per-job samples (GPU, CPU, memory over time). Must also be listed in the SLURM_MONITOR_ALLOWED_API_URLS setting.
+            Leave empty to hide job performance. Without FirecREST, the allocations get a read-only workspace from it: jobs,
+            their performance, job statistics and software.
+        slurm_monitor_cluster_name (Union[None, Unset, str]): Name of the cluster in slurm-monitor (Sonar's cluster
+            name).
         auto_approve_marketplace_script (Union[Unset, bool]): If set to False, all orders require manual provider
             approval, including for service provider owners and staff Default: True.
         highlight_backend_id_display (Union[Unset, bool]): Defines if backend_id should be shown more prominently by the
@@ -245,6 +274,9 @@ class MergedPluginOptionsRequest:
         show_ssh_key_loss_warning (Union[Unset, bool]): Show a warning about unrecoverable loss of the SSH private key
             on the OpenStack instance order form. Default: False.
         hide_api_keys_tab (Union[Unset, bool]): Hide the API keys tab on resources of this offering.
+        display_prepaid_limits_as_total (Union[Unset, bool]): If set to True, the UI shows each prepaid component as the
+            total for the whole subscription (the monthly amount times the months ordered) instead of a monthly amount, and
+            the resource's limit_usage sums its usage over the whole subscription. Ordering and billing do not change.
     """
 
     account_scope: Union[AccountScope, BlankEnum, Unset] = UNSET
@@ -304,6 +336,9 @@ class MergedPluginOptionsRequest:
     snapshot_size_limit_gb: Union[Unset, int] = UNSET
     lbaas_enabled: Union[Unset, bool] = UNSET
     usage_poll_interval_minutes: Union[Unset, int] = UNSET
+    instance_metrics_enabled: Union[Unset, bool] = UNSET
+    instance_metrics: Union[Unset, list[InstanceMetricsEnum]] = UNSET
+    instance_metrics_poll_interval_minutes: Union[Unset, int] = UNSET
     billing_source: Union[Unset, BillingSourceEnum] = UNSET
     heappe_cluster_id: Union[None, Unset, str] = UNSET
     heappe_local_base_path: Union[None, Unset, str] = UNSET
@@ -343,8 +378,15 @@ class MergedPluginOptionsRequest:
     account_name_generation_policy: Union[AccountNameGenerationPolicyEnum, None, Unset] = UNSET
     enable_display_of_order_actions_for_service_provider: Union[Unset, bool] = True
     slurm_periodic_policy_enabled: Union[Unset, bool] = False
+    slurm_maintenance_sync_enabled: Union[Unset, bool] = False
     enforce_qos: Union[Unset, bool] = False
     enable_api_key_provisioning: Union[Unset, bool] = UNSET
+    api_key_limits: Union[Unset, bool] = UNSET
+    api_key_daily_usage: Union[Unset, bool] = UNSET
+    firecrest_api_url: Union[None, Unset, str] = UNSET
+    firecrest_system_name: Union[None, Unset, str] = UNSET
+    slurm_monitor_api_url: Union[None, Unset, str] = UNSET
+    slurm_monitor_cluster_name: Union[None, Unset, str] = UNSET
     auto_approve_marketplace_script: Union[Unset, bool] = True
     highlight_backend_id_display: Union[Unset, bool] = False
     backend_id_display_label: Union[Unset, str] = "Backend ID"
@@ -353,6 +395,7 @@ class MergedPluginOptionsRequest:
     disabled_resource_actions: Union[Unset, list[str]] = UNSET
     show_ssh_key_loss_warning: Union[Unset, bool] = False
     hide_api_keys_tab: Union[Unset, bool] = UNSET
+    display_prepaid_limits_as_total: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -522,6 +565,17 @@ class MergedPluginOptionsRequest:
 
         usage_poll_interval_minutes = self.usage_poll_interval_minutes
 
+        instance_metrics_enabled = self.instance_metrics_enabled
+
+        instance_metrics: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.instance_metrics, Unset):
+            instance_metrics = []
+            for instance_metrics_item_data in self.instance_metrics:
+                instance_metrics_item = instance_metrics_item_data.value
+                instance_metrics.append(instance_metrics_item)
+
+        instance_metrics_poll_interval_minutes = self.instance_metrics_poll_interval_minutes
+
         billing_source: Union[Unset, str] = UNSET
         if not isinstance(self.billing_source, Unset):
             billing_source = self.billing_source.value
@@ -650,9 +704,39 @@ class MergedPluginOptionsRequest:
 
         slurm_periodic_policy_enabled = self.slurm_periodic_policy_enabled
 
+        slurm_maintenance_sync_enabled = self.slurm_maintenance_sync_enabled
+
         enforce_qos = self.enforce_qos
 
         enable_api_key_provisioning = self.enable_api_key_provisioning
+
+        api_key_limits = self.api_key_limits
+
+        api_key_daily_usage = self.api_key_daily_usage
+
+        firecrest_api_url: Union[None, Unset, str]
+        if isinstance(self.firecrest_api_url, Unset):
+            firecrest_api_url = UNSET
+        else:
+            firecrest_api_url = self.firecrest_api_url
+
+        firecrest_system_name: Union[None, Unset, str]
+        if isinstance(self.firecrest_system_name, Unset):
+            firecrest_system_name = UNSET
+        else:
+            firecrest_system_name = self.firecrest_system_name
+
+        slurm_monitor_api_url: Union[None, Unset, str]
+        if isinstance(self.slurm_monitor_api_url, Unset):
+            slurm_monitor_api_url = UNSET
+        else:
+            slurm_monitor_api_url = self.slurm_monitor_api_url
+
+        slurm_monitor_cluster_name: Union[None, Unset, str]
+        if isinstance(self.slurm_monitor_cluster_name, Unset):
+            slurm_monitor_cluster_name = UNSET
+        else:
+            slurm_monitor_cluster_name = self.slurm_monitor_cluster_name
 
         auto_approve_marketplace_script = self.auto_approve_marketplace_script
 
@@ -671,6 +755,8 @@ class MergedPluginOptionsRequest:
         show_ssh_key_loss_warning = self.show_ssh_key_loss_warning
 
         hide_api_keys_tab = self.hide_api_keys_tab
+
+        display_prepaid_limits_as_total = self.display_prepaid_limits_as_total
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -789,6 +875,12 @@ class MergedPluginOptionsRequest:
             field_dict["lbaas_enabled"] = lbaas_enabled
         if usage_poll_interval_minutes is not UNSET:
             field_dict["usage_poll_interval_minutes"] = usage_poll_interval_minutes
+        if instance_metrics_enabled is not UNSET:
+            field_dict["instance_metrics_enabled"] = instance_metrics_enabled
+        if instance_metrics is not UNSET:
+            field_dict["instance_metrics"] = instance_metrics
+        if instance_metrics_poll_interval_minutes is not UNSET:
+            field_dict["instance_metrics_poll_interval_minutes"] = instance_metrics_poll_interval_minutes
         if billing_source is not UNSET:
             field_dict["billing_source"] = billing_source
         if heappe_cluster_id is not UNSET:
@@ -881,10 +973,24 @@ class MergedPluginOptionsRequest:
             )
         if slurm_periodic_policy_enabled is not UNSET:
             field_dict["slurm_periodic_policy_enabled"] = slurm_periodic_policy_enabled
+        if slurm_maintenance_sync_enabled is not UNSET:
+            field_dict["slurm_maintenance_sync_enabled"] = slurm_maintenance_sync_enabled
         if enforce_qos is not UNSET:
             field_dict["enforce_qos"] = enforce_qos
         if enable_api_key_provisioning is not UNSET:
             field_dict["enable_api_key_provisioning"] = enable_api_key_provisioning
+        if api_key_limits is not UNSET:
+            field_dict["api_key_limits"] = api_key_limits
+        if api_key_daily_usage is not UNSET:
+            field_dict["api_key_daily_usage"] = api_key_daily_usage
+        if firecrest_api_url is not UNSET:
+            field_dict["firecrest_api_url"] = firecrest_api_url
+        if firecrest_system_name is not UNSET:
+            field_dict["firecrest_system_name"] = firecrest_system_name
+        if slurm_monitor_api_url is not UNSET:
+            field_dict["slurm_monitor_api_url"] = slurm_monitor_api_url
+        if slurm_monitor_cluster_name is not UNSET:
+            field_dict["slurm_monitor_cluster_name"] = slurm_monitor_cluster_name
         if auto_approve_marketplace_script is not UNSET:
             field_dict["auto_approve_marketplace_script"] = auto_approve_marketplace_script
         if highlight_backend_id_display is not UNSET:
@@ -901,6 +1007,8 @@ class MergedPluginOptionsRequest:
             field_dict["show_ssh_key_loss_warning"] = show_ssh_key_loss_warning
         if hide_api_keys_tab is not UNSET:
             field_dict["hide_api_keys_tab"] = hide_api_keys_tab
+        if display_prepaid_limits_as_total is not UNSET:
+            field_dict["display_prepaid_limits_as_total"] = display_prepaid_limits_as_total
 
         return field_dict
 
@@ -1146,6 +1254,17 @@ class MergedPluginOptionsRequest:
 
         usage_poll_interval_minutes = d.pop("usage_poll_interval_minutes", UNSET)
 
+        instance_metrics_enabled = d.pop("instance_metrics_enabled", UNSET)
+
+        instance_metrics = []
+        _instance_metrics = d.pop("instance_metrics", UNSET)
+        for instance_metrics_item_data in _instance_metrics or []:
+            instance_metrics_item = InstanceMetricsEnum(instance_metrics_item_data)
+
+            instance_metrics.append(instance_metrics_item)
+
+        instance_metrics_poll_interval_minutes = d.pop("instance_metrics_poll_interval_minutes", UNSET)
+
         _billing_source = d.pop("billing_source", UNSET)
         billing_source: Union[Unset, BillingSourceEnum]
         if isinstance(_billing_source, Unset):
@@ -1332,9 +1451,51 @@ class MergedPluginOptionsRequest:
 
         slurm_periodic_policy_enabled = d.pop("slurm_periodic_policy_enabled", UNSET)
 
+        slurm_maintenance_sync_enabled = d.pop("slurm_maintenance_sync_enabled", UNSET)
+
         enforce_qos = d.pop("enforce_qos", UNSET)
 
         enable_api_key_provisioning = d.pop("enable_api_key_provisioning", UNSET)
+
+        api_key_limits = d.pop("api_key_limits", UNSET)
+
+        api_key_daily_usage = d.pop("api_key_daily_usage", UNSET)
+
+        def _parse_firecrest_api_url(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        firecrest_api_url = _parse_firecrest_api_url(d.pop("firecrest_api_url", UNSET))
+
+        def _parse_firecrest_system_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        firecrest_system_name = _parse_firecrest_system_name(d.pop("firecrest_system_name", UNSET))
+
+        def _parse_slurm_monitor_api_url(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        slurm_monitor_api_url = _parse_slurm_monitor_api_url(d.pop("slurm_monitor_api_url", UNSET))
+
+        def _parse_slurm_monitor_cluster_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        slurm_monitor_cluster_name = _parse_slurm_monitor_cluster_name(d.pop("slurm_monitor_cluster_name", UNSET))
 
         auto_approve_marketplace_script = d.pop("auto_approve_marketplace_script", UNSET)
 
@@ -1351,6 +1512,8 @@ class MergedPluginOptionsRequest:
         show_ssh_key_loss_warning = d.pop("show_ssh_key_loss_warning", UNSET)
 
         hide_api_keys_tab = d.pop("hide_api_keys_tab", UNSET)
+
+        display_prepaid_limits_as_total = d.pop("display_prepaid_limits_as_total", UNSET)
 
         merged_plugin_options_request = cls(
             account_scope=account_scope,
@@ -1410,6 +1573,9 @@ class MergedPluginOptionsRequest:
             snapshot_size_limit_gb=snapshot_size_limit_gb,
             lbaas_enabled=lbaas_enabled,
             usage_poll_interval_minutes=usage_poll_interval_minutes,
+            instance_metrics_enabled=instance_metrics_enabled,
+            instance_metrics=instance_metrics,
+            instance_metrics_poll_interval_minutes=instance_metrics_poll_interval_minutes,
             billing_source=billing_source,
             heappe_cluster_id=heappe_cluster_id,
             heappe_local_base_path=heappe_local_base_path,
@@ -1449,8 +1615,15 @@ class MergedPluginOptionsRequest:
             account_name_generation_policy=account_name_generation_policy,
             enable_display_of_order_actions_for_service_provider=enable_display_of_order_actions_for_service_provider,
             slurm_periodic_policy_enabled=slurm_periodic_policy_enabled,
+            slurm_maintenance_sync_enabled=slurm_maintenance_sync_enabled,
             enforce_qos=enforce_qos,
             enable_api_key_provisioning=enable_api_key_provisioning,
+            api_key_limits=api_key_limits,
+            api_key_daily_usage=api_key_daily_usage,
+            firecrest_api_url=firecrest_api_url,
+            firecrest_system_name=firecrest_system_name,
+            slurm_monitor_api_url=slurm_monitor_api_url,
+            slurm_monitor_cluster_name=slurm_monitor_cluster_name,
             auto_approve_marketplace_script=auto_approve_marketplace_script,
             highlight_backend_id_display=highlight_backend_id_display,
             backend_id_display_label=backend_id_display_label,
@@ -1459,6 +1632,7 @@ class MergedPluginOptionsRequest:
             disabled_resource_actions=disabled_resource_actions,
             show_ssh_key_loss_warning=show_ssh_key_loss_warning,
             hide_api_keys_tab=hide_api_keys_tab,
+            display_prepaid_limits_as_total=display_prepaid_limits_as_total,
         )
 
         merged_plugin_options_request.additional_properties = d

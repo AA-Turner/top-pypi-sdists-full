@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.40                                                                                #
-# Generated on 2026-10-29T20:14:39.473566                                                            #
+# MF version: 2.19.41                                                                                #
+# Generated on 2026-11-06T18:55:47.735998                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.event_logger
     import typing
+    import metaflow.event_logger
 
 
 class SystemLogger(object, metaclass=type):

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator._api_generation import TargetRequest
     from datamodel_code_generator._api_types import DiagnosticStage, OperationSelector
+    from datamodel_code_generator._openapi_features import ClientFeature
     from datamodel_code_generator._openapi_wire_plan import CodecDiagnostic, CodecReason
     from datamodel_code_generator._runtime.model_codecs.media import MediaKind
     from datamodel_code_generator._target_contract import (
@@ -69,17 +70,29 @@ class TargetPolicy:
     placeholder_label: bool
     media_code: str
 
-    def problem(
-        self, code: str, message: str, source: SourceLocation | None = None, option_path: str | None = None
+    def problem(  # ruff: ignore[too-many-arguments]
+        self,
+        code: str,
+        message: str,
+        source: SourceLocation | None = None,
+        option_path: str | None = None,
+        *,
+        operation: OperationContract | None = None,
+        feature: ClientFeature | None = None,
     ) -> Diagnostic:
-        """Return one planning error at its stage."""
+        """Return one planning error at its stage.
+
+        `operation` names the operation whose own declarations cause it, and `feature` the OpenAPI feature it uses.
+        """
         return Diagnostic(
             code=code,
             severity="error",
             stage=self.stage(code),
             message=message,
             source_pointer=None if source is None else source.pointer,
+            operation=None if operation is None else operation_ref(operation.id),
             option_path=option_path,
+            feature=feature,
         )
 
 
@@ -136,16 +149,40 @@ def native_type(use: TypeUseBinding) -> TypeView | Refusal:
     return Refusal(code, "The use has no generated native type")
 
 
-def binding_problem(code: str, message: str, source: SourceLocation) -> Diagnostic:
-    """Return one error at the binding stage, whatever stage a target's policy reports its code at."""
-    return Diagnostic(code=code, severity="error", stage="binding", message=message, source_pointer=source.pointer)
+def operation_ref(operation: OperationId) -> OperationRef:
+    """Return the reference that selects a root operation: the pointer of its use site in the root document."""
+    return OperationRef(pointer=operation.use_site.pointer)
+
+
+def binding_problem(
+    code: str,
+    message: str,
+    source: SourceLocation,
+    operation: OperationId | None = None,
+    feature: ClientFeature | None = None,
+) -> Diagnostic:
+    """Return one error at the binding stage, whatever stage a target's policy reports its code at.
+
+    `operation` names the operation whose own declarations cause it, and `feature` the OpenAPI feature it uses.
+    """
+    return Diagnostic(
+        code=code,
+        severity="error",
+        stage="binding",
+        message=message,
+        source_pointer=source.pointer,
+        operation=None if operation is None else operation_ref(operation),
+        feature=feature,
+    )
 
 
 def raise_selected(diagnostics: Iterable[CodecDiagnostic], selected: Iterable[OperationId]) -> None:
     """Refuse, at the binding stage, the codec diagnostics of the whole document and of the selected operations."""
     operations = {None, *selected}
     if problems := tuple(
-        binding_problem(item.code, item.message, item.source) for item in diagnostics if item.operation in operations
+        binding_problem(item.code, item.message, item.source, item.operation, item.feature)
+        for item in diagnostics
+        if item.operation in operations
     ):
         raise APIGenerationError(problems)
 
@@ -201,7 +238,7 @@ def declared_media_type(
     media_type, problem = declared_media(declaration.name or "")
     if problem is not None:
         message = f"The media type {stable_repr(declaration.name)} of {label(operation)} {problem}"
-        problems.append(policy.problem(policy.media_code, message, declaration.use_site))
+        problems.append(policy.problem(policy.media_code, message, declaration.use_site, operation=operation))
     return media_type
 
 
@@ -323,11 +360,11 @@ def placeholder_problems(
     for placeholder in dict.fromkeys(placeholders):
         if placeholder not in declared:
             message = f"The path placeholder {stable_repr(placeholder)}{named} has no path parameter"
-            yield policy.problem(policy.path_code, message, operation.id.use_site)
+            yield policy.problem(policy.path_code, message, operation.id.use_site, operation=operation)
     template = path_placeholders(operation.path)
     for declaration in operation.parameters:
         if parameter_location(declaration) == "path" and declaration.name not in template:
             message = (
                 f"The path parameter {stable_repr(declaration.name)} of {label(operation)} names no path placeholder"
             )
-            yield policy.problem(policy.path_code, message, declaration.use_site)
+            yield policy.problem(policy.path_code, message, declaration.use_site, operation=operation)

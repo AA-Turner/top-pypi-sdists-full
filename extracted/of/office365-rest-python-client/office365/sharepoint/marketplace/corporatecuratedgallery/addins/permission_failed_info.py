@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SPAddinPermissionFailedInfo(ClientValue):
     appIdentifier: Optional[str] = None
     errorMessage: Optional[str] = None

@@ -1,21 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: infinity_client
-Version: 0.0.78
+Version: 0.0.80
 Summary: A client library for accessing ♾️ Infinity - Embedding Inference Server
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: attrs (>=21.3.0)
-Requires-Dist: httpx (>=0.20.0,<0.28.0)
+Requires-Dist: httpx (>=0.20.0,<0.29.0)
 Requires-Dist: python-dateutil (>=2.8.0,<3.0.0)
 Description-Content-Type: text/markdown
 
 # infinity_client
+
+Requires Python 3.11 or newer.
 A client library for accessing ♾️ Infinity - Embedding Inference Server
 
 ## Installation 
@@ -142,7 +143,10 @@ i_client = Client(
     base_url="https://infinity.modal.michaelfeil.eu",
 )
 # Note that base_url needs to be re-set, as would any shared cookies, headers, etc.
-i_client.set_httpx_client(httpx.Client(base_url="https://infinity.modal.michaelfeil.eu", proxies="http://localhost:8030"))
+transport = httpx.HTTPTransport(proxy=httpx.Proxy("http://localhost:8030"))
+i_client.set_httpx_client(
+    httpx.Client(base_url="https://infinity.modal.michaelfeil.eu", transport=transport)
+)
 ```
 
 ## Building / publishing this package

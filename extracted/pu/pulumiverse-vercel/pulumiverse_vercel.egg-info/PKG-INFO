@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumiverse_vercel
-Version: 5.25.0
+Version: 5.26.1
 License: Apache-2.0
 Project-URL: Repository, https://github.com/pulumiverse/pulumi-vercel
 Keywords: pulumi,vercel,category/cloud

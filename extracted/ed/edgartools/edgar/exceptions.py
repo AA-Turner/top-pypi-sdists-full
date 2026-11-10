@@ -28,23 +28,19 @@ RULES FOR THIS MODULE:
   - stdlib imports only, at module level. Every other edgar module must be able
     to import this one, so this one may import none of them.
   - No third-party type (httpx above all) appears in a signature, base class or
-    annotation here. That is what makes a future httpx swap a non-event.
+    annotation here. That is what made the move from httpx to httpx2 a non-event.
   - A class whose construction needs edgar internals or a third-party object
     stays defined in its own module and subclasses a branch from here. Today
-    that means `SSLVerificationError` (it categorizes an httpx error to build
+    that means `SSLVerificationError` (it categorizes an httpx2 error to build
     its message) and the eight `edgar.documents` parser subclasses.
 """
 from __future__ import annotations
 
-import os
-import warnings
 from typing import Any, Dict, List, Optional
 
 __all__ = [
     # helpers
-    "strict_errors_enabled",
     "http_status",
-    "warn_will_raise",
     # root
     "EdgarError",
     # transport
@@ -71,32 +67,13 @@ __all__ = [
 ]
 
 
-_TRUTHY = frozenset({"1", "true", "yes", "on"})
-
-
-def strict_errors_enabled() -> bool:
-    """True when `EDGARTOOLS_STRICT_ERRORS` asks for 6.0 error behaviour today.
-
-    Under strict, the changes that would otherwise be a 6.0 break run now: the
-    network boundary wraps httpx errors into `TransportError`, and the silent
-    `None` returns raise instead. Two payoffs — a user can port before the break
-    lands, and our own CI gets a job that runs the whole suite the 6.0 way,
-    which is what flushes out internal code still relying on the old behaviour.
-
-    Read fresh on every call rather than captured at import, so a test can set
-    the variable, exercise a code path, and unset it. The branches this gates
-    are all deleted in 6.0, when strict becomes the only path.
-    """
-    return os.environ.get("EDGARTOOLS_STRICT_ERRORS", "").strip().lower() in _TRUTHY
-
-
 def http_status(exc: BaseException) -> Optional[int]:
     """The HTTP status behind a failure, whichever era raised it.
 
-    `TransportError` carries `.status_code`; an httpx `HTTPStatusError` carries
+    `TransportError` carries `.status_code`; an httpx2 `HTTPStatusError` carries
     `.response.status_code`. Every dual-era `except` needs to ask the same
     question of both, and asking it through `getattr` rather than an isinstance
-    check is what keeps this module free of any httpx import.
+    check is what keeps this module free of any httpx2 import.
 
     Returns None when we never got an answer at all — a connection failure, a
     timeout, or a client-side refusal such as a missing identity. That None is
@@ -107,51 +84,6 @@ def http_status(exc: BaseException) -> Optional[int]:
     if status is not None:
         return status
     return getattr(getattr(exc, "response", None), "status_code", None)
-
-
-def warn_will_raise(error: "EdgarError", *, stacklevel: int = 3) -> None:
-    """Stage a 6.0 error change at the exact line that changes.
-
-    Call this where a function is about to return `None` for something 6.0 will
-    raise on. Under strict it raises `error` now — which is what the strict CI
-    job exercises and what a user porting early gets. Otherwise it warns and
-    returns, and the caller carries on doing exactly what it does today.
-
-    The warning names what the call becomes, so the thing the user reads while
-    porting is the thing they will catch. That matters more than it sounds: a
-    warning that says "this will change" without naming what it becomes leaves
-    the reader to go and find out.
-
-    `FutureWarning`, not `DeprecationWarning`. Nothing here is deprecated —
-    these calls stay, they just stop answering `None`. And Python hides
-    `DeprecationWarning` outside `__main__` by default, which would silence it
-    for exactly the users who most need it: the ones whose code is a library too.
-
-    The warning text has to be *stable per call site*, which is why it comes
-    from `error.warning_summary` rather than from `str(error)`. Python's default
-    filter suppresses a repeat only when the text matches exactly, so a message
-    carrying the accession number defeats it: a corpus loop over ten thousand
-    filings emits ten thousand warnings, one per filing, which reads as a broken
-    library rather than a considerate one. The per-filing detail is not lost —
-    it stays on the error, which is what strict mode raises and what 6.0 will
-    raise, and that is the copy the user debugs against.
-
-    An error with no `warning_summary` falls back to `str(error)`; that is safe
-    for a fixed message and wrong for one that interpolates anything
-    per-instance, so new call sites should set it.
-
-    `stacklevel` defaults to 3 — helper, the function that called it, then the
-    user. Pass a different value where the call sits deeper.
-    """
-    if strict_errors_enabled():
-        raise error
-    warnings.warn(
-        f"{error.warning_summary or error}\nThis returns None today and raises "
-        f"{type(error).__name__} in edgartools 6.0. Set EDGARTOOLS_STRICT_ERRORS=1 "
-        f"to get the 6.0 behaviour now.",
-        FutureWarning,
-        stacklevel=stacklevel,
-    )
 
 
 class EdgarError(Exception):
@@ -167,14 +99,6 @@ class EdgarError(Exception):
     replaces (`message, context, suggestions`), so the nine parser subclasses
     and their call sites re-base without edits.
     """
-
-    #: Dedup-stable text for `warn_will_raise`, set by call sites whose message
-    #: interpolates something per-instance. It must not contain an accession
-    #: number, a user-supplied identifier, or anything else that varies between
-    #: two filings hitting the same line — Python's warning filter compares the
-    #: rendered text, so anything that varies turns one warning into thousands.
-    #: `None` means `str(self)` is already stable and is used as-is.
-    warning_summary: Optional[str] = None
 
     def __init__(self,
                  message: str = "",
@@ -286,9 +210,10 @@ What to do:
   2. Reduce your request rate (edgartools defaults to 9 req/sec)
   3. Consider using local storage: download_edgar_data()
 
-To adjust rate limit:
+To adjust rate limit (set it before edgar is first imported):
   import os
-  os.environ['EDGAR_RATE_LIMIT_PER_SEC'] = '5'  # More conservative"""
+  os.environ['EDGAR_RATE_LIMIT_PER_SEC'] = '5'  # More conservative
+  import edgar"""
 
         footer = """
 
@@ -391,7 +316,7 @@ class CompanyNotFoundError(NotFoundError):
 class FilingNotFoundError(NotFoundError):
     """SEC has no filing at that accession number.
 
-    Canonical name for `SECFilingNotFoundError`.
+    Was `SECFilingNotFoundError` before 6.0.
     """
 
 
@@ -414,7 +339,7 @@ class CompanyFactsNotFoundError(NotFoundError):
 class StatementNotFoundError(NotFoundError):
     """A financial statement could not be resolved with sufficient confidence.
 
-    Canonical name for `StatementNotFound`. Keeps that class's keyword
+    Was `StatementNotFound` before 6.0. Keeps that class's keyword
     signature and its rendered message exactly; it is no longer a dataclass,
     because a dataclass cannot pass a built message up to the base.
     """
@@ -497,9 +422,8 @@ class XBRLProcessingError(ParsingError):
 class DataObjectError(ParsingError):
     """`filing.obj()` could not build a data object for a form it supports.
 
-    Canonical name for `DataObjectException`. Takes primitives rather than a
-    Filing, because this module imports nothing from edgar; the deprecated
-    alias keeps the Filing-taking constructor.
+    Was `DataObjectException` before 6.0, which took a Filing. This takes
+    primitives instead, because this module imports nothing from edgar.
     """
 
     def __init__(self, message: str = "", *, form=None, accession_no=None, **kwargs):
@@ -540,5 +464,5 @@ class ValidationError(EdgarError, ValueError):
 class InvalidDateError(ValidationError):
     """A date or date range could not be understood.
 
-    Canonical name for `InvalidDateException`.
+    Was `InvalidDateException` before 6.0.
     """

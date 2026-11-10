@@ -141,6 +141,8 @@ class AccountHolders(SyncAPIResource):
           naics_code: 6-digit North American Industry Classification System (NAICS) code for the
               business.
 
+              This parameter is required if workflow type is `KYB_BASIC`
+
           website_url: Company website URL.
 
           extra_headers: Send extra headers
@@ -738,8 +740,8 @@ class AccountHolders(SyncAPIResource):
         evaluation status.
 
         Args:
-          begin: Date string in RFC 3339 format. Only entries created after the specified time
-              will be included. UTC time zone.
+          begin: Date string in RFC 3339 format. Only entries created on or after the specified
+              time will be included. UTC time zone.
 
           email: Email address of the account holder. The query must be an exact match, case
               insensitive.
@@ -1229,6 +1231,8 @@ class AsyncAccountHolders(AsyncAPIResource):
 
           naics_code: 6-digit North American Industry Classification System (NAICS) code for the
               business.
+
+              This parameter is required if workflow type is `KYB_BASIC`
 
           website_url: Company website URL.
 
@@ -1827,8 +1831,8 @@ class AsyncAccountHolders(AsyncAPIResource):
         evaluation status.
 
         Args:
-          begin: Date string in RFC 3339 format. Only entries created after the specified time
-              will be included. UTC time zone.
+          begin: Date string in RFC 3339 format. Only entries created on or after the specified
+              time will be included. UTC time zone.
 
           email: Email address of the account holder. The query must be an exact match, case
               insensitive.

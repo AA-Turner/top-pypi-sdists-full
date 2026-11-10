@@ -1,18 +1,17 @@
 Metadata-Version: 2.5
 Name: pypdf
-Version: 6.21.4
+Version: 7.0.1
 Summary: A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files
 Author-email: Mathieu Fenniak <biziqe@mathieu.fenniak.net>
 Maintainer: stefan6419846
 Maintainer-email: Martin Thoma <info@martin-thoma.de>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-Expression: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,8 +24,8 @@ Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: typing_extensions >= 4.0; python_version < '3.11'
 Requires-Dist: brotli>=1.2.0 ; extra == "brotli"
-Requires-Dist: cryptography>3.0 ; extra == "crypto"
-Requires-Dist: PyCryptodome ; extra == "cryptodome"
+Requires-Dist: cryptography>=43 ; extra == "crypto"
+Requires-Dist: pycryptodome ; extra == "cryptodome"
 Requires-Dist: flit ; extra == "dev"
 Requires-Dist: pip-tools ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "dev"
@@ -35,17 +34,17 @@ Requires-Dist: pytest-socket ; extra == "dev"
 Requires-Dist: pytest-timeout ; extra == "dev"
 Requires-Dist: pytest-xdist ; extra == "dev"
 Requires-Dist: wheel ; extra == "dev"
-Requires-Dist: myst_parser ; extra == "docs"
+Requires-Dist: myst-parser ; extra == "docs"
 Requires-Dist: sphinx ; extra == "docs"
-Requires-Dist: sphinx_rtd_theme ; extra == "docs"
+Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: fonttools ; extra == "fonts"
 Requires-Dist: arabic-reshaper ; extra == "full"
 Requires-Dist: brotli>=1.2.0 ; extra == "full"
-Requires-Dist: cryptography>3.0 ; extra == "full"
+Requires-Dist: cryptography>=43 ; extra == "full"
 Requires-Dist: fonttools ; extra == "full"
-Requires-Dist: Pillow>=8.0.0 ; extra == "full"
+Requires-Dist: pillow>=8.0.0 ; extra == "full"
 Requires-Dist: python-bidi ; extra == "full"
-Requires-Dist: Pillow>=8.0.0 ; extra == "image"
+Requires-Dist: pillow>=8.0.0 ; extra == "image"
 Requires-Dist: arabic-reshaper ; extra == "rtl-text"
 Requires-Dist: python-bidi ; extra == "rtl-text"
 Project-URL: Bug Reports, https://github.com/py-pdf/pypdf/issues

@@ -20,12 +20,12 @@ import json
 import sys
 from collections import Counter
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
 
-from nameparser import locales, parse
+from nameparser import Parser, Policy, locales, parse
 
 _TOOLS = Path(__file__).parents[2] / "tools" / "differential"
 
@@ -69,7 +69,10 @@ def test_expected_roles_drop_fields_the_rendering_omits() -> None:
                      "family": "Pablo", "suffix": "II",
                      "family_particles": "", "family_base": "Pablo",
                      # stated, so expected empty where the rendering omits it
-                     "surname2": ""}
+                     "surname2": "",
+                     # the first surname on its own, a surname2 stated
+                     # (rules/R11)
+                     "surname1_particles": "", "surname1_base": "Pablo"}
 
 
 def test_a_pending_field_is_scored_inside_its_merged_role_until_parsed_name_has_it(
@@ -85,13 +88,22 @@ def test_a_pending_field_is_scored_inside_its_merged_role_until_parsed_name_has_
         {"given": "Gabriel", "surname": "García", "surname2": "Márquez"},
         "Gabriel García Márquez")
     assert (roles["family"], roles["surname2"]) == ("García Márquez", "Márquez")
-    # Not scored on its own while ParsedName lacks the attribute ...
-    assert "surname2" not in agreement.got_roles(parse("Gabriel García Márquez"))
+    # Not scored on its own while a ParsedName lacks the attribute, as
+    # every one did before 3.0's 4d ...
+    pn = parse("Gabriel García Márquez")
+    before_4d = SimpleNamespace(**{
+        view: getattr(pn, view) for view in (
+            "title", "given_names", "family", "suffix", "family_particles",
+            "family_base", "patronymic")})
+    assert "surname2" not in agreement.got_roles(before_4d)  # type: ignore[arg-type]
+    # ... and on its own once it has it (rules/R10), which the default
+    # never fills: only two_family_names reads a second surname
     rows = [{"file": "Q1", "label": "x", "order": "givenFirst", "shape": None,
              "text": "Gabriel García Márquez",
              "fields": {"given": "Gabriel", "surname": "García",
                         "surname2": "Márquez"}}]
-    assert "surname2" not in agreement.disagreements(rows).get("Q1/x/givenFirst", {})
+    assert agreement.disagreements(rows)["Q1/x/givenFirst"]["surname2"] == {
+        "expected": "Márquez", "got": ""}
 
 
 @pytest.mark.parametrize("field", sorted(agreement.PENDING_ROLES))
@@ -117,8 +129,11 @@ def _summary_run(*args: str) -> tuple[int, str]:
 
 def test_the_summary_says_where_each_pending_field_is_scored() -> None:
     _, out = _summary_run()
-    assert "patronymic" in out and "(scored inside given_names)" in out
-    assert "(scored inside family)" in out
+    # `patronymic` is a view since 3.0's 4c (rules/R9) and `surname2`
+    # since 4d (rules/R10), each scored on its own beside the merged role
+    assert "(and scored inside given_names)" in out
+    assert "(and scored inside family)" in out
+    assert "not a ParsedName field yet" not in out
 
 
 def test_a_role_parsed_name_stops_answering_still_fails_loudly(
@@ -186,12 +201,21 @@ def test_same(expected: str, got: str, text: str, result: bool) -> None:
     assert agreement.same(expected, got, text) is result
 
 
-def test_got_roles_reads_the_six_views() -> None:
+def test_got_roles_reads_the_six_views_and_each_pending_field_parsed_name_has(
+        ) -> None:
     roles = agreement.got_roles(parse("Dr. Paul von Fischer Jr."))
     assert roles == {"title": "Dr.", "given_names": "Paul", "family": "von Fischer",
                      "suffix": "Jr.", "family_particles": "von",
-                     "family_base": "Fischer"}
-    assert tuple(roles) == agreement.ROLES
+                     "family_base": "Fischer", "surname2": "",
+                     "patronymic": "", "surname1_particles": "von",
+                     "surname1_base": "Fischer"}
+    assert tuple(roles) == (*agreement.ROLES, "surname2", "patronymic",
+                            *agreement.FIRST_UNIT_ROLES)
+    assert agreement.got_roles(parse("Mahathir bin Mohamad"))["patronymic"] == (
+        "bin Mohamad")
+    two = Parser(policy=Policy(two_family_names=True))
+    assert agreement.got_roles(two.parse("Gabriel García Márquez"))[
+        "surname2"] == "Márquez"
 
 
 def _row(text: str, shape: int | None, **fields: str) -> dict[str, object]:
@@ -201,13 +225,17 @@ def _row(text: str, shape: int | None, **fields: str) -> dict[str, object]:
 
 def test_a_shape_4_rendering_is_parsed_family_first() -> None:
     # The recorder and the checker share parse_rendering, so they cannot
-    # parse a rendering two ways. A lone word under FAMILY_FIRST reads as
-    # the family name, so CLDR's given name disagrees -- by design.
-    found = agreement.disagreements([_row("Lena", 4, given="Lena")])
+    # parse a rendering two ways. Two words under FAMILY_FIRST read the
+    # first as the family name, so a rendering CLDR wrote given-first
+    # disagrees -- by design.
+    found = agreement.disagreements(
+        [_row("Lena Berg", 4, given="Lena", surname="Berg")])
     assert found == {"xx/nativeG/givenFirst": {
-        "text": "Lena", "given_names": {"expected": "Lena", "got": ""},
-        "family": {"expected": "", "got": "Lena"}}}
-    assert agreement.disagreements([_row("Lena", None, given="Lena")]) == {}
+        "text": "Lena Berg",
+        "given_names": {"expected": "Lena", "got": "Berg"},
+        "family": {"expected": "Berg", "got": "Lena"}}}
+    assert agreement.disagreements(
+        [_row("Lena Berg", None, given="Lena", surname="Berg")]) == {}
 
 
 _RECORDED = {"a/nativeG/givenFirst": {"text": "A", "family": {"expected": "X", "got": "Y"}},
@@ -571,3 +599,23 @@ def test_split_lists_the_view_s_renderings() -> None:
     out = _summary_run("--split")[1]
     assert "conventions/Kim Min Ho/FAMILY_FIRST: 'Kim Min Ho': given expected " \
            "'Min Ho', got 'Min'" in out
+
+
+def test_the_first_surname_is_scored_on_its_own_where_two_are_stated(
+        ) -> None:
+    """rules/R11 (#1022): CLDR's prefix and core are the first
+    surname's, scored against the first unit's views where the
+    rendering states a second surname, while the merged base keeps
+    the second surname in, so the default parse, which reads one
+    unit, is not counted twice for it."""
+    fields = {"given": "Juan", "surname-prefix": "", "surname-core": "Pérez",
+              "surname2": "de la Vega"}
+    text = "Juan Pérez de la Vega"
+    expected = agreement.expected_roles(fields, text)
+    assert (expected["family_base"], expected["surname1_base"]) == (
+        "Pérez de la Vega", "Pérez")
+    two = Parser(policy=Policy(two_family_names=True)).parse(text)
+    assert agreement.got_roles(two)["surname1_base"] == "Pérez"
+    # a rendering stating no second surname is not scored on it
+    assert "surname1_base" not in agreement.expected_roles(
+        {"given": "Juan", "surname-core": "Pérez"}, "Juan Pérez")

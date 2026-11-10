@@ -162,6 +162,7 @@ from bitfab.traces import (
     AssertionGenerationError,
     AssertionGenerationStatus,
     AssertionGenerationTimeoutError,
+    AssertionKind,
     AssertionLabelEvidence,
     AssertionRewrite,
     AssertionRewriteStatus,
@@ -198,6 +199,8 @@ from bitfab.traces import (
 )
 from bitfab.verdicts import (
     AssertionVerdict,
+    ExternalVerdictOutcome,
+    ExternalVerdictUpdate,
     HumanLabelUpdate,
     HumanVerdictOutcome,
     HumanVerdictUpdate,
@@ -238,6 +241,7 @@ __all__ = [
     "AssertionGenerationError",
     "AssertionGenerationStatus",
     "AssertionGenerationTimeoutError",
+    "AssertionKind",
     "AssertionLabelEvidence",
     "AssertionRewrite",
     "AssertionRewriteStatus",
@@ -289,6 +293,8 @@ __all__ = [
     "ExperimentTally",
     "ExperimentTotals",
     "ExperimentsClient",
+    "ExternalVerdictOutcome",
+    "ExternalVerdictUpdate",
     "GraderLabel",
     "GraderLabelOutcome",
     "GraderLabelSource",

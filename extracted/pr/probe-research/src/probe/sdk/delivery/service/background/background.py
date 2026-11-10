@@ -18,7 +18,7 @@ from collections.abc import Callable
 from probe.foundation.service_api import paths
 from probe.foundation.service_api.start import build_module_argv, get_argv_module, get_package_dir
 from probe.foundation.service_api.vocabularies import BackgroundRefusal, BackgroundState
-from probe.foundation.service_api.env import secret_env
+from probe.foundation.service_api.env import BASE_URL_ENV, CREDENTIAL_ENV, secret_env
 from .credentials import HeldCredentials
 from .watchers import WatcherThreads, is_same_report_env
 
@@ -224,10 +224,14 @@ class BackgroundHost:
         key = BOX_PREFIX + os.path.realpath(named)
         if is_same_report_env(request["env"]):
             return self.watchers.start(key, named, request["env"], room=self._get_box_room())
+        # One watcher serves every run in its registry, and each entry names its own address:
+        # never the caller's key or address, or one job's key reports another's runs (#4287 review).
+        env = {name: value for name, value in strip_caller_env(request["env"]).items()
+               if name not in CREDENTIAL_ENV and name != BASE_URL_ENV}
         return self._start(
             key,
             build_module_argv(self.drain_python, BOX_MODULE, [], get_package_dir()),
-            strip_caller_env(request["env"]),
+            env,
             # Where the watcher takes it (`spawn.lock_path`: the named folder's
             # parent, a symlinked leaf not followed); the key is the real folder.
             lease=os.path.join(os.path.dirname(named), BOX_LEASE),

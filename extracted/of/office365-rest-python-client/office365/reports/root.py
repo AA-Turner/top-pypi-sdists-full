@@ -2,13 +2,14 @@ from datetime import date
 from typing import Optional, Union
 
 from office365.directory.authentication.methods.root import AuthenticationMethodsRoot
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.partners.partners import Partners
+from office365.permissions import require_permission
 from office365.reports.internal.queries.create_report_query import create_report_query
 from office365.reports.print_usage_by_printer import PrintUsageByPrinter
 from office365.reports.print_usage_by_user import PrintUsageByUser
+from office365.reports.quotas import REPORT_QUOTAS
 from office365.reports.report_export import (
     ReportExportResult,
     ReportTarget,
@@ -17,6 +18,7 @@ from office365.reports.report_export import (
 )
 from office365.reports.report_result import ReportResult
 from office365.reports.security.root import SecurityReportsRoot
+from office365.runtime.limits import limit
 from office365.runtime.operations import ProgressCallback
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
@@ -24,6 +26,7 @@ from office365.runtime.transport.base import DEFAULT_STREAM_CHUNK_SIZE
 from office365.runtime.types.odata_property import odata
 
 
+@limit(*REPORT_QUOTAS)
 class ReportRoot(Entity):
     """Represents a container for Azure Active Directory (Azure AD) reporting resources."""
 
@@ -102,6 +105,10 @@ class ReportRoot(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["Reports.Read.All"],
+        application=["Reports.Read.All"],
+    )
     def managed_device_enrollment_top_failures(self, period: Optional[str] = None) -> ReportResult:
         """
         Note: The Microsoft Graph API for Intune requires an active Intune license for the tenant.
@@ -198,6 +205,10 @@ class ReportRoot(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["Reports.Read.All"],
+        application=["Reports.Read.All"],
+    )
     def get_m365_app_user_detail(self, period_or_date: Optional[Union[date, str]] = None) -> ReportResult:
         """
         Get a report that provides the details about which apps and platforms users have used.
@@ -387,7 +398,7 @@ class ReportRoot(Entity):
         """
         return create_report_query(self, "getTeamsUserActivityCounts", period)
 
-    @odata(name="authenticationMethods")
+    @odata(name="authenticationMethods", navigation=True)
     @property
     def authentication_methods(self) -> AuthenticationMethodsRoot:
         """Container for navigation properties for Azure AD authentication methods resources."""
@@ -396,11 +407,13 @@ class ReportRoot(Entity):
             AuthenticationMethodsRoot(self.context, ResourcePath("authenticationMethods", self.resource_path)),
         )
 
+    @odata(name="partners", navigation=True)
     @property
     def partners(self) -> Partners:
         """Represents billing details for a Microsoft direct partner."""
         return self.properties.get("partners", Partners(self.context, ResourcePath("partners", self.resource_path)))
 
+    @odata(name="security", navigation=True)
     @property
     def security(self) -> SecurityReportsRoot:
         """Container for navigation properties for Azure AD authentication methods resources."""
@@ -408,6 +421,7 @@ class ReportRoot(Entity):
             "security", SecurityReportsRoot(self.context, ResourcePath("security", self.resource_path))
         )
 
+    @odata(name="dailyPrintUsageByPrinter", navigation=True)
     @property
     def daily_print_usage_by_printer(self) -> EntityCollection[PrintUsageByPrinter]:
         """Gets the dailyPrintUsageByPrinter property"""
@@ -418,6 +432,7 @@ class ReportRoot(Entity):
             ),
         )
 
+    @odata(name="dailyPrintUsageByUser", navigation=True)
     @property
     def daily_print_usage_by_user(self) -> EntityCollection[PrintUsageByUser]:
         """Gets the dailyPrintUsageByUser property"""
@@ -428,6 +443,7 @@ class ReportRoot(Entity):
             ),
         )
 
+    @odata(name="monthlyPrintUsageByPrinter", navigation=True)
     @property
     def monthly_print_usage_by_printer(self) -> EntityCollection[PrintUsageByPrinter]:
         """Gets the monthlyPrintUsageByPrinter property"""
@@ -438,6 +454,7 @@ class ReportRoot(Entity):
             ),
         )
 
+    @odata(name="monthlyPrintUsageByUser", navigation=True)
     @property
     def monthly_print_usage_by_user(self) -> EntityCollection[PrintUsageByUser]:
         """Gets the monthlyPrintUsageByUser property"""

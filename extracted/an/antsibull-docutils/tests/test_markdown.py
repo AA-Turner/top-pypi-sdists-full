@@ -10,6 +10,8 @@ Test markdown module.
 
 from __future__ import annotations
 
+import typing as t
+
 import pytest
 
 from antsibull_docutils.markdown import (
@@ -20,7 +22,9 @@ from antsibull_docutils.markdown import (
 )
 from antsibull_docutils.utils import get_document_structure
 
-RENDER_AS_MARKDOWN_AND_STRUCTURE_DATA = [
+RENDER_AS_MARKDOWN_AND_STRUCTURE_DATA: list[
+    tuple[str, str, t.Literal["markdown", "restructuredtext"], str, set[str]]
+] = [
     (
         "empty",
         "",
@@ -777,20 +781,24 @@ A block quote:
 
 
 @pytest.mark.parametrize(
-    "title, input, input_parser, output, unsupported_class_names",
+    "title, input, input_parser, expected_output, expected_unsupported_class_names",
     RENDER_AS_MARKDOWN_AND_STRUCTURE_DATA,
     ids=[e[0] for e in RENDER_AS_MARKDOWN_AND_STRUCTURE_DATA],
 )
 def test_render_as_markdown(
-    title, input, input_parser, output, unsupported_class_names
-):
+    title: str,
+    input: str,
+    input_parser: t.Literal["markdown", "restructuredtext"],
+    expected_output: str,
+    expected_unsupported_class_names: set[str],
+) -> None:
     result = render_as_markdown(input, parser_name=input_parser)
     print(get_document_structure(input, parser_name=input_parser).output)
-    assert result.output == output
-    assert result.unsupported_class_names == unsupported_class_names
+    assert result.output == expected_output
+    assert result.unsupported_class_names == expected_unsupported_class_names
 
 
-def test_global_context():
+def test_global_context() -> None:
     global_context = GlobalContext()
     assert global_context.register_new_fragment("foo") == "foo"
     assert global_context.register_new_fragment("foo") == "foo-1"
@@ -830,13 +838,14 @@ This is some text\. [Foo](\#foo\-3)\."""
     assert global_context.register_new_fragment("foo") == "foo-4"
 
 
-def test_context():
+def test_context() -> None:
     context = Context(has_top=False)
     with pytest.raises(ValueError) as exc:
         context.add_top("test")
     assert str(exc.value) == "Context has no top part"
 
     subcontext = Context(has_top=True)
+    subcontext.close()
     with pytest.raises(ValueError) as exc:
         context.append(subcontext)
     assert str(exc.value) == "Context has no top part"
@@ -845,7 +854,7 @@ def test_context():
     context2.append(subcontext)
 
 
-def test_document_context():
+def test_document_context() -> None:
     global_context = GlobalContext()
     doc_context = DocumentContext(global_context)
 

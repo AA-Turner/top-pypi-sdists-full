@@ -79,7 +79,11 @@ RE_DATETIME = re.compile(
     r'(?::(?P<seconds>[0-9]{2}(?:\.[0-9]{1,3})?))?\Z'
 )
 RE_SIZE = re.compile(r'[ \t\r\n\f]*\+?(?P<value>[0-9]+)')
-RE_WILD_STRIP = re.compile(r'(?:(?:-\*-)(?:\*(?:-|$))*|-\*$)')
+# BCP 47 syntax for an extended language range (RFC 4647) and a language tag (RFC 5646), as browsers check it:
+# subtags of 1 to 8 ASCII letters and digits, the first only letters, and `*` subtags only in a range.
+# Subtags are not checked against the registry.
+RE_LANG_RANGE = re.compile(r'(?:[a-zA-Z]{1,8}|\*)(?:-(?:[a-zA-Z0-9]{1,8}|\*))*')
+RE_LANG_TAG = re.compile(r'[a-zA-Z]{1,8}(?:-[a-zA-Z0-9]{1,8})*')
 
 MONTHS_30 = (4, 6, 9, 11)  # April, June, September, and November
 FEB = 2
@@ -617,6 +621,10 @@ class CSSMatch(_DocumentNav):
         self.anc_cache: dict[tuple[int, int], bool] = {}
         self.desc_cache: dict[tuple[int, int], bool] = {}
         self.dir_cache: dict[int, int] = {}
+        self.lang_cache: dict[int, str] = {}
+        self.edit_cache: dict[int, bool] = {}
+        self.tree_cache: dict[int, bs4.Tag] = {}
+        self.select_cache: dict[int, bs4.Tag | None] = {}
         self.index_cache: dict[int, dict[int, int]] = {}
 
         # Find the root element for the whole tree
@@ -653,6 +661,10 @@ class CSSMatch(_DocumentNav):
         self.anc_cache.clear()
         self.desc_cache.clear()
         self.dir_cache.clear()
+        self.lang_cache.clear()
+        self.edit_cache.clear()
+        self.tree_cache.clear()
+        self.select_cache.clear()
         self.index_cache.clear()
 
     def supports_namespaces(self) -> bool:
@@ -738,25 +750,32 @@ class CSSMatch(_DocumentNav):
         return None
 
     def extended_language_filter(self, lang_range: str, lang_tag: str) -> bool:
-        """Filter the language tags."""
+        """
+        Filter the language tags.
+
+        `lang_tag` is a well-formed language tag, or an empty string if the language is untagged.
+        """
+
+        # Only an empty range matches an untagged language, and a range that is not well-formed matches nothing.
+        if not lang_range or not lang_tag:
+            return not lang_range and not lang_tag
+        if RE_LANG_RANGE.fullmatch(lang_range) is None:
+            return False
 
         match = True
-        lang_range = RE_WILD_STRIP.sub('-', lang_range).lower()
-        ranges = lang_range.split('-')
+        # Wildcards after the first subtag are ignored (RFC 4647 section 3.3.2, step 3.A), as subtags in between are
+        # already skipped implicitly. So `en-*` is the same as `en` and `de-*-DE` the same as `de-DE`.
+        first, *rest = lang_range.lower().split('-')
+        ranges = [first, *(r for r in rest if r != '*')]
         subtags = lang_tag.lower().split('-')
         length = len(ranges)
-        slength = len(subtags)
         rindex = 0
         sindex = 0
         r = ranges[rindex]
         s = subtags[sindex]
 
-        # Empty specified language should match unspecified language attributes
-        if length == 1 and slength == 1 and not r and r == s:
-            return True
-
         # Primary tag needs to match
-        if (r != '*' and r != s) or (r == '*' and slength == 1 and not s):
+        if r != '*' and r != s:
             match = False
 
         rindex += 1
@@ -773,13 +792,8 @@ class CSSMatch(_DocumentNav):
                 match = False
                 continue
 
-            # Empty range
-            if not r:
-                match = False
-                continue
-
             # Matched range
-            elif s == r:
+            if s == r:
                 rindex += 1
 
             # Implicit wildcard cannot match
@@ -875,20 +889,25 @@ class CSSMatch(_DocumentNav):
             for a in attributes:
                 temp = self.match_attribute_name(el, a.attribute, a.prefix)
                 # The case insensitive pattern only applies to HTML elements in HTML documents
-                pattern = (
-                    a.xml_type_pattern
-                    if a.xml_type_pattern and (self.is_xml or not self.is_html_tag(el))
-                    else a.pattern
-                )
+                pattern: re.Pattern[str] | None
+                if a.xml_type_pattern and (self.is_xml or not self.is_html_tag(el)):
+                    pattern = a.xml_type_pattern
+                    ignore_case = False
+                else:
+                    pattern = a.pattern
+                    ignore_case = a.ignore_case
                 if temp is None and a.inverse:
                     continue
                 if temp is None:
                     match = False
                     break
-                value = temp if isinstance(temp, str) else ' '.join(temp)
                 if pattern is None:
                     continue
-                elif pattern.match(value) is None:
+                value = temp if isinstance(temp, str) else ' '.join(temp)
+                # A case insensitive pattern is compiled for the value converted to ASCII lowercase.
+                if ignore_case:
+                    value = util.ascii_lower(value)
+                if pattern.search(value) is None:
                     match = False
                     break
         return match
@@ -1376,13 +1395,23 @@ class CSSMatch(_DocumentNav):
     def get_tree(self, el: bs4.Tag) -> bs4.Tag:
         """Get the top of the tree that an element is in: its document or `template`."""
 
+        # Every element visited shares the top of the tree, so cache it to avoid walking the same ancestors again.
+        visited: list[int] = []
         top = el
         parent = self.get_parent(top, no_doc=False, no_template=False)
         while parent is not None:
+            key = id(top)
+            if key in self.tree_cache:
+                top = self.tree_cache[key]
+                break
+            visited.append(key)
             top = parent
             if self.is_template(top):
                 break
             parent = self.get_parent(top, no_doc=False, no_template=False)
+        if self.enable_cache:
+            for key in visited:
+                self.tree_cache[key] = top
         return top
 
     def is_submit_button(self, el: bs4.Tag) -> bool:
@@ -1571,9 +1600,22 @@ class CSSMatch(_DocumentNav):
     def match_checked_option(self, el: bs4.Tag) -> bool:
         """Match a selected option. Without a `select`, an option is only selected by its `selected` attribute."""
 
-        parent = self.get_parent(el)
-        while parent is not None and not (self.get_tag(parent) == 'select' and self.is_html_tag(parent)):
-            parent = self.get_parent(parent)
+        # Every element visited shares the `select`, so cache it to avoid walking the same ancestors again.
+        visited: list[int] = []
+        node = el
+        while True:
+            key = id(node)
+            if key in self.select_cache:
+                parent = self.select_cache[key]
+                break
+            visited.append(key)
+            parent = self.get_parent(node)
+            if parent is None or (self.get_tag(parent) == 'select' and self.is_html_tag(parent)):
+                break
+            node = parent
+        if self.enable_cache:
+            for key in visited:
+                self.select_cache[key] = parent
 
         selected = self.get_options(parent).get(id(el)) if parent is not None else None
         return self.get_attribute_by_name(el, 'selected') is not None if selected is None else selected
@@ -1581,7 +1623,32 @@ class CSSMatch(_DocumentNav):
     def match_lang(self, el: bs4.Tag, langs: tuple[ct.SelectorLang, ...]) -> bool:
         """Match languages."""
 
+        # Every element visited while resolving shares the language,
+        # so cache it to avoid walking the same ancestors again for each element.
+        visited: list[int] = []
+        found_lang = self.resolve_lang(el, visited)
+        if self.enable_cache:
+            for key in visited:
+                self.lang_cache[key] = found_lang
+
+        # A language tag that is not well-formed matches nothing, not even `:lang('')` or `:lang('*')`.
+        if found_lang and RE_LANG_TAG.fullmatch(found_lang) is None:
+            return False
+
         match = False
+        for patterns in langs:
+            match = False
+            for pattern in patterns:
+                if self.extended_language_filter(pattern, found_lang):
+                    match = True
+            if not match:
+                break
+
+        return match
+
+    def resolve_lang(self, el: bs4.Tag, visited: list[int]) -> str:
+        """Resolve the language of an element, which is an empty string if it is unknown."""
+
         has_ns = self.supports_namespaces()
         root = self.root
         has_html_namespace = self.has_html_namespace
@@ -1591,6 +1658,10 @@ class CSSMatch(_DocumentNav):
         found_lang = None
         last = None
         while found_lang is None:
+            key = id(parent)
+            if key in self.lang_cache:
+                return self.lang_cache[key]
+            visited.append(key)
             has_html_ns = self.has_html_ns(parent)
             # SVG elements also use a `lang` attribute in no namespace, but `xml:lang` takes precedence.
             has_svg_ns = has_ns and getattr(parent, 'namespace', None) == NS_SVG
@@ -1623,7 +1694,7 @@ class CSSMatch(_DocumentNav):
         if found_lang is None and self.cached_meta_lang:
             for cache in self.cached_meta_lang:
                 if root is not None and cast(str, root) is cache[0]:
-                    found_lang = cache[1]
+                    return cache[1]
 
         # If we couldn't find a language, and the document is HTML, look to meta to determine language.
         if found_lang is None and (not self.is_xml or (has_html_namespace and root and root.name == 'html')):
@@ -1659,17 +1730,8 @@ class CSSMatch(_DocumentNav):
                 if found_lang is None:
                     self.cached_meta_lang.append((cast(str, root), ''))
 
-        # If we determined a language, compare.
-        if found_lang is not None:
-            for patterns in langs:
-                match = False
-                for pattern in patterns:
-                    if self.extended_language_filter(pattern, cast(str, found_lang)):
-                        match = True
-                if not match:
-                    break
-
-        return match
+        # Without any language information, the language is unknown, which is an empty language tag.
+        return '' if found_lang is None else cast(str, found_lang)
 
     def match_dir(self, el: bs4.Tag, directionality: int) -> bool:
         """Check directionality."""
@@ -1842,17 +1904,29 @@ class CSSMatch(_DocumentNav):
         etc.) always inherit the state of their parent.
         """
 
+        # Every element visited shares the state, so cache it to avoid walking the same ancestors again.
+        visited: list[int] = []
+        editable = False
         node = el  # type: bs4.Tag | None
         while node is not None:
+            key = id(node)
+            if key in self.edit_cache:
+                editable = self.edit_cache[key]
+                break
+            visited.append(key)
             state = self.get_attribute_by_name(node, 'contenteditable') if self.is_html_tag(node) else None
             if isinstance(state, str):
                 state = util.lower(state)
                 if state in ('', 'true', 'plaintext-only'):
-                    return True
+                    editable = True
+                    break
                 if state == 'false':
-                    return False
+                    break
             node = self.get_parent(node)
-        return False
+        if self.enable_cache:
+            for key in visited:
+                self.edit_cache[key] = editable
+        return editable
 
     def match_selectors(self, el: bs4.Tag, selectors: ct.SelectorList) -> bool:
         """

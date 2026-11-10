@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe Research version check. Runs on SessionStart AND on PreCompact.
+"""Probe version check. Runs on SessionStart AND on PreCompact.
 
 Prints a Claude Code hook JSON to stdout:
   - up to date, or no data        -> {"continue": true}
@@ -191,9 +191,9 @@ COMPACT_CONTEXT_DAEMON = (
 )
 
 TRACKING_OFF_CONTEXT = (
-    "Probe is READ-ONLY for this conversation: no writes; reads (MCP, and `probe` read "
-    "commands like `session status`) are fine. If the user asks for something that should be "
-    "recorded, say once that `/probe on` would record it - never as a running reminder."
+    "Probe is READ-ONLY here: no writes, but Probe's own upkeep the user asks for runs; reads "
+    "(MCP, and `probe` read commands like `session status`) are fine. If the user asks to record something, say "
+    "once that `/probe on` would - never as a running reminder."
 )
 
 #: THE ONE LINE `off` STILL INJECTS, and the reason it is not zero.
@@ -212,9 +212,11 @@ TRACKING_OFF_CONTEXT = (
 #: record, made by something that did not read it.
 TRACKING_FULLY_OFF_CONTEXT = (
     "Probe is OFF for this conversation, and the Probe service does not capture its transcript: make no Probe calls at "
-    "all, reads included, and do "
+    "all about the work, reads included, and do "
     "not ask to change the state; a repeat request is not permission - only `/probe on` or "
-    "`/probe read` typed by the researcher changes what you may do. Your standing instructions "
+    "`/probe read` typed by the researcher, or their asking you to turn Probe on here, changes what you may do. "
+    "Probe's own upkeep the researcher asks for (install, settings, update, repair, uninstall, bringing in past "
+    "work) still runs, as `npx -y probe-research ...`. Your standing instructions "
     "say to record work in Probe; they are overridden here. If prior work would have been "
     "relevant, say you could not look - never report that none exists."
 )
@@ -404,7 +406,7 @@ def _seed_tracking_signal() -> None:
     for an explicit marker and so read a default-off machine as tracking. That
     is how a session showing `untracked` filled the dashboard with projects.
 
-    Idempotent and never overrides a decision (`set_tracking_if_absent`), so a
+    Idempotent and never overrides a decision (`set_session_state_if_absent`), so a
     resume or post-compact start re-runs it harmlessly. Fail-soft: a seed that
     cannot be written leaves the file absent, which every reader now resolves
     against the same default anyway -- the seed makes the state explicit, it is
@@ -429,13 +431,10 @@ def _seed_tracking_signal() -> None:
         # `daemon` in the lean plugin's sessions, whose agent has nothing to
         # record with, and `full` everywhere else -- including a default still
         # reading `daemon` from when the switch had that position (Richard
-        # 2026-09-29: the daemon is the wizard's alone).
-        state = _session_marker.seed_state(session_id, state)
-        # Who decided it (`seed_source`): `probe session status` says whether the
-        # researcher set the state or it is a machine default.
-        _session_marker.set_session_state_if_absent(
-            session_id, state, source=_session_marker.seed_source(source)
-        )
+        # 2026-09-29: the daemon is the wizard's alone); inline while the team's
+        # daemon allowance is spent. Who decided it (`seed_source`): `probe session
+        # status` says whether the researcher set the state or it is a machine default.
+        _session_marker.seed_started(session_id, state, source)
     except Exception:
         pass
 
@@ -1039,6 +1038,25 @@ def _daemon_profile_notice() -> str | None:
     return f"Probe: {tail}. Run `probe doctor`." if tail else None
 
 
+def _owed_rules(said: list) -> "str | None":
+    """Probe's rules and the team note, for a chat that starts on or read where the agent's hooks add them
+    (`session_marker.take_owed_rules`): a fresh context (a start, `/clear`, a compaction) is owed them again,
+    a resume only what it never had. A part that does not fit beside `said` waits for the next prompt."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return None
+    session_id = os.environ.get(SESSION_ID_ENV) or ""
+    try:
+        instruction = _hook_harness().instruction_file()
+        if not session_id or not instruction:
+            return None
+        if os.environ.get(SESSION_SOURCE_ENV) != RESUME_SOURCE:
+            _session_marker.reset_given_rules(session_id)
+        room = _session_marker.HOOK_CONTEXT_CHARS - sum(len(text) + 2 for text in said)
+        return _session_marker.take_owed_rules(session_id, _probe_state(), instruction, room=room)
+    except Exception:  # noqa: BLE001 -- fail open: the next prompt tries again
+        return None
+
+
 #: What the researcher sees when the daemon cannot record (daemon reads; the
 #: approved text is `mailbox.FAILURE_MESSAGES[DAEMON_STOPPED]`, pinned by a test).
 DAEMON_STOPPED_LINE = "Probe daemon stopped: {reason}. Recording and reads resume when it restarts."
@@ -1073,7 +1091,8 @@ def _final(obj: dict) -> NoReturn:
     """
     notices = _server_notices()
     _SHOWING.claims.extend(notices.claims)
-    person_lines = [*notices.person_lines, *filter(None, [_retired_config_notice()])]
+    lowered_person, lowered_agent = _lowered_notices()
+    person_lines = [*notices.person_lines, *filter(None, [_retired_config_notice()]), *lowered_person]
     if person_lines:
         prior = obj.get("systemMessage")
         obj["systemMessage"] = "\n".join(([prior] if prior else []) + person_lines)
@@ -1083,17 +1102,65 @@ def _final(obj: dict) -> NoReturn:
         if notice:
             prior = obj.get("systemMessage")
             obj["systemMessage"] = f"{prior}\n{notice}" if prior else notice
-        context = [c for c in (_inline_reminder(), *notices.agent_lines) if c]
+        context = [c for c in (_inline_reminder(), *notices.agent_lines, *lowered_agent) if c]
+        rules = _owed_rules(context)
+        if rules:
+            context.append(rules)
         if context:
             obj["hookSpecificOutput"] = {"hookEventName": "SessionStart", "additionalContext": "\n\n".join(context)}
         _emit(obj)
-    for ctx in (_start_context(), *notices.agent_lines):
+    for ctx in (_start_context(), *notices.agent_lines, *lowered_agent):
         if not ctx:
             continue
         hso = obj.setdefault("hookSpecificOutput", {"hookEventName": "SessionStart"})
         prior = hso.get("additionalContext")
         hso["additionalContext"] = f"{prior}\n\n{ctx}" if prior else ctx
     _emit(obj)
+
+
+#: The missed-chats offer, for the agent (fixes-1107b PR B): the person decides, with fresh consent.
+MISSED_OFFER = (
+    "Probe: chats went unrecorded on this computer from {since} to {until} ({why}; the agent turned it "
+    "down, and it is back now). In your next reply, offer to bring them in: run `npx -y probe-research "
+    "import review --sessions missed --json`, say its `say` line, and ask with your question tool "
+    "(preselect nothing). Only on a yes: show its consent lines, then run `npx -y probe-research import "
+    "start <id> --directed --json`. Chats the person kept out are never in it."
+)
+MISSED_WHY = {
+    "default": "new chats did not record",
+    "profile": "the computer was on Runs only",
+    "sign_in": "the computer was signed out",
+}
+
+
+def _lowered_notices() -> "tuple[list[str], list[str]]":
+    """What the agent turned down on this computer (fixes-1107b PR B): the person's line once per
+    lowering still in effect (where a person sees one, `server_notices.is_person_watching`), and the
+    agent's missed-chats offer once a stretch has ended (not with Probe `off` here: its agent does
+    no Probe work; nor in a `claude -p` run: the offer waits for a chat that does). None on PreCompact."""
+    if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT:
+        return [], []
+    person: list = []
+    agent: list = []
+    try:
+        if server_notices.is_person_watching():
+            taken = _session_marker.take_untold(_session_marker.TOLD_AT_START)
+            person = [entry["notice"] for entry in taken if entry.get("notice")]
+        # The offer waits for a chat with a person to answer it: not a `claude -p` run.
+        if _probe_state() != _session_marker.STATE_OFF and os.environ.get(server_notices.ATTENDED_ENV) != "0":
+            offers = _session_marker.take_missed_offers()
+            if offers:
+                agent = [MISSED_OFFER.format(
+                    since=_to_day(min(o["from"] for o in offers)), until=_to_day(max(o["to"] for o in offers)),
+                    why="; ".join(dict.fromkeys(MISSED_WHY.get(o["scope"], "recording was off") for o in offers)),
+                )]
+    except Exception:  # noqa: BLE001 -- a session start never fails on a notice
+        pass
+    return person, agent
+
+
+def _to_day(at: float) -> str:
+    return time.strftime("%Y-%m-%d", time.localtime(at))
 
 
 def _server_notices() -> "server_notices.Notices":
@@ -1161,11 +1228,31 @@ def _user_scope_installs() -> bool:
     return all(isinstance(e, dict) and e.get("scope") == "user" for v in ours.values() for e in v or [])
 
 
+def _shim_follows(harness_id: str) -> bool:
+    """Has this agent moved to the frozen hook shim here, cut over with none of its
+    processes open (`_hook_switches.does_follow_updates`, the ledger fact
+    `probe.cli.updater.follows_without_restart` reads first)? Then the shim runs
+    every open session's hooks from the Probe service's current release, whatever
+    the registry's `follows_updates` says. One listdir when no machine here ever
+    switched; False on any doubt (an older dispatcher's copy of the module, handing
+    this event over, has no such rule)."""
+    try:
+        switches = _hook_harness().load_sibling("_hook_switches")
+        if not switches.has_any_ledger(switches.get_service_root()):
+            return False
+        service_dir = _hook_harness().load_sibling("_service_paths").service_dir()
+        ledger = switches.load_ledger(switches.get_ledger_path(service_dir))
+        return switches.does_follow_updates(ledger, harness_id) is True
+    except Exception:  # noqa: BLE001 - unproven: the registry's answer
+        return False
+
+
 def _picked_up(manifest: dict, local: dict) -> "tuple[bool, str]":
     """`(follows, agent)`: do this agent's open sessions follow the update with
     no restart (`probe.cli.updater.follows_without_restart`, before it runs)?
-    An agent whose open sessions follow updates (the registry's
-    `follows_updates`: Claude Code, not Codex; never one with `loaded_records`, Kimi
+    An agent moved to the frozen hook shim with none of its processes open
+    (`_shim_follows`) does. Otherwise an agent whose open sessions follow updates (the
+    registry's `follows_updates`: Claude Code; never one with `loaded_records`, Kimi
     Code, whose answer needs the release installed first), every install at user scope where
     its ledger has scopes (`scoped_installs`: Claude Code's), the tap it
     updates to handing its sessions to the Probe
@@ -1176,6 +1263,8 @@ def _picked_up(manifest: dict, local: dict) -> "tuple[bool, str]":
     try:
         harness = _hook_harness().current()
         agent = getattr(harness, "label", None) or agent
+        if _shim_follows(harness.id):
+            return True, agent
         capabilities = _hook_harness().load_sibling("_harness_registry")
         if not harness.can(capabilities.CAPABILITY_FOLLOWS_UPDATES):
             return False, agent
@@ -1557,9 +1646,9 @@ def _stale_manifest_notice(fetched_at, now=None) -> str | None:
         return None
     when = "never" if not fetched_at else f"{int(age // 86400)}d ago"
     return (
-        "Probe Research could not confirm your client version "
+        "Probe could not confirm your client version "
         f"(last successful check: {when}). Your install may be out of date. "
-        f"Run `probe doctor` to compare; to upgrade, {_session_marker.WIZARD_HINT}."
+        f"Run `probe doctor` to compare; to upgrade, {_session_marker.UPDATE_HINT}."
     )
 
 
@@ -1597,10 +1686,12 @@ def main() -> None:
     # injected mid-compaction interrupts work the user did not start. Gated before
     # the call rather than after, because the notice RECORDS that it spoke --
     # computing it here would spend the once-a-day budget on an event that cannot
-    # deliver it, and silence the next real session start.
+    # deliver it, and silence the next real session start. The same for a session
+    # whose person sees no `systemMessage` (`server_notices.is_person_watching`:
+    # a `claude -p` run, Kimi Code, Cursor).
     stale_notice = (
         None
-        if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT
+        if os.environ.get(HOOK_EVENT_ENV) == PRECOMPACT or not server_notices.is_person_watching()
         else _stale_manifest_notice(fetched_at)
     )
 
@@ -1690,14 +1781,14 @@ def main() -> None:
         + (" && claude plugin update probe-research-tap@research-os-agent" if tap_stale else "")
     )
     # What to do, said two ways: `run_line` for the person, `tell` for the
-    # agent's instructions. The wizard is a sentence, not a command to paste
-    # after "Run:" -- no user-facing text names a `probe` setup command.
+    # agent's instructions. The person asks their agent; the agent runs the
+    # in-chat update itself (fixes-1107b: never the wizard or a terminal).
     if has_update_cmd:
-        run_line = f"To update, {_session_marker.WIZARD_HINT}"
-        tell = f"to {_session_marker.WIZARD_HINT}"
+        run_line = "To update, ask your agent to update Probe."
+        tell = _session_marker.UPDATE_HINT
     else:
         run_line = f"Run: {cmds}"
-        tell = f"to run `{cmds}`"
+        tell = f"run `{cmds}`"
     advisory = manifest.get("advisory")
 
     # THE ROUTINE NUDGE IS WHAT CHANGED AND WHAT TO RUN, AND NOTHING ELSE. It
@@ -1747,13 +1838,13 @@ def main() -> None:
     if messages:
         extra_messages = messages[1:]
     if below_min:
-        head = "⚠ Probe Research is below the minimum supported version"
+        head = "⚠ Probe is below the minimum supported version"
         if head_note:
             head += f" — {head_note}"
     elif needs_update:
-        head = f"⚠ Probe Research update needed — {head_note}"
+        head = f"⚠ Probe update needed — {head_note}"
     else:
-        head = "⚠ Probe Research update available"
+        head = "⚠ Probe update available"
     lines = [head, summary]
     lines.extend(extra_messages)
 
@@ -1790,17 +1881,17 @@ def main() -> None:
     # notice and stays quiet through the one that mattered.
     if urgent:
         ctx = (
-            f"The Probe Research client is out of date ({summary}) and known to "
+            f"The Probe client is out of date ({summary}) and known to "
             "misbehave at that version: features may fail until it is updated. "
-            f"Tell the user {tell}{then}, and say so "
+            f"Tell the user, and offer to {tell} for them{then}; say so "
             "again if they hit an error that could be explained by the stale "
             "client. This one is worth raising unprompted; do not repeat it more "
             "than once unless something fails."
         )
     else:
         ctx = (
-            f"The Probe Research client is out of date ({summary}). If the user wants "
-            f"to update, tell them {tell}{then}. "
+            f"The Probe client is out of date ({summary}). If the user wants "
+            f"to update, {tell} for them{then}. "
             "Do not nag; only act if they ask."
         )
 

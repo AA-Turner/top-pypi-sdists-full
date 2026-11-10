@@ -2,13 +2,14 @@
 
 import re
 import typing
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from .errors import (
     MalformedFileError, MalformedCaptionError, MalformedRegionError
     )
-from .models import Caption, CueSettings, Region, Style
-from .utils import _split_lines
+from .models import Caption, CueSettings, ParseIssue, Region, Style
+from .utils import _NumberedBlock, _split_lines
 
 _TIMESTAMP = r'(?:[0-9]+:)?[0-9]{1,2}:[0-9]{1,2}\.[0-9]{1,3}'
 _STRICT_TIMESTAMP = r'(?:[0-9]{2,}:)?[0-9]{2}:[0-9]{2}\.[0-9]{3}'
@@ -18,18 +19,19 @@ _STRICT_TIMESTAMP = r'(?:[0-9]{2,}:)?[0-9]{2}:[0-9]{2}\.[0-9]{3}'
 class ParserOutput:
     """Output of parser."""
 
-    styles: typing.List[Style]
-    captions: typing.List[Caption]
-    header_comments: typing.List[str]
-    footer_comments: typing.List[str]
+    styles: list[Style]
+    captions: list[Caption]
+    header_comments: list[str]
+    footer_comments: list[str]
     header_text: str = ''
-    metadata: typing.List[str] = field(default_factory=list)
-    regions: typing.List[Region] = field(default_factory=list)
+    metadata: list[str] = field(default_factory=list)
+    regions: list[Region] = field(default_factory=list)
+    issues: list[ParseIssue] = field(default_factory=list)
 
     @classmethod
     def from_data(
             cls,
-            data: typing.Mapping[str, typing.Any]
+            data: Mapping[str, typing.Any]
             ) -> 'ParserOutput':
         """
         Return a `ParserOutput` instance from the provided data.
@@ -43,7 +45,8 @@ class ParserOutput:
             styles=[it for it in items if isinstance(it, Style)],
             regions=[it for it in items if isinstance(it, Region)],
             header_comments=data.get('header_comments', []),
-            footer_comments=data.get('footer_comments', [])
+            footer_comments=data.get('footer_comments', []),
+            issues=data.get('issues', [])
             )
 
 
@@ -59,12 +62,12 @@ class WebVTTCueBlock:
 
     def __init__(
             self,
-            identifier,
-            start,
-            end,
-            payload,
-            settings=''
-            ):
+            identifier: str | None,
+            start: str | None,
+            end: str | None,
+            payload: Sequence[str],
+            settings: str = ''
+            ) -> None:
         """
         Initialize.
 
@@ -82,7 +85,7 @@ class WebVTTCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str],
+            lines: Sequence[str],
             strict: bool = False
             ) -> bool:
         """
@@ -102,13 +105,13 @@ class WebVTTCueBlock:
         return bool(
             (
               len(lines) >= 1 and
-              re.match(pattern, lines[0]) and
+              pattern.match(lines[0]) and
               (len(lines) < 2 or "-->" not in lines[1])
               ) or
             (
               len(lines) >= 2 and
               "-->" not in lines[0] and
-              re.match(pattern, lines[1]) and
+              pattern.match(lines[1]) and
               (len(lines) < 3 or "-->" not in lines[2])
               )
         )
@@ -116,10 +119,14 @@ class WebVTTCueBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Iterable[str]
+            lines: Iterable[str]
             ) -> 'WebVTTCueBlock':
         """
         Create a `WebVTTCueBlock` from lines of text.
+
+        The lines after the cue timings are the payload, and are not
+        matched as timings, as a line with ``-->`` in a cue block can only
+        be its timings.
 
         :param lines: the lines of text
         :returns: `WebVTTCueBlock` instance
@@ -131,17 +138,17 @@ class WebVTTCueBlock:
         payload = []
 
         for line in lines:
-            timing_match = re.match(cls.CUE_TIMINGS_PATTERN, line)
+            if start is not None:
+                payload.append(line)
+                continue
+            timing_match = cls.CUE_TIMINGS_PATTERN.match(line)
             if timing_match:
-                start = timing_match.group(1)
-                end = timing_match.group(2)
+                start, end = timing_match.group(1, 2)
                 settings = cls._settings_after_timings(
                     line[timing_match.end():]
                     )
-            elif not start:
-                identifier = line
             else:
-                payload.append(line)
+                identifier = line
 
         return cls(identifier, start, end, payload, settings)
 
@@ -160,7 +167,7 @@ class WebVTTCueBlock:
         return '' if rest[:1].isdecimal() else rest
 
     @staticmethod
-    def format_lines(caption: Caption) -> typing.List[str]:
+    def format_lines(caption: Caption) -> list[str]:
         """
         Return the lines for a cue block.
 
@@ -202,7 +209,7 @@ class WebVTTCommentBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a comment block.
@@ -223,7 +230,7 @@ class WebVTTCommentBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Iterable[str]
+            lines: Iterable[str]
             ) -> 'WebVTTCommentBlock':
         """
         Create a `WebVTTCommentBlock` from lines of text.
@@ -235,7 +242,7 @@ class WebVTTCommentBlock:
         return cls(text=match.group(1).strip() if match else '')
 
     @staticmethod
-    def format_lines(lines: str) -> typing.List[str]:
+    def format_lines(lines: str) -> list[str]:
         """
         Return the lines for a comment block.
 
@@ -253,8 +260,6 @@ class WebVTTCommentBlock:
 class WebVTTStyleBlock:
     """Representation of a style block."""
 
-    STYLE_PATTERN = re.compile(r'STYLE\s(.*?)\Z', re.DOTALL)
-
     def __init__(self, text: str):
         """
         Initialize.
@@ -266,7 +271,7 @@ class WebVTTStyleBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a style block.
@@ -285,19 +290,20 @@ class WebVTTStyleBlock:
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Iterable[str]
+            lines: Iterable[str]
             ) -> 'WebVTTStyleBlock':
         """
         Create a `WebVTTStyleBlock` from lines of text.
 
+        The style text is the lines after the ``STYLE`` line, as they are.
+
         :param lines: the lines of text
         :returns: `WebVTTStyleBlock` instance
         """
-        match = cls.STYLE_PATTERN.match('\n'.join(lines))
-        return cls(text=match.group(1).strip() if match else '')
+        return cls(text='\n'.join(list(lines)[1:]))
 
     @staticmethod
-    def format_lines(lines: typing.List[str]) -> typing.List[str]:
+    def format_lines(lines: list[str]) -> list[str]:
         """
         Return the lines for a style block.
 
@@ -311,7 +317,7 @@ class WebVTTRegionBlock:
     """Representation of a region block."""
 
     @staticmethod
-    def is_valid(lines: typing.Sequence[str]) -> bool:
+    def is_valid(lines: Sequence[str]) -> bool:
         """
         Validate the lines for a match of a region block.
 
@@ -328,7 +334,7 @@ class WebVTTRegionBlock:
             )
 
     @staticmethod
-    def format_lines(region: Region) -> typing.List[str]:
+    def format_lines(region: Region) -> list[str]:
         """
         Return the lines for a region block.
 
@@ -339,7 +345,7 @@ class WebVTTRegionBlock:
 
 
 def parse(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
         ) -> ParserOutput:
     """
@@ -359,16 +365,15 @@ def parse(
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
     if strict and not _starts_with_keyword(lines[0], 'WEBVTT'):
-        raise MalformedFileError(f'Invalid header {lines[0]!r}')
+        raise MalformedFileError(f'line 1: Invalid header {lines[0]!r}')
 
     output = parse_items(lines, strict)
-    output.header_text, output.metadata = _parse_header(
-        next(_iter_blocks_of_lines(lines))
-        )
+    _, header = next(_iter_blocks_of_lines(lines))
+    output.header_text, output.metadata = _parse_header(header)
     return output
 
 
-def is_valid_content(lines: typing.Sequence[str]) -> bool:
+def is_valid_content(lines: Sequence[str]) -> bool:
     """
     Validate lines of text for valid VTT content.
 
@@ -379,9 +384,9 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
 
 
 def _iter_blocks_of_lines(
-        lines: typing.Iterable[str],
+        lines: Iterable[str],
         strict: bool = False
-        ) -> typing.Generator[typing.List[str], None, None]:
+        ) -> Generator[_NumberedBlock, None, None]:
     """
     Iterate blocks of text following the WebVTT parsing rules.
 
@@ -392,21 +397,23 @@ def _iter_blocks_of_lines(
     :param lines: lines of text
     :param strict: raise an error when a block is not ended by an empty line
         before a cue timings line
+    :returns: the line number where each block starts, from 1, and its lines
 
     :raises MalformedCaptionError: if strict and a cue timings line follows
         a block without an empty line in between
     """
-    block: typing.List[str] = []
+    block: list[str] = []
     in_header = True
+    number = 0
 
-    for line in lines:
+    for number, line in enumerate(lines, 1):
         if not line or _starts_new_block(block, line, in_header):
             if strict and line and not in_header:
                 raise MalformedCaptionError(
-                    f'Invalid cue block {[*block, line]!r}'
+                    f'line {number}: Invalid cue block {[*block, line]!r}'
                     )
             if block:
-                yield block
+                yield number - len(block), block
                 block = []
                 in_header = False
 
@@ -414,11 +421,11 @@ def _iter_blocks_of_lines(
             block.append(line)
 
     if block:
-        yield block
+        yield number + 1 - len(block), block
 
 
 def _starts_new_block(
-        block: typing.Sequence[str],
+        block: Sequence[str],
         line: str,
         in_header: bool
         ) -> bool:
@@ -440,7 +447,7 @@ def _starts_new_block(
         )
 
 
-def _has_arrow(lines: typing.Iterable[str]) -> bool:
+def _has_arrow(lines: Iterable[str]) -> bool:
     """Return whether a line contains the cue timings arrow ``-->``."""
     return any('-->' in line for line in lines)
 
@@ -472,7 +479,7 @@ def _is_keyword_line(line: str, keyword: str) -> bool:
 
 
 def parse_items(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
         ) -> ParserOutput:
     """
@@ -483,45 +490,94 @@ def parse_items(
     :param lines: lines of text
     :param strict: raise an error on blocks that are not valid WebVTT
         instead of ignoring them
-    :returns: an object `ParserOutput` with all parsed items
+    :returns: an object `ParserOutput` with all parsed items, and the blocks
+        that are skipped when not strict
 
     :raises MalformedCaptionError: if strict and the header contains "-->",
         or another block is not a valid cue, comment, style or region
     """
-    header_comments: typing.List[str] = []
-    items: typing.List[typing.Union[Caption, Style, Region]] = []
-    comments: typing.List[WebVTTCommentBlock] = []
+    items: list[Caption | Style | Region] = []
+    comments: list[WebVTTCommentBlock] = []
+    issues: list[ParseIssue] = []
     seen_cue = False
 
-    for index, block_lines in enumerate(_iter_blocks_of_lines(lines, strict)):
-        if _is_header(index, block_lines, strict):
-            continue
-        item = parse_item(block_lines, strict, seen_cue)
-        if not seen_cue:
-            seen_cue = _has_arrow(block_lines)
-        if item:
-            item.comments = [comment.text for comment in comments]
-            comments = []
-            items.append(item)
-        elif WebVTTCommentBlock.is_valid(block_lines):
-            comments.append(WebVTTCommentBlock.from_lines(block_lines))
-        elif strict:
-            raise _invalid_block_error(block_lines)
+    blocks = _iter_blocks_of_lines(lines, strict)
+    for index, (number, block_lines) in enumerate(blocks):
+        try:
+            if _is_header(index, block_lines, strict):
+                continue
+            item = parse_item(block_lines, strict, seen_cue)
+            if not seen_cue:
+                seen_cue = _has_arrow(block_lines)
+            if item:
+                item.comments = [comment.text for comment in comments]
+                comments = []
+                items.append(item)
+            elif WebVTTCommentBlock.is_valid(block_lines):
+                comments.append(WebVTTCommentBlock.from_lines(block_lines))
+            elif strict:
+                raise _invalid_block_error(block_lines)
+            else:
+                issues.append(ParseIssue(
+                    number,
+                    _skipped_block_message(block_lines, seen_cue),
+                    block_lines
+                    ))
+        except MalformedCaptionError as error:
+            raise type(error)(f'line {number}: {error}') from error
 
+    return _parser_output(items, comments, issues)
+
+
+def _parser_output(
+        items: list[Caption | Style | Region],
+        comments: Sequence[WebVTTCommentBlock],
+        issues: list[ParseIssue]
+        ) -> ParserOutput:
+    """
+    Return the output of the parser from the parsed blocks.
+
+    The comments of the first item are the comments of the header.
+
+    :param items: the parsed items
+    :param comments: the comments after the last item
+    :param issues: the blocks that are skipped
+    :returns: an object `ParserOutput`
+    """
+    header_comments: list[str] = []
     if items:
         header_comments, items[0].comments = items[0].comments, header_comments
 
     return ParserOutput.from_data(
         {'items': items,
          'header_comments': header_comments,
-         'footer_comments': [comment.text for comment in comments]
+         'footer_comments': [comment.text for comment in comments],
+         'issues': issues
          }
         )
 
 
+def _skipped_block_message(
+        lines: Sequence[str],
+        seen_cue: bool
+        ) -> str:
+    """
+    Return why a block is skipped, as the error strict parsing raises for it.
+
+    :param lines: the lines of the block
+    :param seen_cue: true if a cue came before the block
+    :returns: the message of the error
+    """
+    try:
+        parse_item(lines, True, seen_cue)
+    except MalformedCaptionError as error:
+        return str(error)
+    return str(_invalid_block_error(lines))
+
+
 def _is_header(
         index: int,
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
         ) -> bool:
     """
@@ -542,7 +598,7 @@ def _is_header(
 
 
 def _invalid_block_error(
-        lines: typing.Sequence[str]
+        lines: Sequence[str]
         ) -> MalformedCaptionError:
     """
     Return the error for a block that is not valid WebVTT.
@@ -555,8 +611,8 @@ def _invalid_block_error(
 
 
 def _parse_header(
-        lines: typing.Sequence[str]
-        ) -> typing.Tuple[str, typing.List[str]]:
+        lines: Sequence[str]
+        ) -> tuple[str, list[str]]:
     """
     Parse the header block of the file.
 
@@ -574,7 +630,7 @@ def _parse_header(
     return text, list(lines[1:])
 
 
-def _validate_header(header_text: str, metadata: typing.Iterable[str]):
+def _validate_header(header_text: str, metadata: Iterable[str]) -> None:
     """
     Validate the header text and metadata lines before writing them.
 
@@ -608,7 +664,7 @@ def _has_line_break(text: str) -> bool:
     return '\n' in text or '\r' in text
 
 
-def _lines_with_content(text: str) -> typing.List[str]:
+def _lines_with_content(text: str) -> list[str]:
     """
     Return the lines of a text up to its last line that is not empty.
 
@@ -624,7 +680,7 @@ def _lines_with_content(text: str) -> typing.List[str]:
     return lines
 
 
-def _ends_block_early(lines: typing.Sequence[str]) -> bool:
+def _ends_block_early(lines: Sequence[str]) -> bool:
     """
     Return whether lines written in a block would end it or start a cue.
 
@@ -634,7 +690,7 @@ def _ends_block_early(lines: typing.Sequence[str]) -> bool:
     return not all(lines) or _has_arrow(lines)
 
 
-def _validate_caption(caption: Caption):
+def _validate_caption(caption: Caption) -> None:
     """
     Validate the identifier and text of a caption before writing it.
 
@@ -660,7 +716,7 @@ def _validate_caption(caption: Caption):
             )
 
 
-def _validate_style(style: Style):
+def _validate_style(style: Style) -> None:
     """
     Validate the text of a style before writing it.
 
@@ -677,7 +733,7 @@ def _validate_style(style: Style):
             )
 
 
-def _validate_comment(comment: str):
+def _validate_comment(comment: str) -> None:
     """
     Validate the text of a comment before writing it.
 
@@ -696,10 +752,10 @@ def _validate_comment(comment: str):
 
 
 def parse_item(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False,
         seen_cue: bool = False
-        ) -> typing.Union[Caption, Style, Region, None]:
+        ) -> Caption | Style | Region | None:
     """
     Parse an item from lines of text.
 
@@ -741,9 +797,9 @@ def parse_item(
 
 
 def _parse_cue(
-        lines: typing.Sequence[str],
+        lines: Sequence[str],
         strict: bool = False
-        ) -> typing.Optional[Caption]:
+        ) -> Caption | None:
     """
     Parse a cue from the lines of a cue block.
 
@@ -756,11 +812,11 @@ def _parse_cue(
     """
     cue_block = WebVTTCueBlock.from_lines(lines)
     try:
+        settings = CueSettings.from_string(cue_block.settings, strict)
         caption = Caption(cue_block.start,
                           cue_block.end,
                           cue_block.payload,
-                          cue_block.identifier,
-                          CueSettings.from_string(cue_block.settings, strict)
+                          cue_block.identifier
                           )
     except MalformedCaptionError:
         if strict:
@@ -770,19 +826,21 @@ def _parse_cue(
         raise MalformedCaptionError(
             f'Cue end time is not after the start time {lines!r}'
             )
+    # the settings are new, so the caption keeps them instead of a copy
+    caption._settings = settings
     return caption
 
 
 def write(
         f: typing.IO[str],
-        captions: typing.Iterable[Caption],
-        styles: typing.Iterable[Style],
-        header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str],
+        captions: Iterable[Caption],
+        styles: Iterable[Style],
+        header_comments: Iterable[str],
+        footer_comments: Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = (),
-        regions: typing.Iterable[Region] = ()
-        ):
+        metadata: Iterable[str] = (),
+        regions: Iterable[Region] = ()
+        ) -> None:
     """
     Write captions to an output.
 
@@ -811,13 +869,13 @@ def write(
 
 
 def to_str(
-        captions: typing.Iterable[Caption],
-        styles: typing.Iterable[Style],
-        header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str],
+        captions: Iterable[Caption],
+        styles: Iterable[Style],
+        header_comments: Iterable[str],
+        footer_comments: Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = (),
-        regions: typing.Iterable[Region] = ()
+        metadata: Iterable[str] = (),
+        regions: Iterable[Region] = ()
         ) -> str:
     """
     Convert captions to a string with webvtt format.
@@ -840,13 +898,13 @@ def to_str(
 
 
 def _to_str(
-        captions: typing.Iterable[Caption],
-        styles: typing.Iterable[Style],
-        header_comments: typing.Iterable[str],
-        footer_comments: typing.Iterable[str],
+        captions: Iterable[Caption],
+        styles: Iterable[Style],
+        header_comments: Iterable[str],
+        footer_comments: Iterable[str],
         header_text: str = '',
-        metadata: typing.Iterable[str] = (),
-        regions: typing.Iterable[Region] = (),
+        metadata: Iterable[str] = (),
+        regions: Iterable[Region] = (),
         item_comments: bool = True
         ) -> str:
     """
@@ -892,7 +950,7 @@ def _to_str(
     return '\n'.join(output)
 
 
-def _format_comments(comments: typing.Iterable[str]) -> typing.List[str]:
+def _format_comments(comments: Iterable[str]) -> list[str]:
     """
     Return the lines for comment blocks, each preceded by an empty line.
 

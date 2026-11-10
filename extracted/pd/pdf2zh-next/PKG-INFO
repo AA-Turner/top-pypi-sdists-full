@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pdf2zh-next
-Version: 2.9.0
+Version: 2.10.2
 Summary: PDF Translator based on BabelDOC
 Project-URL: Homepage, https://github.com/PDFMathTranslate-next/PDFMathTranslate-next
 Author-email: awwaawwa <aw@funstory.ai>
@@ -11,7 +11,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.14,>=3.10
 Requires-Dist: azure-ai-translation-text<=1.0.1
-Requires-Dist: babeldoc<0.7.0,>=0.6.2
+Requires-Dist: babeldoc<0.8.0,>=0.7.1
 Requires-Dist: chardet>=5.2.0
 Requires-Dist: deepl
 Requires-Dist: fastapi>=0.115.12
@@ -27,7 +27,6 @@ Requires-Dist: openai>=1.0.0
 Requires-Dist: peewee>=3.17.8
 Requires-Dist: pydantic-settings>=2.8.1
 Requires-Dist: pydantic>=2.10.6
-Requires-Dist: pymupdf<1.25.3
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: requests
 Requires-Dist: rich

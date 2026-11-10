@@ -21,8 +21,8 @@ use valgebra_core::{Attribute, Field, MapClause, Schema, SeqKind, SeqShape};
 
 use super::generics::{MAX_QUALIFIER_DEPTH, is_field_qualifier};
 use super::{
-    ClassScope, MAX_BUILD_DEPTH, Pool, build_schema, forms, is_extension, loaded_modules,
-    not_implemented,
+    ClassScope, MAX_BUILD_DEPTH, Pool, build_schema, each_within_the_bound, forms, is_extension,
+    loaded_modules, not_implemented,
 };
 use crate::errors::{summarize, unless_fatal};
 
@@ -295,8 +295,7 @@ pub(super) fn protocol_members<'py>(
             .bind(py)
             .call1((ty,))?,
     };
-    let mut names = names
-        .try_iter()?
+    let mut names = each_within_the_bound(&names)?
         .map(|name| Ok(name?.cast_into::<PyString>()?))
         .collect::<PyResult<Vec<_>>>()?;
     names.sort_by_cached_key(ToString::to_string);
@@ -777,6 +776,17 @@ impl<'py> Scopes<'py> {
             }
             arguments.push(argument);
         }
+        // Past the parameters, once each is known to take one type: a list of
+        // types takes any count, and is refused above for its kind.
+        if let Some(applied) = applied
+            && applied.len() > parameters.len()
+        {
+            return Err(applied_past_its_parameters(
+                ty,
+                parameters.len(),
+                applied.len(),
+            )?);
+        }
         let mut scopes = Self {
             read: Scope {
                 class: ty.clone(),
@@ -896,6 +906,28 @@ impl<'py> Scopes<'py> {
     }
 }
 
+/// The refusal of a class applied to more arguments than it declares
+/// parameters. `typing` refuses the count of a generic class at the subscript,
+/// and `tuple`'s own subscription takes any, so a named tuple declaring none is
+/// applied to one, `Point[str]`, which no field of it has a place for.
+#[cold]
+fn applied_past_its_parameters(
+    ty: &Bound<'_, PyType>,
+    declared: usize,
+    given: usize,
+) -> PyResult<PyErr> {
+    let takes = match declared {
+        0 => "no type argument".to_owned(),
+        1 => "1 type argument".to_owned(),
+        count => format!("{count} type arguments"),
+    };
+    Ok(not_implemented(format!(
+        "{} takes {takes}, and is applied to {given}: no field of it has a place for \
+         the rest, so write it with as many as it declares",
+        super::declared_name(ty.as_any())?
+    )))
+}
+
 /// A class's `__parameters__`, or none where it has no such attribute.
 fn parameters_of<'py>(class: &Bound<'py, PyType>) -> PyResult<Bound<'py, PyTuple>> {
     match class.getattr_opt(intern!(class.py(), "__parameters__"))? {
@@ -973,7 +1005,7 @@ fn declarers<'py>(
             let Some(own) = own_body(&class)? else {
                 continue;
             };
-            for name in own.try_iter()? {
+            for name in each_within_the_bound(&own)? {
                 let name = name?;
                 if !found.contains(&name)? {
                     found.set_item(name, &class)?;
@@ -1331,7 +1363,19 @@ pub(super) fn build_typed_dict<'py>(
 ) -> PyResult<Schema> {
     let _open = ClassScope::enter(ty, applied)?;
     let hints = bound_hints(ty, applied)?;
+    // CPython writes a `frozenset`, which answers `in` itself. Anything else
+    // is read once, within the bound: `in` asks an iterable for a name it does
+    // not hold to its end, and one that does not end never answers.
     let required = ty.getattr(intern!(ty.py(), "__required_keys__"))?;
+    let required = if required.is_exact_instance_of::<PyFrozenSet>() {
+        required
+    } else {
+        PyFrozenSet::new(
+            ty.py(),
+            each_within_the_bound(&required)?.collect::<PyResult<Vec<_>>>()?,
+        )?
+        .into_any()
+    };
     let mut fields = Vec::with_capacity(hints.len());
     for (name, hint) in hints.iter() {
         let (stated, read) = qualified_required(&hint)?;
@@ -1670,11 +1714,7 @@ pub(super) fn declared_fields<'py>(ty: &Bound<'py, PyType>) -> PyResult<Vec<Boun
         })?;
         let fields = match fields_as_declared(ty, reading)? {
             Some(fields) => fields,
-            None => reading
-                .fields
-                .bind(py)
-                .call1((ty,))?
-                .try_iter()?
+            None => each_within_the_bound(&reading.fields.bind(py).call1((ty,))?)?
                 .collect::<PyResult<_>>()?,
         };
         return fields
@@ -1682,7 +1722,7 @@ pub(super) fn declared_fields<'py>(ty: &Bound<'py, PyType>) -> PyResult<Vec<Boun
             .map(|field| field.getattr(intern!(py, "name")))
             .collect();
     }
-    ty.getattr(intern!(py, "_fields"))?.try_iter()?.collect()
+    each_within_the_bound(&ty.getattr(intern!(py, "_fields"))?)?.collect()
 }
 
 /// A dataclass's fields as `dataclasses.fields(ty)` returns them, or `None`
@@ -1865,6 +1905,9 @@ fn field_hint<'py>(
 ///
 /// A field the annotations do not carry -- a `collections.namedtuple` has none
 /// -- takes `anything` at its position, which is the arity without the types.
+///
+/// The positions are those of the class that stores them ([`storing_class`]): a
+/// subclass can write `_fields` and adds no position to a tuple.
 pub(super) fn named_tuple_positions(
     ty: &Bound<'_, PyType>,
     hints: &Bound<'_, PyDict>,
@@ -1875,11 +1918,32 @@ pub(super) fn named_tuple_positions(
         return Ok(None);
     }
     let mut positions = Vec::new();
-    for name in declared_fields(ty)? {
+    for name in declared_fields(&storing_class(ty)?)? {
         positions.push(match hints.get_item(&name)? {
             Some(hint) => build_schema(&hint, lits, defs)?,
             None => Schema::ANYTHING,
         });
     }
     Ok(Some(Schema::tuple(SeqShape::fixed(positions))))
+}
+
+/// The class on `ty`'s order directly above `tuple`, where it declares `_fields`:
+/// the one `collections.namedtuple` and `NamedTuple` build, whose `_fields` are
+/// what an instance holds. `_fields` is an attribute any subclass can write, and
+/// `platform.uname_result` names a sixth, computed on demand, over five stored
+/// items. A mixin in that place declares nothing, and `ty` answers for itself.
+fn storing_class<'py>(ty: &Bound<'py, PyType>) -> PyResult<Bound<'py, PyType>> {
+    let py = ty.py();
+    let order = ty.mro();
+    let tuple = order
+        .iter()
+        .position(|class| class.is(py.get_type::<PyTuple>()));
+    let above = tuple
+        .and_then(|at| at.checked_sub(1))
+        .and_then(|at| order.get_item(at).ok())
+        .and_then(|class| class.cast_into::<PyType>().ok());
+    Ok(match above {
+        Some(class) if class.hasattr(intern!(py, "_fields"))? => class,
+        _ => ty.clone(),
+    })
 }

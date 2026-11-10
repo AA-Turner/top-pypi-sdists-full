@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: assemblyai
-Version: 1.8.2
+Version: 1.9.1
 Summary: AssemblyAI Python SDK
 Home-page: https://github.com/AssemblyAI/assemblyai-python-sdk
 Author: AssemblyAI
@@ -30,12 +30,24 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: httpx>=0.19.0
+Requires-Dist: httpx>=0.22.0
 Requires-Dist: pydantic>=2.0; python_version >= "3.14"
 Requires-Dist: pydantic>=1.10.17; python_version < "3.14"
 Requires-Dist: pydantic-settings>=2.0; python_version >= "3.14"
 Requires-Dist: typing-extensions>=3.7
 Requires-Dist: websockets>=11.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <img src="https://github.com/AssemblyAI/assemblyai-python-sdk/blob/master/assemblyai.png?raw=true" width="500"/>
 
@@ -68,13 +80,19 @@ The most effective option is project instructions. Add this to your `CLAUDE.md`,
 For on-demand documentation lookups during a session, connect the AssemblyAI docs MCP server:
 
 ```
-claude mcp add assemblyai-docs --transport http https://mcp.assemblyai.com/docs
+claude mcp add assemblyai-docs --transport http https://www.assemblyai.com/docs/mcp
 ```
 
-For deep SDK context in Claude Code specifically, install the [AssemblyAI skill](https://github.com/AssemblyAI/assemblyai-skill):
+For deep SDK context, install the [AssemblyAI skill](https://github.com/AssemblyAI/assemblyai-skill). It works with Claude Code, Cursor, Codex and other agents:
 
 ```
-claude install-skill https://github.com/AssemblyAI/assemblyai-skill
+npx skills add AssemblyAI/assemblyai-skill
+```
+
+Want your agent to transcribe or summarize audio for you, instead of writing code? Connect the [AssemblyAI MCP server](https://www.assemblyai.com/docs/mcp-server), which runs tasks on your AssemblyAI account:
+
+```
+claude mcp add --transport http assemblyai https://mcp.assemblyai.com/mcp
 ```
 
 See [Coding agent prompts](https://www.assemblyai.com/docs/coding-agent-prompts) for Cursor setup, MCP tool details, and tips for best results.
@@ -933,7 +951,7 @@ except aai.DictationError as error:
 
 `aai.TextToSpeech` speaks one text per HTTP request on the Text-to-Speech API. `synthesize()` returns the complete audio; `stream()` returns it as the API generates it, so playback can start long before the sentence ends. A text is 1 to 5,000 characters. Options go in a `TTSConfig`: the `voice_id` (a voice of the AssemblyAI voice library by its slug: `aai-jane` by default, `aai-alba`, `aai-anna`, `aai-charles`, `aai-eve`, `aai-george`, `aai-jean`, `aai-mary`, `aai-michael`, `aai-paul`, `aai-vera` and hundreds more; or a voice cloned by your account, by its UUID or slug), the `model_id` (`assemblyai-tts-1`), the `language` (`english`, `spanish`, `german`, `french`, `italian`, `portuguese`), the `sample_rate` (8000, 16000, 22050, 24000 by default, 44100, 48000), the `encoding` (`pcm_s16le` by default, `pcm_mulaw`/`pcm_alaw` for telephony, `mp3`) and the `container` (`raw` or `wav`). A per-call `TTSConfig` replaces the client's default config whole. Voices are created and managed in the AssemblyAI dashboard.
 
-Requests go to `aai.settings.tts_base_url`, `https://tts.us.assemblyai.com` by default; set it to `https://tts.eu.assemblyai.com` to keep them in the EU data zone.
+Requests go to `aai.settings.tts_base_url`, `https://tts.us.assemblyai.com` by default; set it to `https://tts.eu.assemblyai.com` to keep them in the EU data zone. They share a connection pool of their own that keeps an idle connection for 120 seconds by default, so a request that follows the previous one within that time, such as a voice agent's next sentence, reuses its connection instead of opening a new one. If you set `aai.settings.keepalive_expiry` shorter than that, this pool uses it too; `aai.settings.tts_keepalive_expiry` sets this pool's idle time on its own. A client you pass as `client=` stays yours to close: `client.close()` closes both of its pools.
 
 <details>
   <summary>Synthesize a WAV file</summary>
@@ -2081,6 +2099,7 @@ aai.settings.dictation_http_timeout = 300.0
 aai.settings.tts_base_url = "https://tts.eu.assemblyai.com"
 aai.settings.tts_http_timeout = 30.0  # stream(): each socket operation
 aai.settings.tts_synthesize_http_timeout = 610.0  # synthesize(): the wait for the whole clip
+aai.settings.tts_keepalive_expiry = 120.0  # seconds an idle connection stays in the TTS pool (unset: 120, or keepalive_expiry when shorter)
 ```
 
 Set these before creating a client: `aai.TextToSpeech()` (like every client) copies the settings when it is built, so a later change applies to the next instance, not to an existing one. Every setting can also come from the environment with the `ASSEMBLYAI_` prefix, such as `ASSEMBLYAI_TTS_BASE_URL`.

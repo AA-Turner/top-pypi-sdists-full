@@ -3,19 +3,20 @@ from functools import partial
 
 from pr_agent.algo.ai_handlers.base_ai_handler import BaseAiHandler
 from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
+from pr_agent.algo.git_patch_processing import split_diff_lines
 from pr_agent.algo.pr_processing import (
     OUTPUT_BUFFER_TOKENS_HARD_THRESHOLD,
     FallbackEligibleError,
     get_pr_diff,
     retry_with_fallback_models,
+    run_diff_preparation,
 )
 from pr_agent.algo.prompt_fragments import render_diff_hunk_format
 from pr_agent.algo.run_details import record_command_failure
 from pr_agent.algo.token_budget import AttemptTokenBudget
-from pr_agent.algo.token_handler import TokenHandler
-from pr_agent.algo.utils import get_suggestion_fence, load_yaml
+from pr_agent.algo.utils import _as_line, get_suggestion_fence, load_yaml
 from pr_agent.config_loader import get_settings, get_verbosity_level
-from pr_agent.git_providers import get_git_provider
+from pr_agent.git_providers import get_git_provider_for_tool
 from pr_agent.git_providers.git_provider import IncompleteProviderPullRequestFilesError, get_main_pr_language
 from pr_agent.log import get_logger
 
@@ -24,7 +25,7 @@ class PRAddDocs:
     def __init__(self, pr_url: str, cli_mode=False, args: list = None,
                  ai_handler: partial[BaseAiHandler,] = LiteLLMAIHandler):
 
-        self.git_provider = get_git_provider()(pr_url)
+        self.git_provider = get_git_provider_for_tool(pr_url)
         self.main_language = get_main_pr_language(
             self.git_provider.get_languages(), self.git_provider.get_files()
         )
@@ -50,10 +51,6 @@ class PRAddDocs:
             'docs_for_language': get_docs_for_language(self.main_language,
                                                        get_settings().pr_add_docs.docs_style),
         }
-        self.token_handler = TokenHandler(self.git_provider.pr,
-                                          self.vars,
-                                          get_settings().pr_add_docs_prompt.system,
-                                          get_settings().pr_add_docs_prompt.user)
 
     async def run(self):
         temporary_comment_published = False
@@ -73,7 +70,9 @@ class PRAddDocs:
                     and not isinstance(prediction_error, IncompleteProviderPullRequestFilesError)
                 ):
                     try:
-                        self.git_provider.publish_comment("Failed to generate code documentation for this PR.")
+                        self.git_provider.publish_tool_failure(
+                            "add_docs", "Failed to generate code documentation for this PR."
+                        )
                     except Exception as comment_error:
                         get_logger().warning(f"Failed to publish the documentation failure comment: {comment_error}")
                 raise
@@ -91,7 +90,9 @@ class PRAddDocs:
                 publication_result = self.push_inline_docs(data)
                 if publication_result is False:
                     publication_failed = True
-                    self.git_provider.publish_comment("Failed to publish code documentation for this PR.")
+                    self.git_provider.publish_tool_failure(
+                        "add_docs", "Failed to publish code documentation for this PR."
+                    )
                     raise RuntimeError("Failed to publish code documentation after individual retries")
         except Exception as e:
             get_logger().error(f"Failed to generate code documentation for PR, error: {e}")
@@ -127,7 +128,8 @@ class PRAddDocs:
             ai_handler=self.ai_handler,
             output_token_reserve=output_token_reserve,
         )
-        output = get_pr_diff(
+        output = await run_diff_preparation(
+            get_pr_diff,
             self.git_provider,
             budget.token_handler,
             model,
@@ -151,6 +153,7 @@ class PRAddDocs:
             ai_handler=self.ai_handler,
             default_output_tokens=OUTPUT_BUFFER_TOKENS_HARD_THRESHOLD,
             preserve_minimum=True,
+            require_full_text=True,
         )
         if fitted.optional_text != patches_diff:
             raise FallbackEligibleError(
@@ -172,6 +175,8 @@ class PRAddDocs:
             get_logger().info(f"\nUser prompt:\n{user_prompt}")
         response, finish_reason = await self.ai_handler.chat_completion(
             model=model, temperature=get_settings().config.temperature, system=system_prompt, user=user_prompt)
+        if finish_reason == "length":
+            raise FallbackEligibleError(f"Code documentation response was truncated by {model}")
 
         return response
 
@@ -195,13 +200,9 @@ class PRAddDocs:
                 return False
             if not all(isinstance(entry[field], str) for field in ('relevant file', 'doc placement', 'documentation')):
                 return False
-            if not entry['relevant file'].strip() or not entry['doc placement'].strip():
+            if not entry['relevant file'].strip() or entry['doc placement'].strip() not in {"before", "after"}:
                 return False
-            try:
-                int(entry['relevant line'])
-            except (TypeError, ValueError, OverflowError):
-                return False
-            return True
+            return _as_line(entry['relevant line']) is not None
 
         if data['Code Documentation'] and not any(has_usable_fields(entry) for entry in data['Code Documentation']):
             raise FallbackEligibleError("The model did not return any documentation entries")
@@ -211,7 +212,9 @@ class PRAddDocs:
         docs = []
 
         if not data['Code Documentation']:
-            self.git_provider.publish_comment('No code documentation found to improve this PR.')
+            self.git_provider.publish_tool_failure(
+                "add_docs", "No code documentation found to improve this PR."
+            )
             return None
 
         for d in data['Code Documentation']:
@@ -219,9 +222,13 @@ class PRAddDocs:
                 if get_verbosity_level() >= 2:
                     get_logger().info(f"add_docs: {d}")
                 relevant_file = d['relevant file'].strip()
-                relevant_line = int(d['relevant line'])  # absolute position
+                relevant_line = _as_line(d['relevant line'])  # absolute position
+                if relevant_line is None:
+                    continue
                 documentation = d['documentation']
                 doc_placement = d['doc placement'].strip()
+                if doc_placement not in {"before", "after"}:
+                    continue
                 if documentation:
                     new_code_snippet = self.dedent_code(relevant_file, relevant_line, documentation, doc_placement,
                                                         add_original_line=True)
@@ -271,14 +278,16 @@ class PRAddDocs:
             file_lines = []
             for file in self.diff_files:
                 if file.filename.strip() == relevant_file:
-                    file_lines = file.head_file.splitlines() if file.head_file else []
+                    if add_original_line and not getattr(file, "head_file_is_complete", True):
+                        return None
+                    file_lines = split_diff_lines(file.head_file) if file.head_file else []
                     if not 1 <= relevant_lines_start <= len(file_lines):
                         get_logger().warning(
                             "Could not dedent code snippet, relevant_lines_start is out of range",
                             artifact={'filename': file.filename,
                                       'relevant_lines_start': relevant_lines_start,
                                       'num_lines': len(file_lines)})
-                        return new_code_snippet
+                        return None if add_original_line else new_code_snippet
                     original_initial_line = file_lines[relevant_lines_start - 1]
                     break
             if original_initial_line is not None:
@@ -294,13 +303,13 @@ class PRAddDocs:
                 if line is None:
                     line = self._indent_reference_line(file_lines, relevant_lines_start - 1, -1)
                 if line is None:
-                    return new_code_snippet
+                    return None if add_original_line else new_code_snippet
             else:
-                return new_code_snippet
+                return None if add_original_line else new_code_snippet
         except Exception as e:
             if get_verbosity_level() >= 2:
                 get_logger().info(f"Could not dedent code snippet for file {relevant_file}, error: {e}")
-            return new_code_snippet
+            return None if add_original_line else new_code_snippet
 
         try:
             snippet_lines = new_code_snippet.replace('\r\n', '\n').replace('\r', '\n').split('\n')

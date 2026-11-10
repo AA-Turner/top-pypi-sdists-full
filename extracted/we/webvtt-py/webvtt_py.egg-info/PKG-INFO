@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: webvtt-py
-Version: 0.7.0
+Version: 0.8.0
 Summary: WebVTT reader, writer and segmenter
-Home-page: https://github.com/glut23/webvtt-py
-Author: Alejandro Mendez
-Author-email: amendez23@gmail.com
-License: MIT
-Keywords: webvtt captions
+Author-email: Alejandro Mendez <amendez23@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/glut23/webvtt-py
+Keywords: webvtt,captions
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
@@ -22,17 +21,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-python
-Dynamic: summary
 
 webvtt-py
 =========
@@ -66,6 +55,7 @@ Usage
       print(caption.end)         # cue end time
       print(caption.text)        # cue payload
       print(caption.voice)       # cue voice span if any
+      print(caption.voices)      # voices of every voice span in the text
 
 Writing captions
 ----------------
@@ -116,10 +106,16 @@ Supported formats:
   # alternatively in a single line
   webvtt.from_sbv('captions.sbv').save()
 
+  # write captions.srt and captions.sbv next to captions.vtt
+  vtt = webvtt.read('captions.vtt')
+  vtt.save_as_srt()
+  vtt.save_as_sbv()
+
 CLI
 ---
-Caption segmentation, shifting and synchronizing are also available from the
-command line with the ``webvtt`` executable. Given ``captions.vtt``:
+Caption segmentation, shifting, synchronizing, validation and conversion are
+also available from the command line with the ``webvtt`` executable, for
+WebVTT, SRT and SBV files. Given ``captions.vtt``:
 
 .. code-block:: text
 
@@ -180,7 +176,9 @@ Show the captions 1.5 seconds earlier, writing them to a new file:
     $ webvtt shift captions.vtt -1.5 --output shifted.vtt
 
 Without ``--output`` the shifted captions are written to standard output.
-Use ``--start`` to only shift the captions starting at or after a timestamp.
+Use ``--start`` to only shift the captions starting at or after a time, as a
+timestamp or a number of seconds, and ``--drop-before-zero`` to remove the
+captions moved before the start.
 
 Fix captions that drift out of sync by moving two or more points, here the
 caption at 00:14.500 to 00:15.850 keeping the first one in place, or by
@@ -191,8 +189,28 @@ changing the frame rate they are timed for:
     $ webvtt sync captions.vtt -p 00:01.000 00:01.000 -p 00:14.500 00:15.850
     $ webvtt sync captions.vtt --fps 25 23.976 -o captions.vtt
 
+Check the captions for problems, such as captions out of order, which are
+printed one per line, with exit status 1 when there are errors:
+
+::
+
+    $ webvtt validate captions.vtt
+
+Convert captions to another format, here by the extension of the output, or
+with ``--to``:
+
+::
+
+    $ webvtt convert captions.srt -o captions.vtt
+    $ webvtt convert captions.vtt --to srt --keep-formatting
+
+The commands read SRT and SBV files by their extension, or with
+``--format``, and ``--encoding`` reads a file in another encoding, as in
+``webvtt shift captions.srt 2 --encoding cp1252 -o captions.srt``.
+
 For all the options, run ``webvtt segment --help``, ``webvtt shift --help``,
-``webvtt sync --help`` or ``man webvtt``, or see the `CLI documentation`_.
+``webvtt sync --help``, ``webvtt validate --help``, ``webvtt convert --help``
+or ``man webvtt``, or see the `CLI documentation`_.
 
 .. _`CLI documentation`: https://webvtt-py.readthedocs.io/en/latest/cli.html
 

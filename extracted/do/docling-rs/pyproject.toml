@@ -10,7 +10,7 @@ build-backend = "maturin"
 name = "docling-rs"
 # Fallback for local maturin builds — pypi-publish.yml overwrites this with the
 # workspace version (root Cargo.toml) on every release.
-version = "2.65.1"
+version = "2.76.0"
 # PyPI search weighs the summary and keywords: say what it does, for whom, and
 # that it speaks docling's, MarkItDown's, Marker's and MinerU's Python APIs.
 description = "Fast, local document-to-Markdown for LLMs and RAG: docling in Rust, with docling's, MarkItDown's, Marker's and MinerU's Python APIs. PDF (layout, tables, OCR), DOCX, PPTX, XLSX, HTML, EPUB, email and more."

@@ -4,9 +4,12 @@
 //! for every number it renders. They only change between renders or inside
 //! `{% language %}`, so a render reads them once, on its first number.
 
+use html_escape::encode_quoted_attribute;
+use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
-use pyo3::types::{PyBool, PyFloat, PyInt, PyList, PyString, PyTuple};
+use pyo3::types::{PyBool, PyFloat, PyInt, PyList, PyString, PyTuple, PyType};
 
 use super::types::Context;
 
@@ -162,16 +165,61 @@ impl Context {
     }
 }
 
+/// `localize(value)` for an integer Rusty computed itself, such as
+/// `forloop.counter`, an integer literal or the result of `add`, escaped for
+/// output when autoescaping. `None` when the active formats need Django.
+pub fn localize_int(number: &BigInt, context: &Context) -> PyResult<Option<String>> {
+    // `i64`'s formatting is much cheaper than `BigInt`'s.
+    let digits = number
+        .to_i64()
+        .map_or_else(|| number.to_string(), |number| number.to_string());
+    if context.use_l10n == Some(false) {
+        return Ok(Some(digits));
+    }
+    // The formats are read once per render; only that first read needs Python.
+    let format = match context.number_format.get() {
+        Some(format) => format.as_ref(),
+        None => Python::attach(|py| context.number_format(py))?,
+    };
+    Ok(format.map(|format| match format.grouping {
+        // Plain digits never need escaping.
+        Grouping::Off => digits,
+        Grouping::Sizes(_) => {
+            let number = format.format(&digits);
+            // Separators such as `'` are escaped like Django's output.
+            if context.autoescape && number.contains(['&', '<', '>', '"', '\'']) {
+                encode_quoted_attribute(&number).into_owned()
+            } else {
+                number
+            }
+        }
+    }))
+}
+
 /// The number types `localize_number` formats natively.
 #[derive(Clone, Copy)]
 enum Number {
     Int,
     Float,
+    Decimal,
 }
 
-/// `localize(value, use_l10n)` for exact ints, floats and bools. `None` for
-/// other values and for floats Django formats as decimals.
-pub fn localize_number(value: &Bound<'_, PyAny>, context: &Context) -> PyResult<Option<String>> {
+static DECIMAL: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+/// Whether `value` is exactly a `decimal.Decimal`.
+fn is_decimal(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let decimal = DECIMAL.import(value.py(), "decimal", "Decimal")?;
+    Ok(value.get_type().is(decimal))
+}
+
+/// `localize(value, use_l10n)` for exact ints, floats, decimals and bools.
+/// `None` for other values, for floats Django formats as decimals, and for
+/// decimals it writes with an exponent or leaves unchanged when not finite.
+pub fn localize_number(
+    value: &Bound<'_, PyAny>,
+    use_l10n: Option<bool>,
+    context: &Context,
+) -> PyResult<Option<String>> {
     if value.is_exact_instance_of::<PyBool>() {
         let text = if value.is_truthy()? { "True" } else { "False" };
         return Ok(Some(text.to_owned()));
@@ -180,6 +228,8 @@ pub fn localize_number(value: &Bound<'_, PyAny>, context: &Context) -> PyResult<
         Number::Int
     } else if value.is_exact_instance_of::<PyFloat>() {
         Number::Float
+    } else if is_decimal(value)? {
+        Number::Decimal
     } else {
         return Ok(None);
     };
@@ -188,9 +238,9 @@ pub fn localize_number(value: &Bound<'_, PyAny>, context: &Context) -> PyResult<
             Ok(number) => number.to_string(),
             Err(_) => value.str()?.extract()?,
         },
-        Number::Float => value.str()?.extract()?,
+        Number::Float | Number::Decimal => value.str()?.extract()?,
     };
-    if context.use_l10n == Some(false) {
+    if use_l10n == Some(false) {
         return Ok(Some(number));
     }
     let Some(format) = context.number_format(value.py())? else {
@@ -200,6 +250,14 @@ pub fn localize_number(value: &Bound<'_, PyAny>, context: &Context) -> PyResult<
         Number::Int if matches!(format.grouping, Grouping::Off) => Ok(Some(number)),
         // Django formats floats with an exponent through Decimal.
         Number::Float if number.contains('e') => Ok(None),
-        Number::Int | Number::Float => Ok(Some(format.format(&number))),
+        // `str()` matches Django's `"{:f}"` unless it uses an exponent or the
+        // value isn't finite. Django switches to `"{:e}"` past 200 digits,
+        // which a string of 100 characters can't reach.
+        Number::Decimal
+            if number.len() > 100 || number.bytes().any(|byte| byte.is_ascii_alphabetic()) =>
+        {
+            Ok(None)
+        }
+        Number::Int | Number::Float | Number::Decimal => Ok(Some(format.format(&number))),
     }
 }

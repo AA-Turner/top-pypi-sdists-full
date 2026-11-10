@@ -1,11 +1,16 @@
+import math
 from collections.abc import Callable, Iterable, Mapping
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from trilogy.constants import DEFAULT_NAMESPACE, VIRTUAL_CONCEPT_PREFIX, MagicConstants
+from trilogy.core.casts import cast_introduces_null
 from trilogy.core.constants import ALL_ROWS_ADDRESS, UNNEST_ORDINAL_PREFIX
 from trilogy.core.enums import (
+    NEVER_NULL_FUNCTIONS,
     NULL_INTRODUCING_FUNCTIONS,
+    ZERO_DIVISOR_FUNCTIONS,
     ComparisonOperator,
     Derivation,
     FunctionClass,
@@ -18,6 +23,7 @@ from trilogy.core.enums import (
 )
 from trilogy.core.exceptions import InvalidSyntaxException
 from trilogy.core.functions import function_args_to_output_purpose
+from trilogy.core.like_patterns import literal_value, matches_any
 from trilogy.core.models.author import (
     AggregateWrapper,
     AlignClause,
@@ -244,24 +250,6 @@ def process_function_args(
     return final
 
 
-# Function operators whose result is never NULL, regardless of how nullable
-# their arguments are (count of an empty group is 0, grouping flags are 0/1,
-# the clock functions and random() always return a value).
-NEVER_NULL_FUNCTIONS: frozenset[FunctionType] = frozenset(
-    {
-        FunctionType.COUNT,
-        FunctionType.COUNT_DISTINCT,
-        FunctionType.IS_NULL,
-        FunctionType.GROUPING,
-        FunctionType.GROUPING_ID,
-        FunctionType.CURRENT_DATE,
-        FunctionType.CURRENT_DATETIME,
-        FunctionType.CURRENT_TIMESTAMP,
-        FunctionType.RANDOM,
-    }
-)
-
-
 def _value_is_null_literal(value: Any) -> bool:
     return value is None or value is MagicConstants.NULL
 
@@ -281,6 +269,27 @@ def _condition_literal(value: Any) -> Any:
     if isinstance(value, (bool, int, float, str, date, datetime)):
         return value
     return _NO_LITERAL
+
+
+def _is_nonzero_number(value: Any, environment: Environment) -> bool:
+    """A literal divisor, or a constant concept holding one, that `/` and `%`
+    cannot be NULL by."""
+    while True:
+        if (
+            isinstance(value, Function)
+            and value.operator in (FunctionType.PARENTHETICAL, FunctionType.CONSTANT)
+            and len(value.arguments) == 1
+        ):
+            value = value.arguments[0]
+        elif (
+            concept := _resolve_concept(value, environment)
+        ) is not None and concept.derivation == Derivation.CONSTANT:
+            value = concept.lineage
+        else:
+            break
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        return False
+    return value != 0 and math.isfinite(value)
 
 
 def _resolve_concept(ref: Any, environment: Environment) -> Concept | None:
@@ -384,7 +393,13 @@ def _function_is_nullable(fn: Function, environment: Environment) -> bool:
         return any(_value_is_null_literal(a) for a in arguments)
     if op in NEVER_NULL_FUNCTIONS:
         return False
+    if op in ZERO_DIVISOR_FUNCTIONS and all(
+        _is_nonzero_number(a, environment) for a in arguments[1:]
+    ):
+        return _expr_is_nullable(arguments[0], environment)
     if op in NULL_INTRODUCING_FUNCTIONS:
+        return True
+    if op == FunctionType.CAST and cast_introduces_null(arguments):
         return True
     if op == FunctionType.GROUP:
         # group(expr, *grain): nullability tracks the wrapped expression.
@@ -711,8 +726,11 @@ def concept_is_relevant(
         and all(c in other_addresses for c in concept.keys)
     ):
         return False
-    if concept.purpose in (Purpose.METRIC,) and all(
-        c in other_addresses for c in concept.grain.components
+    # a rowset member of an aggregate is its own grain, not covered by itself
+    if (
+        concept.purpose in (Purpose.METRIC,)
+        and not concept.grain.components & concept.equivalent_addresses
+        and all(c in other_addresses for c in concept.grain.components)
     ):
         return False
     if (
@@ -747,9 +765,10 @@ def _grain_contribution(
     - ALIAS: a rename of its source — recurse on the source so a window/grouping
       source is substituted the same way it would be if referenced directly
       (else an aliased window enters the grain as itself → build recursion).
-    - WINDOW: contribute the window's keys (partition + anchor), not the
-      row-distinct output whose order_by aggregate would otherwise be grouped by
-      this very output.
+    - WINDOW reading an aggregate: contribute the window's keys, not the
+      output whose order_by aggregate would otherwise be grouped by this very
+      output. Any other window is itself: a select groups by its value, and
+      its keys would group by its inputs (`Windows.regroup_by_value_exact`).
     - BASIC wrapping a window AND referencing `grouping()`: a post-aggregation row
       label, not a grain key; contribute the nested window's partition/anchor keys
       (q70). A window-wrapping CASE without grouping (e.g. `top_x_by_metric`) is a
@@ -773,7 +792,12 @@ def _grain_contribution(
         if source is None or arg.address in _seen:
             return [x]
         return _grain_contribution(source, lookup, environment, _seen | {x.address})
-    if x.derivation == Derivation.WINDOW and x.keys and environment:
+    if (
+        x.derivation == Derivation.WINDOW
+        and x.keys
+        and environment
+        and _reads_aggregate(x, lookup)
+    ):
         return [c for kaddr in x.keys if (c := lookup(kaddr)) is not None]
     if (
         x.derivation == Derivation.BASIC
@@ -787,6 +811,45 @@ def _grain_contribution(
             if (c := lookup(ref.address)) is not None
         ]
     return [x]
+
+
+def _reads_aggregate(
+    x: Concept,
+    lookup: Callable[[str], Concept | None],
+) -> bool:
+    """Whether `x` reads an aggregate that inherits the select's grain, inline
+    or named (a window ordered by `sum(y)`): the select cannot group by `x`.
+    One `by` fixed keys (`sum(y) by g`) is evaluated at its own grain."""
+    seen: set[int] = set()
+    stack: list[Any] = [x.lineage]
+    while stack:
+        node = stack.pop()
+        if node is None or isinstance(node, (str, int, float, bool)):
+            continue
+        if id(node) in seen:
+            continue
+        seen.add(id(node))
+        if isinstance(node, (list, tuple)):
+            stack.extend(node)
+        elif isinstance(node, ConceptRef):
+            concept = lookup(node.address)
+            if concept is not None:
+                stack.append(concept.lineage)
+        elif isinstance(node, AggregateWrapper):
+            # an aggregate `by` fixed keys has its own grain, not the select's
+            if not node.by:
+                return True
+        elif (
+            isinstance(node, Function)
+            and node.operator in FunctionClass.AGGREGATE_FUNCTIONS.value
+        ):
+            return True
+        else:
+            stack.extend(
+                getattr(node, attr, None)
+                for attr in (*_SUBEXPR_ATTRS, "over", "order_by")
+            )
+    return False
 
 
 def concepts_to_grain_concepts_ordered(
@@ -1467,6 +1530,38 @@ def _references_grouping(concept: Concept, environment: Environment) -> bool:
     return walk(concept) or _window_internals_reference_grouping(concept.lineage)
 
 
+def _order_value_keys(
+    ref: ConceptRef, environment: Environment, seen: frozenset[str] = frozenset()
+) -> list:
+    """What a window ordered by `ref` is a function of: an aggregate `by`
+    fixed keys gives those keys, named or inline (`sum(y) by g, p` is a value
+    per `(g, p)`), and a scalar of one gives its inputs' keys."""
+    concept = environment.concepts.get(ref.address)
+    if concept is None or ref.address in seen or concept.lineage is None:
+        return [ref]
+    lineage = concept.lineage
+    if isinstance(lineage, AggregateWrapper):
+        return list(lineage.by) if lineage.by else [ref]
+    if concept.derivation != Derivation.BASIC:
+        return [ref]
+    relevant, _ = get_relevant_parent_concepts(lineage)
+    keys = [
+        k
+        for r in relevant
+        for k in _order_value_keys(r, environment, seen | {ref.address})
+    ]
+    reads_by = any(k.address not in {r.address for r in relevant} for k in keys)
+    return keys if reads_by else [ref]
+
+
+def _window_order_refs(parent: WindowItem, environment: Environment) -> list:
+    refs: list = []
+    for item in parent.order_by or []:
+        relevant, _ = get_relevant_parent_concepts(item.expr)
+        refs += [k for r in relevant for k in _order_value_keys(r, environment)]
+    return refs
+
+
 def _numbering_window_to_concept(
     parent: NumberingWindowItem,
     name: str,
@@ -1481,21 +1576,20 @@ def _numbering_window_to_concept(
             return UndefinedConcept(address=f"{namespace}.{name}", metadata=metadata)
     arg_addresses = [a.address for a in parent.arguments]
     over_refs = _window_over_refs(list(parent.over))
-    over_addresses = [y.address for y in over_refs]
+    order_refs = _window_order_refs(parent, environment)
+    # the rank of a tuple of its arguments, partition and order columns
+    # (`Windows.group_by_tuple_splits_value`)
+    frame_addresses = [y.address for y in over_refs + order_refs]
     if arg_addresses:
         keys = (
-            Grain.from_concepts(arg_addresses + over_addresses, environment).components
+            Grain.from_concepts(arg_addresses + frame_addresses, environment).components
             or set()
         )
         keys = set(keys) | set(arg_addresses)
     else:
         keys = {f"{namespace}.{name}"}
 
-    grain_components: list = list(over_refs) + list(parent.arguments)
-    if parent.order_by:
-        for item in parent.order_by:
-            relevant, _ = get_relevant_parent_concepts(item.expr)
-            grain_components += relevant
+    grain_components: list = list(over_refs) + list(parent.arguments) + order_refs
     final_grain = (
         Grain.from_concepts(grain_components, environment) if arg_addresses else Grain()
     )
@@ -1579,12 +1673,16 @@ def _navigation_window_to_concept(
     if isinstance(bcontent, UndefinedConcept):
         return UndefinedConcept(address=f"{namespace}.{name}", metadata=metadata)
     over_refs = _window_over_refs(list(parent.over))
+    order_refs = _window_order_refs(parent, environment)
     if bcontent.purpose == Purpose.METRIC:
         local_purpose, keys = get_purpose_and_keys(None, (bcontent,), environment)
     else:
         local_purpose = Purpose.PROPERTY
+        # an ordered frame reads its neighbours: `lag(x)` is no function of `x`
+        # (`Windows.lag_reads_rows_not_values`)
         keys = Grain.from_concepts(
-            [bcontent.address] + [y.address for y in over_refs], environment
+            [bcontent.address] + [y.address for y in over_refs + order_refs],
+            environment,
         ).components
 
     # A navigation window (lead/lag) emits one value per input row, so its
@@ -1597,11 +1695,6 @@ def _navigation_window_to_concept(
         operand_grain: list = list(bcontent.grain.components)
     else:
         operand_grain = [bcontent.output]
-    order_refs: list = []
-    if parent.order_by:
-        for item in parent.order_by:
-            relevant, _ = get_relevant_parent_concepts(item.expr)
-            order_refs += relevant
     # The row stream is the operand's grain; a partition/order ref the stream
     # does not carry brings its own grain keys, so a frame property over tied
     # values cannot collapse distinct rows. `lag(distinct x)` keys the stream
@@ -2120,3 +2213,31 @@ def arbitrary_to_concept(
         return comparison_to_concept(parent, name, namespace, environment, metadata)
     else:
         return constant_to_concept(parent, name, namespace, metadata)  # type: ignore[arg-type]
+
+
+# (ComparisonOperator defines __eq__ without __hash__, so pairs, not a dict.)
+_EXACT_LIKE = (
+    (ComparisonOperator.LIKE, ComparisonOperator.EQ),
+    (ComparisonOperator.NOT_LIKE, ComparisonOperator.NE),
+)
+
+
+def like_or_equality(left: Any, right: Any, operator: ComparisonOperator) -> Comparison:
+    """A `like` whose literal pattern has no wildcard is that string's
+    equality; stated as one, it reaches what reads equalities (a partition's
+    `complete where`, value pins). A `like '%'` keeps every non-NULL string,
+    so it is `is not null`, which the NOT NULL strip can drop."""
+    if (
+        operator in (ComparisonOperator.LIKE, ComparisonOperator.ILIKE)
+        and isinstance(right, str)
+        and matches_any(right)
+    ):
+        return Comparison(
+            left=left, right=MagicConstants.NULL, operator=ComparisonOperator.IS_NOT
+        )
+    exact = next((eq for like, eq in _EXACT_LIKE if like == operator), None)
+    if exact is not None and isinstance(right, str):
+        value = literal_value(right)
+        if value is not None:
+            return Comparison(left=left, right=value, operator=exact)
+    return Comparison(left=left, right=right, operator=operator)

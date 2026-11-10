@@ -1,20 +1,71 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hf-doc-builder
-Version: 0.5.0
+Version: 0.6.0
 Summary: Doc building utility
-Home-page: https://github.com/huggingface/doc-builder
-Author: Hugging Face, Inc.
-Author-email: docs@huggingface.co
+Author-email: "Hugging Face, Inc." <docs@huggingface.co>
 License: Apache
-Keywords: doc documentation doc-builder huggingface hugging face
+Project-URL: Homepage, https://github.com/huggingface/doc-builder
+Project-URL: Repository, https://github.com/huggingface/doc-builder
+Keywords: doc,documentation,doc-builder,huggingface,hugging face
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: transformers
-Provides-Extra: testing
-Provides-Extra: quality
-Provides-Extra: all
-Provides-Extra: dev
-Provides-Extra: release
 License-File: LICENSE
+Requires-Dist: GitPython
+Requires-Dist: tqdm
+Requires-Dist: pyyaml
+Requires-Dist: packaging
+Requires-Dist: nbformat
+Requires-Dist: huggingface_hub
+Requires-Dist: pillow
+Requires-Dist: meilisearch==0.34.1
+Requires-Dist: watchdog>=6.0.0
+Requires-Dist: httpx
+Requires-Dist: ruff
+Requires-Dist: markdown-it-py
+Provides-Extra: transformers
+Requires-Dist: transformers[dev]; extra == "transformers"
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-xdist; extra == "testing"
+Requires-Dist: torch; extra == "testing"
+Requires-Dist: transformers; extra == "testing"
+Requires-Dist: tokenizers; extra == "testing"
+Requires-Dist: timm; extra == "testing"
+Requires-Dist: google-api-python-client; extra == "testing"
+Requires-Dist: httpx; extra == "testing"
+Provides-Extra: quality
+Requires-Dist: ruff>=0.1.0; extra == "quality"
+Provides-Extra: all
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: torch; extra == "all"
+Requires-Dist: transformers; extra == "all"
+Requires-Dist: tokenizers; extra == "all"
+Requires-Dist: timm; extra == "all"
+Requires-Dist: google-api-python-client; extra == "all"
+Requires-Dist: httpx; extra == "all"
+Requires-Dist: ruff>=0.1.0; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: torch; extra == "dev"
+Requires-Dist: transformers; extra == "dev"
+Requires-Dist: tokenizers; extra == "dev"
+Requires-Dist: timm; extra == "dev"
+Requires-Dist: google-api-python-client; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Provides-Extra: release
+Requires-Dist: twine; extra == "release"
+Dynamic: license-file
 
 # doc-builder
 
@@ -26,11 +77,18 @@ This is the package we use to build the documentation of our Hugging Face repos.
   * [Installation](#installation)
   * [Previewing](#previewing)
   * [Doc building](#doc-building)
+  * [Doc styling](#doc-styling)
+    + [Using the pre-commit hook](#using-the-pre-commit-hook)
   * [Writing in notebooks](#writing-in-notebooks)
   * [Templates for GitHub Actions](#templates-for-github-actions)
     + [Enabling multilingual documentation](#enabling-multilingual-documentation)
+    + [Machine-translated documentation](#machine-translated-documentation)
     + [Redirects](#redirects)
   * [Fixing and testing doc-builder](#fixing-and-testing-doc-builder)
+  * [Development Commands](#development-commands)
+    + [Code Quality & Formatting](#code-quality--formatting)
+    + [Testing](#testing)
+    + [Development Workflow](#development-workflow)
   * [Writing documentation for Hugging Face libraries](#writing-documentation-for-hugging-face-libraries)
     + [Internal link to object](#internal-link-to-object)
     + [External link to object](#external-link-to-object)
@@ -40,6 +98,8 @@ This is the package we use to build the documentation of our Hugging Face repos.
     + [Anchor link](#anchor-link)
     + [LaTeX](#latex)
     + [Code Blocks](#code-blocks)
+    + [Stretch Tables](#stretch-tables)
+    + [Inference Snippet](#inference-snippet)
   * [Writing API documentation (Python)](#writing-api-documentation-python)
     + [Autodoc](#autodoc)
     + [Code Blocks from file references](#code-blocks-from-file-references)
@@ -47,7 +107,7 @@ This is the package we use to build the documentation of our Hugging Face repos.
     + [Description](#description)
     + [Arguments](#arguments)
     + [Attributes](#attributes)
-    + [Parmeter typing and default value](#parmeter-typing-and-default-value)
+    + [Parameter typing and default value](#parameter-typing-and-default-value)
     + [Returns](#returns)
     + [Yields](#yields)
     + [Raises](#raises)
@@ -84,7 +144,6 @@ doc-builder preview datasets ~/Desktop/datasets/docs/source/
 
 **`preview` command only works with existing doc files. When you add a completely new file, you need to update `_toctree.yml` & restart `preview` command (`ctrl-c` to stop it & call `doc-builder preview ...` again).
 
-**`preview` command does not work with Windows.
 ## Doc building
 
 To build the documentation of a given package, use the following command:
@@ -107,9 +166,165 @@ doc-builder build datasets ~/git/datasets/docs/source --build_dir ~/tmp/test-bui
 ```
 which will build HTML files in `~/tmp/test-build`. You can then inspect those files in your browser.
 
+### Specifying a version
+
+By default, `doc-builder` automatically determines the version:
+- For **Python modules**: uses the package's `__version__` attribute (or `main` for dev versions)
+- For **non-Python modules** (with `--not_python_module`): uses the default branch name (typically `main`)
+
+You can override this behavior with the `--version` flag:
+
+```bash
+# Build documentation for a specific semantic version (must start with "v")
+doc-builder build transformers ~/git/transformers/docs/source --build_dir ~/tmp/test-build --version v4.30.0
+
+# Build documentation for the default branch (non-Python modules)
+doc-builder build hub ~/git/hub-docs/docs/source --build_dir ~/tmp/test-build --not_python_module --version main
+```
+
+**Important**: When specifying a semantic version with `--version`, it **must start with the letter "v"** (e.g., `v1.0.0`, `v2.3.1`). For branch names like `main`, `master`, or other default branches, the "v" prefix is not required.
+
+### Page-level HTML build cache
+
+Building the HTML docs of a large library (e.g. `transformers`) prerenders hundreds of pages, even when a commit only changed one of them. `--html_page_cache` enables a page-level cache so that only pages whose generated content changed are prerendered again:
+
+```bash
+# cache in a Hugging Face storage bucket (https://huggingface.co/docs/hub/storage-buckets) ...
+doc-builder build datasets ~/git/datasets/docs/source --build_dir ~/tmp/test-build --html \
+    --html_page_cache hf://buckets/hf-doc-build/doc-build-cache
+
+# ... or in a local directory
+doc-builder build datasets ~/git/datasets/docs/source --build_dir ~/tmp/test-build --html \
+    --html_page_cache ~/tmp/doc-page-cache --html_page_cache_write
+```
+
+A page is reused when its generated MDX (post autodoc and internal-link resolution — so docstring changes invalidate exactly the affected pages), the `kit` folder, and the doc-builder version are unchanged. Keys are version-normalized: pages that only differ by the built version (e.g. `main` vs `pr_123` in resolved internal links) share a cache entry, and on a cross-version reuse the page URLs are rewritten to the target version while asset URLs stay pinned to the source version, whose content-hashed assets remain hosted.
+
+`--html_page_cache_write` also stores freshly built pages. Only enable it on trusted builds (the shared GitHub workflows enable it on main-branch builds and keep PR builds read-only), so that untrusted code cannot poison the cache. Cache failures are never fatal: any error degrades to building the affected pages.
+
+### Building without installing heavy dependencies
+
+doc-builder imports the documented library to read docstrings with `inspect` — necessary because libraries like `transformers` construct docstrings dynamically. Historically that meant installing the library's full dependency tree (torch, GPU wheels, custom containers) just to build documentation.
+
+doc-builder mocks heavy dependencies instead, so only the documented library itself (and its light dependencies) needs to be installed. Each library's registry file `src/doc_builder/mock_deps/<library>.txt` records both sides of that split:
+
+- bare lines name the heavy dependencies to **mock** at build time (applied automatically by `doc-builder build`/`preview`);
+- `real:<pip spec>` lines name the light dependencies a doc build must **install for real** (things the library imports unguarded, version-pinned requirements, packages used through `isinstance` checks, ...);
+- `nodeps:<pip spec>` lines are also installed for real but with `--no-deps`, because their own dependency trees pull in heavy packages (e.g. `accelerate`, whose install requires torch).
+
+`doc-builder light-install <library>` installs the `real:`/`nodeps:` dependencies (via `uv`), so a full light setup is:
+
+```bash
+uv pip install ./accelerate --no-deps
+doc-builder light-install accelerate
+doc-builder build accelerate ~/git/accelerate/docs/source --build_dir ~/tmp/test-build
+# torch and deepspeed are mocked automatically (src/doc_builder/mock_deps/accelerate.txt)
+```
+
+Install the library before running `light-install`: bare registry names are pinned to the library's own declared version ranges (e.g. transformers' `tokenizers>=0.22,<=0.23`), so registry files never have to chase upstream pins. `light-install` exits with code 3 when the library has no registry entry — `light-install <library> --check` tests this without installing anything, which is how the shared GitHub workflows decide between the light path and a full `[dev]` install. For a library without a registry entry (or to experiment), `--mock_deps torch,...` adds extra mocks on top of the registry.
+
+The registry key is the doc-builder *library name* as passed to `doc-builder build` — for namespace subpackages that is the dotted module name (e.g. `mock_deps/optimum.intel.txt`), and libraries that build under a shared name share a file (optimum-onnx builds as `optimum`). A registered name may itself be a dotted submodule (e.g. `optimum.onnxruntime`), which mocks a missing sibling inside an installed namespace package.
+
+The mocked packages are importable, pass the `importlib.util.find_spec` + `importlib.metadata` availability checks HF libraries use, are subclassable without affecting the real subclass's signature or docstring, behave as pass-through decorators, and render in signatures like the real objects (`repr(torch.float32) == "torch.float32"`). Packages that are actually installed are never mocked, and `doc-builder preview` supports the flag too.
+
+Fidelity, verified on `accelerate` built without torch installed: 46/48 pages byte-identical to a real-torch build; the two remaining pages differ only in typing paths rendered from the public import path instead of the internal one (e.g. `torch.nn.Module` instead of `torch.nn.modules.module.Module`).
+
+### Notebook conversion
+
 `doc-builder` can also automatically convert some of the documentation guides or tutorials into notebooks. This requires two steps:
 - add `[[open-in-colab]]` in the tutorial for which you want to build a notebook
 - add `--notebook_dir {path_to_notebook_folder}` to the build command.
+
+### Runnable code blocks
+
+`doc-builder` recognizes runnable Python fences tagged with `runnable` or `runnable:<label>`:
+
+````md
+```py runnable:quickstart
+from transformers import pipeline
+pipe = pipeline("sentiment-analysis")
+print(pipe("I love this!"))
+```
+````
+
+You can use either `py` or `python` fences:
+
+````md
+```python runnable:my_example
+print("hello")
+```
+````
+
+During conversion:
+- the runnable annotation is removed from the fence in rendered docs
+- the code content is preserved unless lines are hidden with `# doc-builder: hide`
+- `# doc-builder: hide` can hide a single line or a full indented block from rendered docs
+
+The label is used in warning messages (for example, `runnable:quickstart`) to identify the block.
+
+`doc-builder` tags and transforms runnable blocks, but it does not execute them by itself.
+
+Use the reusable helper from `hf-doc-builder`:
+
+```python
+from pathlib import Path
+
+from doc_builder.testing import DocIntegrationTest
+
+
+class MyPageDocIntegrationTest(DocIntegrationTest):
+    doc_path = Path(__file__).resolve().parents[2] / "docs" / "source" / "en" / "my_page.md"
+```
+
+`DocIntegrationTest` finds runnable `py`/`python` fences in the target markdown file, creates one test per block, and executes each block with contextual failure output.
+
+Run locally with:
+
+```bash
+pytest -q tests/docs/test_my_page_docs.py
+```
+
+This executes trusted documentation code with `exec`, so keep it limited to repo-controlled docs and CI.
+
+For continuation blocks, `# pytest-decorator`, bare-assert warnings, and GitHub Actions wiring, see [docs/runnable-code-blocks.md](docs/runnable-code-blocks.md).
+
+## Doc styling
+
+`doc-builder style` reformats the docstrings of Python files and the code examples of mdx files in place:
+
+```bash
+doc-builder style src/my_package docs/source --max_len 119
+```
+
+Add `--check_only` to report the files that should be restyled without modifying them.
+
+### Using the pre-commit hook
+
+`doc-builder` ships a [pre-commit](https://pre-commit.com) hook, so the same styling can run on every commit. Add it
+to the `.pre-commit-config.yaml` of your repo:
+
+```yaml
+repos:
+  - repo: https://github.com/huggingface/doc-builder
+    rev: <rev>  # The tag or commit to point at, e.g. v0.6.0
+    hooks:
+      - id: doc-builder-style
+```
+
+The hook was added after `v0.5.0`, so pin a later tag, or a commit of `main` while no such tag exists yet. Running
+`pre-commit autoupdate` pins the latest tag for you.
+
+The hook restyles the files that are about to be committed, and fails if any of them was modified, in the same way as
+a formatter such as `ruff-format`. Only Python and mdx files are passed to it, since those are the only ones
+`doc-builder style` handles.
+
+Pass extra options with `args`, and restrict the hook to a subset of your repo with `files`:
+
+```yaml
+      - id: doc-builder-style
+        args: [--max_len, "119"]
+        files: ^(src|docs/source)/
+```
 
 ## Writing in notebooks
 
@@ -130,7 +345,7 @@ doc-builder notebook-to-mdx {path to notebook file or folder containing notebook
 
 `doc-builder` provides templates for GitHub Actions, so you can build your documentation with every pull request, push to some branch etc. To use them in your project, simply create the following three files in the `.github/workflows/` directory:
 
-* `build_main_documentation.yml`: responsible for building the docs for the `main` branch, releases etc.
+* `build_main_documentation.yml`: responsible for building the docs for the `main` branch, releases etc. A push to the default branch always updates `main`, also when the package declares a release version there (that release is built too).
 * `build_pr_documentation.yml`: responsible for building the docs on each PR.
 * `upload_pr_documentation.yml`: responsible for uploading the PR artifacts to the Hugging Face Hub.
 * `delete_doc_comment_trigger.yml`: responsible for removing the comments from the `HuggingFaceDocBuilder` bot that provides a URL to the PR docs.
@@ -180,7 +395,23 @@ Note that each language directory has its own table of contents file `_toctree.y
 doc-builder build {package_name} {path_to_docs} --build_dir {build_dir} --language {lang_id}
 ```
 
-To automatically build the documentation for all languages via the GitHub Actions templates, simply provide the `languages` argument to your workflow, with a space-separated list of the languages you wish to build, e.g. `languages: en es`.
+The GitHub Actions templates (`build_main_documentation.yml`, `build_pr_documentation.yml`) only build English: other languages are machine-translated from the English build (see below). Passing their former `languages` input fails the build; point `path_to_docs` at the English docs (e.g. `docs/source/en`) instead.
+
+### Machine-translated documentation
+
+`doc-builder translate-docs` translates the *built* English pages (`<library>/<version>/en/` in `hf://buckets/hf-doc-build/doc`) with an LLM on HF Inference Providers and writes them next to it, to `<library>/<version>/<language>/`, where huggingface.co serves them like any other language. Language folders built by a library's own docs build (the workflows' `languages` input, recognizable by their own `_app/`) are never touched. Only the prose changes: links, code and the page structure are kept, so the translated page hydrates against the same JS as the English one. Each page's Markdown (`<page>.md`, served for "Copy page" and `text/plain` requests) is translated the same way, next to the page, and `llms.txt` / `llms-full.txt` are rebuilt from the translated Markdown, with URLs pointing to it.
+
+The [`translate_docs.yml`](.github/workflows/translate_docs.yml) workflow runs it daily, incrementally:
+
+- `main` is checked every run; only pages whose English build changed are translated again, and pages removed from the English build are removed.
+- A release is translated once, then frozen. Releases published before a language was enabled are not backfilled.
+- Translations are cached per paragraph, so an edited page only sends its edited paragraphs to the model.
+
+Libraries and languages are configured in `TRANSLATED_DOCS` (`src/doc_builder/translate_docs.py`). The workflow reads and writes the bucket with `HF_EMBED_DATASETS_TOKEN` (the search engine population's token) and calls the model with `TRANSLATION_INFERENCE_TOKEN`. Inference is billed to the `huggingface` organization ([`X-HF-Bill-To`](https://huggingface.co/docs/inference-providers/pricing#billing-for-team-and-enterprise-organizations); `--bill_to` to change it), so the token's owner must be a member of it. To try it locally, write to a directory instead of a bucket:
+
+```bash
+TRANSLATION_INFERENCE_TOKEN=hf_... doc-builder translate-docs --libraries transformers --languages ja --bucket ./translations --max_pages 3
+```
 
 ### Redirects
 
@@ -213,6 +444,110 @@ jobs:
 
 Once the docs build is complete in your project, you can drop that change.
 
+## Development docs
+
+To test `doc-builder` changes locally, use the `dummy/` folder. It contains a minimal setup for manual testing. Don't commit your changes in `dummy/` since it's only for local development.
+
+Run a preview with:
+```bash
+doc-builder preview dummy dummy --not_python_module
+```
+
+Documentation page should be available at `http://localhost:5173/index`.
+
+## Development Commands
+
+Since we've modernized the tooling to use `ruff` and `uv`, here are the commands for development:
+
+### Code Quality & Formatting
+
+#### Check code quality (linting)
+```bash
+uv run ruff check .
+```
+
+#### Fix auto-fixable linting issues
+```bash
+uv run ruff check --fix .
+```
+
+#### Check code formatting
+```bash
+uv run ruff format --check .
+```
+
+#### Apply code formatting
+```bash
+uv run ruff format .
+```
+
+#### Run both linting and formatting checks (equivalent to old `make quality`)
+```bash
+uv run ruff check . && uv run ruff format --check .
+```
+
+#### Apply both linting fixes and formatting (equivalent to old `make style`)
+```bash
+uv run ruff check --fix . && uv run ruff format .
+```
+
+### Check links
+
+#### Check for broken links in the docs (includes line, link text and url)
+```bash
+uv run doc-builder check-links /path/to/docs
+```
+
+#### Check for broken links in the docs (more compact view)
+```bash
+uv run doc-builder check-links /path/to/docs --format link
+```
+
+### Testing
+
+#### Run all tests (equivalent to old `make test`)
+```bash
+uv run python -m pytest -n 1 --dist=loadfile -s -v ./tests/
+```
+
+#### Run specific test file
+```bash
+uv run python -m pytest tests/test_utils.py -v
+```
+
+#### Run tests with coverage
+```bash
+uv run python -m pytest --cov=src/doc_builder tests/
+```
+
+### Development Workflow
+
+#### Install dependencies for development
+```bash
+uv sync --extra dev
+```
+
+#### Install only testing dependencies
+```bash
+uv sync --extra testing
+```
+
+#### Install only quality/linting dependencies
+```bash
+uv sync --extra quality
+```
+
+#### Run the full quality check (for CI)
+```bash
+uv run ruff check .
+uv run ruff format --check .
+```
+
+#### Run the full test suite (for CI)
+```bash
+uv run python -m pytest -n 1 --dist=loadfile -s -v ./tests/
+```
+
 ## Writing documentation for Hugging Face libraries
 
 `doc-builder` expects Markdown so you should write any new documentation in `".mdx"` files for tutorials, guides, API documentations. For docstrings, we follow the [Google format](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) with the main difference that you should use Markdown instead of restructured text (hopefully, that will be easier!)
@@ -237,8 +572,8 @@ the results stay consistent with the library.
 
 Syntax:
 ```html
-[`XXXClass`] or [~`XXXClass`] // for class
-[`XXXClass.method`] or [~`XXXClass.method`] // for method
+[`XXXClass`] or [`~XXXClass`] // for class
+[`XXXClass.method`] or [`~XXXClass.method`] // for method
 ```
 
 Example: [here](https://github.com/huggingface/transformers/blob/eb849f6604c7dcc0e96d68f4851e52e253b9f0e5/docs/source/en/model_doc/sew-d.md?plain=1#L39) & [here](https://github.com/huggingface/transformers/blob/6f79d264422245d88c7a34032c1a8254a0c65752/examples/research_projects/performer/modeling_flax_performer.py#L48) (as used inside docstring).
@@ -251,22 +586,22 @@ If you want to create a link to some internal class or function, you need to
 provide its path. For instance, in the Transformers documentation \[\`file_utils.ModelOutput\`\] will create a link to the documentation of `ModelOutput`. This link will have `file_utils.ModelOutput` in the description. To get rid of the path and only keep the name of the object you are
 linking to in the description, add a ~: \[\`~file_utils.ModelOutput\`\] will generate a link with `ModelOutput` in the description.
 
-The same works for methods, so you can either use \[\`XXXClass.method\`\] or \[~\`XXXClass.method\`\].
+The same works for methods, so you can either use \[\`XXXClass.method\`\] or \[\`~XXXClass.method\`\].
 
 ### External link to object
 
 Syntax:
 ```html
-[`XXXLibrary.XXXClass`] or [~`XXXLibrary.XXXClass`] // for class
-[`XXXLibrary.XXXClass.method`] or [~`XXXLibrary.XXXClass.method`] // for method
+[`XXXLibrary.XXXClass`] or [`~XXXLibrary.XXXClass`] // for class
+[`XXXLibrary.XXXClass.method`] or [`~XXXLibrary.XXXClass.method`] // for method
 ```
 
 Example: [here](https://github.com/huggingface/transformers/blob/0f0e1a2c2bff68541a5b9770d78e0fb6feb7de72/docs/source/en/accelerate.md?plain=1#L29) linking object from `accelerate` inside `transformers`.
 
 ### Tip
 
-To write a block that you'd like to see highlighted as a note or warning, place your content between the following
-markers.
+To write a block that you'd like to see highlighted as a note or warning, use the blockquote syntax. This is the
+preferred approach for new content.
 
 Syntax:
 
@@ -277,17 +612,9 @@ Syntax:
 > Second line
 ```
 
-or
-
-```html
-<Tip>
-
-Write your note here
-
-</Tip>
-```
-
 Example: [here](https://github.com/huggingface/transformers/blob/0f0e1a2c2bff68541a5b9770d78e0fb6feb7de72/docs/source/en/create_a_model.md#L282-L286)
+
+Legacy docs may still use the `<Tip>` component, but we recommend migrating to blockquotes when updating files.
 
 For warnings, change the introduction to:
 
@@ -295,12 +622,6 @@ Syntax:
 
 ```md
 > [!WARNING]
-```
-
-or
-
-```html
-`<Tip warning={true}>`
 ```
 
 Example: [here](https://github.com/huggingface/transformers/blob/eb849f6604c7dcc0e96d68f4851e52e253b9f0e5/docs/source/de/autoclass_tutorial.md#L102-L108)
@@ -386,12 +707,12 @@ $$Y = X * \textbf{dequantize}(W); \text{quantize}(W)$$
 
 Example: [here](https://github.com/huggingface/transformers/blob/main/docs/source/en/model_doc/rwkv.md?plain=1#L107)
 
-Latex inline mode. `\\( ... )\\`
+Latex inline mode. `some prose \\( ... \\) more prose`
 
 Syntax:
 
 ```
-\\( Y = X * \textbf{dequantize}(W); \text{quantize}(W) )\\
+A paragraph about \\( Y = X * \textbf{dequantize}(W); \text{quantize}(W) \\) the equation.
 ```
 
 Example: [here](https://github.com/huggingface/transformers/blob/main/docs/source/en/model_doc/rwkv.md?plain=1#L93)
@@ -406,6 +727,80 @@ Syntax:
 ```
 
 Example: [here](https://github.com/huggingface/text-generation-inference/blob/724199aaf172590c3658018c0e6bc6152cda4c2f/docs/source/basic_tutorials/launcher.md?plain=1#L3)
+
+### Stretch Tables
+
+By default, tables in the documentation are sized to fit their content. If you want tables to stretch to the full width of the content area, you can add a special flag at the top of your mdx file.
+
+Syntax:
+```
+<!-- STRETCH TABLES -->
+```
+
+This will make all tables in that page expand to 100% width of the content container.
+
+### Inference Snippet
+
+The `InferenceSnippet` component is used to render an interactive interface for AI model inference. It uses [huggingface/huggingface.js](https://github.com/huggingface/huggingface.js) under the hood to get the snippets.
+
+#### Props
+
+Below is a description of the props that can be passed to this component:
+
+- **pipeline** (string, required):  
+  Specifies the type of pipeline to be used for inference. Common values include `"text-generation"`, `"text-classification"`, etc.
+
+- **providersMapping** (mapping of {modelId: string, providerModelId: string}, required):  
+  A mapping which keys are provider names and values are objects with `modelId` and `providerModelId`.
+  Example: `{"fireworks-ai": {modelId: "deepseek-ai/DeepSeek-R1", providerModelId: "accounts/fireworks/models/deepseek-r1", novita: {modelId: "deepseek-ai/DeepSeek-V3-0324", providerModelId: "deepseek/deepseek-v3-0324"}}`
+
+- **conversational** (boolean, optional):  
+  If set to `true`, the component will enable conversational mode, allowing for multi-turn interactions for `text-generation` models.
+
+#### Example Usage
+
+```svelte
+<InferenceSnippet
+	pipeline="text-generation"
+	conversational
+	providersMapping={{
+    "fireworks-ai": {modelId: "deepseek-ai/DeepSeek-R1", providerModelId: "accounts/fireworks/models/deepseek-r1"},
+    novita: {modelId: "deepseek-ai/DeepSeek-V3-0324", providerModelId: "deepseek/deepseek-v3-0324"}
+  }}
+/>
+```
+
+```svelte
+<InferenceSnippet
+	pipeline="text-generation"
+	conversational
+	providersMapping={{
+    "fireworks-ai": {modelId: "deepseek-ai/DeepSeek-R1", providerModelId: "accounts/fireworks/models/deepseek-r1"}
+  }}
+/>
+```
+
+```svelte
+<InferenceSnippet
+	pipeline="text-to-image"
+	providersMapping={{
+    "black-forest-labs": {modelId: "black-forest-labs/FLUX.1-dev", providerModelId: "flux-dev"},
+    "replicate": {modelId: "black-forest-labs/FLUX.1-dev", providerModelId: "black-forest-labs/flux-dev"},
+    "fal-ai": {modelId: "black-forest-labs/FLUX.1-dev", providerModelId: "fal-ai/flux/dev"},
+  }}
+/>
+```
+
+#### Adding new inference provider
+
+Step 1: get latest `huggingface/huggingface.js` by running the command below:
+
+```
+cd kit
+npm run update-inference-providers
+```
+
+Step 2: add an icon for the new provider in `kit/src/lib/InferenceSnippet/InferenceSnippet.svelte`.
 
 ## Writing API documentation (Python)
 
@@ -531,7 +926,7 @@ Syntax:
           ...
 ```
 
-### Parmeter typing and default value
+### Parameter typing and default value
 
 For optional arguments or arguments with defaults we follow the following syntax. Imagine we have a function with the
 following signature:

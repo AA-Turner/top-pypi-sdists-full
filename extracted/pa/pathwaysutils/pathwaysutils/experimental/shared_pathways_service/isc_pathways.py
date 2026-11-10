@@ -42,7 +42,7 @@ _JAX_PLATFORM_PROXY = "proxy"
 _JAX_BACKEND_TARGET_KEY = "jax_backend_target"
 _JAX_BACKEND_TARGET_HOSTNAME = "grpc://127.0.0.1"
 DEFAULT_PROXY_IMAGE = (
-    "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:latest"
+    "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:latest"
 )
 
 _logger = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ def _deploy_pathways_proxy_server(
   )
 
   _logger.info("Deploying Pathways proxy: %s", proxy_job_name)
-  gke_utils.deploy_gke_yaml(substituted_yaml)
+  gke_utils.deploy_gke_yaml(substituted_yaml, action="create")
 
   _logger.info("Successfully deployed Pathways proxy.")
 
@@ -257,6 +257,8 @@ class _ISCPathways:
     proxy_pod_name: The name of the proxy pod, assigned during deployment.
     proxy_server_image: The image to use for the proxy server.
     proxy_options: Configuration options for the Pathways proxy.
+    proxy_ready_timeout: The maximum time in seconds to wait for the proxy pod
+      to become ready.
     metrics_collector: The metrics collector instance if enabled.
     start_time: The start time of the TPU assignment.
     total_chips: The total number of TPU chips expected across all instances.
@@ -275,6 +277,7 @@ class _ISCPathways:
       proxy_server_image: str,
       proxy_options: ProxyOptions | None = None,
       collect_service_metrics: bool = False,
+      proxy_ready_timeout: int = gke_utils.DEFAULT_POD_READY_TIMEOUT_S,
   ):
     """Initializes the TPU manager."""
     self.cluster = cluster
@@ -290,6 +293,7 @@ class _ISCPathways:
     self._proxy_port = None
     self.proxy_server_image = proxy_server_image
     self.proxy_options = proxy_options or ProxyOptions()
+    self.proxy_ready_timeout = proxy_ready_timeout
     self._old_jax_platforms = None
     if collect_service_metrics:
       raw_collector = metrics_collector.MetricsCollector(
@@ -306,6 +310,7 @@ class _ISCPathways:
     self._old_jax_platforms_config = None
     self._old_jax_backend_target_config = None
     self.total_chips = self._get_total_chips()
+    self._proxy_deployed = False
     self._cleaned_up = False
     self._cleanup_lock = threading.Lock()
     self._original_signal_handlers: dict[signal.Signals, Any] = {}
@@ -403,6 +408,7 @@ class _ISCPathways:
           proxy_server_image=self.proxy_server_image,
           proxy_options=self.proxy_options,
       )
+      self._proxy_deployed = True
       self.metrics_collector.record_user_waiting(True)
       cloud_logging_link = gke_utils.get_log_link(
           cluster=self.cluster,
@@ -411,7 +417,9 @@ class _ISCPathways:
       )
       _logger.info("View proxy logs in Cloud Logging: %s", cloud_logging_link)
 
-      self.proxy_pod_name = gke_utils.wait_for_pod(self._proxy_job_name)
+      self.proxy_pod_name = gke_utils.wait_for_pod(
+          self._proxy_job_name, timeout=self.proxy_ready_timeout
+      )
 
       self._proxy_port, self._port_forward_process = (
           gke_utils.start_port_forwarding(
@@ -496,7 +504,7 @@ class _ISCPathways:
           self._log_process = None
 
       # Delete the proxy GKE job.
-      if self._proxy_job_name:
+      if self._proxy_job_name and self._proxy_deployed:
         _logger.info("Deleting Pathways proxy...")
         try:
           gke_utils.delete_gke_resource("job", self._proxy_job_name)
@@ -547,6 +555,7 @@ def connect(
     proxy_server_image: str | None = None,
     proxy_options: Sequence[str] | None = None,
     collect_service_metrics: bool = False,
+    proxy_ready_timeout: int = gke_utils.DEFAULT_POD_READY_TIMEOUT_S,
 ) -> Iterator["_ISCPathways"]:
   """Connects to a Pathways server if the cluster exists. If not, creates it.
 
@@ -568,6 +577,9 @@ def connect(
       provided, no extra options will be used.
     collect_service_metrics: Whether to collect usage metrics for Shared
       Pathways Service.
+    proxy_ready_timeout: The maximum time in seconds to wait for the proxy pod
+      to become ready. This includes the time the cluster autoscaler needs to
+      add a node when no existing node has room for the proxy pod.
 
   Yields:
     The Pathways manager.
@@ -644,6 +656,7 @@ def connect(
       proxy_server_image=proxy_server_image,
       proxy_options=proxy_options_obj,
       collect_service_metrics=collect_service_metrics,
+      proxy_ready_timeout=proxy_ready_timeout,
   ) as t:
     if t.proxy_pod_name:
       num_slices = sum(t.expected_tpu_instances.values())

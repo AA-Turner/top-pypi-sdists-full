@@ -95,37 +95,52 @@ pub(crate) fn unordered_pairs<T>(items: &[T]) -> impl Iterator<Item = (&T, &T)> 
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::unordered_pairs;
-
-    /// Every unordered pair of *distinct* items, each once.
-    ///
-    /// The contract both callers rest on: each asks a question of two items,
-    /// and a pair of an item with itself is not that question -- two labels
-    /// that are one dict key, two members that share no value. An off-by-one
-    /// in the slice taken yields each item beside itself, which neither caller
-    /// distinguishes, since both questions are false on a self-pair.
-    #[test]
-    fn unordered_pairs_yields_each_distinct_pair_once() {
-        let items = ["a", "b", "c"];
-        let pairs: Vec<(&&str, &&str)> = unordered_pairs(&items).collect();
-        assert_eq!(
-            pairs,
-            vec![(&"a", &"b"), (&"a", &"c"), (&"b", &"c")],
-            "each pair once, in order, and never an item with itself"
-        );
-        for (left, right) in &pairs {
-            assert_ne!(left, right, "a pair is of two distinct items");
+/// What `read` gives of each of `items`, joined two at a time, each round halving
+/// the list, or `None` where a read or a join refuses; `identity` where there are
+/// none.
+///
+/// A fold joining the whole so far with each item in turn reads the whole again
+/// at every item, which costs the square of the width where a join reads what it
+/// holds once, and the cube where it reads each of those against the others.
+/// Joined in rounds, an item is read once a round, and there are as many rounds as
+/// the width has binary digits. Every item is read before the first join, so a read
+/// that refuses spends no join.
+///
+/// **Up to three items, these are the fold's joins, and they hold no list.** Most
+/// unions are that narrow, and a list of descriptors is a request past the
+/// allocator's bins, whose consolidating costs more than the union it would hold.
+pub(crate) fn joined_in_rounds<'a, I, T>(
+    items: &'a [I],
+    mut read: impl FnMut(&'a I) -> Option<T>,
+    identity: impl FnOnce() -> T,
+    join: impl Fn(T, T) -> Option<T>,
+) -> Option<T> {
+    if let [_, _, _, _, ..] = items {
+        let mut held = items.iter().map(read).collect::<Option<Vec<_>>>()?;
+        // Read as the shape of the list, two members or more, so the loop's end
+        // is no comparison a slip could keep open.
+        while let [_, _, ..] = held.as_slice() {
+            let mut pairs = held.into_iter();
+            let mut next = Vec::with_capacity(pairs.len().div_ceil(2));
+            while let Some(first) = pairs.next() {
+                next.push(match pairs.next() {
+                    Some(second) => join(first, second)?,
+                    None => first,
+                });
+            }
+            held = next;
         }
-        // The degenerate sizes, where an off-by-one shows first.
-        assert_eq!(unordered_pairs::<&str>(&[]).count(), 0, "no items, no pair");
-        assert_eq!(unordered_pairs(&items[..1]).count(), 0, "one item, no pair");
-        assert_eq!(unordered_pairs(&items[..2]).count(), 1);
-        // n items give n*(n-1)/2 pairs, so nothing is visited twice.
-        assert_eq!(unordered_pairs(&[1, 2, 3, 4, 5]).count(), 10);
+        return held.pop();
     }
+    let mut items = items.iter();
+    let Some(first) = items.next() else {
+        return Some(identity());
+    };
+    items.try_fold(read(first)?, |whole, item| join(whole, read(item)?))
 }
+
+#[cfg(test)]
+mod tests;
 
 #[cfg(test)]
 mod schema_tests;

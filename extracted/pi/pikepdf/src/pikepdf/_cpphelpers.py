@@ -105,16 +105,34 @@ def label_from_label_dict(label_dict: int | Integer | Dictionary) -> str:
         )
         if numeric_value is None:
             warn(
-                "Page label dictionary has invalid non-integer start value", UserWarning
+                "Page label dictionary has invalid non-integer start value",
+                UserWarning,
+                stacklevel=2,
             )
             numeric_value = 1
 
         style = label_dict[Name.S]
-        if isinstance(style, Name):
-            style_fn = LABEL_STYLE_MAP[str(style)[1:]]
-            value = style_fn(numeric_value)
-            label += value
+        style_fn = (
+            LABEL_STYLE_MAP.get(str(style)[1:]) if isinstance(style, Name) else None
+        )
+        if style_fn is not None:
+            try:
+                label += style_fn(numeric_value)
+            except ValueError:
+                # Letters start at 1 and Roman numerals run from 1 to 5000;
+                # outside that, keep the number in decimal digits.
+                warn(
+                    f"Page label number {numeric_value} cannot be represented "
+                    f"in page label style {style}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                label += str(numeric_value)
         else:
-            warn("Page label dictionary has invalid page label style", UserWarning)
+            warn(
+                "Page label dictionary has invalid page label style",
+                UserWarning,
+                stacklevel=2,
+            )
 
     return label

@@ -1,11 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.teams.publishingstatus import TeamsPublishingStatus
 
 
-@dataclass
 class TeamsPublishingStatusResponse(ClientValue):
     AudienceId: Optional[str] = None
     Status: TeamsPublishingStatus = field(default_factory=TeamsPublishingStatus)

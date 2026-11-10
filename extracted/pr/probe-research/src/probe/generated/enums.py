@@ -828,6 +828,15 @@ class LiveState(StrEnum):
     auth_required = 'auth_required'
 
 
+class LogSourceKind(StrEnum):
+    """
+    Which copy a log read served: the live chunks, or the file the run saved.
+    """
+
+    live = 'live'
+    saved = 'saved'
+
+
 class MatchSource(StrEnum):
     exact = 'exact'
     semantic = 'semantic'
@@ -1441,6 +1450,7 @@ class SourceReadContract1Enum(StrEnum):
 class XAxis(StrEnum):
     step = 'step'
     wall_clock = 'wall_clock'
+    relative = 'relative'
 
 
 class SessionOrder(StrEnum):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spreg
-Version: 1.9.1
+Version: 1.9.2
 Summary: PySAL Spatial Econometric Regression in Python
 Author-email: Luc Anselin <anselin@uchicago.edu>, Serge Rey <sjsrey@gmail.com>, Pedo Amaral <pedrovma@gmail.com>
 Maintainer: pysal contributors

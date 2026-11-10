@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.authentication.webauthn_public_key_credential_creation_options import (
@@ -9,7 +9,6 @@ from office365.directory.authentication.webauthn_public_key_credential_creation_
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class WebauthnCredentialCreationOptions(ClientValue):
     challengeTimeoutDateTime: datetime | None = field(default_factory=lambda: datetime.min)
     publicKey: WebauthnPublicKeyCredentialCreationOptions = field(

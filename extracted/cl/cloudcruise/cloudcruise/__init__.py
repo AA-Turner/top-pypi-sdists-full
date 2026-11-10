@@ -7,6 +7,12 @@ from .vault.types import (
     ProxyConfig,
     TfaMethod,
     VaultTfaCode,
+    VaultFieldType,
+    VaultAddress,
+    VaultAdditionalField,
+    VaultAdditionalFieldWarning,
+    VaultSecurityQuestion,
+    VaultSecurityQuestionWarning,
 )
 
 from .secret_providers.types import (
@@ -72,6 +78,22 @@ from .events.types import (
     ExecutionInputRequiredPayload,
 )
 
+from .events.types import (
+    DecisionWebhookOutcome,
+    DecisionWebhookAnsweredVia,
+    DecisionWebhookDirective,
+    DecisionWebhookFieldValue,
+    DecisionWebhookOption,
+    DecisionWebhookField,
+    DecisionWebhookAnswer,
+    DecisionRequestedWebhookEventPayload,
+    PendingDecision,
+    PendingDecisionResponse,
+    DecisionAnsweredWebhookEventPayload,
+    AgentDecisionRequestedPayload,
+    AgentDecisionAnsweredPayload,
+)
+
 from .webhook.types import WebhookPayload, WebhookVerificationOptions, VerificationError, WebhookMessage
 from ._default import get_client as client
 
@@ -87,6 +109,12 @@ __all__ = [
     "ProxyConfig",
     "TfaMethod",
     "VaultTfaCode",
+    "VaultFieldType",
+    "VaultAddress",
+    "VaultAdditionalField",
+    "VaultAdditionalFieldWarning",
+    "VaultSecurityQuestion",
+    "VaultSecurityQuestionWarning",
     # Secret Provider Types
     "SecretProvider",
     "SecretProviderItem",
@@ -136,11 +164,25 @@ __all__ = [
     "ScreenshotUploadedPayload",
     "EventWebhookMessage",
     "RunEventMessage",
-    # Modal Recovery Types
+    # Modal Recovery Types (deprecated)
     "AvailableAction",
     "PopupRetry",
     "PopupContext",
     "ExecutionInputRequiredPayload",
+    # Decision Required Types
+    "DecisionWebhookOutcome",
+    "DecisionWebhookAnsweredVia",
+    "DecisionWebhookDirective",
+    "DecisionWebhookFieldValue",
+    "DecisionWebhookOption",
+    "DecisionWebhookField",
+    "DecisionWebhookAnswer",
+    "DecisionRequestedWebhookEventPayload",
+    "PendingDecision",
+    "PendingDecisionResponse",
+    "DecisionAnsweredWebhookEventPayload",
+    "AgentDecisionRequestedPayload",
+    "AgentDecisionAnsweredPayload",
     # Webhook Types
     "WebhookPayload",
     "WebhookVerificationOptions",

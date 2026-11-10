@@ -48,10 +48,10 @@ def sync_detailed(
 ) -> Response[Union[Any, Logout]]:
     """Log out
 
-     Logs out the current user by deleting their authentication token. If single logout (SLO) is
-    supported for the current authentication method (e.g., SAML2 or OIDC), this endpoint may return a
-    logout URL to which the user should be redirected to complete the logout process on the identity
-    provider side.
+     Logs out the current user by deleting their authentication token and revoking the identity provider
+    tokens Waldur keeps for them. If single logout (SLO) is supported for the current authentication
+    method (e.g., SAML2 or OIDC), this endpoint may return a logout URL to which the user should be
+    redirected to complete the logout process on the identity provider side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -76,10 +76,10 @@ def sync(
 ) -> Union[Any, Logout]:
     """Log out
 
-     Logs out the current user by deleting their authentication token. If single logout (SLO) is
-    supported for the current authentication method (e.g., SAML2 or OIDC), this endpoint may return a
-    logout URL to which the user should be redirected to complete the logout process on the identity
-    provider side.
+     Logs out the current user by deleting their authentication token and revoking the identity provider
+    tokens Waldur keeps for them. If single logout (SLO) is supported for the current authentication
+    method (e.g., SAML2 or OIDC), this endpoint may return a logout URL to which the user should be
+    redirected to complete the logout process on the identity provider side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -100,10 +100,10 @@ async def asyncio_detailed(
 ) -> Response[Union[Any, Logout]]:
     """Log out
 
-     Logs out the current user by deleting their authentication token. If single logout (SLO) is
-    supported for the current authentication method (e.g., SAML2 or OIDC), this endpoint may return a
-    logout URL to which the user should be redirected to complete the logout process on the identity
-    provider side.
+     Logs out the current user by deleting their authentication token and revoking the identity provider
+    tokens Waldur keeps for them. If single logout (SLO) is supported for the current authentication
+    method (e.g., SAML2 or OIDC), this endpoint may return a logout URL to which the user should be
+    redirected to complete the logout process on the identity provider side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -126,10 +126,10 @@ async def asyncio(
 ) -> Union[Any, Logout]:
     """Log out
 
-     Logs out the current user by deleting their authentication token. If single logout (SLO) is
-    supported for the current authentication method (e.g., SAML2 or OIDC), this endpoint may return a
-    logout URL to which the user should be redirected to complete the logout process on the identity
-    provider side.
+     Logs out the current user by deleting their authentication token and revoking the identity provider
+    tokens Waldur keeps for them. If single logout (SLO) is supported for the current authentication
+    method (e.g., SAML2 or OIDC), this endpoint may return a logout URL to which the user should be
+    redirected to complete the logout process on the identity provider side.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

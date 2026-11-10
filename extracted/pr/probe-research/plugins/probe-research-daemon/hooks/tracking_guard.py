@@ -774,7 +774,7 @@ def probe_write(command: str) -> "str | None":
     command IS.
     """
     for args in _probe_invocations(command):
-        if _asks_help(args):
+        if _asks_help(args) or _lets_through(args):
             continue
         kind, matched = _session_marker.classify_probe_args(args)
         if kind == "write":
@@ -782,26 +782,33 @@ def probe_write(command: str) -> "str | None":
     return None
 
 
+def _lets_through(args: "list[str]") -> bool:
+    """Probe's own upkeep (`upkeep_command`), and a past-work import the person
+    consented to (`directed_in_every_state`): no state refuses either (T2)."""
+    return bool(_session_marker.upkeep_command(args)) or _session_marker.directed_in_every_state(args)
+
+
 def _asks_help(args: "list[str]") -> bool:
     """`--help` before any `--`, as the CLI's gate reads it: after `--` it is an
     argument (`probe project contributors -- --help` looks up a project). Right
     after a redirection it is a file name (`probe project create x &> --help`).
-    A token search: the CLI's write gate asks click (`write_gate._asks_help`), and it holds."""
+    A token search: the CLI's write gate asks click (`write_gate._asks_help`), and it holds.
+    `-h` counts only plainly (`_asks_help_plainly`): as an option's value the command runs."""
     words = args[: args.index("--")] if "--" in args else args
     return any(
         word == _session_marker.HELP_FLAG and (i == 0 or words[i - 1] not in _REDIRECTIONS)
         for i, word in enumerate(words)
-    )
+    ) or _asks_help_plainly(args)
 
 
 def _asks_help_plainly(args: "list[str]") -> bool:
-    """`_asks_help`, minus a `--help` click hands to the option before it as its
-    value (`probe wizard --folder --help` runs the wizard). The daemon profile's
-    refusals have no CLI backstop -- the write gate refuses only writes -- so
-    there a `--help` after a bare option is checked like any other run."""
+    """`--help` or `-h` (`is_help_flag`), minus one click hands to the option before
+    it as its value (`probe wizard --folder --help` runs the wizard). The daemon
+    profile's refusals have no CLI backstop -- the write gate refuses only writes --
+    so there a `--help` after a bare option is checked like any other run."""
     words = args[: args.index("--")] if "--" in args else args
     return any(
-        word == _session_marker.HELP_FLAG
+        _session_marker.is_help_flag(word, args)
         and (i == 0 or (words[i - 1] not in _REDIRECTIONS
                         and (not words[i - 1].startswith("-") or "=" in words[i - 1])))
         for i, word in enumerate(words)
@@ -815,10 +822,11 @@ def probe_read(command: str) -> "str | None":
     """The probe invocation that READS research content, or None.
 
     Only `off` uses this. Same parse and same classifier as `probe_write`, and
-    the same pass for `--help`: asking what a command does reads nothing.
+    the same pass for `--help` (asking what a command does reads nothing) and
+    for Probe's own upkeep (`example status`).
     """
     for args in _probe_invocations(command):
-        if _asks_help(args):
+        if _asks_help(args) or _session_marker.upkeep_command(args):
             continue
         kind, matched = _session_marker.classify_probe_args(args)
         if kind == "read":
@@ -1251,7 +1259,7 @@ def _move(
         # `on` is STORED by who records: `daemon` where the daemon records.
         target = _session_marker.switch_target(session_id, direction) or direction
         _session_marker.set_session_state(session_id, target)
-        return target
+        return _get_landed(session_id, target)
 
     claim = _read_claim(session_id)
     same_invocation = claim is not None and claim["slug"] in (slug, None)
@@ -1282,10 +1290,17 @@ def _move(
         target = _session_marker.switch_target(session_id, target) or target
         _write_claim(session_id, target, [shape], slug)
     _session_marker.set_session_state(session_id, target)
-    return target
+    return _get_landed(session_id, target)
+
+
+def _get_landed(session_id: str, target: str) -> str:
+    """Where a typed move to `target` landed, as `_announce` says it: `INLINE` where a spent daemon allowance put
+    the daemon's on or read inline (`is_budget_inline`), so the agent hears that it records, not the daemon."""
+    return INLINE if _session_marker.is_budget_inline(session_id, target) else target
 
 
 _EXEC = "probe exec"
+_RUN_START = "probe run start"
 
 
 def _offending_write(payload: dict, session_id: str) -> "str | None":
@@ -1437,7 +1452,7 @@ def _inline_notice(session_id: str = "") -> str:
     skills = [os.path.join(_inline_root(), name) for name in _session_marker.INLINE_SKILL_FILES]
     marker = _session_marker.inline_marker(session_id) or {}
     options = {"read_only": marker.get("mode") == _session_marker.STATE_READ_ONLY,
-               "budget": marker.get("reason") == "budget_exhausted"}
+               "budget": marker.get("reason") == _session_marker.BUDGET_INLINE_REASON}
     try:
         return _version_check().inline_notice_for(*skills, **options)
     except Exception:  # noqa: BLE001 -- the notice still lands
@@ -1471,8 +1486,8 @@ def _version_check():
 def _inline_reaches_model(hook_event: str) -> bool:
     """Does context this hook adds reach the model? Not when the harness drops
     this hook's output (QUIET_ENV). A harness that adds context at the next
-    prompt (`prompt_context`: Claude Code, Kimi) hears it there; one that cannot
-    (Codex) hears it after its next tool call, where PostToolUse context lands."""
+    prompt (`prompt_context`: Claude Code, Codex, Kimi, Cursor) hears it there; one
+    that cannot hears it after its next tool call, where PostToolUse context lands."""
     if os.environ.get(QUIET_ENV) == "1":
         return False
     try:
@@ -1498,42 +1513,88 @@ def _hook_harness():
     return module
 
 
-def _announce_inline_once(hook_event: str, session_id: str) -> None:
+def _announce_inline_once(hook_event: str, session_id: str, lead: "str | None" = None, *,
+                          cwd: "str | None" = None, rules: bool = False) -> None:
     """Manual or trusted confirmed-quota inline is active and the
     agent has not been told about this stretch: tell it now, once, where this
     harness lets it land (`_inline_reaches_model`). Marked told only then.
     From the notice on, each event whose context reaches the model carries the
     next part of the skills it records by, whole (`_skills_reach_model`,
-    `session_marker.next_inline_skills_part`, notes parity N1)."""
+    `session_marker.next_inline_skills_part`, notes parity N1). `lead`: a line
+    said first in the same answer (auto mode's, `_make_auto_line`). `rules`:
+    Probe's rules and the team note this chat is owed go last (`_rules_parts`)."""
     since = _session_marker.inline_notice_due(session_id)
     told = since is not None and _inline_reaches_model(hook_event)
     if since is not None and not told:
-        return  # the skills follow the notice, never come before it
-    parts = [_inline_notice(session_id)] if told else []
-    if _skills_reach_model(hook_event):
-        part = _session_marker.next_inline_skills_part(session_id, _inline_root())
-        if part:
-            parts.append(part)
+        parts = [lead] if lead else []  # the skills follow the notice, never come before it
+    else:
+        parts = ([lead] if lead else []) + ([_inline_notice(session_id)] if told else [])
+        if _skills_reach_model(hook_event):
+            part = _session_marker.next_inline_skills_part(session_id, _inline_root())
+            if part:
+                parts.append(part)
+    if rules:
+        parts += _rules_parts(hook_event, session_id, parts, cwd)
     if parts:
         _emit_context(hook_event, "\n\n".join(parts))
     if told:
         _session_marker.mark_inline_shown(session_id, since)
 
 
+def _rules_parts(hook_event: str, session_id: str, said: list, cwd: "str | None" = None) -> list:
+    """Probe's rules and the team note this chat is owed while it is not off, where the agent's hooks add them
+    (`session_marker.take_owed_rules`): the next part that fits beside `said`. In an off chat that had them, the
+    line that sets them aside, once (`RULES_SET_ASIDE`): text already in a chat cannot be taken out."""
+    if not _skills_reach_model(hook_event):
+        return []
+    try:
+        state = _state(session_id, cwd)
+        if state == _session_marker.STATE_OFF:
+            return [_session_marker.RULES_SET_ASIDE] if _session_marker.reset_given_rules(session_id) else []
+        instruction = _hook_harness().instruction_file()
+        if not instruction:
+            return []
+        room = _session_marker.HOOK_CONTEXT_CHARS - sum(len(text) + 2 for text in said)
+        text = _session_marker.take_owed_rules(session_id, state, instruction, room=room)
+    except Exception:  # noqa: BLE001 -- the next event tries again
+        return []
+    return [text] if text else []
+
+
+def _make_auto_line(payload: dict, session_id: str) -> "str | None":
+    """Auto mode: the one line a researcher's prompt in an auto chat gets on where this chat's
+    Probe stands (`session_marker.make_auto_prompt_line`), or None. Callers skip a helper agent's
+    prompt and a typed `/probe`. Nothing where the output reaches no model (QUIET_ENV), so the
+    first prompt's line is not spent there."""
+    if os.environ.get(QUIET_ENV) == "1" or not _session_marker.is_auto_chat(session_id):
+        return None
+    word = _session_marker.get_auto_state_word(session_id, _state(session_id, _payload_cwd(payload)))
+    prompt = payload.get("prompt")
+    # Not beside a budget stretch's own notice still to come: that notice opens with the allowance.
+    marker = _session_marker.inline_marker(session_id) or {}
+    notice_names_it = (marker.get("reason") == _session_marker.BUDGET_INLINE_REASON
+                       and _session_marker.inline_notice_due(session_id) is not None)
+    spent = (_session_marker.get_budget_inline_state(session_id, _session_marker.STATE_DAEMON) is not None
+             and not notice_names_it)
+    return _session_marker.make_auto_prompt_line(
+        word, _session_marker.claim_first_prompt(session_id), prompt if isinstance(prompt, str) else "",
+        is_allowance_spent=spent)
+
+
 def _from_helper_agent(payload: dict) -> bool:
-    """A hook fired inside a helper agent (subagent), as `reads_hook.from_helper_agent`
-    tells it: Claude Code puts `agent_id` in that payload and never on the main
-    thread; a `/subagents/` transcript path is the second net."""
-    if payload.get("agent_id"):
-        return True
-    path = payload.get("transcript_path")
-    return isinstance(path, str) and "/subagents/" in path.replace("\\", "/")
+    """A hook fired inside a helper agent (subagent), as every hook tells it
+    (`_hook_harness.from_helper_agent`)."""
+    return _hook_harness().from_helper_agent(payload)
 
 
 def _inline_root() -> str:
     """This plugin's `inline/` folder: the main agent's copies of the skills
-    an inline agent records by (the lean plugin ships them beside `hooks/`)."""
-    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "inline")
+    an inline agent records by (the lean plugin ships them beside `hooks/`); the
+    agent plugin, which has none, keeps the same copies in `agent-skills/` (a chat
+    `seed_inline` set on (inline) can meet it after `/reload-plugins`)."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    inline = os.path.join(root, "inline")
+    return inline if os.path.isdir(inline) else os.path.join(root, "agent-skills")
 
 
 def _skills_reach_model(hook_event: str) -> bool:
@@ -1546,27 +1607,27 @@ def _skills_reach_model(hook_event: str) -> bool:
 
 def _announce(hook_event: str, landed: "str | None", *, daemon: bool = False, session_id: str = "") -> None:
     """Tell the model where the switch landed. Silent when nothing resolved.
-    `daemon`: the lean plugin, whose sessions the daemon records and reads for."""
+    `daemon`: the lean plugin, whose sessions the daemon records and reads for:
+    a move to on or read carries Probe's rules and the team note the chat is
+    owed, a move to off sets them aside (`_rules_parts`)."""
     if landed == REFUSED_DAEMON:
         notice = _session_marker.DAEMON_SWITCH_REFUSAL
     elif landed == INLINE:
-        _announce_inline_once(hook_event, session_id)
+        # A typed move into the budget stretch already told: one line on why it stays inline, never silence.
+        marker = _session_marker.inline_marker(session_id) or {}
+        stays = (marker.get("reason") == _session_marker.BUDGET_INLINE_REASON
+                 and _session_marker.inline_notice_due(session_id) is None)
+        _announce_inline_once(hook_event, session_id, _session_marker.ALLOWANCE_SPENT_INLINE if stays else None,
+                              rules=daemon)
         return
     else:
         notices = DAEMON_PROFILE_FLIP_NOTICE if daemon else FLIP_NOTICE
         notice = notices.get(landed) if landed else None
-    if not notice:
-        return
-    sys.stdout.write(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": hook_event,
-                    "additionalContext": notice,
-                }
-            }
-        )
-    )
+    parts = [notice] if notice else []
+    if daemon and landed and landed != REFUSED_DAEMON:
+        parts += _rules_parts(hook_event, session_id, parts)
+    if parts:
+        _emit_context(hook_event, "\n\n".join(parts))
 
 
 # ---------------------------------------------------------------------------
@@ -2213,7 +2274,87 @@ def _refuse_for_the_harness(payload: dict) -> bool:
     return False
 
 
-def _deny(payload: dict, session_id: str) -> None:
+#: The words the switch's states are typed as, for a refusal's `session state <word>`.
+_STATE_WORDS = {"off": "off", "read-only": "read", CYCLE: "<on|read|off>"}
+
+
+def _skill_switch_refusal(payload: dict, session_id: str) -> "str | None":
+    """T3 for the model's own Skill-tool call of the switch (Claude Code's `Skill`, the older
+    `SlashCommand`). A person's typed `/probe ...` arrives as a prompt (UserPromptSubmit), never as
+    this. See `_model_switch_refusal`; a helper agent's call moves nothing, so it is never refused."""
+    if payload.get("tool_name") not in ("Skill", "SlashCommand") or _from_helper_agent(payload) or _is_no_consent():
+        return None
+    direction, slug = toggle_direction(payload.get("tool_name"), payload.get("tool_input"))
+    tool_input = payload.get("tool_input") if isinstance(payload.get("tool_input"), dict) else {}
+    called = " ".join(str(tool_input[field]) for field in ("skill", "command", "args") if tool_input.get(field))
+    return _model_switch_refusal(direction, slug, session_id, _payload_cwd(payload), called or slug)
+
+
+def _model_switch_refusal(direction: "str | None", slug: str, session_id: str, cwd: "str | None",
+                          called: str) -> "str | None":
+    """A switch move the MODEL can send (a Skill-tool call; Codex's `<skill>` activation block) that
+    would make this chat record less, or flip it: refused (`SKILL_SWITCH_DENY`: ask the person, then
+    `session state <state> --directed`). Raising it, naming where it already is (the person's typed
+    `/probe` moved it first) or another sighting of a typed bare `/probe` (its claim) runs. The legacy
+    switch slugs ship no skill any more, so no model calls them; they keep their old rules."""
+    if slug in GUIDANCE_SLUGS and direction is not None and _session_marker.is_auto_chat(session_id):
+        # Auto: the agent sets the switch, through `session state` only, so the move stays the agent's (a
+        # Skill call would land as an explicit move and end auto). A typed `$probe` moved first and ended it.
+        return _session_marker.AUTO_SKILL_SWITCH.format(matched=called)
+    if direction is None or direction not in _STATE_WORDS or slug not in GUIDANCE_SLUGS:
+        return None  # a question, `on` (raising), `daemon` (the wizard's): this never lowers anything
+    if direction == CYCLE:
+        claim = _read_claim(session_id)
+        if claim is not None and claim["slug"] in (slug, None) and SHAPE_TOOL not in claim["seen"]:
+            return None  # another sighting of the bare `/probe` the person typed: it converges
+    else:
+        current = _state(session_id, cwd)
+        if current == direction or _session_marker.louder(direction, current):
+            return None
+    return _session_marker.SKILL_SWITCH_DENY.format(matched=called, target=_STATE_WORDS[direction])
+
+
+def _agent_refused(payload: dict, deny: str, session_id: "str | None" = None) -> bool:
+    """What every state refuses the agent (T2, T3; `session_marker.agent_refusal`):
+    this chat's switch moved without `--directed`, or flipped, what makes Probe
+    record less without `--directed`, and a server-saving command with
+    `PROBE_BASE_URL=<another server>` before it (`spelled_server_override`). True
+    when refused. The npx spelling is the CLI gate's: this reads only `probe ...`
+    and `python -m probe.cli ...`."""
+    command = _shell_command(payload)
+    if command is None or "probe" not in command:
+        return False
+    for args in _probe_invocations(command):
+        if _asks_help_plainly(args):
+            continue
+        refused = _session_marker.agent_refusal(args, deny, session_id)
+        reason = "directed_required"
+        if not refused:
+            refused, reason = _session_marker.spelled_server_override(command, args), "server_override"
+        if refused:
+            _save_refusal(payload, args, reason)
+            _refuse(refused)
+            return True
+    return False
+
+
+def _save_refusal(payload: dict, args: list, reason: str) -> None:
+    """Keep an upkeep or install refusal for the Probe service to count (`agent_install.refused`, PR C):
+    a file, never the network. Never raises."""
+    try:
+        if not _session_marker.is_upkeep_refusal(args):
+            return
+        try:
+            agent = _hook_harness().current().id
+        except Exception:  # noqa: BLE001 -- counted without its agent
+            agent = None
+        _session_marker.save_refusal(str(payload.get("session_id") or ""), reason,
+                                      _session_marker.get_refusal_step(args), "hook", agent)
+    except Exception:  # noqa: BLE001 -- counting never costs the refusal
+        pass
+
+
+def _deny(payload: dict, session_id: str, *, is_agent_checked: bool = False) -> None:
     """Refuse a call this state does not permit. THE HOT PATH.
 
     `full` is the overwhelmingly common state and the widened matcher now runs
@@ -2227,10 +2368,14 @@ def _deny(payload: dict, session_id: str) -> None:
                           hook hosts' folder, a Bash command calling the
                           service's mailbox itself, or one running a Probe hook
                           program by hand (`_refuse_for_the_harness`)
+        any state      -> deny this chat's switch moved without `--directed`,
+                          and what records less without it (`_agent_refused`;
+                          a substring check first: only a line naming `probe`)
         state == full or daemon -> return, always (`daemon` is enforced by the
                                    CLI's own write gate, which knows the lease)
         state == read-only -> deny WRITES typed into Bash
         state == off    -> deny writes, Probe MCP calls, and Probe content reads
+        (never Probe's own upkeep, nor a `--directed` past-work import)
     """
     aimed = _session_marker.touches_approvals(payload.get("tool_name"), payload.get("tool_input"), _payload_cwd(payload))
     if aimed:
@@ -2242,6 +2387,13 @@ def _deny(payload: dict, session_id: str) -> None:
         return
     if _refuse_for_the_harness(payload):
         return
+    if not is_agent_checked:
+        refused = _skill_switch_refusal(payload, session_id)
+        if refused:
+            _refuse(refused)
+            return
+        if _agent_refused(payload, _session_marker.INLINE_SWITCH_DENY, session_id):
+            return
     state = _state(session_id, _payload_cwd(payload))
     if _session_marker.state_allows_writes(state):
         return
@@ -2249,8 +2401,10 @@ def _deny(payload: dict, session_id: str) -> None:
     tool_name = payload.get("tool_name")
     off = state == _session_marker.STATE_OFF
 
+    # The off and read-only refusals, in auto mode words in an auto chat.
+    deny = _session_marker.get_deny_reason(state, session_id)
     if off and is_probe_mcp_tool(tool_name):
-        _refuse(DENY_REASON_OFF.format(matched=tool_name))
+        _refuse(deny.format(matched=tool_name))
         return
     if tool_name != "Bash":
         return
@@ -2266,8 +2420,11 @@ def _deny(payload: dict, session_id: str) -> None:
         # (`write_gate.exec_child`): refusing here would stop the job, not the
         # recording.
         matched = None
+    if matched == _RUN_START and _session_marker.is_auto_chat(session_id):
+        # Auto mode: a run started through Probe turns the chat on (the CLI's `set_on_for_launch`).
+        matched = None
     if matched:
-        _refuse((DENY_REASON_OFF if off else DENY_REASON).format(matched=matched))
+        _refuse(deny.format(matched=matched))
         return
     if off:
         # READS ARE DENIED ONLY HERE. Under `read-only` they are the point of
@@ -2277,7 +2434,7 @@ def _deny(payload: dict, session_id: str) -> None:
         # added to stop.
         matched = probe_read(command)
         if matched:
-            _refuse(DENY_REASON_OFF.format(matched=matched))
+            _refuse(deny.format(matched=matched))
 
 
 #: Set by the lean `probe-research-daemon` plugin's routes.json: this machine's
@@ -2292,18 +2449,19 @@ def daemon_profile() -> bool:
 
 def _deny_daemon_profile(payload: dict, session_id: str) -> None:
     """The daemon profile's PreToolUse: the daemon records and reads, so every
-    `probe` command but `ask`, `exec`, the runs' own data, reads of one run
-    (`session_marker.DAEMON_PROFILE_RUN_READS`), `session status`, a
-    write the researcher asked for (`--directed`) and Probe's own upkeep
-    (`session_marker.DAEMON_PROFILE_ALLOWED`; the wizard plainly only)
-    is refused (`DAEMON_PROFILE_DENY`,
-    or `DAEMON_PROFILE_DENY_WRITE` for a write), and so is a Probe MCP call; the
-    researcher's switch (`RESEARCHER_SWITCH`) is refused as the switch, flag or no
-    flag (`RESEARCHER_SWITCH_DENY`).
+    `probe` command but `ask`, `exec`, the runs' own data and the agent's panes, reads of one run
+    or of one scope's panes (`session_marker.DAEMON_PROFILE_RUN_READS`, `DAEMON_PROFILE_PANE_READS`),
+    `session status`, a
+    write the researcher asked for (`--directed`), the agent's own commands
+    (`session_marker.DAEMON_PROFILE_ALLOWED`) and Probe's own upkeep with its
+    own flags (`session_marker.PROBE_UPKEEP`) is refused (`daemon_profile_deny`),
+    and so is a Probe MCP call. In every state the switch moves only as
+    `session state <target> --directed`, and what records less only with
+    `--directed` (`_agent_refused`).
     A session the researcher turned off keeps the off refusals (`_deny`); one set
     to read only also loses the runs' own data (a write). A session the
     researcher set inline (`/probe inline`, `is_inline`), or the daemon handed
-    inline after a confirmed quota response, is refused the switch and approvals
+    inline after a confirmed quota response, keeps only those and the approvals
     folder. Read-only inline also keeps every normal read-only write refusal."""
     aimed = _session_marker.touches_approvals(payload.get("tool_name"), payload.get("tool_input"), _payload_cwd(payload))
     if aimed:
@@ -2316,32 +2474,29 @@ def _deny_daemon_profile(payload: dict, session_id: str) -> None:
     if _refuse_for_the_harness(payload):
         return
     state = _state(session_id, _payload_cwd(payload))
-    if state == _session_marker.STATE_OFF:
-        matched = _switch_move(payload)
-        if matched:
-            _refuse(DENY_REASON_OFF.format(matched=matched))
-            return
-        _deny(payload, session_id)
+    inline = _session_marker.is_inline(session_id, state)
+    # Every state: the switch moves only by `session state <target> --directed`, and
+    # what records less only with `--directed` (T2, T3). Off and inline answer the
+    # switch as the switch; otherwise a typed `/probe` may have moved it already.
+    deny = (_session_marker.INLINE_SWITCH_DENY if state == _session_marker.STATE_OFF or inline
+            else _session_marker.RESEARCHER_SWITCH_DENY)
+    refused = _skill_switch_refusal(payload, session_id)
+    if refused:
+        _refuse(refused)
         return
-    if _session_marker.is_inline(session_id, state):
-        # Manual or confirmed-quota inline: the agent still cannot move the switch.
-        matched = _switch_move(payload)
-        if matched:
-            _refuse(_session_marker.INLINE_SWITCH_DENY.format(matched=matched))
-            return
+    if _agent_refused(payload, deny, session_id):
+        return
+    if state == _session_marker.STATE_OFF:
+        _deny(payload, session_id, is_agent_checked=True)
+        return
+    if inline:
+        # Manual or confirmed-quota inline: the agent reads and writes Probe itself.
         if state == _session_marker.STATE_READ_ONLY:
-            _deny(payload, session_id)
+            _deny(payload, session_id, is_agent_checked=True)
         return
     tool_name = payload.get("tool_name")
     if is_probe_mcp_tool(tool_name):
-        _refuse(_session_marker.DAEMON_PROFILE_DENY.format(matched=tool_name))
-        return
-    # The switch is answered as the switch, ahead of the general refusal, whose
-    # "ask the researcher to type `/probe inline`" would send an agent looking for
-    # a typed `/probe on` asking for the wrong thing.
-    matched = _switch_move(payload)
-    if matched:
-        _refuse(_session_marker.RESEARCHER_SWITCH_DENY.format(matched=matched))
+        _refuse(_session_marker.get_daemon_profile_deny(session_id).format(matched=tool_name))
         return
     if tool_name != "Bash":
         return
@@ -2352,34 +2507,17 @@ def _deny_daemon_profile(payload: dict, session_id: str) -> None:
     for args in _probe_invocations(command):
         if _asks_help_plainly(args):
             continue
-        allowed, matched = _session_marker.daemon_profile_allows(args)
+        allowed, matched = _session_marker.daemon_profile_allows(args, session_id)
         if not allowed:
-            _refuse(_session_marker.daemon_profile_deny(args, matched))
+            _save_refusal(payload, args, "daemon_chat")
+            _refuse(_session_marker.daemon_profile_deny(args, matched, session_id))
             return
     if state == _session_marker.STATE_READ_ONLY:
         # `read only (daemon)`: the runs' own data is a write like any other.
         # `probe exec` still runs, unrecorded (`write_gate.exec_child`).
         matched = probe_write(command)
         if matched and matched != _EXEC:
-            _refuse(DENY_REASON.format(matched=matched))
-
-
-def _switch_move(payload: dict) -> "str | None":
-    """The researcher's switch moved by a `probe` command in this Bash call
-    (`session_marker.moves_switch`), or None."""
-    if payload.get("tool_name") != "Bash":
-        return None
-    tool_input = payload.get("tool_input")
-    command = tool_input.get("command") if isinstance(tool_input, dict) else None
-    if not isinstance(command, str):
-        return None
-    for args in _probe_invocations(command):
-        if _asks_help(args):
-            continue
-        matched = _session_marker.moves_switch(args)
-        if matched:
-            return matched
-    return None
+            _refuse(_session_marker.get_deny_reason(state, session_id).format(matched=matched))
 
 
 def _refuse(reason: str) -> None:
@@ -2436,32 +2574,54 @@ def main() -> None:
             _session_marker.mark_session_profile(session_id, _session_marker.RECORDER_DAEMON)
         if hook_event == "PreToolUse":
             _deny_daemon_profile(payload, session_id)
+        elif hook_event == "UserPromptSubmit" and _from_helper_agent(payload):
+            # A helper agent's prompt is the main agent's words (Codex fires this hook for one,
+            # with the main `session_id`): never a typed switch, and no notice is heard there.
+            pass
         elif hook_event == "UserPromptSubmit":
             direction, shape, slug = _typed_direction(payload.get("prompt"))
-            if direction is not None:
+            refused = (_model_switch_refusal(direction, slug, session_id, _payload_cwd(payload), "$" + slug)
+                       if shape == SHAPE_SKILL_BLOCK else None)
+            if refused:
+                _emit_context("UserPromptSubmit", refused)  # a skill activation the model can send (T3)
+            elif direction is not None:
                 landed = _apply_direction(direction, session_id, shape, slug, _payload_cwd(payload))
                 _announce("UserPromptSubmit", landed, daemon=True, session_id=session_id)
             else:
-                _announce_inline_once("UserPromptSubmit", session_id)
+                _announce_inline_once("UserPromptSubmit", session_id, lead=_make_auto_line(payload, session_id),
+                                      cwd=_payload_cwd(payload), rules=True)
         elif hook_event == "PostToolUse":
             landed = None
-            if payload.get("tool_name") in ("Skill", "SlashCommand"):
+            # A helper agent's Skill call is never the switch: its words are the main agent's.
+            if payload.get("tool_name") in ("Skill", "SlashCommand") and not _from_helper_agent(payload):
                 direction, slug = _tool_direction(payload.get("tool_name"), payload.get("tool_input"))
+                refused = _skill_switch_refusal(payload, session_id) if direction is not None else None
+                if refused:
+                    # PreToolUse refuses it; a harness that ran the call anyway moves nothing (T3).
+                    _emit_context("PostToolUse", refused)
+                    return
                 if direction is not None:
                     landed = _apply_direction(direction, session_id, SHAPE_TOOL, slug, _payload_cwd(payload))
             if landed:
                 _announce("PostToolUse", landed, daemon=True, session_id=session_id)
             elif not _from_helper_agent(payload):
                 # A subagent's context is not the agent's: what lands there
-                # (the notice, a part of the skills) would be marked sent unheard.
-                _announce_inline_once("PostToolUse", session_id)
+                # (the notice, a part of the skills, the rules) would be marked sent unheard.
+                _announce_inline_once("PostToolUse", session_id, cwd=_payload_cwd(payload), rules=True)
         return
     if hook_event == "UserPromptSubmit":
+        if _from_helper_agent(payload):
+            return  # a helper agent's prompt: the main agent's words, never the researcher's
         direction, shape, slug = _typed_direction(payload.get("prompt"))
+        refused = (_model_switch_refusal(direction, slug, session_id, _payload_cwd(payload), "$" + slug)
+                   if shape == SHAPE_SKILL_BLOCK else None)
+        if refused:
+            _emit_context("UserPromptSubmit", refused)  # a skill activation the model can send (T3)
+            return
         if direction is None:
-            notice = _daemon_notice(session_id, _payload_cwd(payload))
-            if notice:
-                _emit_context("UserPromptSubmit", notice)
+            said = [_make_auto_line(payload, session_id), _daemon_notice(session_id, _payload_cwd(payload))]
+            if any(said):
+                _emit_context("UserPromptSubmit", "\n\n".join(text for text in said if text))
             return
         landed = _apply_direction(
             direction, session_id, shape, slug, _payload_cwd(payload)
@@ -2473,8 +2633,15 @@ def main() -> None:
         return
     tool_name = payload.get("tool_name")
     if tool_name in ("Skill", "SlashCommand"):
+        if _from_helper_agent(payload):
+            return  # a helper agent's Skill call: never the switch, as its prompt is not
         direction, slug = _tool_direction(tool_name, payload.get("tool_input"))
         if direction is None:
+            return
+        refused = _skill_switch_refusal(payload, session_id)
+        if refused:
+            # PreToolUse refuses it; a harness that ran the call anyway moves nothing (T3).
+            _emit_context("PostToolUse", refused)
             return
         landed = _apply_direction(
             direction, session_id, SHAPE_TOOL, slug, _payload_cwd(payload)

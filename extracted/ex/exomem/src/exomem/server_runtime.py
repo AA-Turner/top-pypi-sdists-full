@@ -22,6 +22,7 @@ import anyio
 
 from . import (
     env_compat,
+    media_jobs,
     media_processing,
     metrics,
     privacy_log,
@@ -91,8 +92,10 @@ def initialize_runtime(*, load_dotenv_func: Callable[..., object]) -> ServerRunt
 
     vault_root = resolve_vault()
     from . import state_migration
+    from .vault_store import availability
 
     state_migration.require_vault_state_ready(vault_root)
+    availability.require_servable(vault_root)
     source_schema = schema.load_source_schema(vault_root)
     log.info("vault=%s source_types=%s", vault_root, source_schema.source_types)
 
@@ -139,6 +142,7 @@ class LocalRuntimeActivation:
         self._thread: threading.Thread | None = None
         self.media_worker: Any | None = None
         self.file_watcher: Any | None = None
+        self.vault_projector: Any | None = None
         self.derived_drain: Any | None = None
         self.semantic_drain: Any | None = None
         self.vocabulary_recovery: Any | None = None
@@ -207,6 +211,10 @@ class LocalRuntimeActivation:
             self._stop_background_workers()
             return
         self._start_component("file watcher", self._start_file_watcher)
+        if self._shutdown.is_set():
+            self._stop_background_workers()
+            return
+        self._start_component("vault projector", self._start_vault_projector)
         if self._shutdown.is_set():
             self._stop_background_workers()
             return
@@ -379,6 +387,7 @@ class LocalRuntimeActivation:
             ("derived drain", self.derived_drain),
             ("media", self.media_worker),
             ("file watcher", self.file_watcher),
+            ("vault projector", self.vault_projector),
         ):
             stop = getattr(worker, "stop", None)
             if not callable(stop):
@@ -457,6 +466,9 @@ class LocalRuntimeActivation:
         from . import maintenance_jobs
 
         maintenance_jobs.sweep_dead(vault_root)
+        from . import served_context
+
+        served_context.sweep(vault_root)
 
     def _start_derived_drain(self, vault_root: Path) -> None:
         self.derived_drain = _start_derived_drain(vault_root)
@@ -532,6 +544,9 @@ class LocalRuntimeActivation:
 
     def _start_file_watcher(self, vault_root: Path) -> None:
         self.file_watcher = _start_file_watcher(vault_root)
+
+    def _start_vault_projector(self, vault_root: Path) -> None:
+        self.vault_projector = _start_vault_projector(vault_root)
 
     def _start_dreamer(self, vault_root: Path) -> None:
         self.dreamer = _start_dreamer(vault_root)
@@ -977,17 +992,12 @@ def _start_media_worker(vault_root: Path) -> Any | None:
     unavailable_action: str | None = None
     if worker is None:
         if os.environ.get("EXOMEM_DISABLE_MEDIA_EXTRACTION"):
-            unavailable_reason = (
-                "MediaExtractionDisabled: EXOMEM_DISABLE_MEDIA_EXTRACTION is set"
-            )
-            unavailable_action = (
-                "enable media extraction by clearing EXOMEM_DISABLE_MEDIA_EXTRACTION, "
-                "restart the service, then retry"
+            unavailable_reason, unavailable_action = media_jobs.runtime_block(
+                media_jobs.EXTRACTION_DISABLED_CODE, "EXOMEM_DISABLE_MEDIA_EXTRACTION is set"
             )
         else:
-            unavailable_reason = "MediaRuntimeUnavailable: media worker construction failed"
-            unavailable_action = (
-                "fix the media runtime configuration, restart the service, then retry"
+            unavailable_reason, unavailable_action = media_jobs.runtime_block(
+                media_jobs.RUNTIME_UNAVAILABLE_CODE, "media worker construction failed"
             )
     if worker is not None:
         try:
@@ -999,9 +1009,8 @@ def _start_media_worker(vault_root: Path) -> Any | None:
                 pass
             log.warning("media runtime unavailable; core service continuing: %s", exc)
             worker = None
-            unavailable_reason = f"MediaRuntimeUnavailable: {type(exc).__name__}: {exc}"
-            unavailable_action = (
-                "fix the media runtime configuration, restart the service, then retry"
+            unavailable_reason, unavailable_action = media_jobs.runtime_block(
+                media_jobs.RUNTIME_UNAVAILABLE_CODE, f"{type(exc).__name__}: {exc}"
             )
     if unavailable_reason is not None and unavailable_action is not None:
         media_processing.set_media_runtime_unavailable(
@@ -1052,6 +1061,16 @@ def _start_media_worker(vault_root: Path) -> Any | None:
         log.warning("media worker startup discovery failed: %s", exc)
     if worker is None:
         return None
+    try:
+        # This start has a runtime, so the work a start without one blocked is owed again. The
+        # reconcile above skips that work: each artifact already has a job. A blocked row cannot
+        # be claimed, so its sidecar is shown as pending first, before a child could extract it
+        # and find the sidecar rewritten under it. One row at a time, on the supervisor: a stop
+        # leaves at most the page of the row in hand ahead of its row, and the next start with a
+        # runtime heals it.
+        worker.requeue_runtime_blocks()
+    except Exception as exc:  # noqa: BLE001 - media must never deny the core service
+        log.warning("media worker startup requeue failed: %s", exc)
     try:
         worker.scan_pending()
     except Exception as exc:  # noqa: BLE001 - startup scan is best-effort
@@ -1145,6 +1164,22 @@ def _start_file_watcher(vault_root: Path) -> Any | None:
         log.warning("file watcher start failed: %s", exc)
         return None
     return watcher
+
+
+def _start_vault_projector(vault_root: Path) -> Any | None:
+    """Start the projector that writes a store-mode vault's committed pages to disk.
+
+    A file-mode vault, and a vault whose mode records disagree, starts nothing: its files stand.
+    """
+    from .vault_store import mode
+
+    if not mode.store_mode_active(vault_root):
+        return None
+    from .vault_store import projector
+
+    worker = projector.Projector(vault_root)
+    worker.start()
+    return worker
 
 
 def _create_file_watcher(vault_root: Path) -> Any | None:

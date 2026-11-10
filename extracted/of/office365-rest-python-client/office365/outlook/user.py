@@ -1,17 +1,22 @@
 from office365.entity import Entity
 from office365.outlook.categories.collection import OutlookCategoryCollection
 from office365.outlook.locale_info import LocaleInfo
+from office365.outlook.quotas import OUTLOOK_MAILBOX_BUDGETS
 from office365.outlook.timezones.information import TimeZoneInformation
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.types.odata_property import odata
 
 
+@limit(*OUTLOOK_MAILBOX_BUDGETS)
 class OutlookUser(Entity):
     """Represents the Outlook services available to a user."""
 
+    @require_permission(delegated=["User.Read"], application=["User.Read.All"])
     @odata(name="supportedLanguages")
     def supported_languages(self) -> ClientResult[ClientValueCollection[LocaleInfo]]:
         """
@@ -24,6 +29,7 @@ class OutlookUser(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["User.Read"], application=["User.Read.All"])
     @odata(name="supportedTimeZones")
     def supported_time_zones(self) -> ClientResult[ClientValueCollection[TimeZoneInformation]]:
         """
@@ -39,7 +45,7 @@ class OutlookUser(Entity):
         self.context.add_query(qry)
         return return_type
 
-    @odata(name="masterCategories")
+    @odata(name="masterCategories", navigation=True)
     @property
     def master_categories(self) -> OutlookCategoryCollection:
         """A list of categories defined for the user."""

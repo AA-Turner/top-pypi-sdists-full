@@ -25,6 +25,7 @@ model: "bedrock:us.anthropic.claude-sonnet-4-6"
 model_additionals:
   - "alibaba:qwen-max"
 harness: pydantic-ai
+identity: datalayer-acting-agent
 
 sandbox_variant: jupyter-server
 
@@ -97,3 +98,8 @@ welcome_document: null
 
 # No trigger — this is an interactive chat agent
 trigger: null
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

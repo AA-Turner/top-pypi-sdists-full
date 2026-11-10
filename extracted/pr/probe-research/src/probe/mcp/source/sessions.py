@@ -121,7 +121,7 @@ class SessionReadsMixin:
             # and resolution gates ALL three views. Say that instead of letting a
             # raw 404 read as data loss (the browse/search pattern).
             raise errors.NotFoundError(
-                f"this Probe Research backend predates the agent-session routes "
+                f"this Probe backend predates the agent-session routes "
                 f"(GET /v1/sessions/{{id}}/work): upgrade the server to read "
                 f"session {session_id}. A current backend answers an unknown "
                 f"session with an empty work read, never a 404."

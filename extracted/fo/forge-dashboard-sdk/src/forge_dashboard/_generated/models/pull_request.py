@@ -69,8 +69,12 @@ class PullRequest:
                 facts for. For a row it has them for (the rows in view on the live
                 stream), the page folds the jobs itself, so the pill it draws can
                 differ from this field until the next refresh. A run that was only
-                cancelled reads as cancelled in that fold; GitHub's rollup says
-                `failure` and Forgejo's says `none` or `success` here.
+                cancelled reads as cancelled in that fold. GitHub says `cancelled`
+                here too when cancelled runs are the only reason its rollup reads
+                failed (no failed check, no held run, nothing running); Forgejo's says
+                `none` or `success`. `cancelled` is not failing (the failing filter and
+                the failed counts leave it out) and not a pass (merge rules that want a
+                pass still wait).
             checks (CheckCounts): How many checks are in each state, so a client can say how far a
                 pipeline is without opening it. It is on every pull request and on
                 every default branch, for a passed, a failed and a running pipeline
@@ -87,11 +91,13 @@ class PullRequest:
                 else explains the state. A run held for approval: on a pull request
                 `awaitingWorkflowApproval` says that. A cancelled run: a push or a
                 concurrency group superseded it, and the overall state does not read it
-                as a failure while others still run. When cancelled runs (and, on a
-                branch, held ones) are the only reason a pipeline reads as failed, they
-                count as `failed` (a held run first, where both are there), so a failed
-                pipeline always has a failed count on GitHub. A branch whose status is
-                `cancelled` has `failed` at 0. A timed-out or stale check counts as `failed`, a skipped,
+                as a failure while others still run. When a held run (and, on a
+                branch, cancelled ones) is the only reason a pipeline reads as failed,
+                the held run counts as `failed` with the cancelled ones, so a failed
+                pipeline always has a failed count on GitHub. A pull request whose `ci`
+                is `cancelled`, and a branch whose status is `cancelled`, have `failed`
+                at 0; the pull request counts its cancelled runs in `cancelled`. A timed-out or stale check counts as `failed`,
+                a skipped,
                 neutral or bare completed one as `passed`, on Forgejo too.
 
                 `skipped` is a newer field and says how many of the `passed` checks
@@ -129,6 +135,12 @@ class PullRequest:
                 stopping a merge that isn't confirmed to be a real conflict —
                 including Forgejo's own mergeable flag reporting false, since its
                 server computes that asynchronously and can report it stale.
+                "checking" is Forgejo's mergeable flag reading false on a pull
+                request whose base has moved, which is also what a pull request
+                looks like while the forge rechecks it. The row says "Checking for
+                conflicts" for about 90 seconds. It is time limited: if the flag
+                stays false for the same head and base, the status becomes
+                "conflicting".
                 "unstable" is GitHub's UNSTABLE: the pull request can be merged, but
                 a check that branch protection doesn't require is failing or still
                 running. Merge stays available.

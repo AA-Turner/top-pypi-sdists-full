@@ -8,6 +8,7 @@
 //! - Independent component lifecycles
 
 use super::error::ActorError;
+use super::messages::EventParams;
 use djust_core::{Context, RenderEnv, Value};
 use djust_templates::Template;
 use djust_vdom::{diff, parse_html, VNode};
@@ -30,7 +31,7 @@ pub enum ComponentMsg {
     /// Handle an event within this component
     Event {
         event_name: String,
-        params: HashMap<String, Value>,
+        params: EventParams,
         reply: tokio::sync::oneshot::Sender<Result<String, ActorError>>,
     },
 
@@ -51,8 +52,12 @@ pub enum ComponentMsg {
         reply: tokio::sync::oneshot::Sender<Result<(), ActorError>>,
     },
 
-    /// Shutdown this component
-    Shutdown,
+    /// Shutdown this component. `reply` fires after the actor's loop has
+    /// ended and its state, including the Python component, has been dropped
+    /// (#3228).
+    Shutdown {
+        reply: tokio::sync::oneshot::Sender<()>,
+    },
 }
 
 /// ComponentActor manages a single LiveComponent instance
@@ -148,6 +153,7 @@ impl ComponentActor {
     pub async fn run(mut self) {
         info!(component_id = %self.component_id, "ComponentActor started");
 
+        let mut acks = Vec::new();
         while let Some(msg) = self.receiver.recv().await {
             match msg {
                 ComponentMsg::UpdateProps { props, reply } => {
@@ -205,18 +211,47 @@ impl ComponentActor {
                         component_id = %self.component_id,
                         "Setting Python component instance"
                     );
-                    self.python_component = Some(component);
+                    if let Some(replaced) = self.python_component.replace(component) {
+                        // Released now, not queued in pyo3's pool (#3228).
+                        super::drop_attached(replaced);
+                    }
                     let _ = reply.send(Ok(()));
                 }
 
-                ComponentMsg::Shutdown => {
+                ComponentMsg::Shutdown { reply } => {
                     info!(component_id = %self.component_id, "Shutting down");
+                    acks.push(reply);
                     break;
                 }
             }
         }
 
-        info!(component_id = %self.component_id, "ComponentActor stopped");
+        self.stop(acks);
+    }
+
+    /// Tear the actor down, then acknowledge every `Shutdown` (#3228).
+    ///
+    /// Everything the actor owns, and any `Py<...>` a queued message carries,
+    /// is dropped with the interpreter attached before the acknowledgement,
+    /// so a caller awaiting `ComponentActorHandle::shutdown` knows the Python
+    /// component is released when the await returns.
+    fn stop(mut self, mut acks: Vec<tokio::sync::oneshot::Sender<()>>) {
+        self.receiver.close();
+        let mut unhandled = Vec::new();
+        while let Ok(msg) = self.receiver.try_recv() {
+            match msg {
+                ComponentMsg::Shutdown { reply } => acks.push(reply),
+                other => unhandled.push(other),
+            }
+        }
+
+        let component_id = std::mem::take(&mut self.component_id);
+        super::drop_attached((self, unhandled));
+        info!(component_id = %component_id, "ComponentActor stopped");
+
+        for ack in acks {
+            let _ = ack.send(());
+        }
     }
 
     /// Set Python component instance for event handling
@@ -240,10 +275,15 @@ impl ComponentActor {
     async fn handle_event(
         &mut self,
         event_name: String,
-        params: HashMap<String, Value>,
+        params: EventParams,
     ) -> Result<String, ActorError> {
         // Phase 8.2: Call Python event handler if available
         let result = self.call_python_handler(&event_name, &params);
+
+        // A rejected strict payload must never enter the legacy state fallback.
+        if matches!(result, Err(ActorError::InvalidParameters)) {
+            return Err(ActorError::InvalidParameters);
+        }
 
         // If handler call succeeded, sync state from Python
         if result.is_ok() {
@@ -274,7 +314,7 @@ impl ComponentActor {
     fn call_python_handler(
         &self,
         event_name: &str,
-        params: &HashMap<String, Value>,
+        params: &EventParams,
     ) -> Result<(), ActorError> {
         use pyo3::types::PyDict;
         use pyo3::Python;
@@ -310,8 +350,9 @@ impl ComponentActor {
                     .map_err(|e| ActorError::Python(format!("Failed to set param '{key}': {e}")))?;
             }
 
-            // Call handler(**params)
-            handler.call((), Some(&params_dict)).map_err(|e| {
+            // Same Python contract boundary as view actors.
+            let (args, kwargs) = super::prepare_python_handler_call(py, &handler, &params_dict)?;
+            handler.call(&args, Some(&kwargs)).map_err(|e| {
                 ActorError::Python(format!(
                     "Error in component '{}' handler '{}': {}",
                     self.component_id, event_name, e
@@ -450,7 +491,7 @@ impl ComponentActorHandle {
     pub async fn event(
         &self,
         event_name: String,
-        params: HashMap<String, Value>,
+        params: EventParams,
     ) -> Result<String, ActorError> {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
@@ -491,7 +532,7 @@ impl ComponentActorHandle {
                 reply: tx,
             })
             .await
-            .map_err(|_| ActorError::Shutdown)?;
+            .map_err(super::send_failed)?;
 
         rx.await.map_err(|_| ActorError::Shutdown)?
     }
@@ -505,9 +546,24 @@ impl ComponentActorHandle {
             .await;
     }
 
-    /// Shutdown component
+    /// Shut the component down and wait until it has stopped (#3228).
+    ///
+    /// Returns once the actor's loop has ended and its state, including the
+    /// Python component, has been dropped with the interpreter attached.
+    /// Returns at once if the actor has already stopped. Must not be awaited
+    /// from the component's own task.
     pub async fn shutdown(&self) {
-        let _ = self.sender.send(ComponentMsg::Shutdown).await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .sender
+            .send(ComponentMsg::Shutdown { reply: tx })
+            .await
+            .is_ok()
+        {
+            // An Err means the actor dropped the ack without replying, which
+            // only happens once it has already stopped.
+            let _ = rx.await;
+        }
     }
 
     /// Get component ID
@@ -699,7 +755,7 @@ mod tests {
         tokio::spawn(actor.run());
 
         // Trigger event (simplified - just updates state)
-        let mut params = HashMap::new();
+        let mut params = EventParams::new();
         params.insert("count".to_string(), Value::Integer(5));
         let html = handle.event("increment".to_string(), params).await.unwrap();
         assert!(html.contains("5"));
@@ -721,6 +777,53 @@ mod tests {
             .send_to_parent("child_event".to_string(), HashMap::new())
             .await;
 
+        handle.shutdown().await;
+    }
+}
+
+/// #3228: a component's `shutdown()` returns only after its Python instance
+/// has been freed (see `view::release_3228` for the harness shape).
+#[cfg(test)]
+mod release_3228 {
+    use super::*;
+    use crate::actors::test_support::{is_released, released_probe};
+
+    #[tokio::test]
+    async fn shutdown_returns_after_the_python_component_is_released() {
+        let (component, released) = released_probe();
+        let (actor, handle) = ComponentActor::new(
+            "c3228".to_string(),
+            "<p/>".to_string(),
+            HashMap::new(),
+            None,
+        )
+        .unwrap();
+        tokio::spawn(actor.run());
+        handle.set_python_component(component).await.unwrap();
+        assert!(!is_released(&released), "premise: the actor holds it");
+
+        handle.shutdown().await;
+
+        assert!(is_released(&released));
+    }
+
+    #[tokio::test]
+    async fn a_replaced_component_is_released_when_the_replacement_is_set() {
+        let (first, first_released) = released_probe();
+        let (second, _second_released) = released_probe();
+        let (actor, handle) = ComponentActor::new(
+            "c3228".to_string(),
+            "<p/>".to_string(),
+            HashMap::new(),
+            None,
+        )
+        .unwrap();
+        tokio::spawn(actor.run());
+        handle.set_python_component(first).await.unwrap();
+
+        handle.set_python_component(second).await.unwrap();
+
+        assert!(is_released(&first_released));
         handle.shutdown().await;
     }
 }

@@ -231,7 +231,9 @@ def spow(base: StrictNumber, exp: StrictNumber) -> float:
 def rect_to_polar(a: StrictNumber, b: StrictNumber) -> tuple[float, float]:
     """Take rectangular coordinates and make them polar."""
 
-    return math.sqrt(a * a + b * b), math.degrees(math.atan2(b, a)) % 360
+    # A tiny negative angle will round up to exactly 360 after the modulo, so wrap it back to zero.
+    h = math.degrees(math.atan2(b, a)) % 360
+    return math.sqrt(a * a + b * b), 0.0 if h >= 360 else h
 
 
 def polar_to_rect(c: StrictNumber, h: StrictNumber) -> tuple[float, float]:
@@ -295,8 +297,8 @@ def solve_bisect(
         t = a + dt
         x = f(t, *args) if args else f(t)
 
-        # Update bounds
-        if sgn(x) != sgn(t):
+        # Update bounds. The bounds were oriented so that `f(a)` is always negative.
+        if x < 0:
             a = t
 
         if math.isclose(x, 0, rel_tol=rtol, abs_tol=atol):
@@ -571,16 +573,22 @@ def solve_newton(
         if fx1 and fx2 and sgn(fx1) == sgn(fx2):
             return math.nan, False
 
-        if fx1 > 0:
+        # Order the bounds so `a` is the lower bound and `b` is the upper bound,
+        # and track which side of the bracket the function is negative on.
+        if a > b:
             a, b = b, a
+            fx1 = fx2
+        negative_low = fx1 < 0
 
-        dx_last = abs(b - a)
+        # The size of the last two steps taken, used to detect when we are converging too slowly.
+        dx_old = dx_step = abs(b - a)
 
         bracketed = True
     else:
         a, b = -math.inf, math.inf
         bracketed = False
-        dx_last = 0
+        negative_low = True
+        dx_old = dx_step = 0.0
 
     for _ in range(maxiter):
         # Get result form equation when setting value to expected result
@@ -598,12 +606,11 @@ def solve_newton(
         # Update brackets
         if bracketed:
             if in_bounds:
-                if fx < 0:
+                if (fx < 0) == negative_low:
                     a = x0
                 else:
                     b = x0
-            slow = abs(2.0 * fx) > abs(dx_last * d1)
-            dx_last = d1
+            slow = abs(2.0 * fx) > abs(dx_old * d1)
 
         # Cannot find a solution if derivative is zero
         if abs(d1) < ATOL or slow:
@@ -611,6 +618,7 @@ def solve_newton(
             if bracketed:
                 x0 = a + (b - a) * 0.5
                 if x0 != prev:
+                    dx_old, dx_step = dx_step, abs(x0 - prev)
                     continue
             return x0, None
 
@@ -628,7 +636,7 @@ def solve_newton(
             # Traub's method: 3rd order convergence
             else:
                 fy = f0(x0 - newton, *args) if args else f0(x0 - newton)
-                newton -= fy / d1
+                newton += fy / d1
 
         # Apply the Newton step (or adjusted Newton step)
         x0 -= newton
@@ -644,8 +652,11 @@ def solve_newton(
         if bracketed and not a <= x0 <= b:  # pragma: no cover
             x0 = a + (b - a) * 0.5
             if x0 != prev:
+                dx_old, dx_step = dx_step, abs(x0 - prev)
                 continue
             return x0, None
+
+        dx_old, dx_step = dx_step, abs(x0 - prev)
 
         # Result is close enough
         if math.isclose(x0, prev, rel_tol=rtol, abs_tol=atol):
@@ -1317,7 +1328,7 @@ def _validate_printoption(key: str, value: Any) -> bool:
     """Validate pretty print options."""
 
     if key not in default_pretty_options:
-        raise ValueError(f"'{key} is not a valid print option'")
+        raise ValueError(f"'{key}' is not a valid print option")
 
     t = type(default_pretty_options[key])
     value_set = value is not None
@@ -1340,7 +1351,7 @@ def set_printoptions(
     no_leading_zeros: bool | None = None,
     padding: bool | None = None
 ) -> None:
-    """Get current print options."""
+    """Set the current print options."""
 
     _set_printoptions(
         precision=precision,
@@ -1423,6 +1434,34 @@ def _pretty_array(
     return value
 
 
+def _trim_zeros(s: str) -> str:
+    """Remove trailing zeros from the fractional part of a number string, leaving whole numbers untouched."""
+
+    return s.rstrip('0') if '.' in s else s
+
+
+def _fixed_str(x: float, p: int) -> str:
+    """Format a float with `p` decimal places, trimming trailing zeros but always keeping the decimal point."""
+
+    s = f'{x:.{p}f}'
+    return s.rstrip('0') if '.' in s else f'{s}.'
+
+
+def _sci_exact(x: float) -> str:
+    """Format a float in scientific notation using only the significant digits needed to represent it exactly."""
+
+    if not x:
+        return f'{x:.0e}'
+
+    s = repr(x)
+    if 'e' in s:
+        return s
+
+    # Count the significant digits of the plain number, ignoring leading and trailing zeros
+    digits = s.replace('-', '').replace('.', '').strip('0')
+    return f'{x:.{len(digits) - 1}e}'
+
+
 def pretty(
     value: Number | ArrayTLike[Number],
     *,
@@ -1461,8 +1500,8 @@ def pretty(
 
         # Handle leading and trailing zeros
         if is_float:
-            if (v.is_integer() or abs(v) < 1e-4) and not s_note:  # type: ignore[attr-defined, unused-ignore]
-                s = f'{s.rstrip("0").rstrip(".")}.'
+            if v.is_integer() and not s_note:  # type: ignore[attr-defined, unused-ignore]
+                s = f'{_trim_zeros(s).rstrip(".")}.'
             if no_leading_zeros:
                 if v >= 0 and s.startswith('0.') and len(s) > 2:
                     s = f'.{s[2:]}'
@@ -1521,16 +1560,12 @@ def pretty(
         if precision >= 0:
             rnd = lambda x, p: f'{x:.{p}e}'
         else:
-            rnd = lambda x, p: (
-                f'{x:.{0 if x == 0 or x.is_integer() else len(str(abs(x)).replace(".", "").lstrip("0")) - 1}e}'  # type: ignore[attr-defined, unused-ignore]
-                if not x or 1e-4 <= abs(x) <= 1e15 else
-                str(x)
-            )
+            rnd = lambda x, p: _sci_exact(x)
     elif is_float and not suppress:
-        rnd = lambda x, p: f'{x:.{p}f}'.rstrip('0') if precision >= 0 else str(x)
+        rnd = lambda x, p: _fixed_str(x, p) if precision >= 0 else str(x)
     elif is_float and suppress:
         if precision >= 0:
-            rnd = lambda x, p: f'{x:.{p}f}'.rstrip('0')
+            rnd = lambda x, p: _fixed_str(x, p)
         else:
             rnd = lambda x, p: str(x) if not x or 1e-4 <= abs(x) <= 1e15 else f'{x:.15f}'.rstrip('0')
 
@@ -1564,9 +1599,10 @@ def point_on_segment(
     ab = [b[i] - a[i] for i in range(l)]
     ap = [p[i] - a[i] for i in range(l)]
 
-    # Check if `ap` is parallel to `ab` (cross product is zero)
-    cp = cross(ab, ap)
-    if _any(abs(c) > abs_tol for c in cp):
+    # Check if `ap` is parallel to `ab` (cross product is zero).
+    # The cross product of 2-D vectors is a single value and the cross product of 3-D vectors is a vector.
+    cp = vcross(ab, ap)
+    if abs(cp) > abs_tol if l == 2 else _any(abs(c) > abs_tol for c in cp):
         return False
 
     # Check if the point is between a and b
@@ -1624,15 +1660,19 @@ def line_interesect(
     u2 = [a / m2 for a in l2]
     # Direction projection
     u = vdot(u1, u2)
-    if u == 1:  # pragma: no cover
+
+    # The lines are parallel, whether they point in the same or opposite directions (`u` is 1 or -1).
+    # There is no single point of intersection.
+    denom = 1 - u * u
+    if not denom:
         return None
     # Separation projection
     sp = [a - b for a, b in zip(s2, s1)]
     sp1 = vdot(sp, u1)
     sp2 = vdot(sp, u2)
     # Distance along lines
-    d1 = (sp1 - u * sp2) / (1 - u * u)
-    d2 = (sp2 - u * sp1) / (u * u - 1)
+    d1 = (sp1 - u * sp2) / denom
+    d2 = (u * sp1 - sp2) / denom
     # Calculate points of closest line
     p1 = [a + b for a, b in zip(s1, [x * d1 for x in u1])]
     p2 = [a + b for a, b in zip(s2, [x * d2 for x in u2])]
@@ -5393,6 +5433,17 @@ def _svd(
                 del r[-diff:]
         del q[-diff:]
 
+    # The algorithm does not produce the singular values in any particular order, so sort them in descending order
+    # like Numpy and LAPACK. When computing `U` and `V`, their columns must follow the singular values they belong to.
+    # Any extra columns of `U` (when computing full matrices) are not associated with a singular value and stay put.
+    k = len(q)
+    order = sorted(range(k), key=q.__getitem__, reverse=True)
+    if order != list(range(k)):
+        q = [q[i] for i in order]
+        if compute_uv:
+            u = [[r[i] for i in order] + r[k:] for r in u]
+            v = [[r[i] for i in order] for r in v]
+
     if compute_uv:
         if wide:
             v, u = u, v
@@ -5984,6 +6035,27 @@ def trace(matrix: MatrixTLike[StrictNumber]) -> StrictNumber:
     return sum(diag(matrix))
 
 
+def _permutation_sign(perm: Sequence[int]) -> float:
+    """
+    Get the sign of a permutation: `1.0` if it is even and `-1.0` if it is odd.
+
+    A permutation's parity is determined by the number of cycles it contains, not by the number of elements
+    that moved: a permutation of `n` elements with `c` cycles is composed of `n - c` swaps.
+    """
+
+    size = len(perm)
+    seen = [False] * size
+    cycles = 0
+    for i in range(size):
+        if not seen[i]:
+            cycles += 1
+            j = i
+            while not seen[j]:
+                seen[j] = True
+                j = perm[j]
+    return -1.0 if (size - cycles) % 2 else 1.0
+
+
 @overload
 def det(array: MatrixTLike[StrictNumber]) -> float:
     ...
@@ -6002,10 +6074,8 @@ def det(array: MatrixTLike[StrictNumber] | TensorTLike[StrictNumber]) -> float |
         raise ValueError('Last two dimensions must be square')
     if len(s) == 2:
         size = s[0]
-        p, l, u = lu(cast('MatrixTLike[StrictNumber]', array), shape=s)
-        swaps = size - trace(p)
-        _sign = (-1) ** (swaps - 1) if swaps else 1
-        dt = cast('float', _sign * math.prod(l[i][i] * u[i][i] for i in range(size)))
+        p, l, u = lu(cast('MatrixTLike[StrictNumber]', array), shape=s, p_indices=True)
+        dt = _permutation_sign(p) * math.prod(l[i][i] * u[i][i] for i in range(size))
         return 0.0 if not dt else dt
     else:
         last = s[-2:]  # type: ignore[misc]

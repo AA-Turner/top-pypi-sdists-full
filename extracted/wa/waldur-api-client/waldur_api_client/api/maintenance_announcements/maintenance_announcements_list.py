@@ -18,6 +18,7 @@ def _get_kwargs(
     *,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
@@ -40,6 +41,11 @@ def _get_kwargs(
             json_o.append(o_item)
 
     params["o"] = json_o
+
+    json_offering_uuid: Union[Unset, str] = UNSET
+    if not isinstance(offering_uuid, Unset):
+        json_offering_uuid = str(offering_uuid)
+    params["offering_uuid"] = json_offering_uuid
 
     params["page"] = page
 
@@ -125,6 +131,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
@@ -142,6 +149,7 @@ def sync_detailed(
     Args:
         maintenance_type (Union[Unset, int]):
         o (Union[Unset, list[MaintenanceAnnouncementOEnum]]):
+        offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scheduled_end_after (Union[Unset, datetime.datetime]):
@@ -163,6 +171,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         maintenance_type=maintenance_type,
         o=o,
+        offering_uuid=offering_uuid,
         page=page,
         page_size=page_size,
         scheduled_end_after=scheduled_end_after,
@@ -186,6 +195,7 @@ def sync(
     client: AuthenticatedClient,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
@@ -203,6 +213,7 @@ def sync(
     Args:
         maintenance_type (Union[Unset, int]):
         o (Union[Unset, list[MaintenanceAnnouncementOEnum]]):
+        offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scheduled_end_after (Union[Unset, datetime.datetime]):
@@ -225,6 +236,7 @@ def sync(
         client=client,
         maintenance_type=maintenance_type,
         o=o,
+        offering_uuid=offering_uuid,
         page=page,
         page_size=page_size,
         scheduled_end_after=scheduled_end_after,
@@ -242,6 +254,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
@@ -259,6 +272,7 @@ async def asyncio_detailed(
     Args:
         maintenance_type (Union[Unset, int]):
         o (Union[Unset, list[MaintenanceAnnouncementOEnum]]):
+        offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scheduled_end_after (Union[Unset, datetime.datetime]):
@@ -280,6 +294,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         maintenance_type=maintenance_type,
         o=o,
+        offering_uuid=offering_uuid,
         page=page,
         page_size=page_size,
         scheduled_end_after=scheduled_end_after,
@@ -301,6 +316,7 @@ async def asyncio(
     client: AuthenticatedClient,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
@@ -318,6 +334,7 @@ async def asyncio(
     Args:
         maintenance_type (Union[Unset, int]):
         o (Union[Unset, list[MaintenanceAnnouncementOEnum]]):
+        offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         scheduled_end_after (Union[Unset, datetime.datetime]):
@@ -341,6 +358,7 @@ async def asyncio(
             client=client,
             maintenance_type=maintenance_type,
             o=o,
+            offering_uuid=offering_uuid,
             page=page,
             page_size=page_size,
             scheduled_end_after=scheduled_end_after,
@@ -359,6 +377,7 @@ def sync_all(
     client: AuthenticatedClient,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
     scheduled_end_before: Union[Unset, datetime.datetime] = UNSET,
     scheduled_start_after: Union[Unset, datetime.datetime] = UNSET,
@@ -377,6 +396,7 @@ def sync_all(
     Args:
         maintenance_type (Union[Unset, int]):
         o (Union[Unset, list[MaintenanceAnnouncementOEnum]]):
+        offering_uuid (Union[Unset, UUID]):
         scheduled_end_after (Union[Unset, datetime.datetime]):
         scheduled_end_before (Union[Unset, datetime.datetime]):
         scheduled_start_after (Union[Unset, datetime.datetime]):
@@ -400,6 +420,7 @@ def sync_all(
     kwargs = _get_kwargs(
         maintenance_type=maintenance_type,
         o=o,
+        offering_uuid=offering_uuid,
         scheduled_end_after=scheduled_end_after,
         scheduled_end_before=scheduled_end_before,
         scheduled_start_after=scheduled_start_after,
@@ -456,6 +477,7 @@ async def asyncio_all(
     client: AuthenticatedClient,
     maintenance_type: Union[Unset, int] = UNSET,
     o: Union[Unset, list[MaintenanceAnnouncementOEnum]] = UNSET,
+    offering_uuid: Union[Unset, UUID] = UNSET,
     scheduled_end_after: Union[Unset, datetime.datetime] = UNSET,
     scheduled_end_before: Union[Unset, datetime.datetime] = UNSET,
     scheduled_start_after: Union[Unset, datetime.datetime] = UNSET,
@@ -474,6 +496,7 @@ async def asyncio_all(
     Args:
         maintenance_type (Union[Unset, int]):
         o (Union[Unset, list[MaintenanceAnnouncementOEnum]]):
+        offering_uuid (Union[Unset, UUID]):
         scheduled_end_after (Union[Unset, datetime.datetime]):
         scheduled_end_before (Union[Unset, datetime.datetime]):
         scheduled_start_after (Union[Unset, datetime.datetime]):
@@ -497,6 +520,7 @@ async def asyncio_all(
     kwargs = _get_kwargs(
         maintenance_type=maintenance_type,
         o=o,
+        offering_uuid=offering_uuid,
         scheduled_end_after=scheduled_end_after,
         scheduled_end_before=scheduled_end_before,
         scheduled_start_after=scheduled_start_after,

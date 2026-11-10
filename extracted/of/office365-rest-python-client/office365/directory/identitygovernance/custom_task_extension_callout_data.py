@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 from office365.directory.identitygovernance.task import Task
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from office365.directory.identitygovernance.workflow.workflow import Workflow
 
 
-@dataclass
 class CustomTaskExtensionCalloutData(ClientValue):
     subject: User | None = None
     task: Task | None = None

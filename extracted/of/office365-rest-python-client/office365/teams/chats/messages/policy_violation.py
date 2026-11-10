@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.teams.chats.messages.policy_violation_policy_tip import ChatMessagePolicyViolationPolicyTip
@@ -11,7 +11,6 @@ from office365.teams.chats.messages.policyviolationverdictdetailstypes import (
 )
 
 
-@dataclass
 class ChatMessagePolicyViolation(ClientValue):
     dlpAction: ChatMessagePolicyViolationDlpActionTypes = ChatMessagePolicyViolationDlpActionTypes.none
     justificationText: str | None = None

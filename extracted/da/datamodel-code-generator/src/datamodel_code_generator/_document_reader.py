@@ -33,6 +33,7 @@ __all__ = [
     "MISSING",
     "ArrayIndexOutOfRangeError",
     "MemberRow",
+    "MergedRefSiteRecursionError",
     "as_mapping",
     "descend",
     "discriminator_mapping_ref",
@@ -41,6 +42,7 @@ __all__ = [
     "member",
     "member_key",
     "nesting_limit",
+    "schema_format_media_type",
     "string_key",
     "string_keyed",
     "string_keys",
@@ -136,20 +138,33 @@ def descend(value: YamlValue, tokens: Iterable[str], row: MemberRow, missing: Ya
     return value
 
 
+class MergedRefSiteRecursionError(RecursionError):
+    """A recursion limit exceeded while a chain of `$ref`s with sibling keywords is parsed in place, one in another.
+
+    --use-one-model-per-ref-site parses such a chain without nesting.
+    """
+
+
 @contextmanager
 def nesting_limit() -> Generator[None]:
     """Read the nested schemas of a document in the block; a read that exceeds the Python recursion limit is an error.
 
     A document whose schemas nest too deep, or hold themselves through a YAML alias, ends in this error instead of a
-    traceback or a partial result, whichever reader walks it.
+    traceback or a partial result, whichever reader walks it. Where `$ref`s with sibling keywords nest one parse per
+    hop (``MergedRefSiteRecursionError``), it names --use-one-model-per-ref-site, which parses them without nesting.
     """
     try:
         yield
-    except RecursionError:
+    except RecursionError as error:
         msg = (
             "Schema nesting is too deep to generate: parsing the nested schemas exceeded the Python recursion "
             f"limit ({sys.getrecursionlimit()})."
         )
+        if isinstance(error, MergedRefSiteRecursionError):
+            msg += (
+                " A chain of $refs with sibling keywords is parsed one nested model per hop; "
+                "--use-one-model-per-ref-site parses it without nesting."
+            )
         raise Error(msg) from None
 
 
@@ -189,6 +204,11 @@ def is_multi_format_schema_object(value: object) -> bool:
     return "schemaFormat" in value or {key for key in value if isinstance(key, str) and not key.startswith("x-")} == {
         "schema"
     }
+
+
+def schema_format_media_type(schema_format: str) -> str:
+    """Return the media type an AsyncAPI ``schemaFormat`` names: its text before any parameter, lowercased."""
+    return schema_format.split(";", maxsplit=1)[0].strip().lower()
 
 
 def discriminator_mapping_ref(value: str) -> str:

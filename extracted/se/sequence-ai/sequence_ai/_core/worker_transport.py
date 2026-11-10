@@ -553,18 +553,18 @@ class _WorkerTransport(StreamLink):
 
 
             waited = time.monotonic() - sent_at if sent_at is not None else None
-            raise _WorkerGone(f"worker at {self._base} did not answer in time", waited_s=waited) from None
+            raise _WorkerGone("the worker did not answer in time", waited_s=waited) from None
         except _stream.NotOpened as exc:
             raise _WorkerGone(str(exc)) from None
         except _WORKER_GONE:
 
 
 
-            raise _WorkerGone(f"worker at {self._base} did not answer") from None
+            raise _WorkerGone("the worker did not answer") from None
         except httpx.TimeoutException:
-            raise _WorkerGone(f"worker at {self._base} timed out") from None
+            raise _WorkerGone("the worker timed out") from None
         except httpx.TransportError:
-            raise _WorkerGone(f"could not reach worker at {self._base}") from None
+            raise _WorkerGone("could not reach the worker") from None
 
         self._note_congestion(r)
         if metrics is not None:
@@ -793,6 +793,17 @@ class _WorkerTransport(StreamLink):
         the episode with it, and the worker ends an episode with no act on its own after its TTL."""
         try:
             self._learn(self._client.post("/act/episode_end", json={"episode_id": episode_id}, timeout=_EPISODE_END_S))
+        except (httpx.HTTPError, SequencesError):
+            pass
+
+    def post_episode_label(self, episode_id: str, *, success: bool, notes: str = "") -> None:
+        """How the robot's episode went, to the worker it is on (POST /act/episode_label): its policy's recorders read
+        it there (sequence_ai.record), the platform keeping it apart while capture is on. Best effort, as the episode's
+        end is: a worker that is gone took its recorders' window with it."""
+        try:
+            self._learn(self._client.post("/act/episode_label", json={"episode_id": episode_id,
+                                                                      "success": bool(success), "notes": notes},
+                                          timeout=_EPISODE_END_S))
         except (httpx.HTTPError, SequencesError):
             pass
 

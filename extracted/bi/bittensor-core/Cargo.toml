@@ -1,7 +1,7 @@
 
 [workspace]
-members = ["sdk/bittensor-core", "sdk/bittensor-core-py", "support/*"]
-exclude = ["eco-tests", "vendor/w3f-bls", "vendor/frontier"]
+members = ["primitives/*", "sdk/bittensor-core", "sdk/bittensor-core-py", "support/*"]
+exclude = ["eco-tests", "vendor/w3f-bls", "vendor/frontier", "vendor/sc-informant", "vendor/fips204"]
 resolver = "2"
 
 [workspace.package]
@@ -40,6 +40,7 @@ subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
+subtensor-hashed = { default-features = false, path = "primitives/hashed" }
 subtensor-swap-interface = { default-features = false, path = "primitives/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
@@ -72,8 +73,8 @@ serde_with = { version = "3.14.0", default-features = false }
 smallvec = "1.13.2"
 tracing = "0.1"
 tracing-log = "0.2"
-# Keep this pinned: 0.3.20 escapes ANSI sequences embedded by Substrate's
-# informant, causing color codes such as `\x1b[37m` to be printed literally.
+# Keep ANSI sanitization enabled. The patched informant emits plain message fields;
+# the logger still handles timestamp and level colors.
 tracing-subscriber = { version = "=0.3.20" }
 litep2p = { git = "https://github.com/paritytech/litep2p", tag = "v0.7.0", default-features = false }
 syn = { version = "2.0.106", default-features = false }
@@ -121,7 +122,7 @@ pallet-aura = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev =
 pallet-balances = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-grandpa = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-insecure-randomness-collective-flip = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
-pallet-multisig = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
+pallet-multisig = { path = "pallets/multisig", default-features = false }
 pallet-preimage = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-safe-mode = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-scheduler = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
@@ -277,6 +278,8 @@ pallet-shield = { path = "pallets/shield", default-features = false }
 ml-kem = { version = "0.2.2", default-features = false }
 chacha20poly1305 = { version = "0.10", default-features = false }
 blake2 = "0.10.6"
+insta = "1.41"
+rstest = "0.27.0"
 
 # Primitives
 
@@ -292,9 +295,13 @@ lto = true
 codegen-units = 1
 
 [patch.crates-io]
+evm-gasometer = { path = "vendor/evm-gasometer" }
 w3f-bls = { path = "vendor/w3f-bls" }
 zstd-sys = { git = "https://github.com/gztensor/zstd-sys" }
 zstd-safe = { git = "https://github.com/gztensor/zstd-safe", rev = "42cc34ef6abe5d35d982f6afefb5d7e4e69f5f18" }
+
+[patch."https://github.com/RaoFoundation/polkadot-sdk.git"]
+sc-informant = { path = "vendor/sc-informant" }
 
 # The RaoFoundation/frontier fork still pins polkadot-sdk to the
 # github.com/opentensor/polkadot-sdk remote at the same rev this workspace
@@ -335,7 +342,7 @@ sc-executor = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev =
 sc-executor-common = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-executor-polkavm = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-executor-wasmtime = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
-sc-informant = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
+sc-informant = { path = "vendor/sc-informant" }
 sc-keystore = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-mixnet = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-network = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }

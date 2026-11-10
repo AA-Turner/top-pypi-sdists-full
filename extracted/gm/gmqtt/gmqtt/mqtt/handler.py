@@ -31,6 +31,11 @@ _NON_RETRYABLE_V50_CONNACK_CODES = frozenset(
     {129, 130, 132, 133, 134, 135, 138, 140, 144, 149, 153, 154, 155, 156, 157}
 )
 
+# Refusals a credentials provider can fix by handing out new credentials:
+# bad user name or password, not authorized.
+_AUTH_V311_CONNACK_CODES = frozenset({4, 5})
+_AUTH_V50_CONNACK_CODES = frozenset({134, 135})
+
 
 class MQTTError(Exception):
     pass
@@ -70,6 +75,10 @@ class MQTTConnectError(MQTTError):
     def __init__(self, code):
         self._code = code
         self.message = self.__messages__.get(code, "Unknown error")
+
+    @property
+    def code(self):
+        return self._code
 
     def __str__(self):
         return "code {} ({})".format(self._code, self.message)
@@ -199,6 +208,8 @@ class MqttPackageHandler(EventCallbackMixin):
         self._error = None
         # Set on an unretryable refusal; also checked by the disconnect path.
         self._permanent_failure = False
+        # Set by Client when a credentials provider can hand out new credentials.
+        self.retry_auth_refusals = False
         # Set by MQTTConnection.__init__ via set_connection() on each connect.
         self._connection = None
         self._server_topics_aliases = {}
@@ -227,6 +238,16 @@ class MqttPackageHandler(EventCallbackMixin):
     @property
     def has_error(self):
         return self._error is not None
+
+    @property
+    def error(self) -> Optional[MQTTConnectError]:
+        """The last connect refusal, None once a CONNACK succeeds."""
+        return self._error
+
+    @property
+    def permanently_refused(self) -> bool:
+        """True after a CONNACK that auto-reconnect will not retry."""
+        return self._permanent_failure
 
     @property
     def properties(self) -> dict:
@@ -317,8 +338,10 @@ class MqttPackageHandler(EventCallbackMixin):
         # here as a synthetic DISCONNECT. Reconnecting would defeat the
         # permanent-refusal check in _handle_connack_packet.
         if self._permanent_failure:
+            # carries the code: this is the event that reliably reaches log aggregators
             self._logger.error(
-                "[MqttPackageHandler] not reconnecting after a permanent CONNACK refusal"
+                "[MqttPackageHandler] not reconnecting after a permanent CONNACK refusal: %s",
+                self._error,
             )
         else:
             future = asyncio.ensure_future(self._reconnect_callback(delay=True))
@@ -331,9 +354,10 @@ class MqttPackageHandler(EventCallbackMixin):
         if self._connection_state.protocol_version < MQTTv50:
             # If protocol is version is less than 5.0, there is no properties in packet
             return {}, packet
-        properties_len, left_packet = unpack_variable_byte_integer(packet)
-        packet = left_packet[:properties_len]
-        left_packet = left_packet[properties_len:]
+        # memoryview: O(1) slicing; bytes slicing made this O(n^2).
+        properties_len, view = unpack_variable_byte_integer(memoryview(packet))
+        packet = view[:properties_len]
+        left_packet = bytes(view[properties_len:])
         properties_dict = defaultdict(list)
         while packet:
             (property_identifier,) = struct.unpack("!B", packet[:1])
@@ -350,8 +374,17 @@ class MqttPackageHandler(EventCallbackMixin):
         properties_dict = dict(properties_dict)
         return properties_dict, left_packet
 
+    def _is_auth_refusal(self, result):
+        """Whether CONNACK `result` rejects the credentials themselves."""
+        if self._connection_state.protocol_version >= MQTTv50:
+            return result in _AUTH_V50_CONNACK_CODES
+        return result in _AUTH_V311_CONNACK_CODES
+
     def _is_retryable_connack(self, result):
         """Whether auto-reconnect has any chance of succeeding after `result`."""
+        # new credentials may succeed where the refused ones could not
+        if self.retry_auth_refusals and self._is_auth_refusal(result):
+            return True
         if self._connection_state.protocol_version >= MQTTv50:
             return result not in _NON_RETRYABLE_V50_CONNACK_CODES
         return result not in _NON_RETRYABLE_V311_CONNACK_CODES
@@ -410,15 +443,18 @@ class MqttPackageHandler(EventCallbackMixin):
                 # connect() so it can raise via propagate_error().
                 self._error = MQTTConnectError(result)
                 self._connack_received.set()
+                # Set both ways: a permanent refusal followed by a transient
+                # one (e.g. after reconnect()) must not stay "permanent".
+                retryable = self._is_retryable_connack(result)
+                self._permanent_failure = not retryable
 
-                if self._is_retryable_connack(result):
+                if retryable:
                     future = asyncio.ensure_future(self._reconnect_callback(delay=True))
                     future.add_done_callback(
                         partial(self._handle_exception_in_future,
                                 msg="reconnect failed after refused CONNACK")
                     )
                 else:
-                    self._permanent_failure = True
                     self._logger.error(
                         "[MqttPackageHandler] CONNACK %s is permanent, not reconnecting",
                         hex(result),

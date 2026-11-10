@@ -5,8 +5,11 @@ use crate::carries::{
     Carries, OrderGroup, StepGroup, carries_division, carries_length, carries_order,
 };
 use crate::decision::{DECISION_BUDGET, LeafRelations, NoLeafRelations};
+use crate::descr::Descr;
+use crate::descr::budget;
 use crate::descr::classes::{Attributes, Class, Hook, Member};
 use crate::descr::lower::{Constants, Operand, lower, lower_widened};
+use crate::descr::symbolic::Guard;
 use crate::ir::{Clauses, Polarity};
 use crate::kind::Kind;
 use crate::verdict::Relation;
@@ -1359,6 +1362,22 @@ fn a_refinement_is_built_with_its_constraints_ordered_and_once() {
         ),
         canonical
     );
+    // A refinement of a refinement is one, read as the conjunction of the two.
+    assert_eq!(
+        Schema::refine(
+            Schema::refine(Schema::Int, vec![at_most.clone()]),
+            vec![at_least.clone()]
+        ),
+        canonical
+    );
+    assert_eq!(
+        Schema::refine(
+            Schema::refine(Schema::Int, vec![at_least.clone()]),
+            vec![at_least.clone()]
+        ),
+        Schema::refine(Schema::Int, vec![at_least.clone()]),
+        "a bound both write is one bound"
+    );
     // With no constraint there is nothing to narrow, and the base comes back.
     assert_eq!(Schema::refine(Schema::Int, Vec::new()), Schema::Int);
 }
@@ -2462,6 +2481,42 @@ proptest! {
         prop_assert!(same(&intersection(a.clone(), union(a.clone(), b.clone())), &a));
     }
 
+    // THEORY: kinds-decompose-emptiness
+    /// A difference is the meet with the complement, to the form: a kind the
+    /// subject holds no line of holds no line of either, and every other kind is
+    /// that one meet. It charges fewer units, so a draw that spent the allowance
+    /// may land on another spelling of one set and is not compared.
+    #[test]
+    fn a_difference_is_the_meet_with_the_complement(
+        a in decidable_schema(),
+        b in decidable_schema(),
+    ) {
+        let _held = budget::law();
+        let (Some(a), Some(b)) = (lower(&a, &CorpusOracle), lower(&b, &CorpusOracle)) else {
+            return Ok(());
+        };
+        let (minus, met) = (a.minus(&b), a.intersect(&b.complement()));
+        if budget::spend() {
+            prop_assert_eq!(minus, met);
+        }
+    }
+
+    // THEORY: kinds-decompose-emptiness
+    /// What a set leaves reads as its complement's emptiness does, a part at a
+    /// time, however few of the parts it holds.
+    #[test]
+    fn what_a_set_leaves_is_what_its_complement_holds(a in decidable_schema()) {
+        let _held = budget::law();
+        let Some(a) = lower(&a, &CorpusOracle) else {
+            return Ok(());
+        };
+        let a = Arc::new(a);
+        let (left, read) = (Guard::leaves(&a), Descr::complement(&a).emptiness());
+        if budget::spend() {
+            prop_assert_eq!(left, read);
+        }
+    }
+
     /// The complement laws, as statements about the sets.
     #[test]
     fn the_complement_laws_hold_of_the_sets(
@@ -2484,6 +2539,45 @@ proptest! {
         ));
     }
 
+    // THEORY: a-universe-is-a-set
+    /// The sets below a set are a Boolean algebra whose top is that set and whose
+    /// complement of `s` is `u ∧ ¬s`, and inclusion read there is one question of
+    /// the whole model: a universe needs no parameter on the algebra.
+    #[test]
+    fn the_sets_below_a_universe_are_a_boolean_algebra(
+        u in scalar_or_set_schema(),
+        a in scalar_or_set_schema(),
+        b in scalar_or_set_schema(),
+    ) {
+        let same = |left: &Schema, right: &Schema| {
+            samples_v().iter().all(|value| member_v(left, value) == member_v(right, value))
+        };
+        let within = |s: &Schema| intersection(u.clone(), s.clone());
+        let outside = |s: &Schema| intersection(u.clone(), not(s.clone()));
+        prop_assert!(same(&union(within(&a), outside(&a)), &u));
+        prop_assert!(same(&intersection(within(&a), outside(&a)), &Schema::Nothing));
+        prop_assert!(same(
+            &outside(&union(a.clone(), b.clone())),
+            &intersection(outside(&a), outside(&b)),
+        ));
+        prop_assert!(same(
+            &outside(&intersection(a.clone(), b.clone())),
+            &union(outside(&a), outside(&b)),
+        ));
+        // A proof below the universe holds of every sample inside it, and a meet
+        // proved empty holds none: both readings of `u ∧ a ∧ ¬b = ∅`.
+        if within(&a).is_subtype_of(&within(&b)) {
+            for value in &samples_v() {
+                prop_assert!(!member_v(&within(&a), value) || member_v(&b, value));
+            }
+        }
+        if intersection(within(&a), not(b.clone())).is_empty() {
+            for value in &samples_v() {
+                prop_assert!(!member_v(&within(&a), value) || member_v(&b, value));
+            }
+        }
+    }
+
     /// Building two sides of a law reaches one normal form. A property of the
     /// constructors, not of the algebra: the law itself is above.
     #[test]
@@ -2503,6 +2597,24 @@ proptest! {
     /// schema construction cannot read as a set, a class among its atoms,
     /// declines, which is the one exception the page states, so the draw
     /// holds no class.
+    /// A refinement of a refinement holds what the one refinement of their
+    /// constraints holds [JV20, §3.2], however the two are written apart.
+    #[test]
+    fn refining_a_refinement_is_refining_once(
+        base in set_schema(),
+        split in 0usize..=3,
+    ) {
+        let base = built(&base);
+        let all = vec![
+            Constraint::MinLen(1),
+            Constraint::MaxLen(9),
+            Constraint::Regex("a".to_owned()),
+        ];
+        let (first, second) = all.split_at(split.min(all.len()));
+        let apart = Schema::refine(Schema::refine(base.clone(), first.to_vec()), second.to_vec());
+        prop_assert_eq!(apart, Schema::refine(base.clone(), all.clone()));
+    }
+
     #[test]
     fn construction_folds_a_set_and_its_complement(a in set_schema()) {
         let a = built(&a);
@@ -4949,6 +5061,36 @@ fn a_length_bound_on_bytes_is_separated_one_past_it() {
     );
 }
 
+/// A length bound over a union is met by a member of the union grown to it.
+///
+/// The pair: a list of two, a list of at least three floats under a union of one
+/// and a reference, against `None`. It is refuted by `[[1.0, 1.0, 1.0], 1]`, and
+/// the universe holds that value only where the three floats are read off the
+/// union's member: the union itself names no element to grow.
+#[test]
+fn a_length_bound_over_a_union_is_met_by_a_member_of_the_union_grown_to_it() {
+    let defs = fixpoint_defs();
+    let bounded = Schema::Refine {
+        base: Arc::new(union_of(vec![Schema::list(SeqShape::homogeneous(
+            Schema::Float,
+        ))])),
+        constraints: vec![Constraint::MinLen(3)].into(),
+    };
+    let a = Schema::list(SeqShape::fixed([bounded, Schema::Ref(DefIx::new(1))]));
+    let b = Schema::NoneType;
+    assert_eq!(
+        a.subtype_relation_under(&b, &NoLeafRelations, &defs),
+        Relation::Fails,
+        "the pair is not refuted"
+    );
+    let subject = unfold_for_oracle(&a, &defs, ORACLE_UNFOLDS);
+    let other = unfold_for_oracle(&b, &defs, ORACLE_UNFOLDS);
+    assert!(
+        a_value_parts(&subject, &other),
+        "no value of three floats and an integer is built"
+    );
+}
+
 /// A map with a catch-all is separated from a closed record by a key neither
 /// declares.
 ///
@@ -5062,7 +5204,14 @@ fn length_wanted(constraint: &Constraint) -> Option<usize> {
 /// A set holds its members once, so its `len` members are *distinct*: padding
 /// one with a repeat would claim a value the interpreter reads as shorter. Where
 /// the element cannot supply that many, there is no such set and none is built.
+/// A union names no element of its own, so each of its members is grown.
 fn sized_like(schema: &Schema, len: usize, fuel: usize) -> Vec<Obj> {
+    if let Schema::Union(members) = schema {
+        return members
+            .iter()
+            .flat_map(|member| sized_like(member, len, fuel))
+            .collect();
+    }
     let element = match schema {
         Schema::Seq { shape, .. } => shape.elements().next().unwrap_or(&Schema::ANYTHING),
         Schema::Coll { element, .. } => element,
@@ -5256,6 +5405,28 @@ fn positions_met(members: &[Schema]) -> Option<Schema> {
     })
 }
 
+/// A record holding what it may hold as well, for a meet the empty record is refused
+/// by: its optional fields, `{"b": 1}` of `~{} & {"b?": Any}`, and an entry under a
+/// clause, `{"b": None}` of `~{} & dict[str, None]`. The oracle reads what this builds.
+fn a_record_of_every_field(schema: &Schema, fuel: usize) -> Option<Obj> {
+    let Schema::KeyedMap { fields, defaults } = schema else {
+        return None;
+    };
+    let mut entries = fields
+        .iter()
+        .map(|field| {
+            Some((
+                Key::Exact(static_name(&field.name)?),
+                a_member(&field.schema, fuel)?,
+            ))
+        })
+        .collect::<Option<Vec<(Key, Obj)>>>()?;
+    if entries.is_empty() {
+        entries.push((Key::Exact("b"), a_member(&defaults.first()?.value, fuel)?));
+    }
+    Some(Obj::Map(entries))
+}
+
 /// A value of the schema, built from the schema's own denotation.
 ///
 /// The universe's other half. The kind edges and the derived boundaries are
@@ -5332,6 +5503,11 @@ fn a_member(schema: &Schema, fuel: usize) -> Option<Obj> {
             .iter()
             .filter_map(|member| a_member(member, fuel - 1))
             .chain(fields_met(members).and_then(|record| a_member(&record, fuel - 1)))
+            .chain(
+                members
+                    .iter()
+                    .filter_map(|member| a_record_of_every_field(member, fuel - 1)),
+            )
             .chain(kind_edges())
             .chain(positions_met(members).and_then(|sequence| a_member(&sequence, fuel - 1)))
             .find(|value| member_full(schema, value, &pool)),
@@ -5454,11 +5630,13 @@ fn parted(subject: &Schema, other: &Schema, left: &mut usize) -> Vec<Obj> {
         |value: &Obj| member_full(subject, value, &pool) && !member_full(other, value, &pool);
     found.retain(parts);
     if found.is_empty() {
-        // Past what the two share: the values each puts a boundary at.
+        // Past what the two share: a member of the subject, and the values each puts
+        // a boundary at.
         let mut seen = kind_edges();
         found = edges_of(subject, &mut seen);
         found.extend(edges_of(other, &mut seen));
         found.extend(seen);
+        found.extend(a_member(subject, MEMBER_FUEL));
         found.retain(parts);
     }
     deduplicated(found, CAP_PER_NODE)
@@ -9450,6 +9628,42 @@ proptest! {
         let below = meet.subtype_relation_under(&Schema::Nothing, &NoLeafRelations, &[]);
         prop_assert_eq!(below.holds(), empty, "{:?}: below nothing {:?}", meet, below);
     }
+}
+
+proptest! {
+    /// A meet of two refinements of one base holds what the one refinement holding
+    /// their constraints holds, `⟦b⟧ ∩ ⟦c1⟧ ∩ ⟦c2⟧` [JV20, §3.2], wherever that one is
+    /// read, over bases whose lengths no interval alone reads.
+    #[test]
+    fn a_meet_of_refinements_of_one_base_reads_as_the_one_they_are(
+        base in prop_oneof![
+            Just(Schema::keyed_map(
+                Vec::new(),
+                vec![MapClause { key: Schema::Str, value: Schema::Int }],
+            )),
+            Just(Schema::set(Schema::Int)),
+            Just(Schema::set(Schema::Bool)),
+        ],
+        left in proptest::collection::vec(a_length_bound(), 1..3),
+        right in proptest::collection::vec(a_length_bound(), 1..3),
+    ) {
+        let meet = Schema::meet([
+            Schema::refine(base.clone(), left.clone()),
+            Schema::refine(base.clone(), right.clone()),
+        ]);
+        let one = Schema::refine(base, [left, right].concat());
+        let read = one.verdict_under(&NoLeafRelations);
+        if read != Verdict::Unknown {
+            prop_assert_eq!(meet.verdict_under(&NoLeafRelations), read, "{:?}", one);
+        }
+    }
+}
+
+fn a_length_bound() -> impl Strategy<Value = Constraint> {
+    prop_oneof![
+        (0usize..5).prop_map(Constraint::MinLen),
+        (0usize..5).prop_map(Constraint::MaxLen),
+    ]
 }
 
 // THEORY: the-domain-is-one-model-per-interpreter

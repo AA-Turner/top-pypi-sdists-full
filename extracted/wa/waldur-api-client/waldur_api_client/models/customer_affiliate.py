@@ -27,7 +27,7 @@ class CustomerAffiliate:
         total_earned (float):
         created (datetime.datetime):
         fee_percent (Union[Unset, str]):
-        is_active (Union[Unset, bool]):
+        is_active (Union[Unset, bool]):  Default: True.
         start_date (Union[None, Unset, datetime.date]):
         end_date (Union[None, Unset, datetime.date]):
     """
@@ -43,7 +43,7 @@ class CustomerAffiliate:
     total_earned: float
     created: datetime.datetime
     fee_percent: Union[Unset, str] = UNSET
-    is_active: Union[Unset, bool] = UNSET
+    is_active: Union[Unset, bool] = True
     start_date: Union[None, Unset, datetime.date] = UNSET
     end_date: Union[None, Unset, datetime.date] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)

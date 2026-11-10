@@ -26,7 +26,7 @@ from djust.observability.registry import (
     get_view_for_session,
 )
 from djust.observability.sql import get_queries_since
-from djust.observability.timings import get_timing_stats
+from djust.observability.timings import get_timing_stats, get_turn_timing_stats
 from djust.observability.tracebacks import get_recent_tracebacks
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,11 @@ def _lenient_assigns(view: Any) -> Dict[str, Any]:
     framework's definition) and falls back to a direct json.dumps probe
     for anything that doesn't expose it (e.g. test doubles).
     """
+    from djust._exposure import explicit_debug_projection
+
+    explicit = explicit_debug_projection(view)
+    if explicit is not None:
+        return explicit
     checker = getattr(view, "_is_serializable", None)
 
     def _safe_check(val: Any) -> bool:
@@ -83,6 +88,23 @@ def _lenient_assigns(view: Any) -> Dict[str, Any]:
                 "_type": type(value).__name__,
             }
     return assigns
+
+
+def _mutation_policy_gate(view: Any) -> HttpResponse | None:
+    """Legacy debug mutation is not an authorized explicit-policy dispatch.
+
+    Neither direct mount replay nor a direct handler call establishes current
+    identity, object authorization or the runtime's event lock. Redacting their
+    return values would not make the underlying mutations safe.
+    """
+    from djust._exposure import uses_legacy_exposure
+
+    if uses_legacy_exposure(view):
+        return None
+    return JsonResponse(
+        {"error": "Debug mutation is unavailable for this exposure policy. Use the live view."},
+        status=409,
+    )
 
 
 def _debug_gate() -> HttpResponse:
@@ -304,6 +326,33 @@ def handler_timings(request: HttpRequest) -> HttpResponse:
     return JsonResponse({"count": len(rows), "stats": rows})
 
 
+@require_GET
+def turn_timings(request: HttpRequest) -> HttpResponse:
+    """Return per-turn percentile stats (ADR-044 D9) over the rolling window.
+
+    Query params:
+        kind (optional): filter to one turn kind (``event``, ``push``, ...).
+        since_ms (optional): only include samples with timestamp > since_ms.
+
+    Each row: {kind, source, transport, view_class, count, min_ms, max_ms,
+    avg_ms, p50_ms, p90_ms, p99_ms}, slowest p90 first. A turn's duration
+    covers the whole middleware chain plus the turn body.
+    """
+    _gate_resp = _gate(request)
+    if _gate_resp is not None:
+        return _gate_resp
+
+    kind = request.GET.get("kind", "").strip() or None
+    since_ms_raw = request.GET.get("since_ms", "").strip()
+    try:
+        since_ms = int(since_ms_raw) if since_ms_raw else None
+    except ValueError:
+        since_ms = None
+
+    rows = get_turn_timing_stats(kind=kind, since_ms=since_ms)
+    return JsonResponse({"count": len(rows), "stats": rows})
+
+
 @csrf_exempt
 def reset_view_state(request: HttpRequest) -> HttpResponse:
     """Replay `view.mount()` on the registered instance — resets all public
@@ -345,6 +394,10 @@ def reset_view_state(request: HttpRequest) -> HttpResponse:
             {"error": f"no view registered for session {session_id}"},
             status=404,
         )
+
+    policy_response = _mutation_policy_gate(view)
+    if policy_response is not None:
+        return policy_response
 
     mount_request = getattr(view, "_djust_mount_request", None)
     mount_kwargs = getattr(view, "_djust_mount_kwargs", None)
@@ -448,6 +501,10 @@ def eval_handler(request: HttpRequest) -> HttpResponse:
             status=404,
         )
 
+    policy_response = _mutation_policy_gate(view)
+    if policy_response is not None:
+        return policy_response
+
     # Parse body.
     import json as _json
 
@@ -477,7 +534,10 @@ def eval_handler(request: HttpRequest) -> HttpResponse:
         )
 
     handler = getattr(view, handler_name, None)
-    if handler is None or not callable(handler):
+    from djust.decorators import is_push_only
+
+    # A @push_handler method answers like a missing one (#3002).
+    if handler is None or not callable(handler) or is_push_only(view, handler_name, handler):
         return JsonResponse(
             {
                 "error": f"view '{view.__class__.__name__}' has no callable '{handler_name}'",

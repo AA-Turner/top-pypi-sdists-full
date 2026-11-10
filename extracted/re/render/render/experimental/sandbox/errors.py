@@ -31,6 +31,17 @@ class SnapshotPlanMismatchError(ClientError):
     a different plan. code is snapshot_plan_mismatch."""
 
 
+class SandboxGroupDefaultNotDeletableError(ClientError):
+    """Raised when a delete names the workspace's default sandbox group. Make
+    another group the default first with set_default_group. code is
+    default_sandbox_group_not_deletable."""
+
+
+class SandboxGroupSuspendedError(ClientError):
+    """Raised when the sandbox group is suspended. code is
+    sandbox_group_suspended."""
+
+
 class ImageNotFoundError(ClientError):
     """Raised when an image does not exist or belongs to another sandbox group."""
 

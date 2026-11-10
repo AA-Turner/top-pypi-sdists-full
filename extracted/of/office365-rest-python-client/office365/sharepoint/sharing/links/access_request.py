@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SharingLinkAccessRequest(ClientValue):
     """
     Represents extended values to include in a request for access to an object exposed through a tokenized

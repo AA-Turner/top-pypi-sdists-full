@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ from office365.sharepoint.publishing.amplify.clientamplifyextraproperty import (
 )
 
 
-@dataclass
 class ClientAmplifyResult(ClientValue):
     canvasElement: Optional[str] = None
     code: Optional[str] = None

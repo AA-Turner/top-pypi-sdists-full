@@ -1,12 +1,14 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.415.0
-Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
-Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
+Version: 0.510.0
+Summary: Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP).
+Project-URL: Homepage, https://www.useprobe.ai
+Project-URL: Documentation, https://docs.prbe.ai
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
+Project-URL: Changelog, https://github.com/prbe-ai/research-os-agent/blob/main/CHANGELOG.md
 Author-email: Probe <team@prbe.ai>
 License: Apache-2.0
-Keywords: experiment-tracking,mcp,mlops,probe-research,reinforcement-learning
+Keywords: agent-swarms,claude-code,codex,coding-agents,cursor,experiment-lineage,experiment-tracking,mcp,ml-experiment-tracking,mlops,multi-agent,probe-research,reinforcement-learning,reproducibility,rl,skyrl,trl,verl,wandb-alternative,weights-and-biases
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
@@ -27,23 +29,26 @@ Requires-Dist: questionary<3,>=2.0
 Requires-Dist: tiktoken<0.14,>=0.8
 Requires-Dist: tomli>=1.1; python_version < '3.11'
 Requires-Dist: tomlkit>=0.12
-Requires-Dist: typer<1.0,>=0.12
+Requires-Dist: typer<0.29,>=0.12
 Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
-Requires-Dist: probe-research-cli==0.415.0; extra == 'all'
+Requires-Dist: probe-research-cli==0.510.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
-Requires-Dist: typer<1.0,>=0.12; extra == 'all'
+Requires-Dist: typer<0.29,>=0.12; extra == 'all'
+Requires-Dist: zstandard>=0.23; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
-Requires-Dist: probe-research-cli==0.415.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.510.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
-Requires-Dist: typer<1.0,>=0.12; extra == 'cli'
+Requires-Dist: typer<0.29,>=0.12; extra == 'cli'
+Requires-Dist: zstandard>=0.23; extra == 'cli'
 Provides-Extra: daemon
+Requires-Dist: probe-research-cli==0.510.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-slim[mcp,openai]==2.51.0; extra == 'daemon'
@@ -59,8 +64,10 @@ Requires-Dist: pyarrow>=14; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.2; extra == 'dev'
 Requires-Dist: pytest>=8; extra == 'dev'
 Requires-Dist: safetensors>=0.4; extra == 'dev'
+Requires-Dist: zstandard>=0.23; extra == 'dev'
 Provides-Extra: harbor
-Requires-Dist: harbor<0.22,>=0.20; (python_version >= '3.12') and extra == 'harbor'
+Requires-Dist: harbor<0.26,>=0.20; (python_version >= '3.12') and extra == 'harbor'
+Requires-Dist: probe-research-cli==0.510.0; extra == 'harbor'
 Provides-Extra: huggingface
 Requires-Dist: transformers[torch]>=4.46; extra == 'huggingface'
 Provides-Extra: lightning
@@ -73,26 +80,44 @@ Provides-Extra: mcp-http
 Requires-Dist: uvicorn>=0.30; extra == 'mcp-http'
 Description-Content-Type: text/markdown
 
-# probe-research (`probe` SDK/CLI + `probe-research` plugin)
+# Probe
 
-> **License & repo status (2026-08-12).** This project is open source under
-> [Apache-2.0](LICENSE). The source of truth now lives in Probe's monorepo, and
-> this repository is transitioning into a **CI-generated distribution mirror**
-> carrying exactly what installations pull from here: the Claude Code / Codex
-> plugin marketplace (`probe-research`, `probe-research-tap`),
-> `client-version.json`, and the CHANGELOG. Nothing changes for users —
-> installed plugins keep updating from this repo, and the CLI/launcher keep
-> shipping via [PyPI](https://pypi.org/project/probe-research/) and npm
-> (`npx probe-research`). Until the cutover completes, the full source remains
-> here and development continues in this repo.
+Experiment tracking for ML teams and the coding agents that run their experiments: Claude Code,
+Codex, Cursor, pi and Kimi Code. Keep working the way you do. From now on:
 
-CLI + SDK client for **Probe Research**, Probe's experiment-tracking platform. It is a
-thin client over the v3 ingestion contract (`CONTRACT.md` in the Probe Research backend).
+- You'll always know how any result was made.
+- Your agent won't repeat what your team already tried.
+- You can pick up any experiment where it left off, or hand it off.
+
+Set it up from your coding agent. Paste this:
+
+> Install Probe on this machine and its coding agents. Read https://research.prbe.ai/install.md and follow it.
+
+Or set it up yourself:
+
+```bash
+npx probe-research            # guided setup for the coding agents on this machine
+pip install probe-research    # the Python SDK, for training scripts
+```
+
+It covers runs, metrics and sweeps; RL rollouts and rewards from TRL, verl, SkyRL, ART, Miles
+and Harbor; experiment lineage and code capture; research notes and papers; and many research
+agents working in parallel, with the best branch and the agent-hours behind each one. Moving
+from Weights & Biases: `probe.init` / `probe.log` follow the `wandb.init` / `wandb.log` shape,
+and `probe wandb import-local` brings existing runs over.
+
+[Website](https://www.useprobe.ai) · [Docs](https://docs.prbe.ai) ·
+[Changelog](https://github.com/prbe-ai/research-os-agent/blob/main/CHANGELOG.md)
+
+## The package
+
+CLI + SDK client for **Probe**, experiment tracking for ML teams and their coding agents. It is a
+thin client over the v3 ingestion contract (`CONTRACT.md` in the Probe backend).
 Implemented experiment calls map onto real endpoints.
 
 ## Two client surfaces
 
-Probe Research tracks the team's ML work — experiments and training runs, but also surveys, design decisions and data processing, with a short note when setup such as provisioning trips you up — through two separate surfaces over the same backend, for two different workflows:
+Probe tracks the team's ML work — experiments and training runs, but also surveys, design decisions and data processing, with a short note when setup such as provisioning trips you up — through two separate surfaces over the same backend, for two different workflows:
 
 - **`probe` — SDK + CLI (non-agent).** A Python library (`import probe`) and the `probe` command-line tool for integrating with existing setups and manual experimentation. Drop it into a training script or pipeline to record runs, metrics, spans, and artifacts. No agent required.
 - **`probe-research` — plugin: skills + MCP (agent-centric).** Installed into a coding agent (Claude Code, Codex, pi or Kimi Code). Its skills teach the agent the experiment workflow, its read-only MCP server lets the agent query experiment state, and writes flow through the `probe` CLI. This is the surface for agent-driven research loops such as Anthrogen.
@@ -365,89 +390,60 @@ RUN --prefix P` prints one folder level of the run's artifacts.
 
 ## Miles tracking backend (`probe.connectors.miles`)
 
-Drop-in wandb-parity backend for [Miles'](https://github.com/MoonshotAI/miles)
-`TrackingManager`. Zero miles commits: the registry is a plain dict checked
-against args flags at init, so activation is two lines in your launcher,
-before `init_tracking(args)`:
+Drop-in wandb-parity backend for [Miles'](https://github.com/radixark/miles)
+`TrackingManager`, plus Miles' RL samples in Probe's sample store, with zero Miles
+commits. Current Miles runs every actor in its own Ray worker, so start the train
+script through the launcher:
+
+```sh
+python -m probe.connectors.miles.launch train_async.py --fully-async ...
+# under ray job submit: ... -- python -m probe.connectors.miles.launch train.py ...
+```
+
+It opens the Probe run before Ray starts (a `--load` of a saved `iter_N` reopens
+the same run rewound to step N+1), registers Probe in the driver and, through
+Ray's job runtime env (`worker_process_setup_hook`), in every worker. Each worker
+joins the run as a producer through its own outbox, with a token minted for this
+run only (`PROBE_MILES_WORKER_TOKEN` passes another credential, for example a
+project-bound token); your own token never goes in the runtime env, which Ray's
+dashboard shows. `PROBE_MILES=off` keeps Probe off; `PROBE_MODE=disabled` records
+nothing at all. On the July fork (`prbe-ai/miles`, argparse args) the two-line
+form still works, before `init_tracking(args)`:
 
 ```python
 from probe.connectors.miles import register
-register(args)          # registers the backend + sets args.use_probe
+register(args)          # registers the backend + sets args.use_probe (fork)
 ```
 
 Every `TrackingManager.log()` lands with its own step counter (`train/step`
 and `rollout/step` map to `step_index` per key, the counter entry itself is
-stripped), values arrive after Miles' DP-rank reduction — exactly what wandb
-sees — and the run declares its labeled-point plan (`num_rollout x
-rollout_batch_size x n_samples_per_prompt`) so later per-sample capture never
-trips the server's default budget mid-training. Config: `PROBE_BASE_URL` /
-`PROBE_TOKEN`, optional `args.probe_experiment` / `args.probe_run_name`
-(fall back to the wandb names). Fail-open end to end: a broken tracker never
-costs a training step; non-finite values are dropped per-point. Per-rank and
-per-sample detail is enabled without replacing aggregate logging by passing:
+stripped), values arrive after Miles' DP-rank reduction, exactly what wandb sees.
+Fail-open end to end: a Probe error never costs a training step.
+
+Samples: pass Miles' own hook flags.
 
 ```text
---custom-rollout-log-function-path probe.connectors.miles.per_sample_rollout_log
+--custom-rollout-log-function-path probe.connectors.miles.log_samples
+--custom-eval-rollout-log-function-path probe.connectors.miles.log_eval_samples
+--rollout-all-samples-process-path probe.connectors.miles.log_dropped_samples   # sync mode only
 ```
 
-The hook logs labeled sample points through the same durable queue as Miles'
-aggregate `tracking.log()` calls. Every point carries `metric_scope=sample`,
-the Miles sample id, an optional group id, and—when the sample carries Harbor's
-returned capture `external_key`—the exact deterministic rollout span. The
-dashboard can therefore separate aggregate and sample points while resolving
-sample → trial → trajectory/sandbox without a Miles-core change.
+Each attempt becomes one sample: its task (`metadata["task_id"]`, else a hash of
+the prompt) and scenario (`metadata["scenario"]`), the response, reward and its
+parts, which weight versions made which tokens (prefill and decode), who graded it
+(the reward function, an OPD teacher), why it broke, engine stats and per-token
+arrays. The train ranks add what they trained on, Miles' normalized reward and
+their own per-token arrays, and commit each step. Weight versions, saved
+iterations and, with `--use-miles-dashboard`, the compute timeline (phases, SGLang
+engine series, engine topology) are recorded too. Read them with
+`probe samples ...`. Extra per-sample numbers: `sample.metadata["probe_metrics"]`,
+or `--probe-sample-metrics '{"agent/turns": "metadata.agent_metrics.turns"}'`
+(current Miles) / `args.probe_sample_metrics` (the fork);
+`--probe-reward-max` sets the reward a sample passes at (default 1.0). The old
+names `per_sample_rollout_log` / `make_per_sample_rollout_log` now write samples.
 
-Reward and effective response length are captured by default. Applications can
-publish arbitrary numeric sample measurements without connector changes by
-putting an inline dictionary on the sample:
-
-```python
-sample.metadata["probe_metrics"] = {
-    "agent/input_tokens": input_tokens,
-    "agent/output_tokens": output_tokens,
-    "quality/custom_score": score,
-}
-```
-
-If values already live elsewhere on the Miles sample, declare metric-name to
-dotted-path mappings on the same args object Miles sends to RolloutManager:
-
-```python
-args.probe_sample_metrics = {
-    "agent/observed_tokens": "metadata.agent_metrics.observed_tokens",
-    "agent/turns": "metadata.agent_metrics.turns",
-    "agent/tool_calls": "metadata.agent_metrics.tool_calls",
-}
-```
-
-Stock Miles launchers that do not expose arbitrary rollout args can put the
-same inline mapping in a tiny importable hook module instead:
-
-```python
-# my_project/probe_metrics.py
-from probe.connectors.miles import make_per_sample_rollout_log
-
-per_sample_rollout_log = make_per_sample_rollout_log({
-    "agent/observed_tokens": "metadata.agent_metrics.observed_tokens",
-    "agent/turns": "metadata.agent_metrics.turns",
-    "agent/tool_calls": "metadata.agent_metrics.tool_calls",
-})
-```
-
-Then set `--custom-rollout-log-function-path` to
-`my_project.probe_metrics.per_sample_rollout_log`. This stays entirely outside
-Miles source while preserving the shipped hook's durable queue, sample labels,
-and Harbor span linkage.
-
-Missing, non-numeric, boolean, and non-finite values are omitted; an explicit
-numeric zero is retained. Configured paths override a same-named
-`metadata["probe_metrics"]` entry. The run reserves 1,024 sample metric points per
-sample by default; set `args.probe_sample_metric_budget` higher when a sample
-schema intentionally exceeds that.
-
-Per-rank detail otherwise rides the capture-at-source arc (`run.unit` +
-`capture_trial`). Upstreaming a native `--use-probe` flag into a miles fork is
-optional polish (registry docstring's own recipe).
+The shared metric queue jobs wrote before W16 is retired: CLI 0.469.0 still drains one
+(`python -m probe.integrations.miles <queue_dir>` prints the command).
 
 ## SDK (install-once / passive push)
 
@@ -536,14 +532,16 @@ One small process per user per machine (`python -m probe.service`, standard
 library only) that agent sessions, the desktop app and the CLI talk to over
 `~/.local/state/probe/service/service.sock` (JSON-RPC 2.0 lines; the contract is
 `probe.foundation.service_api.wire`). It is never a login item: the first session that needs
-it starts it, and it exits a few seconds after the last live session and the last
-open app window are gone.
+it starts it, and it exits a few seconds after the last running agent (whatever its
+Probe state, including an agent process whose hooks it ran) and the last open app
+window are gone.
 
 Off by default in its first release. Turn it on for a machine with
 `PROBE_SERVICE=on` in the environment, or `"service": "on"` at the top level of
 `~/.config/probe/config.json` (`PROBE_SERVICE=off` wins over the file). While it
 is on, every `tap watch` registers its session (daemon, inline or off) and pi
-starts it at session start; an `off` session never starts or holds it.
+starts it at session start; an `off` session's hooks start it (its guards run there)
+and its running agent holds it, but nothing records it.
 
 While it is on, the service is also the machine's only automatic updater (when
 automatic updates are on in the wizard): every 6 hours, and when the CLI or the
@@ -560,6 +558,27 @@ probe service start           # start it now, whatever the switch says
 probe service stop            # stop it now; sessions start it again when needed
 probe service check-now       # check for updates now (deferred on a busy machine)
 ```
+
+When the service restarts (an update), it takes every recorded session back at
+once and starts their recorders spread over 20 seconds; nothing is lost, each
+picks up where its transcript left off. Until a recorder has claimed its session
+again it reads as recorded, not as a fault:
+
+```bash
+probe session status                     # run inside the agent session: capture.reason "running"
+probe service status --json | jq '.recorders[] | {sid, recording, last}'
+# a resuming recorder: "recording": null, "last": "resuming"; then "recording": true
+probe doctor                             # the recorder line says "recording"
+```
+
+A chat that starts with a newer Probe plugin while an update is installing is
+parked: Probe takes it, restarts once the update ends, and records it from its
+start on the new plugin, so it is never read by older code. For its first 30 s
+it reads `running`; after that `not recording`, with `"last": "parked: waits for
+update cycle ..."` and `probe doctor` saying `parked: waiting for an update;
+nothing lost`. It needs nothing from you.
+
+`running` means Probe holds the session, not that every line is uploaded yet.
 
 ### Curves in the terminal (`probe metrics plot`)
 
@@ -619,7 +638,7 @@ probe trial expand $RUN <manifest-artifact-id> --max-spans 0
 
 Query it back: `client.list_run_artifacts(run_id, kind="harbor_trial",
 step_from=599, step_to=601)`. Fork parsers plug in via
-`probe.connectors.atif.register_trajectory_parser("their-format", fn)`;
+`probe.connectors.harbor.atif.register_trajectory_parser("their-format", fn)`;
 unknown formats are captured raw (never rejected) and expanded later.
 
 `probe trial stage` and the `probe-harbor-export/1` consumer keep an atomic
@@ -869,7 +888,7 @@ There is no trace-file tool: no backend trace index has ever existed, so it answ
 path/URI/hash, use `search` (its exact channel matches artifacts) and follow
 `entity(refs=[...], view="lineage")` on a kind that supports that view.
 
-MCP reads through the Probe Research API—never directly from Postgres or R2. Its
+MCP reads through the Probe API—never directly from Postgres or R2. Its
 logical sources are control identity/tenant scope, the structured experiment
 store, the artifact/manifest registry, the one-index search door (`POST /v1/search`:
 exact SQL channel + the KB engine's semantic channel; search capabilities are
@@ -943,7 +962,7 @@ changing the SDK, CLI, MCP, or skill contracts.
 
 ## v0.4.0.0 ingestion fold-in (Phase 1)
 
-Most earlier gaps are closed by Probe Research v0.4 (PR #13). Now wired:
+Most earlier gaps are closed by Probe v0.4 (PR #13). Now wired:
 
 - **Real metric dimensions.** `log_hw(..., device=3, host="n1")` sends `dimensions`
   (fold #9); `log(..., dimensions={...})`. No more key-encoding.
@@ -982,10 +1001,10 @@ hand-written, so the client cannot silently drift from the contract. The write
 paths (`log`/`span`/`log_artifact`/`ingest`/`edges`/`execution-records`)
 build their payloads through the generated models, so a renamed or removed field
 fails client-side instead of as a server 422. `/ingest/v1/runs` is now declared in
-the schema too (Probe Research PR #12), so the passive push is generated and validated
+the schema too (Probe PR #12), so the passive push is generated and validated
 like every other path.
 
-- `schema/openapi.json` - a snapshot of Probe Research's FastAPI schema.
+- `schema/openapi.json` - a snapshot of Probe's FastAPI schema.
 - `src/probe/generated/models.py` - generated, never hand-edited.
 - `src/probe/models.py` - the stable import seam the SDK uses.
 
@@ -998,7 +1017,7 @@ RESEARCH_OS=/path/to/research-os python tools/codegen/dump_openapi.py
 python tools/codegen/gen_models.py
 ```
 
-`RESEARCH_OS` points at a local checkout of the Probe Research backend source repo
+`RESEARCH_OS` points at a local checkout of the Probe backend source repo
 (directory name `research-os`); it is only used to regenerate the schema snapshot.
 
 ## CLI grammar note
@@ -1012,3 +1031,12 @@ them directly (`probe wizard --action login --token ...`).
 ```bash
 pytest        # mocked/unit tests plus real-git snapshot tests; no live server
 ```
+
+## About this repository
+
+The `probe-research` package is licensed under Apache-2.0. Its source lives in Probe's monorepo.
+The public [prbe-ai/research-os-agent](https://github.com/prbe-ai/research-os-agent) repository
+is a CI-generated distribution mirror: it carries the coding-agent plugin marketplace,
+`client-version.json` and the CHANGELOG. The SDK ships on
+[PyPI](https://pypi.org/project/probe-research/) and the setup wizard on npm
+(`npx probe-research`).

@@ -79,13 +79,8 @@ AGUI_SERVER_PREVIEW_BACKEND_NAME = (
 AGUI_PLAYGROUND_PREVIEW_BACKEND_NAME = (
     config.get("agui-playground-preview-backend") or "agui-playground-preview-backend"
 )
-# The thin mtx Builder playground (agent-chat-internal's
-# agui-playground-mtx services) is mounted at `/mtx` whenever the chat mount
-# is on. Its page posts to the shared chat API at
-# `/{agui-chat-path-prefix}/api`, so it gets no API rule of its own.
-AGUI_MTX_PATH_PREFIX = "mtx"
-AGUI_MTX_PLAYGROUND_BACKEND_NAME = "agui-playground-mtx-backend"
-AGUI_MTX_PLAYGROUND_PREVIEW_BACKEND_NAME = "agui-playground-mtx-preview-backend"
+MTX_DOMAIN = config.get("mtx-domain") or "mtx.internal.airbyte.ai"
+MTX_PREVIEW_DOMAIN = config.get("mtx-preview-domain") or f"preview.{MTX_DOMAIN}"
 
 AIRBYTE_DOMAIN = "airbyte.io"
 
@@ -275,6 +270,10 @@ def define_cloud_run_service(
                     envs=[
                         _env("GCP_PROJECT", PROJECT),
                         _env("AIRBYTE_OPS_WEBAPP_PUBLIC_URL", PUBLIC_URL),
+                        _env(
+                            "AIRBYTE_OPS_WEBAPP_OAUTH_ADDITIONAL_REDIRECT_URIS",
+                            "https://mtx.internal.airbyte.ai/oauth/callback",
+                        ),
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_ISSUER", OAUTH_ISSUER),
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID", OAUTH_CLIENT_ID),
                         _env("AIRBYTE_CLOUD_CONFIG_API_URL", AIRBYTE_CONFIG_API_URL),
@@ -372,6 +371,10 @@ def define_preview_cloud_run_service(
                     envs=[
                         _env("GCP_PROJECT", PROJECT),
                         _env("AIRBYTE_OPS_WEBAPP_PUBLIC_URL", PREVIEW_PUBLIC_URL),
+                        _env(
+                            "AIRBYTE_OPS_WEBAPP_OAUTH_ADDITIONAL_REDIRECT_URIS",
+                            "https://preview.mtx.internal.airbyte.ai/oauth/callback",
+                        ),
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_ISSUER", OAUTH_ISSUER),
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID", OAUTH_CLIENT_ID),
                         _env("AIRBYTE_CLOUD_CONFIG_API_URL", AIRBYTE_CONFIG_API_URL),
@@ -586,6 +589,31 @@ def _agui_playground_path_rules(
     ]
 
 
+def _mtx_redirect_path_rules(
+    host: str,
+) -> list[gcp.compute.URLMapPathMatcherPathRuleArgs]:
+    """Keep deep links under `/mtx/` to bypass cached mtx-root 301s."""
+    return [
+        gcp.compute.URLMapPathMatcherPathRuleArgs(
+            paths=["/mtx"],
+            url_redirect=gcp.compute.URLMapPathMatcherPathRuleUrlRedirectArgs(
+                host_redirect=host,
+                path_redirect="/mtx/",
+                redirect_response_code="FOUND",
+                strip_query=False,
+            ),
+        ),
+        gcp.compute.URLMapPathMatcherPathRuleArgs(
+            paths=["/mtx/*"],
+            url_redirect=gcp.compute.URLMapPathMatcherPathRuleUrlRedirectArgs(
+                host_redirect=host,
+                redirect_response_code="FOUND",
+                strip_query=False,
+            ),
+        ),
+    ]
+
+
 def _agui_chat_path_rules(
     prefix: str,
     server_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
@@ -684,13 +712,7 @@ def define_load_balancer(
                 project=PROJECT,
             ),
         )
-        preview_path_rules += _agui_playground_path_rules(
-            AGUI_MTX_PATH_PREFIX,
-            gcp.compute.get_backend_service_output(
-                name=AGUI_MTX_PLAYGROUND_PREVIEW_BACKEND_NAME,
-                project=PROJECT,
-            ),
-        )
+        preview_path_rules += _mtx_redirect_path_rules(MTX_PREVIEW_DOMAIN)
     path_matchers = [
         gcp.compute.URLMapPathMatcherArgs(
             name="preview",
@@ -718,13 +740,7 @@ def define_load_balancer(
             agui_server_backend,
             agui_playground_backend,
         )
-        ops_path_rules += _agui_playground_path_rules(
-            AGUI_MTX_PATH_PREFIX,
-            gcp.compute.get_backend_service_output(
-                name=AGUI_MTX_PLAYGROUND_BACKEND_NAME,
-                project=PROJECT,
-            ),
-        )
+        ops_path_rules += _mtx_redirect_path_rules(MTX_DOMAIN)
         path_matchers.append(
             gcp.compute.URLMapPathMatcherArgs(
                 name="ops",

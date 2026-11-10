@@ -9,34 +9,20 @@ from typing import (
 )
 
 import ormar  # noqa: I100
-from ormar import ModelDefinitionError
 from ormar.fields import BaseField
 from ormar.fields.foreign_key import (
     ForeignKeyField,
-    create_dummy_model,
     validate_not_allowed_fields,
 )
+from ormar.fields.key_only import key_only_model_type
+from ormar.fields.link import RelationLink
+from ormar.fields.relation_kind import MANY_TO_MANY, RelationKind
 
 if TYPE_CHECKING:  # pragma no cover
     from ormar.models import Model, T
     from ormar.relations.relation_proxy import RelationProxy
 
 REF_PREFIX = "#/components/schemas/"
-
-
-def forbid_through_relations(through: type["Model"]) -> None:
-    """
-    Verifies if the through model does not have relations.
-
-    :param through: through Model to be checked
-    :type through: type['Model]
-    """
-    if any(field.is_relation for field in through.ormar_config.model_fields.values()):
-        raise ModelDefinitionError(
-            f"Through Models cannot have explicit relations "
-            f"defined. Remove the relations from Model "
-            f"{through.get_name(lower=False)}"
-        )
 
 
 def populate_m2m_params_based_on_to_model(
@@ -53,10 +39,11 @@ def populate_m2m_params_based_on_to_model(
     :return: tuple[list, Any]
     :rtype: tuple with target pydantic type and target col type
     """
-    to_field = to.ormar_config.model_fields[to.ormar_config.pkname]
-    pk_only_model = create_dummy_model(to, to_field)
+    key = to.ormar_config.pk
+    to_field = to.ormar_config.model_fields[key.fields[0]]
+    pk_only_model = key_only_model_type(target=to, fields=key.fields)
     base_type = Union[  # type: ignore
-        to_field.__type__,  # type: ignore
+        key.python_type(),  # type: ignore
         to,  # type: ignore
         pk_only_model,  # type: ignore
         list[to],  # type: ignore
@@ -138,9 +125,6 @@ def ManyToMany(  # type: ignore
         "through_reverse_relation_nullable", True
     )
 
-    if through is not None and through.__class__ != ForwardRef:
-        forbid_through_relations(cast(type["Model"], through))
-
     validate_not_allowed_fields(kwargs)
     pk_only_model = None
     if to.__class__ == ForwardRef:
@@ -158,7 +142,7 @@ def ManyToMany(  # type: ignore
     namespace = dict(
         __type__=__type__,
         to=to,
-        to_pk_only=pk_only_model,
+        to_key_only=pk_only_model,
         through=through,
         alias=name,
         name=name,
@@ -208,6 +192,14 @@ class ManyToManyField(  # type: ignore
             self.through: type["Model"]
         super().__init__(**kwargs)
 
+    @property
+    def kind(self) -> RelationKind:
+        """
+        :return: ``MANY_TO_MANY``, for both sides of the relation
+        :rtype: RelationKind
+        """
+        return MANY_TO_MANY
+
     def has_unresolved_forward_refs(self) -> bool:
         """
         Verifies if the filed has any ForwardRefs that require updating before the
@@ -238,12 +230,10 @@ class ManyToManyField(  # type: ignore
             ) = populate_m2m_params_based_on_to_model(
                 to=self.to, nullable=self.nullable
             )
-            self.to_pk_only = pk_only_model
+            self.to_key_only = pk_only_model
 
         if self.through.__class__ == ForwardRef:
             self._evaluate_forward_ref(globalns, localns, is_through=True)
-
-            forbid_through_relations(self.through)
 
     def get_relation_name(self) -> str:
         """
@@ -253,54 +243,65 @@ class ManyToManyField(  # type: ignore
         :return: result of the check
         :rtype: bool
         """
-        if self.self_reference and self.name == self.self_reference_primary:
-            return self.default_source_field_name()
-        return self.default_target_field_name()
+        return self.through_target_field_name()
 
     def get_filter_clause_target(self) -> type["Model"]:
         return self.through
 
-    def get_model_relation_fields(self, use_alias: bool = False) -> str:
+    def swaps_through_fields(self) -> bool:
         """
-        Extract names of the database columns or model fields that are connected
-        with given relation based on use_alias switch.
+        On the primary side of a self-referencing relation the generated
+        through field names (``from_<model>`` / ``to_<model>``) are swapped, so
+        both sides read the same columns. Explicit ``through_relation_name``
+        and ``through_reverse_relation_name`` are used as documented on both
+        sides instead (the field leading to the declaring model, and the field
+        leading to the related model).
 
-        :param use_alias: use db names aliases or model fields
-        :type use_alias: bool
-        :return: name or names of the related columns/ fields
-        :rtype: Union[str, list[str]]
+        :return: whether the owner and target through fields are swapped
+        :rtype: bool
         """
-        pk_field = self.owner.ormar_config.model_fields[self.owner.ormar_config.pkname]
-        result = pk_field.get_alias() if use_alias else pk_field.name
-        return result
+        explicit = bool(
+            self.through_relation_name and self.through_reverse_relation_name
+        )
+        return (
+            self.self_reference
+            and self.self_reference_primary == self.name
+            and not explicit
+        )
 
-    def get_related_field_alias(self) -> str:
+    def through_owner_field_name(self) -> str:
         """
-        Extract names of the related database columns or that are connected
-        with given relation based to use as a target in filter clause.
-
-        :return: name or names of the related columns/ fields
-        :rtype: Union[str, dict[str, str]]
+        :return: name of the through model field pointing back to the owner
+            (for self-referencing relations depends on which side this is)
+        :rtype: str
         """
-        if self.self_reference and self.self_reference_primary == self.name:
-            field_name = self.default_target_field_name()
-        else:
-            field_name = self.default_source_field_name()
-        sub_field = self.through.ormar_config.model_fields[field_name]
-        return sub_field.get_alias()
-
-    def get_related_field_name(self) -> Union[str, list[str]]:
-        """
-        Returns name of the relation field that should be used in prefetch query.
-        This field is later used to register relation in prefetch query,
-        populate relations dict, and populate nested model in prefetch query.
-
-        :return: name(s) of the field
-        :rtype: Union[str, list[str]]
-        """
-        if self.self_reference and self.self_reference_primary == self.name:
+        if self.swaps_through_fields():
             return self.default_target_field_name()
         return self.default_source_field_name()
+
+    def through_target_field_name(self) -> str:
+        """
+        :return: name of the through model field pointing to the related model
+        :rtype: str
+        """
+        if self.swaps_through_fields():
+            return self.default_source_field_name()
+        return self.default_target_field_name()
+
+    def build_link(self) -> RelationLink:
+        """
+        Columns connecting the owner's table to the through table: the mirror
+        of the through model's foreign key to the owner. The second hop, from
+        the through table to the related model, is the link of the through
+        model's field named ``through_target_field_name()``.
+
+        :return: link from the owner to the through model
+        :rtype: RelationLink
+        """
+        through_field = self.through.ormar_config.model_fields[
+            self.through_owner_field_name()
+        ]
+        return cast("ForeignKeyField", through_field).link.mirrored()
 
     def create_default_through_model(self) -> None:
         """

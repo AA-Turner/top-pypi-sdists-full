@@ -34,9 +34,21 @@ class AnonymousChatKpiResponse:
             instead of recommending.
         clarification_rate (Union[None, float]): clarification_requests_total / interactions_total; null when no
             interactions.
+        searches_total (int): Interactions where the assistant searched the catalog (found, empty or failed). Rows
+            predating outcome tracking are excluded.
+        no_result_searches_total (int): Search interactions that completed and surfaced no offerings — the signal for
+            catalog gaps and over-restrictive requests. Failed searches are not counted.
+        no_result_rate (Union[None, float]): no_result_searches_total / searches_total; null when no interaction
+            searched.
         input_tokens_total (int): Prompt tokens summed over the filtered turns. Turns recorded before per-interaction
             token capture contribute nothing, so this understates spend on historical data.
         output_tokens_total (int): Completion tokens summed over the filtered turns.
+        cache_read_tokens_total (Union[None, int]): Part of input_tokens_total served from the provider's prompt cache;
+            null when no turn reported it.
+        cache_write_tokens_total (Union[None, int]): Part of input_tokens_total written to the provider's prompt cache;
+            null when no turn reported it.
+        cache_ratio (Union[None, float]): cache_read_tokens_total over the input of turns whose provider reported a
+            cache figure; null when none did.
         reviewed_total (int): Threads carrying a judge verdict. Always present, unlike the review rates below — zero
             here is the signal that the nightly pass is off or stalled, so consumers can keep showing the row.
         review_input_tokens_total (int): Prompt tokens spent by the LLM judge. Tracked apart from ``input_tokens_total``
@@ -64,8 +76,14 @@ class AnonymousChatKpiResponse:
     click_through_rate: float
     clarification_requests_total: int
     clarification_rate: Union[None, float]
+    searches_total: int
+    no_result_searches_total: int
+    no_result_rate: Union[None, float]
     input_tokens_total: int
     output_tokens_total: int
+    cache_read_tokens_total: Union[None, int]
+    cache_write_tokens_total: Union[None, int]
+    cache_ratio: Union[None, float]
     reviewed_total: int
     review_input_tokens_total: int
     review_output_tokens_total: int
@@ -101,9 +119,25 @@ class AnonymousChatKpiResponse:
         clarification_rate: Union[None, float]
         clarification_rate = self.clarification_rate
 
+        searches_total = self.searches_total
+
+        no_result_searches_total = self.no_result_searches_total
+
+        no_result_rate: Union[None, float]
+        no_result_rate = self.no_result_rate
+
         input_tokens_total = self.input_tokens_total
 
         output_tokens_total = self.output_tokens_total
+
+        cache_read_tokens_total: Union[None, int]
+        cache_read_tokens_total = self.cache_read_tokens_total
+
+        cache_write_tokens_total: Union[None, int]
+        cache_write_tokens_total = self.cache_write_tokens_total
+
+        cache_ratio: Union[None, float]
+        cache_ratio = self.cache_ratio
 
         reviewed_total = self.reviewed_total
 
@@ -159,8 +193,14 @@ class AnonymousChatKpiResponse:
                 "click_through_rate": click_through_rate,
                 "clarification_requests_total": clarification_requests_total,
                 "clarification_rate": clarification_rate,
+                "searches_total": searches_total,
+                "no_result_searches_total": no_result_searches_total,
+                "no_result_rate": no_result_rate,
                 "input_tokens_total": input_tokens_total,
                 "output_tokens_total": output_tokens_total,
+                "cache_read_tokens_total": cache_read_tokens_total,
+                "cache_write_tokens_total": cache_write_tokens_total,
+                "cache_ratio": cache_ratio,
                 "reviewed_total": reviewed_total,
                 "review_input_tokens_total": review_input_tokens_total,
                 "review_output_tokens_total": review_output_tokens_total,
@@ -217,9 +257,41 @@ class AnonymousChatKpiResponse:
 
         clarification_rate = _parse_clarification_rate(d.pop("clarification_rate"))
 
+        searches_total = d.pop("searches_total")
+
+        no_result_searches_total = d.pop("no_result_searches_total")
+
+        def _parse_no_result_rate(data: object) -> Union[None, float]:
+            if data is None:
+                return data
+            return cast(Union[None, float], data)
+
+        no_result_rate = _parse_no_result_rate(d.pop("no_result_rate"))
+
         input_tokens_total = d.pop("input_tokens_total")
 
         output_tokens_total = d.pop("output_tokens_total")
+
+        def _parse_cache_read_tokens_total(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_read_tokens_total = _parse_cache_read_tokens_total(d.pop("cache_read_tokens_total"))
+
+        def _parse_cache_write_tokens_total(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_write_tokens_total = _parse_cache_write_tokens_total(d.pop("cache_write_tokens_total"))
+
+        def _parse_cache_ratio(data: object) -> Union[None, float]:
+            if data is None:
+                return data
+            return cast(Union[None, float], data)
+
+        cache_ratio = _parse_cache_ratio(d.pop("cache_ratio"))
 
         reviewed_total = d.pop("reviewed_total")
 
@@ -287,8 +359,14 @@ class AnonymousChatKpiResponse:
             click_through_rate=click_through_rate,
             clarification_requests_total=clarification_requests_total,
             clarification_rate=clarification_rate,
+            searches_total=searches_total,
+            no_result_searches_total=no_result_searches_total,
+            no_result_rate=no_result_rate,
             input_tokens_total=input_tokens_total,
             output_tokens_total=output_tokens_total,
+            cache_read_tokens_total=cache_read_tokens_total,
+            cache_write_tokens_total=cache_write_tokens_total,
+            cache_ratio=cache_ratio,
             reviewed_total=reviewed_total,
             review_input_tokens_total=review_input_tokens_total,
             review_output_tokens_total=review_output_tokens_total,

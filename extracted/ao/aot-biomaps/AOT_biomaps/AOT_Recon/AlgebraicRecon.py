@@ -532,6 +532,49 @@ class AlgebraicRecon(Recon):
         else:
             raise ValueError(f"[AOT-biomaps] Unsupported SMatrix type: {self.smatrixType}")
         
+    def generate_SMatrix_on_the_fly(
+        self,
+        tempFieldName: str = "Kwave",
+        generation_type: str = "envelope_squared",
+        show_field_logs: bool = False,
+        backend: str = "python",
+        keep_on_gpu: bool = False,
+        isShowLogs: bool = True,
+        checkpoint_dir: Optional[str] = None, 
+        checkpoint_every: int = 50
+    ):
+        """
+        Generates the k-Wave acoustic fields and builds the SELL SMatrix on the fly,
+        without writing any .img/.hdr files and without saturating RAM or VRAM.
+        """
+        if self.smatrixType != SMatrixType.SELL:
+            raise ValueError("[AOT-biomaps] generate_SMatrix_on_the_fly currently only supports SMatrixType.SELL.")
+
+        if isShowLogs:
+            print("[AOT-biomaps] Building SELL SMatrix ON-THE-FLY with relative threshold =", self.sparseThreshold, flush=True)
+
+        self.SMatrix = SMatrix_SELL(
+            experiment=self.experiment,
+            device=self.device,
+            block_rows=self.blockRows,
+            relative_threshold=self.sparseThreshold,
+            slice_height=self.sliceHeight,
+            sigma=self.sigma_sell,
+            isComplexSMatrix=self.isComplexRecon,
+        )
+        self.SMatrix.allocate_on_the_fly(
+            tempFieldName=tempFieldName,
+            generation_type=generation_type,
+            show_log=show_field_logs,
+            backend=backend,
+            keep_on_gpu=keep_on_gpu,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_every=checkpoint_every
+        )
+        if isShowLogs:
+            print(f"[AOT-biomaps] SELL SMatrix size: {self.SMatrix.get_matrix_size()['total_gb']:.2f} GB", flush=True)
+            print(f"[AOT-biomaps] SELL sparse matrix density: {self.SMatrix.compute_density():.2f}%", flush=True)
+        
     def load_SMatrix(self, SMatrixPath: str, isShowLogs=True):
         if self.smatrixType == SMatrixType.DENSE:
             self.SMatrix = self._fill_SMatrix_DENSE(isShowLogs=isShowLogs, isLoading=True, SMatrixPath=SMatrixPath)

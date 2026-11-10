@@ -7,6 +7,7 @@
 //! why these live together and beside rather than inside the dispatcher.
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -17,7 +18,7 @@ use pyo3::prelude::*;
 use pyo3::sync::critical_section::with_critical_section;
 use pyo3::types::{PyDict, PyString};
 use rustc_hash::FxHashMap;
-use valgebra_core::{Attribute, Field, MapClause, PathSegment, Schema, quoted};
+use valgebra_core::{Attribute, Field, MapClause, PathSegment, Schema, Violation, quoted};
 
 use super::scalar::{Scalar, admitted_quietly, scalar_admits, scalar_member, scalar_of};
 #[cfg(PyPy)]
@@ -57,7 +58,8 @@ use crate::input::Value;
 /// `cpyext` and takes the process with it. There the entries are read from a
 /// copy taken before the first visit, which nothing else can reach, while the
 /// size check still reads the value itself. `dict.copy` asks no key for its
-/// hash, so taking it runs no code of the value's.
+/// hash, so taking it runs no code of the value's, and the entries are its
+/// `items`, since the same function answers a value with a lookup of its key.
 #[cfg(not(Py_GIL_DISABLED))]
 pub(super) fn scan_dict<'py>(
     dict: &Bound<'py, PyDict>,
@@ -85,8 +87,18 @@ pub(super) fn scan_dict<'py>(
                 return Scan::Unreadable;
             }
         };
+        // `items` is `dict.items`, which reads the storage, where `PyDict_Next`
+        // answers each value with a lookup of its key: two keys reaching one name
+        // would read one value, and a key's own `__hash__` would run. A list of a
+        // tuple per entry, measured at 6% over a thousand entries and half a
+        // microsecond over three.
         #[cfg(PyPy)]
-        let mut iter = copied.iter();
+        let items = copied.items();
+        #[cfg(PyPy)]
+        let mut iter = items.iter().filter_map(|entry| {
+            let entry = entry.cast_into::<pyo3::types::PyTuple>().ok()?;
+            Some((entry.get_item(0).ok()?, entry.get_item(1).ok()?))
+        });
         #[cfg(not(PyPy))]
         let mut iter = dict.iter();
         let mut seen = 0;
@@ -283,6 +295,43 @@ impl Decided {
     }
 }
 
+/// What reading a keyed map asks of its node and of no value: its plan, and what
+/// its clauses say of a key it does not declare.
+///
+/// One node has one answer to both, so a list of records resolves them once, as
+/// a list of one scalar kind reads its kind once
+/// ([`record_list_matches`](super::sequence)), rather than hashing the node's
+/// address and reading its clauses again at every element: asked at every
+/// element, a list of two hundred records reads 6.6% more instructions
+/// (`--binding-record-list`). A node declaring no field has no plan, so a mapping
+/// pays no lookup for one.
+#[derive(Clone, Copy)]
+pub(super) struct RecordReading<'a> {
+    fields: &'a [Field],
+    defaults: &'a [MapClause],
+    plan: Option<&'a RecordPlan>,
+    undeclared: Undeclared,
+}
+
+impl<'a> RecordReading<'a> {
+    /// The reading of the keyed map `fields` and `defaults` make, under `ctx`'s
+    /// index.
+    #[inline]
+    pub(super) fn of(fields: &'a [Field], defaults: &'a [MapClause], ctx: &Ctx<'a>) -> Self {
+        let plan = if fields.is_empty() {
+            None
+        } else {
+            ctx.index.records.get(&(fields.as_ptr() as usize))
+        };
+        RecordReading {
+            fields,
+            defaults,
+            plan,
+            undeclared: Undeclared::of(defaults),
+        }
+    }
+}
+
 /// Membership for a keyed map: a record or a mapping, read as a dict.
 ///
 /// The fast check decides; on failure an explaining walk re-reads in declared
@@ -308,8 +357,7 @@ impl Decided {
 )]
 #[inline(always)]
 pub(super) fn check_keyed_map(
-    fields: &[Field],
-    defaults: &[MapClause],
+    reading: &RecordReading<'_>,
     value: &Value<'_, '_>,
     frame: &mut Frame<'_, '_>,
 ) -> bool {
@@ -322,7 +370,7 @@ pub(super) fn check_keyed_map(
         .then(|| decided.insert(Decided::default()));
     #[cfg(debug_assertions)]
     let written = (frame.path.len(), frame.out.len());
-    let ok = keyed_map_matches(fields, defaults, value, frame, keep);
+    let ok = keyed_map_read(reading, value, frame, keep);
     #[cfg(debug_assertions)]
     debug_assert_eq!(
         written,
@@ -331,7 +379,7 @@ pub(super) fn check_keyed_map(
     );
     if !ok && let Some(decided) = &decided {
         let before = frame.out.len();
-        keyed_map_explain(fields, defaults, value, frame, decided);
+        keyed_map_explain(reading.fields, reading.defaults, value, frame, decided);
         if frame.out.len() == before {
             // Two passes read the same dict and disagreed, so the dict did not
             // stay still between them: report that rather than a failure with
@@ -359,7 +407,8 @@ pub(super) fn check_keyed_map_apart(
     value: &Value<'_, '_>,
     frame: &mut Frame<'_, '_>,
 ) -> bool {
-    check_keyed_map(fields, defaults, value, frame)
+    let reading = RecordReading::of(fields, defaults, &frame.ctx);
+    check_keyed_map(&reading, value, frame)
 }
 
 /// Membership for a keyed map: named fields, then a default clause for every
@@ -376,10 +425,21 @@ pub(super) fn keyed_map_matches(
     frame: &mut Frame<'_, '_>,
     decided: Option<&mut Decided>,
 ) -> bool {
+    let reading = RecordReading::of(fields, defaults, &frame.ctx);
+    keyed_map_read(&reading, value, frame, decided)
+}
+
+/// [`keyed_map_matches`] over a reading its caller holds.
+fn keyed_map_read(
+    reading: &RecordReading<'_>,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+    decided: Option<&mut Decided>,
+) -> bool {
     match value {
-        Value::Py(v) => keyed_map_matches_py(fields, defaults, v, frame, decided),
+        Value::Py(v) => keyed_map_matches_py(reading, v, frame, decided),
         Value::Json(py, JsonValue::Object(entries)) => {
-            keyed_map_matches_json(fields, defaults, *py, entries, frame.ctx)
+            keyed_map_matches_json(reading, *py, entries, frame.ctx)
         }
         Value::Json(..) => false,
     }
@@ -445,6 +505,16 @@ fn covered(
 struct Names<'a, F> {
     by_text: F,
     interned: Option<&'a [Py<PyString>]>,
+    /// The fields an entry has been read as through a key that is not an exact
+    /// `str`, which no other key writes ([`the_entry_a_name_finds`]).
+    read: RefCell<Vec<usize>>,
+}
+
+/// The entry of `dict` a scan is reading, for [`the_entry_a_name_finds`].
+#[derive(Clone, Copy)]
+struct Entry<'a, 'py> {
+    dict: &'a Bound<'py, PyDict>,
+    value: &'a Bound<'py, PyAny>,
 }
 
 /// The declared field a key resolves to, read the way the dict resolves one.
@@ -458,7 +528,8 @@ struct Names<'a, F> {
 /// the field they reach. Read any other way, the scan and the reading by keys
 /// answer differently for one value -- which of them runs is decided by
 /// whether a clause reads the undeclared keys -- and the explaining walk, which
-/// asks the dict, finds nothing to report and names a mutation.
+/// asks the dict, finds nothing to report and names a mutation. A second key
+/// reaching a name is no field of it ([`the_entry_a_name_finds`]).
 ///
 /// The relations read a field's key as a `str`, so a key of another type that
 /// reaches a name is outside them, which `docs/14-soundness.md` states.
@@ -467,11 +538,12 @@ struct Names<'a, F> {
 /// carry their hashes, and are built from the field otherwise. The questions
 /// run the key's own code: an error reads as not that field, and a fatal
 /// signal is recorded.
-fn declared_position(
-    key: &Bound<'_, PyAny>,
+fn declared_position<'py>(
+    key: &Bound<'py, PyAny>,
     fields: &[Field],
     names: &Names<'_, impl Fn(&str) -> Option<usize>>,
     ctx: Ctx<'_>,
+    entry: Entry<'_, 'py>,
 ) -> Option<usize> {
     let py = key.py();
     if let Ok(text) = key.cast::<PyString>()
@@ -485,7 +557,45 @@ fn declared_position(
             }
         };
     }
-    reached_by(key, fields, names.interned, ctx)
+    let position = reached_by(key, fields, names.interned, ctx)?;
+    the_entry_a_name_finds(position, fields, &names.read, ctx, entry)
+}
+
+/// `position`, where the entry a key reaching it belongs to is the one the dict
+/// answers that field's name with, and `None` where it is another.
+///
+/// Two keys can reach one name: `Plain("a") == Folded("A")` is `str`'s answer,
+/// and `Folded("A") == "a"` the subclass's own, so a dict holds both and both
+/// are equal to `"a"`. A lookup answers with one of them. A field is what the
+/// dict answers for its name, as the reading by keys and the explaining walk
+/// read it, and any other entry is a key the record does not declare, so a
+/// required field is paid for once and by a key the dict finds. A value is the
+/// only thing a lookup hands back, so two entries of one object are told apart
+/// by which was read first. Exact `str` keys never come here: one dict holds two
+/// of them only under two texts.
+#[cold]
+#[inline(never)]
+fn the_entry_a_name_finds(
+    position: usize,
+    fields: &[Field],
+    read: &RefCell<Vec<usize>>,
+    ctx: Ctx<'_>,
+    entry: Entry<'_, '_>,
+) -> Option<usize> {
+    let field = fields.get(position)?;
+    let found = match entry.dict.get_item(&*field.name) {
+        Ok(found) => found?,
+        Err(err) => {
+            record_if_fatal(err, entry.dict.py(), ctx);
+            return None;
+        }
+    };
+    let mut read = read.borrow_mut();
+    if !found.is(entry.value) || read.contains(&position) {
+        return None;
+    }
+    read.push(position);
+    Some(position)
 }
 
 /// [`declared_position`] for a key that is not an exact `str`: the declared
@@ -596,7 +706,7 @@ impl Undeclared {
 /// back to.
 fn keyed_map_asks_for_its_keys(
     fields: &[Field],
-    defaults: &[MapClause],
+    undeclared: Undeclared,
     dict: &Bound<'_, PyDict>,
     frame: &mut Frame<'_, '_>,
     plan: &RecordPlan,
@@ -607,7 +717,6 @@ fn keyed_map_asks_for_its_keys(
     // undeclared key together with its value has to be scanned, and the scan
     // walks the declared fields as it goes, so reading those by key first would
     // be work done twice; such a record is not read here.
-    let undeclared = Undeclared::of(defaults);
     if undeclared == Undeclared::Read || plan.keys.len() != fields.len() {
         return None;
     }
@@ -656,9 +765,12 @@ fn keyed_map_asks_for_its_keys(
             position + plan.early.iter().filter(|&&early| early > position).count()
         };
         let mut present = 0usize;
-        for (position, field) in fields.iter().enumerate() {
-            let key = plan.keys.get(position)?.bind(dict.py());
-            match dict.get_item(key) {
+        // Field and key together, of one length by the test above. Looked up by
+        // position, a key is a bound check and an `Option` built and read back: a
+        // fifty-field record reads 8% more instructions on the profiled 3.15
+        // wheel, and 2.2% on the build without a profile (`--binding-record`).
+        for (position, (field, key)) in fields.iter().zip(&plan.keys).enumerate() {
+            match dict.get_item(key.bind(dict.py())) {
                 Ok(Some(value)) => {
                     present += 1;
                     if !field_holds(&field.schema, &Value::Py(&value), room, &mut sub) {
@@ -749,10 +861,15 @@ fn other_keys_reach_names(
     ctx: &Ctx<'_>,
 ) -> bool {
     let ctx = *ctx;
-    let keys = scan_dict(dict, ctx.state, |key, _| {
-        if key.is_instance_of::<PyString>()
-            || reached_by(key, fields, Some(&plan.keys), ctx).is_some()
-        {
+    let names = Names {
+        by_text: |name: &str| plan.by_name.get(name).copied(),
+        interned: Some(&plan.keys),
+        read: RefCell::default(),
+    };
+    let keys = scan_dict(dict, ctx.state, |key, value| {
+        let reaches = !key.is_exact_instance_of::<PyString>()
+            && declared_position(key, fields, &names, ctx, Entry { dict, value }).is_some();
+        if reaches || key.is_instance_of::<PyString>() {
             ControlFlow::Continue(())
         } else {
             ControlFlow::Break(())
@@ -772,13 +889,18 @@ fn other_keys_reach_names(
 /// index (an empty one, or a node the build-time traversal did not reach) falls
 /// back to building the map here.
 fn keyed_map_matches_py(
-    fields: &[Field],
-    defaults: &[MapClause],
+    reading: &RecordReading<'_>,
     dict: &Bound<'_, PyAny>,
     frame: &mut Frame<'_, '_>,
     decided: Option<&mut Decided>,
 ) -> bool {
     let ctx = frame.ctx;
+    let RecordReading {
+        fields,
+        defaults,
+        plan,
+        undeclared,
+    } = *reading;
     let Ok(dict) = dict.cast::<PyDict>() else {
         return false;
     };
@@ -792,10 +914,15 @@ fn keyed_map_matches_py(
     {
         return answered;
     }
-    if let Some(plan) = ctx.index.records.get(&(fields.as_ptr() as usize)) {
-        if let Some(answered) =
-            keyed_map_asks_for_its_keys(fields, defaults, dict, frame, plan, decided.as_deref_mut())
-        {
+    if let Some(plan) = plan {
+        if let Some(answered) = keyed_map_asks_for_its_keys(
+            fields,
+            undeclared,
+            dict,
+            frame,
+            plan,
+            decided.as_deref_mut(),
+        ) {
             return answered;
         }
         keyed_map_scan(
@@ -808,6 +935,7 @@ fn keyed_map_matches_py(
             &Names {
                 by_text: |name: &str| plan.by_name.get(name).copied(),
                 interned: Some(&plan.keys),
+                read: RefCell::default(),
             },
         )
     } else {
@@ -827,6 +955,7 @@ fn keyed_map_matches_py(
             &Names {
                 by_text: |name: &str| declared.get(name).copied(),
                 interned: None,
+                read: RefCell::default(),
             },
         )
     }
@@ -1016,7 +1145,7 @@ fn keyed_map_scan(
         let index = if fields.is_empty() {
             None
         } else {
-            declared_position(key, fields, names, ctx)
+            declared_position(key, fields, names, ctx, Entry { dict, value: val })
         };
         match index.and_then(|i| fields.get(i)) {
             Some(field) => {
@@ -1070,12 +1199,17 @@ const FOUND_ON_STACK: usize = 16;
 /// `json.loads` does. Records are small, so a linear scan beats building a
 /// per-object map.
 pub(super) fn keyed_map_matches_json(
-    fields: &[Field],
-    defaults: &[MapClause],
+    reading: &RecordReading<'_>,
     py: Python<'_>,
     entries: &[(Cow<'_, str>, JsonValue<'_>)],
     ctx: Ctx<'_>,
 ) -> bool {
+    let RecordReading {
+        fields,
+        defaults,
+        plan,
+        undeclared,
+    } = *reading;
     let mut unwritten = Unwritten::default();
     let mut sub = unwritten.frame(ctx);
     let room = ctx.room_to_descend();
@@ -1088,16 +1222,9 @@ pub(super) fn keyed_map_matches_json(
     // string. A record whose clause reads a key asks it of each undeclared key
     // once the fields are read, as the search below does, where it is wide
     // enough to take the plan at all ([`resolves_through_the_plan`]).
-    let undeclared = Undeclared::of(defaults);
-    if let Some(plan) = ctx
-        .index
-        .records
-        .get(&(fields.as_ptr() as usize))
-        .filter(|plan| {
-            plan.by_name.len() == fields.len()
-                && resolves_through_the_plan(undeclared, fields.len())
-        })
-    {
+    if let Some(plan) = plan.filter(|plan| {
+        plan.by_name.len() == fields.len() && resolves_through_the_plan(undeclared, fields.len())
+    }) {
         // The document's value for each declared field, last occurrence winning
         // as `json.loads` does, gathered before any of them is checked: an
         // earlier duplicate that fails is not the entry the document means.
@@ -1191,7 +1318,6 @@ pub(super) fn keyed_map_matches_json(
     // a name set rebuilt per object. A schema absent from the plan falls back to
     // scanning the field list, so correctness never depends on the plan being
     // complete.
-    let plan = ctx.index.records.get(&(fields.as_ptr() as usize));
     let declares = |name: &str| match plan {
         Some(plan) => plan.by_name.contains_key(name),
         None => fields.iter().any(|f| &*f.name == name),
@@ -1456,6 +1582,29 @@ pub(super) fn keyed_map_explain(
     undeclared_explained(fields, defaults, dict, value, frame);
 }
 
+/// `value`'s refusal by every one of `schemas`, each the only reading of it: the one's
+/// own failure where there is one, and otherwise what a union of them would say.
+fn refused_by_each(schemas: &[&Schema], value: &Value<'_, '_>, frame: &mut Frame<'_, '_>) {
+    if let [schema] = schemas {
+        member(schema, value, frame);
+        return;
+    }
+    super::refused_as_a_union(schemas.iter().copied(), value, frame);
+}
+
+/// Mark the key at `at` as [`PathSegment::Entered`] in each failure from
+/// `reported` on that its walk found inside it: the path a caller walks ends
+/// at the key, since no subscript reaches into one, and the message names the
+/// place in it. A failure of the key as a whole is at the key, and stays as it
+/// is.
+fn entered_the_key(out: &mut [Violation], reported: usize, at: usize) {
+    for violation in out.iter_mut().skip(reported) {
+        if violation.path.len() > at + 1 {
+            violation.path.insert(at + 1, PathSegment::Entered);
+        }
+    }
+}
+
 /// Report each key a record does not declare and no clause of it covers: the
 /// key, and its value, against the clause where the record has one, and the
 /// key alone where it is closed.
@@ -1481,27 +1630,49 @@ fn undeclared_explained(
             .records
             .get(&(fields.as_ptr() as usize))
             .map(|plan| &plan.keys[..]),
+        read: RefCell::default(),
     };
     // Whether a clause covers a key is asked in a fast walk, whose frame is
     // held for the scan rather than built per key.
     let mut unwritten = Unwritten::default();
     let mut deciding = unwritten.frame(ctx);
     let scan = scan_dict(dict, ctx.state, |key, val| {
-        if declared_position(key, fields, &names, ctx).is_some() {
+        if declared_position(key, fields, &names, ctx, Entry { dict, value: val }).is_some() {
             return ControlFlow::Continue(());
         }
         if covered(defaults, &Value::Py(key), &Value::Py(val), &mut deciding) {
             return ControlFlow::Continue(());
         }
-        if let Some(clause) = defaults.first() {
-            // A clause exists but did not cover this key: surface the key and
-            // value violations against it (the homogeneous-mapping error). The
-            // two are two failures, so a mode that stops at the first reports
-            // the key alone.
+        if let [clause] = defaults {
+            // The clause did not cover this key: surface the key and value
+            // violations against it (the homogeneous-mapping error). The two are
+            // two failures, so a mode that stops at the first reports the key
+            // alone.
+            let at = frame.path.len();
             frame.path.push(key_segment(key, ctx));
+            let reported = frame.out.len();
             member(&clause.key, &Value::Py(key), frame);
+            entered_the_key(frame.out, reported, at);
             if !ctx.mode.stops_at_first() || frame.out.is_empty() {
                 member(&clause.value, &Value::Py(val), frame);
+            }
+            frame.path.pop();
+        } else if !defaults.is_empty() {
+            // Clauses are a disjunction, so a refusal names what the ones holding
+            // the key read as a union names its branches, and a key none holds is
+            // the failure alone: a value is no question of a clause not reading it.
+            let room = ctx.room_to_descend();
+            let reading: Vec<&Schema> = defaults
+                .iter()
+                .filter(|clause| field_holds(&clause.key, &Value::Py(key), room, &mut deciding))
+                .map(|clause| &clause.value)
+                .collect();
+            frame.path.push(key_segment(key, ctx));
+            if reading.is_empty() {
+                let keys: Vec<&Schema> = defaults.iter().map(|clause| &clause.key).collect();
+                refused_by_each(&keys, &Value::Py(key), frame);
+            } else {
+                refused_by_each(&reading, &Value::Py(val), frame);
             }
             frame.path.pop();
         } else {

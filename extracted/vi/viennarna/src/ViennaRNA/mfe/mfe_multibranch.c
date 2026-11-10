@@ -19,6 +19,7 @@
 #include "ViennaRNA/params/default.h"
 #include "ViennaRNA/constraints/hard.h"
 #include "ViennaRNA/constraints/soft.h"
+#include "ViennaRNA/constraints/soft_iip.h"
 #include "ViennaRNA/eval/exterior.h"
 #include "ViennaRNA/eval/gquad.h"
 #include "ViennaRNA/eval/multibranch.h"
@@ -160,11 +161,18 @@ vrna_mfe_multibranch_loop_fast(vrna_fold_compound_t         *fc,
                                struct vrna_mx_mfe_aux_ml_s  *helpers)
 {
   if ((fc) &&
-      (helpers))
+      (helpers)) {
+    if ((fc->type == VRNA_FC_TYPE_SINGLE) &&
+        (fc->sc) &&
+        (fc->sc->iip)) {
+      return vrna_mfe_multibranch_loop_xlink(fc, i, j, helpers);
+    }
+
     return E_mb_loop_fast(fc,
                           i,
                           j,
                           helpers);
+  }
 
   return INF;
 }
@@ -1146,7 +1154,7 @@ mfe_multibranch_m2_fast(vrna_fold_compound_t        *fc,
                         struct vrna_mx_mfe_aux_ml_s *helpers)
 {
   unsigned int      k, *sn, *se, sliding_window;
-  int               en, decomp, k1j, *indx, *fm, **fm_local, *fmi, *dmli;
+  int               en, decomp, k1j, *indx, *fm, **fm_local, *fmi;
   vrna_hc_t         *hc;
   struct sc_mb_dat  sc_wrapper;
 
@@ -1159,16 +1167,13 @@ mfe_multibranch_m2_fast(vrna_fold_compound_t        *fc,
   fm        = (sliding_window) ? NULL : fc->matrices->fML;
   fm_local  = (sliding_window) ? fc->matrices->fML_local : NULL;
   fmi       = helpers->Fmi;
-  dmli      = helpers->DMLi;
   decomp    = INF;
 
   init_sc_mb(fc, &sc_wrapper);
 
   /* modular decomposition -------------------------------*/
-  if (sliding_window) {
+  if (sliding_window)
     fmi   -= i;
-    dmli  -= i;
-  }
 
   /* use fmi pointer that we may extend to include hard/soft constraints if necessary */
   int *fmi_tmp = fmi;

@@ -13,9 +13,9 @@ package_data = \
 
 setup_kwargs = {
     'name': 'kubernetes-stubs-elephant-fork',
-    'version': '37.0.1.post1',
+    'version': '37.0.2',
     'description': 'Type stubs for the Kubernetes Python API client',
-    'long_description': '# kubernetes-stubs-elephant-fork\n\nfork of [kubernetes-stubs][1]\n\n## why fork?\n\n[kubernetes-stubs][1] has not provided stubs for [kubernetes][2] >= 23.0 yet (2023-05-30).\n\n`kubernetes-stubs-elephant-fork` provides stubs for all releases after 7.0 of [kubernetes][2],\neven includes any release in the future automatically.\n\nI run a crontab by github actions which looks for new releases of [kubernetes][2]\nand build stubs for it.\n\n[1]: https://pypi.org/project/kubernetes-stubs\n[2]: https://pypi.org/project/kubernetes\n',
+    'long_description': "# kubernetes-stubs-elephant-fork\n\nfork of [kubernetes-stubs][1]\n\n## deprecated\n\nThis library is deprecated.\n\nThe official Kubernetes Python client has supported typing since version 37.0.0,\nmaking `kubernetes-stubs-elephant-fork` obsolete.\n\nThank you to everyone who installed and used `kubernetes-stubs-elephant-fork` over the past few years.\nWorking on this has been such a wonderful time for me,\nbut now it's time to say goodbye.\n\nWishing you all the best and good luck in the days ahead!\n\n## why fork?\n\n[kubernetes-stubs][1] has not provided stubs for [kubernetes][2] >= 23.0 yet (2023-05-30).\n\n`kubernetes-stubs-elephant-fork` provides stubs for all releases after 7.0 of [kubernetes][2],\neven includes any release in the future automatically.\n\nI run a crontab by github actions which looks for new releases of [kubernetes][2]\nand build stubs for it.\n\n[1]: https://pypi.org/project/kubernetes-stubs\n[2]: https://pypi.org/project/kubernetes\n",
     'author': 'Nikhil Benesch',
     'author_email': 'nikhil.benesch@gmail.com',
     'maintainer': 'None',

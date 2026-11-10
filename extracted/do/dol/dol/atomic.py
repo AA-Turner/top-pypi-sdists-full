@@ -2,7 +2,8 @@
 
 A crash (or an exception while producing the data) leaves the old content or the new,
 never a torn or empty file. Dependency-free; ``atomic_write`` is the entry point, and
-``atomic_delete`` its counterpart for removal. A write killed mid-way leaves its temp
+``atomic_delete`` its counterpart for removal, ``write_content_addressed`` its variant
+for a name computed from the content. A write killed mid-way leaves its temp
 file behind; ``interrupted_writes`` lists them (``TEMP_NAME_PATTERN`` is their name).
 
 On Windows, a reader holding the destination open makes ``os.replace`` and ``os.unlink``
@@ -29,6 +30,7 @@ import errno
 import hashlib
 import json
 import os
+import pathlib
 import re
 import stat
 import threading
@@ -153,6 +155,12 @@ def temp_name(name: str) -> str:
 TEMP_NAME_PATTERN = re.compile(r"\..+\.[0-9a-f]{8}\.tmp", re.DOTALL)
 
 
+def _physical_path(path) -> str:
+    """``path`` as a ``str`` with symlinks resolved: the file :func:`atomic_write` really
+    replaces, and so the file whose lock is :class:`FileLock`'s."""
+    return os.path.realpath(os.fsdecode(path))
+
+
 def interrupted_writes(
     folder,
     *,
@@ -160,7 +168,8 @@ def interrupted_writes(
     recursive: bool = False,
 ) -> "list[str]":
     r"""The temp files writes killed mid-way left in ``folder``: sorted absolute paths
-    (``str``) of the regular files (never a symlink or folder) whose name fully
+    (``str``; ``..`` is not collapsed, so each names the file found) of the regular
+    files (never a symlink or folder) whose name fully
     matches ``pattern`` (default: :func:`atomic_write`'s temps; pass another writer's,
     e.g. ``r"\.blob-.+\.part"``).
 
@@ -197,11 +206,16 @@ def interrupted_writes(
             for e in entries:
                 if e.is_file(follow_symlinks=False):
                     if pattern.fullmatch(e.name):
-                        yield os.path.abspath(e.path)
+                        yield e.path
                 elif recursive and e.is_dir(follow_symlinks=False):
                     yield from scan(e.path, top=False)
 
-    return sorted(scan(os.fsdecode(folder), top=True))
+    # Absolute but NOT normalised: ``abspath`` would collapse ``..`` textually, which
+    # names a different file when a component before it is a symlink.
+    if not os.fsdecode(folder):
+        raise ValueError("interrupted_writes needs a folder, not an empty path")
+    root = str(pathlib.Path(os.fsdecode(folder)).absolute())
+    return sorted(scan(root, top=True))
 
 
 def _mode_to_apply(path: str, perms: "int | None") -> "int | None":
@@ -259,19 +273,36 @@ def atomic_write(
     >>> open(os.path.join(d, "a"), "rb").read(), os.listdir(d)  # old content, no litter
     (b'xy', ['a'])
     """
-    if isinstance(data, str):
-        raise TypeError(
-            "atomic_write takes bytes (or chunks of bytes); encode text first"
-        )
-    path = os.path.realpath(os.fsdecode(path))  # str, so the temp name joins
-    chunks = [data] if isinstance(data, _BYTES_LIKE) else data
+    path = _physical_path(path)  # str, so the temp name joins
     dirname, name = os.path.split(path)
     tmp = os.path.join(dirname, temp_name(name))
-    mode = _mode_to_apply(path, perms)
+    chunks = _as_chunks(data, "atomic_write")
+    _write_temp(tmp, chunks, mode=_mode_to_apply(path, perms), fsync=fsync)
     try:
-        fd = os.open(
-            tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666 if mode is None else mode
-        )
+        retry(os.replace, tmp, path)
+    except BaseException:
+        _unlink_quietly(tmp)
+        raise
+    if fsync:
+        _fsync_dir(dirname)
+
+
+def _as_chunks(data, who: str) -> "Iterable[bytes]":
+    if isinstance(data, str):
+        raise TypeError(f"{who} takes bytes (or chunks of bytes); encode text first")
+    return [data] if isinstance(data, _BYTES_LIKE) else data
+
+
+def _write_temp(
+    tmp: str, chunks: "Iterable[bytes]", *, mode: "int | None", fsync: bool
+) -> None:
+    """Create ``tmp`` (``O_EXCL``, with ``mode`` if given) and write ``chunks`` to it;
+    if that fails after the file exists, remove it again. (A failed ``O_EXCL`` create
+    removes nothing: the file there is another writer's.)"""
+    fd = os.open(
+        tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666 if mode is None else mode
+    )
+    try:
         with os.fdopen(fd, "wb") as fh:
             if mode is not None and hasattr(os, "fchmod"):
                 os.fchmod(fh.fileno(), mode)  # exact, not narrowed by the umask
@@ -280,15 +311,119 @@ def atomic_write(
             if fsync:
                 fh.flush()
                 os.fsync(fh.fileno())
-        retry(os.replace, tmp, path)
     except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+        _unlink_quietly(tmp)
+        raise
+
+
+def _is_regular_file_of_size(path: str, size: int) -> bool:
+    """Whether ``path`` is itself (not a link to) a regular file of ``size`` bytes."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISREG(st.st_mode) and st.st_size == size
+
+
+def _plain_name(name: str) -> str:
+    """``name`` when it is a file name, not a path or a temp's name (``ValueError``
+    otherwise)."""
+    if (
+        not isinstance(name, str)
+        or TEMP_NAME_PATTERN.fullmatch(name)
+        or not name
+        or name in (os.curdir, os.pardir)
+        or os.path.basename(name) != name
+        or (os.altsep and os.altsep in name)
+        or "\0" in name
+        or (os.name == "nt" and ":" in name)  # an alternate data stream
+    ):
+        raise ValueError(f"name_of must give a plain file name, got {name!r}")
+    return name
+
+
+def _unlink_quietly(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+#: The name part of the temp :func:`write_content_addressed` stages to.
+_CONTENT_TEMP_NAME = "content"
+
+
+def write_content_addressed(
+    folder,
+    data: "bytes | Iterable[bytes]",
+    *,
+    hasher: Callable = hashlib.sha256,
+    name_of: Callable = lambda h: h.hexdigest(),
+    fsync: bool = False,
+    perms: "int | None" = None,
+    retry: Callable = DFLT_RETRY,
+) -> str:
+    """Write ``data`` into ``folder`` under a name computed from its content; return
+    that name (the file is ``os.path.join(folder, name)``).
+
+    The :func:`atomic_write` of a file whose name is not known until its last byte is:
+    ``data`` (bytes-like, or an iterable of chunks, so a large payload streams) is
+    written to a hidden temp in ``folder`` (named like :func:`atomic_write`'s, so
+    :func:`interrupted_writes` finds one a kill left) while being hashed, then the temp
+    is renamed to ``name_of(hasher)``. A reader that finds the name finds the whole
+    content, never a prefix. If that name already exists, identical content is already
+    there: the temp is dropped and the existing file left as it is (when it is a
+    regular file of the same size; anything else under that name, a truncated file, a
+    link, is replaced, a folder raises). On any failure the temp is removed.
+
+    :param folder: Where the file goes; it must exist.
+    :param hasher: Factory of a fresh hash object (``update``-able), e.g.
+        ``hashlib.blake2b`` or ``functools.partial(hashlib.sha256, usedforsecurity=False)``.
+    :param name_of: ``name_of(hash_object)`` -> the file name (a plain name, not a
+        path). Default: the hex digest.
+    :param fsync, perms, retry: As in :func:`atomic_write`. ``perms`` defaults to the
+        usual umask mode.
+
+    >>> import tempfile
+    >>> d = tempfile.mkdtemp()
+    >>> name = write_content_addressed(d, [b"he", b"llo"])
+    >>> name[:12], open(os.path.join(d, name), "rb").read(), os.listdir(d) == [name]
+    ('2cf24dba5fb0', b'hello', True)
+    >>> write_content_addressed(d, b"hello") == name  # same content, same file
+    True
+
+    See also :mod:`dol.content` (a content-addressed *store*, with a key per content).
+    """
+    folder = os.fsdecode(folder)  # as given: a same-folder rename needs no resolving
+    tmp = os.path.join(folder, temp_name(_CONTENT_TEMP_NAME))
+    digest, size = hasher(), 0
+
+    def hashed(chunks):
+        nonlocal size
+        for chunk in chunks:
+            digest.update(chunk)
+            size += len(chunk)
+            yield chunk
+
+    _write_temp(
+        tmp,
+        hashed(_as_chunks(data, "write_content_addressed")),
+        mode=perms,
+        fsync=fsync,
+    )
+    try:
+        name = name_of(digest)
+        path = os.path.join(folder, _plain_name(name))
+        if _is_regular_file_of_size(path, size):
+            _unlink_quietly(tmp)  # identical content is already there
+        else:
+            retry(os.replace, tmp, path)
+    except BaseException:
+        _unlink_quietly(tmp)
         raise
     if fsync:
-        _fsync_dir(dirname)
+        _fsync_dir(folder)
+    return name
 
 
 def atomic_delete(path, *, retry: Callable = DFLT_RETRY) -> None:
@@ -425,6 +560,16 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=_renew_in_child)
 
 
+def _is_same_file(fd: int, path: str) -> bool:
+    """Whether the open descriptor ``fd`` is still the file at ``path``."""
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return False
+    fst = os.fstat(fd)
+    return (st.st_ino, st.st_dev) == (fst.st_ino, fst.st_dev)
+
+
 class FileLock:
     """A reusable, exclusive, advisory lock on a sidecar file ``<path><sidecar>``
     (a shortened hidden name instead, for names near the 255-byte limit).
@@ -446,7 +591,10 @@ class FileLock:
     :func:`file_lock`.
 
     The lock file is a separate sidecar, not ``path`` itself, so that
-    :func:`atomic_write` replacing ``path`` does not swap the file being locked.
+    :func:`atomic_write` replacing ``path`` does not swap the file being locked. It sits
+    next to the real file (symlinks resolved, as :func:`atomic_write` resolves them), so
+    every link to one file shares one lock. The path is resolved each time the lock is
+    entered (a link retargeted *while* it is held is not followed).
 
     >>> import tempfile
     >>> lock = FileLock(os.path.join(tempfile.mkdtemp(), "data.json"))
@@ -464,9 +612,9 @@ class FileLock:
         poll_interval: float = DFLT_POLL_INTERVAL,
     ) -> None:
         """
-        :param path: The file being protected; the lock lives next to it, as
-            ``<path><sidecar>`` (as a shortened hidden name when that would exceed
-            255 bytes).
+        :param path: The file being protected (symlinks resolved); the lock lives next
+            to it, as ``<path><sidecar>`` (as a shortened hidden name when that would
+            exceed 255 bytes).
         :param sidecar: Non-empty suffix of the lock file.
         :param poll_interval: Seconds between attempts on a contended lock (Windows
             only; POSIX blocks in the kernel).
@@ -475,7 +623,11 @@ class FileLock:
             raise ValueError(
                 "sidecar must be non-empty: the lock file cannot be `path`"
             )
-        self.path = _lock_path(os.fsdecode(path), os.fsdecode(sidecar))
+        self._target = os.fsdecode(path)
+        if not os.path.basename(self._target):
+            raise ValueError(f"FileLock takes a file path, not {self._target!r}")
+        self._sidecar = os.fsdecode(sidecar)
+        self.path = self._resolve_lock_path()
         self._key = None  # the lock file's identity, once opened
         self.poll_interval = poll_interval
         self.held = False
@@ -486,10 +638,25 @@ class FileLock:
         self._thread_lock = threading.Lock()
         _live_locks.add(self)
 
+    def _resolve_lock_path(self) -> str:
+        """The lock file of the real file ``_target`` names *now*: resolved on every
+        entry, as :func:`atomic_write` resolves on every write, so a long-lived lock
+        follows a retargeted link or a changed working directory (#188)."""
+        return _lock_path(_physical_path(self._target), self._sidecar)
+
+    def _drop_handle(self) -> None:
+        closer, self._closer, self._fh = self._closer, None, None
+        if closer is not None:
+            closer()
+
     def _ensure_handle(self) -> None:
         if self._pid != os.getpid():
             self._fh = self._closer = None  # inherited over a fork: leave it be
             self._pid = os.getpid()
+        lock_path = self._resolve_lock_path()
+        if self._fh is not None and lock_path != self.path:
+            self._drop_handle()  # the link was retargeted, or the cwd changed
+        self.path = lock_path
         if self._fh is None:
             self._fh = _open_lock_file(self.path)
             if self._fh is not None:
@@ -524,14 +691,25 @@ class FileLock:
             raise RuntimeError(f"FileLock({self.path!r}) is not reentrant")
         self._thread_lock.acquire()
         try:
-            self._ensure_handle()
-            self._key = self._file_key()
-            if self._key is not None and _holding_thread(self._key) == me:
-                raise RuntimeError(
-                    f"{self.path!r} is already locked by this thread (another "
-                    "FileLock or file_lock of the same file): waiting would deadlock"
-                )
-            self.held = self._try_lock()
+            while True:
+                self._ensure_handle()
+                self._key = self._file_key()
+                if self._key is not None and _holding_thread(self._key) == me:
+                    raise RuntimeError(
+                        f"{self.path!r} is already locked by this thread (another "
+                        "FileLock or file_lock of the same file): waiting would "
+                        "deadlock"
+                    )
+                self.held = self._try_lock()
+                if self.held and not _is_same_file(self._fh.fileno(), self.path):
+                    # The lock file was deleted and recreated (while we idled or
+                    # waited): we hold an unlinked file. Lock the one on disk instead
+                    # (#192). Deleted while held is not covered: best effort.
+                    _unlock(self._fh)
+                    self.held = False
+                    self._drop_handle()
+                    continue
+                break
             if self.held:
                 _holder_of_file[self._key] = (me, weakref.ref(self))
             self._owner = me
@@ -606,16 +784,6 @@ def file_lock(
 DFLT_KEEP_HANDLE = os.name != "nt"
 
 _APPEND_FLAGS = os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0)
-
-
-def _is_same_file(fd: int, path: str) -> bool:
-    """Whether the open descriptor ``fd`` is still the file at ``path``."""
-    try:
-        st = os.stat(path)
-    except FileNotFoundError:
-        return False
-    fst = os.fstat(fd)
-    return (st.st_ino, st.st_dev) == (fst.st_ino, fst.st_dev)
 
 
 def _missing_end(fd: int, line_end: bytes) -> bytes:
@@ -748,7 +916,7 @@ def update_json(
     path,
     change: Callable,
     *,
-    default: Callable = dict,
+    default: "Callable | None" = dict,
     loads: Callable = json.loads,
     dumps: Callable = json.dumps,
     lock=None,
@@ -770,7 +938,10 @@ def update_json(
     be read would destroy what it held.
 
     :param path: The JSON file; its folder must exist.
-    :param default: Factory for the document when ``path`` does not exist.
+    :param default: Factory for the document when ``path`` does not exist. ``None``
+        means the record must already exist: a missing file raises
+        ``FileNotFoundError`` naming ``path`` (and, as it is raised before the lock is
+        taken when it can be, creates nothing).
     :param loads, dumps: The codec. ``loads`` gets bytes; ``dumps`` may return str or
         bytes (e.g. ``functools.partial(json.dumps, indent=2)``, or orjson's). Change
         is detected by comparing ``dumps`` before and after, so it must be
@@ -800,13 +971,27 @@ def update_json(
     {'clips': ['a.mp4'], 'lost': True}
     >>> open(path).read()
     '{"clips": ["a.mp4"]}'
+
+    ``default=None`` for a record that must already exist:
+
+    >>> update_json(path + ".gone", lambda m: None, default=None)
+    Traceback (most recent call last):
+    ...
+    FileNotFoundError: [Errno 2] update_json: the record must exist (default=None): '...manifest.json.gone'
     """
     path = os.fsdecode(path)
     if not os.path.basename(path):
         raise ValueError(f"update_json takes a file path, not {path!r}")
-    folder = os.path.dirname(os.path.abspath(path))
+    folder = (
+        os.path.dirname(path) or os.curdir
+    )  # no abspath: it collapses '..' textually
     if not os.path.isdir(folder):
-        raise FileNotFoundError(f"update_json: the folder of {path!r} does not exist")
+        raise FileNotFoundError(
+            errno.ENOENT, "update_json: the folder of the record does not exist", path
+        )
+    if default is None and not os.path.exists(path):
+        # cheap early exit (no lock, no sidecar); the read under the lock decides
+        raise _record_missing(path)
     own_lock = lock is None
     if own_lock:
         lock = FileLock(path)
@@ -831,11 +1016,19 @@ def update_json(
             lock.close()
 
 
-def _read_json_strictly(path: str, default: Callable, loads: Callable):
+def _record_missing(path: str) -> FileNotFoundError:
+    return FileNotFoundError(
+        errno.ENOENT, "update_json: the record must exist (default=None)", path
+    )
+
+
+def _read_json_strictly(path: str, default: "Callable | None", loads: Callable):
     try:
         with open(path, "rb") as fh:
             data = fh.read()
     except FileNotFoundError:
+        if default is None:
+            raise _record_missing(path) from None
         obj = default()
     else:
         try:

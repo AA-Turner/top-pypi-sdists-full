@@ -3,6 +3,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use jiter::JsonValue;
+use pyo3::basic::CompareOp;
 use pyo3::types::{
     PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PyModule, PySet, PyString,
     PyTuple,
@@ -12,12 +13,15 @@ use valgebra_core::{
 };
 
 use super::record::{
-    SMALL_OBJECT, Undeclared, keyed_map_matches_json, resolves_through_the_plan, scan_dict,
+    RecordReading, SMALL_OBJECT, Undeclared, keyed_map_matches_json, resolves_through_the_plan,
+    scan_dict,
 };
-use super::sequence::scan_list;
+use super::scalar::{floats_compared, machine_range};
+use super::sequence::{refined_scalar_list, scan_list};
 use super::*;
 use crate::check::ctx::{MAX_RECURSION_DEPTH, MAX_WALK_DEPTH};
 use crate::check::index::ValidatorIndex;
+use crate::check::index::float_operand;
 use crate::check::{WalkMode, WalkState, build_index};
 
 /// Decide membership of a Python value against a schema, through the real
@@ -359,6 +363,192 @@ fn a_union_names_its_branches_by_their_constants() {
             labels.render(),
             "one of: the literal 'torch', the literal 'jax', int",
             "each branch names itself, and the nested union names its members"
+        );
+    });
+}
+
+/// A refined branch names its base and each of its constraints, in the words its
+/// own failure uses, so a value of the base is not called outside it.
+#[test]
+fn a_refined_branch_names_its_base_and_its_bounds() {
+    Python::attach(|py| {
+        let pool = vec![
+            PyInt::new(py, 10).into_any().unbind(),
+            PyInt::new(py, 0).into_any().unbind(),
+        ];
+        let refine = |base: Schema, constraint: Constraint| Schema::Refine {
+            base: Arc::new(base),
+            constraints: vec![constraint].into(),
+        };
+        let at_least = refine(Schema::Int, Constraint::Ge(OperandIx::new(0)));
+        let below = refine(Schema::Int, Constraint::Lt(OperandIx::new(1)));
+        let either = Schema::Union(vec![at_least.clone(), below].into());
+        let value = PyInt::new(py, 5).into_any();
+        let (valid, violations) = explain(py, &either, &value, &pool, &[]);
+        assert!(!valid);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].expected, "one of: int and >= 10, int and < 0");
+        let outside = Schema::Complement(Arc::new(at_least));
+        let value = PyInt::new(py, 12).into_any();
+        let (valid, violations) = explain(py, &outside, &value, &pool, &[]);
+        assert!(!valid);
+        assert_eq!(violations[0].expected, "not (int and >= 10)");
+    });
+}
+
+/// Clauses are a disjunction: a key several hold names each of their values, a key
+/// one holds is refused by its value, and a key none holds is the failure alone.
+#[test]
+fn a_refusal_names_each_clause_reading_a_key() {
+    Python::attach(|py| {
+        let pattern = |text: &str| Schema::Refine {
+            base: Arc::new(Schema::Str),
+            constraints: vec![Constraint::Regex(text.to_owned())].into(),
+        };
+        let words = Schema::keyed_map(
+            Vec::new(),
+            vec![
+                MapClause {
+                    key: pattern("a.*"),
+                    value: Schema::Int,
+                },
+                MapClause {
+                    key: pattern(".*z"),
+                    value: Schema::Str,
+                },
+            ],
+        );
+        let refused = |key: &str, value: Bound<'_, PyAny>| {
+            let held = PyDict::new(py);
+            held.set_item(key, value).expect("a str key");
+            explain(py, &words, held.as_any(), &[], &[])
+        };
+        let (valid, violations) = refused("az", PyFloat::new(py, 1.5).into_any());
+        assert!(!valid);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].code, "union_error");
+        // In the order a map's clauses are canonical in, by key.
+        assert_eq!(violations[0].expected, "one of: str, int");
+        let (valid, violations) = refused("a", PyString::new(py, "s").into_any());
+        assert!(!valid);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].code, "int_type");
+        let (valid, violations) = refused("b", PyInt::new(py, 1).into_any());
+        assert!(!valid);
+        assert_eq!(violations.len(), 1, "{violations:?}");
+        assert_eq!(violations[0].code, "union_error");
+        assert!(violations[0].expected.contains("'a.*'"));
+        assert!(violations[0].expected.contains("'.*z'"));
+    });
+}
+
+/// A failure inside a key is marked as the key entered, right after it: the
+/// path a caller reads ends at the key and the message names the place in it.
+/// A failure of the key's value, and one of the key as a whole, carry no mark.
+#[test]
+fn a_failure_inside_a_key_marks_the_key_entered() {
+    Python::attach(|py| {
+        let keyed_by = |key: Schema| {
+            Schema::keyed_map(
+                Vec::new(),
+                vec![MapClause {
+                    key,
+                    value: Schema::Int,
+                }],
+            )
+        };
+        let tuples = keyed_by(Schema::tuple(SeqShape::homogeneous(Schema::Int)));
+        let held = PyDict::new(py);
+        let key = PyTuple::new(py, ["x"]).expect("a tuple");
+        held.set_item(&key, "y").expect("a hashable key");
+        let (valid, violations) = explain(py, &tuples, held.as_any(), &[], &[]);
+        assert!(!valid);
+        let paths: Vec<Vec<PathSegment>> = violations.iter().map(|v| v.path.clone()).collect();
+        let named = PathSegment::Key("('x',)".into());
+        assert_eq!(
+            paths,
+            vec![
+                vec![named.clone(), PathSegment::Entered, PathSegment::Index(0)],
+                vec![named],
+            ]
+        );
+        let ints = keyed_by(Schema::Int);
+        let held = PyDict::new(py);
+        held.set_item("a", 1).expect("a str key");
+        let (valid, violations) = explain(py, &ints, held.as_any(), &[], &[]);
+        assert!(!valid);
+        let paths: Vec<Vec<PathSegment>> = violations.iter().map(|v| v.path.clone()).collect();
+        assert_eq!(paths, vec![vec![PathSegment::Key("a".into())]]);
+    });
+}
+
+/// A key that is no exact `str` reaches a declared name where its hash and its
+/// `==` both say so, as the dict's own lookup does. Beside the field's own
+/// entry, a subclass key equal to another word, or hashing like the name and
+/// equal to another word, is a key the record does not declare, read by its
+/// clause, even where its value is the very object the field's entry holds.
+#[test]
+fn a_key_of_a_str_subclass_reaches_a_name_by_its_hash_and_its_equality() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"class Plain(str):\n\
+              \x20   pass\n\
+              class Colliding(str):\n\
+              \x20   def __hash__(self):\n\
+              \x20       return hash('a')\n",
+            c"reached_by.py",
+            c"reached_by",
+        )
+        .expect("the module runs");
+        // `{"a": int, str: str}`: a key the record does not declare is read by
+        // the clause, which refuses the `int` held under it, so where the key
+        // lands decides the answer.
+        let record = Schema::keyed_map(
+            vec![Field {
+                name: "a".into(),
+                schema: Schema::Int,
+                required: true,
+            }],
+            vec![MapClause {
+                key: Schema::Str,
+                value: Schema::Str,
+            }],
+        );
+        let beside_the_field = |class: &str, word: &str| {
+            let key = module
+                .getattr(class)
+                .expect("the class")
+                .call1((word,))
+                .expect("a key");
+            // One value object under both keys, so the entry the name finds
+            // holds the very value the stray key does, and only where the key
+            // lands tells them apart.
+            let one = 1i64.into_pyobject(py).expect("an int").into_any();
+            let held = PyDict::new(py);
+            held.set_item("a", &one).expect("the field's entry");
+            held.set_item(key, &one).expect("a hashable key");
+            assert_eq!(held.len(), 2, "two entries");
+            holds(py, &record, held.as_any(), &[], &[])
+        };
+        assert!(
+            !beside_the_field("Plain", "b"),
+            "a subclass equal to no name"
+        );
+        assert!(
+            !beside_the_field("Colliding", "z"),
+            "a hash like the name's is no equality"
+        );
+        let held = PyDict::new(py);
+        let named = module
+            .getattr("Plain")
+            .expect("the class")
+            .call1(("a",))
+            .expect("a key");
+        held.set_item(named, 1).expect("a hashable key");
+        assert!(
+            holds(py, &record, held.as_any(), &[], &[]),
+            "equal to the name"
         );
     });
 }
@@ -2329,11 +2519,23 @@ fn a_union_explains_the_branch_that_descended_furthest() {
         let nested = PyList::new(py, [PyList::new(py, ["a"]).expect("a list")])
             .expect("a list")
             .into_any();
-        for branches in [vec![ints.clone(), lists.clone()], vec![lists, ints]] {
+        for branches in [vec![ints.clone(), lists.clone()], vec![lists, ints.clone()]] {
             let union = Schema::Union(branches.into());
             let (ok, violations) = explain(py, &union, &nested, &[], &[]);
             assert!(!ok);
             assert_eq!(violations[0].location(), "[0][0]", "{union:?}");
+        }
+        // Two branches failing equally deep: the earlier one is reported.
+        let bytes = Schema::list(SeqShape::homogeneous(Schema::Bytes));
+        let one_float = PyList::new(py, [1.5]).expect("a list").into_any();
+        for (branches, expected) in [
+            (vec![ints.clone(), bytes.clone()], Schema::Int.expected()),
+            (vec![bytes, ints], Schema::Bytes.expected()),
+        ] {
+            let union = Schema::Union(branches.into());
+            let (ok, violations) = explain(py, &union, &one_float, &[], &[]);
+            assert!(!ok);
+            assert_eq!(violations[0].expected, expected, "{union:?}");
         }
 
         // No branch makes any progress: a single union error, not two flat
@@ -3298,8 +3500,9 @@ fn the_json_record_path_agrees_at(width: usize) {
                 state: &state,
                 mode: WalkMode::Fast,
             };
-            assert!(keyed_map_matches_json(fields, defaults, py, &good, ctx));
-            assert!(!keyed_map_matches_json(fields, defaults, py, &bad, ctx));
+            let reading = RecordReading::of(fields, defaults, &ctx);
+            assert!(keyed_map_matches_json(&reading, py, &good, ctx));
+            assert!(!keyed_map_matches_json(&reading, py, &bad, ctx));
         }
         // The plan really was absent for the second pass, so the two answers
         // came from the two readings rather than from one of them twice.
@@ -3406,8 +3609,17 @@ fn the_scalar_loop_and_the_walk_admit_the_same_values() {
                     walked, looped,
                     "the walk and the scalar loop disagree about {schema:?} and {value:?}"
                 );
+                assert_eq!(
+                    root_scalar(schema, value),
+                    Some(walked),
+                    "the walk and the root's test disagree about {schema:?} and {value:?}"
+                );
             }
         }
+        // A schema the walk descends into is the walk's, at the root as anywhere.
+        let none = py.None().into_bound(py);
+        let list = Schema::list(SeqShape::homogeneous(Schema::Int));
+        assert_eq!(root_scalar(&list, &none), None);
         // And the other direction: a schema the loop calls a scalar is one the
         // walk answers without descending, so nothing that needs a descent may
         // be named here.
@@ -4354,6 +4566,109 @@ fn a_tuple_subclass_that_overrides_nothing_is_read_where_it_lies() {
     });
 }
 
+/// A field is what the dict answers for its name, and a second key reaching the
+/// name is a key the record does not declare.
+///
+/// `Plain("a") == Folded("A")` is `str`'s answer and `False`, so a dict holds both,
+/// and each reaches `"a"`. Counted per key, the second pays for a required field no
+/// key holds, and a record with a field of no value admits the dict.
+#[test]
+fn two_keys_reaching_one_name_read_one_field() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"class Plain(str):\n\
+              \x20   __slots__ = ()\n\
+              class Folded(str):\n\
+              \x20   __slots__ = ()\n\
+              \x20   def __hash__(self):\n\
+              \x20       return hash(self.lower())\n\
+              \x20   def __eq__(self, other):\n\
+              \x20       return isinstance(other, str) and self.lower() == other.lower()\n\
+              class Collides(str):\n\
+              \x20   __slots__ = ()\n\
+              \x20   def __hash__(self):\n\
+              \x20       return hash(\"a\")\n\
+              \x20   def __eq__(self, other):\n\
+              \x20       return self is other\n\
+              def found_second(first, second):\n\
+              \x20   held = {Collides(\"x\"): 0, Plain(\"a\"): first}\n\
+              \x20   del held[next(iter(held))]\n\
+              \x20   held[Folded(\"A\")] = second\n\
+              \x20   return held\n",
+            c"two_keys.py",
+            c"two_keys",
+        )
+        .expect("the module compiles");
+        let two_keys = |first: Bound<'_, PyAny>, second: Bound<'_, PyAny>| {
+            let value = PyDict::new(py);
+            let key = |class: &str, text: &str| {
+                module
+                    .getattr(class)
+                    .expect("the class")
+                    .call1((text,))
+                    .expect("the subclass builds")
+            };
+            value
+                .set_item(key("Plain", "a"), first)
+                .expect("a fresh dict takes a key");
+            value
+                .set_item(key("Folded", "A"), second)
+                .expect("the keys are unequal");
+            assert_eq!(value.len(), 2, "both keys are held");
+            value.into_any()
+        };
+        let one = || PyInt::new(py, 1i64).into_any();
+        let field = |name: &str, schema: Schema| Field {
+            name: name.into(),
+            schema,
+            required: true,
+        };
+        let clause = |key: Schema, value: Schema| MapClause { key, value };
+
+        // No key is `b`, however many reach `a`.
+        let needs_b = Schema::keyed_map(
+            vec![field("a", Schema::Int), field("b", Schema::Int)],
+            vec![clause(Schema::Str, Schema::Int)],
+        );
+        case(py, &needs_b, &two_keys(one(), one()), false);
+
+        // The second entry is read by the clause and not by the field, so a value
+        // the field refuses and the clause takes is admitted.
+        let of_strings = Schema::keyed_map(
+            vec![field("a", Schema::Int)],
+            vec![clause(Schema::Str, Schema::Str)],
+        );
+        let text = PyString::new(py, "s").into_any();
+        case(py, &of_strings, &two_keys(one(), text.clone()), true);
+        case(py, &of_strings, &two_keys(text, one()), false);
+
+        // One object under the two keys: the field reads one of them, and the
+        // other is left to a clause that takes no `str`.
+        let of_bytes = Schema::keyed_map(
+            vec![field("a", Schema::Int)],
+            vec![clause(Schema::Bytes, Schema::Int)],
+        );
+        let shared = one();
+        case(py, &of_bytes, &two_keys(shared.clone(), shared), false);
+
+        // A slot left by a deleted key puts the later key first along the probes,
+        // so the lookup answers with the entry the scan reads second.
+        let found_second = module
+            .getattr("found_second")
+            .expect("the function")
+            .call1(("s", 1i64))
+            .expect("the dict builds");
+        let answered = found_second
+            .get_item("a")
+            .expect("a key reaches the name")
+            .is_instance_of::<PyInt>();
+        if answered {
+            case(py, &of_strings, &found_second, true);
+        }
+    });
+}
+
 /// A record resolves a key the way the dict it reads does.
 ///
 /// The declared names are interned and an exact `str` is compared by text. A
@@ -4832,6 +5147,20 @@ fn a_union_reports_a_branch_whose_walk_stopped_rather_than_a_summary() {
             violations[0].expected,
             "a predicate that does not raise (raised ValueError: no)"
         );
+        // A branch that descends is reported over one that stopped where the
+        // union stands: it is the one the value came closer to.
+        let raising = Schema::Refine {
+            base: Arc::new(Schema::ANYTHING),
+            constraints: vec![Constraint::Predicate(PredIx::new(0))].into(),
+        };
+        let ints = Schema::list(SeqShape::homogeneous(Schema::Int));
+        let schema = Schema::Union(vec![raising, ints].into());
+        let value = PyList::new(py, ["s"]).expect("a list").into_any();
+        let (ok, violations) = explain(py, &schema, &value, &pool, &[]);
+        assert!(!ok);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].location(), "[0]");
+        assert_eq!(violations[0].expected, Schema::Int.expected());
     });
 }
 
@@ -6551,6 +6880,462 @@ fn a_list_of_refinements_answers_as_the_walk_does() {
                 ]
             )
         );
+    });
+}
+
+/// Order bounds a machine word holds answer, over a list, what the comparisons
+/// answer over a tuple of the same values, at every edge of the word, for a value
+/// of every kind, and for a bound of every kind the range declines.
+#[test]
+fn a_list_of_bounded_integers_reads_as_the_comparisons_read_it() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"class Int(int):\n\
+              \x20   def __ge__(self, other):\n\
+              \x20       return False\n\
+              \x20   __gt__ = __le__ = __lt__ = __ge__\n\
+              TOP = 2 ** 63 - 1\n\
+              LOW = -2 ** 63\n\
+              OPERANDS = [0, 5, -1, TOP, LOW, TOP + 1, LOW - 1, True, 1.5, Int(0)]\n\
+              VALUES = [0, 1, 4, 5, 6, -1, -2, TOP, TOP - 1, LOW, LOW + 1, TOP + 1,\n\
+              \x20         LOW - 1, 2 ** 200, -2 ** 200, True, False, Int(3)]\n",
+            c"bounded_integers.py",
+            c"bounded_integers",
+        )
+        .expect("the corpus compiles");
+        let list_of = |name: &str| -> Vec<Bound<'_, PyAny>> {
+            module
+                .getattr(name)
+                .expect("the corpus")
+                .try_iter()
+                .expect("a list")
+                .map(|item| item.expect("an element"))
+                .collect()
+        };
+        let operands = list_of("OPERANDS");
+        let values = list_of("VALUES");
+        let pool: Vec<Py<PyAny>> = operands.iter().map(|o| o.clone().unbind()).collect();
+        let bounds: [fn(OperandIx) -> Constraint; 4] = [
+            Constraint::Ge,
+            Constraint::Gt,
+            Constraint::Le,
+            Constraint::Lt,
+        ];
+        let refined = |constraints: Vec<Constraint>| Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: constraints.into(),
+        };
+        let mut read = Vec::new();
+        for at in 0..pool.len() {
+            for bound in bounds {
+                read.push(vec![bound(OperandIx::new(at))]);
+                for other in bounds {
+                    read.push(vec![bound(OperandIx::new(at)), other(OperandIx::new(0))]);
+                }
+            }
+        }
+        for constraints in read {
+            let element = refined(constraints);
+            let list = Schema::list(SeqShape::homogeneous(element.clone()));
+            let tuple = Schema::tuple(SeqShape::homogeneous(element));
+            for value in &values {
+                let listed = PyList::new(py, [value]).expect("a list").into_any();
+                let tupled = PyTuple::new(py, [value]).expect("a tuple").into_any();
+                assert_eq!(
+                    decide(py, &list, &listed, &pool, &[]),
+                    decide(py, &tuple, &tupled, &pool, &[]),
+                    "{list:?} and {tuple:?} part over {value:?}"
+                );
+            }
+            // Past the word the reading ends, and the elements after one are read
+            // by the comparisons all the same.
+            let mixed = PyList::new(py, &values).expect("a list").into_any();
+            let tupled = PyTuple::new(py, &values).expect("a tuple").into_any();
+            assert_eq!(
+                decide(py, &list, &mixed, &pool, &[]),
+                decide(py, &tuple, &tupled, &pool, &[]),
+                "{list:?} and {tuple:?} part over the corpus"
+            );
+        }
+    });
+}
+
+/// A fatal signal an element's bound raises ends a list of refined scalars there,
+/// for every kind the reader takes: no later element is asked, which is what lets
+/// the reader's loop read no flag.
+#[test]
+fn a_fatal_signal_ends_a_list_of_refined_scalars() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"ASKED = []\n\
+              class Interrupting:\n\
+              \x20   def __le__(self, other):\n\
+              \x20       ASKED.append(other)\n\
+              \x20       raise KeyboardInterrupt\n\
+              OPERAND = Interrupting()\n",
+            c"interrupting_bound.py",
+            c"interrupting_bound",
+        )
+        .expect("the module compiles");
+        let asked = module.getattr("ASKED").expect("the list");
+        let pool = vec![module.getattr("OPERAND").expect("the operand").unbind()];
+        for (base, source) in [
+            (Schema::Int, "[1, 2, 3]"),
+            (Schema::Float, "[1.5, 2.5, 3.5]"),
+            (Schema::Str, "['a', 'b', 'c']"),
+        ] {
+            asked.call_method0("clear").expect("the list clears");
+            let list = Schema::list(SeqShape::homogeneous(Schema::Refine {
+                base: Arc::new(base),
+                constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+            }));
+            let value = evaluate(py, source);
+            assert_eq!(
+                decide_with_fatal(py, &list, &value, &pool),
+                (false, true),
+                "{source}"
+            );
+            assert_eq!(asked.len().expect("a list"), 1, "{source}");
+        }
+    });
+}
+
+/// A list of refined scalars is read by its kind, and answers what a tuple of
+/// the same values answers through each element's own check, for every kind of
+/// base the reader takes; any other base is not its.
+#[test]
+fn a_list_of_refined_scalars_is_read_by_its_kind() {
+    Python::attach(|py| {
+        let pool: Vec<Py<PyAny>> = vec![
+            PyFloat::new(py, 1.5).into_any().unbind(),
+            PyFloat::new(py, f64::NAN).into_any().unbind(),
+        ];
+        let at = OperandIx::new;
+        let cases: [(Schema, Vec<Constraint>, &str, bool); 7] = [
+            (
+                Schema::Int,
+                vec![Constraint::MultipleOf(at(0))],
+                "[3, 1.5]",
+                false,
+            ),
+            (
+                Schema::Int,
+                vec![Constraint::Ge(at(0))],
+                "[2, True, 3]",
+                false,
+            ),
+            (
+                Schema::Float,
+                vec![Constraint::Ge(at(0))],
+                "[1.5, 2.0]",
+                true,
+            ),
+            (Schema::Float, vec![Constraint::Gt(at(0))], "[1.5]", false),
+            (Schema::Float, vec![Constraint::Le(at(1))], "[1.0]", false),
+            (
+                Schema::Str,
+                vec![Constraint::MinLen(2)],
+                "['ab', 'abc']",
+                true,
+            ),
+            (
+                Schema::Str,
+                vec![Constraint::MaxLen(1)],
+                "['a', 'ab', 1]",
+                false,
+            ),
+        ];
+        let index = ValidatorIndex::default();
+        for (base, constraints, source, want) in cases {
+            let element = Schema::Refine {
+                base: Arc::new(base.clone()),
+                constraints: constraints.clone().into(),
+            };
+            let list = Schema::list(SeqShape::homogeneous(element.clone()));
+            let tuple = Schema::tuple(SeqShape::homogeneous(element));
+            let listed = evaluate(py, source);
+            let tupled = evaluate(py, &format!("tuple({source})"));
+            assert_eq!(decide(py, &list, &listed, &pool, &[]), want, "{source}");
+            assert_eq!(decide(py, &tuple, &tupled, &pool, &[]), want, "{source}");
+            let state = WalkState::new();
+            let ctx = Ctx {
+                pool: &pool,
+                defs: &[],
+                index: &index,
+                state: &state,
+                mode: WalkMode::Fast,
+            };
+            let value = Value::Py(&listed);
+            let read = refined_scalar_list(
+                listed.cast::<PyList>().expect("a list"),
+                &base,
+                &constraints,
+                &value,
+                &mut Unwritten::default().frame(ctx),
+            );
+            assert_eq!(read, Some(want), "{source}");
+        }
+        let state = WalkState::new();
+        let ctx = Ctx {
+            pool: &pool,
+            defs: &[],
+            index: &index,
+            state: &state,
+            mode: WalkMode::Fast,
+        };
+        let empty = PyList::empty(py);
+        let value = empty.clone().into_any();
+        assert_eq!(
+            refined_scalar_list(
+                &empty,
+                &Schema::Bool,
+                &[Constraint::MinLen(1)],
+                &Value::Py(&value),
+                &mut Unwritten::default().frame(ctx),
+            ),
+            None
+        );
+    });
+}
+
+/// An order bound over a float answers what the rich comparison answers, for
+/// every bound, a value of every kind and an operand of every kind, those the
+/// index holds and those it leaves to the comparison, at the edges where a float
+/// stops holding every integer.
+#[test]
+fn an_order_bound_over_a_float_reads_as_the_comparison_reads_it() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"from fractions import Fraction\n\
+              class Float(float):\n\
+              \x20   def __ge__(self, other):\n\
+              \x20       return False\n\
+              \x20   __gt__ = __le__ = __lt__ = __ge__\n\
+              TOP = 2 ** 53\n\
+              NAN = float('nan')\n\
+              INF = float('inf')\n\
+              OPERANDS = [0.0, -0.0, 1.5, -1.5, NAN, INF, -INF, 5e-324, 1.7976931348623157e308,\n\
+              \x20           float(TOP), 0, 1, -1, TOP, -TOP, TOP + 1, -TOP - 1, TOP + 2,\n\
+              \x20           2 ** 200, True, False, Fraction(3, 2), Float(1.5)]\n\
+              VALUES = [0.0, -0.0, 1.0, 1.5, -1.5, NAN, INF, -INF, 5e-324, 1.7976931348623157e308,\n\
+              \x20         float(TOP), float(TOP + 2), -float(TOP), 0, 1, TOP, TOP + 1, True,\n\
+              \x20         Float(1.5), Fraction(3, 2), 'x', None]\n",
+            c"float_bounds.py",
+            c"float_bounds",
+        )
+        .expect("the corpus compiles");
+        let list_of = |name: &str| -> Vec<Bound<'_, PyAny>> {
+            module
+                .getattr(name)
+                .expect("the corpus")
+                .try_iter()
+                .expect("a list")
+                .map(|item| item.expect("an element"))
+                .collect()
+        };
+        let operands = list_of("OPERANDS");
+        let values = list_of("VALUES");
+        let pool: Vec<Py<PyAny>> = operands.iter().map(|o| o.clone().unbind()).collect();
+        let bound_of = |op: CompareOp, at: OperandIx| match op {
+            CompareOp::Ge => Constraint::Ge(at),
+            CompareOp::Gt => Constraint::Gt(at),
+            CompareOp::Le => Constraint::Le(at),
+            _ => Constraint::Lt(at),
+        };
+        for (at, operand) in operands.iter().enumerate() {
+            for op in [CompareOp::Ge, CompareOp::Gt, CompareOp::Le, CompareOp::Lt] {
+                let schema = Schema::Refine {
+                    base: Arc::new(Schema::ANYTHING),
+                    constraints: vec![bound_of(op, OperandIx::new(at))].into(),
+                };
+                for value in &values {
+                    let compared = value
+                        .rich_compare(operand, op)
+                        .and_then(|answer| answer.is_truthy())
+                        .unwrap_or(false);
+                    assert_eq!(
+                        decide(py, &schema, value, &pool, &[]),
+                        compared,
+                        "{value:?} {op:?} {operand:?}"
+                    );
+                }
+            }
+        }
+    });
+}
+
+/// The index holds an operand as a float exactly where a float is that number,
+/// and reads a value that fails as its own failure.
+#[test]
+fn an_operand_is_held_as_a_float_only_where_one_is_that_number() {
+    Python::attach(|py| {
+        let held = |source: &str| float_operand(&evaluate(py, source));
+        assert_eq!(held("1.5"), Some(1.5));
+        assert_eq!(held("0"), Some(0.0));
+        assert_eq!(held("-3"), Some(-3.0));
+        assert_eq!(held("2 ** 53"), Some(9_007_199_254_740_992.0));
+        assert_eq!(held("-2 ** 53"), Some(-9_007_199_254_740_992.0));
+        assert_eq!(held("2 ** 53 + 1"), None);
+        assert_eq!(held("-2 ** 53 - 1"), None);
+        assert_eq!(held("2 ** 64"), None);
+        assert_eq!(held("True"), None);
+        assert_eq!(held("'x'"), None);
+        assert!(held("float('nan')").is_some_and(f64::is_nan));
+
+        let pool = vec![evaluate(py, "1.5").unbind(), evaluate(py, "2").unbind()];
+        let at = OperandIx::new;
+        let schema = Schema::Refine {
+            base: Arc::new(Schema::Float),
+            constraints: vec![Constraint::Ge(at(0)), Constraint::Lt(at(1))].into(),
+        };
+        let index = build_index(py, &schema, &[], &pool);
+        assert_eq!(index.float_operand(0), Some(1.5));
+        assert_eq!(index.float_operand(1), Some(2.0));
+        assert_eq!(index.float_operand(2), None);
+        let (ok, violations) = explain(py, &schema, &evaluate(py, "1.0"), &pool, &[]);
+        let reported: Vec<_> = violations.iter().map(|v| (v.code, &*v.expected)).collect();
+        assert!(!ok);
+        assert_eq!(reported, [("greater_than_equal", ">= 1.5")]);
+
+        // The cost is the reading's own: it answers an exact float under an
+        // operand the index holds, and leaves every other pair to the comparison.
+        let state = WalkState::new();
+        let ctx = Ctx {
+            pool: &pool,
+            defs: &[],
+            index: &index,
+            state: &state,
+            mode: WalkMode::Fast,
+        };
+        let two = evaluate(py, "2.0");
+        assert_eq!(
+            floats_compared(&two, at(0), CompareOp::Ge, &ctx),
+            Some(true)
+        );
+        assert_eq!(
+            floats_compared(&two, at(1), CompareOp::Gt, &ctx),
+            Some(false)
+        );
+        assert_eq!(
+            floats_compared(&two, at(1), CompareOp::Le, &ctx),
+            Some(true)
+        );
+        assert_eq!(
+            floats_compared(&two, at(0), CompareOp::Lt, &ctx),
+            Some(false)
+        );
+        assert_eq!(floats_compared(&two, at(2), CompareOp::Ge, &ctx), None);
+        assert_eq!(
+            floats_compared(&evaluate(py, "2"), at(0), CompareOp::Ge, &ctx),
+            None
+        );
+        assert_eq!(
+            floats_compared(&evaluate(py, "True"), at(0), CompareOp::Ge, &ctx),
+            None
+        );
+    });
+}
+
+/// A value is read as a word where it is an exact `int` that fits one, and the
+/// first past the word is told from one of another kind, which is what ends the
+/// reading for a list.
+#[test]
+fn a_machine_word_is_an_exact_int_that_fits_one() {
+    Python::attach(|py| {
+        let word = |source: &str| super::scalar::machine_word(&evaluate(py, source));
+        assert_eq!(word("5"), Ok(Some(5)));
+        assert_eq!(word("-7"), Ok(Some(-7)));
+        assert_eq!(word("2 ** 63 - 1"), Ok(Some(i64::MAX)));
+        assert_eq!(word("-2 ** 63"), Ok(Some(i64::MIN)));
+        assert_eq!(word("2 ** 63"), Err(()));
+        assert_eq!(word("-2 ** 63 - 1"), Err(()));
+        assert_eq!(word("True"), Ok(None));
+        assert_eq!(word("1.0"), Ok(None));
+        assert_eq!(word("'x'"), Ok(None));
+    });
+}
+
+/// A fatal signal the comparison of an element past the range's reading raises
+/// ends the list there, and a word before it needed no comparison at all.
+#[test]
+fn a_fatal_signal_ends_a_list_read_as_a_range() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c"ASKED = []\n\
+              class Interrupting(int):\n\
+              \x20   def __ge__(self, other):\n\
+              \x20       ASKED.append(int(self))\n\
+              \x20       raise KeyboardInterrupt\n\
+              VALUE = [1, Interrupting(2), Interrupting(3), 4]\n",
+            c"interrupting_ints.py",
+            c"interrupting_ints",
+        )
+        .expect("the module compiles");
+        let pool = vec![evaluate(py, "0").unbind()];
+        let list = Schema::list(SeqShape::homogeneous(Schema::Refine {
+            base: Arc::new(Schema::Int),
+            constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+        }));
+        let value = module.getattr("VALUE").expect("the value");
+        assert_eq!(decide_with_fatal(py, &list, &value, &pool), (false, true));
+        let asked = module.getattr("ASKED").expect("the list");
+        assert_eq!(asked.extract::<Vec<i64>>().expect("integers"), [2]);
+    });
+}
+
+/// The range takes the bounds a machine word holds and declines every other.
+#[test]
+fn a_machine_range_is_the_bounds_a_word_holds() {
+    Python::attach(|py| {
+        let pool: Vec<Py<PyAny>> = vec![
+            5_i64.into_pyobject(py).expect("an int").into_any().unbind(),
+            i64::MAX
+                .into_pyobject(py)
+                .expect("an int")
+                .into_any()
+                .unbind(),
+            i64::MIN
+                .into_pyobject(py)
+                .expect("an int")
+                .into_any()
+                .unbind(),
+            PyBool::new(py, true).to_owned().into_any().unbind(),
+            PyFloat::new(py, 1.5).into_any().unbind(),
+            evaluate(py, "2 ** 63").unbind(),
+        ];
+        let index = ValidatorIndex::default();
+        let state = WalkState::new();
+        let ctx = Ctx {
+            pool: &pool,
+            defs: &[],
+            index: &index,
+            state: &state,
+            mode: WalkMode::Fast,
+        };
+        let range = |constraints: &[Constraint]| machine_range(constraints, ctx, py);
+        let at = OperandIx::new;
+        assert_eq!(range(&[Constraint::Ge(at(0))]), Some((5, i64::MAX)));
+        assert_eq!(range(&[Constraint::Gt(at(0))]), Some((6, i64::MAX)));
+        assert_eq!(range(&[Constraint::Le(at(0))]), Some((i64::MIN, 5)));
+        assert_eq!(range(&[Constraint::Lt(at(0))]), Some((i64::MIN, 4)));
+        assert_eq!(
+            range(&[Constraint::Ge(at(2)), Constraint::Le(at(1))]),
+            Some((i64::MIN, i64::MAX))
+        );
+        for declined in [
+            Constraint::Gt(at(1)),
+            Constraint::Lt(at(2)),
+            Constraint::Ge(at(3)),
+            Constraint::Ge(at(4)),
+            Constraint::Ge(at(5)),
+            Constraint::MinLen(1),
+        ] {
+            assert_eq!(range(&[declined]), None);
+        }
     });
 }
 

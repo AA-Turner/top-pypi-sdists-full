@@ -11,8 +11,10 @@ from river_client.renderers.tool_arguments import protect_value_ends
 class CheckpointTextRenderer(Renderer):
     """Shared normalization and SFT masking; subclasses own model syntax."""
 
-    # Whether the template renders an empty ``reasoning_content`` field as an
-    # empty think block; every template renders a non-empty one.
+    # Whether the template renders an empty ``reasoning_content`` field as the
+    # model wrote it: an empty think block, or none where the template neither
+    # adds a block nor reads reasoning from the content. Every template
+    # renders a non-empty field.
     empty_reasoning_field = False
     # The tags that end an argument value, or its call, in the template's calls.
     value_ends: tuple[str, ...] = ()

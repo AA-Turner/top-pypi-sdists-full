@@ -612,12 +612,587 @@ mod completion_edit {
                 "#
             );
         }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_bin_required_features_empty_array_inserts_feature_name(
+                r#"
+                [features]
+                fast = []
+
+                [[bin]]
+                name = "app"
+                required-features = [█]
+                "#,
+                Select("\"fast\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [features]
+                fast = []
+
+                [[bin]]
+                name = "app"
+                required-features = ["fast"]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_features_empty_array_inserts_optional_build_dependency(
+                r#"
+                [build-dependencies]
+                builder = { version = "1", optional = true }
+
+                [target.'cfg(windows)'.dependencies]
+                winapi = { version = "1", optional = true }
+
+                [features]
+                default = [█]
+                extra = []
+                "#,
+                Select("\"dep:builder\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [build-dependencies]
+                builder = { version = "1", optional = true }
+
+                [target.'cfg(windows)'.dependencies]
+                winapi = { version = "1", optional = true }
+
+                [features]
+                default = ["dep:builder"]
+                extra = []
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_profile_inherits_incomplete_value_completes_profile_name(
+                r#"
+                [profile.ci]
+                opt-level = 1
+
+                [profile.fast]
+                inherits = █
+                "#,
+                Select("\"ci\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [profile.ci]
+                opt-level = 1
+
+                [profile.fast]
+                inherits = "ci"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_bin_required_features_comment_after_item_is_kept(
+                r#"
+                [features]
+                fast = []
+                slow = []
+
+                [[bin]]
+                name = "app"
+                required-features = [
+                    "fast" # keep this comment
+                    █
+                ]
+                "#,
+                Select("\"slow\""),
+                SourcePath(project_root_path().join("Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [features]
+                fast = []
+                slow = []
+
+                [[bin]]
+                name = "app"
+                required-features = [
+                    "fast", # keep this comment
+                    "slow"
+                ]
+                "#
+            );
+        }
     }
 
     mod pyproject_schema {
         use tombi_test_lib::pyproject_schema_path;
 
         use super::*;
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_include_group_inserts_selected_group(
+                r#"
+                [dependency-groups]
+                dev = []
+                qa = [{ include-group = █ }]
+                "#,
+                Select("\"dev\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev = []
+                qa = [{ include-group = "dev" }]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_empty_dependencies_inserts_uv_source_member(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [█]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["app2"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_multiline_keeps_line_layout(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [
+                    "anyio"
+                    █
+                ]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [
+                    "anyio",
+                    "app2"
+                ]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_comment_after_item_is_kept(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [
+                    "anyio" # keep this comment
+                    █
+                ]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [
+                    "anyio", # keep this comment
+                    "app2"
+                ]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_standalone_comment_before_cursor_is_not_doubled(
+                r#"
+                [dependency-groups]
+                dev = [
+                    "pyright",
+
+                    # standalone comment
+                    █
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev = [
+                    "pyright",
+
+                    # standalone comment
+                    { include-group$1 }$0
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_trailing_comment_after_inline_table_is_kept(
+                r#"
+                [dependency-groups]
+                dev = [
+                    { include-group = "ci" } # keep this comment
+                    █
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev = [
+                    { include-group = "ci" }, # keep this comment
+                    { include-group$1 }$0
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_dependency_groups_comment_after_item_is_kept_for_schema_completion(
+                r#"
+                [dependency-groups]
+                dev = [
+                    "pyright" # keep this comment
+                    █
+                ]
+                "#,
+                Select("include-group"),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev = [
+                    "pyright", # keep this comment
+                    { include-group$1 }$0
+                ]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_existing_comma_before_comment_is_not_doubled(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [
+                    "anyio", # keep this comment
+                    █
+                ]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [
+                    "anyio", # keep this comment
+                    "app2"
+                ]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_before_item_with_following_comma_inserts_once(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", █"pydantic", "ruff"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", ${1:"app2"},$0"pydantic", "ruff"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_before_item_inserts_with_trailing_comma(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", █"pydantic"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", ${1:"app2"},$0"pydantic"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependencies_middle_item_inserts_between_existing_commas(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", "pydantic"█, "ruff"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"app2\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio", "pydantic", "app2", "ruff"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_empty_dependencies_inserts_root_dependency(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = [█]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#,
+                Select("\"anyio\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["anyio"]
+
+                [tool.uv.sources]
+                app2 = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_uv_default_groups_empty_array_inserts_dependency_group(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                default-groups = [█]
+                "#,
+                Select("\"dev\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                default-groups = ["dev"]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_uv_conflicts_unquoted_group_inserts_dependency_group(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                conflicts = [[{ group = █ }]]
+                "#,
+                Select("\"dev\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependency-groups]
+                dev = []
+                lint = []
+
+                [tool.uv]
+                conflicts = [[{ group = "dev" }]]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_uv_conflicts_unquoted_extra_inserts_optional_dependency(
+                r#"
+                [project.optional-dependencies]
+                cuda = []
+
+                [tool.uv]
+                conflicts = [[{ extra = █ }]]
+                "#,
+                Select("\"cuda\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project.optional-dependencies]
+                cuda = []
+
+                [tool.uv]
+                conflicts = [[{ extra = "cuda" }]]
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn pyproject_workspace_member_dependency_name_replaces_string(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["py█"]
+                "#,
+                Select("\"pydantic\""),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/pyproject_workspace/members/app3/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok(
+                r#"
+                [project]
+                name = "app3"
+                version = "0.1.0"
+                dependencies = ["pydantic"]
+                "#
+            );
+        }
 
         test_completion_edit! {
             #[tokio::test]
@@ -1226,6 +1801,16 @@ mod completion_edit {
                 Select("$key"),
             ) -> Ok(
                 "key=[{ abc$1 }$0]"
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn key_equal_array_after_item_inserts_comma(
+                r#"key=["foo"█]"#,
+                Select("$key"),
+            ) -> Ok(
+                r#"key=["foo", { ${1:key} }$0]"#
             );
         }
 

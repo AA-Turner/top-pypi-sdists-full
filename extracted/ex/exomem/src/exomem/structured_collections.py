@@ -17,12 +17,15 @@ from collections.abc import Callable, Container, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote, unquote
 
-from . import item_keys, memory_refs, query_compat, reserved_paths, vault
+from . import call_spans, item_keys, memory_refs, query_compat, reserved_paths, vault
 from .collection_profiles import profile_for
 from .planning_values import PlanningValues, Unavailable
+
+if TYPE_CHECKING:
+    from .governance.artifact_census import VaultListing
 
 COLLECTION_VERSION = 1
 #: The file that defines a Records collection: structure, not a saved record.
@@ -32,7 +35,20 @@ RECORDS_READER_VERSION = 2
 RECORD_REF_PREFIX = "exomem://record/"
 PLAN_REF_PREFIX = "exomem://plan/"
 _SUPPORTED_PROFILES = frozenset({"records", "planning"})
-_SUPPORTED_STORAGE = frozenset({"markdown-log", "markdown-items", "dataset"})
+#: The collection store holds the rows; storage.source names the folder of its bounded summary pages.
+SQLITE_STORAGE = "sqlite"
+# The manifest schema fixes this closed set; each value names an adapter or the store, not a vocabulary.
+# A vault with a collection store creates only sqlite collections; one without keeps file storage until it has one.
+SUPPORTED_STORAGE = frozenset({"markdown-log", "markdown-items", "dataset", SQLITE_STORAGE})
+#: The strategies that keep each item as one row of whole values, an item file's frontmatter or a store row,
+#: so a value may hold a line break and a declared table names an array field's child rows. A closed subset
+#: of SUPPORTED_STORAGE; markdown-log renders values into a line grammar and dataset keeps foreign files.
+ITEM_ROW_STORAGE = frozenset({"markdown-items", SQLITE_STORAGE})
+# The manifest schema fixes these field names: each recipe renders one item view, which summary mode has not.
+# Only the record_presentation tables outlive summary mode: they declare child rows, not a rendering.
+PER_ITEM_RECIPES = ("record_presentation", "item_filename", "item_presentation")
+#: The strategies whose rows Exomem writes as Markdown files; a vault with a collection store creates none of them.
+MARKDOWN_ROW_STORAGE = frozenset({"markdown-items", "markdown-log"})
 _SUPPORTED_FIELD_TYPES = frozenset(
     {
         "string",
@@ -136,11 +152,29 @@ class CollectionError(ValueError):
         ValueError.__init__(self, f"{self.code}: {self.reason}")
 
 
-def manifest_authoring_contract() -> dict[str, Any]:
-    """Return the deterministic agent-facing contract for collection manifests."""
+def sqlite_store_required() -> CollectionError:
+    """The refusal for a sqlite manifest that no collection store holds: no file reader stands in for it."""
+    return CollectionError(
+        "COLLECTION_STORE_REQUIRED",
+        "this sqlite collection's rows live only in a collection store, and this vault's store does not hold it",
+    )
+
+
+_FILE_STORAGE_CREATE = (
+    "a vault without a collection store creates Records collections with this strategy; "
+    "a vault with one refuses it, and its existing collections stay readable"
+)
+
+
+def manifest_authoring_contract(*, store: bool = False) -> dict[str, Any]:
+    """Return the deterministic agent-facing contract for collection manifests.
+
+    ``store`` is True for a vault with a collection store: its examples declare sqlite, the
+    only strategy such a vault creates.
+    """
     field_types = sorted(_SUPPORTED_FIELD_TYPES)
     profiles = sorted(_SUPPORTED_PROFILES)
-    storage_strategies = sorted(_SUPPORTED_STORAGE)
+    storage_strategies = sorted(SUPPORTED_STORAGE)
     view_operators = sorted(_SAVED_VIEW_QUERY_OPS)
     aggregate_forms = [
         "count",
@@ -273,14 +307,25 @@ def manifest_authoring_contract() -> dict[str, Any]:
             "records_paths": "manifest and canonical source must stay under Knowledge Base/Records",
         },
         "storage_strategies": {
+            SQLITE_STORAGE: {
+                "canonical_source": "the vault's collection store; no Markdown file per item",
+                "source": "folder of the collection's bounded summary pages",
+                "view_mode": "summary",
+                "required_storage_fields": ["strategy", "source", "format_version"],
+                "create": "a vault with a collection store creates Records collections with this strategy",
+                "append": True,
+                "update": True,
+            },
             "markdown-items": {
                 "canonical_source": "directory containing one Markdown file per item",
                 "required_storage_fields": ["strategy", "source", "format_version"],
+                "create": _FILE_STORAGE_CREATE,
                 "append": True,
                 "update": True,
             },
             "markdown-log": {
                 "canonical_source": "one chronological Markdown log",
+                "create": _FILE_STORAGE_CREATE,
                 "required_descriptor_fields": ["section", "item_heading", "insertion"],
                 "insertion_values": ["newest-first", "oldest-first"],
                 "child_rows": {
@@ -394,12 +439,19 @@ def manifest_authoring_contract() -> dict[str, Any]:
             "limit": {"minimum": 1, "maximum": 1_000},
         },
         "json_schema": manifest_schema,
-        "examples": _manifest_authoring_examples(),
+        "examples": _manifest_authoring_examples(store=store),
     }
 
 
-def _manifest_authoring_examples() -> dict[str, dict[str, Any]]:
-    minimal_text = """---
+def _manifest_authoring_examples(*, store: bool = False) -> dict[str, dict[str, Any]]:
+    """The worked manifests; ``store`` gives the sqlite form that a vault with a collection store creates."""
+    strategy = SQLITE_STORAGE if store else "markdown-items"
+    per_row = (
+        "The store holds one row per observed event and publishes a bounded summary page."
+        if store
+        else "One ordinary Markdown file per observed event."
+    )
+    minimal_text = f"""---
 type: collection
 exomem_id: 15dd81cd-9ae2-488c-bd9e-14771d86343e
 title: Observed events
@@ -408,7 +460,7 @@ collection_version: 1
 schema_version: 1
 lifecycle: active
 storage:
-  strategy: markdown-items
+  strategy: {strategy}
   source: Events
   format_version: 1
 item_schema:
@@ -424,9 +476,9 @@ item_schema:
       type: link
 ---
 
-One ordinary Markdown file per observed event.
+{per_row}
 """
-    laboratory_text = """---
+    laboratory_text = f"""---
 type: collection
 exomem_id: 372ff95a-36f0-4859-9e11-9e487dd94f4b
 title: Laboratory panels
@@ -435,7 +487,7 @@ collection_version: 1
 schema_version: 1
 lifecycle: active
 storage:
-  strategy: markdown-items
+  strategy: {strategy}
   source: Panels
   format_version: 1
 item_schema:
@@ -516,7 +568,7 @@ record_presentation:
 
 The frontmatter is canonical; the managed Markdown block is a readable projection.
 """
-    state_ledger_text = """---
+    state_ledger_text = f"""---
 type: collection
 exomem_id: a865a192-7c7a-4b7f-9b5d-03c807b205e2
 title: Observed state ledger
@@ -525,7 +577,7 @@ collection_version: 1
 schema_version: 1
 lifecycle: active
 storage:
-  strategy: markdown-items
+  strategy: {strategy}
   source: States
   format_version: 1
 item_schema:
@@ -554,7 +606,7 @@ item_schema:
 
 One item records the state observed for one identity on one effective date.
 """
-    return {
+    examples = {
         "minimal": {
             "manifest_path": f"{vault.kb_dirname()}/Records/Examples/Events/_collection.md",
             "manifest_text": minimal_text,
@@ -644,6 +696,10 @@ One item records the state observed for one identity on one effective date.
             ),
         },
     }
+    if store:
+        # record_presentation renders one item file per row, and a sqlite collection has none.
+        del examples["readable_nested_records"]
+    return examples
 
 
 def _claims_json_schema() -> dict[str, Any]:
@@ -846,6 +902,11 @@ class StorageSpec:
     format_version: int
     descriptor: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
 
+    @property
+    def item_rows(self) -> bool:
+        """Whether each item is one row of whole values (ITEM_ROW_STORAGE), in a file or in the store."""
+        return self.strategy in ITEM_ROW_STORAGE
+
 
 @dataclass(frozen=True, slots=True)
 class TemplateSpec:
@@ -932,6 +993,9 @@ class CollectionManifest:
     governance: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
     links: CollectionLinks = field(default_factory=CollectionLinks)
     record_presentation: RecordPresentation | None = None
+    #: The child rows that record_presentation.tables declare. They shape child-row queries and saved views
+    #: in every view mode, also in summary mode, where the recipe's item rendering does not apply.
+    child_tables: tuple[RecordPresentationTable, ...] = ()
     item_filename: ItemFilename | None = None
     item_presentation: ItemPresentation | None = None
     claims: Mapping[str, tuple[str, ...]] | None = None
@@ -941,9 +1005,24 @@ class CollectionManifest:
     view_mode: str = "items"
     #: A derived summary collection takes rows only from imports and rebuilds them from its import log.
     derived: bool = False
+    #: Per-item recipes a summary manifest still carries; summary mode ignores them and reports them.
+    ignored_recipes: tuple[str, ...] = ()
     #: How the store derives this collection's item keys. It is store state, not manifest text: the store
     #: records it at creation and the writer overlays it on every manifest it hands out.
     item_key_scheme: str = item_keys.HASHED_V1
+
+
+def ignored_recipes_diagnostic(manifest: CollectionManifest) -> CollectionDiagnostic | None:
+    """The warning that summary mode ignores the manifest's per-item recipes; None when it carries none."""
+    if not manifest.ignored_recipes:
+        return None
+    tables = " Its record_presentation tables still declare child rows." if manifest.child_tables else ""
+    return CollectionDiagnostic(
+        "SUMMARY_IGNORES_ITEM_RECIPES",
+        f"Summary mode ignores {', '.join(manifest.ignored_recipes)} in this manifest: a summary row has "
+        f"no item page.{tables}",
+        "ignored_recipes",
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1172,6 +1251,7 @@ def discover_collections_with_errors(
     reject_duplicates: bool = True,
     ownership_proof=None,
     semantic_profile: str | None = None,
+    listing: VaultListing | None = None,
 ) -> tuple[tuple[CollectionManifest, ...], tuple[UnreadableManifest, ...]]:
     """Discover releasable manifests AND the ones this sweep could not read.
 
@@ -1217,9 +1297,12 @@ def discover_collections_with_errors(
     if proof is None:
         proof = ownership.current(root, conn=None if writer is None else writer.connection,
                                   private=writer is not None and not production_bound(root))
-    stored, store_errors = ((), ()) if writer is None else writer.discover_collections(
-        authorize_path=authorize_path, max_candidates=max_candidates, max_raw_candidates=max_raw_candidates,
-        semantic_profile=semantic_profile)
+    stored, store_errors = (), ()
+    if writer is not None:
+        with call_spans.span("records.inventory_store_discovery"):
+            stored, store_errors = writer.discover_collections(
+                authorize_path=authorize_path, max_candidates=max_candidates, max_raw_candidates=max_raw_candidates,
+                semantic_profile=semantic_profile)
     kb = vault.kb_root(root)
     if not kb.is_dir():
         return stored, store_errors
@@ -1245,7 +1328,8 @@ def discover_collections_with_errors(
     candidates = []
     # The Knowledge Base's listing only proposes: `_declared_candidate_rel` still drops whatever lies
     # outside the Knowledge Base first, and the later guards read the disk. Sorted before the bound.
-    proposed = sorted(root / rel for rel in artifact_census.vault_listing(root).files_named(MANIFEST_FILENAME))
+    listing = artifact_census.vault_listing(root) if listing is None else listing
+    proposed = sorted(root / rel for rel in listing.files_named(MANIFEST_FILENAME))
     for candidate in proposed:
         rel = _declared_candidate_rel(root, candidate)
         # Recoverable trash retains bytes but declares no live collection ownership.
@@ -1290,13 +1374,15 @@ def discover_legacy_trackers(
     *,
     authorize_path: Callable[[str], bool] | None = None,
     max_raw_candidates: int = 4_096,
-    owned_views: Container[str] = frozenset(),
+    accounted_paths: Container[str] = frozenset(),
+    listing: VaultListing | None = None,
 ) -> tuple[tuple[LegacyCollection, ...], bool]:
     """Discover bounded exact-Records-layer tracker manifests without parsing items.
 
-    ``owned_views`` are the exact vault-relative files a collection store publishes as
-    views. The store wrote them, so none is a legacy tracker, and the sweep skips them
-    before authorizing or parsing. Every other file, even beside a view, is still swept.
+    ``accounted_paths`` are the exact vault-relative files that a collection already accounts
+    for: the views a collection store publishes, and the items that a file collection's
+    adapter read as items in the same call. None is a legacy tracker, so the sweep skips them
+    before authorizing or parsing. Every other file, even beside one, is still swept.
     """
     if type(max_raw_candidates) is not int or not 1 <= max_raw_candidates <= 16_384:
         raise CollectionError(
@@ -1312,10 +1398,11 @@ def discover_legacy_trackers(
     candidates = []
     # The listing only proposes; the guards below read the disk and decide. Sorted before the bound applies.
     records_rel = records_root.relative_to(root).as_posix()
+    listing = artifact_census.vault_listing(root, records_rel) if listing is None else listing
     proposed = sorted(
-        root / rel for rel in artifact_census.vault_listing(root, records_rel).files_under(records_rel)
+        root / rel for rel in listing.files_under(records_rel)
         # Like `rglob("*.md")`: the extension compares by the platform's case rule.
-        if os.path.normcase(rel).endswith(".md") and rel not in owned_views
+        if os.path.normcase(rel).endswith(".md") and rel not in accounted_paths
     )
     for candidate in proposed:
         safe = _safe_candidate_rel(root, candidate)
@@ -1329,12 +1416,10 @@ def discover_legacy_trackers(
     for candidate in candidates[:max_raw_candidates]:
         if candidate.name == "_collection.md":
             continue
-        safe = _safe_candidate_rel(root, candidate)
-        if safe is None:
-            continue
-        _safe_path, relative = safe
+        # Inspection rechecks the path after authorization, then guards the byte read.
         try:
-            tracker = inspect_legacy_tracker(root, candidate, authorize_path=authorize)
+            with call_spans.span("records.inventory_legacy_inspect"):
+                tracker = inspect_legacy_tracker(root, candidate, authorize_path=authorize)
         except CollectionError:
             continue
         trackers.append(tracker)
@@ -1425,6 +1510,15 @@ def plan_ref(collection_id: str, item_key: str) -> str:
     return _item_ref(PLAN_REF_PREFIX, collection_id, item_key)
 
 
+def _profile_item_ref(profile: str, collection_id: str, item_key: str) -> str:
+    # These two owner profiles are fixed native identity protocols, not business vocabulary.
+    if profile == "planning":
+        return plan_ref(collection_id, item_key)
+    if profile == "records":
+        return record_ref(collection_id, item_key)
+    raise ValueError("native row profile is invalid")
+
+
 def _item_ref(prefix: str, collection_id: str, item_key: str) -> str:
     normalized = memory_refs.normalize_id(collection_id)
     if normalized is None:
@@ -1440,6 +1534,31 @@ def parse_record_ref(value: str) -> tuple[str, str] | None:
 def parse_plan_ref(value: str) -> tuple[str, str] | None:
     """Parse only a canonical Planning item reference."""
     return _parse_item_ref(PLAN_REF_PREFIX, value)
+
+
+def plan_ref_target(collection_id: str, value: Any) -> str | None:
+    """The plan id that a stored Planning reference names in this collection, or None."""
+    parsed = parse_plan_ref(value) if type(value) is str else None
+    return parsed[1] if parsed is not None and parsed[0] == collection_id else None
+
+
+def plan_ref_spellings(collection_id: str, item_key: str) -> tuple[tuple[str | None, str | None], ...]:
+    """Half-open text ranges, None unbounded, that hold every stored reference to one Planning item.
+
+    The canonical reference, also with trailing space, starts with ``plan_ref``. Every other spelling
+    that ``parse_plan_ref`` reads (another case, a leading space, another UUID form) differs from the
+    canonical collection prefix before its end, so it sorts below or above that prefix's range.
+    Not held: a spelling inside the canonical prefix that percent-encodes the key differently from
+    ``plan_ref``, which writes every reference that Exomem returns.
+    """
+    canonical = plan_ref(collection_id, item_key)
+    prefix = canonical.rpartition("/")[0] + "/"
+    return ((canonical, _successor(canonical)), (None, prefix), (_successor(prefix), None))
+
+
+def _successor(text: str) -> str:
+    """The least text above every text that starts with ``text``, whose last character is ASCII."""
+    return text[:-1] + chr(ord(text[-1]) + 1)
 
 
 def _parse_item_ref(prefix: str, value: str) -> tuple[str, str] | None:
@@ -1706,7 +1825,9 @@ def inspect_legacy_tracker(
     key = _reference_key(root, raw)
     if key is None:
         raise _spelling_reference_error(raw)
-    if not authorize(key):
+    with call_spans.span("records.inventory_legacy_authorize"):
+        allowed = authorize(key)
+    if not allowed:
         # A tracker is not a manifest, so "pass the `_collection.md` path" would
         # be wrong advice here; "no such tracker" is the honest refusal, and it
         # is what an absent one answers below.
@@ -1717,7 +1838,9 @@ def inspect_legacy_tracker(
         if _absent_leaf(root, key):
             raise CollectionError("COLLECTION_NOT_FOUND", "collection was not found") from error
         raise
-    if not authorize(rel):
+    with call_spans.span("records.inventory_legacy_authorize"):
+        allowed = authorize(rel)
+    if not allowed:
         raise CollectionError("COLLECTION_NOT_FOUND", "collection was not found")
     try:
         data, _guard = vault.read_bounded_guarded_bytes(root, rel, limit=_MAX_MANIFEST_BYTES)
@@ -1812,11 +1935,26 @@ def _manifest_from_frontmatter(
             "INVALID_COLLECTION_PATH", "storage.source must not alias the collection manifest"
         )
     schema = _parse_schema(schema_version, frontmatter.get("item_schema"))
-    presentation = _parse_record_presentation(
+    links = _parse_links(frontmatter.get("links", {}), schema)
+    # A sqlite collection has no item files, so summary is its only view mode and its default.
+    default_view_mode = "summary" if storage.strategy == SQLITE_STORAGE else "items"
+    view_mode = _parse_view_mode(frontmatter.get("view_mode", default_view_mode), storage, links)
+    # Summary rows have no item view, so a per-item recipe left in the manifest has nothing to
+    # render: the manifest stays readable and reports the recipe as ignored.
+    ignored_recipes = (
+        tuple(name for name in PER_ITEM_RECIPES if frontmatter.get(name) is not None)
+        if view_mode == "summary" else ()
+    )
+    # The record_presentation tables declare child rows, so they parse and apply in summary mode too.
+    declared_presentation = _parse_record_presentation(
         frontmatter.get("record_presentation"), profile, storage, schema
     )
-    item_filename = _parse_item_filename(frontmatter.get("item_filename"), profile, storage, schema)
-    item_presentation = _parse_item_presentation(
+    child_tables = () if declared_presentation is None else declared_presentation.tables
+    presentation = None if ignored_recipes else declared_presentation
+    item_filename = None if ignored_recipes else _parse_item_filename(
+        frontmatter.get("item_filename"), profile, storage, schema
+    )
+    item_presentation = None if ignored_recipes else _parse_item_presentation(
         frontmatter.get("item_presentation"), storage, schema
     )
     if presentation is not None and item_presentation is not None:
@@ -1829,13 +1967,10 @@ def _manifest_from_frontmatter(
         _require_records_reader_version(frontmatter, records_reader_version)
     templates = _parse_templates(root, manifest_rel, frontmatter.get("templates", []))
     views, normalized_views, view_diagnostics = _parse_saved_views(
-        frontmatter.get("views", {}), schema, storage, profile, planning_values, presentation
+        frontmatter.get("views", {}), schema, storage, profile, planning_values, child_tables
     )
-    links = _parse_links(frontmatter.get("links", {}), schema)
     claims = _parse_claims(frontmatter.get("claims"))
     claim_match = _parse_claim_match(frontmatter.get("claims"))
-    view_mode = _parse_view_mode(frontmatter.get("view_mode", "items"), profile, storage,
-                                 presentation or item_filename or item_presentation, links)
     derived = _parse_derived(frontmatter.get("derived", False), view_mode)
     return CollectionManifest(
         collection_id=collection_id,
@@ -1856,12 +1991,14 @@ def _manifest_from_frontmatter(
         governance=_freeze_mapping(frontmatter.get("governance", {}), "governance"),
         links=links,
         record_presentation=presentation,
+        child_tables=child_tables,
         item_filename=item_filename,
         item_presentation=item_presentation,
         claims=claims,
         claim_match=claim_match,
         view_mode=view_mode,
         derived=derived,
+        ignored_recipes=ignored_recipes,
     )
 
 
@@ -1880,9 +2017,7 @@ def _parse_derived(value: object, view_mode: str) -> bool:
     return value
 
 
-def _parse_view_mode(
-    value: object, profile: str, storage: StorageSpec, per_item_recipe: object, links: CollectionLinks
-) -> str:
+def _parse_view_mode(value: object, storage: StorageSpec, links: CollectionLinks) -> str:
     """`items` keeps a view per row; `summary` has no per-row view or recipe to render.
 
     A summary collection carries no planning join: each joined write would load
@@ -1894,10 +2029,14 @@ def _parse_view_mode(
             {"field": "view_mode", "received": value, "allowed": ["items", "summary"],
              "example": "view_mode: summary"},
         )
-    if value == "summary" and (profile != "records" or storage.strategy != "markdown-items" or per_item_recipe):
+    if value == "items" and storage.strategy == SQLITE_STORAGE:
         raise CollectionError(
-            "UNSUPPORTED_VIEW_MODE",
-            "summary view mode needs a Records markdown-items collection without per-item presentation",
+            "UNSUPPORTED_VIEW_MODE", "a sqlite collection has no item files, so its view mode is summary",
+            {"field": "view_mode", "received": value, "allowed": ["summary"], "example": "view_mode: summary"},
+        )
+    if value == "summary" and not storage.item_rows:
+        raise CollectionError(
+            "UNSUPPORTED_VIEW_MODE", "summary view mode needs a sqlite or markdown-items collection",
             {"field": "view_mode", "received": value},
         )
     joined = next((index for index, plan in enumerate(links.plans) if plan.join), None)
@@ -1931,9 +2070,8 @@ def resolve_saved_view(manifest: CollectionManifest, name: str) -> SavedView:
             manifest.schema,
             manifest.storage,
             manifest.semantic_profile,
-            manifest.record_presentation,
         ),
-        _saved_view_child_shapes(manifest.storage, manifest.record_presentation),
+        _saved_view_child_shapes(manifest.storage, manifest.child_tables),
     )
     canonical = json.dumps(
         {
@@ -1960,13 +2098,13 @@ def _parse_saved_views(
     storage: StorageSpec,
     semantic_profile: str,
     planning_values: PlanningValues,
-    presentation: RecordPresentation | None = None,
+    child_tables: tuple[RecordPresentationTable, ...] = (),
 ) -> tuple[Mapping[str, Any], Mapping[str, Any], tuple[CollectionDiagnostic, ...]]:
     views = _mapping(value, "views")
     if len(views) > _MAX_SAVED_VIEWS:
         raise CollectionError("INVALID_SAVED_VIEW", "too many saved views")
-    fields = _saved_view_fields(schema, storage, semantic_profile, presentation)
-    child_shapes = _saved_view_child_shapes(storage, presentation)
+    fields = _saved_view_fields(schema, storage, semantic_profile)
+    child_shapes = _saved_view_child_shapes(storage, child_tables)
     accepted: dict[str, Any] = {}
     normalized: dict[str, Any] = {}
     diagnostics: list[CollectionDiagnostic] = []
@@ -2043,7 +2181,6 @@ def _saved_view_fields(
     schema: ItemSchema,
     storage: StorageSpec,
     semantic_profile: str,
-    presentation: RecordPresentation | None = None,
 ) -> set[str]:
     fields = set(schema.fields) | set(_SAVED_VIEW_SHARED_SYSTEM_FIELDS)
     fields.add(profile_for(semantic_profile).item_id_property)
@@ -2058,14 +2195,11 @@ def _saved_view_fields(
 
 
 def _saved_view_child_shapes(
-    storage: StorageSpec, presentation: RecordPresentation | None
+    storage: StorageSpec, child_tables: tuple[RecordPresentationTable, ...]
 ) -> Mapping[str, frozenset[str]]:
-    if storage.strategy == "markdown-items":
+    if storage.item_rows:
         return MappingProxyType(
-            {
-                table.field: frozenset(column.field for column in table.columns)
-                for table in (() if presentation is None else presentation.tables)
-            }
+            {table.field: frozenset(column.field for column in table.columns) for table in child_tables}
         )
     if storage.strategy == "markdown-log":
         children = storage.descriptor.get("child_rows")
@@ -2085,9 +2219,9 @@ def _saved_view_child_shapes(
 
 
 def _saved_view_child_fields(
-    storage: StorageSpec, presentation: RecordPresentation | None
+    storage: StorageSpec, child_tables: tuple[RecordPresentationTable, ...]
 ) -> frozenset[str]:
-    return frozenset(_saved_view_child_shapes(storage, presentation))
+    return frozenset(_saved_view_child_shapes(storage, child_tables))
 
 
 def _saved_view_selected_fields(
@@ -2460,14 +2594,14 @@ def _manifest_stable_hash(text: str) -> str:
 def _parse_storage(root: Path, manifest_rel: str, value: object) -> StorageSpec:
     storage = _mapping(value, "storage")
     strategy = _nonempty_string(storage.get("strategy"), "storage.strategy")
-    if strategy not in _SUPPORTED_STORAGE:
+    if strategy not in SUPPORTED_STORAGE:
         raise CollectionError(
             "UNSUPPORTED_STORAGE_STRATEGY",
             "storage strategy is not supported",
             {
                 "field": "storage.strategy",
                 "received": strategy,
-                "allowed": sorted(_SUPPORTED_STORAGE),
+                "allowed": sorted(SUPPORTED_STORAGE),
                 "example": "strategy: markdown-items",
             },
         )
@@ -2671,10 +2805,10 @@ def _parse_record_presentation(
     """Parse the small derived-body contract without widening item authority."""
     if value is None:
         return None
-    if profile != "records" or storage.strategy != "markdown-items":
+    if profile != "records" or not storage.item_rows:
         raise CollectionError(
             "INVALID_RECORD_PRESENTATION",
-            "record_presentation is available only to Records markdown-items",
+            "record_presentation is available only to Records with markdown-items or sqlite storage",
         )
     raw = _mapping(value, "record_presentation")
     if set(raw) - {"version", "summary", "tables", "notes", "details"}:

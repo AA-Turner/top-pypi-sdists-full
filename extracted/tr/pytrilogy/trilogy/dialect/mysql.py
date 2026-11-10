@@ -1,6 +1,12 @@
 from collections.abc import Callable
 from typing import Any, ClassVar
 
+from trilogy.core.casts import (
+    DATE_PATTERN,
+    INSTANT_READ_TARGETS,
+    INT64,
+    NUMBER_PATTERN,
+)
 from trilogy.core.enums import (
     CreateMode,
     DatePart,
@@ -9,7 +15,7 @@ from trilogy.core.enums import (
     Modifier,
     NullSort,
 )
-from trilogy.core.models.core import DataType
+from trilogy.core.models.core import DataType, NumericType
 from trilogy.core.statements.execute import CreateTableInfo
 from trilogy.dialect.base import (
     BaseDialect,
@@ -17,7 +23,15 @@ from trilogy.dialect.base import (
     render_present_extreme,
     render_unsupported,
 )
-from trilogy.dialect.common import CONCAT_COALESCE_UPPER
+from trilogy.dialect.common import (
+    CONCAT_COALESCE_UPPER,
+    bool_from_text,
+    cast_kind,
+    guarded_read,
+    reads_text,
+    render_window_substring,
+    text_from_bool,
+)
 
 
 def date_truncate(expr: str, part: str) -> str:
@@ -78,12 +92,58 @@ def date_diff(first: str, second: str, part: str) -> str:
     raise NotImplementedError(f"Date diff not implemented for grain {grain}")
 
 
-def render_cast(args: list[str]) -> str:
-    # TEXT is a valid column type but not a valid MySQL CAST target. Trilogy's
-    # string datatype renders as TEXT for DDL, so translate it at the function
-    # boundary where MySQL requires CHAR instead.
-    target = "CHAR" if args[1].upper() == "TEXT" else args[1]
-    return f"CAST({args[0]} AS {target})"
+# TEXT, INTEGER, BIGINT, BOOLEAN and TIMESTAMP are column types but not CAST
+# targets; a bool is a TINYINT, so it casts to '1' and from 'true' as 0
+CAST_TARGETS = {
+    "TEXT": "CHAR",
+    "INTEGER": "SIGNED",
+    "BIGINT": "SIGNED",
+    "TIMESTAMP": "DATETIME",
+}
+
+
+def read_text(value: str, target: str, types: list) -> str:
+    """CAST reads a numeric prefix ('abc' AS SIGNED is 0); the reference's
+    shape is required, and an integer is read through DECIMAL, which rounds
+    half away where SIGNED truncates. There is no infinity, so a float reads
+    numerals only."""
+    text = f"REGEXP_REPLACE({value}, '^[[:space:]]+|[[:space:]]+$', '')"
+    if cast_kind(types)[1] == DataType.DATE:
+        day = f"SUBSTRING_INDEX(SUBSTRING_INDEX({text}, ' ', 1), 'T', 1)"
+        read = f"STR_TO_DATE(REPLACE({day}, '/', '-'), '%Y-%c-%e')"
+        return guarded_read(f"{value} REGEXP '{DATE_PATTERN}'", read)
+    if cast_kind(types)[1] in INSTANT_READ_TARGETS:
+        # CAST reads only a `+HH:MM` zone, into the session's zone; a zone is
+        # left unread (NULL) here
+        read = f"CAST(REPLACE({text}, '/', '-') AS DATETIME(6))"
+        return guarded_read(f"{value} REGEXP '{DATE_PATTERN}'", read)
+    matches = f"{value} REGEXP '{NUMBER_PATTERN}'"
+    exact = f"CAST({text} AS DECIMAL(65, 30))"
+    target_type = types[-1]
+    # CAST saturates past the target's range
+    if target.upper() in ("INTEGER", "BIGINT"):
+        low, high = INT64
+        matches += f" AND {exact} > {low}.5 AND {exact} < {high}.5"
+        read = f"CAST({exact} AS SIGNED)"
+    else:
+        if isinstance(target_type, NumericType):
+            whole = target_type.precision - target_type.scale
+            matches += f" AND ABS(ROUND({exact}, {target_type.scale})) < 1e{whole}"
+        read = f"CAST({text} AS {target})"
+    return guarded_read(matches, read)
+
+
+def render_cast(args: list[str], types: list) -> str:
+    source, target = cast_kind(types)
+    if reads_text(types):
+        return read_text(args[0], args[1], types)
+    if source == DataType.BOOL and target == DataType.STRING:
+        return text_from_bool(args[0])
+    if target == DataType.BOOL:
+        if source == DataType.STRING:
+            return bool_from_text(args[0])
+        return args[0] if source == DataType.BOOL else f"({args[0]} <> 0)"
+    return f"CAST({args[0]} AS {CAST_TARGETS.get(args[1].upper(), args[1])})"
 
 
 def null_safe_join_key(
@@ -108,10 +168,15 @@ FUNCTION_MAP = {
     FunctionType.BOOL_OR: lambda x, types: f"MAX(CAST({x[0]} AS UNSIGNED))",
     FunctionType.BOOL_AND: lambda x, types: f"MIN(CAST({x[0]} AS UNSIGNED))",
     FunctionType.STRPOS: lambda x, types: f"LOCATE({x[1]}, {x[0]})",
-    FunctionType.CONTAINS: lambda x, types: f"(LOCATE({x[1]}, {x[0]}) > 0)",
+    # LENGTH counts bytes; CHAR_LENGTH counts characters
+    FunctionType.LENGTH: lambda x, types: f"CHAR_LENGTH({x[0]})",
+    FunctionType.SUBSTRING: lambda x, types: render_window_substring(
+        "SUBSTRING", "CHAR_LENGTH({})", x
+    ),
+    FunctionType.CONTAINS: lambda x, types: f"(LOCATE(LOWER({x[1]}), LOWER({x[0]})) > 0)",
     **CONCAT_COALESCE_UPPER,
     FunctionType.CONCAT_STRICT: lambda x, types: f"CONCAT({', '.join(x)})",
-    FunctionType.CAST: lambda x, types: render_cast(x),
+    FunctionType.CAST: render_cast,
     FunctionType.DATE_LITERAL: lambda x, types: f"DATE('{x}')",
     FunctionType.DATETIME_LITERAL: lambda x, types: f"TIMESTAMP('{x}')",
     FunctionType.DATE_TRUNCATE: lambda x, types: date_truncate(x[0], x[1]),
@@ -155,6 +220,7 @@ class MySQLDialect(BaseDialect):
     NULL_SORT = NullSort.SMALLEST
     NULLS_ORDER_SYNTAX = False
     ILIKE_AS_LOWER_LIKE = ("LOWER", "LIKE", "NOT ")
+    STRING_LITERAL_BACKSLASH_ESCAPES = True
     FUNCTION_MAP: ClassVar[dict[FunctionType, Callable[..., str]]] = {
         **BaseDialect.FUNCTION_MAP,
         **FUNCTION_MAP,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-rusty-templates-agentic
-Version: 2026.11.1
+Version: 2026.11.3
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
@@ -25,7 +25,7 @@ Django Rusty Templates (Agentic) is a fork of [Lily's Django Rusty Templates lib
 
 The distribution is named `django-rusty-templates-agentic` to respect the original project's PyPI namespace. It is intended as a drop-in replacement while upstream develops: Python imports remain `django_rusty_templates`, and the Django backend remains `django_rusty_templates.RustyTemplates`. Lily and the upstream contributors retain credit for the original library; see [LICENSE](LICENSE).
 
-Template compatibility is tested against Django 5.2, 6.0, 6.1, and the development version (Django's `main` branch, which will become 6.2). Django 6 requires Python 3.12 or newer. Supported templates, including `extends` and `block`, compile and execute inheritance in Rust in both debug modes. Rust manages block overrides, `block.super`, inheritance history, render state, and block scopes; ordinary variables read native context storage. Python contexts are exported at callback, signal, loader, and unsupported-template boundaries. A compatibility bridge preserves mixed native/custom-template inheritance. Partial templates and fully custom Python tag compilers use Django's parser/node interoperability layer. With debug disabled, mixed templates compile supported loops, conditions, variables, includes, URLs and standard helper tags into Rust regions. Opaque custom nodes execute against the original live Django Context at explicit AST boundaries; mixed inheritance keeps its Django block protocol. Debug mode retains Django node rendering for mixed templates. On the development version, `now` format expressions also use the interoperability layer. See [CONTRIBUTING.md](CONTRIBUTING.md) for local conformance checks.
+Template compatibility is tested against Django 5.2, 6.0, 6.1, and the development version (Django's `main` branch, which will become 6.2). Django 6 requires Python 3.12 or newer. Supported templates, including `extends` and `block`, compile and execute inheritance in Rust in both debug modes. Rust manages block overrides, `block.super`, inheritance history, render state, and block scopes; ordinary variables read native context storage. Python contexts are exported at callback, signal, loader, and unsupported-template boundaries. A compatibility bridge preserves mixed native/custom-template inheritance. Partial templates and fully custom Python tag compilers use Django's parser/node interoperability layer. In both debug modes, mixed templates compile supported loops, conditions, variables, includes, URLs and standard helper tags into Rust regions. Opaque custom nodes execute against the original live Django Context at explicit AST boundaries; mixed inheritance keeps its Django block protocol. In debug mode, errors inside a region report the failing token of the full template, as Django does. On the development version, `{% now %}` format variables and filters also render natively. Block tags can span several lines there too, as Django 6.2 allows, and the transitional `allow_multiline_tags` engine option turns that off. See [CONTRIBUTING.md](CONTRIBUTING.md) for local conformance checks.
 
 To measure inheritance compilation separately from warm rendering and uncached loading plus rendering, run `uv run maturin develop --release` followed by `uv run python scripts/benchmark_inheritance.py`. The benchmark checks output equality and compares Django, native compilation, and the hybrid parser path on a synthetic template; it does not measure application request latency.
 
@@ -37,7 +37,7 @@ To measure inheritance compilation separately from warm rendering and uncached l
 
 ## Versioning
 
-Releases use calendar versioning: `YYYY.MM.INCR`, with the increment starting at `1` each month. The current package version is `2026.11.1`.
+Releases use calendar versioning: `YYYY.MM.INCR`, with the increment starting at `1` each month. The current package version is `2026.11.3`.
 
 To release, run `just release-prepare` from a clean `main` checkout. It uses
 [bumpver](https://github.com/mbarkhau/bumpver) to pick the next version, updates
@@ -116,6 +116,72 @@ TEMPLATES = [
 ]
 ```
 
+### What is ported
+
+**Ported to Rust:**
+
+* **Built-in tags.** All of Django's built-in tags (`defaulttags` and `loader_tags`), including `querystring`, `partialdef` and `partial` on the Django versions that have them.
+* **Built-in filters.** All 57 of Django's built-in filters.
+* **Stock libraries.** The tags from `{% load i18n %}`, `{% load l10n %}`, `{% load tz %}`, `{% load static %}` and `{% load cache %}`, and the filters from `{% load l10n %}` (`localize`, `unlocalize`), `{% load tz %}` (`localtime`, `utc`, `timezone`), `{% load i18n %}` (`language_name`, `language_name_local`, `language_name_translated`, `language_bidi`) and all of `{% load humanize %}` (`intcomma`, `intword`, `ordinal`, `apnumber`, `naturalday`, `naturaltime`). A library that registers its own filters under these names keeps them.
+* **Admin and flatpages tags.** The admin's inclusion tags (`submit_row`, `result_list`, `pagination`, `admin_actions`, the object tools and the rest), `get_admin_log` and `get_flatpages` compile natively, so the admin's change form, change list and index pages no longer fall back to Django's parser. Their functions and queries still run in Python, with the live context.
+
+Checked against Django 5.2 and the development version with `engine.explain_template()`; see [Inspecting templates](#inspecting-templates).
+
+**Not ported.** These run Django's Python code for every call:
+
+| Library | Filters and tags | Notes |
+|---|---|---|
+| `django.contrib` | The admin's simple tags and filters | Run as custom libraries. See [Django contrib apps](#django-contrib-apps). |
+| Your project | Custom filters and tags | See below. |
+
+Custom filters run in Python and are called as Django calls them: `is_safe`, `needs_autoescape` and `expects_localtime` are honoured, and quoted string arguments arrive as `SafeString`. `simple_tag` and `inclusion_tag` tags are called from Rust. Tags with their own compile function use Django's parser for that tag, and the rest of the template stays native.
+
+**Ported, but calls Django.** These are parsed and rendered in Rust, then call Django APIs for their results:
+
+* `url` uses the URL resolver, `static` storage, `cache` the cache, `csrf_token` CSRF, and `translate`/`blocktranslate` translations.
+* `csp_nonce_attr` (Django 6.1+) calls Django's tag function.
+
+**Ported, with fallbacks for unusual input.** Some built-in filters hand only that input to Django, where Python or Django behave differently between versions:
+
+* `urlize` and `urlizetrunc`: non-ASCII words, links with `[` or `]`, links whose HTML entities decode to non-ASCII text, and on Django 6.0+, `www.` and bare-domain links while `URLIZE_ASSUME_HTTPS` is off (so Django can warn).
+* `striptags`, `truncatechars_html` and `truncatewords_html`: HTML with entities, comments or loosely formed tags.
+* `json_script`: dates, decimals and lazy strings.
+* `stringformat`, `dictsort`, `unordered_list` and `floatformat`: unusual format specifiers, subclasses and generators.
+* The date formatter: time zones other than `datetime.timezone` and `ZoneInfo`.
+* Printing values (`{{ value }}`): `Decimal`s written with an exponent or that aren't finite, floats with an exponent, subclasses of `int`, `float`, `Decimal`, `date`, `time` and `datetime`, and dates inside a `{% localize %}` block.
+* `localize` and `unlocalize`: the same numbers, `str` subclasses, and `unlocalize` of dates.
+* `localtime`, `utc` and `timezone`: `datetime` subclasses and tzinfos without an offset.
+* The `humanize` filters: subclasses, `intcomma` with an argument, `intword` above 2⁵³, `naturaltime` more than a day away, and `naturalday` and `naturaltime` while a test has replaced the module's `datetime`.
+* `language_name*` and `language_bidi`: codes that aren't plain strings, and codes `get_language_info` rejects.
+
+The WebAssembly engine supports a smaller subset; see [its documentation](dtl-browser/README.md).
+
+### Django contrib apps
+
+Every template that ships with `django.contrib` and `django.forms` compiles natively, without falling back to Django's parser. Some of their tags and filters still call Python.
+
+| App | Rusty support | Checked with Django's tests |
+|---|---|---|
+| `admin` | All templates native. The inclusion tags (`submit_row`, `result_list`, `pagination`, …) and `get_admin_log` are native. `add_preserved_filters`, `paginator_number`, `admin_urlname`, `admin_urlquote` and `cell_count` call Python; they run a few times per page, so porting them would save little ([#346](https://github.com/jefftriplett/django-rusty-templates-agentic/issues/346)). | `admin_views`, `admin_changelist`, `admin_inlines`, `admin_widgets`, `admin_filters`, `admin_utils` |
+| `admindocs` | All templates native. | `admin_docs` |
+| `auth` | All templates native. | `auth_tests` |
+| `flatpages` | `get_flatpages` native; its query runs in Python. | `flatpages_tests` |
+| `humanize` | All six filters native. | `humanize_tests` |
+| `sitemaps` | All templates native. | `sitemaps_tests` |
+| `syndication` | Feed title and description templates render with Rusty. | `syndication_tests` |
+| `messages` | No templates or tags; the context processor works. | `messages_tests` |
+| `django.forms` | All form and widget templates native. | `forms_tests` |
+| `gis`, `postgres` | Their widget templates compile natively, but nothing has rendered them yet. Their test suites need GDAL and PostgreSQL. | Not yet |
+| `contenttypes`, `redirects`, `sessions`, `sites`, `staticfiles` | No templates or template tags. `{% static %}` comes from `django.templatetags.static` and is native. | `contenttypes_tests`, `redirects_tests`, `sites_tests`, `staticfiles_tests` |
+
+With Rusty swapped in, these suites pass on Django 5.2, 6.0, 6.1 and 6.2, apart from the Python 3.15 annotation errors on 5.2 and 6.0 ([#59](https://github.com/jefftriplett/django-rusty-templates-agentic/issues/59)). To run them along with the template suites:
+
+```bash
+uv run scripts/run_django_test_suite.py --django-version 5.2
+```
+
+The runner includes these suites by default, so CI runs them on every pull request.
+
 ## WebAssembly for JavaScript clients
 
 This fork also includes an experimental WebAssembly (Wasm) version for JavaScript clients. Templates render directly in the browser using the `BrowserEngine` JavaScript API, with JSON context data and support for variables, selected filters, conditionals, loops, includes, and inheritance.
@@ -137,6 +203,8 @@ Django Rusty Templates (Agentic) is open to contributions. These can come in man
 For detailed instructions on setting up your development environment and contributing to the project, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Benchmarks
+
+In the bundled benchmarks, a realistic page (`extends`, 25 included cards, i18n tags, a request and context processors) renders 7.2× faster than Django, a 200-row table with built-in filters 13×, and templates compile 8–20× faster. Custom tags and filters run in Python, so templates that lean on them gain less, and compiling a template with a custom compiled tag is slower than Django. For an overview of where Rusty is faster, where it isn't, and what that means for request times, see [What to expect](docs/benchmarks/what-to-expect.md). A plain `dict` context is read lazily, so keys a template never reads cost almost nothing. `uv run python scripts/benchmark_summary.py --json-output summary.json` runs its scenarios through both Django backends. The scripts below measure individual mechanisms.
 
 `uv run python scripts/benchmark_loop_values.py --json-output results.json`
 measures integer loops, text-only loops, repeated variables, and mixed component
@@ -189,6 +257,11 @@ and its one-based `line`. Version-specific variable syntax reports no tag
 location. Inspection loads tag libraries but does not compile a Python fallback
 tree or render the template; a native report does not imply zero Python callbacks.
 
+To survey every template an installed package ships, and the tags that would
+make your templates fall back, see
+[Third-party template libraries](docs/third-party-templates.md). It has results
+for crispy-forms, allauth, Wagtail, debug-toolbar, compressor and widget-tweaks.
+
 Mixed templates expose the original nodes through `template.nodelist` for Django
 inspection and direct indexing. `template.nodelist.rendering_nodes` contains the
 compiled runtime regions. Inspecting Python nodes does not mean their render
@@ -228,9 +301,10 @@ Leave the compiler unannotated when it inspects prior native nodes, depends on
 `command_stack` outside its own body, reads `parser.origin.loader`, rewrites
 future tokens, returns inheritance
 or `must_be_first` nodes, or changes how native built-in tags compile. The full
-Django parser remains the default for such compilers. Templates sharing
-inheritance, named-cycle, or partial registries also retain the compatibility
-path, even with an opted-in compiler. Mixed opted-in and unannotated custom tags
+Django parser remains the default for such compilers. An opted-in tag works in
+templates that use `extends`, `block`, `cycle` or partials, as long as its body
+contains none of those tags. If its body does contain one, Django's parser
+compiles the whole template instead, and the compiler runs a second time. Mixed opted-in and unannotated custom tags
 are checked before compilation so the opted-in compiler isn't called twice.
 `Engine.explain_template()` reports custom compiler boundaries without executing
 compilers. Explicit `.nodelist` inspection of a complex template still parses a

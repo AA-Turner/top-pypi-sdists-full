@@ -8,7 +8,7 @@ use pyo3::types::{PyDict, PyFunction, PyString, PyType};
 
 use dtl_lexer::types::TemplateString;
 
-use super::types::{AsBorrowedContent, Content, ContentString, Context};
+use super::types::{AsBorrowedContent, Content, ContentString, Context, render_int};
 use super::{Evaluate, Render, RenderResult, Resolve, ResolveFailures, ResolveResult};
 use crate::error::{AnnotatePyErr, RenderError};
 use crate::parse::{TagElement, TokenTree};
@@ -185,6 +185,41 @@ fn lookup_part<'py>(
     }
 }
 
+/// Resolve `object.part.part` like Django's `Variable` resolving
+/// `{asvar}.{path}` with `ignore_failures=True`, as `regroup` does for each
+/// item. A missing part gives `None`.
+pub(crate) fn resolve_lookup_path<'py>(
+    object: Bound<'py, PyAny>,
+    path: &[String],
+    context: &mut Context,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = object.py();
+    let mut value = match resolve_callable(object, context) {
+        Ok(Some(value)) => value,
+        Ok(None) => return context.invalid_value(py, None),
+        Err(error) if silent_failure(&error, py) => return context.invalid_value(py, None),
+        Err(error) => return Err(error),
+    };
+    for part in path {
+        let found = match lookup_part(value, part) {
+            Ok(Some(found)) => found,
+            // A missing part is VariableDoesNotExist, which regroup ignores.
+            Ok(None) => return Ok(py.None().into_bound(py)),
+            Err(error) if silent_failure(&error, py) => return context.invalid_value(py, None),
+            Err(error) => return Err(error),
+        };
+        value = match resolve_callable(found, context) {
+            Ok(Some(value)) => value,
+            // Django substitutes string_if_invalid for a callable it won't
+            // call, then keeps looking up the remaining parts on it.
+            Ok(None) => context.invalid_value(py, None)?,
+            Err(error) if silent_failure(&error, py) => return context.invalid_value(py, None),
+            Err(error) => return Err(error),
+        };
+    }
+    Ok(value)
+}
+
 fn silent_failure(error: &PyErr, py: Python<'_>) -> bool {
     error
         .value(py)
@@ -326,6 +361,10 @@ impl Resolve for ForVariable {
             context.refresh_formatting_flags(py)?;
             return Ok(result);
         }
+        // `forloop.length` is new in Django 6.0; before that it is missing.
+        if self.variant == ForVariableName::Length && context.django_series(py)? < (6, 0) {
+            return Ok(None);
+        }
         let Some(for_loop) = context.get_for_loop(self.parent_count) else {
             return Ok(Some("{}".as_content()));
         };
@@ -370,14 +409,13 @@ impl Resolve for Text {
         &self,
         _py: Python<'py>,
         template: TemplateString<'t>,
-        context: &mut Context,
+        _context: &mut Context,
         _failures: ResolveFailures,
     ) -> ResolveResult<'t, 'py> {
-        let resolved = unescape_literal(template.content(self.at));
-        Ok(Some(Content::String(match context.autoescape {
-            false => ContentString::String(resolved),
-            true => ContentString::HtmlSafe(resolved),
-        })))
+        // Django marks string literals safe whatever the autoescape setting.
+        Ok(Some(Content::String(ContentString::HtmlSafe(
+            unescape_literal(template.content(self.at)),
+        ))))
     }
 }
 
@@ -386,15 +424,15 @@ impl Resolve for TranslatedText {
         &self,
         py: Python<'py>,
         template: TemplateString<'t>,
-        context: &mut Context,
+        _context: &mut Context,
         _failures: ResolveFailures,
     ) -> ResolveResult<'t, 'py> {
         let text = template.content(self.at);
         let resolved = gettext(py, &unescape_literal(text))?;
-        Ok(Some(Content::String(match context.autoescape {
-            false => ContentString::String(Cow::Owned(resolved)),
-            true => ContentString::HtmlSafe(Cow::Owned(resolved)),
-        })))
+        // Django translates the literal's safe string, so the result is safe.
+        Ok(Some(Content::String(ContentString::HtmlSafe(Cow::Owned(
+            resolved,
+        )))))
     }
 }
 
@@ -519,7 +557,7 @@ impl Render for TokenTree {
             Self::TranslatedText(text) => {
                 TranslatedText::new(text.at).render(py, template, context)
             }
-            Self::Int(n) => Ok(n.to_string().into()),
+            Self::Int(n) => Ok(render_int(n, context)?.into()),
             Self::Float(f) => Content::Float(*f).render(context).map_err(Into::into),
             Self::Tag(tag) => tag.render(py, template, context),
             Self::Variable(variable) => {
@@ -612,7 +650,7 @@ user = User('Lily')
             )
             .unwrap();
 
-            let context = locals.extract().unwrap();
+            let context: HashMap<String, Py<PyAny>> = locals.extract().unwrap();
             let mut context = Context::new(context, None, false);
             let template = TemplateString("{{ user.name }}");
             let variable = Variable::new((3, 9));

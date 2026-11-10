@@ -1,6 +1,5 @@
 import base64
 import json
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -250,6 +249,17 @@ class TableList:
     tables: List[str]
 
 
+@dataclass(frozen=True)
+class NamespaceList:
+    """
+    A list of namespaces available for querying.
+
+    :param namespaces: A list of namespace names.
+    """
+
+    namespaces: List[str]
+
+
 @json_schema_type
 class Format(Enum):
     r"""
@@ -437,12 +447,10 @@ class Credentials:
 
     :param basic_credentials: Encoded credentials.
     :param client_id: The OAuth Client ID.
-    :param client_region: The client's region decoded from the Client ID key.
     """
 
     basic_credentials: str
     client_id: str
-    client_region: str
 
     @classmethod
     def create(cls, *, client_id: str, client_secret: str) -> "Credentials":
@@ -459,17 +467,9 @@ class Credentials:
             f"{client_id}:{client_secret}".encode("utf-8")
         ).decode("ascii")
 
-        # client ID should match the following pattern: region#client-id, e.g. us-west-2#123-...-ef2:Abc...K0E
-        m = re.match(r"([\w-]+)[#]([\w-]+)", client_id)
-        if m:
-            client_region = m.group(1)
-        else:
-            client_region = "Unknown"  # IDM does not always send region
-
         return cls(
             client_id=client_id,
             basic_credentials=basic_credentials,
-            client_region=client_region,
         )
 
 
@@ -482,12 +482,16 @@ class TokenProperties:
     :param expires_in: Expiry time (in sec) of the access token. This field is informational, the timestamp is also embedded in the access token.
     :param scope: List of services accessible by the client. Informational field, as the scope is also embedded in the access token.
     :param token_type: Type of the access token.
+    :param authorization_details: Echoes the requested table-level access details granted to the token, as a
+        list of entries whose shape depends on their (server-defined) "type". Informational field, as the same
+        data is also embedded in the access token.
     """
 
     access_token: str
     expires_in: int
     scope: str
     token_type: str
+    authorization_details: Optional[JsonType] = None
 
 
 @dataclass(frozen=True)

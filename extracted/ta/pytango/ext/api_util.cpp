@@ -88,6 +88,7 @@ void export_api_util(py::module_ &m) {
 
         .def("set_asynch_cb_sub_model",
              &Tango::ApiUtil::set_asynch_cb_sub_model,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Set the asynchronous callback sub-model between PULL_CALLBACK or PUSH_CALLBACK.
 
@@ -148,6 +149,7 @@ void export_api_util(py::module_ &m) {
              py::arg("interface_name"))
         .def_static("cleanup",
                     &Tango::ApiUtil::cleanup,
+                    py::call_guard<py::gil_scoped_release>(),
                     R"doc(
                         Destroy the ApiUtil singleton instance.
                         After calling cleanup(), any existing DeviceProxy, AttributeProxy,

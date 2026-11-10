@@ -64,7 +64,7 @@ import time
 import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from probe.sdk.run.launch import ephemeral
 from probe.sdk.artifact.filetype import file_extension
@@ -97,6 +97,15 @@ SLOW_SAVE_SECONDS = 10.0
 CROSS_DEVICE_STAGE_MAX_BYTES = 2 * 1024**3
 
 Warn = Callable[[str, str], None]
+
+
+class SavedRow(NamedTuple):
+    """One save's checkpoint row as written: its name, its meta, and its artifact id when it was written in hand
+    (``sync``, a command waits on it) and the server answered."""
+
+    name: str
+    meta: dict[str, Any]
+    artifact_id: str | None = None
 
 
 def resolve_mode(passed: str | None, warn: Warn) -> str:
@@ -282,9 +291,11 @@ def upload_set(
     strict: bool | None,
     warn: Warn,
     taken: dict[str, str] | None = None,
-) -> tuple[str, dict[str, Any]]:
+    should_sync: bool = False,
+) -> SavedRow:
     """Upload one save's files and write its index row. Returns the index row's
-    name and the meta it was written with (what a later refresh re-sends).
+    name, the meta it was written with (what a later refresh re-sends) and,
+    when ``should_sync`` wrote the index row in hand, its artifact id.
     ``taken`` is the caller's set names in this run -> their path.
 
     A set that would be incomplete or too costly -- past :data:`MAX_MEMBERS`
@@ -348,7 +359,7 @@ def upload_set(
                 f"for {took:.0f}s, most likely copying it to another disk to stage it. Set "
                 "PROBE_OUTBOX_DIR to a folder on the checkpoint's own disk to stage by hard link.",
             )
-    run.log_artifact(
+    written = run.log_artifact(
         index,
         path=local,
         kind="checkpoint",
@@ -358,5 +369,46 @@ def upload_set(
         step_index=step,
         meta=dict(index_meta),
         strict=strict,
+        sync=should_sync,
     )
-    return index, index_meta
+    return SavedRow(index, index_meta, get_artifact_id(written))
+
+
+def record_row(
+    run: Any,
+    local: str,
+    *,
+    mode: str,
+    name: str,
+    step: int | None,
+    meta: dict[str, Any],
+    size: int | None,
+    is_strict: bool | None,
+    warn: Warn,
+    taken: dict[str, str] | None = None,
+    should_sync: bool = False,
+) -> SavedRow:
+    """One save's checkpoint row in the integration's mode: its files uploaded
+    as a set (`upload_set`), or where it is. ``should_sync`` writes the row in hand,
+    for a command waiting on the checkpoint's artifact id (agentic W&B C.1)."""
+    if mode == UPLOAD:
+        return upload_set(run, local, name=name, step=step, meta=meta, size=size, strict=is_strict, warn=warn,
+                          taken=taken, should_sync=should_sync)  # fmt: skip
+    warn_if_throwaway(local, warn)
+    written = run.log_artifact(
+        name,
+        path=local,
+        kind="checkpoint",
+        reference=True,
+        size_bytes=size,
+        step_index=step,
+        meta=dict(meta),
+        strict=is_strict,
+        sync=should_sync,
+    )
+    return SavedRow(name, meta, get_artifact_id(written))
+
+
+def get_artifact_id(written: Any) -> str | None:
+    """The id of the row the server answered with; None for a row that was queued (an async write)."""
+    return str(written["id"]) if isinstance(written, dict) and written.get("id") else None

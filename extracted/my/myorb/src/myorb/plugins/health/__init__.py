@@ -1,8 +1,10 @@
 """Health: sleep and steps from Apple Health (sent by an iPhone Shortcut) and Strava activities."""
 
+import re
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter
 from sqlalchemy import select
@@ -21,11 +23,14 @@ from myorb.plugins.base import (
 )
 from myorb.plugins.health import strava
 from myorb.plugins.health.models import HealthDay
+from myorb.plugins.health.sport_icons import SPORT_ICONS
 
 ICON = "M3 12h4l2-5 4 10 2-5h6"
 SETUP = Link("Set up health", "/integrations/health")
 # Strava activities listed in the details; "km this week" counts the last 7 days of them.
 HISTORY_DAYS = 30
+# The picture of an activity without a route: an empty tile.
+EMPTY_IMAGE = "data:image/svg+xml," + quote('<svg xmlns="http://www.w3.org/2000/svg"/>')
 # Which number the orb shows, chosen on the Health page. Automatic is last night's sleep, or
 # without it the week's kilometres from Strava, or without Strava today's steps.
 ORB = "health_orb"
@@ -42,6 +47,11 @@ def sleep_text(minutes: int | None) -> str:
         return "—"
     hours, rest = divmod(minutes, 60)
     return f"{hours}h{rest:02d}"
+
+
+def sport_name(sport: str) -> str:
+    """Strava's sport type in words: "TrailRun" -> "Trail Run"."""
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", sport) or "Activity"
 
 
 class HealthPlugin(Plugin):
@@ -123,6 +133,7 @@ class HealthPlugin(Plugin):
         steps = next((d.steps for d in days if d.day == today and d.steps is not None), None)
         week_ago = context.now - timedelta(days=7)
         week_km = round(sum(a.distance_km for a in activities if a.start >= week_ago), 1)
+        routes = any(a.route for a in activities)
         rows = [
             Row(
                 a.name,
@@ -138,6 +149,11 @@ class HealthPlugin(Plugin):
                 badge=f"{a.start.astimezone(context.now.tzinfo):%a %-d %b}",
                 tone="info",
                 url=a.url,
+                # With any route shown, every activity gets a picture so the titles line up:
+                # one without GPS (e.g. on a treadmill) an empty one.
+                image=strava.route_image(a.route) or (EMPTY_IMAGE if routes else ""),
+                subtitle_icon=SPORT_ICONS.get(a.sport, ""),
+                group=sport_name(a.sport),
             )
             # Newest first.
             for a in sorted(activities, key=lambda a: a.start, reverse=True)
@@ -155,6 +171,7 @@ class HealthPlugin(Plugin):
                     )
                     if p
                 ),
+                group="Days",
             )
             for d in days
         ]
@@ -195,6 +212,9 @@ class HealthPlugin(Plugin):
             ],
             list_title=f"Last {HISTORY_DAYS} days",
             rows=rows,
+            # Narrowed to one sport, or to the days of sleep and steps.
+            group_label="activities",
+            group_icons={sport_name(a.sport): SPORT_ICONS.get(a.sport, "") for a in activities},
             action=Link("Open Strava", "https://www.strava.com/dashboard")
             if strava_connected
             else None,

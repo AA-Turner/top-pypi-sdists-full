@@ -162,11 +162,13 @@ except ImportError as _missing:
 
 import probe
 from probe.sdk import errors, fluent
+from probe.sdk.agent_session import ComposedName
 from probe.sdk.artifact import hashing
 from probe.foundation.safe_warn import safe_warn
 from probe.sdk.settings.settings import env_run_id as _env_run_id
 
 from . import _checkpoints, _rank_lease
+from ._commands import TrainerCommands, apply_resume_overrides
 from ._worker_exit import (
     WORKER_CLOSE_SECONDS,
     WORKER_HOLD_SECONDS,
@@ -236,14 +238,44 @@ _handoffs = 0
 _handoff_given_up = False
 
 
+def _apply_checkpoint(commands: TrainerCommands, run: Any, command: dict, state: Any, control: Any,
+                      kwargs: dict) -> None:  # fmt: skip
+    """The Trainer's own save, at this step on every rank; answered once it saved (`on_save`)."""
+    control.should_save = True
+    if run is not None:
+        commands.pending_saves.append(command)
+
+
+def _apply_stop(commands: TrainerCommands, run: Any, command: dict, state: Any, control: Any, kwargs: dict) -> None:
+    control.should_training_stop = True
+    commands.answer(run, command, result={"step": state.global_step})
+
+
+def _apply_config(commands: TrainerCommands, run: Any, command: dict, state: Any, control: Any,
+                  kwargs: dict) -> None:  # fmt: skip
+    optimizer, scheduler = kwargs.get("optimizer"), kwargs.get("lr_scheduler")
+    commands.apply_config(run, command, [optimizer] if optimizer else [], [scheduler] if scheduler else [])
+
+
+def _run_declared(commands: TrainerCommands, run: Any, command: dict, state: Any, control: Any,
+                  kwargs: dict) -> None:  # fmt: skip
+    commands.run_declared(run, command)
+
+
+#: What each built-in command does in the Trainer, on every rank (a kind the script declared: its own handler).
+_HF_APPLIERS = {"checkpoint": _apply_checkpoint, "stop": _apply_stop, "config": _apply_config}
+
+
 class ProbeCallback(TrainerCallback):
     """Log a Hugging Face Trainer run to Probe. See the module docstring.
 
     ``project`` / ``experiment`` / ``name`` and any other keyword go to
     ``probe.init()`` (``question=``, ``tags=``, ``config=``, ``client=``, ...).
     ``report_to="probe"`` builds one with no arguments: the run is then named
-    after ``run_name`` and filed in ``PROBE_PROJECT`` (else the ``probe project
-    use`` one; with neither, training stops at its start); open the run yourself
+    after ``run_name`` and opened with ``project=probe.FROM_ENV`` (``PROBE_PROJECT``,
+    this chat's project, else the ``probe project use`` one; with none, training stops
+    at its start). A ``ProbeCallback()`` built by hand with neither ``project`` nor
+    ``experiment`` does the same (the two cannot be told apart). Open the run yourself
     with ``probe.init(...)`` to choose more, and the callback adopts it.
     ``log_model=False`` records no checkpoints. ``checkpoints="upload"`` stores
     each saved checkpoint's files instead of only its location (``"reference"``, the default; with
@@ -296,6 +328,8 @@ class ProbeCallback(TrainerCallback):
         #: Given (validated above), else PROBE_CHECKPOINTS, else "reference".
         self._checkpoints_given = checkpoints
         self._checkpoints = _checkpoints.resolve_mode(checkpoints, self._warn_once)
+        #: Checkpoint, config and stop asked of the run, taken at a step end every rank reaches (agentic W&B C.1).
+        self._commands = TrainerCommands()
 
     # -- Trainer hooks ------------------------------------------------------------
     def on_init_end(self, args, state, control, **kwargs):
@@ -311,6 +345,9 @@ class ProbeCallback(TrainerCallback):
             self._begin_on_world_zero(args, state, model, kwargs)
         # Every rank, after world zero has its run for this train().
         self._share_run_identity(state)
+        if not self._disabled:
+            self._commands.begin(self._run if state.is_world_process_zero else None)
+            self._apply_resume(state, kwargs)
 
     def on_evaluate(self, args, state, control, **kwargs):
         # The eval dataloader exists only once evaluation runs: its Hub dataset
@@ -410,19 +447,50 @@ class ProbeCallback(TrainerCallback):
         self._log(run, rewrite_logs(metrics), state.global_step)
 
     def on_save(self, args, state, control, **kwargs):
-        if not state.is_world_process_zero or not self._log_model or self._stands_down():
+        if not state.is_world_process_zero:
             return
-        run = self._run_for_write()
-        if run is None:
-            return
-        self._guarded("checkpoint", self._record_checkpoint, run, args, state)
+        # Recorded first, so a checkpoint asked for is answered with its artifact id (agentic W&B C.1).
+        artifact_id = None
+        if self._log_model and not self._stands_down():
+            run = self._run_for_write()
+            if run is not None:
+                recorded = self._guarded("checkpoint", self._record_checkpoint, run, args, state,
+                                         command_id=self._commands.save_command_id)  # fmt: skip
+                artifact_id = recorded if isinstance(recorded, str) else None
+        if self._commands.pending_saves:
+            path = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
+            self._commands.answer_saves(self._run, path, state.global_step, artifact_id)
 
     def on_step_end(self, args, state, control, **kwargs):
+        if not self._disabled:
+            self._take_commands(state, control, kwargs)
         if not state.is_world_process_zero or self._run is None:
             return
         progress = getattr(self._run, "progress", None)
         if callable(progress):
             self._guarded("progress", progress)
+
+    def _apply_resume(self, state: Any, kwargs: dict) -> None:
+        """`probe run resume`: the Trainer loaded the checkpoint before this hook, so the asked learning rate goes on
+        now, on every rank (agentic W&B C.2); said once when the checkpoint was not passed to `train()`."""
+        from probe.sdk.run.resume.resume import read_resume_env
+
+        checkpoint, _overrides = read_resume_env()
+        if checkpoint and state.is_world_process_zero and not state.global_step:
+            self._warn_once("resume_checkpoint", f"probe: this run was resumed from {checkpoint}: pass "
+                            "trainer.train(resume_from_checkpoint=run.resume_checkpoint) to load it")  # fmt: skip
+        optimizer, scheduler = kwargs.get("optimizer"), kwargs.get("lr_scheduler")
+        apply_resume_overrides(self._run if state.is_world_process_zero else None, [optimizer] if optimizer else [],
+                               [scheduler] if scheduler else [])  # fmt: skip
+
+    def _take_commands(self, state: Any, control: Any, kwargs: dict) -> None:
+        """Every rank: rank 0's claimed commands, done at the same step: a checkpoint is the Trainer's own save
+        (answered when it saved), a stop ends training, a config sets the learning rate on this rank's optimizer
+        and scheduler; a kind the script declared runs on rank 0."""
+        run = self._run if state.is_world_process_zero else None
+        for command in self._commands.take(run, state.global_step):
+            apply = _HF_APPLIERS.get(command["kind"], _run_declared)
+            apply(self._commands, run, command, state, control, kwargs)
 
     # -- the run ------------------------------------------------------------------
     def _ensure_run(self, args: Any, state: Any, model: Any, *, merge: bool = False) -> Any:
@@ -613,13 +681,17 @@ class ProbeCallback(TrainerCallback):
 
     def _init_run(self, args: Any, state: Any) -> Any:
         name = self._run_name
+        trial_facts: dict[str, Any] = {}
         if getattr(state, "is_hyper_param_search", False):
             # One run per trial, told apart: hyperparameter_search's hp_name=
             # names a trial (state.trial_name); without it, the trial's number.
             base = name or _args_run_name(args)
             number = max(self._trials - 1, 0)
             trial = getattr(state, "trial_name", None)
-            name = trial or (f"{base}-trial-{number}" if base else f"trial-{number}")
+            # An hp_name or a researcher's base is kept as given; a bare `trial-<n>` is all Probe's (ComposedName).
+            name = trial or (f"{base}-trial-{number}" if base else ComposedName(f"trial-{number}"))
+            # The trial's number and name, kept on the run itself: a composed name may be retitled.
+            trial_facts = {"hp_trial": number, **({"hp_trial_name": str(trial)} if trial else {})}
         elif name is None:
             name = _args_run_name(args)
         kwargs = {
@@ -632,6 +704,8 @@ class ProbeCallback(TrainerCallback):
             if value is not None
         }
         kwargs.update(self._init_kwargs)
+        if trial_facts and not _env_run_id():  # a launcher's run is joined: nothing to create with it
+            kwargs["metadata"] = {**trial_facts, **(kwargs.get("metadata") or {})}
         launcher_run = _env_run_id()
         if launcher_run:
             # probe.init() refuses identity kwargs next to PROBE_RUN_ID (the
@@ -645,6 +719,10 @@ class ProbeCallback(TrainerCallback):
                     f"opened this job's run), so ProbeCallback's {', '.join(explicit)} were not "
                     "applied: the callback writes to that run.",
                 )
+        elif kwargs.get("project") is None and kwargs.get("experiment") is None:
+            # Configured through the environment (`report_to="probe"` builds this with no
+            # arguments): the project comes from PROBE_PROJECT and the other defaults (R22).
+            kwargs["project"] = probe.FROM_ENV
         run = probe.init(**kwargs)
         if launcher_run:
             _LAUNCHER_RUNS.add(run.id)
@@ -753,7 +831,6 @@ class ProbeCallback(TrainerCallback):
         revisions only, never content. Off with read capture
         (``capture_reads=False``, ``PROBE_CAPTURE_READS=0``). Never raises,
         ``strict`` or not: a provenance record is never a reason to stop."""
-        from probe.sdk import catalog
         from probe.sdk.capture import lineage as inputs
 
         from . import _hub
@@ -772,9 +849,7 @@ class ProbeCallback(TrainerCallback):
                 if hub_ref is None or (run.id, hub_ref.uri, role) in self._data_recorded:
                     continue
                 self._data_recorded.add((run.id, hub_ref.uri, role))
-                src = catalog.source(hub_ref.uri, kind=hub_ref.kind, revision=hub_ref.revision, client=run._client)
-                if src.ref:
-                    run.use_dataset(src, role=role)
+                run.use_dataset(hub_ref.to_source(), role=role)
         except Exception as exc:  # noqa: BLE001 - never into training
             self._warn_once(
                 "data provenance",
@@ -811,18 +886,22 @@ class ProbeCallback(TrainerCallback):
                 self._last_step = step
 
     # -- checkpoints ----------------------------------------------------------------
-    def _record_checkpoint(self, run: Any, args: Any, state: Any) -> None:
+    def _record_checkpoint(self, run: Any, args: Any, state: Any, *, command_id: str | None = None) -> str | None:
         """Record the ``checkpoint-<step>`` folder this save wrote, then
-        refresh the rows of earlier ones."""
+        refresh the rows of earlier ones. ``command_id``: the checkpoint
+        command this save answers, kept on the row's meta; the row is then
+        written in hand and its artifact id returned."""
         step = state.global_step
         local = os.path.abspath(os.path.join(args.output_dir, f"{CHECKPOINT_PREFIX}-{step}"))
+        artifact_id = None
         if os.path.isdir(local):
-            self._record_folder(run, args, state, local, step)
+            artifact_id = self._record_folder(run, args, state, local, step, command_id=command_id)
         else:
             # Saved somewhere else (a hyperparameter-search trial's own
             # folder), or not saved by this process.
             log.debug("probe: no checkpoint folder at %s", local)
         self._refresh_checkpoints(run, args, state)
+        return artifact_id
 
     def _record_unreported(self, run: Any, args: Any, state: Any) -> None:
         """Record the JIT checkpoint, which no ``on_save`` reports. It is
@@ -839,7 +918,8 @@ class ProbeCallback(TrainerCallback):
                 continue
             self._record_folder(run, args, state, local, step)
 
-    def _record_folder(self, run: Any, args: Any, state: Any, local: str, step: int) -> None:
+    def _record_folder(self, run: Any, args: Any, state: Any, local: str, step: int, *,
+                       command_id: str | None = None) -> str | None:  # fmt: skip
         size, n_files, complete = hashing.folder_size(local)  # the one walk per save
         monitor = getattr(args, "metric_for_best_model", None)
         meta: dict[str, Any] = {
@@ -850,6 +930,8 @@ class ProbeCallback(TrainerCallback):
             "n_files": n_files,
             "written_during_run": True,
             "written_at": datetime.now(timezone.utc).isoformat(),
+            # The checkpoint command this save answers (`probe run send RUN checkpoint`).
+            "command_id": command_id,
         }
         if not complete:
             meta["size_partial"] = True
@@ -858,25 +940,12 @@ class ProbeCallback(TrainerCallback):
             meta["score"] = _score_at(state, _metric_key(monitor), step)
             meta["best"] = local == _abspath(getattr(state, "best_model_checkpoint", None))
         meta = {k: v for k, v in meta.items() if v is not None}
-        name = os.path.basename(local)
-        if self._checkpoints == _checkpoints.UPLOAD:
-            name, meta = _checkpoints.upload_set(
-                run, local, name=name, step=step, meta=meta, size=size,
-                strict=self._strict_arg, warn=self._warn_once, taken=self._set_names,
-            )
-        else:
-            _checkpoints.warn_if_throwaway(local, self._warn_once)
-            run.log_artifact(
-                name,
-                path=local,
-                kind="checkpoint",
-                reference=True,
-                size_bytes=size,
-                step_index=step,
-                meta=dict(meta),
-                strict=self._strict_arg,
-            )
+        name, meta, artifact_id = _checkpoints.record_row(
+            run, local, mode=self._checkpoints, name=os.path.basename(local), step=step, meta=meta, size=size,
+            is_strict=self._strict_arg, warn=self._warn_once, taken=self._set_names, should_sync=command_id is not None,
+        )  # fmt: skip
         self._checkpoint_rows[local] = {"name": name, "size": size, "step": step, "meta": meta}
+        return artifact_id
 
     def _refresh_checkpoints(self, run: Any, args: Any, state: Any) -> None:
         """Re-send a row whose truth changed since it was written: ``best``

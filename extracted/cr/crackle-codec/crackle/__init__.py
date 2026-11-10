@@ -39,31 +39,31 @@ Date: December 2022 - October 2025
 """
 from .array import CrackleArray, CrackleRemoteArray
 from .codec import (
-	compress, decompress, labels, labels_for_z_range,
-	nbytes, components, component_lengths,
-	header, contains, contains_range, crack_codes, num_labels,
-	point_cloud, voxel_counts, centroids, bounding_boxes,
-	each, to_parquet, reencode,
+  compress, decompress, labels, labels_for_z_range,
+  nbytes, components, component_lengths,
+  header, contains, contains_range, crack_codes, num_labels,
+  point_cloud, voxel_counts, centroids, bounding_boxes,
+  each, to_parquet, reencode,
 )
 from .operations import (
-	astype, ascontiguousarray, asfortranarray,
-	remap, refit, renumber,
-	min, max, 
-	zstack, zsplit, zshatter,
-	full, zeros, ones,
-	add_scalar, subtract_scalar,
-	multiply_scalar, floordiv_scalar,
-	recompress, connected_components,
-	mask, mask_except, 
-	voxel_connectivity_graph,
-	contacts,
-	array_equal,
-	mode_pooling_2x2x1,
-	component_map,
-	edge_labels,
-	apply_binary_mask,
-	select_enclosed_points,
-	signed_distance_to_boundary,
+  astype, ascontiguousarray, asfortranarray,
+  remap, refit, renumber,
+  min, max, 
+  zstack, zsplit, zshatter,
+  full, zeros, ones,
+  add_scalar, subtract_scalar,
+  multiply_scalar, floordiv_scalar,
+  recompress, connected_components,
+  mask, mask_except, 
+  voxel_connectivity_graph,
+  contacts,
+  array_equal,
+  mode_pooling_2x2x1,
+  component_map,
+  edge_labels,
+  apply_binary_mask,
+  select_enclosed_points,
+  signed_distance_to_boundary,
 )
 from .headers import FormatError, CrackleHeader
 from .util import save, load, aload, bload, save_numpy
@@ -71,14 +71,19 @@ from .util import save, load, aload, bload, save_numpy
 def compressa(*args, **kwargs) -> CrackleArray:
   """compress but return the result as a CrackleArray."""
   if len(args) and isinstance(args[0], CrackleArray):
-  	binary = reencode(
-  		args[0].binary,
-  		markov_model_order=kwargs.get("markov_model_order", 0),
-  		parallel=kwargs.get("parallel", 0),
-  	)
+    binary = reencode(
+      args[0].binary,
+      markov_model_order=kwargs.get("markov_model_order", 0),
+      parallel=kwargs.get("parallel", 0),
+      verify=kwargs.get("verify", True),
+    )
   else:
-  	binary = compress(*args, **kwargs)
+    binary = compress(*args, **kwargs)
 
-  return CrackleArray(binary, parallel=kwargs.get("parallel", 0))
+  return CrackleArray(
+    binary,
+    parallel=kwargs.get("parallel", 0),
+    verify=kwargs.get("verify", True),
+  )
 
 

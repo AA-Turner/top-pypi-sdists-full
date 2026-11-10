@@ -21,6 +21,7 @@ from office365.sharepoint.contenttypes.content_type_id import ContentTypeId
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.folders.delete_parameters import FolderDeleteParameters
 from office365.sharepoint.listitems.listitem import ListItem
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.permissions.base_permissions import BasePermissions
 from office365.sharepoint.principal.users.user import User
 from office365.sharepoint.sharing.document_manager import DocumentSharingManager
@@ -46,14 +47,25 @@ if TYPE_CHECKING:
 _DEFAULT_CHUNK_SIZE = Limits.UPLOAD_SESSION_CHUNK.value  # simple-upload threshold / upload-session chunk
 
 
+#: Renaming a folder within its library is one of the few operations with its own item ceiling.
+@limit(Limits.RENAME_FOLDER)
 class Folder(Entity):
     """Represents a folder in a SharePoint Website."""
+
+    #: Library-relative entries SharePoint owns and recreates on a copy: the forms folder
+    #: every library carries and the file that renders a folder.
+    SYSTEM_PATHS = ("Forms", "desktop.ini")
 
     def __str__(self):
         return self.name or self.entity_type_name
 
     def __repr__(self):
         return self.server_relative_url or self.unique_id or self.entity_type_name
+
+    @classmethod
+    def is_system_path(cls, rel: str, extra: Iterable[str] = ()) -> bool:
+        """Whether a library-relative path is one SharePoint owns rather than user content."""
+        return any(rel == entry or rel.startswith(entry + "/") for entry in (*cls.SYSTEM_PATHS, *extra))
 
     @staticmethod
     def from_url(abs_url: str):
@@ -198,6 +210,7 @@ class Folder(Entity):
         """Returns the user permissions for a folder"""
         return self.list_item_all_fields.get_user_effective_permissions(user)
 
+    @site_access(SiteLevel.READ)
     def get_folders(
         self,
         recursive: bool = False,
@@ -241,6 +254,7 @@ class Folder(Entity):
         return return_type
 
     @limit(Limits.LIST_VIEW, arg="page_size")
+    @site_access(SiteLevel.READ)
     def get_files(
         self,
         recursive: bool = False,
@@ -306,6 +320,7 @@ class Folder(Entity):
         """Gets the sharing information for a folder."""
         return self.list_item_all_fields.get_sharing_information()
 
+    @site_access(SiteLevel.WRITE)
     def move_to(self, destination: Union[str, Folder]) -> Self:
         """Moves the folder and its contents under a new folder at the specified destination.
         This method applies only to the context of a single site.
@@ -335,6 +350,7 @@ class Folder(Entity):
         self.ensure_properties(["ServerRelativeUrl", "Name"]).after_execute(lambda _: _source_folder_resolved())
         return self
 
+    @site_access(SiteLevel.WRITE)
     def move_to_using_path(self, destination: Union[str, Folder]) -> Self:
         """Moves the folder and its contents to a new folder at the specified path.
         An exception is thrown if a folder with the same name as specified in the parameter already exists.
@@ -419,6 +435,7 @@ class Folder(Entity):
         """
         return self.list_item_all_fields.unshare_link(link_kind, share_id)  # type: ignore[returnType]
 
+    @site_access(SiteLevel.WRITE)
     def recycle(self, ignore_missing: bool = False) -> ClientResult[str]:
         """Moves the folder to the Recycle Bin and returns the identifier of the new Recycle Bin item.
 
@@ -432,6 +449,7 @@ class Folder(Entity):
         self._tolerate_missing(ignore_missing)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def recycle_with_parameters(self, parameters: FolderDeleteParameters) -> ClientResult[str]:
         """Moves the list folder to the Recycle Bin and returns the identifier of the new Recycle Bin item
 
@@ -444,6 +462,7 @@ class Folder(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_changes(self, query: Optional[ChangeQuery] = None) -> ChangeCollection:
         """Returns the collection of changes from the change log that have occurred within the folder,
         based on the specified query.
@@ -459,6 +478,7 @@ class Folder(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_list_item_changes(self, query: ChangeQuery) -> ChangeCollection:
         """Gets the collection of all changes from the change log that have occurred within the scope of the SharePoint
         folder based on the specified query.
@@ -476,6 +496,7 @@ class Folder(Entity):
         """Adds the folder that is located under a current folder"""
         return self.folders.add(name)  # type: ignore[returnType]
 
+    @site_access(SiteLevel.WRITE)
     def rename(self, name: str) -> Self:
         """Rename a Folder resource"""
         item = self.list_item_all_fields
@@ -516,6 +537,7 @@ class Folder(Entity):
             folder = self.ensure_folder("/".join(parts[:-1]))
         return folder.files.upload_content(content, parts[-1], chunk_size, progress)
 
+    @site_access(SiteLevel.WRITE)
     def ensure_file(
         self,
         relative_path: str,
@@ -744,7 +766,7 @@ class Folder(Entity):
         self.ensure_properties(["ServerRelativePath", "Name"]).after_execute(lambda _: _source_folder_resolved())
         return return_type
 
-    @odata(name="StorageMetrics")
+    @odata(name="StorageMetrics", navigation=True)
     @property
     def storage_metrics(self) -> StorageMetrics:
         """Specifies the storage-related metrics for list folders in the site"""
@@ -752,7 +774,7 @@ class Folder(Entity):
             "StorageMetrics", StorageMetrics(self.context, ResourcePath("StorageMetrics", self.resource_path))
         )
 
-    @odata(name="ListItemAllFields")
+    @odata(name="ListItemAllFields", navigation=True)
     @property
     def list_item_all_fields(self) -> ListItem:
         """Specifies the list item fields values for the list item corresponding to the folder."""
@@ -760,6 +782,7 @@ class Folder(Entity):
             "ListItemAllFields", ListItem(self.context, ResourcePath("ListItemAllFields", self.resource_path))
         )
 
+    @odata(name="Files", navigation=True)
     @property
     def files(self) -> FileCollection:
         """Specifies the collection of files contained in the list folder.
@@ -774,6 +797,7 @@ class Folder(Entity):
             "Files", FileCollection(self.context, ResourcePath("Files", self.resource_path), self)
         )
 
+    @odata(name="Folders", navigation=True)
     @property
     def folders(self) -> FolderCollection:
         """Specifies the collection of list folders contained within the list folder.
@@ -818,7 +842,7 @@ class Folder(Entity):
         deepest = [path for path in paths if not any(other.startswith(f"{path}/") for other in paths if other != path)]
         return [self.ensure_folder(path) for path in deepest]
 
-    @odata(name="ParentFolder")
+    @odata(name="ParentFolder", navigation=True)
     @property
     def parent_folder(self) -> Folder:
         """Specifies the list folder."""
@@ -826,31 +850,37 @@ class Folder(Entity):
             "ParentFolder", Folder(self.context, ResourcePath("ParentFolder", self.resource_path))
         )
 
+    @odata(name="Name", readonly=True)
     @property
     def name(self) -> Optional[str]:
         """Specifies the list folder name."""
         return self.properties.get("Name", None)
 
+    @odata(name="IsWOPIEnabled", readonly=True)
     @property
     def is_wopi_enabled(self) -> Optional[bool]:
         """Indicates whether the folder is enabled for WOPI default action."""
         return self.properties.get("IsWOPIEnabled", None)
 
+    @odata(name="ProgID", readonly=True)
     @property
     def prog_id(self) -> Optional[str]:
         """Gets the identifier (ID) of the application in which the folder was created."""
         return self.properties.get("ProgID", None)
 
+    @odata(name="UniqueId", readonly=True)
     @property
     def unique_id(self) -> Optional[str]:
         """Gets the unique ID of the folder."""
         return self.properties.get("UniqueId", None)
 
+    @odata(name="Exists", readonly=True)
     @property
     def exists(self) -> Optional[bool]:
         """Gets a Boolean value that indicates whether the folder exists."""
         return self.properties.get("Exists", None)
 
+    @odata(name="WelcomePage", readonly=True)
     @property
     def welcome_page(self) -> Optional[str]:
         """Specifies the server-relative URL for the list folder Welcome page."""
@@ -858,34 +888,35 @@ class Folder(Entity):
 
     @odata(name="UniqueContentTypeOrder")
     @property
-    def unique_content_type_order(self) -> ContentTypeId:
+    def unique_content_type_order(self) -> ClientValueCollection[ContentTypeId]:
         """Specifies the content type order for the list folder."""
-        return self.properties.get("UniqueContentTypeOrder", ContentTypeId())
+        return self.properties.get("UniqueContentTypeOrder") or ClientValueCollection[ContentTypeId](ContentTypeId)
 
     @odata(name="ContentTypeOrder")
     @property
-    def content_type_order(self) -> ContentTypeId:
+    def content_type_order(self) -> ClientValueCollection[ContentTypeId]:
         """Specifies the content type order for the list folder."""
-        return self.properties.get("ContentTypeOrder", ContentTypeId())
+        return self.properties.get("ContentTypeOrder") or ClientValueCollection[ContentTypeId](ContentTypeId)
 
-    @odata(name="TimeLastModified")
+    @odata(name="TimeLastModified", readonly=True)
     @property
     def time_last_modified(self) -> Optional[datetime]:
         """Gets the last time this folder or a direct child was modified in UTC."""
         return self.properties.get("TimeLastModified", datetime.min)
 
-    @odata(name="TimeCreated")
+    @odata(name="TimeCreated", readonly=True)
     @property
     def time_created(self) -> Optional[datetime]:
         """Gets when the folder was created in UTC."""
         return self.properties.get("TimeCreated", datetime.min)
 
+    @odata(name="ServerRelativeUrl", readonly=True)
     @property
     def server_relative_url(self) -> Optional[str]:
         """Gets the server-relative URL of the list folder."""
         return self.properties.get("ServerRelativeUrl", None)
 
-    @odata(name="ServerRelativePath")
+    @odata(name="ServerRelativePath", readonly=True)
     @property
     def server_relative_path(self) -> Optional[SPResPath]:
         """Gets the server-relative Path of the list folder."""
@@ -906,21 +937,25 @@ class Folder(Entity):
                 self._resource_path = self.context.web.get_folder_by_server_relative_path(value).resource_path
         return self
 
+    @odata(name="ExistsAllowThrowForPolicyFailures", readonly=True)
     @property
     def exists_allow_throw_for_policy_failures(self) -> Optional[bool]:
         """Gets the ExistsAllowThrowForPolicyFailures property"""
         return self.properties.get("ExistsAllowThrowForPolicyFailures", None)
 
+    @odata(name="ExistsWithException", readonly=True)
     @property
     def exists_with_exception(self) -> Optional[bool]:
         """Gets the ExistsWithException property"""
         return self.properties.get("ExistsWithException", None)
 
+    @odata(name="ItemCount", readonly=True)
     @property
     def item_count(self) -> Optional[int]:
         """Gets the ItemCount property"""
         return self.properties.get("ItemCount", None)
 
+    @site_access(SiteLevel.WRITE)
     def add_sub_folder(self, leaf_name: str) -> Self:
         """AddSubFolder operation.
 
@@ -932,6 +967,7 @@ class Folder(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def add_sub_folder_using_path(self, decoded_url: str) -> Self:
         """AddSubFolderUsingPath operation.
 
@@ -943,6 +979,7 @@ class Folder(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def delete_with_parameters(self, parameters: FolderDeleteParameters) -> Self:
         """DeleteWithParameters operation.
 
@@ -954,6 +991,7 @@ class Folder(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_delete(self) -> ClientResult[UUID]:
         """StartDelete operation."""
         return_type = ClientResult(self.context, UUID(int=0))

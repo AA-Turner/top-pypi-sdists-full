@@ -20,8 +20,10 @@ from repo_standards._machine import (
     envelope as _envelope,
     installed_version as _installed_version,
 )
+from repo_standards.activation_verification import VerifiedActivation, authenticate_activation
 from repo_standards.core.canonical import canonical_json
 from repo_standards.core.commit_message import CommitMessageResult, check_local_commit_message_file
+from repo_standards.core.description import analyze_description, without_bot_footer
 from repo_standards.core.engine import baseline_from_report
 from repo_standards.core.errors import BaselineError, ConfigurationError
 from repo_standards.core.inspection import (
@@ -31,6 +33,8 @@ from repo_standards.core.inspection import (
     read_tracked_blob_contents,
 )
 from repo_standards.core.models import (
+    DEFAULT_MAXIMUM_BODY_CHARACTERS,
+    DEFAULT_MAXIMUM_PROSE_CHARACTERS,
     AnalysisReport,
     Baseline,
     Diagnostic,
@@ -77,9 +81,11 @@ from repo_standards.core.review_policy import (
     ReviewPolicyResult,
     ReviewState,
     SinceReviewEvidence,
+    description_reasons,
     evaluate_review_policy,
     migration_coupled_paths,
 )
+from repo_standards.core.subject import subject_advisories
 from repo_standards.policy_sarj import SarjPolicy
 from repo_standards.pull_request._context import NotApplicable
 from repo_standards.pull_request._inputs import (
@@ -190,6 +196,7 @@ class _ReviewPolicyEvidenceInput(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     schema_version: Literal[1]
+    pr_number: int | None = Field(default=None, gt=0)
     evaluated_head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     current_head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
     base_ref: str = Field(min_length=1, max_length=1_024)
@@ -277,6 +284,10 @@ def commit_message_command(
         ),
     ] = False,
     output_format: Annotated[OutputFormat, typer.Option("--format")] = OutputFormat.TEXT,
+    advise: Annotated[  # ruff: ignore[boolean-default-value-positional-argument] - explicit opt-in advisory
+        bool,
+        typer.Option("--advise", help="Advise on descriptive subject length without blocking."),
+    ] = False,
 ) -> None:
     """Enforce `[(i/n) ][TICKET] type(scope)!: description` and safely normalize spacing/case."""
     try:
@@ -290,10 +301,15 @@ def commit_message_command(
             remediation="Provide exactly one bounded UTF-8 regular commit-message file.",
         )
     payload = _commit_message_payload(result, fix_safe_enabled=fix_safe)
+    advisories = subject_advisories(result.header) if advise and result.satisfied else ()
+    if advise:
+        payload = {**payload, "advisories": [asdict(advice) for advice in advisories]}
     if output_format is OutputFormat.TEXT:
         rendered = _render_commit_message(result)
         if rendered:
             typer.echo(rendered, nl=False)
+        for advice in advisories:
+            typer.echo(f"Advisory: {advice.code}\n{advice.message}\n{advice.remediation}")
     elif output_format is OutputFormat.PRETTY_JSON:
         typer.echo(json.dumps(payload, indent=2, sort_keys=True) + "\n", nl=False)
     else:
@@ -336,6 +352,93 @@ def _render_commit_message(result: CommitMessageResult) -> str:
         return ""
     finding = result.findings[0]
     return f"Commit message: {finding.code}\n{finding.message}\nFix: {finding.remediation}\n"
+
+
+@pull_request_app.command("text")
+def pull_request_text_command(
+    body_file: Annotated[Path, typer.Argument(help="UTF-8 file containing the proposed PR body.")],
+    output_format: Annotated[OutputFormat, typer.Option("--format")] = OutputFormat.TEXT,
+    title: Annotated[
+        str | None, typer.Option("--title", help="Proposed single-line PR title.")
+    ] = None,
+) -> None:
+    """Preview default description budgets without Git or provider evidence; warnings exit zero."""
+    try:
+        body = without_bot_footer(_read_pull_request_body(body_file))
+        if title is not None and ("\n" in title or "\r" in title):
+            ConfigurationError.fail("pull request title must be one line")
+    except (ConfigurationError, OSError) as error:
+        _emit_command_error(
+            "pull-request text",
+            "analysis.incomplete",
+            str(error),
+            remediation="Provide a bounded UTF-8 body file; keep any title on one line.",
+        )
+    description = (
+        analyze_description(body) if len(body) <= DEFAULT_MAXIMUM_BODY_CHARACTERS else None
+    )
+    remediation = {
+        "body_too_long": "Shorten the body, including hidden markup and links.",
+        "body_prose_too_long": "Link detailed evidence; retain the outcome and material caveats.",
+        "body_code_example_invalid": "Use nonempty, closed code fences with a language tag.",
+    }
+    warnings = [
+        {"code": reason.value, "severity": "warning", "remediation": remediation[reason.value]}
+        for reason in description_reasons(description)
+    ]
+    if title is not None:
+        warnings.extend(
+            {
+                "code": advice.code,
+                "severity": "warning",
+                "message": advice.message,
+                "remediation": advice.remediation,
+            }
+            for advice in subject_advisories(title, allow_plain=True)
+        )
+    payload = {
+        **_envelope(
+            "pull-request text",
+            conclusion="findings" if warnings else "passed",
+            provenance={"kind": "pull-request-body-file"},
+        ),
+        "policy": {
+            "enforcement": "advisory",
+            "maximum_body_characters": DEFAULT_MAXIMUM_BODY_CHARACTERS,
+            "maximum_prose_characters": DEFAULT_MAXIMUM_PROSE_CHARACTERS,
+        },
+        "summary": {
+            "body_characters": len(body),
+            "description": asdict(description) if description is not None else None,
+        },
+        "warnings": warnings,
+    }
+    if output_format is OutputFormat.TEXT:
+        typer.echo(f"PR text: {len(warnings)} warning(s); {len(body)} total characters.")
+        for finding in warnings:
+            if "message" in finding:
+                typer.echo(f"{finding['code']}: {finding['message']}")
+                typer.echo(finding["remediation"])
+                continue
+            typer.echo(f"{finding['code']}: {finding['remediation']}")
+    elif output_format is OutputFormat.PRETTY_JSON:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        typer.echo(canonical_json(payload))
+
+
+def _read_pull_request_body(path: Path) -> str:
+    resolved = path.resolve(strict=True)
+    if not resolved.is_file():
+        ConfigurationError.fail("pull request body must be a regular file")
+    with resolved.open("rb") as stream:
+        content = stream.read(_MAX_REVIEW_POLICY_EVIDENCE_BYTES + 1)
+    if len(content) > _MAX_REVIEW_POLICY_EVIDENCE_BYTES:
+        ConfigurationError.fail("pull request body exceeds 1048576 bytes")
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError:
+        ConfigurationError.fail("pull request body must be UTF-8")
 
 
 @pull_request_app.command("size")
@@ -676,14 +779,8 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
             ConfigurationError.fail(
                 "evidence evaluated_head_sha must equal the exact --head commit SHA"
             )
-        configured_check_names = tuple(configured.required_checks)
-        observed_check_names = tuple(item.name for item in provider.required_checks)
-        if len(observed_check_names) != len(set(observed_check_names)):
-            ConfigurationError.fail("required_checks evidence contains duplicate check names")
-        if set(observed_check_names) != set(configured_check_names):
-            ConfigurationError.fail(
-                "required_checks evidence must contain exactly the checks in the trusted manifest"
-            )
+        _require_exact_configured_checks(provider, configured)
+        activation = _authenticated_activation(configured, provider, base=base, head=head)
         transition_exemption = _matching_review_policy_transition(
             root=resolved_root,
             base=GitObjectId(base),
@@ -700,7 +797,7 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
             counted_lines = size.counted_lines
             changed_paths = tuple(item.path for item in size.files)
             missing_sections = missing_required_body_sections(
-                provider.body,
+                without_bot_footer(provider.body),
                 configured.required_body_sections,
             )
         else:
@@ -746,6 +843,7 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
                 zero_review_below_lines=configured.zero_review_below_counted_lines,
                 one_review_maximum_lines=configured.two_reviews_above_counted_lines,
                 migration_roots=configured.migration_roots,
+                verified_activation=activation,
                 author_review_floor=1
                 if transition_exemption is None and _is_allowlisted_bot_author(provider, configured)
                 else 0,
@@ -778,6 +876,8 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
         missing_sections=missing_sections,
         transition_exemption=transition_exemption,
     )
+    if activation is not None:
+        payload = {**payload, "nonproduction_activation": activation.binding.payload()}
     typer.echo(canonical_json(payload) + "\n", nl=False)
     if not _review_policy_merge_ready(
         result=result,
@@ -787,6 +887,49 @@ def pull_request_review_policy_command(  # ruff: ignore[too-many-arguments,too-m
         configured=configured,
     ):
         raise typer.Exit(1)
+
+
+def _require_exact_configured_checks(
+    provider: _ReviewPolicyEvidenceInput, configured: PullRequestReviewPolicyConfig
+) -> None:
+    configured_check_names = tuple(configured.required_checks)
+    observed_check_names = tuple(item.name for item in provider.required_checks)
+    if len(observed_check_names) != len(set(observed_check_names)):
+        ConfigurationError.fail("required_checks evidence contains duplicate check names")
+    if set(observed_check_names) != set(configured_check_names):
+        ConfigurationError.fail(
+            "required_checks evidence must contain exactly the checks in the trusted manifest"
+        )
+
+
+def _authenticated_activation(
+    configured: PullRequestReviewPolicyConfig,
+    provider: _ReviewPolicyEvidenceInput,
+    *,
+    base: str,
+    head: str,
+) -> VerifiedActivation | None:
+    if configured.nonproduction_activation is None or provider.pr_number is None:
+        return None
+    # Imported only for the explicitly opted-in authenticated lane, not ordinary CLI use.
+    from repo_standards.github_review_policy import GitHubClient  # ruff: ignore[import-outside-top-level] -- lazy import avoids the provider dependency for ordinary CLI use
+
+    token = os.environ.get("GITHUB_TOKEN", "")  # ruff: ignore[banned-api] -- GitHub runner authentication contract
+    repository = os.environ.get("GITHUB_REPOSITORY", "")  # ruff: ignore[banned-api] -- GitHub runner identity contract
+    if not token or not repository:
+        return None
+    client = GitHubClient(
+        token=token,
+        repository=repository,
+        api_url=os.environ.get("GITHUB_API_URL", "https://api.github.com"),  # ruff: ignore[banned-api] -- GitHub runner endpoint contract
+    )
+    return authenticate_activation(
+        client,
+        policy=configured.nonproduction_activation,
+        number=provider.pr_number,
+        base_sha=base,
+        head_sha=head,
+    )
 
 
 def _candidate_migration_exception(
@@ -1003,7 +1146,7 @@ def _pull_request_review_policy_payload(  # ruff: ignore[too-many-arguments] - r
             "touches_domain": result.touches_domain,
             "migration_coupled_paths": list(result.migration_coupled_paths),
             "migration_exception_accepted": result.migration_exception_accepted,
-            "body_characters": len(provider.body),
+            "body_characters": len(without_bot_footer(provider.body)),
             "description": {
                 "prose_characters": result.description.prose_characters,
                 "code_examples": result.description.code_examples,

@@ -79,7 +79,7 @@ S3_MULTIPART_EXPIRES_IN = 3 * 60 * 60  # 3 hours
 # may be resident in memory, so peak part memory is this times the part size.
 S3_MULTIPART_UPLOAD_CONCURRENCY_DEFAULT = 8
 S3_MULTIPART_UPLOAD_CONCURRENCY_MIN = 1
-S3_MULTIPART_UPLOAD_CONCURRENCY_MAX = 64
+S3_MULTIPART_UPLOAD_CONCURRENCY_MAX = 128
 # Size of a single uploaded part. S3's floor is 5 MiB, which is a limit rather
 # than a good default: it makes a 10 GiB asset 2048 requests and collides with
 # S3's 10,000 part maximum at around 50 GiB. Measured on a 10 GiB asset, 16 MiB
@@ -91,10 +91,10 @@ S3_MULTIPART_PART_SIZE_DEFAULT = 16 * 1024 * 1024  # 16MiB
 # multiply resident memory, only connections. 32 rather than the upload side's 8:
 # over a high-latency link a single stream is latency bound, and throughput kept
 # growing with the ranges in flight. 32 got most of what 64 did (about 8% slower)
-# with half the connections per asset; 64 stays available as an override.
+# with half the connections per asset; up to 128 stays available as an override.
 S3_MULTIPART_DOWNLOAD_CONCURRENCY_DEFAULT = 32
 S3_MULTIPART_DOWNLOAD_CONCURRENCY_MIN = 1
-S3_MULTIPART_DOWNLOAD_CONCURRENCY_MAX = 64
+S3_MULTIPART_DOWNLOAD_CONCURRENCY_MAX = 128
 # Size of one downloaded byte range. S3 sets no floor for a ranged GET, so the
 # bounds are about request overhead rather than protocol: below a megabyte the
 # per-request latency dominates, and above 5 GiB a single failed range is a lot to
@@ -106,6 +106,22 @@ S3_MULTIPART_DOWNLOAD_CONCURRENCY_MAX = 64
 S3_MULTIPART_DOWNLOAD_PART_SIZE_DEFAULT = 16 * 1024 * 1024  # 16MiB
 S3_MULTIPART_DOWNLOAD_PART_SIZE_MIN = 1024 * 1024  # 1MiB
 S3_MULTIPART_DOWNLOAD_PART_SIZE_MAX = 5 * 1024 * 1024 * 1024  # 5GiB
+
+# How much of a range is written to disk at a time. Every chunk written costs the
+# GIL a few times over, so larger chunks keep a download going better while Python
+# code is busy on another thread. But each range in flight holds up to a chunk in
+# memory, and a cancellation takes effect only between chunks. 1 MiB is the block
+# the download has always been written in.
+#
+# Measured locally (512 MiB, 8 ranges in flight, main thread spinning Python code),
+# throughput while busy and peak RSS:
+#   1 MiB: requests 178 MiB/s, 150 MiB; pyreqwest 271 MiB/s, 194 MiB
+#   4 MiB: requests 301 MiB/s, 181 MiB; pyreqwest 360 MiB/s, 495 MiB
+# pyreqwest's peak grows faster than the chunks themselves: it collects each chunk
+# in a growing buffer, the cheapest way under the GIL that was measured.
+S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_DEFAULT = 1024 * 1024  # 1MiB
+S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_MIN = 64 * 1024  # 64KiB
+S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_MAX = 64 * 1024 * 1024  # 64MiB
 
 HTTP_SESSION_RETRY_TOTAL_DEFAULT = 3
 HTTP_SESSION_RETRY_BACKOFF_FACTOR_DEFAULT = 2

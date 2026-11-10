@@ -190,6 +190,14 @@ class FrontendToolSpec(BaseModel):
     enabled: bool = Field(
         default=True, description="Whether the frontend tool is enabled"
     )
+    streams: List[str] = Field(
+        default_factory=list,
+        description=(
+            "The tools of the set that stream: called once, each keeps pushing "
+            "events the harness tells the model as turns it did not ask for — "
+            "an arena's `arena_watch`."
+        ),
+    )
     toolset: Union[str, List[str]] = Field(
         default="all",
         description=(
@@ -788,6 +796,10 @@ class ModelProvider(BaseModel):
         default="cloud",
         description="Where the model runs: 'cloud' (the provider's) or 'local' (the user's machine)",
     )
+    via: Literal["ai-inference", "direct"] = Field(
+        ...,
+        description="How a runtime's call reaches the provider: 'ai-inference' (through Datalayer's inference service, which holds the account, metered in credits) or 'direct' (the agent calls the provider itself with the person's own key, the models' required_env_vars)",
+    )
 
 
 class AIModel(BaseModel):
@@ -1024,133 +1036,6 @@ class EvalSpec(BaseModel):
     default_config: Dict[str, Any] = Field(
         default_factory=dict,
         description="Suggested baseline evaluator configuration",
-    )
-
-
-class GuardrailPermissions(BaseModel):
-    """Permission toggles for a guardrail profile."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    read_data: bool = Field(default=False, description="Allow data reads")
-    write_data: bool = Field(default=False, description="Allow data writes")
-    execute_code: bool = Field(default=False, description="Allow code execution")
-    access_internet: bool = Field(default=False, description="Allow internet access")
-    send_email: bool = Field(default=False, description="Allow email sending")
-    deploy_production: bool = Field(
-        default=False, description="Allow production deploys"
-    )
-
-
-class TokenLimitsSpec(BaseModel):
-    """Token budget limits."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    per_run: str = Field(default="0", description="Token budget per run")
-    per_day: str = Field(default="0", description="Token budget per day")
-    per_month: str = Field(default="0", description="Token budget per month")
-
-
-class DataScopeSpec(BaseModel):
-    """Data-access scoping rules."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    allowed_systems: List[str] = Field(default_factory=list)
-    allowed_objects: List[str] = Field(default_factory=list)
-    denied_objects: List[str] = Field(default_factory=list)
-    denied_fields: List[str] = Field(default_factory=list)
-
-
-class DataHandlingSpec(BaseModel):
-    """Data output and PII handling policy."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    default_aggregation: bool = Field(default=False)
-    allow_row_level_output: bool = Field(default=False)
-    max_rows_in_output: int = Field(default=0, ge=0)
-    redact_fields: List[str] = Field(default_factory=list)
-    hash_fields: List[str] = Field(default_factory=list)
-    pii_detection: bool = Field(default=False)
-    pii_action: str = Field(default="warn")
-
-
-class ApprovalPolicySpec(BaseModel):
-    """Manual/automatic approval policy."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    require_manual_approval_for: List[str] = Field(default_factory=list)
-    auto_approved: List[str] = Field(default_factory=list)
-
-
-class ToolLimitsSpec(BaseModel):
-    """Tool-call limits for a run."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    max_tool_calls: int = Field(default=0, ge=0)
-    max_query_rows: int = Field(default=0, ge=0)
-    max_query_runtime: str = Field(default="0s")
-    max_time_window_days: int = Field(default=0, ge=0)
-
-
-class AuditSpec(BaseModel):
-    """Audit/logging policy."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    log_tool_calls: bool = Field(default=True)
-    log_query_metadata_only: bool = Field(default=False)
-    retain_days: int = Field(default=30, ge=0)
-    require_lineage_in_report: bool = Field(default=False)
-
-
-class ContentSafetySpec(BaseModel):
-    """Prompt-injection and untrusted-content policy."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    treat_crm_text_fields_as_untrusted: bool = Field(default=False)
-    do_not_follow_instructions_from_data: bool = Field(default=True)
-
-
-class GuardrailSpec(BaseModel):
-    """Guardrail specification."""
-
-    model_config = ConfigDict(populate_by_name=True, by_alias=True)
-
-    id: str = Field(..., description="Unique guardrail identifier")
-    version: str = Field(default="0.0.1", description="Guardrail version")
-    name: str = Field(..., description="Display name")
-    description: str = Field(default="", description="Guardrail description")
-    identity_provider: str = Field(..., description="Identity provider")
-    identity_name: str = Field(..., description="Identity name")
-    permissions: GuardrailPermissions = Field(
-        default_factory=GuardrailPermissions, description="Permission toggles"
-    )
-    token_limits: TokenLimitsSpec = Field(
-        default_factory=TokenLimitsSpec, description="Token budget limits"
-    )
-    data_scope: Optional[DataScopeSpec] = Field(
-        default=None, description="Data-access scope"
-    )
-    data_handling: Optional[DataHandlingSpec] = Field(
-        default=None, description="Data handling policy"
-    )
-    approval_policy: Optional[ApprovalPolicySpec] = Field(
-        default=None, description="Approval policy"
-    )
-    tool_limits: Optional[ToolLimitsSpec] = Field(
-        default=None, description="Tool invocation limits"
-    )
-    audit: Optional[AuditSpec] = Field(
-        default=None, description="Audit trail configuration"
-    )
-    content_safety: Optional[ContentSafetySpec] = Field(
-        default=None, description="Content safety settings"
     )
 
 
@@ -1587,6 +1472,21 @@ class AgentSuggestion(BaseModel):
     )
 
 
+class MCPServerAuth(BaseModel):
+    """How a remote MCP server's bearer is minted for the run (AC-20)."""
+
+    kind: Literal["agentcore-gateway"] = Field(
+        ...,
+        description=(
+            "Who mints it: an Amazon Bedrock AgentCore Gateway, whose inbound "
+            "authorizer trusts the identity named"
+        ),
+    )
+    identity: str = Field(
+        ..., description="The identity of the identities catalogue it trusts, by id"
+    )
+
+
 class MCPServer(BaseModel):
     """
     Configuration for an MCP server.
@@ -1620,6 +1520,13 @@ class MCPServer(BaseModel):
         description=(
             "The headers a remote server is sent with every request, "
             "`${VAR}` expanded as it starts: the bearer among them"
+        ),
+    )
+    auth: Optional[MCPServerAuth] = Field(
+        default=None,
+        description=(
+            "A bearer minted for the run instead of one in `headers` "
+            "(an AgentCore Gateway trusting the identity named)"
         ),
     )
     enabled: bool = Field(default=True, description="Whether the server is enabled")
@@ -1676,6 +1583,27 @@ class MCPServer(BaseModel):
         default=False,
         description="Whether this server is currently running",
         alias="isRunning",
+    )
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    documentation_url: Optional[str] = Field(
+        default=None, description="Where to read about it", alias="documentationUrl"
+    )
+    signup_url: Optional[str] = Field(
+        default=None,
+        description="Where to sign up for the service behind it",
+        alias="signupUrl",
+    )
+    api_key_url: Optional[str] = Field(
+        default=None,
+        description="Where to make the key or token it needs",
+        alias="apiKeyUrl",
+    )
+    setup: Optional[str] = Field(
+        default=None, description="How it is set up, in a sentence"
+    )
+    actions: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="What each tool does to the world: its class by tool name, when checked, a note",
     )
 
 
@@ -2317,6 +2245,14 @@ class Agentspec(BaseModel):
         description="Authorization policy",
         alias="authorizationPolicy",
     )
+    policy: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "The agent's own ask of the Shield: `shield`, agent-shield's firewall "
+            "rules — `egress` ('*' or hosts, host:port, addresses, CIDRs) and "
+            "`ingress` (who may reach the agent's ports)."
+        ),
+    )
     notifications: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Notification configuration (email, slack)",
@@ -2375,6 +2311,13 @@ class Agentspec(BaseModel):
             ": the fields an Appspec says under `interface.voice`."
         ),
     )
+    identity: Optional[str] = Field(
+        default=None,
+        description=(
+            "Who it acts as: an Identity of the catalogue (`agentspecs/identities`), "
+            "`id` or `id:version`; unsaid, the platform's default."
+        ),
+    )
 
 
 class CogSpec(BaseModel):
@@ -2422,16 +2365,24 @@ class GuardSignalSpec(BaseModel):
     description: str = Field(default="", description="What it measures")
 
 
-class GuardSpec(GuardrailSpec):
-    """A reusable check (`agentspecs/guards`): a Guard extends a guardrail.
+class GuardSpec(BaseModel):
+    """A reusable check (`agentspecs/guards`): a Guard extends a Policy.
 
-    The guardrail is the policy; the Guard verifies that the work stayed
-    within it. In the generated catalogue a Guard is resolved: it carries the
-    guardrail's permissions, data scope and handling, and limits, under its
-    own identity, and `guardrail` names the guardrail it extends.
+    The Policy is the Shield's document, the rules the Guard verifies the
+    work stayed within. In the generated catalogue a Guard is resolved:
+    `policy` names the Policy it extends, `id:version`, and
+    `agent_runtimes.specs.guards.policy_of` gives it from the policies
+    catalogue; nothing of the Policy is merged into the Guard.
     """
 
-    guardrail: str = Field(..., description="The id of the guardrail it extends")
+    id: str = Field(..., description="Unique Guard identifier")
+    version: str = Field(default="0.0.1", description="Specification version")
+    name: str = Field(..., description="Display name")
+    description: str = Field(default="", description="What the Guard is for")
+    policy: str = Field(
+        ...,
+        description="The Policy it extends, `id:version`, of the policies catalogue",
+    )
     category: str = Field(
         ...,
         description=(
@@ -2517,6 +2468,195 @@ class TrackSpec(BaseModel):
     tags: List[str] = Field(default_factory=list)
     icon: Optional[str] = Field(default=None, description="Icon identifier")
     emoji: Optional[str] = Field(default=None, description="Emoji representation")
+
+
+class BattleContestantSpec(BaseModel):
+    """One side of a Battle: a scene played whole, or one application (`agentspecs/battles`)."""
+
+    id: str = Field(..., description="Its id in the Battle: `blue`, `red`, `left`")
+    name: str = Field(default="", description="The name the audience sees")
+    scene: str = Field(default="", description="A scene of the catalogue, played whole")
+    app: str = Field(default="", description="An application of the catalogue")
+    runs_in: Optional[str] = Field(
+        default=None, description="For an app: `browser` or `runtime`"
+    )
+    color: str = Field(default="", description="Its colour on stage")
+    overrides: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="What it plays differently of its application: model, instructions, skills, context",
+    )
+
+
+class BattleRefereeSpec(BaseModel):
+    """How a Battle's winner is decided."""
+
+    decides_by: str = Field(..., description="`first_done`, `score` or `measure`")
+    measure: str = Field(
+        default="", description="For `measure`: the Guard that scores each outcome"
+    )
+
+
+class BattleEvalSpec(BaseModel):
+    """An eval of the catalogue that confirms a contestant's result."""
+
+    eval: str = Field(..., description="An eval of the catalogue, `id` or `id:version`")
+    config: Dict[str, Any] = Field(
+        default_factory=dict, description="What the evaluator is given"
+    )
+    says: str = Field(default="", description="What passing confirms")
+
+
+class BattleRehearsalSpec(BaseModel):
+    """What a played Battle has to show."""
+
+    expects: List[str] = Field(default_factory=list)
+
+
+class BattleSpec(BaseModel):
+    """Scenes composed against each other, under one clock and a referee (`agentspecs/battles`)."""
+
+    id: str = Field(..., description="Unique Battle identifier")
+    version: str = Field(default="0.0.1", description="Specification version")
+    name: str = Field(..., description="Display name")
+    description: str = Field(default="", description="What the Battle shows")
+    variant: str = Field(..., description="`race`, `game` or `challenge`")
+    goal: str = Field(..., description="What every contestant is told")
+    clock_seconds: int = Field(..., description="How long it may run")
+    contestants: List[BattleContestantSpec] = Field(default_factory=list)
+    referee: BattleRefereeSpec
+    arena: Optional[str] = Field(
+        default=None, description="For a game: `pong` or `invaders`"
+    )
+    evals: List[BattleEvalSpec] = Field(
+        default_factory=list,
+        description="The evals that confirm each contestant's result once the referee has a verdict",
+    )
+    rehearsal: BattleRehearsalSpec = Field(default_factory=BattleRehearsalSpec)
+    enabled: bool = Field(default=True, description="Whether it may be played")
+    tags: List[str] = Field(default_factory=list)
+    icon: Optional[str] = Field(default=None, description="Icon identifier")
+    emoji: Optional[str] = Field(default=None, description="Emoji representation")
+
+
+class IdentityInboundSpec(BaseModel):
+    """How a caller proves an Identity on the way in."""
+
+    kind: str = Field(default="none")
+    issuer: str = Field(default="")
+    discovery_url: str = Field(default="")
+    algorithms: List[str] = Field(default_factory=list)
+    audiences: List[str] = Field(default_factory=list)
+    clients: List[str] = Field(default_factory=list)
+    scopes: List[str] = Field(default_factory=list)
+    claims: Dict[str, str] = Field(default_factory=dict)
+    lifetime_seconds: int = Field(default=0)
+
+
+class IdentityWorkloadSpec(BaseModel):
+    """The token an agent holds while it acts."""
+
+    token: str = Field(default="none")
+    lifetime_seconds: int = Field(default=0)
+
+
+class IdentityCredentialProviderSpec(BaseModel):
+    """A third party an Identity may obtain credentials for."""
+
+    name: str
+    kind: str = Field(default="oauth2")
+    flow: str = Field(default="")
+    scopes: List[str] = Field(default_factory=list)
+
+
+class IdentityCredentialsSpec(BaseModel):
+    """Where third-party credentials are kept."""
+
+    vault: str = Field(default="none")
+    providers: List[IdentityCredentialProviderSpec] = Field(default_factory=list)
+
+
+class IdentityCustodySpec(BaseModel):
+    """Who keeps an Identity's signing keys."""
+
+    keys: str = Field(default="none")
+    algorithm: str = Field(default="")
+
+
+class IdentityConsentSpec(BaseModel):
+    """Who consents, and who hosts the consent."""
+
+    by: str = Field(default="none")
+    hosted_by: str = Field(default="none")
+    binding: bool = Field(default=False)
+
+
+class IdentityPapSpec(BaseModel):
+    """What the Personal Agent Protocol binds for an Identity."""
+
+    roles: List[str]
+    client_id_per_application: bool = Field(default=True)
+    pairwise: bool = Field(default=True)
+    dpop: bool = Field(default=True)
+
+
+class IdentitySpec(BaseModel):
+    """Who is acting, issued by whom, proven how (`agentspecs/identities`)."""
+
+    id: str = Field(..., description="Unique Identity identifier")
+    version: str = Field(default="0.0.1", description="Specification version")
+    name: str = Field(..., description="Display name")
+    description: str = Field(default="")
+    subject: str = Field(
+        ..., description="person, agent, application, organization, visitor or service"
+    )
+    provider: str = Field(..., description="datalayer, pap, aws-agentcore or oidc")
+    protocols: List[str] = Field(default_factory=list)
+    inbound: IdentityInboundSpec = Field(default_factory=IdentityInboundSpec)
+    workload: IdentityWorkloadSpec = Field(default_factory=IdentityWorkloadSpec)
+    credentials: IdentityCredentialsSpec = Field(
+        default_factory=IdentityCredentialsSpec
+    )
+    custody: IdentityCustodySpec = Field(default_factory=IdentityCustodySpec)
+    consent: IdentityConsentSpec = Field(default_factory=IdentityConsentSpec)
+    pap: Optional[IdentityPapSpec] = Field(default=None)
+    enabled: bool = Field(default=True)
+    tags: List[str] = Field(default_factory=list)
+    icon: str = Field(default="person")
+    emoji: str = Field(default="")
+
+
+class StageSpec(BaseModel):
+    """Something of the catalogue put on stage, and where it plays (`agentspecs/stages`)."""
+
+    id: str = Field(..., description="Unique Stage identifier")
+    version: str = Field(default="0.0.1", description="Specification version")
+    name: str = Field(
+        default="", description="Display name; what it stages is named when unsaid"
+    )
+    description: str = Field(default="", description="What it shows")
+    scene: str = Field(
+        default="",
+        description="A scene of the catalogue, played whole; one of scene, app and battle",
+    )
+    app: str = Field(default="", description="An application of the catalogue")
+    battle: str = Field(default="", description="A Battle of the catalogue")
+    deployments: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Each member on a runtime to the slug of the deployment that answers for it",
+    )
+    public: bool = Field(
+        default=False,
+        description="Whether it has a page of its own that needs no account",
+    )
+    enabled: bool = Field(default=True, description="Whether it may be watched")
+    tags: List[str] = Field(default_factory=list)
+    icon: str = Field(default="", description="Icon identifier")
+    emoji: str = Field(default="", description="Its face")
+
+    @property
+    def kind(self) -> str:
+        """What is on it: `scene`, `app` or `battle`."""
+        return "scene" if self.scene else "app" if self.app else "battle"
 
 
 class OpCogSpec(BaseModel):
@@ -2700,6 +2840,16 @@ class AppPapCompanySpec(BaseModel):
 
     enabled: bool = Field(default=False)
     signed_out: bool = Field(default=True)
+    #: Whether it offers personal agents no sign-in (PAP `auth.disabled`, 0.3 as published): they ask
+    #: only what anybody may ask, in nobody's account (D4-08).
+    sign_in_disabled: bool = Field(default=False)
+    #: Whether it publishes the application's public skills to personal agents as a `skill_index`
+    #: (PAP 0.3 §9.4, D4-06).
+    publish_skills: bool = Field(default=False)
+    #: Its website's two flags at PAP draft 0.4 (§6, D5-09): a signed-in browser has the account's full
+    #: access (`web.unscoped`), or personal agents are asked to use its agent and APIs (`web.disabled`).
+    web_unscoped: bool = Field(default=False)
+    web_disabled: bool = Field(default=False)
     scopes: List[AppPapCompanyScopeSpec] = Field(default_factory=list)
     excluded_tasks: List[AppPapExcludedTaskSpec] = Field(default_factory=list)
     extensions: List[str] = Field(default_factory=list)
@@ -4031,6 +4181,10 @@ class SceneCastMemberSpec(BaseModel):
     )
     persona: ScenePersonaSpec = Field(default_factory=ScenePersonaSpec)
     brief: str = Field(default="", description="What it is for in this scene")
+    overrides: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="What it plays differently of its application here: model, instructions, skills, context",
+    )
 
 
 class SceneSystemSpec(BaseModel):

@@ -55,10 +55,14 @@ def test_a_case_view_is_recorded_only_where_it_moves_something() -> None:
     # ...but the view is the whole repaired name, so in a name it does
     # repair, a role move that changes the rendering moves the view
     # with no word changing case: the echo the initials column has.
+    # Since 3.0 the rendering follows the order a name was read in
+    # (rules/R6), so reading `JOHN SMITH` family-first no longer moves
+    # it; a word the layout moves still does -- here the trailing
+    # particle P6 attaches before the family it joins under FAMILY_FIRST.
     caps, caps_reordered = snapshot.read(
-        [("JOHN SMITH", None), ("JOHN SMITH", "FAMILY_FIRST")])
+        [("JOHN SMITH VAN", None), ("JOHN SMITH VAN", "FAMILY_FIRST")])
     assert (caps["capitalized"], caps_reordered["capitalized"]) \
-        == ("John Smith", "Smith John")
+        == ("John Smith Van", "van John Smith")
 
 
 def test_a_snapshot_predating_the_case_views_is_not_compared_on_them() -> None:
@@ -72,7 +76,10 @@ def test_a_snapshot_predating_the_case_views_is_not_compared_on_them() -> None:
            for k, r in new.items()}
     # a headerless snapshot records no alternative either
     assert snapshot.unrecorded_views(None, keys, old, new) == (
-        *snapshot.CASE_VIEWS, "alternatives")
+        *snapshot.CASE_VIEWS, "alternatives", *snapshot.SUFFIX_VIEWS,
+        *snapshot.PATRONYMIC_VIEW,
+        *snapshot.SURNAME2_VIEW,
+        *snapshot.HONORIFICS_VIEW)
     assert not snapshot.grouped(old, new)
     # A snapshot that records a view on one row, or only the plain
     # view, still compares both: a name repair leaves alone records none.
@@ -80,7 +87,9 @@ def test_a_snapshot_predating_the_case_views_is_not_compared_on_them() -> None:
     new = {snapshot.key(r): dict(r) for r in rows}
     current = {k: dict(r) for k, r in new.items()}
     assert snapshot.unrecorded_views(None, keys, current, new) == (
-        "alternatives",)
+        "alternatives", *snapshot.SUFFIX_VIEWS, *snapshot.PATRONYMIC_VIEW,
+        *snapshot.SURNAME2_VIEW,
+        *snapshot.HONORIFICS_VIEW)
     assert new == current
     assert not any("capitalized_force" in r for r in current.values())
 
@@ -99,7 +108,9 @@ def test_a_snapshot_predating_the_alternatives_is_not_compared_on_them(
     old = {k: {f: v for f, v in r.items() if f != "alternatives"}
            for k, r in new.items()}
     assert snapshot.unrecorded_views(None, keys, old, new) == (
-        "alternatives",)
+        "alternatives", *snapshot.SUFFIX_VIEWS, *snapshot.PATRONYMIC_VIEW,
+        *snapshot.SURNAME2_VIEW,
+        *snapshot.HONORIFICS_VIEW)
     assert not snapshot.grouped(old, new)
     rows = snapshot.read([("JOHN SMITH MA", None), ("Jack MA", None)])
     new = {snapshot.key(r): dict(r) for r in rows}
@@ -131,8 +142,47 @@ def test_a_snapshot_whose_names_report_nothing_still_records_alternatives(
     # from both sides rather than reporting each as lost
     case_only = frozenset(snapshot.CASE_VIEWS)
     assert snapshot.unrecorded_views(snapshot.recorded(text), case_only,
-                                     old, new) == ("alternatives",)
+                                     old, new) == ("alternatives",
+                                                   *snapshot.SUFFIX_VIEWS,
+                                                   *snapshot.PATRONYMIC_VIEW,
+                                                   *snapshot.SURNAME2_VIEW,
+        *snapshot.HONORIFICS_VIEW)
     assert not snapshot.grouped(old, new)
+
+
+def test_a_row_records_the_suffix_views_where_the_suffix_holds_a_generation(
+        ) -> None:
+    # `generation` where there is one, `credentials` beside it where
+    # the suffix holds both; a row with neither has a suffix of
+    # credentials only, or none (rules/R8)
+    plain, creds, gen, both = snapshot.read([
+        ("John Smith", None), ("John Smith PhD", None),
+        ("John Smith Jr.", None), ("John Smith Jr., PhD", None)])
+    assert not set(snapshot.SUFFIX_VIEWS) & (set(plain) | set(creds))
+    assert (gen["generation"], "credentials" in gen) == ("Jr.", False)
+    assert (both["generation"], both["credentials"]) == ("Jr.", "PhD")
+
+
+def test_a_row_records_the_patronymic_view_where_it_is_not_empty() -> None:
+    # the default reads a patronymic particle's (R9); a name with none
+    # records no key
+    plain, nasab = snapshot.read([("John Smith", None),
+                                  ("Mahathir bin Mohamad", None)])
+    assert "patronymic" not in plain
+    assert nasab["patronymic"] == "bin Mohamad"
+
+
+def test_a_row_records_the_surname2_view_where_it_is_not_empty() -> None:
+    # only a policy turning on two family names fills it (R10), so the
+    # default reading of an O6 shape records no key; a row whose
+    # surface holds the view does
+    (default,) = snapshot.read([("Gabriel García Márquez", None)])
+    assert "surname2" not in default
+    v2 = {f: default.get(f, "") for f in snapshot.V2_FIELDS}
+    v2.update(_ambiguities=[], _initials="", _surname2="Márquez",
+              **{f"_{view}": "" for view in snapshot.CASE_VIEWS})
+    assert snapshot.row("Gabriel García Márquez", None, v2)["surname2"] == (
+        "Márquez")
 
 
 def test_a_lost_alternative_shows_beside_an_identical_one() -> None:
@@ -171,17 +221,15 @@ def test_a_name_only_cldr_holds_is_counted_out() -> None:
     assert cldr == {cldr_name}
 
 
-@pytest.mark.parametrize("facade", [True, False])
 def test_a_parallel_read_matches_the_serial_one(
-        monkeypatch: pytest.MonkeyPatch, facade: bool) -> None:
-    # A row the facade reads otherwise and one under another order, so
-    # a worker dropping either half reads differently.
-    entries = [*snapshot.corpus_entries()[:60], ("Ph. D., John", None)]
-    serial = snapshot.read(entries, facade=facade)
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # A row under another order, so a worker dropping it reads
+    # differently.
+    entries = snapshot.corpus_entries()[:60]
+    serial = snapshot.read(entries)
     assert any("order" in r for r in serial)
-    assert any("facade" in r for r in serial) is facade
     monkeypatch.setattr(snapshot, "PARALLEL_FLOOR", 1)
-    assert snapshot.read(entries, facade=facade, jobs=2) == serial
+    assert snapshot.read(entries, jobs=2) == serial
 
 
 def test_a_worker_that_read_another_nameparser_aborts_the_read(
@@ -195,12 +243,16 @@ def test_a_worker_that_read_another_nameparser_aborts_the_read(
         snapshot.read([("John Smith", None), ("Jane Doe", None)], jobs=2)
 
 
-def test_a_read_without_the_facade_drops_only_the_facade() -> None:
-    # A name the facade reads otherwise, so the row has a facade to drop.
-    with_facade, without = (snapshot.read([("Ph. D., John", None)], facade=f)[0]
-                            for f in (True, False))
-    assert "facade" in with_facade
-    assert without == {k: v for k, v in with_facade.items() if k != "facade"}
+def test_a_snapshot_recorded_with_the_facade_loads_without_it() -> None:
+    # A snapshot recorded before 3.0 (v2.8.0's included) carries the
+    # removed HumanName's reading as a `facade` key where it differed;
+    # load() sets it aside, so --since v2.8.0 compares the rest.
+    line = {"name": "Ph. D., John", "given": "John", "family": "Ph. D.",
+            "initials": "J. P. D.", "facade": {"initials": "J. P D."}}
+    loaded = snapshot.load(snapshot.jsonl_line(line) + "\n")
+    assert loaded == {("Ph. D., John", ""): {
+        k: v for k, v in line.items() if k != "facade"}}
+    assert loaded[("Ph. D., John", "")] == snapshot.read([("Ph. D., John", None)])[0]
 
 
 def test_a_sample_is_chosen_by_name_and_keeps_every_order_of_one() -> None:
@@ -222,3 +274,26 @@ def test_a_moved_name_holding_a_line_break_stays_on_its_indented_line() -> None:
     lines = "\n".join(snapshot.grouped(old, new)).split("\n")
     assert lines[0] == "family: 1"
     assert all(line.startswith(" ") for line in lines[1:])
+
+
+def test_a_reading_under_a_choice_moves_what_the_choice_moves() -> None:
+    # --languages reads the tree under a choice against the default's
+    # readings; the same entry read both ways must differ where the
+    # choice settles a clash (pt: the one-case conjunction holds)
+    entry = [("ANA SILVA E SOUZA", None), ("John Smith", None)]
+    default, chosen = snapshot.read(entry), snapshot.read(entry, languages=("pt",))
+    assert default[0]["family"] == "SOUZA"
+    assert chosen[0]["family"] == "SILVA E SOUZA"
+    assert default[1] == chosen[1]
+
+
+@pytest.mark.parametrize("argv,match", [
+    (["--languages", "pt", "--record"], "records nothing"),
+    (["--languages", ","], "at least one tag"),
+    (["--languages", "pt", "--since", "v2.8.0"], "Drop --since"),
+])
+def test_a_choice_records_nothing(argv: list[str], match: str,
+                                  capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        snapshot.main(argv)
+    assert match in capsys.readouterr().err

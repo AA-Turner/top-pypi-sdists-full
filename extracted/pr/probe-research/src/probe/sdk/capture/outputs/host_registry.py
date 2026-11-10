@@ -226,6 +226,11 @@ class CaptureRegistryMixin:
                 if isinstance(mates, list) and self.run_id not in mates:
                     mates.append(self.run_id)
                     _write_json(path, other)
+            # T22: the saved log is named after the stream it posts (`PROBE_LOG_STREAM=all` with a
+            # rank names it `run.rank<N>`), so a stream always names its file.
+            from ..logs.stream import stream_for
+
+            self.log_name = f"probe/{stream_for(self.log_name)}.log"
             if self.sweeps:
                 baselines = _private_dir("capture", "baselines")
                 _prune(baselines)

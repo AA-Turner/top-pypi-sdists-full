@@ -5,6 +5,7 @@ class OfferingEstimatedCostPolicyFieldEnum(str, Enum):
     ACTIONS = "actions"
     AFFECTED_RESOURCES_COUNT = "affected_resources_count"
     APPLY_TO_ALL = "apply_to_all"
+    COST_BREAKDOWN = "cost_breakdown"
     CREATED = "created"
     CREATED_BY_FULL_NAME = "created_by_full_name"
     CREATED_BY_USERNAME = "created_by_username"
@@ -21,6 +22,7 @@ class OfferingEstimatedCostPolicyFieldEnum(str, Enum):
     SCOPE = "scope"
     SCOPE_NAME = "scope_name"
     SCOPE_UUID = "scope_uuid"
+    TRIGGER_STATUS = "trigger_status"
     URL = "url"
     UUID = "uuid"
 

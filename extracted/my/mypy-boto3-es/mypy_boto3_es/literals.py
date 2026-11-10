@@ -26,8 +26,12 @@ __all__ = (
     "AutoTuneDesiredStateType",
     "AutoTuneStateType",
     "AutoTuneTypeType",
+    "ClonedBlueGreenScheduledActionTypeType",
     "ConfigChangeStatusType",
+    "CutoverStatusType",
+    "CutoverTargetType",
     "DeploymentStatusType",
+    "DeploymentStrategyOverrideType",
     "DeploymentStrategyType",
     "DescribePackagesFilterNameType",
     "DescribeReservedElasticsearchInstanceOfferingsPaginatorName",
@@ -58,12 +62,15 @@ __all__ = (
     "RegionName",
     "ReservedElasticsearchInstancePaymentOptionType",
     "ResourceServiceName",
+    "RetentionActionType",
     "RollbackOnDisableType",
     "ScheduledAutoTuneActionTypeType",
     "ScheduledAutoTuneSeverityTypeType",
     "ServiceName",
     "TLSSecurityPolicyType",
     "TimeUnitType",
+    "TrafficSplitStatusType",
+    "TrafficStrategyType",
     "UpgradeStatusType",
     "UpgradeStepType",
     "VolumeTypeType",
@@ -85,6 +92,9 @@ AutoTuneStateType = Literal[
     "ERROR",
 ]
 AutoTuneTypeType = Literal["SCHEDULED_ACTION"]
+ClonedBlueGreenScheduledActionTypeType = Literal[
+    "AutomaticCutoverToPrimaryCluster", "DeletePrimaryCluster"
+]
 ConfigChangeStatusType = Literal[
     "ApplyingChanges",
     "Cancelled",
@@ -95,9 +105,12 @@ ConfigChangeStatusType = Literal[
     "Validating",
     "ValidationFailed",
 ]
+CutoverStatusType = Literal["Completed", "Failed", "InProgress"]
+CutoverTargetType = Literal["ClonedCluster", "PrimaryCluster"]
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"
 ]
+DeploymentStrategyOverrideType = Literal["ClonedBlueGreen"]
 DeploymentStrategyType = Literal["CapacityOptimized", "Default"]
 DescribePackagesFilterNameType = Literal["PackageID", "PackageName", "PackageStatus"]
 DescribeReservedElasticsearchInstanceOfferingsPaginatorName = Literal[
@@ -221,6 +234,7 @@ PropertyValueTypeType = Literal["PLAIN_TEXT", "STRINGIFIED_JSON"]
 ReservedElasticsearchInstancePaymentOptionType = Literal[
     "ALL_UPFRONT", "NO_UPFRONT", "PARTIAL_UPFRONT"
 ]
+RetentionActionType = Literal["DeletePrimaryCluster", "RollbackToPrimaryCluster"]
 RollbackOnDisableType = Literal["DEFAULT_ROLLBACK", "NO_ROLLBACK"]
 ScheduledAutoTuneActionTypeType = Literal["JVM_HEAP_SIZE_TUNING", "JVM_YOUNG_GEN_TUNING"]
 ScheduledAutoTuneSeverityTypeType = Literal["HIGH", "LOW", "MEDIUM"]
@@ -231,6 +245,8 @@ TLSSecurityPolicyType = Literal[
     "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
 TimeUnitType = Literal["HOURS"]
+TrafficSplitStatusType = Literal["Completed", "Failed", "InProgress"]
+TrafficStrategyType = Literal["ShiftReadTrafficPercent"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]
 UpgradeStepType = Literal["PRE_UPGRADE_CHECK", "SNAPSHOT", "UPGRADE"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "standard"]
@@ -242,8 +258,12 @@ ElasticsearchServiceServiceName = Literal["es"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -316,6 +336,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -343,6 +364,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -388,12 +410,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -418,6 +440,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -460,6 +483,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -512,6 +536,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -548,6 +573,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -592,6 +618,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -642,7 +669,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -66,10 +66,20 @@ class GroupInputContract:
 
     parent_group_id: str
     consumer_group_id: str
+    # of the consumer's input grain (`GroupAttrs.input_grain`), what this
+    # parent can carry: it renders them and the merge plan pairs it on them
     required_grain: frozenset[str] = frozenset()
-    preserve_keys: frozenset[str] = frozenset()
+    # this parent's side of the statement relations tying a rowset parent to
+    # its siblings, as far as it can carry it: the consumer sources and pairs
+    # on them, and no side is asked to render them
+    relation_keys: frozenset[str] = frozenset()
     channel: InputChannel = InputChannel.ROW_STREAM
     may_project_dimension: bool = False
+
+    @property
+    def preserve_keys(self) -> frozenset[str]:
+        """The carry demand a consumer's sourcing and merge plan read."""
+        return self.required_grain | self.relation_keys
 
 
 @dataclass(frozen=True)
@@ -240,12 +250,30 @@ class GroupAttrs(_HeldKeys):
     reason: RootReason | None = None
     # Populated for non-FINAL groups after `_compute_concept_sets`.
     input_contracts: tuple[GroupInputContract, ...] = ()
+    # the grain this group's row parents are stitched on; each edge holds the
+    # part its parent can carry (`GroupInputContract.required_grain`)
+    input_grain: frozenset[str] = frozenset()
+    # the keys bridging a dimension to the fact rows: this group sources its
+    # row parents with them, and no pairing reads them
+    sourcing_keys: frozenset[str] = frozenset()
+    # what a dimension parent is projected to beside a shaped sibling, beyond
+    # the input grain: the sourcing keys and the grains its siblings' rows
+    # already stand at
+    projection_grain: frozenset[str] = frozenset()
+    # a grouping stage shapes this group's rows: its own, a rowset body's it
+    # reads out, or a group's below it. Never projected to a sibling's grain.
+    shapes_rows: bool = False
+    # the groups this group's merge plan elects to bridge its row parents
+    # (`join_plan.elect_bridges`), decided before the build
+    bridges: tuple[str, ...] = ()
     # Members of the row-preserving input groups this aggregate computes
     # inline: every reader did, so those groups were never built.
     inlined_members: tuple[str, ...] = ()
     # Of an aggregate's members, the ones a same-grain grouping group built
     # before it already outputs: read through that twin, never recomputed.
     twin_reused: frozenset[str] = frozenset()
+    # the select keys a pinned value is evaluated on (`grain_pin`)
+    grain_pin_anchors: frozenset[str] = frozenset()
 
     @classmethod
     def from_bucket(cls, bucket: "GroupBucket") -> "GroupAttrs":

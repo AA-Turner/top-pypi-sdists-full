@@ -768,7 +768,9 @@ def register_generated_tools(mcp, _get_client):
 
             ### Pagination
 
-            Server-side pagination is optional. When omitted, returns all accounts (backward-compatible).
+            Server-side pagination is optional. When omitted, the dashboard gets every account, while an API key or OAuth app gets at most 500: the first cursor page, ordered by account id.
+
+            When that cap cuts the list, the response carries `warning` and `pagination.nextCursor`, plus the `X-Result-Truncated: true` and `X-Result-Limit: 500` headers. Pass `nextCursor` back as `cursor` (with `limit`) to list the rest.
 
             - Cursor paging: send `limit` alone for the first page, then pass `pagination.nextCursor` back as `cursor` until it is null. Pages are ordered by account id, so accounts added or removed between calls never shift a page. Cannot be combined with `page`, `sort` or `perProfile`.
             - Offset paging: send `page` and `limit` together. Out-of-range page/limit values are rejected with 400 rather than silently clamped.
@@ -801,7 +803,7 @@ def register_generated_tools(mcp, _get_client):
                 include_status_counts: When true, the response carries `statusCounts`: how many accounts match every other
         filter of the request (with `status` lifted) in total and how many of those need a
         reconnection. Accepts `true` or `false` in any letter case; any other value returns 400.
-                page: Page number (1-based) for offset paging. Requires limit; omit page, limit and cursor for all accounts.
+                page: Page number (1-based) for offset paging. Requires limit; omit page, limit and cursor for an unpaged listing (at most 500 accounts for an API key or OAuth app).
                 limit: Page size. With page, an offset page; alone or with cursor, a cursor page.
          Omitted, one page of 100 is returned.
                 cursor: Opaque cursor from a previous response's `pagination.nextCursor`; returns the next page of `limit` accounts (500 when limit is omitted). A cursor we cannot parse returns 400. Cannot be combined with page.
@@ -858,13 +860,20 @@ def register_generated_tools(mcp, _get_client):
         Returns follower count history and growth metrics for connected accounts.
         Requires analytics add-on subscription. Follower counts are refreshed once per day.
 
+        ### Limits
+
+        - At most 25 accounts per request: up to 25 `accountIds`, or a page of accounts. More than 25 `accountIds` returns 400.
+        - Without `accountIds`, the response is the first page of 25 accounts even when `limit` and `cursor` are omitted. Pass `pagination.nextCursor` back as `cursor` for the next one.
+        - When that default page cuts the list, the response also carries a `warning` and the headers `X-Result-Truncated: true` and `X-Result-Limit: 25`.
+        - At most 1 year between `fromDate` and `toDate`. A longer range returns 400.
+
         Args:
-            account_ids: Comma-separated list of account IDs (optional, defaults to all user's accounts)
+            account_ids: Comma-separated list of up to 25 account IDs. Optional: without it, the response pages through all your accounts.
             profile_id: Filter by profile ID
-            from_date: Start date in YYYY-MM-DD format (defaults to 30 days ago)
+            from_date: Start date in YYYY-MM-DD format (defaults to one year before toDate). At most one year before toDate.
             to_date: End date in YYYY-MM-DD format (defaults to today)
             granularity: Data aggregation level
-            limit: Accounts per page, ordered by account id. Send it to page through accounts; the response then carries `pagination.nextCursor`. Without limit or cursor every matching account is returned.
+            limit: Accounts per page, ordered by account id; the response carries `pagination.nextCursor`. Without limit or cursor, a request without accountIds still gets a first page of 25.
             cursor: Opaque cursor from a previous response's `pagination.nextCursor`; returns the next page of `limit` accounts (25 when limit is omitted). A cursor we cannot parse returns 400."""
         client = _get_client()
         try:
@@ -1131,10 +1140,7 @@ def register_generated_tools(mcp, _get_client):
         - `cid`: the Bluesky content id needed to reply.
         - `subreddit`: Reddit only.
         - `title`, `description`, `link`, `boardId` and `boardOwnerUsername`: Pinterest only (the native Pin values; `message` keeps title and description joined).
-
-        ### Expired tokens
-
-        The account's token is ...
+        - `isOwner`: Pinterest and Facebook. On Pinterest, ...
 
         Platforms: facebook, instagram, twitter, bluesky, threads, youtube, linkedin, reddit, tiktok, pinterest
 
@@ -2265,6 +2271,7 @@ def register_generated_tools(mcp, _get_client):
         sync_contacts: bool | None = None,
         log_messages: bool | None = None,
         report_deals: bool | None = None,
+        use_deals_as_results: bool | None = None,
     ) -> str:
         """Update HubSpot account settings
 
@@ -2274,7 +2281,8 @@ def register_generated_tools(mcp, _get_client):
             account_id: (required)
             sync_contacts: Create a HubSpot contact for an inbox contact that matches none by email or phone. A match is linked as it is and never updated.
             log_messages: Log inbound and outbound inbox messages on the contact's HubSpot timeline.
-            report_deals: Send each deal that becomes closed won as a Purchase to the profile's event destinations, about once an hour. Requires the portal to have granted `crm.objects.deals.read`; otherwise 400. Deals closed before it was turned on are not sent."""
+            report_deals: Send each deal that becomes closed won as a Purchase to the profile's event destinations, about once an hour. Requires the portal to have granted `crm.objects.deals.read`; otherwise 400. Deals closed before it was turned on are not sent.
+            use_deals_as_results: Count each closed-won deal as a sale with its amount on the ad campaign that brought its contact, in `GET /v1/ads/campaign-results` and ad rules. Requires `crm.objects.deals.read`; otherwise 400. Turning it on fills in the deals of the last 90 days, never sent to the ad platforms."""
         client = _get_client()
         try:
             response = client.accounts.update_hub_spot_settings(
@@ -2282,6 +2290,7 @@ def register_generated_tools(mcp, _get_client):
                 sync_contacts=sync_contacts,
                 log_messages=log_messages,
                 report_deals=report_deals,
+                use_deals_as_results=use_deals_as_results,
             )
             return _format_response(response)
         except Exception as e:
@@ -2773,6 +2782,8 @@ def register_generated_tools(mcp, _get_client):
         Lists the Instagram accounts a Meta ad connection can run ads as, so you can pick the identity for a new ad.
 
         Discovers identities through connected_instagram_accounts, Page linkage and Page-backed identities, with a best-effort business fallback. Business permission errors do not fail discovery. The resolved object uses the same profile-scoped resolver as ad creation; null means no identity was resolved. Format-specific observed-actor fallbacks at creative creation are not predicted.
+
+        Instagram accounts and Pages that other businesses share with the ad account's business as partner assets are listed with source business_partner, and Pages the ad account promotes with source promote_pages. These reads are best effort: a failure there never fails discovery.
 
         Platforms: meta
 
@@ -5268,6 +5279,7 @@ def register_generated_tools(mcp, _get_client):
         ad_account_id: str | None = None,
         limit: int | None = None,
         in_scope_only: bool = False,
+        live: bool = False,
     ) -> str:
         """List ad accounts
 
@@ -5298,11 +5310,16 @@ def register_generated_tools(mcp, _get_client):
                 account_id: Account ID (required)
                 ad_account_id: Filter response to a single platform ad account ID (e.g. `act_123` for Meta, advertiser_id for TikTok). Returns at most one item.
                 limit: Clamp the returned `accounts[]` length. Useful for typeahead pickers on agency tokens with hundreds of advertisers.
-                in_scope_only: `true` returns only the ad accounts this connection accepts as `adAccountId` on the other /v1/ads endpoints, i.e. those inside its ad-account selection (every item then has `selected: true`). Without it, every ad account the login can reach is listed and `selected` flags selection membership.
+                in_scope_only: `true` returns only the ad accounts this connection accepts as `adAccountId` on the other /v1/ads endpoints, i.e. those inside its ad-account selection (every item then has `selected: true`).
+
+        Without it, every ad account the login can reach is listed and `selected` flags selection membership. Exception: a Meta connection with a selection lists unselected ad accounts only with `live=true`.
 
         - Meta, LinkedIn, X and Reddit: drops the ad accounts with `selected: false`; a connection without a selection keeps them all.
         - Google Ads: also drops customers the login reaches that are not on this connection (for example ones selected on another connection of the same login), which those endpoints answer with a 400.
-        - TikTok and Pinterest: no selection, so the list is unchanged."""
+        - TikTok and Pinterest: no selection, so the list is unchanged.
+                live: `true` lists the ad accounts the login reaches live from the platform instead of the stored catalog.
+
+        A Meta connection with an ad-account selection stores only its selected ad accounts, so without `live=true` it lists only those (a stale catalog falls back to a live listing). With it, every reachable ad account is listed, the others with `selected: false`."""
         client = _get_client()
         try:
             response = client.ad_accounts.list_ad_accounts(
@@ -5310,6 +5327,7 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id=ad_account_id,
                 limit=limit,
                 in_scope_only=in_scope_only,
+                live=live,
             )
             return _format_response(response)
         except Exception as e:
@@ -5626,7 +5644,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: Account ID (required)
             ad_account_id: Platform ad account ID (required)
             platform
-            type: Filter to one audience type. `saved_targeting` returns stored TargetingSpec audiences; the other types return uploaded/derived audiences."""
+            type: Filter to one audience type. `saved_targeting` returns stored TargetingSpec audiences and needs no adAccountId; the other types keep only the platform audiences of that type (an empty list when the platform has none). Meta ENGAGEMENT audiences are `meta_engagement`."""
         client = _get_client()
         try:
             response = client.ad_audiences.list_ad_audiences(
@@ -5965,7 +5983,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List your results per campaign
 
-        Your results summed per campaign over a date range, one entry per campaign with every metric it has, for the ad accounts your key can see. Each day counts its newest value only.
+        Your results summed per campaign over a date range, one entry per campaign with every metric it has, for the ad accounts your key can see. Each day counts its newest uploaded value only, plus the events sent to `POST /v1/events` that are tied to the campaign (`sales`, `revenue`, `leads`, `qualified_leads`).
+
+        An event counts here up to 15 minutes after it arrives.
 
         Paginated by campaign: pass `nextCursor` back as `cursor` until it is null.
 
@@ -6033,7 +6053,9 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get your results totals
 
-        Each metric you send summed over a date range across every campaign of the ad accounts your key can see, or of the ones you name. Each day counts its newest value only.
+        Each metric you send summed over a date range across every campaign of the ad accounts your key can see, or of the ones you name. Each day counts its newest uploaded value only, plus the events sent to `POST /v1/events` that are tied to a campaign.
+
+        An event counts here up to 15 minutes after it arrives.
 
         Formulas are not computed here, since they also read the platform's numbers: apply one to these totals and the account's spend for the same range, or read it per campaign from `GET /v1/ads/tree?results=true`.
 
@@ -6859,7 +6881,7 @@ def register_generated_tools(mcp, _get_client):
                 limit
                 source: `all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager. Matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default; use the `status` param for that.
                 platform
-                status: Filter by derived campaign status (post-aggregation)
+                status: Filter by derived campaign status (post-aggregation). `not_deleted` keeps every status except `cancelled`.
                 ad_account_id: Platform ad account ID (e.g. act_123 for Meta)
                 campaign_id: Platform campaign ID (the `platformCampaignId` on each returned campaign). Returns only that campaign, or an empty list when it is not visible to the caller. Mirrors the same filter on /v1/ads and /v1/ads/tree.
                 page_id: Meta only: Facebook Page ID. Campaigns have no Page of their own, so this keeps campaigns having at least one ad backed by this Page, with adCount and metrics computed over those ads only. Mirrors the same filter on /v1/ads and /v1/ads/tree.
@@ -7958,14 +7980,12 @@ def register_generated_tools(mcp, _get_client):
 
         The ad group is created WITHOUT an ad (Google Ads compliance row C.190). Ads join it later via `adSetId` on POST /v1/ads/create. Supports Google Ads and Reddit Ads; every other platform returns 501.
 
-        **Reddit Ads** (`platform: reddit`)
+        **Google Ads** (`platform: google`)
 
-        - `adAccountId` (the Reddit ad account id) is required and must be a selected ad account of the connection (403 otherwise).
-        - When the campaign has no campaign budget, send `budgetAmount` + `budgetType` (a lifetime budget needs `endDate`).
-        - The ad group is optimized for the campaign's objective. `promotedObject.customEventType` is required on a conversions campaign, and the pixel must have received that event, else 422.
-        - It bids with `bidStrategy`/`bidAmount` like POST /v1/ads/create.
-        - Under campaign budget optimization the ad group takes the campaign's bid, goal type, optimization event and pixel, and bid fields return 400.
-        - The ad group must start no earlier ...
+        - The ad group type follows the campaign: a standard ad group under a Search or Display campaign, a Demand Gen ad group under a Demand Gen campaign.
+        - On a Demand Gen campaign the ad group is always created PAUSED, and `maxCpc` or `status: ACTIVE` returns 400 (Demand Gen bids at the campaign).
+        - `targeting` sets a Demand Gen ad group's locations and languages (`countries`, `regions`, `cities`, `zips`, `metros`, `languages`), created atomically with the ad group. Without it the ad group serves worldwide.
+        - `targeting` returns 400 for any other targeting field, and on campaigns that keep geo on the campaign: Search, Display, and Demand Gen campaigns migrated from ...
 
         Platforms: google, reddit
 
@@ -7982,7 +8002,7 @@ def register_generated_tools(mcp, _get_client):
             budget_type: Reddit only. Sent together with budgetAmount.
             start_date: Reddit only. ISO 8601 start of the ad group. Defaults to now, or to the campaign start when it is in the future.
             end_date: Reddit only. ISO 8601 end of the ad group. Defaults to the campaign end.
-            targeting: Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
+            targeting: Reddit: the full targeting object. Google: locations and languages only, on a Demand Gen campaign. Object with keys: userOs (list of string) - Meta only. Operating systems and version ranges, such as iOS_ver_14.0_and_above or Android. Emitted as user_os. May also be supplied inside targeting.; userDevice (list of string) - Meta only. Device models such as iPhone. Emitted as user_device. May also be supplied inside targeting.; countries (list of string) - ISO 3166-1 alpha-2 country codes (e.g. ['US']).; regions (list of any) - Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain ...; cities (list of any) - City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on ...; zips (list of objects with keys key, name) - Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X.; metros (list of objects with keys key, name) - DMA / metro-area targeting. `key` is the platform's metro ID (e.g. Meta `DMA:807`).; countryGroups (list of string) - Meta only. Continents and trade blocs (`geo_locations.country_groups`), for targeting a whole region without listing its countries. Combines with `countries` ...; customLocations (list of objects with keys latitude, longitude, radius, distanceUnit, name, address) - Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support.; excludedLocations (object with keys countries, countryGroups, regions, cities, zips, places, neighborhoods, customLocations) - Geo to exclude from the audience. Mirrors the inclusion geo shape. - Meta (excluded_geo_locations): excluded cities can carry a radius catchment, and excluded ...; ageMin (integer) - Minimum age. - Applied on Meta, TikTok, Pinterest, LinkedIn, X and Google Search/Display (Google excludes the age ranges outside the request). - Rejected with ...; ageMax (integer) - Maximum age. Same per-platform application and clamping as ageMin.; gender (one of: all, male, female) - Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok, Pinterest, LinkedIn, X, Reddit and Google Search/Display (Google excludes the ...; incomeTier (one of: top_5, top_10, top_10_25, top_25_50) - Normalized household-income tier (ZIP/percentile based). Meta and TikTok express all four. Google maps only `top_10` (its INCOME_RANGE_90_UP); other tiers on ...; languages (list of string) - Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X, Pinterest and Reddit; rejected with 400 on OpenAI. A code ...; interests (list of objects with keys id, name) - Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. - Google: applied as ad-group interest criteria ...; behaviors (list of objects with keys id, name) - Behaviour entities from /v1/ads/targeting/search?dimension=behavior (Meta, TikTok and LinkedIn). **On TikTok** they target people who, in the picked ...; workPositions (list of objects with keys id, name) - Meta only. Job title entities from /v1/ads/targeting/search?dimension=workPosition. Not interchangeable with the LinkedIn `jobTitles` URN fragments.; workEmployers (list of objects with keys id, name) - Meta only. Employer entities from /v1/ads/targeting/search?dimension=workEmployer.; workIndustries (list of objects with keys id, name) - Meta only. Work-industry entities from /v1/ads/targeting/search?dimension=workIndustry. Not interchangeable with the LinkedIn `industries` URN fragments.; industries (list of string) - LinkedIn B2B only. Industry URN id fragments, or the full urn:li:industry:* URN from /v1/ads/targeting/search?dimension=industry.; companySizes (list of string) - LinkedIn B2B only. Single-letter size codes (A to I), or the full urn:li:staffCountRange:* URN from /v1/ads/targeting/search?dimension=companySize.; seniorities (list of string) - LinkedIn B2B only. Seniority URN id fragments, or the full urn:li:seniority:* URN from /v1/ads/targeting/search?dimension=seniority.; jobFunctions (list of string) - LinkedIn B2B only. Function URN id fragments, or the full urn:li:function:* URN from /v1/ads/targeting/search?dimension=jobFunction.; skills (list of string) - LinkedIn B2B only. Member skills (e.g. Python, Recruiting): skill URN id fragments, or the full urn:li:skill:* URN from ...; audienceInclude (list of string) - Platform audience IDs to include, as returned by GET /v1/ads/audiences: - Meta: custom audience ids. - TikTok: audience ids. - Pinterest: customer list ids. - ...; audienceExclude (list of string) - Platform audience IDs to exclude; same ID formats as audienceInclude. Not supported on OpenAI (400).; communities (list of string) - Reddit only (400 elsewhere). Subreddits to target, by name, with or without the `r/` prefix (e.g. `['marketing', 'r/startups']`), as returned by ...; excludedCommunities (list of string) - Reddit only (400 elsewhere). Subreddits to exclude, named like `communities`.; conversationKeywords (list of string) - Reddit only (400 elsewhere). Keywords that place the ad in Reddit conversations about them, as returned by ...; excludedConversationKeywords (list of string) - Reddit only (400 elsewhere). Conversation keywords to keep the ad away from.
             promoted_object: Reddit only. The pixel and the conversion event the ad group optimizes toward. Object with keys: pixelId (string) - Reddit pixel id. Defaults to the ad account's first pixel.; customEventType (string) - Conversion event (PURCHASE, LEAD, SIGN_UP, ADD_TO_CART, PAGE_VISIT). Required on a conversions campaign.
             optimization_goal: Reddit only. VIDEO_VIEW_6S (default) or VIDEO_VIEW_15S on a video views campaign.
             bid_strategy: Reddit only. Defaults to LOWEST_COST_WITHOUT_CAP. Not accepted under campaign budget optimization.
@@ -8593,7 +8613,7 @@ def register_generated_tools(mcp, _get_client):
                 limit: Campaigns per page
                 source: `all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager. Matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default; use the `status` param for that.
                 platform
-                status: Filter by derived campaign status (post-aggregation)
+                status: Filter by derived campaign status (post-aggregation). `not_deleted` keeps every status except `cancelled`.
                 ad_account_id: One or more platform ad account IDs to scope the tree to (agency profiles connect a whole Business Manager, but a team usually cares about a subset).
 
         - Comma-separate for multiple (`?adAccountId=act_1,act_2,act_3`); a single value keeps its old shape.
@@ -9788,11 +9808,12 @@ def register_generated_tools(mcp, _get_client):
         budget_level: Literal["adset", "campaign"] | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         bodies: list[str] | None = None,
-        rehost_on_instagram_video_rejection: bool = True,
+        retry_on_server_error: bool | None = None,
+        rehost_on_instagram_video_rejection: bool | None = None,
         smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
         meta_objective: Literal["OUTCOME_ENGAGEMENT"] | None = None,
-        validate_only: bool = False,
+        validate_only: bool | None = None,
     ) -> str:
         """Boost post as ad
 
@@ -10008,6 +10029,9 @@ def register_generated_tools(mcp, _get_client):
                 bodies: Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM). The post keeps its own text as one of the options. Works for Facebook posts and Instagram media.
 
         Under a conversions or traffic goal, Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`). Engagement boosts need none.
+                retry_on_server_error: Meta only (a 400 elsewhere). When Meta answers a create with a 5xx and reading the parent back by name finds no such object, Zernio sends the create again (at most 3 POSTs per object, never for an object created ACTIVE) and reports it in `recoveredWrites`.
+
+        `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 rehost_on_instagram_video_rejection: Meta only (a 400 elsewhere). Controls the fallback when Meta refuses an existing Instagram video as the ad (subcode 1815279).
 
         - First, Zernio copies the video into the ad account and retries on the original post.
@@ -10107,6 +10131,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_level=budget_level,
                 attribution_spec=attribution_spec,
                 bodies=bodies,
+                retry_on_server_error=retry_on_server_error,
                 rehost_on_instagram_video_rejection=rehost_on_instagram_video_rejection,
                 smart_targeting=smart_targeting,
                 optimization_goal=optimization_goal,
@@ -10179,6 +10204,8 @@ def register_generated_tools(mcp, _get_client):
         Adds an asset group with its assets and optional product targeting to a Performance Max campaign, or just validates it without creating anything.
 
         The group, any new assets, their links and an optional listing-group tree are created in one atomic request, so Google checks the asset minimums (for non-retail campaigns) against the whole set. Created PAUSED unless status is ENABLED. validateOnly: true runs Google's validation without creating anything.
+
+        A campaign that is not Performance Max returns 400 on campaignId (add an ad group with POST /v1/ads/ad-sets instead). A missing or removed campaign returns 404.
 
         Platforms: google
 
@@ -10463,8 +10490,10 @@ def register_generated_tools(mcp, _get_client):
             "carousel_slideshows",
         ]
         | None = None,
+        catalog_intro_cards: list[dict[str, Any]] | None = None,
         multi_advertiser: Literal["OPT_IN", "OPT_OUT"] | None = None,
         ai_disclosure: Literal["OPT_IN", "OPT_OUT"] | None = None,
+        retry_on_server_error: bool | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
         budget_type: Literal["daily", "lifetime"] | None = None,
@@ -10472,7 +10501,7 @@ def register_generated_tools(mcp, _get_client):
         campaign_status: Literal["ACTIVE", "PAUSED"] | None = None,
         ad_set_status: Literal["ACTIVE", "PAUSED"] | None = None,
         ad_status: Literal["ACTIVE", "PAUSED"] | None = None,
-        budget_level: Literal["adset", "campaign"] = "adset",
+        budget_level: Literal["adset", "campaign"] | None = None,
         currency: str | None = None,
         headline: str | None = None,
         long_headline: str | None = None,
@@ -10690,7 +10719,7 @@ def register_generated_tools(mcp, _get_client):
         translations: list[dict[str, Any]] | None = None,
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
-        campaign_type: Literal["display", "search", "pmax", "demand_gen"] = "display",
+        campaign_type: Literal["display", "search", "pmax", "demand_gen"] | None = None,
         location_targeting_type: Literal["presence", "presence_or_interest"]
         | None = None,
         asset_group: dict[str, Any] | None = None,
@@ -10769,7 +10798,7 @@ def register_generated_tools(mcp, _get_client):
         - Google Search and Display only: also works on `existingCampaignId`, where the new ad group's name is returned as `adSetName`. No line breaks, at most 255 characters, unique in the campaign (a taken name is a 400 naming this field).
         - Demand Gen names its ad group with `demandGen.adGroupName`, and Performance Max with `assetGroup.name`.
         - For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.
-                ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
+                ad_name: Meta only. Exact ad name, overriding the default `name`. On the multi-creative shape it names every ad, numbered `#1`, `#2`... when there are several, unless a `creatives[]` entry sets its own `name`.
                 tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
                 goal: The ad's goal. Available goals vary by platform. When omitted, it is inferred from the ad (see `appliedDefaults.goal` in the response); the attach shape inherits it from the ad set.
 
@@ -10781,7 +10810,7 @@ def register_generated_tools(mcp, _get_client):
         - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
         - `catalog_sales`: Advantage+ catalog ads (e.g. vehicle inventory). Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}.
         - `catalog_sales` visuals: no imageUrl or video is sent; Meta renders them per catalog item (an imageUrl or video sent is ignored, not uploaded). Find catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets.
-        - `catalog_sales` shape: single shape only, no creatives[], dynamicCreative, placementAssets, existingCreativeId or carouselCards. Works with `existingCampaignId`, and with `adSetId` to add to an existing ad set (then only `promotedObject.productSetId` is required). Pick the format with `catalogFormat`.
+        - `catalog_sales` shape: single shape only, no creatives[], dynamicCreative, placementAssets, existingCreativeId or carouselCards. Works with `existingCampaignId`, and with `adSetId` to add to an existing ad set (then only `promotedObject.productSetId` is required). Pick the format with `catalogFormat`, and open the carousel with `catalogIntroCards`.
         - `traffic` with `promotedObject.productSetId`: a catalog ad without a pixel (OUTCOME_TRAFFIC, `optimizationGoal` LINK_CLICKS by default or LANDING_PAGE_VIEWS). The product set goes on the template creative only, never the ad set's promoted_object. No `pixelId` or `customEventType` needed. Same creative rules as `catalog_sales`.
         - `page_likes`: Page Likes under OUTCOME_ENGAGEMENT (destination_type ON_PAGE, optimization PAGE_LIKES). `promotedObject.pageId` is optional and auto-filled. The CTA is fixed to LIKE_PAGE for that Page; headline / body / linkUrl / callToAction / imageUrl / video are all optional (Meta derives them from the Page).
         - `page_visits`: "Page visits and followers" under OUTCOME_TRAFFIC (destination_type FACEBOOK_PAGE, optimization PROFILE_VISIT). `promotedObject.pageId` is optional and auto-filled; `linkUrl` defaults to the Page. Accounts Meta has not enabled are refused with "This account isn't eligible to use Profile Visit ads yet".
@@ -10840,6 +10869,7 @@ def register_generated_tools(mcp, _get_client):
 
         - `single_image`: also sends `format_transformation_spec` with `carousel` and `da_collection` set to `data_source: ["none"]`, so Meta keeps the single image instead of turning it into a carousel or collection.
         - `carousel_images_single_item`: also sends `template_data.multi_share_end_card: false`, which Meta requires for that format (subcode 1443167).
+                catalog_intro_cards: Meta only. Static cards shown before the catalog products in a catalog carousel, for example a brand or offer slide. Valid only with goal `catalog_sales` and `catalogFormat` omitted or `carousel_images_multi_items`; a 400 otherwise. Sent in order as `object_story_spec.template_data.child_attachments` with `static_card: true`, followed by one catalog card built from the top-level `headline`, `description` and `callToAction`. Each item is an object with keys: imageUrl (string, required) - Card image; uploaded to the ad account and referenced by hash.; headline (string, required) - Card headline. Meta does not show it on Instagram.; description (string) - Card description. Meta does not show it on Instagram.; linkUrl (string) - Card destination URL. Defaults to the top-level linkUrl.; callToAction (string) - Card CTA override. Defaults to the top-level callToAction; same enum.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure (the Ads Manager checkbox), stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`.
 
@@ -10848,6 +10878,9 @@ def register_generated_tools(mcp, _get_client):
         - Omitted: leaves Meta's default.
 
         Applied to each new creative (standalone, creatives[] and attach shapes) and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
+                retry_on_server_error: Meta only (a 400 elsewhere). When Meta answers a create with a 5xx and reading the parent back by name finds no such object, Zernio sends the create again (at most 3 POSTs per object, never for an object created ACTIVE) and reports it in `recoveredWrites`.
+
+        `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 validate_only: Validate the request without creating anything. Supported on Meta, TikTok, ChatGPT (OpenAI) and Google Performance Max / Demand Gen. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
 
         **Google Performance Max**: validates the complete atomic campaign and asset group, with no resource creation or local persistence. Validation still downloads image URLs and consumes quota.
@@ -10917,12 +10950,14 @@ def register_generated_tools(mcp, _get_client):
         - Performance Max and Demand Gen: accept PAUSED only.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
 
-        - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the ad set. Back-compatible; omit this field to keep it.
+        - `adset` (used when omitted): ABO (Ad-set Budget Optimization). The budget is set on the ad set.
         - `campaign`: CBO (Campaign Budget Optimization / Advantage Campaign Budget). The budget AND `bidStrategy` are set on the CAMPAIGN, and Meta distributes spend across ad sets automatically.
 
         The returned ad stores the applied `budgetLevel`, and the budget in `campaignBudget` (CBO) or `adSetBudget` (ABO). Edit CBO budgets with `PUT /v1/ads/campaigns/{campaignId}` and ABO budgets with `PUT /v1/ads/ad-sets/{adSetId}`.
 
-        Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
+        Meta requires the budget at exactly one level, never both. Ignored on the Meta attach shape (`adSetId`), which inherits the existing budget.
+
+        Google Demand Gen also reads it. A new Demand Gen campaign accepts only `campaign` or no value. With `existingCampaignId` or `adSetId`, omit it: the budget stays on the existing campaign. Other platforms ignore it.
                 currency: ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
                 headline: Ad headline. Required for Meta, Google, Pinterest, LinkedIn, OpenAI Ads and Reddit Ads on legacy + attach shapes (for multi-creative, skip it and use `creatives[].headline`). Ignored for TikTok.
 
@@ -11188,7 +11223,7 @@ def register_generated_tools(mcp, _get_client):
                 translations: Meta only. Multi-language ads (Dynamic Language Optimization, the "Languages" toggle in Ads Manager): ONE ad with per-locale copy and, optionally, per-locale media. Social proof (likes/comments/shares) stays on a SINGLE post instead of splitting across one ad per language. The ad's top-level copy is the DEFAULT for every locale you do NOT list, and counts as one of the language variants. **Text does NOT inherit** (the opposite of what you might expect). Every entry needs its own `headline`, `body` AND `description`, all DISTINCT from each other and from the top-level copy. `description` is therefore effectively required on the ad whenever `translations` is present, though optional otherwise. Why: Meta deduplicates identical strings in the asset feed, so two locales sharing a string collapse into one asset. The create then fails with a misleading "Too few ... texts provided in asset creation" (subcode 1885817) naming a field that is present. We validate first and return a 400 naming the locale and field. Do NOT list `defaultLocale` inside `translations`: Meta rejects the duplicate with "The language asset feed includes an unsupported targeting field" (subcode 1885985). **Media DOES inherit** and is uploaded once when shared. `linkUrl` inherits too: each locale may name its own landing page, and unlisted locales fall back to the top-level `linkUrl`. Meta enforces Dynamic Creative image dimensions on language feeds, so an `imageUrl` that works on a normal ad may fail with "The following images have invalid dimensions for Dynamic Creative" (subcode 1885558). Video is not affected. Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards`, `existingCreativeId` and `creatives[]`: Meta allows one `asset_feed_spec` shape per creative. Each item is an object with keys: locale (string, required) - Language code, resolved to Meta's numeric locale id. Bare codes target the '(All)' umbrella (`es` = every Spanish variant); region-qualified codes target the ...; headline (string, required) - Headline for this language. REQUIRED, and must differ from every other locale and from the ad's top-level headline.; body (string, required) - Primary text for this language. REQUIRED, and must differ from every other locale and from the ad's top-level body.; description (string, required) - Link description for this language. REQUIRED, and must differ from every other locale and from the ad's top-level description.; linkUrl (string) - Destination URL for this language. Inherits the ad's top-level `linkUrl` when omitted, and requires it to be present (400 otherwise): the top-level URL is the ...; imageUrl (string) - Image for this language. Inherits the ad's `imageUrl` when omitted. The feed is all-image OR all-video.; videoUrl (string) - Video for this language. Inherits the ad's `video.url` when omitted. The feed is all-image OR all-video.; thumbnailUrl (string) - Poster frame for this language's video.
                 placement_assets: Meta only. Pins a SPECIFIC asset (image OR video) to each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed). The same thing Ads Manager produces with "different creative per placement", mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive). Cannot be combined with `creatives[]` or top-level `bodies`/`headlines`/`descriptions` arrays. Works on the legacy single shape AND the attach shape: `adSetId` + placementAssets adds one placement-customized ad to an existing ad set. To build N per-placement ads sharing one ad set, create the first normally and attach the rest. **Text.** Each rule can override `headline`, `body` and `description` with one string per field. Omitted fields and unmatched placements use the top-level copy; `linkUrl` and `callToAction` remain shared. Zernio emits labelled text with `optimization_type: PLACEMENT`. Multiple text options rotating within a placement are not supported by this input. **Placements.** Each rule's `placements` accepts the same fields as the top-level `placements` object; Meta enforces co-selection rules and returns an actionable error. Meta controls text rendering by placement and format. Validation accepts these fields but does not prove that every field appears in delivery. Preview the ad, and put copy that must always be visible into the image or video itself. `validateOnly: true` supports all-image placementAssets, and video placementAssets with a video id in every slot and no thumbnails, without uploading or creating anything. Video URLs and thumbnails need an upload, so they return 400. **Media.** A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad format). Exactly one catch-all default is required. - Image mode: `defaultImageUrl` + `rules[].imageUrl`. - Video mode: `defaultVideoUrl` or `defaultVideoId` + `rules[].videoUrl` or `rules[].videoId`, with optional `thumbnailUrl`/`defaultThumbnailUrl` posters (Meta auto-generates them when omitted). An id reuses a video already on the ad account and wins over a URL in the same slot; the two can mix across slots. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Video mode requires this or `defaultVideoId`.; defaultVideoId (string) - Video mode. ID of a video already on the ad account, used as the catch-all instead of uploading `defaultVideoUrl`. Wins over `defaultVideoUrl`. A video still ...; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, videoId, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
                 audience_id: Custom audience ID for targeting
-                campaign_type: Google only. Performance Max requires assetGroup and Demand Gen requires demandGen; both are always created PAUSED. With `adSetId` it defaults to the ad group's own campaign type instead of display.
+                campaign_type: Google only. Omitted, it is display on a new campaign, and the existing campaign's own type with `existingCampaignId` or `adSetId` (Search, Display or Demand Gen; other types return 422). Performance Max requires assetGroup and Demand Gen requires demandGen; both are always created PAUSED.
                 location_targeting_type: Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations.
                 asset_group: Object with keys: name (string) - Defaults to the request name.; finalUrl (string, required) - Required destination URL.; headlines (list of string, required); longHeadline (string, required); descriptions (list of string, required) - At least one description must be 60 characters or fewer.; businessName (string, required); images (object with keys landscape, square, logo, required) - Public HTTP(S) image URLs. GIF, JPEG or PNG, at most 5120 KB per image. Google validates dimensions and aspect ratios.; youtubeVideoId (string) - Optional existing YouTube video id. Google can generate video when omitted. Video uploads and arbitrary video URLs are not supported.
                 demand_gen: Object with keys: adGroupName (string) - Defaults to the ad name.; finalUrl (string, required); businessName (string, required); headlines (list of string, required) - Distinct texts. A carousel ad takes exactly one.; longHeadlines (list of string) - Video ads only, and required there.; descriptions (list of string, required) - A carousel ad takes exactly one.; callToAction (string) - Image and carousel ads only. Call to action text such as 'Learn more'; Google picks one when omitted.; images (object with keys landscape, square, portrait, logo, required) - Public image URLs. An image ad needs landscape or square; video and carousel ads take only one logo (carousel images go on each card).; youtubeVideoIds (list of string) - Makes the ad a video responsive ad.; carouselCards (list of objects with keys headline, finalUrl, callToAction, images) - Makes the ad a carousel ad. Each card needs its own image (no two cards may share one); use the same image shape on every card. Card images are uploaded to ...; channels (list of string) - Channel controls on the new ad group. Only the listed channels serve; Google Maps, which this list cannot select, is turned off. Omit to send no channel ...; audience (object with keys userLists, userInterests, customAudiences, ageRanges, genders); audienceId (string) - Attach an existing Google Audience by numeric id instead of audience.
@@ -11319,8 +11354,10 @@ def register_generated_tools(mcp, _get_client):
             "promotion": promotion,
             "creative_features": creative_features,
             "catalog_format": catalog_format,
+            "catalog_intro_cards": catalog_intro_cards,
             "multi_advertiser": multi_advertiser,
             "ai_disclosure": ai_disclosure,
+            "retry_on_server_error": retry_on_server_error,
             "validate_only": validate_only,
             "budget_amount": budget_amount,
             "budget_type": budget_type,
@@ -11441,8 +11478,10 @@ def register_generated_tools(mcp, _get_client):
                 promotion=promotion,
                 creative_features=creative_features,
                 catalog_format=catalog_format,
+                catalog_intro_cards=catalog_intro_cards,
                 multi_advertiser=multi_advertiser,
                 ai_disclosure=ai_disclosure,
+                retry_on_server_error=retry_on_server_error,
                 validate_only=validate_only,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
@@ -11883,6 +11922,7 @@ def register_generated_tools(mcp, _get_client):
         image_url: str | None = None,
         image_hash: str | None = None,
         carousel_cards: list[dict[str, Any]] | None = None,
+        instagram_account_id: str | None = None,
         optimize_card_order: bool | None = None,
         url_tags: str | None = None,
         promotion: str | None = None,
@@ -11906,7 +11946,7 @@ def register_generated_tools(mcp, _get_client):
 
             ### Other fields
 
-            - The Page (and linked Instagram account, when present) is resolved from `accountId` as the story actor.
+            - The Page (and linked Instagram account, when present) is resolved from `accountId` as the story actor. `instagramAccountId` overrides the Instagram account.
             - `creativeFeatures` configures Advantage+ enhancements.
             - `promotion` is not supported and any object is rejected with 400.
 
@@ -11923,6 +11963,10 @@ def register_generated_tools(mcp, _get_client):
                 image_url: Publicly reachable image; uploaded to the account's library server-side.
                 image_hash: Existing library image hash (POST /v1/ads/images or GET /v1/ads/images).
                 carousel_cards: Each item is an object with keys: imageUrl (string, required); linkUrl (string, required); headline (string); description (string); callToAction (string)
+                instagram_account_id: Meta only. The Instagram account the creative runs as, mapped to `instagram_user_id`: an id from `GET /v1/ads/instagram-accounts`, including a Page-backed one.
+
+        - Given, it is never swapped. One the ad account cannot use returns 400 `insufficient_permissions` on `instagramAccountId`.
+        - Omitted, it uses the account linked to the Page. When the ad account has no access to that one, it retries once with an authorized Instagram account, or returns 422 on `instagramAccountId` when there is none.
                 optimize_card_order: Only with `carouselCards` (a 400 without them). Sets `link_data.multi_share_optimized`:
 
         - `false`: keeps the cards in the order given. Meta then takes at most 5 cards, so `false` with more than 5 cards is a 400.
@@ -11954,6 +11998,7 @@ def register_generated_tools(mcp, _get_client):
                 image_url=image_url,
                 image_hash=image_hash,
                 carousel_cards=carousel_cards,
+                instagram_account_id=instagram_account_id,
                 optimize_card_order=optimize_card_order,
                 url_tags=url_tags,
                 promotion=promotion,
@@ -13231,7 +13276,9 @@ def register_generated_tools(mcp, _get_client):
 
         **Meta coverage.** Political and social-issue ads are searchable worldwide. Every other ad is in the archive only if it was delivered to the EU or UK within the last year, so a US-only commercial advertiser is invisible.
 
-        Spend, impressions and demographics are political-only fields and are left out of the default projection; request them via `fields`. All customers share Zernio's ...
+        Spend, impressions and demographics are political-only fields and are left out of the default projection; request them via `fields`.
+
+        **Meta rate limit.** Meta ...
 
         Platforms: meta, linkedin
 
@@ -13440,7 +13487,14 @@ def register_generated_tools(mcp, _get_client):
         rule_id: str | None = None,
         account_id: str | None = None,
         type: Literal[
-            "pause", "activate", "adjust_budget", "adjust_bid", "duplicate", "edit_name"
+            "pause",
+            "activate",
+            "adjust_budget",
+            "adjust_bid",
+            "adjust_target",
+            "reallocate_budget",
+            "duplicate",
+            "edit_name",
         ]
         | None = None,
         from_: str | None = None,
@@ -14141,6 +14195,7 @@ def register_generated_tools(mcp, _get_client):
         - fromDate defaults to 90 days ago if omitted, max range 366 days.
         - Single post lookups may return 202 (sync pending) or 424 (all platforms failed).
         - For follower stats, use /v1/accounts/follower-stats.
+        - Accounts creators connected to your creator campaigns are left out, here and in every other analytics, follower-stats, account health, inbox and external posts read, unless the request names their profileId or accountId.
 
         ### LinkedIn personal accounts
 
@@ -14148,9 +14203,7 @@ def register_generated_tools(mcp, _get_client):
 
         ### Facebook Page stories
 
-        Stories on a connected Page, published through Zernio or natively, are collected while they are live and returned like any other post (platformPostUrl points to the story). Metrics for a story published through Zernio are available on its Zernio post ID.
-
-        Their lifetime metrics refresh about hourly, with a final reading shortly ...
+        Stories on a connected Page, published through Zernio or natively, are collected while they are live and ...
 
         Args:
             post_id: Returns analytics for a single post. Accepts Zernio Post IDs, External Post IDs and the platform's native post ID. Zernio IDs are auto-resolved to External Post analytics.
@@ -14409,42 +14462,36 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get TikTok account-level insights
 
-            Returns account-level TikTok insights from /v2/user/info/ (live) plus historical time series joined from Zernio's daily snapshotter (AccountStats).
+            Returns account-level TikTok insights: the lifetime profile counters (live, with historical time series joined from Zernio's daily snapshotter) and TikTok's own daily account figures (video views, likes, comments, shares, profile views).
 
             - Response shape matches /v1/analytics/instagram/account-insights.
             - Max 89 days, defaults to last 30 days.
             - Requires the user.info.stats scope on the account (412 if missing).
 
-            ### Why the scope is narrow
+            ### Daily account metrics
 
-            This ACCOUNT-level endpoint intentionally exposes only the four counter metrics below. It does not return:
+            `video_views`, `likes`, `comments`, `shares` and `profile_views` are TikTok's daily figures for the whole account, read from the TikTok Business Accounts API. They count every video of the account, not only recent ones, so they differ from GET /v1/analytics/daily-metrics, which sums per-post analytics.
 
-            - account-level impressions / reach
-            - follower inflow / outflow breakdown
-            - account-level watch time
-
-            Follower age, gender, country and city are on GET /v1/analytics/tiktok/demographics.
-
-            ### Per-video metrics
-
-            PER-VIDEO is a different story on the Business lane. An account connected through the TikTok for Business app reports these per video on GET /v1/analytics?postId=...:
-
-            - profile views, website clicks, follows
-            - full-watched rate, watch time
-            - impression sources, viewer types and viewer countries
-
-            They arrive roughly ...
+            - With `metricType=time_series` each day is one entry in `values`. With `total_value` the total is the sum over the range.
+            - The latest day available is yesterday, and TikTok can take 24-48 hours to settle a day. Days after the latest available one ...
 
             Args:
                 account_id: The Zernio SocialAccount ID for the TikTok account. (required)
                 metrics: Comma-separated list. Defaults to
         "follower_count,likes_count,video_count,followers_gained,followers_lost".
 
-        Live from /v2/user/info/ (requires user.info.stats scope):
+        Live profile counters (requires user.info.stats scope):
           - follower_count  (cumulative; time series joined from AccountStats)
           - following_count (cumulative; time series joined from AccountStats.metadata)
           - likes_count     (cumulative; time series joined from AccountStats.metadata)
           - video_count     (cumulative; time series joined from AccountStats.metadata)
+
+        Daily account figures from TikTok (requires user.insights scope and an account on Zernio's TikTok connection):
+          - video_views     (views of all the account's videos that day)
+          - likes           (likes received that day)
+          - comments        (comments received that day)
+          - shares          (shares that day)
+          - profile_views   (profile views that day)
 
         Zernio-synthesized:
           - followers_gained  (sum of positive daily follower deltas)
@@ -14453,11 +14500,74 @@ def register_generated_tools(mcp, _get_client):
                 to_date: End date (YYYY-MM-DD). Defaults to today.
                 since: Alias of fromDate, kept for existing callers
                 until: Alias of toDate, kept for existing callers
-                metric_type: "total_value" returns the latest cumulative counter value.
-        "time_series" returns daily values joined from AccountStats snapshots."""
+                metric_type: "total_value" returns the latest value of a cumulative counter, and the sum over the range for a daily account metric.
+        "time_series" returns daily values: joined from AccountStats snapshots for the counters, TikTok's own daily figures for the daily account metrics."""
         client = _get_client()
         try:
             response = client.analytics.get_tik_tok_account_insights(
+                account_id=account_id,
+                metrics=metrics,
+                from_date=from_date,
+                to_date=to_date,
+                since=since,
+                until=until,
+                metric_type=metric_type,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Pinterest account-level insights",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_pinterest_account_insights(
+        account_id: str,
+        metrics: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        metric_type: Literal["time_series", "total_value"] = "total_value",
+    ) -> str:
+        """Get Pinterest account-level insights
+
+            Returns account-level daily Pinterest metrics, read live from Pinterest's account analytics, plus the follower history from Zernio's daily snapshots.
+
+            These are account totals. They include every pin on the account, also pins published long before the account was connected to Zernio, which per-post analytics cannot cover.
+
+            - Response shape matches /v1/analytics/instagram/account-insights.
+            - Defaults to the last 30 days. Pinterest serves at most the last 89 days, so a fromDate older than that returns 400.
+            - Pinterest reports the latest 1-2 days as still processing. Those days are left out of values and totals until Pinterest settles them.
+
+            Args:
+                account_id: The Zernio SocialAccount ID for the Pinterest account. (required)
+                metrics: Comma-separated list. Defaults to "impressions,engagements,follower_count".
+
+        Live from Pinterest, one value per day:
+          - impressions
+          - engagements
+          - saves
+          - pin_clicks
+          - outbound_clicks
+
+        From Zernio daily snapshots:
+          - follower_count    (follower count per day; total is the latest)
+          - followers_gained  (sum of positive daily follower deltas)
+          - followers_lost    (sum of absolute negative daily deltas)
+                from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago. At most 89 days before today.
+                to_date: End date (YYYY-MM-DD). Defaults to today.
+                since: Alias of fromDate, kept for existing callers
+                until: Alias of toDate, kept for existing callers
+                metric_type: "total_value" returns one total per metric.
+        "time_series" also returns the daily values."""
+        client = _get_client()
+        try:
+            response = client.analytics.get_pinterest_account_insights(
                 account_id=account_id,
                 metrics=metrics,
                 from_date=from_date,
@@ -16209,6 +16319,939 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.api_keys.delete_api_key(key_id=key_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    # AUTOMATIONS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List automations",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_list_automations(
+        account_id: str | None = None,
+        ad_account_id: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> str:
+        """List automations
+
+        Lists the automations on the profiles your key can reach, newest first, across every kind: ad rules, event automations and scheduled automations.
+
+        Args:
+            account_id: Only automations on this account: the ads connection of an ad rule, or one of the `accountIds` of an event or scheduled automation.
+            ad_account_id: Only ad rules checking this platform ad account.
+            limit
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.automations.list_automations(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create an automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_create_automation(body: dict[str, Any]) -> str:
+        """Create an automation
+
+        Creates an automation. Its shape picks the kind:
+
+        - **Ad rule**: a `schedule` over campaigns, ad sets or ads, with metric `conditions` and ad `steps`. It stays paused unless `status` is `active`; preview it first with `POST /v1/automations/preview`.
+        - **Event**: a Zernio event in `trigger.type`, such as `post.failed`, with notify steps. It is on unless `status` is `paused`.
+        - **Scheduled**: a `schedule` over a profile's posts, with notify steps and an optional boost. It is on unless `status` is `paused`.
+
+        Everything an automation cannot hold is refused at once: the 400 lists every problem with its JSON path in `details.problems`.
+
+        Args:
+            body: Full request body as documented in the API reference. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.create_automation(body=body)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get the automations catalog",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation_catalog() -> str:
+        """Get the automations catalog
+
+        What an automation can contain and where each part works, built from the same checks that validate a save, so it never offers what saving refuses.
+
+        - `schema`: the JSON Schema of the body of `POST /v1/automations`.
+        - `triggers`: every trigger, tagged with its `kind`. Ad rule and scheduled triggers list their intervals; event triggers list each event with its facts.
+        - The other sections describe ad rules: per subject (campaign, ad set, ad) its metrics and steps with the platforms that accept them, plus filters, groups, alerts, conditions, limits and approval."""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation_catalog()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List automation actions",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_list_automation_actions(
+        automation_id: str | None = None,
+        account_id: str | None = None,
+        type: Literal[
+            "ads.pause",
+            "ads.activate",
+            "ads.set_budget",
+            "ads.duplicate",
+            "ads.edit_name",
+            "ads.set_bid",
+            "ads.set_target",
+            "ads.reallocate_budget",
+        ]
+        | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> str:
+        """List automation actions
+
+        Every change your ad rules made, newest first: what changed, the value before and after, and whether it was applied, skipped or failed. What event and scheduled automations did is in each one's checks.
+
+        Args:
+            automation_id
+            account_id: Only actions on this ads connection.
+            type: A change reads as the value it set, so budget changes filter as `ads.set_budget`.
+            from_
+            to
+            limit
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.automations.list_automation_actions(
+                automation_id=automation_id,
+                account_id=account_id,
+                type=type,
+                from_=from_,
+                to=to,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List an automation's checks",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_list_automation_checks(
+        automation_id: str, limit: int = 20, cursor: str | None = None
+    ) -> str:
+        """List an automation's checks
+
+        Each time the automation ran, newest first, with what matched and what it did. For an event automation, each check is one event that reached it.
+
+        Args:
+            automation_id: (required)
+            limit
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.automations.list_automation_checks(
+                automation_id=automation_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Preview an unsaved automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_preview_automation_draft(
+        body: dict[str, Any], limit: int = 100
+    ) -> str:
+        """Preview an unsaved automation
+
+        Shows what an ad rule would do if it ran now, without saving it or changing anything: every object it checks, each condition with its actual value, and the steps a match would run. It refuses what saving would refuse.
+
+        Event and scheduled automations cannot be previewed yet (400, `not_supported`).
+
+        Args:
+            limit: How many subjects to list, matches first. `evaluated` and `matched` always count them all.
+            body: Full request body as documented in the API reference. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.preview_automation_draft(
+                limit=limit, body=body
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an automation",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation() -> str:
+        """Get an automation
+
+        An automation installed from a template also carries `template`."""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Edit an automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_update_automation(
+        name: str | None = None,
+        status: Literal["active", "paused"] | None = None,
+        trigger: dict[str, Any] | None = None,
+        subjects: dict[str, Any] | None = None,
+        filter: dict[str, Any] | None = None,
+        conditions: dict[str, Any] | None = None,
+        alert: str | None = None,
+        steps: list[dict[str, Any]] | None = None,
+        limits: dict[str, Any] | None = None,
+    ) -> str:
+        """Edit an automation
+
+        Replaces the top-level fields you send and keeps the rest: to change one step, send all of `steps`. The result is checked as a whole automation, so problems carry the same paths as on create.
+
+        An automation keeps its kind, and an ad rule stays on its ad account. Send `alert: null` to remove an ad rule's alert.
+
+        Send the `version` you read as `If-Match`: if the automation was saved since, the edit is refused with a 409 (`automation_stale`). An edit is also refused with a 409 when another save lands while it is being applied.
+
+        Args:
+            name
+            status
+            trigger: Object with keys: type (string, required); every (one of: 15m, 30m, 1h, 3h, 6h, 12h, 1d) - Run every interval. Send this or `times`, not both.; times (list of objects with keys days, at) - Set weekly times. Send this or `every`, not both.; startsAt (string) - Runs from this time on.; endsAt (string) - Stops running after this time. Must be after `startsAt`.; quietHours (object with keys from, to) - A daily window with no checks. It may wrap past midnight, such as `22:00` to `06:00`.
+            subjects: Object with keys: each (one of: campaign, adset, ad; required) - The objects judged one by one.; adAccounts (list of objects with keys accountId, adAccountId, required) - The ad account to check. One per ad rule, and an edit cannot move it to another.; campaignIds (list of string) - Only these platform campaigns or their ad sets and ads. Leave out to check the whole ad account.; filters (list of objects with keys field, op, value) - All must hold.; groups (list of objects with keys name, filters) - Judges campaigns together (campaign rules only): each group's numbers are summed and its rates computed on the totals, and a matching group acts on each of ...
+            filter: Object with keys: field (string, required) - A fact name from the catalog.; op (one of: equals, not_equals, contains, not_contains, starts_with, ends_with, exists, not_exists, matches, greater_than, less_than, greater_or_equal, less_or_equal, before, after, has_tag, not_has_tag, is_true, is_false; required); value (string or number, required)
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required)
+            alert
+            steps: The steps the automation's kind takes. Each item is an object with keys: id (string); type (string, required)
+            limits: Object with keys: cooldown (string) - How long an object is left alone after the rule acts on it. Whole minutes, up to `30d`.; maxChangesPerDay (integer) - Most changes across the last 24 hours. Needs an `ads.*` step.; maxChangesPerObject (integer) - Most times the rule may change one object, over its whole history. Needs an `ads.*` step."""
+        client = _get_client()
+        try:
+            response = client.automations.update_automation(
+                name=name,
+                status=status,
+                trigger=trigger,
+                subjects=subjects,
+                filter=filter,
+                conditions=conditions,
+                alert=alert,
+                steps=steps,
+                limits=limits,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete an automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_delete_automation() -> str:
+        """Delete an automation"""
+        client = _get_client()
+        try:
+            response = client.automations.delete_automation()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn an automation on",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_activate_automation(automation_id: str) -> str:
+        """Turn an automation on
+
+        An ad rule's first check runs right away.
+
+        Args:
+            automation_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.activate_automation(
+                automation_id=automation_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn an automation off",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_pause_automation(automation_id: str) -> str:
+        """Turn an automation off
+
+        Pausing never needs ads access.
+
+        Args:
+            automation_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.pause_automation(automation_id=automation_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Preview a saved automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_preview_automation(automation_id: str, limit: int = 100) -> str:
+        """Preview a saved automation
+
+        Shows what an ad rule would do if it ran now. Nothing is changed. Event and scheduled automations cannot be previewed yet (400, `not_supported`).
+
+        Args:
+            automation_id: (required)
+            limit: How many subjects to list, matches first. `evaluated` and `matched` always count them all."""
+        client = _get_client()
+        try:
+            response = client.automations.preview_automation(
+                automation_id=automation_id, limit=limit
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List automation templates",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_list_automation_templates(scope: Literal["team"] = "team") -> str:
+        """List automation templates
+
+        Lists your team's templates, newest first. Every team member sees the templates any member saved. A team keeps up to 200.
+
+        Args:
+            scope: Which templates to list. Only `team` today."""
+        client = _get_client()
+        try:
+            response = client.automations.list_automation_templates(scope=scope)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create an automation template",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_create_automation_template(
+        name: str,
+        description: str = "",
+        from_: dict[str, Any] | None = None,
+        automations: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Create an automation template
+
+        Saves a reusable setup of one or more automations (up to 20) that your team, or anyone you share it with, can install. Start from your own automations, one of Zernio's templates, a shared template, or definitions sent as they are.
+
+        Nothing tied to one account is kept. Ad accounts, a trigger's profile and accounts, and alert destinations become `inputs` that each install fills. Campaign ids, id filters, dates and approval steps are dropped.
+
+        From one of Zernio's templates, each threshold and budget or bid amount also becomes an input, with the template's own value as its default.
+
+        A template that would not install is refused: the 400 lists every problem in `details.problems`.
+
+        Args:
+            name: (required)
+            description
+            from_: Copy existing automations: your own (`automationIds`), one of Zernio's templates (`templateId`, for example `stop_losers`), or a template shared by link (`shareToken`). Object with keys: automationIds (list of string, required)
+            automations: Automation definitions, each checked like a `POST /v1/automations` body. Ad accounts, a trigger's profile and accounts, and alert destinations become inputs. Each item is an object with keys: name (string, required); status (one of: active, paused) - A new ad rule stays paused unless `active`.; trigger (object with keys type, every, times, startsAt, endsAt, quietHours, required); subjects (object with keys each, adAccounts, campaignIds, filters, groups, required); conditions (object with keys all, required); alert (object with keys confirmChecks, hold, critical); steps (list of objects with keys id, type, required); limits (object with keys cooldown, maxChangesPerDay, maxChangesPerObject)"""
+        client = _get_client()
+        try:
+            response = client.automations.create_automation_template(
+                name=name, description=description, from_=from_, automations=automations
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an automation template",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation_template(template_id: str) -> str:
+        """Get an automation template
+
+        Returns one of your team's templates, with its inputs and automations.
+
+        Args:
+            template_id: The template's id. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation_template(
+                template_id=template_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update an automation template",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_update_automation_template(
+        template_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        visibility: Literal["team", "link"] | None = None,
+        from_: dict[str, Any] | None = None,
+        automations: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Update an automation template
+
+        Renames a template, turns its share link on or off, or replaces its automations. Send at least one field.
+
+        Renaming or sharing keeps the `version`. New content (`from` or `automations`) is a new version; automations already installed keep the version they came from.
+
+        `visibility: link` turns the share link on (the same link while it stays on) and `visibility: team` revokes it. To copy a shared template, use `POST /v1/automations/templates` instead.
+
+        Args:
+            template_id: The template's id. (required)
+            name
+            description
+            visibility
+            from_: Copy existing automations: your own (`automationIds`), one of Zernio's templates (`templateId`, for example `stop_losers`), or a template shared by link (`shareToken`). Object with keys: automationIds (list of string, required)
+            automations: Automation definitions, each checked like a `POST /v1/automations` body. Ad accounts, a trigger's profile and accounts, and alert destinations become inputs. Each item is an object with keys: name (string, required); status (one of: active, paused) - A new ad rule stays paused unless `active`.; trigger (object with keys type, every, times, startsAt, endsAt, quietHours, required); subjects (object with keys each, adAccounts, campaignIds, filters, groups, required); conditions (object with keys all, required); alert (object with keys confirmChecks, hold, critical); steps (list of objects with keys id, type, required); limits (object with keys cooldown, maxChangesPerDay, maxChangesPerObject)"""
+        client = _get_client()
+        try:
+            response = client.automations.update_automation_template(
+                template_id=template_id,
+                name=name,
+                description=description,
+                visibility=visibility,
+                from_=from_,
+                automations=automations,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete an automation template",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_delete_automation_template(template_id: str) -> str:
+        """Delete an automation template
+
+        Deletes one of your team's templates and its share link. Automations already installed from it stay.
+
+        Args:
+            template_id: The template's id. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.delete_automation_template(
+                template_id=template_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Install an automation template",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_install_automation_template(
+        template_id: str,
+        inputs: dict[str, Any] | None = None,
+        targets: list[dict[str, Any]] | None = None,
+        status: Literal["active", "paused"] = "paused",
+    ) -> str:
+        """Install an automation template
+
+        Creates every automation in the template, with your values in place of its inputs. All or nothing: if one automation fails, the ones already created are removed. New automations stay paused unless `status` is `active`.
+
+        To install on many ad accounts at once, send `targets` (up to 50). Each target is its own install with its own `inputs`, which win over the shared `inputs`. A failed target leaves the others in place, and the response is 207.
+
+        Args:
+            template_id: The template's id. (required)
+            inputs: A value for each input, by its `key`. Required inputs without a default must be sent.
+            targets: Install several times in one call, for example on many ad accounts. Each target is its own install, all or nothing, and its `inputs` win over the shared `inputs`. A failed target leaves the others in place. Each item is an object with keys: inputs (object, required)
+            status: The status of every automation created."""
+        client = _get_client()
+        try:
+            response = client.automations.install_automation_template(
+                template_id=template_id, inputs=inputs, targets=targets, status=status
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a shared automation template",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_shared_automation_template(share_token: str) -> str:
+        """Get a shared automation template
+
+        Returns a template shared by link, from any team. Who made it and its install counts in that team are left out, and `share` is null.
+
+        Args:
+            share_token: The token from the template's `share.token`. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.get_shared_automation_template(
+                share_token=share_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Install a shared automation template",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_install_shared_automation_template(
+        share_token: str,
+        inputs: dict[str, Any] | None = None,
+        targets: list[dict[str, Any]] | None = None,
+        status: Literal["active", "paused"] = "paused",
+    ) -> str:
+        """Install a shared automation template
+
+        Installs a template shared by link into your account, the same way as your own templates.
+
+        To install on many ad accounts at once, send `targets` (up to 50). Each target is its own install with its own `inputs`, which win over the shared `inputs`. A failed target leaves the others in place, and the response is 207.
+
+        Args:
+            share_token: The token from the template's `share.token`. (required)
+            inputs: A value for each input, by its `key`. Required inputs without a default must be sent.
+            targets: Install several times in one call, for example on many ad accounts. Each target is its own install, all or nothing, and its `inputs` win over the shared `inputs`. A failed target leaves the others in place. Each item is an object with keys: inputs (object, required)
+            status: The status of every automation created."""
+        client = _get_client()
+        try:
+            response = client.automations.install_shared_automation_template(
+                share_token=share_token, inputs=inputs, targets=targets, status=status
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a Zernio automation template",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_zernio_automation_template(template_id: str) -> str:
+        """Get a Zernio automation template
+
+        Returns one of Zernio's ready-made ad rule templates in the same shape as your own. Each threshold and budget or bid amount is an input with the template's own value as its default, so an install can change it or leave it.
+
+        Args:
+            template_id: The id of one of Zernio's templates, for example `stop_losers`. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.get_zernio_automation_template(
+                template_id=template_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Install a Zernio automation template",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_install_zernio_automation_template(
+        template_id: str,
+        inputs: dict[str, Any] | None = None,
+        targets: list[dict[str, Any]] | None = None,
+        status: Literal["active", "paused"] = "paused",
+    ) -> str:
+        """Install a Zernio automation template
+
+        Installs one of Zernio's ready-made templates. Leave a value input out to keep the template's default.
+
+        To install on many ad accounts at once, send `targets` (up to 50). Each target is its own install with its own `inputs`, which win over the shared `inputs`. A failed target leaves the others in place, and the response is 207.
+
+        Args:
+            template_id: The id of one of Zernio's templates, for example `stop_losers`. (required)
+            inputs: A value for each input, by its `key`. Required inputs without a default must be sent.
+            targets: Install several times in one call, for example on many ad accounts. Each target is its own install, all or nothing, and its `inputs` win over the shared `inputs`. A failed target leaves the others in place. Each item is an object with keys: inputs (object, required)
+            status: The status of every automation created."""
+        client = _get_client()
+        try:
+            response = client.automations.install_zernio_automation_template(
+                template_id=template_id, inputs=inputs, targets=targets, status=status
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get automation controls",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation_controls() -> str:
+        """Get automation controls
+
+        The team's switch for every ad rule, and each ad account's own switch and daily raise limit. Boosting automations do not read them.
+
+        Every team member sees the same controls. `adAccounts` lists each ad account your automations use, plus any ad account that has controls set."""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation_controls()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn every ad automation off or on",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_update_automation_controls(paused: bool) -> str:
+        """Turn every ad automation off or on
+
+        Turns every ad rule of the team off (`paused: true`) or back on. Each rule keeps its own status, so turning the switch back on resumes exactly the rules that were active.
+
+        Scheduled automations that boost posts are not stopped by it: pause them one by one.
+
+        It reaches every profile, so only the account owner or a full-access team member can use it. A key limited to some profiles gets 403.
+
+        Turning off a switch that is already off keeps its original `pausedAt`.
+
+        Args:
+            paused: True stops every ad automation of the team; false lets them run again. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.update_automation_controls(paused=paused)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update one ad account's controls",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_update_automation_ad_account_controls(
+        account_id: str,
+        ad_account_id: str,
+        paused: bool | None = None,
+        daily_raise_limit: str | None = None,
+    ) -> str:
+        """Update one ad account's controls
+
+            Turns ad rules off or on for one ad account, sets its daily raise limit, or both. Send at least one of `paused` and `dailyRaiseLimit`; fields you leave out keep their value.
+
+            The ad account must be one the connection in `accountId` reaches, as for an automation on it. Controls apply to every ad rule of the team on that ad account.
+
+            Args:
+                account_id: The ads connection that reaches the ad account. (required)
+                ad_account_id: The platform's ad account id. (required)
+                paused: True stops every automation on this ad account; false lets them run again.
+                daily_raise_limit: The most automations may raise budgets on this ad account in any 24 hours, in the ad account's currency. A raise past it is cut to the room left.
+
+        Send null to remove the limit."""
+        client = _get_client()
+        try:
+            response = client.automations.update_automation_ad_account_controls(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                paused=paused,
+                daily_raise_limit=daily_raise_limit,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List an automation's approval requests",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_list_automation_approvals(
+        automation_id: str,
+        status: Literal["pending", "approved", "rejected", "expired", "cancelled"]
+        | None = None,
+        limit: int = 20,
+    ) -> str:
+        """List an automation's approval requests
+
+        The requests an automation sent for a person's approval before acting, newest first. Each lists the changes it holds, who may decide it and until when.
+
+        Only automations that ask for approval have requests. Others return 409.
+
+        Args:
+            automation_id: (required)
+            status: Only requests in this status.
+            limit: How many requests to return. There is no cursor; the newest come first."""
+        client = _get_client()
+        try:
+            response = client.automations.list_automation_approvals(
+                automation_id=automation_id, status=status, limit=limit
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an approval request",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def automations_get_automation_approval(
+        automation_id: str, approval_id: str
+    ) -> str:
+        """Get an approval request
+
+        One approval request with the changes it holds, who may decide it and whether you can.
+
+        Args:
+            automation_id: (required)
+            approval_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.get_automation_approval(
+                automation_id=automation_id, approval_id=approval_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Approve an approval request",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_approve_automation_approval(
+        automation_id: str, approval_id: str, token: str | None = None
+    ) -> str:
+        """Approve an approval request
+
+        Approves a pending request, so the automation acts on each change it holds. Each change is checked again first, and one that no longer applies is skipped.
+
+        Only the approvers the automation names now can decide, matched by the email of the user behind the API key. A request already decided, expired or cancelled is refused with nothing changed.
+
+        Each applied or failed change fires `automation.action.applied` or `automation.action.failed`.
+
+        Args:
+            automation_id: (required)
+            approval_id: (required)
+            token: The token from the emailed approval link. When sent, the decision counts only if the link was sent to you. Leave it out when deciding from the API."""
+        client = _get_client()
+        try:
+            response = client.automations.approve_automation_approval(
+                automation_id=automation_id, approval_id=approval_id, token=token
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Reject an approval request",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_reject_automation_approval(
+        automation_id: str, approval_id: str, token: str | None = None
+    ) -> str:
+        """Reject an approval request
+
+        Rejects a pending request: every change it holds is skipped and nothing is changed on the ad account.
+
+        Only the approvers the automation names now can decide, matched by the email of the user behind the API key. Rejecting needs no ads access, like pausing.
+
+        Args:
+            automation_id: (required)
+            approval_id: (required)
+            token: The token from the emailed approval link. When sent, the decision counts only if the link was sent to you. Leave it out when deciding from the API."""
+        client = _get_client()
+        try:
+            response = client.automations.reject_automation_approval(
+                automation_id=automation_id, approval_id=approval_id, token=token
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Backtest an unsaved automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_backtest_automation_draft(
+        body: dict[str, Any], days: int = 30
+    ) -> str:
+        """Backtest an unsaved automation
+
+        Replays an automation over past days on stored daily metrics, without saving it or changing anything. It refuses what saving would refuse.
+
+        Each day lists what it would have done. Its own changes carry into later days, but the metrics stay what really happened. `notes` says what the replay could not know.
+
+        Only ad automations can be backtested, on at most 5,000 ads.
+
+        Args:
+            days: How many whole days before today to replay. Today is not replayed.
+            body: Full request body as documented in the API reference. (required)"""
+        client = _get_client()
+        try:
+            response = client.automations.backtest_automation_draft(
+                days=days, body=body
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Backtest a saved automation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def automations_backtest_automation(automation_id: str, days: int = 30) -> str:
+        """Backtest a saved automation
+
+        What a saved automation would have done over the last `days` days, replayed on stored daily metrics. Nothing is changed.
+
+        Each day lists what it would have done. Its own changes carry into later days, but the metrics stay what really happened. `notes` says what the replay could not know.
+
+        Only ad automations can be backtested, on at most 5,000 ads.
+
+        Args:
+            automation_id: (required)
+            days: How many whole days before today to replay. Today is not replayed."""
+        client = _get_client()
+        try:
+            response = client.automations.backtest_automation(
+                automation_id=automation_id, days=days
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -20387,37 +21430,43 @@ def register_generated_tools(mcp, _get_client):
         message: str,
         attachment_url: str | None = None,
         comment_id: str | None = None,
+        mention_author: bool | None = None,
         parent_cid: str | None = None,
         root_uri: str | None = None,
         root_cid: str | None = None,
     ) -> str:
         """Reply to comment
 
-        Post a reply to a post or specific comment. Requires accountId in request body.
+            Post a reply to a post or specific comment. Requires accountId in request body.
 
-        ### Idempotency
+            ### Idempotency
 
-        Send an `Idempotency-Key` header to make retries safe (e.g. after a client-side timeout where delivery is unknown).
+            Send an `Idempotency-Key` header to make retries safe (e.g. after a client-side timeout where delivery is unknown).
 
-        - Same key + same body replays the original response (with `Idempotent-Replayed: true`) instead of posting the comment a second time.
-        - Same key + different body returns 422.
-        - A key still in flight returns 409.
+            - Same key + same body replays the original response (with `Idempotent-Replayed: true`) instead of posting the comment a second time.
+            - Same key + different body returns 422.
+            - A key still in flight returns 409.
 
-        Keys are retained for 24 hours and are scoped to the credential and to this exact path. Reusing a key against a different postId returns 422 rather than replaying the other post's response.
+            Keys are retained for 24 hours and are scoped to the credential and to this exact path. Reusing a key against a different postId returns 422 rather than replaying the other post's response.
 
-        Only successful (2xx) responses are stored for replay. If the request throws or returns a non-2xx status the key is released, so the header protects the \"request succeeded but the response was lost\" case.
+            Only successful (2xx) responses are stored for replay. If the request throws or returns a non-2xx status the key is released, so the header protects the \"request succeeded but the response was lost\" case.
 
-        After an ambiguous failure (a 5xx or a network timeout), list the post's comments before retrying with the same key. Treat an empty result as inconclusive rather than as ...
+            After an ambiguous failure (a 5xx or a network timeout), list the post's comments before retrying with the same key. Treat an empty result as inconclusive rather than as ...
 
-        Args:
-            post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
-            account_id: (required)
-            message: Reply text. On LinkedIn, mention with @[https://www.linkedin.com/in/vanity] (resolved to LinkedIn's live name, same rules and errors as post content) or @[Name](urn:li:person|organization:ID); a hand-written name must match LinkedIn's exactly or it renders as plain text. (required)
-            attachment_url: (Facebook only) URL of an image to attach, publishing a photo comment alongside the text. The URL must be publicly accessible so Meta can fetch it. Returns 400 for other platforms.
-            comment_id: Reply to specific comment (optional)
-            parent_cid: (Bluesky only) Parent content identifier
-            root_uri: (Bluesky only) Root post URI
-            root_cid: (Bluesky only) Root post CID"""
+            Args:
+                post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
+                account_id: (required)
+                message: Reply text. On LinkedIn, mention with @[https://www.linkedin.com/in/vanity] (resolved to LinkedIn's live name, same rules and errors as post content) or @[Name](urn:li:person|organization:ID); a hand-written name must match LinkedIn's exactly or it renders as plain text. (required)
+                attachment_url: (Facebook only) URL of an image to attach, publishing a photo comment alongside the text. The URL must be publicly accessible so Meta can fetch it. Returns 400 for other platforms.
+                comment_id: Reply to specific comment (optional)
+                mention_author: (LinkedIn only) When true, the reply starts with an @mention of the author of `commentId` (a member or a page), tagged with their URN and the name LinkedIn returns for them. Requires `commentId`.
+
+        - Returns 400 `platform_not_supported` on other platforms.
+        - Returns 400 `linkedin_mention_name_unavailable` with `details.authorUrn` when LinkedIn does not return the author's name (for example a page the account does not administer); mention them in `message` as @[Name](urn) instead.
+        - If LinkedIn rejects any mention in the reply, it is posted once more with every mention as plain text.
+                parent_cid: (Bluesky only) Parent content identifier
+                root_uri: (Bluesky only) Root post URI
+                root_cid: (Bluesky only) Root post CID"""
         client = _get_client()
         try:
             response = client.comments.reply_to_inbox_post(
@@ -20426,6 +21475,7 @@ def register_generated_tools(mcp, _get_client):
                 message=message,
                 attachment_url=attachment_url,
                 comment_id=comment_id,
+                mention_author=mention_author,
                 parent_cid=parent_cid,
                 root_uri=root_uri,
                 root_cid=root_cid,
@@ -23803,7 +24853,9 @@ def register_generated_tools(mcp, _get_client):
 
         When present, the consent dialog asks only for the scopes behind those areas, plus the scopes every connection needs (identity, token refresh, listing the pages, organizations or channels the user picks from).
 
-        - Scopes never asked for are absent from the account's `permissions`, and the health endpoints report them as not granted. A `posting`-only account cannot read analytics or the inbox until reconnected with more areas.
+        - Scopes never asked for are absent from the account's `permissions`. The account keeps the requested areas in `scopeAreas`.
+        - The health endpoints judge the account against those areas: an area never asked for reads `not_requested` and does not make it unhealthy, so an `analytics`-only account reports `canPost: false` with `status: healthy`.
+        - A `posting`-only account cannot read analytics or the inbox until reconnected with more areas.
         - First comments need `comments`: a `posting`-only account publishes the post and skips the first comment.
         - Scopes in none of the areas (X likes, bookmarks and follows, Pinterest ads-only extras) are requested only when the parameter is omitted.
 
@@ -23820,7 +24872,7 @@ def register_generated_tools(mcp, _get_client):
         | instagram (`loginMethod=facebook_login`) | `instagram_content_publish` | `instagram_manage_insights` | `instagram_manage_comments` | `instagram_manage_messages` | `ads_management`, `ads_read`, `leads_retrieval`, `pages_manage_ads` | `instagram_basic`, `pages_show_list`, `pages_read_engagement`, `business_management`, `pages_messaging`, `pages_manage_metadata` |
         | linkedin | `w_member_social`, `w_organization_social`, `r_organization_social`, `r_organization_followers` | `r_member_postAnalytics`, `r_member_profileAnalytics`, `rw_organization_admin`, `r_organization_social`, `r_organization_followers` | `w_member_social`, `w_member_social_feed`, `w_organization_social`, `w_organization_social_feed`, `r_organization_social`, `r_organization_social_feed` | none | `r_ads`, `rw_ads`, `r_ads_reporting`, `r_marketing_leadgen_automation`, `rw_conversions` | `openid`, `profile`, `email`, `r_basicprofile`, `rw_organization_admin` |
         | twitter | `tweet.write`, `media.write` | (in the always-requested set) | `tweet.write`, `like.write`, `tweet.moderate.write` | `dm.read`, `dm.write`, `media.write` | none | `tweet.read`, `users.read`, `offline.access` |
-        | tiktok | `video.publish` | `user.info.stats`, `user.insights`, `video.list`, `video.insights` | `comment.list`, `comment.list.manage`, `video.list` | `message.list.read`, `message.list.send`, `message.list.manage` | none | `user.info.basic`, `user.info.username`, `user.info.profile`, `user.account.type`, `video.publish`, `video.upload`, `video.list` |
+        | tiktok | `video.publish`, `video.upload` | `user.info.stats`, `user.insights`, `video.list`, `video.insights` | `comment.list`, `comment.list.manage`, `video.list` | `message.list.read`, `message.list.send`, `message.list.manage` | none | `user.info.basic`, `user.info.username`, `user.info.profile`, `user.account.type`, `video.list` |
         | youtube | `youtube.upload` | `yt-analytics.readonly` | `youtube.force-ssl` | none | none | `youtube` |
         | threads | `threads_content_publish`, `threads_manage_replies`, `threads_delete` | `threads_manage_insights` | `threads_content_publish`, `threads_read_replies`, `threads_manage_replies`, `threads_delete` | none | none | `threads_basic` |
         | reddit | `submit`, `read`, `mysubreddits`, `flair`, `history`, `edit` | `read`, `history` | `read`, `history`, `edit`, `vote` | `privatemessages` | none | `identity` |
@@ -23836,6 +24888,8 @@ def register_generated_tools(mcp, _get_client):
         | microsoft | `Mail.ReadWrite`, `Mail.Send` | `Calendars.ReadWrite` | `Files.ReadWrite` | `Contacts.Read` | `openid`, `profile`, `email`, `offline_access`, `User.Read` |
 
         Areas accumulate: reconnecting with more areas widens the grant, and `GET /v1/accounts/{accountId}/health` reports the result.
+
+        On tiktok, a connect without `posting` returns 409 `INVALID_RESOURCE_STATE` (`param: scopes`) when the profile already holds an account from Zernio's older TikTok app: that account can only be replaced by a grant that includes posting.
                 login_hint: google and microsoft only: pre-fills the account picker with this address so the user lands on the right mailbox.
                 headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
                 login_method: Instagram only: which of the two Instagram connection methods to use. Ignored for every other platform.
@@ -24136,12 +25190,13 @@ def register_generated_tools(mcp, _get_client):
 
         - Persisted server-side; the latest call wins. De-scoped ad accounts have their synced ads, campaigns, ad sets and keywords removed.
         - On Meta only the scoped ad accounts get webhook subscriptions, including when the call starts a fresh OAuth.
+        - On Meta, ad accounts left out of the scope are unsubscribed from Zernio's ad-account webhooks (unless another connection still holds them) and are no longer stored, so syncs do not add them back. `GET /v1/ads/accounts` lists them (`selected: false`) only with `live=true`; passing them again reselects them.
         - Omitting both `adAccountId` and `adAccountIds` keeps any previously persisted scope unchanged (no scope means every reachable ad account).
                 welcome: When `true`, `authUrl` opens on the Zernio-hosted welcome screen with your brand, as on GET /v1/connect/{platform}, naming the ads platform ("<brandName> wants to connect to your Meta Ads").
 
         - With no `redirect_url`, the flow ends on the branded result page instead of the Zernio dashboard.
         - Shown only with `welcome=true`: the workspace's saved "on by default" (`PUT /v1/connect/welcome-screen`) applies to GET /v1/connect/{platform} only, so ads links behave as before unless you opt in. The saved brand still fills in what the call leaves out.
-        - Without `adAccountId` or `adAccountIds`, on Meta, Google, LinkedIn, X, Reddit and Microsoft, the user then picks the ad accounts to connect on a branded Zernio-hosted page (skipped when the login reaches only one).
+        - Without `adAccountId` or `adAccountIds`, on Meta, Google, LinkedIn, X, Reddit and Microsoft, the user then picks the ad accounts to connect on a branded Zernio-hosted page (skipped when the login reaches only one). On Meta that page starts with no ad account selected and offers Select all.
         - After that page the flow ends on your `redirect_url` with `connected` set to the ads platform and `accountId` to the ads connection.
         - Cannot be combined with `headless=true` (400 `INVALID_FIELD_VALUE`).
         - Responses with `alreadyConnected: true` carry no `authUrl`, so they show no screen.
@@ -24617,6 +25672,44 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get a hosted link to connect any mailbox",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_email_connect_url(
+        profile_id: str,
+        redirect_url: str | None = None,
+        email: str | None = None,
+        name: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> str:
+        """Get a hosted link to connect any mailbox
+
+        One link for any address. The page asks for the email first, sends Gmail, Google Workspace, Outlook.com and Microsoft 365 (found by domain or MX) to their OAuth connect, and every other mailbox to IMAP with the provider's app-password steps. Valid for one hour.
+
+        Args:
+            profile_id: (required)
+            redirect_url: Where the page sends the user afterwards, with status, accountId, platform and email (or status=error and error).
+            email: Prefills the address and skips the first screen.
+            name: Display name for sent mail; the page asks for it when absent.
+            reconnect_account_id: Opens the reconnect variant for an IMAP account: only the new password is asked for, and the accountId stays the same."""
+        client = _get_client()
+        try:
+            response = client.connect.get_email_connect_url(
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                email=email,
+                name=name,
+                reconnect_account_id=reconnect_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Connect self-hosted WordPress with an application password",
             readOnlyHint=False,
             destructiveHint=True,
@@ -24834,6 +25927,7 @@ def register_generated_tools(mcp, _get_client):
         page_ids: list[str] | None = None,
         temp_token: str | None = None,
         connect_flow: str | None = None,
+        scopes: str | None = None,
         redirect_url: str | None = None,
     ) -> str:
         """Select the Page whose Instagram account to connect
@@ -24851,6 +25945,7 @@ def register_generated_tools(mcp, _get_client):
         - A single distinct ID behaves exactly like pageId.
                 temp_token: Long-lived Facebook user access token from the OAuth callback redirect. Required unless sent in the X-Temp-Token header.
                 connect_flow: Set by the Zernio-hosted picker, whose user token stays in an httpOnly cookie. Integrators send tempToken instead.
+                scopes: The `scopes` the callback redirect carried, passed back unchanged so the account records the areas it requested. Omit it when the redirect had none.
                 redirect_url: Optional custom redirect URL to return to after selection"""
         client = _get_client()
         try:
@@ -24860,6 +25955,7 @@ def register_generated_tools(mcp, _get_client):
                 page_ids=page_ids,
                 temp_token=temp_token,
                 connect_flow=connect_flow,
+                scopes=scopes,
                 redirect_url=redirect_url,
             )
             return _format_response(response)
@@ -26045,18 +27141,24 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Read a Facebook Page's webhook subscription",
+            title="Read an account's webhook subscription",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def connect_get_page_webhook_subscription(account_id: str) -> str:
-        """Read a Facebook Page's webhook subscription
+        """Read an account's webhook subscription
 
         Returns the webhook fields Zernio's app is subscribed to on the connected Page, read live from Meta.
         Use it to confirm `leadgen` is present: a Page missing it keeps delivering every other event while
         lead ads stop arriving, with nothing to indicate it.
+
+        For an Instagram account connected through Instagram Login it returns the subscription record
+        (`subscriptionId`) and the webhook fields Meta did not subscribe (`missingFields`). An Instagram account
+        connected through Facebook Login returns 409: its webhooks ride the Facebook Page subscription.
+
+        Platforms: facebook, instagram
 
         Args:
             account_id: (required)"""
@@ -26071,19 +27173,28 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Re-subscribe a Facebook Page to Zernio's webhooks",
+            title="Re-subscribe an account to Zernio's webhooks",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         )
     )
     def connect_resync_page_webhook_subscription(account_id: str) -> str:
-        """Re-subscribe a Facebook Page to Zernio's webhooks
+        """Re-subscribe an account to Zernio's webhooks
 
         Re-sends the full field set to Meta and returns the subscription read back afterwards.
         Meta only honours the field set sent at subscribe time, so a Page connected before a field
         existed stays without it until this runs. The response reflects what Meta actually granted,
         not what was requested.
+
+        For an Instagram account connected through Instagram Login, Meta can keep listing a subscription
+        while delivering nothing, and re-sending the fields over it changes nothing. So this call deletes
+        the subscription and creates it again, and `recreated` is true when the record id moved.
+
+        Events can be missed during the short window in between, so use it when delivery has stopped,
+        not periodically. An Instagram account connected through Facebook Login returns 409.
+
+        Platforms: facebook, instagram
 
         Args:
             account_id: (required)"""
@@ -27152,6 +28263,55 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
 
+    # CONTENT_RETENTION
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get content retention mode",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def content_retention_get_content_retention() -> str:
+        """Get content retention mode
+
+        Returns whether your team stores content. `none` is zero content retention: Zernio keeps identifiers and metadata only, and content fields come back as `null` with `contentNotRetained: true`. See the zero content retention guide for what changes."""
+        client = _get_client()
+        try:
+            response = client.content_retention.get_content_retention()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Turn zero content retention on or off",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def content_retention_update_content_retention(
+        mode: Literal["standard", "none"],
+    ) -> str:
+        """Turn zero content retention on or off
+
+        Sets your team's content retention mode for every member. Only the team owner can change it, with a signed-in session or a full-access API key.
+
+        - `none` turns on zero content retention: from then on Zernio stores no message text, comments, lead answers, mentions, post text after publishing, call transcripts or recordings. Webhooks become the only copy, so store each event when it arrives.
+        - `standard` stores content again for new data. Content that was not stored cannot come back.
+        - The change applies to new data within about 5 minutes. Content stored before it stays until it is deleted.
+
+        Args:
+            mode: (required)"""
+        client = _get_client()
+        try:
+            response = client.content_retention.update_content_retention(mode=mode)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
     # CONVERSIONS
 
     @mcp.tool(
@@ -27239,7 +28399,7 @@ def register_generated_tools(mcp, _get_client):
         pixel wire id. For Pinterest, the numeric ad account id. For
         Reddit, the pixel id (`a2_...`).
          (required)
-                events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
+                events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
                 test_code: Test event code. Send it at the request root, never inside an event. A root-level `test_event_code` (Meta's own name) is accepted as an alias and must be a non-empty string; sending both with different values is a 400.
 
         - Meta: sent as `test_event_code`. Events show in Events Manager's Test Events tab for the pixel whose current test code matches (Meta rotates the code, so copy it again from that tab). Meta still processes them like any other event, so remove it in production.
@@ -27856,6 +29016,7 @@ def register_generated_tools(mcp, _get_client):
         destinations: list[dict[str, Any]] | None = None,
         consent: dict[str, Any] | None = None,
         test_code: str | None = None,
+        mode: Literal["sync", "async"] = "sync",
     ) -> str:
         """Send events to every destination
 
@@ -27874,15 +29035,17 @@ def register_generated_tools(mcp, _get_client):
         - Email, phone and `externalId` are stored only as SHA-256 hashes.
         - `sourceUrl` keeps only its origin, path and attribution parameters (`utm_*`, `gclid`, `fbclid`, `ttclid`, `li_fat_id`, `epik`, `rdt_cid`, `gbraid`, `wbraid`).
         - Events sent with `testCode` are forwarded but not stored.
+        - Sending an event again with the same ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, reddit
 
         Args:
             profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
-            events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
+            events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. Use the same eventId on pixel + CAPI to prevent double-counting. Mapped to: - Meta: event_id. - Google: transactionId. - LinkedIn: eventId. ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; campaign (object with keys id, name) - The ad campaign behind the event, when you know it. Read only by `POST /v1/events`, which ties the event to the campaign named by `campaign.id`, then by the ...; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). - `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
             destinations: Send to these destinations instead of the saved ones (every event goes to each). Each item is an object with keys: accountId (string, required) - Connected ads account ID (metaads, googleads, linkedinads, tiktokads, openaiads, pinterestads or redditads).; destinationId (string, required) - Platform destination, as listed by GET /v1/accounts/{accountId}/conversion-destinations.
             consent: Batch-level user consent, forwarded to every destination (see POST /v1/ads/conversions). Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)
-            test_code: Forwarded as each platform test code (see POST /v1/ads/conversions). A root-level `test_event_code` is accepted as an alias. Test events are not stored."""
+            test_code: Forwarded as each platform test code (see POST /v1/ads/conversions). A root-level `test_event_code` is accepted as an alias. Test events are not stored.
+            mode: `sync` sends to every destination before answering (200, per-destination results). `async` stores and queues the sends, then answers 202 at once; each send is retried while the platform fails for now, and its outcome shows on GET /v1/events/{eventId}. Requests with `testCode` always send now."""
         client = _get_client()
         try:
             response = client.conversions.send_events(
@@ -27891,6 +29054,32 @@ def register_generated_tools(mcp, _get_client):
                 destinations=destinations,
                 consent=consent,
                 test_code=test_code,
+                mode=mode,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get one stored event and its deliveries",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_get_event(event_id: str, profile_id: str) -> str:
+        """Get one stored event and its deliveries
+
+        Returns one stored event of a profile (the latest copy of it) and, for each destination it was forwarded to, the newest send: `sent`, `retrying` (failed for now and queued again) or `failed` (final). Requires the Ads add-on.
+
+        Args:
+            event_id: The `eventId` the event was sent with. (required)
+            profile_id: Profile the event belongs to. (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.get_event(
+                event_id=event_id, profile_id=profile_id
             )
             return _format_response(response)
         except Exception as e:
@@ -29049,7 +30238,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Settle campaign participant
 
-        Records a payout of the participant's payable balance and fires `campaign_payout.settled`.
+        Records a payout of the participant's payable balance and fires `campaign_payout.settled`. No money moves through Zernio.
 
         Omit `amountCents` to settle the whole payable balance. An amount above it answers 400, and nothing payable answers 409. Send an `Idempotency-Key` so a retry never records the payout twice.
 
@@ -29057,21 +30246,14 @@ def register_generated_tools(mcp, _get_client):
 
         - `none` settlement: records a payout you made elsewhere.
         - `external` settlement: pay from your own rails when `campaign_payout.payable` fires, then call this with your payout id in `externalReference` (required in this mode).
-        - `treasury` settlement: transfers the amount from your Zernio balance to the creator's connected Stripe account, then records it with the Stripe transfer id as `externalReference`.
-
-        ### Treasury payouts
-
-        The transfer fee (4%, $0.50 minimum) is added on top: the creator receives the full amount and your balance is debited `totalCents`.
-
-        - The creator must have finished payout setup from their campaign page (409 otherwise).
-        - A balance that does not cover the ...
+        - `treasury` settlement: send `recordOnly: true` to record a payout you made yourself (the webhook then carries `recorded: true`). Without it the call answers 409: Zernio pays creators of these campaigns by card with `POST /v1/creator-campaigns/{campaignId}/payout-batches`, never from your balance.
 
         Args:
             campaign_id: Campaign ID. (required)
             participant_id: Participant ID. (required)
             amount_cents: Defaults to the whole payable balance.
             external_reference: Your payout id. Required when the campaign settles externally.
-            record_only: Treasury campaigns only: record a payout you already made outside Zernio, without moving money. Ignored on other settlement modes, which always record."""
+            record_only: Treasury campaigns only, and required there: record a payout you already made outside Zernio. Ignored on other settlement modes, which always record."""
         client = _get_client()
         try:
             response = client.creator_campaigns.settle_campaign_participant(
@@ -29100,21 +30282,17 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Pay creators with one card payment
 
-        Pays exactly what is owed to the creators of a `treasury` campaign by charging the billing owner's saved card, with no redirect.
+        Pays exactly what is owed to the creators of a `treasury` campaign by charging the billing owner's saved card, with no redirect. Payouts are never paid from your balance.
 
         ### How it works
 
         1. Every payable creator who finished payout setup (or only `participantIds`, minus `excludeParticipantIds`) is held in `settling`.
-        2. The saved card (the default one, or `paymentMethodId`) is charged the total plus the fee (4% per creator, 50 cent minimum) while the payer is present.
-        3. Once the charge succeeds, each creator gets a transfer funded by it, and the batch ends `paid` or `partially_failed`.
+        2. The saved card (the default one, or `paymentMethodId`) pays one invoice while the payer is present: the payouts, plus the fee (4%, 50 cents minimum per payout) and the VAT on the fee where it applies.
+        3. Card payments are held 7 days against chargebacks (`releasesAt`). Then each creator gets a transfer funded by the charge, and the batch ends `paid` or `partially_failed`.
 
-        A creator whose payouts were disabled before the payment landed is skipped and stays payable.
+        Zernio collects the payouts and pays each creator on your behalf and in your name, so the payouts carry no VAT.
 
-        ### 3D Secure
-
-        `payment.status: requires_action` means the bank asked the payer to confirm. Complete it with Stripe.js `handleNextAction({ clientSecret })`, then call `POST /v1/payout-batches/{batchId}/confirm`.
-
-        One left unfinished is cancelled after 30 minutes and every amount is payable again. Cancel it sooner with `POST ...
+        A creator whose payouts were disabled before the hold ended is skipped and stays payable. A charge refunded or disputed during the hold pays nobody: every amount is payable again. ...
 
         Args:
             participant_ids: Pay only these participants. Defaults to every payable participant who is ready.
@@ -29153,6 +30331,42 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.creator_campaigns.list_campaign_payout_batches(
                 limit=limit, skip=skip
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Preview a payout batch",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def creator_campaigns_preview_campaign_payout_batch(
+        campaign_id: str,
+        participant_ids: list[str] | None = None,
+        exclude_participant_ids: list[str] | None = None,
+    ) -> str:
+        """Preview a payout batch
+
+        What `POST /v1/creator-campaigns/{campaignId}/payout-batches` with the same body would charge your card now. Holds and charges nothing.
+
+        The payouts carry no VAT. `taxCents` is the VAT on Zernio's fee where it applies, from Stripe Tax for your billing address: 21% in Spain, your country's rate for EU consumers, reverse charged (`reverseCharge: true`, no VAT) for EU businesses whose VAT id VIES confirms, none outside the EU.
+
+        Creators who have not finished payout setup are left out, as paying would.
+
+        Args:
+            campaign_id: Campaign ID. (required)
+            participant_ids: Preview only these participants. Defaults to every payable participant who is ready.
+            exclude_participant_ids: Leave these participants out."""
+        client = _get_client()
+        try:
+            response = client.creator_campaigns.preview_campaign_payout_batch(
+                campaign_id=campaign_id,
+                participant_ids=participant_ids,
+                exclude_participant_ids=exclude_participant_ids,
             )
             return _format_response(response)
         except Exception as e:
@@ -30964,16 +32178,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def email_get_email_thread(thread_id: str, account_id: str) -> str:
+    def email_get_email_thread(
+        thread_id: str, account_id: str, clean: bool = False
+    ) -> str:
         """Get an email thread with its messages
 
         Args:
             thread_id: (required)
-            account_id: The connected Google or Microsoft account. (required)"""
+            account_id: The connected Google or Microsoft account. (required)
+            clean: Add `cleanText` to every message: what each one added to the conversation, without the quoted history."""
         client = _get_client()
         try:
             response = client.email.get_email_thread(
-                thread_id=thread_id, account_id=account_id
+                thread_id=thread_id, account_id=account_id, clean=clean
             )
             return _format_response(response)
         except Exception as e:
@@ -30993,17 +32210,21 @@ def register_generated_tools(mcp, _get_client):
         unread: bool | None = None,
         starred: bool | None = None,
         folder: str | None = None,
+        add_labels: list[str] | None = None,
+        remove_labels: list[str] | None = None,
     ) -> str:
         """Update every message in a thread
 
-        Applies `unread`, `starred` or a `folder` move to each message of the thread.
+        Applies `unread`, `starred`, `addLabels`, `removeLabels` or a `folder` move to each message of the thread.
 
         Args:
             thread_id: (required)
             account_id: (required)
             unread
             starred
-            folder: Well-known folder name or folder id to move into."""
+            folder: Well-known folder name or folder id to move into.
+            add_labels: Labels to add, by id or name (case-insensitive). The message stays where it is. On Outlook these are category names; a name not yet in the mailbox is created on the message.
+            remove_labels: Labels to remove, by id or name. A label cannot be both added and removed in one request."""
         client = _get_client()
         try:
             response = client.email.update_email_thread(
@@ -31012,6 +32233,8 @@ def register_generated_tools(mcp, _get_client):
                 unread=unread,
                 starred=starred,
                 folder=folder,
+                add_labels=add_labels,
+                remove_labels=remove_labels,
             )
             return _format_response(response)
         except Exception as e:
@@ -31113,6 +32336,9 @@ def register_generated_tools(mcp, _get_client):
         bcc: list[dict[str, Any]] | None = None,
         reply_to: list[dict[str, Any]] | None = None,
         from_name: str | None = None,
+        from_: str | None = None,
+        append_signature: bool | None = None,
+        signature_id: str | None = None,
         text: str | None = None,
         html: str | None = None,
         attachments: list[dict[str, Any]] | None = None,
@@ -31122,6 +32348,7 @@ def register_generated_tools(mcp, _get_client):
         hold_as_draft: bool | None = None,
         track_opens: bool | None = None,
         track_links: bool | None = None,
+        track_replies: bool | None = None,
     ) -> str:
         """Send an email
 
@@ -31136,10 +32363,9 @@ def register_generated_tools(mcp, _get_client):
         - Daily cap: Microsoft 1,000; Google Workspace 500; Gmail consumer 200. Reaching it answers 429 `email_send_cap_reached` with `details.cap`.
         - The same body reaching more than 50 distinct recipients within an hour pauses the mailbox with an escalating cooldown (429 `rate_limited`, `account.rate_limited` webhook).
 
-        ### Other errors
+        ### Scheduling
 
-        - 402: Gmail sends need a payment method on the workspace. Reading, calendar and files do not.
-        - 400: `scheduledFor` and `holdAsDraft` are reserved and currently rejected.
+        With `scheduledFor` the request answers 202 with a `ScheduledEmail` instead of sending. The account and payment method are checked now; the caps, cooldowns and the send itself run at `scheduledFor`. A send that fails then fires `email.send_failed`. List, ...
 
         Args:
             account_id: (required)
@@ -31148,16 +32374,20 @@ def register_generated_tools(mcp, _get_client):
             bcc: Each item is an object with keys: email (string, required); name (string or null)
             reply_to: Each item is an object with keys: email (string, required); name (string or null)
             from_name
+            from_: Send from another address listed by `GET /v1/email/send-as`; on Outlook, declare a shared mailbox there first. An address not on the list answers 400, and Outlook refusing it at send time answers 403. Omitted, the mail leaves from the mailbox address.
+            append_signature: Appends the signature of the sending address: its Zernio default first, else its Gmail signature. 400 when it has neither.
+            signature_id: Appends this Zernio signature instead. Wins over `appendSignature`.
             subject: (required)
             text: Plain-text body. One of `text` or `html` is required.
             html
             attachments: 25 MB in total; 3 MB per attachment on Microsoft. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
             headers: Custom `X-` headers only. `List-Unsubscribe` is dropped on Microsoft and reported in `metadata.droppedHeaders`.
             metadata
-            scheduled_for: Reserved; currently rejected.
-            hold_as_draft: Reserved; currently rejected.
-            track_opens: Not available; must be false.
-            track_links: Not available; must be false."""
+            scheduled_for: Send later, between 1 minute and 30 days from now. The request answers 202 with the scheduled send; it leaves within a minute of this time through the same caps as an immediate send. List or cancel it under `/v1/email/messages/scheduled`.
+            hold_as_draft: Needs `scheduledFor`. Saves the email as a draft in the mailbox now and sends that draft at `scheduledFor`, with any edits the user made in Gmail or Outlook. A draft deleted or sent from the mailbox first fails the send (`email.send_failed`). Cancelling deletes the draft.
+            track_opens: Adds an open pixel to the html and fires `email.opened`. Needs `html`.
+            track_links: Rewrites every http(s) link in the html through a Zernio redirect and fires `email.link_clicked`. Needs `html`.
+            track_replies: Fires `email.thread_replied` when someone else writes in this message's thread. Works with text or html."""
         client = _get_client()
         try:
             response = client.email.send_email_message(
@@ -31167,6 +32397,9 @@ def register_generated_tools(mcp, _get_client):
                 bcc=bcc,
                 reply_to=reply_to,
                 from_name=from_name,
+                from_=from_,
+                append_signature=append_signature,
+                signature_id=signature_id,
                 subject=subject,
                 text=text,
                 html=html,
@@ -31177,6 +32410,88 @@ def register_generated_tools(mcp, _get_client):
                 hold_as_draft=hold_as_draft,
                 track_opens=track_opens,
                 track_links=track_links,
+                track_replies=track_replies,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List scheduled emails",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_list_scheduled_emails(
+        account_id: str,
+        status: Literal["scheduled", "sending", "sent", "failed", "cancelled"]
+        | None = None,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> str:
+        """List scheduled emails
+
+        Sends made with `scheduledFor` on this mailbox, in send order. Sent, failed and cancelled ones stay listed; filter with `status`.
+
+        Args:
+            account_id: The connected Google or Microsoft account. (required)
+            status
+            cursor: `pagination.nextCursor` of the previous page.
+            limit"""
+        client = _get_client()
+        try:
+            response = client.email.list_scheduled_emails(
+                account_id=account_id, status=status, cursor=cursor, limit=limit
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a scheduled email",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_get_scheduled_email(schedule_id: str, account_id: str) -> str:
+        """Get a scheduled email
+
+        Args:
+            schedule_id: (required)
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.get_scheduled_email(
+                schedule_id=schedule_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Cancel a scheduled email",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_cancel_scheduled_email(schedule_id: str, account_id: str) -> str:
+        """Cancel a scheduled email
+
+        Cancels a send still waiting for its time and returns it with `status: cancelled`. One that is sending, sent or failed answers 409.
+
+        Args:
+            schedule_id: (required)
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.cancel_scheduled_email(
+                schedule_id=schedule_id, account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -31195,6 +32510,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         include_headers: bool = False,
         raw: bool = False,
+        clean: bool = False,
     ) -> str:
         """Get an email message
 
@@ -31202,7 +32518,8 @@ def register_generated_tools(mcp, _get_client):
             message_id: (required)
             account_id: The connected Google or Microsoft account. (required)
             include_headers: Include the raw internet headers under `headers`.
-            raw: Include the MIME source under `raw`."""
+            raw: Include the MIME source under `raw`.
+            clean: Add `cleanText`: the new text only, without quoted replies, forwarded history, signature or tracking pixels. Ready to hand to an LLM."""
         client = _get_client()
         try:
             response = client.email.get_email_message(
@@ -31210,6 +32527,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 include_headers=include_headers,
                 raw=raw,
+                clean=clean,
             )
             return _format_response(response)
         except Exception as e:
@@ -31217,7 +32535,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Mark read or starred, or move a message",
+            title="Mark read or starred, label, or move a message",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -31229,17 +32547,21 @@ def register_generated_tools(mcp, _get_client):
         unread: bool | None = None,
         starred: bool | None = None,
         folder: str | None = None,
+        add_labels: list[str] | None = None,
+        remove_labels: list[str] | None = None,
     ) -> str:
-        """Mark read or starred, or move a message
+        """Mark read or starred, label, or move a message
 
-        `folder` moves the message. On Google a move swaps the inbox, trash and spam labels and keeps every other label; `archive` removes the inbox label.
+        `addLabels` and `removeLabels` tag the message without moving it. `folder` moves it: on Google a move files the mail in one place, so it drops the inbox, trash, spam and user labels it held; `archive` removes the inbox label.
 
         Args:
             message_id: (required)
             account_id: (required)
             unread
             starred
-            folder: Well-known folder name or folder id to move into."""
+            folder: Well-known folder name or folder id to move into.
+            add_labels: Labels to add, by id or name (case-insensitive). The message stays where it is. On Outlook these are category names; a name not yet in the mailbox is created on the message.
+            remove_labels: Labels to remove, by id or name. A label cannot be both added and removed in one request."""
         client = _get_client()
         try:
             response = client.email.update_email_message(
@@ -31248,6 +32570,8 @@ def register_generated_tools(mcp, _get_client):
                 unread=unread,
                 starred=starred,
                 folder=folder,
+                add_labels=add_labels,
+                remove_labels=remove_labels,
             )
             return _format_response(response)
         except Exception as e:
@@ -31293,6 +32617,9 @@ def register_generated_tools(mcp, _get_client):
         bcc: list[dict[str, Any]] | None = None,
         reply_to: list[dict[str, Any]] | None = None,
         from_name: str | None = None,
+        from_: str | None = None,
+        append_signature: bool | None = None,
+        signature_id: str | None = None,
         text: str | None = None,
         html: str | None = None,
         attachments: list[dict[str, Any]] | None = None,
@@ -31302,11 +32629,14 @@ def register_generated_tools(mcp, _get_client):
         hold_as_draft: bool | None = None,
         track_opens: bool | None = None,
         track_links: bool | None = None,
+        track_replies: bool | None = None,
         mode: Literal["reply", "replyAll"] = "reply",
     ) -> str:
         """Reply to a message
 
-        Replies inside the provider's thread: the provider builds the quoted original and threading headers, your `html` or `text` goes above the quote. `to`, `cc`, `bcc`, `replyTo`, `subject`, `headers` and `attachments` are honoured; `scheduledFor` and `holdAsDraft` are rejected like on send. Same protection, caps and headers as sending.
+        Replies inside the provider's thread: the provider builds the quoted original and threading headers, your `html` or `text` goes above the quote. `to`, `cc`, `bcc`, `replyTo`, `subject`, `headers` and `attachments` are honoured.
+
+        `scheduledFor` schedules the reply (202) and `trackOpens`, `trackLinks` and `trackReplies` track it, as on send; `holdAsDraft` holds it as a reply draft in the thread until then. Same protection, caps and headers as sending.
 
         Args:
             message_id: (required)
@@ -31316,16 +32646,20 @@ def register_generated_tools(mcp, _get_client):
             bcc: Each item is an object with keys: email (string, required); name (string or null)
             reply_to: Each item is an object with keys: email (string, required); name (string or null)
             from_name
+            from_: Send from another address listed by `GET /v1/email/send-as`; on Outlook, declare a shared mailbox there first. An address not on the list answers 400, and Outlook refusing it at send time answers 403. Omitted, the mail leaves from the mailbox address.
+            append_signature: Appends the signature of the sending address: its Zernio default first, else its Gmail signature. 400 when it has neither.
+            signature_id: Appends this Zernio signature instead. Wins over `appendSignature`.
             subject: Optional on replies; the provider keeps the thread subject. (required)
             text: Plain-text body. One of `text` or `html` is required.
             html
             attachments: 25 MB in total; 3 MB per attachment on Microsoft. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
             headers: Custom `X-` headers only. `List-Unsubscribe` is dropped on Microsoft and reported in `metadata.droppedHeaders`.
             metadata
-            scheduled_for: Reserved; currently rejected.
-            hold_as_draft: Reserved; currently rejected.
-            track_opens: Not available; must be false.
-            track_links: Not available; must be false.
+            scheduled_for: Send later, between 1 minute and 30 days from now. The request answers 202 with the scheduled send; it leaves within a minute of this time through the same caps as an immediate send. List or cancel it under `/v1/email/messages/scheduled`.
+            hold_as_draft: Needs `scheduledFor`. Saves the email as a draft in the mailbox now and sends that draft at `scheduledFor`, with any edits the user made in Gmail or Outlook. A draft deleted or sent from the mailbox first fails the send (`email.send_failed`). Cancelling deletes the draft.
+            track_opens: Adds an open pixel to the html and fires `email.opened`. Needs `html`.
+            track_links: Rewrites every http(s) link in the html through a Zernio redirect and fires `email.link_clicked`. Needs `html`.
+            track_replies: Fires `email.thread_replied` when someone else writes in this message's thread. Works with text or html.
             mode"""
         client = _get_client()
         try:
@@ -31337,6 +32671,9 @@ def register_generated_tools(mcp, _get_client):
                 bcc=bcc,
                 reply_to=reply_to,
                 from_name=from_name,
+                from_=from_,
+                append_signature=append_signature,
+                signature_id=signature_id,
                 subject=subject,
                 text=text,
                 html=html,
@@ -31347,7 +32684,353 @@ def register_generated_tools(mcp, _get_client):
                 hold_as_draft=hold_as_draft,
                 track_opens=track_opens,
                 track_links=track_links,
+                track_replies=track_replies,
                 mode=mode,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Forward a message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_forward_email_message(
+        message_id: str,
+        account_id: str,
+        to: list[dict[str, Any]] | None,
+        cc: list[dict[str, Any]] | None = None,
+        bcc: list[dict[str, Any]] | None = None,
+        reply_to: list[dict[str, Any]] | None = None,
+        from_name: str | None = None,
+        from_: str | None = None,
+        append_signature: bool | None = None,
+        signature_id: str | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+        include_attachments: bool = True,
+        exclude_attachment_ids: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        track_opens: bool | None = None,
+        track_links: bool | None = None,
+        track_replies: bool | None = None,
+    ) -> str:
+        """Forward a message
+
+        Forwards the message with its attachments. Your `text` or `html` goes above the forwarded mail, and the subject defaults to \"Fwd: \" plus the original's. On Google the forward stays in the original thread; on Microsoft it goes through Outlook's own forward.
+
+        `includeAttachments: false` keeps only the original's inline images, and `excludeAttachmentIds` leaves out the ones you name. Everything together stays under 25 MB.
+
+        `trackOpens`, `trackLinks` and `trackReplies` work as on send. Same protection, caps and headers as sending. The response carries `forwardedFrom`, and `email.sent` fires with `source: forward`.
+
+        Args:
+            message_id: (required)
+            account_id: (required)
+            to: Each item is an object with keys: email (string, required); name (string or null) (required)
+            cc: Each item is an object with keys: email (string, required); name (string or null)
+            bcc: Each item is an object with keys: email (string, required); name (string or null)
+            reply_to: Each item is an object with keys: email (string, required); name (string or null)
+            from_name
+            from_: Send from another address of the mailbox, as on `POST /v1/email/messages`.
+            append_signature: Appends the signature of the sending address to the note, above the forwarded original: its Zernio default first, else its Gmail signature.
+            signature_id: Appends this Zernio signature to the note instead. Wins over `appendSignature`.
+            subject: Defaults to "Fwd: " plus the original subject.
+            text: Optional note above the forwarded mail.
+            html: Optional note above the forwarded mail, as html.
+            attachments: Added to the forwarded attachments. Everything together stays under 25 MB, else 413 `attachment_too_large`. Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
+            include_attachments: False keeps only the inline images of the original.
+            exclude_attachment_ids: Attachment ids (from a read of the original) to leave out.
+            metadata
+            track_opens: Adds an open pixel to the note and fires `email.opened`. Needs `html`.
+            track_links: Rewrites the links of the note and fires `email.link_clicked`. Needs `html`.
+            track_replies: Fires `email.thread_replied` when someone else writes in the thread."""
+        client = _get_client()
+        try:
+            response = client.email.forward_email_message(
+                message_id=message_id,
+                account_id=account_id,
+                to=to,
+                cc=cc,
+                bcc=bcc,
+                reply_to=reply_to,
+                from_name=from_name,
+                from_=from_,
+                append_signature=append_signature,
+                signature_id=signature_id,
+                subject=subject,
+                text=text,
+                html=html,
+                attachments=attachments,
+                include_attachments=include_attachments,
+                exclude_attachment_ids=exclude_attachment_ids,
+                metadata=metadata,
+                track_opens=track_opens,
+                track_links=track_links,
+                track_replies=track_replies,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List drafts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_list_email_drafts(
+        account_id: str, limit: int = 25, cursor: str | None = None
+    ) -> str:
+        """List drafts
+
+        The mailbox's drafts, newest first, including drafts the user wrote in Gmail or Outlook. Drafts in the trash are left out. Rows carry no bodies on Google; get a draft to read them.
+
+        Args:
+            account_id: The connected Google or Microsoft account. (required)
+            limit
+            cursor"""
+        client = _get_client()
+        try:
+            response = client.email.list_email_drafts(
+                account_id=account_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a draft",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_create_email_draft(
+        account_id: str,
+        to: list[dict[str, Any]] | None = None,
+        cc: list[dict[str, Any]] | None = None,
+        bcc: list[dict[str, Any]] | None = None,
+        reply_to: list[dict[str, Any]] | None = None,
+        from_name: str | None = None,
+        from_: str | None = None,
+        append_signature: bool | None = None,
+        signature_id: str | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+        headers: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        in_reply_to: str | None = None,
+        reply_all: bool | None = None,
+        forward_of: str | None = None,
+        include_attachments: bool = True,
+        exclude_attachment_ids: list[str] | None = None,
+        track_opens: bool | None = None,
+        track_links: bool | None = None,
+        track_replies: bool | None = None,
+    ) -> str:
+        """Create a draft
+
+        Saves a draft in the user's mailbox, where they see it in Gmail or Outlook. Recipients and subject can come later. `inReplyTo` makes a reply draft in that thread and `forwardOf` a forward draft with the original's attachments; the `kind` is fixed for the life of the draft.
+
+        Send it with `POST /v1/email/drafts/{draftId}/send`. Edits the user makes in their mail client are what goes out. Store the draft `id`, and pass its `version` as `If-Match` so an update or send applies only to the version you saw.
+
+        Args:
+            account_id: (required)
+            to: Optional on a draft; needed before it is sent. Each item is an object with keys: email (string, required); name (string or null)
+            cc: Each item is an object with keys: email (string, required); name (string or null)
+            bcc: Each item is an object with keys: email (string, required); name (string or null)
+            reply_to: Each item is an object with keys: email (string, required); name (string or null)
+            from_name
+            from_: Send from another address of the mailbox, as on `POST /v1/email/messages`. Checked when the draft is saved.
+            append_signature: Puts the signature of the sending address in the draft body, where the user sees it: its Zernio default first, else its Gmail signature.
+            signature_id: Puts this Zernio signature in the draft body instead. Wins over `appendSignature`.
+            subject: On a reply draft, empty keeps the thread subject.
+            text
+            html
+            attachments: Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
+            headers: Custom `X-` headers only.
+            metadata: Kept with the draft and returned on the sent message and its email.* webhooks.
+            in_reply_to: Makes a reply draft in that message's thread, addressed and threaded like a reply. Not with `forwardOf`.
+            reply_all: With `inReplyTo`: address every recipient of the original. Leave out `to`, `cc` and `bcc`.
+            forward_of: Makes a forward draft of that message, with its attachments. Recipients can come later. Not with `inReplyTo`.
+            include_attachments: With `forwardOf`: false keeps only the inline images of the original.
+            exclude_attachment_ids: With `forwardOf`: attachment ids (from a read of the original) to leave out.
+            track_opens: Puts the open pixel in the draft html now; fires `email.opened` once it is sent. Needs `html`.
+            track_links: Rewrites the draft's links now; fires `email.link_clicked` once it is sent. Needs `html`.
+            track_replies: Fires `email.thread_replied` once it is sent."""
+        client = _get_client()
+        try:
+            response = client.email.create_email_draft(
+                account_id=account_id,
+                to=to,
+                cc=cc,
+                bcc=bcc,
+                reply_to=reply_to,
+                from_name=from_name,
+                from_=from_,
+                append_signature=append_signature,
+                signature_id=signature_id,
+                subject=subject,
+                text=text,
+                html=html,
+                attachments=attachments,
+                headers=headers,
+                metadata=metadata,
+                in_reply_to=in_reply_to,
+                reply_all=reply_all,
+                forward_of=forward_of,
+                include_attachments=include_attachments,
+                exclude_attachment_ids=exclude_attachment_ids,
+                track_opens=track_opens,
+                track_links=track_links,
+                track_replies=track_replies,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a draft",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_get_email_draft(draft_id: str, account_id: str) -> str:
+        """Get a draft
+
+        The draft as it stands in the mailbox now, with its bodies. A draft deleted in the mail client answers 404.
+
+        Args:
+            draft_id: (required)
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.get_email_draft(
+                draft_id=draft_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a draft",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_update_email_draft(
+        draft_id: str,
+        account_id: str,
+        to: list[dict[str, Any]] | None = None,
+        cc: list[dict[str, Any]] | None = None,
+        bcc: list[dict[str, Any]] | None = None,
+        reply_to: list[dict[str, Any]] | None = None,
+        subject: str | None = None,
+        text: str | None = None,
+        html: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
+        signature_id: str | None = None,
+    ) -> str:
+        """Update a draft
+
+        Changes the fields you send and keeps the rest. A reply draft stays in its thread, and a new body on a reply or forward draft goes above the quoted original. With `If-Match`, a draft someone edited since answers 412 `draft_conflict` with the current draft.
+
+        Args:
+            draft_id: (required)
+            account_id: (required)
+            to: Each item is an object with keys: email (string, required); name (string or null)
+            cc: Each item is an object with keys: email (string, required); name (string or null)
+            bcc: Each item is an object with keys: email (string, required); name (string or null)
+            reply_to: Each item is an object with keys: email (string, required); name (string or null)
+            subject
+            text
+            html: On a draft created with tracking, the new html is instrumented again under the same `trackingId`.
+            attachments: Each item is an object with keys: filename (string, required); contentType (string, required); url (string) - Fetched at send time. Exactly one of `url` or `base64`.; base64 (string); contentId (string) - Makes the attachment inline (`cid:` reference in the html).
+            signature_id: Swaps the Zernio signature block in the new `html` or `text` for this signature, so switching never stacks two; `null` removes it. Needs `html` or `text` in the same request."""
+        client = _get_client()
+        try:
+            response = client.email.update_email_draft(
+                draft_id=draft_id,
+                account_id=account_id,
+                to=to,
+                cc=cc,
+                bcc=bcc,
+                reply_to=reply_to,
+                subject=subject,
+                text=text,
+                html=html,
+                attachments=attachments,
+                signature_id=signature_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a draft",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_delete_email_draft(draft_id: str, account_id: str) -> str:
+        """Delete a draft
+
+        Args:
+            draft_id: (required)
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.delete_email_draft(
+                draft_id=draft_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Send a draft",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_send_email_draft(
+        draft_id: str, account_id: str, send_at: str | None = None
+    ) -> str:
+        """Send a draft
+
+        Sends the draft as it stands in the mailbox now, edits made in Gmail or Outlook included, and returns the sent message with `draftId`. The draft needs at least one recipient. A draft the user deleted or already sent answers 404 `draft_not_found`.
+
+        With `If-Match` it goes out only if it is still the version the approver saw (412 `draft_conflict` otherwise). If the user removed the open pixel or rewrote links, tracking is put back before it is sent. Fires `email.sent` with `source: draft`.
+
+        Tracking set when the draft was created applies, and its `metadata` comes back on the sent message. Same protection, caps and headers as sending.
+
+        Args:
+            draft_id: (required)
+            account_id: (required)
+            send_at: Send later, 1 minute to 30 days ahead: answers 202 with a `ScheduledEmail`. The draft stays editable in the mailbox and goes out as it stands then. Cancelling with `DELETE /v1/email/messages/scheduled/{scheduleId}` keeps the draft."""
+        client = _get_client()
+        try:
+            response = client.email.send_email_draft(
+                draft_id=draft_id, account_id=account_id, send_at=send_at
             )
             return _format_response(response)
         except Exception as e:
@@ -31371,6 +33054,391 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.email.list_email_folders(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Find the mail settings for an address",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_discover_imap_settings(email: str) -> str:
+        """Find the mail settings for an address
+
+        The routing decision the hosted page makes, for your own connect form: Google or Microsoft OAuth, IMAP with the servers and the provider's app-password steps, or unsupported. Sources run in parallel inside 15 seconds: presets, MX, autoconfig, Thunderbird's ISPDB (sent the domain only), SRV records, then a probe.
+
+        Args:
+            email: (required)"""
+        client = _get_client()
+        try:
+            response = client.email.discover_imap_settings(email=email)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect an IMAP mailbox",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_create_imap_account(
+        profile_id: str,
+        email: str,
+        name: str | None = None,
+        password: str | None = None,
+        imap: dict[str, Any] | None = None,
+        smtp: dict[str, Any] | None = None,
+        identities: list[dict[str, Any]] | None = None,
+        dry_run: bool | None = None,
+        allow_self_signed_certificate: bool | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> str:
+        """Connect an IMAP mailbox
+
+        Connects any IMAP/SMTP mailbox without the hosted page. Email and password are enough when discovery finds the servers. Every check runs before anything is stored; a failure answers 422 with the failing stage's code. An address already on the profile is updated in place and keeps its accountId.
+
+        Args:
+            profile_id: (required)
+            email: (required)
+            name: Shown to people the mailbox emails.
+            password: Shortcut for imap.password.
+            imap: Leave out to use discovery. username defaults to the email. Object with keys: host (string); port (integer); security (one of: tls, starttls); username (string); password (string)
+            smtp: username and password default to the IMAP ones. Object with keys: host (string); port (integer); security (one of: tls, starttls); username (string); password (string)
+            identities: Other addresses this mailbox sends as. Each item is an object with keys: email (string, required); name (string)
+            dry_run: Run every check and store nothing, for live validation in your own form.
+            allow_self_signed_certificate: On-premise servers only: accept a certificate that cannot be verified. The hosted page never offers it.
+            reconnect_account_id: Reconnect this account in place with a new password; the stored servers are reused."""
+        client = _get_client()
+        try:
+            response = client.email.create_imap_account(
+                profile_id=profile_id,
+                email=email,
+                name=name,
+                password=password,
+                imap=imap,
+                smtp=smtp,
+                identities=identities,
+                dry_run=dry_run,
+                allow_self_signed_certificate=allow_self_signed_certificate,
+                reconnect_account_id=reconnect_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List labels",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_list_email_labels(account_id: str) -> str:
+        """List labels
+
+        Gmail labels, system and user, or the Outlook category list. If an organization blocks reading the Outlook list, it comes back empty and categories still apply to messages by name.
+
+        Args:
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.list_email_labels(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_create_email_label(
+        account_id: str, name: str, color: dict[str, Any] | None = None
+    ) -> str:
+        """Create a label
+
+        Creates a Gmail label or an Outlook category. Safe to repeat: when the name already exists (case-insensitive) the existing label comes back with 200.
+
+        Args:
+            account_id: (required)
+            name: (required)
+            color: Gmail only. Both values must come from Gmail's label palette. Object with keys: backgroundColor (string, required); textColor (string, required)"""
+        client = _get_client()
+        try:
+            response = client.email.create_email_label(
+                account_id=account_id, name=name, color=color
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List send-as addresses",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_list_email_send_as(account_id: str) -> str:
+        """List send-as addresses
+
+        The addresses a mailbox can send from, for `from`, each with the signature `appendSignature` would add. Gmail lists every alias itself. Outlook lists the mailbox address and its aliases, plus any address declared with `POST /v1/email/send-as`.
+
+        Args:
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.list_email_send_as(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Declare a send-as address",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_declare_email_send_as(
+        account_id: str, email: str, name: str | None = None
+    ) -> str:
+        """Declare a send-as address
+
+        Adds an address the provider cannot list, such as an Outlook shared mailbox, so `from` accepts it. It starts `unverified` and becomes `accepted` after its first send. Gmail answers 400: add aliases in Gmail settings instead. An address already listed comes back with 200.
+
+        Args:
+            account_id: (required)
+            email: (required)
+            name"""
+        client = _get_client()
+        try:
+            response = client.email.declare_email_send_as(
+                account_id=account_id, email=email, name=name
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a declared send-as address",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_delete_email_send_as(email: str, account_id: str) -> str:
+        """Remove a declared send-as address
+
+        Removes an address declared with `POST /v1/email/send-as`. Addresses the provider lists cannot be removed here. URL-encode the `@`.
+
+        Args:
+            email: (required)
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.delete_email_send_as(
+                email=email, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List signatures",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_list_email_signatures(account_id: str | None = None) -> str:
+        """List signatures
+
+        Zernio-stored signatures: workspace-wide ones plus those of the accounts you can see. With `accountId`, only workspace-wide ones and that account's.
+
+        Args:
+            account_id"""
+        client = _get_client()
+        try:
+            response = client.email.list_email_signatures(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a signature",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_create_email_signature(
+        name: str,
+        html: str,
+        account_id: str | None = None,
+        text: str | None = None,
+        default_for: list[str] | None = None,
+    ) -> str:
+        """Create a signature
+
+        Stores a signature Zernio appends on any provider. Without `accountId` it is workspace-wide. `defaultFor` makes it what `appendSignature` uses for those sending addresses. Up to 50 per workspace, 100 KB of html, no scripts.
+
+        Args:
+            account_id
+            name: (required)
+            html: (required)
+            text
+            default_for"""
+        client = _get_client()
+        try:
+            response = client.email.create_email_signature(
+                account_id=account_id,
+                name=name,
+                html=html,
+                text=text,
+                default_for=default_for,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Import Gmail signatures",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_import_email_signatures(account_id: str) -> str:
+        """Import Gmail signatures
+
+        Copies each Gmail send-as signature into a Zernio signature on that account, the default for its address. Repeating it refreshes the copies. Outlook answers 400: Microsoft Graph does not expose signatures.
+
+        Args:
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.import_email_signatures(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a signature",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def email_get_email_signature(signature_id: str) -> str:
+        """Get a signature
+
+        Args:
+            signature_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.email.get_email_signature(signature_id=signature_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a signature",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_update_email_signature(
+        signature_id: str,
+        name: str | None = None,
+        html: str | None = None,
+        text: str | None = None,
+        default_for: list[str] | None = None,
+    ) -> str:
+        """Update a signature
+
+        Changes the name, html, text or `defaultFor`. Taking an address in `defaultFor` removes it from the other signatures of the same scope.
+
+        Args:
+            signature_id: (required)
+            name
+            html
+            text
+            default_for"""
+        client = _get_client()
+        try:
+            response = client.email.update_email_signature(
+                signature_id=signature_id,
+                name=name,
+                html=html,
+                text=text,
+                default_for=default_for,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a signature",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_delete_email_signature(signature_id: str) -> str:
+        """Delete a signature
+
+        Args:
+            signature_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.email.delete_email_signature(signature_id=signature_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def email_delete_email_label(label_id: str, account_id: str) -> str:
+        """Delete a label
+
+        Deletes a Gmail user label or an Outlook category, by id or name (URL-encode a slash). Gmail removes the label from every message. Outlook keeps a deleted category on messages that already carry it; 412 when the organization blocks the category list.
+
+        Args:
+            label_id: (required)
+            account_id: The connected Google or Microsoft account. (required)"""
+        client = _get_client()
+        try:
+            response = client.email.delete_email_label(
+                label_id=label_id, account_id=account_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -32978,11 +35046,21 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def instagram_list_instagram_stories(account_id: str) -> str:
+    def instagram_list_instagram_stories(
+        account_id: str, include_expired: bool = False, limit: int = 100
+    ) -> str:
         """List active Instagram stories
 
         Returns the IG Business/Creator account's currently-active stories.
-        Meta keeps stories live for 24h; expired stories are not returned.
+        Meta keeps stories live for 24h.
+
+        Pass `includeExpired=true` to also get the stories Zernio archived before they
+        expired: their media is copied into Zernio storage while the story is live, so
+        `mediaUrl` and `thumbnailUrl` keep working after Meta deletes the story.
+
+        Archiving needs the insights permission and covers
+        stories posted since the account was connected (hourly readings, a final one at 23h,
+        then Meta's end-of-story numbers when its webhook arrives).
 
         Limitations propagated from Meta (these are NOT bugs):
         - 24h window only
@@ -32992,10 +35070,14 @@ def register_generated_tools(mcp, _get_client):
         - `caption`, `likeCount`, `commentsCount` do not apply to story media
 
         Args:
-            account_id: The Instagram account ID (required)"""
+            account_id: The Instagram account ID (required)
+            include_expired: Also return archived stories that are no longer live, newest first after the live ones. Every item then carries `expired` and `metrics`.
+            limit: Maximum number of archived stories to read when `includeExpired=true` (live stories are always all returned)."""
         client = _get_client()
         try:
-            response = client.instagram.list_instagram_stories(account_id=account_id)
+            response = client.instagram.list_instagram_stories(
+                account_id=account_id, include_expired=include_expired, limit=limit
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -33335,22 +35417,16 @@ def register_generated_tools(mcp, _get_client):
     def instagram_get_instagram_story_insights(account_id: str, story_id: str) -> str:
         """Get Instagram story insights
 
-        Returns metrics for a single story. The `source` field discriminates between three states:
+        Returns metrics for a single story. The `source` field discriminates between four states:
 
         - `live`: fetched from Meta in real time (story is still active)
-        - `cached`: fetched from a persisted `story_insights` webhook payload (story has expired but we received its final-state metrics from Meta)
-        - `unavailable`: story has expired and Meta sent no `story_insights` webhook for it
+        - `archived`: the story has expired and Zernio archived it while it was live. Metrics are the last archived reading, raised to Meta's final numbers when its `story_insights` webhook arrived (which also adds the tap breakdown).
+        - `cached`: fetched from a persisted `story_insights` webhook payload (story has expired and was not archived)
+        - `unavailable`: story has expired, was not archived, and Meta sent no `story_insights` webhook for it
 
         Meta sends that webhook most reliably for accounts connected with Facebook Login or with their linked Facebook Page connected. So read insights while the story is live if you need final numbers.
 
-        Meta can report an expired story as an empty successful result rather than an error. So an expired story resolves to `cached` or `unavailable` even though the upstream request itself succeeded.
-
-        ### Field semantics
-
-        Field semantics follow Meta's API.
-
-        - Counts below 5 may be returned as 0 due to Meta's privacy floor on small audiences.
-        - The `navigation` field is the sum of `tapsForward + tapsBack + exits + ...
+        Meta can report an expired story as an empty successful result rather than an error. So an expired story resolves to `archived`, `cached` or `unavailable` even though the upstream request itself ...
 
         Args:
             account_id: The Instagram account ID (required)
@@ -33445,7 +35521,7 @@ def register_generated_tools(mcp, _get_client):
         account_ids: str | None = None,
         status: str | None = None,
         campaign_id: str | None = None,
-        platform: Literal["meta", "linkedin"] | None = None,
+        platform: Literal["meta", "google", "linkedin"] | None = None,
         q: str | None = None,
         ad_account_id: str | None = None,
         limit: int = 25,
@@ -33454,7 +35530,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List submitted leads
 
-        Lists the leads submitted through your Meta or LinkedIn lead forms, newest first.
+        Lists the leads submitted through your Meta, Google or LinkedIn lead forms, newest first.
 
         Returns submitted Lead Gen leads for your team, newest-first, with keyset pagination on `cursor`. Requires the Ads add-on.
 
@@ -33462,13 +35538,20 @@ def register_generated_tools(mcp, _get_client):
 
         Leads are served from the persisted cache, ingested in real time from the `leadgen` webhook.
 
+        ### Google
+
+        Google lead form submissions are stored like Meta leads and listed with them, usually within 15 minutes of the submission.
+
+        - Each lead says its network in `platform` (`meta`, `google`, `linkedin`), and `platform=google` lists only Google leads.
+        - `leadgenId` is the submission id and `formId` the lead form asset id.
+        - Answers are keyed like Meta's (`email`, `phone_number`, `full_name`), custom questions by their text.
+        - Statuses work as for Meta leads.
+
         ### LinkedIn
 
-        When `accountId` is a LinkedIn ads account, `adAccountId` is required. Leads are fetched live from LinkedIn's `leadFormResponses`: LinkedIn has no webhook and enforces 90-day retention, so nothing is persisted.
+        LinkedIn lead form responses are also stored and listed with the other networks (`platform: linkedin`), usually within 15 minutes, once they reach Zernio. So are TikTok Instant Form ...
 
-        Reading LinkedIn responses needs the `r_marketing_leadgen_automation` permission. Accounts connected before it was added must reconnect.
-
-        Platforms: meta, linkedin
+        Platforms: meta, google, linkedin
 
         Args:
             form_id: Filter to a single lead form.
@@ -33476,7 +35559,7 @@ def register_generated_tools(mcp, _get_client):
             account_ids: Meta only. Comma-separated connected account ids, to list several accounts at once. Without accountId or accountIds every account of the team is listed.
             status: Meta only. Comma-separated lead statuses: new, contacted, unreachable, qualified, converted, disqualified.
             campaign_id: Meta only. The platform campaign id the lead came from.
-            platform: meta skips the LinkedIn live fetch; linkedin requires accountId to be a LinkedIn ads connection (400 otherwise).
+            platform: Only leads of this network. meta and google list stored leads of that network (no LinkedIn live fetch); linkedin requires accountId to be a LinkedIn ads connection (400 otherwise). Without it, every stored network is listed, and an accountId that is a LinkedIn ads connection switches to the live fetch.
             q: Meta only. Case-insensitive text search over the lead's answers and the form name.
             ad_account_id: LinkedIn only: the LinkedIn ad account id whose responses to read (owner-scoped finder).
             limit
@@ -35483,6 +37566,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         ad_account_id: str,
         name: str,
+        retry_on_server_error: bool = True,
         creative_features: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
         campaign_name: str | None = None,
@@ -35631,6 +37715,9 @@ def register_generated_tools(mcp, _get_client):
             Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
             Args:
+                retry_on_server_error: When Meta answers a create with a 5xx and reading the parent back by name finds no such object, Zernio sends the create again (at most 3 POSTs per object, never for an object created ACTIVE) and reports it in `recoveredWrites`.
+
+        `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
                 tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
@@ -35835,6 +37922,7 @@ def register_generated_tools(mcp, _get_client):
         Success returns 200 with per-node results; a Meta rejection returns the Meta error."""
         client = _get_client()
         same_arguments: dict[str, Any] = {
+            "retry_on_server_error": retry_on_server_error,
             "creative_features": creative_features,
             "tracking": tracking,
             "account_id": account_id,
@@ -35916,6 +38004,7 @@ def register_generated_tools(mcp, _get_client):
         }
         try:
             response = client.messaging_ads.create_messaging_ad(
+                retry_on_server_error=retry_on_server_error,
                 creative_features=creative_features,
                 tracking=tracking,
                 account_id=account_id,
@@ -36016,6 +38105,7 @@ def register_generated_tools(mcp, _get_client):
         name: str,
         phone_number: str,
         link_url: str,
+        retry_on_server_error: bool = True,
         creative_features: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
         campaign_name: str | None = None,
@@ -36152,6 +38242,9 @@ def register_generated_tools(mcp, _get_client):
             Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
             Args:
+                retry_on_server_error: When Meta answers a create with a 5xx and reading the parent back by name finds no such object, Zernio sends the create again (at most 3 POSTs per object, never for an object created ACTIVE) and reports it in `recoveredWrites`.
+
+        `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
                 tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
@@ -36341,6 +38434,7 @@ def register_generated_tools(mcp, _get_client):
                 link_url: Website shown as the creative's link. Required: Meta rejects tel: as link_data.link; the phone number rides only the CTA. (required)"""
         client = _get_client()
         same_arguments: dict[str, Any] = {
+            "retry_on_server_error": retry_on_server_error,
             "creative_features": creative_features,
             "tracking": tracking,
             "account_id": account_id,
@@ -36419,6 +38513,7 @@ def register_generated_tools(mcp, _get_client):
         }
         try:
             response = client.messaging_ads.create_call_ad(
+                retry_on_server_error=retry_on_server_error,
                 creative_features=creative_features,
                 tracking=tracking,
                 account_id=account_id,
@@ -36514,6 +38609,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         ad_account_id: str,
         name: str,
+        retry_on_server_error: bool = True,
         creative_features: dict[str, Any] | None = None,
         tracking: dict[str, Any] | None = None,
         campaign_name: str | None = None,
@@ -36646,6 +38742,9 @@ def register_generated_tools(mcp, _get_client):
             Safe to retry: an identical call within 24 hours returns the first result instead of creating a second one, and answers 409 while the first is still running. To create another on purpose, or if that 409 does not clear, change an argument such as the name.
 
             Args:
+                retry_on_server_error: When Meta answers a create with a 5xx and reading the parent back by name finds no such object, Zernio sends the create again (at most 3 POSTs per object, never for an object created ACTIVE) and reports it in `recoveredWrites`.
+
+        `false` never sends it again: the request fails with 502 and `details.unconfirmedWrite`, so you can check the parent yourself. One object found by name is still reused.
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
                 tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. - Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. Dynamic macros ({{ad.id}}, {{campaign.id}}, ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Opt-in: set `true` and the ad carries `zrn=<platform ad id>` on its landing URL, so orders and events tied to the ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
@@ -36833,6 +38932,7 @@ def register_generated_tools(mcp, _get_client):
         When Meta rejects the ad set for a missing verified advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys (keys the declared categories expect), details.suggestedCategories (markets Meta ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId."""
         client = _get_client()
         same_arguments: dict[str, Any] = {
+            "retry_on_server_error": retry_on_server_error,
             "creative_features": creative_features,
             "tracking": tracking,
             "account_id": account_id,
@@ -36909,6 +39009,7 @@ def register_generated_tools(mcp, _get_client):
         }
         try:
             response = client.messaging_ads.create_ctwa_ad(
+                retry_on_server_error=retry_on_server_error,
                 creative_features=creative_features,
                 tracking=tracking,
                 account_id=account_id,
@@ -38034,7 +40135,7 @@ def register_generated_tools(mcp, _get_client):
 
         ### What happens next
 
-        - A reply to a comment-style ask moves the number back to \"in review\".
+        - A text reply to a comment-style ask moves the number back to \"in review\". A reply with only files keeps the ask open, so send the fix through the structured form or add a written answer.
         - A reply on a formal decline is supplementary, and you must still resubmit the fix.
 
         Args:
@@ -38396,7 +40497,7 @@ def register_generated_tools(mcp, _get_client):
             Args:
                 title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
                 content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
-                media_items: Media attached to every platform in the request (a platform entry can override it with `customMedia`). - Each entry needs a publicly reachable HTTPS `url`. - `type` (image, video, gif, document) is inferred from the URL extension when omitted; a `type` that contradicts the extension is rejected with 400. - Upload files with `POST /v1/media/presign` first. - Per-platform size, duration and format limits are listed on each platform schema. Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`.; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
+                media_items: Media attached to every platform in the request (a platform entry can override it with `customMedia`). - Each entry needs a publicly reachable HTTPS `url`. - `type` (image, video, gif, document) is inferred from the URL extension when omitted; a `type` that contradicts the extension is rejected with 400. - Upload files with `POST /v1/media/presign` first. - Per-platform size, duration and format limits are listed on each platform schema. Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`. A Google Drive share link is accepted ...; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override. When set, this content is used instead of the top-level post content for this platform. Useful for tailoring captions per ...; customMedia (list of objects with keys type, url, fileId, accountId, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. When omitted, the top-level scheduledFor is used.; platformSpecificData (object with keys article, replyToTweetId, quoteTweetId, replySettings, threadItems, poll, longVideo, geoRestriction, paidPartnership, madeWithAi, sensitiveMedia, mediaTaggedUsers)
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. Ignored when `publishNow` is true.
 
@@ -38429,7 +40530,7 @@ def register_generated_tools(mcp, _get_client):
                 mentions: Stored for reference only. Publishing does not create mentions from this field.
                 crossposting_enabled: Stored on the post and echoed back on reads. Publishing does not branch on it: every entry in `platforms` is published regardless, so treat it as a label for your own tooling.
                 metadata: Free-form key/value pairs of your own, stored on the post and returned on reads and in webhook payloads. Zernio also writes the bookkeeping keys `usageCounted`, `usageRefunded` and `hidden` into this object; do not set them, and they are stripped from webhook payloads.
-                tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when videoCoverImageUrl ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
+                tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when the ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
                 facebook_settings: Root-level Facebook settings applied to the Facebook platforms sent in the same request. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, creates the post as a draft in Facebook Publishing Tools instead of publishing immediately. Supported for feed posts (text, link, image, video) and ...; carouselCards (list of objects with keys link, name, description) - Renders the post as a multi-link carousel (organic Page post). Mutually exclusive with contentType=story|reel. - mediaItems must be provided with the same ...; carouselLink (string) - Optional top-level \"See more\" destination shown on the carousel end card. Defaults to the first card's link when omitted. Only used together with carouselCards.; textFormatPresetId (string) - Facebook-defined preset ID that renders the post as large text on a colored background (Graph `text_format_preset_id`). Supply the raw numeric ID from Meta; ...
                 recycling: Object with keys: enabled (boolean) - Set to false to disable recycling on this post; gap (integer) - Number of interval units between each repost. Required when enabling recycling.; gapFreq (one of: week, month) - Interval unit for the gap. Defaults to 'month'.; startDate (string) - When to start the recycling cycle. Defaults to the post's scheduledFor date.; expireCount (integer or null) - Stop recycling after this many copies have been created. Send null on update to clear this limit.; expireDate (string or null) - Stop recycling after this date, regardless of count. Send null on update to clear this limit.; contentVariations (list of string) - Content variations for recycled copies. Each recycle uses the next variation, in round-robin order. Recommended for X and Pinterest to avoid duplicate content ...
                 queued_from_profile: Profile ID to schedule via queue. When provided without scheduledFor, the post is auto-assigned to the next available slot. Do not call /v1/queue/next-slot and use that time in scheduledFor, as that bypasses queue locking.
@@ -38531,8 +40632,8 @@ def register_generated_tools(mcp, _get_client):
             post_id: (required)
             title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
             content
-            media_items: Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`.; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
-            platforms: Target platforms and accounts for this post. Each item must include platform and accountId. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override.; customMedia (list of objects with keys type, url, fileId, accountId, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. It is kept when a top-level scheduledFor is also sent, except a date sent back unchanged (same instant, or the ...; platformSpecificData (object) - A <platform>Settings namespace (e.g. facebookSettings, tiktokSettings) omitted from the request is preserved from the stored post. Sending the key replaces ...
+            media_items: Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`. A Google Drive share link is accepted ...; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
+            platforms: Target platforms and accounts for this post. Each item must include platform and accountId. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override.; customMedia (list of objects with keys type, url, fileId, accountId, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed) - On update, an omitted customMedia keeps the stored per-platform media; send [] to clear it.; scheduledFor (string) - Optional per-platform scheduled time override. It is kept when a top-level scheduledFor is also sent, except a date sent back unchanged (same instant, or the ...; platformSpecificData (object) - A <platform>Settings namespace (e.g. facebookSettings, tiktokSettings) omitted from the request is preserved from the stored post. Sending the key replaces ...
             scheduled_for
             publish_now
             is_draft: When omitted, the post keeps its current draft status. Send `false` to promote a draft to scheduled (combined with `scheduledFor`, `publishNow`, or a queue).
@@ -38546,7 +40647,7 @@ def register_generated_tools(mcp, _get_client):
             metadata
             queued_from_profile: Profile ID to schedule via queue.
             queue_id: Specific queue ID to use when scheduling via queue.
-            tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Returns 400 if sent without a platforms array. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when videoCoverImageUrl ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
+            tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Returns 400 if sent without a platforms array. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when the ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
             facebook_settings: Root-level Facebook settings applied to the Facebook platforms sent in the same request. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence. Returns 400 if sent without a platforms array. Object with keys: draft (boolean) - When true, creates the post as a draft in Facebook Publishing Tools instead of publishing immediately. Supported for feed posts (text, link, image, video) and ...; carouselCards (list of objects with keys link, name, description) - Renders the post as a multi-link carousel (organic Page post). Mutually exclusive with contentType=story|reel. - mediaItems must be provided with the same ...; carouselLink (string) - Optional top-level \"See more\" destination shown on the carousel end card. Defaults to the first card's link when omitted. Only used together with carouselCards.; textFormatPresetId (string) - Facebook-defined preset ID that renders the post as large text on a colored background (Graph `text_format_preset_id`). Supply the raw numeric ID from Meta; ...
             recycling: Object with keys: enabled (boolean) - Set to false to disable recycling on this post; gap (integer) - Number of interval units between each repost. Required when enabling recycling.; gapFreq (one of: week, month) - Interval unit for the gap. Defaults to 'month'.; startDate (string) - When to start the recycling cycle. Defaults to the post's scheduledFor date.; expireCount (integer or null) - Stop recycling after this many copies have been created. Send null on update to clear this limit.; expireDate (string or null) - Stop recycling after this date, regardless of count. Send null on update to clear this limit.; contentVariations (list of string) - Content variations for recycled copies. Each recycle uses the next variation, in round-robin order. Recommended for X and Pinterest to avoid duplicate content ..."""
         client = _get_client()
@@ -38869,7 +40970,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def posts_update_post_metadata(
         post_id: str,
-        platform: Literal["youtube"],
+        platform: Literal["youtube", "facebook"],
         video_id: str | None = None,
         account_id: str | None = None,
         title: str | None = None,
@@ -38881,36 +40982,51 @@ def register_generated_tools(mcp, _get_client):
         made_for_kids: bool | None = None,
         contains_synthetic_media: bool | None = None,
         playlist_id: str | None = None,
+        default_language: str | None = None,
+        default_audio_language: str | None = None,
     ) -> str:
         """Update post metadata
 
-            Updates metadata of a published video on the specified platform without re-uploading. Currently only supported for YouTube. At least one updatable field is required.
+            Updates metadata of a published video on the specified platform without re-uploading. Supported on YouTube and Facebook. At least one updatable field is required.
+
+            ### Platforms
+
+            - YouTube: every field below.
+            - Facebook: `thumbnailUrl` only, on a feed video or Reel published through Zernio (post-based mode). It replaces the video's cover. Any other field, a Story, a non-video post, or direct `videoId` mode returns 400.
+            - Instagram: not supported. Meta does not allow changing a Reel or video cover after publishing, so set `instagramThumbnail` when creating the post.
 
             ### Two modes
 
             1. Post-based (video published through Zernio): pass the Zernio postId in the URL and platform in the body.
-            2. Direct video ID (video uploaded outside Zernio, e.g. directly to YouTube): use _ as the postId, and pass videoId + accountId + platform in the body. The accountId is the Zernio account ID for the connected YouTube channel.
+            2. Direct video ID (YouTube only, video uploaded outside Zernio): use _ as the postId, and pass videoId + accountId + platform in the body. The accountId is the Zernio account ID for the connected YouTube channel.
 
             Args:
                 post_id: Zernio post ID, or "_" when using direct video ID mode (required)
-                platform: The platform to update metadata on (required)
-                video_id: YouTube video ID (required for direct mode, ignored for post-based mode)
+                platform: The platform to update metadata on. Facebook accepts only thumbnailUrl. (required)
+                video_id: YouTube video ID (required for direct mode, ignored for post-based mode). Not supported for Facebook.
                 account_id: Zernio account ID. Required for direct mode. In post-based mode, picks which account's copy to update when the post was published to several accounts on this platform (required in that case).
                 title: New video title (max 100 characters for YouTube)
                 description: New video description
                 tags: Array of keyword tags (max 500 characters combined for YouTube)
                 category_id: YouTube video category ID
                 privacy_status: Video privacy setting
-                thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails.
+                thumbnail_url: Public URL of a custom thumbnail image.
+
+        - YouTube: JPEG, PNG, or GIF, max 50 MB, recommended 1280x720. Works on any video you own, including videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails.
+        - Facebook: JPEG or PNG, max 5 MB, served directly (no redirects). Replaces the cover of a feed video or Reel published through Zernio. Stories are not supported.
 
         **Errors:**
 
-        - 400 with the reason, no field updated: YouTube refuses the thumbnail (e.g. channel without the custom-thumbnail permission, video not owned by the connected channel), or the image URL cannot be fetched or has an unsupported format or size.
+        - 400 with the reason, no field updated: the platform refuses the thumbnail (e.g. YouTube channel without the custom-thumbnail permission, video not owned by the connected account), the Facebook post is not a feed video or Reel, or the image URL cannot be fetched or has an unsupported format or size.
         - 429: YouTube thumbnail rate limit (uploadRateLimitExceeded). Retry later, not immediately, because retries keep the channel over its limit.
-        - 500: any other temporary YouTube or network failure; can be retried.
+        - 404 (Facebook): Facebook cannot find the video. Right after publishing this can be Meta's processing lag, so retry shortly; otherwise the video was deleted or the Page no longer grants access.
+        - 503 (Facebook): Facebook is still processing the video, so the cover cannot be set yet. Retry in a few minutes.
+        - 500: any other temporary platform or network failure; can be retried.
                 made_for_kids: COPPA compliance flag. Set true for child-directed content (restricts comments, notifications, ad targeting).
                 contains_synthetic_media: AI-generated content disclosure. Set true if the video contains synthetic content that could be mistaken for real. YouTube may add a label.
-                playlist_id: YouTube playlist ID to add the video to (e.g. 'PLxxxxxxxxxxxxx'). Use GET /v1/accounts/{id}/youtube-playlists to list available playlists. Only playlists owned by the channel are supported."""
+                playlist_id: YouTube playlist ID to add the video to (e.g. 'PLxxxxxxxxxxxxx'). Use GET /v1/accounts/{id}/youtube-playlists to list available playlists. Only playlists owned by the channel are supported.
+                default_language: Language of the title and description (BCP-47, e.g. ko).
+                default_audio_language: Spoken language of the video (BCP-47, e.g. ko). When a video has no audio language, YouTube may set en-US once its metadata is updated."""
         client = _get_client()
         try:
             response = client.posts.update_post_metadata(
@@ -38927,6 +41043,8 @@ def register_generated_tools(mcp, _get_client):
                 made_for_kids=made_for_kids,
                 contains_synthetic_media=contains_synthetic_media,
                 playlist_id=playlist_id,
+                default_language=default_language,
+                default_audio_language=default_audio_language,
             )
             return _format_response(response)
         except Exception as e:
@@ -39919,6 +42037,7 @@ def register_generated_tools(mcp, _get_client):
         color: str | None = None,
         timezone: str | None = None,
         external_id: str | None = None,
+        content_retention: Literal["standard", "none"] | None = None,
     ) -> str:
         """Create profile
 
@@ -39938,7 +42057,8 @@ def register_generated_tools(mcp, _get_client):
             description
             color
             timezone: IANA timezone new posts on this profile use when they name no `timezone`. Omit to keep UTC. An unknown name returns 400.
-            external_id: Your own identifier for this profile, typically the id of the tenant or client it serves in your system (1 to 255 characters, trimmed). Unique among the profiles of the user who owns the profile: a duplicate returns 409 profile_external_id_conflict. Look a profile up by it with GET /v1/profiles?externalId=."""
+            external_id: Your own identifier for this profile, typically the id of the tenant or client it serves in your system (1 to 255 characters, trimmed). Unique among the profiles of the user who owns the profile: a duplicate returns 409 profile_external_id_conflict. Look a profile up by it with GET /v1/profiles?externalId=.
+            content_retention: Set `none` to create the profile with zero content retention, so nothing of its accounts is stored from the first sync. Only the team owner can, with a session or a full-access key; anyone else gets 403."""
         client = _get_client()
         try:
             response = client.profiles.create_profile(
@@ -39947,6 +42067,7 @@ def register_generated_tools(mcp, _get_client):
                 color=color,
                 timezone=timezone,
                 external_id=external_id,
+                content_retention=content_retention,
             )
             return _format_response(response)
         except Exception as e:
@@ -39990,10 +42111,11 @@ def register_generated_tools(mcp, _get_client):
         timezone: str | None = None,
         external_id: str | None = None,
         is_default: bool | None = None,
+        content_retention: Literal["standard", "none"] | None = None,
     ) -> str:
         """Update profile
 
-        Updates a profile's name, description, color, default timezone, externalId, or default status.
+        Updates a profile's name, description, color, default timezone, externalId, default status, or zero content retention.
 
         Args:
             profile_id: (required)
@@ -40002,7 +42124,8 @@ def register_generated_tools(mcp, _get_client):
             color
             timezone: IANA timezone new posts on this profile use when they name no `timezone`. Set to null to go back to UTC. An unknown name returns 400.
             external_id: Your own identifier for this profile (1 to 255 characters, trimmed). Set to null to clear it. A value another profile of the same owner already holds returns 409 profile_external_id_conflict.
-            is_default"""
+            is_default
+            content_retention: Turns zero content retention on (`none`) or off (`standard`) for this profile only, for new data within about a minute. Only the team owner can change it. `standard` answers 409 while the whole team has it on; `none` answers 409 during a WhatsApp verification of a number of this profile."""
         client = _get_client()
         try:
             response = client.profiles.update_profile(
@@ -40013,6 +42136,7 @@ def register_generated_tools(mcp, _get_client):
                 timezone=timezone,
                 external_id=external_id,
                 is_default=is_default,
+                content_retention=content_retention,
             )
             return _format_response(response)
         except Exception as e:
@@ -43402,16 +45526,13 @@ def register_generated_tools(mcp, _get_client):
 
         Returns your team's balance:
 
-        - the balance you can transfer
-        - the part of it that cannot be paid out to creators yet (`payoutLockedCents`, `payoutLocks`)
-        - top-ups still waiting for payment
-        - your latest top-ups
+        - the balance pay-per-use draws on
+        - funds added but still waiting for payment
+        - your latest payments into the balance and payout batch payments
 
-        A card top-up is in `availableCents` as soon as it is paid. Transfers to payees can use it from 7 days after the charge, so a stolen card cannot be turned straight into payouts.
+        Funds added by card are in `availableCents` as soon as they are paid. The balance never pays creators: payouts are charged to your card per payout batch.
 
-        A transfer debits its amount plus the fee added on top; the payee receives the full amount.
-
-        A card dispute or refund on a top-up is debited from the available balance and can make it negative. Transfers are refused until it is positive again.
+        A card dispute or refund is debited from the available balance and can make it negative. New payout batches are refused until it is positive again.
 
         A profile-scoped key answers 403, since the balance belongs to the whole team."""
         client = _get_client()
@@ -43423,16 +45544,18 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Get auto-recharge settings",
+            title="Get auto top-up settings",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def treasury_get_auto_recharge() -> str:
-        """Get auto-recharge settings
+        """Get auto top-up settings
 
-        Your balance's auto-recharge rule: when the balance drops below `belowCents`, the billing owner's saved card is charged back up to `toCents`, tax added on top as for any top-up.
+        Your balance's auto top-up rule: when the balance drops below `belowCents`, the billing owner's saved card is charged back up to `toCents`, tax added on top as for any top-up.
+
+        Account credit you held when you moved to the balance pays an auto top-up first, without a card charge or invoice (see `recentCreditRecharges` on `GET /v1/balance`). The card is charged only once that credit is used up, and only while the balance is still below `belowCents`.
 
         The first read gives the default rule, sized from your last 30 days of pay-per-use: below about a week of spend (at least $5), back up by about two more weeks (at least $20).
 
@@ -43448,7 +45571,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Update auto-recharge settings",
+            title="Update auto top-up settings",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -43461,26 +45584,26 @@ def register_generated_tools(mcp, _get_client):
         monthly_limit_cents: str | None = None,
         alert_below_cents: str | None = None,
     ) -> str:
-        """Update auto-recharge settings
+        """Update auto top-up settings
 
-        Changes the auto-recharge rule. Omitted fields keep their value.
+        Changes the auto top-up rule. Omitted fields keep their value.
 
-        A declined recharge is retried 1 hour, 1 day and 3 days later, with an email each time. After the last retry fails, auto-recharge switches off (`disabledReason: payment_failed`) until the card is updated. A top-up you make yourself resets the retries.
+        A declined auto top-up is retried 1 hour, 1 day and 3 days later, with an email each time. After the last retry fails, auto top-up switches off (`disabledReason: payment_failed`) until the card is updated. Adding funds yourself resets the retries.
 
-        A bank asking for 3D Secure counts as a decline: the charge happens while you are away, so the email asks you to top up in Billing.
+        A bank asking for 3D Secure counts as a decline: the charge happens while you are away, so the email asks you to add funds in Billing.
 
-        When this month's auto-recharges plus the next one would pass `monthlyLimitCents`, the card is not charged and you get one email that month. At $0, pay-per-use then answers 402 `usage_limit_reached`.
+        A pay-per-use request that finds the balance at $0 runs the auto top-up first (with the rule on, a saved card and no retry pending) and goes through when the charge lands, so a new balance at $0 is charged on first use.
+
+        When this month's auto top-ups plus the next one would pass `monthlyLimitCents`, the card is not charged and you get one email that month. At $0, pay-per-use then answers 402 `usage_limit_reached`.
 
         - 400: a field is out of range, or `toCents` is not more than $5 above `belowCents`.
-        - 409 `balance_billing_required`: the account is not on the prepaid balance.
-
-        Needs an owner, admin or billing admin, signed in or through a full-access key they created.
+        - 409 `balance_billing_required`: the ...
 
         Args:
-            enabled: Turns auto-recharge on or off. A rule switched off by failed charges stays off until the card is updated.
-            below_cents: Recharge when the balance drops below this, in cents. At least $5.
-            to_cents: Recharge back up to this, in cents. More than $5 above belowCents.
-            monthly_limit_cents: Most auto-recharge may add per calendar month (UTC), before tax. Null for no limit.
+            enabled: Turns auto top-up on or off. A rule switched off by failed charges stays off until the card is updated.
+            below_cents: Auto top-up charges the card when the balance drops below this, in cents. At least $5.
+            to_cents: Top back up to this, in cents. More than $5 above belowCents.
+            monthly_limit_cents: Most auto top-up may add per calendar month (UTC), before tax. Null for no limit.
             alert_below_cents: Email the billing owner once each time the balance drops below this. Null for no email."""
         client = _get_client()
         try:
@@ -43497,7 +45620,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create a top-up",
+            title="Add funds",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -43508,18 +45631,18 @@ def register_generated_tools(mcp, _get_client):
         method: Literal["card", "bank_transfer"],
         payment_method_id: str | None = None,
     ) -> str:
-        """Create a top-up
+        """Add funds
 
         Charges the billing owner's saved card (the default one, or `paymentMethodId`) `amountCents` plus tax, while the payer is present, and credits your balance `amountCents`. There is no card fee.
 
-        Tax is added on top of the amount (`taxCents`, `totalCents`): VAT at 21% in Spain, at the customer's country rate for EU consumers; an EU business with a valid VAT id is reverse charged (no VAT, `reverseCharge: true`); outside the EU there is none.
+        Tax is added on top of the amount (`taxCents`, `totalCents`): VAT at 21% in Spain, at the customer's country rate for EU consumers; an EU business whose VAT id VIES confirms is reverse charged (no VAT, `reverseCharge: true`); outside the EU there is none.
 
-        Usage paid from the balance carries no further VAT. Get the figures before paying with `POST /v1/balance/top-ups/preview`.
+        The invoice also states the VAT in euros at the ECB rate of its date. Usage paid from the balance carries no further VAT. Get the figures before paying with `POST /v1/balance/top-ups/preview`.
 
         Each top-up has an invoice, with VAT where it applies (`GET /v1/balance/top-ups/{topupId}/invoice`), and a card receipt (`GET /v1/balance/top-ups/{topupId}/receipt`).
 
         - `status: succeeded`: the card was charged. `amountCents` is credited to `availableCents` within seconds. Transfers to payees can use it from 7 days after the charge.
-        - `status: requires_action`: the bank asked for 3D Secure. Complete it with Stripe.js ...
+        - `status: ...
 
         Args:
             amount_cents: Amount to credit to your balance, in cents: $5 to $100,000. Tax is charged on top; no card fee. (required)
@@ -43591,7 +45714,7 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def treasury_get_topup_receipt(topup_id: str) -> str:
+    def treasury_get_topup_receipt(topup_id: str, download: bool | None = None) -> str:
         """Get a top-up receipt
 
         The receipt for a paid top-up or creator payout payment (`purpose: payout_batch`). `url` is the payment's invoice PDF when it has one (`format: pdf`), else Stripe's card receipt page (`format: page`); `invoiceUrl` and `receiptUrl` give each on its own.
@@ -43599,10 +45722,13 @@ def register_generated_tools(mcp, _get_client):
         The invoice alone is at getTopupInvoice. The link is short-lived, so fetch it when you need it. A profile-scoped key answers 403.
 
         Args:
-            topup_id: (required)"""
+            topup_id: (required)
+            download: true answers the card receipt itself as a PDF file (application/pdf, as an attachment) instead of the JSON links."""
         client = _get_client()
         try:
-            response = client.treasury.get_topup_receipt(topup_id=topup_id)
+            response = client.treasury.get_topup_receipt(
+                topup_id=topup_id, download=download
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -43618,7 +45744,7 @@ def register_generated_tools(mcp, _get_client):
     def treasury_get_topup_invoice(topup_id: str) -> str:
         """Get a top-up invoice
 
-        The invoice for a paid balance top-up: the PDF of the Stripe invoice it was paid through.
+        The invoice for funds added to the balance, once paid: the PDF of the Stripe invoice it was paid through.
 
         It shows the amount added to your balance and the tax charged on top: VAT where it applies, or a reverse charge note for an EU business with a valid VAT id. Usage paid from the balance carries no further VAT.
 
@@ -43649,7 +45775,7 @@ def register_generated_tools(mcp, _get_client):
 
         Alias of getTopupInvoice, kept for clients written against its first name.
 
-        The invoice for a paid balance top-up: the PDF of the Stripe invoice it was paid through.
+        The invoice for funds added to the balance, once paid: the PDF of the Stripe invoice it was paid through.
 
         It shows the amount added to your balance and the tax charged on top: VAT where it applies, or a reverse charge note for an EU business with a valid VAT id. Usage paid from the balance carries no further VAT.
 
@@ -43766,7 +45892,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create a transfer",
+            title="Create a transfer (removed)",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -43775,28 +45901,11 @@ def register_generated_tools(mcp, _get_client):
     def treasury_create_transfer(
         payee_id: str, amount_cents: int, reference: dict[str, Any] | None = None
     ) -> str:
-        """Create a transfer
+        """Create a transfer (removed)
 
-        Moves money from your balance to a payee.
+        Removed on 2026-11-06: the balance no longer pays creators. Every call answers 410.
 
-        ### Fee
-
-        The payee receives the full `amountCents`. Zernio's fee (4%, 50 cent minimum) is added on top, so your balance is debited `totalCents` = `amountCents` + `feeCents`.
-
-        ### Who can call it
-
-        Needs an owner, admin or billing admin, signed in or through a full-access key they created. A profile-scoped key answers 403.
-
-        ### Errors
-
-        - 402: the balance does not cover the amount plus the fee.
-        - 402: the balance is negative after a dispute or refund of a card top-up (\"Your balance is negative after a dispute or refund of a card top-up. Add funds to cover it before sending transfers.\").
-        - 409: the payee has not finished onboarding, or the Idempotency-Key is still processing.
-        - 409 `payout_funds_locked`: money from a card top-up can be transferred from 7 days after the charge. The message names the amount and the day (\"$100.00 from your card top-up on Oct 29 can be paid out from Nov 5.\").
-
-        ### Retries
-
-        A same-key retry never makes the transfer ...
+        Pay creators with one card payment per payout batch: `POST /v1/creator-campaigns/{campaignId}/payout-batches`. `GET /v1/transfers` still lists the transfers payout batches made.
 
         Args:
             payee_id: 24-character payee id (required)
@@ -44547,14 +46656,18 @@ def register_generated_tools(mcp, _get_client):
 
         Dry-run the full post validation pipeline without publishing. Catches issues like missing media for Instagram/TikTok/YouTube, hashtag limits, invalid thread formats, Facebook Reel requirements, and character limit violations.
 
-        Accepts the same body as POST /v1/posts. Does NOT validate accounts, process media, or track usage. Account lookups are limit-only: a twitter accountId is resolved, scoped to the caller, only to pick the 280 vs 25000 character limit. Missing, foreign, or invalid ids fall back to 280 and never error.
+        Accepts the same body as POST /v1/posts. Does NOT validate accounts, transform media, or track usage. Account lookups are limit-only: a twitter accountId is resolved, scoped to the caller, only to pick the 280 vs 25000 character limit. Missing, foreign, or invalid ids fall back to 280 and never error.
 
-        Returns errors for failures and warnings for near-limit content (>90% of character limit).
+        Every image, gif and video URL in `mediaItems` and `customMedia` is fetched and checked:
+
+        - A file that is not a real image, video or PDF (wrong bytes, truncated, corrupt) is an error with code `MEDIA_UNDECODABLE`.
+        - Images are checked at header level. The full file is decoded only when the header is not enough. Use POST /v1/tools/validate/media for a full pixel decode.
+        - A URL our servers cannot fetch is a warning, not an error, because the platform may still ...
 
         Args:
             content: Post text content
             platforms: Target platforms (same format as POST /v1/posts) Each item is an object with keys: platform (one of: twitter, instagram, tiktok, youtube, facebook, linkedin, bluesky, threads, reddit, pinterest, telegram, snapchat, googlebusiness, discord, slack; required); accountId (string) - Account to validate against. For twitter, resolves X Premium status to apply the 25000 character limit instead of 280.; customContent (string); platformSpecificData (object); customMedia (list of objects with keys type, url, fileId, accountId, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed) (required)
-            media_items: Root media items shared across platforms Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`.; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok"""
+            media_items: Root media items shared across platforms Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`. A Google Drive share link is accepted ...; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok"""
         client = _get_client()
         try:
             response = client.validate.validate_post(
@@ -44575,9 +46688,16 @@ def register_generated_tools(mcp, _get_client):
     def validate_media(url: str) -> str:
         """Validate media URL
 
-        Check if a media URL is accessible and return metadata (content type, file size) plus per-platform size limit comparisons.
+        Check that a media URL is reachable and that its bytes are a real image, video or PDF, then return metadata (detected format, file size, dimensions) plus per-platform size limit comparisons.
 
-        Performs a HEAD request (with GET fallback) to detect content type and size. Rejects private/localhost URLs for SSRF protection.
+        `valid: true` means the content was verified, not just the extension or Content-Type:
+
+        - Images up to 32 MB are fully decoded (`inspection: decoded`).
+        - Videos, PDFs and larger images are verified by their file signature and header (`inspection: header`).
+        - The type and format come from the bytes, not the Content-Type header.
+        - Corrupt, truncated or non-media files return `valid: false` with code `MEDIA_UNDECODABLE`.
+        - Private/localhost URLs are rejected for SSRF protection.
+        - A Google Drive share link is checked against the file behind it. A file not shared as \"Anyone with the link\" returns `valid: false` with code `MEDIA_URL_UNREACHABLE`.
 
         Platform limits are sourced from each platform's actual upload constraints.
 
@@ -45403,6 +47523,8 @@ def register_generated_tools(mcp, _get_client):
                 "call.ended",
                 "call.failed",
                 "call.permission_request",
+                "call.transcript_segment",
+                "call.recording_ready",
                 "message.sent",
                 "message.edited",
                 "message.deleted",
@@ -45413,6 +47535,7 @@ def register_generated_tools(mcp, _get_client):
                 "reaction.received",
                 "referral.received",
                 "comment.received",
+                "mention.received",
                 "review.new",
                 "review.updated",
                 "review.deleted",
@@ -45423,6 +47546,8 @@ def register_generated_tools(mcp, _get_client):
                 "ad.updated",
                 "campaign.created",
                 "campaign.updated",
+                "ad_set.created",
+                "ad_set.updated",
                 "ad.review.approved",
                 "ad.review.rejected",
                 "ad.delivery_issue",
@@ -45492,6 +47617,9 @@ def register_generated_tools(mcp, _get_client):
                 "campaign_participant.joined",
                 "campaign_participant.suspended",
                 "campaign_participant.removed",
+                "balance.low",
+                "balance.empty",
+                "balance.charged",
             ]
         ]
         | None,
@@ -45621,6 +47749,8 @@ def register_generated_tools(mcp, _get_client):
                 "call.ended",
                 "call.failed",
                 "call.permission_request",
+                "call.transcript_segment",
+                "call.recording_ready",
                 "message.sent",
                 "message.edited",
                 "message.deleted",
@@ -45631,6 +47761,7 @@ def register_generated_tools(mcp, _get_client):
                 "reaction.received",
                 "referral.received",
                 "comment.received",
+                "mention.received",
                 "review.new",
                 "review.updated",
                 "review.deleted",
@@ -45641,6 +47772,8 @@ def register_generated_tools(mcp, _get_client):
                 "ad.updated",
                 "campaign.created",
                 "campaign.updated",
+                "ad_set.created",
+                "ad_set.updated",
                 "ad.review.approved",
                 "ad.review.rejected",
                 "ad.delivery_issue",
@@ -45710,6 +47843,9 @@ def register_generated_tools(mcp, _get_client):
                 "campaign_participant.joined",
                 "campaign_participant.suspended",
                 "campaign_participant.removed",
+                "balance.low",
+                "balance.empty",
+                "balance.charged",
             ]
         ]
         | None = None,
@@ -45966,6 +48102,12 @@ def register_generated_tools(mcp, _get_client):
             "calendar.event.created",
             "calendar.event.updated",
             "calendar.event.deleted",
+            "email.sent",
+            "email.opened",
+            "email.link_clicked",
+            "email.thread_replied",
+            "email.send_failed",
+            "email.bounced",
             "file.created",
             "file.updated",
             "file.deleted",
@@ -46014,7 +48156,10 @@ def register_generated_tools(mcp, _get_client):
             "call.ended",
             "call.failed",
             "call.permission_request",
+            "call.transcript_segment",
+            "call.recording_ready",
             "comment.received",
+            "mention.received",
             "review.new",
             "review.updated",
             "review.deleted",
@@ -46024,6 +48169,8 @@ def register_generated_tools(mcp, _get_client):
             "ad.updated",
             "campaign.created",
             "campaign.updated",
+            "ad_set.created",
+            "ad_set.updated",
             "ad.review.approved",
             "ad.review.rejected",
             "ad.delivery_issue",
@@ -46070,6 +48217,9 @@ def register_generated_tools(mcp, _get_client):
             "commerce.order.created",
             "commerce.order.updated",
             "commerce.order.refunded",
+            "balance.low",
+            "balance.empty",
+            "balance.charged",
             "api.changelog.published",
         ]
         | None = None,

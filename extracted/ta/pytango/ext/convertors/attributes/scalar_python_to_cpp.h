@@ -15,19 +15,8 @@ namespace PyDeviceAttribute {
 
 template <int tangoTypeConst>
 static inline void scalar_value_from_python_into_cpp(Tango::DeviceAttribute &dev_attr, const py::object &py_value) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-
-    TangoScalarType value;
-    python_scalar_to_cpp<tangoTypeConst>::convert(py_value, value);
-    dev_attr << value;
-}
-
-template <>
-inline void scalar_value_from_python_into_cpp<Tango::DEV_STRING>(Tango::DeviceAttribute &dev_attr,
-                                                                 const py::object &py_value) {
-    Tango::DevString value = from_python_str_to_cpp_char(py_value);
-    dev_attr << value;
-    delete[] value;
+    TangoScalar<tangoTypeConst> value(py_value);
+    dev_attr << value.get();
 }
 
 template <>
@@ -84,18 +73,13 @@ inline void scalar_value_from_python_into_cpp<Tango::DEV_ENCODED>(Tango::DeviceA
 namespace PyWAttribute {
 template <int tangoTypeConst>
 inline void scalar_value_from_python_into_cpp(Tango::WAttribute &att, py::object &value) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-
-    TangoScalarType cpp_value;
-    python_scalar_to_cpp<tangoTypeConst>::convert(value, cpp_value);
-    att.set_write_value(cpp_value);
-}
-
-template <>
-inline void scalar_value_from_python_into_cpp<Tango::DEV_ENCODED>([[maybe_unused]] Tango::WAttribute &att,
-                                                                  [[maybe_unused]] py::object &value) {
-    Tango::Except::throw_exception("PyDs_WrongPythonDataTypeForAttribute",
-                                   "set_write_value is not supported for DEV_ENCODED attributes.",
-                                   "set_write_value()");
+    if constexpr(tangoTypeConst == Tango::DEV_ENCODED) {
+        Tango::Except::throw_exception("PyDs_WrongPythonDataTypeForAttribute",
+                                       "set_write_value is not supported for DEV_ENCODED attributes.",
+                                       "set_write_value()");
+    } else {
+        TangoScalar<tangoTypeConst> cpp_value(value);
+        att.set_write_value(cpp_value.get());
+    }
 }
 } // namespace PyWAttribute

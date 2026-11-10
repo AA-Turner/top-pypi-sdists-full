@@ -17,7 +17,7 @@ class OfferingTermsOfServiceCreate:
         terms_of_service (Union[Unset, str]):
         terms_of_service_link (Union[Unset, str]):
         version (Union[Unset, str]):
-        is_active (Union[Unset, bool]):
+        is_active (Union[Unset, bool]):  Default: False.
         requires_reconsent (Union[Unset, bool]): If True, user will be asked to re-consent to the terms of service when
             the terms of service are updated.
         grace_period_days (Union[Unset, int]): Number of days before outdated consents are automatically revoked. Only
@@ -28,7 +28,7 @@ class OfferingTermsOfServiceCreate:
     terms_of_service: Union[Unset, str] = UNSET
     terms_of_service_link: Union[Unset, str] = UNSET
     version: Union[Unset, str] = UNSET
-    is_active: Union[Unset, bool] = UNSET
+    is_active: Union[Unset, bool] = False
     requires_reconsent: Union[Unset, bool] = UNSET
     grace_period_days: Union[Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)

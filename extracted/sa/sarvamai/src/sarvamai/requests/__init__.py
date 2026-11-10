@@ -94,6 +94,7 @@ if typing.TYPE_CHECKING:
     from .doc_digitization_page_error import DocDigitizationPageErrorParams
     from .doc_digitization_upload_files_response import DocDigitizationUploadFilesResponseParams
     from .document_job_export_status_response import DocumentJobExportStatusResponseParams
+    from .dubbing_error_response import DubbingErrorResponseParams
     from .dubbing_export_item import DubbingExportItemParams
     from .dubbing_export_status_data import DubbingExportStatusDataParams
     from .dubbing_export_status_response import DubbingExportStatusResponseParams
@@ -333,6 +334,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocDigitizationPageErrorParams": ".doc_digitization_page_error",
     "DocDigitizationUploadFilesResponseParams": ".doc_digitization_upload_files_response",
     "DocumentJobExportStatusResponseParams": ".document_job_export_status_response",
+    "DubbingErrorResponseParams": ".dubbing_error_response",
     "DubbingExportItemParams": ".dubbing_export_item",
     "DubbingExportStatusDataParams": ".dubbing_export_status_data",
     "DubbingExportStatusResponseParams": ".dubbing_export_status_response",
@@ -590,6 +592,7 @@ __all__ = [
     "DocDigitizationPageErrorParams",
     "DocDigitizationUploadFilesResponseParams",
     "DocumentJobExportStatusResponseParams",
+    "DubbingErrorResponseParams",
     "DubbingExportItemParams",
     "DubbingExportStatusDataParams",
     "DubbingExportStatusResponseParams",

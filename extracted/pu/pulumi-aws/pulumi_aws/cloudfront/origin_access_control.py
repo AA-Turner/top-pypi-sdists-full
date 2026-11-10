@@ -28,8 +28,8 @@ class OriginAccessControlArgs:
         The set of arguments for constructing a OriginAccessControl resource.
 
         :param pulumi.Input[_builtins.str] origin_access_control_origin_type: The type of origin that this Origin Access Control is for. Valid values are `lambda`, `mediapackagev2`, `mediastore`, and `s3`.
-        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
-        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
+        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         :param pulumi.Input[_builtins.str] description: The description of the Origin Access Control. Defaults to "Managed by Pulumi" if omitted.
         :param pulumi.Input[_builtins.str] name: A name that identifies the Origin Access Control.
         """
@@ -57,7 +57,7 @@ class OriginAccessControlArgs:
     @pulumi.getter(name="signingBehavior")
     def signing_behavior(self) -> pulumi.Input[_builtins.str]:
         """
-        Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
+        Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
         """
         return pulumi.get(self, "signing_behavior")
 
@@ -69,7 +69,7 @@ class OriginAccessControlArgs:
     @pulumi.getter(name="signingProtocol")
     def signing_protocol(self) -> pulumi.Input[_builtins.str]:
         """
-        Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         """
         return pulumi.get(self, "signing_protocol")
 
@@ -120,8 +120,8 @@ class _OriginAccessControlState:
         :param pulumi.Input[_builtins.str] etag: The current version of this Origin Access Control.
         :param pulumi.Input[_builtins.str] name: A name that identifies the Origin Access Control.
         :param pulumi.Input[_builtins.str] origin_access_control_origin_type: The type of origin that this Origin Access Control is for. Valid values are `lambda`, `mediapackagev2`, `mediastore`, and `s3`.
-        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
-        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
+        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         """
         if arn is not None:
             pulumi.set(__self__, "arn", arn)
@@ -202,7 +202,7 @@ class _OriginAccessControlState:
     @pulumi.getter(name="signingBehavior")
     def signing_behavior(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
+        Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
         """
         return pulumi.get(self, "signing_behavior")
 
@@ -214,7 +214,7 @@ class _OriginAccessControlState:
     @pulumi.getter(name="signingProtocol")
     def signing_protocol(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         """
         return pulumi.get(self, "signing_protocol")
 
@@ -256,6 +256,21 @@ class OriginAccessControl(pulumi.CustomResource):
             signing_protocol="sigv4")
         ```
 
+        ### Lambda Web Function Origin
+
+        Lambda Web Function origins support only the `always-amz-auth` signing behavior. Use `sigv4` for a regional endpoint (hostname ending in `.lambda-web.<region>.on.aws`) and `sigv4a` for a global endpoint (hostname ending in `.lambda-web.global.on.aws`). See [Restrict access to an AWS Lambda Web Function origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html) in the CloudFront Developer Guide.
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.cloudfront.OriginAccessControl("example",
+            name="example",
+            origin_access_control_origin_type="lambda",
+            signing_behavior="always-amz-auth",
+            signing_protocol="sigv4a")
+        ```
+
         ## Import
 
         Using `pulumi import`, import CloudFront Origin Access Control using the `id`. For example:
@@ -270,8 +285,8 @@ class OriginAccessControl(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: The description of the Origin Access Control. Defaults to "Managed by Pulumi" if omitted.
         :param pulumi.Input[_builtins.str] name: A name that identifies the Origin Access Control.
         :param pulumi.Input[_builtins.str] origin_access_control_origin_type: The type of origin that this Origin Access Control is for. Valid values are `lambda`, `mediapackagev2`, `mediastore`, and `s3`.
-        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
-        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
+        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         """
         ...
     @overload
@@ -298,6 +313,21 @@ class OriginAccessControl(pulumi.CustomResource):
             origin_access_control_origin_type="s3",
             signing_behavior="always",
             signing_protocol="sigv4")
+        ```
+
+        ### Lambda Web Function Origin
+
+        Lambda Web Function origins support only the `always-amz-auth` signing behavior. Use `sigv4` for a regional endpoint (hostname ending in `.lambda-web.<region>.on.aws`) and `sigv4a` for a global endpoint (hostname ending in `.lambda-web.global.on.aws`). See [Restrict access to an AWS Lambda Web Function origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html) in the CloudFront Developer Guide.
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example = aws.cloudfront.OriginAccessControl("example",
+            name="example",
+            origin_access_control_origin_type="lambda",
+            signing_behavior="always-amz-auth",
+            signing_protocol="sigv4a")
         ```
 
         ## Import
@@ -380,8 +410,8 @@ class OriginAccessControl(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] etag: The current version of this Origin Access Control.
         :param pulumi.Input[_builtins.str] name: A name that identifies the Origin Access Control.
         :param pulumi.Input[_builtins.str] origin_access_control_origin_type: The type of origin that this Origin Access Control is for. Valid values are `lambda`, `mediapackagev2`, `mediastore`, and `s3`.
-        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
-        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        :param pulumi.Input[_builtins.str] signing_behavior: Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
+        :param pulumi.Input[_builtins.str] signing_protocol: Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -395,6 +425,26 @@ class OriginAccessControl(pulumi.CustomResource):
         __props__.__dict__["signing_behavior"] = signing_behavior
         __props__.__dict__["signing_protocol"] = signing_protocol
         return OriginAccessControl(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            etag: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            origin_access_control_origin_type: pulumi.Input[Optional[_builtins.str]] = None,
+            signing_behavior: pulumi.Input[Optional[_builtins.str]] = None,
+            signing_protocol: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["arn"] = arn
+        __props__["description"] = description
+        __props__["etag"] = etag
+        __props__["name"] = name
+        __props__["originAccessControlOriginType"] = origin_access_control_origin_type
+        __props__["signingBehavior"] = signing_behavior
+        __props__["signingProtocol"] = signing_protocol
+        return pulumi.runtime.exists_resource(None, 'aws:cloudfront/originAccessControl:OriginAccessControl', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -440,7 +490,7 @@ class OriginAccessControl(pulumi.CustomResource):
     @pulumi.getter(name="signingBehavior")
     def signing_behavior(self) -> pulumi.Output[_builtins.str]:
         """
-        Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `never`, and `no-override`.
+        Specifies which requests CloudFront signs. Specify `always` for the most common use case. Allowed values: `always`, `always-amz-auth`, `never`, and `no-override`. `always-amz-auth` is supported only for Lambda Web Function origins, and is the only value those origins support.
         """
         return pulumi.get(self, "signing_behavior")
 
@@ -448,7 +498,7 @@ class OriginAccessControl(pulumi.CustomResource):
     @pulumi.getter(name="signingProtocol")
     def signing_protocol(self) -> pulumi.Output[_builtins.str]:
         """
-        Determines how CloudFront signs (authenticates) requests. The only valid value is `sigv4`.
+        Determines how CloudFront signs (authenticates) requests. Valid values are `sigv4` and `sigv4a`.
         """
         return pulumi.get(self, "signing_protocol")
 

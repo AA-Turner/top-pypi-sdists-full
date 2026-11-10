@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +9,6 @@ if TYPE_CHECKING:
     from office365.directory.synchronization.job_subject import SynchronizationJobSubject
 
 
-@dataclass
 class SynchronizationLinkedObjects(ClientValue):
     manager: SynchronizationJobSubject | None = None
     members: ClientValueCollection[SynchronizationJobSubject] | None = None

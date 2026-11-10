@@ -8,9 +8,9 @@ for `cozy_runtime.derive.*`), folds constants with a shared
 evaluator over literal and arithmetic nodes and values of the package's committed JSON files
 (`author.data_values`), and translates every interface-bearing declaration into real types built
 from the CLOSED author vocabulary — `msgspec.defstruct`, `enum.Enum`, `typing.Literal`/
-`Annotated`, cozy-runtime's own file, marker and service classes. Rendering is then
-`schema.render`, the SAME renderer the import path uses, so the two derivations cannot drift
-by construction.
+`Annotated`, cozy-runtime's own file, marker and service classes, then renders them with
+`schema.render`. This is the ONLY describer: nothing else derives a package interface, and no
+caller falls back to importing the package.
 
 Anything outside the closed vocabulary — a name bound to no definition in the tree, a
 computed value (call, comprehension, unknown attribute) in an interface position, a dynamic
@@ -36,7 +36,7 @@ import types
 import typing
 from collections.abc import Callable, Mapping, Sequence, Set
 from dataclasses import dataclass, field, replace
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import msgspec
@@ -45,27 +45,16 @@ import cozy_runtime
 import cozy_runtime.internal.locked_sources as locked
 import cozy_runtime.internal.memo_identity as memo_identity
 import cozy_runtime.internal.package_interface as package_interface
+import cozy_runtime.internal.static_contract as static_contract
 import cozy_runtime.internal.static_invocable as static_invocable
-from cozy_runtime import _interpreter, author
+from cozy_runtime import _interpreter
 from cozy_runtime.author._markers import MODEL_DEFAULT, PREFLIGHT
 from cozy_runtime.author._memo import memo_policy, one_memo
-from cozy_runtime.author._model import (
-    ENCODED_LEAVES,
-    MIN_BITS,
-    PHASES,
-    Model,
-    attention_bits,
-    closed,
-    component_method,
-    component_set,
-    coverage_patterns,
-)
+from cozy_runtime.author._model import Model, component_method, component_set
 from cozy_runtime.author._model_defaults import (
     model_components,
     model_defaults,
     model_on_demand,
-    model_phases,
-    model_prepared_use,
 )
 from cozy_runtime.author._recipes import CALIBRATED_ENTRYPOINT, canonical, fingerprint, outputs
 from cozy_runtime.author._recipes import ENTRYPOINT as RECIPES_ENTRYPOINT
@@ -81,6 +70,7 @@ from cozy_runtime.author._signature import (
     described,
 )
 from cozy_runtime.author._walker import is_struct
+from cozy_runtime.internal import vocabulary as author
 from cozy_runtime.internal.canonical import Json
 
 CONSTRUCT_CHARS = 96
@@ -135,8 +125,8 @@ class Installed:
 
     A package may build its surface out of a dependency's declarations — a `Model` subclass,
     a shared request struct — and that dependency's source ships in its wheel. So the reader
-    reads it, confined to distributions declaring a `cozy.application` entry point: the same
-    fact `discovery.py` calls an app. torch declares none, so torch is never in the tree, and
+    reads it, confined to distributions declaring a `cozy.application` entry point, which
+    is what makes one an app. torch declares none, so torch is never in the tree, and
     site-packages is never a root. Their modules are followed for TYPES only, never scanned
     for registrations: another package's callables are its own.
     """
@@ -162,6 +152,7 @@ class ModuleRef:
 @dataclass(frozen=True, slots=True)
 class VocabModule:
     prefix: str
+    module: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +169,7 @@ _VOCAB_MODULES = {
     "typing": "typing",
     "collections.abc": "abc",
     "enum": "enum",
-    "cozy_runtime.author": "author",
+    **dict.fromkeys(author.MODULES, "author"),
 }
 #: Runtime modules a package builds its surface from: followed for types, models and constants.
 _TRUSTED_ROOTS = ("cozy_runtime.derive", "cozy_runtime.vlm")
@@ -246,6 +237,15 @@ def fold_constant(node: ast.expr, other: Callable[[ast.expr], Any]) -> Any:
             for key, value in zip(node.keys, node.values, strict=True)
             if key is not None
         }
+    if isinstance(node, ast.Subscript):
+        # `STRENGTHS[0]`, `TIERS["2k"]`: one member of a folded tuple, list or dict.
+        value, key = fold_constant(node.value, other), fold_constant(node.slice, other)
+        if not isinstance(value, (tuple, list, dict)) or isinstance(key, (bool, slice)):
+            raise Unfolded(node, "a subscript of something not a folded tuple, list or dict")
+        try:
+            return value[key]
+        except (IndexError, KeyError, TypeError) as exc:
+            raise Unfolded(node, f"an index its value doesn't have ({exc})") from exc
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd, ast.Invert)):
         operand = fold_constant(node.operand, other)
         if isinstance(operand, bool) or not isinstance(operand, (int, float)):
@@ -275,7 +275,7 @@ def _trusted_module(name: str) -> bool:
     return any(name == root or name.startswith(root + ".") for root in _TRUSTED_ROOTS)
 
 
-#: The entry-point group `discovery.py` reads. A distribution that declares one IS a cozy
+#: The entry-point group that names an app. A distribution that declares one IS a cozy
 #: package; every other distribution beside it — torch included — is not, and is never read.
 _APPLICATION_GROUP = "[cozy.application]"
 _BUILTIN_TYPES: dict[str, object] = {
@@ -296,12 +296,15 @@ _ENUM_BASES: dict[str, type[enum.Enum]] = {
     "IntEnum": enum.IntEnum,
     "StrEnum": enum.StrEnum,
 }
-#: The shot and upscale contract (xs-139): types, and bases a package's struct extends.
-_VIDEO_STRUCTS = (
-    "Plate",
-    "ContinueFrom",
-    "ShotResult",
-    "UpscaleResult",
+#: Author-surface structs a package's struct may extend: the image interface (cr-219), a box's
+#: media values and its pickup (design/tools.md).
+_AUTHOR_STRUCTS = (
+    "ImageRequest",
+    "ImageResult",
+    "Image",
+    "Video",
+    "Audio",
+    "Pickup",
     "Invocation",
 )
 #: Author-surface classes that translate to themselves in a TYPE position.
@@ -310,6 +313,7 @@ _AUTHOR_TYPES = (
     "ImageFile",
     "AudioFile",
     "VideoFile",
+    "Latents",
     "Tree",
     "ModelArtifact",
     "Context",
@@ -320,12 +324,6 @@ _AUTHOR_TYPES = (
     "QuantizationPlan",
     "SelectionPlan",
     "EncodingRule",
-    "ImageRequest",
-    "ImageResult",
-    "PictureRequest",
-    "Reference",
-    "Picture",
-    "PlacedPicture",
     "Box",
     "Region",
     "AspectRatio",
@@ -333,22 +331,9 @@ _AUTHOR_TYPES = (
     "Steps",
     "Guidance",
     "NegativePrompt",
-    "Follow",
-    "Preset",
-    "Latents",
-    *_VIDEO_STRUCTS,
+    "Prompt",
+    *_AUTHOR_STRUCTS,
     *(cls.__name__ for cls in SERVICES.values()),
-)
-#: Author-surface structs a package's struct may extend: the image interface (cr-219) and the
-#: named references (xs-135, xs-139).
-_AUTHOR_STRUCTS = (
-    "ImageRequest",
-    "PictureRequest",
-    "ImageResult",
-    "Reference",
-    "Picture",
-    "PlacedPicture",
-    *_VIDEO_STRUCTS,
 )
 #: Author-surface callables a folded constant may reach: each validates its own arguments.
 #: `data_values` reads committed JSON through the same function as the imported app.
@@ -362,7 +347,16 @@ _AUTHOR_VALUES = (
     "Bound",
     "Shape",
     "Memoize",
-    "Node",
+    "Prompt",
+    "Range",
+    "Count",
+    "Total",
+    "Ratios",
+    "Snap",
+    "Spans",
+    "Label",
+    "Placeholder",
+    "Advanced",
     "data_values",
     "QuantizationPlan",
     "SelectionPlan",
@@ -396,33 +390,31 @@ _SEQUENCE_BUILTINS: dict[str, Callable[[Sequence[object]], object]] = {
 #: A fold carries no local names unless a comprehension binds its own target.
 _NO_SCOPE: Mapping[str, object] = types.MappingProxyType({})
 _MODEL_MEMBERS = frozenset(name for name in dir(Model) if not name.startswith("_"))
-#: Each App registration method's closed keyword set (`author.App`).
-_CHILD_TASK_KEYWORDS = frozenset(
+#: Method decorators that make something other than a plain function on the class.
+_DESCRIPTORS = frozenset(
+    {"property", "staticmethod", "classmethod", "cached_property", "setter", "getter", "deleter"}
+)
+#: `app.entrypoint`'s closed keyword set (`author.App`).
+_ENTRYPOINT_KEYWORDS = frozenset(
     {
         "name",
-        "preflight",
-        "phases",
-        "prepared_use",
-        "demand",
-        "memoize",
-        "memo_version",
-        "memo_dependencies",
         "defaults",
         "components",
+        "memoize",
         "on_demand",
-        "publishes",
-        "emits_media",
-        "weights",
         "accelerator",
+        "weights",
+        "private",
+        "preflight",
     }
 )
+#: `app.tool`'s own: the box's (`author.Tool`).
+_TOOL_KEYWORDS = frozenset({"label", "named", "reserved", "ui"})
 _APP_KEYWORDS = {
-    "entrypoint": _CHILD_TASK_KEYWORDS | {"hidden", "node"},
-    "child_task": _CHILD_TASK_KEYWORDS,
+    "entrypoint": _ENTRYPOINT_KEYWORDS,
+    "tool": _ENTRYPOINT_KEYWORDS | _TOOL_KEYWORDS,
 }
-_INVOCABLE_KEYWORDS = frozenset(
-    {"memoize", "defaults", "components", "memo_version", "memo_dependencies"}
-)
+_INVOCABLE_KEYWORDS = frozenset({"memoize", "defaults", "components"})
 
 
 # -------------------------------------------------------------------------- the reader
@@ -441,11 +433,13 @@ class Reader:
         *,
         dependency_roots: Sequence[Path] = (),
         wheels: Mapping[str, locked.LockedWheel] | None = None,
-        own: frozenset[str] | None = None,
+        own: frozenset[str],
     ) -> None:
         self.project = project
         self.project_roots = (project / "src", project)
-        #: top-level import names that are this package's own; None: whatever its roots hold
+        #: the package's own top-level import names: only these are its modules, read for its
+        #: registrations and held to its contract. Never whatever a root holds: a root can be
+        #: site-packages.
         self.own = own
         self.roots = (*self.project_roots, *dependency_roots)
         #: published callees, read from the wheels the project's uv.lock pins when needed
@@ -453,6 +447,10 @@ class Reader:
         self.runtime_root = Path(cozy_runtime.__file__).resolve().parent.parent
         self.installed = _installed_packages(_site_packages(self.runtime_root))
         self.modules: dict[str, Module] = {}
+        #: callee packages read so far: an unpacked wheel's root, and a package's interface
+        self.fetched: dict[str, Path] = {}
+        self.callees: dict[Path, dict[str, Json] | None] = {}
+        self.sites: dict[Path, dict[str, CozyPackage] | None] = {}
         self.structs: dict[tuple[Path, str], type[msgspec.Struct] | None] = {}
         self.enums: dict[tuple[Path, str], type[enum.Enum]] = {}
         self.models: dict[tuple[Path, str], ModelSpec] = {}
@@ -527,6 +525,7 @@ class Reader:
             raise StaticRefusal(str(exc), code="static_module") from exc
         if root is not None:
             self.roots = (*self.roots, root)
+            self.fetched[top] = root
         return root is not None
 
     def application_module(self, name: str) -> Module:
@@ -579,11 +578,7 @@ class Reader:
             return None
 
     def _own(self, top: str) -> bool:
-        if self.own is not None:
-            return top in self.own
-        return any(
-            (root / top).is_dir() or (root / f"{top}.py").is_file() for root in self.project_roots
-        )
+        return top in self.own
 
     def _tree_tops(self, name: str) -> set[str]:
         top = name.split(".")[0]
@@ -612,7 +607,7 @@ class Reader:
             if isinstance(base, ModuleRef):
                 return self.lookup(base.module, node.attr, node, origin=module)
             if isinstance(base, VocabModule):
-                return self._vocab(module, node, f"{base.prefix}.{node.attr}")
+                return self._vocab(module, node, f"{base.prefix}.{node.attr}", base.module)
             if isinstance(base, External):
                 return External(f"{base.spelling}.{node.attr}")
             self.refuse(module, node, "an attribute of something that is not a module")
@@ -659,22 +654,22 @@ class Reader:
             return Assigned(module, stmt, stmt.value)
         self.refuse(module, stmt, "a binding form the static reader does not follow")
 
-    def _vocab(self, module: Module, node: ast.AST, key: str) -> Vocab:
-        """A vocabulary name, refused with its replacement when Runtime 0.36.0 removed it."""
-        prefix, _, name = key.partition(".")
-        if prefix == "author" and name in author._REMOVED:
+    def _vocab(self, module: Module, node: ast.AST, key: str, source: str = "") -> Vocab:
+        """A vocabulary name. One its module does not export is refused, with its home."""
+        name = key.partition(".")[2]
+        if source in author.MODULES and name not in author.MODULES[source]:
+            home = author.home(name)
             self.refuse(
                 module,
                 node,
-                f"cozy_runtime.author.{name} is gone in Runtime 0.36.0 ({author._REMOVED[name]} "
-                "replaces it): this package was built for Runtime < 0.36; use its newest release",
+                f"{source} has no {name}" + (f": import it from {home}" if home else ""),
                 "removed_name",
             )
         return Vocab(key)
 
     def _module_binding(self, module: Module, target: str, stmt: ast.stmt) -> Resolved:
         if target in _VOCAB_MODULES:
-            return VocabModule(_VOCAB_MODULES[target])
+            return VocabModule(_VOCAB_MODULES[target], target)
         if _trusted_module(target) or self._tree_tops(target):
             return ModuleRef(self.module(target, where=(module, stmt)))
         return External(target)
@@ -684,8 +679,10 @@ class Reader:
     ) -> Resolved:
         if base is None:
             self.refuse(module, stmt, "a relative import above the package", "static_module")
+        if base == "cozy_runtime.accel" and name not in author.MODULES[base]:
+            return External(f"{base}.{name}")  # its modules: kernels, fusion, stepcache, ...
         if base in _VOCAB_MODULES:
-            return self._vocab(module, stmt, f"{_VOCAB_MODULES[base]}.{name}")
+            return self._vocab(module, stmt, f"{_VOCAB_MODULES[base]}.{name}", base)
         if base.startswith("cozy_runtime.") and not _trusted_module(base):
             return External(f"{base}.{name}")
         if not (_trusted_module(base) or self._tree_tops(base)):
@@ -1156,27 +1153,18 @@ class Reader:
                 spec = self.model(found.module, found.node)
                 components.update(spec.components)
         encoded_leaves, min_bits, phase = spec.encoded_leaves, spec.min_bits, spec.phase
+        undeclared = set(spec.undeclared)
         degrees, placeable = spec.sequence_parallel, spec.placeable
         for keyword in node.keywords:
-            value = self.fold(module, keyword.value)
-            if keyword.arg == "encoded_leaves" and closed(ENCODED_LEAVES, value):
-                encoded_leaves = typing.cast(str, value)
-            elif keyword.arg == "min_bits" and closed(MIN_BITS, value):
-                min_bits = typing.cast(int, value)
-            elif keyword.arg == "phase" and closed(PHASES, value):
-                phase = typing.cast(str, value)
-            elif keyword.arg == "attention_bits":
-                try:  # Runtime reads it at selection; the interface does not carry it
-                    attention_bits(node.name, value)
-                except author.ConformanceError as exc:
-                    self.refuse(module, keyword, str(exc))
-            elif keyword.arg in ("unloaded", "derived"):
-                try:  # Runtime reads them at load; the interface does not carry them
-                    coverage_patterns(node.name, keyword.arg, value)
-                except author.ConformanceError as exc:
-                    self.refuse(module, keyword, str(exc))
-            else:
-                self.refuse(module, keyword, "a Model class keyword outside the closed set")
+            self.refuse(
+                module,
+                keyword,
+                "a Model class takes no keywords: its serving facts are `serving = Serving(...)`",
+            )
+        serving = self._serving(module, node)
+        if serving is not None:
+            encoded_leaves = "accept" if serving.encoded_leaves else "refuse"
+            min_bits, phase = serving.min_bits, serving.phase
         for decorator in node.decorator_list:
             call = decorator if isinstance(decorator, ast.Call) else None
             found = self.resolve(module, call.func if call else decorator)
@@ -1209,20 +1197,37 @@ class Reader:
                 continue
             if stmt.name in ("__new__", "__init__"):
                 constructors[stmt.name] = stmt
+            public = not (stmt.name.startswith("_") or stmt.name in _MODEL_MEMBERS)
+            hinted = False
             for decorator in stmt.decorator_list:
-                if not isinstance(decorator, ast.Call):
+                target = decorator.func if isinstance(decorator, ast.Call) else decorator
+                if not isinstance(target, (ast.Name, ast.Attribute)):
                     continue
-                found = self.resolve(module, decorator.func)
+                if (target.id if isinstance(target, ast.Name) else target.attr) in _DESCRIPTORS:
+                    public = False  # not a plain function on the class: `Model` skips it too
+                    continue
+                try:
+                    found = self.resolve(module, target)
+                except StaticRefusal:
+                    continue  # any other decorator: ordinary Python, nothing the interface reads
                 if not (isinstance(found, Vocab) and found.key == "author.uses_components"):
                     continue
+                if not isinstance(decorator, ast.Call):
+                    self.refuse(module, decorator, "@uses_components names its components")
                 names = self._components(module, node, stmt, decorator)
-                if not (stmt.name.startswith("_") or stmt.name in _MODEL_MEMBERS):
+                hinted = True
+                if public:
                     components[stmt.name] = names
+            if public and hinted:
+                undeclared.discard(stmt.name)
+            elif public:
+                undeclared.add(stmt.name)
+                components.pop(stmt.name, None)
         if constructors:
             arguments = _required(constructors.get("__new__") or constructors["__init__"])
         spec = ModelSpec(
             node.name, encoded_leaves, min_bits, phase, degrees, components, placeable, loads,
-            arguments,
+            arguments, tuple(sorted(undeclared)),
         )  # fmt: skip
         self.models[key] = spec
         return spec
@@ -1234,27 +1239,47 @@ class Reader:
         method: ast.FunctionDef | ast.AsyncFunctionDef,
         decorator: ast.Call,
     ) -> tuple[str, ...]:
-        """One `@uses_components` declaration, by the rules its decorator applies at import."""
-        keywords = {keyword.arg: keyword.value for keyword in decorator.keywords}
-        helpers = keywords.get("memo_dependencies")
-        memo = "memo_version" in keywords or not (
-            helpers is None or (isinstance(helpers, (ast.Tuple, ast.List)) and not helpers.elts)
-        )
+        """One `@uses_components` hint, by the rules its decorator applies at import."""
         signature = method.args
         parameters = (
             *signature.posonlyargs, *signature.args, signature.vararg, *signature.kwonlyargs,
             signature.kwarg,
         )  # fmt: skip
         try:
-            names = component_set(
-                [self.fold(module, arg) for arg in decorator.args],
-                memoize="memoize" in keywords and bool(self.fold(module, keywords["memoize"])),
-                memo=memo,
-            )
+            if unknown := sorted({k.arg or "**" for k in decorator.keywords} - {"deterministic"}):
+                raise author.ConformanceError(
+                    f"@uses_components({unknown[0]}=): it takes component names and "
+                    "deterministic=; method memo is a plain @memoize",
+                    code="component_hint",
+                )
+            names = component_set([self.fold(module, arg) for arg in decorator.args])
             component_method(f"{cls.name}.{method.name}", [p.arg for p in parameters if p])
         except author.ConformanceError as exc:
             self.refuse(module, decorator, exc.message, exc.code)
         return names
+
+    def _serving(self, module: Module, cls: ast.ClassDef) -> author.Serving | None:
+        """The class body's `serving = Serving(...)`, by the rules `Serving` applies at import."""
+        for stmt in cls.body:
+            value = stmt.value if isinstance(stmt, (ast.Assign, ast.AnnAssign)) else None
+            if value is None or "serving" not in _bound_names(stmt):
+                continue
+            found = self.resolve(module, value.func) if isinstance(value, ast.Call) else None
+            if not (isinstance(found, Vocab) and found.key == "author.Serving"):
+                self.refuse(module, stmt, "serving is a Serving(...)")
+            assert isinstance(value, ast.Call)
+            try:
+                if value.args:
+                    raise TypeError("Serving takes keywords only")
+                facts: dict[str, Any] = {
+                    str(k.arg): self.fold(module, k.value) for k in value.keywords
+                }
+                return author.Serving(**facts)
+            except author.ConformanceError as exc:
+                self.refuse(module, value, exc.message, exc.code)
+            except TypeError as exc:
+                self.refuse(module, value, str(exc), "static_unsupported")
+        return None
 
     def declared(self, module: Module, call: ast.Call, factory: Callable[..., object]) -> None:
         """Refuse a declaration its author factory refuses: the import-time rule, applied to
@@ -1469,7 +1494,7 @@ def read_application(project: Path) -> str:
     if len(objects) != 1 or not isinstance(objects[0], str) or not objects[0]:
         raise StaticRefusal(
             f'{path} names {len(objects)} [project.entry-points."cozy.application"] entries; '
-            "discovery reads exactly one",
+            "a package names exactly one",
             code="application_entrypoint_count",
         )
     obj = objects[0]
@@ -1486,25 +1511,18 @@ class Registration:
     module: Module
     fn: ast.FunctionDef | ast.AsyncFunctionDef
     name: str
-    publishes: bool
     weights: tuple[author.WeightsOutput, ...]
     invocable: bool = False
     memoize: author.Memoize | None = None
     model_defaults: Mapping[str, str] = field(default_factory=dict)
     child_task: bool = False
     accelerator: bool = True
-    #: `memo_version=` / `memo_dependencies=` as written, and the module they are read in.
-    memo_declaration: tuple[tuple[str, Module, ast.expr], ...] = ()
-    model_components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     model_on_demand: tuple[str, ...] = ()
+    model_components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     #: A model argument's class where the registration names it, not its annotation.
     model_classes: Mapping[str, ModelSpec] = field(default_factory=dict)
-    emits_media: bool = False
-    #: Local execution advice, not a client callable/schema field. Source identity covers it.
-    phases: tuple[tuple[str, ...], ...] = ()
-    model_prepared_use: Mapping[str, str] = field(default_factory=dict)
-    #: `node=`.
-    node: author.Node | None = None
+    #: `app.tool`'s own options.
+    tool: author.Tool | None = None
 
     def declaration(self, **found: Any) -> Declaration:
         """Its record, with what its signature declares (`found`)."""
@@ -1513,17 +1531,14 @@ class Registration:
             module=self.module.name,
             export=self.fn.name,
             description=described(ast.get_docstring(self.fn, clean=False)),
-            publishes=self.publishes,
-            emits_media=self.emits_media,
             weights_outputs=self.weights,
             memoize=self.memoize,
             child_task=self.child_task,
             accelerator=self.accelerator,
-            node=self.node,
+            tool=self.tool,
             model_defaults=self.model_defaults,
             model_components=self.model_components,
             model_on_demand=self.model_on_demand,
-            model_prepared_use=self.model_prepared_use,
             **found,
         )
 
@@ -1558,15 +1573,31 @@ def build(
     # uv.lock names, a published one from the exact wheel it pins (cr-114).
     pinned = locked.read(project)
     roots = (*environment_roots(environment_python, project=project), *pinned.roots)
-    reader = Reader(project, dependency_roots=roots, wheels=pinned.wheels)
-    return _build(reader, application, closures=closures)
+    own = source_tops(project)
+    reader = Reader(project, dependency_roots=roots, wheels=pinned.wheels, own=own)
+    name = tomllib.loads((project / "pyproject.toml").read_text())["project"]["name"]
+    return _build(reader, application, closures=closures, distribution=name, pinned=pinned)
+
+
+def source_tops(project: Path) -> frozenset[str]:
+    """A source tree's own top-level modules: each module file and package directory in `src/`
+    and the project root."""
+    tops: set[str] = set()
+    for root in (project / "src", project):
+        for entry in root.iterdir() if root.is_dir() else ():
+            name = entry.name.removesuffix(".py") if entry.is_file() else entry.name
+            if name.isidentifier() and (entry.is_dir() or entry.suffix == ".py"):
+                tops.add(name)
+    return frozenset(tops)
 
 
 def build_builtin(name: str) -> dict[str, Json]:
     """Read only the explicitly selected Runtime-owned App, never caller source."""
     if name != "operations":
         raise StaticRefusal("unknown Runtime builtin surface", code="static_builtin")
-    reader = Reader(Path(cozy_runtime.__file__).resolve().parent.parent)
+    # Its project root is site-packages: only cozy_runtime is its own, never what sits beside it.
+    site = Path(cozy_runtime.__file__).resolve().parent.parent
+    reader = Reader(site, own=frozenset({"cozy_runtime"}))
     application = "cozy_runtime.derive.operations:app"
     # Ordinary caller discovery must keep skipping Runtime registrations. Only
     # this reader instance's selected built-in module becomes an App root.
@@ -1661,7 +1692,9 @@ def build_installed(
         raise StaticRefusal(
             "installed App source is not owned by its wheel", code="static_distribution"
         )
-    return _build(reader, application, installed=True, closures=closures)
+    return _build(
+        reader, application, installed=True, closures=closures, distribution=headers["Name"]
+    )
 
 
 def _build(
@@ -1670,7 +1703,11 @@ def _build(
     *,
     installed: bool = False,
     closures: dict[str, str] | None = None,
+    distribution: str = "",
+    pinned: locked.Locked | None = None,
 ) -> dict[str, Json]:
+    """`distribution`: this package's name, as its own calls name it. `pinned`: its lock, which
+    every cozy package it imports must be in."""
     module_name, _, attribute = application.partition(":")
     entry = reader.application_module(module_name)
     if attribute not in entry.bindings:
@@ -1691,6 +1728,9 @@ def _build(
         )
     declared: dict[str, Declaration] = {}
     modules = reader.reachable(entry)
+    static_contract.check(reader, modules)
+    if pinned is not None:
+        _check_locked(reader, modules, pinned)
     recipes, calibrated = _recipes(reader, modules)
     registrations = _registrations(reader, modules, app)
     if recipes:
@@ -1720,7 +1760,7 @@ def _build(
                 "static_unsupported",
             )
         if installed and (registration.memoize or registration.weights):
-            identity = _operation_identity(reader, registration)
+            identity = _operation_identity(reader, registration, distribution)
             if identity is not None:
                 row = replace(row, identity={"operation_identity": identity})
         if closures is not None and registration.memoize:
@@ -1728,9 +1768,251 @@ def _build(
             if closure is not None:
                 closures[f"{registration.module.name}:{registration.fn.name}"] = closure
         declared[registration.name] = row
-    return package_interface.assemble(
+    body = package_interface.assemble(
         application, list(declared.values()), installed=installed, recipes=recipes
     )
+    _calls(reader, registrations, body, distribution)
+    return body
+
+
+# ---------------------------------------------------------------------------- calls
+
+
+@dataclass(frozen=True, slots=True)
+class CozyPackage:
+    """A cozy package as the reader finds its source: a wheel's install, or a source tree."""
+
+    distribution: str
+    application: str
+    #: what its Reader reads as its project, and its own top-level modules
+    project: Path
+    own: frozenset[str]
+
+
+def _calls(
+    reader: Reader, registrations: Sequence[Registration], body: dict[str, Json], distribution: str
+) -> None:
+    """Each entry's `calls`: the functions it reaches, through its own package's helpers, that
+    run as their own calls. Its package's `@invocable`s, and another package's public functions,
+    read from the release this one locked (decision 5). A branch may never take one."""
+    entries = typing.cast(list[dict[str, Json]], body["entrypoints"])
+    docs = {str(doc["name"]): doc for doc in entries}
+    exported = {_export_of(doc): doc for doc in docs.values()}
+    own = {(r.module.name, r.fn.name): r for r in registrations}
+    for registration in registrations:
+        doc = docs.get(registration.name)
+        if doc is None:
+            continue
+        rows: dict[tuple[str, str], dict[str, Json]] = {}
+        for found in _callees(reader, registration, own):
+            key = (found.module.name, found.node.name)
+            if reader._own(key[0].split(".")[0]):
+                callee, package = exported.get(key), distribution
+            else:
+                where = _package_at(reader, found.module.path)
+                interface = None if where is None else _callee_interface(reader, where)
+                callee = None if interface is None else next(
+                    (d for d in typing.cast(list[dict[str, Json]], interface["entrypoints"])
+                     if _export_of(d) == key and not d.get("internal")),
+                    None,
+                )  # fmt: skip
+                package = "" if where is None else where.distribution
+            if callee is not None and callee is not doc:
+                rows[(package, str(callee["name"]))] = _call_row(package, callee)
+        if rows:
+            doc["calls"] = [rows[key] for key in sorted(rows)]
+
+
+def _export_of(doc: Mapping[str, Json]) -> tuple[str, str]:
+    invocable = doc.get("invocable")
+    if not isinstance(invocable, dict):
+        return ("", "")
+    return str(invocable.get("module", "")), str(invocable.get("export", ""))
+
+
+def _call_row(package: str, doc: Mapping[str, Json]) -> dict[str, Json]:
+    """One call: what places it, as Calcifer reads it. `gpus`, the widths it runs at, is absent
+    when it's one: the widths every constructed model shards at."""
+    accelerator = doc.get("accelerator") is not False
+    row: dict[str, Json] = {"package": package, "function": doc["name"], "accelerator": accelerator}
+    models = typing.cast(list[dict[str, Json]], doc.get("models", []))
+    widths = set(range(1, 65))
+    for model in models:
+        if not model.get("weights"):
+            parallel = typing.cast(dict[str, list[int]], model.get("sequence_parallel", {}))
+            widths &= {1, *parallel.get("degrees", [])}
+    if accelerator and len(widths) < 64 and sorted(widths) != [1]:
+        row["gpus"] = typing.cast(Json, sorted(widths))
+    if models:
+        row["models"] = typing.cast(Json, models)
+    return row
+
+
+def _callees(
+    reader: Reader, registration: Registration, own: Mapping[tuple[str, str], Registration]
+) -> list[Definition]:
+    """The functions a registration's body reaches that run as calls: its own package's
+    `@invocable`s, and functions of other cozy packages. Its own package's other functions run
+    inline, so their bodies are read too."""
+    found: list[Definition] = []
+    pending = [(registration.module, registration.fn)]
+    seen: set[tuple[Path, int]] = set()
+    while pending:
+        module, fn = pending.pop()
+        if (module.path, fn.lineno) in seen:
+            continue
+        seen.add((module.path, fn.lineno))
+        for node in (n for stmt in fn.body for n in ast.walk(stmt)):
+            target = _function(reader, module, node)
+            if target is None or target.node is fn:
+                continue
+            top = target.module.name.split(".")[0]
+            registered = own.get((target.module.name, target.node.name))
+            if top == "cozy_runtime":
+                continue
+            if not reader._own(top) or (registered is not None and registered.invocable):
+                found.append(target)
+            else:
+                pending.append((target.module, typing.cast(ast.FunctionDef, target.node)))
+    return found
+
+
+def _function(reader: Reader, module: Module, node: ast.AST) -> Definition | None:
+    """The module-level function a name or attribute in a body names, or None. Only names its
+    module binds are followed: a local is never resolved."""
+    root = node
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    if not (
+        isinstance(node, (ast.Name, ast.Attribute))
+        and isinstance(node.ctx, ast.Load)
+        and isinstance(root, ast.Name)
+        and root.id in module.bindings
+    ):
+        return None
+    try:
+        found = reader.resolve(module, typing.cast(ast.expr, node))
+    except StaticRefusal:
+        return None
+    functions = (ast.FunctionDef, ast.AsyncFunctionDef)
+    return found if isinstance(found, Definition) and isinstance(found.node, functions) else None
+
+
+def _callee_interface(reader: Reader, package: CozyPackage) -> dict[str, Json] | None:
+    """Another package's interface, read from its source as this one locked it; once each."""
+    if package.project in reader.callees:
+        return reader.callees[package.project]
+    reader.callees[package.project] = None  # a package that calls back reads as no calls
+    callee = Reader(package.project, dependency_roots=reader.roots, own=package.own)
+    callee.wheels, callee.fetched, callee.callees = reader.wheels, reader.fetched, reader.callees
+    try:
+        interface = _build(
+            callee, package.application, installed=True, distribution=package.distribution
+        )
+    except StaticRefusal as exc:
+        raise StaticRefusal(
+            f"{package.distribution}, which this package calls, can't be read: {exc}",
+            code=exc.code,
+        ) from exc
+    reader.callees[package.project] = interface
+    return interface
+
+
+def _package_at(reader: Reader, path: Path) -> CozyPackage | None:
+    """The cozy package a module file is in: a wheel install's dist-info beside it, else the
+    source tree whose pyproject names its App."""
+    for directory in path.parents:
+        installed = _installed_apps(reader, directory)
+        if installed is not None:
+            relative = path.relative_to(directory).parts[0].removesuffix(".py")
+            return installed.get(relative)
+        pyproject = directory / "pyproject.toml"
+        if pyproject.is_file():
+            try:
+                project = tomllib.loads(pyproject.read_text()).get("project", {})
+                application = read_application(directory)
+            except (OSError, tomllib.TOMLDecodeError, StaticRefusal):
+                return None
+            name = project.get("name") if isinstance(project, dict) else None
+            if not isinstance(name, str):
+                return None
+            return CozyPackage(name, application, directory, source_tops(directory))
+    return None
+
+
+def _installed_apps(reader: Reader, directory: Path) -> dict[str, CozyPackage] | None:
+    """A site directory's cozy packages by top-level module, from each dist-info declaring an
+    App; None when the directory holds no dist-info."""
+    cached = reader.sites.get(directory)
+    if cached is not None or directory in reader.sites:
+        return cached
+    infos = sorted(directory.glob("*.dist-info"))
+    found: dict[str, CozyPackage] | None = {} if infos else None
+    for info in infos:
+        try:
+            if _APPLICATION_GROUP not in (info / "entry_points.txt").read_text():
+                continue
+            points = configparser.ConfigParser(interpolation=None)
+            points.read_string((info / "entry_points.txt").read_text())
+            entries = list(points.items("cozy.application"))
+            metadata = (info / "METADATA").read_text()
+            headers = email.parser.Parser().parsestr(metadata, headersonly=True)
+            record = (info / "RECORD").read_text().splitlines()
+        except (OSError, configparser.Error):
+            continue
+        tops = frozenset(
+            row.partition(",")[0].split("/")[0].removesuffix(".py")
+            for row in record
+            if row and not row.startswith(("/", "..")) and ".dist-info" not in row.split("/")[0]
+            and row.partition(",")[0].endswith(".py")
+        )  # fmt: skip
+        if len(entries) != 1 or not headers.get("Name") or not tops:
+            continue
+        package = CozyPackage(headers["Name"], entries[0][1].strip(), directory, tops)
+        assert found is not None
+        found.update(dict.fromkeys(tops, package))
+    reader.sites[directory] = found
+    return found
+
+
+def _check_locked(reader: Reader, modules: Sequence[Module], pinned: locked.Locked) -> None:
+    """Every cozy package the package imports is in its uv.lock: a call runs at the release it
+    locked, so an unlocked one has none."""
+    for module in modules:
+        for stmt in _module_scope(module.tree.body):
+            if isinstance(stmt, ast.Import):
+                tops = [alias.name.split(".")[0] for alias in stmt.names]
+            elif isinstance(stmt, ast.ImportFrom) and stmt.level == 0 and stmt.module:
+                tops = [stmt.module.split(".")[0]]
+            else:
+                continue
+            for top in tops:
+                if reader._own(top) or top == "cozy_runtime" or top in pinned.wheels:
+                    continue
+                if any((r / top).is_dir() or (r / f"{top}.py").is_file() for r in pinned.roots):
+                    continue
+                path = _visible(reader, top)
+                package = None if path is None else _package_at(reader, path)
+                if package is not None and (
+                    locked.distribution(package.distribution) not in pinned.names
+                ):
+                    reader.refuse(
+                        module,
+                        stmt,
+                        f"{top} is the cozy package {package.distribution}, which uv.lock doesn't "
+                        "lock: add it to [project].dependencies and run `uv lock`",
+                        "unlocked_dependency",
+                    )
+
+
+def _visible(reader: Reader, top: str) -> Path | None:
+    """Where an imported top-level module's source is, beside this package, if anywhere."""
+    for root in (*reader.roots, *reader.installed.roots):
+        for path in (root / top / "__init__.py", root / f"{top}.py"):
+            if path.is_file():
+                return path
+    installed = reader._installed((top,))
+    return None if installed is None else installed[0]
 
 
 def _recipes(
@@ -1804,13 +2086,16 @@ def _recipes_registration(
     )  # fmt: skip
 
 
-def _operation_identity(reader: Reader, registration: Registration) -> str | None:
-    """A memoized callable's operation identity read from installed source alone: the same key
-    `memo_implementation.describe` computes by import. None when any part of its declaration
-    cannot be read statically; its machine then keys the memo by its package's files."""
-    fn = registration.fn
-    own = (f"{registration.module.name}.{fn.name}", memo_identity.normalized_definition(fn))
-    return _declared_identity(reader, registration, [own])
+def _operation_identity(reader: Reader, registration: Registration, package: str) -> str | None:
+    """A memoized callable's operation identity read from installed files alone: its
+    name and the build of the distribution that ships it. None when that build is unreadable (an
+    editable install); its machine then keys the memo by its package's files."""
+    owner = "cozy-runtime" if registration.module.trusted else package
+    return memo_identity.release_identity(
+        f"{registration.module.name}.{registration.fn.name}",
+        owner,
+        memo_identity.installed_distribution_identity(owner, reader.roots, _interpreter.CACHE_TAG),
+    )
 
 
 #: What runs code other than by its imports.
@@ -1831,8 +2116,8 @@ def _code_closure(reader: Reader, registration: Registration) -> str | None:
     """A memoized callable of the package's own code keyed on that code: its module and every
     module of its package that module imports at module scope, transitively, each with the
     package `__init__`s Python runs first; every file of those modules' packages that is not
-    Python source (what a module reads beside itself); and its declared memo version and
-    dependencies. An edit to any other file leaves it unchanged. None when those do not bound
+    Python source (what a module reads beside itself). An edit to any other file leaves it
+    unchanged. None when those do not bound
     what it runs (an import elsewhere, a dynamic import, `exec`/`eval`, a top-level module's own
     path, a module that is not Python source); its machine then keys the memo by the package's
     whole source."""
@@ -1855,7 +2140,7 @@ def _code_closure(reader: Reader, registration: Registration) -> str | None:
         return None
     definitions = [(name, memo_identity.normalized(seen[name].source)) for name in sorted(seen)]
     definitions += _data_files(reader, {name.split(".")[0] for name in seen})
-    return _declared_identity(reader, registration, definitions)
+    return memo_identity.definitions_identity("", definitions)
 
 
 def _data_files(reader: Reader, packages: Set[str]) -> list[tuple[str, str]]:
@@ -1934,79 +2219,6 @@ def _submodule(reader: Reader, package: str, name: str) -> bool:
         if any(path.suffix in (".so", ".pyd") for path in directory.glob(f"{name}.*")):
             raise _Unbounded
     return False
-
-
-def _declared_identity(
-    reader: Reader, registration: Registration, definitions: list[tuple[str, str]]
-) -> str | None:
-    """`definitions` with the registration's declared memo version and dependencies, as one
-    identity; None when any of its declaration cannot be read statically."""
-    version: object = ""
-    dependencies: list[tuple[Module, ast.expr]] = []
-    try:
-        for argument, module, node in registration.memo_declaration:
-            if argument == "memo_version":
-                version = reader.fold(module, node)
-            elif isinstance(node, (ast.Tuple, ast.List)):
-                dependencies.extend((module, element) for element in node.elts)
-            elif isinstance(found := reader.resolve(module, node), Assigned) and isinstance(
-                found.value, (ast.Tuple, ast.List)
-            ):
-                # A name bound to the tuple at module scope (`_MEMO = ("pkg", "pkg.model")`).
-                dependencies.extend((found.module, element) for element in found.value.elts)
-            else:
-                return None
-        if not isinstance(version, str):
-            return None
-        definitions = list(definitions)
-        for module, node in dependencies:
-            definition = _memo_dependency(reader, module, node)
-            if definition is None:
-                return None
-            definitions.append(definition)
-    except (StaticRefusal, OSError, SyntaxError, UnicodeDecodeError, ValueError):
-        return None
-    return memo_identity.definitions_identity(version, definitions)
-
-
-def _memo_dependency(reader: Reader, module: Module, node: ast.expr) -> tuple[str, str] | None:
-    """One declared memo dependency as `describe` names and hashes it, or None."""
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        path = _installed_source(reader, node.value.split("."))
-        if path is None or path.stat().st_size > memo_identity.MAX_SOURCE_BYTES:
-            return None
-        return node.value, memo_identity.normalized(path.read_bytes())
-    if isinstance(node, ast.Call):
-        found = reader.resolve(module, node.func)
-        arguments = [reader.fold(module, a) for a in node.args] + [
-            reader.fold(module, k.value) for k in node.keywords
-        ]
-        if not isinstance(found, Vocab) or not all(isinstance(a, str) for a in arguments):
-            return None
-        if found.key == "author.MemoDistribution" and len(arguments) == 1:
-            name = typing.cast(str, arguments[0])
-            # Each environment root once: the reader names its site-packages more than one way.
-            built = memo_identity.installed_distribution_identity(
-                name, reader.roots, _interpreter.CACHE_TAG
-            )
-            return None if built is None else ("distribution:" + name, built)
-        if found.key == "author.MemoResource" and len(arguments) == 2:
-            package, name = typing.cast(list[str], arguments)
-            relative = PurePosixPath(name)
-            if relative.is_absolute() or ".." in relative.parts:
-                return None
-            for root in reader.roots:
-                resource = root.joinpath(*package.split("."), *relative.parts)
-                if resource.is_file():
-                    digest = hashlib.sha256(resource.read_bytes()).hexdigest()
-                    return f"resource:{package}/{name}", digest
-        return None
-    found = reader.resolve(module, node)
-    if isinstance(found, Definition):
-        return f"{found.module.name}.{found.node.name}", memo_identity.normalized_definition(
-            found.node
-        )
-    return None
 
 
 def _installed_source(reader: Reader, parts: Sequence[str]) -> Path | None:
@@ -2153,7 +2365,6 @@ def _registration(
     memoize: author.Memoize | None = None
     default_models: dict[str, str] = {}
     used_components: dict[str, tuple[str, ...]] = {}
-    memo_declaration: list[tuple[str, Module, ast.expr]] = []
     for index, export in enumerate(fn.decorator_list):
         target = export.func if isinstance(export, ast.Call) else export
         if not _is_invocable(reader, function_module, target):
@@ -2173,15 +2384,10 @@ def _registration(
                 reader.refuse(
                     function_module,
                     export,
-                    "@invocable accepts memoize, memo_version, memo_dependencies, defaults "
-                    "and components",
+                    "@invocable accepts memoize, defaults and components",
                     "static_unsupported",
                 )
             for keyword in export.keywords:
-                if keyword.arg in {"memo_version", "memo_dependencies"}:
-                    # Operation identity is an installed environment's fact (build_installed).
-                    memo_declaration.append((keyword.arg, function_module, keyword.value))
-                    continue
                 value = reader.fold(function_module, keyword.value)
                 if keyword.arg == "defaults":
                     default_models = model_defaults(value)
@@ -2202,14 +2408,10 @@ def _registration(
                 )
     module = declaration or module
     name = fn.name
-    publishes = emits_media = False
-    accelerator = True
-    hidden = False
+    accelerator, private = True, False
     weights: tuple[author.WeightsOutput, ...] = ()
     on_demand: tuple[str, ...] = ()
-    phases: tuple[tuple[str, ...], ...] = ()
-    uses: dict[str, str] = {}
-    node: author.Node | None = None
+    box: dict[str, object] = {}
     for keyword in keywords:
         if keyword.arg not in _APP_KEYWORDS[method]:
             reader.refuse(
@@ -2228,14 +2430,6 @@ def _registration(
                     module, keyword.value, "preflight= must name a function defined in the tree"
                 )
             continue
-        if keyword.arg == "demand":
-            reader.fold(module, keyword.value)
-            continue
-        if keyword.arg in {"memo_version", "memo_dependencies"}:
-            # Like @invocable options, installed-environment memo identities
-            # are not part of the source-stable client contract.
-            memo_declaration.append((keyword.arg, module, keyword.value))
-            continue
         value = reader.fold(module, keyword.value)
         if keyword.arg == "defaults":
             declared_defaults = model_defaults(value)
@@ -2253,51 +2447,41 @@ def _registration(
             used_components = declared_components or used_components
         elif keyword.arg == "on_demand":
             on_demand = model_on_demand(value)
-        elif keyword.arg == "phases":
-            phases = model_phases(value)
-        elif keyword.arg == "prepared_use":
-            uses = model_prepared_use(value)
         elif keyword.arg == "name":
             name = str(value)
-        elif keyword.arg == "node":
-            if not isinstance(value, author.Node):
-                reader.refuse(module, keyword.value, "node= is a Node(...)")
-            node = value
-        elif keyword.arg == "hidden" and value is True:
-            hidden = True
-        elif keyword.arg == "accelerator":
+        elif keyword.arg in _TOOL_KEYWORDS:
+            box[keyword.arg] = value
+        elif keyword.arg in ("accelerator", "private"):
             if type(value) is not bool:
-                reader.refuse(module, keyword.value, "accelerator is True or False")
-            accelerator = value
-        elif keyword.arg == "publishes":
-            publishes = bool(value)
-        elif keyword.arg == "emits_media":
-            emits_media = bool(value)
+                reader.refuse(module, keyword.value, f"{keyword.arg} is True or False")
+            if keyword.arg == "private":
+                private = value
+            else:
+                accelerator = value
         elif keyword.arg == "memoize":
             memoize = _memoize(reader, module, keyword.value, value)
         elif keyword.arg == "weights":
             assert isinstance(value, tuple)
             weights = tuple(value)
-    if hidden:
-        return None
+    tool: author.Tool | None = None
+    if method == "tool":
+        try:
+            tool = author.Tool(**box)  # type: ignore[arg-type]
+        except author.ConformanceError as exc:
+            reader.refuse(module, decorator or fn, exc.message, exc.code)
     return Registration(
         function_module,
         fn,
         name,
-        publishes,
         weights,
         invocable,
         one_memo(exported, memoize),
         default_models,
-        method == "child_task",
+        private,
         accelerator,
-        tuple(memo_declaration),
-        used_components,
         on_demand,
-        emits_media=emits_media,
-        phases=phases,
-        model_prepared_use=uses,
-        node=node,
+        model_components=used_components,
+        tool=tool,
     )
 
 

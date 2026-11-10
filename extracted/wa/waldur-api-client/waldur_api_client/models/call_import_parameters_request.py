@@ -18,7 +18,7 @@ T = TypeVar("T", bound="CallImportParametersRequest")
 class CallImportParametersRequest:
     """
     Attributes:
-        manager (UUID): Call managing organisation that will own the imported call.
+        manager (UUID): Call managing organization that will own the imported call.
         call_data (CallImportParametersRequestCallData): Exported call document, as a mapping or a YAML string.
         name (Union[Unset, str]): Name for the imported call. Defaults to the exported name.
         import_documents (Union[Unset, bool]):  Default: True.

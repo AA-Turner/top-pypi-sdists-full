@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -8,6 +8,10 @@ from attrs import field as _attrs_field
 from ..models.billing_type_enum import BillingTypeEnum
 from ..models.limit_period_enum import LimitPeriodEnum
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.offering_component_spending_limit_periods import OfferingComponentSpendingLimitPeriods
+
 
 T = TypeVar("T", bound="OfferingComponent")
 
@@ -34,6 +38,10 @@ class OfferingComponent:
         max_available_limit (Union[None, Unset, float]):
         is_boolean (Union[Unset, bool]):
         default_limit (Union[None, Unset, float]):
+        spending_limit_periods (Union[Unset, OfferingComponentSpendingLimitPeriods]): Periods (day, week, month,
+            quarter, year, total) for which customers can set a spending limit on this usage-based component; total counts
+            all the usage since the resource started and never resets. Day and week need the integration to report usage per
+            day. Empty when customers cannot set spending limits.
         factor (Union[None, Unset, int]):
         is_builtin (Union[Unset, bool]): The API's older name for ``billed_per_plan``.
 
@@ -72,6 +80,7 @@ class OfferingComponent:
     max_available_limit: Union[None, Unset, float] = UNSET
     is_boolean: Union[Unset, bool] = UNSET
     default_limit: Union[None, Unset, float] = UNSET
+    spending_limit_periods: Union[Unset, "OfferingComponentSpendingLimitPeriods"] = UNSET
     factor: Union[None, Unset, int] = UNSET
     is_builtin: Union[Unset, bool] = UNSET
     is_prepaid: Union[Unset, bool] = UNSET
@@ -150,6 +159,10 @@ class OfferingComponent:
             default_limit = UNSET
         else:
             default_limit = self.default_limit
+
+        spending_limit_periods: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.spending_limit_periods, Unset):
+            spending_limit_periods = self.spending_limit_periods.to_dict()
 
         factor: Union[None, Unset, int]
         if isinstance(self.factor, Unset):
@@ -242,6 +255,8 @@ class OfferingComponent:
             field_dict["is_boolean"] = is_boolean
         if default_limit is not UNSET:
             field_dict["default_limit"] = default_limit
+        if spending_limit_periods is not UNSET:
+            field_dict["spending_limit_periods"] = spending_limit_periods
         if factor is not UNSET:
             field_dict["factor"] = factor
         if is_builtin is not UNSET:
@@ -267,6 +282,8 @@ class OfferingComponent:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.offering_component_spending_limit_periods import OfferingComponentSpendingLimitPeriods
+
         d = dict(src_dict)
         _uuid = d.pop("uuid", UNSET)
         uuid: Union[Unset, UUID]
@@ -366,6 +383,13 @@ class OfferingComponent:
             return cast(Union[None, Unset, float], data)
 
         default_limit = _parse_default_limit(d.pop("default_limit", UNSET))
+
+        _spending_limit_periods = d.pop("spending_limit_periods", UNSET)
+        spending_limit_periods: Union[Unset, OfferingComponentSpendingLimitPeriods]
+        if isinstance(_spending_limit_periods, Unset):
+            spending_limit_periods = UNSET
+        else:
+            spending_limit_periods = OfferingComponentSpendingLimitPeriods.from_dict(_spending_limit_periods)
 
         def _parse_factor(data: object) -> Union[None, Unset, int]:
             if data is None:
@@ -469,6 +493,7 @@ class OfferingComponent:
             max_available_limit=max_available_limit,
             is_boolean=is_boolean,
             default_limit=default_limit,
+            spending_limit_periods=spending_limit_periods,
             factor=factor,
             is_builtin=is_builtin,
             is_prepaid=is_prepaid,

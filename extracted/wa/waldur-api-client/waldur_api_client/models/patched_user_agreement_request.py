@@ -17,12 +17,12 @@ class PatchedUserAgreementRequest:
         content (Union[Unset, str]):
         agreement_type (Union[Unset, AgreementTypeEnum]):
         language (Union[Unset, str]): ISO 639-1 language code (e.g., 'en', 'de', 'et'). Leave empty for the default
-            version.
+            version. Default: ''.
     """
 
     content: Union[Unset, str] = UNSET
     agreement_type: Union[Unset, AgreementTypeEnum] = UNSET
-    language: Union[Unset, str] = UNSET
+    language: Union[Unset, str] = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

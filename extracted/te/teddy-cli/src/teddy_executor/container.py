@@ -227,10 +227,18 @@ def _register_orchestration_services(container: punq.Container) -> None:
             environment_inspector=container.resolve(IEnvironmentInspector),
             llm_client=container.resolve(ILlmClient),
             web_scraper=container.resolve(IWebScraper),
+            config_service=container.resolve(IConfigService),
         ),
         scope=punq.Scope.transient,
     )
-    container.register(IGetContextUseCase, ContextService, scope=punq.Scope.transient)
+    # Delegate to the concrete registration so the inbound port inherits the
+    # injected config service. Registering the bare class here makes punq
+    # auto-resolve the constructor and fall back to `config_service=None`.
+    container.register(
+        IGetContextUseCase,
+        factory=lambda: container.resolve(ContextService),
+        scope=punq.Scope.transient,
+    )
     from teddy_executor.core.domain.models.planning_ports import PlanningPorts
 
     container.register(
@@ -343,6 +351,9 @@ def _register_orchestration(container: punq.Container) -> None:
     from teddy_executor.core.ports.outbound.execution_report_assembler import (
         IExecutionReportAssembler,
     )
+    from teddy_executor.core.ports.outbound.system_environment import (
+        ISystemEnvironment,
+    )
 
     container.register(
         SessionPorts,
@@ -356,6 +367,7 @@ def _register_orchestration(container: punq.Container) -> None:
             plan_parser=container.resolve(IPlanParser),
             time_service=container.resolve(ITimeService),
             report_assembler=container.resolve(IExecutionReportAssembler),
+            system_environment=container.resolve(ISystemEnvironment),
         ),
         scope=punq.Scope.transient,
     )

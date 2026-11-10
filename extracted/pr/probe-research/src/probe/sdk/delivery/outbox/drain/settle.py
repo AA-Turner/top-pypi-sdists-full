@@ -417,6 +417,8 @@ class DrainSettleMixin:
                 # The server's own "run not found", told apart from every other 404 (a run
                 # token's refusal, a swept upload, R2): those lose writes for our reasons.
                 "no_such_run": errors.names_no_such_run(exc),
+                # ...and the server's refusal of the values the caller sent (a malformed name).
+                "invalid_request": errors.names_invalid_request(exc),
             }
         )
         self.settled_upload = self.settled_upload or op.get("kind") == "upload"
@@ -522,7 +524,8 @@ class DrainSettleMixin:
             report.held_again += 1
             return "continue"
         self.stalled[lane] = LaneStall(
-            op["last_error"], retry_after, getattr(exc, "status", None), failing=True, path=path
+            op["last_error"], retry_after, getattr(exc, "status", None), failing=True, path=path,
+            is_busy=is_write_busy(exc),
         )
         return "continue"
 from probe.sdk.delivery.outbox.drain.adoption import AdoptedRouteRefused  # noqa: E402 -- pieces need each other; the front door loads this one first
@@ -544,6 +547,7 @@ from probe.sdk.delivery.ops.classify import _redact  # noqa: E402 -- pieces need
 from probe.sdk.delivery.outbox.drain.credentials import _stamp_fingerprint  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.classify import _transient_budget_seconds  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.classify import classify  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.ops.classify import is_write_busy  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.journal import log  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.op_handler import multipart_storage  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.held import (  # noqa: E402 -- pieces need each other; the front door loads this one first

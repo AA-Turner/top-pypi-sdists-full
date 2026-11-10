@@ -20,14 +20,16 @@ import json
 import re
 import secrets
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
+
+import yaml
 
 from . import memory_refs
 from .episode_model import EpisodeError
 from .governance import scrubber
-from .vault import slugify_title
+from .vault import _FM_PATTERN, FrontmatterError, parse_frontmatter, slugify_title
 
 EPISODE_KEY_RE = re.compile(r"^ep-[0-9a-f]{32}$")
 CLIENT_LABEL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,31}$")
@@ -48,6 +50,8 @@ _FALLBACK_SLUG = "episode"
 _DIGEST_LABEL = "exomem-episode-recap-v1"
 _HOOK_KEY_LABEL = "exomem-episode-key-v1"
 _ORDER_FORMAT = "%Y%m%dt%H%M%S%f"
+# These fields are fixed by the recorder's atomic retirement protocol, not vault vocabulary.
+_RETIREMENT_FIELDS = frozenset({"status", "updated", "superseded_by"})
 
 #: Line and paragraph separators and the bidirectional overrides. Not control
 #: characters to `unicodedata`, but each either breaks the one-line rule or
@@ -70,6 +74,7 @@ _SECTIONS: tuple[tuple[str, str], ...] = (
     ("decided", "Decided"),
     ("open", "Open"),
 )
+_SAID_HEADING = "Said"
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,8 @@ class Recap:
     group: str
     stem: str
     about: tuple[str, ...] = ()
+    #: The validated Decided items, as written: `episode_coverage` matches them to the cited revisions.
+    decided: tuple[str, ...] = ()
     client: str | None = None
     frontmatter: dict[str, Any] = field(default_factory=dict)
 
@@ -148,6 +155,94 @@ def filename_parts(name: str) -> tuple[str, str, str] | None:
     return match.group("group"), match.group("order"), match.group("digest")
 
 
+def is_retired_revision(path: str, frontmatter: dict[str, Any], *, audience: str) -> bool:
+    """Recognize the reserved recorder tombstone in this audience's filename group."""
+    key = frontmatter.get("episode")
+    digest = frontmatter.get("episode_digest")
+    parts = filename_parts(path)
+    # Source/episode/superseded are fixed tokens of this recorder protocol.
+    return (
+        frontmatter.get("type") == "source"
+        and frontmatter.get("source_type") == "episode"
+        and frontmatter.get("status") == "superseded"
+        and isinstance(key, str)
+        and EPISODE_KEY_RE.fullmatch(key) is not None
+        and isinstance(digest, str)
+        and len(digest) == 64
+        and all(char in "0123456789abcdef" for char in digest)
+        and parts is not None
+        and parts[0] == key_group(key, audience)
+        and parts[2] == digest[:8]
+    )
+
+
+def rewrite_fields(
+    block: str, lines: Mapping[str, str | None], *, newline: str = "\n", after: str | None = None
+) -> str | None:
+    """A frontmatter block with named top-level fields replaced, dropped or added, byte-preserving elsewhere.
+
+    `lines[name]` is the field's whole new `name: value` line, or `None` to drop it.
+    A field the block lacks is added after the line of `after`. The result is
+    `None` when the block is not a block-style mapping, a key shares its line
+    with other text, or `after` is needed and missing. Editing spans instead of
+    dumping the parsed mapping keeps every other byte, quoting and timestamp as written.
+    """
+    try:
+        root = yaml.compose(block, Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(root, yaml.MappingNode) or root.flow_style:
+        return None
+    wanted = set(lines) | ({after} if after else set())
+    spans: dict[str, tuple[int, int]] = {}
+    for key, value in root.value:
+        if not isinstance(key, yaml.ScalarNode) or key.value not in wanted:
+            continue
+        start = block.rfind("\n", 0, key.start_mark.index) + 1
+        if block[start:key.start_mark.index].strip():
+            return None
+        end = value.end_mark.index
+        if end < len(block) and (end == 0 or block[end - 1] != "\n"):
+            line_end = block.find("\n", end)
+            end = len(block) if line_end == -1 else line_end + 1
+        spans[key.value] = (start, end)
+    edits: list[tuple[int, int, str]] = []
+    for name, line in lines.items():
+        if name in spans:
+            start, end = spans[name]
+            ending = block[start:end][len(block[start:end].rstrip("\r\n")):]
+            edits.append((start, end, "" if line is None else line + ending))
+        elif line is not None:
+            if after not in spans:
+                return None
+            end = spans[after][1]
+            edits.append((end, end, line + newline if block[end - 1:end] == "\n" else newline + line))
+    for start, end, text in sorted(edits, reverse=True):
+        if not text and end == len(block) and start:
+            # The envelope owns the fence newline; appended fields own this separator.
+            start -= 2 if block[:start].endswith("\r\n") else 1
+        block = block[:start] + text + block[end:]
+    return block
+
+
+def pre_retirement_content(content: str) -> str | None:
+    """One byte-preserving candidate; only a retained digest can prove it was original."""
+    match = _FM_PATTERN.match(content)
+    if match is None:
+        return None
+    try:
+        before, body, _raw = parse_frontmatter(content, strict=True)
+        block = rewrite_fields(match.group(1), dict.fromkeys(_RETIREMENT_FIELDS))
+        if block is None:
+            return None
+        candidate = content[:match.start(1)] + block + content[match.end(1):]
+        after, candidate_body, _raw = parse_frontmatter(candidate, strict=True)
+    except FrontmatterError:
+        return None
+    expected = {key: value for key, value in before.items() if key not in _RETIREMENT_FIELDS}
+    return candidate if after == expected and candidate_body == body else None
+
+
 def _line(value: Any, name: str, maximum: int) -> str:
     if not isinstance(value, str):
         raise _error("EPISODE_INVALID", f"{name} must be a string")
@@ -198,8 +293,50 @@ def _render(sections: dict[str, tuple[str, ...]], said: Sequence[str]) -> str:
         if items:
             blocks.append(f"### {heading}\n\n" + "\n".join(f"- {item}" for item in items))
     if said:
-        blocks.append("### Said\n\n" + "\n\n".join(f"> {statement}" for statement in said))
+        blocks.append(f"### {_SAID_HEADING}\n\n" + "\n\n".join(f"> {statement}" for statement in said))
     return "\n\n".join(blocks)
+
+
+@dataclass(frozen=True)
+class ParsedRecap:
+    """The agent's fields as `parse` read them back from a rendered body."""
+
+    sections: dict[str, tuple[str, ...]]
+    said: tuple[str, ...]
+
+
+def parse(body: str) -> ParsedRecap | None:
+    """The fields `_render` made `body` from, or `None` when it is anything else.
+
+    This parses the closed format the server itself writes, never free prose. A
+    body is accepted only if it renders back to the same bytes, so a recap that
+    anyone edited by hand yields nothing.
+    """
+    items: dict[str, list[str]] = {name: [] for name, _heading in _SECTIONS}
+    said: list[str] = []
+    bins = {heading: items[name] for name, heading in _SECTIONS}
+    bins[_SAID_HEADING] = said
+    current: list[str] | None = None
+    for line in body.split("\n"):
+        if line.startswith("### "):
+            current = bins.get(line[4:])
+            if current is None:
+                return None
+        elif current is not None and line[:2] in ("- ", "> "):
+            current.append(line[2:])
+        elif line:
+            return None
+    try:
+        sections = {
+            name: _lines(items[name], name, count=MAX_ITEMS, maximum=MAX_ITEM_CHARS)
+            for name, _heading in _SECTIONS
+        }
+        statements = _lines(said, "said", count=MAX_SAID, maximum=MAX_SAID_CHARS)
+    except EpisodeError:
+        return None
+    if not any(sections.values()) or _render(sections, statements) != body:
+        return None
+    return ParsedRecap(sections, statements)
 
 
 def prepare(
@@ -294,6 +431,7 @@ def prepare(
         group=group,
         stem=subject_slug,
         about=refs,
+        decided=sections["decided"],
         client=label,
         frontmatter=frontmatter,
     )

@@ -1,25 +1,26 @@
 Metadata-Version: 2.4
 Name: restate-sdk
-Version: 1.4.2
+Version: 1.5.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Dist: google-adk>=1.20.0 ; extra == 'adk'
+Requires-Dist: google-adk>=2.14.0 ; extra == 'adk'
 Requires-Dist: httpx2[http2] ; extra == 'client'
 Requires-Dist: testcontainers ; extra == 'harness'
 Requires-Dist: hypercorn ; extra == 'harness'
 Requires-Dist: httpx2 ; extra == 'harness'
-Requires-Dist: langchain>=1.0.0 ; extra == 'langchain'
-Requires-Dist: langgraph>=1.0.0 ; extra == 'langchain'
-Requires-Dist: langchain-core>=1.0.0 ; extra == 'langchain'
-Requires-Dist: langgraph>=1.0.0 ; extra == 'langgraph'
-Requires-Dist: langchain-core>=1.0.0 ; extra == 'langgraph'
+Requires-Dist: langchain>=1.4.9 ; extra == 'langchain'
+Requires-Dist: langgraph>=1.2.20 ; extra == 'langchain'
+Requires-Dist: langchain-core>=1.7.6 ; extra == 'langchain'
+Requires-Dist: langgraph>=1.2.20,<2 ; extra == 'langgraph'
+Requires-Dist: langchain-core>=1.7.6,<2 ; extra == 'langgraph'
 Requires-Dist: pydantic>=2 ; extra == 'langgraph'
 Requires-Dist: mypy>=1.11.2 ; extra == 'lint'
 Requires-Dist: pyright>=1.1.390 ; extra == 'lint'
 Requires-Dist: ruff>=0.6.9 ; extra == 'lint'
-Requires-Dist: openai-agents>=0.6.1 ; extra == 'openai'
-Requires-Dist: pydantic-ai-slim>=2.0,<3 ; extra == 'pydantic-ai'
+Requires-Dist: openai-agents>=0.24.0 ; extra == 'openai'
+Requires-Dist: pydantic-ai-slim>=2.66.0,<3 ; extra == 'pydantic-ai'
+Requires-Dist: pydantic-ai-harness>=0.66.0 ; extra == 'pydantic-ai'
 Requires-Dist: pydantic>=2 ; extra == 'pydantic-ai'
 Requires-Dist: dacite ; extra == 'serde'
 Requires-Dist: pydantic ; extra == 'serde'

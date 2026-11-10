@@ -68,7 +68,7 @@ def sync_detailed(
     page_size: Union[Unset, int] = UNSET,
 ) -> Response[list["AwardedResource"]]:
     """List what the allocation decision awards the proposal. Staff, support, the call's managers and
-    organisers, and the managers of the offerings involved see it at any time; the applicant team once
+    organizers, and the managers of the offerings involved see it at any time; the applicant team once
     the decision is released.
 
     Args:
@@ -105,7 +105,7 @@ def sync(
     page_size: Union[Unset, int] = UNSET,
 ) -> list["AwardedResource"]:
     """List what the allocation decision awards the proposal. Staff, support, the call's managers and
-    organisers, and the managers of the offerings involved see it at any time; the applicant team once
+    organizers, and the managers of the offerings involved see it at any time; the applicant team once
     the decision is released.
 
     Args:
@@ -137,7 +137,7 @@ async def asyncio_detailed(
     page_size: Union[Unset, int] = UNSET,
 ) -> Response[list["AwardedResource"]]:
     """List what the allocation decision awards the proposal. Staff, support, the call's managers and
-    organisers, and the managers of the offerings involved see it at any time; the applicant team once
+    organizers, and the managers of the offerings involved see it at any time; the applicant team once
     the decision is released.
 
     Args:
@@ -172,7 +172,7 @@ async def asyncio(
     page_size: Union[Unset, int] = UNSET,
 ) -> list["AwardedResource"]:
     """List what the allocation decision awards the proposal. Staff, support, the call's managers and
-    organisers, and the managers of the offerings involved see it at any time; the applicant team once
+    organizers, and the managers of the offerings involved see it at any time; the applicant team once
     the decision is released.
 
     Args:

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class EsignatureThirdPartyProvidersInfo(ClientValue):
     IsEnabled: bool | None = None
     ProviderName: str | None = None

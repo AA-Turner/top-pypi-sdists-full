@@ -15,8 +15,10 @@ from .db import get_sqlite_version
 from .http import Response
 from .logger import logger, set_log_level
 from .login import LoginConfig
-from .models import Tweet, User
+from .models import ParseError, Tweet, User
+from .queue_client import AbortReqError
 from .utils import print_table
+from .xclid import XClIdParseError
 
 
 class CustomHelpFormatter(argparse.HelpFormatter):
@@ -119,6 +121,10 @@ async def main(args):
         await pool.delete_inactive()
         return
 
+    if args.command == "reactivate":
+        await pool.reactivate(args.usernames)
+        return
+
     fn = args.command + "_raw" if args.raw else args.command
     fn = getattr(api, fn, None)
     if fn is None:
@@ -209,6 +215,9 @@ def run():
     subparsers.add_parser("reset_locks", help="Reset all locks")
     subparsers.add_parser("delete_inactive", help="Delete inactive accounts")
 
+    reactivate = subparsers.add_parser("reactivate", help="Mark accounts with a session active")
+    reactivate.add_argument("usernames", nargs="+", default=[], help="Usernames to reactivate")
+
     c_lim("search", "Search for tweets", "query", "Search query")
     c_one("tweet_details", "Get tweet details", "tweet_id", "Tweet ID", int)
     c_lim("tweet_replies", "Get replies  of a tweet", "tweet_id", "Tweet ID", int)
@@ -241,3 +250,6 @@ def run():
         asyncio.run(_run(args))
     except KeyboardInterrupt:
         pass
+    except (AbortReqError, XClIdParseError, ParseError) as e:
+        logger.error(f"{type(e).__name__}: {e}")
+        exit(1)

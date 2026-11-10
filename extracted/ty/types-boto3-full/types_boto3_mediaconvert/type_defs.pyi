@@ -95,6 +95,7 @@ from .literals import (
     CaptionDestinationTypeType,
     CaptionSourceByteRateLimitType,
     CaptionSourceConvertPaintOnToPopOnType,
+    CaptionSourceType,
     CaptionSourceTypeType,
     CaptionSourceUpconvertSTLToTeletextType,
     ChromaPositionModeType,
@@ -196,6 +197,7 @@ from .literals import (
     Eac3StereoDownmixType,
     Eac3SurroundExModeType,
     Eac3SurroundModeType,
+    ElementalInferenceFeatureType,
     ElementalInferenceFeedManagementStateType,
     EmbeddedConvert608To708Type,
     EmbeddedTerminateCaptionsType,
@@ -610,7 +612,9 @@ __all__ = (
     "Eac3AtmosSettingsTypeDef",
     "Eac3SettingsTypeDef",
     "ElementalInferenceConfigurationTypeDef",
+    "ElementalInferenceFeedConfigurationSourceTypeDef",
     "ElementalInferenceFeedTypeDef",
+    "ElementalInferenceSettingsTypeDef",
     "EmbeddedDestinationSettingsTypeDef",
     "EmbeddedSourceSettingsTypeDef",
     "EncryptionContractConfigurationTypeDef",
@@ -1480,6 +1484,9 @@ class DynamicAudioSelectorTypeDef(TypedDict):
 class ElementalInferenceFeedTypeDef(TypedDict):
     Arn: NotRequired[str]
     FeedManagementState: NotRequired[ElementalInferenceFeedManagementStateType]
+
+class ElementalInferenceFeedConfigurationSourceTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
 
 class EncryptionContractConfigurationTypeDef(TypedDict):
     SpekeAudioPreset: NotRequired[PresetSpeke20AudioType]
@@ -2364,8 +2371,11 @@ DolbyVisionTypeDef = TypedDict(
 )
 
 class ElementalInferenceConfigurationTypeDef(TypedDict):
-    Features: NotRequired[list[Literal["SMART_CROP"]]]
+    Features: NotRequired[list[ElementalInferenceFeatureType]]
     Feeds: NotRequired[list[ElementalInferenceFeedTypeDef]]
+
+class ElementalInferenceSettingsTypeDef(TypedDict):
+    FeedConfigurationSource: NotRequired[ElementalInferenceFeedConfigurationSourceTypeDef]
 
 class SpekeKeyProviderCmafOutputTypeDef(TypedDict):
     CertificateArn: NotRequired[str]
@@ -2869,11 +2879,13 @@ class AutomatedAbrSettingsTypeDef(TypedDict):
     Rules: NotRequired[Sequence[AutomatedAbrRuleTypeDef]]
 
 class CaptionDescriptionOutputTypeDef(TypedDict):
+    AudioSourceNames: NotRequired[list[str]]
     CaptionSelectorName: NotRequired[str]
     CustomLanguageCode: NotRequired[str]
     DestinationSettings: NotRequired[CaptionDestinationSettingsOutputTypeDef]
     LanguageCode: NotRequired[LanguageCodeType]
     LanguageDescription: NotRequired[str]
+    Source: NotRequired[CaptionSourceType]
 
 class CaptionDescriptionPresetOutputTypeDef(TypedDict):
     CustomLanguageCode: NotRequired[str]
@@ -2888,11 +2900,13 @@ class CaptionDescriptionPresetTypeDef(TypedDict):
     LanguageDescription: NotRequired[str]
 
 class CaptionDescriptionTypeDef(TypedDict):
+    AudioSourceNames: NotRequired[Sequence[str]]
     CaptionSelectorName: NotRequired[str]
     CustomLanguageCode: NotRequired[str]
     DestinationSettings: NotRequired[CaptionDestinationSettingsTypeDef]
     LanguageCode: NotRequired[LanguageCodeType]
     LanguageDescription: NotRequired[str]
+    Source: NotRequired[CaptionSourceType]
 
 class CaptionSourceSettingsTypeDef(TypedDict):
     AncillarySourceSettings: NotRequired[AncillarySourceSettingsTypeDef]
@@ -3798,6 +3812,7 @@ class JobTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     CurrentPhase: NotRequired[JobPhaseType]
     ElementalInferenceConfiguration: NotRequired[ElementalInferenceConfigurationTypeDef]
+    ElementalInferenceSettings: NotRequired[ElementalInferenceSettingsTypeDef]
     ErrorCode: NotRequired[int]
     ErrorMessage: NotRequired[str]
     HopDestinations: NotRequired[list[HopDestinationTypeDef]]
@@ -3831,6 +3846,7 @@ JobTemplateTypeDef = TypedDict(
         "Category": NotRequired[str],
         "CreatedAt": NotRequired[datetime],
         "Description": NotRequired[str],
+        "ElementalInferenceSettings": NotRequired[ElementalInferenceSettingsTypeDef],
         "HopDestinations": NotRequired[list[HopDestinationTypeDef]],
         "LastUpdated": NotRequired[datetime],
         "Priority": NotRequired[int],
@@ -3891,6 +3907,7 @@ class CreateJobTemplateRequestTypeDef(TypedDict):
     AccelerationSettings: NotRequired[AccelerationSettingsTypeDef]
     Category: NotRequired[str]
     Description: NotRequired[str]
+    ElementalInferenceSettings: NotRequired[ElementalInferenceSettingsTypeDef]
     HopDestinations: NotRequired[Sequence[HopDestinationTypeDef]]
     Priority: NotRequired[int]
     Queue: NotRequired[str]
@@ -3902,6 +3919,7 @@ class UpdateJobTemplateRequestTypeDef(TypedDict):
     AccelerationSettings: NotRequired[AccelerationSettingsTypeDef]
     Category: NotRequired[str]
     Description: NotRequired[str]
+    ElementalInferenceSettings: NotRequired[ElementalInferenceSettingsTypeDef]
     HopDestinations: NotRequired[Sequence[HopDestinationTypeDef]]
     Priority: NotRequired[int]
     Queue: NotRequired[str]
@@ -3914,6 +3932,7 @@ class CreateJobRequestTypeDef(TypedDict):
     AccelerationSettings: NotRequired[AccelerationSettingsTypeDef]
     BillingTagsSource: NotRequired[BillingTagsSourceType]
     ClientRequestToken: NotRequired[str]
+    ElementalInferenceSettings: NotRequired[ElementalInferenceSettingsTypeDef]
     HopDestinations: NotRequired[Sequence[HopDestinationTypeDef]]
     JobEngineVersion: NotRequired[str]
     JobTemplate: NotRequired[str]

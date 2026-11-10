@@ -1,5 +1,6 @@
 # ber/ber.pyi — type stubs for the ber C extension.
 from typing import final
+
 import numpy as np
 import numpy.typing as npt
 
@@ -80,7 +81,7 @@ class BerMeter:
     Create with defaults:
 
     >>> from doppler.ber import BerMeter
-    >>> obj = BerMeter(m=4, target_errors=200, conf=0.99)
+    >>> obj = BerMeter()
 
     """
 
@@ -632,7 +633,7 @@ class FrameMeter:
     Create with defaults:
 
     >>> from doppler.ber import FrameMeter
-    >>> obj = FrameMeter(target_errors=200, conf=0.99)
+    >>> obj = FrameMeter()
 
     """
 

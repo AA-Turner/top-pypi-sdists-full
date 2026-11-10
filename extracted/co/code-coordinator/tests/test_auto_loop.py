@@ -21,6 +21,7 @@ from coord.auto_loop import (
     next_fix_iteration,
     next_fix_iteration_for_branch,
     process_review_completion,
+    propagate_review_verdict,
     run_for_fix_transition,
     run_for_review_transition,
 )
@@ -2229,6 +2230,147 @@ class TestFullCycle:
         fix1_final = board3.find_by_id("fix-1")
         assert fix1_final is not None
         assert fix1_final.review_state == "done"
+
+    def test_scoped_rereview_linked_to_stale_round_re_parents_onto_newest(
+        self, config: Config, tmp_path, coord_db,
+    ) -> None:
+        """#3891: a SCOPED re-review's ``review_of_assignment_id`` can stay
+        anchored to an OLDER, superseded round on the same chain (the
+        ``maybe_scoped_review_for_completed_fix``/``dispatch_scoped_review``
+        claim-key shape) rather than the fix round it actually reviewed.
+
+        work A → request-changes → fix round B → re-review completes, but
+        is recorded with ``review_of_assignment_id=A`` (the stale anchor) —
+        the approval must still land on B: B gets ``review_state="done"``,
+        ``review_verdict="approve"``, and the review itself is re-parented
+        onto B (in memory AND durably) so every later reader keyed on
+        ``review_of_assignment_id`` (not just this one call) agrees.
+        """
+        from coord.state import load_board, save_board
+
+        work = _work_assignment(assignment_id="w-1", review_iteration=0)
+        board = Board(completed=[work])
+        save_board(board)
+
+        review_log = tmp_path / "review1.log"
+        review_log.write_text(
+            "REVIEW_VERDICT: request-changes\n"
+            "REVIEW_BODY:\n"
+            "Missing input validation on the endpoint.\n"
+            "END_REVIEW\n"
+        )
+        review1 = _review_assignment(assignment_id="r-1", review_of="w-1")
+        review1.status = "done"
+        board2 = load_board()
+        assert board2 is not None
+        board2.completed.append(review1)
+        save_board(board2)
+
+        mock_http = MagicMock()
+        mock_http.post.return_value.json.return_value = {"id": "fix-1"}
+        mock_http.post.return_value.raise_for_status = MagicMock()
+        with patch("coord.auto_loop.record_dispatched_assignment"):
+            process_review_completion(
+                review1, board2, config,
+                log_path=str(review_log),
+                http_client=mock_http,
+            )
+        save_board(board2)
+
+        board3 = load_board()
+        assert board3 is not None
+        fix1_on_board = board3.find_by_id("fix-1")
+        assert fix1_on_board is not None
+        fix1_on_board.status = "done"
+        # The scoped re-review below must be able to prove it was actually
+        # dispatched AFTER this round became ready — give it a real
+        # `finished_at` rather than leaving the field unset.
+        fix1_on_board.finished_at = (fix1_on_board.dispatched_at or 0.0) + 50.0
+        board3.completed.append(
+            board3.active.pop(board3.active.index(fix1_on_board))
+        )
+
+        # #3891: the scoped re-review is dispatched with the STALE anchor
+        # ("w-1", the original round) as its review_of_assignment_id —
+        # exactly the shape `dispatch_scoped_review` produces today — not
+        # "fix-1", the round it actually reviewed. Its own dispatch happens
+        # well AFTER fix-1 became ready, so it genuinely could have read
+        # that head — the evidence the re-parent gate requires.
+        review2_log = tmp_path / "review2.log"
+        review2_log.write_text(
+            "REVIEW_VERDICT: approve\n"
+            "REVIEW_BODY:\n"
+            "Validation added. Tests pass. LGTM.\n"
+            "END_REVIEW\n"
+        )
+        review2 = _review_assignment(assignment_id="r-2", review_of="w-1")
+        review2.status = "done"
+        review2.dispatched_at = fix1_on_board.finished_at + 10.0
+        review2.finished_at = review2.dispatched_at + 5.0
+        board3.completed.append(review2)
+        save_board(board3)
+
+        actions2 = process_review_completion(
+            review2, board3, config,
+            log_path=str(review2_log),
+        )
+
+        assert actions2[0].kind == "approved"
+        fix1_final = board3.find_by_id("fix-1")
+        assert fix1_final is not None
+        assert fix1_final.review_state == "done"
+        assert fix1_final.review_verdict == "approve"
+        # The original round must NOT have silently absorbed the approval.
+        w1_final = board3.find_by_id("w-1")
+        assert w1_final is not None
+        assert w1_final.review_verdict != "approve"
+        # The review itself is re-parented, in memory...
+        assert review2.review_of_assignment_id == "fix-1"
+        # ...and durably, so a fresh read agrees too.
+        board4 = load_board()
+        assert board4 is not None
+        review2_reloaded = board4.find_by_id("r-2")
+        assert review2_reloaded is not None
+        assert review2_reloaded.review_of_assignment_id == "fix-1"
+
+    def test_rereview_not_reparented_when_it_predates_the_newer_round(
+        self, config: Config, coord_db,
+    ) -> None:
+        """A review that finished long BEFORE a newer round on the same
+        chain was even dispatched has no way to have read that round's
+        head. Crediting it anyway would invert #3668's guarantee that a
+        review of an older leg never satisfies the review gate for a newer
+        one — so the verdict must stay on the round it was actually
+        dispatched to review, and the newer round must be left untouched.
+        """
+        from coord.state import save_board
+
+        old_work = _work_assignment(assignment_id="w-1", review_iteration=0)
+        new_work = _work_assignment(
+            assignment_id="fix-1", review_iteration=1,
+        )
+        new_work.dispatched_at = 1000.0
+        new_work.finished_at = 1050.0
+        new_work.review_state = "dispatched"
+        board = Board(completed=[old_work, new_work])
+        save_board(board)
+
+        # r-2 finished long before fix-1 was even dispatched — it could
+        # only have reviewed w-1, regardless of which id it is parented to.
+        review = _review_assignment(assignment_id="r-2", review_of="w-1")
+        review.dispatched_at = 1.0
+        review.finished_at = 2.0
+        review.review_verdict = "approve"
+
+        work = propagate_review_verdict(review, board, config)
+
+        assert work is not None
+        assert work.assignment_id == "w-1"
+        assert review.review_of_assignment_id == "w-1"
+        fix1 = board.find_by_id("fix-1")
+        assert fix1 is not None
+        assert fix1.review_state == "dispatched"
+        assert fix1.review_verdict is None
 
     def test_max_iterations_stops_at_configured_limit(
         self, config: Config, tmp_path

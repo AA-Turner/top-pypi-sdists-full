@@ -13,6 +13,7 @@ class SqlMixin:
         sql: str | None = None,
         tables: list[str] | None = None,
         token_budget: int = 2000,
+        source: str | None = None,
     ) -> dict:
         """Read-only SQL, passed straight through: the server already bounds it.
 
@@ -22,4 +23,4 @@ class SqlMixin:
         delivery branch in ``continuation`` still trims whatever does not fit.
         """
         max_rows = None if sql is None else max(1, min(MAX_ROWS_CEILING, token_budget // 20))
-        return self.source.query_sql(sql=sql, tables=tables, max_rows=max_rows)
+        return self.source.query_sql(sql=sql, tables=tables, max_rows=max_rows, source=source)

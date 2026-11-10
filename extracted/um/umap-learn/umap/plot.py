@@ -39,12 +39,13 @@ import sklearn.neighbors
 
 from matplotlib.patches import Patch
 
+import umap.distances as dist
 from umap.utils import submatrix, average_nn_distance
 
 from bokeh.plotting import show as show_interactive
 from bokeh.plotting import output_file, output_notebook
 from bokeh.layouts import column
-from bokeh.models import CustomJS, TextInput
+from bokeh.models import CustomJS, LayoutDOM, TextInput
 from matplotlib.pyplot import show as show_static
 
 from warnings import warn
@@ -181,9 +182,37 @@ def _embed_datashader_in_an_axis(datashader_image, ax):
     return ax
 
 
+def _input_distance_matrix(umap_object):
+    """All pairwise distances between the training points in the model's
+    input metric, computed the same way UMAP.fit does for small data."""
+    raw_data = umap_object._raw_data
+    metric_kwds = _get_metric_kwds(umap_object)
+    try:
+        # sklearn pairwise_distances fails for callable metric on sparse data
+        if umap_object._sparse_data:
+            metric = umap_object.metric
+        else:
+            metric = umap_object._input_distance_func
+        return dist.numba_aware_pairwise_distances(
+            raw_data, metric=metric, **metric_kwds
+        )
+    except (ValueError, TypeError):
+        # metric is numba.jit'd or not supported by sklearn,
+        # fallback to pairwise special
+        if umap_object._sparse_data and not callable(umap_object.metric):
+            return dist.pairwise_special_metric(
+                raw_data.toarray(),
+                metric=dist.named_distances[umap_object.metric],
+                kwds=metric_kwds,
+            )
+        return dist.pairwise_special_metric(
+            raw_data, metric=umap_object._input_distance_func, kwds=metric_kwds
+        )
+
+
 def _nhood_search(umap_object, nhood_size):
     if hasattr(umap_object, "_small_data") and umap_object._small_data:
-        dmat = sklearn.metrics.pairwise_distances(umap_object._raw_data)
+        dmat = _input_distance_matrix(umap_object)
         indices = np.argpartition(dmat, nhood_size)[:, :nhood_size]
         dmat_shortened = submatrix(dmat, indices, nhood_size)
         indices_sorted = np.argsort(dmat_shortened)
@@ -238,7 +267,7 @@ def _select_font_color(background):
         font_color = "white"
     elif background.startswith("#"):
         mean_val = np.mean(
-            [int("0x" + c) for c in (background[1:3], background[3:5], background[5:7])]
+            [int(c, 16) for c in (background[1:3], background[3:5], background[5:7])]
         )
         if mean_val > 126:
             font_color = "black"
@@ -469,7 +498,7 @@ def show(plot_to_show):
     """
     if isinstance(plot_to_show, plt.Axes):
         show_static()
-    elif isinstance(plot_to_show, bpl.figure):
+    elif isinstance(plot_to_show, LayoutDOM):
         show_interactive(plot_to_show)
     elif isinstance(plot_to_show, hv.core.spaces.DynamicMap):
         show_interactive(hv.render(plot_to_show), backend="bokeh")
@@ -949,6 +978,7 @@ def connectivity(
 
     return ax
 
+
 def diagnostic(
     umap_object,
     diagnostic_type="pca",
@@ -961,7 +991,7 @@ def diagnostic(
     width=800,
     height=800,
     return_diagnostics=False,
-    plot_result=True
+    plot_result=True,
 ):
     """Provide a diagnostic plot or plots for a UMAP embedding, with options to return diagnostics and control plotting.
     There are a number of plots that can be helpful for diagnostic
@@ -1066,7 +1096,7 @@ def diagnostic(
         dpi = plt.rcParams["figure.dpi"]
         if diagnostic_type in ("local_dim", "neighborhood"):
             width *= 1.1
-        fig = plt.figure(figsize=(width/dpi, height/dpi))
+        fig = plt.figure(figsize=(width / dpi, height / dpi))
         ax = fig.add_subplot(111)
 
     font_color = _select_font_color(background) if plot_result else None
@@ -1082,7 +1112,9 @@ def diagnostic(
         diagnostic_data = color_proj
 
         if plot_result:
-            ax.scatter(points[:, 0], points[:, 1], s=point_size, c=color_proj, alpha=0.66)
+            ax.scatter(
+                points[:, 0], points[:, 1], s=point_size, c=color_proj, alpha=0.66
+            )
             ax.set_title("Colored by RGB coords of PCA embedding")
             ax.text(
                 0.99,
@@ -1105,7 +1137,9 @@ def diagnostic(
         diagnostic_data = color_proj
 
         if plot_result:
-            ax.scatter(points[:, 0], points[:, 1], s=point_size, c=color_proj, alpha=0.66)
+            ax.scatter(
+                points[:, 0], points[:, 1], s=point_size, c=color_proj, alpha=0.66
+            )
             ax.set_title("Colored by RGB coords of FastICA embedding")
             ax.text(
                 0.99,
@@ -1131,7 +1165,9 @@ def diagnostic(
         diagnostic_data = color_proj
 
         if plot_result:
-            ax.scatter(points[:, 0], points[:, 1], s=point_size, c=color_proj, alpha=0.66)
+            ax.scatter(
+                points[:, 0], points[:, 1], s=point_size, c=color_proj, alpha=0.66
+            )
             ax.set_title("Colored by RGB coords of Vector Quantization")
             ax.text(
                 0.99,
@@ -1230,9 +1266,11 @@ def diagnostic(
         if plot_result:
             cols = int(len(_diagnostic_types) ** 0.5 // 1)
             rows = len(_diagnostic_types) // cols + 1
-            fig, axs = plt.subplots(rows, cols, figsize=(10, 10), constrained_layout=True)
+            fig, axs = plt.subplots(
+                rows, cols, figsize=(10, 10), constrained_layout=True
+            )
             axs = axs.flat
-            for ax in axs[len(_diagnostic_types):]:
+            for ax in axs[len(_diagnostic_types) :]:
                 ax.remove()
             diagnostic_data = {}
             for ax, plt_type in zip(axs, _diagnostic_types):
@@ -1242,7 +1280,7 @@ def diagnostic(
                     ax=ax,
                     point_size=point_size / 4.0,
                     return_diagnostics=True,
-                    plot_result=True
+                    plot_result=True,
                 )
                 diagnostic_data[plt_type] = sub_diagnostic
         else:
@@ -1253,7 +1291,7 @@ def diagnostic(
                     diagnostic_type=plt_type,
                     point_size=point_size / 4.0,
                     return_diagnostics=True,
-                    plot_result=False
+                    plot_result=False,
                 )
                 diagnostic_data[plt_type] = sub_diagnostic
 
@@ -1270,6 +1308,7 @@ def diagnostic(
         return diagnostic_data
     else:
         return ax
+
 
 def interactive(
     umap_object,
@@ -1527,13 +1566,14 @@ def interactive(
             ),
             background_fill_color=background,
         )
-        plot.circle(
+        plot.scatter(
             x="x",
             y="y",
             source=data_source,
             color=colors,
             size=point_size,
             alpha="alpha",
+            marker="circle",
         )
 
         plot.grid.visible = False

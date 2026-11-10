@@ -1,6 +1,6 @@
 """Guards the public API surface for the 2.x line.
 
-Two different questions are answered here:
+Three different questions are answered here:
 
 - ``test_names_importable`` checks *intent*: a curated allowlist of the names
   that are load-bearing public API and must stay importable from their
@@ -12,19 +12,30 @@ Two different questions are answered here:
   ``prov.model`` location and then deletes the submodule attributes,
   deliberately freezing ``dir(prov.model)`` to the pre-split namespace; this
   test is what actually holds that freeze in place.
+- ``test_mypy_override_list_only_shrinks`` checks that the mypy override list
+  in ``pyproject.toml`` equals a frozen snapshot, so the list only shrinks.
 """
 
 import importlib
 import importlib.util
 import io
+import json
+import os
+import subprocess  # nosec B404
+import sys
+import tomllib
+
+import pytest
 
 import prov.model
 import prov.serializers
+from prov.constants import PROV_ATTRIBUTES
 from prov.model import ProvDocument
+from prov.tests.conftest import REPO_ROOT
 from prov.tests.examples import primer_example
 
 PUBLIC_API = {
-    "prov": ["Error", "read"],
+    "prov": ["Error", "model", "read"],
     "prov.model": [
         # containers
         "ProvDocument",
@@ -59,7 +70,9 @@ PUBLIC_API = {
         "ProvFutureRejectionWarning",
         "ProvExceptionInvalidQualifiedName",
         "ProvElementIdentifierRequired",
+        "ProvMissingFormalAttribute",
         "ProvUnificationError",
+        "ProvValueError",
         # identifiers & literals (historically importable from prov.model too)
         "Namespace",
         "QualifiedName",
@@ -70,7 +83,6 @@ PUBLIC_API = {
         "XSD",
         "XSI",
         "parse_xsd_datetime",
-        "sorted_attributes",
     ],
     "prov.identifier": ["Identifier", "QualifiedName", "Namespace"],
     "prov.constants": [
@@ -101,7 +113,14 @@ PUBLIC_API = {
         "PROV_LOCATION",
         "PROV_ROLE",
     ],
-    "prov.serializers": ["get", "Serializer", "Registry", "DoNotExist"],
+    "prov.serializers": [
+        "get",
+        "Serializer",
+        "Registry",
+        "DoNotExist",
+        "ProvSerializationError",
+        "ProvFormatNotDetected",
+    ],
     "prov.dot": ["prov_to_dot"],
     "prov.graph": ["prov_to_graph", "graph_to_prov"],
 }
@@ -115,7 +134,7 @@ OPTIONAL_MODULE_REQUIREMENTS = {
 
 
 # Exact snapshot of the non-dunder names in sorted(dir(prov.model)),
-# generated at commit dccff00217b745a8107379742a7157366703b5bd (166 names).
+# generated at commit dccff00217b745a8107379742a7157366703b5bd (167 names).
 # Unlike PUBLIC_API above, this is not curated -- it is every non-dunder
 # name the module exports, including re-exported stdlib/typing imports and
 # internal constants, because the freeze in prov/model/__init__.py applies
@@ -245,12 +264,14 @@ PROV_MODEL_DIR_SNAPSHOT = [
     "ProvInvalidation",
     "ProvMembership",
     "ProvMention",
+    "ProvMissingFormalAttribute",
     "ProvRecord",
     "ProvRelation",
     "ProvSpecialization",
     "ProvStart",
     "ProvUnificationError",
     "ProvUsage",
+    "ProvValueError",
     "ProvWarning",
     "QualifiedName",
     "QualifiedNameCandidate",
@@ -324,6 +345,7 @@ def test_prov_model_namespace_snapshot() -> None:
 
 def test_names_importable() -> None:
     missing = []
+    unlisted: list[str] = []
     for module_name, names in PUBLIC_API.items():
         requirement = OPTIONAL_MODULE_REQUIREMENTS.get(module_name)
         if requirement and importlib.util.find_spec(requirement) is None:
@@ -332,7 +354,31 @@ def test_names_importable() -> None:
         for name in names:
             if not hasattr(module, name):
                 missing.append(f"{module_name}.{name}")
+        exported = getattr(module, "__all__", [])
+        unlisted.extend(f"{module_name}.{n}" for n in exported if n not in names)
     assert missing == [], f"Public API names missing: {missing}"
+    assert unlisted == [], f"__all__ names missing from PUBLIC_API: {unlisted}"
+
+
+@pytest.mark.parametrize("seed", ["1", "2"])
+def test_attribute_constants_keep_one_order_under_every_hash_seed(seed: str) -> None:
+    code = (
+        "import json\n"
+        "from prov.constants import PROV_ID_ATTRIBUTES_MAP, PROV_RECORD_ATTRIBUTES\n"
+        "print(json.dumps([\n"
+        "    [s for _, s in PROV_RECORD_ATTRIBUTES],\n"
+        "    list(PROV_ID_ATTRIBUTES_MAP.values()),\n"
+        "]))\n"
+    )
+    child = subprocess.run(  # nosec B603 - nosemgrep
+        [sys.executable, "-P", "-c", code],
+        env={**os.environ, "PYTHONHASHSEED": seed},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    expected = sorted(str(attr) for attr in PROV_ATTRIBUTES)
+    assert json.loads(child.stdout) == [expected, expected]
 
 
 def test_serializer_registry_formats() -> None:
@@ -350,3 +396,42 @@ def test_round_trip_each_format() -> None:
         stream.seek(0)
         round_tripped = ProvDocument.deserialize(source=stream, format=fmt)
         assert document == round_tripped, fmt
+
+
+MYPY_OVERRIDE_LIST = [
+    "prov.tests.test_attribute_merging",
+    "prov.tests.test_chaining",
+    "prov.tests.test_cli_smoke",
+    "prov.tests.test_datetime_parsing",
+    "prov.tests.test_dot",
+    "prov.tests.test_extras",
+    "prov.tests.test_graphs",
+    "prov.tests.test_jsonld",
+    "prov.tests.test_model",
+    "prov.tests.test_namespace_cache",
+    "prov.tests.test_numeric_typing",
+    "prov.tests.test_provn",
+    "prov.tests.test_provn_escaping",
+    "prov.tests.test_provn_lexer",
+    "prov.tests.test_provn_profiles",
+    "prov.tests.test_rdf",
+    "prov.tests.test_read",
+    "prov.tests.test_scripts",
+    "prov.tests.test_statements",
+    "prov.tests.test_xml",
+]
+"""The test modules still outside ``mypy --strict`` (#494).
+
+The list only shrinks. A PR that makes a module pass deletes its name here and
+in ``pyproject.toml`` in the same commit; a new module never joins.
+"""
+
+
+def test_mypy_override_list_only_shrinks() -> None:
+    pyproject = REPO_ROOT / "pyproject.toml"
+    if not pyproject.is_file():
+        pytest.skip("pyproject.toml is not part of the installed package")
+    overrides = tomllib.loads(pyproject.read_text())["tool"]["mypy"]["overrides"]
+    assert len(overrides) == 1
+    assert overrides[0]["ignore_errors"] is True
+    assert overrides[0]["module"] == MYPY_OVERRIDE_LIST

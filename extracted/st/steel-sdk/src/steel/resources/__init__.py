@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from .files import (
     FilesResource,
@@ -8,6 +8,14 @@ from .files import (
     FilesResourceWithStreamingResponse,
     AsyncFilesResourceWithStreamingResponse,
 )
+from .api_keys import (
+    APIKeysResource,
+    AsyncAPIKeysResource,
+    APIKeysResourceWithRawResponse,
+    AsyncAPIKeysResourceWithRawResponse,
+    APIKeysResourceWithStreamingResponse,
+    AsyncAPIKeysResourceWithStreamingResponse,
+)
 from .profiles import (
     ProfilesResource,
     AsyncProfilesResource,
@@ -15,6 +23,14 @@ from .profiles import (
     AsyncProfilesResourceWithRawResponse,
     ProfilesResourceWithStreamingResponse,
     AsyncProfilesResourceWithStreamingResponse,
+)
+from .projects import (
+    ProjectsResource,
+    AsyncProjectsResource,
+    ProjectsResourceWithRawResponse,
+    AsyncProjectsResourceWithRawResponse,
+    ProjectsResourceWithStreamingResponse,
+    AsyncProjectsResourceWithStreamingResponse,
 )
 from .sessions import (
     SessionsResource,
@@ -42,34 +58,46 @@ from .credentials import (
 )
 
 __all__ = [
+    "APIKeysResource",
+    "AsyncAPIKeysResource",
+    "APIKeysResourceWithRawResponse",
+    "AsyncAPIKeysResourceWithRawResponse",
+    "APIKeysResourceWithStreamingResponse",
+    "AsyncAPIKeysResourceWithStreamingResponse",
     "CredentialsResource",
     "AsyncCredentialsResource",
     "CredentialsResourceWithRawResponse",
     "AsyncCredentialsResourceWithRawResponse",
     "CredentialsResourceWithStreamingResponse",
     "AsyncCredentialsResourceWithStreamingResponse",
-    "FilesResource",
-    "AsyncFilesResource",
-    "FilesResourceWithRawResponse",
-    "AsyncFilesResourceWithRawResponse",
-    "FilesResourceWithStreamingResponse",
-    "AsyncFilesResourceWithStreamingResponse",
-    "SessionsResource",
-    "AsyncSessionsResource",
-    "SessionsResourceWithRawResponse",
-    "AsyncSessionsResourceWithRawResponse",
-    "SessionsResourceWithStreamingResponse",
-    "AsyncSessionsResourceWithStreamingResponse",
     "ExtensionsResource",
     "AsyncExtensionsResource",
     "ExtensionsResourceWithRawResponse",
     "AsyncExtensionsResourceWithRawResponse",
     "ExtensionsResourceWithStreamingResponse",
     "AsyncExtensionsResourceWithStreamingResponse",
+    "FilesResource",
+    "AsyncFilesResource",
+    "FilesResourceWithRawResponse",
+    "AsyncFilesResourceWithRawResponse",
+    "FilesResourceWithStreamingResponse",
+    "AsyncFilesResourceWithStreamingResponse",
     "ProfilesResource",
     "AsyncProfilesResource",
     "ProfilesResourceWithRawResponse",
     "AsyncProfilesResourceWithRawResponse",
     "ProfilesResourceWithStreamingResponse",
     "AsyncProfilesResourceWithStreamingResponse",
+    "ProjectsResource",
+    "AsyncProjectsResource",
+    "ProjectsResourceWithRawResponse",
+    "AsyncProjectsResourceWithRawResponse",
+    "ProjectsResourceWithStreamingResponse",
+    "AsyncProjectsResourceWithStreamingResponse",
+    "SessionsResource",
+    "AsyncSessionsResource",
+    "SessionsResourceWithRawResponse",
+    "AsyncSessionsResourceWithRawResponse",
+    "SessionsResourceWithStreamingResponse",
+    "AsyncSessionsResourceWithStreamingResponse",
 ]

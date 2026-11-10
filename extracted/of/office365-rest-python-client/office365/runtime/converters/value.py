@@ -2,23 +2,37 @@
 
 The shared conversion layer: ``serialize_value`` maps stored values to their JSON
 form (used by ``ClientObject``/``ClientValue``/``ClientValueCollection``
-``to_json``), and ``deserialize_value``/``declared_type`` map raw values to their
-declared type (used by ``set_property``). ``_add_type_metadata`` attaches the
-OData type marker.
+``to_json``), and ``coerce_value``/``declared_type`` map raw values to their
+declared type (used by ``set_property``). Control information is not this
+layer's business: a profile attaches it (``JsonProfile.wrap``).
 """
 
 from __future__ import annotations
 
+import ast
+import importlib
+import inspect
 import re
+import textwrap
 import types
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple, Union, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union, get_args, get_origin, get_type_hints
 
-from office365.runtime.converters.scalars import parse_bool, parse_datetime, parse_enum, try_float, try_int
-from office365.runtime.odata.json_format import ODataJsonFormat
-from office365.runtime.odata.v3.json_light_format import JsonLightFormat
+from office365.runtime.converters.scalars import (
+    parse_bool,
+    parse_datetime,
+    parse_duration,
+    parse_enum,
+    try_float,
+    try_int,
+)
+from office365.runtime.schema import TypeSchema
+from office365.runtime.types.duration import Duration
+
+if TYPE_CHECKING:
+    from office365.runtime.odata.json_format import JsonProfile
 
 _UNSET = object()
 _NoneType = type(None)
@@ -28,61 +42,70 @@ _SCALAR_CONVERTERS = {
     int: try_int,
     float: try_float,
     datetime: parse_datetime,
+    timedelta: parse_duration,
 }
 
 _declared_cache: Dict[Tuple[type, str], Any] = {}
 
 
-def _serialize_enum(value: Enum, json_format: Optional[ODataJsonFormat]) -> Any:
+def _serialize_enum(value: Enum, profile: Optional[JsonProfile]) -> Any:
     """Serialize an enum member for the active OData dialect.
 
     OData V3 (SharePoint) enums travel as their numeric value
     (``FieldTypeKind`` is ``Edm.Int32``); OData V4 / Graph enums travel as
-    the member *name* ("teamsForBusiness"). Enums generated with string
-    values already match their name; older Graph ones (e.g. auto-numbered
-    ``unknown = 0``) must fall back to the name, not the ordinal.
+    the member *name* ("teamsForBusiness") — the dialect says which. Enums
+    generated with string values already match their name; older Graph ones
+    (e.g. auto-numbered ``unknown = 0``) must fall back to the name, not the
+    ordinal.
 
     A generated Graph enum carries the *CSDL ordinal* as a string
     (``TaskStatus.completed = "2"``), which is not a wire value — Graph
     rejects it, so a digit-only string falls back to the member name too.
     """
-    if isinstance(json_format, JsonLightFormat) and isinstance(value.value, int):
+    if profile is not None and not profile.dialect.enum_by_name and isinstance(value.value, int):
         return value.value
     if isinstance(value.value, str):
         return value.name if value.value.isdigit() else value.value
     return value.name
 
 
-def serialize_value(value: Any, json_format: Optional[ODataJsonFormat] = None) -> Any:
+def serialize_value(  # noqa: PLR0911 - one return per stored-value kind
+    value: Any, profile: Optional[JsonProfile] = None
+) -> Any:
     """Convert a stored value to its JSON representation.
 
     Handles ``ClientObject``/``ClientValue``/``ClientValueCollection`` (via their
     ``to_json``), ``Enum`` -> value, ``datetime``/``date`` -> ISO 8601, ``bytes``
-    -> UTF-8, ``UUID`` -> str. Any other value (scalar, ``None``, ``dict``,
-    ``list``, ``ClientResult``) passes through unchanged.
+    -> UTF-8, ``UUID`` -> str. A plain ``dict``/``list``/``tuple`` is descended into,
+    so a container assembled by hand (a nested payload, a ``to_json`` result, a
+    request body) is as JSON-safe as a generated value. Any other value (scalar,
+    ``None``, ``ClientResult``) passes through unchanged.
+
+    ``to_json`` is consulted *before* the container branches: a collection type may
+    subclass ``dict``/``list`` and still need its own serialization.
     """
+    if value is None:
+        return value
+    value_type = type(value)
+    if value_type is str or value_type is int or value_type is bool or value_type is float:
+        return value
     if isinstance(value, Enum):
-        return _serialize_enum(value, json_format)
+        return _serialize_enum(value, profile)
     if isinstance(value, uuid.UUID):
         return str(value)
     if isinstance(value, bytes):
         return value.decode("utf-8")
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, timedelta):
+        return Duration.parse(value)
     if hasattr(value, "to_json"):
-        return value.to_json(json_format)
+        return value.to_json(profile)
+    if isinstance(value, dict):
+        return {k: serialize_value(item, profile) for k, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [serialize_value(item, profile) for item in value]
     return value
-
-
-def _add_type_metadata(
-    result: Dict[str, Any], json_format: Optional[ODataJsonFormat], entity_type_name: Optional[str]
-) -> None:
-    """Attach the OData type metadata marker when the format requests it."""
-    if json_format is not None and json_format.include_control_information and entity_type_name is not None:
-        if isinstance(json_format, JsonLightFormat):
-            result[json_format.metadata_type] = {"type": entity_type_name}
-        else:
-            result[json_format.metadata_type] = "#" + entity_type_name
 
 
 def to_snake_case(name: str) -> str:
@@ -114,8 +137,40 @@ def declared_type(cls: type, name: str) -> Any:
     return declared
 
 
+def _imported_names(func: Any) -> Dict[str, Any]:
+    """The names ``func`` imports for itself, resolved the way its body would.
+
+    A cyclic type cannot be imported at module level -- the edge would close a cycle --
+    so the generator writes the import inside the getter, where the annotation still
+    names a type ``get_type_hints`` cannot see. The imports are read, not run: the
+    getter must not be called to learn what it declares.
+    """
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    except (OSError, TypeError, SyntaxError):
+        return {}
+    names: Dict[str, Any] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            try:
+                module = importlib.import_module(node.module)
+            except ImportError:
+                continue
+            for alias in node.names:
+                value = getattr(module, alias.name, None)
+                if value is not None:
+                    names[alias.asname or alias.name] = value
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                try:
+                    names[alias.asname or alias.name.split(".")[0]] = importlib.import_module(alias.name)
+                except ImportError:
+                    continue
+    return names
+
+
 def _resolve_declared_type(cls: type, name: str) -> Any:
-    meta = getattr(cls, "_odata_meta", {}).get(name)
+    meta = TypeSchema.of(cls).properties.get(name)
     if meta is not None:
         attrs = (meta.attr,)
     else:
@@ -129,13 +184,22 @@ def _resolve_declared_type(cls: type, name: str) -> Any:
         target = member.fget if isinstance(member, property) else member
         try:
             declared = get_type_hints(target).get("return")
-        except Exception:
+        except NameError:
+            # A name the module does not bind: either a getter that imports it for
+            # itself (a cycle, so it cannot be module level) or a dead
+            # ``if TYPE_CHECKING:`` entry, which no annotation can resolve.
+            try:
+                declared = get_type_hints(target, localns=_imported_names(target)).get("return")
+            except (NameError, TypeError):
+                declared = None
+        except TypeError:
+            # ``attr`` is not a function (a class constant sharing the OData name).
             declared = None
         if declared is not None:
             return _unwrap_type(declared)
     try:
         declared = get_type_hints(cls).get(name)
-    except Exception:
+    except NameError:
         declared = None
     return _unwrap_type(declared) if declared is not None else None
 
@@ -156,6 +220,20 @@ def _client_value_origin(target: Any) -> type:
     return target if isinstance(target, type) else get_origin(target)
 
 
+def _coerce_enum(enum_type: type, value: Any) -> Any:
+    """The member naming ``value``, or ``value`` itself when no member does.
+
+    ``parse_enum`` answers ``None`` for a value the snapshot does not list -- a member
+    the service added since. Storing ``None`` would drop what the service reported and
+    write null back on the next update, so an unfamiliar value is kept as sent, the
+    same way ``parse_bool`` keeps one it cannot read.
+    """
+    parsed = parse_enum(enum_type, value)
+    if parsed is None and value is not None:
+        return value
+    return parsed
+
+
 def deserialize_declared(value: Any, declared_type: Any) -> Any:
     """Coerce a value to a declared scalar or enum type.
 
@@ -166,7 +244,7 @@ def deserialize_declared(value: Any, declared_type: Any) -> Any:
     if converter is not None:
         return converter(value)
     if isinstance(declared_type, type) and issubclass(declared_type, Enum):
-        return parse_enum(declared_type, value)
+        return _coerce_enum(declared_type, value)
     return _UNSET
 
 
@@ -186,7 +264,40 @@ def deserialize_nested(base: Any, value: Any, persist_changes: bool) -> Any:
     return base
 
 
-def deserialize_value(target_type: Any, value: Any, current: Any, persist_changes: bool) -> Any:
+def values_of(value: Any) -> Optional[list[Any]]:
+    """A collection cell as a plain list, in every shape a read or a payload produces.
+
+    A ``$select`` read of an undeclared collection column ingests the JSON
+    ``{"results": [...]}`` as a positional mapping (``{0: 1, 1: 2}``), a declared one
+    as a ``ClientValueCollection``, a payload this client built may hold either the
+    wrapper or a bare list, and a single-valued cell may hold one scalar. A dict that
+    is neither a container nor positional is one value object, not a list of its
+    fields.
+
+    Returns ``None`` for ``None`` so a caller can tell "no value" from "no values".
+    """
+    if value is None:
+        return None
+    items: list[Any]
+    if isinstance(value, dict):
+        if isinstance(value.get("results"), (list, tuple)):
+            items = list(value["results"])
+        elif value and all(isinstance(key, int) for key in value):
+            items = [value[key] for key in sorted(value)]
+        else:
+            items = [value]
+    elif isinstance(value, (str, bytes)):
+        items = [value]
+    elif isinstance(value, (list, tuple, set)):
+        items = list(value)
+    elif hasattr(value, "_data") and isinstance(value._data, list):
+        items = list(value._data)
+    else:
+        items = [value]
+    return items
+
+
+def coerce_value(target_type: Any, value: Any, current: Any, persist_changes: bool) -> Any:
     """Coerce a raw value for storage by its declared type, falling back to the current instance.
 
     Declared scalars/enums go through ``deserialize_declared``; declared
@@ -209,5 +320,5 @@ def deserialize_value(target_type: Any, value: Any, current: Any, persist_change
     if isinstance(current, datetime):
         return parse_datetime(value)
     if isinstance(current, Enum):
-        return current if value is None else parse_enum(type(current), value)
+        return current if value is None else _coerce_enum(type(current), value)
     return value

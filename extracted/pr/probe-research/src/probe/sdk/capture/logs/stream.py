@@ -1,11 +1,14 @@
 """A live run's console log, shipped while the run is alive (plan item (h), T34).
 
-WHY. Output capture keeps everything a run prints as ``probe/run.log``, but
-uploads it only when the run ends (:mod:`probe.sdk.capture.outputs`). A three-day job
-showed nothing of its console until then, and a whole-pod death could end it
-with nothing uploaded. This ships the log WHILE the run is alive, to
-``POST /v1/runs/{id}/log-chunks``, for the run page's Logs panel. The final
-artifact is unchanged: it stays the durable copy, and this is best effort.
+WHY. Output capture keeps everything a run prints as its saved log
+(``probe/run.log``, shown as the run's Logs), but uploads it only when the run
+ends (:mod:`probe.sdk.capture.outputs`). A three-day job showed nothing of its
+console until then, and a whole-pod death could end it with nothing uploaded.
+This ships the log WHILE the run is alive, to ``POST /v1/runs/{id}/log-chunks``,
+for the run page's Logs tab. The saved log is unchanged: it stays the durable
+copy, and this is best effort. A spool started when a run takes over the tee
+``import probe`` started begins with the newest output held before it
+(`logs.LIVE_SEED_BYTES`).
 
 HOW. The output helper (:mod:`probe.sdk.capture.logs.logs`) already reads every byte
 the program writes. Given a ``<log>.live/`` directory at start it also appends
@@ -30,7 +33,8 @@ process for ``probe.init()``, the launcher for ``probe exec``) wakes every
   a GAP the stream may resume inside a block whose BEGIN was dropped: an END
   seen before any BEGIN withholds everything up to it.
 * REDRAWS COLLAPSED: a line a ``\\r`` progress bar rewrote ships as its last
-  frame, as the terminal showed it. A chunk cut at a redraw keeps its trailing
+  frame, as the terminal showed it -- the saved log's rule too, one function
+  (`logs.keep_last_frames`). A chunk cut at a redraw keeps its trailing
   ``\\r``, so the next chunk's first frame replaces it instead of joining it.
 * REDACTED by the same function as the final log (`outputs.redact_log_text`);
   text holding a credential it cannot replace is withheld, its place kept.
@@ -61,12 +65,24 @@ so a recovery after a hard death resumes from it, as the attempt the dead
 process recorded (its write epoch: a newer attempt's run refuses it). A log
 name whose spool survives is never reserved again (`outputs.reserve_log_path`).
 
+PROBE'S OWN REQUESTS. A framework that sets the root logger to INFO (verl's
+hydra) prints a line for every request the SDK makes, this stream's POSTs
+included, so each POST became the next one's text (63% of a verl job's lines).
+Lines an HTTP client logged for a request to this client's API base URL
+(:mod:`probe.sdk.capture.logs.own_requests`) are dropped from the live text;
+the terminal and the final log keep them, and no logging level is touched. A
+chunk left with no text is held, not sent: the next chunk with text covers its
+bytes too (its offset moves back to the held one), so a quiet run sends nothing
+and the server sees no gap. A hold is sent alone once it covers
+``MAX_HELD_RAW_BYTES``, and at the last pass.
+
 WHO STREAMS. Rank 0 only by default (``PROBE_LOG_STREAM=rank0``): 608 ranks
 each posting every 15 s would be ~40 requests a second for logs nobody reads
 side by side. ``all`` streams every rank, each its own stream ``run.rank<N>``
-whatever its log is called (under ``mpirun`` every host's log is
-``probe/run.log``, and one shared stream name would make the hosts' chunks
-cover each other), ``0`` streams nothing. A server that does not declare
+(under ``mpirun`` every host's log would be ``probe/run.log``, and one shared
+stream name would make the hosts' chunks cover each other); the saved log is
+then named after its stream (``probe/run.rank<N>.log``), so the two always
+agree, and its ``meta.stream`` says so. ``0`` streams nothing. A server that does not declare
 ``run_log_stream`` gets nothing: no spool, no request; the answer (a failure
 or a timeout too) is kept for the process, so only the first run waits for it.
 """
@@ -86,7 +102,8 @@ from probe.foundation.durable import durable
 from probe.foundation.process_rank import read_process_rank
 
 from ... import errors
-from .logs import list_segments, live_dir, read_eof
+from .logs import keep_last_frames, list_segments, live_dir, read_eof
+from .own_requests import build_filter
 
 FEATURE = "run_log_stream"
 MODE_ENV = "PROBE_LOG_STREAM"
@@ -104,6 +121,8 @@ PASS_RAW_BYTES = 256 * 1024
 FINAL_RAW_BYTES = 1024 * 1024
 #: Unsent output past which a wake-up skips to the newest ``PASS_RAW_BYTES``.
 MAX_BACKLOG_BYTES = 1024 * 1024
+#: Raw bytes with no text to show (Probe's own request lines) held before they are sent alone.
+MAX_HELD_RAW_BYTES = 256 * 1024
 #: How long opening a run may wait to learn whether the server takes a live log.
 FEATURE_CHECK_SECONDS = 2.0
 #: What a close gives the last lines: at most this, and at most
@@ -182,10 +201,11 @@ def interval_seconds() -> float:
 
 def stream_for(log_name: str) -> str:
     """``probe/run.rank3.log`` -> ``run.rank3``: the stream is the name the
-    final artifact has, without the folder and the extension -- except under
-    ``PROBE_LOG_STREAM=all`` with a known rank, where it is ``run.rank<N>``
-    whatever the log is called: every host of an ``mpirun`` job logs as
-    ``probe/run.log``, and the stream names one process across the job."""
+    saved log has, without the folder and the extension -- except under
+    ``PROBE_LOG_STREAM=all`` with a known rank, where it is ``run.rank<N>``:
+    every host of an ``mpirun`` job would log as ``probe/run.log``, and the
+    stream names one process across the job. Output capture then names the
+    saved log after the stream (`OutputCapture._register`), so they agree."""
     name = log_name.rsplit("/", 1)[-1]
     if name.endswith(".log"):
         name = name[: -len(".log")]
@@ -361,20 +381,6 @@ def shippable(buf: bytes, *, final: bool, after_gap: bool = False) -> int:
     return plan_cut(buf, final=final, after_gap=after_gap).size
 
 
-def collapse_redraws(text: str) -> str:
-    """Each line as a terminal left it: the last frame a ``\\r`` redraw drew.
-    A text that ends in a redraw (a chunk cut at one) keeps that ``\\r``: the
-    next chunk's first frame then replaces this one where the chunks are
-    joined, instead of being appended to it."""
-    lines = text.replace("\r\n", "\n").split("\n")
-    for index, line in enumerate(lines):
-        if "\r" in line:
-            frames = [frame for frame in line.split("\r") if frame.strip()]
-            redraw = "\r" if index == len(lines) - 1 and line.endswith("\r") else ""
-            lines[index] = (frames[-1] if frames else "") + redraw
-    return "\n".join(lines)
-
-
 def render(raw: bytes, in_pem: bool, after_gap: bool = False) -> tuple[str, bool]:
     """``(text before redaction, in_pem after)`` for one chunk's raw bytes.
 
@@ -401,7 +407,7 @@ def render(raw: bytes, in_pem: bool, after_gap: bool = False) -> tuple[str, bool
         # Held back as long as allowed and still not ended: never ship it.
         raw, tail, in_pem = raw[:held], _PEM_WITHHELD, True
     text = raw.decode("utf-8", errors="replace").replace("\x00", "")
-    return lead + collapse_redraws(text) + tail, in_pem
+    return lead + keep_last_frames(text) + tail, in_pem
 
 
 def redact(text: str, context: str = "") -> str:
@@ -486,6 +492,10 @@ class LogStreamer:
         self._epoch = epoch
         self.cursor = self._load_cursor()
         self._pending: Chunk | None = None
+        #: Bytes read with no text to show: the next chunk sent covers them too.
+        self._held: Chunk | None = None
+        #: Drops Probe's own request lines (None: the client names no API base URL).
+        self._own_requests = build_filter(client)
         self._in_pem = False
         self._in_run = False
         self._seam = ""
@@ -493,7 +503,7 @@ class LogStreamer:
         self._retry_after = 0.0
         #: The next chunk starts where output was dropped (a spool overflow,
         #: a skip ahead, a resumed cursor): check it for a cut key block.
-        self._after_gap = self.cursor > 0
+        self._is_after_gap = self.cursor > 0
         self._failures = 0
         self._next_try = 0.0
         self._disabled = False
@@ -571,13 +581,18 @@ class LogStreamer:
                     break
                 # No chunk takes the pass past its budget (`plan_cut`'s room).
                 chunk = self._pending or self._next_chunk(final=final, room=budget - shipped)
+                if chunk is None and final:
+                    chunk = self._held  # the stream ended: what is held still moves the server's offset
                 if chunk is None:
                     break
+                if self._pending is None and not final and self._should_hold(chunk):
+                    shipped += self._hold(chunk)
+                    continue
                 self._pending = chunk
                 outcome = self._send(chunk, deadline)
                 if outcome in (_Outcome.SENT, _Outcome.SKIPPED):
-                    self._pending = None
-                    self._after_gap = False
+                    self._pending = self._held = None
+                    self._is_after_gap = False
                     self._failures = 0
                     self._next_try = 0.0
                     took += outcome is _Outcome.SENT
@@ -623,7 +638,8 @@ class LogStreamer:
         """What follows was not the stream's next byte: no carried state."""
         self._in_pem = self._in_run = False
         self._seam = ""
-        self._after_gap = True
+        self._is_after_gap = True
+        self._held = None  # its bytes fall inside the gap the server marks
 
     def _next_chunk(self, *, final: bool, room: int = MAX_CHUNK_RAW_BYTES) -> Chunk | None:
         eof = read_eof(self.dir)
@@ -636,7 +652,7 @@ class LogStreamer:
         if not data:
             return None
         ended = final and eof is not None and start + len(data) >= eof
-        cut = plan_cut(data, final=ended, after_gap=self._after_gap, room=room)
+        cut = plan_cut(data, final=ended, after_gap=self._is_after_gap, room=room)
         if cut.size <= 0:
             return None
         raw = data[: cut.size]
@@ -644,7 +660,9 @@ class LogStreamer:
         # hold that this chunk's cut crosses: neither ships (`_forced_cut`).
         lead = _TOKEN_RUN.match(raw).end() if self._in_run else 0
         keep = cut.size if cut.withhold_from is None else cut.withhold_from
-        text, in_pem = render(raw[lead:keep] if lead < keep else b"", self._in_pem, self._after_gap)
+        text, in_pem = render(raw[lead:keep] if lead < keep else b"", self._in_pem, self._is_after_gap)
+        if self._own_requests is not None:
+            text = self._own_requests.remove_lines(text)
         withheld = cut.withhold_from is not None
         seam = ""
         if not cut.at_line_end and not withheld:
@@ -654,9 +672,11 @@ class LogStreamer:
         if withheld and not (self._in_run and cut.withhold_from == 0):
             cleaned += _RUN_WITHHELD  # once per run: its rest adds nothing
         epoch = self._epoch() if self._epoch is not None else None
+        held = self._held
         return Chunk(
-            offset=start,
-            raw_len=cut.size,
+            # A held stretch ends where this chunk starts: one chunk covers both.
+            offset=start if held is None else held.offset,
+            raw_len=cut.size if held is None else start + cut.size - held.offset,
             text=cleaned,
             write_epoch=epoch,
             in_pem=in_pem,
@@ -667,6 +687,23 @@ class LogStreamer:
     def _commit(self, chunk: Chunk) -> None:
         """The carried state after ``chunk``, now that the server has it."""
         self._in_pem, self._in_run, self._seam = chunk.in_pem, chunk.in_run, chunk.seam
+
+    def _should_hold(self, chunk: Chunk) -> bool:
+        """``chunk`` has no text to show (Probe's own request lines), and sending it alone would only log
+        another request line: held, until it covers ``MAX_HELD_RAW_BYTES``."""
+        return not chunk.text and chunk.raw_len < MAX_HELD_RAW_BYTES
+
+    def _hold(self, chunk: Chunk) -> int:
+        """Keep ``chunk`` for the next one sent and read on past it; returns the new raw bytes it covered. The
+        cursor on disk stays where the server is (held bytes are not the server's yet)."""
+        read_to = chunk.offset + chunk.raw_len
+        new_bytes = read_to - self.cursor
+        self._held = chunk
+        self._commit(chunk)
+        self.cursor = read_to
+        self._is_after_gap = False
+        self._drop_sent_segments()
+        return new_bytes
 
     def _read(self, cursor: int, max_bytes: int) -> tuple[int, bytes]:
         """``(offset of the first byte, bytes)`` from the spool at ``cursor``,

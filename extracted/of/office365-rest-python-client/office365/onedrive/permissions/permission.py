@@ -10,7 +10,10 @@ from office365.onedrive.listitems.item_reference import ItemReference
 from office365.onedrive.permissions.sharepoint_identity_set import SharePointIdentitySet
 from office365.onedrive.permissions.sharing_invitation import SharingInvitation
 from office365.onedrive.permissions.sharing_link import SharingLink
+from office365.onedrive.quotas import FILES_QUOTAS
+from office365.permissions import require_permission
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import StringCollection
@@ -20,9 +23,14 @@ if TYPE_CHECKING:
     from office365.onedrive.permissions.collection import PermissionCollection
 
 
+@limit(*FILES_QUOTAS)  # a permission operation costs five resource units of the same budget
 class Permission(Entity):
     """The Permission resource provides information about a sharing permission granted for a DriveItem resource."""
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     def grant(self, recipients: List[str], roles: List[str]) -> PermissionCollection:
         """Grant users access to a link represented by a permission.
 
@@ -43,6 +51,7 @@ class Permission(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="invitation")
     @property
     def invitation(self) -> SharingInvitation:
         """For user type permissions, the details of the users & applications for this permission."""
@@ -72,11 +81,13 @@ class Permission(Entity):
         """For link type permissions, the details of the users to whom permission was granted."""
         return self.properties.get("grantedToIdentitiesV2", ClientValueCollection(SharePointIdentitySet))
 
+    @odata(name="link")
     @property
     def link(self) -> SharingLink:
         """Provides the link details of the current permission, if it is a link type permissions. Read-only."""
         return self.properties.get("link", SharingLink())
 
+    @odata(name="roles")
     @property
     def roles(self) -> StringCollection:
         """The type of permission, e.g. read. See below for the full list of roles. Read-only."""
@@ -91,11 +102,13 @@ class Permission(Entity):
         """
         self.set_property("roles", StringCollection(value))
 
+    @odata(name="shareId")
     @property
     def share_id(self) -> Optional[str]:
         """A unique token that can be used to access this shared item via the shares API. Read-only."""
         return self.properties.get("shareId", None)
 
+    @odata(name="hasPassword")
     @property
     def has_password(self) -> Optional[bool]:
         """This indicates whether password is set for this permission, it's only showing in response.
@@ -112,6 +125,7 @@ class Permission(Entity):
         """
         return self.properties.get("inheritedFrom", ItemReference())
 
+    @odata(name="expirationDateTime")
     @property
     def expiration_date_time(self) -> Optional[datetime]:
         """Gets the expirationDateTime property"""

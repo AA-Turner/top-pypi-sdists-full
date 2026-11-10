@@ -10,6 +10,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    overload,
 )
 
 from django.http import HttpRequest, HttpResponse
@@ -32,7 +33,7 @@ from ninja.parser import Parser
 from ninja.renderers import BaseRenderer, JSONRenderer
 from ninja.router import BoundRouter, Router, RouterMount
 from ninja.throttling import BaseThrottle
-from ninja.types import DictStrAny, TCallable
+from ninja.types import DictStrAny, TCallable, TSchemaClass
 
 if TYPE_CHECKING:
     from .operation import Operation  # pragma: no cover
@@ -61,7 +62,9 @@ class NinjaAPI:
         docs_decorator: Optional[Callable[[TCallable], TCallable]] = None,
         servers: Optional[List[DictStrAny]] = None,
         urls_namespace: Optional[str] = None,
-        auth: Optional[Union[Sequence[Callable], Callable, NOT_SET_TYPE]] = NOT_SET,
+        auth: Optional[
+            Union[Sequence[Callable[..., Any]], Callable[..., Any], NOT_SET_TYPE]
+        ] = NOT_SET,
         throttle: Union[BaseThrottle, List[BaseThrottle], NOT_SET_TYPE] = NOT_SET,
         renderer: Optional[BaseRenderer] = None,
         parser: Optional[Parser] = None,
@@ -78,7 +81,7 @@ class NinjaAPI:
             openapi_extra: Additional attributes for the openAPI spec.
             docs_url: The relative URL to serve the API docs.
             servers: List of target hosts used in openAPI spec.
-            auth (Callable | Sequence[Callable] | NOT_SET | None): Authentication class
+            auth (Callable[..., Any] | Sequence[Callable[..., Any]] | NOT_SET | None): Authentication class
             renderer: Default response renderer
             parser: Default request parser
         """
@@ -98,7 +101,7 @@ class NinjaAPI:
         self._exception_handlers: Dict[Exc, ExcHandler] = {}
         self.set_default_exception_handlers()
 
-        self.auth: Optional[Union[Sequence[Callable], NOT_SET_TYPE]]
+        self.auth: Optional[Union[Sequence[Callable[..., Any]], NOT_SET_TYPE]]
 
         if callable(auth):
             self.auth = [auth]
@@ -372,6 +375,59 @@ class NinjaAPI:
             exclude_defaults=exclude_defaults,
             exclude_none=exclude_none,
             url_name=url_name,
+            include_in_schema=include_in_schema,
+            openapi_extra=openapi_extra,
+        )
+
+    @overload
+    def webhook(self, name: TSchemaClass) -> TSchemaClass: ...
+
+    @overload
+    def webhook(
+        self,
+        name: Optional[str] = None,
+        *,
+        method: str = "POST",
+        summary: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        operation_id: Optional[str] = None,
+        deprecated: Optional[bool] = None,
+        include_in_schema: bool = True,
+        openapi_extra: Optional[Dict[str, Any]] = None,
+    ) -> Callable[[TSchemaClass], TSchemaClass]: ...
+
+    def webhook(
+        self,
+        name: Union[str, TSchemaClass, None] = None,
+        *,
+        method: str = "POST",
+        summary: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        operation_id: Optional[str] = None,
+        deprecated: Optional[bool] = None,
+        include_in_schema: bool = True,
+        openapi_extra: Optional[Dict[str, Any]] = None,
+    ) -> Union[TSchemaClass, Callable[[TSchemaClass], TSchemaClass]]:
+        """
+        Register a Schema class as the payload of a webhook your API sends.
+        Can be used as ``@api.webhook``, ``@api.webhook()`` or
+        ``@api.webhook("order.paid")`` - name defaults to the class name.
+
+        Webhooks are only documented (in the OpenAPI ``webhooks`` section),
+        Django Ninja does not send them.
+        """
+        if isinstance(name, type):  # used without parentheses: @api.webhook
+            return self.default_router.webhook(name)
+        return self.default_router.webhook(
+            name,
+            method=method,
+            summary=summary,
+            description=description,
+            tags=tags,
+            operation_id=operation_id,
+            deprecated=deprecated,
             include_in_schema=include_in_schema,
             openapi_extra=openapi_extra,
         )

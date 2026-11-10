@@ -35,6 +35,23 @@ fn valid_grant(grant: &RoleGrant) -> bool {
     !grant.nodes.is_empty() && !blank_selector && !grant.permissions.is_empty() && !administrative
 }
 
+/// Each published role's description by key; the document was validated when it was published.
+pub(crate) fn decode_roles_descriptions(
+    document: Option<&Value>,
+) -> Result<BTreeMap<String, String>, ControlError> {
+    let roles: BTreeMap<String, RoleDefinition> = document.map_or_else(
+        || Ok(BTreeMap::new()),
+        |document| {
+            serde_json::from_value(document.clone())
+                .map_err(|error| ControlError::Invalid(format!("roles: {error}")))
+        },
+    )?;
+    Ok(roles
+        .into_iter()
+        .map(|(key, role)| (key, role.description))
+        .collect())
+}
+
 pub(crate) fn decode_roles(
     document: Option<&Value>,
 ) -> Result<BTreeMap<String, Vec<RoleGrant>>, ControlError> {
@@ -120,10 +137,18 @@ pub(crate) fn custom_coverage(
     (granting, missing)
 }
 
-/// A denial names at most twenty uncovered nodes so the audited reason stays bounded.
-pub(crate) fn denial_reason(action: Action, missing: &[String]) -> Result<String, ControlError> {
+/// The audited reason naming up to twenty missing nodes, and node-free text for the caller.
+pub(crate) fn denial_reason(
+    action: Action,
+    missing: &[String],
+) -> Result<(String, String), ControlError> {
+    let action = action_name(action)?;
+    let shown = format!("missing {action} permission for this target");
     if missing.is_empty() {
-        return Ok("missing permission in this scope; all requested nodes denied".into());
+        return Ok((
+            "missing permission in this scope; all requested nodes denied".into(),
+            shown,
+        ));
     }
     let listed: Vec<&str> = missing.iter().take(20).map(String::as_str).collect();
     let more = missing.len() - listed.len();
@@ -132,10 +157,12 @@ pub(crate) fn denial_reason(action: Action, missing: &[String]) -> Result<String
     } else {
         String::new()
     };
-    Ok(format!(
-        "missing {} on nodes {}{suffix}; all requested nodes denied",
-        action_name(action)?,
-        listed.join(", ")
+    Ok((
+        format!(
+            "missing {action} on nodes {}{suffix}; all requested nodes denied",
+            listed.join(", ")
+        ),
+        shown,
     ))
 }
 

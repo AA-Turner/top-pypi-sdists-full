@@ -5,7 +5,6 @@
 This is an internal PyTango module.
 """
 
-import copy
 import functools
 import inspect
 import numbers
@@ -14,11 +13,18 @@ import types
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from tango._instrumentation import (
+from tango._internal.attribute_access import (
+    _is_high_level_attribute,
+    install_attribute_access,
+    register_dynamic_attribute,
+    unregister_attribute,
+)
+from tango._internal.instrumentation import (
     _force_tracing,
     _forcefully_traced_method,
     _get_non_tango_source_location,
 )
+from tango._internal.telemetry import _telemetry_runtime
 from tango._tango import (
     Attr,
     AttrDataFormat,
@@ -44,7 +50,6 @@ from tango._tango import (
     UserDefaultAttrProp,
     constants,
 )
-from tango._telemetry import _telemetry_runtime
 from tango.attr_data import AttrData
 from tango.device_class import DeviceClass
 from tango.green import get_executor
@@ -327,6 +332,7 @@ def __init_Attribute():
 
     Attribute.set_value = __Attribute__set_value
     Attribute.set_value_date_quality = __Attribute__set_value_date_quality
+    install_attribute_access()
 
 
 def __DeviceImpl__get_device_class(self) -> DeviceClass:
@@ -357,9 +363,8 @@ def _populate_device_properties(self, ds_class, is_high_level_api=False):
             return
     try:
         pu = self.prop_util = ds_class.prop_util
-        self.device_property_list = copy.deepcopy(ds_class.device_property_list)
-        class_prop = ds_class.class_property_list
-        pu.merge_class_prop_to_dev_prop(self, class_prop, self.device_property_list)
+        class_props = ds_class.class_property_list
+        self.device_property_list = pu.fetch_device_props_from_db_with_class_props_fallback(self)
 
         def _store(name, value):
             if is_high_level_api:
@@ -367,8 +372,8 @@ def _populate_device_properties(self, ds_class, is_high_level_api=False):
             else:
                 setattr(self, name, value)
 
-        for prop_name in class_prop:
-            _store(prop_name, pu.get_property_values(prop_name, class_prop))
+        for prop_name in class_props:
+            _store(prop_name, pu.get_property_values(prop_name, class_props))
         for prop_name in self.device_property_list:
             value = pu.get_property_values(prop_name, self.device_property_list)
             _store(prop_name, value)
@@ -473,6 +478,8 @@ def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_
         attr_data = attr
         attr = attr.to_attr()
 
+    is_high_level = attr_data is not None and _is_high_level_attribute(attr_data)
+
     att_name = attr.get_name()
 
     # get read method and its name
@@ -536,6 +543,10 @@ def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_
     else:
         ia_name = is_allo_meth.__name__
 
+    direct_read = r_meth
+    direct_write = w_meth
+    direct_is_allowed = is_allo_meth
+
     # patch it if exists
     if is_allo_meth is not None:
         ia_name = f"__wrapped_is_allowed_{att_name}_{ia_name}__"
@@ -566,6 +577,8 @@ def __DeviceImpl__add_attribute_realization(self, attr, r_meth, w_meth, is_allo_
         attr = attr_data.to_attr()
 
     self._add_attribute(attr, r_name, w_name, ia_name)
+    if is_high_level:
+        register_dynamic_attribute(attr, self, direct_read, direct_write, direct_is_allowed)
     return attr
 
 
@@ -695,8 +708,8 @@ def __is_device_method(device, func):
 
 
 def __DeviceImpl__remove_attribute(self, attr_name: str, free_it: bool = False, clean_db: bool = True) -> None:
-
     self._remove_attribute(attr_name, free_it, clean_db)
+    unregister_attribute(self, attr_name)
 
 
 __base_remove_attribute_doc = """
@@ -733,6 +746,7 @@ __DeviceImpl__remove_attribute.__doc__ = (
 
 async def __DeviceImpl__async_remove_attribute(self, attr_name: str, free_it: bool = False, clean_db: bool = True):
     await get_worker().delegate(self._remove_attribute, attr_name, free_it, clean_db)
+    unregister_attribute(self, attr_name)
 
 
 __DeviceImpl__async_remove_attribute.__doc__ = __base_remove_attribute_doc + "\n\n.. versionadded:: 10.0.0\n"
@@ -1027,6 +1041,8 @@ def __DeviceImpl__str(self):
             dev_name = self.get_name()
     except DevFailed:
         pass  # Util singleton hasn't been initialised yet
+    except RuntimeError:
+        pass  # base DeviceImpl.__init__ hasn't been called yet
     return f"{self.__class__.__name__}({dev_name})"
 
 

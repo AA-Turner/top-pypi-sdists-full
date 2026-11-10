@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from office365.directory.extensions.extension import Extension
 from office365.directory.extensions.open_type import OpenTypeExtension
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.create_entity import CreateEntityQuery
+from office365.runtime.types.odata_property import odata
 from office365.todo.tasks.collection import TodoTaskCollection
 from office365.todo.tasks.wellknownlistname import WellknownListName
+
+if TYPE_CHECKING:
+    from office365.common.single_value_extended_property import SingleValueExtendedProperty
 
 
 class TodoTaskList(Entity):
@@ -19,26 +23,31 @@ class TodoTaskList(Entity):
     def __str__(self) -> str:
         return self.display_name or self.entity_type_name or ""
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """The name of the task list."""
         return self.properties.get("displayName", None)
 
+    @odata(name="isOwner")
     @property
     def is_owner(self) -> Optional[bool]:
         """Indicates whether the user is the owner of the task list."""
         return self.properties.get("isOwner", None)
 
+    @odata(name="isShared")
     @property
     def is_shared(self) -> Optional[bool]:
         """Indicates whether the task list is shared with other users."""
         return self.properties.get("isShared", None)
 
+    @odata(name="wellknownListName")
     @property
     def wellknown_list_name(self) -> WellknownListName:
         """The name of the well-known list (``defaultList``/``flaggedEmails``/...)."""
         return self.properties.get("wellknownListName", WellknownListName.none)
 
+    @odata(name="extensions", navigation=True)
     @property
     def extensions(self) -> EntityCollection[Extension]:
         """The collection of open extensions defined for the task list."""
@@ -64,6 +73,7 @@ class TodoTaskList(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="tasks", navigation=True)
     @property
     def tasks(self) -> TodoTaskCollection:
         """The tasks in this task list."""
@@ -75,3 +85,18 @@ class TodoTaskList(Entity):
     @property
     def entity_type_name(self) -> str:
         return None  # type: ignore
+
+    @odata(name="singleValueExtendedProperties", navigation=True)
+    @property
+    def single_value_extended_properties(self) -> EntityCollection[SingleValueExtendedProperty]:
+        """Gets the singleValueExtendedProperties property"""
+        from office365.common.single_value_extended_property import SingleValueExtendedProperty
+
+        return self.properties.get(
+            "singleValueExtendedProperties",
+            EntityCollection[SingleValueExtendedProperty](
+                self.context,
+                SingleValueExtendedProperty,
+                ResourcePath("singleValueExtendedProperties", self.resource_path),
+            ),
+        )

@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ class TestClient:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         client_ = response.parse()
         assert_matches_type(PdfResponse, client_, path=["response"])
 
@@ -56,7 +56,7 @@ class TestClient:
             url="https://example.com",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             client_ = response.parse()
             assert_matches_type(PdfResponse, client_, path=["response"])
@@ -91,7 +91,7 @@ class TestClient:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         client_ = response.parse()
         assert_matches_type(ScrapeResponse, client_, path=["response"])
 
@@ -101,7 +101,7 @@ class TestClient:
             url="url",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             client_ = response.parse()
             assert_matches_type(ScrapeResponse, client_, path=["response"])
@@ -134,7 +134,7 @@ class TestClient:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         client_ = response.parse()
         assert_matches_type(ScreenshotResponse, client_, path=["response"])
 
@@ -144,7 +144,7 @@ class TestClient:
             url="https://example.com",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             client_ = response.parse()
             assert_matches_type(ScreenshotResponse, client_, path=["response"])
@@ -182,7 +182,7 @@ class TestAsyncClient:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         client = await response.parse()
         assert_matches_type(PdfResponse, client, path=["response"])
 
@@ -192,7 +192,7 @@ class TestAsyncClient:
             url="https://example.com",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             client = await response.parse()
             assert_matches_type(PdfResponse, client, path=["response"])
@@ -227,7 +227,7 @@ class TestAsyncClient:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         client = await response.parse()
         assert_matches_type(ScrapeResponse, client, path=["response"])
 
@@ -237,7 +237,7 @@ class TestAsyncClient:
             url="url",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             client = await response.parse()
             assert_matches_type(ScrapeResponse, client, path=["response"])
@@ -270,7 +270,7 @@ class TestAsyncClient:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         client = await response.parse()
         assert_matches_type(ScreenshotResponse, client, path=["response"])
 
@@ -280,7 +280,7 @@ class TestAsyncClient:
             url="https://example.com",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             client = await response.parse()
             assert_matches_type(ScreenshotResponse, client, path=["response"])

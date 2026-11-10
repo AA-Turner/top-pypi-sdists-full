@@ -1,6 +1,6 @@
 import copy
 from functools import lru_cache
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import sqlalchemy
 from sqlalchemy import text
@@ -54,6 +54,15 @@ class OrderAction(QueryAction):
         return self.target_model.get_column_alias(self.field_name)
 
     @property
+    def field_aliases(self) -> tuple[str, ...]:
+        """
+        :return: columns the field is ordered by: its column, or every column
+            of a foreign key stored in several columns
+        :rtype: tuple[str, ...]
+        """
+        return self.target_model.get_column_aliases(field_name=self.field_name)
+
+    @property
     def is_postgres_bool(self) -> bool:
         dialect = self.target_model.ormar_config.database.dialect.name
         field_type = self.target_model.ormar_config.model_fields[
@@ -83,12 +92,19 @@ class OrderAction(QueryAction):
         :return: min or max function to order
         :rtype: sqlalchemy.sql.elements.TextClause
         """
-        reference = self.get_field_name_text()
+        prefix = f"{self.table_prefix}_" if self.table_prefix else ""
         if self.direction == "":
             function = "min" if not self.is_postgres_bool else "bool_or"
-            return text(f"{function}({reference})")
-        function = "max" if not self.is_postgres_bool else "bool_or"
-        return text(f"{function}({reference}) desc")
+            suffix = ""
+        else:
+            function = "max" if not self.is_postgres_bool else "bool_or"
+            suffix = " desc"
+        return text(
+            ", ".join(
+                f"{function}({prefix}{self.table.name}.{alias}){suffix}"
+                for alias in self.field_aliases
+            )
+        )
 
     def get_text_clause(self) -> sqlalchemy.sql.expression.TextClause:
         """
@@ -102,15 +118,12 @@ class OrderAction(QueryAction):
         dialect = self.target_model.ormar_config.database.dialect
         quoter = dialect.identifier_preparer.quote
         prefix = f"{self.table_prefix}_" if self.table_prefix else ""
-        table_name = self.table.name
-        field_name = self.field_alias
-        if not prefix:
-            table_name = quoter(table_name)
-        else:
-            table_name = quoter(f"{prefix}{table_name}")
-        field_name = quoter(field_name)
+        table_name = quoter(f"{prefix}{self.table.name}")
         return order_text_clause(
-            self._build_order_expression(f"{table_name}.{field_name}")
+            ", ".join(
+                self._build_order_expression(f"{table_name}.{quoter(alias)}")
+                for alias in self.field_aliases
+            )
         )
 
     def _build_order_expression(self, full_column: str) -> str:
@@ -157,8 +170,9 @@ class OrderAction(QueryAction):
         :rtype: list[OrderAction]
         """
         return [
-            cls(order_str=str(name), model_cls=model_cls)
+            action
             for name in model_cls.ormar_config.orders_by
+            for action in order_actions_for(order_str=str(name), model_cls=model_cls)
         ]
 
     def flipped(self) -> "OrderAction":
@@ -194,3 +208,79 @@ class OrderAction(QueryAction):
         :rtype: bool
         """
         return target_model == self.target_model and alias == self.table_prefix
+
+
+def order_actions_for(
+    order_str: str,
+    model_cls: type["Model"],
+    alias: Optional[str] = None,
+    nulls_ordering: Optional[str] = None,
+) -> list[OrderAction]:
+    """
+    Build the order actions for one order string, expanding ``pk`` (also after
+    relations) into the primary key fields of the model it points at, in key
+    order::
+
+        "-pk"         -> ["-tenant_id", "-number"]
+        "-stock__pk"  -> ["-stock__code", "-stock__sku"]
+        "shop__pk"    -> ["shop__id"]
+
+    :param order_str: order string, ``-`` prefixed for descending order
+    :type order_str: str
+    :param model_cls: model the order string starts from
+    :type model_cls: type[Model]
+    :param alias: table alias of the ordered model, if already known
+    :type alias: Optional[str]
+    :param nulls_ordering: optional nulls placement, ``"first"`` or ``"last"``
+    :type nulls_ordering: Optional[str]
+    :return: order actions, one per key field for a ``pk`` order
+    :rtype: list[OrderAction]
+    """
+    action = OrderAction(
+        order_str=order_str,
+        model_cls=model_cls,
+        alias=alias,
+        nulls_ordering=nulls_ordering,
+    )
+    if action.field_name != "pk":
+        return [action]
+    prefix = order_str[: -len("pk")]
+    return [
+        OrderAction(
+            order_str=f"{prefix}{field}",
+            model_cls=model_cls,
+            alias=alias,
+            nulls_ordering=nulls_ordering,
+        )
+        for field in action.target_model.ormar_config.pk.fields
+    ]
+
+
+def expand_pk_orders(model_cls: type["Model"], columns: list[Any]) -> list[OrderAction]:
+    """
+    Turn an ``order_by`` list into order actions, expanding ``pk`` orders (also
+    after relations and from ``Model.pk.asc()`` / ``Model.rel.pk.desc()``) into
+    the primary key fields with :func:`order_actions_for`.
+
+    :param model_cls: ordered model
+    :type model_cls: type[Model]
+    :param columns: order strings or ``OrderAction`` instances
+    :type columns: list[Any]
+    :return: order actions with ``pk`` expanded
+    :rtype: list[OrderAction]
+    """
+    expanded: list[OrderAction] = []
+    for column in columns:
+        if isinstance(column, str):
+            expanded.extend(order_actions_for(order_str=column, model_cls=model_cls))
+        elif column.field_name == "pk":
+            expanded.extend(
+                order_actions_for(
+                    order_str=column.query_str,
+                    model_cls=model_cls,
+                    nulls_ordering=column.nulls_ordering,
+                )
+            )
+        else:
+            expanded.append(column)
+    return expanded

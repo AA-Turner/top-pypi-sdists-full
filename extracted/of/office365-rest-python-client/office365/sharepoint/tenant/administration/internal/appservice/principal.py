@@ -4,11 +4,14 @@ from typing import Optional
 
 from typing_extensions import Self
 
+from office365.permissions.roles import DirectoryRole
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import GuidCollection, StringCollection
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.tenant.administration.internal.aad.collection import (
     SPO3rdPartyAADPermissionGrantCollection,
 )
@@ -25,6 +28,7 @@ class SPOWebAppServicePrincipal(Entity):
         stat_path = ResourcePath("Microsoft.Online.SharePoint.TenantAdministration.Internal.SPOWebAppServicePrincipal")
         super().__init__(context, stat_path)
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_spfx_client_secret(self, secret_value: str):
         """Args:
         secret_value (str):
@@ -34,27 +38,32 @@ class SPOWebAppServicePrincipal(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_spfx_third_party_app_id(self, app_id):
         payload = {"appId": app_id}
         qry = ServiceOperationQuery(self, "UpdateSpfxThirdPartyAppId", None, payload)
         self.context.add_query(qry)
         return self
 
+    @odata(name="AccountEnabled", beta=True)
     @property
     def account_enabled(self) -> Optional[bool]:
         """ """
         return self.properties.get("AccountEnabled", False)
 
+    @odata(name="AppId", beta=True)
     @property
     def app_id(self) -> Optional[bool]:
         """ """
         return self.properties.get("AppId", False)
 
+    @odata(name="ReplyUrls", beta=True)
     @property
     def reply_urls(self) -> StringCollection:
         """ """
         return self.properties.get("ReplyUrls", StringCollection())
 
+    @odata(name="GrantManager", navigation=True, beta=True)
     @property
     def grant_manager(self) -> SPO3rdPartyAADPermissionGrantCollection:
         return self.properties.get(
@@ -65,6 +74,7 @@ class SPOWebAppServicePrincipal(Entity):
             ),
         )
 
+    @odata(name="PermissionGrants", navigation=True, beta=True)
     @property
     def permission_grants(self) -> EntityCollection[SPOWebAppServicePrincipalPermissionGrant]:
         return self.properties.get(
@@ -76,6 +86,7 @@ class SPOWebAppServicePrincipal(Entity):
             ),
         )
 
+    @odata(name="PermissionRequests", navigation=True, beta=True)
     @property
     def permission_requests(self) -> EntityCollection[SPOWebAppServicePrincipalPermissionRequest]:
         return self.properties.get(
@@ -102,21 +113,25 @@ class SPOWebAppServicePrincipal(Entity):
             default_value = property_mapping.get(name, None)
         return super().get_property(name, default_value)
 
+    @odata(name="AppHelperId", beta=True)
     @property
     def app_helper_id(self) -> Optional[str]:
         """Gets the AppHelperId property"""
         return self.properties.get("AppHelperId", None)
 
+    @odata(name="AppsToDelete", beta=True)
     @property
     def apps_to_delete(self) -> StringCollection:
         """Gets the AppsToDelete property"""
         return self.properties.get("AppsToDelete", StringCollection())
 
+    @odata(name="ServicePrincipalObjectIds", beta=True)
     @property
     def service_principal_object_ids(self) -> GuidCollection:
         """Gets the ServicePrincipalObjectIds property"""
         return self.properties.get("ServicePrincipalObjectIds", GuidCollection())
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_apps_to_delete(self, domains_to_delete: list[str]) -> Self:
         """RemoveAppsToDelete operation.
 
@@ -130,6 +145,7 @@ class SPOWebAppServicePrincipal(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_spfx_third_party_isolated_component_fields(
         self, catalog_item_id: str, ap_app_object_id: str, sp_object_id: str, app_id: str
     ) -> Self:
@@ -161,6 +177,7 @@ class SPOWebAppServicePrincipal(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_spfx_third_party_isolated_secret(self, service_principal_id: str, secret_value: str) -> Self:
         """UpdateSpfxThirdPartyIsolatedSecret operation.
 

@@ -1,33 +1,48 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
 from .file import File as File
+from .api_key import APIKey as APIKey
+from .project import Project as Project
 from .session import Session as Session
 from .fileslist import Fileslist as Fileslist
 from .pdf_response import PdfResponse as PdfResponse
 from .sessionslist import Sessionslist as Sessionslist
+from .command_param import CommandParam as CommandParam
+from .projects_list import ProjectsList as ProjectsList
+from .command_dialog import CommandDialog as CommandDialog
+from .command_events import CommandEvents as CommandEvents
 from .scrape_response import ScrapeResponse as ScrapeResponse
 from .session_context import SessionContext as SessionContext
 from .client_pdf_params import ClientPdfParams as ClientPdfParams
+from .command_error_info import CommandErrorInfo as CommandErrorInfo
 from .file_upload_params import FileUploadParams as FileUploadParams
 from .profile_get_params import ProfileGetParams as ProfileGetParams
+from .command_frame_param import CommandFrameParam as CommandFrameParam
 from .profile_list_params import ProfileListParams as ProfileListParams
 from .screenshot_response import ScreenshotResponse as ScreenshotResponse
 from .session_list_params import SessionListParams as SessionListParams
+from .session_logs_params import SessionLogsParams as SessionLogsParams
 from .client_scrape_params import ClientScrapeParams as ClientScrapeParams
+from .command_target_param import CommandTargetParam as CommandTargetParam
 from .profile_get_response import ProfileGetResponse as ProfileGetResponse
+from .api_key_create_params import APIKeyCreateParams as APIKeyCreateParams
+from .command_locator_param import CommandLocatorParam as CommandLocatorParam
 from .profile_create_params import ProfileCreateParams as ProfileCreateParams
 from .profile_list_response import ProfileListResponse as ProfileListResponse
 from .profile_update_params import ProfileUpdateParams as ProfileUpdateParams
+from .session_cost_response import SessionCostResponse as SessionCostResponse
 from .session_create_params import SessionCreateParams as SessionCreateParams
 from .session_events_params import SessionEventsParams as SessionEventsParams
+from .session_logs_response import SessionLogsResponse as SessionLogsResponse
 from .credential_list_params import CredentialListParams as CredentialListParams
 from .extension_list_response import ExtensionListResponse as ExtensionListResponse
 from .extension_update_params import ExtensionUpdateParams as ExtensionUpdateParams
 from .extension_upload_params import ExtensionUploadParams as ExtensionUploadParams
 from .profile_create_response import ProfileCreateResponse as ProfileCreateResponse
 from .profile_update_response import ProfileUpdateResponse as ProfileUpdateResponse
+from .session_commands_params import SessionCommandsParams as SessionCommandsParams
 from .session_computer_params import SessionComputerParams as SessionComputerParams
 from .session_events_response import SessionEventsResponse as SessionEventsResponse
 from .client_screenshot_params import ClientScreenshotParams as ClientScreenshotParams
@@ -36,15 +51,23 @@ from .credential_delete_params import CredentialDeleteParams as CredentialDelete
 from .credential_list_response import CredentialListResponse as CredentialListResponse
 from .credential_update_params import CredentialUpdateParams as CredentialUpdateParams
 from .session_release_response import SessionReleaseResponse as SessionReleaseResponse
+from .command_expectation_param import CommandExpectationParam as CommandExpectationParam
 from .extension_delete_response import ExtensionDeleteResponse as ExtensionDeleteResponse
 from .extension_update_response import ExtensionUpdateResponse as ExtensionUpdateResponse
 from .extension_upload_response import ExtensionUploadResponse as ExtensionUploadResponse
+from .session_commands_response import SessionCommandsResponse as SessionCommandsResponse
 from .session_computer_response import SessionComputerResponse as SessionComputerResponse
 from .credential_create_response import CredentialCreateResponse as CredentialCreateResponse
 from .credential_delete_response import CredentialDeleteResponse as CredentialDeleteResponse
 from .credential_update_response import CredentialUpdateResponse as CredentialUpdateResponse
 from .session_release_all_params import SessionReleaseAllParams as SessionReleaseAllParams
-from .extension_download_response import ExtensionDownloadResponse as ExtensionDownloadResponse
+from .session_agent_traces_params import SessionAgentTracesParams as SessionAgentTracesParams
 from .session_release_all_response import SessionReleaseAllResponse as SessionReleaseAllResponse
 from .extension_delete_all_response import ExtensionDeleteAllResponse as ExtensionDeleteAllResponse
+from .session_agent_traces_response import SessionAgentTracesResponse as SessionAgentTracesResponse
 from .session_live_details_response import SessionLiveDetailsResponse as SessionLiveDetailsResponse
+from .session_update_metadata_params import SessionUpdateMetadataParams as SessionUpdateMetadataParams
+from .session_replace_metadata_params import SessionReplaceMetadataParams as SessionReplaceMetadataParams
+from .session_signal_catalog_response import SessionSignalCatalogResponse as SessionSignalCatalogResponse
+from .session_update_metadata_response import SessionUpdateMetadataResponse as SessionUpdateMetadataResponse
+from .session_replace_metadata_response import SessionReplaceMetadataResponse as SessionReplaceMetadataResponse

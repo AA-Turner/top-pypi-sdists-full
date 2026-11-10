@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SiteScriptMetadata(ClientValue):
     """Represents metadata about a SharePoint site script in the SharePoint framework.
     Site scripts are used to automate the provisioning of SharePoint sites by defining actions like

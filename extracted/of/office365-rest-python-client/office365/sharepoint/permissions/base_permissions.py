@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Iterator, Union
 
 from typing_extensions import Self
@@ -9,7 +8,6 @@ from office365.runtime.client_value import ClientValue
 from office365.sharepoint.permissions.kind import PermissionKind
 
 
-@dataclass
 class BasePermissions(ClientValue):
     """Specifies a set of built-in permissions."""
 
@@ -67,12 +65,30 @@ class BasePermissions(ClientValue):
         self.High = 0
         self.Low = 0
 
-    def to_json(self, json_format=None):
+    @property
+    def value(self) -> int:
+        """The whole permission set as one 64-bit number (``High`` above bit 32).
+
+        SharePoint carries the same set two ways: CSOM splits it into two 32-bit
+        halves, while a ``PermMask`` -- on a role assignment, a legacy form, a
+        migration manifest's ``AnonymousPermMask`` -- spells it as one decimal, and
+        the two are the same number. This is the bridge, so a caller stops deriving
+        ``(High << 32) | Low`` (and its inverse) for itself.
+        """
+        return (self.High << self._BITS_PER_INT) | self.Low
+
+    @classmethod
+    def from_value(cls, value: int) -> Self:
+        """Build from the one-number form (see :attr:`value`)."""
+        mask = int(value)
+        return cls(High=mask >> cls._BITS_PER_INT, Low=mask & ((1 << cls._BITS_PER_INT) - 1))
+
+    def to_json(self, profile=None):
         return {"Low": str(self.Low), "High": str(self.High)}
 
-    def set_property(self, k: str | int, v: Any, persist_changes: bool = True) -> Self:
-        if k in ("Low", "High"):
-            setattr(self, k, int(v))
+    def set_property(self, name: str | int, value: Any, persist_changes: bool = True) -> Self:
+        if name in ("Low", "High"):
+            setattr(self, str(name), int(value))
         return self
 
     @property

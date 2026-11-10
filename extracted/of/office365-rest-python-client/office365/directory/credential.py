@@ -51,7 +51,6 @@ class CredentialExpiry:
         return format(str(self), format_spec)
 
 
-@dataclass
 class Credential(ClientValue):
     """Base class for application/service-principal credentials.
 

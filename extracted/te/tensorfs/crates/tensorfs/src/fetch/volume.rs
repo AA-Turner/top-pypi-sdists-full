@@ -19,17 +19,17 @@ use std::sync::atomic::{AtomicU64, AtomicU8, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use async_trait::async_trait;
 use platform::durable::Mode;
 
-use super::origin::{Location, Origin};
-use super::ObjectStore;
+use super::origin::{Boxed, Location, Origin};
+use crate::store::Store;
 use crate::err::Result;
 use crate::format::ObjectRef;
 
 /// Bytes per read or write call into the volume: each call is progress.
 pub(crate) const STEP: usize = 8 << 20;
 
+/// A directory in the static-origin layout, read before the origin and filled from fetches.
 #[derive(Clone)]
 pub struct VolumeOrigin(Arc<Inner>);
 
@@ -56,7 +56,7 @@ const ABANDONED: u8 = 2;
 
 impl VolumeOrigin {
     /// The directory at `root`; an unused blob stays at least `ttl`.
-    pub fn new(root: impl Into<PathBuf>, ttl: Duration) -> VolumeOrigin {
+    pub(crate) fn new(root: impl Into<PathBuf>, ttl: Duration) -> VolumeOrigin {
         VolumeOrigin(Arc::new(Inner {
             root: root.into(),
             ttl,
@@ -71,10 +71,6 @@ impl VolumeOrigin {
         let root = root.into();
         let device = |path: &Path| platform::durable::device(path).ok();
         (device(&root)? != device(root.parent()?)?).then(|| VolumeOrigin::new(root, ttl))
-    }
-
-    pub fn root(&self) -> &Path {
-        &self.0.root
     }
 
     pub(crate) fn blob(&self, object: &ObjectRef) -> PathBuf {
@@ -95,7 +91,7 @@ impl VolumeOrigin {
     /// `replace` is not asked.
     pub(crate) fn write(
         &self,
-        store: &dyn ObjectStore,
+        store: &Store,
         object: &ObjectRef,
         replace: bool,
     ) -> Wrote {
@@ -126,12 +122,12 @@ impl VolumeOrigin {
 
     fn copy(
         &self,
-        store: &dyn ObjectStore,
+        store: &Store,
         object: &ObjectRef,
         path: &Path,
     ) -> std::io::Result<()> {
         static UNIQUE: AtomicU64 = AtomicU64::new(0);
-        let mut source = store.open(object)?;
+        let mut source = open(store, object)?;
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_nanos());
@@ -149,13 +145,15 @@ impl VolumeOrigin {
                 .create_new(true)
                 .mode(0o444)
                 .open(&temp)?;
-            let mut buffer = vec![0; STEP];
+            let (mut buffer, mut paced, mut at) = (vec![0; STEP], platform::durable::Paced::default(), 0);
             loop {
                 let read = source.read(&mut buffer)?;
                 if read == 0 {
                     break;
                 }
                 file.write_all(&buffer[..read])?;
+                paced.wrote(&file, at, read as u64);
+                at += read as u64;
             }
             file.sync_all()?;
             fs::rename(&temp, path)
@@ -260,16 +258,21 @@ pub(crate) async fn blocking<T: Send + 'static>(
     }
 }
 
-#[async_trait]
 impl Origin for VolumeOrigin {
-    async fn locate(&self, objects: &[ObjectRef]) -> Result<Vec<Location>> {
-        Ok(objects
-            .iter()
-            .map(|object| Location::File(self.blob(object)))
-            .collect())
+    fn locate<'a>(&'a self, objects: &'a [ObjectRef]) -> Boxed<'a, Result<Vec<Location>>> {
+        Box::pin(async move { Ok(objects.iter().map(|object| Location::File(self.blob(object))).collect()) })
     }
 
     fn public(&self) -> bool {
         false
     }
+}
+
+/// A held object's bytes, or why not as an I/O error.
+pub(super) fn open(store: &Store, object: &ObjectRef) -> std::io::Result<std::fs::File> {
+    store.file(object).map_err(|error| match error {
+        crate::store::Error::Absent(_) => std::io::Error::new(std::io::ErrorKind::NotFound, error.to_string()),
+        crate::store::Error::Io { source, .. } => source,
+        other => std::io::Error::other(other.to_string()),
+    })
 }

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "projen",
-    "version": "0.104.25",
+    "version": "0.104.27",
     "description": "CDK for software projects",
     "license": "Apache-2.0",
     "url": "https://github.com/projen/projen.git",
@@ -47,7 +47,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "projen._jsii": [
-            "projen@0.104.25.jsii.tgz"
+            "projen@0.104.27.jsii.tgz"
         ],
         "projen": [
             "py.typed"

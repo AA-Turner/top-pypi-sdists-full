@@ -121,6 +121,7 @@ from sarj_python_lint.rules.phase_label_comment import TestPhaseLabelComment
 from sarj_python_lint.rules.prefer_autospec_for_callable_mock import PreferAutospecForCallableMock
 from sarj_python_lint.rules.prefer_class_row import PreferClassRow
 from sarj_python_lint.rules.prefer_collection_comprehension import PreferCollectionComprehension
+from sarj_python_lint.rules.prefer_configured_cloud_scope import PreferConfiguredCloudScope
 from sarj_python_lint.rules.prefer_constant_time_secret_compare import (
     PreferConstantTimeSecretCompare,
 )
@@ -132,6 +133,7 @@ from sarj_python_lint.rules.prefer_immutable_module_constant import (
 from sarj_python_lint.rules.prefer_injected_dependency_over_monkeypatch import (
     PreferInjectedDependencyOverMonkeypatch,
 )
+from sarj_python_lint.rules.prefer_injected_service import PreferInjectedService
 from sarj_python_lint.rules.prefer_library_fake import PreferLibraryFake
 from sarj_python_lint.rules.prefer_match_assert_never import PreferMatchAssertNever
 from sarj_python_lint.rules.prefer_match_exception_dispatch import PreferMatchExceptionDispatch
@@ -261,6 +263,7 @@ from sarj_python_lint.rules.no_unknown_pydantic_validator_field import NoUnknown
 from sarj_python_lint.rules.no_work_verb_get_route import NoWorkVerbGetRoute
 from sarj_python_lint.rules.prefer_application_model_joins import PreferApplicationModelJoins
 from sarj_python_lint.rules.prefer_bulk_upsert import PreferBulkUpsert
+from sarj_python_lint.rules.prefer_coordinated_state_owner import PreferCoordinatedStateOwner
 from sarj_python_lint.rules.prefer_direct_import_module import PreferDirectImportModule
 from sarj_python_lint.rules.prefer_discriminated_model_union import PreferDiscriminatedModelUnion
 from sarj_python_lint.rules.prefer_grouped_settings import PreferGroupedSettings
@@ -290,6 +293,9 @@ from sarj_python_lint.rules.test_without_explicit_oracle import NoExplicitTestOr
 
 _AUTHORING_REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
     {
+        PreferCoordinatedStateOwner.id: PreferCoordinatedStateOwner,
+        PreferInjectedService.id: PreferInjectedService,
+        PreferConfiguredCloudScope.id: PreferConfiguredCloudScope,
         FastapiRouteDeclaresSecurity.id: FastapiRouteDeclaresSecurity,
         PreferValidatedUuidComparison.id: PreferValidatedUuidComparison,
         PreferSinglePsycopgCursor.id: PreferSinglePsycopgCursor,

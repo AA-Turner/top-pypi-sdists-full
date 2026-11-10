@@ -14,10 +14,10 @@
     matrix:
       - RUNNER_TAG: amd64
         ARCH: x86_64
-        PYTHON_VER: [310, 311, 312, 313, 314]
+        PYTHON_VER: [310, 311, 312, 313, 314, 315]
       - RUNNER_TAG: aarch64
         ARCH: aarch64
-        PYTHON_VER: [310, 311, 312, 313, 314]
+        PYTHON_VER: [310, 311, 312, 313, 314, 315]
 
 linux:build-wheel:
   extends: [.matrix-wheel-linux, .build-wheel]
@@ -101,6 +101,9 @@ linux:build-wheel-against-specific-branch:
 
 linux:build-sdist:
   stage: build
+  rules:
+    - !reference [.manual-on-branch-push, rules]
+    - when: on_success
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   image: quay.io/condaforge/miniforge3:latest
@@ -120,6 +123,10 @@ linux:build-sdist:
 
 linux:test-source:
   stage: test
+  rules:
+    - !reference [.manual-on-branch-push, rules]
+    - !reference [.only-docs, rules]
+    - when: on_success
   image: registry.gitlab.com/tango-controls/docker/micromamba:2.5.0
   tags:
     - linux
@@ -137,7 +144,7 @@ linux:test-source:
       micromamba install -y -n base -c conda-forge
       "pybind11>=3.0.1" cppzmq cxx-compiler pkg-config
       python=$PYTHON_VERSION numpy "gcovr>=8.3" "lxml>=6" git make
-      packaging psutil typing_extensions pytest pytest-asyncio pytest-forked pytest-cov pytest-timeout pystack gevent
+      packaging psutil typing_extensions "pytest<9.2" pytest-asyncio pytest-forked pytest-cov pytest-timeout pystack gevent
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
       cmake clang-format clang-tools cppcheck ninja docstring_parser
       scikit-build-core pybind11-stubgen ruff valgrind
@@ -199,7 +206,8 @@ linux:test-source:
       --cobertura coverage-all.xml
     # check for valgrind issues on develop branch or branches containing "memory"
     - |
-      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" || "$CI_COMMIT_BRANCH" == "maintenance/"*  || "$CI_COMMIT_BRANCH" == *"memory"* ]]; then
+      BRANCH="${CI_COMMIT_BRANCH:-$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}"
+      if [[ "$BRANCH" == "$CI_DEFAULT_BRANCH" || "$BRANCH" == "maintenance/"*  || "$BRANCH" == *"memory"* ]]; then
         pushd tests/valgrind
         ./run_valgrind_checks.sh
         popd
@@ -228,7 +236,7 @@ linux:test-source:
       fi
   parallel:
     matrix:
-      - PYTHON_VERSION: ['3.10', '3.11', '3.12', '3.13', '3.14']
+      - PYTHON_VERSION: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     when: always
@@ -271,7 +279,7 @@ linux:test-source-against-develop-dependencies:
       micromamba install -y -n base -c conda-forge
       "pybind11>=3.0.1" cmake cppzmq cxx-compiler omniorb libtool pkg-config gnuconfig autoconf zeromq jpeg
       cpp-opentelemetry-api cpp-opentelemetry-sdk
-      git make ninja python numpy packaging psutil pytest pytest-forked pytest-cov pystack gevent valgrind
+      git make ninja python numpy packaging psutil "pytest<9.2" pytest-forked pytest-cov pystack gevent valgrind
       clang-format clang-tools cppcheck python=$PYTHON_VERSION typing_extensions docstring_parser
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
     - micromamba activate base
@@ -383,7 +391,7 @@ linux:test-main-cpptango:
       micromamba install -y -n base -c tango-controls/label/dev -c conda-forge
       cpptango-dbg "pybind11>=3.0.1" cmake cppzmq cxx-compiler git make pkg-config ninja
       python numpy
-      packaging psutil typing_extensions pytest pytest-forked gevent valgrind docstring_parser
+      packaging psutil typing_extensions "pytest<9.2" pytest-forked gevent valgrind docstring_parser
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
     - micromamba activate base
     # build and install TangoTest
@@ -418,13 +426,9 @@ linux:test-main-cpptango:
     reports:
       junit: report*.xml
   rules:
-    # Disable detached pipeline on MR
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       allow_failure: false
-    - if: $CI_COMMIT_BRANCH || $CI_COMMIT_TAG
-      when: manual
+    - when: manual
       allow_failure: true
 
 .linux-test-wheel:
@@ -489,7 +493,7 @@ linux:test-wheel:aarch64:3.14:
 
 linux:test-pixi:x86_64:
   extends: .linux-test-pixi
-  image: ghcr.io/prefix-dev/pixi:0.70.0
+  image: ghcr.io/prefix-dev/pixi:0.82.1
   tags:
     - linux
     - docker
@@ -500,7 +504,7 @@ linux:test-pixi:x86_64:
 linux:test-pixi:aarch64:
   extends: .linux-test-pixi
   image:
-    name: ghcr.io/prefix-dev/pixi:0.70.0
+    name: ghcr.io/prefix-dev/pixi:0.82.1
     docker:
       platform: arm64
   tags:

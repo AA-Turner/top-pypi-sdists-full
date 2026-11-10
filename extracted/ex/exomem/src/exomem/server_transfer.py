@@ -34,6 +34,7 @@ from . import (
     artifact_recovery,
     auth_sessions,
     cf_access,
+    download_links,
     local_ingress,
     media_store,
     originals,
@@ -51,7 +52,8 @@ DEFAULT_UPLOAD_MAX_BYTES = 100 * 1024 * 1024
 #: default. A request is spooled to temporary storage before the copy-time check, so this
 #: bound is refused early from Content-Length; a whole export fits, a runaway client stops.
 DEFAULT_LOCAL_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024
-#: Multipart framing and form fields that ride with the file part.
+#: Multipart framing and form fields that ride with the file part. The early Content-Length checks
+#: take it as the most a body carries beyond its file; only a client that pads its fields exceeds it.
 _FORM_OVERHEAD_BYTES = 1024 * 1024
 #: tus 1.0 (tus.io resumable-upload protocol): the extensions served. `upload_sessions`
 #: holds the version, the secret header and the route, which an upload handoff advertises.
@@ -64,6 +66,26 @@ log = logging.getLogger(__name__)
 
 
 _header_count = upload_sessions.header_count
+
+
+async def _allowance_refused(
+    vault_root: Path, file_bytes: int | None, filename: str | None, lane: str, *, most_bytes: int | None = None,
+) -> dict[str, str] | None:
+    """The refusal body for an upload that the media allowance cannot hold, read before its bytes are kept (D10).
+
+    In the Evidence lane the file's name decides whether it charges the allowance. A multipart body names its
+    file only in the body, so the multipart lanes ask once the form is read, before they hold or file a byte. The
+    ticket lane also asks before the body, from Content-Length, with no name: that can refuse only a Source upload.
+    A resumable session names its file at creation, before any byte. A request without a size carries nothing to
+    admit here; offload's own admission then keeps its original local.
+    """
+    from . import media_allowance, media_store
+
+    if file_bytes is None:
+        return None
+    reason = await run_in_threadpool(
+        media_store.upload_refusal, vault_root, file_bytes, filename, lane, most_bytes=most_bytes)
+    return None if reason is None else {"code": media_allowance.MEDIA_ALLOWANCE_EXCEEDED, "reason": reason}
 
 
 def _flag(value: str) -> bool | None:
@@ -345,6 +367,7 @@ def _commit_evidence_session(vault_root: Path, part: Path, record: dict, manager
                     description=target.get("description"),
                     max_bytes=int(record["length"]),
                     raw_protection=bool(target.get("raw_protection")),
+                    media_pending=True,
                 )
             except preserve_module.PreserveError as exc:
                 stored = _stored_already(vault_root, record) if exc.code == "ARTIFACT_EXISTS" else None
@@ -622,7 +645,8 @@ class _OriginalDownloadResponse(Response):
     def __init__(self, vault_root: Path, capability: str):
         super().__init__(headers=_RECOVERY_HEADERS)
         self.vault_root = vault_root
-        self.capability = capability
+        # A short link id names its grant; an unknown or expired id claims nothing.
+        self.capability = download_links.expand(capability) or ""
 
     async def __call__(self, scope, receive, send):
         started = False
@@ -693,6 +717,13 @@ async def _receive_ticket_upload(vault_root: Path, request: Request, ticket: dic
     declared = _header_count(request.headers.get("content-length", ""))
     if declared is not None and declared > maximum + _FORM_OVERHEAD_BYTES:
         return JSONResponse({"code": "TOO_LARGE", "reason": "upload exceeds the handoff limit"}, status_code=413)
+    # Content-Length less the framing allowance is the least the file can hold. With no name yet, only a
+    # Source upload can be refused here; any other request reads its form and asks again below.
+    if declared is not None and declared > _FORM_OVERHEAD_BYTES:
+        refused = await _allowance_refused(
+            vault_root, declared - _FORM_OVERHEAD_BYTES, None, ticket["lane"], most_bytes=declared)
+        if refused is not None:
+            return JSONResponse(refused, status_code=413)
     try:
         async with bounded.form(max_files=1, max_fields=3, max_part_size=_FORM_OVERHEAD_BYTES) as form:
             # The ticket-upload protocol fixes these fields; none can select a commit target.
@@ -706,11 +737,14 @@ async def _receive_ticket_upload(vault_root: Path, request: Request, ticket: dic
                 return JSONResponse({"code": "INVALID_UPLOAD", "reason": "multipart field `file` is required"}, status_code=400)
             if not await upload_handoff._active(vault_root, ticket["principal"]):
                 return JSONResponse({"code": "UPLOAD_HANDOFF_UNAVAILABLE", "reason": upload_handoff.UNAVAILABLE_REASON}, status_code=401)
+            filename = str(form.get("filename") or upload.filename or "")
+            if (refused := await _allowance_refused(vault_root, upload.size, filename, ticket["lane"])) is not None:
+                return JSONResponse(refused, status_code=413)
             with principal_module.request_scope(ticket["principal"]):
                 held = await run_in_threadpool(
                     held_uploads.hold, vault_root, upload.file,
                     lane=ticket["lane"],
-                    filename=str(form.get("filename") or upload.filename or ""),
+                    filename=filename,
                     content_type=upload.content_type, max_bytes=maximum,
                     expected_sha256=ticket["expected_sha256"],
                 )
@@ -1002,6 +1036,9 @@ def register_transfer_routes(
                 {"code": "INVALID_UPLOAD", "reason": "archive=members preserves Evidence directly"},
                 status_code=400,
             )
+        lane = str(form.get("lane") or "evidence").strip() if hold else _upload_lane(request)
+        if (refused := await _allowance_refused(vault_root, getattr(upload, "size", None), filename, lane)) is not None:
+            return JSONResponse(refused, status_code=413)
         if hold:
             # `preserve-attachment-originals`: hold the bytes for a file-handle
             # command instead of preserving them. Only a verified local grant
@@ -1023,7 +1060,7 @@ def register_transfer_routes(
                     held_uploads.hold,
                     vault_root,
                     upload.file,
-                    lane=str(form.get("lane") or "evidence").strip(),
+                    lane=lane,
                     filename=filename,
                     content_type=getattr(upload, "content_type", None),
                     # A hold is only worth what its redeeming command can fetch.
@@ -1038,7 +1075,6 @@ def register_transfer_routes(
         from . import archive_members
 
         preserve_module = _preserve_module()
-        lane = _upload_lane(request)
         try:
             manager = get_manager()
             if archive:
@@ -1093,6 +1129,7 @@ def register_transfer_routes(
                     text=text,
                     max_bytes=max_bytes,
                     raw_protection=raw_protection,
+                    media_pending=True,
                 )
         except preserve_module.PreserveError as exc:
             status = {
@@ -1293,6 +1330,8 @@ def register_transfer_routes(
                         "Evidence is append-only, so pick a new filename",
                         409,
                     )
+            if (refused := await _allowance_refused(vault_root, declared, target["filename"], lane)) is not None:
+                return _tus_refusal(refused["code"], refused["reason"], 413)
             session, secret = await run_in_threadpool(
                 upload_sessions.create,
                 vault_root,
@@ -1444,7 +1483,12 @@ out.textContent=r.status+' '+await r.text();}}catch(err){{out.textContent='Error
             if len(grants) != 1 or "path" in request.query_params:
                 return JSONResponse({"code": "ORIGINAL_UNAVAILABLE", "reason": "original recovery is unavailable"},
                     status_code=404, headers=_RECOVERY_HEADERS)
-            return _OriginalDownloadResponse(vault_root, grants[0])
+            grant = download_links.expand(grants[0])
+            if grant is None:
+                return JSONResponse({"code": "DOWNLOAD_LINK_EXPIRED",
+                    "reason": "this download link has expired or the server restarted; ask the agent for a fresh link"},
+                    status_code=404, headers=_RECOVERY_HEADERS)
+            return _OriginalDownloadResponse(vault_root, grant)
         response = await _download_legacy(request)
         for key, value in _RECOVERY_HEADERS.items():
             response.headers[key] = value

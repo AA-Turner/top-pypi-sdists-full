@@ -40,17 +40,20 @@ class NavCounts:
         Attributes:
             pull_requests (NavPullRequestCount): A pull request page's numbers. `running`, `failed` and
                 `passed` count the pull requests whose CI is pending, failing and
-                succeeded. A pull request with no checks counts in `total` only, so
-                the four numbers need not add up. All four are always present.
+                succeeded, and `noChecks` those with no checks at all. One held for
+                workflow approval is in `total` only, so the numbers need not add up.
+                All five are always present.
             issues (NavIssueCount):
             releases (NavPullRequestCount): A pull request page's numbers. `running`, `failed` and
                 `passed` count the pull requests whose CI is pending, failing and
-                succeeded. A pull request with no checks counts in `total` only, so
-                the four numbers need not add up. All four are always present.
+                succeeded, and `noChecks` those with no checks at all. One held for
+                workflow approval is in `total` only, so the numbers need not add up.
+                All five are always present.
             bots (NavPullRequestCount): A pull request page's numbers. `running`, `failed` and
                 `passed` count the pull requests whose CI is pending, failing and
-                succeeded. A pull request with no checks counts in `total` only, so
-                the four numbers need not add up. All four are always present.
+                succeeded, and `noChecks` those with no checks at all. One held for
+                workflow approval is in `total` only, so the numbers need not add up.
+                All five are always present.
      """
 
     pull_requests: NavPullRequestCount

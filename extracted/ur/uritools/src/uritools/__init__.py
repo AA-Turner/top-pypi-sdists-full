@@ -8,6 +8,7 @@ commonly used functions of the Python Standard Library
 
 import collections
 import collections.abc
+import functools
 import ipaddress
 import numbers
 import re
@@ -33,7 +34,7 @@ __all__ = (
     "uriunsplit",
 )
 
-__version__ = "6.1.4"
+__version__ = "7.0.0"
 
 
 # RFC 3986 2.2.  Reserved Characters
@@ -59,34 +60,33 @@ _unreserved = frozenset(UNRESERVED.encode())
 
 # RFC 3986 2.1: For consistency, URI producers and normalizers should
 # use uppercase hexadecimal digits for all percent-encodings.
-_encoded = {
-    b"": [
-        bytes([i]) if i in _unreserved else ("%%%02X" % i).encode() for i in range(256)
-    ]
-}
+_encoded = [
+    bytes([i]) if i in _unreserved else ("%%%02X" % i).encode() for i in range(256)
+]
 
 _decoded = {
     (a + b).encode(): bytes.fromhex(a + b) for a in hexdigits for b in hexdigits
 }
 
 
+@functools.lru_cache
+def _get_encoded(safe):
+    # one lookup table per "safe" value; cache is bounded and thread-safe
+    table = _encoded[:]
+    for i in safe:
+        table[i] = bytes([i])
+    return table
+
+
 def uriencode(uristring, safe="", encoding="utf-8", errors="strict"):
     """Encode a URI string or string component."""
-    if not isinstance(uristring, bytes):
+    if isinstance(uristring, str):
         uristring = uristring.encode(encoding, errors)
+    elif not isinstance(uristring, bytes):
+        raise TypeError("Invalid URI string type: %r" % type(uristring))
     if isinstance(safe, str):
         safe = safe.encode("ascii")
-    # FIXME: though unlikely, _encoded may grow without bounds if arbitrary
-    # safe values are passed by a caller - consider using @functools.lru_cache
-    # instead of plain dict?
-    try:
-        encoded = _encoded[safe]
-    except KeyError:
-        encoded = _encoded[b""][:]
-        for i in safe:
-            encoded[i] = bytes([i])
-        _encoded[safe] = encoded
-    return b"".join(map(encoded.__getitem__, uristring))
+    return b"".join(map(_get_encoded(safe).__getitem__, uristring))
 
 
 def uridecode(uristring, encoding="utf-8", errors="strict"):
@@ -173,8 +173,8 @@ class SplitResult(
         if authority is None:
             return None
         _, _, hostinfo = authority.rpartition(self._AT)
-        host, _, port = hostinfo.rpartition(self._COLON)
-        if port.lstrip(self._DIGITS):
+        host, present, port = hostinfo.rpartition(self._COLON)
+        if not present or port.lstrip(self._DIGITS):
             return hostinfo
         else:
             return host
@@ -634,10 +634,6 @@ def issamedoc(uristring):
 # RFC 3986 3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 _SCHEME_RE = re.compile(b"[A-Za-z][A-Za-z0-9+.-]*")
 
-# RFC 3986 3.2: authority = [ userinfo "@" ] host [ ":" port ]
-_AUTHORITY_RE_BYTES = re.compile(b"(?:(.*)@)?(.*?)(?::([0-9]*))?", re.DOTALL)
-_AUTHORITY_RE_STR = re.compile("(?:(.*)@)?(.*?)(?::([0-9]*))?", re.DOTALL)
-
 # safe component characters
 _SAFE_USERINFO = SUB_DELIMS + ":"
 _SAFE_HOST = SUB_DELIMS
@@ -651,6 +647,21 @@ def _scheme(scheme):
         return scheme.lower()
     else:
         raise ValueError("Invalid scheme component")
+
+
+def _splitauthority(authority):
+    # RFC 3986 3.2: authority = [ userinfo "@" ] host [ ":" port ]
+    if isinstance(authority, bytes):
+        userinfo, present, hostport = authority.rpartition(b"@")
+        host, sep, port = hostport.rpartition(b":")
+        numeric = sep and not port.lstrip(b"0123456789")
+    else:
+        userinfo, present, hostport = authority.rpartition("@")
+        host, sep, port = hostport.rpartition(":")
+        numeric = sep and not port.lstrip("0123456789")
+    if not numeric:
+        host, port = hostport, None
+    return (userinfo if present else None, host, port)
 
 
 def _authority(userinfo, host, port, encoding):
@@ -675,8 +686,10 @@ def _authority(userinfo, host, port, encoding):
         authority.append(_port(str(port).encode()))
     elif isinstance(port, bytes):
         authority.append(_port(port))
-    elif port is not None:
+    elif isinstance(port, str):
         authority.append(_port(port.encode()))
+    elif port is not None:
+        raise TypeError("Invalid port type: %r" % type(port))
 
     return b"".join(authority) if authority else None
 
@@ -766,16 +779,16 @@ def uricompose(
     # only produce lowercase scheme names for consistency.
     if isinstance(scheme, bytes):
         scheme = _scheme(scheme)
-    elif scheme is not None:
+    elif isinstance(scheme, str):
         scheme = _scheme(scheme.encode())
+    elif scheme is not None:
+        raise TypeError("Invalid scheme type: %r" % type(scheme))
 
     # authority must be string type or three-item sequence
     if authority is None:
         authority = (None, None, None)
-    elif isinstance(authority, bytes):
-        authority = _AUTHORITY_RE_BYTES.fullmatch(authority).groups()  # type: ignore
-    elif isinstance(authority, str):
-        authority = _AUTHORITY_RE_STR.fullmatch(authority).groups()  # type: ignore
+    elif isinstance(authority, (bytes, str)):
+        authority = _splitauthority(authority)
     elif not isinstance(authority, collections.abc.Sequence):
         raise TypeError("Invalid authority type")
     elif len(authority) != 3:
@@ -836,4 +849,6 @@ def uricompose(
 
     # return URI reference as `str`
     parts = (scheme, authority, path, query, fragment)
-    return uriunsplit(parts).decode()  # type: ignore
+    uri = uriunsplit(parts)
+    assert isinstance(uri, bytes)
+    return uri.decode()

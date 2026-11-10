@@ -28,6 +28,7 @@ from django.http import Http404
 
 from djust import LiveView
 from djust.components.descriptors.base import LiveComponent, TypedState
+from djust.components.interactive_examples import DropdownMenuExample
 from djust.decorators import event_handler
 
 from djust.components.descriptors import (
@@ -245,9 +246,15 @@ _DEMO_EVENTS: Dict[str, Any] = {
     "date_next_month": ("month", _month_step(1)),
     "toggle_expand": ("expanded", _flip),
     "toggle_preview": ("preview", _flip),
+    "toggle_menu": ("open", _flip),
+    # Dropdown-menu item events are host callbacks in an application. In the
+    # catalogue, close the menu after each action so clicking an item still
+    # demonstrates a complete, error-free interaction.
+    "edit_item": ("open", lambda _c, _v: False),
+    "duplicate_item": ("open", lambda _c, _v: False),
+    "delete_item": ("open", lambda _c, _v: False),
     "inline_edit": ("editing", _flip),
     "toggle_split_menu": ("is_open", _flip),
-    "toggle_menu": ("open", _flip),
     "toggle_notifications": ("is_open", _flip),
     "toggle_sheet": ("is_open", _flip),
     # Closing, dismissing, accepting: the host stops rendering the component,
@@ -259,6 +266,9 @@ _DEMO_EVENTS: Dict[str, Any] = {
     "close_palette": _hide("Closed — your handler sets it closed."),
     "close_export": _hide("Closed — your handler sets it closed."),
     "close_lightbox": _hide("Closed — your handler sets it closed."),
+    "frameworks": ("selected", _text),
+    "code": ("value", _text),
+    "upload_file": ("step", lambda _c, _v: "map"),
     "accept_cookies": _hide(
         "Accepted — your handler records consent and stops rendering the banner."
     ),
@@ -620,6 +630,15 @@ def demo_stub_sources(example: Dict[str, Any], params: Optional[set] = None) -> 
         pairs = effects if isinstance(effects, list) else [effects]
         stubs = []
         for key, transform in pairs:
+            if key == PREVIEW_HIDDEN:
+                # A close / dismiss: a component with an open flag is closed
+                # by writing it; one without leaves hiding it to the host.
+                flag = next((f for f in ("is_open", "open") if params and f in params), None)
+                if flag is not None:
+                    stubs.append((flag, "False", example.get(flag)))
+                continue
+            if key == PREVIEW_RECEIVED:
+                continue  # the host acts on it; no component state moves
             if params is not None and key not in params:
                 continue
             initial = example.get(key)
@@ -643,7 +662,19 @@ def demo_stub_sources(example: Dict[str, Any], params: Optional[set] = None) -> 
             stubs.append((key, expr, initial))
         out[event] = stubs
     for event, pairs in _DESCRIPTOR_STUBS.items():
-        out.setdefault(event, [(key, expr, example.get(key)) for key, expr in pairs])
+        out.setdefault(
+            event,
+            [
+                (
+                    key,
+                    expr,
+                    bool(example.get(key))
+                    if expr == f"not self.component.{key}"
+                    else example.get(key),
+                )
+                for key, expr in pairs
+            ],
+        )
     return out
 
 
@@ -945,6 +976,12 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
     preview = Preview()
 
     def mount(self, request: Any, component_name: Optional[str] = None, **kwargs: Any) -> None:
+        from .catalogue import INTERACTIVE_ENTRIES
+
+        if component_name in INTERACTIVE_ENTRIES:
+            # Served by its own route and view (the example view itself).
+            raise Http404(f"Unknown component: {component_name}")
+
         from .component_registry import _COMPONENT_TO_CATEGORY
         from .catalogue import build_catalogue_detail_context
         from djust.theming.contracts import COMPONENT_CONTRACTS
@@ -962,9 +999,10 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
         except KeyError as exc:
             raise Http404(f"Unknown component: {component_name}") from exc
 
-        from .catalogue import component_description
+        from .catalogue import component_description, component_preview_note
 
         ctx["description"] = component_description(component_name)
+        ctx["preview_note"] = component_preview_note(component_name)
         # The document title is chrome, so it lives outside the mount root and
         # no VDOM patch can reach it. Setting it here sends a page_metadata
         # command, which is what keeps the tab right after a dj-navigate the
@@ -995,6 +1033,16 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
         # `active=''` — the page contradicting the registry's example.
         if values and examples:
             values = {key: examples[0].get(key, value) for key, value in values.items()}
+        if component_name == "dropdown":
+            # The catalogue has one populated dropdown example. Start it open
+            # so the menu items are visible before the reader interacts with it;
+            # the hosted `toggle_dropdown` event still closes it normally.
+            values["is_open"] = True
+        elif component_name == "sheet":
+            # The sheet example documents an open drawer. Preserve that first
+            # paint so the preview demonstrates the content before the reader
+            # closes it with the hosted `close_sheet` event.
+            values["is_open"] = True
         preview = self.preview
         preview.state.component_name = component_name
         preview.state.component_type = component_type
@@ -1054,11 +1102,6 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
         from .component_registry import component_client
 
         client = component_client(component_name)
-        from .component_registry import unstyled_python_class
-
-        # The tag this page previews is styled; its Python class twin is not
-        # (#2993). Say so where the reader chooses between them.
-        ctx["unstyled_class"], ctx["unstyled_class_root"] = unstyled_python_class(component_name)
         ctx["client_hook"] = client["hook"] if not client["hook_shipped"] else ""
         ctx["client_script"] = client["script"]
         ctx["client_script_url"] = static(client["script"]) if client["script"] else ""
@@ -1129,6 +1172,7 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
         breadcrumb items, table rows, table-of-contents entries, the
         previous/next links."""
         from django.urls import reverse
+        from .component_registry import describe_component
 
         crumbs = [
             {
@@ -1151,10 +1195,16 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
             value = p.get("default")
             return "—" if value in (None, "") else str(value)
 
+        described = describe_component(self.component_name)
+        docs_by_name = {p["name"]: p.get("doc") or "—" for p in described["params"]}
+
         props_rows = [
-            [p["name"], p["type"], "required", default_of(p)]
+            [p["name"], p["type"], "required", default_of(p), docs_by_name.get(p["name"], "—")]
             for p in ctx.get("required_context") or []
-        ] + [[p["name"], p["type"], "", default_of(p)] for p in ctx.get("optional_context") or []]
+        ] + [
+            [p["name"], p["type"], "", default_of(p), docs_by_name.get(p["name"], "—")]
+            for p in ctx.get("optional_context") or []
+        ]
 
         from .catalogue import _PUSH_EVENT_PARAMS
 
@@ -1205,6 +1255,7 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
                 param_name(p),
                 param_type(p),
                 "—" if str(p.get("kind", "")).startswith("VAR_") else str(p.get("default", "")),
+                docs_by_name.get(p["name"], "—"),
             ]
             for p in ctx.get("python_params") or []
         ]
@@ -1244,7 +1295,7 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
             toc.append({"id": "dc-props", "label": "Props"})
         elif params_rows:
             toc.append({"id": "dc-props", "label": "Parameters"})
-        if a11y_rows:
+        if a11y_rows or ctx.get("component_type") == "template":
             toc.append({"id": "dc-a11y", "label": "Accessibility"})
         if ctx.get("available_slots"):
             toc.append({"id": "dc-slots", "label": "Slots"})
@@ -1270,8 +1321,8 @@ class ComponentsDetailView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveVi
             )
         return {
             "crumbs": crumbs,
-            "props_headers": ["Name", "Type", "Required", "Default"],
-            "params_headers": ["Name", "Type", "Default"],
+            "props_headers": ["Name", "Type", "Required", "Default", "Description"],
+            "params_headers": ["Name", "Type", "Default", "Description"],
             "a11y_headers": ["Requirement", "Element", "Attribute", "Value"],
             "styles_headers": ["File", "Path", "Notes"],
             "props_rows": props_rows,
@@ -1306,6 +1357,46 @@ for _event in (
     if not hasattr(ComponentsDetailView, _event):
         setattr(ComponentsDetailView, _event, _make_forwarder(_event))
 del _event
+
+
+class InteractiveDropdownCatalogueView(
+    ComponentsAccessMixin, ComponentsSidebarMixin, DropdownMenuExample
+):
+    """The interactive DropdownMenu's catalogue page: the canonical example,
+    served as-is inside the catalogue chrome (ADR-037 D2)."""
+
+    template_name = "djust_theming/catalogue/interactive_detail.html"
+    login_required = False
+    component_name = "interactive_dropdown_menu"
+
+    def mount(self, request: Any, **kwargs: Any) -> None:
+        super().mount(request, **kwargs)
+        from .catalogue import build_catalogue_detail_context
+
+        self._base_ctx = build_catalogue_detail_context(self.component_name)
+        self.page_title = self._base_ctx["display_name"] + " — Components"
+        self._init_sidebar(self.component_name)
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        from django.urls import reverse
+
+        from djust.components.components.code_snippet import CodeSnippet
+
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(self._base_ctx)
+        ctx.update(self._chrome_context())
+        ctx["crumbs"] = [
+            {"label": "Components", "url": reverse("djust_theming:components"), "navigate": True},
+            {"label": ctx["display_name"], "url": ""},
+        ]
+        ctx["usage_html"] = {
+            "view": CodeSnippet(code=ctx["usage_parts"]["view"], language="python").render(),
+            "template": CodeSnippet(
+                code=ctx["usage_parts"]["template"], language="django"
+            ).render(),
+        }
+        ctx["docs_guide_url"] = catalogue_chrome()["docs_url"] + "/guides/interactive-components/"
+        return ctx
 
 
 class ComponentsIndexView(ComponentsAccessMixin, ComponentsSidebarMixin, LiveView):

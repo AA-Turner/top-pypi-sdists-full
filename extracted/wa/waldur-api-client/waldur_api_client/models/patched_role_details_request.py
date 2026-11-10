@@ -16,6 +16,7 @@ class PatchedRoleDetailsRequest:
         name (Union[Unset, str]):
         description (Union[Unset, str]):
         description_en (Union[None, Unset, str]):
+        description_en_gb (Union[None, Unset, str]):
         description_et (Union[None, Unset, str]):
         description_lt (Union[None, Unset, str]):
         description_lv (Union[None, Unset, str]):
@@ -30,13 +31,19 @@ class PatchedRoleDetailsRequest:
         description_ar (Union[None, Unset, str]):
         description_cs (Union[None, Unset, str]):
         description_hr (Union[None, Unset, str]):
+        description_sl (Union[None, Unset, str]):
+        description_el (Union[None, Unset, str]):
+        description_bg (Union[None, Unset, str]):
         description_km (Union[None, Unset, str]):
+        description_mk (Union[None, Unset, str]):
+        description_sq (Union[None, Unset, str]):
         is_active (Union[Unset, bool]):
     """
 
     name: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
     description_en: Union[None, Unset, str] = UNSET
+    description_en_gb: Union[None, Unset, str] = UNSET
     description_et: Union[None, Unset, str] = UNSET
     description_lt: Union[None, Unset, str] = UNSET
     description_lv: Union[None, Unset, str] = UNSET
@@ -51,7 +58,12 @@ class PatchedRoleDetailsRequest:
     description_ar: Union[None, Unset, str] = UNSET
     description_cs: Union[None, Unset, str] = UNSET
     description_hr: Union[None, Unset, str] = UNSET
+    description_sl: Union[None, Unset, str] = UNSET
+    description_el: Union[None, Unset, str] = UNSET
+    description_bg: Union[None, Unset, str] = UNSET
     description_km: Union[None, Unset, str] = UNSET
+    description_mk: Union[None, Unset, str] = UNSET
+    description_sq: Union[None, Unset, str] = UNSET
     is_active: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -65,6 +77,12 @@ class PatchedRoleDetailsRequest:
             description_en = UNSET
         else:
             description_en = self.description_en
+
+        description_en_gb: Union[None, Unset, str]
+        if isinstance(self.description_en_gb, Unset):
+            description_en_gb = UNSET
+        else:
+            description_en_gb = self.description_en_gb
 
         description_et: Union[None, Unset, str]
         if isinstance(self.description_et, Unset):
@@ -150,11 +168,41 @@ class PatchedRoleDetailsRequest:
         else:
             description_hr = self.description_hr
 
+        description_sl: Union[None, Unset, str]
+        if isinstance(self.description_sl, Unset):
+            description_sl = UNSET
+        else:
+            description_sl = self.description_sl
+
+        description_el: Union[None, Unset, str]
+        if isinstance(self.description_el, Unset):
+            description_el = UNSET
+        else:
+            description_el = self.description_el
+
+        description_bg: Union[None, Unset, str]
+        if isinstance(self.description_bg, Unset):
+            description_bg = UNSET
+        else:
+            description_bg = self.description_bg
+
         description_km: Union[None, Unset, str]
         if isinstance(self.description_km, Unset):
             description_km = UNSET
         else:
             description_km = self.description_km
+
+        description_mk: Union[None, Unset, str]
+        if isinstance(self.description_mk, Unset):
+            description_mk = UNSET
+        else:
+            description_mk = self.description_mk
+
+        description_sq: Union[None, Unset, str]
+        if isinstance(self.description_sq, Unset):
+            description_sq = UNSET
+        else:
+            description_sq = self.description_sq
 
         is_active = self.is_active
 
@@ -167,6 +215,8 @@ class PatchedRoleDetailsRequest:
             field_dict["description"] = description
         if description_en is not UNSET:
             field_dict["description_en"] = description_en
+        if description_en_gb is not UNSET:
+            field_dict["description_en_gb"] = description_en_gb
         if description_et is not UNSET:
             field_dict["description_et"] = description_et
         if description_lt is not UNSET:
@@ -195,8 +245,18 @@ class PatchedRoleDetailsRequest:
             field_dict["description_cs"] = description_cs
         if description_hr is not UNSET:
             field_dict["description_hr"] = description_hr
+        if description_sl is not UNSET:
+            field_dict["description_sl"] = description_sl
+        if description_el is not UNSET:
+            field_dict["description_el"] = description_el
+        if description_bg is not UNSET:
+            field_dict["description_bg"] = description_bg
         if description_km is not UNSET:
             field_dict["description_km"] = description_km
+        if description_mk is not UNSET:
+            field_dict["description_mk"] = description_mk
+        if description_sq is not UNSET:
+            field_dict["description_sq"] = description_sq
         if is_active is not UNSET:
             field_dict["is_active"] = is_active
 
@@ -217,6 +277,15 @@ class PatchedRoleDetailsRequest:
             return cast(Union[None, Unset, str], data)
 
         description_en = _parse_description_en(d.pop("description_en", UNSET))
+
+        def _parse_description_en_gb(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_en_gb = _parse_description_en_gb(d.pop("description_en_gb", UNSET))
 
         def _parse_description_et(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -344,6 +413,33 @@ class PatchedRoleDetailsRequest:
 
         description_hr = _parse_description_hr(d.pop("description_hr", UNSET))
 
+        def _parse_description_sl(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_sl = _parse_description_sl(d.pop("description_sl", UNSET))
+
+        def _parse_description_el(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_el = _parse_description_el(d.pop("description_el", UNSET))
+
+        def _parse_description_bg(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_bg = _parse_description_bg(d.pop("description_bg", UNSET))
+
         def _parse_description_km(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -353,12 +449,31 @@ class PatchedRoleDetailsRequest:
 
         description_km = _parse_description_km(d.pop("description_km", UNSET))
 
+        def _parse_description_mk(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_mk = _parse_description_mk(d.pop("description_mk", UNSET))
+
+        def _parse_description_sq(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        description_sq = _parse_description_sq(d.pop("description_sq", UNSET))
+
         is_active = d.pop("is_active", UNSET)
 
         patched_role_details_request = cls(
             name=name,
             description=description,
             description_en=description_en,
+            description_en_gb=description_en_gb,
             description_et=description_et,
             description_lt=description_lt,
             description_lv=description_lv,
@@ -373,7 +488,12 @@ class PatchedRoleDetailsRequest:
             description_ar=description_ar,
             description_cs=description_cs,
             description_hr=description_hr,
+            description_sl=description_sl,
+            description_el=description_el,
+            description_bg=description_bg,
             description_km=description_km,
+            description_mk=description_mk,
+            description_sq=description_sq,
             is_active=is_active,
         )
 

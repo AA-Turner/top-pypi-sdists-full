@@ -1,34 +1,33 @@
-#  Pyrogram - Telegram MTProto API Client Library for Python
+#  Kurigram - Telegram MTProto API Client Library for Python
+#
 #  Copyright (C) 2017-present Dan <https://github.com/delivrance>
+#  Copyright (C) 2024-present KurimuzonAkuma <https://github.com/KurimuzonAkuma>
 #
-#  This file is part of Pyrogram.
+#  This file is part of Kurigram.
 #
-#  Pyrogram is free software: you can redistribute it and/or modify
+#  Kurigram is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU Lesser General Public License as published
 #  by the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  Pyrogram is distributed in the hope that it will be useful,
+#  Kurigram is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #  GNU Lesser General Public License for more details.
 #
 #  You should have received a copy of the GNU Lesser General Public License
-#  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
+#  along with Kurigram. If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations as _annotations
 
 import contextlib
 import logging
-from datetime import datetime
 from functools import partial
-from typing import BinaryIO
-from re import Match
-from collections.abc import Callable
+from itertools import groupby
+from typing import TYPE_CHECKING, BinaryIO, Literal, SupportsIndex, overload
 
 import pyrogram
 from pyrogram import enums, raw, types, utils
-from pyrogram._typing import PathType
 from pyrogram.errors import (
     ChannelForumMissing,
     ChannelInvalid,
@@ -38,15 +37,33 @@ from pyrogram.errors import (
     PeerIdInvalid,
 )
 from pyrogram.parser import Parser
-from pyrogram.parser import utils as parser_utils
 
 from ..object import Object
 from ..update import Update
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from datetime import datetime, timedelta
+    from io import BytesIO
+    from re import Match
+
+    from pyrogram._typing import PathType
+    from pyrogram.types.messages_and_media.forum_topic_created import ForumTopicCreated
 
 log = logging.getLogger(__name__)
 
 
 class Str(str):
+    """A message text or caption, indexed the way Telegram counts it.
+
+    Entity offsets and lengths are counted in UTF-16 units, so indexing and slicing count
+    them too: ``text[entity.offset:entity.offset + entity.length]`` is that entity's text.
+    An emoji, and any other code point outside the Basic Multilingual Plane, takes two of
+    those units, and a cut falling between them widens outward to the whole code point, so
+    a slice can come back one code point longer at either end than it asked for. Half a
+    code point is never returned.
+    """
+
     __slots__ = ("entities",)
 
     def __init__(self, *args):
@@ -67,8 +84,26 @@ class Str(str):
     def html(self) -> str:
         return Parser.unparse(self, self.entities, True)
 
-    def __getitem__(self, item) -> str:
-        return parser_utils.remove_surrogates(parser_utils.add_surrogates(self)[item])
+    def __getitem__(self, item: SupportsIndex | slice) -> str:
+        text = str(self)
+
+        # Telegram counts offsets in UTF-16 units, where a code point above `0xFFFF` takes
+        #  two, so "😀 250" is 6 offsets long over 5 characters. This table says which
+        #  character each offset lands in: [0, 0, 1, 2, 3, 4]. The emoji owns offsets 0 and
+        #  1, so an index or a cut between the two still names the whole emoji.
+        character_index_at_offset: list[int] = []
+        for character_index, character in enumerate(text):
+            utf_16_units = 2 if ord(character) > 0xFFFF else 1
+            character_index_at_offset += [character_index] * utf_16_units
+
+        if not isinstance(item, slice):
+            return text[character_index_at_offset[item]]
+
+        # A slice spanning both offsets of the emoji names its character twice, and
+        #  `groupby` drops the repeat.
+        selected = character_index_at_offset[item]
+
+        return "".join(text[character_index] for character_index, _ in groupby(selected))
 
 
 class Message(Object, Update):
@@ -465,6 +500,15 @@ class Message(Object, Update):
         community_chat_joined (:obj:`~pyrogram.types.CommunityChatJoined`, *optional*):
             Service message: chat was joined by a user from a :obj:`~pyrogram.types.Community`.
 
+        ton_wallet_transfer (:obj:`~pyrogram.types.TonWalletTransfer`, *optional*):
+            Service message: a transfer with the TON wallet of the current user.
+
+        ton_connect_request (:obj:`~pyrogram.types.TonConnectRequest`, *optional*):
+            Service message: a request from a dApp was received through TON Connect.
+
+        unpaid_messages_allowed_by_link (:obj:`~pyrogram.types.UnpaidMessagesAllowedByLink`, *optional*):
+            Service message: the sender of the message used a link of the other user, which allows sending unpaid messages to the user.
+
         premium_gift_code (:obj:`~pyrogram.types.PremiumGiftCode`, *optional*):
             Service message: premium gift code information.
 
@@ -767,6 +811,9 @@ class Message(Object, Update):
         community_chat_added: types.CommunityChatAdded | None = None,
         community_chat_removed: types.CommunityChatRemoved | None = None,
         community_chat_joined: types.CommunityChatJoined | None = None,
+        ton_wallet_transfer: types.TonWalletTransfer | None = None,
+        ton_connect_request: types.TonConnectRequest | None = None,
+        unpaid_messages_allowed_by_link: types.UnpaidMessagesAllowedByLink | None = None,
         premium_gift_code: types.PremiumGiftCode | None = None,
         gifted_premium: types.GiftedPremium | None = None,
         gifted_stars: types.GiftedStars | None = None,
@@ -957,6 +1004,9 @@ class Message(Object, Update):
         self.community_chat_added = community_chat_added
         self.community_chat_removed = community_chat_removed
         self.community_chat_joined = community_chat_joined
+        self.ton_wallet_transfer = ton_wallet_transfer
+        self.ton_connect_request = ton_connect_request
+        self.unpaid_messages_allowed_by_link = unpaid_messages_allowed_by_link
         self.premium_gift_code = premium_gift_code
         self.gifted_premium = gifted_premium
         self.gifted_stars = gifted_stars
@@ -1114,6 +1164,9 @@ class Message(Object, Update):
         community_chat_added = None
         community_chat_removed = None
         community_chat_joined = None
+        ton_wallet_transfer = None
+        ton_connect_request = None
+        unpaid_messages_allowed_by_link = None
 
         service_type = enums.MessageServiceType.UNSUPPORTED
 
@@ -1350,7 +1403,7 @@ class Message(Object, Update):
             suggest_birthday = types.Birthday._parse(action.birthday)
         elif isinstance(action, raw.types.MessageActionTopicCreate):
             service_type = enums.MessageServiceType.FORUM_TOPIC_CREATED
-            forum_topic_created = types.ForumTopicCreated._parse(message)
+            forum_topic_created: ForumTopicCreated = types.ForumTopicCreated._parse(message)
         elif isinstance(action, raw.types.MessageActionTopicEdit):
             if action.hidden is True:
                 service_type = enums.MessageServiceType.GENERAL_FORUM_TOPIC_HIDDEN
@@ -1401,6 +1454,17 @@ class Message(Object, Update):
         elif isinstance(action, raw.types.MessageActionChatJoinedViaCommunity):
             service_type = enums.MessageServiceType.COMMUNITY_CHAT_JOINED
             community_chat_joined = await types.CommunityChatJoined._parse(client, action, chats)
+        elif isinstance(action, raw.types.MessageActionGramTransfer):
+            service_type = enums.MessageServiceType.TON_WALLET_TRANSFER
+            ton_wallet_transfer = await types.TonWalletTransfer._parse(
+                client, action, from_id or peer_id, users
+            )
+        elif isinstance(action, raw.types.MessageActionWalletTonConnectRequest):
+            service_type = enums.MessageServiceType.TON_CONNECT_REQUEST
+            ton_connect_request = await types.TonConnectRequest._parse(action)
+        elif isinstance(action, raw.types.MessageActionNoPaidMessagesTokenUsed):
+            service_type = enums.MessageServiceType.UNPAID_MESSAGES_ALLOWED_BY_LINK
+            unpaid_messages_allowed_by_link = types.UnpaidMessagesAllowedByLink()
 
         parsed_message = Message(
             id=message.id,
@@ -1480,6 +1544,9 @@ class Message(Object, Update):
             community_chat_added=community_chat_added,
             community_chat_removed=community_chat_removed,
             community_chat_joined=community_chat_joined,
+            ton_wallet_transfer=ton_wallet_transfer,
+            ton_connect_request=ton_connect_request,
+            unpaid_messages_allowed_by_link=unpaid_messages_allowed_by_link,
             reactions=await types.MessageReactions._parse(client, message.reactions, users, chats),
             business_connection_id=business_connection_id,
             raw=message,
@@ -1497,6 +1564,32 @@ class Message(Object, Update):
                 business_connection_id=business_connection_id,
                 raw_reply_to_message=raw_reply_to_message,
             )
+
+        if parsed_message.chat.is_forum and not parsed_message.topic:
+            parsed_topic = await client.topic_cache.get(
+                (parsed_message.chat.id, parsed_message.message_thread_id)
+            )
+
+            if parsed_topic:
+                parsed_message.topic = parsed_topic
+            elif (
+                client.fetch_topics
+                and client.me
+                and not client.me.is_bot
+                and parsed_message.chat.id is not None
+            ):
+                try:
+                    parsed_message.topic = await client.get_forum_topics_by_id(
+                        chat_id=parsed_message.chat.id,
+                        topic_ids=parsed_message.message_thread_id or 1,
+                    )
+
+                    if parsed_message.topic:
+                        await client.topic_cache.set(
+                            (parsed_message.chat.id, parsed_message.topic.id), parsed_message.topic
+                        )
+                except (ChannelPrivate, ChannelForumMissing):
+                    pass
 
         if isinstance(action, raw.types.MessageActionGameScore):
             parsed_message.service = enums.MessageServiceType.GAME_HIGH_SCORE
@@ -1897,14 +1990,19 @@ class Message(Object, Update):
                     (parsed_message.chat.id, parsed_message.topic.id), parsed_message.topic
                 )
 
-        if not parsed_message.topic and parsed_message.chat.is_forum:
+        if parsed_message.chat.is_forum and not parsed_message.topic:
             parsed_topic = await client.topic_cache.get(
                 (parsed_message.chat.id, parsed_message.message_thread_id)
             )
 
             if parsed_topic:
                 parsed_message.topic = parsed_topic
-            elif client.fetch_topics and client.me and not client.me.is_bot:
+            elif (
+                client.fetch_topics
+                and client.me
+                and not client.me.is_bot
+                and parsed_message.chat.id is not None
+            ):
                 try:
                     parsed_message.topic = await client.get_forum_topics_by_id(
                         chat_id=parsed_message.chat.id,
@@ -1927,7 +2025,12 @@ class Message(Object, Update):
 
             if parsed_topic:
                 parsed_message.topic = parsed_topic
-            elif client.fetch_topics and client.me and not client.me.is_bot:
+            elif (
+                client.fetch_topics
+                and client.me
+                and not client.me.is_bot
+                and parsed_message.chat.id is not None
+            ):
                 try:
                     parsed_message.topic = await client.get_direct_messages_topics_by_id(
                         chat_id=parsed_message.chat.id,
@@ -2240,14 +2343,19 @@ class Message(Object, Update):
                 replies=replies,
             )
 
-        if not parsed_message.topic and parsed_message.chat.is_forum:
+        if parsed_message.chat.is_forum and not parsed_message.topic:
             parsed_topic = await client.topic_cache.get(
                 (parsed_message.chat.id, parsed_message.message_thread_id)
             )
 
             if parsed_topic:
                 parsed_message.topic = parsed_topic
-            elif client.fetch_topics and client.me and not client.me.is_bot:
+            elif (
+                client.fetch_topics
+                and client.me
+                and not client.me.is_bot
+                and parsed_message.chat.id is not None
+            ):
                 try:
                     parsed_message.topic = await client.get_forum_topics_by_id(
                         chat_id=parsed_message.chat.id,
@@ -2289,7 +2397,16 @@ class Message(Object, Update):
                 else None
             )
 
-            if replies:
+            if raw_reply_to_message is not None:  # For business bots only
+                parsed_message.reply_to_message = await types.Message._parse(
+                    client=client,
+                    message=raw_reply_to_message,
+                    users=users,
+                    chats=chats,
+                    business_connection_id=business_connection_id,
+                    replies=0,
+                )
+            elif replies:
                 if message.reply_to.reply_to_peer_id:
                     key = (
                         utils.get_peer_id(message.reply_to.reply_to_peer_id),
@@ -2302,18 +2419,12 @@ class Message(Object, Update):
 
                 parsed_message.reply_to_message = await client.message_cache.get(key)
 
-                if raw_reply_to_message:  # For business bots only
-                    parsed_message.reply_to_message = await types.Message._parse(
-                        client,
-                        raw_reply_to_message,
-                        users,
-                        chats,
-                        business_connection_id=business_connection_id,
-                        replies=0,
-                    )
-                elif client.fetch_replies and not parsed_message.reply_to_message:
+                if client.fetch_replies and not parsed_message.reply_to_message:
                     with contextlib.suppress(ChannelPrivate, ChannelInvalid, MessageIdsEmpty):
-                        parsed_message.reply_to_message = await client.get_messages(
+                        # `reply_to_params` holds a valid `(chat_id, message_ids)` or
+                        #  `(chat_id, reply=True)` shape per branch above; a dict unpack
+                        #  cannot be matched against the overloads statically.
+                        parsed_message.reply_to_message = await client.get_messages(  # ty: ignore[no-matching-overload]
                             replies=replies - 1, **reply_to_params
                         )
 
@@ -2348,7 +2459,7 @@ class Message(Object, Update):
     @staticmethod
     async def _parse(
         client: pyrogram.Client,
-        message: raw.base.Message,
+        message: raw.base.Message | raw.base.EphemeralMessage,
         users: dict[int, raw.base.User],
         chats: dict[int, raw.base.Chat],
         topics: dict[int, raw.base.ForumTopic] | None = None,
@@ -2416,6 +2527,10 @@ class Message(Object, Update):
                 return f"https://t.me/c/{utils.get_channel_id(self.chat.id)}/{self.message_thread_id}/{self.id}"
             else:
                 return f"https://t.me/c/{utils.get_channel_id(self.chat.id)}/{self.id}"
+
+    @property
+    def sender(self) -> types.User | types.Chat | None:
+        return self.from_user or self.sender_chat
 
     @property
     def content(self) -> Str:
@@ -2494,7 +2609,7 @@ class Message(Object, Update):
         file_name: str | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -2537,7 +2652,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -2573,8 +2688,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -2685,7 +2801,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -2727,7 +2843,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -2766,8 +2882,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -2869,7 +2986,7 @@ class Message(Object, Update):
         file_name: str | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -2908,7 +3025,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             duration (``int``, *optional*):
@@ -2938,8 +3055,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -3044,7 +3162,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -3082,7 +3200,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             duration (``int``, *optional*):
@@ -3115,8 +3233,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -3210,7 +3329,7 @@ class Message(Object, Update):
         vcard: str | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -3253,8 +3372,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -3321,7 +3441,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -3366,8 +3486,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -3431,7 +3552,7 @@ class Message(Object, Update):
         force_document: bool | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -3476,7 +3597,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             file_name (``str``, *optional*):
@@ -3496,8 +3617,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -3598,7 +3720,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -3642,7 +3764,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             file_name (``str``, *optional*):
@@ -3665,8 +3787,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -3854,10 +3977,6 @@ class Message(Object, Update):
                 Sends the message silently.
                 Users will receive a notification with no sound.
 
-            message_thread_id (``int``, *optional*):
-                Unique identifier of a message thread to which the message belongs.
-                For supergroups only.
-
             effect_id (``int``, *optional*):
                 Unique identifier of the message effect.
                 For private chats only.
@@ -4042,7 +4161,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
         Returns:
@@ -4235,7 +4354,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
         Returns:
@@ -4290,7 +4409,7 @@ class Message(Object, Update):
         proximity_alert_radius: int | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -4343,8 +4462,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -4415,7 +4535,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -4470,8 +4590,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -4531,7 +4652,7 @@ class Message(Object, Update):
         media: list[types.InputMediaPhoto | types.InputMediaVideo],
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         show_caption_above_media: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -4559,8 +4680,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -4605,7 +4727,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         show_caption_above_media: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -4635,8 +4757,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -4683,7 +4806,7 @@ class Message(Object, Update):
         link_preview_options: types.LinkPreviewOptions | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -4714,7 +4837,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in message text, which can be specified instead of *parse_mode*.
 
             link_preview_options (:obj:`~pyrogram.types.LinkPreviewOptions`, *optional*):
@@ -4728,8 +4851,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -4802,7 +4926,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -4832,7 +4956,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in message text, which can be specified instead of *parse_mode*.
 
             link_preview_options (:obj:`~pyrogram.types.LinkPreviewOptions`, *optional*):
@@ -4849,8 +4973,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -4918,7 +5043,7 @@ class Message(Object, Update):
         ttl_seconds: int | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         view_once: bool | None = None,
         protect_content: bool | None = None,
@@ -4958,7 +5083,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -4980,8 +5105,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -5087,7 +5213,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         view_once: bool | None = None,
         protect_content: bool | None = None,
@@ -5126,7 +5252,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -5151,8 +5277,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -5254,7 +5381,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         show_caption_above_media: bool | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -5303,7 +5430,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -5326,8 +5453,9 @@ class Message(Object, Update):
             show_caption_above_media (``bool``, *optional*):
                 Pass True, if the caption must be shown above the message media.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -5432,7 +5560,7 @@ class Message(Object, Update):
         effect_id: int | None = None,
         show_caption_above_media: bool | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -5480,7 +5608,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -5506,8 +5634,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -5612,13 +5741,13 @@ class Message(Object, Update):
         explanation: types.FormattedText | None = None,
         explanation_media: types.InputPollMedia | None = None,
         open_period: int | None = None,
-        close_date: datetime | None = None,
+        close_date: datetime | timedelta | None = None,
         is_closed: bool | None = None,
         disable_notification: bool | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         paid_message_star_count: int | None = None,
         reply_markup: (
@@ -5702,10 +5831,11 @@ class Message(Object, Update):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
                 Can't be used together with *close_date*.
 
-            close_date (:py:obj:`~datetime.datetime`, *optional*):
+            close_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Point in time when the poll will be automatically closed.
                 Must be at least 5 and no more than 2628000 seconds in the future.
                 Can't be used together with *open_period*.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             is_closed (``bool``, *optional*):
                 Pass True, if the poll needs to be immediately closed.
@@ -5729,8 +5859,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -5802,14 +5933,14 @@ class Message(Object, Update):
         explanation: types.FormattedText | None = None,
         explanation_media: types.InputPollMedia | None = None,
         open_period: int | None = None,
-        close_date: datetime | None = None,
+        close_date: datetime | timedelta | None = None,
         is_closed: bool | None = None,
         disable_notification: bool | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         paid_message_star_count: int | None = None,
         reply_markup: (
@@ -5892,10 +6023,11 @@ class Message(Object, Update):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
                 Can't be used together with *close_date*.
 
-            close_date (:py:obj:`~datetime.datetime`, *optional*):
+            close_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Point in time when the poll will be automatically closed.
                 Must be at least 5 and no more than 2628000 seconds in the future.
                 Can't be used together with *open_period*.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             is_closed (``bool``, *optional*):
                 Pass True, if the poll needs to be immediately closed.
@@ -5922,8 +6054,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -5982,7 +6115,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         suggested_post_parameters: types.SuggestedPostParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -6021,8 +6154,9 @@ class Message(Object, Update):
             suggested_post_parameters (:obj:`~pyrogram.types.SuggestedPostParameters`, *optional*):
                 Information about the suggested post.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -6068,7 +6202,7 @@ class Message(Object, Update):
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
         suggested_post_parameters: types.SuggestedPostParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -6109,8 +6243,9 @@ class Message(Object, Update):
             suggested_post_parameters (:obj:`~pyrogram.types.SuggestedPostParameters`, *optional*):
                 Information about the suggested post.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -6158,7 +6293,7 @@ class Message(Object, Update):
         caption_entities: list[types.MessageEntity] | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -6200,7 +6335,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
@@ -6211,8 +6346,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -6309,7 +6445,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
@@ -6350,7 +6486,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
@@ -6364,8 +6500,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -6457,7 +6594,7 @@ class Message(Object, Update):
         foursquare_type: str = "",
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -6507,8 +6644,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -6579,7 +6717,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -6631,8 +6769,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -6707,7 +6846,7 @@ class Message(Object, Update):
         supports_streaming: bool = True,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         no_sound: bool | None = None,
@@ -6747,7 +6886,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -6805,8 +6944,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -6930,7 +7070,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         no_sound: bool | None = None,
@@ -6969,7 +7109,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             has_spoiler (``bool``, *optional*):
@@ -7030,8 +7170,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -7137,7 +7278,7 @@ class Message(Object, Update):
         thumb: PathType | BinaryIO | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         view_once: bool | None = None,
@@ -7190,8 +7331,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -7291,7 +7433,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         view_once: bool | None = None,
@@ -7346,8 +7488,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -7443,7 +7586,7 @@ class Message(Object, Update):
         waveform: bytes | None = None,
         disable_notification: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         view_once: bool | None = None,
@@ -7483,7 +7626,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             duration (``int``, *optional*):
@@ -7501,8 +7644,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -7606,7 +7750,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         protect_content: bool | None = None,
         view_once: bool | None = None,
@@ -7645,7 +7789,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             duration (``int``, *optional*):
@@ -7666,8 +7810,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -7765,7 +7910,7 @@ class Message(Object, Update):
         caption_entities: list[types.MessageEntity] | None = None,
         disable_notification: bool | None = None,
         suggested_post_parameters: types.SuggestedPostParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         show_caption_above_media: bool | None = None,
     ) -> list[types.Message]:
@@ -7786,12 +7931,15 @@ class Message(Object, Update):
             caption (``str``, *optional*):
                 Media caption, 0-1024 characters after entities parsing.
 
-            invoice_payload (``str``):
+            payload (``str``, *optional*):
                 Bot-defined invoice payload, 1-128 bytes. This will not be displayed to the user, use for your internal processes.
 
             parse_mode (:obj:`~pyrogram.enums.ParseMode`, *optional*):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
+
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
+                List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -7800,8 +7948,9 @@ class Message(Object, Update):
             suggested_post_parameters (:obj:`~pyrogram.types.SuggestedPostParameters`, *optional*):
                 Information about the suggested post.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -7841,7 +7990,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         reply_parameters: types.ReplyParameters | None = None,
         suggested_post_parameters: types.SuggestedPostParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         show_caption_above_media: bool | None = None,
     ) -> list[types.Message]:
@@ -7862,12 +8011,15 @@ class Message(Object, Update):
             caption (``str``, *optional*):
                 Media caption, 0-1024 characters after entities parsing.
 
-            invoice_payload (``str``):
+            payload (``str``, *optional*):
                 Bot-defined invoice payload, 1-128 bytes. This will not be displayed to the user, use for your internal processes.
 
             parse_mode (:obj:`~pyrogram.enums.ParseMode`, *optional*):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
+
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
+                List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
@@ -7879,8 +8031,9 @@ class Message(Object, Update):
             suggested_post_parameters (:obj:`~pyrogram.types.SuggestedPostParameters`, *optional*):
                 Information about the suggested post.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -7916,7 +8069,7 @@ class Message(Object, Update):
         parse_mode: enums.ParseMode | None = None,
         caption_entities: list[types.MessageEntity] | None = None,
         disable_notification: bool | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         has_spoiler: bool | None = None,
         effect_id: int | None = None,
@@ -7952,15 +8105,16 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
                 Users will receive a notification with no sound.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -8028,7 +8182,7 @@ class Message(Object, Update):
         caption_entities: list[types.MessageEntity] | None = None,
         disable_notification: bool | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         has_spoiler: bool | None = None,
         effect_id: int | None = None,
@@ -8063,7 +8217,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
@@ -8073,8 +8227,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
@@ -8175,7 +8330,7 @@ class Message(Object, Update):
         result_id: str,
         disable_notification: bool | None = None,
         paid_message_star_count: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
     ) -> Message | None:
         """Shortcut for method :obj:`~pyrogram.Client.send_inline_bot_result` will automatically fill method attributes:
 
@@ -8198,8 +8353,9 @@ class Message(Object, Update):
             paid_message_star_count (``int``, *optional*):
                 The number of Telegram Stars the user agreed to pay to send the messages.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
         Returns:
             :obj:`~pyrogram.types.Message` | ``None``: On success, the sent message is returned, otherwise, in case the
@@ -8227,7 +8383,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         reply_parameters: types.ReplyParameters | None = None,
         paid_message_star_count: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
     ) -> Message | None:
         """Shortcut for method :obj:`~pyrogram.Client.send_inline_bot_result` will automatically fill method attributes:
 
@@ -8252,8 +8408,9 @@ class Message(Object, Update):
             paid_message_star_count (``int``, *optional*):
                 The number of Telegram Stars the user agreed to pay to send the messages.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
         Returns:
             :obj:`~pyrogram.types.Message` | ``None``: On success, the sent message is returned, otherwise, in case the
@@ -8280,7 +8437,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         protect_content: bool | None = None,
         effect_id: int | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         paid_message_star_count: int | None = None,
         reply_markup: (
@@ -8321,8 +8478,9 @@ class Message(Object, Update):
                 Unique identifier of the message effect.
                 For private chats only.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -8363,7 +8521,7 @@ class Message(Object, Update):
         protect_content: bool | None = None,
         effect_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         paid_message_star_count: int | None = None,
         reply_markup: (
@@ -8399,10 +8557,6 @@ class Message(Object, Update):
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
 
-            message_thread_id (``int``, *optional*):
-                Unique identifier for the target message thread (topic) of the forum.
-                For supergroups only.
-
             effect_id (``int``, *optional*):
                 Unique identifier of the message effect.
                 For private chats only.
@@ -8410,8 +8564,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -8521,6 +8676,7 @@ class Message(Object, Update):
             disable_notification=disable_notification,
             message_thread_id=self.message_thread_id,
             protect_content=protect_content,
+            business_connection_id=self.business_connection_id,
             allow_paid_broadcast=allow_paid_broadcast,
             effect_id=effect_id,
             suggested_post_parameters=suggested_post_parameters,
@@ -8599,6 +8755,7 @@ class Message(Object, Update):
             disable_notification=disable_notification,
             message_thread_id=self.message_thread_id,
             protect_content=protect_content,
+            business_connection_id=self.business_connection_id,
             allow_paid_broadcast=allow_paid_broadcast,
             effect_id=effect_id,
             reply_parameters=reply_parameters,
@@ -8632,7 +8789,7 @@ class Message(Object, Update):
                 await message.edit_text("hello")
 
         Parameters:
-            text (``str``):
+            text (``str``, *optional*):
                 New text of the message.
                 Required if ``rich_message`` isn't specified.
 
@@ -8640,7 +8797,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in message text, which can be specified instead of *parse_mode*.
 
             link_preview_options (:obj:`~pyrogram.types.LinkPreviewOptions`, *optional*):
@@ -8695,7 +8852,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the caption, which can be specified instead of *parse_mode*.
 
             show_caption_above_media (``bool``, *optional*):
@@ -8798,7 +8955,7 @@ class Message(Object, Update):
         * message_id
 
         Parameters:
-            reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`):
+            reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup`, *optional*):
                 An InlineKeyboardMarkup object.
 
         Returns:
@@ -8896,7 +9053,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         hide_sender_name: bool | None = None,
         hide_captions: bool | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         repeat_period: int | None = None,
         allow_paid_broadcast: bool | None = None,
         video_start_timestamp: int | None = None,
@@ -8921,8 +9078,9 @@ class Message(Object, Update):
                 Sends the message silently.
                 Users will receive a notification with no sound.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             repeat_period (``int``, *optional*):
                 Period after which the message will be sent again in seconds.
@@ -8952,6 +9110,11 @@ class Message(Object, Update):
         Raises:
             RPCError: In case of a Telegram RPC error.
         """
+        # A message the server delivered always names its chat; without one there is
+        #  nowhere to forward from.
+        if self.chat is None or self.chat.id is None:
+            raise ValueError("This message has no chat to forward from")
+
         return await self._client.forward_messages(
             chat_id=chat_id,
             from_chat_id=self.chat.id,
@@ -8976,7 +9139,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         message_thread_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         protect_content: bool | None = None,
         has_spoiler: bool | None = None,
         show_caption_above_media: bool | None = None,
@@ -9019,7 +9182,7 @@ class Message(Object, Update):
                 By default, texts are parsed using both Markdown and HTML styles.
                 You can combine both syntaxes together.
 
-            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`):
+            caption_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
                 List of special entities that appear in the new caption, which can be specified instead of *parse_mode*.
 
             disable_notification (``bool``, *optional*):
@@ -9033,11 +9196,15 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
+
+            has_spoiler (``bool``, *optional*):
+                Pass True if the media needs to be covered with a spoiler animation.
 
             show_caption_above_media (``bool``, *optional*):
                 Pass True, if the caption must be shown above the message media.
@@ -9059,6 +9226,26 @@ class Message(Object, Update):
                 instructions to remove reply keyboard or to force a reply from the user.
                 If not specified, the original reply markup is kept.
                 Pass None to remove the reply markup.
+
+            reply_to_chat_id (``int`` | ``str``, *optional*):
+                Unique identifier (int) or username (str) of the chat holding the message that is replied to.
+                This parameter is deprecated and should not be used.
+                Use `reply_parameters` instead.
+
+            reply_to_message_id (``int``, *optional*):
+                If the message is a reply, ID of the original message.
+                This parameter is deprecated and should not be used.
+                Use `reply_parameters` instead.
+
+            quote_text (``str``, *optional*):
+                Text of the quoted part of the message that is replied to.
+                This parameter is deprecated and should not be used.
+                Use `reply_parameters` instead.
+
+            quote_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
+                List of special entities that appear in the quote, which can be specified instead of *parse_mode*.
+                This parameter is deprecated and should not be used.
+                Use `reply_parameters` instead.
 
         Returns:
             :obj:`~pyrogram.types.Message` | ``None``: On success, the copied message is returned, otherwise, in case
@@ -9245,7 +9432,7 @@ class Message(Object, Update):
         disable_notification: bool | None = None,
         message_thread_id: int | None = None,
         reply_parameters: types.ReplyParameters | None = None,
-        schedule_date: datetime | None = None,
+        schedule_date: datetime | timedelta | None = None,
         show_caption_above_media: bool | None = None,
         allow_paid_broadcast: bool | None = None,
         paid_message_star_count: int | None = None,
@@ -9270,6 +9457,10 @@ class Message(Object, Update):
                 If a list of ``str`` passed, each element becomes caption for each media element.
                 You can pass ``None`` in list to keep the original caption.
 
+            has_spoilers (List of ``bool`` | ``bool``, *optional*):
+                Pass True if the media needs to be covered with a spoiler animation.
+                Pass a list of booleans to cover each medium of the group separately.
+
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
                 Users will receive a notification with no sound.
@@ -9281,8 +9472,9 @@ class Message(Object, Update):
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
 
-            schedule_date (:py:obj:`~datetime.datetime`, *optional*):
+            schedule_date (:py:obj:`~datetime.datetime` | :py:obj:`~datetime.timedelta`, *optional*):
                 Date when the message will be automatically sent.
+                A :py:obj:`~datetime.timedelta` is counted from now.
 
             show_caption_above_media (``bool``, *optional*):
                 Pass True, if the caption must be shown above the message media.
@@ -9392,7 +9584,7 @@ class Message(Object, Update):
                 Only the first matching button will be pressed.
 
         Parameters:
-            x (``int`` | ``str``):
+            x (``int`` | ``str``, *optional*):
                 Used as integer index, integer abscissa (in pair with y) or as string label.
                 Defaults to 0 (first button).
 
@@ -9405,11 +9597,6 @@ class Message(Object, Update):
 
             timeout (``int``, *optional*):
                 Timeout in seconds.
-
-            request_write_access (``bool``, *optional*):
-                Only used in case of :obj:`~pyrogram.types.LoginUrl` button.
-                True, if the bot can send messages to the user.
-                Defaults to ``True``.
 
             password (``str``, *optional*):
                 When clicking certain buttons (such as BotFather's confirmation button to transfer ownership), if your account has 2FA enabled, you need to provide your account's password.
@@ -9570,6 +9757,48 @@ class Message(Object, Update):
 
         return await self._client.retract_vote(chat_id=self.chat.id, message_id=self.id)
 
+    @overload
+    async def download(
+        self,
+        file_name: PathType = "",
+        in_memory: Literal[False] = False,
+        block: Literal[True] = True,
+        progress: Callable | None = None,
+        progress_args: tuple = (),
+    ) -> str | list[str] | None: ...
+
+    @overload
+    async def download(
+        self,
+        file_name: PathType = "",
+        in_memory: Literal[True] = True,
+        block: Literal[True] = True,
+        progress: Callable | None = None,
+        progress_args: tuple = (),
+    ) -> BytesIO | list[BytesIO] | None: ...
+
+    @overload
+    async def download(
+        self,
+        file_name: PathType = "",
+        *,
+        in_memory: bool = False,
+        block: Literal[False],
+        progress: Callable | None = None,
+        progress_args: tuple = (),
+    ) -> None: ...
+
+    @overload
+    async def download(
+        self,
+        file_name: PathType,
+        in_memory: bool,
+        block: Literal[False],
+        progress: Callable | None = None,
+        progress_args: tuple = (),
+    ) -> None: ...
+
+    @overload
     async def download(
         self,
         file_name: PathType = "",
@@ -9577,7 +9806,16 @@ class Message(Object, Update):
         block: bool = True,
         progress: Callable | None = None,
         progress_args: tuple = (),
-    ) -> str | BinaryIO | list[str] | list[BinaryIO] | None:
+    ) -> str | BytesIO | list[str] | list[BytesIO] | None: ...
+
+    async def download(
+        self,
+        file_name: PathType = "",
+        in_memory: bool = False,
+        block: bool = True,
+        progress: Callable | None = None,
+        progress_args: tuple = (),
+    ) -> str | BytesIO | list[str] | list[BytesIO] | None:
         """Shortcut for method :obj:`~pyrogram.Client.download_media` will automatically fill method attributes:
 
         * message
@@ -9621,7 +9859,7 @@ class Message(Object, Update):
                 You can either keep ``*args`` or add every single extra argument in your function signature.
 
         Returns:
-            ``str`` | ``BinaryIO`` | ``list[str]`` | ``list[BinaryIO]`` | ``None``: On success, the absolute path of the
+            ``str`` | ``BytesIO`` | ``list[str]`` | ``list[BytesIO]`` | ``None``: On success, the absolute path of the
             downloaded file is returned. In case ``in_memory=True``, a binary file-like object with its attribute
             ".name" set is returned. If the message contains multiple media (purchased paid media), a list of paths or
             binary file-like objects is returned. In case the download failed or was deliberately stopped with
@@ -9671,7 +9909,7 @@ class Message(Object, Update):
         * business_connection_id
 
         Parameters:
-            disable_notification (``bool``):
+            disable_notification (``bool``, *optional*):
                 Pass True, if it is not necessary to send a notification to all chat members about the new pinned
                 message. Notifications are always disabled in channels.
 

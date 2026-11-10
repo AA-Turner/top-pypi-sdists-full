@@ -21,7 +21,9 @@ import os
 import pickle
 import re
 import secrets
+import socket
 import ssl
+import time
 from binascii import Error
 from collections import defaultdict
 from collections.abc import Callable
@@ -49,6 +51,9 @@ from .const import (
     COOKIE_SERIALIZATION_VERSION,
     EXCEPTION_TEMPLATE,
     LOCALE_KEY,
+    PARENT_DASHBOARD_DNS_RETRY_SECONDS,
+    PARENT_DASHBOARD_SUBDOMAIN_DEFAULT,
+    PARENT_DASHBOARD_SUBDOMAIN_EXCEPTIONS,
     USER_AGENT,
 )
 from .errors import AlexapyPyotpInvalidKey
@@ -479,6 +484,10 @@ class AlexaLogin:
         self.mac_dms: str | None = oauth.get("mac_dms")
         self.expires_in: float | None = oauth.get("expires_in")
         self._oauth_lock: asyncio.Lock = asyncio.Lock()
+        self._parent_dashboard_host: str | None = None
+        self._parent_dashboard_checked = False
+        self._parent_dashboard_retry_at = float("inf")
+        self._parent_dashboard_lock = asyncio.Lock()
         self.uuid = (
             uuid if uuid else uuid4().hex.upper()
         )  # needed to be unique but repeateable for device registration
@@ -841,6 +850,69 @@ class AlexaLogin:
             break
 
         return return_cookies
+
+    def _parent_dashboard_cache_valid(self) -> bool:
+        """Return whether the cached discovery result can still be used."""
+        return (
+            self._parent_dashboard_checked
+            and time.monotonic() < self._parent_dashboard_retry_at
+        )
+
+    async def resolve_parent_dashboard_host(self) -> str | None:
+        """Discover the dashboard lazily and cache the DNS result.
+
+        A resolved host and a definitive "no such host" answer are cached for the
+        lifetime of this login instance, so a marketplace without a Kids dashboard
+        is looked up only once. A timeout or other resolver error says nothing about
+        whether the host exists, so it is cached only for
+        ``PARENT_DASHBOARD_DNS_RETRY_SECONDS`` and then looked up again; a brief
+        network problem at startup therefore cannot disable the dashboard until
+        restart. HTTP failures do not affect this cache.
+        """
+        if self._parent_dashboard_cache_valid():
+            return self._parent_dashboard_host
+        async with self._parent_dashboard_lock:
+            if not self._parent_dashboard_cache_valid():
+                domain = self.url.lower()
+                subdomain = PARENT_DASHBOARD_SUBDOMAIN_EXCEPTIONS.get(
+                    domain, PARENT_DASHBOARD_SUBDOMAIN_DEFAULT
+                )
+                host = f"{subdomain}.{domain}"
+                self._parent_dashboard_host = None
+                try:
+                    await asyncio.wait_for(
+                        asyncio.get_running_loop().getaddrinfo(
+                            host, 443, type=socket.SOCK_STREAM
+                        ),
+                        timeout=5,
+                    )
+                except socket.gaierror as ex:
+                    # EAI_NONAME/EAI_NODATA: the name does not exist. Anything else
+                    # (EAI_AGAIN, EAI_FAIL, ...) is a resolver problem, retried later.
+                    definitive = ex.errno in {
+                        socket.EAI_NONAME,
+                        getattr(socket, "EAI_NODATA", socket.EAI_NONAME),
+                    }
+                    self._parent_dashboard_retry_at = (
+                        float("inf")
+                        if definitive
+                        else time.monotonic() + PARENT_DASHBOARD_DNS_RETRY_SECONDS
+                    )
+                    _LOGGER.debug(
+                        "Parent dashboard DNS unavailable for %s: %s", host, ex
+                    )
+                except (OSError, TimeoutError) as ex:
+                    self._parent_dashboard_retry_at = (
+                        time.monotonic() + PARENT_DASHBOARD_DNS_RETRY_SECONDS
+                    )
+                    _LOGGER.debug(
+                        "Parent dashboard DNS unavailable for %s: %s", host, ex
+                    )
+                else:
+                    self._parent_dashboard_host = host
+                    self._parent_dashboard_retry_at = float("inf")
+                self._parent_dashboard_checked = True
+        return self._parent_dashboard_host
 
     async def close(self) -> None:
         """Close connection for login."""

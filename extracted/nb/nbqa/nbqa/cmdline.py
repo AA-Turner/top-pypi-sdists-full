@@ -2,16 +2,15 @@
 
 import argparse
 import sys
+from collections.abc import Sequence
 from textwrap import dedent
-from typing import Optional, Sequence
 
 from nbqa import __version__
 from nbqa.text import BOLD, RESET
 
 CONFIGURATION_URL = "https://nbqa.readthedocs.io/en/latest/configuration.html"
 DOCS_URL = "https://nbqa.readthedocs.io/en/latest/index.html"
-USAGE_MSG = dedent(
-    f"""\
+USAGE_MSG = dedent(f"""\
     nbqa <code quality tool> <notebook or directory> <nbqa options> <code quality tool arguments>
 
     {BOLD}Please specify:{RESET}
@@ -26,8 +25,7 @@ USAGE_MSG = dedent(
         nbqa pyupgrade notebook_1.ipynb notebook_2.ipynb
 
     See {DOCS_URL} for more details on how to run `nbqa`.
-    """
-)
+    """)
 DEPRECATED = {
     "--nbqa-skip-bad-cells": (
         "was deprecated in 0.13.0\n"
@@ -44,14 +42,14 @@ class CLIArgs:  # pylint: disable=R0902
 
     command: str
     root_dirs: Sequence[str]
-    addopts: Optional[Sequence[str]]
-    process_cells: Optional[Sequence[str]]
-    diff: Optional[bool]
-    files: Optional[str]
-    exclude: Optional[str]
-    dont_skip_bad_cells: Optional[bool]
-    md: Optional[bool]
-    shell: Optional[bool]
+    addopts: Sequence[str] | None
+    process_cells: Sequence[str] | None
+    diff: bool | None
+    files: str | None
+    exclude: str | None
+    dont_skip_bad_cells: bool | None
+    md: bool | None
+    shell: bool | None
 
     def __init__(self, args: argparse.Namespace, cmd_args: Sequence[str]) -> None:
         """
@@ -92,7 +90,7 @@ class CLIArgs:  # pylint: disable=R0902
         return str(self.__dict__)
 
     @staticmethod
-    def parse_args(argv: Optional[Sequence[str]]) -> "CLIArgs":
+    def parse_args(argv: Sequence[str] | None) -> "CLIArgs":
         """
         Parse command-line arguments.
 
@@ -134,13 +132,11 @@ class CLIArgs:  # pylint: disable=R0902
         parser.add_argument(
             "--nbqa-process-cells",
             required=False,
-            help=dedent(
-                r"""
+            help=dedent(r"""
                 Process code within these cell magics. You can pass multiple options,
                 e.g. `nbqa black my_notebook.ipynb --nbqa-process-cells add_to,write_to`
                 by placing commas between them.
-                """
-            ),
+                """),
         )
         parser.add_argument(
             "--version", action="version", version=f"nbqa {__version__}"
@@ -153,20 +149,16 @@ class CLIArgs:  # pylint: disable=R0902
         parser.add_argument(
             "--nbqa-skip-celltags",
             required=False,
-            help=dedent(
-                r"""
+            help=dedent(r"""
                 Skip cells with have any of the given celltags.
-                """
-            ),
+                """),
         )
         parser.add_argument(
             "--nbqa-md",
             action="store_true",
-            help=dedent(
-                r"""
+            help=dedent(r"""
                 Process markdown cells, rather than Python ones.
-                """
-            ),
+                """),
         )
         args, cmd_args = parser.parse_known_args(argv)
         return CLIArgs(args, cmd_args)

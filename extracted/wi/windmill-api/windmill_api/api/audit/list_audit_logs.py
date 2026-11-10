@@ -25,6 +25,7 @@ def _get_kwargs(
     resource: Union[Unset, None, str] = UNSET,
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
+    before_id_timestamp: Union[Unset, None, datetime.datetime] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
@@ -64,6 +65,12 @@ def _get_kwargs(
     params["action_kind"] = json_action_kind
 
     params["before_id"] = before_id
+
+    json_before_id_timestamp: Union[Unset, None, str] = UNSET
+    if not isinstance(before_id_timestamp, Unset):
+        json_before_id_timestamp = before_id_timestamp.isoformat() if before_id_timestamp else None
+
+    params["before_id_timestamp"] = json_before_id_timestamp
 
     params["all_workspaces"] = all_workspaces
 
@@ -124,6 +131,7 @@ def sync_detailed(
     resource: Union[Unset, None, str] = UNSET,
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
+    before_id_timestamp: Union[Unset, None, datetime.datetime] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListAuditLogsResponse200Item"]]:
@@ -142,6 +150,7 @@ def sync_detailed(
         resource (Union[Unset, None, str]):
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
+        before_id_timestamp (Union[Unset, None, datetime.datetime]):
         all_workspaces (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
 
@@ -166,6 +175,7 @@ def sync_detailed(
         resource=resource,
         action_kind=action_kind,
         before_id=before_id,
+        before_id_timestamp=before_id_timestamp,
         all_workspaces=all_workspaces,
         job_id=job_id,
     )
@@ -192,6 +202,7 @@ def sync(
     resource: Union[Unset, None, str] = UNSET,
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
+    before_id_timestamp: Union[Unset, None, datetime.datetime] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListAuditLogsResponse200Item"]]:
@@ -210,6 +221,7 @@ def sync(
         resource (Union[Unset, None, str]):
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
+        before_id_timestamp (Union[Unset, None, datetime.datetime]):
         all_workspaces (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
 
@@ -235,6 +247,7 @@ def sync(
         resource=resource,
         action_kind=action_kind,
         before_id=before_id,
+        before_id_timestamp=before_id_timestamp,
         all_workspaces=all_workspaces,
         job_id=job_id,
     ).parsed
@@ -255,6 +268,7 @@ async def asyncio_detailed(
     resource: Union[Unset, None, str] = UNSET,
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
+    before_id_timestamp: Union[Unset, None, datetime.datetime] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListAuditLogsResponse200Item"]]:
@@ -273,6 +287,7 @@ async def asyncio_detailed(
         resource (Union[Unset, None, str]):
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
+        before_id_timestamp (Union[Unset, None, datetime.datetime]):
         all_workspaces (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
 
@@ -297,6 +312,7 @@ async def asyncio_detailed(
         resource=resource,
         action_kind=action_kind,
         before_id=before_id,
+        before_id_timestamp=before_id_timestamp,
         all_workspaces=all_workspaces,
         job_id=job_id,
     )
@@ -321,6 +337,7 @@ async def asyncio(
     resource: Union[Unset, None, str] = UNSET,
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
+    before_id_timestamp: Union[Unset, None, datetime.datetime] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListAuditLogsResponse200Item"]]:
@@ -339,6 +356,7 @@ async def asyncio(
         resource (Union[Unset, None, str]):
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
+        before_id_timestamp (Union[Unset, None, datetime.datetime]):
         all_workspaces (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
 
@@ -365,6 +383,7 @@ async def asyncio(
             resource=resource,
             action_kind=action_kind,
             before_id=before_id,
+            before_id_timestamp=before_id_timestamp,
             all_workspaces=all_workspaces,
             job_id=job_id,
         )

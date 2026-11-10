@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -7,7 +7,6 @@ from office365.sharepoint.contentcenter.machinelearning.publicationentitydata im
 )
 
 
-@dataclass
 class SPMachineLearningPublicationResult(ClientValue):
     ErrorMessage: Optional[str] = None
     Publication: SPMachineLearningPublicationEntityData = field(default_factory=SPMachineLearningPublicationEntityData)

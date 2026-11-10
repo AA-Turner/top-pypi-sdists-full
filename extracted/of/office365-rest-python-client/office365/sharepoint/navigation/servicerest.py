@@ -6,12 +6,15 @@ from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.navigation.home_site_navigation_settings import HomeSiteNavigationSettings
 from office365.sharepoint.navigation.menu.state import MenuState
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class NavigationServiceRest(Entity):
+    @odata(name="HomeSiteSettings", navigation=True)
     @property
     def home_site_settings(self) -> HomeSiteNavigationSettings:
         """Gets the HomeSiteSettings property"""
@@ -24,6 +27,7 @@ class NavigationServiceRest(Entity):
     def entity_type_name(self) -> str:
         return "Microsoft.SharePoint.Navigation.REST.NavigationServiceRest"
 
+    @site_access(SiteLevel.READ)
     def current_resources_nav(self, source: int, include_viva_resources: bool) -> ClientResult[MenuState]:
         """CurrentResourcesNav operation.
 
@@ -36,6 +40,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_publishing_navigation_provider_type(self, map_provider_name: str) -> ClientResult[int]:
         """GetPublishingNavigationProviderType operation.
 
@@ -47,6 +52,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def global_nav(self, source: str, include_viva_resources: bool) -> ClientResult[MenuState]:
         """GlobalNav operation.
 
@@ -59,6 +65,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def global_nav_enabled(self) -> ClientResult[bool]:
         """GlobalNavEnabled operation."""
         return_type = ClientResult(self.context, bool())
@@ -66,6 +73,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def home_site_navigation(self, source: int) -> ClientResult[MenuState]:
         """HomeSiteNavigation operation.
 
@@ -77,6 +85,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def menu_node_key(self, current_url: str, map_provider_name: str) -> ClientResult[str]:
         """MenuNodeKey operation.
 
@@ -89,6 +98,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def menu_state(
         self, menu_node_key: str, map_provider_name: str, depth: int, custom_properties: str
     ) -> ClientResult[MenuState]:
@@ -105,6 +115,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def save_menu_state(self, menu_state: MenuState, map_provider_name: str) -> ClientResult[int]:
         """SaveMenuState operation.
 
@@ -124,6 +135,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_global_nav_enabled(self, is_enabled: bool) -> Self:
         """SetGlobalNavEnabled operation.
 
@@ -134,6 +146,7 @@ class NavigationServiceRest(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def tree_view(self, depth: int) -> ClientResult[MenuState]:
         """TreeView operation.
 

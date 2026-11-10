@@ -74,6 +74,7 @@ class CompletedJob:
             Explicit rather than inferred from an absent resolved_by, which is also absent for a manual resolution outside
             enterprise
         trigger_kind (Union[Unset, CompletedJobTriggerKind]): job trigger kind (schedule, http, websocket...)
+        trigger_path (Union[Unset, str]): Path of the trigger, schedule or app that started the job, if any
         worker (Union[Unset, str]):
     """
 
@@ -121,6 +122,7 @@ class CompletedJob:
     resolution_note: Union[Unset, str] = UNSET
     resolved_automatically: Union[Unset, bool] = UNSET
     trigger_kind: Union[Unset, CompletedJobTriggerKind] = UNSET
+    trigger_path: Union[Unset, str] = UNSET
     worker: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -199,6 +201,7 @@ class CompletedJob:
         if not isinstance(self.trigger_kind, Unset):
             trigger_kind = self.trigger_kind.value
 
+        trigger_path = self.trigger_path
         worker = self.worker
 
         field_dict: Dict[str, Any] = {}
@@ -281,6 +284,8 @@ class CompletedJob:
             field_dict["resolved_automatically"] = resolved_automatically
         if trigger_kind is not UNSET:
             field_dict["trigger_kind"] = trigger_kind
+        if trigger_path is not UNSET:
+            field_dict["trigger_path"] = trigger_path
         if worker is not UNSET:
             field_dict["worker"] = worker
 
@@ -422,6 +427,8 @@ class CompletedJob:
         else:
             trigger_kind = CompletedJobTriggerKind(_trigger_kind)
 
+        trigger_path = d.pop("trigger_path", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         completed_job = cls(
@@ -469,6 +476,7 @@ class CompletedJob:
             resolution_note=resolution_note,
             resolved_automatically=resolved_automatically,
             trigger_kind=trigger_kind,
+            trigger_path=trigger_path,
             worker=worker,
         )
 

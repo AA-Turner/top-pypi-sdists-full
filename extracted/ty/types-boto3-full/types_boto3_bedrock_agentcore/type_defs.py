@@ -179,6 +179,7 @@ __all__ = (
     "DeleteRecommendationRequestTypeDef",
     "DeleteRecommendationResponseTypeDef",
     "DescriptorsTypeDef",
+    "DomainFilterTypeDef",
     "EfsConfigurationTypeDef",
     "EmbeddedCryptoWalletOutputTypeDef",
     "EmbeddedCryptoWalletTypeDef",
@@ -321,6 +322,8 @@ __all__ = (
     "InvokeHarnessRequestTypeDef",
     "InvokeHarnessResponseTypeDef",
     "InvokeHarnessStreamOutputTypeDef",
+    "InvokeWebSearchInputTypeDef",
+    "InvokeWebSearchOutputTypeDef",
     "KeyPressArgumentsTypeDef",
     "KeyPressResultTypeDef",
     "KeyShortcutArgumentsTypeDef",
@@ -430,6 +433,7 @@ __all__ = (
     "ProxyCredentialsTypeDef",
     "ProxyOutputTypeDef",
     "ProxyTypeDef",
+    "PublishedDateFilterTypeDef",
     "RecommendationConfigOutputTypeDef",
     "RecommendationConfigTypeDef",
     "RecommendationConfigUnionTypeDef",
@@ -538,6 +542,8 @@ __all__ = (
     "VariantResultTypeDef",
     "VariantTypeDef",
     "ViewPortTypeDef",
+    "WebSearchFiltersTypeDef",
+    "WebSearchResultTypeDef",
 )
 
 
@@ -971,6 +977,11 @@ class DeleteRecommendationRequestTypeDef(TypedDict):
     recommendationId: str
 
 
+class DomainFilterTypeDef(TypedDict):
+    include: NotRequired[Sequence[str]]
+    exclude: NotRequired[Sequence[str]]
+
+
 class EfsConfigurationTypeDef(TypedDict):
     accessPointArn: str
     mountPath: str
@@ -1347,6 +1358,13 @@ class InvokeAgentRuntimeCommandRequestBodyTypeDef(TypedDict):
 
 class RuntimeClientErrorTypeDef(TypedDict):
     message: NotRequired[str]
+
+
+class WebSearchResultTypeDef(TypedDict):
+    text: str
+    title: NotRequired[str]
+    url: NotRequired[str]
+    publishedAt: NotRequired[datetime]
 
 
 class LinkedAccountDeveloperJwtTypeDef(TypedDict):
@@ -1978,6 +1996,11 @@ class OnlineEvaluationTraceConfigTypeDef(TypedDict):
     endTime: TimestampTypeDef
 
 
+class PublishedDateFilterTypeDef(TypedDict):
+    publishedAfter: NotRequired[TimestampTypeDef]
+    publishedBefore: NotRequired[TimestampTypeDef]
+
+
 class SessionFilterConfigTypeDef(TypedDict):
     startTime: NotRequired[TimestampTypeDef]
     endTime: NotRequired[TimestampTypeDef]
@@ -2182,6 +2205,11 @@ class InvokeAgentRuntimeCommandRequestTypeDef(TypedDict):
     baggage: NotRequired[str]
     qualifier: NotRequired[str]
     accountId: NotRequired[str]
+
+
+class InvokeWebSearchOutputTypeDef(TypedDict):
+    results: list[WebSearchResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LinkedAccountOAuth2TypeDef(TypedDict):
@@ -2506,6 +2534,11 @@ class CloudWatchLogsRuleTypeDef(TypedDict):
 MemoryRecordMetadataValueUnionTypeDef = Union[
     MemoryRecordMetadataValueTypeDef, MemoryRecordMetadataValueOutputTypeDef
 ]
+
+
+class WebSearchFiltersTypeDef(TypedDict):
+    domainFilter: NotRequired[DomainFilterTypeDef]
+    publishedDateFilter: NotRequired[PublishedDateFilterTypeDef]
 
 
 class CloudWatchFilterConfigTypeDef(TypedDict):
@@ -2874,6 +2907,13 @@ class MemoryRecordUpdateInputTypeDef(TypedDict):
     sourceNamespaces: NotRequired[Sequence[str]]
     memoryStrategyId: NotRequired[str]
     metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
+
+
+class InvokeWebSearchInputTypeDef(TypedDict):
+    webSearchId: str
+    searchQuery: str
+    maxResults: NotRequired[int]
+    filters: NotRequired[WebSearchFiltersTypeDef]
 
 
 class CloudWatchLogsSourceTypeDef(TypedDict):

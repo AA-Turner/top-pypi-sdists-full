@@ -32,14 +32,20 @@
 
 template <int tangoTypeConst>
 inline void _set_value_limit(Tango::Attribute &self, py::object &value, TargetValue &target) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-    TangoScalarType c_value;
-    python_scalar_to_cpp<tangoTypeConst>::convert(value, c_value);
-    __SET_ALARM_WARNING(self, c_value, target)
+    TangoScalar<tangoTypeConst> c_value(value);
+    {
+        py::gil_scoped_release no_gil;
+        __SET_ALARM_WARNING(self, c_value.get(), target)
+    }
 }
 
-inline void _set_value_limit(Tango::Attribute &self, std::string &c_value, TargetValue &target){
-    __SET_ALARM_WARNING(self, c_value, target)}
+inline void _set_value_limit(Tango::Attribute &self, std::string &c_value, TargetValue &target) {
+    {
+        py::gil_scoped_release no_gil;
+        __SET_ALARM_WARNING(self, c_value, target)
+    }
+}
+
 #define __SET_VALUE(self, c_value, target)             \
     switch(target) {                                   \
     case TargetValue::VALUE_MIN:                       \
@@ -54,14 +60,18 @@ inline void _set_value_limit(Tango::Attribute &self, std::string &c_value, Targe
 
 template <int tangoTypeConst>
 inline void _set_value_limit(Tango::WAttribute &self, py::object &value, TargetValue &target) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-    TangoScalarType c_value;
-    python_scalar_to_cpp<tangoTypeConst>::convert(value, c_value);
-    __SET_VALUE(self, c_value, target)
+    TangoScalar<tangoTypeConst> c_value(value);
+    {
+        py::gil_scoped_release no_gil;
+        __SET_VALUE(self, c_value.get(), target)
+    }
 }
 
 inline void _set_value_limit(Tango::WAttribute &self, std::string &c_value, TargetValue &target) {
-    __SET_VALUE(self, c_value, target)
+    {
+        py::gil_scoped_release no_gil;
+        __SET_VALUE(self, c_value, target)
+    }
 }
 
 template <typename AttrType>

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +9,6 @@ from office365.sharepoint.sitedesigns.potentialaction import PotentialAction
 from office365.sharepoint.sitedesigns.section import Section
 
 
-@dataclass
 class MessageCard(ClientValue):
     autoInvokeAction: AutoInvokeAction = field(default_factory=AutoInvokeAction)
     autoInvokeOptions: AutoInvokeOptions = field(default_factory=AutoInvokeOptions)

@@ -8,6 +8,7 @@ from typing_extensions import Self
 from office365.directory.groups.collection import GroupCollection
 from office365.directory.groups.group import Group
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.odata.literals import escape_odata_string
 from office365.runtime.paths.builder import ODataPathBuilder
 from office365.runtime.paths.resource_path import ResourcePath
@@ -86,6 +87,10 @@ class TeamCollection(EntityCollection[Team]):
         group.after_execute(_populate)
         return return_type
 
+    @require_permission(
+        application=["Teamwork.Migrate.All"],
+        notes="Export every channel message across all teams; application tokens only",
+    )
     def get_all_messages(self) -> ChatMessageCollection:
         """Export every channel message across all teams (``GET /teams/getAllMessages``).
 
@@ -128,6 +133,11 @@ class TeamCollection(EntityCollection[Team]):
             ]
         return payload
 
+    @require_permission(
+        delegated=["Team.Create", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        application=["Team.Create", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        notes="Create a team; the service answers 202 and the provisioning is polled separately",
+    )
     def create(
         self,
         display_name: str,
@@ -152,7 +162,7 @@ class TeamCollection(EntityCollection[Team]):
         """
         return_type = TeamsAsyncOperation(self.context, EntityPath(None, self.resource_path))
 
-        def _process_response(resp: requests.Response) -> None:
+        def _handle_response(resp: requests.Response) -> None:
             loc = resp.headers.get("Location")
             if loc is not None:
                 operation_path = ODataPathBuilder.parse_url(loc)
@@ -160,9 +170,14 @@ class TeamCollection(EntityCollection[Team]):
 
         payload = self._create_payload(display_name, description, template, owners)
         qry = CreateEntityQuery(self, payload, return_type)
-        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        self.context.add_query(qry).after_execute(_handle_response, include_response=True)
         return return_type
 
+    @require_permission(
+        delegated=["Team.Create", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        application=["Team.Create", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        notes="Create a team, poll the operation and read the finished team",
+    )
     def create_and_wait(
         self,
         display_name: str,
@@ -170,11 +185,12 @@ class TeamCollection(EntityCollection[Team]):
         template: str = "standard",
         owners: list[str] | None = None,
     ) -> Team:
-        """Create a team and wait for provisioning (deferred).
+        """Create a team and wait for provisioning, in one ``execute_query()``.
 
-        Chains the async creation, the ``teamsAsyncOperation`` poll, and a full
-        team ``GET`` through ``after_execute`` hooks — one ``execute_query()``
-        returns a provisioned :class:`Team` with its properties loaded.
+        Chains the async creation, the ``teamsAsyncOperation`` poll (which blocks
+        inside the hook until the operation settles), and a full team ``GET``
+        through ``after_execute`` hooks — one ``execute_query()`` returns a
+        provisioned :class:`Team` with its properties loaded.
 
         Args:
             display_name (str): The name of the team.
@@ -186,7 +202,7 @@ class TeamCollection(EntityCollection[Team]):
         return_type = Team(self.context)
         self.add_child(return_type)
 
-        def _process_response(resp: requests.Response) -> None:
+        def _handle_response(resp: requests.Response) -> None:
             content_loc = resp.headers.get("Content-Location")
             assert content_loc is not None
             team_path = ODataPathBuilder.parse_url(content_loc)
@@ -203,5 +219,5 @@ class TeamCollection(EntityCollection[Team]):
 
         payload = self._create_payload(display_name, description, template, owners)
         qry = CreateEntityQuery(self, payload, return_type)
-        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        self.context.add_query(qry).after_execute(_handle_response, include_response=True)
         return return_type

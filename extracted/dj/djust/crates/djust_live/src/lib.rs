@@ -17,6 +17,7 @@ pub mod actors;
 // Fast model serialization for N+1 query prevention
 pub mod model_serializer;
 
+mod provenance_edits;
 use actors::{ActorSupervisor, SessionActorHandle};
 use dashmap::DashMap;
 use djust_core::html_whitespace::is_html_whitespace_only;
@@ -27,8 +28,9 @@ use djust_templates::render_env::RenderEnvGuard;
 use djust_templates::{CompiledTemplate, Template};
 use djust_vdom::{
     cache_ignore_subtree_html_in, diff_in, find_paths_by_attr, parse_html_continue_with_namespace,
-    parse_html_fragment, parse_html_with_namespace, reset_id_counter, splice_ignore_subtrees,
-    sync_ids, try_text_only_vdom_update_inplace, Namespace, SourceOpenElements, VNode,
+    parse_html_fragment, parse_html_with_namespace, reset_id_counter, splice_accumulating_subtrees,
+    splice_ignore_subtrees, sync_ids, try_text_only_vdom_update_inplace, Namespace,
+    SourceOpenElements, VNode,
 };
 use once_cell::sync::Lazy;
 use pyo3::prelude::*;
@@ -126,8 +128,34 @@ fn guard_panic<T>(entry: &'static str, f: impl FnOnce() -> PyResult<T>) -> PyRes
 
 /// Global template cache - parse once, reuse for all sessions
 /// Using Arc<Template> for cheap cloning across threads
-type CachedTemplate = (Arc<Template>, u64);
+#[derive(Clone)]
+struct LazyDependency {
+    operand: String,
+    origin: Option<String>,
+    bindings: Vec<(String, String)>,
+    only: bool,
+}
+type LazyRenderOutput = (
+    String,
+    Vec<(usize, usize)>,
+    Vec<(usize, usize, usize, String)>,
+);
+type CachedTemplate = (Arc<Template>, u64, bool, Vec<LazyDependency>);
 static TEMPLATE_CACHE: Lazy<DashMap<(u64, String), CachedTemplate>> = Lazy::new(DashMap::new);
+
+/// `RustLiveView.dj_model_fields(cache=True)` results, keyed by the exact
+/// template source and template directories (N-39). Bounded: cleared when full.
+type DjModelFieldsKey = (String, Vec<PathBuf>);
+static DJ_MODEL_FIELDS_CACHE: Lazy<DashMap<DjModelFieldsKey, Vec<String>>> =
+    Lazy::new(DashMap::new);
+const DJ_MODEL_FIELDS_CACHE_MAX: usize = 512;
+
+/// Forget every cached `dj_model_fields(cache=True)` result (hot reload, a
+/// settings change, test isolation).
+#[pyfunction]
+fn clear_dj_model_fields_cache() {
+    DJ_MODEL_FIELDS_CACHE.clear();
+}
 /// Global supervisor for managing actor lifecycle
 /// Created once with 1-hour TTL
 static SUPERVISOR: Lazy<Arc<ActorSupervisor>> =
@@ -207,6 +235,24 @@ struct RenderTiming {
     fast_path: f64,
 }
 
+/// Whether `node` is a `dj-update="append"` / `"prepend"` container named in `ids`.
+fn is_accumulating_container(node: &VNode, ids: &HashSet<String>) -> bool {
+    matches!(
+        node.attrs.get("dj-update").map(String::as_str),
+        Some("append" | "prepend")
+    ) && node.attrs.get("id").is_some_and(|id| ids.contains(id))
+}
+
+/// Whether `node` or anything under it is such a container.
+fn holds_accumulating_container(node: &VNode, ids: &HashSet<String>) -> bool {
+    !ids.is_empty()
+        && (is_accumulating_container(node, ids)
+            || node
+                .children
+                .iter()
+                .any(|child| holds_accumulating_container(child, ids)))
+}
+
 /// A LiveView component that manages state and rendering (Rust backend)
 #[pyclass(name = "RustLiveView")]
 pub struct RustLiveViewBackend {
@@ -265,6 +311,15 @@ pub struct RustLiveViewBackend {
     /// renders don't modify the index because they only change text
     /// content, not text-node positions or count.
     text_node_index: Option<Vec<TextNodeEntry>>,
+    /// The `id`s of the `dj-update="append"` / `"prepend"` containers that
+    /// accumulate children across renders (#3639): those whose rows come from a
+    /// `temporary_assigns` key, which a render lists only for the rows just
+    /// assigned. Set from Python on every sync, from the template; not
+    /// persisted.
+    accumulate_ids: HashSet<String>,
+    /// Rows without an `id` that an accumulating container dropped since Python
+    /// last asked (`take_accumulate_dropped`), so it can say so once.
+    accumulate_dropped: usize,
     /// Sidecar map of raw Python objects keyed by top-level context
     /// name. Populated by Python's `set_raw_py_values` so the Rust
     /// template engine can fall back to `getattr` for attributes
@@ -351,6 +406,8 @@ impl RustLiveViewBackend {
             changed_keys: None,
             fragment_text_map: None,
             text_node_index: None,
+            accumulate_ids: HashSet::new(),
+            accumulate_dropped: 0,
             raw_py_values: None,
             // Default-OFF (#1967 / split-foundation #1122); flipped by
             // set_loop_render_cache_enabled from the Python config flag.
@@ -383,6 +440,20 @@ impl RustLiveViewBackend {
                 self.changed_keys = Some(keys.into_iter().collect());
             }
         }
+    }
+
+    /// Name the `dj-update="append"` / `"prepend"` containers (by `id`) that
+    /// accumulate children across renders instead of being diffed as an
+    /// ordinary list (#3639). Python works them out from the template: the
+    /// containers whose rows come from a `temporary_assigns` key.
+    fn set_accumulate_containers(&mut self, ids: Vec<String>) {
+        self.accumulate_ids = ids.into_iter().collect();
+    }
+
+    /// How many rows without an `id` an accumulating container dropped since
+    /// the last call. The client drops them too (it adds a child only by `id`).
+    fn take_accumulate_dropped(&mut self) -> usize {
+        std::mem::take(&mut self.accumulate_dropped)
     }
 
     /// Enable or disable the per-item loop render cache (#1967).
@@ -692,17 +763,40 @@ impl RustLiveViewBackend {
     /// `dj-model="{{ field }}"` is NOT captured (fail-closed; opt in via
     /// `allowed_model_fields`). An unresolvable include or a parse error yields
     /// no fields for that branch (fail-closed) — it never widens the allowlist.
-    fn dj_model_fields(&self) -> PyResult<Vec<String>> {
+    ///
+    /// With `cache=True` the result is kept process-wide, keyed by the exact
+    /// template source and template directories (never by a short hash: this
+    /// is a security allowlist), so an unchanged template is walked once
+    /// instead of on every render (Point Guard N-39: a third of a page's server CPU).
+    /// Only a successful walk is kept. The Python caller passes `cache=True`
+    /// only while templates are cached (DEBUG off), since an `{% include %}`d
+    /// file can change on disk without the source changing.
+    #[pyo3(signature = (cache=false))]
+    fn dj_model_fields(&self, cache: bool) -> PyResult<Vec<String>> {
         guard_panic("dj_model_fields", move || {
             use djust_templates::inheritance::FilesystemTemplateLoader;
+            let key = (self.template_source.clone(), self.template_dirs.clone());
+            if cache {
+                if let Some(hit) = DJ_MODEL_FIELDS_CACHE.get(&key) {
+                    return Ok(hit.value().clone());
+                }
+            }
             let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
             // Fail-closed: any error (parse failure, etc.) leaves the auto-allowlist
             // empty rather than over-allowing. The explicit `allowed_model_fields`
             // path on the Python side still applies.
-            Ok(
-                djust_templates::extract_dj_model_fields(&self.template_source, Some(&loader))
-                    .unwrap_or_default(),
-            )
+            match djust_templates::extract_dj_model_fields(&self.template_source, Some(&loader)) {
+                Ok(fields) => {
+                    if cache {
+                        if DJ_MODEL_FIELDS_CACHE.len() >= DJ_MODEL_FIELDS_CACHE_MAX {
+                            DJ_MODEL_FIELDS_CACHE.clear();
+                        }
+                        DJ_MODEL_FIELDS_CACHE.insert(key, fields.clone());
+                    }
+                    Ok(fields)
+                }
+                Err(_) => Ok(Vec::new()),
+            }
         })
     }
 
@@ -731,6 +825,29 @@ impl RustLiveViewBackend {
 
     /// Render the template and return HTML
     fn render(&mut self) -> PyResult<String> {
+        self.render_result(false).map(|result| result.0)
+    }
+
+    /// Result-bound UTF-8 authored spans; no reset/take state (#3252).
+    fn render_with_provenance(&mut self) -> PyResult<(String, Vec<(usize, usize)>)> {
+        self.render_result(true).map(|r| (r.0, r.1))
+    }
+
+    /// Automatic compiled-tree planning plus stable authored node addresses.
+    fn render_lazy_html(&mut self) -> PyResult<LazyRenderOutput> {
+        let context = Context::from_shared(self.state.clone());
+        let track = needs_lazy_tree(
+            &self.template_source,
+            &self.template_dirs,
+            &context,
+            0,
+            None,
+            false,
+        )?;
+        self.render_result(track)
+    }
+
+    fn render_result(&mut self, track_provenance: bool) -> PyResult<LazyRenderOutput> {
         guard_panic("render", move || {
             // Invalidate partial render cache — render() bypasses the diff pipeline
             // so the cache would be stale for the next render_with_diff() call.
@@ -773,14 +890,649 @@ impl RustLiveViewBackend {
 
             // Use template loader for {% include %} support
             let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
-            let html = template_arc.render_with_loader(&context, &loader)?;
-            Ok(html)
+            if track_provenance {
+                let result = template_arc.render_with_provenance(&context, &loader)?;
+                let spans = result.authored.iter().map(|r| (r.start, r.end)).collect();
+                Ok((result.html, spans, result.origins))
+            } else {
+                Ok((
+                    template_arc.render_with_loader(&context, &loader)?,
+                    Vec::new(),
+                    Vec::new(),
+                ))
+            }
         })
     }
 
     /// Render and compute diff from last render
     /// Returns a tuple of (html, patches_json, version)
-    fn render_with_diff(&mut self) -> PyResult<(String, Option<String>, u64)> {
+    ///
+    /// The whole template render, HTML parse and VDOM diff run with this
+    /// thread DETACHED from the interpreter (#3074), so on a GIL build other
+    /// Python threads — other sessions' handlers, the event loop — run while
+    /// this one renders. The body is [`Self::render_with_diff_detached`]: it
+    /// holds no `Python<'py>` token, so every Python touch inside (the
+    /// `raw_py_values` sidecar clone, `getattr` fallbacks, bridged tags and
+    /// filters, `{% load %}`) re-attaches through `Python::attach`, and the
+    /// compiler rejects anything `!Send` (`Bound`, `Python`) crossing the
+    /// detach. The registry lookups those callbacks make take their locks
+    /// only while attached (see `registry.rs` "Lock order"), so a detached
+    /// render never waits for the GIL while holding a registry lock.
+    ///
+    /// The body carries its own `guard_panic` (it is also the actor path's
+    /// entry); this one is the Python entry point's boundary, so a panic in
+    /// the detach itself still surfaces as a containable exception.
+    fn render_with_diff(&mut self, py: Python<'_>) -> PyResult<(String, Option<String>, u64)> {
+        guard_panic("render_with_diff", move || {
+            py.detach(|| self.render_with_diff_detached())
+        })
+    }
+
+    /// Render and return patches as MessagePack bytes
+    fn render_binary_diff(&mut self, py: Python) -> PyResult<(String, Option<Py<PyAny>>, u64)> {
+        guard_panic("render_binary_diff", move || {
+            use std::time::Instant;
+
+            let t_start = Instant::now();
+
+            // Get template from cache or parse and cache it (#2669: the ONE
+            // generation-gated entry into `TEMPLATE_CACHE`).
+            let template_arc = cached_template(&self.template_source)?;
+
+            // ADR-029: install this view's render environment into the
+            // thread-local cells for the duration of this render, restoring
+            // the previous values on drop — applied beside `set_auto_call`
+            // at ALL THREE render entries so the paths cannot drift (#1646).
+            let _render_env = self.render_env.as_ref().map(RenderEnvGuard::install);
+
+            let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
+            let mut context = Context::from_shared(self.state.clone());
+            for key in &self.safe_keys {
+                context.mark_safe(key.clone());
+            }
+            // #2686: namespace this instance's dj-if marker ids. No-op (empty)
+            // for every render that did not opt in. Applied at ALL THREE render
+            // entries, not just the component one, so the paths cannot drift.
+            context.set_dj_if_id_namespace(self.dj_if_id_namespace.as_str());
+            // Attach Py<PyAny> sidecar so `{{ model.attr }}` falls back
+            // to `getattr` when `attr` isn't in the JSON-serialized state.
+            if let Some(raw) = &self.raw_py_values {
+                let cloned: HashMap<String, Py<PyAny>> = Python::attach(|py| {
+                    raw.iter()
+                        .map(|(k, v)| (k.clone(), v.clone_ref(py)))
+                        .collect()
+                });
+                context.set_raw_py_objects(cloned);
+                // ADR-024: stamp the auto-call kill-switch onto this render's
+                // context (only meaningful when a sidecar is attached).
+                context.set_auto_call(self.template_auto_call);
+            }
+
+            // Phase 1: Template render (partial if cache available)
+            let t_render_start = Instant::now();
+            let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
+
+            // Install the persistent per-item loop render cache (#1967) for this
+            // render — same pattern as `render_with_diff` (mem::take to a local so
+            // the guard's `&mut` is independent of the other self-field borrows,
+            // prune + restore for persistence). Inert when disabled.
+            let mut loop_cache = std::mem::take(&mut self.loop_render_cache);
+            loop_cache.begin_render();
+            let html_result: Result<String, _> = {
+                let _loop_guard = LoopCacheGuard::install(&mut loop_cache);
+                if !self.node_html_cache.is_empty()
+                    && self.changed_keys.is_some()
+                    && !template_arc.uses_extends()
+                {
+                    let changed = self.changed_keys.take().unwrap_or_default();
+                    template_arc
+                        .render_with_loader_partial(
+                            &context,
+                            &loader,
+                            &changed,
+                            &self.node_html_cache,
+                        )
+                        .map(|(html, fragments, _changed_indices)| {
+                            self.node_html_cache = fragments;
+                            html
+                        })
+                } else {
+                    self.changed_keys = None;
+                    template_arc
+                        .render_with_loader_collecting(&context, &loader)
+                        .map(|(html, fragments)| {
+                            self.node_html_cache = fragments;
+                            html
+                        })
+                }
+            };
+            loop_cache.prune();
+            // #1970: defer the loop-cache putback (the parse phase consumes the
+            // manifest + parse cache, mirroring `render_with_diff`). Take the
+            // manifest unconditionally so it can never leak across renders.
+            let loop_parse_manifest = loop_cache.take_manifest();
+            let reduced_html = match html_result {
+                Ok(h) => h,
+                Err(e) => {
+                    self.loop_render_cache = loop_cache;
+                    return Err(e.into());
+                }
+            };
+            // Reconstruct the full html (placeholders expanded) for every consumer
+            // except the parse-cache splice; identity when no placeholders.
+            let has_loop_placeholders = loop_parse_manifest.iter().any(|m| m.placeholder);
+            let html = if has_loop_placeholders {
+                // Match ONLY this render's nonce-bearing sentinel tag (#1970).
+                let sentinel_tag = djust_templates::loop_cache::placeholder_tag(loop_cache.nonce());
+                // The per-node fragment cache holds this render's REDUCED
+                // fragments; expand them too. A later PARTIAL render reuses
+                // cached fragments verbatim but has no manifest for them, so a
+                // placeholder left in the cache reached a full parse as a real
+                // `<dj-pc-…>` element (and it skewed the fragment text map's
+                // byte offsets, which assume fragments concatenate to the full
+                // html). Fragments concatenate to `reduced_html`, so their
+                // placeholders are the manifest's, in order.
+                let open = format!("<{sentinel_tag} ");
+                let mut ph_iter = loop_parse_manifest.iter().filter(|m| m.placeholder);
+                for frag in self.node_html_cache.iter_mut() {
+                    if frag.contains(&open) {
+                        *frag = Self::expand_loop_placeholders(frag, &mut ph_iter, &sentinel_tag);
+                    }
+                }
+                Self::reconstruct_full_loop_html(&reduced_html, &loop_parse_manifest, &sentinel_tag)
+            } else {
+                reduced_html.clone()
+            };
+            let render_ms = t_render_start.elapsed().as_secs_f64() * 1000.0;
+
+            // Phase 2: HTML parse to VDOM
+            // Try text-only fast path: mutate old VDOM in-place if only text changed.
+            // Falls back to html5ever if structural changes detected.
+            let t_parse_start = Instant::now();
+            // dj-id collision defense (#1550 / #1552). See companion comment
+            // in `render_with_diff` for the full rationale. Same fix:
+            // advance the thread-local id counter past the highest id in
+            // `last_vdom` so the next parse cannot reuse ids that already
+            // appear in the surviving tree.
+            if let Some(ref old_vdom) = self.last_vdom {
+                if let Some(max_id) = djust_vdom::max_djust_id_in(old_vdom) {
+                    djust_vdom::ensure_id_counter_at_least(max_id + 1);
+                }
+            }
+            let is_continue = self.last_vdom.is_some();
+            let counter_base = if is_continue {
+                djust_vdom::get_id_counter()
+            } else {
+                0
+            };
+            // #1970 parse-cache splice on the structural / full-parse paths (the
+            // text-only in-place path never sees placeholders — a reorder is
+            // structural, so it bypasses the in-place update). Helper that parses
+            // the reduced html + splices cached subtrees, with a full-parse
+            // fallback; returns None to mean "fall back".
+            let parse_full = |full_html: &str| -> PyResult<(VNode, Namespace)> {
+                if is_continue {
+                    djust_vdom::set_id_counter(counter_base);
+                    parse_html_continue_with_namespace(full_html).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                    })
+                } else {
+                    parse_html_with_namespace(full_html).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                    })
+                }
+            };
+            let parse_or_splice = |loop_cache: &mut djust_templates::loop_cache::LoopRenderCache|
+             -> PyResult<(VNode, Namespace)> {
+                    if has_loop_placeholders {
+                        match Self::try_parse_cache_splice(
+                            &reduced_html,
+                            &loop_parse_manifest,
+                            loop_cache,
+                            counter_base,
+                        ) {
+                            Some(v) => Ok(v),
+                            None => parse_full(&html),
+                        }
+                    } else {
+                        let v = parse_full(&html)?;
+                        Self::populate_parse_cache_from_manifest(&loop_parse_manifest, loop_cache);
+                        Ok(v)
+                    }
+                };
+            let mut fast_path = FAST_PATH_NONE;
+            let (mut new_vdom, root_ns) = if let (Some(ref old_html), Some(_), Some(root_ns)) =
+                (&self.last_html, &self.last_vdom, self.last_root_ns)
+            {
+                let old_html = old_html.clone();
+                let mut vdom = self.last_vdom.take().unwrap();
+                // Attempt the in-place text fast path on the FULL html FIRST, even
+                // when the loop emitted `<dj-pc>` placeholders (#1970): a pure
+                // content change still emits placeholders for the unchanged items,
+                // but the in-place update compares full old vs full new html and
+                // succeeds for a text-only delta — so we must take this path to stay
+                // byte-identical (same NO-patch result) with the cache-OFF render.
+                // Only a STRUCTURAL change (reorder/insert/remove) fails in-place and
+                // falls through to the parse-cache splice. Still populate the parse
+                // cache from the manifest so a future reorder hits even when this
+                // render took the in-place path.
+                if try_text_only_vdom_update_inplace(&mut vdom, &old_html, &html) {
+                    // The whole-HTML text-only byte diff — the text-REGION
+                    // mechanism, not the fragment one: no changed-fragment
+                    // list or `fragment_text_map` is consulted here (#2532
+                    // review; the first cut mislabelled this site).
+                    fast_path = FAST_PATH_TEXT_REGION;
+                    Self::populate_parse_cache_from_manifest(&loop_parse_manifest, &mut loop_cache);
+                    (vdom, root_ns)
+                } else {
+                    // Structural change (or placeholders present) — splice / full parse.
+                    self.last_vdom = Some(vdom);
+                    parse_or_splice(&mut loop_cache)?
+                }
+            } else {
+                parse_or_splice(&mut loop_cache)?
+            };
+            let parse_ms = t_parse_start.elapsed().as_secs_f64() * 1000.0;
+
+            // #1970: restore the loop cache now that the parse phase is done.
+            self.loop_render_cache = loop_cache;
+
+            // Splice old VDOM subtrees for dj-update="ignore" nodes
+            if let Some(old_vdom) = &self.last_vdom {
+                splice_ignore_subtrees(old_vdom, &mut new_vdom);
+            }
+            self.accumulate_dropped += splice_accumulating_subtrees(
+                self.last_vdom.as_ref(),
+                &mut new_vdom,
+                &self.accumulate_ids,
+            );
+
+            // Phase 3: VDOM diff
+            let t_diff_start = Instant::now();
+            let patches_bytes = if let Some(old_vdom) = &self.last_vdom {
+                let patches = diff_in(old_vdom, &new_vdom, root_ns);
+                sync_ids(old_vdom, &mut new_vdom);
+                // `to_vec_named`, NOT `to_vec` (#2130). `Patch` is an internally
+                // tagged enum, and rmp-serde's `to_vec` encodes those as a
+                // POSITIONAL array — so `skip_serializing_if` on the interior `d`
+                // dropped a slot and the bytes could not be read back at all
+                // ("invalid length 2, expected 3 elements"). Every variant was
+                // affected; it went unnoticed because nothing deserializes this
+                // yet. `to_vec_named` emits a map, where an omitted optional is
+                // simply an absent key. See the round-trip pins in
+                // djust_vdom/tests/wire_protocol_snapshot.rs.
+                if !patches.is_empty() {
+                    let bytes = rmp_serde::to_vec_named(&patches).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?;
+                    Some(PyBytes::new(py, &bytes).into())
+                } else {
+                    let empty: Vec<djust_vdom::Patch> = Vec::new();
+                    let bytes = rmp_serde::to_vec_named(&empty).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
+                    })?;
+                    Some(PyBytes::new(py, &bytes).into())
+                }
+            } else {
+                None
+            };
+            let diff_ms = t_diff_start.elapsed().as_secs_f64() * 1000.0;
+
+            // Phase 4: HTML serialization
+            let t_serial_start = Instant::now();
+            let hydrated_html = new_vdom.to_html_in(Some(root_ns));
+            let serialize_ms = t_serial_start.elapsed().as_secs_f64() * 1000.0;
+
+            let total_ms = t_start.elapsed().as_secs_f64() * 1000.0;
+
+            self.last_render_timing = Some(RenderTiming {
+                render_ms,
+                parse_ms,
+                diff_ms,
+                serialize_ms,
+                total_ms,
+                html_len: html.len(),
+                fast_path,
+            });
+
+            cache_ignore_subtree_html_in(&mut new_vdom, root_ns);
+
+            // Cache the rendered HTML for text-only fast path on next render
+            self.last_html = Some(html);
+
+            self.last_vdom = Some(new_vdom);
+            self.last_root_ns = Some(root_ns);
+            self.version += 1;
+            // #2999: the tree may have changed shape; the fragment→text-node
+            // map is rebuilt by the next full-parse render_with_diff.
+            self.fragment_text_map = None;
+
+            Ok((hydrated_html, patches_bytes, self.version))
+        })
+    }
+
+    /// ADR-032 D3 — patch ONE bound component's subtree without a page render.
+    ///
+    /// `html` is the component's fresh render: the `<div data-component-id="…">`
+    /// wrapper and its contents (`BoundComponent.render`). The unique element
+    /// of `last_vdom` whose `data-component-id` equals `component_id` is
+    /// diffed against it with every patch path prefixed by the node's path
+    /// from the root, the new subtree is spliced in (ids carried forward by
+    /// `sync_ids`, fresh ones continuing the counter past the tree's
+    /// high-water mark — #1550/#1552), `version` is bumped and
+    /// `state[component_id]` is set to the new HTML as a safe string so a
+    /// later FULL render sees what the page shows. `last_html` is refreshed
+    /// from the spliced tree so the text fast paths keep a true baseline, and
+    /// the partial-render fragment cache is dropped (its `<html>` fragment
+    /// still holds the old component markup).
+    ///
+    /// Returns the `render_with_diff` triple `(html, patches_json, version)`
+    /// so the runtime emits the same `patch` frame it emits today, or `None`
+    /// when the scoped path cannot be exact — no VDOM yet, the node missing
+    /// or duplicated, the fragment not a single root carrying the id — and
+    /// the caller takes the full path (D6: not an error).
+    fn patch_component_subtree(
+        &mut self,
+        component_id: String,
+        html: String,
+    ) -> PyResult<Option<(String, String, u64)>> {
+        guard_panic("patch_component_subtree", move || {
+            use std::time::Instant;
+            let t_start = Instant::now();
+
+            let accumulate_ids = self.accumulate_ids.clone();
+            let (Some(vdom), Some(root_ns)) = (self.last_vdom.as_mut(), self.last_root_ns) else {
+                return Ok(None);
+            };
+            let mut paths = find_paths_by_attr(vdom, "data-component-id", &component_id);
+            if paths.len() != 1 {
+                return Ok(None);
+            }
+            let path = paths.pop().expect("one path");
+            // The fragment is parsed in an HTML context, so the node must be
+            // an HTML element in the page too.
+            if djust_vdom::namespace_at_path(vdom, root_ns, &path) != Some(Namespace::Html) {
+                return Ok(None);
+            }
+            // The full path never patches inside a `dj-update="ignore"` region
+            // (the old children are spliced back before the diff) and addresses
+            // a `[dj-virtual]` list's rows by key, not by path. A component
+            // under either would be patched differently here — not exact.
+            {
+                let mut node: &VNode = vdom;
+                let mut ancestors = Vec::with_capacity(path.len() + 1);
+                ancestors.push(node);
+                for &idx in &path {
+                    node = match node.children.get(idx) {
+                        Some(n) => n,
+                        None => return Ok(None),
+                    };
+                    ancestors.push(node);
+                }
+                if ancestors.iter().any(|n| {
+                    n.attrs.get("dj-update").map(String::as_str) == Some("ignore")
+                        || n.attrs.contains_key("dj-virtual")
+                        || is_accumulating_container(n, &accumulate_ids)
+                }) {
+                    return Ok(None);
+                }
+            }
+
+            // dj-id continuity: fresh ids for inserted nodes must not collide
+            // with survivors anywhere in the page (#1550 / #1552).
+            if let Some(max_id) = djust_vdom::max_djust_id_in(vdom) {
+                djust_vdom::ensure_id_counter_at_least(max_id + 1);
+            }
+            let parent_tag = match path.split_last() {
+                Some((_, parent)) => get_vdom_node_mut(vdom, parent)
+                    .map(|n| n.tag.clone())
+                    .unwrap_or_else(|| "body".to_string()),
+                None => "body".to_string(),
+            };
+
+            let t_parse = Instant::now();
+            let mut roots = match parse_html_fragment(&html, &parent_tag) {
+                Ok(roots) => roots,
+                Err(_) => return Ok(None),
+            };
+            if roots.len() != 1 {
+                return Ok(None);
+            }
+            let mut new_node = roots.pop().expect("one root");
+            if new_node.attrs.get("data-component-id") != Some(&component_id) {
+                return Ok(None);
+            }
+            // The full path accumulates a `dj-update` container's rows (they are
+            // spliced from the whole tree); a fragment holding one is left to it.
+            if holds_accumulating_container(&new_node, &accumulate_ids) {
+                return Ok(None);
+            }
+            // The fragment was parsed on its own, so it may be as deep as a
+            // page; grafted at `path` it must still fit under the page's
+            // nesting limit. If not, the full path (which parses the whole
+            // page and applies the limit there) handles it.
+            if path.len() + new_node.element_depth() > djust_vdom::MAX_VDOM_DEPTH {
+                return Ok(None);
+            }
+            // Exactness check (review of #2920 🟡2): the page parse can
+            // relocate part of a component's markup OUTSIDE its wrapper —
+            // foster-parenting of a nested `<table>`, `<option>`/`<input>`
+            // under a `<select>` — and a fragment parse in the same context
+            // does not. Re-parse the markup the page was rendered with and
+            // diff it against the node the page holds: any difference means
+            // the wrapper does not contain what the full path would give it,
+            // so the scoped patch would leave the relocated part stale.
+            let old_html = match self.state.get(&component_id) {
+                Some(Value::String(s)) | Some(Value::SafeString(s)) => s.clone(),
+                _ => return Ok(None),
+            };
+            let mut old_roots = match parse_html_fragment(&old_html, &parent_tag) {
+                Ok(roots) => roots,
+                Err(_) => return Ok(None),
+            };
+            if old_roots.len() != 1 {
+                return Ok(None);
+            }
+            let mut reparsed_old = old_roots.pop().expect("one root");
+            let parse_ms = t_parse.elapsed().as_secs_f64() * 1000.0;
+
+            let Some(old_node) = get_vdom_node_mut(vdom, &path) else {
+                return Ok(None);
+            };
+            splice_ignore_subtrees(old_node, &mut reparsed_old);
+            if !djust_vdom::diff::diff_nodes(old_node, &reparsed_old, &[]).is_empty() {
+                return Ok(None);
+            }
+            let t_diff = Instant::now();
+            splice_ignore_subtrees(old_node, &mut new_node);
+            let patches =
+                djust_vdom::diff::diff_nodes_in(old_node, &new_node, &path, Some(Namespace::Html));
+            sync_ids(old_node, &mut new_node);
+            cache_ignore_subtree_html_in(&mut new_node, Namespace::Html);
+            *old_node = new_node;
+            let diff_ms = t_diff.elapsed().as_secs_f64() * 1000.0;
+
+            let t_serial = Instant::now();
+            let full_html = vdom.to_html_in(Some(root_ns));
+            let patches_json = serde_json::to_string(&patches)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
+            let serialize_ms = t_serial.elapsed().as_secs_f64() * 1000.0;
+
+            self.version += 1;
+            self.last_html = Some(full_html.clone());
+            self.node_html_cache = Vec::new();
+            self.fragment_text_map = None;
+            self.text_node_index = None; // positions moved; rebuilt by the next full parse
+            self.set_component_html(component_id, html);
+            self.last_render_timing = Some(RenderTiming {
+                render_ms: 0.0,
+                parse_ms,
+                diff_ms,
+                serialize_ms,
+                total_ms: t_start.elapsed().as_secs_f64() * 1000.0,
+                html_len: full_html.len(),
+                fast_path: FAST_PATH_COMPONENT,
+            });
+            Ok(Some((full_html, patches_json, self.version)))
+        })
+    }
+
+    /// Reset the view state
+    fn reset(&mut self) {
+        self.last_vdom = None;
+        self.last_root_ns = None;
+        self.last_html = None;
+        self.version = 0;
+        self.node_html_cache = Vec::new();
+        self.changed_keys = None;
+        self.fragment_text_map = None;
+        self.text_node_index = None;
+        // Reset ID counter so next render starts fresh
+        reset_id_counter();
+    }
+
+    /// Drop the diff baseline (the rendered tree and the render caches built
+    /// from it) but keep the version counter (``static_render``, #3626).
+    ///
+    /// Unlike ``reset`` the version is not restarted: the HTTP fallback and SSE
+    /// stamp this counter on their frames and the client checks it is
+    /// consecutive. The next ``render_with_diff`` has nothing to diff against,
+    /// so it returns full HTML and no patches, as a first render does. The
+    /// state is left alone (``retain_state_keys([])`` clears it).
+    fn release_baseline(&mut self) {
+        self.last_vdom = None;
+        self.last_root_ns = None;
+        self.last_html = None;
+        self.node_html_cache = Vec::new();
+        self.changed_keys = None;
+        self.fragment_text_map = None;
+        self.text_node_index = None;
+    }
+
+    /// Serialize the RustLiveView state to MessagePack bytes
+    ///
+    /// This enables efficient state persistence to Redis or other storage backends.
+    /// Uses MessagePack for compact binary serialization (~30-40% smaller than JSON).
+    /// Includes current timestamp for session age tracking.
+    ///
+    /// Returns: Python bytes object containing the serialized state with timestamp
+    fn serialize_msgpack(&self, py: Python) -> PyResult<Py<PyAny>> {
+        // Get current timestamp
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64();
+
+        // Convert to serializable struct
+        let serializable = SerializableViewState {
+            template_source: self.template_source.clone(),
+            // Deref THEN clone: the wire carries a plain map, exactly as
+            // before. Paid once per save, not once per render.
+            state: self
+                .state
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            last_vdom: self.last_vdom.clone(),
+            version: self.version,
+            timestamp: ts,
+        };
+
+        // Serialize to MessagePack bytes
+        let bytes = rmp_serde::to_vec(&serializable).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "MessagePack serialization error: {e}"
+            ))
+        })?;
+        Ok(PyBytes::new(py, &bytes).into())
+    }
+
+    /// Deserialize a RustLiveView from MessagePack bytes
+    ///
+    /// Reconstructs a complete RustLiveView instance from bytes previously
+    /// serialized with serialize_msgpack().
+    ///
+    /// Args:
+    ///     bytes: Python bytes object containing MessagePack data
+    ///
+    /// Returns: RustLiveView instance with restored state
+    #[staticmethod]
+    fn deserialize_msgpack(bytes: &[u8]) -> PyResult<Self> {
+        let serializable: SerializableViewState = rmp_serde::from_slice(bytes).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "MessagePack deserialization error: {e}"
+            ))
+        })?;
+
+        // Convert back to RustLiveViewBackend
+        // Note: template_dirs must be re-set after deserialization via set_template_dirs()
+        Ok(Self {
+            template_source: serializable.template_source,
+            state: std::sync::Arc::new(serializable.state.into_iter().collect()),
+            last_vdom: serializable.last_vdom,
+            last_root_ns: None, // Not serialized: the next render parses
+            last_html: None,    // Transient cache — rebuilt on next render
+            version: serializable.version,
+            timestamp: serializable.timestamp,
+            template_dirs: Vec::new(),
+            safe_keys: HashSet::new(),
+            last_render_timing: None,
+            node_html_cache: Vec::new(),
+            changed_keys: None,
+            fragment_text_map: None,
+            text_node_index: None,
+            // Transient (#3639): Python re-sets it on every sync.
+            accumulate_ids: HashSet::new(),
+            accumulate_dropped: 0,
+            raw_py_values: None,
+            // Transient cache — not deserialized; rebuilt fresh, default-OFF
+            // until the Python flag re-enables it post-restore (#1967).
+            loop_render_cache: LoopRenderCache::new(false),
+            // Transient (ADR-024): default-ON; the Python flag re-wires it
+            // on view (re)initialization post-restore, like the loop cache.
+            template_auto_call: true,
+            // Transient (#2686): empty post-restore. The component render
+            // entry re-sets it on every render, and a restored view that is
+            // not a component namespaces nothing — same as before this field.
+            dj_if_id_namespace: String::new(),
+            // Transient (ADR-029): `_apply_render_env` re-captures it on the
+            // next framework render post-restore, like `template_auto_call`.
+            render_env: None,
+        })
+    }
+
+    /// Get per-phase timing from the last render_with_diff() call.
+    /// Returns a dict with render_ms, parse_ms, diff_ms, serialize_ms, total_ms,
+    /// html_len, and `fast_path` (#2532: 0.0 = full parse + diff, 1.0 = the
+    /// fragment text fast path, 2.0 = the text-region fast path).
+    fn get_render_timing(&self) -> Option<HashMap<String, f64>> {
+        self.last_render_timing.as_ref().map(|t| {
+            let mut m = HashMap::new();
+            m.insert("render_ms".to_string(), t.render_ms);
+            m.insert("parse_ms".to_string(), t.parse_ms);
+            m.insert("diff_ms".to_string(), t.diff_ms);
+            m.insert("serialize_ms".to_string(), t.serialize_ms);
+            m.insert("total_ms".to_string(), t.total_ms);
+            m.insert("html_len".to_string(), t.html_len as f64);
+            m.insert("fast_path".to_string(), t.fast_path);
+            m
+        })
+    }
+
+    /// Get the timestamp when this view was last serialized
+    ///
+    /// Returns: Unix timestamp (seconds since epoch)
+    fn get_timestamp(&self) -> f64 {
+        self.timestamp
+    }
+}
+
+// Public Rust API (for use by other Rust crates like djust_actors)
+impl RustLiveViewBackend {
+    /// Body of [`render_with_diff`](Self::render_with_diff), callable with
+    /// or without the interpreter attached (the actor path and the Rust
+    /// tests call it directly). Returns (html, patches_json, version).
+    fn render_with_diff_detached(&mut self) -> PyResult<(String, Option<String>, u64)> {
         guard_panic("render_with_diff", move || {
             use std::time::Instant;
 
@@ -1200,6 +1952,11 @@ impl RustLiveViewBackend {
                 if let Some(old_vdom) = &self.last_vdom {
                     splice_ignore_subtrees(old_vdom, &mut new_vdom);
                 }
+                self.accumulate_dropped += splice_accumulating_subtrees(
+                    self.last_vdom.as_ref(),
+                    &mut new_vdom,
+                    &self.accumulate_ids,
+                );
 
                 // VDOM diff
                 let t_diff_start = Instant::now();
@@ -1291,574 +2048,6 @@ impl RustLiveViewBackend {
         })
     }
 
-    /// Render and return patches as MessagePack bytes
-    fn render_binary_diff(&mut self, py: Python) -> PyResult<(String, Option<Py<PyAny>>, u64)> {
-        guard_panic("render_binary_diff", move || {
-            use std::time::Instant;
-
-            let t_start = Instant::now();
-
-            // Get template from cache or parse and cache it (#2669: the ONE
-            // generation-gated entry into `TEMPLATE_CACHE`).
-            let template_arc = cached_template(&self.template_source)?;
-
-            // ADR-029: install this view's render environment into the
-            // thread-local cells for the duration of this render, restoring
-            // the previous values on drop — applied beside `set_auto_call`
-            // at ALL THREE render entries so the paths cannot drift (#1646).
-            let _render_env = self.render_env.as_ref().map(RenderEnvGuard::install);
-
-            let _bridge_memo = djust_core::context::BridgeFrameCacheGuard;
-            let mut context = Context::from_shared(self.state.clone());
-            for key in &self.safe_keys {
-                context.mark_safe(key.clone());
-            }
-            // #2686: namespace this instance's dj-if marker ids. No-op (empty)
-            // for every render that did not opt in. Applied at ALL THREE render
-            // entries, not just the component one, so the paths cannot drift.
-            context.set_dj_if_id_namespace(self.dj_if_id_namespace.as_str());
-            // Attach Py<PyAny> sidecar so `{{ model.attr }}` falls back
-            // to `getattr` when `attr` isn't in the JSON-serialized state.
-            if let Some(raw) = &self.raw_py_values {
-                let cloned: HashMap<String, Py<PyAny>> = Python::attach(|py| {
-                    raw.iter()
-                        .map(|(k, v)| (k.clone(), v.clone_ref(py)))
-                        .collect()
-                });
-                context.set_raw_py_objects(cloned);
-                // ADR-024: stamp the auto-call kill-switch onto this render's
-                // context (only meaningful when a sidecar is attached).
-                context.set_auto_call(self.template_auto_call);
-            }
-
-            // Phase 1: Template render (partial if cache available)
-            let t_render_start = Instant::now();
-            let loader = FilesystemTemplateLoader::new(self.template_dirs.clone());
-
-            // Install the persistent per-item loop render cache (#1967) for this
-            // render — same pattern as `render_with_diff` (mem::take to a local so
-            // the guard's `&mut` is independent of the other self-field borrows,
-            // prune + restore for persistence). Inert when disabled.
-            let mut loop_cache = std::mem::take(&mut self.loop_render_cache);
-            loop_cache.begin_render();
-            let html_result: Result<String, _> = {
-                let _loop_guard = LoopCacheGuard::install(&mut loop_cache);
-                if !self.node_html_cache.is_empty()
-                    && self.changed_keys.is_some()
-                    && !template_arc.uses_extends()
-                {
-                    let changed = self.changed_keys.take().unwrap_or_default();
-                    template_arc
-                        .render_with_loader_partial(
-                            &context,
-                            &loader,
-                            &changed,
-                            &self.node_html_cache,
-                        )
-                        .map(|(html, fragments, _changed_indices)| {
-                            self.node_html_cache = fragments;
-                            html
-                        })
-                } else {
-                    self.changed_keys = None;
-                    template_arc
-                        .render_with_loader_collecting(&context, &loader)
-                        .map(|(html, fragments)| {
-                            self.node_html_cache = fragments;
-                            html
-                        })
-                }
-            };
-            loop_cache.prune();
-            // #1970: defer the loop-cache putback (the parse phase consumes the
-            // manifest + parse cache, mirroring `render_with_diff`). Take the
-            // manifest unconditionally so it can never leak across renders.
-            let loop_parse_manifest = loop_cache.take_manifest();
-            let reduced_html = match html_result {
-                Ok(h) => h,
-                Err(e) => {
-                    self.loop_render_cache = loop_cache;
-                    return Err(e.into());
-                }
-            };
-            // Reconstruct the full html (placeholders expanded) for every consumer
-            // except the parse-cache splice; identity when no placeholders.
-            let has_loop_placeholders = loop_parse_manifest.iter().any(|m| m.placeholder);
-            let html = if has_loop_placeholders {
-                // Match ONLY this render's nonce-bearing sentinel tag (#1970).
-                let sentinel_tag = djust_templates::loop_cache::placeholder_tag(loop_cache.nonce());
-                // The per-node fragment cache holds this render's REDUCED
-                // fragments; expand them too. A later PARTIAL render reuses
-                // cached fragments verbatim but has no manifest for them, so a
-                // placeholder left in the cache reached a full parse as a real
-                // `<dj-pc-…>` element (and it skewed the fragment text map's
-                // byte offsets, which assume fragments concatenate to the full
-                // html). Fragments concatenate to `reduced_html`, so their
-                // placeholders are the manifest's, in order.
-                let open = format!("<{sentinel_tag} ");
-                let mut ph_iter = loop_parse_manifest.iter().filter(|m| m.placeholder);
-                for frag in self.node_html_cache.iter_mut() {
-                    if frag.contains(&open) {
-                        *frag = Self::expand_loop_placeholders(frag, &mut ph_iter, &sentinel_tag);
-                    }
-                }
-                Self::reconstruct_full_loop_html(&reduced_html, &loop_parse_manifest, &sentinel_tag)
-            } else {
-                reduced_html.clone()
-            };
-            let render_ms = t_render_start.elapsed().as_secs_f64() * 1000.0;
-
-            // Phase 2: HTML parse to VDOM
-            // Try text-only fast path: mutate old VDOM in-place if only text changed.
-            // Falls back to html5ever if structural changes detected.
-            let t_parse_start = Instant::now();
-            // dj-id collision defense (#1550 / #1552). See companion comment
-            // in `render_with_diff` for the full rationale. Same fix:
-            // advance the thread-local id counter past the highest id in
-            // `last_vdom` so the next parse cannot reuse ids that already
-            // appear in the surviving tree.
-            if let Some(ref old_vdom) = self.last_vdom {
-                if let Some(max_id) = djust_vdom::max_djust_id_in(old_vdom) {
-                    djust_vdom::ensure_id_counter_at_least(max_id + 1);
-                }
-            }
-            let is_continue = self.last_vdom.is_some();
-            let counter_base = if is_continue {
-                djust_vdom::get_id_counter()
-            } else {
-                0
-            };
-            // #1970 parse-cache splice on the structural / full-parse paths (the
-            // text-only in-place path never sees placeholders — a reorder is
-            // structural, so it bypasses the in-place update). Helper that parses
-            // the reduced html + splices cached subtrees, with a full-parse
-            // fallback; returns None to mean "fall back".
-            let parse_full = |full_html: &str| -> PyResult<(VNode, Namespace)> {
-                if is_continue {
-                    djust_vdom::set_id_counter(counter_base);
-                    parse_html_continue_with_namespace(full_html).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
-                    })
-                } else {
-                    parse_html_with_namespace(full_html).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
-                    })
-                }
-            };
-            let parse_or_splice = |loop_cache: &mut djust_templates::loop_cache::LoopRenderCache|
-             -> PyResult<(VNode, Namespace)> {
-                    if has_loop_placeholders {
-                        match Self::try_parse_cache_splice(
-                            &reduced_html,
-                            &loop_parse_manifest,
-                            loop_cache,
-                            counter_base,
-                        ) {
-                            Some(v) => Ok(v),
-                            None => parse_full(&html),
-                        }
-                    } else {
-                        let v = parse_full(&html)?;
-                        Self::populate_parse_cache_from_manifest(&loop_parse_manifest, loop_cache);
-                        Ok(v)
-                    }
-                };
-            let mut fast_path = FAST_PATH_NONE;
-            let (mut new_vdom, root_ns) = if let (Some(ref old_html), Some(_), Some(root_ns)) =
-                (&self.last_html, &self.last_vdom, self.last_root_ns)
-            {
-                let old_html = old_html.clone();
-                let mut vdom = self.last_vdom.take().unwrap();
-                // Attempt the in-place text fast path on the FULL html FIRST, even
-                // when the loop emitted `<dj-pc>` placeholders (#1970): a pure
-                // content change still emits placeholders for the unchanged items,
-                // but the in-place update compares full old vs full new html and
-                // succeeds for a text-only delta — so we must take this path to stay
-                // byte-identical (same NO-patch result) with the cache-OFF render.
-                // Only a STRUCTURAL change (reorder/insert/remove) fails in-place and
-                // falls through to the parse-cache splice. Still populate the parse
-                // cache from the manifest so a future reorder hits even when this
-                // render took the in-place path.
-                if try_text_only_vdom_update_inplace(&mut vdom, &old_html, &html) {
-                    // The whole-HTML text-only byte diff — the text-REGION
-                    // mechanism, not the fragment one: no changed-fragment
-                    // list or `fragment_text_map` is consulted here (#2532
-                    // review; the first cut mislabelled this site).
-                    fast_path = FAST_PATH_TEXT_REGION;
-                    Self::populate_parse_cache_from_manifest(&loop_parse_manifest, &mut loop_cache);
-                    (vdom, root_ns)
-                } else {
-                    // Structural change (or placeholders present) — splice / full parse.
-                    self.last_vdom = Some(vdom);
-                    parse_or_splice(&mut loop_cache)?
-                }
-            } else {
-                parse_or_splice(&mut loop_cache)?
-            };
-            let parse_ms = t_parse_start.elapsed().as_secs_f64() * 1000.0;
-
-            // #1970: restore the loop cache now that the parse phase is done.
-            self.loop_render_cache = loop_cache;
-
-            // Splice old VDOM subtrees for dj-update="ignore" nodes
-            if let Some(old_vdom) = &self.last_vdom {
-                splice_ignore_subtrees(old_vdom, &mut new_vdom);
-            }
-
-            // Phase 3: VDOM diff
-            let t_diff_start = Instant::now();
-            let patches_bytes = if let Some(old_vdom) = &self.last_vdom {
-                let patches = diff_in(old_vdom, &new_vdom, root_ns);
-                sync_ids(old_vdom, &mut new_vdom);
-                // `to_vec_named`, NOT `to_vec` (#2130). `Patch` is an internally
-                // tagged enum, and rmp-serde's `to_vec` encodes those as a
-                // POSITIONAL array — so `skip_serializing_if` on the interior `d`
-                // dropped a slot and the bytes could not be read back at all
-                // ("invalid length 2, expected 3 elements"). Every variant was
-                // affected; it went unnoticed because nothing deserializes this
-                // yet. `to_vec_named` emits a map, where an omitted optional is
-                // simply an absent key. See the round-trip pins in
-                // djust_vdom/tests/wire_protocol_snapshot.rs.
-                if !patches.is_empty() {
-                    let bytes = rmp_serde::to_vec_named(&patches).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
-                    })?;
-                    Some(PyBytes::new(py, &bytes).into())
-                } else {
-                    let empty: Vec<djust_vdom::Patch> = Vec::new();
-                    let bytes = rmp_serde::to_vec_named(&empty).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())
-                    })?;
-                    Some(PyBytes::new(py, &bytes).into())
-                }
-            } else {
-                None
-            };
-            let diff_ms = t_diff_start.elapsed().as_secs_f64() * 1000.0;
-
-            // Phase 4: HTML serialization
-            let t_serial_start = Instant::now();
-            let hydrated_html = new_vdom.to_html_in(Some(root_ns));
-            let serialize_ms = t_serial_start.elapsed().as_secs_f64() * 1000.0;
-
-            let total_ms = t_start.elapsed().as_secs_f64() * 1000.0;
-
-            self.last_render_timing = Some(RenderTiming {
-                render_ms,
-                parse_ms,
-                diff_ms,
-                serialize_ms,
-                total_ms,
-                html_len: html.len(),
-                fast_path,
-            });
-
-            cache_ignore_subtree_html_in(&mut new_vdom, root_ns);
-
-            // Cache the rendered HTML for text-only fast path on next render
-            self.last_html = Some(html);
-
-            self.last_vdom = Some(new_vdom);
-            self.last_root_ns = Some(root_ns);
-            self.version += 1;
-            // #2999: the tree may have changed shape; the fragment→text-node
-            // map is rebuilt by the next full-parse render_with_diff.
-            self.fragment_text_map = None;
-
-            Ok((hydrated_html, patches_bytes, self.version))
-        })
-    }
-
-    /// ADR-032 D3 — patch ONE bound component's subtree without a page render.
-    ///
-    /// `html` is the component's fresh render: the `<div data-component-id="…">`
-    /// wrapper and its contents (`BoundComponent.render`). The unique element
-    /// of `last_vdom` whose `data-component-id` equals `component_id` is
-    /// diffed against it with every patch path prefixed by the node's path
-    /// from the root, the new subtree is spliced in (ids carried forward by
-    /// `sync_ids`, fresh ones continuing the counter past the tree's
-    /// high-water mark — #1550/#1552), `version` is bumped and
-    /// `state[component_id]` is set to the new HTML as a safe string so a
-    /// later FULL render sees what the page shows. `last_html` is refreshed
-    /// from the spliced tree so the text fast paths keep a true baseline, and
-    /// the partial-render fragment cache is dropped (its `<html>` fragment
-    /// still holds the old component markup).
-    ///
-    /// Returns the `render_with_diff` triple `(html, patches_json, version)`
-    /// so the runtime emits the same `patch` frame it emits today, or `None`
-    /// when the scoped path cannot be exact — no VDOM yet, the node missing
-    /// or duplicated, the fragment not a single root carrying the id — and
-    /// the caller takes the full path (D6: not an error).
-    fn patch_component_subtree(
-        &mut self,
-        component_id: String,
-        html: String,
-    ) -> PyResult<Option<(String, String, u64)>> {
-        guard_panic("patch_component_subtree", move || {
-            use std::time::Instant;
-            let t_start = Instant::now();
-
-            let (Some(vdom), Some(root_ns)) = (self.last_vdom.as_mut(), self.last_root_ns) else {
-                return Ok(None);
-            };
-            let mut paths = find_paths_by_attr(vdom, "data-component-id", &component_id);
-            if paths.len() != 1 {
-                return Ok(None);
-            }
-            let path = paths.pop().expect("one path");
-            // The fragment is parsed in an HTML context, so the node must be
-            // an HTML element in the page too.
-            if djust_vdom::namespace_at_path(vdom, root_ns, &path) != Some(Namespace::Html) {
-                return Ok(None);
-            }
-            // The full path never patches inside a `dj-update="ignore"` region
-            // (the old children are spliced back before the diff) and addresses
-            // a `[dj-virtual]` list's rows by key, not by path. A component
-            // under either would be patched differently here — not exact.
-            {
-                let mut node: &VNode = vdom;
-                let mut ancestors = Vec::with_capacity(path.len() + 1);
-                ancestors.push(node);
-                for &idx in &path {
-                    node = match node.children.get(idx) {
-                        Some(n) => n,
-                        None => return Ok(None),
-                    };
-                    ancestors.push(node);
-                }
-                if ancestors.iter().any(|n| {
-                    n.attrs.get("dj-update").map(String::as_str) == Some("ignore")
-                        || n.attrs.contains_key("dj-virtual")
-                }) {
-                    return Ok(None);
-                }
-            }
-
-            // dj-id continuity: fresh ids for inserted nodes must not collide
-            // with survivors anywhere in the page (#1550 / #1552).
-            if let Some(max_id) = djust_vdom::max_djust_id_in(vdom) {
-                djust_vdom::ensure_id_counter_at_least(max_id + 1);
-            }
-            let parent_tag = match path.split_last() {
-                Some((_, parent)) => get_vdom_node_mut(vdom, parent)
-                    .map(|n| n.tag.clone())
-                    .unwrap_or_else(|| "body".to_string()),
-                None => "body".to_string(),
-            };
-
-            let t_parse = Instant::now();
-            let mut roots = match parse_html_fragment(&html, &parent_tag) {
-                Ok(roots) => roots,
-                Err(_) => return Ok(None),
-            };
-            if roots.len() != 1 {
-                return Ok(None);
-            }
-            let mut new_node = roots.pop().expect("one root");
-            if new_node.attrs.get("data-component-id") != Some(&component_id) {
-                return Ok(None);
-            }
-            // The fragment was parsed on its own, so it may be as deep as a
-            // page; grafted at `path` it must still fit under the page's
-            // nesting limit. If not, the full path (which parses the whole
-            // page and applies the limit there) handles it.
-            if path.len() + new_node.element_depth() > djust_vdom::MAX_VDOM_DEPTH {
-                return Ok(None);
-            }
-            // Exactness check (review of #2920 🟡2): the page parse can
-            // relocate part of a component's markup OUTSIDE its wrapper —
-            // foster-parenting of a nested `<table>`, `<option>`/`<input>`
-            // under a `<select>` — and a fragment parse in the same context
-            // does not. Re-parse the markup the page was rendered with and
-            // diff it against the node the page holds: any difference means
-            // the wrapper does not contain what the full path would give it,
-            // so the scoped patch would leave the relocated part stale.
-            let old_html = match self.state.get(&component_id) {
-                Some(Value::String(s)) | Some(Value::SafeString(s)) => s.clone(),
-                _ => return Ok(None),
-            };
-            let mut old_roots = match parse_html_fragment(&old_html, &parent_tag) {
-                Ok(roots) => roots,
-                Err(_) => return Ok(None),
-            };
-            if old_roots.len() != 1 {
-                return Ok(None);
-            }
-            let mut reparsed_old = old_roots.pop().expect("one root");
-            let parse_ms = t_parse.elapsed().as_secs_f64() * 1000.0;
-
-            let Some(old_node) = get_vdom_node_mut(vdom, &path) else {
-                return Ok(None);
-            };
-            splice_ignore_subtrees(old_node, &mut reparsed_old);
-            if !djust_vdom::diff::diff_nodes(old_node, &reparsed_old, &[]).is_empty() {
-                return Ok(None);
-            }
-            let t_diff = Instant::now();
-            splice_ignore_subtrees(old_node, &mut new_node);
-            let patches =
-                djust_vdom::diff::diff_nodes_in(old_node, &new_node, &path, Some(Namespace::Html));
-            sync_ids(old_node, &mut new_node);
-            cache_ignore_subtree_html_in(&mut new_node, Namespace::Html);
-            *old_node = new_node;
-            let diff_ms = t_diff.elapsed().as_secs_f64() * 1000.0;
-
-            let t_serial = Instant::now();
-            let full_html = vdom.to_html_in(Some(root_ns));
-            let patches_json = serde_json::to_string(&patches)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-            let serialize_ms = t_serial.elapsed().as_secs_f64() * 1000.0;
-
-            self.version += 1;
-            self.last_html = Some(full_html.clone());
-            self.node_html_cache = Vec::new();
-            self.fragment_text_map = None;
-            self.text_node_index = None; // positions moved; rebuilt by the next full parse
-            self.set_component_html(component_id, html);
-            self.last_render_timing = Some(RenderTiming {
-                render_ms: 0.0,
-                parse_ms,
-                diff_ms,
-                serialize_ms,
-                total_ms: t_start.elapsed().as_secs_f64() * 1000.0,
-                html_len: full_html.len(),
-                fast_path: FAST_PATH_COMPONENT,
-            });
-            Ok(Some((full_html, patches_json, self.version)))
-        })
-    }
-
-    /// Reset the view state
-    fn reset(&mut self) {
-        self.last_vdom = None;
-        self.last_root_ns = None;
-        self.last_html = None;
-        self.version = 0;
-        self.node_html_cache = Vec::new();
-        self.changed_keys = None;
-        self.fragment_text_map = None;
-        self.text_node_index = None;
-        // Reset ID counter so next render starts fresh
-        reset_id_counter();
-    }
-
-    /// Serialize the RustLiveView state to MessagePack bytes
-    ///
-    /// This enables efficient state persistence to Redis or other storage backends.
-    /// Uses MessagePack for compact binary serialization (~30-40% smaller than JSON).
-    /// Includes current timestamp for session age tracking.
-    ///
-    /// Returns: Python bytes object containing the serialized state with timestamp
-    fn serialize_msgpack(&self, py: Python) -> PyResult<Py<PyAny>> {
-        // Get current timestamp
-        let ts = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f64();
-
-        // Convert to serializable struct
-        let serializable = SerializableViewState {
-            template_source: self.template_source.clone(),
-            // Deref THEN clone: the wire carries a plain map, exactly as
-            // before. Paid once per save, not once per render.
-            state: self
-                .state
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
-            last_vdom: self.last_vdom.clone(),
-            version: self.version,
-            timestamp: ts,
-        };
-
-        // Serialize to MessagePack bytes
-        let bytes = rmp_serde::to_vec(&serializable).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "MessagePack serialization error: {e}"
-            ))
-        })?;
-        Ok(PyBytes::new(py, &bytes).into())
-    }
-
-    /// Deserialize a RustLiveView from MessagePack bytes
-    ///
-    /// Reconstructs a complete RustLiveView instance from bytes previously
-    /// serialized with serialize_msgpack().
-    ///
-    /// Args:
-    ///     bytes: Python bytes object containing MessagePack data
-    ///
-    /// Returns: RustLiveView instance with restored state
-    #[staticmethod]
-    fn deserialize_msgpack(bytes: &[u8]) -> PyResult<Self> {
-        let serializable: SerializableViewState = rmp_serde::from_slice(bytes).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "MessagePack deserialization error: {e}"
-            ))
-        })?;
-
-        // Convert back to RustLiveViewBackend
-        // Note: template_dirs must be re-set after deserialization via set_template_dirs()
-        Ok(Self {
-            template_source: serializable.template_source,
-            state: std::sync::Arc::new(serializable.state.into_iter().collect()),
-            last_vdom: serializable.last_vdom,
-            last_root_ns: None, // Not serialized: the next render parses
-            last_html: None,    // Transient cache — rebuilt on next render
-            version: serializable.version,
-            timestamp: serializable.timestamp,
-            template_dirs: Vec::new(),
-            safe_keys: HashSet::new(),
-            last_render_timing: None,
-            node_html_cache: Vec::new(),
-            changed_keys: None,
-            fragment_text_map: None,
-            text_node_index: None,
-            raw_py_values: None,
-            // Transient cache — not deserialized; rebuilt fresh, default-OFF
-            // until the Python flag re-enables it post-restore (#1967).
-            loop_render_cache: LoopRenderCache::new(false),
-            // Transient (ADR-024): default-ON; the Python flag re-wires it
-            // on view (re)initialization post-restore, like the loop cache.
-            template_auto_call: true,
-            // Transient (#2686): empty post-restore. The component render
-            // entry re-sets it on every render, and a restored view that is
-            // not a component namespaces nothing — same as before this field.
-            dj_if_id_namespace: String::new(),
-            // Transient (ADR-029): `_apply_render_env` re-captures it on the
-            // next framework render post-restore, like `template_auto_call`.
-            render_env: None,
-        })
-    }
-
-    /// Get per-phase timing from the last render_with_diff() call.
-    /// Returns a dict with render_ms, parse_ms, diff_ms, serialize_ms, total_ms,
-    /// html_len, and `fast_path` (#2532: 0.0 = full parse + diff, 1.0 = the
-    /// fragment text fast path, 2.0 = the text-region fast path).
-    fn get_render_timing(&self) -> Option<HashMap<String, f64>> {
-        self.last_render_timing.as_ref().map(|t| {
-            let mut m = HashMap::new();
-            m.insert("render_ms".to_string(), t.render_ms);
-            m.insert("parse_ms".to_string(), t.parse_ms);
-            m.insert("diff_ms".to_string(), t.diff_ms);
-            m.insert("serialize_ms".to_string(), t.serialize_ms);
-            m.insert("total_ms".to_string(), t.total_ms);
-            m.insert("html_len".to_string(), t.html_len as f64);
-            m.insert("fast_path".to_string(), t.fast_path);
-            m
-        })
-    }
-
-    /// Get the timestamp when this view was last serialized
-    ///
-    /// Returns: Unix timestamp (seconds since epoch)
-    fn get_timestamp(&self) -> f64 {
-        self.timestamp
-    }
-}
-
-// Public Rust API (for use by other Rust crates like djust_actors)
-impl RustLiveViewBackend {
     /// Create a new RustLiveViewBackend (Rust API)
     pub fn new_rust(template_source: String) -> Self {
         Self::new(template_source, None)
@@ -1969,7 +2158,7 @@ impl RustLiveViewBackend {
         &mut self,
     ) -> Result<(String, Option<Vec<djust_vdom::Patch>>, u64), djust_core::DjangoRustError> {
         let (html, patches_json, version) = self
-            .render_with_diff()
+            .render_with_diff_detached()
             .map_err(|e| djust_core::DjangoRustError::TemplateError(e.to_string()))?;
 
         let patches = if let Some(json) = patches_json {
@@ -2251,6 +2440,9 @@ fn clear_live_handles_in(value: &mut Value) {
     match value {
         Value::Encoded(encoded) => {
             encoded.live = None;
+            // A deferred text holds its own handle to the same object (#3769): it goes too, or
+            // the form it would ask stays alive through `display` after the clear.
+            encoded.display.release_handle();
             for nested in encoded.attrs.values_mut() {
                 clear_live_handles_in(nested);
             }
@@ -2636,6 +2828,516 @@ fn compile_template(
 /// `unregister_custom_filter` — exactly the class the gate exists to prevent,
 /// one path over (#1646). Pinned by `template_cache_insert_has_one_site` in
 /// `crates/djust_templates/tests/registry_generation_pin.rs`.
+/// File content participates in the compiled plan only while its loader
+/// identity (path, mtime and length) remains current.
+type LazySourceFile = (std::time::SystemTime, u64, Arc<str>);
+static LAZY_SOURCE_FILES: Lazy<DashMap<std::path::PathBuf, LazySourceFile>> =
+    Lazy::new(DashMap::new);
+
+fn lazy_dependencies(nodes: &[djust_templates::parser::Node], out: &mut Vec<LazyDependency>) {
+    use djust_templates::parser::Node;
+    for node in nodes {
+        match node {
+            Node::Include {
+                template,
+                origin,
+                with_vars,
+                only,
+                ..
+            } => out.push(LazyDependency {
+                operand: template.clone(),
+                origin: origin.clone(),
+                bindings: with_vars.clone(),
+                only: *only,
+            }),
+            Node::Extends(target) => out.push(LazyDependency {
+                operand: target.clone(),
+                origin: None,
+                bindings: Vec::new(),
+                only: false,
+            }),
+            _ => {}
+        }
+        for children in node.child_lists().into_iter().flatten() {
+            lazy_dependencies(children, out);
+        }
+    }
+}
+
+fn lazy_source_file(path: &std::path::Path) -> PyResult<Arc<str>> {
+    let metadata =
+        std::fs::metadata(path).map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+    if let Some(entry) = LAZY_SOURCE_FILES.get(path) {
+        if entry.0 == modified && entry.1 == metadata.len() {
+            return Ok(entry.2.clone());
+        }
+    }
+    let source: Arc<str> = Arc::from(
+        std::fs::read_to_string(path)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?,
+    );
+    LAZY_SOURCE_FILES.insert(path.to_owned(), (modified, metadata.len(), source.clone()));
+    Ok(source)
+}
+
+type ResolvedLazyKey = (u64, String, Vec<(usize, usize)>);
+static RESOLVED_LAZY_SYNTAX: Lazy<DashMap<ResolvedLazyKey, bool>> = Lazy::new(DashMap::new);
+
+/// Inspect the compiled, merged tree without executing its values or tags.
+/// Placeholders explicitly have no literal authority, just as at render time.
+fn resolved_lazy_syntax(nodes: &[djust_templates::parser::Node]) -> bool {
+    fn literals(
+        nodes: &[djust_templates::parser::Node],
+        html: &mut String,
+        spans: &mut Vec<(usize, usize)>,
+    ) {
+        use djust_templates::parser::Node;
+        for node in nodes {
+            if let Node::Text(text) = node {
+                let start = html.len();
+                html.push_str(text);
+                if start < html.len() {
+                    spans.push((start, html.len()));
+                }
+            } else {
+                let children = node.child_lists();
+                if children.iter().all(Option::is_none) {
+                    html.push_str("__opaque__");
+                }
+                for list in children.into_iter().flatten() {
+                    literals(list, html, spans);
+                }
+            }
+        }
+    }
+    let mut html = String::new();
+    let mut spans = Vec::new();
+    literals(nodes, &mut html, &mut spans);
+    let key = (djust_templates::registry_scope::current(), html, spans);
+    if let Some(entry) = RESOLVED_LAZY_SYNTAX.get(&key) {
+        return *entry;
+    }
+    let found = !djust_vdom::lazy_provenance::lazy_elements(&key.1, &key.2).is_empty();
+    RESOLVED_LAZY_SYNTAX.insert(key, found);
+    found
+}
+
+type LazyFileStamp = Option<(std::time::SystemTime, u64)>;
+fn lazy_file_stamp(path: &std::path::Path) -> LazyFileStamp {
+    let metadata = std::fs::metadata(path).ok()?;
+    Some((metadata.modified().ok()?, metadata.len()))
+}
+#[derive(Clone)]
+struct LazyTreePlan {
+    generation: u64,
+    found: bool,
+    context: Option<(Vec<String>, String)>,
+    files: Vec<(std::path::PathBuf, LazyFileStamp)>,
+}
+type LazyPlanKey = (u64, String, Vec<std::path::PathBuf>, bool);
+static LAZY_TREE_PLANS: Lazy<DashMap<LazyPlanKey, LazyTreePlan>> = Lazy::new(DashMap::new);
+#[derive(Default)]
+struct LazyPlanMemo {
+    found: bool,
+    keys: Vec<String>,
+    context: String,
+}
+#[derive(Default)]
+struct LazyPlanWalk {
+    active: std::collections::HashSet<String>,
+    memo: HashMap<(String, usize), Vec<LazyPlanMemo>>,
+    files: HashMap<std::path::PathBuf, LazyFileStamp>,
+    dynamic: bool,
+}
+/// Shared traversal state and the selector dependencies of this scoped visit.
+struct LazyPlanVisit<'a> {
+    walk: &'a mut LazyPlanWalk,
+    selectors: &'a mut std::collections::HashSet<String>,
+}
+fn lazy_selector_context(context: &Context, keys: &[String]) -> String {
+    let values: Vec<_> = keys
+        .iter()
+        .map(|key| {
+            (
+                key,
+                djust_templates::renderer::resolve_template_reference(key, context),
+            )
+        })
+        .collect();
+    format!("{values:?}")
+}
+fn watch_lazy_selector(
+    expression: &str,
+    keys: &mut std::collections::HashSet<String>,
+) -> PyResult<()> {
+    // Preserve exact dotted/indexed paths. The JIT variable extractor merges
+    // roots and normalizes numeric indices for model serialization, which is
+    // intentionally too broad (and sometimes too narrow) for selector keys.
+    fn watch_operand(operand: &str, keys: &mut std::collections::HashSet<String>) {
+        let operand = operand.trim();
+        if operand
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_')
+            && !matches!(operand, "True" | "False" | "None")
+            && operand
+                .chars()
+                .all(|c| c.is_alphanumeric() || matches!(c, '_' | '.'))
+        {
+            keys.insert(operand.to_owned());
+        }
+    }
+    let parts = djust_templates::filter_lexer::split_pipes(expression);
+    watch_operand(parts[0], keys);
+    for spec in &parts[1..] {
+        let (_, argument) = djust_templates::filter_lexer::split_filter_spec(spec, expression)?;
+        if let Some(argument) = argument {
+            watch_operand(argument, keys);
+        }
+    }
+    Ok(())
+}
+fn needs_lazy_tree(
+    source: &str,
+    dirs: &[std::path::PathBuf],
+    context: &Context,
+    depth: usize,
+    current_name: Option<&str>,
+    potential: bool,
+) -> PyResult<bool> {
+    let generation = djust_templates::registry::registry_generation();
+    let key = (
+        djust_templates::registry_scope::current(),
+        source.to_owned(),
+        dirs.to_vec(),
+        potential,
+    );
+    if let Some(plan) = LAZY_TREE_PLANS.get(&key) {
+        if plan.generation == generation
+            && plan
+                .context
+                .as_ref()
+                .is_none_or(|(keys, saved)| *saved == lazy_selector_context(context, keys))
+            && plan
+                .files
+                .iter()
+                .all(|(path, stamp)| lazy_file_stamp(path) == *stamp)
+        {
+            return Ok(plan.found);
+        }
+    }
+    let mut walk = LazyPlanWalk::default();
+    let mut selectors = std::collections::HashSet::new();
+    let found = needs_lazy_tree_walk(
+        source,
+        dirs,
+        context,
+        depth,
+        current_name,
+        potential,
+        LazyPlanVisit {
+            walk: &mut walk,
+            selectors: &mut selectors,
+        },
+    )?;
+    // Bound storage independently of the renderer's source cache.
+    if LAZY_TREE_PLANS.len() >= 512 {
+        LAZY_TREE_PLANS.clear();
+    }
+    LAZY_TREE_PLANS.insert(
+        key,
+        LazyTreePlan {
+            generation,
+            found,
+            context: (walk.dynamic || !selectors.is_empty()).then(|| {
+                let mut keys: Vec<_> = selectors.into_iter().collect();
+                keys.sort();
+                let value = lazy_selector_context(context, &keys);
+                (keys, value)
+            }),
+            files: walk.files.into_iter().collect(),
+        },
+    );
+    Ok(found)
+}
+fn needs_lazy_tree_walk(
+    source: &str,
+    dirs: &[std::path::PathBuf],
+    context: &Context,
+    depth: usize,
+    current_name: Option<&str>,
+    potential: bool,
+    visit: LazyPlanVisit<'_>,
+) -> PyResult<bool> {
+    let LazyPlanVisit { walk, selectors } = visit;
+    if depth > 20 {
+        return Ok(false);
+    }
+    let identity = current_name.unwrap_or(source).to_owned();
+    if !walk.active.insert(identity.clone()) {
+        return Ok(false);
+    }
+    let key = (identity.clone(), depth);
+    if let Some(entries) = walk.memo.get(&key) {
+        for entry in entries {
+            if entry.context == lazy_selector_context(context, &entry.keys) {
+                selectors.extend(entry.keys.iter().cloned());
+                walk.active.remove(&identity);
+                return Ok(entry.found);
+            }
+        }
+    }
+    let mut local_selectors = std::collections::HashSet::new();
+    let found = needs_lazy_tree_uncached(
+        source,
+        dirs,
+        context,
+        depth,
+        current_name,
+        potential,
+        LazyPlanVisit {
+            walk,
+            selectors: &mut local_selectors,
+        },
+    );
+    walk.active.remove(&identity);
+    if let Ok(value) = found {
+        let mut keys: Vec<_> = local_selectors.into_iter().collect();
+        keys.sort();
+        let saved = lazy_selector_context(context, &keys);
+        selectors.extend(keys.iter().cloned());
+        walk.memo.entry(key).or_default().push(LazyPlanMemo {
+            found: value,
+            keys,
+            context: saved,
+        });
+    }
+    found
+}
+fn needs_lazy_tree_uncached(
+    source: &str,
+    dirs: &[std::path::PathBuf],
+    context: &Context,
+    depth: usize,
+    current_name: Option<&str>,
+    potential: bool,
+    visit: LazyPlanVisit<'_>,
+) -> PyResult<bool> {
+    let LazyPlanVisit { walk, selectors } = visit;
+    if depth > 20 {
+        return Ok(false);
+    }
+    let template = cached_template(source)?;
+    let key = (
+        djust_templates::registry_scope::current(),
+        source.to_owned(),
+    );
+    let Some((mut local, mut refs)) = TEMPLATE_CACHE
+        .get(&key)
+        .map(|entry| (entry.2, entry.3.clone()))
+    else {
+        return Ok(false);
+    };
+    for dependency in &refs {
+        watch_lazy_selector(&dependency.operand, selectors)?;
+    }
+    if template.uses_extends() {
+        if refs
+            .iter()
+            .any(|dependency| !dependency.operand.starts_with(['\'', '"']))
+        {
+            walk.dynamic = true;
+        }
+        // A source-only pass must defer an unresolved dynamic parent.
+        if potential
+            && refs.iter().any(|dependency| {
+                let token = &dependency.operand;
+                !(token.starts_with(['\'', '"'])
+                    && token.ends_with(['\'', '"'])
+                    && !djust_templates::filter_lexer::has_unquoted_pipe(token))
+            })
+        {
+            return Ok(true);
+        }
+        let loader = FilesystemTemplateLoader::new(dirs.to_vec());
+        let chain = djust_templates::inheritance::build_inheritance_chain_from(
+            template.authored_nodes().to_vec(),
+            &loader,
+            20,
+            current_name,
+            Some(context),
+        )?;
+        fn watch_origins(nodes: &[djust_templates::parser::Node], walk: &mut LazyPlanWalk) {
+            for node in nodes {
+                if let djust_templates::parser::Node::Located {
+                    origin: Some(origin),
+                    ..
+                } = node
+                {
+                    let path = std::path::PathBuf::from(origin);
+                    walk.files.insert(path.clone(), lazy_file_stamp(&path));
+                }
+                for children in node.child_lists().into_iter().flatten() {
+                    watch_origins(children, walk);
+                }
+            }
+        }
+        for layer in &chain.layers {
+            watch_origins(&layer.nodes, walk);
+            let mut parents = Vec::new();
+            lazy_dependencies(&layer.nodes, &mut parents);
+            for parent in parents {
+                watch_lazy_selector(&parent.operand, selectors)?;
+                if let Ok(Value::String(name) | Value::SafeString(name)) =
+                    djust_templates::renderer::resolve_template_reference(&parent.operand, context)
+                {
+                    for dir in dirs {
+                        let path = dir.join(&name);
+                        walk.files.insert(path.clone(), lazy_file_stamp(&path));
+                    }
+                }
+            }
+        }
+        let nodes = chain.apply_block_overrides(chain.get_root_nodes());
+        local = resolved_lazy_syntax(&nodes);
+        refs.clear();
+        lazy_dependencies(&nodes, &mut refs);
+    }
+    if local {
+        return Ok(true);
+    }
+    for dependency in refs {
+        watch_lazy_selector(&dependency.operand, selectors)?;
+        let token = &dependency.operand;
+        let literal = token.starts_with(['\'', '"'])
+            && token.ends_with(['\'', '"'])
+            && !djust_templates::filter_lexer::has_unquoted_pipe(token);
+        if !literal {
+            walk.dynamic = true;
+        }
+        // Pre-render source planning cannot know a dynamic selector yet. It
+        // preserves source bytes, but only resolved render planning tracks.
+        if potential && !literal {
+            return Ok(true);
+        }
+        // Planning walks EVERY include in the source, outside the `{% if %}`
+        // and `{% for %}` that decide whether -- and with which loop variables
+        // -- it renders. Django resolves an include's operand and its `with`
+        // bindings only when the include itself renders, so an expression
+        // that cannot resolve HERE (a loop variable, a name an unrendered
+        // branch guards) is not an error in the page. Planning must not
+        // invent one: an operand or binding the planner cannot resolve makes
+        // the plan unknowable, and an unknowable plan tracks provenance --
+        // the conservative answer, whose render is a superset of the
+        // untracked one. A real failure still surfaces from the render.
+        let Ok(value) = djust_templates::renderer::resolve_template_reference(token, context)
+        else {
+            return Ok(true);
+        };
+        let candidates = match value {
+            Value::String(name) | Value::SafeString(name) => vec![name],
+            Value::List(values) => values.iter().map(|v| v.to_string()).collect(),
+            _ => Vec::new(),
+        };
+        let mut child_context = if dependency.only {
+            Context::new()
+        } else {
+            context.clone()
+        };
+        for (name, expression) in dependency.bindings.iter().filter(|_| !potential) {
+            let Ok(bound) =
+                djust_templates::renderer::resolve_template_reference(expression, context)
+            else {
+                return Ok(true);
+            };
+            child_context.bind(name.clone(), bound, false);
+        }
+        for name in candidates {
+            if name.is_empty() {
+                continue;
+            }
+            let Ok(name) = djust_templates::inheritance::construct_relative_path_allow_recursion(
+                dependency.origin.as_deref().or(current_name),
+                &name,
+                true,
+            ) else {
+                return Ok(true);
+            };
+            let mut selected = false;
+            for dir in dirs {
+                let path = dir.join(&name);
+                walk.files.insert(path.clone(), lazy_file_stamp(&path));
+                if path.is_file() {
+                    // A child that cannot be read or parsed is only an error
+                    // if the include renders -- the same rule as above.
+                    let Ok(child) = lazy_source_file(&path) else {
+                        return Ok(true);
+                    };
+                    let mut child_selectors = std::collections::HashSet::new();
+                    let Ok(found) = needs_lazy_tree_walk(
+                        &child,
+                        dirs,
+                        &child_context,
+                        depth + 1,
+                        Some(&name),
+                        potential,
+                        LazyPlanVisit {
+                            walk,
+                            selectors: &mut child_selectors,
+                        },
+                    ) else {
+                        return Ok(true);
+                    };
+                    // Only bindings consumed by an include selector affect the
+                    // plan. Rebase those dependencies into the caller's scope;
+                    // unrelated rows/user state never enters a memo/cache key.
+                    for key in child_selectors {
+                        let (root, suffix) = key
+                            .split_once('.')
+                            .map_or((key.as_str(), ""), |(a, b)| (a, b));
+                        if let Some((_, expression)) = dependency
+                            .bindings
+                            .iter()
+                            .filter(|_| !potential)
+                            .find(|(name, _)| name == root)
+                        {
+                            if !suffix.is_empty()
+                                && expression.split('.').all(|part| {
+                                    !part.is_empty()
+                                        && part.chars().all(|c| c.is_alphanumeric() || c == '_')
+                                })
+                            {
+                                selectors.insert(format!("{expression}.{suffix}"));
+                            } else {
+                                watch_lazy_selector(expression, selectors)?;
+                            }
+                        } else if !dependency.only {
+                            selectors.insert(key);
+                        }
+                    }
+                    if found {
+                        return Ok(true);
+                    }
+                    selected = true;
+                    break;
+                }
+            }
+            if selected {
+                break;
+            } // Include selection stops at the first existing target.
+        }
+    }
+    Ok(false)
+}
+
+#[pyfunction]
+fn template_needs_provenance(source: &str, dirs: Vec<std::path::PathBuf>) -> PyResult<bool> {
+    needs_lazy_tree(source, &dirs, &Context::new(), 0, None, true)
+}
+
 fn cached_template(template_source: &str) -> PyResult<Arc<Template>> {
     let generation = djust_templates::registry::registry_generation();
     let key = (
@@ -2648,7 +3350,18 @@ fn cached_template(template_source: &str) -> PyResult<Arc<Template>> {
         }
     }
     let template = Arc::new(Template::new(template_source).map_err(span_aware_pyerr)?);
-    TEMPLATE_CACHE.insert(key, (template.clone(), generation));
+    let (tokens, offsets) = djust_templates::lexer::tokenize_spanned(template_source)?;
+    let spans: Vec<_> = tokens
+        .iter()
+        .zip(offsets)
+        .filter_map(|(token, span)| {
+            matches!(token, djust_templates::lexer::Token::Text(_)).then_some(span)
+        })
+        .collect();
+    let local = !djust_vdom::lazy_provenance::lazy_elements(template_source, &spans).is_empty();
+    let mut refs = Vec::new();
+    lazy_dependencies(template.authored_nodes(), &mut refs);
+    TEMPLATE_CACHE.insert(key, (template.clone(), generation, local, refs));
     Ok(template)
 }
 
@@ -2703,6 +3416,8 @@ fn release_registry_namespace(namespace: u64) -> PyResult<()> {
     djust_templates::filter_registry::release_namespace(namespace)?;
     djust_templates::inheritance::release_registry_namespace(namespace);
     TEMPLATE_CACHE.retain(|(scope, _), _| *scope != namespace);
+    RESOLVED_LAZY_SYNTAX.retain(|(scope, _, _), _| *scope != namespace);
+    LAZY_TREE_PLANS.retain(|(scope, _, _, _), _| *scope != namespace);
     Ok(())
 }
 
@@ -2820,6 +3535,36 @@ fn render_template_with_dirs(
     })
 }
 
+/// Validate render-result spans in the final page's HTML5 tree (#3252).
+#[pyfunction]
+fn authored_lazy_elements(
+    html: &str,
+    spans: Vec<(usize, usize)>,
+) -> Vec<(usize, usize, String, String)> {
+    djust_vdom::lazy_provenance::lazy_elements(html, &spans)
+        .into_iter()
+        .map(|r| (r.start, r.end, r.view_path, r.trigger))
+        .collect()
+}
+
+/// The egress normalizer's white-space fold:
+/// `djust_core::html_whitespace::fold_whitespace`.
+#[pyfunction]
+fn fold_html_whitespace(html: &str) -> String {
+    djust_core::html_whitespace::fold_whitespace(html)
+}
+
+/// Byte ranges [`fold_html_whitespace`] replaces with one space.
+#[pyfunction]
+fn fold_html_whitespace_edits(html: &str) -> Vec<(usize, usize)> {
+    djust_core::html_whitespace::fold_whitespace_edits(html)
+}
+
+#[pyfunction]
+fn inter_tag_whitespace_edits(html: &str, block_tags: Vec<String>) -> Vec<(usize, usize)> {
+    djust_core::html_whitespace::inter_tag_whitespace_edits(html, &block_tags)
+}
+
 /// The egress normalizer's inter-tag whitespace pass (#2999).
 ///
 /// Drops the space between two tags unless both neighbours are inline — the
@@ -2830,6 +3575,17 @@ fn render_template_with_dirs(
 #[pyfunction]
 fn collapse_inter_tag_whitespace(html: &str, block_tags: Vec<String>) -> String {
     djust_core::html_whitespace::collapse_inter_tag_whitespace(html, &block_tags)
+}
+
+/// The whole egress normalizer (`TemplateMixin._strip_comments_and_whitespace`)
+/// for a plain render, run DETACHED from the interpreter so other Python
+/// threads run meanwhile: `djust_core::html_whitespace::strip_comments_and_whitespace`.
+/// `None` means "an input this port does not model; use the Python normalizer".
+#[pyfunction]
+fn strip_html_comments_and_whitespace(py: Python<'_>, html: &str) -> PyResult<Option<String>> {
+    guard_panic("strip_html_comments_and_whitespace", move || {
+        Ok(py.detach(|| djust_core::html_whitespace::strip_comments_and_whitespace(html)))
+    })
 }
 
 /// Compute diff between two HTML strings
@@ -3122,7 +3878,7 @@ impl SessionActorHandlePy {
         let handle = self.handle.clone();
 
         // Convert Python dict to Rust HashMap<String, Value>
-        let params_rust = python_dict_to_hashmap(params)?;
+        let params_rust = python_dict_to_params(params)?;
 
         future_into_py(py, async move {
             let result = handle
@@ -3151,6 +3907,12 @@ impl SessionActorHandlePy {
                 }
 
                 dict.set_item("version", result.version)?;
+                dict.set_item("recovery_html", result.recovery_html)?;
+                let contracts = match result.parameter_contracts {
+                    Some(snapshot) => py.import("json")?.call_method1("loads", (snapshot,))?,
+                    None => py.None().into_bound(py),
+                };
+                dict.set_item("parameter_contracts", contracts)?;
                 Ok(dict.unbind().into())
             })
         })
@@ -3195,9 +3957,11 @@ impl SessionActorHandlePy {
         })
     }
 
-    /// Shutdown the session gracefully
+    /// Shut the session down and wait until it has stopped (#3228).
     ///
-    /// Shuts down all child ViewActors and then the SessionActor itself.
+    /// Shuts down all child ViewActors and then the SessionActor itself; the
+    /// returned awaitable resolves only after every view has dropped its
+    /// Python objects, including any `__del__` that runs as a result.
     fn shutdown<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let handle = self.handle.clone();
 
@@ -3270,7 +4034,7 @@ impl SessionActorHandlePy {
         params: &Bound<'py, PyDict>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let handle = self.handle.clone();
-        let params_rust = python_dict_to_hashmap(params)?;
+        let params_rust = python_dict_to_params(params)?;
 
         future_into_py(py, async move {
             let html = handle
@@ -3399,15 +4163,21 @@ pub fn get_actor_stats() -> SupervisorStatsPy {
 
 // Helper functions for Python ↔ Rust conversion
 
-/// Convert Python dict to Rust HashMap<String, Value>
+/// Convert Python dict to Rust HashMap<String, Value> (component props).
 fn python_dict_to_hashmap(dict: &Bound<'_, PyDict>) -> PyResult<HashMap<String, Value>> {
+    Ok(python_dict_to_params(dict)?.into_iter().collect())
+}
+
+/// Convert Python event arguments to ordered Rust params: the key order the
+/// client sent is the order a `**kwargs` handler sees (ADR-036 parity).
+fn python_dict_to_params(dict: &Bound<'_, PyDict>) -> PyResult<actors::EventParams> {
     // Snapshotted BEFORE any recursive conversion (#2510 sibling — the
     // actor-dispatch path's own copy of the live-iterator-plus-reentrant-
     // extraction bug fixed in djust_core's `impl FromPyObject for Value`;
     // this is the SECOND Python->Value converter #1646 already calls out
     // above, and it had the identical shape).
     let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = dict.iter().collect();
-    let mut map = HashMap::with_capacity(pairs.len());
+    let mut map = actors::EventParams::with_capacity(pairs.len());
 
     for (key, value) in pairs {
         let key_str = key.extract::<String>()?;
@@ -3709,15 +4479,19 @@ fn json_value_to_py(py: Python, value: &serde_json::Value) -> PyResult<Py<PyAny>
 /// paths = ['user.email', 'user.get_full_name', 'active_leases.0.property.name', 'phone']
 /// result_list = serialize_queryset(tenants, paths)  # Returns Python list directly!
 /// ```
-#[pyfunction(name = "serialize_queryset")]
+#[pyfunction(name = "serialize_queryset", signature = (objects, field_paths, all_row_cap=None))]
 fn serialize_queryset_py(
     py: Python,
     objects: &Bound<'_, PyList>,
     field_paths: Vec<String>,
+    all_row_cap: Option<usize>,
 ) -> PyResult<Py<PyList>> {
     guard_panic("serialize_queryset_py", move || {
-        // Parse paths into tree structure for efficient traversal
-        let path_tree = build_field_tree(&field_paths);
+        // Parse paths into tree structure for efficient traversal. A path the
+        // template reads whole AND walks into (`groups.all` next to
+        // `groups.all.name`) is marked, because the tree alone cannot tell
+        // `{% for g in u.groups.all %}` from `{{ u.groups.all.count }}` (#3788).
+        let path_tree = build_field_tree(&with_whole_marks(&field_paths));
 
         // Create Python list to hold results
         let result_list = PyList::empty(py);
@@ -3728,7 +4502,7 @@ fn serialize_queryset_py(
 
         // Iterate over objects
         for obj in objects.iter() {
-            let serialized = serialize_object_with_paths(py, &obj, &path_tree, gate)?;
+            let serialized = serialize_object_with_paths(py, &obj, &path_tree, gate, all_row_cap)?;
             result_list.append(serialized)?;
         }
 
@@ -3742,7 +4516,14 @@ fn serialize_queryset_py(
 /// - Simple types (str, int, float, bool, None): pass through
 /// - Lists/tuples: recursively serialize
 /// - Dicts: recursively serialize
-/// - Components: call .render() and wrap in {"render": ...}
+/// - Components: call .render() and wrap in {"render": ...} — unless `render`
+///   carries `alters_data` / `do_not_call_in_templates` (`template_call_guard`)
+/// - Django models: `model_to_dict` plus four fixed `get_*` methods, every name
+///   held to the serialization gate (the floor) and every method to the same
+///   call guard (#3778). Not used by any production path; see #3778.
+/// - The walk is bounded (#3814): a container or model row it is already
+///   inside of, or anything past `SERIALIZE_CONTEXT_MAX_DEPTH` levels, crosses
+///   as `str(obj)`. A `render()` that returns a non-`str` does too.
 /// - Django types (datetime, UUID): convert to strings
 /// - `Decimal`: **converts to a float, not a string** (#2214). The branch below
 ///   intends a string and is dead, because `extract::<f64>()` above it honours
@@ -3761,9 +4542,10 @@ fn serialize_context_py(py: Python, context: &Bound<'_, PyDict>) -> PyResult<Py<
         // Snapshotted before recursing (#2510, round 4) — same shape as
         // every other site this bug class was found in.
         let pairs: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)> = context.iter().collect();
+        let mut walk = SerializeWalk::default();
         for (key, value) in pairs {
             let key_str: String = key.extract()?;
-            let serialized_value = serialize_python_value(py, &value)?;
+            let serialized_value = serialize_nested(py, &value, &mut walk)?;
             result_dict.set_item(key_str, serialized_value)?;
         }
 
@@ -3771,8 +4553,89 @@ fn serialize_context_py(py: Python, context: &Bound<'_, PyDict>) -> PyResult<Py<
     })
 }
 
-/// Recursively serialize a Python value to JSON-compatible form
-fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+/// How many levels [`serialize_python_value`] descends before an element crosses as `str(obj)`
+/// instead (#3814). A level is one container, one model, or one model's dict, so a hop through a
+/// related manager (model -> its dict -> the manager's list -> the next model) is three.
+///
+/// The all-fields model arm has no field paths to bound it, so a RELATION is unbounded: with
+/// `Person.friends = ManyToManyField("self")` and A <-> B, `model_to_dict(a)` holds `[b]`, whose
+/// `model_to_dict` holds `[a']` (a FRESH instance each time, so no identity check ends it), and the
+/// recursion ran until the stack overflowed (`Fatal Python error: Segmentation fault`, which
+/// `guard_panic` cannot catch: it is the process's stack, not a panic). A cycle is ended by
+/// [`SerializeWalk`]; this ceiling is what bounds a chain of DISTINCT rows (a long `next` link).
+/// It is sized by frame cost, not by data: far below `djust_core::MAX_CONVERSION_DEPTH` (1000,
+/// CPython's own `repr` limit), because a level here carries a `String`, a `Vec` and a Python
+/// call's worth of locals, and nothing a context holds is meant to nest related rows this deep.
+const SERIALIZE_CONTEXT_MAX_DEPTH: usize = 128;
+
+/// What a [`SerializeWalk`] remembers about an object it is inside of.
+#[derive(PartialEq)]
+enum WalkKey {
+    /// A list or dict, by address: a container that holds itself is the same object.
+    Container(usize),
+    /// A model row, by class and primary key: a relation hands back a FRESH instance of the row
+    /// it came from, so the address says nothing and the row is what repeats.
+    Row(usize, String),
+}
+
+/// The objects [`serialize_python_value`] is currently inside of, and how deep it is (#3814).
+#[derive(Default)]
+struct SerializeWalk {
+    inside: Vec<WalkKey>,
+    depth: usize,
+}
+
+/// [`serialize_python_value`] one level down, or `str(value)` when going down is unsafe: past
+/// [`SERIALIZE_CONTEXT_MAX_DEPTH`], or into a container the walk is already inside of (a list that
+/// holds itself). Every recursive step goes through here, so no arm can forget the check (#1646).
+fn serialize_nested(
+    py: Python,
+    value: &Bound<'_, PyAny>,
+    walk: &mut SerializeWalk,
+) -> PyResult<Py<PyAny>> {
+    // Lists and dicts only: a tuple cannot hold itself without a list or dict in between, and those
+    // are tracked, so a cycle through a tuple is ended at the container that closes it.
+    let key = (value.cast::<PyList>().is_ok() || value.cast::<PyDict>().is_ok())
+        .then(|| WalkKey::Container(value.as_ptr() as usize));
+    if walk.depth >= SERIALIZE_CONTEXT_MAX_DEPTH
+        || key.as_ref().is_some_and(|k| walk.inside.contains(k))
+    {
+        let str_repr = value.str()?.to_string();
+        return Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind());
+    }
+    walk.depth += 1;
+    let pushed = key.is_some();
+    if let Some(key) = key {
+        walk.inside.push(key);
+    }
+    let out = serialize_python_value(py, value, walk);
+    if pushed {
+        walk.inside.pop();
+    }
+    walk.depth -= 1;
+    out
+}
+
+/// The model row `value` is, as a [`WalkKey`]: its class and its primary key (its address when it
+/// has none, an unsaved row).
+fn row_key(value: &Bound<'_, PyAny>) -> WalkKey {
+    let class = value.get_type().as_ptr() as usize;
+    match value.getattr("pk") {
+        Ok(pk) if !pk.is_none() => match pk.str() {
+            Ok(text) => WalkKey::Row(class, text.to_string()),
+            Err(_) => WalkKey::Container(value.as_ptr() as usize),
+        },
+        _ => WalkKey::Container(value.as_ptr() as usize),
+    }
+}
+
+/// Recursively serialize a Python value to JSON-compatible form. Recurse through
+/// [`serialize_nested`], never by calling this directly: it is what keeps the walk bounded (#3814).
+fn serialize_python_value(
+    py: Python,
+    value: &Bound<'_, PyAny>,
+    walk: &mut SerializeWalk,
+) -> PyResult<Py<PyAny>> {
     // Fast path: None
     if value.is_none() {
         return Ok(py.None());
@@ -3792,7 +4655,7 @@ fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<P
         let raw: Vec<Bound<'_, PyAny>> = list.iter().collect();
         let result_list = PyList::empty(py);
         for item in raw {
-            let serialized = serialize_python_value(py, &item)?;
+            let serialized = serialize_nested(py, &item, walk)?;
             result_list.append(serialized)?;
         }
         return Ok(result_list.into());
@@ -3802,7 +4665,7 @@ fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<P
         let raw: Vec<Bound<'_, PyAny>> = tuple.iter().collect();
         let result_list = PyList::empty(py);
         for item in raw {
-            let serialized = serialize_python_value(py, &item)?;
+            let serialized = serialize_nested(py, &item, walk)?;
             result_list.append(serialized)?;
         }
         return Ok(result_list.into());
@@ -3815,7 +4678,7 @@ fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<P
         let result_dict = PyDict::new(py);
         for (k, v) in pairs {
             let key_str: String = k.extract()?;
-            let serialized = serialize_python_value(py, &v)?;
+            let serialized = serialize_nested(py, &v, walk)?;
             result_dict.set_item(key_str, serialized)?;
         }
         return Ok(result_dict.into());
@@ -3826,7 +4689,7 @@ fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<P
         // Call list() on the QuerySet to force evaluation
         if let Ok(list_fn) = py.eval(c"list", None, None) {
             if let Ok(as_list) = list_fn.call1((value,)) {
-                return serialize_python_value(py, &as_list);
+                return serialize_nested(py, &as_list, walk);
             }
         }
     }
@@ -3877,18 +4740,33 @@ fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<P
         return Ok(f.into_pyobject(py)?.to_owned().into_any().unbind());
     }
 
-    // Components: Check if object has 'render' method
+    // Components: Check if object has 'render' method.
+    //
+    // The call is made under `template_call_guard`, the one statement of
+    // Django's `alters_data` / `do_not_call_in_templates` rule (#3772), so a
+    // `render` that carries either marker is NOT called and the value falls
+    // through to the arms below (a model, else `str()`), exactly as a template
+    // walking to that callable would leave it alone (#3778). The name is fixed,
+    // not template-chosen, but this entry point accepts any object a caller
+    // hands it, and `render` is a common name for a method that writes.
     if value.hasattr("render")? {
         // Call .render() method
         let render_method = value.getattr("render")?;
-        if render_method.is_callable() {
+        if render_method.is_callable() && djust_core::template_call_guard(&render_method).may_call()
+        {
             match render_method.call0() {
                 Ok(rendered) => {
-                    // Wrap in {"render": ...} dict
-                    let wrapper = PyDict::new(py);
-                    let rendered_str: String = rendered.extract()?;
-                    wrapper.set_item("render", rendered_str)?;
-                    return Ok(wrapper.into());
+                    // Wrap in {"render": ...} dict. A `render()` that returns something other than
+                    // a `str` (an int, a list, `None`) is a render that did not produce markup:
+                    // it falls back to `str(value)` exactly as a raising one does, and does NOT
+                    // raise `TypeError` out of this function (#3814).
+                    if let Ok(rendered_str) = rendered.extract::<String>() {
+                        let wrapper = PyDict::new(py);
+                        wrapper.set_item("render", rendered_str)?;
+                        return Ok(wrapper.into());
+                    }
+                    let str_repr = value.str()?.to_string();
+                    return Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind());
                 }
                 Err(_) => {
                     // Render failed, fallback to str()
@@ -3917,47 +4795,105 @@ fn serialize_python_value(py: Python, value: &Bound<'_, PyAny>) -> PyResult<Py<P
         return Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind());
     }
 
-    // Django model instances: serialize to dict using model_to_dict + methods
+    // Django model instances: serialize to dict using model_to_dict + methods.
+    //
+    // Every name that leaves here goes through the serialization gate
+    // (`resolve_attr_gate` -> `emittable_names`), the same chokepoint the
+    // queryset serializer asks, and every method is called only if
+    // `template_call_guard` allows it (#3778). Before this, `model_to_dict`
+    // shipped `password`, `is_superuser` and `is_staff` of a `User` verbatim —
+    // the floor `serialize_queryset` and the eager channels hold (#2685, #2614)
+    // — and the four `get_*` methods ran whatever they carried. Fail CLOSED: if
+    // the gate cannot be resolved the model falls through to `str()` rather
+    // than shipping ungated fields (the queryset serializer's own rule).
     if value.hasattr("_meta")? {
-        // Use Django's model_to_dict to serialize the model fields
-        if let Ok(forms_module) = py.import("django.forms.models") {
-            if let Ok(model_to_dict_fn) = forms_module.getattr("model_to_dict") {
-                if let Ok(model_dict) = model_to_dict_fn.call1((value,)) {
-                    // Convert to PyDict so we can add method results
-                    if let Ok(result_dict) = model_dict.cast::<PyDict>() {
-                        // Call specific, known-safe get_* methods commonly used in templates
-                        // This is safer than calling all get_* methods which can cause infinite recursion
-                        let safe_methods = vec![
-                            "get_full_name",
-                            "get_short_name",
-                            "get_absolute_url",
-                            "get_username",
-                        ];
-
-                        for method_name in safe_methods {
-                            if let Ok(attr) = value.getattr(method_name) {
-                                if attr.is_callable() {
-                                    if let Ok(result) = attr.call0() {
-                                        // Convert result to string to avoid recursive serialization
-                                        if let Ok(result_str) = result.str() {
-                                            let _ = result_dict.set_item(method_name, result_str);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Recursively serialize the enhanced dict
-                        return serialize_python_value(py, result_dict.as_any());
-                    }
-                }
-            }
+        if let Some(serialized) = serialize_model_gated(py, value, walk) {
+            return serialized;
         }
     }
 
     // Fallback: convert to string representation
     let str_repr = value.str()?.to_string();
     Ok(str_repr.into_pyobject(py)?.to_owned().into_any().unbind())
+}
+
+/// The model arm of [`serialize_python_value`] (#3778): `model_to_dict` plus the
+/// four fixed `get_*` methods, each name held to the serialization gate and each
+/// method to `template_call_guard`.
+///
+/// `None` means "this arm did not apply" (no gate, no `model_to_dict`, an
+/// unreadable dict) and the caller falls through to `str()` — never to an
+/// ungated dict. A name the gate refuses is dropped from the dict, as the
+/// queryset serializer drops it; a method that is refused, or raises, is simply
+/// absent. Nothing here logs an exception (ADR-038).
+///
+/// A row the walk is already inside of (the other end of a symmetrical relation, a
+/// `ManyToManyField("self")` that comes back to where it started) is also "did not apply": it
+/// crosses as `str(row)`, and it is checked BEFORE `model_to_dict` runs, which is the query that
+/// would fetch the next ring of the cycle (#3814).
+fn serialize_model_gated(
+    py: Python,
+    value: &Bound<'_, PyAny>,
+    walk: &mut SerializeWalk,
+) -> Option<PyResult<Py<PyAny>>> {
+    // Called with these names, in this order, only when permitted. Specific,
+    // known get_* methods: calling every get_* method can recurse forever.
+    const METHODS: [&str; 4] = [
+        "get_full_name",
+        "get_short_name",
+        "get_absolute_url",
+        "get_username",
+    ];
+
+    let row = row_key(value);
+    if walk.inside.contains(&row) {
+        return None;
+    }
+    let gate = resolve_attr_gate(py).ok()?;
+    let model_to_dict = py
+        .import("django.forms.models")
+        .ok()?
+        .getattr("model_to_dict")
+        .ok()?;
+    let model_dict = model_to_dict.call1((value,)).ok()?;
+    let result_dict = model_dict.cast::<PyDict>().ok()?;
+
+    // Snapshot before mutating (#2510): the keys are removed below.
+    let field_names: Vec<String> = result_dict
+        .keys()
+        .iter()
+        .filter_map(|k| k.extract::<String>().ok())
+        .collect();
+    let mut names: Vec<&str> = field_names.iter().map(String::as_str).collect();
+    names.extend(METHODS);
+    let permitted = permitted_among(py, value, &names, gate.bind(py)).ok()?;
+
+    for name in &field_names {
+        if !permitted.contains(name) {
+            let _ = result_dict.del_item(name);
+        }
+    }
+    for method_name in METHODS {
+        if !permitted.contains(method_name) {
+            continue;
+        }
+        if let Ok(attr) = value.getattr(method_name) {
+            if attr.is_callable() && djust_core::template_call_guard(&attr).may_call() {
+                if let Ok(result) = attr.call0() {
+                    // Convert result to string to avoid recursive serialization
+                    if let Ok(result_str) = result.str() {
+                        let _ = result_dict.set_item(method_name, result_str);
+                    }
+                }
+            }
+        }
+    }
+
+    // Recursively serialize the enhanced dict, with this row marked as one the walk is inside of.
+    walk.inside.push(row);
+    let serialized = serialize_nested(py, result_dict.as_any(), walk);
+    walk.inside.pop();
+    Some(serialized)
 }
 
 /// Build a tree structure from flat field paths for efficient nested traversal
@@ -4121,15 +5057,361 @@ fn gated_names(
     tree: &std::collections::HashMap<String, PathNode>,
     gate: &Bound<'_, PyAny>,
 ) -> PyResult<std::collections::HashSet<String>> {
-    let names: Vec<&str> = tree.keys().map(|k| k.as_str()).collect();
-    let permitted = gate.call1((obj, PyTuple::new(py, &names)?))?;
+    let names: Vec<&str> = tree
+        .keys()
+        .map(|k| k.as_str())
+        .filter(|k| *k != WHOLE_MARK)
+        .collect();
+    permitted_among(py, obj, &names, gate)
+}
+
+/// The subset of *names* the gate permits for *obj* — the one place the gate
+/// is called and its answer read, shared by the queryset serializer
+/// ([`gated_names`], keyed by a path tree) and the model arm of
+/// `serialize_python_value`, keyed by a field/method name list (#3778). Two
+/// callers of one gate, one implementation (#1646).
+fn permitted_among(
+    py: Python,
+    obj: &Bound<'_, PyAny>,
+    names: &[&str],
+    gate: &Bound<'_, PyAny>,
+) -> PyResult<std::collections::HashSet<String>> {
+    let permitted = gate.call1((obj, PyTuple::new(py, names)?))?;
     let mut out = std::collections::HashSet::new();
-    for name in names {
+    for name in names.iter().copied() {
         if permitted.contains(name)? {
             out.insert(name.to_string());
         }
     }
     Ok(out)
+}
+
+/// What a template's `.all` step iterates, for a path that names `all` (#3777).
+///
+/// `{% for g in u.groups.all %}{{ g.name }}{% endfor %}` extracts as the paths
+/// `groups.all` and `groups.all.name`: `all` is the related manager's METHOD,
+/// not a field. This serializer walks the path tree with `getattr`, so before
+/// this helper existed it handed the bound method `all` to the nested walk,
+/// found no `name` on a method, and shipped `{"groups": {"all": {}}}` — the
+/// loop ran over an empty dict and rendered nothing. The leaf spelling
+/// (`{{ u.groups.all|length }}`) shipped the QuerySet's `repr` as a string.
+///
+/// The Python codegen twin has always iterated it
+/// (`optimization/codegen.py`, the `attr_name == "all"` branch), which is why
+/// a `list[Model]` rendered the names and a QuerySet did not (#1646). The
+/// caller's key-count fallback to that codegen never fires, because the
+/// `groups` key IS present.
+///
+/// What a call to `all` came to.
+enum CalledAll<'py> {
+    /// `template_call_guard` refused: the name is OMITTED, as the leaf arm
+    /// omits a refused callable, so the sidecar walk (which refuses the same
+    /// callables) answers instead.
+    Refused,
+    /// `all` raised one of the two exceptions the codegen twin swallows
+    /// (`TypeError`, `AttributeError`): an empty relation, not an error.
+    Empty,
+    /// What `all()` returned — a QuerySet for a related manager.
+    Called(Bound<'py, PyAny>),
+}
+
+/// Call `value` (an `all` method) under the one call guard.
+///
+/// Errors follow the codegen (`_generate_nested_access` catches
+/// `(TypeError, AttributeError)` and nothing else): a `TypeError` /
+/// `AttributeError` (an `all` that takes arguments) is an empty list, and ANY
+/// OTHER exception — a database error mid-evaluation,
+/// `SynchronousOnlyOperation` — PROPAGATES. It reaches the caller's
+/// `[JIT ERROR]` handler, which logs it through the exposure diagnostics and
+/// falls back to the generic serializer, rather than rendering a user with no
+/// groups or permissions and saying nothing (#3777 review). This function
+/// never logs an exception itself (ADR-038).
+fn call_all<'py>(value: &Bound<'py, PyAny>) -> PyResult<CalledAll<'py>> {
+    if !djust_core::template_call_guard(value).may_call() {
+        return Ok(CalledAll::Refused);
+    }
+    match value.call0() {
+        Ok(queryset) => Ok(CalledAll::Called(queryset)),
+        Err(err) if codegen_swallows(value.py(), &err) => Ok(CalledAll::Empty),
+        Err(err) => Err(err),
+    }
+}
+
+/// The rows a called `all` yields, at most `cap` of them (#3788).
+///
+/// A related manager's `all()` is an UNEVALUATED QuerySet, and iterating it
+/// loads the whole relation: `{{ u.groups.all.0.name }}` over 60,000 rows
+/// built 60,000 model instances for one name (0.75 s against Django's
+/// `LIMIT 1`). With a cap the read is `qs[:cap + 1]` — a SQL `LIMIT` on an
+/// unevaluated QuerySet, a slice of the result cache on a prefetched one — so
+/// the cost is bounded by the cap, not by the relation. One row past the cap is
+/// read only to learn the relation was longer; it is dropped, and the
+/// truncation is logged (a template still gets every row up to the cap).
+fn capped_rows<'py>(
+    queryset: &Bound<'py, PyAny>,
+    cap: Option<usize>,
+) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    let py = queryset.py();
+    let Some(cap) = cap else {
+        return queryset
+            .try_iter()
+            .and_then(|iterator| iterator.collect::<PyResult<Vec<_>>>());
+    };
+    let limit = cap.saturating_add(1);
+    let window = queryset
+        .get_item(pyo3::types::PySlice::new(
+            py,
+            0,
+            isize::try_from(limit).unwrap_or(isize::MAX),
+            1,
+        ))
+        .unwrap_or_else(|_| queryset.clone());
+    let mut rows = window
+        .try_iter()
+        .and_then(|iterator| iterator.take(limit).collect::<PyResult<Vec<_>>>())?;
+    if rows.len() > cap {
+        rows.truncate(cap);
+        warn_rows_capped(py, cap);
+    }
+    Ok(rows)
+}
+
+/// [`capped_rows`] with the codegen's error rule: a `TypeError` /
+/// `AttributeError` while reading the rows is an empty relation, anything else
+/// propagates (#3777 review).
+fn capped_rows_or_empty<'py>(
+    queryset: &Bound<'py, PyAny>,
+    cap: Option<usize>,
+) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    match capped_rows(queryset, cap) {
+        Err(err) if codegen_swallows(queryset.py(), &err) => Ok(Vec::new()),
+        other => other,
+    }
+}
+
+/// Say that a relation was longer than the cap (#3788). A plain warning with
+/// the cap as its only argument — no exception, no row data (ADR-038).
+fn warn_rows_capped(py: Python<'_>, cap: usize) {
+    let logged = py
+        .import("logging")
+        .and_then(|logging| logging.getattr("getLogger"))
+        .and_then(|get_logger| get_logger.call1(("djust.optimization.codegen",)))
+        .and_then(|logger| {
+            logger.call_method1(
+                "warning",
+                (
+                    "A related manager's .all read by the queryset serializer has more than %s rows; only the first %s are sent. Raise LIVEVIEW_CONFIG['queryset_all_row_cap'] (0 disables it), read .count / .first / .exists, or paginate.",
+                    cap,
+                    cap,
+                ),
+            )
+        });
+    drop(logged);
+}
+
+/// `None` when the call guard refused; an empty list for a swallowed error.
+fn called_all_rows<'py>(
+    value: &Bound<'py, PyAny>,
+    cap: Option<usize>,
+) -> PyResult<Option<Vec<Bound<'py, PyAny>>>> {
+    match call_all(value)? {
+        CalledAll::Refused => Ok(None),
+        CalledAll::Empty => Ok(Some(Vec::new())),
+        CalledAll::Called(queryset) => capped_rows_or_empty(&queryset, cap).map(Some),
+    }
+}
+
+/// The exceptions the Python codegen twin swallows around a `.all()` step.
+fn codegen_swallows(py: Python<'_>, err: &PyErr) -> bool {
+    err.is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+        || err.is_instance_of::<pyo3::exceptions::PyAttributeError>(py)
+}
+
+/// Is `value` a Django `QuerySet` — or any subclass of it?
+///
+/// An `isinstance`, not a class-name test: `SomeQS.as_manager()` and a related
+/// manager's `all()` hand back the model's OWN queryset class, whose name is
+/// not `QuerySet`, and the name test left `|length`, `{% if %}` and `|join`
+/// wrong for exactly those (#3777 review).
+fn is_django_queryset(value: &Bound<'_, PyAny>) -> bool {
+    value
+        .py()
+        .import("django.db.models")
+        .and_then(|m| m.getattr("QuerySet"))
+        .and_then(|cls| value.is_instance(&cls))
+        .unwrap_or(false)
+}
+
+/// `value` as a list when it is a QuerySet (the result of a called `all`),
+/// otherwise unchanged (#3777). The template named the relation whole
+/// (`{{ u.groups.all|length }}`, `{% if u.groups.all %}`), so every row is
+/// wanted, and a QuerySet is neither a list nor a tuple to
+/// [`queryset_template_value`]. Errors as in [`call_all`]: the codegen's two
+/// are tolerated (the value stays as it is), anything else propagates.
+fn called_all_to_list<'py>(
+    py: Python<'py>,
+    value: &Bound<'py, PyAny>,
+    cap: Option<usize>,
+) -> PyResult<Bound<'py, PyAny>> {
+    if !is_django_queryset(value) {
+        return Ok(value.clone());
+    }
+    let rows = capped_rows(value, cap).and_then(|rows| PyList::new(py, rows));
+    match rows {
+        Ok(list) => Ok(list.into_any()),
+        Err(err) if codegen_swallows(py, &err) => Ok(value.clone()),
+        Err(err) => Err(err),
+    }
+}
+
+/// A row a called `all` yielded, serialized under `tree`. A dict / list / tuple
+/// row (a model METHOD named `all` that returns plain data) carries data keys,
+/// not model attributes, so it is preserved whole exactly as the sibling arm
+/// preserves such an attribute value; anything else is walked and gated
+/// (#3777 review).
+fn serialize_all_row(
+    py: Python,
+    row: &Bound<'_, PyAny>,
+    tree: &std::collections::HashMap<String, PathNode>,
+    gate: &Bound<'_, PyAny>,
+    cap: Option<usize>,
+) -> PyResult<Py<PyAny>> {
+    if row.is_instance_of::<PyDict>()
+        || row.is_instance_of::<PyList>()
+        || row.is_instance_of::<PyTuple>()
+    {
+        queryset_template_value(row, 0)
+    } else {
+        serialize_object_with_paths(py, row, tree, gate, cap)
+    }
+}
+
+/// The path-tree key that records a node's own name is ALSO read whole (#3788).
+/// It is never an attribute: [`gated_names`] drops it, so no walk reads it.
+const WHOLE_MARK: &str = "__djust_whole__";
+
+/// The QuerySet methods a template can chain after `.all`.
+const ALL_CHAIN_METHODS: [&str; 4] = ["count", "exists", "first", "last"];
+
+/// `paths` plus a [`WHOLE_MARK`] child under every `…all` path that the template
+/// reads whole as well as walks into (#3788).
+///
+/// `{% for g in u.groups.all %}{{ g.name }}{% endfor %}` extracts as
+/// `groups.all` and `groups.all.name`; `{{ u.groups.all.count }}` extracts as
+/// `groups.all.count` alone. The tree built from those is the same shape (an
+/// `all` node with a `count` child), so without this mark a template that
+/// loops over the rows and ALSO prints their count would be indistinguishable
+/// from one that prints only the count. A path whose next segment is an index
+/// is not marked: `build_field_tree` already turns that node into a list.
+fn with_whole_marks(paths: &[String]) -> Vec<String> {
+    let known: std::collections::HashSet<&str> = paths.iter().map(|p| p.as_str()).collect();
+    let mut marks: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for path in paths {
+        let mut end = 0;
+        for segment in path.split('.') {
+            end += segment.len();
+            if end < path.len() && matches!(segment, "all" | "first" | "last") {
+                let prefix = &path[..end];
+                let next = path[end + 1..].split('.').next().unwrap_or("");
+                if known.contains(prefix) && next.parse::<usize>().is_err() {
+                    marks.insert(format!("{prefix}.{WHOLE_MARK}"));
+                }
+            }
+            end += 1;
+        }
+    }
+    let mut out = paths.to_vec();
+    out.extend(marks);
+    out
+}
+
+/// Does the template read `all` ONLY through QuerySet methods
+/// (`u.groups.all.count`, `.all.first.name`, `.all.exists`) — and is that
+/// reading unambiguous for these rows? (#3788)
+///
+/// The tree cannot say whether `count` is `qs.count()` or the `count` FIELD of
+/// a row in `{% for i in o.items.all %}{{ i.count }}`: both extract to
+/// `items.all.count`. It is a method read only when nothing else about the
+/// node asks for rows — the relation is not read whole ([`WHOLE_MARK`]), every
+/// child is a QuerySet method name, and the row model has no attribute of that
+/// name. Otherwise the node stays a list of rows, as it was.
+fn all_is_read_through_methods(
+    queryset: &Bound<'_, PyAny>,
+    nested: &std::collections::HashMap<String, PathNode>,
+) -> bool {
+    if nested.is_empty()
+        || nested.contains_key(WHOLE_MARK)
+        || !nested
+            .keys()
+            .all(|name| ALL_CHAIN_METHODS.contains(&name.as_str()))
+        || !is_django_queryset(queryset)
+    {
+        return false;
+    }
+    let Ok(model) = queryset.getattr("model") else {
+        return false;
+    };
+    nested
+        .keys()
+        .all(|name| !model.hasattr(name.as_str()).unwrap_or(true))
+}
+
+/// `{"count": 2, "exists": true, "first": {...}}` for an `all` the template
+/// reads through QuerySet methods (#3788).
+///
+/// Each method runs on the QuerySet `all()` returned, so Django's own SQL
+/// applies: `count` is `COUNT(*)` (or the length of a prefetched cache),
+/// `exists` is `EXISTS`, `first` / `last` read ONE row. The relation is never
+/// materialized. Every method goes through the one call guard like `all`
+/// itself, and a `first` / `last` row goes through the serialization gate like
+/// any other row.
+fn serialize_all_methods(
+    py: Python,
+    queryset: &Bound<'_, PyAny>,
+    nested: &std::collections::HashMap<String, PathNode>,
+    gate: &Bound<'_, PyAny>,
+    cap: Option<usize>,
+) -> PyResult<Py<PyAny>> {
+    let out = PyDict::new(py);
+    for (name, node) in nested {
+        let Ok(method) = queryset.getattr(name.as_str()) else {
+            continue;
+        };
+        if !djust_core::template_call_guard(&method).may_call() {
+            continue;
+        }
+        let value = match method.call0() {
+            Ok(value) => value,
+            Err(err) if codegen_swallows(py, &err) => continue,
+            Err(err) => return Err(err),
+        };
+        if value.is_none() {
+            out.set_item(name, py.None())?;
+            continue;
+        }
+        let shipped = match node {
+            PathNode::Object(row_tree) if name == "first" || name == "last" => {
+                let row = serialize_all_row(py, &value, row_tree, gate, cap)?;
+                // `{{ u.groups.all.first }}` beside `{{ u.groups.all.first.name }}`
+                // reads the row whole AND by field. A dict prints as its repr, so
+                // the row carries the text a serialized model carries for that:
+                // `__str__` (Display renders a dict that has one as that text).
+                if row_tree.contains_key(WHOLE_MARK)
+                    && !(value.is_instance_of::<PyDict>()
+                        || value.is_instance_of::<PyList>()
+                        || value.is_instance_of::<PyTuple>())
+                {
+                    if let Ok(dict) = row.bind(py).cast::<PyDict>() {
+                        dict.set_item("__str__", value.str()?.to_string())?;
+                    }
+                }
+                row
+            }
+            _ => queryset_template_value(&value, 0)?,
+        };
+        out.set_item(name, shipped)?;
+    }
+    Ok(out.into_any().unbind())
 }
 
 /// Serialize a single Python object based on path tree
@@ -4138,6 +5420,7 @@ fn serialize_object_with_paths(
     obj: &Bound<'_, PyAny>,
     tree: &std::collections::HashMap<String, PathNode>,
     gate: &Bound<'_, PyAny>,
+    cap: Option<usize>,
 ) -> PyResult<Py<PyAny>> {
     let result = PyDict::new(py);
 
@@ -4171,14 +5454,46 @@ fn serialize_object_with_paths(
             PathNode::Leaf => {
                 // Check if it's a callable (method) - try calling it first
                 if attr_value.is_callable() {
+                    // Django's callable block, asked of the ONE rule the sidecar
+                    // walk asks (`djust_core::template_call_guard`): an
+                    // `alters_data` callable is never called and a
+                    // `do_not_call_in_templates` one is never called either.
+                    // Before #3772 this arm `call0()`-ed EVERYTHING it was
+                    // handed, so `{{ users.delete }}` ran `Model.delete()` on
+                    // every row of the queryset, `{{ u.groups.clear }}` ran the
+                    // related manager's `clear`, and `{{ u.save }}` saved. The
+                    // name is OMITTED, as a denied name is, so the template
+                    // renders `string_if_invalid` — or, when the value is still
+                    // reachable, the guarded sidecar walk answers it.
+                    if !djust_core::template_call_guard(&attr_value).may_call() {
+                        continue;
+                    }
                     // It's a method - try calling it
                     match attr_value.call0() {
                         Ok(method_result) => {
+                            // `u.groups.all` named whole (`|length`, `{% if %}`,
+                            // `{{ g }}` in the loop) is a sequence of rows. A
+                            // QuerySet is not a list/tuple, so it fell through
+                            // to its `repr` string: `|length` counted the
+                            // characters and an EMPTY relation was truthy
+                            // (#3777).
+                            let method_result = if attr_name == "all" {
+                                called_all_to_list(py, &method_result, cap)?
+                            } else {
+                                method_result
+                            };
                             // Method call succeeded - use the result
                             result
                                 .set_item(attr_name, queryset_template_value(&method_result, 0)?)?;
                         }
-                        Err(_) => {
+                        Err(err) => {
+                            // A call that raises something other than the
+                            // codegen's two is a real failure of the relation
+                            // (a database error), not "needs arguments"; it
+                            // propagates for `all` (#3777).
+                            if attr_name == "all" && !codegen_swallows(py, &err) {
+                                return Err(err);
+                            }
                             // Method call failed - skip this attribute (don't insert null)
                             // This can happen if the method requires arguments
                             continue;
@@ -4190,6 +5505,33 @@ fn serialize_object_with_paths(
                 }
             }
             PathNode::Object(nested_tree) => {
+                // `u.groups.all.name`: `all` is the manager's method and its
+                // children are read off each ROW it yields (#3777).
+                if attr_name == "all" && attr_value.is_callable() {
+                    let rows = match call_all(&attr_value)? {
+                        CalledAll::Refused => continue,
+                        CalledAll::Empty => Vec::new(),
+                        CalledAll::Called(queryset) => {
+                            // `u.groups.all.count` / `.first.name` / `.exists`
+                            // (#3788): the template asks the QuerySet, not its
+                            // rows.
+                            if all_is_read_through_methods(&queryset, nested_tree) {
+                                result.set_item(
+                                    attr_name,
+                                    serialize_all_methods(py, &queryset, nested_tree, gate, cap)?,
+                                )?;
+                                continue;
+                            }
+                            capped_rows_or_empty(&queryset, cap)?
+                        }
+                    };
+                    let mut serialized = Vec::with_capacity(rows.len());
+                    for row in &rows {
+                        serialized.push(serialize_all_row(py, row, nested_tree, gate, cap)?);
+                    }
+                    result.set_item(attr_name, PyList::new(py, serialized)?)?;
+                    continue;
+                }
                 // JSONField and computed containers carry data keys, not model
                 // attributes. Preserve them just as the codegen root path does.
                 let nested_result = if attr_value.is_instance_of::<PyDict>()
@@ -4198,7 +5540,7 @@ fn serialize_object_with_paths(
                 {
                     queryset_template_value(&attr_value, 0)?
                 } else {
-                    serialize_object_with_paths(py, &attr_value, nested_tree, gate)?
+                    serialize_object_with_paths(py, &attr_value, nested_tree, gate, cap)?
                 };
                 result.set_item(attr_name, nested_result)?;
             }
@@ -4208,7 +5550,26 @@ fn serialize_object_with_paths(
 
                 // For Django QuerySets/Managers, we need to evaluate them first
                 // Try to call .all() if it exists (for QuerySets/Managers)
-                let iterable = if let Ok(all_method) = attr_value.getattr("all") {
+                //
+                // `all` is a callable the template never named, so it goes
+                // through the same guard as the leaf above (#3772): a model
+                // whose own `all` is stamped `alters_data` (or
+                // `do_not_call_in_templates`) is iterated as it is, not called.
+                //
+                // `u.groups.all.0.name` is the same step spelled with an index:
+                // the attribute IS the `all` method, so its rows are what the
+                // index reads (#3777).
+                let rows_are_called_all = attr_name == "all" && attr_value.is_callable();
+                let iterable = if rows_are_called_all {
+                    let Some(rows) = called_all_rows(&attr_value, cap)? else {
+                        continue;
+                    };
+                    PyList::new(py, rows)?.into_any()
+                } else if let Some(all_method) = attr_value
+                    .getattr("all")
+                    .ok()
+                    .filter(|m| djust_core::template_call_guard(m).may_call())
+                {
                     // It has .all() method - call it to get the QuerySet
                     if let Ok(queryset) = all_method.call0() {
                         // Convert QuerySet to Python list for iteration
@@ -4235,8 +5596,11 @@ fn serialize_object_with_paths(
                             Ok(obj) => obj,
                             Err(_) => continue,
                         };
-                        let item_result =
-                            serialize_object_with_paths(py, &item_obj, nested_tree, gate)?;
+                        let item_result = if rows_are_called_all {
+                            serialize_all_row(py, &item_obj, nested_tree, gate, cap)?
+                        } else {
+                            serialize_object_with_paths(py, &item_obj, nested_tree, gate, cap)?
+                        };
                         list_results.push(item_result);
                     }
                 }
@@ -4648,9 +6012,9 @@ fn find_ci(hay: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
         .map(|p| from + p)
 }
 
-/// If `bytes[i]` (a `<`) opens a region the HTML tokenizer treats as RAW
-/// TEXT — an HTML comment (`<!-- … -->`) or a `<script>` / `<style>`
-/// element — return the byte offset just past the END of that region.
+/// If `bytes[i]` (a `<`) opens an HTML comment, a script/style raw-text
+/// element, or a textarea RCDATA element (entities decode, but tags are text),
+/// return the byte offset just past the END of that region.
 /// Anything tag-shaped inside such a region is text, not markup: a
 /// JavaScript comment reading `<div dj-root>` must neither be selected as
 /// the root nor move the depth counter (#2663). Returns `None` when
@@ -4664,113 +6028,250 @@ fn find_ci(hay: &[u8], from: usize, needle: &[u8]) -> Option<usize> {
 /// namespace-aware means changing both twins together.
 fn skip_raw_text_region(bytes: &[u8], i: usize) -> Option<usize> {
     if bytes[i..].starts_with(b"<!--") {
+        if bytes[i + 4..].starts_with(b">") {
+            return Some(i + 5);
+        }
+        if bytes[i + 4..].starts_with(b"->") {
+            return Some(i + 6);
+        }
+        let mut cursor = i + 4;
+        while cursor < bytes.len() {
+            if bytes[cursor..].starts_with(b"-->") {
+                return Some(cursor + 3);
+            }
+            if bytes[cursor..].starts_with(b"--!>") {
+                return Some(cursor + 4);
+            }
+            cursor += 1;
+        }
+        return Some(bytes.len());
+    }
+    if matches!(bytes.get(i + 1), Some(b'!' | b'?'))
+        || (bytes.get(i + 1) == Some(&b'/')
+            && bytes
+                .get(i + 2)
+                .is_some_and(|c| !c.is_ascii_alphabetic() && *c != b'>'))
+    {
         return Some(
-            find_ci(bytes, i + 4, b"-->")
-                .map(|p| p + 3)
-                .unwrap_or(bytes.len()),
+            bytes[i..]
+                .iter()
+                .position(|&c| c == b'>')
+                .map_or(bytes.len(), |end| i + end + 1),
         );
     }
-    for name in [&b"script"[..], &b"style"[..]] {
+    for name in [&b"script"[..], &b"style"[..], &b"textarea"[..]] {
         let after = i + 1 + name.len();
         if after < bytes.len()
             && starts_with_ci(&bytes[i + 1..], name)
-            && matches!(bytes[after], b' ' | b'\t' | b'\n' | b'\r' | b'/' | b'>')
+            && (html_space(bytes[after]) || matches!(bytes[after], b'/' | b'>'))
         {
-            let Some(open_end) = bytes[i..]
-                .iter()
-                .position(|&c| c == b'>')
-                .map(|p| i + p + 1)
-            else {
+            let Ok(open_end) = find_open_tag_end(bytes, i) else {
                 return Some(bytes.len());
             };
-            let mut close = b"</".to_vec();
-            close.extend_from_slice(name);
-            let Some(close_start) = find_ci(bytes, open_end, &close) else {
+            let open_end = open_end + 1;
+            let Some(close_start) = find_text_region_close(bytes, open_end, name) else {
                 return Some(bytes.len());
             };
-            return Some(
-                bytes[close_start..]
-                    .iter()
-                    .position(|&c| c == b'>')
-                    .map(|p| close_start + p + 1)
-                    .unwrap_or(bytes.len()),
-            );
+            let Ok(close_end) = find_open_tag_end(bytes, close_start) else {
+                return Some(bytes.len());
+            };
+            return Some(close_end + 1);
         }
     }
     None
 }
 
-/// True when an open tag's body (the bytes between `<` and `>`) carries a
-/// `dj-root` or `dj-view` ATTRIBUTE NAME: preceded by ASCII
-/// whitespace, followed by whitespace, `=`, `/` or the end of the tag, and NOT
-/// inside a quoted attribute value (`value="x dj-root y"` is text). A bare
-/// prefix match also accepted `dj-view-transitions` (a `<body>` attribute) and
-/// `dj-viewport-top`, and missed a tab or newline before the name. This is the
-/// twin of the Python `mixins/template.py::_DJ_ROOT_RE` / `_DJ_VIEW_RE`
-/// (#2892, #2981, #1646).
-fn tag_has_root_marker(tag_body: &[u8]) -> bool {
-    const MARKERS: [&[u8]; 2] = [b"dj-root", b"dj-view"];
-    const N: usize = 7; // both markers are 7 bytes
-    let mut p = 0;
-    while p < tag_body.len() {
-        let c = tag_body[p];
-        if c == b'"' || c == b'\'' {
-            // Skip the whole quoted value (to EOF if unterminated).
-            p = tag_body[p + 1..]
-                .iter()
-                .position(|&q| q == c)
-                .map_or(tag_body.len(), |q| p + 1 + q + 1);
-            continue;
-        }
-        if p > 0
-            && tag_body[p - 1].is_ascii_whitespace()
-            && p + N <= tag_body.len()
-            && MARKERS
-                .iter()
-                .any(|m| tag_body[p..p + N].eq_ignore_ascii_case(m))
-            && tag_body
-                .get(p + N)
-                .is_none_or(|&c| c.is_ascii_whitespace() || c == b'=' || c == b'/')
+/// RCDATA/raw-text ends at the first matching end-tag token, not a nested tag.
+fn find_text_region_close(bytes: &[u8], from: usize, name: &[u8]) -> Option<usize> {
+    let mut close = b"</".to_vec();
+    close.extend_from_slice(name);
+    let mut search = from;
+    while let Some(candidate) = find_ci(bytes, search, &close) {
+        if bytes
+            .get(candidate + close.len())
+            .is_some_and(|&c| html_space(c) || matches!(c, b'/' | b'>'))
         {
-            return true;
+            return Some(candidate);
         }
-        p += 1;
+        search = candidate + close.len();
     }
-    false
+    None
 }
 
-/// The index of the `>` that ends the open tag starting at `bytes[i]` (a
-/// `<`), skipping quoted attribute values so a `>` inside one does not end
-/// the tag. `Err(k)` when an unquoted `<` at `k` comes first (not a tag —
-/// resume there, as the Python pattern's unquoted units exclude `<`);
-/// `Err(len)` at EOF.
-fn find_open_tag_end(bytes: &[u8], i: usize) -> Result<usize, usize> {
-    let mut j = i + 1;
-    while j < bytes.len() {
-        match bytes[j] {
-            b'>' => return Ok(j),
-            b'<' => return Err(j),
-            q @ (b'"' | b'\'') => {
-                j = bytes[j + 1..]
-                    .iter()
-                    .position(|&c| c == q)
-                    .map_or(bytes.len(), |k| j + 1 + k + 1);
+/// Which root-relevant ATTRIBUTE NAMES an open tag's body (the bytes between
+/// `<` and `>`) carries: preceded by ASCII whitespace, followed by whitespace,
+/// `=`, `/` or the end of the tag, and NOT inside a quoted attribute value
+/// (`value="x dj-root y"` is text). A bare prefix match also accepted
+/// `dj-view-transitions` (a `<body>` attribute) and `dj-viewport-top`, and
+/// missed a tab or newline before the name. This is the twin of the Python
+/// `mixins/template.py::_DJ_ROOT_RE` / `_DJ_VIEW_RE` (#2892, #2981, #1646).
+#[derive(Default, Clone, Copy)]
+struct RootAttrs {
+    root: bool,
+    view: bool,
+    embedded: bool,
+    lazy: bool,
+}
+
+impl RootAttrs {
+    /// A container of ANOTHER view: an embedded `{% live_render %}` child's
+    /// wrapper (`dj-view` + `data-djust-embedded`, sticky or not) or a lazy
+    /// view's container (`dj-view` + `dj-lazy`). Its subtree belongs to that
+    /// view, so it is never claimed as the parent's root (#3031, #3302).
+    fn is_embedded_wrapper(self) -> bool {
+        self.view && (self.embedded || self.lazy)
+    }
+
+    /// The attributes of both tags (presence only).
+    fn merge(self, other: Self) -> Self {
+        Self {
+            root: self.root || other.root,
+            view: self.view || other.view,
+            embedded: self.embedded || other.embedded,
+            lazy: self.lazy || other.lazy,
+        }
+    }
+}
+
+fn root_attrs(tag_body: &[u8]) -> RootAttrs {
+    let mut found = RootAttrs::default();
+    if let Some((_, attrs)) = scan_tag_body(tag_body, 0) {
+        for &(start, end, _) in &attrs {
+            let name = &tag_body[start..end];
+            found.root |= name.eq_ignore_ascii_case(b"dj-root");
+            found.view |= name.eq_ignore_ascii_case(b"dj-view");
+            found.embedded |= name.eq_ignore_ascii_case(b"data-djust-embedded");
+            found.lazy |= name.eq_ignore_ascii_case(b"dj-lazy");
+        }
+    }
+    found
+}
+
+/// One attribute of a tag body: `(name start, name end, attribute end)`.
+type AttrSpan = (usize, usize, usize);
+
+/// HTML attribute states shared by the opening and balancing walks (#3054).
+/// A quote is special only at the start of a value after '='. In unquoted
+/// values and names both quotes and '<' are literal parse errors.
+/// Returns the '>' offset (or EOF) and, per attribute, `(name start, name
+/// end, attribute end)`: the attribute ends after its value, or with its name
+/// when it has none.
+fn scan_tag_body(bytes: &[u8], start: usize) -> Option<(usize, Vec<AttrSpan>)> {
+    let mut i = start;
+    if bytes.get(i) == Some(&b'/') {
+        i += 1;
+    }
+    while i < bytes.len() && !html_space(bytes[i]) && !matches!(bytes[i], b'/' | b'>') {
+        i += 1;
+    }
+    let mut attrs = Vec::new();
+    while i < bytes.len() {
+        while i < bytes.len() && (html_space(bytes[i]) || bytes[i] == b'/') {
+            i += 1;
+        }
+        if i == bytes.len() || bytes[i] == b'>' {
+            break;
+        }
+        let begin = i;
+        i += 1; // an initial '=' is part of an invalid attribute NAME
+        while i < bytes.len() && !html_space(bytes[i]) && !matches!(bytes[i], b'/' | b'>' | b'=') {
+            i += 1;
+        }
+        let name_end = i;
+        let mut attr_end = i;
+        while i < bytes.len() && html_space(bytes[i]) {
+            i += 1;
+        }
+        if bytes.get(i) == Some(&b'=') {
+            i += 1;
+            while i < bytes.len() && html_space(bytes[i]) {
+                i += 1;
             }
-            _ => j += 1,
+            if let Some(&q @ (b'"' | b'\'')) = bytes.get(i) {
+                i += 1;
+                i += bytes[i..].iter().position(|&c| c == q)?;
+                i += 1;
+            } else {
+                while i < bytes.len() && !html_space(bytes[i]) && bytes[i] != b'>' {
+                    i += 1;
+                }
+            }
+            attr_end = i;
         }
+        attrs.push((begin, name_end, attr_end));
     }
-    Err(bytes.len())
+    Some((i, attrs))
 }
 
-/// Locate the byte offset in `html` immediately after the opening tag
-/// of the first element bearing a `dj-root` or `dj-view` attribute, and the
-/// offset of its closing tag. Returns None if no such element is found.
+fn html_space(c: u8) -> bool {
+    matches!(c, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c')
+}
+
+/// Index of the terminating '>', or EOF for an unfinished token.
+fn find_open_tag_end(bytes: &[u8], i: usize) -> Result<usize, usize> {
+    match scan_tag_body(bytes, i + 1) {
+        Some((end, _)) if end < bytes.len() => Ok(end),
+        _ => Err(bytes.len()),
+    }
+}
+
+/// The LiveView root element's open tag: `start` is its `<`, `end` is just
+/// past its `>`, `name` its lowercased element name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RootOpen {
+    start: usize,
+    end: usize,
+    name: Vec<u8>,
+}
+
+/// Byte offsets of the root element: its open tag, and its close tag (`<` to
+/// just past `>`) when a complete one balances it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RootSpan {
+    open_start: usize,
+    open_end: usize,
+    close: Option<(usize, usize)>,
+}
+
+/// The LiveView root element of RENDERED html, the one locator for it: the
+/// WebSocket frame (`root_content_range`), the initial-GET shell splice, the
+/// streaming split and the `dj-view` stamp (`root_element_span`,
+/// `dj_root_stamp_offsets`) and the text fast path all read it from here.
 ///
-/// `<script>` / `<style>` bodies and HTML comments are skipped wholesale
-/// in BOTH the locating scan and the balancing walk (#2663) — a tag-like
-/// string inside them is raw text. This mirrors the Python twin
-/// (`mixins/template.py::_mask_for_root_search`), which owns the
-/// initial-GET shell; the two must agree on what counts as markup (#1646).
+/// WHICH element is the root is the rule of the VDOM parser
+/// (`djust_vdom::parser::find_liveview_root`), and where the two could read
+/// the bytes differently the tokenizer html5ever runs decides (#3031): an
+/// element inside another view's container is never the root, and the first
+/// `dj-root` wins over the first `dj-view`. See [`find_root_open`].
+/// `with_view: false` looks for `dj-root` only (the streaming split).
+///
+/// The close is the end tag balancing the root's own element name, with
+/// `<script>` / `<style>` bodies, `<textarea>` RCDATA and HTML comments read
+/// as text (#2663) and `{% ... %}` read as text too: rendered output has no
+/// template branches. A `<body>` root closes at the LAST `</body>`, as
+/// html5ever never closes `<body>` early (see [`find_body_close`]). With no
+/// complete close tag `close` is `None`.
+fn find_root_span(bytes: &[u8], with_view: bool) -> Option<RootSpan> {
+    let open = find_root_open(bytes, with_view)?;
+    let close = if open.name == b"body" {
+        find_body_close(bytes, open.end)
+    } else {
+        find_root_close(bytes, open.end, &open.name)
+    };
+    let close = close.and_then(|start| {
+        find_open_tag_end(bytes, start)
+            .ok()
+            .map(|end| (start, end + 1))
+    });
+    Some(RootSpan {
+        open_start: open.start,
+        open_end: open.end,
+        close,
+    })
+}
+
+/// The root's content: from just past its open tag to the `<` of its close
+/// tag, or `None` with no root or no complete close tag.
 ///
 /// Used to align the scanner's starting point with `find_root` in the
 /// VDOM parser, which begins the VDOM tree at that same element. Without
@@ -4778,29 +6279,207 @@ fn find_open_tag_end(bytes: &[u8], i: usize) -> Result<usize, usize> {
 /// a base template would be counted by the scanner but not appear in
 /// the VDOM, breaking the 1:1 text-node mapping.
 fn find_dj_root_content_range(html: &str) -> Option<(usize, usize)> {
-    let bytes = html.as_bytes();
-    let (open_end, tag_name) = find_root_open(bytes)?;
-    find_root_close(bytes, open_end, &tag_name).map(|close| (open_end, close))
+    let span = find_root_span(html.as_bytes(), true)?;
+    span.close.map(|(close, _)| (span.open_end, close))
 }
 
-/// `(offset just past its `>`, lowercased tag name)` of the first open tag
-/// carrying `dj-root` or `dj-view`, walking `bytes` tag by tag.
+/// Rewrite ascending byte offsets into `html` as CHARACTER offsets (Python
+/// string indices).
+fn to_char_offsets(html: &str, offsets: &mut [usize]) {
+    if html.is_ascii() {
+        return;
+    }
+    let bytes = html.as_bytes();
+    let (mut byte, mut chars) = (0, 0);
+    for offset in offsets.iter_mut() {
+        chars += bytes[byte..*offset]
+            .iter()
+            .filter(|&&b| b & 0xC0 != 0x80)
+            .count();
+        byte = *offset;
+        *offset = chars;
+    }
+}
+
+/// `(start, end)` CHARACTER offsets (Python string indices) of the content of
+/// the LiveView root in rendered `html`, or `None` when there is no root or
+/// its close tag is missing (the caller then keeps the whole string). See
+/// [`find_root_span`].
 ///
-/// A tag starts at `<` followed by an ASCII letter, `/` or `!`, as in the
-/// HTML tokenizer; any other `<` is text (#3030 — the Python walker applies
-/// the same rule). Quoted attribute values are skipped whole, so a
-/// `<section dj-root>` inside `data-h="…"` is never a candidate.
-fn find_root_open(bytes: &[u8]) -> Option<(usize, Vec<u8>)> {
-    let mut i = 0;
-    loop {
-        if i >= bytes.len() {
+/// `_extract_liveview_content` runs this on every mount and full render. The
+/// Python locator it replaced masked the whole page first; on a 300-row page
+/// that was about half of a mount's CPU, all of it on the process's one sync
+/// thread.
+#[pyfunction]
+fn root_content_range(py: Python<'_>, html: &str) -> PyResult<Option<(usize, usize)>> {
+    guard_panic("root_content_range", move || {
+        Ok(py.detach(|| {
+            let (start, end) = find_dj_root_content_range(html)?;
+            let mut offsets = [start, end];
+            to_char_offsets(html, &mut offsets);
+            Some((offsets[0], offsets[1]))
+        }))
+    })
+}
+
+/// `(open_start, open_end, close_start, close_end)`, the close offsets
+/// `None` without a complete close tag.
+type ElementSpan = (usize, usize, Option<usize>, Option<usize>);
+
+/// `(open_start, open_end, close_start, close_end)` CHARACTER offsets of the
+/// LiveView root element in rendered `html`: its open tag `[open_start,
+/// open_end)` and its close tag `[close_start, close_end)`, the last two
+/// `None` when no complete close tag balances it. `None` when there is no
+/// root. `with_view=False` looks for `dj-root` only. See [`find_root_span`].
+#[pyfunction]
+#[pyo3(signature = (html, with_view = true))]
+fn root_element_span(py: Python<'_>, html: &str, with_view: bool) -> PyResult<Option<ElementSpan>> {
+    guard_panic("root_element_span", move || {
+        Ok(py.detach(|| {
+            let span = find_root_span(html.as_bytes(), with_view)?;
+            let mut offsets = vec![span.open_start, span.open_end];
+            offsets.extend(span.close.map(|(s, e)| [s, e]).into_iter().flatten());
+            to_char_offsets(html, &mut offsets);
+            let (close_start, close_end) = span.close.map(|_| (offsets[2], offsets[3])).unzip();
+            Some((offsets[0], offsets[1], close_start, close_end))
+        }))
+    })
+}
+
+/// CHARACTER offsets in rendered `html` at which a ` dj-view="…"` attribute
+/// belongs (#2981): just past the first `dj-root` attribute (and its value)
+/// of every `dj-root` open tag that carries no `dj-view`, outside other
+/// views' containers (#3155). `<body dj-root>` gets one only when `<body>`
+/// is the page's root (#3302): the client mounts on the first `[dj-view]`,
+/// so a stamp on a body that is not the root would misdirect it.
+#[pyfunction]
+fn dj_root_stamp_offsets(py: Python<'_>, html: &str) -> PyResult<Vec<usize>> {
+    guard_panic("dj_root_stamp_offsets", move || {
+        Ok(py.detach(|| {
+            let mut offsets = find_dj_root_stamp_offsets(html.as_bytes());
+            to_char_offsets(html, &mut offsets);
+            offsets
+        }))
+    })
+}
+
+fn find_dj_root_stamp_offsets(bytes: &[u8]) -> Vec<usize> {
+    // Just past the first `dj-root` attribute, when the tag has no `dj-view`.
+    let stamp_at = |start: usize, end: usize| -> Option<usize> {
+        let tag_body = &bytes[start + 1..end - 1];
+        let (_, attrs) = scan_tag_body(tag_body, 0)?;
+        let named = |&&(s, e, _): &&(usize, usize, usize), name: &[u8]| {
+            tag_body[s..e].eq_ignore_ascii_case(name)
+        };
+        if attrs.iter().any(|a| named(&a, b"dj-view")) {
             return None;
         }
+        let &(_, _, attr_end) = attrs.iter().find(|a| named(a, b"dj-root"))?;
+        Some(start + 1 + attr_end)
+    };
+    let mut offsets = Vec::new();
+    visit_root_candidates(bytes, |start, end, _, marks| {
+        if marks.root {
+            offsets.extend(stamp_at(start, end));
+        }
+        false
+    });
+    if offsets.is_empty() && find_root_open(bytes, true).is_some_and(|r| r.name == b"body") {
+        // The body element carries the attributes of every `<body>` tag, the
+        // first of each name winning ([`find_body_root`]): stamp the first
+        // one carrying `dj-root`, unless a `<body>` tag up to it already has a
+        // `dj-view`, which the body keeps.
+        let mut seen_view = false;
+        let mut stamp = None;
+        for_each_tag(bytes, 0, |start, end| {
+            let tag_body = &bytes[start + 1..end];
+            if stamp.is_some()
+                || tag_body.first() == Some(&b'/')
+                || start_tag_name(tag_body) != b"body"
+            {
+                return;
+            }
+            let marks = root_attrs(tag_body);
+            seen_view |= marks.view;
+            if marks.root {
+                stamp = Some(if seen_view {
+                    None
+                } else {
+                    stamp_at(start, end + 1)
+                });
+            }
+        });
+        offsets.extend(stamp.flatten());
+    }
+    offsets
+}
+
+/// The root's open tag, walking `bytes` tag by tag: the first `dj-root`, else
+/// (with `with_view`) the first `dj-view`, outside every other view's
+/// container (an embedded child's wrapper or a lazy view, #3031), else
+/// `<body>` when it carries either attribute (#3302, [`find_body_root`]).
+fn find_root_open(bytes: &[u8], with_view: bool) -> Option<RootOpen> {
+    let mut root = None;
+    let mut first_view = None;
+    visit_root_candidates(bytes, |start, end, name, marks| {
+        let open = || RootOpen {
+            start,
+            end,
+            name: name.to_vec(),
+        };
+        if marks.root {
+            root = Some(open());
+            return true;
+        }
+        if with_view && first_view.is_none() {
+            first_view = Some(open());
+        }
+        false
+    });
+    root.or(first_view)
+        .or_else(|| find_body_root(bytes, with_view))
+}
+
+/// Call `visit(start, end, name, marks)` for every open tag carrying
+/// `dj-root` or `dj-view`, in document order, that is not another view's
+/// container or inside one; stop when `visit` returns true. `start` is the
+/// tag's `<`, `end` just past its `>`, `name` its lowercased element name.
+///
+/// A tag starts at `<` followed by an ASCII letter, `/` or `!`, as in the
+/// HTML tokenizer; any other `<` is text (#3030). Attributes are tokenized as
+/// html5ever does ([`scan_tag_body`]): a quoted value is skipped whole, so a
+/// `<section dj-root>` inside `data-h="…"` is never a candidate, and a `<` or
+/// a quote inside a tag name, attribute name or unquoted value is part of it,
+/// so `<p x=<y dj-root>` is a `<p>` carrying `dj-root`. A tag left open at
+/// EOF is discarded and ends the walk. `<html>`, `<head>` and `<body>` are
+/// never visited: the VDOM's `find_root` starts inside `<body>` (#2892), and
+/// `<body>` itself is the root of last resort ([`find_body_root`]). Another
+/// view's container is skipped through its balancing close tag (to the end
+/// of the document when it has none).
+fn visit_root_candidates(
+    bytes: &[u8],
+    mut visit: impl FnMut(usize, usize, &[u8], RootAttrs) -> bool,
+) {
+    let mut i = 0;
+    while i < bytes.len() {
         if bytes[i] != b'<' {
             i += 1;
             continue;
         }
         if let Some(next) = skip_raw_text_region(bytes, i) {
+            // Unlike script/style, textarea is itself a supported root candidate.
+            // Its contents still cannot declare another root.
+            if starts_with_ci(&bytes[i..], b"<textarea") {
+                if let Ok(end) = find_open_tag_end(bytes, i) {
+                    let marks = root_attrs(&bytes[i + 1..end]);
+                    if (marks.root || marks.view)
+                        && !marks.is_embedded_wrapper()
+                        && visit(i, end + 1, b"textarea", marks)
+                    {
+                        return;
+                    }
+                }
+            }
             i = next;
             continue;
         }
@@ -4811,42 +6490,144 @@ fn find_root_open(bytes: &[u8]) -> Option<(usize, Vec<u8>)> {
             i += 1;
             continue;
         }
-        let j = match find_open_tag_end(bytes, i) {
-            Ok(j) => j,
-            Err(k) if k < bytes.len() => {
-                i = k;
-                continue;
-            }
-            Err(_) => return None,
+        let Ok(j) = find_open_tag_end(bytes, i) else {
+            return;
         };
         let tag_body = &bytes[i + 1..j];
         if tag_body.is_empty() || tag_body[0] == b'/' || tag_body[0] == b'!' {
             i = j + 1;
             continue;
         }
-        if !tag_has_root_marker(tag_body) {
+        let marks = root_attrs(tag_body);
+        if !marks.root && !marks.view {
             i = j + 1;
             continue;
         }
-        let name_end = tag_body
-            .iter()
-            .position(|&c| c.is_ascii_whitespace() || c == b'/' || c == b'>')
-            .unwrap_or(tag_body.len());
-        let name = tag_body[..name_end].to_ascii_lowercase();
-        // A root on <html>/<head>/<body> is not a root the VDOM's
-        // `find_root` (which searches INSIDE <body>) can agree on; the Python
-        // twin (`mixins/template.py::_DJ_ROOT_RE`) skips them too (#2892).
+        let name = start_tag_name(tag_body);
         if matches!(name.as_slice(), b"html" | b"head" | b"body") {
             i = j + 1;
             continue;
         }
-        return Some((j + 1, name));
+        if marks.is_embedded_wrapper() {
+            // The other view's container and its whole subtree are not ours.
+            match find_root_close(bytes, j + 1, &name).map(|c| find_open_tag_end(bytes, c)) {
+                Some(Ok(end)) => {
+                    i = end + 1;
+                    continue;
+                }
+                _ => return,
+            }
+        }
+        if visit(i, j + 1, &name, marks) {
+            return;
+        }
+        i = j + 1;
     }
+}
+
+/// The lowercased element name of a start tag's body (the bytes after `<`).
+fn start_tag_name(tag_body: &[u8]) -> Vec<u8> {
+    let name_end = tag_body
+        .iter()
+        .position(|&c| html_space(c) || c == b'/' || c == b'>')
+        .unwrap_or(tag_body.len());
+    tag_body[..name_end].to_ascii_lowercase()
+}
+
+/// Walk every complete tag token of `bytes` from `from` (raw text, RCDATA and
+/// comments skipped as the root walk skips them), calling `visit(start, end)`
+/// with the tag's `<` and `>` offsets. Stops at a tag left open at EOF, which
+/// the tokenizer discards.
+fn for_each_tag(bytes: &[u8], from: usize, mut visit: impl FnMut(usize, usize)) {
+    let mut i = from;
+    while i < bytes.len() {
+        if bytes[i] != b'<' {
+            i += 1;
+            continue;
+        }
+        if let Some(next) = skip_raw_text_region(bytes, i) {
+            if starts_with_ci(&bytes[i..], b"<textarea") {
+                if let Ok(end) = find_open_tag_end(bytes, i) {
+                    visit(i, end);
+                }
+            }
+            i = next;
+            continue;
+        }
+        if !bytes
+            .get(i + 1)
+            .is_some_and(|&c| c.is_ascii_alphabetic() || c == b'/')
+        {
+            i += 1;
+            continue;
+        }
+        let Ok(j) = find_open_tag_end(bytes, i) else {
+            return;
+        };
+        visit(i, j);
+        i = j + 1;
+    }
+}
+
+/// `<body>` as the root of last resort (#3302): when nothing inside the page
+/// declares a root and the body element carries `dj-root` (or, with
+/// `with_view`, `dj-view`) and is not itself another view's container.
+///
+/// The body element's attributes are those of EVERY `<body>` start tag in the
+/// document: html5ever (and a browser) adds a later `<body>` tag's attributes
+/// to the one body element instead of opening another, wherever the tag
+/// appears, including inside an embedded child's wrapper. Its open tag is the
+/// first `<body>` start tag.
+fn find_body_root(bytes: &[u8], with_view: bool) -> Option<RootOpen> {
+    if !contains_ascii_ci(bytes, b"<body") {
+        return None;
+    }
+    let mut first: Option<(usize, usize)> = None;
+    let mut marks = RootAttrs::default();
+    for_each_tag(bytes, 0, |start, end| {
+        let tag_body = &bytes[start + 1..end];
+        if tag_body.first() != Some(&b'/') && start_tag_name(tag_body) == b"body" {
+            first.get_or_insert((start, end + 1));
+            marks = marks.merge(root_attrs(tag_body));
+        }
+    });
+    let (start, end) = first?;
+    let declares = marks.root || (with_view && marks.view);
+    (declares && !marks.is_embedded_wrapper()).then(|| RootOpen {
+        start,
+        end,
+        name: b"body".to_vec(),
+    })
+}
+
+/// The `<` of the LAST complete `</body>` end tag after `from`. html5ever
+/// never closes the body element early: after `</body>`, any further content
+/// (another document's `</body></html>` inside an embedded child, say) is put
+/// back into it, so the body's content runs to the last `</body>`.
+fn find_body_close(bytes: &[u8], from: usize) -> Option<usize> {
+    let mut last = None;
+    for_each_tag(bytes, from, |start, end| {
+        let tag_body = &bytes[start + 1..end];
+        if tag_body.first() == Some(&b'/') && start_tag_name(&tag_body[1..]) == b"body" {
+            last = Some(start);
+        }
+    });
+    last
+}
+
+fn contains_ascii_ci(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|w| w.eq_ignore_ascii_case(needle))
 }
 
 /// The offset of the `<` of the closing tag that balances the root element
 /// opened just before `open_end`.
 fn find_root_close(bytes: &[u8], open_end: usize, tag_name: &[u8]) -> Option<usize> {
+    if tag_name.eq_ignore_ascii_case(b"textarea") {
+        let close = find_text_region_close(bytes, open_end, tag_name)?;
+        return find_open_tag_end(bytes, close).ok().map(|_| close);
+    }
     // Now walk forward, balancing open/close tags of the same name, to
     // find the matching closing tag. Returns the byte offset of that
     // closing tag's `<`.
@@ -4870,13 +6651,7 @@ fn find_root_close(bytes: &[u8], open_end: usize, tag_name: &[u8]) -> Option<usi
             k += 1;
             continue;
         }
-        let mut m = k + 1;
-        while m < bytes.len() && bytes[m] != b'>' {
-            m += 1;
-        }
-        if m >= bytes.len() {
-            return None;
-        }
+        let m = find_open_tag_end(bytes, k).ok()?;
         let tag_body = &bytes[k + 1..m];
         if tag_body.is_empty() || tag_body[0] == b'!' {
             k = m + 1;
@@ -4886,7 +6661,7 @@ fn find_root_close(bytes: &[u8], open_end: usize, tag_name: &[u8]) -> Option<usi
         let name_start = if is_close { 1 } else { 0 };
         let name_end = tag_body[name_start..]
             .iter()
-            .position(|&c| c.is_ascii_whitespace() || c == b'/' || c == b'>')
+            .position(|&c| html_space(c) || c == b'/' || c == b'>')
             .map(|n| name_start + n)
             .unwrap_or(tag_body.len());
         let this_name = tag_body[name_start..name_end].to_ascii_lowercase();
@@ -5438,6 +7213,7 @@ fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // review). It has no `#[new]`, so registering exposes a NAME, not a
     // constructor: only `value_into_handler_pyobject` builds one.
     m.add_class::<djust_core::TemplateObject>()?;
+    m.add_class::<djust_core::LazyBlock>()?;
     m.add_function(wrap_pyfunction!(render_template, m)?)?;
     m.add_function(wrap_pyfunction!(render_template_with_dirs, m)?)?;
     m.add_function(wrap_pyfunction!(compile_template, m)?)?;
@@ -5460,12 +7236,35 @@ fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(template_compiled_at_generation, m)?)?;
     m.add_function(wrap_pyfunction!(render_markdown_py, m)?)?;
     m.add_function(wrap_pyfunction!(diff_html, m)?)?;
+    m.add_function(wrap_pyfunction!(inter_tag_whitespace_edits, m)?)?;
+    m.add_function(wrap_pyfunction!(fold_html_whitespace, m)?)?;
+    m.add_function(wrap_pyfunction!(strip_html_comments_and_whitespace, m)?)?;
+    m.add_function(wrap_pyfunction!(fold_html_whitespace_edits, m)?)?;
+    m.add_function(wrap_pyfunction!(authored_lazy_elements, m)?)?;
+    m.add_function(wrap_pyfunction!(template_needs_provenance, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        provenance_edits::normalize_provenance_whitespace,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        provenance_edits::collapse_provenance_whitespace,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(provenance_edits::lazy_authority_spans, m)?)?;
+    m.add_function(wrap_pyfunction!(root_content_range, m)?)?;
+    m.add_function(wrap_pyfunction!(root_element_span, m)?)?;
+    m.add_function(wrap_pyfunction!(dj_root_stamp_offsets, m)?)?;
     m.add_function(wrap_pyfunction!(collapse_inter_tag_whitespace, m)?)?;
     m.add_function(wrap_pyfunction!(fast_json_dumps, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_template_inheritance, m)?)?;
     m.add_function(wrap_pyfunction!(compute_template_hash, m)?)?;
     m.add_function(wrap_pyfunction!(crosses_as_encoded, m)?)?;
     m.add_function(wrap_pyfunction!(crosses_as_encoded_by_conversion, m)?)?;
+    // This build asks `djust.serialization._protect_sidecar_walk` (the leaf floor PLUS the model
+    // forms) after every segment of a template path (#3790). An older extension asks the leaf floor
+    // only, so a Python that has the form arms loses them silently; `DjustConfig.ready()` reads this
+    // name and says so.
+    m.add("WALK_FLOOR_COVERS_FORMS", true)?;
     // The conversion's recursion ceiling (#2624), exported so the test that
     // pins it against the worker-stack measurement reads the real constant.
     m.add("MAX_CONVERSION_DEPTH", djust_core::MAX_CONVERSION_DEPTH)?;
@@ -5485,6 +7284,7 @@ fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(active_unlocalized_number_format, m)?)?;
     m.add_function(wrap_pyfunction!(virtual_keyed_ops_enabled, m)?)?;
     m.add_function(wrap_pyfunction!(dj_model_fields_from_template, m)?)?;
+    m.add_function(wrap_pyfunction!(clear_dj_model_fields_cache, m)?)?;
 
     // Actor system exports
     m.add_class::<SessionActorHandlePy>()?;
@@ -5666,6 +7466,433 @@ fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[cfg(test)]
+mod rendered_root_span_tests {
+    //! The rendered-HTML root API Python calls: the element span (with and
+    //! without `dj-view` candidates) and the `dj-view` stamp offsets.
+    use super::{find_dj_root_stamp_offsets, find_root_span, to_char_offsets};
+
+    fn stamped(html: &str) -> String {
+        let mut out = html.to_string();
+        for at in find_dj_root_stamp_offsets(html.as_bytes())
+            .into_iter()
+            .rev()
+        {
+            out.insert_str(at, " dj-view=\"V\"");
+        }
+        out
+    }
+
+    #[test]
+    fn the_stamp_follows_the_first_dj_root_attribute() {
+        assert_eq!(
+            stamped("<div dj-root>x</div>"),
+            "<div dj-root dj-view=\"V\">x</div>"
+        );
+        assert_eq!(
+            stamped("<main class=a dj-root='r' dj-root id=m>x</main>"),
+            "<main class=a dj-root='r' dj-view=\"V\" dj-root id=m>x</main>"
+        );
+        // Every dj-root of this view, not only the root; none that has a dj-view.
+        assert_eq!(
+            stamped("<div dj-root>a</div><p dj-root>b</p><i dj-root dj-view=\"W\">c</i>"),
+            "<div dj-root dj-view=\"V\">a</div><p dj-root dj-view=\"V\">b</p><i dj-root dj-view=\"W\">c</i>"
+        );
+        // A '<' in the tag name or an unquoted value is part of it (html5ever).
+        assert_eq!(
+            stamped("<div<x dj-root>m</div<x>"),
+            "<div<x dj-root dj-view=\"V\">m</div<x>"
+        );
+        // Text, values and other views' containers are not this view's roots (#2663, #2981, #3155).
+        for html in [
+            "<script>'<div dj-root>'</script><!-- <div dj-root> -->",
+            "<p title=\"<div dj-root>\">x</p>",
+            "<div dj-view data-djust-embedded=\"c\"><div dj-root>c</div></div>",
+            "<p>x</p><div dj-root title=\"open>",
+        ] {
+            assert_eq!(stamped(html), html);
+        }
+    }
+
+    #[test]
+    fn the_body_is_stamped_only_as_the_root() {
+        // #3302: a body that is not the root is left alone.
+        let html = "<body dj-root><main dj-view=\"x.V\">m</main></body>";
+        assert_eq!(stamped(html), html);
+        assert_eq!(
+            stamped("<body dj-root><p>x</p></body>"),
+            "<body dj-root dj-view=\"V\"><p>x</p></body>"
+        );
+        // The body takes the attributes of every <body> tag: the one carrying
+        // dj-root gets the stamp, and none when any of them has a dj-view.
+        // The body takes the attributes of every <body> tag, the first of each
+        // name winning: the first tag carrying dj-root gets the stamp, unless
+        // a dj-view comes first.
+        assert_eq!(
+            stamped("<body><div dj-view data-djust-embedded=\"c\"><body dj-root>c</body></div></body>"),
+            "<body><div dj-view data-djust-embedded=\"c\"><body dj-root dj-view=\"V\">c</body></div></body>"
+        );
+        assert_eq!(
+            stamped("<body dj-root><div dj-view data-djust-embedded=\"c\"><body dj-view=\"c.V\">c</body></div></body>"),
+            "<body dj-root dj-view=\"V\"><div dj-view data-djust-embedded=\"c\"><body dj-view=\"c.V\">c</body></div></body>"
+        );
+        let html = "<body dj-view=\"x.V\"><p>x</p><body dj-root></body>";
+        assert_eq!(stamped(html), html);
+    }
+
+    #[test]
+    fn dj_root_only_ignores_dj_view_candidates() {
+        let span = |html: &str, with_view| {
+            find_root_span(html.as_bytes(), with_view).map(|s| (s.open_start, s.open_end, s.close))
+        };
+        assert_eq!(span("<div dj-view>x</div>", false), None);
+        assert_eq!(span("<body dj-view><p>x</p></body>", false), None);
+        let html = "<nav dj-view>n</nav><main dj-root>m</main>";
+        assert_eq!(span(html, false), Some((20, 34, Some((35, 42)))));
+        assert_eq!(span(html, true), span(html, false));
+        assert_eq!(
+            span("<div dj-view>x</div>", true),
+            Some((0, 13, Some((14, 20))))
+        );
+        assert_eq!(span("<div dj-root>never closed", true), Some((0, 13, None)));
+    }
+
+    #[test]
+    fn offsets_are_python_string_indices() {
+        let html = "<p>\u{e9} \u{6f22}</p><div dj-root>\u{e4}</div>";
+        let span = find_root_span(html.as_bytes(), true).unwrap();
+        let (close_start, close_end) = span.close.unwrap();
+        let mut offsets = [span.open_start, span.open_end, close_start, close_end];
+        to_char_offsets(html, &mut offsets);
+        let chars: Vec<char> = html.chars().collect();
+        let text = |a: usize, b: usize| chars[a..b].iter().collect::<String>();
+        assert_eq!(text(offsets[0], offsets[1]), "<div dj-root>");
+        assert_eq!(text(offsets[1], offsets[2]), "\u{e4}");
+        assert_eq!(text(offsets[2], offsets[3]), "</div>");
+    }
+}
+
+#[cfg(test)]
+mod dj_root_selection_3031 {
+    //! One root-selection rule on every Rust locator (#3031), pinned against
+    //! the corpus the Python locator and VDOM tests read too
+    //! (`python/tests/fixtures/root_selection_3031.json`): the element
+    //! carrying `data-expect-root` is the root, and `root: null` means none.
+    //!
+    //! The rule: a root belongs to the view that rendered it, so an embedded
+    //! child's wrapper (`dj-view` + `data-djust-embedded`) and its subtree are
+    //! never the parent's root; among the rest, the first `dj-root` beats the
+    //! first `dj-view`. `<body>` carrying either attribute is the root of last
+    //! resort (#3302): used only when nothing inside it declares a root.
+    //! `<html>` and `<head>` never are.
+    //!
+    //! Where bytes could be read two ways, html5ever decides: a corpus
+    //! `content` is checked against the children html5ever gives the root.
+    use super::{find_dj_root_content_range, find_root_open, find_root_span};
+    use djust_vdom::{parse_html, parser::parse_html_fragment, VNode};
+    use serde_json::Value;
+
+    /// A node as html5ever built it, without the dj-ids the parse assigns.
+    fn shape(node: &VNode, out: &mut String) {
+        if node.tag == "#text" {
+            out.push_str(&format!("{:?}", node.text.as_deref().unwrap_or("")));
+            return;
+        }
+        let mut attrs: Vec<_> = node.attrs.iter().filter(|(k, _)| *k != "dj-id").collect();
+        attrs.sort();
+        out.push_str(&format!("<{} {attrs:?}>", node.tag));
+        for child in &node.children {
+            shape(child, out);
+        }
+        out.push_str(&format!("</{}>", node.tag));
+    }
+
+    fn shapes(nodes: &[VNode]) -> String {
+        let mut out = String::new();
+        for node in nodes {
+            shape(node, &mut out);
+        }
+        out
+    }
+
+    /// The root's children as html5ever builds the page, and as it builds
+    /// `content` inside an element named like the root: the same when the
+    /// scanner's range is the root's content.
+    fn html5ever_children(html: &str, content: &str) -> (String, String) {
+        let root = parse_html(html).expect("page parses");
+        let inner = parse_html_fragment(content, &root.tag).expect("content parses");
+        (shapes(&root.children), shapes(&inner))
+    }
+
+    const MARK: &str = "data-expect-root";
+
+    fn corpus() -> Vec<Value> {
+        let raw = include_str!("../../../python/tests/fixtures/root_selection_3031.json");
+        let doc: Value = serde_json::from_str(raw).expect("corpus is valid JSON");
+        doc["cases"].as_array().expect("cases").clone()
+    }
+
+    /// Locators the corpus marks as known NOT to reach the expected root on a page.
+    fn diverges(case: &Value, locator: &str) -> bool {
+        case["diverges"]
+            .as_array()
+            .is_some_and(|l| l.iter().any(|v| v == locator))
+    }
+
+    #[test]
+    fn the_text_scanner_picks_the_corpus_root() {
+        for case in corpus() {
+            let name = case["name"].as_str().unwrap();
+            let html = case["html"].as_str().unwrap();
+            let picked = find_root_open(html.as_bytes(), true).map(|r| &html[r.start..r.end]);
+            let expects_root = case["root"].as_bool().unwrap_or(false);
+            let got_expected = if expects_root {
+                picked.is_some_and(|tag| tag.contains(MARK))
+            } else {
+                picked.is_none() && find_dj_root_content_range(html).is_none()
+            };
+            if diverges(&case, "scanner") {
+                // A known leftover that predates #3031, pinned so a change is noticed.
+                assert!(!got_expected, "{name}: now agrees, drop it from `diverges`");
+            } else {
+                assert!(got_expected, "{name}: picked {picked:?}");
+            }
+            if let Some(content) = case.get("content") {
+                let range = find_dj_root_content_range(html);
+                if content.is_null() {
+                    assert!(
+                        range.is_none(),
+                        "{name}: incomplete end token accepted: {range:?}"
+                    );
+                } else {
+                    let (start, end) = range.expect("complete end token");
+                    let content = content.as_str().unwrap();
+                    assert_eq!(&html[start..end], content, "{name}");
+                    let (page, inner) = html5ever_children(html, content);
+                    assert_eq!(
+                        page, inner,
+                        "{name}: html5ever reads the root's content differently"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Tag soup around candidate roots, judged against html5ever: parse
+    /// errors inside a tag (a `<`, a quote or a NUL in a name or an unquoted
+    /// value, a tag or quoted value open at EOF), `{% %}` text, raw text and
+    /// comments, stray end tags and `<body>` tags. The scanner must pick the
+    /// element html5ever roots the VDOM at. Left out, as the corpus pins
+    /// them: other views' containers (tree construction decides where a
+    /// misnested one ends), elements the tree builder closes or moves (`<p>`,
+    /// tables, lists) and the script double-escaped state.
+    #[test]
+    fn the_scanner_picks_html5evers_root_on_tag_soup() {
+        const PIECES: &[&str] = &[
+            "<",
+            ">",
+            "/",
+            "<div",
+            "<div ",
+            "</div>",
+            "<DIV",
+            "=",
+            "\"",
+            "'",
+            " ",
+            "\n",
+            "<!--",
+            "-->",
+            "--!>",
+            "<!-->",
+            "<!doctype html>",
+            "<?x?>",
+            "<style>",
+            "</style>",
+            "<textarea>",
+            "</textarea>",
+            "a",
+            "b=c",
+            "x='<div>'",
+            "y=\"</div>\"",
+            "<span>",
+            "</span>",
+            "</ div>",
+            "</>",
+            "</body>",
+            "</section>",
+            "{% if x %}",
+            "{% else %}",
+            "{% endif %}",
+            "</div >",
+            "<div/>",
+            "\u{e9}",
+            "&lt;",
+            "<body>",
+            "<html>",
+            "<head>",
+            "</head>",
+            "</script x<y>",
+            "<body dj-view #>",
+            "<body dj-root #>",
+            "<section dj-root #>",
+            "<div dj-root #>",
+            "<div dj-view #>",
+            "<span dj-view #>",
+            "<div a<b dj-root #>",
+            "<i x=<y dj-view #>",
+            "<div a\"b dj-root #>",
+            "<div dj-root # t=\"",
+            "<div\0 dj-root #>",
+        ];
+        let mut seed: u64 = 3031;
+        let mut below = |n: usize| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((seed >> 33) % n as u64) as usize
+        };
+        // The id of the candidate tag an element came from: html5ever keeps
+        // the first of duplicate attributes, so read the first one too.
+        let id_in = |tag: &str| {
+            tag.find("data-k=")
+                .map(|at| tag[at + 7..].split(['>', ' ']).next().unwrap().to_string())
+        };
+        for _ in 0..20_000 {
+            let mut html = String::new();
+            for k in 0..below(20) {
+                html.push_str(&PIECES[below(PIECES.len())].replace('#', &format!("data-k={k}")));
+            }
+            let Ok(root) = parse_html(&html) else {
+                continue;
+            };
+            let has = |a: &str| root.attrs.contains_key(a);
+            let html5ever = if !(has("dj-root") || has("dj-view")) {
+                None
+            } else if root.tag == "body" {
+                Some("body".to_string())
+            } else {
+                Some(root.attrs.get("data-k").cloned().unwrap_or_default())
+            };
+            let scanner = find_root_open(html.as_bytes(), true).map(|open| {
+                if open.name == b"body" {
+                    "body".to_string()
+                } else {
+                    id_in(&html[open.start..open.end]).unwrap_or_default()
+                }
+            });
+            assert_eq!(scanner, html5ever, "{html:?}");
+            if let Some(span) = find_root_span(html.as_bytes(), true) {
+                assert!(span.open_start < span.open_end, "{html:?}");
+                if let Some((close_start, close_end)) = span.close {
+                    assert!(
+                        span.open_end <= close_start && close_start < close_end,
+                        "{html:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn textarea_rcdata_cannot_select_or_close_the_body_root() {
+        for (open, close) in [
+            ("<textarea>", "</textarea>"),
+            ("<TEXTAREA data-note='>'>", "</TeXtArEa >"),
+            ("<textarea/>", "</textarea>"),
+        ] {
+            let html = format!(
+                "<body dj-root>{open}<section dj-root>fake</section></body></textareax>{close}<main>real</main></body>"
+            );
+            let (start, end) = find_dj_root_content_range(&html).expect("body root");
+            assert_eq!(
+                &html[start..end],
+                &html["<body dj-root>".len()..html.len() - "</body>".len()]
+            );
+        }
+        let html = "<body dj-root><textarea dj-root>literal <textarea> text</textarea></body>";
+        let (start, end) = find_dj_root_content_range(html).expect("textarea itself is a root");
+        assert_eq!(&html[start..end], "literal <textarea> text");
+        let html = "<body dj-root><textarea><section dj-root>fake</section>";
+        assert_eq!(
+            find_root_open(html.as_bytes(), true)
+                .expect("body fallback")
+                .name,
+            b"body"
+        );
+    }
+
+    #[test]
+    fn the_vdom_picks_the_corpus_root() {
+        for case in corpus() {
+            let name = case["name"].as_str().unwrap();
+            let html = case["html"].as_str().unwrap();
+            if html.is_empty() {
+                continue;
+            }
+            let root = parse_html(html).unwrap_or_else(|e| panic!("{name}: {e}"));
+            if case["root"].as_bool().unwrap_or(false) {
+                assert!(
+                    root.attrs.contains_key(MARK),
+                    "{name}: rooted at <{}> {:?}",
+                    root.tag,
+                    root.attrs
+                );
+            } else {
+                // No root: the documented fallback, the first element child of <body>.
+                assert!(!root.attrs.contains_key(MARK), "{name}");
+                assert_eq!(
+                    root.tag,
+                    case["vdom_fallback_tag"].as_str().unwrap(),
+                    "{name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_scanner_range_and_the_vdom_cover_the_same_element() {
+        // The text fast path pairs the scanner's byte range with the VDOM's
+        // text nodes one to one; both must be about the same element.
+        let html = "<nav dj-view=\"a.B\">NAV</nav><main dj-root>MAIN</main>";
+        let (from, to) = find_dj_root_content_range(html).unwrap();
+        assert_eq!(&html[from..to], "MAIN");
+        let root = parse_html(html).unwrap();
+        assert_eq!(root.tag, "main");
+        assert_eq!(root.children[0].text.as_deref(), Some("MAIN"));
+
+        let page = "<div dj-view=\"p.P\">P<div dj-view data-djust-embedded=\"c\"><div dj-root>C</div></div>Q</div>";
+        let (from, to) = find_dj_root_content_range(page).unwrap();
+        assert!(page[from..to].starts_with("P<div dj-view data-djust-embedded"));
+        assert_eq!(
+            parse_html(page).unwrap().attrs.get("dj-view").unwrap(),
+            "p.P"
+        );
+    }
+
+    #[test]
+    fn a_page_that_is_only_embedded_children_has_no_root() {
+        let html = "<p>x</p><div dj-view data-djust-embedded=\"c\"><div dj-root>C</div></div>";
+        assert_eq!(find_root_open(html.as_bytes(), true), None);
+        assert_eq!(find_dj_root_content_range(html), None);
+    }
+
+    #[test]
+    fn many_embedded_children_scan_in_linear_time() {
+        let mut html = String::from("<div dj-view=\"p.P\">");
+        for i in 0..4000 {
+            html.push_str(&format!(
+                "<div dj-view data-djust-embedded=\"c{i}\"><div><div dj-root>c</div></div></div>"
+            ));
+        }
+        html.push_str("</div>");
+        let started = std::time::Instant::now();
+        let open = find_root_open(html.as_bytes(), true).unwrap();
+        assert_eq!(open.end, "<div dj-view=\"p.P\">".len());
+        assert!(started.elapsed().as_secs() < 2);
+    }
+}
+
+#[cfg(test)]
 mod dj_root_content_range_2663 {
     //! `find_dj_root_content_range` must treat `<script>`/`<style>` bodies
     //! and HTML comments as raw text (#2663). Before the fix, a JavaScript
@@ -5677,6 +7904,93 @@ mod dj_root_content_range_2663 {
 
     fn inner(html: &str) -> Option<&str> {
         find_dj_root_content_range(html).map(|(s, e)| &html[s..e])
+    }
+
+    #[test]
+    fn end_tag_attributes_and_self_closing_flag_3054() {
+        for closing in ["</main ignored='>'>", "</main/>"] {
+            let html = format!("<main dj-root>real{closing}<footer>tail</footer>");
+            let root = djust_vdom::parse_html(&html).unwrap();
+            assert_eq!(root.tag, "main");
+            assert_eq!(root.children.len(), 1);
+            assert_eq!(inner(&html), Some("real"));
+        }
+    }
+
+    #[test]
+    fn html_whitespace_and_comment_error_recovery_3054() {
+        for prefix in [
+            "<script\x0c>\"<div dj-root>fake</div>\"</script>",
+            "<style\x0c>\"<div dj-root>fake</div>\"</style>",
+            "<div\x0bdj-root>fake</div>",
+            "<div\u{00a0}dj-root>fake</div>",
+            "<div a\x0bdj-root>fake</div>",
+            "<div a\u{00a0}dj-root>fake</div>",
+            "<!-->",
+            "<!--->",
+            "<!--x--!>",
+        ] {
+            let html = format!("{prefix}<main dj-root>real</main>");
+            let root = djust_vdom::parse_html(&html).unwrap();
+            assert_eq!(root.tag, "main", "{html:?}");
+            assert!(root.attrs.contains_key("dj-root"));
+            assert_eq!(inner(&html), Some("real"), "{html:?}");
+        }
+    }
+
+    #[test]
+    fn malformed_attribute_and_comment_recovery_3054() {
+        // parse_html uses the production html5ever tokenizer, independently
+        // checking which tag actually owns the marker after error recovery.
+        for (html, tag, expected) in [
+            (
+                "<div a=b\"<section dj-root>\">inside</div><main dj-root>later</main>",
+                "div",
+                "\">inside",
+            ),
+            (
+                "<?x \"<div dj-root>\" ?><main dj-root>real</main>",
+                "main",
+                "real",
+            ),
+            (
+                "<!bogus \"<div dj-root>\"><main dj-root>real</main>",
+                "main",
+                "real",
+            ),
+        ] {
+            let root = djust_vdom::parse_html(html).unwrap();
+            assert_eq!(root.tag, tag);
+            assert!(root.attrs.contains_key("dj-root"));
+            assert_eq!(inner(html), Some(expected));
+        }
+    }
+
+    #[test]
+    fn unfinished_tokens_do_not_emit_roots_3054() {
+        for html in [
+            "<p title=\"never><main dj-root>phantom</main>",
+            "<p a=never<main dj-root",
+        ] {
+            assert_eq!(inner(html), None);
+            assert!(!djust_vdom::parse_html(html)
+                .unwrap()
+                .attrs
+                .contains_key("dj-root"));
+        }
+    }
+
+    #[test]
+    fn close_walk_obeys_attribute_and_bogus_comment_states_3054() {
+        for body in [
+            "<p title=\"> </main> phantom\">real</p>",
+            "<?bogus </main> tail?>real",
+            "<!bogus </main> tail>real",
+        ] {
+            let html = format!("<main dj-root>{body}</main><footer>end</footer>");
+            assert_eq!(inner(&html), Some(body));
+            assert_eq!(djust_vdom::parse_html(&html).unwrap().tag, "main");
+        }
     }
 
     #[test]
@@ -5794,8 +8108,21 @@ mod dj_root_content_range_2663 {
     }
 
     #[test]
-    fn root_on_body_is_not_selected() {
-        assert_eq!(inner("<body dj-root><p>a</p></body>"), None);
+    fn root_on_body_is_selected_3302() {
+        assert_eq!(inner("<body dj-root><p>a</p></body>"), Some("<p>a</p>"));
+        assert_eq!(
+            inner("<body dj-view=\"a.B\"><p>a</p></body>"),
+            Some("<p>a</p>")
+        );
+    }
+
+    #[test]
+    fn root_on_html_or_head_is_not_selected() {
+        assert_eq!(inner("<html dj-root><body><p>a</p></body></html>"), None);
+        assert_eq!(
+            inner("<html><head dj-view=\"a.B\"></head><body><p>a</p></body></html>"),
+            None
+        );
     }
 
     #[test]
@@ -5967,7 +8294,7 @@ mod fast_path_flag_tests {
         Python::initialize();
         let mut view = RustLiveViewBackend::new_rust(TEMPLATE.to_string());
         view.update_state_rust(state("v0", 0, 107));
-        view.render_with_diff().expect("initial render");
+        view.render_with_diff_detached().expect("initial render");
         view
     }
 
@@ -5982,7 +8309,7 @@ mod fast_path_flag_tests {
         let mut view = mounted();
         view.update_state_rust(state("v1", 0, 107));
         view.set_changed_keys(vec!["label".to_string()]);
-        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        let (_html, patches, _v) = view.render_with_diff_detached().expect("re-render");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
         // The flag agrees with the pre-#2532 inference the benchmark cross-checks.
         assert_eq!(timing(&view, "diff_ms"), 0.0);
@@ -5998,7 +8325,7 @@ mod fast_path_flag_tests {
         let mut view = mounted();
         view.update_state_rust(state("a & <b>", 0, 107));
         view.set_changed_keys(vec!["label".to_string()]);
-        let (html, patches, _v) = view.render_with_diff().expect("re-render");
+        let (html, patches, _v) = view.render_with_diff_detached().expect("re-render");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
         let patches = patches.expect("patches");
         assert!(
@@ -6014,7 +8341,7 @@ mod fast_path_flag_tests {
         let mut s = HashMap::new();
         s.insert("x".to_string(), Value::String(x.to_string()));
         view.update_state_rust(s);
-        view.render_with_diff().expect("initial render");
+        view.render_with_diff_detached().expect("initial render");
         view
     }
 
@@ -6023,7 +8350,7 @@ mod fast_path_flag_tests {
         s.insert("x".to_string(), Value::String(x.to_string()));
         view.update_state_rust(s);
         view.set_changed_keys(vec!["x".to_string()]);
-        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        let (_html, patches, _v) = view.render_with_diff_detached().expect("re-render");
         patches.expect("patches")
     }
 
@@ -6232,7 +8559,7 @@ mod fast_path_flag_tests {
         for h in [7, 3, 5] {
             view.update_state_rust(state("v0", h, 107));
             view.set_changed_keys(vec!["highlight_id".to_string()]);
-            view.render_with_diff().expect("re-render");
+            view.render_with_diff_detached().expect("re-render");
             assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
             assert!(
                 view.fragment_text_map.is_none(),
@@ -6246,7 +8573,7 @@ mod fast_path_flag_tests {
         let mut view = mounted();
         view.update_state_rust(state("v1", 0, 107));
         view.set_changed_keys(vec!["label".to_string()]);
-        let (html1, patches, _v) = view.render_with_diff().expect("re-render");
+        let (html1, patches, _v) = view.render_with_diff_detached().expect("re-render");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
         assert!(patches.expect("patches").contains("SetText"));
         assert!(html1.contains("v1"));
@@ -6258,7 +8585,7 @@ mod fast_path_flag_tests {
         // A second text change reuses it and still patches the right node.
         view.update_state_rust(state("v2", 0, 107));
         view.set_changed_keys(vec!["label".to_string()]);
-        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        let (_html, patches, _v) = view.render_with_diff_detached().expect("re-render");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
         let patches = patches.expect("patches");
         assert!(patches.contains("\"v2\""), "patches: {patches}");
@@ -6272,21 +8599,21 @@ mod fast_path_flag_tests {
         let mut view = mounted();
         view.update_state_rust(state("v0", 7, 107));
         view.set_changed_keys(vec!["highlight_id".to_string()]);
-        view.render_with_diff().expect("full parse");
+        view.render_with_diff_detached().expect("full parse");
         view.update_state_rust(state("v9", 7, 107));
         view.set_changed_keys(vec!["label".to_string()]);
-        let (_html, fast, _v) = view.render_with_diff().expect("fast path");
+        let (_html, fast, _v) = view.render_with_diff_detached().expect("fast path");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_FRAGMENT);
 
         let mut slow = mounted();
         slow.update_state_rust(state("v0", 7, 107));
         slow.set_changed_keys(vec!["highlight_id".to_string()]);
-        slow.render_with_diff().expect("full parse");
+        slow.render_with_diff_detached().expect("full parse");
         slow.update_state_rust(state("v9", 7, 107));
         slow.set_changed_keys(vec!["label".to_string(), "highlight_id".to_string()]);
         slow.fragment_text_map = None;
         slow.node_html_cache = Vec::new(); // force a full render + diff
-        let (_html, full, _v) = slow.render_with_diff().expect("full diff");
+        let (_html, full, _v) = slow.render_with_diff_detached().expect("full diff");
         let (fast, full) = (fast.expect("patches"), full.expect("patches"));
         let path_of = |p: &str| -> String {
             let v: serde_json::Value = serde_json::from_str(p).expect("json patches");
@@ -6299,12 +8626,67 @@ mod fast_path_flag_tests {
         assert_eq!(path_of(&fast), path_of(&full), "fast: {fast} full: {full}");
     }
 
+    /// ``["label"]`` without the conversion spellings the provenance inventory
+    /// pins (`crates/djust_templates/tests/fixtures/provenance_flatten_sites.txt`
+    /// lists every such line of this file): this is a test fixture, not a flatten site.
+    fn label_changed() -> Vec<String> {
+        ["label"].iter().copied().map(String::from).collect()
+    }
+
+    /// `static_render` (#3626): `release_baseline` drops EVERY structure the last
+    /// render built from the tree, not only the tree. The cached HTML and the
+    /// per-node cache are each about the size of the page, and the two indexes
+    /// are built from the tree; none of them is in the serialized snapshot, so
+    /// only this test sees them go.
+    #[test]
+    fn release_baseline_drops_the_tree_and_every_cache_built_from_it() {
+        let mut view = mounted();
+        view.update_state_rust(state("v1", 0, 107));
+        view.set_changed_keys(label_changed());
+        view.render_with_diff_detached().expect("fast path");
+        view.set_changed_keys(label_changed());
+        // Premises: the render left each of them behind, or the asserts below
+        // would pass on a view that never had them.
+        assert!(view.last_vdom.is_some(), "premise: the tree");
+        assert!(view.last_root_ns.is_some(), "premise: the root namespace");
+        assert!(view.last_html.is_some(), "premise: the cached HTML");
+        assert!(!view.node_html_cache.is_empty(), "premise: the node cache");
+        assert!(
+            view.changed_keys.is_some(),
+            "premise: a pending changed set"
+        );
+        assert!(
+            view.fragment_text_map.is_some(),
+            "premise: the fragment map"
+        );
+        assert!(view.text_node_index.is_some(), "premise: the text index");
+        let version = view.version;
+
+        view.release_baseline();
+
+        assert!(view.last_vdom.is_none(), "the tree");
+        assert!(view.last_root_ns.is_none(), "the root namespace");
+        assert!(view.last_html.is_none(), "the cached HTML");
+        assert!(view.node_html_cache.is_empty(), "the node cache");
+        assert!(view.changed_keys.is_none(), "the pending changed set");
+        assert!(view.fragment_text_map.is_none(), "the fragment map");
+        assert!(view.text_node_index.is_none(), "the text index");
+        assert_eq!(view.version, version, "the version counter is kept");
+
+        // Nothing to diff against: the next render is full and keeps counting.
+        view.update_state_rust(state("v2", 0, 107));
+        let (html, patches, next) = view.render_with_diff_detached().expect("re-render");
+        assert!(html.contains("v2"), "html: {html}");
+        assert!(patches.is_none(), "a released view has no tree to diff");
+        assert_eq!(next, version + 1);
+    }
+
     #[test]
     fn attribute_change_takes_the_full_parse_and_diff() {
         let mut view = mounted();
         view.update_state_rust(state("v0", 7, 107));
         view.set_changed_keys(vec!["highlight_id".to_string()]);
-        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        let (_html, patches, _v) = view.render_with_diff_detached().expect("re-render");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_NONE);
         let patches = patches.expect("a diff render returns patches");
         assert!(patches.contains("SetAttr"), "patches: {patches}");
@@ -6318,7 +8700,7 @@ mod fast_path_flag_tests {
         let mut view = mounted();
         view.update_state_rust(state("v0", 0, 108));
         view.set_changed_keys(vec!["rows".to_string()]);
-        let (_html, patches, _v) = view.render_with_diff().expect("re-render");
+        let (_html, patches, _v) = view.render_with_diff_detached().expect("re-render");
         assert_eq!(timing(&view, "fast_path"), FAST_PATH_TEXT_REGION);
         assert_eq!(timing(&view, "diff_ms"), 0.0);
         let patches = patches.expect("a diff render returns patches");
@@ -6440,7 +8822,7 @@ mod retain_state_keys_rust_2592 {
         Python::initialize();
         let mut view = RustLiveViewBackend::new_rust(TEMPLATE.to_string());
         view.update_state_rust(state(0, true));
-        let (html, _, _) = view.render_with_diff().expect("initial render");
+        let (html, _, _) = view.render_with_diff_detached().expect("initial render");
         assert!(html.contains(SECRET), "premise: {html:?}");
         view
     }
@@ -6452,7 +8834,7 @@ mod retain_state_keys_rust_2592 {
         let removed = view.retain_state_keys_rust(vec!["n".to_string()]);
         assert_eq!(removed, vec!["secret".to_string()]);
         view.update_state_rust(state(1, false));
-        let (html, patches, _) = view.render_with_diff().expect("re-render");
+        let (html, patches, _) = view.render_with_diff_detached().expect("re-render");
         assert!(
             html.contains(">1</span>"),
             "premise: the other change rendered: {html:?}"
@@ -6479,7 +8861,7 @@ mod retain_state_keys_rust_2592 {
             "a changed set was created from nothing"
         );
         view.update_state_rust(state(1, false));
-        let (html, _, _) = view.render_with_diff().expect("re-render");
+        let (html, _, _) = view.render_with_diff_detached().expect("re-render");
         assert!(
             html.contains(">1</span>"),
             "the changed key was served stale: {html:?}"
@@ -6718,5 +9100,169 @@ mod state_is_shared_not_copied_2737 {
             "a round-tripped view aliases the original's state map"
         );
         assert!(matches!(clone.state.get("rows"), Some(Value::List(_))));
+    }
+}
+
+#[cfg(test)]
+mod render_with_diff_detaches_3074 {
+    //! `RustLiveView.render_with_diff` renders with the thread detached from
+    //! the interpreter (#3074), so another thread can take the GIL while a
+    //! render runs. Run with `cargo test -p djust_live --no-default-features`.
+    use super::RustLiveViewBackend;
+    use djust_core::Value;
+    use pyo3::prelude::*;
+    use std::collections::HashMap;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    const TEMPLATE: &str =
+        "<div dj-root><ul>{% for r in rows %}<li class=\"row\">{{ r }}</li>{% endfor %}</ul></div>";
+
+    fn view(n: usize) -> RustLiveViewBackend {
+        let mut view = RustLiveViewBackend::new_rust(TEMPLATE.to_string());
+        let mut s = HashMap::new();
+        s.insert(
+            "rows".to_string(),
+            Value::List((0..n).map(|i| Value::String(format!("row {i}"))).collect()),
+        );
+        view.update_state_rust(s);
+        view
+    }
+
+    /// While one thread is inside `render_with_diff`, a second thread that
+    /// was already waiting for the GIL gets it — before the render returns.
+    /// On a GIL build without the detach, the waiter only runs after the
+    /// render (and this thread's whole `attach` scope) ends, so it would see
+    /// `rendered == true`. On a free-threaded build the waiter never blocks,
+    /// and the assertion holds trivially.
+    #[test]
+    fn a_waiting_thread_attaches_while_the_render_runs() {
+        Python::initialize();
+        let mut view = view(5_000);
+        let rendered = Arc::new(AtomicBool::new(false));
+        Python::attach(|py| {
+            let flag = Arc::clone(&rendered);
+            let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+            let waiter = std::thread::spawn(move || {
+                ready_tx.send(()).expect("signal");
+                Python::attach(|_py| flag.load(Ordering::SeqCst))
+            });
+            // The waiter is running and about to wait for the GIL. Hold it a
+            // while longer so the waiter blocks on it and, on CPython, posts
+            // its drop request (after 5 ms), which makes the next release
+            // hand the GIL over instead of racing for it.
+            ready_rx.recv().expect("waiter started");
+            std::thread::sleep(Duration::from_millis(100));
+            let (html, _patches, _version) = view.render_with_diff(py).expect("render");
+            rendered.store(true, Ordering::SeqCst);
+            assert!(html.contains("row 4999"));
+            let saw_rendered = py.detach(|| waiter.join().expect("waiter thread"));
+            assert!(
+                !saw_rendered,
+                "the waiting thread only got the GIL after render_with_diff returned: \
+                 the render did not detach"
+            );
+        });
+    }
+
+    /// The detached entry point renders exactly what the body renders when
+    /// called directly: same html, same patches, same version sequence.
+    #[test]
+    fn detached_render_matches_the_direct_body() {
+        Python::initialize();
+        let mut a = view(50);
+        let mut b = view(50);
+        let first_a = Python::attach(|py| a.render_with_diff(py)).expect("render a");
+        let first_b = b.render_with_diff_detached().expect("render b");
+        assert_eq!(first_a, first_b);
+        let mut s = HashMap::new();
+        s.insert(
+            "rows".to_string(),
+            Value::List((0..51).map(|i| Value::String(format!("row {i}"))).collect()),
+        );
+        a.update_state_rust(s.clone());
+        b.update_state_rust(s);
+        let second_a = Python::attach(|py| a.render_with_diff(py)).expect("re-render a");
+        let second_b = b.render_with_diff_detached().expect("re-render b");
+        // New nodes take ids from a process-wide counter, so the two views'
+        // inserted `<li>` differ only in its `dj-id`: compare the rest.
+        assert_eq!(second_a.2, second_b.2, "same wire version");
+        let (pa, pb) = (
+            second_a.1.expect("patches a"),
+            second_b.1.expect("patches b"),
+        );
+        for p in [&pa, &pb] {
+            assert_eq!(p.matches("\"type\":").count(), 1, "one patch: {p}");
+            assert!(p.contains("InsertChild") && p.contains("row 50"), "{p}");
+        }
+        assert!(second_a.0.ends_with("row 50</li></ul></div>"));
+        assert!(second_b.0.ends_with("row 50</li></ul></div>"));
+    }
+}
+
+#[cfg(test)]
+mod lazy_selector_keys_3428 {
+    use super::*;
+
+    #[test]
+    fn selectors_preserve_numeric_paths_and_whole_variable_uses() {
+        let mut keys = std::collections::HashSet::new();
+        watch_lazy_selector("choices.0|default:choices", &mut keys).unwrap();
+        watch_lazy_selector("cfg.target|default:fallback", &mut keys).unwrap();
+        watch_lazy_selector("'literal.html'|default:other", &mut keys).unwrap();
+        assert_eq!(
+            keys,
+            ["choices.0", "choices", "cfg.target", "fallback", "other"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        );
+    }
+
+    #[test]
+    fn dynamic_plan_and_memo_ignore_unconsumed_rows_binding() {
+        let dir = std::env::temp_dir().join(format!("djust-3428-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(dir.join("plain.html"), "plain").unwrap();
+        let source = "{% include tpl with rows=rows %}";
+        let mut context = Context::new();
+        context.set("tpl".into(), Value::String("plain.html".into()));
+        context.set("rows".into(), Value::List(vec![Value::Integer(1); 5000]));
+        let mut walk = LazyPlanWalk::default();
+        let mut selectors = std::collections::HashSet::new();
+        assert!(!needs_lazy_tree_walk(
+            source,
+            std::slice::from_ref(&dir),
+            &context,
+            0,
+            None,
+            false,
+            LazyPlanVisit {
+                walk: &mut walk,
+                selectors: &mut selectors
+            }
+        )
+        .unwrap());
+        assert_eq!(selectors, ["tpl".to_owned()].into_iter().collect());
+        let memo = &walk.memo[&(source.to_owned(), 0)][0];
+        assert_eq!(memo.keys, vec!["tpl"]);
+        let saved = memo.context.clone();
+        context.set("rows".into(), Value::List(vec![Value::Integer(2); 5000]));
+        assert_eq!(saved, lazy_selector_context(&context, &memo.keys));
+        assert!(
+            !needs_lazy_tree(source, std::slice::from_ref(&dir), &context, 0, None, false).unwrap()
+        );
+        let key = (
+            djust_templates::registry_scope::current(),
+            source.to_owned(),
+            vec![dir.clone()],
+            false,
+        );
+        let plan = LAZY_TREE_PLANS.get(&key).unwrap();
+        assert_eq!(plan.context.as_ref().unwrap().0, vec!["tpl"]);
+        drop(plan);
+        LAZY_TREE_PLANS.remove(&key);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

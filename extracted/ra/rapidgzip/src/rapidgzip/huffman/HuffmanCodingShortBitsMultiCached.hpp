@@ -36,9 +36,11 @@ public:
 
     struct CacheEntry
     {
-        bool needToReadDistanceBits : 1;
-        uint8_t bitsToSkip : 6;  // ceil(log2 2*MAX_CODE_LENGTH(20)) = 6 bits would suffice
-        uint8_t symbolCount : 2;
+        /* Using one underlying type for all bitfields is important for MinGW, which otherwise starts a new
+         * storage unit for the uint32_t field and makes the structure eight bytes large. */
+        uint32_t needToReadDistanceBits : 1;
+        uint32_t bitsToSkip : 6;  // ceil(log2 2*MAX_CODE_LENGTH(20)) = 6 bits would suffice
+        uint32_t symbolCount : 2;
         /**
          * Contains one 8-9-bit symbol in the lower bits and one 8-9 bit symbol in the higher bits only if
          * the first symbol is an 8-bit literal.
@@ -132,6 +134,12 @@ public:
     [[nodiscard]] forceinline Symbols
     decode( BitReader& bitReader ) const
     {
+        /* An all-zero alphabet has no symbols and m_lutBitsCount is zero in that case. Peeking zero bits would
+         * assert in the BitReader. */
+        if ( UNLIKELY( this->m_maxCodeLength == 0 ) ) [[unlikely]] {
+            return { 0, 0 };
+        }
+
         try {
             const auto& cacheEntry = m_codeCache[bitReader.peek( m_lutBitsCount )];
             if ( cacheEntry.bitsToSkip == 0 ) {
@@ -144,7 +152,7 @@ public:
                 : cacheEntry.symbols,
                 cacheEntry.symbolCount
             };
-        } catch ( const typename BitReader::EndOfFileReached& ) {
+        } catch ( const EndOfFileReached& ) {
             /* Should only happen at the end of the file and probably not even there
              * because the bzip2 footer (EOS block) should be longer than the peek length. */
             const auto result = BaseType::decode( bitReader );

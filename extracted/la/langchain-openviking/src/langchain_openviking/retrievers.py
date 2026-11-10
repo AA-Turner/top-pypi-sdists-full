@@ -70,11 +70,11 @@ class OpenVikingRetriever(BaseRetriever):
     async_client: Any = None
     url: str | None = None
     api_key: str | None = None
+    auth_mode: str | None = None
     account: str | None = None
     user: str | None = None
     user_id: str | None = None
     actor_peer_id: str | None = None
-    path: str | None = None
     timeout: float = 60.0
     extra_headers: dict[str, str] | None = None
     auto_initialize: bool = True
@@ -128,11 +128,11 @@ class OpenVikingRetriever(BaseRetriever):
                     client=self.client,
                     url=self.url,
                     api_key=self.api_key,
+                    auth_mode=self.auth_mode,
                     account=self.account,
                     user=self.user,
                     user_id=self.user_id,
                     actor_peer_id=self.actor_peer_id,
-                    path=self.path,
                     timeout=self.timeout,
                     extra_headers=self.extra_headers,
                     auto_initialize=self.auto_initialize,
@@ -149,8 +149,6 @@ class OpenVikingRetriever(BaseRetriever):
         whose method calls support recovery. Direct attributes on that handle
         are best-effort during recovery; use ``await handle.get()`` only to read
         raw properties immediately because recovery may replace that snapshot.
-        Embedded ``path=`` connections return an adapter-owned synchronous
-        client whose calls are dispatched through a worker thread.
         """
 
         self._raise_if_closed()
@@ -160,17 +158,16 @@ class OpenVikingRetriever(BaseRetriever):
                 async_client=self.async_client,
                 url=self.url,
                 api_key=self.api_key,
+                auth_mode=self.auth_mode,
                 account=self.account,
                 user=self.user,
                 user_id=self.user_id,
                 actor_peer_id=self.actor_peer_id,
-                path=self.path,
                 timeout=self.timeout,
                 extra_headers=self.extra_headers,
                 auto_initialize=self.auto_initialize,
             ),
             client_cache=self._async_clients,
-            embedded_client_factory=self._get_client,
         )
         self._raise_if_closed()
         return client
@@ -204,7 +201,7 @@ class OpenVikingRetriever(BaseRetriever):
             method,
             query=query,
             target_uri=self.target_uri,
-            session_id=self.session_id,
+            session_id=self.session_id if method == "search" else None,
             limit=self.limit,
             score_threshold=self.score_threshold,
             filter=self.filter,
@@ -224,7 +221,7 @@ class OpenVikingRetriever(BaseRetriever):
             method,
             query=query,
             target_uri=self.target_uri,
-            session_id=self.session_id,
+            session_id=self.session_id if method == "search" else None,
             limit=self.limit,
             score_threshold=self.score_threshold,
             filter=self.filter,

@@ -1,24 +1,33 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from office365.entity import Entity
+from office365.permissions import require_permission
 from office365.runtime.converters.scalars import iso_z, parse_datetime
-from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.limits import limit
+from office365.runtime.odata.json_format import JsonProfile
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
+from office365.subscriptions.quotas import SUBSCRIPTION_CHANGES, SUBSCRIPTION_READ, SUBSCRIPTION_REAUTHORIZE
 
 
+@limit(*(SUBSCRIPTION_CHANGES + SUBSCRIPTION_REAUTHORIZE + SUBSCRIPTION_READ))
 class Subscription(Entity):
     """A subscription allows a client app to receive change notifications about changes to data in Microsoft Graph"""
 
+    @require_permission(
+        delegated=["Subscription.Read.All"],
+        notes="Renewal uses the watched resource's app-only grant, not a subscription permission.",
+    )
     def reauthorize(self):
         """Reauthorize a subscription when you receive a reauthorizationRequired challenge."""
         qry = ServiceOperationQuery(self, "reauthorize")
         self.context.add_query(qry)
         return self
 
+    @odata(name="applicationId")
     @property
     def application_id(self) -> Optional[str]:
         """
@@ -26,6 +35,7 @@ class Subscription(Entity):
         """
         return self.properties.get("applicationId", None)
 
+    @odata(name="changeType")
     @property
     def change_type(self) -> Optional[str]:
         """
@@ -41,6 +51,7 @@ class Subscription(Entity):
         """
         return self.properties.get("changeType", None)
 
+    @odata(name="clientState")
     @property
     def client_state(self) -> Optional[str]:
         """
@@ -51,6 +62,7 @@ class Subscription(Entity):
         """
         return self.properties.get("clientState", None)
 
+    @odata(name="creatorId")
     @property
     def creator_id(self) -> Optional[str]:
         """
@@ -61,6 +73,7 @@ class Subscription(Entity):
         """
         return self.properties.get("creatorId", None)
 
+    @odata(name="encryptionCertificate")
     @property
     def encryption_certificate(self) -> Optional[str]:
         """
@@ -69,6 +82,7 @@ class Subscription(Entity):
         """
         return self.properties.get("encryptionCertificate", None)
 
+    @odata(name="encryptionCertificateId")
     @property
     def encryption_certificate_id(self) -> Optional[str]:
         """
@@ -90,14 +104,14 @@ class Subscription(Entity):
         """Set the subscription expiry."""
         self.set_property("expirationDateTime", value)
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any] | List[Any]:
+    def to_json(self, profile: Optional[JsonProfile] = None) -> Dict[str, Any]:  # type: ignore[override]
         """Serialize the subscription, emitting ``expirationDateTime`` as UTC ``Z``.
 
         Microsoft Graph subscriptions expect a UTC timestamp ending in ``Z``;
         the generic datetime serializer would otherwise emit a numeric offset
         (``+00:00``), which some endpoints reject.
         """
-        payload = super().to_json(json_format)
+        payload = super().to_json(profile)
         if isinstance(payload, dict):
             expiration = payload.get("expirationDateTime")
             if isinstance(expiration, datetime):
@@ -108,6 +122,7 @@ class Subscription(Entity):
                     payload["expirationDateTime"] = iso_z(parsed)
         return payload
 
+    @odata(name="includeResourceData")
     @property
     def include_resource_data(self) -> Optional[bool]:
         """
@@ -115,6 +130,7 @@ class Subscription(Entity):
         """
         return self.properties.get("includeResourceData", None)
 
+    @odata(name="latestSupportedTlsVersion")
     @property
     def latest_supported_tls_version(self) -> Optional[str]:
         """
@@ -131,6 +147,7 @@ class Subscription(Entity):
         """
         return self.properties.get("latestSupportedTlsVersion", None)
 
+    @odata(name="lifecycleNotificationUrl")
     @property
     def lifecycle_notification_url(self) -> Optional[str]:
         """
@@ -141,6 +158,7 @@ class Subscription(Entity):
         """
         return self.properties.get("lifecycleNotificationUrl", None)
 
+    @odata(name="notificationUrl")
     @property
     def notification_url(self) -> Optional[str]:
         """
@@ -150,6 +168,7 @@ class Subscription(Entity):
         """
         return self.properties.get("notificationUrl", None)
 
+    @odata(name="resource")
     @property
     def resource(self) -> Optional[str]:
         """
@@ -159,26 +178,31 @@ class Subscription(Entity):
         """
         return self.properties.get("resource", None)
 
+    @odata(name="notificationQueryOptions")
     @property
     def notification_query_options(self) -> Optional[str]:
         """Gets the notificationQueryOptions property"""
         return self.properties.get("notificationQueryOptions", None)
 
+    @odata(name="notificationUrlAppId")
     @property
     def notification_url_app_id(self) -> Optional[str]:
         """Gets the notificationUrlAppId property"""
         return self.properties.get("notificationUrlAppId", None)
 
+    @odata(name="vapidPublicKey")
     @property
     def vapid_public_key(self) -> Optional[str]:
         """Gets the vapidPublicKey property"""
         return self.properties.get("vapidPublicKey", None)
 
+    @odata(name="webPushEncryptionP256dhPublicKey")
     @property
     def web_push_encryption_p256dh_public_key(self) -> Optional[str]:
         """Gets the webPushEncryptionP256dhPublicKey property"""
         return self.properties.get("webPushEncryptionP256dhPublicKey", None)
 
+    @odata(name="webPushEncryptionSecret")
     @property
     def web_push_encryption_secret(self) -> Optional[str]:
         """Gets the webPushEncryptionSecret property"""

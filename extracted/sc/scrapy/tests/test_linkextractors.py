@@ -4,6 +4,7 @@ import pickle
 import re
 from typing import Any
 
+import pytest
 from w3lib.url import canonicalize_url
 
 from scrapy.http import HtmlResponse, TextResponse, XmlResponse
@@ -348,6 +349,22 @@ class TestLxmlLinkExtractor:
             Link(url="http://example.org/photo.jpg"),
         ]
 
+    @pytest.mark.parametrize(
+        ("path", "denied"),
+        [
+            ("/file.tar.gz", True),
+            ("/FILE.TAR.GZ", True),
+            ("/file.gz", False),
+            ("/file.tar.gz/page", False),
+            ("/file", False),
+        ],
+    )
+    def test_ignored_multi_part_extension(self, path: str, denied: bool) -> None:
+        html = f'<a href="{path}">x</a>'.encode()
+        response = HtmlResponse("http://example.org/", body=html)
+        lx = LxmlLinkExtractor(deny_extensions=["tar.gz"])
+        assert (not lx.extract_links(response)) is denied
+
     def test_process_value(self):
         """Test restrict_xpaths with encodings"""
         html = b"""
@@ -666,22 +683,51 @@ class TestLxmlLinkExtractor:
             ),
         ]
 
-    def test_ftp_links(self):
+    @pytest.mark.parametrize(
+        ("response_url", "extra_urls"),
+        [
+            ("http://example.com/index.html", []),
+            ("https://example.com/index.html", []),
+            ("ftp://example.com/index.html", ["ftp://example.com/d"]),
+            ("file:///tmp/index.html", ["file:///etc/passwd"]),
+        ],
+    )
+    def test_default_schemes(self, response_url: str, extra_urls: list[str]) -> None:
         body = b"""
         <html><body>
-        <div><a href="ftp://www.external.com/">An Item</a></div>
+        <a href="http://example.com/a">a</a>
+        <a href="https://example.com/b">b</a>
+        <a href="file:///etc/passwd">c</a>
+        <a href="ftp://example.com/d">d</a>
+        <a href="s3://bucket/e">e</a>
+        <a href="data:text/plain,f">f</a>
         </body></html>"""
-        response = HtmlResponse(
-            "http://www.example.com/index.html", body=body, encoding="utf8"
-        )
-        lx = LxmlLinkExtractor()
+        response = HtmlResponse(response_url, body=body)
+        assert [link.url for link in LxmlLinkExtractor().extract_links(response)] == [
+            "http://example.com/a",
+            "https://example.com/b",
+            *extra_urls,
+        ]
+
+    def test_schemes(self):
+        body = b"""
+        <html><body>
+        <a href="page.html">Page</a>
+        <a href="data:text/plain,Data">Data</a>
+        <a href="mailto:someone@example.com">Mail</a>
+        </body></html>"""
+        response = HtmlResponse("http://www.example.com/index.html", body=body)
+
+        lx = LxmlLinkExtractor(schemes="mailto")
         assert lx.extract_links(response) == [
-            Link(
-                url="ftp://www.external.com/",
-                text="An Item",
-                fragment="",
-                nofollow=False,
-            ),
+            Link(url="mailto:someone@example.com", text="Mail"),
+        ]
+
+        lx = LxmlLinkExtractor(schemes=())
+        assert lx.extract_links(response) == [
+            Link(url="http://www.example.com/page.html", text="Page"),
+            Link(url="data:text/plain,Data", text="Data"),
+            Link(url="mailto:someone@example.com", text="Mail"),
         ]
 
     def test_pickle_extractor(self):
@@ -867,15 +913,15 @@ class TestLxmlLinkExtractor:
 
     def test_link_allowed_is_false_with_empty_url(self):
         bad_link = Link("")
-        assert not LxmlLinkExtractor()._link_allowed(bad_link)
+        assert not LxmlLinkExtractor()._link_allowed(bad_link, {"http", "https"})
 
     def test_link_allowed_is_false_with_bad_url_prefix(self):
         bad_link = Link("htp://should_be_http.example")
-        assert not LxmlLinkExtractor()._link_allowed(bad_link)
+        assert not LxmlLinkExtractor()._link_allowed(bad_link, {"http", "https"})
 
     def test_link_allowed_is_false_with_missing_url_prefix(self):
         bad_link = Link("should_have_prefix.example")
-        assert not LxmlLinkExtractor()._link_allowed(bad_link)
+        assert not LxmlLinkExtractor()._link_allowed(bad_link, {"http", "https"})
 
 
 class TestLxmlParserLinkExtractor:

@@ -97,7 +97,32 @@ class OpenAIEncoder(DenseEncoder):
         if name in model_configs:
             self.token_limit = model_configs[name].token_limit
         # get token encoder
-        self._token_encoder = tiktoken.encoding_for_model(name)
+        # models served through openai_base_url may not be known to tiktoken
+        try:
+            self._token_encoder = tiktoken.encoding_for_model(name)
+        except KeyError:
+            self._token_encoder = tiktoken.get_encoding("cl100k_base")
+
+    def _validate_docs(self, docs: List[str]) -> None:
+        """Raise a clear error for input the embeddings API rejects with a 400.
+        Checked before the call, since a 400 is an OpenAIError and gets retried."""
+        if isinstance(docs, str):
+            raise ValueError("OpenAI encoder input must be a list of strings, got str.")
+        if len(docs) == 0:
+            raise ValueError("OpenAI encoder input cannot be empty.")
+
+        for idx, doc in enumerate(docs):
+            if not isinstance(doc, str):
+                raise ValueError(
+                    "OpenAI encoder input must contain only strings, got "
+                    f"{type(doc).__name__} at index {idx}."
+                )
+            # the API accepts whitespace-only strings, so only "" is rejected, and
+            # docs are sent unchanged: stripping would change their embeddings
+            if doc == "":
+                raise ValueError(
+                    f"OpenAI encoder input contains an empty string at index {idx}."
+                )
 
     def __call__(self, docs: List[str], truncate: bool = True) -> List[List[float]]:
         """Encode a list of text documents into embeddings using OpenAI API.
@@ -110,6 +135,8 @@ class OpenAIEncoder(DenseEncoder):
         if self._client is None:
             raise ValueError("OpenAI client is not initialized.")
         embeds = None
+
+        self._validate_docs(docs)
 
         if truncate:
             # check if any document exceeds token limit and truncate if so
@@ -182,6 +209,8 @@ class OpenAIEncoder(DenseEncoder):
         if self._async_client is None:
             raise ValueError("OpenAI async client is not initialized.")
         embeds = None
+
+        self._validate_docs(docs)
 
         if truncate:
             # check if any document exceeds token limit and truncate if so

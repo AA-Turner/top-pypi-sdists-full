@@ -68,7 +68,7 @@ def sync_detailed(
     Users whose accounts already agree are adopted without input. A user whose accounts disagree must be
     given a surviving username in 'resolutions', keyed by user UUID — see the 'username_conflicts'
     action. The call is refused while any conflict is unresolved, rather than adopting part of the
-    provider and leaving the rest on the old per-offering behaviour.
+    provider and leaving the rest on the old per-offering behavior.
 
     Args:
         uuid (UUID):
@@ -108,7 +108,7 @@ def sync(
     Users whose accounts already agree are adopted without input. A user whose accounts disagree must be
     given a surviving username in 'resolutions', keyed by user UUID — see the 'username_conflicts'
     action. The call is refused while any conflict is unresolved, rather than adopting part of the
-    provider and leaving the rest on the old per-offering behaviour.
+    provider and leaving the rest on the old per-offering behavior.
 
     Args:
         uuid (UUID):
@@ -143,7 +143,7 @@ async def asyncio_detailed(
     Users whose accounts already agree are adopted without input. A user whose accounts disagree must be
     given a surviving username in 'resolutions', keyed by user UUID — see the 'username_conflicts'
     action. The call is refused while any conflict is unresolved, rather than adopting part of the
-    provider and leaving the rest on the old per-offering behaviour.
+    provider and leaving the rest on the old per-offering behavior.
 
     Args:
         uuid (UUID):
@@ -181,7 +181,7 @@ async def asyncio(
     Users whose accounts already agree are adopted without input. A user whose accounts disagree must be
     given a surviving username in 'resolutions', keyed by user UUID — see the 'username_conflicts'
     action. The call is refused while any conflict is unresolved, rather than adopting part of the
-    provider and leaving the rest on the old per-offering behaviour.
+    provider and leaving the rest on the old per-offering behavior.
 
     Args:
         uuid (UUID):

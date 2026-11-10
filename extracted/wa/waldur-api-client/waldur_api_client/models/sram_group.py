@@ -19,7 +19,7 @@ class SramGroup:
         uuid (UUID):
         external_id (str):
         display_name (str):
-        urn (str): SRAM global URN: '<organisation>:<co>' or '<organisation>:<co>:<group>'.
+        urn (str): SRAM global URN: '<organization>:<co>' or '<organization>:<co>:<group>'.
         kind (SramGroupKindEnum):
         description (str):
         labels (list[str]):

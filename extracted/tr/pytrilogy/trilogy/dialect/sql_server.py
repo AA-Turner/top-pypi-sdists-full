@@ -11,13 +11,34 @@ from trilogy.core.statements.execute import (
 from trilogy.dialect.base import (
     BaseDialect,
     TableColumn,
+    render_ln_log,
     render_true_divide,
     render_unsupported,
+)
+from trilogy.dialect.common import (
+    bool_from_text,
+    cast_kind,
+    render_window_substring,
+    text_from_bool,
 )
 from trilogy.utility import string_to_hash
 
 
+def render_contains(args: list[str]) -> str:
+    """CHARINDEX finds no empty needle, so match `%needle%` with the needle's
+    pattern characters escaped; NULL on either side stays NULL."""
+    needle = f"LOWER({args[1]})"
+    for char in ("\\", "%", "_", "["):
+        needle = f"REPLACE({needle}, '{char}', '\\{char}')"
+    return f"(LOWER({args[0]}) LIKE '%' + {needle} + '%' ESCAPE '\\')"
+
+
 def render_cast(args: list[str], types: list) -> str:
+    source, target = cast_kind(types)
+    if source == DataType.BOOL and target == DataType.STRING:
+        return text_from_bool(args[0])
+    if source == DataType.STRING and target == DataType.BOOL:
+        return bool_from_text(args[0], "CAST(1 AS bit)", "CAST(0 AS bit)")
     # a fraction cast to an integer truncates here; other engines round it
     if types[0].data_type in (
         DataType.FLOAT,
@@ -39,13 +60,29 @@ def date_diff(first: str, second: str, part: str) -> str:
 DAY_OF_WEEK = "((DATEPART(weekday, {expr}) + @@DATEFIRST - 2) % 7 + 1) % 7 + 1"
 
 
+# LEN ignores trailing spaces; a marker character keeps them counted
+CHAR_LENGTH = "(LEN({} + 'x') - 1)"
+
+
+def render_strpos(args: list[str]) -> str:
+    # CHARINDEX finds no empty needle, which every other dialect finds at 1
+    return (
+        f"CASE WHEN {args[0]} IS NULL THEN NULL WHEN DATALENGTH({args[1]}) = 0"
+        f" THEN 1 ELSE CHARINDEX({args[1]}, {args[0]}) END"
+    )
+
+
 FUNCTION_MAP = {
+    FunctionType.CONTAINS: lambda x, types: render_contains(x),
+    FunctionType.LENGTH: lambda x, types: CHAR_LENGTH.format(x[0]),
+    FunctionType.SUBSTRING: lambda x, types: render_window_substring(
+        "SUBSTRING", CHAR_LENGTH, x
+    ),
+    FunctionType.STRPOS: lambda x, types: render_strpos(x),
     # POWER returns its first argument's type: POWER(2, -1) is 0
     FunctionType.POWER: lambda x, types: f"POWER(CAST({x[0]} AS FLOAT), {x[1]})",
-    # T-SQL has no `ln`; its two-argument LOG takes the base second
-    FunctionType.LOG: lambda x, types: (
-        f"LOG10({x[0]})" if x[1] in ("10", "10.0") else f"LOG({x[0]}, {x[1]})"
-    ),
+    # T-SQL has no `ln`: a one-argument LOG is the natural log
+    FunctionType.LOG: lambda x, types: render_ln_log("LOG", x),
     FunctionType.CAST: lambda x, types: render_cast(x, types),
     FunctionType.DATE_DIFF: lambda x, types: date_diff(x[0], x[1], x[2]),
     FunctionType.DAY_OF_WEEK: lambda x, types: f"({DAY_OF_WEEK.format(expr=x[0])})",
@@ -71,7 +108,19 @@ class SqlServerDialect(BaseDialect):
         **BaseDialect.FUNCTION_MAP,
         **FUNCTION_MAP,
     }
+    # T-SQL has no `string`, `bool`, `double` or `timestamptz`
+    DATATYPE_MAP: ClassVar[dict[DataType, str]] = {
+        **BaseDialect.DATATYPE_MAP,
+        DataType.STRING: "NVARCHAR(MAX)",
+        DataType.BYTES: "VARBINARY(MAX)",
+        DataType.BOOL: "BIT",
+        DataType.DOUBLE: "FLOAT",
+        DataType.TIMESTAMP: "DATETIMEOFFSET",
+    }
     QUOTE_CHARACTER = '"'
+    ILIKE_AS_LOWER_LIKE = ("LOWER", "LIKE", "NOT ")
+    # T-SQL reads `[...]` in a pattern as a character class
+    LIKE_SPECIAL_CHARACTERS = "["
     LIMIT_STYLE = "TOP"
     RECURSIVE_KEYWORD = ""
     SUPPORTS_AGGREGATE_GROUPING_MODES = True

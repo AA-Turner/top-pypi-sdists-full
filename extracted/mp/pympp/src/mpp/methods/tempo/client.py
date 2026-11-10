@@ -10,7 +10,7 @@ import asyncio
 import math
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, cast
 from mpp import Challenge, Credential
 from mpp._typing import is_dict, is_list
 from mpp.errors import PaymentExpiredError, PaymentOutcomeUnknownError
+from mpp.methods.tempo import _machine_token
 from mpp.methods.tempo._attribution import encode as encode_attribution
 from mpp.methods.tempo._defaults import (
     CHAIN_ID,
@@ -33,10 +34,16 @@ from mpp.methods.tempo._defaults import (
     rpc_url_for_chain,
 )
 from mpp.methods.tempo._rpc import _rpc_call, _tip20_balance, estimate_gas
-from mpp.methods.tempo.fee_payer_policy import MIN_REMAINING_VALIDITY_SECONDS, get_policy
+from mpp.methods.tempo.fee_payer_policy import (
+    MIN_REMAINING_VALIDITY_SECONDS,
+    _get_payer_policy,
+    get_policy,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    import httpx
 
     from mpp.methods.tempo.account import TempoAccount
     from mpp.methods.tempo.schemas import ChargeMode
@@ -86,8 +93,9 @@ class InsufficientFundsError(TransactionError):
         self.currency = currency
 
 
-# Fallback currencies an auto-swap pays from, in priority order.
-AUTO_SWAP_CURRENCIES: tuple[str, ...] = (PATH_USD, USDC)
+# Fallback currencies an auto-swap pays from, in priority order. OUSD can fund a
+# swap but cannot pay transaction fees, so fees still come from a fee token.
+AUTO_SWAP_CURRENCIES: tuple[str, ...] = (PATH_USD, USDC, OUSD)
 # keccak256("quoteSwapExactAmountOut(address,address,uint128)")[:4]
 _QUOTE_SWAP_EXACT_AMOUNT_OUT_SELECTOR = "1576fa0e"
 
@@ -98,12 +106,17 @@ class AutoSwap:
 
     Attributes:
         token_in: Currencies to swap from, in priority order. The default
-            fallback currencies (pathUSD, then USDC.e) are tried after them.
+            fallback currencies (pathUSD, then USDC.e, then OUSD) are tried
+            after them unless ``fallback`` is ``False``.
         slippage: Maximum slippage over the DEX quote, in percent (``1`` = 1%).
+        fallback: Whether to also try the default currencies after
+            ``token_in``. ``False`` swaps only from ``token_in``, as an
+            allowlist. Ignored without ``token_in``.
     """
 
     token_in: Sequence[str] | None = None
     slippage: float = 1
+    fallback: bool = True
 
     def __post_init__(self) -> None:
         if isinstance(self.token_in, str):
@@ -114,6 +127,8 @@ class AutoSwap:
     def currencies(self) -> tuple[str, ...]:
         """Return the currencies to swap from, explicit ones first."""
         explicit = tuple(self.token_in or ())
+        if self.token_in is not None and not self.fallback:
+            return explicit
         chosen = {token.lower() for token in explicit}
         return explicit + tuple(t for t in AUTO_SWAP_CURRENCIES if t.lower() not in chosen)
 
@@ -241,6 +256,8 @@ class TempoMethod:
     # Client-side: the token the payer pays an unsponsored transaction's fee in.
     # ``None`` selects it from the charge currency and balances.
     payer_fee_token: str | None = field(default=None, kw_only=True)
+    # Independent payer-owned limits; RPC quotes never override these budgets.
+    payer_fee_policy: Mapping[str, int] | None = field(default=None, kw_only=True)
     # Client-side charge policy. ``max_atomic_amount`` is in base units;
     # ``max_amount`` is in token units and requires ``max_amount_decimals``.
     # Caps are validated at construction and read on every check. ``None``
@@ -257,6 +274,10 @@ class TempoMethod:
     # Settlement mode to use. ``None`` pulls when the challenge allows it, else
     # uses its first supported mode; an explicit mode it does not support fails.
     mode: ChargeMode | None = field(default=None, kw_only=True)
+    # Client-side: the httpx client every RPC call goes through, owned by the
+    # caller. Set default headers on it, such as a Tempo API key in
+    # ``tempo-api-key``. None opens a client per call.
+    http_client: httpx.AsyncClient | None = field(default=None, kw_only=True, repr=False)
     _cached_chain_ids: dict[str, int] = field(
         default_factory=dict[str, int], init=False, repr=False
     )
@@ -279,9 +300,21 @@ class TempoMethod:
         default_factory=dict[tuple[str, str], int], init=False, repr=False
     )
 
+    @property
+    def _rpc(self) -> dict[str, Any]:
+        """Keyword arguments routing an RPC helper call through ``http_client``."""
+        return {} if self.http_client is None else {"client": self.http_client}
+
     def __post_init__(self) -> None:
         """Validate charge policy at construction."""
         self._amount_caps()
+        if self.payer_fee_policy is not None:
+            self.payer_fee_policy = dict(self.payer_fee_policy)
+            for key, value in self.payer_fee_policy.items():
+                if key not in {"max_fee_per_gas", "max_priority_fee_per_gas", "max_total_fee"}:
+                    raise ValueError(f"Unknown payer fee policy field: {key}")
+                if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                    raise ValueError(f"Payer fee policy {key} must be a non-negative integer")
         if self.mode not in (None, "push", "pull"):
             raise ValueError(f"Invalid Tempo charge mode: {self.mode!r}")
         if self.allowed_chain_ids is not None:
@@ -330,7 +363,7 @@ class TempoMethod:
             if cached is not None:
                 return cached
 
-            chain_id_hex = await _rpc_call(rpc_url, "eth_chainId", [])
+            chain_id_hex = await _rpc_call(rpc_url, "eth_chainId", [], **self._rpc)
             chain_id = int(chain_id_hex, 16)
             self._cached_chain_ids[rpc_url] = chain_id
             return chain_id
@@ -384,11 +417,51 @@ class TempoMethod:
         for token in fee_tokens_for_chain(chain_id):
             spent = (reserved or {}).get(token.lower(), 0)
             try:
-                if await _tip20_balance(rpc_url, token, account) - spent >= required_balance:
+                balance = await _tip20_balance(rpc_url, token, account, **self._rpc)
+                if balance - spent >= required_balance:
                     return token
             except Exception:
                 continue
         raise TransactionError("Charges require a funded supported stablecoin for transaction fees")
+
+    async def _find_machine_token_route(
+        self,
+        *,
+        account: str,
+        amount: int,
+        currency: str,
+        recipient: str,
+        memo: str | None,
+        rpc_url: str,
+    ) -> _machine_token.Route | None:
+        """Return the machine-token route when ``account`` holds enough MACH and it simulates.
+
+        As mppx's ``findRoute``, the route is optional: any failure falls back to the
+        direct payment.
+        """
+        try:
+            route = _machine_token.get_route(
+                chain_id=await self._get_chain_id(rpc_url),
+                currency=currency,
+                amount=amount,
+                recipient=recipient,
+                memo=memo,
+            )
+            if route is None:
+                return None
+            token = route.calls[0][0]
+            if await _tip20_balance(rpc_url, token, account, **self._rpc) < amount:
+                return None
+            batch = [{"to": to, "value": "0x0", "data": data} for to, data in route.calls]
+            await _rpc_call(
+                rpc_url,
+                "eth_estimateGas",
+                [{"from": account, "calls": batch}, "latest"],
+                **self._rpc,
+            )
+        except Exception:
+            return None
+        return route
 
     async def _find_swap_calls(
         self,
@@ -420,6 +493,7 @@ class TempoMethod:
             fee_headroom=fee_headroom,
             token_in=token_in,
             trusted_currencies=trusted,
+            client=self.http_client,
         )
 
     def _check_charge_policy(self, request: dict[str, Any], expected_chain_id: int | None) -> None:
@@ -692,6 +766,8 @@ class TempoMethod:
             expires=(
                 _push_transaction_expiry(challenge.expires) if mode == "push" else challenge.expires
             ),
+            machine_token_enabled=is_dict(method_details)
+            and method_details.get("machineTokenEnabled") is True,
         )
 
         if mode == "push":
@@ -701,7 +777,7 @@ class TempoMethod:
                 raise asyncio.CancelledError("Push payment cancelled before broadcast")
             if on_submission is not None:
                 on_submission(raw_tx)
-            tx_hash = await _send_raw_transaction_sync(rpc_url, raw_tx, challenge)
+            tx_hash = await _send_raw_transaction_sync(rpc_url, raw_tx, challenge, **self._rpc)
             return Credential(
                 challenge=challenge.to_echo(),
                 payload={"type": "hash", "hash": tx_hash},
@@ -780,6 +856,7 @@ class TempoMethod:
         awaiting_fee_payer: bool = False,
         splits: list[dict[str, Any]] | None = None,
         expires: str | None = None,
+        machine_token_enabled: bool = False,
     ) -> tuple[str, int]:
         """Build a client-signed Tempo transaction.
 
@@ -804,6 +881,8 @@ class TempoMethod:
             expected_chain_id: If set, verify the RPC reports this chain ID.
             awaiting_fee_payer: If True, build for fee payer sponsorship.
             expires: Challenge expiry (ISO 8601). Caps ``valid_before``.
+            machine_token_enabled: The challenge enables machine-token payments: a payer
+                holding enough MACH pays through the first-party swapper instead.
 
         Returns:
             Tuple of (raw signed transaction hex, chain ID).
@@ -852,7 +931,24 @@ class TempoMethod:
         swapping = False
         swap_calls: list[tuple[str, str]] = []
         swap_spent: dict[str, int] = {}
-        if self.auto_swap is not None:
+        # As mppx, try the machine-token route before any other funding.
+        machine_route = (
+            await self._find_machine_token_route(
+                account=sender,
+                amount=int(amount),
+                currency=currency,
+                recipient=recipient,
+                memo=memo,
+                rpc_url=resolved_rpc,
+            )
+            if machine_token_enabled and not splits
+            else None
+        )
+        if machine_route is not None:
+            calls_tuple = tuple(
+                Call.create(to=to, value=0, data=data) for to, data in machine_route.calls
+            )
+        elif self.auto_swap is not None:
             swap_calls, swap_spent = await self._find_swap_calls(
                 account=sender, amount_out=int(amount), token_out=currency, rpc_url=resolved_rpc
             )
@@ -863,8 +959,13 @@ class TempoMethod:
             )
 
         chain_id = await self._get_chain_id(resolved_rpc)
-        gas_price = int(await _rpc_call(resolved_rpc, "eth_gasPrice", []), 16)
+        gas_price = int(await _rpc_call(resolved_rpc, "eth_gasPrice", [], **self._rpc), 16)
         max_priority_fee_per_gas = gas_price
+        payer_policy = _get_payer_policy(chain_id, self.payer_fee_policy)
+        if not awaiting_fee_payer:
+            if gas_price < 0 or gas_price > payer_policy.max_fee_per_gas:
+                raise TransactionError("RPC gas-price quote exceeds payer fee policy")
+            max_priority_fee_per_gas = min(gas_price, payer_policy.max_priority_fee_per_gas)
 
         if expected_chain_id is not None and chain_id != expected_chain_id:
             raise TransactionError(
@@ -894,6 +995,7 @@ class TempoMethod:
                             resolved_rpc,
                             "eth_estimateGas",
                             [{"from": sender, "calls": batch}, "latest"],
+                            **self._rpc,
                         ),
                         16,
                     )
@@ -902,12 +1004,12 @@ class TempoMethod:
                     total_estimated = 0
                     for c in calls:
                         total_estimated += await estimate_gas(
-                            resolved_rpc, sender, currency, c.data.hex()
+                            resolved_rpc, sender, currency, c.data.hex(), **self._rpc
                         )
                     gas_limit = max(gas_limit, total_estimated + 5_000 * len(calls))
                 elif gas_estimate_data is not None:
                     estimated = await estimate_gas(
-                        resolved_rpc, sender, currency, gas_estimate_data
+                        resolved_rpc, sender, currency, gas_estimate_data, **self._rpc
                     )
                     gas_limit = max(gas_limit, estimated + 5_000)
             except Exception:
@@ -921,7 +1023,7 @@ class TempoMethod:
                 // ATTODOLLARS_PER_MICRODOLLAR,
             )
 
-        gas_limit = await estimate_gas_limit(calls_tuple, swapping)
+        gas_limit = await estimate_gas_limit(calls_tuple, swapping or machine_route is not None)
 
         fee_token: str | None = None
         if not awaiting_fee_payer and self.payer_fee_token is not None:
@@ -932,7 +1034,7 @@ class TempoMethod:
             if swapping and (explicit == currency.lower() or swap_spent.get(explicit, 0) > 0):
                 # The batch spends the fee token: keep the fee out of what it spends.
                 required_balance = fee_requirement(gas_limit)
-                fee_balance = await _tip20_balance(resolved_rpc, fee_token, sender)
+                fee_balance = await _tip20_balance(resolved_rpc, fee_token, sender, **self._rpc)
                 if fee_balance - swap_spent.get(explicit, 0) < required_balance:
                     rebuilt: tuple[list[tuple[str, str]], dict[str, int]] | None = None
                     if explicit == currency.lower():
@@ -976,7 +1078,7 @@ class TempoMethod:
                     # The calls changed: size gas and the fee for the batch that is signed.
                     gas_limit = await estimate_gas_limit(calls_tuple, bool(swap_calls))
                     required_balance = fee_requirement(gas_limit)
-                    fee_balance = await _tip20_balance(resolved_rpc, fee_token, sender)
+                    fee_balance = await _tip20_balance(resolved_rpc, fee_token, sender, **self._rpc)
                     if fee_balance - swap_spent.get(explicit, 0) < required_balance:
                         raise TransactionError(
                             "Charges require a funded fee token for transaction fees"
@@ -985,7 +1087,11 @@ class TempoMethod:
             fee_token = currency
             # A swapping payer may not hold the currency before the swap, so
             # it pays fees in a funded supported stablecoin.
-            if swapping or currency.lower() in (MACH.lower(), OUSD.lower()):
+            if (
+                swapping
+                or machine_route is not None
+                or currency.lower() in (MACH.lower(), OUSD.lower())
+            ):
                 required_balance = fee_requirement(gas_limit)
                 try:
                     fee_token = await self._resolve_supported_fee_token(
@@ -1067,6 +1173,9 @@ class TempoMethod:
             # as the challenge and needs no separate check (mppx#1137).
             _assert_sponsored_challenge_time_left(expires)
 
+        if not awaiting_fee_payer and gas_limit * gas_price > payer_policy.max_total_fee:
+            raise TransactionError("Transaction exceeds payer total-fee budget")
+
         tx = TempoTransaction.create(
             chain_id=chain_id,
             gas_limit=gas_limit,
@@ -1145,7 +1254,11 @@ def _check_recipient_addresses(request: dict[str, Any]) -> None:
 
 
 async def _send_raw_transaction_sync(
-    rpc_url: str, raw_tx: str, challenge: Challenge | None = None
+    rpc_url: str,
+    raw_tx: str,
+    challenge: Challenge | None = None,
+    *,
+    client: Any | None = None,
 ) -> str:
     """Broadcast a signed transaction, wait for its receipt and return its hash.
 
@@ -1169,7 +1282,7 @@ async def _send_raw_transaction_sync(
     if challenge is not None:
         _push_transaction_expiry(challenge.expires)
     try:
-        receipt = await _rpc_call(rpc_url, "eth_sendRawTransactionSync", [raw_tx])
+        receipt = await _rpc_call(rpc_url, "eth_sendRawTransactionSync", [raw_tx], client=client)
     except RpcError as error:
         # A replay of the payer's own transaction means it may already be
         # paid, never that nothing was, so it is an unknown outcome here.
@@ -1288,6 +1401,8 @@ def _tempo_method(
     auto_swap: bool | AutoSwap = False,
     mode: ChargeMode | None = None,
     payer_fee_token: str | None = None,
+    payer_fee_policy: Mapping[str, int] | None = None,
+    http_client: httpx.AsyncClient | None = None,
 ) -> TempoMethod:
     """Resolve and validate Tempo charge configuration shared by clients and servers.
 
@@ -1355,14 +1470,20 @@ def _tempo_method(
             before signing. An empty sequence rejects every charge.
         auto_swap: When the payer lacks the challenge currency, buy it through
             the Tempo stablecoin DEX from a fallback currency (pathUSD, then
-            USDC.e) in the same transaction. ``True`` uses 1% slippage; pass
-            :class:`AutoSwap` to prepend currencies or change the slippage.
+            USDC.e, then OUSD) in the same transaction. ``True`` uses 1%
+            slippage; pass :class:`AutoSwap` to prepend currencies, restrict
+            them to ``token_in`` (``fallback=False``) or change the slippage.
+            Fees are never paid in OUSD, which is not a fee token.
             Raises :class:`InsufficientFundsError` when no currency can fund it.
             With ``expected_recipients``, it only buys a currency the client
             pinned or swaps from.
         mode: Settlement mode when paying (``"push"`` or ``"pull"``). ``None``
             pulls when the challenge's ``supportedModes`` allow it, else uses
             its first supported mode.
+        http_client: httpx client for the payer's RPC calls, owned by the
+            caller. Configure headers on it, such as a Tempo API key in
+            ``tempo-api-key`` for the hosted RPC (https://api.tempo.xyz/rpc), and a
+            timeout of at least 30 seconds for push-mode broadcasts.
 
     Returns:
         A configured TempoMethod instance.
@@ -1442,6 +1563,8 @@ def _tempo_method(
         auto_swap=AutoSwap() if auto_swap is True else auto_swap or None,
         mode=mode,
         payer_fee_token=payer_fee_token,
+        payer_fee_policy=payer_fee_policy,
+        http_client=http_client,
     )
     if (max_atomic_amount is not None or max_amount is not None) and not currency_explicit:
         raise ValueError(_CAPS_REQUIRE_CURRENCY_PIN)
@@ -1469,6 +1592,8 @@ def charge(
     auto_swap: bool | AutoSwap = False,
     mode: ChargeMode | None = None,
     fee_token: str | None = None,
+    fee_policy: Mapping[str, int] | None = None,
+    http_client: httpx.AsyncClient | None = None,
 ) -> ClientMethod:
     """Create the client method that pays Tempo charge challenges.
 
@@ -1492,6 +1617,21 @@ def charge(
     limits do not cover the default fee token, such as a key limited to OUSD
     paying a USDC.e charge. By default the fee is paid in the charge currency,
     or in a funded supported stablecoin when that currency cannot pay fees.
+
+    ``fee_policy`` overrides payer-owned ``max_fee_per_gas``,
+    ``max_priority_fee_per_gas`` and ``max_total_fee`` ceilings for unsponsored
+    payments. Values use attodollars per gas and attodollars, respectively.
+    Defaults use the chain's per-gas sponsorship ceilings and a 0.1 USD total
+    budget covering the static gas floor. Excessive RPC quotes and worst-case
+    total fees are rejected before signing; priority
+    fees are capped. These budgets are separate from the transferred amount.
+
+    ``http_client`` carries every RPC call the payer makes, as mppx's
+    ``getClient`` does. The caller owns it. Set a Tempo API key on it for
+    the hosted RPC: ``httpx.AsyncClient(headers={"tempo-api-key": key}, timeout=30)``
+    with ``rpc_url="https://api.tempo.xyz/rpc"``. Give it a timeout of at least
+    30 seconds: push mode waits on ``eth_sendRawTransactionSync`` for the receipt,
+    and httpx's 5 second default can end a payment in ``PaymentOutcomeUnknownError``.
 
     Example:
         from mpp.client import Mpp
@@ -1519,6 +1659,8 @@ def charge(
             auto_swap=auto_swap,
             mode=mode,
             payer_fee_token=fee_token,
+            payer_fee_policy=fee_policy,
+            http_client=http_client,
         )
     )
 
@@ -1597,7 +1739,7 @@ def _parse_max_atomic_amount(value: int | str) -> int:
     raise ValueError("max_atomic_amount must be a non-negative integer or digit string")
 
 
-def _parse_max_amount(value: str | Decimal, decimals: int) -> int:
+def _parse_max_amount(value: str | Decimal, decimals: int, *, intent: str = "charge") -> int:
     """Convert a token-unit cap to base units exactly.
 
     Rejects significant fractional digits beyond ``decimals`` instead of
@@ -1625,7 +1767,7 @@ def _parse_max_amount(value: str | Decimal, decimals: int) -> int:
     atomic, remainder = divmod(coefficient, 10**-shift)
     if remainder:
         raise ValueError(
-            f"Tempo charge max_amount {value} has more fractional digits "
+            f"Tempo {intent} max_amount {value} has more fractional digits "
             f"than {decimals} decimals allow."
         )
     return atomic

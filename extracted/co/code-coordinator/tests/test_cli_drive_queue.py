@@ -49,6 +49,7 @@ from coord.drive_queue import (
 )
 from tests import backends
 from tests.backends import set_board_meta
+from tests.conftest import block_log_records
 
 #: The genuine `coord.state.apply_issue_labels`, captured at import time —
 #: before `_default_pipeline_labels` (autouse) replaces the module attribute
@@ -286,10 +287,8 @@ def block_log(monkeypatch, tmp_path) -> Path:
     return path
 
 
-def block_log_records(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+# #3898 review: `block_log_records` moved to `tests/conftest.py` — this
+# module and `tests/test_cli_merge.py` each carried a byte-identical copy.
 
 
 @pytest.fixture
@@ -363,6 +362,10 @@ def test_drive_queue_is_registered_with_every_verb():
         "clear-refusal",
         # #3758: the board-doctor scheduled-sweep harness.
         "sweep",
+        # #3875: the board-doctor decision log read-back verb.
+        "doctor-log",
+        # #3881: the daemon-host investigator's one audited action wrapper.
+        "doctor-act",
     }
 
 
@@ -963,6 +966,44 @@ def test_add_accepts_a_requeue_over_a_blocked_entry_with_a_green_pr_missing_gate
     # Accepted, not refused — never the #2377 merge-it exception text.
     assert f"coord merge --only {REPO}#1753" not in result.output
     assert queued(1753) is not None
+
+
+def test_add_over_a_blocked_entry_writes_an_operator_requeued_block_log_event(
+    cli, seed, monkeypatch, block_log
+):
+    """The attribution tests in `tests/test_board_doctor.py` build the
+    block-log events directly and bypass the command entirely — this
+    drives the actual `coord drive-queue add` invocation through the
+    Click runner and confirms IT is what writes the `operator_requeued`
+    event, not just that `operator_resolution_event` works when called by
+    hand."""
+    from coord.drive_queue import ExistingPrMatch
+
+    seed(issues={1753: "open"})
+    cli("add", REPO, "1753")
+    state._update_drive_queue_entry_local(REPO, 1753, state=STATE_BLOCKED)
+
+    monkeypatch.setattr(
+        "coord.commands.drive_queue._existing_pr_match",
+        lambda config_path, repo, issue: ExistingPrMatch(
+            number=4242,
+            branch="issue-1753-some-fix",
+            url="https://github.com/example/claude-coordinator/pull/4242",
+            all_green=True,
+            missing_gates=("review", "test"),
+        ),
+    )
+
+    result = cli("add", REPO, "1753", "--max-fix-rounds", "3")
+    assert result.exit_code == 0, result.output
+
+    records = block_log_records(block_log)
+    resolve_records = [r for r in records if r.get("event") == "resolve"]
+    assert len(resolve_records) == 1
+    assert resolve_records[0]["key"] == f"{REPO}#1753"
+    assert resolve_records[0]["resolution"] == "operator_requeued"
+    assert resolve_records[0]["human_acted"] is True
+    assert resolve_records[0]["from_state"] == STATE_BLOCKED
 
 
 def test_add_resume_note_names_a_single_missing_gate_in_the_singular(
@@ -5183,6 +5224,51 @@ def test_fetch_live_blocked_gate_suppresses_the_no_row_note_for_a_pre_dispatch_r
     assert unreadable == {}  # suppressed — not "unreadable", not "still shut"
 
 
+def test_fetch_live_blocked_gate_excludes_a_never_dispatched_after_blocked_row(
+    monkeypatch, coord_db,
+):
+    """#3874: an entry whose ONLY cause is `_resolve_prereqs`'s own
+    unsatisfiable `after=` verdict (`is_unsatisfiable_prereq_reason`) must
+    never become a probe target at all — not merely have its "unreadable"
+    note suppressed after the fact the way a pre-dispatch death reason does.
+    `coord.drive_queue._reconcile_blocked_after` is the only thing entitled
+    to resolve this row (from the `after=` graph, on this or a later tick);
+    probing a merge gate for it is a category error for the identical
+    reason a pre-dispatch death reason already gets this treatment — there
+    is no branch, no PR and no merge-queue row to ever read."""
+    import coord.board_service as board_service
+    import coord.ci_store as ci_store_mod
+    import coord.commands._common as common
+    import coord.merge_queue as mq
+    import coord.state as state_mod
+    from coord.commands.drive_queue import _fetch_live_blocked_gate
+    from coord.drive_queue import STATE_BLOCKED, QueueEntry, entry_key
+
+    dep_key = entry_key(REPO, 2034)
+    entry = QueueEntry(
+        repo=REPO, issue=2035, position=1, state=STATE_BLOCKED,
+        after=(dep_key,),
+        last_reason=f"pre-req {dep_key} is queued but blocked — it will never satisfy",
+    )
+
+    load_queue_calls = []
+    monkeypatch.setattr(mq, "load_queue", lambda: load_queue_calls.append(1) or [])
+    monkeypatch.setattr(mq, "enqueue_approved_work", lambda cfg, board: [])
+    monkeypatch.setattr(board_service, "resolve", lambda: None)
+    monkeypatch.setattr(common, "_load_config", lambda path: _fake_cfg())
+    monkeypatch.setattr(state_mod, "load_board", lambda: object())
+    monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
+
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry], None)
+
+    assert overrides == {}
+    assert reasons == {}
+    assert unreadable == {}
+    # Excluded before the function even tries to build a board/config/queue
+    # for this tick's targets — `load_queue` is never called at all.
+    assert load_queue_calls == []
+
+
 def test_fetch_live_blocked_gate_unreadable_causes_all_log_at_warning(
     monkeypatch, coord_db, caplog,
 ):
@@ -7948,9 +8034,18 @@ class _Gate:
 
 
 class _GateReport:
-    def __init__(self, branch: str, decisions: list) -> None:
+    """Mirrors the fields of `coord.gates.GateReport` the diagnostician reads.
+
+    `rows` is the per-assignment list: empty ONLY when the board held no
+    assignment at all for the issue, which is the positive "never dispatched"
+    reading `coord.queue_diagnose.LiveState.no_assignment_ever` is derived
+    from. A world with a branch has been dispatched, so it carries a row.
+    """
+
+    def __init__(self, branch: str, decisions: list, rows: list | None = None) -> None:
         self.branch = branch
         self.decisions = decisions
+        self.rows = [] if rows is None else list(rows)
 
 
 @pytest.fixture
@@ -7964,6 +8059,9 @@ def gh_world(monkeypatch):
         "checks": [_Check("test", "success")],
         "gates": [_Gate("merge", True)],
         "branch": "issue-1762",
+        # One dispatched work assignment, matching `branch` above. Set to []
+        # to model an issue the board has never dispatched anything for.
+        "rows": [object()],
         "calls": [],
     }
 
@@ -7990,18 +8088,18 @@ def gh_world(monkeypatch):
         "coord.gates.build_gate_report",
         lambda *a, **k: (
             _record("coord gates"),
-            _GateReport(world["branch"], world["gates"]),
+            _GateReport(world["branch"], world["gates"], world["rows"]),
         )[1],
     )
     return world
 
 
-def _stall(issue: int, reason: str, block_log_path: Path) -> None:
+def _stall(issue: int, reason: str, block_log_path: Path, attempts: int = 2) -> None:
     """Put a real row in `blocked` and open its Phase-0 episode."""
     from coord import block_log as bl
 
     state._update_drive_queue_entry_local(
-        REPO, issue, state="blocked", attempts=2, last_reason=reason
+        REPO, issue, state="blocked", attempts=attempts, last_reason=reason
     )
     bl.record(
         [
@@ -8168,6 +8266,62 @@ def test_diagnose_spends_its_budget_once_and_then_declines(
         r for r in block_log_records(block_log) if r.get("event") == "diagnosis"
     ]
     assert len(diagnoses) == 1
+
+
+_UNREADABLE_GATE_REASON = (
+    f"{REPO}#1762's merge gate could not be read this tick (no merge-queue "
+    "row for this entry, even after the self-heal enqueue attempt) — this is "
+    "NOT a confirmed-still-shut gate"
+)
+
+
+def test_diagnose_names_a_never_dispatched_row_through_the_cli(
+    cli, seed, block_log, gh_world
+):
+    """#3874 end to end: a row that was never dispatched at all — `coord
+    gates`' own board read completes and finds zero assignments, so there is
+    no branch, no PR and no merge-queue row for any probe to ever read — is
+    named rather than abstained on, so `coord drive-queue sweep` can act on
+    it instead of burning the episode's diagnosis budget on `unknown`.
+    """
+    seed(issues={1762: "open"})
+    cli("add", REPO, "1762")
+    _stall(1762, _UNREADABLE_GATE_REASON, block_log, attempts=0)
+    gh_world["rows"] = []  # the board holds no assignment for this issue
+    gh_world["branch"] = ""
+
+    result = cli("diagnose")
+    assert result.exit_code == 0, result.output
+    assert "cause:  never-dispatched (confidence high)" in result.output
+    assert "1 diagnosed" in result.output
+
+    episode = json.loads(cli("block-log", "--json").output)["episodes"][0]
+    assert episode["diagnosed_cause"] == "never-dispatched"
+
+
+def test_diagnose_will_not_call_a_rate_limited_gate_probe_never_dispatched(
+    cli, seed, block_log, gh_world, monkeypatch
+):
+    """The failing half of the same gate, which is what makes it a gate: the
+    row's shape is identical to the test above, but `coord gates`' board read
+    raises (the rate-limit/network flake `coord.github_throttle` exists for).
+    The probe then knows nothing about whether anything was dispatched, so the
+    verdict must stay `unknown` — never-dispatched is minted off a positive
+    board reading, not off the absence of one.
+    """
+    seed(issues={1762: "open"})
+    cli("add", REPO, "1762")
+    _stall(1762, _UNREADABLE_GATE_REASON, block_log, attempts=0)
+
+    def boom(*a, **k):
+        raise TimeoutError("30s")
+
+    monkeypatch.setattr("coord.gates.build_gate_report", boom)
+
+    result = cli("diagnose")
+    assert result.exit_code == 0, result.output
+    assert "cause:  unknown (confidence none)" in result.output
+    assert "never-dispatched" not in result.output
 
 
 def test_diagnose_on_a_quiet_queue_says_so_rather_than_printing_nothing(
@@ -8391,31 +8545,409 @@ def test_sweep_records_a_real_decision_and_advances_convergence_on_rerun(
     assert logged[0]["key"] == f"{REPO}#1762"
     assert logged[0]["cause"] == "merge-conflict"
 
-    # #3769: merge-conflict is investigate-tier now, so the dispatcher is
-    # `_investigate`, not a direct alert. In this test's process there is no
-    # resolvable `--config`/`$COORD_CONFIG` for `_investigate`'s own config
-    # load, so it falls back to `_alert_fallback` — the same
-    # `drive_escalations` write #2268's C4 always made, just reached via the
-    # fallback path instead of a direct alert dispatch.
-    escalation = state.get_drive_escalation(REPO, 1762)
-    assert escalation is not None
-    assert escalation["stage"] == "board-doctor:drive-queue"
-    assert escalation["proposed_command"] == "coord status"
-    assert "merge-conflict" in escalation["reason"]
+    # #3918: merge-conflict is a mechanical C2 allow-list action now
+    # (`conflict_fix_dispatch`), not the investigate tier — there is no
+    # merge-queue entry for this row in this test's fixture (and no
+    # resolvable `--config`/`$COORD_CONFIG` for the dispatcher's own config
+    # load either way), so it declines as a confirmed noop. Unlike the old
+    # investigate-tier `_investigate`, a mechanical allow-list dispatcher
+    # has no alert-fallback of its own — a decline here leaves the row
+    # exactly where the ordinary convergence counter tracks it, with no
+    # `drive_escalations` write until that counter actually reaches
+    # `CONVERGENCE_LIMIT`.
+    assert logged[0]["action"] == "auto-dispatch-noop"
+    assert state.get_drive_escalation(REPO, 1762) is None
 
     second = cli("sweep")
     assert second.exit_code == 0, second.output
     assert "count=2" in second.output
     decisions = state.board_doctor_decisions()
     assert len(decisions) == 2
-    # Still under the convergence limit, so the auto tier's dispatcher
-    # (`_investigate`) runs again on every sweep regardless of the prior
-    # fallback alert — it never "performed" a dispatch (no fix-it leg
-    # started), hence "auto-dispatch-noop", not "converged-noop" (that
-    # label is reserved for a row that is ALREADY escalated under the
-    # alert tier, or past the convergence limit).
+    # Still under the convergence limit, so the mechanical dispatcher
+    # (`conflict_fix_dispatch`) runs again on every sweep — it never
+    # "performed" a dispatch (no merge-queue entry to act on), hence
+    # "auto-dispatch-noop", not "converged-noop" (that label is reserved
+    # for a row that is ALREADY escalated under the alert tier, or past
+    # the convergence limit).
     assert decisions[-1]["action"] == "auto-dispatch-noop"
     assert "action=auto-dispatch-noop" in second.output
+    assert state.get_drive_escalation(REPO, 1762) is None
+
+
+def test_doctor_log_reads_back_recorded_decisions(cli):
+    """The durable decision log, read through the CLI the same shape
+    `sweep` writes it in — filterable, and summarizable."""
+    from datetime import datetime, timezone
+
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-1",
+            "queue": "drive-queue",
+            "key": f"{REPO}#1",
+            "cause": "ci_red",
+            "tier": "auto",
+            "action": "auto-dispatch",
+            "count": 1,
+            "escalated": False,
+            "confidence": "high",
+            "evidence": [],
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+
+    result = cli("doctor-log")
+    assert result.exit_code == 0, result.output
+    assert f"drive-queue:{REPO}#1" in result.output
+    assert "cause=ci_red action=auto-dispatch" in result.output
+
+    json_result = cli("doctor-log", "--json")
+    assert json_result.exit_code == 0, json_result.output
+    payload = json.loads(json_result.output)
+    assert payload["entries"][0]["key"] == f"{REPO}#1"
+
+    summary_result = cli("doctor-log", "--summary", "--json")
+    assert summary_result.exit_code == 0, summary_result.output
+    summary = json.loads(summary_result.output)
+    assert summary["actions_taken"] == 1
+    assert summary["rows_unstuck"] == 0
+    assert summary["rows_still_stuck"] == 0
+    assert summary["human_interventions_missed"] == 0
+
+
+def test_doctor_log_surfaces_an_alert_tier_rows_full_diagnosis(cli):
+    """An ``action=alert`` row's plain-text line also carries the live
+    `drive_escalations` diagnosis (cause/evidence/attempts/options) the
+    phone alert and the digest already get — not just the bare
+    ``cause=.../action=alert`` `board_doctor_decisions` columns.
+    """
+    from datetime import datetime, timezone
+
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-1",
+            "queue": "drive-queue",
+            "key": f"{REPO}#2",
+            "cause": "gate-blocked",
+            "tier": "alert",
+            "action": "alert",
+            "count": 1,
+            "escalated": True,
+            "confidence": "high",
+            "evidence": [],
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    state.record_drive_escalation(
+        REPO,
+        2,
+        stage="board-doctor:drive-queue",
+        reason=" — a required gate is blocking merge; full diagnosis here",
+        gate_readings="coord gates: blocked — review not approved",
+        proposed_command="coord drive-queue diagnose --json",
+    )
+
+    result = cli("doctor-log")
+    assert result.exit_code == 0, result.output
+    assert f"drive-queue:{REPO}#2" in result.output
+    assert "cause=gate-blocked action=alert" in result.output
+    assert "full diagnosis here" in result.output
+
+
+# ── #3881: doctor-act (the investigator's audited action wrapper) ───────────
+
+
+def test_doctor_act_requeues_a_frozen_blocked_row(cli, coord_db):
+    """#3881's quadraui#2035 shape: a row frozen in the drive queue with
+    nothing live against it. `doctor-act requeue` takes it down and puts
+    it back, and the audit log records why."""
+    from coord.audit import query_audit_log
+
+    state.enqueue_drive_queue(REPO, 101, machine="dellserver")
+
+    result = cli(
+        "doctor-act", "requeue", REPO, "101",
+        "--reason", "frozen blocked row, nothing live against it",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "acted=True" in result.output
+    assert state.get_drive_queue_entry(REPO, 101) is not None
+
+    log = query_audit_log(event_type="investigator_requeue", repo=REPO, issue=101)
+    assert len(log["entries"]) == 1
+    assert log["entries"][0]["details"]["reason"] == (
+        "frozen blocked row, nothing live against it"
+    )
+
+
+def test_doctor_act_refuses_an_unknown_action_naming_the_closed_set(cli):
+    result = cli("doctor-act", "bogus-verb", REPO, "1", "--reason", "x")
+
+    assert result.exit_code != 0
+    assert "unknown action" in result.output
+
+
+def test_doctor_act_refuses_a_forbidden_verb(cli):
+    result = cli("doctor-act", "force_merge", REPO, "1", "--reason", "x")
+
+    assert result.exit_code != 0
+    assert "unknown action" in result.output
+
+
+def test_doctor_act_refuses_on_a_thin_client(cli, monkeypatch):
+    monkeypatch.setattr("coord.board_service.is_remote", lambda: True)
+
+    result = cli("doctor-act", "requeue", REPO, "1", "--reason", "x")
+
+    assert result.exit_code != 0
+    assert "run it there" in result.output
+
+
+def test_doctor_act_bounce_requires_the_review_assignment_option(cli):
+    result = cli("doctor-act", "bounce", REPO, "1", "--reason", "x")
+
+    assert result.exit_code != 0
+    assert "--review-assignment-id" in result.output
+
+
+def test_doctor_log_summary_dedupes_rows_and_catches_a_missed_human_intervention(
+    cli, block_log
+):
+    """`--summary`'s three outcome counters ``== 0`` on an empty log proves
+    nothing — a key-shape mismatch between the decision log and the block
+    log would degrade to the same "0 missed" silently. This drives both
+    sides for real: one row the doctor mixed outcomes on across two sweeps
+    (dedup-by-key, last-outcome-wins), one row a human unstuck that the
+    decision log never mentions (must show up as missed), and one row a
+    human unstuck that the doctor's own `auto-dispatch` already covers
+    (must NOT show up as missed, even though its block-log episode is also
+    `human_acted`)."""
+    from datetime import datetime, timezone
+
+    from coord import block_log as bl
+
+    now = time.time()
+
+    # Row #1: two sweeps, mixed outcomes for the SAME key — must count as
+    # exactly one row, and the LAST (most recent) outcome wins: "unchanged".
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-1",
+            "queue": "drive-queue",
+            "key": f"{REPO}#1",
+            "cause": "ci_red",
+            "tier": "auto",
+            "action": "auto-dispatch",
+            "count": 1,
+            "escalated": False,
+            "confidence": "high",
+            "evidence": [],
+            "recorded_at": datetime.fromtimestamp(now - 7200, tz=timezone.utc).isoformat(),
+            "outcome": "progressed",
+        }
+    )
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-2",
+            "queue": "drive-queue",
+            "key": f"{REPO}#1",
+            "cause": "ci_red",
+            "tier": "auto",
+            "action": "auto-dispatch",
+            "count": 2,
+            "escalated": False,
+            "confidence": "high",
+            "evidence": [],
+            "recorded_at": datetime.fromtimestamp(now - 3600, tz=timezone.utc).isoformat(),
+            "outcome": "unchanged",
+        }
+    )
+    # Row #1 ALSO has a human-acted block-log episode — but the decision
+    # log above already shows an `auto-dispatch` against this exact key,
+    # so it must not be double-counted as a missed intervention.
+    bl.record(
+        [
+            {
+                "event": bl.EVENT_ENTER, "ts": now - 7200, "key": f"{REPO}#1",
+                "state": "blocked", "stated_reason": "ci red", "true_cause": "",
+                "human_acted": None,
+            },
+            {
+                "event": bl.EVENT_RESOLVE, "ts": now - 3600, "key": f"{REPO}#1",
+                "state": "running", "from_state": "blocked",
+                "stated_reason": "ci red", "resolution": "operator",
+                "true_cause": "operator intervened", "human_acted": True,
+                "release_reason": "", "outcome": "resumed",
+            },
+        ],
+        path=block_log,
+    )
+
+    # Row #2: a human-acted episode the decision log never mentions at
+    # all — this is the one that must surface as missed.
+    bl.record(
+        [
+            {
+                "event": bl.EVENT_ENTER, "ts": now - 5000, "key": f"{REPO}#2",
+                "state": "blocked", "stated_reason": "merge conflict",
+                "true_cause": "", "human_acted": None,
+            },
+            {
+                "event": bl.EVENT_RESOLVE, "ts": now - 1000, "key": f"{REPO}#2",
+                "state": "running", "from_state": "blocked",
+                "stated_reason": "merge conflict", "resolution": "operator",
+                "true_cause": "operator intervened", "human_acted": True,
+                "release_reason": "", "outcome": "resumed",
+            },
+        ],
+        path=block_log,
+    )
+
+    result = cli("doctor-log", "--summary", "--json")
+    assert result.exit_code == 0, result.output
+    summary = json.loads(result.output)
+    assert summary["rows_unstuck"] == 0
+    assert summary["rows_still_stuck"] == 1
+    assert summary["human_interventions_missed"] == 1
+    assert summary["human_interventions_missed_keys"] == [f"{REPO}#2"]
+
+
+def test_doctor_log_summary_reports_pending_and_unstuck_by_other_buckets(
+    cli, block_log
+):
+    """#3889: a row whose latest action-tracked decision still carries
+    ``outcome: None`` (no later sweep has re-observed it yet) counts
+    toward ``rows_pending`` — never ``rows_still_stuck``, which would
+    claim knowledge nobody has yet. A row whose outcome is
+    ``"progressed_by_other"`` (an operator action, or the ordinary drive
+    loop, moved it first) counts toward ``rows_unstuck_by_other`` — never
+    the doctor-credited ``rows_unstuck``.
+    """
+    from datetime import datetime, timezone
+
+    now = time.time()
+
+    # Pending: dispatched, no later sweep has filled in a verdict yet.
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-1", "queue": "drive-queue", "key": f"{REPO}#10",
+            "cause": "ci_red", "tier": "auto", "action": "auto-dispatch",
+            "count": 1, "escalated": False, "confidence": "high",
+            "evidence": [],
+            "recorded_at": datetime.fromtimestamp(now - 60, tz=timezone.utc).isoformat(),
+        }
+    )
+
+    # Unstuck by other: an operator action resolved it, not the doctor's
+    # own confirmed action.
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-2", "queue": "drive-queue", "key": f"{REPO}#11",
+            "cause": "merge-conflict", "tier": "alert", "action": "alert",
+            "count": 3, "escalated": True, "confidence": "medium",
+            "evidence": [],
+            "recorded_at": datetime.fromtimestamp(now - 7200, tz=timezone.utc).isoformat(),
+            "outcome": "progressed_by_other",
+        }
+    )
+
+    result = cli("doctor-log", "--summary", "--json")
+    assert result.exit_code == 0, result.output
+    summary = json.loads(result.output)
+    assert summary["rows_pending"] == 1
+    assert summary["rows_unstuck_by_other"] == 1
+    assert summary["rows_unstuck"] == 0
+    assert summary["rows_still_stuck"] == 0
+
+    text_result = cli("doctor-log", "--summary")
+    assert text_result.exit_code == 0, text_result.output
+    assert "1 pending" in text_result.output
+    assert "1 unstuck by other" in text_result.output
+
+
+def test_doctor_log_on_an_empty_log_says_so_rather_than_printing_nothing(cli):
+    result = cli("doctor-log")
+    assert result.exit_code == 0, result.output
+    assert "no board-doctor decisions recorded" in result.output
+
+
+def test_doctor_log_backfill_outcomes_regrades_a_stale_regressed_entry(cli):
+    """#3907: `--backfill-outcomes` re-grades an entry still open for a
+    verdict (`regressed`, here) against the doctor's current per-row
+    state before printing — a resolved row (no live counter tracked for
+    it any more) flips to `progressed` without needing a fresh sweep."""
+    from datetime import datetime, timezone
+
+    key = f"{REPO}#950"
+    state.record_board_doctor_decision(
+        {
+            "sweep_id": "s-1",
+            "queue": "drive-queue",
+            "key": key,
+            "cause": "ci_red",
+            "tier": "auto",
+            "action": "auto-dispatch",
+            "count": 1,
+            "escalated": False,
+            "confidence": "high",
+            "evidence": [],
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    state.record_board_doctor_outcome("s-1", "drive-queue", key, "regressed")
+    # No live counter for this row — it has already resolved (merged, in
+    # the real incident this replays), just never re-graded.
+    assert state.board_doctor_row_state("drive-queue", key) == {}
+
+    result = cli("doctor-log", "--backfill-outcomes", "--json")
+    assert result.exit_code == 0, result.output
+    assert "backfilled 1 outcome(s)" in result.output
+
+    payload = json.loads(result.output.splitlines()[-1])
+    assert payload["entries"][0]["key"] == key
+    assert payload["entries"][0]["outcome"] == "progressed"
+
+
+def test_sweep_surfaces_a_live_but_idle_running_row(cli, seed, monkeypatch):
+    """#3918 / quadraui#2160, end to end through the real `coord
+    drive-queue sweep` command rather than `no_progress_rows` called
+    directly: a `running` drive-queue row whose tmux session the fleet
+    still reports alive, but whose own `coord drive` stall nudge says
+    nothing has changed well past the no-progress threshold, must reach
+    the sweep's output — not read as "making progress" just because a
+    live session exists."""
+    import time as _time
+
+    from coord.notifier.store import record_nudge
+
+    now = _time.time()
+    session = f"coord-drive-{REPO}-1860"
+    seed(issues={1860: "open"})
+    cli("add", REPO, "1860")
+    state._update_drive_queue_entry_local(
+        REPO, 1860, state="running", session_name=session, launched_at=now - 10_000.0,
+    )
+    monkeypatch.setattr(
+        "coord.drive.list_drive_sessions",
+        lambda *a, **k: [{"repo": REPO, "issue": 1860, "session_name": session}],
+    )
+    record_nudge(REPO, 1860, at=now - 60.0, stalled_for=9_000.0)
+
+    result = cli("sweep", "--json")
+    assert result.exit_code == 0, result.output
+    payload = _sweep_json(result.output)
+    decisions = {d["key"]: d for d in payload["decisions"]}
+    decision = decisions[f"{REPO}#1860"]
+    assert decision["cause"] == "unknown"
+    # `unknown` is investigate-eligible (`policy_tier_of` -> TIER_AUTO), and
+    # `_investigate` has no resolvable `--config`/`$COORD_CONFIG` in this
+    # test's process, so it falls back to `_alert_fallback` and reports
+    # "auto-dispatch-noop" rather than "alert" — same posture
+    # `test_sweep_reports_alert_failed_when_the_escalation_cannot_be_written`
+    # documents for `ci_red`. The row still surfaces, which is the point:
+    # the fallback alert itself gets through.
+    assert decision["action"] == "auto-dispatch-noop"
+    assert state.get_drive_escalation(REPO, 1860) is not None
 
 
 def _sweep_json(output: str) -> dict:
@@ -8430,15 +8962,18 @@ def _sweep_json(output: str) -> dict:
 def test_sweep_reports_alert_failed_when_the_escalation_cannot_be_written(
     cli, seed, block_log, gh_world, monkeypatch
 ):
-    """merge-conflict's investigate-tier dispatcher (`_investigate`) falls
-    back to the SAME `_alert_fallback` escalation write as a direct alert
-    would, and that write failing must not record the row as escalated —
+    """ci-red's investigate-tier dispatcher (`_investigate`) falls back to
+    the SAME `_alert_fallback` escalation write as a direct alert would,
+    and that write failing must not record the row as escalated —
     otherwise #3758's "escalate exactly once" contract suppresses every
-    future attempt for that cause."""
+    future attempt for that cause. #3918: merge-conflict moved OFF the
+    investigate tier onto a mechanical allow-list action with no
+    alert-fallback of its own, so this exercises the fallback through a
+    cause that is still investigate-eligible."""
     seed(issues={1762: "open"})
     cli("add", REPO, "1762")
-    _stall(1762, "merge blocked: stale test verdict (2/2 attempts)", block_log)
-    gh_world["mergeable"] = False
+    _stall(1762, "blocked: CI red, 2/2 attempts", block_log)
+    gh_world["checks"] = [_Check("test", "failure")]
 
     real_record = state.record_drive_escalation
 
@@ -8495,10 +9030,11 @@ def test_sweep_json_reports_alert_failed_for_an_undeliverable_alert(
     result = cli("sweep", "--json")
     assert result.exit_code == 0, result.output
     payload = _sweep_json(result.output)
-    # Same investigate-tier fallback as the text-output test above: the
-    # dispatcher never reports "performed", so the action is
-    # "auto-dispatch-noop", not an "alert-failed" that implies the alert
-    # tier ran directly for this cause.
+    # #3918: merge-conflict is a mechanical allow-list action
+    # (`conflict_fix_dispatch`) with no alert-fallback of its own — it
+    # never even attempts the (here broken) escalation write, so the
+    # action is "auto-dispatch-noop", not an "alert-failed" that would
+    # imply the alert tier ran directly for this cause.
     assert [d["action"] for d in payload["decisions"]] == ["auto-dispatch-noop"]
     assert payload["decisions"][0]["escalated"] is False
 

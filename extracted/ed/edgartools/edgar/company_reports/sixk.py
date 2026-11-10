@@ -196,7 +196,7 @@ class SixK:
 
     @cached_property
     def financials(self):
-        """XBRL financials, if present (rare for 6-K; uses IFRS taxonomy)."""
+        """XBRL financials, or None when this 6-K carries none (most do not; IFRS taxonomy)."""
         from edgar.financials import Financials
         return Financials.extract(self._filing)
 
@@ -206,7 +206,7 @@ class SixK:
 
     def _get_exhibit_content(self, exhibit) -> Optional[str]:
         """Get the rendered text content of an exhibit."""
-        from edgar.documents import parse_html
+        from edgar.sgml.text_extraction import attachment_html_to_text
 
         if exhibit.empty:
             sgml_document = self._filing.sgml().get_document_by_sequence(exhibit.sequence_number)
@@ -215,10 +215,10 @@ class SixK:
         else:
             html_content = exhibit.download()
             if html_content:
-                # text(table_max_col_width=200) is what the modern Document's own
-                # __repr__ returns; it is spelled out rather than reached through
-                # repr_rich because this Document has no __rich__ to render.
-                return parse_html(html_content).text(table_max_col_width=200)
+                # The rule Attachment.text(), Filing.text() and the 8-K exhibits
+                # use. It also decodes bytes exhibits as UTF-8, then Windows-1252,
+                # then Latin-1 (GH #844), which parse_html() alone does not.
+                return attachment_html_to_text(html_content)
 
     def _content_renderables(self):
         """Get exhibit content as rich renderables."""

@@ -13,6 +13,7 @@ import os
 import re
 import secrets
 import subprocess
+import sys
 import tarfile
 import threading
 import time
@@ -208,6 +209,20 @@ def _api_headers(creds: dict) -> dict:
     }
 
 
+def _stdin_is_tty() -> bool:
+    """True when stdin is a terminal a prompt can read an answer from.
+
+    Without one (CI, a script, a pipe), ``click.confirm`` / ``click.prompt``
+    read EOF and click aborts with a bare ``Error:`` — so callers check
+    this first and fail with a message that names the flag to pass.
+    """
+    try:
+        return sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        # stdin replaced by an object without isatty, or already closed.
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Project-slug resolution
 # ---------------------------------------------------------------------------
@@ -338,8 +353,8 @@ def _resolve_project_slug(
       3. Interactive prompt — and offer to save the answer back so future
          runs find it in pyproject.toml.
 
-    Raises ``click.ClickException`` if ``interactive=False`` and (1) and
-    (2) both miss.
+    Raises ``click.ClickException`` if (1) and (2) both miss and either
+    ``interactive=False`` or stdin is not a TTY to prompt on.
     """
     if arg:
         return arg
@@ -347,7 +362,7 @@ def _resolve_project_slug(
     if saved:
         click.echo(f"Using project slug from pyproject.toml: {saved}")
         return saved
-    if not interactive:
+    if not interactive or not _stdin_is_tty():
         raise click.ClickException(
             "No project slug provided and none found in pyproject.toml "
             "[tool.djust.deploy].project. Pass it as a positional argument."
@@ -479,6 +494,7 @@ def _ensure_project_exists(
       | 404               | True        | (n/a)  | raise (fail-fast)     |
       | 404               | False       | True   | create, no prompt     |
       | 404               | False       | False  | confirm, then create  |
+      |                   |             |        | (raise if no TTY)     |
       | other (5xx/etc)   | (n/a)       | (n/a)  | use slug + warn       |
     """
     try:
@@ -510,6 +526,13 @@ def _ensure_project_exists(
             f"Project '{project_slug}' not found on {server} and "
             "--no-create was passed. Create the project first or drop "
             "--no-create to be prompted."
+        )
+
+    if not yes and not _stdin_is_tty():
+        raise click.ClickException(
+            f"Project '{project_slug}' doesn't exist on djustlive yet, and there "
+            "is no TTY to confirm creating it: pass --yes to create the project, "
+            "or --no-create to fail without asking."
         )
 
     if not yes and not click.confirm(
@@ -1011,8 +1034,11 @@ def logout(ctx: click.Context) -> None:
 @click.pass_context
 def status(ctx: click.Context, project: Optional[str]) -> None:
     """Show current deployment status. Optionally filter by PROJECT slug."""
-    creds = load_credentials()
     server = ctx.obj["server"]
+    # Same resolver as `deploy`, so an expired OAuth access token is
+    # refreshed rather than sent as-is and 401'd. Non-interactive: a
+    # status query never opens a browser login.
+    creds = _ensure_logged_in(server, interactive=False)
 
     params = {}
     if project:
@@ -1033,6 +1059,172 @@ def status(ctx: click.Context, project: Optional[str]) -> None:
 
     data = resp.json()
     click.echo(json.dumps(data, indent=2))
+
+
+# Seconds between polls while ``logs --follow`` waits for new lines.
+_LOGS_POLL_SECONDS = 2.0
+# Consecutive transient failures (connection errors, timeouts, 5xx) a
+# ``logs`` run rides out, with exponential backoff, before giving up: a
+# long --follow should survive the server restarting mid-build.
+_LOGS_MAX_TRANSIENT_FAILURES = 5
+# Final statuses that ``logs --follow`` reports with exit status 1.
+_LOGS_UNSUCCESSFUL = frozenset({"failed", "cancelled"})
+
+
+def _format_log_line(line: dict) -> str:
+    """One build-log line as ``<timestamp> <LEVEL> <message>``."""
+    level = str(line.get("level", "info")).upper()
+    return f"{line.get('timestamp', '')} {level:<7} {line.get('message', '')}"
+
+
+def _quote_segment(value: str) -> str:
+    """Quote a URL path segment so a slug or id can't re-target the path."""
+    return urllib.parse.quote(value, safe="")
+
+
+@cli.command()
+@click.argument("project", required=False, default=None)
+@click.option(
+    "--deployment",
+    "deployment_id",
+    default=None,
+    help="Deployment ID to show (default: the project's latest deployment).",
+)
+@click.option(
+    "--follow",
+    "-f",
+    is_flag=True,
+    help=(
+        "Keep printing new lines until the deployment finishes; exit 1 if it "
+        "failed or was cancelled."
+    ),
+)
+@click.pass_context
+def logs(
+    ctx: click.Context,
+    project: Optional[str],
+    deployment_id: Optional[str],
+    follow: bool,
+) -> None:
+    """Show the build/deploy log of a deployment of PROJECT.
+
+    PROJECT defaults to ``[tool.djust.deploy].project`` in pyproject.toml.
+    Without ``--deployment``, shows the project's most recent deployment.
+    These are the platform's build and rollout lines (the ones the
+    dashboard shows), not your running app's own output.
+
+    Log lines go to stdout; the deployment's id, status and error message
+    go to stderr. With ``--follow``, polls until the deployment reaches a
+    final status, then exits 1 if it failed or was cancelled (0 when it is
+    active or was superseded). Connection errors, timeouts and 5xx
+    responses are retried a few times with backoff.
+    """
+    server = ctx.obj["server"]
+    # Non-interactive: refresh an expired access token, but never open a
+    # browser login from a log query.
+    creds = _ensure_logged_in(server, interactive=False)
+
+    if deployment_id and not project:
+        url = f"{server}/api/v1/deployments/{_quote_segment(deployment_id)}/logs/"
+        target = f"deployment {deployment_id}"
+    else:
+        slug = _resolve_project_slug(project, Path.cwd(), interactive=False)
+        url = (
+            f"{server}/api/v1/projects/{_quote_segment(slug)}/deployments/"
+            f"{_quote_segment(deployment_id or 'latest')}/logs/"
+        )
+        target = f"deployment {deployment_id}" if deployment_id else f"a deployment of '{slug}'"
+
+    cursor = 0
+    refreshed = False
+    header_shown = False
+    failures = 0
+    # Set once --follow has waited on an unfinished deployment; the one
+    # final poll after it finishes is only needed then.
+    awaited = False
+    while True:
+        try:
+            resp = requests.get(
+                url,
+                headers=_api_headers(creds),
+                params={"since": cursor},
+                timeout=30,
+            )
+            error = None if resp.status_code < 500 else f"API error {resp.status_code}"
+        except requests.RequestException as exc:
+            error = f"Request failed: {exc}"
+        if error is not None:
+            failures += 1
+            if failures > _LOGS_MAX_TRANSIENT_FAILURES:
+                raise click.ClickException(f"{error} (gave up after {failures} attempts)")
+            delay = min(2 ** (failures - 1), 16)
+            click.echo(f"{error}; retrying in {delay}s…", err=True)
+            time.sleep(delay)
+            continue
+        failures = 0
+
+        if resp.status_code == 401 and not refreshed:
+            # The access token expired (e.g. during a long --follow). Refresh
+            # once per expiry: ``refreshed`` resets after the next success.
+            refreshed = True
+            creds = _ensure_logged_in(server, interactive=False)
+            continue
+        if resp.status_code == 404:
+            raise click.ClickException(f"Could not find {target} (or you don't have access).")
+        if resp.status_code != 200:
+            raise click.ClickException(f"API error {resp.status_code}: {resp.text}")
+        refreshed = False
+
+        try:
+            data = resp.json()
+        except ValueError:
+            raise click.ClickException(
+                f"Unexpected response from {server} (not JSON); is --server right?"
+            ) from None
+        if not header_shown:
+            header_shown = True
+            click.echo(
+                f"Deployment {data.get('deployment_id')} "
+                f"({data.get('project_slug')}, {data.get('environment')}): {data.get('status')}",
+                err=True,
+            )
+            # Pin the deployment: while following "latest", a newer deploy
+            # started meanwhile must not switch the stream to another log.
+            if data.get("deployment_id"):
+                pinned = _quote_segment(str(data["deployment_id"]))
+                url = f"{server}/api/v1/deployments/{pinned}/logs/"
+
+        for line in data.get("lines", []):
+            click.echo(_format_log_line(line))
+        previous, cursor = cursor, data.get("cursor", cursor)
+
+        # has_more without progress would spin; treat it as caught up.
+        if data.get("has_more") and cursor != previous:
+            continue
+        if follow and not data.get("done", True):
+            awaited = True
+            time.sleep(_LOGS_POLL_SECONDS)
+            continue
+        if awaited:
+            # The server can log a last line just after the status turns
+            # final (where the deployment is serving): poll once more.
+            awaited = False
+            time.sleep(_LOGS_POLL_SECONDS)
+            continue
+        break
+
+    final = data.get("status")
+    error = data.get("error_message")
+    if follow and final in _LOGS_UNSUCCESSFUL:
+        # A ClickException, not ctx.exit(1): `djust deploy` runs this group
+        # with standalone_mode=False and only turns exceptions into exit codes.
+        raise click.ClickException(
+            f"Deployment {final}: {error}" if error else f"Deployment {final}."
+        )
+    if data.get("done"):
+        click.echo(f"Deployment {final}.", err=True)
+    if error:
+        click.echo(f"Error: {error}", err=True)
 
 
 # ---------------------------------------------------------------------------

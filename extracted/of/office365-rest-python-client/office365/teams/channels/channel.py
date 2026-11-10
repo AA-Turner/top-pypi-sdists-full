@@ -7,23 +7,26 @@ from urllib.parse import quote
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.onedrive.driveitems.driveItem import DriveItem
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
+from office365.teams.channels.layout_type import ChannelLayoutType
 from office365.teams.channels.membership_type import ChannelMembershipType
 from office365.teams.channels.provision_email_result import ProvisionChannelEmailResult
 from office365.teams.channels.shared_team_info import SharedWithChannelTeamInfo
+from office365.teams.channels.summary import ChannelSummary
 from office365.teams.chats.messages.collection import ChatMessageCollection
 from office365.teams.members.conversation import ConversationMember
+from office365.teams.migration_mode import MigrationMode
+from office365.teams.quotas import CHANNEL_MESSAGES_READ, CHANNEL_MESSAGES_WRITE
 from office365.teams.tabs.tab import TeamsTab
 
 if TYPE_CHECKING:
     from office365.teams.apps.app import TeamsApp
-    from office365.teams.channels.layout_type import ChannelLayoutType
-    from office365.teams.channels.summary import ChannelSummary
-    from office365.teams.migration_mode import MigrationMode
 
 
 class Channel(Entity):
@@ -32,6 +35,11 @@ class Channel(Entity):
     def __str__(self):
         return self.display_name or self.entity_type_name
 
+    @require_permission(
+        delegated=["Channel.ReadBasic.All", "ChannelMember.Read.All"],
+        application=["Channel.ReadBasic.All", "ChannelMember.Read.All"],
+        notes="Ask whether a user may open a shared channel",
+    )
     def does_user_have_access(
         self,
         user_id: str | None = None,
@@ -58,6 +66,11 @@ class Channel(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["ChannelSettings.ReadWrite.All"],
+        application=["ChannelSettings.ReadWrite.All"],
+        notes="Give a channel an email address",
+    )
     def provision_email(self) -> ClientResult[ProvisionChannelEmailResult]:
         """
         Provision an email address for a channel.
@@ -74,6 +87,11 @@ class Channel(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["ChannelSettings.ReadWrite.All"],
+        application=["ChannelSettings.ReadWrite.All"],
+        notes="Remove a channel's email address",
+    )
     def remove_email(self):
         """
         Remove the email address of a channel.
@@ -92,26 +110,31 @@ class Channel(Entity):
         """
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="description")
     @property
     def description(self) -> str | None:
         """Optional textual description for the channel."""
-        return self.properties.get("Description")
+        return self.properties.get("description")
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> str | None:
         """Channel name as it will appear to the user in Microsoft Teams. The maximum length is 50 characters"""
         return self.properties.get("displayName")
 
+    @odata(name="email")
     @property
     def email(self) -> str | None:
         """The email address for sending messages to the channel. Read-only."""
         return self.properties.get("email")
 
+    @odata(name="isArchived")
     @property
     def is_archived(self) -> bool | None:
         """Indicates whether the channel is archived. Read-only."""
         return self.properties.get("isArchived")
 
+    @odata(name="isFavoriteByDefault")
     @property
     def is_favorite_by_default(self) -> bool | None:
         """Indicates whether the channel should be marked as recommended for all members of the team to show in
@@ -120,6 +143,7 @@ class Channel(Entity):
         The default value is false"""
         return self.properties.get("isFavoriteByDefault")
 
+    @odata(name="tenantId")
     @property
     def tenant_id(self) -> str | None:
         """The ID of the Microsoft Entra tenant."""
@@ -136,6 +160,7 @@ class Channel(Entity):
         """
         return self.properties.get("membershipType", ChannelMembershipType.invalid)
 
+    @odata(name="webUrl")
     @property
     def web_url(self) -> str | None:
         """A hyperlink that will navigate to the channel in Microsoft Teams. This is the URL that you get when you
@@ -143,7 +168,7 @@ class Channel(Entity):
         opaque blob, and not parsed. Read-only."""
         return self.properties.get("webUrl")
 
-    @odata(name="filesFolder")
+    @odata(name="filesFolder", navigation=True)
     @property
     def files_folder(self) -> DriveItem:
         """Get the metadata for the location where the files of a channel are stored."""
@@ -152,6 +177,7 @@ class Channel(Entity):
             DriveItem(self.context, ResourcePath("filesFolder", self.resource_path)),
         )
 
+    @odata(name="tabs", navigation=True)
     @property
     def tabs(self) -> EntityCollection[TeamsTab]:
         """A collection of all the tabs in the channel. A navigation property."""
@@ -160,7 +186,12 @@ class Channel(Entity):
             EntityCollection(self.context, TeamsTab, ResourcePath("tabs", self.resource_path)),
         )
 
+    # Both budgets live on the member that names the endpoint, not on the collection type:
+    # ``ChatMessageCollection`` serves a channel and a chat alike, and their write budgets
+    # differ (500 against 200 requests a second), so only the parent knows which applies.
+    @odata(name="messages", navigation=True)
     @property
+    @limit(*CHANNEL_MESSAGES_READ, *CHANNEL_MESSAGES_WRITE)
     def messages(self) -> ChatMessageCollection:
         """A collection of all the messages in the channel."""
         return self.properties.get(
@@ -168,6 +199,7 @@ class Channel(Entity):
             ChatMessageCollection(self.context, ResourcePath("messages", self.resource_path)),
         )
 
+    @odata(name="members", navigation=True)
     @property
     def members(self) -> EntityCollection[ConversationMember]:
         """A collection of membership records associated with the channel."""
@@ -180,7 +212,7 @@ class Channel(Entity):
             ),
         )
 
-    @odata(name="sharedWithTeams")
+    @odata(name="sharedWithTeams", navigation=True)
     @property
     def shared_with_teams(self) -> EntityCollection[SharedWithChannelTeamInfo]:
         """A collection of teams with which a channel is shared."""
@@ -201,32 +233,31 @@ class Channel(Entity):
             self._resource_path = ResourcePath(quote(value), self.resource_path.parent)
         return self
 
+    @odata(name="layoutType")
     @property
     def layout_type(self) -> ChannelLayoutType:
         """Gets the layoutType property"""
-        from office365.teams.channels.layout_type import ChannelLayoutType
-
         return self.properties.get("layoutType", ChannelLayoutType.post)
 
+    @odata(name="migrationMode")
     @property
     def migration_mode(self) -> MigrationMode:
         """Gets the migrationMode property"""
-        from office365.teams.migration_mode import MigrationMode
-
         return self.properties.get("migrationMode", MigrationMode.inProgress)
 
+    @odata(name="originalCreatedDateTime")
     @property
     def original_created_date_time(self) -> Optional[datetime]:
         """Gets the originalCreatedDateTime property"""
         return self.properties.get("originalCreatedDateTime", datetime.min)
 
+    @odata(name="summary")
     @property
     def summary(self) -> ChannelSummary:
         """Gets the summary property"""
-        from office365.teams.channels.summary import ChannelSummary
-
         return self.properties.get("summary", ChannelSummary())
 
+    @odata(name="allMembers", navigation=True)
     @property
     def all_members(self) -> EntityCollection[ConversationMember]:
         """Gets the allMembers property"""
@@ -239,6 +270,7 @@ class Channel(Entity):
             ),
         )
 
+    @odata(name="enabledApps", navigation=True)
     @property
     def enabled_apps(self) -> EntityCollection[TeamsApp]:
         """Gets the enabledApps property"""

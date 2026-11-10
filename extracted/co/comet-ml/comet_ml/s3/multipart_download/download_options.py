@@ -23,11 +23,16 @@ CONFIG_KEY_TOTAL_DOWNLOAD_CONCURRENCY = (
     "comet.internal.s3_multipart_download_total_concurrency"
 )
 CONFIG_KEY_DOWNLOAD_PART_SIZE = "comet.s3_multipart.download_part_size"
+CONFIG_KEY_DOWNLOAD_CHUNK_SIZE = "comet.s3_multipart.download_chunk_size"
 CONFIG_KEY_DOWNLOAD_TIMEOUT = "comet.timeout.file_download"
 
 DEFAULT_DOWNLOAD_PART_SIZE = config_constants.S3_MULTIPART_DOWNLOAD_PART_SIZE_DEFAULT
 MIN_DOWNLOAD_PART_SIZE = config_constants.S3_MULTIPART_DOWNLOAD_PART_SIZE_MIN
 MAX_DOWNLOAD_PART_SIZE = config_constants.S3_MULTIPART_DOWNLOAD_PART_SIZE_MAX
+
+DEFAULT_DOWNLOAD_CHUNK_SIZE = config_constants.S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_DEFAULT
+MIN_DOWNLOAD_CHUNK_SIZE = config_constants.S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_MIN
+MAX_DOWNLOAD_CHUNK_SIZE = config_constants.S3_MULTIPART_DOWNLOAD_CHUNK_SIZE_MAX
 
 
 DOWNLOAD_LIMITS = transfer_options.TransferLimits(
@@ -59,9 +64,12 @@ class MultipartDownloadOptions:
         part_size: int,
         parts_download_options: PartsDownloadOptions,
         request_timeout: Optional[float],
+        chunk_size: Optional[int] = None,
     ):
         """Prefer from_config() or defaults()."""
         self.part_size = clamp_part_size(part_size)
+        # How much of a range is read and written at a time, on either transport.
+        self.chunk_size = clamp_chunk_size(chunk_size)
         self.parts_download_options = parts_download_options
         # Per request, as requests applies it: to connecting and to each read, not to
         # the whole range. Without one, a socket that stalls without closing parks
@@ -74,6 +82,7 @@ class MultipartDownloadOptions:
             part_size=config.get_int(None, CONFIG_KEY_DOWNLOAD_PART_SIZE),
             parts_download_options=PartsDownloadOptions.from_config(config),
             request_timeout=config.get_int(None, CONFIG_KEY_DOWNLOAD_TIMEOUT),
+            chunk_size=config.get_int(None, CONFIG_KEY_DOWNLOAD_CHUNK_SIZE),
         )
 
     @classmethod
@@ -82,6 +91,7 @@ class MultipartDownloadOptions:
             "part_size": DEFAULT_DOWNLOAD_PART_SIZE,
             "parts_download_options": PartsDownloadOptions.defaults(),
             "request_timeout": None,
+            "chunk_size": DEFAULT_DOWNLOAD_CHUNK_SIZE,
         }
         values.update(overrides)
         return cls(**values)
@@ -89,32 +99,58 @@ class MultipartDownloadOptions:
     def __repr__(self) -> str:
         return (
             "MultipartDownloadOptions(part_size=%d, parts_download_options=%r, "
-            "request_timeout=%r)"
-            % (self.part_size, self.parts_download_options, self.request_timeout)
+            "request_timeout=%r, chunk_size=%d)"
+            % (
+                self.part_size,
+                self.parts_download_options,
+                self.request_timeout,
+                self.chunk_size,
+            )
         )
 
 
 def clamp_part_size(part_size: Optional[int]) -> int:
-    if part_size is None:
-        return DEFAULT_DOWNLOAD_PART_SIZE
+    return _clamp_size(
+        "part size",
+        part_size,
+        DEFAULT_DOWNLOAD_PART_SIZE,
+        MIN_DOWNLOAD_PART_SIZE,
+        MAX_DOWNLOAD_PART_SIZE,
+    )
+
+
+def clamp_chunk_size(chunk_size: Optional[int]) -> int:
+    return _clamp_size(
+        "chunk size",
+        chunk_size,
+        DEFAULT_DOWNLOAD_CHUNK_SIZE,
+        MIN_DOWNLOAD_CHUNK_SIZE,
+        MAX_DOWNLOAD_CHUNK_SIZE,
+    )
+
+
+def _clamp_size(
+    name: str, size: Optional[Any], default: int, minimum: int, maximum: int
+) -> int:
+    if size is None:
+        return default
 
     try:
-        part_size = int(part_size)
+        size = int(size)
     except (TypeError, ValueError):
         LOGGER.debug(
-            "Invalid S3 download part size %r, falling back to %d",
-            part_size,
-            DEFAULT_DOWNLOAD_PART_SIZE,
+            "Invalid S3 download %s %r, falling back to %d", name, size, default
         )
-        return DEFAULT_DOWNLOAD_PART_SIZE
+        return default
 
-    clamped = max(MIN_DOWNLOAD_PART_SIZE, min(part_size, MAX_DOWNLOAD_PART_SIZE))
-    if clamped != part_size:
+    clamped = max(minimum, min(size, maximum))
+    if clamped != size:
         LOGGER.debug(
-            "S3 download part size %d is outside [%d, %d], using %d",
-            part_size,
-            MIN_DOWNLOAD_PART_SIZE,
-            MAX_DOWNLOAD_PART_SIZE,
+            "S3 download %s %d is outside [%d, %d], using %d",
+            name,
+            size,
+            minimum,
+            maximum,
             clamped,
         )
 

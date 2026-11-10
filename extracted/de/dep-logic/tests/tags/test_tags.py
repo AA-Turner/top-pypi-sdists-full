@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from dep_logic.tags import EnvSpec
@@ -6,6 +8,8 @@ from dep_logic.tags.tags import EnvCompatibility
 
 def test_check_wheel_tags():
     wheels = [
+        "protobuf-5.27.2-cp315-abi3.abi3t-macosx_14_0_arm64.whl",
+        "protobuf-5.27.2-cp315-abi3t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp313-cp313t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp313-cp313-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp310-abi3-win32.whl",
@@ -54,6 +58,7 @@ def test_check_wheel_tags():
     }
     filtered_wheels = sorted(wheel_compats, key=wheel_compats.__getitem__, reverse=True)
     assert filtered_wheels == [
+        "protobuf-5.27.2-cp315-abi3.abi3t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp313-cp313-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp310-cp310-macosx_12_0_arm64.whl",
         "protobuf-5.27.2-cp38-abi3-macosx_10_9_universal2.whl",
@@ -70,6 +75,8 @@ def test_check_wheel_tags():
     }
     filtered_wheels = sorted(wheel_compats, key=wheel_compats.__getitem__, reverse=True)
     assert filtered_wheels == [
+        "protobuf-5.27.2-cp315-abi3.abi3t-macosx_14_0_arm64.whl",
+        "protobuf-5.27.2-cp315-abi3t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp313-cp313t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-py3-none-any.whl",
     ]
@@ -82,6 +89,8 @@ def test_check_wheel_tags():
     }
     filtered_wheels = sorted(wheel_compats, key=wheel_compats.__getitem__, reverse=True)
     assert filtered_wheels == [
+        "protobuf-5.27.2-cp315-abi3.abi3t-macosx_14_0_arm64.whl",
+        "protobuf-5.27.2-cp315-abi3t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp313-cp313t-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp313-cp313-macosx_14_0_arm64.whl",
         "protobuf-5.27.2-cp310-cp310-macosx_12_0_arm64.whl",
@@ -153,3 +162,22 @@ def test_check_wheel_tags():
 )
 def test_env_spec_comparison(left, right, expected):
     assert left.compare(right) == expected
+
+
+@pytest.mark.parametrize("release,arch", [("7.6", "x86_64"), ("7.5", "aarch64")])
+def test_openbsd_env_spec_roundtrip(release, arch):
+    platform = f"openbsd_{release}_{arch}"
+    original = EnvSpec.from_spec(">=3.10", platform=platform, implementation="cpython")
+    assert original.platform is not None
+    assert original.platform.compatible_tags == [
+        f"openbsd_{release.replace('.', '_')}_{arch}"
+    ]
+
+    serialized: dict[str, Any] = original.as_dict()
+    assert serialized == {
+        "requires_python": ">=3.10",
+        "platform": platform,
+        "implementation": "cpython",
+        "gil_disabled": False,
+    }
+    assert EnvSpec.from_spec(**serialized) == original

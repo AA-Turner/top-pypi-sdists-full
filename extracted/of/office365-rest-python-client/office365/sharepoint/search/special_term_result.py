@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SpecialTermResult(ClientValue):
     Description: str | None = None
     IsVisualBestBet: bool | None = None

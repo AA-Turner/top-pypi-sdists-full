@@ -47,7 +47,7 @@ int libpff_free_map_read_file_io_handle(
 	uint8_t *free_map_data       = NULL;
 	uint8_t *table_data          = NULL;
 	static char *function        = "libpff_free_map_read_file_io_handle";
-	off64_t back_pointer_offset  = 0;
+	uint64_t back_pointer_offset = 0;
 	off64_t unallocated_offset   = 0;
 	size_t read_size             = 0;
 	size_t unallocated_size      = 0;
@@ -117,7 +117,7 @@ int libpff_free_map_read_file_io_handle(
 		 error,
 		 LIBCERROR_ERROR_DOMAIN_MEMORY,
 		 LIBCERROR_MEMORY_ERROR_INSUFFICIENT,
-		 "%s: unable to create alloction table data.",
+		 "%s: unable to create allocation table data.",
 		 function );
 
 		goto on_error;
@@ -264,7 +264,7 @@ int libpff_free_map_read_file_io_handle(
 		 stored_checksum,
 		 calculated_checksum );
 
-		/* TODO implement error tollerance
+		/* TODO implement error tolerance
 		 */
 		goto on_error;
 	}
@@ -279,7 +279,7 @@ int libpff_free_map_read_file_io_handle(
 		 free_map_type,
 		 free_map_type_copy );
 
-		/* TODO implement error tollerance
+		/* TODO implement error tolerance
 		 */
 		goto on_error;
 	}
@@ -294,7 +294,7 @@ int libpff_free_map_read_file_io_handle(
 		 function,
 		 free_map_type );
 
-		/* TODO implement error tollerance
+		/* TODO implement error tolerance
 		 */
 		goto on_error;
 	}
@@ -322,7 +322,7 @@ int libpff_free_map_read_file_io_handle(
 			{
 				if( unallocated_size == 0 )
 				{
-					unallocated_offset = back_pointer_offset;
+					unallocated_offset = (off64_t) back_pointer_offset;
 				}
 				unallocated_size += allocation_block_size;
 			}

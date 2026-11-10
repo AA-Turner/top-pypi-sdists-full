@@ -30,6 +30,8 @@ class AnonymousChatInteraction:
             annotates it; 0 elsewhere.
         input_tokens (Union[None, int]):
         output_tokens (Union[None, int]):
+        cache_read_tokens (Union[None, int]):
+        cache_write_tokens (Union[None, int]):
         offering_uuids (AnonymousChatInteractionOfferingUuids):
         result_count (int):
         is_flagged (bool):
@@ -52,6 +54,8 @@ class AnonymousChatInteraction:
     click_count: int
     input_tokens: Union[None, int]
     output_tokens: Union[None, int]
+    cache_read_tokens: Union[None, int]
+    cache_write_tokens: Union[None, int]
     offering_uuids: "AnonymousChatInteractionOfferingUuids"
     result_count: int
     is_flagged: bool
@@ -83,6 +87,12 @@ class AnonymousChatInteraction:
 
         output_tokens: Union[None, int]
         output_tokens = self.output_tokens
+
+        cache_read_tokens: Union[None, int]
+        cache_read_tokens = self.cache_read_tokens
+
+        cache_write_tokens: Union[None, int]
+        cache_write_tokens = self.cache_write_tokens
 
         offering_uuids = self.offering_uuids.to_dict()
 
@@ -126,6 +136,8 @@ class AnonymousChatInteraction:
                 "click_count": click_count,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
+                "cache_read_tokens": cache_read_tokens,
+                "cache_write_tokens": cache_write_tokens,
                 "offering_uuids": offering_uuids,
                 "result_count": result_count,
                 "is_flagged": is_flagged,
@@ -176,6 +188,20 @@ class AnonymousChatInteraction:
             return cast(Union[None, int], data)
 
         output_tokens = _parse_output_tokens(d.pop("output_tokens"))
+
+        def _parse_cache_read_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_read_tokens = _parse_cache_read_tokens(d.pop("cache_read_tokens"))
+
+        def _parse_cache_write_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_write_tokens = _parse_cache_write_tokens(d.pop("cache_write_tokens"))
 
         offering_uuids = AnonymousChatInteractionOfferingUuids.from_dict(d.pop("offering_uuids"))
 
@@ -229,6 +255,8 @@ class AnonymousChatInteraction:
             click_count=click_count,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
             offering_uuids=offering_uuids,
             result_count=result_count,
             is_flagged=is_flagged,

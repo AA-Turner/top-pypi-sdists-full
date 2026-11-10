@@ -53,6 +53,7 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
     IMPORT_CONSTR,
     IMPORT_EMAIL_STR,
     IMPORT_ENCODED_BYTES,
+    IMPORT_ENCODED_STR,
     IMPORT_FIELD,
     IMPORT_FUTURE_DATE,
     IMPORT_FUTURE_DATETIME,
@@ -90,6 +91,7 @@ from datamodel_code_generator.types import (
     StrictTypes,
     Types,
     UnionIntFloat,
+    _create_context_data_type,
     _float_constraint,
     _non_finite_as_written,
     normalize_integer_constraints,
@@ -176,6 +178,8 @@ number_kwargs: tuple[str, ...] = _applicability.NUMBER_KEYWORD_ORDER
 string_kwargs: tuple[str, ...] = _applicability.STRING_LENGTH_KEYWORD_ORDER
 _ANNOTATED_STRING_IMPORTS = (IMPORT_ANNOTATED,)
 _ENCODED_BYTES_IMPORTS = (IMPORT_ANNOTATED, IMPORT_FIELD, IMPORT_ENCODED_BYTES, IMPORT_BASE64_ENCODER)
+_ENCODED_STR_IMPORTS = (IMPORT_ANNOTATED, IMPORT_FIELD, IMPORT_ENCODED_STR, IMPORT_BASE64_ENCODER)
+_STRICT_ENCODED_STR_IMPORTS = (IMPORT_ANNOTATED, IMPORT_STRICT_STR, IMPORT_ENCODED_STR, IMPORT_BASE64_ENCODER)
 
 bytes_kwargs: tuple[str, ...] = _applicability.LENGTH_KEYWORD_ORDER
 _FLOAT_TYPES: frozenset[Types] = frozenset({Types.float, Types.double, Types.number, Types.time})
@@ -201,6 +205,7 @@ class DataTypeManager(_DataTypeManagerBase):
 
     PATTERN_KEY: ClassVar[str] = "pattern"
     HOSTNAME_REGEX: ClassVar[str] = HOSTNAME_REGEX
+    WRITES_ENCODED_STR: ClassVar[bool] = True
     CONSTRAINED_TYPE_CONSUMED_KEYS: ClassVar[dict[str, tuple[str, ...]]] = dict(
         _applicability.PYDANTIC_OUTPUT.zero_bound_classes
     )
@@ -211,6 +216,7 @@ class DataTypeManager(_DataTypeManagerBase):
         _applicability.PYDANTIC_OUTPUT.target_number_keywords
     )
     _WRITES_CONSTRAINED_TYPES: ClassVar[bool] = _applicability.PYDANTIC_OUTPUT.writes_constrained_types
+    REGEX_ENGINES: ClassVar[frozenset[str]] = _applicability.PYDANTIC_OUTPUT.regex_engines
     DEFAULT_VALUE_DESCRIPTORS = MappingProxyType({
         _import_key(IMPORT_DECIMAL): DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
         _import_key(IMPORT_CONDECIMAL): CONSTRAINED_DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
@@ -278,8 +284,6 @@ class DataTypeManager(_DataTypeManagerBase):
             "pattern": self.PATTERN_KEY,
         }
 
-        from datamodel_code_generator.types import _create_context_data_type  # noqa: PLC0415
-
         self.data_type = _create_context_data_type(
             "PydanticV2ContextDataType",
             PydanticV2DataType,
@@ -290,6 +294,12 @@ class DataTypeManager(_DataTypeManagerBase):
             treat_dot_as_module,
             use_serialize_as_any,
         )
+
+    @property
+    @override
+    def checks_map_key_patterns(self) -> bool:
+        """Return True: Pydantic checks the ``pattern`` of the ``constr`` or ``StringConstraints`` key type."""
+        return True
 
     def type_map_factory(  # noqa: PLR0913, PLR0917
         self,
@@ -455,25 +465,57 @@ class DataTypeManager(_DataTypeManagerBase):
         if kwargs.get("base64_encoded"):
             if not data_type_kwargs:
                 return self.data_type.from_import(IMPORT_BASE64BYTES, strict=strict)
-            from datamodel_code_generator.types import _create_context_data_type  # noqa: PLC0415
-
-            data_type = _create_context_data_type(
+            return self._encoded_text_type(
                 "PydanticV2EncodedBytesDataType",
                 EncodedBytesDataType,
-                self.python_version,
-                self.use_standard_collections,
-                self.use_generic_container_types,
-                self.use_union_operator,
-                self.treat_dot_as_module,
-                self.use_serialize_as_any,
-            ).from_import(IMPORT_ENCODED_BYTES, kwargs=data_type_kwargs)
-            data_type._set_runtime_expression_imports(_ENCODED_BYTES_IMPORTS)  # noqa: SLF001
-            return data_type
+                IMPORT_ENCODED_BYTES,
+                data_type_kwargs,
+                _ENCODED_BYTES_IMPORTS,
+            )
         if data_type_kwargs:
             if strict:
                 data_type_kwargs["strict"] = True
             return self.data_type.from_import(IMPORT_CONBYTES, kwargs=data_type_kwargs)
         return self._unconstrained(types, StrictTypes.bytes)
+
+    def _encoded_str_type(self, kwargs: Mapping[str, Any]) -> DataType | None:
+        """Return a string decoded from base64 text with the string constraints of ``kwargs``, or None without any.
+
+        It writes them in front of the decoding ``EncodedStr``, so Pydantic checks them on the text. Where the string
+        is strict (``strict_encoded_str``: ``--strict-types str`` with ``--use-strict-str-for-base64``) it is the
+        ``StrictStr`` that ``EncodedStr`` decodes, with or without constraints.
+        """
+        data_type_kwargs = self.transform_kwargs(dict(kwargs), _applicability.STRING_KEYWORD_ORDER)
+        strict = _applicability.strict_encoded_str(self.constraint_options, strict=StrictTypes.str in self.strict_types)
+        if not strict and not data_type_kwargs:
+            return None
+        if self.PATTERN_KEY in data_type_kwargs:
+            data_type_kwargs[self.PATTERN_KEY] = _get_regex_literal(data_type_kwargs[self.PATTERN_KEY])
+        return self._encoded_text_type(
+            "PydanticV2EncodedStrDataType",
+            EncodedStrDataType,
+            IMPORT_ENCODED_STR,
+            data_type_kwargs or None,
+            (*_STRICT_ENCODED_STR_IMPORTS, *((IMPORT_FIELD,) if data_type_kwargs else ()))
+            if strict
+            else _ENCODED_STR_IMPORTS,
+            strict=strict,
+        )
+
+    def _encoded_text_type(  # noqa: PLR0913
+        self,
+        name: str,
+        base: type[DataType],
+        import_: Import,
+        kwargs: dict[str, Any] | None,
+        imports: tuple[Import, ...],
+        *,
+        strict: bool = False,
+    ) -> DataType:
+        """Return the type ``import_`` that decodes base64 text, on the context class ``name`` over ``base``."""
+        data_type = self._context_class(name, base).from_import(import_, kwargs=kwargs, strict=strict)
+        data_type._set_runtime_expression_imports(imports)  # noqa: SLF001
+        return data_type
 
     @override
     def _non_finite_multiple_of(self, types: Types, kwargs: Mapping[str, Any]) -> float | None:
@@ -541,6 +583,16 @@ class DataTypeManager(_DataTypeManagerBase):
         """
         if self._non_finite_multiple_of(types, kwargs) is not None:
             kwargs = {key: value for key, value in kwargs.items() if key != "multipleOf"}
+        if (
+            types == Types.byte
+            and (
+                encoded := self._encoded_str_type(
+                    kwargs if field_constraints and self.encodes_constrained_base64 else {}
+                )
+            )
+            is not None
+        ):
+            return encoded
         if field_constraints:
             if _applicability.decimal_field_form(
                 options := self.constraint_options,
@@ -578,8 +630,22 @@ class DataTypeManager(_DataTypeManagerBase):
 # --- Pydantic v2 specific ---
 
 
+def _serialized_as_any(reference: Reference) -> bool | None:
+    """Return whether the final class hierarchy wraps a type naming ``reference``, None where nothing decided it.
+
+    --use-serialize-as-any-for-every-subclass decides it for every live model (``parser/_serialize_as_any.py``).
+    """
+    return getattr(reference.source, "serialized_as_any", None)
+
+
 def _writes_serialize_as_any(reference: Reference) -> bool:
-    """Return whether ``--use-serialize-as-any`` wraps a type naming ``reference``: a subclass adds fields."""
+    """Return whether ``--use-serialize-as-any`` wraps a type naming ``reference``: a subclass adds fields.
+
+    The final class hierarchy decides where it decided (``_serialized_as_any``); elsewhere a direct subclass that the
+    reference records as its child decides, as in 0.88.0.
+    """
+    if (decided := _serialized_as_any(reference)) is not None:
+        return decided
     return any(child.fields for child in reference.iter_data_model_children())
 
 
@@ -609,11 +675,18 @@ class PydanticV2DataType(DataType):
 
         return type_
 
+    @override
+    def _get_wrapped_alias_type_hint(self, alias: str) -> str:
+        """Wrap the module-qualified name of a model as its name is wrapped, where the class hierarchy decided it."""
+        if self.use_serialize_as_any and (reference := self.reference) is not None and _serialized_as_any(reference):
+            return subscript_text("SerializeAsAny", (alias,))
+        return alias
+
     def _needs_serialize_as_any_import(self) -> bool:
-        if not self.use_serialize_as_any:
+        if not self.use_serialize_as_any or self.reference is None:
             return False
-        if self._own_text or self.reference is None:
-            return False
+        if self._own_text:
+            return self.alias is not None and bool(_serialized_as_any(self.reference))
         return self._should_wrap_with_serialize_as_any()
 
     @property
@@ -642,34 +715,78 @@ class _RuntimeAnnotatedDataType(PydanticV2DataType):
         yield from self.runtime_expression_imports
 
 
-class EncodedBytesDataType(_RuntimeAnnotatedDataType):
-    """Bytes written as base64 text, with the lengths that Pydantic checks on that text before it decodes it.
+class EncodedTextDataType(_RuntimeAnnotatedDataType):
+    """A value written as base64 text, with the constraints that Pydantic checks on that text before it decodes it.
 
-    JSON Schema counts ``minLength`` and ``maxLength`` on the base64 text, while Pydantic checks a ``Field()`` length
-    of ``Base64Bytes`` on the decoded bytes in some forms, so the lengths stay in front of the decoding
-    ``EncodedBytes``. Pydantic checks them so from 2.10 on.
+    JSON Schema checks ``pattern``, ``minLength`` and ``maxLength`` on the base64 text, while Pydantic checks the
+    ``Field()`` constraints of ``Base64Bytes`` and ``Base64Str`` on the decoded value in some forms, so the constraints
+    stay in front of the decoding ``encoder`` that writes the ``encoded_base`` type. Pydantic checks them so from 2.10
+    on.
     """
 
-    annotated_bytes: ClassVar[bool] = True
+    encoded_base: ClassVar[str]
+    """The type the decoding writes, which a constrained scalar of the type constrains."""
+    encoder: ClassVar[str]
 
     @property
     @override
     def _consumed_constraints(self) -> frozenset[str]:
-        """The lengths the type writes in front of its decoding, which it enforces itself."""
-        return _applicability.base64_bytes_consumed_keywords(self.kwargs or {})
+        """The constraints the type writes in front of its decoding, which it enforces itself."""
+        return _applicability.base64_text_consumed_keywords(self.kwargs or {})
 
     @property
     @override
     def type_hint(self) -> str:
-        """Render the lengths and the base64 decoding inside an Annotated subscript."""
-        keywords = (
-            keyword_argument(name, represent_python_value(value)) for name, value in (self.kwargs or {}).items()
+        """Render the decoded type, its constraints and the base64 decoding inside an Annotated subscript."""
+        constraints = (
+            (
+                call_text(
+                    self._binding("Field"),
+                    (keyword_argument(name, represent_python_value(value)) for name, value in kwargs.items()),
+                ),
+            )
+            if (kwargs := self.kwargs)
+            else ()
         )
         return subscript_text(
             self._binding("Annotated"),
             (
-                "bytes",
-                call_text(self._binding("Field"), keywords),
-                f"{self._binding('EncodedBytes')}(encoder={self._binding('Base64Encoder')})",
+                self._decoded_base,
+                *constraints,
+                f"{self._binding(self.encoder)}(encoder={self._binding('Base64Encoder')})",
             ),
         )
+
+    @property
+    @override
+    def base_type_hint(self) -> str:
+        """The decoded type alone, so a ``RootModel`` base never builds the pattern before the config's engine."""
+        return self._decoded_base
+
+    @property
+    def _decoded_base(self) -> str:
+        """The type the decoding writes."""
+        return self.encoded_base
+
+
+class EncodedBytesDataType(EncodedTextDataType):
+    """Bytes written as base64 text, with the lengths in front of the decoding ``EncodedBytes``."""
+
+    encoded_base: ClassVar[str] = "bytes"
+    encoder: ClassVar[str] = "EncodedBytes"
+
+
+class EncodedStrDataType(EncodedTextDataType):
+    """A string written as base64 text, with its pattern and lengths in front of the decoding ``EncodedStr``.
+
+    Written under ``--use-encoded-str-for-constrained-base64`` in place of ``Annotated[Base64Str, Field(...)]``.
+    """
+
+    encoded_base: ClassVar[str] = "str"
+    encoder: ClassVar[str] = "EncodedStr"
+
+    @property
+    @override
+    def _decoded_base(self) -> str:
+        """``StrictStr`` for a strict string, which Pydantic 2.10 or later refuses bytes for, else ``str``."""
+        return self._binding("StrictStr") if self.strict else self.encoded_base

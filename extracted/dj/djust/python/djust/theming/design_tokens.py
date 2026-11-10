@@ -235,6 +235,7 @@ def get_interactive_utilities() -> str:
     return """/* Interactive state patterns */
 .interactive {
   cursor: pointer;
+  font-family: inherit;
   transition: all var(--duration-fast) ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -261,7 +262,7 @@ def get_interactive_utilities() -> str:
 
 /* Link patterns */
 .link {
-  color: hsl(var(--primary));
+  color: hsl(var(--primary-text, var(--primary)));
   text-decoration: underline;
   text-decoration-color: transparent;
   transition: text-decoration-color var(--duration-fast) ease;

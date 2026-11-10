@@ -877,7 +877,7 @@ mod tests {
 
         ```py
         import sys
-        a = b + 10 + sys.veeersion  # ty: ignore[unresolved-attribute, unresolved-reference]
+        a = b + 10 + sys.veeersion  # ty: ignore[missing-attribute, unresolved-reference]
         ```
         ");
     }
@@ -1105,7 +1105,7 @@ class B(A):
             def test(
                 self,
                 b: str
-            ) -> A.b:  # ty: ignore[invalid-method-override, unresolved-attribute]
+            ) -> A.b:  # ty: ignore[incompatible-method-override, missing-attribute]
                 pass
         ```
         "#);
@@ -1138,10 +1138,10 @@ class B(A):
 
 
         class B(A):
-            def test(  # ty:ignore[unresolved-reference, invalid-method-override]
+            def test(  # ty:ignore[unresolved-reference, incompatible-method-override]
                 self,
                 b: str
-            ) -> A.b:  # ty: ignore[unresolved-attribute]
+            ) -> A.b:  # ty: ignore[missing-attribute]
                 pass
         ```
 
@@ -1151,7 +1151,7 @@ class B(A):
          --> test.py:7:28
           |
         6 | class B(A):
-        7 |     def test(  # ty:ignore[unresolved-reference, invalid-method-override]
+        7 |     def test(  # ty:ignore[unresolved-reference, incompatible-method-override]
           |                            ^^^^^^^^^^^^^^^^^^^^
         8 |         self,
         9 |         b: str
@@ -1159,8 +1159,8 @@ class B(A):
         help: Remove the unused suppression code
           |
         6 | class B(A):
-          -     def test(  # ty:ignore[unresolved-reference, invalid-method-override]
-        7 +     def test(  # ty:ignore[invalid-method-override]
+          -     def test(  # ty:ignore[unresolved-reference, incompatible-method-override]
+        7 +     def test(  # ty:ignore[incompatible-method-override]
         8 |         self,
           |
         "#);

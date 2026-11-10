@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: vention-sim-grpc-py-sdk
-Version: 0.1.29
+Version: 0.1.30
 Summary: Generated Python gRPC clients for the Vention simulation protos
 Project-URL: Homepage, https://github.com/VentionCo/simulation
 Project-URL: Repository, https://github.com/VentionCo/simulation
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Requires-Dist: grpcio<2,>=1.74.0
 Requires-Dist: protobuf<7,>=6.31.1
-Requires-Dist: vention-grpc-py-sdk>=0.0.85
+Requires-Dist: vention-grpc-py-sdk>=0.0.87
 Description-Content-Type: text/markdown
 
 # vention-sim-grpc-py-sdk

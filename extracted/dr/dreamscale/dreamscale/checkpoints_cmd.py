@@ -378,6 +378,9 @@ def _describe(checkpoint: dict) -> list[str]:
     source = checkpoint.get("source") or {}
     revision = source.get("resolved_revision") or source.get("revision") or "main"
     where = f"hf://{source.get('repo')}@{revision}"
+    if source.get("kind") == "official":  # a family's own published checkpoint, by name
+        name = str(source.get("repo") or "").removeprefix("official/")
+        where = f"official {name} (files {str(revision)[:12]})"
     training = checkpoint.get("training") or {}
     if training.get("run_id"):  # a training run's checkpoint, as π0.5's describe names it
         step = training.get("step")

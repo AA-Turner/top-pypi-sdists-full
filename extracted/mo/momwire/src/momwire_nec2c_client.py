@@ -11,7 +11,7 @@ This module is the other half of the fix. It is what SimNEC spawns, and it
 does no work: it finds (or starts) ONE long-lived server holding one warm
 cache and one thread-pool budget, then pumps stdin to it and its answers back
 to stdout until SimNEC closes the pipe. The server is
-``python -m momwire.portal --serve`` — today's daemon behind an ``accept()``.
+``python -m momwire.dropin.nec2c --serve`` — today's daemon behind an ``accept()``.
 
 **Nothing here may import ``momwire``**, and that is the entire point rather
 than a style rule: ``import momwire`` pulls NumPy and SciPy, which is the
@@ -52,7 +52,7 @@ socket and the loser was served the other's physics with a banner naming it
 The call forms every momwire launcher answers (momwire#1611) are served
 here too: ``- -`` is the protocol this client already pumps, and ``in out``
 or 4nec2's two names on stdin, one deck file each, are handed to the stock
-engine (``python -m momwire.portal`` with the same flags), which answers them
+engine (``python -m momwire.dropin.nec2c`` with the same flags), which answers them
 through the shared launcher shell at the stock engine's speed.
 
 POSIX only. The transport is an AF_UNIX socket; Windows CPython gained
@@ -124,7 +124,7 @@ def probe_version(suffix: str | None = None) -> str:
     """The ``-version`` line, answered without importing momwire.
 
     :func:`momwire_serve_client.version_line` (momwire#1606), the same line
-    ``momwire.portal.probe_version`` builds from the same owner, so the probe
+    ``momwire.dropin.nec2c.probe_version`` builds from the same owner, so the probe
     never has to spawn anything. ``suffix`` is what this launcher's own file
     name selects (:func:`filename_basis`); ``--basis`` never moves the line.
     An editable install reports the version recorded at ``pip install -e``
@@ -134,7 +134,7 @@ def probe_version(suffix: str | None = None) -> str:
 
 
 def nec2_launcher_name(suffix: str | None) -> str:
-    """``momwire.portal._portal.nec2_launcher_name`` restated (importing it
+    """``momwire.dropin.nec2c._portal.nec2_launcher_name`` restated (importing it
     would cost the NumPy start-up), pinned equal by
     ``tests/test_version_line_1606.py``."""
     return f"momwire-nec2c-{suffix}" if suffix else "momwire-nec2c"
@@ -355,8 +355,12 @@ def config_key(engine: list[str], idle_timeout: float) -> str:
             probe_version(),
             *_mech.interpreter_identity(),
             f"{idle_timeout!r}",
+            # momwire#1831: the framed wire. A framing client must never
+            # reach a resident server of the same version that reads to EOF.
+            _mech.WIRE,
             *(f"{flag}={value}" for flag, value in pairs),
             *_mech.junction_rule_identity(),
+            *_mech.feature_identity(),
         ]
     )
 
@@ -378,7 +382,7 @@ def _server_command(
     return [
         sys.executable,
         "-m",
-        "momwire.portal",
+        "momwire.dropin.nec2c",
         "--serve",
         "--socket",
         path,
@@ -451,25 +455,29 @@ def pump(conn, stdin_fd: int, stdout_fd: int, prefix: bytes = b"") -> int:
     already computed. Queueing what will not go out and coming back for it
     when the socket says so is what makes that unreachable.
 
-    Closing stdin (SimNEC's ``Process.destroy()``, or a redirect running out)
-    half-closes the socket rather than dropping it, so the server sees a clean
-    EOF, finishes the deck it is on, and the remaining output is drained
-    before we go.
+    The wire is framed (momwire#1831): each piece of stdin goes out as one
+    ``momwire_serve_client.deck_frame``, and closing stdin (SimNEC's
+    ``Process.destroy()``, or a redirect running out) sends the empty frame,
+    ``STREAM_END``, so the server sees a clean end of input, finishes the
+    deck it is on, and the remaining output is drained before we go. The
+    socket is never half-closed: macOS can lose the EOF of a
+    ``shutdown(SHUT_WR)`` (momwire#1822), and a session whose end was that
+    EOF would wait forever for it.
 
     ``prefix`` is stdin already read (the first line :func:`main` looked at
     to tell decks from 4nec2's names, momwire#1611), sent ahead of the rest.
     """
     import selectors
-    import socket as _socket
 
     selector = _make_selector(stdin_fd)
     selector.register(conn, selectors.EVENT_READ)
     conn.setblocking(False)
 
-    pending = bytearray(prefix)
+    # Never an empty data frame: the empty frame is the stream's end.
+    pending = bytearray(_mech.deck_frame(prefix) if prefix else b"")
     stdin_open = stdin_fd >= 0
     watching_stdin = stdin_open
-    half_closed = False
+    ended = False
 
     try:
         while True:
@@ -477,6 +485,11 @@ def pump(conn, stdin_fd: int, stdout_fd: int, prefix: bytes = b"") -> int:
             # at each of the places that could change it — the registrations
             # are then idempotent by construction and cannot drift out of step
             # with the buffer they describe.
+            if not stdin_open and not ended:
+                # Nothing left to send it from: tell the server so, in the
+                # frame, and stay to drain the answer it still owes.
+                pending += _mech.STREAM_END
+                ended = True
             selector.modify(
                 conn,
                 selectors.EVENT_READ | (selectors.EVENT_WRITE if pending else 0),
@@ -487,17 +500,12 @@ def pump(conn, stdin_fd: int, stdout_fd: int, prefix: bytes = b"") -> int:
                     selector.register(stdin_fd, selectors.EVENT_READ)
                 else:
                     selector.unregister(stdin_fd)
-            if not stdin_open and not pending and not half_closed:
-                # Nothing left to send and nothing left to send it from: tell
-                # the server so, and stay to drain the answer it still owes.
-                conn.shutdown(_socket.SHUT_WR)
-                half_closed = True
 
             for key, events in selector.select():
                 if key.fileobj is not conn:
                     data = os.read(stdin_fd, _PUMP_CHUNK)
                     if data:
-                        pending += data
+                        pending += _mech.deck_frame(data)
                     else:
                         selector.unregister(stdin_fd)
                         stdin_open = watching_stdin = False
@@ -525,11 +533,13 @@ def _write_all(fd: int, data: bytes) -> None:
 
 def _stock(engine: list[str], paths: list[str]) -> None:
     """Become the stock engine for one deck file's call form (``in out``,
-    or 4nec2's names, momwire#1611): ``python -m momwire.portal`` with the
+    or 4nec2's names, momwire#1611): ``python -m momwire.dropin.nec2c`` with the
     same engine flags and the paths on its command line, which answers them
     through the launcher shell.  Never returns."""
     sys.stdout.flush()
-    os.execv(sys.executable, [sys.executable, "-m", "momwire.portal", *engine, *paths])
+    os.execv(
+        sys.executable, [sys.executable, "-m", "momwire.dropin.nec2c", *engine, *paths]
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -583,7 +593,13 @@ def main(argv: list[str] | None = None) -> int:
         # module keeps the embedded decks in one file.
         os.execv(
             sys.executable,
-            [sys.executable, "-m", "momwire.portal", "--shared-selftest", *engine],
+            [
+                sys.executable,
+                "-m",
+                "momwire.dropin.nec2c",
+                "--shared-selftest",
+                *engine,
+            ],
         )
 
     try:

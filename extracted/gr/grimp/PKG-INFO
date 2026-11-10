@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grimp
-Version: 3.18
+Version: 3.19
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -8,7 +8,6 @@ Classifier: Operating System :: Unix
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -22,7 +21,7 @@ License-File: AUTHORS.rst
 Summary: Builds a queryable graph of the imports within one or more Python packages.
 Author-email: David Seddon <david@seddonym.me>
 License: BSD 2-Clause License
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Documentation, https://grimp.readthedocs.io/
 Project-URL: Source-code, https://github.com/python-grimp/grimp/

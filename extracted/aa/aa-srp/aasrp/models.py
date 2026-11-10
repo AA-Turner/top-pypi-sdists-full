@@ -123,19 +123,18 @@ class SrpLink(models.Model):
         verbose_name=_("SRP status"),
     )
     srp_code = models.CharField(max_length=16, default="", verbose_name=_("SRP code"))
-    fleet_commander = models.ForeignKey(
-        to=EveCharacter,
-        related_name="+",
-        null=True,
-        blank=True,
-        default=None,
-        on_delete=models.SET_NULL,
-        verbose_name=_("Fleet commander"),
-    )
+    # fleet_commander = models.ForeignKey(
+    #     to=EveCharacter,
+    #     related_name="+",
+    #     null=True,
+    #     blank=True,
+    #     default=None,
+    #     on_delete=models.SET_NULL,
+    #     verbose_name=_("Fleet commander"),
+    # )
     fleet_doctrine = models.CharField(
         max_length=254, default="", verbose_name=_("Doctrine")
     )
-
     fleet_type = models.ForeignKey(
         to=FleetType,
         related_name="+",
@@ -146,12 +145,10 @@ class SrpLink(models.Model):
         help_text=_("The SRP link fleet type, if it's set"),
         verbose_name=_("Fleet type"),
     )
-
     fleet_time = models.DateTimeField(verbose_name=_("Fleet time"))
-    aar_link = models.CharField(
+    aar_link = models.URLField(
         max_length=254, blank=True, default="", verbose_name=_("AAR link")
     )
-
     creator = models.ForeignKey(
         to=User,
         related_name="+",
@@ -161,6 +158,13 @@ class SrpLink(models.Model):
         on_delete=models.SET(value=get_sentinel_user),
         help_text=_("Who created the SRP link?"),
         verbose_name=_("Creator"),
+    )
+    total_cost = models.PositiveBigIntegerField(
+        default=0,
+        help_text=_(
+            "The total payout amount for approved SRP requests linked to this SRP link"
+        ),
+        verbose_name=_("Total cost"),
     )
 
     class Meta:  # pylint: disable=too-few-public-methods
@@ -198,20 +202,6 @@ class SrpLink(models.Model):
 
         # Call the original save method to ensure the SRP link is saved to the database
         super().save(*args, **kwargs)
-
-    @property
-    def total_cost(self) -> int:
-        """
-        Calculate the total payout amount for approved SRP requests linked to this SRP link.
-
-        :return: The total payout amount.
-        :rtype: int
-        """
-
-        return sum(
-            int(r.payout_amount)
-            for r in self.srp_requests.filter(request_status=SrpRequest.Status.APPROVED)
-        )
 
     def _count_requests_by_status(self, status: str) -> int:
         """
@@ -280,6 +270,54 @@ class SrpLink(models.Model):
 
         return self.srp_requests.all()
 
+    @property
+    def pending_cost(self) -> int:
+        """
+        Calculate the total payout amount for all pending SRP requests linked to this SRP link.
+
+        :return: The total payout amount for pending requests.
+        :rtype: int
+        """
+
+        return (
+            self.srp_requests.filter(
+                request_status=SrpRequest.Status.PENDING
+            ).aggregate(total=models.aggregates.Sum("payout_amount"))["total"]
+            or 0
+        )
+
+    @staticmethod
+    def total_srp_cost() -> int:
+        """
+        Calculate the total payout amount for all approved SRP requests across all SRP links.
+
+        :return: The total payout amount.
+        :rtype: int
+        """
+
+        return (
+            SrpLink.objects.aggregate(total=models.aggregates.Sum("total_cost"))[
+                "total"
+            ]
+            or 0
+        )
+
+    @staticmethod
+    def pending_srp_cost() -> int:
+        """
+        Calculate the total payout amount for all pending SRP requests across all SRP links.
+
+        :return: The total payout amount for pending requests.
+        :rtype: int
+        """
+
+        return (
+            SrpRequest.objects.filter(
+                request_status=SrpRequest.Status.PENDING
+            ).aggregate(total=models.aggregates.Sum("payout_amount"))["total"]
+            or 0
+        )
+
 
 class SrpRequest(models.Model):
     """
@@ -325,7 +363,7 @@ class SrpRequest(models.Model):
         on_delete=models.SET_NULL,
         verbose_name=_("Ship"),
     )
-    killboard_link = models.CharField(
+    killboard_link = models.URLField(
         max_length=254, default="", verbose_name=_("Killboard link")
     )
     killmail_id = models.PositiveBigIntegerField(
@@ -344,14 +382,18 @@ class SrpRequest(models.Model):
         default=Status.PENDING,
         verbose_name=_("Request status"),
     )
-    payout_amount = models.BigIntegerField(default=0, verbose_name=_("Payout amount"))
+    payout_amount = models.PositiveBigIntegerField(
+        default=0, verbose_name=_("Payout amount")
+    )
     srp_link = models.ForeignKey(
         to=SrpLink,
         related_name="srp_requests",
         on_delete=models.CASCADE,
         verbose_name=_("SRP link"),
     )
-    loss_amount = models.BigIntegerField(default=0, verbose_name=_("Loss amount"))
+    loss_amount = models.PositiveBigIntegerField(
+        default=0, verbose_name=_("Loss amount")
+    )
     post_time = models.DateTimeField(
         default=timezone.now, verbose_name=_("Request time")
     )
@@ -589,8 +631,25 @@ class Setting(SingletonModel):
         SRP_TEAM_DISCORD_CHANNEL_ID = "srp_team_discord_channel_id", _(
             "SRP team Discord channel ID"
         )
-
         LOSS_VALUE_SOURCE = "loss_value_source", _("Loss value source")
+        PAYOUT_RECEIVER = "payout_receiver", _("Payout receiver")
+        PAYOUT_EDITABLE_MODE = "payout_editable_mode", _("Payout editable mode")
+
+    class PayoutEditableMode(models.TextChoices):
+        """
+        Choices for Setting.PayoutEditableMode
+        """
+
+        POPUP = "popup", _("Popup")
+        INLINE = "inline", _("Inline")
+
+    class PayoutReceiver(models.TextChoices):
+        """
+        Choices for Setting.PayoutReceiver
+        """
+
+        REQUESTOR = "requestor", _("Requestor's main character")
+        LOSER = "loser", _("The character that lost the ship")
 
     class LossValueSource(models.TextChoices):
         """
@@ -618,6 +677,29 @@ class Setting(SingletonModel):
         ),
         max_length=11,
         verbose_name=Field.LOSS_VALUE_SOURCE.label,  # pylint: disable=no-member
+    )
+    payout_receiver = models.CharField(
+        choices=PayoutReceiver.choices,
+        default=PayoutReceiver.REQUESTOR,
+        help_text=_(
+            "Who should receive the payout for an approved SRP request? "
+            "The requestor's main character or the character that lost the ship. "
+            "(Default: Requestor's main character)"
+        ),
+        max_length=9,
+        verbose_name=Field.PAYOUT_RECEIVER.label,  # pylint: disable=no-member
+    )
+    payout_editable_mode = models.CharField(
+        choices=PayoutEditableMode.choices,
+        default=PayoutEditableMode.POPUP,
+        help_text=_(
+            "How should the payout amount be edited? "
+            "Popup will open a popup window to edit the payout amount. "
+            "Inline will allow editing the payout amount directly in the table. "
+            "(Default: Popup)"
+        ),
+        max_length=6,
+        verbose_name=Field.PAYOUT_EDITABLE_MODE.label,  # pylint: disable=no-member
     )
 
     objects: ClassVar[SettingManager] = SettingManager()

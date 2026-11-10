@@ -33,10 +33,11 @@ from . import (
 from . import compile_proposal as compile_proposal_module
 from . import overview as overview_module
 from .kbdir import kb_dirname, kb_prefix
-from .source_coverage import CAPTURE_HEADING
+from .source_coverage import CAPTURE_HEADING, fence_for, fenced_capture
 from .vault import (
     MISSING_CONTENT_HASH,
     LogEntry,
+    PathGuard,
     PlannedWrite,
     VaultPathError,
     batch_atomic_write,
@@ -44,6 +45,8 @@ from .vault import (
     parse_frontmatter,
     plan_log_entries,
     prepend_log_entry,
+    read_guarded_text,
+    read_operation_log,
     resolve_under_vault,
     unique_path,
     yaml_scalar,
@@ -347,13 +350,6 @@ def _save_manifest(
     return {"path": rel, "ref": context_refs.manifest_ref(rel), "warnings": warnings}
 
 
-def _fence_for(text: str) -> str:
-    run = 3
-    while "`" * run in text:
-        run += 1
-    return "`" * run
-
-
 def _clean_inline(value: str) -> str:
     """A value for an inline-code span: no backtick or line break can end it early."""
     return " ".join(value.replace("`", "'").split())
@@ -456,12 +452,16 @@ def render_text_source(
         CAPTURE_HEADING,
         "",
     ]
-    fence = _fence_for(text)
+    fence = fence_for(text)
     return "\n".join([*lines, fence, text, fence, ""])
 
 
+text_source_body = fenced_capture  # the name that callers and tests read from here
+
+
 def render_artifact_source(
-    planned: Mapping[str, Any], *, date_iso: str, collection: str | None
+    planned: Mapping[str, Any], *, date_iso: str, collection: str | None,
+    source_id: str | None = None,
 ) -> str:
     """The Source page of an artifact original, in capture's own page format."""
     from . import add as add_module
@@ -483,7 +483,7 @@ def render_artifact_source(
         content=add_module._describe_artifact(
             name, planned["original_sha256"], planned["original_bytes"]
         ),
-        exomem_id=memory_refs.new_id(),
+        exomem_id=source_id or memory_refs.new_id(),
         domain=(planned.get("classification") or {}).get("domain"),
         artifact_name=name,
         artifact_rel=planned["artifact_path"],
@@ -751,11 +751,12 @@ def import_item(
     text: str | None,
     date_iso: str,
     collection: str | None,
+    source_id: str | None = None,
 ) -> ImportItem:
     """Render one plan item. ``text`` is the verified original for a text item."""
     artifact = None
     if planned["form"] == "artifact":
-        content = render_artifact_source(planned, date_iso=date_iso, collection=collection)
+        content = render_artifact_source(planned, date_iso=date_iso, collection=collection, source_id=source_id)
         artifact = ImportArtifact(
             target=root / planned["artifact_path"],
             digest=planned["original_sha256"],
@@ -787,8 +788,10 @@ def plan_import_items(
 
     Returns ``(items, skipped)``. ``skipped`` carries per-path refusals
     (``UNSUPPORTED_IMPORT_TYPE``, ``ALREADY_GOVERNED``, vault-path errors,
-    ``NOT_VALID_UTF8``) and an ``ALREADY_IMPORTED`` row, with the earlier
-    Source's ref, for a file whose bytes an earlier import already holds.
+    ``NOT_VALID_UTF8``), an ``ALREADY_IMPORTED`` row, with the earlier
+    Source's ref, for a file whose bytes the vault already stores, and a
+    ``DUPLICATE_IN_SELECTION`` row for a file whose bytes an earlier selected
+    file holds. This stateless copy records no import mapping on the Source.
     """
     from . import client_artifacts
 
@@ -801,6 +804,7 @@ def plan_import_items(
     ceiling = client_artifacts.fetch_budget().max_file_bytes
     planned: list[dict] = []
     texts: dict[str, str] = {}
+    seen: dict[tuple[str, bool], dict] = {}
 
     for raw in selected_paths or []:
         resolved = _resolve_selected_text_file(root, raw)
@@ -811,7 +815,7 @@ def plan_import_items(
         result = adoption_plan.plan_item(
             root, rel, collection=None, collection_root="", classification=None,
             taxonomy=None, text_hint=True, date_iso=date_iso, destinations=destinations,
-            index=index, notes=notes, ceiling=ceiling,
+            index=index, notes=notes, ceiling=ceiling, seen=seen,
         )
         if isinstance(result, dict):
             skipped.append(result)
@@ -830,14 +834,18 @@ def plan_import_items(
     adoption_plan.resolve_links(planned, index, collection=None)
     items: list[ImportItem] = []
     for item in planned:
-        if item["action"] == "already-imported":
+        if item["action"] != "copy-as-source":
+            repeated = item["action"] == "duplicate-of"
             skipped.append(
                 {
                     "path": item["original_path"],
-                    "code": "ALREADY_IMPORTED",
-                    "reason": "an earlier import already holds these bytes",
+                    "code": "DUPLICATE_IN_SELECTION" if repeated else "ALREADY_IMPORTED",
+                    "reason": (
+                        f"{item['duplicate_of']} in this selection holds these bytes"
+                        if repeated else "the vault already stores these bytes"
+                    ),
                     "source_path": item["target_path"],
-                    "source_ref": item["existing_ref"],
+                    "source_ref": item["target_ref"],
                     "original_sha256": item["original_sha256"],
                     "original_bytes": item["original_bytes"],
                 }
@@ -867,6 +875,8 @@ def commit_import_items(
     today: dt.date,
     extra_writes: Sequence[PlannedWrite] = (),
     source_counts: Mapping[str, int] | None = None,
+    reconcile: bool = False,
+    operation_token: str | None = None,
 ) -> dict:
     """Write every planned import plus the Sources/top indexes and log in ONE batch.
 
@@ -889,10 +899,14 @@ def commit_import_items(
     date_iso = today.isoformat()
     writes: list[PlannedWrite] = []
     copied: list[dict] = []
+    existing_sources: set[str] = set()
+    guards: list[PathGuard] = []
+    completion_guards: list[PathGuard] = []
     held_sources: list[reserved_paths.GenericBinarySource] = []
     with ExitStack() as originals:
         for item in items:
             placed = item.artifact is not None and item.artifact.placed
+            existing_artifact = reconcile and item.artifact is not None and os.path.lexists(item.artifact.target)
             if not placed:
                 source = originals.enter_context(
                     reserved_paths.open_generic_binary(root, item.original_path, physical=True)
@@ -900,20 +914,32 @@ def commit_import_items(
                 held_sources.append(source)
                 if source.version.size != item.bytes:
                     raise AdoptError("SOURCE_CHANGED", "the original changed before import")
-            if item.artifact is None:
+            if item.artifact is None or existing_artifact and not placed:
                 try:
                     digest, size = artifact_identity(source.stream, ceiling=item.bytes)
                 except AddError as error:
                     raise AdoptError("SOURCE_CHANGED", "the original changed before import") from error
                 if digest != item.sha256 or size != item.bytes:
                     raise AdoptError("SOURCE_CHANGED", "the original changed before import")
-            writes.append(
-                PlannedWrite(
-                    path=item.target, content=item.content,
-                    create_only=True, expected_hash=MISSING_CONTENT_HASH,
+            if reconcile and os.path.lexists(item.target):
+                current, guard = read_guarded_text(root, item.target)
+                if current != item.content:
+                    raise AdoptError("IMPORT_RECOVERY_UNRESOLVED", "an existing Source differs from its frozen post-image")
+                guards.append(guard)
+                existing_sources.add(item.target_rel)
+            else:
+                writes.append(
+                    PlannedWrite(
+                        path=item.target, content=item.content,
+                        create_only=True, expected_hash=MISSING_CONTENT_HASH,
+                    )
                 )
-            )
-            if item.artifact is not None and not placed:
+            if existing_artifact:
+                completion_guards.append(PathGuard.capture(
+                    root, item.artifact.target.relative_to(root).as_posix(), leaf_policy="content",
+                    expected_content_hash=item.artifact.digest, expected_content_size=item.artifact.size,
+                ))
+            elif item.artifact is not None and not placed:
                 binary, _stream = artifact_binary_write(
                     source.stream, item.artifact.target,
                     item.artifact.digest, item.artifact.size,
@@ -935,13 +961,14 @@ def commit_import_items(
 
         sources_dir = kb / "Sources"
         pre_counts = (
-            indexes._count_sources(sources_dir) if source_counts is None else dict(source_counts)
+            indexes._count_sources(sources_dir) if reconcile or source_counts is None else dict(source_counts)
         )
         post_counts = dict(pre_counts)
         folders: list[str] = []
         for row in copied:
             folder = _top_folder(row["source_path"])
-            post_counts[folder] = post_counts.get(folder, 0) + 1
+            if row["source_path"] not in existing_sources:
+                post_counts[folder] = post_counts.get(folder, 0) + 1
             if folder not in folders:
                 folders.append(folder)
 
@@ -979,7 +1006,7 @@ def commit_import_items(
             sub_writes, top_text = indexes.compute_subindex_writes(
                 root,
                 top_index_text=top_text,
-                pending_paths=[row["source_path"] for row in copied],
+                pending_paths=[row["source_path"] for row in copied if row["source_path"] not in existing_sources],
                 include_sources_index=False,  # The Sources index write above supplies that page.
                 sources_counts=pre_counts,
             )
@@ -1001,18 +1028,32 @@ def commit_import_items(
                 f"- {row['original_path']} -> {row['source_path']} sha256={row['original_sha256']}"
             )
         # Planned like any other log write, so a long import rotates the live log instead of growing it.
-        log_plan = plan_log_entries(
-            root,
-            [LogEntry(date_iso, "adopt-copy", f"{kb_prefix()}Sources", "\n".join(body_lines))],
-            operation_token=hashlib.sha256(
+        token = operation_token or hashlib.sha256(
                 "\n".join(row["source_path"] for row in copied).encode("utf-8")
-            ).hexdigest(),
-        )
-        writes.extend(log_plan.writes)
-        if log_plan.warning is not None:
-            warnings.append(log_plan.warning)
-        if log_plan.rotation_note is not None:
-            warnings.append(log_plan.rotation_note)
+            ).hexdigest()
+        # This field identifies a frozen import chunk, not a vault vocabulary entry.
+        provenance = {"import_chunk": token} if operation_token else None
+        logged = False
+        if reconcile and operation_token:
+            history = read_operation_log(root)
+            # A missing optional live log never blocked import; an unreadable existing log cannot prove deduplication.
+            missing_live_log = not os.path.lexists(root / kb_prefix() / "log.md")
+            if history["files_unreadable"] > int(missing_live_log):
+                raise AdoptError("IMPORT_RECOVERY_UNRESOLVED", "the import log cannot establish the chunk's publication state")
+            logged = any(entry.get("op") == "adopt-copy" and
+                         (entry.get("provenance") or {}).get("import_chunk") == token
+                         for entry in history["entries"])
+        if not logged:
+            log_plan = plan_log_entries(
+                root,
+                [LogEntry(date_iso, "adopt-copy", f"{kb_prefix()}Sources", "\n".join(body_lines), token, provenance)],
+                operation_token=token,
+            )
+            writes.extend(log_plan.writes)
+            if log_plan.warning is not None:
+                warnings.append(log_plan.warning)
+            if log_plan.rotation_note is not None:
+                warnings.append(log_plan.rotation_note)
 
         writes.extend(extra_writes)
 
@@ -1021,7 +1062,8 @@ def commit_import_items(
                 source.require_current()
 
         batch_atomic_write(
-            writes, vault_root=root, _validate_prepared_bindings=require_sources_current
+            writes, vault_root=root, required_guards=guards, completion_guards=completion_guards,
+            _validate_prepared_bindings=require_sources_current
         )
     return {"copied_sources": copied, "warnings": warnings, "source_counts": post_counts}
 

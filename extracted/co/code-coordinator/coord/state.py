@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 import warnings
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -2086,22 +2086,64 @@ def baseline_red_merge_blocked(repo_name: str | None) -> bool:
 
 
 # ── board-doctor sweep state (#3758) ────────────────────────────────────────
-# Persisted in `board_meta`, the same one-JSON-blob-per-key seam
-# `baseline_red_streaks` above uses — two keys, one for the per-row
-# convergence counters `coord.board_doctor.sweep()` reads before deciding
-# whether to re-act or escalate, one for the append-only decision log
-# (#1478's "every decision recorded, with provenance" in spirit). Neither
-# blob is a merge gate, so these use the same best-effort decode and
+# The per-row convergence counters `coord.board_doctor.sweep()` reads before
+# deciding whether to re-act or escalate still live in `board_meta`'s
+# one-JSON-blob-per-key seam (same one `baseline_red_streaks` above uses).
+# The append-only decision/action log (#1478's "every decision recorded,
+# with provenance" in spirit) does NOT — #3889 moved it to its own
+# `board_doctor_log` table (`coord/db.py`) with a real age-based retention
+# prune (:func:`prune_board_doctor_log`), migrating every entry the old
+# blob held (`coord.db._migrate_board_doctor_log_table`). The counters blob
+# below is unaffected by that move; it uses the same best-effort decode and
 # `retry_on_locked` write discipline, not a stronger guarantee than that.
 
 _BOARD_DOCTOR_ROWS_META_KEY = "board_doctor_rows"
-_BOARD_DOCTOR_LOG_META_KEY = "board_doctor_log"
 
-#: Cap on the decision log's length — a ring buffer, not an audit trail
-#: that grows forever. Same rationale as any other bounded `board_meta`
-#: list: unbounded growth here would make every future read of this key
-#: slower for an operator who only ever wants "what happened recently".
-BOARD_DOCTOR_LOG_LIMIT = 500
+#: Cap on the decision log's row count — a hard safety ceiling, never the
+#: primary retention mechanism. :func:`prune_board_doctor_log` prunes by
+#: AGE first (:data:`BOARD_DOCTOR_LOG_RETENTION_DAYS`, or
+#: ``coordinator.yml``'s ``board_doctor.log_retention_days`` when set);
+#: this is only the backstop against unbounded growth if sweeps ever ran
+#: far more often than once an hour.
+BOARD_DOCTOR_LOG_LIMIT = 50000
+
+#: How long a decision log entry survives before age-based trimming drops
+#: it — the durable, outcome-tracked history an operator can ask "what has
+#: the doctor fixed this week/month?" against, replacing the old fixed
+#: 500-entry ring buffer (which held a few hours of one busy fleet).
+BOARD_DOCTOR_LOG_RETENTION_DAYS = 90
+
+#: The wait before a row stuck on the SAME escalated cause gets re-alerted,
+#: and the cap that wait doubles towards each time it fires again. A row
+#: that stays wrong does not go silent forever after its first alert — it
+#: keeps getting flagged, just less often over time, instead of converging
+#: to permanent silence.
+BOARD_DOCTOR_BACKOFF_INITIAL_HOURS = 1.0
+BOARD_DOCTOR_BACKOFF_CAP_HOURS = 24.0
+
+#: #3907: a fresh (``outcome`` still ``None``) ``auto-dispatch``/``alert``
+#: decision is held back from its FIRST grading for this many hours past
+#: its own ``recorded_at`` — even once its row reappears in a later sweep
+#: on the exact same cause. The action it took is very often still
+#: running: a Rust work/test/review cycle routinely exceeds an hour, and
+#: grading before it could possibly have landed turns the doctor's own
+#: later ``alert`` escalation into "evidence" that its own dispatch
+#: failed (the #3907 bug). Never gates re-grading a decision that
+#: already carries a verdict — see :data:`BOARD_DOCTOR_OUTCOME_REGRADABLE`,
+#: which has nothing left to protect since it is being corrected, not
+#: graded for the first time. A resolved row (absent from the stuck set
+#: entirely) is also never gated by this — "the leg finished" is itself
+#: the signal, regardless of how little time has passed.
+BOARD_DOCTOR_OUTCOME_GRACE_HOURS = 3.0
+
+#: #3907: outcomes a LATER sweep is still allowed to overwrite. A row
+#: graded ``unchanged``/``regressed`` may still reach a done-like state
+#: (or simply move on to a different cause) before its log entry ages
+#: out of retention, and should get credit for that when it does.
+#: ``progressed``/``progressed_by_other`` are terminal — once something
+#: has been confirmed to have moved the row, nothing it does afterwards
+#: should un-confirm that.
+BOARD_DOCTOR_OUTCOME_REGRADABLE = frozenset({"unchanged", "regressed"})
 
 
 def _board_doctor_row_key(queue: str, key: str) -> str:
@@ -2110,7 +2152,8 @@ def _board_doctor_row_key(queue: str, key: str) -> str:
 
 
 def _load_board_doctor_rows_raw(conn) -> dict[str, dict]:
-    """Best-effort decode of the persisted ``{row_key: {cause,count,escalated}}`` map.
+    """Best-effort decode of the persisted
+    ``{row_key: {cause,count,escalated,last_alert_at,backoff_hours}}`` map.
 
     A missing row, corrupt JSON, or an unexpected shape all read as "no
     sweep history yet" — same fail-open convention as
@@ -2141,6 +2184,8 @@ def _load_board_doctor_rows_raw(conn) -> dict[str, dict]:
                 "cause": value["cause"],
                 "count": value["count"],
                 "escalated": bool(value.get("escalated", False)),
+                "last_alert_at": value.get("last_alert_at"),
+                "backoff_hours": value.get("backoff_hours", BOARD_DOCTOR_BACKOFF_INITIAL_HOURS),
             }
     return out
 
@@ -2153,43 +2198,111 @@ def _save_board_doctor_rows_raw(conn, rows: dict[str, dict]) -> None:
     )
 
 
-def next_board_doctor_counter(prior: dict | None, cause: str) -> dict:
+def next_board_doctor_counter(
+    prior: dict | None,
+    cause: str,
+    *,
+    backoff_initial_hours: float = BOARD_DOCTOR_BACKOFF_INITIAL_HOURS,
+) -> dict:
     """Pure transition: prior convergence counter + this sweep's cause -> next counter.
 
     Same cause as last sweep -> increment ``count`` (the row is STILL
-    stuck on it), carrying forward ``escalated``. A different cause
-    (including a key seen for the first time, i.e. *prior* is ``None``)
-    resets to ``count=1, escalated=False`` — a new cause is a new
+    stuck on it), carrying forward ``escalated``/``last_alert_at``/
+    ``backoff_hours``. A different cause (including a key seen for the
+    first time, i.e. *prior* is ``None``) resets to ``count=1,
+    escalated=False`` with a fresh backoff clock — a new cause is a new
     problem, not a continuation of the old one, so it gets its own chance
-    to auto-act before converging.
+    to auto-act before converging, and its own backoff schedule once it
+    does.
+
+    *backoff_initial_hours* (#3889, #3875 ask C) is the fresh clock's
+    starting value — the fleet's live ``board_doctor.backoff_initial_hours``
+    knob when the caller threads it through, :data:`BOARD_DOCTOR_BACKOFF_INITIAL_HOURS`
+    otherwise.
 
     Shared by the real write path (:func:`_record_board_doctor_observation_raw`)
     and :func:`coord.board_doctor.sweep`'s dry-run read path, so the two
-    can never drift apart on what "same cause" vs "new cause" means
-    (#3758).
+    can never drift apart on what "same cause" vs "new cause" means.
     """
     if prior is not None and prior.get("cause") == cause:
         return {
             "cause": cause,
             "count": prior.get("count", 0) + 1,
             "escalated": bool(prior.get("escalated", False)),
+            "last_alert_at": prior.get("last_alert_at"),
+            "backoff_hours": prior.get("backoff_hours", backoff_initial_hours),
         }
-    return {"cause": cause, "count": 1, "escalated": False}
+    return {
+        "cause": cause,
+        "count": 1,
+        "escalated": False,
+        "last_alert_at": None,
+        "backoff_hours": backoff_initial_hours,
+    }
+
+
+def board_doctor_alert_due(
+    counter: dict,
+    *,
+    now: datetime,
+    backoff_initial_hours: float = BOARD_DOCTOR_BACKOFF_INITIAL_HOURS,
+) -> bool:
+    """Is a row whose persisted *counter* reads ``escalated`` due for
+    another alert right now?
+
+    Pure predicate so :func:`coord.board_doctor.sweep` can call it for
+    both the real write path and its own dry-run read path without either
+    one re-deriving the backoff math. A row never alerted before
+    (``escalated`` false, or no ``last_alert_at`` recorded yet) is always
+    due. Otherwise due once ``now`` is at least ``backoff_hours`` past
+    ``last_alert_at`` — the exponential-backoff re-check that replaces
+    "escalate once and never again": a cause that stays wrong keeps
+    getting flagged, just less often each time, instead of going
+    permanently silent once its first alert fires.
+
+    *backoff_initial_hours* is only the FALLBACK used when the counter's
+    own ``backoff_hours`` is missing/invalid (an old counter predating
+    this field) — same knob-sourced value :func:`next_board_doctor_counter`
+    takes, so a changed config is consistent across both call sites.
+    """
+    if not counter.get("escalated"):
+        return True
+    last_alert_at = counter.get("last_alert_at")
+    if not last_alert_at:
+        return True
+    try:
+        last = datetime.fromisoformat(str(last_alert_at))
+    except ValueError:
+        return True
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    backoff_hours = counter.get("backoff_hours")
+    try:
+        backoff_hours = float(backoff_hours) if backoff_hours else backoff_initial_hours
+    except (TypeError, ValueError):
+        backoff_hours = backoff_initial_hours
+    return (now - last).total_seconds() >= backoff_hours * 3600.0
 
 
 def _record_board_doctor_observation_raw(
-    conn, queue: str, key: str, cause: str
+    conn, queue: str, key: str, cause: str,
+    *, backoff_initial_hours: float = BOARD_DOCTOR_BACKOFF_INITIAL_HOURS,
 ) -> dict:
     """Update *queue*/*key*'s convergence counter for *cause* — no commit."""
     rows = _load_board_doctor_rows_raw(conn)
     row_key = _board_doctor_row_key(queue, key)
-    updated = next_board_doctor_counter(rows.get(row_key), cause)
+    updated = next_board_doctor_counter(
+        rows.get(row_key), cause, backoff_initial_hours=backoff_initial_hours,
+    )
     rows[row_key] = updated
     _save_board_doctor_rows_raw(conn, rows)
     return updated
 
 
-def record_board_doctor_observation(queue: str, key: str, cause: str) -> dict:
+def record_board_doctor_observation(
+    queue: str, key: str, cause: str,
+    *, backoff_initial_hours: float = BOARD_DOCTOR_BACKOFF_INITIAL_HOURS,
+) -> dict:
     """Record one sweep's observation of *queue*/*key* and return its updated counter.
 
     Called exactly once per row per sweep, before the sweep decides tier
@@ -2200,28 +2313,59 @@ def record_board_doctor_observation(queue: str, key: str, cause: str) -> dict:
 
     def _write() -> None:
         nonlocal updated
-        updated = _record_board_doctor_observation_raw(conn, queue, key, cause)
+        updated = _record_board_doctor_observation_raw(
+            conn, queue, key, cause, backoff_initial_hours=backoff_initial_hours,
+        )
         conn.commit()
 
     retry_on_locked(_write)
     return updated
 
 
-def mark_board_doctor_escalated(queue: str, key: str) -> None:
-    """Flag *queue*/*key*'s CURRENT counter as escalated — no-op if absent.
+def mark_board_doctor_escalated(
+    queue: str,
+    key: str,
+    *,
+    now: datetime | None = None,
+    backoff_initial_hours: float = BOARD_DOCTOR_BACKOFF_INITIAL_HOURS,
+    backoff_cap_hours: float = BOARD_DOCTOR_BACKOFF_CAP_HOURS,
+) -> None:
+    """Flag *queue*/*key*'s CURRENT counter as escalated and record this
+    alert's time — no-op if absent.
 
-    Called once, the sweep a row's `count` first reaches the convergence
-    limit, so the next sweep (and every one after, while the cause stays
-    the same) sees `escalated=True` and stops re-dispatching the alert —
-    the "escalate exactly once" half of #3758's convergence requirement.
+    Called every time an alert for this row's cause actually fires —
+    the first time a row's `count` reaches the convergence limit, and
+    again on every later sweep :func:`board_doctor_alert_due` says is due
+    (exponential backoff, never "escalate once and go silent forever").
+    The first call starts the backoff clock at *backoff_initial_hours*
+    (:data:`BOARD_DOCTOR_BACKOFF_INITIAL_HOURS` unless the caller threads
+    through ``coordinator.yml``'s ``board_doctor.backoff_initial_hours``);
+    every call AFTER that (i.e. ``escalated`` was already ``True``) doubles
+    it, capped at *backoff_cap_hours* (:data:`BOARD_DOCTOR_BACKOFF_CAP_HOURS`
+    / ``board_doctor.backoff_cap_hours``) — the row gets flagged less often
+    the longer it stays wrong, but never stops being flagged.
     """
     conn = get_connection()
+    moment = (now or datetime.now(timezone.utc)).isoformat()
 
     def _write() -> None:
         rows = _load_board_doctor_rows_raw(conn)
         row_key = _board_doctor_row_key(queue, key)
         if row_key in rows:
+            already_escalated = bool(rows[row_key].get("escalated"))
             rows[row_key]["escalated"] = True
+            rows[row_key]["last_alert_at"] = moment
+            if already_escalated:
+                prior_backoff = rows[row_key].get("backoff_hours") or backoff_initial_hours
+                try:
+                    prior_backoff = float(prior_backoff)
+                except (TypeError, ValueError):
+                    prior_backoff = backoff_initial_hours
+                rows[row_key]["backoff_hours"] = min(
+                    backoff_cap_hours, prior_backoff * 2
+                )
+            else:
+                rows[row_key]["backoff_hours"] = backoff_initial_hours
             _save_board_doctor_rows_raw(conn, rows)
         conn.commit()
 
@@ -2710,63 +2854,393 @@ def release_merge_reservation(repo_name: str, holder_key: str | None = None) -> 
     return result["ok"]
 
 
-def record_board_doctor_decision(entry: dict) -> None:
-    """Append one row's sweep outcome to the decision log (#3758, #1478 spirit).
+#: Actions a decision log entry needs an eventual outcome for — the
+#: sweep actually DID something to the row, as opposed to merely
+#: observing it (`converged-noop`, `investigate-deferred`,
+#: `suppressed-baseline-red`, `no-dispatcher`) or failing to confirm
+#: anything happened (`auto-dispatch-noop`, `alert-failed`,
+#: `alert-skipped`). Shared by :func:`record_board_doctor_decision` (which
+#: stamps a fresh entry's ``outcome`` as ``None`` only when its action is
+#: in this set — every other action is recorded with ``outcome=None``
+#: that no later sweep will ever try to fill in, so a report never shows
+#: a misleading "still pending" against something the doctor never
+#: actually acted on) and :func:`pending_board_doctor_outcomes`.
+BOARD_DOCTOR_OUTCOME_ACTIONS = frozenset({"auto-dispatch", "alert"})
 
-    *entry* is caller-shaped (``coord.board_doctor.sweep`` is the only
-    caller) and stored verbatim as one more JSON object in a ring-buffered
-    list, trimmed to :data:`BOARD_DOCTOR_LOG_LIMIT` entries, oldest first
-    dropped — every decision this harness makes is provenance for an
-    operator asking "why didn't row X get acted on", never silently lost,
-    but also never allowed to grow the `board_meta` row without bound.
+
+#: Outcomes :func:`evaluate_board_doctor_outcome` can return. Includes
+#: ``"progressed_by_other"`` (#3889) alongside the original three — a row
+#: that unstuck itself via an operator action (``remove``/``add``/``merge
+#: --override-human-required``), a hand merge/unrelated branch landing, or
+#: the ordinary drive loop, not this doctor's own confirmed action, so
+#: crediting it as plain ``"progressed"`` would let `coord drive-queue
+#: doctor-log --summary` take credit for a human's fix. The evidence for
+#: this is :mod:`coord.block_log`'s ``human_acted``/``resolution`` fields —
+#: see :func:`coord.board_doctor._board_doctor_other_resolutions`.
+BOARD_DOCTOR_OUTCOME_VALUES = frozenset(
+    {"progressed", "progressed_by_other", "unchanged", "regressed"}
+)
+
+
+def _board_doctor_log_row_to_dict(row: Any) -> dict:
+    """One ``board_doctor_log`` SQL row -> the dict shape every caller of
+    :func:`board_doctor_decisions` has always received (unchanged across
+    the #3889 JSON-blob -> table migration, so no caller needed to change).
+
+    ``outcome`` is omitted entirely (not just ``None``) for a row whose
+    ``action`` is outside :data:`BOARD_DOCTOR_OUTCOME_ACTIONS` — the
+    column always exists in SQL, but a `converged-noop`/`no-dispatcher`/
+    deferred decision was never actionable in the first place, and must
+    never look like a verdict still pending (see
+    :func:`record_board_doctor_decision`'s own docstring on the same
+    distinction).
     """
+    try:
+        evidence = json.loads(row["evidence_json"] or "[]")
+    except ValueError:
+        evidence = []
+    if not isinstance(evidence, list):
+        evidence = []
+    out = {
+        "sweep_id": row["sweep_id"],
+        "queue": row["queue"],
+        "key": row["key"],
+        "cause": row["cause"],
+        "tier": row["tier"],
+        "action": row["action"],
+        "count": row["count"],
+        "escalated": bool(row["escalated"]),
+        "confidence": row["confidence"],
+        "evidence": evidence,
+        "recorded_at": row["recorded_at"],
+    }
+    if row["outcome"] is not None or row["action"] in BOARD_DOCTOR_OUTCOME_ACTIONS:
+        out["outcome"] = row["outcome"]
+    return out
+
+
+def prune_board_doctor_log(
+    *, retention_days: float | None = None, now: datetime | None = None
+) -> int:
+    """Delete ``board_doctor_log`` rows older than *retention_days*
+    (:data:`BOARD_DOCTOR_LOG_RETENTION_DAYS` — 90 — when ``None`` or
+    non-positive, the fallback also used when ``coordinator.yml``'s
+    ``board_doctor.log_retention_days`` is unset or unreadable), then
+    enforces the hard :data:`BOARD_DOCTOR_LOG_LIMIT` backstop on whatever
+    remains (never the primary retention mechanism — see that constant).
+
+    Called ONCE per sweep (``coord.board_doctor.sweep``), with the fleet's
+    live config knob threaded through, rather than from inside every
+    :func:`record_board_doctor_decision` call — a sweep can log dozens of
+    rows in one pass and this is cheap but not free. Returns the number of
+    rows the age-based prune deleted (the hard backstop's own deletions,
+    when it fires, are not counted — it is a rare safety net, not a number
+    an operator needs to watch).
+    """
+    days = retention_days if retention_days and retention_days > 0 else BOARD_DOCTOR_LOG_RETENTION_DAYS
+    moment = now or datetime.now(timezone.utc)
+    cutoff = moment.timestamp() - days * 86400.0
     conn = get_connection()
 
+    def _write() -> int:
+        cur = sql.execute(
+            conn, "DELETE FROM board_doctor_log WHERE recorded_at_ts < ?", (cutoff,),
+        )
+        deleted = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+        total_row = sql.execute(conn, "SELECT COUNT(*) AS n FROM board_doctor_log").fetchone()
+        total = int(total_row["n"]) if total_row else 0
+        if total > BOARD_DOCTOR_LOG_LIMIT:
+            sql.execute(
+                conn,
+                "DELETE FROM board_doctor_log WHERE id NOT IN "
+                "(SELECT id FROM board_doctor_log ORDER BY id DESC LIMIT ?)",
+                (BOARD_DOCTOR_LOG_LIMIT,),
+            )
+        conn.commit()
+        return deleted
+
+    return retry_on_locked(_write)
+
+
+def record_board_doctor_decision(entry: dict) -> None:
+    """Insert one row's sweep outcome into the durable ``board_doctor_log``
+    table (#3889 — previously one more JSON object appended to a single
+    ``board_meta`` blob).
+
+    *entry* is caller-shaped (``coord.board_doctor.sweep`` is the only
+    caller). An ``outcome`` key of ``None`` is added (never overwriting a
+    caller-supplied one) for every entry whose ``action`` is in
+    :data:`BOARD_DOCTOR_OUTCOME_ACTIONS` — the ones
+    :func:`pending_board_doctor_outcomes` will later look for and
+    :func:`record_board_doctor_outcome` will fill in — so the schema is
+    consistent across every entry from the moment it is written.
+
+    Retention (:func:`prune_board_doctor_log`) is NOT run from here — see
+    that function's docstring; the caller runs it once per sweep instead.
+    """
+    conn = get_connection()
+    stamped = dict(entry)
+    if "outcome" not in stamped and entry.get("action") in BOARD_DOCTOR_OUTCOME_ACTIONS:
+        stamped["outcome"] = None
+    recorded_at = stamped.get("recorded_at")
+    recorded_at_ts = board_doctor_decision_ts(stamped) if recorded_at else None
+    if recorded_at_ts is None:
+        recorded_at_ts = time.time()
+        recorded_at = datetime.fromtimestamp(recorded_at_ts, tz=timezone.utc).isoformat()
+    evidence = stamped.get("evidence")
+
     def _write() -> None:
-        row = sql.execute(
-            conn, "SELECT value FROM board_meta WHERE key = ?",
-            (_BOARD_DOCTOR_LOG_META_KEY,),
-        ).fetchone()
-        log: list = []
-        if row is not None and row["value"]:
-            try:
-                decoded = json.loads(row["value"])
-            except ValueError:
-                decoded = []
-            if isinstance(decoded, list):
-                log = decoded
-        log.append(entry)
-        if len(log) > BOARD_DOCTOR_LOG_LIMIT:
-            log = log[-BOARD_DOCTOR_LOG_LIMIT:]
-        sql.upsert(
-            conn, "board_meta", ["key", "value"],
-            (_BOARD_DOCTOR_LOG_META_KEY, json.dumps(log)),
-            conflict_columns=["key"],
+        sql.execute(
+            conn,
+            """INSERT INTO board_doctor_log (
+                sweep_id, queue, key, cause, tier, action, count, escalated,
+                confidence, evidence_json, outcome, recorded_at, recorded_at_ts
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                str(stamped.get("sweep_id") or ""),
+                str(stamped.get("queue") or ""),
+                str(stamped.get("key") or ""),
+                str(stamped.get("cause") or ""),
+                str(stamped.get("tier") or ""),
+                str(stamped.get("action") or ""),
+                int(stamped.get("count") or 0),
+                1 if stamped.get("escalated") else 0,
+                str(stamped.get("confidence") or ""),
+                json.dumps(evidence if isinstance(evidence, list) else []),
+                stamped.get("outcome"),
+                recorded_at,
+                recorded_at_ts,
+            ),
         )
         conn.commit()
 
     retry_on_locked(_write)
 
 
-def board_doctor_decisions(limit: int | None = None) -> list[dict]:
-    """The persisted decision log, most-recent last (#3758).
+def record_board_doctor_outcome(sweep_id: str, queue: str, key: str, outcome: str) -> None:
+    """Fill in a PREVIOUSLY-recorded decision's ``outcome`` — the one
+    the doctor fired at ``sweep_id`` for ``queue``/``key`` — so the
+    durable log can answer "did this action actually work?" rather than
+    just "what did the doctor try?"
+
+    *outcome* is one of :data:`BOARD_DOCTOR_OUTCOME_VALUES` — including
+    ``"progressed_by_other"`` (#3889) when the caller (``coord.
+    board_doctor.sweep``) has independent evidence something other than
+    this doctor's own confirmed action moved the row.
+
+    No-op if no matching row is found (already pruned, or the caller
+    passed a stale identifier) — this never inserts a new log entry, only
+    updates one that already exists.
+
+    Raises :class:`ValueError` for an *outcome* outside
+    :data:`BOARD_DOCTOR_OUTCOME_VALUES` (#3889 review) — a declared
+    vocabulary nothing enforced would silently drift the moment a caller
+    typo'd or extended it without updating the frozenset alongside.
+    """
+    if outcome not in BOARD_DOCTOR_OUTCOME_VALUES:
+        raise ValueError(
+            f"record_board_doctor_outcome: outcome {outcome!r} not in "
+            f"BOARD_DOCTOR_OUTCOME_VALUES ({sorted(BOARD_DOCTOR_OUTCOME_VALUES)})"
+        )
+    conn = get_connection()
+
+    def _write() -> None:
+        sql.execute(
+            conn,
+            "UPDATE board_doctor_log SET outcome = ? "
+            "WHERE sweep_id = ? AND queue = ? AND key = ?",
+            (outcome, sweep_id, queue, key),
+        )
+        conn.commit()
+
+    retry_on_locked(_write)
+
+
+def pending_board_doctor_outcomes() -> list[dict]:
+    """Every logged decision still waiting on an :func:`record_board_doctor_outcome`
+    call — ``action`` in :data:`BOARD_DOCTOR_OUTCOME_ACTIONS` and
+    ``outcome`` still ``None`` — oldest first, so a caller backfilling
+    outcomes processes the longest-waiting entries first.
+
+    Filters in SQL (#3889 review) rather than pulling every row in the
+    durable log and throwing most of them away in Python — a sweep on a
+    fleet with months of history must not materialise the whole table on
+    every single pass just to find the handful still pending a verdict.
+
+    **Local-DB read only** — same limitation as :func:`board_doctor_row_state`.
+    """
+    _thin_client_local_board_guard("pending_board_doctor_outcomes")
+    return board_doctor_decisions(
+        actions=sorted(BOARD_DOCTOR_OUTCOME_ACTIONS), outcome_is_null=True,
+    )
+
+
+def regradable_board_doctor_outcomes() -> list[dict]:
+    """Every logged decision whose outcome is :data:`BOARD_DOCTOR_OUTCOME_REGRADABLE`
+    (``"unchanged"``/``"regressed"``, #3907) — already graded once, but not
+    yet confirmed ``"progressed"``/``"progressed_by_other"``, so a LATER
+    sweep whose row has since reached a done-like state (or simply moved
+    on to a different cause) can still correct the verdict. Oldest first,
+    same ordering contract as :func:`pending_board_doctor_outcomes`, whose
+    ``None``-outcome counterpart this is.
+
+    **Local-DB read only** — same limitation as :func:`board_doctor_row_state`.
+    """
+    _thin_client_local_board_guard("regradable_board_doctor_outcomes")
+    return board_doctor_decisions(
+        actions=sorted(BOARD_DOCTOR_OUTCOME_ACTIONS),
+        outcomes=sorted(BOARD_DOCTOR_OUTCOME_REGRADABLE),
+    )
+
+
+def evaluate_board_doctor_outcome(
+    decision: dict, current: dict | None, *, attributed_to_other: bool = False,
+) -> str:
+    """Pure verdict for one PAST decision, given the SAME row's counter
+    state at a later sweep: one of :data:`BOARD_DOCTOR_OUTCOME_VALUES`.
+
+    *current* is ``None`` when the row no longer appears in the current
+    sweep's stuck set at all — resolved, which is unambiguously progress.
+    A cause change (even to a different still-stuck cause) also reads as
+    progress: the specific problem *decision* acted on stopped recurring.
+    Staying on the exact same cause reads as ``"unchanged"`` by default,
+    or ``"regressed"`` when it has freshly escalated — i.e. the action
+    *decision* took did not keep the row from getting bad enough to need
+    a human.
+
+    *attributed_to_other* (#3889) is ``True`` when the CALLER has
+    independent evidence — a ``coord.block_log`` episode showing
+    ``human_acted=True`` (an operator ``remove``/``add``, a logged
+    intervention, a Gate-A sign-off) resolved between *decision*'s own
+    ``recorded_at`` and now, or any other signal the caller trusts — that
+    something OTHER than this doctor's own confirmed action is what
+    actually moved this row. Downgrades what would otherwise read as
+    ``"progressed"`` to ``"progressed_by_other"`` so `coord drive-queue
+    doctor-log --summary` never credits the doctor for a human's (or the
+    ordinary drive loop's) fix. Never changes an ``"unchanged"``/
+    ``"regressed"`` verdict — those are about the row STAYING wrong, which
+    nothing excuses crediting away.
+
+    Stays pure (no DB read) by design — exactly like the rest of this
+    outcome machinery, so the attribution rule is unit-testable with a
+    plain ``bool`` rather than needing a live block log in every test.
+    """
+    if current is None:
+        return "progressed_by_other" if attributed_to_other else "progressed"
+    if current.get("cause") != decision.get("cause"):
+        return "progressed_by_other" if attributed_to_other else "progressed"
+    if bool(current.get("escalated")) and not bool(decision.get("escalated")):
+        return "regressed"
+    return "unchanged"
+
+
+def board_doctor_decisions(
+    limit: int | None = None,
+    *,
+    since: float | None = None,
+    repo: str | None = None,
+    issue: int | None = None,
+    action: str | None = None,
+    actions: Sequence[str] | None = None,
+    outcome_is_null: bool = False,
+    outcomes: Sequence[str] | None = None,
+) -> list[dict]:
+    """The persisted decision log, oldest first.
+
+    All filters are optional and AND together. *since* is a POSIX
+    timestamp — only entries whose ``recorded_at`` is at or after it are
+    kept. *repo*/*issue* match against ``key`` (``"repo#issue"``, the same
+    `coord.drive_queue.entry_key` form every drive-queue row uses); a
+    merge-queue row whose own key does not parse that way never matches
+    either filter rather than raising. *limit* is applied LAST, after
+    every filter, so it means "the most recent N matching entries," not
+    "scan only the most recent N before filtering."
+
+    *action* is a single exact match; *actions* (#3889 review) is its
+    "one of several" counterpart — :func:`pending_board_doctor_outcomes`
+    wants ``action IN (...)``, not a second Python-side filter after
+    pulling every row. Passing both is redundant but not a conflict: both
+    are ANDed in, same as every other filter here.
+
+    *outcome_is_null* (#3889 review) pushes "outcome still pending" into
+    SQL instead of Python — again for :func:`pending_board_doctor_outcomes`,
+    so a sweep with a large durable log never materialises every row just
+    to throw most of them away.
+
+    *outcomes* (#3907) is *outcome_is_null*'s "already graded, but with
+    one of these specific verdicts" counterpart — :func:`regradable_board_doctor_outcomes`
+    wants ``outcome IN ('unchanged', 'regressed')``, same SQL-side
+    filtering rationale. Passing both *outcome_is_null* and *outcomes* is
+    redundant (mutually exclusive in SQL — a column cannot be both
+    ``NULL`` and ``IN (...)``) but not a conflict: both are ANDed in,
+    same as every other filter here, so the combination simply returns
+    nothing.
 
     **Local-DB read only** — same limitation as :func:`board_doctor_row_state`.
     """
     _thin_client_local_board_guard("board_doctor_decisions")
-    row = sql.execute(
-        get_connection(), "SELECT value FROM board_meta WHERE key = ?",
-        (_BOARD_DOCTOR_LOG_META_KEY,),
-    ).fetchone()
-    if row is None or not row["value"]:
-        return []
+    conn = get_connection()
+    sql_text = "SELECT * FROM board_doctor_log WHERE 1=1"
+    params: list[Any] = []
+    if since is not None:
+        sql_text += " AND recorded_at_ts >= ?"
+        params.append(since)
+    if action is not None:
+        sql_text += " AND action = ?"
+        params.append(action)
+    if actions:
+        placeholders = ", ".join("?" for _ in actions)
+        sql_text += f" AND action IN ({placeholders})"
+        params.extend(actions)
+    if outcome_is_null:
+        sql_text += " AND outcome IS NULL"
+    if outcomes:
+        placeholders = ", ".join("?" for _ in outcomes)
+        sql_text += f" AND outcome IN ({placeholders})"
+        params.extend(outcomes)
+    sql_text += " ORDER BY id ASC"
+    rows = sql.execute(conn, sql_text, tuple(params)).fetchall()
+    out = [_board_doctor_log_row_to_dict(row) for row in rows]
+    if repo is not None or issue is not None:
+        out = [item for item in out if _board_doctor_key_matches(item, repo, issue)]
+    return out if limit is None else out[-limit:]
+
+
+def board_doctor_decision_ts(item: dict) -> float | None:
+    """A decision dict's ``recorded_at`` as a POSIX timestamp, or ``None``
+    if it is missing or unparseable (#3889 review).
+
+    Public because :mod:`coord.board_doctor` and
+    :mod:`coord.board_doctor_policy` are both legitimate consumers — they
+    need the SAME ``recorded_at`` -> timestamp reading
+    :func:`record_board_doctor_decision` and :func:`prune_board_doctor_log`
+    already use internally, not a second guess at it. One question, one
+    answer (#2085): every ``recorded_at`` parse in this module routes
+    through this helper rather than re-deriving it.
+    """
+    recorded_at = item.get("recorded_at")
+    if not isinstance(recorded_at, str):
+        return None
     try:
-        log = json.loads(row["value"])
+        return datetime.fromisoformat(recorded_at).timestamp()
     except ValueError:
-        return []
-    if not isinstance(log, list):
-        return []
-    return log if limit is None else log[-limit:]
+        return None
+
+
+def _board_doctor_key_matches(item: dict, repo: str | None, issue: int | None) -> bool:
+    key = str(item.get("key") or "")
+    item_repo, sep, item_issue = key.rpartition("#")
+    if not sep:
+        return False
+    if repo is not None and item_repo != repo:
+        return False
+    if issue is not None:
+        try:
+            if int(item_issue) != int(issue):
+                return False
+        except ValueError:
+            return False
+    return True
 
 
 def record_uat_verdict(
@@ -3131,6 +3605,30 @@ def _stamp_test_staleness_anchor(
     )
     conn.commit()
 
+    # #3917: a *persisted* `coord.merge_queue.QueuedMerge.error` naming the
+    # smoke gate as stale ("smoke test verdict is stale: recorded against
+    # branch <old>, branch is now <new>") describes the verdict THIS write
+    # just superseded — nothing else clears it short of a real `coord
+    # merge` attempt (#420). Retire it here, the moment a fresh terminal
+    # verdict's anchors are actually confirmed live (never on the
+    # all-``None`` fail-open branch above — that proves nothing moved, only
+    # that the probe didn't run) so a conflict-fix push followed by a
+    # re-test doesn't leave `coord drive`/board-doctor re-reading a
+    # diagnostic about a branch head that no longer exists. Best-effort:
+    # a failure here must never fail the verdict write it rides along
+    # with, and it only ever CLEARS a stale string — it never asserts the
+    # gate now passes, which only a live `evaluate_smoke_verdict` call can
+    # confirm.
+    if test_head_sha is not None and test_patch_id is not None:
+        try:
+            from coord.merge_queue import (  # noqa: PLC0415
+                clear_stale_smoke_error_for_assignment,
+            )
+
+            clear_stale_smoke_error_for_assignment(assignment_id)
+        except Exception:  # noqa: BLE001 — best-effort; see above.
+            pass
+
 
 def record_test_staleness_anchor(
     *,
@@ -3262,6 +3760,7 @@ def _mark_notified_local(
         EVENT_FAILURE,
         EVENT_LIVENESS_STALL,
         EVENT_NEEDS_ATTENTION,
+        EVENT_NEEDS_DECOMPOSITION,
         EVENT_PLAN,
         EVENT_REFUSED_POLICY,
         EVENT_REFUSED_PREMISE,
@@ -3329,6 +3828,17 @@ def _mark_notified_local(
         # the classification back to `status='failed'`.
         sql.execute(conn,
             "UPDATE assignments SET status='refused_premise', finished_at=? WHERE assignment_id=?",
+            (now, assignment_id),
+        )
+    elif event == EVENT_NEEDS_DECOMPOSITION:
+        # #3931: mirrors the EVENT_REFUSED_PREMISE branch immediately above,
+        # for the same reason — without this, the just-posted "Needs Epic
+        # Decomposition" GitHub comment would be followed by this same call
+        # falling into the bare `else` below and overwriting the
+        # classification back to `status='failed'`, which would also spend
+        # an attempt on the next reconcile instead of parking.
+        sql.execute(conn,
+            "UPDATE assignments SET status='needs_decomposition', finished_at=? WHERE assignment_id=?",
             (now, assignment_id),
         )
     else:
@@ -4144,33 +4654,50 @@ def claim_smoke_dispatch(work_assignment_id: str, capability_partition: str) -> 
     several legs for ONE parent (one per capability partition), never two for
     the SAME partition.
 
+    #3920: also called by the single-leg path
+    (``coord.smoke._dispatch_smoke_single_leg``), under the fixed
+    :data:`coord.smoke.SINGLE_LEG_SMOKE_PARTITION_TAG` rather than a derived
+    capability set — a single-leg row has exactly one partition by
+    construction, so one fixed tag is enough to make the pair unique per
+    row.
+
     Returns ``True`` when THIS call wins the claim, ``False`` when another
     caller already holds it.
 
     Before this, ``dispatch_smoke``'s only per-partition dedupe was
-    :func:`coord.smoke._find_leg_for_partition` — a read of the board, so two
-    ticks that both read before either writes both dispatch the same
-    partition. This is the DB-level conditional insert that closes the gap,
-    exactly like ``claim_review_dispatch`` does for reviews: a single
-    ``INSERT ... OR IGNORE`` is atomic even across two separate
-    processes/machines, so exactly one caller ever sees ``rowcount > 0`` for
-    a given ``(work_assignment_id, capability_partition)`` pair. This is what
-    the quadraui#952 incident needed — two ticks 8 seconds apart both
-    dispatched the same ``[smoke:macos]`` partition to a ``max_workers=1``
-    host, and the second leg's write silently overwrote the first leg's
-    ``[[smoke-fanout:...]]`` manifest entry.
+    :func:`coord.smoke._find_leg_for_partition` for the fan-out path, and
+    board reads (``coord.claim.has_active_followup`` /
+    ``has_active_branch_followup``) for the single-leg path — both just
+    reads of the board, so two ticks that both read before either writes
+    both dispatch the same partition/row. This is the DB-level conditional
+    insert that closes the gap, exactly like ``claim_review_dispatch`` does
+    for reviews: a single ``INSERT ... OR IGNORE`` is atomic even across two
+    separate processes/machines, so exactly one caller ever sees
+    ``rowcount > 0`` for a given ``(work_assignment_id,
+    capability_partition)`` pair. This is what the quadraui#952 incident
+    needed for the fan-out path — two ticks 8 seconds apart both dispatched
+    the same ``[smoke:macos]`` partition to a ``max_workers=1`` host, and
+    the second leg's write silently overwrote the first leg's
+    ``[[smoke-fanout:...]]`` manifest entry — and what claude-coordinator
+    #3920 needed for the single-leg path: two ticks (``passive_reconcile``
+    and a short-lived ``coord`` process) both dispatched the identical
+    single-leg Test stage for one work row 6 seconds apart, and the first
+    one's environment-setup failure recorded a ``test_state="failed"``
+    verdict before the second one's genuine, full-suite pass could land.
 
     Routes to the daemon when ``board_service`` is configured (the claim
     table lives on the shared canonical DB, same as ``assignments``), else
     writes the local DB directly.
 
     Released by :func:`release_smoke_dispatch_claim` — call sites are
-    ``coord.smoke._dispatch_smoke_fanout`` itself (a partition whose claim it
-    won but then failed to dispatch on, e.g. no reachable machine this tick)
-    and :func:`release_smoke_claim_if_row_is_smoke_leg` (the leg's own
-    terminal-status write), so a legitimate later retry of the same
-    partition (an environmental death, or an operator ``coord stop``) is
-    never permanently stranded by a claim nothing will ever release.
+    ``coord.smoke._dispatch_smoke_fanout``/``_dispatch_smoke_single_leg``
+    themselves (a partition/row whose claim they won but then failed to
+    dispatch on, e.g. no reachable machine this tick) and
+    :func:`release_smoke_claim_if_row_is_smoke_leg` (the leg's own terminal
+    transition and terminal-status write), so a legitimate later retry of
+    the same partition/row (an environmental death, or an operator ``coord
+    stop``) is never permanently stranded by a claim nothing will ever
+    release.
     """
     if not work_assignment_id or not capability_partition:
         return True
@@ -4305,24 +4832,35 @@ def _release_smoke_dispatch_claim_local(
 
 def release_smoke_claim_if_row_is_smoke_leg(assignment_id: str) -> None:
     """Release *assignment_id*'s own smoke-dispatch claim, iff that row is
-    itself a #3182 fan-out leg (``type="smoke"`` with a capability tag in its
-    ``issue_title``) (#3333).
+    itself a Test-stage smoke leg (``type="smoke"``) — either a #3182
+    fan-out leg (a capability tag in its ``issue_title``, #3333) or a
+    #3920 single-leg dispatch (no tag, claimed under the fixed
+    :data:`coord.smoke.SINGLE_LEG_SMOKE_PARTITION_TAG`).
 
     Mirrors :func:`release_review_claim_if_row_is_review` exactly — the ONE
-    "did a smoke fan-out leg just reach a terminal status, and if so release
-    the claim it took" check, called from the same two chokepoints that
+    "did a smoke leg just reach a terminal status, and if so release the
+    claim it took" check, called from the same two chokepoints that
     function is: ``coord.issue_store._update_local_state`` (the worker
     self-report / git-floor backstop path) and this module's own
     :func:`_mark_notified_local` (the ``coord notify`` polling path a
     reaped/cancelled leg's terminal write goes through when no daemon
-    reconcile tick got there first). One shared function closes the gap for
-    both existing callers and any future one, same #2096/#3206 reasoning.
+    reconcile tick got there first) — plus, for smoke legs only,
+    ``coord.notify._release_smoke_dispatch_claim_for_leg`` on the smoke
+    terminal-transition arms themselves, so the release does not hang off
+    whether the notification-ledger write happened. One shared function
+    closes the gap for every caller, present and future, same #2096/#3206
+    reasoning.
 
-    A no-op for every non-fan-out-leg row (an ordinary single-partition smoke
-    row, a work/review row, the composite ``f"{aid}:stuck"``-style keys
-    ``_mark_notified_local``'s override events pass) — none of those match
-    ``type == "smoke"`` with a parseable capability tag, so this is safe to
-    call unconditionally from either chokepoint.
+    #3920: before this, a single-leg row's claim had no release path at all
+    here — ``smoke_leg_capabilities(row_title)`` reads ``None`` for an
+    untagged single-leg row's ``issue_title``, and that used to mean "never
+    claimed" rather than "claimed under the fixed tag". Both shapes are a
+    real claim now, so both get released.
+
+    A no-op for every non-smoke row (a work/review row, the composite
+    ``f"{aid}:stuck"``-style keys ``_mark_notified_local``'s override events
+    pass) — none of those match ``type == "smoke"``, so this is safe to call
+    unconditionally from either chokepoint.
 
     Best-effort: a lookup failure here must never turn a successful status
     write into a raised exception.
@@ -4346,11 +4884,22 @@ def release_smoke_claim_if_row_is_smoke_leg(assignment_id: str) -> None:
         row_title = row["issue_title"] if hasattr(row, "keys") else row[2]
         if row_type != "smoke" or not row_of_id:
             return
-        from coord.smoke import smoke_leg_capabilities  # noqa: PLC0415
+        from coord.smoke import (  # noqa: PLC0415
+            SINGLE_LEG_SMOKE_PARTITION_TAG,
+            smoke_leg_capabilities,
+        )
 
         caps = smoke_leg_capabilities(row_title)
         if caps is None:
-            return  # an ordinary untagged single-leg smoke row — never claimed
+            # #3920: an untagged row is a single-leg dispatch, claimed (if
+            # at all) under the fixed tag rather than a derived capability
+            # set — idempotent no-op if this row never actually took it
+            # (e.g. a pre-#3920 row, or a type="smoke" row some other path
+            # created without ever calling `claim_smoke_dispatch`).
+            _release_smoke_dispatch_claim_local(
+                row_of_id, SINGLE_LEG_SMOKE_PARTITION_TAG,
+            )
+            return
         _release_smoke_dispatch_claim_local(row_of_id, "+".join(sorted(caps)))
     except Exception:  # noqa: BLE001 — best-effort; never break the status write
         pass
@@ -5051,12 +5600,24 @@ def reset_work_test_state(
     failure mode :func:`claim_review_dispatch` was built to avoid for
     reviews. Best-effort: a manifest-parse failure here never blocks the
     reset itself.
+
+    #3920: unconditionally also releases the #3920 single-leg claim (the
+    fixed :data:`coord.smoke.SINGLE_LEG_SMOKE_PARTITION_TAG`) for every row
+    this clears — a single-leg row carries no manifest to parse, so the
+    fan-out loop above never touches it, and the identical "phantom leg
+    died without ever self-reporting" stranding applies to it too. Cheap
+    and safe even when the row never took that claim (an ordinary
+    non-smoke work row, a fan-out row, a row whose leg already
+    self-released): the underlying delete is idempotent.
     """
     conn = get_connection()
     where, params = _test_reset_where(repo_name, issue_number, assignment_id)
 
     try:
-        from coord.smoke import _parse_fanout_manifest  # noqa: PLC0415
+        from coord.smoke import (  # noqa: PLC0415
+            SINGLE_LEG_SMOKE_PARTITION_TAG,
+            _parse_fanout_manifest,
+        )
 
         rows = sql.execute(
             conn,
@@ -5066,7 +5627,10 @@ def reset_work_test_state(
         for row in rows:
             aid = row["assignment_id"] if hasattr(row, "keys") else row[0]
             reason = row["test_reason"] if hasattr(row, "keys") else row[1]
-            if not aid or not reason:
+            if not aid:
+                continue
+            _release_smoke_dispatch_claim_local(aid, SINGLE_LEG_SMOKE_PARTITION_TAG)
+            if not reason:
                 continue
             for _leg_id, caps, _cmd in _parse_fanout_manifest(reason) or []:
                 _release_smoke_dispatch_claim_local(aid, "+".join(sorted(caps)))
@@ -5671,15 +6235,19 @@ def _update_assignment_claude_session_id_local(
     conn.commit()
 
 
-# #3314: the terminal statuses `_mark_notified_local` ever writes to
+# #3314/#3931: the terminal statuses `_mark_notified_local` ever writes to
 # `assignments.status` — kept as one literal tuple so
 # `list_assignments_missing_claude_session_id`'s WHERE clause can't silently
-# drift from what a completed/failed/advisory/refused-* row actually looks
-# like on this table. `_mark_notified_local` folds EVENT_FAILURE *and*
-# entry_status=='cancelled' (see `coord.notify.detect_transitions`) into the
-# same `status='failed'` write, so 'cancelled' is deliberately not a separate
-# member here — no row is ever persisted with that literal status.
-_TERMINAL_ASSIGNMENT_STATUSES = ("done", "failed", "advisory", "refused_policy", "refused_premise")
+# drift from what a completed/failed/advisory/refused-*/needs_decomposition
+# row actually looks like on this table. `_mark_notified_local` folds
+# EVENT_FAILURE *and* entry_status=='cancelled' (see `coord.notify.
+# detect_transitions`) into the same `status='failed'` write, so 'cancelled'
+# is deliberately not a separate member here — no row is ever persisted
+# with that literal status.
+_TERMINAL_ASSIGNMENT_STATUSES = (
+    "done", "failed", "advisory", "refused_policy", "refused_premise",
+    "needs_decomposition",
+)
 
 
 def list_assignments_missing_claude_session_id(
@@ -5988,6 +6556,43 @@ def record_work_review_verdict(assignment_id: str, verdict: str) -> None:
     conn.commit()
 
 
+def repoint_review_of_assignment_id(review_assignment_id: str, new_parent_id: str) -> None:
+    """Re-parent a ``type='review'`` row onto a different work row.
+
+    A SCOPED re-review's ``review_of_assignment_id`` is set, at dispatch
+    time, to the claim key the #3310 chain reuses (an OLDER round on the
+    same issue) rather than the fix round it actually reviewed — see
+    :func:`coord.review.dispatch_scoped_review` and
+    :func:`coord.review.newest_done_work_leg`'s docstrings. Once
+    :func:`coord.auto_loop.propagate_review_verdict` detects that mismatch
+    it calls this to correct the durable row too, not just the in-memory
+    board object — so a later ``read_board()`` (a fresh ``coord drive``
+    poll, ``drive_state.project``'s review match, a daemon restart) sees
+    the same corrected parent the in-memory write already applied.
+
+    Idempotent and narrow: only touches ``type='review'`` rows, and is a
+    no-op when either id is empty.
+
+    **Ordering matters to the caller.**
+    :func:`release_review_claim_if_row_is_review` releases the #3310
+    review-dispatch claim by reading ``review_of_assignment_id`` straight
+    back off this same row — so every current caller of this function runs
+    it only AFTER that release has already happened (both go through the
+    review's own terminal-status write first). Call this before that
+    release ever runs and the claim leaks permanently on the OLD anchor —
+    the coord-tui#49 "lost the atomic dispatch-claim race" wedge.
+    """
+    if not review_assignment_id or not new_parent_id:
+        return
+    conn = get_connection()
+    sql.execute(conn,
+        "UPDATE assignments SET review_of_assignment_id=? "
+        "WHERE assignment_id=? AND type='review'",
+        (new_parent_id, review_assignment_id),
+    )
+    conn.commit()
+
+
 def reset_wedged_test_author_review(assignment_id: str) -> None:
     """#1180: un-wedge a ``test-author``/``mock-author`` row whose
     ``review_state`` was stamped ``'done'`` by a ``work_is_terminal``
@@ -6117,6 +6722,32 @@ def mark_refused_premise_settled(assignment_id: str) -> None:
     sql.execute(conn,
         "UPDATE assignments SET status='merged' WHERE assignment_id=? "
         "AND status='refused_premise'",
+        (assignment_id,),
+    )
+    conn.commit()
+
+
+def mark_needs_decomposition_settled(assignment_id: str) -> None:
+    """#3931: flip a needs_decomposition row to 'merged' when its issue is
+    terminal.
+
+    Same shape as `mark_refused_premise_settled` above, for the same
+    reason: a `needs_decomposition` row (a worker's 0-commit clean exit
+    concluding the issue needs epic decomposition — `coord.agent.
+    NEEDS_DECOMPOSITION`) is never touched by the #609 sweep (which only
+    looks at status='done' work rows), so it would otherwise linger on the
+    board forever even after the issue is decomposed/closed and lands.
+
+    Idempotent: only transitions rows still carrying status=
+    'needs_decomposition'. Silently no-ops when the row doesn't exist or is
+    already settled.
+    """
+    if not assignment_id:
+        return
+    conn = get_connection()
+    sql.execute(conn,
+        "UPDATE assignments SET status='merged' WHERE assignment_id=? "
+        "AND status='needs_decomposition'",
         (assignment_id,),
     )
     conn.commit()
@@ -10380,7 +11011,9 @@ def _enqueue_drive_queue_local(
     return entry_id
 
 
-def dequeue_drive_queue(repo_name: str, issue_number: int) -> dict:
+def dequeue_drive_queue(
+    repo_name: str, issue_number: int, *, operator: bool = True
+) -> dict:
     """Remove an issue from the drive queue, renumbering what's left — and,
     #3282, own the live driver session that removal orphans.
 
@@ -10394,6 +11027,15 @@ def dequeue_drive_queue(repo_name: str, issue_number: int) -> dict:
     (non-daemon) write always executes on that same machine. Neither branch
     probes for a driver when nothing was removed (an issue never in the
     queue has nothing to orphan).
+
+    ``operator`` (#3944) records, in the shared `audit_log` (not the
+    per-host, one-generation `block_log`), whether this removal is a human
+    decision — the default — or part of an automated sweep's own self-heal.
+    `coord.board_doctor`'s stranded-prereq guard reads this record to decide
+    whether re-adding a dep an operator deliberately took out would second-
+    guess that decision; an automated caller (`board_doctor_permissions`'s
+    own dequeue action, `upstream_gaps`'s stale-upstream cleanup) passes
+    ``operator=False`` so its own removals never read back as a human veto.
 
     Returns ``{"removed": bool, "driver_ok": bool, "driver_session":
     str | None, "driver_detail": str | None}``. ``driver_session`` is
@@ -10412,6 +11054,7 @@ def dequeue_drive_queue(repo_name: str, issue_number: int) -> dict:
             "action": "dequeue",
             "repo_name": repo_name,
             "issue_number": issue_number,
+            "operator": bool(operator),
         },
     )
     if resp is not None:
@@ -10422,7 +11065,7 @@ def dequeue_drive_queue(repo_name: str, issue_number: int) -> dict:
             "driver_detail": resp.get("driver_detail"),
         }
 
-    removed = _dequeue_drive_queue_local(repo_name, issue_number)
+    removed = _dequeue_drive_queue_local(repo_name, issue_number, operator=operator)
     driver_ok, driver_session, driver_detail = True, None, None
     if removed:
         from coord.drive import stop_live_driver_session  # noqa: PLC0415
@@ -10438,7 +11081,9 @@ def dequeue_drive_queue(repo_name: str, issue_number: int) -> dict:
     }
 
 
-def _dequeue_drive_queue_local(repo_name: str, issue_number: int) -> bool:
+def _dequeue_drive_queue_local(
+    repo_name: str, issue_number: int, *, operator: bool = True
+) -> bool:
     # #2846: wrapped in retry_on_locked like every other write in this
     # module (DELETE-by-natural-key is idempotent, so extending the retry
     # budget here is pure upside — a transient lock from a concurrent writer
@@ -10455,7 +11100,25 @@ def _dequeue_drive_queue_local(repo_name: str, issue_number: int) -> bool:
         conn.commit()
         return removed
 
-    return retry_on_locked(_write)
+    removed = retry_on_locked(_write)
+    if removed:
+        # #3944: business tier — shared across hosts (unlike `block_log`,
+        # which is per-host) and never swept by retention, so this stays
+        # readable no matter which machine the removal was typed on or how
+        # long ago it happened. `operator=False` is the one bit that tells
+        # `coord.board_doctor`'s stranded-prereq guard this wasn't a human
+        # decision to leave the row out.
+        _record_audit(
+            tier="business",
+            category="drive_queue",
+            event_type="drive_queue_removed",
+            actor="operator" if operator else "system",
+            summary=f"Removed {repo_name}#{issue_number} from the drive queue",
+            repo=repo_name,
+            issue=issue_number,
+            details={"operator": bool(operator)},
+        )
+    return removed
 
 
 def update_drive_queue_entry(repo_name: str, issue_number: int, **fields) -> bool:

@@ -197,6 +197,7 @@ def run_create(
     hardware_check: bool = True,
     trim_idle: bool = True,
     mapping: dict | None = None,
+    inputs: dict | None = None,
     eval_fraction: float | None = None,
     base_step: int | None = None,
     normalization: str | None = None,
@@ -229,6 +230,7 @@ def run_create(
         trim_idle=trim_idle, mapping=mapping, eval_fraction=eval_fraction,
         base_step=base_step, normalization=normalization, batch_size=batch_size,
         warmup_steps=warmup_steps, lr_schedule=lr_schedule, checkpoint_every=checkpoint_every,
+        inputs=inputs,
     )
     fp = fingerprint(source, body)
 

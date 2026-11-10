@@ -22,6 +22,7 @@ from skylos.deadcode.string_references import (
 )
 from skylos.deadcode.framework_liveness import find_framework_entrypoint_targets
 from skylos.deadcode.external_protocols import find_external_protocol_callbacks
+from skylos.deadcode.robot_framework_liveness import find_robot_framework_targets
 from skylos.deadcode.unittest_liveness import find_unittest_entrypoint_targets
 from skylos.deadcode.django_signal_liveness import find_django_signal_targets
 from skylos.deadcode.django_autoreload_liveness import find_django_autoreload_targets
@@ -36,6 +37,7 @@ from skylos.deadcode.provider_method_liveness import find_provider_method_target
 from skylos.deadcode.logging_config_liveness import find_logging_config_targets
 from skylos.deadcode.property_descriptor_liveness import classify_property_descriptors
 from skylos.deadcode.public_api import find_declared_public_api_targets
+from skylos.deadcode.finite_dispatch import record_finite_dispatch_references
 
 
 SENTINEL_CALLER = "<skylos.deadcode.liveness>"
@@ -161,6 +163,10 @@ def apply_dead_code_liveness(
         definitions, parsed_files, root, exclude_folders=exclude_folders
     ):
         _mark(target, reason, report)
+    for target, reason in find_robot_framework_targets(
+        definitions, parsed_files, root, exclude_folders=exclude_folders
+    ):
+        _mark(target, reason, report)
     for target, reason in find_django_signal_targets(definitions, parsed_files, root):
         _mark(target, reason, report)
     for target, reason in find_django_autoreload_targets(
@@ -201,6 +207,7 @@ def apply_dead_code_liveness(
     _rescue_unique_external_attr_calls(
         definitions, classes, class_methods, parsed_files, report
     )
+    record_finite_dispatch_references(definitions, parsed_files)
     return report
 
 
@@ -362,7 +369,7 @@ def _mark(defn: Any, reason: str, report: LivenessReport) -> None:
     if refs is not None:
         refs[f"dead_code_liveness:{reason}"] = 1.0
         if reason.startswith(
-            ("flask_web_", "django_web_", "ros_launch_", "celery_")
+            ("flask_web_", "django_web_", "ros_launch_", "celery_", "robot_")
         ):
             refs["framework_root"] = 1.0
         if reason == "unittest_discovery":

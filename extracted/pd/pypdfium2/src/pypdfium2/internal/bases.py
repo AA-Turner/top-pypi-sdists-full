@@ -10,14 +10,15 @@ import uuid
 import weakref
 import logging
 from collections import defaultdict
-import pypdfium2_cfg
 from pypdfium2_cfg import DEBUG_AUTOCLOSE  # bw compat
 from pypdfium2_cfg.stl import cached_property
 
 logger = logging.getLogger(__name__)
-LIBRARY_AVAILABLE = pypdfium2_cfg._Mutable(False)  # set to true on library init
 
+LIBRARY_AVAILABLE = False
 ObjectTracker = defaultdict(set)
+PARENTS_BEING_CLOSED = []
+REMOVE_FROM_TRACKER = True
 
 
 def _debug_close(msg, prio=logging.DEBUG):  # pragma: no cover
@@ -76,16 +77,15 @@ def _close_template(info, owner):
         return
     
     assert info.state != _STATE.INVALID
-    
     parent = owner.parent
-    if parent is not None:
+    if info.tracked and (parent is not None) and (parent not in PARENTS_BEING_CLOSED):
         assert not parent._tree_closed()
-        if info.tracked:
-            assert owner.wref in parent._kids, f"{owner.repr} {owner.wref}, {parent} {parent._kids}"
-            parent._kids.remove(owner.wref)
+        #assert owner.wref in parent._kids, f"{owner.repr} {owner.wref}, {parent} {parent._kids}"
+        parent._kids.remove(owner.wref)
     
     info.close_func(owner.raw, *info.args, **info.kwargs)
-    ObjectTracker[owner.type].remove(owner.wref)
+    if REMOVE_FROM_TRACKER:
+        ObjectTracker[owner.type].remove(owner.wref)
 
 
 class AutoCastable:
@@ -112,12 +112,14 @@ class AutoCloseable (AutoCastable):
         self._fin_info = _FinalizerInfo(close_func, args, kwargs, tracked)
         self._fin_obj = obj
         self._finalizer = None
+        self._kids_loaded = False
         
         if needs_free:
             self._attach_finalizer()
     
     @cached_property
     def _kids(self):
+        self._kids_loaded = True
         return set()
     
     @cached_property
@@ -163,18 +165,18 @@ class AutoCloseable (AutoCastable):
             self.raw = None
             return False
         
-        # only need to check this in manual closing, with finalizers the API contract promises the order of invocation
-        need_close = []
-        for k_wref in self._kids:
-            k = k_wref()
-            if k and k.raw:
-                # closing a child will remove it from the parent's kids set, so again outsource the actual closing to avoid "RuntimeError: Set changed size during iteration"
-                need_close.append(k)
-        for k in need_close:
-            k.close(_by_parent=True)
-        
-        if self._kids:
-            logger.warning(f"Some kids weakrefs have not been cleaned up: {self._kids}")
+        # Only need to visit kids in manual closing, with finalizers the API contract promises the order of invocation.
+        # The tricky bit about self._kids is that finalizers implicitly clean up their references, so we need to be really cautious to avoid size changes during iteration.
+        if self._kids_loaded:
+            PARENTS_BEING_CLOSED.append(self)
+            try:
+                # retain copy() as an extra precaution for now
+                for k_wref in self._kids.copy():
+                    k = k_wref()
+                    if k and k.raw:
+                        k.close(_by_parent=True)
+            finally:
+                PARENTS_BEING_CLOSED.pop()
             self._kids.clear()
         
         self._fin_info.state = _STATE.BYPARENT if _by_parent else _STATE.EXPLICIT

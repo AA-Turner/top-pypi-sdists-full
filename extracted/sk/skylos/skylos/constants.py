@@ -27,10 +27,12 @@ SUPPORTED_LANGUAGES = (
     "Go",
     "PHP",
     "Rust",
+    "Ruby",
     "Dart",
     "C#",
     "C++",
     "Kotlin",
+    "Swift",
     "Shell",
 )
 SUPPORTED_LANGUAGES_TEXT = (

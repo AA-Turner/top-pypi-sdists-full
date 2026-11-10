@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Callable, TypeVar, overload
@@ -97,7 +98,7 @@ def find_or_fail(lst: list[T], fn: Callable[[T], bool]) -> T:
     return item
 
 
-def find_obj(obj: dict, fn: Callable[[dict], bool]) -> Any | None:
+def find_obj(obj: Any, fn: Callable[[dict], bool]) -> Any | None:
     if not isinstance(obj, dict):
         return None
 
@@ -120,6 +121,9 @@ def get_typed_object(obj: dict, res: defaultdict[str, list]):
     obj_type = obj.get("__typename")
     if obj_type is not None:
         res[obj_type].append(obj)
+
+    if isinstance(obj.get("entryId"), str):
+        res["entry_ids"].append(obj["entryId"])
 
     for _, v in obj.items():
         if isinstance(v, dict):
@@ -267,9 +271,67 @@ def to_old_obj(obj: dict):
     return _flatten_tweet_v2(obj)
 
 
+def to_old_user(obj: dict) -> dict | None:
+    # None for a user X sent without a full profile: a stub without core, or a partial
+    # user with only screen_name, like the operator in a bot's "Automated by @operator"
+    # label: https://github.com/vladkens/twscrape/issues/341
+    if obj.get("__typename") != "User":
+        return None
+
+    try:
+        user = to_old_obj(obj)
+    except Exception:
+        return None
+
+    if not user.get("screen_name") or "name" not in user:
+        return None
+
+    return user
+
+
+# Where a tweet holds the ID of the retweeted / quoted tweet
+RT_ID_PATH = [
+    "retweeted_status_id_str",
+    "retweeted_status_result.result.rest_id",
+    "retweeted_status_result.result.tweet.rest_id",
+]
+
+QT_ID_PATH = [
+    "quoted_status_id_str",
+    "quoted_status_result.result.rest_id",
+    "quoted_status_result.result.tweet.rest_id",
+]
+
+
+def is_tweet_ref(obj: dict) -> bool:
+    return set(obj) <= {"__typename", "rest_id"}
+
+
 def to_old_rep(obj: dict) -> dict[str, Any]:
+    return _to_old_rep(get_typed_object(obj, defaultdict(list)))
+
+
+def to_old_rep_partial(obj: dict) -> tuple[dict[str, Any], list[tuple[dict, Exception]]]:
+    """Like to_old_rep, but objects that can't be normalized come back as (object, error)."""
+
     tmp = get_typed_object(obj, defaultdict(list))
 
+    errors: list[tuple[dict, Exception]] = []
+    for kind in ("Tweet", "TweetWithVisibilityResults", "User", "TimelineTrend"):
+        items = []
+        for x in tmp.get(kind, []):
+            try:
+                _to_old_rep({kind: [x]})
+                items.append(x)
+            except Exception as e:
+                errors.append((x, e))
+
+        tmp[kind] = items
+
+    return _to_old_rep(tmp), errors
+
+
+def _to_old_rep(tmp: dict[str, list]) -> dict[str, Any]:
     # "legacy" in x still matches under the new schema: the key is present
     # with value None, so membership tests keep working.
     tw1 = [x for x in tmp.get("Tweet", []) if "legacy" in x]
@@ -279,41 +341,9 @@ def to_old_rep(obj: dict) -> dict[str, Any]:
     tw2 = [x["tweet"] for x in tmp.get("TweetWithVisibilityResults", []) if "legacy" in x["tweet"]]
     tw2 = {str(x["rest_id"]): to_old_obj(x) for x in tw2}
 
-    def _to_old_user(obj: dict) -> dict | None:
-        legacy = obj.get("legacy") or {}
-        core = obj.get("core") or {}
-
-        # fill required fields for legacy-based parser
-        for k in ("screen_name", "name", "created_at"):
-            if k not in legacy and k in core:
-                legacy[k] = core[k]
-
-        if not legacy.get("screen_name"):
-            return None
-
-        defaults = {
-            "description": "",
-            "followers_count": 0,
-            "friends_count": 0,
-            "statuses_count": 0,
-            "favourites_count": 0,
-            "listed_count": 0,
-            "media_count": 0,
-            "location": "",
-            "profile_image_url_https": "",
-        }
-        for k, v in defaults.items():
-            legacy.setdefault(k, v)
-
-        obj = {**obj, "legacy": legacy, "rest_id": obj.get("rest_id") or obj.get("id_str")}
-        try:
-            return to_old_obj(obj)
-        except Exception:
-            return None
-
     users = {}
     for x in tmp.get("User", []):
-        if res := _to_old_user(x):
+        if res := to_old_user(x):
             users[str(res["id_str"])] = res
 
     trends = list(tmp.get("TimelineTrend", []))
@@ -323,15 +353,35 @@ def to_old_rep(obj: dict) -> dict[str, Any]:
     retweeted_ids = {
         str(retweeted_id)
         for tweet in tweets.values()
-        for path in (
-            "retweeted_status_id_str",
-            "retweeted_status_result.result.rest_id",
-            "retweeted_status_result.result.tweet.rest_id",
-        )
+        for path in RT_ID_PATH
         if (retweeted_id := get_or(tweet, path)) is not None
     }
 
-    return {"tweets": tweets, "retweeted_ids": retweeted_ids, "users": users, "trends": trends}
+    # Quoted tweets are embedded in the quoting tweet (as quotedTweet); they
+    # should not leak as standalone results in timelines/search:
+    # https://github.com/vladkens/twscrape/issues/315
+    # Exception: tweets X explicitly lists as their own timeline entries are
+    # real results. Module prefixes vary (profile-conversation, conversationthread,
+    # list-conversation, etc.), but their item IDs all contain -tweet-{id}.
+    standalone_ids = {
+        match.group(1)
+        for entry_id in tmp.get("entry_ids", [])
+        if (match := re.search(r"(?:^|-)tweet-(\d+)(?:-|$)", entry_id))
+    }
+    quoted_ids = {
+        str(quoted_id)
+        for tweet in tweets.values()
+        for path in QT_ID_PATH
+        if (quoted_id := get_or(tweet, path)) is not None and str(quoted_id) not in standalone_ids
+    }
+
+    return {
+        "tweets": tweets,
+        "retweeted_ids": retweeted_ids,
+        "quoted_ids": quoted_ids,
+        "users": users,
+        "trends": trends,
+    }
 
 
 def print_table(rows: list[dict], hr_after=False):

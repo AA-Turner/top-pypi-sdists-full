@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stix2-validator
-Version: 3.3.1
+Version: 3.3.2
 Summary: APIs and scripts for validating STIX 2.x documents.
 Home-page: https://github.com/oasis-open/cti-stix-validator
 Author: OASIS Cyber Threat Intelligence Technical Committee

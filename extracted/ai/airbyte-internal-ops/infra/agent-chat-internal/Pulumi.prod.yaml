@@ -8,6 +8,7 @@ config:
   gcp:project: internal-airbyte-ai-infra
   gcp:region: us-west3
   agent-chat-internal:domain: chat.internal.airbyte.ai
+  agent-chat-internal:mtx-direct-routing: true
   agent-chat-internal:preview-domain: preview.chat.internal.airbyte.ai
   agent-chat-internal:preview-redirect-host: preview.ops.internal.airbyte.ai
   agent-chat-internal:dns-zone-project: airbyte-intranet
@@ -25,7 +26,7 @@ config:
   # This config value only seeds the first creation.
   agent-chat-internal:mtx-playground-image: ghcr.io/airbytehq/airbyte-mtx-agui-playground:dev-3eb5f54
   agent-chat-internal:mcp-url: https://mcp.internal.airbyte.ai/ops-mcp
-  agent-chat-internal:agent-model: claude-sonnet-4-5
+  agent-chat-internal:agent-model: claude-sonnet-5
   agent-chat-internal:chat-enabled: "true"
   agent-chat-internal:mcp-ui: "true"
   # URL path prefix when mounted under the Ops Webapp host
@@ -34,6 +35,12 @@ config:
   # `user_session` forwards the caller's Ops Webapp session token to MCP
   # servers; `bearer` uses the shared service-client credentials.
   agent-chat-internal:mcp-auth-mode: user_session
+  agent-chat-internal:mobile-iap-client-ids:
+    - 351139268520-nd5llq579j6roofa2s7eo9sce0jfkj2v.apps.googleusercontent.com
+    - 351139268520-d4ptre22rtgtq9lgk39k6r9m0s6v8pbv.apps.googleusercontent.com
+    - 351139268520-ot5b07t0lf4c3enlk09tjj6me0u29sdo.apps.googleusercontent.com
+  agent-chat-internal:mobile-redirect-uris:
+    - ai.airbyte.internal.mtx://auth
   # Expected IAP JWT audience for the agui-server backend; set from
   # `gcloud compute backend-services describe agui-server-backend --global` after
   # the first apply (BOOTSTRAP.md step 7).

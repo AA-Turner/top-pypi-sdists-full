@@ -679,6 +679,7 @@ __all__ = (
     "NotificationResourceTypeDef",
     "OAuth2ClientApplicationTypeDef",
     "OAuth2PropertiesOutputTypeDef",
+    "OAuth2PropertiesPatchTypeDef",
     "OAuth2PropertiesTypeDef",
     "OAuth2PropertiesUnionTypeDef",
     "OpenLineageRunEventSummaryTypeDef",
@@ -3318,10 +3319,6 @@ class AttributeInputTypeDef(TypedDict):
     attributeIdentifier: str
     forms: Sequence[FormInputTypeDef]
 
-class AuthenticationConfigurationPatchTypeDef(TypedDict):
-    secretArn: NotRequired[str]
-    basicAuthenticationCredentials: NotRequired[BasicAuthenticationCredentialsTypeDef]
-
 class BatchPutAttributesMetadataOutputTypeDef(TypedDict):
     errors: list[AttributeErrorTypeDef]
     attributes: list[BatchPutAttributeOutputTypeDef]
@@ -4669,6 +4666,12 @@ class OAuth2PropertiesOutputTypeDef(TypedDict):
     authorizationCodeProperties: NotRequired[AuthorizationCodePropertiesTypeDef]
     oAuth2Credentials: NotRequired[GlueOAuth2CredentialsTypeDef]
 
+class OAuth2PropertiesPatchTypeDef(TypedDict):
+    oAuth2GrantType: NotRequired[OAuth2GrantTypeType]
+    oAuth2ClientApplication: NotRequired[OAuth2ClientApplicationTypeDef]
+    tokenUrl: NotRequired[str]
+    tokenUrlParametersMap: NotRequired[Mapping[str, str]]
+
 class OAuth2PropertiesTypeDef(TypedDict):
     oAuth2GrantType: NotRequired[OAuth2GrantTypeType]
     oAuth2ClientApplication: NotRequired[OAuth2ClientApplicationTypeDef]
@@ -4973,16 +4976,6 @@ class BatchPutAttributesMetadataInputTypeDef(TypedDict):
     entityIdentifier: str
     attributes: Sequence[AttributeInputTypeDef]
     clientToken: NotRequired[str]
-
-class ConnectivityPropertiesPatchTypeDef(TypedDict):
-    description: NotRequired[str]
-    connectionProperties: NotRequired[Mapping[str, str]]
-    authenticationConfiguration: NotRequired[AuthenticationConfigurationPatchTypeDef]
-
-class GlueConnectionPatchTypeDef(TypedDict):
-    description: NotRequired[str]
-    connectionProperties: NotRequired[Mapping[str, str]]
-    authenticationConfiguration: NotRequired[AuthenticationConfigurationPatchTypeDef]
 
 class CreateAssetInputTypeDef(TypedDict):
     name: str
@@ -5829,6 +5822,11 @@ class AuthenticationConfigurationTypeDef(TypedDict):
     secretArn: NotRequired[str]
     oAuth2Properties: NotRequired[OAuth2PropertiesOutputTypeDef]
 
+class AuthenticationConfigurationPatchTypeDef(TypedDict):
+    secretArn: NotRequired[str]
+    basicAuthenticationCredentials: NotRequired[BasicAuthenticationCredentialsTypeDef]
+    oAuth2Properties: NotRequired[OAuth2PropertiesPatchTypeDef]
+
 OAuth2PropertiesUnionTypeDef = Union[OAuth2PropertiesTypeDef, OAuth2PropertiesOutputTypeDef]
 GetNotebookExportOutputTypeDef = TypedDict(
     "GetNotebookExportOutputTypeDef",
@@ -6123,14 +6121,6 @@ class ListEnvironmentActionsOutputTypeDef(TypedDict):
 class ListingItemTypeDef(TypedDict):
     assetListing: NotRequired[AssetListingTypeDef]
     dataProductListing: NotRequired[DataProductListingTypeDef]
-
-class SnowflakePropertiesPatchTypeDef(TypedDict):
-    connectivityPropertiesPatch: NotRequired[ConnectivityPropertiesPatchTypeDef]
-    snowflakeRole: NotRequired[str]
-    lineageSync: NotRequired[LineageSyncInputTypeDef]
-
-class GluePropertiesPatchTypeDef(TypedDict):
-    glueConnectionInput: NotRequired[GlueConnectionPatchTypeDef]
 
 class ListEnvironmentBlueprintsOutputTypeDef(TypedDict):
     items: list[EnvironmentBlueprintSummaryTypeDef]
@@ -6427,6 +6417,16 @@ class GlueConnectionTypeDef(TypedDict):
     connectionSchemaVersion: NotRequired[int]
     compatibleComputeEnvironments: NotRequired[list[ComputeEnvironmentsType]]
 
+class ConnectivityPropertiesPatchTypeDef(TypedDict):
+    description: NotRequired[str]
+    connectionProperties: NotRequired[Mapping[str, str]]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationPatchTypeDef]
+
+class GlueConnectionPatchTypeDef(TypedDict):
+    description: NotRequired[str]
+    connectionProperties: NotRequired[Mapping[str, str]]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationPatchTypeDef]
+
 class AuthenticationConfigurationInputTypeDef(TypedDict):
     authenticationType: NotRequired[AuthenticationTypeType]
     oAuth2Properties: NotRequired[OAuth2PropertiesUnionTypeDef]
@@ -6558,20 +6558,6 @@ GetListingOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-class ConnectionPropertiesPatchTypeDef(TypedDict):
-    athenaProperties: NotRequired[AthenaPropertiesPatchTypeDef]
-    glueProperties: NotRequired[GluePropertiesPatchTypeDef]
-    iamProperties: NotRequired[IamPropertiesPatchTypeDef]
-    redshiftProperties: NotRequired[RedshiftPropertiesPatchTypeDef]
-    sparkEmrProperties: NotRequired[SparkEmrPropertiesPatchTypeDef]
-    s3Properties: NotRequired[S3PropertiesPatchTypeDef]
-    snowflakeProperties: NotRequired[SnowflakePropertiesPatchTypeDef]
-    amazonQProperties: NotRequired[AmazonQPropertiesPatchTypeDef]
-    mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
-    lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
-    vpcProperties: NotRequired[VpcPropertiesPatchTypeDef]
-    gitProperties: NotRequired[GitPropertiesPatchTypeDef]
 
 class PolicyGrantMemberTypeDef(TypedDict):
     principal: NotRequired[PolicyGrantPrincipalOutputTypeDef]
@@ -6762,6 +6748,14 @@ class PhysicalEndpointTypeDef(TypedDict):
     port: NotRequired[int]
     protocol: NotRequired[ProtocolType]
     stage: NotRequired[str]
+
+class SnowflakePropertiesPatchTypeDef(TypedDict):
+    connectivityPropertiesPatch: NotRequired[ConnectivityPropertiesPatchTypeDef]
+    snowflakeRole: NotRequired[str]
+    lineageSync: NotRequired[LineageSyncInputTypeDef]
+
+class GluePropertiesPatchTypeDef(TypedDict):
+    glueConnectionInput: NotRequired[GlueConnectionPatchTypeDef]
 
 class ConnectivityPropertiesTypeDef(TypedDict):
     connectionProperties: NotRequired[Mapping[str, str]]
@@ -7112,14 +7106,6 @@ UpdateSubscriptionRequestOutputTypeDef = TypedDict(
     },
 )
 
-class UpdateConnectionInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    configurations: NotRequired[Sequence[ConfigurationUnionTypeDef]]
-    description: NotRequired[str]
-    awsLocation: NotRequired[AwsLocationTypeDef]
-    props: NotRequired[ConnectionPropertiesPatchTypeDef]
-
 class ListPolicyGrantsOutputTypeDef(TypedDict):
     grantList: list[PolicyGrantMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -7336,6 +7322,20 @@ UpdateConnectionOutputTypeDef = TypedDict(
     },
 )
 
+class ConnectionPropertiesPatchTypeDef(TypedDict):
+    athenaProperties: NotRequired[AthenaPropertiesPatchTypeDef]
+    glueProperties: NotRequired[GluePropertiesPatchTypeDef]
+    iamProperties: NotRequired[IamPropertiesPatchTypeDef]
+    redshiftProperties: NotRequired[RedshiftPropertiesPatchTypeDef]
+    sparkEmrProperties: NotRequired[SparkEmrPropertiesPatchTypeDef]
+    s3Properties: NotRequired[S3PropertiesPatchTypeDef]
+    snowflakeProperties: NotRequired[SnowflakePropertiesPatchTypeDef]
+    amazonQProperties: NotRequired[AmazonQPropertiesPatchTypeDef]
+    mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
+    lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
+    vpcProperties: NotRequired[VpcPropertiesPatchTypeDef]
+    gitProperties: NotRequired[GitPropertiesPatchTypeDef]
+
 class SnowflakePropertiesInputTypeDef(TypedDict):
     snowflakeRole: str
     identityMapping: IdentityMappingTypeDef
@@ -7388,6 +7388,14 @@ class ListConnectionsOutputTypeDef(TypedDict):
     items: list[ConnectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class UpdateConnectionInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    configurations: NotRequired[Sequence[ConfigurationUnionTypeDef]]
+    description: NotRequired[str]
+    awsLocation: NotRequired[AwsLocationTypeDef]
+    props: NotRequired[ConnectionPropertiesPatchTypeDef]
 
 class ConnectionPropertiesInputTypeDef(TypedDict):
     athenaProperties: NotRequired[AthenaPropertiesInputTypeDef]

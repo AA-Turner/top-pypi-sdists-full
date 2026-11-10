@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SecureScoreControlStateUpdate(ClientValue):
     assignedTo: str | None = None
     comment: str | None = None

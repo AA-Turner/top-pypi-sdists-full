@@ -5,13 +5,15 @@ Created on Aug 13, 2015
 """
 
 import datetime
+import re
+import warnings
 
 import pytest
 
 pydot = pytest.importorskip("pydot")
 
 from prov.dot import htlm_link_if_uri, prov_to_dot
-from prov.model import ProvDocument, ProvFutureRejectionWarning
+from prov.model import Identifier, ProvBundle, ProvDocument, ProvUnificationError
 from prov.tests import examples
 
 MIN_SVG_SIZE = 850
@@ -74,20 +76,26 @@ def test_valid_direction_is_preserved() -> None:
     assert dot.get_rankdir() == "LR"
 
 
-def test_use_labels_with_explicit_label_differing_from_identifier() -> None:
-    """Covers the use_labels=True node-rendering branch (docs/test-gap-
-    checklist.md, T13 item under dot.py). The label==identifier branch
-    (dot.py:281-282) is unreachable via any real record: ProvRecord.label
-    always returns a plain `str`, while `.identifier` is a QualifiedName, and
-    `str.__eq__`/`QualifiedName.__eq__` can never consider the two equal --
-    confirmed empirically; left deferred (see checklist)."""
+def test_use_labels_draws_the_label_over_the_identifier_or_the_identifier_once() -> (
+    None
+):
+    """With ``use_labels=True`` an element with a ``prov:label`` shows the label as
+    the node text and its identifier beneath; an element without one shows its
+    identifier once, as ``use_labels=False`` does."""
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
     doc.entity("ex:e1", other_attributes={"prov:label": "My Entity"})
+    doc.entity("ex:e2")
 
     dot = prov_to_dot(doc, use_labels=True)
-    svg_content = dot.create(format="svg", encoding="utf-8")
-    assert b"My Entity" in svg_content
+
+    labelled = _node_with_label_fragment(dot, "<My Entity<br")
+    assert labelled.get_label() == (
+        '<My Entity<br /><font color="#333333" point-size="10">ex:e1</font>>'
+    )
+    unlabelled = _node_with_label_fragment(dot, "ex:e2")
+    assert unlabelled.get_label() == '"ex:e2"'
+    assert dot.create(format="svg", encoding="utf-8")
 
 
 def test_show_element_attributes_false_skips_annotation() -> None:
@@ -103,37 +111,36 @@ def test_show_element_attributes_false_skips_annotation() -> None:
     assert b"value" not in svg_content
 
 
+def _add_conflicting_generations(target: ProvBundle) -> None:
+    """Add an activity and two generations of ``ex:e1`` that share ``ex:gen1``
+    and disagree on ``prov:time``, so the bundle cannot be unified."""
+    target.activity(identifier="ex:a1")
+    for day in (1, 2):
+        target.generation(
+            "ex:e1",
+            "ex:a1",
+            identifier="ex:gen1",
+            time=datetime.datetime(2020, 1, day),
+        )
+
+
 def test_unresolvable_unification_falls_back_to_original_bundle() -> None:
     """Covers prov_to_dot()'s ``except ProvException`` fallback when
     ``bundle.unified()`` raises ``ProvUnificationError`` because two relations
     share an identifier but disagree on a formal attribute (the "scruffy"
     pattern -- see
-    test_statements.py's RDF_SCRUFFY_SKIP cases for the same shape).
-
-    Previously exercised incidentally by the pre-migration dot suite
-    rendering all 185 shared statement/attribute documents (one of which was
-    scruffy); reducing the dot render-smoke to the 8 canonical examples
-    (design doc §3) dropped that incidental coverage, so this test restores
-    it directly (coverage report -m showed src/prov/dot.py:443-446 newly
-    uncovered after the reduction)."""
+    test_statements.py's test_scruffy_relation for the same shape)."""
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
     doc.entity(identifier="ex:e1")
-    doc.activity(identifier="ex:a1")
-    doc.generation(
-        "ex:e1", "ex:a1", identifier="ex:gen1", time=datetime.datetime(2020, 1, 1)
-    )
-    doc.generation(
-        "ex:e1", "ex:a1", identifier="ex:gen1", time=datetime.datetime(2020, 1, 2)
-    )
+    _add_conflicting_generations(doc)
 
     # bundle.unified() raises ProvUnificationError here (conflicting prov:time
     # values for the same identifier); prov_to_dot() must catch it — the
     # exception is a ProvException — and fall back to rendering the original,
     # non-unified bundle rather than raising.
     dot = prov_to_dot(doc)
-    svg_content = dot.create(format="svg", encoding="utf-8")
-    assert len(svg_content) > MIN_SVG_SIZE
+    assert dot.to_string().count("label=wasGeneratedBy") == 2
 
 
 # Link and label hardening: identifier URIs and labels are document content
@@ -216,16 +223,15 @@ def test_html_label_special_characters_are_escaped() -> None:
     assert len(dot.create(format="svg")) > 0
 
 
-def test_quoted_label_escapes_double_quote() -> None:
+def test_quoted_string_escapes_double_quote() -> None:
     doc = ProvDocument()
-    doc.add_namespace("ex", "http://example.org/")
-    with pytest.warns(ProvFutureRejectionWarning):
-        doc.entity('ex:e"1')
+    doc.add_namespace("ex", 'http://example.org/"x/')
+    doc.entity("ex:e1")
 
     dot = prov_to_dot(doc)
     dot_text = dot.to_string()
 
-    assert 'label="ex:e\\"1"' in dot_text
+    assert 'URL="http://example.org/\\"x/e1"' in dot_text
     assert len(dot.create(format="svg")) > 0
 
 
@@ -245,6 +251,15 @@ def test_sub_minute_utc_offset_attribute_is_rendered_as_utc() -> None:
 
     assert "2026-09-12T10:00:00+00:00" in dot_text
     assert "+00:00:30" not in dot_text
+
+
+def test_anyuri_value_is_linked_and_shown_as_its_text() -> None:
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.entity("ex:e", {"ex:v": Identifier("http://example.org/v")})
+    dot_text = prov_to_dot(doc).to_string()
+    assert 'href="http://example.org/v"' in dot_text
+    assert "xsd:anyURI" not in dot_text
 
 
 def test_unset_endpoint_is_drawn_to_a_blank_node_with_a_warning() -> None:
@@ -278,8 +293,6 @@ def test_unset_endpoint_inside_a_bundle_reports_the_prov_to_dot_call_site() -> N
 
 
 def test_complete_relation_draws_without_warning() -> None:
-    import warnings
-
     document = ProvDocument()
     document.add_namespace("ex", "http://example.org/")
     document.entity("ex:e1")
@@ -290,16 +303,79 @@ def test_complete_relation_draws_without_warning() -> None:
         prov_to_dot(document)
 
 
-def test_absent_plan_against_a_plan_warns_at_the_prov_to_dot_call_site() -> None:
-    # prov_to_dot() unifies each bundle first, so the #547 warning fires
-    # through it and names this module, not a frame inside prov.
+def _nested_bundle() -> ProvBundle:
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    bundle = document.bundle("ex:b")
+    bundle.entity("ex:e1")
+    return bundle
+
+
+def _standalone_bundle() -> ProvBundle:
+    bundle = ProvBundle()
+    bundle.add_namespace("ex", "http://example.org/")
+    bundle.entity("ex:e1")
+    return bundle
+
+
+def _bundle_with_conflicting_generations() -> ProvBundle:
+    bundle = _nested_bundle()
+    _add_conflicting_generations(bundle)
+    return bundle
+
+
+_NOT_A_DOCUMENT = (
+    "Drawing a bundle that is not a document is deprecated and 4.0 draws "
+    "documents only; pass a ProvDocument that holds the bundle"
+)
+
+
+@pytest.mark.parametrize(
+    ("build", "needle", "drawn"),
+    [
+        pytest.param(_nested_bundle, 'label="ex:e1"', 1, id="nested-bundle"),
+        pytest.param(_standalone_bundle, 'label="ex:e1"', 1, id="standalone-bundle"),
+        pytest.param(
+            _bundle_with_conflicting_generations,
+            "label=wasGeneratedBy",
+            2,
+            id="non-unifying-bundle",
+        ),
+    ],
+)
+def test_prov_to_dot_warns_once_for_a_bundle_that_is_not_a_document(
+    build, needle, drawn
+) -> None:
+    """A bundle that is not a document draws with one ``DeprecationWarning``
+    attributed to the caller."""
+    with pytest.warns(DeprecationWarning, match=re.escape(_NOT_A_DOCUMENT)) as record:
+        dot = prov_to_dot(build())
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert dot.to_string().count(needle) == drawn
+
+
+def test_plot_warns_once_and_saves_a_nested_bundle(tmp_path) -> None:
+    path = tmp_path / "out.svg"
+
+    with pytest.warns(DeprecationWarning, match=re.escape(_NOT_A_DOCUMENT)) as record:
+        _nested_bundle().plot(filename=path)
+
+    assert len(record) == 1
+    assert record[0].filename == __file__
+    assert path.stat().st_size > 0
+
+
+def test_prov_to_dot_draws_a_document_unified_rejects_as_asserted() -> None:
     document = ProvDocument()
     document.add_namespace("ex", "http://example.org/")
     document.association("ex:a1", agent="ex:ag1", identifier="ex:assoc1")
     document.association("ex:a1", agent="ex:ag1", plan="ex:pl1", identifier="ex:assoc1")
-    with pytest.warns(
-        ProvFutureRejectionWarning, match="prov:plan means none"
-    ) as record:
-        prov_to_dot(document)
-    assert len(record) == 1
-    assert record[0].filename == __file__
+    with pytest.raises(ProvUnificationError, match="an absent prov:plan means none"):
+        _ = document.unified()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        dot = prov_to_dot(document)
+    # Nothing is merged, so both associations are drawn.
+    assert dot.to_string().count("label=wasAssociatedWith") == 2

@@ -13,11 +13,61 @@ text = "ginoo"
 salutation = { issue = 606, gender = "m", note = "borne: ~500 surnames, in Philippine lists writing Surname, Given with a comma, forebears.io, worldwide, rounded, 2026-10-04; shipped under the graf class (decisions/salutation-titles)", after_given = true }
 
 [[word]]
+text = "de"
+preposition = { may_be_given = false, expands = "of: Spanish-derived Filipino surnames, \"De Guzman\", \"De La Cruz\"", note = "strict fil broke 473 records on it while only es.toml and others held it (config_diff.py gaps on f48c88a3, decisions/vocabulary-model, 2026-11-03)", issue = 1005 }
+
+[[word]]
+text = "del"
+preposition = { expands = "of the: \"Del Rosario\"", note = "strict fil broke 94 records (config_diff.py gaps on f48c88a3, decisions/vocabulary-model, 2026-11-03)", issue = 1005 }
+
+[[word]]
 text = "dela"
 given = { us_ssa = 565, as_of = 2026-10-25, note = "US SSA births summed over both sexes; nam_dict band 1 in Germany, 1 in Bulgaria" }
 [word.preposition]
 expands = "of the, de la contracted: \"Dela Cruz\""
-note = "Dela is a short form of Adela, and an African name meaning saviour/redeemer -- so the Filipino surname particle is not the only reading"
+cased = "Dela"
+note = "Dela is a short form of Adela, and an African name meaning saviour/redeemer -- so the Filipino surname particle is not the only reading. The mask is the word's own title case, the spelling Filipino surnames write (ORCID's 2025 Philippine family boxes write Dela 352 times, dela 60 and DELA 59, 2026-11-03), so case repair keeps it as written in Dela Cruz rather than lowercasing it as a particle (rules/R4, #1037)"
+
+[[word]]
+text = "delos"
+given = { us_ssa = 1324, wikidata = 44, as_of = 2026-11-03, note = "US SSA male births only; Wikidata a lower bound (27 US citizens, Delos Wheeler); ORCID's whole 2025 extract opens 3 given boxes with it and 333 family boxes, 125 of them Philippine (tools/name_usage.py delos --boxes, 2026-11-03)" }
+[word.preposition]
+expands = "of the, de los written as one word: \"Delos Santos\", \"Delos Reyes\""
+cased = "Delos"
+note = "the one-word spelling of de los, as dela is of de la; US Census 2010 counts Delos as a surname 269 times, the particle written apart from the name it joins. The mask is the word's own title case, the spelling Filipino surnames write (ORCID's 2025 Philippine family boxes write Delos 93 times, delos 17 and DELOS 15, 2026-11-03) and the case the default gave it as a name word before it was a particle: without it case repair would lowercase it (rules/R4)"
+issue = 1037
+
+[[word]]
+text = "la"
+article = { expands = "the, fem. sg.: \"De La Cruz\"", note = "strict fil broke 46 records (config_diff.py gaps on f48c88a3, decisions/vocabulary-model, 2026-11-03)", issue = 1005 }
+
+[[word]]
+text = "las"
+article = { may_be_given = false, expands = "the, fem. pl.: \"Las Piñas\"", note = "copied from es.toml; strict fil broke 3 Philippine records on it (config_diff.py gaps fil on f48c88a3, #1037)", issue = 1037 }
+
+[[word]]
+text = "los"
+article = { may_be_given = false, expands = "the, masc. pl.: \"De Los Santos\"", note = "strict fil broke 19 records (config_diff.py gaps on f48c88a3, decisions/vocabulary-model, 2026-11-03)", issue = 1005 }
+
+[[word]]
+text = "san"
+saint = { expands = "Saint: \"San Juan\", \"San Jose\"", note = "strict fil broke 70 records (config_diff.py gaps on f48c88a3, decisions/vocabulary-model, 2026-11-03)", issue = 1005 }
+
+[[word]]
+text = "sta"
+[word.saint]
+may_be_given = false
+expands = "Santa, abbreviated: \"Sta. Maria\", \"Sta. Ana\""
+note = "no given reading: ORCID's 2025 extract holds it in 11 given boxes, none Philippine, five of them a surname filed with the given names and six junk, against 122 family boxes, 38 Philippine, US Census 2010 counts Sta as a surname 120 times and US SSA under 5 births (tools/name_usage.py sta --boxes, 2026-11-04), so a bare Sta opening a name begins the family, as Ste does. A saint run, so rules/P10 does not read Sta. Maria as a second given name. Case repair writes it with a capital, as every saint particle (rules/R4, #1069)"
+issue = 725
+
+[[word]]
+text = "sto"
+[word.saint]
+may_be_given = false
+expands = "Santo, abbreviated: \"Sto. Tomas\", \"Sto. Domingo\""
+note = "no given reading: ORCID's 2025 extract holds it in 2 given boxes against 20 family boxes (tools/name_usage.py sto --boxes, 2026-11-04). Case repair writes it with a capital, as Sta"
+issue = 725
 
 [[word]]
 text = "jo"

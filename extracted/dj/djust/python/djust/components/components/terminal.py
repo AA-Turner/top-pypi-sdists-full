@@ -11,7 +11,20 @@ class Terminal(Component):
     """Monospace terminal emulator display with ANSI color support.
 
     Renders terminal output lines with optional ANSI color code translation
-    to CSS spans. Supports streaming via ``dj-hook``.
+    to CSS spans. Supports streaming via ``dj-hook``; the page must include
+    ``djust_components/terminal.js``. With ``stream_event`` the hook appends the
+    lines the view pushes (``self.push_event("term_out", {"lines": [...]})``)
+    in the same ANSI styling (reset, bold, foreground colours; anything else
+    stays visible as text, as it does for server-rendered lines), follows the
+    newest line until the reader scrolls up, and honours ``show_line_numbers``
+    and ``max_lines``. Set ``max_lines`` for a stream: without it every line
+    stays in the page. The output is a ``role="log"`` region named by ``title``
+    and kept ``aria-live="off"`` so a build log does not flood a screen reader.
+    Stream the lines or re-render ``output``, not both for the same terminal.
+    An app's own ``Terminal`` hook, in ``window.djust.hooks`` or
+    ``window.DjustHooks``, replaces the shipped one (a hook assigned with
+    ``window.DjustHooks = {...}`` after the script also drops it; merge with
+    ``Object.assign`` instead).
 
     A line keeps at most 32 styles open at once and takes styles from the first
     16 parameters of a sequence; a style past either limit is dropped, and a
@@ -43,6 +56,10 @@ class Terminal(Component):
         show_line_numbers: show line numbers (default False)
         wrap: wrap long lines (default False)
         custom_class: additional CSS classes
+        max_lines: keep at most this many lines when streaming (0 = unlimited)
+        auto_scroll: follow the newest line while streaming (default True; False
+            leaves the scroll position alone; the follow also stops by itself
+            when the reader scrolls up)
     """
 
     # Styles a line may have open at once, and SGR parameters in one sequence
@@ -79,6 +96,8 @@ class Terminal(Component):
         show_line_numbers: bool = False,
         wrap: bool = False,
         custom_class: str = "",
+        max_lines: int = 0,
+        auto_scroll: bool = True,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -88,6 +107,8 @@ class Terminal(Component):
             show_line_numbers=show_line_numbers,
             wrap=wrap,
             custom_class=custom_class,
+            max_lines=max_lines,
+            auto_scroll=auto_scroll,
             **kwargs,
         )
         self.output = output or []
@@ -96,6 +117,8 @@ class Terminal(Component):
         self.show_line_numbers = show_line_numbers
         self.wrap = wrap
         self.custom_class = custom_class
+        self.max_lines = max_lines
+        self.auto_scroll = auto_scroll
 
     @classmethod
     def _ansi_to_html(cls, text: str) -> str:
@@ -172,8 +195,21 @@ class Terminal(Component):
             e_stream = html.escape(self.stream_event)
             stream_attr = f' data-stream-event="{e_stream}"'
 
+        # What the Terminal hook needs to render and trim streamed lines like these.
+        hook_attrs = ""
+        if self.show_line_numbers:
+            hook_attrs += ' data-line-numbers="true"'
+        try:
+            max_lines = int(self.max_lines)
+        except (ValueError, TypeError):
+            max_lines = 0
+        if max_lines > 0:
+            hook_attrs += f' data-max-lines="{max_lines}"'
+        if not self.auto_scroll:
+            hook_attrs += ' data-auto-scroll="false"'
+
         return (
-            f'<div class="{class_str}" dj-hook="Terminal"{stream_attr}>'
+            f'<div class="{class_str}" dj-hook="Terminal"{stream_attr}{hook_attrs}>'
             f"{title_html}"
             f'<div class="dj-terminal__body">{"".join(lines_html)}</div>'
             f"</div>"

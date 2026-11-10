@@ -10,6 +10,7 @@ import sentry_protos.billing.v1.services.contract.v1.retention_config_pb2
 import sentry_protos.billing.v1.services.contract.v2.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v2.contract_metadata_pb2
 import sentry_protos.billing.v1.services.contract.v2.pricing_config_pb2
+import sentry_protos.billing.v1.services.contract.v2.sales_config_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -22,6 +23,7 @@ class Contract(google.protobuf.message.Message):
     BILLING_CONFIG_FIELD_NUMBER: builtins.int
     PRICING_CONFIG_FIELD_NUMBER: builtins.int
     RETENTION_CONFIG_FIELD_NUMBER: builtins.int
+    SALES_CONFIG_FIELD_NUMBER: builtins.int
     @property
     def metadata(self) -> sentry_protos.billing.v1.services.contract.v2.contract_metadata_pb2.ContractMetadata: ...
     @property
@@ -30,6 +32,8 @@ class Contract(google.protobuf.message.Message):
     def pricing_config(self) -> sentry_protos.billing.v1.services.contract.v2.pricing_config_pb2.PricingConfig: ...
     @property
     def retention_config(self) -> sentry_protos.billing.v1.services.contract.v1.retention_config_pb2.RetentionConfig: ...
+    @property
+    def sales_config(self) -> sentry_protos.billing.v1.services.contract.v2.sales_config_pb2.SalesConfig: ...
     def __init__(
         self,
         *,
@@ -37,8 +41,9 @@ class Contract(google.protobuf.message.Message):
         billing_config: sentry_protos.billing.v1.services.contract.v2.billing_config_pb2.BillingConfig | None = ...,
         pricing_config: sentry_protos.billing.v1.services.contract.v2.pricing_config_pb2.PricingConfig | None = ...,
         retention_config: sentry_protos.billing.v1.services.contract.v1.retention_config_pb2.RetentionConfig | None = ...,
+        sales_config: sentry_protos.billing.v1.services.contract.v2.sales_config_pb2.SalesConfig | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["billing_config", b"billing_config", "metadata", b"metadata", "pricing_config", b"pricing_config", "retention_config", b"retention_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["billing_config", b"billing_config", "metadata", b"metadata", "pricing_config", b"pricing_config", "retention_config", b"retention_config"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["billing_config", b"billing_config", "metadata", b"metadata", "pricing_config", b"pricing_config", "retention_config", b"retention_config", "sales_config", b"sales_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["billing_config", b"billing_config", "metadata", b"metadata", "pricing_config", b"pricing_config", "retention_config", b"retention_config", "sales_config", b"sales_config"]) -> None: ...
 
 global___Contract = Contract

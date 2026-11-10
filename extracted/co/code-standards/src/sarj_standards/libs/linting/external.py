@@ -30,7 +30,8 @@ from sarj_rule_contracts import RuleEngine, RuleSelection
 import yaml
 
 from sarj_standards.libs.adoption import manifest, packagemanager
-from sarj_standards.libs.adoption.lifecycle import Command, EslintSelection, select_eslint_commands
+from sarj_standards.libs.adoption.configs import OXLINT_CONFIG_NAMES, OXLINT_SUPPRESSIONS
+from sarj_standards.libs.adoption.lifecycle import TYPESCRIPT_CAPABILITY, Command
 from sarj_standards.libs.diagnostics import (
     AnalyzerId,
     Completion,
@@ -52,7 +53,7 @@ from sarj_standards.libs.staged_git import staged_environment
 from sarj_standards.libs.typed_containers import is_object_list, is_object_mapping
 from sarj_standards.libs.yaml_boundary import parse_yaml
 
-from . import mobile_tools, security_tools
+from . import mobile_tools, oxlint, security_tools
 from .execution_plan import RuffProjectPlan, ShellCheckFamilyPlan
 from .process import (
     OutputLimitError as OutputLimitError,
@@ -65,12 +66,21 @@ from .process import (
     executor_capabilities,
     raise_if_cancelled,
 )
+from .result_cache import (
+    CachedResult,
+    UnknownInputsError,
+    cached_analysis,
+    cached_python_analysis,
+    environment_parts,
+    executable_identity,
+    file_identity,
+)
 from .runner import GroupedPaths, accepts_hook_path, group_paths
 from .shell_policy import SHELLCHECK_ARGS
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
     from typing import BinaryIO
 
     from pydantic import JsonValue
@@ -98,28 +108,25 @@ class _PreparedInputs(NamedTuple):
 
 
 @dataclass(frozen=True, slots=True)
-class UpstreamESLintRules:
+class UpstreamRules:
     ids: frozenset[str] = frozenset()
     warning_only: bool = False
 
 
-_NO_UPSTREAM_ESLINT_RULES = UpstreamESLintRules()
+_NO_UPSTREAM_RULES = UpstreamRules()
 
 
 _TIMEOUT = timedelta(minutes=15)
-# Eighth-second steps convert exactly to integer milliseconds in Node.
-_REACT_DOCTOR_TICKS_PER_SECOND = 8
-_ESLINT_ERROR = 2
+# Serialize Oxlint suppression ledger access between baseline workers.
+_SUPPRESSIONS_LOCK = threading.Lock()
 _DETEKT_FINDINGS = 2
 _MAX_STDOUT_BYTES = 16 * 1024 * 1024
 _MAX_STDERR_BYTES = 64 * 1024
 _MAX_MOBILE_CONFIG_BYTES = 1024 * 1024
 _PACKAGED_MOBILE_CONFIGS = Path(__file__).resolve().parents[2] / "configs"
 _READ_BYTES = 64 * 1024
-_MAX_ESLINT_PROJECTS = 32
-_ESLINT_BATCH_SIZE = 250
-_ESLINT_ANALYSIS_BATCH_SIZE = 1_000
-_ESLINT_ARGV_BUDGET = 24 * 1024 if sys.platform == "win32" else 64 * 1024
+_SECURITY_BATCH_SIZE = 250
+_MAX_OXLINT_PROJECTS = 128
 _MAX_PYTHON_PROJECTS = 32
 _SHELLCHECK_BATCH_SIZE = 250
 _SHELLCHECK_VERSION: Final = "0.11.0"
@@ -137,12 +144,9 @@ _DEPTRY_ANNOTATION_RE: Final = re.compile(
     r"(?:,col=(?P<column>[1-9][0-9]*))?,title=(?P<code>DEP00[123])::(?P<message>.*)$"
 )
 _ANALYSIS_DEADLINE = timedelta(seconds=300)
-_REACT_DOCTOR_SOURCE_RE: Final = re.compile(r"\.(?:astro|tsx?|jsx?|mts|mjs|[hH][tT][mM][lL])\Z")
-_REACT_DOCTOR_GENERATED_BUNDLE_RE: Final = re.compile(r"\.(?:iife|umd|global|min)\.m?js\Z", re.IGNORECASE | re.ASCII)
-_REACT_DOCTOR_GENERATED_DIRECTORY_RE: Final = re.compile(r"(?:^|/)__generated__/")
-_ESLINT_NODE_OPTIONS: Final = "--max-old-space-size=4096"
-_ESLINT_LARGE_NODE_OPTIONS: Final = "--max-old-space-size=8192"
-_ESLINT_LARGE_HOST_MEMORY: Final = 12 * 1024**3
+_NODE_OPTIONS: Final = "--max-old-space-size=4096"
+_LARGE_NODE_OPTIONS: Final = "--max-old-space-size=8192"
+_LARGE_HOST_MEMORY: Final = 12 * 1024**3
 _CGROUP_ROOT: Final = Path("/sys/fs/cgroup")
 _PROCESS_CGROUPS: Final = Path("/proc/self/cgroup")
 _CGROUP_RECORD_FIELDS: Final = 3
@@ -150,8 +154,6 @@ _CGROUP_MEMORY_LIMIT_FILES: Final = (
     Path("/sys/fs/cgroup/memory.max"),
     Path("/sys/fs/cgroup/memory/memory.limit_in_bytes"),
 )
-_ESLINT_FORMATTER: Final = Path(__file__).parents[2] / "configs" / "eslint-compact-formatter.mts"
-_ESLINT_SELECTED_RUNNER: Final = Path(__file__).parents[2] / "configs" / "eslint-selected-rules.mts"
 _PYTHON_TEST_PATHS: Final = PathSpec.from_lines(
     "gitignore", ("**/test/**", "**/tests/**", "**/test_*.py", "**/*_test.py", "**/conftest.py")
 )
@@ -174,24 +176,19 @@ _REACT_RUNTIME_PACKAGES = frozenset(
         "react-native",
     }
 )
+# Files whose change can move React Doctor's findings; `is_react_doctor_metadata` adds the
+# config prefixes. PR scoping and analysis share this one list.
 _REACT_DOCTOR_METADATA_NAMES = frozenset(
     {
-        "doctor.config.json",
+        *OXLINT_CONFIG_NAMES,
+        OXLINT_SUPPRESSIONS,
         "bun.lock",
         "bun.lockb",
-        "eslint.config.js",
-        "eslint.config.cjs",
-        "eslint.config.cts",
-        "eslint.config.mjs",
-        "eslint.config.mts",
-        "eslint.config.ts",
-        "jsconfig.json",
         "npm-shrinkwrap.json",
         "package-lock.json",
         "package.json",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
-        "tsconfig.json",
         "yarn.lock",
         "yarn.lock.yml",
     }
@@ -238,8 +235,10 @@ class _ReactDoctorProtocolModel(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", strict=True)
 
 
-class _ReactDoctorFailure(_ReactDoctorProtocolModel):
-    message: str = Field(min_length=1)
+class _ReactDoctorSourcePosition(_ReactDoctorProtocolModel):
+    line: int = Field(ge=0)
+    character: int = Field(ge=0)
+    byte_offset: int = Field(alias="byteOffset", ge=0)
 
 
 class _ReactDoctorDiagnostic(_ReactDoctorProtocolModel):
@@ -250,47 +249,10 @@ class _ReactDoctorDiagnostic(_ReactDoctorProtocolModel):
     message: str = Field(min_length=1)
     line: int = Field(ge=0)
     column: int = Field(ge=0)
+    source_position: _ReactDoctorSourcePosition | None = Field(default=None, alias="sourcePosition")
     end_line: int | None = Field(default=None, alias="endLine", ge=0)
     end_column: int | None = Field(default=None, alias="endColumn", ge=0)
     url: str | None = None
-
-
-class _ReactDoctorProject(_ReactDoctorProtocolModel):
-    directory: str = Field(min_length=1)
-    complete: bool
-    diagnostics: tuple[_ReactDoctorDiagnostic, ...] = ()
-    skipped_checks: tuple[object, ...] | None = Field(  # sarj-noqa: SARJ528 -- Count-only native payload.
-        default=None, alias="skippedChecks"
-    )
-    skipped_check_reasons: dict[str, str] = Field(default_factory=dict, alias="skippedCheckReasons")
-    analyzed_file_count: int | None = Field(default=None, alias="analyzedFileCount", ge=0)
-    scanned_file_count: int | None = Field(default=None, alias="scannedFileCount", ge=0)
-
-
-class _ReactDoctorIncompleteError(ValueError):
-    pass
-
-
-class _ReactDoctorDiff(_ReactDoctorProtocolModel):
-    base_branch: str = Field(alias="baseBranch", min_length=1)
-    changed_file_count: int = Field(alias="changedFileCount", ge=0)
-    is_current_changes: bool | None = Field(default=None, alias="isCurrentChanges")
-
-
-class _ReactDoctorReport(_ReactDoctorProtocolModel):
-    schema_version: Literal[3] = Field(alias="schemaVersion")
-    version: str = Field(min_length=1)
-    ok: bool
-    projects: tuple[_ReactDoctorProject, ...]
-    diagnostics: tuple[_ReactDoctorDiagnostic, ...] = ()
-    react_detected: bool | None = Field(default=None, alias="reactDetected")
-    # The v3 serializer emits this field only when degradation occurred.
-    baseline_degraded: bool = Field(default=False, alias="baselineDegraded")
-    diff: _ReactDoctorDiff | None = None
-    skipped_projects: tuple[object, ...] = Field(  # sarj-noqa: SARJ528 -- Count-only native payload.
-        default=(), alias="skippedProjects"
-    )
-    error: _ReactDoctorFailure | None
 
 
 class _BasedPyrightPosition(BaseModel):
@@ -380,12 +342,12 @@ def analyze_external(
     react_doctor_staged: bool = False,
     force_react_doctor: bool = False,
     react_doctor_full_scan: bool = False,
-    pass_on_unpruned_eslint_suppressions: bool = False,
+    pass_on_unpruned_suppressions: bool = False,
     rule_ids: frozenset[str] | None = None,
-    upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
+    upstream_rules: UpstreamRules = _NO_UPSTREAM_RULES,
     security_selection: RuleSelection | None = None,
     python_type_check: bool = True,
-    eslint: bool = True,
+    typescript: bool = True,
 ) -> tuple[ToolReport, ...]:
     try:
         execute = DEFAULT_EXECUTOR if runner is None else runner
@@ -426,13 +388,16 @@ def analyze_external(
     def collect_python_reports() -> None:
         if routed.python:
             if capabilities is None or "ruff" in capabilities:
-                reports.extend(
-                    _invoke_ruff_projects(
-                        routed.python,
-                        root=root,
-                        runner=execute,
-                    )
+                ruff = cached_python_analysis(
+                    "ruff",
+                    root,
+                    selected=routed.python,
+                    parameters=(
+                        f"runner={type(execute).__qualname__}:{executor_capabilities(execute).tool_resolution}",
+                    ),
+                    compute=lambda: CachedResult(_invoke_ruff_projects(routed.python, root=root, runner=execute)),
                 )
+                reports.extend(ruff.reports)
             if capabilities is not None and "deptry" in capabilities:
                 reports.extend(
                     _invoke_deptry_projects(
@@ -477,114 +442,25 @@ def analyze_external(
         from .devops_schema import analyze_source_schemas  # ruff: ignore[import-outside-top-level] -- schema validation is a selected local runtime adapter.
 
         reports.extend(analyze_source_schemas(root=root, paths=tuple(routed.text)))
-    try:
-        eslint_commands, unowned_eslint = _analysis_eslint_selection(
-            root, routed.typescript, enabled=eslint, capabilities=capabilities
+    reports.extend(
+        _typescript_reports(
+            routed.typescript,
+            contained,
+            root=root,
+            runner=execute,
+            local_tools=local_tools,
+            trust=normalized_trust,
+            enabled=typescript and (capabilities is None or TYPESCRIPT_CAPABILITY in capabilities),
+            request=_oxlint_request(rule_ids, upstream_rules),
+            pass_on_unpruned_suppressions=pass_on_unpruned_suppressions,
         )
-    except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        message = redact_message(f"{type(exc).__name__}: {exc}", root)
-        issue = ExecutionIssue("eslint", "configuration-failure", message)
-        reports.append(ToolReport("eslint", Completion.FAILED, issues=(issue,)))
-        return tuple(reports)
-    if unowned_eslint:
-        issue = ExecutionIssue(
-            "eslint",
-            "coverage-missing",
-            f"no TypeScript project accepts {unowned_eslint} selected JavaScript/TypeScript path(s)",
-        )
-        reports.append(
-            ToolReport(
-                "eslint",
-                Completion.FAILED,
-                issues=(issue,),
-                analyzer_id=AnalyzerId("eslint"),
-                invocation_id=InvocationId("eslint:unowned"),
-                file_count=unowned_eslint,
-            )
-        )
-    if len(eslint_commands) > _MAX_ESLINT_PROJECTS:
-        issue = ExecutionIssue(
-            "eslint",
-            "project-limit",
-            f"selected {len(eslint_commands)} ESLint projects; maximum is {_MAX_ESLINT_PROJECTS}",
-        )
-        reports.append(ToolReport("eslint", Completion.FAILED, issues=(issue,)))
-        eslint_commands = ()
-
-    def collect_eslint_reports() -> None:
-        analysis_started = time.monotonic()
-        for command, invocation_id in _eslint_batches(eslint_commands, root=root):
-            if time.monotonic() - analysis_started >= _ANALYSIS_DEADLINE.total_seconds():
-                issue = ExecutionIssue("eslint", "aggregate-timeout", "ESLint aggregate analysis exceeded 300 seconds")
-                reports.append(ToolReport("eslint", Completion.FAILED, issues=(issue,)))
-                break
-            if normalized_trust is TrustMode.SAFE:
-                issue = ExecutionIssue(
-                    "eslint",
-                    "trust-required",
-                    "ESLint config is executable repository code; retry with TrustMode.TRUSTED",
-                )
-                reports.append(ToolReport("eslint", Completion.FAILED, issues=(issue,)))
-                continue
-            if local_tools and (issue := _missing_eslint_issue(command.cwd, root)) is not None:
-                reports.append(
-                    ToolReport(
-                        "eslint",
-                        Completion.FAILED,
-                        issues=(issue,),
-                        analyzer_id=AnalyzerId("eslint"),
-                        invocation_id=InvocationId(f"eslint:{invocation_id}"),
-                        file_count=_argv_file_count(command.argv),
-                    )
-                )
-                continue
-            execute_eslint = RequestExecutor(
-                partial(_execute_eslint, execute, deadline=analysis_started + _ANALYSIS_DEADLINE.total_seconds()),
-                executor_capabilities(execute),
-            )
-            reports.append(
-                _invoke(
-                    "eslint",
-                    _selected_eslint_argv(
-                        command,
-                        rule_ids or frozenset(),
-                        upstream_rules=upstream_rules,
-                        pass_on_unpruned_suppressions=pass_on_unpruned_eslint_suppressions,
-                    )
-                    if rule_ids is not None or upstream_rules.ids
-                    else _selected_eslint_argv(
-                        command,
-                        frozenset(),
-                        full=True,
-                        pass_on_unpruned_suppressions=pass_on_unpruned_eslint_suppressions,
-                    )
-                    if local_tools
-                    else _eslint_json_argv(
-                        command.argv,
-                        pass_on_unpruned_suppressions=pass_on_unpruned_eslint_suppressions,
-                    ),
-                    cwd=command.cwd,
-                    root=root,
-                    runner=execute_eslint,
-                    parser=parse_eslint,
-                    execution_parser=parse_eslint_executions,
-                    validator=partial(_validate_eslint_coverage, selected_files=_eslint_selected_files(command)),
-                    invocation_id=InvocationId(invocation_id),
-                    file_count=_argv_file_count(command.argv),
-                )
-            )
-            if time.monotonic() - analysis_started >= _ANALYSIS_DEADLINE.total_seconds():
-                issue = ExecutionIssue("eslint", "aggregate-timeout", "ESLint aggregate analysis exceeded 300 seconds")
-                reports.append(ToolReport("eslint", Completion.FAILED, issues=(issue,)))
-                break
-
-    collect_eslint_reports()
+    )
     react_selection = _selected_react_doctor_projects(
         root,
         enabled=include_react_doctor,
         has_typescript=force_react_doctor
         or bool(routed.typescript)
-        or any(_is_react_doctor_metadata(Path(item)) for item in contained),
+        or any(is_react_doctor_metadata(Path(item)) for item in contained),
         capabilities=capabilities,
     )
     if react_selection is not None:
@@ -595,10 +471,12 @@ def analyze_external(
                 projects=react_projects,
                 root=root,
                 runner=react_execute,
-                use_local_binary=local_tools,
                 file_count=max(len(routed.typescript), 1),
                 staged=react_doctor_staged,
                 full_scan=react_doctor_full_scan,
+                paths=contained,
+                trust_repository_code=normalized_trust is TrustMode.TRUSTED,
+                include_compiler=not (typescript and (capabilities is None or TYPESCRIPT_CAPABILITY in capabilities)),
             )
         )
     if policy is None:
@@ -630,12 +508,138 @@ def _staged_react_runner(root: Path, *, runner: ProcessExecutor | None) -> Proce
     return DEFAULT_EXECUTOR
 
 
-def _analysis_eslint_selection(
-    root: Path, files: Sequence[str], *, enabled: bool, capabilities: frozenset[str] | None
-) -> EslintSelection:
-    if not enabled or (capabilities is not None and "eslint" not in capabilities):
-        return EslintSelection((), 0)
-    return select_eslint_commands(root, files, label="analysis", expand_directories=True)
+def _oxlint_request(rule_ids: frozenset[str] | None, upstream: UpstreamRules) -> oxlint.OxlintRequest:
+    if rule_ids is None and not upstream.ids:
+        return oxlint.OxlintRequest()
+    # Advisories run at error so bulk suppressions still apply; the report downgrades them to warnings.
+    advisories = dict.fromkeys(upstream.ids, "error") if upstream.warning_only else {}
+    return oxlint.OxlintRequest(
+        rules=frozenset({*(f"@sarj/{rule}" for rule in rule_ids or ()), *upstream.ids}),
+        forced={**oxlint.REQUIRED_RULES, **advisories},
+    )
+
+
+def _typescript_reports(
+    files: Sequence[str],
+    inputs: Sequence[str],
+    *,
+    root: Path,
+    runner: ProcessExecutor,
+    local_tools: bool,
+    trust: TrustMode,
+    enabled: bool,
+    request: oxlint.OxlintRequest,
+    pass_on_unpruned_suppressions: bool,
+) -> list[ToolReport]:
+    if not enabled:
+        return []
+    try:
+        commands, unowned = oxlint.select_oxlint_commands(root, files, label="analysis")
+    except (OSError, TypeError, ValueError) as exc:
+        message = redact_message(f"{type(exc).__name__}: {exc}", root)
+        return [
+            ToolReport(
+                "oxlint", Completion.FAILED, issues=(ExecutionIssue("oxlint", "configuration-failure", message),)
+            )
+        ]
+    reports: list[ToolReport] = []
+    if unowned:
+        issue = ExecutionIssue(
+            "oxlint",
+            "coverage-missing",
+            f"no TypeScript project accepts {unowned} selected JavaScript/TypeScript path(s)",
+        )
+        reports.append(_oxlint_failure(issue, InvocationId("oxlint:unowned"), unowned))
+    if len(commands) > _MAX_OXLINT_PROJECTS:
+        message = f"selected {len(commands)} Oxlint projects; maximum is {_MAX_OXLINT_PROJECTS}"
+        reports.append(
+            ToolReport("oxlint", Completion.FAILED, issues=(ExecutionIssue("oxlint", "project-limit", message),))
+        )
+        commands = ()
+    deadline = time.monotonic() + _ANALYSIS_DEADLINE.total_seconds()
+    environment = {**_analysis_environment(), "NODE_OPTIONS": _node_options()}
+    for command in commands:
+        with _SUPPRESSIONS_LOCK:
+            report = _invoke_oxlint(
+                command,
+                root=root,
+                runner=runner,
+                local_tools=local_tools,
+                trust=trust,
+                request=request,
+                environment=environment,
+                deadline=deadline,
+            )
+        if pass_on_unpruned_suppressions:
+            report = replace(
+                report,
+                diagnostics=tuple(item for item in report.diagnostics if item.rule_id != oxlint.UNUSED_SUPPRESSION),
+            )
+        reports.append(report)
+    if request.rules is None:
+        from . import oxfmt  # ruff: ignore[import-outside-top-level] -- oxfmt imports this module's process helpers.
+
+        projects = tuple(oxlint.config_directory(command) for command in commands)
+        reports.extend(oxfmt.reports(inputs, projects, root=root, runner=runner, trust=trust))
+    return reports
+
+
+def _invoke_oxlint(
+    command: Command,
+    *,
+    root: Path,
+    runner: ProcessExecutor,
+    local_tools: bool,
+    trust: TrustMode,
+    request: oxlint.OxlintRequest,
+    environment: Mapping[str, str],
+    deadline: float,
+) -> ToolReport:
+    invocation = InvocationId(f"oxlint:{command.cwd.relative_to(root).as_posix() or '.'}")
+    file_count = len(oxlint.command_files(command))
+    if trust is TrustMode.SAFE:
+        message = "Oxlint configs and JS plugins are executable repository code; retry with TrustMode.TRUSTED"
+        return _oxlint_failure(ExecutionIssue("oxlint", "trust-required", message), invocation, file_count)
+    if local_tools and (issue := _missing_local_binary_issue("oxlint", command.cwd, root)) is not None:
+        return _oxlint_failure(issue, invocation, file_count)
+    started = time.monotonic()
+    if started >= deadline:
+        message = f"Oxlint aggregate analysis exceeded {_ANALYSIS_DEADLINE.total_seconds():g} seconds"
+        return _oxlint_failure(ExecutionIssue("oxlint", "aggregate-timeout", message), invocation, file_count)
+    try:
+        if local_tools:
+            command = Command(
+                command.label, _local_node_binary_argv("oxlint", command.argv, command.cwd, root), command.cwd
+            )
+        report = oxlint.run_oxlint(
+            command,
+            root=root,
+            runner=runner,
+            environment=environment,
+            request=request,
+            timeout_seconds=deadline - started,
+        )
+    except (OSError, TypeError, ValueError, RecursionError, subprocess.SubprocessError) as exc:
+        message = redact_message(f"{type(exc).__name__}: {exc}", root)
+        report = ToolReport("oxlint", Completion.FAILED, issues=(ExecutionIssue("oxlint", "tool-failure", message),))
+    return replace(
+        report,
+        analyzer_id=AnalyzerId("oxlint"),
+        invocation_id=invocation,
+        duration_ms=round((time.monotonic() - started) * 1_000),
+        file_count=report.file_count or file_count,
+    )
+
+
+def _oxlint_failure(issue: ExecutionIssue, invocation: InvocationId, file_count: int) -> ToolReport:
+    return ToolReport(
+        "oxlint",
+        Completion.FAILED,
+        issues=(issue,),
+        analyzer_id=AnalyzerId("oxlint"),
+        invocation_id=invocation,
+        file_count=file_count,
+    )
 
 
 def _quality_reports(
@@ -685,8 +689,8 @@ def _security_reports(
         return (ToolReport("security-tools", Completion.FAILED, issues=(issue,)),)
     reports: list[ToolReport] = []
     if selected.workflows and (capabilities is None or "zizmor" in capabilities):
-        for start in range(0, len(selected.workflows), _ESLINT_BATCH_SIZE):
-            batch = selected.workflows[start : start + _ESLINT_BATCH_SIZE]
+        for start in range(0, len(selected.workflows), _SECURITY_BATCH_SIZE):
+            batch = selected.workflows[start : start + _SECURITY_BATCH_SIZE]
             reports.append(
                 _invoke(
                     "zizmor",
@@ -711,7 +715,7 @@ def _security_reports(
                     ),
                     parser=security_tools.parse_zizmor,
                     version=security_tools.VERSIONS["zizmor"],
-                    invocation_id=InvocationId(f"batch-{start // _ESLINT_BATCH_SIZE + 1}"),
+                    invocation_id=InvocationId(f"batch-{start // _SECURITY_BATCH_SIZE + 1}"),
                     file_count=len(batch),
                 )
             )
@@ -734,8 +738,8 @@ def _checkov_reports(
             checks = checks.intersection(security_tools.KUBERNETES_CHECKS)
         if not checks:
             continue
-        for start in range(0, len(paths), _ESLINT_BATCH_SIZE):
-            batch = paths[start : start + _ESLINT_BATCH_SIZE]
+        for start in range(0, len(paths), _SECURITY_BATCH_SIZE):
+            batch = paths[start : start + _SECURITY_BATCH_SIZE]
             reports.append(
                 _invoke(
                     "checkov",
@@ -760,7 +764,7 @@ def _checkov_reports(
                     ),
                     parser=security_tools.parse_checkov,
                     version=security_tools.VERSIONS["checkov"],
-                    invocation_id=InvocationId(f"{framework}:batch-{start // _ESLINT_BATCH_SIZE + 1}"),
+                    invocation_id=InvocationId(f"{framework}:batch-{start // _SECURITY_BATCH_SIZE + 1}"),
                     file_count=len(batch),
                 )
             )
@@ -1157,50 +1161,6 @@ def read_bounded_report(path: Path, *, tool: str, format_name: str = "JSON") -> 
     return payload.decode("utf-8")
 
 
-def _missing_eslint_issue(project: Path, root: Path) -> ExecutionIssue | None:
-    current = project.resolve()
-    repository = root.resolve()
-    while True:
-        if (current / ".pnp.cjs").is_file() or (current / ".pnp.loader.mjs").is_file():
-            return None
-        binaries = current / "node_modules" / ".bin"
-        if (binaries / "eslint").is_file() or (binaries / "eslint.cmd").is_file():
-            return None
-        if current.parent == current:
-            break
-        current = current.parent
-    relative = project.resolve().relative_to(repository).as_posix() or "."
-    message = (
-        f"ESLint is not installed locally for {relative}; node_modules/.bin/eslint is missing. "
-        "Run the repository's locked package install or rerun `code-standards setup`, then retry."
-    )
-    return ExecutionIssue("eslint", "missing-dependency", message)
-
-
-def _local_eslint_argv(argv: Sequence[str], project: Path, root: Path) -> tuple[str, ...]:
-    current = project.resolve()
-    while True:
-        if (current / ".pnp.cjs").is_file() or (current / ".pnp.loader.mjs").is_file():
-            return tuple(argv)
-        binaries = current / "node_modules" / ".bin"
-        binary = binaries / ("eslint.cmd" if os.name == "nt" else "eslint")
-        if binary.is_file():
-            try:
-                tail = tuple(argv[argv.index("eslint") + 1 :])
-            except ValueError as exc:
-                msg = "ESLint command does not contain an eslint executable"
-                raise ValueError(msg) from exc
-            if os.name == "nt":
-                return ("cmd.exe", "/d", "/s", "/c", str(binary), *tail)
-            return (str(binary), *tail)
-        if current.parent == current:
-            break
-        current = current.parent
-    relative = project.resolve().relative_to(root.resolve()).as_posix() or "."
-    msg = f"local ESLint disappeared before execution for {relative}"
-    raise OSError(msg)
-
-
 def _selected_react_doctor_projects(
     root: Path,
     *,
@@ -1211,7 +1171,7 @@ def _selected_react_doctor_projects(
     if (
         not enabled
         or not has_typescript
-        or (capabilities is not None and not capabilities.intersection({"eslint", "react-doctor"}))
+        or (capabilities is not None and not capabilities.intersection({TYPESCRIPT_CAPABILITY, "react-doctor"}))
     ):
         return None
     adopted = manifest.load(root)
@@ -1261,7 +1221,7 @@ def _react_project_roots(
     return tuple(projects)
 
 
-def _is_react_doctor_metadata(path: Path) -> bool:
+def is_react_doctor_metadata(path: Path) -> bool:
     name = path.name.casefold()
     if name in _REACT_DOCTOR_METADATA_NAMES:
         return True
@@ -1272,6 +1232,7 @@ def _is_react_doctor_metadata(path: Path) -> bool:
             "eslint.config.",
             "jsconfig.",
             "next.config.",
+            "oxlint.config.",
             "tsconfig.",
             "vite.config.",
         )
@@ -1284,603 +1245,99 @@ def _invoke_react_doctor(
     projects: Sequence[Path],
     root: Path,
     runner: ProcessExecutor,
-    use_local_binary: bool,
     file_count: int,
     staged: bool,
     full_scan: bool = False,
-    allow_empty_projects: bool = False,
+    paths: Sequence[str] = (),
+    include_compiler: bool = True,
+    trust_repository_code: bool = False,
 ) -> ToolReport:
-    name = "react-doctor"
-    doctor_runner = _react_doctor_budget_runner(runner)
-    scope_base = None if staged or full_scan else change_scope_base()
-    scope_args = _react_doctor_scope_args(staged=staged, full_scan=full_scan, base=scope_base)
-    if scope_base and _react_doctor_changed_scope_is_disjoint(
-        projects,
-        root=root,
-        runner=runner,
-        scope_root=project,
-        reported_base=scope_base,
-    ):
-        project_id = project.relative_to(root).as_posix() or "."
-        return ToolReport(
-            name,
-            Completion.COMPLETE,
-            analyzer_id=AnalyzerId(name),
-            invocation_id=InvocationId(f"{name}:{project_id}"),
-            file_count=0,
-        )
-    if use_local_binary and (issue := _missing_local_binary_issue(name, project, root)) is not None:
-        return ToolReport(
-            name,
-            Completion.FAILED,
-            issues=(issue,),
-            analyzer_id=AnalyzerId(name),
-            invocation_id=InvocationId(name),
-            file_count=file_count,
-        )
-    install_root = packagemanager.workspace_root(project, root)
-    client = packagemanager.detect(install_root)
-    if staged and not full_scan:
-        allow_empty_projects = allow_empty_projects or _react_doctor_scope_has_no_source(
-            projects,
-            root=root,
-            runner=runner,
-            staged=True,
-        )
-
-    def doctor_argv(selected_scope: Sequence[str]) -> tuple[str, ...]:
-        argv = packagemanager.exec_argv(
-            client,
-            name,
-            ".",
-            "--project",
-            ",".join(item.relative_to(project).as_posix() or "." for item in projects),
-            *selected_scope,
-            "--blocking",
-            "error",
-            "--no-warnings",
-            "--no-dead-code",
-            "--no-supply-chain",
-            "--no-score",
-            "--no-cache",
-            "--max-duration",
-            str(_TIMEOUT.total_seconds()),
-            "--json",
-            "--json-compact",
-            "--no-color",
-        )
-        return _local_node_binary_argv(name, argv, project, root) if use_local_binary else tuple(argv)
-
-    expected_projects = frozenset(item.resolve() for item in projects)
-    argv = doctor_argv(scope_args)
-    parser: ProtocolParser = partial(
-        parse_react_doctor,
-        expected_projects=expected_projects,
-        allow_empty_projects=allow_empty_projects,
+    # Project discovery and staged execution stay in Standards. The adapter invokes
+    # only the official native plugin and its public project-security callbacks.
+    adopted = manifest.load(root)
+    config = next(
+        (
+            project / f"doctor.config.{suffix}"
+            for suffix in ("ts", "mts", "js", "mjs", "cts", "cjs", "json")
+            if (project / f"doctor.config.{suffix}").is_file()
+        ),
+        _PACKAGED_MOBILE_CONFIGS / "doctor.config.json",
     )
-    if staged and not full_scan:
-        parser = partial(
-            _parse_react_doctor_staged_with_full_fallback,
-            expected_projects=expected_projects,
-            allow_empty_projects=allow_empty_projects,
-            runner=doctor_runner,
-            cwd=project,
-            full_argv=doctor_argv(("--scope", "full")),
-        )
-    elif not full_scan:
-        parser = partial(
-            _parse_react_doctor_changed_scope,
-            expected_projects=expected_projects,
-            allow_empty_projects=allow_empty_projects,
-            runner=runner,
-            scope_root=project,
-            projects=projects,
-        )
-    execution_runner = doctor_runner
-    if scope_base and not staged and not full_scan:
-        execution_runner = _react_doctor_baseline_retry_runner(
-            argv,
-            root=root,
-            runner=doctor_runner,
-            explicit_base=scope_base,
-        )
+    request = {
+        "installRoot": str(packagemanager.workspace_root(project, root)),
+        "config": str(config),
+        "trustRepositoryCode": trust_repository_code,
+        "repositoryRoot": str(root),
+        "includeCompiler": include_compiler,
+        "staged": staged,
+        "excludedDirectories": _react_doctor_excluded_directories(
+            root, () if adopted is None else adopted.doctor_excluded_paths
+        ),
+        "fullScan": full_scan,
+        "metadataPaths": [str(root / path) for path in paths if is_react_doctor_metadata(Path(path))],
+        "paths": [str(root / path) for path in paths],
+        "projects": [
+            {
+                "root": str(item),
+                "excluded": [str(other) for other in projects if other != item and other.is_relative_to(item)],
+            }
+            for item in projects
+        ],
+    }
+    # Yarn supplies the loader for its virtual dependency tree. A bare Node
+    # process cannot resolve managed peers in a Plug'n'Play installation.
+    node = ("yarn", "node") if _uses_plug_n_play(project, root) else ("node",)
     return _invoke(
-        name,
-        argv,
+        "react-doctor",
+        (*node, str(_PACKAGED_MOBILE_CONFIGS / "react-doctor-runner.mjs")),
         cwd=project,
         root=root,
-        runner=execution_runner,
-        parser=parser,
-        invocation_id=InvocationId(project.relative_to(root).as_posix()) or None,
+        runner=runner,
+        parser=parse_react_doctor,
         file_count=file_count,
+        version=manifest.typescript_peers()["oxlint-plugin-react-doctor"],
+        input_bytes=json.dumps(request).encode("utf-8"),
     )
 
 
-def _react_doctor_budget_runner(runner: ProcessExecutor) -> ProcessExecutor:
-    deadline = time.monotonic() + _TIMEOUT.total_seconds()
-
-    def bounded(request: ProcessRequest) -> ProcessOutput:
-        nonlocal deadline
-        if request.argv[0] == "git" or "--max-duration" not in request.argv:
-            return runner.run(request)
-        now = time.monotonic()
-        deadline = min(deadline, now + request.timeout_seconds)
-        if request.deadline is not None:
-            deadline = min(deadline, request.deadline)
-        remaining = int((deadline - now) * _REACT_DOCTOR_TICKS_PER_SECOND) / _REACT_DOCTOR_TICKS_PER_SECOND
-        if remaining <= 0:
-            raise subprocess.TimeoutExpired(request.argv, 0)
-        argv = list(request.argv)
-        argv[argv.index("--max-duration") + 1] = str(remaining)
-        return runner.run(replace(request, argv=tuple(argv), deadline=deadline))
-
-    return RequestExecutor(bounded, executor_capabilities(runner))
-
-
-def _react_doctor_baseline_retry_runner(
-    doctor_argv: Sequence[str],
-    *,
-    root: Path,
-    runner: ProcessExecutor,
-    explicit_base: str,
-) -> ProcessExecutor:
-    expected_argv = tuple(doctor_argv)
-    head_before = runner.run(
-        process_request(("git", "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"), cwd=root)
-    )
-    expected_head = head_before.stdout.strip()
-    eligible = head_before.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", expected_head) is not None
-    attempted = False
-
-    def bounded(request: ProcessRequest) -> ProcessOutput:
-        nonlocal attempted
-        output = runner.run(request)
-        if attempted or request.argv != expected_argv:
-            return output
-        attempted = True
-        if not eligible or not _retryable_react_doctor_baseline(output, explicit_base=explicit_base):
-            return output
-        if not _react_doctor_retry_git_state_is_safe(
-            root,
-            runner=runner,
-            explicit_base=explicit_base,
-            expected_head=expected_head,
-        ):
-            return output
-        return runner.run(request)
-
-    return RequestExecutor(bounded, executor_capabilities(runner))
-
-
-def _retryable_react_doctor_baseline(output: ProcessOutput, *, explicit_base: str) -> bool:
-    if output.returncode not in {0, 1} or not output.stdout.strip():
-        return False
-    try:
-        report = _ReactDoctorReport.model_validate_json(output.stdout)
-    except ValueError:
-        return False
-    return (
-        report.baseline_degraded
-        and report.version == manifest.eslint_peers()["react-doctor"]
-        and report.error is None
-        and report.diff is not None
-        and report.diff.base_branch == explicit_base
-    )
-
-
-def _react_doctor_retry_git_state_is_safe(
-    root: Path,
-    *,
-    runner: ProcessExecutor,
-    explicit_base: str,
-    expected_head: str,
-) -> bool:
-    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,255}", explicit_base) is None:
-        return False
-    if ".." in explicit_base or "@{" in explicit_base:
-        return False
-    base = runner.run(
-        process_request(
-            ("git", "rev-parse", "--verify", "--end-of-options", f"{explicit_base}^{{commit}}"),
-            cwd=root,
-        )
-    )
-    head = runner.run(process_request(("git", "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"), cwd=root))
-    resolved_base = base.stdout.strip()
-    resolved_head = head.stdout.strip()
-    if (
-        base.returncode != 0
-        or head.returncode != 0
-        or re.fullmatch(r"[0-9a-f]{40}", resolved_base) is None
-        or resolved_head != expected_head
-    ):
-        return False
-    ancestor = runner.run(
-        process_request(("git", "merge-base", "--is-ancestor", resolved_base, resolved_head), cwd=root)
-    )
-    return ancestor.returncode == 0
-
-
-def _parse_react_doctor_staged_with_full_fallback(
-    payload: str,
-    *,
-    root: Path,
-    expected_projects: frozenset[Path],
-    allow_empty_projects: bool,
-    runner: ProcessExecutor,
-    cwd: Path,
-    full_argv: Sequence[str],
-) -> tuple[Diagnostic, ...]:
-    report = _ReactDoctorReport.model_validate_json(payload)
-    report = _react_doctor_without_untouched_empty_projects(
-        report, expected_projects=expected_projects, root=root, runner=runner, scope_root=cwd, staged=True
-    )
-    scoped_projects = _react_doctor_scoped_project_set(
-        report, expected_projects=expected_projects, root=root, runner=runner, scope_root=cwd, staged=True
-    )
-    if report.react_detected is not False:
-        return _parse_react_doctor_report(
-            report,
-            root=root,
-            expected_projects=scoped_projects,
-            allow_empty_projects=allow_empty_projects,
-            include_warnings=False,
-            require_react_detection=True,
-        )
-
-    _parse_react_doctor_report(
-        report,
-        root=root,
-        expected_projects=scoped_projects,
-        allow_empty_projects=allow_empty_projects,
-        include_warnings=False,
-        require_react_detection=False,
-    )
-    staged_paths = _react_doctor_staged_paths(root, runner=runner)
-    output = runner.run(process_request(full_argv, cwd=cwd))
-    if output.returncode not in {0, 1}:
-        msg = output.stderr.strip() or f"React Doctor full fallback exited {output.returncode}"
-        raise OSError(msg)
-    if not output.stdout.strip():
-        msg = output.stderr.strip() or "React Doctor full fallback returned empty structured output"
-        raise ValueError(msg)
-    diagnostics = parse_react_doctor(output.stdout, root=root, expected_projects=expected_projects)
-    if output.returncode == 1 and not diagnostics:
-        msg = output.stderr.strip() or "React Doctor full fallback exited 1 but reported no diagnostics"
-        raise ValueError(msg)
-    return tuple(item for item in diagnostics if item.location.path in staged_paths)
-
-
-def _parse_react_doctor_changed_scope(
-    payload: str,
-    *,
-    root: Path,
-    expected_projects: frozenset[Path],
-    allow_empty_projects: bool,
-    runner: ProcessExecutor,
-    scope_root: Path,
-    projects: Sequence[Path],
-) -> tuple[Diagnostic, ...]:
-    report = _ReactDoctorReport.model_validate_json(payload)
-    report = _react_doctor_without_untouched_empty_projects(
-        report, expected_projects=expected_projects, root=root, runner=runner, scope_root=scope_root, staged=False
-    )
-    allow_empty_projects = allow_empty_projects or _react_doctor_empty_changed_scope_has_no_source(
-        report,
-        projects=projects,
-        root=root,
-        runner=runner,
-        scope_root=scope_root,
-    )
-    return _parse_react_doctor_report(
-        report,
-        root=root,
-        expected_projects=_react_doctor_scoped_project_set(
-            report, expected_projects=expected_projects, root=root, runner=runner, scope_root=scope_root, staged=False
-        ),
-        allow_empty_projects=allow_empty_projects,
-        include_warnings=False,
-        require_react_detection=True,
-    )
-
-
-def _react_doctor_without_untouched_empty_projects(
-    report: _ReactDoctorReport,
-    *,
-    expected_projects: frozenset[Path],
-    root: Path,
-    runner: ProcessExecutor,
-    scope_root: Path,
-    staged: bool,
-) -> _ReactDoctorReport:
-    # Native scoped reports can include an enclosing project with no selected
-    # files. Treat that like an omission only after independently proving it.
-    requested_base = change_scope_base()
-    if not staged and (
-        report.diff is None
-        or report.diff.is_current_changes is None
-        or (requested_base and report.diff.base_branch != requested_base)
-    ):
-        return report
-    retained: list[_ReactDoctorProject] = []
-    for project in report.projects:
-        directory = _contained_report_directory(project, root)
-        empty = (
-            directory in expected_projects
-            and project.complete
-            and project.skipped_checks == ()
-            and not project.skipped_check_reasons
-            and not project.diagnostics
-            and project.analyzed_file_count == 0
-            and project.scanned_file_count == 0
-        )
-        if empty and _react_doctor_scope_has_no_source(
-            (directory,),
-            root=root,
-            runner=runner,
-            staged=staged,
-            scope_root=scope_root,
-            reported_base=None if staged or report.diff is None else report.diff.base_branch,
-            reported_changed_file_count=None if staged or report.diff is None else report.diff.changed_file_count,
-            known_projects=tuple(expected_projects),
-        ):
+def _react_doctor_excluded_directories(root: Path, patterns: Sequence[str]) -> list[str]:
+    if not patterns:
+        return []
+    exclusions = PathSpec.from_lines("gitignore", patterns)
+    excluded: list[str] = []
+    for parent, directories, _filenames in os.walk(root, topdown=True, followlinks=False):
+        directory = Path(parent).resolve()
+        if exclusions.match_file(directory.relative_to(root).as_posix()):
+            excluded.append(str(directory))
+            directories[:] = []
             continue
-        retained.append(project)
-    return report.model_copy(update={"projects": tuple(retained)})
+        directories[:] = sorted(name for name in directories if name not in _JAVASCRIPT_SCAN_SKIP_DIRS)
+    return excluded
 
 
-def _react_doctor_scoped_project_set(
-    report: _ReactDoctorReport,
-    *,
-    expected_projects: frozenset[Path],
-    root: Path,
-    runner: ProcessExecutor,
-    scope_root: Path,
-    staged: bool,
-) -> frozenset[Path]:
-    reported_projects = frozenset(_contained_report_directory(item, root) for item in report.projects)
-    if not reported_projects or not reported_projects < expected_projects:
-        return expected_projects
-    if not staged and (report.diff is None or report.diff.is_current_changes is None):
-        return expected_projects
-    requested_base = change_scope_base()
-    if not staged and requested_base and report.diff is not None and report.diff.base_branch != requested_base:
-        return expected_projects
-    if _react_doctor_scope_has_no_source(
-        tuple(expected_projects - reported_projects),
-        root=root,
-        runner=runner,
-        staged=staged,
-        scope_root=scope_root,
-        reported_base=None if staged or report.diff is None else report.diff.base_branch,
-        reported_changed_file_count=None if staged or report.diff is None else report.diff.changed_file_count,
-        known_projects=tuple(expected_projects),
-    ):
-        return reported_projects
-    return expected_projects
+class _NativeReactDoctorReport(_ReactDoctorProtocolModel):
+    complete: Literal[True]
+    diagnostics: tuple[_ReactDoctorDiagnostic, ...]
 
 
-def _react_doctor_empty_changed_scope_has_no_source(
-    report: _ReactDoctorReport,
-    *,
-    projects: Sequence[Path],
-    root: Path,
-    runner: ProcessExecutor,
-    scope_root: Path,
-) -> bool:
-    if report.projects or report.diagnostics or report.diff is None:
-        return False
-    if not report.baseline_degraded and report.diff.is_current_changes is None:
-        return False
-    requested_base = change_scope_base()
-    if requested_base and report.diff.base_branch != requested_base:
-        return False
-    return _react_doctor_scope_has_no_source(
-        projects,
-        root=root,
-        runner=runner,
-        staged=False,
-        scope_root=scope_root,
-        reported_base=report.diff.base_branch,
-        reported_changed_file_count=report.diff.changed_file_count,
-    )
-
-
-def _react_doctor_staged_paths(root: Path, *, runner: ProcessExecutor) -> frozenset[str]:
-    output = runner.run(
-        process_request(
-            ("git", "diff", "--cached", "--name-only", "--diff-filter=ACMRT", "-z", "--"),
-            cwd=root,
+def parse_react_doctor(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
+    report = _NativeReactDoctorReport.model_validate_json(payload)
+    documents: dict[Path, SourceDocument | None] = {}
+    diagnostics: list[Diagnostic] = []
+    for item in report.diagnostics:
+        path = _react_doctor_path(item, root, root)
+        rule = f"{item.plugin}/{item.rule}"
+        diagnostics.append(
+            Diagnostic(
+                rule,
+                redact_message(item.message, root),
+                Severity.WARNING if item.severity == "warning" else Severity.ERROR,
+                "react-doctor",
+                _react_doctor_location(item, path, root, documents),
+                rule_id=rule,
+            )
         )
-    )
-    if output.returncode != 0:
-        msg = output.stderr.strip() or "git diff --cached failed while recovering React Doctor coverage"
-        raise OSError(msg)
-    paths: set[str] = set()
-    for value in (item for item in output.stdout.split("\0") if item):
-        path = Path(value)
-        if path.is_absolute() or ".." in path.parts:
-            msg = f"git diff --cached returned an unsafe path: {value!r}"
-            raise ValueError(msg)
-        paths.add(path.as_posix())
-    return frozenset(paths)
-
-
-def _react_doctor_changed_scope_is_disjoint(
-    projects: Sequence[Path],
-    *,
-    root: Path,
-    runner: ProcessExecutor,
-    scope_root: Path,
-    reported_base: str,
-) -> bool:
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,255}", reported_base):
-        return False
-    if ".." in reported_base or "@{" in reported_base:
-        return False
-    resolved_base_output = runner.run(
-        process_request(
-            ("git", "rev-parse", "--verify", "--end-of-options", f"{reported_base}^{{commit}}"),
-            cwd=root,
-        )
-    )
-    resolved_head_output = runner.run(
-        process_request(
-            ("git", "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"),
-            cwd=root,
-        )
-    )
-    resolved_base = resolved_base_output.stdout.strip()
-    resolved_head = resolved_head_output.stdout.strip()
-    if (
-        resolved_base_output.returncode != 0
-        or resolved_head_output.returncode != 0
-        or re.fullmatch(r"[0-9a-f]{40}", resolved_base) is None
-        or re.fullmatch(r"[0-9a-f]{40}", resolved_head) is None
-    ):
-        return False
-    ancestor = runner.run(
-        process_request(("git", "merge-base", "--is-ancestor", resolved_base, resolved_head), cwd=root)
-    )
-    if ancestor.returncode != 0:
-        return False
-    changed = runner.run(
-        process_request(
-            (
-                "git",
-                "diff",
-                f"{resolved_base}...{resolved_head}",
-                "--name-only",
-                "--no-renames",
-                "-z",
-                "--",
-            ),
-            cwd=root,
-        )
-    )
-    if changed.returncode != 0:
-        return False
-    resolved_root = root.resolve()
-    resolved_scope = scope_root.resolve()
-    resolved_projects = tuple(project.resolve() for project in projects)
-    if (
-        not resolved_scope.is_relative_to(resolved_root)
-        or not resolved_projects
-        or any(
-            not project.is_relative_to(resolved_root) or not project.is_relative_to(resolved_scope)
-            for project in resolved_projects
-        )
-    ):
-        return False
-    if not _changed_paths_are_disjoint(changed.stdout, resolved_root, resolved_projects):
-        return False
-    status = runner.run(
-        process_request(("git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--"), cwd=root)
-    )
-    if status.returncode != 0 or status.stdout:
-        return False
-    final_head = runner.run(
-        process_request(("git", "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"), cwd=root)
-    )
-    return final_head.returncode == 0 and final_head.stdout.strip() == resolved_head
-
-
-def _react_doctor_scope_args(
-    *,
-    staged: bool,
-    full_scan: bool = False,
-    base: str | None = None,
-) -> tuple[str, ...]:
-    if full_scan:
-        return ("--scope", "full")
-    if staged:
-        return ("--staged",)
-    selected_base = change_scope_base() if base is None else base
-    if selected_base:
-        return ("--scope", "changed", "--base", selected_base)
-    return ("--scope", "changed")
-
-
-def _react_doctor_scope_has_no_source(
-    projects: Sequence[Path],
-    *,
-    root: Path,
-    runner: ProcessExecutor,
-    staged: bool,
-    scope_root: Path | None = None,
-    reported_base: str | None = None,
-    reported_changed_file_count: int | None = None,
-    known_projects: Sequence[Path] = (),
-) -> bool:
-    diff_filter = "--diff-filter=ACMR" if reported_changed_file_count is not None else "--diff-filter=ACMRT"
-    diff_args = _react_doctor_git_diff_args(
-        root, runner=runner, staged=staged, reported_base=reported_base, diff_filter=diff_filter
-    )
-    if diff_args is None:
-        return False
-    changed = runner.run(
-        process_request(
-            diff_args,
-            cwd=root,
-        )
-    )
-    if changed.returncode != 0:
-        return False
-    resolved_root = root.resolve()
-    resolved_scope = resolved_root if scope_root is None else scope_root.resolve()
-    if not resolved_scope.is_relative_to(resolved_root):
-        return False
-    resolved_projects = tuple(project.resolve() for project in projects)
-    changed_paths = tuple(item for item in changed.stdout.split("\0") if item)
-    resolved_known_projects = tuple(project.resolve() for project in known_projects)
-    if not _changed_scope_has_no_source(
-        changed_paths,
-        resolved_root,
-        resolved_scope,
-        resolved_projects,
-        reported_changed_file_count,
-        known_projects=resolved_known_projects,
-    ):
-        return False
-    if reported_changed_file_count is None:
-        return True
-    # Native changedFileCount uses ACMR, but source coverage must also reject
-    # type-changed source files that its counter deliberately omits.
-    source_diff = runner.run(
-        process_request(
-            tuple("--diff-filter=ACMRT" if arg == "--diff-filter=ACMR" else arg for arg in diff_args), cwd=root
-        )
-    )
-    return source_diff.returncode == 0 and _changed_scope_has_no_source(
-        tuple(item for item in source_diff.stdout.split("\0") if item),
-        resolved_root,
-        resolved_scope,
-        resolved_projects,
-        None,
-        known_projects=resolved_known_projects,
-    )
-
-
-def _react_doctor_git_diff_args(
-    root: Path,
-    *,
-    runner: ProcessExecutor,
-    staged: bool,
-    reported_base: str | None,
-    diff_filter: str,
-) -> tuple[str, ...] | None:
-    if staged:
-        return ("git", "diff", "--cached", "--name-only", diff_filter, "-z", "--")
-    base = reported_base or change_scope_base()
-    if not base:
-        return None
-    if reported_base is not None:
-        verified_base = _verified_react_changed_base(base, root, runner)
-        if verified_base is None:
-            return None
-        base = verified_base
-    # Native compares the verified base with the tracked worktree, not HEAD.
-    return ("git", "diff", base, "--name-only", diff_filter, "-z", "--")
+    return tuple(diagnostics)
 
 
 def change_scope_base() -> str:
@@ -1934,23 +1391,21 @@ def is_non_default_github_push() -> bool:
 
 
 def _missing_local_binary_issue(name: str, project: Path, root: Path) -> ExecutionIssue | None:
-    current = project.resolve()
+    if oxlint.local_binary(name, project, root) is not None or _uses_plug_n_play(project, root):
+        return None
+    return ExecutionIssue(name, "missing-dependency", oxlint.missing_binary_message(name, project, root))
+
+
+def _uses_plug_n_play(project: Path, root: Path) -> bool:
     repository = root.resolve()
+    current = project.resolve()
     while current.is_relative_to(repository):
         if (current / ".pnp.cjs").is_file() or (current / ".pnp.loader.mjs").is_file():
-            return None
-        binaries = current / "node_modules" / ".bin"
-        if (binaries / name).is_file() or (binaries / f"{name}.cmd").is_file():
-            return None
+            return True
         if current == repository:
             break
         current = current.parent
-    relative = project.relative_to(repository).as_posix() or "."
-    message = (
-        f"{name} is not installed locally for {relative}; node_modules/.bin/{name} is missing. "
-        "Run the repository's locked package install or rerun `code-standards setup`, then retry."
-    )
-    return ExecutionIssue(name, "missing-dependency", message)
+    return False
 
 
 def local_node_binary_argv(name: str, argv: Sequence[str], project: Path, root: Path) -> tuple[str, ...] | None:
@@ -1961,26 +1416,21 @@ def local_node_binary_argv(name: str, argv: Sequence[str], project: Path, root: 
 
 
 def _local_node_binary_argv(name: str, argv: Sequence[str], project: Path, root: Path) -> tuple[str, ...]:
-    current = project.resolve()
-    repository = root.resolve()
-    while current.is_relative_to(repository):
-        if (current / ".pnp.cjs").is_file() or (current / ".pnp.loader.mjs").is_file():
+    binary = oxlint.local_binary(name, project, root)
+    if binary is None:
+        if _uses_plug_n_play(project, root):
             return tuple(argv)
-        binary = current / "node_modules" / ".bin" / (f"{name}.cmd" if os.name == "nt" else name)
-        if binary.is_file():
-            try:
-                tail = tuple(argv[argv.index(name) + 1 :])
-            except ValueError as exc:
-                msg = f"analyzer command does not contain {name!r}"
-                raise ValueError(msg) from exc
-            if os.name == "nt":
-                return ("cmd.exe", "/d", "/s", "/c", str(binary), *tail)
-            return (str(binary), *tail)
-        if current == repository:
-            break
-        current = current.parent
-    msg = f"local {name} disappeared before execution"
-    raise OSError(msg)
+        msg = f"local {name} disappeared before execution"
+        raise OSError(msg)
+    # A command for a project without its own install already names the binary by path.
+    position = next((index for index, part in enumerate(argv) if part in {name, str(binary)}), None)
+    if position is None:
+        msg = f"analyzer command does not contain {name!r}"
+        raise ValueError(msg)
+    tail = tuple(argv[position + 1 :])
+    if os.name == "nt":
+        return ("cmd.exe", "/d", "/s", "/c", str(binary), *tail)
+    return (str(binary), *tail)
 
 
 def _invoke_python_projects(
@@ -2310,15 +1760,56 @@ def _shell_source_reports(
     capabilities: frozenset[str] | None,
     attest_version: bool,
 ) -> tuple[ToolReport, ...]:
-    from .shell_format import analyze_sources as analyze_shell_format  # ruff: ignore[import-outside-top-level] -- formatter reuses the bounded input runner without introducing an import cycle.
+    from .shell_format import (  # ruff: ignore[import-outside-top-level] -- formatter reuses the bounded input runner without introducing an import cycle.
+        analyze_sources as analyze_shell_format,
+        attested_executable as shell_format_executable,
+    )
+
+    shellcheck = capabilities is None or "shellcheck" in capabilities
+    shfmt = capabilities is None or "shfmt" in capabilities
+
+    def shell_files() -> CachedResult:
+        reports: list[ToolReport] = []
+        if shellcheck:
+            reports.extend(_shellcheck_reports(grouped, root=root, runner=runner, attest_version=attest_version))
+        if shfmt:
+            reports.extend(analyze_shell_format(root=root, paths=(*grouped.shellcheck, *grouped.unsupported_shell)))
+        return CachedResult(tuple(reports))
+
+    def shell_file_inputs() -> Iterator[str]:
+        # ShellCheck follows sources only among its inputs (no -x) and shfmt
+        # ignores EditorConfig when given printer flags, so these files are all
+        # either tool reads.
+        if executor_capabilities(runner).tool_resolution is not ToolResolution.LOCAL:
+            msg = "only locally resolved shell tools have a provable identity"
+            raise UnknownInputsError(msg)
+        yield f"runner={type(runner).__qualname__}"
+        yield f"selected=shellcheck:{shellcheck},shfmt:{shfmt},attest:{attest_version}"
+        yield f"manifest={file_identity(root / manifest.MANIFEST_NAME)}"
+        yield from environment_parts(_analysis_environment())
+        for label, names in (("shell", grouped.shellcheck), ("zsh", grouped.unsupported_shell)):
+            for name in names:
+                path = Path(name) if Path(name).is_absolute() else root / name
+                yield f"{label}={path.resolve().relative_to(root.resolve()).as_posix()}"
+                yield file_identity(path)
+        if shellcheck:
+            yield f"tool=shellcheck={_tool_identity('shellcheck')}"
+        if shfmt:
+            yield f"tool=shfmt={executable_identity(shell_format_executable(root))}"
 
     reports: list[ToolReport] = []
-    if capabilities is None or "shellcheck" in capabilities:
-        reports.extend(_shellcheck_reports(grouped, root=root, runner=runner, attest_version=attest_version))
-    if capabilities is None or "shfmt" in capabilities:
-        reports.extend(analyze_shell_format(root=root, paths=(*grouped.shellcheck, *grouped.unsupported_shell)))
+    if grouped.shellcheck or grouped.unsupported_shell:
+        reports.extend(cached_analysis("shell-files", inputs=shell_file_inputs, compute=shell_files).reports)
     reports.extend(_embedded_shell_reports(grouped, root=root, capabilities=capabilities))
     return tuple(reports)
+
+
+def _tool_identity(name: str) -> str:
+    executable = _analyzer_executable(name)
+    if executable is None:
+        msg = f"{name} is not installed"
+        raise UnknownInputsError(msg)
+    return executable_identity(Path(executable))
 
 
 def _embedded_shell_reports(
@@ -2688,31 +2179,13 @@ def run_process_input(argv: Sequence[str], *, cwd: Path, source: str, timeout_se
     )
 
 
-def _run_eslint_process(
-    argv: Sequence[str], *, cwd: Path, timeout_seconds: float = _TIMEOUT.total_seconds()
-) -> ProcessOutput:
-    environment = _analysis_environment()
-    environment["NODE_OPTIONS"] = _eslint_node_options()
-    return DEFAULT_EXECUTOR.run(
-        process_request(argv, cwd=cwd, environment=environment, timeout_seconds=timeout_seconds)
-    )
-
-
-def _execute_eslint(runner: ProcessExecutor, request: ProcessRequest, *, deadline: float) -> ProcessOutput:
-    environment = dict(request.environment)
-    environment["NODE_OPTIONS"] = _eslint_node_options()
-    if request.deadline is not None:
-        deadline = min(deadline, request.deadline)
-    return runner.run(replace(request, environment=environment, deadline=deadline))
-
-
-def _eslint_node_options() -> str:
+def _node_options() -> str:
     memory = _physical_memory_bytes()
     if memory is None:
-        return _ESLINT_NODE_OPTIONS
+        return _NODE_OPTIONS
     paths = _cgroup_memory_limit_files()
     if paths is None:
-        return _ESLINT_NODE_OPTIONS
+        return _NODE_OPTIONS
     found_limit = False
     for path in paths:
         try:
@@ -2720,20 +2193,20 @@ def _eslint_node_options() -> str:
         except FileNotFoundError:
             continue
         except OSError:
-            return _ESLINT_NODE_OPTIONS
+            return _NODE_OPTIONS
         found_limit = True
         if text == "max":
             continue
         try:
             limit = int(text)
         except ValueError:
-            return _ESLINT_NODE_OPTIONS
+            return _NODE_OPTIONS
         if limit <= 0:
-            return _ESLINT_NODE_OPTIONS
+            return _NODE_OPTIONS
         memory = min(memory, limit)
     if sys.platform == "linux" and not found_limit:
-        return _ESLINT_NODE_OPTIONS
-    return _ESLINT_LARGE_NODE_OPTIONS if memory >= _ESLINT_LARGE_HOST_MEMORY else _ESLINT_NODE_OPTIONS
+        return _NODE_OPTIONS
+    return _LARGE_NODE_OPTIONS if memory >= _LARGE_HOST_MEMORY else _NODE_OPTIONS
 
 
 def _cgroup_memory_limit_files() -> list[Path] | None:
@@ -2856,6 +2329,10 @@ def _run_process(request: ProcessRequest) -> ProcessOutput:
 def _analyzer_executable(name: str) -> str | None:
     environment_bin = str(Path(sys.executable).parent)
     return shutil.which(name, path=environment_bin) or shutil.which(name)
+
+
+def analysis_environment() -> dict[str, str]:
+    return _analysis_environment()
 
 
 def _analysis_environment() -> dict[str, str]:
@@ -2987,6 +2464,7 @@ def _invoke(
     invocation_id: InvocationId | None = None,
     file_count: int,
     version: str | None = None,
+    input_bytes: bytes | None = None,
 ) -> ToolReport:
     started = time.monotonic()
     try:
@@ -3000,6 +2478,7 @@ def _invoke(
             validator=validator,
             execution_parser=execution_parser,
             file_count=file_count,
+            input_bytes=input_bytes,
         )
         return ToolReport(
             report.name,
@@ -3038,8 +2517,9 @@ def _invoke_unchecked(
     execution_parser: RuleExecutionParser | None = None,
     validator: ProtocolValidator | None = None,
     file_count: int | None = None,
+    input_bytes: bytes | None = None,
 ) -> ToolReport:
-    output = runner.run(process_request(argv, cwd=cwd))
+    output = runner.run(process_request(argv, cwd=cwd, input_bytes=input_bytes, max_input_bytes=_MAX_STDOUT_BYTES))
     if output.returncode not in {0, 1}:
         message = redact_message(output.stderr.strip() or f"{name} exited {output.returncode}", root)
         issue = ExecutionIssue(name, "tool-failure", message, output.returncode)
@@ -3052,12 +2532,6 @@ def _invoke_unchecked(
         return ToolReport(name, Completion.FAILED, issues=(issue,))
     try:
         diagnostics = parser(output.stdout, root=root)
-    except _ReactDoctorIncompleteError as exc:
-        message = redact_message(str(exc), root)[:700]
-        if stderr := output.stderr.strip():
-            message += f"; stderr: {redact_message(stderr, root)[:300]}"
-        issue = ExecutionIssue(name, "tool-failure", message, output.returncode)
-        return ToolReport(name, Completion.FAILED, issues=(issue,))
     except json.JSONDecodeError as exc:
         stderr = output.stderr.strip()
         message = stderr or f"{name} returned invalid structured JSON at line {exc.lineno}, column {exc.colno}"
@@ -3517,159 +2991,6 @@ def _shellcheck_reported_path(value: str, root: Path, virtual: Path | None) -> P
     return virtual
 
 
-def parse_eslint(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
-    values = _eslint_results(payload)
-    documents: dict[Path, SourceDocument | None] = {}
-    diagnostics: list[Diagnostic] = []
-    for value in values:
-        result = _table(value, "ESLint file result")
-        path = _path(result, "filePath", root)
-        diagnostics.extend(
-            _parse_eslint_message(raw_message, path, root, documents)
-            for raw_message in _array(result.get("messages"), "ESLint messages")
-        )
-    return tuple(diagnostics)
-
-
-def _eslint_results(
-    payload: str,
-) -> list[  # sarj-noqa: SARJ528 -- Decode raw ESLint wire results before validating each file/message record.
-    object
-]:
-    value = _loads(payload)
-    if is_object_list(value):
-        return value
-    return _array(_table(value, "ESLint output").get("results"), "ESLint results")
-
-
-def parse_eslint_executions(payload: str, *, file_count: int | None = None) -> tuple[RuleExecution, ...]:
-    value = _loads(payload)
-    if is_object_list(value):
-        return ()
-    envelope = _table(value, "ESLint output")
-    rows = _array(envelope.get("ruleExecutions", []), "ESLint rule executions")
-    result: list[RuleExecution] = []
-    files = {_text(_table(row, "ESLint file result"), "filePath") for row in _eslint_results(payload)}
-    counts: dict[str, int] = {}
-    identities: set[tuple[str, RuleExecutionState, bool | None, str | None]] = set()
-    for row in rows:
-        item = _table(row, "ESLint rule execution")
-        count = item.get("fileCount")
-        if type(count) is not int or count < 1:
-            msg = "ESLint rule execution fileCount must be a positive integer"
-            raise ValueError(msg)
-        if "requiresTypeInformation" not in item:
-            msg = "ESLint rule execution must declare its type-information requirement"
-            raise ValueError(msg)
-        required = item.get("requiresTypeInformation")
-        if required is not None and not isinstance(required, bool):
-            msg = "ESLint type-information requirement must be a bool or null"
-            raise TypeError(msg)
-        result.append(
-            RuleExecution(
-                rule_id=_text(item, "ruleId"),
-                execution=RuleExecutionState(_text(item, "execution")),
-                file_count=count,
-                requires_type_information=required,
-                reason=_text(item, "reason") if "reason" in item else None,
-            )
-        )
-    for execution in result:
-        identity = (execution.rule_id, execution.execution, execution.requires_type_information, execution.reason)
-        if identity in identities:
-            msg = "ESLint rule execution summaries must not contain duplicate groups"
-            raise ValueError(msg)
-        identities.add(identity)
-        counts[execution.rule_id] = counts.get(execution.rule_id, 0) + execution.file_count
-        if counts[execution.rule_id] > (len(files) if file_count is None else file_count):
-            msg = "ESLint rule execution fileCount exceeds reported file coverage"
-            raise ValueError(msg)
-    return tuple(result)
-
-
-def parse_react_doctor(
-    payload: str,
-    *,
-    root: Path,
-    expected_projects: frozenset[Path] | None = None,
-    allow_empty_projects: bool = False,
-    include_warnings: bool = False,
-) -> tuple[Diagnostic, ...]:
-    report = _ReactDoctorReport.model_validate_json(payload)
-    return _parse_react_doctor_report(
-        report,
-        root=root,
-        expected_projects=expected_projects,
-        allow_empty_projects=allow_empty_projects,
-        include_warnings=include_warnings,
-        require_react_detection=True,
-    )
-
-
-def _parse_react_doctor_report(
-    report: _ReactDoctorReport,
-    *,
-    root: Path,
-    expected_projects: frozenset[Path] | None,
-    allow_empty_projects: bool,
-    include_warnings: bool,
-    require_react_detection: bool,
-) -> tuple[Diagnostic, ...]:
-    _validate_react_report_status(report, require_react_detection=require_react_detection)
-    if not report.projects and allow_empty_projects:
-        if report.diagnostics:
-            msg = "React Doctor returned diagnostics without an analyzed project"
-            raise ValueError(msg)
-        return ()
-    if report.baseline_degraded:
-        msg = "React Doctor changed-scope baseline degraded"
-        raise ValueError(msg)
-    if not report.projects:
-        msg = "React Doctor returned no analyzed projects"
-        raise ValueError(msg)
-    if expected_projects is not None:
-        _validate_react_project_set(report, root, expected_projects, require_react_detection=require_react_detection)
-
-    documents: dict[Path, SourceDocument | None] = {}
-    diagnostics: list[Diagnostic] = []
-    for project in report.projects:
-        _validate_react_project_completion(project, expected_projects, root=root)
-        directory = _contained_report_directory(project, root)
-        for item in project.diagnostics:
-            # The 0.9.x compact JSON protocol can retain warning diagnostics
-            # even when both config and argv disable warnings. Standards only
-            # promotes React Doctor's error surface, so enforce that boundary
-            # after validating the complete upstream report.
-            if item.severity == "warning" and not include_warnings:
-                continue
-            path = _react_doctor_path(item, directory, root)
-            location = _react_doctor_location(item, path, root, documents)
-            rule = f"{item.plugin}/{item.rule}"
-            diagnostics.append(
-                Diagnostic(
-                    rule,
-                    redact_message(item.message, root),
-                    Severity.ERROR,
-                    "react-doctor",
-                    location,
-                    rule_id=rule,
-                    help_url=item.url,
-                )
-            )
-    return tuple(diagnostics)
-
-
-def _contained_report_directory(project: _ReactDoctorProject, root: Path) -> Path:
-    directory = Path(project.directory)
-    resolved = (directory if directory.is_absolute() else root / directory).resolve()
-    try:
-        resolved.relative_to(root.resolve())
-    except ValueError as exc:
-        msg = "React Doctor reported a project outside the repository root"
-        raise ValueError(msg) from exc
-    return resolved
-
-
 def _react_doctor_path(item: _ReactDoctorDiagnostic, directory: Path, root: Path) -> Path:
     raw_path = Path(item.file_path)
     resolved = (raw_path if raw_path.is_absolute() else directory / raw_path).resolve()
@@ -3688,6 +3009,9 @@ def _react_doctor_location(
     documents: dict[Path, SourceDocument | None],
 ) -> Location:
     relative_path = _relative(path, root)
+    if item.source_position is not None:
+        position = item.source_position
+        return Location(relative_path, position=Position(position.line, position.character, position.byte_offset))
     if item.line == 0 or item.column == 0:
         return Location(relative_path)
     start = _one_based_position(
@@ -3855,130 +3179,6 @@ def _deptry_first_party_modules(project: Path) -> tuple[str, ...]:
     return tuple(sorted(names))
 
 
-def _eslint_batches(commands: Sequence[Command], *, root: Path) -> tuple[tuple[Command, str], ...]:
-    batches: list[tuple[Command, str]] = []
-    for command in commands:
-        boundary = max(index for index, value in enumerate(command.argv) if value == "--") + 1
-        prefix = tuple(command.argv[:boundary])
-        paths = command.argv[boundary:]
-        chunks = _eslint_path_batches(prefix, paths)
-        identifier = command.cwd.relative_to(root).as_posix() or "."
-        for index, paths in enumerate(chunks, start=1):
-            invocation_id = identifier if len(chunks) == 1 else f"{identifier}:batch-{index}"
-            batches.append((Command(command.label, (*prefix, *paths), command.cwd), invocation_id))
-    return tuple(batches)
-
-
-def _eslint_path_batches(prefix: Sequence[str], paths: Sequence[str]) -> list[tuple[str, ...]]:
-    def size(value: str) -> int:
-        # Windows limits command-line UTF-16; POSIX counts encoded argv bytes.
-        return len(value.encode("utf-16-le" if sys.platform == "win32" else "utf-8")) + 2
-
-    # Leave room for the selected-rule request and formatter arguments.
-    fixed = sum(size(value) for value in prefix) + 8 * 1024
-    current: list[str] = []
-    used = fixed
-    batches: list[tuple[str, ...]] = []
-    for path in paths:
-        length = size(path)
-        if fixed + length > _ESLINT_ARGV_BUDGET:
-            msg = "ESLint path exceeds the bounded command-line budget"
-            raise ValueError(msg)
-        if current and (len(current) >= _ESLINT_ANALYSIS_BATCH_SIZE or used + length > _ESLINT_ARGV_BUDGET):
-            batches.append(tuple(current))
-            current, used = [], fixed
-        current.append(path)
-        used += length
-    if current:
-        batches.append(tuple(current))
-    return batches
-
-
-def _eslint_selected_files(command: Command) -> frozenset[Path]:
-    boundary = max(index for index, value in enumerate(command.argv) if value == "--") + 1
-    return frozenset((command.cwd / value).resolve() for value in command.argv[boundary:])
-
-
-def _selected_eslint_argv(
-    command: Command,
-    rule_ids: frozenset[str],
-    *,
-    upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
-    pass_on_unpruned_suppressions: bool = False,
-    full: bool = False,
-) -> tuple[str, ...]:
-    boundary = max(index for index, value in enumerate(command.argv) if value == "--")
-    config = command.argv[command.argv.index("--config") + 1] if "--config" in command.argv else None
-    request = json.dumps(
-        {
-            "rules": sorted(rule_ids),
-            "upstreamRules": sorted(upstream_rules.ids),
-            "upstreamAdvisories": sorted(upstream_rules.ids) if upstream_rules.warning_only else [],
-            "config": config,
-            "passOnUnpruned": pass_on_unpruned_suppressions,
-            "suppressionsLocation": (
-                command.argv[command.argv.index("--suppressions-location") + 1]
-                if "--suppressions-location" in command.argv
-                else None
-            ),
-            **({"full": True} if full else {}),
-        },
-        separators=(",", ":"),
-    )
-    tail = (str(_ESLINT_SELECTED_RUNNER), request, "--", *command.argv[boundary + 1 :])
-    if any(
-        (parent / marker).is_file()
-        for parent in (command.cwd, *command.cwd.parents)
-        for marker in (".pnp.cjs", ".pnp.loader.mjs")
-    ):
-        return (*command.argv[: command.argv.index("eslint")], "node", *tail)
-    node = shutil.which("node")
-    if node is None:
-        msg = "selected ESLint analysis requires the repository's Node runtime"
-        raise OSError(msg)
-    return (node, *tail)
-
-
-def _validate_eslint_coverage(payload: str, *, root: Path, selected_files: frozenset[Path]) -> ExecutionIssue | None:
-    analyzed_files = frozenset(
-        _path(_table(value, "ESLint file result"), "filePath", root) for value in _eslint_results(payload)
-    )
-    missing_count = len(selected_files - analyzed_files)
-    if missing_count == 0:
-        return None
-    return ExecutionIssue(
-        "eslint",
-        "coverage-missing",
-        f"ESLint did not analyze {missing_count} of {len(selected_files)} selected maintained file(s); "
-        "review the repository ignore configuration",
-    )
-
-
-def _eslint_json_argv(argv: Sequence[str], *, pass_on_unpruned_suppressions: bool = False) -> tuple[str, ...]:
-    values = list(argv)
-    try:
-        index = values.index("eslint") + 1
-    except ValueError as exc:
-        msg = "ESLint command does not contain an eslint executable"
-        raise ValueError(msg) from exc
-    suppression_args = ("--pass-on-unpruned-suppressions",) if pass_on_unpruned_suppressions else ()
-    values[index:index] = [
-        "--format",
-        str(_ESLINT_FORMATTER),
-        "--no-warn-ignored",
-        "--no-cache",
-        *suppression_args,
-    ]
-    return tuple(values)
-
-
-def _argv_file_count(argv: Sequence[str]) -> int:
-    if "--" not in argv:
-        return 0
-    index = max(position for position, value in enumerate(argv) if value == "--")
-    return len(argv) - index - 1
-
-
 def _loads(payload: str) -> JsonValue:
     if not payload.strip():
         msg = "analyzer returned empty structured output"
@@ -4104,73 +3304,6 @@ def _basedpyright_position(
     return position
 
 
-def _eslint_position(
-    value: dict[str, object],
-    path: Path,
-    cache: dict[Path, SourceDocument | None],
-    *,
-    line_key: str,
-    column_key: str,
-) -> Position | None:
-    line = value.get(line_key)
-    column = value.get(column_key)
-    if type(line) is not int or type(column) is not int:
-        return None
-    try:
-        return _zero_based_position({"line": line - 1, "character": column - 1}, path, cache)
-    except ValueError:
-        return None
-
-
-def _parse_eslint_message(
-    raw_message: object, path: Path, root: Path, documents: dict[Path, SourceDocument | None]
-) -> Diagnostic:
-    item = _table(raw_message, "ESLint diagnostic")
-    if item.get("fatal") is True:
-        detail = _text(item, "message")
-        msg = f"ESLint fatal parser/configuration failure: {detail}"
-        raise ValueError(msg)
-    start = _eslint_start_position(item, path, documents)
-    end = None if start is None else _eslint_position(item, path, documents, line_key="endLine", column_key="endColumn")
-    rule_value = item.get("ruleId")
-    rule = rule_value if isinstance(rule_value, str) else "eslint/file"
-    relative_path = _relative(path, root)
-    if start is None:
-        location = Location(relative_path)
-    elif end is not None:
-        location = Location(relative_path, region=Region(start, end))
-    else:
-        location = Location(relative_path, position=start)
-    severity_value = item.get("severity")
-    if type(severity_value) is int and severity_value == _ESLINT_ERROR:
-        severity = Severity.ERROR
-    elif type(severity_value) is int and severity_value == 1:
-        severity = Severity.WARNING
-    else:
-        msg = f"unsupported ESLint severity: {severity_value!r}"
-        raise ValueError(msg)
-    return Diagnostic(
-        rule,
-        redact_message(_text(item, "message"), root),
-        severity,
-        "eslint",
-        location,
-        rule_id=rule,
-        tags=("non-baselineable", "required-source-policy") if item.get("sarjRequiredSourcePolicy") is True else (),
-    )
-
-
-def _eslint_start_position(
-    value: dict[str, object], path: Path, cache: dict[Path, SourceDocument | None]
-) -> Position | None:
-    if isinstance(value.get("line"), bool) or isinstance(value.get("column"), bool):
-        msg = "ESLint diagnostic has invalid boolean coordinates"
-        raise TypeError(msg)
-    if value.get("line") == 0:
-        return None
-    return _eslint_position(value, path, cache, line_key="line", column_key="column")
-
-
 def _zero_based_position(value: dict[str, object], path: Path, cache: dict[Path, SourceDocument | None]) -> Position:
     position = _document(path, cache).utf16_point(line=_integer(value, "line"), character=_integer(value, "character"))
     if position is None:
@@ -4216,45 +3349,6 @@ def redact_message(value: str, root: Path) -> str:
     return message[:1024]
 
 
-def _changed_paths_are_disjoint(changed_paths: str, resolved_root: Path, resolved_projects: tuple[Path, ...]) -> bool:
-    for relative in (item for item in changed_paths.split("\0") if item):
-        relative_path = Path(relative)
-        if relative_path.is_absolute() or ".." in relative_path.parts:
-            return False
-        candidate = resolved_root / relative_path
-        if any(candidate.is_relative_to(project) for project in resolved_projects):
-            return False
-        if _is_react_doctor_metadata(candidate) and any(
-            project.is_relative_to(candidate.parent) for project in resolved_projects
-        ):
-            return False
-    return True
-
-
-def _verified_react_changed_base(base: str, root: Path, runner: ProcessExecutor) -> str | None:
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,255}", base) or ".." in base or "@{" in base:
-        return None
-    resolved = runner.run(
-        process_request(
-            ("git", "rev-parse", "--verify", "--end-of-options", f"{base}^{{commit}}"),
-            cwd=root,
-        )
-    )
-    resolved_base = resolved.stdout.strip()
-    if resolved.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", resolved_base) is None:
-        return None
-    ancestor = runner.run(process_request(("git", "merge-base", "--is-ancestor", resolved_base, "HEAD"), cwd=root))
-    if ancestor.returncode == 0:
-        return resolved_base
-    if ancestor.returncode != 1:
-        return None
-    common = runner.run(process_request(("git", "merge-base", resolved_base, "HEAD"), cwd=root))
-    common_base = common.stdout.strip()
-    if common.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", common_base) is None:
-        return None
-    return common_base
-
-
 def _validate_mobsfscan_coverage(report: dict[str, object], root: Path, expected_paths: Sequence[str]) -> None:
     paths = _table(report.get("paths"), "mobsfscan paths")
     scanned_values = _array(paths.get("scanned"), "mobsfscan scanned paths")
@@ -4265,104 +3359,4 @@ def _validate_mobsfscan_coverage(report: dict[str, object], root: Path, expected
     expected = {Path(value).resolve() for value in expected_paths}
     if scanned != expected:
         msg = f"mobsfscan coverage mismatch: expected {len(expected)} selected file(s), scanned {len(scanned)}"
-        raise ValueError(msg)
-
-
-def _validate_react_project_completion(
-    project: _ReactDoctorProject, expected_projects: frozenset[Path] | None, *, root: Path
-) -> None:
-    if not project.complete:
-        message = f"React Doctor project did not complete: {project.directory!r}"
-        raise _ReactDoctorIncompleteError(_react_project_incompleteness(project, message, root=root))
-    if project.skipped_checks or project.skipped_check_reasons:
-        message = f"React Doctor skipped checks for project: {project.directory!r}"
-        raise _ReactDoctorIncompleteError(_react_project_incompleteness(project, message, root=root))
-    if expected_projects is not None and (
-        project.skipped_checks is None or project.analyzed_file_count is None or project.scanned_file_count is None
-    ):
-        msg = f"React Doctor omitted completeness metadata for project: {project.directory!r}"
-        raise ValueError(msg)
-    if project.analyzed_file_count == 0 or project.scanned_file_count == 0:
-        msg = f"React Doctor analyzed no files for project: {project.directory!r}"
-        raise ValueError(msg)
-
-
-def _react_project_incompleteness(project: _ReactDoctorProject, message: str, *, root: Path) -> str:
-    skipped_count = None if project.skipped_checks is None else len(project.skipped_checks)
-    coverage = (
-        f"analyzed={project.analyzed_file_count}, scanned={project.scanned_file_count}, skipped_checks={skipped_count}"
-    )
-    reasons = redact_message(json.dumps(project.skipped_check_reasons or {}, sort_keys=True), root)[:384]
-    return f"{redact_message(message, root)[:200]}; {coverage}; skipped_check_reasons={reasons}"
-
-
-def _validate_react_report_status(report: _ReactDoctorReport, *, require_react_detection: bool) -> None:
-    expected_version = manifest.eslint_peers()["react-doctor"]
-    if report.version != expected_version:
-        msg = f"React Doctor reported version {report.version!r}; expected {expected_version!r}"
-        raise ValueError(msg)
-    if report.error is not None:
-        msg = f"React Doctor scan failed: {report.error.message}"
-        raise ValueError(msg)
-    if not report.ok:
-        msg = "React Doctor report did not complete successfully"
-        raise ValueError(msg)
-    if report.skipped_projects:
-        msg = f"React Doctor skipped {len(report.skipped_projects)} project(s) before analysis"
-        raise ValueError(msg)
-    if report.react_detected is False and require_react_detection:
-        msg = "React Doctor did not detect React in an expected project"
-        raise ValueError(msg)
-
-
-def _changed_scope_has_no_source(
-    changed_paths: tuple[str, ...],
-    resolved_root: Path,
-    resolved_scope: Path,
-    resolved_projects: tuple[Path, ...],
-    reported_changed_file_count: int | None,
-    *,
-    known_projects: tuple[Path, ...] = (),
-) -> bool:
-    scoped_changed_file_count = 0
-    for relative in changed_paths:
-        relative_path = Path(relative)
-        if relative_path.is_absolute() or ".." in relative_path.parts:
-            return False
-        candidate = resolved_root / relative_path
-        if candidate.is_relative_to(resolved_scope):
-            scoped_changed_file_count += 1
-        if not _is_react_doctor_source_path(relative_path):
-            continue
-        # React Doctor attributes a file only to its nearest enclosing project,
-        # so an enclosing root project neither owns nor reports it.
-        owner = max(
-            (project for project in (*resolved_projects, *known_projects) if candidate.is_relative_to(project)),
-            key=lambda project: len(project.parts),
-            default=None,
-        )
-        if owner in resolved_projects:
-            return False
-    return reported_changed_file_count is None or scoped_changed_file_count == reported_changed_file_count
-
-
-def _is_react_doctor_source_path(relative_path: Path) -> bool:
-    # Native filters Git-relative paths; checkout parents are not source paths.
-    path = relative_path.as_posix()
-    return (
-        _REACT_DOCTOR_SOURCE_RE.search(path) is not None
-        and _REACT_DOCTOR_GENERATED_BUNDLE_RE.search(path) is None
-        and _REACT_DOCTOR_GENERATED_DIRECTORY_RE.search(path) is None
-    )
-
-
-def _validate_react_project_set(
-    report: _ReactDoctorReport, root: Path, expected_projects: frozenset[Path], *, require_react_detection: bool
-) -> None:
-    if (report.react_detected is not True and require_react_detection) or report.baseline_degraded is not False:
-        msg = "React Doctor omitted required v3 detection or baseline-completeness metadata"
-        raise ValueError(msg)
-    reported_projects = frozenset(_contained_report_directory(item, root) for item in report.projects)
-    if reported_projects != expected_projects:
-        msg = "React Doctor did not return exactly the requested project set"
         raise ValueError(msg)

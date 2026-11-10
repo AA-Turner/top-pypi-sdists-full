@@ -69,11 +69,21 @@ from urwid.display.escape import (
     MouseBit,
     PrivateMode,
 )
-from urwid.widget import Sizing, Widget
+from urwid.widget import MouseButton, Sizing, Widget
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
     from typing import Literal
+
+    class _WatchLoop(typing.Protocol):
+        """Loop the pty is watched on: an event loop or a :class:`urwid.MainLoop`."""
+
+        def watch_file(self, fd: int, callback: Callable[[], typing.Any]) -> typing.Any:
+            """Call *callback* when *fd* is readable and return a handle for :meth:`remove_watch_file`."""
+
+        def remove_watch_file(self, handle: typing.Any) -> object:
+            """Stop the watch :meth:`watch_file` returned *handle* for."""
+
 
 EOF = b""
 ESC = chr(27)
@@ -89,6 +99,9 @@ _EXECUTED_CONTROLS = frozenset((b"\r", b"\x0f", b"\x0e", b"\n", b"\v", b"\f", b"
 _IGNORED_CONTROLS = (
     frozenset(bytes((code,)) for code in range(0x20)) - {ESC_B, b"\a", b"\x18", b"\x1a"} - _EXECUTED_CONTROLS
 )
+
+#: the C0 and C1 control characters and DEL in UTF-8, which a UTF-8 terminal executes instead of showing a glyph
+_UTF8_CONTROLS = frozenset(chr(code).encode("utf-8") for code in (*range(0x20), 0x7F, *range(0x80, 0xA0)))
 
 KEY_TRANSLATIONS = {
     "enter": "\r",
@@ -180,7 +193,7 @@ _MOUSE_TRACKING_MODES: typing.Final = frozenset(
 #: the tracking modes a Terminal recognises and sends no reports for
 _MOUSE_UNREPORTED_TRACKING_MODES: typing.Final = frozenset((None, PrivateMode.MOUSE_HIGHLIGHT_TRACKING))
 #: the buttons X10 compatibility mode reports, those of the mice it was made for
-_MOUSE_X10_BUTTONS: typing.Final = frozenset((1, 2, 3))
+_MOUSE_X10_BUTTONS: typing.Final = frozenset((MouseButton.LEFT, MouseButton.MIDDLE, MouseButton.RIGHT))
 #: the modes that change the encoding of a mouse report from X10: UTF-8 coordinates, SGR parameters
 _MOUSE_ENCODING_MODES: typing.Final = frozenset((PrivateMode.MOUSE_UTF8_MODE, PrivateMode.MOUSE_SGR_MODE))
 #: the DEC private modes a Terminal recognises and ignores
@@ -199,12 +212,18 @@ _MOUSE_COORDINATE_LIMITS: typing.Final = {
 }
 #: the button bits of a mouse report for each urwid button number, the inverse of the decoding in urwid.display.escape
 _MOUSE_BUTTON_CODES: typing.Final = {
-    **{button: button - 1 for button in range(1, 4)},
-    **{button: MouseBit.HIGH_BUTTON + button - 4 for button in range(4, 8)},
-    **{button: MouseBit.EXTRA_BUTTON + button - 8 for button in range(8, 12)},
+    **{button: button - MouseButton.LEFT for button in range(MouseButton.LEFT, MouseButton.WHEEL_UP)},
+    **{
+        button: MouseBit.HIGH_BUTTON + button - MouseButton.WHEEL_UP
+        for button in range(MouseButton.WHEEL_UP, MouseButton.BACK)
+    },
+    **{
+        button: MouseBit.EXTRA_BUTTON + button - MouseButton.BACK
+        for button in range(MouseButton.BACK, MouseButton.BACK + 4)
+    },
 }
 #: the wheel buttons, whose release xterm does not report
-_MOUSE_WHEEL_BUTTONS: typing.Final = frozenset(range(4, 8))
+_MOUSE_WHEEL_BUTTONS: typing.Final = frozenset(range(MouseButton.WHEEL_UP, MouseButton.BACK))
 #: the modifier prefixes of an urwid mouse event, in the order urwid writes them, and their bits in a mouse report
 _MOUSE_MODIFIERS: typing.Final = (("shift ", MouseBit.SHIFT), ("meta ", MouseBit.META), ("ctrl ", MouseBit.CTRL))
 #: the modes that switch to the alternate screen when set and back to the main one when reset
@@ -427,13 +446,20 @@ class TermCharset:
         self.activate(g=self.active)
 
     def apply_mapping(self, char: bytes) -> bytes:
-        """Map *char* through the active IBM PC/DEC special character set, tracking which slot the result came from."""
+        """Map *char* through the active IBM PC/DEC special character set, tracking which slot the result came from.
+
+        A display writes a charset "U" cell to the host terminal unchanged.
+        With the UTF-8 encoding a control character there would be executed by the host terminal,
+        so it is stored as ``?``.
+        """
         if self._sgr_mapping or self._g[self.active] == "ibmpc":
             if (dec_pos := DEC_SPECIAL_CHARS.find(char.decode("cp437"))) >= 0:
                 self.current = "0"
                 return ALT_DEC_SPECIAL_CHARS[dec_pos].encode("cp437")
 
             self.current = "U"
+            if char in _UTF8_CONTROLS and util.get_encoding_mode() == "utf8":
+                return b"?"
             return char
 
         return char
@@ -1757,7 +1783,7 @@ class Terminal(Widget):
         | Callable[[], typing.Any]
         | None,
         env: Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        main_loop: event_loop.EventLoop | None = None,
+        main_loop: _WatchLoop | None = None,
         escape_sequence: str | None = None,
         encoding: str = "utf-8",
     ) -> None:
@@ -1771,9 +1797,11 @@ class Terminal(Widget):
         ``env`` can be used to pass custom environment variables. If omitted,
         os.environ is used.
 
-        ``main_loop`` should be provided, because the canvas state machine needs
-        to act on input from the PTY master device. This object must have
-        watch_file and remove_watch_file methods.
+        ``main_loop`` is the loop to watch the pty on: an event loop or a :class:`MainLoop`,
+        whose remove_watch_file must accept the handle its watch_file returned.
+        Left out, the terminal watches the pty on the started :class:`MainLoop` it is rendered under,
+        and while none runs it reads the pty on every render.
+        The watch moves at the first render under another loop, or under no loop, and is removed by :meth:`terminate`.
 
         ``escape_sequence`` is the urwid key symbol which should be used to break
         out of the terminal widget. If it's not specified, ``ctrl a`` is used.
@@ -1812,12 +1840,15 @@ class Terminal(Widget):
 
         self.term_modes = TermModes()
 
-        if main_loop is not None:
-            self.main_loop = main_loop
-        else:
-            self.main_loop = event_loop.SelectEventLoop()
+        self.main_loop = main_loop
 
         self.master: int | None = None
+        # the loop add_watch() watches the pty on, None while no watch is set
+        self._watch_loop: _WatchLoop | None = None
+        # what _watch_loop.watch_file() returned for the pty; not always the descriptor, as tornado and trio show
+        self._watch_handle: typing.Any = None
+        # for a MainLoop found running, the start it was found in: the watch lasts for that one start
+        self._watch_activation: object = None
         self.pid: int | None = None
 
         self.width: int | None = None
@@ -1877,9 +1908,6 @@ class Terminal(Widget):
             finally:
                 # 127 is the shell's "command not found" status
                 os._exit(127)
-
-        if self.main_loop is None:
-            fcntl.fcntl(self.master, fcntl.F_SETFL, os.O_NONBLOCK)
 
         atexit.register(self.terminate)
 
@@ -2019,21 +2047,44 @@ class Terminal(Widget):
             self.touch_term(width, height)
 
             if self.main_loop is None:
-                self.feed()
+                running = event_loop.get_running_loop_or_none()
+                if self._watch_loop is not None and (
+                    running is None
+                    or running is not self._watch_loop
+                    or running._activation is not self._watch_activation  # pylint: disable=protected-access
+                ):
+                    self.remove_watch()
+                self.add_watch()
+                if self._watch_loop is None:
+                    self.wait_and_feed(0)
 
         return self.term  # type: ignore[return-value]
 
     def add_watch(self) -> None:
-        """Register the pty with the main loop, when there is one, so :meth:`feed` runs on new child output."""
-        if self.main_loop is None:
+        """Register the pty with a loop, so :meth:`feed` runs on new child output.
+
+        The loop is :attr:`main_loop`, or without one the started :class:`MainLoop` running in the caller's context.
+        Nothing is registered while a watch is set, or when there is no such loop.
+        """
+        if self._watch_loop is not None:
             return
-        self.main_loop.watch_file(typing.cast("int", self.master), self.feed)
+        loop = self.main_loop
+        if loop is None:
+            running = event_loop.get_running_loop_or_none()
+            # A loop that is not started, found through a render by hand, runs no event loop to call the watch.
+            if running is None or running._activation is None:  # pylint: disable=protected-access
+                return
+            self._watch_activation = running._activation  # pylint: disable=protected-access
+            loop = running
+        self._watch_handle = loop.watch_file(typing.cast("int", self.master), self.feed)
+        self._watch_loop = loop
 
     def remove_watch(self) -> None:
-        """Unregister the pty from the main loop, when there is one."""
-        if self.main_loop is None:
+        """Unregister the pty from the loop :meth:`add_watch` registered it on, when it did."""
+        if self._watch_loop is None:
             return
-        self.main_loop.remove_watch_file(typing.cast("int", self.master))
+        self._watch_loop.remove_watch_file(self._watch_handle)
+        self._watch_loop = self._watch_handle = self._watch_activation = None
 
     def wait_and_feed(self, timeout: float = 1.0) -> None:
         """Block up to *timeout* seconds for pty output, then read and process whatever has arrived."""
@@ -2073,7 +2124,7 @@ class Terminal(Widget):
         # once _SYNCHRONIZED_OUTPUT_DRAIN_LIMIT is hit
         # or the pty simply has nothing more buffered right now.
         if self.term_modes.synchronized_output:
-            # The master fd is blocking whenever there is a main loop, so read only what select() reports as ready.
+            # The master fd is blocking, so read only what select() reports as ready.
             with selectors.DefaultSelector() as selector:
                 selector.register(typing.cast("int", self.master), selectors.EVENT_READ)
                 drained = 0

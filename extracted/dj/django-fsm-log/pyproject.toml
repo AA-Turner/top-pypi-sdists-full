@@ -19,20 +19,18 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Web Environment",
   "Framework :: Django",
-  "Framework :: Django :: 4.2",
-  "Framework :: Django :: 5.0",
-  "Framework :: Django :: 5.1",
   "Framework :: Django :: 5.2",
   "Framework :: Django :: 6.0",
+  "Framework :: Django :: 6.1",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = ["django>=4.2", "django-fsm-2", "django_appconf"]
@@ -45,14 +43,13 @@ dev = [
   "pytest-mock",
   "tox",
   "tox-uv>=1.17.0",
-  "twine",
 ]
 ci = ["codecov>=2.1.13"]
 docs = ["sphinx", "sphinx_rtd_theme", "myst-parser"]
 
 [project.urls]
 Documentation = "https://django-fsm-log.readthedocs.io/en/latest/"
-Homepage = "https://github.com/jazzband/django-fsm-log"
+Homepage = "https://github.com/django-commons/django-fsm-log"
 
 [tool.hatch.version]
 source = "vcs"
@@ -65,7 +62,7 @@ packages = ["django_fsm_log"]
 
 [tool.ruff]
 line-length = 119
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["django_fsm_log/migrations/", ".tox/", "build/", "docs/"]
 
 [tool.ruff.lint]
@@ -86,3 +83,73 @@ source = ["django_fsm_log"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.tox]
+env_list = [
+  "lint",
+  { product = [
+    { python_version = { prefix = "py3", start = 11, end = 15 } },
+    { django_version = [
+      "dj52",
+      "dj60",
+      "dj61",
+      "djmain",
+    ] },
+  ], exclude = [
+    "py311-dj60",
+    "py311-dj61",
+    "py311-djmain",
+  ] },
+
+]
+# allowlist_externals = ["pytest"]
+
+[tool.tox.env_run_base]
+description = "Test combination of python {factor:python_version} and {factor:django_version}"
+deps = [
+  "pytest",
+  { replace = "if", condition = "factor.dj52", then = [
+    "django>=5.2,<6",
+  ], extend = true },
+  { replace = "if", condition = "factor.dj60", then = [
+    "django>=6.0,<6.1",
+  ], extend = true },
+  { replace = "if", condition = "factor.dj61", then = [
+    "django>=6.1,<6.2",
+  ], extend = true },
+  { replace = "if", condition = "factor.djmain", then = [
+    "https://github.com/django/django/archive/main.tar.gz",
+  ], extend = true },
+]
+commands = [
+  [
+    "pytest",
+    "--cov=django_fsm_log",
+    "--cov=tests",
+    { replace = "posargs", extend = true },
+  ],
+]
+dependency_groups = ["dev"]
+set_env = { DJANGO_SETTINGS_MODULE = "tests.settings" }
+
+[tool.tox.env.lint]
+deps = ["ruff"]
+skip_install = true
+default_base_python = ["py315"]
+commands = [
+  [
+    "ruff",
+    "check",
+    { replace = "posargs", default = [
+      ".",
+    ], extend = true },
+  ],
+  [
+    "ruff",
+    "format",
+    "--check",
+    { replace = "posargs", default = [
+      ".",
+    ], extend = true },
+  ],
+]

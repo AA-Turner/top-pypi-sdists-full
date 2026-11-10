@@ -12,6 +12,199 @@ from airbyte_ops_mcp.regression_tests.eu_runner.verdict import (
     build_verdict,
     validate_verdict,
 )
+from airbyte_ops_mcp.regression_tests.report import (
+    build_comparison_report_model,
+    build_single_version_report_model,
+)
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("warn", [False, True])
+def test_model_checks_reach_metadata_only_verdict(tmp_path, single, warn):
+    target = {
+        "success": True,
+        "exit_code": 0,
+        "record_counts_per_stream": {} if warn else {"items": 2},
+        "http_metrics": {
+            "flow_count": 20,
+            "replayed_flow_count": 10 if warn else 20,
+            "live_flow_count": 10 if warn else 0,
+            "replay_source": "private/path",
+            "connector_request_count": 40,
+            "connector_cache_hits_count": 0 if warn else 20,
+        },
+    }
+    control = {
+        "success": True,
+        "exit_code": 0,
+        "record_counts_per_stream": {} if warn else {"items": 2},
+        "http_metrics": {
+            "connector_request_count": 40,
+            "connector_cache_hits_count": 20,
+        },
+    }
+    if single:
+        model = build_single_version_report_model(
+            connector_image="source-test:2",
+            command="read",
+            result=target,
+            configured_streams=("items",),
+        )
+    else:
+        model = build_comparison_report_model(
+            target_image="source-test:2",
+            control_image="source-test:1",
+            command="read",
+            target_result=target,
+            control_result=control,
+            configured_streams=("items",),
+        )
+    report = {
+        **model.verdict_flags(),
+        "command": "read",
+        "output_mode": "masked",
+        "target": target,
+        "check_results": model.check_results(),
+    }
+    if not single:
+        report["control"] = control
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+    verdict = build_verdict(tmp_path)
+    validate_verdict(verdict)
+    assert verdict["success"] is True
+    assert verdict["commands"][0]["control_exit_code"] == (None if single else 0)
+    names = (
+        {"Stream coverage"}
+        if single
+        else {
+            "Stream coverage",
+            "HTTP replay coverage",
+            "Connector cache hit ratio",
+        }
+    )
+    expected = [
+        {"check_name": name, "passed": not warn, "status": "warn" if warn else "pass"}
+        for name in names
+    ]
+    assert sorted(
+        verdict["checks"][1:], key=lambda check: check["check_name"]
+    ) == sorted(expected, key=lambda check: check["check_name"])
+    assert all(
+        set(row) == {"name", "passed", "severity"} for row in report["check_results"]
+    )
+    assert all("summary" not in row for row in verdict["checks"])
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("report_success", [False, True])
+@pytest.mark.parametrize(
+    ("summary_commands", "summary_passed"),
+    [
+        ([{"command": "check", "exit_code": 1, "passed": False}], False),
+        ([{"command": "check", "exit_code": 0, "passed": True}], True),
+        ([{"command": "check", "exit_code": 1, "passed": True}], False),
+        ([{"command": "check", "exit_code": 0, "passed": False}], False),
+        ([{"command": "check", "exit_code": 1}], False),
+        ([{"command": "check", "passed": False}], False),
+        ([{"command": "check"}], True),
+        ([{"command": "read", "exit_code": 1, "passed": False}], True),
+        ([], True),
+        (None, True),
+    ],
+)
+def test_report_command_pass_requires_matching_summary_to_pass(
+    tmp_path, single, report_success, summary_commands, summary_passed
+):
+    report = {
+        "command": "check",
+        "success": report_success,
+        "output_mode": "masked",
+        "target": {"exit_code": 0},
+    }
+    if not single:
+        report["control"] = {"exit_code": 0}
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+    (tmp_path / "summary.json").write_text(json.dumps({"commands": summary_commands}))
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict["commands"][0]["passed"] is (report_success and summary_passed)
+    assert verdict["success"] is (report_success and summary_passed)
+    assert verdict["schema_version"] == 3
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("status", ["FAILED", "SUCCEEDED"])
+def test_check_execution_row_uses_model_connection_status(tmp_path, single, status):
+    target = {"success": True, "exit_code": 0, "connection_status": status}
+    control = {"success": True, "exit_code": 0, "connection_status": "SUCCEEDED"}
+    if single:
+        model = build_single_version_report_model(
+            connector_image="source-test:2", command="check", result=target
+        )
+    else:
+        model = build_comparison_report_model(
+            target_image="source-test:2",
+            control_image="source-test:1",
+            command="check",
+            target_result=target,
+            control_result=control,
+        )
+    report = {
+        **model.verdict_flags(),
+        "command": "check",
+        "output_mode": "masked",
+        "target": target,
+        "check_results": model.check_results(),
+    }
+    if not single:
+        report["control"] = control
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+
+    verdict = build_verdict(tmp_path)
+
+    passed = status == "SUCCEEDED"
+    assert verdict["success"] is passed
+    assert verdict["commands"][0]["passed"] is passed
+    assert verdict["checks"] == [
+        {
+            "check_name": "Command execution",
+            "passed": passed,
+            "status": "pass" if passed else "fail",
+        }
+    ]
+    assert report["check_results"] == [
+        {"name": "Command execution", "passed": passed, "severity": "strict"}
+    ]
+    assert verdict["schema_version"] == 3
+
+
+@pytest.mark.parametrize(
+    "check_results",
+    [[], [{"name": "Command execution", "passed": "false", "severity": "strict"}]],
+)
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_command_execution_falls_back_to_exit_code_without_a_valid_report_row(
+    tmp_path, check_results, exit_code
+):
+    report = {
+        "command": "check",
+        "success": exit_code == 0,
+        "output_mode": "masked",
+        "target": {"exit_code": exit_code},
+        "check_results": check_results,
+    }
+    (tmp_path / "regression_report.json").write_text(json.dumps(report))
+
+    verdict = build_verdict(tmp_path)
+
+    assert verdict["checks"] == [
+        {
+            "check_name": "Command execution",
+            "passed": exit_code == 0,
+            "status": "pass" if exit_code == 0 else "fail",
+        }
+    ]
 
 
 def _valid_verdict() -> dict:
@@ -220,6 +413,12 @@ def test_verdict_reads_setup_and_config_errors_from_report_and_summary(
         ("Record schema (new streams)", False, "diagnostic", "warn", True),
         ("Record schema (new streams)", False, "strict", "fail", False),
         ("Catalog schema", False, "diagnostic", "warn", True),
+        ("Stream coverage", True, "strict", "pass", True),
+        ("Stream coverage", False, "diagnostic", "warn", True),
+        ("HTTP replay coverage", True, "strict", "pass", True),
+        ("HTTP replay coverage", False, "diagnostic", "warn", True),
+        ("Connector cache hit ratio", True, "strict", "pass", True),
+        ("Connector cache hit ratio", False, "diagnostic", "warn", True),
     ],
 )
 def test_verdict_projects_check_results_with_severity(
@@ -307,7 +506,7 @@ def test_a_failing_cli_report_fails_the_verdict_whatever_the_summary_says(
     """The CLI exits 0 on a failed verdict, so the runner's summary can say
     success beside a report that found a regression (a spec compatibility
     failure did exactly that). A report can fail the verdict; it cannot pass
-    one the summary failed, since a command that crashed wrote no report."""
+    one the summary failed, including a crash after the report was written."""
     spec_dir = tmp_path / "spec"
     spec_dir.mkdir()
     report = {

@@ -20,10 +20,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, TypeVar
 
+from datamodel_code_generator._container_kinds import container_shape
 from datamodel_code_generator._internal_utils import to_hashable
-from datamodel_code_generator._target_unicode import host_identifiers
+from datamodel_code_generator._target_unicode import lent_text
 from datamodel_code_generator.imports import IMPORT_ANNOTATED, IMPORT_ANY, IMPORT_OPTIONAL, IMPORT_UNION, Import
-from datamodel_code_generator.model._decisions.nullability import field_renders_none
+from datamodel_code_generator.model._decisions.nullability import field_renders_none, takes_member_null
 from datamodel_code_generator.model._rendered_names import _names_of
 
 if TYPE_CHECKING:
@@ -35,7 +36,6 @@ if TYPE_CHECKING:
     from datamodel_code_generator.model._decisions.nullability import FieldNullSource
 
 _ANY: Final = "Any"
-_NONE: Final = "None"
 _TYPING_IMPORT_NAMES: frozenset[str] = frozenset({
     IMPORT_ANNOTATED.import_,
     IMPORT_OPTIONAL.import_,
@@ -93,7 +93,7 @@ def _annotation_typing_import_names(annotation: str) -> frozenset[str]:
         return frozenset()
 
     try:
-        tree = ast.parse(lent.source if (lent := host_identifiers(annotation)) else annotation, mode="eval")
+        tree = ast.parse(lent_text(annotation)[0], mode="eval")
     except SyntaxError:
         return frozenset()
 
@@ -121,7 +121,7 @@ class _PythonTypeView(Protocol):
 
 
 class _DataTypeView(Protocol):  # noqa: PLR0904
-    """A data type as import collection reads it: ``DataType``. ``_ANY`` and ``_NONE`` are its ``ANY`` and ``NONE``."""
+    """A data type as import collection reads it: ``DataType``. ``_ANY`` is its ``ANY``."""
 
     @property
     def type(self) -> str | None:
@@ -238,6 +238,10 @@ class _DataTypeView(Protocol):  # noqa: PLR0904
     @property
     def is_tuple(self) -> bool:
         """Whether the type is a tuple."""
+
+    @property
+    def given_container(self) -> str | None:
+        """The container class an ``x-python-type`` gives the type, which it is written as."""
 
     @property
     def tuple_item_count(self) -> int | None:
@@ -480,7 +484,11 @@ def write_pre_render_nullability(field: FieldImportsHost[_D], data_type: _D) -> 
     if data_type.dict_key:
         field._write_pre_render_nullability(data_type.dict_key)  # noqa: SLF001
 
-    if not data_type.is_union or data_type.preserve_union_member_order or data_type._is_container:  # noqa: SLF001
+    if not takes_member_null(
+        is_container=data_type._is_container,  # noqa: SLF001
+        keeps_member_order=data_type.preserve_union_member_order,
+        member_count=len(data_type.data_types),
+    ):
         return
     if any(field._data_type_renders_none(child) for child in data_type.data_types):  # noqa: SLF001
         data_type._materialize_render_state("member-null")  # noqa: SLF001
@@ -673,16 +681,6 @@ def field_admits_none(field: FieldImportsHost[_D]) -> bool:
     )
 
 
-def data_type_renders_none(field: FieldImportsHost[_D], data_type: _D) -> bool:
-    if data_type._is_container:  # noqa: SLF001
-        return False
-    if data_type.alias or data_type.reference or data_type.literals or data_type.enum_member_literals:
-        return False
-    if data_type.type == _NONE:
-        return not data_type.data_types
-    return len(data_type.data_types) == 1 and field._data_type_renders_none(data_type.data_types[0])  # noqa: SLF001
-
-
 def data_type_import_key(field: FieldImportsHost[_D], data_type: _D) -> tuple[Any, ...]:
     return (
         data_type.__class__,
@@ -701,14 +699,7 @@ def data_type_import_key(field: FieldImportsHost[_D], data_type: _D) -> tuple[An
         data_type.is_custom_type,
         data_type.admits_none,
         data_type.is_func,
-        data_type.is_dict,
-        data_type.is_list,
-        data_type.is_set,
-        data_type.is_frozen_set,
-        data_type.is_mapping,
-        data_type.is_sequence,
-        data_type.is_tuple,
-        data_type.tuple_item_count,
+        *container_shape(data_type),
         data_type.use_standard_collections,
         data_type.use_generic_container,
         data_type.use_union_operator,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Optional, cast
 
+from office365.runtime.converters.scalars import normalize_guid
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.fields.lookup import FieldLookup
 from office365.sharepoint.fields.multi_line_text import FieldMultiLineText
@@ -91,11 +92,13 @@ class TaxonomyField(FieldLookup):
                 """.format(name=name, text_field_name=text_field_name)
         return self.parent_collection.create_field_as_xml(text_field_schema)
 
+    @odata(name="AnchorId")
     @property
     def anchor_id(self) -> str | None:
         """Gets or sets the GUID of the anchor Term object for a TaxonomyField object."""
         return self.properties.get("AnchorId", None)
 
+    @odata(name="CreateValuesInEditForm")
     @property
     def create_values_in_edit_form(self) -> bool | None:
         """
@@ -104,16 +107,19 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("CreateValuesInEditForm", None)
 
+    @odata(name="IsAnchorValid")
     @property
     def is_anchor_valid(self) -> bool | None:
         """Gets a Boolean value that specifies whether the Term object identified by the AnchorId property is valid."""
         return self.properties.get("IsAnchorValid", None)
 
+    @odata(name="IsDocTagsEnabled")
     @property
     def is_doc_tags_enabled(self) -> bool | None:
         """ """
         return self.properties.get("IsDocTagsEnabled", None)
 
+    @odata(name="IsKeyword")
     @property
     def is_keyword(self) -> bool | None:
         """
@@ -122,6 +128,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("IsKeyword", None)
 
+    @odata(name="IsPathRendered")
     @property
     def is_path_rendered(self) -> bool | None:
         """
@@ -131,6 +138,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("IsPathRendered", None)
 
+    @odata(name="IsTermSetValid")
     @property
     def is_term_set_valid(self) -> bool | None:
         """
@@ -139,6 +147,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("IsTermSetValid", None)
 
+    @odata(name="Open")
     @property
     def open(self) -> bool | None:
         """
@@ -147,6 +156,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("Open", None)
 
+    @odata(name="SspId")
     @property
     def ssp_id(self) -> str | None:
         """
@@ -155,6 +165,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("SspId", None)
 
+    @odata(name="TargetTemplate")
     @property
     def target_template(self) -> str | None:
         """
@@ -163,6 +174,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("TargetTemplate", None)
 
+    @odata(name="TermSetId")
     @property
     def term_set_id(self) -> str | None:
         """
@@ -185,6 +197,39 @@ class TaxonomyField(FieldLookup):
         return cast(FieldMultiLineText, self.parent_collection.parent.fields.get_by_id(text_field_id))
 
     @property
+    def text_field_name(self) -> Optional[str]:
+        """The column, and item property, that carries this column's labels.
+
+        A Managed Metadata column does not hold its own value: ``TextField`` names a hidden
+        note column by id, and ``-1;#Label|guid`` text is written there. That note column is
+        in the same column set, so its name is answered from the set this field was read
+        with -- no request. A field read on its own (a ``get_by_internal_name_or_title``
+        handle, or a set that did not project the note) answers ``None``, so read the set
+        first:
+
+            >>> fields = lst.fields.select(["Id", "InternalName", "TypeAsString", "TextField"]).get()
+            >>> [(f.internal_name, f.text_field_name) for f in fields.execute_query()]
+            [('Topics', 'Topics_0'), ...]
+
+        ``TypeAsString`` is part of that projection on purpose: a column set answers each
+        column with the class its ``TypeAsString`` names, so without it the columns come
+        back as plain ``Field`` and this member is not on them at all.
+
+        The name is also the item property the text is written to: a note column's
+        ``InternalName`` is its schema ``Name``, which is what the service exposes as
+        ``EntityPropertyName``, while the ``StaticName`` of a column created through the
+        API is a random token.
+        """
+        text_field_id = normalize_guid(self.text_field_id)
+        if not text_field_id or self._parent_collection is None:
+            return None
+        for field in self.parent_collection:
+            if normalize_guid(field.id) == text_field_id:
+                return field.internal_name
+        return None
+
+    @odata(name="UserCreated")
+    @property
     def user_created(self) -> bool | None:
         """
         Specifies a Boolean value that specifies whether the TaxonomyField object is linked to a
@@ -202,6 +247,7 @@ class TaxonomyField(FieldLookup):
     def entity_type_name(self) -> str:
         return "SP.Taxonomy.TaxonomyField"
 
+    @odata(name="IsEnhancedImageTaggingEnabled")
     @property
     def is_enhanced_image_tagging_enabled(self) -> Optional[bool]:
         """Gets the IsEnhancedImageTaggingEnabled property"""

@@ -18,6 +18,8 @@
 
 from __future__ import annotations as _annotations
 
+from typing import Literal, overload
+
 import pyrogram
 from pyrogram import enums, raw, types
 
@@ -71,9 +73,9 @@ class RichMessageButton(Object):
             If set, pressing the button will prompt the user to select one of their chats of the specified type, open that chat and insert the bot's username and the specified inline query in the input field.
             Not supported for messages sent in channel direct messages chats and on behalf of a business account.
 
-        copy_text (:obj:`~pyrogram.types.CopyTextButton`, *optional*):
+        copy_text (:obj:`~pyrogram.types.CopyTextButton` | ``str``, *optional*):
             A button that copies specified text to clipboard.
-            Limited to 256 character.
+            Limited to 256 characters.
 
         disabled (:obj:`~pyrogram.types.DisabledButton`, *optional*):
             If set, then the button is disabled and does nothing.
@@ -90,7 +92,7 @@ class RichMessageButton(Object):
         switch_inline_query: str | None = None,
         switch_inline_query_current_chat: str | None = None,
         switch_inline_query_chosen_chat: types.SwitchInlineQueryChosenChat | None = None,
-        copy_text: types.CopyTextButton | None = None,
+        copy_text: types.CopyTextButton | str | None = None,
         disabled: types.DisabledButton | None = None,
     ):
         super().__init__()
@@ -104,6 +106,10 @@ class RichMessageButton(Object):
         self.switch_inline_query = switch_inline_query
         self.switch_inline_query_current_chat = switch_inline_query_current_chat
         self.switch_inline_query_chosen_chat = switch_inline_query_chosen_chat
+
+        if isinstance(copy_text, str):
+            copy_text = types.CopyTextButton(text=copy_text)
+
         self.copy_text = copy_text
         self.disabled = disabled
 
@@ -202,8 +208,24 @@ class RichMessageButton(Object):
         #  to hand a `None` to `RichBlockButtons.buttons`, which then fails wherever it is read.
         return RichMessageButton(text=button_text, style=button_style)
 
+    @overload
     async def write(
-        self, client: pyrogram.Client, is_block: bool = False
+        self,
+        client: pyrogram.Client,
+        is_block: Literal[False] = False,
+    ) -> raw.types.TextButton: ...
+
+    @overload
+    async def write(
+        self,
+        client: pyrogram.Client,
+        is_block: Literal[True],
+    ) -> raw.types.PageButton: ...
+
+    async def write(
+        self,
+        client: pyrogram.Client,
+        is_block: bool = False,
     ) -> raw.types.TextButton | raw.types.PageButton:
         style = (
             raw.types.RichButtonStyle(

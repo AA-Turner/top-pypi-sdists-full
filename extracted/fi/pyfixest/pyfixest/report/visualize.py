@@ -1,31 +1,11 @@
-import math
+from __future__ import annotations
 
-import matplotlib.pyplot as plt
+import math
+from importlib.util import find_spec
+from typing import TYPE_CHECKING, cast
+
 import numpy as np
 import pandas as pd
-
-# Make lets-plot an optional dependency
-try:
-    from lets_plot import (
-        LetsPlot,
-        aes,
-        coord_flip,
-        element_text,
-        geom_errorbar,
-        geom_hline,
-        geom_point,
-        geom_vline,
-        ggplot,
-        ggsize,
-        ggtitle,
-        position_dodge,
-        theme,
-        ylab,
-    )
-
-    _HAS_LETS_PLOT = True
-except ImportError:
-    _HAS_LETS_PLOT = False
 
 from pyfixest.estimation.FixestMulti_ import FixestMulti
 from pyfixest.estimation.models.feiv_ import Feiv
@@ -39,11 +19,12 @@ from pyfixest.report.utils import (
 )
 from pyfixest.utils.dev_utils import _select_order_coefs
 
-ModelInputType = FixestMulti | Feols | Fepois | Feiv | list[Feols | Fepois | Feiv]
+if TYPE_CHECKING:
+    import matplotlib.pyplot as plt
 
-# Only setup lets-plot if it's available
-if _HAS_LETS_PLOT:
-    LetsPlot.setup_html()
+_HAS_LETS_PLOT = find_spec("lets_plot") is not None
+
+ModelInputType = FixestMulti | Feols | Fepois | Feiv | list[Feols | Fepois | Feiv]
 
 
 def set_figsize(figsize: tuple[int, int] | None, plot_backend: str) -> tuple[int, int]:
@@ -104,8 +85,8 @@ def iplot(
 
     Parameters
     ----------
-    models : A supported model object (Feols, Fepois, Feiv, FixestMulti) or a list of
-            Feols, Fepois & Feiv models.
+    models : Feols, Fepois, Feiv, FixestMulti, or list
+        A fitted model object, or a list of Feols, Fepois, and Feiv models.
     figsize : tuple or None, optional
         The size of the figure. If None, the default size is used.
     alpha : float
@@ -221,12 +202,12 @@ def iplot(
         rename_models = {}
 
     for x, fxst in enumerate(list(models)):
-        if fxst._icovars is None:
+        if not fxst.model.interacted_covariates:
             raise ValueError(
-                f"The {x} th estimated model did not have ivars / 'i()' model syntax."
-                "In consequence, the '.iplot()' method is not supported."
+                f"Model {x + 1} cannot be plotted with `iplot` because it does not "
+                f"use the `i` syntax: {fxst.model.formula!r}"
             )
-        all_icovars += fxst._icovars
+        all_icovars += fxst.model.interacted_covariates
 
         df_model = _get_model_df(
             fxst=fxst, alpha=alpha, joint=joint, seed=seed, rename_models=rename_models
@@ -292,8 +273,8 @@ def coefplot(
 
     Parameters
     ----------
-    models : A supported model object (Feols, Fepois, Feiv, FixestMulti) or a list of
-            Feols, Fepois & Feiv models.
+    models : Feols, Fepois, Feiv, FixestMulti, or list
+        A fitted model object, or a list of Feols, Fepois, and Feiv models.
     figsize : tuple or None, optional
         The size of the figure. If None, the default size is used.
     alpha : float
@@ -444,8 +425,8 @@ def qplot(
 
     Parameters
     ----------
-    models : A supported model object (Feols, Fepois, Feiv, FixestMulti) or a list of
-            Feols, Fepois & Feiv models.
+    models : Feols, Fepois, Feiv, FixestMulti, or list
+        A fitted model object, or a list of Feols, Fepois, and Feiv models.
     figsize : tuple or None, optional
         The size of the figure. If None, the default size is (10, 6).
     rename_models : dict, optional
@@ -459,6 +440,23 @@ def qplot(
     -------
     object
         A matplotplit figure.
+
+    Examples
+    --------
+    Plots the coefficients of a quantile regression across quantiles, the
+    counterpart of `coefplot()` for `quantreg()`.
+
+    ```{python}
+    import pyfixest as pf
+
+    data = pf.get_data()
+    fit = pf.quantreg("Y ~ X1 + X2", data, quantile=[0.1, 0.25, 0.5, 0.75, 0.9])
+
+    pf.qplot(fit)
+    ```
+
+    See the [quantile regression tutorial](/tutorials/quantile-regression.qmd)
+    for details.
     """
     if rename_models is None:
         rename_models = {}
@@ -478,7 +476,7 @@ def qplot(
             )
 
         df = model.tidy()
-        df["quantile"] = model._quantile
+        df["quantile"] = model.options.quantile
         df["model"] = model._model_name_plot
 
         df_all = pd.concat([df_all, df], axis=0)
@@ -558,6 +556,25 @@ def _coefplot_lets_plot(
     object
         A lets-plot figure.
     """
+    from lets_plot import (
+        LetsPlot,
+        aes,
+        coord_flip,
+        element_text,
+        geom_errorbar,
+        geom_hline,
+        geom_point,
+        geom_vline,
+        ggplot,
+        ggsize,
+        ggtitle,
+        position_dodge,
+        theme,
+        ylab,
+    )
+
+    LetsPlot.setup_html()
+
     df.reset_index(inplace=True)
     df.rename(columns={"fml": "Model"}, inplace=True)
     ub, lb = 1 - alpha / 2, alpha / 2
@@ -656,6 +673,8 @@ def _coefplot_matplotlib(
     matplotlib.figure.Figure
         A matplotlib Figure object.
     """
+    import matplotlib.pyplot as plt
+
     labels_dict = {} if labels is None else labels
 
     if not labels_dict or cat_template is not None:
@@ -677,13 +696,13 @@ def _coefplot_matplotlib(
     if ax is None:
         f, ax = plt.subplots(figsize=figsize, **fig_kwargs)
     else:
-        f = ax.get_figure()
+        f = cast(plt.Figure, ax.get_figure())
 
     # Check if we have multiple models
     models = df["fml"].unique()
     is_multi_model = len(models) > 1
 
-    colors = plt.cm.jet(np.linspace(0, 1, len(models)))
+    colors = plt.get_cmap("jet")(np.linspace(0, 1, len(models)))
     color_dict = dict(zip(models, colors, strict=False))
 
     # Calculate the positions for dodging
@@ -781,6 +800,8 @@ def _qplot(
     (Figure, ndarray[Axes])
         Handle to the created figure and axes.
     """
+    import matplotlib.pyplot as plt
+
     if nrow is None and ncol is None:
         nrow = 1
     if (nrow is not None) and (ncol is not None):
@@ -867,7 +888,7 @@ def _get_model_df(
 
     if joint in ["both", True]:
         lb, ub = f"{alpha / 2 * 100:.1f}%", f"{(1 - alpha / 2) * 100:.1f}%"
-        df_joint = fxst.confint(joint=True, alpha=alpha, seed=seed)
+        df_joint = fxst.confint(inference_type="simult", alpha=alpha, seed=seed)
         df_joint.reset_index(inplace=True)
         df_joint = df_joint.rename(columns={"index": "Coefficient"})
         df_joint_full = (

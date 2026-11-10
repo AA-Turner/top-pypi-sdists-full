@@ -8,7 +8,7 @@ from typing import Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
-from ...session_marker import WIZARD_HINT
+from ...session_marker import SIGN_IN_HINT
 from ...artifact.storage_handlers import multipart as _multipart
 from ...capture import outputs as _outputs
 from ..launch import preempt as _preempt
@@ -69,6 +69,8 @@ class CloseMixin:
             self._deregister_with_node_agent()
             # The resume guard's final counts (plan 2.4), queued before the drain.
             self._close_resume_span()
+            # RL samples still held for their step's bundles, and the bundles (never raises).
+            self._close_samples()
             # The files this run read (lineage): collected, hashed and journaled as
             # NON-blocking ops before the drain, so they ride the same flush but can
             # never hold the close.
@@ -266,7 +268,7 @@ class CloseMixin:
             raise errors.RosError(
                 f"run {self.id} not closed: {undelivered} outbox op(s) are "
                 + (
-                    f"undelivered: the server refused the credential ({WIZARD_HINT})"
+                    f"undelivered: the server refused the credential ({SIGN_IN_HINT})"
                     if auth_blocked
                     else f"undelivered after {timeout:g}s"
                 )
@@ -298,7 +300,7 @@ class CloseMixin:
     ) -> None:
         why = (
             "the server refused this machine's credential (401/403) -- "
-            f"{WIZARD_HINT}; the queued writes deliver once it is fixed"
+            f"{SIGN_IN_HINT}; the queued writes deliver once it is fixed"
             if auth_blocked
             else f"not delivered within {timeout:g}s; the background worker "
             "will deliver them"
@@ -511,7 +513,7 @@ class CloseMixin:
         queued = terminal is not None  # still pending: queued, not yet sent
         if undelivered:
             why = (
-                f"the server refused this machine's credential (401/403) -- {WIZARD_HINT}"
+                f"the server refused this machine's credential (401/403) -- {SIGN_IN_HINT}"
                 if auth_blocked
                 else f"not delivered within {timeout:g}s; the background worker will deliver them"
             )

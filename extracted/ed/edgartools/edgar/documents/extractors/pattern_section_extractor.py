@@ -34,11 +34,14 @@ _PART_HEADER = re.compile(r'^\s*PART\s+(I|II|III|IV|V)\b', re.IGNORECASE)
 _SIGNATURES_HEADER = re.compile(r'^\s*SIGNATURES?\s*$', re.IGNORECASE)
 
 # The sentence Form 8-K's General Instructions prescribe to open the signature
-# block, matched on whitespace-normalized paragraph text. Anchored at the start
-# and required to reach "caused this report to be signed", so a paragraph that
-# merely cites the Exchange Act is not a boundary. Strategy 5c.
+# block, matched on whitespace-normalized paragraph text. Required to reach
+# "caused this report to be signed", so a paragraph that merely cites the
+# Exchange Act is not a boundary. Strategy 5c.
+# A plain-text filing with no <TABLE> is split at blank lines (#1534), so when
+# the source has no blank line between the SIGNATURE heading and this sentence
+# they arrive as one paragraph; allow that label to lead it.
 _SIGNATURE_STATEMENT = re.compile(
-    r'^Pursuant to the requirements of the Securities Exchange Act of 1934,?'
+    r'^(?:SIGNATURES?\s+)?Pursuant to the requirements of the Securities Exchange Act of 1934,?'
     r'.{0,80}?caused this (?:report|amendment) to be signed',
     re.IGNORECASE,
 )
@@ -1278,6 +1281,8 @@ class SectionExtractor:
         if section_index + 1 < len(headers):
             current_node = headers[section_index][0]
             current_level = current_node.level if isinstance(current_node, HeadingNode) else 1
+            current_item = _ITEM_HEADER_START.match(headers[section_index][1])
+            current_item = current_item.group(1).upper() if current_item else None
 
             for i in range(section_index + 1, len(headers)):
                 next_node = headers[i][0]
@@ -1319,12 +1324,65 @@ class SectionExtractor:
                 if _SIGNATURES_HEADER.match(next_text.strip()):
                     return headers[i][2]
 
+                # Another item's header ends this item whatever its level, for
+                # the same reason. The 1999 10-K 0000950153-99-001234 parses
+                # "Item 7:" as a paragraph (level 1) and "Item 7A:" and "Item
+                # 8:" as headings (level 3), so Item 7 skipped both and ran
+                # through their text to Item 9 (edgartools-llmp.12.2).
+                next_item = _ITEM_HEADER_START.match(next_text)
+                if current_item and next_item and next_item.group(1).upper() != current_item:
+                    return headers[i][2]
+
                 # If next header is at same or higher level, that's our end
                 if next_level <= current_level:
                     return headers[i][2]
 
         # Otherwise, section goes to end of document
         return sum(1 for _ in document.root.walk())
+
+    # At most this many trailing page-furniture lines are dropped from a section.
+    _FURNITURE_MAX_NODES = 8
+
+    @classmethod
+    def _retreat_past_page_furniture(cls, walk: List[Node], start_pos: int, end_pos: int) -> int:
+        """End a section before the page number that trails it.
+
+        A section ends where the next header begins, and the page number of
+        the page it ended on sits between them: Landec's 2008 10-K closed
+        seven items on "- 22 -"-style page numbers. The TOC path drops this
+        furniture (``SECSectionExtractor._retreat_ends_before_page_furniture``);
+        this is the same rule over node positions, with the same page-number
+        and contents-backlink predicates, and no repeat counting.
+
+        Walking back from the end, a leaf node that is empty or a page number
+        or backlink moves the end before it, and a node with children moves
+        it too: it is only reached once every one of its children in range was
+        furniture. The first leaf with content stops the walk.
+        """
+        from edgar.documents.extractors.toc_section_extractor import SECSectionExtractor
+
+        page_num = SECSectionExtractor._PAGE_NUM_RE
+        crumb = SECSectionExtractor._CRUMB_LINE_RE
+        new_end, skipped = end_pos, 0
+        for i in range(end_pos - 1, start_pos, -1):
+            node = walk[i]
+            if getattr(node, 'children', None):
+                new_end = i
+                continue
+            text = ' '.join((node.text() or '').split()) if callable(getattr(node, 'text', None)) else ''
+            if not text:
+                new_end = i
+                continue
+            if len(text) <= 40 and (page_num.match(text) or crumb.match(text)):
+                skipped += 1
+                if skipped > cls._FURNITURE_MAX_NODES:
+                    return end_pos
+                new_end = i
+                continue
+            break
+        else:
+            return end_pos  # nothing but furniture: leave the section alone
+        return new_end if skipped else end_pos
 
     def _create_sections(self,
                         matched_sections: Dict[str, Tuple[Node, str, int, int]],
@@ -1418,6 +1476,8 @@ class SectionExtractor:
             else:
                 # Normal path: Create section node containing all content in range
                 section_node = SectionNode(section_name=section_name)
+
+                end_pos = self._retreat_past_page_furniture(walk, start_pos, end_pos)
 
                 # Find all nodes in position range - only add top-level nodes
                 # (nodes whose parent is outside the range)

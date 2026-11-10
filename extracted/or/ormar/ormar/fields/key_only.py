@@ -1,0 +1,111 @@
+"""
+Key-only models: instances of a related model with only the fields a relation
+references (its primary key) set, built when a row holds a foreign key value
+but the related model itself was not selected.
+"""
+
+import string
+from functools import lru_cache
+from random import choices
+from typing import TYPE_CHECKING, Any, cast
+
+from pydantic import BaseModel, create_model
+from typing_extensions import TypedDict
+
+from ormar.fields.link import key_value
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ormar.fields import ForeignKeyField
+    from ormar.models import Model
+
+
+def key_only_model_type(
+    *, target: type["Model"], fields: tuple[str, ...]
+) -> type[BaseModel]:
+    """
+    Build the pydantic model used to validate a relation value given as a
+    key-only model, with one field per referenced field of the target.
+
+    :param target: model the relation leads to
+    :type target: type[Model]
+    :param fields: referenced fields of the target
+    :type fields: tuple[str, ...]
+    :return: pydantic model holding only the referenced fields
+    :rtype: type[BaseModel]
+    """
+    suffix = "".join(choices(string.ascii_uppercase, k=6)).lower()
+    model_fields = target.ormar_config.model_fields
+    definitions: dict[str, Any] = {
+        field: (model_fields[field].__type__, None) for field in fields
+    }
+    return create_model(  # type: ignore[call-overload, no-any-return]
+        f"PkOnly{target.get_name(lower=False)}{suffix}",
+        __module__=target.__module__,
+        **definitions,
+    )
+
+
+def key_only_instance(*, target: type["Model"], values: dict[str, Any]) -> "Model":
+    """
+    Create an instance of the target with only the given key fields set,
+    skipping validation of the other fields. Required relations of the target
+    get placeholder instances keyed with ``-1`` (see ``placeholder_key``).
+
+    :param target: model to instantiate
+    :type target: type[Model]
+    :param values: key field values by field name
+    :type values: dict[str, Any]
+    :return: key-only instance of the target
+    :rtype: Model
+    """
+    init_dict = {
+        **{
+            name: key_only_instance(target=field.to, values=placeholder_key(field.to))
+            for name, field in target.ormar_config.model_fields.items()
+            if field.is_relation
+            and not field.nullable
+            and not field.virtual
+            and name not in values
+        },
+        **values,
+    }
+    return cast(
+        "Model", target._internal_construct(_pk_only=True, _excluded=None, **init_dict)
+    )
+
+
+def placeholder_key(target: type["Model"]) -> dict[str, Any]:
+    """
+    :param target: model a required relation leads to
+    :type target: type[Model]
+    :return: key fields of a placeholder key (``-1`` in every key column)
+    :rtype: dict[str, Any]
+    """
+    key = target.ormar_config.pk
+    return key.to_dict(value=key_value(parts=(-1,) * len(key.column_aliases())))
+
+
+@lru_cache(maxsize=1024)
+def key_dict_type(target: type["Model"], fields: tuple[str, ...]) -> Any:
+    """
+    Build the ``TypedDict`` of a key of several fields of the target, used as
+    the type of flattened relations (``{"tenant_id": 1, "number": 7}``) so
+    requests are validated per field and OpenAPI lists the fields.
+
+    :param target: model the key belongs to
+    :type target: type[Model]
+    :param fields: fields of the key
+    :type fields: tuple[str, ...]
+    :return: the typed dict class
+    :rtype: Any
+    """
+    model_fields = target.ormar_config.model_fields
+    annotations = {
+        field: (
+            cast("ForeignKeyField", model_fields[field]).flat_value_type()
+            if model_fields[field].is_relation
+            else model_fields[field].__type__
+        )
+        for field in fields
+    }
+    return cast(Any, TypedDict)(f"{target.__name__}Key", annotations)

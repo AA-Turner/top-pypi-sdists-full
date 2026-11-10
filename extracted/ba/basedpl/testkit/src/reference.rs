@@ -1,0 +1,855 @@
+//! Development-only checks, shared by the tests and the worker: reference cases, `.bpl` reference files and the examples in `.qmd` pages.
+use crate::DEFAULT_PREFS;
+use basedpl::{EvalOptions, InterruptHandle, Session, Value, hooks::Numeric, settings::Compiles};
+use serde_json::{Value as JsonValue, json};
+use std::{collections::VecDeque, sync::{Arc, Mutex}};
+
+/// A value captured from another interpreter. Its numbers carry no exactness or domain, so its prototype matches by value: a complex array's `0j0` matches a captured `0`. A capture encodes a simple atom as a scalar array, and BPL expectations use based values directly.
+pub fn expected_array(value: &JsonValue) -> Option<Value> {
+    let result = basedpl::protocol::import(value, true).ok()?;
+    let prototype = basedpl::protocol::import(&value["prototype"], true).ok()?;
+    let result = if result.shape().is_empty() && !result.is_atom() && result.at(0).is_atom() { result.at(0) } else { result };
+    difference(&result.prototype(), &prototype, None, TOLERANCE, false).is_none().then_some(result)
+}
+
+/// The default relative and absolute tolerances for comparing numbers.
+const TOLERANCE: f64 = 1e-13;
+/// The units in the last place of a value's float width that it may differ by from what it's compared with, where a case sets no relative tolerance. Two results that each lie within rustymath's 4 units of the true value lie within 8 units of each other.
+const UNITS: f64 = 8.0;
+
+/// Numbers match when they are equal: exact ones exactly, and others within the tolerances. Without a relative tolerance, they match within `TOLERANCE`, or within `UNITS` units in the last place of the float width of `x`, the value under test, where that's greater. With `exactness`, an exact number never matches an approximate one. Other atoms match when they are the same.
+fn same_atom(x: &Value, y: &Value, relative: Option<f64>, absolute: f64, exactness: bool) -> bool {
+    let width = x.float_width();
+    match (x, y) {
+        (Value::Number(x), Value::Number(y)) if exactness && (x.is_exact() != y.is_exact() || x.as_bool().is_some() != y.as_bool().is_some()) => false,
+        (Value::Number(x), Value::Number(y)) if x.is_nan() && y.is_nan() => true,
+        (Value::Number(x), Value::Number(y)) if !x.is_exact() || !y.is_exact() => {
+            let (Ok(a), Ok(b)) = (x.to_complex(), y.to_complex()) else { return false };
+            let relative = relative.unwrap_or_else(|| TOLERANCE.max(UNITS * width.map_or(f64::EPSILON, |w| w.epsilon())));
+            a == b || (a.is_finite() && b.is_finite() && (a - b).norm() <= absolute.max(relative * a.norm().max(b.norm())))
+        }
+        (Value::Number(x), Value::Number(y)) => x == y,
+        _ => x.same(y),
+    }
+}
+
+/// A mismatch: its kind, as `bpltests.reference_summary` groups mismatches, whether it lies inside a nested item, and its message.
+#[derive(Debug, PartialEq)]
+pub struct Difference { pub kind: &'static str, pub in_item: bool, pub message: String }
+
+impl Difference {
+    fn new(kind: &'static str, message: impl Into<String>) -> Self { Self { kind, in_item: false, message: message.into() } }
+    /// `record` with this mismatch's `message`, its kind as `mismatch`, and `in_item`. An error record's `kind` names its error.
+    fn recorded(self, mut record: JsonValue) -> JsonValue {
+        record["message"] = json!(self.message);
+        record["mismatch"] = json!(self.kind);
+        record["in_item"] = json!(self.in_item);
+        record
+    }
+}
+
+/// Locate a structural or numeric mismatch of the value `x` from `y`. Approximate numbers may differ by the tolerances that `same_atom` takes. With `exactness`, each number's exactness must match too. Items compare before prototypes, because a nested array's prototype comes from its first item. A mismatch inside an item that is an array adds its own message, as in `data[0]: shape: [0] != [1]`, and keeps that item's kind.
+pub fn difference(x: &Value, y: &Value, relative: Option<f64>, absolute: f64, exactness: bool) -> Option<Difference> {
+    let inner = |a: &Value, b: &Value| {
+        if a.is_atom() && b.is_atom() { (!same_atom(a, b, relative, absolute, exactness)).then(|| Difference::new("value differs", "")) }
+        else { difference(a, b, relative, absolute, exactness).map(|d| Difference { message: format!(": {}", d.message), ..d }) }
+    };
+    if x.is_atom() != y.is_atom() { return Some(Difference::new("atom versus array", "atom versus array")); }
+    if x.is_atom() { return inner(x, y).map(|_| Difference::new("value differs", "atom")); }
+    if x.shape() != y.shape() {
+        let kind = if x.shape().len() == y.shape().len() { "length differs" } else { "rank differs" };
+        return Some(Difference::new(kind, format!("shape: {:?} != {:?}", x.shape(), y.shape())));
+    }
+    if x.layout().all_keys() != y.layout().all_keys() || x.axis_names() != y.axis_names() {
+        return Some(Difference::new("keys or names differ", "axis keys or names"));
+    }
+    let items = x.elements().zip(y.elements()).enumerate()
+        .find_map(|(i, (a, b))| inner(&a, &b).map(|d| Difference { in_item: !d.message.is_empty(), message: format!("data[{i}]{}", d.message), ..d }));
+    items.or_else(|| {
+        inner(&x.prototype(), &y.prototype()).map(|d| Difference { kind: "prototype differs", in_item: false, message: format!("prototype{}", d.message) })
+    })
+}
+
+/// `kind`, or the storage that explains a mismatch of `actual` from `expected` under `numeric`: floats where machine integers are expected, a rational result, or a rank-0 array where an atom is expected.
+fn explained(actual: &Value, expected: &Value, numeric: Numeric, kind: &'static str) -> &'static str {
+    let (got, wanted) = (actual.storage_kind(numeric), expected.storage_kind(numeric));
+    let integers = wanted == "integer" || wanted.starts_with("int") || wanted.starts_with("uint");
+    if got.starts_with("float") && integers {
+        if actual.is_atom() { "float atom for int" } else { "float array for int" }
+    } else if got == "rational" && wanted != "rational" { "rational result" }
+    else if !actual.is_atom() && actual.shape().is_empty() && expected.is_atom() { "rank-0 array for atom" }
+    else { kind }
+}
+
+/// The kinds of storage, as `•storage` names them under `numeric`, at the first place where `x` and `y` are held differently. It walks into the items of arrays that both hold as mixed storage. With `compact_alike`, every compact kind counts as one, so only mixed storage against compact storage differs.
+fn kind_difference(x: &Value, y: &Value, numeric: Numeric, compact_alike: bool) -> Option<(&'static str, &'static str)> {
+    let (a, b) = (x.storage_kind(numeric), y.storage_kind(numeric));
+    let differ = if compact_alike { (a == "mixed") != (b == "mixed") } else { a != b };
+    if differ { return Some((a, b)); }
+    if a != "mixed" || x.is_atom() || y.is_atom() || x.len() != y.len() { return None; }
+    x.elements().zip(y.elements()).find_map(|(p, q)| kind_difference(&p, &q, numeric, compact_alike))
+}
+
+/// The text at `key` in `case`, or `None` without one. Anything else makes the case invalid, as `what` describes.
+fn optional_text<'a>(case: &'a JsonValue, key: &str, what: &str) -> Result<Option<&'a str>, JsonValue> {
+    match case.get(key) {
+        None => Ok(None), Some(JsonValue::String(s)) => Ok(Some(s)), _ => Err(json!({"status":"invalid", "message":format!("{what} must be text")}))
+    }
+}
+
+/// The input lines a case supplies, which `⎕` reads in order.
+struct Lines(Mutex<VecDeque<String>>);
+impl basedpl::Input for Lines {
+    fn line(&self, _prompt: &str) -> std::io::Result<Option<String>> { Ok(self.0.lock().unwrap().pop_front()) }
+    fn rest(&self) -> std::io::Result<Vec<u8>> { Ok(self.0.lock().unwrap().drain(..).map(|line| line + "\n").collect::<String>().into_bytes()) }
+}
+
+/// A run of a case: whether the `batch` pref is on, whether fusion takes its small sizes (`settings::Sizes::SMALL`), when block stages compile their parts (`settings::Compiles`), whether the code runs as the body of a dfn called twice (`twice`), and the words that name the run, its mode, in results and failures.
+#[derive(Clone, Copy)]
+struct Run { batch: bool, fused: bool, compiles: Compiles, twice: bool, words: &'static str }
+/// The runs of a case without a `batch` field: the `batch` pref on, then off, then on with fusion's small sizes, under which every fusible call waits, a block stage splits even small arrays into blocks and every stage compiles its parts, then the same with no compiled parts, then on with the code as a dfn's body, whose second call runs the statements that its first call recorded. The run with the pref off takes place only where the run before it read the pref, and the run with no compiled parts only where the run before it used one (`case_result`): otherwise each would repeat the run before it.
+const RUNS: [Run; 5] = [
+    Run { batch: true, fused: false, compiles: Compiles::Policy, twice: false, words: "with the batch pref on" },
+    Run { batch: false, fused: false, compiles: Compiles::Policy, twice: false, words: "with the batch pref off" },
+    Run { batch: true, fused: true, compiles: Compiles::Always, twice: false, words: "with fusion at any size" },
+    Run { batch: true, fused: true, compiles: Compiles::Never, twice: false, words: "with fusion at any size and no compiled parts" },
+    Run { batch: true, fused: false, compiles: Compiles::Policy, twice: true, words: "on a dfn's second call" },
+];
+
+/// The header options that set a flag on a case, each setting the field of its own name to `true`: `unfused` leaves out the runs with fusion's small sizes, `batched` leaves out the run with the `batch` pref off, `mixed` leaves out the comparison of the result's storage with the expectation's, and `compiled` leaves out the run with no compiled parts, for a case whose value says whether a stage compiled.
+const FLAGS: [&str; 4] = ["unfused", "batched", "mixed", "compiled"];
+
+/// The runs that `case` takes: the first of `RUNS` with the `batch` pref that its Boolean `batch` field picks, where it has one, and otherwise each of `RUNS` that its `unfused`, `batched` and `compiled` options leave in.
+fn runs(case: &JsonValue) -> Vec<Run> {
+    match case["batch"].as_bool() {
+        Some(batch) => RUNS.into_iter().filter(|r| r.batch == batch).take(1).collect(),
+        None => RUNS.into_iter().filter(|r| {
+            !(r.fused && case["unfused"] == true) && (r.batch || case["batched"] != true) && !(r.compiles == Compiles::Never && case["compiled"] == true)
+        }).collect(),
+    }
+}
+
+/// Defaults, with each program checked before it runs, and file/section preferences, optionally overridden by a run's batch, fusion and compile settings.
+fn enter(prefs: Option<&str>, run: Option<Run>) -> Result<(), JsonValue> {
+    basedpl::settings::reset();
+    basedpl::settings::set_verifies(true);
+    let prefs = format!("{DEFAULT_PREFS}\n{}", prefs.unwrap_or_default());
+    if let Some(error) = Session::current().eval_apart(&prefs, EvalOptions { timeout: Some(TIMEOUT), echo: false, ..EvalOptions::default() }).error {
+        return Err(json!({"status":"invalid", "message":format!("file header: {error}")}));
+    }
+    if let Some(Run { batch, fused, compiles, .. }) = run {
+        basedpl::settings::set_batch(batch);
+        basedpl::settings::set_small_sizes(fused);
+        basedpl::settings::set_compiles(compiles);
+    }
+    Ok(())
+}
+
+/// One run of a case: the value its code gave, the numeric settings in force after it, and the value its BPL expectation gave.
+struct Outcome { value: Option<Value>, numeric: Numeric, expected: Option<Value> }
+
+/// A case's relative tolerance for comparing numbers, where its header sets one, and its absolute tolerance, `TOLERANCE` unless its header sets it.
+fn tolerances(case: &JsonValue) -> (Option<f64>, f64) { (case["relative_tolerance"].as_f64(), case["absolute_tolerance"].as_f64().unwrap_or(TOLERANCE)) }
+
+/// `case`'s code checked against an independent captured value or BPL expectation, in `run`, under the settings in force. Each side receives a fresh session, and the expectation evaluates after the code, under the settings that the code leaves. A BPL expectation must match each number's exactness. A value captured from another interpreter carries none, so its numbers compare by value. A failure's message names its run.
+fn outcome(case: &JsonValue, setup: &str, timeout: Option<std::time::Duration>, interrupt: &InterruptHandle) -> Result<Outcome, JsonValue> {
+    let Some(code) = case["code"].as_str() else { return Err(json!({"status":"invalid", "message":"missing code"})); };
+    let error_kind = case["expected_error"].as_str().filter(|s| !s.is_empty());
+    let (output, input) = (optional_text(case, "expected_output", "output expectation")?, optional_text(case, "input", "input")?);
+    let result = evaluated(code, setup, input, timeout, interrupt)?;
+    let (expected, no_result) = if let Some(source) = case["expected_code"].as_str() {
+        let expected = evaluated(source, setup, None, timeout, interrupt)?;
+        if expected.error.is_some() || expected.function.is_some() || expected.operator.is_some() {
+            return Err(json!({"status":"invalid", "message":"expectation must produce a value or no result", "actual":basedpl::protocol::response(expected)}));
+        }
+        let no_result = expected.value.is_none();
+        (expected.value, no_result)
+    } else { (expected_array(&case["expected"]), case.get("expected") == Some(&JsonValue::Null)) };
+    let exactness = case["expected_code"].is_string();
+    let (relative, absolute) = tolerances(case);
+    if relative.into_iter().chain([absolute]).any(|t| !t.is_finite() || t < 0.0) || (error_kind.is_none() && expected.is_none() && !no_result) {
+        return Err(json!({"status":"invalid", "message":"invalid or missing independent expectation"}));
+    }
+    if let Some(error) = &result.error {
+        let (kind, message) = (error.kind.to_string(), error.message.clone());
+        if matches!(error.kind, basedpl::ErrorKind::Timeout | basedpl::ErrorKind::Interrupt) {
+            return Err(json!({"status": kind.to_lowercase(), "message":message}));
+        }
+        if error_kind != Some(kind.as_str()) {
+            return Err(json!({"status":"error", "kind":kind, "message":message, "actual":basedpl::protocol::response(result)}));
+        }
+    }
+    let numeric = Numeric::current();
+    let mismatch = if result.error.is_some() { None }
+    else if result.function.is_some() || result.operator.is_some() {
+        Some(Difference::new("function result", "unexpected function or operator result"))
+    } else {
+        match (error_kind, &result.value, &expected) {
+            (Some(kind), _, _) => Some(Difference::new("error expected", format!("expected {kind}"))),
+            (_, None, _) if no_result => None,
+            (_, None, _) => Some(Difference::new("no result", "no result")),
+            (_, Some(_), _) if no_result => Some(Difference::new("no result expected", "expected no result")),
+            (_, Some(actual), Some(expected)) => {
+                difference(actual, expected, relative, absolute, exactness).map(|d| Difference { kind: explained(actual, expected, numeric, d.kind), ..d })
+            }
+            _ => unreachable!(),
+        }
+    };
+    let mismatch = mismatch.or_else(|| {
+        output.and_then(|expected| {
+            let written: String = result.output.iter().map(basedpl::Output::written).collect();
+            let actual = written.strip_suffix('\n').unwrap_or(&written);
+            (actual != expected).then(|| Difference::new("output differs", format!("output: {actual:?} != {expected:?}")))
+        })
+    });
+    match mismatch {
+        Some(d) => Err(d.recorded(json!({"status":"mismatch", "actual":basedpl::protocol::response(result)}))),
+        None => Ok(Outcome { value: result.value, numeric, expected }),
+    }
+}
+
+/// The name of the dfn that `twice` makes from a case's code.
+const TWICE: &str = "reference_case";
+
+/// `case`'s code as the body of a dfn that one session calls twice, under the settings in force. The first call runs each statement through the binder, which records it, and the second call runs the recordings. The second call must give the first's value, storage kind, error and output. Before each call, the session's random numbers restart from seed 0, each call reads its own `input` lines, and the second call finds the `testpath` fixture's directory emptied. The settings go back in force before the second call, because the first call can change them. Code that can't be a dfn's body, such as code with a syntax error, passes this run unchecked.
+fn twice(case: &JsonValue, setup: &str, run: Run, timeout: Option<std::time::Duration>, interrupt: &InterruptHandle) -> Result<Outcome, JsonValue> {
+    let Some(code) = case["code"].as_str() else { return Err(json!({"status":"invalid", "message":"missing code"})); };
+    let input = optional_text(case, "input", "input")?;
+    let options = || EvalOptions { timeout, interrupt: interrupt.clone(), echo: false, ..EvalOptions::default() };
+    let session = Session::new();
+    initialized(&session, setup)?;
+    let files = fixture(&session, code)?;
+    let mut calls = Vec::new();
+    if session.eval_with(&format!("{TWICE}←{{\n{code}\n}}"), options()).error.is_none() {
+        for call in 0..2 {
+            if call == 1 { enter(case["prefs"].as_str(), Some(run))?; }
+            if call == 1 && let Some(dir) = &files { emptied(dir.path())?; }
+            basedpl::hooks::seed_generator(&session, 0);
+            calls.push(session.eval_with(&format!("{TWICE} 0"), EvalOptions { input: lines(input), ..options() }));
+        }
+    }
+    let numeric = Numeric::current();
+    let Ok([first, second]) = <[basedpl::Evaluation; 2]>::try_from(calls) else { return Ok(Outcome { value: None, numeric, expected: None }) };
+    for error in [&first.error, &second.error].into_iter().flatten() {
+        if matches!(error.kind, basedpl::ErrorKind::Timeout | basedpl::ErrorKind::Interrupt) {
+            return Err(json!({"status":error.kind.to_string().to_lowercase(), "message":error.message}));
+        }
+    }
+    let error = |e: &basedpl::Evaluation| e.error.as_ref().map(|e| (e.kind.to_string(), e.message.clone()));
+    let written = |e: &basedpl::Evaluation| e.output.iter().map(basedpl::Output::written).collect::<String>();
+    let category = |e: &basedpl::Evaluation| (e.function.is_some(), e.operator.is_some());
+    let (relative, absolute) = tolerances(case);
+    let mismatch = if error(&first) != error(&second) {
+        Some(Difference::new("error differs", format!("error {:?}, {:?} on the first call", error(&second), error(&first))))
+    } else if written(&first) != written(&second) {
+        Some(Difference::new("output differs", format!("output {:?}, {:?} on the first call", written(&second), written(&first))))
+    } else if category(&first) != category(&second) { Some(Difference::new("function result", "a function or operator from one call only")) } else {
+        match (&first.value, &second.value) {
+            (Some(a), Some(b)) => difference(b, a, relative, absolute, true).or_else(|| {
+                kind_difference(b, a, numeric, false)
+                    .map(|(kind, first_kind)| Difference::new("storage kind differs", format!("storage kind: {kind}, {first_kind} on the first call")))
+            }),
+            (None, None) => None,
+            _ => Some(Difference::new("no result", "a value from one call only")),
+        }
+    };
+    match mismatch {
+        Some(d) => Err(d.recorded(json!({"status":"mismatch", "actual":basedpl::protocol::response(second)}))),
+        None => Ok(Outcome { value: None, numeric, expected: None }),
+    }
+}
+
+/// Whether `outcome`, from `run`, keeps the storage kinds it should. A later run's value must be held in the same kind of storage as the value of `first`, the case's first run that passed. Where the expectation is BPL, the first run's storage must be mixed where the expectation's is, and compact where it's compact. A `mixed` case leaves the storage checks out. An in-place write keeps mixed storage mixed, and a record from JSON or Python keeps each entry's own kind.
+fn kinds(case: &JsonValue, first: Option<&(Run, Outcome)>, run: Run, outcome: &Outcome) -> Result<(), JsonValue> {
+    let mismatch = match first {
+        Some((first_run, first)) => outcome.value.as_ref().zip(first.value.as_ref())
+            .and_then(|(value, first)| kind_difference(value, first, outcome.numeric, false))
+            .map(|(kind, first_kind)| format!("storage kind: {kind} {}, {first_kind} {}", run.words, first_run.words)),
+        None if case["expected_code"].is_string() && case["mixed"] != true => outcome.value.as_ref().zip(outcome.expected.as_ref())
+            .and_then(|(value, expected)| kind_difference(value, expected, outcome.numeric, true))
+            .map(|(kind, expected_kind)| format!("storage kind: {kind}, {expected_kind} in the expectation")), None => None
+    };
+    mismatch.map_or(Ok(()), |message| Err(Difference::new("storage kind differs", message).recorded(json!({"status":"mismatch"}))))
+}
+
+/// `case`'s result as `results` gives it, with its route directives and no setup.
+pub fn check(case: &JsonValue, interrupt: &InterruptHandle) -> JsonValue { results([case], "", true, interrupt).remove(0) }
+
+/// A timed record's expectation, checked once outside timing, with fresh setup for both expressions.
+pub fn check_once(case: &JsonValue, setup: &str, interrupt: &InterruptHandle) -> Result<(), JsonValue> {
+    enter(case["prefs"].as_str(), None)?;
+    outcome(case, setup, Some(TIMEOUT), interrupt).map(drop)
+}
+
+/// Warm and capture a case under its ordinary preferences and setup, on one thread, as the route test runs it.
+pub fn route(case: &JsonValue, setup: &str, interrupt: &InterruptHandle) -> Result<crate::timing::Capture, JsonValue> {
+    enter(case["prefs"].as_str(), None)?;
+    let session = Session::new();
+    initialized(&session, setup)?;
+    let threads = rustymath::parallel::set_threads(1);
+    let capture = crate::timing::route(&session, case, interrupt);
+    rustymath::parallel::set_threads(threads);
+    capture.map_err(|message| json!({"status":"invalid", "message":message}))
+}
+
+pub fn routed(case: &JsonValue) -> bool { ["route", "allows", "gap"].iter().any(|key| case.get(key).is_some()) }
+/// The routes and kinds of event that BPL and rustymath require some case to exercise (`events::Route`): each route with each kind, "taken", "declined" or "itemwise", that it reports.
+pub fn inventory() -> impl Iterator<Item = (&'static str, rustymath::events::Route)> {
+    basedpl::hooks::event_routes().flat_map(|route| {
+        [("taken", route.reports_taken()), ("declined", route.reports_decline()), ("itemwise", route.reports_itemwise())].into_iter()
+            .filter(|&(_, required)| required).map(move |(kind, _)| (kind, route))
+    })
+}
+
+/// A case's route capture (`route`), written into its `result`: the violations of its directives (`routed`) as `obligations`, and the inventory's routes that its runs exercised (`inventory`) as `exercised`, each `[kind, route, when]`, where `when` is `"hot"` for the captured run, or `"warmup-only"` where only the warm-up exercised it. A capture that failed gives its message as the obligation.
+fn route_check(capture: Result<crate::timing::Capture, JsonValue>, result: &mut JsonValue) {
+    match capture {
+        Ok(capture) => {
+            let wrong = capture.violations();
+            if !wrong.is_empty() { result["obligations"] = json!([wrong.join("; ")]); }
+            result["exercised"] = inventory().filter_map(|(kind, route)| {
+                let when = if capture.run.exercised(kind, route) { "hot" }
+                else if capture.warmup.exercised(kind, route) { "warmup-only" }
+                else { return None; };
+                Some(json!([kind, route.name(), when]))
+            }).collect();
+        }
+        Err(failure) => result["obligations"] = json!([failure["message"]]),
+    }
+}
+
+/// The route check of `case`, a speed case of `file`, at the fixture's small size (`timing::small_route`): the case, with `file`'s name without `.bpl` under `file`, and with its obligations and exercised routes as `route_check` writes them. The suite's test checks every timed speed case this way, beside its routed cases, and `coverage` counts both.
+pub fn speed_route(file: &File, case: &JsonValue, interrupt: &InterruptHandle) -> JsonValue {
+    let mut result = json!({"status":"pass", "file":file.name.trim_end_matches(".bpl")});
+    route_check(unwound(|| crate::timing::small_route(file, case, interrupt).map_err(|message| json!({"message":message}))), &mut result);
+    recorded(case, result)
+}
+
+/// The inventory's routes (`inventory`) against the routes that `results` exercised (`route_check`): a line naming the first case that exercised each one in its captured run, or else only in a warm-up, and a line for each one that no case exercised.
+pub fn coverage(results: &[JsonValue]) -> (Vec<String>, Vec<String>) {
+    let (mut observed, mut missing) = (Vec::new(), Vec::new());
+    for (kind, route) in inventory() {
+        let by = |when: &str| {
+            results.iter().find(|r| r["exercised"].as_array().is_some_and(|e| e.iter().any(|p| p[0] == kind && p[1] == route.name() && p[2] == when)))
+        };
+        match by("hot").map(|r| (r, "hot")).or_else(|| by("warmup-only").map(|r| (r, "warmup-only"))) {
+            Some((r, when)) => observed.push(format!(
+                "observed {kind} {} [{}] {}.bpl:{} ({when})", route.name(), r["section"].as_str().unwrap_or_default(), r["file"].as_str().unwrap_or_default(),
+                r["line"]
+            )),
+            None => missing.push(format!("no case exercises {kind} {}", route.name())),
+        }
+    }
+    (observed, missing)
+}
+/// `case` with the fields of its `result`.
+fn recorded(case: &JsonValue, result: JsonValue) -> JsonValue {
+    let mut record = case.clone();
+    for (key, value) in result.as_object().into_iter().flatten() { record[key] = value.clone(); }
+    record
+}
+fn initialized(session: &Session, setup: &str) -> Result<(), JsonValue> {
+    if setup.is_empty() { return Ok(()); }
+    if let Some(error) = session.eval_with(setup, EvalOptions { echo: false, timeout: Some(TIMEOUT), ..EvalOptions::default() }).error {
+        return Err(json!({"status":"invalid", "message":format!("setup: {error}")}));
+    }
+    Ok(())
+}
+
+/// `code` run in a fresh session with the settings in force, a `testpath` fixture where the code names one, and `input` as its lines of input.
+fn evaluated(
+    code: &str, setup: &str, input: Option<&str>, timeout: Option<std::time::Duration>, interrupt: &InterruptHandle) -> Result<basedpl::Evaluation, JsonValue> {
+    let session = Session::new();
+    initialized(&session, setup)?;
+    let _files = fixture(&session, code)?;
+    Ok(session.eval_with(code, EvalOptions { timeout, interrupt: interrupt.clone(), echo: false, input: lines(input), ..EvalOptions::default() }))
+}
+
+/// A new temporary directory for the `testpath` fixture, where `code` names one, with `testpath` in `session` naming a path inside it. The directory lasts as long as the returned guard.
+fn fixture(session: &Session, code: &str) -> Result<Option<tempfile::TempDir>, JsonValue> {
+    if !code.contains("testpath") { return Ok(None); }
+    let dir = tempfile::tempdir().map_err(unusable)?;
+    session.set("testpath", basedpl::keyed::text(&dir.path().join("data").to_string_lossy())).expect("valid fixture name");
+    Ok(Some(dir))
+}
+
+/// Removes everything in `dir`, a fixture's directory.
+fn emptied(dir: &std::path::Path) -> Result<(), JsonValue> {
+    for entry in std::fs::read_dir(dir).map_err(unusable)? {
+        let path = entry.map_err(unusable)?.path();
+        if path.is_dir() { std::fs::remove_dir_all(path) } else { std::fs::remove_file(path) }.map_err(unusable)?;
+    }
+    Ok(())
+}
+
+/// The failure of a case whose fixture directory can't be made or emptied.
+fn unusable(error: std::io::Error) -> JsonValue { json!({"status":"invalid", "message":format!("temporary fixture: {error}")}) }
+
+/// `input` as a case's lines of input.
+fn lines(input: Option<&str>) -> Option<Arc<dyn basedpl::Input>> {
+    input.map(|text| Arc::new(Lines(Mutex::new(text.lines().map(String::from).collect()))) as Arc<dyn basedpl::Input>)
+}
+
+/// How long each evaluation of a case or a page example may run.
+pub const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// The id and comment of a case header, `⍝ id — comment`, or `⍝ — comment` with no id.
+fn header(line: &str) -> Option<(&str, &str)> {
+    let line = line.strip_prefix("⍝ ")?;
+    let (id, comment) = match line.strip_prefix('—') { Some(comment) => ("", comment), None => line.split_once(" —")? };
+    if id.chars().any(char::is_whitespace) { return None; }
+    Some((id, if comment.is_empty() { "" } else { comment.strip_prefix(' ')? }))
+}
+
+/// The code and expectation of `code ⍝ expectation`, split at the first `⍝` outside a string or character.
+fn inline(line: &str) -> Option<(&str, &str)> {
+    let mut chars = line.char_indices();
+    let mut string = false;
+    while let Some((i, c)) = chars.next() {
+        match c {
+            '"' => string = !string,
+            '\'' if !string => { chars.next(); if !line[i..].starts_with("''") || line[i..].starts_with("'''") { chars.next(); } }
+            '⍝' if !string => {
+                if line[i..].contains('\n') {
+                    for (_, c) in chars.by_ref() { if c == '\n' { break; } }
+                } else { return Some((line[..i].trim_end(), line[i + c.len_utf8()..].trim_start())); }
+            }
+            _ => (),
+        }
+    }
+    None
+}
+
+/// `text` with its `\n` and `\\` escapes replaced.
+fn unescaped(text: &str, location: &str) -> Result<String, String> {
+    let mut result = String::new();
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        result.push(if c == '\\' {
+            match chars.next() { Some('n') => '\n', Some('\\') => '\\', _ => return Err(format!("{location}: input and output escapes are \\n and \\\\")) }
+        } else { c });
+    }
+    Ok(result)
+}
+
+/// One BPL test file: a shared setup and records which check a result, carry timing budgets, or both.
+pub struct File { pub name: String, pub setup: String, pub cases: Vec<JsonValue> }
+
+/// Whether a record supplies an independent result or error expectation.
+pub fn checked(case: &JsonValue) -> bool { ["expected", "expected_code", "expected_error"].iter().any(|key| case.get(key).is_some()) }
+
+/// A section heading, excluding the per-case route annotations.
+fn section(line: &str) -> Option<&str> { line.strip_prefix("⍝⍝ ") }
+
+/// The record and event in a route annotation. Doubled quotes stand for one quote.
+fn event(rest: &str) -> JsonValue {
+    let (record, quoted) = rest.split_once(' ').unwrap_or((rest, ""));
+    let (mut event, mut chars) = (String::new(), quoted.trim_start().strip_prefix('"').unwrap_or_default().chars().peekable());
+    while let Some(c) = chars.next() {
+        if c == '"' && chars.next_if_eq(&'"').is_none() { break; }
+        event.push(c);
+    }
+    json!([record, event])
+}
+
+/// Reads reference and speed records. Footer spans are byte offsets into `text`, excluding the newline.
+pub fn file(name: &str, text: &str) -> Result<File, String> {
+    let lines: Vec<_> = text.split_terminator('\n').collect();
+    let mut offsets = Vec::with_capacity(lines.len());
+    let mut offset = 0;
+    for line in &lines {
+        offsets.push(offset);
+        offset += line.len() + 1;
+    }
+    let prefs = lines.first().filter(|line| line.starts_with("•prefs")).copied().unwrap_or_default();
+    let mathish = if name.ends_with("_mathish.bpl") { r#"•prefs ["mathish":$t]"# } else { "" };
+    let (mut i, mut title, mut local) = (usize::from(!prefs.is_empty()), "", "");
+    let mut file = File { name: name.into(), setup: String::new(), cases: Vec::new() };
+    let mut ids = rustymath::hashing::HashSet::default();
+    while i < lines.len() {
+        if lines[i].is_empty() { i += 1; continue; }
+        if let Some(heading) = section(lines[i]) {
+            let start = i;
+            i += 1;
+            if heading == "setup" {
+                if !file.setup.is_empty() || !file.cases.is_empty() { return Err(format!("line {}: setup must be the first section", start + 1)); }
+                while i < lines.len() && section(lines[i]).is_none() { i += 1; }
+                file.setup = lines[start + 1..i].join("\n").trim_end().into();
+            } else {
+                (title, local) = heading.split_once(" •prefs").map_or((heading, ""), |(name, _)| (name, &heading[name.len() + 1..]));
+            }
+            continue;
+        }
+        let start = i;
+        let heading = header(lines[start]);
+        i += 1;
+        while i < lines.len() && header(lines[i]).is_none() && section(lines[i]).is_none() && !lines[i - 1].starts_with("⍝⍝:") { i += 1; }
+        let (id, comment) = heading.unwrap_or(("", ""));
+        let location = format!("{}line {} ({id})", if name.is_empty() { String::new() } else { format!("{name}: ") }, start + 1);
+        let fail = |message: String| format!("{location}: {message}");
+        if !id.is_empty() && !ids.insert(id) { return Err(fail(format!("duplicate ID {id}"))); }
+        let suffix = comment.strip_prefix('[').map(|s| ("", s)).or_else(|| comment.rsplit_once(" ["));
+        let options = suffix.and_then(|(text, s)| Some((text, s.strip_suffix(']')?)))
+            .filter(|(_, s)| s.starts_with("rtol=") || s.starts_with("atol=") || FLAGS.iter().any(|f| s.starts_with(f)));
+        let mut case = json!({"id":id, "line":start + 1, "section":title, "comment":options.map_or(comment, |(text, _)| text)});
+        let prefs = [mathish, prefs, local].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join("\n");
+        if !prefs.is_empty() { case["prefs"] = json!(prefs); }
+        if let Some((_, options)) = options {
+            for option in options.split_whitespace() {
+                if FLAGS.contains(&option) {
+                    if case.get(option).is_some() { return Err(fail(format!("repeated option {option}"))); }
+                    case[option] = json!(true);
+                    continue;
+                }
+                let invalid = || fail(format!("invalid tolerance {option}"));
+                let (key, value) = option.split_once('=').ok_or_else(invalid)?;
+                let key = match key {
+                    "rtol" => "relative_tolerance", "atol" => "absolute_tolerance", _ => return Err(fail(format!("unknown tolerance {key}")))
+                };
+                let value: f64 = value.parse().map_err(|_| invalid())?;
+                if !value.is_finite() || value < 0. || case.get(key).is_some() { return Err(invalid()); }
+                case[key] = json!(value);
+            }
+        }
+        let mut end = i;
+        while end > start && lines[end - 1].is_empty() { end -= 1; }
+        let mut body = &lines[start + usize::from(heading.is_some())..end];
+        if let Some(footer) = body.last().and_then(|line| line.strip_prefix("⍝⍝:")) {
+            let mut words = footer.split_whitespace().peekable();
+            let budget = |w: &&str| *w == "-" || w.parse::<f64>().is_ok_and(|v| v.is_finite() && v >= 0.);
+            let budgets: Vec<_> = std::iter::from_fn(|| words.next_if(budget)).collect();
+            let mut fields: Vec<String> = Vec::new();
+            for word in words {
+                match fields.last_mut() {
+                    Some(field) if !rustymath_timing::MEASURES.contains(&word) => { field.push(' '); field.push_str(word) } _ => fields.push(word.into())
+                }
+            }
+            let mut counts = Vec::new();
+            for field in &fields {
+                if !rustymath_timing::count(field, &mut counts).map_err(&fail)? { return Err(fail(format!("invalid timing footer field {field:?}"))); }
+            }
+            if budgets.is_empty() { return Err(fail("invalid timing budgets".into())); }
+            case["budgets"] = json!(budgets);
+            if !fields.is_empty() { case["counts"] = json!(fields); }
+            case["budget_span"] = json!([offsets[end - 1], offsets[end - 1] + lines[end - 1].len()]);
+            body = &body[..body.len() - 1];
+        } else if heading.is_none() { return Err(fail("expected a case header or a timing footer".into())); }
+        else if i < lines.len() && end == i { return Err(fail("missing blank record separator".into())); }
+        let mut comments = Vec::new();
+        let (mut leading, mut holds) = (0, Vec::new());
+        for line in body {
+            if let Some(directive) = line.strip_prefix("⍝⍝⍝ ") {
+                let (key, rest) = directive.split_once(' ').ok_or_else(|| fail("a directive needs its name".into()))?;
+                let (key, value) = match key {
+                    "route" if !rest.trim().is_empty() => (key, json!(rest.trim())), "allows" | "gap" => (key, event(rest)),
+                    _ if rustymath_timing::hold(directive, &mut holds).map_err(&fail)? => ("held", json!(directive)),
+                    _ => return Err(fail(format!("invalid directive {directive}")))
+                };
+                case.as_object_mut().unwrap().entry(key).or_insert_with(|| json!([])).as_array_mut().unwrap().push(value);
+            } else if let Some(rest) = line.strip_prefix("⍝ ") { if heading.is_none() { comments.push(rest); } }
+            else { break; }
+            leading += 1;
+        }
+        if heading.is_none() { body = &body[leading..]; }
+        if !comments.is_empty() { case["comment"] = json!(comments.join("\n")); }
+        for (marker, key) in [("⍝ ⎕:", "expected_output"), ("⍝ input:", "input")] {
+            if let Some(text) = body.last().and_then(|s| s.strip_prefix(marker)) {
+                case[key] = json!(unescaped(text.strip_prefix(' ').unwrap_or(text), &location)?);
+                body = &body[..body.len() - 1];
+            }
+        }
+        if body.iter().any(|s| s.starts_with("⍝ ⎕:") || s.starts_with("⍝ input:")) {
+            return Err(fail("input and output lines must end the case, input first".into()));
+        }
+        let splits: Vec<_> = body.iter().enumerate().filter_map(|(i, s)| (*s == "⍝ =>").then_some(i)).collect();
+        let joined = body.join("\n");
+        let pair = inline(&joined).filter(|(code, _)| body.len() == 1 || code.matches('\n').count() + 1 == body.len());
+        let (code, expect) = match (splits.as_slice(), pair) {
+            ([], Some((code, expect))) => (code.to_owned(), Some(expect.to_owned())),
+            ([], None) if case["budgets"].is_array() => (joined, None),
+            ([], None) if body.len() == 2 || heading.is_some() && body.len() == leading + 2 => {
+                (body[..body.len() - 1].join("\n"), Some(body[body.len() - 1].to_owned()))
+            }
+            ([i], _) => (body[..*i].join("\n"), Some(body[i + 1..].join("\n"))),
+            _ => return Err(fail("use one ⍝ => between multiline expressions, or an inline expectation on the last line".into())),
+        };
+        if code.is_empty() && expect.is_none() || expect.as_ref().is_some_and(String::is_empty) { return Err(fail("missing code or expectation".into())); }
+        case["code"] = json!(code);
+        if let Some(expect) = expect {
+            if let Some(kind) = expect.strip_prefix("⍝ error: ") { case["expected_error"] = json!(kind); } else { case["expected_code"] = json!(expect); }
+        }
+        file.cases.push(case);
+    }
+    Ok(file)
+}
+
+/// Reads named source texts supplied by the worker or browser caller.
+pub fn sources(spec: &JsonValue) -> Result<Vec<File>, String> {
+    spec.as_array().ok_or("files must be a list of named source texts")?.iter()
+        .map(|s| file(s["name"].as_str().ok_or("file needs name")?, s["text"].as_str().ok_or("file needs text")?)).collect()
+}
+
+/// Reads one BPL file, or the BPL files in a directory, in filename order.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+pub fn load(path: &std::path::Path) -> Result<Vec<File>, String> {
+    let mut paths = if path.is_dir() {
+        std::fs::read_dir(path).map_err(|e| e.to_string())?.map(|p| p.map(|p| p.path())).collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
+    } else { vec![path.to_owned()] };
+    paths.retain(|p| p.extension().is_some_and(|s| s == "bpl"));
+    if paths.is_empty() { return Err(format!("{} contains no BPL files", path.display())); }
+    paths.sort();
+    paths.into_iter().map(|p| file(&p.file_name().unwrap().to_string_lossy(), &std::fs::read_to_string(&p).map_err(|e| e.to_string())?)).collect()
+}
+
+/// The skips that `tests/skipped.txt` lists for `test`, as `(index, reason)` for each of `cases` that a line names, each case given by its section and key. A line holds a test's name, a section or `*` for any, a case's key and the reason, separated by tabs. A line for `test` that names none of `cases` is an error, so no skip outlives its case. Each skip is written to standard error, which shows it in every run, captured or not.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+pub fn skipped<'a>(test: &str, cases: impl IntoIterator<Item = (&'a str, &'a str)>) -> Result<Vec<(usize, String)>, String> {
+    use std::io::Write;
+    let path = crate::root().join("tests/skipped.txt");
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut lines = Vec::new();
+    for (n, line) in text.lines().enumerate().filter(|(_, line)| !line.is_empty()) {
+        let fields: Vec<_> = line.splitn(4, '\t').collect();
+        let [name, section, key, reason] = fields[..] else {
+            return Err(format!("{}:{}: expected a test, a section, a case's key and a reason, separated by tabs", path.display(), n + 1));
+        };
+        if name == test { lines.push((section, key, reason)); }
+    }
+    let cases: Vec<_> = cases.into_iter().collect();
+    let names = |(section, key): (&str, &str), (s, k): (&str, &str)| (section == "*" || section == s) && key == k;
+    if let Some((section, key, _)) = lines.iter().find(|&&(section, key, _)| !cases.iter().any(|&case| names((section, key), case))) {
+        return Err(format!("{}: {test} has no case [{section}] {key}", path.display()));
+    }
+    for (section, key, reason) in &lines { let _ = writeln!(std::io::stderr(), "skipped in {test} [{section}]: {key} ({reason})"); }
+    Ok(cases.iter().enumerate()
+        .filter_map(|(index, &case)| lines.iter().find(|&&(section, key, _)| names((section, key), case)).map(|line| (index, line.2.to_owned()))).collect())
+}
+
+/// `file` with each case that `tests/skipped.txt` lists under `reference:NAME.bpl` marked by its `skip_reason`. A case's key is its id, or else its comment's first line. A key that two of the file's cases share can't be skipped.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+pub fn with_skips(mut file: File) -> Result<File, String> {
+    let test = format!("reference:{}.bpl", file.name.trim_end_matches(".bpl"));
+    let keys: Vec<(String, String)> = file.cases.iter().map(|case| {
+        let key = case["id"].as_str().filter(|id| !id.is_empty())
+            .unwrap_or_else(|| case["comment"].as_str().unwrap_or_default().lines().next().unwrap_or_default());
+        (case["section"].as_str().unwrap_or_default().to_owned(), key.to_owned())
+    }).collect();
+    for (index, reason) in skipped(&test, keys.iter().map(|(section, key)| (section.as_str(), key.as_str())))? {
+        if keys.iter().filter(|&key| *key == keys[index]).count() > 1 { return Err(format!("{test}: two cases share the key {:?}", keys[index])); }
+        file.cases[index]["skip_reason"] = json!(reason);
+    }
+    Ok(file)
+}
+
+/// The suite: the checked cases of `tests/reference/*.bpl` and `tests/speed/*.bpl`, file by file, each case with its skip (`with_skips`) and its file's name under `file`. `tests/reference.rs` checks these, and no driver keeps another list.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+pub fn suite() -> Result<Vec<File>, String> {
+    let tests = crate::root().join("tests");
+    let mut files = Vec::new();
+    for file in load(&tests.join("reference"))?.into_iter().chain(load(&tests.join("speed"))?) {
+        let mut file = with_skips(file)?;
+        let name = file.name.trim_end_matches(".bpl").to_owned();
+        file.cases.retain(checked);
+        for case in &mut file.cases { case["file"] = json!(name); }
+        if !file.cases.is_empty() { files.push(file); }
+    }
+    Ok(files)
+}
+/// The result of each case of `cases`, in their order: the case with the fields of its result (`case_result`). Where `routes` is set, each case that passes and has route directives is then captured once (`route_check`): `tests/reference.rs`, `check` and Python's `check_file` set it. Each run has `TIMEOUT`. Callers that check cases in parallel split them across processes, as `tests/reference.rs` and Python's `check_file` do, because a process evaluates one case at a time. Each case's header line is written to standard error as `case LINE` when it starts, so a caller whose process stops knows which case stopped it. After an interrupt, no case starts. The settings are reset at the end.
+pub fn results<'a>(cases: impl IntoIterator<Item = &'a JsonValue>, setup: &str, routes: bool, interrupt: &InterruptHandle) -> Vec<JsonValue> {
+    let mut results = Vec::new();
+    for case in cases {
+        eprintln!("case {}", case["line"]);
+        let result = recorded(case, held_back(|| case_result(case, setup, routes, interrupt)));
+        let interrupted = result["status"] == "interrupt";
+        results.push(result);
+        if interrupted { break; }
+    }
+    basedpl::settings::reset();
+    results
+}
+
+/// The results of `cases` that fail a run (`fails`), in their order, as `results` gives them.
+pub fn failures<'a>(cases: impl IntoIterator<Item = &'a JsonValue>, setup: &str, routes: bool, interrupt: &InterruptHandle) -> Vec<JsonValue> {
+    results(cases, setup, routes, interrupt).into_iter().filter(fails).collect()
+}
+
+/// Whether `status`, a case's or a run's, is a failure: neither `"pass"` nor `"skipped"`.
+fn failing(status: &str) -> bool { !matches!(status, "pass" | "skipped") }
+
+/// Whether a case's value, error or output assertion failed, regardless of what its code observes.
+pub fn fails(result: &JsonValue) -> bool { failing(result["status"].as_str().unwrap_or_default()) }
+
+/// Whether `result` holds route violations that remain visible separately from its assertions.
+pub fn obliged(result: &JsonValue) -> bool { result.get("obligations").is_some() }
+
+/// The runs of `results` counted by mode: planned, checked, failed and not applicable. A planned run is checked once its status is neither `"unchecked"` nor `"skipped"`; every failed assertion counts.
+pub fn accounting(results: &[JsonValue]) -> JsonValue {
+    let mut counts = std::collections::BTreeMap::<&str, [u64; 4]>::new();
+    for result in results {
+        for run in result["modes"].as_array().into_iter().flatten() {
+            let status = run["status"].as_str().unwrap_or_default();
+            let [planned, done, failed, inapplicable] = counts.entry(run["mode"].as_str().unwrap_or_default()).or_default();
+            if status == "not applicable" { *inapplicable += 1; continue; }
+            let checked = !matches!(status, "unchecked" | "skipped");
+            *planned += 1;
+            *done += u64::from(checked);
+            *failed += u64::from(checked && failing(status));
+        }
+    }
+    JsonValue::Object(counts.into_iter().map(|(mode, [planned, checked, failed, inapplicable])| {
+        (mode.to_owned(), json!({"planned":planned, "checked":checked, "failed":failed, "not applicable":inapplicable}))
+    }).collect())
+}
+
+/// The modes that `case` plans: the names of its runs (`runs`).
+pub fn modes(case: &JsonValue) -> Vec<&'static str> { runs(case).into_iter().map(|run| run.words).collect() }
+
+/// The case's worker abort. Mode results were not returned and remain "unchecked".
+pub fn crashed(case: &JsonValue, message: &str) -> JsonValue {
+    let modes: Vec<_> = modes(case).into_iter().map(|mode| json!({"mode":mode, "status":"unchecked"})).collect();
+    recorded(case, json!({"status":"crash", "message":message, "modes":modes}))
+}
+
+/// The result of `case`, with each run (`runs`) under `modes` as `{"mode", "status", "message"}`. Its status and message come from the first failing run, or `"pass"`. Each run starts from the file's leading preferences and its mode's settings (`enter`). A panic, timeout or interrupt ends the case; later runs stay `"unchecked"`. A run with the `batch` pref off is not applicable if the run with it on never read the pref (`settings::batch_reads`), and a never-compiled run is not applicable if the always-compiled run compiled nothing: each would repeat the run before it. A skipped case runs nothing. Route-directive violations remain separate `obligations`, beside the routes the capture exercised (`route_check`).
+fn case_result(case: &JsonValue, setup: &str, routes: bool, interrupt: &InterruptHandle) -> JsonValue {
+    let skip = case.get("skip_reason");
+    let (mut outcomes, mut modes, mut failure, mut compiled, mut read) = (Vec::<(Run, Outcome)>::new(), Vec::new(), None::<JsonValue>, false, None::<bool>);
+    for run in runs(case) {
+        let entry = |status: &str, message: JsonValue| json!({"mode":run.words, "status":status, "message":message});
+        let stopped = failure.as_ref().is_some_and(|f| matches!(f["status"].as_str(), Some("panic" | "timeout" | "interrupt")));
+        modes.push(if let Some(reason) = skip { entry("skipped", reason.clone()) }
+        else if stopped { entry("unchecked", JsonValue::Null) }
+        else if !run.batch && read == Some(false) { entry("not applicable", json!("the run with the batch pref on never read it")) }
+        else if run.compiles == Compiles::Never && !compiled { entry("not applicable", json!("the run that compiles every stage compiled nothing")) } else {
+            let (before, mut reads) = (basedpl::hooks::compiled_runs(), 0);
+            let ran = unwound(|| {
+                enter(case["prefs"].as_str(), Some(run))?;
+                reads = basedpl::settings::batch_reads();
+                let outcome = if run.twice { twice(case, setup, run, Some(TIMEOUT), interrupt) } else { outcome(case, setup, Some(TIMEOUT), interrupt) }?;
+                kinds(case, outcomes.first(), run, &outcome)?;
+                Ok(outcome)
+            });
+            compiled |= run.compiles == Compiles::Always && basedpl::hooks::compiled_runs() > before;
+            if run.batch && !run.fused && !run.twice { read = Some(basedpl::settings::batch_reads() > reads); }
+            match ran {
+                Ok(outcome) => { outcomes.push((run, outcome)); entry("pass", JsonValue::Null) }
+                Err(mut f) => {
+                    let recorded = entry(f["status"].as_str().unwrap_or_default(), f["message"].clone());
+                    f["mode"] = json!(run.words);
+                    failure.get_or_insert(f);
+                    recorded
+                }
+            }
+        });
+    }
+    let mut result = match (skip, failure) {
+        (Some(reason), _) => json!({"status":"skipped", "message":reason}), (None, Some(failure)) => failure, (None, None) => json!({"status":"pass"})
+    };
+    if routes && result["status"] == "pass" && routed(case) { route_check(unwound(|| route(case, setup, interrupt)), &mut result); }
+    result["modes"] = json!(modes);
+    result
+}
+
+/// A panic in `check` as the failure of a `"panic"` status.
+fn unwound<T>(check: impl FnOnce() -> Result<T, JsonValue>) -> Result<T, JsonValue> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(check)).unwrap_or_else(|panic| {
+        let message = panic.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| panic.downcast_ref::<String>().cloned()).unwrap_or_default();
+        Err(json!({"status":"panic", "message":format!("panicked: {message}")}))
+    })
+}
+
+/// What `check` gives, or a leak where `rustymath::memory::set_checks` is on and a case that passes leaves the guard's count higher than it found it on each of two runs. One run that leaves it higher can be filling a cache that lasts.
+fn held_back(check: impl Fn() -> JsonValue) -> JsonValue {
+    use rustymath::memory::{checks, held};
+    let start = held();
+    let result = check();
+    if !checks() || result["status"] != "pass" || held() <= start { return result; }
+    let again = held();
+    let mut result = check();
+    let left = held().saturating_sub(again);
+    if result["status"] != "pass" || left == 0 { return result; }
+    result["status"] = json!("leak");
+    result["message"] = json!(format!("each of two runs left {left} or more bytes held in large allocations"));
+    result
+}
+
+/// The examples in the `bpl` blocks of `text`, a `.qmd` page, that fail. Each block runs in a fresh session of its own, with the `batch` pref set to `batch` unless that is `None`. Each expectation runs in a module of its own after its lines (`Session::eval_apart`), under the settings they leave. The lines up to each line with a ` ⍝ ` comment, and up to the block's end, run as one evaluation, with `TIMEOUT` to run. Its value must show the same text as the comment's value, in the session's display with every item, or match it within the default tolerances that `same_atom` describes, with the same exactness. `•prefs` option `prec` sets how many digits the display shows. Lines with no comment must run without an error. Each page starts with no kept plans or compiled kernels, as a new process does (`program::forget_plans`, `jit::forget_kernels`), because examples that show block counts and compiles assume one. Each failure gives the `line` of its comment or of the block's end, the `code` that ran, its `expected` comment and a `message`. With a `deadline`, no evaluation runs past it: the first example that finds it passed fails with the status `unchecked`, and the page ends there.
+pub fn page(text: &str, batch: Option<bool>, interrupt: &InterruptHandle, deadline: Option<std::time::Instant>) -> Vec<JsonValue> {
+    let options = || {
+        let timeout = deadline.map_or(TIMEOUT, |d| d.saturating_duration_since(std::time::Instant::now()).min(TIMEOUT));
+        EvalOptions { timeout: Some(timeout), echo: false, interrupt: interrupt.clone(), ..EvalOptions::default() }
+    };
+    let (mut failures, mut session, mut code) = (Vec::new(), None, String::new());
+    basedpl::hooks::forget_plans();
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+    basedpl::jit::forget_kernels();
+    for (i, line) in text.lines().enumerate() {
+        if line == "```bpl" {
+            basedpl::settings::reset();
+            if let Some(batch) = batch { basedpl::settings::set_batch(batch); }
+            session = Some(Session::new());
+            continue;
+        }
+        let Some(bpl) = session.as_mut() else { continue };
+        let closing = line.starts_with("```");
+        let (source, expected) = line.split_once(" ⍝ ").map_or((line, None), |(c, e)| (c, Some(e)));
+        if !closing {
+            code.push_str(source);
+            code.push('\n');
+        }
+        if expected.is_none() && !closing { continue; }
+        if deadline.is_some_and(|d| std::time::Instant::now() >= d) {
+            failures.push(json!({"line": i + 1, "code": code.trim_end(), "expected": expected, "status": "unchecked", "message": "the deadline passed before this example ran"}));
+            break;
+        }
+        let result = bpl.eval_with(&code, options());
+        // The expectation evaluates after the code, under the settings that the code leaves.
+        let wanted = expected.map(|e| bpl.eval_apart(e, options()));
+        let message = match (result.error, result.value, wanted) {
+            (Some(error), _, _) => Some(error.to_string()),
+            (None, _, None) => None,
+            (None, actual, Some(wanted)) => {
+                let shown = bpl.display_settings();
+                match (actual, wanted.value, wanted.error) {
+                    (_, _, Some(error)) => Some(format!("expectation: {error}")),
+                    (Some(actual), Some(wanted), None) if shown.explicit(&actual, false) == shown.explicit(&wanted, false) => None,
+                    (Some(actual), Some(wanted), None) => difference(&actual, &wanted, None, TOLERANCE, true).map(|d| d.message), _ => Some("no result".into())
+                }
+            }
+        };
+        if let Some(message) = message { failures.push(json!({"line": i + 1, "code": code.trim_end(), "expected": expected, "message": message})); }
+        code.clear();
+        if closing { session = None; }
+    }
+    failures
+}
+
+/// The reply to the worker's `reference` request. It gives `text` in a `.bpl` reference file's format, the file's `name` and, optionally, a list of the `ids` to check, each a case's id or its header's line number. An id that matches no case is an error. The file's cases take their skips from `tests/skipped.txt` (`with_skips`). The reply gives each checked case's result, with its route directives, as `results` gives it, in a `reply`.
+pub fn file_request(spec: &JsonValue, interrupt: &InterruptHandle) -> Result<JsonValue, String> {
+    let file = file(spec["name"].as_str().unwrap_or_default(), spec["text"].as_str().ok_or("reference needs text as a string")?)?;
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+    let file = with_skips(file)?;
+    let cases = &file.cases;
+    let ids = match spec.get("ids") {
+        None | Some(JsonValue::Null) => None, Some(ids) => Some(ids.as_array().ok_or("ids must be a list of case ids and header line numbers")?)
+    };
+    let matches = |id: &JsonValue, case: &JsonValue| *id == case["id"] || *id == case["line"];
+    let unknown: Vec<_> = ids.into_iter().flatten().filter(|id| !cases.iter().any(|case| matches(id, case))).map(JsonValue::to_string).collect();
+    if !unknown.is_empty() { return Err(format!("{} match no case. Each id is a case's id or its header's line number.", unknown.join(", "))); }
+    let selected = cases.iter().filter(|case| checked(case) && ids.is_none_or(|ids| ids.iter().any(|id| matches(id, case))));
+    Ok(reply(results(selected, &file.setup, true, interrupt)))
+}
+
+/// A reference reply from `results`: those that fail a run (`fails`) under `failures`, the others that hold an obligation (`obliged`) under `obligations`, and the counts by mode under `accounting`.
+pub fn reply(results: Vec<JsonValue>) -> JsonValue {
+    let accounting = accounting(&results);
+    let (failures, others): (Vec<_>, Vec<_>) = results.into_iter().partition(fails);
+    json!({"failures": failures, "obligations": others.into_iter().filter(obliged).collect::<Vec<_>>(), "accounting": accounting, "error": null})
+}
+
+/// The reply to the worker's `page` request, which gives the `text` of a `.qmd` page and, optionally, a Boolean `batch` that sets the `batch` pref for its examples. The reply gives the examples that fail, as `page` gives them, within the request's `timeout`.
+pub fn page_request(spec: &JsonValue, interrupt: &InterruptHandle, timeout: Option<std::time::Duration>) -> Result<JsonValue, String> {
+    let deadline = timeout.map(|t| std::time::Instant::now() + t);
+    Ok(json!({"failures": page(spec["text"].as_str().ok_or("page needs text as a string")?, spec["batch"].as_bool(), interrupt, deadline), "error": null}))
+}

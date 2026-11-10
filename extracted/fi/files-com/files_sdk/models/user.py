@@ -368,8 +368,8 @@ class User:
             return self._context
         return LegacyScope(self.options)
 
-    def unlock(self, params: dict[str, Any] | None = None) -> None:
-        """Unlock user who has been locked out due to failed logins"""
+    def user_2fa_reset(self, params: dict[str, Any] | None = None) -> None:
+        """Trigger 2FA Reset process for user who has lost access to their existing 2FA methods"""
         if not (hasattr(self, "id") and self.id):
             raise MissingParameterError("Current object doesn't have a id")
         params = copy_params(params, {"id": self.id})
@@ -381,7 +381,7 @@ class User:
             raise InvalidParameterError("Bad parameter: id must be an int")
         operation = Operation.start(self._scope())
         operation.request(
-            "POST", "/users/" + path_value(params["id"]) + "/unlock", params
+            "POST", "/users/" + path_value(params["id"]) + "/2fa/reset", params
         )
 
     def resend_welcome_email(
@@ -404,8 +404,8 @@ class User:
             params,
         )
 
-    def user_2fa_reset(self, params: dict[str, Any] | None = None) -> None:
-        """Trigger 2FA Reset process for user who has lost access to their existing 2FA methods"""
+    def unlock(self, params: dict[str, Any] | None = None) -> None:
+        """Unlock user who has been locked out due to failed logins"""
         if not (hasattr(self, "id") and self.id):
             raise MissingParameterError("Current object doesn't have a id")
         params = copy_params(params, {"id": self.id})
@@ -417,7 +417,7 @@ class User:
             raise InvalidParameterError("Bad parameter: id must be an int")
         operation = Operation.start(self._scope())
         operation.request(
-            "POST", "/users/" + path_value(params["id"]) + "/2fa/reset", params
+            "POST", "/users/" + path_value(params["id"]) + "/unlock", params
         )
 
     def update(self, params: dict[str, Any] | None = None) -> None:
@@ -982,8 +982,8 @@ class UserResource:
         """Parameters:
         cursor - string - Used for pagination.  When a list request has more records available, cursors are provided in the response headers `X-Files-Cursor-Next` and `X-Files-Cursor-Prev`.  Send one of those cursor value here to resume an existing list from the next available record.  Note: many of our SDKs have iterator methods that will automatically handle cursor-based pagination.
         per_page - int64 - Number of records to show per page.  (Max: 10000, 1,000 or less is recommended).
-        sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`, `workspace_id`, `company`, `name`, `disabled`, `authenticate_until`, `username`, `email`, `site_admin`, `last_desktop_login_at`, `last_login_at`, `password_validity_days` or `ssl_required`.
-        filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `username`, `name`, `email`, `company`, `site_admin`, `password_validity_days`, `ssl_required`, `last_login_at`, `authenticate_until`, `not_site_admin`, `disabled`, `partner_id`, `primary_group_id` or `workspace_id`. Valid field combinations are `[ site_admin, username ]`, `[ not_site_admin, username ]`, `[ workspace_id, username ]`, `[ company, name ]`, `[ workspace_id, name ]`, `[ workspace_id, email ]`, `[ workspace_id, company ]`, `[ workspace_id, site_admin ]`, `[ workspace_id, not_site_admin ]`, `[ workspace_id, disabled ]`, `[ workspace_id, partner_id ]`, `[ workspace_id, site_admin, username ]`, `[ workspace_id, not_site_admin, username ]`, `[ workspace_id, disabled, username ]`, `[ workspace_id, partner_id, username ]` or `[ workspace_id, company, name ]`.
+        sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`, `company`, `name`, `email`, `username`, `workspace_id`, `last_desktop_login_at`, `authenticate_until`, `last_login_at`, `site_admin`, `disabled`, `password_validity_days`, `ssl_required` or `ftp_tls_session_reuse_required`.
+        filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `username`, `name`, `email`, `company`, `site_admin`, `password_validity_days`, `ssl_required`, `ftp_tls_session_reuse_required`, `last_login_at`, `authenticate_until`, `not_site_admin`, `disabled`, `partner_id`, `primary_group_id` or `workspace_id`. Valid field combinations are `[ site_admin, username ]`, `[ not_site_admin, username ]`, `[ workspace_id, username ]`, `[ company, name ]`, `[ workspace_id, name ]`, `[ workspace_id, email ]`, `[ workspace_id, company ]`, `[ workspace_id, site_admin ]`, `[ workspace_id, not_site_admin ]`, `[ workspace_id, disabled ]`, `[ workspace_id, partner_id ]`, `[ workspace_id, site_admin, username ]`, `[ workspace_id, not_site_admin, username ]`, `[ workspace_id, disabled, username ]`, `[ workspace_id, partner_id, username ]` or `[ workspace_id, company, name ]`.
         filter_gt - object - If set, return records where the specified field is greater than the supplied value. Valid fields are `password_validity_days`, `last_login_at` or `authenticate_until`.
         filter_gteq - object - If set, return records where the specified field is greater than or equal the supplied value. Valid fields are `password_validity_days`, `last_login_at` or `authenticate_until`.
         filter_prefix - object - If set, return records where the specified field is prefixed by the supplied value. Valid fields are `username`, `name`, `email` or `company`. Valid field combinations are `[ company, name ]`.
@@ -1578,16 +1578,16 @@ class UserResource:
         response = operation.request("POST", "/users", params)
         return operation.decode_model(response, User)
 
-    def unlock(
+    def user_2fa_reset(
         self,
         id: int,
         params: dict[str, Any] | None = None,
         options: RequestOptions | Mapping[str, Any] | None = None,
     ) -> None:
-        """Unlock user who has been locked out due to failed logins"""
-        return self.__unlock({"id": id}, params, options)
+        """Trigger 2FA Reset process for user who has lost access to their existing 2FA methods"""
+        return self.__user_2fa_reset({"id": id}, params, options)
 
-    def __unlock(
+    def __user_2fa_reset(
         self,
         path_values: dict[str, Any],
         params: dict[str, Any] | None,
@@ -1602,7 +1602,7 @@ class UserResource:
             raise MissingParameterError("Parameter missing: id")
         operation = Operation.start(self._scope, options)
         operation.request(
-            "POST", "/users/" + path_value(params["id"]) + "/unlock", params
+            "POST", "/users/" + path_value(params["id"]) + "/2fa/reset", params
         )
 
     def resend_welcome_email(
@@ -1634,16 +1634,16 @@ class UserResource:
             params,
         )
 
-    def user_2fa_reset(
+    def unlock(
         self,
         id: int,
         params: dict[str, Any] | None = None,
         options: RequestOptions | Mapping[str, Any] | None = None,
     ) -> None:
-        """Trigger 2FA Reset process for user who has lost access to their existing 2FA methods"""
-        return self.__user_2fa_reset({"id": id}, params, options)
+        """Unlock user who has been locked out due to failed logins"""
+        return self.__unlock({"id": id}, params, options)
 
-    def __user_2fa_reset(
+    def __unlock(
         self,
         path_values: dict[str, Any],
         params: dict[str, Any] | None,
@@ -1658,7 +1658,7 @@ class UserResource:
             raise MissingParameterError("Parameter missing: id")
         operation = Operation.start(self._scope, options)
         operation.request(
-            "POST", "/users/" + path_value(params["id"]) + "/2fa/reset", params
+            "POST", "/users/" + path_value(params["id"]) + "/unlock", params
         )
 
     def update(
@@ -2229,8 +2229,8 @@ def list(
     """Parameters:
     cursor - string - Used for pagination.  When a list request has more records available, cursors are provided in the response headers `X-Files-Cursor-Next` and `X-Files-Cursor-Prev`.  Send one of those cursor value here to resume an existing list from the next available record.  Note: many of our SDKs have iterator methods that will automatically handle cursor-based pagination.
     per_page - int64 - Number of records to show per page.  (Max: 10000, 1,000 or less is recommended).
-    sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`, `workspace_id`, `company`, `name`, `disabled`, `authenticate_until`, `username`, `email`, `site_admin`, `last_desktop_login_at`, `last_login_at`, `password_validity_days` or `ssl_required`.
-    filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `username`, `name`, `email`, `company`, `site_admin`, `password_validity_days`, `ssl_required`, `last_login_at`, `authenticate_until`, `not_site_admin`, `disabled`, `partner_id`, `primary_group_id` or `workspace_id`. Valid field combinations are `[ site_admin, username ]`, `[ not_site_admin, username ]`, `[ workspace_id, username ]`, `[ company, name ]`, `[ workspace_id, name ]`, `[ workspace_id, email ]`, `[ workspace_id, company ]`, `[ workspace_id, site_admin ]`, `[ workspace_id, not_site_admin ]`, `[ workspace_id, disabled ]`, `[ workspace_id, partner_id ]`, `[ workspace_id, site_admin, username ]`, `[ workspace_id, not_site_admin, username ]`, `[ workspace_id, disabled, username ]`, `[ workspace_id, partner_id, username ]` or `[ workspace_id, company, name ]`.
+    sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`, `company`, `name`, `email`, `username`, `workspace_id`, `last_desktop_login_at`, `authenticate_until`, `last_login_at`, `site_admin`, `disabled`, `password_validity_days`, `ssl_required` or `ftp_tls_session_reuse_required`.
+    filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `username`, `name`, `email`, `company`, `site_admin`, `password_validity_days`, `ssl_required`, `ftp_tls_session_reuse_required`, `last_login_at`, `authenticate_until`, `not_site_admin`, `disabled`, `partner_id`, `primary_group_id` or `workspace_id`. Valid field combinations are `[ site_admin, username ]`, `[ not_site_admin, username ]`, `[ workspace_id, username ]`, `[ company, name ]`, `[ workspace_id, name ]`, `[ workspace_id, email ]`, `[ workspace_id, company ]`, `[ workspace_id, site_admin ]`, `[ workspace_id, not_site_admin ]`, `[ workspace_id, disabled ]`, `[ workspace_id, partner_id ]`, `[ workspace_id, site_admin, username ]`, `[ workspace_id, not_site_admin, username ]`, `[ workspace_id, disabled, username ]`, `[ workspace_id, partner_id, username ]` or `[ workspace_id, company, name ]`.
     filter_gt - object - If set, return records where the specified field is greater than the supplied value. Valid fields are `password_validity_days`, `last_login_at` or `authenticate_until`.
     filter_gteq - object - If set, return records where the specified field is greater than or equal the supplied value. Valid fields are `password_validity_days`, `last_login_at` or `authenticate_until`.
     filter_prefix - object - If set, return records where the specified field is prefixed by the supplied value. Valid fields are `username`, `name`, `email` or `company`. Valid field combinations are `[ company, name ]`.
@@ -2350,13 +2350,13 @@ def create(
     return _legacy_resource.create(params, options)
 
 
-def unlock(
+def user_2fa_reset(
     id: int,
     params: dict[str, Any] | None = None,
     options: RequestOptions | Mapping[str, Any] | None = None,
 ) -> None:
-    """Unlock user who has been locked out due to failed logins"""
-    _legacy_resource.unlock(id, params, options)
+    """Trigger 2FA Reset process for user who has lost access to their existing 2FA methods"""
+    _legacy_resource.user_2fa_reset(id, params, options)
 
 
 def resend_welcome_email(
@@ -2368,13 +2368,13 @@ def resend_welcome_email(
     _legacy_resource.resend_welcome_email(id, params, options)
 
 
-def user_2fa_reset(
+def unlock(
     id: int,
     params: dict[str, Any] | None = None,
     options: RequestOptions | Mapping[str, Any] | None = None,
 ) -> None:
-    """Trigger 2FA Reset process for user who has lost access to their existing 2FA methods"""
-    _legacy_resource.user_2fa_reset(id, params, options)
+    """Unlock user who has been locked out due to failed logins"""
+    _legacy_resource.unlock(id, params, options)
 
 
 def update(

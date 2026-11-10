@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ResponseStatus(ClientValue):
     """Represents the response status of an attendee or organizer for a meeting request.
 

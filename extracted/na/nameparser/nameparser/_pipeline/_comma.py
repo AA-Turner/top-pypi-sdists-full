@@ -43,7 +43,8 @@ from nameparser._pipeline._state import (
 )
 from nameparser._pipeline._vocab import (
     ROMAN, caps_shape_candidate, claimed_as_non_name,
-    composed_len, delimiter_cores, glued_cores, glued_stem, glues, is_caps_word,
+    composed_len, delimiter_cores, ends_in_a_generation, glued_cores,
+    glued_stem, glues, is_caps_word,
     is_paired_initials, is_single_letter_numeral, is_wholly_suffix,
     name_reading, name_word_count, reads_as_generation, suffix_reading,
     surname_unit_facts, unit_ends, written_as_a_name,
@@ -59,9 +60,11 @@ def _pieces(seg: Sequence[int], tokens: Sequence[WorkToken],
     off the tag classify wrote on its first word), which group's first
     merge builds (group alone declines a pair at the head of the
     string, rules/S2) -- the part as it stands before any join: the
-    Ph./D. pair tagged "suffix", any other "split", a member of the
+    Ph./D. pair tagged "suffix" where the lexicon lists `phd` as
+    unambiguous suffix vocabulary, any other "split", a member of the
     ambiguous class for rules/C4's count, unless `splits` is False.
-    Every piece a fresh list, as `merge_pieces` requires."""
+    Every piece a fresh list, as `join_connectives` requires: it
+    extends a joined piece's first list in place."""
     pieces: list[list[int]] = []
     ptags: list[set[str]] = []
     k = 0
@@ -162,7 +165,7 @@ def _name_contrast(state: ParseState, seg0: Sequence[int],
         return False
     if clause_at is None:
         _, clause_at = own_words(state.tokens, state.comma_offsets,
-                                 state.lexicon.maiden_markers)
+                                 state.lexicon._sets.maiden_markers)
     lex = state.lexicon
     return any(
         i < clause_at and (tok := state.tokens[i]).role is None
@@ -170,22 +173,56 @@ def _name_contrast(state: ParseState, seg0: Sequence[int],
         for i in seg0)
 
 
-def _whole_name(seg0: Sequence[int], tokens: Sequence[WorkToken]) -> bool:
+def _whole_name(seg0: Sequence[int], tokens: Sequence[WorkToken],
+                one_case: bool | None) -> bool:
     """rules/C3's count before the comma for an unambiguous
     credential, read off classify's tags (the ambiguous class's count
     of NAME words, which leaves titles out, is
     `_vocab.name_word_count`'s, asked in `decide`): two or more units (a particle run and
     the name word it attaches to one unit, a connective join not, #575)
     holding a word that is not a suffix word -- a title counts, being a
-    word to the count an unambiguous credential takes."""
+    word to the count an unambiguous credential takes, and so does a
+    suffix word opening the part with a name word behind it. A numeral
+    ending the part, or standing before the suffix words that end it,
+    that the trailing fork reads as the generation is no name word, as
+    a listed one is not (`one_case` is
+    ParseState.one_case, for that fork)."""
     # rules/C3: "a particle run and the one name word it attaches to are
     # one word"
     # the part before a family comma merges no member pair (rules/S12)
     pieces, ptags = _pieces(seg0, tokens, False)
     named: set[int] = set()
-    for piece, tags in zip(pieces, ptags):
+    opener: list[int] = []
+    name_behind = False
+    for k, (piece, tags) in enumerate(zip(pieces, ptags)):
         if not is_suffix_piece(piece, tags, tokens):
             named.update(piece)
+            # a title behind it is a word to this count but no name
+            # word, asked only once a suffix word has opened the part
+            if opener and not is_title_piece(piece, tags, tokens):
+                name_behind = True
+        elif k == 0 and SPLIT_MEMBER_TAG not in tokens[piece[0]].tags:
+            opener = piece
+    # rules/C3: "A suffix word opening the part is a name word to the
+    # count where a name word follows it" -- a split credential's
+    # member is half a credential, not a name (rules/S12)
+    if name_behind:
+        named.update(opener)
+    # rules/C3: "a numeral ending the part, or standing before the
+    # listed suffix words it ends with, that the trailing fork reads as the
+    # generation is no name word" ('Dumas VI, Jr.' and 'Dumas VI MD,
+    # Ed' as their 'III' twins); decisions/C3 (#893). The suffix
+    # words are the pieces the loop above left out of `named`. The
+    # `ROMAN` match is a test the predicate makes itself
+    # (`reads_as_generation`'s first), asked here at C level so a part
+    # ending in no numeral pays no frame for it, as group's count does
+    e = len(seg0) - 1
+    while e > 0 and seg0[e] not in named:
+        e -= 1
+    if (e > 0 and ROMAN.match(tokens[seg0[e]].text.rstrip(".")) is not None
+            and ends_in_a_generation(
+                [tokens[seg0[e - 1]].text, tokens[seg0[e]].text], one_case)):
+        named.discard(seg0[e])
     if len(named) < 2:
         return False
     idx = list(seg0)
@@ -199,6 +236,17 @@ def _whole_name(seg0: Sequence[int], tokens: Sequence[WorkToken]) -> bool:
                 return True
         start = end
     return False
+
+
+def _members(seg: Sequence[int], tokens: Sequence[WorkToken]) -> set[int]:
+    """The positions in `seg` of split credentials' members, for
+    `name_word_count`'s opening word (rules/S12), on the one-letter
+    numeral's rare path; `decide` scans for them inline."""
+    members: set[int] = set()
+    for k, i in enumerate(seg):
+        if SPLIT_MEMBER_TAG in tokens[i].tags:
+            members.add(k)
+    return members
 
 
 def _behind_a_generation(state: ParseState, seg0: Sequence[int],
@@ -256,10 +304,10 @@ def _behind_a_generation(state: ParseState, seg0: Sequence[int],
     # is, and a maiden clause is no word of the name ('Jane nee Smith
     # Jr., AD' reads as 'Jane Jr., AD'; own_words, as for the contrast)
     _, clause_at = own_words(state.tokens, state.comma_offsets,
-                             lex.maiden_markers)
+                             lex._sets.maiden_markers)
     front = [i for i in seg0[:-1]
              if i < clause_at and tokens[i].role is None]
-    if not _whole_name(front, tokens):
+    if not _whole_name(front, tokens, state.one_case):
         return None
     # a one-letter numeral is the generation only where the name has a
     # word to spare for it, a title being none (rules/S10), and is no
@@ -268,7 +316,8 @@ def _behind_a_generation(state: ParseState, seg0: Sequence[int],
     if (len(last.rstrip(".")) == 1 and is_single_letter_numeral(last)
             and name_word_count([tokens[i].text for i in front], lex,
                                 state.policy,
-                                letters_one_case=state.one_case) < 2):
+                                letters_one_case=state.one_case,
+                                members=_members(front, tokens)) < 2):
         return None
     if contrast is None:
         contrast = _name_contrast(state, seg0, clause_at)
@@ -340,7 +389,7 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
             if tokens[i].text in cores:
                 core_idx.append(i)
         if core_idx:
-            whole = _whole_name(seg0, tokens)
+            whole = _whole_name(seg0, tokens, state.one_case)
             if not whole:
                 core_idx = []
     # a set for the membership test: a list scanned per token was
@@ -448,8 +497,15 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
     licensed: set[int] = set()
     run = False
     if maybe:
+        # `_members` inline: a frame here is paid by every name with the
+        # ambiguous class after its comma ('John Smith, MA')
+        split_at: set[int] = set()
+        for k, i in enumerate(seg0):
+            if SPLIT_MEMBER_TAG in tokens[i].tags:
+                split_at.add(k)
         names = name_word_count([tokens[i].text for i in seg0], lex, pol,
-                                letters_one_case=state.one_case)
+                                letters_one_case=state.one_case,
+                                members=split_at)
     if names >= 2:
         # rules/C6: "An unlisted all-caps word joins the ambiguous
         # credential class [...] only where the name carries the contrast"
@@ -538,7 +594,7 @@ def decide(state: ParseState, splits: bool | None = True) -> ParseState:
             anchored, absorbed, licensed, head_named=names >= 2)
     if not listing:
         if whole is None:
-            whole = _whole_name(seg0, tokens)
+            whole = _whole_name(seg0, tokens, state.one_case)
         # rules/C1: "By default a recognized suffix word counts even
         # written like an initial" -- behind a whole name ('John Smith, V.')
         # rules/C10: "A delimiter glued to a suffix word parts it from

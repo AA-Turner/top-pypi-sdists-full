@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.identities.sign_in_context import SignInContext
 
 
-@dataclass
 class AuthContext(SignInContext):
     authenticationContextValue: str | None = None
 

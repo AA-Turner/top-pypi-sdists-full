@@ -3,7 +3,7 @@ and shown once per destination (the seen ledger). Serves the vocabulary and `Sur
 
 from .ledger import Claim, Destination, MessageLedger, SavedList, make_account_key, make_message_key
 from .notices import MESSAGES_PATH, NOTICES_HEADER, MessageList, parse_client_message, parse_message_list, read_set_revision
-from .render import ACTION_LINES, UPGRADE_COMMAND, WIZARD_HINT, ActionLine, Surface, render_server_message
+from .render import ACTION_LINES, UPDATE_HINT, UPGRADE_COMMAND, ActionLine, Surface, render_server_message
 from .server_messages import Action, Audience, ServerMessage, Severity, describe_detail, parse_server_message
 
 __all__ = [
@@ -11,7 +11,7 @@ __all__ = [
     "MESSAGES_PATH",
     "NOTICES_HEADER",
     "UPGRADE_COMMAND",
-    "WIZARD_HINT",
+    "UPDATE_HINT",
     "Action",
     "ActionLine",
     "Audience",

@@ -1,5 +1,5 @@
 import adapter from "@sveltejs/adapter-static";
-import { vitePreprocess } from "@sveltejs/kit/vite";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 
 import {
 	docstringPreprocess,
@@ -8,13 +8,15 @@ import {
 	inferenceSnippetPreprocess,
 	tokenizersLangPreprocess,
 	hfOptionsPreprocess,
+	hashInCodePreprocess,
 } from "./preprocessors/index.js";
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
-	// Consult https://kit.svelte.dev/docs/integrations#preprocessors
+	// Consult https://svelte.dev/docs/kit/integrations
 	// for more information about preprocessors
 	preprocess: [
+		hashInCodePreprocess,
 		docstringPreprocess,
 		frameworkcontentPreprocess,
 		inferenceSnippetPreprocess,
@@ -25,9 +27,9 @@ const config = {
 	],
 
 	kit: {
-		// adapter-auto only supports some environments, see https://kit.svelte.dev/docs/adapter-auto for a list.
+		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
 		// If your environment is not supported or you settled on a specific environment, switch out the adapter.
-		// See https://kit.svelte.dev/docs/adapters for more information about adapters.
+		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter({ strict: false }),
 
 		prerender: {
@@ -38,19 +40,25 @@ const config = {
 			base: process.argv.includes("dev")
 				? ""
 				: "/docs/" +
-				  (process.env.DOCS_LIBRARY || "transformers") +
-				  "/" +
-				  (process.env.DOCS_VERSION || "main") +
-				  "/" +
-				  (process.env.DOCS_LANGUAGE || "en"),
+					(process.env.DOCS_LIBRARY || "transformers") +
+					"/" +
+					(process.env.DOCS_VERSION || "main") +
+					"/" +
+					(process.env.DOCS_LANGUAGE || "en"),
 			relative: false,
 		},
 	},
 
 	onwarn: (warning, handler) => {
 		if (
-			warning.message.includes("has unused export property 'fw'") ||
-			warning.message.includes("A11y")
+			warning.message.includes("unused export property") ||
+			warning.code?.startsWith("a11y") ||
+			warning.message.includes("A11y") ||
+			// md-generated doc content is full of `<video ... />` style self-closing tags
+			warning.code === "element_invalid_self_closing_tag" ||
+			// initial-value capture of props is intentional here: doc pages pass
+			// static props (same semantics as the pre-runes svelte 4 code)
+			warning.code === "state_referenced_locally"
 		) {
 			/// Too noisy
 			return;

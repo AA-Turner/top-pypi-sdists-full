@@ -2,30 +2,37 @@ from typing import Optional
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class TypeDescriptor(Entity):
+    @odata(name="ContainsReadOnly")
     @property
     def contains_read_only(self) -> Optional[bool]:
         """Gets the ContainsReadOnly property"""
         return self.properties.get("ContainsReadOnly", None)
 
+    @odata(name="IsCollection")
     @property
     def is_collection(self) -> Optional[bool]:
         """Gets the IsCollection property"""
         return self.properties.get("IsCollection", None)
 
+    @odata(name="IsReadOnly")
     @property
     def is_read_only(self) -> Optional[bool]:
         """Gets the IsReadOnly property"""
         return self.properties.get("IsReadOnly", None)
 
+    @odata(name="Name")
     @property
     def name(self) -> Optional[str]:
         """Gets the Name property"""
         return self.properties.get("Name", None)
 
+    @odata(name="TypeName")
     @property
     def type_name(self) -> Optional[str]:
         """Gets the TypeName property"""
@@ -35,6 +42,7 @@ class TypeDescriptor(Entity):
     def entity_type_name(self):
         return "SP.BusinessData.TypeDescriptor"
 
+    @site_access(SiteLevel.READ)
     def contains_localized_display_name(self) -> ClientResult[bool]:
         """ContainsLocalizedDisplayName operation."""
         return_type = ClientResult(self.context, bool())
@@ -42,6 +50,7 @@ class TypeDescriptor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_default_display_name(self) -> ClientResult[str]:
         """GetDefaultDisplayName operation."""
         return_type = ClientResult(self.context, str())
@@ -49,6 +58,7 @@ class TypeDescriptor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_localized_display_name(self) -> ClientResult[str]:
         """GetLocalizedDisplayName operation."""
         return_type = ClientResult(self.context, str())
@@ -56,6 +66,7 @@ class TypeDescriptor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def is_leaf(self) -> ClientResult[bool]:
         """IsLeaf operation."""
         return_type = ClientResult(self.context, bool())
@@ -63,6 +74,7 @@ class TypeDescriptor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def is_root(self) -> ClientResult[bool]:
         """IsRoot operation."""
         return_type = ClientResult(self.context, bool())

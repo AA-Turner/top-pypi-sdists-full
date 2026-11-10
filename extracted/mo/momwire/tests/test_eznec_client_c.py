@@ -38,7 +38,7 @@ from pathlib import Path
 import pytest
 
 import momwire_serve_client as mech
-from momwire.eznec import _shell
+from momwire.dropin.nec5 import _shell
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCE = REPO / "scripts" / "eznec_client_c" / "momwire_eznec_client.c"
@@ -532,6 +532,7 @@ def test_the_key_is_the_d2_digest_and_not_a_private_hash(
             f"eznec.{major}.{minor}",
             os.path.realpath(str(bundle / ENGINE_NAME)),
             repr(900.0),
+            mech.WIRE,
             basis_element,
         ]
     )
@@ -643,6 +644,7 @@ def test_a_nec4_named_copy_answers_the_nec42_slot_on_its_own_server(
             f"eznec.{major}.{minor}",
             os.path.realpath(str(bundle / ENGINE_NAME)),
             repr(900.0),
+            mech.WIRE,
             "dialect=nec4",
             "basis=sinusoidal",
         ]
@@ -898,7 +900,7 @@ answer = mech.GMO_FRAME_START + {gmo!r} + mech.GMO_FRAME_END + {printout!r}
 
 def connection(conn, number, log, solve_lock, pool=None):
     reader = conn.makefile("rb")
-    reader.read()
+    mech.read_deck_frame(reader)
     reader.close()
     conn.sendall(answer)
 

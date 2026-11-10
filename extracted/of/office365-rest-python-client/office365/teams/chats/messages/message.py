@@ -1,40 +1,41 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.directory.permissions.identity_set import IdentitySet
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 from office365.teams.channels.iIdentity import ChannelIdentity
 from office365.teams.chats.event_message_detail import EventMessageDetail
 from office365.teams.chats.messages.attachment import ChatMessageAttachment
 from office365.teams.chats.messages.body import ChatMessageBody
+from office365.teams.chats.messages.history_item import ChatMessageHistoryItem
 from office365.teams.chats.messages.hosted_content import ChatMessageHostedContent
 from office365.teams.chats.messages.mention import ChatMessageMention
+from office365.teams.chats.messages.policy_violation import ChatMessagePolicyViolation
 from office365.teams.chats.messages.reaction import ChatMessageReaction
-
-if TYPE_CHECKING:
-    from office365.teams.chats.messages.history_item import ChatMessageHistoryItem
-    from office365.teams.chats.messages.policy_violation import (
-        ChatMessagePolicyViolation,
-    )
+from office365.teams.quotas import CHAT_MESSAGES_READ, CHAT_MESSAGES_WRITE
 
 
+@limit(*(CHAT_MESSAGES_READ + CHAT_MESSAGES_WRITE))  # the two calls a chat message makes
 class ChatMessage(Entity):
     """
     Represents an individual chat message within a channel or chat.
     The message can be a root message or part of a thread that is defined by the replyToId property in the message.
     """
 
+    @odata(name="attachments")
     @property
     def attachments(self) -> ClientValueCollection[ChatMessageAttachment]:
         """The collection of replies."""
         return self.properties.get("attachments", ClientValueCollection(ChatMessageAttachment))
 
+    @odata(name="body")
     @property
     def body(self) -> ChatMessageBody:
         """
@@ -51,6 +52,7 @@ class ChatMessage(Entity):
         """
         return self.properties.get("channelIdentity", ChannelIdentity())
 
+    @odata(name="chatId")
     @property
     def chat_id(self) -> Optional[str]:
         """
@@ -70,6 +72,7 @@ class ChatMessage(Entity):
         """Timestamp of when the chat message was last modified."""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
+    @odata(name="etag")
     @property
     def etag(self) -> Optional[str]:
         """Version marker for the chat message."""
@@ -81,26 +84,31 @@ class ChatMessage(Entity):
         """Details of the sender of the chat message."""
         return self.properties.get("from", IdentitySet())
 
+    @odata(name="replyToId")
     @property
     def reply_to_id(self) -> Optional[str]:
         """Id of the parent/root message when this message is a reply."""
         return self.properties.get("replyToId", None)
 
+    @odata(name="messageType")
     @property
     def message_type(self) -> Optional[str]:
         """The type of the chat message (``message``, ``systemEventMessage``, ...)."""
         return self.properties.get("messageType", None)
 
+    @odata(name="mentions")
     @property
     def mentions(self) -> ClientValueCollection[ChatMessageMention]:
         """The mentions for the chat message."""
         return self.properties.get("mentions", ClientValueCollection(ChatMessageMention))
 
+    @odata(name="reactions")
     @property
     def reactions(self) -> ClientValueCollection[ChatMessageReaction]:
         """The reactions for the chat message."""
         return self.properties.get("reactions", ClientValueCollection(ChatMessageReaction))
 
+    @odata(name="hostedContents", navigation=True)
     @property
     def hosted_contents(self) -> EntityCollection[ChatMessageHostedContent]:
         """Content hosted by Teams as part of the message (e.g. inline images).
@@ -139,6 +147,7 @@ class ChatMessage(Entity):
         """
         return self.properties.get("eventDetail", EventMessageDetail())
 
+    @odata(name="replies", navigation=True)
     @property
     def replies(self) -> EntityCollection[ChatMessage]:
         """
@@ -149,6 +158,7 @@ class ChatMessage(Entity):
             EntityCollection(self.context, ChatMessage, ResourcePath("replies", self.resource_path)),
         )
 
+    @odata(name="subject")
     @property
     def subject(self) -> Optional[str]:
         """
@@ -156,6 +166,7 @@ class ChatMessage(Entity):
         """
         return self.properties.get("subject", None)
 
+    @odata(name="summary")
     @property
     def summary(self) -> Optional[str]:
         """
@@ -164,6 +175,7 @@ class ChatMessage(Entity):
         """
         return self.properties.get("summary", None)
 
+    @odata(name="webUrl")
     @property
     def web_url(self) -> Optional[str]:
         """
@@ -171,6 +183,7 @@ class ChatMessage(Entity):
         """
         return self.properties.get("webUrl", None)
 
+    @odata(name="importance")
     @property
     def importance(self) -> Optional[str]:
         """
@@ -178,32 +191,30 @@ class ChatMessage(Entity):
         """
         return self.properties.get("importance", None)
 
+    @odata(name="lastEditedDateTime")
     @property
     def last_edited_date_time(self) -> Optional[datetime]:
         """Gets the lastEditedDateTime property"""
         return self.properties.get("lastEditedDateTime", datetime.min)
 
+    @odata(name="locale")
     @property
     def locale(self) -> Optional[str]:
         """Gets the locale property"""
         return self.properties.get("locale", None)
 
+    @odata(name="messageHistory")
     @property
     def message_history(self) -> ClientValueCollection[ChatMessageHistoryItem]:
         """Gets the messageHistory property"""
-        from office365.teams.chats.messages.history_item import ChatMessageHistoryItem
-
         return self.properties.get(
             "messageHistory", ClientValueCollection[ChatMessageHistoryItem](ChatMessageHistoryItem)
         )
 
+    @odata(name="policyViolation")
     @property
     def policy_violation(self) -> ChatMessagePolicyViolation:
         """Gets the policyViolation property"""
-        from office365.teams.chats.messages.policy_violation import (
-            ChatMessagePolicyViolation,
-        )
-
         return self.properties.get("policyViolation", ChatMessagePolicyViolation())
 
     @property

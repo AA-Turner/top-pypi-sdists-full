@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.sharepoint.publishing.amplify.requestendpoint import (
 )
 
 
-@dataclass
 class AmplifyRequestParams(ClientValue):
     Endpoints: ClientValueCollection[AmplifyRequestEndpoint] = field(
         default_factory=lambda: ClientValueCollection(AmplifyRequestEndpoint)

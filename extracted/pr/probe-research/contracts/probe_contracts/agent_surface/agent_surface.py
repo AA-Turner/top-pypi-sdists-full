@@ -116,6 +116,13 @@ class View(StrEnum):
     #: A project's best-pick history, newest first: each pick and clear, who and why (#3624). The branches
     #: header shows only the current pick, hiding churn. MCP-only; workspace: rides `browse mode=branches`.
     PICKS = "picks"
+    #: A run's edits, newest first (agentic W&B B.4): who changed which recorded data, how and why, and
+    #: whether it was undone. Without it an agent reads a rescaled or cut curve as what the run logged.
+    #: MCP-only and read-only; `probe run edit` makes one (GET /v1/runs/{ref}/edits).
+    EDITS = "edits"
+    #: What was asked of a running run (agentic W&B C.1): checkpoint, config, stop or a kind its script declared,
+    #: who asked, what happened and why. MCP-only and read-only; `probe run send` asks (GET /v1/runs/{ref}/commands).
+    COMMANDS = "commands"
 
 
 #: What a view MEANS on a kind. The union across both surfaces; each declares the
@@ -191,6 +198,10 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             # integrations-v2 phase 6: the run's owner/repo@sha, and a diff against another run
             # (GET /v1/runs/{ref}/code and /code/compare).
             View.CODE,
+            # Its edits, newest first (GET /v1/runs/{ref}/edits).
+            View.EDITS,
+            # What was asked of it while it ran (GET /v1/runs/{ref}/commands).
+            View.COMMANDS,
         }
     ),
     # The one entity with no notes (immutable; `description` holds it). Its `trajectory` is its whole
@@ -254,6 +265,8 @@ VIEW_PURPOSE: dict[View, str] = {
     View.SUMMARY_HISTORY: "the summary's versions, newest first; view_options.version=N reads one's markdown",
     View.BRANCHES: "lines of work: best value, effort, state; view_options.branch for one in full",
     View.PICKS: "the best pick's history, newest first: who picked or cleared what, and why",
+    View.EDITS: "the run's data edits, newest first: who changed what, how, why, and whether it was undone",
+    View.COMMANDS: "what was asked of the running script (checkpoint, config, stop, ...): who, its state, why, result",
 }
 
 
@@ -329,6 +342,10 @@ VIEW_ADMISSION: dict[View, Admits] = {
     View.BRANCHES: Admits.NOTHING,
     # Who chose what, and when: a judgement about results, never a reading of one.
     View.PICKS: Admits.NOTHING,
+    # Who changed the record, and why: an account of an edit, never a measurement.
+    View.EDITS: Admits.NOTHING,
+    # What someone asked a live run to do: an account of an ask, never a measurement.
+    View.COMMANDS: Admits.NOTHING,
 }
 
 

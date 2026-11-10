@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ from office365.sharepoint.search.query.reordering_rule import ReorderingRule
 from office365.sharepoint.search.query.sort.sort import Sort
 
 
-@dataclass
 class SearchRequest(ClientValue):
     """
     The SearchRequest structure defines the HTTP BODY of the HTTP POST postquery operation as specified

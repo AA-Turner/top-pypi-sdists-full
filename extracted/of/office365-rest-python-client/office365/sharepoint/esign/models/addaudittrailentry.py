@@ -1,11 +1,9 @@
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AddAuditTrailEntryModel(ClientValue):
     action: Optional[str] = None
     actionDateTime: Optional[datetime] = None

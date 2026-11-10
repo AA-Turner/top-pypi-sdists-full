@@ -1070,6 +1070,10 @@ class RTCPeerConnection(AsyncIOEventEmitter):
             self.__pendingRemoteDescription = description
 
     async def __connect(self) -> None:
+        # The connection may have been closed before this task got to run.
+        if self.__isClosed:
+            return
+
         for transceiver in self.__transceivers:
             dtlsTransport = transceiver.receiver.transport
             iceTransport = dtlsTransport.transport
@@ -1128,11 +1132,15 @@ class RTCPeerConnection(AsyncIOEventEmitter):
                 )
             iceGatherer = RTCIceGatherer(
                 iceServers=self.__configuration.iceServers,
+                iceTransportPolicy=self.__configuration.iceTransportPolicy,
                 local_username=parameters.usernameFragment,
                 local_password=parameters.password,
             )
         else:
-            iceGatherer = RTCIceGatherer(iceServers=self.__configuration.iceServers)
+            iceGatherer = RTCIceGatherer(
+                iceServers=self.__configuration.iceServers,
+                iceTransportPolicy=self.__configuration.iceTransportPolicy,
+            )
 
         iceGatherer.on("statechange", self.__updateIceGatheringState)
         iceTransport = RTCIceTransport(iceGatherer)

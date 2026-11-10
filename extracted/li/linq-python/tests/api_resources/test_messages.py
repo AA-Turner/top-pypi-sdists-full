@@ -89,6 +89,7 @@ class TestMessages:
             to=["+14155559876"],
             continuation_message={"text": "Hi, it's Acme Support reaching you from a new number."},
             exclude_from=["+12052535597"],
+            force_notify=False,
             override_optout=False,
             idempotency_key="send-abc123xyz",
         )
@@ -286,8 +287,8 @@ class TestMessages:
             placement={
                 "rotation": 15,
                 "scale": 1.25,
-                "x": -0.25,
-                "y": 0.4,
+                "x": 0.9,
+                "y": -0.3,
             },
             url="https://cdn.linqapp.com/attachments/example/sticker.png",
         )
@@ -482,8 +483,8 @@ class TestMessages:
             placement={
                 "rotation": 15,
                 "scale": 0.75,
-                "x": 0.6,
-                "y": 0.5,
+                "x": 0.9,
+                "y": 0.9,
             },
         )
         assert_matches_type(MessageUpdateStickerPlacementResponse, message, path=["response"])
@@ -606,6 +607,7 @@ class TestAsyncMessages:
             to=["+14155559876"],
             continuation_message={"text": "Hi, it's Acme Support reaching you from a new number."},
             exclude_from=["+12052535597"],
+            force_notify=False,
             override_optout=False,
             idempotency_key="send-abc123xyz",
         )
@@ -803,8 +805,8 @@ class TestAsyncMessages:
             placement={
                 "rotation": 15,
                 "scale": 1.25,
-                "x": -0.25,
-                "y": 0.4,
+                "x": 0.9,
+                "y": -0.3,
             },
             url="https://cdn.linqapp.com/attachments/example/sticker.png",
         )
@@ -999,8 +1001,8 @@ class TestAsyncMessages:
             placement={
                 "rotation": 15,
                 "scale": 0.75,
-                "x": 0.6,
-                "y": 0.5,
+                "x": 0.9,
+                "y": 0.9,
             },
         )
         assert_matches_type(MessageUpdateStickerPlacementResponse, message, path=["response"])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.43.1
+Version: 0.44.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -15,7 +15,7 @@ Classifier: Typing :: Typed
 Requires-Dist: tiktoken>=0.5.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: litellm>=1.96.2,<2.0
-Requires-Dist: click>=8.3.3
+Requires-Dist: click>=8.5.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: opentelemetry-api>=1.45.1
 Requires-Dist: ast-grep-cli>=0.30.0,!=0.44.1
@@ -25,13 +25,13 @@ Requires-Dist: truststore>=0.10.0
 Requires-Dist: hf-xet>=1.6.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
 Requires-Dist: filelock>=4.2.1
 Requires-Dist: agno>=1.0.0 ; extra == 'agno'
-Requires-Dist: headroom-ai[proxy,code,ml,memory,relevance,image,reports,otel,evals,voice,html,mcp,spreadsheet] ; extra == 'all'
+Requires-Dist: headroom-ai[proxy,code,relevance,image,reports,otel,html,mcp,spreadsheet] ; extra == 'all'
 Requires-Dist: any-llm-sdk>=1.0.0 ; python_full_version >= '3.11' and extra == 'anyllm'
 Requires-Dist: autogen-agentchat>=0.7 ; extra == 'autogen'
 Requires-Dist: boto3>=1.41.0 ; extra == 'bedrock'
 Requires-Dist: botocore[crt]>=1.41.0 ; extra == 'bedrock'
 Requires-Dist: tree-sitter-language-pack>=0.10.0,<1.0 ; extra == 'code'
-Requires-Dist: tree-sitter>=0.25.2,<0.27 ; extra == 'code'
+Requires-Dist: tree-sitter>=0.26.0,<0.27 ; extra == 'code'
 Requires-Dist: pytest>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0 ; extra == 'dev'
@@ -50,7 +50,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.24.0 ; extra == 'dev'
 Requires-Dist: ollama>=0.4.0 ; extra == 'dev'
 Requires-Dist: langchain-ollama>=0.2.0 ; extra == 'dev'
 Requires-Dist: hnswlib>=0.8.0 ; extra == 'dev'
-Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'dev'
+Requires-Dist: sqlite-vec>=0.1.9 ; extra == 'dev'
 Requires-Dist: sentence-transformers>=2.2.0,<7.0 ; extra == 'dev'
 Requires-Dist: numpy>=1.24.0 ; extra == 'dev'
 Requires-Dist: openpyxl>=3.1.0 ; extra == 'dev'
@@ -81,7 +81,7 @@ Requires-Dist: mcp>=2.2.0,<3.0.0 ; extra == 'mcp'
 Requires-Dist: httpx>=0.24.0 ; extra == 'mcp'
 Requires-Dist: starlette>=0.27.0 ; extra == 'mcp'
 Requires-Dist: uvicorn>=0.23.0,<1.0 ; extra == 'mcp'
-Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'memory'
+Requires-Dist: sqlite-vec>=0.1.9 ; extra == 'memory'
 Requires-Dist: sentence-transformers>=2.2.0,<7.0 ; (platform_machine != 'x86_64' and extra == 'memory') or (sys_platform != 'darwin' and extra == 'memory')
 Requires-Dist: mem0ai>=2.0.18,<3.0 ; extra == 'memory-stack'
 Requires-Dist: qdrant-client>=1.9.0,<2.0 ; extra == 'memory-stack'
@@ -105,7 +105,7 @@ Requires-Dist: onnxruntime>=1.24.0 ; (python_full_version >= '3.11' and platform
 Requires-Dist: onnxruntime>=1.16.0,<1.24.0 ; (python_full_version < '3.11' and extra == 'proxy') or (python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'proxy')
 Requires-Dist: transformers>=5.5.0,<6.0 ; extra == 'proxy'
 Requires-Dist: watchdog>=4.0.0 ; (python_full_version < '3.14' and extra == 'proxy') or (sys_platform != 'darwin' and extra == 'proxy')
-Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'proxy'
+Requires-Dist: sqlite-vec>=0.1.9 ; extra == 'proxy'
 Requires-Dist: headroom-ai[proxy] ; extra == 'proxy-prod'
 Requires-Dist: gunicorn>=21.0.0 ; sys_platform != 'win32' and extra == 'proxy-prod'
 Requires-Dist: torch>=2.12.1 ; sys_platform == 'darwin' and extra == 'pytorch-mps'
@@ -119,6 +119,7 @@ Requires-Dist: openpyxl>=3.1.0 ; extra == 'spreadsheet'
 Requires-Dist: xlrd>=2.0.1 ; extra == 'spreadsheet'
 Requires-Dist: strands-agents>=0.1.0 ; extra == 'strands'
 Requires-Dist: hnswlib>=0.8.0 ; extra == 'vector'
+Requires-Dist: google-cloud-aiplatform>=1.38 ; extra == 'vertex'
 Requires-Dist: onnxruntime>=1.24.0 ; (python_full_version >= '3.11' and platform_machine != 'x86_64' and extra == 'voice') or (python_full_version >= '3.11' and sys_platform != 'darwin' and extra == 'voice')
 Requires-Dist: onnxruntime>=1.16.0,<1.24.0 ; (python_full_version < '3.11' and extra == 'voice') or (python_full_version < '3.14' and platform_machine == 'x86_64' and sys_platform == 'darwin' and extra == 'voice')
 Requires-Dist: transformers>=5.5.0,<6.0 ; extra == 'voice'
@@ -154,6 +155,7 @@ Provides-Extra: sandbox
 Provides-Extra: spreadsheet
 Provides-Extra: strands
 Provides-Extra: vector
+Provides-Extra: vertex
 Provides-Extra: voice
 Provides-Extra: voice-train
 License-File: LICENSE

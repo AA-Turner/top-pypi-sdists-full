@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence, Set
 
 import pytest
 
-from nameparser import Parser, parse
+from nameparser import FAMILY_FIRST, GIVEN_FIRST, Parser, Role, parse
 from nameparser._lexicon import Lexicon, _normalize
 from nameparser._pipeline import STAGES
 from nameparser._pipeline._classify import classify
@@ -692,14 +692,14 @@ def test_own_words_is_the_name_s_own_span_and_its_clause_cut() -> None:
     # one function (#289/#516).
     state = _state_through("segment", "Jane née Jones Smith")
     texts, cut = own_words(state.tokens, state.comma_offsets,
-                           state.lexicon.maiden_markers)
+                           state.lexicon._sets.maiden_markers)
     assert texts == ["Jane"]
     assert cut == 1
     # a delimited clause's tokens arrive with a role already set, so
     # they are not the name's own words either
     state = _state_through("segment", "Andrew (Andy) Perkins")
     texts, cut = own_words(state.tokens, state.comma_offsets,
-                           state.lexicon.maiden_markers)
+                           state.lexicon._sets.maiden_markers)
     assert texts == ["Andrew", "Perkins"]
     assert cut == 3
     # `comma_offsets` is load-bearing only for a marker PHRASE whose
@@ -712,10 +712,10 @@ def test_own_words_is_the_name_s_own_span_and_its_clause_cut() -> None:
     # cut lands at 'z' instead. Measured 2026-09-17.
     state = _state_through("segment", "Anna z, domu Nowak")
     texts, cut = own_words(state.tokens, state.comma_offsets,
-                           state.lexicon.maiden_markers)
+                           state.lexicon._sets.maiden_markers)
     assert texts == ["Anna", "z", "domu", "Nowak"]
     assert cut == 4
-    texts, cut = own_words(state.tokens, (), state.lexicon.maiden_markers)
+    texts, cut = own_words(state.tokens, (), state.lexicon._sets.maiden_markers)
     assert texts == ["Anna"]
     assert cut == 1
 
@@ -726,17 +726,17 @@ def test_own_words_takes_a_marker_map_when_the_caller_has_one() -> None:
     state = _state_through("segment", "Jane née Jones Smith")
     heads = {1: "vocab:maiden-marker", 2: "vocab:maiden-marker-cont"}
     assert own_words(state.tokens, state.comma_offsets,
-                     state.lexicon.maiden_markers,
+                     state.lexicon._sets.maiden_markers,
                      heads) == (["Jane"], 1)
     # an incomplete phrase entry: no head tag, so the map's answer is
     # "no clause" -- and the self-built path agrees, since both now
     # run the SAME completion test (#289/#516)
     state = _state_through("segment", "Anna z Nowak")
     assert own_words(state.tokens, state.comma_offsets,
-                     state.lexicon.maiden_markers,
+                     state.lexicon._sets.maiden_markers,
                      {}) == (["Anna", "z", "Nowak"], 3)
     assert own_words(state.tokens, state.comma_offsets,
-                     state.lexicon.maiden_markers)[1] == 3
+                     state.lexicon._sets.maiden_markers)[1] == 3
 
 
 def test_own_words_two_spellings_agree_on_the_one_case_verdict() -> None:
@@ -759,11 +759,11 @@ def test_own_words_two_spellings_agree_on_the_one_case_verdict() -> None:
         state = _state_through("segment", text)
         folded = [_normalize(t.text) for t in state.tokens]
         built_map = tag_marker_runs(state.tokens, state.comma_offsets,
-                                    state.lexicon.maiden_markers, folded)
+                                    state.lexicon._sets.maiden_markers, folded)
         tagged = own_words(state.tokens, state.comma_offsets,
-                           state.lexicon.maiden_markers, built_map)
+                           state.lexicon._sets.maiden_markers, built_map)
         walked = own_words(state.tokens, state.comma_offsets,
-                           state.lexicon.maiden_markers)
+                           state.lexicon._sets.maiden_markers)
         assert tagged == walked, text
         assert is_one_case(tagged[0]) == is_one_case(walked[0]), text
 
@@ -785,7 +785,7 @@ def test_tag_marker_runs_answers_in_ascending_index_order() -> None:
         state = _state_through("segment", text)
         folded = [_normalize(t.text) for t in state.tokens]
         keys = list(tag_marker_runs(state.tokens, state.comma_offsets,
-                                    state.lexicon.maiden_markers,
+                                    state.lexicon._sets.maiden_markers,
                                     folded))
         assert keys == sorted(keys), text
 
@@ -860,7 +860,10 @@ def test_a_title_the_fixed_point_splices_out_keeps_no_peel_pick() -> None:
     # the only way here. Recorded negative control (2026-10-01): with
     # the drop removed, this reads the same fields and reports
     # 'suffix-or-name' on 'Ma.', a word the parse took as a title.
-    parser = Parser(lexicon=Lexicon.default().add(titles={"ma"}))
+    # `ma`'s given readings come off first, or rules/H9 keeps it a
+    # title only inside a title phrase.
+    parser = Parser(lexicon=Lexicon.default().remove("ma", kind="given")
+                    .add("ma", kind="title"))
     name = parser.parse("John Smith Ma. PhD Jr.")
     assert (name.title, name.given, name.family, name.suffix) == (
         "Ma.", "John", "Smith", "PhD Jr.")
@@ -949,8 +952,8 @@ def test_a_title_inside_the_given_parts_run_is_a_title() -> None:
 _CANDIDATE_HEADS = ("Jane Doe", "J.", "Jane van der Berg", "Mai Le",
                     "abdul Berg", "John")
 _CANDIDATE_WORDS = ("Smith", "VI", "V", "III", "MA", "Ma", "PhD", "Jr.",
-                    "Prof.", "Dr.", "Pope.", "do", "DO", "de", "X.Y.Z.",
-                    "Ph. D.", "i", "Jones")
+                    "Prof.", "Dr.", "Pope.", "Maj.", "do", "DO", "de",
+                    "X.Y.Z.", "Ph. D.", "i", "Jones")
 
 
 def _candidate_misses(monkeypatch: pytest.MonkeyPatch,
@@ -1004,9 +1007,11 @@ def test_the_trailing_candidates_cover_what_the_tail_reading_takes(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """M2's take ends the clause at the trailing run the clause-free
     name reads, which it can only find if every word that run might
-    hold is in its view. 6 heads x 18 words to a tail of three after
-    'nee Smith', 37,044 parses through `group`, about 2.6s on py3.11
-    (measured 2026-10-04).
+    hold is in its view. 6 heads x 19 words to a tail of three after
+    'nee Smith', 43,434 parses through `group`, about 2.6s on py3.11
+    (measured 2026-10-04 over the 18 words before #999 added 'Maj.',
+    the title written short that may be a given name, which the
+    chain takes by classify's mark, not by `is_title_piece`).
 
     RECORDED NEGATIVE CONTROL, measured 2026-10-04 on this grid: the
     candidate loop as #601 shipped it (master 8a8459a8), which admitted
@@ -1091,6 +1096,35 @@ def test_a_frozen_connective_neither_joins_nor_merges_into_a_run() -> None:
     # 'and' join taking it in first -- #617's test review)
     assert _joined("Mr. and Mrs.", letter_stays=True, titles_only=True,
                    frozen_words={"and"})[0] == ["Mr.", "and", "Mrs."]
+
+
+def test_joins_in_a_row_share_the_piece_between_them() -> None:
+    """A join's product is the left neighbour of the next connective,
+    so a chain of joins builds one piece, its title kind carried on;
+    and a frozen connective between two runs splits neither join
+    (#1036, where the loop moved from joining in the list itself to
+    building a fresh one; the expected values were read off the tree
+    before the move)."""
+    for titles_only in (True, False):
+        assert _joined("Mr. and Mrs. and Dr.", letter_stays=False,
+                       titles_only=titles_only) == (
+            ["Mr. and Mrs. and Dr."], [{"title"}]), titles_only
+        assert _joined("Mr. and of and Mrs.", letter_stays=False,
+                       titles_only=titles_only, frozen_words={"of"}) == (
+            ["Mr. and of and Mrs."], [{"title"}]), titles_only
+    assert _joined("Juan y Maria y Jose", letter_stays=False,
+                   titles_only=False)[0] == ["Juan y Maria y Jose"]
+
+
+def test_a_connective_at_either_edge_joins_its_one_neighbour() -> None:
+    """Opening the part, a connective takes its neighbour on the right;
+    ending it, the one on the left. Titles-only joins neither, nothing
+    there being a title."""
+    for text in ("and Smith", "Smith and"):
+        assert _joined(text, letter_stays=False,
+                       titles_only=False) == ([text], [set()]), text
+        assert _joined(text, letter_stays=False,
+                       titles_only=True)[0] == text.split(), text
 
 
 def test_only_groups_joins_derive_a_prefix() -> None:
@@ -1337,3 +1371,29 @@ def test_the_second_unit_is_found_once_per_read(
     monkeypatch.setattr(_pieces, "second_unit", counting)
     parse("Freiherr von " + "Berg " * 32 + "MA Dr. " * 32)
     assert calls[0] == 1
+
+
+# H5's listed joined title (decisions/H5, #1104): the three readers of
+# classify's JOINED_TITLE_TAG besides the chain itself (which the
+# tests/v2/cases.py rows pin), each asked through the shape its reader serves: P13's
+# trailing title ('y'), the maiden take's candidates (`trailing_candidates`
+# via `is_trailing_title_word`) and the particle run's weighed word
+# (`_weighed`), each reading the word as 'Prof.' reads (#1104 review: each
+# of the three arms passed the suite with its read removed)
+@pytest.mark.parametrize("order", [GIVEN_FIRST, FAMILY_FIRST])
+@pytest.mark.parametrize("shape", [
+    "Maria Rossi y {}",
+    "Maria Rossi née Bianchi {}",
+    "Freiherr von Berg {} V",
+])
+def test_a_listed_joined_title_reads_as_prof_does(shape: str,
+                                                  order: tuple[Role, Role, Role]) -> None:
+    parser = Parser(policy=Policy(name_order=order))
+
+    def fields(word: str) -> tuple[object, ...]:
+        name = parser.parse(shape.format(word))
+        return (*(getattr(name, f).replace(word, "T") for f in (
+            "title", "given", "middle", "family", "suffix", "maiden")),
+            sorted(a.kind.name for a in name.ambiguities))
+
+    assert fields("Dott.ssa") == fields("Prof.")

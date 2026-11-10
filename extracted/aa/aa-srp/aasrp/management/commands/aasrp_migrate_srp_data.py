@@ -14,10 +14,10 @@ from django.core.management.base import BaseCommand
 from django.utils.crypto import get_random_string
 
 # Alliance Auth
+from allianceauth.framework.api.evecharacter import get_user_from_evecharacter
 from allianceauth.srp.models import SrpFleetMain
 
 # AA SRP
-from aasrp.helper.character import get_user_for_character
 from aasrp.models import RequestComment, SrpLink, SrpRequest
 
 
@@ -96,16 +96,14 @@ class Command(BaseCommand):
         self.stdout.write("Migrating SRP fleets ...")
         srp_fleets = SrpFleetMain.objects.all()
 
-        # Retrieve the loss value field setting
         for srp_fleet in srp_fleets:
             # Check if the fleet creator is valid
-            srp_fleet_creator = get_user_for_character(
+            srp_fleet_creator = get_user_from_evecharacter(
                 character=srp_fleet.fleet_commander
             )
 
             if srp_fleet_creator is not None:
                 # Extract fleet details
-                srp_fleet_commander = srp_fleet.fleet_commander
                 srp_fleet_name = srp_fleet.fleet_name
                 srp_fleet_doctrine = srp_fleet.fleet_doctrine
                 srp_fleet_time = srp_fleet.fleet_time
@@ -138,7 +136,6 @@ class Command(BaseCommand):
                     srp_link.fleet_doctrine = srp_fleet_doctrine
                     srp_link.aar_link = srp_fleet_aar_link
                     srp_link.fleet_time = srp_fleet_time
-                    srp_link.fleet_commander = srp_fleet_commander
                     srp_link.creator = srp_fleet_creator
                     srp_link.save()
 
@@ -155,7 +152,7 @@ class Command(BaseCommand):
 
                 for srp_userrequest in srp_userrequests:
                     # Check if the request creator is valid
-                    srp_userrequest_creator = get_user_for_character(
+                    srp_userrequest_creator = get_user_from_evecharacter(
                         character=srp_userrequest.character
                     )
 

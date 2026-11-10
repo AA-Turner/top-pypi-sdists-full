@@ -81,7 +81,9 @@ from cwsandbox._direct import (
 from cwsandbox._error_info import (
     CWSANDBOX_BACKEND_UNAVAILABLE,
     CWSANDBOX_COMMAND_TIMEOUT,
+    CWSANDBOX_DNS_EGRESS_UNAVAILABLE,
     CWSANDBOX_ERROR_DOMAIN,
+    CWSANDBOX_ETAG_MISMATCH,
     CWSANDBOX_FILE_IO_FAILED,
     CWSANDBOX_FILE_IS_DIRECTORY,
     CWSANDBOX_FILE_NOT_FOUND,
@@ -96,6 +98,8 @@ from cwsandbox._error_info import (
     CWSANDBOX_FSS_SIZE_EXCEEDED,
     CWSANDBOX_FSS_WAIT_TIMEOUT,
     CWSANDBOX_INVALID_REQUEST,
+    CWSANDBOX_NETWORK_CONFIG_IN_USE,
+    CWSANDBOX_NETWORK_CONFIG_NOT_FOUND,
     CWSANDBOX_RESOURCE_CEILING_EXCEEDED,
     CWSANDBOX_RUNNER_CAPACITY_EXHAUSTED,
     CWSANDBOX_RUNNER_OVERLOADED,
@@ -128,6 +132,7 @@ from cwsandbox._network import (
     parse_grpc_target,
     translate_grpc_error,
 )
+from cwsandbox._network_config import NetworkConfig, _update_network_config_async
 from cwsandbox._proto import (
     sandbox_pb2,
     sandbox_pb2_grpc,
@@ -137,6 +142,7 @@ from cwsandbox._proto import (
 from cwsandbox._resources import normalize_resources
 from cwsandbox._spec import (
     coerce_security_context,
+    dns_egress_from_proto,
     egress_rule_from_proto,
     ingress_rule_from_proto,
     network_to_proto,
@@ -149,6 +155,7 @@ from cwsandbox._spec import (
 from cwsandbox._types import (
     Container,
     DataPlaneMode,
+    DNSEgressMode,
     EgressRule,
     Endpoint,
     EndpointAuth,
@@ -164,6 +171,8 @@ from cwsandbox._types import (
     HttpsEndpointStatus,
     ImagePullCredentials,
     IngressRule,
+    LogCursor,
+    LogStreamReader,
     NetworkOptions,
     ObjectStorageAccess,
     OperationRef,
@@ -190,16 +199,24 @@ from cwsandbox._types import (
     _coerce_container,
     _coerce_object_storage_access,
     _coerce_volume_mount,
+    _LogLine,
     _unique_secrets_by_env_var,
     _validate_containers,
 )
 from cwsandbox.exceptions import (
     CWSandboxError,
+    DNSEgressUnavailableError,
+    NetworkConfigError,
+    NetworkConfigEtagMismatchError,
+    NetworkConfigInUseError,
+    NetworkConfigNotFoundError,
     SandboxCommandTimeoutError,
     SandboxError,
     SandboxExecutionError,
     SandboxFailedError,
     SandboxFileError,
+    SandboxLogReplayGapError,
+    SandboxLogResumeError,
     SandboxNotFoundError,
     SandboxNotRunningError,
     SandboxProtocolError,
@@ -928,6 +945,34 @@ def _translate_volume_reason(
     return None
 
 
+def _translate_network_config_reason(
+    reason: str,
+    *,
+    details: str,
+    operation: str,
+    network_config_id: str | None,
+    metadata: Mapping[str, str] | None,
+    retry_delay: timedelta | None,
+) -> CWSandboxError | None:
+    """Map a trusted NetworkConfig reason to a typed exception."""
+    network_config_classes: dict[str, type[NetworkConfigError]] = {
+        CWSANDBOX_NETWORK_CONFIG_NOT_FOUND: NetworkConfigNotFoundError,
+        CWSANDBOX_NETWORK_CONFIG_IN_USE: NetworkConfigInUseError,
+        CWSANDBOX_ETAG_MISMATCH: NetworkConfigEtagMismatchError,
+        CWSANDBOX_DNS_EGRESS_UNAVAILABLE: DNSEgressUnavailableError,
+    }
+    cls = network_config_classes.get(reason)
+    if cls is None:
+        return None
+    return cls(
+        f"{operation} failed ({reason}): {details}",
+        network_config_id=network_config_id,
+        reason=reason,
+        metadata=metadata,
+        retry_delay=retry_delay,
+    )
+
+
 def _is_runner_shard_retiring_error(error: grpc.RpcError) -> bool:
     parsed = parse_error_info(error)
     return (
@@ -960,6 +1005,7 @@ def _translate_rpc_error(
     filepath: str | None = None,
     file_system_snapshot_id: str | None = None,
     volume_id: str | None = None,
+    network_config_id: str | None = None,
 ) -> CWSandboxError:
     """Translate gRPC RpcError to appropriate CWSandbox exception.
 
@@ -1067,6 +1113,17 @@ def _translate_rpc_error(
         )
         if volume_exc is not None:
             return volume_exc
+        network_config_exc = _translate_network_config_reason(
+            reason,
+            details=details,
+            operation=operation,
+            network_config_id=network_config_id
+            or (parsed_metadata.get("network_config_id") if parsed_metadata else None),
+            metadata=metadata,
+            retry_delay=retry_delay,
+        )
+        if network_config_exc is not None:
+            return network_config_exc
 
     if code == grpc.StatusCode.NOT_FOUND:
         # An FSS operation carries a snapshot ID, not a sandbox ID. Map a bare
@@ -1085,6 +1142,14 @@ def _translate_rpc_error(
             return VolumeNotFoundError(
                 f"Volume '{volume_id}' not found",
                 volume_id=volume_id,
+                reason=reason,
+                metadata=metadata,
+                retry_delay=retry_delay,
+            )
+        if network_config_id is not None:
+            return NetworkConfigNotFoundError(
+                f"NetworkConfig '{network_config_id}' not found",
+                network_config_id=network_config_id,
                 reason=reason,
                 metadata=metadata,
                 retry_delay=retry_delay,
@@ -1436,13 +1501,17 @@ _RETRYABLE_POLL_EXCEPTIONS: tuple[type[CWSandboxError], ...] = (
 #
 #   SESSION_NOT_FOUND / REPLAY_GAP / RUNNER_UNAVAILABLE / RUNNER_DRAINING
 #       reconnect with a FRESH init (no resume_session_id / resume_offset)
-#       to pick up the live tail from the current head.
+#       to pick up the live tail from the current head. On a stream started
+#       from a caller cursor (stream_logs(resume=...)), raise
+#       SandboxLogResumeError instead (SandboxLogReplayGapError for
+#       REPLAY_GAP), at any point in the stream.
 #   STREAM_INTERRUPTED
 #       reconnect and RESUME (keep session_id / offset). The server still
 #       holds the session; this is emitted on routine restarts/deploys.
 #   INVALID_RESUME_OFFSET
 #       terminal, no retry — the echoed offset is corrupt and reconnecting
-#       with the same state would just reproduce the failure.
+#       with the same state would just reproduce the failure. Raised as
+#       SandboxLogResumeError on a stream started from a caller cursor.
 #   SANDBOX_NOT_FOUND / PERMISSION_DENIED / other unknown codes
 #       terminal, no retry — surface to the caller as a SandboxError.
 _STREAMING_SESSION_NOT_FOUND = "SESSION_NOT_FOUND"
@@ -1986,7 +2055,7 @@ class Sandbox:
         runner_id: Runner ID where sandbox is running.
         returncode: Exit code if sandbox completed.
         started_at: When sandbox started running.
-        dns_egress_names: Hostnames granted at create (from status.effective_egress).
+        dns_egress_names: Hostnames granted to the sandbox (from status.effective_egress).
         endpoint_share_token: Create-only share-token credential for
             ``auth=SHARE_TOKEN`` HTTPS URLs. Get, list, and ``from_id``
             omit it. Use ``as_headers()`` to authenticate requests.
@@ -2015,6 +2084,7 @@ class Sandbox:
         s3_mount: dict[str, Any] | None = None,
         ports: list[dict[str, Any]] | None = None,
         network: NetworkOptions | dict[str, Any] | None = None,
+        network_config_id: str | None = None,
         file_system_snapshot: FileSystemSnapshotOptions | dict[str, Any] | None = None,
         max_timeout_seconds: int | None = None,
         placement_mode: PlacementMode | str | None = None,
@@ -2078,7 +2148,12 @@ class Sandbox:
             ports: Removed in 1.x; use ``services=[Service(...)]`` instead.
             network: ``NetworkOptions`` (or dict) with deny flags and optional
                 create-time hostname grants (``egress=[EgressRule(dns_name=...)]``).
-                Port exposure uses ``services=``.
+                Port exposure uses ``services=``. The backend stores it as a
+                platform-managed NetworkConfig that ``update_network()`` edits.
+            network_config_id: Bind an existing unbound ``NetworkConfig`` instead
+                of sending ``network``. Mutually exclusive with ``network``;
+                ``SandboxDefaults.network`` is not applied. Templates accept it
+                as an override; ``run_from_file`` and ``@session.function`` do not.
             placement_mode: ``PlacementMode`` or string (``serverless`` / ``cks``).
             placement_spillover: ``PlacementSpillover`` or string. Default
                 ``strict`` (no create retry). Non-strict modes retry CreateSandbox
@@ -2122,6 +2197,17 @@ class Sandbox:
                 raise TypeError(
                     f"network must be NetworkOptions, dict, or None, got {type(network).__name__}"
                 )
+
+        if network_config_id is not None:
+            if not isinstance(network_config_id, str) or not network_config_id:
+                raise ValueError("network_config_id must be a non-empty string")
+            if network is not None:
+                raise ValueError(
+                    "network and network_config_id are mutually exclusive; "
+                    "set the rules on the NetworkConfig instead"
+                )
+            if _from_file is not None:
+                raise TypeError("network_config_id cannot be combined with run_from_file")
 
         self._defaults = defaults or SandboxDefaults()
         self._session = _session
@@ -2271,6 +2357,9 @@ class Sandbox:
         self._attached_volume_ids: tuple[str, ...] = ()
         self._effective_egress: tuple[EgressRule, ...] = ()
         self._effective_ingress: tuple[IngressRule, ...] = ()
+        self._effective_dns_egress: DNSEgressMode | None = None
+        self._requested_network_config_id: str | None = network_config_id
+        self._network_config_id: str | None = network_config_id
         self._scratch_volume_names: tuple[str, ...] = ()
         self._service_urls: tuple[tuple[int, str, str], ...] = ()
         self._service_endpoints: tuple[HttpsEndpointStatus, ...] = ()
@@ -2307,7 +2396,9 @@ class Sandbox:
             raise TypeError("ports was removed in cwsandbox 1.x")
         # Use explicit network or fall back to defaults
         effective_network = (
-            network if network is not None or from_template else self._defaults.network
+            network
+            if network is not None or from_template or network_config_id is not None
+            else self._defaults.network
         )
         if effective_network is not None:
             self._start_kwargs["network"] = effective_network
@@ -2504,6 +2595,7 @@ class Sandbox:
         s3_mount: dict[str, Any] | None = None,
         ports: list[dict[str, Any]] | None = None,
         network: NetworkOptions | dict[str, Any] | None = None,
+        network_config_id: str | None = None,
         file_system_snapshot: FileSystemSnapshotOptions | dict[str, Any] | None = None,
         max_timeout_seconds: int | None = None,
         placement_mode: PlacementMode | str | None = None,
@@ -2569,7 +2661,12 @@ class Sandbox:
             ports: Removed in 1.x; use ``services=[Service(...)]`` instead.
             network: ``NetworkOptions`` (or dict) with deny flags and optional
                 create-time hostname grants (``egress=[EgressRule(dns_name=...)]``).
-                Port exposure uses ``services=``.
+                Port exposure uses ``services=``. The backend stores it as a
+                platform-managed NetworkConfig that ``update_network()`` edits.
+            network_config_id: Bind an existing unbound ``NetworkConfig`` instead
+                of sending ``network``. Mutually exclusive with ``network``;
+                ``SandboxDefaults.network`` is not applied. Templates accept it
+                as an override; ``run_from_file`` and ``@session.function`` do not.
             placement_mode: ``PlacementMode`` or string (``serverless`` / ``cks``).
             placement_spillover: ``PlacementSpillover`` or string. Default
                 ``strict``. See ``Sandbox.__init__``.
@@ -2654,6 +2751,7 @@ class Sandbox:
             s3_mount=s3_mount,
             ports=ports,
             network=network,
+            network_config_id=network_config_id,
             file_system_snapshot=file_system_snapshot,
             max_timeout_seconds=max_timeout_seconds,
             placement_mode=placement_mode,
@@ -2985,6 +3083,9 @@ class Sandbox:
         sandbox._attached_volume_ids = ()
         sandbox._effective_egress = ()
         sandbox._effective_ingress = ()
+        sandbox._effective_dns_egress = None
+        sandbox._requested_network_config_id = None
+        sandbox._network_config_id = None
         sandbox._scratch_volume_names = (
             tuple(
                 volume.name
@@ -4292,7 +4393,7 @@ class Sandbox:
 
     @property
     def dns_egress_names(self) -> tuple[str, ...]:
-        """Hostnames granted at create, echoed from ``status.effective_egress``.
+        """Hostnames granted to the sandbox, echoed from ``status.effective_egress``.
 
         Empty until a create/Get/list response reports name rules, or when
         none were requested. Terminal sandboxes keep the last echoed names.
@@ -4328,6 +4429,25 @@ class Sandbox:
     def effective_ingress(self) -> tuple[IngressRule, ...]:
         """Effective ingress rules echoed from ``status.effective_ingress``."""
         return self._effective_ingress
+
+    @property
+    def effective_dns_egress(self) -> DNSEgressMode | None:
+        """Port-53 DNS mode echoed from ``status.effective_dns_egress``.
+
+        None until a create/Get/list response reports a mode.
+        """
+        return self._effective_dns_egress
+
+    @property
+    def network_config_id(self) -> str | None:
+        """ID of the NetworkConfig bound to this sandbox.
+
+        Echoed from create/Get/list. A sandbox created without
+        ``network_config_id`` gets a platform-managed config (``nc-`` prefix)
+        that is deleted when the sandbox ends. None until a response reports
+        one, and for sandboxes created before NetworkConfig existed.
+        """
+        return self._network_config_id
 
     @property
     def exposed_ports(self) -> tuple[tuple[int, str], ...] | None:
@@ -5661,6 +5781,8 @@ class Sandbox:
             spec.annotations.update(self._annotations)
         if network_proto is not None:
             spec.network.CopyFrom(network_proto)
+        if self._requested_network_config_id:
+            spec.network_config_id = self._requested_network_config_id
         if self._runtime_class:
             spec.runtime_class = self._runtime_class
         if self._object_storage_access is not None:
@@ -5763,6 +5885,8 @@ class Sandbox:
             overrides.mode = spec.mode
         if "network" in explicit_keys and spec.HasField("network"):
             overrides.network.CopyFrom(spec.network)
+        if self._requested_network_config_id:
+            overrides.network_config_id = self._requested_network_config_id
         if self._runtime_class:
             overrides.runtime_class = self._runtime_class
         if self._object_storage_access is not None:
@@ -5960,6 +6084,10 @@ class Sandbox:
             except ValueError:
                 continue
         self._effective_ingress = tuple(ingress_rules)
+        if view._sandbox.spec.network_config_id:
+            self._network_config_id = view._sandbox.spec.network_config_id
+        dns_mode = dns_egress_from_proto(status.effective_dns_egress)
+        self._effective_dns_egress = None if dns_mode == DNSEgressMode.UNSPECIFIED else dns_mode
         if status.services:
             self._exposed_ports = tuple(
                 (s.port, s.name)
@@ -7268,6 +7396,96 @@ class Sandbox:
         )
         return OperationRef(future)
 
+    async def _update_network_async(
+        self,
+        network: NetworkOptions | Mapping[str, Any],
+        *,
+        update_mask: Sequence[str] | None,
+        etag: str | None,
+    ) -> NetworkConfig:
+        """Internal async: update the bound NetworkConfig, then refresh status."""
+        await self._ensure_started_async()
+        await self._wait_until_running_async()
+        if self._network_config_id is None:
+            await self._get_status_async()
+        if self._network_config_id is None:
+            raise SandboxError(
+                f"Sandbox {self._sandbox_id} has no NetworkConfig, so its network "
+                "cannot be changed live (the backend did not report one)"
+            )
+        config = await _update_network_config_async(
+            self._network_config_id,
+            network,
+            update_mask=update_mask,
+            etag=etag,
+            base_url=self._base_url,
+            timeout_seconds=self._request_timeout_seconds,
+            auth=self._auth,
+        )
+        # The update already succeeded; a failed echo refresh must not hide
+        # that. effective_* catches up on the next get_status().
+        try:
+            await self._get_status_async()
+        except CWSandboxError as exc:
+            logger.debug("Status refresh after network update failed: %s", exc)
+        return config
+
+    def update_network(
+        self,
+        network: NetworkOptions | Mapping[str, Any],
+        *,
+        update_mask: Sequence[str] | None = None,
+        etag: str | None = None,
+    ) -> OperationRef[NetworkConfig]:
+        """Change this sandbox's network policy while it runs.
+
+        Updates the sandbox's bound ``NetworkConfig`` and returns once the
+        runner has applied it. Starts the sandbox first if needed and waits
+        for RUNNING. Then refreshes ``effective_egress`` / ``effective_ingress``
+        / ``effective_dns_egress`` / ``dns_egress_names`` from the backend.
+
+        Only the fields in the update mask change. By default that is every
+        field set (not None) on ``network``: ``NetworkOptions(egress=[])``
+        clears egress to the policy default and leaves ingress alone. Leave
+        ``dns_egress`` as None to keep the current DNS mode.
+
+        Args:
+            network: Fields to write (``NetworkOptions`` or dict).
+            update_mask: Explicit paths (``"egress"``, ``"ingress"``,
+                ``"deny_egress"``, ``"deny_ingress"``, ``"dns_egress"``, or
+                ``"*"`` for all five). ``[]`` is a no-op.
+            etag: Reject the update if the config changed since this etag was
+                read (``NetworkConfigEtagMismatchError``). Get it from
+                ``NetworkConfig.get(sb.network_config_id)``.
+
+        Returns:
+            OperationRef[NetworkConfig]: the stored document after the update.
+
+        Raises:
+            NetworkConfigError: Update rejected (see subclasses).
+            DNSEgressUnavailableError: A new hostname cannot be served yet;
+                retried within the transient budget first.
+            SandboxError: ``CWSANDBOX_INVALID_REQUEST`` when the change is
+                outside the runner policy, adds the first hostname to a sandbox
+                that cannot add one live, or the runner cannot update networks
+                live (``SandboxValidationError`` when the backend names fields).
+                The stored config is left unchanged.
+
+        Examples:
+            ```python
+            with Sandbox.run() as sb:
+                sb.update_network(
+                    NetworkOptions(egress=[EgressRule(dns_name="pypi.org")])
+                ).result()
+                sb.exec(["pip", "install", "requests"]).result()
+                sb.update_network(NetworkOptions(egress=[])).result()
+            ```
+        """
+        future = self._loop_manager.run_async(
+            self._update_network_async(network, update_mask=update_mask, etag=etag)
+        )
+        return OperationRef(future)
+
     async def _stream_logs_async(
         self,
         output_queue: asyncio.Queue[str | Exception | None],
@@ -7278,6 +7496,7 @@ class Sandbox:
         timestamps: bool = False,
         timeout_seconds: float | None = None,
         container: str | None = None,
+        resume: LogCursor | None = None,
     ) -> None:
         """Stream PID-1 logs via v1 unary StreamLogs → LogEntry server stream."""
         inner_exit_clean = False
@@ -7299,17 +7518,23 @@ class Sandbox:
             if since_time is not None and since_time.tzinfo is None:
                 raise ValueError("since_time must be timezone-aware; naive datetimes are rejected")
 
-            session_id = ""
-            last_offset = 0
-            line_parts: list[str] = []
-            line_parts_bytes = 0
+            session_id = resume.session_id if resume is not None else ""
+            last_offset = resume.offset if resume is not None else 0
+            # A stream started from a caller cursor never re-inits fresh: that
+            # would drop the original timestamps/container and replay or skip
+            # lines, so session loss is raised as SandboxLogResumeError.
+            caller_resumed = resume is not None
+            # Cursor of the last line handed to the reader (reader.cursor).
+            # Resume errors carry it so the two always match.
+            last_line_cursor = resume
+            pending = bytearray()
             attempt = 0
             done = False
             last_transport_error: grpc.aio.AioRpcError | None = None
             delivered_any = False
 
             while not done and attempt < STREAMING_RESUME_MAX_ATTEMPTS:
-                is_resume = bool(session_id) and attempt > 0
+                is_resume = bool(session_id)
                 prepared = await self._prepare_data_plane_call(
                     sandbox_pb2.SANDBOX_DATA_PERMISSION_STREAM_LOGS,
                     streaming=True,
@@ -7326,8 +7551,9 @@ class Sandbox:
                     request.resume_log_session_id = session_id
                     request.resume_log_offset = last_offset
                 else:
-                    # Fresh init (first attempt or after SESSION_NOT_FOUND /
-                    # REPLAY_GAP / runner loss). Re-send timestamps so
+                    # Fresh init on a stream started without resume (first
+                    # attempt or after SESSION_NOT_FOUND / REPLAY_GAP /
+                    # runner loss). Re-send timestamps so
                     # formatting survives a session reset. Re-send the
                     # caller window until any data arrives; after that,
                     # follow mode advances since_time to now to avoid
@@ -7358,13 +7584,26 @@ class Sandbox:
                             if entry.HasField("error") and entry.error.code:
                                 code = entry.error.code
                                 msg = entry.error.message or code
+                                if caller_resumed and (
+                                    code in _STREAMING_FRESH_REINIT_CODES
+                                    or code == _STREAMING_INVALID_RESUME_OFFSET
+                                ):
+                                    error_cls = (
+                                        SandboxLogReplayGapError
+                                        if code == _STREAMING_REPLAY_GAP
+                                        else SandboxLogResumeError
+                                    )
+                                    raise error_cls(
+                                        f"Log stream error: {msg}",
+                                        cursor=last_line_cursor,
+                                        stream_code=code,
+                                    )
                                 if code in _STREAMING_FRESH_REINIT_CODES:
                                     if not follow:
                                         raise SandboxError(f"Log stream error: {msg}")
                                     session_id = ""
                                     last_offset = 0
-                                    line_parts = []
-                                    line_parts_bytes = 0
+                                    pending.clear()
                                     break
                                 if code == _STREAMING_INTERRUPTED:
                                     if not follow:
@@ -7377,58 +7616,68 @@ class Sandbox:
                                 session_id = entry.log_session_id
                             if entry.next_log_offset:
                                 last_offset = int(entry.next_log_offset)
-                            chunk = entry.data.decode("utf-8", errors="replace")
-                            if not chunk:
+                            data = entry.data
+                            if not data:
                                 continue
                             if follow:
                                 attempt = 0
                                 last_transport_error = None
                             delivered_any = True
-                            line_parts.append(chunk)
-                            buf = "".join(line_parts)
-                            if "\n" in buf:
-                                *complete, remainder = buf.split("\n")
-                                for line in complete:
-                                    encoded_line = (line + "\n").encode("utf-8")
-                                    if len(encoded_line) > MAX_LINE_BUFFER_BYTES:
-                                        raise SandboxStreamTruncatedError(
-                                            f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                        )
-                                    await output_queue.put(line + "\n")
-                                remainder_bytes = len(remainder.encode("utf-8")) if remainder else 0
-                                if remainder_bytes > MAX_LINE_BUFFER_BYTES:
+                            # next_log_offset is the offset just past this
+                            # entry, so each line's cursor is the entry start
+                            # plus the line's end within the entry.
+                            entry_start = int(entry.next_log_offset) - len(data)
+                            start = 0
+                            while (newline := data.find(b"\n", start)) >= 0:
+                                pending += data[start : newline + 1]
+                                if len(pending) > MAX_LINE_BUFFER_BYTES:
                                     raise SandboxStreamTruncatedError(
                                         f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
                                     )
-                                line_parts = [remainder] if remainder else []
-                                line_parts_bytes = remainder_bytes
-                            else:
-                                line_parts_bytes = len(buf.encode("utf-8"))
-                                if line_parts_bytes > MAX_LINE_BUFFER_BYTES:
-                                    raise SandboxStreamTruncatedError(
-                                        f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                    )
+                                line_cursor = (
+                                    LogCursor(entry.log_session_id, entry_start + newline + 1)
+                                    if follow and entry.log_session_id
+                                    else None
+                                )
+                                line = pending.decode("utf-8", errors="replace")
+                                pending.clear()
+                                if line_cursor is not None:
+                                    last_line_cursor = line_cursor
+                                await output_queue.put(_LogLine(line, line_cursor))
+                                start = newline + 1
+                            pending += data[start:]
+                            if len(pending) > MAX_LINE_BUFFER_BYTES:
+                                raise SandboxStreamTruncatedError(
+                                    f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
+                                )
                         else:
-                            if line_parts:
-                                leftover = "".join(line_parts)
-                                if len(leftover.encode("utf-8")) > MAX_LINE_BUFFER_BYTES:
-                                    raise SandboxStreamTruncatedError(
-                                        f"Log line exceeded {MAX_LINE_BUFFER_BYTES} bytes"
-                                    )
-                                await output_queue.put(leftover)
-                                line_parts = []
-                                line_parts_bytes = 0
+                            if pending:
+                                line_cursor = (
+                                    LogCursor(session_id, last_offset)
+                                    if follow and session_id
+                                    else None
+                                )
+                                line = pending.decode("utf-8", errors="replace")
+                                pending.clear()
+                                if line_cursor is not None:
+                                    last_line_cursor = line_cursor
+                                await output_queue.put(_LogLine(line, line_cursor))
                             done = True
                     except grpc.aio.AioRpcError as exc:
                         last_transport_error = exc
                         direct_unavailable = prepared.is_direct and _is_unavailable_rpc_error(exc)
                         if direct_unavailable:
                             await prepared.discard()
-                            if is_resume and _is_log_session_wrong_shard_error(exc):
+                            # A new connection can land on the owner shard,
+                            # so a caller cursor keeps its session and retries.
+                            if (
+                                is_resume
+                                and not caller_resumed
+                                and _is_log_session_wrong_shard_error(exc)
+                            ):
                                 session_id = ""
                                 last_offset = 0
-                                line_parts = []
-                                line_parts_bytes = 0
+                                pending.clear()
                         if prepared.is_direct and _is_runner_shard_retiring_error(exc):
                             pass
                         elif not (_is_resumable_transport_error(exc) and follow):
@@ -7454,6 +7703,16 @@ class Sandbox:
                 )
 
             if not done:
+                if (
+                    caller_resumed
+                    and last_transport_error is not None
+                    and _is_log_session_wrong_shard_error(last_transport_error)
+                ):
+                    raise SandboxLogResumeError(
+                        f"Log stream for sandbox {sandbox_id} could not"
+                        " resume: the log session is on another shard",
+                        cursor=last_line_cursor,
+                    ) from last_transport_error
                 if last_transport_error is not None:
                     raise SandboxUnavailableError(
                         f"Log stream for sandbox {sandbox_id} could not be resumed"
@@ -9726,7 +9985,8 @@ class Sandbox:
         timestamps: bool = False,
         timeout_seconds: float | None = None,
         container: str | None = None,
-    ) -> StreamReader[str]:
+        resume: LogCursor | None = None,
+    ) -> LogStreamReader:
         """Stream logs from the sandbox's main process.
 
         Streams stdout/stderr from the sandbox's **main command**: the
@@ -9740,9 +10000,23 @@ class Sandbox:
             produce any log output. To see logs here, pass a command that
             writes to stdout/stderr when calling ``Sandbox.run()``.
 
-        Returns a StreamReader that yields log lines as strings. The method
-        returns immediately; iteration on the StreamReader blocks until
+        Returns a LogStreamReader that yields log lines as strings. The
+        method returns immediately; iteration on the reader blocks until
         data arrives.
+
+        In follow mode, ``reader.cursor`` is a ``LogCursor`` pointing just
+        past the last line the reader handed to you (``None`` until the
+        first line is yielded on a stream started without ``resume``;
+        ``follow=False`` readers have no cursor). Save it and pass it as
+        ``resume`` to a later ``stream_logs(follow=True, resume=cursor)``
+        call, possibly from another process, to continue with the next line
+        without gaps or duplicates. This only works within the server's
+        resume window (it keeps an orphaned session for 30 seconds by
+        default) and while the bytes at the cursor are still in its replay
+        buffer. If the session cannot be resumed, at any point
+        in the resumed stream, iteration raises ``SandboxLogResumeError``
+        (``SandboxLogReplayGapError`` if the cursor fell out of the replay
+        buffer) rather than silently re-initing and skipping lines.
 
         Args:
             follow: If True, continuously stream new logs (like ``tail -f``).
@@ -9759,15 +10033,29 @@ class Sandbox:
                 ``None`` (no timeout) when ``follow=True``.
             container: Container whose logs to stream. Empty/None targets the
                 primary.
+            resume: ``LogCursor`` from a previous follow stream's
+                ``reader.cursor``. Requires ``follow=True`` and cannot be
+                combined with ``tail_lines``, ``since_time`` or
+                ``timestamps``; the resumed stream keeps the original
+                stream's timestamp formatting.
 
         Returns:
-            StreamReader yielding log lines as strings. Iterate synchronously
-            with ``for line in reader`` or asynchronously with
+            LogStreamReader yielding log lines as strings. Iterate
+            synchronously with ``for line in reader`` or asynchronously with
             ``async for line in reader``.
 
         Raises:
+            ValueError: If ``resume`` is not a valid ``LogCursor`` or is
+                combined with ``follow=False``, ``tail_lines``,
+                ``since_time`` or ``timestamps=True``.
             SandboxNotRunningError: If ``follow=True`` and the sandbox has
                 been stopped.
+            SandboxLogResumeError: If a stream started from ``resume``
+                cannot continue the session, for example because it expired
+                or its runner went away (raised during iteration, carries
+                ``.cursor`` and ``.stream_code``).
+            SandboxLogReplayGapError: If the server no longer retains the
+                logs at ``resume`` (a ``SandboxLogResumeError`` subclass).
             SandboxError: If the log stream encounters an error.
 
         Example:
@@ -9783,8 +10071,37 @@ class Sandbox:
             # Async usage
             async for line in sandbox.stream_logs(follow=True):
                 print(line, end="")
+
+            # Save a cursor, then resume from it later
+            reader = sandbox.stream_logs(follow=True)
+            for line in reader:
+                print(line, end="")
+                if should_pause():
+                    break
+            cursor = reader.cursor  # None if no line was read: resume=None starts fresh
+            reader.close()
+            for line in sandbox.stream_logs(follow=True, resume=cursor):
+                print(line, end="")
             ```
         """
+        if resume is not None:
+            if not isinstance(resume, LogCursor):
+                raise ValueError("resume must be a LogCursor")
+            if not isinstance(resume.session_id, str) or not resume.session_id.strip():
+                raise ValueError("resume.session_id must be a non-empty string")
+            if (
+                isinstance(resume.offset, bool)
+                or not isinstance(resume.offset, int)
+                or not 0 <= resume.offset <= 2**64 - 1
+            ):
+                raise ValueError("resume.offset must be an integer in [0, 2**64 - 1]")
+            if not follow:
+                raise ValueError("resume requires follow=True")
+            if tail_lines is not None or since_time is not None or timestamps:
+                raise ValueError(
+                    "resume cannot be combined with tail_lines, since_time or timestamps"
+                )
+
         # Default timeout: request_timeout for finite streams, None for follow
         if timeout_seconds is None and not follow:
             timeout_seconds = self._request_timeout_seconds
@@ -9805,7 +10122,10 @@ class Sandbox:
                 timestamps=timestamps,
                 timeout_seconds=timeout_seconds,
                 container=container,
+                resume=resume,
             )
         )
 
-        return StreamReader(output_queue, self._loop_manager, cancel=future.cancel)
+        return LogStreamReader(
+            output_queue, self._loop_manager, cancel=future.cancel, cursor=resume
+        )

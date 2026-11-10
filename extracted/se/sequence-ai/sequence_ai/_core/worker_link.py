@@ -65,22 +65,22 @@ def why_not_opened(exc: BaseException) -> str:
     return f"opening it failed with {type(exc).__name__}"
 
 
-def _built_before(base: str) -> InvalidRequest:
-    """What a robot is told of a worker built before a robot's requests went on its stream alone."""
-    return InvalidRequest(f"the worker at {base} was built before a robot's requests went on one WebSocket alone",
+def _built_before() -> InvalidRequest:
+    """What a robot is told of a worker built before a robot's requests went on its stream alone - never its address."""
+    return InvalidRequest("the worker was built before a robot's requests went on one WebSocket alone",
                           hint="`seq deploy` the same code again")
 
 
-def _refused(exc: _stream.StreamRefused, base: str) -> Optional[Exception]:
+def _refused(exc: _stream.StreamRefused) -> Optional[Exception]:
     """What a robot is told when its stream's upgrade was answered `exc.status`: its secret turned away (AuthError: a new
     worker epoch, DirectConnection connects again) - or a proxy's refusal, which reads the same; a worker built before it
     took a stream; a worker in front of which something answered for it (5xx: None - a worker not reached, as any); anything
     else, a network that lets no WebSocket through."""
     if exc.status in (401, 403):
-        return AuthError(f"the worker at {base} refused this robot's stream ({exc})", status=exc.status,
+        return AuthError(f"the worker refused this robot's stream ({exc})", status=exc.status,
                          hint=_MAY_BE_THE_NETWORK)
     if exc.status == 404:
-        return _built_before(base)
+        return _built_before()
     if exc.status >= 500:
         return None
     return StreamRefused(f"{_NO_WEBSOCKET}: the answer was \"{exc}\"", status=exc.status or None,
@@ -127,21 +127,21 @@ class StreamLink:
                     if isinstance(exc, (TimeoutError, socket.timeout)) and bound < left and not self._closed:
                         continue
                     self._stream_error = (exc if isinstance(exc, CertPinError)
-                                          else _refused(exc, self._base) if isinstance(exc, _stream.StreamRefused)
+                                          else _refused(exc) if isinstance(exc, _stream.StreamRefused)
                                           else CertPinError("worker certificate is not valid for the name it was "
                                                             "given; refusing to connect") if _gone_cert(exc) else None)
                     self._warm_failed = (str(self._stream_error) if self._stream_error is not None else
                                          f"{why_not_opened(exc)} ({tries} {'try' if tries == 1 else 'tries'} in "
                                          f"{took:.1f} s, the last {trace.stuck()})")
-                    _log.debug("the connection to %s: its stream did not open: %s", self._base, self._warm_failed)
+                    _log.debug("the connection to its worker: its stream did not open: %s", self._warm_failed)
                     return
                 break
             said = stream.said.get("x-seq-act-formats")
             if _stream.FORMAT not in {part.strip().lower() for part in (said or "").split(",")}:
                 stream.close()
-                self._stream_error = _built_before(self._base)
+                self._stream_error = _built_before()
                 self._warm_failed = str(self._stream_error)
-                _log.debug("the connection to %s: its stream did not open: %s", self._base, self._warm_failed)
+                _log.debug("the connection to its worker: its stream did not open: %s", self._warm_failed)
                 return
             self._learn_formats(said)
             self.outside.ping_ms = trace.ms("connect_tcp") or (time.monotonic() - asked) * 1000.0
@@ -182,20 +182,20 @@ class StreamLink:
         if stream is not None and stream.alive:
             return stream
         if stream is not None:
-            _log.debug("the stream to %s ended (%s): opened again", self._base, stream.why_closed)
+            _log.debug("the stream to its worker ended (%s): opened again", stream.why_closed)
             with self._sends:
                 if self._stream is stream:
                     self._stream = None
         self._ensure_stream()
         opening = self._stream_opening
         if opening is not None and not opening.wait(timeout_s):
-            raise _stream.NotOpened(f"the stream to the worker at {self._base} did not open in {timeout_s:.1f} s")
+            raise _stream.NotOpened(f"the stream to the worker did not open in {timeout_s:.1f} s")
         stream = self._stream
         if stream is not None and stream.alive:
             return stream
         if self._stream_error is not None:
             raise self._stream_error
-        raise _stream.NotOpened(f"the stream to the worker at {self._base} did not open: "
+        raise _stream.NotOpened(f"the stream to the worker did not open: "
                                 f"{self._warm_failed or 'it ended as it opened'}")
 
     def _route(self, request: Any) -> "_stream.WorkerStream":

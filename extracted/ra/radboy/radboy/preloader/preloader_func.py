@@ -5177,6 +5177,44 @@ class ModelLogger(BTemplate):
     
     def listUniq(self):
         with Session(ENGINE) as session:
+            exporter=('write entire entry to file','write column to file','just print')
+            htext=[]
+            cta=len(exporter)
+            for num, i in enumerate(exporter):
+                htext.append(std_colorize(i,num,cta))
+            htext='\n'.join(htext)
+            export=Control(ptext=f"{htext}\nWhat do you want to do?",helpText=htext+"\nan integer selection",data="integer")
+            if export in BooleanAnswers.NONE:
+                return
+            elif export in ['','d']:
+                export=2
+
+            if export == 1:
+                cs=[i.name for i in self.Model.__table__.columns]
+                htext=[]
+                zt=len(cs)
+                for num,i in enumerate(cs):
+                    htext.append(std_colorize(i,num,zt))
+                htext='\n'.join(htext)
+                column=Control(ptext=f"{htext}\nColumn?",helpText=f"{htext}\nan integer",data="integer")
+                if column in BooleanAnswers.NONE:
+                    return
+                if column in ['d','']:
+                    return
+                if column in range(0,zt):
+                    column=cs[column]
+                else:
+                    return
+
+
+            OFILE=Path('TextOut.txt')
+            if export not in range(0,cta):
+                return
+            if export not in [2,]:
+                ofile=OFILE.open("w+")
+            else:
+                ofile=None
+
             #excludes=[str(self.primaryKey(self.Model)[0]).split('.')[-1],]
             excludes=[]
             fields=[(i.name,i.type) for i in self.Model.__table__.columns if i.name not in excludes]
@@ -5197,11 +5235,26 @@ class ModelLogger(BTemplate):
             if xaxis not in indexs:
                 return
 
-            results=session.query(self.Model).group_by(getattr(self.Model,fields[xaxis][0])).all()
+            query=self.search_and_menu(menu=False,short=True,returnQuery=True)
+            if query in BooleanAnswers.NONE:
+                print(f"df was '{df}:{type(df)}'")
+                return
+
+            #results=session.query(self.Model).group_by(getattr(self.Model,fields[xaxis][0])).all()
+            results=query.group_by(getattr(self.Model,fields[xaxis][0])).all()
             cta=len(results)
             for num,i in enumerate(results):
                 msg=std_colorize(i,num,cta)
+                if export != None:
+                    if export == 0:
+                        ofile.write(strip_colors(msg)+"\n")
+                    elif export == 1:
+                        ofile.write(f" - {getattr(i,column)}\n")
+                        print(f"{getattr(i,column)}")
+                
                 print(msg)
+            if ofile != None:
+                ofile.close()
 
     def histograph_log(self):
         with Session(ENGINE) as session:
@@ -25233,3 +25286,31 @@ def experimentName_payslip():
     }
 
     return experimentName_Text(name='experimentName_payslip',fields=experimentName_shift_text_fields)
+
+
+def kilowatthours_used():
+    try:
+        fields={
+            'appliance wattage':{
+                'type':'float',
+                'default':0,
+                'ptext':'Appliance Wattage',
+                'help':'what is the devices wattage rating'
+            },
+            'duration':{
+                'type':'timedelta',
+                'default':timedelta(hours=1),
+                'help':'How much time was the device used for?',
+                'ptext':'Time Used'
+            }
+        }
+        fb=FormBuilder(data=fields,passThruText="kWh Used")
+        if fb in BooleanAnswers.NONE:
+            return
+        fb['duration_hours']=fb['duration'].total_seconds()/60/60
+        fb['kWh used']=(fb['duration_hours']*fb['appliance wattage'])/1000
+        fb['+kWh used']=f"+{fb['kWh used']}"
+        fb['-kWh used']=f"-{fb['kWh used']}"
+        return results_def(fb)
+    except Exception as e:
+        print(e)

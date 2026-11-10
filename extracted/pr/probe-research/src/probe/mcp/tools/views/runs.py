@@ -18,10 +18,27 @@ _SPAN_BACKEND_MAX = 10_000  # GET /v1/runs/{id}/spans
 #: backend will serve. Ten hops.
 _TRIAL_ROUTE_PAGE = 200
 _TRIAL_BACKEND_MAX = 2_000
+#: `GET /v1/runs/{id}/commands` serves at most 500 a call (`after=` cursor, by seq); the view walks up to 2,000.
+_COMMAND_ROUTE_PAGE = 500
+_COMMAND_BACKEND_MAX = 2_000
 _METRIC_BACKEND_MAX = 100_000  # GET /v1/runs/{id}/metrics
 
 #: What a saved metric view row keeps. `run_id` goes: it is the run asked about.
 _SAVED_VIEW_FIELDS = ("id", "name", "spec", "created_by", "created_at", "updated_at")
+
+#: What an edit row keeps: what it did to which data, who and why, and whether it is undone. `run_id`
+#: (the run asked about), `customer_id` and the apply job's `phase` go.
+_EDIT_FIELDS = (
+    "id", "seq", "op", "target", "args", "reason", "actor_kind", "actor", "state", "counts", "revert_of",
+    "reverted_by", "config_before", "error", "created_at", "applied_at",
+)  # fmt: skip
+
+#: What a command row keeps: the ask, who made it, what happened and why. `run_id` (the run asked about) and the
+#: claiming writer session go.
+_COMMAND_FIELDS = (
+    "id", "seq", "kind", "args", "state", "requested_by", "note", "reason", "result", "write_epoch", "created_at",
+    "claimed_at", "ended_at",
+)  # fmt: skip
 
 
 def _span_subtree(spans: list[dict], root_id: str) -> list[dict] | None:
@@ -152,7 +169,7 @@ class RunViewsMixin:
 
         THE SLICE IS NARROWED BY STEP, which is a real server-side filter and not
         a guess: every producer that writes a rollout subtree stamps the whole
-        subtree with the rollout's own `step_index` (`connectors/atif.py` sets it
+        subtree with the rollout's own `step_index` (`connectors/harbor/atif.py` sets it
         once for the batch; `capture_trial` keys the trial on it). A trial with no
         step falls back to the run-wide bounded read -- correct, just heavier.
 
@@ -369,6 +386,42 @@ class RunViewsMixin:
             if isinstance(row, dict)
         ]
         return _ViewData(rows=rows, rows_key="views")
+
+    def _build_run_commands_view(self, entity: dict, request: _Req) -> _ViewData:
+        """What was asked of the run while it ran, oldest first: a checkpoint, an LR change or a stop explains a turn
+        in its curves; a refused or expired row says why nothing happened."""
+        run_id = str(entity["id"])
+        rows, more, capped = self._bounded(
+            lambda limit: self._fetch_command_pages(run_id, limit), request.offset, _COMMAND_BACKEND_MAX
+        )
+        shaped = [{key: row[key] for key in _COMMAND_FIELDS if row.get(key) is not None}
+                  for row in rows if isinstance(row, dict)]  # fmt: skip
+        return _ViewData(rows=shaped, rows_key="commands", more_beyond=more,
+                         missing=[MissingMarker.COMMANDS_BEYOND_WALK_BOUND] if capped else [])  # fmt: skip
+
+    def _fetch_command_pages(self, run_id: str, limit: int) -> list[dict]:
+        """`limit` command rows by seq, following the route's `after=` cursor (one walk from the first, never kept:
+        `_trial_pages`' rule). An empty page ends it even with a cursor."""
+        rows: list[dict] = []
+        after: int | None = None
+        while len(rows) < limit:
+            page = self.source.run_commands(run_id, after=after, limit=min(_COMMAND_ROUTE_PAGE, limit - len(rows)))
+            items = list(page.get("commands") or [])
+            rows.extend(items)
+            after = page.get("next_after")
+            if after is None or not items:
+                break
+        return rows[:limit]
+
+    def _build_run_edits_view(self, entity: dict, request: _Req) -> _ViewData:
+        """The run's edits, newest first. A curve an edit rescaled, shifted or cut reads as what the run
+        logged unless the agent sees the edit; a `reverted` row is one that was undone."""
+        rows = [
+            {key: row[key] for key in _EDIT_FIELDS if row.get(key) is not None}
+            for row in self.source.run_edits(str(entity["id"]))
+            if isinstance(row, dict)
+        ]
+        return _ViewData(rows=rows, rows_key="edits")
 
     def _view_run_diff(self, entity: dict, request: _Req) -> _ViewData:
         """One trial's begin/end filesystem diff: the CHANGED paths as rows,

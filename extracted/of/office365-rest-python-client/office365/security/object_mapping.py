@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.synchronization.objectflowtypes import ObjectFlowTypes
 from office365.runtime.client_value import ClientValue
@@ -12,7 +12,6 @@ from office365.security.object_mapping_metadata_entry import (
 )
 
 
-@dataclass
 class ObjectMapping(ClientValue):
     attributeMappings: ClientValueCollection[AttributeMapping] = field(
         default_factory=lambda: ClientValueCollection(AttributeMapping)

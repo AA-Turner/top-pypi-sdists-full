@@ -209,6 +209,8 @@ from .type_defs import (
     SwitchoverReplicationResponseTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateApplicationResponseTypeDef,
+    UpdateCloneRequestTypeDef,
+    UpdateCloneResponseTypeDef,
     UpdateDataSourceRequestTypeDef,
     UpdateDataSourceResponseTypeDef,
     UpdateDirectQueryDataSourceRequestTypeDef,
@@ -1264,6 +1266,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/update_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#update_application)
+        """
+
+    def update_clone(
+        self, **kwargs: Unpack[UpdateCloneRequestTypeDef]
+    ) -> UpdateCloneResponseTypeDef:
+        """
+        Manages a cloned blue/green upgrade that is in progress on a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/update_clone.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#update_clone)
         """
 
     def update_data_source(

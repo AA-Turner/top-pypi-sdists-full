@@ -959,7 +959,7 @@ class DataZoneClient(BaseClient):
 
     def delete_designation(self, **kwargs: Unpack[DeleteDesignationInputTypeDef]) -> dict[str, Any]:
         """
-        Deletes a designation.
+        Deletes a user-created designation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_designation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#delete_designation)
@@ -1276,7 +1276,7 @@ class DataZoneClient(BaseClient):
         self, **kwargs: Unpack[GetDesignationInputTypeDef]
     ) -> GetDesignationOutputTypeDef:
         """
-        Gets the details of a designation, including its Cedar policy.
+        Gets the details of a designation, including its Cedar permit policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_designation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_designation)
@@ -2206,7 +2206,7 @@ class DataZoneClient(BaseClient):
         self, **kwargs: Unpack[UpdateDesignationInputTypeDef]
     ) -> UpdateDesignationOutputTypeDef:
         """
-        Updates an existing designation.
+        Updates an existing user-created designation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_designation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#update_designation)

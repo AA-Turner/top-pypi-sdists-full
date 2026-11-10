@@ -133,6 +133,7 @@ from skylos.core.safe_cache_io import read_text_no_symlink
 logger = logging.getLogger(__name__)
 
 LINK_FILE = ".skylos/link.json"
+LOCAL_ONLY_UPLOAD_RULES = frozenset({"SKY-SCA-API001"})
 GLOBAL_CREDS_FILE = Path.home() / ".skylos" / "credentials.json"
 
 __all__ = [
@@ -864,6 +865,31 @@ def _upload_scan_root(base_dir, project_root):
     return os.path.join(base_dir, project_root)
 
 
+SCA_COVERAGE_PATH_LISTS = (
+    "lockfile_not_checked",
+    "lockfile_issues",
+    "unsupported_inputs",
+    "skipped_inputs",
+)
+
+
+def sca_coverage_for_upload(coverage: dict[str, Any]) -> dict[str, Any]:
+    """Dependency receipts name files by absolute local path; only the file
+    name leaves the machine."""
+    cleaned = dict(coverage)
+    for key in SCA_COVERAGE_PATH_LISTS:
+        entries = cleaned.get(key)
+        if not isinstance(entries, list):
+            continue
+        kept = []
+        for entry in entries:
+            if isinstance(entry, dict) and isinstance(entry.get("file"), str):
+                entry = {**entry, "file": entry["file"].replace("\\", "/").rsplit("/", 1)[-1]}
+            kept.append(entry)
+        cleaned[key] = kept
+    return cleaned
+
+
 def _prepare_report_upload(
     result_json,
     *,
@@ -897,6 +923,11 @@ def _prepare_report_upload(
         extract_metadata=True,
         analyzer_owned=analyzer_owned,
     )
+    all_findings = [
+        finding
+        for finding in all_findings
+        if finding.get("rule_id") not in LOCAL_ONLY_UPLOAD_RULES
+    ]
     reviewed_findings = (
         normalization_input.get("reviewed_findings", []) if analyzer_owned else []
     )
@@ -987,6 +1018,12 @@ def _prepare_report_upload(
         done_receipt=_done_receipt_for_upload(
             result_json, commit_hash=commit, repo_root=git_root
         ),
+        cleanup_receipts=_cleanup_receipts_for_upload(base_dir, scan_root),
+    )
+    from skylos.api._scan_analysis import scan_analysis_metadata
+
+    metadata.update(
+        scan_analysis_metadata(result_json, done_receipt=metadata.get("done_receipt"))
     )
     if gitlab_managed:
         from skylos.cloud.gitlab import scan_receipt
@@ -1018,18 +1055,31 @@ def _prepare_report_upload(
     if isinstance(analysis_summary, dict):
         # Preserve completion and scope alongside the findings in every
         # supported upload transport, including native SARIF ingestion.
+        from skylos.rules.sca.posture import INVENTORY_KEYS, UPLOAD_SUMMARY_KEYS
+
         coverage = {
             key: json.loads(json.dumps(analysis_summary[key]))
-            for key in ("sca_coverage", "custom_rules_coverage")
+            for key in UPLOAD_SUMMARY_KEYS
             if isinstance(analysis_summary.get(key), dict)
         }
+        if "sca_coverage" in coverage:
+            coverage["sca_coverage"] = sca_coverage_for_upload(coverage["sca_coverage"])
         if coverage:
-            scan_summary.update(coverage)
+            scan_summary.update(
+                {
+                    key: value
+                    for key, value in coverage.items()
+                    if key not in INVENTORY_KEYS
+                }
+            )
             core_payload["runs"][0].setdefault("properties", {}).setdefault(
                 "summary", {}
             ).update(coverage)
             legacy_payload["summary"] = dict(scan_summary)
             compatibility_payload["summary"] = dict(scan_summary)
+            for key in INVENTORY_KEYS:
+                if key in coverage:
+                    compatibility_payload["summary"][key] = coverage[key]
 
     return PreparedReportUpload(
         legacy_payload=legacy_payload,
@@ -1312,6 +1362,7 @@ def _build_report_metadata(
     quality_rule_classification=None,
     architecture_advisories=None,
     done_receipt=None,
+    cleanup_receipts=None,
 ) -> dict[str, Any]:
     metadata = {
         "commit_hash": commit_hash,
@@ -1347,6 +1398,12 @@ def _build_report_metadata(
         metadata["architecture_advisories"] = architecture_advisories
     if isinstance(done_receipt, dict):
         metadata["done_receipt"] = done_receipt
+    if isinstance(cleanup_receipts, list) and cleanup_receipts:
+        from skylos.cleanup_receipts import cleanup_receipt_batch
+
+        receipts = cleanup_receipt_batch(cleanup_receipts)
+        if receipts:
+            metadata["cleanup_receipts"] = receipts
     if project_id:
         metadata["project_id"] = project_id
     if scan_bundle_id:
@@ -1356,6 +1413,45 @@ def _build_report_metadata(
     if workspace_data:
         metadata["workspaces"] = workspace_data
     return metadata
+
+
+def _cleanup_receipts_for_upload(base_dir, scan_root):
+    """Read optional local observations only while preparing an explicit upload."""
+    from skylos.cleanup_receipts import cleanup_receipt_batch, load_cleanup_receipts
+
+    try:
+        base = Path(base_dir)
+        if base.is_symlink():
+            return []
+        base = base.resolve(strict=True)
+    except (OSError, ValueError, TypeError, RuntimeError):
+        return []
+    receipts, visited = [], set()
+    for value in (base, scan_root):
+        try:
+            candidate = Path(value)
+            if not candidate.is_absolute():
+                candidate = base / candidate
+            relative = candidate.relative_to(base)
+            current = base
+            unsafe = False
+            for part in relative.parts:
+                current = current / part
+                if current.is_symlink():
+                    unsafe = True
+                    break
+            if unsafe:
+                continue
+            candidate = candidate.resolve(strict=True)
+            candidate.relative_to(base)
+            if candidate in visited:
+                continue
+            visited.add(candidate)
+            receipts.extend(load_cleanup_receipts(candidate))
+        except (OSError, ValueError, TypeError, RuntimeError):
+            # Optional history must not reject a scan or change its findings.
+            continue
+    return cleanup_receipt_batch(receipts)
 
 
 def _done_receipt_for_upload(
@@ -1380,6 +1476,17 @@ def _done_receipt_for_upload(
     return receipt
 
 
+def _without_local_only_receipts(summary: dict[str, Any]) -> dict[str, Any]:
+    diff = summary.get("supply_chain_diff")
+    checks = None
+    if isinstance(diff, dict):
+        checks = diff.get("checks")
+    if not isinstance(checks, dict) or "upgrade_api" not in checks:
+        return summary
+    kept = {key: value for key, value in checks.items() if key != "upgrade_api"}
+    return {**summary, "supply_chain_diff": {**diff, "checks": kept}}
+
+
 def _build_compatibility_inline_payload(
     all_findings: list[dict[str, Any]],
     result_json: Any,
@@ -1389,6 +1496,7 @@ def _build_compatibility_inline_payload(
     summary = result.get("analysis_summary")
     if not isinstance(summary, dict):
         summary = {}
+    summary = _without_local_only_receipts(summary)
 
     payload = {
         **metadata,
@@ -2443,7 +2551,7 @@ def _complete_report_artifact_upload(
 
 
 _NO_TOKEN_ERROR = (
-    "No token found. Run 'skylos login' or 'skylos project use', or set SKYLOS_TOKEN."
+    "No token found. Run 'skylos login', or set SKYLOS_TOKEN."
 )
 
 
@@ -3106,7 +3214,7 @@ def upload_defense_report(defense_json_str, quiet=False, scan_bundle_id=None) ->
     if not token:
         return {
             "success": False,
-            "error": "No token found. Run 'skylos login' or 'skylos project use', or set SKYLOS_TOKEN.",
+            "error": "No token found. Run 'skylos login', or set SKYLOS_TOKEN.",
         }
 
     defense_data, error = _parse_defense_upload_data(defense_json_str)

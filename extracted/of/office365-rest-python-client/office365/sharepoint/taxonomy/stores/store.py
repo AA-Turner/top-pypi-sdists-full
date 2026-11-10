@@ -4,13 +4,24 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.types.collections import StringCollection
 from office365.runtime.types.odata_property import odata
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.taxonomy.groups.collection import TermGroupCollection
 from office365.sharepoint.taxonomy.item import TaxonomyItem
 from office365.sharepoint.taxonomy.item_collection import TaxonomyItemCollection
 from office365.sharepoint.taxonomy.sets.collection import TermSetCollection
 from office365.sharepoint.taxonomy.terms.term import Term
+from office365.sharepoint.thresholds import Limits, limit
 
 
+#: The managed metadata ceilings: how many terms, labels, properties, term sets and term groups
+#: a tenant's store may hold.
+@limit(
+    Limits.MANAGED_TERMS,
+    Limits.MANAGED_TERM_LABELS,
+    Limits.MANAGED_TERM_PROPERTIES,
+    Limits.TERM_SETS,
+    Limits.TERM_GROUPS,
+)
 class TermStore(TaxonomyItem):
     """Represents a hierarchical or flat set of Term objects known as a 'TermSet'."""
 
@@ -30,6 +41,7 @@ class TermStore(TaxonomyItem):
         self.term_groups.get().after_execute(_groups_loaded)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def search_term(
         self,
         label: str,
@@ -68,7 +80,7 @@ class TermStore(TaxonomyItem):
         """Gets an integer collection of LCIDs."""
         return self.properties.get("languageTags", StringCollection())
 
-    @odata(name="termGroups")
+    @odata(name="termGroups", navigation=True)
     @property
     def term_groups(self) -> TermGroupCollection:
         """Gets a collection of the child Group objects"""

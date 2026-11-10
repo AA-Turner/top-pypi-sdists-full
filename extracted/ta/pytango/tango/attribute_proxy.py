@@ -11,7 +11,7 @@ tango.attribute_proxy.
 import contextlib
 import inspect
 
-from tango._instrumentation import _trace_client
+from tango._internal.instrumentation import _trace_client
 from tango._tango import (
     DbData,
     DbDatum,

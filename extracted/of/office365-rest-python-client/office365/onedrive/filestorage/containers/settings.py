@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class FileStorageContainerSettings(ClientValue):
     isItemVersioningEnabled: bool | None = None
     isOcrEnabled: bool | None = None

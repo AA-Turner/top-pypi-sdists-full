@@ -18,7 +18,7 @@ import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -30,11 +30,16 @@ from coord.conflict_fix import (
     ASSIGN_POST_FAILED,
     CONFLICT_FIX_SYSTEM_PROMPT,
     NO_MACHINE_CONFIGURED,
+    REWORD_COMMIT_FIX_SYSTEM_PROMPT,
     REWORD_COMMIT_FIX_TITLE_PREFIX,
     REWORD_MISMATCH_MARKER,
     SEALED_CONFLICT_FIX_TITLE_PREFIX,
     SEALED_MANIFEST_CONFLICT_SYSTEM_PROMPT,
     SEALED_SCOPE_STUCK_MARKER,
+    SEMANTIC_CONFLICT_SYSTEM_PROMPT,
+    SEMANTIC_STUCK_MARKER,
+    SESSION_ENDS_ON_TURN_END_RULE,
+    STALE_REBASE_FIX_SYSTEM_PROMPT,
     STALE_REBASE_FIX_TITLE_PREFIX,
     STALE_REBASE_MISMATCH_MARKER,
     already_upstream_verdict_in_text,
@@ -43,7 +48,9 @@ from coord.conflict_fix import (
     build_sealed_manifest_conflict_briefing,
     build_stale_rebase_briefing,
     describe_conflict_fix_decline,
+    detect_premature_wait,
     dispatch_conflict_fix,
+    looks_like_premature_wait,
     pick_conflict_fix_machine,
     reword_mismatch_verdict_in_text,
     select_conflict_fix_machine,
@@ -1036,6 +1043,59 @@ class TestDispatch:
         assert payload["branch"] == "main"
         assert payload["target_branch"] == "issue-1-fix"
         assert payload["repo_path"] == "/work/api"
+
+    def test_stamps_dispatch_head_sha_anchor_on_stored_assignment_only(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """#3871: the dispatched Assignment's STORED briefing must carry
+        the pre-dispatch branch HEAD SHA, round-tripping through
+        `dispatched_branch_head_sha` exactly as the real completion hook
+        (`coord.reconcile.on_conflict_fix_done`) reads it back — and the
+        briefing actually SENT to the worker (`payload["briefing"]`) must
+        stay byte-for-byte unmodified, since the worker is never told
+        about this anchor."""
+        from coord.conflict_fix import dispatched_branch_head_sha
+
+        entry = _entry()
+        entry.branch_head_sha = "abc123"
+        client = _FakeHTTPClient({"id": "fix-id-2"})
+
+        result = dispatch_conflict_fix(
+            entry, Board(), two_machine_config,
+            http_client=client, prefer_machine="laptop",
+        )
+
+        assert result is not None
+        assert dispatched_branch_head_sha(result.briefing) == "abc123"
+
+        _, payload = client.calls[0]
+        assert payload["briefing"] == result.briefing.split(
+            "\n\nConflict-fix dispatch anchor",
+        )[0]
+        assert "Conflict-fix dispatch anchor" not in payload["briefing"]
+
+    def test_dispatch_head_sha_anchor_unknown_when_branch_head_sha_unset(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """A dispatch with no live SHA available at dispatch time (the
+        common case for every reconcile-dispatched conflict-fix, since
+        `QueuedMerge.branch_head_sha` is transient and only backfilled in
+        `coord.merge_queue.process()`) stamps the literal `unknown`
+        placeholder, which `dispatched_branch_head_sha` must treat as "no
+        anchor" rather than a real SHA."""
+        from coord.conflict_fix import dispatched_branch_head_sha
+
+        entry = _entry()
+        assert entry.branch_head_sha is None
+
+        result = dispatch_conflict_fix(
+            _entry(), Board(), two_machine_config,
+            http_client=_FakeHTTPClient({"id": "fix-id-3"}),
+            prefer_machine="laptop",
+        )
+
+        assert result is not None
+        assert dispatched_branch_head_sha(result.briefing) is None
 
     def test_returns_none_if_already_in_flight(
         self, two_machine_config: Config, coord_db,
@@ -2467,3 +2527,157 @@ class TestDispatchConflictFixCancelsStaleSmokeLegs:
 
         assert result is not None
         assert cancelled == []
+
+
+# ── #3870: session-ends-on-turn-end prompt rule ─────────────────────────────
+
+
+class TestSessionEndsOnTurnEndRule:
+    """The quadraui#2034 leg rebased cleanly, launched the gate in the
+    background, and ended its turn with "Waiting for the gate." — which
+    ended the whole `-p` session before the push happened. Every worker-
+    facing conflict-fix prompt must say explicitly that the session ends on
+    turn end, so a worker doesn't repeat that shape."""
+
+    def test_present_in_ordinary_conflict_fix_prompt(self) -> None:
+        assert SESSION_ENDS_ON_TURN_END_RULE in CONFLICT_FIX_SYSTEM_PROMPT
+
+    def test_present_in_semantic_escalation_prompt(self) -> None:
+        assert SESSION_ENDS_ON_TURN_END_RULE in SEMANTIC_CONFLICT_SYSTEM_PROMPT
+
+    def test_present_in_sealed_manifest_prompt(self) -> None:
+        assert (
+            SESSION_ENDS_ON_TURN_END_RULE in SEALED_MANIFEST_CONFLICT_SYSTEM_PROMPT
+        )
+
+    def test_present_in_stale_rebase_prompt(self) -> None:
+        assert SESSION_ENDS_ON_TURN_END_RULE in STALE_REBASE_FIX_SYSTEM_PROMPT
+
+    def test_present_in_reword_commit_prompt(self) -> None:
+        assert SESSION_ENDS_ON_TURN_END_RULE in REWORD_COMMIT_FIX_SYSTEM_PROMPT
+
+    def test_rule_calls_waiting_for_x_a_failure(self) -> None:
+        lowered = SESSION_ENDS_ON_TURN_END_RULE.lower()
+        assert "waiting for" in lowered
+        assert "failure" in lowered
+
+    def test_rule_tells_worker_to_push_before_final_message(self) -> None:
+        lowered = SESSION_ENDS_ON_TURN_END_RULE.lower()
+        assert "push" in lowered
+        assert "before" in lowered
+
+
+# ── final-message explanation for a leg that never pushed ──────────────────
+
+
+class TestLooksLikePrematureWait:
+    """A conflict-fix leg that provably didn't push gets its parked entry's
+    text sharpened when its own final turn shows WHY: it backgrounded the
+    gate and signed off waiting for it. Never a success/failure verdict of
+    its own — `coord.reconcile._head_unmoved_verdict` owns that."""
+
+    def test_true_for_a_backgrounded_gate_signoff(self) -> None:
+        assert looks_like_premature_wait("Waiting for the gate.") is True
+
+    def test_true_for_background_monitoring_phrasing(self) -> None:
+        assert looks_like_premature_wait(
+            "Running in the background, I'll wait for it to finish."
+        ) is True
+
+    def test_false_for_a_push_confirmation(self) -> None:
+        assert looks_like_premature_wait(
+            "### Summary\nRebased and pushed to origin/issue-1-fix."
+        ) is False
+
+    def test_false_for_a_sanctioned_stuck_giveup(self) -> None:
+        """A worker that refused to guess and said so on a STUCK: line
+        never pushed on purpose — a different shape, even when its wording
+        happens to mention waiting."""
+        assert looks_like_premature_wait(
+            f"STUCK: {SEMANTIC_STUCK_MARKER} foo.py:1-9 — waiting for a "
+            "human to decide which side wins"
+        ) is False
+
+    def test_false_for_none_or_empty(self) -> None:
+        assert looks_like_premature_wait(None) is False
+        assert looks_like_premature_wait("") is False
+
+
+class TestDetectPrematureWait:
+    def test_reads_local_log_file_plain_text(self, tmp_path) -> None:
+        log = tmp_path / "worker.log"
+        log.write_text("STATUS: rebasing\nWaiting for the gate.\n")
+        assert detect_premature_wait(log_path=str(log)) is True
+
+    def test_local_log_file_with_sanctioned_giveup_is_false(self, tmp_path) -> None:
+        log = tmp_path / "worker.log"
+        log.write_text(f"STUCK: {SEMANTIC_STUCK_MARKER} foo.py:1-9\n")
+        assert detect_premature_wait(log_path=str(log)) is False
+
+    def test_reads_stream_json_log_and_uses_only_the_latest_turn(
+        self, tmp_path,
+    ) -> None:
+        """An EARLIER turn announcing "pushing now" must not excuse a LATER
+        turn that announces "waiting for the gate" and stops instead — only
+        the latest assistant turn counts."""
+        lines = [
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [
+                    {"type": "text", "text": "STATUS: pushing now"},
+                ]},
+            }),
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [
+                    {"type": "text", "text": "Waiting for the gate."},
+                ]},
+            }),
+        ]
+        log = tmp_path / "worker.log"
+        log.write_text("\n".join(lines) + "\n")
+        assert detect_premature_wait(log_path=str(log)) is True
+
+    def test_stream_json_log_whose_last_turn_pushed_is_false(
+        self, tmp_path,
+    ) -> None:
+        """The mirror case: an early "waiting for the tests" note followed
+        by a real push must NOT read as a premature wait."""
+        lines = [
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [
+                    {"type": "text", "text": "Waiting for the tests."},
+                ]},
+            }),
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [
+                    {"type": "text", "text": "Pushed with --force-with-lease."},
+                ]},
+            }),
+        ]
+        log = tmp_path / "worker.log"
+        log.write_text("\n".join(lines) + "\n")
+        assert detect_premature_wait(log_path=str(log)) is False
+
+    def test_missing_log_and_no_host_is_false(self, tmp_path) -> None:
+        assert detect_premature_wait(log_path=str(tmp_path / "nope.log")) is False
+
+    def test_no_sources_is_false(self) -> None:
+        assert detect_premature_wait() is False
+
+    def test_falls_back_to_the_agent_log_endpoint(self) -> None:
+        resp = MagicMock(text="Waiting for the gate.", raise_for_status=lambda: None)
+        with patch("coord.conflict_fix.httpx.get", return_value=resp) as mock_get:
+            assert detect_premature_wait(host="l", assignment_id="fix-1") is True
+        assert "/logs/fix-1" in mock_get.call_args[0][0]
+
+    def test_unreachable_agent_is_false(self) -> None:
+        import httpx as _httpx
+
+        with patch(
+            "coord.conflict_fix.httpx.get",
+            side_effect=_httpx.ConnectError("down"),
+        ):
+            assert detect_premature_wait(host="l", assignment_id="fix-1") is False

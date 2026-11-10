@@ -18,6 +18,12 @@ class ChatThreadStatsResponse:
         input_tokens_total (int):
         output_tokens_total (int):
         total_tokens (int):
+        cache_read_tokens_total (Union[None, int]): Part of input_tokens_total served from the provider's prompt cache;
+            null when no turn reported it.
+        cache_write_tokens_total (Union[None, int]): Part of input_tokens_total written to the provider's prompt cache;
+            null when no turn reported it.
+        cache_ratio (Union[None, float]): cache_read_tokens_total over the input of turns whose provider reported a
+            cache figure; null when none did.
         flagged_total (int): Threads carrying at least one flagged message.
         feedback_positive (int):
         feedback_negative (int):
@@ -31,6 +37,9 @@ class ChatThreadStatsResponse:
     input_tokens_total: int
     output_tokens_total: int
     total_tokens: int
+    cache_read_tokens_total: Union[None, int]
+    cache_write_tokens_total: Union[None, int]
+    cache_ratio: Union[None, float]
     flagged_total: int
     feedback_positive: int
     feedback_negative: int
@@ -52,6 +61,15 @@ class ChatThreadStatsResponse:
 
         total_tokens = self.total_tokens
 
+        cache_read_tokens_total: Union[None, int]
+        cache_read_tokens_total = self.cache_read_tokens_total
+
+        cache_write_tokens_total: Union[None, int]
+        cache_write_tokens_total = self.cache_write_tokens_total
+
+        cache_ratio: Union[None, float]
+        cache_ratio = self.cache_ratio
+
         flagged_total = self.flagged_total
 
         feedback_positive = self.feedback_positive
@@ -72,6 +90,9 @@ class ChatThreadStatsResponse:
                 "input_tokens_total": input_tokens_total,
                 "output_tokens_total": output_tokens_total,
                 "total_tokens": total_tokens,
+                "cache_read_tokens_total": cache_read_tokens_total,
+                "cache_write_tokens_total": cache_write_tokens_total,
+                "cache_ratio": cache_ratio,
                 "flagged_total": flagged_total,
                 "feedback_positive": feedback_positive,
                 "feedback_negative": feedback_negative,
@@ -98,6 +119,27 @@ class ChatThreadStatsResponse:
 
         total_tokens = d.pop("total_tokens")
 
+        def _parse_cache_read_tokens_total(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_read_tokens_total = _parse_cache_read_tokens_total(d.pop("cache_read_tokens_total"))
+
+        def _parse_cache_write_tokens_total(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_write_tokens_total = _parse_cache_write_tokens_total(d.pop("cache_write_tokens_total"))
+
+        def _parse_cache_ratio(data: object) -> Union[None, float]:
+            if data is None:
+                return data
+            return cast(Union[None, float], data)
+
+        cache_ratio = _parse_cache_ratio(d.pop("cache_ratio"))
+
         flagged_total = d.pop("flagged_total")
 
         feedback_positive = d.pop("feedback_positive")
@@ -119,6 +161,9 @@ class ChatThreadStatsResponse:
             input_tokens_total=input_tokens_total,
             output_tokens_total=output_tokens_total,
             total_tokens=total_tokens,
+            cache_read_tokens_total=cache_read_tokens_total,
+            cache_write_tokens_total=cache_write_tokens_total,
+            cache_ratio=cache_ratio,
             flagged_total=flagged_total,
             feedback_positive=feedback_positive,
             feedback_negative=feedback_negative,

@@ -13,38 +13,13 @@ from office365.sharepoint.contenttypes.fieldlinks.collection import FieldLinkCol
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.fields.collection import FieldCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.translation.user_resource import UserResource
 
 if TYPE_CHECKING:
     from office365.sharepoint.workflow.associations.association import (
         WorkflowAssociation,
     )
-
-
-def _content_type_order_ids(order: Any) -> List[str]:
-    """Extract the content-type id strings from a list folder's order value.
-
-    The server returns an order as ``Collection(SP.ContentTypeId)``. Depending
-    on how the folder property is typed it reaches us either as a
-    ``ClientValueCollection`` of ``ContentTypeId`` or as a single
-    ``ContentTypeId`` that flattened the array under numeric keys.
-    """
-    if order is None:
-        return []
-    source = vars(order) if not isinstance(order, dict) else order
-    indexed = sorted((k for k in source if str(k).isdigit()), key=int)
-    if indexed:
-        items: List[Any] = [source[k] for k in indexed]
-    elif isinstance(order, dict):
-        items = [order]
-    else:
-        items = list(order) if hasattr(order, "__iter__") else [order]
-    result: List[str] = []
-    for item in items:
-        value = item.get("StringValue") if isinstance(item, dict) else getattr(item, "StringValue", None)
-        if value:
-            result.append(value)
-    return result
 
 
 class ContentType(Entity):
@@ -62,6 +37,7 @@ class ContentType(Entity):
     def __repr__(self):
         return self.string_id or str(self.id) or self.entity_type_name
 
+    @site_access(SiteLevel.MANAGE)
     def reorder_fields(self, field_names: List[str]) -> Self:
         """The ReorderFields method is called to change the order in which fields appear in a content type.
 
@@ -105,8 +81,8 @@ class ContentType(Entity):
         root_folder = parent.root_folder
 
         def _reorder(_folder: Any) -> None:
-            explicit = _content_type_order_ids(root_folder.properties.get("UniqueContentTypeOrder"))
-            order = explicit or _content_type_order_ids(root_folder.properties.get("ContentTypeOrder"))
+            explicit = [ct.StringValue for ct in root_folder.unique_content_type_order]
+            order = explicit or [ct.StringValue for ct in root_folder.content_type_order]
             order = [content_type_id for content_type_id in order if content_type_id != target_id]
             if value:
                 order.insert(0, target_id)
@@ -121,6 +97,7 @@ class ContentType(Entity):
         root_folder.ensure_properties(["ContentTypeOrder", "UniqueContentTypeOrder"]).after_execute(_reorder)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def update(self, *args: Any, update_children: bool = False) -> Self:
         """Updates the content type, and any child objects  of the content type if specified,
         with any changes made to the content type.
@@ -135,10 +112,12 @@ class ContentType(Entity):
             self.context.add_query(qry)
         return self
 
+    @odata(name="ClientFormCustomFormatter")
     @property
     def client_form_custom_formatter(self) -> Optional[str]:
         return self.properties.get("ClientFormCustomFormatter", None)
 
+    @odata(name="DisplayFormClientSideComponentId", beta=True)
     @property
     def display_form_client_side_component_id(self) -> Optional[str]:
         """
@@ -146,6 +125,7 @@ class ContentType(Entity):
         """
         return self.properties.get("DisplayFormClientSideComponentId", None)
 
+    @odata(name="DisplayFormClientSideComponentProperties", beta=True)
     @property
     def display_form_client_side_component_properties(self) -> Optional[str]:
         """
@@ -153,6 +133,7 @@ class ContentType(Entity):
         """
         return self.properties.get("DisplayFormClientSideComponentProperties", None)
 
+    @odata(name="DisplayFormTemplateName")
     @property
     def display_form_template_name(self) -> Optional[str]:
         """
@@ -161,6 +142,7 @@ class ContentType(Entity):
         """
         return self.properties.get("DisplayFormTemplateName", None)
 
+    @odata(name="DisplayFormUrl")
     @property
     def display_form_url(self) -> Optional[str]:
         """
@@ -168,6 +150,7 @@ class ContentType(Entity):
         """
         return self.properties.get("DisplayFormUrl", None)
 
+    @odata(name="EditFormClientSideComponentId", beta=True)
     @property
     def edit_form_client_side_component_id(self) -> Optional[str]:
         """
@@ -176,6 +159,7 @@ class ContentType(Entity):
         """
         return self.properties.get("EditFormClientSideComponentId", None)
 
+    @odata(name="EditFormClientSideComponentProperties", beta=True)
     @property
     def edit_form_client_side_component_properties(self) -> Optional[str]:
         """
@@ -183,6 +167,7 @@ class ContentType(Entity):
         """
         return self.properties.get("EditFormClientSideComponentProperties", None)
 
+    @odata(name="Id")
     @property
     def id(self) -> ContentTypeId:
         """
@@ -190,21 +175,25 @@ class ContentType(Entity):
         """
         return self.properties.get("Id", ContentTypeId())
 
+    @odata(name="Scope", readonly=True)
     @property
     def scope(self) -> Optional[str]:
         """Specifies a server-relative path to the content type scope of the content type."""
         return self.properties.get("Scope", None)
 
+    @odata(name="Sealed", readonly=True)
     @property
     def sealed(self) -> Optional[bool]:
         """Specifies whether the content type can be changed."""
         return self.properties.get("Sealed", None)
 
+    @odata(name="StringId", readonly=True)
     @property
     def string_id(self) -> Optional[str]:
         """A string representation of the value of the Id"""
         return self.properties.get("StringId", None)
 
+    @odata(name="Name")
     @property
     def name(self) -> Optional[str]:
         """Gets the name of the content type."""
@@ -215,17 +204,20 @@ class ContentType(Entity):
         """Sets the name of the content type."""
         self.set_property("Name", value)
 
+    @odata(name="NewFormClientSideComponentProperties", beta=True)
     @property
     def new_form_client_side_component_properties(self) -> Optional[str]:
         """The component properties of an SPFx Form Customizer to connect to this content type for usage with new
         item forms"""
         return self.properties.get("NewFormClientSideComponentProperties", None)
 
+    @odata(name="NewFormUrl")
     @property
     def new_form_url(self) -> Optional[str]:
         """Specifies the URL of a custom new form to use for list items that have been assigned the content type."""
         return self.properties.get("NewFormUrl", None)
 
+    @odata(name="Description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description of the content type."""
@@ -236,7 +228,7 @@ class ContentType(Entity):
         """Sets the description of the content type."""
         self.set_property("Description", value)
 
-    @odata(name="DescriptionResource")
+    @odata(name="DescriptionResource", navigation=True)
     @property
     def description_resource(self):
         """Gets the SP.UserResource object (section 3.2.5.333) for the description of this content type"""
@@ -245,6 +237,7 @@ class ContentType(Entity):
             UserResource(self.context, ResourcePath("DescriptionResource", self.resource_path)),
         )
 
+    @odata(name="DocumentTemplate")
     @property
     def document_template(self) -> Optional[str]:
         """Specifies the file path to the document template (1) used for a new list item that has been assigned
@@ -252,11 +245,13 @@ class ContentType(Entity):
         """
         return self.properties.get("DocumentTemplate", None)
 
+    @odata(name="DocumentTemplateUrl", readonly=True)
     @property
     def document_template_url(self) -> Optional[str]:
         """Specifies the URL of the document template assigned to the content type."""
         return self.properties.get("DocumentTemplateUrl", None)
 
+    @odata(name="EditFormUrl")
     @property
     def edit_form_url(self) -> Optional[str]:
         """
@@ -264,6 +259,7 @@ class ContentType(Entity):
         """
         return self.properties.get("EditFormUrl", None)
 
+    @odata(name="Group")
     @property
     def group(self) -> Optional[str]:
         """Gets the group of the content type."""
@@ -274,22 +270,25 @@ class ContentType(Entity):
         """Sets the group of the content type."""
         self.set_property("Group", value)
 
+    @odata(name="Hidden")
     @property
     def hidden(self) -> Optional[bool]:
         """Specifies whether the content type is unavailable for creation or usage directly from a user interface."""
         return self.properties.get("Hidden", None)
 
+    @odata(name="JSLink", readonly=True)
     @property
     def js_link(self) -> Optional[str]:
         """Gets or sets the JSLink for the content type custom form template"""
         return self.properties.get("JSLink", None)
 
+    @odata(name="ReadOnly")
     @property
     def read_only(self) -> Optional[bool]:
         """Specifies whether changes to the content type properties are denied."""
         return self.properties.get("ReadOnly", None)
 
-    @odata(name="NameResource")
+    @odata(name="NameResource", navigation=True)
     @property
     def name_resource(self):
         """Specifies the SP.UserResource object for the name of this content type"""
@@ -298,11 +297,13 @@ class ContentType(Entity):
             UserResource(self.context, ResourcePath("NameResource", self.resource_path)),
         )
 
+    @odata(name="SchemaXml", readonly=True)
     @property
     def schema_xml(self) -> Optional[str]:
         """Specifies the XML schema that represents the content type."""
         return self.properties.get("SchemaXml", None)
 
+    @odata(name="Fields", navigation=True)
     @property
     def fields(self) -> FieldCollection:
         """Gets a value that specifies the collection of fields for the content type."""
@@ -311,6 +312,7 @@ class ContentType(Entity):
             FieldCollection(self.context, ResourcePath("Fields", self.resource_path)),
         )
 
+    @odata(name="Parent", navigation=True)
     @property
     def parent(self) -> "ContentType":
         """Gets the parent content type of the content type."""
@@ -319,7 +321,7 @@ class ContentType(Entity):
             ContentType(self.context, ResourcePath("Parent", self.resource_path)),
         )
 
-    @odata(name="FieldLinks")
+    @odata(name="FieldLinks", navigation=True)
     @property
     def field_links(self) -> FieldLinkCollection:
         """Specifies the collection of field links for the content type."""
@@ -332,56 +334,67 @@ class ContentType(Entity):
     def property_ref_name(self):
         return "StringId"
 
+    @odata(name="DisplayFormTarget", beta=True)
     @property
     def display_form_target(self) -> Optional[int]:
         """Gets the DisplayFormTarget property"""
         return self.properties.get("DisplayFormTarget", None)
 
+    @odata(name="EditFormTarget", beta=True)
     @property
     def edit_form_target(self) -> Optional[int]:
         """Gets the EditFormTarget property"""
         return self.properties.get("EditFormTarget", None)
 
+    @odata(name="EditFormTemplateName")
     @property
     def edit_form_template_name(self) -> Optional[str]:
         """Gets the EditFormTemplateName property"""
         return self.properties.get("EditFormTemplateName", None)
 
+    @odata(name="MobileDisplayFormUrl")
     @property
     def mobile_display_form_url(self) -> Optional[str]:
         """Gets the MobileDisplayFormUrl property"""
         return self.properties.get("MobileDisplayFormUrl", None)
 
+    @odata(name="MobileEditFormUrl")
     @property
     def mobile_edit_form_url(self) -> Optional[str]:
         """Gets the MobileEditFormUrl property"""
         return self.properties.get("MobileEditFormUrl", None)
 
+    @odata(name="MobileNewFormUrl")
     @property
     def mobile_new_form_url(self) -> Optional[str]:
         """Gets the MobileNewFormUrl property"""
         return self.properties.get("MobileNewFormUrl", None)
 
+    @odata(name="NewFormClientSideComponentId", beta=True)
     @property
     def new_form_client_side_component_id(self) -> Optional[str]:
         """Gets the NewFormClientSideComponentId property"""
         return self.properties.get("NewFormClientSideComponentId", None)
 
+    @odata(name="NewFormTarget", beta=True)
     @property
     def new_form_target(self) -> Optional[int]:
         """Gets the NewFormTarget property"""
         return self.properties.get("NewFormTarget", None)
 
+    @odata(name="NewFormTemplateName")
     @property
     def new_form_template_name(self) -> Optional[str]:
         """Gets the NewFormTemplateName property"""
         return self.properties.get("NewFormTemplateName", None)
 
+    @odata(name="SchemaXmlWithResourceTokens")
     @property
     def schema_xml_with_resource_tokens(self) -> Optional[str]:
         """Gets the SchemaXmlWithResourceTokens property"""
         return self.properties.get("SchemaXmlWithResourceTokens", None)
 
+    @odata(name="WorkflowAssociations", navigation=True)
     @property
     def workflow_associations(self) -> EntityCollection[WorkflowAssociation]:
         """Gets the WorkflowAssociations property"""

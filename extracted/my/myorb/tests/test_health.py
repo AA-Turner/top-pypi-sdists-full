@@ -61,7 +61,17 @@ class FakeStrava:
                     "start_date": start,
                     "distance": 8400,
                     "moving_time": 2650,
-                }
+                    "map": {"summary_polyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@"},
+                },
+                {
+                    "id": 100,
+                    "name": "Treadmill",
+                    "sport_type": "Workout",
+                    "start_date": start,
+                    "distance": 0,
+                    "moving_time": 1500,
+                    "map": {"summary_polyline": None},
+                },
             ],
         )
 
@@ -195,6 +205,14 @@ def test_strava_connects_refreshes_and_shows_activities(client: TestClient, apis
     text = client.get("/welcome/widgets").text
     assert "Morning run" in text
     assert "Run · 8.4 km · 44 min" in text
+    # Each activity shows its route; one without GPS an empty tile, so the titles line up.
+    assert text.count('<img class="row-image" src="data:image/svg+xml,') == 2
+    assert "polyline" in text
+    # A run shows Strava's glyph for it; a workout, which has none, shows none.
+    assert text.count('<span class="row-subtitle-icon" aria-hidden="true"><svg') == 1
+    # The list narrows to a sport, with its glyph where it has one.
+    assert 'data-group-value="Run"' in text and 'data-group-value="Workout"' in text
+    assert text.count('<span class="group-icon" aria-hidden="true"><svg') == 1
     # Without sleep from Apple Health the number is the week's kilometres, and says so.
     assert '<span class="node-value">8.4</span>' in text
     assert '<span class="node-label">Km · week</span>' in text
@@ -206,6 +224,16 @@ def test_strava_connects_refreshes_and_shows_activities(client: TestClient, apis
         return accounts[0].credentials
 
     assert client.portal.call(credentials)["refresh_token"] == "refresh-2"
+
+
+def test_a_route_is_drawn_north_up():
+    from myorb.plugins.health.strava import decode_polyline, route_image
+
+    # Google's example polyline.
+    points = decode_polyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")
+    assert points == [(38.5, -120.2), (40.7, -120.95), (43.252, -126.453)]
+    assert route_image("_p~iF~ps|U_ulLnnqC_mqNvxq`@").startswith("data:image/svg+xml,")
+    assert route_image("") == ""
 
 
 def test_strava_needs_activity_permission(client: TestClient, apis: FakeApis):

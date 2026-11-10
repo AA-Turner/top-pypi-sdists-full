@@ -331,16 +331,16 @@ class SessionService(ISessionManager):
         """Checks if the current turn should be preserved in session.context.
 
         Returns True if the turn is a 'message turn' (plan contains ## Message)
-        or a 'user-request turn' (report contains - **User Request:**).
+        or a 'user-request turn' (report contains the ## User Request heading).
         """
         # Check plan.md for ## Message
         plan_path = (cur_dir / "plan.md").as_posix()
         if self._file_system_manager.path_exists(plan_path):
-            content = self._file_system_manager.read_file(plan_path)
+            content = self._file_system_manager.read_raw_file(plan_path)
             if re.search(r"^## Message", content, re.MULTILINE):
                 return True
 
-        # Check report.md for - **User Request:**
+        # Check report.md for the ## User Request heading
         report_path = (cur_dir / "report.md").as_posix()
         if self._file_system_manager.path_exists(report_path):
             content = self._file_system_manager.read_file(report_path)
@@ -487,6 +487,11 @@ class SessionService(ISessionManager):
         for key in ["model", "actual_model", "provider"]:
             if key in current_meta:
                 meta[key] = current_meta[key]
+
+        # A recorded cost stays recorded for the rest of the session, so an
+        # unpriced model keeps showing its accumulated figure, not "$???".
+        if current_meta.get("cost_recorded") is True:
+            meta["cost_recorded"] = True
 
         if is_validation_failure:
             meta["is_replan"] = True

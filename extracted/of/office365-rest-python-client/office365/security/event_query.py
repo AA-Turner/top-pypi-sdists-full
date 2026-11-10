@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 from office365.security.query_type import QueryType
 
 
-@dataclass
 class EventQuery(ClientValue):
     query: str | None = None
 

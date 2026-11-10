@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +8,6 @@ from office365.security.attacksimulations.trainingcompletionduration import (
 )
 
 
-@dataclass
 class MicrosoftManagedTrainingSetting(ClientValue):
     completionDateTime: datetime | None = None
     trainingCompletionDuration: TrainingCompletionDuration = TrainingCompletionDuration.week

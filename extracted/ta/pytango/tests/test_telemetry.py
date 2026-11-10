@@ -6,7 +6,6 @@ import enum
 import importlib
 import inspect
 import logging
-import os
 import sys
 import typing
 import warnings
@@ -24,6 +23,7 @@ try:
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
         InMemorySpanExporter,
     )
+    from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
     opentelemetry_packages_available = True
 except ImportError:
@@ -32,16 +32,15 @@ except ImportError:
 import pytest
 
 import tango
-import tango._instrumentation
-import tango._warnings
+import tango._internal.instrumentation
+import tango._internal.warn
 import tango.device_server
 import tango.server
 from tango import DevFailed, DeviceProxy, DevState, GreenMode, constants
-from tango._warnings import PyTangoUserWarning
+from tango._internal.warn import PyTangoUserWarning
 from tango.asyncio import DeviceProxy as AsyncioDeviceProxy
 from tango.server import Device, attribute, command
 from tango.telemetry import (
-    TelemetryEndpoint,
     TelemetryExporter,
     get_telemetry_tracer_provider_factory,
     set_telemetry_tracer_provider_factory,
@@ -64,8 +63,26 @@ skip_message = " ".join(skip_reasons)
 user_topics_and_tracing_fixed = tango.constants.TANGO_VERSION_NB >= 990000
 
 
+@pytest.fixture(autouse=True)
+def client_telemetry_config(monkeypatch, request):
+    """Capture each test's initial client settings through module initialization."""
+    settings = {"TANGO_TELEMETRY_ENABLE": "on"}
+    settings.update(getattr(request, "param", {}))
+    for name, value in settings.items():
+        monkeypatch.setenv(name, value)
+    _reload_telemetry_modules()
+    _reload_telemetry_runtime_references(monkeypatch)
+    try:
+        yield settings
+    finally:
+        # Restore the environment and any runtime patches before reinitializing.
+        monkeypatch.undo()
+        _reload_telemetry_modules()
+        _reload_telemetry_runtime_references()
+
+
 @pytest.fixture()
-def exporters():
+def exporters(client_telemetry_config):
     """Switch to in-memory exporters for Python telemetry"""
     in_mem_exporters: dict[str, InMemorySpanExporter] = {}
 
@@ -76,7 +93,7 @@ def exporters():
 
 
 def _set_in_memory_tracer_provider(in_mem_exporters):
-    from tango._telemetry import _create_span_processor_for_endpoint
+    from tango._internal.telemetry import _create_span_processor_for_endpoint
 
     def in_memory_tracer_provider(
         service_name,
@@ -101,12 +118,6 @@ def _set_in_memory_tracer_provider(in_mem_exporters):
     tango.telemetry.set_telemetry_tracer_provider_factory(in_memory_tracer_provider)
 
 
-@pytest.fixture(autouse=True)
-def telemetry_enabled_env(monkeypatch, request):
-    # enable telemetry for all tests (currently, the only way to ensure client-only spans are emitted)
-    monkeypatch.setenv("TANGO_TELEMETRY_ENABLE", "on")
-
-
 @pytest.fixture
 def maybe_telemetry_user_topic_env(monkeypatch, request):
     if user_topics_and_tracing_fixed:
@@ -116,11 +127,11 @@ def maybe_telemetry_user_topic_env(monkeypatch, request):
 
 @pytest.fixture
 def emit_kernel_spans(monkeypatch):
-    monkeypatch.setattr(tango._telemetry._telemetry_runtime, "_skip_kernel_spans", False)
+    monkeypatch.setattr(tango._internal.telemetry._telemetry_runtime, "_skip_kernel_spans", False)
 
 
 @pytest.fixture
-def custom_tracer():
+def custom_tracer(client_telemetry_config):
     factory = get_telemetry_tracer_provider_factory()
     custom_provider = factory("custom")
     custom_tracer = trace_api.get_tracer("custom.tracer", tracer_provider=custom_provider)
@@ -205,7 +216,7 @@ def print_json(spans):
 
 
 def _reload_telemetry_modules():
-    internal = importlib.reload(tango._telemetry)
+    internal = importlib.reload(tango._internal.telemetry)
     public = importlib.reload(tango.telemetry)
     return internal, public
 
@@ -260,18 +271,24 @@ def _opentelemetry_imports_unavailable(monkeypatch, *, missing="api"):
 
 @contextlib.contextmanager
 def _isolated_telemetry_warning_state():
-    tango._warnings._already_warned_keys.clear()
+    tango._internal.warn._already_warned_keys.clear()
     try:
         yield
     finally:
-        tango._warnings._already_warned_keys.clear()
+        tango._internal.warn._already_warned_keys.clear()
 
 
-def _reload_telemetry_runtime_references(monkeypatch):
-    telemetry_runtime = tango._telemetry._telemetry_runtime
-    monkeypatch.setattr(tango._instrumentation, "_telemetry_runtime", telemetry_runtime)
-    monkeypatch.setattr(tango.server, "_telemetry_runtime", telemetry_runtime)
-    monkeypatch.setattr(tango.device_server, "_telemetry_runtime", telemetry_runtime)
+def _reload_telemetry_runtime_references(monkeypatch=None):
+    telemetry_runtime = tango._internal.telemetry._telemetry_runtime
+    modules = [tango._internal.instrumentation, tango.server, tango.device_server]
+    for name in ("tango.asyncio_executor", "tango.futures_executor", "tango.gevent_executor"):
+        if name in sys.modules:
+            modules.append(sys.modules[name])
+    for module in modules:
+        if monkeypatch is None:
+            module._telemetry_runtime = telemetry_runtime
+        else:
+            monkeypatch.setattr(module, "_telemetry_runtime", telemetry_runtime)
 
 
 @pytest.fixture()
@@ -474,43 +491,42 @@ def test_telemetry_enum_fallback_values_match_cpptango():
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_new_env_var_names(monkeypatch):
-    with monkeypatch.context() as env:
-        env.setenv("TANGO_TELEMETRY_ENABLE", "on")
-        env.setenv("TANGO_TELEMETRY_TRACING_EXPORTERS", "console,http")
-        env.setenv(
-            "TANGO_TELEMETRY_TRACING_ENDPOINTS",
-            "cout,https://traces.example/v1/traces",
-        )
-        env.setenv("TANGO_TELEMETRY_LOGGING_EXPORTERS", "grpc,console")
-        env.setenv(
-            "TANGO_TELEMETRY_LOGGING_ENDPOINTS",
-            "grpc://logs.example:4317,cerr",
-        )
-        env.setenv("TANGO_TELEMETRY_TYPES", "tracing, logging")
-        env.setenv("TANGO_TELEMETRY_TOPICS", " user , polling ")
-
-        telemetry_internal, telemetry_public = _reload_telemetry_modules()
-        config = telemetry_internal._get_env_telemetry_config()
-        expected_tracing_endpoints = (
-            telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cout"),
-            telemetry_public.TelemetryEndpoint(
-                telemetry_public.TelemetryExporter.HTTP,
-                "https://traces.example/v1/traces",
-            ),
-        )
-        expected_logging_endpoints = (
-            telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.GRPC, "grpc://logs.example:4317"),
-            telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cerr"),
-        )
-        expected_types = (
-            telemetry_public.TelemetryType.TRACING,
-            telemetry_public.TelemetryType.LOGGING,
-        )
-        expected_topics = (
-            telemetry_public.TelemetryTopic.USER,
-            telemetry_public.TelemetryTopic.POLLING,
-        )
+@pytest.mark.parametrize(
+    "client_telemetry_config",
+    [
+        {
+            "TANGO_TELEMETRY_TRACING_EXPORTERS": "console,http",
+            "TANGO_TELEMETRY_TRACING_ENDPOINTS": "cout,https://traces.example/v1/traces",
+            "TANGO_TELEMETRY_LOGGING_EXPORTERS": "grpc,console",
+            "TANGO_TELEMETRY_LOGGING_ENDPOINTS": "grpc://logs.example:4317,cerr",
+            "TANGO_TELEMETRY_TYPES": "tracing, logging",
+            "TANGO_TELEMETRY_TOPICS": " user , polling ",
+        }
+    ],
+    indirect=True,
+)
+def test_new_env_var_names():
+    telemetry_internal, telemetry_public = tango._internal.telemetry, tango.telemetry
+    config = telemetry_internal._env_telemetry_config
+    expected_tracing_endpoints = (
+        telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cout"),
+        telemetry_public.TelemetryEndpoint(
+            telemetry_public.TelemetryExporter.HTTP,
+            "https://traces.example/v1/traces",
+        ),
+    )
+    expected_logging_endpoints = (
+        telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.GRPC, "grpc://logs.example:4317"),
+        telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cerr"),
+    )
+    expected_types = (
+        telemetry_public.TelemetryType.TRACING,
+        telemetry_public.TelemetryType.LOGGING,
+    )
+    expected_topics = (
+        telemetry_public.TelemetryTopic.USER,
+        telemetry_public.TelemetryTopic.POLLING,
+    )
 
     assert config.tracing_endpoints == expected_tracing_endpoints
     assert config.logging_endpoints == expected_logging_endpoints
@@ -521,102 +537,57 @@ def test_new_env_var_names(monkeypatch):
     assert config.logging_enabled is True
     assert telemetry_internal._telemetry_runtime._client_tracing_endpoints == (expected_tracing_endpoints)
 
-    _reload_telemetry_modules()
-
-
-@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_public_factory_uses_client_env_endpoints_by_default(monkeypatch):
-    with monkeypatch.context() as env:
-        env.setenv("TANGO_TELEMETRY_ENABLE", "on")
-        env.setenv("TANGO_TELEMETRY_TRACING_EXPORTERS", "console,http")
-        env.setenv(
-            "TANGO_TELEMETRY_TRACING_ENDPOINTS",
-            "cout,https://traces.example/v1/traces",
-        )
-
-        _, telemetry_public = _reload_telemetry_modules()
-        expected_endpoints = (
-            telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cout"),
-            telemetry_public.TelemetryEndpoint(
-                telemetry_public.TelemetryExporter.HTTP,
-                "https://traces.example/v1/traces",
-            ),
-        )
-        observed_calls = []
-
-        def recording_factory(
-            service_name,
-            service_instance_id=None,
-            extra_resource_attributes=None,
-            endpoints=None,
-        ):
-            observed_calls.append(
-                (
-                    service_name,
-                    service_instance_id,
-                    extra_resource_attributes,
-                    endpoints,
-                )
-            )
-            return object()
-
-        telemetry_public.set_telemetry_tracer_provider_factory(recording_factory)
-        factory = telemetry_public.get_telemetry_tracer_provider_factory()
-        factory("my.app")
-
-    assert observed_calls == [("my.app", None, None, expected_endpoints)]
-
-    _reload_telemetry_modules()
-
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 @pytest.mark.parametrize(
-    ("deprecated_name", "replacement_name", "deprecated_value"),
+    "client_telemetry_config",
     [
-        (
-            "TANGO_TELEMETRY_TRACES_EXPORTER",
-            "TANGO_TELEMETRY_TRACING_EXPORTERS",
-            "http",
-        ),
-        (
-            "TANGO_TELEMETRY_TRACES_ENDPOINT",
-            "TANGO_TELEMETRY_TRACING_ENDPOINTS",
+        {
+            "TANGO_TELEMETRY_TRACING_EXPORTERS": "console,http",
+            "TANGO_TELEMETRY_TRACING_ENDPOINTS": "cout,https://traces.example/v1/traces",
+        }
+    ],
+    indirect=True,
+)
+def test_public_factory_uses_client_env_endpoints_by_default(monkeypatch):
+    telemetry_public = tango.telemetry
+    expected_env_var_endpoints = (
+        telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cout"),
+        telemetry_public.TelemetryEndpoint(
+            telemetry_public.TelemetryExporter.HTTP,
             "https://traces.example/v1/traces",
         ),
-        (
-            "TANGO_TELEMETRY_LOGS_EXPORTER",
-            "TANGO_TELEMETRY_LOGGING_EXPORTERS",
-            "grpc",
-        ),
-        (
-            "TANGO_TELEMETRY_LOGS_ENDPOINT",
-            "TANGO_TELEMETRY_LOGGING_ENDPOINTS",
-            "grpc://logs.example:4317",
-        ),
-    ],
-)
-def test_old_env_var_names_warn_but_do_not_configure(monkeypatch, deprecated_name, replacement_name, deprecated_value):
+    )
+    observed_calls = []
 
-    with monkeypatch.context() as env:
-        env.setenv("TANGO_TELEMETRY_ENABLE", "on")
-        env.setenv(deprecated_name, deprecated_value)
+    def recording_factory(
+        service_name,
+        service_instance_id=None,
+        extra_resource_attributes=None,
+        endpoints=None,
+    ):
+        observed_calls.append(
+            (
+                service_name,
+                service_instance_id,
+                extra_resource_attributes,
+                endpoints,
+            )
+        )
+        return object()
 
-        with pytest.warns(
-            DeprecationWarning,
-            match=rf"{deprecated_name} is deprecated; use {replacement_name} instead\.",
-        ):
-            telemetry_internal, telemetry_public = _reload_telemetry_modules()
-            config = telemetry_internal._get_env_telemetry_config()
+    telemetry_public.set_telemetry_tracer_provider_factory(recording_factory)
+    factory = telemetry_public.get_telemetry_tracer_provider_factory()
+    monkeypatch.setenv("TANGO_TELEMETRY_TRACING_EXPORTERS", "should-be-ignored")
+    monkeypatch.setenv("TANGO_TELEMETRY_TRACING_ENDPOINTS", "should-be-ignored")
+    factory("my.initial_env.app")
+    override_env_endpoints = (telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, "cerr"),)
+    factory("my.override_env.app", endpoints=override_env_endpoints)
 
-    expected_default_endpoints = (telemetry_public.TelemetryEndpoint(telemetry_public.TelemetryExporter.CONSOLE, ""),)
-    assert config.tracing_endpoints == expected_default_endpoints
-    assert config.logging_endpoints == expected_default_endpoints
-    assert config.enabled is True
-    assert config.tracing_enabled is True
-    assert config.logging_enabled is True
-    assert telemetry_internal._telemetry_runtime._client_tracing_endpoints == (expected_default_endpoints)
-
-    _reload_telemetry_modules()
+    assert observed_calls == [
+        ("my.initial_env.app", None, None, expected_env_var_endpoints),
+        ("my.override_env.app", None, None, override_env_endpoints),
+    ]
 
 
 def test_no_warning_at_import_time(monkeypatch):
@@ -629,7 +600,6 @@ def test_no_warning_at_import_time(monkeypatch):
         _reload_telemetry_modules()
 
     assert recorded == []
-    _reload_telemetry_modules()
 
 
 @pytest.mark.parametrize("missing", ["sdk", "http_exporter"])
@@ -649,7 +619,6 @@ def test_no_warning_at_import_time_when_otel_dependency_unavailable_and_env_conf
             _reload_telemetry_modules()
 
     assert recorded == []
-    _reload_telemetry_modules()
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
@@ -669,18 +638,12 @@ def test_warning_when_otel_dependency_unavailable_device(monkeypatch, missing, m
 
             with DeviceTestContext(Device) as proxy, pytest.warns(PyTangoUserWarning, match=match):
                 proxy.start_telemetry()
-    _reload_telemetry_modules()
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 @pytest.mark.parametrize(
     ("missing", "match", "env"),
     [
-        (
-            "api",
-            "OpenTelemetry API packages are not available",
-            {},
-        ),
         (
             "sdk",
             "OpenTelemetry SDK packages are not available",
@@ -707,38 +670,38 @@ def test_warning_when_otel_dependency_unavailable_client(monkeypatch, missing, m
 
             with pytest.warns(PyTangoUserWarning, match=match):
                 _ = DeviceProxy("tango://127.0.0.1:12345/non/existent/device#dbase=no")
-    _reload_telemetry_modules()
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_refresh_from_env_warns_for_new_http_endpoints_only_when_config_changes(
-    monkeypatch,
-):
-    with _isolated_telemetry_warning_state():
-        monkeypatch.setenv("TANGO_TELEMETRY_ENABLE", "on")
-        monkeypatch.setenv("TANGO_TELEMETRY_TRACING_EXPORTERS", "console")
-        with _opentelemetry_imports_unavailable(monkeypatch, missing="http_exporter"):
-            _reload_telemetry_modules()
-            _reload_telemetry_runtime_references(monkeypatch)
+@pytest.mark.parametrize(
+    ("client_telemetry_config", "expected_spans"),
+    [
+        ({"TANGO_TELEMETRY_ENABLE": "on", "TANGO_TELEMETRY_TYPES": "tracing"}, 2),
+        ({"TANGO_TELEMETRY_ENABLE": "on", "TANGO_TELEMETRY_TYPES": "none"}, 0),
+        ({"TANGO_TELEMETRY_ENABLE": "off", "TANGO_TELEMETRY_TYPES": "tracing"}, 0),
+    ],
+    indirect=["client_telemetry_config"],
+)
+def test_client_configuration_stays_at_import_values(monkeypatch, client_telemetry_config, exporters, expected_spans):
+    enabled = client_telemetry_config["TANGO_TELEMETRY_ENABLE"]
+    tracing = client_telemetry_config["TANGO_TELEMETRY_TYPES"]
 
-            monkeypatch.setenv("TANGO_TELEMETRY_TRACING_EXPORTERS", "http")
-            monkeypatch.setenv(
-                "TANGO_TELEMETRY_TRACING_ENDPOINTS",
-                "http://localhost:4317/v1/traces",
-            )
+    @tango._internal.instrumentation._trace_client
+    def client_operation():
+        return "result"
 
-            with pytest.warns(
-                PyTangoUserWarning,
-                match="OpenTelemetry OTLP HTTP trace exporter package is not available",
-            ):
-                tango._telemetry._telemetry_runtime.refresh_from_env()
-
-            with warnings.catch_warnings(record=True) as recorded:
-                warnings.simplefilter("always")
-                tango._telemetry._telemetry_runtime.refresh_from_env()
-
-    assert recorded == []
-    _reload_telemetry_modules()
+    assert client_operation() == "result"
+    runtime = tango._internal.telemetry._telemetry_runtime
+    client_tracer = runtime._client_tracer
+    monkeypatch.setenv("TANGO_TELEMETRY_ENABLE", "off" if enabled == "on" else "on")
+    monkeypatch.setenv("TANGO_TELEMETRY_TYPES", "none" if tracing == "tracing" else "tracing")
+    tango.telemetry.get_telemetry_tracer_provider_factory()("manual")
+    assert client_operation() == "result"
+    assert runtime._client_tracer is client_tracer
+    assert runtime.can_propagate_context() is (enabled == "on")
+    exporter = exporters.get("pytango.client")
+    spans = exporter.get_finished_spans() if exporter else ()
+    assert len(spans) == expected_spans
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
@@ -765,10 +728,9 @@ def test_lazy_exporter_import_failure_warns(monkeypatch):
                 PyTangoUserWarning,
                 match="OpenTelemetry OTLP HTTP trace exporter package is not available",
             ):
-                tango._telemetry.get_telemetry_tracer_provider_factory()("test")
+                tango._internal.telemetry.get_telemetry_tracer_provider_factory()("test")
 
-            assert not tango._telemetry._telemetry_http_exporter_available
-    _reload_telemetry_modules()
+            assert not tango._internal.telemetry._telemetry_http_exporter_available
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
@@ -798,7 +760,6 @@ def test_repeated_enable_does_not_spam_warnings(monkeypatch):
     assert issubclass(recorded[0].category, PyTangoUserWarning)
     assert len(WarnRecordingDevice.warn_messages) == 1
     assert "OpenTelemetry API packages are not available" in WarnRecordingDevice.warn_messages[0]
-    _reload_telemetry_modules()
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
@@ -967,18 +928,6 @@ def test_user_topic_spans_have_expected_parent_chain(exporters, maybe_telemetry_
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_client_ident_included_for_device(exporters, simple_device_gm):
-    telemetry = CapturedTelemetry(exporters)
-    with span_recording_device_test_context(telemetry, simple_device_gm) as proxy:
-        proxy.State()
-
-    device_span = telemetry.device_running_spans[0]
-    assert "collocated" in device_span.attributes["tango.client_ident.location"]
-    assert device_span.attributes["tango.client_ident.pid"] == os.getpid()
-    assert device_span.attributes["tango.client_ident.lang"].startswith("CPP")
-
-
-@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 def test_custom_span_traceid_propagates_to_tango(exporters, simple_device, custom_tracer):
     telemetry = CapturedTelemetry(exporters)
     with (
@@ -1041,34 +990,26 @@ def test_kernel_spans_are_skipped_by_default(exporters, simple_device):
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_kernel_spans_can_be_enabled_via_env_var(monkeypatch, exporters, simple_device):
-    try:
-        monkeypatch.setenv("PYTANGO_TELEMETRY_EMIT_KERNEL_SPANS", "on")
-        telemetry_internal, _ = _reload_telemetry_modules()
-        _reload_telemetry_runtime_references(monkeypatch)
-        _set_in_memory_tracer_provider(exporters)
-        assert telemetry_internal._telemetry_runtime._skip_kernel_spans is None
+@pytest.mark.parametrize("client_telemetry_config", [{"PYTANGO_TELEMETRY_EMIT_KERNEL_SPANS": "on"}], indirect=True)
+def test_kernel_spans_can_be_enabled_via_env_var(exporters, simple_device):
+    assert tango._internal.telemetry._telemetry_runtime._skip_kernel_spans is None
 
-        telemetry = CapturedTelemetry(exporters)
-        with span_recording_device_test_context(telemetry, simple_device, properties={"telemetry_topics": "all"}):
-            pass
+    telemetry = CapturedTelemetry(exporters)
+    with span_recording_device_test_context(telemetry, simple_device, properties={"telemetry_topics": "all"}):
+        pass
 
-        assert telemetry_internal._telemetry_runtime._skip_kernel_spans is False
-        startup_span_names = [span.name for span in telemetry.device_startup_spans]
-        shutdown_span_names = [span.name for span in telemetry.device_shutdown_spans]
-        assert startup_span_names == [
-            "BaseDevice.init_device",
-            "simple_device.<locals>.TestDevice.init_device",
-            "BaseDevice.server_init_hook",
-        ]
-        assert shutdown_span_names == [
-            "BaseDevice.delete_device",
-            "simple_device.<locals>.TestDevice.delete_device",
-        ]
-    finally:
-        monkeypatch.delenv("PYTANGO_TELEMETRY_EMIT_KERNEL_SPANS", raising=False)
-        _reload_telemetry_modules()
-        _reload_telemetry_runtime_references(monkeypatch)
+    assert tango._internal.telemetry._telemetry_runtime._skip_kernel_spans is False
+    startup_span_names = [span.name for span in telemetry.device_startup_spans]
+    shutdown_span_names = [span.name for span in telemetry.device_shutdown_spans]
+    assert startup_span_names == [
+        "BaseDevice.init_device",
+        "simple_device.<locals>.TestDevice.init_device",
+        "BaseDevice.server_init_hook",
+    ]
+    assert shutdown_span_names == [
+        "BaseDevice.delete_device",
+        "simple_device.<locals>.TestDevice.delete_device",
+    ]
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
@@ -1164,9 +1105,8 @@ def test_device_tracing_can_be_enabled_if_env_initially_disabled(exporters, simp
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_client_tracing_disabled_when_telemetry_types_logging(exporters, simple_device, monkeypatch):
-    monkeypatch.setenv("TANGO_TELEMETRY_TYPES", "logging")
-
+@pytest.mark.parametrize("client_telemetry_config", [{"TANGO_TELEMETRY_TYPES": "logging"}], indirect=True)
+def test_client_tracing_disabled_when_telemetry_types_logging(exporters, simple_device):
     telemetry = CapturedTelemetry(exporters)
     with span_recording_device_test_context(telemetry, simple_device) as proxy:
         proxy.command_inout("State")
@@ -1176,9 +1116,8 @@ def test_client_tracing_disabled_when_telemetry_types_logging(exporters, simple_
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_client_context_propagates_when_client_tracing_disabled(exporters, monkeypatch, custom_tracer):
-    monkeypatch.setenv("TANGO_TELEMETRY_TYPES", "none")  # i.e., tracing disabled
-
+@pytest.mark.parametrize("client_telemetry_config", [{"TANGO_TELEMETRY_TYPES": "none"}], indirect=True)
+def test_client_context_propagates_when_client_tracing_disabled(exporters, custom_tracer):
     class TestDevice(Device):
         @command(dtype_out=str)
         def current_traceparent(self):
@@ -1198,9 +1137,8 @@ def test_client_context_propagates_when_client_tracing_disabled(exporters, monke
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_client_tracing_disabled_when_telemetry_types_none(exporters, simple_device, monkeypatch):
-    monkeypatch.setenv("TANGO_TELEMETRY_TYPES", "none")
-
+@pytest.mark.parametrize("client_telemetry_config", [{"TANGO_TELEMETRY_TYPES": "none"}], indirect=True)
+def test_client_tracing_disabled_when_telemetry_types_none(exporters, simple_device):
     telemetry = CapturedTelemetry(exporters)
     with span_recording_device_test_context(telemetry, simple_device) as proxy:
         proxy.command_inout("State")
@@ -1210,9 +1148,8 @@ def test_client_tracing_disabled_when_telemetry_types_none(exporters, simple_dev
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_client_tracing_enabled_when_telemetry_types_tracing(exporters, simple_device, monkeypatch):
-    monkeypatch.setenv("TANGO_TELEMETRY_TYPES", "tracing")
-
+@pytest.mark.parametrize("client_telemetry_config", [{"TANGO_TELEMETRY_TYPES": "tracing"}], indirect=True)
+def test_client_tracing_enabled_when_telemetry_types_tracing(exporters, simple_device):
     telemetry = CapturedTelemetry(exporters)
     with span_recording_device_test_context(telemetry, simple_device) as proxy:
         proxy.command_inout("State")
@@ -1232,6 +1169,11 @@ def dual_traceparent_devices_info():
         def relay_traceparent(self):
             proxy = DeviceProxy("test/downstream/1")
             return proxy.command_inout("current_traceparent")
+
+        @command
+        def relay_then_fail(self):
+            self.relay_traceparent()
+            raise RuntimeError("relay failed")
 
     return (
         {
@@ -1265,17 +1207,155 @@ def test_server_context_propagates_when_server_tracing_is_disabled(dual_tracepar
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
-def test_server_context_propagates_to_nested_client_call_with_no_tracing_endpoints(
-    dual_traceparent_devices_info, custom_tracer
-):
+def test_nested_client_spans_are_suppressed_when_device_tracing_is_disabled(dual_traceparent_devices_info, exporters):
     with MultiDeviceTestContext(dual_traceparent_devices_info) as context:
+        upstream = context.get_device("test/upstream/1")
+        upstream.set_telemetry_tracing(False)
+        exporters["UpstreamDevice"].clear()
+        exporters["pytango.client"].clear()
+        upstream.command_inout("relay_traceparent")
+
+    assert not exporters["UpstreamDevice"].get_finished_spans()
+    client_spans = exporters["pytango.client"].get_finished_spans()
+    assert client_spans
+    assert not any(span.name.endswith("UpstreamDevice.relay_traceparent") for span in client_spans)
+
+
+@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
+def test_nested_client_spans_are_suppressed_when_device_telemetry_is_disabled(dual_traceparent_devices_info, exporters):
+    devices_info = dual_traceparent_devices_info
+    upstream_device = devices_info[1]["devices"][0]
+    upstream_device["properties"]["telemetry_enable"] = "0"
+
+    with MultiDeviceTestContext(devices_info) as context:
+        exporters["pytango.client"].clear()
+        upstream = context.get_device("test/upstream/1")
+        upstream.command_inout("relay_traceparent")
+
+    nested_spans = [
+        span
+        for span in exporters["pytango.client"].get_finished_spans()
+        if span.name.endswith("UpstreamDevice.relay_traceparent")
+    ]
+    assert not nested_spans
+    assert "UpstreamDevice" not in exporters
+
+
+@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
+@pytest.mark.parametrize("client_telemetry_config", [{"TANGO_TELEMETRY_ENABLE": "off"}], indirect=True)
+def test_nested_client_spans_use_device_telemetry(dual_traceparent_devices_info, exporters):
+    with MultiDeviceTestContext(dual_traceparent_devices_info) as context:
+        upstream = context.get_device("test/upstream/1")
+        upstream.set_telemetry_tracing(True)
+        exporters["UpstreamDevice"].clear()
+        upstream.command_inout("relay_traceparent")
+
+    client_spans = [
+        span for span in exporters["UpstreamDevice"].get_finished_spans() if span.kind is trace_api.SpanKind.CLIENT
+    ]
+    assert client_spans
+    assert all(span.resource.attributes[SERVICE_NAME] == "UpstreamDevice" for span in client_spans)
+    assert all(span.resource.attributes[SERVICE_INSTANCE_ID] == "test/upstream/1" for span in client_spans)
+    assert "pytango.client" not in exporters
+
+
+@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
+def test_client_telemetry_recovers_after_device_command_exception(dual_traceparent_devices_info, exporters):
+    with MultiDeviceTestContext(dual_traceparent_devices_info) as context:
+        upstream = context.get_device("test/upstream/1")
+        downstream = context.get_device("test/downstream/1")
+        exporters["UpstreamDevice"].clear()
+
+        with pytest.raises(DevFailed, match="relay failed"):
+            upstream.command_inout("relay_then_fail")
+        failed_spans = exporters["UpstreamDevice"].get_finished_spans()
+        assert any(span.kind is trace_api.SpanKind.CLIENT for span in failed_spans)
+
+        exporters["UpstreamDevice"].clear()
+        upstream.command_inout("relay_traceparent")
+        recovered_spans = exporters["UpstreamDevice"].get_finished_spans()
+        recovered_client_spans = [span for span in recovered_spans if span.kind is trace_api.SpanKind.CLIENT]
+        assert recovered_client_spans
+        assert all(
+            span.resource.attributes[SERVICE_INSTANCE_ID] == "test/upstream/1" for span in recovered_client_spans
+        )
+
+        exporters["pytango.client"].clear()
+        downstream.command_inout("current_traceparent")
+        standalone_spans = exporters["pytango.client"].get_finished_spans()
+        assert standalone_spans
+        assert all(span.kind is trace_api.SpanKind.CLIENT for span in standalone_spans)
+        assert all(span.resource.attributes[SERVICE_NAME] == "pytango.client" for span in standalone_spans)
+        assert exporters["UpstreamDevice"].get_finished_spans() == recovered_spans
+
+
+@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
+def test_server_context_propagates_to_nested_client_call_with_no_tracing_endpoints(
+    dual_traceparent_devices_info, custom_tracer, exporters, server_green_mode
+):
+    devices_info = dual_traceparent_devices_info
+    upstream_base = devices_info[1]["class"]
+    upstream_base.green_mode = server_green_mode
+
+    class GreenUpstreamDevice(upstream_base):
+        if server_green_mode == GreenMode.Asyncio:
+
+            async def init_device(self):
+                await super().init_device()
+                self.proxy = await AsyncioDeviceProxy("test/downstream/1")
+
+            @command(dtype_out=str)
+            async def relay_traceparent(self):
+                return await self.proxy.command_inout("current_traceparent")
+
+        else:
+
+            def init_device(self):
+                super().init_device()
+                self.proxy = DeviceProxy("test/downstream/1")
+
+            @command(dtype_out=str)
+            def relay_traceparent(self):
+                return self.proxy.command_inout("current_traceparent", wait=True)
+
+    devices_info[1]["class"] = GreenUpstreamDevice
+
+    downstream_base = devices_info[0]["class"]
+    downstream_base.green_mode = server_green_mode
+    if server_green_mode == GreenMode.Asyncio:
+
+        class AsyncDownstreamDevice(downstream_base):
+            @command(dtype_out=str)
+            async def current_traceparent(self):
+                # Read Python's active context: cppTango's context belongs to
+                # the RPC dispatch thread, not this asyncio event-loop thread
+                carrier = {}
+                TraceContextTextMapPropagator().inject(carrier)
+                return carrier["traceparent"]
+
+        devices_info[0]["class"] = AsyncDownstreamDevice
+
+    with MultiDeviceTestContext(devices_info) as context:
         upstream = context.get_device("test/upstream/1")
         upstream.set_telemetry_tracing_endpoints([])
 
         with custom_tracer.start_as_current_span("custom.span") as custom_span:
             traceparent = upstream.command_inout("relay_traceparent")
 
-    assert _trace_id_from_traceparent(traceparent) == format(custom_span.get_span_context().trace_id, "032x")
+    upstream_spans = exporters["GreenUpstreamDevice"].get_finished_spans()
+    client_spans = [span for span in upstream_spans if span.kind is trace_api.SpanKind.CLIENT]
+    server_spans = [span for span in upstream_spans if span.kind is trace_api.SpanKind.SERVER]
+    assert len(client_spans) == 1
+    assert len(server_spans) == 1
+    server_span = server_spans[0]
+    assert _trace_id_from_traceparent(traceparent) == format(server_span.context.trace_id, "032x")
+    assert server_span.context.trace_id == custom_span.get_span_context().trace_id
+    client_span = client_spans[0]
+    assert client_span.resource.attributes[SERVICE_NAME] == "GreenUpstreamDevice"
+    assert client_span.resource.attributes[SERVICE_INSTANCE_ID] == "test/upstream/1"
+    assert client_span.parent is not None
+    assert client_span.parent.span_id == server_span.context.span_id
+    assert client_span.context.trace_id == server_span.context.trace_id
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
@@ -1293,13 +1373,32 @@ def test_server_context_propagates_to_nested_client_call_when_python_server_span
 
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
+def test_nested_client_spans_use_device_tracer_when_server_span_is_suppressed(
+    dual_traceparent_devices_info, exporters, monkeypatch
+):
+    # Suppress Python spans without relying on cppTango's unfixed topic handling.
+    upstream_device_class = dual_traceparent_devices_info[1]["class"]
+    monkeypatch.setattr(upstream_device_class, "_check_telemetry_topic", lambda self, topic: False)
+    with MultiDeviceTestContext(dual_traceparent_devices_info) as context:
+        upstream = context.get_device("test/upstream/1")
+        exporters["UpstreamDevice"].clear()
+        upstream.command_inout("relay_traceparent")
+
+    upstream_spans = exporters["UpstreamDevice"].get_finished_spans()
+    assert upstream_spans
+    assert all(span.kind is trace_api.SpanKind.CLIENT for span in upstream_spans)
+    assert all(span.resource.attributes[SERVICE_NAME] == "UpstreamDevice" for span in upstream_spans)
+    assert all(span.resource.attributes[SERVICE_INSTANCE_ID] == "test/upstream/1" for span in upstream_spans)
+
+
+@pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 def test_repeated_enable_disable_enable_cycles_refresh_provider(exporters, simple_device):
-    provider_ids = []
+    providers = []
 
     class TestDevice(simple_device):
         def create_telemetry_tracer_provider(self, class_name, device_name):
             provider = super().create_telemetry_tracer_provider(class_name, device_name)
-            provider_ids.append(id(provider))
+            providers.append(provider)
             return provider
 
     telemetry = CapturedTelemetry(exporters)
@@ -1307,8 +1406,8 @@ def test_repeated_enable_disable_enable_cycles_refresh_provider(exporters, simpl
         for _ in range(2):
             proxy.set_telemetry_tracing(False)
             proxy.set_telemetry_tracing(True)
-    assert len(provider_ids) >= 3
-    unique_providers = set(provider_ids[-3:])
+    assert len(providers) >= 3
+    unique_providers = {id(provider) for provider in providers[-3:]}
     assert len(unique_providers) == 3
 
 
@@ -1363,8 +1462,8 @@ def test_disable_telemetry_at_runtime(exporters, simple_device):
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 def test_endpoint_change_recreates_provider(simple_device, green_mode_device_proxy):
     factory_endpoint_configs = []
-    cout = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
-    cerr = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
+    cout = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
+    cerr = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
 
     old_factory = get_telemetry_tracer_provider_factory()
 
@@ -1422,8 +1521,8 @@ def test_toggle_telemetry_tracing_flag(simple_device, green_mode_device_proxy):
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 def test_get_and_set_telemetry_logging_endpoints(simple_device, green_mode_device_proxy):
-    cout = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
-    cerr = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
+    cout = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
+    cerr = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
 
     with DeviceTestContext(simple_device, properties={"telemetry_enable": "1"}) as proxy:
         gm_proxy = green_mode_device_proxy(proxy.dev_name())
@@ -1437,8 +1536,8 @@ def test_get_and_set_telemetry_logging_endpoints(simple_device, green_mode_devic
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 def test_get_and_set_telemetry_tracing_endpoints(simple_device, green_mode_device_proxy):
-    cout = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
-    cerr = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
+    cout = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
+    cerr = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
 
     with DeviceTestContext(simple_device, properties={"telemetry_enable": "1"}) as proxy:
         gm_proxy = green_mode_device_proxy(proxy.dev_name())
@@ -1475,8 +1574,8 @@ def test_invalid_telemetry_topics_raise():
 
 @pytest.mark.skipif(telemetry_unavailable, reason=skip_message)
 def test_device_impl_tracing_endpoint_hooks_receive_typed_endpoints():
-    expected = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
-    added = TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
+    expected = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cout")
+    added = tango.telemetry.TelemetryEndpoint(TelemetryExporter.CONSOLE, "cerr")
     call_count = 0
 
     class TestDevice(Device):

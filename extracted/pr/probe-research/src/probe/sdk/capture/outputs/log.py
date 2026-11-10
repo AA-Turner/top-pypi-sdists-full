@@ -11,17 +11,28 @@ from ..logs import stream as _logstream
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ....foundation.process_rank import read_process_rank, read_world_size
 from ... import secret_gate
+from ..logs import early as _early
 from ..logs.logs import live_dir
 # scanning disabled: from .secret_gate import FIELD_NAME_RULE, CredentialBlocked, _findings, prepare_upload
 from ...secret_gate import FIELD_NAME_RULE
-LOG_ENV = "PROBE_CAPTURE_LOG"
+LOG_ENV = _early.LOG_ENV
 LOG_NAME = "probe/run.log"
 CAPTURE_LOG = "log"
 #: Local logs, ledgers and capture records older than this are pruned.
 RETAIN_SECONDS = 30 * 86_400
-_OFF = frozenset({"0", "false", "no", "off"})
+_OFF = _early.OFF
 #: A run of base64-looking characters: where an encoded credential hides.
 _ENCODED_RUN = re.compile(r"[A-Za-z0-9+/_-]{24,}={0,2}")
+#: The line between a run's log and what printed after it finished (T15), in the version sent at exit.
+AFTER_FINISH_MARKER = b"[probe: printed after the run finished]\n"
+#: What the exit spends sending that version itself (a container's detached drain may die with it, and a
+#: server gone by then would keep the drain retrying for hours); the rest stays queued for the drain.
+AFTER_FINISH_SEND_SECONDS = 5.0
+#: Why a run's printed output cannot be teed here, said once per process (T19).
+_UNSAVED_WARNING = (
+    "probe: this run's printed output isn't being saved here ({why}). Metrics and files are still recorded."
+)
+_is_unsaved_warned = False
 
 
 def log_enabled() -> bool:
@@ -30,9 +41,31 @@ def log_enabled() -> bool:
 
 
 def in_process_log_supported() -> bool:
-    """Swapping fds 1/2 is wrong in a notebook: ipykernel captures file
-    descriptors itself, and the notebook's output is not fd 1 at all."""
-    return os.name == "posix" and bool(sys.executable) and "ipykernel" not in sys.modules
+    """The fd-level tee sees what reaches fds 1/2: a notebook kernel's streams do not (T19)."""
+    return log_unsaved_reason() is None
+
+
+def log_unsaved_reason() -> str | None:
+    """Why this process's printed output cannot be teed into its run's log, or None when it can. Only a
+    kernel moves ``sys.stdout``/``sys.stderr`` off fds 1/2 (ipykernel loaded and its streams not on them):
+    a script's own wrapper (``sys.stdout = Logger(sys.stdout)``, ``sys.stderr = sys.stdout``) still writes
+    through fds 1/2, and merely importing ``ipykernel`` changes nothing."""
+    if os.name != "posix":
+        return "Windows"
+    if not sys.executable:
+        return "no Python executable to run the recorder"
+    if "ipykernel" in sys.modules and not _early.is_fd_behind_streams():
+        return "notebook"
+    return None
+
+
+def warn_log_unsaved(why: str) -> None:
+    """Once per process: capture is off and the user did not turn it off."""
+    global _is_unsaved_warned
+    if _is_unsaved_warned:
+        return
+    _is_unsaved_warned = True
+    _diagnostics.warn(_UNSAVED_WARNING.format(why=why))
 
 
 # -- local state ----------------------------------------------------------------------
@@ -114,7 +147,7 @@ def _discard_local_log(log_path: str) -> None:
     """The log is staged in the outbox: the local copy has done its job."""
     # Not `.stopped`: a helper still forwarding for a straggler reads it at EOF
     # to tell a stop from a crash. It is empty, and pruned with the logs.
-    for path in (log_path, log_path + ".meta.json", log_path + ".ready"):
+    for path in (log_path, log_path + ".meta.json", log_path + ".ready", log_path + ".adopted"):
         try:
             os.unlink(path)
         except OSError:
@@ -231,15 +264,65 @@ class LogTeeMixin:
             shutil.rmtree(live_dir(self._log_path), ignore_errors=True)
         self._live = False
 
-    def _queue_log(self, log_path: str, stats: dict | None, shared: list[str]) -> bool | None:
+    def _log_write_epoch(self) -> int | None:
+        """The run attempt this process wrote under, when known (`meta.write_epoch`): the live
+        stream's reader, else the writer record. Kept once read: at exit the handle may be gone."""
+        epoch = getattr(self, "_log_epoch", None)
+        if epoch is None:
+            try:
+                epoch = (self._epoch or _logstream.active_epoch(self.run_id))()
+            except Exception:  # noqa: BLE001 -- an attempt we cannot read is left out
+                epoch = None
+            if epoch is None:
+                epoch = (self.writer or {}).get("write_epoch")
+        if not isinstance(epoch, int) or isinstance(epoch, bool) or epoch < 1:
+            return None
+        self._log_epoch = epoch
+        return epoch
+
+    def _log_meta(self, stats: dict | None, shared: list[str]) -> dict:
+        """The saved log's facts (WIRE.md "Saved log meta the SDK writes"): ``stream`` is the live
+        stream name this process posts (`logstream.stream_for`), ``write_epoch`` its attempt."""
+        epoch = self._log_write_epoch()
+        return {
+            "capture": CAPTURE_LOG,
+            "host": self.host,
+            "stream": _logstream.stream_for(self.log_name),
+            **({"write_epoch": epoch} if epoch is not None else {}),
+            **{k: v for k, v in (stats or {}).items() if k in ("total_bytes", "omitted_bytes")},
+            **({} if stats else {"log_incomplete": True}),
+            **({"shared_with": shared} if shared else {}),
+        }
+
+    def _queue_log(
+        self, log_path: str, stats: dict | None, shared: list[str], *, should_keep_local: bool = False
+    ) -> bool | None:
         """Queue the log: True when queued, False when it could not be (worth a
-        retry), None when there is nothing to send."""
+        retry), None when there is nothing to send. ``should_keep_local``: the tee goes
+        on, and what prints after this run may still be sent behind this copy
+        (`_send_after_finish`). A log the helper has not finished (no ``stats``)
+        goes up as it is, flagged, and the whole of it follows once the helper is
+        done (`_ask_for_complete_log`, T21)."""
         try:
             raw = Path(log_path).read_bytes()
         except OSError:
-            return None
-        if not raw:
-            return None
+            raw = b""
+        queued = None
+        if raw:
+            meta = self._log_meta(stats, shared)
+            queued = self._queue_log_bytes(raw, meta, log_path)
+            self._log_meta_sent = meta
+            if queued and stats:
+                if should_keep_local:
+                    # Kept in memory, not on disk: an exit that skips atexit (a SIGTERM close, `os._exit`)
+                    # would leave the file behind for the 30-day prune.
+                    self._log_bytes_sent = raw
+                _discard_local_log(log_path)
+        if not stats and queued is not False:
+            self._ask_for_complete_log(log_path, shared)  # after the head: its version comes first
+        return queued
+
+    def _queue_log_bytes(self, raw: bytes, meta: dict, log_path: str) -> bool | None:
         # The TERMINAL and the local file get the program's exact bytes. The
         # uploaded copy is valid UTF-8 first, because the gate can only redact
         # text: a credential printed beside one stray binary byte would
@@ -251,19 +334,102 @@ class LogTeeMixin:
                 f"could not redact. The local copy is {log_path}."
             )
             return None
-        meta = {
-            "capture": CAPTURE_LOG,
-            "host": self.host,
-            **{k: v for k, v in (stats or {}).items() if k in ("total_bytes", "omitted_bytes")},
-            **({} if stats else {"log_incomplete": True}),
-            **({"shared_with": shared} if shared else {}),
-        }
         if result.rewritten:
             _diagnostics.warn(
                 f"probe: replaced credentials in {self.log_name} before upload; "
                 f"the local copy is unchanged."
             )
-        queued = self._queue_generated(self.log_name, data, meta=meta)
-        if queued and stats:
-            _discard_local_log(log_path)
-        return queued
+        return self._queue_generated(self.log_name, data, meta=meta)
+
+    def _send_after_finish(self, rest: tuple[str, dict | None] | None) -> None:
+        """What printed after this run finished (T15). None: the next run in this process took it as
+        its head. Else ``(path, stats)`` of it at exit: when there is any, this run's log gets a new
+        version -- its own copy, the `AFTER_FINISH_MARKER` line, then the rest. Never raises."""
+        own = self._log_path
+        rest_path = rest[0] if rest is not None else None
+        try:
+            if rest is None:
+                return
+            tail = Path(rest_path).read_bytes()
+            if not tail.strip():
+                return
+            head = getattr(self, "_log_bytes_sent", None)
+            if head is None:
+                head = Path(own).read_bytes() if own and os.path.exists(own) else b""
+            # This run's own copy went up with these facts; an empty one (nothing printed during the run) sent none.
+            nothing = {"total_bytes": 0, "omitted_bytes": 0}
+            sent = dict(getattr(self, "_log_meta_sent", None) or self._log_meta(nothing, []))
+            stats = rest[1]
+            meta = {k: v for k, v in sent.items() if k not in ("total_bytes", "omitted_bytes", "log_incomplete")}
+            if stats and not sent.get("log_incomplete"):
+                meta["total_bytes"] = int(sent.get("total_bytes") or 0) + int(stats.get("total_bytes") or 0)
+                meta["omitted_bytes"] = int(sent.get("omitted_bytes") or 0) + int(stats.get("omitted_bytes") or 0)
+            else:
+                meta["log_incomplete"] = True
+            joint = b"" if not head or head.endswith(b"\n") else b"\n"
+            if self._queue_log_bytes(head + joint + AFTER_FINISH_MARKER + tail, meta, rest_path):
+                self._send_before_exit()
+        except Exception:  # noqa: BLE001 -- at exit, best effort
+            pass
+        finally:
+            self._log_bytes_sent = None
+            # The run's own copy only once its log was queued (a finalize that could not queue it retries from it)
+            # and no late sender still needs it (`.late`, T21).
+            is_own_done = getattr(self, "_log_done", False) and own and not os.path.exists(own + ".late")
+            for path in (own if is_own_done else None, rest_path):
+                if path:
+                    _discard_local_log(path)
+
+    def _send_before_exit(self) -> None:
+        """Deliver this run's queued log version now, as the run (`recovery._recovery_client`: the run's
+        context and credential; the run's own client is closed by now), within AFTER_FINISH_SEND_SECONDS.
+        What is left goes to the detached drain. An offline run's queue waits for `probe sync`."""
+        client = None
+        try:
+            from ...delivery.transport.deadlines import deadline_scope, without_patience
+            from .recovery import _recovery_client
+
+            client, _journal = _recovery_client(self._record(shared_with=[]))
+            deadline = time.monotonic() + AFTER_FINISH_SEND_SECONDS
+            with without_patience(), deadline_scope(deadline):
+                while client is not None and time.monotonic() < deadline:
+                    # Bounded on the drain lock too: a detached drain mid-pass may hold it, and then
+                    # it sends this op; this waits for that, never past the deadline.
+                    left = deadline - time.monotonic()
+                    report = client._drain_for_close(self.run_id, lock_timeout=min(1.0, left))
+                    if not report.lock_busy and not report.remaining:
+                        break
+                    if report.unreachable or report.auth_blocked:
+                        break  # left for the drain: nothing here will change that in seconds
+                    time.sleep(0.1)
+        except Exception:  # noqa: BLE001 -- left queued for the drain
+            pass
+        finally:
+            if client is not None:
+                try:
+                    client._kick_drainer(force=True)  # a no-op when nothing is left
+                    client.close()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    def _ask_for_complete_log(self, log_path: str, shared: list[str]) -> None:
+        """The helper had not finished the log when the close stopped waiting (T21): leave it a
+        request (``<log>.late``) that it hands to `recovery.send_late_log` once the log is
+        complete, so the whole log follows the head as its next version, ``log_incomplete``
+        false. The helper may have finished in between: then the request is sent from here."""
+        if self.recovery:
+            return  # a recovery reads what the helper left; nothing will finish it later
+        try:
+            from ..logs.logs import get_late_path, read_stats, spawn_late_log, write_request
+
+            record = {
+                **self._record(shared_with=shared),
+                "log_path": log_path,
+                "log_name": self.log_name,
+                "meta": {k: v for k, v in self._log_meta(None, shared).items() if k != "log_incomplete"},
+            }
+            write_request(get_late_path(log_path), record)
+            if read_stats(log_path) is not None:
+                spawn_late_log(get_late_path(log_path))
+        except Exception:  # noqa: BLE001 -- the head still goes up, flagged
+            pass

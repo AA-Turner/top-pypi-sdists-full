@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 from office365.search.content import SearchContent
 
 
-@dataclass
 class SharePointOneDriveOptions(ClientValue):
     """Provides the search content options when a search is performed using application permissions
 

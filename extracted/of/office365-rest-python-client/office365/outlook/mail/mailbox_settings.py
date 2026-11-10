@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.outlook.calendar.working_hours import WorkingHours
 from office365.outlook.locale_info import LocaleInfo
@@ -10,7 +10,6 @@ from office365.outlook.mail.userpurpose import UserPurpose
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class MailboxSettings(ClientValue):
     """Settings for the primary mailbox of a user."""
 

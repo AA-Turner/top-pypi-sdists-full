@@ -22,13 +22,12 @@ create_error_message = "DsssBurstReceiver: invalid parameter (need non-empty acq
 # Composes the three certified Burst* cores. `corr` is the refine stage's
 # primitive (docs/design/dsss-burst-receiver.md §3.4) -- the whole preamble
 # correlated as one reference, which is what names the code repetition that
-# burst_acq's own code_phase structurally cannot.
+# the burst search's own code_phase structurally cannot.
 #
-# `acq` is listed explicitly even though burst_acq forwards to it: jm's
-# depends_on linking is not recursively transitive, the same reason
-# objects/dsss_receiver.toml has to repeat RateConverter's cascade.
-# The full transitive closure, not just the direct three: burst_acq pulls
-# acq -> corr2d/fft2d/fft/detection, burst_demod pulls ppe -> fft/spectral,
+# The full transitive closure, not just the direct three, because jm's
+# depends_on linking is not recursively transitive (the same reason
+# objects/dsss_receiver.toml repeats RateConverter's cascade):
+# burst_capture pulls correlator -> fft2d/fft/detection, burst_demod pulls ppe -> fft/spectral,
 # and burst_despreader pulls loop_filter. Listing only the direct deps links
 # a .so that cannot resolve them.
 depends_on = [
@@ -36,8 +35,6 @@ depends_on = [
     # adds the demodulator, which is the whole of the split -- everything
     # about FINDING a burst is the child's, and is certified there.
     { name = "burst_capture", link = true },
-    { name = "burst_acq", link = true },
-    { name = "acq", link = true },
     { name = "burst_demod", link = true },
     { name = "wfm_frame", link = true },
     { name = "pn", link = true },
@@ -45,8 +42,7 @@ depends_on = [
     { name = "mpsk", link = true },
     { name = "burst_despreader", link = true },
     { name = "ppe", link = true },
-    { name = "corr", link = true },
-    { name = "corr2d", link = true },
+    { name = "correlator", link = true },
     { name = "fft2d", link = true },
     { name = "spectral", link = true },
     { name = "loop_filter", link = true },
@@ -110,7 +106,7 @@ default = "1000000.0"
 name = "cn0_dbhz"
 type = "double"
 # NaN = no design point (doppler#1484): any finite C/N0 is a real one.
-default_raw = "ACQ_CN0_NONE"
+default_raw = "DP_CORRELATOR_CN0_NONE"
 
 [[dsss_burst_receiver.init_params]]
 name = "doppler_uncertainty"
@@ -149,7 +145,7 @@ default = "10"
 
 [[dsss_burst_receiver.methods]]
 name = "push"
-doc = "Stream raw cf32 samples and get back the FRAME BITS of every burst that completed. Samples feed the embedded BurstAcquisition and are retained in a history ring; when a detection fires, the refine stage correlates the whole preamble to recover the exact preamble start -- the one quantity acquisition structurally cannot report, since its code_phase is a lag modulo one code period -- and the burst is demodulated the moment its last sample has arrived. Every sample is consumed and every burst that completes is returned by the call that completed it, with frames concatenated: burst i occupies frame_syms bits starting at i*frame_syms, and events() returns the matching record for each. The bits are the frame as RECEIVED -- sync word first, every symbol after it -- because this object stops at decisions: undoing the frame (a CRC, an outer code, a randomiser) needs its description and is `wfm.Frame.deframe`'s job. An empty return is normal, not an error: it means no burst completed in this call. Accepts any block size -- the history ring is a contiguous window over the stream and is never reset between bursts, so a payload whose tail falls outside one call is completed by a later one."
+doc = "Stream raw cf32 samples and get back the FRAME BITS of every burst that completed. Samples feed the embedded burst search (a Correlator) and are retained in a history ring; when a detection fires, the refine stage correlates the whole preamble to recover the exact preamble start -- the one quantity acquisition structurally cannot report, since its code_phase is a lag modulo one code period -- and the burst is demodulated the moment its last sample has arrived. Every sample is consumed and every burst that completes is returned by the call that completed it, with frames concatenated: burst i occupies frame_syms bits starting at i*frame_syms, and events() returns the matching record for each. The bits are the frame as RECEIVED -- sync word first, every symbol after it -- because this object stops at decisions: undoing the frame (a CRC, an outer code, a randomiser) needs its description and is `wfm.Frame.deframe`'s job. An empty return is normal, not an error: it means no burst completed in this call. Accepts any block size -- the history ring is a contiguous window over the stream and is never reset between bursts, so a payload whose tail falls outside one call is completed by a later one."
 arg_type = "void"
 return_type = "uint8_t"
 variable_output = true
@@ -193,10 +189,14 @@ result_fields = [
 
 [[dsss_burst_receiver.methods]]
 name = "configure_search_raw"
-doc = "Pin the embedded BurstAcquisition's search grid directly, bypassing the auto-sizing -- the escape hatch for a caller who wants a specific (doppler_bins, n_noncoh). Forwards to the engine unchanged."
+doc = "Pin the embedded burst search (a Correlator)'s search grid directly, bypassing the auto-sizing -- the escape hatch for a caller who wants a specific (doppler_bins, n_noncoh). Forwards to the engine unchanged."
 arg_type = "void"
 return_type = "int"
 status_return = true
+status_errors = [
+  { status = "DP_ERR_INVALID", error = "ValueError", message = "configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks (n_noncoh > 1) need rate_hypotheses 1; and n_noncoh x doppler_bins must not exceed the code periods refine reaches back (k_lo)" },
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "configure_search_raw: rebuilding the engine's grid could not allocate; the engine keeps its prior grid" },
+]
 params = [
     { name = "doppler_bins", type = "size_t" },
     { name = "n_noncoh", type = "size_t" },

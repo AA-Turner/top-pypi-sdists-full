@@ -8,11 +8,14 @@ from office365.communications.calls.incoming_context import IncomingContext
 from office365.communications.calls.invitation_participant_info import (
     InvitationParticipantInfo,
 )
+from office365.communications.calls.media_state import CallMediaState
 from office365.communications.calls.options import CallOptions
 from office365.communications.calls.participant import Participant
 from office365.communications.calls.participant_info import ParticipantInfo
 from office365.communications.calls.route import CallRoute
 from office365.communications.calls.state import CallState
+from office365.communications.calls.transcription_info import CallTranscriptionInfo
+from office365.communications.media_config import MediaConfig
 from office365.communications.meetings.info import MeetingInfo
 from office365.communications.onlinemeetings.collection import ChatInfo
 from office365.communications.operations.cancel_media_processing import (
@@ -27,22 +30,21 @@ from office365.communications.operations.update_recording_status import (
 )
 from office365.communications.quotas import CALL_QUOTAS
 from office365.communications.result_info import ResultInfo
+from office365.communications.tone_info import ToneInfo
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.communications.calls.audio_routing_group import AudioRoutingGroup
     from office365.communications.calls.content_sharing_session import (
         ContentSharingSession,
     )
-    from office365.communications.calls.media_state import CallMediaState
-    from office365.communications.calls.transcription_info import CallTranscriptionInfo
-    from office365.communications.media_config import MediaConfig
-    from office365.communications.tone_info import ToneInfo
 
 
 @limit(*CALL_QUOTAS)
@@ -52,6 +54,7 @@ class Call(Entity):
     new outgoing call via a POST on app/calls.
     """
 
+    @require_permission(application=["Calls.AccessMedia.All"])
     def cancel_media_processing(self, client_context=None):
         """Cancels processing for any in-progress media operations.
 
@@ -70,6 +73,7 @@ class Call(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(application=["Calls.AccessMedia.All"])
     def reject(self, reason=None, callback_uri=None):
         """Enable a bot to reject an incoming call. The incoming call request can be an invite from a participant in
         a group call or a peer-to-peer call. If an invite to a group call is received, the notification will contain
@@ -97,6 +101,7 @@ class Call(Entity):
         group call will still continue."""
         return super().delete_object()
 
+    @require_permission(application=["Calls.AccessMedia.All"])
     def update_recording_status(self, status, client_context):
         """Update the application's recording status associated with a call.
         This requires the use of the Teams policy-based recording solution.
@@ -111,6 +116,7 @@ class Call(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(application=["Calls.AccessMedia.All"])
     def unmute(self, client_context):
         """Allow the application to unmute itself.
 
@@ -126,21 +132,25 @@ class Call(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="callbackUri")
     @property
-    def callback_uri(self):
+    def callback_uri(self) -> Optional[str]:
         """The callback URL on which callbacks will be delivered. Must be https."""
         return self.properties.get("callbackUri", None)
 
+    @odata(name="callRoutes")
     @property
-    def call_routes(self):
+    def call_routes(self) -> ClientValueCollection[CallRoute]:
         """The routing information on how the call was retargeted. Read-only."""
         return self.properties.get("callRoutes", ClientValueCollection(CallRoute))
 
+    @odata(name="incomingContext")
     @property
-    def incoming_context(self):
+    def incoming_context(self) -> IncomingContext:
         """Call context associated with an incoming call."""
         return self.properties.get("incomingContext", IncomingContext())
 
+    @odata(name="participants", navigation=True)
     @property
     def participants(self):
         """
@@ -150,6 +160,7 @@ class Call(Entity):
             "participants", EntityCollection(self.context, Participant, ResourcePath("participants", self.resource_path))
         )
 
+    @odata(name="operations", navigation=True)
     @property
     def operations(self):
         """
@@ -159,61 +170,73 @@ class Call(Entity):
             "operations", EntityCollection(self.context, CommsOperation, ResourcePath("operations", self.resource_path))
         )
 
+    @odata(name="callChainId")
     @property
     def call_chain_id(self) -> Optional[str]:
         """Gets the callChainId property"""
         return self.properties.get("callChainId", None)
 
+    @odata(name="callOptions")
     @property
     def call_options(self) -> CallOptions:
         """Gets the callOptions property"""
         return self.properties.get("callOptions", CallOptions())
 
+    @odata(name="chatInfo")
     @property
     def chat_info(self) -> ChatInfo:
         """Gets the chatInfo property"""
         return self.properties.get("chatInfo", ChatInfo())
 
+    @odata(name="direction")
     @property
     def direction(self) -> CallDirection:
         """Gets the direction property"""
         return self.properties.get("direction", CallDirection.incoming)
 
+    @odata(name="meetingInfo")
     @property
     def meeting_info(self) -> MeetingInfo:
         """Gets the meetingInfo property"""
         return self.properties.get("meetingInfo", MeetingInfo())
 
+    @odata(name="myParticipantId")
     @property
     def my_participant_id(self) -> Optional[str]:
         """Gets the myParticipantId property"""
         return self.properties.get("myParticipantId", None)
 
+    @odata(name="requestedModalities")
     @property
     def requested_modalities(self) -> ClientValueCollection[Modality]:
         """Gets the requestedModalities property"""
         return self.properties.get("requestedModalities", ClientValueCollection[Modality](Modality))
 
+    @odata(name="resultInfo")
     @property
     def result_info(self) -> ResultInfo:
         """Gets the resultInfo property"""
         return self.properties.get("resultInfo", ResultInfo())
 
+    @odata(name="source")
     @property
     def source(self) -> ParticipantInfo:
         """Gets the source property"""
         return self.properties.get("source", ParticipantInfo())
 
+    @odata(name="state")
     @property
     def state(self) -> CallState:
         """Gets the state property"""
         return self.properties.get("state", CallState.incoming)
 
+    @odata(name="subject")
     @property
     def subject(self) -> Optional[str]:
         """Gets the subject property"""
         return self.properties.get("subject", None)
 
+    @odata(name="targets")
     @property
     def targets(self) -> ClientValueCollection[InvitationParticipantInfo]:
         """Gets the targets property"""
@@ -221,6 +244,7 @@ class Call(Entity):
             "targets", ClientValueCollection[InvitationParticipantInfo](InvitationParticipantInfo)
         )
 
+    @odata(name="tenantId")
     @property
     def tenant_id(self) -> Optional[str]:
         """Gets the tenantId property"""
@@ -230,36 +254,31 @@ class Call(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.Call"
 
+    @odata(name="mediaConfig")
     @property
     def media_config(self) -> MediaConfig:
         """Gets the mediaConfig property"""
-        from office365.communications.media_config import MediaConfig
-
         return self.properties.get("mediaConfig", MediaConfig())
 
+    @odata(name="mediaState")
     @property
     def media_state(self) -> CallMediaState:
         """Gets the mediaState property"""
-        from office365.communications.calls.media_state import CallMediaState
-
         return self.properties.get("mediaState", CallMediaState())
 
+    @odata(name="toneInfo")
     @property
     def tone_info(self) -> ToneInfo:
         """Gets the toneInfo property"""
-        from office365.communications.tone_info import ToneInfo
-
         return self.properties.get("toneInfo", ToneInfo())
 
+    @odata(name="transcription")
     @property
     def transcription(self) -> CallTranscriptionInfo:
         """Gets the transcription property"""
-        from office365.communications.calls.transcription_info import (
-            CallTranscriptionInfo,
-        )
-
         return self.properties.get("transcription", CallTranscriptionInfo())
 
+    @odata(name="audioRoutingGroups", navigation=True)
     @property
     def audio_routing_groups(self) -> EntityCollection[AudioRoutingGroup]:
         """Gets the audioRoutingGroups property"""
@@ -272,6 +291,7 @@ class Call(Entity):
             ),
         )
 
+    @odata(name="contentSharingSessions", navigation=True)
     @property
     def content_sharing_sessions(self) -> EntityCollection[ContentSharingSession]:
         """Gets the contentSharingSessions property"""

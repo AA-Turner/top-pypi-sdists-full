@@ -217,7 +217,7 @@ class BuiltInMetaschemaTest(unittest.TestCase):
         self.assertEqual(len(schema.validate('description = "d"\n')), 0)
 
     def test_dialect_gated_formats(self):
-        # engine 0.3.25: a declared dialect annotates format/content*,
+        # engine 0.3.26: a declared dialect annotates format/content*,
         # the no-dialect practical default asserts
         plain = teptris.compile_schema(
             '{"properties":{"k":{"format":"email"}}}'
@@ -234,6 +234,15 @@ class BuiltInMetaschemaTest(unittest.TestCase):
         )
         self.assertEqual(len(assertion.validate("k = '2962'\n")), 1)
 
+    def test_long_plain_tail_after_escape(self):
+        # engine 0.3.26: the schema JSON reader sized the escaped-string
+        # rebuild from the plain prefix alone; a long plain tail after
+        # the first escape wrote past the arena block (fuzz finding)
+        schema = teptris.compile_schema(
+            '{"description":"A\\u00e9' + "B" * (128 * 1024) + '"}'
+        )
+        self.assertEqual(len(schema.validate("k = 1\n")), 0)
+
     def test_unicode_property_escapes(self):
         # \p{...} since engine 0.3.24
         letter = teptris.compile_schema(
@@ -247,4 +256,4 @@ class BuiltInMetaschemaTest(unittest.TestCase):
         self.assertEqual(len(neg.validate("k = '123'\n")), 0)
 
     def test_engine_version(self):
-        self.assertEqual(teptris.engine_version(), "0.3.25")
+        self.assertEqual(teptris.engine_version(), "0.3.27")

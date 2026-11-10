@@ -358,7 +358,7 @@ const STDLIB_VALUE_TYPES: &[(&str, &[&str])] = &[
 ];
 
 /// Whether `ty` is exactly `fractions.Fraction` or `decimal.Decimal`.
-fn is_exact_rational(ty: &Bound<'_, PyType>) -> PyResult<bool> {
+pub(crate) fn is_exact_rational(ty: &Bound<'_, PyType>) -> PyResult<bool> {
     Ok(is_stdlib_class(ty, "fractions", "Fraction")? || is_stdlib_class(ty, "decimal", "Decimal")?)
 }
 
@@ -883,6 +883,22 @@ fn layout_of<'py>(ty: &Bound<'py, PyType>) -> PyResult<(Option<Bound<'py, PyType
             solid = Some(class.clone());
         }
         at = base_of(&class)?;
+    }
+    // A type defined in C can derive from a builtin it does not lay out on:
+    // numpy's `float64` has `floating` for its `__base__`, `float` on its order,
+    // and a `float`'s storage in its instance. A builtin on the order is one the
+    // instance holds, since `type` refuses an `mro()` naming a base whose layout
+    // the class does not extend. So the two chains part in one direction each: an
+    // order can hide a builtin, which is why the walk above is the first reading,
+    // and cannot add one.
+    if kind.is_none() {
+        for class in mro_of(ty.as_any())?.try_iter()? {
+            let class = class?;
+            if let Some((_, of)) = builtins.iter().find(|(builtin, _)| class.is(builtin)) {
+                kind = Some(*of);
+                break;
+            }
+        }
     }
     Ok((solid, kind))
 }
@@ -1480,11 +1496,16 @@ impl<'py> PoolRelations<'py, '_> {
     }
 
     /// A pooled bound operand that is exactly a `Fraction` or a `Decimal`, as
-    /// the integers at its floor and at its ceiling: Python compares an `int`
-    /// with either exactly, so a bound over the integers reads no more of it.
-    /// One with no finite value, or past the integers an `i64` holds, is not
-    /// read. The range is asked by comparison first, so a `Decimal` with a vast
-    /// exponent is never made an `int`.
+    /// the integers at its floor and at its ceiling and the floats beside it:
+    /// Python compares an `int` and a `float` with either exactly, so a bound
+    /// reads what its base holds. One with no finite value, or past the integers
+    /// an `i64` holds, is not read. The range is asked by comparison first, so a
+    /// `Decimal` with a vast exponent is never made an `int`.
+    ///
+    /// The float is the nearest one, and comparing it with the value says which
+    /// side it landed on. So a value below the smallest float is read beside
+    /// zero, and a `Decimal` under the `FloatOperation` trap, which refuses the
+    /// comparison, is not read, as the walk refuses it.
     fn rational(&self, slot: usize) -> Option<Operand> {
         let value = self.literals.get(slot)?.bind(self.py);
         if !self.heard(is_exact_rational(&value.get_type()))? {
@@ -1501,9 +1522,22 @@ impl<'py> PoolRelations<'py, '_> {
                 .extract::<i64>()
                 .ok()
         };
+        let nearest = self
+            .heard(value.call_method0(intern!(self.py, "__float__")))?
+            .extract::<f64>()
+            .ok()?;
+        let (below, above) = if self.heard(value.lt(nearest))? {
+            (nearest.next_down(), nearest)
+        } else if self.heard(value.gt(nearest))? {
+            (nearest, nearest.next_up())
+        } else {
+            (nearest, nearest)
+        };
         Some(Operand::Rational {
             floor: at(intern!(self.py, "__floor__"))?,
             ceil: at(intern!(self.py, "__ceil__"))?,
+            below,
+            above,
         })
     }
 
@@ -1598,6 +1632,15 @@ impl LeafRelations for PoolRelations<'_, '_> {
         // refuted here.
         match own {
             Some(own) => Some(own == kind || matches!((own, kind), (Kind::Int, Kind::Bool))),
+            // `bool` takes no subclass, so `True` is an instance of a class only
+            // through `bool`'s own order, which holds `int` and `object`, and a
+            // metaclass of its own may answer otherwise.
+            None if kind == Kind::Bool
+                && !class.is(self.py.get_type::<PyAny>())
+                && class.get_type().is(self.py.get_type::<PyType>()) =>
+            {
+                Some(false)
+            }
             None => solid.map(|_| false),
         }
     }
@@ -1755,6 +1798,22 @@ impl LeafRelations for PoolRelations<'_, '_> {
 
     fn literal_kind(&self, constant: ConstIx) -> Option<Kind> {
         kind_of(self.literals.get(constant.get())?.bind(self.py))
+    }
+
+    /// A constant of no kind is one whose exact type is none of the kinds'
+    /// builtin types, which [`kind_of`] answers for the scalars and a
+    /// container's own type answers for the rest.
+    fn literal_of_no_kind(&self, constant: ConstIx) -> bool {
+        self.literals.get(constant.get()).is_some_and(|value| {
+            let value = value.bind(self.py);
+            let ty = value.get_type();
+            kind_of(value).is_none()
+                && !(ty.is(PyTuple::type_object(self.py))
+                    || ty.is(PyList::type_object(self.py))
+                    || ty.is(PyDict::type_object(self.py))
+                    || ty.is(PySet::type_object(self.py))
+                    || ty.is(PyFrozenSet::type_object(self.py)))
+        })
     }
 
     /// Whether the two constants' literals share no value: constants of two

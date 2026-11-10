@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mkdocs-github-admonitions-plugin
-Version: 0.1.1
+Version: 0.1.2
 Summary: Convert GitHub admonitions to mkdocs syntax when building docs.
 Project-URL: Homepage, https://pgijsbers.github.io/admonitions
 Project-URL: Repository, https://www.github.com/pgijsbers/admonitions.git

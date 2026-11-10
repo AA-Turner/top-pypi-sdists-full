@@ -120,8 +120,12 @@ class WebsocketServer:
                 "`await websocket_server.start()`"
             )
 
-        if not room.started.is_set():
-            await self._task_group.start(room.start)
+        if room.started.is_set():
+            return
+
+        async with room._start_room_lock:
+            if not room.started.is_set():
+                await self._task_group.start(room.start)
 
     def get_room_name(self, room: YRoom) -> str:
         """Get the name of a room.
@@ -182,9 +186,12 @@ class WebsocketServer:
             async with create_task_group():
                 room = await self.get_room(websocket.path)
                 await self.start_room(room)
-                await room.serve(websocket)
-                if self.auto_clean_rooms and not room.clients:
-                    await self.delete_room(room=room)
+                try:
+                    await room.serve(websocket)
+                finally:
+                    # also when serving failed, so that the room doesn't outlive its clients
+                    if self.auto_clean_rooms and not room.clients:
+                        await self.delete_room(room=room)
         except Exception as exception:
             self._handle_exception(exception)
 

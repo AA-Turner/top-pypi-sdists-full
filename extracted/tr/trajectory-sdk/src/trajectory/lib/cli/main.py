@@ -199,6 +199,7 @@ class CLI:
     show_choices = interactive and not any(
       (args.template, args.repo, args.cookbook, args.assistant)
     )
+    organization_key = None
     if interactive:
       if (
         menus is None
@@ -206,7 +207,14 @@ class CLI:
         and (template is None or show_choices or args.assistant is None)
       ):
         raise ModuleNotFoundError("Interactive setup requires textual", name="textual")
-      auth_commands.AuthCommands(args.base_url, args.profile, CLI.report).ensure_authenticated()
+      identity = auth_commands.AuthCommands(
+        args.base_url, args.profile, CLI.report
+      ).ensure_authenticated()
+      organization_key = (
+        identity["organization"]["key"]
+        if "organization" in identity
+        else identity.get("organization_key")
+      )
     resume_setup = True
     while True:
       if template is None or show_choices:
@@ -323,6 +331,7 @@ class CLI:
         interactive,
         cookbook,
         result.get("repo"),
+        organization_key,
       )
     return result
 

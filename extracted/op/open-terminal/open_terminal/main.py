@@ -41,6 +41,7 @@ from open_terminal.utils.fs import UserFS, FullFileResponse as FileResponse, Tem
 from open_terminal.utils.limits import (CHUNK_SIZE, NormalizeNullQueryMiddleware, run_io, run_worker)
 from open_terminal.utils.file_compare import CompareRequest, run_comparison
 from open_terminal.utils.git import GitRepository
+from open_terminal.utils.system import collect_system_info
 from open_terminal.utils.events import system_events
 from open_terminal.utils.search import search_entries, matching_files, ranked_page
 from open_terminal.utils.skills import join_skill_path, list_skill_resources, parse_skill_frontmatter
@@ -521,6 +522,13 @@ async def get_config():
     }
 
 
+@app.get("/system/info", dependencies=[Depends(verify_api_key)], include_in_schema=False)
+async def system_info(http_request: Request, fs: UserFS = Depends(get_filesystem)):
+    directory = _get_session_cwd(http_request.headers.get("x-session-id"), fs) or fs.home
+    fs._check_path(os.path.realpath(directory))
+    return JSONResponse(await run_io(collect_system_info, directory, fs.username), headers={"Cache-Control": "no-store"})
+
+
 if ENABLE_SYSTEM_PROMPT:
 
     @app.get(
@@ -990,7 +998,9 @@ async def view_file(
 )
 async def serve_file(path: str, fs: UserFS = Depends(get_filesystem)):
     """Path-based alias for view_file — enables relative URL resolution in iframes."""
-    return await view_file(path=f"/{path}", preview=False, fs=fs)
+    if not path.startswith("/") and not os.path.isabs(path):
+        path = f"/{path}"
+    return await view_file(path=path, preview=False, fs=fs)
 
 
 @app.post(
@@ -1793,7 +1803,16 @@ async def execute(
     session_cwd = _get_session_cwd(session_id, fs) if session_id else None
     cwd = fs.resolve_path(request.cwd, cwd=session_cwd) if request.cwd else (session_cwd or fs.home)
 
-    runner = await create_runner(request.command, cwd, request.env, run_as_user=fs.username)
+    env = request.env
+    if ENABLE_DESKTOP:
+        from open_terminal.desktop import Desktop, desktops
+
+        desktop = desktops.get((http_request.headers.get("x-user-id", ""), fs.home))
+        if isinstance(desktop, Desktop):
+            # Lets windows opened by commands appear on the user's running desktop.
+            env = {"DISPLAY": desktop.env["DISPLAY"], "XAUTHORITY": desktop.env["XAUTHORITY"], **(request.env or {})}
+
+    runner = await create_runner(request.command, cwd, env, run_as_user=fs.username)
 
     process_id = time.strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
     log_path = os.path.join(LOG_DIR, "processes", f"{process_id}.jsonl")

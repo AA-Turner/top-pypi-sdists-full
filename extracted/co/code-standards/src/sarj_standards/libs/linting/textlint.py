@@ -1252,23 +1252,61 @@ def check_paths(
     rule_ids: frozenset[str] | None = None,
     sources: SourceCatalog | None = None,
 ) -> list[Finding]:
-    base = (root or Path.cwd()).resolve()
-    durable_patterns, excluded_patterns = _text_policy(base)
-    enabled_codes = None if rule_ids is None else frozenset(REGISTRY[rule_id].code for rule_id in rule_ids)
-    findings: list[Finding] = []
-    shell_parser = make_shell_parser()
+    checker = TextChecker(root=root, rule_ids=rule_ids, sources=sources)
+    findings = [finding for raw in paths for finding in checker.check(raw)]
+    return sorted(findings, key=lambda item: (str(item.path), item.line, item.code))
 
-    def collect_path_findings(path: Path, relative: str, source: str) -> list[Finding]:
+
+class TextChecker:
+    # One repository policy and shell parser for many independent per-file checks.
+    def __init__(
+        self,
+        *,
+        root: Path | None = None,
+        rule_ids: frozenset[str] | None = None,
+        sources: SourceCatalog | None = None,
+    ) -> None:
+        self._base = (root or Path.cwd()).resolve()
+        self._durable_patterns, self._excluded_patterns = _text_policy(self._base)
+        self._rule_ids = rule_ids
+        self._enabled_codes = None if rule_ids is None else frozenset(REGISTRY[rule_id].code for rule_id in rule_ids)
+        self._sources = sources
+        self._shell_parser = make_shell_parser()
+
+    def check(self, raw: str) -> list[Finding]:
+        enabled_codes = self._enabled_codes
+        path = Path(raw)
+        try:
+            snapshot = SourceSnapshot.read(path) if self._sources is None else self._sources.capture(path)
+            source = snapshot.decode(
+                _TEXT_ENCODINGS.get(path.suffix.casefold(), "utf-8"), newlines=NewlinePolicy.UNIVERSAL
+            ).text
+        except UnicodeDecodeError:
+            return []
+        relative = _relative(path.resolve(), self._base)
+        if any(fnmatch(relative, pattern) for pattern in self._excluded_patterns):
+            return []
+        if path.suffix.casefold() == ".tf":
+            # HCL comments and other attributes belong to the IaC analyzer.
+            path_findings = []
+            if enabled_codes is None or "SARJ309" in enabled_codes:
+                path_findings = _terraform_deployment_findings(path, source)
+        else:
+            path_findings = self._path_findings(path, relative, source)
+        return _selected_text_findings(path_findings, path, source, enabled_codes)
+
+    def _path_findings(self, path: Path, relative: str, source: str) -> list[Finding]:
+        enabled_codes = self._enabled_codes
         path_findings: list[Finding] = []
         execution = _ExecutionFacts(relative, source)
         if enabled_codes is None or "SARJ302" in enabled_codes:
-            path_findings.extend(_artifact_findings(path, relative, source, durable_patterns))
+            path_findings.extend(_artifact_findings(path, relative, source, self._durable_patterns))
         if enabled_codes is None or "SARJ309" in enabled_codes:
             path_findings.extend(_declarative_deployment_findings(path, relative, source, execution=execution))
         if enabled_codes is None or "SARJ310" in enabled_codes:
             path_findings.extend(
                 _workflow_embedded_program_findings(
-                    path, relative, source, shell_parser=shell_parser, execution=execution
+                    path, relative, source, shell_parser=self._shell_parser, execution=execution
                 )
             )
         if enabled_codes is None or "SARJ304" in enabled_codes:
@@ -1283,30 +1321,8 @@ def check_paths(
             path_findings.extend(_claude_settings_secret_permission_findings(path, relative, source))
         if enabled_codes is None or enabled_codes.intersection({"SARJ300", "SARJ301", "SARJ306"}):
             path_findings.extend(_comment_findings(path, source))
-        path_findings.extend(_authored_findings(path, source, rule_ids))
+        path_findings.extend(_authored_findings(path, source, self._rule_ids))
         return path_findings
-
-    for raw in paths:
-        path = Path(raw)
-        try:
-            snapshot = SourceSnapshot.read(path) if sources is None else sources.capture(path)
-            source = snapshot.decode(
-                _TEXT_ENCODINGS.get(path.suffix.casefold(), "utf-8"), newlines=NewlinePolicy.UNIVERSAL
-            ).text
-        except UnicodeDecodeError:
-            continue
-        relative = _relative(path.resolve(), base)
-        if any(fnmatch(relative, pattern) for pattern in excluded_patterns):
-            continue
-        if path.suffix.casefold() == ".tf":
-            # HCL comments and other attributes belong to the IaC analyzer.
-            path_findings = []
-            if enabled_codes is None or "SARJ309" in enabled_codes:
-                path_findings = _terraform_deployment_findings(path, source)
-        else:
-            path_findings = collect_path_findings(path, relative, source)
-        findings.extend(_selected_text_findings(path_findings, path, source, enabled_codes))
-    return sorted(findings, key=lambda item: (str(item.path), item.line, item.code))
 
 
 def _authored_findings(path: Path, source: str, rule_ids: frozenset[str] | None) -> list[Finding]:
@@ -1334,13 +1350,14 @@ def fix_source(
     if not _allows_text_fix(path, source, base, comment_facts=comment_facts):
         return source
     lines = _text_source_lines(path, source, keepends=True)
+    offsets = [0]
     edits = (
-        _hidden_heading_edits(path, source, lines, comment_facts=comment_facts)
+        _hidden_heading_edits(path, source, lines, offsets, comment_facts=comment_facts)
         if "hidden-markdown-heading" in selected
         else []
     )
     if selected.intersection({"config-comment-wall", "exact-config-comment-restatement", "commented-out-config"}):
-        edits.extend(_config_comment_edits(path, source, lines, selected))
+        edits.extend(_config_comment_edits(path, source, lines, offsets, selected))
     fixed = apply_edits(source, sorted(set(edits), key=lambda edit: edit.start))
     if path.suffix.lower() in {".yaml", ".yml", ".toml"}:
         try:
@@ -1388,7 +1405,12 @@ def _allows_text_fix(
 
 
 def _hidden_heading_edits(
-    path: Path, source: str, lines: list[str], *, comment_facts: _MarkdownCommentFacts | None = None
+    path: Path,
+    source: str,
+    lines: list[str],
+    offsets: list[int],
+    *,
+    comment_facts: _MarkdownCommentFacts | None = None,
 ) -> list[TextEdit]:
     edits: list[TextEdit] = []
     for finding in _markdown_hidden_comment_findings(path, source, comment_facts=comment_facts):
@@ -1404,7 +1426,7 @@ def _hidden_heading_edits(
                 and removed.count("-->") == 1
                 and not _AUTOFIX_PRESERVED_COMMENT.search(removed)
             ):
-                edits.append(_blank_text_lines(lines, finding.line, last))
+                edits.append(_blank_text_lines(lines, offsets, finding.line, last))
     return edits
 
 
@@ -1427,8 +1449,10 @@ def _plain_markdown_fix_context(source: str) -> bool:
     return opening is None or "\n" not in prose[opening[1] :]
 
 
-def _blank_text_lines(lines: list[str], first: int, last: int) -> TextEdit:
-    start = sum(map(len, lines[: first - 1]))
+def _blank_text_lines(lines: list[str], offsets: list[int], first: int, last: int) -> TextEdit:
+    for index in range(len(offsets) - 1, first - 1):
+        offsets.append(offsets[-1] + len(lines[index]))
+    start = offsets[first - 1]
     original = "".join(lines[first - 1 : last])
     return TextEdit(start, start + len(original), "".join(re.findall(r"\r\n|\r|\n", original)))
 
@@ -1439,7 +1463,9 @@ def _parsed_config_value(
     return tomllib.loads(source) if path.suffix.lower() == ".toml" else parse_yaml_documents(source)
 
 
-def _config_comment_edits(path: Path, source: str, lines: list[str], selected: frozenset[str]) -> list[TextEdit]:
+def _config_comment_edits(
+    path: Path, source: str, lines: list[str], offsets: list[int], selected: frozenset[str]
+) -> list[TextEdit]:
     if path.suffix.lower() not in {".yaml", ".yml", ".toml"}:
         return []
     edits: list[TextEdit] = []
@@ -1448,16 +1474,16 @@ def _config_comment_edits(path: Path, source: str, lines: list[str], selected: f
         if _AUTOFIX_PRESERVED_COMMENT.search(lines[finding.line - 1]):
             continue
         if finding.code == "SARJ306" and "exact-config-comment-restatement" in selected:
-            edits.append(_blank_text_lines(lines, finding.line, finding.line))
+            edits.append(_blank_text_lines(lines, offsets, finding.line, finding.line))
         elif finding.code == "SARJ301" and "commented-out-config" in selected:
-            if edit := _disabled_config_group_edit(path, lines, finding.line):
+            if edit := _disabled_config_group_edit(path, lines, offsets, finding.line):
                 edits.append(edit)
         elif finding.code == "SARJ300" and "config-comment-wall" in selected:
-            edits.extend(_config_wall_edits(path, lines, attached, finding.line))
+            edits.extend(_config_wall_edits(path, lines, offsets, attached, finding.line))
     return edits
 
 
-def _disabled_config_group_edit(path: Path, lines: list[str], first: int) -> TextEdit | None:
+def _disabled_config_group_edit(path: Path, lines: list[str], offsets: list[int], first: int) -> TextEdit | None:
     leader = _standalone_comment(path, lines[first - 1])
     if leader is None:
         return None
@@ -1476,18 +1502,22 @@ def _disabled_config_group_edit(path: Path, lines: list[str], first: int) -> Tex
         and not _AUTOFIX_PRESERVED_COMMENT.search(comment.body)
         for comment in comments
     ):
-        return _blank_text_lines(lines, first, last)
+        return _blank_text_lines(lines, offsets, first, last)
     return None
 
 
-def _config_wall_edits(path: Path, lines: list[str], attached: list[_AttachedComment], first: int) -> list[TextEdit]:
+def _config_wall_edits(
+    path: Path, lines: list[str], offsets: list[int], attached: list[_AttachedComment], first: int
+) -> list[TextEdit]:
     edits: list[TextEdit] = []
     for group in _attached_groups(attached, lines, path=path):
         weak = [line for line, _indent, is_weak in group if is_weak]
         if not weak or weak[0] != first:
             continue
         edits.extend(
-            _blank_text_lines(lines, number, number) for number in weak if _restated_config_comment(path, lines, number)
+            _blank_text_lines(lines, offsets, number, number)
+            for number in weak
+            if _restated_config_comment(path, lines, number)
         )
     return edits
 

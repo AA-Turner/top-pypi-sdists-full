@@ -1,17 +1,41 @@
+import math
+import re
 from collections.abc import Callable
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from jinja2 import Template
 
-from trilogy.core.enums import FunctionType, NullSort
-from trilogy.core.models.core import DataType
+from trilogy.core.casts import (
+    FIXED_EXPONENTS,
+    INSTANT_READ_TARGETS,
+    INT64,
+    NEGATIVE_INFINITY,
+    POSITIVE_INFINITY,
+)
+from trilogy.core.enums import ComparisonOperator, FunctionType, NullSort
+from trilogy.core.like_patterns import to_glob
+from trilogy.core.models.core import DataType, NumericType
 from trilogy.dialect.base import (
+    INLINE_SAFE_PARAM_DATATYPES,
     BaseDialect,
     TableColumn,
+    guard_divisor,
     offset_keeps_date,
     render_present_extreme,
     render_true_divide,
     render_unsupported,
+)
+from trilogy.dialect.base import (
+    render_mod as base_render_mod,
+)
+from trilogy.dialect.common import (
+    bool_from_text,
+    cast_kind,
+    guarded_read,
+    reads_text,
+    text_from_bool,
+    utc_text,
+    written_kind,
 )
 
 MONTH_NAME_CASE = (
@@ -76,7 +100,278 @@ TEMPORAL_CASTS = {
 }
 
 
+def trimmed(value: str) -> str:
+    return f"trim({value}, ' ' || char(9) || char(10) || char(13))"
+
+
+VALUE, TEXT, REST, AFTER_MONTH, CLOCK, DAY, FRACTION, ZONE = (
+    f"_trilogy_{name}"
+    for name in (
+        "value",
+        "text",
+        "rest",
+        "after_month",
+        "clock",
+        "day",
+        "fraction",
+        "zone",
+    )
+)
+DIGITS, SCIENTIFIC, EXPONENT = (
+    "_trilogy_digits",
+    "_trilogy_scientific",
+    "_trilogy_exponent",
+)
+Level = list[tuple[str, str]]
+
+
+def _literal(text: str) -> Callable[[re.Match[str]], str]:
+    return lambda _: text
+
+
+def bind(value: str, levels: list[Level], body: str) -> str:
+    """`body` over names each bound once, a level reading only the names of
+    the levels before it and `VALUE` the operand. A correlated subquery per
+    level keeps a part used many times from growing the SQL and its nesting
+    (SQLite before 3.46 overflows a 100-deep parser stack) and a volatile
+    operand from being drawn once per use; an OFFSET keeps the flattener from
+    inlining each level back into the next. An operand with no column is
+    inlined: SQLite evaluates an uncorrelated subquery once per query, not
+    once per row."""
+    named = [pair for level in levels for pair in level]
+    if '"' not in value:
+        for name, expr in reversed([(VALUE, value), *named]):
+            body = re.sub(rf"\b{name}\b", _literal(f"({expr})"), body)
+        return body
+    bound = f"SELECT {value} AS {VALUE}"
+    for level in [*levels, [("", body)]]:
+        columns = ", ".join(f"{e} AS {n}" if n else e for n, e in level)
+        kept = "*, " if level[0][0] else ""
+        bound = f"SELECT {kept}{columns} FROM ({bound} LIMIT -1 OFFSET 0)"
+    return f"({bound})"
+
+
+def is_number(text: str) -> str:
+    """`NUMBER_PATTERN` as GLOBs over the trimmed text: one sign, then digits
+    with at most one '.', then at most one exponent whose sign follows its
+    'e' (formal/Trilogy/Readings.lean, `glob_number_exact`)."""
+    rest = f"lower(ltrim({text}, '+-'))"
+    return " AND ".join(
+        [
+            f"{text} NOT GLOB '[+-][+-]*'",
+            f"{rest} NOT GLOB '*[^0-9.e+-]*'",
+            f"{rest} NOT GLOB '*e*e*'",
+            f"{rest} NOT GLOB '*.*.*'",
+            f"{rest} NOT GLOB '*e*.*'",
+            f"{rest} NOT GLOB '*[^e][+-]*'",
+            f"({rest} GLOB '[0-9]*' OR {rest} GLOB '.[0-9]*')",
+            f"{rest} NOT GLOB '*e'",
+            f"{rest} NOT GLOB '*e[+-]'",
+        ]
+    )
+
+
+def _digit_run(text: str) -> str:
+    """How many digits `text` starts with."""
+    return f"(length({text}) - length(ltrim({text}, '0123456789')))"
+
+
+def _date_levels() -> list[Level]:
+    """The text after the year's separator and after the month's (each one
+    or two digits), then after the day and the zero-padded day, then the zone
+    after the seconds and their fraction (any '.' and digits before it)."""
+    rest = f"substr({TEXT}, 6)"
+    after_month = f"substr({rest}, {_digit_run(rest)} + 2)"
+    tail = f"substr({CLOCK}, 10)"
+    zone = f"ltrim({tail}, '.0123456789')"
+    return [
+        [(TEXT, trimmed(VALUE))],
+        [(REST, rest), (AFTER_MONTH, after_month)],
+        [
+            (CLOCK, f"substr({AFTER_MONTH}, {_digit_run(AFTER_MONTH)} + 1)"),
+            (
+                DAY,
+                (
+                    f"printf('%s-%02d-%02d', substr({TEXT}, 1, 4),"
+                    f" CAST({REST} AS INTEGER), CAST({AFTER_MONTH} AS INTEGER))"
+                ),
+            ),
+        ],
+        [
+            (ZONE, zone),
+            (FRACTION, f"substr({tail}, 1, length({tail}) - length({zone}))"),
+        ],
+    ]
+
+
+DATE_LEVELS = _date_levels()
+
+
+ZONE_GLOBS = tuple(
+    f"[+-]{hour}{minute}"
+    for hour in ("[01][0-9]", "2[0-3]")
+    for minute in ("", "[0-5][0-9]", ":[0-5][0-9]")
+)
+
+
+def is_date(zoned: bool = False) -> str:
+    """`DATE_PATTERN` (`DATETIME_PATTERN` when `zoned`) as GLOBs and digit
+    counts over `DATE_LEVELS`; `date()` rolls '2020-02-30' into March, so the
+    zero-padded day must read back as written."""
+    separator = f"substr({TEXT}, 5, 1)"
+    clock = "[0-5][0-9]:[0-5][0-9]"
+    zones = " OR ".join(f"{ZONE} GLOB '{z}'" for z in ZONE_GLOBS)
+    fraction = (
+        f"({FRACTION} = '' OR {FRACTION} GLOB '.[0-9]*' AND {FRACTION} NOT GLOB '?*.*')"
+    )
+    tail = f"{fraction} AND ({ZONE} = ''"
+    tail += f" OR {ZONE} = 'Z' OR {zones})" if zoned else ")"
+    return (
+        f"substr({TEXT}, 1, 4) GLOB '[0-9][0-9][0-9][0-9]'"
+        f" AND {separator} IN ('-', '/')"
+        f" AND {_digit_run(REST)} BETWEEN 1 AND 2"
+        f" AND substr({REST}, {_digit_run(REST)} + 1, 1) = {separator}"
+        f" AND {_digit_run(AFTER_MONTH)} BETWEEN 1 AND 2"
+        f" AND date({DAY}) = {DAY}"
+        f" AND ({CLOCK} = ''"
+        f" OR ({CLOCK} GLOB '[ T][01][0-9]:{clock}*' OR {CLOCK} GLOB '[ T]2[0-3]:{clock}*')"
+        f" AND {tail})"
+    )
+
+
+def read_instant() -> str:
+    """The UTC instant at whole seconds, as `datetime()` gives every
+    datetime here; the zone is applied as an offset, as `datetime()` refuses
+    one past 14 hours."""
+    minutes = f"replace({ZONE}, ':', '')"
+    sign = f"CASE WHEN {ZONE} GLOB '-*' THEN 1 ELSE -1 END"
+    return (
+        f"datetime({DAY} || substr({CLOCK}, 1, 9),"
+        f" ({sign} * CAST(substr({ZONE}, 2, 2) AS INTEGER)) || ' hours',"
+        f" ({sign} * CAST(substr({minutes}, 4, 2) AS INTEGER)) || ' minutes')"
+    )
+
+
+def _text_list(values: tuple[str, ...]) -> str:
+    return ", ".join(f"'{v}'" for v in values)
+
+
+def read_text(value: str, target: str, target_type: Any) -> str:
+    """A string with no reading is NULL; CAST reads any numeric prefix ('abc'
+    is 0, '1e3' as an INTEGER is 1) and `date()` a number as a Julian day."""
+    base = getattr(target_type, "data_type", target_type)
+    if base == DataType.DATE:
+        return bind(value, DATE_LEVELS, guarded_read(is_date(), f"date({DAY})"))
+    if base in INSTANT_READ_TARGETS:
+        read = guarded_read(is_date(zoned=True), read_instant())
+        return bind(value, DATE_LEVELS, read)
+    return bind(value, [[(TEXT, trimmed(VALUE))]], read_number(target_type))
+
+
+def read_number(target_type: Any) -> str:
+    number = f"CAST({TEXT} AS REAL)"
+    if isinstance(target_type, NumericType):
+        read = f"round({number}, {target_type.scale})"
+        whole = target_type.precision - target_type.scale
+        fits = f"abs({read}) < 1e{whole}"
+    elif getattr(target_type, "data_type", target_type) in INTEGER_TYPES:
+        # a REAL holds an integer exactly only to 2^53
+        read = (
+            f"CASE WHEN {TEXT} GLOB '*[.eE]*' THEN CAST(round({number}) AS INTEGER)"
+            f" ELSE CAST({TEXT} AS INTEGER) END"
+        )
+        fits = int64_fits(TEXT, number)
+    else:
+        # 9e999 overflows to an infinity; SQLite has no NaN, so 'nan' is NULL
+        folded = f"lower({TEXT})"
+        positive, negative = _text_list(POSITIVE_INFINITY), _text_list(
+            NEGATIVE_INFINITY
+        )
+        return (
+            f"CASE WHEN {folded} IN ({positive}) THEN 9e999"
+            f" WHEN {folded} IN ({negative}) THEN -9e999"
+            f" WHEN {is_number(TEXT)} THEN {number} END"
+        )
+    return guarded_read(f"{is_number(TEXT)} AND {fits}", read)
+
+
+def int64_fits(text: str, number: str) -> str:
+    """CAST saturates past 64 bits. A whole numeral is compared digit for
+    digit with the bound; a fraction or exponent is read through a REAL."""
+    digits = f"ltrim(ltrim({text}, '+-'), '0')"
+    low, high = INT64
+    bound = f"CASE WHEN {text} GLOB '-*' THEN '{-low}' ELSE '{high}' END"
+    return (
+        f"CASE WHEN {text} GLOB '*[.eE]*' THEN abs(round({number})) < {float(-low)}"
+        f" ELSE length({digits}) < {len(str(high))} OR length({digits}) = {len(str(high))}"
+        f" AND {digits} <= {bound} END"
+    )
+
+
+def write_float(value: str) -> str:
+    """`repr`'s text: the fewest digits from 15 to 17 that read back as the
+    value (printf's are exact to 15 only), fixed or `e±XX` by the exponent.
+    `%!` drops a fraction's trailing zeros and keeps `.0`."""
+    scientific = f"printf('%!.*e', {DIGITS}, {VALUE})"
+    levels = [
+        [
+            (
+                DIGITS,
+                (
+                    f"CASE WHEN CAST(printf('%!.14e', {VALUE}) AS REAL) = {VALUE}"
+                    f" THEN 14 WHEN CAST(printf('%!.15e', {VALUE}) AS REAL) = {VALUE}"
+                    " THEN 15 ELSE 16 END"
+                ),
+            )
+        ],
+        [
+            (SCIENTIFIC, scientific),
+            (
+                EXPONENT,
+                f"CAST(substr({scientific}, instr({scientific}, 'e') + 1) AS INTEGER)",
+            ),
+        ],
+    ]
+    low, high = FIXED_EXPONENTS
+    body = (
+        f"CASE WHEN {VALUE} IS NULL THEN NULL"
+        f" WHEN {VALUE} = 9e999 THEN 'inf' WHEN {VALUE} = -9e999 THEN '-inf'"
+        f" WHEN {EXPONENT} BETWEEN {low} AND {high - 1}"
+        f" THEN printf('%!.*f', max({DIGITS} - {EXPONENT}, 0), {VALUE})"
+        f" ELSE replace({SCIENTIFIC}, '.0e', 'e') END"
+    )
+    return bind(value, levels, body)
+
+
+def write_text(value: str, source: Any) -> str:
+    """CAST writes a REAL at 15 digits, which can read back as another value,
+    and a decimal without its scale; `printf` of NULL is '0'."""
+    if isinstance(source, NumericType):
+        return f"CASE WHEN {value} IS NOT NULL THEN printf('%.{source.scale}f', {value}) END"
+    if source == DataType.TIMESTAMP:
+        return utc_text(f"datetime({value})")
+    if source == DataType.DATETIME:
+        return f"datetime({value})"
+    return write_float(value)
+
+
 def render_cast(args: list[str], types: list) -> str:
+    source, target = cast_kind(types)
+    if reads_text(types):
+        return read_text(args[0], args[1], types[-1])
+    written = written_kind(types)
+    if written is not None:
+        return write_text(args[0], written)
+    if source == DataType.BOOL and target == DataType.STRING:
+        return text_from_bool(args[0])
+    if target == DataType.BOOL:
+        if source == DataType.STRING:
+            return bool_from_text(args[0], "1", "0")
+        if source != DataType.BOOL:
+            return f"({args[0]} <> 0)"
+    # NUMERIC is a REAL here and keeps every digit; round to the scale
+    if isinstance(types[-1], NumericType):
+        return f"round({args[0]}, {types[-1].scale})"
     # SQLite truncates a fraction cast to an integer; other engines round it
     if (
         len(types) == 2
@@ -88,6 +383,14 @@ def render_cast(args: list[str], types: list) -> str:
     if len(types) == 2 and types[1].data_type in TEMPORAL_CASTS:
         return f"{TEMPORAL_CASTS[types[1].data_type]}({args[0]})"
     return f"cast({args[0]} as {args[1]})"
+
+
+def render_mod(args: list[str], types: list) -> str:
+    """`%` casts both sides to an integer (`7.5 % 3` is 1); `mod` keeps the
+    fraction, but answers a REAL for integers too."""
+    if any(getattr(t, "data_type", t) in FRACTIONAL_TYPES for t in types):
+        return f"mod({args[0]}, {guard_divisor(args[1])})"
+    return base_render_mod(args)
 
 
 MONTH_FACTOR = {"month": 1, "quarter": 3, "year": 12}
@@ -205,10 +508,13 @@ FUNCTION_MAP = {
     FunctionType.FORMAT_TIME: lambda x, types: f"strftime({x[1]}, {x[0]})",
     FunctionType.PARSE_TIME: lambda x, types: f"datetime({x[0]})",
     FunctionType.RANDOM: lambda x, types: f"(abs(random()) % {x[0]})",
+    FunctionType.MOD: render_mod,
     # the multi-argument max/min are greatest/least, NULL if any argument is
     FunctionType.GREATEST: render_present_extreme("max"),
     FunctionType.LEAST: render_present_extreme("min"),
     FunctionType.STRPOS: lambda x, types: f"instr({x[0]}, {x[1]})",
+    # native: the reference semantics (formal/Trilogy/Strings.lean, `substr`)
+    FunctionType.SUBSTRING: lambda x, types: f"SUBSTRING({x[0]},{x[1]},{x[2]})",
     # SQLAlchemy registers a Python `floor` here, which raises on NULL
     FunctionType.FLOOR: lambda x, types: (
         f"(CAST({x[0]} AS INTEGER) - ({x[0]} < CAST({x[0]} AS INTEGER)))"
@@ -239,6 +545,31 @@ DATATYPE_MAP: dict[DataType, str] = {
 }
 
 
+# `to_glob` over a pattern only known at run time: the escaped specials are
+# parked on control characters while the wildcards are rewritten. A pattern
+# holding those control characters itself is not translated faithfully.
+_RUNTIME_GLOB_STEPS = (
+    ("'\\\\'", "char(1)"),
+    ("'\\%'", "char(2)"),
+    ("'\\_'", "char(3)"),
+    ("'\\'", "''"),
+    ("'['", "'[[]'"),
+    ("'*'", "'[*]'"),
+    ("'?'", "'[?]'"),
+    ("'%'", "'*'"),
+    ("'_'", "'?'"),
+    ("char(1)", "'\\'"),
+    ("char(2)", "'%'"),
+    ("char(3)", "'_'"),
+)
+
+
+def runtime_glob(pattern_sql: str) -> str:
+    for old, new in _RUNTIME_GLOB_STEPS:
+        pattern_sql = f"replace({pattern_sql}, {old}, {new})"
+    return pattern_sql
+
+
 class SQLiteDialect(BaseDialect):
     NULL_SORT = NullSort.SMALLEST
     FUNCTION_MAP: ClassVar[dict[FunctionType, Callable[..., str]]] = {
@@ -257,6 +588,35 @@ class SQLiteDialect(BaseDialect):
     COLUMN_NOT_FOUND_PATTERN = "no such column"
     # no native ILIKE; emulate via case-folded LIKE
     ILIKE_AS_LOWER_LIKE = ("lower", "like", "not ")
+    # a bound datetime is its isoformat ('+00:00', microseconds), which does
+    # not compare as text with the `datetime()` every other instant is
+    INLINE_PARAM_DATATYPES: ClassVar[frozenset[DataType]] = (
+        INLINE_SAFE_PARAM_DATATYPES | {DataType.DATETIME, DataType.TIMESTAMP}
+    )
+
+    def render_non_finite(self, value: float) -> str:
+        """CAST('inf' AS REAL) is 0 here; 9e999 overflows to an infinity, and
+        there is no NaN."""
+        if math.isnan(value):
+            return "NULL"
+        return "9e999" if value > 0 else "-9e999"
+
+    def render_like(
+        self,
+        left_sql: str,
+        pattern,
+        operator: ComparisonOperator,
+        render: Callable[[Any], str],
+    ) -> str:
+        """SQLite's LIKE ignores ASCII case; GLOB is its case-sensitive match."""
+        if operator not in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE):
+            return super().render_like(left_sql, pattern, operator, render)
+        if isinstance(pattern, str):
+            glob = self.render_string_literal(to_glob(pattern))
+        else:
+            glob = runtime_glob(render(pattern))
+        negate = "not " if operator == ComparisonOperator.NOT_LIKE else ""
+        return f"({negate}{left_sql} glob {glob})"
 
     def compile_create_table_statements(self, target, create_mode) -> list[str]:
         statements = super().compile_create_table_statements(target, create_mode)

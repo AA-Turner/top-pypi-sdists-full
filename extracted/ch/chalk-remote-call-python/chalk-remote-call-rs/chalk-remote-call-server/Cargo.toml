@@ -22,6 +22,7 @@ tonic = { version = "0.12", features = ["tls", "tls-native-roots"] }
 tonic-health = "0.12"
 tonic-reflection = "0.12"
 prost = "0.13"
+prost-types = "0.13"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "signal", "time", "fs"] }
 tokio-stream = "0.1"
 arrow = { version = "54", default-features = false, features = ["ipc"] }
@@ -45,7 +46,7 @@ futures-util = "0.3"
 # `[patch.crates-io]` here it builds against vanilla crates.io redis (it only
 # uses standard APIs). Metrics and StatsD share a revision so their client types agree.
 [target.'cfg(target_os = "linux")'.dependencies]
-chalk-queue = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "61b67cc862036cfee5346807de1f24415a5fbfba" }
+chalk-queue = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "31fb37c162671d3a838a7c33e717a0a425466790" }
 chalk_metrics = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
 chalk_statsd = { git = "https://github.com/chalk-ai/chalk-private.git", rev = "a0f8932ec10d3b8340af3e98cf63b800d60b4926" }
 

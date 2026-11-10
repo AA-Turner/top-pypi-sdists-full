@@ -12,25 +12,18 @@ T = TypeVar("T", bound="GenerateNativeTriggerServiceConnectUrlJsonBody")
 class GenerateNativeTriggerServiceConnectUrlJsonBody:
     """
     Attributes:
-        redirect_uri (str):
         resource_path (Union[Unset, str]):
     """
 
-    redirect_uri: str
     resource_path: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        redirect_uri = self.redirect_uri
         resource_path = self.resource_path
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "redirect_uri": redirect_uri,
-            }
-        )
+        field_dict.update({})
         if resource_path is not UNSET:
             field_dict["resource_path"] = resource_path
 
@@ -39,12 +32,9 @@ class GenerateNativeTriggerServiceConnectUrlJsonBody:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
-        redirect_uri = d.pop("redirect_uri")
-
         resource_path = d.pop("resource_path", UNSET)
 
         generate_native_trigger_service_connect_url_json_body = cls(
-            redirect_uri=redirect_uri,
             resource_path=resource_path,
         )
 

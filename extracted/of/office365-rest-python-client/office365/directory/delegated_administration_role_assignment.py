@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 from office365.directory.role_template import RoleTemplate
@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from office365.directory.groups.group import Group
 
 
-@dataclass
 class DelegatedAdministrationRoleAssignment(ClientValue):
     groupDisplayName: str | None = None
     roleTemplates: ClientValueCollection[RoleTemplate] = field(

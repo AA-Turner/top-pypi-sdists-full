@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Authlib"
-version = "1.8.0.20261103"
+version = "1.8.0.20261106"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Authlib"
@@ -25,13 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.92
+* [ty](https://docs.astral.sh/ty/) 0.0.94
 
 It was generated from typeshed commit
-[`92b4407b6ed288e6d7cc4a0f7017e18991854e41`](https://github.com/python/typeshed/commit/92b4407b6ed288e6d7cc4a0f7017e18991854e41).
+[`64c9da7d22492efa44d1ca06b8d82c1bf6aed74f`](https://github.com/python/typeshed/commit/64c9da7d22492efa44d1ca06b8d82c1bf6aed74f).
 
 ## Optional dependencies
 
@@ -44,6 +44,7 @@ pip install 'types-Authlib[django]' # installs django-stubs
 pip install 'types-Authlib[Flask]' # installs Flask>=2.0.0
 pip install 'types-Authlib[httpx2]' # installs httpx2
 pip install 'types-Authlib[requests]' # installs requests
+pip install 'types-Authlib[starlette]' # installs starlette
 pip install 'types-Authlib[oauthlib]' # installs types-oauthlib
 ```
 """, content-type = "text/markdown" }
@@ -55,11 +56,12 @@ requires-python = ">=3.10"
 dependencies = ['cryptography']
 
 [project.optional-dependencies]
-all = ['django-stubs', 'Flask>=2.0.0', 'httpx2', 'requests', 'types-oauthlib']
+all = ['django-stubs', 'Flask>=2.0.0', 'httpx2', 'requests', 'starlette', 'types-oauthlib']
 django = ['django-stubs']
 Flask = ['Flask>=2.0.0']
 httpx2 = ['httpx2']
 requests = ['requests']
+starlette = ['starlette']
 oauthlib = ['types-oauthlib']
 
 [project.urls]

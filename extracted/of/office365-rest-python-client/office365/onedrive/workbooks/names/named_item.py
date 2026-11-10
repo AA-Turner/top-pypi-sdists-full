@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.entity import Entity
 from office365.onedrive.workbooks.ranges.range import WorkbookRange
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
-
-if TYPE_CHECKING:
-    from office365.runtime.types.json import Json
+from office365.runtime.types.json import Json
+from office365.runtime.types.odata_property import odata
 
 
 class WorkbookNamedItem(Entity):
@@ -16,6 +16,7 @@ class WorkbookNamedItem(Entity):
     (as seen in the type below), range object, reference to a range. This object can be used to obtain range
     object associated with names."""
 
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def range(self):
         """Returns the range object that is associated with the name. Throws an exception if the named item's type
         isn't a range."""
@@ -24,21 +25,25 @@ class WorkbookNamedItem(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="name")
     @property
     def name(self) -> Optional[str]:
         """The name of the object."""
         return self.properties.get("name", None)
 
+    @odata(name="comment")
     @property
     def comment(self) -> Optional[str]:
         """Represents the comment associated with this name."""
         return self.properties.get("comment", None)
 
+    @odata(name="scope")
     @property
     def scope(self) -> Optional[str]:
         """Indicates whether the name is scoped to the workbook or to a specific worksheet."""
         return self.properties.get("scope", None)
 
+    @odata(name="worksheet", navigation=True)
     @property
     def worksheet(self):
         """Returns the worksheet on which the named item is scoped to. Available only if the item is scoped
@@ -54,18 +59,19 @@ class WorkbookNamedItem(Entity):
     def property_ref_name(self) -> str:
         return "name"
 
+    @odata(name="type")
     @property
     def type(self) -> Optional[str]:
         """Gets the type property"""
         return self.properties.get("type", None)
 
+    @odata(name="value")
     @property
     def value(self) -> Json:
         """Gets the value property"""
-        from office365.runtime.types.json import Json
-
         return self.properties.get("value", Json())
 
+    @odata(name="visible")
     @property
     def visible(self) -> Optional[bool]:
         """Gets the visible property"""

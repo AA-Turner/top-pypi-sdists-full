@@ -724,21 +724,21 @@ class AbstractCircuit:
         This function is useful when we only measure part of the qubits in the circuit,
         to process the count result from partial measurement, we must be aware of the mapping,
         i.e. for each position in the count bitstring, what is the corresponding qubits (logical)
-        defined on the circuit
+        defined on the circuit. The position is the ``record_index`` of the measurement,
+        i.e. its classical bit, which is the order of measure instructions by default.
 
         :return: ``positional_logical_mapping``
         :rtype: Dict[int, int]
         """
-        id_mapping = {i: i for i in range(self._nqubits)}
-        if len(self._extra_qir) == 0:
-            return id_mapping
-        measure_index = []
-        for inst in self._extra_qir:
-            if inst["name"] == "measure":
-                measure_index.append(inst["index"][0])
-        if len(measure_index) == 0:
-            return id_mapping
-        return {i: j for i, j in enumerate(measure_index)}
+        measures = [inst for inst in self._extra_qir if inst["name"] == "measure"]
+        if len(measures) == 0:
+            return {i: i for i in range(self._nqubits)}
+        return dict(
+            sorted(
+                (inst.get("record_index", i), inst["index"][0])
+                for i, inst in enumerate(measures)
+            )
+        )
 
     @staticmethod
     def standardize_gate(name: str) -> str:
@@ -837,12 +837,15 @@ class AbstractCircuit:
             summary[d["name"]] = summary.get(d["name"], 0) + 1
         return summary
 
-    def measure_instruction(self, *index: int) -> None:
+    def measure_instruction(self, *index: int, p: float = 0.0) -> None:
         """
         add a measurement instruction flag, no effect on numerical simulation
 
         :param index: the corresponding qubits
         :type index: int
+        :param p: the probability to flip the recorded outcome in detector and measurement
+            sampling, i.e. the readout error, the measured qubit is not affected, defaults to 0.0
+        :type p: float, optional
         """
         l = len(self._qir)
         if not hasattr(self, "_measure_counter"):
@@ -856,6 +859,8 @@ class AbstractCircuit:
                 "pos": l,
                 "record_index": self._measure_counter,
             }
+            if p:
+                d["parameters"] = {"p": p}
             self._measure_counter += 1
             self._extra_qir.append(d)
 
@@ -914,8 +919,11 @@ class AbstractCircuit:
 
         :param q: the corresponding qubit
         :type q: int
+        :param p: the probability to flip the recorded outcome, see :py:meth:`measure_instruction`,
+            defaults to 0.0
+        :type p: float, optional
         """
-        self.measure_instruction(q)
+        self.measure_instruction(q, p=p)
         self.reset_instruction(q)
 
     def depolarizing_instruction(
@@ -1263,19 +1271,27 @@ class AbstractCircuit:
 
     def to_json(self, file: Optional[str] = None, simplified: bool = False) -> Any:
         """
-        circuit dumps to json
+        Dump the circuit to json, including gates, noise channels, the measure /
+        reset / barrier instructions in ``extra_qir`` and the circuit size.
+        Custom input states are not included.
 
         :param file: file str to dump the json to, defaults to None, return the json str
         :type file: Optional[str], optional
-        :param simplified: If False, keep all info for each gate, defaults to be False.
-            If True, suitable for IO since less information is required
+        :param simplified: If True, omit the gate tensors which are not needed to
+            restore the circuit, see :py:func:`tensorcircuit.translation.qir2json`,
+            defaults to False
         :type simplified: bool
-        :return: None if dumps to file otherwise the json str
+        :return: the json str
         :rtype: Any
         """
         from .translation import qir2json
 
-        tcqasm = qir2json(self.to_qir(), simplified=simplified)
+        tcqasm = {
+            "nqubits": self._nqubits,
+            "dim": getattr(self, "_d", 2),
+            "qir": qir2json(self.to_qir(), simplified=simplified),
+            "extra_qir": [dict(inst) for inst in self._extra_qir],
+        }
         if file is not None:
             with open(file, "w") as f:
                 json.dump(tcqasm, f)
@@ -1372,20 +1388,38 @@ class AbstractCircuit:
         """
         load json str as a Circuit
 
-        :param jsonstr: _description_
+        :param jsonstr: json str or the loaded object from :py:meth:`to_json`,
+            or a gate list from :py:func:`tensorcircuit.translation.qir2json`
         :type jsonstr: str
         :param circuit_params: Extra circuit parameters in the format of ``__init__``,
             defaults to None
         :type circuit_params: Optional[Dict[str, Any]], optional
-        :return: _description_
+        :return: the restored circuit
         :rtype: AbstractCircuit
         """
         from .translation import json2qir
 
         if isinstance(jsonstr, str):
             jsonstr = json.loads(jsonstr)
-        qir = json2qir(jsonstr)  # type: ignore
-        return cls.from_qir(qir, circuit_params)
+        if isinstance(jsonstr, list):
+            jsonstr = {"qir": jsonstr}  # type: ignore
+        params: Dict[str, Any] = {}
+        if "nqubits" in jsonstr:
+            params["nqubits"] = jsonstr["nqubits"]  # type: ignore
+        if jsonstr.get("dim", 2) != 2:  # type: ignore
+            params["dim"] = jsonstr["dim"]  # type: ignore
+        params.update(circuit_params or {})
+        c = cls.from_qir(
+            json2qir(jsonstr["qir"]),  # type: ignore
+            params,
+            allow_channel=getattr(cls, "is_dm", False),
+        )
+        c._extra_qir = [dict(inst) for inst in jsonstr.get("extra_qir", [])]  # type: ignore
+        c._measure_counter = max(
+            [0]
+            + [d["record_index"] + 1 for d in c._extra_qir if d["name"] == "measure"]
+        )
+        return c
 
     @classmethod
     def from_json_file(

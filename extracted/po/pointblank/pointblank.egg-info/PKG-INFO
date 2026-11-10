@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pointblank
-Version: 1.1.1
+Version: 1.2.0
 Summary: Find out if your data is what you think it is.
 Author-email: Richard Iannone <riannone@me.com>
 License: MIT License
@@ -42,8 +42,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: commonmark>=0.9.1
 Requires-Dist: importlib-metadata
-Requires-Dist: great-tables>=0.0.0
-Requires-Dist: narwhals>=2.0.1
+Requires-Dist: great-tables>=1.1.0
+Requires-Dist: narwhals>=2.8.0
 Requires-Dist: typing_extensions>=3.10.0.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: click>=8.0.0
@@ -56,7 +56,7 @@ Requires-Dist: polars>=1.33.0; extra == "pl"
 Provides-Extra: pyspark
 Requires-Dist: pyspark==3.5.6; extra == "pyspark"
 Provides-Extra: generate
-Requires-Dist: chatlas>=0.3.0; extra == "generate"
+Requires-Dist: chatlas>=0.10.0; extra == "generate"
 Requires-Dist: anthropic[bedrock]>=0.68.0; extra == "generate"
 Requires-Dist: openai>=1.63.0; extra == "generate"
 Requires-Dist: httpx>=0.28.0; extra == "generate"
@@ -65,8 +65,8 @@ Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.14.2; extra == "mcp"
 Requires-Dist: pytest-asyncio>=1.0.0; extra == "mcp"
 Provides-Extra: otel
-Requires-Dist: opentelemetry-api>=1.22.0; extra == "otel"
-Requires-Dist: opentelemetry-sdk>=1.22.0; extra == "otel"
+Requires-Dist: opentelemetry-api>=1.23.0; extra == "otel"
+Requires-Dist: opentelemetry-sdk>=1.23.0; extra == "otel"
 Provides-Extra: excel
 Requires-Dist: openpyxl>=3.0.0; extra == "excel"
 Provides-Extra: cdisc
@@ -78,7 +78,9 @@ Requires-Dist: ibis-framework[bigquery]>=9.5.0; extra == "bigquery"
 Provides-Extra: databricks
 Requires-Dist: ibis-framework[databricks]>=9.5.0; extra == "databricks"
 Provides-Extra: duckdb
-Requires-Dist: ibis-framework[duckdb]>=9.5.0; extra == "duckdb"
+Requires-Dist: ibis-framework[duckdb]>=11.0.0; extra == "duckdb"
+Requires-Dist: duckdb<2; extra == "duckdb"
+Requires-Dist: narwhals>=2.8.0; extra == "duckdb"
 Requires-Dist: sqlglot<30.18,>=23.4; extra == "duckdb"
 Provides-Extra: mysql
 Requires-Dist: ibis-framework[mysql]>=9.5.0; extra == "mysql"
@@ -95,13 +97,15 @@ Provides-Extra: docs
 Requires-Dist: jupyter; extra == "docs"
 Requires-Dist: nbclient>=0.10.0; extra == "docs"
 Requires-Dist: nbformat>=5.10.4; extra == "docs"
-Requires-Dist: pandas<3,>=2.2.3; extra == "docs"
-Requires-Dist: polars>=1.17.1; extra == "docs"
+Requires-Dist: pandas>=2.2.3; extra == "docs"
+Requires-Dist: polars>=1.33.0; extra == "docs"
 Requires-Dist: pyspark==3.5.6; extra == "docs"
 Requires-Dist: openpyxl>=3.0.0; extra == "docs"
-Requires-Dist: duckdb<1.3.3,>=1.2.0; extra == "docs"
+Requires-Dist: duckdb<2,>=1.2.0; extra == "docs"
 Requires-Dist: lxml>=4.9.0; extra == "docs"
 Requires-Dist: pyreadstat>=1.2.0; extra == "docs"
+Requires-Dist: opentelemetry-api>=1.23.0; extra == "docs"
+Requires-Dist: opentelemetry-sdk>=1.23.0; extra == "docs"
 Dynamic: license-file
 
 > [!TIP]
@@ -215,7 +219,7 @@ _Data validation toolkit for assessing and monitoring data quality._
 
 Pointblank takes a different approach to data quality. It doesn't have to be a tedious technical task. Rather, it can become a process focused on clear communication between team members. While other validation libraries focus solely on catching errors, Pointblank is great at both **finding issues and sharing insights**. Our beautiful, customizable reports turn validation results into conversations with stakeholders, making data quality issues immediately understandable and actionable for everyone on your team.
 
-**Get started in minutes, not hours.** Pointblank's AI-powered [`DraftValidation`](https://posit-dev.github.io/pointblank/user-guide/draft-validation.html) feature analyzes your data and suggests intelligent validation rules automatically. So there's no need to stare at an empty validation script wondering where to begin. Pointblank can kickstart your data quality journey so you can focus on what matters most.
+**Get started in minutes, not hours.** Pointblank's AI-powered [`DraftValidation`](https://posit-dev.github.io/pointblank/user-guide/advanced-validation/draft-validation.html) feature analyzes your data and suggests intelligent validation rules automatically. So there's no need to stare at an empty validation script wondering where to begin. Pointblank can kickstart your data quality journey so you can focus on what matters most.
 
 Whether you're a data scientist who needs to quickly communicate data quality findings, a data engineer building robust pipelines, or an analyst presenting data quality results to business stakeholders, Pointblank helps you to turn data quality from an afterthought into a competitive advantage.
 
@@ -429,7 +433,7 @@ This approach is suitable for:
 Pointblank includes a powerful CLI utility called `pb` that lets you run data validation workflows directly from the command line. Perfect for CI/CD pipelines, scheduled data quality checks, or quick validation tasks.
 
 <div align="center">
-<img src="https://posit-dev.github.io/pointblank/assets/vhs/cli-complete-workflow.gif" width="100%">
+<img src="https://posit-dev.github.io/pointblank/assets/termshow/cli-complete-workflow.gif" width="100%">
 </div>
 
 **Explore Your Data**
@@ -481,13 +485,13 @@ pb run validation.yaml --exit-code
 pb run validation.py --exit-code
 ```
 
-Click the following headings to see some video demonstrations of the CLI:
+Click the following headings to see some terminal recordings of the CLI in action:
 
 <details>
 <summary>Getting Started with the Pointblank CLI</summary>
 
 <div align="center">
-<img src="https://posit-dev.github.io/pointblank/assets/vhs/cli-getting-started.gif" width="100%">
+<img src="https://posit-dev.github.io/pointblank/assets/termshow/cli-getting-started.gif" width="100%">
 </div>
 
 </details>
@@ -495,7 +499,7 @@ Click the following headings to see some video demonstrations of the CLI:
 <summary>Doing Some Data Exploration</summary>
 
 <div align="center">
-<img src="https://posit-dev.github.io/pointblank/assets/vhs/cli-data-exploration.gif" width="100%">
+<img src="https://posit-dev.github.io/pointblank/assets/termshow/cli-data-exploration.gif" width="100%">
 </div>
 
 </details>
@@ -503,7 +507,7 @@ Click the following headings to see some video demonstrations of the CLI:
 <summary>Validating Data with the CLI</summary>
 
 <div align="center">
-<img src="https://posit-dev.github.io/pointblank/assets/vhs/cli-essential-validations.gif" width="100%">
+<img src="https://posit-dev.github.io/pointblank/assets/termshow/cli-essential-validations.gif" width="100%">
 </div>
 
 </details>
@@ -511,7 +515,7 @@ Click the following headings to see some video demonstrations of the CLI:
 <summary>Using Polars in the CLI</summary>
 
 <div align="center">
-<img src="https://posit-dev.github.io/pointblank/assets/vhs/cli-using-polars.gif" width="100%">
+<img src="https://posit-dev.github.io/pointblank/assets/termshow/cli-using-polars.gif" width="100%">
 </div>
 
 </details>
@@ -519,7 +523,7 @@ Click the following headings to see some video demonstrations of the CLI:
 <summary>Integrating Pointblank with CI/CD</summary>
 
 <div align="center">
-<img src="https://posit-dev.github.io/pointblank/assets/vhs/cli-cicd-workflows.gif" width="100%">
+<img src="https://posit-dev.github.io/pointblank/assets/termshow/cli-cicd-workflows.gif" width="100%">
 </div>
 
 </details>

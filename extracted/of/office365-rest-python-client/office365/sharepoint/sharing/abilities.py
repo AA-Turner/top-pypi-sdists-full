@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.sharing.direct_abilities import DirectSharingAbilities
@@ -11,7 +11,6 @@ from office365.sharepoint.sharing.settingsabilities import (
 )
 
 
-@dataclass
 class SharingAbilities(ClientValue):
     """
     Represents the matrix of possible sharing abilities for direct sharing and tokenized sharing links along

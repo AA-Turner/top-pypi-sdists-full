@@ -3,51 +3,43 @@
 This is the canonical home for everything a user is *told* to configure: the
 identity functions the SEC requires you to set, and the local data directory.
 
-The access modes (:data:`NORMAL`, :data:`CAUTION`, :data:`CRAWL`) still live here
-but are deprecated and have no effect - see GH #1326 and the block below.
-
 Historically all of this lived in ``edgar.core`` alongside quarter math, HTML
 sniffing, a pager, thread helpers and the logger — only about a third of that
-697-line module was settings. ``edgar.core`` still re-exports every name here so
-existing imports keep working; that shim is removed in 6.0 (edgartools-07lk.12.1).
+697-line module was settings. ``edgar.core`` re-exported every name here through
+5.x; 6.0 removed those re-exports (edgartools-07lk.22.1).
 
-    from edgar.settings import get_identity, set_identity   # preferred
-    from edgar.core import get_identity, set_identity       # works, removed in 6.0
+    from edgar.settings import get_identity, set_identity
 
-Most users never import this module at all — :func:`set_identity` and the access
-modes are re-exported on the top-level ``edgar`` namespace.
+Most users never import this module at all — :func:`set_identity` is re-exported
+on the top-level ``edgar`` namespace.
 """
 import logging
 import os
 import threading
-import warnings
 from _thread import interrupt_main
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
+import httpx2
 from rich.prompt import Prompt
 
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'CAUTION',  # noqa: F822 -- served by the module __getattr__ (deprecated, GH #1326)
-    'CRAWL',  # noqa: F822 -- served by the module __getattr__ (deprecated, GH #1326)
-    'NORMAL',  # noqa: F822 -- served by the module __getattr__ (deprecated, GH #1326)
     'EdgarSettings',
     'ask_for_identity',
     'default_http_timeout',
     'default_max_connections',
     'default_page_size',
     'default_retries',
-    'edgar_access_mode',  # noqa: F822 -- served by the module __getattr__ (deprecated, GH #1326)
     'edgar_data_dir',
     'edgar_identity',
-    'edgar_mode',  # noqa: F822 -- served by the module __getattr__ (deprecated, GH #1326)
     'get_edgar_data_directory',
     'get_identity',
     'identity_prompt',
     'limits',
+    'selective_attachment_download',
+    'selective_attachment_download_min_bytes',
     'set_identity',
 ]
 
@@ -56,7 +48,7 @@ default_page_size = 50
 default_max_connections = 10
 default_retries = 3
 
-limits = httpx.Limits(max_connections=default_max_connections)
+limits = httpx2.Limits(max_connections=default_max_connections)
 
 
 @dataclass
@@ -74,78 +66,25 @@ class EdgarSettings:
         return hash((self.http_timeout, self.max_connections, self.retries))
 
 
-# Modes of accessing edgar -- DEPRECATED, removed in 6.0 (GH #1326).
-#
-# The modes advertised a timeout / connection-limit / retry policy that was never
-# wired into the HTTP client, so selecting one has never changed how edgartools
-# talks to SEC. What actually protects you is EDGAR_RATE_LIMIT_PER_SEC, with
-# EDGAR_HTTP_TIMEOUT for the request timeout; both work today.
-#
-# The objects stay module-level singletons built once, so `mode is NORMAL` and
-# identity across the edgar / edgar.core / edgar.settings paths keep holding.
-# They are resolved through the module __getattr__ below purely so that reaching
-# for one raises a DeprecationWarning at the point of use.
-
-_NORMAL = EdgarSettings(http_timeout=15, max_connections=10)
-_CAUTION = EdgarSettings(http_timeout=20, max_connections=5)
-_CRAWL = EdgarSettings(http_timeout=25, max_connections=2, retries=2)
-
-_edgar_access_mode = os.getenv('EDGAR_ACCESS_MODE', 'NORMAL')
-if _edgar_access_mode == 'CAUTION':
-    _edgar_mode = _CAUTION
-elif _edgar_access_mode == 'CRAWL':
-    _edgar_mode = _CRAWL
-else:
-    _edgar_mode = _NORMAL
-
-DEPRECATED_ACCESS_MODE_NAMES: dict = {
-    'NORMAL': _NORMAL,
-    'CAUTION': _CAUTION,
-    'CRAWL': _CRAWL,
-    'edgar_mode': _edgar_mode,
-    'edgar_access_mode': _edgar_access_mode,
-}
-
-ACCESS_MODE_DEPRECATION_MESSAGE = (
-    "{name} is deprecated and has no effect; it will be removed in edgartools 6.0. "
-    "The access modes advertise a timeout, connection limit and retry policy that "
-    "was never wired into the HTTP client, so selecting a mode has never changed "
-    "how edgartools talks to SEC. Set EDGAR_RATE_LIMIT_PER_SEC to stay within SEC "
-    "rate limits, and EDGAR_HTTP_TIMEOUT to set the request timeout."
-)
-
-
-def warn_access_mode_deprecated(name: str, stacklevel: int = 3) -> None:
-    """Raise the deprecation for `name`, from the caller's frame."""
-    warnings.warn(
-        ACCESS_MODE_DEPRECATION_MESSAGE.format(name=name),
-        DeprecationWarning,
-        stacklevel=stacklevel,
-    )
-
-
-def __getattr__(name: str):
-    """PEP 562 hook: serve the deprecated access modes, loudly.
-
-    Only the names in DEPRECATED_ACCESS_MODE_NAMES route through here; everything
-    else in this module is a normal module global and never reaches __getattr__.
-    """
-    if name in DEPRECATED_ACCESS_MODE_NAMES:
-        warn_access_mode_deprecated(name)
-        return DEPRECATED_ACCESS_MODE_NAMES[name]
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def __dir__():
-    return sorted(set(globals()) | set(DEPRECATED_ACCESS_MODE_NAMES))
-
-
-# Setting the env var is an explicit, deliberate act, so it earns a warning at
-# import rather than waiting for someone to read one of the names back.
-if os.getenv('EDGAR_ACCESS_MODE') is not None:
-    warn_access_mode_deprecated('EDGAR_ACCESS_MODE', stacklevel=2)
-
 edgar_identity = 'EDGAR_IDENTITY'
+
+# A submission whose complete .txt is larger than this is "large": reading its XBRL
+# fetches only the XBRL files instead of the whole submission (edgartools-vk270.1).
+# Below it, one request for the .txt is faster than the ~8 requests for the parts.
+selective_attachment_download_min_bytes: int = 20_000_000
+
+_SELECTIVE_DOWNLOAD_ENV = 'EDGAR_SELECTIVE_ATTACHMENT_DOWNLOAD'
+_FALSE_VALUES = ('false', '0', 'no', 'off', 'n', 'f')
+
+
+def selective_attachment_download() -> bool:
+    """Whether a large filing downloads only the files a call needs.
+
+    On by default. Set ``EDGAR_SELECTIVE_ATTACHMENT_DOWNLOAD=false`` to
+    always download the complete submission .txt, as 5.x did. Read on every
+    call, so changing the variable takes effect without a re-import.
+    """
+    return os.environ.get(_SELECTIVE_DOWNLOAD_ENV, '').strip().lower() not in _FALSE_VALUES
 
 # Local storage directory - use centralized path configuration
 from edgar.paths import get_data_directory as _get_data_directory  # noqa: E402
@@ -166,10 +105,10 @@ def set_identity(user_identity: str):
     :param user_identity:
     """
     os.environ[edgar_identity] = user_identity
-    log.info("Identity of the Edgar REST client set to [%s]", user_identity)
+    log.info("Identity of the Edgar REST client set")
 
     from edgar.httpclient import close_clients
-    close_clients() # close any httpx clients, to reset the identity.
+    close_clients() # close any httpx2 clients, to reset the identity.
 
 
 identity_prompt = """

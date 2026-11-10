@@ -24,6 +24,7 @@ import stat
 import threading
 import time
 import traceback
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -59,10 +60,13 @@ from .mutation_terminal import (
     _DERIVED_COMPONENT_NAMES,
     ResponseDetail,
     _CanonicalRequestReplay,
+    as_replay,
     committed_terminal,
+    is_reused_capture,
     needs_review_terminal,
     project_terminal,
     replayed_terminal,
+    reused_capture_terminal,
     settled_media_terminal,
     split_response_detail,
     valid_collection_receipt,
@@ -88,6 +92,7 @@ _REQUEST_BOUND_REMOTE_SURFACES = frozenset({"mcp", "rest"})
 # capability as the CLI. Closed set: the maintain_memory mode literal fixes it.
 REMOTE_WRITE_MAINTENANCE_MODES = frozenset({  # nosemgrep: ep-word-set -- closed maintain_memory mode literals
     "structured-files", "tag-variants", "curation", "maintenance-job-cancel", "collections-store-adopt-local",
+    "held-resolve",
 })
 
 
@@ -203,7 +208,7 @@ _ACTIVE_MUTATION_TRACE: ContextVar[tuple[str, str, str] | None] = ContextVar(
 _ACTIVE_MUTATION_COMMITTED: ContextVar[bool] = ContextVar(
     "exomem_active_mutation_committed", default=False
 )
-_ACTIVE_MUTATION_PROTOCOL: ContextVar[tuple[str | None, str | None] | None] = ContextVar(
+_ACTIVE_MUTATION_PROTOCOL: ContextVar[tuple[str | None, str | None, str | None, bool] | None] = ContextVar(
     "exomem_active_mutation_protocol", default=None
 )
 _ACTIVE_LEASE_MANAGER: ContextVar[Any | None] = ContextVar(
@@ -505,8 +510,9 @@ def _fast_ack_enabled(command: str | None = None, action: str | None = None) -> 
     if flag is not None:
         return flag == "1"
     # Fixed command/action protocol: bulk apply uses existing durable custody by
-    # default; an explicit flag still provides the synchronous rollback.
-    return command == "adoption_studio" and action == "apply"
+    # default, and so does `file`, which runs at most one apply per call; an
+    # explicit flag still provides the synchronous rollback.
+    return command == "adoption_studio" and action in ("apply", "file")
 
 
 def fast_durable_ack_active() -> bool:
@@ -1375,20 +1381,14 @@ def _durable_graph_outcome(vault_root: Path) -> Any:
     terminal proves what it can from what is on disk. Two facts are provable and
     they are *different answers*:
 
-    * the sidecar acknowledges the committed generation -- the graph is current
-      for this write, which is exactly the `completed` this field has always
-      meant;
-    * it does not, and work is still queued against it -- `pending`.
+    * the sidecar acknowledges the committed generation, has no queued repair,
+      and has not withdrawn availability -- `completed`;
+    * required repair remains queued or availability is withdrawn -- `pending`.
 
-    Reporting nothing for the first is what a queue-only probe does, and it grows
-    **more** wrong as the drain gets healthier: a write whose repair landed before
-    its response was shaped then says nothing about the graph at all, and a caller
-    cannot tell a converged graph from an unreported one. Measured at 16 of 43
-    writes in one 400-page run once the drain stopped being refused.
-
-    Both terms still matter for `pending`: an unacknowledged checkpoint with an
-    empty queue is a rebuild's business, and a queue holding later work says
-    nothing about whether *this* generation converged.
+    A covering acknowledgement alone does not prove that graph relations are
+    current. Later queued repair or a withdrawn marker still reports pending.
+    An unacknowledged checkpoint with no queued repair remains the rebuild
+    coordinator's responsibility.
 
     Never raises. This runs while shaping a terminal for canonical bytes that are
     already durable; a probe that failed loudly here would turn a successful
@@ -1400,11 +1400,13 @@ def _durable_graph_outcome(vault_root: Path) -> Any:
         committed = graph_sync.read_checkpoint(vault_root)
         if committed is None:
             return None
-        acknowledged = graph_sync.acknowledged_checkpoint(vault_root)
-        if acknowledged is not None and acknowledged.covers(committed):
-            return {"graph_sync": "completed"}
-        if deferred_index.list_graph_paths(vault_root):
+        state, acknowledged = graph_sync.acknowledgement_state(vault_root, require_available=True)
+        if deferred_index.list_graph_paths(vault_root, limit=1):
             return graph_sync.committed_graph_queued(committed)
+        if acknowledged is not None and acknowledged.covers(committed):
+            if state == "unavailable":
+                return graph_sync.committed_graph_unavailable(committed)
+            return {"graph_sync": "completed"}
         return None
     except Exception:  # noqa: BLE001 - a report must not fail a durable write
         logger.warning("durable graph outcome probe failed", exc_info=True)
@@ -1450,19 +1452,22 @@ def mark_active_mutation_committed() -> None:
 
 @contextmanager
 def active_mutation_claim_context(
-    *, claim_token: str | None, command_digest: str | None
+    *, claim_token: str | None, command_digest: str | None,
+    identity_digest: str | None = None, reconciling: bool = False,
 ) -> Iterator[None]:
     """Bind opaque per-claim protocol identity for canonical helper calls.
 
-    The idempotency state-machine lane supplies the durable claim token.  The
-    existing invocation path sets only its already-computed command digest, so
-    existing callers retain their standalone random checkpoint identity.
+    The idempotency store supplies the attempt claim and the full namespaced
+    identity digest. Canonical helpers retain scope across reconciled attempts
+    without receiving raw caller keys, principal identifiers or arguments.
     """
     if claim_token is not None and re.fullmatch(r"[0-9a-f]{24}", claim_token) is None:
         raise ValueError("claim token must be lowercase 24-hex")
     if command_digest is not None and re.fullmatch(r"[0-9a-f]{64}", command_digest) is None:
         raise ValueError("command digest must be lowercase SHA-256")
-    token = _ACTIVE_MUTATION_PROTOCOL.set((claim_token, command_digest))
+    if identity_digest is not None and re.fullmatch(r"[0-9a-f]{64}", identity_digest) is None:
+        raise ValueError("identity digest must be lowercase SHA-256")
+    token = _ACTIVE_MUTATION_PROTOCOL.set((claim_token, command_digest, identity_digest, reconciling))
     try:
         yield
     finally:
@@ -1481,6 +1486,14 @@ def active_mutation_command_digest() -> str | None:
     return active[1] if active is not None else None
 
 
+def active_mutation_recovery_identity() -> tuple[str, str, bool] | None:
+    """Return the opaque namespaced identity, command digest and reconciliation flag."""
+    active = _ACTIVE_MUTATION_PROTOCOL.get()
+    if active is None or active[1] is None or active[2] is None:
+        return None
+    return active[2], active[1], active[3]
+
+
 class _PostCommitOutcomeUncertain(OpError):
     """Sanitized terminal state for an unexpected exception after canonical commit."""
 
@@ -1497,7 +1510,7 @@ class _PostCommitOutcomeUncertain(OpError):
     def __init__(self) -> None:
         super().__init__(
             "MUTATION_COMMITTED_ACKNOWLEDGEMENT_UNCERTAIN",
-            "the mutation completed but its exact terminal result could not be persisted",
+            "the mutation committed data but its exact terminal result could not be persisted",
             "Do not rerun with a new identity; reconcile and retry only with the same identity.",
             details={"status": "committed", "committed": True},
         )
@@ -1533,6 +1546,7 @@ class _ExecutionAttempt:
     commit_token: str
     commit_secret: bytes
     handle: Any | None
+    reconciling: bool = False
 
 
 class _WindowsDPAPISecretProtector:
@@ -1988,6 +2002,11 @@ class LeaseConfig:
     @property
     def enabled(self) -> bool:
         return bool(self.url)
+
+    @property
+    def coordinated_across_hosts(self) -> bool:
+        """Writer authority can move to another host: coordination is on in the multi-host topology."""
+        return self.enabled and self.topology == "multi-host"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> LeaseConfig:
@@ -3531,6 +3550,7 @@ class IdempotencyStore:
         resume_canonically_committed=None,  # noqa: ANN001
         commit_evidence=None,  # noqa: ANN001
         legacy_graph_pending_proof=None,  # noqa: ANN001
+        reconcile_abandoned: bool = False,
     ) -> Any:
         if not key:
             with operation_guard() if operation_guard is not None else nullcontext():
@@ -3555,6 +3575,7 @@ class IdempotencyStore:
                     expires_after,
                     commit_evidence=commit_evidence,
                     legacy_graph_pending_proof=legacy_graph_pending_proof,
+                    reconcile_abandoned=reconcile_abandoned,
                 )
             if disposition == "owner":
                 break
@@ -3565,9 +3586,11 @@ class IdempotencyStore:
                     on_replay=on_replay,
                     commit_evidence=commit_evidence,
                     legacy_graph_pending_proof=legacy_graph_pending_proof,
+                    reconcile_abandoned=reconcile_abandoned,
                 )
                 if waited is _RETRY_IDEMPOTENCY_CLAIM:
-                    continue
+                    # The waiter already acquired the new attempt under the SQLite transaction.
+                    break
                 disposition, stored = waited
             if disposition == "canonical_resume":
                 if resume_canonically_committed is None:
@@ -3625,6 +3648,8 @@ class IdempotencyStore:
                 with active_mutation_claim_context(
                     claim_token=attempt.commit_token,
                     command_digest=digest if re.fullmatch(r"[0-9a-f]{64}", digest) else None,
+                    identity_digest=hashlib.sha256(key.encode("utf-8")).hexdigest(),
+                    reconciling=attempt.reconciling,
                 ):
                     try:
                         leaf_started = True
@@ -3748,12 +3773,13 @@ class IdempotencyStore:
             # intentionally retained for exact evidence/outcome-unknown
             # classification instead.
             if (
-                not leaf_returned
+                not attempt.reconciling
+                and not leaf_returned
                 and isinstance(error, Exception)
                 and (commit_observed is None or not commit_observed())
             ):
                 self._delete_executing(key, digest, attempt)
-            elif not leaf_started:
+            elif not leaf_started and not attempt.reconciling:
                 self._delete_executing(key, digest, attempt)
             elif not canonical_persisted:
                 # A returned leaf without a durable exact receipt is the
@@ -3772,6 +3798,7 @@ class IdempotencyStore:
         *,
         commit_evidence=None,
         legacy_graph_pending_proof=None,
+        reconcile_abandoned: bool = False,
     ) -> tuple[str, Any]:
         now = self.clock()
         with self._connect() as conn:
@@ -3795,9 +3822,14 @@ class IdempotencyStore:
                     legacy_graph_pending_proof=legacy_graph_pending_proof,
                 )
                 if row is not None:
-                    return self._decode_disposition(row, digest, commit_evidence=commit_evidence)
+                    disposition = self._decode_disposition(row, digest, commit_evidence=commit_evidence)
+                    if disposition[0] != "outcome_unknown" or not reconcile_abandoned:
+                        return disposition
+                    if row[4] and _probe_owner_liveness(self.state_dir, row[4]):
+                        return disposition
             self._ensure_private_runtime_state()
             attempt = _new_attempt()
+            attempt.reconciling = row is not None
             try:
                 stored_commit_secret = self._stored_commit_secret(digest, attempt)
             except Exception as error:
@@ -3815,19 +3847,24 @@ class IdempotencyStore:
                 )
             try:
                 self._ensure_private_runtime_state()
-                conn.execute(
-                    "INSERT INTO mutations(key, digest, state, updated_at, owner, attempt_id, commit_token, commit_secret) "
-                    "VALUES (?, ?, 'reserved', ?, ?, ?, ?, ?)",
-                    (
-                        key,
-                        digest,
-                        now,
-                        attempt.attempt_id,
-                        attempt.attempt_id,
-                        attempt.commit_token,
-                        stored_commit_secret,
-                    ),
-                )
+                if attempt.reconciling:
+                    # A command-specific reconciler, never generic replay, owns this exact unknown identity.
+                    cursor = conn.execute(
+                        "UPDATE mutations SET state = 'reserved', result = NULL, updated_at = ?, "
+                        "owner = ?, attempt_id = ?, commit_token = ?, commit_secret = ? "
+                        "WHERE key = ? AND digest = ? AND state = ?",
+                        (now, attempt.attempt_id, attempt.attempt_id, attempt.commit_token,
+                         stored_commit_secret, key, digest, row[1]),
+                    )
+                    if cursor.rowcount != 1:
+                        raise self._reconciliation_error("abandoned mutation claim")
+                else:
+                    conn.execute(
+                        "INSERT INTO mutations(key, digest, state, updated_at, owner, attempt_id, commit_token, commit_secret) "
+                        "VALUES (?, ?, 'reserved', ?, ?, ?, ?, ?)",
+                        (key, digest, now, attempt.attempt_id, attempt.attempt_id,
+                         attempt.commit_token, stored_commit_secret),
+                    )
                 cursor = conn.execute(
                     "UPDATE mutations SET state = 'executing' WHERE key = ? AND state = 'reserved' "
                     "AND attempt_id = ? AND commit_token = ?",
@@ -4146,6 +4183,7 @@ class IdempotencyStore:
         on_replay=None,  # noqa: ANN001
         commit_evidence=None,  # noqa: ANN001
         legacy_graph_pending_proof=None,  # noqa: ANN001
+        reconcile_abandoned: bool = False,
     ) -> Any:
         _log_mutation_event("pending", receipt=_receipt_tag(key))
         deadline = self.monotonic() + self.wait_seconds
@@ -4158,6 +4196,7 @@ class IdempotencyStore:
                 None,
                 commit_evidence=commit_evidence,
                 legacy_graph_pending_proof=legacy_graph_pending_proof,
+                reconcile_abandoned=reconcile_abandoned,
             )
             if disposition == "owner":
                 return _RETRY_IDEMPOTENCY_CLAIM
@@ -4201,7 +4240,7 @@ class IdempotencyStore:
                         if isinstance(stored.get("idempotency_key"), str)
                         else None,
                     )
-            return stored
+            return as_replay(stored)
         if disposition == "committed_failure":
             raise stored
         if disposition == "committed_uncertain":
@@ -4453,10 +4492,24 @@ def _receipt_tag(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
+def _nfc(value: Any) -> Any:
+    """Normalise every string in an argument tree, so one text composed two ways is one request."""
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, Mapping):
+        return {_nfc(key): _nfc(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_nfc(item) for item in value]
+    return value
+
+
 def _command_digest(command: Any, kwargs: Mapping[str, Any]) -> str:
+    if command.name == "adoption_studio" and kwargs.get("action") != "status":
+        # nosemgrep: ep-word-membership -- Status-only schema fields cannot change pre-upgrade mutation identities.
+        kwargs = {key: value for key, value in kwargs.items() if key not in ("view", "offset", "limit", "revision")}
     return hashlib.sha256(
         json.dumps(
-            {"command": command.name, "kwargs": kwargs},
+            {"command": command.name, "kwargs": _nfc(kwargs)},
             sort_keys=True,
             separators=(",", ":"),
             default=str,
@@ -4754,6 +4807,12 @@ class _FairCaptureQueue:
         with self._condition:
             return bool(self._line)
 
+    def waiting_behind_head(self) -> int:
+        """Writes in line behind the head. The head is the write that holds the boundary or asks for it
+        in `hold()`, which its own waiter count shows; the rest wait here, where no count sees them."""
+        with self._condition:
+            return max(0, len(self._line) - 1)
+
     def enter_line(self) -> object:
         """Take a place at the back of the line; never blocks."""
         ticket = object()
@@ -4956,6 +5015,10 @@ class LeaseManager:
             poll_interval_seconds=self._mutation_poll_interval_seconds,
             kind=kind,
             name=name,
+            # A keyed write in line waits outside `hold()`: the holder must still see it.
+            queued_writers=self._capture_queue.waiting_behind_head
+            if kind == COORDINATOR_VAULT_BOUNDARY
+            else None,
         )
 
     @contextmanager
@@ -5270,6 +5333,14 @@ class LeaseManager:
                     # _mutation_boundary has bumped the generation. Keep exact
                     # receipt custody visible before any waiting writer enters.
                     _timed_handoff(session)
+
+    def writers_waiting(self, vault_root: os.PathLike[str] | str) -> int:
+        """Interactive writers that wait for this vault's boundary now, in this process or another.
+
+        For a long mutation that can end its call between two committed units, so that a writer waiting
+        for the boundary commits when it releases (`VaultMutationCoordinator.waiter_count`).
+        """
+        return self._mutation_coordinator_for(vault_root).waiter_count()
 
     def lend_boundary(
         self,
@@ -6066,6 +6137,14 @@ class LeaseManager:
                         )
                         if terminal is not None:
                             return attach_evidence(terminal, gate_context)
+                    reused = reused_capture_terminal(
+                        leaf_result,
+                        request_id=request_id,
+                        receipt_id=receipt,
+                        idempotency_key=effective_public_idempotency_key,
+                    )
+                    if reused is not None:
+                        return attach_evidence(reused, gate_context)
                     # A guarded write that validated but did not commit is mid-flight, not
                     # failed. Give it the same envelope shape as its eventual success so a
                     # client can correlate the pair on `operation_id` and see `terminal`
@@ -6114,6 +6193,11 @@ class LeaseManager:
                 )
             return graph_sync.committed_graph_failure(checkpoint)
 
+        # The command name and mode are closed protocol literals: the CLI's and the tool's reconcile.
+        runs_reconcile = command.name == "reconcile" or (
+            command.name == "maintain_memory" and kwargs.get("mode") == "reconcile"
+        )
+
         def joins_unbounded_graph(result: Any) -> bool:
             """Whether this command's terminal *is* the derived graph state.
 
@@ -6124,11 +6208,7 @@ class LeaseManager:
             command that joins unbounded is exactly the one whose terminal
             cannot be made durable until that join has finalized its handoff.
             """
-            return (
-                command.name == "reconcile"
-                or (command.name == "maintain_memory" and kwargs.get("mode") == "reconcile")
-                or _carries_graph_rebuild_handoff(result)
-            )
+            return runs_reconcile or _carries_graph_rebuild_handoff(result)
 
         def wait_for_graph_sync(result: Any) -> Any:
             """Join derived graph work only after the canonical guard released."""
@@ -6137,6 +6217,9 @@ class LeaseManager:
                 if isinstance(result, Mapping)
                 else result
             )
+            if isinstance(result, Mapping) and is_reused_capture(result.get("leaf_result")):
+                # Nothing was written, so there is no write whose graph state to report.
+                return terminal_result
             has_reconcile_handoff = _carries_graph_rebuild_handoff(terminal_result)
 
             def finish_reconcile_graph_status(value: Any, *, current: bool) -> Any:
@@ -6700,21 +6783,25 @@ class LeaseManager:
         from . import maintenance_jobs
 
         # A maintenance job's start only claims a row and launches a thread, and its
-        # cancel only flags one; neither touches the vault. A chunked job's own dispatch
-        # (`plan_id` and `dry_run=False`) holds the boundary per chunk in its leaf, so
-        # a job can start while another writer holds the boundary. A whole-run job's
-        # dispatch keeps the wide boundary (`maintenance_jobs.WHOLE_RUN_MODES`).
-        # `EXOMEM_WIDE_MUTATION_BOUNDARY` widens a job start like every other narrow row.
-        # It never widens a cancel: that must stay able to stop a job that holds the
-        # wide boundary, so it needs no switch to be safe.
+        # cancel only flags one; neither touches the vault. A job's own dispatch
+        # (`plan_id` and `dry_run=False`) holds the boundary in short holds in its leaf
+        # (`maintenance_jobs.chunk_hold`), so a job can start while another writer holds
+        # the boundary. `EXOMEM_WIDE_MUTATION_BOUNDARY` widens a job start and dispatch like
+        # every other narrow row. It never widens a cancel: that must stay able to stop a
+        # job that holds the wide boundary, so it needs no switch to be safe.
         narrow_maintenance_job_cancel = (
             command.name == "maintain_memory" and kwargs.get("mode") == maintenance_jobs.MODE_CANCEL
         )
         narrow_maintenance_job = (
             command.name == "maintain_memory"
-            and maintenance_jobs.narrows_boundary(kwargs, getattr(capabilities_module.current_active_surface(), "surface", None))
+            and maintenance_jobs.is_job_write(kwargs)
             and not os.environ.get("EXOMEM_WIDE_MUTATION_BOUNDARY")
         )
+        # A reconcile, from the CLI or as a job, holds the boundary itself in one short hold
+        # per phase that writes vault-coupled state, and re-reads that phase's inputs inside
+        # it (`reconcile.reconcile`). Its long read-only and self-locked phases run with no
+        # hold, so other writers commit between phases. The graph join after it holds none.
+        narrow_reconcile = runs_reconcile and not os.environ.get("EXOMEM_WIDE_MUTATION_BOUNDARY")
         # A curation proposal prepares read-only, then seals; `seal_proposal` takes
         # the mutation boundary itself and re-checks every binding under it, so
         # preparation can run without the lock. Apply, resume and compensation
@@ -6741,6 +6828,7 @@ class LeaseManager:
             or narrow_tag_variant_commit
             or narrow_maintenance_job_cancel
             or narrow_maintenance_job
+            or narrow_reconcile
             or narrow_curation_proposal
             or narrow_episode_record
             # Issuance writes no vault-owned file: upload and download mint a token over a private
@@ -6815,8 +6903,8 @@ class LeaseManager:
                             mutation_subject,
                             request_id=request_id,
                             operation=command.name,
-                            # A whole-run job's dispatch: a blocked writer learns that a job holds the boundary.
-                            holder_kind="maintenance-job" if maintenance_jobs.current_run_id() else "command",
+                            # A job's dispatch under the wide switch: a blocked writer learns that a job holds it.
+                            holder_kind=maintenance_jobs.holder_kind(),
                             session_open_admission=session_open_admission,
                         )
                     )
@@ -6859,6 +6947,7 @@ class LeaseManager:
                     resume_canonically_committed=resume_graph_sync,
                     commit_evidence=exact_commit_evidence,
                     legacy_graph_pending_proof=legacy_graph_pending_proof,
+                    reconcile_abandoned=command.name == "adoption_studio" and kwargs.get("action") in ("apply", "file"),
                 )
 
             from .command_surface import OPEN_WORLD_OPS
@@ -6966,9 +7055,7 @@ class LeaseManager:
             receipt=receipt,
             outcome=(
                 "replayed"
-                if isinstance(result, Mapping)
-                and result.get("status") == "replayed"
-                and result.get("mutated") is False
+                if isinstance(result, Mapping) and result.get("replayed") is True
                 else "committed"
             ),
             error_code=None,
@@ -7363,7 +7450,10 @@ class LeaseManager:
                 resubmission=received,
                 deadline=wait.deadline,
             )
-            server = store_runtime.route(command.name, injected[0], kwargs) if wait.absorbed else routed
+            server = (
+                store_runtime.route(command.name, injected[0], kwargs, write=True)
+                if wait.absorbed else routed
+            )
             token = _ACTIVE_STORE_ATTEMPT.set(current)
             try:
                 if server is None:
@@ -8518,11 +8608,13 @@ def _collection_store_thread(func):
             # Keep demand visible between the routing proof and queue insertion.
             with foreground_priority.foreground():
                 if not (read_only or import_status) and _writes_absorb_contention():
-                    routed = store_runtime.route(command.name, injected[0], kwargs)
+                    routed = store_runtime.route(command.name, injected[0], kwargs, write=True)
                     if routed is not None:
                         return get_manager()._attempt_store_write(func, command, injected, kwargs, routed)
                     return func(command, *injected, **kwargs)
-                routing = store_runtime.route_with_proof(command.name, injected[0], kwargs)
+                routing = store_runtime.route_with_proof(
+                    command.name, injected[0], kwargs, write=not (read_only or import_status)
+                )
                 server = routing.server
                 if server is not None:
                     return server.call(
@@ -8581,6 +8673,7 @@ def invoke_command(
     **kwargs: Any,
 ) -> Any:
     from .commands import (
+        invocation_is_audit,
         invocation_is_read_only,
         validate_process_media_operation,
         writes_through_superseded_maintenance_leaf,
@@ -8787,38 +8880,71 @@ def invoke_command(
     from . import published_admission
     from .collection_store import ownership
     from .collection_store import preview as store_preview
+    from .governance import companions
 
     # The command's store-owned pages are decided on one store request per decision shape, dropped
     # with the command; a refused request withholds them together for the rest of it.
     with ownership.read_scope(injected[0]) as ownership_scope, \
             disclosure_boundary(injected[0], command.name) as collector, \
-            published_admission.deciding():
+            published_admission.deciding(), companions.request_byte_proofs():
+        from .cli_ops import _AuditBudgetExhausted
+
+        budget = request_budget.current()
+        checkpoint = (
+            request_budget.ReadCheckpoint(budget)
+            if budget is not None and invocation_is_audit(command, kwargs) else None
+        )
+
+        def finish_ownership(check: request_budget.ReadCheckpoint | None) -> None:
+            with request_budget.checking(check), call_spans.span("command.ownership_finish"):
+                if check is not None:
+                    check()
+                ownership_scope.finish()
+                if check is not None:
+                    check()
+
         # The dispatcher's own checks before the body, which the leaf span alone does not separate.
         call_spans.record_span_since("command.leaf_pre", "command.leaf_start")
         try:
-            # Fixed phase labels carry timing only, never caller or vault data.
-            with body_meter as measured, call_spans.span("command.body", measured):
-                result = _invoke()
-            # The terminal filter decides the store-owned pages in a scope of its own, so it asks the
-            # store live rather than replaying the body's verdict; the one place that scope can
-            # withhold the pages is here, so this is also where the owner is told it did.
-            with call_spans.span("command.terminal_filter"), published_admission.deciding(own=True):
-                result = postfilter(command.name, result, injected[0], request_kwargs=kwargs)
-                result = store_preview.note_withheld_pages(command.name, result, injected[0])
-        except BaseException as error:
             try:
-                with call_spans.span("command.terminal_filter"):
-                    postfilter_error(command.name, error, injected[0], request_kwargs=kwargs)
-            finally:
+                # Fixed phase labels carry timing only, never caller or vault data.
+                with body_meter as measured, call_spans.span("command.body", measured):
+                    result = _invoke()
+                # The terminal filter asks the store live rather than replaying the body's verdict.
+                with call_spans.span("command.terminal_filter"), published_admission.deciding(own=True):
+                    result = postfilter(command.name, result, injected[0], request_kwargs=kwargs,
+                                        checkpoint=checkpoint)
+                    result = store_preview.note_withheld_pages(command.name, result, injected[0])
+                finish_ownership(checkpoint)
+            except BaseException as error:
+                # This exact internal terminal contains no content to scan or prove again.
+                if type(error) is _AuditBudgetExhausted:
+                    raise
                 try:
-                    ownership_scope.finish()
-                finally:
-                    with call_spans.span("command.disclosure_receipt"):
-                        emit_boundary_receipt(collector)
-            raise
-        try:
-            with call_spans.span("command.ownership_finish"):
-                ownership_scope.finish()
+                    if isinstance(error, request_budget.ReadBudgetExhausted):
+                        raise
+                    # Fatal signals keep their existing filtering and ownership finalization.
+                    error_checkpoint = checkpoint if isinstance(error, Exception) else None
+                    with request_budget.checking(error_checkpoint):
+                        try:
+                            if error_checkpoint is not None:
+                                error_checkpoint()
+                            with call_spans.span("command.terminal_filter"):
+                                postfilter_error(command.name, error, injected[0], request_kwargs=kwargs)
+                            if error_checkpoint is not None:
+                                error_checkpoint()
+                        except request_budget.ReadBudgetExhausted:
+                            raise
+                        except BaseException as filtering_error:
+                            if type(filtering_error) is not _AuditBudgetExhausted:
+                                finish_ownership(error_checkpoint if isinstance(filtering_error, Exception) else None)
+                            raise
+                        finish_ownership(error_checkpoint)
+                except request_budget.ReadBudgetExhausted:
+                    if budget is not None:
+                        budget.note_truncated("audit.release")
+                    raise _AuditBudgetExhausted() from None
+                raise
         finally:
             with call_spans.span("command.disclosure_receipt"):
                 emit_boundary_receipt(collector)

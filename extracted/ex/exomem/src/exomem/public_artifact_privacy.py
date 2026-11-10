@@ -244,6 +244,7 @@ DEFAULT_BINARY_PROVENANCE: tuple[BinaryProvenance, ...] = (
         for prefix in (
             "plugins/cloud/assets",
             "plugins/cloud/generated/claude/assets",
+            "plugins/cloud/generated/claude-hooks/assets",
             "plugins/cloud/generated/openai/assets",
             "assets",
         )
@@ -260,6 +261,7 @@ DEFAULT_BINARY_PROVENANCE: tuple[BinaryProvenance, ...] = (
         for name in (
             "ocr-eng.png",
             "ocr-eng.heic",
+            "ocr-eng.dng",
             "ocr-est.png",
             "ocr-jpn-vert.png",
             "ocr-jpn.png",

@@ -1,5 +1,4 @@
 import bisect
-import dataclasses
 from collections.abc import Sequence
 from typing import cast
 
@@ -23,18 +22,19 @@ from nameparser._pipeline._vocab import maiden_marker_run
 from nameparser._policy import Policy, Script
 from nameparser._types import AmbiguityKind, Role
 
-_LEX = Lexicon(
-    titles=frozenset({"mr", "mrs", "secretary", "the", "state"}),
-    suffix_acronyms=frozenset({"phd"}),
-    suffix_words=frozenset({"jr"}),
-    particles=frozenset({"de", "la", "van", "von", "und", "zu"}),
-    particles_ambiguous=frozenset({"van"}),
-    conjunctions=frozenset({"and", "of", "the", "y"}),
-    bound_given_names=frozenset({"abdul"}),
-    maiden_markers=frozenset({"née", "geb"}),
+_LEX = (
+    Lexicon()
+    .add("mr", "mrs", "secretary", "the", "state", kind="title")
+    .add("phd", kind="credential")
+    .add("jr", kind="suffix")
+    .add("de", "la", "van", "von", "und", "zu", kind="particle")
+    .add("van", kind="given")           # an ambiguous particle
+    .add("and", "of", "the", "y", kind="conjunction")
+    .add("abdul", kind="bound_given")
+    .add("née", "geb", kind="birth_marker")
 )
-# NOTE: "the" sits in both titles and conjunctions here, mirroring v1's
-# real vocabulary overlap; the subset rule only constrains particles.
+# NOTE: "the" holds both a title and a conjunction reading here,
+# mirroring v1's real vocabulary overlap.
 
 
 def _grouped(text: str, policy: Policy | None = None,
@@ -115,7 +115,7 @@ def test_a_title_that_is_also_a_particle_stops_the_scan() -> None:
     # family Smith). Spelled here as the overlap a CONFIG can create,
     # which is the same shape: tests/test_constants.py::test_add_title
     # adds `te` to the titles while `te` ships as a particle.
-    overlap = dataclasses.replace(_LEX, titles=_LEX.titles | {"van"})
+    overlap = _LEX.add("van", kind="title")
     assert _piece_texts(_grouped("Van von Richthofen", lexicon=overlap)) == \
         [["Van", "von Richthofen"]]
     assert _piece_texts(_grouped("Van Johnson Smith", lexicon=overlap)) == \
@@ -174,10 +174,11 @@ def test_the_phd_merge_declines_at_the_head_of_a_name() -> None:
 def test_von_und_zu_bridges() -> None:
     # conjunction "und" joins two prefixes; the joined piece is a derived
     # prefix and still chains onto the following name (v1 PR #191).
-    # `und` is a CONNECTIVE here and no particle: _LEX lists it among
-    # the particles, which walks the particle chain instead and passed
+    # `und` is a CONNECTIVE here and no particle: _LEX reads it as a
+    # particle, which walks the particle chain instead and passed
     # with P3's prefix derivation deleted (#617's test review)
-    lexicon = _LEX.remove(particles={"und"}).add(conjunctions={"und"})
+    lexicon = _LEX.remove("und", kind="particle").add(
+        "und", kind="conjunction")
     out = _grouped("Otto von und zu Habsburg", lexicon=lexicon)
     assert _piece_texts(out) == [["Otto", "von und zu Habsburg"]]
 
@@ -187,6 +188,92 @@ def test_bound_given_joins_with_three_rootnames() -> None:
         [["abdul rahman", "al-said"]]
     # only two rootname pieces: no join (v1 reserve_last)
     assert _piece_texts(_grouped("abdul rahman")) == [["abdul", "rahman"]]
+
+
+_PHRASE_LEX = (
+    _LEX.add("عبد", "ابو", kind="given").add("عبد", kind="bound_given",
+                                          completed_by=["الله", "الرحمن"])
+    .add("ابو", kind="bound_given")
+    .add("المرحوم", kind="birth_marker"))
+
+
+def _phrase_pieces(text: str, lexicon: Lexicon = _PHRASE_LEX) -> list[list[str]]:
+    return _piece_texts(_grouped(text, lexicon=lexicon))
+
+
+def test_a_bound_word_and_a_word_that_completes_it_join_past_the_start() -> None:
+    # rules/P12 (#694): the listed pair, past the first name word
+    assert _phrase_pieces("سعيد عبد الله") == [["سعيد", "عبد الله"]]
+    assert _phrase_pieces("سعيد عبد الله عبد الرحمن") == \
+        [["سعيد", "عبد الله", "عبد الرحمن"]]
+    # an unlisted word, with the article or without it: a name of its own
+    assert _phrase_pieces("نوال عبد هاشم") == [["نوال", "عبد", "هاشم"]]
+    assert _phrase_pieces("محمد عبد القريشي") == [["محمد", "عبد", "القريشي"]]
+    # a bound word listing nothing joins only at the start
+    assert _phrase_pieces("سعيد ابو الله") == [["سعيد", "ابو", "الله"]]
+    # P5's join at the start keeps its reserve
+    assert _phrase_pieces("عبد الله") == [["عبد", "الله"]]
+    # nothing after it to join
+    assert _phrase_pieces("سعيد عبد") == [["سعيد", "عبد"]]
+    # only the token right after it: a nickname taken out between them
+    # leaves the pair apart
+    assert _phrase_pieces('سعيد عبد "الله" حسن') == [["سعيد", "عبد", "حسن"]]
+
+
+def test_a_caller_lists_the_words_that_complete_a_bound_word() -> None:
+    # the property is the caller's too: a Latin pair joins once listed
+    listed = _LEX.add("abdul", kind="bound_given", completed_by=["aziz"])
+    assert _phrase_pieces("Tariq Abdul Aziz", listed) == \
+        [["Tariq", "Abdul Aziz"]]
+    assert _phrase_pieces("Tariq Abdul Aziz", _LEX) == \
+        [["Tariq", "Abdul", "Aziz"]]
+    # and removing the reading removes the phrase
+    gone = _PHRASE_LEX.remove("عبد", kind="bound_given")
+    assert _phrase_pieces("سعيد عبد الله", gone) == [["سعيد", "عبد", "الله"]]
+
+
+def test_a_delimiter_glued_to_the_bound_word_ends_the_pair() -> None:
+    # a delimiter glued to the bound word parts the pair, as a comma
+    # would (the C10 rule); one glued to the word after it does not
+    for text in ("حسن, سعيد عبد; الله", "حسن, سعيد عبد الله; حسين"):
+        state = _grouped(text, lexicon=Lexicon.default())
+        joined = [p for seg in state.pieces for p in seg if len(p) > 1]
+        assert joined == ([] if "عبد;" in text else [(2, 3)]), (text, joined)
+
+
+def test_the_phrase_tag_stays_only_on_a_pair_p12_joined() -> None:
+    # P5's pair at the start is P5's, and O6 counts it as two words, as
+    # it counts the Latin abdul rahman
+    state = _grouped("عبد الله حسن سعيد", lexicon=Lexicon.default())
+    assert not any("vocab:bound-phrase" in t.tags for t in state.tokens)
+    state = _grouped("سعيد عبد الله", lexicon=Lexicon.default())
+    assert "vocab:bound-phrase" in state.tokens[1].tags
+
+
+def test_the_phrase_tag_stays_off_the_published_tokens() -> None:
+    # the tag is group's, read by post_rules' O6 count; assemble drops
+    # it as it drops the other kind tags
+    from nameparser import parse
+    tokens = parse("طارق عبد العزيز").tokens
+    assert all(not any(t.startswith("vocab:bound-phrase") for t in tok.tags)
+               for tok in tokens)
+    # REACHABILITY: classify does put it on the bound word
+    state = _grouped("طارق عبد العزيز", lexicon=Lexicon.default())
+    assert any("vocab:bound-phrase" in tok.tags for tok in state.tokens)
+
+
+@pytest.mark.parametrize("value,error", [
+    ("الله", TypeError), (["الله", 3], TypeError),
+    (["عبد الله"], ValueError)])
+def test_completed_by_refuses_what_is_no_list_of_words(value: object,
+                                                       error: type) -> None:
+    with pytest.raises(error, match="completed_by"):
+        _LEX.add("عبد", kind="bound_given", completed_by=value)
+
+
+def test_completed_by_belongs_to_a_bound_given_reading() -> None:
+    with pytest.raises(ValueError, match="completed_by"):
+        _LEX.add("zzq", kind="given", completed_by=["الله"])
 
 
 def test_phd_split_across_tokens_merges_as_suffix() -> None:
@@ -230,7 +317,7 @@ _MAIDEN_PARENS = Policy(maiden_delimiters=frozenset({("(", ")")}))
 #: `nee` a marker AND `Nee` a surname in one vocabulary -- the collision
 #: the clause-size guard exists for. _LEX alone leaves `Nee` untagged,
 #: which would let the guard tests pass under every mutant.
-_NEE_LEX = _LEX.add(maiden_markers=frozenset({"nee"}))
+_NEE_LEX = _LEX.add("nee", kind="birth_marker")
 
 
 def test_delimited_marker_is_dropped() -> None:
@@ -302,8 +389,8 @@ def test_clause_containment_survives_script_segmentation() -> None:
     one place the two meet: 王小明 becomes 王 + 小明 before group runs,
     which shifts every token index after it while the spans stay
     exact, and the marker is still the token the clause drops."""
-    lex = Lexicon(surnames=frozenset({"王"}),
-                  maiden_markers=frozenset({"旧姓"}))
+    lex = Lexicon(surnames=frozenset({"王"})).add(
+        "旧姓", kind="birth_marker")
     policy = Policy(segment_scripts=frozenset({Script.HAN}),
                     maiden_delimiters=frozenset({("（", "）")}))
     state = ParseState(original="王小明（旧姓 李四）", lexicon=lex,
@@ -329,8 +416,8 @@ def test_extra_suffix_delimiter_splits_tail_entries() -> None:
     # suffix ENTRIES (each rendered independently) and is itself
     # dropped, rather than becoming a suffix token or fusing the
     # entries on either side into one "joined" run.
-    lex = Lexicon(suffix_acronyms=frozenset({"phd"}),
-                  suffix_words=frozenset({"jr", "v", "md"}))
+    lex = (Lexicon().add("phd", kind="credential")
+           .add("jr", "v", "md", kind="suffix"))
     out = _grouped("Smith, John, V MD / PhD",
                    Policy(extra_suffix_delimiters=frozenset({"/"})),
                    lexicon=lex)
@@ -357,9 +444,8 @@ def test_suffix_comma_name_segment_gets_no_additional_count() -> None:
     assert _piece_texts(out) == [["John", "y", "Smith"], []]
 
 
-_DUAL_LEX = dataclasses.replace(
-    _LEX, bound_given_names=frozenset({"abdul", "dual"}),
-    suffix_acronyms=frozenset({"phd", "dual"}))
+_DUAL_LEX = _LEX.add("dual", kind="bound_given").add(
+    "dual", kind="credential")
 
 
 def test_a_bound_word_in_two_vocabularies_still_joins() -> None:
@@ -429,7 +515,7 @@ def test_a_chain_never_leaves_a_marker_standing_alone() -> None:
         out = _grouped(text)
         for seg, texts in zip(out.pieces, _piece_texts(out)):
             for k, (piece, shown) in enumerate(zip(seg, texts)):
-                if shown.lower() not in _LEX.maiden_markers or k == 0:
+                if shown.lower() not in _LEX._sets.maiden_markers or k == 0:
                     continue
                 assert not _piece_has_tag(out, seg[k - 1], "particle"), (
                     f"{text!r}: marker {shown!r} left standing after "
@@ -597,9 +683,7 @@ def test_the_bound_given_join_never_absorbs_a_marker() -> None:
                         f"the piece {shown!r}")
 
 
-_GIVEN_NAME_TITLE_LEX = dataclasses.replace(
-    _LEX, titles=_LEX.titles | {"sir"},
-    given_name_titles=frozenset({"sir"}))
+_GIVEN_NAME_TITLE_LEX = _LEX.add("sir", kind="title", addresses="given")
 
 
 def test_a_given_name_title_licenses_the_bound_join_with_one_word_to_spare() -> None:
@@ -714,7 +798,7 @@ def test_the_numeral_is_read_after_a_suffix_word_that_is_also_a_title() -> None:
     # family again: 'abdul Smith jr V' read given 'abdul Smith',
     # suffix 'jr, V'. Found by the design-docs review. The shipped
     # vocabulary has jr in TITLES; the test lexicon gets the same.
-    out = _grouped("abdul Smith jr V", lexicon=_LEX.add(titles={"jr"}))
+    out = _grouped("abdul Smith jr V", lexicon=_LEX.add("jr", kind="title"))
     assert _piece_texts(out) == [["abdul", "Smith", "jr", "V"]]
 
 
@@ -796,8 +880,7 @@ def test_the_join_declines_a_suffix_after_a_family_comma_too() -> None:
 
 # -- #425: the reserve runs assign's peel over the post-join view
 
-_AMBIGUOUS_LEX = _LEX.add(suffix_acronyms={"ma"},
-                          suffix_acronyms_ambiguous={"ma"})
+_AMBIGUOUS_LEX = _LEX.add("ma", kind="credential").add("ma", kind="family")
 
 
 def test_the_reserve_mirrors_the_bare_acronym_fork() -> None:
@@ -919,7 +1002,7 @@ def test_the_chain_keeps_an_acronym_assign_will_not_peel() -> None:
     # Berg', family 'Ma' -- 1.4.0's reading, and the reviews' find).
     # The chain asks the peel again over what it leaves, and takes the
     # acronym assign will not peel.
-    lex = _AMBIGUOUS_LEX.add(titles={"st"}, particles={"st"})
+    lex = _AMBIGUOUS_LEX.add("st", kind="title").add("st", kind="particle")
     out = _grouped("St van Berg Ma", lexicon=lex)
     assert _piece_texts(out) == [["St", "van Berg Ma"]]
     # MOVED by #289, not deleted: with a given word of its own the
@@ -1044,12 +1127,12 @@ def test_the_view_check_asks_about_the_member_and_not_about_the_run(
     then declines 'MA' for want of words to spare. A check asking
     whether the reader takes SOMETHING answers yes there, and the
     member becomes the FAMILY name."""
-    # NOTE the accented marker: this module's `_LEX` ships
-    # maiden_markers={"née", "geb"} and NOT the unaccented "nee", so
+    # NOTE the accented marker: this module's `_LEX` reads "née" and
+    # "geb" as birth markers and NOT the unaccented "nee", so
     # the plain spelling takes nothing at all here and the test would
     # pass vacuously. cases.py's row of the same shape uses the
     # DEFAULT vocabulary, where both spellings are markers.
-    lex = _AMBIGUOUS_LEX.add(suffix_acronyms={"phd"})
+    lex = _AMBIGUOUS_LEX.add("phd", kind="credential")
     out = _grouped("JOHN NÉE JONES SMITH MA PHD", lexicon=lex)
     assert _maiden_texts(out) == ["JONES", "SMITH", "MA"]
     assert len(_suffix_forks(out)) == 1
@@ -1069,7 +1152,7 @@ def test_a_marker_in_a_third_comma_part_is_a_word() -> None:
     credentials whole, and a marker there takes nothing (#601). Until
     #601 the clause was taken whole there, maiden 'Jones MA'."""
     out = _grouped("Smith, John, Jr née Jones MA",
-                   lexicon=_AMBIGUOUS_LEX.add(suffix_words={"jr"}))
+                   lexicon=_AMBIGUOUS_LEX.add("jr", kind="suffix"))
     assert _maiden_texts(out) == []
     assert _suffix_forks(out) == []
 
@@ -1118,7 +1201,7 @@ def test_an_unmapped_site_is_a_loud_failure_rather_than_a_default(
     with pytest.raises(AssertionError):
         _group_segment(state.segments[0], 0, state.tokens,
                        ambiguities=[], one_case=state.one_case,
-                       site=cast(ClauseSite, 99),
+                       site=cast(ClauseSite, 99), given_first=True,
                        )
 
 
@@ -1249,8 +1332,8 @@ def test_an_unlisted_abbreviation_is_as_transparent_as_a_title() -> None:
 # phrase whose FIRST WORD is itself an entry -- the longest-first case,
 # where a site that stopped at the first word would still find a
 # marker and simply find a shorter one.
-_MARKER_LEX = Lexicon(
-    maiden_markers=frozenset({"née", "z domu", "geb", "geb von"}))
+_MARKER_LEX = Lexicon().add("née", "z domu", "geb", "geb von",
+                            kind="birth_marker")
 
 
 def _marker_sites(spelling: str) -> dict[str, int]:
@@ -1258,7 +1341,7 @@ def _marker_sites(spelling: str) -> dict[str, int]:
     a name whose marker is written `spelling`."""
     clause = spelling.split() + ["Jones"]
     answers = {"predicate": maiden_marker_run(clause,
-                                              _MARKER_LEX.maiden_markers)}
+                                              _MARKER_LEX._sets.maiden_markers)}
 
     def staged(text: str) -> ParseState:
         return classify(segment(tokenize(extract_delimited(ParseState(
@@ -1400,9 +1483,9 @@ def test_the_marker_placements_reach_both_answers() -> None:
 # letter -- and a test using the shipped sets would walk the right
 # branch while proving nothing about it (_pipeline/AGENTS.md: "Pin the
 # decision, not the vocabulary").
-_LINK_LEX = _LEX.add(conjunctions={"i"}, suffix_words={"i"})
+_LINK_LEX = _LEX.add("i", kind="conjunction").add("i", kind="suffix")
 #: the same letter as a connective that is NOT generational vocabulary
-_PLAIN_LEX = _LEX.add(conjunctions={"i"})
+_PLAIN_LEX = _LEX.add("i", kind="conjunction")
 
 
 def test_a_connective_piece_counts_toward_the_carve_outs_total() -> None:
@@ -1442,8 +1525,10 @@ def test_a_connective_with_nothing_to_its_right_does_not_join() -> None:
 def test_a_suffix_word_on_the_right_is_no_name_word() -> None:
     out = _grouped("Josep Lluis Carod i Jr.", lexicon=_LINK_LEX)
     assert _piece_texts(out) == [["Josep", "Lluis", "Carod", "i", "Jr."]]
+    # a connective with nothing to link joins the word before it alone
+    # (#1098), where the join had taken the suffix
     plain = _grouped("Josep Lluis Carod i Jr.", lexicon=_PLAIN_LEX)
-    assert _piece_texts(plain) == [["Josep", "Lluis", "Carod i Jr."]]
+    assert _piece_texts(plain) == [["Josep", "Lluis", "Carod i", "Jr."]]
 
 
 def test_the_right_hand_test_reads_the_peel_not_the_suffix_piece(
@@ -1452,20 +1537,24 @@ def test_the_right_hand_test_reads_the_peel_not_the_suffix_piece(
     # a ONE-CHARACTER suffix word is initial-shaped, so the
     # suffix-piece test refuses it (the initial veto,
     # `_vocab.is_initial`) while assign's trailing peel takes it. Spelled with the piece test
-    # alone, the link would swallow the generation here.
-    lex = _LINK_LEX.add(suffix_words={"v"})
-    out = _grouped("Josep Lluis Carod i V", lexicon=lex)
-    assert _piece_texts(out) == [["Josep", "Lluis", "Carod", "i", "V"]]
-    plain = _grouped("Josep Lluis Carod i V",
-                     lexicon=_PLAIN_LEX.add(suffix_words={"v"}))
-    assert _piece_texts(plain) == [["Josep", "Lluis", "Carod i V"]]
+    # alone, the link would swallow the generation here. Read in the
+    # given part after a family comma, which rules/P13's link of a lone
+    # letter ending the family name does not reach (#1097).
+    lex = _LINK_LEX.add("v", kind="suffix")
+    out = _grouped("Rovira, Josep Lluis Carod i V", lexicon=lex)
+    assert _piece_texts(out)[1] == ["Josep", "Lluis", "Carod", "i", "V"]
+    plain = _grouped("Rovira, Josep Lluis Carod i V",
+                     lexicon=_PLAIN_LEX.add("v", kind="suffix"))
+    assert _piece_texts(plain)[1] == ["Josep", "Lluis", "Carod i V"]
 
 
 def test_a_title_on_the_right_is_no_name_word() -> None:
     out = _grouped("Josep Lluis Carod i Mr.", lexicon=_LINK_LEX)
     assert _piece_texts(out) == [["Josep", "Lluis", "Carod", "i", "Mr."]]
+    # a connective with nothing to link joins the word before it alone,
+    # a trailing title included (rules/P13, #1098)
     plain = _grouped("Josep Lluis Carod i Mr.", lexicon=_PLAIN_LEX)
-    assert _piece_texts(plain) == [["Josep", "Lluis", "Carod i Mr."]]
+    assert _piece_texts(plain) == [["Josep", "Lluis", "Carod i", "Mr."]]
 
 
 def test_a_leading_title_on_the_left_is_no_name_word() -> None:
@@ -1568,8 +1657,11 @@ def test_a_link_that_joins_nothing_does_not_count_for_another_join(
     # gave the total four and joined the 'y'.
     out = _grouped("Carod y Rovira i", lexicon=_LINK_LEX)
     assert _piece_texts(out) == [["Carod", "y", "Rovira", "i"]]
+    # the plain 'i' has nothing to link and joins 'Rovira' alone
+    # (#1098), so it counts no rootname of its own and the 'y' keeps
+    # the carve-out too
     plain = _grouped("Carod y Rovira i", lexicon=_PLAIN_LEX)
-    assert _piece_texts(plain) == [["Carod y Rovira i"]]
+    assert _piece_texts(plain) == [["Carod", "y", "Rovira i"]]
 
 
 def test_a_connective_with_nothing_to_its_left_does_not_join() -> None:
@@ -1619,7 +1711,7 @@ def test_a_one_case_letter_is_an_initial_and_never_counts() -> None:
     # unmoved, and the name reads as it always did. The EXCLUSIVITY is
     # the load-bearing part, not the order of the two tests -- measured
     # (swapping them moves nothing).
-    lex = _LINK_LEX.add(conjunctions_ambiguous={"i"})
+    lex = _LINK_LEX.add("i", kind="conjunction", may_be_initial=True)
     out = _grouped("josep carod i rovira", lexicon=lex)
     assert _piece_texts(out) == [["josep", "carod", "i", "rovira"]]
 
@@ -1628,7 +1720,7 @@ def test_the_class_reaches_a_callers_own_connective() -> None:
     # rules/P3 is keyed on the class throughout: a caller who adds
     # 'v' to their connectives gets the Catalan link's behavior for
     # it, because 'v' is generational vocabulary the way 'i' is.
-    p = Parser(lexicon=Lexicon.default().add(conjunctions={"v"}))
+    p = Parser(lexicon=Lexicon.default().add("v", kind="conjunction"))
     joined = p.parse("Josep Carod v Rovira")
     assert (joined.given, joined.family) == ("Josep", "Carod v Rovira")
     trailing = p.parse("John Quincy Smith v")
@@ -1641,7 +1733,7 @@ def test_a_callers_non_generational_letter_is_outside_the_condition(
     # roman numeral letter that is NOT suffix vocabulary, so the
     # both-sides condition declines to ask and BOTH positions join,
     # which is what they did before this change too.
-    p = Parser(lexicon=Lexicon.default().add(conjunctions={"x"}))
+    p = Parser(lexicon=Lexicon.default().add("x", kind="conjunction"))
     assert p.parse("John Quincy Smith x").family == "Smith x"
     assert p.parse("Josep Carod x Rovira").family == "Carod x Rovira"
 
@@ -1655,7 +1747,7 @@ def test_the_count_reaches_a_connective_that_is_particle_vocabulary(
     # Now it agrees with it -- the direction the rule wants. Measured
     # before this change: given 'Juan', middle 'Velasquez', family
     # 'y Garcia', family_base 'Garcia'.
-    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
     out = p.parse("Juan Velasquez y Garcia")
     assert (out.given, out.middle, out.family) == (
         "Juan", "", "Velasquez y Garcia")
@@ -1675,14 +1767,15 @@ def test_the_count_reaches_a_connective_that_is_particle_vocabulary(
 # outside the generational vocabulary the walk never stopped at it in
 # the first place, so the pair says which arm does the work.
 #
-# `ma` is added to BOTH acronym sets where the right-hand neighbour
-# has to be an AMBIGUOUS credential: such a word carries no
+# `ma` is added as a credential with a family reading where the
+# right-hand neighbour has to be an AMBIGUOUS credential: such a word
+# carries no
 # `vocab:suffix` tag, so the piece test cannot refuse it and only the
 # peel bound keeps it out of the clause.
-_LINK_MA_LEX = _LINK_LEX.add(suffix_acronyms={"ma"},
-                             suffix_acronyms_ambiguous={"ma"})
-_PLAIN_MA_LEX = _PLAIN_LEX.add(suffix_acronyms={"ma"},
-                               suffix_acronyms_ambiguous={"ma"})
+_LINK_MA_LEX = _LINK_LEX.add("ma", kind="credential").add(
+    "ma", kind="family")
+_PLAIN_MA_LEX = _PLAIN_LEX.add("ma", kind="credential").add(
+    "ma", kind="family")
 
 
 def test_a_link_inside_a_maiden_clause_does_not_end_it() -> None:
@@ -1882,8 +1975,8 @@ def test_a_multi_letter_link_of_the_suffix_vocabulary_joins_by_the_same_rule(
     # caller-reachable past it. Nothing SHIPPED reaches it -- 'i' is
     # the only member of the class in the default vocabulary and in
     # every locale pack -- which is why the lexicon is built here.
-    lex = Lexicon.default().add(conjunctions={"og"},
-                                suffix_words={"og"})
+    lex = Lexicon.default().add("og", kind="conjunction").add(
+        "og", kind="suffix")
     parser = Parser(lexicon=lex)
     # nothing on its right: it is the generation it also spells
     lone = parser.parse("John Quincy Smith og")
@@ -1910,18 +2003,17 @@ def test_a_frozen_link_is_still_absorbed_by_a_neighbours_join() -> None:
     # What freezing a piece claims and what it does not (#397 second
     # review). `frozen` keeps a connective from being the SUBJECT of a
     # join; it does not keep the word out of the span another
-    # connective's join takes. The trailing 'i' here has nothing on
-    # its right and is frozen, and the 'y' beside it joins across it
+    # connective's join takes. The leading 'i' here has nothing on
+    # its left and is frozen, and the 'y' beside it joins across it
     # all the same.
     #
-    # Not a defect and not a silence: this is the reading the parent
-    # commit 46651750 gives the same name, the letter being no
-    # connective there at all, so the row is a CONTROL for the
-    # comment beside `frozen` rather than a behavior claim of its own.
-    out = Parser().parse("Josep Carod Rovira Puig y i")
-    assert out.family == "Puig y i"
-    assert out.middle == "Carod Rovira"
-    assert out.suffix == ""
+    # A CONTROL for the comment beside `frozen` rather than a behavior
+    # claim of its own. Its first input, a trailing 'i' behind 'y'
+    # ('Josep Carod Rovira Puig y i'), stopped showing it with #1098,
+    # rules/P13 joining the 'y' to the word before it alone.
+    out = Parser().parse("i y Carod Rovira Puig")
+    assert out.given == "i y Carod"
+    assert out.family == "Puig"
 
 
 def test_the_first_word_floor_holds_a_title_out_of_the_chain() -> None:
@@ -2011,10 +2103,10 @@ def test_an_absorbed_particle_run_reports_as_the_one_word_the_chain_makes(
                 if a.kind is AmbiguityKind.SUFFIX_OR_NAME]
     assert reported("Dr. John Smith Esq. RN Mc Mc") == [["Mc", "Mc"]]
     assert reported("Mary Ann Smith Dr. MD vd Ph. D. van") == [["van"]]
-    assert reported("Jane Doe nee van der Berg Jr mc van") == [["van"]]
+    assert reported("Jane Doe nee van der Berg Esq mc van") == [["van"]]
     # a P3-joined phrase is a particle too, and the merged run is one
     # piece on every pass of the read, after the H5 chain's splice as
     # before it
-    assert reported("John Smith Jr. von und zu Mc") == [
+    assert reported("John Smith Esq. von und zu Mc") == [
         ["von", "und", "zu", "Mc"]]
     assert reported("John Smith PhD van mc Dr.") == [["van", "mc"]]

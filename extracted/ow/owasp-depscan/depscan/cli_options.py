@@ -1,5 +1,8 @@
 import argparse
 import os
+
+from analysis_lib.config import SUPPORTED_BOM_PROFILES
+
 from depscan import get_version
 from depscan.lib import tomlparse
 
@@ -75,19 +78,7 @@ def build_parser():
     parser.add_argument(
         "--profile",
         default="generic",
-        choices=(
-            "appsec",
-            "research",
-            "operational",
-            "threat-modeling",
-            "license-compliance",
-            "generic",
-            "machine-learning",
-            "ml",
-            "deep-learning",
-            "ml-deep",
-            "ml-tiny",
-        ),
+        choices=SUPPORTED_BOM_PROFILES,
         dest="profile",
         help="Profile to use while generating the BOM. For granular control, use the arguments --bom-engine, --vulnerability-analyzer, or --reachability-analyzer.",
     )
@@ -203,6 +194,16 @@ def build_parser():
         default=os.getenv("ENABLE_OSS_RISK", "") in ("true", "1"),
         dest="risk_audit",
         help="Perform package risk audit (slow operation). Supported for npm, pypi, and cargo.",
+    )
+    parser.add_argument(
+        "--fail-on-error",
+        action="store_true",
+        default=os.getenv("DEPSCAN_FAIL_ON_ERROR", "") in ("true", "1"),
+        dest="fail_on_error",
+        help="Abort the scan with a non-zero exit code instead of silently degrading. "
+        "Passed through to cdxgen so extractor failures fail BOM generation, and "
+        "applied to blint, rusi, golem, and dosai failures, unreadable reachability "
+        "reports, empty slices, and empty package lists.",
     )
     parser.add_argument(
         "--cdxgen-args",

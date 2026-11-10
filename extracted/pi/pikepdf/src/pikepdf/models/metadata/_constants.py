@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Callable, Iterable
 from typing import Any, NamedTuple
 
@@ -75,7 +76,7 @@ class XmpContainer(NamedTuple):
     insert_fn: Callable[..., None]
 
 
-class AltList(list):
+class AltList(list[str]):
     """XMP AltList container for language alternatives."""
 
 
@@ -87,6 +88,8 @@ XMP_CONTAINERS = [
 
 
 _LOADED_LXML_NAMESPACES = False
+# lxml's namespace registry is not safe to change from several threads at once
+_LXML_NAMESPACES_LOCK = threading.Lock()
 
 
 def load_lxml_namespaces() -> None:
@@ -100,11 +103,14 @@ def load_lxml_namespaces() -> None:
 
     if _LOADED_LXML_NAMESPACES:
         return
-    from lxml import etree
+    with _LXML_NAMESPACES_LOCK:
+        if _LOADED_LXML_NAMESPACES:
+            return
+        from lxml import etree
 
-    for _uri, _prefix in DEFAULT_NAMESPACES:
-        etree.register_namespace(_prefix, _uri)
-    _LOADED_LXML_NAMESPACES = True
+        for _uri, _prefix in DEFAULT_NAMESPACES:
+            etree.register_namespace(_prefix, _uri)
+        _LOADED_LXML_NAMESPACES = True
 
 
 # lxml lazy-loading
@@ -140,7 +146,8 @@ def clean(s: str | Iterable[str], joiner: str = '; ') -> str:
 
     if not isinstance(s, str):
         if isinstance(s, Iterable):
-            warn(f"Merging elements of {s}")
+            # Reached at varying depths, so no caller's frame is the right one
+            warn(f"Merging elements of {s}", stacklevel=1)
             if isinstance(s, set):
                 s = joiner.join(sorted(s))
             else:

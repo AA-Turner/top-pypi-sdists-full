@@ -1,5 +1,6 @@
 import asyncio
 import contextvars
+import importlib.util
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
@@ -10,8 +11,31 @@ from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 from tiktoken import encoding_for_model, get_encoding
 
+from pr_agent.algo.instruction_context import append_protected_system_instructions
 from pr_agent.config_loader import get_settings
 from pr_agent.log import get_logger
+
+
+def _use_bundled_tiktoken_files() -> None:
+    """Point tiktoken at LiteLLM's bundled encoding files unless the host chose a cache directory.
+
+    LiteLLM only does this once its encoding module is imported, so tiktoken could otherwise download.
+    """
+    if "TIKTOKEN_CACHE_DIR" in os.environ or "DATA_GYM_CACHE_DIR" in os.environ:
+        return
+    custom_dir = os.environ.get("CUSTOM_TIKTOKEN_CACHE_DIR")
+    if custom_dir:
+        os.environ["TIKTOKEN_CACHE_DIR"] = custom_dir
+        return
+    spec = importlib.util.find_spec("litellm")
+    if spec is None or not spec.submodule_search_locations:
+        return
+    bundled_dir = os.path.join(spec.submodule_search_locations[0], "litellm_core_utils", "tokenizers")
+    if os.path.isdir(bundled_dir):
+        os.environ["TIKTOKEN_CACHE_DIR"] = bundled_dir
+
+
+_use_bundled_tiktoken_files()
 
 
 def _await_coroutine(coro):
@@ -145,6 +169,7 @@ class TokenHandler:
         try:
             environment = SandboxedEnvironment(undefined=StrictUndefined)
             system_prompt = environment.from_string(system).render(vars)
+            system_prompt = append_protected_system_instructions(system_prompt)
             user_prompt = environment.from_string(user).render(vars)
             system_prompt_tokens = len(encoder.encode(system_prompt, disallowed_special=()))
             user_prompt_tokens = len(encoder.encode(user_prompt, disallowed_special=()))

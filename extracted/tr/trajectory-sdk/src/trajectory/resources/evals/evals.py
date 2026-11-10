@@ -44,6 +44,8 @@ class Evals(APIResource):
     bypass_ownership: bool | Omit = omit,
     agent_id: str | None | Omit = omit,
     base_model_slug: Literal[
+      "thinkingmachines/Inkling-2-Small",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
       "Qwen/Qwen3.5-397B-A17B",
@@ -76,14 +78,14 @@ class Evals(APIResource):
     parent_checkpoint_id: str | None | Omit = omit,
     display_name: str | None | Omit = omit,
     deployment_id: str | None | Omit = omit,
-    task_split: Literal["test", "all"] | Omit = omit,
+    task_split: Literal["test", "train", "all"] | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> StartEvalResponse:
-    """Evaluate the test split by default. Set task_split to all to evaluate test and train
-    tasks.
+    """Evaluate the test split by default. Set task_split to train for train tasks or all for
+    both splits.
 
     Args:
       idempotency_key: Optional. Without a key, repeated submissions are treated as separate actions. A
@@ -111,7 +113,7 @@ class Evals(APIResource):
 
       deployment_id: Evaluate the exact hosted checkpoint and pool of a ready deployment.
 
-      task_split: Evaluate test tasks by default; all includes both test and train tasks.
+      task_split: Evaluate test tasks by default; train selects train tasks and all selects both.
 
       extra_headers: Send extra headers
 
@@ -161,6 +163,8 @@ class Evals(APIResource):
     *,
     bench_id: str | None | Omit = omit,
     base_model_slug: Literal[
+      "thinkingmachines/Inkling-2-Small",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
       "Qwen/Qwen3.5-397B-A17B",

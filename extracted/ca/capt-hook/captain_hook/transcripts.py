@@ -22,12 +22,14 @@ from captain_hook.util.caching import StampedCache
 from captain_hook.util.paths import resolve_project_dir
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterator, Sequence
+    from datetime import datetime
 
-    from cc_transcript.activity import UserClassifier
+    from cc_transcript.activity import ToolUse, UserClassifier
     from cc_transcript.models import TranscriptEvent
     from cc_transcript.query import Session
 
+    from captain_hook.events import BaseHookEvent
     from captain_hook.snapshots.client import GraphSources, RemoteSession, SnapshotClient
 
 # A session id becomes a filesystem path component via ``ensure_session``; external callers (CLI, MCP)
@@ -162,6 +164,14 @@ def tail_transcript(path: str | Path, count: int) -> Session:
     return lift_session(events, path=Path(path))
 
 
+def lanes_dir(transcript_path: str | Path) -> Path:
+    """The directory holding every lane transcript of a session: ``<parent-dir>/<parent-stem>/subagents``.
+
+    It exists once any subagent, workflow agent, or teammate has run inside the session.
+    """
+    return Path(transcript_path).with_suffix("") / "subagents"
+
+
 def lane_transcript_path(transcript_path: str | Path, agent_id: str) -> Path:
     """The lane transcript a subagent or teammate writes beside its parent session transcript.
 
@@ -170,7 +180,7 @@ def lane_transcript_path(transcript_path: str | Path, agent_id: str) -> Path:
     ``transcript_path``, so the lane's own file resolves by convention:
     ``<parent-dir>/<parent-stem>/subagents/agent-<agent_id>.jsonl``.
     """
-    return Path(transcript_path).with_suffix("") / "subagents" / f"agent-{agent_id}.jsonl"
+    return lanes_dir(transcript_path) / f"agent-{agent_id}.jsonl"
 
 
 class TranscriptLoadError(Exception):
@@ -407,6 +417,27 @@ def root_excerpt(
                 before.append(line)
     hits = {id(window): window for window in (*earliest, *newest)}.values()
     return lift_session(parse_events_from_bytes(b"".join(line for hit in hits for line in hit)), path=Path(path))
+
+
+def tree_calls_naming(evt: BaseHookEvent, needle: str, *, since: datetime) -> Iterator[tuple[Path, ToolUse]]:
+    from cc_transcript.models import ToolResultBlock, UserEvent
+
+    if (main := evt.transcript_path) is None:
+        return
+    for path in (main, *lanes_dir(main).glob("agent-*.jsonl")):
+        if not path.is_file() or path.stat().st_mtime < since.timestamp():
+            continue
+        ids = tuple(
+            dict.fromkeys(
+                str(block.tool_use_id)
+                for event in root_excerpt(path, (needle,), around=0).events
+                if isinstance(event, UserEvent)
+                for block in event.blocks
+                if isinstance(block, ToolResultBlock) and needle in str(block.content)
+            )
+        )
+        if ids:
+            yield from ((path, use) for use in root_excerpt(path, ids, around=0).tool_calls.with_errors.items)
 
 
 def guarded_load[S: Session | RemoteSession](

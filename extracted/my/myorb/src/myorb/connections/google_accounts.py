@@ -16,6 +16,11 @@ from myorb.crypto import SecretBox
 RATE_RETRIES = 3
 RATE_WAIT = 1.0
 
+# Requests to Google under way at once for one account. Gmail turns down more than a few at
+# once as a rate limit: the email with its inline images and its neighbours being loaded, and
+# the widget's refresh, all together reached it.
+CONCURRENT = 4
+
 # Renew access tokens a minute before Google expires them.
 EXPIRY_MARGIN = 60
 
@@ -43,6 +48,9 @@ class GoogleAccounts:
         self._clock = clock
         self._tokens: dict[int, tuple[str, float]] = {}
         self._locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._slots: defaultdict[int, asyncio.Semaphore] = defaultdict(
+            lambda: asyncio.Semaphore(CONCURRENT)
+        )
 
     async def list(self) -> list[GoogleAccount]:
         async with self._sessionmaker() as db:
@@ -93,15 +101,16 @@ class GoogleAccounts:
         for attempt in range(RATE_RETRIES + 2):
             token = await self._access_token(account)
             try:
-                response = await self._http.request(
-                    method,
-                    url,
-                    params=params,
-                    json=json,
-                    content=content,
-                    headers={"Authorization": f"Bearer {token}"}
-                    | ({"Content-Type": content_type} if content_type else {}),
-                )
+                async with self._slots[account.id]:
+                    response = await self._http.request(
+                        method,
+                        url,
+                        params=params,
+                        json=json,
+                        content=content,
+                        headers={"Authorization": f"Bearer {token}"}
+                        | ({"Content-Type": content_type} if content_type else {}),
+                    )
             except httpx2.HTTPError as error:
                 raise google.GoogleError("Google could not be reached.") from error
             if response.status_code == 401 and renewed:

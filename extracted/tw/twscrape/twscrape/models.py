@@ -8,11 +8,32 @@ import sys
 import traceback
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Generator, Optional, TypeVar, Union, cast
+from typing import Any, Callable, Generator, Optional, TypeVar, Union, cast
 
 from .http import Response
 from .logger import logger
-from .utils import find_item, get_or, int_or, to_old_obj, to_old_rep, utc
+from .utils import (
+    QT_ID_PATH,
+    RT_ID_PATH,
+    find_item,
+    find_obj,
+    get_or,
+    int_or,
+    is_tweet_ref,
+    to_old_obj,
+    to_old_rep,
+    to_old_rep_partial,
+    to_old_user,
+    utc,
+)
+
+
+class ParseError(Exception):
+    """X sent an object that twscrape can't parse."""
+
+
+class UserParseError(ParseError):
+    """X sent a user that twscrape can't parse."""
 
 
 @dataclass
@@ -216,7 +237,7 @@ class User(JSONTrait):
         return User(
             id=int(obj["id_str"]),
             id_str=obj["id_str"],
-            url=f"https://x.com/{obj['screen_name']}",
+            url=f"https://x.com/{obj['screen_name'] or 'i/user/' + obj['id_str']}",
             username=obj["screen_name"],
             displayname=obj["name"],
             rawDescription=obj["description"],
@@ -242,6 +263,151 @@ class User(JSONTrait):
 
 
 @dataclass
+class ArticleInlineStyleRange(JSONTrait):
+    offset: int
+    length: int
+    style: str
+
+    @staticmethod
+    def parse(obj: dict):
+        return ArticleInlineStyleRange(
+            offset=obj.get("offset", 0),
+            length=obj.get("length", 0),
+            style=obj.get("style", ""),
+        )
+
+
+@dataclass
+class ArticleEntityRange(JSONTrait):
+    key: str
+    offset: int
+    length: int
+
+    @staticmethod
+    def parse(obj: dict):
+        return ArticleEntityRange(
+            key=str(obj.get("key", "")),
+            offset=obj.get("offset", 0),
+            length=obj.get("length", 0),
+        )
+
+
+@dataclass
+class ArticleBlock(JSONTrait):
+    key: str
+    type: str
+    text: str
+    data: dict
+    inlineStyleRanges: list[ArticleInlineStyleRange]
+    entityRanges: list[ArticleEntityRange]
+
+    @staticmethod
+    def parse(obj: dict):
+        return ArticleBlock(
+            key=obj.get("key", ""),
+            type=obj.get("type", "unstyled"),
+            text=obj.get("text", ""),
+            data=obj.get("data") or {},
+            inlineStyleRanges=[
+                ArticleInlineStyleRange.parse(x) for x in obj.get("inlineStyleRanges") or []
+            ],
+            entityRanges=[ArticleEntityRange.parse(x) for x in obj.get("entityRanges") or []],
+        )
+
+
+@dataclass
+class ArticleEntity(JSONTrait):
+    type: str
+    mutability: str
+    data: dict
+
+    @staticmethod
+    def parse(obj: dict):
+        return ArticleEntity(
+            type=obj.get("type", ""),
+            mutability=obj.get("mutability", ""),
+            data=obj.get("data") or {},
+        )
+
+
+@dataclass
+class ArticleContentState(JSONTrait):
+    blocks: list[ArticleBlock]
+    entityMap: dict[str, ArticleEntity]
+
+    @staticmethod
+    def parse(obj: dict):
+        return ArticleContentState(
+            blocks=[ArticleBlock.parse(x) for x in obj.get("blocks") or []],
+            entityMap={
+                str(x.get("key", "")): ArticleEntity.parse(x.get("value") or {})
+                for x in obj.get("entityMap") or []
+            },
+        )
+
+
+@dataclass
+class ArticleCoverMedia(JSONTrait):
+    mediaId: str
+    mediaKey: str
+    mediaInfo: dict
+
+    @staticmethod
+    def parse(obj: dict):
+        return ArticleCoverMedia(
+            mediaId=obj.get("media_id", ""),
+            mediaKey=obj.get("media_key", ""),
+            mediaInfo=obj.get("media_info") or {},
+        )
+
+
+@dataclass
+class Article(JSONTrait):
+    id: int
+    id_str: str
+    title: str
+    previewText: str
+    publishedAt: datetime | None = None
+    modifiedAt: datetime | None = None
+    contentState: ArticleContentState | None = None
+    coverMedia: ArticleCoverMedia | None = None
+    mediaEntities: list[dict] = field(default_factory=list)
+    summaryText: str | None = None
+    isGrokSummaryEligible: bool | None = None
+
+    @staticmethod
+    def parse(obj: dict):
+        def ts(res: dict, key: str):
+            val = int_or(res, key)
+            return datetime.fromtimestamp(val, timezone.utc) if val is not None else None
+
+        # a malformed article must not drop its tweet, so any failure gives no article
+        try:
+            res = get_or(obj, "article.article_results.result")
+            if not res:
+                return None
+
+            content_state = res.get("content_state")
+            cover_media = res.get("cover_media")
+            return Article(
+                id=int(res["rest_id"]),
+                id_str=res["rest_id"],
+                title=res.get("title", ""),
+                previewText=res.get("preview_text", ""),
+                publishedAt=ts(res, "metadata.first_published_at_secs"),
+                modifiedAt=ts(res, "lifecycle_state.modified_at_secs"),
+                contentState=ArticleContentState.parse(content_state) if content_state else None,
+                coverMedia=ArticleCoverMedia.parse(cover_media) if cover_media else None,
+                mediaEntities=res.get("media_entities") or [],
+                summaryText=res.get("summary_text"),
+                isGrokSummaryEligible=res.get("is_grok_summary_eligible"),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to parse article of tweet {obj.get('id_str')}: {e!r}")
+            return None
+
+
+@dataclass
 class Tweet(JSONTrait):
     id: int
     id_str: str
@@ -264,7 +430,11 @@ class Tweet(JSONTrait):
     media: "Media"
     viewCount: int | None = None
     retweetedTweet: Optional["Tweet"] = None
+    retweetedTweetId: int | None = None
+    retweetedTweetIdStr: str | None = None
     quotedTweet: Optional["Tweet"] = None
+    quotedTweetId: int | None = None
+    quotedTweetIdStr: str | None = None
     place: Place | None = None
     coordinates: Coordinates | None = None
     inReplyToTweetId: int | None = None
@@ -273,7 +443,19 @@ class Tweet(JSONTrait):
     source: str | None = None
     sourceUrl: str | None = None
     sourceLabel: str | None = None
-    card: Union[None, "SummaryCard", "PollCard", "BroadcastCard", "AudiospaceCard"] = None
+    card: Union[
+        None,
+        "SummaryCard",
+        "PollCard",
+        "BroadcastCard",
+        "AudiospaceCard",
+        "MessageMeCard",
+        "PeriscopeBroadcastCard",
+        "PromoVideoConvoCard",
+        "PromoImageConvoCard",
+        "LiveEventCard",
+        "AppCard",
+    ] = None
     possibly_sensitive: bool | None = None
     isQuoteStatus: bool = False
     isTranslatable: bool = False
@@ -281,6 +463,7 @@ class Tweet(JSONTrait):
     inReplyToScreenName: str | None = None
     editControl: dict | None = None
     voiceInfo: dict | None = None
+    article: Article | None = None
     _type: str = "snscrape.modules.twitter.Tweet"
 
     # todo:
@@ -288,25 +471,18 @@ class Tweet(JSONTrait):
     # vibe: Optional["Vibe"] = None
 
     @staticmethod
-    def parse(obj: dict, res: dict) -> "Tweet":
-        tw_usr = User.parse(_get_tweet_user_obj(obj, res))
+    def parse(obj: dict, res: dict, author: dict | None = None) -> "Tweet":
+        # author: flat user used when the tweet's own author has no profile in the response
+        tw_usr = User.parse(_get_tweet_user_obj(obj, res, author))
 
-        rt_id_path = [
-            "retweeted_status_id_str",
-            "retweeted_status_result.result.rest_id",
-            "retweeted_status_result.result.tweet.rest_id",
-        ]
+        # kept even when the nested tweet is absent from the response
+        rt_id = _first(obj, RT_ID_PATH)
+        qt_id = _first(obj, QT_ID_PATH)
+        rt_obj = get_or(res, f"tweets.{rt_id}")
+        qt_obj = get_or(res, f"tweets.{qt_id}")
 
-        qt_id_path = [
-            "quoted_status_id_str",
-            "quoted_status_result.result.rest_id",
-            "quoted_status_result.result.tweet.rest_id",
-        ]
-
-        rt_obj = get_or(res, f"tweets.{_first(obj, rt_id_path)}")
-        qt_obj = get_or(res, f"tweets.{_first(obj, qt_id_path)}")
-
-        url = f"https://x.com/{tw_usr.username}/status/{obj['id_str']}"
+        # x.com/i/status/{id} serves any tweet, for a placeholder author without username
+        url = f"https://x.com/{tw_usr.username or 'i'}/status/{obj['id_str']}"
         doc = Tweet(
             id=int(obj["id_str"]),
             id_str=obj["id_str"],
@@ -329,8 +505,16 @@ class Tweet(JSONTrait):
                 obj, ["entities.urls", "note_tweet.note_tweet_results.result.entity_set.urls"]
             ),
             viewCount=_get_views(obj, rt_obj or {}),
-            retweetedTweet=Tweet.parse(rt_obj, res) if rt_obj else None,
-            quotedTweet=Tweet.parse(qt_obj, res) if qt_obj else None,
+            retweetedTweet=Tweet.parse(rt_obj, res, _referenced_author(obj, rt_obj))
+            if rt_obj
+            else None,
+            retweetedTweetId=int(rt_id) if rt_id is not None else None,
+            retweetedTweetIdStr=rt_id,
+            quotedTweet=Tweet.parse(qt_obj, res, _referenced_author(obj, qt_obj))
+            if qt_obj
+            else None,
+            quotedTweetId=int(qt_id) if qt_id is not None else None,
+            quotedTweetIdStr=qt_id,
             place=Place.parse(obj["place"]) if obj.get("place") else None,
             coordinates=Coordinates.parse(obj),
             inReplyToTweetId=int_or(obj, "in_reply_to_status_id_str"),
@@ -348,11 +532,12 @@ class Tweet(JSONTrait):
             inReplyToScreenName=obj.get("in_reply_to_screen_name"),
             editControl=_parse_edit_control(obj),
             voiceInfo=obj.get("voice_info"),
+            article=Article.parse(obj),
         )
 
         # issue #42 – restore full rt text
         rt = doc.retweetedTweet
-        if rt is not None and rt.user is not None and doc.rawContent.endswith("…"):
+        if rt is not None and doc.rawContent.endswith("…"):
             rt_msg = f"RT @{rt.user.username}: {rt.rawContent}"
             if doc.rawContent != rt_msg:
                 doc.rawContent = rt_msg
@@ -360,17 +545,52 @@ class Tweet(JSONTrait):
         return doc
 
 
+@dataclass(kw_only=True)
+class _MediaMeta(JSONTrait):
+    # fields shared by photos, videos and gifs
+    # t.co link X puts in the tweet text for the media, distinct from the media file URL
+    shortUrl: str | None = None
+    # page the t.co link opens: the media on the tweet that uploaded it
+    expandedUrl: str | None = None
+    id: int | None = None
+    id_str: str | None = None
+    # tweet and author the media comes from, when the tweet reuses another tweet's media
+    sourceTweetId: int | None = None
+    sourceTweetIdStr: str | None = None
+    sourceUserId: int | None = None
+    sourceUserIdStr: str | None = None
+    altText: str | None = None
+    width: int | None = None
+    height: int | None = None
+
+    @staticmethod
+    def parse_meta(obj: dict) -> dict[str, Any]:
+        return {
+            "shortUrl": obj.get("url"),
+            "expandedUrl": obj.get("expanded_url"),
+            "id": int_or(obj, "id_str"),
+            "id_str": obj.get("id_str"),
+            "sourceTweetId": int_or(obj, "source_status_id_str"),
+            "sourceTweetIdStr": obj.get("source_status_id_str"),
+            "sourceUserId": int_or(obj, "source_user_id_str"),
+            "sourceUserIdStr": obj.get("source_user_id_str"),
+            "altText": obj.get("ext_alt_text"),
+            "width": int_or(obj, "original_info.width"),
+            "height": int_or(obj, "original_info.height"),
+        }
+
+
 @dataclass
-class MediaPhoto(JSONTrait):
+class MediaPhoto(_MediaMeta):
     url: str
 
     @staticmethod
     def parse(obj: dict):
-        return MediaPhoto(url=obj["media_url_https"])
+        return MediaPhoto(url=obj["media_url_https"], **_MediaMeta.parse_meta(obj))
 
 
 @dataclass
-class MediaVideo(JSONTrait):
+class MediaVideo(_MediaMeta):
     thumbnailUrl: str
     variants: list["MediaVideoVariant"]
     duration: int
@@ -385,11 +605,12 @@ class MediaVideo(JSONTrait):
             ],
             duration=obj["video_info"]["duration_millis"],
             views=int_or(obj, "mediaStats.viewCount"),
+            **_MediaMeta.parse_meta(obj),
         )
 
 
 @dataclass
-class MediaAnimated(JSONTrait):
+class MediaAnimated(_MediaMeta):
     thumbnailUrl: str
     videoUrl: str
 
@@ -399,6 +620,7 @@ class MediaAnimated(JSONTrait):
             return MediaAnimated(
                 thumbnailUrl=obj["media_url_https"],
                 videoUrl=obj["video_info"]["variants"][0]["url"],
+                **_MediaMeta.parse_meta(obj),
             )
         except KeyError:
             return None
@@ -478,6 +700,9 @@ class PollOption(JSONTrait):
 class PollCard(Card):
     options: list[PollOption]
     finished: bool
+    videoUrl: str | None = None
+    durationSeconds: int | None = None
+    photo: MediaPhoto | None = None
     _type: str = "poll"
 
 
@@ -493,6 +718,68 @@ class BroadcastCard(Card):
 class AudiospaceCard(Card):
     url: str
     _type: str = "audiospace"
+
+
+@dataclass
+class MessageMeCard(Card):
+    url: str
+    cta: str | None = None
+    recipientId: str | None = None
+    _type: str = "message_me"
+
+
+@dataclass
+class PeriscopeBroadcastCard(Card):
+    title: str
+    url: str
+    state: str | None = None
+    broadcasterUsername: str | None = None
+    thumbnailUrl: str | None = None
+    _type: str = "periscope_broadcast"
+
+
+@dataclass
+class LiveEventCard(Card):
+    title: str
+    url: str
+    eventId: str | None = None
+    subtitle: str | None = None
+    category: str | None = None
+    photo: MediaPhoto | None = None
+    _type: str = "live_event"
+
+
+@dataclass
+class PromoVideoConvoCard(Card):
+    title: str
+    thankYouText: str | None = None
+    thankYouUrl: str | None = None
+    videoUrl: str | None = None
+    durationSeconds: int | None = None
+    ctas: list[str] = field(default_factory=list)
+    photo: MediaPhoto | None = None
+    _type: str = "promo_video_convo"
+
+
+@dataclass
+class PromoImageConvoCard(Card):
+    title: str
+    thankYouText: str | None = None
+    thankYouUrl: str | None = None
+    ctas: list[str] = field(default_factory=list)
+    photo: MediaPhoto | None = None
+    _type: str = "promo_image_convo"
+
+
+@dataclass
+class AppCard(Card):
+    title: str
+    url: str
+    description: str | None = None
+    starRating: float | None = None
+    numRatings: int | None = None
+    photo: MediaPhoto | None = None
+    _type: str = "app"
 
 
 @dataclass
@@ -584,6 +871,31 @@ def _parse_card_get_str(values: list[dict], key: str, defaultVal: str | None = N
     return defaultVal
 
 
+Num = TypeVar("Num", int, float)
+
+
+def _parse_card_get_num(
+    values: list[dict], key: str, fn: Callable[[str], Num], url: str
+) -> Num | None:
+    val = _parse_card_get_str(values, key)
+    if val is None:
+        return None
+
+    # a format not seen yet must not drop the tweet, but must be seen to be parsed later
+    try:
+        return fn(val)
+    except ValueError:
+        logger.warning(f"Unparsable card value {key}={val!r} on {url}")
+        return None
+
+
+def _parse_card_get_photo(values: list[dict], key: str):
+    for x in values:
+        if x["key"] == key and x["value"]["type"] == "IMAGE":
+            return MediaPhoto(url=x["value"]["image_value"]["url"])
+    return None
+
+
 def _parse_card_extract_str(values: list[dict], key: str):
     pretenders = [x["value"]["string_value"] for x in values if x["key"] == key]
     new_values = [x for x in values if x["key"] != key]
@@ -632,14 +944,14 @@ def _parse_card(obj: dict, url: str):
         title, val = _parse_card_extract_title(val)
         description, val = _parse_card_extract_str(val, "description")
         vanity_url, val = _parse_card_extract_str(val, "vanity_url")
-        url, val = _parse_card_extract_str(val, "card_url")
+        card_url, val = _parse_card_extract_str(val, "card_url")
         photo, val = _parse_card_extract_largest_photo(val)
 
         return SummaryCard(
             title=title,
             description=description,
             vanityUrl=vanity_url,
-            url=url,
+            url=card_url,
             photo=photo,
         )
 
@@ -659,7 +971,7 @@ def _parse_card(obj: dict, url: str):
         title = get_or(co, "details_1.data.title.content", "")
         description = get_or(co, "details_1.data.subtitle.content", "")
         vanity_url = get_or(do, "browser_with_docked_media_1.data.url_data.vanity", "")
-        url = get_or(do, "browser_with_docked_media_1.data.url_data.url", "")
+        card_url = get_or(do, "browser_with_docked_media_1.data.url_data.url", "")
         video = MediaVideo.parse(me) if me and me["type"] == "video" else None
         photo = MediaPhoto.parse(me) if me and me["type"] == "photo" else None
 
@@ -667,12 +979,12 @@ def _parse_card(obj: dict, url: str):
             title=title,
             description=description,
             vanityUrl=vanity_url,
-            url=url,
+            url=card_url,
             photo=photo,
             video=video,
         )
 
-    if re.match(r"(?:\d+:)?poll(?:\d+choice_text_only|_choice_images)", name):
+    if re.match(r"(?:\d+:)?poll(?:\d+choice_(?:text_only|video|images?)|_choice_images)", name):
         val = _parse_card_prepare_values(obj)
 
         options = []
@@ -688,7 +1000,18 @@ def _parse_card(obj: dict, url: str):
         # duration_minutes = int(_parse_card_get_str(val, "duration_minutes") or "0")
         # end_datetime_utc = _parse_card_get_str(val, "end_datetime_utc")
         # print(json.dumps(val, indent=2))
-        return PollCard(options=options, finished=finished)
+
+        # poll{n}choice_video cards carry the video in binding_values only (not in
+        # extended_entities). Lookup by key, not by IMAGE type: on poll_choice_images
+        # cards the IMAGE bindings are the per-choice images, not a player thumbnail.
+        photo = _parse_card_get_photo(val, "player_image_original")
+        return PollCard(
+            options=options,
+            finished=finished,
+            videoUrl=_parse_card_get_str(val, "player_hls_url"),
+            durationSeconds=_parse_card_get_num(val, "content_duration_seconds", int, url),
+            photo=photo,
+        )
 
     if name == "745291183405076480:broadcast":
         val = _parse_card_prepare_values(obj)
@@ -709,6 +1032,108 @@ def _parse_card(obj: dict, url: str):
 
         # print(json.dumps(val, indent=2))
         return AudiospaceCard(url=card_url)
+
+    if name == "2586390716:message_me":
+        val = _parse_card_prepare_values(obj)
+        card_url = _parse_card_get_str(val, "card_url")
+        if card_url is None:
+            return None
+
+        cta = _parse_card_get_str(val, "cta")
+        recipient_id = next(
+            (
+                x["value"]["user_value"]["id_str"]
+                for x in val
+                if x["key"] == "recipient" and x["value"]["type"] == "USER"
+            ),
+            None,
+        )
+        return MessageMeCard(url=card_url, cta=cta, recipientId=recipient_id)
+
+    if name == "3691233323:periscope_broadcast":
+        val = _parse_card_prepare_values(obj)
+        card_url = _parse_card_get_str(val, "url", _parse_card_get_str(val, "card_url"))
+        card_title = _parse_card_get_str(val, "title")
+        if card_url is None or card_title is None:
+            return None
+
+        return PeriscopeBroadcastCard(
+            title=card_title,
+            url=card_url,
+            state=_parse_card_get_str(val, "broadcast_state"),
+            broadcasterUsername=_parse_card_get_str(val, "broadcaster_username"),
+            thumbnailUrl=_parse_card_get_str(val, "full_size_thumbnail_url"),
+        )
+
+    if name == "745291183405076480:live_event":
+        val = _parse_card_prepare_values(obj)
+        card_url = _parse_card_get_str(val, "card_url")
+        card_title = _parse_card_get_str(val, "event_title")
+        if card_url is None or card_title is None:
+            return None
+
+        return LiveEventCard(
+            title=card_title,
+            url=card_url,
+            eventId=_parse_card_get_str(val, "event_id"),
+            subtitle=_parse_card_get_str(val, "event_subtitle"),
+            category=_parse_card_get_str(val, "event_category"),
+            photo=_parse_card_get_photo(val, "event_thumbnail_original"),
+        )
+
+    if name in {"promo_video_convo", "promo_image_convo"}:
+        val = _parse_card_prepare_values(obj)
+        card_title = _parse_card_get_str(val, "title")
+        if card_title is None:
+            return None
+
+        ctas = []
+        for key in ("cta_one", "cta_two", "cta_three", "cta_four"):
+            cta = _parse_card_get_str(val, key)
+            if cta is not None:
+                ctas.append(cta)
+
+        thank_you_text = _parse_card_get_str(val, "thank_you_text")
+        thank_you_url = _parse_card_get_str(val, "thank_you_url")
+
+        if name == "promo_image_convo":
+            return PromoImageConvoCard(
+                title=card_title,
+                thankYouText=thank_you_text,
+                thankYouUrl=thank_you_url,
+                ctas=ctas,
+                photo=_parse_card_get_photo(val, "promo_image_original"),
+            )
+
+        return PromoVideoConvoCard(
+            title=card_title,
+            thankYouText=thank_you_text,
+            thankYouUrl=thank_you_url,
+            videoUrl=_parse_card_get_str(val, "player_stream_url"),
+            durationSeconds=_parse_card_get_num(val, "content_duration_seconds", int, url),
+            ctas=ctas,
+            photo=_parse_card_get_photo(val, "player_image_original"),
+        )
+
+    if name == "app":
+        val = _parse_card_prepare_values(obj)
+        card_url = _parse_card_get_str(val, "card_url")
+        card_title = _parse_card_get_str(val, "title")
+        if card_url is None or card_title is None:
+            return None
+
+        # app_num_ratings is locale-formatted ("289,838"), but can be abbreviated ("1.2K")
+        def num_ratings(x: str):
+            return int(re.sub(r"[\s,.'\u00a0]", "", x))
+
+        return AppCard(
+            title=card_title,
+            url=card_url,
+            description=_parse_card_get_str(val, "description"),
+            starRating=_parse_card_get_num(val, "app_star_rating", float, url),
+            numRatings=_parse_card_get_num(val, "app_num_ratings", num_ratings, url),
+            photo=_parse_card_get_photo(val, "thumbnail_original"),
+        )
 
     logger.warning(f"Unknown card type '{name}' on {url}")
     if "PYTEST_CURRENT_TEST" in os.environ:  # help debugging tests
@@ -733,26 +1158,94 @@ def _get_reply_user(tw_obj: dict, res: dict):
     if mention:
         return UserRef.parse(mention)
 
+    # Not found in users or mentions, e.g. a self-reply on a page sent without its author's
+    # profile (see _get_tweet_user_obj): the reply still names the user
+    screen_name = tw_obj.get("in_reply_to_screen_name")
+    if screen_name:
+        return UserRef(id=int(user_id), id_str=user_id, username=screen_name, displayname="")
+
     # todo: user not found in reply (probably deleted or hidden)
     return None
 
 
-def _get_tweet_user_obj(tw_obj: dict, res: dict) -> dict:
-    """Return the referenced user or an author embedded in the tweet."""
+def _get_tweet_user_obj(tw_obj: dict, res: dict, fallback: dict | None = None) -> dict:
+    """Return the referenced user, an embedded author, the fallback, or a placeholder."""
     user_id = tw_obj.get("user_id_str")
     users = res.get("users", {})
     if user_id is not None and user_id in users:
         return users[user_id]
 
+    # Skip UserUnavailable and profile-less stubs: https://github.com/vladkens/twscrape/issues/342
     for path in ("core.user_results.result", "author_results.result"):
         user_obj = get_or(tw_obj, path)
-        if not isinstance(user_obj, dict) or user_obj.get("__typename") == "UserUnavailable":
-            continue
-        if "legacy" in user_obj and "rest_id" in user_obj:
-            return to_old_obj(user_obj)
-        return user_obj
+        if isinstance(user_obj, dict) and (user := to_old_user(user_obj)):
+            return user
+
+    if fallback is not None:
+        return fallback
+
+    # X can also send a page whose tweets carry no profile of their author anywhere (a User
+    # stub without core, empty user_results, no core), and the same page complete later.
+    # The tweet itself is complete: keep it, with an author known only by its ID.
+    if user_id is not None:
+        # res is one response page: warn once per author on it
+        warned = res.setdefault("placeholder_ids", set())
+        if user_id not in warned:
+            warned.add(user_id)
+            logger.warning(f"Author {user_id} has no profile in the response, using a placeholder")
+
+        return _placeholder_user(user_id)
 
     raise KeyError(f"user {user_id} not found in response payload")
+
+
+def _placeholder_user(user_id: str, screen_name: str = "", name: str = "") -> dict:
+    """
+    Flat user for an author X sent without a profile, parseable by User.parse. Counts are 0
+    and User.created is the Unix epoch. X sends every real user with an avatar URL, so the
+    empty profileImageUrl marks a placeholder (see readme).
+    """
+    core = {"screen_name": screen_name, "name": name}
+    return to_old_obj({"__typename": "User", "rest_id": user_id, "core": core})
+
+
+def _referenced_author(ref_obj: dict, tw_obj: dict) -> dict | None:
+    """
+    Author of a retweeted or quoted tweet as described by the tweet referencing it.
+
+    X can send that author without a profile (UserUnavailable, or a User stub without core)
+    while the nested tweet itself is complete. The referencing tweet still names the author
+    in its user_mentions (retweets), its "RT @handle: " text prefix (retweets without that
+    mention) or quoted_status_permalink (quotes), so the nested tweet is kept with this
+    minimal user instead of failing the referencing tweet:
+    https://github.com/vladkens/twscrape/issues/342
+    https://github.com/vladkens/twscrape/issues/343
+    """
+    user_id = tw_obj.get("user_id_str")
+    if user_id is None:
+        return None
+
+    mentions = get_or(ref_obj, "entities.user_mentions", [])
+    mention = find_item(mentions, lambda x: x.get("id_str") == user_id)
+    screen_name, name = (mention["screen_name"], mention.get("name", "")) if mention else (None, "")
+
+    # Only when tw_obj is the retweeted tweet: a retweet of a quote also references the quoted
+    # tweet, whose author is not the one in the prefix
+    if screen_name is None and _first(ref_obj, RT_ID_PATH) == tw_obj.get("id_str"):
+        match = re.match(r"RT @(\w+): ", ref_obj.get("full_text", ""))
+        if match:
+            screen_name = match.group(1)
+
+    if screen_name is None:
+        link = get_or(ref_obj, "quoted_status_permalink.expanded", "")
+        match = re.match(r"https?://(?:twitter|x)\.com/(\w+)/status/(\d+)", link)
+        if match and match.group(2) == tw_obj.get("id_str"):
+            screen_name = match.group(1)
+
+    if screen_name is None:
+        return None
+
+    return _placeholder_user(user_id, screen_name, name)
 
 
 def _get_source_url(tw_obj: dict):
@@ -835,17 +1328,27 @@ def _parse_items(
     kind: str,
     parser: Callable[[dict, dict], ParsedItem],
     limit: int = -1,
+    seen_ids: set[int | str | None] | None = None,
+    accept: Callable[[ParsedItem], bool] | None = None,
+    errors: list[Exception] | None = None,
 ) -> Generator[ParsedItem, None, None]:
     key = kind if kind == "trends" else f"{kind}s"
 
     # check for dict, because Response can be mocked in tests with different type
     res = rep if isinstance(rep, dict) else rep.json()
     obj = to_old_rep(res)
-    retweeted_ids: set[str] = obj.get("retweeted_ids", set())
+    retweeted_ids = cast(set[str], obj.get("retweeted_ids", set()))
+    quoted_ids = cast(set[str], obj.get("quoted_ids", set()))
 
-    ids = set()
+    ids = seen_ids if seen_ids is not None else set()
     for x in obj[key].values():
         if kind == "tweet" and x.get("id_str") in retweeted_ids:
+            continue
+        # Quoted tweets are embedded in the quoting tweet and are not yielded on their own,
+        # unless X lists them as timeline entries (see to_old_rep):
+        # https://github.com/vladkens/twscrape/issues/315
+        # https://github.com/vladkens/twscrape/issues/300
+        if kind == "tweet" and x.get("id_str") in quoted_ids:
             continue
         if limit != -1 and len(ids) >= limit:
             # todo: move somewhere in configuration like force_limit
@@ -855,82 +1358,158 @@ def _parse_items(
 
         try:
             tmp = parser(x, obj)
-            if tmp.id not in ids:
+            if tmp.id not in ids and (accept is None or accept(tmp)):
                 ids.add(tmp.id)
                 yield tmp
         except Exception as e:
             _write_dump(kind, e, x, obj)
+            if errors is not None:
+                errors.append(e)
             continue
 
 
 # public helpers
 
 
+_TWEET_UNAVAILABLE = ("TweetTombstone", "TweetUnavailable")
+
+
+def _find_raw_tweet(res: dict, twid: int) -> Any | None:
+    """The requested tweet as X sent it: its timeline entry, else any full copy by rest_id."""
+
+    def by_id(x: Any) -> bool:
+        typename = x.get("__typename")
+        if typename == "TweetWithVisibilityResults":
+            x = x.get("tweet")
+        elif typename != "Tweet":
+            return False
+
+        return isinstance(x, dict) and str(x.get("rest_id")) == str(twid) and not is_tweet_ref(x)
+
+    entry = find_obj(res, lambda x: x.get("entryId") == f"tweet-{twid}")
+    item = find_obj(entry, lambda x: isinstance(x.get("tweet_results"), dict))
+    result = item["tweet_results"].get("result") if item else None
+    unavailable = isinstance(result, dict) and result.get("__typename") in _TWEET_UNAVAILABLE
+    return result if result and not unavailable else find_obj(res, by_id)
+
+
 def parse_tweet(rep: Response, twid: int) -> Tweet | None:
+    # https://github.com/vladkens/twscrape/issues/348
+    res = rep if isinstance(rep, dict) else rep.json()
+    obj, errors = to_old_rep_partial(res)
+    raw = _find_raw_tweet(res, twid)
+    if raw is None:
+        return None
+
     try:
-        docs = list(parse_tweets(rep))
-        for x in docs:
-            if x.id == twid:
-                return x
-        return None
+        for broken, e in errors:
+            if find_obj(raw, lambda x, broken=broken: x is broken):
+                raise e
+
+        x = obj["tweets"].get(str(twid))
+        if x is None:
+            raise ValueError(f"Unexpected tweet result: {raw!r:.100}")
+
+        return Tweet.parse(x, obj)
     except Exception as e:
-        logger.error(f"Failed to parse tweet {twid} - {type(e)}:\n{traceback.format_exc()}")
-        return None
+        _write_dump("tweet", e, raw, obj)
+        raise ParseError(f"Failed to parse tweet {twid}: {e!r}") from e
 
 
 def parse_user(rep: Response) -> User | None:
-    try:
-        docs = list(parse_users(rep))
-        if len(docs) == 1:
-            return docs[0]
-        return None
-    except Exception as e:
-        logger.error(f"Failed to parse user - {type(e)}:\n{traceback.format_exc()}")
-        return None
+    # Propagate parsing failures instead of treating them as missing users:
+    # https://github.com/vladkens/twscrape/issues/346
+    errors: list[Exception] = []
+    docs = list(_parse_items(rep, "user", User.parse, errors=errors))
+    if len(docs) == 1:
+        return docs[0]
+    if not docs and errors:
+        raise UserParseError(f"Failed to parse user: {errors[0]!r}") from errors[0]
+    if not docs:
+        res = rep if isinstance(rep, dict) else rep.json()
+        user = get_or(res, "data.user", {}) or {}
+        user = user.get("result")
+        if isinstance(user, dict) and user.get("__typename") == "User":
+            raise UserParseError(f"Failed to parse user {user.get('rest_id', '')}")
+
+    return None
 
 
 def parse_trend(rep: Response) -> Trend | None:
+    errors: list[Exception] = []
     try:
-        docs = list(parse_trends(rep))
-        if len(docs) == 1:
-            return docs[0]
-        return None
+        docs = list(_parse_items(rep, "trends", Trend.parse, errors=errors))
     except Exception as e:
-        logger.error(f"Failed to parse trend - {type(e)}:\n{traceback.format_exc()}")
-        return None
+        raise ParseError(f"Failed to parse trend: {e!r}") from e
+
+    if len(docs) == 1:
+        return docs[0]
+    if not docs and errors:
+        raise ParseError(f"Failed to parse trend: {errors[0]!r}") from errors[0]
+
+    return None
+
+
+def _get_result(res: dict, key: str) -> Any:
+    return ((res.get("data") or {}).get(key) or {}).get("result")
 
 
 def parse_about(rep: Response | dict) -> AccountAbout | None:
+    res = rep if isinstance(rep, dict) else rep.json()
+    obj: Any = None
     try:
-        res = rep if isinstance(rep, dict) else rep.json()
-        obj = get_or(res, "data.user_result_by_screen_name.result")
-        if not obj:
+        obj = _get_result(res, "user_result_by_screen_name")
+        if not obj or obj.get("__typename") == "UserUnavailable":
             return None
+
+        if obj.get("__typename", "User") != "User":
+            raise ValueError(f"Unexpected __typename: {obj['__typename']}")
+
         return AccountAbout.parse(obj)
     except Exception as e:
-        logger.error(f"Failed to parse about profile - {type(e)}:\n{traceback.format_exc()}")
-        return None
+        _write_dump("about", e, obj, res)
+        raise ParseError(f"Failed to parse about profile: {e!r}") from e
 
 
 def parse_community(rep: Response | dict) -> Community | None:
+    res = rep if isinstance(rep, dict) else rep.json()
+    obj: Any = None
     try:
-        res = rep if isinstance(rep, dict) else rep.json()
-        community = get_or(res, "data.communityResults.result")
-        if not community:
+        obj = _get_result(res, "communityResults")
+        if not obj or obj.get("__typename") == "CommunityUnavailable":
             return None
-        return Community.parse(community)
+
+        if obj.get("__typename", "Community") != "Community":
+            raise ValueError(f"Unexpected __typename: {obj['__typename']}")
+
+        return Community.parse(obj)
     except Exception as e:
-        logger.error(f"Failed to parse community - {type(e)}:\n{traceback.format_exc()}")
-        return None
+        _write_dump("community", e, obj, res)
+        raise ParseError(f"Failed to parse community: {e!r}") from e
 
 
-def parse_tweets(rep: Response, limit: int = -1) -> Generator[Tweet, None, None]:
-    return _parse_items(rep, "tweet", Tweet.parse, limit)
+def parse_tweets(
+    rep: Response,
+    limit: int = -1,
+    seen_ids: set[int | str | None] | None = None,
+    accept: Callable[[Tweet], bool] | None = None,
+) -> Generator[Tweet, None, None]:
+    return _parse_items(rep, "tweet", Tweet.parse, limit, seen_ids, accept)
 
 
-def parse_users(rep: Response, limit: int = -1) -> Generator[User, None, None]:
-    return _parse_items(rep, "user", User.parse, limit)
+def parse_users(
+    rep: Response,
+    limit: int = -1,
+    seen_ids: set[int | str | None] | None = None,
+    accept: Callable[[User], bool] | None = None,
+) -> Generator[User, None, None]:
+    return _parse_items(rep, "user", User.parse, limit, seen_ids, accept)
 
 
-def parse_trends(rep: Response, limit: int = -1) -> Generator[Trend, None, None]:
-    return _parse_items(rep, "trends", Trend.parse, limit)
+def parse_trends(
+    rep: Response,
+    limit: int = -1,
+    seen_ids: set[int | str | None] | None = None,
+    accept: Callable[[Trend], bool] | None = None,
+) -> Generator[Trend, None, None]:
+    return _parse_items(rep, "trends", Trend.parse, limit, seen_ids, accept)

@@ -11,6 +11,8 @@ using the MIT license
 
 import os
 import json
+import lzma
+import threading
 import atexit
 from warnings import warn
 from collections import namedtuple
@@ -33,7 +35,7 @@ ComptonEnergies = namedtuple('ComptonEnergies',
                    ('incident', 'xray_90deg', 'xray_mean', 'electron_mean'))
 
 def make_engine(dbname):
-    "create engine for sqlite connection, perhaps trying a few sqlachemy variants"
+    "create engine for sqlite connection"
     return sqlalchemy.create_engine(f'sqlite:///{dbname}')
 
 def isxrayDB(dbname):
@@ -68,8 +70,16 @@ def isxrayDB(dbname):
             engine.dispose()
     return result
 
+def unpack_json_only(val):
+    return np.array(json.loads(val))
 
-class XrayDB():
+def unpack_compressed(val):
+    return np.array(json.loads(lzma.decompress(val).decode('utf-8')))
+
+def readonly_flush(*args, **kwargs):
+    return
+
+class XrayDB:
     """
     Database of Atomic and X-ray Data
 
@@ -88,25 +98,19 @@ class XrayDB():
             parent, _ = os.path.split(__file__)
             dbname = os.path.join(parent, dbname)
             if not os.path.exists(dbname):
-                raise IOError(f"Database '{dbname}' not found!")
-
+                raise OSError(f"Database '{dbname}' not found!")
+        self._db_lock = threading.RLock()
         if not isxrayDB(dbname):
             raise ValueError(f"'{dbname}' is not a valid X-ray Database file!")
         self._cache = {}
         self.dbname = os.path.abspath(dbname)
         self.engine = make_engine(dbname)
         self.conn = self.engine.connect()
-        kwargs = {}
-        if read_only:
-            kwargs = {'autoflush': True, 'autocommit': False}
 
-            def readonly_flush(*args, **kwargs):
-                return
 
-            self.session = sessionmaker(self.engine, **kwargs)()
-            self.session.flush = readonly_flush
-        else:
-            self.session = sessionmaker(bind=self.engine, **kwargs)()
+        kwargs = {'autoflush': True, 'autocommit': False}
+        self.session = sessionmaker(self.engine, **kwargs)()
+        self.session.flush = readonly_flush
 
         self.metadata = sqlalchemy.MetaData()
         self.metadata.reflect(self.engine)
@@ -115,6 +119,13 @@ class XrayDB():
         elems = self.get_cache('elements')
         self.__atomic_symbols = [e.element for e in elems]
         self.__atomic_names = [e.name for e in elems]
+
+        self.unpack = unpack_json_only
+        try:
+            if float(self.version_string()) > 9.99:
+                self.unpack = unpack_compressed
+        except Exception:
+            pass
         atexit.register(self.close)
 
     def close(self):
@@ -143,7 +154,7 @@ class XrayDB():
             else:
                 data = self._cache[tablename] = {}
 
-            key = f"{column:s}_{repr(value)}"
+            key = f"{column:s}_{value!r}"
             if key not in data:
                 tab = self.tables[tablename]
                 col = getattr(tab.c, column, None)
@@ -171,9 +182,10 @@ class XrayDB():
         rows = self.get_cache('Version')
         if not with_history:
             rows = rows[-1:]
+
         if long or with_history:
             for row in rows:
-                out.append(f"XrayDB Version: {row.tag} [row.date] '{row.notes}'")
+                out.append(f"XrayDB Version: {row.tag} [{row.date}] '{row.notes}'")
             out.append(f"Python Version: {__version__}")
             out = "\n".join(out)
         else:
@@ -181,10 +193,19 @@ class XrayDB():
 
         return out
 
+    def version_string(self):
+        """
+        return sqlite3 database version string
+
+        Returns:
+            string: version string for xraydb
+        """
+        rows = self.get_cache('Version')
+        return rows[-1].tag
+
     def f0_ions(self, element=None):
         """
         return list of ion names supported for the .f0() function.
-
 
         Parameters:
             element (string, int, pr None):  atomic number, symbol, or ionic symbol
@@ -253,7 +274,7 @@ class XrayDB():
         row = rows[0]
         q = as_ndarray(q)
         f0 = row.offset
-        for s, e in zip(json.loads(row.scale), json.loads(row.exponents)):
+        for s, e in zip(self.unpack(row.scale), self.unpack(row.exponents)):
             f0 += s * np.exp(-e*q*q)
         return f0
 
@@ -278,14 +299,14 @@ class XrayDB():
 
         row = self.get_cache('Chantler', column='element', value=elem)[0]
 
-        te = np.array(json.loads(row.energy))
+        te = self.unpack(row.energy)
         nemin = max(0, -3 + max(np.where(te <= emin)[0]))
         nemax = min(len(te), 3 + max(np.where(te <= emax)[0]))
 
         te = te[nemin:nemax+1]
         if column == 'mu':
             column = 'mu_total'
-        ty = np.array(json.loads(getattr(row, column)))[nemin:nemax+1]
+        ty = self.unpack(getattr(row, column))[nemin:nemax+1]
         ty[np.where(abs(ty) < 1.e-99)] =  1.e-99
         if column == 'f1':
             out = UnivariateSpline(te, ty, s=smoothing)(energy)
@@ -320,7 +341,7 @@ class XrayDB():
         ctab = self.tables['Chantler']
         elem = self.symbol(element)
         row = self.query(ctab).filter(ctab.c.element == elem).one()
-        te = np.array(json.loads(row.energy))
+        te = self.unpack(row.energy)
 
         if emin <= min(te):
             nemin = 0
@@ -366,7 +387,8 @@ class XrayDB():
         """
         return self._from_chantler(element, energy, column='f2', **kws)
 
-    def mu_chantler(self, element, energy, incoh=False, photo=False):
+    def mu_chantler(self, element, energy, incoh=False, photo=False,
+                    nonphoto=False, kind=None):
         """
         returns X-ray mass attenuation coefficient, mu/rho in cm^2/gr
         for selected input energy (or energies) in eV.
@@ -376,19 +398,34 @@ class XrayDB():
             element (string or int): atomic number or symbol
             energy (float or ndarray): energies (in eV).
             photo (bool): return only the photo-electric contribution [False]
-            incoh (bool): return only the incoherent contribution [False]
+            incoh (bool): return only the incoherent+cohereent contribution [False]
+            nonphoto (bool): return only the incoherent+cohereent contribution [False]
+            kind (str or None): type of cross-section to use, one of
+                                (None,  'total', 'photo', 'nonphoto') [None]
+
 
         Returns:
             ndarray: mass attenuation coefficient in cm^2/gr
+
+        Notes:
+           1. The Chantler tables do not separate coherent from incoherent scattering
+           2. Using `incoh`, `photo`, `nonphoto` should be considered
+              deprecated and `kind` preferred.
 
         References:
             Chantler
         """
         col = 'mu_total'
-        if photo:
+        if kind == 'photo':
             col = 'mu_photo'
-        elif incoh:
+        elif kind == 'nonphoto':
             col = 'mu_incoh'
+        elif kind is None:
+            if photo:
+                col = 'mu_photo'
+            elif incoh or nonphoto:
+                col = 'mu_incoh'
+
         return self._from_chantler(element, energy, column=col)
 
     def compton_energies(self, incident_energy):
@@ -396,10 +433,10 @@ class XrayDB():
         return tuple of Compton energies for an incident energy
         """
         row = self.get_cache('Compton_energies')[0]
-        _en   = json.loads(row.incident)
-        _xe90 = json.loads(row.xray_90deg)
-        _xave = json.loads(row.xray_mean)
-        _eave = json.loads(row.electron_mean)
+        _en   = self.unpack(row.incident)
+        _xe90 = self.unpack(row.xray_90deg)
+        _xave = self.unpack(row.xray_mean)
+        _eave = self.unpack(row.electron_mean)
 
         xray_90deg = np.interp(incident_energy, _en, _xe90)
         xray_mean = np.interp(incident_energy, _en, _xave)
@@ -419,7 +456,7 @@ class XrayDB():
             elif element.lower() in self.__atomic_names:
                 row = [r for r in rows if r.name == element.lower()][0]
             else:
-                raise ValueError(f"unknown element '{repr(element)}'")
+                raise ValueError(f"unknown element '{element!r}'")
         return ElementData(int(row.atomic_number),
                            row.element.title(), row.name,
                            row.molar_mass, row.density)
@@ -502,10 +539,11 @@ class XrayDB():
         elem = self.symbol(element)
         ltab = self.tables['xray_levels']
         out = {}
-        for r in self.query(ltab).filter(ltab.c.element == elem).all():
-            out[str(r.iupac_symbol)] = XrayEdge(r.absorption_edge,
-                                                r.fluorescence_yield,
-                                                r.jump_ratio)
+        with self._db_lock:
+            for r in self.query(ltab).filter(ltab.c.element == elem).all():
+                out[str(r.iupac_symbol)] = XrayEdge(r.absorption_edge,
+                                                    r.fluorescence_yield,
+                                                    r.jump_ratio)
         return out
 
     def xray_edge(self, element, edge):
@@ -581,9 +619,10 @@ class XrayDB():
             else:
                 row = row.filter(ttab.c.initial_level == initial_level.title())
         out = {}
-        for r in row.all():
-            out[str(r.siegbahn_symbol)] = XrayLine(r.emission_energy, r.intensity,
-                                                   r.initial_level, r.final_level)
+        with self._db_lock:
+            for r in row.all():
+                out[str(r.siegbahn_symbol)] = XrayLine(r.emission_energy, r.intensity,
+                                                       r.initial_level, r.final_level)
         return out
 
     def xray_line_strengths(self, element, excitation_energy=None):
@@ -715,20 +754,20 @@ class XrayDB():
 
         row = self.get_cache(tablename, column='element', value=elem)[0]
 
-        tab_lne = np.array(json.loads(row.log_energy))
+        tab_lne = self.unpack(row.log_energy)
         if kind.startswith('coh'):
-            tab_val = np.array(json.loads(row.log_coherent_scatter))
-            tab_spl = np.array(json.loads(row.log_coherent_scatter_spline))
+            tab_val = self.unpack(row.log_coherent_scatter)
+            tab_spl = self.unpack(row.log_coherent_scatter_spline)
         elif kind.startswith('incoh'):
-            tab_val = np.array(json.loads(row.log_incoherent_scatter))
-            tab_spl = np.array(json.loads(row.log_incoherent_scatter_spline))
+            tab_val = self.unpack(row.log_incoherent_scatter)
+            tab_spl = self.unpack(row.log_incoherent_scatter_spline)
         else:
-            tab_val = np.array(json.loads(row.log_photoabsorption))
-            tab_spl = np.array(json.loads(row.log_photoabsorption_spline))
+            tab_val = self.unpack(row.log_photoabsorption)
+            tab_spl = self.unpack(row.log_photoabsorption_spline)
 
         en = 1.0*as_ndarray(energies)
-        if min(en) < 100.0:
-            warn('Elam tables are unreliable for energies < 100 eV')
+        if min(en) < 800.0:
+            warn('Elam tables are unreliable for energies < 800 eV')
         if max(en) > 800_000.:
             warn('Elam tables are unreliable for energies > 800 keV')
         en[np.where(en < 100.0)] = 100.0
@@ -745,8 +784,8 @@ class XrayDB():
         Parameters:
             element (string or int):  atomic number or symbol for element
             energies (float or ndarray): energies (in eV) to calculate cross-sections
-            kind (string):  one of 'photo' or 'total' for photo-electric or
-                  total attenuation, respectively.  Default is 'total'.
+            kind (string):  one of ['total', 'photo', 'incoh', 'coh', 'nonphoto']
+                            Default is 'total'.
 
         Returns:
            ndarray of scattering values in units of cm^2/gr
@@ -766,6 +805,9 @@ class XrayDB():
             xsec = calc(element, energies, kind='coh')
         elif kind.lower().startswith('incoh'):
             xsec = calc(element, energies, kind='incoh')
+        elif kind.startswith('nonphoto'):
+            xsec = calc(element, energies, kind='coh')
+            xsec += calc(element, energies, kind='incoh')
         else:
             raise ValueError(f'unknown cross section kind={kind}')
         return xsec

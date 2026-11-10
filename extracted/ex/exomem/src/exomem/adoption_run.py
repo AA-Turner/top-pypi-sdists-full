@@ -32,27 +32,33 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from typing import Literal, get_args
 from urllib.parse import urlencode
 
-from . import adopt as adopt_module
 from . import (
+    access,
     adoption_consume,
     adoption_plan,
     capabilities,
     context_refs,
     due_state,
+    duplicates,
+    frontmatter_update,
     held_fs,
     import_rename,
     import_stage,
     knowledge_packs,
+    lexstore,
     note_types,
     rename_journal,
     request_budget,
     reserved_paths,
     source_taxonomy,
 )
+from . import adopt as adopt_module
 from . import overview as overview_module
 from .adopt import _TEXT_IMPORT_SUFFIXES
+from .governance import raw_protection
 from .kbdir import kb_dirname
 from .vault import PlannedWrite, batch_atomic_write, kb_root, parse_frontmatter
 from .writer_lease import _FAST_ACK_DEADLINE_SECONDS
@@ -61,6 +67,10 @@ RUNS_DIR = "_Adoption/runs"
 SCHEMA_VERSION = 1
 # The plan layout `apply` understands. A plan made by an earlier layout is refused as stale.
 PLAN_FORMAT = 2
+# These are fixed status protocol views, not vault vocabulary.
+StatusView = Literal["summary", "inventory", "selection", "plan", "outcomes", "stale", "full"]
+STATUS_PAGE_ITEMS = 100
+STATUS_PAGE_BYTES = 32 * 1024
 MAX_CANDIDATES_DEFAULT = 5000
 # Where Exomem Cloud stages an uploaded collection (see `cloud_import_job`).
 IMPORT_STAGE_DIR = import_stage.STAGE_DIR
@@ -71,6 +81,8 @@ APPLY_CHUNK_ITEMS = 25
 APPLY_CHUNK_BYTES = 64 * 1024 * 1024
 # A chunk is also cut so its predicted cost stays at most this share of the call's budget.
 APPLY_CHUNK_BUDGET_SHARE = 0.1
+# The `stop_reason` of a call that ended after a chunk because a write waited for the boundary.
+STOP_FOR_WAITING_WRITE = "interactive_write_waiting"
 # What a call assumes before it has timed a chunk: seconds per item, and per media
 # artifact for its extraction request (both pessimistic starts).
 INITIAL_ITEM_SECONDS = 0.5
@@ -109,6 +121,10 @@ PHASES = (
     "done",
     "cancelled",
 )
+# Subsets of this module's closed `PHASES`, not vault vocabulary: the steps check them and the `file` driver reads them.
+_APPLY_PHASES = ("planned", "applying")  # nosemgrep: ep-word-set -- the run phases in which `apply` has work left.
+_FINISH_PHASES = ("applied", "partial")  # nosemgrep: ep-word-set -- the run phases that `finish` accepts.
+_FINISHED_PHASES = ("done", "cancelled")  # nosemgrep: ep-word-set -- the run phases that end a page.
 
 _APPLIED_STATUSES = adoption_consume.FILED_STATUSES
 # An own-note item whose Source is on disk and whose draft note is still owed. The item is
@@ -256,6 +272,13 @@ class AdoptionRunStore:
     def save(self, run: dict) -> None:
         batch_atomic_write([self.planned_write(run)], vault_root=self.vault_root)
 
+    def save_intent(self, run: dict) -> None:
+        """Freeze recovery scope without claiming that an import already committed."""
+        batch_atomic_write(
+            [self.planned_write(run)], vault_root=self.vault_root,
+            commit_point=False, post_commit_fanout=False,
+        )
+
     def load_proposals(self, run_id: str) -> dict:
         f = self.run_dir(run_id) / "proposals.json"
         if not f.exists():
@@ -275,18 +298,28 @@ class AdoptionRunStore:
     def list_runs(self) -> list[dict]:
         return self.listing()["runs"]
 
-    def runs_by_stage(self) -> dict[str, tuple[dict, ...]]:
-        """Every readable run, grouped by the import whose stage it started in; the most recently updated first."""
+    def _readable_runs(self) -> Iterable[dict]:
+        """Every run that loads, in run id order."""
         try:
             names = sorted(folder.name for folder in self.base.iterdir())
         except OSError:
-            return {}
-        grouped: dict[str, list[dict]] = {}
+            return
         for name in names:
             try:
-                run = self.load(name)
+                yield self.load(name)
             except AdoptionRunError:
                 continue
+
+    def runs_at(self, source_root: str) -> tuple[dict, ...]:
+        """Every readable run that scanned `source_root`, whatever its page or phase."""
+        return tuple(
+            run for run in self._readable_runs() if isinstance(run, dict) and run.get("source_root") == source_root
+        )
+
+    def runs_by_stage(self) -> dict[str, tuple[dict, ...]]:
+        """Every readable run, grouped by the import whose stage it started in; the most recently updated first."""
+        grouped: dict[str, list[dict]] = {}
+        for run in self._readable_runs():
             recorded = run.get("stage") if isinstance(run, dict) else None
             if isinstance(recorded, dict) and isinstance(recorded.get("stage"), str):
                 grouped.setdefault(recorded["stage"], []).append(run)
@@ -395,6 +428,20 @@ def _count_files(folder: Path) -> int:
     return sum(len(files) for _dirpath, _dirs, files in os.walk(folder))
 
 
+def _hidden(name: str) -> bool:
+    """Whether a scan without include_hidden skips this file or folder name (see `walk_inventory`)."""
+    return name.startswith(".")
+
+
+def _recordable(path: str) -> bool:
+    """Whether a run's record can hold this path: a name that is not UTF-8 reads back with surrogates, which UTF-8 refuses."""
+    try:
+        path.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def _order_key(row: dict) -> tuple[int, str]:
     """A file row's place in the scan: artifacts first, then text, then rows that never import; each by path.
 
@@ -469,7 +516,7 @@ def walk_inventory(
                 if dpath.is_symlink():
                     rows.append(_row(rel_dir, 0, 0.0, eligible=False, reason="NOT_REGULAR_FILE"))
                     continue
-                if not include_hidden and d.startswith("."):
+                if not include_hidden and _hidden(d):
                     try:
                         mtime = dpath.stat().st_mtime
                     except OSError:
@@ -487,7 +534,7 @@ def walk_inventory(
             for fn in filenames:
                 if fn == import_stage.SERIES_FILE and import_stage.is_series_file(_rel(root, Path(dirpath) / fn)):
                     continue  # the series file is never an item to file, nor a hidden file to report
-                if not include_hidden and fn.startswith("."):
+                if not include_hidden and _hidden(fn):
                     hidden_files += 1
                     continue
                 fpath = Path(dirpath) / fn
@@ -842,7 +889,7 @@ def _materialize_selection(
 # presentation helpers
 # --------------------------------------------------------------------------- #
 # Run-object keys that drive the lifecycle but are not part of what a caller reads.
-_INTERNAL_KEYS = frozenset({"plan_draft", "cursors", "inflight", "scope", _NOTE_PRICE, "sources_seal"})  # nosemgrep: ep-word-set -- run-object keys that this module writes, not a vocabulary
+_INTERNAL_KEYS = frozenset({"plan_draft", "cursors", "inflight", "scope", "apply_invocations", _NOTE_PRICE, "sources_seal"})  # nosemgrep: ep-word-set -- run-object keys that this module writes, not a vocabulary
 
 
 def _present(root: Path, run: dict, **extra) -> dict:
@@ -851,6 +898,10 @@ def _present(root: Path, run: dict, **extra) -> dict:
         # The run stores the spelling of the surface that started it; serve this surface's.
         out["pack_suggestions"] = knowledge_packs.rendered_suggestions(run["pack_suggestions"] or [])
     out["next_actions"] = _next_actions(run)
+    # The plan keeps each warning as a record; the top-level list is what a caller's warning count reads.
+    plan = run.get("plan") or {}
+    if plan.get("warnings"):
+        out["warnings"] = [f"{warning['code']}: {warning['reason']}" for warning in plan["warnings"]]
     cursor = _open_cursor(run, "after")
     if cursor:
         out["next_after"] = f"{run['run_id']}:{cursor}"
@@ -864,7 +915,8 @@ def _present(root: Path, run: dict, **extra) -> dict:
     if verify:
         out["verified_unchanged"] = verify.get("verified_unchanged")
         out["verified_total"] = verify.get("verified_total")
-        out["consumed"] = verify.get("consumed", 0)
+        # `finish` removes filed text copies after `apply`, so a finished run reports the count that `finish` recorded.
+        out["consumed"] = (run.get("finish") or verify).get("consumed", 0)
     if isinstance(out.get("finish"), dict):
         out["finish"] = _presented_finish(run)
     out.update(extra)
@@ -932,7 +984,7 @@ def _next_actions(run: dict) -> list[dict]:
                                 "applied and remaining counts from progress, that the import is unfinished, and that "
                                 "apply with the run_id, plan_id and continuation resumes it."}
             )
-    elif phase in ("applied", "partial"):
+    elif phase in _FINISH_PHASES:
         actions.append(
             {"action": "finish", "status": "available",
              "description": "Prove recall and get a ready-to-run first question."}
@@ -957,19 +1009,24 @@ def _next_actions(run: dict) -> list[dict]:
     return actions
 
 
-def _residual_actions(residual: dict | None) -> list[dict]:
-    """Review the staged files that remain with the person, then discard; neither while later pages follow.
+def _residual_actions(residual: dict | None, where: str = "finish.residual") -> list[dict]:
+    """Review the files that stay staged with the person, and discard them only after the person agrees; neither while later pages follow.
+
+    `where` names the reply field that holds the residual, so that the review text points at the field the reader has.
 
     A page that later pages follow leaves the review and the discard to the last page, because the folder
-    still holds files that those pages file.
+    still holds files that those pages file. A file that stays is never discarded without the person: a staged
+    copy may be the only good copy, and `finish` does not verify every file that it reports as filed.
     """
     # A run finished before paging existed has no `more_pages` key, and no later page.
     if not residual or not residual["files"] or residual.get("more_pages"):
         return []
+    # A run finished before the unfiled count existed has no summary.
+    summary = residual.get("summary") or f"{residual['files']} files stay staged."
     return [
         {"action": "review-residual", "status": "available",
-         "description": f"{residual['files']} files ({residual['bytes']} bytes) stay staged in {residual['folder']}; "
-                        "finish.residual.by_reason says why. Review them with the person before anything is discarded."},
+         "description": f"{summary} {residual['files']} files ({residual['bytes']} bytes) stay staged in {residual['folder']}; "
+                        f"{where}.by_reason says why. Review them with the person before anything is discarded."},
         {"action": "discard", "status": "available",
          "description": f"Only after the person agrees, and permanently: {residual['discard']}."},
     ]
@@ -1021,6 +1078,8 @@ def _issue_cursor(run: dict, kind: str) -> str:
     seq = len(cursors) + 1
     token = f"{kind}-{seq:04d}-{secrets.token_hex(4)}"
     cursors[token] = {"kind": kind, "seq": seq, "state": "open"}
+    if kind == "apply":
+        cursors[token]["scope"] = copy.deepcopy(run.get("scope"))
     return token
 
 
@@ -1178,18 +1237,23 @@ def _vault_relative(root: Path, raw: str) -> str | None:
     return relative.as_posix() if relative.parts else None
 
 
+def _cursor_holder(root: Path, cursor: str, kind: str) -> tuple[dict, str, dict]:
+    """The run that issued a `<run id>:<token>` cursor of `kind`, the token and its entry; a cursor no run issued is refused."""
+    run_id, _, token = cursor.partition(":")
+    if not run_id or Path(run_id).name != run_id:
+        raise AdoptionRunError("RUN_NOT_FOUND", "not a run id")
+    run = AdoptionRunStore(root).load(run_id)
+    return run, token, _cursor_entry(run, kind, token)
+
+
 def _page_cursor(root: Path, after: str) -> tuple[dict, str, dict]:
     """The run that issued the `after` cursor, the cursor's token and its entry.
 
     The cursor is `<run id>:<token>`. The token is one the run object holds, so a guessed or altered
     cursor finds nothing and is refused, the same way a continuation cursor is.
     """
-    run_id, _, token = after.partition(":")
     try:
-        if not run_id or Path(run_id).name != run_id:
-            raise AdoptionRunError("RUN_NOT_FOUND", "not a run id")
-        source = AdoptionRunStore(root).load(run_id)
-        return source, token, _cursor_entry(source, "after", token)
+        return _cursor_holder(root, after, "after")
     except AdoptionRunError as exc:
         raise AdoptionRunError(
             "INVALID_CONTINUATION",
@@ -1360,9 +1424,76 @@ def _pending(run: dict) -> list[dict]:
     ]
 
 
-def status(root: Path, *, run_id: str | None = None, path: str = "") -> dict:
+def _status_view(run: dict, presented: dict, *, view: StatusView, offset: int,
+                 limit: int, revision: str | None) -> dict:
+    """Project one persisted run into summary metadata or a revision-bound page."""
+    current_revision = hashlib.sha256(json.dumps(
+        run, sort_keys=True, ensure_ascii=False, default=str,
+    ).encode("utf-8")).hexdigest()
+    if revision is not None and revision != current_revision:
+        raise AdoptionRunError("IMPORT_STATUS_CHANGED", "the run changed; read its summary and restart paging")
+    outcomes = run.get("outcomes") or {}
+    plan = run.get("plan") or {}
+    summary = {
+        **_compact_row(run), "revision": current_revision, "view": view,
+        "plan_id": plan.get("plan_id"), "interrupted": presented["interrupted"],
+        # Summary counts cover the whole plan; the last call's subset may already be complete.
+        "remaining": sum(_is_open(outcomes, item["original_path"]) for item in plan.get("items") or []),
+        "next_actions": presented["next_actions"],
+        "proposals_summary": presented["proposals_summary"], "handoff": presented["handoff"],
+        "staleness": {"count": len(presented["stale_paths"]), "view": "stale"},
+    }
+    summary["counts"].update(
+        planned=len(plan.get("items") or []),
+        failed=sum(outcome.get("status") == "failed" for outcome in outcomes.values()),
+        source_applied=sum(outcome.get("status") == _SOURCE_ONLY for outcome in outcomes.values()),
+    )
+    # These bounded protocol fields retain recorded verification, never a fresh byte claim.
+    for key in ("continuation", "progress", "verified_unchanged", "verified_total", "consumed"):
+        if key in presented:
+            summary[key] = presented[key]
+    if view == "summary":
+        return summary
+    if view == "inventory":
+        rows = run.get("inventory") or []
+    elif view == "selection":
+        rows = (run.get("selection") or {}).get("paths") or []
+    elif view == "plan":
+        rows = plan.get("items") or []
+    elif view == "outcomes":
+        rows = [{"original_path": path, **outcomes[path]} for path in sorted(outcomes)]
+    else:
+        rows = presented["stale_paths"]
+    items, omitted = [], []
+    used = 0
+    next_offset = offset
+    for index in range(offset, min(len(rows), offset + limit)):
+        row = rows[index]
+        size = len(json.dumps(row, default=str).encode("utf-8"))
+        if size > STATUS_PAGE_BYTES:
+            omitted.append({"offset": index, "code": "ROW_TOO_LARGE", "bytes": size})
+        elif used + size > STATUS_PAGE_BYTES:
+            break
+        else:
+            items.append(row)
+            used += size
+        next_offset = index + 1
+    return {
+        **summary, "items": items, "omitted": omitted, "offset": offset, "limit": limit,
+        "total": len(rows), "next_offset": next_offset if next_offset < len(rows) else None,
+    }
+
+
+def status(root: Path, *, run_id: str | None = None, path: str = "", view: StatusView = "full",
+           offset: int = 0, limit: int = STATUS_PAGE_ITEMS, revision: str | None = None) -> dict:
     root = Path(root)
     store = AdoptionRunStore(root)
+    if view not in get_args(StatusView):
+        raise AdoptionRunError("IMPORT_REQUEST_INVALID", "unknown status view")
+    if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= STATUS_PAGE_ITEMS:
+        raise AdoptionRunError("IMPORT_REQUEST_INVALID", f"status requires offset >= 0 and limit from 1 to {STATUS_PAGE_ITEMS}")
+    if offset and revision is None:
+        raise AdoptionRunError("IMPORT_REQUEST_INVALID", "a later status page requires its run revision")
     if not run_id:
         return {"mode": "adoption", "mutated": False, **store.listing(path=path)}
     run = store.load(run_id)
@@ -1386,8 +1517,12 @@ def status(root: Path, *, run_id: str | None = None, path: str = "") -> dict:
         }
     else:
         extra["interrupted"] = False
+    extra["interrupted"] = extra["interrupted"] or any(
+        "reply" not in invocation and invocation.get("plan_id") == (run.get("plan") or {}).get("plan_id")
+        for invocation in (run.get("apply_invocations") or {}).values()
+    )
     stale = probe_staleness(root, run)
-    return _present(
+    presented = _present(
         root,
         run,
         staleness={"stale_paths": stale},
@@ -1396,6 +1531,9 @@ def status(root: Path, *, run_id: str | None = None, path: str = "") -> dict:
         handoff=_handoff(run),
         **extra,
     )
+    if view == "full":
+        return presented
+    return _status_view(run, presented, view=view, offset=offset, limit=limit, revision=revision)
 
 
 def select(
@@ -1473,7 +1611,7 @@ def _earlier_pages(store: AdoptionRunStore, run: dict) -> tuple[dict, ...]:
 
 
 def unfiled_members(root: Path, import_id: str, runs: tuple[dict, ...] | None = None) -> list[dict]:
-    """The members of an import that adoption did not file, as a residual record lists them.
+    """The members of an import that adoption did not file or `finish` did not verify, as a residual record lists them.
 
     Each entry has the path relative to the stage, its bytes and why it stays (see `adoption_consume.residual`).
     The members are the stage manifest's, plus any staged file that the manifest does not list. A member that
@@ -1491,8 +1629,7 @@ def unfiled_members(root: Path, import_id: str, runs: tuple[dict, ...] | None = 
     return [
         import_stage.residual_member(path, size, reason)
         for path, size, reason in adoption_consume.stage_reasons(import_id, list(files.items()), pages, _APPLIED_STATUSES)
-        # nosemgrep: ep-word-membership -- `FILED_REASONS` holds closed result keys of `_page_classifier`.
-        if reason not in adoption_consume.FILED_REASONS and path != import_stage.SERIES_FILE
+        if not adoption_consume.is_filed(reason) and path != import_stage.SERIES_FILE
     ]
 
 
@@ -1504,8 +1641,7 @@ def _earlier_page_unapplied(store: AdoptionRunStore, run: dict) -> str | None:
     holds none.
     """
     for earlier in _earlier_pages(store, run):  # a page whose record is gone holds no work
-        # nosemgrep: ep-word-membership -- This module's run phases are a closed protocol.
-        if earlier["phase"] not in ("done", "cancelled") and _unapplied(earlier):
+        if earlier["phase"] not in _FINISHED_PHASES and _unapplied(earlier):
             return earlier["run_id"]
     return None
 
@@ -1616,6 +1752,7 @@ def plan(
         index = adoption_plan.read_import_index(root)
         notes = adoption_plan.NoteIndex(root)
         destinations = adoption_plan.Destinations(root)
+        seen = adoption_plan.seen_in_plan(draft["items"])
         for planned in draft["items"]:
             frozen_paths = [(planned.get("note") or {}).get("target_path")]
             if planned["action"] == "copy-as-source":
@@ -1636,7 +1773,7 @@ def plan(
                 classification=classification.get(rel), taxonomy=taxonomy,
                 text_hint=(inventory.get(rel) or {}).get("form", "text") == "text",
                 date_iso=draft["date"], destinations=destinations, index=index, notes=notes,
-                ceiling=ceiling, vouched=adoption_consume.vouched(stage, rel),
+                ceiling=ceiling, vouched=adoption_consume.vouched(stage, rel), seen=seen,
             )
             draft["next"] += 1
             handled += 1
@@ -1675,6 +1812,11 @@ def plan(
                 skipped.append(
                     {"path": planned["original_path"], "code": "SLUG_TRUNCATED",
                      "reason": planned["slug_warning"]}
+                )
+            if planned.get("duplicate_check_unavailable"):
+                skipped.append(
+                    {"path": planned["original_path"], "code": "DUPLICATE_CHECK_UNAVAILABLE",
+                     "reason": duplicates.unavailable_warning(planned["original_path"])}
                 )
         run["plan"] = {
             "plan_format": PLAN_FORMAT,
@@ -1800,6 +1942,79 @@ def _earlier_with_same_bytes(
         if adoption_plan.artifact_of(root, earlier.path) is None:
             return None
     return earlier
+
+
+def _settle_on_stored(
+    root: Path, planned: dict, *, label: str | None, holder: str | None, stats: Counter
+) -> dict | None:
+    """Settle an item whose exact bytes the vault already stores: name that Source, write nothing else.
+
+    The duplicate lookup repeats here, under the apply's mutation guard, so a Source that another run or door
+    filed since the plan decides, and a copy the plan named that has gone does not. `holder` is the Source the
+    plan froze for the item; it is the one named while it still holds the bytes. The Source gains this
+    item's path as one mapping, through a write that checks the page's content hash and touches no other
+    field. The outcome is `already-applied`, with `mapped: true` when this call recorded the mapping, and
+    `mapping_not_recorded` (the reason) when the Source is raw-protected and so is never rewritten. A
+    failed outcome means the mapping could not be recorded. None means no usable copy holds the bytes:
+    the vault has none, the index cannot answer, or the caller cannot write the Source that holds them.
+    """
+    lookup = duplicates.find_duplicate(
+        root, sha256=planned["original_sha256"], lane=duplicates.SOURCES,
+        protected=raw_protection.marked(planned["target_path"]), keeps_original=planned["form"] == "artifact",
+        prefer=(lambda hit: hit.path == holder) if holder else None,
+    )
+    if not lookup.available:
+        stats["duplicate_check_unavailable"] += 1
+        return None
+    hit = lookup.hit
+    if hit is None or access.writable_reason(root, hit.path) is not None:
+        return None
+    if planned["form"] == "artifact" and not _original_unchanged(root, planned):
+        return _failed("SOURCE_CHANGED", "the original differs from the plan at apply time")
+    mapping = adoption_plan.import_mapping(
+        planned["original_path"], collection=label, collection_path=planned["collection_path"]
+    )
+    mapped = not adoption_plan.mapping_recorded(hit.payload.frontmatter, mapping)
+    # A release grant binds to a protected page's content hash, so this import's path is not written onto it.
+    withheld = mapped and hit.payload.protected
+    mapped = mapped and not withheld
+    if mapped and not frontmatter_update.update_page_frontmatter(
+        root, hit.path, lambda frontmatter: adoption_plan.mapping_fields(frontmatter, mapping)
+    ):
+        return _failed(
+            "PLAN_STALE", "the Source that holds these bytes changed or cannot take this path; re-plan this import"
+        )
+    outcome = _already_applied(hit.path, hit.payload.artifact_path, planned["original_sha256"])
+    if mapped:
+        outcome["mapped"] = True
+        stats["mapped"] += 1
+    if withheld:
+        outcome["mapping_not_recorded"] = (
+            "the Source that holds these bytes is raw-protected, and a rewrite would revoke its release grant"
+        )
+    return outcome
+
+
+def _held_by(planned: dict, outcome: dict) -> dict:
+    """`planned` as the Source that now holds its bytes records it: its page and artifact, not the frozen ones."""
+    return {**planned, "target_path": outcome["target_path"], "artifact_path": outcome.get("artifact_path")}
+
+
+def _record_stored(
+    root: Path, run: dict, reads: _CallReads, planned: dict, outcome: dict, *, settled: list[dict]
+) -> None:
+    """Keep the outcome of an item `_settle_on_stored` settled; a found Source then settles its staged copy and note."""
+    label = (run.get("collection") or {}).get("label")
+    run["outcomes"][planned["original_path"]] = outcome
+    if outcome["status"] != "already-applied":
+        return
+    held = _held_by(planned, outcome)
+    _hold_for_note(outcome, held)
+    settled.append(held)
+    if outcome.get("mapped") and reads.index is not None:
+        reads.index.append(
+            adoption_plan.earlier_import_of(held, collection=label, captured=run["plan"]["date"])
+        )
 
 
 class _ApplyPacer:
@@ -1990,7 +2205,7 @@ def _space_shortfall(root: Path, chunk: list[dict], stage: import_stage.Stage | 
     return {
         "code": "INSUFFICIENT_SPACE", "chunk_bytes": needed, "reserve_bytes": reserve, "free_bytes": free,
         "next": "Stop. The continuation stops at this chunk again until the vault's volume has this chunk's bytes "
-                "plus the reserve free. Free space and tell the person, then call apply again: it resumes at this chunk.",
+                "plus the reserve free. Free space and tell the person, then repeat the call with its continuation: it resumes at this chunk.",
     }
 
 
@@ -2065,8 +2280,7 @@ class _CallReads:
         self.open_sources(root, run)
         if self.index is not None:
             return self.index
-        entry = adoption_plan.read_import_entry(root, root / planned["target_path"])
-        return [] if entry is None else [entry]
+        return adoption_plan.read_import_entries(root, root / planned["target_path"])
 
     def whole_index(self, root: Path, run: dict) -> list[adoption_plan.EarlierImport]:
         """Every earlier import, walked now: for a batch that raised, which left unknown pages."""
@@ -2085,11 +2299,49 @@ class _CallReads:
         return self.recorded_stage(root, run) if run.get("consume", True) else None
 
 
+def _apply_invocation(run: dict) -> dict | None:
+    from .writer_lease import active_mutation_recovery_identity
+
+    identity = active_mutation_recovery_identity()
+    return (run.get("apply_invocations") or {}).get(identity[0]) if identity else None
+
+
+def _freeze_import_chunk(
+    store: AdoptionRunStore, run: dict, survivors: list[tuple[dict, adopt_module.ImportItem]],
+    *, run_date: dt.date,
+) -> tuple[dict | None, bool]:
+    """Retain exact post-images before a rename or any destination is published."""
+    invocation = _apply_invocation(run)
+    if invocation is None:
+        return None, False
+    if invocation.get("publication") is not None:
+        return invocation["publication"], True
+    items = {}
+    for planned, item in survivors:
+        items[planned["original_path"]] = {
+            "target_path": item.target_rel,
+            "source_sha256": hashlib.sha256(item.content.encode("utf-8")).hexdigest(),
+            "source_id": parse_frontmatter(item.content)[0].get("exomem_id") if item.artifact else None,
+            "artifact_path": planned.get("artifact_path"), "original_sha256": item.sha256,
+        }
+    sequence = invocation["chunk_sequence"] = invocation.get("chunk_sequence", 0) + 1
+    publication = {
+        "date": run_date.isoformat(), "items": items,
+        "operation_token": hashlib.sha256(json.dumps(
+            [run["run_id"], invocation["identity_digest"], invocation["command_digest"], sequence, items], sort_keys=True,
+        ).encode("utf-8")).hexdigest(),
+    }
+    invocation["publication"] = publication
+    store.save_intent(run)
+    return publication, False
+
+
 def _commit_chunk(
     root: Path, store: AdoptionRunStore, run: dict,
     survivors: list[tuple[dict, adopt_module.ImportItem]], *,
     run_date: dt.date, label: str | None, reads: _CallReads,
     placed: Mapping[str, import_rename.Placed],
+    publication: dict | None = None, reconciling: bool = False,
 ) -> list[dict]:
     """Commit one chunk's pages, artifacts, indexes, log and the run object in one batch.
 
@@ -2104,11 +2356,22 @@ def _commit_chunk(
         outcomes[planned["original_path"]] = _applied(planned)
         _hold_for_note(outcomes[planned["original_path"]], planned)
     try:
+        invocation = _apply_invocation(run)
+        if invocation is not None:
+            invocation.pop("publication", None)
         committed = adopt_module.commit_import_items(
             root, [item for _planned, item in survivors], today=run_date,
             extra_writes=[store.planned_write(run)], source_counts=reads.source_counts,
+            reconcile=reconciling,
+            operation_token=publication["operation_token"] if publication else None,
         )
     except Exception as error:  # noqa: BLE001 - a rolled-back batch is a retryable outcome
+        if reconciling:
+            raise AdoptionRunError(
+                "IMPORT_RECOVERY_UNRESOLVED",
+                "the interrupted chunk cannot establish exact custody and canonical bookkeeping; "
+                "preserve the run, staging and original mutation identity",
+            ) from error
         reads.source_counts = None
         # The pages the batch left are unknown, so only the walk can say which items landed.
         index = reads.whole_index(root, run)
@@ -2173,18 +2436,23 @@ def _apply_chunk(
     outcomes = run["outcomes"]
     label = (run.get("collection") or {}).get("label")
     settled: list[dict] = []
+    # Items that repeat another item of the plan wait for the Source of the item they repeat.
+    deferred: list[dict] = []
     survivors: list[tuple[dict, adopt_module.ImportItem]] = []
     texts: dict[str, str] = {}
     stage = reads.filing_stage(root, run)
     placed: dict[str, import_rename.Placed] = {}
+    invocation = _apply_invocation(run)
+    publication = invocation.get("publication") if invocation else None
     for planned in chunk:
         path = planned["original_path"]
+        frozen = (publication.get("items") or {}).get(path) if publication else None
         by_rename = import_rename.renamable(stage, planned)
         text, failure = _read_original(root, planned, ceiling, by_rename=by_rename)
         moved = None
         if failure is not None and failure["code"] == "NOT_FOUND":
             # Not a failure when adoption already filed it and removed the staged copy.
-            earlier = _filed_and_gone(root, run, reads, planned)
+            earlier = None if frozen else _filed_and_gone(root, run, reads, planned)
             if earlier is not None:
                 _release_hold(root, planned)
                 outcomes[path] = _already_applied(
@@ -2201,6 +2469,8 @@ def _apply_chunk(
                 # An earlier call may have renamed the file and stopped before its Source page committed.
                 replay = import_rename.settle(root, stage, planned, ceiling=ceiling)
                 if isinstance(replay, import_rename.Refused):
+                    if frozen:
+                        raise AdoptionRunError("IMPORT_RECOVERY_UNRESOLVED", "the interrupted artifact cannot establish its rename custody")
                     # The hold stays: the file is unbound with other bytes, and only the person's move
                     # lifts it. The scans leave it alone and a discard of its stage refuses until then.
                     outcomes[path] = _failed(replay.code, replay.reason)
@@ -2208,6 +2478,8 @@ def _apply_chunk(
                 if replay is not None:
                     moved, failure = replay, None
         if failure is not None:
+            if frozen:
+                raise AdoptionRunError("IMPORT_RECOVERY_UNRESOLVED", "the interrupted chunk's original bytes are unavailable or changed")
             if by_rename and rename_journal.is_held(root, root / planned["artifact_path"]):
                 # An earlier call renamed this member's file and could not put it back: the retry finds the
                 # staged path changed, and the outcome must still say where the file is.
@@ -2221,8 +2493,24 @@ def _apply_chunk(
             texts[path] = text
         if path in outcomes and outcomes[path]["status"] == _SOURCE_ONLY:
             continue  # an earlier call wrote its Source; only the note is owed
+        if frozen:
+            item = adopt_module.import_item(
+                root, planned, text=text, date_iso=plan["date"], collection=label, source_id=frozen.get("source_id"),
+            )
+            if (
+                frozen.get("target_path") != item.target_rel
+                or frozen.get("artifact_path") != planned.get("artifact_path")
+                or frozen.get("original_sha256") != item.sha256
+                or frozen.get("source_sha256") != hashlib.sha256(item.content.encode("utf-8")).hexdigest()
+            ):
+                raise AdoptionRunError("IMPORT_RECOVERY_UNRESOLVED", "the chunk no longer matches its frozen post-images")
+            if moved is not None:
+                item.artifact.placed = True
+                placed[path] = moved
+            survivors.append((planned, item))
+            continue
         index = reads.earlier_imports(root, run, planned)
-        if planned["action"] == "already-imported":
+        if planned["action"] == "already-imported" and not planned.get("mapping"):
             frozen = [entry for entry in index if entry.path == planned["target_path"]]
             if _earlier_with_same_bytes(root, frozen, label, planned) is None:
                 outcomes[path] = _failed(
@@ -2244,6 +2532,22 @@ def _apply_chunk(
             _hold_for_note(outcomes[path], planned)
             settled.append(planned)
             continue
+        if planned["action"] == "duplicate-of":
+            deferred.append(planned)
+            continue
+        # An item that was renamed into the vault already sits at its frozen artifact path: its Source completes the filing.
+        stored = None if moved is not None else _settle_on_stored(
+            root, planned, label=label, stats=stats,
+            holder=planned["target_path"] if planned["action"] == "already-imported" else None,
+        )
+        if stored is not None:
+            _record_stored(root, run, reads, planned, stored, settled=settled)
+            continue
+        if planned["action"] == "already-imported":
+            outcomes[path] = _failed(
+                "PLAN_STALE", "the Source that holds these bytes is missing or changed; re-plan this import"
+            )
+            continue
         occupied = [
             target for target in (planned["target_path"], planned.get("artifact_path"))
             if target and os.path.lexists(root / target)
@@ -2260,6 +2564,9 @@ def _apply_chunk(
             item.artifact.placed = True
             placed[path] = moved
         survivors.append((planned, item))
+    reconciling = False
+    if survivors:
+        publication, reconciling = _freeze_import_chunk(store, run, survivors, run_date=run_date)
     if survivors and stage is not None:
         survivors = _file_by_rename(
             root, stage, survivors, run_id=run["run_id"], ceiling=ceiling, outcomes=outcomes, placed=placed
@@ -2267,7 +2574,9 @@ def _apply_chunk(
     landed: list[dict] = []
     if survivors:
         landed = _commit_chunk(
-            root, store, run, survivors, run_date=run_date, label=label, reads=reads, placed=placed
+            root, store, run, survivors,
+            run_date=dt.date.fromisoformat(publication["date"]) if publication else run_date,
+            label=label, reads=reads, placed=placed, publication=publication, reconciling=reconciling,
         )
         for planned in landed:
             _release_hold(root, planned)
@@ -2278,6 +2587,25 @@ def _apply_chunk(
                     reads.index.append(
                         adoption_plan.earlier_import_of(planned, collection=label, captured=plan["date"])
                     )
+        # The lookups below, and every later chunk's, must find the Sources this chunk just filed.
+        lexstore.record_payload_commit(
+            root, [
+                planned["target_path"] for planned in landed
+                if _source_status(outcomes[planned["original_path"]]) == "applied"
+            ],
+        )
+    for planned in deferred:
+        repeated = outcomes.get(planned["duplicate_of"]) or {}
+        stored = None
+        if repeated.get("status") in (*_APPLIED_STATUSES, _SOURCE_ONLY):
+            stored = _settle_on_stored(
+                root, planned, label=label, stats=stats, holder=repeated["target_path"]
+            )
+        if stored is None:
+            stored = _failed(
+                "PLAN_STALE", "the Source that holds these bytes is missing or changed; re-plan this import"
+            )
+        _record_stored(root, run, reads, planned, stored, settled=settled)
     landed_paths = {planned["original_path"] for planned in landed}
     for planned in [*settled, *landed]:
         outcome = outcomes[planned["original_path"]]
@@ -2572,24 +2900,47 @@ def _release_hold(root: Path, planned: dict) -> None:
         rename_journal.release(root, planned["artifact_path"])
 
 
+def _text_source_holds(root: Path, page_path: str, planned: dict) -> bool:
+    """Whether the Source page holds the planned text between its fences, byte for byte.
+
+    The fence body is checked and not the page, which a note's back-reference changes in its front matter.
+    A page that is missing, unreadable or not in our format does not hold it.
+    """
+    try:
+        with reserved_paths.open_generic_binary(root, page_path, physical=True) as source:
+            data = source.stream.read()
+        body = adopt_module.text_source_body(data.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, held_fs.HeldFsError, reserved_paths.ReservedPathLeafError):
+        return False
+    if body is None:
+        return False
+    original = body.encode("utf-8")
+    return len(original) == planned["original_bytes"] and hashlib.sha256(original).hexdigest() == planned["original_sha256"]
+
+
 def _filed_and_gone(
     root: Path, run: dict, reads: _CallReads, planned: dict
 ) -> adoption_plan.EarlierImport | None:
-    """The committed Source of an artifact whose staged copy a recorded stage lists, or None.
+    """The committed Source of an item whose staged copy a recorded stage lists, or None.
 
     The Source is the record that adoption filed the item: a copy that is gone from the stage was
     removed by this run, by another run, or by a call that stopped before it saved. The caller has
-    already seen that the copy is missing.
+    already seen that the copy is missing. A text item counts as filed only when the run recorded
+    it as filed and its Source page still holds its text between the fences: an item that still
+    owes its note is not done, and a text that no longer matches is unfiled.
     """
     stage = reads.recorded_stage(root, run)
-    if (
-        stage is None or planned["form"] != "artifact"
-        or adoption_consume.entry_of(stage, planned["original_path"]) is None
-    ):
+    if stage is None or adoption_consume.entry_of(stage, planned["original_path"]) is None:
         return None
-    return _earlier_with_same_bytes(
+    earlier = _earlier_with_same_bytes(
         root, reads.earlier_imports(root, run, planned), (run.get("collection") or {}).get("label"), planned
     )
+    if earlier is not None and planned["form"] == "text" and not (
+        ((run.get("outcomes") or {}).get(planned["original_path"]) or {}).get("status") in _APPLIED_STATUSES
+        and _text_source_holds(root, earlier.path, planned)
+    ):
+        return None
+    return earlier
 
 
 def _settle_staged(
@@ -2654,6 +3005,76 @@ def _consumed_count(outcomes: dict) -> int:
     return sum(1 for o in outcomes.values() if o.get("status") in _APPLIED_STATUSES and o.get("consumed"))
 
 
+def _legacy_apply_invocation(
+    root: Path, run: dict, identity: tuple[str, str, bool], *,
+    continuation: str | None, retry_failed: bool, only_paths: list[str] | None,
+) -> dict:
+    """Reconstruct immutable argument scope or the scope held by a current legacy cursor."""
+    plan_items = run["plan"]["items"]
+    planned_paths = {item["original_path"] for item in plan_items}
+    invocation = {
+        "identity_digest": identity[0], "command_digest": identity[1],
+        "plan_id": run["plan"]["plan_id"], "continuation": continuation,
+    }
+    if continuation:
+        entry = _cursor_entry(run, "apply", continuation)
+        saved = entry.get("reply")
+        if entry["state"] == "used" and isinstance(saved, dict):
+            progress = saved.get("progress")
+            # nosemgrep: ep-word-set -- The apply-reply schema fixes these progress counter fields.
+            counters = ("applied", "failed", "remaining", "total")
+            if (
+                isinstance(saved.get("apply_result"), dict) and isinstance(progress, dict)
+                and all(type(progress.get(key)) is int and progress[key] >= 0 for key in counters)
+                and progress["total"] == sum(progress[key] for key in counters[:3])
+            ):
+                invocation["reply"] = copy.deepcopy(saved)
+                return invocation
+        scope = run.get("scope")
+        if not (
+            run["phase"] == "applying" and run.get("inflight") is True
+            and _open_cursor(run, "apply") == continuation and entry["state"] == "open"
+            and "scope" in run
+            and (scope is None or isinstance(scope, list)
+                 and all(isinstance(path, str) and path in planned_paths for path in scope))
+        ):
+            raise AdoptionRunError(
+                "IMPORT_RECOVERY_UNRESOLVED",
+                "the legacy continuation no longer proves its original scope; preserve the run and mutation identity",
+            )
+        # Every fresh apply supersedes this cursor before changing scope; an open current cursor retains it.
+        scope = copy.deepcopy(scope)
+    elif retry_failed:
+        raise AdoptionRunError(
+            "IMPORT_RECOVERY_UNRESOLVED",
+            "the earlier version did not retain this invocation's original failed subset; "
+            "preserve the run, staging and original mutation identity",
+        )
+    else:
+        scope = sorted({_clean(path) for path in only_paths} & planned_paths) if only_paths else None
+    selected = set(scope) if scope is not None else None
+    label = (run.get("collection") or {}).get("label")
+    for planned in plan_items:
+        path = planned["original_path"]
+        if selected is not None and path not in selected:
+            continue
+        outcome = (run.get("outcomes") or {}).get(path) or {}
+        if outcome.get("status") in _APPLIED_STATUSES or outcome.get("status") == _SOURCE_ONLY:
+            earlier = adoption_plan.read_import_entries(root, root / planned["target_path"])
+            if _earlier_with_same_bytes(root, earlier, label, planned) is not None:
+                continue
+            raise AdoptionRunError("IMPORT_RECOVERY_UNRESOLVED", "an earlier committed outcome no longer proves Source custody")
+        if any(os.path.lexists(root / target) for target in (planned["target_path"], planned.get("artifact_path")) if target):
+            raise AdoptionRunError(
+                "IMPORT_RECOVERY_UNRESOLVED",
+                "the earlier version left an occupied destination without a complete chunk receipt; "
+                "its partial publication has no frozen post-image proof",
+            )
+    invocation["scope"] = scope
+    run.setdefault("apply_invocations", {})[identity[0]] = invocation
+    return invocation
+
+
 def apply(
     root: Path,
     *,
@@ -2671,7 +3092,7 @@ def apply(
     twice: every item is checked against the earlier imports before it is copied.
     """
     from . import client_artifacts
-    from .writer_lease import active_manager
+    from .writer_lease import active_manager, active_mutation_recovery_identity
 
     root = Path(root)
     run_date = _today(today)
@@ -2681,7 +3102,8 @@ def apply(
         phase = run["phase"]
         # apply is re-runnable from any post-plan phase: `applying` resumes an interrupted
         # or budget-stopped run, and a finished one answers `already-applied`.
-        if phase not in ("planned", "applying", "applied", "partial", "failed"):
+        # nosemgrep: ep-word-membership -- This module's run phases are a closed protocol.
+        if phase not in (*_APPLY_PHASES, *_FINISH_PHASES, "failed"):
             raise AdoptionRunError("INVALID_PHASE", f"apply is not allowed from phase {phase!r}")
         plan = run.get("plan")
         if not plan:
@@ -2691,10 +3113,33 @@ def apply(
         if plan.get("selection_hash") != (run.get("selection") or {}).get("selection_hash"):
             raise AdoptionRunError("PLAN_STALE", "selection changed since the plan was created")
 
+        identity = active_mutation_recovery_identity()
+        invocation = None
+        reconciling = identity is not None and identity[2]
+        if reconciling:
+            invocation = (run.get("apply_invocations") or {}).get(identity[0])
+            if invocation is None:
+                invocation = _legacy_apply_invocation(
+                    root, run, identity, continuation=continuation, retry_failed=retry_failed, only_paths=only_paths,
+                )
+            if (
+                not isinstance(invocation, dict)
+                or invocation.get("command_digest") != identity[1]
+                or invocation.get("plan_id") != plan_id
+                or invocation.get("continuation") != continuation
+            ):
+                raise AdoptionRunError(
+                    "IMPORT_RECOVERY_UNRESOLVED",
+                    "the interrupted invocation has no matching durable scope checkpoint; "
+                    "preserve this run and its original mutation identity",
+                )
+            if "reply" in invocation:
+                return _present(root, run, **invocation["reply"])
+
         entry = None
         if continuation:
             entry = _cursor_entry(run, "apply", continuation)
-            if entry["state"] == "used":
+            if entry["state"] == "used" and not reconciling:
                 return _present(root, run, **(entry.get("reply") or {}))
 
         plan_items = plan["items"]
@@ -2706,7 +3151,7 @@ def apply(
         }
         stats: Counter = Counter()
         reads = _CallReads()
-        fresh = entry is None
+        fresh = entry is None and not reconciling
         if fresh:
             _supersede_cursors(run, "apply")
             if retry_failed:
@@ -2720,6 +3165,41 @@ def apply(
                 run["scope"] = sorted({_clean(p) for p in only_paths} & set(by_path))
             else:
                 run["scope"] = None
+        elif reconciling:
+            scope = invocation.get("scope")
+            if "scope" not in invocation or scope is not None and (
+                not isinstance(scope, list)
+                or any(not isinstance(path, str) or path not in by_path for path in scope)
+            ):
+                raise AdoptionRunError("IMPORT_RECOVERY_UNRESOLVED", "the frozen import scope is invalid")
+            run["scope"] = copy.deepcopy(scope)
+        elif "scope" in entry:
+            run["scope"] = copy.deepcopy(entry["scope"])
+        wanted = None if run.get("scope") is None else set(run["scope"])
+        for owner, other in (run.get("apply_invocations") or {}).items():
+            if "reply" in other or identity is not None and owner == identity[0]:
+                continue
+            held = set((other.get("publication") or {}).get("items") or {})
+            if held and (wanted is None or held & wanted):
+                # Otherwise another call could publish note backrefs or outcomes over an unfinished chunk's post-images.
+                raise AdoptionRunError(
+                    "IMPORT_RECOVERY_UNRESOLVED",
+                    "another interrupted invocation holds this chunk; reconcile its original mutation identity first",
+                )
+        run["outcomes"] = outcomes
+        if identity is not None and not reconciling:
+            invocation = {
+                "identity_digest": identity[0], "command_digest": identity[1], "plan_id": plan_id,
+                "continuation": continuation, "scope": copy.deepcopy(run.get("scope")),
+            }
+            run.setdefault("apply_invocations", {})[identity[0]] = invocation
+            # This intent precedes staged settlement, rename and Source/note publication.
+            # It is not evidence that any requested import committed.
+            store.save_intent(run)
+        elif reconciling:
+            store.save_intent(run)
+
+        if fresh:
             scope = None if run["scope"] is None else set(run["scope"])
             # A repeat call re-checks what an earlier call applied: the originals stay unchanged.
             for path in list(outcomes):
@@ -2729,14 +3209,14 @@ def apply(
                     _settle_staged(root, run, reads, by_path[path], outcomes[path], stats)
         else:
             # A call that stopped between a chunk's commit and its settlement left those items unsettled.
+            scope = None if run.get("scope") is None else set(run["scope"])
             for path, outcome in outcomes.items():
                 if (
-                    path in by_path and outcome.get("status") in _APPLIED_STATUSES
+                    path in by_path and (scope is None or path in scope)
+                    and outcome.get("status") in _APPLIED_STATUSES
                     and "consumed" not in outcome and "original_unchanged" not in outcome
                 ):
                     _settle_staged(root, run, reads, by_path[path], outcome, stats)
-        run["outcomes"] = outcomes
-
         run.pop("apply_stop", None)
         budget = _call_budget()
         ceiling = client_artifacts.adoption_ceiling()
@@ -2752,15 +3232,29 @@ def apply(
 
         pacer = _ApplyPacer(root, budget)
         stopped = False
+        stop_reason: str | None = None
         chunks = 0
         while pending:
+            if chunks and active_manager().writers_waiting(root):
+                # Each chunk is committed whole, so the call may end here: the writer that waits commits
+                # when this call releases the boundary, and the continuation resumes the import.
+                stopped, stop_reason = True, STOP_FOR_WAITING_WRITE
+                break
             if chunks:
                 # Each chunk is committed whole, so a waiting derived proof may hold the boundary here.
                 seconds, batches, room = pacer.next_unit(pending)
                 active_manager().lend_boundary(
                     root, next_unit_seconds=seconds, next_unit_batches=batches, room_seconds=room
                 )
-            chunk = pacer.next_chunk(pending, first=not chunks)
+            publication = invocation.get("publication") if invocation else None
+            if publication:
+                # The frozen batch owns one bookkeeping/log identity; its membership cannot change on retry.
+                members = set(publication["items"])
+                chunk = [item for item in pending if item["original_path"] in members]
+                if len(chunk) != len(members):
+                    raise AdoptionRunError("IMPORT_RECOVERY_UNRESOLVED", "the frozen chunk's pending membership changed")
+            else:
+                chunk = pacer.next_chunk(pending, first=not chunks)
             if not chunk:
                 stopped = True
                 break
@@ -2775,7 +3269,8 @@ def apply(
                 budget=budget, stats=stats, written=written, reads=reads, pacer=pacer,
             )
             pacer.record(chunk, time.monotonic() - started, extractions)
-            pending = pending[len(chunk):]
+            completed_paths = {item["original_path"] for item in chunk}
+            pending = [item for item in pending if item["original_path"] not in completed_paths]
             chunks += 1
             if stats["notes_deferred"]:
                 stopped = True
@@ -2792,6 +3287,12 @@ def apply(
             )
         ):
             run.update(before)
+            if identity is not None:
+                # This refusal imported nothing; settle its intent before the outer writer releases the uncommitted key.
+                run["apply_invocations"].pop(identity[0], None)
+                if not run["apply_invocations"]:
+                    run.pop("apply_invocations")
+                store.save_intent(run)
             raise AdoptionRunError(
                 "ADOPTION_SOURCE_CHANGED",
                 "every requested source changed or is missing since the plan was captured; "
@@ -2826,15 +3327,24 @@ def apply(
                     "found": stats["notes_found"],
                     "failed": stats["notes_failed"],
                 },
+                "duplicates": {
+                    "mapped": stats["mapped"],
+                    "check_unavailable": stats["duplicate_check_unavailable"],
+                },
+                "skipped_duplicates": _skipped_duplicates(outcomes),
             },
             "progress": _progress(run),
         }
         if stopped:
             reply["continuation"] = _issue_cursor(run, "apply")
+        if stop_reason is not None:
+            reply["stop_reason"] = stop_reason
         if entry is not None:
             entry["state"], entry["reply"] = "used", reply
         if reads.sealed:
             run["sources_seal"] = adoption_plan.sources_seal(reads.pages)
+        if invocation is not None:
+            invocation["reply"] = copy.deepcopy(reply)
         store.save(run)
     return _present(root, run, **reply)
 
@@ -2861,6 +3371,17 @@ def cancel(root: Path, *, run_id: str, why: str | None) -> dict:
         run["phase"] = "cancelled"
         store.save(run)
     return _present(root, run)
+
+
+def _skipped_duplicates(outcomes: dict) -> int:
+    """The run's items that were not stored because a Source already held their bytes.
+
+    Only `_already_applied` records the Source it found as `existing_ref`. An item the run stored, then a repeat
+    call re-marked `already-applied`, keeps no such key, so the count holds across the calls of one run.
+    """
+    return sum(
+        1 for outcome in outcomes.values() if outcome.get("status") == "already-applied" and "existing_ref" in outcome
+    )
 
 
 def _recompute_phase(outcomes: dict, plan_items: list[dict], budget_stopped: bool) -> str:
@@ -3087,6 +3608,45 @@ def _coverage(root: Path, run: dict, budget: request_budget.RequestBudget) -> di
     }
 
 
+def _consume_filed_text(root: Path, run: dict, budget: request_budget.RequestBudget) -> None:
+    """Remove the staged copy of each filed text item whose Source page still holds its text, and mark it consumed.
+
+    `apply` keeps a text item's copy, because the item may still owe its note. By `finish` an item that is
+    `applied` or `already-applied` is done. Its copy goes only after the Source page's fence body hashes to the plan
+    and the held, hash-checked removal of `adoption_consume.remove_staged` passes. A copy stays and its outcome records
+    why in `stays`: `source_differs` when the Source page does not hold the text, so the copy is the only exact one,
+    and `copy_changed` when the copy is no longer the file that the manifest and the plan describe. A copy that is
+    already gone (a `finish` stopped after its removal) is settled through its Source. The call stops starting
+    removals when its budget runs low, and the copies it did not reach stay unverified in the residual.
+    """
+    if not run.get("consume", True):
+        return
+    reads = _CallReads()
+    stage = reads.recorded_stage(root, run)
+    if stage is None:
+        return
+    outcomes = run.get("outcomes") or {}
+    for planned in (run.get("plan") or {}).get("items") or []:
+        outcome = outcomes.get(planned["original_path"])
+        if (
+            planned["form"] != "text" or outcome is None or outcome.get("consumed")
+            or outcome.get("status") not in _APPLIED_STATUSES
+        ):
+            continue
+        if not budget.can_afford(request_budget.DELIVERY_RESERVE_SECONDS):
+            budget.note_truncated("finish.consume_text")
+            return
+        if os.path.lexists(root / planned["original_path"]):
+            if not _text_source_holds(root, outcome.get("target_path") or planned["target_path"], planned):
+                outcome["stays"] = "source_differs"
+            elif not adoption_consume.remove_staged(root, stage, planned):
+                outcome["stays"] = "copy_changed"
+            else:
+                outcome["consumed"] = True
+        elif _filed_and_gone(root, run, reads, planned) is not None:
+            outcome["consumed"] = True
+
+
 def finish(
     root: Path,
     *,
@@ -3099,12 +3659,14 @@ def finish(
     store = AdoptionRunStore(root)
     with _LOCK:
         run = store.load(run_id)
-        if run["phase"] not in ("applied", "partial"):
+        if run["phase"] not in _FINISH_PHASES:
             raise AdoptionRunError(
                 "INVALID_PHASE", f"finish requires phase 'applied' or 'partial', got {run['phase']!r}"
             )
         recall = _recall_check(root, run)
-        coverage = _coverage(root, run, _call_budget())
+        budget = _call_budget()
+        coverage = _coverage(root, run, budget)
+        _consume_filed_text(root, run, budget)
         # Empty folders go only for a run that consumes; the residual is reported for any recorded stage.
         removed_folders = adoption_consume.remove_empty_folders(root, run) if run.get("consume", True) else 0
         stage_residual = adoption_consume.residual(root, run, _APPLIED_STATUSES, _earlier_pages(store, run))
@@ -3188,3 +3750,435 @@ def _write_run_manifest(
     )
     batch_atomic_write(writes, vault_root=root)
     return rel
+
+
+# --------------------------------------------------------------------------- #
+# file: the whole lifecycle behind one repeatable call
+# --------------------------------------------------------------------------- #
+# The closed protocol of a `file` reply, which the Cloud CLI reads as well: its states, and the counts in `progress`.
+FILING_STATES = ("working", "stopped", "done")  # nosemgrep: ep-word-set -- the closed states of a `file` reply.
+FILING_COUNTS = ("filed", "skipped_duplicates", "failed", "remaining", "pages_done")  # nosemgrep: ep-word-set -- the closed counts of a `file` reply.
+_WORKING, _STOPPED, _DONE = FILING_STATES
+# The driver's own steps that publish: a reconciling call runs only the apply that its identity stored.
+_APPLY_STEPS = ("apply", "retry")  # nosemgrep: ep-word-set -- the `file` driver's closed step names that call `apply`.
+# The driver's own steps that open a page: the first page of a scan, a later page, or a new scan of a finished one.
+_SCAN_STEPS = ("start", "rescan")  # nosemgrep: ep-word-set -- the `file` driver's closed step names that call `start`.
+# What a done `file` reply carries from the last `finish` reply, which reports on that page alone.
+_PAGE_REPORT = ("coverage", "first_question", "route", "indexing")  # nosemgrep: ep-word-set -- `finish`'s closed reply fields.
+
+
+def _chain_end(store: AdoptionRunStore, run: dict) -> dict:
+    """The newest page of the paged scan that `run` belongs to: follow each used `after` cursor to the page it opened."""
+    seen = {run["run_id"]}
+    while True:
+        opened = next(
+            (
+                entry["reply"]["run_id"] for entry in (run.get("cursors") or {}).values()
+                if entry.get("kind") == "after" and entry.get("state") == "used"
+                and isinstance(entry.get("reply"), dict) and entry["reply"].get("run_id")
+            ),
+            None,
+        )
+        if opened is None or opened in seen:
+            return run
+        try:
+            run = store.load(opened)
+        except AdoptionRunError:
+            return run
+        seen.add(opened)
+
+
+def _other_collection(run: dict, collection: str | None) -> bool:
+    """Whether the call names a collection, and it is not the label that the run's scan fixed."""
+    return bool((collection or "").strip()) and adoption_plan.nfc(collection.strip()) != run["collection"]["label"]
+
+
+def _resumed_page(store: AdoptionRunStore, runs: Iterable[dict]) -> dict | None:
+    """The page that a call with only the path carries on, or None when no run has scanned the folder.
+
+    It is the newest of `runs` that has a step left, else the newest of them, followed to the newest page of its
+    scan. So a retried first call never makes a second run, and a finished import carries on from its last page,
+    which answers `done` unless staged files came after its scan (see `_filing_step`).
+    """
+    runs = tuple(runs)
+    if not runs:
+        return None
+    unfinished = [run for run in runs if _next_filing_step(run) != "done"]
+    return _chain_end(store, max(unfinished or runs, key=lambda run: str(run.get("created") or "")))
+
+
+def filing_done(root: Path, path: str, runs: Iterable[dict]) -> bool:
+    """Whether a `file` call on the staged folder `path` answers `done`; a folder that no run scanned is not done.
+
+    `runs` are the runs of the folder's stage, as `AdoptionRunStore.runs_by_stage` groups them.
+    """
+    store = AdoptionRunStore(root)
+    page = _resumed_page(store, (run for run in runs if run.get("source_root") == path))
+    return page is not None and _filing_step(root, store, page) == "done"
+
+
+def _filing_page(root: Path, store: AdoptionRunStore, path: str, collection: str | None, continuation: str | None) -> dict | None:
+    """The newest page that `file` carries on, or None when the call starts a new scan.
+
+    A continuation names the run that issued it, and the call carries on that run's scan. When that scan is done,
+    the call carries on the newest scan of the path instead, so the repeat of a call that stopped right after it
+    started a new scan carries on that scan rather than starting another. A path alone carries on the newest scan
+    of that path (see `_resumed_page`). A call that names another collection than the scan's is refused, because
+    the scan keeps the label that its first page fixed.
+    """
+    source_root = _clean(path)
+    if source_root and (len(PurePosixPath(source_root).parts) < 2 or PurePosixPath(source_root).parts[0] != IMPORT_STAGE_DIR):
+        raise AdoptionRunError(
+            "IMPORT_REQUEST_INVALID", f"file takes a staged folder, {IMPORT_STAGE_DIR}/<id>; use start for any other folder"
+        )
+    if continuation:
+        try:
+            issuer, _token, _entry = _cursor_holder(root, continuation, "file")
+        except AdoptionRunError as exc:
+            raise AdoptionRunError(
+                "INVALID_CONTINUATION",
+                "no file call issued that continuation; call file with the path and no continuation",
+            ) from exc
+        if source_root not in ("", issuer["source_root"]) or _other_collection(issuer, collection):
+            raise AdoptionRunError(
+                "INVALID_CONTINUATION",
+                f"that continuation belongs to the import of {issuer['source_root']!r} as collection "
+                f"{issuer['collection']['label']!r}; pass the same path and collection, or neither",
+            )
+        end = _chain_end(store, issuer)
+        return end if _next_filing_step(end) != "done" else _resumed_page(store, store.runs_at(issuer["source_root"]))
+    if not source_root:
+        raise AdoptionRunError("IMPORT_REQUEST_INVALID", f"file takes the path of the staged folder, {IMPORT_STAGE_DIR}/<id>")
+    page = _resumed_page(store, store.runs_at(source_root))
+    if page is not None and _other_collection(page, collection):
+        raise AdoptionRunError(
+            "IMPORT_REQUEST_INVALID",
+            f"{source_root!r} is imported as collection {page['collection']['label']!r}; "
+            "pass that collection, or no collection, to carry on with it",
+        )
+    return page
+
+
+def _retry_owed(run: dict) -> bool:
+    """Whether this page holds failed files that no `apply` has retried since its full `apply`.
+
+    `apply` with `retry_failed` leaves `scope` set to the failed files that it retried; a full `apply` leaves it None.
+    """
+    return run.get("scope") is None and any(
+        outcome.get("status") == "failed" for outcome in (run.get("outcomes") or {}).values()
+    )
+
+
+def _next_filing_step(run: dict) -> str:
+    """The step that moves this page on, from its saved phase alone; `done` ends the import.
+
+    A page that an `apply` limited to some files (`only_paths`) left with planned files that have no outcome applies
+    them first. A page with failed files retries them once (`retry`). Then a page with a filed file finishes. A page
+    whose every file failed is closed (`close`): `finish` refuses it, and a later page cannot plan while it stays open.
+    """
+    phase = run["phase"]
+    if phase == "selecting":
+        return "plan" if run.get("plan_draft") or (run.get("selection") or {}).get("paths") else "select"
+    if phase in _APPLY_PHASES:
+        return "apply"
+    outcomes = run.get("outcomes") or {}
+    # nosemgrep: ep-word-membership -- This module's run phases are a closed protocol.
+    if phase in (*_FINISH_PHASES, "failed") and any(
+        item["original_path"] not in outcomes for item in (run.get("plan") or {}).get("items") or ()
+    ):
+        return "apply"
+    # nosemgrep: ep-word-membership -- This module's run phases are a closed protocol.
+    if phase in (*_FINISH_PHASES, "failed") and _retry_owed(run):
+        return "retry"
+    if phase in _FINISH_PHASES:
+        return "finish"
+    if phase == "failed":
+        return "close"
+    return "start" if _open_cursor(run, "after") else "done"
+
+
+def _unscanned(root: Path, store: AdoptionRunStore, page: dict) -> int:
+    """How many staged files under the page's folder no page of its scan classifies: the residual's `outside_run`.
+
+    Such a file came after the scan, such as one that a rerun of a local import copied, or one put in the stage by
+    hand. The classification is the residual's own (`adoption_consume.stage_reasons` over the pages of the scan), so
+    a `done` reply's residual reads the same pages. A hidden file does not count: a scan skips it by design, so a new
+    scan would not classify it either. Nor does a file whose name is not UTF-8: no run can record it, so a new scan
+    would fail on it at every call. The residual lists both.
+    """
+    parts = PurePosixPath(page["source_root"]).parts
+    if len(parts) < 2 or parts[0] != IMPORT_STAGE_DIR:
+        return 0
+    inner = parts[2:]  # the folder that the scan covered inside the stage, when it did not cover the whole stage
+    files = [
+        (path, size) for path, size in import_stage.staged_files(root, parts[1])
+        if PurePosixPath(path).parts[:len(inner)] == inner
+        and not any(_hidden(name) for name in PurePosixPath(path).parts[len(inner):]) and _recordable(path)
+    ]
+    pages = (page, *_earlier_pages(store, page))
+    reasons = adoption_consume.stage_reasons(parts[1], files, pages, _APPLIED_STATUSES)
+    return sum(1 for _path, _size, reason in reasons if reason == adoption_consume.OUTSIDE_RUN)
+
+
+def _filing_step(root: Path, store: AdoptionRunStore, run: dict) -> str:
+    """The step that moves the import on: the page's own step, or `rescan` when its scan is done and missed staged files.
+
+    `done` ends the import only when no staged file came after the scan; else a new scan of the folder files them.
+    """
+    step = _next_filing_step(run)
+    return "rescan" if step == "done" and _unscanned(root, store, run) else step
+
+
+def _held_apply(store: AdoptionRunStore, run: dict, identity_digest: str) -> tuple[str, dict] | None:
+    """The page that holds this mutation identity's apply invocation, and the invocation; None when the attempt never reached apply.
+
+    `apply` saves the invocation before it publishes anything, so an identity without one published nothing.
+    """
+    for page in (run, *_earlier_pages(store, run)):
+        invocation = (page.get("apply_invocations") or {}).get(identity_digest)
+        if isinstance(invocation, dict):
+            return page["run_id"], invocation
+    return None
+
+
+def _file_step(
+    root: Path, store: AdoptionRunStore, run: dict | None, step: str, *,
+    path: str, collection: str | None, today: dt.date | None,
+) -> dict:
+    """Run one lifecycle step through its own function and return the page it leaves."""
+    if step == "start":
+        if run is None:
+            # Read here, not as a default argument, so a test or an operator can change the page size.
+            opened = start(
+                root, path=_clean(path), collection=collection, max_candidates=MAX_CANDIDATES_DEFAULT, today=today
+            )
+        else:
+            opened = start(root, after=f"{run['run_id']}:{_open_cursor(run, 'after')}", today=today)
+        return store.load(opened["run_id"])
+    if step == "rescan":
+        # The new scan keeps the label of the finished one, so a file that the finished scan filed is not filed twice,
+        # and its `consume` choice, so staged copies that the import keeps stay.
+        opened = start(
+            root, path=run["source_root"], collection=run["collection"]["label"], consume=run.get("consume", True),
+            max_candidates=MAX_CANDIDATES_DEFAULT, today=today,
+        )
+        return store.load(opened["run_id"])
+    run_id = run["run_id"]
+    if step == "select":
+        select(root, run_id=run_id, include=[run["source_root"]])
+        page = store.load(run_id)
+        if not page["selection"]["paths"]:
+            # Nothing on this page can import, so no plan can exist; closing it lets the scan move to the next page.
+            cancel(root, run_id=run_id, why="nothing on this page is eligible to file")
+            page = store.load(run_id)
+        return page
+    if step == "plan":
+        plan(root, run_id=run_id, continuation=_open_cursor(run, "plan") if run.get("plan_draft") else None, today=today)
+    elif step == "apply":
+        apply(
+            root, run_id=run_id, plan_id=run["plan"]["plan_id"],
+            continuation=_open_cursor(run, "apply") if run["phase"] == "applying" else None, today=today,
+        )
+    elif step == "retry":
+        apply(root, run_id=run_id, plan_id=run["plan"]["plan_id"], retry_failed=True, today=today)
+    elif step == "close":
+        # The failed outcomes stay on the page, so `progress` counts them and the residual lists their staged files.
+        cancel(root, run_id=run_id, why="every file on this page failed, also when retried once")
+    else:
+        finish(root, run_id=run_id, today=today)
+    return store.load(run_id)
+
+
+def file(
+    root: Path,
+    *,
+    path: str = "",
+    collection: str | None = None,
+    continuation: str | None = None,
+    today: dt.date | None = None,
+) -> dict:
+    """File a staged folder with as many lifecycle steps as one call affords, and say what comes next.
+
+    Every step is the module function of that name, chosen from the saved phase of the newest page, so a call
+    carries on from wherever the run stands, however it got there. A page with failed files retries them once
+    with `apply`, then finishes, or is closed when every file failed, and the scan goes on to the next page.
+    A call ends after an `apply` or `finish`, when `plan` needs another call, when the next step is `start`
+    of another page and the call has run a step, or when the budget cannot cover the delivery reserve. The
+    reply's `continuation` is fresh each time: a call that repeats an earlier one's arguments gets that call's
+    stored answer and does no work.
+
+    A call that retries an interrupted attempt of its own mutation identity repeats that attempt's `apply`
+    exactly, or runs no `apply` when the attempt never reached one. Another identity that meets an
+    interrupted chunk is refused by `apply`, and the reply stops with its code. An error before any run
+    exists is a bad argument and raises. An error after one stops the reply with that error's code, so the
+    work already committed is still reported.
+    """
+    from .writer_lease import active_mutation_recovery_identity
+
+    root = Path(root)
+    store = AdoptionRunStore(root)
+    run = _filing_page(root, store, path, collection, continuation)
+    identity = active_mutation_recovery_identity()
+    reconciling = identity is not None and identity[2]
+    budget = _call_budget()
+    steps = 0
+    try:
+        held = _held_apply(store, run, identity[0]) if reconciling and run is not None else None
+        if held is not None:
+            page_id, invocation = held
+            apply(
+                root, run_id=page_id, plan_id=invocation.get("plan_id"),
+                continuation=invocation.get("continuation"), today=today,
+            )
+            return _filing_reply(root, store, _chain_end(store, store.load(page_id)))
+        while True:
+            step = "start" if run is None else _filing_step(root, store, run)
+            if step == "done":
+                break
+            if steps and (step in _SCAN_STEPS or not budget.can_afford(request_budget.DELIVERY_RESERVE_SECONDS)):
+                break
+            if step in _APPLY_STEPS and reconciling:
+                # Only the identity's own held apply may run under reconciliation; this attempt published nothing.
+                break
+            run = _file_step(root, store, run, step, path=path, collection=collection, today=today)
+            steps += 1
+            if step in _APPLY_STEPS or step == "finish" or (step == "plan" and run["phase"] == "selecting"):
+                break
+    except AdoptionRunError as exc:
+        if run is None:
+            if exc.code == "KB_NOT_INITIALIZED":
+                # `file` has no such argument, so `start`'s own advice would send the agent to one it cannot pass.
+                begin = capabilities.active_call_text(
+                    "adoption_studio", {"action": "start", "path": _clean(path), "initialize_kb": True}
+                )
+                raise AdoptionRunError(
+                    exc.code,
+                    f"{kb_dirname()}/ is required; run {begin}, then repeat the file call: it carries on that run",
+                ) from exc
+            raise
+        return _filing_reply(root, store, run, stop={"code": exc.code, "reason": exc.reason})
+    return _filing_reply(root, store, run)
+
+
+def _filing_state(root: Path, store: AdoptionRunStore, run: dict) -> tuple[str, dict | None]:
+    """`done`, `stopped` for space with why, or `working`, from the newest page and its stage."""
+    if _filing_step(root, store, run) == "done":
+        return _DONE, None
+    stop = run.get("apply_stop")
+    if stop:
+        free = stop["free_bytes"]
+        return _STOPPED, {
+            "code": stop["code"],
+            "reason": f"The next chunk needs {stop['chunk_bytes']} bytes and a reserve of {stop['reserve_bytes']} bytes; "
+                      f"{free} bytes are free.",
+        }
+    return _WORKING, None
+
+
+def _page_remaining(run: dict) -> int:
+    """Files of this page that have neither been filed nor failed."""
+    if run["phase"] in _FINISHED_PHASES:
+        return 0
+    if run.get("plan"):
+        # Every planned file without an outcome, also one outside the last `apply`'s `only_paths`: the next step applies it.
+        outcomes = run.get("outcomes") or {}
+        return sum(_is_open(outcomes, item["original_path"]) for item in run["plan"]["items"])
+    selected = (run.get("selection") or {}).get("paths")
+    return len(selected) if selected else sum(1 for row in run.get("inventory") or [] if row.get("eligible"))
+
+
+def _page_number(run: dict) -> int:
+    """The page's number in its paged scan; a scan that fits one page has no paging and is page 1."""
+    return (run.get("paging") or {}).get("page", 1)
+
+
+def _page_position(run: dict) -> dict:
+    """Where the newest page stands: its number, its phase and how many selected files `plan` has read so far."""
+    draft = run.get("plan_draft")
+    planned = draft["next"] if draft else len((run.get("selection") or {}).get("paths") or []) if run.get("plan") else 0
+    return {"number": _page_number(run), "phase": run["phase"], "planned": planned}
+
+
+def _files(count: int) -> str:
+    return f"{count} file" if count == 1 else f"{count} files"
+
+
+def _filing_summary(filing: str, filed: int, skipped: int, failed: int, remaining: int) -> str:
+    """One sentence built from the counts and nothing else: it claims no more than the outcomes record.
+
+    It names the skipped duplicates only when there are some, so an import without any reads as before.
+    """
+    duplicates = f"{skipped} duplicate{'' if skipped == 1 else 's'} skipped, " if skipped else ""
+    counts = f"{_files(filed)} filed, {duplicates}{failed} failed, {remaining} left"
+    if filing == _DONE:
+        return f"Filing is done: {counts}."
+    return f"Filing is {filing}: {counts}."
+
+
+def _filing_reply(root: Path, store: AdoptionRunStore, run: dict, *, stop: dict | None = None) -> dict:
+    """The compact reply of a `file` call: where the import stands, what comes next and what only the person can do.
+
+    `progress` and `summary` count the whole import: every page of every scan of its folder, with each file's
+    newest outcome, so a file that a new scan finds filed already counts once. A `done` reply's `filed` holds the
+    stage's residual and, under `last_finished_page`, what the last `finish` reported about its own page alone.
+    """
+    run = store.load(run["run_id"])
+    filing, derived = _filing_state(root, store, run)
+    if stop is not None:
+        filing, derived = _STOPPED, stop
+    pages = (run, *_earlier_pages(store, run))
+    scans = sorted(store.runs_at(run["source_root"]), key=lambda page: str(page.get("created") or ""))
+    newest = {path: outcome for page in scans for path, outcome in (page.get("outcomes") or {}).items()}
+    # A skipped duplicate is a file whose newest outcome names the Source that already held its bytes, as
+    # `_skipped_duplicates` reads it. A file whose Source a page of this import stored stays filed when a later
+    # scan meets that Source again, so each file counts once: as filed or as a skipped duplicate.
+    stored = {path for page in scans for path, outcome in (page.get("outcomes") or {}).items()
+              if _source_status(outcome) == "applied"}
+    skipped = _skipped_duplicates({path: outcome for path, outcome in newest.items() if path not in stored})
+    filed = sum(1 for outcome in newest.values() if outcome.get("status") in _APPLIED_STATUSES) - skipped
+    failed = sum(1 for outcome in newest.values() if outcome.get("status") == "failed")
+    remaining = _page_remaining(run) + int(run.get("inventory_truncated") or 0)
+    if _next_filing_step(run) == "done":
+        remaining += _unscanned(root, store, run)  # staged files that came after the scan, which a new scan files
+    pages_done = sum(1 for page in scans if page["phase"] in _FINISHED_PHASES)
+    person: list[dict] = []
+    if stop is None and filing == _STOPPED and run.get("apply_stop"):
+        person.append({"need": "free_space", "text": run["apply_stop"]["next"]})
+    if stop is not None and stop["code"] == "IMPORT_RECOVERY_UNRESOLVED":
+        person.append({"need": "report_to_operator", "text": stop["reason"]})
+    reply: dict = {
+        "run_id": run["run_id"],
+        "collection": run["collection"]["label"],
+        "filing": filing,
+        "progress": {
+            **dict(zip(FILING_COUNTS, (filed, skipped, failed, remaining, pages_done), strict=True)),
+            "page": _page_position(run),
+        },
+        "summary": _filing_summary(filing, filed, skipped, failed, remaining),
+    }
+    if derived is not None:
+        reply["stop"] = derived
+    if filing == _DONE:
+        finished = next((page for page in pages if page.get("finish")), None)
+        # Read now from the stage, as `_unscanned` reads it, so a file put in the stage after the last `finish` is listed.
+        residual = adoption_consume.residual(root, run, _APPLIED_STATUSES, pages[1:])
+        done: dict = {}
+        if finished is not None:
+            finish = _presented_finish(finished)
+            # A `finish` describes its own page, so it sits under a key that names that page, never as the import's totals.
+            done["last_finished_page"] = {"page": _page_number(finished), "run_id": finished["run_id"], **{
+                key: finish[key] for key in _PAGE_REPORT if key in finish
+            }}
+        if residual is not None:
+            done["residual"] = residual
+        reply["filed"] = done
+        for action in _residual_actions(residual, where="filed.residual"):
+            person.append({"need": action["action"].replace("-", "_"), "text": action["description"]})
+    reply["person"] = person
+    if filing == _WORKING or (filing == _STOPPED and run.get("apply_stop") and stop is None):
+        with _LOCK:
+            latest = store.load(run["run_id"])
+            token = _issue_cursor(latest, "file")
+            store.save(latest)
+        reply["continuation"] = f"{run['run_id']}:{token}"
+    return reply

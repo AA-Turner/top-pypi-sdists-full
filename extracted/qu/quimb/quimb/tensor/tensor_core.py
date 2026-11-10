@@ -93,15 +93,18 @@ from .fitting import (
     tensor_network_fit_tree,
 )
 from .networking import (
+    SweepScheduler,
     compute_centralities,
     compute_hierarchical_grouping,
     compute_hierarchical_linkage,
     compute_hierarchical_ordering,
     compute_hierarchical_ssa_path,
     compute_shortest_distances,
+    compute_sweep_ranks,
     connected_bipartitions,
     gen_all_paths_between_tids,
     gen_gloops,
+    gen_gloops_edge_induced,
     gen_inds_connected,
     gen_loops,
     gen_patches,
@@ -149,6 +152,108 @@ def tags_to_oset(tags):
         return tags.copy()
     else:
         return oset(tags)
+
+
+def parse_layer_tags(layer_tags, *, create=False):
+    """Resolve a ``layer_tags`` option. With ``create=True``, for methods that
+    build the ket and bra layers, map ``True`` or ``1`` to ``("KET", "BRA")``
+    and ``False`` or ``0`` to ``None``. Otherwise, for methods taking an
+    existing network, raise ``TypeError`` for these, since the tags must
+    already be present. Return any other value unchanged.
+    """
+    if isinstance(layer_tags, (Integral, np.bool_)) and layer_tags in (0, 1):
+        if not create:
+            raise TypeError(
+                f"layer_tags={layer_tags} cannot choose tags for an existing "
+                "tensor network. Use None to contract layers together, or "
+                "supply the layer tag names explicitly."
+            )
+        return ("KET", "BRA") if layer_tags else None
+    return layer_tags
+
+
+def parse_site_tag_groups(tn, site_tags, tag_id="__GST{}__"):
+    """Turn possible groups of tags specifying sites into single temporary
+    tags. The tensor network is tagged inplace with any needed temporary tags,
+    and the new sequence of single site tags is returned. A callable is also
+    returned that removes the temporary tags from the network it is called on.
+
+    Parameters
+    ----------
+    tn : TensorNetwork or sequence of TensorNetwork
+        The tensor network(s) to tag inplace. Each tensor should belong to
+        exactly one site given by the tags below.
+    site_tags : None or sequence
+        Tags that identify and order sites. Each element can be a single tag
+        or a group. Within a group, each element can be a single tag, matching
+        any tensors with that tag, or a nested sequence of tags, matching
+        tensors with *all* of them only. ``None`` is returned unchanged.
+    tag_id : str, optional
+        Format string for temporary tags.
+
+    Returns
+    -------
+    site_tags : None or tuple[str]
+        One tag per site. A temporary tag replaces each group.
+    untag_groups : callable
+        Removes temporary tags from the given networks and all tensors tagged
+        by this function. This includes tensors since removed from a network.
+
+    Examples
+    --------
+
+        >>> site_tags = [
+        ...     "I0",                   # tag I0
+        ...     ("I1", "I2"),           # tag I1 or I2
+        ...     ("I3", ("I4", "KET")),  # tag I3, or tags I4 and KET
+        ... ]
+
+    """
+    if site_tags is None:
+        return None, lambda *tns: None
+
+    if all(isinstance(st, str) for st in site_tags):
+        return tuple(site_tags), lambda *tns: None
+
+    if isinstance(tn, TensorNetwork):
+        tns = (tn,)
+    else:
+        tns = tuple(tn)
+
+    new_site_tags = []
+    temp_tags = []
+    # algorithms can drop tagged initial tensors, so we record them as well
+    tagged_tensors = {}
+
+    for i, group in enumerate(site_tags):
+        if isinstance(group, str):
+            new_site_tags.append(group)
+            continue
+
+        group = tuple(group)
+        if (len(group) == 1) and isinstance(group[0], str):
+            new_site_tags.append(group[0])
+            continue
+
+        # is a group
+        site_tag = tag_id.format(i)
+        new_site_tags.append(site_tag)
+        temp_tags.append(site_tag)
+        for where in group:
+            # "all" accepts one tag or a sequence of tags
+            for tni in tns:
+                tni.add_tag(
+                    site_tag, where=where, which="all", record=tagged_tensors
+                )
+
+    def untag_groups(*tns):
+        for tni in tns:
+            tni.drop_tags(temp_tags)
+        while tagged_tensors:
+            tensor, tensor_temp_tags = tagged_tensors.popitem()
+            tensor.drop_tags(tensor_temp_tags)
+
+    return tuple(new_site_tags), untag_groups
 
 
 def sortedtuple(x):
@@ -231,6 +336,7 @@ def tensor_contract(
     drop_tags=False,
     strip_exponent=False,
     exponent=None,
+    check_zero=False,
     **contract_opts,
 ):
     """Contract a collection of tensors into a scalar or tensor, automatically
@@ -290,6 +396,11 @@ def tensor_contract(
         rescaled 'mantissa'. Useful for very large or small values.
     exponent : float, optional
         If supplied, an overall base exponent to scale the result by.
+    check_zero : bool, optional
+        If ``True``, when ``strip_exponent=True``, check for exactly zero
+        intermediates and result, which are returned as a zero mantissa with
+        exponent ``0.0`` rather than ``nan``. Off by default to avoid data
+        dependent branching when tracing and computing gradients etc.
     contract_opts
         Passed to ``cotengra.array_contract``.
 
@@ -323,6 +434,7 @@ def tensor_contract(
         inds_out,
         optimize=optimize,
         strip_exponent=strip_exponent,
+        check_zero=check_zero,
         backend=backend,
         **contract_opts,
     )
@@ -331,7 +443,9 @@ def tensor_contract(
         # mantissa and exponent returned separately
         data_out, result_exponent = data_out
 
-        if exponent is not None:
+        if exponent is not None and not (
+            check_zero and do("max", do("abs", data_out)) == 0.0
+        ):
             # custom base exponent supplied
             result_exponent = result_exponent + exponent
 
@@ -396,7 +510,7 @@ def tensor_split(
     method="auto",
     absorb="auto",
     max_bond=None,
-    cutoff=1e-10,
+    cutoff="auto",
     cutoff_mode="rel",
     renorm=None,
     get=None,
@@ -437,8 +551,8 @@ def tensor_split(
         - ``'svd:eig'``: full SVD via eigendecomposition, allowing all
           truncation options. This can be faster than the standard SVD, but
           entails some loss of precision.
-        - ``'svd:rand'``: low-rank SVD via randomized projection, allows
-          (and is only beneficial for) static truncation
+        - ``'svd:rand'``: low-rank SVD via randomized projection, allowing
+          static and non-cumulative dynamic truncation.
         - ``'qr'``: QR decomposition, by default left factor is isometric.
         - ``'qr:cholesky'``: QR decomposition via Cholesky factorization, by
           default left factor is isometric. This can be faster than the
@@ -492,25 +606,27 @@ def tensor_split(
     max_bond : None or int
         If integer, the maximum number of singular values to keep, regardless
         of ``cutoff``.
-    cutoff : float, optional
+    cutoff : float or "auto", optional
         The threshold below which to discard singular values, only applies to
-        rank revealing methods (not QR, LQ, or cholesky etc.).
-    cutoff_mode : {'rsum2', 'rel', 'abs', 'sum2', 'rsum1', 'sum1'}, optional
+        rank revealing methods (not QR, LQ, or cholesky etc.). With
+        ``"auto"``, use ``1e-10`` for exact methods and no cutoff for
+        randomized SVD.
+    cutoff_mode : {"rel", "rsum2", "rsum1", "abs", "sum2", "sum1"}, optional
         How to interpret ``cutoff`` when discarding singular values:
 
         - ``'rel'``: values less than ``cutoff * s[0]`` discarded.
-        - ``'abs'``: values less than ``cutoff`` discarded.
-        - ``'sum2'``: sum squared of values discarded must be ``< cutoff``.
         - ``'rsum2'``: sum squared of values discarded must be less than
           ``cutoff`` times the total sum of squared values.
-        - ``'sum1'``: sum values discarded must be ``< cutoff``.
         - ``'rsum1'``: sum of values discarded must be less than ``cutoff``
           times the total sum of values.
+        - ``'abs'``: values less than ``cutoff`` discarded.
+        - ``'sum2'``: sum squared of values discarded must be ``< cutoff``.
+        - ``'sum1'``: sum values discarded must be ``< cutoff``.
 
     renorm : int or bool, optional
         Whether to renormalize the kept singular values to maintain the
         Frobenius or nuclear norm. ``0`` or ``False`` means no renormalization.
-        ``True`` automatically picks the power based on ``cutoff_mode``.
+        ``True`` uses power 1 for ``sum1``/``rsum1`` and power 2 otherwise.
     ltags : sequence of str, optional
         Add these new tags to the left tensor.
     rtags : sequence of str, optional
@@ -1414,9 +1530,13 @@ def tensor_gauge_simple_bond(
         lix = tuple(jx for jx in ta.inds if jx != bond_ind)
         rix = tuple(jx for jx in tb.inds if jx != bond_ind)
 
-    # absorb 'outer' gauges into tensors
+    # the old inner gauge, also kept to measure the change below
+    old_gauge = gauges.get(bond_ind, None)
+
+    # absorb 'outer' gauges into tensors, and any inner gauge into ta
     inv_gauges = []
     for t, ixs in ((ta, lix), (tb, rix)):
+        inds, ss = [], []
         for ix in ixs:
             if ix not in gauges:
                 # gauge is missing -> just skip
@@ -1436,15 +1556,20 @@ def tensor_gauge_simple_bond(
                 # have already computed s this sweep
                 s = gauges_conditioned[ix]
 
-            t.multiply_index_diagonal_(ix, s)
-            # keep track of how to invert gauge
-            inv_gauges.append((t, ix, 1 / s))
+            inds.append(ix)
+            ss.append(s)
 
-    # absorb the inner gauge, if it exists - also remember it so we can
-    # optionally measure the convergence diff against the updated gauge below
-    old_gauge = gauges.get(bond_ind, None)
-    if old_gauge is not None:
-        ta.multiply_index_diagonal_(bond_ind, old_gauge)
+        # keep track of how to invert the outer gauges
+        if inds:
+            inv_gauges.append((t, tuple(inds), [1 / s for s in ss]))
+
+        if (t is ta) and (old_gauge is not None):
+            inds.append(bond_ind)
+            ss.append(old_gauge)
+
+        if inds:
+            # apply all gauges in one call
+            t.multiply_index_diagonals_(inds, ss)
 
     # for retrieving singular values
     sub_info = {}
@@ -1483,8 +1608,8 @@ def tensor_gauge_simple_bond(
 
     # update inner gauge and undo outer gauges
     gauges[bond_ind] = new_gauge
-    for t, ix, inv_s in inv_gauges:
-        t.multiply_index_diagonal_(ix, inv_s)
+    for t, inds, inv_ss in inv_gauges:
+        t.multiply_index_diagonals_(inds, inv_ss)
 
 
 def new_bond(
@@ -1837,6 +1962,7 @@ def maybe_unwrap(
     strip_exponent=False,
     equalize_norms=False,
     output_inds=None,
+    check_zero=False,
 ):
     """Maybe unwrap a ``TensorNetwork`` or ``Tensor`` into a ``Tensor`` or
     scalar, depending on how many tensors and indices it has, optionally
@@ -1861,6 +1987,10 @@ def maybe_unwrap(
         network before unwrapping.
     output_inds : sequence of str, optional
         If unwrapping a tensor, then transpose it to the specified indices.
+    check_zero : bool, optional
+        If ``True``, check for zero norm tensors when equalizing norms or
+        stripping the exponent. An exactly zero result is returned with
+        exponent ``0.0``, rather than ``nan``.
 
     Returns
     -------
@@ -1870,10 +2000,10 @@ def maybe_unwrap(
         if equalize_norms is True:
             if strip_exponent:
                 # accumulate into the exponent
-                t.equalize_norms_(1.0)
+                t.equalize_norms_(1.0, check_zero=check_zero)
             else:
                 # this also redistributes the any collected norm exponent
-                t.equalize_norms_()
+                t.equalize_norms_(check_zero=check_zero)
 
         if preserve_tensor_network or (t.num_tensors != 1):
             return t
@@ -1890,8 +2020,12 @@ def maybe_unwrap(
 
     if strip_exponent:
         tnorm = t.norm()
-        t /= tnorm
-        exponent += do("log10", tnorm)
+        if check_zero and tnorm == 0.0:
+            # exact zero, any accumulated exponent is meaningless
+            exponent = 0.0
+        else:
+            t /= tnorm
+            exponent += do("log10", tnorm)
 
     if preserve_tensor or t.ndim != 0:
         # return as a tensor
@@ -1909,6 +2043,26 @@ def maybe_unwrap(
         result = result * (10.0**exponent)
 
     return result
+
+
+def get_inner_dummy_labels(tensors):
+    """Get the labels of the fermionic dummy modes that are paired within
+    ``tensors``. These are 'inner bonds', and thus not phased like dual outer
+    legs.
+
+    Parameters
+    ----------
+    tensors : TensorNetwork or sequence of Tensor
+        The tensors to check.
+
+    Returns
+    -------
+    set
+    """
+    counts = collections.Counter(
+        m.label for t in tensors if t.isfermionic() for m in t.data.dummy_modes
+    )
+    return {label for label, count in counts.items() if count > 1}
 
 
 # --------------------------------------------------------------------------- #
@@ -2648,17 +2802,60 @@ class Tensor:
         new_ind_pair_diag, inplace=True
     )
 
-    def conj(self, inplace=False):
-        """Conjugate this tensors data (does nothing to indices)."""
+    def conj(self, inplace=False, output_inds=None, inner_dummy_labels=()):
+        """Conjugate this tensor's data without changing its indices.
+
+        Parameters
+        ----------
+        inplace : bool, optional
+            Whether to conjugate this tensor in place.
+        output_inds : sequence of str, optional
+            Only matters if this tensor is fermionic. If so, which indices to
+            consider as 'outer' indices of a global network, if any of those
+            are dual, the corresponding axes are phase-flipped to give the
+            correct local fermionic signs. Unlike `TensorNetwork.conj`, no
+            indices are automatically inferred. If given, even if empty, the
+            dummy modes of odd parity fermionic arrays are also treated as
+            outer legs, and phased in the same way, unless listed in
+            ``inner_dummy_labels``.
+        inner_dummy_labels : collection, optional
+            Only matters if this tensor is fermionic. Labels of dummy modes
+            whose conjugate partner is elsewhere in the network, see
+            :func:`get_inner_dummy_labels`. Like inner bonds, these get no
+            phase. They are relabelled, so that the conjugate network can be
+            combined with the original.
+
+        Returns
+        -------
+        Tensor
+        """
         t = self if inplace else self.copy()
-        t.modify(apply=conj, left_inds=t.left_inds)
+
+        if not t.isfermionic():
+            t.modify(apply=conj, left_inds=t.left_inds)
+            return t
+
+        if output_inds is None:
+            phase_dual = False
+        else:
+            phase_dual = tuple(
+                ax for ax, ix in enumerate(t.inds) if ix in output_inds
+            )
+
+        t.modify(
+            data=t.data.conj(
+                phase_dual=phase_dual,
+                inner_dummy_labels=inner_dummy_labels,
+            ),
+            left_inds=t.left_inds,
+        )
         return t
 
     conj_ = functools.partialmethod(conj, inplace=True)
 
     @property
     def H(self):
-        """Conjugate this tensors data (does nothing to indices)."""
+        """Conjugate this tensor's data without changing its indices."""
         return self.conj()
 
     @property
@@ -3078,8 +3275,9 @@ class Tensor:
         G,
         ind,
         preserve_inds=True,
-        transposed=False,
+        transpose=False,
         inplace=False,
+        transposed=None,
     ):
         r"""Gate this tensor - contract a matrix into one of its indices without
         changing its indices. Unlike ``contract``, ``G`` is a raw array and the
@@ -3089,7 +3287,7 @@ class Tensor:
 
             x \leftarrow G x
 
-        or if ``transposed=True``:
+        or if ``transpose=True``:
 
         .. math::
 
@@ -3104,9 +3302,11 @@ class Tensor:
         preserve_inds : bool, optional
             If ``True``, the order of the indices is preserved, otherwise the
             gated index will be left at the first axis, avoiding a transpose.
-        transposed : bool, optional
-            If ``True``, the gate is effectively transpose and applied, or
+        transpose : bool, optional
+            If ``True``, the gate is effectively transposed and applied, or
             equivalently, contracted to its left rather than right.
+        transposed : bool, optional
+            Deprecated alias for ``transpose``.
 
         Returns
         -------
@@ -3133,11 +3333,19 @@ class Tensor:
             -4.108910576149794
 
         """
+        if transposed is not None:
+            warnings.warn(
+                "`transposed` has been renamed to `transpose`, for "
+                "consistency with the other gating methods.",
+                FutureWarning,
+            )
+            transpose = transposed
+
         t = self if inplace else self.copy()
 
         ax = t.inds.index(ind)
 
-        if transposed:
+        if transpose:
             new_data = do("tensordot", G, t.data, ((0,), (ax,)))
         else:
             new_data = do("tensordot", G, t.data, ((1,), (ax,)))
@@ -3700,6 +3908,22 @@ class Tensor:
 
     multiply_index_diagonal_ = functools.partialmethod(
         multiply_index_diagonal, inplace=True
+    )
+
+    def multiply_index_diagonals(self, inds, xs, inplace=False):
+        """Multiply this tensor by each 1D array in ``xs`` as if it were a
+        diagonal tensor being contracted into the matching index in ``inds``.
+
+        Use this over several `multiply_index_diagonal` calls, as backends
+        can do it in one pass.
+        """
+        t = self if inplace else self.copy()
+        axes = tuple(map(t.inds.index, inds))
+        t.modify(data=do("multiply_diagonals", t.data, tuple(xs), axes=axes))
+        return t
+
+    multiply_index_diagonals_ = functools.partialmethod(
+        multiply_index_diagonals, inplace=True
     )
 
     def almost_equals(self, other, **kwargs):
@@ -4476,14 +4700,21 @@ class TensorNetwork:
         self._link_inds(new - old, tid)
 
     @property
-    def num_tensors(self):
+    def num_tensors(self) -> int:
         """The total number of tensors in the tensor network."""
         return len(self.tensor_map)
 
     @property
-    def num_indices(self):
+    def num_indices(self) -> int:
         """The total number of indices in the tensor network."""
         return len(self.ind_map)
+
+    @property
+    def num_bonds(self) -> int:
+        """The total number of inner indices. 'Inner' here is simply defined as
+        any index which appear on more than one tensor.
+        """
+        return len(self._inner_inds)
 
     def pop_tensor(self, tid_or_tags, which="all") -> Tensor:
         """Remove a tensor from this network, and return it.
@@ -4745,13 +4976,21 @@ class TensorNetwork:
             Whether to mangle the inner indices of the network. If a string is
             given, it will be appended to the index names.
         output_inds : sequence of str, optional
-            If given, the indices to mangle will be restricted to those not in
-            this list. This is only needed for (hyper) tensor networks where
-            output indices are not given simply by those that appear once.
+            Which indices to treat as 'outer', which matters for fermionic
+            conjugation as well as index mangling. Computed as every index
+            that appears exactly once if not given (which may be incorrect if
+            A) hyper-indices are present or B) you are viewing a sub-network).
+            For fermionic networks, outer indices are phase flipped based on
+            their dualness. For hyper tensor networks, outer indices are
+            not mangled, even if they appear twice or more.
         phase_dual : bool, optional
             If the tensor data is fermionic, whether to phase flip any dual
             outer indices, to ensure the correct behavior when forming local
-            cluster states. By default ``True``.
+            cluster states. By default ``True``. See `output_inds` for which
+            indices are considered outer. Dummy modes of odd parity arrays are
+            treated as outer legs too, unless their conjugate partner is in
+            this network. Such paired dummy modes are always relabelled, so
+            that the conjugate network can be combined with the original.
         inplace : bool, optional
             Whether to perform the conjugation inplace or not.
 
@@ -4761,8 +5000,25 @@ class TensorNetwork:
         """
         tn = self if inplace else self.copy()
 
+        if phase_dual and tn.isfermionic():
+            # select indices eligible for fermionic conjugation phases
+            if output_inds is None:
+                phase_inds = oset(tn.outer_inds())
+            else:
+                phase_inds = tags_to_oset(output_inds)
+        else:
+            phase_inds = None
+
+        if tn.isfermionic():
+            inner_dummy_labels = get_inner_dummy_labels(tn)
+        else:
+            inner_dummy_labels = ()
+
         for t in tn:
-            t.conj_()
+            t.conj_(
+                output_inds=phase_inds,
+                inner_dummy_labels=inner_dummy_labels,
+            )
 
         if mangle_inner:
             append = None if mangle_inner is True else str(mangle_inner)
@@ -4774,19 +5030,6 @@ class TensorNetwork:
                 which = oset(tn.ind_map) - tags_to_oset(output_inds)
 
             tn.mangle_inner_(append=append, which=which)
-
-        if phase_dual and tn.isfermionic():
-            # if we have fermionic data, need to phase dual outer indices
-            outer_inds = tn.outer_inds()
-            for t in tn:
-                data = t.data
-                dual_outer_axs = tuple(
-                    ax
-                    for ax, ix in enumerate(t.inds)
-                    if (ix in outer_inds) and not data.indices[ax].dual
-                )
-                if dual_outer_axs:
-                    t.modify(data=data.phase_flip(*dual_outer_axs))
 
         return tn
 
@@ -4827,8 +5070,10 @@ class TensorNetwork:
         ----------
         mangle_append : {str, False or None}, optional
             How to mangle the inner indices of the bra.
-        layer_tags : (str, str), optional
-            The tags to identify the top and bottom.
+        layer_tags : None, bool, int or tuple[str, str], optional
+            Tags for the ket and bra layers, in that order. Use ``True`` or
+            ``1`` for ``("KET", "BRA")``, or ``False``, ``0`` or ``None`` for
+            no layer tags.
         output_inds : sequence of str, optional
             If given, the indices to mangle will be restricted to those not in
             this list. This is only needed for (hyper) tensor networks where
@@ -4841,6 +5086,7 @@ class TensorNetwork:
         -------
         tn_norm : TensorNetwork
         """
+        layer_tags = parse_layer_tags(layer_tags, create=True)
         ket = self.copy()
 
         if layer_tags:
@@ -4937,8 +5183,10 @@ class TensorNetwork:
             outer indices as this tensor network, all other indices will be
             explicitly mangled in the copy taken, allowing 'hyper' overlaps.
             This tensor network will be conjugated in the overlap.
-        layer_tags : (str, str), optional
-            The tags to identify the top and bottom.
+        layer_tags : None, bool, int or tuple[str, str], optional
+            Tags for the ket and bra layers, in that order. Use ``True`` or
+            ``1`` for ``("KET", "BRA")``, or ``False``, ``0`` or ``None`` for
+            no layer tags.
         output_inds : sequence of str, optional
             If given, the indices to mangle will be restricted to those not in
             this list. This is only needed for (hyper) tensor networks where
@@ -4951,6 +5199,7 @@ class TensorNetwork:
         -------
         tn_overlap : TensorNetwork
         """
+        layer_tags = parse_layer_tags(layer_tags, create=True)
         ket = self.copy()
         if layer_tags:
             ket.add_tag(layer_tags[0])
@@ -7294,6 +7543,7 @@ class TensorNetwork:
     gen_paths_loops = gen_paths_loops
     gen_sloops = gen_sloops
     gen_gloops = gen_gloops
+    gen_gloops_edge_induced = gen_gloops_edge_induced
     get_local_patch = get_local_patch
     get_path_between_tids = get_path_between_tids
     get_loop_union = get_loop_union
@@ -7672,23 +7922,20 @@ class TensorNetwork:
         fuse_multibonds=True,
         equalize_norms=False,
         touched_tids=None,
+        sweep_order="auto",
         info=None,
         progbar=False,
         reduce_opts=None,
         compress_opts=None,
         inplace=False,
     ):
-        """Iterative gauge all the bonds in this tensor network with a 'simple
-        update' like strategy. If gauges are not supplied they are initialized
-        and then reabsorbed at the end, in which case this method acts as a
-        kind of conditioning. More usefully, if you supply `gauges` then they
-        will be updated inplace and *not* absorbed back into the tensor
-        network, with the assumption that you are using/tracking them
-        externally.
+        """Gauge all bonds with iterative 'simple update' steps. Supplied
+        ``gauges`` are updated in place and kept separate from the network.
+        Otherwise, initialize gauges and absorb them at the end to condition
+        the network.
 
-        Note the default settings perform a small number of iterations
-        sufficient for conditioning a network, but not converging to a fixed
-        point suitable for cluster calculations for example.
+        The default few iterations condition the network. For cluster
+        calculations, use enough iterations to converge the gauges.
 
         Parameters
         ----------
@@ -7706,13 +7953,18 @@ class TensorNetwork:
         gauges : dict, optional
             Supply the initial gauges to use.
         fuse_multibonds : bool, optional
-            Whether to fuse multibonds before gauging, this is usually
-            desirable unless you want to explicitly retain the exact
-            multi-index structure.
+            Fuse bonds between the same tensors. Usually helpful unless you
+            need to keep these indices separate.
         equalize_norms : bool, optional
             Whether to equalize the norms of the tensors after each update.
         touched_tids : sequence of int, optional
-            The tensor identifiers to start the gauge sweep from.
+            Tensor ids to start from. Initially mark only their bonds for
+            update. Start the breadth first search from the first tensor.
+        sweep_order : {'auto', 'alternate', 'fixed'}, optional
+            Bond update order. Use 'alternate' to reverse each sweep, starting
+            reversed, or 'fixed' to keep the same order. With 'auto',
+            alternate on graphs with no loops, else use a fixed order.
+            See :class:`.SweepScheduler`.
         info : dict, optional
             Store extra information about the gauging process in this dict.
             The following keys are filled:
@@ -7743,32 +7995,61 @@ class TensorNetwork:
         """
         tn = self if inplace else self.copy()
 
-        # the vector 'gauges' that will live on the bonds
         gauges_supplied = gauges is not None
         if not gauges_supplied:
             gauges = {}
 
-        # we store the actual ("conditioned") vectors treated as the
-        # environments separately from the 'exact' gauges
+        # keep conditioned environments separate from raw gauges
         gauges_conditioned = {}
-        # if damping we need to mark if we have updated gauge specifically
+        # track which conditioned gauges are current
         have_conditioned = set()
 
         if info is None:
             info = {}
-        # tensor_gauge_simple_bond accrues the log10 of each stripped gauge
-        # norm into "exponent" - seed it so the scaling is tracked
+        # tensor_gauge_simple_bond adds log10 of removed gauge norms here
         info["exponent"] = 0.0
 
-        # keep track of which indices are available to be updated
         if touched_tids is not None:
-            # use indices adjacent to the given tensors
-            next_touched = oset(
+            touched = oset(
                 ix for tid in touched_tids for ix in tn.tensor_map[tid].inds
             )
         else:
-            # use all indices
-            next_touched = oset(tn._inner_inds)
+            touched = oset(tn._inner_inds)
+
+        check_opt("sweep_order", sweep_order, ("auto", "alternate", "fixed"))
+        if sweep_order == "auto" and touched_tids is not None:
+            # check beyond the scheduler's initial region
+            is_tree = (
+                # short-cut (anything with num_bonds >= num_tensors is loopy)
+                (tn.num_bonds < tn.num_tensors)
+                # else must check inverse explictly due to disconnected tensors
+                and (
+                    compute_sweep_ranks(
+                        nodes=tn.tensor_map,
+                        edges=[
+                            tuple(tids)
+                            for tids in map(tn.ind_map.get, tn._inner_inds)
+                            if len(tids) == 2
+                        ],
+                    )[1]
+                )
+            )
+            sweep_order = "alternate" if is_tree else "fixed"
+
+        # rank bonds outwards from touched tensors, skipping hyper indices
+        bond_tid_pairs = [
+            tuple(tids)
+            for tids in map(tn.ind_map.get, touched)
+            if len(tids) == 2
+        ]
+        sweeper = SweepScheduler(
+            nodes=(*(touched_tids or ()), *concat(bond_tid_pairs)),
+            edges=bond_tid_pairs,
+            # fused bonds may have been removed from ind_map
+            key_to_nodes=lambda ix: tn.ind_map.get(ix, ()),
+            sweep_order=sweep_order,
+        )
+        sweeper.touch(touched)
 
         if progbar:
             import tqdm
@@ -7782,22 +8063,15 @@ class TensorNetwork:
         compute_diff = (tol > 0.0) or (pbar is not None)
 
         while unconverged and it < max_iterations:
-            # seeding "max_sdiff" tells tensor_gauge_simple_bond to track the
-            # running maximum diff here (and can only converge if tol > 0.0)
+            # initialize max_sdiff so tensor_gauge_simple_bond tracks changes
             if compute_diff:
                 info["max_sdiff"] = -1.0
 
-            touched, next_touched = next_touched, oset()
-            # add an arbitrary index to start the sweep
-            queue = oset([touched.popleft()])
-
-            while queue:
-                bond_ind = queue.popleft()
-
+            for bond_ind in sweeper.sweep():
                 try:
                     tida, tidb = tn.ind_map[bond_ind]
                 except (KeyError, ValueError):
-                    # fused multibond (removed) or not a bond (len(tids != 2))
+                    # removed bond or index not shared by exactly two tensors
                     continue
 
                 ta = tn.tensor_map[tida]
@@ -7821,29 +8095,20 @@ class TensorNetwork:
                 )
 
                 if equalize_norms:
-                    # the norms of the tensors are not kept under control by
-                    # the the orthogonalization because of the inverse gauge
-                    # application above, so explicitly equalize here
+                    # inverse gauges can change tensor norms
                     tn.strip_exponent(tida)
                     tn.strip_exponent(tidb)
 
-                # mark conditioned version as out-of-date (note we still retain
-                # the old version in gauge_conditioned for possible damping)
+                # keep old conditioned gauge for damping, but mark it outdated
                 have_conditioned.discard(bond_ind)
                 has_changed = (tol == 0.0) or (info["sdiff"] > tol)
                 if has_changed:
-                    # mark index and neighbors as touched for next sweep
-                    next_touched.add(bond_ind)
-
-                for neighbor_ind in tn._get_neighbor_inds(bond_ind):
-                    if neighbor_ind in tn._inner_inds:
-                        if neighbor_ind in touched:
-                            # move into queue
-                            touched.remove(neighbor_ind)
-                            queue.add(neighbor_ind)
-                        if has_changed:
-                            # mark as touched for next sweep
-                            next_touched.add(neighbor_ind)
+                    # update neighbors, joining this sweep if possible
+                    sweeper.touch(
+                        ix
+                        for ix in tn._get_neighbor_inds(bond_ind)
+                        if ix in tn._inner_inds
+                    )
 
             if pbar is not None:
                 pbar.update()
@@ -7855,13 +8120,11 @@ class TensorNetwork:
             unconverged = (tol == 0.0) or (info["max_sdiff"] > tol)
             it += 1
 
-        # pop the accrued scale back out - it is redistributed into the network
-        # below, not left as a pending exponent for the caller to apply
+        # apply accumulated scale to the network
         nfact = info.pop("exponent")
         if equalize_norms:
             tn.exponent += nfact
         else:
-            # redistribute the accrued scaling
             tn.multiply_each_(10 ** (nfact / tn.num_tensors))
 
         if not gauges_supplied:
@@ -8238,6 +8501,9 @@ class TensorNetwork:
             _get = gauges.get
         conditioner = _get_gauge_conditioner(power=power, smudge=smudge)
 
+        # the gauges for each tensor, applied in one call each at the end
+        pending = {}
+
         # absorb outer gauges fully into single tensor
         outer = [] if return_gauges is not None else None
         for ix in self.outer_inds():
@@ -8248,7 +8514,9 @@ class TensorNetwork:
             g = conditioner(g)
 
             (t,) = self._inds_get(ix)
-            t.multiply_index_diagonal_(ix, g)
+            _, inds, gs = pending.setdefault(id(t), (t, [], []))
+            inds.append(ix)
+            gs.append(g)
             if return_gauges is not None:
                 gr = g if return_gauges == "raw" else g**-1
                 outer.append((t, ix, gr))
@@ -8261,11 +8529,16 @@ class TensorNetwork:
                 continue
             g = g**0.5
             tl, tr = self._inds_get(ix)
-            tl.multiply_index_diagonal_(ix, g)
-            tr.multiply_index_diagonal_(ix, g)
+            for t in (tl, tr):
+                _, inds, gs = pending.setdefault(id(t), (t, [], []))
+                inds.append(ix)
+                gs.append(g)
             if return_gauges is not None:
                 gr = g if return_gauges == "raw" else g**-1
                 inner.append(((tl, tr), ix, gr))
+
+        for t, inds, gs in pending.values():
+            t.multiply_index_diagonals_(inds, gs)
 
         if return_gauges is not None:
             return outer, inner
@@ -8333,14 +8606,22 @@ class TensorNetwork:
         ``return_gauges="raw"``, not the records from
         ``return_gauges="inverse"``.
         """
+        # the inverse gauges for each tensor, applied in one call each
+        pending = {}
         while outer:
             t, ix, g = outer.pop()
-            t.multiply_index_diagonal_(ix, g**-1)
+            _, inds, gs = pending.setdefault(id(t), (t, [], []))
+            inds.append(ix)
+            gs.append(g**-1)
         while inner:
             (tl, tr), ix, g = inner.pop()
             ginv = g**-1
-            tl.multiply_index_diagonal_(ix, ginv)
-            tr.multiply_index_diagonal_(ix, ginv)
+            for t in (tl, tr):
+                _, inds, gs = pending.setdefault(id(t), (t, [], []))
+                inds.append(ix)
+                gs.append(ginv)
+        for t, inds, gs in pending.values():
+            t.multiply_index_diagonals_(inds, gs)
 
     @contextlib.contextmanager
     def gauge_simple_temp(
@@ -9422,6 +9703,7 @@ class TensorNetwork:
         backend=None,
         strip_exponent=False,
         equalize_norms="auto",
+        check_zero=False,
         preserve_tensor=False,
         inplace=False,
         **contract_opts,
@@ -9479,6 +9761,12 @@ class TensorNetwork:
         equalize_norms : bool or "auto", optional
             Whether to equalize the norms of the tensors *during* the
             contraction. By default ("auto") this follows `strip_exponent`.
+        check_zero : bool, optional
+            If ``True``, when stripping the exponent or equalizing norms,
+            check for exactly zero tensors, so that an exactly zero result is
+            returned as a zero mantissa with exponent ``0.0`` rather than
+            ``nan``. Off by default to avoid data dependent branching when
+            tracing and computing gradients etc.
         preserve_tensor : bool, optional
             Whether to return a tensor regardless of whether the output object
             is a scalar (has no indices) or not.
@@ -9517,6 +9805,12 @@ class TensorNetwork:
         # whether we should let tensor_contract return a raw scalar
         preserve_tensor = preserve_tensor or inplace or (tn.num_tensors >= 1)
 
+        if (tn.num_tensors == 0) and (not inplace):
+            # nothing left to hold the exponent, so include it in the result
+            base_exponent = tn.exponent
+        else:
+            base_exponent = None
+
         t = tensor_contract(
             *tagged_ts,
             output_inds=output_inds,
@@ -9524,6 +9818,8 @@ class TensorNetwork:
             get=get,
             backend=backend,
             strip_exponent=equalize_norms,
+            exponent=base_exponent,
+            check_zero=check_zero,
             preserve_tensor=preserve_tensor,
             **contract_opts,
         )
@@ -9539,8 +9835,12 @@ class TensorNetwork:
                 # already scalar
                 tnorm = do("abs", t)
 
-            t /= tnorm
-            exponent = do("log10", tnorm)
+            if check_zero and tnorm == 0.0:
+                # exact zero, leave unscaled
+                exponent = 0.0
+            else:
+                t /= tnorm
+                exponent = do("log10", tnorm)
         else:
             exponent = None
 
@@ -9575,6 +9875,8 @@ class TensorNetwork:
         get=None,
         max_bond=None,
         strip_exponent=False,
+        equalize_norms="auto",
+        check_zero=False,
         preserve_tensor=False,
         backend=None,
         inplace=False,
@@ -9629,6 +9931,18 @@ class TensorNetwork:
             contraction. If a TensorNetwork is returned, this exponent is
             accumulated in the `exponent` attribute. If a Tensor or scalar is
             returned, the exponent is returned separately.
+        equalize_norms : bool, float or "auto", optional
+            Whether to equalize the norms of the tensors *during* the
+            contraction, accumulating the scale in an exponent. By default
+            ("auto") this follows `strip_exponent`. A float sets the norm of
+            each intermediate tensor, except for a single full contraction,
+            which only uses it as ``True``.
+        check_zero : bool, optional
+            If ``True``, when stripping the exponent or equalizing norms,
+            check for exactly zero tensors, so that an exactly zero result is
+            returned as a zero mantissa with exponent ``0.0`` rather than
+            ``nan``. Off by default to avoid data dependent branching when
+            tracing and computing gradients etc.
         preserve_tensor : bool, optional
             Whether to return a tensor regardless of whether the output object
             is a scalar (has no indices) or not.
@@ -9660,6 +9974,7 @@ class TensorNetwork:
         kwargs["get"] = get
         kwargs["backend"] = backend
         kwargs["preserve_tensor"] = preserve_tensor
+        kwargs["equalize_norms"] = equalize_norms
 
         all_tags = (tags is all) or (tags is ...)
 
@@ -9670,6 +9985,11 @@ class TensorNetwork:
                 raise NotImplementedError
             if kwargs.pop("backend", None) is not None:
                 raise NotImplementedError
+            if check_zero:
+                raise NotImplementedError(
+                    "check_zero is not yet supported for compressed "
+                    "contraction."
+                )
 
             return self.contract_compressed(
                 max_bond=max_bond,
@@ -9686,22 +10006,39 @@ class TensorNetwork:
             return self.contract_structured(
                 tags,
                 strip_exponent=strip_exponent,
+                check_zero=check_zero,
                 inplace=inplace,
                 **kwargs,
             )
 
         # contracting everything to single output
         if all_tags and not inplace:
-            return tensor_contract(
+            del kwargs["equalize_norms"]
+            if equalize_norms == "auto":
+                equalize_norms = strip_exponent
+            # a single contraction can only rescale while contracting
+            equalize_norms = bool(equalize_norms)
+
+            out = tensor_contract(
                 *self.tensor_map.values(),
-                strip_exponent=strip_exponent,
+                strip_exponent=strip_exponent or equalize_norms,
                 exponent=self.exponent,
+                check_zero=check_zero,
                 **kwargs,
             )
+            if equalize_norms and not strip_exponent and get is None:
+                # fold the stripped exponent back in
+                out, exponent = out
+                out = out * 10**exponent
+            return out
 
         # contract some or all tensors, but keeping tensor network
         return self.contract_tags(
-            tags, strip_exponent=strip_exponent, inplace=inplace, **kwargs
+            tags,
+            strip_exponent=strip_exponent,
+            check_zero=check_zero,
+            inplace=inplace,
+            **kwargs,
         )
 
     contract_ = functools.partialmethod(contract, inplace=True)
@@ -9712,6 +10049,7 @@ class TensorNetwork:
         output_inds=None,
         strip_exponent=False,
         equalize_norms="auto",
+        check_zero=False,
         preserve_tensor=False,
         inplace=False,
         **contract_opts,
@@ -9737,6 +10075,12 @@ class TensorNetwork:
         equalize_norms : bool or "auto", optional
             Whether to equalize the norms of the tensors *during* the
             contraction. By default ("auto") this follows `strip_exponent`.
+        check_zero : bool, optional
+            If ``True``, when stripping the exponent or equalizing norms,
+            check for exactly zero tensors, so that an exactly zero result is
+            returned as a zero mantissa with exponent ``0.0`` rather than
+            ``nan``. Off by default to avoid data dependent branching when
+            tracing and computing gradients etc.
         preserve_tensor : bool, optional
             Whether to return a tensor regardless of whether the output object
             is a scalar (has no indices) or not.
@@ -9772,6 +10116,7 @@ class TensorNetwork:
                 c_tags,
                 which="any",
                 equalize_norms=equalize_norms,
+                check_zero=check_zero,
                 **contract_opts,
             )
 
@@ -9786,6 +10131,7 @@ class TensorNetwork:
             strip_exponent=strip_exponent,
             equalize_norms=equalize_norms,
             output_inds=output_inds,
+            check_zero=check_zero,
         )
 
     def contraction_path(
@@ -10057,6 +10403,8 @@ class TensorNetwork:
             method absorbs vector gauges into a copy of the local tensor
             network. It puts conditioned gauges on the contracted boundary,
             and raw square roots on the internal and open indices.
+            BP messages are inserted directly between the bra and ket,
+            without square-root factorization.
         gauge_smudge : float, optional
             For simple-update gauges, add this relative value before this
             method applies ``gauge_power``. For D2BP messages, add it to the
@@ -10180,7 +10528,9 @@ class TensorNetwork:
                 )
 
         # contract to dense array
-        tnd = tn.reindex(bra_map).conj_() & tn
+        # operator messages use the usual outer-leg conjugation phases
+        bra = tn.reindex(bra_map).conj()
+        tnd = bra & tn
         for tm in environment_tensors:
             tnd |= tm
         XX = tnd.to_dense(lix, rix, **contract_opts)
@@ -10192,6 +10542,138 @@ class TensorNetwork:
             right=(side == "right"),
             **reduce_opts,
         )
+
+    def insert_projectors_between_regions(
+        self,
+        ltags,
+        rtags,
+        Pl,
+        Pr,
+        *,
+        left_inds=None,
+        right_inds=None,
+        bond_ind=None,
+        left_dims=None,
+        right_dims=None,
+        select_which="any",
+        new_tags=None,
+        new_ltags=None,
+        new_rtags=None,
+        inplace=False,
+    ):
+        r"""Insert a pair of already computed 'projector' arrays between two
+        tensor-network regions::
+
+            A──A───B──B           A──A─╮     ╭─B──B
+            │  │   │  │    -->    │  │ Pl━━━Pr |  |
+            A──A───B──B           A──A─╯  :  ╰─B──B
+                : :                       :
+                : right_inds              bond_ind
+            left_inds
+
+        The projectors should use the fused order specified by ``left_inds``
+        and ``right_inds`` respectively. By default, these are equal and
+        calculated by `bonds` called on the two regions. The left projector
+        should have shape ``(d, new_bond_dim)`` and the right projector shape
+        ``(new_bond_dim, d)``, where ``d`` is the product of the respective
+        index dimensions. The projectors can also be supplied unfused, with
+        one axis per index instead of the single fused axis.
+
+        Parameters
+        ----------
+        ltags : sequence of str
+            The tags of the tensors in the left region.
+        rtags : sequence of str
+            The tags of the tensors in the right region.
+        Pl : array_like
+            The left projector, with the fused original bonds as its first
+            dimension and the new bond as its second dimension, or unfused
+            with one axis per index in ``left_inds`` and then the new bond.
+        Pr : array_like
+            The right projector, with the new bond as its first dimension and
+            the fused original bonds as its second dimension, or unfused with
+            the new bond and then one axis per index in ``right_inds``.
+        left_inds : sequence of str, optional
+            The ordered indices of the left region to connect to the left
+            projector, `Pl`. Calculated automatically as the bonds connecting
+            the two regions by default.
+        right_inds : sequence of str, optional
+            The ordered indices of the right region to connect to the right
+            projector, `Pr`. If not supplied, assumed to match ``left_inds``.
+        left_dims : sequence of int, optional
+            The dimensions of the left indices, ordered as they are fused in
+            ``Pl``. They are discovered automatically by default.
+        right_dims : sequence of int, optional
+            The dimensions of the right indices, ordered as they are fused in
+            ``Pr``. They are discovered automatically by default.
+        select_which : {'any', 'all'}, optional
+            How to select the regions based on the tags, see
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.select`.
+        new_tags : str or sequence of str, optional
+            The tag(s) to add to both new projector tensors.
+        new_ltags : str or sequence of str, optional
+            The tag(s) to add to only the new left projector tensor.
+        new_rtags : str or sequence of str, optional
+            The tag(s) to add to only the new right projector tensor.
+        bond_ind : str, optional
+            The index to use for the new bond between the projectors. A random
+            index is generated by default.
+        inplace : bool, optional
+            Whether to perform the insertion in-place.
+
+        Returns
+        -------
+        TensorNetwork
+            The tensor network with the projectors inserted.
+
+        See Also
+        --------
+        insert_compressor_between_regions, compute_oblique_projectors
+        """
+        tn = self if inplace else self.copy()
+
+        ltn = tn.select(ltags, which=select_which)
+        rtn = tn.select(rtags, which=select_which)
+
+        if left_inds is None:
+            left_inds = bonds(ltn, rtn)
+
+        if right_inds is None:
+            right_inds = left_inds
+
+        if left_dims is None:
+            left_dims = tuple(ltn.ind_size(ix) for ix in left_inds)
+
+        if right_dims is None:
+            right_dims = tuple(rtn.ind_size(ix) for ix in right_inds)
+
+        if bond_ind is None:
+            bond_ind = rand_uuid()
+
+        # projectors with one axis per index are already unfused
+        if do("ndim", Pl) == 2:
+            Pl = unfuse(Pl, axis=0, axis_dims=left_dims)
+        if do("ndim", Pr) == 2:
+            Pr = unfuse(Pr, axis=1, axis_dims=right_dims)
+
+        # cut the original bonds
+        new_lix = [rand_uuid() for _ in left_inds]
+        new_rix = [rand_uuid() for _ in right_inds]
+        ltn.reindex_(dict(zip(left_inds, new_lix)))
+        rtn.reindex_(dict(zip(right_inds, new_rix)))
+
+        # add the projectors as tagged tensors
+        new_tags = tags_to_oset(new_tags)
+        new_ltags = new_tags | tags_to_oset(new_ltags)
+        new_rtags = new_tags | tags_to_oset(new_rtags)
+        tn |= Tensor(Pl, inds=(*new_lix, bond_ind), tags=new_ltags)
+        tn |= Tensor(Pr, inds=(bond_ind, *new_rix), tags=new_rtags)
+
+        return tn
+
+    insert_projectors_between_regions_ = functools.partialmethod(
+        insert_projectors_between_regions, inplace=True
+    )
 
     def insert_compressor_between_regions(
         self,
@@ -10236,7 +10718,7 @@ class TensorNetwork:
             The cutoff to use for the compression.
         mode : {"oblique", "nystrom"}, optional
             How to compute the projectors.
-        select_which : {'any', 'all', 'none'}, optional
+        select_which : {'any', 'all'}, optional
             How to select the regions based on the tags, see
             :meth:`~quimb.tensor.tensor_core.TensorNetwork.select`.
         insert_into : TensorNetwork, optional
@@ -10287,7 +10769,7 @@ class TensorNetwork:
 
         See Also
         --------
-        compute_reduced_factor, select
+        insert_projectors_between_regions, compute_reduced_factor, select
         """
         contract_opts = ensure_dict(contract_opts)
         contract_opts.setdefault("optimize", optimize)
@@ -10356,6 +10838,10 @@ class TensorNetwork:
                 reduce_opts=reduce_opts,
             )
 
+            # unfuse here for max compat with block sparse array
+            Rl = unfuse(Rl, axis=1, axis_dims=bix_sizes)
+            Rr = unfuse(Rr, axis=0, axis_dims=bix_sizes)
+
             # then form the 'oblique' projectors
             Pl, Pr = compute_oblique_projectors(Rl, Rr, **compress_opts)
 
@@ -10406,30 +10892,23 @@ class TensorNetwork:
         else:
             raise ValueError(f"mode `{mode}` is invalid.")
 
-        # now we rewire the projectors back into the network
-        Pl = unfuse(Pl, axis=0, axis_dims=bix_sizes)
-        Pr = unfuse(Pr, axis=1, axis_dims=bix_sizes)
-
-        if insert_into is not None:
-            tn = insert_into
-        ltn = tn.select(ltags, which=select_which)
-        rtn = tn.select(rtags, which=select_which)
-
-        # finally cut the bonds
-        new_lix = [rand_uuid() for _ in bix]
-        new_rix = [rand_uuid() for _ in bix]
-        new_bix = [bond_ind]
-        ltn.reindex_(dict(zip(bix, new_lix)))
-        rtn.reindex_(dict(zip(bix, new_rix)))
-
-        # ... and insert the new projectors in place
-        new_tags = tags_to_oset(new_tags)
-        new_ltags = new_tags | tags_to_oset(new_ltags)
-        new_rtags = new_tags | tags_to_oset(new_rtags)
-        tn |= Tensor(Pl, inds=new_lix + new_bix, tags=new_ltags)
-        tn |= Tensor(Pr, inds=new_bix + new_rix, tags=new_rtags)
-
-        return tn
+        target = insert_into if insert_into is not None else tn
+        return target.insert_projectors_between_regions(
+            ltags,
+            rtags,
+            Pl,
+            Pr,
+            left_inds=bix,
+            right_inds=bix,
+            left_dims=bix_sizes,
+            right_dims=bix_sizes,
+            select_which=select_which,
+            new_tags=new_tags,
+            new_ltags=new_ltags,
+            new_rtags=new_rtags,
+            bond_ind=bond_ind,
+            inplace=True,
+        )
 
     insert_compressor_between_regions_ = functools.partialmethod(
         insert_compressor_between_regions, inplace=True
@@ -12663,16 +13142,36 @@ class PTensor(Tensor):
         """The backend inferred from the data."""
         return infer_backend(self.params)
 
+    def isfermionic(self):
+        """Check whether the generated tensor data is fermionic."""
+        return isfermionic(self.data)
+
     def _apply_function(self, fn):
         """Apply ``fn`` to the data array of this ``PTensor`` (lazily), by
         composing it with the current parametrized array function.
         """
         self._data.add_function(fn)
 
-    def conj(self, inplace=False):
-        """Conjugate this parametrized tensor - done lazily whenever the
-        ``.data`` attribute is accessed.
+    def conj(self, inplace=False, output_inds=None, inner_dummy_labels=()):
+        """Conjugate this parametrized tensor lazily.
+
+        Parameters
+        ----------
+        inplace : bool, optional
+            Whether to conjugate this tensor in place.
+        output_inds : sequence of str, optional
+            Indices to treat as outputs when applying fermionic conjugation
+            phases. Fermionic output phases are not supported for parametrized
+            tensors.
+        inner_dummy_labels : collection, optional
+            Unused, since fermionic output phases are not supported.
         """
+        if output_inds and self.isfermionic():
+            raise NotImplementedError(
+                "Fermionic PTensor conjugation with `output_inds` is not "
+                "supported."
+            )
+
         t = self if inplace else self.copy()
         t._apply_function(conj)
         return t

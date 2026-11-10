@@ -1,24 +1,39 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
 import os
 from typing import Any, cast
 
+import httpx
 import pytest
+from respx import MockRouter
 
 from steel import Steel, AsyncSteel
 from steel.types import (
     Session as TypesSession,
     SessionContext,
+    SessionCostResponse,
+    SessionLogsResponse,
     SessionEventsResponse,
     SessionReleaseResponse,
+    SessionCommandsResponse,
     SessionComputerResponse,
     SessionReleaseAllResponse,
+    SessionAgentTracesResponse,
     SessionLiveDetailsResponse,
+    SessionSignalCatalogResponse,
+    SessionUpdateMetadataResponse,
+    SessionReplaceMetadataResponse,
 )
 from tests.utils import assert_matches_type
 from steel._utils import parse_datetime
+from steel._response import (
+    BinaryAPIResponse,
+    AsyncBinaryAPIResponse,
+    StreamedBinaryAPIResponse,
+    AsyncStreamedBinaryAPIResponse,
+)
 from steel.pagination import SyncSessionsCursor, AsyncSessionsCursor
 from steel.types.sessionslist import Session as SessionslistSession
 
@@ -42,7 +57,9 @@ class TestSessions:
             credentials={
                 "auto_submit": True,
                 "blur_fields": True,
+                "credential_provider": "credentialProvider",
                 "exact_origin": True,
+                "origins": ["string"],
             },
             debug_config={
                 "interactive": True,
@@ -59,12 +76,14 @@ class TestSessions:
             headless=True,
             inactivity_timeout=1,
             is_selenium=True,
+            metadata={"foo": "string"},
             namespace="namespace",
             optimize_bandwidth=True,
             persist_profile=True,
             profile_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             proxy_url="https://example.com",
+            recording=True,
             region={},
             session_context={
                 "cookies": [
@@ -141,7 +160,7 @@ class TestSessions:
         response = client.sessions.with_raw_response.create()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(TypesSession, session, path=["response"])
 
@@ -149,7 +168,7 @@ class TestSessions:
     def test_streaming_response_create(self, client: Steel) -> None:
         with client.sessions.with_streaming_response.create() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(TypesSession, session, path=["response"])
@@ -170,7 +189,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(TypesSession, session, path=["response"])
 
@@ -180,7 +199,7 @@ class TestSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(TypesSession, session, path=["response"])
@@ -202,9 +221,14 @@ class TestSessions:
     @parametrize
     def test_method_list_with_all_params(self, client: Steel) -> None:
         session = client.sessions.list(
+            created_after=parse_datetime("2019-12-27T18:11:19.117Z"),
+            created_before=parse_datetime("2019-12-27T18:11:19.117Z"),
             cursor_id="cursorId",
             limit=1,
+            metadata={"foo": "x"},
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            release_reason="user_requested",
+            signal=["captcha_encountered"],
             status="live",
         )
         assert_matches_type(SyncSessionsCursor[SessionslistSession], session, path=["response"])
@@ -214,7 +238,7 @@ class TestSessions:
         response = client.sessions.with_raw_response.list()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SyncSessionsCursor[SessionslistSession], session, path=["response"])
 
@@ -222,12 +246,140 @@ class TestSessions:
     def test_streaming_response_list(self, client: Steel) -> None:
         with client.sessions.with_streaming_response.list() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SyncSessionsCursor[SessionslistSession], session, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_agent_traces(self, client: Steel) -> None:
+        session = client.sessions.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_agent_traces_with_all_params(self, client: Steel) -> None:
+        session = client.sessions.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            event_types=["string"],
+            limit=1,
+            namespace="namespace",
+            offset=0,
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_agent_traces(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_agent_traces(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_agent_traces(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.sessions.with_raw_response.agent_traces(
+                id="",
+            )
+
+    @parametrize
+    def test_method_commands(self, client: Steel) -> None:
+        session = client.sessions.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+        assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_commands_with_all_params(self, client: Steel) -> None:
+        session = client.sessions.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+                "tab": "t321669910225",
+            },
+            after="x",
+            events_after="c-321669910225",
+            observe={
+                "mode": "none",
+                "base": "x",
+                "compact": True,
+                "depth": 0,
+                "interactive": True,
+                "tab": "t321669910225",
+            },
+            idempotency_key="idempotency-key",
+        )
+        assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_commands(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_commands(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_commands(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            client.sessions.with_raw_response.commands(
+                session_id="",
+                commands={
+                    "command": "navigate",
+                    "url": "x",
+                },
+            )
 
     @parametrize
     def test_method_computer_overload_1(self, client: Steel) -> None:
@@ -258,7 +410,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -270,7 +422,7 @@ class TestSessions:
             coordinates=[0, 0],
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -316,7 +468,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -327,7 +479,7 @@ class TestSessions:
             action="click_mouse",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -371,7 +523,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -383,7 +535,7 @@ class TestSessions:
             path=[[0, 0]],
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -428,7 +580,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -439,7 +591,7 @@ class TestSessions:
             action="scroll",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -483,7 +635,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -495,7 +647,7 @@ class TestSessions:
             keys=["string"],
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -540,7 +692,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -552,7 +704,7 @@ class TestSessions:
             text="text",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -596,7 +748,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -608,7 +760,7 @@ class TestSessions:
             duration=0,
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -640,7 +792,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -651,7 +803,7 @@ class TestSessions:
             action="take_screenshot",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -682,7 +834,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -693,7 +845,7 @@ class TestSessions:
             action="get_cursor_position",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -722,7 +874,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionContext, session, path=["response"])
 
@@ -732,7 +884,7 @@ class TestSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionContext, session, path=["response"])
@@ -743,6 +895,44 @@ class TestSessions:
     def test_path_params_context(self, client: Steel) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             client.sessions.with_raw_response.context(
+                "",
+            )
+
+    @parametrize
+    def test_method_cost(self, client: Steel) -> None:
+        session = client.sessions.cost(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SessionCostResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_cost(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.cost(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionCostResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_cost(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.cost(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionCostResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_cost(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.sessions.with_raw_response.cost(
                 "",
             )
 
@@ -770,7 +960,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionEventsResponse, session, path=["response"])
 
@@ -780,7 +970,7 @@ class TestSessions:
             id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionEventsResponse, session, path=["response"])
@@ -792,6 +982,62 @@ class TestSessions:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             client.sessions.with_raw_response.events(
                 id="",
+            )
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    def test_method_hls(self, client: Steel, respx_mock: MockRouter) -> None:
+        respx_mock.get("/v1/sessions/182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e/hls").mock(
+            return_value=httpx.Response(200, json={"foo": "bar"})
+        )
+        session = client.sessions.hls(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert session.is_closed
+        assert session.json() == {"foo": "bar"}
+        assert cast(Any, session.is_closed) is True
+        assert isinstance(session, BinaryAPIResponse)
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    def test_raw_response_hls(self, client: Steel, respx_mock: MockRouter) -> None:
+        respx_mock.get("/v1/sessions/182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e/hls").mock(
+            return_value=httpx.Response(200, json={"foo": "bar"})
+        )
+
+        session = client.sessions.with_raw_response.hls(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert session.is_closed is True
+        assert session.http_request.headers.get("X-Steel-Lang") == "python"
+        assert session.json() == {"foo": "bar"}
+        assert isinstance(session, BinaryAPIResponse)
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    def test_streaming_response_hls(self, client: Steel, respx_mock: MockRouter) -> None:
+        respx_mock.get("/v1/sessions/182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e/hls").mock(
+            return_value=httpx.Response(200, json={"foo": "bar"})
+        )
+        with client.sessions.with_streaming_response.hls(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as session:
+            assert not session.is_closed
+            assert session.http_request.headers.get("X-Steel-Lang") == "python"
+
+            assert session.json() == {"foo": "bar"}
+            assert cast(Any, session.is_closed) is True
+            assert isinstance(session, StreamedBinaryAPIResponse)
+
+        assert cast(Any, session.is_closed) is True
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    def test_path_params_hls(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.sessions.with_raw_response.hls(
+                "",
             )
 
     @parametrize
@@ -808,7 +1054,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionLiveDetailsResponse, session, path=["response"])
 
@@ -818,7 +1064,7 @@ class TestSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionLiveDetailsResponse, session, path=["response"])
@@ -830,6 +1076,57 @@ class TestSessions:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             client.sessions.with_raw_response.live_details(
                 "",
+            )
+
+    @parametrize
+    def test_method_logs(self, client: Steel) -> None:
+        session = client.sessions.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+    @parametrize
+    def test_method_logs_with_all_params(self, client: Steel) -> None:
+        session = client.sessions.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            event_types=["string"],
+            limit=1,
+            namespace="namespace",
+            offset=0,
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_logs(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_logs(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_logs(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.sessions.with_raw_response.logs(
+                id="",
             )
 
     @parametrize
@@ -846,7 +1143,7 @@ class TestSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionReleaseResponse, session, path=["response"])
 
@@ -856,7 +1153,7 @@ class TestSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionReleaseResponse, session, path=["response"])
@@ -887,7 +1184,7 @@ class TestSessions:
         response = client.sessions.with_raw_response.release_all()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = response.parse()
         assert_matches_type(SessionReleaseAllResponse, session, path=["response"])
 
@@ -895,12 +1192,121 @@ class TestSessions:
     def test_streaming_response_release_all(self, client: Steel) -> None:
         with client.sessions.with_streaming_response.release_all() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = response.parse()
             assert_matches_type(SessionReleaseAllResponse, session, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_replace_metadata(self, client: Steel) -> None:
+        session = client.sessions.replace_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+        assert_matches_type(SessionReplaceMetadataResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_replace_metadata(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.replace_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionReplaceMetadataResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_replace_metadata(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.replace_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionReplaceMetadataResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_replace_metadata(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.sessions.with_raw_response.replace_metadata(
+                id="",
+                metadata={"foo": "string"},
+            )
+
+    @parametrize
+    def test_method_signal_catalog(self, client: Steel) -> None:
+        session = client.sessions.signal_catalog()
+        assert_matches_type(SessionSignalCatalogResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_signal_catalog(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.signal_catalog()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionSignalCatalogResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_signal_catalog(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.signal_catalog() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionSignalCatalogResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_update_metadata(self, client: Steel) -> None:
+        session = client.sessions.update_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+        assert_matches_type(SessionUpdateMetadataResponse, session, path=["response"])
+
+    @parametrize
+    def test_raw_response_update_metadata(self, client: Steel) -> None:
+        response = client.sessions.with_raw_response.update_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = response.parse()
+        assert_matches_type(SessionUpdateMetadataResponse, session, path=["response"])
+
+    @parametrize
+    def test_streaming_response_update_metadata(self, client: Steel) -> None:
+        with client.sessions.with_streaming_response.update_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = response.parse()
+            assert_matches_type(SessionUpdateMetadataResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_update_metadata(self, client: Steel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.sessions.with_raw_response.update_metadata(
+                id="",
+                metadata={"foo": "string"},
+            )
 
 
 class TestAsyncSessions:
@@ -922,7 +1328,9 @@ class TestAsyncSessions:
             credentials={
                 "auto_submit": True,
                 "blur_fields": True,
+                "credential_provider": "credentialProvider",
                 "exact_origin": True,
+                "origins": ["string"],
             },
             debug_config={
                 "interactive": True,
@@ -939,12 +1347,14 @@ class TestAsyncSessions:
             headless=True,
             inactivity_timeout=1,
             is_selenium=True,
+            metadata={"foo": "string"},
             namespace="namespace",
             optimize_bandwidth=True,
             persist_profile=True,
             profile_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             proxy_url="https://example.com",
+            recording=True,
             region={},
             session_context={
                 "cookies": [
@@ -1021,7 +1431,7 @@ class TestAsyncSessions:
         response = await async_client.sessions.with_raw_response.create()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(TypesSession, session, path=["response"])
 
@@ -1029,7 +1439,7 @@ class TestAsyncSessions:
     async def test_streaming_response_create(self, async_client: AsyncSteel) -> None:
         async with async_client.sessions.with_streaming_response.create() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(TypesSession, session, path=["response"])
@@ -1050,7 +1460,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(TypesSession, session, path=["response"])
 
@@ -1060,7 +1470,7 @@ class TestAsyncSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(TypesSession, session, path=["response"])
@@ -1082,9 +1492,14 @@ class TestAsyncSessions:
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncSteel) -> None:
         session = await async_client.sessions.list(
+            created_after=parse_datetime("2019-12-27T18:11:19.117Z"),
+            created_before=parse_datetime("2019-12-27T18:11:19.117Z"),
             cursor_id="cursorId",
             limit=1,
+            metadata={"foo": "x"},
             project_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            release_reason="user_requested",
+            signal=["captcha_encountered"],
             status="live",
         )
         assert_matches_type(AsyncSessionsCursor[SessionslistSession], session, path=["response"])
@@ -1094,7 +1509,7 @@ class TestAsyncSessions:
         response = await async_client.sessions.with_raw_response.list()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(AsyncSessionsCursor[SessionslistSession], session, path=["response"])
 
@@ -1102,12 +1517,140 @@ class TestAsyncSessions:
     async def test_streaming_response_list(self, async_client: AsyncSteel) -> None:
         async with async_client.sessions.with_streaming_response.list() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(AsyncSessionsCursor[SessionslistSession], session, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_agent_traces(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_agent_traces_with_all_params(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            event_types=["string"],
+            limit=1,
+            namespace="namespace",
+            offset=0,
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_agent_traces(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_agent_traces(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.agent_traces(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionAgentTracesResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_agent_traces(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.sessions.with_raw_response.agent_traces(
+                id="",
+            )
+
+    @parametrize
+    async def test_method_commands(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+        assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_commands_with_all_params(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+                "tab": "t321669910225",
+            },
+            after="x",
+            events_after="c-321669910225",
+            observe={
+                "mode": "none",
+                "base": "x",
+                "compact": True,
+                "depth": 0,
+                "interactive": True,
+                "tab": "t321669910225",
+            },
+            idempotency_key="idempotency-key",
+        )
+        assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_commands(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_commands(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.commands(
+            session_id="sessionId",
+            commands={
+                "command": "navigate",
+                "url": "x",
+            },
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionCommandsResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_commands(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `session_id` but received ''"):
+            await async_client.sessions.with_raw_response.commands(
+                session_id="",
+                commands={
+                    "command": "navigate",
+                    "url": "x",
+                },
+            )
 
     @parametrize
     async def test_method_computer_overload_1(self, async_client: AsyncSteel) -> None:
@@ -1138,7 +1681,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1150,7 +1693,7 @@ class TestAsyncSessions:
             coordinates=[0, 0],
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1196,7 +1739,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1207,7 +1750,7 @@ class TestAsyncSessions:
             action="click_mouse",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1251,7 +1794,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1263,7 +1806,7 @@ class TestAsyncSessions:
             path=[[0, 0]],
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1308,7 +1851,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1319,7 +1862,7 @@ class TestAsyncSessions:
             action="scroll",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1363,7 +1906,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1375,7 +1918,7 @@ class TestAsyncSessions:
             keys=["string"],
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1420,7 +1963,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1432,7 +1975,7 @@ class TestAsyncSessions:
             text="text",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1476,7 +2019,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1488,7 +2031,7 @@ class TestAsyncSessions:
             duration=0,
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1520,7 +2063,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1531,7 +2074,7 @@ class TestAsyncSessions:
             action="take_screenshot",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1562,7 +2105,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionComputerResponse, session, path=["response"])
 
@@ -1573,7 +2116,7 @@ class TestAsyncSessions:
             action="get_cursor_position",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionComputerResponse, session, path=["response"])
@@ -1602,7 +2145,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionContext, session, path=["response"])
 
@@ -1612,7 +2155,7 @@ class TestAsyncSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionContext, session, path=["response"])
@@ -1623,6 +2166,44 @@ class TestAsyncSessions:
     async def test_path_params_context(self, async_client: AsyncSteel) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             await async_client.sessions.with_raw_response.context(
+                "",
+            )
+
+    @parametrize
+    async def test_method_cost(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.cost(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SessionCostResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_cost(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.cost(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionCostResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_cost(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.cost(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionCostResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_cost(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.sessions.with_raw_response.cost(
                 "",
             )
 
@@ -1650,7 +2231,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionEventsResponse, session, path=["response"])
 
@@ -1660,7 +2241,7 @@ class TestAsyncSessions:
             id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionEventsResponse, session, path=["response"])
@@ -1672,6 +2253,62 @@ class TestAsyncSessions:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             await async_client.sessions.with_raw_response.events(
                 id="",
+            )
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    async def test_method_hls(self, async_client: AsyncSteel, respx_mock: MockRouter) -> None:
+        respx_mock.get("/v1/sessions/182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e/hls").mock(
+            return_value=httpx.Response(200, json={"foo": "bar"})
+        )
+        session = await async_client.sessions.hls(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert session.is_closed
+        assert await session.json() == {"foo": "bar"}
+        assert cast(Any, session.is_closed) is True
+        assert isinstance(session, AsyncBinaryAPIResponse)
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    async def test_raw_response_hls(self, async_client: AsyncSteel, respx_mock: MockRouter) -> None:
+        respx_mock.get("/v1/sessions/182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e/hls").mock(
+            return_value=httpx.Response(200, json={"foo": "bar"})
+        )
+
+        session = await async_client.sessions.with_raw_response.hls(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert session.is_closed is True
+        assert session.http_request.headers.get("X-Steel-Lang") == "python"
+        assert await session.json() == {"foo": "bar"}
+        assert isinstance(session, AsyncBinaryAPIResponse)
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    async def test_streaming_response_hls(self, async_client: AsyncSteel, respx_mock: MockRouter) -> None:
+        respx_mock.get("/v1/sessions/182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e/hls").mock(
+            return_value=httpx.Response(200, json={"foo": "bar"})
+        )
+        async with async_client.sessions.with_streaming_response.hls(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as session:
+            assert not session.is_closed
+            assert session.http_request.headers.get("X-Steel-Lang") == "python"
+
+            assert await session.json() == {"foo": "bar"}
+            assert cast(Any, session.is_closed) is True
+            assert isinstance(session, AsyncStreamedBinaryAPIResponse)
+
+        assert cast(Any, session.is_closed) is True
+
+    @parametrize
+    @pytest.mark.respx(base_url=base_url)
+    async def test_path_params_hls(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.sessions.with_raw_response.hls(
+                "",
             )
 
     @parametrize
@@ -1688,7 +2325,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionLiveDetailsResponse, session, path=["response"])
 
@@ -1698,7 +2335,7 @@ class TestAsyncSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionLiveDetailsResponse, session, path=["response"])
@@ -1710,6 +2347,57 @@ class TestAsyncSessions:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             await async_client.sessions.with_raw_response.live_details(
                 "",
+            )
+
+    @parametrize
+    async def test_method_logs(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_method_logs_with_all_params(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+            event_types=["string"],
+            limit=1,
+            namespace="namespace",
+            offset=0,
+            start_time=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_logs(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_logs(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.logs(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionLogsResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_logs(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.sessions.with_raw_response.logs(
+                id="",
             )
 
     @parametrize
@@ -1726,7 +2414,7 @@ class TestAsyncSessions:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionReleaseResponse, session, path=["response"])
 
@@ -1736,7 +2424,7 @@ class TestAsyncSessions:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionReleaseResponse, session, path=["response"])
@@ -1767,7 +2455,7 @@ class TestAsyncSessions:
         response = await async_client.sessions.with_raw_response.release_all()
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         session = await response.parse()
         assert_matches_type(SessionReleaseAllResponse, session, path=["response"])
 
@@ -1775,9 +2463,118 @@ class TestAsyncSessions:
     async def test_streaming_response_release_all(self, async_client: AsyncSteel) -> None:
         async with async_client.sessions.with_streaming_response.release_all() as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             session = await response.parse()
             assert_matches_type(SessionReleaseAllResponse, session, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_replace_metadata(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.replace_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+        assert_matches_type(SessionReplaceMetadataResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_replace_metadata(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.replace_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionReplaceMetadataResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_replace_metadata(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.replace_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionReplaceMetadataResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_replace_metadata(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.sessions.with_raw_response.replace_metadata(
+                id="",
+                metadata={"foo": "string"},
+            )
+
+    @parametrize
+    async def test_method_signal_catalog(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.signal_catalog()
+        assert_matches_type(SessionSignalCatalogResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_signal_catalog(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.signal_catalog()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionSignalCatalogResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_signal_catalog(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.signal_catalog() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionSignalCatalogResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_update_metadata(self, async_client: AsyncSteel) -> None:
+        session = await async_client.sessions.update_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+        assert_matches_type(SessionUpdateMetadataResponse, session, path=["response"])
+
+    @parametrize
+    async def test_raw_response_update_metadata(self, async_client: AsyncSteel) -> None:
+        response = await async_client.sessions.with_raw_response.update_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
+        session = await response.parse()
+        assert_matches_type(SessionUpdateMetadataResponse, session, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_update_metadata(self, async_client: AsyncSteel) -> None:
+        async with async_client.sessions.with_streaming_response.update_metadata(
+            id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            metadata={"foo": "string"},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
+
+            session = await response.parse()
+            assert_matches_type(SessionUpdateMetadataResponse, session, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_update_metadata(self, async_client: AsyncSteel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.sessions.with_raw_response.update_metadata(
+                id="",
+                metadata={"foo": "string"},
+            )

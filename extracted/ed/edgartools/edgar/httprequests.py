@@ -1,10 +1,14 @@
+import errno
 import gzip
 import inspect
 import logging
 import os
+import posixpath
 import shutil
+import stat
 import tarfile
 import tempfile
+import time
 import uuid
 import zipfile
 from contextlib import contextmanager
@@ -15,9 +19,9 @@ from io import BytesIO
 from pathlib import Path
 from typing import Optional, Union, cast
 
-import httpcore
+import httpcore2
 import orjson as json
-from httpx import URL, AsyncClient, ConnectError, HTTPError, ReadTimeout, RequestError, Response, Timeout, TimeoutException
+from httpx2 import URL, AsyncClient, ConnectError, HTTPError, ReadTimeout, RequestError, Response, Timeout, TimeoutException
 from stamina import retry
 from tqdm import tqdm
 
@@ -25,14 +29,14 @@ from tqdm import tqdm
 logging.getLogger("stamina").setLevel(logging.ERROR)
 
 from edgar.core import text_extensions
-from edgar.settings import get_edgar_data_directory
 from edgar.exceptions import (
     IdentityNotSetError,
     TooManyRequestsError,
     TransportError,
-    strict_errors_enabled,
+    ValidationError,
 )
-from edgar.httpclient import async_http_client, http_client
+from edgar.httpclient import async_http_client, http_client, uncached_http_client
+from edgar.settings import get_edgar_data_directory
 
 """
 This module provides functions to handle HTTP requests with retry logic, throttling, and identity management.
@@ -40,6 +44,7 @@ This module provides functions to handle HTTP requests with retry logic, throttl
 __all__ = [
     "get_with_retry",
     "get_with_retry_no_time_budget",
+    "get_once",
     "get_with_retry_async",
     "stream_with_retry",
     "post_with_retry",
@@ -86,17 +91,17 @@ BULK_TIMEOUT = Timeout(300.0, connect=10.0)
 SSL_RETRY_ATTEMPTS = 2  # 1 retry = 2 total attempts
 SSL_WAIT_MAX = 5  # Short delay for SSL retries
 
-# Exception types to retry on - includes both httpx and httpcore exceptions
+# Exception types to retry on - includes both httpx2 and httpcore2 exceptions
 RETRYABLE_EXCEPTIONS = (
     # HTTPX exceptions
     RequestError, HTTPError, TimeoutException, ConnectError, ReadTimeout,
     # HTTPCORE exceptions that can slip through
-    httpcore.ReadTimeout, httpcore.WriteTimeout, httpcore.ConnectTimeout,
-    httpcore.PoolTimeout, httpcore.ConnectError, httpcore.NetworkError,
-    httpcore.TimeoutException,
+    httpcore2.ReadTimeout, httpcore2.WriteTimeout, httpcore2.ConnectTimeout,
+    httpcore2.PoolTimeout, httpcore2.ConnectError, httpcore2.NetworkError,
+    httpcore2.TimeoutException,
     # Protocol errors - connection dropped mid-download ("peer closed connection
     # without sending complete message body")
-    httpcore.RemoteProtocolError,
+    httpcore2.RemoteProtocolError,
     # Gzip decompression exceptions - can occur with corrupted downloads
     EOFError, gzip.BadGzipFile
 )
@@ -111,9 +116,9 @@ def is_ssl_error(exc: Exception) -> bool:
     """
     import ssl
 
-    # Check if any httpx/httpcore exception wraps an SSL error
-    if isinstance(exc, (ConnectError, httpcore.ConnectError,
-                       httpcore.NetworkError, httpcore.ProxyError)):
+    # Check if any httpx2/httpcore2 exception wraps an SSL error
+    if isinstance(exc, (ConnectError, httpcore2.ConnectError,
+                       httpcore2.NetworkError, httpcore2.ProxyError)):
         cause = exc.__cause__
         while cause:
             if isinstance(cause, ssl.SSLError):
@@ -140,7 +145,7 @@ def should_retry(exc: Exception) -> bool:
         True if the exception should be retried, False otherwise
     """
     # Don't retry SSL errors - fail fast with helpful message
-    if isinstance(exc, (ConnectError, httpcore.ConnectError)):
+    if isinstance(exc, (ConnectError, httpcore2.ConnectError)):
         if is_ssl_error(exc):
             return False
 
@@ -150,8 +155,7 @@ def should_retry(exc: Exception) -> bool:
 
 # TooManyRequestsError and IdentityNotSetError are defined in edgar.exceptions
 # (bead edgartools-07lk.10) and re-exported here, so `from edgar.httprequests
-# import TooManyRequestsError` keeps working. IdentityNotSetException is the
-# deprecated spelling \u2014 see the module __getattr__ at the end of this file.
+# import TooManyRequestsError` keeps working.
 
 
 # =============================================================================
@@ -174,9 +178,10 @@ class SSLDiagnostic:
     configured_verify: bool           # What httpx_params["verify"] says
     client_exists: bool               # Whether HTTP client has been created
     client_verify: Optional[bool]     # What the client is actually using
-    requests_ca_bundle: Optional[str] # REQUESTS_CA_BUNDLE env var
+    requests_ca_bundle: Optional[str] # REQUESTS_CA_BUNDLE env var, which httpx2 never reads
     ssl_cert_file: Optional[str]      # SSL_CERT_FILE env var
-    certifi_path: Optional[str]       # Default Python cert bundle path
+    certifi_path: Optional[str]       # certifi's bundle, if installed: public roots to combine with
+    cert_source: str = "os-store"     # httpclient.get_cert_source() for the configured verify
 
     @property
     def mismatch(self) -> bool:
@@ -187,8 +192,8 @@ class SSLDiagnostic:
 
     @property
     def custom_ca_configured(self) -> bool:
-        """True if a custom CA bundle is configured."""
-        return bool(self.requests_ca_bundle or self.ssl_cert_file)
+        """True if verification reads a CA file or directory instead of the OS store."""
+        return self.cert_source in ("SSL_CERT_FILE", "SSL_CERT_DIR", "custom")
 
     @property
     def status(self) -> str:
@@ -267,7 +272,10 @@ def _get_ssl_diagnostic() -> SSLDiagnostic:
     requests_ca_bundle = os.environ.get('REQUESTS_CA_BUNDLE')
     ssl_cert_file = os.environ.get('SSL_CERT_FILE')
 
-    # Get certifi path
+    from edgar.httpclient import get_cert_source
+
+    # certifi is not what verifies (httpx2 never reads it); its bundle is only
+    # offered as a source of public roots for an SSL_CERT_FILE.
     certifi_path = None
     try:
         import certifi
@@ -282,6 +290,7 @@ def _get_ssl_diagnostic() -> SSLDiagnostic:
         requests_ca_bundle=requests_ca_bundle,
         ssl_cert_file=ssl_cert_file,
         certifi_path=certifi_path,
+        cert_source=get_cert_source(configured_verify),
     )
 
 
@@ -328,6 +337,35 @@ An SSL certificate verification error occurred.""",
     return causes.get(category, causes[SSLErrorCategory.UNKNOWN])
 
 
+def _describe_cert_source(diag: SSLDiagnostic) -> str:
+    """One line naming the CAs that verification trusts."""
+    if diag.cert_source == "os-store":
+        return "OS certificate store"
+    if diag.cert_source == "SSL_CERT_FILE":
+        return f"SSL_CERT_FILE ({diag.ssl_cert_file})"
+    if diag.cert_source == "SSL_CERT_DIR":
+        return f"SSL_CERT_DIR ({os.environ.get('SSL_CERT_DIR')})"
+    if diag.cert_source == "custom":
+        return "custom SSL context"
+    return "none (verification disabled)"
+
+
+def _combined_bundle_steps(diag: SSLDiagnostic) -> str:
+    """Shell steps that build an SSL_CERT_FILE holding the corporate CA and the public roots."""
+    # certifi only supplies the public roots here; it is not what verifies. The floor keeps
+    # the roots CA bundles have since distrusted (emSign, October 2026) out of a new copy.
+    steps = ['     pip install --upgrade "certifi>=2026.10.19"']
+    if diag.certifi_path:
+        steps.append(f'     cat "{diag.certifi_path}" \\')
+    else:
+        steps.append('     cat "$(python -m certifi)" \\')
+    steps += [
+        "         /path/to/corporate-ca.crt > ~/combined-bundle.pem",
+        '     export SSL_CERT_FILE="$HOME/combined-bundle.pem"',
+    ]
+    return "\n".join(steps)
+
+
 def _build_diagnostic_section(diag: SSLDiagnostic) -> str:
     """Build the diagnostic section showing configuration state."""
     lines = ["", "Configuration Status:"]
@@ -342,14 +380,9 @@ def _build_diagnostic_section(diag: SSLDiagnostic) -> str:
         mismatch_marker = "  ⚠️ MISMATCH" if diag.mismatch else ""
         lines.append(f"  HTTP client actual:     {client_str}{mismatch_marker}")
 
-    # Show custom CA if configured
-    if diag.custom_ca_configured:
-        if diag.requests_ca_bundle:
-            lines.append(f"  REQUESTS_CA_BUNDLE:     {diag.requests_ca_bundle}")
-        if diag.ssl_cert_file:
-            lines.append(f"  SSL_CERT_FILE:          {diag.ssl_cert_file}")
-    elif diag.certifi_path:
-        lines.append(f"  Python cert bundle:     {diag.certifi_path}")
+    lines.append(f"  Certificate source:     {_describe_cert_source(diag)}")
+    if diag.requests_ca_bundle:
+        lines.append(f"  REQUESTS_CA_BUNDLE:     {diag.requests_ca_bundle} (not read by edgartools; use SSL_CERT_FILE)")
 
     # Add mismatch explanation if applicable
     if diag.mismatch:
@@ -403,49 +436,46 @@ SSL verification is disabled but connection still failed. Try:
 
   3. Verify SEC.gov is not blocked by your firewall"""
 
-    # CUSTOM_CA_NOT_WORKING: CA bundle configured but not working
+    # CUSTOM_CA_NOT_WORKING: a CA file or directory replaces the OS store and still fails
     if status == "CUSTOM_CA_NOT_WORKING":
-        certifi_path = diag.certifi_path or "/path/to/certifi/cacert.pem"
         return f"""
 Solution:
 ---------
-Custom CA bundle is configured but verification still failed. Check:
+Verification uses {_describe_cert_source(diag)} instead of your OS
+certificate store, and it still failed. Check:
 
-  1. Verify the CA file contains your corporate root certificate
+  1. The file replaces the OS store, so it must hold BOTH your corporate
+     root CA AND the public roots SEC.gov chains to:
 
-  2. Ensure file includes BOTH corporate CA AND standard CAs:
+{_combined_bundle_steps(diag)}
 
-     cat "{certifi_path}" \\
-         /path/to/corporate-ca.crt > ~/combined-bundle.pem
-     export REQUESTS_CA_BUNDLE="$HOME/combined-bundle.pem"
+  2. Or verify against your OS certificate store instead: unset
+     SSL_CERT_FILE / SSL_CERT_DIR, or
 
-  3. Fallback - disable verification:
+     from edgar import configure_http
+     configure_http(use_system_certs=True)
+
+  3. Last resort - disable verification:
 
      from edgar import configure_http
      configure_http(verify_ssl=False)"""
 
-    # SSL_ENABLED: Default state, user hasn't tried to disable
-    certifi_path = diag.certifi_path or "/path/to/certifi/cacert.pem"
-
+    # SSL_ENABLED: verifying against the OS store, the 6.0 default
     if category == SSLErrorCategory.CORPORATE_NETWORK:
-        return """
+        return f"""
 Solutions:
 ----------
+edgartools already verifies against your OS certificate store, so the
+certificate your network presents is signed by a CA that store lacks.
 
-1. RECOMMENDED - Use your OS certificate store:
+1. RECOMMENDED - Ask IT to install your corporate root CA in the OS trust
+   store (Keychain on macOS, the Windows certificate store, or the
+   ca-certificates package on Linux). edgartools picks it up with no code change.
 
-   from edgar import configure_http
-   configure_http(use_system_certs=True)
+2. SECURE OPTION - Point SSL_CERT_FILE at a bundle holding the corporate CA
+   and the public roots:
 
-   # Then your code
-   from edgar import Company
-   company = Company("AAPL")
-
-2. SECURE OPTION - Add corporate root CA certificate:
-
-   Ask IT for your corporate root CA certificate file, then:
-
-   export REQUESTS_CA_BUNDLE="/path/to/corporate-ca-bundle.pem"
+{_combined_bundle_steps(diag)}
 
 3. LAST RESORT - Disable SSL verification:
 
@@ -463,25 +493,21 @@ Solutions:
 
 2. If the issue persists, this may be a temporary SEC.gov issue
 
-3. Try using your OS certificate store:
-
-   from edgar import configure_http
-   configure_http(use_system_certs=True)
-
-4. Last resort - disable SSL verification:
+3. Last resort - disable SSL verification:
 
    from edgar import configure_http
    configure_http(verify_ssl=False)"""
 
     else:
         # Generic solution for other categories
-        return """
+        return f"""
 Solution:
 ---------
-Use your OS certificate store:
+edgartools verifies against your OS certificate store. If your network
+re-signs HTTPS traffic, install its root CA in the OS trust store, or point
+SSL_CERT_FILE at a bundle holding that CA and the public roots:
 
-  from edgar import configure_http
-  configure_http(use_system_certs=True)
+{_combined_bundle_steps(diag)}
 
 If that doesn't work, disable SSL verification (last resort):
 
@@ -521,8 +547,9 @@ Error: {str(self.original_error)}"""
         diagnostic = _build_diagnostic_section(self.diagnostic)
         solution = _build_solution_section(self.category, self.diagnostic)
 
-        footer = """
-💡 Recommended: configure_http(use_system_certs=True) uses your OS certificates securely.
+        footer = f"""
+💡 Certificates are verified against: {_describe_cert_source(self.diagnostic)}.
+   Add a corporate CA to the OS trust store, or point SSL_CERT_FILE at a bundle.
 ⚠️  Only disable SSL verification (verify_ssl=False) as a last resort.
 
 Details: https://github.com/dgunning/edgartools/blob/main/docs/guides/ssl_verification.md"""
@@ -554,13 +581,12 @@ Details: https://github.com/dgunning/edgartools/blob/main/docs/guides/ssl_verifi
 # despite no request being made, because "no request can be made at all"
 # reported as "not found" is the same lie in a different costume.
 #
-# Both families stay listed through 6.0 on purpose. `TransportError` is what the
-# boundary wrap raises under strict; `HTTPError` is what still comes through
-# unwrapped when it is off. Keeping both means a call site written against this
-# tuple behaves identically in either era — cheap insurance, and the reason the
-# strict CI job can prove the internal code is ready before the flip lands.
+# Both families stay listed. `TransportError` is what the boundary wrap raises
+# (unconditionally since 6.0); `HTTPError` still comes from any request made
+# outside the six wrapped boundary functions. Keeping both means a call site
+# written against this tuple does not depend on which path raised.
 TRANSPORT_ERRORS = (
-    HTTPError,        # httpx base: connect, read, timeout, protocol, status
+    HTTPError,        # httpx2 base: connect, read, timeout, protocol, status
     TransportError,   # ours: the wrapped era, plus 429 / SSL / identity always
 )
 
@@ -572,15 +598,15 @@ TRANSPORT_ERRORS = (
 # and swallowing them would hide a bug behind a plausible empty result.
 UNREACHABLE_ERRORS = (
     TimeoutException, ConnectError, ReadTimeout,
-    httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError,
+    httpcore2.TimeoutException, httpcore2.ConnectError, httpcore2.NetworkError,
 )
 
 
 def is_unreachable(exc: BaseException) -> bool:
     """True when the request never reached SEC, in either error era.
 
-    The pre-wrap era raises httpx and httpcore types; under the strict wrap the
-    same failure arrives as a `TransportError` carrying no status. Asking this
+    Outside the boundary wrap a failure is an httpx2 or httpcore2 type; through
+    it, the same failure arrives as a `TransportError` carrying no status. Asking this
     function instead of naming types is what lets one `except` clause mean the
     same thing before and after the 6.0 flip.
 
@@ -598,8 +624,8 @@ def is_unreachable(exc: BaseException) -> bool:
 
 
 def _request_url(exc: BaseException) -> Optional[str]:
-    """The URL an httpx error was raised for, or None if it does not carry one."""
-    # httpx.RequestError.request RAISES RuntimeError when the request was never
+    """The URL an httpx2 error was raised for, or None if it does not carry one."""
+    # httpx2.RequestError.request RAISES RuntimeError when the request was never
     # attached, so this cannot be a getattr with a default.
     try:
         return str(exc.request.url)  # type: ignore[attr-defined]
@@ -620,7 +646,7 @@ def _called_url(args, kwargs) -> Optional[str]:
 
 
 def _as_transport_error(exc: HTTPError, url: Optional[str]) -> TransportError:
-    """Translate an httpx failure into our own vocabulary.
+    """Translate an httpx2 failure into our own vocabulary.
 
     Two outcomes, and the difference between them is the point: a status means
     SEC answered and refused, no status means we never got that far.
@@ -651,7 +677,7 @@ def _as_transport_error(exc: HTTPError, url: Optional[str]) -> TransportError:
 
 
 def wrap_transport_errors(func):
-    """Translate httpx failures into `TransportError` at the network boundary.
+    """Translate httpx2 failures into `TransportError` at the network boundary.
 
     APPLY THIS ABOVE `@retry`, NEVER BELOW IT. stamina decides whether to retry
     by testing the raised exception against `should_retry`, and `TransportError`
@@ -662,10 +688,10 @@ def wrap_transport_errors(func):
     notice. Outside the decorator, the translation only ever sees the exception
     that survived every attempt.
 
-    Gated on `strict_errors_enabled()` because user code may be catching
-    `httpx.HTTPError` around our calls; the wrap becomes unconditional in 6.0.
-    The original is always the `__cause__`, so `raise ... from e` keeps it
-    reachable for debugging without putting an httpx type in any signature.
+    Unconditional since 6.0 (edgartools-07lk.10); in 5.x it was gated on
+    `EDGARTOOLS_STRICT_ERRORS`, because user code may have been catching
+    `httpx2.HTTPError` around our calls. The original is always the `__cause__`, so `raise ... from e` keeps it
+    reachable for debugging without putting an httpx2 type in any signature.
     """
     # inspect must see through stamina's and with_identity's wrappers.
     # isgeneratorfunction does not follow __wrapped__ on its own, and reading
@@ -680,8 +706,6 @@ def wrap_transport_errors(func):
             try:
                 return await func(*args, **kwargs)
             except HTTPError as e:
-                if not strict_errors_enabled():
-                    raise
                 raise _as_transport_error(e, _called_url(args, kwargs)) from e
         return wrapper
 
@@ -691,8 +715,6 @@ def wrap_transport_errors(func):
             try:
                 yield from func(*args, **kwargs)
             except HTTPError as e:
-                if not strict_errors_enabled():
-                    raise
                 raise _as_transport_error(e, _called_url(args, kwargs)) from e
         return wrapper
 
@@ -701,8 +723,6 @@ def wrap_transport_errors(func):
         try:
             return func(*args, **kwargs)
         except HTTPError as e:
-            if not strict_errors_enabled():
-                raise
             raise _as_transport_error(e, _called_url(args, kwargs)) from e
     return wrapper
 
@@ -716,7 +736,7 @@ def redirect_url(url, response) -> str:
 
     ``Location`` may be relative (RFC 7231 7.1.2) and SEC uses that form:
     ``/about/opendatasetsshtmlinvestment_company`` 301s to a bare
-    ``/data-research/...`` path. Following the header verbatim hands httpx a
+    ``/data-research/...`` path. Following the header verbatim hands httpx2 a
     URL with no scheme, which fails with ``UnsupportedProtocol`` — the request
     never reaches the network, so callers see a hard error rather than a
     redirect. ``URL.join`` does RFC 3986 reference resolution, leaving absolute
@@ -848,17 +868,17 @@ def get_with_retry(url, identity=None, identity_callable=None, **kwargs):
         url (str): The URL to send the GET request to.
         identity (str, optional): The identity to use for the request. Defaults to None.
         identity_callable (callable, optional): A callable that returns the identity. Defaults to None.
-        **kwargs: Additional keyword arguments to pass to the underlying httpx.Client.get() method.
+        **kwargs: Additional keyword arguments to pass to the underlying httpx2.Client.get() method.
 
     Returns:
-        httpx.Response: The response object returned by the GET request.
+        httpx2.Response: The response object returned by the GET request.
 
     Raises:
         TooManyRequestsError: If the response status code is 429 (Too Many Requests).
         SSLVerificationError: If SSL certificate verification fails.
-        TransportError: Under EDGARTOOLS_STRICT_ERRORS (unconditional in 6.0),
-            any other httpx failure that survived every retry, with the original
-            as its ``__cause__``. Without the flag those propagate as httpx types.
+        TransportError:
+            any other httpx2 failure that survived every retry, with the original
+            as its ``__cause__``.
     """
     return _get(get_with_retry, url, identity=identity, identity_callable=identity_callable, **kwargs)
 
@@ -885,6 +905,18 @@ def get_with_retry_no_time_budget(url, identity=None, identity_callable=None, **
     ``timeout=Timeout(90.0, connect=10.0)``.
     """
     return _get(get_with_retry_no_time_budget, url, identity=identity, identity_callable=identity_callable, **kwargs)
+
+
+@wrap_transport_errors
+@with_identity
+def get_once(url, identity=None, identity_callable=None, **kwargs):
+    """One GET attempt with no retries, through the shared client.
+
+    For an optional refresh that has a local answer to fall back on, such as the
+    live ticker file over the bundled one (GH #1588). Offline, `get_with_retry`
+    spends about 16s in retries before it gives up, which there buys nothing.
+    """
+    return _get(get_once, url, identity=identity, identity_callable=identity_callable, **kwargs)
 
 
 def _get(retry_fn, url, identity=None, identity_callable=None, **kwargs):
@@ -916,17 +948,17 @@ async def get_with_retry_async(client: AsyncClient, url, identity=None, identity
         url (str): The URL to send the GET request to.
         identity (str, optional): The identity to use for the request. Defaults to None.
         identity_callable (callable, optional): A callable that returns the identity. Defaults to None.
-        **kwargs: Additional keyword arguments to pass to the underlying httpx.AsyncClient.get() method.
+        **kwargs: Additional keyword arguments to pass to the underlying httpx2.AsyncClient.get() method.
 
     Returns:
-        httpx.Response: The response object returned by the GET request.
+        httpx2.Response: The response object returned by the GET request.
 
     Raises:
         TooManyRequestsError: If the response status code is 429 (Too Many Requests).
         SSLVerificationError: If SSL certificate verification fails.
-        TransportError: Under EDGARTOOLS_STRICT_ERRORS (unconditional in 6.0),
-            any other httpx failure that survived every retry, with the original
-            as its ``__cause__``. Without the flag those propagate as httpx types.
+        TransportError:
+            any other httpx2 failure that survived every retry, with the original
+            as its ``__cause__``.
     """
     with _ssl_errors_as_verification_error(url):
         response = await client.get(url, **kwargs)
@@ -958,7 +990,7 @@ def stream_with_retry(url, identity=None, identity_callable=None, bypass_cache=F
         identity (str, optional): The identity to use for the request. Defaults to None.
         identity_callable (callable, optional): A callable that returns the identity. Defaults to None.
         bypass_cache (bool): If True, bypass the HTTP cache for this request. Defaults to False.
-        **kwargs: Additional keyword arguments to pass to the underlying httpx.Client.stream() method.
+        **kwargs: Additional keyword arguments to pass to the underlying httpx2.Client.stream() method.
 
     Yields:
         bytes: The bytes of the response content.
@@ -966,17 +998,19 @@ def stream_with_retry(url, identity=None, identity_callable=None, bypass_cache=F
     Raises:
         TooManyRequestsError: If the response status code is 429 (Too Many Requests).
         SSLVerificationError: If SSL certificate verification fails.
-        TransportError: Under EDGARTOOLS_STRICT_ERRORS (unconditional in 6.0),
-            any other httpx failure that survived every retry, with the original
-            as its ``__cause__``. Without the flag those propagate as httpx types.
+        TransportError:
+            any other httpx2 failure that survived every retry, with the original
+            as its ``__cause__``.
     """
     try:
-        with http_client(bypass_cache=bypass_cache) as client:
+        client_cm = uncached_http_client() if bypass_cache else http_client()
+        with client_cm as client:
             with client.stream("GET", url, **kwargs) as response:
                 if response.status_code == 429:
                     raise TooManyRequestsError(url, retry_after=_get_retry_after(response))
                 elif is_redirect(response):
-                    response = stream_with_retry(redirect_url(url, response), identity=identity, identity_callable=identity_callable, **kwargs)
+                    response = stream_with_retry(redirect_url(url, response), identity=identity, identity_callable=identity_callable,
+                                                bypass_cache=bypass_cache, **kwargs)
                     yield from response
                 else:
                     yield response
@@ -1006,17 +1040,17 @@ def post_with_retry(url, data=None, json=None, identity=None, identity_callable=
         json (dict, optional): The JSON data to include in the request body. Defaults to None.
         identity (str, optional): The identity to use for the request. Defaults to None.
         identity_callable (callable, optional): A callable that returns the identity. Defaults to None.
-        **kwargs: Additional keyword arguments to pass to the underlying httpx.Client.post() method.
+        **kwargs: Additional keyword arguments to pass to the underlying httpx2.Client.post() method.
 
     Returns:
-        httpx.Response: The response object returned by the POST request.
+        httpx2.Response: The response object returned by the POST request.
 
     Raises:
         TooManyRequestsError: If the response status code is 429 (Too Many Requests).
         SSLVerificationError: If SSL certificate verification fails.
-        TransportError: Under EDGARTOOLS_STRICT_ERRORS (unconditional in 6.0),
-            any other httpx failure that survived every retry, with the original
-            as its ``__cause__``. Without the flag those propagate as httpx types.
+        TransportError:
+            any other httpx2 failure that survived every retry, with the original
+            as its ``__cause__``.
     """
     with _ssl_errors_as_verification_error(url):
         with http_client() as client:
@@ -1049,17 +1083,17 @@ async def post_with_retry_async(client: AsyncClient, url, data=None, json=None, 
         json (dict, optional): The JSON data to include in the request body. Defaults to None.
         identity (str, optional): The identity to use for the request. Defaults to None.
         identity_callable (callable, optional): A callable that returns the identity. Defaults to None.
-        **kwargs: Additional keyword arguments to pass to the underlying httpx.AsyncClient.post() method.
+        **kwargs: Additional keyword arguments to pass to the underlying httpx2.AsyncClient.post() method.
 
     Returns:
-        httpx.Response: The response object returned by the POST request.
+        httpx2.Response: The response object returned by the POST request.
 
     Raises:
         TooManyRequestsError: If the response status code is 429 (Too Many Requests).
         SSLVerificationError: If SSL certificate verification fails.
-        TransportError: Under EDGARTOOLS_STRICT_ERRORS (unconditional in 6.0),
-            any other httpx failure that survived every retry, with the original
-            as its ``__cause__``. Without the flag those propagate as httpx types.
+        TransportError:
+            any other httpx2 failure that survived every retry, with the original
+            as its ``__cause__``.
     """
     with _ssl_errors_as_verification_error(url):
         response = await client.post(url, data=data, json=json, **kwargs)
@@ -1079,7 +1113,7 @@ def inspect_response(response: Response):
     304 indicates the cached content is still valid.
 
     This is the sixth network boundary, and it needs the same wrap as the five
-    decorated functions: `raise_for_status()` raises httpx's own
+    decorated functions: `raise_for_status()` raises httpx2's own
     `HTTPStatusError`, which would otherwise leak straight out of every caller
     that inspects a response after the fact.
     """
@@ -1087,8 +1121,6 @@ def inspect_response(response: Response):
         try:
             response.raise_for_status()
         except HTTPError as e:
-            if not strict_errors_enabled():
-                raise
             raise _as_transport_error(e, str(response.url)) from e
 
 
@@ -1285,14 +1317,14 @@ async def stream_file(
     disable_progress: bool = False, **kwargs
 ) -> Union[str, bytes, None]:
     """
-    Download a file from a URL asynchronously with progress bar using httpx.
+    Download a file from a URL asynchronously with progress bar using httpx2.
 
     Args:
         url (str): The URL of the file to download.
         as_text (bool, optional): Whether to download the file as text or binary.
             If None, the default is determined based on the file extension. Defaults to None.
         path (str or Path, optional): The path where the file should be saved.
-        client: The httpx.AsyncClient instance
+        client: The httpx2.AsyncClient instance
         disable_progress (bool, optional): If True, suppress progress bar. Defaults to False.
 
     Returns:
@@ -1461,6 +1493,106 @@ def download_text_between_tags(url: str, tag: str):
 logger = logging.getLogger(__name__)
 
 
+_BULK_STAGE_MARKER = ".edgartools-stage"
+_BULK_STAGE_OWNER = b"edgartools-bulk-stage-v1\n"
+
+
+@contextmanager
+def _bulk_file_lock(path: Path, blocking: bool = True):
+    """Keep a stable lock inode; never unlink a coordinator used by other calls."""
+    with path.open("a+b") as handle:
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+                # LK_LOCK stops after ten attempts. Match flock's blocking
+                # semantics by retrying contention, while propagating other errors.
+                while True:
+                    try:
+                        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                        break
+                    except OSError as error:
+                        if not blocking or error.errno != errno.EACCES:
+                            raise
+                        time.sleep(0.1)
+            else:
+                import fcntl
+                fcntl.flock(handle, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except OSError as error:
+            if blocking or error.errno not in (errno.EACCES, errno.EAGAIN):
+                raise
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            handle.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _bulk_is_link(path: Path) -> bool:
+    info = path.lstat()
+    return stat.S_ISLNK(info.st_mode) or bool(
+        getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    )
+
+
+def _sweep_bulk_staging(directory: Path, local_dir: str):
+    """Called under the coordinator; preserve active, unknown and recovery trees."""
+    for candidate in directory.glob(f".{local_dir}-*"):
+        marker = candidate / _BULK_STAGE_MARKER
+        try:
+            if _bulk_is_link(candidate) or not candidate.is_dir() or _bulk_is_link(marker):
+                continue
+            if marker.read_bytes() != _BULK_STAGE_OWNER or (candidate / "previous").exists():
+                continue
+            with _bulk_file_lock(marker, blocking=False) as acquired:
+                if not acquired:
+                    continue
+            # Windows cannot remove the open lease file. The coordinator prevents
+            # another call claiming this abandoned tree between unlock and removal.
+            shutil.rmtree(candidate)
+        except OSError:
+            continue
+
+
+@contextmanager
+def _bulk_staging(directory: Path, local_dir: str):
+    coordinator = directory / f".{local_dir}.lock"
+    with _bulk_file_lock(coordinator):
+        _sweep_bulk_staging(directory, local_dir)
+        staging = Path(tempfile.mkdtemp(prefix=f".{local_dir}-", dir=directory))
+        try:
+            marker = staging / _BULK_STAGE_MARKER
+            marker.write_bytes(_BULK_STAGE_OWNER)
+            lease = _bulk_file_lock(marker)
+            lease.__enter__()
+        except BaseException:
+            try:
+                shutil.rmtree(staging)
+            except OSError as error:
+                logger.warning("Failed to remove uninitialised bulk staging %s: %s", staging, error)
+            raise
+    try:
+        yield staging
+    finally:
+        with _bulk_file_lock(coordinator):
+            lease.__exit__(None, None, None)
+            if (staging / "previous").exists():
+                logger.error("Bulk cache recovery retained at %s", staging / "previous")
+            else:
+                try:
+                    shutil.rmtree(staging)
+                except OSError as error:
+                    logger.warning("Failed to remove bulk staging %s: %s", staging, error)
+
+
 @retry(
     on=should_retry,
     attempts=BULK_RETRY_ATTEMPTS,
@@ -1475,15 +1607,22 @@ async def download_bulk_data(
         data_directory: Optional[Path] = None,
         client: Optional[AsyncClient] = None,
         disable_progress: bool = False,
+        preserve_existing_filings: bool = False,
 ) -> Path:
     """
     Download and extract bulk data from zip or tar.gz archives
 
+    A refresh replaces the whole ``data_directory/<archive name>`` directory. It never
+    leaves a mix of old and new files, but the swap is two renames, so a reader that
+    looks between them briefly finds no directory.
+
     Args:
-        client: The httpx.AsyncClient instance
+        client: The httpx2.AsyncClient instance
         url: URL to download from (e.g. "https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip")
         data_directory: Base directory for downloads
         disable_progress: If True, suppress progress bars. Defaults to False.
+        preserve_existing_filings: Keep existing .nc and .nc.gz files absent from
+            the archive, for incremental filtered filing downloads.
 
     Returns:
         Path to the directory containing the extracted data
@@ -1506,16 +1645,19 @@ async def download_bulk_data(
         raise ValueError("Invalid URL - cannot extract filename")
 
     local_dir = filename.split(".")[0]
-    download_path = data_directory / local_dir
-    download_filename = download_path / filename
+    destination_path = data_directory / local_dir
+    data_directory.mkdir(parents=True, exist_ok=True)
+    # Stage beside the cache so the final swap is a same-filesystem rename.
+    staging = _bulk_staging(data_directory, local_dir)
+    staging_path = staging.__enter__()
+    download_filename = staging_path / filename
+    download_path = staging_path / local_dir
 
     try:
-        # Create the directory with parents=True and exist_ok=True to avoid race conditions
-        download_path.mkdir(parents=True, exist_ok=True)
-
+        download_path.mkdir()
         # Download the file
         try:
-            await stream_file(url, client=client, path=download_path, disable_progress=disable_progress)
+            await stream_file(url, client=client, path=staging_path, disable_progress=disable_progress)
         except Exception as e:
             raise IOError(f"Failed to download file: {e}") from e
 
@@ -1534,29 +1676,35 @@ async def download_bulk_data(
                             pbar.update(info.file_size)
 
             elif any(filename.endswith(ext) for ext in (".tar.gz", ".tgz")):
+                if not hasattr(tarfile, "tar_filter"):
+                    raise RuntimeError("Extracting bulk tar archives safely requires Python 3.11.4 or later")
                 with tarfile.open(download_filename, "r:gz") as tar:
                     # Security check for tar files to prevent path traversal
-                    def is_within_directory(directory: Path, target: Path) -> bool:
+                    root = download_path.resolve()
+
+                    def is_within_directory(target: Path) -> bool:
                         try:
-                            return os.path.commonpath([directory, target]) == str(directory)
+                            return os.path.commonpath([root, target.resolve()]) == str(root)
                         except ValueError:
                             return False
 
                     members = tar.getmembers()
+                    if any(not (member.isfile() or member.isdir()) for member in members):
+                        raise ValidationError("Bulk archives must contain regular files and directories")
                     total_size = sum(member.size for member in members)
 
                     with tqdm(total=total_size, unit="B", unit_scale=True, desc="Extracting", disable=disable_progress) as pbar:
                         for member in members:
                             # Check for path traversal
                             member_path = os.path.join(str(download_path), member.name)
-                            if not is_within_directory(Path(str(download_path)), Path(member_path)):
+                            if not is_within_directory(Path(member_path)):
                                 raise ValueError(f"Attempted path traversal in tar file: {member.name}")
+                            # Python before 3.11.17 and 3.12.15 creates the parent "nested/.." of
+                            # "nested/../x" literally and fails, so extract the normalised name.
+                            member.name = posixpath.normpath(member.name)
 
                             # Extract file and update progress
-                            try:
-                                tar.extract(member, str(download_path), filter="tar")
-                            except TypeError:
-                                tar.extract(member, str(download_path))
+                            tar.extract(member, str(download_path), filter="tar")
                             pbar.update(member.size)
             else:
                 raise ValueError(f"Unsupported file format: {filename}")
@@ -1572,16 +1720,47 @@ async def download_bulk_data(
             except Exception as e:
                 logger.warning("Failed to delete archive file %s: %s", download_filename, e)
 
-        return download_path
+        # Tar links and special files are refused before extraction above. ZipFile.extract
+        # cannot create links, so this check is a backstop for what reached the disk.
+        if any(member.is_symlink() for member in download_path.rglob("*")):
+            raise ValidationError("Bulk archives must contain regular files and directories")
 
-    except Exception:
-        # Clean up the download directory in case of any errors
+        # Swap whole directories so the cache never holds a mix of old and new files:
+        # move the old tree into staging, move the new tree into place, and restore the
+        # old tree if that fails. Staging cleanup then deletes the old tree. Between the
+        # two renames the directory is briefly absent (see the docstring).
+        previous_path = staging_path / "previous"
+        with _bulk_file_lock(data_directory / f".{local_dir}.lock"):
+            if preserve_existing_filings and destination_path.exists():
+                if _bulk_is_link(destination_path):
+                    raise ValidationError("Existing filing directory must not be a link")
+                for existing in destination_path.iterdir():
+                    if existing.name.endswith((".nc", ".nc.gz")):
+                        if _bulk_is_link(existing) or not existing.is_file():
+                            raise ValidationError("Existing filings must be regular files")
+                        preserved = download_path / existing.name
+                        if not preserved.exists():
+                            shutil.copy2(existing, preserved)
+            if destination_path.exists():
+                os.replace(destination_path, previous_path)
+            try:
+                os.replace(download_path, destination_path)
+            except BaseException:
+                if previous_path.exists():
+                    try:
+                        os.replace(previous_path, destination_path)
+                    except OSError:
+                        logger.exception("Failed to restore bulk cache; recover from %s", previous_path)
+                raise
+            if previous_path.exists():
+                shutil.rmtree(previous_path)
+        return destination_path
+
+    finally:
         try:
-            if download_path.exists():
-                shutil.rmtree(download_path)
+            staging.__exit__(None, None, None)
         except Exception as cleanup_error:
             logger.error("Failed to clean up after error: %s", cleanup_error)
-        raise
 
 
 def download_datafile(data_url: str, local_directory: Optional[Path] = None) -> Path:
@@ -1595,13 +1774,3 @@ def download_datafile(data_url: str, local_directory: Optional[Path] = None) -> 
     download_filename = local_directory / filename
     download_file(data_url, path=download_filename)
     return download_filename
-
-
-# ---------------------------------------------------------------------------
-# Deprecated names (bead edgartools-07lk.10). Same objects as the canonical
-# classes, so `except IdentityNotSetException:` still works; touching the name
-# warns. Removed in 6.0.
-# ---------------------------------------------------------------------------
-from edgar._compat import deprecated_alias  # noqa: E402
-
-__getattr__ = deprecated_alias(IdentityNotSetException=IdentityNotSetError)

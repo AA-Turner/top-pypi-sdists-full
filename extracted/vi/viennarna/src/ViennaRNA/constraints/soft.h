@@ -20,6 +20,7 @@ typedef struct  vrna_sc_s vrna_sc_t;
 #include <ViennaRNA/datastructures/basic.h>
 #include <ViennaRNA/fold_compound.h>
 #include <ViennaRNA/constraints/basic.h>
+#include <ViennaRNA/constraints/soft_iip.h>
 
 /**
  * @brief Callback to retrieve pseudo energy contribution for soft constraint feature
@@ -221,7 +222,7 @@ typedef enum {
 typedef struct {
   unsigned int  interval_start;
   unsigned int  interval_end;
-  int           e;
+  double        e; /**< Energy contribution in units of 0.01 kcal/mol */
 } vrna_sc_bp_storage_t;
 
 
@@ -238,16 +239,20 @@ struct vrna_sc_s {
   const vrna_sc_type_e  type; /**< @brief Type of the soft constraints data structure */
   unsigned int          n;    /**< @brief Length of the sequence this soft constraints data structure belongs to */
 
+
   unsigned char         state; /**< @brief  Current state of the soft constraints data structure */
 
   int                   **energy_up;      /**<  @brief Energy contribution for stretches of unpaired nucleotides */
   FLT_OR_DBL            **exp_energy_up;  /**<  @brief Boltzmann Factors of the energy contributions for unpaired sequence stretches */
 
-  int                   *up_storage;      /**<  @brief  Storage container for energy contributions per unpaired nucleotide */
+  double                *up_storage;      /**<  @brief  Storage container for energy contributions per unpaired nucleotide in units of 0.01 kcal/mol */
   vrna_sc_bp_storage_t  **bp_storage;     /**<  @brief  Storage container for energy contributions per base pair */
 
-  int           *energy_stack;                    /**<  @brief Pseudo Energy contribution per base pair involved in a stack */
-  FLT_OR_DBL    *exp_energy_stack;                /**<  @brief Boltzmann weighted pseudo energy contribution per nucleotide involved in a stack */
+  int                   *energy_stack;      /**<  @brief Pseudo Energy contribution per base pair involved in a stack */
+  FLT_OR_DBL            *exp_energy_stack;  /**<  @brief Boltzmann weighted pseudo energy contribution per nucleotide involved in a stack */
+
+  vrna_sc_iip_t         iip;               /**<  @brief  Data for interacting interval pairs */
+
   /**
    *  @}
    *
@@ -401,6 +406,10 @@ vrna_sc_free(vrna_sc_t *sc);
 /**
  *  @brief  Set soft constraints for paired nucleotides
  *
+ *  Values are stored without rounding to 0.01 kcal/mol. Partition function
+ *  calculations use these values directly; MFE calculations round the accumulated
+ *  contribution for each base pair to the nearest 0.01 kcal/mol.
+ *
  *  @note     This function replaces any pre-exisitng soft constraints with the ones supplied
  *            in @p constraints.
  *
@@ -484,6 +493,12 @@ vrna_sc_set_bp_comparative_seq(vrna_fold_compound_t *fc,
 
 /**
  *  @brief  Add soft constraints for paired nucleotides
+ *
+ *  Repeated calls accumulate contributions for the same base pair without
+ *  rounding to 0.01 kcal/mol. Partition function calculations use the accumulated
+ *  value; MFE calculations round it to the nearest 0.01 kcal/mol. For example,
+ *  adding 0.003 kcal/mol twice gives a PF contribution of 0.006 kcal/mol and an
+ *  MFE contribution of 0.01 kcal/mol.
  *
  *  @see      vrna_sc_set_bp(), vrna_sc_set_up(), vrna_sc_add_up()
  *
@@ -582,6 +597,11 @@ vrna_sc_add_bp_comparative_seq(vrna_fold_compound_t *fc,
 /**
  *  @brief  Set soft constraints for unpaired nucleotides
  *
+ *  Values are stored without rounding to 0.01 kcal/mol. Partition function
+ *  calculations use these values directly; MFE calculations round the accumulated
+ *  contribution for each nucleotide to the nearest 0.01 kcal/mol before summing
+ *  over stretches of unpaired nucleotides.
+ *
  *  @note     This function replaces any pre-exisitng soft constraints with the ones supplied
  *            in @p constraints.
  *
@@ -662,6 +682,13 @@ vrna_sc_set_up_comparative_seq(vrna_fold_compound_t *fc,
 
 /**
  *  @brief  Add soft constraints for unpaired nucleotides
+ *
+ *  Repeated calls accumulate contributions for the same nucleotide without
+ *  rounding to 0.01 kcal/mol. Partition function calculations use the accumulated
+ *  value; MFE calculations round it to the nearest 0.01 kcal/mol before summing
+ *  over stretches of unpaired nucleotides. For example, adding 0.003 kcal/mol
+ *  twice at one position gives a PF contribution of 0.006 kcal/mol and an MFE
+ *  contribution of 0.01 kcal/mol.
  *
  *  @see      vrna_sc_set_up(), vrna_sc_add_bp(), vrna_sc_set_bp(),
  *            vrna_sc_add_up_comparative()

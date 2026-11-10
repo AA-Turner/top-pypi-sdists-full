@@ -1,17 +1,17 @@
 """Reproducible, source-separated cohort reconstruction using the shared APIs."""
 
-import gzip
 import csv
+import gzip
 import json
 import logging
 import os
+import sqlite3
+import tempfile
+import traceback
 from collections import Counter
 from contextlib import ExitStack, closing
 from importlib.metadata import version
 from pathlib import Path
-import sqlite3
-import tempfile
-import traceback
 
 import pysam
 from pyensembl import EnsemblRelease
@@ -19,11 +19,15 @@ from varcode import Variant
 from varcode.reference import infer_genome
 
 from .contig_resolution import UnresolvedContigError, require_resolved_contig
+from .effect_prediction import variant_effect_summary
 from .evidence_report import (
-    catalog_coding_index, changed_reference_interval,
-    overlapping_catalog_orfs, overlaps_exon,
+    catalog_coding_index,
+    changed_reference_interval,
+    overlapping_catalog_orfs,
+    overlaps_exon,
 )
 from .isovar_result import IsovarResult
+from .json_files import read_json
 from .known_variants import KnownVariants
 from .normal_evidence import literal_allele_key
 from .protein_hypotheses import export_protein_hypotheses
@@ -31,11 +35,10 @@ from .protein_reporting import protein_comparison_status
 from .protein_sequence_creator import ProteinSequenceCreator
 from .read_collector import ReadCollector
 from .read_end_profiles import read_end_profile_file_id
+from .rna_evidence import input_sample_id
 from .rna_evidence import canonical_json, content_identifier
-from .json_files import read_json
 from .sv_rna_audit import file_sha256, run_sv_rna_audit, write_json
 from .variant_rna_orfs import reconstruct_variant_orfs
-
 
 logger = logging.getLogger(__name__)
 SCHEMA = "isovar.cohort_manifest.v1"
@@ -272,7 +275,7 @@ def _nc_orfs(variant, evidence, catalog, index, creator, sample, source, assembl
 
 def _evaluate(variant, nomination, bam, source, collector, creator, catalog, index, known, dense_limit):
     evidence = collector.read_evidence_for_variant(variant, bam)
-    effects = variant.effects() if evidence.alt_reads else []
+    effects = variant.effects()
     effect = effects.top_priority_effect() if effects else None
     dense = len(evidence.alt_reads) > dense_limit
     assembly_mode = "read_contexts" if dense else "configured"
@@ -285,7 +288,7 @@ def _evaluate(variant, nomination, bam, source, collector, creator, catalog, ind
     export = export_protein_hypotheses([result], sample_id=source["sample_id"], source=source["source_id"],
                                       alignment_header=bam.header.to_dict(),
                                       cell_umi_alignment_file=bam if source.get("cell_umi_labels") else None,
-                                      read_collector=collector if source.get("cell_umi_labels") else None)
+                                      read_collector=collector)
     contig = require_resolved_contig(collector.resolve_variant_contig(variant, bam), bam)
     raw = None
     if not (evidence.ref_reads or evidence.alt_reads or evidence.other_reads):
@@ -296,14 +299,12 @@ def _evaluate(variant, nomination, bam, source, collector, creator, catalog, ind
         gene_names = sorted({g.name for g in variant.genome.genes_at_locus(
             variant.contig, variant.original_start,
             variant.original_start + max(1, len(variant.original_ref)) - 1) if g.name})
-    length_delta = len(variant.original_alt) - len(variant.original_ref)
-    category = ("SNV" if len(variant.original_ref) == len(variant.original_alt) == 1 else
-                "Frameshift" if any(p.frameshift for p in products) or type(effect).__name__ == "FrameShift" else
-                "In-frame indel" if products and length_delta and length_delta % 3 == 0 else "Other non-SNV")
+    annotation = variant_effect_summary(variant, effects)
     nc = _nc_orfs(variant, evidence, catalog, index, creator, source["sample_id"], source["source_id"],
                   assembly_mode=assembly_mode)
     nc["assembly_route"] = "direct_read_contexts_high_depth" if dense else "overlap_assembly"
-    return dict(status="assessed", nomination=nomination, category=category, gene_names=gene_names,
+    return dict(status="assessed", nomination=nomination, category=annotation["category"],
+                annotation=annotation, gene_names=gene_names,
                 igv=f"{contig}:{variant.original_start}-"
                     f"{variant.original_start + max(1, len(variant.original_ref)) - 1}",
                 raw_alignment_overlap_when_no_allele=raw,
@@ -419,7 +420,6 @@ def run_small_variant_source(task, source, files, output, *, resume=False):
     return receipt
 
 
-
 def _write_companions(path, output):
     """Export every retained protein and a small per-call table for inspection."""
     with gzip.open(path, "rt") as stream, (output / "proteins.fasta").open("w") as fasta, \
@@ -471,14 +471,13 @@ def run_cohort(manifest_path, output_dir, *, resume=False, render_only=False, so
 
 def _source_library(source, files, collector, reference, contexts, cache_directory, libraries, *, genome_fasta=None):
     """Share original templates across RNA task families with the same policy."""
-    from .rna_library import _original_library_context
-    from .sv_rna import _collection_parameters
+    from .rna_library import original_library_context
 
-    key = source["source_id"], reference, canonical_json(_collection_parameters(collector))
+    key = source["source_id"], reference, canonical_json(collector.collection_parameters())
     if key not in libraries:
         directory = contexts.enter_context(tempfile.TemporaryDirectory(dir=cache_directory, prefix='source-'))
         bam = contexts.enter_context(pysam.AlignmentFile(files[source['bam']], reference_filename=genome_fasta))
-        libraries[key] = contexts.enter_context(_original_library_context(
+        libraries[key] = contexts.enter_context(original_library_context(
             bam, collector, directory, library_index=None, reference_name=reference, read_filter_identity=None))
     return libraries[key]
 
@@ -486,10 +485,14 @@ def _source_library(source, files, collector, reference, contexts, cache_directo
 def _variant_path_task(task, source, files, contexts, cache_directory, libraries):
     """Use the CLI input contract and one prepared library per source/policy."""
     from .contig_resolution import variant_reference_name
-    from .variant_rna_paths import reconstruct_variant_rna_paths, variant_rna_path_input_from_dict, variant_path_read_collector
+    from .variant_rna_paths import (
+        reconstruct_variant_rna_paths,
+        variant_path_read_collector,
+        variant_rna_path_input_from_dict,
+    )
 
     supplied = variant_rna_path_input_from_dict(read_json(files[task["input"]]))
-    if supplied["sample_id"] != source.get("input_sample_id", source["sample_id"]):
+    if supplied["sample_id"] != input_sample_id(source):
         raise ValueError("Literal RNA input and cohort source refer to different samples")
     collector = variant_path_read_collector(task.get("read_collection", {}), files=files)
     reference = variant_reference_name(supplied["variant"])
@@ -577,8 +580,7 @@ def _run_cohort(manifest_path, output_dir, *, resume, render_only, source_ids, r
             raise ValueError("Source IDs must be single path components")
         if source["sample_id"] not in sample_ids:
             raise ValueError("Source refers to an undeclared sample: " + key)
-        if "input_sample_id" in source and (not isinstance(source["input_sample_id"], str) or not source["input_sample_id"].strip()):
-            raise ValueError("Source input_sample_id must be a nonempty string")
+        input_sample_id(source)
     for sample in manifest["samples"]:
         for source_id in sample.get("source_ids", []):
             if source_id not in sources or sources[source_id]["sample_id"] != sample["sample_id"]:
@@ -657,7 +659,7 @@ def _run_cohort(manifest_path, output_dir, *, resume, render_only, source_ids, r
                     from .fusion import fusion_from_dict, reconstruct_fusion
 
                     fusion, references, reads = fusion_from_dict(read_json(files[task["input"]]))
-                    if fusion.provenance["sample_id"] != source.get("input_sample_id", source["sample_id"]):
+                    if fusion.provenance["sample_id"] != input_sample_id(source):
                         raise ValueError("Supplied fusion and cohort source refer to different samples")
                     result = reconstruct_fusion(fusion, references, reads, **task.get("parameters", {}))
                     write_json(target, result)
@@ -668,8 +670,8 @@ def _run_cohort(manifest_path, output_dir, *, resume, render_only, source_ids, r
                     write_json(target, read_json(files[task["input"]]))
                 else:
                     from .isoform_quantification import write_isoform_fastas
-                    from .viral_sequences import write_viral_fasta
                     from .viral_coding import write_viral_proteins
+                    from .viral_sequences import write_viral_fasta
 
                     result = _antigen_path_task(family, task, source, files, contexts, cache_directory, libraries)
                     write_json(target, result)

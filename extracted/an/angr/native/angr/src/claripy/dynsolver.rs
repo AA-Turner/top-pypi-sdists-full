@@ -75,11 +75,29 @@ impl DynSolver {
             DynSolver::Composite(composite) => {
                 // The composite's core is the core of whichever independent
                 // child is unsat (claripy's CompositeFrontend does the same).
+                // The child reports indices into its own assertions; map each
+                // back to that constraint's position in the composite's
+                // constraint list, which is what `constraints` returns.
+                let all = composite.constraints()?;
                 for child in composite.children_mut() {
                     if !child.satisfiable()? {
                         // SimplificationMixin -> ConcreteEarlyResolutionMixin -> ModelCacheMixin -> Z3Solver
                         let z3_solver = child.inner_mut().inner_mut().inner_mut();
-                        return z3_solver.unsat_core();
+                        let local = z3_solver.constraints()?;
+                        return z3_solver
+                            .unsat_core()?
+                            .into_iter()
+                            .map(|i| {
+                                local
+                                    .get(i)
+                                    .and_then(|c| all.iter().position(|a| a == c))
+                                    .ok_or_else(|| {
+                                        ClarirsError::InvalidArguments(format!(
+                                            "unsat core index {i} names no constraint of the composite solver"
+                                        ))
+                                    })
+                            })
+                            .collect();
                     }
                 }
                 Ok(vec![])
@@ -179,6 +197,14 @@ impl Solver<'static> for DynSolver {
         dispatch!(self, satisfiable_with_extra, extra)
     }
 
+    fn batch_eval_n(
+        &mut self,
+        exprs: &[AstRef<'static>],
+        n: u32,
+    ) -> Result<Vec<Vec<AstRef<'static>>>, ClarirsError> {
+        dispatch!(self, batch_eval_n, exprs, n)
+    }
+
     fn is_true(&mut self, expr: &AstRef<'static>) -> Result<bool, ClarirsError> {
         dispatch!(self, is_true, expr)
     }
@@ -209,20 +235,5 @@ impl Solver<'static> for DynSolver {
 
     fn max_signed(&mut self, expr: &AstRef<'static>) -> Result<AstRef<'static>, ClarirsError> {
         dispatch!(self, max_signed, expr)
-    }
-
-    fn eval_n(
-        &mut self,
-        expr: &AstRef<'static>,
-        n: u32,
-    ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, eval_n, expr, n)
-    }
-
-    fn batch_eval(
-        &mut self,
-        exprs: &[AstRef<'static>],
-    ) -> Result<Vec<AstRef<'static>>, ClarirsError> {
-        dispatch!(self, batch_eval, exprs)
     }
 }

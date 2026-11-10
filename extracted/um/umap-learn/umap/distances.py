@@ -6,6 +6,8 @@ import numpy as np
 import scipy.stats
 from sklearn.metrics import pairwise_distances
 
+from umap.utils import FASTMATH_FLAGS
+
 _mock_identity = np.eye(2, dtype=np.float64)
 _mock_cost = 1.0 - _mock_identity
 _mock_ones = np.ones(2, dtype=np.float64)
@@ -45,7 +47,7 @@ def softmax(z):
     return out
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def euclidean(x, y):
     r"""Standard euclidean distance.
 
@@ -58,7 +60,7 @@ def euclidean(x, y):
     return np.sqrt(result)
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def euclidean_grad(x, y):
     r"""Standard euclidean distance and its gradient.
 
@@ -89,7 +91,7 @@ def standardised_euclidean(x, y, sigma=_mock_ones):
     return np.sqrt(result)
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def standardised_euclidean_grad(x, y, sigma=_mock_ones):
     r"""Euclidean distance standardised against a vector of standard
     deviations per coordinate with gradient.
@@ -621,7 +623,7 @@ def cosine(x, y):
         return 1.0 - (result / np.sqrt(norm_x * norm_y))
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def cosine_grad(x, y):
     result = 0.0
     norm_x = 0.0
@@ -699,7 +701,10 @@ def hellinger(x, y):
     elif l1_norm_x == 0 or l1_norm_y == 0:
         return 1.0
     else:
-        return np.sqrt(1 - result / np.sqrt(l1_norm_x * l1_norm_y))
+        denominator = np.sqrt(l1_norm_x * l1_norm_y)
+        if result > denominator:
+            return 0.0
+        return np.sqrt(1 - result / denominator)
 
 
 @numba.njit()
@@ -849,7 +854,7 @@ def ll_dirichlet(data1, data2):
     )
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def symmetric_kl(x, y, z=1e-11):  # pragma: no cover
     r"""
     symmetrized KL divergence between two probability distributions
@@ -864,23 +869,19 @@ def symmetric_kl(x, y, z=1e-11):  # pragma: no cover
     kl2 = 0.0
 
     for i in range(n):
-        x[i] += z
-        x_sum += x[i]
-        y[i] += z
-        y_sum += y[i]
+        x_sum += x[i] + z
+        y_sum += y[i] + z
 
     for i in range(n):
-        x[i] /= x_sum
-        y[i] /= y_sum
-
-    for i in range(n):
-        kl1 += x[i] * np.log(x[i] / y[i])
-        kl2 += y[i] * np.log(y[i] / x[i])
+        p = (x[i] + z) / x_sum
+        q = (y[i] + z) / y_sum
+        kl1 += p * np.log(p / q)
+        kl2 += q * np.log(q / p)
 
     return (kl1 + kl2) / 2
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def symmetric_kl_grad(x, y, z=1e-11):  # pragma: no cover
     """
     symmetrized KL divergence and its gradient
@@ -893,26 +894,26 @@ def symmetric_kl_grad(x, y, z=1e-11):  # pragma: no cover
     kl2 = 0.0
 
     for i in range(n):
-        x[i] += z
-        x_sum += x[i]
-        y[i] += z
-        y_sum += y[i]
+        x_sum += x[i] + z
+        y_sum += y[i] + z
+
+    p = (x + z) / x_sum
+    q = (y + z) / y_sum
 
     for i in range(n):
-        x[i] /= x_sum
-        y[i] /= y_sum
-
-    for i in range(n):
-        kl1 += x[i] * np.log(x[i] / y[i])
-        kl2 += y[i] * np.log(y[i] / x[i])
+        kl1 += p[i] * np.log(p[i] / q[i])
+        kl2 += q[i] * np.log(q[i] / p[i])
 
     dist = (kl1 + kl2) / 2
-    grad = (np.log(y / x) - (x / y) + 1) / 2
+    # Gradient with respect to the normalized x, then chained through the
+    # normalization p = (x + z) / sum(x + z); sum(p * grad_p) is kl1 / 2.
+    grad_p = (np.log(p / q) - (q / p) + 1) / 2
+    grad = (grad_p - kl1 / 2) / x_sum
 
     return dist, grad
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def correlation_grad(x, y):
     n = x.shape[0]
 
@@ -963,7 +964,7 @@ def correlation_grad(x, y):
     return dist, grad
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def sinkhorn_distance(
     x, y, M=_mock_identity, cost=_mock_cost, maxiter=64
 ):  # pragma: no cover
@@ -989,7 +990,7 @@ def sinkhorn_distance(
     return result
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def spherical_gaussian_energy_grad(x, y):  # pragma: no cover
     mu_1 = x[0] - y[0]
     mu_2 = x[1] - y[1]
@@ -1007,7 +1008,7 @@ def spherical_gaussian_energy_grad(x, y):  # pragma: no cover
     return dist, grad
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def diagonal_gaussian_energy_grad(x, y):  # pragma: no cover
     mu_1 = x[0] - y[0]
     mu_2 = x[1] - y[1]
@@ -1042,7 +1043,7 @@ def diagonal_gaussian_energy_grad(x, y):  # pragma: no cover
     return dist, grad
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def gaussian_energy_grad(x, y):  # pragma: no cover
     mu_1 = x[0] - y[0]
     mu_2 = x[1] - y[1]
@@ -1094,14 +1095,24 @@ def gaussian_energy_grad(x, y):  # pragma: no cover
     grad[2] -= x_inv_sigma_y_numerator * np.sin(x[4]) ** 2 * sigma_11
     grad[2] += x_inv_sigma_y_numerator * 2 * sigma_12 * np.sin(x[4]) * np.cos(x[4])
     grad[2] /= det_sigma**2 + 1e-8
+    grad[2] += (
+        np.cos(x[4]) ** 2 * sigma_22
+        + np.sin(x[4]) ** 2 * sigma_11
+        - 2 * sigma_12 * np.sin(x[4]) * np.cos(x[4])
+    ) / det_sigma
 
-    grad[3] = mu_1 * (mu_1 * np.cos(x[4]) ** 2 - mu_2 * np.cos(x[4]) * np.sin(x[4]))
-    grad[3] += mu_2 * (mu_2 * np.sin(x[4]) ** 2 - mu_1 * np.cos(x[4]) * np.sin(x[4]))
+    grad[3] = mu_1 * (mu_1 * np.cos(x[4]) ** 2 + mu_2 * np.cos(x[4]) * np.sin(x[4]))
+    grad[3] += mu_2 * (mu_2 * np.sin(x[4]) ** 2 + mu_1 * np.cos(x[4]) * np.sin(x[4]))
     grad[3] *= det_sigma
     grad[3] -= x_inv_sigma_y_numerator * np.sin(x[4]) ** 2 * sigma_22
     grad[3] -= x_inv_sigma_y_numerator * np.cos(x[4]) ** 2 * sigma_11
     grad[3] -= x_inv_sigma_y_numerator * 2 * sigma_12 * np.sin(x[4]) * np.cos(x[4])
     grad[3] /= det_sigma**2 + 1e-8
+    grad[3] += (
+        np.sin(x[4]) ** 2 * sigma_22
+        + np.cos(x[4]) ** 2 * sigma_11
+        + 2 * sigma_12 * np.sin(x[4]) * np.cos(x[4])
+    ) / det_sigma
 
     grad[4] = (x[3] - x[2]) * (
         2 * mu_1 * mu_2 * np.cos(2 * x[4]) - (mu_1**2 - mu_2**2) * np.sin(2 * x[4])
@@ -1109,13 +1120,18 @@ def gaussian_energy_grad(x, y):  # pragma: no cover
     grad[4] *= det_sigma
     grad[4] -= x_inv_sigma_y_numerator * (x[3] - x[2]) * np.sin(2 * x[4]) * sigma_22
     grad[4] -= x_inv_sigma_y_numerator * (x[2] - x[3]) * np.sin(2 * x[4]) * sigma_11
-    grad[4] -= x_inv_sigma_y_numerator * 2 * sigma_12 * (x[2] - x[3]) * np.cos(2 * x[4])
+    grad[4] += x_inv_sigma_y_numerator * 2 * sigma_12 * (x[2] - x[3]) * np.cos(2 * x[4])
     grad[4] /= det_sigma**2 + 1e-8
+    grad[4] += (
+        (x[3] - x[2]) * np.sin(2 * x[4]) * sigma_22
+        + (x[2] - x[3]) * np.sin(2 * x[4]) * sigma_11
+        - 2 * sigma_12 * (x[2] - x[3]) * np.cos(2 * x[4])
+    ) / det_sigma
 
     return dist, grad
 
 
-@numba.njit(fastmath=True)
+@numba.njit(fastmath=FASTMATH_FLAGS)
 def spherical_gaussian_grad(x, y):  # pragma: no cover
     mu_1 = x[0] - y[0]
     mu_2 = x[1] - y[1]
@@ -1501,7 +1517,7 @@ def pairwise_special_metric(
         else:
             kwd_vals = ()
 
-        @numba.njit(fastmath=True)
+        @numba.njit(fastmath=FASTMATH_FLAGS)
         def _partial_metric(_X, _Y=None):
             return metric(_X, _Y, *kwd_vals)
 
@@ -1510,4 +1526,60 @@ def pairwise_special_metric(
         )
     else:
         special_metric_func = named_distances[metric]
+        if kwds:
+            kwd_vals = tuple(kwds.values())
+
+            @numba.njit(fastmath=FASTMATH_FLAGS)
+            def _partial_metric(_X, _Y):
+                return special_metric_func(_X, _Y, *kwd_vals)
+
+            return parallel_special_metric(X, Y, metric=_partial_metric)
     return parallel_special_metric(X, Y, metric=special_metric_func)
+
+
+def _symmetric_pairwise_distances(X, metric, result):
+    n = X.shape[0]
+    for i in range(n):
+        for j in range(i + 1, n):
+            d = metric(X[i], X[j])
+            result[i, j] = d
+            result[j, i] = d
+        result[i, i] = metric(X[i], X[i])
+
+
+_symmetric_pairwise_kernels = {}
+
+
+def numba_aware_pairwise_distances(X, metric, **kwds):
+    """Same output as sklearn's ``pairwise_distances``; numba metrics loop in numba."""
+    if (
+        kwds
+        or not isinstance(metric, numba.core.registry.CPUDispatcher)
+        or not isinstance(X, np.ndarray)
+        or X.ndim != 2
+        or X.shape[0] == 0
+        or X.dtype not in (np.float32, np.float64)
+        or not np.all(np.isfinite(X))
+    ):
+        return pairwise_distances(X, metric=metric, **kwds)
+    # The metric is passed as a function pointer so LLVM cannot inline it: an
+    # inlined fastmath metric can vectorize (and round) differently from the
+    # standalone call sklearn makes, which changes the last bit on x86.
+    row_type = numba.typeof(X[0])
+    metric.compile((row_type, row_type))
+    return_type = metric.overloads[(row_type, row_type)].signature.return_type
+    # The output dtype depends on the sklearn version (float64 before 1.8, the
+    # input dtype after), so take it from sklearn itself on a single row.
+    result_dtype = pairwise_distances(X[:1], metric=metric).dtype
+    result = np.empty((X.shape[0], X.shape[0]), dtype=result_dtype)
+    signature = numba.types.void(
+        numba.typeof(X),
+        numba.types.FunctionType(return_type(row_type, row_type)),
+        numba.typeof(result),
+    )
+    kernel = _symmetric_pairwise_kernels.get(signature)
+    if kernel is None:
+        kernel = numba.njit(signature, nogil=True)(_symmetric_pairwise_distances)
+        _symmetric_pairwise_kernels[signature] = kernel
+    kernel(X, metric, result)
+    return result

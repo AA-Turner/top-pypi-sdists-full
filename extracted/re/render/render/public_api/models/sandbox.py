@@ -12,6 +12,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.sandbox_network_policy import SandboxNetworkPolicy
+    from ..models.sandbox_shared_filesystem import SandboxSharedFilesystem
 
 
 T = TypeVar("T", bound="Sandbox")
@@ -30,8 +31,11 @@ class Sandbox:
         idle_timeout_seconds (int): Seconds of inactivity before the sandbox is suspended. 0 disables automatic idle
             suspension. Example: 900.
         created_at (datetime.datetime):  Example: 2026-04-01T18:30:00Z.
+        name (Union[None, Unset, str]): The label set when the sandbox was created.
         sandbox_group_id (Union[Unset, str]):  Example: sbg-cph1rs3idesc73a2b2mg.
         terminated_at (Union[None, Unset, datetime.datetime]): When the sandbox was terminated, or null.
+        shared_filesystems (Union[Unset, list['SandboxSharedFilesystem']]): Shared filesystems mounted in the sandbox.
+            Absent when there are none.
     """
 
     id: str
@@ -42,8 +46,10 @@ class Sandbox:
     timeout_seconds: int
     idle_timeout_seconds: int
     created_at: datetime.datetime
+    name: Union[None, Unset, str] = UNSET
     sandbox_group_id: Union[Unset, str] = UNSET
     terminated_at: Union[None, Unset, datetime.datetime] = UNSET
+    shared_filesystems: Union[Unset, list["SandboxSharedFilesystem"]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -67,6 +73,12 @@ class Sandbox:
 
         created_at = self.created_at.isoformat()
 
+        name: Union[None, Unset, str]
+        if isinstance(self.name, Unset):
+            name = UNSET
+        else:
+            name = self.name
+
         sandbox_group_id = self.sandbox_group_id
 
         terminated_at: Union[None, Unset, str]
@@ -76,6 +88,13 @@ class Sandbox:
             terminated_at = self.terminated_at.isoformat()
         else:
             terminated_at = self.terminated_at
+
+        shared_filesystems: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.shared_filesystems, Unset):
+            shared_filesystems = []
+            for shared_filesystems_item_data in self.shared_filesystems:
+                shared_filesystems_item = shared_filesystems_item_data.to_dict()
+                shared_filesystems.append(shared_filesystems_item)
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -91,16 +110,21 @@ class Sandbox:
                 "createdAt": created_at,
             }
         )
+        if name is not UNSET:
+            field_dict["name"] = name
         if sandbox_group_id is not UNSET:
             field_dict["sandboxGroupId"] = sandbox_group_id
         if terminated_at is not UNSET:
             field_dict["terminatedAt"] = terminated_at
+        if shared_filesystems is not UNSET:
+            field_dict["sharedFilesystems"] = shared_filesystems
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.sandbox_network_policy import SandboxNetworkPolicy
+        from ..models.sandbox_shared_filesystem import SandboxSharedFilesystem
 
         d = dict(src_dict)
         id = d.pop("id")
@@ -130,6 +154,15 @@ class Sandbox:
 
         created_at = isoparse(d.pop("createdAt"))
 
+        def _parse_name(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        name = _parse_name(d.pop("name", UNSET))
+
         sandbox_group_id = d.pop("sandboxGroupId", UNSET)
 
         def _parse_terminated_at(data: object) -> Union[None, Unset, datetime.datetime]:
@@ -149,6 +182,13 @@ class Sandbox:
 
         terminated_at = _parse_terminated_at(d.pop("terminatedAt", UNSET))
 
+        shared_filesystems = []
+        _shared_filesystems = d.pop("sharedFilesystems", UNSET)
+        for shared_filesystems_item_data in _shared_filesystems or []:
+            shared_filesystems_item = SandboxSharedFilesystem.from_dict(shared_filesystems_item_data)
+
+            shared_filesystems.append(shared_filesystems_item)
+
         sandbox = cls(
             id=id,
             status=status,
@@ -158,8 +198,10 @@ class Sandbox:
             timeout_seconds=timeout_seconds,
             idle_timeout_seconds=idle_timeout_seconds,
             created_at=created_at,
+            name=name,
             sandbox_group_id=sandbox_group_id,
             terminated_at=terminated_at,
+            shared_filesystems=shared_filesystems,
         )
 
         sandbox.additional_properties = d

@@ -16,6 +16,7 @@
 import base64
 import logging
 from functools import wraps
+from html.parser import HTMLParser
 from typing import Optional
 from urllib.parse import quote
 
@@ -63,6 +64,7 @@ from saml2.samlp import AuthnRequest, IDPEntry, IDPList, Scoping
 from saml2.sigver import MissingKey
 from saml2.validate import ResponseLifetimeExceed, ToEarly
 
+from . import signals
 from .cache import IdentityCache, OutstandingQueriesCache, StateCache
 from .conf import get_config
 from .exceptions import IdPConfigurationMissing
@@ -364,8 +366,15 @@ class LoginView(SPConfigMixin, View):
                     logger.exception(f"{_msg}: {e}")
                     return HttpResponse(_msg)
 
+                # create_authn_request expects "sign_alg" while
+                # prepare_for_authenticate expects "sigalg"
+                create_authn_kwargs = dict(sso_kwargs)
+                sigalg = create_authn_kwargs.pop("sigalg", None)
+                if sigalg:
+                    create_authn_kwargs["sign_alg"] = sigalg
+
                 session_id, request_xml = client.create_authn_request(
-                    location, binding=binding, **sso_kwargs
+                    location, binding=binding, **create_authn_kwargs
                 )
                 try:
                     if isinstance(request_xml, AuthnRequest):
@@ -636,7 +645,18 @@ class AssertionConsumerServiceView(SPConfigMixin, View):
     def post_login_hook(
         self, request: HttpRequest, user: settings.AUTH_USER_MODEL, session_info: dict
     ) -> None:
-        """If desired, a hook to add logic after a user has succesfully logged in."""
+        """Hook that runs after a successful login.
+
+        The default implementation sends ``post_authenticated``.
+        A subclass calls ``super()`` to keep that signal.
+        """
+        signals.send(
+            signals.post_authenticated,
+            user.__class__,
+            instance=user,
+            session_info=session_info,
+            request=request,
+        )
 
     def build_relay_state(self) -> str:
         """The relay state is a URL used to redirect the user to the view where they came from."""
@@ -685,6 +705,45 @@ class EchoAttributesView(LoginRequiredMixin, SPConfigMixin, View):
         )
 
 
+class _PostBindingFormParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.action = ""
+        self.params = {}
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "form" and not self.action:
+            self.action = attributes.get("action", "")
+        elif tag == "input" and attributes.get("type") == "hidden":
+            name = attributes.get("name")
+            if name:
+                self.params[name] = attributes.get("value", "")
+
+
+def _http_post_body(http_info):
+    data = http_info.get("data", "")
+    if isinstance(data, (list, tuple)):
+        data = "".join(data)
+    if isinstance(data, bytes):
+        data = data.decode("utf-8")
+    return data
+
+
+def render_logout_post_binding_form(request, http_info):
+    """Render the logout POST form with a nonce instead of pysaml2's page."""
+    parser = _PostBindingFormParser()
+    parser.feed(_http_post_body(http_info))
+    return render(
+        request,
+        "djangosaml2/logout_post_binding_form.html",
+        {
+            "target_url": parser.action or http_info.get("url", ""),
+            "params": parser.params,
+        },
+    )
+
+
 @method_decorator(saml2_csp_update, name="dispatch")
 class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
     """SAML Logout Request initiator
@@ -694,13 +753,16 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
     """
 
     def get(self, request, *args, **kwargs):
-        state, client = self.get_state_client(request)
-
         subject_id = _get_subject_id(request.saml_session)
         if subject_id is None:
-            logger.warning(
-                "The session does not contain the subject id for user %s", request.user
+            logger.info(
+                "User %s logged out locally. No SAML session was present.",
+                request.user,
             )
+            auth.logout(request)
+            return HttpResponseRedirect(getattr(settings, "LOGOUT_REDIRECT_URL", "/"))
+
+        state, client = self.get_state_client(request)
 
         _error = None
         try:
@@ -736,8 +798,7 @@ class LogoutInitView(LoginRequiredMixin, SPConfigMixin, View):
                     logger.debug(
                         "Returning form to the IdP to continue the logout process"
                     )
-                    body = "".join(http_info["data"])
-                    return HttpResponse(body)
+                    return render_logout_post_binding_form(request, http_info)
                 elif binding == saml2.BINDING_HTTP_REDIRECT:
                     logger.debug(
                         "Redirecting to the IdP to continue the logout process"
@@ -832,13 +893,17 @@ class LogoutView(SPConfigMixin, View):
                 and "data" in http_info
                 and ("Content-type", "text/html") in http_info.get("headers", [])
             ):
-                # need to send back to the IDP a signed POST response with user session
-                # return HTML form content to browser with auto form validation
-                # to finally send request to the IDP
-                return HttpResponse(http_info["data"])
+                # The IdP reply is a POST form. Render it with a nonce.
+                return render_logout_post_binding_form(request, http_info)
             return HttpResponseRedirect(get_location(http_info))
         logger.error("No SAMLResponse or SAMLRequest parameter found")
         return HttpResponseBadRequest("No SAMLResponse or SAMLRequest parameter found")
+
+
+class HttpResponseSeeOther(HttpResponseRedirect):
+    """Ask the browser to GET the next page after a logout POST."""
+
+    status_code = 303
 
 
 def finish_logout(request, response):
@@ -852,13 +917,13 @@ def finish_logout(request, response):
         next_path = _get_next_path(request)
         if next_path is not None:
             logger.debug("Redirecting to the RelayState: %s", next_path)
-            return HttpResponseRedirect(next_path)
+            return HttpResponseSeeOther(next_path)
         elif settings.LOGOUT_REDIRECT_URL is not None:
             fallback_url = resolve_url(settings.LOGOUT_REDIRECT_URL)
             logger.debug(
                 "No valid RelayState found; Redirecting to " "LOGOUT_REDIRECT_URL"
             )
-            return HttpResponseRedirect(fallback_url)
+            return HttpResponseSeeOther(fallback_url)
         else:
             current_site = get_current_site(request)
             logger.debug(

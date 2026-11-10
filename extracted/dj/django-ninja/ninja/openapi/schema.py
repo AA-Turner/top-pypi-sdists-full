@@ -1,10 +1,21 @@
 import itertools
 import re
 from http.client import responses
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 from django.utils.termcolors import make_style
-from pydantic.json_schema import JsonSchemaMode
+from pydantic import BaseModel
+from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
 from ninja.constants import NOT_SET
 from ninja.operation import Operation
@@ -12,6 +23,7 @@ from ninja.params.models import TModel, TModels
 from ninja.schema import NinjaGenerateJsonSchema
 from ninja.types import DictStrAny
 from ninja.utils import normalize_path
+from ninja.webhooks import Webhook, get_webhooks
 
 if TYPE_CHECKING:
     from ninja import NinjaAPI  # pragma: no cover
@@ -56,6 +68,9 @@ class OpenAPISchema(dict):
             ("components", self.get_components()),
             ("servers", api.servers),
         ])
+        webhooks = self.get_webhooks()
+        if webhooks:
+            self["webhooks"] = {**api.openapi_extra.get("webhooks", {}), **webhooks}
         for k, v in api.openapi_extra.items():
             if k not in self:
                 self[k] = v
@@ -79,6 +94,54 @@ class OpenAPISchema(dict):
                         result[full_path] = path_methods
 
         return result
+
+    def get_webhooks(self) -> DictStrAny:
+        result: DictStrAny = {}
+        for webhook in get_webhooks(self.api):
+            if webhook.include_in_schema:
+                result.setdefault(webhook.name, {})[webhook.method] = (
+                    self.webhook_details(webhook)
+                )
+        return result
+
+    def webhook_details(self, webhook: Webhook) -> DictStrAny:
+        result: DictStrAny = {"summary": webhook.summary}
+
+        if webhook.operation_id:
+            result["operationId"] = webhook.operation_id
+
+        if webhook.description:
+            result["description"] = webhook.description
+
+        if webhook.tags:
+            result["tags"] = webhook.tags
+
+        if webhook.deprecated:
+            result["deprecated"] = webhook.deprecated
+
+        payload_schema = self._create_ref_schema(webhook.schema, mode="serialization")
+        result["requestBody"] = {
+            "content": {self.api.renderer.media_type: {"schema": payload_schema}},
+            "required": True,
+        }
+        result["responses"] = {200: {"description": responses[200]}}
+
+        if webhook.openapi_extra:
+            self.deep_dict_update(result, webhook.openapi_extra)
+
+        return result
+
+    def _create_ref_schema(
+        self, model: Type[BaseModel], mode: JsonSchemaMode = "validation"
+    ) -> DictStrAny:
+        "Adds model to components/schemas and returns a $ref to it"
+        refs, top_level = models_json_schema(
+            [(model, mode)],
+            ref_template=REF_TEMPLATE,
+            schema_generator=NinjaGenerateJsonSchema,
+        )
+        self.add_schema_definitions(top_level.get("$defs", {}))
+        return refs[(model, mode)]
 
     def methods(self, operations: list) -> DictStrAny:
         result = {}
@@ -190,8 +253,23 @@ class OpenAPISchema(dict):
                 # copy description from schema description to param description
                 if "description" in p_schema:
                     param["description"] = p_schema["description"]
-                if "examples" in p_schema:
-                    param["examples"] = p_schema["examples"]
+                # Parameter `examples` is a map of Example Objects,
+                # while JSON Schema `examples` is a list of plain values
+                examples = p_schema.get("examples")
+                if isinstance(examples, list):  # Field(examples=["a", "b"])
+                    param["examples"] = {
+                        f"example{i}": {"value": v} for i, v in enumerate(examples)
+                    }
+                elif isinstance(examples, dict):  # Query(examples={"a": {...}})
+                    param["examples"] = examples
+                    param["schema"] = {
+                        **p_schema,
+                        "examples": [
+                            e["value"]
+                            for e in examples.values()
+                            if isinstance(e, dict) and "value" in e
+                        ],
+                    }
                 elif "example" in p_schema:
                     param["example"] = p_schema["example"]
                 if "deprecated" in p_schema:
@@ -352,6 +430,7 @@ def flatten_properties(
     extracts all nested model's properties into flat properties
     (used f.e. in GET params with multiple arguments and models)
     """
+    optional_model = _optional_model_definition(prop_details, definitions)
     if "allOf" in prop_details:
         resolve_allOf(prop_details, definitions)
         if len(prop_details["allOf"]) == 1 and "enum" in prop_details["allOf"][0]:
@@ -368,6 +447,13 @@ def flatten_properties(
         del prop_details["items"]["$ref"]  # seems num data is there so ref not needed
         yield prop_name, prop_details, prop_required
 
+    elif optional_model is not None:
+        # Optional[Model]: its fields are flattened, and none is required
+        for p_name, p_details, _ in flatten_properties(
+            prop_name, optional_model, False, definitions
+        ):
+            yield p_name, p_details, False
+
     elif "$ref" in prop_details:
         def_name = prop_details["$ref"].split("/")[-1]
         definition = definitions[def_name]
@@ -380,6 +466,18 @@ def flatten_properties(
             yield from flatten_properties(k, v, is_required, definitions)
     else:
         yield prop_name, prop_details, prop_required
+
+
+def _optional_model_definition(
+    prop_details: DictStrAny, definitions: DictStrAny
+) -> Optional[DictStrAny]:
+    "Returns the model definition for an `anyOf: [$ref, null]` property"
+    choices = prop_details.get("anyOf", [])
+    if len(choices) != 2 or {"type": "null"} not in choices:
+        return None
+    ref = next(c for c in choices if c != {"type": "null"}).get("$ref")
+    definition = definitions.get(ref.split("/")[-1]) if ref else None
+    return definition if definition and "properties" in definition else None
 
 
 def resolve_allOf(details: DictStrAny, definitions: DictStrAny) -> None:

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::iter::zip;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use html_escape::{encode_quoted_attribute, encode_quoted_attribute_to_string};
 use miette::SourceSpan;
@@ -19,11 +19,14 @@ use pyo3::prelude::*;
 use pyo3::sync::{MutexExt, PyOnceLock};
 use pyo3::types::{PyBool, PyDict, PyInt, PyString, PyType};
 
-use super::filters::FloatNumberFormat;
+use super::dateformat::localize_datetime;
+use super::filters::FileSizeStrings;
+use super::filters::FloatNumberFormats;
 use super::filters::TruncationText;
+use super::humanize::HumanizeStrings;
 use super::inheritance::{BlockEntry, BlockMarker};
-use super::l10n::{NumberFormat, localize_number};
-use super::language_cache::LanguageCache;
+use super::l10n::{NumberFormat, localize_int, localize_number};
+use super::language_cache::{LanguageCache, LanguageInfo};
 use super::timesince::TimeStrings;
 use crate::error::{AnnotatePyErr, PyRenderError, RenderError};
 use crate::parse::CycleId;
@@ -37,7 +40,7 @@ static DJANGO_CONTEXT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static RENDER_VALUE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static CONDITIONAL_ESCAPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
-static MARK_SAFE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static SAFE_STRING: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 
 // Django's value formatter reads only these flags. Rendering a number must
 // not materialize the template variables, loop dictionaries or block callbacks.
@@ -116,36 +119,36 @@ pub enum IncludeTemplateKey {
 
 type BindingMap = HashMap<String, Vec<Py<PyAny>>>;
 
+/// Bindings shared by a parent and its child scopes. The `Arc` lets the
+/// parent take them back without copying once no child or retained snapshot
+/// holds them. It never outlives its `Gc` container, so Python's GC still
+/// sees every reference.
 #[derive(Debug)]
-struct SharedBindings(BindingMap);
+struct SharedBindings(Arc<BindingMap>);
 
 impl Trace for SharedBindings {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
-        self.0.trace(visit)
+        self.0.as_ref().trace(visit)
     }
+}
+
+fn clone_bindings(bindings: &BindingMap) -> BindingMap {
+    Python::attach(|py| {
+        bindings
+            .iter()
+            .map(|(key, values)| {
+                (
+                    key.clone(),
+                    values.iter().map(|value| value.clone_ref(py)).collect(),
+                )
+            })
+            .collect()
+    })
 }
 
 impl Trace for ForLoop {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.dictionary.trace(visit)
-    }
-}
-
-impl Clone for SharedBindings {
-    fn clone(&self) -> Self {
-        Python::attach(|py| {
-            Self(
-                self.0
-                    .iter()
-                    .map(|(key, values)| {
-                        (
-                            key.clone(),
-                            values.iter().map(|value| value.clone_ref(py)).collect(),
-                        )
-                    })
-                    .collect(),
-            )
-        })
     }
 }
 
@@ -158,14 +161,18 @@ struct ScopeBindings {
 #[derive(Debug, Default)]
 pub struct Context {
     context: BindingMap,
+    // The caller's context dict, read on lookup instead of being copied in.
+    // A name is copied into `context` before its first write, so a name in
+    // `context` (or the scope base) always hides the same name here.
+    source: Option<Py<PyDict>>,
     scope_bindings: Option<ScopeBindings>,
     loops: Vec<ForLoop>,
     pub request: Option<Py<PyAny>>,
     pub autoescape: bool,
     pub use_l10n: Option<bool>,
-    pub(crate) float_number_format: LanguageCache<Option<FloatNumberFormat>>,
     pub use_tz: Option<bool>,
-    pub(crate) date_cache: DateCache,
+    // Borrowed mutably while formatting; read through `render_into`'s `&self`.
+    pub(crate) date_cache: RefCell<DateCache>,
     pub format_values: bool,
     pub instrument_render: bool,
     pub formatting_context: Option<Py<PyAny>>,
@@ -191,20 +198,46 @@ pub struct Context {
     changed_states: Vec<HashMap<CycleId, Py<PyAny>>>,
     assigned: HashSet<String>,
     cycle_variables: HashSet<String>,
+    // Created on first use: most renders never need them, and a smaller
+    // `Context` is cheaper to move into and out of Python callbacks.
+    caches: Option<Box<LanguageCaches>>,
+}
+
+/// Translated strings and formats a render keeps for its active language.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct LanguageCaches {
+    pub(crate) float_number_format: LanguageCache<FloatNumberFormats>,
     pub(crate) truncation_text: LanguageCache<TruncationText>,
     pub(crate) time_strings: LanguageCache<TimeStrings>,
+    pub(crate) file_size_strings: LanguageCache<FileSizeStrings>,
+    pub(crate) humanize_strings: LanguageCache<HumanizeStrings>,
+    // `get_language_info(code)` results, which don't depend on the language.
+    pub(crate) language_info: HashMap<String, LanguageInfo>,
+    // `language_name_translated` results for the active language, by code.
+    pub(crate) translated_language_names: LanguageCache<HashMap<String, String>>,
+}
+
+impl Context {
+    /// This render's language caches, created on first use.
+    pub(crate) fn caches(&mut self) -> &mut LanguageCaches {
+        self.caches.get_or_insert_with(Box::default)
+    }
 }
 
 impl Trace for Context {
     fn trace(&self, visit: &PyVisit<'_>) -> Result<(), PyTraverseError> {
         self.context.trace(visit)?;
+        self.source.trace(visit)?;
         if let Some(shared) = &self.scope_bindings {
             shared.base.trace(visit)?;
         }
         self.loops.trace(visit)?;
         self.request.trace(visit)?;
         self.formatting_context.trace(visit)?;
-        self.date_cache.trace(visit)?;
+        // A collection can run while a format call holds the cache.
+        if let Ok(date_cache) = self.date_cache.try_borrow() {
+            date_cache.trace(visit)?;
+        }
         self.callback_input.trace(visit)?;
         self.inheritance_blocks.trace(visit)?;
         self.python_blocks.trace(visit)?;
@@ -243,21 +276,28 @@ impl Trace for Mutex<Context> {
 }
 
 impl Context {
+    /// A context with `context`'s bindings. A later pair for the same name
+    /// replaces an earlier one.
     pub fn new(
-        context: HashMap<String, Py<PyAny>>,
+        context: impl IntoIterator<Item = (String, Py<PyAny>)>,
         request: Option<Py<PyAny>>,
         autoescape: bool,
     ) -> Self {
-        let context = context.into_iter().map(|(k, v)| (k, vec![v])).collect();
+        let context = context.into_iter();
+        let mut bindings = BindingMap::with_capacity(context.size_hint().0);
+        for (key, value) in context {
+            bindings.insert(key, vec![value]);
+        }
+        let context = bindings;
         Self {
             request,
             context,
+            source: None,
             scope_bindings: None,
             autoescape,
             use_l10n: None,
-            float_number_format: LanguageCache::default(),
             use_tz: None,
-            date_cache: DateCache::default(),
+            date_cache: RefCell::default(),
             format_values: false,
             instrument_render: true,
             formatting_context: None,
@@ -278,9 +318,25 @@ impl Context {
             changed_states: vec![HashMap::new()],
             assigned: HashSet::new(),
             cycle_variables: HashSet::new(),
-            truncation_text: LanguageCache::default(),
-            time_strings: LanguageCache::default(),
+            caches: None,
         }
+    }
+
+    /// Reads `source`'s bindings lazily. They take precedence over the
+    /// bindings given to `new`, as later pairs there do.
+    #[must_use]
+    pub fn with_source(mut self, source: &Bound<'_, PyDict>) -> Self {
+        self.context
+            .retain(|key, _| !source.contains(key.as_str()).unwrap_or(false));
+        self.source = Some(source.clone().unbind());
+        self
+    }
+
+    /// Whether the caller's dict has `key`.
+    fn source_contains(&self, key: &str) -> bool {
+        self.source.as_ref().is_some_and(|source| {
+            Python::attach(|py| source.bind(py).contains(key).unwrap_or(false))
+        })
     }
 
     #[must_use]
@@ -292,12 +348,12 @@ impl Context {
                 .iter()
                 .map(|(k, v)| (k.clone(), v.iter().map(|v| v.clone_ref(py)).collect()))
                 .collect(),
+            source: self.source.as_ref().map(|source| source.clone_ref(py)),
             scope_bindings: self.scope_bindings.clone(),
             autoescape: self.autoescape,
             use_l10n: self.use_l10n,
-            float_number_format: self.float_number_format.clone(),
             use_tz: self.use_tz,
-            date_cache: DateCache::default(),
+            date_cache: RefCell::default(),
             format_values: self.format_values,
             instrument_render: self.instrument_render,
             formatting_context: self.formatting_context.as_ref().map(|v| v.clone_ref(py)),
@@ -327,17 +383,17 @@ impl Context {
                         .collect()
                 })
                 .collect(),
-            truncation_text: self.truncation_text.clone(),
-            time_strings: self.time_strings.clone(),
+            caches: self.caches.clone(),
         }
     }
 
     /// Freeze bindings once per render; child writes copy only the affected stack.
-    /// Parent writes use copy-on-write so retained callback snapshots stay valid.
+    /// Parent writes use copy-on-write so retained callback snapshots stay valid,
+    /// and take the bindings back without copying once nothing else holds them.
     pub(crate) fn clone_scope(&mut self, py: Python<'_>) -> Self {
         if self.scope_bindings.is_none() {
             self.scope_bindings = Some(ScopeBindings {
-                base: Gc::new(SharedBindings(std::mem::take(&mut self.context))),
+                base: Gc::new(SharedBindings(Arc::new(std::mem::take(&mut self.context)))),
                 overlay: false,
             });
         }
@@ -362,20 +418,29 @@ impl Context {
     fn bindings_mut(&mut self) -> &mut BindingMap {
         if let Some(shared) = self.scope_bindings.take_if(|shared| !shared.overlay) {
             // Materialize parent writes while retained child snapshots keep
-            // their immutable GC-visible base.
-            let mut bindings = (*shared.base).clone().0;
+            // their immutable GC-visible base. Dropping this handle frees the
+            // container when nothing else holds it, so the map moves back
+            // instead of being copied on every write after a child scope.
+            let map = Arc::clone(&shared.base.0);
+            drop(shared);
+            let mut bindings =
+                Arc::try_unwrap(map).unwrap_or_else(|shared| clone_bindings(&shared));
             bindings.extend(std::mem::take(&mut self.context));
             self.context = bindings;
         }
         &mut self.context
     }
 
-    fn has_binding_key(&self, key: &str) -> bool {
+    fn has_rust_binding(&self, key: &str) -> bool {
         self.context.contains_key(key)
             || self
                 .scope_bindings
                 .as_ref()
                 .is_some_and(|shared| shared.base.0.contains_key(key))
+    }
+
+    fn has_binding_key(&self, key: &str) -> bool {
+        self.has_rust_binding(key) || self.source_contains(key)
     }
 
     pub fn invalid_value<'py>(
@@ -394,10 +459,15 @@ impl Context {
     }
 
     pub fn as_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new(py);
+        let dict = match &self.source {
+            Some(source) => source.bind(py).copy()?,
+            None => PyDict::new(py),
+        };
         for (key, values) in self.visible_bindings() {
             if let Some(value) = values.last() {
                 dict.set_item(key, value)?;
+            } else if self.source.is_some() && dict.contains(key)? {
+                dict.del_item(key)?;
             }
         }
         Ok(dict)
@@ -425,8 +495,8 @@ impl Context {
 
     pub fn write_assignments(&self, py: Python<'_>, target: &Bound<'_, PyAny>) -> PyResult<()> {
         for key in &self.assigned {
-            if let Some(value) = self.get(key) {
-                target.set_item(key, value.bind(py))?;
+            if let Some(value) = self.get(py, key) {
+                target.set_item(key, &value)?;
             }
         }
         Ok(())
@@ -442,7 +512,7 @@ impl Context {
         }
         let snapshot = cached.as_ref().expect("base initialized").bind(py).copy()?;
         for name in &self.django_context_changes {
-            if let Some(value) = self.get(name) {
+            if let Some(value) = self.get(py, name) {
                 snapshot.set_item(name, value)?;
             } else if snapshot.contains(name)? {
                 snapshot.del_item(name)?;
@@ -463,21 +533,15 @@ impl Context {
         let base = if let Some(base) = cached_base.as_ref() {
             base
         } else {
-            let base = PyDict::new(py);
-            for (key, values) in self.visible_bindings() {
-                if let Some(value) = values.last() {
-                    base.set_item(key, value)?;
-                }
-            }
-            cached_base.insert(base.unbind())
+            cached_base.insert(self.as_dict(py)?.unbind())
         }
         .bind(py);
         let overlay = PyDict::new(py);
         if !self.loops.is_empty() {
             overlay.set_item("forloop", self.loop_dictionary(py, 0)?)?;
         }
-        if let Some(value) = self.get("block")
-            && let Ok(marker) = value.bind(py).extract::<PyRef<'_, BlockMarker>>()
+        if let Some(value) = self.get(py, "block")
+            && let Ok(marker) = value.extract::<PyRef<'_, BlockMarker>>()
         {
             overlay.set_item(
                 "block",
@@ -492,7 +556,7 @@ impl Context {
         }
         let mut trimmed_base = None;
         for key in &self.django_context_changes {
-            if let Some(value) = self.get(key) {
+            if let Some(value) = self.get(py, key) {
                 overlay.set_item(key, value)?;
             } else if base.contains(key)? {
                 // A callback can remove a value that was originally in the
@@ -550,11 +614,18 @@ impl Context {
             .map(|context| context.bind(py).clone().into_any())
     }
 
-    pub fn get(&self, key: &str) -> Option<&Py<PyAny>> {
+    pub fn get<'py>(&self, py: Python<'py>, key: &str) -> Option<Bound<'py, PyAny>> {
         if let Some(values) = self.context.get(key) {
-            return values.last();
+            return values.last().map(|value| value.bind(py).clone());
         }
-        self.scope_bindings.as_ref()?.base.0.get(key)?.last()
+        if let Some(values) = self
+            .scope_bindings
+            .as_ref()
+            .and_then(|shared| shared.base.0.get(key))
+        {
+            return values.last().map(|value| value.bind(py).clone());
+        }
+        self.source.as_ref()?.bind(py).get_item(key).ok().flatten()
     }
 
     pub fn resolve_root<'py>(
@@ -572,7 +643,7 @@ impl Context {
         if key == "forloop" && !self.loops.is_empty() {
             return self.loop_dictionary(py, 0).map(Some);
         }
-        Ok(self.get(key).map(|value| value.bind(py).clone()))
+        Ok(self.get(py, key))
     }
 
     /// Use the owning engine's version snapshot while rendering a template.
@@ -599,10 +670,20 @@ impl Context {
     }
 
     pub fn display(&self, py: Python<'_>) -> String {
-        let context: BTreeMap<_, _> = self
-            .visible_bindings()
-            .filter_map(|(k, v)| Some((k, v.last()?.bind(py))))
-            .collect();
+        let mut context: BTreeMap<String, Bound<'_, PyAny>> = BTreeMap::new();
+        if let Some(source) = &self.source {
+            for (key, value) in source.bind(py) {
+                if let Ok(key) = key.extract::<String>() {
+                    context.insert(key, value);
+                }
+            }
+        }
+        for (key, values) in self.visible_bindings() {
+            match values.last() {
+                Some(value) => context.insert(key.clone(), value.bind(py).clone()),
+                None => context.remove(key),
+            };
+        }
         format!("{context:?}")
     }
 
@@ -619,6 +700,8 @@ impl Context {
             .map(|shared| shared.base.clone());
         let py = value.py();
         let value = value.unbind();
+        let source = self.source.as_ref().map(|source| source.clone_ref(py));
+        let source = source.as_ref();
         match self.bindings_mut().entry(key) {
             std::collections::hash_map::Entry::Occupied(mut entry) => {
                 let values = entry.get_mut();
@@ -632,6 +715,11 @@ impl Context {
                     .as_ref()
                     .and_then(|base| base.0.get(entry.key()))
                     .map(|values| values.iter().map(|value| value.clone_ref(py)).collect())
+                    .or_else(|| {
+                        // First write to a name from the caller's dict.
+                        let value = source?.bind(py).get_item(entry.key()).ok().flatten()?;
+                        Some(vec![value.unbind()])
+                    })
                     .unwrap_or_default();
                 if replace {
                     values.pop();
@@ -668,6 +756,9 @@ impl Context {
             self.context.entry(key.to_string()).or_default().clear();
         } else if let Some(values) = self.bindings_mut().get_mut(key) {
             values.clear();
+        } else if self.source_contains(key) {
+            // Hide the caller's value.
+            self.context.insert(key.to_string(), Vec::new());
         }
         if self.django_context_base.get_mut().is_some() {
             self.django_context_changes.insert(key.to_string());
@@ -824,10 +915,9 @@ impl Context {
         depth: usize,
     ) -> PyResult<Bound<'py, PyAny>> {
         let Some(loop_) = self.get_for_loop(depth) else {
-            return Ok(self.get("forloop").map_or_else(
-                || PyDict::new(py).into_any(),
-                |value| value.bind(py).clone(),
-            ));
+            return Ok(self
+                .get(py, "forloop")
+                .unwrap_or_else(|| PyDict::new(py).into_any()));
         };
         loop_
             .dictionary
@@ -860,7 +950,7 @@ impl Context {
         let context = context.bind(py);
         if let Some(names) = self.names.last() {
             for key in names {
-                if let Some(value) = self.get(key) {
+                if let Some(value) = self.get(py, key) {
                     context.set_item(key, value)?;
                 }
             }
@@ -1007,7 +1097,7 @@ impl Context {
             self._insert(key, value, true);
             return Ok(());
         }
-        if self.get(&key).is_some() {
+        if self.get(value.py(), &key).is_some() {
             self.assigned.insert(key.clone());
             self._insert(key, value, true);
             Ok(())
@@ -1042,9 +1132,9 @@ impl Context {
         for name in &scoped.cycle_variables {
             if !local_names.contains(name)
                 && self.has_binding_key(name)
-                && let Some(value) = scoped.get(name)
+                && let Some(value) = scoped.get(py, name)
             {
-                self.insert_cycle(name.clone(), value.bind(py).clone())?;
+                self.insert_cycle(name.clone(), value)?;
             }
         }
         self.cycle_indices = scoped.cycle_indices;
@@ -1154,7 +1244,7 @@ impl PyContext {
             .context
             .lock_py_attached(py)
             .expect("Mutex should not be poisoned");
-        guard.get(&key).is_some()
+        guard.get(py, &key).is_some()
     }
 
     fn __getitem__<'py>(&self, py: Python<'py>, key: String) -> PyResult<Bound<'py, PyAny>> {
@@ -1190,6 +1280,34 @@ impl PyContext {
             .lock_py_attached(py)
             .expect("Mutex should not be poisoned");
         guard.insert(key, value)
+    }
+
+    /// Like Django's `Context.update()`. Django pushes a layer that stays
+    /// until a later pop; here the values join the current scope.
+    fn update<'py>(&self, py: Python<'py>, other_dict: Bound<'py, PyAny>) -> PyResult<()> {
+        if !other_dict.hasattr("__getitem__")? {
+            return Err(PyTypeError::new_err(
+                "other_dict must be a mapping (dictionary-like) object.",
+            ));
+        }
+        let other_dict = if other_dict.hasattr("dicts")? {
+            other_dict.getattr("dicts")?.get_item(-1)?
+        } else {
+            other_dict
+        };
+        for item in other_dict.call_method0("items")?.try_iter()? {
+            let (key, value): (String, Bound<'py, PyAny>) = item?.extract()?;
+            self.__setitem__(py, key, value)?;
+        }
+        Ok(())
+    }
+
+    /// Like Django's `Context.flatten()`.
+    fn flatten<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        self.context
+            .lock_py_attached(py)
+            .expect("Mutex should not be poisoned")
+            .as_dict(py)
     }
 }
 
@@ -1331,6 +1449,19 @@ pub(crate) fn append_python_string(
     Ok(())
 }
 
+/// Prints an integer Rusty computed itself, localized as Django's
+/// `localize()` prints an `int`.
+pub fn render_int(number: &BigInt, context: &Context) -> PyResult<String> {
+    if let Some(number) = localize_int(number, context)? {
+        return Ok(number);
+    }
+    Python::attach(|py| {
+        Content::Py(number.into_pyobject(py)?.into_any())
+            .render(context)
+            .map(Cow::into_owned)
+    })
+}
+
 impl<'t, 'py> Content<'t, 'py> {
     pub fn render_into(self, context: &Context, output: &mut String) -> PyResult<()> {
         match self {
@@ -1350,12 +1481,29 @@ impl<'t, 'py> Content<'t, 'py> {
                 }
                 if context.format_values
                     && context.formatting_context.is_none()
-                    && let Some(number) = localize_number(&content, context)?
+                    && let Some(number) = localize_number(&content, context.use_l10n, context)?
                 {
                     if context.autoescape {
                         append_escaped(&number, output);
                     } else {
                         output.push_str(&number);
+                    }
+                    return Ok(());
+                }
+                // Inside `{% localize %}` the `use_l10n` override goes to Django.
+                if context.format_values
+                    && context.formatting_context.is_none()
+                    && context.use_l10n.is_none()
+                    && let Some(formatted) = localize_datetime(
+                        &content,
+                        context.use_tz,
+                        &mut context.date_cache.borrow_mut(),
+                    )?
+                {
+                    if context.autoescape {
+                        append_escaped(&formatted, output);
+                    } else {
+                        output.push_str(&formatted);
                     }
                     return Ok(());
                 }
@@ -1461,12 +1609,26 @@ impl<'t, 'py> Content<'t, 'py> {
                         || !content.is_instance_of::<PyString>()) =>
             {
                 if context.formatting_context.is_none()
-                    && let Some(number) = localize_number(&content, context)?
+                    && let Some(number) = localize_number(&content, context.use_l10n, context)?
                 {
                     return Ok(Cow::Owned(if context.autoescape {
                         encode_quoted_attribute(&number).into_owned()
                     } else {
                         number
+                    }));
+                }
+                if context.formatting_context.is_none()
+                    && context.use_l10n.is_none()
+                    && let Some(formatted) = localize_datetime(
+                        &content,
+                        context.use_tz,
+                        &mut context.date_cache.borrow_mut(),
+                    )?
+                {
+                    return Ok(Cow::Owned(if context.autoescape {
+                        encode_quoted_attribute(&formatted).into_owned()
+                    } else {
+                        formatted
                     }));
                 }
                 let py = content.py();
@@ -1485,7 +1647,7 @@ impl<'t, 'py> Content<'t, 'py> {
                 });
             }
             Self::Float(content) => return Ok(content.to_string().into()),
-            Self::Int(content) => return Ok(content.to_string().into()),
+            Self::Int(content) => return render_int(&content, context).map(Cow::Owned),
             Self::Bool(true) => return Ok(Cow::Borrowed("True")),
             Self::Bool(false) => return Ok(Cow::Borrowed("False")),
         };
@@ -1619,12 +1781,14 @@ impl<'t, 'py> Content<'t, 'py> {
                     let string = s
                         .into_pyobject(py)
                         .expect("A string can always be converted to a Python str.");
-                    let mark_safe = MARK_SAFE
-                        .import(py, "django.utils.safestring", "mark_safe")
-                        .expect("Should be able to import `django.utils.safestring.mark_safe`");
-                    mark_safe
+                    // `mark_safe` of a plain `str` is `SafeString(str)`;
+                    // calling the class skips a Python function call.
+                    let safe_string = SAFE_STRING
+                        .import(py, "django.utils.safestring", "SafeString")
+                        .expect("Should be able to import `django.utils.safestring.SafeString`");
+                    safe_string
                         .call1((string,))
-                        .expect("`mark_safe` should not raise if given a string")
+                        .expect("`SafeString` should not raise if given a string")
                 }
             },
             Self::Bool(b) => PyBool::new(py, *b).to_owned().into_any(),
@@ -1660,5 +1824,158 @@ impl<'t, 'py> IntoOwnedContent<'t, 'py> for String {
 impl<'t, 'py> IntoOwnedContent<'t, 'py> for Cow<'t, str> {
     fn into_content(self) -> Content<'t, 'py> {
         Content::String(ContentString::String(self))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use pyo3::prelude::*;
+    use pyo3::types::PyDict;
+
+    use super::Context;
+
+    fn context_with_source(py: Python<'_>) -> (Context, Bound<'_, PyDict>) {
+        let source = PyDict::new(py);
+        source.set_item("name", "caller").unwrap();
+        source.set_item("True", "shadowed").unwrap();
+        let builtins = HashMap::from([
+            (
+                "True".to_string(),
+                true.into_pyobject(py)
+                    .unwrap()
+                    .to_owned()
+                    .into_any()
+                    .unbind(),
+            ),
+            (
+                "other".to_string(),
+                1_i64.into_pyobject(py).unwrap().into_any().unbind(),
+            ),
+        ]);
+        (
+            Context::new(builtins, None, false).with_source(&source),
+            source,
+        )
+    }
+
+    #[test]
+    fn test_source_values_take_precedence_over_initial_bindings() {
+        Python::initialize();
+        Python::attach(|py| {
+            let (context, _) = context_with_source(py);
+            let value = context.get(py, "True").unwrap();
+            assert_eq!(value.extract::<String>().unwrap(), "shadowed");
+            assert_eq!(
+                context.get(py, "other").unwrap().extract::<i64>().unwrap(),
+                1
+            );
+            assert!(context.get(py, "missing").is_none());
+        });
+    }
+
+    #[test]
+    fn test_cleared_source_value_is_hidden() {
+        Python::initialize();
+        Python::attach(|py| {
+            let (mut context, source) = context_with_source(py);
+            context.clear_variable("name");
+            assert!(context.get(py, "name").is_none());
+            let dict = context.as_dict(py).unwrap();
+            assert!(!dict.contains("name").unwrap());
+            assert!(dict.contains("True").unwrap());
+            assert!(!context.display(py).contains("caller"));
+            // The caller's dict is never changed.
+            assert!(source.contains("name").unwrap());
+        });
+    }
+
+    #[test]
+    fn test_writes_stack_on_source_values() {
+        Python::initialize();
+        Python::attach(|py| {
+            let (mut context, _) = context_with_source(py);
+            context.push_variable(
+                "name".to_string(),
+                "loop".into_pyobject(py).unwrap().into_any(),
+                0,
+            );
+            assert_eq!(
+                context
+                    .get(py, "name")
+                    .unwrap()
+                    .extract::<String>()
+                    .unwrap(),
+                "loop"
+            );
+            context.pop_variables();
+            assert_eq!(
+                context
+                    .get(py, "name")
+                    .unwrap()
+                    .extract::<String>()
+                    .unwrap(),
+                "caller"
+            );
+        });
+    }
+
+    /// The address of the stored values for `name`, which moves with the map
+    /// but changes when the bindings are copied.
+    fn binding_address(context: &Context, name: &str) -> *const Py<PyAny> {
+        context.context.get(name).expect("binding present").as_ptr()
+    }
+
+    #[test]
+    fn test_parent_write_reclaims_bindings_from_finished_scope() {
+        Python::initialize();
+        Python::attach(|py| {
+            let mut context = Context::new(
+                HashMap::from([(
+                    "kept".to_string(),
+                    1_i64.into_pyobject(py).unwrap().into_any().unbind(),
+                )]),
+                None,
+                false,
+            );
+            let before = binding_address(&context, "kept");
+            let scoped = context.clone_scope(py);
+            context.merge_render_state(py, scoped, &[]).unwrap();
+            context
+                .insert(
+                    "new".to_string(),
+                    2_i64.into_pyobject(py).unwrap().into_any(),
+                )
+                .unwrap();
+            assert_eq!(binding_address(&context, "kept"), before);
+        });
+    }
+
+    #[test]
+    fn test_parent_write_copies_bindings_a_snapshot_still_holds() {
+        Python::initialize();
+        Python::attach(|py| {
+            let mut context = Context::new(
+                HashMap::from([(
+                    "kept".to_string(),
+                    1_i64.into_pyobject(py).unwrap().into_any().unbind(),
+                )]),
+                None,
+                false,
+            );
+            let before = binding_address(&context, "kept");
+            let retained = context.clone_scope(py);
+            context
+                .insert(
+                    "kept".to_string(),
+                    2_i64.into_pyobject(py).unwrap().into_any(),
+                )
+                .unwrap();
+            assert_ne!(binding_address(&context, "kept"), before);
+            // The retained scope still sees the value from before the write.
+            let value: i64 = retained.get(py, "kept").unwrap().extract().unwrap();
+            assert_eq!(value, 1);
+        });
     }
 }

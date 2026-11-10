@@ -19,7 +19,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, Literal
 
-from . import deferred_index
+from . import backoff, deferred_index
 
 log = logging.getLogger(__name__)
 
@@ -1295,6 +1295,27 @@ def _newer_custody_wrote_bytes(
     )
 
 
+def _newer_batch_owns(
+    connection: sqlite3.Connection,
+    batch_sequence: int,
+    rel_path: str,
+    state: str,
+    before_hash: str | None,
+) -> bool:
+    """Whether a newer proven batch carries this path's current bytes.
+
+    A moved path (`other`) needs newer exact custody of the path; a path back at
+    this batch's before-bytes needs a newer batch that wrote exactly those bytes.
+    Every batch owes every fan-out component, so custody of the path is custody
+    of its convergence.
+    """
+    if state == "other":
+        return _newer_custody_covers_path(connection, batch_sequence, rel_path)
+    if state == "before":
+        return _newer_custody_wrote_bytes(connection, batch_sequence, rel_path, before_hash)
+    return False
+
+
 def _handed_on(
     vault_root: Path,
     connection: sqlite3.Connection,
@@ -1331,13 +1352,13 @@ def _handed_on(
     handed = {
         rel
         for rel in moved
-        if _newer_custody_covers_path(connection, sequence, rel)
+        if _newer_batch_owns(connection, sequence, rel, "other", None)
         or _recall_lanes_hold_current(vault_root, rel)
     }
     handed.update(
         rel
         for rel, identity in returned
-        if _newer_custody_wrote_bytes(connection, sequence, rel, identity)
+        if _newer_batch_owns(connection, sequence, rel, "before", identity)
         or (identity is None and proven and _recall_lanes_hold_current(vault_root, rel))
     )
     return frozenset(handed)
@@ -1532,7 +1553,11 @@ def _prove_committed_guarded(
                 observation_guards,
             )
             all_after = all(state == "after" for state in path_states)
-            all_before = all(state == "before" for state in path_states)
+            # A path the batch left unchanged reads as its after-state; it is its before-state too.
+            restored = all(
+                state == "before" or state == "after" and path.before_hash == path.after_hash
+                for path, state in zip(current.paths, path_states, strict=True)
+            )
             current = _receipt_from_connection(connection, batch_id)
             # Preserve a pre-upgrade batch's proof before re-proof can strand
             # it and erase the only surviving evidence of its old ready state.
@@ -1566,7 +1591,7 @@ def _prove_committed_guarded(
                 # for lineage and is still what completion binds against.
                 outcome = "ready"
                 _activate_proven_batch(connection, current.batch_id, now=observed_at)
-            elif all_before and known_uncommitted:
+            elif restored and known_uncommitted:
                 outcome = "aborted"
                 connection.execute(
                     "UPDATE derived_batch_components SET state = 'aborted', "
@@ -1723,6 +1748,37 @@ def _publication_split(
         connection.close()
     owned = tuple(p for p in open_paths if p.rel_path not in handed_on)
     return owned, frozenset(retired | handed_on)
+
+
+def converge_paths(vault_root: Path, receipt: Any) -> tuple[DerivedBatchPath, ...]:
+    """The paths a proven batch still converges itself.
+
+    A path whose bytes moved on since this batch is skipped only when a newer
+    proven batch carries it: that batch's own components converge its current
+    bytes. Every other path stays this batch's, including one moved by an edit
+    no receipt covers.
+    """
+    paths = tuple(receipt.paths)
+    if not deferred_index.store_path(vault_root).exists():
+        return paths
+    states = [_canonical_path_state(vault_root, path) for path in paths]
+    if all(state == "after" for state in states):
+        return paths
+    connection = _connect_receipt_read(vault_root)
+    try:
+        row = connection.execute(
+            "SELECT rowid FROM derived_batches WHERE batch_id = ?", (receipt.batch_id,)
+        ).fetchone()
+        if row is None:
+            return paths
+        sequence = int(row[0])
+        return tuple(
+            path
+            for path, state in zip(paths, states, strict=True)
+            if not _newer_batch_owns(connection, sequence, path.rel_path, state, path.before_hash)
+        )
+    finally:
+        connection.close()
 
 
 def pending_visibility_complete(vault_root: Path, receipt: DerivedBatchReceipt) -> bool:
@@ -2561,7 +2617,7 @@ def _record_recovery_failure(
                 (batch_id,),
             ).fetchone()
             attempts = (0 if row is None or row[0] is None else int(row[0])) + 1
-            delay = min(maximum, base * (2 ** max(0, attempts - 1)))
+            delay = backoff.capped_doubling(base, maximum, attempts - 1)
             connection.execute(
                 "UPDATE derived_batch_components SET "
                 "attempt_count = attempt_count + 1, "
@@ -3131,7 +3187,7 @@ def retry_component(
             if row is None:
                 raise RuntimeError("component claim is no longer current")
             attempts = int(row[0]) + 1
-            delay = min(maximum, base * (2 ** max(0, attempts - 1)))
+            delay = backoff.capped_doubling(base, maximum, attempts - 1)
             newest = connection.execute(
                 "SELECT MAX(updated_at) FROM derived_batch_components"
             ).fetchone()[0]

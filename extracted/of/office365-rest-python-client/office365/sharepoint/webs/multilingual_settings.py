@@ -7,8 +7,10 @@ from typing_extensions import Self
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.translation.notifications.recipient_col import (
     TranslationNotificationRecipientCollection,
 )
@@ -23,6 +25,7 @@ from office365.sharepoint.translation.notifications.recipient_users import (
 class MultilingualSettings(Entity):
     """ """
 
+    @site_access(SiteLevel.MANAGE)
     def set_notification_recipients(
         self, notification_recipients: List[TranslationNotificationRecipientCollection]
     ) -> Self:
@@ -36,6 +39,7 @@ class MultilingualSettings(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="Recipients", navigation=True)
     @property
     def recipients(self) -> EntityCollection[TranslationNotificationRecipientUsers]:
         return self.properties.get(
@@ -47,11 +51,13 @@ class MultilingualSettings(Entity):
             ),
         )
 
+    @odata(name="FollowLangPreference")
     @property
     def follow_lang_preference(self) -> Optional[bool]:
         """Gets the FollowLangPreference property"""
         return self.properties.get("FollowLangPreference", None)
 
+    @site_access(SiteLevel.MANAGE)
     def set_follow_lang_preference(self, request: bool) -> Self:
         """SetFollowLangPreference operation.
 

@@ -7,7 +7,7 @@ import typing
 from urwid.util import decompose_tagmarkup
 
 from .columns import Columns
-from .constants import BOX_SYMBOLS, Align, WHSettings
+from .constants import BOX_SYMBOLS, Align, Sizing, WHSettings, WrapMode
 from .divider import Divider
 from .pile import Pile
 from .solid_fill import SolidFill
@@ -59,6 +59,7 @@ class LineBox(
 
         Use 'title' to set an initial title text with will be centered
         on top of the box. It may be any text markup accepted by :class:`Text`.
+        A title wider than the top line is cut with an ellipsis.
 
         Use `title_attr` to apply a specific attribute to the title text.
 
@@ -131,9 +132,9 @@ class LineBox(
             raise ValueError("Cannot have a title when tline is empty string")
 
         if title_attr:
-            self.title_widget = Text((title_attr, formatted_title))
+            self.title_widget = Text((title_attr, formatted_title), wrap=WrapMode.ELLIPSIS)
         else:
-            self.title_widget = Text(formatted_title)
+            self.title_widget = Text(formatted_title, wrap=WrapMode.ELLIPSIS)
 
         if tline:
             if title_align not in {Align.LEFT, Align.CENTER, Align.RIGHT}:
@@ -148,7 +149,8 @@ class LineBox(
                 if title_align == Align.CENTER:
                     tline_widgets.append(w_tline)
 
-            self.tline_widget: Columns | None = Columns(tline_widgets)
+            # The lines beside the title may shrink to nothing, so a long title is cut rather than dropped.
+            self.tline_widget: Columns | None = Columns(tline_widgets, min_width=0)
             top = Columns(
                 (
                     (int(bool(tlcorner and lline)), w_tlcorner),
@@ -162,9 +164,18 @@ class LineBox(
             top = None
 
         # Note: We need to define a fixed first widget (even if it's 0 width) so that the other
-        # widgets have something to anchor onto
+        # widgets have something to anchor onto.
+        # A fixed-only widget cannot take a width from a weight column, so its column packs to the widget's width.
         middle = Columns(
-            ((int(bool(lline)), w_lline), original_widget, (int(bool(rline)), w_rline)),
+            (
+                (int(bool(lline)), w_lline),
+                (
+                    original_widget
+                    if original_widget.sizing() & {Sizing.BOX, Sizing.FLOW}
+                    else (WHSettings.PACK, original_widget)
+                ),
+                (int(bool(rline)), w_rline),
+            ),
             box_columns=[0, 2],
             focus_column=original_widget,
         )
@@ -201,7 +212,11 @@ class LineBox(
         v_index = int(bool(self.tline_widget))  # we care only about top
         h_index = 1  # constant
         middle: Columns = typing.cast("Columns", self._wrapped_widget[v_index])
-        _old_widget, options = middle.contents[h_index]
+        options = (
+            middle.options()
+            if original_widget.sizing() & {Sizing.BOX, Sizing.FLOW}
+            else middle.options(WHSettings.PACK)
+        )
         middle.contents[h_index] = (original_widget, options)  # type: ignore[assignment]
         WidgetDecoration.original_widget.fset(self, original_widget)  # type: ignore[attr-defined]
 

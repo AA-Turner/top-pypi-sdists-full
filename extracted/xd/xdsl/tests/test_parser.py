@@ -31,6 +31,7 @@ from xdsl.dialects.builtin import (
     SymbolRefAttr,
     UnknownLoc,
     bf16,
+    f4E2M1FN,
     i32,
     i64,
 )
@@ -307,11 +308,14 @@ def test_dictionary_attr(data: dict[str, Attribute]):
 
     attr1 = Parser(ctx, text).parse_attribute()
     attr2 = Parser(ctx, "attributes " + text).parse_optional_attr_dict_with_keyword()
+    attr3 = Parser(ctx, text).parse_optional_attr_dict_with_reserved_attr_names()
     assert isinstance(attr1, DictionaryAttr)
     assert isinstance(attr2, DictionaryAttr)
+    assert isinstance(attr3, DictionaryAttr)
 
     assert attr1.data == data
     assert attr2.data == data
+    assert attr3.data == data
 
 
 @pytest.mark.parametrize("text", ["{}", "{a = 1}", "attr {}"])
@@ -319,7 +323,24 @@ def test_dictionary_attr_with_keyword_missing(text: str):
     ctx = Context()
     ctx.load_dialect(Builtin)
 
-    assert Parser(ctx, text).parse_optional_attr_dict_with_keyword() is None
+    parser = Parser(ctx, text)
+    pos = parser.pos
+    assert parser.parse_optional_attr_dict_with_keyword() is None
+    assert parser.pos == pos
+
+
+@pytest.mark.parametrize("text", ["", ":", "next"])
+def test_dictionary_attr_with_reserved_names_missing(text: str):
+    parser = Parser(Context(), text)
+    pos = parser.pos
+    assert parser.parse_optional_attr_dict_with_reserved_attr_names(("value",)) is None
+    assert parser.pos == pos
+
+
+@pytest.mark.parametrize("text", ["attributes", "attributes :", "attributes {"])
+def test_dictionary_attr_with_keyword_incomplete(text: str):
+    with pytest.raises(ParseError):
+        Parser(Context(), text).parse_optional_attr_dict_with_keyword()
 
 
 @pytest.mark.parametrize(
@@ -1107,6 +1128,44 @@ def test_parse_optional_int_error(text: str, allow_boolean: bool, allow_negative
 
 
 @pytest.mark.parametrize(
+    "text, allow_negative, expected",
+    [
+        ("0.0", True, 0.0),
+        ("1.5", False, 1.5),
+        ("-2.25", True, -2.25),
+        ("-2.25", False, None),
+        ("-", False, None),
+        ("end", True, None),
+        ("1", True, None),
+    ],
+)
+def test_parse_float(text: str, allow_negative: bool, expected: float | None):
+    parser = Parser(Context(), text)
+    pos = parser.pos
+    assert parser.parse_optional_float(allow_negative=allow_negative) == expected
+    if expected is None:
+        assert parser.pos == pos
+
+    parser = Parser(Context(), text)
+    if expected is None:
+        with pytest.raises(ParseError, match="Expected float literal"):
+            parser.parse_float(allow_negative=allow_negative)
+    else:
+        assert parser.parse_float(allow_negative=allow_negative) == expected
+
+
+@pytest.mark.parametrize("text", ["-", "- end", "-1", "--1.0"])
+def test_parse_float_malformed(text: str):
+    parser = Parser(Context(), text)
+    with pytest.raises(ParseError, match="Expected float literal after '-'"):
+        parser.parse_optional_float()
+
+    parser = Parser(Context(), text)
+    with pytest.raises(ParseError, match="Expected float literal after '-'"):
+        parser.parse_float()
+
+
+@pytest.mark.parametrize(
     "text, allow_boolean, expected_value",
     [
         ("42", False, 42),
@@ -1144,6 +1203,18 @@ def test_parse_number(
 
 
 @pytest.mark.parametrize(
+    "text",
+    ["0x100000000 : f32", "0x10000 : bf16", "0x10 : f4E2M1FN"],
+)
+def test_parse_hex_float_out_of_range(text: str):
+    parser = Parser(Context(), text)
+    with pytest.raises(
+        ParseError, match="Hexadecimal float constant out of range for type"
+    ):
+        parser.parse_attribute()
+
+
+@pytest.mark.parametrize(
     "text, expected_value",
     [
         ("3: i16", IntegerAttr(3, 16)),
@@ -1152,6 +1223,8 @@ def test_parse_number(
         ("-64: i64", IntegerAttr(-64, 64)),
         ("-64.4: f64", FloatAttr(-64.4, 64)),
         ("32.4: f32", FloatAttr(32.4, 32)),
+        ("0x00003c00 : f16", FloatAttr(1.0, 16)),
+        ("0xf : f4E2M1FN", FloatAttr(-6.0, f4E2M1FN)),
         ("0x7e00 : f16", FloatAttr(float("nan"), 16)),
         ("0x7c00 : f16", FloatAttr(float("inf"), 16)),
         ("0xfc00 : f16", FloatAttr(float("-inf"), 16)),
@@ -1258,6 +1331,9 @@ def test_parse_location():
         NameLoc(StringAttr("callee"), NoneAttr()),
         NameLoc(StringAttr("caller"), NoneAttr()),
     )
+
+    with pytest.raises(ParseError, match="Expected 'at'"):
+        Parser(ctx, 'loc(callsite("callee" not_at "caller"))').parse_optional_location()
 
     attr = Parser(ctx, "loc(fused[unknown, unknown])").parse_optional_location()
     assert attr == FusedLoc((UnknownLoc(), UnknownLoc()), NoneAttr())

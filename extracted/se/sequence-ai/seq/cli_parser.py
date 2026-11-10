@@ -10,6 +10,7 @@ nor mujoco (tests/test_port.py pins it).
 from __future__ import annotations
 
 import argparse
+import math
 from typing import Any
 
 
@@ -77,6 +78,8 @@ def _template_ref(text: str) -> str:
     `seq policy rollback NAME@vN`'s."""
     from sequence_ai.errors import InvalidRequest
 
+    if version_alone(text) is not None:
+        return f"v{version_alone(text)}"
     name, at, ver = str(text).strip().partition("@")
     try:
         _, version = at_version(f"{name}@{ver}", "template version") if at and name else (None, None)
@@ -86,6 +89,27 @@ def _template_ref(text: str) -> str:
         raise argparse.ArgumentTypeError(f"{text!r} names no template version: write --to TEMPLATE@vN, the template "
                                          "it was made from and one of its versions (e.g. toy-policy@v3)")
     return f"{name}@v{version}"
+
+
+def _seconds(text: str) -> float:
+    """A time limit: seconds above 0, none that never runs out."""
+    try:
+        seconds = float(text)
+    except ValueError:
+        seconds = math.nan
+    if not 0 < seconds < math.inf:
+        raise argparse.ArgumentTypeError(f"{text!r} is no time: seconds above 0, e.g. 3600")
+    return seconds
+
+
+def _time_limit_arg(p: argparse.ArgumentParser, what: str) -> None:
+    """`--timeout` of whatever starts a build.
+"""
+    p.add_argument("--timeout", type=_seconds, default=None, metavar="S",
+                   help=f"how long {what} may run, in seconds from when the platform accepts it: then the platform stops "
+                        "its build, whatever becomes of this terminal (--no-wait and Ctrl-C included) - its machines "
+                        "end, what ran until then is billed, and a command still following it exits non-zero. Without "
+                        "it, it runs until it ends, or to the platform's own limit")
 
 
 def _upgrade_args(p: argparse.ArgumentParser, what: str) -> None:
@@ -98,8 +122,7 @@ def _upgrade_args(p: argparse.ArgumentParser, what: str) -> None:
                    help="say what the upgrade changes, keeps and costs, and deploy nothing")
     p.add_argument("--no-wait", dest="wait", action="store_false", default=True,
                    help="return once the new version is accepted, without following its build")
-    p.add_argument("--timeout", type=float, default=None,
-                   help="seconds to wait for the build (default: 1800 for a policy, 3600 for a benchmark)")
+    _time_limit_arg(p, "this upgrade")
 
 
 def at_version(ref: str, what: str = "version") -> tuple[str, int | None]:
@@ -114,6 +137,13 @@ def at_version(ref: str, what: str = "version") -> tuple[str, int | None]:
     if not name or not v.isdigit() or int(v) < 1:
         raise InvalidRequest(f"{ref!r} names no {what}: write NAME@vN, N a whole number from 1 (e.g. {name or 'name'}@v2)")
     return name, int(v)
+
+
+def version_alone(ref: str) -> int | None:
+    """N for `vN` (or `N`) written without the NAME@ of what it is a version of - which no command takes,
+    `seq policy upgrade --to` saying the NAME@vN it meant; None for anything else."""
+    v = str(ref).strip().lstrip("vV")
+    return int(v) if "@" not in str(ref) and v.isdecimal() and int(v) >= 1 else None
 
 
 def _version() -> str:
@@ -143,9 +173,10 @@ the core flow:
   eval run <policy> --benchmark <name> [--adapter <name>@vN]
                             evaluate a deployed policy on a registered benchmark
 
-policy      ls status logs doctor shell versions source upgrade rollback stop start rename rm
+policy      ls status logs doctor shell debug versions source upgrade rollback stop start rename rm
             set settings fork data
 robot       add set list status revoke                    (each robot's own key to a policy, a robot now)
+record      add list revoke                               (keys for your own recorder of a policy's steps)
 key         list add set revoke                           (your keys: you, signed in)
 benchmark   ls tasks versions source logs shell status upgrade cancel rm
 adapter     ls versions source rm check
@@ -232,7 +263,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="the folder to deploy (default: this one); it is the code's top, as on your machine")
     p.add_argument("--name", default=None,
                    help="which class of the folder to deploy, by its name= (or class name) when it holds several; "
-                        "with one, the deployment's name (default: the decorator's name=, else the class name)")
+                        "with one, the deployment's name (default: the decorator's name=, else the class name in "
+                        "lower-case with hyphens)")
     p.add_argument("--override", action="store_true",
                    help="replace the version that serves (a benchmark's: the one evals run): it goes on until this "
                         "one has passed its check and serves, then it is deleted for good once its workers and evals "
@@ -246,6 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-wait", dest="wait", action="store_false", default=True,
                    help="return once the build has started (follow it with `seq policy status <name> --wait`, a "
                         "benchmark's with `seq benchmark status <name> --wait`)")
+    _time_limit_arg(p, "this deploy")
 
 
     esub = _group(ap, sub, "eval", "Evaluate a deployed policy on a registered benchmark, on the platform; read the "
@@ -364,17 +397,29 @@ def build_parser() -> argparse.ArgumentParser:
                                      "field data.")
     p = psub.add_parser("ls", help="your deployed policies, newest first, a page at a time")
     _page_args(p)
-    p = psub.add_parser("shell", help="run one command in a container of the deployment's worker serving now - "
-                                      "what is installed, where its files are, what its card says - its output "
-                                      "printed, its exit code this command's")
+    p = psub.add_parser("shell", help="a terminal in a container of the deployment's worker serving now, or one "
+                                      "command run there - what is installed, where its files are, what its card "
+                                      "says - its exit code this command's")
     p.add_argument("name", help="deployment name")
     p.add_argument("--worker", default=None, metavar="WORKER",
-                   help="the worker to run it on, as seq policy status names them (default: one serving now)")
+                   help="the worker to open it on, as seq policy status names them (default: one serving now)")
     p.add_argument("--timeout", type=float, default=30.0, metavar="SECONDS",
-                   help="its time limit, up to 120 s (default 30)")
+                   help="a command's time limit where it runs once - piped, redirected or from a script: up to 120 s "
+                        "(default 30)")
     p.add_argument("command", nargs="*",
                    help="after --: the command, e.g. -- pip list, or -- \"nvidia-smi | head -15\" (its options after "
-                        "the --, so they are its own)")
+                        "the --, so they are its own): typed at a terminal it runs in one; piped, redirected or from a "
+                        "script, once, its output printed. None: a terminal on the worker")
+    p = psub.add_parser("debug", help="a machine of its own on the version the deployment serves - its image, card, "
+                                      "files and settings, no robot sent to it - that plays its sample episode, from "
+                                      "the start each time you run this, with any breakpoint() stopping in your "
+                                      "terminal, then a terminal on it")
+    p.add_argument("name", help="deployment name")
+    p.add_argument("--episode", default=None, metavar="ID",
+                   help="play this episode of its field data in place of its sample: the id its robot gave it, as "
+                        "seq policy data export writes it")
+    p.add_argument("--stop", action="store_true",
+                   help="end its debug machine now (else it ends 10 minutes after you leave it)")
     p = psub.add_parser("status", help="a deployment's state (building / ready / failed, and why), its workers — "
                                        "copies, seats, sessions, why one died — and the robots waiting for a slot")
     p.add_argument("name", help="deployment name")
@@ -508,6 +553,21 @@ def build_parser() -> argparse.ArgumentParser:
         "key", help="the key's id, or its last four")
 
 
+
+    resub = _group(ap, sub, "record", "Keys for your own recorder of a policy's steps (sequence_ai.record): each step "
+                                      "straight from its workers, nothing kept by the platform. Turn it on with "
+                                      "`seq policy set <name> record=on`.")
+    p = resub.add_parser("add", help="issue a new record key of a policy, printed this once: it reads that policy's "
+                                     "steps and opens nothing else")
+    p.add_argument("--policy", required=True, help="the policy whose steps it reads")
+    p.add_argument("--expires", metavar="WHEN", choices=KEY_EXPIRIES,
+                   help="when it expires: 7d, 1m, 3m, 6m, 1y or never (default: never)")
+    resub.add_parser("list", help="your record keys, by their id and last four, each with its policy, expiry and last "
+                                  "use")
+    resub.add_parser("revoke", help="revoke a record key: its recorders are closed now and it connects no more"
+                     ).add_argument("key", help="the key's id, or its last four")
+
+
     kysub = _group(ap, sub, "key", "Your keys: list them, add one, set its expiry or limit, revoke "
                                    "one - you, signed in (seq login): a key makes no keys.")
     kysub.add_parser("list", help="your keys, newest first: name, last four, what each spent "
@@ -560,17 +620,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name", metavar="NAME[@vN]",
                    help="the benchmark, or NAME@vN for that version: the latest, or the latest that passed its check - "
                         "the two whose tasks are kept (default: the current one)")
-    p = bsub.add_parser("shell", help="run one command on a machine of the benchmark's newest version - in its image, on "
-                                      "the card it declares: one up already, else one opened for it - "
-                                      "its output printed, its exit code this command's")
+    p = bsub.add_parser("shell", help="a terminal on a machine of the benchmark's newest version, or one command run "
+                                      "there - in its image, on the card it declares: one up already, else one opened "
+                                      "for it - its exit code this command's")
     p.add_argument("name", metavar="NAME", help="the benchmark name: a shell runs on its newest version alone")
     p.add_argument("--timeout", type=float, default=30.0, metavar="SECONDS",
-                   help="its time limit, up to 120 s (default 30)")
+                   help="a command's time limit where it runs once - piped, redirected or from a script: up to 120 s "
+                        "(default 30)")
     p.add_argument("--stop", action="store_true",
-                   help="end its machine now (else it ends 10 minutes after its last command)")
+                   help="end its machine now (else it ends 10 minutes after its last command, or after you leave its "
+                        "terminal)")
     p.add_argument("command", nargs="*",
                    help="after --: the command, e.g. -- nvidia-smi, or -- \"ls /isaac-sim/exts | head\" (its options "
-                        "after the --, so they are its own)")
+                        "after the --, so they are its own): typed at a terminal it runs in one; piped, redirected or "
+                        "from a script, once, its output printed. None: a terminal on the machine")
     p = bsub.add_parser("status", help="a benchmark's build status (building / ready / failed), the template it comes "
                                        "from, and the driver its card runs with when it names one")
     p.add_argument("name", help="the benchmark name")
@@ -653,8 +716,8 @@ def build_parser() -> argparse.ArgumentParser:
                         description="Delete a volume for good, refused while a deployment's weights or a benchmark's "
                                     "assets use it; nothing can bring it back. A policy's own copy of its weights goes with "
                                     "the policy: `seq policy rm`.")
-    p.add_argument("name", help="volume name, an eval's recordings (eval:<id>) or a deleted deployment's captured data "
-                                "(capture:<name>-<id8>)")
+    p.add_argument("name", help="volume name, an eval's recordings (eval:<id>), or a deployment's captured data: "
+                                "capture:<name> while it is deployed, capture:<name>-<id8> once it is deleted")
     p.add_argument("path", nargs="?", default=None,
                    help="a file or folder inside a volume you uploaded to delete (an eval's recordings and captured "
                         "data go whole); omit to delete the whole volume. Deleting a file leaves a new version without "
@@ -728,7 +791,7 @@ def build_parser() -> argparse.ArgumentParser:
     acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
                                                  "the payment method its bill goes to, and your GPUs: the limit, how "
                                                  "many serving, evals, "
-                                                 "build checks and benchmark shells hold now, how many are left, and the evals waiting for "
+                                                 "build checks and shells hold now, how many are left, and the evals waiting for "
                                                  "GPUs. `set` and `delete` change the account as the console's Account "
                                                  "page does - they need you signed in (seq login).")
 
@@ -796,7 +859,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="bucket size (default: hours up to a week); month, as the console's twelve months")
     p.add_argument("--group", choices=("deployment", "gpu", "kind"), default=None,
                    help="split each bucket by deployment, card type, or kind of machine (policy workers, evals, "
-                        "build checks, weight copies, builds, benchmark shells)")
+                        "build checks, weight copies, builds, shells, and extra: a machine started beside the one a "
+                        "request got, billed while it held a card)")
     p.add_argument("--csv", action="store_true", help="print the rows as CSV (start, group, card_hours, cost_usd)")
 
 

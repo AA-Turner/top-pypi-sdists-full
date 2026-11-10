@@ -159,6 +159,41 @@ DEF_TANGO_SCALAR_ARRAY_NAMES(DEV_STATE, DEVVAR_STATEARRAY)
 DEF_TANGO_SCALAR_ARRAY_NAMES(DEV_UCHAR, FAKED_UCHARARRAY)
 DEF_TANGO_SCALAR_ARRAY_NAMES(DEV_ENUM, FAKED_ENUMARRAY)
 
+// DEVVAR_CHARARRAY has no scalar Tango const of its own. Its element type is
+// identical to DEV_UCHAR, so element conversion reuses the DEV_UCHAR one. Only
+// this array-const -> scalar-name direction is added: the opposite direction,
+// tango_name2arrayname<DEV_UCHAR>, still points at FAKED_UCHARARRAY.
+template <>
+struct tango_name2scalarname<Tango::DEVVAR_CHARARRAY> {
+    enum e_tango_name2scalarname { value = Tango::DEV_UCHAR };
+};
+
+// The two Tango types that pair a numeric sequence with a string sequence.
+template <typename TangoArrayType>
+struct numeric_string_array_traits { };
+
+template <>
+struct numeric_string_array_traits<Tango::DevVarLongStringArray> {
+    using NumericArrayType = Tango::DevVarLongArray;
+    static constexpr int numeric_array_const = Tango::DEVVAR_LONGARRAY;
+    static constexpr auto numeric_member = &Tango::DevVarLongStringArray::lvalue;
+    static constexpr auto string_member = &Tango::DevVarLongStringArray::svalue;
+    static constexpr const char *error_reason = "PyDs_WrongPythonDataTypeForLongStringArray";
+    static constexpr const char *error_description = "Converter from python object to DevVarLongStringArray "
+                                                     "needs a python sequence<sequence<int>, sequence<str>>";
+};
+
+template <>
+struct numeric_string_array_traits<Tango::DevVarDoubleStringArray> {
+    using NumericArrayType = Tango::DevVarDoubleArray;
+    static constexpr int numeric_array_const = Tango::DEVVAR_DOUBLEARRAY;
+    static constexpr auto numeric_member = &Tango::DevVarDoubleStringArray::dvalue;
+    static constexpr auto string_member = &Tango::DevVarDoubleStringArray::svalue;
+    static constexpr const char *error_reason = "PyDs_WrongPythonDataTypeForDoubleStringArray";
+    static constexpr const char *error_description = "Converter from python object to DevVarDoubelStringArray "
+                                                     "needs a python sequence<sequence<float>, sequence<str>>";
+};
+
 #define TANGO_type2const(type) tango_type2name<type>::value
 #define TANGO_const2type(name) tango_name2type<name>::Type
 #define TANGO_const2arraytype(name) tango_name2arraytype<name>::Type
@@ -208,20 +243,25 @@ DEF_TANGO2NUMPY(Tango::DEV_ENUM, NPY_INT16)
 
 #define TANGO_const2scalarnumpy(tangoid) tango_name2scalarnumpy<tangoid>::value
 
-// We can use TANGO_const2scalarconst which gives us the equivalence
-// except for DEVVAR_CHARARRAY, that does not have any Scalar type
-// equivalent.
 template <int N>
 struct tango_name2scalarnumpy {
     enum { value = TANGO_const2numpy(TANGO_const2scalarconst(N)) };
 };
 
-template <>
-struct tango_name2scalarnumpy<Tango::DEVVAR_CHARARRAY> {
-    enum { value = NPY_UBYTE };
-};
-
 /// @}
+
+// assert() is a no-op in release builds, so an unhandled data type must raise instead:
+// falling through the dispatch silently skips the conversion and leaves the caller with
+// unset data. Every dispatch site converts to or from Python, so the GIL is held here.
+#define __TANGO_RAISE_UNSUPPORTED_DATA_TYPE(tid_)                   \
+    {                                                               \
+        const int unsupported_type = static_cast<int>(tid_);        \
+        PyErr_Format(PyExc_TypeError,                               \
+                     "unsupported data type: %d (%s)",              \
+                     unsupported_type,                              \
+                     Tango::data_type_to_string(unsupported_type)); \
+        throw py::error_already_set();                              \
+    }
 
 #define __TANGO_DEPEND_ON_TYPE_AUX_ID(typename_, DOIT)      \
     case Tango::typename_: {                                \
@@ -255,7 +295,7 @@ struct tango_name2scalarnumpy<Tango::DEVVAR_CHARARRAY> {
             __TANGO_DEPEND_ON_TYPE_AUX_ID(DEV_ENCODED, DOIT) \
             __TANGO_DEPEND_ON_TYPE_AUX_ID(DEV_ENUM, DOIT)    \
         default:                                             \
-            assert(false);                                   \
+            __TANGO_RAISE_UNSUPPORTED_DATA_TYPE(tid)         \
         }                                                    \
     } else                                                   \
         (void) 0
@@ -278,7 +318,7 @@ struct tango_name2scalarnumpy<Tango::DEVVAR_CHARARRAY> {
             __TANGO_DEPEND_ON_TYPE_AUX_NAME(DEV_ENCODED, DOIT) \
             __TANGO_DEPEND_ON_TYPE_AUX_NAME(DEV_ENUM, DOIT)    \
         default:                                               \
-            assert(false);                                     \
+            __TANGO_RAISE_UNSUPPORTED_DATA_TYPE(tid)           \
         }                                                      \
     } else                                                     \
         (void) 0

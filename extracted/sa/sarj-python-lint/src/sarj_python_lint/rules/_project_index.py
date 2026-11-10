@@ -4,21 +4,30 @@ import ast
 from collections import deque
 from collections.abc import Mapping
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import chain
 import os
 from pathlib import Path
 import re
 from types import MappingProxyType
-from typing import TYPE_CHECKING, final
-from weakref import WeakMethod
+from typing import TYPE_CHECKING, TypeIs, final
+from weakref import WeakKeyDictionary, WeakMethod
 
 from sarj_rule_contracts import SourceSnapshot
 
 from sarj_python_lint._prepared_sources import CapturedSource, NeedsSerialSourceError
 from sarj_python_lint._source import decode_python_source, read_python_source, symbol_prefilter_source
-from sarj_python_lint.rules._ast_index import NodeIndex, children, nodes, walk as walk_ast
+from sarj_python_lint.json_boundary import is_object_mapping
+from sarj_python_lint.rules._ast_index import (
+    NodeIndex,
+    SharedModule,
+    children,
+    nodes,
+    parent_map,
+    share_module,
+    walk as walk_ast,
+)
 from sarj_python_lint.rules._first_party import FirstPartyFacts, project_root
 from sarj_python_lint.rules._imports import ImportIndex
 from sarj_python_lint.rules._namespace_access import dynamic_namespace_access
@@ -56,6 +65,20 @@ _MAX_FILES_PER_ROOT = 10_000
 _MAX_FILE_BYTES = 500_000
 _MAX_SOURCE_CHARS_PER_ROOT = 50_000_000
 _MAX_VALUE_ORIGIN_STATES = 4_096
+# Whole-project facts that are pure functions of the source graph. Type-provider
+# facts are keyed by AST identity, so workers recompute them when needed.
+_TRANSFERABLE_FACTS = (
+    "_escaped_nominal_classes",
+    "_runtime_origins",
+    "_runtime_namespaces",
+    "_runtime_type_provider_namespaces",
+    "_local_value_roots",
+    "_constructor_consumers",
+    "_constructor_operations",
+    "_direct_subclasses",
+    "_typed_class_consumers",
+    "_mock_specs",
+)
 _NEW_TYPE_MIN_ARGS = 2
 _CLASS_VALUE_NODES = (ast.Name, ast.Attribute)
 _BUILTIN_TYPE_PROVIDERS = frozenset({"dict", "frozenset", "list", "set", "tuple", "type"})
@@ -154,6 +177,12 @@ class SourceUnit:
     tree: ast.Module | None
     imports: Mapping[str, SymbolRef]
     captured: CapturedSource | None = None
+    # Owns the shared node index of `tree`, so every rule reuses one traversal.
+    _shared: SharedModule | None = field(default=None, init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self.tree is not None:
+            object.__setattr__(self, "_shared", share_module(self.tree))
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +211,7 @@ class ProjectSourceSnapshot:
     roots: tuple[Path, ...]
     units: tuple[_IndexedSource, ...]
     aliases: tuple[tuple[Path, Path], ...] = ()
+    facts: ProjectFacts | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +234,14 @@ class _ImportNamespaceWrites:
     incomplete: bool
 
 
+def parsed_tree(project: ProjectIndexSet, path: Path, source: str) -> ast.Module | None:
+    # Never raises, even when sealed: callers fall back to parsing `source` themselves.
+    unit: SourceUnit | None = None
+    with suppress(NeedsSerialSourceError):
+        unit = project.unit(path)
+    return unit.tree if unit is not None and unit.source == source else None
+
+
 def imports_outside(tree: ast.Module | None, modules: frozenset[str]) -> bool:
     if tree is None:
         return True
@@ -224,6 +262,20 @@ class ImportNamespaceMutations:
         self._load = load
         self._facts: Mapping[str, _ImportNamespaceWrites] | None = None
         self._reachable: dict[str, frozenset[str] | None] = {}
+
+    @property
+    def loaded_facts(self) -> Mapping[str, _ImportNamespaceWrites] | None:
+        return self._facts
+
+    @property
+    def reachable(self) -> Mapping[str, frozenset[str] | None]:
+        return self._reachable
+
+    def restore(
+        self, facts: Mapping[str, _ImportNamespaceWrites] | None, reachable: dict[str, frozenset[str] | None]
+    ) -> None:
+        self._facts = facts
+        self._reachable.update(reachable)
 
     def for_unit(self, unit: SourceUnit) -> frozenset[str] | None:
         if unit.module is None:
@@ -257,7 +309,35 @@ class ImportNamespaceMutations:
         return result
 
 
-@final
+# Memoized whole-project facts, in a picklable form, for an identical index.
+@dataclass(frozen=True, slots=True)
+class ProjectFacts:
+    cached: tuple[tuple[str, object], ...]
+    canonical_values: tuple[tuple[SymbolRef, tuple[SymbolRef, ...]], ...]
+    bound_value_prefixes: tuple[tuple[str, bool], ...]
+    namespace_mutation: tuple[tuple[str, bool], ...]
+    namespace_writes: tuple[tuple[str, _ImportNamespaceWrites], ...] | None
+    reachable: tuple[tuple[str, frozenset[str] | None], ...]
+
+
+def _plain(value: object) -> object:
+    # Read-only mapping views do not pickle; workers restore the same views.
+    if _is_proxy(value):
+        return {key: _plain(item) for key, item in value.items()}
+    return value
+
+
+def _is_proxy(value: object) -> TypeIs[MappingProxyType[object, object]]:
+    return isinstance(value, MappingProxyType)
+
+
+def _proxied(value: object) -> object:
+    if is_object_mapping(value):
+        return MappingProxyType({key: _proxied(item) for key, item in value.items()})
+    return value
+
+
+@final  # ruff: ignore[too-many-public-methods] -- one index owns the whole-project fact caches that spawned workers restore and check.
 class ProjectIndexSet:
     # Borrowed ASTs and import mappings must stay unchanged for this index's lifetime.
     # They remain mutable Python objects; in-place mutation can leave cached facts stale.
@@ -270,6 +350,7 @@ class ProjectIndexSet:
         *,
         aliases: Mapping[Path, Path] | None = None,
         sealed: bool = False,
+        reuse_symbols: Mapping[Path, tuple[SourceUnit, _UnitSymbols | None]] | None = None,
     ) -> None:
         self._units = MappingProxyType(dict(units))
         # Borrow the prepared graph without filesystem discovery or reparsing.
@@ -297,13 +378,30 @@ class ProjectIndexSet:
         )
         classes: dict[SymbolRef, ClassSummary] = {}
         nominals: dict[str, set[SymbolRef]] = {}
-        _collect_unit_symbols(units, classes, nominals)
+        # Unit symbols depend only on the unit, so `with_unit` reuses every unchanged one.
+        unit_symbols: dict[Path, tuple[SourceUnit, _UnitSymbols | None]] = {}
+        for key, unit in units.items():
+            previous = reuse_symbols.get(key) if reuse_symbols is not None else None
+            collected = previous[1] if previous is not None and previous[0] is unit else _unit_symbols(unit)
+            unit_symbols[key] = (unit, collected)
+            if collected is None:
+                continue
+            classes.update(collected.classes)
+            for field_key, nominal in collected.nominals:
+                nominals.setdefault(field_key, set()).add(nominal)
+        self._unit_symbols = unit_symbols
         self._classes = MappingProxyType(classes)
         self._nominals = MappingProxyType({key: frozenset(value) for key, value in nominals.items()})
 
-    def source_snapshot(self) -> ProjectSourceSnapshot:
+    @property
+    def value_origins_complete(self) -> bool:
+        # Once a value-origin trace exceeds its budget, later answers depend on query order.
+        return not self._value_origins_incomplete
+
+    def source_snapshot(self, *, with_facts: bool = False) -> ProjectSourceSnapshot:
         # Rebuild memoized facts without rescanning roots or changing the
         # module identities/order of the complete prepared source graph.
+        # with_facts also carries facts this index has already computed.
         return ProjectSourceSnapshot(
             self._roots,
             tuple(
@@ -317,6 +415,32 @@ class ProjectIndexSet:
                 for key, unit in self._units.items()
             ),
             tuple(self._aliases.items()),
+            self._memoized_facts() if with_facts else None,
+        )
+
+    def _memoized_facts(self) -> ProjectFacts | None:
+        if self._value_origins_incomplete:
+            return None
+        mutations = self.import_namespace_mutations
+        memoized = dict[str, object](vars(self))
+        return ProjectFacts(
+            tuple((name, _plain(memoized[name])) for name in _TRANSFERABLE_FACTS if name in memoized),
+            tuple(self._canonical_values.items()),
+            tuple(self._bound_value_prefixes.items()),
+            tuple(self._namespace_mutation.items()),
+            None if mutations.loaded_facts is None else tuple(mutations.loaded_facts.items()),
+            tuple(mutations.reachable.items()),
+        )
+
+    def _restore_facts(self, facts: ProjectFacts) -> None:
+        for name, value in facts.cached:
+            vars(self)[name] = _proxied(value)
+        self._canonical_values.update(facts.canonical_values)
+        self._bound_value_prefixes.update(facts.bound_value_prefixes)
+        self._namespace_mutation.update(facts.namespace_mutation)
+        self.import_namespace_mutations.restore(
+            None if facts.namespace_writes is None else MappingProxyType(dict(facts.namespace_writes)),
+            dict(facts.reachable),
         )
 
     @classmethod
@@ -342,7 +466,10 @@ class ProjectIndexSet:
                 imports=MappingProxyType(_imports(source.module, tree, is_package=source.path.name == "__init__.py")),
                 captured=source.captured,
             )
-        return cls(units, snapshot.roots, aliases=dict(snapshot.aliases), sealed=sealed)
+        index = cls(units, snapshot.roots, aliases=dict(snapshot.aliases), sealed=sealed)
+        if snapshot.facts is not None:
+            index._restore_facts(snapshot.facts)
+        return index
 
     @classmethod
     def build(
@@ -385,7 +512,13 @@ class ProjectIndexSet:
         return cls(_units({path: source}))
 
     def with_unit(self, unit: SourceUnit) -> Self:
-        return type(self)({**self._units, unit.path: unit}, self._roots, aliases=self._aliases, sealed=self._sealed)
+        return type(self)(
+            {**self._units, unit.path: unit},
+            self._roots,
+            aliases=self._aliases,
+            sealed=self._sealed,
+            reuse_symbols=self._unit_symbols,
+        )
 
     def unit(self, path: Path) -> SourceUnit | None:
         direct = self._units.get(path)
@@ -463,7 +596,7 @@ class ProjectIndexSet:
                 unit is None
                 or unit.tree is None
                 or dynamic_namespace_access(
-                    walk_ast(unit.tree), ImportIndex.from_tree(unit.tree), NodeIndex(unit.tree).parents
+                    walk_ast(unit.tree), ImportIndex.from_tree(unit.tree), parent_map(unit.tree)
                 )
             )
         return self._namespace_mutation[symbol.module] or symbol in self._escaped_nominal_classes
@@ -578,7 +711,8 @@ class ProjectIndexSet:
         escaped = set(already_escaped)
         imports = self._runtime_origins[unit.module] if unit.module is not None else _runtime_import_origins(unit)
         roots = self._unit_value_roots(unit, imports, namespaces, already_escaped=escaped)
-        if roots == frozenset():
+        # Every class value use is rooted at a name in the tree.
+        if roots is not None and roots.isdisjoint(_tree_names(unit.tree)):
             return frozenset(escaped)
         for use in _runtime_class_value_uses(
             unit.tree,
@@ -762,7 +896,7 @@ class ProjectIndexSet:
     def _mock_specs(self) -> Mapping[SymbolRef, frozenset[Path]]:
         specs: dict[SymbolRef, set[Path]] = {}
         for candidate in self._units.values():
-            if candidate.tree is None:
+            if candidate.tree is None or not _imports_unittest_mock(candidate):
                 continue
             for call in walk_ast(candidate.tree):
                 if isinstance(call, ast.Call):
@@ -1119,6 +1253,16 @@ def _proven_type_provider(provider: ast.expr, imports: ImportIndex) -> bool:
     return imports.resolved_symbol(provider, sources=_GENERIC_TYPE_SOURCES) in _GENERIC_TYPE_PROVIDERS
 
 
+_TREE_NAMES: WeakKeyDictionary[ast.Module, frozenset[str]] = WeakKeyDictionary()
+
+
+def _tree_names(tree: ast.Module) -> frozenset[str]:
+    names = _TREE_NAMES.get(tree)
+    if names is None:
+        names = _TREE_NAMES[tree] = frozenset(node.id for node in nodes(tree, ast.Name))
+    return names
+
+
 def _reference_has_root(reference: ast.Name | ast.Attribute, roots: frozenset[str] | None) -> bool:
     if roots is None:
         return True
@@ -1319,19 +1463,25 @@ def _direct_base_symbol(unit: SourceUnit, expression: ast.expr) -> SymbolRef | N
     return None
 
 
-def _collect_unit_symbols(
-    units: Mapping[Path, SourceUnit], classes: dict[SymbolRef, ClassSummary], nominals: dict[str, set[SymbolRef]]
-) -> None:
-    for unit in units.values():
-        if unit.module is None or unit.tree is None:
-            continue
-        for statement in unit.tree.body:
-            if isinstance(statement, ast.ClassDef):
-                symbol = SymbolRef(unit.module, statement.name)
-                classes[symbol] = _class_summary(unit, statement, symbol)
-            nominal = _new_type(statement, unit.module)
-            if nominal is not None:
-                nominals.setdefault(_field_key(nominal.name), set()).add(nominal)
+@dataclass(frozen=True, slots=True)
+class _UnitSymbols:
+    classes: tuple[tuple[SymbolRef, ClassSummary], ...]
+    nominals: tuple[tuple[str, SymbolRef], ...]
+
+
+def _unit_symbols(unit: SourceUnit) -> _UnitSymbols | None:
+    if unit.module is None or unit.tree is None:
+        return None
+    classes: list[tuple[SymbolRef, ClassSummary]] = []
+    nominals: list[tuple[str, SymbolRef]] = []
+    for statement in unit.tree.body:
+        if isinstance(statement, ast.ClassDef):
+            symbol = SymbolRef(unit.module, statement.name)
+            classes.append((symbol, _class_summary(unit, statement, symbol)))
+        nominal = _new_type(statement, unit.module)
+        if nominal is not None:
+            nominals.append((_field_key(nominal.name), nominal))
+    return _UnitSymbols(tuple(classes), tuple(nominals))
 
 
 def _field_key(type_name: str) -> str:
@@ -1661,6 +1811,20 @@ def _mock_spec_targets(unit: SourceUnit, call: ast.Call) -> Iterator[SymbolRef]:
         yield target
 
 
+_UNITTEST_MOCK = SymbolRef("unittest", "mock")
+
+
+def _imports_unittest_mock(unit: SourceUnit) -> bool:
+    # `_mock_function_name` only resolves names bound to `unittest.mock` or its members.
+    if unit.tree is None:
+        return False
+    return any(
+        symbol.module == "unittest.mock" or symbol == _UNITTEST_MOCK
+        for symbols in (unit.imports.values(), _absolute_import_symbols(unit.tree).values())
+        for symbol in symbols
+    )
+
+
 def _mock_function_name(unit: SourceUnit, function: ast.expr) -> str | None:
     if isinstance(function, ast.Name):
         return _imported_mock_name(unit, function.id)
@@ -1687,22 +1851,28 @@ def _direct_import_symbol(unit: SourceUnit, name: str) -> SymbolRef | None:
     imported = unit.imports.get(name)
     if imported is not None or unit.tree is None:
         return imported
-    for statement in _module_import_statements(unit.tree):
-        if (matched := _absolute_import_symbol(statement, name)) is not None:
-            return matched
-    return None
+    return _absolute_import_symbols(unit.tree).get(name)
 
 
-def _absolute_import_symbol(statement: ast.stmt, name: str) -> SymbolRef | None:
-    if isinstance(statement, ast.ImportFrom) and statement.level == 0 and statement.module is not None:
-        for alias in statement.names:
-            if (alias.asname or alias.name) == name:
-                return SymbolRef(statement.module, alias.name)
-    if isinstance(statement, ast.Import):
-        for alias in statement.names:
-            if (alias.asname or alias.name.partition(".")[0]) == name:
-                return SymbolRef(alias.name if alias.asname else alias.name.partition(".")[0], "")
-    return None
+_ABSOLUTE_IMPORT_SYMBOLS: WeakKeyDictionary[ast.Module, Mapping[str, SymbolRef]] = WeakKeyDictionary()
+
+
+def _absolute_import_symbols(tree: ast.Module) -> Mapping[str, SymbolRef]:
+    # The first absolute import binding each local name, in statement and alias order.
+    symbols = _ABSOLUTE_IMPORT_SYMBOLS.get(tree)
+    if symbols is not None:
+        return symbols
+    first: dict[str, SymbolRef] = {}
+    for statement in _module_import_statements(tree):
+        if isinstance(statement, ast.ImportFrom) and statement.level == 0 and statement.module is not None:
+            for alias in statement.names:
+                first.setdefault(alias.asname or alias.name, SymbolRef(statement.module, alias.name))
+        elif isinstance(statement, ast.Import):
+            for alias in statement.names:
+                local = alias.asname or alias.name.partition(".")[0]
+                first.setdefault(local, SymbolRef(alias.name if alias.asname else alias.name.partition(".")[0], ""))
+    symbols = _ABSOLUTE_IMPORT_SYMBOLS[tree] = MappingProxyType(first)
+    return symbols
 
 
 def _annotation_symbols(unit: SourceUnit, annotation: ast.expr | None) -> Iterator[SymbolRef]:

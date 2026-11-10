@@ -15,7 +15,7 @@ class MyClass(PrivateAttrBase):
         return self._private_attr1
 ```
 """
-from typing import Any, TypeVar, Callable, TypedDict, Sequence, Generic, Optional, cast, Iterator
+from typing_extensions import Any, TypeVar, Callable, TypedDict, Sequence, Generic, Optional, cast, Iterator, deprecated
 from types import FunctionType
 import sys
 
@@ -107,6 +107,39 @@ class PrivateAttrBase(metaclass=PrivateAttrType):
     __slots__ = ()
     __private_attrs__ = ()
 
+class PrivateSuper:
+    """
+    Explicit cross-class access to a parent class's class-level private attribute.
+
+    Usage: ``PrivateSuper(A, B, C, obj).name``
+
+    - A: the type whose code is currently running (the code owner).
+    - B: a parent type of A whose class-level private attribute is accessed.
+    - C: the class the private variable was defined for; it must be B, A, or a
+      class that is both a subclass of B and a parent of A.
+    - obj: an instance of A.
+
+    A, B and C must all be private-attribute types (instances of
+    ``PrivateAttrType`` or a registered metaclass). The attribute is resolved
+    from B's class-level storage for C and its ``__get__(obj, A)`` is called.
+    Not for instance attribute cross-type access.
+    """
+    def __init__(self, A: type, B: type, C: type, obj: Any, /) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
+
+class PrivateClassSuper:
+    """
+    Classmethod flavour of :class:`PrivateSuper`.
+
+    Usage: ``PrivateClassSuper(A, B, C, cls).name``
+
+    A, B and C are as in :class:`PrivateSuper`; ``cls`` is a subclass of A. The
+    attribute is resolved from B's class-level storage for C and its
+    ``__get__(None, cls)`` is called.
+    """
+    def __init__(self, A: type, B: type, C: type, cls: type, /) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
+
 
 class _PrivateTemp:
     @property
@@ -122,113 +155,109 @@ class _PrivateTemp:
     def __enter__(self) -> "_PrivateTemp": ...
     def __exit__(self, exc_type: type, exc_val: Exception, exc_tb: Any) -> None: ...
 
-def prepare(name: str, bases: tuple, attrs: _PrivateAttrDict, /, **kwds) -> _PrivateTemp:
-    """
-    function for custom metaclass to create private attributes class.
+@deprecated("Use `create_new` instead.")
+def prepare(name: str, bases: tuple, attrs: _PrivateAttrDict, /, **kwds) -> _PrivateTemp: ...
 
-    def prepare(name: str, bases: tuple, attrs: dict, **kwds) -> tempobject:
-        the function to prepare for creating private attributes class. It will return a temporary object which has the same information as the arguments.
+@deprecated("Use `create_new` instead.")
+def postprocess(typ: type, temp: _PrivateTemp, /) -> None: ...
 
-    def postprocess(type: type, tmp: tempobject) -> None:
-        the function to postprocess for creating private attributes class. The custom metaclass can call this
+@deprecated("Use `create_new` instead.")
+def register_metaclass(typ: type, /) -> None: ...
 
-    def register_metaclass(metaclass: type) -> None:
-        the function to register custom metaclass. The custom metaclass must call this function to register itself before creating any private attributes class,
-        otherwise the private attributes class created by this custom metaclass will not work.
-
-    All usage of this module should be like:
-    ```
-    from abc import ABCMeta
-    import private_attribute
-
-    class PrivateAbcMeta(ABCMeta):
-        def __new__(cls, *args, **kwargs):
-            with private_attribute.prepare(*args, **kwargs) as temp:
-                typ = super().__new__(cls, temp.name, temp.bases, temp.attrs, **temp.kwds)
-                private_attribute.postprocess(typ, temp) # or temp.postprocess(typ)
-                return typ
-
-    private_attribute.register_metaclass(PrivateAbcMeta)
-    ```
-
-    Optional keyword arguments:
-    - private_func: custom hidden-name generator `(obj_id, attr_name) -> str`.
-    - use_parents: when True, merge every parent class's private attribute names
-      into this class's own private-attribute set, so the subclass's code may
-      read/write those names (stored in the subclass's own storage). Default
-      False.
-    """
-    ...
-
-def postprocess(typ: type, temp: _PrivateTemp, /) -> None:
-    """
-    function for custom metaclass to create private attributes class.
-
-    def prepare(name: str, bases: tuple, attrs: dict, **kwds) -> tempobject:
-        the function to prepare for creating private attributes class. It will return a temporary object which has the same information as the arguments.
-
-    def postprocess(type: type, tmp: tempobject) -> None:
-        the function to postprocess for creating private attributes class. The custom metaclass can call this
-
-    def register_metaclass(metaclass: type) -> None:
-        the function to register custom metaclass. The custom metaclass must call this function to register itself before creating any private attributes class,
-        otherwise the private attributes class created by this custom metaclass will not work.
-
-    All usage of this module should be like:
-    ```
-    from abc import ABCMeta
-    import private_attribute
-
-    class PrivateAbcMeta(ABCMeta):
-        def __new__(cls, *args, **kwargs):
-            with private_attribute.prepare(*args, **kwargs) as temp:
-                typ = super().__new__(cls, temp.name, temp.bases, temp.attrs, **temp.kwds)
-                private_attribute.postprocess(typ, temp) # or temp.postprocess(typ)
-                return typ
-
-    private_attribute.register_metaclass(PrivateAbcMeta)
-    ```
-    """
-    ...
-def register_metaclass(typ: type, /) -> None:
-    """
-    function for custom metaclass to create private attributes class.
-
-    def prepare(name: str, bases: tuple, attrs: dict, **kwds) -> tempobject:
-        the function to prepare for creating private attributes class. It will return a temporary object which has the same information as the arguments.
-
-    def postprocess(type: type, tmp: tempobject) -> None:
-        the function to postprocess for creating private attributes class. The custom metaclass can call this
-
-    def register_metaclass(metaclass: type) -> None:
-        the function to register custom metaclass. The custom metaclass must call this function to register itself before creating any private attributes class,
-        otherwise the private attributes class created by this custom metaclass will not work.
-
-    All usage of this module should be like:
-    ```
-    from abc import ABCMeta
-    import private_attribute
-
-    class PrivateAbcMeta(ABCMeta):
-        def __new__(cls, *args, **kwargs):
-            with private_attribute.prepare(*args, **kwargs) as temp:
-                typ = super().__new__(cls, temp.name, temp.bases, temp.attrs, **temp.kwds)
-                private_attribute.postprocess(typ, temp) # or temp.postprocess(typ)
-                return typ
-
-    private_attribute.register_metaclass(PrivateAbcMeta)
-    ```
-    """
-    ...
 def ensure_type(typ: type, /) -> None:
     """function for custom metaclass to ensure the type is a private attributes class.
     def ensure_type(type: type) -> None:
-        the function to ensure the type is a private attributes class `tp_getattro`, `tp_setattro` and `tp_finalizer`.
+        the function to re-inject the special-method slot descriptors and the
+        tp_traverse/tp_clear wrappers after CPython has reset them.
     """
     ...
 def ensure_metaclass(typ: type, /) -> None:
     """function for custom metaclass to ensure the metaclass is working.
     def ensure_metaclass(metaclass: type) -> None:
-        the function to ensure the metaclass `tp_getattro`, `tp_setattro` and `tp_finalizer`.
+        the function to re-inject the metaclass slot descriptors and the
+        tp_traverse/tp_clear wrappers.
     """
     ...
+
+def create_new(func: Callable[..., Any] | None = None, /) -> Callable[..., Any]:
+    """
+    function to register the type with new automatically:
+
+    ```
+    from abc import ABCMeta
+    import private_attribute
+
+    class PrivateAbcMeta(ABCMeta):
+        __new__ = private_attribute.create_new()
+    ```
+
+    also as a decorator:
+
+    ```
+    from abc import ABCMeta
+    import private_attribute
+
+    class PrivateAbcMeta(ABCMeta):
+        @private_attribute.create_new
+        def __new__(cls, *args, **kwargs):
+            ...
+    ```
+    """
+    ...
+
+def create_meta_slot(name: str, /):
+    """
+    function to create the final slot for metaclass:
+
+    ```
+    from abc import ABCMeta
+    import private_attribute
+
+    class PrivateAbcMeta(ABCMeta):
+        __new__ = private_attribute.create_new()
+
+        __setattr__ = private_attribute.create_meta_slot("__setattr__")()
+    ```
+
+    As a decorator:
+
+    ```
+    from abc import ABCMeta
+    import private_attribute
+
+    class PrivateAbcMeta(ABCMeta):
+        __new__ = private_attribute.create_new()
+
+        @private_attribute.create_meta_slot("__setattr__")
+        def __setattr__(self, name, value):
+            ...
+    ```
+    """
+    def create_register_type_slot_wrapper(callback: Callable[..., Any] | None = None) -> Callable[..., Any]: ...
+    return create_register_type_slot_wrapper
+
+def create_slot(name: str, /):
+    """
+    function to create the final slot for private class:
+
+    ```
+    import private_attribute
+
+    class MyClass(private_attribute.PrivateAttrBase):
+        __setattr__ = private_attribute.create_slot("__setattr__")()
+
+    ```
+    As a decorator:
+
+    ```
+    import private_attribute
+
+    class MyClass(private_attribute.PrivateAttrBase):
+        @private_attribute.create_slot("__setattr__")
+        def __setattr__(self, name, value):
+            ...
+
+    ```
+    """
+    def create_private_type_slot_wrapper(func: Callable[..., Any] | None = None) -> Callable[..., Any]: ...
+    return create_private_type_slot_wrapper

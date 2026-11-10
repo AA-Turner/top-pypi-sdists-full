@@ -3,9 +3,9 @@ import io
 import struct
 import sys
 import time
+import zlib
 from io import BytesIO
 from pathlib import Path
-from typing import Optional, Union
 from unittest import mock
 
 import pytest
@@ -17,7 +17,6 @@ from pypdf.constants import ImageAttributes
 from pypdf.constants import PageAttributes as PG
 from pypdf.constants import UserAccessPermissions as UAP
 from pypdf.errors import (
-    DeprecationError,
     EmptyFileError,
     FileNotDecryptedError,
     LimitReachedError,
@@ -44,7 +43,7 @@ from . import RESOURCE_ROOT, SAMPLE_ROOT, get_data_from_url, normalize_warnings
 HAS_AES = crypt_provider[0] in ["pycryptodome", "cryptography"]
 
 
-NestedList = Union[int, None, list["NestedList"]]
+NestedList = int | None | list["NestedList"]
 
 
 @pytest.mark.parametrize(
@@ -126,6 +125,28 @@ def test_read_metadata_title_is_utf8():
         title = reader.metadata.title
         # Should be a str.
         assert title == "Microsoft Word - トランスバース社買収電話会議英語Final.docx"
+
+
+@pytest.mark.enable_socket
+def test_read_utf8_text_strings():
+    """UTF-8 text strings with a byte order mark, see ISO 32000-2:2020, 7.9.2.2.1."""
+    # PDF 2.0 example file provided by the PDF Association under CC BY-SA 4.0.
+    url = (
+        "https://raw.githubusercontent.com/pdf-association/pdf20examples/"
+        "c20f2c17bfcc4baab7cfe62e70fae64caf14d5fa/pdf20-utf8-test.pdf"
+    )
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name="pdf20-utf8-test.pdf")))
+
+    assert reader.metadata.title == "表ポあA鷗ŒéＢ逍Üßªąñ丂㐀𠀀"
+    assert reader.metadata.author == "Peter Wyatt"
+    assert [item.title for item in reader.outline] == [
+        "PDF 2.0 with UTF-8 test file",
+        "\u202a\u202atest\u202a",
+        "\U0001f308\ufe0f\n",
+    ]
+    ocgs = reader.root_object["/OCProperties"]["/OCGs"]
+    assert [ocg.get_object()["/Name"] for ocg in ocgs] == ["Layer 1", "گچپژ"]
+    assert reader.page_labels == ["Prefixi"]
 
 
 def test_iss1943():
@@ -222,16 +243,8 @@ def test_get_outline(src, outline_elements):
         ("pdflatex-outline.pdf", []),
         ("crazyones.pdf", []),
         ("git.pdf", ["Image9.png"]),
-        pytest.param(
-            "imagemagick-lzw.pdf",
-            ["Im0.png"],
-            marks=pytest.mark.xfail(reason="broken image extraction"),
-        ),
-        pytest.param(
-            "imagemagick-ASCII85Decode.pdf",
-            ["Im0.png"],
-            # marks=pytest.mark.xfail(reason="broken image extraction"),
-        ),
+        ("imagemagick-lzw.pdf", ["Im0.tiff"]),
+        ("imagemagick-ASCII85Decode.pdf", ["Im0.png"]),
         ("imagemagick-CCITTFaxDecode.pdf", ["Im0.tiff"]),
         (SAMPLE_ROOT / "019-grayscale-image/grayscale-image.pdf", ["X0.png"]),
     ],
@@ -474,6 +487,25 @@ def test_startxref_same_line_integer_conversion_limit():
     stream.seek(0, 2)
     with pytest.raises(PdfReadError, match="startxref not found"):
         PdfReader._find_previous_startxref_pos(stream)
+
+
+def test_find_pdf_objects__integer_conversion_limit():
+    """Oversized object or generation numbers must not leak ValueError."""
+    limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+    if not limit:
+        pytest.skip("Python integer conversion limit is disabled")
+    valid_part = b"3 0 obj\n<< /Type /Pages >>\nendobj\n"
+    data = (
+        b"%PDF-1.4\n"
+        + b"1" * (limit + 10)
+        + b" 0 obj\n<< /Type /Catalog >>\nendobj\n"
+        + b"2 "
+        + b"1" * (limit + 10)
+        + b" obj\n<< /Type /Catalog >>\nendobj\n"
+        + valid_part
+    )
+    objects = list(PdfReader._find_pdf_objects(data))
+    assert objects == [(3, 0, len(data) - len(valid_part))]
 
 
 def test_find_previous_startxref_pos_recovery_variants():
@@ -1099,42 +1131,6 @@ def test_issue604(caplog, strict):
         # oi can be destination or a list:preferred to just print them
         for oi in outline:
             out.append(get_dest_pages(oi))  # noqa: PERF401
-
-
-def test_decode_permissions():
-    reader = PdfReader(RESOURCE_ROOT / "crazyones.pdf")
-    base = {
-        "accessability": False,  # Do not fix typo, as part of official, but deprecated API.
-        "annotations": False,
-        "assemble": False,
-        "copy": False,
-        "forms": False,
-        "modify": False,
-        "print_high_quality": False,
-        "print": False,
-    }
-
-    print_ = base.copy()
-    print_["print"] = True
-    with pytest.raises(
-        DeprecationError,
-            match=(
-                r"decode_permissions is deprecated and was removed in pypdf 5\.0\.0\. "
-                r"Use user_access_permissions instead"
-            ),
-    ):
-        assert reader.decode_permissions(4) == print_
-
-    modify = base.copy()
-    modify["modify"] = True
-    with pytest.raises(
-        DeprecationError,
-        match=(
-            r"decode_permissions is deprecated and was removed in pypdf 5\.0\.0\. "
-            r"Use user_access_permissions instead"
-        ),
-    ):
-        assert reader.decode_permissions(8) == modify
 
 
 @pytest.mark.skipif(not HAS_AES, reason="No AES implementation")
@@ -2746,7 +2742,7 @@ def test_objstm_skips_cache_for_overridden_objects():
 def test_objstm_does_not_cache_stale_objects_from_non_authoritative_stream():
     """Decompressing a non-authoritative stream must not cache stale object copies."""
 
-    def _write_obj(buf: io.BytesIO, objnum: int, data: Union[str, bytes]) -> int:
+    def _write_obj(buf: io.BytesIO, objnum: int, data: str | bytes) -> int:
         offset = buf.tell()
         buf.write(f"{objnum} 0 obj\n".encode())
         buf.write(data if isinstance(data, bytes) else data.encode())
@@ -2923,7 +2919,7 @@ def test_read_pdf15_xref_stream__size_limit(caplog):
 
 @pytest.mark.timeout(10)
 def test_get_object_from_stream__size_limit(caplog):
-    obj_stm_encoded = FlateDecode.encode(b"4 0\nnull")
+    obj_stm_encoded = FlateDecode.encode(b"4 0 5 6\n")
     pdf = _build_pdf_with_object_stream(b"/N 5000000 /First 4 /Filter /FlateDecode", obj_stm_encoded)
 
     with pytest.raises(LimitReachedError, match=r"^Value /N 5000000 for object 3 exceeds maximum allowed value 2\.$"):
@@ -2938,8 +2934,8 @@ def test_get_object_from_stream__size_limit(caplog):
         _ = reader.pages[0]
     assert caplog.messages == [
         "Value /N 5000000 for object 3 exceeds maximum allowed value 2. Limiting to 2.",
-        "NumberObject(b'') invalid; use 0 instead",
-        "NumberObject(b'') invalid; use 0 instead",
+        "Invalid object number (5) or offset (6) in object stream 3; skipping the entry.",
+        "Ignoring page tree entry that is not a dictionary: 5",
     ]
 
 
@@ -3469,7 +3465,7 @@ def test_read_standard_xref_table__speed__caching() -> None:
 
 
 def _generate_pdf15_xref_stream_pdf_file(
-        size: int, encoded: bytes, index: Optional[str] = None, prev: bool = False
+        size: int, encoded: bytes, index: str | None = None, prev: bool = False
 ) -> bytes:
     pdf = bytearray(b"%PDF-1.7\n")
     pdf += b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
@@ -3539,3 +3535,57 @@ def test_read_standard_xref_table__end_of_file__trailer() -> None:
 
     with pytest.raises(PdfReadError, match=r"^Xref parsing stuck at position 33: b'aaa'$"):
         PdfReader(BytesIO(data))
+
+
+def test_get_object_from_stream__duplicate_offsets() -> None:
+    body_entries = 100
+    n = 10
+    entries = [
+        b"<< /Type /Catalog"
+        + b"".join(b" /K%d 0" % i for i in range(body_entries))
+        + b" >>"
+    ]
+    offsets = [0] * n
+
+    header = b"".join(b"%d %d " % (i + 3, offsets[i]) for i in range(n))
+    decoded = header + b" ".join(entries)
+    compressed = zlib.compress(decoded, 9)
+
+    pdf = bytearray(b"%PDF-1.5\n%\xe2\xe3\xcf\xd3\n")
+    offset_objstm = len(pdf)
+    pdf += (
+        b"1 0 obj\n"
+        b"<< /Type /ObjStm /N %d /First %d "
+        b"/Filter /FlateDecode /Length %d >>\nstream\n"
+
+    ) % (n, len(header), len(compressed))
+    pdf += compressed + b"\nendstream\nendobj\n"
+
+    offset_xref = len(pdf)
+    size = n + 3
+    xref = bytearray()
+
+    def add_entry(kind: int, field2: int, field3: int) -> None:
+        xref.extend(bytes([kind]))
+        xref.extend(field2.to_bytes(4, "big"))
+        xref.extend(field3.to_bytes(2, "big"))
+
+    add_entry(0, 0, 65535)
+    add_entry(1, offset_objstm, 0)
+    add_entry(1, offset_xref, 0)
+    for i in range(n):
+        # Type 2: compressed object in ObjStm object 1.
+        add_entry(2, 1, i)
+
+    pdf += (
+        b"2 0 obj\n"
+        b"<< /Type /XRef /Size %d /Root 3 0 R /W [1 4 2] "
+        b"/Length %d >>\nstream\n"
+    ) % (size, len(xref))
+    pdf += xref + b"\nendstream\nendobj\n"
+    pdf += b"startxref\n%d\n%%%%EOF\n" % offset_xref
+
+    reader = PdfReader(BytesIO(pdf), strict=False)
+
+    with pytest.raises(PdfReadError, match=r"^Invalid offset 0 in object stream 1\.$"):
+        _ = reader.root_object

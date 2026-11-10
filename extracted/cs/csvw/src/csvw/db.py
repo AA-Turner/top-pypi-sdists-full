@@ -238,9 +238,9 @@ class TableSpec:
                     )
                 elif not (drop_self_referential_fks and fk.reference.resource.string == spec.name):
                     spec.foreign_keys.append((
-                        sorted(fk.columnReference),
+                        list(fk.columnReference),
                         fk.reference.resource.string,
-                        sorted(fk.reference.columnReference),
+                        list(fk.reference.columnReference),
                     ))
         for c in table.tableSchema.columns:
             if c.header not in spec.many_to_many:
@@ -322,17 +322,17 @@ def schema(tg: csvw.TableGroup,
 
     # We must determine the order in which tables must be created!
     ordered = collections.OrderedDict()
-    i = 0
 
     # We loop through the tables repeatedly, and whenever we find one, which has all
     # referenced tables already in ordered, we move it from tables to ordered.
-    while tables and i < 100:
-        i += 1
+    while tables:
         for table in list(tables.keys()):
             if all((ref[1] in ordered) or ref[1] == table for ref in tables[table].foreign_keys):
                 # All referenced tables are already created (or self-referential).
                 ordered[table] = tables.pop(table)
                 break
+        else:
+            break
     if tables:  # pragma: no cover
         raise ValueError('there seem to be cyclic dependencies between the tables')
 
@@ -409,19 +409,20 @@ class Database:
 
     def select_many_to_many(self, db, table, context) -> dict[str, Union[tuple[str, str], str]]:
         """Select data from an association table, grouped by first foreign key."""
+        qt = functools.partial(self._qt, table.name)
         if context is not None:
-            context_sql = f"WHERE context = '{context}'"
+            context_sql = f"WHERE {qt('context')} = '{context}'"
         else:
             context_sql = ''
-        qt = functools.partial(self._qt, table.name)
         sql = (f"SELECT {qt(table.columns[0].name)}, "
-               f"       group_concat({qt(table.columns[1].name)}, ' '), "
-               f"       group_concat(COALESCE(context, ''), '||') "
-               f"FROM {qt()} {context_sql} GROUP BY {qt(table.columns[0].name)}")
-        cu = db.execute(sql)
-        return {
-            r[0]: [(k, v) if context is None else k
-                   for k, v in zip(r[1].split(), r[2].split('||'))] for r in cu.fetchall()}
+               f"       {qt(table.columns[1].name)}, COALESCE({qt('context')}, '') "
+               f"FROM {qt()} {context_sql}")
+        references = collections.defaultdict(list)
+        # Keep association rows intact: keys may contain whitespace, and
+        # custom contexts may contain the delimiters used by string aggregation.
+        for key, value, ctx in db.execute(sql):
+            references[key].append((value, ctx) if context is None else value)
+        return dict(references)
 
     def separator(self, tname: str, cname: str) -> Optional[str]:
         """
@@ -491,7 +492,7 @@ class Database:
         cols = {c.name: c for c in t.columns}
         for i, row in enumerate(items):
             pk = row[t.primary_key[0]] if t.primary_key and len(t.primary_key) == 1 else None
-            values = []
+            values = {}
             for k, v in row.items():
                 if k in t.many_to_many:
                     assert pk
@@ -517,10 +518,12 @@ class Database:
                             v = json.dumps(v)
                     else:
                         v = col.db_type.convert(v) if v is not None else None
-                    if i == 0:
-                        keys.append(col.name)
-                    values.append(v)
-            rows.append(tuple(values))
+                    values[col.name] = v
+            if i == 0:
+                keys = list(values)
+            elif values.keys() != set(keys):
+                raise ValueError('rows must have the same columns')
+            rows.append(tuple(values[k] for k in keys))
         return rows, keys
 
     def write(self, *, force=False, _exists_ok=False, _skip_extra=False, **items):
@@ -568,7 +571,7 @@ class TableReadSpec:
         # Assemble the conversion dictionary:
         for col in self.table.columns:
             if col.csvw_type in TYPE_MAP:
-                conv = TYPE_MAP[col.csvw_type].convert
+                conv = TYPE_MAP[col.csvw_type].read
             else:
                 conv = DATATYPES[col.csvw_type].to_python
             self.converters[self.translate(self.name, col.name)] = (col.name, conv)
@@ -595,6 +598,6 @@ class TableReadSpec:
                 d[k] = self.converters[k][1](v) if v is not None else None
         pk = d[self.translate(self.name, self.table.primary_key[0])] \
             if self.table.primary_key and len(self.table.primary_key) == 1 else None
-        d.update({k: [] for k in self.table.many_to_many})
+        d.update({self.translate(self.name, k): [] for k in self.table.many_to_many})
         d.update(self.references.get(pk, {}))
         return d

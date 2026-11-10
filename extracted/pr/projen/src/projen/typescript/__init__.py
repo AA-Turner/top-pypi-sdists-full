@@ -1443,6 +1443,7 @@ class TypeScriptProject(
         npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
+        peer_dependencies_meta: typing.Optional[typing.Mapping[builtins.str, typing.Union["_javascript_eb5dbe11.PeerDependencyMeta", typing.Dict[builtins.str, typing.Any]]]] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1602,6 +1603,7 @@ class TypeScriptProject(
         :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
+        :param peer_dependencies_meta: (experimental) Additional information about how peer dependencies are used, rendered as ``peerDependenciesMeta`` in ``package.json``. For example, this can mark peer dependencies as optional. Each key must also be declared as a peer dependency. Default: - no ``peerDependenciesMeta``
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
         :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
@@ -1763,6 +1765,7 @@ class TypeScriptProject(
             npm_verify_published_timeout_seconds=npm_verify_published_timeout_seconds,
             package_manager=package_manager,
             package_name=package_name,
+            peer_dependencies_meta=peer_dependencies_meta,
             peer_dependency_options=peer_dependency_options,
             peer_deps=peer_deps,
             pnpm_options=pnpm_options,
@@ -1997,6 +2000,7 @@ class TypeScriptProject(
         "npm_verify_published_timeout_seconds": "npmVerifyPublishedTimeoutSeconds",
         "package_manager": "packageManager",
         "package_name": "packageName",
+        "peer_dependencies_meta": "peerDependenciesMeta",
         "peer_dependency_options": "peerDependencyOptions",
         "peer_deps": "peerDeps",
         "pnpm_options": "pnpmOptions",
@@ -2160,6 +2164,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
+        peer_dependencies_meta: typing.Optional[typing.Mapping[builtins.str, typing.Union["_javascript_eb5dbe11.PeerDependencyMeta", typing.Dict[builtins.str, typing.Any]]]] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2319,6 +2324,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
+        :param peer_dependencies_meta: (experimental) Additional information about how peer dependencies are used, rendered as ``peerDependenciesMeta`` in ``package.json``. For example, this can mark peer dependencies as optional. Each key must also be declared as a peer dependency. Default: - no ``peerDependenciesMeta``
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
         :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
@@ -2549,6 +2555,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
             check_type(argname="argument npm_verify_published_timeout_seconds", value=npm_verify_published_timeout_seconds, expected_type=type_hints["npm_verify_published_timeout_seconds"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+            check_type(argname="argument peer_dependencies_meta", value=peer_dependencies_meta, expected_type=type_hints["peer_dependencies_meta"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
             check_type(argname="argument peer_deps", value=peer_deps, expected_type=type_hints["peer_deps"])
             check_type(argname="argument pnpm_options", value=pnpm_options, expected_type=type_hints["pnpm_options"])
@@ -2770,6 +2777,8 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
             self._values["package_manager"] = package_manager
         if package_name is not None:
             self._values["package_name"] = package_name
+        if peer_dependencies_meta is not None:
+            self._values["peer_dependencies_meta"] = peer_dependencies_meta
         if peer_dependency_options is not None:
             self._values["peer_dependency_options"] = peer_dependency_options
         if peer_deps is not None:
@@ -3816,6 +3825,26 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         '''
         result = self._values.get("package_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def peer_dependencies_meta(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_javascript_eb5dbe11.PeerDependencyMeta"]]:
+        '''(experimental) Additional information about how peer dependencies are used, rendered as ``peerDependenciesMeta`` in ``package.json``. For example, this can mark peer dependencies as optional.
+
+        Each key must also be declared as a peer dependency.
+
+        :default: - no ``peerDependenciesMeta``
+
+        :see: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#peerdependenciesmeta
+        :stability: experimental
+
+        Example::
+
+            { "aws-cdk-lib": { optional: true } }
+        '''
+        result = self._values.get("peer_dependencies_meta")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_javascript_eb5dbe11.PeerDependencyMeta"]], result)
 
     @builtins.property
     def peer_dependency_options(
@@ -5370,6 +5399,7 @@ class TypeScriptAppProject(
         npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
+        peer_dependencies_meta: typing.Optional[typing.Mapping[builtins.str, typing.Union["_javascript_eb5dbe11.PeerDependencyMeta", typing.Dict[builtins.str, typing.Any]]]] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5529,6 +5559,7 @@ class TypeScriptAppProject(
         :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
+        :param peer_dependencies_meta: (experimental) Additional information about how peer dependencies are used, rendered as ``peerDependenciesMeta`` in ``package.json``. For example, this can mark peer dependencies as optional. Each key must also be declared as a peer dependency. Default: - no ``peerDependenciesMeta``
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
         :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
@@ -5690,6 +5721,7 @@ class TypeScriptAppProject(
             npm_verify_published_timeout_seconds=npm_verify_published_timeout_seconds,
             package_manager=package_manager,
             package_name=package_name,
+            peer_dependencies_meta=peer_dependencies_meta,
             peer_dependency_options=peer_dependency_options,
             peer_deps=peer_deps,
             pnpm_options=pnpm_options,
@@ -5945,6 +5977,7 @@ def _typecheckingstub__a914f27f5d915b07b8847d407b03b08cab2aad7b213973084a9026526
     npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
     package_manager: typing.Optional[_javascript_eb5dbe11.NodePackageManager] = None,
     package_name: typing.Optional[builtins.str] = None,
+    peer_dependencies_meta: typing.Optional[typing.Mapping[builtins.str, typing.Union[_javascript_eb5dbe11.PeerDependencyMeta, typing.Dict[builtins.str, typing.Any]]]] = None,
     peer_dependency_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     pnpm_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PnpmOptions, typing.Dict[builtins.str, typing.Any]]] = None,

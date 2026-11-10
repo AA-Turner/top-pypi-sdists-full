@@ -26,8 +26,13 @@ from omnibase_spi.contracts.services import (
     ModelLaneHostPoolRequest,
     ModelLaneHostPoolSnapshot,
     ModelLaneHostRef,
+    ModelLaneHostStepRequest,
+    ModelLaneHostStepResult,
+    ModelLaneProcessRunResult,
+    ModelLaneProcessStartResult,
     ModelLaneReadEngineExitRequest,
     ModelLaneStartEngineRequest,
+    ModelLaneStartSpec,
     ModelLaneStopEngineRequest,
     ModelLaneStopEngineResult,
 )
@@ -39,6 +44,7 @@ from tests.unit.protocols.conformance import (
     suite_host_call,
     suite_lane_host_pool,
     suite_lane_host_transport,
+    suite_lane_process_runner,
     suite_tree_lock,
     suite_work_ledger_store,
 )
@@ -49,6 +55,7 @@ from tests.unit.protocols.conformance.adapters_in_memory import (
     InMemoryHostCall,
     InMemoryLaneHostPool,
     InMemoryLaneHostTransport,
+    InMemoryLaneProcessRunner,
     InMemoryTreeLock,
     InMemoryWorkLedgerStore,
 )
@@ -117,6 +124,7 @@ class _LaneHostHarness:
         self.script_exit = self.transport.script_exit
         self.script_stubborn = self.transport.script_stubborn
         self.script_log = self.transport.script_log
+        self.script_step_failure = self.transport.script_step_failure
 
 
 class _LanePoolHarness:
@@ -125,6 +133,17 @@ class _LanePoolHarness:
 
     def arrange(self, snapshot: ModelLaneHostPoolSnapshot) -> None:
         self.pool.snapshot = snapshot
+
+
+class _LaneProcessHarness:
+    def __init__(self, runner: Any = None) -> None:
+        self.runner = runner or InMemoryLaneProcessRunner()
+
+    def arrange_start(self, result: ModelLaneProcessStartResult) -> None:
+        self.runner.script_start(result)
+
+    def arrange_run(self, result: ModelLaneProcessRunResult) -> None:
+        self.runner.script_run(result)
 
 
 class _LedgerHarness:
@@ -197,6 +216,18 @@ class _BrokenLaneHostPool(InMemoryLaneHostPool):
 
     def read_pool(self, request: ModelLaneHostPoolRequest) -> ModelLaneHostPoolSnapshot:
         return super().read_pool(request).model_copy(update={"readings": ()})
+
+
+class _BrokenLaneProcessRunner(InMemoryLaneProcessRunner):
+    """run_bounded reports a deadline that passed as a clean exit."""
+
+    def run_bounded(
+        self, spec: ModelLaneStartSpec, timeout_seconds: float
+    ) -> ModelLaneProcessRunResult:
+        result = super().run_bounded(spec, timeout_seconds)
+        if result.state == "timed_out":
+            return ModelLaneProcessRunResult(state="exited", exit_code=0)
+        return result
 
 
 class _BrokenWorkLedgerStore(InMemoryWorkLedgerStore):
@@ -302,6 +333,16 @@ def test_lane_host_pool_conformance(check: Callable[..., None]) -> None:
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
+    "check",
+    suite_lane_process_runner.CHECKS,
+    ids=_ids(suite_lane_process_runner.CHECKS),
+)
+def test_lane_process_runner_conformance(check: Callable[..., None]) -> None:
+    check(_LaneProcessHarness())
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
     "check", suite_work_ledger_store.CHECKS, ids=_ids(suite_work_ledger_store.CHECKS)
 )
 def test_work_ledger_store_conformance(check: Callable[..., None]) -> None:
@@ -398,12 +439,47 @@ def test_control_lane_host_suite_refuses_a_stop_that_confirms_a_surviving_engine
         )
 
 
+class _SilentStepLaneHostTransport(InMemoryLaneHostTransport):
+    """A failed provisioning step reports ok."""
+
+    def mirror_ledger(
+        self, request: ModelLaneHostStepRequest
+    ) -> ModelLaneHostStepResult:
+        super().mirror_ledger(request)
+        return ModelLaneHostStepResult(ok=True)
+
+
+@pytest.mark.unit
+def test_control_lane_host_suite_refuses_a_failed_step_reported_as_ok() -> None:
+    with pytest.raises(AssertionError):
+        suite_lane_host_transport.check_a_failed_provisioning_step_names_its_error_not_a_raise(
+            _LaneHostHarness(_SilentStepLaneHostTransport())
+        )
+
+
 @pytest.mark.unit
 def test_control_lane_host_pool_suite_refuses_a_pool_that_drops_readings() -> None:
     with pytest.raises(AssertionError):
         suite_lane_host_pool.check_every_host_reading_and_every_limit_comes_back(
             _LanePoolHarness(_BrokenLaneHostPool())
         )
+
+
+@pytest.mark.unit
+def test_control_lane_process_suite_refuses_a_timeout_reported_as_an_exit() -> None:
+    with pytest.raises(AssertionError):
+        suite_lane_process_runner.check_a_run_past_its_deadline_is_timed_out_and_carries_no_exit_code(
+            _LaneProcessHarness(_BrokenLaneProcessRunner())
+        )
+
+
+@pytest.mark.unit
+def test_in_memory_lane_process_runner_records_each_spec_in_order() -> None:
+    runner = InMemoryLaneProcessRunner()
+    spec = suite_lane_process_runner.SPEC
+    runner.start_detached(spec)
+    runner.run_bounded(spec, 1.0)
+    assert runner.calls == [("start_detached", spec), ("run_bounded", spec)]
 
 
 @pytest.mark.unit

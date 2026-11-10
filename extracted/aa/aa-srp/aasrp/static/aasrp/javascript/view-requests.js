@@ -1,4 +1,4 @@
-/* global aaSrpSettings, _bootstrapTooltip, fetchGet, fetchPost, moment, numberFormatter, _filterDataTable, _removeSearchFromColumnControl, DataTable, ClipboardJS, bootstrap */
+/* global _bootstrapTooltip, _copyToClipboard, _filterDataTable, _formatCurrency, _removeSearchFromColumnControl, _showToast, aaSrpSettings, DataTable, fetchGet, fetchPost, moment */
 
 $(document).ready(() => {
     'use strict';
@@ -6,21 +6,14 @@ $(document).ready(() => {
     const element = {
         srpRequestsTable: $('#table_aasrp_srp_requests'),
         bulkActions: $('div.card-srp-request-bulk-actions'),
-        totalSrpCost: $('#srp-fleet-total-cost')
+        totalSrpCost: $('#srp-fleet-total-cost'),
+        pendingSrpCost: $('#srp-fleet-pending-cost')
     };
-
     const editablePayoutSelector = '.srp-request-payout-amount-editable .srp-payout-amount';
 
     // Set initial total SRP cost value
-    const totalSrpCost = element.totalSrpCost.data('total-srp-cost') || 0;
-    element.totalSrpCost.html(numberFormatter({
-        value: totalSrpCost,
-        locales: aaSrpSettings.locale,
-        options: {
-            style: 'currency',
-            currency: 'ISK'
-        }
-    }));
+    element.totalSrpCost.html(_formatCurrency(element.totalSrpCost.data('total-srp-cost') || 0));
+    element.pendingSrpCost.html(_formatCurrency(element.pendingSrpCost.data('pending-srp-cost') || 0));
 
     /**
      * Update total notifications badge in sidebar menu
@@ -51,15 +44,72 @@ $(document).ready(() => {
         }
     };
 
+    // DataTable column indices for easier reference
+    const dtColumn = {
+        requestTime: 0,
+        requester: 1,
+        character: 2,
+        ship: 3,
+        iskLoss: 4,
+        srpPayout: 5,
+        additionalInfo: 6,
+        status: 7,
+        actions: 8,
+        bulkActionsCheckbox: 9,
+        requestCode: 10 // Invisible: Request Code (for internal use, not displayed to users)
+    };
+
     /**
      * Table :: SRP Requests
      *
      * @type {*|jQuery}
      */
-
     fetchGet({url: aaSrpSettings.url.requestsForSrpLink})
         .then((data) => {
             if (data) {
+                const payoutEditableMode = aaSrpSettings.payoutEditableMode || 'popup';
+                const columnDefs = [
+                    {
+                        targets: [
+                            dtColumn.requestTime,
+                            dtColumn.iskLoss,
+                            dtColumn.srpPayout
+                        ],
+                        columnControl: _removeSearchFromColumnControl(
+                            aaSrpSettings.dataTables.columnControl,
+                            1
+                        )
+                    },
+                    {
+                        targets: [
+                            dtColumn.status,
+                            dtColumn.actions,
+                            dtColumn.bulkActionsCheckbox
+                        ],
+                        orderable: false,
+                        columnControl: [
+                            {target: 0, content: []},
+                            {target: 1, content: []}
+                        ]
+                    },
+                    {
+                        target: dtColumn.actions,
+                        width: 120
+                    },
+                    {
+                        target: dtColumn.requestCode,
+                        visible: false
+                    }
+                ];
+
+                // If the payout field is editable inline, we need to increase the width of the column to accommodate the input field.
+                if (payoutEditableMode === 'inline') {
+                    columnDefs.push({
+                        target: dtColumn.srpPayout,
+                        width: 325
+                    });
+                }
+
                 const dt = new DataTable(element.srpRequestsTable, { // eslint-disable-line no-unused-vars
                     ...aaSrpSettings.dataTables,
                     data: data,
@@ -99,14 +149,7 @@ $(document).ready(() => {
                         // Column 4: ISK lost
                         {
                             data: {
-                                display: (data) => numberFormatter({
-                                    value: data.zbk_loss_amount,
-                                    locales: aaSrpSettings.locale,
-                                    options: {
-                                        style: 'currency',
-                                        currency: 'ISK'
-                                    }
-                                }),
+                                display: (data) => _formatCurrency(data.zbk_loss_amount),
                                 filter: (data) => data.zbk_loss_amount,
                                 sort: (data) => data.zbk_loss_amount
                             },
@@ -117,14 +160,7 @@ $(document).ready(() => {
                             data: {
                                 display: (data) => data.payout_amount_html.display.replace(
                                     '#payout_amount_localized#',
-                                    numberFormatter({
-                                        value: data.payout_amount_html.sort,
-                                        locales: aaSrpSettings.locale,
-                                        options: {
-                                            style: 'currency',
-                                            currency: 'ISK'
-                                        }
-                                    })
+                                    _formatCurrency(data.payout_amount_html.sort)
                                 ),
                                 filter: (data) => data.payout_amount_html.sort,
                                 sort: (data) => data.payout_amount_html.sort
@@ -173,33 +209,9 @@ $(document).ready(() => {
                             className: 'srp-request-code'
                         }
                     ],
-                    columnDefs: [
-                        {
-                            targets: [0, 4, 5],
-                            columnControl: _removeSearchFromColumnControl(
-                                aaSrpSettings.dataTables.columnControl,
-                                1
-                            )
-                        },
-                        {
-                            targets: [7, 8, 9],
-                            orderable: false,
-                            columnControl: [
-                                {target: 0, content: []},
-                                {target: 1, content: []}
-                            ]
-                        },
-                        {
-                            target: 8,
-                            width: 120
-                        },
-                        {
-                            target: 10,
-                            visible: false
-                        }
-                    ],
+                    columnDefs: columnDefs,
                     order: [
-                        [0, 'asc']
+                        [dtColumn.requestTime, 'asc']
                     ],
                     /**
                      * When ever a row is created…
@@ -211,7 +223,7 @@ $(document).ready(() => {
                     createdRow: (row, data, rowIndex) => {
                         const srpRequestCode = data.request_code;
                         const srpRequestStatus = data.request_status.toLowerCase();
-                        const srpRequestPayoutAmount = data.payout_amount;
+                        const srpRequestPayoutAmount = data.payout_amount === 0 ? null : data.payout_amount;
 
                         // Row id attr
                         $(row)
@@ -278,18 +290,20 @@ $(document).ready(() => {
 
                         // Make the SRP payout field editable for pending and rejected requests.
                         element.srpRequestsTable.editable({
-                            container: 'body',
+                            // container: '.aa-srp',
                             selector: editablePayoutSelector,
                             title: aaSrpSettings.translation.changeSrpPayoutHeader,
                             type: 'number',
                             placement: 'top',
                             highlight: 'rgb(170 255 128)',
+                            mode: payoutEditableMode,
                             /**
+                             * This needs to be exactly as it is, otherwise the number
+                             * formatter will not work correctly after the edit.
+                             *
                              * @returns {boolean}
                              */
-                            display: () => {
-                                return false;
-                            },
+                            display: () => false,
                             /**
                              * On success…
                              *
@@ -348,45 +362,42 @@ $(document).ready(() => {
      * @private
      */
     const _refreshSrpAmountField = (valueField, newValue) => {
+        console.log('New Value', newValue);
         newValue = parseInt(newValue);
 
         // Update payout value formatted
         // const newValueFormatted = `${new Intl.NumberFormat(aaSrpSettings.locale).format(newValue)} ISK`;
-        const newValueFormatted = numberFormatter({
-            value: newValue,
-            locales: aaSrpSettings.locale,
-            options: {
-                style: 'currency',
-                currency: 'ISK'
-            }
-        });
+        const newValueFormatted = _formatCurrency(newValue);
 
         // Update the element
         valueField
-            .attr('data-value', newValue)
+            .attr('data-value', newValue === 0 ? null : newValue)
             .addClass('srp-payout-amount-changed')
             .html(newValueFormatted);
 
         // Update fleet total SRP amount
         let totalSrpAmount = 0;
-        const elementSrpAmount = $(
-            '#tab_aasrp_srp_requests .srp-request-status-approved .srp-payout-amount'
-        );
+        let pendingSrpAmount = 0;
 
-        elementSrpAmount.each((i, payoutElement) => {
-            totalSrpAmount += parseInt(payoutElement.getAttribute('data-value'));
+        const elementSrpPayoutAmount = {
+            approved: $('#table_aasrp_srp_requests .srp-request-status-approved .srp-payout-amount'),
+            pending: $('#table_aasrp_srp_requests .srp-request-status-pending .srp-payout-amount'),
+            rejected: $('#table_aasrp_srp_requests .srp-request-status-rejected .srp-payout-amount')
+        };
+
+        elementSrpPayoutAmount.approved.each((i, payoutElement) => {
+            totalSrpAmount += parseInt(payoutElement.getAttribute('data-value') || 0);
         });
+        elementSrpPayoutAmount.pending.each((i, payoutElement) => {
+            pendingSrpAmount += parseInt(payoutElement.getAttribute('data-value') || 0);
+        });
+
+        console.log('Total SRP Amount', totalSrpAmount);
 
         console.log('Element Total Cost', element.totalSrpCost);
 
-        element.totalSrpCost.html(numberFormatter({
-            value: totalSrpAmount,
-            locales: aaSrpSettings.locale,
-            options: {
-                style: 'currency',
-                currency: 'ISK'
-            }
-        }));
+        element.totalSrpCost.html(_formatCurrency(totalSrpAmount));
+        element.pendingSrpCost.html(_formatCurrency(pendingSrpAmount));
 
         // Update copy to clipboard icon value
         const copyToClipboard = valueField.parent().parent().find('.copy-to-clipboard-icon i');
@@ -401,6 +412,7 @@ $(document).ready(() => {
      */
     const _reloadSrpCalculations = (tableData) => {
         let totalSrpAmount = 0;
+        let pendingSrpAmount = 0;
         let requestsTotal = 0;
         let requestsPending = 0;
         let requestsApproved = 0;
@@ -410,6 +422,7 @@ $(document).ready(() => {
             requestsTotal += 1;
 
             if (item.request_status === 'Pending') {
+                pendingSrpAmount += parseInt(item.payout_amount);
                 requestsPending += 1;
             }
 
@@ -425,15 +438,28 @@ $(document).ready(() => {
 
         console.log('ELEMENT TOTAL COST', element.totalSrpCost);
 
-        // Update fleet total SRP amount
-        element.totalSrpCost.html(numberFormatter({
-            value: totalSrpAmount,
-            locales: aaSrpSettings.locale,
-            options: {
-                style: 'currency',
-                currency: 'ISK'
-            }
-        }));
+        // Update total_cost field in Database
+        fetchPost({
+            url: aaSrpSettings.url.updateTotalCost,
+            csrfToken: aaSrpSettings.csrfToken,
+            payload: {
+                total_cost: totalSrpAmount
+            },
+            responseIsJson: true
+        })
+            .then((data) => {
+                if (data.success === true) {
+                    // Update fleet total SRP amount
+                    element.totalSrpCost.html(_formatCurrency(totalSrpAmount));
+                    // Update fleet pending SRP amount
+                    element.pendingSrpCost.html(_formatCurrency(pendingSrpAmount));
+                } else {
+                    console.error('Error updating total cost:', data.message);
+                }
+            })
+            .catch((error) => {
+                console.error('Error updating total cost:', error);
+            });
 
         // Update requests counts
         $('.srp-requests-total-count').html(requestsTotal);
@@ -819,66 +845,6 @@ $(document).ready(() => {
             _unbindClickEvent($('#modal-button-confirm-bulk-remove-requests'));
         });
 
-    /**
-     * Helper function: Show a short-lived toast message, without reloading the page
-     *
-     * @param {string} message The message to show
-     * @param {boolean} success Whether this is a success or an error message
-     * @private
-     */
-    const _showToast = (message, success) => {
-        let container = $('#aasrp-toast-container');
-
-        if (container.length === 0) {
-            container = $('<div id="aasrp-toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>');
-
-            $('body').append(container);
-        }
-
-        const toastElement = $('<div class="toast align-items-center border-0" role="status" aria-live="polite" aria-atomic="true"><div class="d-flex"><div class="toast-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>');
-
-        toastElement
-            .addClass(success ? 'text-bg-success' : 'text-bg-danger')
-            .find('.toast-body')
-            .text(message);
-
-        container.append(toastElement);
-
-        toastElement.on('hidden.bs.toast', () => {
-            toastElement.remove();
-        });
-
-        new bootstrap.Toast(toastElement[0], {delay: 6000}).show();
-    };
-
-    /**
-     * Helper function: Copy text to the clipboard
-     *
-     * Must be called synchronously from a user click, so browsers allow it.
-     * Falls back to ClipboardJS on non-secure (non-HTTPS) origins.
-     *
-     * @param {string} text The text to copy
-     * @returns {Promise<boolean>} Whether copying succeeded
-     * @private
-     */
-    const _copyToClipboard = (text) => {
-        if (window.isSecureContext && navigator.clipboard) {
-            return navigator.clipboard.writeText(text)
-                .then(() => true)
-                .catch(() => false);
-        }
-
-        try {
-            ClipboardJS.copy(text);
-
-            return Promise.resolve(true);
-        } catch (error) {
-            console.error('Error copying to clipboard:', error);
-
-            return Promise.resolve(false);
-        }
-    };
-
     /* Events
     --------------------------------------------------------------------------------- */
     /**
@@ -896,15 +862,7 @@ $(document).ready(() => {
         const payoutAmount = parseInt(row.find('span.srp-payout-amount').attr('data-value')) || 0;
         const requestStatus = row.attr('class').match(/srp-request-status-(\w+)/);
         const translation = aaSrpSettings.translation.openCharacterInfo;
-
-        const formattedAmount = numberFormatter({
-            value: payoutAmount,
-            locales: aaSrpSettings.locale,
-            options: {
-                style: 'currency',
-                currency: 'ISK'
-            }
-        });
+        const formattedAmount = _formatCurrency(payoutAmount);
 
         // Copy first, while still inside the user's click
         const copyPromise = _copyToClipboard(String(payoutAmount));

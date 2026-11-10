@@ -135,6 +135,7 @@ from lusid.models.allocation_posting_plan import AllocationPostingPlan
 from lusid.models.allocation_posting_roll_up import AllocationPostingRollUp
 from lusid.models.allocation_receivable import AllocationReceivable
 from lusid.models.allocation_receivables_ageing import AllocationReceivablesAgeing
+from lusid.models.allocation_register_receivable import AllocationRegisterReceivable
 from lusid.models.allocation_request import AllocationRequest
 from lusid.models.allocation_service_run_allocation import AllocationServiceRunAllocation
 from lusid.models.allocation_service_run_response import AllocationServiceRunResponse
@@ -227,9 +228,17 @@ from lusid.models.branch_step import BranchStep
 from lusid.models.branch_step_request import BranchStepRequest
 from lusid.models.break_code_source import BreakCodeSource
 from lusid.models.bucket import Bucket
+from lusid.models.bucket_amounts import BucketAmounts
+from lusid.models.bucket_balance_figures import BucketBalanceFigures
 from lusid.models.bucket_border_configuration import BucketBorderConfiguration
+from lusid.models.bucket_cash_flow_balance import BucketCashFlowBalance
+from lusid.models.bucket_cash_flow_bucket import BucketCashFlowBucket
+from lusid.models.bucket_cash_flow_drill_down_response import BucketCashFlowDrillDownResponse
+from lusid.models.bucket_cash_flow_subtotal import BucketCashFlowSubtotal
+from lusid.models.bucket_currency_subtotal import BucketCurrencySubtotal
 from lusid.models.bucket_definition import BucketDefinition
 from lusid.models.bucket_membership import BucketMembership
+from lusid.models.bucket_net_of_haircut_balance import BucketNetOfHaircutBalance
 from lusid.models.bucket_seed_value import BucketSeedValue
 from lusid.models.bucket_seed_value_request import BucketSeedValueRequest
 from lusid.models.bucket_set_class_seed import BucketSetClassSeed
@@ -282,6 +291,7 @@ from lusid.models.carry_tier_amount import CarryTierAmount
 from lusid.models.cash import Cash
 from lusid.models.cash_and_security_offer_election import CashAndSecurityOfferElection
 from lusid.models.cash_dependency import CashDependency
+from lusid.models.cash_distribution_from_non_eligible_securities_sales_event import CashDistributionFromNonEligibleSecuritiesSalesEvent
 from lusid.models.cash_dividend_event import CashDividendEvent
 from lusid.models.cash_election import CashElection
 from lusid.models.cash_flow_detail import CashFlowDetail
@@ -336,7 +346,13 @@ from lusid.models.collateral import Collateral
 from lusid.models.collateral_agreement import CollateralAgreement
 from lusid.models.collateral_agreement_applicability import CollateralAgreementApplicability
 from lusid.models.collateral_agreement_request import CollateralAgreementRequest
+from lusid.models.collateral_allocation import CollateralAllocation
+from lusid.models.collateral_allocation_candidate import CollateralAllocationCandidate
+from lusid.models.collateral_allocation_line import CollateralAllocationLine
+from lusid.models.collateral_allocation_override import CollateralAllocationOverride
+from lusid.models.collateral_funding_terms import CollateralFundingTerms
 from lusid.models.collateral_instrument import CollateralInstrument
+from lusid.models.collateral_optimisation_terms import CollateralOptimisationTerms
 from lusid.models.commodity_calendar_schedule import CommodityCalendarSchedule
 from lusid.models.commodity_calendar_swap import CommodityCalendarSwap
 from lusid.models.commodity_calendar_swap_cash_flow_event import CommodityCalendarSwapCashFlowEvent
@@ -371,9 +387,20 @@ from lusid.models.compliance_rule_template import ComplianceRuleTemplate
 from lusid.models.compliance_rule_template_entity import ComplianceRuleTemplateEntity
 from lusid.models.compliance_rule_upsert_request import ComplianceRuleUpsertRequest
 from lusid.models.compliance_rule_upsert_response import ComplianceRuleUpsertResponse
+from lusid.models.compliance_rule_v3_check import ComplianceRuleV3Check
+from lusid.models.compliance_rule_v3_check_bound import ComplianceRuleV3CheckBound
+from lusid.models.compliance_rule_v3_computed_filter import ComplianceRuleV3ComputedFilter
+from lusid.models.compliance_rule_v3_decimal_bound import ComplianceRuleV3DecimalBound
+from lusid.models.compliance_rule_v3_describe_response import ComplianceRuleV3DescribeResponse
+from lusid.models.compliance_rule_v3_filter_node import ComplianceRuleV3FilterNode
+from lusid.models.compliance_rule_v3_group_result import ComplianceRuleV3GroupResult
+from lusid.models.compliance_rule_v3_measure import ComplianceRuleV3Measure
+from lusid.models.compliance_rule_v3_response import ComplianceRuleV3Response
+from lusid.models.compliance_rule_v3_rule_result import ComplianceRuleV3RuleResult
 from lusid.models.compliance_run_configuration import ComplianceRunConfiguration
 from lusid.models.compliance_run_info import ComplianceRunInfo
 from lusid.models.compliance_run_info_v2 import ComplianceRunInfoV2
+from lusid.models.compliance_run_v3_response import ComplianceRunV3Response
 from lusid.models.compliance_step import ComplianceStep
 from lusid.models.compliance_step_request import ComplianceStepRequest
 from lusid.models.compliance_step_type import ComplianceStepType
@@ -539,6 +566,7 @@ from lusid.models.decimal_list import DecimalList
 from lusid.models.decimal_list_compliance_parameter import DecimalListComplianceParameter
 from lusid.models.decorated_compliance_run_summary import DecoratedComplianceRunSummary
 from lusid.models.decorated_compliance_run_summary_request import DecoratedComplianceRunSummaryRequest
+from lusid.models.deemed_disposal import DeemedDisposal
 from lusid.models.delete_accounts_response import DeleteAccountsResponse
 from lusid.models.delete_custodian_accounts_response import DeleteCustodianAccountsResponse
 from lusid.models.delete_data_quality_rule import DeleteDataQualityRule
@@ -670,9 +698,11 @@ from lusid.models.filter_predicate_compliance_parameter import FilterPredicateCo
 from lusid.models.filter_step import FilterStep
 from lusid.models.filter_step_request import FilterStepRequest
 from lusid.models.filtered_fund_id_list import FilteredFundIdList
+from lusid.models.filtered_portfolio_id_list import FilteredPortfolioIdList
 from lusid.models.finalised_valuation_point import FinalisedValuationPoint
 from lusid.models.fixed_leg import FixedLeg
 from lusid.models.fixed_leg_all_of_overrides import FixedLegAllOfOverrides
+from lusid.models.fixed_period_lookback_activity_window import FixedPeriodLookbackActivityWindow
 from lusid.models.fixed_schedule import FixedSchedule
 from lusid.models.flexible_deposit import FlexibleDeposit
 from lusid.models.flexible_loan import FlexibleLoan
@@ -734,6 +764,9 @@ from lusid.models.fund_structure_edge_target import FundStructureEdgeTarget
 from lusid.models.fund_structure_member_request import FundStructureMemberRequest
 from lusid.models.fund_structure_node import FundStructureNode
 from lusid.models.fund_structure_request import FundStructureRequest
+from lusid.models.fund_tax_exception_item import FundTaxExceptionItem
+from lusid.models.fund_tax_scope import FundTaxScope
+from lusid.models.fund_tax_scope_exclusions import FundTaxScopeExclusions
 from lusid.models.fund_terms import FundTerms
 from lusid.models.fund_terms_version import FundTermsVersion
 from lusid.models.fund_valuation_point_data import FundValuationPointData
@@ -855,11 +888,13 @@ from lusid.models.inflation_curve_data import InflationCurveData
 from lusid.models.inflation_curve_shift_definition import InflationCurveShiftDefinition
 from lusid.models.inflation_fixing_dependency import InflationFixingDependency
 from lusid.models.inflation_index_conventions import InflationIndexConventions
+from lusid.models.inflation_indexation_event import InflationIndexationEvent
 from lusid.models.inflation_leg import InflationLeg
 from lusid.models.inflation_linked_bond import InflationLinkedBond
 from lusid.models.inflation_swap import InflationSwap
 from lusid.models.informational_error_event import InformationalErrorEvent
 from lusid.models.informational_event import InformationalEvent
+from lusid.models.initial_margin_change import InitialMarginChange
 from lusid.models.inline_valuation_request import InlineValuationRequest
 from lusid.models.inline_valuations_reconciliation_request import InlineValuationsReconciliationRequest
 from lusid.models.input_transition import InputTransition
@@ -875,6 +910,8 @@ from lusid.models.instrument_definition_format import InstrumentDefinitionFormat
 from lusid.models.instrument_delete_modes import InstrumentDeleteModes
 from lusid.models.instrument_entity import InstrumentEntity
 from lusid.models.instrument_event import InstrumentEvent
+from lusid.models.instrument_event_activity import InstrumentEventActivity
+from lusid.models.instrument_event_activity_adjustment import InstrumentEventActivityAdjustment
 from lusid.models.instrument_event_configuration import InstrumentEventConfiguration
 from lusid.models.instrument_event_entity import InstrumentEventEntity
 from lusid.models.instrument_event_holder import InstrumentEventHolder
@@ -969,7 +1006,9 @@ from lusid.models.margin_item import MarginItem
 from lusid.models.margin_line import MarginLine
 from lusid.models.margin_rounding import MarginRounding
 from lusid.models.margin_run import MarginRun
+from lusid.models.margin_run_allocation import MarginRunAllocation
 from lusid.models.margin_run_issue import MarginRunIssue
+from lusid.models.margin_run_optimisation import MarginRunOptimisation
 from lusid.models.margin_run_request import MarginRunRequest
 from lusid.models.margin_run_shard import MarginRunShard
 from lusid.models.margin_settlement_lag import MarginSettlementLag
@@ -1031,6 +1070,7 @@ from lusid.models.nav_settlement_configuration_category import NavSettlementConf
 from lusid.models.nav_type import NavType
 from lusid.models.nav_type_definition import NavTypeDefinition
 from lusid.models.nav_type_selection import NavTypeSelection
+from lusid.models.netting_recommendation import NettingRecommendation
 from lusid.models.new_instrument import NewInstrument
 from lusid.models.next_value_in_sequence_response import NextValueInSequenceResponse
 from lusid.models.notice_convention import NoticeConvention
@@ -1110,6 +1150,7 @@ from lusid.models.paged_resource_list_of_cleardown_module_rule import PagedResou
 from lusid.models.paged_resource_list_of_closed_period import PagedResourceListOfClosedPeriod
 from lusid.models.paged_resource_list_of_collateral_agreement import PagedResourceListOfCollateralAgreement
 from lusid.models.paged_resource_list_of_compliance_rule_response import PagedResourceListOfComplianceRuleResponse
+from lusid.models.paged_resource_list_of_compliance_rule_v3_response import PagedResourceListOfComplianceRuleV3Response
 from lusid.models.paged_resource_list_of_compliance_run_info_v2 import PagedResourceListOfComplianceRunInfoV2
 from lusid.models.paged_resource_list_of_compliance_template import PagedResourceListOfComplianceTemplate
 from lusid.models.paged_resource_list_of_corporate_action_source import PagedResourceListOfCorporateActionSource
@@ -1150,6 +1191,7 @@ from lusid.models.paged_resource_list_of_margin_call import PagedResourceListOfM
 from lusid.models.paged_resource_list_of_margin_line import PagedResourceListOfMarginLine
 from lusid.models.paged_resource_list_of_margin_run import PagedResourceListOfMarginRun
 from lusid.models.paged_resource_list_of_matching_ruleset import PagedResourceListOfMatchingRuleset
+from lusid.models.paged_resource_list_of_netting_recommendation import PagedResourceListOfNettingRecommendation
 from lusid.models.paged_resource_list_of_order import PagedResourceListOfOrder
 from lusid.models.paged_resource_list_of_order_breach_history import PagedResourceListOfOrderBreachHistory
 from lusid.models.paged_resource_list_of_order_graph_block import PagedResourceListOfOrderGraphBlock
@@ -1183,6 +1225,7 @@ from lusid.models.paged_resource_list_of_sequence_definition import PagedResourc
 from lusid.models.paged_resource_list_of_staged_modification import PagedResourceListOfStagedModification
 from lusid.models.paged_resource_list_of_staged_modifications_requested_change_interval import PagedResourceListOfStagedModificationsRequestedChangeInterval
 from lusid.models.paged_resource_list_of_staging_rule_set import PagedResourceListOfStagingRuleSet
+from lusid.models.paged_resource_list_of_tax_cost_record import PagedResourceListOfTaxCostRecord
 from lusid.models.paged_resource_list_of_timeline import PagedResourceListOfTimeline
 from lusid.models.paged_resource_list_of_transaction_template import PagedResourceListOfTransactionTemplate
 from lusid.models.paged_resource_list_of_transaction_template_specification import PagedResourceListOfTransactionTemplateSpecification
@@ -1355,6 +1398,9 @@ from lusid.models.protection_payout_cash_flow_event import ProtectionPayoutCashF
 from lusid.models.put_redemption_event import PutRedemptionEvent
 from lusid.models.qualifier_definition import QualifierDefinition
 from lusid.models.qualifier_definition_request import QualifierDefinitionRequest
+from lusid.models.qualifying_investments_crossing import QualifyingInvestmentsCrossing
+from lusid.models.qualifying_investments_history import QualifyingInvestmentsHistory
+from lusid.models.qualifying_investments_observation import QualifyingInvestmentsObservation
 from lusid.models.quantity_instructed import QuantityInstructed
 from lusid.models.query_applicable_instrument_events_request import QueryApplicableInstrumentEventsRequest
 from lusid.models.query_bucket_cash_flow_drill_down_request import QueryBucketCashFlowDrillDownRequest
@@ -1377,6 +1423,7 @@ from lusid.models.quote_id import QuoteId
 from lusid.models.quote_instrument_id_type import QuoteInstrumentIdType
 from lusid.models.quote_series_id import QuoteSeriesId
 from lusid.models.quote_type import QuoteType
+from lusid.models.rank_margin_call_request import RankMarginCallRequest
 from lusid.models.rate_breakdown_component import RateBreakdownComponent
 from lusid.models.rate_curve_shift_definition import RateCurveShiftDefinition
 from lusid.models.rate_curve_shift_mode import RateCurveShiftMode
@@ -1384,6 +1431,8 @@ from lusid.models.rate_curve_shift_scale import RateCurveShiftScale
 from lusid.models.raw_vendor_event import RawVendorEvent
 from lusid.models.re_open_period_diary_entry_request import ReOpenPeriodDiaryEntryRequest
 from lusid.models.realised_gain_loss import RealisedGainLoss
+from lusid.models.realised_gain_loss_chargeable_gains import RealisedGainLossChargeableGains
+from lusid.models.realised_gain_loss_matched_lot import RealisedGainLossMatchedLot
 from lusid.models.rec_activity_since_effective_at import RecActivitySinceEffectiveAt
 from lusid.models.rec_activity_window import RecActivityWindow
 from lusid.models.rec_approval_decision import RecApprovalDecision
@@ -1430,6 +1479,7 @@ from lusid.models.rec_result_item import RecResultItem
 from lusid.models.rec_result_item_details import RecResultItemDetails
 from lusid.models.rec_result_link_key import RecResultLinkKey
 from lusid.models.rec_result_relational_data_item import RecResultRelationalDataItem
+from lusid.models.rec_result_resource_id_item import RecResultResourceIdItem
 from lusid.models.rec_result_review import RecResultReview
 from lusid.models.rec_result_set import RecResultSet
 from lusid.models.rec_result_set_approval_decision_request import RecResultSetApprovalDecisionRequest
@@ -1448,6 +1498,7 @@ from lusid.models.rec_user_comment import RecUserComment
 from lusid.models.recallable_capital_expiry_event import RecallableCapitalExpiryEvent
 from lusid.models.recipe_block import RecipeBlock
 from lusid.models.recipe_composer import RecipeComposer
+from lusid.models.recipe_provenance import RecipeProvenance
 from lusid.models.recipe_value import RecipeValue
 from lusid.models.recombine_step import RecombineStep
 from lusid.models.recommended_sort_by import RecommendedSortBy
@@ -1517,7 +1568,6 @@ from lusid.models.resource_list_of_applicable_instrument_event import ResourceLi
 from lusid.models.resource_list_of_block import ResourceListOfBlock
 from lusid.models.resource_list_of_block_and_orders import ResourceListOfBlockAndOrders
 from lusid.models.resource_list_of_calendar_date import ResourceListOfCalendarDate
-from lusid.models.resource_list_of_cash_flow_detail import ResourceListOfCashFlowDetail
 from lusid.models.resource_list_of_change import ResourceListOfChange
 from lusid.models.resource_list_of_change_history import ResourceListOfChangeHistory
 from lusid.models.resource_list_of_change_interval import ResourceListOfChangeInterval
@@ -1533,6 +1583,7 @@ from lusid.models.resource_list_of_data_model_summary import ResourceListOfDataM
 from lusid.models.resource_list_of_data_type import ResourceListOfDataType
 from lusid.models.resource_list_of_execution import ResourceListOfExecution
 from lusid.models.resource_list_of_fee_rule import ResourceListOfFeeRule
+from lusid.models.resource_list_of_fund_tax_exception_item import ResourceListOfFundTaxExceptionItem
 from lusid.models.resource_list_of_get_cds_flow_conventions_response import ResourceListOfGetCdsFlowConventionsResponse
 from lusid.models.resource_list_of_get_counterparty_agreement_response import ResourceListOfGetCounterpartyAgreementResponse
 from lusid.models.resource_list_of_get_credit_support_annex_response import ResourceListOfGetCreditSupportAnnexResponse
@@ -1584,6 +1635,9 @@ from lusid.models.resource_list_of_scope_definition import ResourceListOfScopeDe
 from lusid.models.resource_list_of_series import ResourceListOfSeries
 from lusid.models.resource_list_of_side_definition import ResourceListOfSideDefinition
 from lusid.models.resource_list_of_string import ResourceListOfString
+from lusid.models.resource_list_of_tax_classification import ResourceListOfTaxClassification
+from lusid.models.resource_list_of_tax_classification_exception_record import ResourceListOfTaxClassificationExceptionRecord
+from lusid.models.resource_list_of_tax_exception_item import ResourceListOfTaxExceptionItem
 from lusid.models.resource_list_of_tax_rule_set import ResourceListOfTaxRuleSet
 from lusid.models.resource_list_of_transaction import ResourceListOfTransaction
 from lusid.models.resource_list_of_transaction_fee_type import ResourceListOfTransactionFeeType
@@ -1632,6 +1686,7 @@ from lusid.models.rounding_convention import RoundingConvention
 from lusid.models.rules_interval import RulesInterval
 from lusid.models.run_check_request import RunCheckRequest
 from lusid.models.run_check_response import RunCheckResponse
+from lusid.models.run_compliance_v3_request import RunComplianceV3Request
 from lusid.models.scaling_methodology import ScalingMethodology
 from lusid.models.scenario_definition import ScenarioDefinition
 from lusid.models.scenario_diagnostics import ScenarioDiagnostics
@@ -1692,6 +1747,7 @@ from lusid.models.share_class_dealing_breakdown import ShareClassDealingBreakdow
 from lusid.models.share_class_definition import ShareClassDefinition
 from lusid.models.share_class_details import ShareClassDetails
 from lusid.models.share_class_pnl_breakdown import ShareClassPnlBreakdown
+from lusid.models.share_class_rounding_convention import ShareClassRoundingConvention
 from lusid.models.shares_premium_dividend_event import SharesPremiumDividendEvent
 from lusid.models.shift_value_condition import ShiftValueCondition
 from lusid.models.side_configuration_data import SideConfigurationData
@@ -1761,8 +1817,21 @@ from lusid.models.swing_trigger import SwingTrigger
 from lusid.models.swing_trigger_evaluation import SwingTriggerEvaluation
 from lusid.models.target_tax_lot import TargetTaxLot
 from lusid.models.target_tax_lot_request import TargetTaxLotRequest
+from lusid.models.tax_classification import TaxClassification
+from lusid.models.tax_classification_decision_step import TaxClassificationDecisionStep
+from lusid.models.tax_classification_detail import TaxClassificationDetail
+from lusid.models.tax_classification_exception import TaxClassificationException
+from lusid.models.tax_classification_exception_record import TaxClassificationExceptionRecord
+from lusid.models.tax_classification_field_version import TaxClassificationFieldVersion
+from lusid.models.tax_classification_inputs import TaxClassificationInputs
+from lusid.models.tax_cost_record import TaxCostRecord
+from lusid.models.tax_cost_record_request import TaxCostRecordRequest
+from lusid.models.tax_exception_item import TaxExceptionItem
+from lusid.models.tax_exception_root_cause import TaxExceptionRootCause
+from lusid.models.tax_portfolio_sync_status import TaxPortfolioSyncStatus
 from lusid.models.tax_rule import TaxRule
 from lusid.models.tax_rule_set import TaxRuleSet
+from lusid.models.tax_sync_status import TaxSyncStatus
 from lusid.models.template_field import TemplateField
 from lusid.models.tender_event import TenderEvent
 from lusid.models.tender_offer_election import TenderOfferElection
@@ -1779,6 +1848,7 @@ from lusid.models.tolerance_base import ToleranceBase
 from lusid.models.total_return_swap import TotalReturnSwap
 from lusid.models.total_return_swap_cash_flow_event import TotalReturnSwapCashFlowEvent
 from lusid.models.touch import Touch
+from lusid.models.trade_reference import TradeReference
 from lusid.models.trade_ticket import TradeTicket
 from lusid.models.trade_ticket_type import TradeTicketType
 from lusid.models.trading_conventions import TradingConventions
@@ -1910,6 +1980,7 @@ from lusid.models.upsert_cds_flow_conventions_request import UpsertCdsFlowConven
 from lusid.models.upsert_collateral_agreement_request import UpsertCollateralAgreementRequest
 from lusid.models.upsert_complex_market_data_request import UpsertComplexMarketDataRequest
 from lusid.models.upsert_compliance_rule_request import UpsertComplianceRuleRequest
+from lusid.models.upsert_compliance_rule_v3_request import UpsertComplianceRuleV3Request
 from lusid.models.upsert_compliance_run_summary_request import UpsertComplianceRunSummaryRequest
 from lusid.models.upsert_compliance_run_summary_result import UpsertComplianceRunSummaryResult
 from lusid.models.upsert_corporate_action_request import UpsertCorporateActionRequest
@@ -1966,6 +2037,8 @@ from lusid.models.upsert_single_structured_data_response import UpsertSingleStru
 from lusid.models.upsert_structured_data_response import UpsertStructuredDataResponse
 from lusid.models.upsert_structured_result_data_request import UpsertStructuredResultDataRequest
 from lusid.models.upsert_subscription_request import UpsertSubscriptionRequest
+from lusid.models.upsert_tax_cost_records_response import UpsertTaxCostRecordsResponse
+from lusid.models.upsert_tax_treatment_override_request import UpsertTaxTreatmentOverrideRequest
 from lusid.models.upsert_transaction_properties_response import UpsertTransactionPropertiesResponse
 from lusid.models.upsert_transfer_agency_order_request import UpsertTransferAgencyOrderRequest
 from lusid.models.upsert_transfer_agency_transaction_from_order_request import UpsertTransferAgencyTransactionFromOrderRequest
@@ -2022,6 +2095,7 @@ from lusid.models.virtual_document_row import VirtualDocumentRow
 from lusid.models.virtual_row import VirtualRow
 from lusid.models.virtual_transaction_override_record import VirtualTransactionOverrideRecord
 from lusid.models.virtual_transaction_overrides_response import VirtualTransactionOverridesResponse
+from lusid.models.vol_cube_options import VolCubeOptions
 from lusid.models.vol_surface_shift_definition import VolSurfaceShiftDefinition
 from lusid.models.vol_surface_shift_mode import VolSurfaceShiftMode
 from lusid.models.volatility_swap import VolatilitySwap
@@ -2185,6 +2259,7 @@ __all__ = [
     "AllocationPostingRollUp",
     "AllocationReceivable",
     "AllocationReceivablesAgeing",
+    "AllocationRegisterReceivable",
     "AllocationRequest",
     "AllocationServiceRunAllocation",
     "AllocationServiceRunResponse",
@@ -2277,9 +2352,17 @@ __all__ = [
     "BranchStepRequest",
     "BreakCodeSource",
     "Bucket",
+    "BucketAmounts",
+    "BucketBalanceFigures",
     "BucketBorderConfiguration",
+    "BucketCashFlowBalance",
+    "BucketCashFlowBucket",
+    "BucketCashFlowDrillDownResponse",
+    "BucketCashFlowSubtotal",
+    "BucketCurrencySubtotal",
     "BucketDefinition",
     "BucketMembership",
+    "BucketNetOfHaircutBalance",
     "BucketSeedValue",
     "BucketSeedValueRequest",
     "BucketSetClassSeed",
@@ -2332,6 +2415,7 @@ __all__ = [
     "Cash",
     "CashAndSecurityOfferElection",
     "CashDependency",
+    "CashDistributionFromNonEligibleSecuritiesSalesEvent",
     "CashDividendEvent",
     "CashElection",
     "CashFlowDetail",
@@ -2386,7 +2470,13 @@ __all__ = [
     "CollateralAgreement",
     "CollateralAgreementApplicability",
     "CollateralAgreementRequest",
+    "CollateralAllocation",
+    "CollateralAllocationCandidate",
+    "CollateralAllocationLine",
+    "CollateralAllocationOverride",
+    "CollateralFundingTerms",
     "CollateralInstrument",
+    "CollateralOptimisationTerms",
     "CommodityCalendarSchedule",
     "CommodityCalendarSwap",
     "CommodityCalendarSwapCashFlowEvent",
@@ -2421,9 +2511,20 @@ __all__ = [
     "ComplianceRuleTemplateEntity",
     "ComplianceRuleUpsertRequest",
     "ComplianceRuleUpsertResponse",
+    "ComplianceRuleV3Check",
+    "ComplianceRuleV3CheckBound",
+    "ComplianceRuleV3ComputedFilter",
+    "ComplianceRuleV3DecimalBound",
+    "ComplianceRuleV3DescribeResponse",
+    "ComplianceRuleV3FilterNode",
+    "ComplianceRuleV3GroupResult",
+    "ComplianceRuleV3Measure",
+    "ComplianceRuleV3Response",
+    "ComplianceRuleV3RuleResult",
     "ComplianceRunConfiguration",
     "ComplianceRunInfo",
     "ComplianceRunInfoV2",
+    "ComplianceRunV3Response",
     "ComplianceStep",
     "ComplianceStepRequest",
     "ComplianceStepType",
@@ -2589,6 +2690,7 @@ __all__ = [
     "DecimalListComplianceParameter",
     "DecoratedComplianceRunSummary",
     "DecoratedComplianceRunSummaryRequest",
+    "DeemedDisposal",
     "DeleteAccountsResponse",
     "DeleteCustodianAccountsResponse",
     "DeleteDataQualityRule",
@@ -2720,9 +2822,11 @@ __all__ = [
     "FilterStep",
     "FilterStepRequest",
     "FilteredFundIdList",
+    "FilteredPortfolioIdList",
     "FinalisedValuationPoint",
     "FixedLeg",
     "FixedLegAllOfOverrides",
+    "FixedPeriodLookbackActivityWindow",
     "FixedSchedule",
     "FlexibleDeposit",
     "FlexibleLoan",
@@ -2784,6 +2888,9 @@ __all__ = [
     "FundStructureMemberRequest",
     "FundStructureNode",
     "FundStructureRequest",
+    "FundTaxExceptionItem",
+    "FundTaxScope",
+    "FundTaxScopeExclusions",
     "FundTerms",
     "FundTermsVersion",
     "FundValuationPointData",
@@ -2905,11 +3012,13 @@ __all__ = [
     "InflationCurveShiftDefinition",
     "InflationFixingDependency",
     "InflationIndexConventions",
+    "InflationIndexationEvent",
     "InflationLeg",
     "InflationLinkedBond",
     "InflationSwap",
     "InformationalErrorEvent",
     "InformationalEvent",
+    "InitialMarginChange",
     "InlineValuationRequest",
     "InlineValuationsReconciliationRequest",
     "InputTransition",
@@ -2925,6 +3034,8 @@ __all__ = [
     "InstrumentDeleteModes",
     "InstrumentEntity",
     "InstrumentEvent",
+    "InstrumentEventActivity",
+    "InstrumentEventActivityAdjustment",
     "InstrumentEventConfiguration",
     "InstrumentEventEntity",
     "InstrumentEventHolder",
@@ -3019,7 +3130,9 @@ __all__ = [
     "MarginLine",
     "MarginRounding",
     "MarginRun",
+    "MarginRunAllocation",
     "MarginRunIssue",
+    "MarginRunOptimisation",
     "MarginRunRequest",
     "MarginRunShard",
     "MarginSettlementLag",
@@ -3081,6 +3194,7 @@ __all__ = [
     "NavType",
     "NavTypeDefinition",
     "NavTypeSelection",
+    "NettingRecommendation",
     "NewInstrument",
     "NextValueInSequenceResponse",
     "NoticeConvention",
@@ -3160,6 +3274,7 @@ __all__ = [
     "PagedResourceListOfClosedPeriod",
     "PagedResourceListOfCollateralAgreement",
     "PagedResourceListOfComplianceRuleResponse",
+    "PagedResourceListOfComplianceRuleV3Response",
     "PagedResourceListOfComplianceRunInfoV2",
     "PagedResourceListOfComplianceTemplate",
     "PagedResourceListOfCorporateActionSource",
@@ -3200,6 +3315,7 @@ __all__ = [
     "PagedResourceListOfMarginLine",
     "PagedResourceListOfMarginRun",
     "PagedResourceListOfMatchingRuleset",
+    "PagedResourceListOfNettingRecommendation",
     "PagedResourceListOfOrder",
     "PagedResourceListOfOrderBreachHistory",
     "PagedResourceListOfOrderGraphBlock",
@@ -3233,6 +3349,7 @@ __all__ = [
     "PagedResourceListOfStagedModification",
     "PagedResourceListOfStagedModificationsRequestedChangeInterval",
     "PagedResourceListOfStagingRuleSet",
+    "PagedResourceListOfTaxCostRecord",
     "PagedResourceListOfTimeline",
     "PagedResourceListOfTransactionTemplate",
     "PagedResourceListOfTransactionTemplateSpecification",
@@ -3405,6 +3522,9 @@ __all__ = [
     "PutRedemptionEvent",
     "QualifierDefinition",
     "QualifierDefinitionRequest",
+    "QualifyingInvestmentsCrossing",
+    "QualifyingInvestmentsHistory",
+    "QualifyingInvestmentsObservation",
     "QuantityInstructed",
     "QueryApplicableInstrumentEventsRequest",
     "QueryBucketCashFlowDrillDownRequest",
@@ -3427,6 +3547,7 @@ __all__ = [
     "QuoteInstrumentIdType",
     "QuoteSeriesId",
     "QuoteType",
+    "RankMarginCallRequest",
     "RateBreakdownComponent",
     "RateCurveShiftDefinition",
     "RateCurveShiftMode",
@@ -3434,6 +3555,8 @@ __all__ = [
     "RawVendorEvent",
     "ReOpenPeriodDiaryEntryRequest",
     "RealisedGainLoss",
+    "RealisedGainLossChargeableGains",
+    "RealisedGainLossMatchedLot",
     "RecActivitySinceEffectiveAt",
     "RecActivityWindow",
     "RecApprovalDecision",
@@ -3480,6 +3603,7 @@ __all__ = [
     "RecResultItemDetails",
     "RecResultLinkKey",
     "RecResultRelationalDataItem",
+    "RecResultResourceIdItem",
     "RecResultReview",
     "RecResultSet",
     "RecResultSetApprovalDecisionRequest",
@@ -3498,6 +3622,7 @@ __all__ = [
     "RecallableCapitalExpiryEvent",
     "RecipeBlock",
     "RecipeComposer",
+    "RecipeProvenance",
     "RecipeValue",
     "RecombineStep",
     "RecommendedSortBy",
@@ -3567,7 +3692,6 @@ __all__ = [
     "ResourceListOfBlock",
     "ResourceListOfBlockAndOrders",
     "ResourceListOfCalendarDate",
-    "ResourceListOfCashFlowDetail",
     "ResourceListOfChange",
     "ResourceListOfChangeHistory",
     "ResourceListOfChangeInterval",
@@ -3583,6 +3707,7 @@ __all__ = [
     "ResourceListOfDataType",
     "ResourceListOfExecution",
     "ResourceListOfFeeRule",
+    "ResourceListOfFundTaxExceptionItem",
     "ResourceListOfGetCdsFlowConventionsResponse",
     "ResourceListOfGetCounterpartyAgreementResponse",
     "ResourceListOfGetCreditSupportAnnexResponse",
@@ -3634,6 +3759,9 @@ __all__ = [
     "ResourceListOfSeries",
     "ResourceListOfSideDefinition",
     "ResourceListOfString",
+    "ResourceListOfTaxClassification",
+    "ResourceListOfTaxClassificationExceptionRecord",
+    "ResourceListOfTaxExceptionItem",
     "ResourceListOfTaxRuleSet",
     "ResourceListOfTransaction",
     "ResourceListOfTransactionFeeType",
@@ -3682,6 +3810,7 @@ __all__ = [
     "RulesInterval",
     "RunCheckRequest",
     "RunCheckResponse",
+    "RunComplianceV3Request",
     "ScalingMethodology",
     "ScenarioDefinition",
     "ScenarioDiagnostics",
@@ -3742,6 +3871,7 @@ __all__ = [
     "ShareClassDefinition",
     "ShareClassDetails",
     "ShareClassPnlBreakdown",
+    "ShareClassRoundingConvention",
     "SharesPremiumDividendEvent",
     "ShiftValueCondition",
     "SideConfigurationData",
@@ -3811,8 +3941,21 @@ __all__ = [
     "SwingTriggerEvaluation",
     "TargetTaxLot",
     "TargetTaxLotRequest",
+    "TaxClassification",
+    "TaxClassificationDecisionStep",
+    "TaxClassificationDetail",
+    "TaxClassificationException",
+    "TaxClassificationExceptionRecord",
+    "TaxClassificationFieldVersion",
+    "TaxClassificationInputs",
+    "TaxCostRecord",
+    "TaxCostRecordRequest",
+    "TaxExceptionItem",
+    "TaxExceptionRootCause",
+    "TaxPortfolioSyncStatus",
     "TaxRule",
     "TaxRuleSet",
+    "TaxSyncStatus",
     "TemplateField",
     "TenderEvent",
     "TenderOfferElection",
@@ -3829,6 +3972,7 @@ __all__ = [
     "TotalReturnSwap",
     "TotalReturnSwapCashFlowEvent",
     "Touch",
+    "TradeReference",
     "TradeTicket",
     "TradeTicketType",
     "TradingConventions",
@@ -3960,6 +4104,7 @@ __all__ = [
     "UpsertCollateralAgreementRequest",
     "UpsertComplexMarketDataRequest",
     "UpsertComplianceRuleRequest",
+    "UpsertComplianceRuleV3Request",
     "UpsertComplianceRunSummaryRequest",
     "UpsertComplianceRunSummaryResult",
     "UpsertCorporateActionRequest",
@@ -4016,6 +4161,8 @@ __all__ = [
     "UpsertStructuredDataResponse",
     "UpsertStructuredResultDataRequest",
     "UpsertSubscriptionRequest",
+    "UpsertTaxCostRecordsResponse",
+    "UpsertTaxTreatmentOverrideRequest",
     "UpsertTransactionPropertiesResponse",
     "UpsertTransferAgencyOrderRequest",
     "UpsertTransferAgencyTransactionFromOrderRequest",
@@ -4072,6 +4219,7 @@ __all__ = [
     "VirtualRow",
     "VirtualTransactionOverrideRecord",
     "VirtualTransactionOverridesResponse",
+    "VolCubeOptions",
     "VolSurfaceShiftDefinition",
     "VolSurfaceShiftMode",
     "VolatilitySwap",

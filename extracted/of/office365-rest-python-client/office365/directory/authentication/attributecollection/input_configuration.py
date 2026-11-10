@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.authentication.attributecollection.inputtype import AuthenticationAttributeCollectionInputType
 from office365.directory.authentication.attributecollection.option_configuration import (
@@ -10,7 +10,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class AuthenticationAttributeCollectionInputConfiguration(ClientValue):
     attribute: str | None = None
     defaultValue: str | None = None

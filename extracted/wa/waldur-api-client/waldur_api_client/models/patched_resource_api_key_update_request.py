@@ -1,6 +1,5 @@
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
-from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,6 +10,9 @@ if TYPE_CHECKING:
     from ..models.patched_resource_api_key_update_request_limits_type_0 import (
         PatchedResourceApiKeyUpdateRequestLimitsType0,
     )
+    from ..models.patched_resource_api_key_update_request_spending_limits_type_0 import (
+        PatchedResourceApiKeyUpdateRequestSpendingLimitsType0,
+    )
 
 
 T = TypeVar("T", bound="PatchedResourceApiKeyUpdateRequest")
@@ -20,29 +22,35 @@ T = TypeVar("T", bound="PatchedResourceApiKeyUpdateRequest")
 class PatchedResourceApiKeyUpdateRequest:
     """
     Attributes:
-        user (Union[None, UUID, Unset]): Assignee. When set, only this user can reveal the key.
-        limits (Union['PatchedResourceApiKeyUpdateRequestLimitsType0', None, Unset]): Limits per component type; zero or
-            absent means no limit.
-        allowed_models (Union[None, Unset, list[str]]): Models the key may call; empty or absent allows every model.
+        description (Union[Unset, str]): A note telling the key apart from the resource's other keys, such as the
+            environment that uses it. No command to the site agent carries it, so changing it alone issues none and needs no
+            enable_api_key_provisioning. Everyone who can list the key reads it, the provider included.
+        limits (Union['PatchedResourceApiKeyUpdateRequestLimitsType0', None, Unset]): Month limits per component type;
+            zero or absent means no month limit. Replaces the month limits of spending_limits and keeps the other periods.
+            Not together with spending_limits.
+        spending_limits (Union['PatchedResourceApiKeyUpdateRequestSpendingLimitsType0', None, Unset]): Limits per
+            component type and period, replacing the key's limits; a null amount clears that period's limit. Only where the
+            offering's api_key_limits is not off. A period other than month must be offered on the component and needs the
+            offering's api_key_daily_usage. A limit may not exceed the resource's spending limit for the same period.
+        allowed_models (Union[Unset, list[str]]): Models the key may call: ["*"] for every model, an empty list for
+            none. Absent, a new key gets none and an edited one keeps its list.
     """
 
-    user: Union[None, UUID, Unset] = UNSET
+    description: Union[Unset, str] = UNSET
     limits: Union["PatchedResourceApiKeyUpdateRequestLimitsType0", None, Unset] = UNSET
-    allowed_models: Union[None, Unset, list[str]] = UNSET
+    spending_limits: Union["PatchedResourceApiKeyUpdateRequestSpendingLimitsType0", None, Unset] = UNSET
+    allowed_models: Union[Unset, list[str]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.patched_resource_api_key_update_request_limits_type_0 import (
             PatchedResourceApiKeyUpdateRequestLimitsType0,
         )
+        from ..models.patched_resource_api_key_update_request_spending_limits_type_0 import (
+            PatchedResourceApiKeyUpdateRequestSpendingLimitsType0,
+        )
 
-        user: Union[None, Unset, str]
-        if isinstance(self.user, Unset):
-            user = UNSET
-        elif isinstance(self.user, UUID):
-            user = str(self.user)
-        else:
-            user = self.user
+        description = self.description
 
         limits: Union[None, Unset, dict[str, Any]]
         if isinstance(self.limits, Unset):
@@ -52,22 +60,27 @@ class PatchedResourceApiKeyUpdateRequest:
         else:
             limits = self.limits
 
-        allowed_models: Union[None, Unset, list[str]]
-        if isinstance(self.allowed_models, Unset):
-            allowed_models = UNSET
-        elif isinstance(self.allowed_models, list):
-            allowed_models = self.allowed_models
-
+        spending_limits: Union[None, Unset, dict[str, Any]]
+        if isinstance(self.spending_limits, Unset):
+            spending_limits = UNSET
+        elif isinstance(self.spending_limits, PatchedResourceApiKeyUpdateRequestSpendingLimitsType0):
+            spending_limits = self.spending_limits.to_dict()
         else:
+            spending_limits = self.spending_limits
+
+        allowed_models: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.allowed_models, Unset):
             allowed_models = self.allowed_models
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
-        if user is not UNSET:
-            field_dict["user"] = user
+        if description is not UNSET:
+            field_dict["description"] = description
         if limits is not UNSET:
             field_dict["limits"] = limits
+        if spending_limits is not UNSET:
+            field_dict["spending_limits"] = spending_limits
         if allowed_models is not UNSET:
             field_dict["allowed_models"] = allowed_models
 
@@ -78,25 +91,12 @@ class PatchedResourceApiKeyUpdateRequest:
         from ..models.patched_resource_api_key_update_request_limits_type_0 import (
             PatchedResourceApiKeyUpdateRequestLimitsType0,
         )
+        from ..models.patched_resource_api_key_update_request_spending_limits_type_0 import (
+            PatchedResourceApiKeyUpdateRequestSpendingLimitsType0,
+        )
 
         d = dict(src_dict)
-
-        def _parse_user(data: object) -> Union[None, UUID, Unset]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                user_type_0 = UUID(data)
-
-                return user_type_0
-            except:  # noqa: E722
-                pass
-            return cast(Union[None, UUID, Unset], data)
-
-        user = _parse_user(d.pop("user", UNSET))
+        description = d.pop("description", UNSET)
 
         def _parse_limits(data: object) -> Union["PatchedResourceApiKeyUpdateRequestLimitsType0", None, Unset]:
             if data is None:
@@ -115,26 +115,31 @@ class PatchedResourceApiKeyUpdateRequest:
 
         limits = _parse_limits(d.pop("limits", UNSET))
 
-        def _parse_allowed_models(data: object) -> Union[None, Unset, list[str]]:
+        def _parse_spending_limits(
+            data: object,
+        ) -> Union["PatchedResourceApiKeyUpdateRequestSpendingLimitsType0", None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, list):
+                if not isinstance(data, dict):
                     raise TypeError()
-                allowed_models_type_0 = cast(list[str], data)
+                spending_limits_type_0 = PatchedResourceApiKeyUpdateRequestSpendingLimitsType0.from_dict(data)
 
-                return allowed_models_type_0
+                return spending_limits_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[None, Unset, list[str]], data)
+            return cast(Union["PatchedResourceApiKeyUpdateRequestSpendingLimitsType0", None, Unset], data)
 
-        allowed_models = _parse_allowed_models(d.pop("allowed_models", UNSET))
+        spending_limits = _parse_spending_limits(d.pop("spending_limits", UNSET))
+
+        allowed_models = cast(list[str], d.pop("allowed_models", UNSET))
 
         patched_resource_api_key_update_request = cls(
-            user=user,
+            description=description,
             limits=limits,
+            spending_limits=spending_limits,
             allowed_models=allowed_models,
         )
 

@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class RenderListFilterDataParameters(ClientValue):
     """Specifies the parameters that are used to retrieve filter data."""
 

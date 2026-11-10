@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class GeoCoordinates(ClientValue):
     """
     The GeoCoordinates resource provides geographic coordinates and elevation of a location based on metadata

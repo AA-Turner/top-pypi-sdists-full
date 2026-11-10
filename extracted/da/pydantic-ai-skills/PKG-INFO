@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-ai-skills
-Version: 2.1.1
+Version: 2.1.2
 Summary: Remote skill registries and bundled-file execution for Pydantic AI Agent Skills
 Project-URL: Homepage, https://github.com/dougtrajano/pydantic-ai-skills
 Project-URL: Source, https://github.com/dougtrajano/pydantic-ai-skills

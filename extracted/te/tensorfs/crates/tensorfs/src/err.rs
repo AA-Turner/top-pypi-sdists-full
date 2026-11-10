@@ -4,6 +4,7 @@ use std::fmt;
 
 macro_rules! codes {
     ($($v:ident),* $(,)?) => {
+        /// What a refusal disagrees about; `as_str` gives its stable name.
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         #[allow(non_camel_case_types)]
         pub enum Code { $($v),* }
@@ -11,10 +12,6 @@ macro_rules! codes {
             pub fn as_str(self) -> &'static str {
                 match self { $(Code::$v => stringify!($v)),* }
             }
-            /// Every code, in declaration order. The binding layer builds one Python
-            /// exception class per entry from THIS list, so the two languages cannot
-            /// drift: a code added here appears in Python without anyone editing Python.
-            pub const ALL: &'static [Code] = &[$(Code::$v),*];
         }
     };
 }
@@ -117,6 +114,8 @@ codes![
     LAYOUT_MISMATCH,
     // ingest border: conversion
     CONVERTS_NOTHING,
+    // a source key the conversion takes nowhere and does not know to leave out
+    UNPLACED_KEYS,
     MISSING_COMPANION_ROLE,
     DOUBLE_ENCODE,
     REMEDY_FROM_TARGET,
@@ -193,6 +192,7 @@ codes![
     REVISION_ABSENT,
 ];
 
+/// A refusal: its code and a detail naming the first disagreeing thing.
 #[derive(Debug, Clone)]
 pub struct Refusal {
     pub code: Code,
@@ -207,8 +207,10 @@ impl fmt::Display for Refusal {
 
 impl std::error::Error for Refusal {}
 
+/// A result that fails with a `Refusal`.
 pub type Result<T> = std::result::Result<T, Refusal>;
 
+/// Returns `Err` with a refusal of this code and detail.
 pub fn refuse<T>(code: Code, detail: impl Into<String>) -> Result<T> {
     Err(Refusal {
         code,
@@ -218,8 +220,7 @@ pub fn refuse<T>(code: Code, detail: impl Into<String>) -> Result<T> {
 
 /// An I/O failure, classified: out of space and denied access need a change outside before a
 /// retry, so they are named apart from other failures (tfs-064).
-#[cfg(feature = "store")]
-pub(crate) fn classify_io(what: impl AsRef<str>, e: impl Into<std::io::Error>) -> Refusal {
+pub fn classify_io(what: impl AsRef<str>, e: impl Into<std::io::Error>) -> Refusal {
     let e = e.into();
     // A full descriptor table is the process's shortage, not the Store's: every open in
     // the Store says so the same way, and a transfer treats it as backpressure.

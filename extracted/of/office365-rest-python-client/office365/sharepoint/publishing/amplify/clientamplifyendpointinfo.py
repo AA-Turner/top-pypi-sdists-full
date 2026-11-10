@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.sharepoint.publishing.amplify.clientamplifyextraproperty import (
 )
 
 
-@dataclass
 class ClientAmplifyEndpointInfo(ClientValue):
     endpointSubType: Optional[str] = None
     endpointType: Optional[str] = None

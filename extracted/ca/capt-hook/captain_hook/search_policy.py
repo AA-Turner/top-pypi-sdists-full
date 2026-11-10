@@ -24,7 +24,7 @@ from captain_hook.command_schema_core import (
     matches_command,
 )
 from captain_hook.command_schemas import DU, FD, FIND
-from captain_hook.layout import layout, locally_protected, pooled
+from captain_hook.layout import forms, layout, locally_protected, pooled
 from captain_hook.util.scratch import TEMP_ROOTS
 from captain_hook.util.vcs import common_git_dir, git_dir, is_repo_root
 
@@ -112,18 +112,30 @@ PROTECTED_ROOTS = PathMatches(
 
 
 SCOPED_UNITS = PathMatches(
-    tuple(
-        f"{home}{suffix}"
-        for home in HOMES
-        for suffix in (
-            "/.claude/plugins/cache/*/*/*",
-            "/.claude/plugins/cache/*/*/*/**",
-            "/.claude/plugins/marketplaces/*",
-            "/.claude/plugins/marketplaces/*/**",
-            "/.claude/projects/*/memory",
-            "/.claude/projects/*/memory/**",
-        )
+    (
+        *(
+            f"{home}{suffix}"
+            for home in HOMES
+            for suffix in (
+                "/.claude/plugins/cache/*/*/*",
+                "/.claude/plugins/cache/*/*/*/**",
+                "/.claude/plugins/marketplaces/*",
+                "/.claude/plugins/marketplaces/*/**",
+                "/.claude/projects/*/memory",
+                "/.claude/projects/*/memory/**",
+            )
+        ),
+        "**/*@v[0-9]*",
+        "**/*@v[0-9]*/**",
     )
+)
+
+
+CACHE_HOMES = tuple(f"{home}/.cache" for home in HOMES)
+
+
+ARTIFACT_DIR = re.compile(
+    r"[0-9a-f]{12,}|(?=[^A-Z]*[A-Z])(?=[^a-z]*[a-z])[\w-]{16,}|(?:.*[-_@])?v?\d+(?:\.\d+)+.*", re.ASCII
 )
 
 
@@ -795,9 +807,7 @@ def settled(roots: Iterable[Target]) -> Iterator[Target]:
 
 
 def names_file(target: Target, path: Path | None) -> bool:
-    return path is not None and (
-        path.is_file() or (not target.has_glob and not path.is_dir() and narrows(path.suffix))
-    )
+    return path is not None and (path.is_file() or (not target.has_glob and not path.is_dir() and narrows(path.suffix)))
 
 
 def names_files(target: Target) -> bool:
@@ -1141,7 +1151,26 @@ def protected(target: Target) -> bool:
         return False
     anchor = Target(str(root), str(root), None)
     return (PROTECTED_ROOTS(anchor) or locally_protected(root)) and not (
-        SCOPED_UNITS(anchor) or layout().searchable(anchor)
+        SCOPED_UNITS(anchor) or layout().searchable(anchor) or artifact_unit(root)
+    )
+
+
+def cache_base(path: Path) -> Path | None:
+    stores = {form for root in layout().protected_roots for form in forms(root)}
+    return next(
+        (
+            parent
+            for parent in path.parents
+            if parent in stores or any(parent.full_match(os.path.expanduser(home)) for home in CACHE_HOMES)
+        ),
+        None,
+    )
+
+
+def artifact_unit(root: Path) -> bool:
+    return not pooled(root) and any(
+        (base := cache_base(path)) is not None and any(map(ARTIFACT_DIR.fullmatch, path.parts[len(base.parts) + 1 :]))
+        for path in forms(root)
     )
 
 

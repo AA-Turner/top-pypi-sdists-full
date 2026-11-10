@@ -22,6 +22,7 @@
 #include "ViennaRNA/io/file_formats.h"
 #include "ViennaRNA/params/basic.h"
 #include "ViennaRNA/probing/SHAPE.h"
+#include "ViennaRNA/constraints/soft_iip.h"
 #include "ViennaRNA/constraints/soft.h"
 
 
@@ -176,10 +177,10 @@ sc_store_bp(vrna_sc_bp_storage_t  **container,
             unsigned int          i,
             unsigned int          start,
             unsigned int          end,
-            int                   e);
+            double                e);
 
 
-PRIVATE INLINE int
+PRIVATE INLINE double
 get_stored_bp_contributions(vrna_sc_bp_storage_t  *container,
                             unsigned int          j);
 
@@ -325,6 +326,9 @@ vrna_sc_prepare(vrna_fold_compound_t  *fc,
 
         ret &= prepare_sc_user_cb(fc, fc->sc, options);
 
+        if ((fc->sc) &&
+            (fc->sc->iip))
+          vrna_sc_iip_prepare(fc);
         break;
 
       case VRNA_FC_TYPE_COMPARATIVE:
@@ -883,7 +887,7 @@ vrna_sc_set_stack(vrna_fold_compound_t  *fc,
     fc->sc->energy_stack = (int *)vrna_alloc(sizeof(int) * (fc->length + 1));
 
     for (i = 1; i <= fc->length; ++i)
-      fc->sc->energy_stack[i] = (int)roundf(constraints[i] * 100.);
+      fc->sc->energy_stack[i] = (int)round((double)constraints[i] * 100.);
 
     return 1;
   }
@@ -920,7 +924,7 @@ vrna_sc_set_stack_comparative(vrna_fold_compound_t  *fc,
         fc->scs[s]->energy_stack = (int *)vrna_alloc(sizeof(int) * (fc->a2s[s][fc->length] + 1));
 
         for (i = 1; i <= fc->a2s[s][fc->length]; ++i)
-          fc->scs[s]->energy_stack[i] = (int)roundf(constraints[s][i] * 100.);
+          fc->scs[s]->energy_stack[i] = (int)round((double)constraints[s][i] * 100.);
 
         ret++;
       }
@@ -980,7 +984,7 @@ vrna_sc_add_stack(vrna_fold_compound_t  *fc,
       if (!fc->sc->energy_stack)
         fc->sc->energy_stack = (int *)vrna_alloc(sizeof(int) * (fc->length + 1));
 
-      fc->sc->energy_stack[i] += (int)roundf(energy * 100.);
+      fc->sc->energy_stack[i] += (int)round((double)energy * 100.);
 
       return 1;
     }
@@ -1027,7 +1031,7 @@ vrna_sc_add_stack_comparative(vrna_fold_compound_t  *fc,
         if (fc->scs[s]->energy_stack == NULL)
           fc->scs[s]->energy_stack = (int *)vrna_alloc(sizeof(int) * (fc->a2s[s][fc->length] + 1));
 
-        fc->scs[s]->energy_stack[is[s]] += (int)roundf(energies[s] * 100.);
+        fc->scs[s]->energy_stack[is[s]] += (int)round((double)energies[s] * 100.);
         ret++;
       }
     }
@@ -1344,7 +1348,7 @@ PRIVATE INLINE void
 sc_init_up_storage(vrna_sc_t *sc)
 {
   if (!sc->up_storage)
-    sc->up_storage = (int *)vrna_alloc(sizeof(int) * (sc->n + 2));
+    sc->up_storage = (double *)vrna_alloc(sizeof(*sc->up_storage) * (sc->n + 2));
 }
 
 
@@ -1359,7 +1363,7 @@ populate_sc_up_mfe(vrna_sc_t    *sc,
   sc->energy_up[i][0] = 0;
   for (j = 1; j <= n; j++)
     sc->energy_up[i][j] = sc->energy_up[i][j - 1] +
-                          sc->up_storage[i + j - 1];
+                          (int)round(sc->up_storage[i + j - 1]);
 }
 
 
@@ -1375,7 +1379,7 @@ populate_sc_up_pf(vrna_sc_t     *sc,
   sc->exp_energy_up[i][0] = 1.;
 
   for (j = 1; j <= n; j++) {
-    GT                      = (double)sc->up_storage[i + j - 1] * 10.; /* convert deka-cal/mol to cal/mol */
+    GT                      = sc->up_storage[i + j - 1] * 10.; /* convert deka-cal/mol to cal/mol */
     sc->exp_energy_up[i][j] = sc->exp_energy_up[i][j - 1]
                               * (FLT_OR_DBL)exp(-GT / kT);
   }
@@ -1403,7 +1407,7 @@ sc_store_bp(vrna_sc_bp_storage_t  **container,
             unsigned int          i,
             unsigned int          start,
             unsigned int          end,
-            int                   e)
+            double                e)
 {
   unsigned int size, cnt = 0;
 
@@ -1435,14 +1439,14 @@ sc_store_bp(vrna_sc_bp_storage_t  **container,
 }
 
 
-PRIVATE INLINE int
+PRIVATE INLINE double
 get_stored_bp_contributions(vrna_sc_bp_storage_t  *container,
                             unsigned int          j)
 {
   unsigned int  cnt;
-  int           e;
+  double        e;
 
-  e = 0;
+  e = 0.0;
 
   /* go through list of constraints for current position i */
   for (cnt = 0; container[cnt].interval_start != 0; cnt++) {
@@ -1468,7 +1472,7 @@ populate_sc_bp_mfe(vrna_sc_t    *sc,
                    int          *idx)
 {
   unsigned int  j, k;
-  int           e;
+  double        e;
 
   if (sc->bp_storage[i]) {
     for (k = 1; k < maxdist; k++) {
@@ -1481,11 +1485,11 @@ populate_sc_bp_mfe(vrna_sc_t    *sc,
 
       switch (sc->type) {
         case VRNA_SC_DEFAULT:
-          sc->energy_bp[idx[j] + i] = e;
+          sc->energy_bp[idx[j] + i] = (int)round(e);
           break;
 
         case VRNA_SC_WINDOW:
-          sc->energy_bp_local[i][j - i] = e;
+          sc->energy_bp_local[i][j - i] = (int)round(e);
           break;
       }
     }
@@ -1518,7 +1522,7 @@ populate_sc_bp_pf(vrna_sc_t     *sc,
                   double        kT)
 {
   unsigned int      j, k;
-  int               e;
+  double            e;
   FLT_OR_DBL        q;
   double            GT;
 
@@ -1580,7 +1584,7 @@ sc_add_bp(vrna_fold_compound_t  *fc,
 
   sc = fc->sc;
   sc_init_bp_storage(sc);
-  sc_store_bp(sc->bp_storage, i, j, j, (int)roundf(energy * 100.));
+  sc_store_bp(sc->bp_storage, i, j, j, energy * 100.);
   sc->state |= STATE_DIRTY_BP_MFE | STATE_DIRTY_BP_PF;
 }
 
@@ -1606,7 +1610,7 @@ sc_add_bp_comparative(vrna_fold_compound_t  *fc,
     if (is[s] != 0) {
       sc = fc->scs[s];
       sc_init_bp_storage(sc);
-      sc_store_bp(sc->bp_storage, is[s], js[s], js[s], (int)roundf(energies[s] * 100.));
+      sc_store_bp(sc->bp_storage, is[s], js[s], js[s], (int)round((double)energies[s] * 100.));
       sc->state |= STATE_DIRTY_BP_MFE | STATE_DIRTY_BP_PF;
 
       ret++;
@@ -1712,7 +1716,7 @@ sc_reset_up(vrna_fold_compound_t  *fc,
 
     /* add contributions to storage container */
     for (i = 1; i <= n; i++)
-      sc->up_storage[i] = (int)roundf(constraints[i] * 100.); /* convert to 10kal/mol */
+      sc->up_storage[i] = constraints[i] * 100.; /* convert to 10kal/mol */
 
     sc->state |= STATE_DIRTY_UP_MFE | STATE_DIRTY_UP_PF;
   } else {
@@ -1752,7 +1756,7 @@ sc_reset_up_comparative(vrna_fold_compound_t  *fc,
 
       /* add contributions to storage container */
       for (i = 1; i <= n; i++)
-        sc->up_storage[i] = (int)roundf(constraints[s][i] * 100.); /* convert to 10kal/mol */
+        sc->up_storage[i] = (int)round((double)constraints[s][i] * 100.); /* convert to 10kal/mol */
 
       sc->state |= STATE_DIRTY_UP_MFE | STATE_DIRTY_UP_PF;
 
@@ -1794,7 +1798,7 @@ sc_reset_bp(vrna_fold_compound_t  *fc,
     /* add contributions to storage container */
     for (i = 1; i < n; i++)
       for (j = i + 1; j <= n; j++)
-        sc_store_bp(sc->bp_storage, i, j, j, (int)roundf(constraints[i][j] * 100.));
+        sc_store_bp(sc->bp_storage, i, j, j, constraints[i][j] * 100.);
 
     sc->state |= STATE_DIRTY_BP_MFE | STATE_DIRTY_BP_PF;
   } else {
@@ -1835,7 +1839,7 @@ sc_reset_bp_comparative(vrna_fold_compound_t  *fc,
       /* add contributions to storage container */
       for (i = 1; i < n; i++)
         for (j = i + 1; j <= n; j++)
-          sc_store_bp(sc->bp_storage, i, j, j, (int)roundf(constraints[s][i][j] * 100.));
+          sc_store_bp(sc->bp_storage, i, j, j, (int)round((double)constraints[s][i][j] * 100.));
 
       sc->state |= STATE_DIRTY_BP_MFE | STATE_DIRTY_BP_PF;
 
@@ -1864,7 +1868,7 @@ sc_add_up(vrna_fold_compound_t  *fc,
 
   sc = fc->sc;
   sc_init_up_storage(sc);
-  sc->up_storage[i] += (int)roundf(energy * 100.);
+  sc->up_storage[i] += energy * 100.;
   sc->state         |= STATE_DIRTY_UP_MFE | STATE_DIRTY_UP_PF;
 }
 
@@ -1892,7 +1896,7 @@ sc_add_up_comparative(vrna_fold_compound_t  *fc,
     if (is[s] != 0) {
       sc = fc->scs[s];
       sc_init_up_storage(sc);
-      sc->up_storage[is[s]] += (int)roundf(energies[s] * 100.);
+      sc->up_storage[is[s]] += (int)round((double)energies[s] * 100.);
       sc->state             |= STATE_DIRTY_UP_MFE | STATE_DIRTY_UP_PF;
 
       ret++;
@@ -2155,12 +2159,14 @@ nullify(vrna_sc_t *sc)
 {
   if (sc) {
     sc->state             = STATE_CLEAN;
+
     sc->up_storage        = NULL;
     sc->bp_storage        = NULL;
     sc->energy_up         = NULL;
     sc->energy_stack      = NULL;
     sc->exp_energy_stack  = NULL;
     sc->exp_energy_up     = NULL;
+    sc->iip               = NULL;
 
     sc->f             = NULL;
     sc->exp_f         = NULL;

@@ -10,38 +10,54 @@ from prov.model import (
     ProvActivity,
     ProvDocument,
     ProvEntity,
-    ProvFutureRejectionWarning,
+    ProvRecord,
+    ProvRelation,
+    ProvUnificationError,
     ProvWarning,
 )
-from prov.tests.examples import primer_example, tests
+from prov.tests.conftest import ex_document
+from prov.tests.examples import tests
+
+
+def _is_drawn(record: ProvRecord) -> bool:
+    """An element, or a relation whose first two formal attributes are both set."""
+    return not isinstance(record, ProvRelation) or all(
+        value for _, value in record.formal_attributes[:2]
+    )
 
 
 def test_simple_graph_conversion() -> None:
+    # The two bundle examples hold generations with no activity, at the top
+    # level and inside a bundle, which prov_to_graph() skips with a warning;
+    # every other record of the flattened, unified document comes back.
     for name, doc_func in tests:
         prov_org = doc_func()
-        g = prov_to_graph(prov_org)
-        if prov_org.has_bundles():
-            # Cannot round-trip with documents containing bundles, skipping
-            continue
-        prov_doc = graph_to_prov(g)
-        assert prov_doc == prov_org, f"Round trip graph conversion for '{name}' failed."
-
-
-def test_round_trip_against_unified_document() -> None:
-    # prov_to_graph() unifies the document internally before building
-    # the graph, so a round trip should match the *unified* document,
-    # not necessarily the original one record-for-record.
-    prov_org = primer_example()
-    g = prov_to_graph(prov_org)
-    prov_doc = graph_to_prov(g)
-    assert prov_doc == prov_org.unified()
+        records = prov_org.flattened().unified().get_records()
+        expected = {record for record in records if _is_drawn(record)}
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ProvWarning)
+            prov_doc = graph_to_prov(prov_to_graph(prov_org))
+        assert set(prov_doc.get_records()) == expected, (
+            f"Round trip graph conversion for '{name}' failed."
+        )
 
 
 @pytest.fixture
-def document():
+def document() -> ProvDocument:
     d = ProvDocument()
     d.add_namespace("ex", "http://example.org/")
     return d
+
+
+def test_round_trip_of_a_graph_of_inferred_endpoints_under_a_default() -> None:
+    document = ProvDocument()
+    document.set_default_namespace("http://d.example.org/")
+    document.wasDerivedFrom("e2", "e1")
+
+    result = graph_to_prov(prov_to_graph(document))
+
+    assert result.get_default_namespace() == document.get_default_namespace()
+    assert result == document.unified()
 
 
 def test_relation_with_missing_end_is_skipped_with_warning(document) -> None:
@@ -69,8 +85,8 @@ def test_relation_endpoints_get_inferred_nodes(document) -> None:
     assert isinstance(nodes_by_id["ex:e2"], ProvEntity)
     assert isinstance(nodes_by_id["ex:a2"], ProvActivity)
     # Inferred nodes are placeholders, not attached to any bundle.
-    assert nodes_by_id["ex:e2"].bundle is None
-    assert nodes_by_id["ex:a2"].bundle is None
+    assert nodes_by_id["ex:e2"]._bundle is None
+    assert nodes_by_id["ex:a2"]._bundle is None
     assert len(g.edges()) == 1
 
 
@@ -146,27 +162,159 @@ def test_ignores_edges_whose_relation_is_not_a_prov_record() -> None:
     assert list(prov_doc.get_records()) == []
 
 
-def test_equal_memberships_sharing_an_identifier_give_two_edges(document) -> None:
-    # unified() leaves hadMember out of the merge by identifier (#530), so two
-    # equal memberships with one identifier stay two edges.
+def test_equal_memberships_sharing_an_identifier_give_one_edge(
+    document: ProvDocument,
+) -> None:
+    # unified() keeps one of two equal memberships (#548), so one edge is drawn.
     document.entity("ex:c")
     document.entity("ex:e")
     attributes = {PROV_ATTR_COLLECTION: "ex:c", PROV_ATTR_ENTITY: "ex:e"}
     for _ in range(2):
         document.new_record(PROV_MEMBERSHIP, "ex:m", attributes)
-    assert prov_to_graph(document).number_of_edges() == 2
+    assert prov_to_graph(document).number_of_edges() == 1
 
 
-def test_absent_plan_against_a_plan_warns_at_the_prov_to_graph_call_site() -> None:
-    # prov_to_graph() unifies first, so the #547 warning fires through it and
-    # names this module, not a frame inside prov.
-    document = ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    document.association("ex:a1", agent="ex:ag1", identifier="ex:assoc1")
-    document.association("ex:a1", agent="ex:ag1", plan="ex:pl1", identifier="ex:assoc1")
-    with pytest.warns(
-        ProvFutureRejectionWarning, match="prov:plan means none"
-    ) as record:
-        prov_to_graph(document)
-    assert len(record) == 1
-    assert record[0].filename == __file__
+@pytest.mark.parametrize(
+    "in_bundles",
+    [
+        pytest.param(False, id="same-scope"),
+        # Each bundle unifies on its own; the flattened document does not.
+        pytest.param(True, id="two-bundles"),
+    ],
+)
+def test_prov_to_graph_raises_when_unified_does(
+    document: ProvDocument, in_bundles: bool
+) -> None:
+    first, second = (
+        (document.bundle("ex:b1"), document.bundle("ex:b2"))
+        if in_bundles
+        else (document, document)
+    )
+    first.association("ex:a1", agent="ex:ag1", identifier="ex:assoc1")
+    second.association("ex:a1", agent="ex:ag1", plan="ex:pl1", identifier="ex:assoc1")
+    with pytest.raises(ProvUnificationError, match="an absent prov:plan means none"):
+        _ = prov_to_graph(document)
+
+
+@pytest.mark.filterwarnings("error::DeprecationWarning:prov")
+def test_records_inside_a_bundle_are_nodes_and_edges(document: ProvDocument) -> None:
+    # Flattening lifts the bundle's records, so the generation inside the
+    # bundle reaches the activity declared at the top level: two declared
+    # nodes, no inferred placeholder, one edge.
+    document.activity("ex:a1")
+    bundle = document.bundle("ex:b")
+    bundle.entity("ex:e1")
+    bundle.wasGeneratedBy("ex:e1", "ex:a1")
+
+    g = prov_to_graph(document)
+
+    assert {str(n.identifier) for n in g.nodes()} == {"ex:a1", "ex:e1"}
+    assert all(n._bundle is not None for n in g.nodes())
+    assert g.number_of_edges() == 1
+    assert graph_to_prov(g) == document.flattened().unified()
+
+
+def test_a_graph_of_one_bundles_records_keeps_its_documents_declarations() -> None:
+    doc = ex_document()
+    doc.set_default_namespace("http://d/")
+    bundle = doc.bundle("ex:b")
+    bundle.entity("ex:e1")
+    bundle.entity("e2")
+    bundle.wasDerivedFrom("e2", "ex:e1")
+    graph = nx.MultiDiGraph()
+    records = list(bundle.get_records())
+    graph.add_edge(records[0], records[1], relation=records[2])
+
+    result = graph_to_prov(graph)
+
+    assert [(ns.prefix, ns.uri) for ns in result.get_registered_namespaces()] == [
+        ("ex", "http://example.org/")
+    ]
+    assert result.get_default_namespace() == doc.get_default_namespace()
+
+
+def test_one_identifier_in_two_bundles_gives_one_node(document: ProvDocument) -> None:
+    document.bundle("ex:b1").entity("ex:e", {"ex:v": 1})
+    document.bundle("ex:b2").entity("ex:e", {"ex:w": 2})
+
+    g = prov_to_graph(document)
+
+    (node,) = g.nodes()
+    assert dict(node.attributes) == {
+        document.valid_qualified_name("ex:v"): 1,
+        document.valid_qualified_name("ex:w"): 2,
+    }
+
+
+def test_bundle_default_namespace_round_trips_through_the_graph(
+    document: ProvDocument,
+) -> None:
+    # flattened() declares dn for the bundle's default, so the bare name keeps
+    # a spelling in the graph's document and in the one built back from it.
+    bundle = document.bundle("ex:b")
+    bundle.set_default_namespace("http://bun.org/")
+    bundle.entity("inner")
+    bundle.entity("ex:outer")
+    bundle.wasDerivedFrom("inner", "ex:outer")
+
+    result = graph_to_prov(prov_to_graph(document))
+
+    assert result == document.flattened().unified()
+    assert {ns.prefix: ns.uri for ns in result.get_registered_namespaces()} == {
+        "ex": "http://example.org/",
+        "dn": "http://bun.org/",
+    }
+    assert "entity(dn:inner)" in result.get_provn()
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["in-order", "reversed"])
+@pytest.mark.parametrize(
+    "scopes",
+    [("inner",), ("top", "inner"), ("plain", "inner")],
+    ids=["one-bundle", "document-and-bundle", "two-bundles"],
+)
+def test_graph_records_keep_their_iris_across_bundle_defaults(
+    scopes: tuple[str, ...], reverse: bool
+) -> None:
+    # Each bundle default the document does not share gets a prefix, as
+    # flattened() gives it, whichever record the graph holds first.
+    document = ex_document()
+    document.set_default_namespace("http://doc.org/")
+    plain = document.bundle("ex:b1")
+    bundle = document.bundle("ex:b2")
+    bundle.set_default_namespace("http://bun.org/")
+    made = {
+        "inner": bundle.entity("inner"),
+        "top": document.entity("top"),
+        "plain": plain.entity("plain"),
+    }
+    graph = nx.MultiDiGraph()
+    for name in reversed(scopes) if reverse else scopes:
+        graph.add_node(made[name])
+
+    result = graph_to_prov(graph)
+
+    assert {str(record.identifier.uri) for record in result.get_records()} == {
+        str(made[name].identifier.uri) for name in scopes
+    }
+
+
+@pytest.mark.parametrize("with_top", [False, True], ids=["bundle-only", "with-top"])
+def test_graph_records_from_two_documents_keep_their_iris(with_top: bool) -> None:
+    # A second document's default, set on it or read by its bundle, gets a
+    # prefix too, as 3.2.3 gave it.
+    first = ProvDocument()
+    first.set_default_namespace("http://a.org/")
+    second = ex_document()
+    second.set_default_namespace("http://b.org/")
+    records = [first.entity("x"), second.bundle("ex:bb").entity("q")]
+    if with_top:
+        records.append(second.entity("y"))
+    graph = nx.MultiDiGraph()
+    graph.add_nodes_from(records)
+
+    result = graph_to_prov(graph)
+
+    assert {str(record.identifier.uri) for record in result.get_records()} == {
+        str(record.identifier.uri) for record in records
+    }

@@ -21,6 +21,7 @@ def _get_kwargs(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     role: Union[Unset, list[str]] = UNSET,
+    role_template: Union[Unset, list[str]] = UNSET,
     search_string: Union[Unset, str] = UNSET,
     user: Union[Unset, UUID] = UNSET,
     user_slug: Union[Unset, str] = UNSET,
@@ -60,6 +61,12 @@ def _get_kwargs(
         json_role = role
 
     params["role"] = json_role
+
+    json_role_template: Union[Unset, list[str]] = UNSET
+    if not isinstance(role_template, Unset):
+        json_role_template = role_template
+
+    params["role_template"] = json_role_template
 
     params["search_string"] = search_string
 
@@ -122,6 +129,7 @@ def sync_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     role: Union[Unset, list[str]] = UNSET,
+    role_template: Union[Unset, list[str]] = UNSET,
     search_string: Union[Unset, str] = UNSET,
     user: Union[Unset, UUID] = UNSET,
     user_slug: Union[Unset, str] = UNSET,
@@ -141,6 +149,7 @@ def sync_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         role (Union[Unset, list[str]]):
+        role_template (Union[Unset, list[str]]):
         search_string (Union[Unset, str]):
         user (Union[Unset, UUID]):
         user_slug (Union[Unset, str]):
@@ -164,6 +173,7 @@ def sync_detailed(
         page=page,
         page_size=page_size,
         role=role,
+        role_template=role_template,
         search_string=search_string,
         user=user,
         user_slug=user_slug,
@@ -189,6 +199,7 @@ def sync(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     role: Union[Unset, list[str]] = UNSET,
+    role_template: Union[Unset, list[str]] = UNSET,
     search_string: Union[Unset, str] = UNSET,
     user: Union[Unset, UUID] = UNSET,
     user_slug: Union[Unset, str] = UNSET,
@@ -208,6 +219,7 @@ def sync(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         role (Union[Unset, list[str]]):
+        role_template (Union[Unset, list[str]]):
         search_string (Union[Unset, str]):
         user (Union[Unset, UUID]):
         user_slug (Union[Unset, str]):
@@ -232,6 +244,7 @@ def sync(
         page=page,
         page_size=page_size,
         role=role,
+        role_template=role_template,
         search_string=search_string,
         user=user,
         user_slug=user_slug,
@@ -251,6 +264,7 @@ async def asyncio_detailed(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     role: Union[Unset, list[str]] = UNSET,
+    role_template: Union[Unset, list[str]] = UNSET,
     search_string: Union[Unset, str] = UNSET,
     user: Union[Unset, UUID] = UNSET,
     user_slug: Union[Unset, str] = UNSET,
@@ -270,6 +284,7 @@ async def asyncio_detailed(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         role (Union[Unset, list[str]]):
+        role_template (Union[Unset, list[str]]):
         search_string (Union[Unset, str]):
         user (Union[Unset, UUID]):
         user_slug (Union[Unset, str]):
@@ -293,6 +308,7 @@ async def asyncio_detailed(
         page=page,
         page_size=page_size,
         role=role,
+        role_template=role_template,
         search_string=search_string,
         user=user,
         user_slug=user_slug,
@@ -316,6 +332,7 @@ async def asyncio(
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     role: Union[Unset, list[str]] = UNSET,
+    role_template: Union[Unset, list[str]] = UNSET,
     search_string: Union[Unset, str] = UNSET,
     user: Union[Unset, UUID] = UNSET,
     user_slug: Union[Unset, str] = UNSET,
@@ -335,6 +352,7 @@ async def asyncio(
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         role (Union[Unset, list[str]]):
+        role_template (Union[Unset, list[str]]):
         search_string (Union[Unset, str]):
         user (Union[Unset, UUID]):
         user_slug (Union[Unset, str]):
@@ -360,6 +378,7 @@ async def asyncio(
             page=page,
             page_size=page_size,
             role=role,
+            role_template=role_template,
             search_string=search_string,
             user=user,
             user_slug=user_slug,

@@ -549,6 +549,80 @@ def write_recorder(source: str, value: str) -> Path:
     return path
 
 
+#: Who sets a chat's switch (probe auto mode, 2026-11-07): `auto`, the main agent, by
+#: the work, until the researcher types `/probe` in that chat; `manual`, the researcher.
+#: Auto is the default (the key absent) since 2026-11-09 (Richard: "switch everyone to
+#: default to auto mode incl existing users"); a choice is stored, manual included.
+CONTROL_KEY = "session_control"
+CONTROL_AUTO = "auto"
+CONTROL_MANUAL = "manual"
+CONTROLS = (CONTROL_AUTO, CONTROL_MANUAL)
+
+
+def get_stored_session_control(config: "dict | None" = None) -> "str | None":
+    """The control this machine's config stores (`auto` or `manual`), or None: never chosen. A word this copy does
+    not know (a hand edit, a newer Probe's) is manual, as before auto became the default: the agent gets the switch
+    only by default or by `auto`. Never raises."""
+    data = _read_config() if config is None else config
+    defaults = data.get(DEFAULTS_KEY) if isinstance(data, dict) else None
+    value = defaults.get(CONTROL_KEY) if isinstance(defaults, dict) else None
+    if value is None:
+        return None
+    word = value.strip().lower() if isinstance(value, str) else value
+    return word if word in CONTROLS else CONTROL_MANUAL
+
+
+def load_session_control(config: "dict | None" = None) -> str:
+    """This machine's control: `manual` only when the config says so, else `auto` (the default). Never raises."""
+    return CONTROL_MANUAL if get_stored_session_control(config) == CONTROL_MANUAL else CONTROL_AUTO
+
+
+def is_auto_machine(config: "dict | None" = None) -> bool:
+    return load_session_control(config) == CONTROL_AUTO
+
+
+def save_session_control(value: str) -> Path:
+    """Persist the control; returns the config path. Same file, lock and loader as
+    `write_recorder`. Both values are stored: absent is the default (auto), never a choice."""
+    _store_session_control(value, is_absent_only=False)
+    return config_path()
+
+
+def save_session_control_if_absent(value: str) -> bool:
+    """`save_session_control` only while the config stores no control, decided under the config lock, so a choice
+    saved meanwhile is never written over (the Probe service's keeper). True when written."""
+    return _store_session_control(value, is_absent_only=True)
+
+
+def _store_session_control(value: str, *, is_absent_only: bool) -> bool:
+    if value not in CONTROLS:
+        raise ValueError(f"expected one of {CONTROLS}, got {value!r}")
+    from probe.sdk.config import (  # restructure-guard-ok: released hooks run this copy against older CLIs
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        if is_absent_only and get_stored_session_control(data) is not None:
+            return False
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        data[DEFAULTS_KEY][CONTROL_KEY] = value
+        _save_json_file(target, data, private=True, _resolved=True)
+    return True
+
+
 #: Images pasted into a prompt upload with the captured session (2026-10-12):
 #: on unless this machine turned it off. The capture tap reads the same key
 #: (`tap/config.py` `pasted_images_on`) before it uploads one.

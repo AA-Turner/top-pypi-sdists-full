@@ -23,7 +23,7 @@ materialized-root pre-pass, and the V4History cache wiring.
 """
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from contextlib import nullcontext
 
 from trilogy.constants import logger
@@ -66,6 +66,10 @@ from trilogy.core.processing.discovery_utility import (
 )
 from trilogy.core.processing.node_generators.select_node import root_is_unsourced
 from trilogy.core.processing.nodes import StrategyNode
+from trilogy.core.processing.relation_rollup import (
+    relation_rollup_concepts,
+    relation_targets,
+)
 from trilogy.core.processing.utility import walk_lineage
 from trilogy.core.processing.v4_helper import (
     FINAL_NODE_ID,
@@ -75,6 +79,10 @@ from trilogy.core.processing.v4_helper import (
     build_concept_graph,
     build_group_graph,
     build_strategy_node,
+)
+from trilogy.core.processing.v4_helper.concept_graph import (
+    derived_key,
+    upstream_concepts,
 )
 from trilogy.core.processing.v4_helper.functional_dependency import (
     build_fd_closure,
@@ -387,9 +395,15 @@ def _binding_only_roots(
         ):
             out.add(concept.address)
             continue
-        # A rowset's content is planned by its own search.
+        # A rowset's content is planned by its own search. Elsewhere the walk
+        # follows the graph's own edges, so a grain key a consumer reads a
+        # stored aggregate on (`sum(n)` over `n <- count(id) by cls`) is
+        # judged like a lineage argument.
         if concept.derivation != Derivation.ROWSET:
-            stack.extend(args)
+            stack.extend(
+                environment.concepts.get(c.address) or c
+                for c in upstream_concepts(concept, environment)
+            )
     return out
 
 
@@ -535,6 +549,17 @@ def materialized_root_addresses(
         if sources:
             rolled_roots.add(concept.address)
             rollup_sources.extend(sources)
+    out |= {
+        key.address
+        for key in _aggregated_derived_keys(mandatory_list, environment)
+        if target_grain.components <= key.grain.components
+        and _exactly_materialized(
+            key, key.grain, where, environment, datasources, unions
+        )
+    }
+    out |= _stored_coarser_roots(
+        candidates, target_grain, out | rolled_roots, where, environment, datasources
+    )
     nested_exact, nested = _nested_rollup_roots(
         mandatory_list, out | rolled_roots, where, environment, datasources, unions
     )
@@ -548,6 +573,9 @@ def materialized_root_addresses(
     return frozenset(
         out
         | rolled_roots
+        | _related_unnest_roots(
+            mandatory_list, rolled_roots, target_grain, where, environment, datasources
+        )
         | _summary_bound_expressions(
             mandatory_list
             + list(condition_args_by_address.values())
@@ -555,6 +583,112 @@ def materialized_root_addresses(
             rollup_sources,
         )
     )
+
+
+def _stored_coarser_roots(
+    candidates: list[BuildConcept],
+    target_grain: BuildGrain,
+    roots: set[str],
+    where: BuildWhereClause | None,
+    environment: BuildEnvironment,
+    datasources: Sequence[BuildDatasource],
+) -> set[str]:
+    """Values a table stores at their own grain, which the query's rows
+    determine (`slope` by `g` beside `id`, or inside `count(id ? resid < 1)`):
+    joined from that table on its grain, not recomputed from the finer rows
+    and joined back on the same keys."""
+    reachable = build_fd_closure(
+        environment, target_grain.components, include_empty_grain=False
+    )
+    found: set[str] = set()
+    seen: set[str] = set()
+    stack = list(candidates)
+    while stack:
+        popped = stack.pop()
+        concept = environment.concepts.get(popped.address) or popped
+        if concept.address in seen or concept.address in roots:
+            continue
+        seen.add(concept.address)
+        if _stored_at_own_grain(concept, reachable, where, environment, datasources):
+            found.add(concept.address)
+        elif concept.lineage is not None:
+            stack.extend(concept.lineage.concept_arguments)
+    return found
+
+
+def _stored_at_own_grain(
+    concept: BuildConcept,
+    reachable: Collection[str],
+    where: BuildWhereClause | None,
+    environment: BuildEnvironment,
+    datasources: Sequence[BuildDatasource],
+) -> bool:
+    grain = concept.grain.components if concept.grain else set()
+    return (
+        concept.derivation in (Derivation.AGGREGATE, Derivation.BASIC)
+        and bool(grain)
+        and _recomputes_aggregate(concept, environment)
+        and all(key in reachable for key in grain)
+        and _exactly_materialized(
+            concept, concept.grain, where, environment, datasources, ()
+        )
+    )
+
+
+def _recomputes_aggregate(concept: BuildConcept, environment: BuildEnvironment) -> bool:
+    """Re-deriving `concept` aggregates rows no table stores the result of;
+    a row expression over stored inputs is re-derived from them instead."""
+    stored = environment.materialized_canonical_concepts
+    return concept.derivation == Derivation.AGGREGATE or any(
+        c.derivation == Derivation.AGGREGATE and c.canonical_address not in stored
+        for c in walk_lineage(
+            [concept],
+            descend=lambda c: c is concept or c.canonical_address not in stored,
+            resolve=lambda c: environment.concepts.get(c.address) or c,
+        )
+    )
+
+
+def _aggregated_derived_keys(
+    mandatory_list: list[BuildConcept], environment: BuildEnvironment
+) -> list[BuildConcept]:
+    """Derived keys a demanded aggregate reads as its own input rows
+    (`count(cls)` over `key cls <- ...`): their values, not their inputs' rows,
+    so a table at the key's grain answers them without a re-derivation."""
+    return [
+        key
+        for concept in mandatory_list
+        if concept.derivation == Derivation.AGGREGATE and concept.lineage
+        for arg in concept.lineage.concept_arguments
+        if derived_key(key := environment.concepts.get(arg.address) or arg)
+    ]
+
+
+def _related_unnest_roots(
+    mandatory_list: list[BuildConcept],
+    rolled_roots: set[str],
+    target_grain: BuildGrain,
+    where: BuildWhereClause | None,
+    environment: BuildEnvironment,
+    datasources: Sequence[BuildDatasource],
+) -> set[str]:
+    """An unnested element the summary's key relates to, when every demanded
+    aggregate rolls through that relation: read beside the rolled aggregates
+    (`relation_rollup_concepts`), not expanded over their rows."""
+    aggregates = {c.address for c in mandatory_list if c.is_aggregate}
+    if where is not None or not aggregates or not aggregates <= rolled_roots:
+        return set()
+    for ds in datasources:
+        rolled = relation_rollup_concepts(
+            ds, mandatory_list, environment, datasources, target_grain
+        )
+        if aggregates <= {c.address for c in rolled}:
+            return {
+                address
+                for address in relation_targets(ds, target_grain, environment)
+                if environment.concepts[address].derivation == Derivation.UNNEST
+            }
+    return set()
 
 
 def _exactly_materialized(
@@ -718,20 +852,27 @@ def _rollup_sources(
         if not holds_every_kept_row(source, where):
             continue
         if isinstance(source, BuildDatasource) and not (
-            _datasource_has_matching_rollup_aggregate(source, concept)
-        ):
-            continue
-        if any(
-            r.address == concept.address
-            for r in source_rollup_concepts(
-                datasource=source,
-                requested_concepts=requested,
-                concepts_by_address=environment.concepts,
-                datasources=datasources,
-                target_grain=target_grain,
-                conditions=where,
+            _datasource_has_matching_rollup_aggregate(
+                source, concept, environment.concepts
             )
         ):
+            continue
+        rolled = source_rollup_concepts(
+            datasource=source,
+            requested_concepts=requested,
+            concepts_by_address=environment.concepts,
+            datasources=datasources,
+            target_grain=target_grain,
+            conditions=where,
+            joined=True,
+        )
+        # under a WHERE the group graph filters the list's parent rows, not a
+        # rolled root, so a relation rollup would drop it
+        if isinstance(source, BuildDatasource) and where is None:
+            rolled = rolled + relation_rollup_concepts(
+                source, requested, environment, datasources, target_grain
+            )
+        if any(r.address == concept.address for r in rolled):
             out.extend(
                 source.children
                 if isinstance(source, BuildUnionDatasource)

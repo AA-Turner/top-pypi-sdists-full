@@ -71,7 +71,12 @@ __all__ = [
     "ONLY_VISITORS",
     "OTHER_APPLICATION",
     "agent_of",
+    "battle_of_a2a",
+    "battle_of_the_run",
+    "enter_battle_run",
+    "leave_battle_run",
     "forget_turns",
+    "held_to_own_routes",
     "is_anonymous_audience",
     "kept_examples",
     "or_visitors_key",
@@ -202,6 +207,38 @@ def visitor_of_a2a(meta: Any) -> str:
     ours = meta.get(DELEGATION_META_KEY) if isinstance(meta, Mapping) else None
     visitor = ours.get(A2A_VISITOR_FIELD) if isinstance(ours, Mapping) else None
     return visitor if isinstance(visitor, str) else ""
+
+
+#: Where the gate marks a visitor's A2A run with the catalogue Battle their
+#: token names (B4-01): ``datalayer.battle``, never what the message says.
+A2A_BATTLE_FIELD = "battle"
+
+#: The catalogue Battle the run under way is played for, as the visitor's
+#: token names it at ai-inference: ``""`` for none (`battle_books`).
+_BATTLE_RUN: ContextVar[str] = ContextVar("loop_battle_run", default="")
+
+
+def battle_of_a2a(meta: Any) -> str:
+    """The Battle an A2A message was marked for by the gate, or ``""``."""
+    from agent_runtimes.context.delegation import DELEGATION_META_KEY
+
+    ours = meta.get(DELEGATION_META_KEY) if isinstance(meta, Mapping) else None
+    battle = ours.get(A2A_BATTLE_FIELD) if isinstance(ours, Mapping) else None
+    return battle if isinstance(battle, str) else ""
+
+
+def enter_battle_run(battle: str) -> Any:
+    """Make the run under way a Battle's (``""`` for none); answer the token to reset it."""
+    return _BATTLE_RUN.set(battle or "")
+
+
+def leave_battle_run(token: Any) -> None:
+    _BATTLE_RUN.reset(token)
+
+
+def battle_of_the_run() -> str:
+    """The catalogue Battle the run under way is played for, ``""`` for none."""
+    return _BATTLE_RUN.get()
 
 
 def enter_visitor_run(visitor: str) -> Any:
@@ -353,14 +390,23 @@ _NOT_THE_APPLICATIONS = (
     "/api/v1/apps/configure",
     "/api/v1/apps/build",
     "/api/v1/apps/eject",
+    "/api/v1/apps/owner-secrets",
 )
 
 #: Where an agent is served over A2A: its own when it runs an application.
 _A2A_AGENTS = "/api/v1/a2a/agents/"
 
-#: What the sandbox reaches on the pod's loopback, with no secret: the tool calls
-#: of the code it runs, through the servers its application starts.
+#: What the sandbox reaches on the pod's loopback, with no secret, while code the
+#: agent was let run is running: the tool calls of that code.
 _SANDBOX_TOOLS = "/api/v1/mcp/proxy/"
+
+#: What a harness reaches on the pod's loopback, by a handle it was given: its
+#: lent toolsets (`routes.mcp_lent`), which hold the credential for it.
+_LENT_TOOLS = "/api/v1/mcp/lent/"
+
+#: What a harness calls its models through, by the handle it was given: the
+#: runtime's token is added there (`routes.inference_relay`).
+_INFERENCE_RELAY = "/api/v1/inference/relay/"
 
 
 def path_answered(method: str, path: str) -> bool:
@@ -390,6 +436,13 @@ def path_answered(method: str, path: str) -> bool:
 VISITORS_OWN = "This route of the visitors' runtime is its own."
 
 
+def held_to_own_routes() -> bool:
+    """Whether this runtime answers only the application's own routes (:class:`OwnRoutesOnly`)."""
+    from agent_runtimes.apps.principal import a_deployment_is_served, launched_for
+
+    return visitors_runtime() or a_deployment_is_served() or bool(launched_for())
+
+
 class OwnRoutesOnly:
     """The one gate: a runtime held to the application's own routes (:func:`path_answered`).
 
@@ -401,7 +454,9 @@ class OwnRoutesOnly:
     deleting agents, MCP servers, skills, history, the monitoring stream —
     answers 404 in a sentence, over HTTP and on a websocket's handshake alike.
     The pod itself (`callers.is_the_pod`) is answered everywhere, and the
-    sandbox's tool calls through the MCP proxy from its loopback.
+    sandbox's tool calls through the MCP proxy from its loopback only while
+    code the agent was let run is running (`enforcement.code_is_running`),
+    each decided as a tool call of that run.
 
     A runtime launched for a deployment is held to this from its launch, as
     soon as it holds its proof, not from its first agent: until then it
@@ -424,6 +479,7 @@ class OwnRoutesOnly:
             is_loopback,
             is_the_pod,
         )
+        from agent_runtimes.apps.enforcement import code_is_running
         from agent_runtimes.apps.principal import (
             OWN_ROUTES_ONLY,
             a_deployment_is_served,
@@ -447,7 +503,15 @@ class OwnRoutesOnly:
             not (visitors or served or launched)
             or path_answered(method, scope["path"])
             or is_the_pod(host, secret)
-            or (is_loopback(host) and scope["path"].startswith(_SANDBOX_TOOLS))
+            or (
+                is_loopback(host)
+                and scope["path"].startswith(_SANDBOX_TOOLS)
+                and code_is_running()
+            )
+            or (
+                is_loopback(host)
+                and scope["path"].startswith((_LENT_TOOLS, _INFERENCE_RELAY))
+            )
             # Launched for a deployment, it is held here from its launch; the
             # one thing it still answers is the making of that deployment's
             # agent (`principal.agent_refused_here`, in the route).

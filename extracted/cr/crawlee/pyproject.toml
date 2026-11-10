@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.11.1"
+version = "1.11.2"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -303,7 +303,7 @@ include = [
 ]
 
 [tool.ty.overrides.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
 
 [tool.coverage.report]
 exclude_lines = [
@@ -332,7 +332,7 @@ crawlee = false
 impit = false
 
 [tool.poe.tasks.clean]
-cmd = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache .uv-cache build coverage-unit.xml dist htmlcov website/.docusaurus website/module_shortcuts.json website/node_modules "
+cmd = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache .uv-cache build coverage-unit.xml coverage-integration.xml dist htmlcov website/.docusaurus website/module_shortcuts.json website/node_modules "
 help = "Remove build artifacts and clean caches"
 
 [tool.poe.tasks.install-sync]
@@ -356,8 +356,9 @@ sequence = [
     "lint",
     "type-check",
     "unit-tests",
+    "integration-tests",
 ]
-help = "Run lint, type check, and unit tests"
+help = "Run lint, type check, unit tests, and integration tests"
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install && uv run playwright install"
@@ -384,6 +385,21 @@ uv run pytest -m "run_alone" --cov=src/crawlee --cov-report=xml:coverage-unit.xm
 help = "Run unit tests with an XML coverage report"
 
 [tool.poe.tasks.unit-tests-cov.env]
+COVERAGE_CORE = "sysmon"
+
+[tool.poe.tasks.integration-tests]
+shell = """
+uv run pytest -m "run_alone" tests/integration && uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} -m "not run_alone" tests/integration
+"""
+help = "Run integration tests (`run_alone` tests first, then the rest in parallel)"
+
+[tool.poe.tasks.integration-tests-cov]
+shell = """
+uv run pytest -m "run_alone" --cov=src/crawlee --cov-report=xml:coverage-integration.xml tests/integration && uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} -m "not run_alone" --cov=src/crawlee --cov-report=xml:coverage-integration.xml --cov-append tests/integration
+"""
+help = "Run integration tests with an XML coverage report"
+
+[tool.poe.tasks.integration-tests-cov.env]
 COVERAGE_CORE = "sysmon"
 
 [tool.poe.tasks.e2e-templates-tests]

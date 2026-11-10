@@ -11,7 +11,7 @@ from .summary import Summary
 class ResponseReasoning(UniversalBaseModel):
     effort: typing.Optional[ResponseReasoningEffort] = pydantic.Field(default=None)
     """
-    `low`, `high`, or `max`. On **`glm5.3`** and **`glm5.3-flash`**, sending the literal string `max` returns `400`; omitting the field gives `max` on `glm5.3` and `high` on `glm5.3-flash`. **`deepseekv4.1-flash-1017`**, **`deepseekv4-pro`**, **`kimi-k3`**, **`mimo-v2.6-flash`**, and **`mimo-v2.6-pro`** accept `max` directly on this route. `none` turns thinking off on `deepseekv4-pro`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`. `gemma4` accepts `low` or `high`; omitting it means no reasoning.
+    `low`, `high`, or `max`, plus `medium` and `none` on some models. On **`glm5.3`** and **`glm5.3-flash`**, sending the literal string `max` returns `400`; omitting the field gives `max` on `glm5.3` and `high` on `glm5.3-flash`. **`deepseekv4.1-flash-1017`**, **`deepseekv4.1-flash-1017-interactive`**, and **`deepseekv4-pro`** accept `max` directly, and `none` turns thinking off. **`kimi-k3.1-pro`** accepts `low`, `medium`, `high`, or `max` and always thinks. **`qwen38-27b`** thinks by default; `none` turns it off. `gemma4` accepts `low` or `high`; omitting it means no reasoning.
     """
 
     summary: typing.Optional[Summary] = pydantic.Field(default=None)

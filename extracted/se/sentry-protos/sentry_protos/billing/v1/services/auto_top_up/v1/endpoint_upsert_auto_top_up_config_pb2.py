@@ -25,15 +25,20 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.auto_top_up.v1 import auto_top_up_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_auto__top__up_dot_v1_dot_auto__top__up__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nYsentry_protos/billing/v1/services/auto_top_up/v1/endpoint_upsert_auto_top_up_config.proto\x12\x30sentry_protos.billing.v1.services.auto_top_up.v1\x1aIsentry_protos/billing/v1/services/auto_top_up/v1/auto_top_up_config.proto\"\xe0\x01\n\x1cUpsertAutoTopUpConfigRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12H\n\x06wallet\x18\x02 \x01(\x0e\x32\x38.sentry_protos.billing.v1.services.auto_top_up.v1.Wallet\x12\x0f\n\x07\x65nabled\x18\x03 \x01(\x08\x12\x19\n\x11threshold_credits\x18\x04 \x01(\x04\x12\x16\n\x0etop_up_credits\x18\x05 \x01(\x04\x12\x19\n\x11\x64\x61ily_cap_credits\x18\x06 \x01(\x04\"r\n\x1dUpsertAutoTopUpConfigResponse\x12Q\n\x06\x63onfig\x18\x01 \x01(\x0b\x32\x41.sentry_protos.billing.v1.services.auto_top_up.v1.AutoTopUpConfigb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nYsentry_protos/billing/v1/services/auto_top_up/v1/endpoint_upsert_auto_top_up_config.proto\x12\x30sentry_protos.billing.v1.services.auto_top_up.v1\x1aIsentry_protos/billing/v1/services/auto_top_up/v1/auto_top_up_config.proto\"\xe4\x01\n\x1cUpsertAutoTopUpConfigRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12H\n\x06wallet\x18\x02 \x01(\x0e\x32\x38.sentry_protos.billing.v1.services.auto_top_up.v1.Wallet\x12\x0f\n\x07\x65nabled\x18\x03 \x01(\x08\x12\x19\n\x11threshold_credits\x18\x04 \x01(\x04\x12\x16\n\x0etop_up_credits\x18\x05 \x01(\x04\x12\x19\n\x11\x64\x61ily_cap_credits\x18\x06 \x01(\x04:\x02\x18\x01\"v\n\x1dUpsertAutoTopUpConfigResponse\x12Q\n\x06\x63onfig\x18\x01 \x01(\x0b\x32\x41.sentry_protos.billing.v1.services.auto_top_up.v1.AutoTopUpConfig:\x02\x18\x01\x42\x03\xb8\x01\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.auto_top_up.v1.endpoint_upsert_auto_top_up_config_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
+  _globals['DESCRIPTOR']._loaded_options = None
+  _globals['DESCRIPTOR']._serialized_options = b'\270\001\001'
+  _globals['_UPSERTAUTOTOPUPCONFIGREQUEST']._loaded_options = None
+  _globals['_UPSERTAUTOTOPUPCONFIGREQUEST']._serialized_options = b'\030\001'
+  _globals['_UPSERTAUTOTOPUPCONFIGRESPONSE']._loaded_options = None
+  _globals['_UPSERTAUTOTOPUPCONFIGRESPONSE']._serialized_options = b'\030\001'
   _globals['_UPSERTAUTOTOPUPCONFIGREQUEST']._serialized_start=219
-  _globals['_UPSERTAUTOTOPUPCONFIGREQUEST']._serialized_end=443
-  _globals['_UPSERTAUTOTOPUPCONFIGRESPONSE']._serialized_start=445
-  _globals['_UPSERTAUTOTOPUPCONFIGRESPONSE']._serialized_end=559
+  _globals['_UPSERTAUTOTOPUPCONFIGREQUEST']._serialized_end=447
+  _globals['_UPSERTAUTOTOPUPCONFIGRESPONSE']._serialized_start=449
+  _globals['_UPSERTAUTOTOPUPCONFIGRESPONSE']._serialized_end=567
 # @@protoc_insertion_point(module_scope)

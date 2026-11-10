@@ -123,6 +123,7 @@ if TYPE_CHECKING:
     from probe.sdk.delivery.transport.failures import ErrorMappingMixin
     from probe.sdk.delivery.transport.tracking import TrackingMarkerMixin
     from probe.sdk.delivery.transport.blobs import BlobsMixin
+    from probe.sdk.delivery.transport.streams import StreamsMixin
 
     class _TransportParts(
         RequestHeadersMixin,
@@ -130,6 +131,7 @@ if TYPE_CHECKING:
         ErrorMappingMixin,
         TrackingMarkerMixin,
         BlobsMixin,
+        StreamsMixin,
     ):
         """Transport's parts as bases, for editors and type checkers; at runtime fold_parts() copies them in."""
 else:
@@ -534,6 +536,8 @@ class Transport(_TransportParts):
         if 200 <= resp.status_code < 300:
             # 2xx only: a 3xx means the write did not land where we asked.
             self._auto_mark_tracking(method, path, headers.get(AGENT_SESSION_HEADER))
+            if override is None:  # our own identity only (the hosted MCP serves others)
+                self._set_auto_chat_on(method, path, headers.get(AGENT_SESSION_HEADER), resp)
         return resp
 
     # -- typed helpers ------------------------------------------------------
@@ -612,6 +616,7 @@ from probe.sdk.delivery.transport.deadlines import RetryPolicyMixin  # noqa: E40
 from probe.sdk.delivery.transport.failures import ErrorMappingMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.tracking import TrackingMarkerMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.blobs import BlobsMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.streams import StreamsMixin  # noqa: E402 -- pieces need each other; the front door loads this one first
 
 # Transport's parts read it back at import time, so they load after it and are folded in here.
 fold_parts(
@@ -621,6 +626,7 @@ fold_parts(
     ErrorMappingMixin,
     TrackingMarkerMixin,
     BlobsMixin,
+    StreamsMixin,
 )
 
 

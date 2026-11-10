@@ -200,20 +200,54 @@ IMAGE_PREFIX = "observation.images."
 _SLOTS = ("base", "left_wrist", "right_wrist")
 
 
+def parse_inputs(specs: list[str]) -> dict[str, dict[str, Any]]:
+    """`--input urdf=robot.json`: each a name and a JSON file holding one object (the server
+    checks what the base takes)."""
+    out: dict[str, dict[str, Any]] = {}
+    for spec in specs:
+        name, _, path = spec.partition("=")
+        name = name.strip()
+        problem = None
+        if not name or not path:
+            problem = f"--input {spec} isn't NAME=FILE.json"
+        else:
+            try:
+                value = json.loads(Path(path).expanduser().read_text())
+            except (OSError, ValueError) as error:
+                problem = f"--input {name}: {path} isn't a readable JSON file ({error})"
+            else:
+                if not isinstance(value, dict):
+                    problem = f"--input {name}: {path} holds {type(value).__name__}, not an object"
+        if problem is None and name in out:
+            problem = f"--input {name} is given twice"
+        if problem:
+            raise errors.DreamscaleError(errors.ErrorInfo(
+                code="invalid_input", problem=problem,
+                cause="each --input names one input and a JSON file holding one object",
+                fix="pass e.g. --input urdf=robot.json"))
+        out[name] = value
+    return out
+
+
 def parse_mapping(
     state: str | None = None, action: str | None = None, cameras: list[str] | None = None,
-    weight: str | None = None, loss_mask: str | None = None,
+    weight: str | None = None, loss_mask: str | None = None, ee_state: str | None = None,
+    ee_action: str | None = None, ee_rotation: str | None = None,
 ) -> dict[str, Any] | None:
     """`--state a+b --action c --camera top=base`: the columns to train on (any part left out
     is the dataset's own). A state may keep some of a column's values by name:
     `--state 'observation.state[left_joint_0,left_gripper]'`. A camera may be named without its
     `observation.images.` prefix (the server resolves it against the dataset). `--sample-weight`
-    and `--loss-mask` name one-value columns (the server checks them)."""
+    and `--loss-mask` name one-value columns (the server checks them). `--ee-state` and
+    `--ee-action` name the measured and commanded end-effector pose columns (each arm's xyz then
+    its rotation, in `--ee-rotation`'s format), for a base that learns end-effector poses."""
     mapping: dict[str, Any] = {}
-    for key, value in (("weight", weight), ("loss_mask", loss_mask)):
+    for key, value in (("weight", weight), ("loss_mask", loss_mask),
+                       ("ee_rotation", ee_rotation)):
         if value:
             mapping[key] = value.strip()
-    for key, value in (("state", state), ("action", action)):
+    for key, value in (("state", state), ("action", action), ("ee_state", ee_state),
+                       ("ee_action", ee_action)):
         if value:
             mapping[key] = split_columns(value)
     picked = []
@@ -1060,12 +1094,14 @@ def create(
     hf_token: str | None = None,
     eval_fraction: float | None = None,
     inputs: dict[str, dict[str, Any]] | None = None,
+    mapping: dict[str, Any] | None = None,
     client_factory: Callable[..., Any] = ControlPlaneClient,
 ) -> Training:
     """Start a training run without a prompt: ``dataset`` is a ``Dataset``, ``"towels@2"``,
     ``"acme/towels"`` or ``"hf://…"``; ``max_usd`` is the most it may cost, and the call refuses a
     quote above it. Length is Auto unless ``steps`` is given. ``inputs``: what the base's family
-    takes beside the dataset, by name (a JSON object each); sent only when given."""
+    takes beside the dataset, by name (a JSON object each); ``mapping``: the columns to train on
+    (``parse_mapping``'s); each sent only when given."""
     if not base:
         raise errors.catalog("base_required")
     pinned = getattr(dataset, "ref", None)
@@ -1076,7 +1112,7 @@ def create(
     body = run_settings(
         base=base, steps=steps, max_usd=None, rtc=rtc, name=name or default_name(source),
         learning_rate=None, prompt=None, hardware_check=True, trim_idle=True,
-        eval_fraction=eval_fraction, inputs=inputs,
+        eval_fraction=eval_fraction, inputs=inputs, mapping=mapping,
     )
     fp = fingerprint(source, body)
     existing = active_run(client_factory, fp)

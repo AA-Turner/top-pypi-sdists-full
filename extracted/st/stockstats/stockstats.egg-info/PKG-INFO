@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stockstats
-Version: 0.6.10
+Version: 0.6.11
 Summary: DataFrame with inline stock statistics support.
 Author-email: Cedric Zhuang <jealous@163.com>
 License-Expression: BSD-3-Clause

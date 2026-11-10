@@ -1,5 +1,6 @@
 # measure/measure.pyi — type stubs for the measure C extension.
 from typing import final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -331,7 +332,9 @@ class ToneMeasure:
     fs : float, default 1.0
         Sample rate (Hz, > 0).
     n_harmonics : int, default 8
-        Harmonics to track (k = 2..n_harmonics).
+        Harmonics to track (k = 2..n_harmonics). Its n_harmonics + 1 bin slots
+        are allocated here, so a count whose slots do not fit in memory is
+        refused here, not at analysis.
     full_scale : float, default 1.0
         Amplitude that equals 0 dBFS (> 0). Ignored if bits > 0.
     bits : int, default 0
@@ -348,15 +351,7 @@ class ToneMeasure:
     Create with defaults:
 
     >>> from doppler.measure import ToneMeasure
-    >>> obj = ToneMeasure(
-    ...     n=8192,
-    ...     fs=1.0,
-    ...     n_harmonics=8,
-    ...     full_scale=1.0,
-    ...     bits=0,
-    ...     dynamic_range_db=0.0,
-    ...     dc_guard=0,
-    ... )
+    >>> obj = ToneMeasure()
 
     """
 
@@ -650,13 +645,7 @@ class NPRMeasure:
     Create with defaults:
 
     >>> from doppler.measure import NPRMeasure
-    >>> obj = NPRMeasure(
-    ...     n=8192,
-    ...     fs=1.0,
-    ...     full_scale=1.0,
-    ...     bits=0,
-    ...     dynamic_range_db=0.0,
-    ... )
+    >>> obj = NPRMeasure()
 
     """
 
@@ -877,13 +866,7 @@ class IMDMeasure:
     Create with defaults:
 
     >>> from doppler.measure import IMDMeasure
-    >>> obj = IMDMeasure(
-    ...     n=8192,
-    ...     fs=1.0,
-    ...     full_scale=1.0,
-    ...     bits=0,
-    ...     dynamic_range_db=0.0,
-    ... )
+    >>> obj = IMDMeasure()
 
     """
 

@@ -27,6 +27,7 @@ from airbyte_ops_mcp.connector_secrets import (
     ConnectorSecretsUnavailableError,
 )
 from airbyte_ops_mcp.regression_tests import connector_runner, read_budget
+from airbyte_ops_mcp.regression_tests import report as report_module
 from airbyte_ops_mcp.regression_tests.ci_output import (
     generate_action_test_comparison_report,
 )
@@ -58,6 +59,10 @@ from airbyte_ops_mcp.regression_tests.models import (
     StreamError,
     TargetOrControl,
 )
+from airbyte_ops_mcp.regression_tests.regression.comparators import (
+    ComparisonResult,
+    RecordComparisonSummary,
+)
 from airbyte_ops_mcp.regression_tests.validation.record_validators import (
     _MAX_OBSERVED_FIELDS,
 )
@@ -65,6 +70,322 @@ from tests.test_connector_runner import FAKE_CONNECTOR
 from tests.test_masking import KEY
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "pass",
+        "regression",
+        "both_failed",
+        "errored",
+        "not_exercised",
+        "setup_error",
+        "could_not_test",
+        "cap",
+        "timeout",
+        "stopped_not_exercised",
+    ],
+)
+def test_output_verdict_comes_from_report_model(
+    tmp_path, monkeypatch, fake_clock, single, shape
+):
+    for name in ("GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_RUN_ID"):
+        monkeypatch.delenv(name, raising=False)
+    outputs = {}
+    reports = []
+    printed = []
+    models = []
+    clean = {"success": True, "exit_code": 0, "record_counts_per_stream": {"items": 2}}
+    target = dict(clean)
+    control = dict(clean)
+    target_outputs = ComparableOutputs()
+    new_stream = shape in {
+        "not_exercised",
+        "setup_error",
+        "could_not_test",
+        "stopped_not_exercised",
+    }
+    if shape in {"regression", "both_failed"}:
+        target.update(success=False, exit_code=1)
+    if shape == "both_failed":
+        control.update(success=False, exit_code=1)
+    if shape in {"cap", "timeout", "stopped_not_exercised"}:
+        target["stopped_early"] = {
+            "reason": "cap" if shape == "cap" else "timeout",
+            "records_seen": 2,
+            "elapsed_s": 10,
+        }
+    if shape == "setup_error":
+        target_outputs = ComparableOutputs(
+            stream_statuses={"new_stream": ["INCOMPLETE"]}
+        )
+    if shape == "could_not_test":
+        target.update(success=False, exit_code=1)
+        target_outputs = ComparableOutputs(
+            stream_errors={
+                "new_stream": [StreamError("config_error", "Configuration rejected")],
+            }
+        )
+
+    def run(*, command, target_or_control, output_dir, **kwargs):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        is_target = target_or_control is TargetOrControl.TARGET
+        return {"command": command.value, **(target if is_target else control)}, (
+            target_outputs if is_target else ComparableOutputs()
+        )
+
+    def html(model, output_dir):
+        models.append(model)
+        return output_dir / "report.html"
+
+    monkeypatch.setattr(cloud, "ensure_image_available", lambda _: True)
+    monkeypatch.setattr(cloud, "track_regression_test", lambda **_: None)
+    monkeypatch.setattr(cloud, "_run_connector_command", run)
+    monkeypatch.setattr(cloud, "_run_with_optional_http_metrics", run)
+    monkeypatch.setattr(
+        cloud,
+        "_target_only_stream_names",
+        lambda *_: ["new_stream"] if new_stream else [],
+    )
+    monkeypatch.setattr(cloud, "write_github_outputs", outputs.update)
+    monkeypatch.setattr(cloud, "print_json", printed.append)
+    monkeypatch.setattr(
+        cloud, "write_json_output", lambda _, payload: reports.append(payload)
+    )
+    monkeypatch.setattr(cloud, "write_github_summary", lambda _: None)
+    monkeypatch.setattr(cloud, "write_html_report", html)
+    comparison = (
+        RecordComparisonSummary(
+            passed=False,
+            errored=True,
+            count_comparison=ComparisonResult(
+                passed=False, message="Comparison errored"
+            ),
+        )
+        if shape == "errored"
+        else None
+    )
+    monkeypatch.setattr(cloud, "_compare_read_records", lambda **_: (comparison, None))
+    cloud.regression_test(
+        skip_compare=single,
+        test_image="airbyte/source-test:2",
+        control_image=None if single else "airbyte/source-test:1",
+        command="read",
+        output_dir=str(tmp_path),
+        enable_http_replay=False,
+        skip_record_comparison=shape != "errored",
+    )
+    model = models[0]
+    assert {
+        key: outputs[key] for key in model.verdict_flags(github=True)
+    } == model.verdict_flags(github=True)
+    assert {
+        key: reports[0][key] for key in model.verdict_flags()
+    } == model.verdict_flags()
+    assert reports[0]["check_results"] == model.check_results()
+    expected = json.loads(
+        (Path(__file__).parent / "fixtures" / "regression_cli_golden.json").read_text()
+    )[f"{shape}:{single}"]
+    assert outputs == expected["outputs"]
+    markdown = (tmp_path / "report.md").read_text()
+    markdown = re.sub(r"^- \*\*Test Date:\*\*.*$", "DATE", markdown, flags=re.M)
+    markdown = re.sub(r"^- \*\*Tester:\*\*.*$", "TESTER", markdown, flags=re.M)
+    assert markdown == expected["markdown"]
+    payload = dict(printed[0])
+    if not single:
+        checks = payload.pop("check_results")
+        old_payload = dict(expected["payload"])
+        old_checks = old_payload.pop("check_results")
+        metadata_names = {
+            "Stream coverage",
+            "HTTP replay coverage",
+            "Connector cache hit ratio",
+        }
+        assert sorted(
+            (check for check in checks if check["name"] not in metadata_names),
+            key=lambda check: check["name"],
+        ) == sorted(old_checks, key=lambda check: check["name"])
+    else:
+        old_payload = expected["payload"]
+    assert payload == old_payload
+    line = next(
+        line
+        for line in (tmp_path / "report.md").read_text().splitlines()
+        if line.startswith("**Result:**")
+    )
+    if (
+        model.verdict_label in {"PASS", "FAIL (regression)", "FAIL (inconclusive)"}
+        and not single
+    ):
+        expected = (
+            "no regression"
+            if model.passed
+            else "REGRESSION DETECTED"
+            if model.regression_detected
+            else "inconclusive"
+        )
+        assert expected in line
+    else:
+        assert model.verdict_label in line
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("success", [False, True])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "connection_objects",
+        "connection_objects_unicode",
+        "stream_sections",
+        "metric_tables",
+        "failure_output",
+        "readable_fields",
+        "markdown",
+        "html",
+        "summary",
+    ],
+)
+def test_report_failures_preserve_verdict_outputs(
+    tmp_path, monkeypatch, caplog, single, success, failure
+):
+    reports = []
+    monkeypatch.setattr(cloud, "ensure_image_available", lambda _: True)
+    monkeypatch.setattr(cloud, "track_regression_test", lambda **_: None)
+    monkeypatch.setattr(cloud, "write_github_summary", lambda _: None)
+    monkeypatch.setattr(
+        cloud, "write_json_output", lambda _, payload: reports.append(payload)
+    )
+    monkeypatch.setattr(
+        cloud, "_configured_stream_names", lambda *_: ("items", "empty")
+    )
+    monkeypatch.setattr(
+        cloud,
+        "_collect_connection_objects",
+        lambda *_, **__: (report_module.build_json_block("Connection object", "{}"),),
+    )
+
+    def run(*, command, target_or_control, output_dir, **kwargs):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        passed = success or target_or_control is TargetOrControl.CONTROL
+        return {
+            "command": command.value,
+            "success": passed,
+            "exit_code": 0 if passed else 1,
+            "record_counts_per_stream": {"items": 2},
+            "message_counts": {"RECORD": 2},
+            "http_metrics": {
+                "flow_count": 2,
+                "replay_source": "control.mitm",
+                "live_flow_count": 0,
+                "connector_request_count": 2,
+                "connector_cache_hits_count": 1,
+                "connector_cache_hit_ratio": "50.00%",
+            },
+        }, ComparableOutputs()
+
+    monkeypatch.setattr(cloud, "_run_connector_command", run)
+    monkeypatch.setattr(cloud, "_run_with_optional_http_metrics", run)
+
+    def invoke(directory):
+        cloud.regression_test(
+            skip_compare=single,
+            test_image="airbyte/source-test:2",
+            control_image=None if single else "airbyte/source-test:1",
+            command="read",
+            output_dir=str(directory),
+            enable_http_replay=False,
+            skip_record_comparison=True,
+        )
+
+    baseline_output = tmp_path / "baseline-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(baseline_output))
+    invoke(tmp_path / "baseline")
+    expected_outputs = baseline_output.read_text()
+    expected_report = reports.pop()
+    assert "Connection object" in (tmp_path / "baseline" / "report.html").read_text()
+
+    github_output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(github_output))
+    ordered_failures = []
+
+    def crash(*args, **kwargs):
+        assert github_output.read_text() == expected_outputs
+        assert reports == [expected_report]
+        ordered_failures.append(True)
+        if failure == "connection_objects_unicode":
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid UTF-8")
+        raise RuntimeError("report-only failure")
+
+    owner, name = {
+        "connection_objects": (cloud, "_collect_connection_objects"),
+        "connection_objects_unicode": (cloud, "_collect_connection_objects"),
+        "stream_sections": (report_module, "_build_stream_sections"),
+        "metric_tables": (
+            report_module,
+            "_single_metric_table" if single else "_comparison_metric_table",
+        ),
+        "failure_output": (report_module, "build_failure_output_blocks"),
+        "readable_fields": (report_module, "readable_field_rows"),
+        "markdown": (
+            cloud,
+            "generate_single_version_report"
+            if single
+            else "generate_regression_report",
+        ),
+        "html": (cloud, "write_html_report"),
+        "summary": (cloud, "render_inline_summary"),
+    }[failure]
+    failing_operation = Mock(side_effect=crash)
+    monkeypatch.setattr(owner, name, failing_operation)
+    invoke(tmp_path / "fault")
+
+    assert failing_operation.called
+    assert len(ordered_failures) == failing_operation.call_count
+    assert github_output.read_text() == expected_outputs
+    assert reports == [expected_report]
+    assert "skipping this report section. Verdict outputs are unchanged." in caplog.text
+    assert (tmp_path / "fault" / "report.md").exists() is (failure != "markdown")
+    html_path = tmp_path / "fault" / "report.html"
+    assert html_path.exists() is (failure != "html")
+    if failure.startswith("connection_objects"):
+        assert "Connection object" not in html_path.read_text()
+
+
+@pytest.mark.parametrize("command", ["spec", "discover", "read"])
+def test_comparison_diff_failures_happen_after_verdict_outputs(
+    tmp_path, monkeypatch, caplog, stub_run, command
+):
+    outputs = stub_run({"success": True, "exit_code": 0})
+    reports = []
+    ordered_failures = []
+    monkeypatch.setattr(
+        cloud, "write_json_output", lambda _, payload: reports.append(payload)
+    )
+
+    def crash(*args, **kwargs):
+        assert "success" in outputs
+        assert len(reports) == 1
+        ordered_failures.append(True)
+        raise RuntimeError("diff formatting failed")
+
+    monkeypatch.setattr(cloud, "_stream_diff_blocks", crash)
+    monkeypatch.setattr(cloud, "_change_block", crash)
+    cloud.regression_test(
+        test_image="airbyte/source-test:2",
+        control_image="airbyte/source-test:1",
+        command=command,
+        output_dir=str(tmp_path),
+        enable_http_replay=False,
+        skip_record_comparison=True,
+    )
+
+    assert ordered_failures == [True]
+    assert outputs["success"] == reports[0]["success"]
+    assert (tmp_path / "report.md").exists()
+    assert (tmp_path / "report.html").exists()
+    assert "Could not generate comparison diff blocks (RuntimeError)" in caplog.text
 
 
 @pytest.fixture(autouse=True)
@@ -5666,6 +5987,89 @@ def test_target_only_record_checks_never_leak_record_values(
         record_check_json = json.dumps(seen["json_output"]["record_checks"])
         assert "_len-" not in summaries
         assert "_len-" not in record_check_json
+
+
+@pytest.mark.parametrize(
+    "shape",
+    ["incomplete", "setup_error", "could_not_test", "not_exercised"],
+)
+@pytest.mark.parametrize("target_failed", [False, True])
+def test_comparison_final_error_uses_model_verdict(
+    tmp_path, capsys, monkeypatch, stub_comparison_run, shape, target_failed
+):
+    _target_only(monkeypatch, "audit_logs")
+    target = {**_STOPPABLE_SIDE, "record_counts_per_stream": {"audit_logs": 0}}
+    if target_failed or shape == "could_not_test":
+        target.update(success=False, exit_code=1)
+    target_outputs = ComparableOutputs()
+    if shape == "incomplete":
+        target["stopped_early"] = {
+            "reason": "timeout",
+            "records_seen": 0,
+            "elapsed_s": 10,
+        }
+    elif shape == "setup_error":
+        target_outputs = ComparableOutputs(
+            stream_statuses={"audit_logs": ["INCOMPLETE"]}
+        )
+    elif shape == "could_not_test":
+        target_outputs = ComparableOutputs(
+            stream_errors={"audit_logs": [StreamError("config_error", "HTTP 403")]}
+        )
+    stub_comparison_run(target, dict(_STOPPABLE_SIDE), target_outputs=target_outputs)
+    models = []
+    errors = []
+    print_error = cloud.print_error
+
+    def capture_error(message):
+        errors.append(message)
+        print_error(message)
+
+    def capture_model(model, output_dir):
+        models.append(model)
+        return output_dir / "report.html"
+
+    monkeypatch.setattr(cloud, "print_error", capture_error)
+    monkeypatch.setattr(cloud, "write_html_report", capture_model)
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        skip_record_comparison=True,
+    )
+
+    model = models[0]
+    assert getattr(model, shape)
+    assert not model.passed
+    expected = f"{model.verdict_label} — {model.verdict_detail}"
+    assert errors[-1] == expected
+    output = " ".join(_ANSI_ESCAPE.sub("", capsys.readouterr().err).split())
+    assert output.endswith(" ".join(expected.split()))
+
+
+def test_comparison_final_error_when_only_control_failed(
+    tmp_path, capsys, monkeypatch, stub_comparison_run
+):
+    stub_comparison_run(
+        dict(_STOPPABLE_SIDE),
+        {**_STOPPABLE_SIDE, "success": False, "exit_code": 1},
+    )
+    errors = []
+    monkeypatch.setattr(cloud, "print_error", errors.append)
+    cloud.regression_test(
+        test_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        output_dir=str(tmp_path),
+        skip_record_comparison=True,
+    )
+    capsys.readouterr()
+    assert errors[-1] == (
+        "Control airbyte/source-test:1.0.0 failed while target "
+        "airbyte/source-test:2.0.0 succeeded. Test failed/inconclusive; "
+        "nothing to compare the target against."
+    )
 
 
 def test_config_error_read_is_could_not_test_without_reporting_a_regression(

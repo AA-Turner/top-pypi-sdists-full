@@ -34,6 +34,7 @@ from cyclopts.bind import (
     _parse_kw_and_flags,
     _scope_tokens_for_meta,
     create_bound_arguments,
+    expand_argfiles,
     is_option_like,
     normalize_tokens,
 )
@@ -128,6 +129,28 @@ def _get_root_module_name():
         return root_module_name
 
     raise _CannotDeriveCallingModuleNameError  # pragma: no cover
+
+
+def _default_app_name() -> str:
+    """Name of the running program, for an :class:`App` without an explicit ``name``.
+
+    Like :mod:`argparse`'s default ``prog``: ``python -m <module>`` when the program
+    was started with ``python -m``, otherwise the script's file name.
+    """
+    try:
+        spec = sys.modules["__main__"].__spec__
+    except (KeyError, AttributeError):
+        spec = None
+    # Wrappers like ``python -m cProfile script.py`` point ``sys.argv[0]`` at the script.
+    if spec is not None and spec.name != "__main__" and sys.argv[0] == spec.origin:
+        # Started with ``python -m``; a package's ``__main__`` is run as the package.
+        module_name = spec.name.removesuffix(".__main__")
+        return f"{Path(sys.executable).name} -m {module_name}"
+
+    name = Path(sys.argv[0]).name
+    if name == "__main__.py":
+        name = _get_root_module_name()
+    return name
 
 
 def _validate_default_command(x: Callable[..., Any] | None) -> Callable[..., Any] | None:
@@ -506,6 +529,8 @@ class App:
 
     end_of_options_delimiter: str | None = field(default=None, kw_only=True)
 
+    argfile_prefix: str | None = field(default=None, kw_only=True)
+
     parse_mode: Literal["fallthrough", "strict"] | None = field(
         default=None,
         kw_only=True,
@@ -656,10 +681,7 @@ class App:
         if self._name:
             return self._name + self.alias  # pyright: ignore
         elif self.default_command is None:
-            name = Path(sys.argv[0]).name
-            if name == "__main__.py":
-                name = _get_root_module_name()
-            return (name,) + self.alias  # pyright: ignore
+            return (_default_app_name(),) + self.alias  # pyright: ignore
         else:
             try:
                 func_name = self.default_command.__name__
@@ -1713,7 +1735,11 @@ class App:
             "_error_console": error_console,
             "end_of_options_delimiter": end_of_options_delimiter,
         }
+        if tokens is None:
+            _log_framework_warning(_detect_test_framework())
+
         with self.app_stack([], overrides=overrides):
+            tokens = self._expand_argfiles(normalize_tokens(tokens))
             command, bound, unused_tokens, ignored, _ = self._parse_known_args(tokens)
 
         return command, bound, unused_tokens, ignored
@@ -1912,6 +1938,14 @@ class App:
                                 # forwarded tokens reach the child's own parse.
                                 pass
                             else:
+                                intermediate_collections: list[ArgumentCollection] = []
+                                intermediate = command_app._meta_parent
+                                while intermediate is not None and intermediate._meta_parent is not None:
+                                    if intermediate.default_command and (
+                                        collection := _safe_assemble_argument_collection(intermediate)
+                                    ):
+                                        intermediate_collections.append(collection)
+                                    intermediate = intermediate._meta_parent
                                 scoped = _scope_tokens_for_meta(
                                     argument_collection,
                                     child_argument_collection,
@@ -1919,6 +1953,7 @@ class App:
                                     hier_command_indices,
                                     parse_mode=parse_mode,
                                     end_of_options_delimiter=end_of_options_delimiter,
+                                    intermediate_collections=intermediate_collections,
                                 )
 
                         # A meta level's captured tokens are forwarded to
@@ -2103,9 +2138,21 @@ class App:
         Must be called inside an :attr:`app_stack` context so error settings resolve.
         """
         try:
-            return normalize_tokens(tokens)
+            return self._expand_argfiles(normalize_tokens(tokens))
         except CycloptsError as e:
             self._handle_parse_error(e, [])
+
+    def _expand_argfiles(self, tokens: list[str]) -> list[str]:
+        """Expand :attr:`argfile_prefix` tokens. Must be called inside an :attr:`app_stack` context."""
+        if tokens and tokens[0] == _COMPLETE_COMMAND:
+            # The shell's words may hold a half-typed ``@path``; reading it would abort completion.
+            return tokens
+        # Files are expanded before any command is resolved, so resolve from the entry app alone,
+        # even when an enclosing ``app_stack`` already holds the invoked command chain.
+        with self.app_stack([self]):
+            prefix = self.app_stack.resolve("argfile_prefix")
+            delimiter = self.app_stack.resolve("end_of_options_delimiter", fallback="--")
+        return expand_argfiles(tokens, prefix, delimiter)
 
     def _handle_parse_error(self, e: CycloptsError, tokens: list[str]) -> NoReturn:
         """Print ``e`` according to the resolved error settings, then exit or re-raise it."""
@@ -2210,6 +2257,7 @@ class App:
                 "verbose": verbose,
                 "backend": backend,
                 "result_action": _result_action_converter(result_action),
+                "end_of_options_delimiter": end_of_options_delimiter,
                 "error_formatter": error_formatter,
             }.items()
             if v is not None
@@ -2340,6 +2388,7 @@ class App:
                 "verbose": verbose,
                 "backend": backend,
                 "result_action": _result_action_converter(result_action),
+                "end_of_options_delimiter": end_of_options_delimiter,
                 "error_formatter": error_formatter,
             }.items()
             if v is not None
@@ -3126,6 +3175,8 @@ class App:
             overrides["_console"] = console
         if error_console is not None:
             overrides["_error_console"] = error_console
+        if kwargs.get("end_of_options_delimiter") is not None:
+            overrides["end_of_options_delimiter"] = kwargs["end_of_options_delimiter"]
         overrides["exit_on_error"] = exit_on_error
         overrides["remap_flags"] = remap_flags
 

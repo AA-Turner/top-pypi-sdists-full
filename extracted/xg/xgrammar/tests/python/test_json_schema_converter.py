@@ -1,3 +1,4 @@
+import copy
 import json
 import re
 import sys
@@ -8,6 +9,7 @@ import pytest
 from pydantic import BaseModel, Field, TypeAdapter, create_model
 
 import xgrammar as xgr
+from xgrammar.structural_tag import JSONSchemaFormat, StructuralTag
 from xgrammar.testing import (
     GrammarFunctor,
     _generate_float_regex,
@@ -113,6 +115,122 @@ def test_indent():
     )
 
 
+@pytest.mark.parametrize(
+    "schema, instance, separators",
+    [
+        ({"type": "object"}, {"a": 1, "b": 2}, (",", ":")),
+        ({"type": "array"}, [1, 2], (",", ":")),
+        ({}, {"a": [1, 2], "b": {"c": 3, "d": 4}}, (",", ":")),
+        (
+            {
+                "type": "object",
+                "properties": {"value": {"type": "object"}},
+                "required": ["value"],
+                "additionalProperties": False,
+            },
+            {"value": {"a": [1, 2], "b": 3}},
+            (",", ":"),
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"value": {"type": "array"}},
+                "required": ["value"],
+                "additionalProperties": False,
+            },
+            {"value": [{"a": 1, "b": 2}, 3]},
+            (",", ":"),
+        ),
+        ({"type": "object"}, {"a": 1, "b": 2}, None),
+        ({"type": "array"}, [1, 2], None),
+        ({"type": "object"}, {"a": 1, "b": 2}, (",  ", ": ")),
+        ({"type": "object"}, {"a": 1, "b": 2}, (", ", ":  ")),
+    ],
+)
+def test_basic_rules_separators(schema, instance, separators):
+    grammar = xgr.Grammar.from_json_schema(schema, any_whitespace=False, separators=separators)
+    text = json.dumps(instance, separators=separators)
+    assert _is_grammar_accept_string(grammar, text)
+
+    comma, colon = separators or (", ", ": ")
+    other_comma = ", " if comma != ", " else ","
+    for index, char in enumerate(text):
+        if char == ",":
+            mutated = text[:index] + other_comma + text[index + len(comma) :]
+            assert not _is_grammar_accept_string(grammar, mutated)
+    if ":" in text:
+        other_colon = ": " if colon != ": " else ":"
+        assert not _is_grammar_accept_string(
+            grammar, json.dumps(instance, separators=(comma, other_colon))
+        )
+
+
+@pytest.mark.parametrize("separators", [None, (",", ":"), (", ", ": ")])
+def test_basic_rules_separators_with_indent(separators):
+    schema = {
+        "type": "object",
+        "properties": {"value": {}},
+        "required": ["value"],
+        "additionalProperties": False,
+    }
+    grammar = xgr.Grammar.from_json_schema(
+        schema, any_whitespace=False, indent=2, separators=separators
+    )
+    comma, colon = separators or (", ", ": ")
+    instance = {"a": [1, 2], "b": 3}
+    prefix = '{\n  "value"' + colon
+    suffix = "\n}"
+    value_text = json.dumps(instance, separators=(comma, colon))
+    text = prefix + value_text + suffix
+    assert _is_grammar_accept_string(grammar, text)
+    other_comma = ", " if comma != ", " else ","
+    for index, char in enumerate(value_text):
+        if char == ",":
+            mutated = value_text[:index] + other_comma + value_text[index + len(comma) :]
+            assert not _is_grammar_accept_string(grammar, prefix + mutated + suffix)
+    assert not _is_grammar_accept_string(
+        grammar, prefix + json.dumps(instance, indent=2, separators=(comma, colon)) + suffix
+    )
+
+
+@pytest.mark.parametrize(
+    "separators, accepted, rejected",
+    [
+        ((",", ":"), '{"a":1,"b":[2,3]}', None),
+        ((",", ":"), '{\n"a" : 1 ,\t"b" : [2,\r\n3]\n}', None),
+        ((", ", ":"), '{"a":1, "b":[2, 3]}', '{"a":1,"b":[2,3]}'),
+        ((", ", ":"), '{"a" : 1 , "b":[2, \n3]}', '{"a":1 ,"b":[2, 3]}'),
+    ],
+)
+def test_basic_rules_separators_with_any_whitespace(separators, accepted, rejected):
+    grammar = xgr.Grammar.from_json_schema({}, any_whitespace=True, separators=separators)
+    assert _is_grammar_accept_string(grammar, accepted)
+    if rejected is not None:
+        assert not _is_grammar_accept_string(grammar, rejected)
+
+
+@pytest.mark.parametrize(
+    "value_schema, instance",
+    [({"type": "object"}, {"a": 1, "b": 2}), ({"type": "object"}, {"a": [1, 2]})],
+)
+def test_basic_rules_separators_in_qwen_xml(value_schema, instance):
+    schema = {
+        "type": "object",
+        "properties": {"value": value_schema},
+        "required": ["value"],
+        "additionalProperties": False,
+    }
+    grammar = xgr.Grammar.from_ebnf(
+        _json_schema_to_ebnf(
+            schema, any_whitespace=False, separators=(",", ":"), json_format="qwen_xml"
+        )
+    )
+    text = "<parameter=value>" + json.dumps(instance, separators=(",", ":")) + "</parameter>"
+    assert _is_grammar_accept_string(grammar, text)
+    spaced = "<parameter=value>" + json.dumps(instance, separators=(", ", ":")) + "</parameter>"
+    assert not _is_grammar_accept_string(grammar, spaced)
+
+
 schema__accepted_instances__rejected_instances__test_non_strict = [
     (
         {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}]},
@@ -163,6 +281,311 @@ def test_enum_const():
     instance = MainModel(foo="a", values=1, bars="a", str_values='a\n\r"', field=Field.FOO)
     check_schema_grammar_builds(schema, any_whitespace=False)
     check_schema_with_instance(schema, instance, any_whitespace=False)
+
+
+@pytest.mark.parametrize(
+    "keyword, literal_key, use_ref",
+    [
+        ("const", "default", False),
+        ("enum", "title", False),
+        ("const", "title", True),
+        ("enum", "default", True),
+    ],
+)
+def test_schema_cache_key_preserves_literal_data(keyword: str, literal_key: str, use_ref: bool):
+    # Even schema-looking objects inside a literal are data, not schemas.
+    left_value = [{literal_key: "left", "properties": {"default": {"description": "left"}}}]
+    right_value = [{literal_key: "right", "properties": {"default": {"description": "right"}}}]
+    definitions = {
+        name: {keyword: value if keyword == "const" else [value]}
+        for name, value in [("left", left_value), ("right", right_value)]
+    }
+    schema = {
+        "type": "object",
+        "properties": (
+            {name: {"$ref": f"#/$defs/{name}"} for name in definitions} if use_ref else definitions
+        ),
+        "required": ["left", "right"],
+        "additionalProperties": False,
+    }
+    if use_ref:
+        schema["$defs"] = definitions
+
+    check_schema_with_instance(
+        schema,
+        {"left": left_value, "right": right_value},
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+    check_schema_with_instance(
+        schema,
+        {"left": left_value, "right": left_value},
+        is_accepted=False,
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+
+
+@pytest.mark.parametrize("property_name", ["default", "title"])
+@pytest.mark.parametrize("difference", ["type", "presence"])
+def test_schema_cache_key_preserves_property_names(property_name: str, difference: str):
+    left_schema = {
+        "type": "object",
+        "properties": {property_name: {"type": "integer"}},
+        "additionalProperties": False,
+    }
+    right_schema = {
+        "type": "object",
+        "properties": {property_name: {"type": "string"}} if difference == "type" else {},
+        "additionalProperties": False,
+    }
+    schema = {
+        "type": "object",
+        "properties": {"left": left_schema, "right": right_schema},
+        "required": ["left", "right"],
+        "additionalProperties": False,
+    }
+    right_value = {property_name: "text"} if difference == "type" else {}
+    check_schema_with_instance(schema, {"left": {property_name: 1}, "right": right_value})
+    check_schema_with_instance(
+        schema, {"left": {property_name: 1}, "right": {property_name: 1}}, is_accepted=False
+    )
+
+
+def test_schema_cache_key_preserves_literal_member_order():
+    left_value = [{"first": 1, "second": 2}]
+    right_value = [{"second": 2, "first": 1}]
+    schema = {
+        "type": "object",
+        "properties": {"left": {"const": left_value}, "right": {"const": right_value}},
+        "required": ["left", "right"],
+        "additionalProperties": False,
+    }
+    # Literal grammars emit object members in their declared order.
+    check_schema_with_instance(
+        schema,
+        {"left": left_value, "right": right_value},
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+    check_schema_with_instance(
+        schema,
+        {"left": left_value, "right": left_value},
+        is_accepted=False,
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+
+
+def test_schema_cache_key_preserves_property_order():
+    left = {
+        "type": "object",
+        "properties": {"first": {"type": "integer"}, "second": {"type": "string"}},
+        "required": ["first", "second"],
+        "additionalProperties": False,
+    }
+    right = {**left, "properties": dict(reversed(list(left["properties"].items())))}
+    schema = {
+        "type": "object",
+        "properties": {"left": left, "right": right},
+        "required": ["left", "right"],
+        "additionalProperties": False,
+    }
+    check_schema_with_instance(
+        schema,
+        {"left": {"first": 1, "second": "text"}, "right": {"second": "text", "first": 1}},
+        any_whitespace=False,
+    )
+    check_schema_with_instance(
+        schema,
+        {"left": {"first": 1, "second": "text"}, "right": {"first": 1, "second": "text"}},
+        is_accepted=False,
+        any_whitespace=False,
+    )
+
+
+@pytest.mark.parametrize("items_key", ["items", "prefixItems"])
+def test_schema_cache_key_reuses_parent_with_nested_annotations(items_key: str):
+    item = {"type": "string", "description": "original"}
+    parent = {
+        "type": "object",
+        "properties": {
+            "values": {"type": "array", items_key: [item] if items_key == "prefixItems" else item}
+        },
+        "required": ["values"],
+        "additionalProperties": False,
+    }
+    candidate = copy.deepcopy(parent)
+    schema = {
+        "$defs": {"Parent": parent},
+        "type": "object",
+        "properties": {"seed": {"$ref": "#/$defs/Parent"}, "candidate": candidate},
+        "required": ["seed", "candidate"],
+        "additionalProperties": False,
+    }
+    # The ref seeds the parent rule cache. An equivalent inline schema must reuse
+    # that rule even when annotations differ several schema levels below it.
+    original_grammar = _json_schema_to_ebnf(schema, any_whitespace=False)
+    candidate_items = candidate["properties"]["values"][items_key]
+    candidate_item = candidate_items[0] if items_key == "prefixItems" else candidate_items
+    candidate_item["description"] = "changed"
+    assert _json_schema_to_ebnf(schema, any_whitespace=False) == original_grammar
+    check_schema_with_instance(schema, {"seed": {"values": ["a"]}, "candidate": {"values": ["b"]}})
+
+
+def test_schema_cache_key_reuses_parent_with_ignored_metadata():
+    parent = {"type": "integer", "x-meta": {"default": {"const": "a"}}}
+    candidate = copy.deepcopy(parent)
+    schema = {
+        "$defs": {"Parent": parent},
+        "type": "object",
+        "properties": {"seed": {"$ref": "#/$defs/Parent"}, "candidate": candidate},
+        "required": ["seed", "candidate"],
+        "additionalProperties": False,
+    }
+    original_grammar = _json_schema_to_ebnf(schema, any_whitespace=False)
+    candidate["x-meta"]["default"]["const"] = "b"
+    assert _json_schema_to_ebnf(schema, any_whitespace=False) == original_grammar
+    check_schema_with_instance(schema, {"seed": 1, "candidate": 2})
+    check_schema_with_instance(schema, {"seed": 1, "candidate": "b"}, is_accepted=False)
+
+    # Parent cache reuse must not replace the original reference target with "a".
+    schema["properties"]["target"] = {"$ref": "#/properties/candidate/x-meta/default"}
+    schema["required"].append("target")
+    check_schema_with_instance(schema, {"seed": 1, "candidate": 2, "target": "b"})
+    check_schema_with_instance(
+        schema, {"seed": 1, "candidate": 2, "target": "a"}, is_accepted=False
+    )
+
+
+@pytest.mark.parametrize("target_key", ["default", "x-custom"])
+def test_schema_cache_key_ref_target_outside_schema_keywords(target_key: str):
+    left_value = {"default": "left"}
+    right_value = {"default": "right"}
+    # Even targets omitted from cache keys must remain available in the original root.
+    schema = {
+        target_key: {"default": {"const": left_value}, "examples": {"const": right_value}},
+        "type": "object",
+        "properties": {
+            "left": {"$ref": f"#/{target_key}/default"},
+            "right": {"$ref": f"#/{target_key}/examples"},
+        },
+        "required": ["left", "right"],
+        "additionalProperties": False,
+    }
+    check_schema_with_instance(
+        schema,
+        {"left": left_value, "right": right_value},
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+    check_schema_with_instance(
+        schema,
+        {"left": left_value, "right": left_value},
+        is_accepted=False,
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+
+
+@pytest.mark.parametrize("invalid_key", ["1", "true", "[]"])
+def test_schema_cache_key_property_names_does_not_reuse_basic_any(invalid_key: str):
+    schema = {"type": "object", "propertyNames": {}, "additionalProperties": True}
+    check_schema_with_instance(schema, '{"name":2}', any_whitespace=False, separators=(",", ":"))
+    check_schema_with_instance(
+        schema,
+        "{" + invalid_key + ":2}",
+        is_accepted=False,
+        any_whitespace=False,
+        separators=(",", ":"),
+    )
+
+
+@pytest.mark.parametrize("value_first", [True, False])
+def test_schema_cache_key_distinguishes_implicit_property_name_type(value_first: bool):
+    constraint = {"pattern": "^a$"}
+    schema = {"type": "object", "propertyNames": constraint}
+    if value_first:
+        # Properties are parsed before propertyNames, without an implicit type.
+        schema.update(properties={"a": constraint}, additionalProperties={"type": "integer"})
+    else:
+        # additionalProperties is parsed after propertyNames, without an implicit type.
+        schema["additionalProperties"] = constraint
+    check_schema_with_instance(schema, {"a": 1})
+    check_schema_with_instance(schema, {"b": 1}, is_accepted=False)
+
+
+@pytest.mark.parametrize(
+    "constraint",
+    [
+        {"const": "a"},
+        {"enum": ["a", "b"]},
+        {"$ref": "#/$defs/Base"},
+        {"anyOf": [{"const": "a"}, {"const": "b"}]},
+        {"oneOf": [{"const": "a"}, {"const": "b"}]},
+        {"allOf": [{"const": "a"}]},
+    ],
+)
+def test_schema_cache_key_reuses_rules_when_default_type_is_ignored(constraint: Dict[str, Any]):
+    schema = {
+        "type": "object",
+        "$defs": {"Base": {"const": "a"}, "Target": constraint},
+        "properties": {
+            "seed": {"$ref": "#/$defs/Target"},
+            "candidate": {
+                "type": "object",
+                "propertyNames": constraint,
+                "additionalProperties": True,
+            },
+        },
+        "required": ["seed", "candidate"],
+        "additionalProperties": False,
+    }
+    # The ref seeds a value rule that propertyNames can reuse: these branches
+    # take precedence over type parsing and do not use the implicit string type.
+    ebnf = _json_schema_to_ebnf(schema, any_whitespace=False)
+    rules = dict(line.split(" ::= ", 1) for line in ebnf.splitlines() if " ::= " in line)
+    assert "root_prop_1_name" not in rules
+    assert "defs_Target" in rules["root_prop_1_prop"]
+    check_schema_with_instance(schema, {"seed": "a", "candidate": {"a": 1}})
+    check_schema_with_instance(schema, {"seed": "a", "candidate": {"wrong": 1}}, is_accepted=False)
+
+
+def test_schema_cache_key_escapes_keys():
+    schema = {
+        "type": "object",
+        "properties": {
+            "left": {"type": "integer", 'a":0,"const': 1},
+            "right": {"type": "integer", "a": 0, "const": 1},
+        },
+        "required": ["left", "right"],
+        "additionalProperties": False,
+    }
+    check_schema_with_instance(schema, {"left": 0, "right": 1})
+    check_schema_with_instance(schema, {"left": 0, "right": 0}, is_accepted=False)
+
+
+@pytest.mark.parametrize(
+    "schema, accepted, rejected",
+    [
+        ({"const": 19.99}, "19.99", "19.989999999999998"),
+        ({"enum": [19.99, 0.1]}, "0.1", "0.10000000000000001"),
+        ({"const": {"price": 19.99}}, '{"price":19.99}', '{"price":19.989999999999998}'),
+        ({"const": 100000.0}, "100000", "1e+05"),
+        ({"const": 0.0001}, "0.0001", "1e-04"),
+    ],
+)
+def test_numeric_const_enum_literals(schema: Dict[str, Any], accepted: str, rejected: str):
+    check_schema_with_instance(schema, accepted, any_whitespace=False)
+    check_schema_with_instance(schema, rejected, is_accepted=False, any_whitespace=False)
+
+
+@pytest.mark.parametrize("style", ["qwen_xml", "minimax_m3_xml"])
+def test_numeric_const_literals_in_xml_styles(style: str):
+    schema = {"type": "object", "const": {"price": 19.99}}
+    tag = StructuralTag(format=JSONSchemaFormat(json_schema=schema, style=style))
+    grammar = str(xgr.Grammar.from_structural_tag(tag))
+    assert "19.99" in grammar and "19.989999999999998" not in grammar
 
 
 def test_empty_enum_rejected():
@@ -601,6 +1024,135 @@ def test_reference_schema():
     )
 
 
+@pytest.mark.parametrize("any_order", [False, True])
+@pytest.mark.parametrize(
+    ("branch", "field", "marker"), [(0, "title", "first"), (1, "kind", "selected")]
+)
+def test_reference_through_array_index(any_order, branch, field, marker):
+    schema = {
+        "type": "object",
+        "properties": {
+            "operations": {
+                "type": "array",
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "properties": {"title": {"type": "string", "enum": ["first"]}},
+                        },
+                        {
+                            "type": "object",
+                            "properties": {"kind": {"type": "string", "enum": ["selected"]}},
+                        },
+                    ]
+                },
+            },
+            "marker": {"$ref": f"#/properties/operations/items/anyOf/{branch}/properties/{field}"},
+        },
+        "required": ["operations", "marker"],
+    }
+
+    grammar = xgr.Grammar.from_json_schema(
+        json.dumps(schema), any_order=any_order, any_whitespace=False
+    )
+    assert _is_grammar_accept_string(
+        grammar, json.dumps({"operations": [{"title": "first"}], "marker": marker})
+    )
+    assert not _is_grammar_accept_string(
+        grammar, json.dumps({"operations": [{"title": "first"}], "marker": "other"})
+    )
+
+
+@pytest.mark.parametrize("index", ["2", "-1", "+1", "01", "1x", "999999999999999999999", ""])
+def test_reference_through_array_rejects_invalid_index(index):
+    schema = {
+        "type": "object",
+        "properties": {
+            "choice": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+            "marker": {"$ref": f"#/properties/choice/anyOf/{index}"},
+        },
+    }
+
+    with pytest.raises(RuntimeError, match="Cannot find array index"):
+        xgr.Grammar.from_json_schema(json.dumps(schema))
+
+
+def test_reference_empty_pointer_token_is_object_key():
+    # RFC 6901: "#/$defs/" has an empty final token and refers to the key "" under $defs.
+    schema = {
+        "type": "object",
+        "properties": {"value": {"$ref": "#/$defs/"}},
+        "required": ["value"],
+        "$defs": {"": {"type": "string", "enum": ["selected"]}},
+    }
+
+    check_schema_with_instance(schema, {"value": "selected"}, any_whitespace=False)
+    check_schema_with_instance(schema, {"value": "other"}, is_accepted=False, any_whitespace=False)
+
+
+@pytest.mark.parametrize("ref", ["#/$defs/", "#/$defs//a", "#/$defs/a/"])
+def test_reference_empty_pointer_token_is_not_skipped(ref):
+    # An empty token must be looked up as the key "", not dropped so that the pointer
+    # silently resolves to the parent node.
+    schema = {
+        "type": "object",
+        "properties": {"value": {"$ref": ref}},
+        "$defs": {"a": {"type": "string", "enum": ["selected"]}},
+    }
+
+    with pytest.raises(RuntimeError, match="Cannot find field"):
+        xgr.Grammar.from_json_schema(json.dumps(schema))
+
+
+def test_reference_numeric_object_key_is_not_array_index():
+    schema = {
+        "type": "object",
+        "properties": {"value": {"$ref": "#/$defs/01"}},
+        "required": ["value"],
+        "$defs": {"01": {"type": "string", "enum": ["selected"]}},
+    }
+
+    check_schema_with_instance(schema, {"value": "selected"}, any_whitespace=False)
+    check_schema_with_instance(schema, {"value": "other"}, is_accepted=False, any_whitespace=False)
+
+
+@pytest.mark.parametrize(
+    ("key", "ref"),
+    [
+        ("a/b", "#/$defs/a~1b"),
+        ("a~b", "#/$defs/a~0b"),
+        ("~1", "#/$defs/~01"),
+        ("a b", "#/$defs/a%20b"),
+        ("a/b", "#/$defs/a%7E1b"),
+    ],
+)
+def test_reference_decodes_json_pointer_escapes(key, ref):
+    schema = {
+        "type": "object",
+        "properties": {"value": {"$ref": ref}},
+        "required": ["value"],
+        "$defs": {key: {"type": "string", "enum": ["selected"]}},
+    }
+
+    check_schema_with_instance(schema, {"value": "selected"}, any_whitespace=False)
+    check_schema_with_instance(schema, {"value": "other"}, is_accepted=False, any_whitespace=False)
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"$ref": "#"},
+        {"$defs": {"a": {"$ref": "#/$defs/a"}}, "$ref": "#/$defs/a"},
+        {"$defs": {"a": {"$ref": "#/$defs/b"}, "b": {"$ref": "#/$defs/a"}}, "$ref": "#/$defs/a"},
+        {"anyOf": [{"$ref": "#/anyOf/0"}]},
+        {"type": "object", "properties": {"v": {"$ref": "#/properties/v"}}},
+    ],
+)
+def test_reference_circular_chain_raises(schema):
+    with pytest.raises(RuntimeError, match=r"Circular \$ref chain"):
+        xgr.Grammar.from_json_schema(json.dumps(schema))
+
+
 def test_union():
     class Cat(BaseModel):
         name: str
@@ -817,6 +1369,31 @@ def test_restricted_string():
         is_accepted=False,
         any_whitespace=False,
     )
+
+
+# \s in a JSON Schema pattern follows the ECMAScript dialect, so it matches every WhiteSpace and
+# LineTerminator code point, not only ASCII whitespace.
+@pytest.mark.parametrize(
+    "char, is_accepted",
+    [
+        (" ", True),
+        ("\u00a0", True),  # no-break space
+        ("\u2003", True),  # em space
+        ("\u2028", True),  # line separator
+        ("\u3000", True),  # ideographic space
+        ("\ufeff", True),  # zero width no-break space
+        ("\u200b", False),  # zero width space is not WhiteSpace
+        ("x", False),
+    ],
+)
+def test_pattern_whitespace_class(char: str, is_accepted: bool):
+    schema = {
+        "type": "object",
+        "properties": {"v": {"type": "string", "pattern": r"^a\sb$"}},
+        "required": ["v"],
+    }
+    instance = json.dumps({"v": f"a{char}b"}, ensure_ascii=False)
+    check_schema_with_instance(schema, instance, is_accepted=is_accepted, any_whitespace=False)
 
 
 def test_complex_restrictions():
@@ -2128,6 +2705,8 @@ instance__accepted__test_json_pointer_format = [
     (r"abc", False),
     (r"/~", False),
     (r"/~2", False),
+    (r"/\u007E", False),
+    (r"/\uD800", False),
 ]
 
 
@@ -2161,6 +2740,53 @@ def test_relative_json_pointer_format(instance: str, accepted: bool):
     check_schema_grammar_builds(schema)
 
     check_schema_with_instance(schema, '"' + instance + '"', is_accepted=accepted)
+
+
+@pytest.mark.parametrize(
+    "format_name, instance",
+    [
+        ("email", r'"\"\a\"@b"'),
+        ("email", r'"\"\u\"@b"'),
+        ("json-pointer", '"/\x01"'),
+        ("json-pointer", '"/"a"'),
+        ("json-pointer", r'"/\"'),
+        ("relative-json-pointer", '"0/\x01"'),
+    ],
+)
+def test_formats_reject_invalid_json_strings(format_name: str, instance: str):
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(instance)
+    grammar = xgr.Grammar.from_json_schema({"type": "string", "format": format_name})
+    assert not _is_grammar_accept_string(grammar, instance)
+
+
+@pytest.mark.parametrize(
+    "format_name, value",
+    [
+        ("json-pointer", '/"'),
+        ("json-pointer", "/\\"),
+        ("relative-json-pointer", '0/"'),
+        ("relative-json-pointer", "0/\\"),
+    ],
+)
+def test_pointer_formats_accept_json_escapes(format_name: str, value: str):
+    grammar = xgr.Grammar.from_json_schema({"type": "string", "format": format_name})
+    assert _is_grammar_accept_string(grammar, json.dumps(value))
+
+
+@pytest.mark.parametrize(
+    "format_name, instance",
+    [
+        ("json-pointer", r'"/\u0001"'),
+        ("json-pointer", r'"/\/"'),
+        ("json-pointer", r'"/\n"'),
+        ("relative-json-pointer", r'"0/\u0001"'),
+    ],
+)
+def test_pointer_formats_accept_other_json_escapes(format_name: str, instance: str):
+    json.loads(instance)
+    grammar = xgr.Grammar.from_json_schema({"type": "string", "format": format_name})
+    assert _is_grammar_accept_string(grammar, instance)
 
 
 def test_min_max_length():

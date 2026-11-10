@@ -7,7 +7,6 @@ import traceback
 import warnings
 from pathlib import Path
 from typing import Any, Dict, MutableMapping
-from unittest import mock
 
 import ipykernel.kernelbase
 import IPython.display
@@ -33,6 +32,26 @@ ipywidget_version_major = int(ipywidgets.__version__.split(".")[0])
 ipykernel_version_major = int(ipykernel.__version__.split(".")[0])
 
 
+class _NoopEvents:
+    """Stands in for IPython's EventManager, which the pyplot interface of matplotlib uses.
+
+    A MagicMock did this before, but a MagicMock is a large reference cycle, so every FakeIPython left garbage that
+    only the garbage collector could free. This object has no state, so one shared instance is enough.
+    """
+
+    def register(self, *args, **kwargs):
+        pass
+
+    def unregister(self, *args, **kwargs):
+        pass
+
+    def trigger(self, *args, **kwargs):
+        pass
+
+
+_noop_events = _NoopEvents()
+
+
 class FakeIPython:
     def __init__(self, context: kernel_context.VirtualKernelContext):
         self.context = context
@@ -40,7 +59,7 @@ class FakeIPython:
         self.display_pub = self.kernel.shell.display_pub
         # needed for the pyplot interface of matplotlib
         # (although we don't really support it)
-        self.events = mock.MagicMock()
+        self.events = _noop_events
         self.user_ns: Dict[Any, Any] = {}
         self.custom_exceptions = ()
 
@@ -184,8 +203,10 @@ get_ipython_original = IPython.get_ipython
 def get_ipython():
     if kernel_context.has_current_context():
         context = kernel_context.get_current_context()
-        our_fake_ipython = FakeIPython(context)
-        return our_fake_ipython
+        # one per context: get_ipython() is called often, for instance for every widget message
+        if context._fake_ipython is None:
+            context._fake_ipython = FakeIPython(context)
+        return context._fake_ipython
     else:
         return get_ipython_original()
 
@@ -348,8 +369,11 @@ def _WidgetContextAwareThread__bootstrap(self):
         display_in_reacton_hook = shell.display_in_reacton_hook
         display_pub.register_hook(display_in_reacton_hook)
     try:
-        context = self.current_context or solara.util.nullcontext()
-        with pdb_guard(), context:
+        # No `with self.current_context:` here: threading has not registered this thread yet, so
+        # get_current_thread_key() would create a throw-away _DummyThread on enter and another on exit,
+        # and leave a stale current_context["Dummy-N..."] entry behind for every started thread.
+        # set_context_for_thread() above already maps this thread to its context.
+        with pdb_guard():
             Thread__bootstrap(self)
     finally:
         current_context = self.current_context

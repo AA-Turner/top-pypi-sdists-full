@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -12,14 +12,13 @@ from office365.sharepoint.publishing.pages.collaborator import SitePageCollabora
 from office365.sharepoint.publishing.sitepageauthoringmetadata import SitePageAuthoringMetadata
 
 
-@dataclass
 class SitePageFieldsData(ClientValue):
     """Represents Site Page metadata for use in page authoring operations.
 
     Args:
         title (str): the Page title
         banner_image_url (str): the preview image Url for the current Site Page.
-        canvas_content1 (str): CanvasContent1 for the current Site Page.
+        canvas_content (str): CanvasContent1 for the current Site Page.
         topic_header (str): TopicHeader of the current Site Page
         publish_start_date (datetime.datetime):
     """

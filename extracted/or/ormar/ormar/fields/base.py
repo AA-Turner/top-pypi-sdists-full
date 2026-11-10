@@ -5,6 +5,7 @@ from pydantic.fields import FieldInfo, _Unset
 
 import ormar  # noqa I101
 from ormar import ModelDefinitionError
+from ormar.fields.relation_kind import NOT_A_RELATION, RelationKind
 from ormar.fields.sqlalchemy_encrypted import (
     EncryptBackend,
     EncryptBackends,
@@ -33,17 +34,18 @@ class BaseField(FieldInfo):  # type: ignore[misc]
         self.related_name = kwargs.pop("related_name", None)
 
         self.column_type: sqlalchemy.Column = kwargs.pop("column_type", None)
-        self.constraints: list = kwargs.pop("constraints", list())
         self.name: str = kwargs.pop("name", None)
         self.db_alias: str = kwargs.pop("alias", None)
 
         self.primary_key: bool = kwargs.pop("primary_key", False)
         self.autoincrement: bool = kwargs.pop("autoincrement", False)
+        self.autoincrement_explicit: bool = kwargs.pop("autoincrement_explicit", False)
         self.nullable: bool = kwargs.pop("nullable", False)
         self.sql_nullable: bool = kwargs.pop("sql_nullable", False)
         self.index: bool = kwargs.pop("index", False)
         self.unique: bool = kwargs.pop("unique", False)
 
+        self.one_to_one: bool = kwargs.pop("one_to_one", False)
         self.virtual: bool = kwargs.pop(
             "virtual", None
         )  # ManyToManyFields and reverse ForeignKeyFields
@@ -75,7 +77,7 @@ class BaseField(FieldInfo):  # type: ignore[misc]
 
         self.owner: type["Model"] = kwargs.pop("owner", None)
         self.to: type["Model"] = kwargs.pop("to", None)
-        self.to_pk_only: type["Model"] = kwargs.pop("to_pk_only", None)
+        self.to_key_only: type["Model"] = kwargs.pop("to_key_only", None)
         self.through: type["Model"] = kwargs.pop("through", None)
         self.self_reference: bool = kwargs.pop("self_reference", False)
         self.self_reference_primary: Optional[str] = kwargs.pop(
@@ -124,6 +126,16 @@ class BaseField(FieldInfo):  # type: ignore[misc]
         :rtype: bool
         """
         return not self.is_multi and not self.virtual
+
+    @property
+    def kind(self) -> RelationKind:
+        """
+        Relation fields override it with the kind they declare.
+
+        :return: ``NOT_A_RELATION`` for plain fields
+        :rtype: RelationKind
+        """
+        return NOT_A_RELATION
 
     def get_alias(self) -> str:
         """
@@ -281,28 +293,34 @@ class BaseField(FieldInfo):  # type: ignore[misc]
 
     def construct_constraints(self) -> list:
         """
-        Converts list of ormar constraints into sqlalchemy ForeignKeys.
-        Has to be done dynamically as sqlalchemy binds ForeignKey to the table.
-        And we need a new ForeignKey for subclasses of current model
+        Builds the sqlalchemy ForeignKeys of the field's column. Plain fields
+        have none, relation fields build them from their link.
 
-        :return: list of sqlalchemy foreign keys - by default one.
+        :return: list of sqlalchemy foreign keys
         :rtype: list[sqlalchemy.schema.ForeignKey]
         """
-        constraints = []
-        for constraint in self.constraints:
-            owner_table = self.owner.ormar_config.tablename
-            target_table = self.to.ormar_config.tablename
-            target_pk = self.to.get_column_alias(self.to.ormar_config.pkname)
-            default_name = f"fk_{owner_table}_{target_table}_{target_pk}_{self.name}"
-            constraints.append(
-                sqlalchemy.ForeignKey(
-                    constraint.reference,
-                    ondelete=constraint.ondelete,
-                    onupdate=constraint.onupdate,
-                    name=constraint.name or default_name,
-                )
-            )
-        return constraints
+        return []
+
+    def get_columns(self) -> list[sqlalchemy.Column]:
+        """
+        :return: the table columns of the field, one for plain fields
+        :rtype: list[sqlalchemy.Column]
+        """
+        return [self.get_column(self.get_alias())]
+
+    def column_aliases(self) -> tuple[str, ...]:
+        """
+        :return: names of the table columns of the field
+        :rtype: tuple[str, ...]
+        """
+        return (self.get_alias(),)
+
+    def construct_table_constraints(self) -> list:
+        """
+        :return: table-level constraints of the field, none for plain fields
+        :rtype: list
+        """
+        return []
 
     def get_column(self, name: str) -> sqlalchemy.Column:
         """

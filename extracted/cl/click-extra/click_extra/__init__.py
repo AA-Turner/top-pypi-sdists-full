@@ -40,6 +40,13 @@ Delete `click_extra/blocks.py`, the deprecated alias of
 `click_extra.markdown.blocks`, and its tests in `tests/test_blocks.py` in
 `11.0.0`: its warnings announce that release.
 ```
+
+```{todo}
+Delete `_tile_runs`, `_TILE_RUN` and `_TILE_RE` from `click_extra/capture/svg.py`
+in `11.0.0`, with the `__getattr__` serving them as `tile_runs`, `TILE_RUN` and
+`_TILING_RE`, and their tests in `tests/test_screenshots.py`: its warnings
+announce that release.
+```
 """
 
 from __future__ import annotations
@@ -690,13 +697,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "10.1.1"
+__version__ = "10.2.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "ae5f21b7e153fcf720a992095679bb04b23fb0e8"
+__git_tag_sha__ = "8b928037109fa20d0024b897538fa43f4921cedf"
 
 
 _LAZY_TEST_TOOLING = {

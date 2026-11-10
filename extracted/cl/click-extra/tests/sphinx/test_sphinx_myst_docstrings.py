@@ -21,6 +21,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from docutils import nodes
+from docutils.core import publish_doctree
 from sphinx.errors import ExtensionError
 
 from click_extra.sphinx.myst_docstrings import _TYPEHINTS_EXT, myst_to_rst, setup
@@ -585,6 +587,36 @@ def test_inline_code_not_converted(text):
 @pytest.mark.parametrize(
     ("myst", "expected"),
     [
+        # The padding CommonMark lets a span start or end on a backtick goes.
+        ("like `` - `apple` pie ``.", "like ``- `apple` pie``."),
+        ("`` `pear` `` and `plum`", "```pear``` and ``plum``"),
+        # A reST literal holding backticks passes through.
+        ("a ``fig `jam` here`` b", "a ``fig `jam` here`` b"),
+    ],
+    ids=["padded", "on-backticks", "unpadded"],
+)
+def test_double_backtick_span_keeps_its_backticks(myst, expected):
+    """A double-backtick span keeps its single backticks single.
+
+    Doubled, they would end the reST literal early: the conversion must parse
+    into whole literals, with no warning.
+    """
+    rst = _convert(myst)
+    assert rst == expected
+    tree = publish_doctree(
+        rst,
+        settings_overrides={
+            "report_level": 1,
+            "halt_level": 5,
+            "warning_stream": False,
+        },
+    )
+    assert list(tree.findall(nodes.system_message)) == []
+
+
+@pytest.mark.parametrize(
+    ("myst", "expected"),
+    [
         ("{func}`foo` returns `True`", ":func:`foo` returns ``True``"),
         ("a {data}`~X` or `None`", "a :data:`~X` or ``None``"),
         ("`some_var` is a {class}`str`", "``some_var`` is a :class:`str`"),
@@ -682,11 +714,27 @@ def test_nested_protected_spans_are_restored(text):
         ("the `:manpage:` role", "the ``:manpage:`` role"),
         # A real role right after prose still converts.
         ("see {data}`X` and `:path:`", "see :data:`X` and ``:path:``"),
+        # A span ending in role-shaped text: its closing backtick must not open
+        # a role target that runs on to the next span, a line below.
+        (
+            "`basket :keep-stems:` holds the fruit.\n`pear_count` grows.",
+            "``basket :keep-stems:`` holds the fruit.\n``pear_count`` grows.",
+        ),
+        (
+            "the `basket :keep-stems:` of {func}`ripen`",
+            "the ``basket :keep-stems:`` of :func:`ripen`",
+        ),
     ],
-    ids=["span-then-xref", "span-alone", "xref-then-span"],
+    ids=[
+        "span-then-xref",
+        "span-alone",
+        "xref-then-span",
+        "span-ends-in-role-shape-then-span",
+        "span-ends-in-role-shape-then-xref",
+    ],
 )
 def test_role_shaped_code_span_not_protected_as_role(myst, expected):
-    """A backtick-preceded role pattern sits inside a code span, not a role."""
+    """Role-shaped text inside a code span is code, wherever the span holds it."""
     assert _convert(myst) == expected
 
 

@@ -39,7 +39,7 @@ class TrackingData:
         )
 
     def set_cmd_info(
-        self, command: str | None, namespace: str, table: str | None
+        self, command: str | None, namespace: str | None, table: str | None
     ) -> None:
         self.command = command
         self.namespace = namespace

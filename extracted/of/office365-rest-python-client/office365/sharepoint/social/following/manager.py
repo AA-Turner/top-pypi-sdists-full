@@ -6,7 +6,9 @@ from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.social.actor import SocialActor
 
 if TYPE_CHECKING:
@@ -20,6 +22,7 @@ class SocialFollowingManager(Entity):
     def __init__(self, context):
         super().__init__(context, ResourcePath("SP.Social.SocialFollowingManager"))
 
+    @site_access(SiteLevel.READ)
     def get_followers(self) -> ClientResult[ClientValueCollection[SocialActor]]:
         """
         The GetFollowers method returns the users who are followers of the current user.
@@ -29,6 +32,7 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_suggestions(self) -> ClientResult[ClientValueCollection[SocialActor]]:
         """
         The GetSuggestions method returns a list of actors that are suggestions for the current user to follow.
@@ -38,11 +42,13 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="FollowedDocumentsUri")
     @property
     def followed_documents_uri(self) -> Optional[str]:
         """Gets the FollowedDocumentsUri property"""
         return self.properties.get("FollowedDocumentsUri", None)
 
+    @odata(name="FollowedSitesUri")
     @property
     def followed_sites_uri(self) -> Optional[str]:
         """Gets the FollowedSitesUri property"""
@@ -52,6 +58,7 @@ class SocialFollowingManager(Entity):
     def entity_type_name(self):
         return "SP.Social.SocialFollowingManager"
 
+    @site_access(SiteLevel.WRITE)
     def follow(self, actor: SocialActorInfo) -> ClientResult[int]:
         """Follow operation.
 
@@ -64,6 +71,7 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_followed(self, types: int) -> ClientResult[ClientValueCollection[SocialActor]]:
         """GetFollowed operation.
 
@@ -78,6 +86,7 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_followed_count(self, types: int) -> ClientResult[int]:
         """GetFollowedCount operation.
 
@@ -90,6 +99,7 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def is_followed(self, actor: SocialActorInfo) -> ClientResult[bool]:
         """IsFollowed operation.
 
@@ -102,6 +112,7 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def merge_followed_sites(self, followed_sites: str) -> ClientResult[str]:
         """MergeFollowedSites operation.
 
@@ -116,6 +127,7 @@ class SocialFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def stop_following(self, actor: SocialActorInfo) -> ClientResult[bool]:
         """StopFollowing operation.
 

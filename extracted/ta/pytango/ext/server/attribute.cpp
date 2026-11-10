@@ -77,30 +77,22 @@ void __set_value_date_quality_array(Tango::Attribute &att,
                                     const double *time,
                                     const Tango::AttrQuality *quality,
                                     bool isImage) {
-    typedef typename TANGO_const2type(tangoTypeConst) TangoScalarType;
     static const int tangoArrayTypeConst = TANGO_const2arrayconst(tangoTypeConst);
 
-    TangoScalarType *data_buffer;
-
-    py::size_t dim_x = 0, dim_y = 0;
-
     const std::string f_name = quality != nullptr ? "set_value_date_quality" : "set_value";
-    // clang-format off
-    data_buffer = python_to_cpp_buffer<tangoArrayTypeConst>(value,
-                                                            MemoryAllocation::NEW,
-                                                            f_name,
-                                                            isImage,
-                                                            dim_x,
-                                                            dim_y);
-    // clang-format on
+    py::size_t dim_x = 0, dim_y = 0;
+    auto buffer =
+        python_to_cpp_buffer<tangoArrayTypeConst, MemoryAllocation::NEW>(value, f_name, isImage, dim_x, dim_y);
+
     long res_dim_x = static_cast<long>(dim_x);
     long res_dim_y = static_cast<long>(dim_y);
 
+    // release == true: cppTango frees the buffer with delete[].
     if(time != nullptr) {
         PYTG_NEW_TIME_FROM_DOUBLE(*time, tv);
-        att.set_value_date_quality(data_buffer, tv, *quality, res_dim_x, res_dim_y, true);
+        att.set_value_date_quality(buffer.release(), tv, *quality, res_dim_x, res_dim_y, true);
     } else {
-        att.set_value(data_buffer, res_dim_x, res_dim_y, true);
+        att.set_value(buffer.release(), res_dim_x, res_dim_y, true);
     }
 }
 
@@ -218,7 +210,10 @@ void set_encoded_value(Tango::Attribute &att,
 template <typename TangoScalarType>
 inline void _get_properties_multi_attr_prop(Tango::Attribute &att, py::object &multi_attr_prop) {
     Tango::MultiAttrProp<TangoScalarType> tg_multi_attr_prop;
-    att.get_properties(tg_multi_attr_prop);
+    {
+        py::gil_scoped_release no_gil;
+        att.get_properties(tg_multi_attr_prop);
+    }
 
     to_py_object(tg_multi_attr_prop, multi_attr_prop);
 }
@@ -233,6 +228,7 @@ template <typename TangoScalarType>
 inline void _set_properties_multi_attr_prop(Tango::Attribute &att, py::object &multi_attr_prop) {
     Tango::MultiAttrProp<TangoScalarType> tg_multi_attr_prop;
     from_py_object(multi_attr_prop, tg_multi_attr_prop);
+    py::gil_scoped_release no_gil;
     att.set_properties(tg_multi_attr_prop);
 }
 
@@ -243,12 +239,14 @@ void set_properties_multi_attr_prop(Tango::Attribute &att, py::object &multi_att
 
 void set_upd_properties(Tango::Attribute &att, py::object &attr_cfg) {
     auto tg_attr_cfg = attr_cfg.cast<Tango::AttributeConfig_3>();
+    py::gil_scoped_release no_gil;
     att.set_upd_properties(tg_attr_cfg);
 }
 
 void set_upd_properties(Tango::Attribute &att, py::object &attr_cfg, py::object &dev_name) {
     auto tg_attr_cfg = attr_cfg.cast<Tango::AttributeConfig_3>();
     std::string tg_dev_name = dev_name.cast<std::string>();
+    py::gil_scoped_release no_gil;
     att.set_upd_properties(tg_attr_cfg, tg_dev_name);
 }
 
@@ -364,6 +362,33 @@ void export_attribute(py::module &m) {
              R"doc(
                 Get attribute name.
              )doc")
+        .def(
+            "get_att_device",
+            [](Tango::Attribute &attr) {
+                Tango::DeviceImpl *dev{nullptr};
+                {
+                    py::gil_scoped_release no_gil;
+                    dev = attr.get_att_device();
+                }
+                return py::cast(dev, py::return_value_policy::reference);
+            },
+            R"doc(
+                Get the device the attribute belongs to.
+
+                :returns: the device object
+                :rtype: :class:`~tango.DeviceImpl`
+
+                .. versionadded:: 10.3.2
+             )doc")
+        .def(
+            "_associate_device",
+            [](Tango::Attribute &attr, Tango::DeviceImpl *dev) {
+                // is_polled is the only public method that fills in the device pointer of
+                // an attribute. Without it the pointer is filled in lazily, by looking the
+                // device up by name, which fails while the device is still being created.
+                attr.is_polled(dev);
+            },
+            py::arg("device"))
         .def("get_data_type",
              &Tango::Attribute::get_data_type,
              R"doc(
@@ -757,6 +782,7 @@ void export_attribute(py::module &m) {
              )doc")
         .def("remove_configuration",
              &Tango::Attribute::remove_configuration,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Remove the attribute configuration from the database.
 

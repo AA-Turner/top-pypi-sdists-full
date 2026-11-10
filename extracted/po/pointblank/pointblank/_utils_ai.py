@@ -37,6 +37,16 @@ _PROVIDER_PACKAGES = {
 }
 
 
+# The reply-length limit for the Anthropic and Bedrock providers. chatlas's default is 4096, but on
+# current Claude models thinking tokens count toward it, so a plan for a wide table could be cut
+# off. The `anthropic` SDK refuses non-streaming requests above about 21,000 tokens.
+_ANTHROPIC_MAX_TOKENS = 16000
+
+# Finish reasons that mean the reply was cut off at the output-token limit (chatlas passes on the
+# provider's reason, or in recent versions a normalized one)
+_TRUNCATED_FINISH_REASONS = frozenset({"max_tokens", "length", "max_output_tokens"})
+
+
 def _check_ai_package(package: str, needed_for: str) -> None:
     """Raise an `ImportError` with an install hint if a package needed for an AI feature is missing."""
     try:
@@ -89,7 +99,7 @@ class _LLMConfig:
     provider
         LLM provider name (e.g., 'anthropic', 'openai', 'ollama', 'bedrock').
     model
-        Model name (e.g., 'claude-opus-4-6', 'gpt-4').
+        Model name (e.g., 'claude-opus-4-6', 'gpt-5.6-sol').
     api_key
         API key for the provider. If None, will be read from environment.
     verify_ssl
@@ -174,6 +184,7 @@ def _create_chat_instance(
             model=model_name,
             api_key=api_key,
             system_prompt=system_prompt,
+            max_tokens=_ANTHROPIC_MAX_TOKENS,
             kwargs={"http_client": _async_http_client("anthropic", verify_ssl)},
         )
 
@@ -205,6 +216,7 @@ def _create_chat_instance(
         chat = ChatBedrockAnthropic(
             model=model_name,
             system_prompt=system_prompt,
+            max_tokens=_ANTHROPIC_MAX_TOKENS,
         )
 
     elif provider == "azure-openai":  # pragma: no cover
@@ -238,6 +250,30 @@ def _create_chat_instance(
         raise ValueError(f"Unsupported provider: {provider}")
 
     return chat
+
+
+def _chat_reply(chat: Any, *content: Any) -> str:
+    """
+    Send a message to a chatlas chat and return the reply's text.
+
+    Raises a `RuntimeError` if the reply was cut off at the model's output-token limit, since a
+    partial plan or a partial JSON array can't be used.
+    """
+    response = str(chat.chat(*content, stream=False, echo="none"))
+
+    try:
+        finish_reason = getattr(chat.get_last_turn(), "finish_reason", None)
+    except Exception:
+        finish_reason = None
+
+    if finish_reason in _TRUNCATED_FINISH_REASONS:
+        raise RuntimeError(
+            "The model's reply was cut off at its output-token limit, so it's incomplete and "
+            "can't be used. Try again with fewer columns (or a smaller `batch_size=` for "
+            "`prompt()`), or with another model."
+        )
+
+    return response
 
 
 def _prepare_attachments(attachments: Optional[List[Any]]) -> List[Any]:
@@ -450,7 +486,9 @@ class _DataBatcher:
             if hasattr(native_data, "with_columns"):  # Polars
                 import polars as pl
 
-                unique_df = pl.DataFrame(unique_rows)
+                # Scan every row for the schema: a column that is null in the first rows
+                # would otherwise be typed as null and reject a later value
+                unique_df = pl.DataFrame(unique_rows, infer_schema_length=None)
             elif hasattr(native_data, "assign"):  # Pandas
                 import pandas as pd
 
@@ -657,6 +695,18 @@ DATA TO VALIDATE:
 # ============================================================================
 
 
+class _UnusableReplyError(ValueError):
+    """A model's reply to a batch that gave no results for it (its message quotes the reply)."""
+
+
+def _reply_snippet(response: str, max_length: int = 80) -> str:
+    """The start of a reply, on one line and in quotes, for error messages."""
+    text = " ".join(str(response).split())
+    if len(text) > max_length:
+        text = text[: max_length - 3].rstrip() + "..."
+    return f'"{text}"'
+
+
 class _ValidationResponseParser:
     """Parses AI validation responses."""
 
@@ -670,6 +720,9 @@ class _ValidationResponseParser:
             Total number of rows being validated.
         """
         self.total_rows = total_rows
+
+        # The error of the latest response that could not be parsed, or `None` if it could
+        self.last_parse_error: Optional[Exception] = None
 
     def parse_response(self, response: str, batch_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -687,6 +740,8 @@ class _ValidationResponseParser:
         List[Dict[str, Any]]
             List of parsed results with 'index' and 'result' keys.
         """
+        self.last_parse_error = None
+
         try:
             # Try to extract JSON from the response
             json_response = self._extract_json(response)
@@ -694,9 +749,17 @@ class _ValidationResponseParser:
             # Validate the structure
             self._validate_response_structure(json_response, batch_info)
 
-            return json_response
+            return self._keep_batch_rows(json_response, batch_info)
 
         except Exception as e:
+            from pointblank._interrogation import _first_line
+
+            # The reply goes in the error (it's recorded in the step's note), so that, e.g., a
+            # refusal can be told apart from a malformed reply
+            self.last_parse_error = _UnusableReplyError(
+                f"{_reply_snippet(response)} ({_first_line(e)})"
+            )
+            self.last_parse_error.__cause__ = e
             logger.error(
                 f"Failed to parse response for batch {batch_info.get('batch_id', 'unknown')}: {e}"
             )
@@ -710,22 +773,40 @@ class _ValidationResponseParser:
         # Clean up the response
         response = response.strip()
 
-        # Look for JSON array patterns
-        import re
+        try:
+            parsed = json.loads(response)
+        except json.JSONDecodeError:
+            parsed = None
 
-        json_pattern = r"\[.*?\]"
-        matches = re.findall(json_pattern, response, re.DOTALL)
+        # A bare array is the expected reply; anything else (e.g., an object wrapping the array,
+        # like {"results": [...]}) is searched for the array below
+        if isinstance(parsed, list):
+            return parsed
 
-        if matches:
-            # Try to parse the first match
+        # The model may wrap the array in prose, a code fence or an object, and that text can
+        # itself contain square brackets (e.g., "rows [0-2]") or echoed input rows. Try each '['
+        # as the start of a JSON value and keep the first array of result objects.
+        decoder = json.JSONDecoder()
+        start = response.find("[")
+        while start != -1:
             try:
-                return json.loads(matches[0])
-            except json.JSONDecodeError:  # pragma: no cover
-                # If that fails, try the raw response
-                return json.loads(response)
-        else:
-            # Try to parse the raw response
-            return json.loads(response)
+                candidate, _ = decoder.raw_decode(response, start)
+            except json.JSONDecodeError:
+                candidate = None
+            if (
+                isinstance(candidate, list)
+                and candidate
+                and all(
+                    isinstance(item, dict) and "index" in item and "result" in item
+                    for item in candidate
+                )
+            ):
+                return candidate
+            start = response.find("[", start + 1)
+
+        # Nothing usable found; raise the parser's usual error (or return the non-array JSON so
+        # that the structure check reports it)
+        return json.loads(response)
 
     def _validate_response_structure(
         self, json_response: List[Dict[str, Any]], batch_info: Dict[str, Any]
@@ -749,6 +830,33 @@ class _ValidationResponseParser:
 
             if not isinstance(result["result"], bool):
                 raise ValueError(f"Result {i} 'result' must be a boolean")
+
+    def _keep_batch_rows(
+        self, json_response: List[Dict[str, Any]], batch_info: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Keep the results for the batch's own rows.
+
+        A result for another row (e.g., another batch's) would overwrite that row's result when
+        the batches are combined, so it's dropped. A reply with no results for the batch's rows
+        (e.g., `[]`) is unusable, like one that can't be parsed.
+        """
+        start, end = batch_info["start_row"], batch_info["end_row"]
+        kept = [
+            result
+            for result in json_response
+            if isinstance(result["index"], int)
+            and not isinstance(result["index"], bool)
+            and start <= result["index"] < end
+        ]
+        if not kept:
+            raise ValueError(f"the reply has no results for rows {start} to {end - 1}")
+        if len(kept) < len(json_response):
+            logger.warning(
+                f"Dropped {len(json_response) - len(kept)} results for rows outside "
+                f"{start} to {end - 1} in the reply for batch {batch_info.get('batch_id')}"
+            )
+        return kept
 
     def _create_default_results(self, batch_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Create default results (all False) for a batch."""
@@ -879,6 +987,20 @@ class _AIValidationEngine:
             verify_ssl=llm_config.verify_ssl,
         )
 
+    def _start_fresh_conversation(self) -> None:
+        """
+        Drop the earlier batches from the chat history.
+
+        A chatlas `Chat` keeps every turn and sends all of them with each new request, so without
+        this each batch would carry all the previous batches (and their replies and attachments).
+        The system prompt is kept.
+        """
+        # Before chatlas 0.9.0, `set_turns()` also drops the system prompt (it is the first turn),
+        # and that prompt holds the reply-format instructions, so put it back
+        system_prompt = self.chat.system_prompt
+        self.chat.set_turns([])
+        self.chat.system_prompt = system_prompt
+
     def validate_batches(
         self, batches: List[Dict[str, Any]], prompt_builder: Any, max_concurrent: int = 3
     ) -> List[List[Dict[str, Any]]]:
@@ -920,7 +1042,8 @@ class _AIValidationEngine:
 
                 # Get response from LLM using chatlas (synchronous). Attachments
                 # ride along as global context content blocks for every batch.
-                response = str(self.chat.chat(prompt, *self.attachments, stream=False, echo="none"))
+                self._start_fresh_conversation()
+                response = _chat_reply(self.chat, prompt, *self.attachments)
 
                 # Debug: Log the raw LLM response
                 logger.debug(f"📥 LLM Response for batch {batch['batch_id']}:")
@@ -931,6 +1054,12 @@ class _AIValidationEngine:
                 # Parse the response
                 parser = _ValidationResponseParser(total_rows=1000)  # This will be set properly
                 results = parser.parse_response(response, batch)
+
+                # A reply that could not be parsed gives all-False results for the batch, which
+                # counts as a failed batch below just like a failed request does
+                if parser.last_parse_error is not None:
+                    errors.append(parser.last_parse_error)
+                    return results
 
                 # Debug: Log parsed results  # pragma: no cover
                 logger.debug(f"📊 Parsed results for batch {batch['batch_id']}:")
@@ -967,10 +1096,21 @@ class _AIValidationEngine:
         if batches and len(errors) == len(batches):
             from pointblank._interrogation import StepEvaluationError, _first_line
 
+            first = errors[0]
+            if isinstance(first, _UnusableReplyError):
+                detail = f"the first reply couldn't be used: {first}"
+            else:
+                detail = f"the first failed with {_first_line(first)}"
             raise StepEvaluationError(
-                f"None of the {len(batches)} requests to the model succeeded "
-                f"(the first failed with {_first_line(errors[0])})."
-            ) from errors[0]
+                f"None of the {len(batches)} requests to the model gave a usable response "
+                f"({detail})."
+            ) from first
+
+        if errors:
+            logger.warning(
+                f"{len(errors)} of {len(batches)} batches could not be validated "
+                f"and their rows are reported as failing."
+            )
 
         return final_results
 
@@ -998,7 +1138,8 @@ class _AIValidationEngine:
 
             # Get response from LLM using chatlas (synchronous). Attachments
             # ride along as global context content blocks for every batch.
-            response = str(self.chat.chat(prompt, *self.attachments, stream=False, echo="none"))
+            self._start_fresh_conversation()
+            response = _chat_reply(self.chat, prompt, *self.attachments)
 
             # Parse the response
             parser = _ValidationResponseParser(total_rows=1000)  # This will be set properly

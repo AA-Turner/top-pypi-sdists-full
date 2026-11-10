@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+import attrs
 import httpx
 import pytest
 import rlp
@@ -20,6 +21,7 @@ from mpp.errors import (
     CredentialReplayedError,
     InternalPaymentError,
     PaymentExpiredError,
+    PaymentSimulationError,
     VerificationError,
 )
 from mpp.methods.tempo import (
@@ -31,13 +33,14 @@ from mpp.methods.tempo import (
     TESTNET_CHAIN_ID,
     USDC,
     TempoAccount,
+    _fee_payer,
     escrow_contract_for_chain,
     fee_tokens_for_chain,
 )
 from mpp.methods.tempo import server as tempo_server
 from mpp.methods.tempo._attribution import encode as encode_attribution
 from mpp.methods.tempo._defaults import CHAIN_RPC_URLS
-from mpp.methods.tempo._rpc import _tip20_balance
+from mpp.methods.tempo._rpc import RpcError, _tip20_balance
 from mpp.methods.tempo.client import (
     EXPIRING_NONCE_KEY,
     EXPIRING_NONCE_VALID_BEFORE_SECS,
@@ -4110,8 +4113,9 @@ class TestCosignAsFeePayer:
             assert result.startswith("0x76")
 
     # Like mppx, the co-signed tx is simulated with eth_call twice: from the sender
-    # with no fee fields, then as the final sponsored tx naming its fee payer and fee
-    # token. eth_call carries no signatures and `feePayer: true` is refused by the node.
+    # with no fee fields, then as the final sponsored tx naming its fee payer, fee
+    # token and fee payer signature (the node bills the sender without it). The
+    # sender's signature is never sent and `feePayer: true` is refused by the node.
     def test_cosign_returns_simulate_payload_with_sponsor_abi(self) -> None:
         intent = self._make_intent()
         currency = "0x20c0000000000000000000000000000000000000"
@@ -4119,20 +4123,34 @@ class TestCosignAsFeePayer:
         raw_tx = self._build_client_tx(currency=currency)
         _result, payload = intent._cosign_as_fee_payer(raw_tx, currency)
         assert payload is not None
-        sender_request, sponsored = payload
+        sender_request, build_sponsored = payload
+        assert isinstance(sender_request, dict) and callable(build_sponsored)
+        sponsored = build_sponsored()
 
         sender = TempoAccount.from_key(TEST_PRIVATE_KEY).address
         assert sender_request["type"] == "0x76"
         assert sender_request["from"].lower() == sender.lower()
-        assert set(sender_request) == {"type", "from", "calls"}
+        # The sender simulation is the gas-bounded check: the broadcast gas, no fees.
+        assert not {
+            "maxFeePerGas",
+            "maxPriorityFeePerGas",
+            "feeToken",
+            "feePayer",
+            "feePayerSignature",
+        } & set(sender_request)
+        assert (
+            int(sponsored["gas"], 16)
+            == int(sender_request["gas"], 16) + _fee_payer.SPONSORED_SIMULATION_GAS_BUFFER
+        )
         assert sponsored["from"].lower() == sender.lower()
         assert sponsored["feeToken"].lower() == currency.lower()
         assert intent.fee_payer is not None
         assert sponsored["feePayer"].lower() == intent.fee_payer.address.lower()
-        assert "feePayerSignature" not in sponsored and "signature" not in sponsored
+        assert set(sponsored["feePayerSignature"]) == {"r", "s", "yParity"}
+        assert "signature" not in sponsored
         assert sponsored["nonceKey"].startswith("0x")
         assert sponsored["validBefore"].startswith("0x")
-        for request in payload:
+        for request in (sender_request, sponsored):
             [call] = request["calls"]
             assert call["to"].lower() == currency.lower()
             assert call["data"].startswith("0x")
@@ -4173,7 +4191,8 @@ class TestCosignAsFeePayer:
         cosigned, simulate_payload = intent._cosign_as_fee_payer(raw, PATH_USD, request=request)
 
         assert cosigned.startswith("0x76")
-        for call_request in simulate_payload:
+        for entry in simulate_payload:
+            call_request = entry() if callable(entry) else entry
             assert [c["to"] for c in call_request["calls"]] == [currency, currency]
 
     def test_build_simulate_payload_multi_call_preserves_order(self) -> None:
@@ -4203,7 +4222,12 @@ class TestCosignAsFeePayer:
             valid_after=None,
         )
 
-        for request in intent._build_simulate_payload(tx, "0x" + "11" * 20):
+        sender = "0x" + "11" * 20
+        signature = _fee_payer.fee_payer_signature_rpc(0, 1, 2)
+        sender_request, _ = intent._build_simulate_payload(tx, sender)
+        assert isinstance(sender_request, dict)
+        sponsored = _fee_payer.sponsored_simulation_request(tx, sender, sender, signature)
+        for request in (sender_request, sponsored):
             assert [c["to"] for c in request["calls"]] == [
                 "0x" + "a1" * 20,
                 "0x" + "b2" * 20,
@@ -4815,7 +4839,7 @@ class TestCosignAsFeePayer:
         intent._http_client.post.assert_not_awaited()
         assert not any(key.startswith("mpp:charge-admission:") for key in store._data)
 
-    def _cosign_payload(self, intent: ChargeIntent) -> list[dict[str, Any]]:
+    def _cosign_payload(self, intent: ChargeIntent) -> list[Any]:
         currency = "0x20c0000000000000000000000000000000000000"
         raw_tx = self._build_client_tx(currency=currency)
         _result, payload = intent._cosign_as_fee_payer(raw_tx, currency)
@@ -4857,7 +4881,84 @@ class TestCosignAsFeePayer:
         )
         sent = [call.kwargs["json"] for call in mock_client.post.await_args_list]
         assert [r["method"] for r in sent] == ["eth_call", "eth_call"]
-        assert [r["params"][0] for r in sent] == payload
+        sender_request, build_sponsored = payload
+        assert callable(build_sponsored)
+        # The fee payer's signature is deterministic (RFC 6979), so rebuilding matches.
+        assert [r["params"][0] for r in sent] == [sender_request, build_sponsored()]
+
+    # Since Tempo v1.18, eth_call bills the fee token to the fee payer it recovers from
+    # feePayerSignature, and to the sender without one. The sponsored eth_call also
+    # charges more gas than the mined tx uses, so the local fee payer signs a
+    # simulation-only copy with SPONSORED_SIMULATION_GAS_BUFFER more gas.
+    def test_local_sponsored_simulation_signs_a_gas_buffered_copy(self) -> None:
+        from eth_account import Account
+        from pytempo import TempoTransaction
+
+        intent = self._make_intent()
+        assert intent.fee_payer is not None
+        currency = "0x20c0000000000000000000000000000000000000"
+        cosigned_raw, payload = intent._cosign_as_fee_payer(
+            self._build_client_tx(currency=currency, gas_limit=67_894), currency
+        )
+        broadcast = TempoTransaction.decode(bytes.fromhex(cosigned_raw[2:]))
+        _, build_sponsored = payload
+        assert callable(build_sponsored)
+
+        sponsored = build_sponsored()
+
+        # The broadcast tx keeps the client's gas; only the simulation copy is raised.
+        assert broadcast.gas_limit == 67_894
+        assert _fee_payer.SPONSORED_SIMULATION_GAS_BUFFER == 6_000
+        assert sponsored["gas"] == hex(67_894 + 6_000)
+        assert "signature" not in sponsored
+        signature = sponsored["feePayerSignature"]
+        simulated = attrs.evolve(broadcast, gas_limit=67_894 + 6_000, fee_payer_signature=None)
+        recovered = Account._recover_hash(
+            simulated.get_signing_hash(for_fee_payer=True),
+            vrs=(int(signature["yParity"], 16), int(signature["r"], 16), int(signature["s"], 16)),
+        )
+        assert recovered == intent.fee_payer.address
+        # The broadcast co-signature still covers the broadcast gas.
+        assert broadcast.recover_fee_payer() == intent.fee_payer.address
+
+    # Like mppx's preflightSponsorship: simulate as the sender, sign, then simulate
+    # the sponsored tx, so a reverting tx is never signed for simulation.
+    @pytest.mark.asyncio
+    async def test_simulation_signs_only_after_the_sender_simulation_passes(self) -> None:
+        intent = self._make_intent()
+        payload = self._cosign_payload(intent)
+        events: list[str] = []
+        real_build = _fee_payer.local_sponsored_simulation_request
+
+        def build(*args: Any) -> dict[str, Any]:
+            events.append("sign")
+            return real_build(*args)
+
+        async def post(url: str, json: dict[str, Any]) -> Any:
+            request = json["params"][0]
+            events.append("simulate:" + ("sponsored" if "feePayer" in request else "sender"))
+            return mock_response(200, {"jsonrpc": "2.0", "result": "0x", "id": 1})
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=post)
+        with patch.object(_fee_payer, "local_sponsored_simulation_request", side_effect=build):
+            await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+
+        assert events == ["simulate:sender", "sign", "simulate:sponsored"]
+
+    @pytest.mark.asyncio
+    async def test_failed_sender_simulation_signs_nothing(self) -> None:
+        intent = self._make_intent()
+        payload = self._cosign_payload(intent)
+        revert = {"jsonrpc": "2.0", "error": {"code": 3, "message": "execution reverted"}, "id": 1}
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response(200, revert))
+
+        with patch.object(_fee_payer, "local_sponsored_simulation_request") as build:
+            with pytest.raises(VerificationError, match="would revert"):
+                await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+            build.assert_not_called()
+        assert mock_client.post.await_count == 1
 
     # The sponsored tx can fail after the sender's calls pass (an unfunded sponsor).
     @pytest.mark.asyncio
@@ -4881,6 +4982,114 @@ class TestCosignAsFeePayer:
 
         with pytest.raises(VerificationError, match="would revert"):
             await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+
+    # Like mppx's PaymentSimulationError: a failed simulation names its phase, sender,
+    # fee payer (sponsored only) and payment token, with the node's error as its cause.
+    @pytest.mark.asyncio
+    async def test_failed_sender_simulation_is_tagged(self) -> None:
+        from eth_account import Account
+
+        intent = self._make_intent()
+        payload = self._cosign_payload(intent)
+        node_error = {"code": 3, "message": "execution reverted"}
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(
+            return_value=mock_response(200, {"jsonrpc": "2.0", "error": node_error, "id": 1})
+        )
+
+        with pytest.raises(PaymentSimulationError, match="would revert") as raised:
+            await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+        error = raised.value
+        assert isinstance(error, VerificationError)
+        assert error.phase == "sender"
+        assert error.sender == Account.from_key(TEST_PRIVATE_KEY).address
+        assert error.fee_payer is None
+        assert error.payment_token == "0x20c0000000000000000000000000000000000000"
+        assert isinstance(error.__cause__, RpcError)
+        assert error.__cause__.response["error"] == node_error
+        # The problem type and message are unchanged.
+        assert error.to_problem_details()["type"] == VerificationError.type
+        assert str(error) == (
+            "Sponsored transaction would revert in pre-broadcast simulation: execution reverted"
+        )
+
+    @pytest.mark.asyncio
+    async def test_failed_sponsored_simulation_is_tagged(self) -> None:
+        from eth_account import Account
+        from pytempo import Call
+
+        intent = self._make_intent()
+        assert intent.fee_payer is not None
+        currency = "0x20c0000000000000000000000000000000000000"
+        recipient = "0x742d35Cc6634c0532925a3b844bC9e7595F8fE00"
+        transfer = self._encode_transfer_data(recipient, 1)
+        calls = (
+            Call.create(to=currency, value=0, data=transfer),
+            Call.create(to=currency, value=0, data=transfer),
+        )
+        _raw, payload = intent._cosign_as_fee_payer(
+            self._build_client_tx(currency=currency, calls=calls), currency
+        )
+        node_error = {"code": 3, "message": "execution reverted"}
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(
+            side_effect=[
+                mock_response(200, {"jsonrpc": "2.0", "result": "0x", "id": 1}),
+                mock_response(200, {"jsonrpc": "2.0", "error": node_error, "id": 1}),
+            ]
+        )
+
+        with pytest.raises(PaymentSimulationError, match="would revert") as raised:
+            await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+        error = raised.value
+        assert error.phase == "sponsored"
+        assert error.sender == Account.from_key(TEST_PRIVATE_KEY).address
+        assert error.fee_payer == intent.fee_payer.address
+        # Not a single transfer call, so no payment token.
+        assert error.payment_token is None
+        assert isinstance(error.__cause__, RpcError)
+        assert error.__cause__.response["error"] == node_error
+
+    # A node error other than an execution failure, such as the sponsor's
+    # insufficient fee token balance, stays internal but carries the tag as its cause.
+    @pytest.mark.asyncio
+    async def test_failed_sponsored_simulation_non_execution_error_is_tagged_cause(
+        self,
+    ) -> None:
+        intent = self._make_intent()
+        assert intent.fee_payer is not None
+        payload = self._cosign_payload(intent)
+        node_error = {"code": -32003, "message": "insufficient fee token balance"}
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(
+            side_effect=[
+                mock_response(200, {"jsonrpc": "2.0", "result": "0x", "id": 1}),
+                mock_response(200, {"jsonrpc": "2.0", "error": node_error, "id": 1}),
+            ]
+        )
+
+        with pytest.raises(InternalPaymentError) as raised:
+            await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+        assert not isinstance(raised.value, PaymentSimulationError)
+        simulation = raised.value.__cause__
+        assert isinstance(simulation, PaymentSimulationError)
+        assert simulation.phase == "sponsored"
+        assert simulation.fee_payer == intent.fee_payer.address
+        assert isinstance(simulation.__cause__, RpcError)
+        assert simulation.__cause__.response["error"] == node_error
+
+    # A transport failure never reached the node, so it is not a simulation failure.
+    @pytest.mark.asyncio
+    async def test_simulation_transport_error_is_not_tagged(self) -> None:
+        intent = self._make_intent()
+        payload = self._cosign_payload(intent)
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
+
+        with pytest.raises(InternalPaymentError) as raised:
+            await intent._simulate_before_broadcast(mock_client, payload, "https://rpc.test")
+        assert not isinstance(raised.value, PaymentSimulationError)
+        assert isinstance(internal_cause(raised.value), httpx.ConnectError)
 
     # An RPC that refuses the call (not an execution failure) fails closed as internal.
     @pytest.mark.asyncio
@@ -4964,6 +5173,59 @@ class TestCosignAsFeePayer:
         methods = [json.loads(r.read().decode())["method"] for r in requests]
         assert methods == ["eth_call"]
         assert "eth_sendRawTransactionSync" not in methods
+
+    # A gas limit too low for the mined tx fails the sender simulation, which runs
+    # at the exact broadcast gas: the sponsored simulation's padding cannot hide it.
+    @pytest.mark.asyncio
+    async def test_verify_local_fee_payer_low_gas_does_not_broadcast(
+        self, httpx_mock: HTTPXMock
+    ) -> None:
+        future = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+        currency = "0x20c0000000000000000000000000000000000000"
+        recipient = "0x742d35Cc6634c0532925a3b844bC9e7595F8fE00"
+
+        intent = self._make_intent()
+        raw_tx = self._build_client_tx(
+            currency=currency,
+            recipient=recipient,
+            amount=1000000,
+            with_memo=encode_attribution(challenge_id="test", server_id=TEST_REALM),
+        )
+        credential = make_credential(
+            payload={"type": "transaction", "signature": raw_tx},
+            expires=future,
+        )
+        # Tempo v1.18.1's reply to an eth_call whose gas runs out.
+        httpx_mock.add_response(
+            url="https://rpc.test",
+            json={
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32003,
+                    "message": "out of gas: gas exhausted during precompiled contract execution",
+                },
+                "id": 1,
+            },
+        )
+
+        with pytest.raises(VerificationError, match="out of gas"):
+            await intent.verify(
+                credential,
+                {
+                    "amount": "1000000",
+                    "currency": currency,
+                    "recipient": recipient,
+                    "methodDetails": {"feePayer": True, "chainId": TESTNET_CHAIN_ID},
+                },
+            )
+
+        [request] = httpx_mock.get_requests()
+        body = json.loads(request.read().decode())
+        assert body["method"] == "eth_call"
+        [sender_simulation, _] = body["params"]
+        assert "feePayerSignature" not in sender_simulation
+        assert "maxFeePerGas" not in sender_simulation
+        assert sender_simulation["gas"].startswith("0x")
 
     @pytest.mark.asyncio
     async def test_verify_local_fee_payer_rechecks_validity_after_simulation(
@@ -8406,6 +8668,65 @@ class TestTransactionCredentialPayer:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("kind", KINDS)
+    async def test_validate_reports_settlement_details(self, kind: str) -> None:
+        from mpp.methods.tempo.intents import _canonical_raw_transaction, _raw_transaction_hash
+
+        raw_tx, _ = self._signed(kind)
+
+        validation = await ChargeIntent(rpc_url="https://rpc.test").validate(
+            self._credential(raw_tx, None), self._request()
+        )
+
+        details = validation.details
+        # Only a 65-byte secp256k1 sender signature authenticates the payer before broadcast.
+        assert details["payer_verified"] is (
+            kind in ("secp256k1", "key_authorization", "sponsored", "envelope")
+        )
+        if kind in ("envelope", "keychain_envelope"):
+            # The fee payer has not signed yet, so the final hash is unknown.
+            assert details["transaction_hash"] is None
+        else:
+            expected = _raw_transaction_hash(_canonical_raw_transaction(raw_tx)).lower()
+            assert details["transaction_hash"] == expected
+        assert details["valid_before"] is None
+
+    @pytest.mark.parametrize("raw_tx", ["0x76zz", "0x1234", "0x76", "0x76ff"])
+    def test_settlement_helpers_reject_malformed_transactions(self, raw_tx: str) -> None:
+        from mpp.methods.tempo.intents import _pull_transaction_hash, _sender_recovered
+
+        assert _pull_transaction_hash(raw_tx) is None
+        assert _sender_recovered(raw_tx) is False
+
+    def test_canonical_signature_normalizes_65_byte_signature_with_wrapper_lead_byte(self) -> None:
+        from mpp.methods.tempo.intents import _canonical_signature
+
+        for lead in (0x03, 0x04):
+            signature = bytes([lead]) + bytes(63) + bytes([1])
+            expected = bytes([lead]) + bytes(63) + bytes([28])
+            assert _canonical_signature(signature) == expected
+            wrapper = bytes([0x03]) + bytes(20)
+            assert _canonical_signature(wrapper + signature) == wrapper + expected
+
+    def test_canonical_signature_survives_deep_keychain_nesting(self) -> None:
+        from mpp.methods.tempo.intents import _canonical_signature
+
+        wrapper = bytes([0x03]) + bytes(20)
+        deep = wrapper * 5000 + bytes(64) + bytes([1])
+
+        assert _canonical_signature(deep) == wrapper * 5000 + bytes(64) + bytes([28])
+
+    @pytest.mark.asyncio
+    async def test_validate_reports_valid_before(self) -> None:
+        raw_tx = "0x" + self._tx(valid_before=1_900_000_000).sign(TEST_PRIVATE_KEY).encode().hex()
+
+        validation = await ChargeIntent(rpc_url="https://rpc.test").validate(
+            self._credential(raw_tx, None), self._request()
+        )
+
+        assert validation.details["valid_before"] == 1_900_000_000
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("kind", KINDS)
     @pytest.mark.parametrize(
         ("source", "error"),
         [
@@ -8523,3 +8844,46 @@ async def test_mcp_verify_or_challenge_rejects_fixed_attribution():
             server.charge(amount="1.00", splits=request["methodDetails"]["splits"]),
             tool="paid-tool",
         )
+
+
+class TestChargeHttpClient:
+    """The payer's RPC calls go through a caller-supplied httpx client."""
+
+    @pytest.mark.asyncio
+    async def test_charge_sends_rpc_through_http_client(self) -> None:
+        seen: list[tuple[str, str | None]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            seen.append((body["method"], request.headers.get("tempo-api-key")))
+            result = {
+                "eth_chainId": hex(TESTNET_CHAIN_ID),
+                "eth_gasPrice": "0x1",
+                "eth_estimateGas": hex(100_000),
+                "eth_call": hex(10**12),
+            }[body["method"]]
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
+
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), headers={"tempo-api-key": "test-key"}
+        ) as http:
+            method = _tempo_method(
+                account=TempoAccount.from_key(TEST_PRIVATE_KEY),
+                rpc_url="https://api.tempo.xyz/rpc/testnet",
+                http_client=http,
+            )
+            challenge = Challenge(
+                id="http-client",
+                method="tempo",
+                intent="charge",
+                request={
+                    "amount": "1000",
+                    "currency": PATH_USD,
+                    "recipient": "0x742d35Cc6634c0532925a3b844bC9e7595F8fE00",
+                    "methodDetails": {"chainId": TESTNET_CHAIN_ID},
+                },
+            )
+            await method.create_credential(challenge)
+
+        assert {"eth_chainId", "eth_gasPrice"} <= {name for name, _ in seen}
+        assert all(key == "test-key" for _, key in seen)

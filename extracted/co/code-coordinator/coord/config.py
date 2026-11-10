@@ -1570,11 +1570,64 @@ class BoardDoctorConfig:
     (``BoardDoctorRepoConfig.stale_race``, default ``False``).
     `coord.board_doctor_policy._stale_race_tier_enabled` reads both this
     field and the per-repo opt-in.
+
+    ``followthrough`` is the fleet-wide switch for the merged-partial
+    follow-through disposition, mirroring ``stale_race`` exactly: a repo
+    must still opt in via ``repos[].board_doctor.followthrough``.
+    ``followthrough_cap`` is the per-issue budget — the most follow-up
+    issues one plan may file; a plan proposing more is rejected and
+    alerted instead of written.
+
+    ``no_progress_minutes`` (#3888) is the fleet-wide threshold the sweep
+    uses to decide whether a queue row that is not already in its stuck set
+    (no `block_log` episode, no merge-queue entry) has gone long enough
+    without progress to classify anyway — see
+    :func:`coord.board_doctor.no_progress_rows`. A row inside this window
+    is left alone; one outside it is always classified, down to
+    :data:`coord.queue_diagnose.CAUSE_UNKNOWN` when nothing else fits.
+
+    ``log_retention_days`` (#3889) is how long a decision-log entry
+    (``coord drive-queue doctor-log``) survives in the ``board_doctor_log``
+    table before age-based pruning drops it. Default 90 — matches
+    :data:`coord.state.BOARD_DOCTOR_LOG_RETENTION_DAYS`, which is the
+    fallback used when this is unset or unreadable (e.g. a thin client with
+    no loaded config in scope).
+
+    ``backoff_initial_hours``/``backoff_cap_hours`` (#3889, #3875 ask C) are
+    the re-alert schedule for a row stuck on the SAME escalated cause: the
+    wait before the FIRST re-alert, and the ceiling that wait doubles
+    towards on every subsequent one. Defaults (1h / 24h) match
+    :data:`coord.state.BOARD_DOCTOR_BACKOFF_INITIAL_HOURS` /
+    :data:`coord.state.BOARD_DOCTOR_BACKOFF_CAP_HOURS`, the fallbacks used
+    on the same read failure.
+
+    ``fixit_leg_budget`` (#3889, #3875 ask B) is the investigate tier's own
+    per-repo dispatch budget for fix-it worker legs, independent of a
+    repo's ordinary ``max_parallel`` ceiling — see
+    :data:`coord.board_doctor_policy.FIXIT_LEG_BUDGET_DEFAULT`, the
+    fallback used on the same read failure. Read fresh every sweep
+    (:func:`coord.board_doctor_policy.make_investigate_capacity_check`), so
+    a change here needs no daemon restart to take effect.
+
+    ``outcome_grace_hours`` (#3907) is how long an open outcome-log decision
+    is left ungraded after it is logged, so a leg (or the row's drive) that
+    is still running does not get graded `regressed` against work in
+    flight. Default 3h — matches
+    :data:`coord.state.BOARD_DOCTOR_OUTCOME_GRACE_HOURS`, the fallback used
+    on the same read failure as every other knob in this section.
     """
 
     investigate: bool = True
     finish: bool = True
     stale_race: bool = True
+    followthrough: bool = True
+    followthrough_cap: int = 5
+    no_progress_minutes: int = 60
+    log_retention_days: int = 90
+    backoff_initial_hours: float = 1.0
+    backoff_cap_hours: float = 24.0
+    fixit_leg_budget: int = 1
+    outcome_grace_hours: float = 3.0
 
 
 KNOWN_GATE_NAMES = ("test", "review", "uat", "merge")
@@ -3564,6 +3617,86 @@ def _parse_board_doctor(raw: Any) -> BoardDoctorConfig:
         if not isinstance(stale_race, bool):
             raise ConfigError("board_doctor.stale_race must be a boolean")
         cfg.stale_race = stale_race
+    if "followthrough" in raw:
+        followthrough = raw["followthrough"]
+        if not isinstance(followthrough, bool):
+            raise ConfigError("board_doctor.followthrough must be a boolean")
+        cfg.followthrough = followthrough
+    if "followthrough_cap" in raw:
+        cap = raw["followthrough_cap"]
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+            raise ConfigError("board_doctor.followthrough_cap must be a positive integer")
+        cfg.followthrough_cap = cap
+    if "no_progress_minutes" in raw:
+        no_progress_minutes = raw["no_progress_minutes"]
+        if (
+            isinstance(no_progress_minutes, bool)
+            or not isinstance(no_progress_minutes, int)
+            or no_progress_minutes < 1
+        ):
+            raise ConfigError("board_doctor.no_progress_minutes must be a positive integer")
+        cfg.no_progress_minutes = no_progress_minutes
+    if "log_retention_days" in raw:
+        log_retention_days = raw["log_retention_days"]
+        if (
+            isinstance(log_retention_days, bool)
+            or not isinstance(log_retention_days, int)
+            or log_retention_days < 1
+        ):
+            raise ConfigError("board_doctor.log_retention_days must be a positive integer")
+        cfg.log_retention_days = log_retention_days
+    if "backoff_initial_hours" in raw:
+        backoff_initial_hours = raw["backoff_initial_hours"]
+        if (
+            isinstance(backoff_initial_hours, bool)
+            or not isinstance(backoff_initial_hours, (int, float))
+            or backoff_initial_hours <= 0
+        ):
+            raise ConfigError("board_doctor.backoff_initial_hours must be a positive number")
+        cfg.backoff_initial_hours = float(backoff_initial_hours)
+    if "backoff_cap_hours" in raw:
+        backoff_cap_hours = raw["backoff_cap_hours"]
+        if (
+            isinstance(backoff_cap_hours, bool)
+            or not isinstance(backoff_cap_hours, (int, float))
+            or backoff_cap_hours <= 0
+        ):
+            raise ConfigError("board_doctor.backoff_cap_hours must be a positive number")
+        cfg.backoff_cap_hours = float(backoff_cap_hours)
+    if cfg.backoff_cap_hours < cfg.backoff_initial_hours:
+        # Name which side is the untouched DEFAULT (#3889 review) — a config
+        # that only sets `backoff_initial_hours` above the default cap would
+        # otherwise read as if the cap it never wrote were the typo.
+        cap_note = (
+            "" if "backoff_cap_hours" in raw
+            else f" (board_doctor.backoff_cap_hours was not set — defaults to {cfg.backoff_cap_hours})"
+        )
+        initial_note = (
+            "" if "backoff_initial_hours" in raw
+            else f" (board_doctor.backoff_initial_hours was not set — defaults to {cfg.backoff_initial_hours})"
+        )
+        raise ConfigError(
+            "board_doctor.backoff_cap_hours must be >= "
+            f"board_doctor.backoff_initial_hours{cap_note}{initial_note}"
+        )
+    if "fixit_leg_budget" in raw:
+        fixit_leg_budget = raw["fixit_leg_budget"]
+        if (
+            isinstance(fixit_leg_budget, bool)
+            or not isinstance(fixit_leg_budget, int)
+            or fixit_leg_budget < 1
+        ):
+            raise ConfigError("board_doctor.fixit_leg_budget must be a positive integer")
+        cfg.fixit_leg_budget = fixit_leg_budget
+    if "outcome_grace_hours" in raw:
+        outcome_grace_hours = raw["outcome_grace_hours"]
+        if (
+            isinstance(outcome_grace_hours, bool)
+            or not isinstance(outcome_grace_hours, (int, float))
+            or outcome_grace_hours <= 0
+        ):
+            raise ConfigError("board_doctor.outcome_grace_hours must be a positive number")
+        cfg.outcome_grace_hours = float(outcome_grace_hours)
     return cfg
 
 
@@ -4028,6 +4161,20 @@ def _parse_board_doctor_repo_config(raw: Any, repo_index: int) -> BoardDoctorRep
                 f"repos[{repo_index}].board_doctor.stale_race must be a boolean"
             )
         cfg.stale_race = stale_race
+    if "followthrough" in raw:
+        followthrough = raw["followthrough"]
+        if not isinstance(followthrough, bool):
+            raise ConfigError(
+                f"repos[{repo_index}].board_doctor.followthrough must be a boolean"
+            )
+        cfg.followthrough = followthrough
+    if "followthrough_auto_queue" in raw:
+        auto_queue = raw["followthrough_auto_queue"]
+        if not isinstance(auto_queue, bool):
+            raise ConfigError(
+                f"repos[{repo_index}].board_doctor.followthrough_auto_queue must be a boolean"
+            )
+        cfg.followthrough_auto_queue = auto_queue
     return cfg
 
 

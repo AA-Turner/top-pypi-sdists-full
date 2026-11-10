@@ -58,7 +58,6 @@ class ScanReport(Generic[RecordT]):
         return buffer.getvalue()
 
 
-@dataclass
 class AssessmentReport(ClientValue):
     """Result of a pre-migration assessment."""
 

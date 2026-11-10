@@ -13,10 +13,12 @@ from .event_bridge_config_patch import EventBridgeConfigPatch
 from .google_cloud_pub_sub_config_patch import GoogleCloudPubSubConfigPatch
 from .google_cloud_storage_config_patch import GoogleCloudStorageConfigPatch
 from .otel_tracing_config_patch import OtelTracingConfigPatch
+from .post_hog_config_patch import PostHogConfigPatch
 from .postgres_config_patch import PostgresConfigPatch
 from .rabbit_mq_config_patch import RabbitMqConfigPatch
 from .redshift_config_patch import RedshiftConfigPatch
 from .s3_config_patch import S3ConfigPatch
+from .segment_sink_config_patch import SegmentSinkConfigPatch
 from .sink_http_config_patch import SinkHttpConfigPatch
 from .sink_status_in import SinkStatusIn
 from .snowflake_config_patch import SnowflakeConfigPatch
@@ -58,6 +60,8 @@ class StreamSinkPatch(BaseModel):
         t.Literal["redshift"],
         t.Literal["postgres"],
         t.Literal["elasticSearch"],
+        t.Literal["postHog"],
+        t.Literal["segment"],
     ]
     config: t.Union[
         t.Dict[str, t.Any],
@@ -77,6 +81,8 @@ class StreamSinkPatch(BaseModel):
         RedshiftConfigPatch,
         PostgresConfigPatch,
         ElasticSearchConfigPatch,
+        PostHogConfigPatch,
+        SegmentSinkConfigPatch,
     ]
 
     @model_validator(mode="wrap")
@@ -133,6 +139,12 @@ class StreamSinkPatch(BaseModel):
             output.config = PostgresConfigPatch.model_validate(data.get("config", {}))
         elif output.type == "elasticSearch":
             output.config = ElasticSearchConfigPatch.model_validate(
+                data.get("config", {})
+            )
+        elif output.type == "postHog":
+            output.config = PostHogConfigPatch.model_validate(data.get("config", {}))
+        elif output.type == "segment":
+            output.config = SegmentSinkConfigPatch.model_validate(
                 data.get("config", {})
             )
         else:

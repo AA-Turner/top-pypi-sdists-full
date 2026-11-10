@@ -123,7 +123,7 @@ _HOMES = {
     "Any": "probe.sdk.run.closing.close",
     "_diagnostics": "probe.sdk.run.closing.close",
     "errors": "probe.sdk.run.closing.close",
-    "WIZARD_HINT": "probe.sdk.run.closing.close",
+    "SIGN_IN_HINT": "probe.sdk.run.closing.close",
     "_multipart": "probe.sdk.run.closing.close",
     "_outputs": "probe.sdk.run.closing.close",
     "_preempt": "probe.sdk.run.closing.close",

@@ -1,3 +1,4 @@
+import shutil
 from abc import ABCMeta, abstractmethod
 
 import ibis
@@ -79,40 +80,101 @@ def test_register_table_provider_reader_error_is_not_swallowed(ctx, sql, drive):
         drive(ctx.sql(sql))
 
 
-def test_register_csv_multiple_paths(ctx, data_dir):
-    fname = "iris.csv"
-    table_name = "iris"
-    iris_path = str(data_dir / fname)
-    ctx.register_csv(table_name, [iris_path])
-    ctx.register_csv(
-        f"{table_name}_multiple_paths",
-        [
-            iris_path,
-            iris_path,
-        ],
-    )
-    table = ctx.table(table_name)
-    table_multiple_paths = ctx.table(f"{table_name}_multiple_paths")
+class _RaisingSchemaProvider(AbstractTableProvider):
+    """schema() raises; scan() is never reached."""
 
-    assert any(f"{table_name}_multiple_paths" in t for t in ctx.tables())
+    def schema(self):
+        raise RuntimeError("no schema for you")
+
+    def scan(self, filters=None):
+        raise AssertionError("scan must not be reached")
+
+
+class _NotASchemaProvider(AbstractTableProvider):
+    """schema() returns something that is not a pyarrow Schema."""
+
+    def schema(self):
+        return 42
+
+    def scan(self, filters=None):
+        raise AssertionError("scan must not be reached")
+
+
+@pytest.mark.parametrize(
+    ("provider", "match"),
+    [
+        (_RaisingSchemaProvider(), "no schema for you"),
+        (_NotASchemaProvider(), "Schema"),
+    ],
+    ids=["raises", "wrong-type"],
+)
+def test_register_table_provider_bad_schema_fails_at_registration(ctx, provider, match):
+    """A provider schema that cannot be read must fail the registration call.
+
+    The schema is read once at registration rather than on every planner call,
+    so a bad one surfaces here as a Python exception instead of panicking on
+    whichever thread happens to be planning.
+    """
+    with pytest.raises(Exception, match=match):
+        ctx.register_table_provider("bad", provider)
+
+    assert not ctx.table_exist("bad")
+
+
+def test_register_table_provider_reads_schema_once(ctx, data_dir):
+    """The planner must not call back into `schema()` for every plan."""
+    table = ibis.read_parquet(data_dir / "data.rownum.parquet")
+
+    class CountingProvider(IbisTableProvider):
+        def __init__(self, table):
+            super().__init__(table)
+            self.schema_calls = 0
+
+        def schema(self):
+            self.schema_calls += 1
+            return super().schema()
+
+    provider = CountingProvider(table)
+    ctx.register_table_provider("counted", provider)
+    assert provider.schema_calls == 1
+
+    for _ in range(3):
+        assert not ctx.sql("select * from counted").to_pandas().empty
+    assert provider.schema_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("fname", "register"),
+    [
+        ("iris.csv", "register_csv"),
+        ("batting.parquet", "register_parquet"),
+    ],
+)
+def test_register_multiple_paths(ctx, data_dir, tmp_path, fname, register):
+    path = data_dir / fname
+    copy = tmp_path / fname
+    shutil.copyfile(path, copy)
+    getattr(ctx, register)("single", [str(path)])
+    getattr(ctx, register)("multiple", [str(path), str(copy)])
+    table = ctx.table("single")
+    table_multiple_paths = ctx.table("multiple")
+
+    assert "multiple" in ctx.tables()
     assert table.schema() == table_multiple_paths.schema()
     assert table_multiple_paths.count() == 2 * table.count()
 
 
-def test_register_parquet_multiple_paths(ctx, data_dir):
-    fname = "batting.parquet"
-    table_name = "batting"
-    batting_path = str(data_dir / fname)
-    ctx.register_parquet(table_name, [batting_path])
-    ctx.register_parquet(
-        f"{table_name}_multiple_paths",
-        [
-            batting_path,
-            batting_path,
-        ],
-    )
-    table = ctx.table(table_name)
-    table_multiple_paths = ctx.table(f"{table_name}_multiple_paths")
+@pytest.mark.parametrize(
+    ("fname", "register"),
+    [
+        ("iris.csv", "register_csv"),
+        ("batting.parquet", "register_parquet"),
+    ],
+)
+def test_register_repeated_path_reads_file_once(ctx, data_dir, fname, register):
+    # DataFusion >= 55 dedupes overlapping table paths within one ListingTable.
+    path = str(data_dir / fname)
+    getattr(ctx, register)("single", [path])
+    getattr(ctx, register)("repeated", [path, path])
 
-    assert any(f"{table_name}_multiple_paths" in t for t in ctx.tables())
-    assert table_multiple_paths.count() == 2 * table.count()
+    assert ctx.table("repeated").count() == ctx.table("single").count()

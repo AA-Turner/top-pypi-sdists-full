@@ -1,11 +1,10 @@
 """Cozy's prebuilt CUDA kernels (`kernels/`), carried by cozy-runtime's native wheels: one per OS
 and CPU, every GPU target inside. The pure wheel carries none (`ABSENT` says why).
 
-Kernel modules use nanobind; the execution owner uses Rust/PyO3. Both use the static CUDA runtime
-and Python's stable ABI. A module
+Kernel modules use nanobind, the static CUDA runtime and Python's stable ABI. A module
 carries a cubin for each target in `ARCHS` and PTX that the driver compiles for a card none names.
 Runtime verifies every kernel on the device before it serves (`internal.prebuilt`); package
-authors reach `_norm` through `author.kernels`.
+authors reach `_norm` through `accel.kernels`.
 """
 
 # SPDX-License-Identifier: Apache-2.0
@@ -58,10 +57,6 @@ FAMILIES = ("mma.sync", "wgmma", "tcgen05")
 
 #: Each module's cubin targets and PTX, as the CUDA toolkit names them (`cuobjdump`).
 ARCHS: dict[str, dict[str, tuple[str, ...]]] = {
-    "_execution": {
-        "cubin": ("sm_80", "sm_86", "sm_89", "sm_90", "sm_100", "sm_103", "sm_120", "sm_121"),
-        "ptx": (),
-    },
     "_gemm": {
         "cubin": (
             "sm_80",
@@ -144,5 +139,5 @@ def rms_rope_split_half(
     return q_out, k_out
 
 
-# The modules are `internal.prebuilt`'s to call; `rms_rope_split_half` is `author.kernels`'.
+# The modules are `internal.prebuilt`'s to call; `rms_rope_split_half` is `accel.kernels`'.
 __all__ = ["_attn4", "_fa3", "_gemm", "_norm", "_sage3", "rms_rope_split_half"]

@@ -26,6 +26,7 @@ pub(super) const KEEP: u64 = 256 << 20;
 const BLOCK: usize = 1 << 20;
 const THREADS: usize = 8;
 
+/// The measured ceilings for a volume and, optionally, a GPU.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Ceiling {
     /// Sequential read GB/s of the volume.
@@ -40,9 +41,9 @@ pub struct Ceiling {
 
 /// What reads from `path`'s volume (and, with `device`, copies to that GPU) can reach.
 pub fn ceiling(device: Option<i32>, path: &Path) -> io::Result<Ceiling> {
-    #[cfg(unix)]
+    #[cfg(all(unix, feature = "cuda"))]
     let gpu = device.map(|device| super::metrics::h2d(device).ok_or_else(|| io::Error::new(io::ErrorKind::Unsupported, format!("CUDA device {device} has no measurable H2D ceiling")))).transpose()?;
-    #[cfg(not(unix))]
+    #[cfg(not(all(unix, feature = "cuda")))]
     let gpu: Option<(f64, u32)> = if device.is_some() { return Err(io::Error::new(io::ErrorKind::Unsupported, "H2D ceiling is unavailable on this platform")); } else { None };
     let (disk_gbps, disk_direct) = disk(path)?;
     Ok(Ceiling {

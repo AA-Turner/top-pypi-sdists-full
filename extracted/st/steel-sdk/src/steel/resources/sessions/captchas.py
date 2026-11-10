@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class CaptchasResource(SyncAPIResource):
         This property can be used as a prefix for any HTTP method call to return
         the raw response object instead of the parsed content.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#accessing-raw-response-data-eg-headers
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#accessing-raw-response-data-eg-headers
         """
         return CaptchasResourceWithRawResponse(self)
 
@@ -39,7 +39,7 @@ class CaptchasResource(SyncAPIResource):
         """
         An alternative to `.with_raw_response` that doesn't eagerly read the response body.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#with_streaming_response
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#with_streaming_response
         """
         return CaptchasResourceWithStreamingResponse(self)
 
@@ -187,7 +187,7 @@ class AsyncCaptchasResource(AsyncAPIResource):
         This property can be used as a prefix for any HTTP method call to return
         the raw response object instead of the parsed content.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#accessing-raw-response-data-eg-headers
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#accessing-raw-response-data-eg-headers
         """
         return AsyncCaptchasResourceWithRawResponse(self)
 
@@ -196,7 +196,7 @@ class AsyncCaptchasResource(AsyncAPIResource):
         """
         An alternative to `.with_raw_response` that doesn't eagerly read the response body.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#with_streaming_response
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#with_streaming_response
         """
         return AsyncCaptchasResourceWithStreamingResponse(self)
 

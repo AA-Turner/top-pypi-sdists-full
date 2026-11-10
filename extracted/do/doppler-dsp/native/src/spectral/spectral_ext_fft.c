@@ -144,6 +144,15 @@ FFTObj_execute_cf64 (FFTObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       Py_DECREF (in_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (
+              PyExc_RuntimeError,
+              "FFT.execute_cf64: wrote %zu elements into a buffer of %zu",
+              (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX128,
                                                     PyArray_DATA (out_arr));
@@ -152,14 +161,29 @@ FFTObj_execute_cf64 (FFTObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_fft_execute_cf64_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (in_arr);
+      PyErr_Format (PyExc_OverflowError,
+                    "FFT.execute_cf64: output of %zu elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX128);
   if (!arr0)
     {
@@ -182,6 +206,15 @@ FFTObj_execute_cf64 (FFTObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   Py_DECREF (in_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "FFT.execute_cf64: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -276,6 +309,15 @@ FFTObj_execute_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       Py_DECREF (in_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (
+              PyExc_RuntimeError,
+              "FFT.execute_cf32: wrote %zu elements into a buffer of %zu",
+              (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
                                                     PyArray_DATA (out_arr));
@@ -284,14 +326,29 @@ FFTObj_execute_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_fft_execute_cf32_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (in_arr);
+      PyErr_Format (PyExc_OverflowError,
+                    "FFT.execute_cf32: output of %zu elements is too large",
+                    _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -313,6 +370,15 @@ FFTObj_execute_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   Py_DECREF (in_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "FFT.execute_cf32: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -381,7 +447,16 @@ FFTObj_execute_int (FFTObject *self, PyObject *args, int is8)
   size_t     _cap  = dp_fft_execute_cf32_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (in_arr);
+      PyErr_Format (PyExc_OverflowError,
+                    "%s: output of %zu elements is too large",
+                    is8 ? "FFT.execute_ci8" : "FFT.execute_ci16", _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -404,6 +479,15 @@ FFTObj_execute_int (FFTObject *self, PyObject *args, int is8)
       return fft_int_length_error (self, is8, n_vals);
     }
   Py_DECREF (in_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (PyExc_RuntimeError,
+                    "%s: wrote %zu elements into a buffer of %zu",
+                    is8 ? "FFT.execute_ci8" : "FFT.execute_ci16",
+                    (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     return arr0;
   npy_intp     _odim = (npy_intp)n_out;
@@ -510,6 +594,15 @@ FFTObj_execute_inplace_cf64 (FFTObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       Py_DECREF (in_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "FFT.execute_inplace_cf64: wrote %zu elements into a "
+                        "buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX128,
                                                     PyArray_DATA (out_arr));
@@ -518,14 +611,30 @@ FFTObj_execute_inplace_cf64 (FFTObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_fft_execute_inplace_cf64_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (in_arr);
+      PyErr_Format (
+          PyExc_OverflowError,
+          "FFT.execute_inplace_cf64: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX128);
   if (!arr0)
     {
@@ -548,6 +657,15 @@ FFTObj_execute_inplace_cf64 (FFTObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   Py_DECREF (in_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "FFT.execute_inplace_cf64: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -644,6 +762,15 @@ FFTObj_execute_inplace_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
           return NULL;
         }
       Py_DECREF (in_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "FFT.execute_inplace_cf32: wrote %zu elements into a "
+                        "buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
                                                     PyArray_DATA (out_arr));
@@ -652,14 +779,30 @@ FFTObj_execute_inplace_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_fft_execute_inplace_cf32_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (in_arr);
+      PyErr_Format (
+          PyExc_OverflowError,
+          "FFT.execute_inplace_cf32: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
   if (!arr0)
     {
@@ -681,6 +824,15 @@ FFTObj_execute_inplace_cf32 (FFTObject *self, PyObject *args, PyObject *kwds)
       return NULL;
     }
   Py_DECREF (in_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "FFT.execute_inplace_cf32: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -770,7 +922,7 @@ static PyMethodDef FFTObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "x : npt.NDArray[np.complex128]\n"
-    "    Input.\n"
+    "    Input buffer of length state->n (CF64, row-major).\n"
     "out : npt.NDArray[np.complex128] | None\n"
     "    Output buffer of length >= state->n (CF64, caller-allocated).\n"
     "\n"
@@ -812,7 +964,7 @@ static PyMethodDef FFTObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "x : npt.NDArray[np.complex64]\n"
-    "    Input.\n"
+    "    Input buffer of length state->n (CF32, row-major).\n"
     "out : npt.NDArray[np.complex64] | None\n"
     "    Output buffer of length >= state->n (CF32, caller-allocated).\n"
     "\n"
@@ -901,7 +1053,7 @@ static PyMethodDef FFTObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "x : npt.NDArray[np.complex128]\n"
-    "    Input.\n"
+    "    Source buffer, state->n CF64 samples; not modified.\n"
     "out : npt.NDArray[np.complex128] | None\n"
     "    Destination buffer, length >= state->n; must not alias in.\n"
     "\n"
@@ -942,7 +1094,7 @@ static PyMethodDef FFTObj_methods[] = {
     "Parameters\n"
     "----------\n"
     "x : npt.NDArray[np.complex64]\n"
-    "    Input.\n"
+    "    Source buffer, state->n CF32 samples; not modified.\n"
     "out : npt.NDArray[np.complex64] | None\n"
     "    Destination buffer, length >= state->n; must not alias in.\n"
     "\n"

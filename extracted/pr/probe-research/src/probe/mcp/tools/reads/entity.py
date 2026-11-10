@@ -15,6 +15,7 @@ from ....shared.reads.search_contract import (
     EnvelopeState,
     MissingMarker)
 from ...generated.views import View
+from ....generated.records import RunStatus
 from ...delivery.delivery import ContinuationError
 from ...delivery.delivery import encode as _encode_delivery_cursor
 from ...delivery.delivery import omit_defaults
@@ -27,6 +28,8 @@ from probe.mcp.tools.view import _Req, _VIEWS, _ViewData, _supported_views
 from probe.mcp.tools.views.files import _PAGE_FETCH
 #: The kinds a coding-agent session creates, and so the kinds with an intent.
 _INTENT_KINDS = frozenset({EntityType.RUN, EntityType.EXPERIMENT, EntityType.PROJECT})
+#: The run statuses whose card carries `failure` (why it ended).
+_FAILED_STATUSES = frozenset({RunStatus.FAILED.value, RunStatus.CRASHED.value})
 _INTENT_CARD_FIELDS = (
     "ask", "ask_truncated", "match", "context", "session_goal", "queued",
     "asked_by_name", "asked_at", "session", "step_id", "provisional",
@@ -81,6 +84,19 @@ class GetEntityMixin:
         if not isinstance(blurb, str) or not blurb.strip():
             return None
         return blurb.strip()[:_CARD_DESCRIPTION_CHARS]
+
+    def _add_failure(self, run: dict, data: dict, missing: list) -> None:
+        """A failed or crashed run's card carries why (`GET /v1/runs/failures`): the cause, its
+        `evidence`, the exception and the last lines the run left. Never fails the card."""
+        if run.get("status") not in _FAILED_STATUSES or not run.get("id"):
+            return
+        try:
+            failures = self.source.run_failures([str(run["id"])])
+        except Exception:  # noqa: BLE001 -- an older API: the card says the reason was not read
+            missing.append(MissingMarker.FAILURE_UNAVAILABLE)
+            return
+        if failures:
+            data["failure"] = {key: value for key, value in failures[0].items() if key != "run_id"}
 
     def get_entity(
         self,
@@ -196,6 +212,8 @@ class GetEntityMixin:
             if blurb:
                 data["blurb"] = blurb
         missing = list(result.missing)
+        if view == View.CARD and kind == EntityType.RUN.value and isinstance(entity, dict):
+            self._add_failure(entity, data, missing)
         next_cursor: str | None = None
         # A row view that emitted every row it has. False for an atomic view,
         # which has no rows and therefore no "walk" to be at the end of.

@@ -16,12 +16,14 @@ pub mod chunker;
 pub mod confidence;
 mod doclang;
 mod doclang_tree;
+mod doclang_xml;
 pub mod doctags;
 mod document;
 mod encryption;
 pub mod env;
 mod html;
 pub mod hyperlink;
+pub mod inline;
 pub mod jpeg;
 mod json;
 mod labels;
@@ -41,11 +43,13 @@ mod vtt;
 
 pub use confidence::{ConfidenceReport, OcrCellConfidence, PageConfidence, QualityGrade};
 pub use doclang::inline_runs_from_markdown;
+pub use doclang_xml::doclang_apply_reading_rules;
 pub use document::{
     for_each_picture_in, for_each_picture_in_mut, inline_paragraph_node, CaptionParent,
     ContentLayer, ContentLayers, DoclingDocument, FieldItem, GraphCell, GraphLink,
     HtmlExportOptions, InlineRun, ListItemDclx, MarkdownExportOptions, Node, Notice, NoticeKind,
-    PictureClass, PictureDescription, PictureImage, Script, Table, TableCell, TableStructure,
+    PictureClass, PictureDescription, PictureImage, Script, ScriptRun, ScriptRunProv, Table,
+    TableCell, TableStructure,
 };
 pub use encryption::EncryptionError;
 #[doc(hidden)]

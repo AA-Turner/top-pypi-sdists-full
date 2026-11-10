@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.applications.app_identity import AppIdentity
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AuditActivityInitiator(ClientValue):
     """Identity the resource object that initiates the activity.
     The initiator can be a user, an app, or a system (which is considered an app).

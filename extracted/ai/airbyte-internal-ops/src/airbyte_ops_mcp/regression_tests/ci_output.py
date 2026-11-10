@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 from airbyte_ops_mcp.regression_tests.models import StreamError
 
 if TYPE_CHECKING:
+    from airbyte_ops_mcp.regression_tests.report import RegressionReportModel
     from airbyte_ops_mcp.regression_tests.repro_case import ReproductionVerdict
 
 
@@ -966,6 +967,7 @@ def generate_action_test_comparison_report(
     reproduction: ReproductionVerdict | None = None,
     target_only_streams: Sequence[str] = (),
     inconclusive_findings: Sequence[str] = (),
+    report_model: RegressionReportModel | None = None,
 ) -> Path:
     """Generate a markdown comparison report for a single action (command).
 
@@ -1003,7 +1005,26 @@ def generate_action_test_comparison_report(
     Returns:
         Path to the generated report.md file.
     """
-    outcome = evaluate_comparison_outcome(command, target_result, control_result)
+    if report_model is None:
+        # The model imports the presentation helpers in this module.
+        from airbyte_ops_mcp.regression_tests.report import (
+            build_markdown_comparison_model,
+        )
+
+        report_model = build_markdown_comparison_model(
+            target_image=target_image,
+            control_image=control_image,
+            command=command,
+            target_result=target_result,
+            control_result=control_result,
+            record_comparison=record_comparison,
+            comparison_findings=comparison_findings,
+            inconclusive_findings=inconclusive_findings,
+            reproduction=reproduction,
+            target_only_streams=target_only_streams,
+        )
+    outcome = report_model.outcome
+    assert outcome is not None
 
     record_comparison_failed = (
         record_comparison is not None and not record_comparison.get("passed", True)
@@ -1076,25 +1097,15 @@ def generate_action_test_comparison_report(
         and not strict_problems
         and not outcome.regression_detected
     )
-    verdict_label = new_stream_verdict_label(
-        stopped=bool(stopped),
-        setup_error=setup_error,
-        strict_failed=bool(strict_problems),
-        regression=outcome.regression_detected,
-        both_failed=outcome.both_failed,
-        comparison_errored=comparison_errored,
-        could_not_test=could_not_test_result,
-        not_exercised=bool(not_exercised),
-    )
-    if (
-        comparison_errored
-        and not outcome.both_failed
-        and not_exercised
-        and verdict_label == "FAIL (inconclusive)"
-    ):
-        verdict_label = "NOT EXERCISED"
+    verdict_label = report_model.verdict_label
 
-    if verdict_label is not None:
+    if (
+        report_model.incomplete
+        or report_model.setup_error
+        or report_model.could_not_test
+        or report_model.not_exercised
+        or report_model.comparison_errored
+    ):
         # Never a pass: the comparison saw part of what each side would have
         # emitted, or nothing at all of a stream only the target read. A strict
         # failure inside what it saw is still a regression. A stop outranks an
@@ -1151,7 +1162,7 @@ def generate_action_test_comparison_report(
     elif reproduction is not None:
         lines.append(f"**Result:** {reproduction.detail} — **{reproduction.label}**")
         lines.extend(f"- {finding}" for finding in reproduction.details)
-    elif strict_failures:
+    elif report_model.strict_failed and strict_failures:
         # Only reachable when both commands ran cleanly, so this is the one
         # verdict the exit codes could not have produced.
         plural = "s" if len(strict_failures) > 1 else ""
@@ -1159,20 +1170,20 @@ def generate_action_test_comparison_report(
             f"**Result:** {sides}, and the comparison found "
             f"{len(strict_failures)} problem{plural} — **REGRESSION DETECTED**"
         )
-    elif outcome.check_improvement:
+    elif verdict_label == "PASS (improvement)":
         lines.append(f"**Result:** {sides} — improvement, not a regression")
-    elif outcome.regression_detected:
+    elif report_model.regression_detected and not record_comparison_failed:
         lines.append(f"**Result:** {sides} — **REGRESSION DETECTED**")
-    elif outcome.both_succeeded and record_comparison_failed:
+    elif report_model.regression_detected:
         lines.append(
             "**Result:** Both versions succeeded, but record comparison "
             "failed (**REGRESSION DETECTED**)"
         )
-    elif outcome.both_succeeded:
+    elif report_model.passed:
         # A pass requires a clean exit on both sides (plus SUCCEEDED for `check`),
         # so this line cannot disagree with the per-version rows.
         lines.append("**Result:** Both versions succeeded (no regression)")
-    elif outcome.both_failed:
+    elif report_model.both_failed:
         lines.append(
             f"**Result:** {sides} — **TEST FAILED** (inconclusive, cannot rule out "
             "a regression)"
@@ -1394,6 +1405,7 @@ def generate_single_version_report(
     command: str,
     result: dict[str, Any],
     output_dir: Path,
+    report_model: RegressionReportModel | None = None,
 ) -> Path:
     """Generate a markdown report for a single-version regression test.
 
@@ -1410,6 +1422,15 @@ def generate_single_version_report(
     Returns:
         Path to the generated report.md file.
     """
+    if report_model is None:
+        # The model imports the presentation helpers in this module.
+        from airbyte_ops_mcp.regression_tests.report import (
+            build_single_version_report_model,
+        )
+
+        report_model = build_single_version_report_model(
+            connector_image=connector_image, command=command, result=result
+        )
     message_counts = result.get("message_counts", {})
     record_counts = result.get("record_counts_per_stream", {})
 
@@ -1454,12 +1475,10 @@ def generate_single_version_report(
 
     # Single-version mode uses the same per-version rule as comparison mode, so a
     # `check` that exits 0 with connectionStatus FAILED is a FAIL, not a pass.
-    succeeded = command_result_succeeded(command, result)
     stopped = stopped_early_sides(("single", result))
-    if stopped:
-        verdict = f"INCOMPLETE — {describe_stopped_early(stopped, side_count=1)}"
-    else:
-        verdict = "PASS" if succeeded else "FAIL"
+    verdict = report_model.verdict_label
+    if report_model.incomplete:
+        verdict += f" — {describe_stopped_early(stopped, side_count=1)}"
 
     lines.extend(
         [
@@ -1480,7 +1499,7 @@ def generate_single_version_report(
 
     lines.extend(
         [
-            f"- **Success:** {succeeded}",
+            f"- **Success:** {report_model.sides[0].passed}",
             "",
         ]
     )

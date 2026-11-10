@@ -23,13 +23,18 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy import func, select
 
-from airflow.api_fastapi.common.db.common import SessionDep
+from airflow.api_fastapi.common.db.common import AsyncSessionDep
 from airflow.api_fastapi.execution_api.datamodels.variable import (
     VariableKeysResponse,
     VariablePostBody,
     VariableResponse,
 )
-from airflow.api_fastapi.execution_api.security import CurrentTIToken, get_team_name_dep
+from airflow.api_fastapi.execution_api.security import (
+    CurrentTIToken,
+    ExecutionAPIRoute,
+    allow_non_ti_writer,
+    get_team_name_dep,
+)
 from airflow.models.variable import Variable
 
 
@@ -57,7 +62,7 @@ async def has_variable_access(
     return True
 
 
-router = APIRouter()
+router = APIRouter(route_class=ExecutionAPIRoute)
 
 log = logging.getLogger(__name__)
 
@@ -72,8 +77,8 @@ log = logging.getLogger(__name__)
         status.HTTP_401_UNAUTHORIZED: {"description": "Unauthorized"},
     },
 )
-def get_variable_keys(
-    session: SessionDep,
+async def get_variable_keys(
+    session: AsyncSessionDep,
     team_name: Annotated[str | None, Depends(get_team_name_dep)] = None,
     prefix: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=10_000)] = 1000,
@@ -96,8 +101,8 @@ def get_variable_keys(
     if team_name is not None:
         stmt = stmt.where(Variable.team_name == team_name)
 
-    total_entries = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    keys = session.scalars(stmt.offset(offset).limit(limit)).all()
+    total_entries = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    keys = (await session.scalars(stmt.offset(offset).limit(limit))).all()
     return VariableKeysResponse(keys=list(keys), total_entries=total_entries)
 
 
@@ -139,6 +144,7 @@ def get_variable(
         status.HTTP_403_FORBIDDEN: {"description": "Task does not have access to the variable"},
     },
 )
+@allow_non_ti_writer
 def put_variable(
     variable_key: Annotated[str, Path(min_length=1)],
     body: VariablePostBody,
@@ -159,6 +165,7 @@ def put_variable(
         status.HTTP_403_FORBIDDEN: {"description": "Task does not have access to the variable"},
     },
 )
+@allow_non_ti_writer
 def delete_variable(
     variable_key: Annotated[str, Path(min_length=1)],
     team_name: Annotated[str | None, Depends(get_team_name_dep)],

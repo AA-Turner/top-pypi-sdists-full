@@ -203,7 +203,7 @@ class SessionOrchestrator(IRunPlanUseCase):
     def resume(
         self,
         session_name: str,
-        interactive: bool = True,
+        require_approval: bool = True,
         project_context: Optional[Any] = None,
         pipeline: bool = False,
         message: Optional[str] = None,
@@ -214,7 +214,7 @@ class SessionOrchestrator(IRunPlanUseCase):
         return self._lifecycle_manager.resume(
             session_name,
             self,
-            interactive,
+            require_approval,
             project_context=project_context,
             message=message,
             pipeline=pipeline,
@@ -225,7 +225,7 @@ class SessionOrchestrator(IRunPlanUseCase):
         plan: Optional[Plan] = None,
         plan_content: Optional[str] = None,
         plan_path: Optional[str] = None,
-        interactive: bool = True,
+        require_approval: bool = True,
         message: Optional[str] = None,
         project_context: Optional[Any] = None,
         pipeline: bool = False,
@@ -302,7 +302,7 @@ class SessionOrchestrator(IRunPlanUseCase):
                 plan=plan,
                 plan_content=plan_content,
                 plan_path=plan_path,
-                interactive=interactive,
+                require_approval=require_approval,
                 message=message,
                 project_context=project_context,
                 pipeline=pipeline,
@@ -549,7 +549,7 @@ class SessionOrchestrator(IRunPlanUseCase):
                 )
 
         content = plan_content or (
-            self._file_system_manager.read_file(plan_path) if plan_path else ""
+            self._file_system_manager.read_raw_file(plan_path) if plan_path else ""
         )
         if not plan:
             try:
@@ -592,7 +592,7 @@ class SessionOrchestrator(IRunPlanUseCase):
         errors = self._plan_validator.validate(plan, context_paths=context_paths)
         if errors:
             content = (
-                self._file_system_manager.read_file(plan_path) if plan_path else ""
+                self._file_system_manager.read_raw_file(plan_path) if plan_path else ""
             )
             return self._handle_logical_validation_errors(
                 plan, errors, content, plan_path, is_session

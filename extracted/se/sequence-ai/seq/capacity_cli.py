@@ -28,10 +28,6 @@ from sequence_ai._core.names import segment
 Echo = Callable[..., None]
 
 
-MIN_CPU_CORES = 0.125
-MIN_MEMORY_GIB = 0.125
-
-
 
 
 
@@ -216,12 +212,28 @@ def show_gpus(prices: dict, echo: Echo) -> None:
         shared = (prices.get("storage") or {}).get("shared_weights_templates") or []
         echo(f"storage {_usd(storage)} per GB-month: a deployment's copy of its weights and the image its versions save, and "
              "your volumes - billed every day they are kept, whether or not a worker runs; deleting stops it"
-             + (f" (an official template's weights - {', '.join(shared)} - are read from the platform's copy, not "
-                "copied or billed, while its code is unchanged)" if shared else ""))
+             + (f" (the official weight sets the platform shares - {', '.join(shared)} - are read from the platform's "
+                "copy, not copied or billed, for any template built on one whose code is unchanged)" if shared else ""))
 
 
-    echo("CPU and memory are billed per second on the greater of what a worker requests and what it uses; a worker "
-         "that declares no GPU pays those alone, no card.")
+
+
+    echo("CPU and memory are billed per second: a policy's worker - serving or in an eval - its card's standard "
+         "machine, or what it declares where more (seq deploy --dry-run prices it), a policy's build check what it "
+         "requests, a benchmark's machines and a build's the greater of what they request and what they used where "
+         "they share a machine, their request on one of their own; a worker that declares no GPU pays those alone, "
+         "no card.")
+
+
+    standard = {str(k): v for k, v in (prices.get("policy_machines") or {}).items()
+                if ":" not in str(k) and isinstance(v, dict)}
+    if standard:
+        said = [f"{k} {float(v['cpu']):g} cores and {float(v['memory_gib']):g} GiB"
+                for k, v in sorted(standard.items()) if k.lower() != "cpu"]
+        if "cpu" in {k.lower() for k in standard}:
+            none = next(v for k, v in standard.items() if k.lower() == "cpu")
+            said.append(f"no card {float(none['cpu']):g} cores and {float(none['memory_gib']):g} GiB")
+        echo("standard machines (a policy's worker, one card): " + "; ".join(said))
 
 
 
@@ -383,7 +395,10 @@ def show_spend(bal: Any, echo: Echo) -> None:
 
         limit = (f" - it pays past your credits, up to this month's {_usd(bal['month_limit_usd'], whole)} limit"
                  if _amount(bal.get("month_limit_usd")) else "")
-        echo(f"payment   {card.get('brand') or 'card'} ending {card.get('last4') or '····'}"
+
+
+        said = f" ending {card['last4']}" if card.get("last4") else (f" {card['email']}" if card.get("email") else "")
+        echo(f"payment   {card.get('brand') or 'card'}{said}"
              + (f", expires {int(month):02d}/{int(year)}" if _amount(month) and _amount(year) else "") + limit)
     elif "payment_method" in bal:
         echo("payment   none: usage past your credits needs a payment method - add one on the console's Billing page")
@@ -762,10 +777,44 @@ def _show_group(group: dict, echo: Echo) -> None:
 
 
 
+def policy_machines(prices: dict, gpu: str | None) -> dict | None:
+    """The standard machine the platform's price list says a policy's worker of `gpu` ("L4", "L4:4"; None or "cpu" for
+    none) is billed as wherever it runs (`policy_machines`): {"cpu", "memory_gib"}, its sizes alone; None when it names
+    none."""
+    listed = {str(k).lower(): v for k, v in (prices.get("policy_machines") or {}).items()}
+    name, _, n = str(gpu or "cpu").strip().partition(":")
+    key = name.lower() if n.strip() in ("", "1") else f"{name.lower()}:{n.strip()}"
+    got = listed.get(key)
+    return got if isinstance(got, dict) else None
+
+
+def billed_machine(prices: dict, gpu: str | None, cpu: float | None = None,
+                   memory_gib: float | None = None) -> tuple[float, float] | None:
+    """The (cores, GiB) a policy's worker of `gpu` declaring `cpu` and `memory_gib` is billed: its card's standard
+    machine (policy_machines), or what it declares where more - as the platform bills it
+; None when the list names no standard machine of `gpu`.
+"""
+    standard = policy_machines(prices, gpu)
+    if standard is None:
+        return None
+    return max(float(standard["cpu"]), float(cpu or 0)), max(float(standard["memory_gib"]), float(memory_gib or 0))
+
+
+def serving_rates(prices: dict) -> tuple[float, float]:
+    """A policy's worker's CPU and memory rates from the price list, an hour: (per core, per GiB) - the serving ones,
+    the base ones where the list has none."""
+    cpu, mem = prices.get("cpu") or {}, prices.get("memory") or {}
+    return (float(cpu.get("serving_usd_per_core_hour") or cpu.get("usd_per_core_hour") or 0.0),
+            float(mem.get("serving_usd_per_gib_hour") or mem.get("usd_per_gib_hour") or 0.0))
+
+
 def worker_price(resources: Any, prices: dict) -> Optional[dict]:
-    """One worker's price per hour in three parts — its card(s), its CPU and its memory — at the requests it declared
-    (the minimum when undeclared), from the platform's price list. None when its card is not on the list.
-    """
+    """One worker's price per hour in three parts — its card(s), its CPU and its memory — from the platform's price
+    list: its CPU and memory its card's standard machine's, or what it declares (cpu=, memory=, a limit where it has
+    one) where more, at the serving rates (billed_machine), wherever it runs. None when its card or its standard machine
+    is not on the list.
+    
+"""
     first = (resources.gpu or ["cpu"])[0]
     card, _, n = str(first).partition(":")
     cards = int(n) if n.strip().isdigit() else 1
@@ -776,32 +825,29 @@ def worker_price(resources: Any, prices: dict) -> Optional[dict]:
         if row is None:
             return None
         gpu_h = float(row.get("usd_per_hour") or 0) * cards
-    cores = max(float(resources.cpu or 0), MIN_CPU_CORES)
-    gib = max(float(resources.memory_gb or 0), MIN_MEMORY_GIB)
-    cpu_h = cores * float((prices.get("cpu") or {}).get("usd_per_core_hour") or 0)
-    memory_h = gib * float((prices.get("memory") or {}).get("usd_per_gib_hour") or 0)
-    return {"card": card, "cards": cards, "gpu_usd_per_hour": gpu_h, "cpu_cores": cores, "cpu_limit": resources.cpu_limit, "cpu_usd_per_hour": cpu_h,
-            "memory_gib": gib, "memory_limit_gib": resources.memory_limit_gb, "memory_usd_per_hour": memory_h,
-            "cpu_declared": resources.cpu is not None, "memory_declared": resources.memory_gb is not None}
+    declared = [max(float(getattr(resources, k, None) or 0) for k in keys)
+                for keys in (("cpu", "cpu_limit"), ("memory_gb", "memory_limit_gb"))]
+    got = billed_machine(prices, first, *declared)
+    if got is None:
+        return None
+    cores, gib = got
+    core_h, gib_h = serving_rates(prices)
+    return {"card": card, "cards": cards, "gpu_usd_per_hour": gpu_h, "cpu_cores": cores,
+            "cpu_usd_per_hour": cores * core_h, "memory_gib": gib, "memory_usd_per_hour": gib * gib_h}
 
 
 def show_price(p: dict, echo: Echo) -> None:
-    """The three-part hourly price `seq deploy` prints once the deployment is ready."""
-
-    def size(v: float, declared: bool, limit: Any, unit: str) -> str:
-        what = f"{v:g} {unit}" + (f" (up to {float(limit):g})" if limit else "")
-        return what if declared else f"{what} — the minimum; the worker may use more"
-
-    echo("price: one worker, per hour")
+    """The three-part hourly price `seq deploy` prints once the deployment is ready, from the price list where the
+    platform's own figures are not there: its card's standard machine's CPU and memory, or what it declares where more
+    (worker_price)."""
+    echo("price: one worker, per hour, as the price list has it")
     if p["card"].lower() != "cpu":
         echo(f"  GPU     {p['card']} × {p['cards']}  {_usd(p['gpu_usd_per_hour'], per_hour)}")
-    echo(f"  CPU     {size(p['cpu_cores'], p['cpu_declared'], p['cpu_limit'], 'cores')}  "
-         f"{_usd(p['cpu_usd_per_hour'], per_hour)}")
-    echo(f"  memory  {size(p['memory_gib'], p['memory_declared'], p['memory_limit_gib'], 'GiB')}  "
-         f"{_usd(p['memory_usd_per_hour'], per_hour)}")
+    echo(f"  CPU     {p['cpu_cores']:g} cores  {_usd(p['cpu_usd_per_hour'], per_hour)}")
+    echo(f"  memory  {p['memory_gib']:g} GiB  {_usd(p['memory_usd_per_hour'], per_hour)}")
     full = p["gpu_usd_per_hour"] + p["cpu_usd_per_hour"] + p["memory_usd_per_hour"]
     echo(f"  total   {_usd(full, per_hour)}")
-    echo("  CPU and memory are billed on the greater of the request and actual use.")
+    echo("  " + BILLED_AS + ".")
 
 
 def show_measured(measured: dict | None, echo: Echo) -> None:
@@ -861,12 +907,19 @@ def show_gpu(g: dict | None, start_wait_s: Any, echo: Echo) -> None:
         echo(f"  at most {min(caps)} GPU{'s' if min(caps) != 1 else ''} at once ({mine}{acct})")
 
 
+
+BILLED_AS = ("CPU and memory are billed as its card's standard machine, the same wherever it runs, or as much as it "
+             "declares where more")
+
+
 def show_billed_price(p: dict | None, echo: Echo) -> None:
-    """One worker's price per hour as the platform computed it from the build check's measurements: the card, CPU and
-    memory each with what was requested and what serving one robot used - or what its serving workers use now, where
-    that is more - the total at the requests and as billed (the greater of request and use), and the cpu= / memory=
-    that would make the two agree.
-    """
+    """One worker's price per hour as the platform computed it - what it is billed: its card, and its CPU and memory.
+    For a policy's worker (the platform's `machine`) they are its card's standard machine's cores and GiB, or what it
+    declares where more - one price wherever it runs - said with what it requests and what serving one robot used - or
+    what its serving workers use now, where that is more. Elsewhere each is the greater of what was requested and what
+    was used: the total at the requests and as billed, and the cpu= / memory= that would make the two agree.
+    
+"""
     if not p:
         return
     req, used = p.get("requested") or {}, p.get("used") or {}
@@ -880,7 +933,7 @@ def show_billed_price(p: dict | None, echo: Echo) -> None:
 
 
 
-    whose = p["used_from"]
+    whose = p.get("used_from") or {}
     now = "used by its workers now"
     cpu = f"{float(req.get('cpu') or 0):g} cores requested" + (
         f", {float(used['cpu']):g} {now if whose.get('cpu') == 'workers' else 'used serving one robot'}"
@@ -888,6 +941,19 @@ def show_billed_price(p: dict | None, echo: Echo) -> None:
     mem = f"{float(req.get('memory_gib') or 0):g} GiB requested" + (
         f", {float(used['memory_gib']):g} GiB {now if whose.get('memory') == 'workers' else 'used'}"
         if used.get("memory_gib") is not None else "")
+    machine = p.get("machine")
+    if isinstance(machine, dict):
+
+
+        n = int(p.get("machines") or 1)
+        each = "" if n == 1 else f"its {n} machines' "
+        echo(f"  CPU     {each}{float(machine['cpu']):g} cores ({cpu})  "
+             f"{_usd(p.get('cpu_usd_per_hour') or 0, per_hour)}")
+        echo(f"  memory  {each}{float(machine['memory_gib']):g} GiB ({mem})  "
+             f"{_usd(p.get('memory_usd_per_hour') or 0, per_hour)}")
+        echo(f"  total   {_usd(p.get('usd_per_hour') or 0, per_hour)}")
+        echo("  " + BILLED_AS)
+        return
     echo(f"  CPU     {cpu}  {_usd(p.get('cpu_usd_per_hour') or 0, per_hour)}")
     echo(f"  memory  {mem}  {_usd(p.get('memory_usd_per_hour') or 0, per_hour)}")
     at_request, billed = float(p.get("request_usd_per_hour") or 0), float(p.get("usd_per_hour") or 0)

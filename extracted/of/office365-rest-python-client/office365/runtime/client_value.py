@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, Iterator, Optional, Tuple
 
-from typing_extensions import Self
+from typing_extensions import Self, dataclass_transform
 
-from office365.runtime.converters.value import _add_type_metadata, declared_type, deserialize_value, serialize_value
-from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.converters.value import coerce_value, declared_type, serialize_value
+from office365.runtime.odata.json_format import JsonProfile, as_held
+from office365.runtime.schema import EMPTY, TypeSchema
 
 
 def _render(self: "ClientValue") -> str:
@@ -16,6 +18,7 @@ def _render(self: "ClientValue") -> str:
     return describe(self)
 
 
+@dataclass_transform()
 class ClientValue:
     """Represent complex type.
     Complex types consist of a list of properties with no key, and can therefore only exist as properties of a
@@ -23,17 +26,36 @@ class ClientValue:
     """
 
     _is_client_value: bool = True
+    #: What this value declares, read in ``__init_subclass__`` when the class is complete.
+    _schema: ClassVar[TypeSchema] = EMPTY
+    #: The OData name this value declares (``"microsoft.graph.DateTimeTimeZone"``).
+    _odata_type_name: ClassVar[Optional[str]] = None
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Read the class once it is complete: its fields, then the facts they state.
+
+        The order is the whole point. ``dataclass`` is what gives the class its fields
+        -- their names, their defaults and the ``__init__`` a caller writes keywords
+        against -- and the schema is read from those fields, so it has to run second.
+        Nothing above the class can still add a field by now, which is why this is the
+        first moment the schema can answer for the whole class; a decorator above it
+        (``@key``, ``@version``, ``@limit``) states a class-level fact and rebuilds
+        through ``TypeSchema.rebuild``.
+
+        ``dataclass_transform`` on the class is what tells a type checker that this
+        hook, not a literal ``@dataclass`` above each subclass, is what gives the
+        class its constructor: without it every value looks like a class with no
+        arguments.
+        """
         super().__init_subclass__(**kwargs)
-        # ``@dataclass`` generates a ``__repr__`` unless one is already present
-        # in the class ``__dict__``, which would shadow the bounded rendering.
-        # Subclasses run ``__init_subclass__`` before the decorator is applied,
-        # so seeding the method here keeps dataclass-backed values consistent
-        # with every other ClientValue (and with domain overrides that define
-        # their own ``__repr__``).
-        if "__repr__" not in cls.__dict__:
+        dataclass(cls, repr=False)
+        # ``repr=False`` declines to install a rendering, and a rendering only wins against a
+        # later ``dataclass`` -- a subclass of this one that still applies its own -- if the
+        # class already carries it. Pin the bounded rendering a plain value would inherit
+        # anyway; a class that states (or inherits) another one keeps it.
+        if cls.__dict__.get("__repr__") is None and cls.__repr__ is ClientValue.__repr__:
             cls.__repr__ = _render
+        cls._schema = TypeSchema.build(cls)
 
     def __str__(self) -> str:
         return _render(self)
@@ -44,13 +66,37 @@ class ClientValue:
     def __format__(self, format_spec: str) -> str:
         return format(str(self), format_spec)
 
-    def set_property(self, k: str | int, v: Any, persist_changes: bool = True) -> Self:
-        k = str(k)
-        if v is None:
-            setattr(self, k, None)
-            return self
-        setattr(self, k, deserialize_value(declared_type(type(self), k), v, getattr(self, k, None), persist_changes))
+    def hydrate(self, payload: Any, profile: Optional[JsonProfile] = None) -> Self:
+        """Read this value's content from a payload: the mirror of :meth:`to_json`.
+
+        ``profile=None`` is the spelling :meth:`to_json` writes with no profile, so a value
+        round-trips through it; a wire payload needs its own profile (see
+        :meth:`ClientObject.hydrate`). Returns this value, so ``Cls().hydrate(payload)`` chains.
+        """
+        (profile or as_held()).hydrate(self, payload, persist_changes=True)
         return self
+
+    def set_property(self, name: str | int, value: Any, persist_changes: bool = True) -> Self:
+        spelled = str(name)
+        key = self._storage_key(spelled)
+        if value is None:
+            setattr(self, key, None)
+            return self
+        declared = declared_type(type(self), spelled)
+        setattr(self, key, coerce_value(declared, value, getattr(self, key, None), persist_changes))
+        return self
+
+    def _storage_key(self, name: str) -> str:
+        """The attribute that holds ``name``, which a declaration may rename.
+
+        A value keeps its fields as attributes, while a payload spells them the OData
+        way, so the two sides meet at the declaration: ``UserIdInfo`` holds ``NameId``
+        in ``name_id``. ``to_json`` already reads the attribute and writes the declared
+        name; this is the same rule in the other direction. An undeclared name is held
+        under its own spelling, which is what makes an undeclared value work at all.
+        """
+        declared = TypeSchema.of(type(self)).properties.get(name)
+        return declared.attr if declared is not None else name
 
     def get_property(self, name: str, default_value: Any = None) -> Any:
         """Gets a property value, or ``default_value`` when the property is unset.
@@ -62,21 +108,22 @@ class ClientValue:
             name: Name of the property to retrieve
             default_value: Value to return when the property is missing
         """
-        return getattr(self, name, default_value)
+        return getattr(self, self._storage_key(name), default_value)
 
     def __iter__(self) -> Iterator[Tuple[str, Any]]:
         for n, v in vars(self).items():
             yield n, v
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any] | List[Any]:
+    def to_json(self, profile: Optional[JsonProfile] = None) -> Dict[str, Any]:
         """Serializes the ClientValue to JSON format.
 
         Args:
-            json_format: Optional OData JSON formatting options
+            profile: The profile that spells the payload. ``None`` keeps the value as the
+                model holds it, including the fields a request would leave out.
 
         Returns:
-            Dictionary (or list, for collection values) representing the
-            JSON-serialized object
+            Dictionary representing the JSON-serialized value (a collection value
+            overrides this to answer the list of its members)
         """
 
         def _is_valid_value(val):
@@ -89,19 +136,35 @@ class ClientValue:
             elif isinstance(val, ClientValueCollection) and len(val) == 0:
                 return False
             elif isinstance(val, ClientValue):
-                if not any(v is not None for v in vars(val).values()):
+                # A nested value with nothing to send (all members unset or empty) is omitted.
+                if not any(_is_valid_value(v) for v in vars(val).values()):
                     return False
             return True
 
-        result = {k: serialize_value(v, json_format) for k, v in self if _is_valid_value(v)}
-        _add_type_metadata(result, json_format, self.entity_type_name)
-        return result
+        # ``__``-prefixed names are response bookkeeping, not fields of the value.
+        # A declared field may also rename itself and declare who owns its value; a
+        # read-only field is what a response carries and a request must not.
+        schema = TypeSchema.of(type(self))
+        result: Dict[str, Any] = {}
+        for attr, value in self:
+            meta = schema.declared(attr)
+            if attr.startswith("__") or not _is_valid_value(value):
+                continue
+            spelled = meta.name if meta is not None else attr
+            if profile is not None and (
+                (meta is not None and meta.readonly) or not profile.includes(self, meta, spelled, True)
+            ):
+                continue
+            result[spelled] = serialize_value(value, profile)
+        if profile is None:
+            return result
+        return profile.wrap(self, profile.refine(result, schema.properties.values()))
 
     @property
     def entity_type_name(self) -> Optional[str]:
-        """The server-side type name for client value.
+        """The server-side type name for this client value.
 
         Returns:
-            Defaults to the class name
+            The declared OData type name, or ``None`` when the value declares none.
         """
-        return None
+        return self._odata_type_name

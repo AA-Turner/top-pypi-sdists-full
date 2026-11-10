@@ -28,7 +28,11 @@ import math
 from typing import List, Tuple, Dict, Any
 from jhora import const, utils
 from jhora.horoscope.chart import charts,house
-from jhora.panchanga import drik
+""" 
+    drik here is generic model name can be surya_sidhantha or drik depending on value 
+    of const.astrology_model_default value
+"""
+drik = utils.hora_engine_proxy
 
 def _find_planet_sign(planet_positions: List[List[Any]], planet_id: int) -> int:
     """Return zodiac (0..11) where the given planet_id sits in planet_positions."""

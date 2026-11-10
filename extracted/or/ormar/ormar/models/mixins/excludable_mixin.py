@@ -28,14 +28,14 @@ class ExcludableMixin(RelationMixin):
         from ormar.models import ModelRow
 
     @staticmethod
-    def _populate_pk_column(
+    def _populate_pk_columns(
         model: Union[type["Model"], type["ModelRow"]],
         columns: list[str],
         use_alias: bool = False,
     ) -> list[str]:
         """
-        Adds primary key column/alias (depends on use_alias flag) to list of
-        column names that are selected.
+        Adds the primary key columns/aliases (depends on use_alias flag) missing
+        from the list of column names that are selected.
 
         :param model: model on columns are selected
         :type model: type["Model"]
@@ -46,13 +46,11 @@ class ExcludableMixin(RelationMixin):
         :return: list of columns names with pk column in it
         :rtype: list[str]
         """
-        pk_alias = (
-            model.get_column_alias(model.ormar_config.pkname)
-            if use_alias
-            else model.ormar_config.pkname
-        )
-        if pk_alias not in columns:
-            columns.append(pk_alias)
+        key = model.ormar_config.pk
+        names = key.column_aliases() if use_alias else key.fields
+        for name in names:
+            if name not in columns:
+                columns.append(name)
         return columns
 
     @staticmethod
@@ -60,7 +58,8 @@ class ExcludableMixin(RelationMixin):
         model: Union[type["Model"], type["ModelRow"]],
     ) -> list[tuple[str, str]]:
         """
-        Returns cached list of (col_name, field_name) tuples for the model's table.
+        Returns cached list of (col_name, field_name) tuples for the model's table,
+        one per field storing the column (several for a shared column).
         Built once per model class and cached to avoid repeated SA column iteration.
 
         :param model: model to get column pairs for
@@ -72,8 +71,9 @@ class ExcludableMixin(RelationMixin):
         if cached is not None:
             return cached
         pairs = [
-            (col.name, model.get_column_name_from_alias(col.name))
+            (col.name, field_name)
             for col in model.ormar_config.table.columns
+            for field_name in model.get_field_names_of_column(column=col.name)
         ]
         model._table_column_pairs = pairs  # type: ignore[union-attr]
         return pairs
@@ -113,7 +113,9 @@ class ExcludableMixin(RelationMixin):
         if model_excludable.pk_only:
             if not add_pk_columns:
                 return []
-            return cls._populate_pk_column(model=model, columns=[], use_alias=use_alias)
+            return cls._populate_pk_columns(
+                model=model, columns=[], use_alias=use_alias
+            )
         has_include = bool(model_excludable.include)
         has_exclude = bool(model_excludable.exclude)
 
@@ -124,11 +126,13 @@ class ExcludableMixin(RelationMixin):
                 continue
             if has_exclude and model_excludable.is_excluded(field_name):
                 continue
-            columns.append(col_name if use_alias else field_name)
+            name = col_name if use_alias else field_name
+            if name not in columns:
+                columns.append(name)
 
         # always has to return pk column for ormar to work
         if add_pk_columns:
-            columns = cls._populate_pk_column(
+            columns = cls._populate_pk_columns(
                 model=model, columns=columns, use_alias=use_alias
             )
 
@@ -175,7 +179,7 @@ class ExcludableMixin(RelationMixin):
         :rtype: set
         """
         if exclude_primary_keys:
-            exclude.add(cls.ormar_config.pkname)
+            exclude.update(cls.ormar_config.pk.fields)
         if exclude_through_models:
             exclude = exclude.union(cls.extract_through_names())
         return exclude
@@ -213,6 +217,6 @@ class ExcludableMixin(RelationMixin):
             fields_to_exclude = fields_to_exclude.union(
                 model_excludable.exclude.intersection(fields_names)
             )
-        fields_to_exclude = fields_to_exclude - {cls.ormar_config.pkname}
+        fields_to_exclude = fields_to_exclude - set(cls.ormar_config.pk.fields)
 
         return fields_to_exclude

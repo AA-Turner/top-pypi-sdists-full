@@ -35,7 +35,6 @@
 #     subclass Object at runtime, among other necessary fictions
 
 # pylint: disable=no-method-argument,unused-argument,no-self-use,too-many-public-methods
-# ruff: noqa: D418
 # mypy: disable-error-code="misc"
 
 from __future__ import annotations
@@ -163,6 +162,7 @@ from pikepdf._core._qpdf import (
     Pdf,
     StreamDecodeLevel,
     XrefEntry,
+    _OwnerLock,
 )
 from pikepdf._core._qpdf_pagelist import (
     PageList,
@@ -226,6 +226,7 @@ __all__ = [
     '_ObjectList',
     '_ObjectMapping',
     '_ObjectMeta',
+    '_OwnerLock',
     '_scan_raw_content',
     '_PageListIterator',
     '_pop_thread_conversion_mode',

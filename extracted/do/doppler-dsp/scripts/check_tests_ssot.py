@@ -128,6 +128,7 @@ from _c_source import strip_comments
 from _gitbase import (
     BaseUnreadableError,
     added_since_base,
+    ls_tree_at,
     resolve_base,
     show_at,
     show_at_base,
@@ -388,7 +389,7 @@ def double_draws() -> list[str]:
     `dp_bit (&bst) + dp_gauss (&nst)` -- two streams, order irrelevant -- is
     silent, which is the form the header teaches.
 
-    A local wrapper counts as a draw. `test_corr2d_core.c` writes
+    A local wrapper counts as a draw. `test_correlator_core.c` writes
     `_rand_uniform (&seed) + _rand_uniform (&seed) * I`, where the draw is one
     call deeper; a scan that only knew the `dp_*` names walked straight past
     it, and review had to point at it. Any `static` function in the file whose
@@ -542,9 +543,18 @@ ROUNDTRIP = re.compile(r"\bDP_STATE_ROUNDTRIP_TEST\s*\(\s*(\w+)\s*,")
 
 
 def serializable() -> set[str]:
-    """Every prefix whose public header declares `int <p>_set_state (`."""
+    """Every prefix whose public header declares `int <p>_set_state (`.
+
+    A `*_private.h` is not one: it holds an object's internals, never a
+    caller's triplet. The correlator's search flavors declare their halves
+    of the shared functions there (`dp__search_set_state`, dispatched to by
+    `dp_correlator_set_state`), and read as an object of their own they
+    asked for a round trip under a name no caller can reach (#2752 3.4b).
+    """
     found: set[str] = set()
     for h in sorted(INC.rglob("*.h")):
+        if h.name.endswith("_private.h"):
+            continue
         found.update(SET_STATE.findall(strip_comments(h.read_text())))
     return found
 
@@ -956,9 +966,13 @@ def mutator_list_added(base: str) -> list[str]:
 
     A new key may carry a rename (`replaces: <old key>` ending the reason)
     under carry_refusals' four conditions; a key is live while its C
-    function is still declared (`declared_functions()`). One more, this
-    list's own: **the verdict is unchanged across the carry**, so a rename
-    cannot move a row into another verdict.
+    function is still declared (`declared_functions()`) -- unless the new
+    key names the SAME function: a class renamed around an unchanged C
+    function is the one entry under a new name, not a fixed entry traded
+    for a new one (#2752 step 4). One more, this list's own: **the verdict
+    is unchanged across the carry**, so a rename cannot move a row into
+    another verdict -- except out of `NO_RECIPE` or `C_ONLY`, which is free
+    for the reason it is free above: the probe newly ran.
     """
 
     def pairs(text: str) -> list[tuple[str, str]]:
@@ -989,11 +1003,21 @@ def mutator_list_added(base: str) -> list[str]:
     new = sorted({k for k, _ in added if k not in was})
     carries = {k: now[k].replaces for k in new}
     funcs = declared_functions() if any(carries.values()) else set()
-    refused = carry_refusals(
-        was, now, carries, lambda o: o.partition(".")[2] in funcs
-    )
+    carrier = {o: k for k, old in carries.items() for o in old}
+
+    def live(o: str) -> bool:
+        fn = o.partition(".")[2]
+        return fn in funcs and fn != carrier[o].partition(".")[2]
+
+    refused = carry_refusals(was, now, carries, live)
     for k, old in carries.items():
-        if moved := [o for o in old if o in was and was[o] != now[k].verdict]:
+        if moved := [
+            o
+            for o in old
+            if o in was
+            and was[o] != now[k].verdict
+            and was[o] not in MUTATOR_UNPROBED_BEFORE
+        ]:
             refused[k].append(
                 f"it replaces {moved} under another verdict "
                 f"({', '.join(was[o] for o in moved)} -> {now[k].verdict}); "
@@ -1166,12 +1190,7 @@ def ratchet(base: str) -> list[str]:
                     rest = rest[m.end() :]
             excused[name] = (dest, removed, rest.strip())
 
-    listing = subprocess.run(
-        ["git", "ls-tree", "-r", "--name-only", base, "native/tests/"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-    ).stdout.split()
+    listing = ls_tree_at(ROOT, base, "native/tests/")
 
     def at_base(rel: str) -> int:
         """Assertion count for a repo-relative path at the base ref. A file

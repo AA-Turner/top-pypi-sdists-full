@@ -21,7 +21,7 @@ from .._runtime.server.responses import Declared, OperationResponses
 OperationDependencies = TypedDict(
     'OperationDependencies',
     {
-        'search': Sequence[params.Depends]
+        'search': Sequence[params.Depends],
     },
     total=False,
 )
@@ -37,7 +37,19 @@ class Search:
         q: models.SearchGetQuerystring | None
 
     PARAMETERS: Final = ParameterAdapter(
-        arguments=(ParameterArgument(name='q', plan=ParameterPlan(location='querystring', name='', content_media_type='application/x-www-form-urlencoded', fields=(FieldPlan('term', 'string'),), additional=FieldPlan('', 'string')), adapter=TypeAdapter(models.SearchGetQuerystring)),),
+        arguments=(
+            ParameterArgument(
+                name='q',
+                plan=ParameterPlan(
+                    location='querystring',
+                    name='',
+                    content_media_type='application/x-www-form-urlencoded',
+                    fields=(FieldPlan('term', 'string'),),
+                    additional=FieldPlan('', 'string'),
+                ),
+                adapter=TypeAdapter(models.SearchGetQuerystring),
+            ),
+        ),
         record=Parameters,
     )
     RESPONSES: Final = OperationResponses(

@@ -19,6 +19,7 @@
     throttling        the brake that holds every part while S3 is rate limiting
     retry_policy      which statuses are retried, and for how long
     transfer_options  the per-asset cap and process-wide ceiling on concurrency
+    transport         the HTTP client that sends part PUTs and ranged GETs to S3
     errors            the failure both directions raise
 
 Nothing here knows which way the bytes go. multipart_upload supplies parts that
@@ -42,6 +43,12 @@ from .schedulers import (
 )
 from .throttling import ThrottleGate, default_gate
 from .transfer_options import PartsTransferOptions, TransferLimits
+from .transport import (
+    RequestsTransport,
+    S3Transport,
+    TransportResponse,
+    get_s3_transport,
+)
 
 __all__ = [
     "CancellationToken",
@@ -51,14 +58,18 @@ __all__ = [
     "PartsTransferOptions",
     "PartsTransferPool",
     "PartsTransferScheduler",
+    "RequestsTransport",
     "Reservation",
     "S3PartsTransferError",
+    "S3Transport",
     "SerialPartsTransferScheduler",
     "ThrottleGate",
     "TransferCancelled",
     "TransferLimits",
+    "TransportResponse",
     "create_parts_transfer_pool",
     "create_parts_transfer_scheduler",
     "default_gate",
+    "get_s3_transport",
     "reserve",
 ]

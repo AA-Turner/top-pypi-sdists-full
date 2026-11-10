@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -9,12 +9,128 @@ from office365.runtime.client_result import ClientResult
 from office365.runtime.converters.scalars import parse_enum
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.schema import TypeSchema
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.fields.schema import FieldSchema
 from office365.sharepoint.fields.type import FieldType
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.thresholds import Limits, limit
 from office365.sharepoint.translation.user_resource import UserResource
 
+#: ``TypeAsString`` spellings, grouped by the question a caller asks of a column. A column's
+#: Python class is decided by whichever of ``FieldTypeKind``/``TypeAsString`` a read happened to
+#: project (``resolve_field_type``), so "what does this column hold" is answered from its
+#: spelling rather than its class.
+TAXONOMY_FIELD_TYPES = frozenset({"TaxonomyFieldType", "TaxonomyFieldTypeMulti"})
+LOOKUP_FIELD_TYPES = frozenset({"Lookup", "LookupMulti"})
+PERSON_FIELD_TYPES = frozenset({"User", "UserMulti"})
+CHOICE_FIELD_TYPES = frozenset({"Choice", "MultiChoice"})
+MULTI_VALUE_FIELD_TYPES = frozenset({"LookupMulti", "UserMulti", "MultiChoice", "TaxonomyFieldTypeMulti"})
 
+#: One ``<Property><Name>..</Name><Value>..</Value></Property>`` row of a schema's
+#: ``<Customization>`` bag (a managed metadata column's ``TermSetId``, ``SspId``, ...).
+_CUSTOMIZATION_PROPERTY = re.compile(
+    r"<Name>\s*(?P<name>[^<]+?)\s*</Name>\s*<Value\b[^>]*>\s*(?P<value>[^<\s]+)\s*</Value>",
+    re.IGNORECASE,
+)
+
+
+def schema_property(schema_xml: Optional[str], name: str) -> Optional[str]:
+    """Read one value out of a field schema's ``<Customization>`` property bag.
+
+    A managed metadata column keeps its term set binding in the schema, not in a
+    projected member: ``TermSetId``/``SspId`` are not columns of ``SP.Field``, and a
+    structure captured for replay carries the schema only. Reading them here keeps the
+    one spelling of the bag.
+    """
+    if not schema_xml:
+        return None
+    for match in _CUSTOMIZATION_PROPERTY.finditer(schema_xml):
+        if match.group("name").lower() == name.lower():
+            return match.group("value")
+    return None
+
+
+def is_taxonomy_column(type_as_string: Optional[str], schema_xml: Optional[str]) -> bool:
+    """Whether a column is Managed Metadata (bound to a term set).
+
+    ``TypeAsString`` is the direct answer for a column SharePoint provisioned as one;
+    a column whose schema names a ``TermSetId`` is one whatever the type says. Both
+    callers -- a live :class:`Field` and a replayed structure definition -- ask here.
+    """
+    return type_as_string in TAXONOMY_FIELD_TYPES or "TermSetId" in (schema_xml or "")
+
+
+def is_multi_valued_column(type_as_string: Optional[str], allow_multiple_values: Optional[bool]) -> bool:
+    """Whether a column holds many values (a multi-lookup, -person, -choice or -term).
+
+    ``AllowMultipleValues`` is the authoritative flag; ``TypeAsString`` is a hint that is
+    wrong in both directions -- a column created from a ``Type="Lookup" Mult="TRUE"``
+    schema keeps the *single-value* spelling, and a schema's ``Mult`` attribute lies for a
+    choice column (live-probed). Both callers -- a live :class:`Field` and a replayed
+    structure definition -- ask here, so a snapshot answers what the column answered.
+    """
+    return type_as_string in MULTI_VALUE_FIELD_TYPES or allow_multiple_values is True
+
+
+def is_external_data_column(type_as_string: Optional[str], schema_xml: Optional[str]) -> bool:
+    """Whether a column reads its values from an external (BCS) source.
+
+    Such a column cannot be replayed: its values live in the business-data system, not in
+    SharePoint, and the target has no model bound to it. ``FieldType`` carries no member
+    for the spelling, so the type string and the schema are what answer.
+    """
+    return type_as_string == "BusinessData" or 'Type="BusinessData"' in (schema_xml or "")
+
+
+#: What a column may hold: the length of a single line of text, and how many terms a managed
+#: metadata column is expected to carry before downstream experiences stop being guaranteed.
+def _known_field_types() -> Dict[FieldType, Type["Field"]]:
+    """The typed column classes a collection can answer with, keyed by the kind that picks them."""
+    from office365.sharepoint.fields.calculated import FieldCalculated
+    from office365.sharepoint.fields.choice import FieldChoice
+    from office365.sharepoint.fields.computed import FieldComputed
+    from office365.sharepoint.fields.currency import FieldCurrency
+    from office365.sharepoint.fields.date_time import FieldDateTime
+    from office365.sharepoint.fields.guid import FieldGuid
+    from office365.sharepoint.fields.lookup import FieldLookup
+    from office365.sharepoint.fields.multi_choice import FieldMultiChoice
+    from office365.sharepoint.fields.multi_line_text import FieldMultiLineText
+    from office365.sharepoint.fields.text import FieldText
+    from office365.sharepoint.fields.url import FieldUrl
+    from office365.sharepoint.fields.user import FieldUser
+
+    return {
+        FieldType.Text: FieldText,
+        FieldType.Calculated: FieldCalculated,
+        FieldType.Choice: FieldChoice,
+        FieldType.MultiChoice: FieldMultiChoice,
+        FieldType.Lookup: FieldLookup,
+        FieldType.User: FieldUser,
+        FieldType.Computed: FieldComputed,
+        FieldType.URL: FieldUrl,
+        FieldType.Guid: FieldGuid,
+        FieldType.Currency: FieldCurrency,
+        FieldType.Note: FieldMultiLineText,
+        FieldType.DateTime: FieldDateTime,
+    }
+
+
+def _field_variants() -> List[Type["Field"]]:
+    """Every typed column class a read can answer with.
+
+    Most are picked by ``FieldTypeKind``; a managed metadata column reads back as
+    ``Invalid`` by kind and is named by ``TypeAsString``, so completeness is a fact about
+    the list rather than about the kind map alone.
+    """
+    from office365.sharepoint.fields.thumbnail import FieldThumbnail
+    from office365.sharepoint.taxonomy.field import TaxonomyField
+
+    return [*_known_field_types().values(), TaxonomyField, FieldThumbnail]
+
+
+@limit(Limits.TEXT_COLUMN, Limits.DEFAULT_TERMS)
 class Field(Entity):
     """A container for metadata within a SharePoint list and associated list items."""
 
@@ -26,34 +142,10 @@ class Field(Entity):
 
     @staticmethod
     def resolve_field_type(type_id_or_name: Union[str, int, FieldType]) -> Type[Field]:
-        from office365.sharepoint.fields.calculated import FieldCalculated
-        from office365.sharepoint.fields.choice import FieldChoice
-        from office365.sharepoint.fields.computed import FieldComputed
-        from office365.sharepoint.fields.currency import FieldCurrency
-        from office365.sharepoint.fields.date_time import FieldDateTime
-        from office365.sharepoint.fields.guid import FieldGuid
-        from office365.sharepoint.fields.lookup import FieldLookup
-        from office365.sharepoint.fields.multi_choice import FieldMultiChoice
-        from office365.sharepoint.fields.multi_line_text import FieldMultiLineText
-        from office365.sharepoint.fields.text import FieldText
-        from office365.sharepoint.fields.url import FieldUrl
-        from office365.sharepoint.fields.user import FieldUser
-        from office365.sharepoint.taxonomy.field import TaxonomyField
+        from office365.sharepoint.fields.thumbnail import FieldThumbnail
 
-        field_known_types: dict[FieldType, Type[Field]] = {
-            FieldType.Text: FieldText,
-            FieldType.Calculated: FieldCalculated,
-            FieldType.Choice: FieldChoice,
-            FieldType.MultiChoice: FieldMultiChoice,
-            FieldType.Lookup: FieldLookup,
-            FieldType.User: FieldUser,
-            FieldType.Computed: FieldComputed,
-            FieldType.URL: FieldUrl,
-            FieldType.Guid: FieldGuid,
-            FieldType.Currency: FieldCurrency,
-            FieldType.Note: FieldMultiLineText,
-            FieldType.DateTime: FieldDateTime,
-        }
+        field_known_types = _known_field_types()
+
         if isinstance(type_id_or_name, FieldType):
             return field_known_types.get(type_id_or_name, Field)
         if isinstance(type_id_or_name, int):
@@ -62,14 +154,87 @@ class Field(Entity):
                 return field_known_types.get(type_enum, Field)  # type: ignore[arg-type]
             return Field
         elif type_id_or_name in {"TaxonomyFieldType", "TaxonomyFieldTypeMulti"}:
+            from office365.sharepoint.taxonomy.field import TaxonomyField
+
             return TaxonomyField
         elif type_id_or_name == "Thumbnail":
-            from office365.sharepoint.fields.thumbnail import FieldThumbnail
-
             return FieldThumbnail
         else:
             return Field
 
+    @classmethod
+    def scan_columns(cls) -> List[str]:
+        """Every column a read of a mixed collection must project.
+
+        A collection answers each column with the class its ``FieldTypeKind`` names, so a
+        projection built from ``TypeSchema.columns`` alone drops the members only a typed
+        column carries. Two of them decide how a column is written: a lookup or person
+        column whose schema says ``Mult="TRUE"`` reports the single-value spelling and
+        stores the truth in ``AllowMultipleValues``, and a managed-metadata column names
+        the note that carries its payload in ``TextField``. Asking for a name no column of
+        that type has is accepted.
+        """
+        names = set(TypeSchema.of(cls).columns)
+        for typed in _field_variants():
+            names |= set(TypeSchema.of(typed).columns)
+        return sorted(names)
+
+    @property
+    def is_taxonomy(self) -> bool:
+        """Whether the column is Managed Metadata (bound to a term set)."""
+        return is_taxonomy_column(self.type_as_string, self.schema_xml)
+
+    @property
+    def is_lookup(self) -> bool:
+        """Whether the column stores a reference to an item in another list."""
+        return self.type_as_string in LOOKUP_FIELD_TYPES
+
+    @property
+    def is_person(self) -> bool:
+        """Whether the column stores a SharePoint user."""
+        return self.type_as_string in PERSON_FIELD_TYPES
+
+    @property
+    def is_multi_valued(self) -> bool:
+        """Whether the column holds many values (a multi-lookup, -person, -choice or -term).
+
+        ``TypeAsString`` is not authoritative here. A column created from a
+        ``Type="Lookup" Mult="TRUE"`` (or ``Type="User" Mult="TRUE"``) schema keeps that
+        spelling, so SharePoint reports the *single-value* type and only
+        ``AllowMultipleValues`` tells the truth (live-verified). Classifying such a column
+        as single-value left its collection of ids unremapped: a multi-lookup kept source
+        item ids and a multi-person kept source site-user ids on the target.
+
+        The flag is declared on ``FieldLookup`` (and inherited by ``FieldUser`` and
+        ``TaxonomyField``) because that is where ``SP.FieldLookup`` puts it; a column of
+        any other type reports it as ``None``, so this predicate -- which answers for
+        every column -- reads the row rather than a getter it cannot have.
+        """
+        return is_multi_valued_column(self.type_as_string, self.properties.get("AllowMultipleValues"))
+
+    @property
+    def is_multi_choice(self) -> bool:
+        """Whether the column stores a collection of choice values.
+
+        ``TypeAsString == "MultiChoice"`` is the reliable signal. Live-probed: a column
+        created from a ``Type="Choice" Mult="TRUE"`` schema reads back as ``"Choice"``,
+        stores one value in a single ``nvarchar`` slot (a scalar write round-trips, an
+        array is rejected), so its schema ``Mult`` flag is deliberately not used.
+        """
+        return self.type_as_string in CHOICE_FIELD_TYPES and self.is_multi_valued
+
+    @property
+    def is_value_object(self) -> bool:
+        """Whether the column holds a REST value object rather than a scalar.
+
+        A Hyperlink column is the common case: a read returns
+        ``{"Url": ..., "Description": ...}``, which a scalar-only record projection
+        dropped (a plain string is accepted on write but then makes every subsequent
+        *read* of the column fail, live-probed).
+        """
+        return self.type_as_string == "URL"
+
+    @site_access(SiteLevel.MANAGE)
     def enable_index(self) -> ClientResult[bool]:
         """
         Enables the index for a field
@@ -80,6 +245,7 @@ class Field(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def disable_index(self) -> ClientResult[bool]:
         """
         Disables the index for a field
@@ -89,6 +255,7 @@ class Field(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_show_in_display_form(self, flag) -> Self:
         """Sets the value of the ShowInDisplayForm property for this fields.
 
@@ -99,6 +266,7 @@ class Field(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_show_in_edit_form(self, flag):
         """Sets the value of the ShowInEditForm property for this fields.
 
@@ -108,6 +276,7 @@ class Field(Entity):
         qry = ServiceOperationQuery(self, "setShowInEditForm", [flag])
         self.context.add_query(qry)
 
+    @site_access(SiteLevel.MANAGE)
     def set_show_in_new_form(self, flag: bool) -> Self:
         """Sets the value of the ShowInNewForm property for this fields.
 
@@ -118,16 +287,19 @@ class Field(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="Id", readonly=True)
     @property
     def id(self) -> Optional[str]:
         """Gets a value that specifies the field identifier."""
         return self.properties.get("Id", None)
 
+    @odata(name="AutoIndexed", readonly=True)
     @property
     def auto_indexed(self) -> Optional[bool]:
         """Gets a Boolean value that specifies whether the field is auto-indexed."""
         return self.properties.get("AutoIndexed", None)
 
+    @odata(name="DefaultFormula")
     @property
     def default_formula(self) -> Optional[str]:
         return self.properties.get("DefaultFormula", None)
@@ -137,7 +309,7 @@ class Field(Entity):
     def field_type_kind(self) -> FieldType:
         return self.properties.get("FieldTypeKind", FieldType.Unknown)
 
-    @odata(name="DescriptionResource")
+    @odata(name="DescriptionResource", navigation=True)
     @property
     def description_resource(self) -> UserResource:
         """Gets the resource object corresponding to the Description property for a field"""
@@ -146,6 +318,7 @@ class Field(Entity):
             UserResource(self.context, ResourcePath("DescriptionResource", self.resource_path)),
         )
 
+    @odata(name="SchemaXml")
     @property
     def schema_xml(self) -> Optional[str]:
         """
@@ -168,16 +341,18 @@ class Field(Entity):
         lets the copy complete cleanly. Returns ``None`` when the schema is
         not loaded.
         """
-        xml = self.schema_xml
-        if xml is None:
+        schema = FieldSchema.parse(self.schema_xml)
+        if schema is None:
             return None
-        return re.sub(r'\s*(?:SourceID|Version)="[^"]*"', "", xml)
+        return schema.without_origin_attributes().to_xml()
 
+    @odata(name="TypeAsString")
     @property
     def type_as_string(self) -> Optional[str]:
         """Gets a value that specifies the type of the field"""
         return self.properties.get("TypeAsString", None)
 
+    @odata(name="Title")
     @property
     def title(self) -> Optional[str]:
         """Gets a value that specifies the display name of the field."""
@@ -190,6 +365,7 @@ class Field(Entity):
         """
         self.set_property("Title", val)
 
+    @odata(name="Group")
     @property
     def group(self) -> Optional[str]:
         """Gets a value that specifies the field group"""
@@ -200,35 +376,42 @@ class Field(Entity):
         """Sets a value that specifies the field group."""
         self.set_property("Group", val)
 
+    @odata(name="InternalName", readonly=True)
     @property
     def internal_name(self) -> Optional[str]:
         """Gets a value that specifies the field internal name."""
         return self.properties.get("InternalName", None)
 
+    @odata(name="CanBeDeleted", readonly=True)
     @property
     def can_be_deleted(self) -> Optional[bool]:
         """Gets a value that specifies whether the field can be deleted"""
         return self.properties.get("CanBeDeleted", None)
 
+    @odata(name="ClientSideComponentId", beta=True)
     @property
     def client_side_component_id(self) -> Optional[str]:
         return self.properties.get("ClientSideComponentId", None)
 
+    @odata(name="ClientSideComponentProperties", beta=True)
     @property
     def client_side_component_properties(self) -> Optional[str]:
         return self.properties.get("ClientSideComponentProperties", None)
 
+    @odata(name="ClientValidationFormula")
     @property
     def client_validation_formula(self) -> Optional[str]:
         return self.properties.get("ClientValidationFormula", None)
 
+    @odata(name="EnforceUniqueValues")
     @property
     def enforce_unique_values(self) -> Optional[bool]:
         """
         Specifies whether the field enforces unique values.
         """
-        return self.properties.get("enforceUniqueValues", None)
+        return self.properties.get("EnforceUniqueValues", None)
 
+    @odata(name="Filterable", readonly=True)
     @property
     def filterable(self) -> Optional[bool]:
         """
@@ -236,6 +419,7 @@ class Field(Entity):
         """
         return self.properties.get("Filterable", None)
 
+    @odata(name="FromBaseType", readonly=True)
     @property
     def from_base_type(self) -> Optional[bool]:
         """
@@ -243,6 +427,7 @@ class Field(Entity):
         """
         return self.properties.get("FromBaseType", None)
 
+    @odata(name="JSLink", readonly=True)
     @property
     def js_link(self) -> Optional[str]:
         """
@@ -251,6 +436,7 @@ class Field(Entity):
         """
         return self.properties.get("JSLink", None)
 
+    @odata(name="Hidden")
     @property
     def hidden(self) -> Optional[bool]:
         """
@@ -265,6 +451,7 @@ class Field(Entity):
         """
         self.set_property("Hidden", val)
 
+    @odata(name="NoCrawl", readonly=True)
     @property
     def no_crawl(self) -> Optional[bool]:
         """
@@ -272,6 +459,7 @@ class Field(Entity):
         """
         return self.properties.get("NoCrawl", None)
 
+    @odata(name="ReadOnlyField")
     @property
     def read_only_field(self) -> Optional[bool]:
         """
@@ -279,6 +467,7 @@ class Field(Entity):
         """
         return self.properties.get("ReadOnlyField", None)
 
+    @odata(name="DefaultValue")
     @property
     def default_value(self) -> Optional[str]:
         """
@@ -293,8 +482,9 @@ class Field(Entity):
         """
         self.set_property("DefaultValue", val)
 
+    @odata(name="Indexed")
     @property
-    def indexed(self):
+    def indexed(self) -> Optional[bool]:
         return self.properties.get("Indexed", None)
 
     def ensure_indexed(self) -> Self:
@@ -314,6 +504,7 @@ class Field(Entity):
             _enable()
         return self
 
+    @odata(name="TypeDisplayName", readonly=True)
     @property
     def type_display_name(self) -> Optional[str]:
         """
@@ -321,7 +512,7 @@ class Field(Entity):
         """
         return self.properties.get("TypeDisplayName", None)
 
-    @odata(name="TitleResource")
+    @odata(name="TitleResource", navigation=True)
     @property
     def title_resource(self):
         """Gets the resource object corresponding to the Title property for a field"""
@@ -330,6 +521,7 @@ class Field(Entity):
             UserResource(self.context, ResourcePath("TitleResource", self.resource_path)),
         )
 
+    @odata(name="TypeShortDescription", readonly=True)
     @property
     def type_short_description(self) -> Optional[str]:
         """
@@ -348,91 +540,109 @@ class Field(Entity):
             self.__class__ = self.resolve_field_type(value)  # type: ignore[reportAttributeAccessIssue]
         return self
 
+    @odata(name="AutofillInfo", beta=True)
     @property
     def autofill_info(self) -> Optional[str]:
         """Gets the AutofillInfo property"""
         return self.properties.get("AutofillInfo", None)
 
+    @odata(name="ClientValidationMessage")
     @property
     def client_validation_message(self) -> Optional[str]:
         """Gets the ClientValidationMessage property"""
         return self.properties.get("ClientValidationMessage", None)
 
+    @odata(name="CustomFormatter", beta=True)
     @property
     def custom_formatter(self) -> Optional[str]:
         """Gets the CustomFormatter property"""
         return self.properties.get("CustomFormatter", None)
 
+    @odata(name="Description")
     @property
     def description(self) -> Optional[str]:
         """Gets the Description property"""
         return self.properties.get("Description", None)
 
+    @odata(name="Direction")
     @property
     def direction(self) -> Optional[str]:
         """Gets the Direction property"""
         return self.properties.get("Direction", None)
 
+    @odata(name="EntityPropertyName", readonly=True)
     @property
     def entity_property_name(self) -> Optional[str]:
         """Gets the EntityPropertyName property"""
         return self.properties.get("EntityPropertyName", None)
 
+    @odata(name="IndexStatus", readonly=True)
     @property
     def index_status(self) -> Optional[int]:
         """Gets the IndexStatus property"""
         return self.properties.get("IndexStatus", None)
 
+    @odata(name="IsModern", readonly=True)
     @property
     def is_modern(self) -> Optional[bool]:
         """Gets the IsModern property"""
         return self.properties.get("IsModern", None)
 
+    @odata(name="PinnedToFiltersPane", beta=True)
     @property
     def pinned_to_filters_pane(self) -> Optional[bool]:
         """Gets the PinnedToFiltersPane property"""
         return self.properties.get("PinnedToFiltersPane", None)
 
+    @odata(name="Required")
     @property
     def required(self) -> Optional[bool]:
         """Gets the Required property"""
         return self.properties.get("Required", None)
 
+    @odata(name="SchemaXmlWithResourceTokens", readonly=True)
     @property
     def schema_xml_with_resource_tokens(self) -> Optional[str]:
         """Gets the SchemaXmlWithResourceTokens property"""
         return self.properties.get("SchemaXmlWithResourceTokens", None)
 
+    @odata(name="Scope", readonly=True)
     @property
     def scope(self) -> Optional[str]:
         """Gets the Scope property"""
         return self.properties.get("Scope", None)
 
+    @odata(name="Sealed")
     @property
     def sealed(self) -> Optional[bool]:
         """Gets the Sealed property"""
         return self.properties.get("Sealed", None)
 
+    @odata(name="ShowInFiltersPane", beta=True, readonly=True)
     @property
     def show_in_filters_pane(self) -> Optional[int]:
         """Gets the ShowInFiltersPane property"""
         return self.properties.get("ShowInFiltersPane", None)
 
+    @odata(name="Sortable", readonly=True)
     @property
     def sortable(self) -> Optional[bool]:
         """Gets the Sortable property"""
         return self.properties.get("Sortable", None)
 
+    @odata(name="StaticName")
     @property
     def static_name(self) -> Optional[str]:
         """Gets the StaticName property"""
         return self.properties.get("StaticName", None)
 
+    @odata(name="ValidationFormula")
     @property
     def validation_formula(self) -> Optional[str]:
         """Gets the ValidationFormula property"""
         return self.properties.get("ValidationFormula", None)
 
+    @odata(name="ValidationMessage")
     @property
     def validation_message(self) -> Optional[str]:
         """Gets the ValidationMessage property"""

@@ -52,7 +52,12 @@ from datetime import date as _date
 from pyIslam.praytimes import PrayerConf, Prayer, LIST_FAJR_ISHA_METHODS
 
 from jhora import utils
-from jhora.panchanga import drik
+""" 
+    drik here is generic model name can be surya_sidhantha or drik depending on value 
+    of const.astrology_model_default value
+"""
+drik = utils.hora_engine_proxy
+
 import swisseph as swe
 
 # ==========================================================

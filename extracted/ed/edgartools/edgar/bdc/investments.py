@@ -2286,11 +2286,18 @@ def _exclude_restated_rows(rows: list[PortfolioInvestment]):
         parts = [o for o in kept if o is not inv and o.identifier.startswith(ident)
                  and len(o.identifier) > len(ident) and not o.identifier[len(ident)].isalnum()]
         if parts and abs(sum(map(fv, parts)) - fv(inv)) <= tolerance(len(parts)):
-            # A row with its own cost is a holding, not a header over one row:
-            # ARCC's "Proofpoint, Inc. | Second lien senior secured loan" (cost
-            # 52.6M) and "... loan 1" (cost 51.6M) are both worth 50.5M (GH #1505)
+            # A row with its own cost over one row is a holding unless the row
+            # repeats that cost under a longer label. ARCC's "Proofpoint, Inc. |
+            # Second lien senior secured loan" (cost 52.6M) and "... loan 1"
+            # (cost 51.6M) are both worth 50.5M (GH #1505); ARCC's "... loan" and
+            # "... loan 1" pairs that share a cost differ only by a counter. PFX's
+            # company subtotals repeat their holding's cost (GH #1583).
             if inv.cost is not None and len(parts) == 1:
-                continue
+                part = parts[0]
+                restated = (part.cost is not None and abs(part.cost - inv.cost) <= tolerance(1)
+                            and not re.fullmatch(r' \w+', part.identifier[len(ident):]))
+                if not restated:
+                    continue
             drop(inv, f"total of {len(parts)} row(s) that extend it")
 
     # One identifier spelled two ways
@@ -2782,9 +2789,9 @@ class PortfolioInvestments:
             {
                 'company_name': inv.company_name,
                 'investment_type': inv.investment_type,
-                'fair_value': float(inv.fair_value) if inv.fair_value else None,
-                'cost': float(inv.cost) if inv.cost else None,
-                'principal_amount': float(inv.principal_amount) if inv.principal_amount else None,
+                'fair_value': float(inv.fair_value) if inv.fair_value is not None else None,
+                'cost': float(inv.cost) if inv.cost is not None else None,
+                'principal_amount': float(inv.principal_amount) if inv.principal_amount is not None else None,
                 'shares': inv.shares,
                 'interest_rate': inv.interest_rate,
                 'pik_rate': inv.pik_rate,
@@ -2998,7 +3005,8 @@ class PortfolioInvestments:
 
         Args:
             xbrl: The XBRL object from filing.xbrl()
-            period: Optional period (e.g., '2024-12-31'). If None, uses latest instant.
+            period: Optional period (e.g., '2024-12-31'). If None, uses the report
+                date when it carries holdings, else the latest instant.
             include_untyped: If False (default), excludes investments with "Unknown" type.
 
         Returns:
@@ -3017,11 +3025,13 @@ class PortfolioInvestments:
             if not fv_facts:
                 return cls([], period=None)
 
-            # Get unique periods and use the latest
+            # Use the report date when it carries holdings, else the latest instant:
+            # a roll-forward tagged on a later context must not replace the schedule.
             periods = set(f.get('period_instant') for f in fv_facts if f.get('period_instant'))
             if not periods:
                 return cls([], period=None)
-            period = max(periods)
+            report_date = getattr(xbrl, 'period_of_report', None)
+            period = report_date if report_date in periods else max(periods)
 
         # The dimension key for investment identifier
         dim_key = 'dim_us-gaap_InvestmentIdentifierAxis'

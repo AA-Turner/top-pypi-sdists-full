@@ -55,7 +55,7 @@ class StaticTrafficPolicy(object):
     def weights(self):
         """Gets the weights of this StaticTrafficPolicy.  # noqa: E501
 
-        Relative weight of each cloud resource, by cloud resource name. Must cover every cloud resource the service runs on.  # noqa: E501
+        Relative weight of each cloud resource, by cloud resource name, from 1 to 100. Must cover every cloud resource the service runs on.  # noqa: E501
 
         :return: The weights of this StaticTrafficPolicy.  # noqa: E501
         :rtype: dict(str, int)
@@ -66,7 +66,7 @@ class StaticTrafficPolicy(object):
     def weights(self, weights):
         """Sets the weights of this StaticTrafficPolicy.
 
-        Relative weight of each cloud resource, by cloud resource name. Must cover every cloud resource the service runs on.  # noqa: E501
+        Relative weight of each cloud resource, by cloud resource name, from 1 to 100. Must cover every cloud resource the service runs on.  # noqa: E501
 
         :param weights: The weights of this StaticTrafficPolicy.  # noqa: E501
         :type: dict(str, int)

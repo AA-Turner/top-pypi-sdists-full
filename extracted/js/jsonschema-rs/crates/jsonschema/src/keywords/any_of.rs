@@ -1,4 +1,4 @@
-use crate::LazyInstance;
+use crate::{evaluation::InstancePosition, LazyInstance};
 use std::borrow::Cow;
 
 use crate::{
@@ -65,9 +65,10 @@ impl AnyOfValidator<SerdeJson> {
 impl<F: Json, D: Dispatch<F>> Validate<F> for AnyOfValidator<F, D> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         match self.dispatch.candidates(instance) {
-            Candidates::All => self.schemas.iter().any(|s| s.is_valid(instance, ctx)),
-            Candidates::One(idx) => self.schemas[idx].is_valid(instance, ctx),
-            Candidates::None => false,
+            Candidates::All => self.schemas.iter().any(|s| s.is_valid_child(instance, ctx)),
+            Candidates::Only(branches) => branches
+                .iter()
+                .any(|&idx| self.schemas[idx].is_valid_child(instance, ctx)),
         }
     }
 
@@ -131,14 +132,20 @@ impl<F: Json, D: Dispatch<F>> Validate<F> for AnyOfValidator<F, D> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -158,7 +165,7 @@ impl<F: Json, D: Dispatch<F>> Validate<F> for AnyOfValidator<F, D> {
             for node in &self.schemas {
                 let child =
                     node.evaluate_instance_at(instance, location, instance_location, tracker, ctx);
-                failures.push(&mut ctx.arena, child);
+                failures.push(ctx.arena(), child);
             }
             EvaluationResult::from_children(failures)
         } else {
@@ -171,7 +178,7 @@ impl<F: Json, D: Dispatch<F>> Validate<F> for AnyOfValidator<F, D> {
                     tracker,
                     ctx,
                 );
-                valid_results.push(&mut ctx.arena, child);
+                valid_results.push(ctx.arena(), child);
             }
             EvaluationResult::from_children(valid_results)
         }
@@ -202,7 +209,7 @@ impl SingleAnyOfValidator<SerdeJson> {
 
 impl<F: Json> Validate<F> for SingleAnyOfValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
-        self.node.is_valid(instance, ctx)
+        self.node.is_valid_child(instance, ctx)
     }
 
     fn validate<'i>(
@@ -260,21 +267,27 @@ impl<F: Json> Validate<F> for SingleAnyOfValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
         let node =
             self.node
                 .evaluate_instance_at(instance, location, instance_location, tracker, ctx);
-        EvaluationResult::from_node(&mut ctx.arena, node)
+        EvaluationResult::from_node(ctx.arena(), node)
     }
 }
 

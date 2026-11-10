@@ -1,3 +1,5 @@
+mod repetition;
+mod sequence;
 mod syntax;
 
 use std::{borrow::Cow, fmt::Write};
@@ -10,6 +12,8 @@ use regex_syntax::{
     hir::{Class, Hir, HirKind},
 };
 
+pub use repetition::{search_form, RepeatedClass, Search};
+pub use sequence::Sequence;
 pub use syntax::is_valid_ecma_regex;
 
 /// Convert ECMA Script 262 regex to Rust regex on the best effort basis.
@@ -22,7 +26,7 @@ pub use syntax::is_valid_ecma_regex;
 #[allow(clippy::result_unit_err)]
 pub fn to_rust_regex(pattern: &str) -> Result<Cow<'_, str>, ()> {
     let mut pattern = escape_class_set_syntax(pattern);
-    let mut ast = loop {
+    let ast = loop {
         match Parser::new().parse(&pattern) {
             Ok(ast) => break ast,
             Err(error) if *error.kind() == ErrorKind::EscapeUnrecognized => {
@@ -66,22 +70,7 @@ pub fn to_rust_regex(pattern: &str) -> Result<Cow<'_, str>, ()> {
             }
         };
     };
-    let mut has_changes;
-    loop {
-        let translator = Ecma262Translator::new(pattern);
-        (pattern, has_changes) = ast::visit(&ast, translator).map_err(|_| ())?;
-        if !has_changes {
-            return Ok(pattern);
-        }
-        match Parser::new().parse(&pattern) {
-            Ok(updated_ast) => {
-                ast = updated_ast;
-            }
-            Err(_) => {
-                return Err(());
-            }
-        }
-    }
+    ast::visit(&ast, Ecma262Translator::new(pattern)).map_err(|_| ())
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -207,7 +196,6 @@ fn escape_class_set_syntax(pattern: &str) -> Cow<'_, str> {
 struct Ecma262Translator<'a> {
     pattern: Cow<'a, str>,
     offset: usize,
-    has_changes: bool,
 }
 
 impl<'a> Ecma262Translator<'a> {
@@ -215,7 +203,6 @@ impl<'a> Ecma262Translator<'a> {
         Self {
             pattern: input,
             offset: 0,
-            has_changes: false,
         }
     }
 
@@ -235,7 +222,6 @@ impl<'a> Ecma262Translator<'a> {
             }
         }
         self.offset += replacement.len() - (end.offset - start.offset);
-        self.has_changes = true;
     }
 
     fn replace(&mut self, cls: &ClassPerl) {
@@ -270,11 +256,11 @@ impl<'a> Ecma262Translator<'a> {
 }
 
 impl<'a> Visitor for Ecma262Translator<'a> {
-    type Output = (Cow<'a, str>, bool);
+    type Output = Cow<'a, str>;
     type Err = ast::Error;
 
     fn finish(self) -> Result<Self::Output, Self::Err> {
-        Ok((self.pattern, self.has_changes))
+        Ok(self.pattern)
     }
 
     fn visit_class_set_item_pre(&mut self, item: &ast::ClassSetItem) -> Result<(), Self::Err> {
@@ -284,12 +270,13 @@ impl<'a> Visitor for Ecma262Translator<'a> {
         Ok(())
     }
     fn visit_post(&mut self, ast: &Ast) -> Result<(), Self::Err> {
-        if self.has_changes {
-            return Ok(());
-        }
         match ast {
             Ast::ClassPerl(perl) => {
                 self.replace(perl);
+            }
+            // ECMA-262 `.` rejects every line terminator, Rust's only `\n`.
+            Ast::Dot(span) => {
+                self.replace_impl(span, r"[^\n\r\x{2028}\x{2029}]");
             }
             Ast::Literal(literal) => {
                 if let Literal {
@@ -545,10 +532,83 @@ pub fn pattern_as_prefix(pattern: &str) -> Option<Cow<'_, str>> {
     }
 }
 
+/// Splits `^(?=X1)...(?=Xn)Z` into `^(?:X1)`, ..., `^(?:Xn)`, `^(?:Z)`: lookaheads at the start all
+/// hold there and consume nothing, so the pattern matches exactly when every part does.
+///
+/// `None` when the pattern is not of that shape, including a top-level `|` (it would split the
+/// anchor from the rest) or a quantifier on a lookahead. Parts may still contain constructs a
+/// lookaround-free engine rejects, such as a backreference into a lookahead group.
+#[must_use]
+pub fn split_leading_lookaheads(pattern: &str) -> Option<Vec<String>> {
+    let mut rest = pattern.strip_prefix('^')?;
+    let mut parts = Vec::new();
+    while let Some(after) = rest.strip_prefix("(?=") {
+        let end = group_end(after)?;
+        parts.push(format!("^(?:{})", &after[..end]));
+        rest = &after[end + 1..];
+    }
+    if parts.is_empty() || rest.starts_with(['*', '+', '?', '{']) || has_top_level_alternation(rest)
+    {
+        return None;
+    }
+    parts.push(format!("^(?:{rest})"));
+    Some(parts)
+}
+
+/// Index of the first character outside escapes and character classes for which `stop` holds,
+/// given the group depth before it; `None` when none does or a `)` has no `(`.
+fn scan_top_level(pattern: &str, mut stop: impl FnMut(char, usize) -> bool) -> Option<usize> {
+    let mut depth = 0_usize;
+    let mut in_class = false;
+    let mut chars = pattern.char_indices();
+    while let Some((idx, ch)) = chars.next() {
+        match ch {
+            '\\' => {
+                chars.next();
+            }
+            '[' if !in_class => in_class = true,
+            ']' if in_class => in_class = false,
+            _ if in_class => {}
+            _ if stop(ch, depth) => return Some(idx),
+            '(' => depth += 1,
+            ')' => depth = depth.checked_sub(1)?,
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Index of the `)` closing a group whose body starts at the beginning of `body`.
+fn group_end(body: &str) -> Option<usize> {
+    scan_top_level(body, |ch, depth| ch == ')' && depth == 0)
+}
+
+fn has_top_level_alternation(pattern: &str) -> bool {
+    scan_top_level(pattern, |ch, depth| ch == '|' && depth == 0).is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use test_case::test_case;
+
+    #[test_case(r"^(?=[^!*,;{}[\]~\n]+$)(?=(.*\w)).+$", Some(vec![r"^(?:[^!*,;{}[\]~\n]+$)", r"^(?:(.*\w))", r"^(?:.+$)"]); "two lookaheads")]
+    #[test_case(r"^(?=a|b)c", Some(vec![r"^(?:a|b)", r"^(?:c)"]); "alternation inside a lookahead")]
+    #[test_case(r"^(?=[)])x", Some(vec![r"^(?:[)])", r"^(?:x)"]); "parenthesis in a class")]
+    #[test_case(r"^(?=\))x", Some(vec![r"^(?:\))", r"^(?:x)"]); "escaped parenthesis")]
+    #[test_case(r"^(?=a)", Some(vec![r"^(?:a)", r"^(?:)"]); "nothing after the lookaheads")]
+    #[test_case(r"^(?=a)b|c", None; "top-level alternation")]
+    #[test_case(r"^(?=a)*b", None; "quantified lookahead")]
+    #[test_case(r"(?=a)b", None; "not anchored")]
+    #[test_case(r"^(?!a)b", None; "negative lookahead")]
+    #[test_case(r"^ab", None; "no lookahead")]
+    #[test_case(r"^(?=a", None; "unbalanced")]
+    fn leading_lookaheads(pattern: &str, expected: Option<Vec<&str>>) {
+        assert_eq!(
+            split_leading_lookaheads(pattern),
+            expected.map(|parts| parts.into_iter().map(String::from).collect::<Vec<_>>())
+        );
+    }
 
     #[test_case(r"\d", "[0-9]"; "digit class")]
     #[test_case(r"\D", "[^0-9]"; "non-digit class")]
@@ -576,6 +636,7 @@ mod tests {
     #[test_case(r"[\[\]]", r"[\[\]]"; "escaped brackets are unchanged")]
     #[test_case(r"[^&]", r"[^&]"; "single ampersand is unchanged")]
     #[test_case(r"a&&b", r"a&&b"; "operator syntax outside a class is unchanged")]
+    #[test_case(r"\d.[\w.]\D.", r"[0-9][^\n\r\x{2028}\x{2029}][[A-Za-z0-9_].][^0-9][^\n\r\x{2028}\x{2029}]"; "dots mixed with class escapes")]
     fn test_ecma262_to_rust_regex(input: &str, expected: &str) {
         let result = to_rust_regex(input).unwrap();
         assert_eq!(result, expected);
@@ -621,6 +682,19 @@ mod tests {
                 c as u32
             );
         }
+    }
+
+    #[test_case("\n", false; "line feed")]
+    #[test_case("\r", false; "carriage return")]
+    #[test_case("\u{2028}", false; "line separator")]
+    #[test_case("\u{2029}", false; "paragraph separator")]
+    #[test_case("a", true; "letter")]
+    #[test_case("\t", true; "tab")]
+    #[test_case("\u{85}", true; "next line")]
+    #[test_case("\u{1f600}", true; "astral character")]
+    fn dot_rejects_line_terminators(input: &str, expected: bool) {
+        let regex = regex::Regex::new(&to_rust_regex("^.$").unwrap()).unwrap();
+        assert_eq!(regex.is_match(input), expected);
     }
 
     #[test]

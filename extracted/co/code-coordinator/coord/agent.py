@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import fnmatch
 import functools
+import hashlib
 import json
 import logging
 import os
@@ -31,6 +32,7 @@ from coord.claude_setup_token import inject_setup_token
 from coord.config_reload import reload_config_if_stale
 from coord.models import DELIVERABLE_ANALYSIS_LABEL
 from coord.platform_paths import default_coord_dir
+from coord.smoke_tags import smoke_leg_capabilities
 
 if TYPE_CHECKING:
     # Type-only import to give `_spawn_pty` a precise annotation without
@@ -144,7 +146,42 @@ REFUSED_POLICY = "refused_policy"
 # exactly: terminal, no-attempt-spent park, no auto-retry — see
 # `coord.models.PREMISE_REFUSAL_MARKER`/`is_premise_refusal_reason` and
 # `coord/drive_queue.py`'s park branch for the messaging difference.
+#
+# #3923: also the landing spot for "already implemented" — the worker's own
+# finding that the requested behaviour already exists (and is already
+# merged/shipped), refuting the issue's IMPLICIT premise ("this needs
+# building") the same way quadraui#812 refuted an explicit one. Before this,
+# that finding had no distinct status: it fell through to the bare #448
+# ADVISORY default, which the comment on that constant already named as the
+# exact failure mode ("auto_reassign would loop forever on 'already
+# implemented' reports") — three independent relaunches of quadraui#2256
+# each re-spent a fix round rediscovering the identical finding before the
+# row hit the #2972 ceiling and blocked, with a downstream row stuck behind
+# it reading "will never satisfy". Parking here instead costs zero fix
+# rounds and waits for an operator's one-line confirmation
+# (`coord drive-queue clear-refusal`) rather than a third independent
+# relaunch re-proving what the first one already found.
 REFUSED_PREMISE = "refused_premise"
+
+# #3931: a THIRD zero-commit clean-exit shape, distinct from both REFUSED_
+# POLICY and REFUSED_PREMISE above — the worker's own final message (or an
+# explicit `WORK_OUTCOME: needs-decomposition` marker, see `coord.
+# worker_events.classify_zero_commit_outcome`) concludes the issue is too
+# large for one leg and proposes a split, rather than finding a standing
+# rule or a false/already-met premise. The #3922 incident this exists for:
+# three independent work legs, ~20 minutes, each separately concluding "this
+# needs epic decomposition" with the same proposed 5-6-way split, each
+# landing as an ordinary #448 ADVISORY and getting relaunched — spending the
+# entire #2972 fix-round budget rediscovering the first leg's own answer
+# before the row blocked on the ceiling. The first leg's answer was already
+# correct and complete; the other two cost money and did nothing new.
+#
+# Terminal after exactly ONE leg, same "no attempt spent" posture as REFUSED_
+# POLICY/REFUSED_PREMISE: relaunching cannot produce a different split, only
+# a second opinion on the same one. The remedy is epic decomposition itself
+# (filing the proposed split as separate issues), which is coordinator/
+# operator work, not something a relaunch can do.
+NEEDS_DECOMPOSITION = "needs_decomposition"
 
 # #448: spec types that are expected to push commits, so a clean exit with
 # zero commits is interesting (advisory).  Review/smoke workers commit
@@ -2431,6 +2468,7 @@ def stash_artifacts_for_branch(
     assignment_id: str | None = None,
     log_path: str | None = None,
     unmatched_out: "list[str] | None" = None,
+    leg_suffix: str | None = None,
 ) -> int:
     """Copy build artifacts from *worktree_path* into the persistent stash.
 
@@ -2465,6 +2503,15 @@ def stash_artifacts_for_branch(
     patterns matched but at least one didn't).  When not provided the
     per-pattern tracking is skipped.
 
+    *leg_suffix* (#3912) is forwarded to
+    :func:`coord.cargo_cache.target_dir_for_repo` for the worktree-glob-miss
+    cargo-cache fallback below — pass the SAME value the build itself used
+    (:func:`_fanout_leg_cargo_suffix`) so a #3182 fan-out leg's artifacts are
+    looked for where they were actually built
+    (``<cache>/<repo>/fanout-leg/<tag>/debug/...``), not the bare per-repo
+    cache an ordinary single-leg assignment uses. ``None`` (the default,
+    and every pre-#3912 caller) is unaffected.
+
     Returns the number of files copied (0 for a no-op).
     """
     if not patterns:
@@ -2490,7 +2537,7 @@ def stash_artifacts_for_branch(
     # any pattern that misses in the worktree, so a Rust repo's
     # ``artifact_paths`` keeps resolving (and #1357's silent stash-miss does
     # not come back through the front door).
-    _cargo_dir = cargo_cache.target_dir_for_repo(repo_name, state_dir)
+    _cargo_dir = cargo_cache.target_dir_for_repo(repo_name, state_dir, leg_suffix)
     if _cargo_dir is not None and not _cargo_dir.is_dir():
         _cargo_dir = None
 
@@ -3495,6 +3542,8 @@ def _git_worktree_add(
     *,
     log_path: str | None = None,
     default_branch: str | None = None,
+    assignments: "dict[str, AgentAssignment] | None" = None,
+    assignment_id: str | None = None,
 ) -> None:
     """Run ``git worktree add <add_args>``, retrying once on a branch collision.
 
@@ -3504,6 +3553,30 @@ def _git_worktree_add(
     conflicting worktree is force-removed, git prunes the stale admin entry, and
     the add is retried exactly once.  Any other git error, or a failure after the
     single retry, is re-raised so the caller sees a clear ``_GitError``.
+
+    Before that force-remove, the conflicting worktree's own liveness is
+    checked via :func:`_worktree_assignment_is_live` — the SAME question
+    :func:`_free_branch_in_worktrees` already asked immediately before this
+    call ran. A live conflict (e.g. a #3182 fan-out sibling still mid-build
+    on the same branch) is a hard error here, never force-removed or
+    retried — the loser reports "collision" and the winner's build
+    survives untouched.
+
+    *assignments* (optional, mirroring :func:`_free_branch_in_worktrees`) is
+    a ``dict(self._assignments)`` snapshot the caller already has to hand;
+    ``None`` (every interactive-launcher call site, which has no such table)
+    falls back to the tmux-session check alone inside
+    :func:`_worktree_assignment_is_live` — still strictly safer than no
+    check at all.
+
+    *assignment_id* (optional) is THIS dispatch's own assignment id — when
+    the conflicting worktree's name matches it, the liveness check is
+    skipped and the collision is force-removed and retried as usual.
+    *assignments* is a snapshot taken while this very assignment is
+    already PENDING/RUNNING, so without this a conflict naming THIS
+    assignment's own leftover worktree would read as "live" against its
+    own snapshot entry — never a sibling's build, and never something
+    worth a hard, permanent error over.
 
     #1693: the conflicting path is *scraped out of git's error text*, so it can
     name anything git happens to mention — including the **base checkout**,
@@ -3664,6 +3737,40 @@ def _git_worktree_add(
             f"re-dispatch."
         ) from original
 
+    # #3912: never force-remove a worktree whose assignment is still live —
+    # the exact same question `_free_branch_in_worktrees` already asked
+    # for this same path moments earlier. A hard error here, not a third
+    # retry: removing it would delete a sibling leg's live checkout
+    # mid-build.
+    #
+    # The one exception: a conflicting path naming THIS dispatch's own
+    # assignment id is never a sibling's build — only ever this
+    # assignment's own leftover worktree (a retry reusing the same id, a
+    # self-heal re-add) — so the liveness check is skipped for it and the
+    # collision is force-removed and retried like any other self-owned
+    # stale worktree.
+    conflicting_assignment_id = Path(conflicting_path).name
+    if (
+        conflicting_assignment_id != assignment_id
+        and _worktree_assignment_is_live(conflicting_assignment_id, assignments)
+    ):
+        if log_path:
+            _append_log_line(
+                log_path,
+                f"# worktree-add: collision on {conflicting_path!r} — "
+                f"assignment {conflicting_assignment_id!r} is still live "
+                f"(#3912). NOT force-removing; refusing instead of risking "
+                f"a sibling's live build.\n",
+            )
+        raise _GitError(
+            f"cannot create a worktree for branch "
+            f"{_branch_from_add_args(add_args)!r}: the conflicting worktree "
+            f"{conflicting_path!r} belongs to assignment "
+            f"{conflicting_assignment_id!r}, which is still live "
+            f"(RUNNING/PENDING or an active tmux session). Refusing to "
+            f"remove it (#3912) — re-dispatch once that assignment finishes."
+        ) from original
+
     # Retry path: free the conflicting worktree and try again once.
     if log_path:
         _append_log_line(
@@ -3701,6 +3808,39 @@ def _branch_from_add_args(add_args: list[str]) -> str:
     if len(add_args) == 2:
         return add_args[1]
     return " ".join(add_args)
+
+
+def _fanout_leg_cargo_suffix(issue_title: str) -> str | None:
+    """The ``leg_suffix`` to pass to :func:`coord.cargo_cache.cargo_env`/
+    :func:`coord.cargo_cache.target_dir_for_repo` for an assignment whose
+    ``issue_title`` is *issue_title*, or ``None``.
+
+    ``None`` for every ordinary assignment — a plain work/review/single-leg
+    smoke row never carries a ``[smoke:<caps>]`` tag
+    (:func:`coord.smoke_tags.smoke_leg_capabilities`), so the caller falls
+    back to the bare per-repo shared cache. Only a #3182 fan-out leg gets
+    its own capability-tagged subdirectory, so concurrent sibling
+    partitions on the same machine never race on the same cargo target
+    dir — see :func:`coord.cargo_cache.target_dir_for_repo`'s docstring.
+
+    The returned tag is a human-readable ``+``-joined capability list, a
+    dash, and a short hash of the capability tuple. The hash — not the
+    readable part — is what guarantees two different sibling partitions
+    never nest under the same directory: capability names may themselves
+    contain ``+``/``-``/``_`` (:data:`coord.smoke_tags._LEG_TAG_RE`'s
+    charset), so a single capability literally named e.g.
+    ``"gtk-windows"`` and the two-capability partition ``("gtk",
+    "windows")`` would otherwise produce the identical readable string
+    once :func:`coord.cargo_cache.target_dir_for_repo` remaps ``+`` to
+    ``-`` for the filesystem. Hashed over a NUL-joined encoding (a byte no
+    capability name can contain), so the hash alone is unambiguous
+    regardless of what the readable prefix collapses to.
+    """
+    caps = smoke_leg_capabilities(issue_title)
+    if not caps:
+        return None
+    digest = hashlib.sha256("\x00".join(caps).encode("utf-8")).hexdigest()[:8]
+    return f"{'+'.join(caps)}-{digest}"
 
 
 def _set_worktree_pull_rebase(repo_path: Path, worktree_path: Path) -> None:
@@ -4140,6 +4280,17 @@ class AgentAssignment:
     # `analysis_deliverable` for the same reason those four are mutually
     # exclusive with each other.
     premise_refusal_reason: str | None = None
+    # #3931: the worker's own final message (or its `WORK_OUTCOME:` marker's
+    # free-text reason) when `_reap` classifies a clean (exit_code==0),
+    # 0-commit exit as needing epic decomposition (`status ==
+    # NEEDS_DECOMPOSITION`) — see `coord.worker_events.
+    # classify_zero_commit_outcome`. Mirrors `premise_refusal_reason`/
+    # `policy_refusal_reason` exactly, as its own field for the same reason:
+    # a caller can tell which of the three shapes it's looking at from the
+    # field name alone. `None` on every other outcome, mutually exclusive
+    # with the other four zero-commit fields above for the same reason they
+    # are mutually exclusive with each other.
+    needs_decomposition_reason: str | None = None
     # #2316: set when `_reap` classifies a clean (exit_code==0), 0-commit
     # exit as a TRUNCATION — the worker's last `result`/`step_finish` event
     # carries a `stop_reason` in `_TRUNCATION_STOP_REASONS` (opencode's
@@ -4268,14 +4419,14 @@ Rules:
 - Stay within the files listed in your briefing. If your planned diff \
 will touch significantly more files or modules than the briefing's \
 `## Files` declares, you are over-scoping — a sprawling single-pass \
-change is the #1 cause of avoidable smoke-test failures. Two options, in \
-preference order: \
-(a) decompose and fan out — use the Agent tool to spawn narrowly-scoped \
-subagents (each touching ≤3 files), coordinate their results in this \
-session, and run the scoped test suite before pushing; \
-(b) if the issue genuinely needs splitting into separate issues, report \
-in your final message that this should be epic-decomposed and stop. \
-Either way, do not attempt a 10+ file single-pass change.
+change is the #1 cause of avoidable smoke-test failures. Do not attempt \
+a 10+ file single-pass change. Instead, stop and report that the issue \
+needs splitting into separate issues, using the \
+`WORK_OUTCOME: needs-decomposition — <the split you'd propose>` marker \
+documented below. (There is no subagent tool on this leg to fan out \
+with — `Task` is disallowed for a `type="work"` session unless the issue \
+carries the `coord:workflow` label; an issue that size needs a coordinator- \
+level split, not a single leg working around its own tool surface.)
 - If the briefing lists forbidden files, do NOT read or modify them. \
 They are managed by the coordinator.
 - Code comments describe the code as it is now, never its history. No \
@@ -4344,6 +4495,30 @@ outstanding.
 Before writing any code, verify the feature or fix isn't already implemented. \
 Grep for relevant function names, check existing modules, and read related files. \
 If it already exists, report back instead of reimplementing.
+
+If you end this leg with 0 commits because there is genuinely nothing \
+correct to build right now, say which shape it is with a structured, \
+line-anchored marker (the coordinator treats this as authoritative — it \
+is read before any attempt to infer the same thing from your prose):
+
+  WORK_OUTCOME: already-done — <where it lives>
+
+or
+
+  WORK_OUTCOME: needs-decomposition — <the split you'd propose>
+
+Use `already-done` when you verified the requested behavior already \
+exists (merged/shipped under a different name, a prior leg, etc.) — this \
+parks the issue for an operator to confirm, spending no further attempt, \
+instead of a relaunch rediscovering the same finding. Use \
+`needs-decomposition` when the issue is genuinely too large for one leg \
+and should be split into separate issues — state your proposed split in \
+the marker's reason text (or in your final message) so the coordinator can \
+file it; this is terminal after this one leg too, since a relaunch would \
+only re-propose the same split. Omit the marker entirely for every other \
+0-commit outcome (a standing repo-rule refusal, a genuinely stuck session, \
+or a false/unmet premise that is NOT "already done") — those still read \
+off your prose exactly as before.
 
 Progress reporting:
 - After each significant step (first build, test run, approach change), \
@@ -7474,6 +7649,7 @@ class AgentServer:
                 for a in self._assignments.values()
                 if a.status in (
                     DONE, FAILED, CANCELLED, ADVISORY, REFUSED_POLICY, REFUSED_PREMISE,
+                    NEEDS_DECOMPOSITION,
                 )
             )
         _mark("assignment_tally")
@@ -8304,6 +8480,7 @@ class AgentServer:
             assignment_id=assignment.id,
             log_path=assignment.log_path,
             unmatched_out=unmatched,
+            leg_suffix=_fanout_leg_cargo_suffix(assignment.spec.issue_title),
         )
 
         # Invalidate the artifact_bytes cache so health() picks up the new files.
@@ -9989,6 +10166,8 @@ class AgentServer:
                 ["-B", branch_name, str(worktree_path), f"origin/{branch_name}"],
                 log_path=assignment.log_path,
                 default_branch=default_branch,
+                assignments=_live_assignments,
+                assignment_id=assignment.id,
             )
         elif local_has_branch and not has_origin:
             # Local-only repo (no remote) — reuse the local branch as before.
@@ -9997,6 +10176,8 @@ class AgentServer:
                 [str(worktree_path), branch_name],
                 log_path=assignment.log_path,
                 default_branch=default_branch,
+                assignments=_live_assignments,
+                assignment_id=assignment.id,
             )
         else:
             # Fresh branch, OR an untrusted local-only leftover in a repo that
@@ -10021,6 +10202,8 @@ class AgentServer:
                 ["-b", branch_name, str(worktree_path), start_point],
                 log_path=assignment.log_path,
                 default_branch=default_branch,
+                assignments=_live_assignments,
+                assignment_id=assignment.id,
             )
 
         # #1468: default this worktree's `pull.rebase` to true — see
@@ -10058,7 +10241,8 @@ class AgentServer:
         status, so a dirty worktree left behind by an otherwise-correct
         policy refusal needs the same visibility, on the field that surface
         actually reads. #3164 mirrors it a second time for REFUSED_PREMISE /
-        ``premise_refusal_reason``.
+        ``premise_refusal_reason``. #3931 mirrors it a third time for
+        NEEDS_DECOMPOSITION / ``needs_decomposition_reason``.
         """
         with self._lock:
             live = self._assignments.get(assignment.id, assignment)
@@ -10069,6 +10253,8 @@ class AgentServer:
                 live.policy_refusal_reason = reason
             elif live.status == REFUSED_PREMISE:
                 live.premise_refusal_reason = reason
+            elif live.status == NEEDS_DECOMPOSITION:
+                live.needs_decomposition_reason = reason
             # Keep the caller's object in sync when it isn't the live one, so
             # a caller holding a detached copy still sees the outcome.
             assignment.dirty_worktree_reason = reason
@@ -10078,6 +10264,8 @@ class AgentServer:
                 assignment.policy_refusal_reason = reason
             elif assignment.status == REFUSED_PREMISE:
                 assignment.premise_refusal_reason = reason
+            elif assignment.status == NEEDS_DECOMPOSITION:
+                assignment.needs_decomposition_reason = reason
         self._persist()
 
     def _rescue_uncommitted_work(
@@ -10640,7 +10828,13 @@ class AgentServer:
             if spec.smoke_timeout_s and spec.smoke_timeout_s > 0
             else 600.0
         )
-        smoke_env = {**os.environ, **cargo_cache.cargo_env(spec.repo_name, self.state_dir)}
+        smoke_env = {
+            **os.environ,
+            **cargo_cache.cargo_env(
+                spec.repo_name, self.state_dir,
+                leg_suffix=_fanout_leg_cargo_suffix(spec.issue_title),
+            ),
+        }
         try:
             verdict = execute_plain_runner_smoke(
                 spec, str(repo_path), timeout=timeout, env=smoke_env,
@@ -10898,9 +11092,12 @@ class AgentServer:
         _spawn_env = _worker_subprocess_env(cwd=repo_path, assignment_id=assignment.id)
         # #1402: shared per-repo cargo target dir (see coord.cargo_cache).
         # Must stay in sync with the PTY path in ``_spawn_pty``.
+        # #3912: `leg_suffix` isolates a #3182 fan-out leg's own target dir
+        # from its siblings — see `_fanout_leg_cargo_suffix`.
         _spawn_env.update(
             cargo_cache.cargo_env(
-                assignment.spec.repo_name, self.state_dir, _spawn_env
+                assignment.spec.repo_name, self.state_dir, _spawn_env,
+                leg_suffix=_fanout_leg_cargo_suffix(assignment.spec.issue_title),
             )
         )
         if provider_obj is not None:
@@ -11095,8 +11292,13 @@ class AgentServer:
             # so the build cache survives worktree cleanup and is reused by
             # the next worker.  Applied before ``provider.env()`` so a
             # provider that sets CARGO_TARGET_DIR explicitly still wins.
+            # #3912: `leg_suffix` isolates a #3182 fan-out leg's own target
+            # dir from its siblings — see `_fanout_leg_cargo_suffix`.
             env.update(
-                cargo_cache.cargo_env(assignment.spec.repo_name, self.state_dir, env)
+                cargo_cache.cargo_env(
+                    assignment.spec.repo_name, self.state_dir, env,
+                    leg_suffix=_fanout_leg_cargo_suffix(assignment.spec.issue_title),
+                )
             )
             env.update(provider.env())
             # #2569: see the headless spawn path's identical re-strip for
@@ -11908,16 +12110,26 @@ class AgentServer:
         # readings of "0 commits" can never disagree about which one applies
         # to this assignment.
         _policy_refusal_reason: str | None = None
-        # #3164: the PREMISE sibling of `_policy_refusal_reason` — see
-        # `coord.worker_events.classify_zero_commit_refusal` and
-        # `REFUSED_PREMISE`'s module-level docstring. Mutually exclusive with
-        # it by construction (the classifier returns exactly one of
-        # "premise"/"policy"/`None`), decided in the same `_ahead == 0`
-        # branch below.
+        # #3164/#3931: the PREMISE sibling of `_policy_refusal_reason` — see
+        # `coord.worker_events.classify_zero_commit_outcome` (which now
+        # decides `_refusal_kind` below; it folds in the #3931 `WORK_
+        # OUTCOME:` marker ahead of `classify_zero_commit_refusal`'s own
+        # premise/policy prose heuristics) and `REFUSED_PREMISE`'s module-
+        # level docstring. Mutually exclusive with the other three refusal
+        # reasons by construction (the classifier returns exactly one of
+        # "already_done"/"needs_decomposition"/"premise"/"policy"/`None`),
+        # decided in the same `_ahead == 0` branch below.
         _premise_refusal_reason: str | None = None
+        # #3931: the THIRD sibling — see `NEEDS_DECOMPOSITION`'s module-level
+        # docstring. Mutually exclusive with the other two refusal reasons by
+        # construction (`classify_zero_commit_outcome` returns exactly one of
+        # "already_done"/"needs_decomposition"/"premise"/"policy"/`None`),
+        # decided in the same `_ahead == 0` branch below.
+        _needs_decomposition_reason: str | None = None
         # #2316: checked FIRST in the `_ahead == 0` branch below, ahead of
         # `_analysis_deliverable`/`_policy_refusal_reason`/
-        # `_premise_refusal_reason`/`_zero_commit_reason` — a truncated run's
+        # `_premise_refusal_reason`/`_needs_decomposition_reason`/
+        # `_zero_commit_reason` — a truncated run's
         # `result_text` is whatever the model managed to emit before the
         # ceiling cut it off, not a considered final message, so it must not
         # be read as a positive "deliverable" or "refusal" signal just
@@ -11931,16 +12143,30 @@ class AgentServer:
                 _base = assignment.spec.branch or "main"
                 _ahead = self._commits_ahead(_wt_advisory, _base)
                 if _ahead == 0:
-                    # #3164: computed ONCE, unconditionally, so both the
-                    # "premise" and "policy" branches below can read it
-                    # without re-parsing `result_text` or risking a
-                    # short-circuited walrus leaving it unbound in the
-                    # `_worker_summary is None` case.
+                    # #3164/#3931: computed ONCE, unconditionally, so every
+                    # branch below can read it without re-parsing
+                    # `result_text` or risking a short-circuited walrus
+                    # leaving it unbound in the `_worker_summary is None`
+                    # case. `_issue_resolution_value` feeds
+                    # `classify_zero_commit_outcome`'s item-3 fallback ("a
+                    # worker reporting ISSUE_RESOLUTION: investigation with 0
+                    # commits also counts as needs_decomposition unless
+                    # another marker says otherwise") — parsed here, not in
+                    # `coord.worker_events`, since that marker's home is
+                    # `coord.models`.
+                    from coord.models import parse_issue_resolution  # noqa: PLC0415
                     from coord.worker_events import (  # noqa: PLC0415
-                        classify_zero_commit_refusal,
+                        classify_zero_commit_outcome,
+                    )
+                    _issue_resolution_value = (
+                        parse_issue_resolution(_worker_summary.result_text).value
+                        if _worker_summary is not None else None
                     )
                     _refusal_kind = (
-                        classify_zero_commit_refusal(_worker_summary.result_text)
+                        classify_zero_commit_outcome(
+                            _worker_summary.result_text,
+                            issue_resolution=_issue_resolution_value,
+                        )
                         if _worker_summary is not None else None
                     )
                     if (_worker_summary is not None
@@ -11976,7 +12202,7 @@ class AgentServer:
                                 )
                         except OSError:
                             pass
-                    elif _refusal_kind == "premise":
+                    elif _refusal_kind in ("premise", "already_done"):
                         # #3164: the worker investigated and found the
                         # ISSUE'S OWN PREMISE false or its stated prerequisite
                         # unmet — no rule was involved, there is simply
@@ -11987,6 +12213,15 @@ class AgentServer:
                         # module-level docstring. Like a policy refusal,
                         # retrying reproduces the identical, correct outcome,
                         # so it must not consume the queue's attempt budget.
+                        #
+                        # #3931: `"already_done"` — the worker's own `WORK_
+                        # OUTCOME: already-done` marker, or the #3923 prose
+                        # heuristic it now overrides when both are present —
+                        # rides this SAME branch. It is the narrower #3926
+                        # shape of a premise refusal (the requested behaviour
+                        # already exists, so the issue's own IMPLICIT premise
+                        # is what's refuted), not a different status: the
+                        # operator remedy is identical either way.
                         _premise_refusal_reason = _worker_summary.result_text or (
                             "worker investigated and found the issue's "
                             "premise false or its prerequisite unmet"
@@ -11998,7 +12233,31 @@ class AgentServer:
                                     f"of {_base}; worker's final message "
                                     "reports an investigated, refuted issue "
                                     "premise, status set to refused_premise "
-                                    "(#3164)\n"
+                                    f"(#3164{', already-done #3931' if _refusal_kind == 'already_done' else ''})\n"
+                                )
+                        except OSError:
+                            pass
+                    elif _refusal_kind == "needs_decomposition":
+                        # #3931: the worker's own `WORK_OUTCOME: needs-
+                        # decomposition` marker, or an `ISSUE_RESOLUTION:
+                        # investigation` verdict with no other marker
+                        # present — the #3922 shape: the issue is too large
+                        # for one leg, and a relaunch would only re-propose
+                        # the same split a first leg already found. Terminal
+                        # after this one leg, no attempt spent — see
+                        # NEEDS_DECOMPOSITION's module-level docstring.
+                        _needs_decomposition_reason = _worker_summary.result_text or (
+                            "worker concluded the issue needs epic "
+                            "decomposition"
+                        )
+                        try:
+                            with open(assignment.log_path, "a", encoding="utf-8") as reopen:
+                                reopen.write(
+                                    "# reap: needs_decomposition — 0 commits "
+                                    f"ahead of {_base}; worker's final message "
+                                    "reports the issue needs epic "
+                                    "decomposition, status set to "
+                                    "needs_decomposition (#3931)\n"
                                 )
                         except OSError:
                             pass
@@ -12128,6 +12387,19 @@ class AgentServer:
                         # readability).
                         assignment.status = REFUSED_PREMISE
                         assignment.premise_refusal_reason = _premise_refusal_reason
+                    elif _needs_decomposition_reason is not None:
+                        # #3931: clean exit, no commits, and the worker's own
+                        # final message (or `WORK_OUTCOME`/`ISSUE_RESOLUTION`
+                        # marker) reports the issue needs epic decomposition
+                        # — terminal after this one leg, see
+                        # NEEDS_DECOMPOSITION's module docstring. Checked
+                        # alongside the other refusal reasons (all mutually
+                        # exclusive by construction — see the `_reap`
+                        # computation above).
+                        assignment.status = NEEDS_DECOMPOSITION
+                        assignment.needs_decomposition_reason = (
+                            _needs_decomposition_reason
+                        )
                     elif _policy_refusal_reason is not None:
                         # #2234: clean exit, no commits, and the worker's own
                         # final message cites a standing repo-rule
@@ -12341,13 +12613,15 @@ class AgentServer:
         # output. Recompute from `repo_path` (not the worktree, which may
         # already be gone) whether the rescue's push actually reached
         # origin, and correct the status when it did. Only ADVISORY/
-        # REFUSED_POLICY/REFUSED_PREMISE are ever reachable here (all three
-        # are set exclusively in the `_ahead == 0` branch above, itself gated
-        # on `spec.type in _ZERO_COMMIT_TYPES`) — DONE, FAILED-for-other-
-        # reasons, CANCELLED etc. are untouched.
+        # REFUSED_POLICY/REFUSED_PREMISE/NEEDS_DECOMPOSITION are ever
+        # reachable here (all four are set exclusively in the `_ahead == 0`
+        # branch above, itself gated on `spec.type in _ZERO_COMMIT_TYPES`) —
+        # DONE, FAILED-for-other-reasons, CANCELLED etc. are untouched.
         if (
             assignment is not None
-            and assignment.status in (ADVISORY, REFUSED_POLICY, REFUSED_PREMISE)
+            and assignment.status in (
+                ADVISORY, REFUSED_POLICY, REFUSED_PREMISE, NEEDS_DECOMPOSITION,
+            )
             and assignment.dirty_worktree_reason is not None
         ):
             _rescue_branch = assignment.branch or assignment.spec.target_branch
@@ -12455,16 +12729,19 @@ class AgentServer:
             ):
                 return
             self._last_advisory_terminal_check = now
-            # #2234/#3164: REFUSED_POLICY/REFUSED_PREMISE join ADVISORY here
-            # for the same reason — all three are terminal, zero-commit
-            # statuses the agent would otherwise keep serving indefinitely
-            # from its own `/status` feed once GitHub confirms the work is
-            # done, forcing every downstream consumer (dashboard, TUI, any
-            # future client) to reimplement the same GitHub-terminality
-            # filter this method exists to spare them.
+            # #2234/#3164/#3931: REFUSED_POLICY/REFUSED_PREMISE/
+            # NEEDS_DECOMPOSITION join ADVISORY here for the same reason —
+            # all four are terminal, zero-commit statuses the agent would
+            # otherwise keep serving indefinitely from its own `/status` feed
+            # once GitHub confirms the work is done, forcing every downstream
+            # consumer (dashboard, TUI, any future client) to reimplement the
+            # same GitHub-terminality filter this method exists to spare
+            # them.
             candidates = [
                 a for a in self._assignments.values()
-                if a.status in (ADVISORY, REFUSED_POLICY, REFUSED_PREMISE)
+                if a.status in (
+                    ADVISORY, REFUSED_POLICY, REFUSED_PREMISE, NEEDS_DECOMPOSITION,
+                )
             ]
         if not candidates:
             return
@@ -12544,15 +12821,19 @@ class AgentServer:
             ordered = list(self._assignments.values())
             superseded_ids: list[str] = []
             for i, a in enumerate(ordered):
-                # #2234/#3164: REFUSED_POLICY/REFUSED_PREMISE join ADVISORY
-                # here too — a refusal for issue X can be superseded the same
-                # way an advisory can (e.g. the coordinator re-scopes the
-                # issue so a later dispatch's deliverable is no longer
-                # coordinator-only, or a later dispatch lands once the
-                # premise it refuted has since become true). Same in-memory
-                # comparison, same root cause as `_prune_terminal_advisory`
-                # above.
-                if a.status not in (ADVISORY, REFUSED_POLICY, REFUSED_PREMISE):
+                # #2234/#3164/#3931: REFUSED_POLICY/REFUSED_PREMISE/
+                # NEEDS_DECOMPOSITION join ADVISORY here too — a refusal for
+                # issue X can be superseded the same way an advisory can
+                # (e.g. the coordinator re-scopes the issue so a later
+                # dispatch's deliverable is no longer coordinator-only, or a
+                # later dispatch lands once the premise it refuted has since
+                # become true, or the proposed decomposition was filed and a
+                # later dispatch targets one of the resulting slices). Same
+                # in-memory comparison, same root cause as
+                # `_prune_terminal_advisory` above.
+                if a.status not in (
+                    ADVISORY, REFUSED_POLICY, REFUSED_PREMISE, NEEDS_DECOMPOSITION,
+                ):
                     continue
                 key = (a.spec.repo_name, a.spec.issue_number)
                 for later in ordered[i + 1 :]:

@@ -17,21 +17,21 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex, OnceLock};
-use async_trait::async_trait;
 use bytes::Bytes;
-use futures::StreamExt;
+use futures_util::StreamExt;
 use base64::engine::{general_purpose::STANDARD, Engine as _};
 use serde_json::Value;
 
 use super::ask::{self, Backoff, ATTEMPTS};
 use super::net::{join, same_origin, shown, Body, Client, GetError, HeaderMap};
-use super::origin::{Location, Origin};
+use super::origin::{Boxed, Location, Origin};
 use super::policy::is_loopback_origin;
 use super::token::{default_for, s3_base, Request, TokenProvider};
 use crate::err::{refuse, Code, Refusal, Result};
 use crate::format::{is_digest, repo_name, Header, ObjectRef, Repo, Tree};
 use crate::sha256::hex_digest;
-use crate::store::Store;
+use crate::store::{self, Checkpoint, Store};
+use crate::writer::{Upload, Writer};
 
 /// The most bytes a document or an answer may have.
 const DOCUMENT_BYTES: usize = 16 << 20;
@@ -267,7 +267,7 @@ impl Endpoint {
     }
 
     /// A small object (a tree) read whole, following redirects, and verified.
-    pub async fn document(&self, object: &ObjectRef) -> Result<Vec<u8>> {
+    pub(crate) async fn document(&self, object: &ObjectRef) -> Result<Vec<u8>> {
         if object.length > DOCUMENT_BYTES as u64 {
             return refuse(Code::SIZE_CAP, format!("{}: {} B is not a document", object.id(), object.length));
         }
@@ -322,7 +322,7 @@ impl Endpoint {
     }
 
     /// Whether the endpoint holds `object`.
-    pub async fn has(&self, object: &ObjectRef) -> Result<bool> {
+    pub(crate) async fn has(&self, object: &ObjectRef) -> Result<bool> {
         match &self.at {
             At::Dir(..) => self.store()?.reuse(object).map_err(crate::store::Error::refusal),
             At::Http(base) => {
@@ -427,7 +427,7 @@ impl Endpoint {
     /// One exchange, its answer read whole, asked again by the one rule ([`ask`]); the provider
     /// may ask once more (a nonce, a refresh). Bytes of a body sent are progress.
     async fn exchange(&self, ask: Ask<'_>) -> Result<Reply> {
-        let (mut backoff, mut challenged) = (Backoff::new(), false);
+        let (mut backoff, mut challenged) = (Backoff::transfer(), false);
         loop {
             let sent = self.sent.load(Ordering::Relaxed);
             let (why, wait) = match self.attempt(&ask).await {
@@ -494,9 +494,18 @@ impl Endpoint {
     }
 }
 
-#[async_trait]
 impl Origin for Endpoint {
-    async fn locate(&self, objects: &[ObjectRef]) -> Result<Vec<Location>> {
+    fn locate<'a>(&'a self, objects: &'a [ObjectRef]) -> Boxed<'a, Result<Vec<Location>>> {
+        Box::pin(async move { Ok(self.located(objects)) })
+    }
+
+    fn public(&self) -> bool {
+        self.token.is_none()
+    }
+}
+
+impl Endpoint {
+    fn located(&self, objects: &[ObjectRef]) -> Vec<Location> {
         let mut out = Vec::with_capacity(objects.len());
         for object in objects {
             out.push(match &self.at {
@@ -510,11 +519,7 @@ impl Origin for Endpoint {
                 }
             });
         }
-        Ok(out)
-    }
-
-    fn public(&self) -> bool {
-        self.token.is_none()
+        out
     }
 }
 
@@ -560,7 +565,7 @@ pub async fn upload_commit(endpoint: &Endpoint, name: &str, tree: &ObjectRef, st
     (control.progress)(0, total);
     let [header, tree_object] = documents;
     for stage in [leaves, vec![header], vec![tree_object]] {
-        let mut sending = futures::stream::iter(stage)
+        let mut sending = futures_util::stream::iter(stage)
             .map(|object| async move {
                 let (from, at) = (store.clone(), object.clone());
                 let payload = move || from.file(&at).map(Payload::File).map_err(crate::store::Error::refusal);
@@ -618,7 +623,7 @@ impl std::fmt::Debug for Stream {
 const IN_FLIGHT: usize = 4;
 
 impl Stream {
-    pub fn new(endpoint: Arc<Endpoint>, runtime: tokio::runtime::Handle) -> Stream {
+    pub(crate) fn new(endpoint: Arc<Endpoint>, runtime: tokio::runtime::Handle) -> Stream {
         Stream {
             endpoint,
             runtime,
@@ -629,13 +634,8 @@ impl Stream {
         }
     }
 
-    /// Whether `object` was given to [`Stream::put`].
-    pub fn has(&self, object: &ObjectRef) -> bool {
-        self.sent.lock().unwrap().contains(object)
-    }
-
     /// Sends `bytes` as an object, once; its ref at once.
-    pub fn put(&self, bytes: Vec<u8>) -> Result<ObjectRef> {
+    pub(crate) fn put(&self, bytes: Vec<u8>) -> Result<ObjectRef> {
         let object = ObjectRef::of(&bytes);
         let bytes = Bytes::from(bytes);
         self.send(&object, move || Ok(Payload::Bytes(bytes.clone())))?;
@@ -673,7 +673,7 @@ impl Stream {
     }
 
     /// Waits for every object put so far: the first failure.
-    pub fn flush(&self) -> Result<()> {
+    pub(crate) fn flush(&self) -> Result<()> {
         let tasks = std::mem::take(&mut *self.sending.lock().unwrap());
         let mut first = self.failed.lock().unwrap().clone().map_or(Ok(()), Err);
         for task in tasks {
@@ -693,7 +693,7 @@ impl Stream {
 
     /// A writer's commit: its `header`, sent after what it cites, in lane `lane` beside `files`,
     /// recorded as one of model `name`'s commits: its tree.
-    pub fn commit(&self, name: &str, lane: &str, header: Vec<u8>, files: &BTreeMap<String, ObjectRef>) -> Result<(ObjectRef, Tree)> {
+    pub(crate) fn commit(&self, name: &str, lane: &str, header: Vec<u8>, files: &BTreeMap<String, ObjectRef>) -> Result<(ObjectRef, Tree)> {
         self.flush()?;
         let header = self.put(header)?;
         let tree = Tree::of(lane, header, files).map_err(|e| Refusal { code: Code::KEY_GRAMMAR, detail: e.to_string() })?;
@@ -788,4 +788,34 @@ fn refusal(reply: &Reply, what: &str) -> Refusal {
     let named = if named.is_empty() { String::new() } else { format!(" {named}") };
     let detail = if detail.is_null() { String::new() } else { format!(" {detail}") };
     Refusal { code, detail: format!("{what} {}: {}{named}: {message}{detail}", shown(&reply.url), reply.status) }
+}
+
+/// A streaming writer's upload: each object to `stream` as it seals, the commit into repo `name` in lane `lane`.
+#[derive(Debug)]
+struct Streamed {
+    stream: Arc<Stream>,
+    name: String,
+    lane: String,
+}
+
+impl Upload for Streamed {
+    fn sealed(&self, store: &Store, object: &ObjectRef) -> Result<()> {
+        self.stream.put_stored(store, object)
+    }
+
+    fn commit(&self, header: Vec<u8>, repo: &BTreeMap<String, ObjectRef>) -> Result<Tree> {
+        self.stream.commit(&self.name, &self.lane, header, repo).map(|(_, tree)| tree)
+    }
+}
+
+/// A writer of `store` whose objects go to `stream` as they seal and whose commit (the header with
+/// its repo files, in lane `lane`) becomes one of repo `name`'s there. The local checkpoint commits
+/// first and remains available when the upload fails. With `key`, it resumes.
+pub(crate) fn streaming_writer(store: &Store, stream: Arc<Stream>, name: &str, lane: &str, base: Option<&Checkpoint>, key: Option<&str>) -> store::Result<Writer> {
+    if !crate::format::label(lane) {
+        return Err(crate::format::Error::Invalid(format!("lane {lane:?} is not a label")).into());
+    }
+    let mut writer = crate::writer(store, base, key)?;
+    writer.uploading(Arc::new(Streamed { stream, name: name.to_owned(), lane: lane.to_owned() }));
+    Ok(writer)
 }

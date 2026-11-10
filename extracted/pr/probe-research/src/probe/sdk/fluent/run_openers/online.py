@@ -1,6 +1,7 @@
 """Open or attach the run through the client and bind it, falling back offline when PROBE_INIT_FALLBACK=offline and the API failed."""
 
 from __future__ import annotations
+import sys
 from typing import TYPE_CHECKING, Any
 
 from ... import errors
@@ -24,6 +25,9 @@ def _open_and_bind(
 ) -> "Run":
     """Open (or attach) the run and bind it -- :func:`init` after the reinit
     decision."""
+    # The caller's error, if init runs inside its `except`: the offline fallback below opens the
+    # run inside init's own `except`, where `sys.exc_info()` names the API failure instead.
+    caller_in_flight = sys.exc_info()[1]
     owned: Client | None = None
     if client is None:
         client = Client()
@@ -75,6 +79,10 @@ def _open_and_bind(
                 },
             )
             if fallback is not None:
+                if caller_in_flight is not None:
+                    from ...diagnostics import mark_run_opened_during
+
+                    mark_run_opened_during(fallback, in_flight=caller_in_flight)
                 return fallback
         raise
     binding = _Binding(run=run, close_client=owned, attached=attached)
@@ -82,6 +90,10 @@ def _open_and_bind(
     _install_exit_hooks()
     _install_sigterm_flush()
     _arm_ray_trial_exit(run)
+    # Logging to W&B too: name that W&B run here, so an import or attachment later fills this run (plan A.5).
+    from .wandb_link import link_active_wandb_run
+
+    link_active_wandb_run(run)
     # What this process reads becomes the run's inputs (lineage). Never a
     # gate: a failure to start warns and the run goes on unrecorded.
     try:
@@ -114,7 +126,7 @@ def _open_and_bind(
         from ... import diagnostics
 
         diagnostics.sweep(run._client)
-        diagnostics.arm(run._client, run.id)
+        diagnostics.arm(run._client, run.id, write_epoch=getattr(run, "write_epoch", None))
     except BaseException:
         if owned is not None:
             owned.close()

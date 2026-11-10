@@ -347,7 +347,7 @@ _HOMES = {
     "queued_session": "probe.sdk.delivery.journal.append",
     "run_write_origin": "probe.sdk.delivery.journal.append",
     "fingerprint": "probe.sdk.delivery.ops.op_handler",
-    "WIZARD_HINT": "probe.sdk.delivery.outbox.drain.credentials",
+    "SIGN_IN_HINT": "probe.sdk.delivery.outbox.drain.credentials",
     "unstorable": "probe.sdk.delivery.ops.op_handler",
     "upload_many": "probe.sdk.delivery.outbox.drain.upload_windows",
     "CredentialBlocked": "probe.sdk.delivery.ops.classify",

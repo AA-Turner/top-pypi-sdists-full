@@ -6,6 +6,7 @@ import sys
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import suppress
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple, get_args
 
 from cyclopts._convert import _bool, _none, create_empty_instance
@@ -61,6 +62,42 @@ def normalize_tokens(tokens: None | str | Iterable[str]) -> list[str]:
     else:
         tokens = list(tokens)
     return tokens
+
+
+def expand_argfiles(tokens: list[str], prefix: str | None, end_of_options_delimiter: str) -> list[str]:
+    """Replace each ``<prefix><path>`` token with the lines of the file at ``path``.
+
+    Mirrors :mod:`argparse`'s ``fromfile_prefix_chars``: one argument per line, paths
+    relative to the current directory, and argument files may reference other argument files.
+    Tokens after ``end_of_options_delimiter`` are not expanded.
+    """
+    if not prefix:
+        return tokens
+
+    expanded: list[str] = []
+    end_of_options = False
+
+    def expand(tokens: Iterable[str], parents: tuple[Path, ...]) -> None:
+        nonlocal end_of_options
+        for token in tokens:
+            if end_of_options or not token.startswith(prefix) or token == prefix:
+                if end_of_options_delimiter and token == end_of_options_delimiter:
+                    end_of_options = True
+                expanded.append(token)
+                continue
+
+            path = Path(token[len(prefix) :])
+            resolved = path.resolve()
+            if resolved in parents:
+                raise TokenizationError(msg=f"Argument file {str(path)!r} is referenced recursively.")
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except OSError as e:
+                raise TokenizationError(msg=f"Cannot read argument file {str(path)!r}: {e.strerror}.") from e
+            expand(lines, (*parents, resolved))
+
+    expand(tokens, ())
+    return expanded
 
 
 class _ProbeResult(NamedTuple):
@@ -148,9 +185,10 @@ class _MergedScanResult(NamedTuple):
     meta_part: str | None
     """Reconstructed token for the meta's keyword stream, or ``None``."""
 
-    meta_awaits_value: bool
-    """A meta value-taking option ended the token with no attached value; the
-    next stream token is its value."""
+    meta_value_option: str | None
+    """The meta value-taking option that ended the token, with its attached
+    value (e.g. ``-uroot``), or ``None``. Bare (``-u``) means its values come
+    from the following stream tokens."""
 
 
 def _is_combined_short_candidate(
@@ -160,21 +198,20 @@ def _is_combined_short_candidate(
     """Whether ``token`` should be resolved by the merged combined-short scan.
 
     Mirrors the gate in :func:`_parse_kw_and_flags`'s combined-short branch:
-    single-dash, multi-character, non-numeric, no ``=``, and not an exact match
-    of any collection (exact matches are ordinary options, handled by the
-    normal probing paths).
+    single-dash, multi-character, non-numeric, and neither the token nor its
+    ``=``-prefix an exact match of any collection (exact matches are ordinary
+    options, handled by the normal probing paths).
     """
-    if "=" in token:
-        return False
     if not (token.startswith("-") and not token.startswith("--") and len(token) > 2):
         return False
     if not is_option_like(token, allow_numbers=False):
         return False
+    option = token.split("=", 1)[0]
     for collection in collections:
         if collection is None:
             continue
         try:
-            collection.match(token)
+            collection.match(option)
         except ValueError:
             continue
         return False
@@ -185,17 +222,22 @@ def _merged_combined_short_scan(
     token: str,
     child_collection: "ArgumentCollection | None",
     meta_collection: ArgumentCollection,
+    intermediate_collections: Sequence[ArgumentCollection] = (),
 ) -> _MergedScanResult:
     """Resolve a combined short-option token against the MERGED flag namespace.
 
     Fallthrough mode presents the user with one flat flag namespace; this scan
     makes that literal: a single GNU left-to-right pass where each character is
     matched against the child first (child wins name collisions after its
-    command), then the meta. Standard rules apply to the merged table:
+    command), then the meta, then any ``intermediate_collections`` (meta levels
+    between this meta and the child, which receive their characters via the
+    child's stream). The meta outranks intermediates, as it does for
+    standalone options. Standard rules apply to the merged table:
 
     - a flag/count match consumes its character;
     - the first value-taking match absorbs the rest of the token as an attached
-      value (or, with no remainder, the next stream token) and ends the scan;
+      value and ends the scan (any further values come from the following
+      stream tokens, claimed by the caller);
     - an unknown character is routed to the child's stream, which reports it.
 
     Characters are routed to per-owner reconstructed tokens in scan order, so
@@ -204,12 +246,16 @@ def _merged_combined_short_scan(
     chars = token.lstrip("-")
     child_chars: list[str] = []
     meta_chars: list[str] = []
-    meta_awaits_value = False
+    meta_value_option: str | None = None
     position = 0
     while position < len(chars):
         char = chars[position]
         matched = None
-        for owner_chars, collection in ((child_chars, child_collection), (meta_chars, meta_collection)):
+        for owner_chars, collection in (
+            (child_chars, child_collection),
+            (meta_chars, meta_collection),
+            *((child_chars, collection) for collection in intermediate_collections),
+        ):
             if collection is None:
                 continue
             try:
@@ -219,6 +265,10 @@ def _merged_combined_short_scan(
             matched = (owner_chars, argument, implicit)
             break
         if matched is None:
+            if position == 0:
+                # Not a combined-short group (GNU groups must begin with a known
+                # option); the child keeps the token intact. See issue #932.
+                return _MergedScanResult(token, None, None)
             child_chars.append(char)  # Unknown flag; the child's parse reports it.
             position += 1
             continue
@@ -229,15 +279,14 @@ def _merged_combined_short_scan(
             continue
         # Value-taking option: the rest of the token is its attached value.
         remainder = chars[position + 1 :]
-        if remainder:
-            owner_chars.extend(remainder)
-        elif owner_chars is meta_chars:
-            meta_awaits_value = True
+        owner_chars.extend(remainder)
+        if owner_chars is meta_chars:
+            meta_value_option = f"-{char}{remainder}"
         break
     return _MergedScanResult(
         "-" + "".join(child_chars) if child_chars else None,
         "-" + "".join(meta_chars) if meta_chars else None,
-        meta_awaits_value,
+        meta_value_option,
     )
 
 
@@ -254,6 +303,7 @@ def _scope_tokens_for_meta(
     *,
     parse_mode: str,
     end_of_options_delimiter: str = "--",
+    intermediate_collections: Sequence[ArgumentCollection] = (),
 ) -> tuple[list[str], list[str], int | None]:
     """Scope tokens between a meta-app level and the subcommand it forwards to.
 
@@ -284,6 +334,10 @@ def _scope_tokens_for_meta(
         ``"fallthrough"`` or ``"strict"``.
     end_of_options_delimiter: str
         Token that marks the end of options.
+    intermediate_collections: Sequence[ArgumentCollection]
+        Collections of the meta levels between this meta and the child (a meta
+        of a meta). Their short flags count as known in the combined-short
+        scan; their characters stay in the child's stream.
 
     Returns
     -------
@@ -408,10 +462,10 @@ def _scope_tokens_for_meta(
             synthetics = child_unclaimed_by_position[position]
             partially_claimed = not (len(synthetics) == 1 and synthetics[0] == original)
             if not partially_claimed and not _is_combined_short_candidate(
-                original, (child_collection, meta_collection)
+                original, (child_collection, *intermediate_collections, meta_collection)
             ):
                 continue
-            scan = _merged_combined_short_scan(original, child_collection, meta_collection)
+            scan = _merged_combined_short_scan(original, child_collection, meta_collection, intermediate_collections)
             if scan.meta_part is None:
                 if partially_claimed:
                     # Nothing for the meta; keep the child's own reading and
@@ -421,22 +475,45 @@ def _scope_tokens_for_meta(
             scanned_positions.add(position)
             newly_replaced[position] = scan.child_part
             bubbled.append(scan.meta_part)
-            if scan.meta_awaits_value:
-                # The meta's value-taking option ended the token; the NEXT
-                # stream token is its value — if the child didn't claim it.
-                value_position = position + 1
-                value_synthetics = child_unclaimed_by_position.get(value_position)
-                if (
-                    value_position < delimiter_pos
-                    and value_synthetics is not None
-                    and len(value_synthetics) == 1
-                    and value_synthetics[0] == stream_tokens[value_position]
-                ):
-                    scanned_positions.add(value_position)
-                    newly_replaced[value_position] = None
-                    bubbled.append(stream_tokens[value_position])
-                # Otherwise the meta's real parse raises the proper
-                # missing-value error.
+            if scan.meta_value_option is None:
+                continue
+            # The meta's value-taking option may consume following stream
+            # tokens the child left wholly unclaimed (as many as its token
+            # count, or more with ``consume_multiple``). Probe that option
+            # alone, so no other meta option claims a follower the child's
+            # flags should win.
+            follower_positions: list[int] = []
+            follower_position = position + 1
+            while follower_position < delimiter_pos and child_unclaimed_by_position.get(follower_position) == [
+                stream_tokens[follower_position]
+            ]:
+                follower_positions.append(follower_position)
+                follower_position += 1
+            if not follower_positions:
+                continue
+            value_argument = meta_collection.match(scan.meta_value_option[:2])[0]
+            follower_probe = _probe_unclaimed(
+                ArgumentCollection([value_argument]),
+                [scan.meta_value_option, *(stream_tokens[p] for p in follower_positions)],
+                end_of_options_delimiter=end_of_options_delimiter,
+            )
+            if follower_probe is None:
+                # Malformed for the meta (e.g. too few values); hand it the
+                # next token so its real parse raises the proper error.
+                claimed_followers = follower_positions[:1] if len(scan.meta_value_option) == 2 else []
+            else:
+                claimed_followers = []
+                for follower_position in follower_positions:
+                    if follower_probe.kw_claims.get(follower_position - position) != (
+                        stream_tokens[follower_position],
+                        None,
+                    ):
+                        break
+                    claimed_followers.append(follower_position)
+            for follower_position in claimed_followers:
+                scanned_positions.add(follower_position)
+                newly_replaced[follower_position] = None
+                bubbled.append(stream_tokens[follower_position])
 
         candidates = [
             (position, token)

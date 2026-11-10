@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.teams.administration.assignment_category import AssignmentCategory
 
 
-@dataclass
 class AssignedTelephoneNumber(ClientValue):
-    assignmentCategory: AssignmentCategory = AssignmentCategory()
+    assignmentCategory: AssignmentCategory = field(default_factory=AssignmentCategory)
     telephoneNumber: str | None = None
 
     @property

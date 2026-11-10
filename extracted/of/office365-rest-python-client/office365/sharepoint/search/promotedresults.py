@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PromotedResults(ClientValue):
     Description: str | None = None
     IsVisual: bool | None = None

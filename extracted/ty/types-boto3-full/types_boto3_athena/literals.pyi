@@ -39,6 +39,7 @@ __all__ = (
     "ListDatabasesPaginatorName",
     "ListNamedQueriesPaginatorName",
     "ListQueryExecutionsPaginatorName",
+    "ListSystemTableStatusesPaginatorName",
     "ListTableMetadataPaginatorName",
     "ListTagsForResourcePaginatorName",
     "NotebookTypeType",
@@ -51,6 +52,8 @@ __all__ = (
     "ServiceName",
     "SessionStateType",
     "StatementTypeType",
+    "SystemTableNameType",
+    "SystemTableTypeType",
     "WorkGroupStateType",
 )
 
@@ -107,6 +110,7 @@ ListDataCatalogsPaginatorName = Literal["list_data_catalogs"]
 ListDatabasesPaginatorName = Literal["list_databases"]
 ListNamedQueriesPaginatorName = Literal["list_named_queries"]
 ListQueryExecutionsPaginatorName = Literal["list_query_executions"]
+ListSystemTableStatusesPaginatorName = Literal["list_system_table_statuses"]
 ListTableMetadataPaginatorName = Literal["list_table_metadata"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 NotebookTypeType = Literal["IPYNB"]
@@ -117,6 +121,8 @@ SessionStateType = Literal[
     "BUSY", "CREATED", "CREATING", "DEGRADED", "FAILED", "IDLE", "TERMINATED", "TERMINATING"
 ]
 StatementTypeType = Literal["DDL", "DML", "UTILITY"]
+SystemTableNameType = Literal["ALL"]
+SystemTableTypeType = Literal["QUERY_EXECUTIONS"]
 WorkGroupStateType = Literal["DISABLED", "ENABLED"]
 AthenaServiceName = Literal["athena"]
 ServiceName = Literal[
@@ -565,6 +571,7 @@ PaginatorName = Literal[
     "list_databases",
     "list_named_queries",
     "list_query_executions",
+    "list_system_table_statuses",
     "list_table_metadata",
     "list_tags_for_resource",
 ]

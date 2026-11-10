@@ -3,30 +3,34 @@
 //! this the crate's one unsafe seam outside `platform`.
 #![allow(unsafe_code)]
 
+#[cfg(feature = "cuda")]
 pub mod cuda;
-#[cfg(feature = "store")]
+#[cfg(feature = "cuda")]
 pub mod decode;
+#[cfg(feature = "cuda")]
 mod device;
 mod host;
 #[cfg(unix)]
-pub mod metrics;
-pub mod pins;
+pub(crate) mod metrics;
 mod plan;
 mod probe;
 pub mod source;
-#[cfg(feature = "store")]
-pub(crate) mod view;
+pub mod view;
 
+#[cfg(feature = "cuda")]
 pub use device::DeviceBuffer;
 pub use plan::Target;
 pub use probe::{ceiling, disk, keep_ceilings_in, Ceiling};
-#[cfg(feature = "store")]
 pub use view::{Span, StoredPart};
 
-/// Allocate this device's bounded staging rings and copy streams before overlapping work.
-/// This performs real preparation even when the eventual read has no bytes yet.
-pub fn prepare_device(device: i32) -> cuda::Result<()> {
-    device::prepare(device)
+/// `[ptr, ptr + len)` registered with this device's context: a copy from it is one DMA.
+///
+/// # Safety
+/// The range stays mapped until the guard is released, and every copy from it finishes first.
+#[cfg(feature = "cuda")]
+pub unsafe fn register(device: i32, ptr: *mut u8, len: usize) -> cuda::Result<cuda::HostPin> {
+    // SAFETY: this function's own contract.
+    unsafe { device::register(device, ptr, len) }
 }
 
 /// `len` bytes of object `obj` from `off`.
@@ -54,6 +58,7 @@ pub struct Copy<'a> {
     pub dst: Dst,
 }
 
+/// Where a copy's bytes come from.
 #[derive(Clone, Copy, Debug)]
 pub enum Src<'a> {
     /// Fill the destination with zeroes, without a file or a host staging slab.
@@ -62,7 +67,8 @@ pub enum Src<'a> {
     File(&'a File, u64),
     /// Host memory (a sealed layout's mapping): RAM to the destination, no disk.
     Host(*const u8),
-    /// Device bytes ordered on the producer's stream (0: the CUDA default stream).
+    /// Device bytes ordered on the producer's stream (0: the CUDA default stream; [`COMPLETE`]:
+    /// none, their writers are known complete).
     Device {
         device: i32,
         ptr: u64,
@@ -70,6 +76,22 @@ pub enum Src<'a> {
     },
 }
 
+/// A [`Src::Device`] stream for bytes whose writers are known complete (a resident page): the
+/// copy waits for no producer, so it never queues behind compute.
+pub const COMPLETE: usize = usize::MAX;
+
+impl Src<'_> {
+    /// Itself, unless it is device bytes with no producer to wait for ([`COMPLETE`]).
+    #[cfg(feature = "cuda")]
+    pub(crate) fn ordered(self) -> Option<Self> {
+        match self {
+            Src::Device { stream: COMPLETE, .. } => None,
+            src => Some(src),
+        }
+    }
+}
+
+/// Where a copy's bytes go: host or device memory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dst {
     Host {
@@ -159,7 +181,7 @@ impl Dst {
 
 /// Told once all of a copy's device work is issued: its index and the engine streams it went on.
 /// Its bytes land in order there, so an event the caller records on each completes after them.
-pub type Issued<'a> = &'a (dyn Fn(usize, &[usize]) + Sync);
+pub(crate) type Issued<'a> = &'a (dyn Fn(usize, &[usize]) + Sync);
 
 /// `copies` in order, each one whose source and destination both continue the previous copy's
 /// merged into it: a fill reads one run per contiguous range, not one copy per tensor (v7's
@@ -190,7 +212,7 @@ pub(crate) fn coalesce(copies: Vec<Copy<'_>>) -> (Vec<Copy<'_>>, Vec<usize>) {
     (out, firsts)
 }
 
-/// Device regions' alignment in [`pack`]: DLPack's data alignment and `cuMemAlloc`'s, enough
+/// Device regions' alignment in [`pack`]: DLPack's data alignment and Varena's working-block alignment, enough
 /// for every dtype and vector load.
 pub const DEVICE_ALIGN: usize = 256;
 
@@ -228,7 +250,6 @@ pub struct ReadControl {
 impl ReadControl {
     pub fn cancel(&self) { self.cancel.store(true, std::sync::atomic::Ordering::Release); }
     pub fn canceled(&self) -> bool { self.cancel.load(std::sync::atomic::Ordering::Acquire) }
-    pub fn issued_bytes(&self) -> u64 { self.issued.load(std::sync::atomic::Ordering::Acquire) }
     pub(crate) fn issue(&self, bytes: usize) {
         self.issued.fetch_add(bytes as u64, std::sync::atomic::Ordering::Release);
     }
@@ -240,6 +261,7 @@ impl std::fmt::Debug for Landed {
     }
 }
 
+/// How `read` runs: threads, request size, device streams, O_DIRECT and a landing hook.
 #[derive(Clone, Debug)]
 pub struct ReadOpts {
     /// Reads in flight at once.
@@ -248,7 +270,8 @@ pub struct ReadOpts {
     pub request: usize,
     /// Copy streams per device (device destinations).
     pub streams: usize,
-    /// Read what the page cache lacks with O_DIRECT, where the filesystem allows.
+    /// Read a range the page cache mostly lacks with O_DIRECT once the cache has no room for it,
+    /// where the filesystem allows.
     pub direct: bool,
     /// Told of each copy as it lands, before the read returns; `None` costs nothing.
     pub landed: Option<Landed>,
@@ -266,6 +289,7 @@ impl Default for ReadOpts {
     }
 }
 
+/// What a `read` did: bytes and time, split by direct, cached and bounced bytes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ReadStats {
     pub bytes: u64,
@@ -283,9 +307,6 @@ pub struct ReadStats {
 }
 
 impl ReadStats {
-    pub fn gbps(&self) -> f64 {
-        self.bytes as f64 / self.ns.max(1) as f64
-    }
 }
 
 /// Copy `copy` failed.
@@ -297,22 +318,21 @@ pub struct Error {
     pub source: std::io::Error,
 }
 
+#[cfg(feature = "cuda")]
 impl Error {
-    pub fn cuda(&self) -> Option<&cuda::Error> {
-        self.source.get_ref()?.downcast_ref()
-    }
 }
 
 /// Check completion of this device's engine streams and retained decode work. No driver,
 /// context or staging pool is initialized if this process has never made an engine for it.
 /// A producer's own stream must be checked separately before its owner is released.
+#[cfg(feature = "cuda")]
 pub fn drain(device: i32) -> cuda::Result<()> {
     device::drain(device)
 }
 
 /// Every copy, at once: reads on `opts.threads` threads, each cut on the `opts.request` grid,
-/// O_DIRECT for what the page cache lacks (straight into the destination where it is aligned
-/// with the file, else through a bounce buffer), buffered for what it holds.
+/// buffered for a range the page cache mostly holds or has room for, else O_DIRECT (straight into
+/// the destination where it is aligned with the file, else through a bounce buffer).
 ///
 /// # Safety
 /// Each destination is valid for writes of its length, the destinations do not overlap, and
@@ -376,6 +396,7 @@ unsafe fn read_impl(
             });
         }
     }
+    let cold = cold(copies, opts);
     let (host, devices): (Vec<_>, Vec<_>) =
         copies.iter().copied().enumerate().partition(|(_, c)| {
             !matches!(c.src, Src::Device { .. }) && !matches!(c.dst, Dst::Device { .. })
@@ -386,8 +407,9 @@ unsafe fn read_impl(
     } else {
         #[cfg(unix)]
         let host_start = Instant::now();
+        let host_cold: Vec<bool> = host.iter().map(|&(i, _)| cold[i]).collect();
         // SAFETY: host copies keep `read`'s contract.
-        let stats = unsafe { host::fill(&host_copies, opts, cancel) }.map_err(|e| Error {
+        let stats = unsafe { host::fill(&host_copies, &host_cold, opts, cancel) }.map_err(|e| Error {
             copy: host[e.copy].0,
             source: e.source,
         })?;
@@ -398,17 +420,51 @@ unsafe fn read_impl(
         }
         stats
     };
-    // SAFETY: device copies keep `read`'s contract.
-    let device = unsafe { device::fill(&devices, opts, staged_host, issued, cancel) }?;
-    stats.direct += device.direct;
-    stats.cached += device.cached;
-    stats.bounced += device.bounced;
-    stats.pin_ns += device.pin_ns;
-    stats.staged += device.staged;
-    stats.busy_ns += device.busy_ns;
+    #[cfg(feature = "cuda")]
+    {
+        // SAFETY: device copies keep `read`'s contract.
+        let device = unsafe { device::fill(&devices, &cold, opts, staged_host, issued, cancel) }?;
+        stats.direct += device.direct;
+        stats.cached += device.cached;
+        stats.bounced += device.bounced;
+        stats.pin_ns += device.pin_ns;
+        stats.staged += device.staged;
+        stats.busy_ns += device.busy_ns;
+    }
+    #[cfg(not(feature = "cuda"))]
+    let _ = (staged_host, issued);
+    #[cfg(not(feature = "cuda"))]
+    if let Some((copy, _)) = devices.first() {
+        return Err(Error {
+            copy: *copy,
+            source: std::io::Error::new(std::io::ErrorKind::Unsupported, "this build has no GPU path"),
+        });
+    }
     stats.bytes = copies.iter().map(|c| c.dst.len() as u64).sum();
     stats.ns = start.elapsed().as_nanos() as u64;
     Ok(stats)
+}
+
+/// Whether each copy reads past the page cache (O_DIRECT, where `opts.direct` allows), sampled
+/// once a read, never per piece. A range the cache mostly holds reads through it: the disk serves
+/// only its holes. So does the rest while varena's host number leaves cache room for this read's
+/// missing bytes (`varena_ledger::host::Budget::cache`: memory nothing holds), so a second read of
+/// them hits memory. Past it the read goes O_DIRECT: caching it would displace other cache, a
+/// store larger than memory its own earlier bytes, and the cache then thrashes (Flux-2 on a 31 GiB
+/// pod read buffered at 0.45–0.95 GB/s against 1.26 GB/s direct, run 42010).
+fn cold(copies: &[Copy], opts: &ReadOpts) -> Vec<bool> {
+    let page = platform::durable::page_size();
+    let missing: Vec<u64> = copies.iter().map(|c| match c.src {
+        Src::File(f, at) if opts.direct && !c.dst.is_empty() => match platform::durable::cached_pages(f, at, c.dst.len() as u64) {
+            Some((held, of)) if held * 2 >= of => 0,
+            Some((held, of)) => (of - held) * page,
+            None => c.dst.len() as u64,
+        },
+        _ => 0,
+    }).collect();
+    let need: u64 = missing.iter().sum();
+    let past = need > 0 && varena_ledger::host::budget().cache() < i64::try_from(need).unwrap_or(i64::MAX);
+    missing.iter().map(|&m| past && m > 0).collect()
 }
 
 /// Logs the file reads among `copies` as one disk run (`metrics`).

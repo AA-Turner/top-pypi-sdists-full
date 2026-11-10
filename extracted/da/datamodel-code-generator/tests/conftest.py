@@ -89,6 +89,7 @@ CHECK_MODULE_IMPORTS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_MODULE_IMPORTS"
 CHECK_RENDER_PLANS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_RENDER_PLANS"
 CHECK_RENDER_MEMOS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_RENDER_MEMOS"
 CHECK_FACT_FINALITY_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY"
+CHECK_NAMING_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_NAMING"
 CHECK_AREA_ENVS = (
     CHECK_SCHEMA_LOCATIONS_ENV,
     CHECK_MODEL_GRAPH_ENV,
@@ -97,11 +98,14 @@ CHECK_AREA_ENVS = (
     CHECK_RENDER_PLANS_ENV,
     CHECK_RENDER_MEMOS_ENV,
     CHECK_FACT_FINALITY_ENV,
+    CHECK_NAMING_ENV,
 )
 """The variable of every debug check area (`Area` in `tests/checks/areas.py`) set to `1`."""
 CHECK_FACT_FINALITY_SWEEP_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_FACT_FINALITY_SWEEP"
+CHECK_PASS_TRIGGERS_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_PASS_TRIGGERS"
 SWEEP_PYTHON = (3, 15)
-"""The Python from which the test suite also sets `CHECK_FACT_FINALITY_SWEEP_ENV` to `1`: one CI lane runs the sweep."""
+"""The Python from which the test suite also sets `CHECK_FACT_FINALITY_SWEEP_ENV` and `CHECK_PASS_TRIGGERS_ENV` to `1`:
+one CI lane runs the sweep and the passes whose trigger is false, the others skip those passes as users do."""
 CHECK_STORE_WRITES_ENV = "DATAMODEL_CODE_GENERATOR_CHECK_STORE_WRITES"
 """The debug check area that reports into a file during each test, which `StoreWritesCheck` checks after the test."""
 CHILD_COVERAGE_ENV = {"COVERAGE_CORE": "ctrace"} if find_spec("coverage.tracer") else {}
@@ -282,13 +286,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     """Register the cli_doc marker and turn on every debug check area that is not set, except in CodSpeed benchmarks.
 
-    The finality sweep is turned on only from `SWEEP_PYTHON`.
+    The finality sweep and the trigger check are turned on only from `SWEEP_PYTHON`.
     """
     benchmarks = config.getoption("codspeed", default=False)
     for name in () if benchmarks else CHECK_AREA_ENVS:
         os.environ.setdefault(name, "1")
     if not benchmarks and sys.version_info >= SWEEP_PYTHON:
         os.environ.setdefault(CHECK_FACT_FINALITY_SWEEP_ENV, "1")
+        os.environ.setdefault(CHECK_PASS_TRIGGERS_ENV, "1")
     if not benchmarks and CHECK_STORE_WRITES_ENV not in os.environ:
         config.pluginmanager.register(store_writes_check := StoreWritesCheck(), "store-writes-check")
         config.add_cleanup(store_writes_check.report.unlink)

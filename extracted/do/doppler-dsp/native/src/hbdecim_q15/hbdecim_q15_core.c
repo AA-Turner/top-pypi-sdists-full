@@ -274,10 +274,11 @@ dp_hbdecim_q15_create (size_t num_taps, const float *h)
     r->cap <<= 1;
   r->mask = r->cap - 1;
 
-  r->even_I = calloc (2 * r->cap, sizeof (int16_t));
-  r->even_Q = calloc (2 * r->cap, sizeof (int16_t));
-  r->odd_I  = calloc (2 * r->cap, sizeof (int16_t));
-  r->odd_Q  = calloc (2 * r->cap, sizeof (int16_t));
+  /* Two copies of the ring, so any window is contiguous. */
+  r->even_I = dp_callocn (2, r->cap, sizeof (int16_t));
+  r->even_Q = dp_callocn (2, r->cap, sizeof (int16_t));
+  r->odd_I  = dp_callocn (2, r->cap, sizeof (int16_t));
+  r->odd_Q  = dp_callocn (2, r->cap, sizeof (int16_t));
   if (!r->even_I || !r->even_Q || !r->odd_I || !r->odd_Q)
     goto fail;
 

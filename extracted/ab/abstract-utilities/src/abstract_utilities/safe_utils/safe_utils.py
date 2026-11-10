@@ -25,6 +25,7 @@ from .imports import (
     is_number,
     get_caller_dir,
     safe_join,
+    safe_split,  # from abstract_essentials (single source)
 )
 _BASE_DIR = get_caller_dir()
 
@@ -67,46 +68,6 @@ def safe_join_base(base: Union[str, Path], *parts: Union[str, Path], must_exist:
         raise FileNotFoundError(target)
 
     return target
-def safe_split(
-    string: Any,
-    char: Any,
-    i: Optional[int] = None,
-    default: Union[bool, Any] = False
-) -> Union[str, List[str], Any, None]:
-    """
-    Safely split a string by a character and optionally return index i.
-
-    Args:
-        string: Input string (or any object convertible to string).
-        char: Delimiter to split on.
-        i: Optional index to retrieve from the split result.
-        default: If True, return the original string on error. 
-                 If any other value, return that instead of raising.
-
-    Returns:
-        The split list, or the element at index i, or default behavior on error.
-    """
-    if string is None or char is None:
-        return string
-
-    s, c = str(string), str(char)
-    if c not in s:
-        return string
-
-    parts = s.split(c)
-
-    if i is None:
-        return parts
-
-    if is_number(i):
-        idx = int(i)
-        if 0 <= idx < len(parts):
-            return parts[idx]
-
-    if default:
-        return string if default is True else default
-
-    return None
 
 
 def safe_slice(

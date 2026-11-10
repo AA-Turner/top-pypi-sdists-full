@@ -8,7 +8,10 @@ from __future__ import annotations
 import base64
 import contextlib
 import os
+import select
+import socket
 import tempfile
+import threading
 import time
 from collections.abc import Iterator
 
@@ -32,6 +35,11 @@ INLINE_BYTES = 512 * 1024
 MARGIN_S = 5.0
 #: A file body's slowest upload this allows before giving up on the answer (bytes a second).
 SLOWEST_UPLOAD_BPS = 256 * 1024
+#: On a GET read as it comes (the live events' SSE, `Transport.open_stream`): the service holds the response
+#: and writes its body into a socket this process reads (`api.call` with `stream: true`).
+STREAM_EXTENSION = "probe.stream"
+#: On a held stream's response: ends it from any thread (`SocketBody.cut`, `streams.cut_stream`).
+CUT_EXTENSION = "probe.cut"
 #: Test-only: "off" sends every request from this process (the suite's fakes stand in for HTTP).
 RELAY_ENV = "PROBE_API_RELAY"
 #: The network settings a relayed request carries (the service sends through them, not its own).
@@ -50,6 +58,8 @@ class RelayTransport(httpx.BaseTransport):
         from probe.foundation.service_api.wire import Method
 
         handoff.hold_open()  # the service stays up while this process sends through it
+        if request.extensions.get(STREAM_EXTENSION):
+            return _open_stream(request)
         sink = _open_sink(request)  # the answer's body past INLINE_BYTES: this process's own file
         try:
             parameters, fds, closer, body_length = _pack_request(request, sink)
@@ -67,6 +77,94 @@ class RelayTransport(httpx.BaseTransport):
             _discard_sink(sink)
             raise
         return response
+
+
+def _open_stream(request: httpx.Request) -> httpx.Response:
+    """A held GET through the service: it answers at the response's headers, then writes the body into the
+    socket passed with the call; the response reads it (`SocketBody`)."""
+    from probe.foundation.service_api import handoff
+    from probe.foundation.service_api.service_api import ServiceError
+    from probe.foundation.service_api.wire import Method
+
+    ours, theirs = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        parameters = {
+            "method": request.method, "url": str(request.url), "stream": True, "body_sink": {"index": 0},
+            "headers": [[name, value] for name, value in request.headers.multi_items()],
+            "timeout": {k: v for k, v in (request.extensions.get("timeout") or {}).items() if v is not None},
+        }
+        env = get_network_env()
+        if env:
+            parameters["env"] = env
+        try:
+            answer = handoff.request(Method.API_CALL, parameters, timeout=_answer_timeout(request, 0),
+                                     fds=[theirs.fileno()])
+        except (handoff.ServiceUnavailable, ServiceError) as exc:
+            raise httpx.ConnectError(f"the Probe service did not open the stream: {exc}", request=request) from exc
+        except (OSError, ValueError) as exc:
+            raise httpx.ReadError(f"the Probe service's answer broke off: {exc!r}", request=request) from exc
+    except BaseException:
+        ours.close()
+        raise
+    finally:
+        theirs.close()  # the service holds its own copy
+    if not (isinstance(answer, dict) and answer.get("streaming") is True):
+        ours.close()
+        return _to_response(answer, request, None)
+    try:
+        status = int(answer["status"])
+        headers = [(str(name), str(value)) for name, value in answer.get("headers") or []]
+    except (KeyError, TypeError, ValueError) as exc:
+        ours.close()
+        raise httpx.RemoteProtocolError(f"the Probe service's answer made no sense: {exc!r}", request=request) from exc
+    body = SocketBody(ours, (request.extensions.get("timeout") or {}).get("read"))
+    return httpx.Response(status, headers=headers, request=request, stream=body, extensions={CUT_EXTENSION: body.cut})
+
+
+class SocketBody(httpx.SyncByteStream):
+    """A held stream's body: what the service writes into this end of the socket pair, as it comes. Silence past
+    the read timeout is `httpx.ReadTimeout`. `cut()` (any thread) and `close()` shut the socket itself down, so
+    the reader wakes and the service's next write fails, even while a forked child (a DataLoader worker) still
+    holds a copy; a child's own close shuts nothing. `poll`, never `select`: the fd may be past 1023."""
+
+    def __init__(self, sock: socket.socket, read_timeout: float | None) -> None:
+        self.sock = sock
+        self.read_timeout = read_timeout
+        self._pid = os.getpid()
+        self._is_closed = False
+        self._lock = threading.Lock()
+
+    def __iter__(self) -> Iterator[bytes]:
+        poller = select.poll()
+        poller.register(self.sock.fileno(), select.POLLIN)
+        wait_ms = None if self.read_timeout is None else self.read_timeout * 1000
+        while not self._is_closed:
+            if not poller.poll(wait_ms):
+                raise httpx.ReadTimeout("the Probe service sent nothing for the read timeout")
+            try:
+                chunk = self.sock.recv(64 * 1024)
+            except OSError:
+                return
+            if not chunk:
+                return
+            yield chunk
+
+    def cut(self) -> None:
+        """End the stream from any thread: the reader wakes, the service stops."""
+        with self._lock:
+            if not self._is_closed and os.getpid() == self._pid:
+                with contextlib.suppress(OSError):
+                    self.sock.shutdown(socket.SHUT_RDWR)
+
+    def close(self) -> None:
+        with self._lock:
+            if self._is_closed:
+                return
+            self._is_closed = True
+            if os.getpid() == self._pid:
+                with contextlib.suppress(OSError):
+                    self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
 
 
 def _open_sink(request: httpx.Request):
@@ -158,6 +256,8 @@ def _to_response(answer: object, request: httpx.Request, sink) -> httpx.Response
     failed = answer.get("failed")
     if failed is not None:
         raise _to_httpx_error(str(failed), str(answer.get("message") or ""), request)
+    if sink is None and answer.get("body_in_sink") is not None:
+        raise httpx.RemoteProtocolError("the Probe service wrote a body nowhere it was asked to", request=request)
     try:
         status = int(answer["status"])
         headers = [(str(name), str(value)) for name, value in answer.get("headers") or []]
@@ -171,7 +271,8 @@ def _to_response(answer: object, request: httpx.Request, sink) -> httpx.Response
                 extensions[SINK_PATH_EXTENSION] = name
             return httpx.Response(status, headers=headers, stream=_SinkBody(sink, size), request=request,
                                   extensions=extensions)
-        _discard_sink(sink)
+        if sink is not None:
+            _discard_sink(sink)
         raw = base64.b64decode(answer.get("body") or "", validate=True)
         return httpx.Response(status, headers=headers, stream=httpx.ByteStream(raw), request=request,
                               extensions=extensions)

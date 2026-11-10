@@ -123,6 +123,46 @@ OPERATION = {
 }
 
 
+def test_a_company_may_turn_sign_in_off_for_personal_agents_and_then_answers_signed_out() -> None:
+    """D4-08 (PAP 0.3 as published §3.2, `auth.disabled`): off by default; on, the company answers
+    personal agents signed out only, so one admitting nobody signed out is refused."""
+    assert app(company={"enabled": True}).pap.company.sign_in_disabled is False
+    off = app(company={"enabled": True, "scopes": [READ], "sign_in_disabled": True})
+    assert off.pap.company.sign_in_disabled and off.pap.company.signed_out
+    with pytest.raises(ValueError, match="no sign-in answers them signed out"):
+        app(company={"enabled": True, "scopes": [READ], "sign_in_disabled": True, "signed_out": False})
+    # Not enabled, the coherence of the role is not judged.
+    app(company={"enabled": False, "sign_in_disabled": True, "signed_out": False})
+
+
+def test_a_company_may_publish_its_public_skills_to_personal_agents() -> None:
+    """D4-06 (PAP 0.3 §9.4): off by default; on, the application names skills to publish; which of
+    them are public and secret-free is the platform's to say at Ship."""
+    assert app(company={"enabled": True}).pap.company.publish_skills is False
+    spec = parse_app({**BASE, "skills": ["accounting"], "pap": {"profile": "draft-01", "company": {"enabled": True, "publish_skills": True}}})
+    assert spec.pap.company.publish_skills and spec.skills == ["accounting"]
+    with pytest.raises(ValueError, match="names skills to publish"):
+        parse_app({**BASE, "skills": [], "pap": {"profile": "draft-01", "company": {"enabled": True, "publish_skills": True}}})
+    # Not enabled as a company, the flag is kept and not judged.
+    parse_app({**BASE, "skills": [], "pap": {"profile": "draft-01", "company": {"enabled": False, "publish_skills": True}}})
+
+
+def test_a_companys_website_says_whether_it_gives_full_access_or_asks_agents_not_to_browse() -> None:
+    """D5-09 (PAP draft 0.4 §6): `web_unscoped` (`web.unscoped`) needs the website; `web_disabled`
+    (`web.disabled`) lists no website and offers the company's agent or API; both off by default."""
+    plain = app(company={"enabled": True}).pap.company
+    assert (plain.web_unscoped, plain.web_disabled) == (False, False)
+    unscoped = app(company={"enabled": True, "interfaces": ["agent", "web"], "web_unscoped": True})
+    assert unscoped.pap.company.web_unscoped
+    with pytest.raises(ValueError, match="add the `web` interface"):
+        app(company={"enabled": True, "web_unscoped": True})
+    assert app(company={"enabled": True, "web_disabled": True}).pap.company.web_disabled
+    with pytest.raises(ValueError, match="does not offer `web`"):
+        app(company={"enabled": True, "interfaces": ["agent", "web"], "web_disabled": True})
+    with pytest.raises(ValueError, match="offers `agent` or `openapi`"):
+        app(company={"enabled": True, "interfaces": ["mcp"], "web_disabled": True})
+
+
 def test_a_company_declares_what_it_does_once_the_person_confirms() -> None:
     spec = app(company={"enabled": True, "scopes": [WRITE], "extensions": ["operations"],
                         "operations": [OPERATION]})

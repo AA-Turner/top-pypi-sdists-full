@@ -1,16 +1,15 @@
 """Shared attribute-value corpus for the attribute round-trip tests.
 
-`ATTRIBUTE_VALUES` is the canonical list of datatypes exercised by
-``test_attributes.py`` (pytest-native) and by the legacy
-``TestAttributesBase`` mixin (still consumed by the not-yet-migrated
-xml/rdf/dot modules). Keep the entries and their order stable: some tests
-(e.g. ``test_attributes.py``, ``test_xml_schema.py``) reference individual
-values by index (e.g. index 8 is the ``xsd:decimal`` case).
+``ATTRIBUTE_VALUES`` is the list of datatypes ``test_attributes.py`` feeds
+through every target. Keep the entries and their order stable: some tests
+(``test_attributes.py``, ``test_xml_schema.py``) reference values by index,
+and index 8 is the ``xsd:decimal`` case.
 """
 
 import datetime
+from typing import Any
 
-from prov.identifier import Identifier, Namespace
+from prov.identifier import Namespace
 from prov.model import (
     XSD,
     XSD_ANYURI,
@@ -31,12 +30,13 @@ from prov.model import (
     XSD_UNSIGNEDLONG,
     XSD_UNSIGNEDSHORT,
     Literal,
+    ProvDocument,
 )
 
 EX_NS = Namespace("ex", "http://example.org/")
 EX_OTHER_NS = Namespace("other", "http://example.org/")
 
-ATTRIBUTE_VALUES = [
+ATTRIBUTE_VALUES: list[Any] = [
     "un lieu",
     Literal("un lieu", langtag="fr"),
     Literal("a place", langtag="en"),
@@ -57,18 +57,18 @@ ATTRIBUTE_VALUES = [
     Literal(-10, XSD_NONPOSITIVEINTEGER),
     Literal(10, XSD_POSITIVEINTEGER),
     Literal(10, XSD_UNSIGNEDBYTE),
-    Identifier("http://example.org"),
+    Literal("http://example.org", XSD_ANYURI),
     Literal("http://example.org", XSD_ANYURI),
     EX_NS["abc"],
     EX_OTHER_NS["abcd"],
     Namespace("ex", "http://example4.org/")["zabc"],
     Namespace("other", "http://example4.org/")["zabcd"],
-    datetime.datetime.now(),
-    Literal(datetime.datetime.now().isoformat(), XSD_DATETIME),
+    datetime.datetime(2026, 10, 21, 14, 30, 15, 123456),
+    Literal("2026-10-21T14:30:15.123456", XSD_DATETIME),
     Literal("aGVsbG8=", XSD["base64Binary"]),
     float("inf"),
     float("-inf"),
-    Identifier('http://example.org/a"b\\c'),
+    Literal('http://example.org/a"b\\c', XSD_ANYURI),
     Literal("abc", XSD_INT),
     Literal("abc", XSD_DOUBLE),
     Literal("2012-13-01T00:00:00", XSD_DATETIME),
@@ -76,3 +76,12 @@ ATTRIBUTE_VALUES = [
     Literal("10:30:00", XSD["time"]),
     Literal("PT1H", XSD["duration"]),
 ]
+
+
+def document() -> ProvDocument:
+    """One entity per corpus value, ``ex:e<i>`` with ``ex:v`` set to value ``i``."""
+    doc = ProvDocument()
+    doc.add_namespace(EX_NS.prefix, EX_NS.uri)
+    for i, value in enumerate(ATTRIBUTE_VALUES):
+        doc.entity(EX_NS[f"e{i}"], {EX_NS["v"]: value})
+    return doc

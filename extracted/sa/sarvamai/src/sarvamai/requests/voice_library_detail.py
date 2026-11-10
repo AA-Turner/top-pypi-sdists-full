@@ -27,7 +27,7 @@ class VoiceLibraryDetailParams(VoiceLibraryVoiceParams):
     previews: typing_extensions.NotRequired[typing.Sequence[VoiceLibraryPreviewItemParams]]
     noise_reduction_applied: typing_extensions.NotRequired[bool]
     """
-    True once the background denoise job has improved the reference audio.
+    True when background noise was removed from the reference audio for this voice.
     """
 
     tags: typing_extensions.NotRequired[typing.Sequence[str]]

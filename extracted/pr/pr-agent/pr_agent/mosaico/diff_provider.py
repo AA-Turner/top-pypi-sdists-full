@@ -7,11 +7,14 @@ get_settings().data rather than calling the publish path).
 The diff is parsed by parse_unified_diff(); per-request the parsed files/languages/title
 are read from MOSAICO.INPUT on the (context) settings.
 """
+import io
 import re
 from urllib.parse import unquote, urlsplit
 
 from pr_agent.agent.request_policy import policy_metadata
+from pr_agent.algo.file_filter import filter_ignored_with_status
 from pr_agent.algo.git_patch_processing import to_hunk_only_patch
+from pr_agent.algo.language_handler import partition_files_by_language_filter
 from pr_agent.algo.types import EDIT_TYPE, FilePatchInfo
 from pr_agent.config_loader import get_settings
 from pr_agent.git_providers.git_provider import GitProvider
@@ -65,7 +68,7 @@ def parse_unified_diff(diff_text: str) -> list[FilePatchInfo]:
     if not diff_text or not isinstance(diff_text, str):
         return []
 
-    lines = diff_text.splitlines(keepends=True)
+    lines = list(io.StringIO(diff_text, newline="\n"))
     # Find the start index of each "diff --git" section.
     starts = [i for i, ln in enumerate(lines) if _DIFF_GIT_RE.match(ln.rstrip("\r\n"))]
     if not starts:
@@ -173,6 +176,8 @@ class DiffInputProvider(GitProvider):
         return False
 
     def get_diff_files(self) -> list[FilePatchInfo]:
+        metadata_files, ignore_complete = filter_ignored_with_status(list(self.diff_files), platform="mosaico")
+        self.filtered_diff_file_names = partition_files_by_language_filter(metadata_files)[1] if ignore_complete else []
         return self.diff_files
 
     def get_files(self) -> list:

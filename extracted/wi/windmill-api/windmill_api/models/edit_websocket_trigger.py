@@ -40,6 +40,9 @@ class EditWebsocketTrigger:
         filter_logic (Union[Unset, EditWebsocketTriggerFilterLogic]): Logic to apply when evaluating the top-level
             filters. 'and' requires all of them to match, 'or' requires any of them to match. Nested
             `any_of`/`all_of`/`none_of` groups carry their own logic. Default: EditWebsocketTriggerFilterLogic.AND.
+        run_on_filter_error (Union[Unset, bool]): Whether a message the filters cannot read (not UTF-8, or not JSON)
+            still runs the target, as if the trigger had no filters. A preprocessor then finds the reason in
+            `event.filter_error`. When false, such a message is skipped.
         initial_messages (Union[Unset, None, List[Union['EditWebsocketTriggerInitialMessagesItemType0',
             'EditWebsocketTriggerInitialMessagesItemType1']]]): Messages to send immediately after connecting (can be raw
             strings or computed by runnables)
@@ -66,6 +69,7 @@ class EditWebsocketTrigger:
     can_return_message: bool
     can_return_error_result: bool
     filter_logic: Union[Unset, EditWebsocketTriggerFilterLogic] = EditWebsocketTriggerFilterLogic.AND
+    run_on_filter_error: Union[Unset, bool] = False
     initial_messages: Union[
         Unset,
         None,
@@ -98,6 +102,7 @@ class EditWebsocketTrigger:
         if not isinstance(self.filter_logic, Unset):
             filter_logic = self.filter_logic.value
 
+        run_on_filter_error = self.run_on_filter_error
         initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
             if self.initial_messages is None:
@@ -153,6 +158,8 @@ class EditWebsocketTrigger:
         )
         if filter_logic is not UNSET:
             field_dict["filter_logic"] = filter_logic
+        if run_on_filter_error is not UNSET:
+            field_dict["run_on_filter_error"] = run_on_filter_error
         if initial_messages is not UNSET:
             field_dict["initial_messages"] = initial_messages
         if url_runnable_args is not UNSET:
@@ -208,6 +215,8 @@ class EditWebsocketTrigger:
             filter_logic = UNSET
         else:
             filter_logic = EditWebsocketTriggerFilterLogic(_filter_logic)
+
+        run_on_filter_error = d.pop("run_on_filter_error", UNSET)
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -283,6 +292,7 @@ class EditWebsocketTrigger:
             can_return_message=can_return_message,
             can_return_error_result=can_return_error_result,
             filter_logic=filter_logic,
+            run_on_filter_error=run_on_filter_error,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             heartbeat=heartbeat,

@@ -5,9 +5,30 @@ from .deferredtoolssearchstrategy import (
     DeferredToolsSearchStrategy,
     DeferredToolsSearchStrategyTypedDict,
 )
-from openrouter.types import BaseModel, UnrecognizedStr
-from typing import Literal, Union
-from typing_extensions import TypedDict
+from openrouter.types import BaseModel, UNSET_SENTINEL, UnrecognizedStr
+from pydantic import model_serializer
+from typing import Literal, Optional, Union
+from typing_extensions import NotRequired, TypedDict
+
+
+CascadeMode = Union[
+    Literal[
+        "keywords",
+        "native",
+    ],
+    UnrecognizedStr,
+]
+r"""How a universal `tool_search` query reaches the client's own tool search. Absent or `keywords`: a `select:` query becomes the words of the selected names and the limit is always filled. `native`: a `select:` query passes through verbatim when the client search documents `select:`, and the limit field is sent only when the model gave one, unless the client search requires it, in which case its documented default is sent. A tool the client sent with `defer_loading: true` that universal keeps direct is forwarded with that flag, so the provider loads it through the client search as it would without universal. Experimental."""
+
+
+Interface = Union[
+    Literal[
+        "wrappers",
+        "code_mode",
+    ],
+    UnrecognizedStr,
+]
+r"""How the universal profile exposes the hidden catalog to the provider. Absent or `wrappers`: the `tool_search` and `tool_exec` tools. `code_mode`: one `tool_code` tool that runs a short JavaScript program in which `search()` and `call()` reach the catalog, so several searches and calls complete in one tool result. Experimental."""
 
 
 Profile = Union[
@@ -17,10 +38,20 @@ Profile = Union[
     ],
     UnrecognizedStr,
 ]
-r"""Loading profile. `portable` serves the `defer_loading` tools with router-built search and call wrappers on any model and keeps the catalog fixed. `universal` defers every wrappable tool behind the same wrappers so the provider-facing tool list never changes, and rebuilds the catalog from each request so tools can be added or removed mid-conversation."""
+r"""Loading profile. `portable` serves the `defer_loading` tools with router-built search and call wrappers on any model and keeps the catalog fixed. `universal` defers every wrappable tool behind the same wrappers so the provider-facing tool list never changes (unless `min_deferred_tools` inlines a small catalog), and rebuilds the catalog from each request so tools can be added or removed mid-conversation."""
 
 
 Protocol = Literal["v1",]
+
+
+DeferredToolsControlScope = Union[
+    Literal[
+        "all",
+        "mcp",
+    ],
+    UnrecognizedStr,
+]
+r"""Which tools the universal profile defers. Absent or `all`: every wrappable tool outside the coding-harness core set. `mcp`: only MCP server tools (`mcp__*` names and Responses namespaces outside `functions`); the harness keeps its own built-in tools direct. Experimental."""
 
 
 Validation = Literal["runtime",]
@@ -28,22 +59,34 @@ r"""Where tool-call arguments are checked against the original schema. Only `run
 
 
 class DeferredToolsControlTypedDict(TypedDict):
-    r"""Opt-in versioned router-level deferred-tool protocol. Replay assistant reasoning unchanged on continuation; keep the catalog unchanged."""
+    r"""Opt-in versioned router-level deferred-tool protocol. Replay assistant reasoning unchanged on continuation. The portable profile needs the catalog unchanged across a continuation; the universal profile accepts a changed catalog and, with `announce_catalog_changes`, tells the model about it."""
 
     profile: Profile
-    r"""Loading profile. `portable` serves the `defer_loading` tools with router-built search and call wrappers on any model and keeps the catalog fixed. `universal` defers every wrappable tool behind the same wrappers so the provider-facing tool list never changes, and rebuilds the catalog from each request so tools can be added or removed mid-conversation."""
+    r"""Loading profile. `portable` serves the `defer_loading` tools with router-built search and call wrappers on any model and keeps the catalog fixed. `universal` defers every wrappable tool behind the same wrappers so the provider-facing tool list never changes (unless `min_deferred_tools` inlines a small catalog), and rebuilds the catalog from each request so tools can be added or removed mid-conversation."""
     protocol: Protocol
     search: DeferredToolsSearchStrategyTypedDict
     r"""Router-local regex/BM25 or caller-owned custom search."""
     validation: Validation
     r"""Where tool-call arguments are checked against the original schema. Only `runtime` (in OpenRouter) is available in this release."""
+    announce_catalog_changes: NotRequired[bool]
+    r"""Universal profile only. When true, a catalog whose deferred tools changed between two of the model's own turns (a client that connects MCP servers while the model works) is re-announced before the next model turn, with the sources added, changed and removed since the previous index, or that no deferred tools remain. Applies when the router lists the catalog itself; a client whose own tool search was adopted lists its deferred tools itself and is not re-announced. The announcement shares the result budget of the turn and is skipped when it does not fit. Absent or false: the catalog index is announced on a user turn only."""
+    cascade_mode: NotRequired[CascadeMode]
+    r"""How a universal `tool_search` query reaches the client's own tool search. Absent or `keywords`: a `select:` query becomes the words of the selected names and the limit is always filled. `native`: a `select:` query passes through verbatim when the client search documents `select:`, and the limit field is sent only when the model gave one, unless the client search requires it, in which case its documented default is sent. A tool the client sent with `defer_loading: true` that universal keeps direct is forwarded with that flag, so the provider loads it through the client search as it would without universal. Experimental."""
+    hint: NotRequired[str]
+    r"""Universal profile only. Caller text announced to the model with the deferred catalog before its first turn, for example which sources the task needs. Repeated only when it changes. Trimmed before the length bounds apply. Recorded in the `catalog_index` discovery record of the response, so it is replayed with the conversation."""
+    interface: NotRequired[Interface]
+    r"""How the universal profile exposes the hidden catalog to the provider. Absent or `wrappers`: the `tool_search` and `tool_exec` tools. `code_mode`: one `tool_code` tool that runs a short JavaScript program in which `search()` and `call()` reach the catalog, so several searches and calls complete in one tool result. Experimental."""
+    min_deferred_tools: NotRequired[int]
+    r"""Universal profile only. When fewer tools than this would be deferred, the universal profile defers none of them and sends the client tools unchanged, so a harness with a handful of non-core tools and no MCP servers pays no search turn for them. Counted after the interface exclusions; ignored with a custom search, whose client decides what it loads. Absent: every wrappable tool in scope is deferred."""
+    scope: NotRequired[DeferredToolsControlScope]
+    r"""Which tools the universal profile defers. Absent or `all`: every wrappable tool outside the coding-harness core set. `mcp`: only MCP server tools (`mcp__*` names and Responses namespaces outside `functions`); the harness keeps its own built-in tools direct. Experimental."""
 
 
 class DeferredToolsControl(BaseModel):
-    r"""Opt-in versioned router-level deferred-tool protocol. Replay assistant reasoning unchanged on continuation; keep the catalog unchanged."""
+    r"""Opt-in versioned router-level deferred-tool protocol. Replay assistant reasoning unchanged on continuation. The portable profile needs the catalog unchanged across a continuation; the universal profile accepts a changed catalog and, with `announce_catalog_changes`, tells the model about it."""
 
     profile: Profile
-    r"""Loading profile. `portable` serves the `defer_loading` tools with router-built search and call wrappers on any model and keeps the catalog fixed. `universal` defers every wrappable tool behind the same wrappers so the provider-facing tool list never changes, and rebuilds the catalog from each request so tools can be added or removed mid-conversation."""
+    r"""Loading profile. `portable` serves the `defer_loading` tools with router-built search and call wrappers on any model and keeps the catalog fixed. `universal` defers every wrappable tool behind the same wrappers so the provider-facing tool list never changes (unless `min_deferred_tools` inlines a small catalog), and rebuilds the catalog from each request so tools can be added or removed mid-conversation."""
 
     protocol: Protocol
 
@@ -52,3 +95,46 @@ class DeferredToolsControl(BaseModel):
 
     validation: Validation
     r"""Where tool-call arguments are checked against the original schema. Only `runtime` (in OpenRouter) is available in this release."""
+
+    announce_catalog_changes: Optional[bool] = None
+    r"""Universal profile only. When true, a catalog whose deferred tools changed between two of the model's own turns (a client that connects MCP servers while the model works) is re-announced before the next model turn, with the sources added, changed and removed since the previous index, or that no deferred tools remain. Applies when the router lists the catalog itself; a client whose own tool search was adopted lists its deferred tools itself and is not re-announced. The announcement shares the result budget of the turn and is skipped when it does not fit. Absent or false: the catalog index is announced on a user turn only."""
+
+    cascade_mode: Optional[CascadeMode] = None
+    r"""How a universal `tool_search` query reaches the client's own tool search. Absent or `keywords`: a `select:` query becomes the words of the selected names and the limit is always filled. `native`: a `select:` query passes through verbatim when the client search documents `select:`, and the limit field is sent only when the model gave one, unless the client search requires it, in which case its documented default is sent. A tool the client sent with `defer_loading: true` that universal keeps direct is forwarded with that flag, so the provider loads it through the client search as it would without universal. Experimental."""
+
+    hint: Optional[str] = None
+    r"""Universal profile only. Caller text announced to the model with the deferred catalog before its first turn, for example which sources the task needs. Repeated only when it changes. Trimmed before the length bounds apply. Recorded in the `catalog_index` discovery record of the response, so it is replayed with the conversation."""
+
+    interface: Optional[Interface] = None
+    r"""How the universal profile exposes the hidden catalog to the provider. Absent or `wrappers`: the `tool_search` and `tool_exec` tools. `code_mode`: one `tool_code` tool that runs a short JavaScript program in which `search()` and `call()` reach the catalog, so several searches and calls complete in one tool result. Experimental."""
+
+    min_deferred_tools: Optional[int] = None
+    r"""Universal profile only. When fewer tools than this would be deferred, the universal profile defers none of them and sends the client tools unchanged, so a harness with a handful of non-core tools and no MCP servers pays no search turn for them. Counted after the interface exclusions; ignored with a custom search, whose client decides what it loads. Absent: every wrappable tool in scope is deferred."""
+
+    scope: Optional[DeferredToolsControlScope] = None
+    r"""Which tools the universal profile defers. Absent or `all`: every wrappable tool outside the coding-harness core set. `mcp`: only MCP server tools (`mcp__*` names and Responses namespaces outside `functions`); the harness keeps its own built-in tools direct. Experimental."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "announce_catalog_changes",
+                "cascade_mode",
+                "hint",
+                "interface",
+                "min_deferred_tools",
+                "scope",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k, serialized.get(n))
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

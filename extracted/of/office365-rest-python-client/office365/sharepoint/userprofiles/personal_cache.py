@@ -10,7 +10,9 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import StringCollection
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 if TYPE_CHECKING:
     from office365.sharepoint.userprofiles.personal_cache_item import PersonalCacheItem
@@ -24,12 +26,14 @@ class PersonalCache(Entity):
     def __init__(self, context):
         super().__init__(context, ResourcePath("SP.UserProfiles.PersonalCache"))
 
+    @site_access(SiteLevel.WRITE)
     def dispose(self):
         """ """
         qry = ServiceOperationQuery(self, "Dispose")
         self.context.add_query(qry)
         return self
 
+    @odata(name="CacheName")
     @property
     def cache_name(self) -> Optional[str]:
         """"""
@@ -39,16 +43,19 @@ class PersonalCache(Entity):
     def entity_type_name(self):
         return "SP.UserProfiles.PersonalCache"
 
+    @odata(name="MySiteUrl")
     @property
     def my_site_url(self) -> Optional[str]:
         """Gets the MySiteUrl property"""
         return self.properties.get("MySiteUrl", None)
 
+    @odata(name="RequireHtmlStorage")
     @property
     def require_html_storage(self) -> Optional[bool]:
         """Gets the RequireHtmlStorage property"""
         return self.properties.get("RequireHtmlStorage", None)
 
+    @site_access(SiteLevel.WRITE)
     def delete_cache_items_async(self, cache_items: ClientValueCollection[PersonalCacheItem]) -> Self:
         """DeleteCacheItemsAsync operation.
 
@@ -60,6 +67,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def delete_cache_items_async2(self, cache_items: ClientValueCollection[PersonalCacheItem], my_site_url: str) -> Self:
         """DeleteCacheItemsAsync2 operation.
 
@@ -75,6 +83,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def read_cache(self, folder_path: str) -> ClientResult[ClientValueCollection[PersonalCacheItem]]:
         """ReadCache operation.
 
@@ -91,6 +100,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def read_cache2(self, folder_path: str, my_site_url: str) -> ClientResult[ClientValueCollection[PersonalCacheItem]]:
         """ReadCache2 operation.
 
@@ -109,6 +119,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def read_cache_or_create(
         self, folder_path: ResourcePath, required_cache_keys: list[str], create_if_missing: bool
     ) -> ClientResult[ClientValueCollection[PersonalCacheItem]]:
@@ -142,6 +153,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def read_cache_or_create2(
         self, folder_path: ResourcePath, required_cache_keys: list[str], create_if_missing: bool, my_site_url: str
     ) -> ClientResult[ClientValueCollection[PersonalCacheItem]]:
@@ -178,6 +190,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def read_cache_or_create_order_by_id(
         self, folder_path: ResourcePath, required_cache_keys: list[str], create_if_missing: bool
     ) -> ClientResult[ClientValueCollection[PersonalCacheItem]]:
@@ -211,6 +224,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def read_cache_or_create_order_by_id2(
         self, folder_path: ResourcePath, required_cache_keys: list[str], create_if_missing: bool, my_site_url: str
     ) -> ClientResult[ClientValueCollection[PersonalCacheItem]]:
@@ -247,6 +261,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def write_cache(self, cache_items: ClientValueCollection[PersonalCacheItem]) -> Self:
         """WriteCache operation.
 
@@ -258,6 +273,7 @@ class PersonalCache(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def write_cache2(self, cache_items: ClientValueCollection[PersonalCacheItem], my_site_url: str) -> Self:
         """WriteCache2 operation.
 

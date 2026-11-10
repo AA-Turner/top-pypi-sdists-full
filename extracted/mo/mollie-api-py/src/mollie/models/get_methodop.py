@@ -3,9 +3,19 @@
 
 from __future__ import annotations
 from .locale import Locale
-from .method_enum import MethodEnum
+from .method_id import MethodID
 from .sequence_type import SequenceType
-from mollie.types import BaseModel, Nullable, OptionalNullable, UNSET, UNSET_SENTINEL
+from mollie import models
+from mollie.types import (
+    BaseModel,
+    Nullable,
+    OptionalNullable,
+    UNSET,
+    UNSET_SENTINEL,
+    current_exclude_none,
+    serialize_with_info,
+)
+from mollie.types.basemodel import current_filtered_dump
 from mollie.utils import (
     FieldMetadata,
     HeaderMetadata,
@@ -13,7 +23,7 @@ from mollie.utils import (
     QueryParamMetadata,
 )
 import pydantic
-from pydantic import model_serializer
+from pydantic import field_serializer, model_serializer
 from typing import Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 
@@ -60,13 +70,20 @@ class GetMethodGlobals(BaseModel):
     """
 
     @model_serializer(mode="wrap")
+    def _serialize_model_with_info(self, handler, info):
+        return serialize_with_info(self.serialize_model, handler, info)
+
     def serialize_model(self, handler):
         optional_fields = set(["profileId", "testmode"])
+        exclude_none = current_exclude_none()
+        skip_filtered = exclude_none is False or current_filtered_dump()
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
-            k = f.alias or n
+            k = f.alias if f.alias is not None else n
+            if k not in serialized and n not in serialized and skip_filtered:
+                continue
             val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
@@ -77,7 +94,7 @@ class GetMethodGlobals(BaseModel):
 
 
 class GetMethodRequestTypedDict(TypedDict):
-    method_id: Nullable[MethodEnum]
+    method_id: Nullable[MethodID]
     r"""Provide the ID of the related payment method."""
     locale: NotRequired[Nullable[Locale]]
     r"""Passing a locale will sort the payment methods in the preferred order
@@ -117,7 +134,7 @@ class GetMethodRequestTypedDict(TypedDict):
 
 class GetMethodRequest(BaseModel):
     method_id: Annotated[
-        Nullable[MethodEnum],
+        Nullable[MethodID],
         pydantic.Field(alias="methodId"),
         FieldMetadata(path=PathParamMetadata(style="simple", explode=False)),
     ]
@@ -188,7 +205,19 @@ class GetMethodRequest(BaseModel):
     ] = None
     r"""A unique key to ensure idempotent requests. This key should be a UUID v4 string."""
 
+    @field_serializer("method_id")
+    def serialize_method_id(self, value):
+        if isinstance(value, str):
+            try:
+                return models.MethodID(value)
+            except ValueError:
+                return value
+        return value
+
     @model_serializer(mode="wrap")
+    def _serialize_model_with_info(self, handler, info):
+        return serialize_with_info(self.serialize_model, handler, info)
+
     def serialize_model(self, handler):
         optional_fields = set(
             [
@@ -202,11 +231,15 @@ class GetMethodRequest(BaseModel):
             ]
         )
         nullable_fields = set(["methodId", "locale", "include"])
+        exclude_none = current_exclude_none()
+        skip_filtered = exclude_none is False or current_filtered_dump()
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
-            k = f.alias or n
+            k = f.alias if f.alias is not None else n
+            if k not in serialized and n not in serialized and skip_filtered:
+                continue
             val = serialized.get(k, serialized.get(n))
             is_nullable_and_explicitly_set = (
                 k in nullable_fields

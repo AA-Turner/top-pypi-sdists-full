@@ -20,7 +20,7 @@ patterns:
   - name: Universal Lookup
     when: User provides an identifier (ticker, CIK, accession number, company name)
     code: |
-      find("AAPL")                    # Ticker → Company
+      find("AAPL")                    # Ticker → Entity (Company("AAPL") for financials)
       find(320193)                    # CIK → Entity
       find("0000320193-25-000079")    # Accession number → Filing
       find("Apple")                   # Company name → CompanySearchResults
@@ -45,7 +45,7 @@ patterns:
       report.notes['Debt']               # Single note by title
       report.notes.search('revenue')     # Fuzzy search → ranked list
       xbrl = filing.xbrl()                # XBRL data (or None)
-      doc = filing.document()             # Primary document text
+      doc = filing.document               # Primary document (an Attachment); doc.text() is its text
       attachments = filing.attachments    # All exhibits
 
   - name: Search Filing Content
@@ -109,8 +109,10 @@ patterns:
       MCP error_code maps to recovery action:
       COMPANY_NOT_FOUND → try CIK or find()
       NO_FACTS_DATA → use filing.obj() instead
-      NO_XBRL_DATA → use filing.document() for text
       RATE_LIMIT → wait 10+ minutes, never retry immediately
+      A filing with no XBRL is not an error: get_financials() returns None (filings
+      from before the 2009-2011 XBRL phase-in have none). Read its text with
+      filing.document.text() instead.
 
   - name: Financial Statements
     when: User asks about revenue, balance sheet, cash flow, metrics
@@ -144,7 +146,7 @@ patterns:
 
       # to_context() = "What can I DO?" (learn capabilities)
       filings.to_context()     # .filter(), .latest(), [index]
-      filing.to_context()      # .obj(), .xbrl(), .document()
+      filing.to_context()      # .obj(), .xbrl(), .document
       financials.to_context()  # Available statements and metrics
     note: Never use repr() for LLMs - too many tokens.
 
@@ -194,8 +196,8 @@ errors: |
   except EdgarError:
       ...   # outer net
 
-  # NEVER catch httpx types (httpx.ReadTimeout, httpx.HTTPStatusError) around
-  # edgartools calls. TransportError is the supported type; the httpx original
+  # NEVER catch httpx or httpx2 types (httpx2.ReadTimeout, httpx2.HTTPStatusError) around
+  # edgartools calls. TransportError is the supported type; the httpx2 original
   # is on exc.__cause__ if you need it. exc.status_code is None means we never
   # got an HTTP answer at all, which is different from SEC answering with 404.
 
@@ -208,15 +210,13 @@ errors: |
   tenk["Item 7"]              # the item you expect
   tenk.get("Item 16", "")     # the item that may not be there
 
-  # EDGARTOOLS_STRICT_ERRORS=1 turns on 6.0 error behaviour today.
-
 avoid:
   - pattern: "except httpx.ReadTimeout:"
     fix: "except TransportError:  # from edgar.exceptions"
-    why: httpx types reach you by accident, not by contract; 6.0 raises TransportError instead
+    why: edgartools 6.0 runs on httpx2, so an httpx except clause never fires; HTTP-library types reach you by accident, not by contract, and 6.0 raises TransportError instead
 
   - pattern: "if company.get_financials() is None: print('request failed')"
-    fix: "None means this company filed no annual report; a failure raises"
+    fix: "None means there are no statements to read (no annual report filed, or the latest one carries no XBRL); a failure raises"
     why: treating None as failure hides the real error and invents one that did not happen
 
   - pattern: "for f in company.get_filings(): process(f)"

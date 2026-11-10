@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import base64
 import re
-import time
 import uuid
 from abc import abstractmethod
 from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from time import time as _time
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from openid.association import Association as OpenIdAssociation
@@ -18,7 +18,7 @@ from .exceptions import AuthConfigurationError, AuthCredentialError, AuthRespons
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from social_core.backends.base import BaseAuth
+    from social_core.backends.base import BaseAuth, ResponseT_co
     from social_core.strategy import BaseStrategy
 
 NO_ASCII_REGEX = re.compile(r"[^\x00-\x7F]+")
@@ -54,10 +54,14 @@ class UserMixin:
     @abstractmethod
     def save(self): ...
 
-    def get_backend(self, strategy: BaseStrategy) -> type[BaseAuth]:
+    def get_backend(
+        self, strategy: BaseStrategy[ResponseT_co]
+    ) -> type[BaseAuth[ResponseT_co]]:
         return strategy.get_backend_class(self.provider)
 
-    def get_backend_instance(self, strategy: BaseStrategy) -> BaseAuth | None:
+    def get_backend_instance(
+        self, strategy: BaseStrategy[ResponseT_co]
+    ) -> BaseAuth[ResponseT_co] | None:
         try:
             return strategy.get_backend(self.provider)
         except AuthConfigurationError as error:
@@ -70,7 +74,7 @@ class UserMixin:
         """Return access_token stored in extra_data or None"""
         return self.extra_data.get("access_token")
 
-    def refresh_token(self, strategy: BaseStrategy, *args, **kwargs) -> None:
+    def refresh_token(self, strategy: BaseStrategy[object], *args, **kwargs) -> None:
         """Renew stored credentials using the backend's selected token.
 
         Missing renewal credentials require reauthentication only when the
@@ -116,8 +120,8 @@ class UserMixin:
             ) from e
 
         try:
-            now = datetime.now(timezone.utc)
-            expiry_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            now = datetime.now(UTC)
+            expiry_time = datetime.fromtimestamp(timestamp, tz=UTC)
             return expiry_time - now
         except (OSError, ValueError) as e:
             raise AuthResponseError(
@@ -152,8 +156,8 @@ class UserMixin:
                 pass
             else:
                 try:
-                    now = datetime.now(timezone.utc)
-                    reference = datetime.fromtimestamp(auth_timestamp, tz=timezone.utc)
+                    now = datetime.now(UTC)
+                    reference = datetime.fromtimestamp(auth_timestamp, tz=UTC)
                     return (reference + timedelta(seconds=seconds)) - now
                 except (OSError, ValueError):
                     # auth_time timestamp out of range, fall back to treating as seconds from now
@@ -230,7 +234,7 @@ class UserMixin:
             and expiration.total_seconds() <= self.ACCESS_TOKEN_EXPIRED_THRESHOLD
         )
 
-    def get_access_token(self, strategy: BaseStrategy) -> str | None:
+    def get_access_token(self, strategy: BaseStrategy[object]) -> str | None:
         """Returns a valid access token."""
         if self.access_token_expired():
             self.refresh_token(strategy)
@@ -389,7 +393,7 @@ class AssociationMixin:
     def is_expired(self, now: int | None = None) -> bool:
         """Return whether the association's lifetime has elapsed."""
         if now is None:
-            now = int(time.time())
+            now = int(_time())
         return self.lifetime <= 0 or now >= self.issued + self.lifetime
 
     @classmethod
@@ -451,9 +455,9 @@ class CodeMixin:
             return True
         timestamp = self.timestamp
         if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
-        timestamp = timestamp.astimezone(timezone.utc)
-        return datetime.now(timezone.utc) >= timestamp + timedelta(seconds=seconds)
+            timestamp = timestamp.replace(tzinfo=UTC)
+        timestamp = timestamp.astimezone(UTC)
+        return datetime.now(UTC) >= timestamp + timedelta(seconds=seconds)
 
     @classmethod
     def generate_code(cls):
@@ -465,7 +469,7 @@ class CodeMixin:
         code.email = email
         code.code = cls.generate_code()
         code.verified = False
-        code.timestamp = datetime.now(timezone.utc)
+        code.timestamp = datetime.now(UTC)
         code.save()
         return code
 

@@ -155,10 +155,15 @@ class _Episodes:
         """
         with self._lock:
             ids = [episode_id, *self._aliases.get(episode_id, [])]
+            worker = None if self._closed else self._worker
         for wid in ids:
 
             self._gateway.post(f"/v1/deployments/{segment(self._model)}/episodes/{segment(wid)}/label",
                                {"success": bool(success), "notes": notes})
+
+
+        if worker is not None:
+            worker.post_episode_label(ids[-1], success=success, notes=notes)
         return ids[-1]
 
     def _take_params(self, answered: dict) -> None:

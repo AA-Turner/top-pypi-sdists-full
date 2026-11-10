@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from office365.directory.identities.provider import IdentityProvider
 
 
-@dataclass
 class Account(ClientValue):
     identifier: str | None = None
 

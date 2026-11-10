@@ -1,5 +1,5 @@
 # Generated from schema/meta.json. Do not edit by hand.
-# Schema ref: refs/tags/schema-v1.19.0
+# Schema ref: refs/tags/schema-v1.23.0
 AGENT_METHODS = {
     "initialize": "initialize",
     "authenticate": "authenticate",
@@ -46,4 +46,5 @@ CLIENT_METHODS = {
     "elicitation_create": "elicitation/create",
     "elicitation_complete": "elicitation/complete",
 }
+PROTOCOL_METHODS = {"cancel_request": "$/cancel_request"}
 PROTOCOL_VERSION = 1

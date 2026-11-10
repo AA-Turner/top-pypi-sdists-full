@@ -1066,7 +1066,19 @@ Instance Reduction::reduction_to_instance(
     instance_builder.set_original_instance(*original_instance_);
     instance_builder.set_feasibility_callback(original_instance_->feasibility_callback());
 
+    // The reduction changes neither the profits nor the costs of the
+    // 'Knapsack' and 'VariableSizedBinPacking' objectives.
+    instance_builder.set_knapsack_goal(original_instance_->knapsack_goal());
+    instance_builder.set_variable_sized_bin_packing_goal(
+            original_instance_->variable_sized_bin_packing_goal());
+
     BinPos number_of_dedicated_bins = this->number_of_dedicated_bins();
+    // The dedicated bins are outside of the reduced instance.
+    if (original_instance_->bin_packing_goal() > 0) {
+        instance_builder.set_bin_packing_goal((std::max)(
+                    (BinPos)1,
+                    original_instance_->bin_packing_goal() - number_of_dedicated_bins));
+    }
     ItemPos remaining_items = 0;
     for (ItemTypeId item_type_id = 0;
             item_type_id < (ItemTypeId)reduction_item_types.size();

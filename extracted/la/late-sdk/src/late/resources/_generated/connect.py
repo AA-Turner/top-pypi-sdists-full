@@ -316,6 +316,25 @@ class ConnectResource:
         )
         return self._client._post("/v1/connect/webflow/token", data=payload)
 
+    def get_email_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        email: str | None = None,
+        name: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a hosted link to connect any mailbox"""
+        params = self._build_params(
+            profile_id=profile_id,
+            redirect_url=redirect_url,
+            email=email,
+            name=name,
+            reconnect_account_id=reconnect_account_id,
+        )
+        return self._client._get("/v1/connect/email", params=params)
+
     def connect_word_press_with_application_password(
         self, profile_id: str, site_url: str, username: str, application_password: str
     ) -> dict[str, Any]:
@@ -395,6 +414,7 @@ class ConnectResource:
         page_ids: list[str] | None = None,
         temp_token: str | None = None,
         connect_flow: str | None = None,
+        scopes: str | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
         """Select the Page whose Instagram account to connect"""
@@ -404,6 +424,7 @@ class ConnectResource:
             page_ids=page_ids,
             temp_token=temp_token,
             connect_flow=connect_flow,
+            scopes=scopes,
             redirect_url=redirect_url,
         )
         return self._client._post("/v1/connect/instagram/select-account", data=payload)
@@ -914,11 +935,11 @@ class ConnectResource:
         return self._client._patch("/v1/connect/telegram", params=params)
 
     def get_page_webhook_subscription(self, account_id: str) -> dict[str, Any]:
-        """Read a Facebook Page's webhook subscription"""
+        """Read an account's webhook subscription"""
         return self._client._get(f"/v1/accounts/{account_id}/webhook-subscription")
 
     def resync_page_webhook_subscription(self, account_id: str) -> dict[str, Any]:
-        """Re-subscribe a Facebook Page to Zernio's webhooks"""
+        """Re-subscribe an account to Zernio's webhooks"""
         return self._client._post(f"/v1/accounts/{account_id}/webhook-subscription")
 
     def get_facebook_pages(
@@ -1426,6 +1447,25 @@ class ConnectResource:
         )
         return await self._client._apost("/v1/connect/webflow/token", data=payload)
 
+    async def aget_email_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        email: str | None = None,
+        name: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a hosted link to connect any mailbox (async)"""
+        params = self._build_params(
+            profile_id=profile_id,
+            redirect_url=redirect_url,
+            email=email,
+            name=name,
+            reconnect_account_id=reconnect_account_id,
+        )
+        return await self._client._aget("/v1/connect/email", params=params)
+
     async def aconnect_word_press_with_application_password(
         self, profile_id: str, site_url: str, username: str, application_password: str
     ) -> dict[str, Any]:
@@ -1505,6 +1545,7 @@ class ConnectResource:
         page_ids: list[str] | None = None,
         temp_token: str | None = None,
         connect_flow: str | None = None,
+        scopes: str | None = None,
         redirect_url: str | None = None,
     ) -> dict[str, Any]:
         """Select the Page whose Instagram account to connect (async)"""
@@ -1514,6 +1555,7 @@ class ConnectResource:
             page_ids=page_ids,
             temp_token=temp_token,
             connect_flow=connect_flow,
+            scopes=scopes,
             redirect_url=redirect_url,
         )
         return await self._client._apost(
@@ -2048,7 +2090,7 @@ class ConnectResource:
         return await self._client._apatch("/v1/connect/telegram", params=params)
 
     async def aget_page_webhook_subscription(self, account_id: str) -> dict[str, Any]:
-        """Read a Facebook Page's webhook subscription (async)"""
+        """Read an account's webhook subscription (async)"""
         return await self._client._aget(
             f"/v1/accounts/{account_id}/webhook-subscription"
         )
@@ -2056,7 +2098,7 @@ class ConnectResource:
     async def aresync_page_webhook_subscription(
         self, account_id: str
     ) -> dict[str, Any]:
-        """Re-subscribe a Facebook Page to Zernio's webhooks (async)"""
+        """Re-subscribe an account to Zernio's webhooks (async)"""
         return await self._client._apost(
             f"/v1/accounts/{account_id}/webhook-subscription"
         )

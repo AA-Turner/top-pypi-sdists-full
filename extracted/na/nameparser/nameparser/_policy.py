@@ -13,7 +13,10 @@ from enum import Enum, StrEnum, auto
 from typing import Any
 
 from nameparser._types import (
-    Role, _coerce_enum, _guarded_getstate, _guarded_setstate,
+    ADDED_IN, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST, Role,
+    _coerce_enum,
+    _guarded_getstate, _guarded_setstate, _reject_bare_string_order,
+    _require_iterable, _validated_order,
 )
 
 
@@ -24,11 +27,12 @@ class PatronymicRule(StrEnum):
 
     #: East Slavic formal order: "Sidorov Ivan Petrovich"
     #: (family, given, patronymic) is detected by the patronymic
-    #: ending and reordered. Enabled by locales.RU.
+    #: ending and reordered, and a middle word with the ending fills
+    #: ParsedName.patronymic. Enabled by locales.RU.
     EAST_SLAVIC = "east-slavic"
     #: Turkic patronymic markers: a standalone "oglu"/"qizi"/"kyzy"
-    #: (etc.) binds to the preceding name as a patronymic. Enabled by
-    #: locales.TR_AZ.
+    #: (etc.) binds to the preceding name as a patronymic, the two
+    #: filling ParsedName.patronymic. Enabled by locales.TR_AZ.
     TURKIC = "turkic"
 
 
@@ -67,7 +71,8 @@ class Script(StrEnum):
     #: list, locales.JA activates the same stage for a pluggable
     #: segmenter to divide kanji names with.
     HAN = "han"
-    #: Korean Hangul (precomposed syllables). Unambiguously Korean.
+    #: Korean Hangul (precomposed syllables and the conjoining jamo).
+    #: Unambiguously Korean.
     HANGUL = "hangul"
     #: Japanese hiragana. Never transcribes foreign names, so a mixed
     #: kanji+kana token (高橋みなみ) is Japanese and resolves HERE --
@@ -117,8 +122,18 @@ class Script(StrEnum):
 # Shimeki, 〆谷 Shimetani, 〆野) -- its other uses (the envelope
 # closing mark, 〆切) never reach a name parser -- and it appears in
 # no other script's names.
-# HANGUL: precomposed syllables only -- modern Korean
-# text never writes names as bare jamo.
+# HANGUL: the precomposed syllables and the three conjoining jamo
+# blocks (U+1100-U+11FF, Extended-A U+A960-U+A97F, Extended-B
+# U+D7B0-U+D7FF), the letters Unicode composes a syllable from (#1087).
+# A syllable typed decomposed is jamo, and a reader of raw characters
+# (tokenize's interpunct flank, rules/T3) must see it as hangul
+# (decisions/nfd-shapes, #1087). All three blocks, though the extended
+# ones hold only archaic jamo no modern name uses, the ground the kana
+# entry below leaves out the supplementary kana on: the U+1100 block
+# carries archaic jamo too, so no modern-only line can be drawn at
+# block granularity. The compatibility jamo U+3131-U+318E are not
+# conjoining and compose nothing; they stay out (rules/R7 initials
+# 'ㄱㄴ 김' as 'ㄱ.').
 # HIRAGANA/KATAKANA (#272): the two kana blocks, each in full. There
 # IS a supplementary-plane kana repertoire (Kana Supplement, Kana
 # Extended-A/B, Small Kana Extension, U+1AFF0-U+1B16F, a few hundred
@@ -173,10 +188,16 @@ class Script(StrEnum):
 # the FIRST covering entry (dict iteration order), so an overlapping
 # future script would make the result order-dependent instead of
 # well-defined.
+#: The precomposed hangul syllables, and the three conjoining jamo
+#: blocks HANGUL holds beside them (#1087), named so a test can state
+#: the table before #1087 by subtracting them rather than copying spans.
+_HANGUL_SYLLABLES = (0xAC00, 0xD7A3)
+_CONJOINING_JAMO = ((0x1100, 0x11FF), (0xA960, 0xA97F), (0xD7B0, 0xD7FF))
+
 _SCRIPT_RANGES: dict[Script, tuple[tuple[int, int], ...]] = {
     Script.HAN: ((0x3005, 0x3006), (0x3400, 0x4DBF), (0x4E00, 0x9FFF),
                  (0xF900, 0xFAFF), (0x20000, 0x323AF)),
-    Script.HANGUL: ((0xAC00, 0xD7A3),),
+    Script.HANGUL: tuple(sorted((_HANGUL_SYLLABLES, *_CONJOINING_JAMO))),
     Script.HIRAGANA: ((0x3040, 0x309F),),
     Script.KATAKANA: ((0x30A0, 0x30FF), (0xFF65, 0xFF9F)),
 }
@@ -229,9 +250,9 @@ def _script_matcher(*scripts: Script,
     named scripts' spans in _SCRIPT_RANGES. whole=False: True when the
     string CONTAINS any such character -- DEVIATES' contract, where
     over-declaring is the gate's safe direction. whole=True: True when
-    the string is non-empty and consists WHOLLY of such characters --
-    the ja adapter's repertoire guard and _vocab's script
-    classifiers. Meant to be called at MODULE
+    the string is non-empty and consists WHOLLY of such characters,
+    as the ja adapter's repertoire guard and _vocab's script
+    classifiers ask. Meant to be called at MODULE
     scope: "compiled once" is per matcher, and each call compiles a
     fresh pattern. The compiled pattern lives in the closure ON
     PURPOSE, and the compilation lives HERE rather than in a pack-
@@ -261,21 +282,16 @@ def _script_matcher(*scripts: Script,
     return matcher
 
 
-# Order-spec constants (#270). Each reads as its contents because roles
-# are named given/family, not first/last.
+#: One character, or a string wholly, of a script the table classifies:
+#: the question the interpunct's flank guard (rules/T3) and the
+#: two-family-names declaration's run count (_locale) both ask, defined
+#: once here because _locale may not import the pipeline (#1087).
+_classified_char = _script_matcher(*_SCRIPT_RANGES, whole=True)
 
-#: Western order (the default): the first word of positional input is
-#: the given name, the last is the family name, everything between is
-#: middle. One of the three valid ``Policy(name_order=...)`` values.
-GIVEN_FIRST = (Role.GIVEN, Role.MIDDLE, Role.FAMILY)
-#: Family name first, given name second, remaining words middle
-#: (e.g. Hungarian, or East Asian order). One of the three valid
-#: ``Policy(name_order=...)`` values.
-FAMILY_FIRST = (Role.FAMILY, Role.GIVEN, Role.MIDDLE)
-#: Family name first, given name LAST, words between middle
-#: (e.g. Vietnamese full-name order). One of the three valid
-#: ``Policy(name_order=...)`` values.
-FAMILY_FIRST_GIVEN_LAST = (Role.FAMILY, Role.MIDDLE, Role.GIVEN)
+
+# Order-spec constants (#270), defined in _types beside Role since
+# ParsedName.order holds one (3.0, #754) and _types imports nothing
+# internal; re-exported here, where Policy validates name_order.
 
 _ORDER_CONSTANT_NAMES: dict[tuple[Role, ...], str] = {
     GIVEN_FIRST: "GIVEN_FIRST",
@@ -362,37 +378,6 @@ DEFAULT_NICKNAME_DELIMITERS = frozenset({
 })
 
 
-def _reject_bare_string_order(value: object, field_name: str) -> None:
-    # tuple("gmf") would be ("g", "m", "f") -- catch the bare string
-    # with the same TypeError every other iterable field raises.
-    # Single-sourced: called from Policy AND PolicyPatch __post_init__.
-    # field_name is REQUIRED, with no name_order default: script_orders'
-    # values obey the same rule (via _validated_order), and a defaulted
-    # caller that forgot to pass it would silently name the wrong field.
-    if isinstance(value, str):
-        raise TypeError(
-            f"{field_name} must be an iterable of three Roles, "
-            f"not a bare string: {value!r}"
-        )
-    # A {Role: position} dict iterates to the right three Roles in the
-    # right order, so it would be accepted -- harmlessly today, since
-    # the result is checked against the three exported orders anyway.
-    # Guarded regardless: "iterating this yields something plausible
-    # but not what you wrote" is one bug class, and leaving one field
-    # out of it is how the PolicyPatch hole happened.
-    if isinstance(value, Mapping):
-        raise TypeError(
-            f"{field_name} must be an iterable of three Roles, not a "
-            f"mapping: {value!r}"
-        )
-    if isinstance(value, (bytes, bytearray, memoryview)):
-        raise TypeError(
-            f"{field_name} must be an iterable of three Roles, not "
-            f"{type(value).__name__} -- decode first, e.g. "
-            f"raw.decode('utf-8')"
-        )
-
-
 def _reject_str_and_mapping(value: object, field_name: str) -> None:
     """The two shapes that iterate into something plausible but wrong.
 
@@ -429,61 +414,6 @@ def _reject_str_and_mapping(value: object, field_name: str) -> None:
             f"frozenset() for an empty set, or .items() if this is an "
             f"{{open: close}} pair mapping"
         )
-
-
-def _require_iterable(value: Iterable[Any], field_name: str,
-                      expected: str = "an iterable") -> Iterable[Any]:
-    """Probe a value's iterability and return its iterator, raising a
-    TypeError naming the field if it has none. `expected` carries the
-    field's own phrasing ("a mapping of Script to order"); the default
-    suits every plain iterable field.
-
-    Probing with iter() is what makes the message possible: a
-    non-iterable (an int, a bool, ...) is named here, matching the
-    treatment patronymic_rules already gets, instead of a bare "'int'
-    object is not iterable" surfacing from whatever tuple()/frozenset()
-    happens to run first. It is ALSO the reason callers consume the
-    returned iterator OUTSIDE any try of their own: an exception raised
-    inside a caller's generator while it is being consumed is the
-    caller's own error, and must propagate untouched rather than be
-    rewritten as a shape complaint about the field.
-    """
-    try:
-        return iter(value)
-    except TypeError:
-        raise TypeError(
-            f"{field_name} must be {expected}, got {value!r}"
-        ) from None
-
-
-def _validated_order(value: Iterable[Any],
-                     field_name: str) -> tuple[Role, Role, Role]:
-    """name_order's element/permutation check, single-sourced so
-    script_orders values obey the identical rule (only the three
-    exported orders have implemented assignment semantics)."""
-    _reject_bare_string_order(value, field_name)
-    order = tuple(_require_iterable(value, field_name))
-    # Sole rejection point for plain-string tuples: Role is a StrEnum,
-    # so the named-order membership check below compares EQUAL for
-    # ("given", "middle", "family") -- do not remove this loop as
-    # redundant.
-    for element in order:
-        if not isinstance(element, Role):
-            raise TypeError(
-                f"{field_name} elements must be Role members, "
-                f"got {element!r}"
-            )
-    # Only the three exported orders have implemented assignment
-    # semantics; the unnamed permutations would silently misassign.
-    # Pre-2.0 strictness is free -- relaxing later is compatible.
-    if order not in (GIVEN_FIRST, FAMILY_FIRST,
-                     FAMILY_FIRST_GIVEN_LAST):
-        raise ValueError(
-            f"{field_name} must be one of the exported orders, got "
-            f"{order!r}; use GIVEN_FIRST, FAMILY_FIRST, or "
-            f"FAMILY_FIRST_GIVEN_LAST"
-        )
-    return order  # type: ignore[return-value]  # length checked above
 
 
 def _validated_script(key: object) -> Script:
@@ -615,7 +545,8 @@ class Policy:
     only what you change -- ``Policy(maiden_delimiters=frozenset({("(", ")")}))``
     -- and pass the result to ``Parser(policy=...)``."""
 
-    #: How positional (no-comma) input maps onto given/middle/family.
+    #: How positional (no-comma) input maps onto given/middle/family
+    #: (a name of one name word is placed by lone_name_word instead).
     #: Valid values are exactly the three exported
     #: :ref:`name-order constants <name-order-constants>` --
     #: GIVEN_FIRST (the default), FAMILY_FIRST, and
@@ -680,9 +611,10 @@ class Policy:
     #: LONE marker word. Since #335 a clause that opens with a marker
     #: word AND has a word after it reads as the maiden name whatever
     #: pair encloses it, so "Jane Smith (née Jones)" needs no
-    #: configuration -- unless the content is suffix-shaped, which is
-    #: taken first, the brackets dropped and the content read as if
-    #: written bare. A maiden_markers entry opening the enclosed
+    #: configuration -- unless S1 takes the clause first: a clause of
+    #: credentials, generations or titles is set apart from the name,
+    #: and other content ending in a period loses its brackets and is
+    #: read as if written bare. A maiden_markers entry opening the enclosed
     #: content is dropped from the value -- all of it, an entry being
     #: allowed to span more than one word ("z domu") -- but only where
     #: a word stands past it: a clause of nothing but its marker keeps
@@ -719,7 +651,7 @@ class Policy:
     #: Excludes bidirectional control characters from tokenization:
     #: they appear in no token, field, or rendered view; the original
     #: string keeps them.
-    strip_bidi: bool = True  # =False replaces v1's opt-out CONSTANTS.regexes.bidi = False
+    strip_bidi: bool = True  # =False replaces 1.x's opt-out CONSTANTS.regexes.bidi = False
     # -- fields added after 2.3 ------------------------------------------
     # Policy is not kw_only, so a field's POSITION is API: a caller
     # writing Policy(GIVEN_FIRST, ..., True, False) binds by position.
@@ -793,9 +725,12 @@ class Policy:
     #: García-López", "Ana María de la Vega Rodríguez"), titles and
     #: suffixes count as no name word, and a name of two name words is
     #: unchanged. The word taken must be one name word a family name
-    #: could be, so an initial written alone ("Ana M. García"), a
-    #: hyphenated given name ("Ana María-José López") and a bound
-    #: given-name pair stay where they are. Under a family-first
+    #: could be, so an initial written alone ("Ana M. García"), hyphenated
+    #: initials ("Ana M.-J. López") and a bound given-name pair stay where
+    #: they are; a hyphenated word counts as one when
+    #: taken ("Andrés Sánchez-Cid Torres" gives family ``Sánchez-Cid
+    #: Torres``), so a hyphenated given name is taken unless every part
+    #: of it is a listed given name or an initial (``Lexicon.given_names``). Under a family-first
     #: name_order the FIRST two name words are the family; a name its
     #: script reads in an order other than name_order (a spaced Han or
     #: Hangul name under the default) is left alone, though under a
@@ -810,6 +745,49 @@ class Policy:
     #: before middle_as_family, which then folds whatever middles are
     #: left.
     two_family_names: bool = False
+    #: Reads the given name as two name units, for data where a person
+    #: carries a compound given name and no middle name (rules/O7):
+    #: "Juan Carlos Pérez" gives given ``Juan Carlos``, family
+    #: ``Pérez``, and with ``two_family_names`` too, "María José García
+    #: López" gives given ``María José``, family ``García López``. The
+    #: middle unit beside the given name joins it -- the one after it,
+    #: or the one before it under FAMILY_FIRST_GIVEN_LAST with no family
+    #: comma, after which the part reads given-first -- and any
+    #: middles past that stay middles; a particle chain the parse left
+    #: in the middle counts with its word ("María del Carmen de la
+    #: Vega" gives given ``María del Carmen``), and an initial is taken,
+    #: a given name written short. A given name already holding two
+    #: words keeps what it has (a hyphenated or bound pair), the word
+    #: taken must be one name word, and a word an ending rule reads as a
+    #: patronymic stays where it is. A family comma leaves the given part
+    #: to this rule ("Pérez, Juan Carlos"); a name its script reads in an
+    #: order other than name_order is left alone, as two_family_names
+    #: leaves it. Runs after two_family_names, which takes its word
+    #: first ("Gabriel García Márquez" keeps given ``Gabriel``), and
+    #: before middle_as_family, which then folds whatever middles are
+    #: left. A name whose second given word is a middle name gains it
+    #: in the given name ("John Quincy Adams" gives given ``John
+    #: Quincy``), so it is off by default and reports nothing. Added in
+    #: 3.0.
+    two_given_names: bool = field(
+        default=False, metadata={ADDED_IN: "3.0.0"})
+    #: The field a name of one name word reads that word as, when
+    #: nothing else decides it (rules/O5): ``Role.GIVEN`` (the default)
+    #: or ``Role.FAMILY``, under every name_order. "Anh" gives given
+    #: ``Anh``; with ``lone_name_word=Role.FAMILY`` it gives family
+    #: ``Anh``. Which field a word written alone fills is a fact about
+    #: where the data came from -- a list of surnames, a list of the
+    #: names people go by -- not about the order its longer names are
+    #: written in, so it does not follow name_order. A title, a
+    #: nickname, a maiden name, a family comma or a script that settles
+    #: the order still decides first ("Mr. Johnson" gives family
+    #: ``Johnson``). The reading is reported as a ``given-or-family``
+    #: ambiguity either way, save a word its own reading claimed (a
+    #: particle, a bound given name, an initial), which the switch
+    #: places too and which reports nothing. Added in 3.0; through 2.x
+    #: the field followed name_order.
+    lone_name_word: Role = field(
+        default=Role.GIVEN, metadata={ADDED_IN: "3.0.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -874,9 +852,7 @@ class Policy:
         # it in maiden_delimiters is the specific intent, so the effective
         # nickname set drops it. Canonicalization, not validation (the
         # name_order coercion precedent): differently-written but
-        # equivalent Policies converge to equal values. The v1 facade
-        # keeps v1's nickname-wins precedence via a pre-subtraction in
-        # _config_shim's snapshot instead.
+        # equivalent Policies converge to equal values.
         object.__setattr__(
             self, "nickname_delimiters",
             self.nickname_delimiters - self.maiden_delimiters)
@@ -928,6 +904,17 @@ class Policy:
         object.__setattr__(self, "unlisted_caps_suffixes", _coerce_enum(
             caps, CapsSuffixes, "unlisted_caps_suffixes value",
             "values"))
+        lone = self.lone_name_word
+        if not isinstance(lone, str):
+            raise TypeError(
+                f"lone_name_word must be a Role, got {lone!r}; use "
+                f"Role.GIVEN (the default) or Role.FAMILY")
+        if lone not in _LONE_NAME_WORD_ROLES:
+            raise ValueError(
+                f"lone_name_word must be Role.GIVEN or Role.FAMILY, got "
+                f"{lone!r}: a name of one word is read as a given or a "
+                f"family name")
+        object.__setattr__(self, "lone_name_word", Role(lone))
 
     def __repr__(self) -> str:
         # Bounded: only fields that deviate from the default are shown
@@ -969,6 +956,9 @@ class Policy:
 #: sees, and a field annotated any other way is not a plain flag.
 _BOOL_FIELDS: tuple[str, ...] = tuple(
     f.name for f in dataclasses.fields(Policy) if f.type == "bool")
+
+#: The two fields `Policy.lone_name_word` may name (rules/O5).
+_LONE_NAME_WORD_ROLES = frozenset({Role.GIVEN, Role.FAMILY})
 
 
 class _Unset(Enum):
@@ -1021,6 +1011,14 @@ class PolicyPatch:
     unlisted_dotted_suffixes: bool | _Unset = UNSET
     unlisted_caps_suffixes: CapsSuffixes | _Unset = UNSET
     two_family_names: bool | _Unset = UNSET
+    #: Patches :attr:`Policy.two_given_names`, a scalar (later wins).
+    #: Added in 3.0.
+    two_given_names: bool | _Unset = field(
+        default=UNSET, metadata={ADDED_IN: "3.0.0"})
+    #: Patches :attr:`Policy.lone_name_word`, a scalar (later wins).
+    #: Added in 3.0.
+    lone_name_word: Role | _Unset = field(
+        default=UNSET, metadata={ADDED_IN: "3.0.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -1070,13 +1068,11 @@ class PolicyPatch:
                     f"{f.name} must be an iterable, got {value!r}{hint}"
                 ) from None
             object.__setattr__(self, f.name, frozenset(value))
-        # middle_as_family, lenient_comma_suffixes,
-        # unlisted_dotted_suffixes, unlisted_caps_suffixes, strip_emoji,
-        # strip_bidi and two_family_names are scalar (compose="override")
-        # fields and DELIBERATELY get no type check here, unlike
-        # name_order and the union fields above: a
+        # Every other field (the scalars: the bools,
+        # unlisted_caps_suffixes and lone_name_word) DELIBERATELY gets no type check here,
+        # unlike name_order and the union fields above: a
         # PolicyPatch(strip_emoji="off") is constructible, and only raises
-        # once apply_patch runs Policy.__post_init__'s bool check. This is
+        # once apply_patch runs Policy.__post_init__'s checks. This is
         # the one place the module's eager-validation ethos doesn't apply
         # -- see the class docstring ("Values are validated when the patch
         # is applied... not at patch construction").

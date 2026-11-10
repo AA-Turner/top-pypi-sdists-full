@@ -43,6 +43,7 @@ COMPONENT_CATEGORIES: dict[str, list[str]] = {
         "collapsible",
         "dropdown",
         "dropdown_menu",
+        "interactive_dropdown_menu",
         "input",
         "kbd",
         "meter",
@@ -275,7 +276,7 @@ PYTHON_COMPONENT_EXAMPLES: dict[str, list[dict]] = {
         },
     ],
     "infinite_scroll": [
-        {"load_event": "load_more"},
+        {"load_event": "load_more", "finished": True},
         {"load_event": "load_more", "loading": True},
     ],
     "terminal": [
@@ -483,7 +484,7 @@ PYTHON_COMPONENT_EXAMPLES: dict[str, list[dict]] = {
     "notification_badge": [
         {"count": 5},
         {"count": 99},
-        {"count": 0},
+        {"dot": True, "pulse": True},
     ],
     "avatar_group": [
         {
@@ -546,6 +547,8 @@ def get_all_components_with_metadata() -> list[dict]:
     """
     from djust.theming.contracts import COMPONENT_CONTRACTS
 
+    from .catalogue import INTERACTIVE_ENTRIES
+
     result = []
     seen = set()
 
@@ -554,7 +557,9 @@ def get_all_components_with_metadata() -> list[dict]:
             if name in seen:
                 continue
             seen.add(name)
-            if name in COMPONENT_CONTRACTS:
+            if name in INTERACTIVE_ENTRIES:
+                component_type = "interactive"
+            elif name in COMPONENT_CONTRACTS:
                 component_type = "template"
             else:
                 component_type = "python"
@@ -866,8 +871,37 @@ PYTHON_COMPONENT_EXAMPLES.update(
                 "active": 0,
             }
         ],
-        "chat_bubble": [{}],
-        "collab_selection": [{}],
+        "chat_bubble": [
+            {
+                "message": {
+                    "sender": "user",
+                    "name": "Ada Lovelace",
+                    "text": "The deployment is ready for review.",
+                    "time": "10:04 AM",
+                    "status": "delivered",
+                }
+            }
+        ],
+        "collab_selection": [
+            {
+                "users": [
+                    {
+                        "name": "Ada Lovelace",
+                        "color": "#3b82f6",
+                        "start": 10,
+                        "end": 25,
+                        "text": "selected text",
+                    },
+                    {
+                        "name": "Grace Hopper",
+                        "color": "#ef4444",
+                        "start": 40,
+                        "end": 55,
+                        "text": "another selection",
+                    },
+                ]
+            }
+        ],
         "color_picker": [
             {
                 "name": "accent",
@@ -916,7 +950,16 @@ PYTHON_COMPONENT_EXAMPLES.update(
             }
         ],
         "content_loader": [{"loaded": False, "placeholder": "<p>Loading…</p>"}],
-        "context_menu": [{}],
+        "context_menu": [
+            {
+                "label": "Project actions",
+                "content": (
+                    '<button class="ctx-item" role="menuitem">Rename</button>'
+                    '<button class="ctx-item" role="menuitem">Duplicate</button>'
+                    '<button class="ctx-item ctx-item-danger" role="menuitem">Delete</button>'
+                ),
+            }
+        ],
         "conversation_thread": [
             {
                 "messages": [
@@ -937,7 +980,14 @@ PYTHON_COMPONENT_EXAMPLES.update(
         ],
         "cron_input": [{}],
         "currency_input": [{}],
-        "cursors_overlay": [{}],
+        "cursors_overlay": [
+            {
+                "users": [
+                    {"name": "Ada Lovelace", "color": "#3b82f6", "x": 120, "y": 40},
+                    {"name": "Grace Hopper", "color": "#ef4444", "x": 260, "y": 120},
+                ]
+            }
+        ],
         "dashboard_grid": [
             {
                 "panels": [
@@ -1287,7 +1337,13 @@ PYTHON_COMPONENT_EXAMPLES.update(
                 ],
             }
         ],
-        "popover": [{}],
+        "popover": [
+            {
+                "trigger": "View details",
+                "title": "Project status",
+                "content": "<p>Deployment completed successfully.</p>",
+            }
+        ],
         "presence_avatars": [
             {
                 "users": [
@@ -1399,7 +1455,7 @@ PYTHON_COMPONENT_EXAMPLES.update(
         ],
         "source_citation": [{}],
         "sparkline": [{"data": [3, 5, 4, 8, 6, 9, 7], "variant": "line"}],
-        "split_pane": [{}],
+        "split_pane": [{"left": "<p>Navigation</p>", "right": "<p>Details</p>"}],
         "sticky_header": [
             {"content": "<strong>Section title</strong> — stays pinned while its section scrolls."}
         ],
@@ -1531,26 +1587,6 @@ PREVIEW_NOTES: dict[str, str] = {
 }
 
 
-#: Contracted components whose same-named Python class renders markup djust
-#: ships NO CSS for (#2993). The catalogue previews the styled
-#: ``{% theme_<name> %}`` tag, so without a note a reader who reaches for the
-#: class gets bare markup. ``test_components_css_2996_2993_3008`` fails when a
-#: shipped stylesheet gains a rule for one of these, so the entry is removed
-#: when the class stops being unstyled.
-#: Maps the component name to ``(class name, root CSS class)``.
-UNSTYLED_PYTHON_CLASSES: dict[str, tuple[str, str]] = {
-    "alert": ("Alert", "dj-alert"),
-    "avatar": ("Avatar", "dj-avatar"),
-    "progress": ("Progress", "dj-progress"),
-}
-
-
-def unstyled_python_class(component_name: str) -> tuple[str, str]:
-    """``(class name, root CSS class)`` of this component's unstyled Python
-    class, or ``("", "")`` when it has none."""
-    return UNSTYLED_PYTHON_CLASSES.get(component_name, ("", ""))
-
-
 def preview_note(component_name: str) -> str:
     """The sentence shown under a preview that is empty by design."""
     return PREVIEW_NOTES.get(component_name, "")
@@ -1671,6 +1707,9 @@ def describe_component(component_name: str) -> dict:
     events = contract_events(
         [] if is_template else params, dict(examples[0]) if examples else {}, html
     )
+    if ctx.get("component_type") == "interactive":
+        # Its outputs are declared subscriptions, not markup the scan can see.
+        events = list(ctx.get("events") or [])
 
     style_paths = []
     if ctx.get("template_path"):
@@ -1739,9 +1778,14 @@ def _client_hook_sources() -> str:
 
     djust_root = Path(__file__).resolve().parents[2]
     texts = []
-    for folder in (_components_static_dir(), djust_root / "static" / "djust" / "src"):
-        if folder.is_dir():
-            texts += [f.read_text(errors="ignore") for f in sorted(folder.glob("*.js"))]
+    folder = _components_static_dir()
+    if folder.is_dir():
+        texts += [f.read_text(errors="ignore") for f in sorted(folder.glob("*.js"))]
+    # client.js, not static/djust/src/: the bundle is the concatenation of
+    # those modules, and the modules themselves are not in the wheel.
+    client = djust_root / "static" / "djust" / "client.js"
+    if client.is_file():
+        texts.append(client.read_text(errors="ignore"))
     return "\n".join(texts)
 
 
@@ -1780,7 +1824,7 @@ def component_client(component_name: str) -> dict:
     if hook:
         sources = _client_hook_sources()
         hook_shipped = bool(
-            re.search(rf'hooks\.{hook}\s*=|dj-hook="{hook}"|\b{hook}\s*:\s*\{{', sources)
+            re.search(rf'[hH]ooks\.{hook}\s*=|dj-hook="{hook}"|\b{hook}\s*:\s*\{{', sources)
         )
     return {"hook": hook, "script": script, "hook_shipped": hook_shipped}
 

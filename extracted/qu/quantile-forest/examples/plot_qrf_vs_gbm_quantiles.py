@@ -1,0 +1,408 @@
+"""
+Quantile Regression Forests vs. Gradient Boosting
+=================================================
+
+This example compares the quantiles predicted by a quantile regression forest
+(QRF) with those predicted by gradient boosting, on a toy dataset whose target
+is 3 sin(X) plus right-skewed noise that grows with X. Gradient boosting fits
+a separate model for each quantile, whereas a QRF fits one model and predicts
+every quantile from the same estimated distribution. Both predict 19
+quantiles, from 5% to 95%, shown here as a fan of prediction intervals.
+Because the gradient boosting models are fit independently, their quantiles
+can cross, with a higher quantile predicted below a lower one (marked in red),
+which no distribution allows. The quantiles of a QRF cannot cross, and a QRF
+can predict any other quantile without being refit. Use the slider to select
+an X, at which the panels below plot each model's predicted quantiles: those
+of the QRF never decrease, whereas those of gradient boosting decrease
+wherever they cross.
+"""
+
+import altair as alt
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.metrics import mean_pinball_loss
+from sklearn.model_selection import train_test_split
+from sklearn.utils.validation import check_random_state
+
+from quantile_forest import RandomForestQuantileRegressor
+
+random_state = np.random.RandomState(0)
+n_samples = 1000
+bounds = [0, 10]
+quantiles = np.linspace(0.05, 0.95, num=19).round(2).tolist()  # in steps of 0.05
+coverage = quantiles[-1] - quantiles[0]  # the target coverage of the widest interval
+
+
+def make_toy_dataset(n_samples, bounds, random_state=None):
+    """Make a toy dataset with right-skewed noise that grows with x."""
+    random_state = check_random_state(random_state)
+
+    x = random_state.uniform(*bounds, size=n_samples)
+    f = 3 * np.sin(x)
+
+    sigma = 0.25 + x / 20
+    noise = random_state.lognormal(sigma=sigma) - np.exp(sigma**2 / 2)
+    y = f + noise
+
+    return np.atleast_2d(x).T, y
+
+
+X, y = make_toy_dataset(n_samples, bounds, random_state=random_state)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
+
+# A QRF is fit once, and can then predict any quantile.
+qrf = RandomForestQuantileRegressor(min_samples_leaf=10, random_state=random_state)
+qrf.fit(X_train, y_train)
+
+# Gradient boosting is fit once for each quantile.
+gbms = [
+    HistGradientBoostingRegressor(loss="quantile", quantile=q, random_state=random_state)
+    for q in quantiles
+]
+for gbm in gbms:
+    gbm.fit(X_train, y_train)
+
+models = {
+    "QRF (1 Model)": lambda X: qrf.predict(X, quantiles=quantiles),
+    f"Gradient Boosting ({len(gbms)} Models)": lambda X: np.column_stack(
+        [gbm.predict(X) for gbm in gbms]
+    ),
+}
+
+
+def is_crossed(y_pred):
+    """Get whether each adjacent pair of predicted quantiles of each sample crosses."""
+    return np.diff(y_pred, axis=1) < 0
+
+
+def get_crossed(model, X, y_pred):
+    """Get the adjacent pairs of predicted quantiles that cross, for each sample."""
+    # Each crossing spans the predictions of an adjacent pair of quantiles.
+    rows, cols = np.nonzero(is_crossed(y_pred))
+    return pd.DataFrame(
+        {
+            "model": model,
+            "x": X[rows, 0],
+            "quantile_low": np.array(quantiles)[cols],
+            "quantile_upp": np.array(quantiles)[cols + 1],
+            "y_pred_low": y_pred[rows, cols],
+            "y_pred_upp": y_pred[rows, cols + 1],
+        }
+    )
+
+
+# Evaluate the predictions on the test data, predict on evenly spaced inputs,
+# and predict on the inputs that can be selected, in steps of 0.1.
+X_grid = np.linspace(*bounds, num=300).reshape(-1, 1)
+X_select = np.linspace(*bounds, num=101).round(1).reshape(-1, 1)
+metrics, dfs_intervals, dfs_median, dfs_crossed = {}, [], [], []
+dfs_quantiles, dfs_crossed_select = [], []
+for name, predict in models.items():
+    y_pred_test = predict(X_test)
+    metrics[name] = {
+        "crossed": np.mean(np.any(is_crossed(y_pred_test), axis=1)),
+        "pinball_loss": np.mean(
+            [
+                mean_pinball_loss(y_test, y_pred_test[:, i], alpha=q)
+                for i, q in enumerate(quantiles)
+            ]
+        ),
+        "coverage": np.mean((y_pred_test[:, 0] <= y_test) & (y_test <= y_pred_test[:, -1])),
+    }
+
+    y_pred = predict(X_grid)
+
+    # The fan of intervals between each quantile and its mirror (5% to 95%, 10% to 90%, ...).
+    for i in range(len(quantiles) // 2):
+        dfs_intervals.append(
+            pd.DataFrame(
+                {
+                    "model": name,
+                    "x": X_grid[:, 0],
+                    "interval": f"{quantiles[i]:.0%} to {quantiles[-1 - i]:.0%}",
+                    "y_pred_low": y_pred[:, i],
+                    "y_pred_upp": y_pred[:, -1 - i],
+                }
+            )
+        )
+
+    dfs_median.append(
+        pd.DataFrame({"model": name, "x": X_grid[:, 0], "y_pred": y_pred[:, quantiles.index(0.5)]})
+    )
+    dfs_crossed.append(get_crossed(name, X_grid, y_pred))
+
+    # The predicted quantiles at each input that can be selected.
+    y_pred_select = predict(X_select)
+    for i, q in enumerate(quantiles):
+        dfs_quantiles.append(
+            pd.DataFrame(
+                {
+                    "model": name,
+                    "x": X_select[:, 0],
+                    "quantile": q,
+                    "y_pred": y_pred_select[:, i],
+                }
+            )
+        )
+    dfs_crossed_select.append(get_crossed(name, X_select, y_pred_select))
+
+df_test = pd.DataFrame({"x": X_test[:, 0], "y": y_test})
+df_intervals = pd.concat(dfs_intervals, ignore_index=True)
+df_median = pd.concat(dfs_median, ignore_index=True)
+df_crossed = pd.concat(dfs_crossed, ignore_index=True)
+df_quantiles = pd.concat(dfs_quantiles, ignore_index=True)
+df_crossed_select = pd.concat(dfs_crossed_select, ignore_index=True)
+
+# Start at the selectable input where the gradient boosting quantiles cross the most.
+gbm_name = list(models)[1]
+y_pred_gbm = df_quantiles.query("model == @gbm_name").pivot(
+    index="x", columns="quantile", values="y_pred"
+)
+x_start = y_pred_gbm.index[np.diff(y_pred_gbm.to_numpy(), axis=1).min(axis=1).argmin()]
+
+
+def plot_quantile_fans(
+    df_test, df_intervals, df_median, df_crossed, df_quantiles, df_crossed_select, metrics
+):
+    """Plot the fan of predicted quantiles of each model, with its crossings."""
+    colors = {
+        "Test Observations": "#f2a619",
+        "Predicted Median": "#006aff",
+        f"Predicted Quantiles ({quantiles[0]:.0%} to {quantiles[-1]:.0%})": "#99c2ff",
+        "Crossed Quantiles": "red",
+    }
+    labels = list(colors.keys())
+    # The legend symbols. The median is drawn as a thin bar rather than a stroke, as
+    # stroked symbols would space the legend entries unevenly, and the crossings,
+    # which are vertical segments, as a thin vertical bar.
+    bar = "M-1,-0.2L1,-0.2L1,0.2L-1,0.2Z"
+    vertical_bar = "M-0.2,-1L0.2,-1L0.2,1L-0.2,1Z"
+    shapes = ["circle", bar, "circle", vertical_bar]
+
+    # Slider for selecting the input at which the predicted quantiles are plotted.
+    slider = alt.binding_range(name="Selected X: ", min=bounds[0], max=bounds[1], step=0.1)
+    x_val = alt.param(name="x_value", value=x_start, bind=slider)
+
+    filter_x = "round(datum.x * 10) == round(x_value * 10)"
+
+    # Clicking an entry of the legend highlights its marks (shift-click for more).
+    click = alt.selection_point(name="click", fields=["label"], bind="legend")
+
+    def _opacity(value, faded=0.1):
+        return alt.condition(click, alt.value(value), alt.value(faded))
+
+    x = alt.X("x:Q", scale=alt.Scale(domain=bounds, nice=False), title="X")
+    y_scale = alt.Scale(domain=[-4, 8])
+
+    def _plot_panel(model, legend=False):
+        circle_test = (
+            alt.Chart(df_test.assign(label=labels[0]))
+            .mark_circle(clip=True, color=colors[labels[0]], size=15)
+            .encode(
+                x=x,
+                y=alt.Y("y:Q", scale=y_scale, title="Y"),
+                opacity=_opacity(0.6),
+                tooltip=[
+                    alt.Tooltip("x:Q", format=",.3f", title="X"),
+                    alt.Tooltip("y:Q", format=",.3f", title="Y"),
+                ],
+            )
+        )
+
+        # The intervals are drawn translucently, so that the fan darkens toward its middle.
+        areas_intervals = (
+            alt.Chart(df_intervals.query("model == @model").assign(label=labels[2]))
+            .mark_area(color="#006aff")
+            .encode(
+                x=x,
+                y="y_pred_low:Q",
+                y2="y_pred_upp:Q",
+                detail="interval:N",
+                opacity=_opacity(0.12, faded=0.02),
+                tooltip=[
+                    alt.Tooltip("x:Q", format=",.3f", title="X"),
+                    alt.Tooltip("interval:N", title="Quantiles"),
+                    alt.Tooltip("y_pred_low:Q", format=",.3f", title="Predicted Lower Y"),
+                    alt.Tooltip("y_pred_upp:Q", format=",.3f", title="Predicted Upper Y"),
+                ],
+            )
+        )
+
+        line_median = (
+            alt.Chart(df_median.query("model == @model").assign(label=labels[1]))
+            .mark_line(color=colors[labels[1]], size=2)
+            .encode(
+                x=x,
+                y="y_pred:Q",
+                opacity=_opacity(1),
+                tooltip=[
+                    alt.Tooltip("x:Q", format=",.3f", title="X"),
+                    alt.Tooltip("y_pred:Q", format=",.3f", title="Predicted Median"),
+                ],
+            )
+        )
+
+        rules_crossed = (
+            alt.Chart(df_crossed.query("model == @model").assign(label=labels[3]))
+            .mark_rule(color=colors[labels[3]], size=2)
+            .encode(
+                x=x,
+                y="y_pred_upp:Q",
+                y2="y_pred_low:Q",
+                opacity=_opacity(1),
+                tooltip=[
+                    alt.Tooltip("x:Q", format=",.3f", title="X"),
+                    alt.Tooltip("quantile_low:Q", format=".0%", title="Lower Quantile"),
+                    alt.Tooltip("y_pred_low:Q", format=",.3f", title="Lower Quantile's Y"),
+                    alt.Tooltip("quantile_upp:Q", format=".0%", title="Upper Quantile"),
+                    alt.Tooltip("y_pred_upp:Q", format=",.3f", title="Upper Quantile's Y"),
+                ],
+            )
+        )
+
+        # Mark the selected input, below the metrics.
+        rule_selected = (
+            alt.Chart(df_quantiles.query("model == @model & quantile == 0.5"))
+            .transform_filter(filter_x)
+            .mark_rule(color="gray", strokeDash=[4, 4])
+            .encode(x="x:Q", y=alt.datum(-4), y2=alt.datum(5.5))
+        )
+
+        text = "\n".join(
+            [
+                f"Crossed Quantiles: {metrics[model]['crossed']:.1%} of Samples",
+                f"Mean Pinball Loss: {metrics[model]['pinball_loss']:.3f}",
+                f"Coverage: {metrics[model]['coverage']:.1%} (target = {coverage:.0%})",
+            ]
+        )
+        text_metrics = (
+            alt.Chart(pd.DataFrame({"text": [text]}))
+            .mark_text(align="left", baseline="top", color="gray", lineBreak="\n")
+            .encode(x=alt.value(5), y=alt.value(5), text="text:N")
+        )
+
+        layers = [
+            circle_test,
+            areas_intervals,
+            line_median,
+            rules_crossed,
+            rule_selected,
+            text_metrics,
+        ]
+        if legend:
+            # A legend of all of the marks, drawn by invisible points.
+            scale = alt.Scale(domain=labels, range=list(colors.values()))
+            layers.append(
+                alt.Chart(pd.DataFrame({"label": labels}))
+                .mark_point(filled=True, opacity=0)
+                .encode(
+                    color=alt.Color(
+                        "label:N",
+                        scale=scale,
+                        legend=alt.Legend(symbolOpacity=1, rowPadding=5),
+                        title=None,
+                    ),
+                    shape=alt.Shape(
+                        "label:N", scale=alt.Scale(domain=labels, range=shapes), title=None
+                    ),
+                )
+                .add_params(click)
+            )
+        return alt.layer(*layers).properties(title=model, height=250, width=280)
+
+    def _plot_quantiles(model):
+        x_quantile = alt.X(
+            "quantile:Q",
+            axis=alt.Axis(format="%"),
+            scale=alt.Scale(domain=[0, 1], nice=False),
+            title="Quantile",
+        )
+        # The y-axis zooms in on the quantiles at the selected X. It starts and ends on
+        # a tick at every X, with the points kept clear of its ends, so that the panels
+        # don't shift as the slider moves.
+        y_quantile = alt.Y(
+            "y_pred:Q",
+            axis=alt.Axis(tickCount=4),
+            scale=alt.Scale(nice=4, padding=6, zero=False),
+            title="Y",
+        )
+        tooltip = [
+            alt.Tooltip("x:Q", format=",.1f", title="X"),
+            alt.Tooltip("quantile:Q", format=".0%", title="Quantile"),
+            alt.Tooltip("y_pred:Q", format=",.3f", title="Predicted Y"),
+        ]
+
+        line_quantiles = (
+            alt.Chart(df_quantiles.query("model == @model").assign(label=labels[2]))
+            .transform_filter(filter_x)
+            .mark_line(color=colors[labels[2]], size=2)
+            .encode(
+                x=x_quantile,
+                y=y_quantile,
+                opacity=_opacity(1),
+                tooltip=tooltip,
+            )
+        )
+
+        circles_quantiles = (
+            alt.Chart(df_quantiles.query("model == @model").assign(label=labels[2]))
+            .transform_filter(filter_x)
+            .mark_circle(color=colors[labels[2]], size=30)
+            .encode(x=x_quantile, y="y_pred:Q", opacity=_opacity(1), tooltip=tooltip)
+        )
+
+        circle_median = (
+            alt.Chart(
+                df_quantiles.query("model == @model & quantile == 0.5").assign(label=labels[1])
+            )
+            .transform_filter(filter_x)
+            .mark_circle(color=colors[labels[1]], size=75)
+            .encode(x=x_quantile, y="y_pred:Q", opacity=_opacity(1), tooltip=tooltip)
+        )
+
+        # Each crossing is drawn from the lower quantile's prediction to the upper one's.
+        rules_crossed = (
+            alt.Chart(df_crossed_select.query("model == @model").assign(label=labels[3]))
+            .transform_filter(filter_x)
+            .mark_rule(color=colors[labels[3]], size=2)
+            .encode(
+                x="quantile_low:Q",
+                x2="quantile_upp:Q",
+                y="y_pred_low:Q",
+                y2="y_pred_upp:Q",
+                opacity=_opacity(1),
+                tooltip=[
+                    alt.Tooltip("x:Q", format=",.1f", title="X"),
+                    alt.Tooltip("quantile_low:Q", format=".0%", title="Lower Quantile"),
+                    alt.Tooltip("y_pred_low:Q", format=",.3f", title="Lower Quantile's Y"),
+                    alt.Tooltip("quantile_upp:Q", format=".0%", title="Upper Quantile"),
+                    alt.Tooltip("y_pred_upp:Q", format=",.3f", title="Upper Quantile's Y"),
+                ],
+            )
+        )
+
+        title = f"{model.split(' (')[0]} Quantiles at the Selected X"
+        layers = [line_quantiles, circles_quantiles, rules_crossed, circle_median]
+        return alt.layer(*layers).properties(title=title, height=150, width=280)
+
+    qrf_name, gbm_name = metrics.keys()
+    # Space the panels a little closer than by default, so that the chart fits the width
+    # of the documentation.
+    row_fans = alt.hconcat(_plot_panel(qrf_name), _plot_panel(gbm_name, legend=True), spacing=12)
+    row_quantiles = alt.hconcat(_plot_quantiles(qrf_name), _plot_quantiles(gbm_name), spacing=12)
+
+    # Give every y-axis the width of the widest labels, so that the panels stay aligned,
+    # and in place, as the labels of the quantile panels change with the selected input.
+    chart = (
+        alt.vconcat(row_fans, row_quantiles.resolve_scale(y="shared"))
+        .add_params(x_val)
+        .configure_axisY(minExtent=27, maxExtent=27)
+    )
+    return chart
+
+
+chart = plot_quantile_fans(
+    df_test, df_intervals, df_median, df_crossed, df_quantiles, df_crossed_select, metrics
+)
+chart

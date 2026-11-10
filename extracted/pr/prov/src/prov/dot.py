@@ -13,7 +13,6 @@ References:
 """
 
 import typing
-import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape, unescape
@@ -28,7 +27,8 @@ except ImportError as e:  # pragma: no cover -- pydot (dot extra) absent; covere
         'install "prov[dot]" to use graphical export'
     ) from e
 
-from prov._warnings import external_stacklevel
+from prov._warnings import warn
+from prov.constants import XSD_ANYURI
 from prov.graph import INFERRED_ELEMENT_CLASS
 from prov.identifier import QualifiedName
 from prov.model import (
@@ -47,12 +47,13 @@ from prov.model import (
     PROV_GENERATION,
     PROV_INFLUENCE,
     PROV_INVALIDATION,
+    PROV_LABEL,
     PROV_MEMBERSHIP,
     PROV_MENTION,
     PROV_SPECIALIZATION,
     PROV_START,
     PROV_USAGE,
-    Identifier,
+    Literal,
     ProvActivity,
     ProvAgent,
     ProvBundle,
@@ -63,7 +64,7 @@ from prov.model import (
     ProvWarning,
     sorted_attributes,
 )
-from prov.model.records import _xsd_datetime_text
+from prov.model._values import _xsd_datetime_text
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
@@ -223,13 +224,24 @@ def _href_attr(uri: str) -> str:
     return f' href="{escape(link)}"' if link is not None else ""
 
 
+def _value_cell(value: Any) -> tuple[str, str]:
+    """The ``href`` attribute text and the escaped text of an attribute value's cell."""
+    if isinstance(value, Literal) and value.datatype == XSD_ANYURI:
+        return _href_attr(value.value), escape(value.value)
+    if isinstance(value, QualifiedName):
+        return _href_attr(value.uri), escape(str(value))
+    if isinstance(value, datetime):
+        return "", escape(_xsd_datetime_text(value))
+    return "", escape(str(value))
+
+
 def htlm_link_if_uri(value: Any) -> str:
     """Render an attribute value as an HTML anchor if it has a ``uri``, else as plain text.
 
     Args:
         value: Attribute value to render; typically an
-            :class:`~prov.identifier.Identifier`/:class:`~prov.identifier.QualifiedName`
-            (which have a ``uri`` attribute) or a plain literal.
+            :class:`~prov.identifier.QualifiedName` (which has a ``uri``
+            attribute) or a plain literal.
 
     Returns:
         An ``<a href="...">`` HTML fragment linking to ``value.uri`` if
@@ -291,12 +303,7 @@ def _attach_attribute_annotation(
         % (
             _href_attr(attr.uri),
             escape(str(attr)),
-            _href_attr(value.uri) if isinstance(value, Identifier) else "",
-            escape(
-                str(value)
-                if not isinstance(value, datetime)
-                else _xsd_datetime_text(value)
-            ),
+            *_value_cell(value),
         )
         for attr, value in attributes
     )
@@ -334,18 +341,13 @@ def _add_node(
 ) -> pydot.Node:
     state.node_count += 1
     node_id = f"n{state.node_count}"
-    if state.use_labels:
-        if record.label == record.identifier:
-            node_label = _quoted(str(record.label))
-        else:
-            # Fancier label if both are different. The label will be
-            # the main node text, whereas the identifier will be a
-            # kind of subtitle.
-            node_label = (
-                f"<{escape(str(record.label))}<br />"
-                f'<font color="#333333" point-size="10">'
-                f"{escape(str(record.identifier))}</font>>"
-            )
+    if state.use_labels and record.get_attribute(PROV_LABEL):
+        # the label as the node text, the identifier as its subtitle
+        node_label = (
+            f"<{escape(str(record.label))}<br />"
+            f'<font color="#333333" point-size="10">'
+            f"{escape(str(record.identifier))}</font>>"
+        )
     else:
         node_label = _quoted(str(record.identifier))
 
@@ -468,11 +470,10 @@ def _add_relation(state: _DotRenderState, dot: DotContainer, rec: ProvRecord) ->
         if node is None
     ]
     if unset:
-        warnings.warn(
+        warn(
             f"{rec!r} has no value for {', '.join(unset)}; drawing the "
             "relation to a blank node",
             ProvWarning,
-            stacklevel=external_stacklevel(),
         )
     other_attributes = [
         (attr_name, value)
@@ -539,14 +540,18 @@ def prov_to_dot(
     show_element_attributes: bool = True,
     show_relation_attributes: bool = True,
 ) -> pydot.Dot:
-    """Convert a provenance bundle/document into a DOT graphical representation.
+    """Convert a provenance document into a DOT graphical representation.
 
-    The bundle is first :meth:`~prov.model.ProvBundle.unified`; if that
-    raises :class:`~prov.model.ProvException` (the bundle cannot be
-    unified), the original, non-unified bundle is rendered instead.
+    A bundle that is not a document warns :class:`DeprecationWarning` and is
+    drawn as a document would be, and 4.0 draws documents only. The graphics
+    how-to guide, in its section on drawing one bundle, shows the replacement.
+
+    The document is first :meth:`~prov.model.ProvDocument.unified`; if that
+    raises :class:`~prov.model.ProvException` (the document cannot be
+    unified), the original, non-unified document is rendered instead.
 
     Args:
-        bundle: The provenance bundle/document to be converted.
+        bundle: The provenance document to be converted.
         show_nary: Show all elements of n-ary relations (i.e. relations with
             more than two formal attributes), not just the first two.
         use_labels: Use the ``prov:label`` property of an element as its
@@ -562,11 +567,6 @@ def prov_to_dot(
 
     Returns:
         The :class:`pydot.Dot` graph object.
-
-    Warns:
-        ProvFutureRejectionWarning: Propagated from
-            :meth:`~prov.model.ProvBundle.unified`. In prov 3.3.0 that call
-            raises instead, and the bundle is drawn as asserted.
     """
     if direction not in {"BT", "TB", "LR", "RL"}:
         # Invalid direction is provided
@@ -580,10 +580,17 @@ def prov_to_dot(
         show_nary=show_nary,
     )
 
+    is_document = bundle.is_document()
+    if not is_document:
+        warn(
+            "Drawing a bundle that is not a document is deprecated and 4.0 "
+            "draws documents only; pass a ProvDocument that holds the bundle",
+            DeprecationWarning,
+        )
     try:
-        unified = bundle.unified()
+        unified = bundle.unified() if is_document else bundle._unified_copy(None)
     except ProvException:
-        # Could not unify this bundle
+        # Could not unify the argument
         # try the original document anyway
         unified = bundle
 

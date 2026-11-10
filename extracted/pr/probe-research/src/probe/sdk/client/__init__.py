@@ -17,6 +17,8 @@ _PIECES = (
     "probe.sdk.client.resources.auth",
     "probe.sdk.client.resources.catalog",
     "probe.sdk.client.resources.delivery",
+    "probe.sdk.client.resources.runs.edits",
+    "probe.sdk.client.resources.runs.commands",
     "probe.sdk.client.resources.integrations",
     "probe.sdk.client.resources.lineage",
     "probe.sdk.client.resources.notes",
@@ -26,13 +28,16 @@ _PIECES = (
     "probe.sdk.client.resources.projects.experiments",
     "probe.sdk.client.resources.projects.headlines",
     "probe.sdk.client.resources.projects.papers",
+    "probe.sdk.client.resources.projects.pins",
     "probe.sdk.client.resources.projects.projects",
     "probe.sdk.client.resources.projects.summaries",
     "probe.sdk.client.resources.reads",
     "probe.sdk.client.resources.runs.attach",
     "probe.sdk.client.resources.runs.check",
+    "probe.sdk.client.resources.runs.home",
     "probe.sdk.client.resources.runs.create",
     "probe.sdk.client.resources.runs.listing",
+    "probe.sdk.client.resources.runs.logs",
     "probe.sdk.client.resources.runs.metrics",
     "probe.sdk.client.resources.runs.reads",
     "probe.sdk.client.resources.runs.reopen.conflict",
@@ -59,6 +64,12 @@ del _piece
 
 #: Every name the old module bound -> the piece that holds it (defines it, else imports it).
 _HOMES = {
+    # probe.sdk.client.resources.runs.edits
+    "Edit": "probe.sdk.client.resources.runs.edits",
+    "EditsMixin": "probe.sdk.client.resources.runs.edits",
+    "EditsResource": "probe.sdk.client.resources.runs.edits",
+    # probe.sdk.client.resources.runs.commands
+    "RunCommandsMixin": "probe.sdk.client.resources.runs.commands",
     # probe.sdk.client.resources.projects.experiment_locator
     "contextvars": "probe.sdk.client.resources.projects.experiment_locator",
     "functools": "probe.sdk.client.resources.projects.experiment_locator",
@@ -104,7 +115,7 @@ _HOMES = {
     "errors": "probe.sdk.client.core",
     "Settings": "probe.sdk.client.core",
     "resolve": "probe.sdk.client.core",
-    "WIZARD_HINT": "probe.sdk.client.core",
+    "SIGN_IN_HINT": "probe.sdk.client.core",
     "CredentialSource": "probe.sdk.client.core",
     "credential_fingerprint": "probe.sdk.client.core",
     "Journal": "probe.sdk.client.core",
@@ -209,10 +220,23 @@ _HOMES = {
     "UNPLACED_PROJECT": "probe.sdk.client.resources.delivery",
     # probe.sdk.client.resources.runs.runs
     "without_patience": "probe.sdk.client.resources.runs.runs",
+    # probe.sdk.client.resources.runs.logs: `client.runs.logs` (run logs as a first-class feature)
+    "LogsResource": "probe.sdk.client.resources.runs.logs",
+    "SavedLog": "probe.sdk.client.resources.runs.logs",
+    # probe.sdk.client.resources.runs.home: `project=probe.FROM_ENV` (R22, D26)
+    "FROM_ENV": "probe.sdk.client.resources.runs.home",
+    "ProjectFromEnv": "probe.sdk.client.resources.runs.home",
     # probe.sdk.delivery.notices
     "_telemetry": "probe.sdk.delivery.notices",
     "_age_seconds": "probe.sdk.delivery.notices",
     "_minutes_since": "probe.sdk.delivery.notices",
+    # probe.sdk.client.resources.projects.pins: what a coding agent pins (pinned views T10)
+    "PinnedView": "probe.sdk.client.resources.projects.pins",
+    "PaneView": "probe.sdk.client.resources.projects.pins",
+    "ChartView": "probe.sdk.client.resources.projects.pins",
+    "KeyMetricsView": "probe.sdk.client.resources.projects.pins",
+    "ParallelView": "probe.sdk.client.resources.projects.pins",
+    "Pin": "probe.sdk.client.resources.projects.pins",
     # probe.sdk.client.resources.projects.summaries
     "_PREDATES_SUMMARIES": "probe.sdk.client.resources.projects.summaries",
     # probe.sdk.client.resources.projects.projects

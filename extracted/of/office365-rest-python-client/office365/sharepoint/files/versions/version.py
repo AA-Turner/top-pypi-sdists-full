@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import IO, AnyStr, Optional
+from typing import IO, AnyStr, Optional, Tuple
 
 from typing_extensions import Self
 
@@ -8,6 +8,7 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class FileVersion(Entity):
@@ -31,6 +32,7 @@ class FileVersion(Entity):
         self.ensure_property("ID").after_execute(lambda _: _file_version_loaded())
         return self
 
+    @site_access(SiteLevel.READ)
     def open_binary_stream(self) -> ClientResult[bytes]:
         """Opens the file as a stream."""
         return_type = ClientResult(self.context, bytes())
@@ -38,6 +40,7 @@ class FileVersion(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def open_binary_stream_with_options(self, open_options: int) -> ClientResult[bytes]:
         """Opens the file as a stream."""
         return_type = ClientResult(self.context, bytes())
@@ -45,12 +48,13 @@ class FileVersion(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="Created")
     @property
     def created(self) -> Optional[datetime]:
         """Specifies the creation date and time for the file version."""
         return self.properties.get("Created", datetime.min)
 
-    @odata(name="CreatedBy")
+    @odata(name="CreatedBy", navigation=True)
     @property
     def created_by(self):
         """Gets the user that created the file version."""
@@ -58,51 +62,82 @@ class FileVersion(Entity):
 
         return self.properties.get("CreatedBy", User(self.context, ResourcePath("CreatedBy", self.resource_path)))
 
+    @odata(name="ID")
     @property
     def id(self) -> Optional[int]:
         """Gets a file version identifier"""
         return int(self.properties.get("ID", -1))
 
+    @odata(name="Url")
     @property
     def url(self) -> Optional[str]:
         """Gets a value that specifies the relative URL of the file version based on the URL for the site or subsite."""
         return self.properties.get("Url", None)
 
+    @odata(name="VersionLabel")
     @property
     def version_label(self) -> Optional[str]:
         """Gets a value that specifies the implementation specific identifier of the file."""
         return self.properties.get("VersionLabel", None)
 
     @property
+    def sort_key(self) -> Tuple[int, ...]:
+        """The numeric parts of :attr:`version_label`, for ordering a history oldest-first.
+
+        SharePoint spells a version ``major.minor``, so a label has to be compared as
+        numbers: as text, ``"10.0"`` sorts before ``"9.0"``, which would place a file's
+        newest version in the middle of its history. A label with a part that is not a
+        number (the check-in path never produces one) gets the key ``(0,)``, so it sorts
+        before every numeric label instead of raising.
+        """
+        try:
+            return tuple(int(part) for part in str(self.version_label).split("."))
+        except ValueError:
+            return (0,)
+
+    @odata(name="IsCurrentVersion")
+    @property
     def is_current_version(self) -> Optional[bool]:
         """Gets a value that specifies whether the file version is the current version."""
         return self.properties.get("IsCurrentVersion", None)
 
+    @odata(name="CheckInComment", readonly=True)
     @property
     def checkin_comment(self) -> Optional[str]:
-        """Gets a value that specifies the check-in comment."""
+        """Gets a value that specifies the check-in comment.
+
+        The service records the comment when the file is checked in (``readonly``).
+        """
         return self.properties.get("CheckInComment", None)
 
+    @odata(name="CheckInComment", readonly=True)
     @property
     def check_in_comment(self) -> Optional[str]:
-        """Gets the CheckInComment property"""
+        """Gets the CheckInComment property.
+
+        The service records the comment when the file is checked in (``readonly``).
+        """
         return self.properties.get("CheckInComment", None)
 
+    @odata(name="ExpirationDate", beta=True)
     @property
     def expiration_date(self) -> Optional[str]:
         """Gets the ExpirationDate property"""
         return self.properties.get("ExpirationDate", None)
 
+    @odata(name="Length")
     @property
     def length(self) -> Optional[int]:
         """Gets the Length property"""
         return self.properties.get("Length", None)
 
+    @odata(name="Size")
     @property
     def size(self) -> Optional[int]:
         """Gets the Size property"""
         return self.properties.get("Size", None)
 
+    @odata(name="SnapshotDate", beta=True)
     @property
     def snapshot_date(self) -> Optional[str]:
         """Gets the SnapshotDate property"""
@@ -112,6 +147,7 @@ class FileVersion(Entity):
     def property_ref_name(self) -> str:
         return "ID"
 
+    @site_access(SiteLevel.WRITE)
     def set_expiration_date(self, expiration_date: datetime) -> Self:
         """SetExpirationDate operation.
 

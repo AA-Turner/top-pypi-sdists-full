@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bleak
-Version: 3.0.2
+Version: 3.1.0
 Summary: Bluetooth Low Energy platform Agnostic Klient
 Author: Henrik Blidh
 Author-email: Henrik Blidh <henrik.blidh@nedomkull.com>
@@ -25,7 +25,7 @@ Requires-Dist: winrt-windows-devices-radios>=3.1 ; sys_platform == 'win32'
 Requires-Dist: winrt-windows-foundation>=3.1 ; sys_platform == 'win32'
 Requires-Dist: winrt-windows-foundation-collections>=3.1 ; sys_platform == 'win32'
 Requires-Dist: winrt-windows-storage-streams>=3.1 ; sys_platform == 'win32'
-Requires-Dist: dbus-fast>=1.83.0 ; sys_platform == 'linux'
+Requires-Dist: dbus-fast>=4.0.0 ; sys_platform == 'linux'
 Requires-Dist: bleak-pythonista>=0.1.1 ; extra == 'pythonista'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/hbldh/bleak

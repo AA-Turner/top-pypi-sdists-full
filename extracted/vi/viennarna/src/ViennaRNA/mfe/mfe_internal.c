@@ -30,7 +30,6 @@
 
 #include "ViennaRNA/mfe/internal.h"
 
-
 typedef struct {
   struct sc_int_dat     sc_wrapper;
 
@@ -161,34 +160,24 @@ mfe_stacks(vrna_fold_compound_t *fc,
            helper_data_t        *helpers)
 {
   unsigned char sliding_window;
-  char          *ptype, **ptype_local;
-  short         *S, **SS, **S5, **S3;
-  unsigned int  k, l, *sn, n_seq, s, n, type, type2;
-  int           e, eee, *idx, ij, *c, *rtype, **c_local, kl;
+  short         *S, **SS;
+  unsigned int  k, l, n_seq, s, type, type2;
+  int           e, eee, *idx, *c, **c_local;
   vrna_param_t  *P;
   vrna_md_t     *md;
   vrna_hc_t     *hc;
 
   e = INF;
 
-  n               = fc->length;
   sliding_window  = (fc->hc->type == VRNA_HC_WINDOW) ? 1 : 0;
-  sn              = fc->strand_number;
   n_seq           = (fc->type == VRNA_FC_TYPE_SINGLE) ? 1 : fc->n_seq;
   idx             = fc->jindx;
-  ij              = (sliding_window) ? 0 : idx[j] + i;
-  ptype           = (fc->type == VRNA_FC_TYPE_SINGLE) ? (sliding_window ? NULL : fc->ptype) : NULL;
-  ptype_local     =
-    (fc->type == VRNA_FC_TYPE_SINGLE) ? (sliding_window ? fc->ptype_local : NULL) : NULL;
   S       = (fc->type == VRNA_FC_TYPE_SINGLE) ? fc->sequence_encoding : NULL;
   SS      = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S;
-  S5      = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S5;
-  S3      = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S3;
   c       = (sliding_window) ? NULL : fc->matrices->c;
   c_local = (sliding_window) ? fc->matrices->c_local : NULL;
   P       = fc->params;
   md      = &(P->model_details);
-  rtype   = &(md->rtype[0]);
   hc      = fc->hc;
 
   k = i + 1;
@@ -196,38 +185,20 @@ mfe_stacks(vrna_fold_compound_t *fc,
 
   if (k < l) {
     if (hc->eval_int(i, j, k, l, hc)) {
-      type = 0;
-
-      if (fc->type == VRNA_FC_TYPE_SINGLE)
-        type = sliding_window ?
-               vrna_get_ptype_window(i, j, ptype_local) :
-               vrna_get_ptype(ij, ptype);
-
-      kl  = (sliding_window) ? 0 : idx[l] + k;
-      eee = (sliding_window) ? c_local[k][l - k] : c[kl];
+      eee = (sliding_window) ? c_local[k][l - k] : c[idx[l] + k];
 
       if (eee != INF) {
         switch (fc->type) {
           case VRNA_FC_TYPE_SINGLE:
-            type2 = sliding_window ?
-                    rtype[vrna_get_ptype_window(k, l, ptype_local)] :
-                    rtype[vrna_get_ptype(kl, ptype)];
-
-            eee += vrna_E_internal(0, 0, type, type2, S[i + 1], S[j - 1], S[i], S[j], P);
+            type  = vrna_get_ptype_md(S[i], S[j], md);
+            type2 = vrna_get_ptype_md(S[l], S[k], md);
+            eee   += vrna_en_stack(type, type2, P);
             break;
 
           case VRNA_FC_TYPE_COMPARATIVE:
             for (s = 0; s < n_seq; s++) {
               type2 = vrna_get_ptype_md(SS[s][l], SS[s][k], md);
-              eee   += vrna_E_internal(0,
-                                       0,
-                                       helpers->tt[s],
-                                       type2,
-                                       S3[s][i],
-                                       S5[s][j],
-                                       S5[s][k],
-                                       S3[s][l],
-                                       P);
+              eee += vrna_en_stack(helpers->tt[s], type2, P);
             }
 
             break;
@@ -252,11 +223,11 @@ mfe_bulges(vrna_fold_compound_t *fc,
 {
   unsigned char sliding_window, hc_decompose, *hc_mx, **hc_mx_local;
   char          *ptype, **ptype_local;
-  short         *S, **SS, **S5, **S3;
+  short         **SS, *S2, s2k, s2l;
   unsigned int  *sn, **a2s, n_seq, s, n, *hc_up, with_ud, noclose,
                 type, type2, has_nick, k, l, last_k, first_l, u1, u2,
-                noGUclosure, u1_local;
-  int           e, eee, *idx, ij, kl, *c, *rtype, **c_local;
+                noGUclosure, u1_local, sni, snj, snk, snl;
+  int           e, eee, *idx, ij, kl, *c, **c_local;
   vrna_param_t  *P;
   vrna_md_t     *md;
   vrna_ud_t     *domains_up;
@@ -277,16 +248,13 @@ mfe_bulges(vrna_fold_compound_t *fc,
   ptype           = (fc->type == VRNA_FC_TYPE_SINGLE) ? (sliding_window ? NULL : fc->ptype) : NULL;
   ptype_local     =
     (fc->type == VRNA_FC_TYPE_SINGLE) ? (sliding_window ? fc->ptype_local : NULL) : NULL;
-  S           = (fc->type == VRNA_FC_TYPE_SINGLE) ? fc->sequence_encoding : NULL;
+  S2          = (fc->type == VRNA_FC_TYPE_SINGLE) ? fc->sequence_encoding2 : NULL;
   SS          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S;
-  S5          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S5;
-  S3          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S3;
   a2s         = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->a2s;
   c           = (sliding_window) ? NULL : fc->matrices->c;
   c_local     = (sliding_window) ? fc->matrices->c_local : NULL;
   P           = fc->params;
   md          = &(P->model_details);
-  rtype       = &(md->rtype[0]);
   domains_up  = fc->domains_up;
   with_ud     = ((domains_up) && (domains_up->energy_cb)) ? 1 : 0;
 
@@ -307,9 +275,15 @@ mfe_bulges(vrna_fold_compound_t *fc,
     if (!noclose) {
       /* only proceed if the enclosing pair is allowed */
 
+      sni = sn[i];
+      snj = sn[j];
+      snk = sn[i + 1];
+      snl = sn[j - 1];
+
       /* handle bulges in 5' side */
       l = j - 1;
-      if (l > i + 2) {
+      if ((l > i + 2) &&
+          ((!has_nick) || (snl == snj))) {
         last_k = l - 1;
 
         if (last_k > i + 1 + MAXLOOP)
@@ -323,7 +297,8 @@ mfe_bulges(vrna_fold_compound_t *fc,
         k   = i + 2;
         kl  = (sliding_window) ? 0 : idx[l] + k;
 
-        hc_mx += n * l;
+        if (fc->type == VRNA_FC_TYPE_SINGLE)
+          s2l = S2[l];
 
         for (; k <= last_k; k++, u1++, kl++) {
           if (hc->eval_int(i, j, k, l, hc)) {
@@ -332,9 +307,7 @@ mfe_bulges(vrna_fold_compound_t *fc,
             if (eee < INF) {
               switch (fc->type) {
                 case VRNA_FC_TYPE_SINGLE:
-                  type2 = sliding_window ?
-                          rtype[vrna_get_ptype_window(k, l, ptype_local)] :
-                          rtype[vrna_get_ptype(kl, ptype)];
+                  type2 = vrna_get_ptype_md(s2l, S2[k], md);
 
                   if ((noGUclosure) && (type2 == 3 || type2 == 4))
                     continue;
@@ -342,15 +315,7 @@ mfe_bulges(vrna_fold_compound_t *fc,
                   if ((has_nick) && ((sn[i] != sn[k]) || (sn[j - 1] != sn[j]))) {
                     eee = INF;
                   } else {
-                    eee += vrna_E_internal(u1,
-                                           0,
-                                           type,
-                                           type2,
-                                           S[i + 1],
-                                           S[j - 1],
-                                           S[k - 1],
-                                           S[l + 1],
-                                           P);
+                    eee += vrna_en_bulge(u1, type, type2, P);
                   }
 
                   break;
@@ -359,10 +324,7 @@ mfe_bulges(vrna_fold_compound_t *fc,
                   for (s = 0; s < n_seq; s++) {
                     u1_local  = a2s[s][k - 1] - a2s[s][i];
                     type2     = vrna_get_ptype_md(SS[s][l], SS[s][k], md);
-                    eee       +=
-                      vrna_E_internal(u1_local, 0, helpers->tt[s], type2, S3[s][i], S5[s][j],
-                                      S5[s][k], S3[s][l],
-                                      P);
+                    eee       += vrna_en_bulge(u1_local, helpers->tt[s], type2, P);
                   }
 
                   break;
@@ -383,19 +345,20 @@ mfe_bulges(vrna_fold_compound_t *fc,
             }
           }
         }
-
-        hc_mx -= n * l;
       }
 
       /* handle bulges in 3' side */
       k = i + 1;
-      if (k + 2 < j) {
+      if ((k + 2 < j) &&
+          ((!has_nick) || (sni == snk))) {
         first_l = k + 1;
         if (first_l + MAXLOOP + 1 < j)
           first_l = j - 1 - MAXLOOP;
 
         u2    = 1;
-        hc_mx += n * k;
+
+        if (fc->type == VRNA_FC_TYPE_SINGLE)
+          s2k   = S2[k];
 
         for (l = j - 2; l >= first_l; l--, u2++) {
           if (u2 > hc_up[l + 1])
@@ -408,9 +371,7 @@ mfe_bulges(vrna_fold_compound_t *fc,
             if (eee < INF) {
               switch (fc->type) {
                 case VRNA_FC_TYPE_SINGLE:
-                  type2 = sliding_window ?
-                          rtype[vrna_get_ptype_window(k, l, ptype_local)] :
-                          rtype[vrna_get_ptype(kl, ptype)];
+                  type2 = vrna_get_ptype_md(S2[l], s2k, md);
 
                   if ((noGUclosure) && (type2 == 3 || type2 == 4))
                     continue;
@@ -418,15 +379,7 @@ mfe_bulges(vrna_fold_compound_t *fc,
                   if ((has_nick) && ((sn[i] != sn[i + 1]) || (sn[j] != sn[l]))) {
                     eee = INF;
                   } else {
-                    eee += vrna_E_internal(0,
-                                           u2,
-                                           type,
-                                           type2,
-                                           S[i + 1],
-                                           S[j - 1],
-                                           S[k - 1],
-                                           S[l + 1],
-                                           P);
+                    eee += vrna_en_bulge(u2, type, type2, P);
                   }
 
                   break;
@@ -435,10 +388,7 @@ mfe_bulges(vrna_fold_compound_t *fc,
                   for (s = 0; s < n_seq; s++) {
                     unsigned int u2_local = a2s[s][j - 1] - a2s[s][l];
                     type2 = vrna_get_ptype_md(SS[s][l], SS[s][k], md);
-                    eee   +=
-                      vrna_E_internal(0, u2_local, helpers->tt[s], type2, S3[s][i], S5[s][j],
-                                      S5[s][k], S3[s][l],
-                                      P);
+                    eee += vrna_en_bulge(u2_local, helpers->tt[s], type2, P);
                   }
 
                   break;
@@ -459,8 +409,6 @@ mfe_bulges(vrna_fold_compound_t *fc,
             }
           }
         }
-
-        hc_mx -= n * k;
       }
     }
   }
@@ -476,11 +424,11 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
 {
   unsigned char sliding_window, hc_decompose, *hc_mx, **hc_mx_local;
   char          *ptype, **ptype_local;
-  short         *S, **SS, **S5, **S3;
+  short         *S, **SS, **S5, **S3, *S2, s2l, si1, s1j, sl1;
   unsigned int  *sn, **a2s, n_seq, s, n, *hc_up, type, type2, has_nick,
                 k, l, last_k, first_l, u1, u2, noGUclosure, with_ud,
-                with_gquad, noclose, u1_local, u2_local;
-  int           e, eee, e3, e5, *idx, ij, kl, *c, *rtype, **c_local;
+                with_gquad, noclose, u1_local, u2_local, sni, snj;
+  int           e, eee, e3, e5, *idx, ij, kl, *c, **c_local;
   vrna_param_t  *P;
   vrna_md_t     *md;
   vrna_ud_t     *domains_up;
@@ -505,6 +453,7 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
   ptype_local     =
     (fc->type == VRNA_FC_TYPE_SINGLE) ? (sliding_window ? fc->ptype_local : NULL) : NULL;
   S           = (fc->type == VRNA_FC_TYPE_SINGLE) ? fc->sequence_encoding : NULL;
+  S2          = (fc->type == VRNA_FC_TYPE_SINGLE) ? fc->sequence_encoding2 : NULL;
   SS          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S;
   S5          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S5;
   S3          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S3;
@@ -513,7 +462,6 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
   c_local     = (sliding_window) ? fc->matrices->c_local : NULL;
   P           = fc->params;
   md          = &(P->model_details);
-  rtype       = &(md->rtype[0]);
   domains_up  = fc->domains_up;
   with_ud     = ((domains_up) && (domains_up->energy_cb)) ? 1 : 0;
   with_gquad  = md->gquad;
@@ -521,7 +469,9 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
   hc_decompose = (sliding_window) ? hc_mx_local[i][j - i] : hc_mx[n * i + j];
 
   if (hc_decompose & VRNA_CONSTRAINT_CONTEXT_INT_LOOP) {
-    has_nick    = sn[i] != sn[j] ? 1 : 0;
+    sni         = sn[i];
+    snj         = sn[j];
+    has_nick    = sni != snj ? 1 : 0;
     noGUclosure = md->noGUclosure;
     type        = 0;
 
@@ -539,12 +489,19 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
     if (!noclose) {
       /* only proceed if the enclosing pair is allowed */
 
+
       /* last but not least, all other internal loops */
       first_l = i + 2 + 1;
       if (first_l + MAXLOOP + 1 < j)
         first_l = j - 1 - MAXLOOP;
 
-      u2 = 1;
+      u2  = 1;
+
+      if (fc->type == VRNA_FC_TYPE_SINGLE) {
+        si1 = S[i + 1];
+        s1j = S[j - 1];
+      }
+
       for (l = j - 2; l >= first_l; l--, u2++) {
         if (u2 > hc_up[l + 1])
           break;
@@ -557,24 +514,23 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
         if (last_k > i + 1 + hc_up[i + 1])
           last_k = i + 1 + hc_up[i + 1];
 
-        u1  = 1;
-        k   = i + 2;
+        u1    = 1;
+        k     = i + 2;
+
+        if (fc->type == VRNA_FC_TYPE_SINGLE) {
+          sl1   = S[l + 1];
+          s2l   = S2[l];
+        }
+
         kl  = (sliding_window) ? 0 : idx[l] + k;
-
-        hc_mx += n * l;
-
         for (; k <= last_k; k++, u1++, kl++) {
-          hc_decompose = (sliding_window) ? hc_mx_local[k][l - k] : hc_mx[k];
-
           if (hc->eval_int(i, j, k, l, hc)) {
             eee = (sliding_window) ? c_local[k][l - k] : c[kl];
 
             if (eee < INF) {
               switch (fc->type) {
                 case VRNA_FC_TYPE_SINGLE:
-                  type2 = sliding_window ?
-                          rtype[vrna_get_ptype_window(k, l, ptype_local)] :
-                          rtype[vrna_get_ptype(kl, ptype)];
+                  type2 = vrna_get_ptype_md(s2l, S2[k], md);
 
                   if ((noGUclosure) && (type2 == 3 || type2 == 4))
                     continue;
@@ -583,7 +539,14 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
                     eee = INF;
                   } else {
                     eee +=
-                      vrna_E_internal(u1, u2, type, type2, S[i + 1], S[j - 1], S[k - 1], S[l + 1],
+                      vrna_en_internal(u1,
+                                      u2,
+                                      type,
+                                      type2,
+                                      si1,
+                                      s1j,
+                                      S[k - 1],
+                                      sl1,
                                       P);
                   }
 
@@ -594,7 +557,7 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
                     u1_local  = a2s[s][k - 1] - a2s[s][i];
                     u2_local  = a2s[s][j - 1] - a2s[s][l];
                     type2     = vrna_get_ptype_md(SS[s][l], SS[s][k], md);
-                    eee       += vrna_E_internal(u1_local,
+                    eee       += vrna_en_internal(u1_local,
                                                  u2_local,
                                                  helpers->tt[s],
                                                  type2,
@@ -630,8 +593,6 @@ mfe_internal_loop(vrna_fold_compound_t  *fc,
             }
           }
         }
-
-        hc_mx -= n * l;
       }
 
       if (with_gquad) {

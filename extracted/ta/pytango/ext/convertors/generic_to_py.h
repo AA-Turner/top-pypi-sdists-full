@@ -43,43 +43,27 @@ struct cpp_to_python_list<Tango::DevVarStringArray> {
     }
 };
 
+template <typename TangoArrayType>
+inline py::object numeric_string_array_to_py_list(const TangoArrayType &src) {
+    using traits = numeric_string_array_traits<TangoArrayType>;
+
+    py::list result;
+    result.append(cpp_to_python_list<typename traits::NumericArrayType>::convert(src.*traits::numeric_member));
+    result.append(cpp_to_python_list<Tango::DevVarStringArray>::convert(src.*traits::string_member));
+    return result;
+}
+
 template <>
 struct cpp_to_python_list<Tango::DevVarLongStringArray> {
     static py::object convert(const Tango::DevVarLongStringArray &src) {
-        py::list lt, st, ret;
-
-        for(_CORBA_ULong i = 0; i < src.lvalue.length(); ++i) {
-            lt.append(py::cast(src.lvalue[i]));
-        }
-
-        for(_CORBA_ULong i = 0; i < src.svalue.length(); ++i) {
-            st.append(from_cpp_char_to_pybind11_str(src.svalue[i].in()));
-        }
-
-        ret.append(lt);
-        ret.append(st);
-
-        return ret;
+        return numeric_string_array_to_py_list(src);
     }
 };
 
 template <>
 struct cpp_to_python_list<Tango::DevVarDoubleStringArray> {
     static py::object convert(const Tango::DevVarDoubleStringArray &src) {
-        py::list lt, st, ret;
-
-        for(_CORBA_ULong i = 0; i < src.dvalue.length(); ++i) {
-            lt.append(py::cast(src.dvalue[i]));
-        }
-
-        for(_CORBA_ULong i = 0; i < src.svalue.length(); ++i) {
-            st.append(from_cpp_char_to_pybind11_str(src.svalue[i].in()));
-        }
-
-        ret.append(lt);
-        ret.append(st);
-
-        return ret;
+        return numeric_string_array_to_py_list(src);
     }
 };
 

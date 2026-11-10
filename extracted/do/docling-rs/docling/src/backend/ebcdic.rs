@@ -245,6 +245,7 @@ impl DeclarativeBackend for EbcdicBackend {
             let mut table_rows = vec![header];
             table_rows.extend(schema_rows);
             doc.push(Node::Table(Table {
+                footnotes: Vec::new(),
                 rows: table_rows,
                 location: None,
                 structure: None,
@@ -431,6 +432,12 @@ fn scale_decimal(raw_digits: &str, negative: bool, scale: u32) -> String {
 }
 
 include!("ebcdic_tables.rs");
+
+/// The cp500 (International EBCDIC) decode table — AFP's PTOCA text falls
+/// back to it when no code page is resolved (#1034).
+pub(crate) fn cp500_table() -> &'static [u16; 256] {
+    &CP500
+}
 
 #[cfg(test)]
 mod tests {

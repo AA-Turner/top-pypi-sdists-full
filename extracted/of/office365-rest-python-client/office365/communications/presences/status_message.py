@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
@@ -8,7 +8,6 @@ from office365.outlook.mail.item_body import ItemBody
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PresenceStatusMessage(ClientValue):
     """Represents a presence status message related to the presence of a user in Microsoft Teams.
 

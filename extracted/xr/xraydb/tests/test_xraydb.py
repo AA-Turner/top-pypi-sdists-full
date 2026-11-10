@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """ Tests of xraydb interface  """
+import asyncio
 import time
+from concurrent.futures import ThreadPoolExecutor as ThreadExecutor
 import pytest
 import numpy as np
 from numpy.testing import assert_allclose
@@ -10,12 +12,15 @@ from xraydb import XrayDB
 def test_xraydb_version():
     xdb = XrayDB()
     version = xdb.get_version()
-    assert 'XrayDB Version: 9.2, Python' in version
+    assert 'XrayDB Version:' in version
 
     hist = xdb.get_version(with_history=True)
     assert len(hist) > 350
     hist = hist.split('\n')
     assert len(hist) > 4
+
+    str_val = float(xdb.version_string())
+    assert str_val > 9.99
 
 def test_molar_mass():
     xdb = XrayDB()
@@ -63,3 +68,37 @@ def test_ionization_potentials():
 
     with pytest.raises(ValueError):
         xdb.ionization_potential('p10')
+
+
+@pytest.mark.asyncio
+async def test_xray_edges_thread_safety():
+    # There is a race condition here if XrayDB.xray_edges does not use
+    # a locking mechanism, but this test does not always trigger it.
+    # TO-DO: make this test less fragile.
+    loop = asyncio.get_running_loop()
+    xdb = XrayDB()
+    n_threads = 50
+    with ThreadExecutor(n_threads) as executor:
+        coros = [
+            loop.run_in_executor(executor, xdb.xray_edges, "Ni")
+            for i in range(n_threads)
+        ]
+        edges = await asyncio.gather(*coros)
+    assert len(edges) == n_threads
+
+
+@pytest.mark.asyncio
+async def test_xray_lines_thread_safety():
+    # There is a race condition here if XrayDB.xray_lines does not use
+    # a locking mechanism, but this test does not always trigger it.
+    # TO-DO: make this test less fragile.
+    loop = asyncio.get_running_loop()
+    xdb = XrayDB()
+    n_threads = 200
+    with ThreadExecutor(n_threads) as executor:
+        coros = [
+            loop.run_in_executor(executor, xdb.xray_lines, "Si", "K")
+            for i in range(n_threads)
+        ]
+        edges = await asyncio.gather(*coros)
+    assert len(edges) == n_threads

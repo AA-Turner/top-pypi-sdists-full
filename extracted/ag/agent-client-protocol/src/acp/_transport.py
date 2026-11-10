@@ -1,24 +1,18 @@
 """Message-level transport seam for :class:`acp.connection.Connection`.
 
-Historically the connection spoke directly to ``asyncio`` byte streams with
-newline framing.  To support message-oriented remote transports (Streamable
-HTTP + WebSocket) we introduce a small :class:`Transport` protocol that moves
-JSON-RPC *messages* (already-decoded ``dict`` payloads) instead of bytes.
-
-The existing stdio path is re-expressed on top of this seam via
-:class:`NdjsonTransport`, which wraps the current byte-stream framing so there
-is **zero behaviour change** for stdio users.  :func:`memory_transport_pair`
-gives two linked in-memory transports, used by the HTTP/WS server to bind an
-``AgentSideConnection`` to its message pump.
+Transports exchange decoded JSON-RPC objects. :class:`NdjsonTransport` provides
+newline framing for byte streams, while :func:`memory_transport_pair` connects
+two peers in memory.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
-import logging
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from ._jsonrpc import decode_message, error_response
+from .exceptions import RequestError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
@@ -50,12 +44,7 @@ class Transport(Protocol):
 
 
 class NdjsonTransport:
-    """Transport backed by newline-delimited JSON over asyncio byte streams.
-
-    This preserves the exact framing, buffer-limit-overrun handling, and receive
-    timeout semantics that previously lived inside ``Connection`` so that stdio
-    behaviour is byte-for-byte unchanged.
-    """
+    """Transport backed by newline-delimited JSON over asyncio byte streams."""
 
     def __init__(
         self,
@@ -67,6 +56,7 @@ class NdjsonTransport:
         self._reader = reader
         self._sender = sender
         self._receive_timeout = receive_timeout
+        self._error_send_failed = False
 
     async def send(self, message: dict[str, Any]) -> None:
         await self._sender.send(message)
@@ -80,9 +70,15 @@ class NdjsonTransport:
             if not line:
                 continue
             try:
-                message: dict[str, Any] = json.loads(line)
-            except Exception:
-                logging.exception("Error parsing JSON-RPC message")
+                message = decode_message(line)
+            except RequestError as error:
+                if not self._error_send_failed:
+                    try:
+                        await self.send(error_response(error))
+                    except ConnectionError:
+                        self._error_send_failed = True
+                continue
+            if message is None:
                 continue
             return message
 
@@ -140,9 +136,7 @@ def memory_transport_pair() -> tuple[Transport, Transport]:
     """Return two linked in-memory transports.
 
     A message ``send`` on one end becomes available via ``receive`` on the
-    other.  Closing an end enqueues an EOF (``None``) for its peer.  This mirrors
-    the ``TransformStream`` pair the TypeScript SDK uses to bind a server-side
-    connection to its HTTP/WS message pump.
+    other. Closing an end enqueues an EOF (``None``) for its peer.
     """
     a_to_b: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
     b_to_a: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()

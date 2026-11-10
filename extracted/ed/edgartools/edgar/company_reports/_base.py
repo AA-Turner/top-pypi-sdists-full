@@ -1,5 +1,4 @@
 """Base class for company report filings."""
-import warnings
 from contextvars import ContextVar
 from functools import cached_property
 from typing import TYPE_CHECKING, List, Optional
@@ -14,8 +13,7 @@ from rich.panel import Panel
 
 from edgar.core import log
 from edgar.documents import Document, HTMLParser
-from edgar.exceptions import SectionNotFoundError, warn_will_raise
-from edgar.files.htmltools import ChunkedDocument  # Keep for backwards compat
+from edgar.exceptions import SectionNotFoundError
 from edgar.financials import Financials
 from edgar.richtools import repr_rich
 
@@ -34,8 +32,8 @@ def section_not_found(report, item_or_part: str) -> SectionNotFoundError:
 
     Shared by every report `__getitem__`, because the answer to "why did I get
     None?" should not depend on which form the user happened to be holding.
-    Returns the error rather than raising it — `report_lookup_miss` decides
-    whether 5.x warns or strict raises.
+    Returns the error rather than raising it, so `report_lookup_miss` can stay
+    quiet under `.get()`.
 
     Listing what the filing DOES have is the whole value of the message. Items
     are optional in ways that surprise people: 10-K Item 16 is a summary a filer
@@ -55,30 +53,19 @@ def section_not_found(report, item_or_part: str) -> SectionNotFoundError:
         else "no items were detected in this filing at all — check .document",
         f"use .get({item_or_part!r}) if an absent item is an acceptable answer",
     ]
-    # The message above names the filing, and the suggestions name its items;
-    # both vary between two filings that miss the same item on the same line.
-    # The warning has to be the part that does not vary, or a loop over a corpus
-    # warns once per filing — see warn_will_raise.
-    error.warning_summary = (
-        f"{type(report).__name__}[{item_or_part!r}] found no such item in this "
-        f"filing. Items are optional and vary by filer, so this can be a "
-        f"property of the filing rather than a mistake."
-    )
     return error
 
 
 def report_lookup_miss(report, item_or_part: str) -> None:
-    """`report[item]` found nothing: warn now, raise in 6.0 — usually.
+    """`report[item]` found nothing: raise `SectionNotFoundError`.
 
-    The exception is `.get()`, which is the migration target we are telling
-    people to move to. Warning there would mean the users who took our advice
-    get the same noise as the users who ignored it, and the ones taking it are
-    the ones who most need the output to stay clean. Under strict it stays
-    silent for the same reason — `.get()` promises `default`, not a raise.
+    Except under `.get()`, which promises its default rather than a raise, and
+    marks that with `_absence_is_expected`. In 5.x this warned and returned
+    None (edgartools-07lk.10).
     """
     if _absence_is_expected.get():
         return
-    warn_will_raise(section_not_found(report, item_or_part), stacklevel=4)
+    raise section_not_found(report, item_or_part)
 
 
 class CompanyReport:
@@ -165,8 +152,8 @@ class CompanyReport:
         return self._filing.reports
 
     @cached_property
-    def financials(self):
-        """Get the financials for this filing"""
+    def financials(self) -> Optional[Financials]:
+        """The financials for this filing, or None when it carries no XBRL."""
         return Financials.extract(self._filing)
 
     @property
@@ -192,42 +179,6 @@ class CompanyReport:
             config = ParserConfig(form=self._filing.form)
             self._parser = HTMLParser(config)
         return self._parser.parse(self._filing.html())
-
-    @cached_property
-    def _chunked_document(self):
-        """Build the legacy chunked document, without warning anybody.
-
-        This is what our own fallback paths read. `items` and `__getitem__` on
-        several report classes try the new parser first and drop back to the old
-        one when it finds nothing, and routing those through the public property
-        told the user their code was deprecated when the choice was ours — a
-        plain `twentyf.items` emitted a `chunked_document is deprecated` warning
-        naming an attribute the caller had never mentioned.
-
-        Subclasses override THIS to change construction (`TenQ` needs
-        `prefix_src`, `CurrentReport` a decimal-aware `chunk_fn`). The
-        deprecation lives once, on the public property below, so an override
-        cannot accidentally drop it — which is exactly what happened before:
-        `TenQ` and `CurrentReport` overrode `chunked_document` itself and
-        silently lost the warning, so their users got no notice at all.
-        """
-        return ChunkedDocument(self._filing.html())
-
-    @cached_property
-    def chunked_document(self):
-        """
-        Get chunked document using old parser.
-
-        .. deprecated:: 5.0
-            Use :attr:`document` instead. This will be removed in v6.0.
-        """
-        warnings.warn(
-            "chunked_document is deprecated and will be removed in v6.0. "
-            "Use document property instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self._chunked_document
 
     @property
     def doc(self):

@@ -347,6 +347,9 @@ class NotifyPushSafer(NotifyBase):
     # post the message upstream.
     notify_url = "{schema}://www.pushsafer.com/api"
 
+    # Pushsafer messages are limited to 5000 characters
+    body_maxlen = 5000
+
     # Define object templates
     templates = (
         "{schema}://{privatekey}",
@@ -657,6 +660,10 @@ class NotifyPushSafer(NotifyBase):
                 # Target Recipient
                 "d": recipient,
             }
+
+            if self.priority is not None:
+                # Only apply priority setting if it was specified
+                payload["pr"] = str(self.priority)
 
             if self.sound is not None:
                 # Only apply sound setting if it was specified

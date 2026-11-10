@@ -1,11 +1,14 @@
+use std::collections::BTreeSet;
+
 use itertools::Itertools;
 use tombi_config::TomlVersion;
-use tombi_document_tree_syntax::{dig_accessors, dig_keys};
+use tombi_document_tree_syntax::{Value, dig_accessors, dig_keys};
 use tombi_extension::CompletionContent;
 use tombi_extension::CompletionContentPriority;
 use tombi_extension::CompletionEdit;
 use tombi_extension::CompletionHint;
 use tombi_extension::CompletionKind;
+use tombi_extension::CompletionNameTarget;
 use tombi_extension::CompletionTextEdit;
 use tombi_extension::TextEdit;
 use tombi_extension::fetch_cached_remote_json;
@@ -67,6 +70,12 @@ pub async fn completion(
         return Ok(Some(completions));
     }
 
+    if let Some(completions) =
+        completion_declared_name(document_tree, offset, accessors, completion_hint)
+    {
+        return Ok(Some(completions));
+    }
+
     let Ok(cargo_toml_path) = text_document_uri.to_file_path() else {
         return Ok(None);
     };
@@ -102,6 +111,220 @@ pub async fn completion(
     } else {
         Ok(None)
     }
+}
+
+/// Completes names declared in the same Cargo.toml.
+///
+/// - `required-features` of targets: feature names in `[features]`
+/// - `[features]` values: other feature names and `dep:` names of optional dependencies
+/// - `[profile.*] inherits`: custom profile names in this file
+fn completion_declared_name(
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+    offset: tombi_text::Offset,
+    accessors: &[Accessor],
+    completion_hint: Option<CompletionHint>,
+) -> Option<Vec<CompletionContent>> {
+    let is_required_features = matches_accessors!(accessors, ["bin", _, "required-features", _])
+        || matches_accessors!(accessors, ["example", _, "required-features", _])
+        || matches_accessors!(accessors, ["test", _, "required-features", _])
+        || matches_accessors!(accessors, ["bench", _, "required-features", _]);
+    let is_inherits = matches_accessors!(accessors, ["profile", _, "inherits"]);
+    let is_feature_value = matches_accessors!(accessors, ["features", _, _]);
+    let is_required_features_list = matches_accessors!(accessors, ["bin", _, "required-features"])
+        || matches_accessors!(accessors, ["example", _, "required-features"])
+        || matches_accessors!(accessors, ["test", _, "required-features"])
+        || matches_accessors!(accessors, ["bench", _, "required-features"]);
+    let is_feature_list = matches_accessors!(accessors, ["features", _]);
+    if !(is_required_features
+        || is_inherits
+        || is_feature_value
+        || is_required_features_list
+        || is_feature_list)
+    {
+        return None;
+    }
+    let is_list = is_required_features_list || is_feature_list;
+
+    let (_, value) = dig_accessors(document_tree, accessors)?;
+    let target = match (value, completion_hint) {
+        // `default = [█]`: insert into the array itself.
+        (Value::Array(array), _) if is_list && array.span().contains_inclusive(offset) => {
+            CompletionNameTarget::Insert {
+                offset,
+                hint: Some(CompletionHint::new_in_array(
+                    completion_hint,
+                    offset,
+                    array.iter().map(|item| item.symbol_span()),
+                )),
+            }
+        }
+        _ if is_list => return None,
+        (Value::String(value), _) if value.span().contains_inclusive(offset) => {
+            CompletionNameTarget::Replace {
+                span: value.span(),
+                prefix: Some(value.value()),
+            }
+        }
+        (
+            Value::Incomplete { span },
+            Some(
+                hint @ CompletionHint::EqualTrigger {
+                    span: equal_span, ..
+                },
+            ),
+        ) if span.is_empty() && offset >= equal_span.end => CompletionNameTarget::Insert {
+            offset,
+            hint: Some(hint),
+        },
+        (Value::Incomplete { span }, Some(hint @ CompletionHint::InArray { .. }))
+            if span.is_empty() =>
+        {
+            CompletionNameTarget::Insert {
+                offset,
+                hint: Some(hint),
+            }
+        }
+        (Value::Incomplete { span }, _) if !span.is_empty() && span.contains_inclusive(offset) => {
+            CompletionNameTarget::Replace {
+                span: *span,
+                prefix: None,
+            }
+        }
+        _ => return None,
+    };
+
+    let current_name = match accessors.get(1) {
+        Some(Accessor::Key(key)) => Some(key.as_str()),
+        _ => None,
+    };
+
+    // Names already listed in the same array are not offered again. The item being edited is not counted.
+    let edited_span = match &target {
+        CompletionNameTarget::Replace { span, .. } => Some(*span),
+        CompletionNameTarget::Insert { .. } => None,
+    };
+    let listed_names = if is_inherits {
+        BTreeSet::new()
+    } else {
+        let list_accessors = if is_list {
+            accessors
+        } else {
+            &accessors[..accessors.len() - 1]
+        };
+        match dig_accessors(document_tree, list_accessors) {
+            Some((_, Value::Array(items))) => items
+                .iter()
+                .filter_map(|item| match item {
+                    Value::String(item) if Some(item.span()) != edited_span => {
+                        Some(item.value().to_owned())
+                    }
+                    _ => None,
+                })
+                .collect::<BTreeSet<_>>(),
+            _ => BTreeSet::new(),
+        }
+    };
+
+    let mut names = BTreeSet::new();
+    let mut detail = "Feature";
+    if is_inherits {
+        detail = "Profile";
+        // The built-in profiles are already offered by the schema, so only custom ones are added here.
+        if let Some((_, Value::Table(profiles))) = dig_keys(document_tree, &["profile"]) {
+            names.extend(
+                profiles
+                    .keys()
+                    .map(|key| key.value().to_owned())
+                    .filter(|name| !matches!(name.as_str(), "dev" | "release" | "test" | "bench")),
+            );
+        }
+    } else if let Some((_, Value::Table(features))) = dig_keys(document_tree, &["features"]) {
+        names.extend(features.keys().map(|key| key.value().to_owned()));
+    }
+
+    if is_feature_value || is_feature_list {
+        names.extend(
+            optional_dependency_names(document_tree)
+                .into_iter()
+                .map(|name| format!("dep:{name}")),
+        );
+    }
+
+    let completions = names
+        .into_iter()
+        .filter(|name| Some(name.as_str()) != current_name)
+        .filter(|name| !listed_names.contains(name.as_str()))
+        .filter(|name| {
+            target
+                .prefix()
+                .is_none_or(|prefix| name.starts_with(prefix))
+        })
+        .map(|name| {
+            let label = serde_json::Value::String(name).to_string();
+            let edit = target.edit(&label);
+            CompletionContent::new_enum_value(
+                label,
+                Some(detail.to_string()),
+                None,
+                edit,
+                None,
+                None,
+            )
+            .with_emoji_icon('🦀')
+        })
+        .collect_vec();
+
+    (!completions.is_empty()).then_some(completions)
+}
+
+/// Names of optional dependencies in `[dependencies]`, `[build-dependencies]`, and
+/// `[target.*.dependencies]` / `[target.*.build-dependencies]`.
+fn optional_dependency_names(
+    document_tree: &tombi_document_tree_syntax::DocumentTree<'_>,
+) -> Vec<String> {
+    const DEPENDENCY_KEYS: [&str; 2] = ["dependencies", "build-dependencies"];
+
+    let mut sections = Vec::new();
+    for key in DEPENDENCY_KEYS {
+        if let Some((_, Value::Table(section))) = dig_keys(document_tree, &[key]) {
+            sections.push(section);
+        }
+    }
+    if let Some((_, Value::Table(targets))) = dig_keys(document_tree, &["target"]) {
+        for target in targets.values() {
+            let Value::Table(target) = target else {
+                continue;
+            };
+            for key in DEPENDENCY_KEYS {
+                if let Some((_, Value::Table(section))) = target.get_key_value(key) {
+                    sections.push(section);
+                }
+            }
+        }
+    }
+
+    sections
+        .into_iter()
+        .flat_map(|section| {
+            section
+                .key_values()
+                .iter()
+                .filter(|(_, dependency)| is_optional_dependency(dependency))
+                .map(|(name, _)| name.value().to_owned())
+                .collect_vec()
+        })
+        .collect()
+}
+
+fn is_optional_dependency(dependency: &Value<'_>) -> bool {
+    let Value::Table(dependency) = dependency else {
+        return false;
+    };
+
+    matches!(
+        dependency.get_key_value("optional"),
+        Some((_, Value::Boolean(is_optional))) if is_optional.value()
+    )
 }
 
 /// Tries directory-only completion, then .rs path completion, then any-file path completion.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytango
-Version: 10.3.1
+Version: 10.3.2
 Summary: Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit
 Author: Coutinho
 Maintainer: Anton Joubert, Yury Matveyev
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Project-URL: homepage, https://www.tango-controls.org/
@@ -40,7 +41,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc; extra == "telemetry"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "telemetry"
 Provides-Extra: tests
 Requires-Dist: gevent>=20.0; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest<9.2; extra == "tests"
 Requires-Dist: pytest-asyncio>=0.24; extra == "tests"
 Requires-Dist: pytest-cov>=7.0.0; extra == "tests"
 Requires-Dist: pytest-env; extra == "tests"

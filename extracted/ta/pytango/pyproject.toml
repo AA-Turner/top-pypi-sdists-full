@@ -28,7 +28,7 @@ changelog = "https://gitlab.com/tango-controls/pytango/-/releases"
 
 [project]
 name = "pytango"
-version = "10.3.1"
+version = "10.3.2"
 description = "Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit"
 readme = "README.rst"
 requires-python = ">=3.10"
@@ -55,6 +55,7 @@ classifiers = [
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development :: Libraries",
     ]
@@ -79,7 +80,8 @@ telemetry = [
 ]
 tests = [
     "gevent >= 20.0",
-    "pytest",
+    # pytest 9.2 broke pytest-forked, which every DeviceTestContext test relies on
+    "pytest <9.2",
     "pytest-asyncio >=0.24",
     "pytest-cov>=7.0.0",
     "pytest-env",
@@ -91,7 +93,7 @@ tests = [
 cmake.version = "CMakeLists.txt"
 minimum-version = "build-system.requires"
 build.verbose = true
-wheel.packages = ["tango", "tango.databaseds", "tango.databaseds.db_access", "PyTango"]
+wheel.packages = ["tango", "tango._internal", "tango.utils", "tango.databaseds", "tango.databaseds.db_access", "PyTango"]
 install.strip = false
 sdist.include = ["*.pyi"] # .pyi files are not included in sdist (they are generated in build step) this option is using to include .pyi in binary dits
 
@@ -111,6 +113,7 @@ filterwarnings = [
     "error",
     "ignore::ResourceWarning",
     "ignore:SelectableGroups dict interface is deprecated\\. Use select\\.:DeprecationWarning",
+    "ignore:This process \\(pid=.*\\) is multi-threaded, use of fork\\(\\) may lead to deadlocks in the child\\.:DeprecationWarning:multiprocessing\\.popen_fork",
 ]
 testpaths = [
     "tests"
@@ -152,13 +155,14 @@ ignore = [
     "E402",  # Module level import not at top of file
     "E501",  # Line too long (> 120 characters)
     "E731",  # Do not assign a lambda expression, use a def
+    "SIM117",  # Use a single with statement instead of nested with statements
 ]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
     "I", # isort
-    "U", # pyupdate
+    "UP", # pyupgrade
     "B",# flake8-bugbear
     "SIM", # flake8-simplify
     "C4", # flake8-comprehensions

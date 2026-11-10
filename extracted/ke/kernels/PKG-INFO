@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: kernels
-Version: 0.18.1
+Version: 0.18.2
 Requires-Dist: huggingface-hub>=1.32.0
 Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=6
-Requires-Dist: sigstore>=4,<5
 Requires-Dist: tomli>=2.0 ; python_full_version < '3.11'
 Requires-Dist: typing-extensions>=4.0 ; python_full_version < '3.11'
 Requires-Dist: tomlkit>=0.13.3
@@ -18,11 +17,13 @@ Requires-Dist: apache-tvm-ffi>=0.1.9,<0.2.0 ; extra == 'curated'
 Requires-Dist: einops ; extra == 'curated-xpu'
 Requires-Dist: apache-tvm-ffi>=0.1.9,<0.2.0 ; extra == 'curated-xpu'
 Requires-Dist: hf-doc-builder ; extra == 'docs'
+Requires-Dist: sigstore>=4,<5 ; extra == 'sigstore'
 Requires-Dist: torch ; extra == 'torch'
 Provides-Extra: benchmark
 Provides-Extra: curated
 Provides-Extra: curated-xpu
 Provides-Extra: docs
+Provides-Extra: sigstore
 Provides-Extra: torch
 Summary: Download compute kernels
 Home-Page: https://github.com/huggingface/kernels

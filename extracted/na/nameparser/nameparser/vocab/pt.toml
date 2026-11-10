@@ -1,12 +1,21 @@
 schema = 1
 
 [[word]]
+text = "dom"
+excluded = { salutation = { reason = "Dom, the title of a bishop, abbot or prince, is a given name: it opens 20 FEC given parts after the family comma (CAGLIOTI, DOM), 5 nepal-candidates names (Dom Bahadur Thapa), 2 ClinicalTrials.gov officials' and 4 more in ORCID, PatentsView and PSC, against jrc-names' 117 openers, many the Polish word for house (DOM MAKLERSKI) (2026-10-30); US SSA 424 births", issue = 753, decided = 2026-10-30 } }
+
+[[word]]
+text = "dona"
+excluded = { salutation = { reason = "Dona, the courtesy title, is a given name: it opens 25 ORCID names (Dona Banerjee), 2 PatentsView, 2 PSC and 2 ClinicalTrials.gov ones, and 158 FEC given parts after the family comma (ABBOTT, DONA), against jrc-names' 49 openers, the title and the name mixed (Dona Amélia, Dona Abbott), and none in tse-donors (2026-10-30); US SSA 19,032 births. Counted in persons, names open with it more often than it opens one as the title (decisions/vocabulary-model's phase 3e criterion)", issue = 753, decided = 2026-10-30 } }
+
+[[word]]
 text = "senhor"
 salutation = { gender = "m", after_given = true }
 
 [[word]]
 text = "sr"
 salutation = { gender = "m", same_as = "senhor" }
+generation = { issue = 753, note = "Senior, as names written in Portuguese write it too: kept beside the salutation so that a Portuguese choice leaves Sr a dual position decides, a title in front and the generation behind (J. Smith Sr.), as the default reads it; without it the choice preferred the salutation and a trailing Sr read as the family name, 12 of PSC's filers (Mr Gary Holloway Sr, Ernesto Castro Sr) and 3 committed corpus names (2026-10-30, decisions/vocabulary-model's phase 3g entry)" }
 
 [[word]]
 text = "senhora"
@@ -21,15 +30,33 @@ text = "senhorita"
 salutation = { gender = "f", after_given = true }
 
 [[word]]
+text = "doutor"
+academic = { gender = "m", issue = 753, expands = "Doutor, doctor, a form of address", note = "ORCID's given box 3 records and family box 5 (Portugal 3); ClinicalTrials.gov officials write it after a comma twice (Francisco Edson de Lucena Feitosa, Doutor) (2026-10-30); read by default since #1115, the title at the head" }
+
+[[word]]
+text = "doutora"
+academic = { gender = "f", issue = 753, same_as = "doutor", expands = "Doutora, the feminine of doutor", note = "no name bearer in any source tools/name_usage.py reads; ClinicalTrials.gov officials write it after a comma 4 times (Fernanda Lucchese, Doutora) (2026-10-30)" }
+
+[[word]]
 text = "dra"
 academic = { gender = "f", expands = "Doctora, Doutora" }
 
 [[word]]
+text = "professora"
+academic = { gender = "f", issue = 753, same_as = "professor", expands = "Professora, the feminine of professor", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 7 records, Brazil 4, the title typed in, and 1 name opening with it (Professora Rosária) (2026-10-30)" }
+
+[[word]]
+text = "profa"
+academic = { gender = "f", issue = 753, same_as = "professora", expands = "Profa., Professora abbreviated", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 5 records, the title typed in; ClinicalTrials.gov officials write Profa. Dra. after a comma twice (2026-10-30)" }
+
+[[word]]
 text = "júnior"
+given = { wikidata = 37, as_of = 2026-11-03, note = "Wikidata given by citizenship: Brazil 31, Cape Verde 2; a lower bound. Gates the generation as junior's given reading does (rules/S11, #1039)" }
+family = { wikidata = 49, as_of = 2026-11-03 }
 [word.generation]
 same_as = "jr"
 issue = 843
-note = "the standard Portuguese spelling of Junior: tse-donors (2026-10-22) has 991 distinct filed names ending in it, 983 records ending in it where the tax registry's name ends JUNIOR. Its collisions are junior's: a given name (Wikidata 37+ as Júnior, 2026-10-23) where the suffix claim does not act, and 49+ Wikidata family bearers"
+note = "the standard Portuguese spelling of Junior: tse-donors (2026-10-22) has 991 distinct filed names ending in it, 983 records ending in it where the tax registry's name ends JUNIOR. Its collisions are junior's, a given name and a family name, whose readings gate it as junior's gate junior (#1039)"
 
 [[word]]
 text = "filha"
@@ -99,3 +126,87 @@ text = "e"
 may_be_initial = true
 issue = [383, 479]
 note = "a bare E initial is common (Edward, Elizabeth) and an 'e' between two surnames is rare outside couple listings, so a name written wholly in one case reads it as an initial and reports the fork (decisions/P8)"
+
+[[word]]
+text = "amparo"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (do Amparo): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 11 times and open a family box of more words with it behind a particle 1, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "cassia"
+given = { after_particle = true, note = "Cássia written without its accent, as registries write it (de Cassia): the reading moves 150 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa, 126 to the boxes they filled and 24 away from them, 84%, past the 75% a reading needs (decisions/P10); 0 in Spain and Spanish-speaking America (2026-11-06, #1122)" }
+
+[[word]]
+text = "ceu"
+given = { after_particle = true, note = "Céu written without its accent, as registries write it (do Ceu): 2 given boxes and 0 family boxes in ORCID's Portuguese-speaking countries, too few to decide alone, so it takes céu's reading (2026-11-06, #1118)" }
+
+[[word]]
+text = "cássia"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Rita de Cássia): the reading moves 379 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa, 330 to the boxes they filled and 49 away from them, 87%, past the 75% a reading needs (decisions/P10); 2 in Spain and Spanish-speaking America (2026-11-06, #1122)" }
+
+[[word]]
+text = "céu"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria do Céu): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 31 times and open a family box of more words with it behind a particle 1, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "fatima"
+given = { after_particle = true, note = "Fátima written without its accent, as registries write it (de Fatima), read in Portuguese names as es.toml reads it in Spanish ones, so that a strict Portuguese choice, which compiles no es.toml, reads it too: under that choice the reading moves 134 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa to the boxes they filled and 36 away from them, 79%, past the 75% a reading needs, and 24 more it changes agree with neither reading (decisions/P10) (2026-11-06, #1122)" }
+
+[[word]]
+text = "fátima"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria de Fátima), read in Portuguese names as es.toml reads it in Spanish ones, so that a strict Portuguese choice, which compiles no es.toml, reads it too: under that choice the reading moves 479 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa to the boxes they filled and 88 away from them, 84%, past the 75% a reading needs, and 87 more it changes agree with neither reading (decisions/P10) (2026-11-06, #1122)" }
+
+[[word]]
+text = "gloria"
+given = { after_particle = true, note = "Glória written without its accent (da Gloria): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 25 times and open a family box of more words with it behind a particle 1, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "glória"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria da Glória): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 38 times and open a family box of more words with it behind a particle 4, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "graca"
+given = { after_particle = true, note = "Graça written without its cedilla, as registries write it (da Graca): it moves 2 names, too few to decide alone, so it takes graça's reading (2026-11-06, #1122)" }
+
+[[word]]
+text = "gracas"
+given = { after_particle = true, note = "Graças written without its cedilla, as registries write it (das Gracas): it moves 3 names, too few to decide alone, so it takes graças's reading (2026-11-06, #1122)" }
+
+[[word]]
+text = "graça"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria da Graça): the reading moves 81 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa, 71 to the boxes they filled and 10 away from them, 88%, past the 75% a reading needs (decisions/P10); 1 in Spain and Spanish-speaking America (2026-11-06, #1122)" }
+
+[[word]]
+text = "graças"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria das Graças): the reading moves 97 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa, 76 to the boxes they filled and 21 away from them, 78%, past the 75% a reading needs (decisions/P10); 1 in Spain and Spanish-speaking America (2026-11-06, #1122)" }
+
+[[word]]
+text = "kássia"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Rita de Kássia): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 15 times and open a family box of more words with it behind a particle 1, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "lourdes"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria de Lourdes, beside the Portuguese spelling lurdes), read in Portuguese names as es.toml reads it in Spanish ones, so that a strict Portuguese choice, which compiles no es.toml, reads it too: under that choice the reading moves 149 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa to the boxes they filled and 16 away from them, 90%, past the 75% a reading needs, and 33 more it changes agree with neither reading (decisions/P10) (2026-11-06, #1122)" }
+
+[[word]]
+text = "lurdes"
+given = { after_particle = true, note = "the Portuguese spelling of Lourdes, the second of a compound given name written behind a particle (Maria de Lurdes): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 42 times and open a family box of more words with it behind a particle 1, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "maria"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de Maria, without its accent), read in Portuguese names as es.toml reads it in Spanish ones, so that a strict Portuguese choice, which compiles no es.toml, reads it too: under that choice the reading moves 21 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa to the boxes they filled and 6 away from them, 78%, past the 75% a reading needs, and 8 more it changes agree with neither reading (decisions/P10) (2026-11-06, #1122)" }
+
+[[word]]
+text = "piedade"
+given = { default = false, after_particle = true, note = "the second of a compound given name written behind a particle (Maria da Piedade): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 13 times and open a family box of more words with it behind a particle 4, 76%, which put it in the Portuguese choice's tier (2026-11-06, #1118); scored by what its reading changes, it moves 7 names to the boxes their filers filled and 2 away from them, fewer than the ten a score needs, so it keeps that tier (decisions/P10) (2026-11-06, #1122)" }
+
+[[word]]
+text = "ribamar"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (José de Ribamar, after the devotion of São Luís do Maranhão): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 17 times and open a family box of more words with it behind a particle 1, over the whole extract (2026-11-06, #1118)" }
+
+[[word]]
+text = "socorro"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Maria do Socorro), read in Portuguese names as es.toml reads it in Spanish ones, so that a strict Portuguese choice, which compiles no es.toml, reads it too: under that choice the reading moves 149 names of ORCID holders in Portugal, Brazil and Portuguese-speaking Africa to the boxes they filled and 24 away from them, 86%, past the 75% a reading needs, and 49 more it changes agree with neither reading (decisions/P10) (2026-11-06, #1122)" }
+
+[[word]]
+text = "tarso"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (Paulo de Tarso, Paul of Tarsus): ORCID holders in Portugal, Brazil and Portuguese-speaking Africa end the given box with it behind a particle 53 times and open a family box of more words with it behind a particle 3, over the whole extract (2026-11-06, #1118)" }

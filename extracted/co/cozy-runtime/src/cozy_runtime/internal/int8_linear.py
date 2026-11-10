@@ -22,9 +22,9 @@ from importlib import import_module, util
 from pathlib import Path
 from types import ModuleType
 
+from cozy_runtime.accel.kernels import INT8_CONVROT, PreQuantized
 from cozy_runtime.author._errors import Fault, fault
 from cozy_runtime.author._model import WARNINGS, Building, Yielded
-from cozy_runtime.author.kernels import INT8_CONVROT, PreQuantized
 from cozy_runtime.internal import (
     arch,
     kernel_cache,
@@ -78,9 +78,9 @@ def unavailable() -> tuple[Unavailable, ...]:
 
 def failed(op: str, device: int, exc: Exception) -> None:
     """`op` raised on this card: its caller serves a slower path for this one call, and the run
-    says so, once per reason. A device OOM raises: it is the memory manager's to answer, and an
-    idle job's yield is no failure."""
-    if isinstance(exc, Yielded) or fault(exc) in (Fault.OOM, Fault.STICKY, Fault.DEVICE):
+    says so, once per reason. A device's fault, OOM or varena refusal raises: memory is the memory
+    manager's to answer, and an idle job's yield is no failure."""
+    if isinstance(exc, Yielded) or fault(exc) is not Fault.OTHER:
         raise exc
     reason = f"{type(exc).__name__}: {exc}"[:300]
     fields: dict[str, str | bool | int | float | None] = {

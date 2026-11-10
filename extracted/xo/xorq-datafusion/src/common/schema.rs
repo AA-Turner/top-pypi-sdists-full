@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{any::Any, borrow::Cow};
+use std::borrow::Cow;
 
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion_expr::{Expr, TableProviderFilterPushDown, TableSource};
@@ -171,10 +171,6 @@ impl SqlTableSource {
 
 /// Implement TableSource, used in the logical query plan and in logical query optimizations
 impl TableSource for SqlTableSource {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -205,7 +201,7 @@ impl TableSource for SqlTableSource {
             .collect()
     }
 
-    fn get_logical_plan(&self) -> Option<Cow<datafusion::logical_expr::LogicalPlan>> {
+    fn get_logical_plan(&self) -> Option<Cow<'_, datafusion::logical_expr::LogicalPlan>> {
         None
     }
 }

@@ -137,7 +137,7 @@ COLD_REPEAT = 4
 # the quantile is the median with another index, and the model carries the
 # two as one (one ns-per-value constant of the package) - the measurements of
 # the two came out the same, so only the median is fitted and reported
-GROUP_OPS = ("median", "sort", "nunique")
+GROUP_OPS = ("median", "sort", "nunique", "topk", "mode")
 
 # the cost of a value of the group operations, as the package carries it -
 # the tool measures its own and compares the two
@@ -158,6 +158,8 @@ def _package_ns_per_value() -> dict[str, float]:
         "quantile": specials._NS_PER_VALUE_SELECT,
         "sort": specials._NS_PER_VALUE_SORT,
         "nunique": specials._NS_PER_VALUE_NUNIQUE,
+        "topk": specials._NS_PER_VALUE_TOPK,
+        "mode": specials._NS_PER_VALUE_MODE,
     }
     return _PACKAGE_NS_PER_VALUE
 
@@ -214,20 +216,6 @@ def sum_mt(group_idx, a, partials, n_groups):
             acc[group_idx[i]] += a[i]
         partials[t] = acc
     return partials
-
-
-@njit_stable
-def gather_seq(ret, group_idx, out):
-    for i in range(group_idx.size):
-        out[i] = ret[group_idx[i]]
-    return out
-
-
-@njit_stable(parallel=True)
-def gather_mt(ret, group_idx, out):
-    for i in nb.prange(group_idx.size):
-        out[i] = ret[group_idx[i]]
-    return out
 
 
 @njit_stable(parallel=True)
@@ -408,7 +396,8 @@ def _group_callers(handle, group_idx, a, n_groups, out_dtype, aux_dtype, fill_va
     """The sequential and the parallel call of one group kernel.
 
     The two take the argument of their variant: the quantile its ``q``, the
-    sort its ``reverse`` flag, the others nothing.
+    sort its ``reverse`` flag, the topk its ``k`` and its ``largest``, the
+    others nothing.
     """
     if handle.variant == "none":
         seq = lambda: handle.driver(group_idx, a, n_groups, out_dtype, aux_dtype, fill_value)
@@ -416,6 +405,12 @@ def _group_callers(handle, group_idx, a, n_groups, out_dtype, aux_dtype, fill_va
     elif handle.variant == "q":
         seq = lambda: handle.driver(group_idx, a, n_groups, out_dtype, aux_dtype, fill_value, 0.5)
         par = lambda: handle.mt_driver(n_threads, group_idx, a, n_groups, out_dtype, aux_dtype, fill_value, 0.5)
+    elif handle.variant == "topk":
+        # the topk keeps k values of every group - its answer is a matrix
+        # with a row per group, and the k is the number of its columns
+        extra = (5, True)
+        seq = lambda: handle.driver(group_idx, a, n_groups, out_dtype, aux_dtype, fill_value, extra)
+        par = lambda: handle.mt_driver(n_threads, group_idx, a, n_groups, out_dtype, aux_dtype, fill_value, extra)
     else:  # the reverse flag of the sort
         seq = lambda: handle.driver(group_idx, a, n_groups, out_dtype, aux_dtype, fill_value, False)
         par = lambda: handle.mt_driver(n_threads, group_idx, a, n_groups, out_dtype, aux_dtype, fill_value, False)
@@ -1036,21 +1031,6 @@ def fit_group(observations, overhead_us_by_threads: dict) -> tuple[GroupModel, f
             best = (value, bounded(params))
     value, params = best
     return GroupModel(*params), value
-
-
-def call_overhead(rows: list) -> float:
-    """The fixed cost per call that the package carries and the reference
-    kernel does not: the difference of the two sequential kernels."""
-    differences = []
-    for row in rows:
-        if row.get("npg_us", float("inf")) == float("inf"):
-            continue
-        differences.append(row["npg_us"] - row["seq_us"])
-    if not differences:
-        return 0.0
-    # the smallest difference is the least contaminated one - where the kernel
-    # itself takes the longest, the fixed cost matters least
-    return max(0.0, min(differences))
 
 
 # ---------------------------------------------------------------------------

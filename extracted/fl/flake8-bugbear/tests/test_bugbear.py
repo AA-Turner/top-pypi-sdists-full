@@ -164,18 +164,7 @@ def test_nested_loop_bindings(source, expected):
     assert [error.vars[0] for error in errors] == expected
 
 
-@pytest.mark.parametrize(
-    "star",
-    [
-        "",
-        pytest.param(
-            "*",
-            marks=pytest.mark.skipif(
-                sys.version_info < (3, 11), reason="except* requires 3.11"
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("star", ["", "*"])
 def test_b025_message(star):
     source = (
         f"try:\n    pass\nexcept{star} ValueError:\n    pass\n"

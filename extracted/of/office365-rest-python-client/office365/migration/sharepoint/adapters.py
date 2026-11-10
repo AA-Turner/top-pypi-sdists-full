@@ -10,16 +10,14 @@ Lazy imports keep the migration core client-agnostic.
 
 from __future__ import annotations
 
-import hashlib
 import io
-import json
-from collections.abc import Callable
-from datetime import datetime, timezone
+from collections.abc import Callable, Iterable
+from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
 
 from typing_extensions import TypeAlias
 
-from office365.migration.adapters import MigrationProgress
+from office365.migration.adapters import MigrationProgress, checksum
 from office365.migration.base import (
     MigrationItem,
     PermissionEntry,
@@ -27,24 +25,47 @@ from office365.migration.base import (
     conflict_to_on_conflict,
     normalize_puid,
 )
-from office365.migration.sharepoint.structure import normalize_guid
+from office365.migration.sharepoint.structure import ListStructure, provision_list_structure
 from office365.migration.sharepoint.transfer import Failure
 from office365.runtime.converters.records import records_from_items
-from office365.runtime.converters.scalars import iso_or_none, parse_datetime, parse_int
+from office365.runtime.converters.scalars import (
+    iso_or_none,
+    iso_z,
+    normalize_guid,
+    parse_datetime,
+    parse_int,
+    wall_clock_text,
+)
+from office365.runtime.converters.value import values_of
 from office365.runtime.limits import DEFAULT_BATCH_SIZE
+from office365.runtime.odata.comparable import digest
 from office365.runtime.operations import emit_progress
+from office365.runtime.schema import TypeSchema
+from office365.runtime.types.odata_property import AUTHORSHIP, MODERATION, PERMISSIONS
+from office365.sharepoint.exceptions import SPFieldValidationException
 from office365.sharepoint.fields.builtin_field_name import SYSTEM_FIELD_NAMES
-from office365.sharepoint.fields.user_value import FieldUserValue
+from office365.sharepoint.fields.lookup import FieldLookup
+from office365.sharepoint.listitems.listitem import ListItem
+from office365.sharepoint.listitems.moderation_status import SPModerationStatusType
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.permissions.securable_object import SecurableObject
 from office365.sharepoint.principal.type import PrincipalType
+from office365.sharepoint.taxonomy.field import TaxonomyField
+from office365.sharepoint.taxonomy.field_value import TaxonomyFieldValue
+from office365.sharepoint.taxonomy.field_value_col import TaxonomyFieldValueCollection
 
 if TYPE_CHECKING:
     from office365.migration.map import ContentTypeMap
+    from office365.sharepoint.fields.field import Field
     from office365.sharepoint.files.file import File
     from office365.sharepoint.folders.folder import Folder
     from office365.sharepoint.lists.list import List as SPList
     from office365.sharepoint.permissions.roles.definitions.definition import RoleDefinition
+    from office365.sharepoint.principal.users.user import User
+    from office365.sharepoint.webs.web import Web
 
-_TAXONOMY_FIELD_TYPES = {"TaxonomyFieldType", "TaxonomyFieldTypeMulti"}
+_LIST_ITEM = TypeSchema.of(ListItem)
+_SECURABLE = TypeSchema.of(SecurableObject)
 
 
 def _cloned_context(obj):
@@ -78,126 +99,32 @@ _TypedColumns: TypeAlias = (
     "tuple[dict[str, str], set[str], dict[str, str], set[str], dict[str, tuple[bool, str | None]], set[str]]"
 )
 
-# Always-projected system metadata (reliable author/editor identity).
-_METADATA_SELECT = ["AuthorId", "EditorId", "HasUniqueRoleAssignments"]
-#: Projected system metadata that is read-only and must not be written back.
-_NON_WRITABLE_SELECT = frozenset({"HasUniqueRoleAssignments"})
-
-#: Navigation properties a ``*`` read returns that carry no scalar content and can
-#: never be written back; they are dropped silently. A genuine typed value we
-#: cannot remap (a lookup/person column) is still surfaced as a warning.
-_NAVIGATION_SELECT = frozenset(
-    {
-        "ParentList",
-        "ContentType",
-        "Folder",
-        "File",
-        "FieldValuesAsHtml",
-        "FieldValuesAsText",
-        "FieldValuesForEdit",
-    }
-)
+#: Always-projected system metadata: the author/editor ids an item is restored from and
+#: the unique-ACL flag. ``*`` omits them, so they are asked for by the role they play.
+_METADATA_SELECT = [*_LIST_ITEM.columns_of_facet(AUTHORSHIP), *_LIST_ITEM.columns_of_facet(PERMISSIONS)]
 
 #: Marker column added to a migrated list recording each item's source id. It makes
 #: a re-run idempotent and lets post-run verification pair source and target items.
 DEFAULT_LIST_IDENTITY_FIELD = "MigrationSourceId"
-# Authorship has its own fidelity path (``apply_authorship``); the built-in Author/
-# Editor companion columns are neither content nor Person values to remap.
-_PERSON_EXCLUDED = frozenset({"Author", "Editor"})
-
-#: Content-approval state: record key (OData escaped form) -> ``ValidateUpdateListItem``
-#: field name. It is ordinary record content, but a *system update* re-approves the
-#: item, so every metadata write that restores timestamps/authorship would silently
-#: discard it; the captured state is therefore folded into that same write
-#: (live-probed: both fields are accepted, and no version is created).
-_APPROVAL_FIELDS = {
-    "OData__ModerationStatus": "_ModerationStatus",
-    "OData__ModerationComments": "_ModerationComments",
-}
-
-#: Approval status of an approved item (0 = draft/pending, 1 = rejected, 2 = approved).
-#: A freshly uploaded document is approved, so only the other states are worth writing.
-_APPROVED_STATUS = "2"
+# Authorship has its own fidelity path (``apply_authorship``); the ``Author``/``Editor``
+# columns are the payload companions of the authorship ids, so they are neither content
+# nor Person values to remap.
+_PERSON_EXCLUDED = frozenset(
+    name[: -len("Id")] for name in _LIST_ITEM.columns_of_facet(AUTHORSHIP) if name.endswith("Id")
+)
 
 #: Moderation columns of a list item. They only exist on a list whose
 #: ``EnableModeration`` is on, so selecting them unconditionally fails outright.
-_MODERATION_FIELDS = ("OData__ModerationStatus", "OData__ModerationComments")
+#: They are ordinary record content: a list item takes a moderation change in the same
+#: system update as its timestamps (a document refuses it — see ``apply_item_state``),
+#: so captured state rides in that one write and no version is created.
+_MODERATION_FIELDS = _LIST_ITEM.columns_of_facet(MODERATION)
+
+#: The moderation column carrying the approval status; its sibling carries the comment.
+_MODERATION_STATUS = _LIST_ITEM.name_of("moderation_status")
 
 #: How many paths a per-run warning names before it summarizes the rest.
 _WARNING_SAMPLE = 5
-
-#: Multi-value typed columns. Their ``<name>Id`` companion is a collection of ids
-#: that a ``*`` projection omits (LookupMulti entirely; UserMulti unreliably), so the
-#: source selects them explicitly and the target writes ``{"results": [...]}``.
-_MULTI_VALUE_TYPES = frozenset({"LookupMulti", "UserMulti"})
-
-#: Typed columns whose values are remapped (lookup item ids, person logins).
-_TYPED_VALUE_TYPES = frozenset({"Lookup", "LookupMulti", "User", "UserMulti"})
-
-#: Properties the source column scans need. Selecting them explicitly keeps the read
-#: independent of whatever ``$select`` a previous caller left on the shared
-#: ``fields`` collection — ``List.fields`` survives a ``capture_list_structure``
-#: read (which selects a different, narrower set), and a field payload that omits
-#: ``AllowMultipleValues`` makes a multi-value column look single-value.
-_SOURCE_FIELD_SELECT = [
-    "Id",
-    "InternalName",
-    "TypeAsString",
-    "SchemaXml",
-    "Hidden",
-    "ReadOnlyField",
-    "TextField",
-    "AllowMultipleValues",
-]
-
-
-#: Choice column types; a multi-choice column stores a collection of strings.
-_CHOICE_TYPES = frozenset({"Choice", "MultiChoice"})
-
-#: Column types whose value is a small REST object instead of a scalar.
-_VALUE_OBJECT_TYPES = frozenset({"URL"})
-
-
-def _allows_multiple_values(field: Any) -> bool:
-    """Whether a Lookup/Person column holds many values.
-
-    ``TypeAsString`` is not authoritative here. A column created from a
-    ``Type="Lookup" Mult="TRUE"`` (or ``Type="User" Mult="TRUE"``) schema keeps that
-    spelling, so SharePoint reports the *single-value* type and only
-    ``AllowMultipleValues`` tells the truth (live-verified). Classifying such a
-    column as single-value left its collection of ids unremapped: a multi-lookup
-    kept source item ids and a multi-person kept source site-user ids on the target,
-    and verification could not see the difference.
-    """
-    if getattr(field, "type_as_string", None) in _MULTI_VALUE_TYPES:
-        return True
-    return field.properties.get("AllowMultipleValues") is True
-
-
-def _is_multi_choice_column(field: Any) -> bool:
-    """Whether a Choice column stores a collection of values.
-
-    ``TypeAsString == "MultiChoice"`` is the only reliable signal. Live-probed: a
-    column created from a ``Type="Choice" Mult="TRUE"`` schema reads back as
-    ``"Choice"``, stores one value in a single ``nvarchar`` slot (a scalar write
-    round-trips, an array is rejected) and does not project ``AllowMultipleValues``
-    at all — its schema ``Mult`` flag is misleading, so it is deliberately not used.
-    """
-    field_type = getattr(field, "type_as_string", None)
-    if field_type == "MultiChoice":
-        return True
-    return field_type in _CHOICE_TYPES and _allows_multiple_values(field)
-
-
-def _is_value_object_column(field: Any) -> bool:
-    """Whether a column holds a REST value object rather than a scalar.
-
-    A Hyperlink column is the common case: a read returns
-    ``{"Url": ..., "Description": ...}``, which a scalar-only record projection
-    dropped (a plain string is accepted on write but then makes every subsequent
-    *read* of the column fail, live-probed).
-    """
-    return getattr(field, "type_as_string", None) in _VALUE_OBJECT_TYPES
 
 
 def _scalar_mapping(value: Any) -> dict | None:
@@ -214,35 +141,14 @@ def _scalar_mapping(value: Any) -> dict | None:
     return dict(value)
 
 
-#: Record columns excluded from the content checksum: server-assigned identity
-#: (``Id``/``GUID``), facets verified separately (timestamps, authorship,
-#: permissions), values the target remaps (``ContentTypeId``), and bookkeeping
-#: (version label, server-derived embed URLs, the navigation ``ParentList``). What
-#: remains is the item's *content* columns, which a faithful copy preserves.
-_CONTENT_EXCLUDED = frozenset(
-    {
-        "Id",
-        "ID",
-        "GUID",
-        "FileSystemObjectType",
-        "Created",
-        "Modified",
-        "AuthorId",
-        "EditorId",
-        "HasUniqueRoleAssignments",
-        "ContentTypeId",
-        "OData__UIVersionString",
-        "_UIVersionString",
-        "ServerRedirectedEmbedUri",
-        "ServerRedirectedEmbedUrl",
-        "ParentList",
-        "AttachmentFiles",
-    }
-)
-
-#: Field types whose value is server-derived: a computed column (a link filename, a
-#: doc icon) is a view of the item's identity, not metadata a folder carries.
-_FOLDER_COMPUTED_TYPES = frozenset({"Attachments", "Computed", "File", "WorkflowStatus"})
+#: Record columns a faithful copy does not compare: what ``ListItem`` declares
+#: server-assigned or reachable by ``$expand``. What remains is the item's *content*,
+#: which a faithful copy preserves.
+#:
+#: A deny-list, not ``ListItem._schema.content_columns``: a record carries the site columns
+#: the tenant defines, which the CSDL does not declare, and a set built from declared names
+#: would drop exactly the columns a faithful copy exists to carry.
+_CONTENT_EXCLUDED = frozenset(ListItem._schema.readonly) | frozenset(ListItem._schema.navigations)
 
 
 def _folder_value_columns(fields: list[Any]) -> set[str]:
@@ -261,26 +167,18 @@ def _folder_value_columns(fields: list[Any]) -> set[str]:
         and not field.internal_name.startswith("_")
         and not field.hidden
         and not field.read_only_field
-        and field.type_as_string not in _FOLDER_COMPUTED_TYPES
+        and not field.field_type_kind.is_server_assigned
         and field.internal_name not in _FOLDER_RECORD_EXCLUDED
     }
 
 
-#: Folder (document library) record columns that never travel to the target: the
-#: server-assigned identity and path columns, system metadata (restored by the
-#: fidelity steps), and the folder-specific bookkeeping a read projects. A
-#: ``ContentTypeId`` is kept — a document set's content type is part of what makes
-#: the folder what it is.
-_FOLDER_RECORD_EXCLUDED = (_CONTENT_EXCLUDED - {"ContentTypeId"}) | {
-    "FileRef",
-    "FileDirRef",
-    "FileLeafRef",
-    "FSObjType",
-    "UniqueId",
-    "SortBehavior",
-    "SMTotalFileStreamSize",
-    "SMTotalFileCount",
-}
+#: What a folder record never travels to the target with, or never compares by: the
+#: columns the model declares server-assigned or as navigations -- minus the content
+#: type, because a document set's content type is part of what makes the folder what it
+#: is. A library's sort/stream bookkeeping columns are hidden read-only ones the field
+#: scan already skips, and ``FileLeafRef`` is a ``FieldType.File`` column the type
+#: declares server-assigned, so neither needs naming here.
+_FOLDER_RECORD_EXCLUDED = _CONTENT_EXCLUDED - {"ContentTypeId"}
 
 
 def _content_checksum(record: dict, extra_excluded: "frozenset[str]" = frozenset()) -> str:
@@ -303,8 +201,7 @@ def _content_checksum(record: dict, extra_excluded: "frozenset[str]" = frozenset
         mapping = _scalar_mapping(value)
         if mapping is not None:
             content[key] = mapping
-    payload = json.dumps(content, sort_keys=True, default=str)
-    return hashlib.md5(payload.encode("utf-8")).hexdigest()
+    return digest(content)
 
 
 def _folder_record_values(record: dict) -> dict:
@@ -320,81 +217,29 @@ def _folder_record_values(record: dict) -> dict:
     }
 
 
-def _id_list(value: Any) -> list[Any] | None:
-    """Normalize a multi-value ``...Id`` collection into a plain list of ids.
-
-    A live read returns the collection as a positional mapping (``{0: 1, 1: 2}``);
-    a payload this client built may hold ``{"results": [...]}``. Both reduce to the
-    same list, which is the form the checksum and the remap work with.
-    """
-    if isinstance(value, dict):
-        if "results" in value:
-            value = value["results"]
-        else:
-            try:
-                return [value[i] for i in range(len(value))]
-            except (KeyError, TypeError):
-                return list(value.values())
-    if isinstance(value, (list, tuple)):
-        return list(value)
-    return None
-
-
-def _multi_values(value: Any) -> list[Any] | None:
-    """A multi-value cell as a plain list of its values, or ``None`` when empty.
-
-    Accepts every shape a live read or a built payload produces: a positional
-    mapping (``{0: "red", 1: "green"}``), a ``{"results": [...]}`` wrapper, a bare
-    list, and — because a collection cell may hold exactly one selection — a bare
-    scalar.
-    """
-    if value is None:
-        return None
-    if isinstance(value, (str, int, float, bool)):
-        return [value]
-    return _id_list(value)
+def _typed_keys(names: Iterable[str]) -> set[str]:
+    """The companions a Lookup/Person column's value is carried in, for each column."""
+    return {key for name in names for key in (ListItem.value_column(name), ListItem.string_value_column(name))}
 
 
 def _taxonomy_terms(value: Any) -> list[dict[str, str]]:
-    """Normalize a taxonomy value to portable ``{"TermGuid": ...}`` terms.
+    """A taxonomy cell as portable ``{"TermGuid": ...}`` terms.
 
-    A live read shapes a single value as a dict (``{"Label", "TermGuid", "WssId"}``)
-    and a multi-value one as a positional mapping (``{0: {...}, 1: {...}}``); a
-    payload this client built holds a bare list. All reduce to a list of terms.
     Only ``TermGuid`` is carried: a per-site ``WssId`` is meaningless elsewhere and
     ``Label`` is not authoritative (a read may return the WssId string, and the
     server resolves a write by term id regardless of the label).
     """
-    if value is None:
-        return []
-    if isinstance(value, dict):
-        if "TermGuid" in value:
-            items: list[Any] = [value]
-        elif "results" in value and isinstance(value["results"], (list, tuple)):
-            items = list(value["results"])
-        else:
-            try:
-                items = [value[i] for i in range(len(value))]
-            except (KeyError, TypeError):
-                items = list(value.values())
-    elif isinstance(value, (list, tuple)):
-        items = list(value)
-    else:
-        return []
     terms: list[dict[str, str]] = []
-    for item in items:
-        if isinstance(item, dict):
-            guid = item.get("TermGuid")
-        else:
-            guid = getattr(item, "TermGuid", None)
+    for item in values_of(value) or []:
+        guid = item.get("TermGuid") if isinstance(item, dict) else getattr(item, "TermGuid", None)
         if guid:
             terms.append({"TermGuid": str(guid)})
     return terms
 
 
 def _is_taxonomy_value(value: Any) -> bool:
-    """Whether a projected value is a taxonomy term (single dict or multi mapping/list)."""
-    return isinstance(value, (dict, list, tuple)) and bool(_taxonomy_terms(value))
+    """Whether a projected value is a taxonomy term (single value or a collection)."""
+    return bool(_taxonomy_terms(value))
 
 
 def _taxonomy_guids(value: Any) -> list[str]:
@@ -417,50 +262,15 @@ def _canonicalize_taxonomy_record(record: dict) -> dict:
     return canonical
 
 
-def _collection_payload(ids: list) -> dict:
-    """The JSON shape SharePoint accepts when *creating* a multi-value column.
+def _collection_payload(values: list) -> dict:
+    """The JSON shape SharePoint accepts for a multi-value column.
 
-    Live-probed: a bare array is rejected on create
-    (``InvalidClientQueryException``: "a 'PrimitiveValue' or 'StartObject' node was
-    expected") while ``{"results": [...]}`` is accepted. A MERGE *update* is the
-    opposite — it accepts the bare array and rejects ``{"results": [...]}`` — so
-    only the create path goes through this helper.
+    Live-probed on both writes and every multi-value kind (Choice, Lookup, User,
+    LookupMulti, UserMulti): a bare array is refused on create *and* on MERGE
+    (``InvalidClientQueryException``: a ``StartArray`` where a property value was
+    read) while ``{"results": [...]}`` is accepted by both.
     """
-    return {"results": ids}
-
-
-def _sp_utc_timestamp(value: str | None) -> str | None:
-    """Normalize a timestamp to the UTC form a *list item* honors.
-
-    Live-probed: ``ValidateUpdateListItem`` on a plain list item parses an
-    ISO-8601 value with a trailing ``Z`` as UTC (and ``datesInUTC=True`` keeps it
-    that way), so this form round-trips the exact instant.
-    """
-    if not value:
-        return None
-    parsed = parse_datetime(value)
-    if parsed is None:
-        return value
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _sp_local_timestamp(value: datetime | str | None) -> str | None:
-    """Format a *web-local* value as the date form a document item accepts.
-
-    Live-probed: document-library items ignore ``datesInUTC`` and parse every date
-    string in the web's locale, rejecting a trailing ``Z`` (``...must specify a
-    valid date within the range of 1/1/1900 and 12/31/8900.``). The space-separated
-    ``YYYY-MM-DD HH:MM:SS`` form is accepted and interpreted as local wall-clock,
-    so callers must pass the instant already converted to web-local time (see
-    ``SharePointLibraryTarget._local_timestamp``).
-    """
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M:%S")
-    return str(value)
+    return {"results": values}
 
 
 def _report_rejected_fields(result, warnings: list[str], label: str) -> None:
@@ -477,34 +287,40 @@ def _report_rejected_fields(result, warnings: list[str], label: str) -> None:
             warnings.append(f"{label}: {value.FieldName} rejected ({value.ErrorMessage})")
 
 
-def _moderation_state(properties: dict) -> dict:
-    """The approval fields of a list item, in ``ValidateUpdateListItem`` form.
+def _wire_value(value: Any) -> Any:
+    """A value as the wire spells it: a declared enum is the number it carries."""
+    return value.value if isinstance(value, Enum) else value
 
-    Only present ones are returned: an empty ``_ModerationComments`` normalizes to
-    ``None`` server-side, so a blank comment is not carried.
+
+def _web_local_texts(web: "Web", *values: Any) -> list[str | None]:
+    """The wall-clock texts a document's item form parses, one per instant given.
+
+    A document's ``ValidateUpdateListItem`` ignores ``datesInUTC``, parses the web's
+    locale and refuses a trailing ``Z`` (live-verified on a file and on a folder), so an
+    instant has to reach it as the web's own wall clock. That conversion runs server-side
+    (``TimeZone.UTCToLocalTime``) so DST is right, and one request converts every value.
+    A value that is not an instant is passed on as given, so the service rejection names
+    what the caller held instead of this layer having dropped it.
     """
-    status = properties.get("OData__ModerationStatus")
-    state: dict = {}
-    if status is not None:
-        state["_ModerationStatus"] = str(status)
-    comments = properties.get("OData__ModerationComments")
-    if comments:
-        state["_ModerationComments"] = str(comments)
-    return state
+    zone = web.regional_settings.time_zone
+    instants = {index: parse_datetime(iso_z(value)) for index, value in enumerate(values) if value}
+    converted = {index: zone.utc_to_local_time(instant) for index, instant in instants.items() if instant is not None}
+    if converted:
+        web.context.execute_query()
+    return [
+        wall_clock_text(converted[index].value) if index in converted else (str(value) if value else None)
+        for index, value in enumerate(values)
+    ]
 
 
-def _version_sort_key(label: str) -> tuple[int, ...]:
-    """Sort key for a version label like ``"2.0"`` (numeric parts, non-numeric last)."""
-    try:
-        return tuple(int(part) for part in str(label).split("."))
-    except ValueError:
-        return (0,)
+def _moderation_state(properties: dict) -> dict:
+    """The approval fields a list item carries; a blank comment is not one of them.
 
+    A hydrated model hands out enum members (``SPModerationStatusType``); the state is a
+    payload to write back, so it carries the numbers the column stores.
+    """
+    return {name: _wire_value(properties[name]) for name in _MODERATION_FIELDS if properties.get(name) not in (None, "")}
 
-#: Library-relative paths SharePoint owns and recreates on the target (its forms
-#: folder and the folder rendering file). Migrating them collides server-side and
-#: clobbers system pages client-side, so the source adapter skips them.
-_LIBRARY_SYSTEM_PATHS = ("Forms", "desktop.ini")
 
 #: SiteAssets is the one library that also holds per-site infrastructure — the
 #: site icon and the auto-provisioned OneNote folder.
@@ -514,10 +330,8 @@ _SITE_ASSETS_URL_SUFFIX = "/SiteAssets"
 def _site_assets_scaffolding(folder) -> tuple[str, ...]:
     """SiteAssets-only SharePoint-owned entries for this web (empty otherwise).
 
-    Every modern site provisions ``SiteAssets/<web title> Notebook``; migrating
-    it (or reporting it) yields a phantom missing/extra pair because the target's
-    folder carries the *target* web's name. The site icon is site branding whose
-    bytes are meaningless on another site. Both are skipped on each side.
+    The notebook carries the *web's* title and the site icon is site branding, so both
+    differ on the target; each side skips its own.
     """
     url = (folder.server_relative_url or "").rstrip("/")
     if not url.endswith(_SITE_ASSETS_URL_SUFFIX):
@@ -532,103 +346,65 @@ def _site_assets_scaffolding(folder) -> tuple[str, ...]:
     return tuple(names)
 
 
-def _is_system_path(rel: str, extra: tuple[str, ...] = ()) -> bool:
-    """Whether a library-relative path is SharePoint-owned scaffolding, not user content."""
-    entries = (*_LIBRARY_SYSTEM_PATHS, *extra)
-    return any(rel == entry or rel.startswith(entry + "/") for entry in entries)
+# How far a group's owner chain is followed (a group owned by a group owned by a
+# user is the normal depth for the default site groups).
+_MAX_GROUP_OWNER_DEPTH = 4
 
 
-def is_taxonomy_validation(exc: Exception) -> bool:
-    """True when a request failed because a Managed Metadata (taxonomy) column
-    references a term set / term that no longer exists.
-
-    SharePoint raises ``SPFieldValidationException`` ("the given guid does not
-    exist in the term store") while composing the item payload — the exact case
-    that makes a plain list-items read fail.
-    """
-    text = f"{getattr(exc, 'code', '') or ''} {getattr(exc, 'message', '') or ''} {exc}".lower()
-    return "spfieldvalidationexception" in text and "term store" in text
-
-
-def taxonomy_internal_names(fields) -> list[str]:
-    """Internal names of Managed Metadata columns in a loaded field set."""
-    names: list[str] = []
-    for field in fields:
-        type_name = getattr(field, "type_as_string", None) or ""
-        schema = getattr(field, "schema_xml", None) or ""
-        if type_name in _TAXONOMY_FIELD_TYPES or "TermSetId=" in schema:
-            internal_name = getattr(field, "internal_name", None)
-            if internal_name:
-                names.append(internal_name)
-    return list(dict.fromkeys(names))
-
-
-def _perm_mask(role_definition: Any) -> str | None:
-    """The decimal ``PermMask`` of a role definition (``BasePermissions`` High/Low)."""
-    base = getattr(role_definition, "base_permissions", None)
-    if base is None:
-        return None
-    try:
-        return str((int(base.High) << 32) | int(base.Low))
-    except (TypeError, ValueError):
-        return None
-
-
-def _is_user_principal(member: Any) -> bool:
-    """Whether a role-assignment member is a user (not a group)."""
+def _principal_kind(member: Any) -> str | None:
+    """What ``UserGroup.xml`` can express for this role-assignment member: a user by PUID
+    (``"user"``) or a site group by title (``"group"``); a distribution or security group
+    and an unprojected ``PrincipalType`` are ``None``."""
     ptype = getattr(member, "principal_type", None)
-    if ptype is None:
-        return False
     if ptype == PrincipalType.User:
-        return True
-    # ``PrincipalType`` is a plain ``Enum`` (not ``IntEnum``); accept a raw int too.
-    return getattr(ptype, "value", ptype) == PrincipalType.User.value
+        return "user"
+    if ptype == PrincipalType.SharePointGroup:
+        return "group"
+    return None
 
 
-def _is_system_principal(user: Any) -> bool:
-    """Whether a resolved user is a tenant system/app account.
+#: The flag that says whether a securable object owns its ACL, spelled by its declaration.
+_UNIQUE_PERMISSIONS = _SECURABLE.name_of("has_unique_role_assignments")
 
-    The Migration API cannot set ``Author``/``Editor`` to a system account, and a
-    ``ValidateUpdateListItem`` batch containing one is rejected wholesale — which
-    would silently discard the ``Created``/``Modified`` restoration we send in the
-    same call. Items created by the migration app itself are authored by such an
-    account, so setting it is a no-op anyway; skipping it keeps the timestamp write
-    intact.
+
+def _principal_of(user: "User", key: int) -> Principal:
+    """A site user as the plan spells a principal, read from the model's own fields.
+
+    The PUID is ``UserInfo.UserId.NameId`` — one member of one nested value — so the
+    model answers it (`UserIdInfo.name_id`), not a wire name spelled here.
     """
-    login = (getattr(user, "login_name", None) or "").lower()
-    return "app@sharepoint" in login or "sharepoint\\system" in login
+    return Principal(
+        login_name=user.login_name or "",
+        system_id=normalize_puid(user.user_id.name_id),
+        display_name=user.title,
+        email=user.email,
+        user_id=key,
+    )
 
 
 def _has_unique_role_assignments(securable, *, refresh: bool = False) -> bool:
     """Whether a securable has unique (broken-inheritance) role assignments.
 
-    SharePoint REST returns *inherited* role assignments too, so reading them
-    verbatim would break inheritance on every item and replicate the parent ACL.
-    Only items with unique assignments are read/applied (and compared by the
-    verifier); inherited items stay inherited on the target.
+    SharePoint REST returns *inherited* role assignments too, so reading them verbatim
+    would break inheritance on every item and replicate the parent ACL. Only items with
+    unique assignments are read/applied (and compared by the verifier); inherited items
+    stay inherited on the target.
 
-    A plain entity read does not return the flag, so an object loaded *before* its
-    ACL changed keeps a stale value. The target side passes ``refresh=True``: this
-    value decides whether an ACL is applied or compared at all, so a stale
-    ``False`` would break inheritance on an item that is already unique (wiping the
-    assignments it was supposed to keep) and a stale ``False`` read back after a
-    write would report a permission mismatch for an ACL that did land.
+    A plain entity read does not return the flag, so an object loaded *before* its ACL
+    changed keeps a stale value. The target side passes ``refresh=True``: this value
+    decides whether an ACL is applied or compared at all, so a stale ``False`` would
+    break inheritance on an item that is already unique (wiping the assignments it was
+    supposed to keep) and a stale ``False`` read back after a write would report a
+    permission mismatch for an ACL that did land.
     """
     unique = getattr(securable, "has_unique_role_assignments", None)
     if unique is not None and not refresh:
         return bool(unique)
-    options = getattr(securable, "query_options", None)
-    previous = list(getattr(options, "select", None) or [])
     try:
-        securable.select(["HasUniqueRoleAssignments"]).get().execute_query()
-    except Exception:  # noqa: BLE001 — an unreadable flag is treated as "not unique"
+        securable.ensure_properties([_UNIQUE_PERMISSIONS], refresh=refresh).execute_query()
+    except Exception:  # an unreadable flag is treated as "not unique"
         return False
-    finally:
-        if options is not None:
-            # The projection lives on the object's query options: leaving it on
-            # would narrow every later read of the same item.
-            options.select = previous
-    return bool(securable.properties.get("HasUniqueRoleAssignments"))
+    return bool(securable.properties.get(_UNIQUE_PERMISSIONS))
 
 
 def _replay_role_assignments(
@@ -689,35 +465,6 @@ def _user_login(web, user_id: Any, cache: dict[int, str | None]) -> str | None:
         login = None
     cache[key] = login
     return login
-
-
-class _MultiValueCreateTarget:
-    """An upsert target that reshapes multi-value columns only when creating.
-
-    A multi-value Lookup/Person column is created with the ``{"results": [...]}``
-    wire shape but updated with a bare array (live-probed), so ``keyed_queue`` needs
-    to reshape the creates and leave the updates alone. Everything else delegates.
-    """
-
-    def __init__(self, target: Any, reshape: Callable[[dict], dict]) -> None:
-        self._target = target
-        self._reshape = reshape
-
-    @property
-    def key_field(self) -> str:
-        return self._target.key_field
-
-    def ensure_key_field(self) -> None:
-        self._target.ensure_key_field()
-
-    def load_keys(self) -> Any:
-        return self._target.load_keys()
-
-    def create_records(self, records: list[dict]) -> None:
-        self._target.create_records([self._reshape(record) for record in records])
-
-    def update_record(self, item_id: Any, record: dict) -> None:
-        self._target.update_record(item_id, record)
 
 
 class _DefaultGroups:
@@ -794,6 +541,7 @@ class _TargetPrincipals:
         """Canonical principal name (default groups collapse to ``default:<Kind>``)."""
         return self._defaults.normalize(name)
 
+    @site_access(SiteLevel.MANAGE)
     def user(self, login: str | None):
         """Ensure a user login on the target site and return its ``User`` object."""
         if not login:
@@ -809,6 +557,7 @@ class _TargetPrincipals:
         self._users[login] = obj
         return obj
 
+    @site_access(SiteLevel.MANAGE)
     def principal(self, name: str):
         """Resolve a source principal (user or group) to a target principal object."""
         if not name:
@@ -832,12 +581,68 @@ class _TargetPrincipals:
         self._warnings.append(f"could not resolve principal {name!r} on the target")
         return None
 
+    @site_access(SiteLevel.MANAGE)
     def role(self, name: str) -> "RoleDefinition | None":
         """Resolve (and cache) a target role definition by name."""
         if self._roles is None:
             loaded = self._web.role_definitions.get().execute_query()
             self._roles = {rd.name: rd for rd in loaded if rd.name}
         return self._roles.get(name)
+
+
+def _resolve_group_ownership(
+    web: Any,
+    title: str,
+    resolve: Callable[[Any], "Principal | None"] | None,
+) -> tuple["Principal | None", list[str]]:
+    """A site group's owner chain: a user with a PUID, plus the groups on the way up.
+
+    ``UserGroup.xml`` requires an ``Owner`` on every ``<Group>`` — live-verified: a
+    group emitted without one fails the whole ingestion job with ``The required
+    attribute 'Owner' is missing`` — and an owner may itself be a group (a team
+    site's ``Visitors`` group is owned by its ``Owners`` group, which owns itself;
+    both live-verified). The returned titles are **nearest first**; the last one is
+    owned by the returned user, or owns itself when the chain closes on itself or
+    leaves the tenant (a group created by the migration app is owned by the app,
+    which has no PUID).
+    """
+    groups: list[str] = []
+    seen: set[str] = {title.casefold()}
+    current = title
+    for _ in range(_MAX_GROUP_OWNER_DEPTH):
+        try:
+            group = web.site_groups.get_by_name(current).get().execute_query()
+            owner = group.owner.get().execute_query()
+        except Exception:  # noqa: BLE001 - best-effort: a title the site does not have ends the chain
+            break
+        if _principal_kind(owner) == "user":
+            principal = resolve(getattr(owner, "id", None)) if resolve is not None else None
+            return principal, groups
+        owner_title = getattr(owner, "title", None)
+        if not owner_title:
+            break
+        groups.append(owner_title)
+        if owner_title.casefold() in seen:
+            break
+        seen.add(owner_title.casefold())
+        current = owner_title
+    return None, groups
+
+
+def _attach_group_owners(
+    entries: list[PermissionEntry],
+    web: Any,
+    resolve: Callable[[Any], "Principal | None"] | None,
+    cache: dict[str, tuple["Principal | None", list[str]]],
+) -> None:
+    """Fill ``PermissionEntry.owner``/``owner_groups`` for group entries (per title)."""
+    for entry in entries:
+        if entry.principal_type != "group":
+            continue
+        title = entry.display_name or entry.principal_name
+        if title not in cache:
+            cache[title] = _resolve_group_ownership(web, title, resolve)
+        entry.owner, entry.owner_groups = cache[title]
 
 
 def _read_role_assignments(
@@ -851,11 +656,14 @@ def _read_role_assignments(
     the same shape so the permission diff compares like with like. ``normalize``
     (when supplied) canonicalizes a principal name — default groups collapse to
     ``default:<Kind>`` so a renamed site still compares as preserved. Role names are
-    paired with their decimal ``PermMask`` (``role_masks``), and — when ``resolve``
-    is supplied — a user principal is enriched with its PUID/display name/email so
-    the server-side package target can emit a faithful ``UserGroup.xml`` entry.
+    paired with their decimal ``PermMask`` (``role_masks``), the principal kind is
+    recorded in ``principal_type``, and — when ``resolve`` is supplied — a user
+    principal is enriched with its PUID/display name/email so the server-side
+    package target can emit a faithful ``UserGroup.xml`` entry. A SharePoint group
+    keeps its **title** in ``display_name`` (the normalized name would not match on
+    the target).
     """
-    assignments = securable.role_assignments.expand(["Member", "RoleDefinitionBindings"]).get().execute_query()
+    assignments = securable.get_role_assignments().execute_query()
     result: list[PermissionEntry] = []
     for assignment in assignments:
         member = assignment.member
@@ -868,15 +676,18 @@ def _read_role_assignments(
             if not role.name:
                 continue
             roles.append(role.name)
-            mask = _perm_mask(role)
+            mask = role.perm_mask
             if mask is not None:
                 role_masks[role.name] = mask
         entry = PermissionEntry(
             principal_name=normalize(name) if normalize is not None else name,
             roles=roles,
             role_masks=role_masks,
+            principal_type=_principal_kind(member),
         )
-        if resolve is not None and _is_user_principal(member):
+        if entry.principal_type == "group":
+            entry.display_name = member.title or name
+        if resolve is not None and entry.principal_type == "user":
             principal = resolve(getattr(member, "id", None))
             if principal is not None:
                 entry.system_id = principal.system_id
@@ -914,15 +725,10 @@ class SharePointListSource:
         self._items: dict[str, Any] = {}
         self._attachments: dict[str, Any] = {}
         self._users: dict[int, Principal | None] = {}
+        # Group title -> (owner user, owner group chain); a ``<Group>`` needs both.
+        self._group_owners: dict[str, tuple[Principal | None, list[str]]] = {}
         self._default_groups: _DefaultGroups | None = None
-        self._source_fields_cache: list[Any] | None = None
-        self._user_columns_cache: set[str] | None = None
-        self._multi_columns_cache: dict[str, str] | None = None
-        self._skipped_columns_cache: set[str] | None = None
-        self._taxonomy_columns_cache: dict[str, bool] | None = None
-        self._taxonomy_note_columns_cache: set[str] | None = None
-        self._multi_choice_columns_cache: set[str] | None = None
-        self._value_object_columns_cache: set[str] | None = None
+        self._source_fields_cache: list[Field] | None = None
         self._folder_records_cache: dict[str, dict] | None = None
         self.warnings: list[str] = []
 
@@ -932,11 +738,11 @@ class SharePointListSource:
     def list_items(self, progress: MigrationProgress = None) -> list[MigrationItem]:
         try:
             loaded = self._load_items(self._select)
-        except Exception as e:  # noqa: BLE001 — see the taxonomy fallback below
-            # A full read of a list with an orphaned Managed Metadata column
-            # fails server-side; re-enumerate excluding those columns instead
-            # of aborting the export. An explicit --select is honored as-is.
-            if not is_taxonomy_validation(e) or self._select:
+        except SPFieldValidationException as e:
+            # A full read of a list with an orphaned Managed Metadata column fails
+            # server-side; re-enumerate without those columns. An explicit --select
+            # is honored as-is.
+            if not e.is_missing_term or self._select:
                 raise
             self.warnings.append(
                 "Full item read failed — a Managed Metadata column references a missing term set; "
@@ -962,7 +768,7 @@ class SharePointListSource:
             # multi-person ids only inconsistently); select each ``<name>Id``
             # explicitly so the values are not silently lost.
             for name in self._multi_columns():
-                key = f"{name}Id"
+                key = ListItem.value_column(name)
                 if key not in columns:
                     columns.append(key)
             # Expand attachments so they can be migrated alongside their item.
@@ -983,7 +789,7 @@ class SharePointListSource:
         stays on the list's user columns only.
         """
         fields = self._list.fields.get().execute_query()
-        taxonomy = taxonomy_internal_names(fields)
+        taxonomy = list(dict.fromkeys(f.internal_name for f in fields if f.internal_name and f.is_taxonomy))
         self.warnings.append(f"excluded Managed Metadata column(s): {', '.join(sorted(taxonomy)) or 'none'}")
         columns = ["Id"]
         for field in fields:
@@ -1013,15 +819,11 @@ class SharePointListSource:
                 item_type="record",
                 modified=iso_or_none(record.get("Modified")),
                 created=iso_or_none(record.get("Created")),
-                author_id=author_id,
-                editor_id=editor_id,
             )
             # Resolve the source author/editor once so an authorship-preserving
             # target can restore them by login name (ids are tenant-local).
-            if author_id is not None:
-                planned.author = self._principal_for(author_id)
-            if editor_id is not None:
-                planned.editor = self._principal_for(editor_id)
+            planned.author = self._principal_for(author_id)
+            planned.editor = self._principal_for(editor_id)
             result.append(planned)
             for attachment in item.properties.get("AttachmentFiles") or []:
                 pending_attachments.append((item_id, attachment))
@@ -1052,7 +854,7 @@ class SharePointListSource:
         # navigation property (objects, not a scalar column) and is excluded; the
         # target writes attachments separately.
         select = sorted(
-            {key for item in loaded for key in item.properties if key != "AttachmentFiles"} - _NON_WRITABLE_SELECT
+            {key for item in loaded for key in item.properties if key != "AttachmentFiles"} - ListItem._schema.readonly
         )
         records = records_from_items(list(loaded), select, set(), raw=True)
         # A REST item create accepts scalar column values only. A full read also
@@ -1060,10 +862,13 @@ class SharePointListSource:
         # (lookups/persons, e.g. ``PredecessorsId`` / ``AssignedTo``) whose JSON
         # objects carry no ``__metadata.type`` here, so the create batch is
         # rejected with ``InvalidClientQueryException``. Typed-value remapping is
-        # not supported yet, so drop them and say so rather than fail the run.
+        # not supported yet, so drop them and say so rather than fail the run. The
+        # item's own links (``ParentList``, ``FieldValuesAsHtml``) carry no scalar content
+        # either, and are dropped silently: they are the navigations the model declares.
         dropped: set[str] = set()
+        navigations: set[str] = {name for item in loaded for name in type(item)._schema.navigations}
         multi = self._multi_columns()
-        multi_keys = {f"{name}Id" for name in multi} | {f"{name}StringId" for name in multi}
+        multi_keys = _typed_keys(multi)
         choices = self._multi_choice_columns()
         taxonomy = self._taxonomy_columns()
         value_objects = self._value_object_columns()
@@ -1080,7 +885,7 @@ class SharePointListSource:
                     continue  # a value object (``{"Url", "Description"}``) is writable as-is
                 if value is not None and not isinstance(value, (str, int, float, bool)):
                     record.pop(key)
-                    if key not in _NAVIGATION_SELECT:
+                    if key not in navigations:
                         dropped.add(key)
         if dropped:
             self.warnings.append(
@@ -1091,7 +896,7 @@ class SharePointListSource:
         # than fail the create on an unknown column.
         skipped = self._skipped_columns()
         if skipped:
-            skipped_keys = {f"{name}Id" for name in skipped} | {f"{name}StringId" for name in skipped}
+            skipped_keys = _typed_keys(skipped)
             for record in records:
                 for key in skipped_keys:
                     record.pop(key, None)
@@ -1154,10 +959,10 @@ class SharePointListSource:
         single_lookups = {
             field.internal_name
             for field in self._source_fields()
-            if field.internal_name and field.type_as_string == "Lookup" and not _allows_multiple_values(field)
+            if field.internal_name and field.is_lookup and not field.is_multi_valued
         }
         for name in sorted((single_lookups | self._user_columns() | set(self._multi_columns())) & writable):
-            key = f"{name}Id"
+            key = ListItem.value_column(name)
             if key not in columns:
                 columns.append(key)
         for note in self._taxonomy_note_columns():
@@ -1165,44 +970,44 @@ class SharePointListSource:
                 columns.append(note)
         return columns
 
-    def _source_fields(self) -> list[Any]:
-        """The source list's field definitions, read once and shared by every scan."""
+    def _source_fields(self) -> list[Field]:
+        """The source list's field definitions, read once and shared by every scan.
+
+        The projection is the columns of every typed column class, so the read does not
+        depend on whatever ``$select`` a previous caller left on the shared ``fields``
+        collection -- ``List.fields`` survives a ``capture_list_structure`` read, which
+        selects a narrower set.
+        """
         if self._source_fields_cache is None:
-            self._source_fields_cache = list(self._list.fields.select(list(_SOURCE_FIELD_SELECT)).get().execute_query())
+            try:
+                self._source_fields_cache = list(self._list.fields.select(Field.scan_columns()).get().execute_query())
+            except Exception as e:  # noqa: BLE001 — values stay un-remapped, never fatal
+                self.warnings.append(f"could not read the list's columns for typed-value remapping: {e}")
+                self._source_fields_cache = []
         return self._source_fields_cache
 
     def _taxonomy_columns(self) -> dict[str, bool]:
-        """The source's Managed Metadata columns (internal name -> allows many)."""
-        if self._taxonomy_columns_cache is None:
-            columns: dict[str, bool] = {}
-            notes: set[str] = set()
-            try:
-                fields = self._source_fields()
-                by_id = {
-                    normalize_guid(getattr(field, "id", None)): getattr(field, "internal_name", None) for field in fields
-                }
-                for field in fields:
-                    internal_name = getattr(field, "internal_name", None)
-                    if not internal_name:
-                        continue
-                    field_type = getattr(field, "type_as_string", None)
-                    schema = getattr(field, "schema_xml", None) or ""
-                    if field_type not in _TAXONOMY_FIELD_TYPES and "TermSetId" not in schema:
-                        continue
-                    columns[internal_name] = field_type == "TaxonomyFieldTypeMulti" or 'Mult="TRUE"' in schema
-                    note = by_id.get(normalize_guid(field.properties.get("TextField")))
-                    if note:
-                        notes.add(note)
-            except Exception as e:  # noqa: BLE001 — values stay un-remapped, never fatal
-                self.warnings.append(f"could not read source columns for taxonomy remapping: {e}")
-            self._taxonomy_columns_cache = columns
-            self._taxonomy_note_columns_cache = notes
-        return self._taxonomy_columns_cache
+        """The source's Managed Metadata columns (internal name -> holds many values)."""
+        return {
+            field.internal_name: field.is_multi_valued
+            for field in self._source_fields()
+            if field.internal_name and field.is_taxonomy
+        }
 
     def _taxonomy_note_columns(self) -> set[str]:
-        """The hidden note companions of the source's taxonomy columns."""
-        self._taxonomy_columns()
-        return self._taxonomy_note_columns_cache or set()
+        """The hidden note companions of the source's taxonomy columns.
+
+        The note column is what the target's write payload becomes for a multi-value
+        column, and its name is chosen by the service; each taxonomy column names its own
+        note, so it is answered from the column set (no request per value).
+        """
+        notes: set[str] = set()
+        for field in self._source_fields():
+            if field.is_taxonomy:
+                note_name = cast(TaxonomyField, field).text_field_name
+                if note_name:
+                    notes.add(note_name)
+        return notes
 
     def _project_taxonomy_values(self, records: list[dict]) -> None:
         """Project taxonomy columns as bare ``[{"TermGuid": ...}]`` term lists.
@@ -1226,42 +1031,34 @@ class SharePointListSource:
                     record.pop(name, None)
 
     def _typed_columns(self) -> tuple[set[str], dict[str, str], set[str]]:
-        """The source's Person and multi-value columns, read once.
+        """The source's Person and multi-value columns.
 
         Returns ``(single-value User columns, {multi-value column: field type},
         hidden typed columns)``. The field type tells a multi-lookup (remapped by
         item id) from a multi-person (remapped by login). Hidden typed columns are
         reported separately because structure provisioning does not replicate them.
         """
-        if self._user_columns_cache is None or self._multi_columns_cache is None or self._skipped_columns_cache is None:
-            users: set[str] = set()
-            multi: dict[str, str] = {}
-            skipped: set[str] = set()
-            try:
-                for field in self._source_fields():
-                    internal_name = getattr(field, "internal_name", None)
-                    if not internal_name or internal_name in _PERSON_EXCLUDED:
-                        continue
-                    field_type = getattr(field, "type_as_string", None)
-                    if field_type not in _TYPED_VALUE_TYPES:
-                        continue
-                    # Structure replay skips hidden columns, so the target never
-                    # gets them; projecting their values would fail the write.
-                    if getattr(field, "hidden", None) is True:
-                        skipped.add(internal_name)
-                    elif field_type.startswith("User"):
-                        if _allows_multiple_values(field):
-                            multi[internal_name] = "UserMulti"
-                        else:
-                            users.add(internal_name)
-                    elif _allows_multiple_values(field):
-                        multi[internal_name] = "LookupMulti"
-            except Exception as e:  # noqa: BLE001 — without field types ids stay raw
-                self.warnings.append(f"could not read source columns for typed-value remapping: {e}")
-            self._user_columns_cache = users
-            self._multi_columns_cache = multi
-            self._skipped_columns_cache = skipped
-        return self._user_columns_cache, self._multi_columns_cache, self._skipped_columns_cache
+        users: set[str] = set()
+        multi: dict[str, str] = {}
+        skipped: set[str] = set()
+        for field in self._source_fields():
+            internal_name = field.internal_name
+            if not internal_name or internal_name in _PERSON_EXCLUDED:
+                continue
+            if not (field.is_person or field.is_lookup):
+                continue
+            if field.hidden is True:
+                # Structure replay skips hidden columns, so the target never gets
+                # them; projecting their values would fail the write.
+                skipped.add(internal_name)
+            elif field.is_person:
+                if field.is_multi_valued:
+                    multi[internal_name] = "UserMulti"
+                else:
+                    users.add(internal_name)
+            elif field.is_multi_valued:
+                multi[internal_name] = "LookupMulti"
+        return users, multi, skipped
 
     def _user_columns(self) -> set[str]:
         """The source's single-value Person columns (internal names)."""
@@ -1277,33 +1074,11 @@ class SharePointListSource:
 
     def _multi_choice_columns(self) -> set[str]:
         """The source's multi-choice columns (internal names)."""
-        if self._multi_choice_columns_cache is None:
-            names: set[str] = set()
-            try:
-                names = {
-                    field.internal_name
-                    for field in self._source_fields()
-                    if getattr(field, "internal_name", None) and _is_multi_choice_column(field)
-                }
-            except Exception as e:  # noqa: BLE001 — values stay un-normalized, never fatal
-                self.warnings.append(f"could not read source columns for multi-choice values: {e}")
-            self._multi_choice_columns_cache = names
-        return self._multi_choice_columns_cache
+        return {field.internal_name for field in self._source_fields() if field.internal_name and field.is_multi_choice}
 
     def _value_object_columns(self) -> set[str]:
         """The source's columns that hold a REST value object (e.g. a hyperlink)."""
-        if self._value_object_columns_cache is None:
-            names: set[str] = set()
-            try:
-                names = {
-                    field.internal_name
-                    for field in self._source_fields()
-                    if getattr(field, "internal_name", None) and _is_value_object_column(field)
-                }
-            except Exception as e:  # noqa: BLE001 — values are dropped, never fatal
-                self.warnings.append(f"could not read source columns for value-object values: {e}")
-            self._value_object_columns_cache = names
-        return self._value_object_columns_cache
+        return {field.internal_name for field in self._source_fields() if field.internal_name and field.is_value_object}
 
     def _annotate_person_logins(self, records: list[dict]) -> None:
         """Replace each Person column's site-user id with the user's login name.
@@ -1322,8 +1097,8 @@ class SharePointListSource:
                 # ``<name>StringId`` is a read-only text companion holding the user
                 # id; leaving it in the payload makes REST ignore the remapped
                 # ``<name>Id`` and keep the source id.
-                record.pop(f"{name}StringId", None)
-                key = f"{name}Id"
+                record.pop(ListItem.string_value_column(name), None)
+                key = ListItem.value_column(name)
                 user_id = parse_int(record.get(key))
                 if user_id is None:
                     continue
@@ -1348,9 +1123,9 @@ class SharePointListSource:
             return
         for record in records:
             for name, field_type in multi.items():
-                record.pop(f"{name}StringId", None)
-                key = f"{name}Id"
-                ids = _id_list(record.get(key))
+                record.pop(ListItem.string_value_column(name), None)
+                key = ListItem.value_column(name)
+                ids = values_of(record.get(key))
                 parsed: list[int] = []
                 for value in ids or []:
                     user_id = parse_int(value)
@@ -1396,7 +1171,7 @@ class SharePointListSource:
             for name in names:
                 if name not in record:
                     continue
-                values = _multi_values(record.get(name))
+                values = values_of(record.get(name))
                 if values:
                     record[name] = values
                 else:
@@ -1415,7 +1190,7 @@ class SharePointListSource:
 
     def checksum(self, item: MigrationItem) -> str:
         if item.item_type == "attachment":
-            return hashlib.md5(self._attachment_content(item)).hexdigest()
+            return checksum(self._attachment_content(item))
         return _content_checksum(_canonicalize_taxonomy_record(self._records.get(item.dest_path, {})))
 
     def read_metadata(self, item: MigrationItem) -> dict | None:
@@ -1423,10 +1198,9 @@ class SharePointListSource:
         source_item = self._items.get(item.dest_path)
         if source_item is None:
             return None
-        properties = source_item.properties
         return {
-            "created": iso_or_none(properties.get("Created")),
-            "modified": iso_or_none(properties.get("Modified")),
+            "created": iso_or_none(source_item.created),
+            "modified": iso_or_none(source_item.modified),
         }
 
     def read_authorship(self, item: MigrationItem) -> tuple[str | None, str | None]:
@@ -1455,7 +1229,9 @@ class SharePointListSource:
         source_item = self._items.get(item.dest_path)
         if source_item is None or not _has_unique_role_assignments(source_item):
             return []
-        return _read_role_assignments(source_item, resolve=self._principal_for, normalize=self._normalize_name)
+        entries = _read_role_assignments(source_item, resolve=self._principal_for, normalize=self._normalize_name)
+        _attach_group_owners(entries, self._list.context.web, self._principal_for, self._group_owners)
+        return entries
 
     def _principal_for(self, user_id: Any) -> "Principal | None":
         """Resolve a site-user id to a :class:`Principal` (login + PUID), cached."""
@@ -1467,14 +1243,7 @@ class SharePointListSource:
         principal: "Principal | None" = None
         try:
             user = self._list.context.web.site_users.get_by_id(cast("str", key)).get().execute_query()
-            user_id_info = user.properties.get("UserId")
-            system_id = normalize_puid(getattr(user_id_info, "NameId", None))
-            principal = Principal(
-                login_name=user.login_name or "",
-                system_id=system_id,
-                display_name=user.title,
-                email=user.properties.get("Email"),
-            )
+            principal = _principal_of(user, key)
         except Exception as e:  # noqa: BLE001 — a missing user degrades to no authorship
             self.warnings.append(f"user {key} could not be resolved: {e}")
         self._users[key] = principal
@@ -1506,6 +1275,12 @@ class SharePointListTarget:
     when the target list's content types were recreated with fresh identifiers:
     every record's ``ContentTypeId`` is rewritten to the target id so items land
     under the recreated content type instead of the wrong (or a missing) one.
+
+    Pass ``structure`` (a :class:`~office365.migration.sharepoint.structure.ListStructure`
+    from :func:`~office365.migration.sharepoint.structure.load_list_structure`) to
+    replay a captured list shape onto this target before the first record is written —
+    what importing an export bundle needs, since the bundle's payload is records and
+    its columns/content types/views travel in the sidecar, not in each item.
     """
 
     # Marks this target as accepting list-item attachments as extra items (see DataTarget).
@@ -1515,9 +1290,9 @@ class SharePointListTarget:
     # values by login (see ``_remap_typed_values``).
     supports_typed_values = True
 
-    # Marks this target as replaying a list item's approval state (``_ModerationStatus``
-    # and its comments) in the metadata write, which a system update would otherwise
-    # reset. Check-out and draft-version state are still not carried.
+    # Marks this target as replaying a list item's approval state (its moderation status
+    # and comment) in the metadata write, which is the only write a list item takes it in.
+    # Check-out and draft-version state are still not carried.
     supports_item_state = True
 
     #: The single-item :meth:`write` only queues a create; a chunk must be flushed
@@ -1535,6 +1310,7 @@ class SharePointListTarget:
             on_conflict=self._on_conflict_override,
             identity_field=self._identity_field,
             content_type_map=self._content_type_map,
+            structure=self._structure,
         )
 
     def __init__(
@@ -1545,8 +1321,11 @@ class SharePointListTarget:
         on_conflict: str | None = None,
         identity_field: str | None = DEFAULT_LIST_IDENTITY_FIELD,
         content_type_map: "ContentTypeMap | None" = None,
+        structure: "ListStructure | None" = None,
     ) -> None:
         self._list = target_list
+        self._structure = structure
+        self._structure_applied = False
         self._key_columns = [key] if isinstance(key, str) else (list(key) if key else [])
         self._key_field = key_field
         self._on_conflict_override = on_conflict
@@ -1578,6 +1357,10 @@ class SharePointListTarget:
         self._unresolved_lookups: set[tuple[str, int]] = set()
         self._unresolved_users: set[tuple[str, str]] = set()
         self._user_logins: dict[int, str] | None = None
+        # Verification reads the same written item through four hooks (checksum,
+        # metadata, authorship, permissions). Memoizing the fresh read keeps that
+        # to one request per item; anything that writes to the target clears it.
+        self._fresh_reads: dict[str, "ListItem | None"] = {}
 
     @property
     def on_conflict(self) -> str:
@@ -1593,6 +1376,31 @@ class SharePointListTarget:
         """
         if self._on_conflict_override is None:
             self._on_conflict = conflict_to_on_conflict(options.conflict_resolution)
+        # A run boundary: verification reads memoized by the previous run are stale.
+        self._fresh_reads.clear()
+        self.apply_structure()
+
+    def apply_structure(self) -> list[str]:
+        """Replay the captured list structure onto the target list (once, idempotent).
+
+        A bundle carries its list shape in a sidecar, not in each record, so the
+        columns (and views) must exist before the first record lands — otherwise a
+        value whose column is missing is dropped by the server. Idempotent
+        (``on_conflict="skip"``), and a no-op when no snapshot was passed.
+
+        Returns:
+            The warnings from this call (empty when there is no snapshot, or when it
+            has already been applied).
+        """
+        if self._structure is None or self._structure_applied:
+            return []
+        self._structure_applied = True
+        # Filling the caller's map in place is what lets a bundle's records land
+        # under the recreated content type instead of being coerced to the default.
+        entries = self._content_type_map.entries if self._content_type_map is not None else None
+        warnings = provision_list_structure(self._list, self._structure, content_type_map=entries)
+        self.warnings.extend(warnings)
+        return warnings
 
     def label(self) -> str:
         return f"list:{self._list.title}"
@@ -1648,17 +1456,20 @@ class SharePointListTarget:
 
     def _record_for(self, item: MigrationItem, payload: object) -> dict:
         """The payload with the target content-type id and source-id marker applied."""
+        if not isinstance(payload, dict):
+            # Without this the cast fails as ``TypeError: object is not iterable``, which
+            # names neither the item nor the reason: a file's bytes have no record shape.
+            raise ValueError(
+                f"{item.dest_path!r} is a {item.item_type!r} with a {type(payload).__name__} payload: this target "
+                "writes list records, and a file has no record shape — migrate files into a document library"
+            )
         record = dict(cast(dict, payload))
         if self._content_type_map:
             content_type_id = record.get("ContentTypeId")
             record["ContentTypeId"] = self._content_type_map.resolve(content_type_id)
         if self._identity_field:
             record[self._identity_field] = item.dest_path
-        approval = {
-            field_name: str(record[record_key])
-            for record_key, field_name in _APPROVAL_FIELDS.items()
-            if record.get(record_key) is not None
-        }
+        approval = {name: record[name] for name in _MODERATION_FIELDS if record.get(name) is not None}
         if approval:
             self._pending_approval[item.dest_path] = approval
         return record
@@ -1679,14 +1490,15 @@ class SharePointListTarget:
             else:
                 mapped.pop("ContentTypeId", None)
         self._remap_typed_values([mapped])
-        return mapped
+        return self._multi_value_payload(mapped)
 
     def _queue(self, records: list[dict]) -> None:
         self._ensure_identity()
         self._remap_typed_values(records)
+        records = [self._multi_value_payload(record) for record in records]
         if not self._key_columns:
             for record in records:
-                self._list.items.queue_records([self._multi_value_create(record)])
+                self._list.items.queue_records([record])
             return
         from office365.runtime.converters.upsert import keyed_queue
         from office365.sharepoint.fields.name import internal_field_name
@@ -1700,7 +1512,7 @@ class SharePointListTarget:
             self._target = target
         key_columns = [internal_field_name(c) for c in self._key_columns]
         keyed_queue(
-            _MultiValueCreateTarget(target, self._multi_value_create),
+            target,
             records,
             key_columns=key_columns,
             existing=self._existing,
@@ -1710,22 +1522,22 @@ class SharePointListTarget:
     def _multi_id_keys(self) -> set[str]:
         """The ``...Id`` record keys of the multi-value Lookup/Person columns."""
         names = (*self._multi_lookup_columns(), *self._multi_user_columns())
-        return {f"{name}Id" for name in names}
+        return {ListItem.value_column(name) for name in names}
 
-    def _multi_value_create(self, record: dict) -> dict:
-        """Reshape multi-value columns for a *create* (``{"results": [...]}``).
+    def _multi_value_payload(self, record: dict) -> dict:
+        """Reshape multi-value columns for the wire (``{"results": [...]}``).
 
         A bare list is the semantic value the source records and the checksum work
-        with, and it is also what a MERGE update wants; only a create needs the
-        ``{"results": [...]}`` wrapper (live-probed). Lists without multi-value
-        columns are passed through untouched.
+        with; the wire wants every multi-value cell wrapped, on create and on MERGE
+        alike (see :func:`_collection_payload`). A record without multi-value
+        columns is passed through untouched.
         """
         keys = self._multi_id_keys() | self._multi_choice_columns()
         if not keys:
             return record
         wrapped = dict(record)
         for key in keys:
-            values = _multi_values(wrapped.get(key))
+            values = values_of(wrapped.get(key))
             if values is not None:
                 wrapped[key] = _collection_payload(values)
         return wrapped
@@ -1782,44 +1594,34 @@ class SharePointListTarget:
         taxonomy: dict[str, tuple[bool, str | None]] = {}
         multi_choices: set[str] = set()
         try:
-            fields = (
-                self._list.fields.select(
-                    ["InternalName", "TypeAsString", "LookupList", "Id", "TextField", "AllowMultipleValues"]
-                )
-                .get()
-                .execute_query()
-            )
+            fields = self._list.fields.select(Field.scan_columns()).get().execute_query()
         except Exception as e:  # noqa: BLE001 — without columns we cannot remap; content still migrates
             self.warnings.append(f"could not read target columns for typed-value remapping: {e}")
             return lookups, users, multi_lookups, multi_users, taxonomy, multi_choices
-        by_id = {normalize_guid(getattr(field, "id", None)): getattr(field, "internal_name", None) for field in fields}
         for field in fields:
-            internal_name = getattr(field, "internal_name", None)
+            internal_name = field.internal_name
             if not internal_name or internal_name in _PERSON_EXCLUDED:
                 continue
-            field_type = getattr(field, "type_as_string", None)
-            if field_type in _TAXONOMY_FIELD_TYPES:
-                # The companion note column that actually carries the write payload
-                # has an unpredictable name; resolve it through the column's
-                # ``TextField`` id.
-                note_name = by_id.get(normalize_guid(field.properties.get("TextField")))
-                taxonomy[internal_name] = (field_type == "TaxonomyFieldTypeMulti", note_name)
-            elif field_type in _TYPED_VALUE_TYPES:
-                multiple = _allows_multiple_values(field)
-                if field_type.startswith("User"):
+            if field.is_taxonomy:
+                # The companion note column that carries the write payload has a name
+                # the service chooses; the column itself resolves it from ``TextField``.
+                taxonomy[internal_name] = (field.is_multi_valued, cast(TaxonomyField, field).text_field_name)
+            elif field.is_person or field.is_lookup:
+                multiple = field.is_multi_valued
+                if field.is_person:
                     if multiple:
                         multi_users.add(internal_name)
                     else:
                         users.add(internal_name)
                 else:
-                    list_id = normalize_guid(field.properties.get("LookupList"))
+                    list_id = normalize_guid(cast(FieldLookup, field).lookup_list)
                     if not list_id:
                         continue
                     if multiple:
                         multi_lookups[internal_name] = list_id
                     else:
                         lookups[internal_name] = list_id
-            elif _is_multi_choice_column(field):
+            elif field.is_multi_choice:
                 multi_choices.add(internal_name)
         return lookups, users, multi_lookups, multi_users, taxonomy, multi_choices
 
@@ -1867,7 +1669,7 @@ class SharePointListTarget:
             return
         for record in records:
             for internal_name, target_list_id in columns.items():
-                key = f"{internal_name}Id"
+                key = ListItem.value_column(internal_name)
                 source_id = parse_int(record.get(key))
                 if source_id is None:
                     continue
@@ -1885,7 +1687,7 @@ class SharePointListTarget:
             return
         for record in records:
             for internal_name in columns:
-                key = f"{internal_name}Id"
+                key = ListItem.value_column(internal_name)
                 login = record.get(key)
                 if not isinstance(login, str) or not login:
                     continue
@@ -1902,8 +1704,8 @@ class SharePointListTarget:
             return
         for record in records:
             for internal_name, target_list_id in columns.items():
-                key = f"{internal_name}Id"
-                source_ids = _id_list(record.get(key))
+                key = ListItem.value_column(internal_name)
+                source_ids = values_of(record.get(key))
                 if not source_ids:
                     continue
                 forward, _ = self._lookup_index(target_list_id)
@@ -1927,7 +1729,7 @@ class SharePointListTarget:
             return
         for record in records:
             for internal_name in columns:
-                key = f"{internal_name}Id"
+                key = ListItem.value_column(internal_name)
                 logins = record.get(key)
                 if not isinstance(logins, (list, tuple)) or not logins:
                     continue
@@ -1947,12 +1749,13 @@ class SharePointListTarget:
     def _remap_taxonomies(self, records: list[dict]) -> None:
         """Write taxonomy terms in the form SharePoint accepts on the target.
 
-        A single-value column takes a typed ``SP.Taxonomy.TaxonomyFieldValue``
-        object; a multi-value column only accepts the hidden note companion's text
-        form ``-1;#Label|guid;#...`` (typed-collection JSON is rejected server-side).
-        The term id is authoritative — the label can be left blank. A column with no
-        target counterpart is dropped and reported rather than sent as an unknown
-        property.
+        A single-value column takes :class:`TaxonomyFieldValue` itself — the library
+        type, not a dictionary spelled like one — so its declared type name and
+        ``WssId = -1`` default are answered by the value. A multi-value column only
+        accepts the hidden note companion's text form ``-1;#Label|guid;#...``
+        (typed-collection JSON is rejected server-side). The term id is authoritative,
+        so the label is left unset. A column with no target counterpart is dropped and
+        reported rather than sent as an unknown property.
         """
         columns = self._taxonomy_columns()
         unresolved: set[str] = set()
@@ -1972,17 +1775,13 @@ class SharePointListTarget:
                     continue
                 if allow_many and note_name:
                     record.pop(internal_name, None)
-                    record[note_name] = ";#".join(f"-1;#|{guid}" for guid in guids)
+                    values = [TaxonomyFieldValue(TermGuid=g) for g in guids]
+                    record[note_name] = str(TaxonomyFieldValueCollection(values))
                 elif allow_many:
                     record.pop(internal_name, None)
                     unresolved.add(internal_name)
                 else:
-                    record[internal_name] = {
-                        "__metadata": {"type": "SP.Taxonomy.TaxonomyFieldValue"},
-                        "Label": "",
-                        "TermGuid": guids[0],
-                        "WssId": -1,
-                    }
+                    record[internal_name] = TaxonomyFieldValue(TermGuid=guids[0])
         if unresolved:
             self.warnings.append(
                 f"taxonomy column(s) not available on the target, values left empty: {', '.join(sorted(unresolved))}"
@@ -2030,7 +1829,7 @@ class SharePointListTarget:
         the two like for like instead of reporting a false mismatch.
         """
         for internal_name, target_list_id in self._lookup_columns().items():
-            key = f"{internal_name}Id"
+            key = ListItem.value_column(internal_name)
             target_id = parse_int(properties.get(key))
             if target_id is None:
                 continue
@@ -2039,8 +1838,8 @@ class SharePointListTarget:
             if source_id is not None:
                 properties[key] = source_id
         for internal_name, target_list_id in self._multi_lookup_columns().items():
-            key = f"{internal_name}Id"
-            target_ids = _id_list(properties.get(key))
+            key = ListItem.value_column(internal_name)
+            target_ids = values_of(properties.get(key))
             if not target_ids:
                 continue
             _, backward = self._lookup_index(target_list_id)
@@ -2055,7 +1854,7 @@ class SharePointListTarget:
         columns = self._user_columns()
         logins = self._target_user_logins() if columns or self._multi_user_columns() else {}
         for internal_name in columns:
-            key = f"{internal_name}Id"
+            key = ListItem.value_column(internal_name)
             user_id = parse_int(properties.get(key))
             if user_id is None:
                 continue
@@ -2063,8 +1862,8 @@ class SharePointListTarget:
             if login is not None:
                 properties[key] = login
         for internal_name in self._multi_user_columns():
-            key = f"{internal_name}Id"
-            user_ids = _id_list(properties.get(key))
+            key = ListItem.value_column(internal_name)
+            user_ids = values_of(properties.get(key))
             if not user_ids:
                 continue
             mapped_logins: list[Any] = []
@@ -2083,7 +1882,7 @@ class SharePointListTarget:
         for internal_name in self._multi_choice_columns():
             if internal_name not in properties:
                 continue
-            values = _multi_values(properties.get(internal_name))
+            values = values_of(properties.get(internal_name))
             if values:
                 properties[internal_name] = values
             else:
@@ -2134,7 +1933,7 @@ class SharePointListTarget:
         # A read query would implicitly flush any queued writes on this context;
         # flush them explicitly first so the cached index stays consistent.
         self._flush_pending()
-        columns = ["Id", self._identity_field, "Created", "Modified", "AuthorId", "EditorId"]
+        columns = ["Id", self._identity_field, "Created", "Modified", *_LIST_ITEM.columns_of_facet(AUTHORSHIP)]
         query = self._list.items.select(columns)
         if filter_expr:
             query = query.filter(filter_expr)
@@ -2178,6 +1977,7 @@ class SharePointListTarget:
                     paths.append(f"{value}/{name}")
         return paths
 
+    @site_access(SiteLevel.READ)
     def list_paths(self) -> list[str]:
         if not self._identity_field:
             return [str(i.id) for i in self._list.items.get().execute_query()]
@@ -2215,8 +2015,8 @@ class SharePointListTarget:
         extra.update(note for _, note in self._taxonomy_columns().values() if note)
         # The target derives its own ``<name>StringId`` companion; it is not part of
         # the source's canonical content.
-        extra.update(f"{name}StringId" for name in self._user_columns())
-        extra.update(f"{name}StringId" for name in self._multi_user_columns())
+        extra.update(ListItem.string_value_column(name) for name in self._user_columns())
+        extra.update(ListItem.string_value_column(name) for name in self._multi_user_columns())
         return _content_checksum(properties, frozenset(extra))
 
     def _attachment_checksum(self, item: MigrationItem) -> str:
@@ -2228,7 +2028,7 @@ class SharePointListTarget:
             data = parent.attachment_files.get_by_filename(filename).get_content().execute_query().value
         except Exception:  # noqa: BLE001 — a missing/unreadable attachment is unverifiable
             return ""
-        return hashlib.md5(data).hexdigest() if data else ""
+        return checksum(data) if data else ""
 
     def commit(self, options=None) -> None:
         """Flush any remaining queued record writes through an OData batch."""
@@ -2242,6 +2042,7 @@ class SharePointListTarget:
         if not self._list.context.has_pending_request:
             return
         self._list.context.execute_batch(items_per_batch=batch_size, concurrency=concurrency)
+        self._fresh_reads.clear()
         self._list.items.clear()
         # Records were just created/updated, so the cached source-id index needs an
         # incremental refresh (new items only) before the next lookup.
@@ -2260,34 +2061,41 @@ class SharePointListTarget:
             return None
         return self._find_by_identity(item.dest_path)
 
+    @site_access(SiteLevel.WRITE)
     def apply_timestamps(self, item: MigrationItem) -> None:
         """Best-effort: restore ``Created``/``Modified`` on the written item.
 
-        Uses ``ValidateUpdateListItem`` with ``bNewDocumentUpdate=True`` -- a
-        system update (the CSOM ``UpdateOverwriteVersion`` path), so the metadata
-        lands **without** creating a new version and a migrated record keeps its
-        original version instead of accumulating one version per fidelity write.
-        ``datesInUTC=True`` requires the ``...Z`` UTC form. Authorship values
-        resolved for the same item are folded into this final write so both land
-        atomically, in one system update.
+        Authorship and approval state resolved for the same item are folded in, so all of
+        them land atomically in one system update.
+        """
+        self._restore_fidelity(item, timestamps=True)
+
+    def _restore_fidelity(self, item: MigrationItem, timestamps: bool) -> None:
+        """One system update carrying every fidelity value this item has.
+
+        ``timestamps=False`` is the write :meth:`finalize_fidelity` makes when the item's
+        dates are not preserved: the values are already absent, so what is left is the
+        authorship and approval state, and they still cost one request rather than two.
         """
         target_item = self._target_item(item)
         if target_item is None:
             return
-        form_values: dict = {}
-        created = _sp_utc_timestamp(item.created)
-        modified = _sp_utc_timestamp(item.modified)
-        if created:
-            form_values["Created"] = created
-        if modified:
-            form_values["Modified"] = modified
-        form_values.update(self._pending_authorship.pop(item.dest_path, {}))
-        form_values.update(self._pending_approval.pop(item.dest_path, {}))
-        if form_values:
-            result = target_item.validate_update_list_item(
-                form_values, dates_in_utc=True, new_document_update=True
-            ).execute_query()
-            _report_rejected_fields(result, self.warnings, f"timestamps {item.dest_path}")
+        authorship = self._pending_authorship.pop(item.dest_path, {})
+        approval = self._pending_approval.pop(item.dest_path, {})
+        created = iso_z(item.created) if timestamps else None
+        modified = iso_z(item.modified) if timestamps else None
+        if not (created or modified or authorship or approval):
+            return
+        self._fresh_reads.pop(str(item.dest_path), None)
+        result = target_item.restore_fidelity(
+            created=created,
+            modified=modified,
+            author=authorship.get("Author"),
+            editor=authorship.get("Editor"),
+            approval=approval,
+            new_document_update=True,
+        ).execute_query()
+        _report_rejected_fields(result, self.warnings, f"timestamps {item.dest_path}")
 
     def apply_authorship(self, item: MigrationItem) -> None:
         """Best-effort: resolve ``Author``/``Editor`` and cache them for one write.
@@ -2295,53 +2103,39 @@ class SharePointListTarget:
         A principal is applied only when its login name resolves to a target user
         (``EnsureUser``); unresolved principals are skipped (same-tenant only).
 
-        Nothing is sent here. ``ValidateUpdateListItem`` is one request per call, so
-        writing the resolved principals immediately and then again with the
-        timestamps cost every preserved item two system updates. The values are
-        cached and folded into the timestamps write, or written by
-        :meth:`finalize_fidelity` when timestamps are not preserved.
+        Nothing is sent here. ``ValidateUpdateListItem`` is one request per call, so a
+        separate authorship write followed by the timestamps write would cost every
+        preserved item two system updates. The resolved principals are cached and
+        written by :meth:`apply_timestamps`, or by :meth:`finalize_fidelity` when
+        timestamps are not preserved.
         """
         target_item = self._target_item(item)
         if target_item is None:
             return
         author = self._principals().user(item.author.login_name if item.author else None)
         editor = self._principals().user(item.editor.login_name if item.editor else None)
-        if author is not None and _is_system_principal(author):
+        if author is not None and author.is_service_account:
             author = None
-        if editor is not None and _is_system_principal(editor):
+        if editor is not None and editor.is_service_account:
             editor = None
-        if author is None and editor is None and not self._pending_approval.get(item.dest_path):
+        if author is None and editor is None:
             return
-        form_values: dict = {}
-        if author is not None:
-            form_values["Author"] = FieldUserValue(author.id, author.login_name)
-        if editor is not None:
-            form_values["Editor"] = FieldUserValue(editor.id, editor.login_name)
-        # Replay the approval state here too: this write is itself a system update, so
-        # on a run that restores authorship without timestamps it is the last one.
-        form_values.update(self._pending_approval.get(item.dest_path, {}))
-        self._pending_authorship[item.dest_path] = dict(form_values)
+        self._pending_authorship[item.dest_path] = {
+            "Author": author,
+            "Editor": editor,
+        }
 
+    @site_access(SiteLevel.WRITE)
     def finalize_fidelity(self, item: MigrationItem) -> None:
         """Write the fidelity values that were only cached for this item.
 
         The last hook wins the write: with timestamps preserved that is
         :meth:`apply_timestamps`; without them it is this method, so the item still
-        gets one system update instead of one per property group. It runs before
-        the approval write, which has to stay last (a system update re-approves).
+        gets one system update instead of one per property group.
         """
-        form_values = self._pending_authorship.pop(item.dest_path, {})
-        form_values.update(self._pending_approval.pop(item.dest_path, {}))
-        if not form_values:
-            return
-        target_item = self._target_item(item)
-        if target_item is None:
-            return
-        result = target_item.validate_update_list_item(
-            form_values, dates_in_utc=True, new_document_update=True
-        ).execute_query()
-        _report_rejected_fields(result, self.warnings, f"authorship {item.dest_path}")
+        self._restore_fidelity(item, timestamps=False)
 
+    @site_access(SiteLevel.MANAGE)
     def apply_permissions(self, item: MigrationItem, permissions: list[PermissionEntry]) -> None:
         """Best-effort: replay the source item's unique ACLs onto the target item.
 
@@ -2352,6 +2146,7 @@ class SharePointListTarget:
         target_item = self._target_item(item)
         if target_item is None:
             return
+        self._fresh_reads.pop(str(item.dest_path), None)
         _replay_role_assignments(target_item, self._principals(), permissions, self.warnings, item.dest_path)
         self._list.context.execute_query()
 
@@ -2360,10 +2155,18 @@ class SharePointListTarget:
 
         The cached identity-index object predates the fidelity writes
         (``apply_timestamps``/``apply_authorship``), so re-read it before diffing.
+        The read is memoized per destination path: verification asks for the same
+        item through :meth:`checksum`, :meth:`read_metadata`,
+        :meth:`read_authorship` and :meth:`read_permissions`, and four reads of an
+        unchanged item are three requests too many. Every write clears the memo.
         """
+        key = str(item.dest_path)
+        if key in self._fresh_reads:
+            return self._fresh_reads[key]
         target_item = self._target_item(item)
         if target_item is not None:
             target_item.get().execute_query()
+        self._fresh_reads[key] = target_item
         return target_item
 
     def read_metadata(self, item: MigrationItem) -> dict | None:
@@ -2371,10 +2174,9 @@ class SharePointListTarget:
         target_item = self._fresh_target_item(item)
         if target_item is None:
             return None
-        properties = target_item.properties
         return {
-            "created": iso_or_none(properties.get("Created")),
-            "modified": iso_or_none(properties.get("Modified")),
+            "created": iso_or_none(target_item.created),
+            "modified": iso_or_none(target_item.modified),
         }
 
     def read_authorship(self, item: MigrationItem) -> tuple[str | None, str | None]:
@@ -2382,10 +2184,9 @@ class SharePointListTarget:
         target_item = self._fresh_target_item(item)
         if target_item is None:
             return (None, None)
-        properties = target_item.properties
         return (
-            _user_login(self._list.context.web, properties.get("AuthorId"), self._login_cache),
-            _user_login(self._list.context.web, properties.get("EditorId"), self._login_cache),
+            _user_login(self._list.context.web, target_item.author_id, self._login_cache),
+            _user_login(self._list.context.web, target_item.editor_id, self._login_cache),
         )
 
     def read_permissions(self, item: MigrationItem) -> list[PermissionEntry]:
@@ -2433,6 +2234,8 @@ class SharePointLibrarySource:
         # (``TimeCreated``/``TimeLastModified``) can be diffed after the run.
         self._folders: dict[str, "Folder"] = {}
         self._users: dict[int, "Principal | None"] = {}
+        # Group title -> (owner user, owner group chain); a ``<Group>`` needs both.
+        self._group_owners: dict[str, tuple["Principal | None", list[str]]] = {}
         self._default_groups: _DefaultGroups | None = None
         self._item_authors: dict[str, tuple[int | None, int | None]] | None = None
         self._item_unique: dict[str, bool] | None = None
@@ -2449,6 +2252,7 @@ class SharePointLibrarySource:
     def label(self) -> str:
         return f"library:{self._folder.server_relative_url}"
 
+    @site_access(SiteLevel.READ)
     def list_items(self, progress: MigrationProgress = None) -> list[MigrationItem]:
         # The root folder's URL may not be loaded yet (e.g. via
         # ``list.root_folder``); fetch it so destinations stay library-relative
@@ -2471,7 +2275,7 @@ class SharePointLibrarySource:
         for folder in loaded_folders:
             url = folder.server_relative_url or ""
             rel = _rel(url)
-            if not rel or rel in seen or _is_system_path(rel, extra):
+            if not rel or rel in seen or self._folder.is_system_path(rel, extra):
                 continue
             seen.add(rel)
             self._folders[rel] = folder
@@ -2482,19 +2286,15 @@ class SharePointLibrarySource:
                 item_type="folder",
                 modified=iso_or_none(folder.time_last_modified),
                 created=iso_or_none(folder.time_created),
-                author_id=author_id,
-                editor_id=editor_id,
             )
-            if author_id is not None:
-                folder_item.author = self._principal_for(author_id)
-            if editor_id is not None:
-                folder_item.editor = self._principal_for(editor_id)
+            folder_item.author = self._principal_for(author_id)
+            folder_item.editor = self._principal_for(editor_id)
             result.append(folder_item)
             emit_progress(progress, done=len(result), stage="planning", items=[folder])
         for file in loaded:
             url = file.server_relative_url or ""
             rel = _rel(url)
-            if _is_system_path(rel, extra):
+            if self._folder.is_system_path(rel, extra):
                 continue
             self._files[rel] = file
             author_id = parse_int(file.author.id)
@@ -2508,15 +2308,11 @@ class SharePointLibrarySource:
                 item_type="file",
                 modified=iso_or_none(file.time_last_modified),
                 created=iso_or_none(file.time_created),
-                author_id=author_id,
-                editor_id=editor_id,
                 source_id=str(file.unique_id) if file.unique_id else None,
                 version_label=file.ui_version_label,
             )
-            if author_id is not None:
-                item.author = self._principal_for(author_id)
-            if editor_id is not None:
-                item.editor = self._principal_for(editor_id)
+            item.author = self._principal_for(author_id)
+            item.editor = self._principal_for(editor_id)
             result.append(item)
             emit_progress(progress, done=len(result), stage="planning", items=[file])
         self._report_checkouts(result)
@@ -2575,6 +2371,7 @@ class SharePointLibrarySource:
             f"preserved): {shown}"
         )
 
+    @site_access(SiteLevel.READ)
     def read(self, item: MigrationItem) -> object:
         if item.item_type == "folder":
             # A folder's payload is its column values (empty when it carries none).
@@ -2592,6 +2389,7 @@ class SharePointLibrarySource:
         file.download_session(buffer, chunk_downloaded=_chunk_downloaded).execute_query()
         return buffer.getvalue()
 
+    @site_access(SiteLevel.READ)
     def read_version_history(self, item: MigrationItem) -> tuple[str | None, list[tuple[str, bytes]]]:
         """Read the file's current version label and its older versions.
 
@@ -2608,13 +2406,10 @@ class SharePointLibrarySource:
         if file.ui_version_label is None:
             file.ensure_property("UIVersionLabel").execute_query()
         older: list[tuple[str, bytes]] = []
-        for version in file.versions.get().execute_query():
+        for version in sorted(file.versions.get().execute_query(), key=lambda v: v.sort_key):
             label = version.version_label
-            if not label:
-                continue
-            data = version.open_binary_stream().execute_query().value
-            older.append((label, data or b""))
-        older.sort(key=lambda row: _version_sort_key(row[0]))
+            if label and not version.is_current_version:
+                older.append((label, version.open_binary_stream().execute_query().value or b""))
         return file.ui_version_label, older
 
     @property
@@ -2625,7 +2420,7 @@ class SharePointLibrarySource:
     def checksum(self, item: MigrationItem) -> str:
         if item.item_type == "folder":
             return _content_checksum(_canonicalize_taxonomy_record(self._folder_values(item)))
-        return hashlib.md5(cast(bytes, self.read(item))).hexdigest()
+        return checksum(cast(bytes, self.read(item)))
 
     def _folder_values(self, item: MigrationItem) -> dict:
         """The source folder's column values (empty when it carries none)."""
@@ -2659,7 +2454,9 @@ class SharePointLibrarySource:
                 securable.properties["HasUniqueRoleAssignments"] = unique
         if not _has_unique_role_assignments(securable):
             return []
-        return _read_role_assignments(securable, resolve=self._principal_for, normalize=self._normalize_name)
+        entries = _read_role_assignments(securable, resolve=self._principal_for, normalize=self._normalize_name)
+        _attach_group_owners(entries, self._folder.context.web, self._principal_for, self._group_owners)
+        return entries
 
     def _normalize_name(self, name: str) -> str:
         """Canonicalize a principal name (default groups -> ``default:<Kind>``)."""
@@ -2692,7 +2489,8 @@ class SharePointLibrarySource:
         self._file_authors()
         state = (self._item_moderation or {}).get(item.source_path)
         if state:
-            metadata["moderation_status"] = state.get("_ModerationStatus")
+            status = state.get(_MODERATION_STATUS)
+            metadata["moderation_status"] = None if status is None else str(status)
         return metadata
 
     def read_authorship(self, item: MigrationItem) -> tuple[str | None, str | None]:
@@ -2718,22 +2516,14 @@ class SharePointLibrarySource:
         principal: "Principal | None" = None
         try:
             user = self._folder.context.web.site_users.get_by_id(cast("str", key)).get().execute_query()
-            user_id_info = user.properties.get("UserId")
-            raw_id = getattr(user_id_info, "NameId", None)
-            system_id = normalize_puid(raw_id)
-            if raw_id and system_id is None:
+            principal = _principal_of(user, key)
+            if user.user_id.name_id and principal.system_id is None:
                 # e.g. the app principal, whose ``UserId.NameId`` is not a PUID.
                 # Emitting it would fail the whole ingestion job, so drop it.
                 self.warnings.append(
-                    f"user {key} ({user.login_name!r}) has no usable PUID ({raw_id!r}); "
+                    f"user {key} ({user.login_name!r}) has no usable PUID ({user.user_id.name_id!r}); "
                     "it is omitted from the server-side user map"
                 )
-            principal = Principal(
-                login_name=user.login_name or "",
-                system_id=system_id,
-                display_name=user.title,
-                email=user.properties.get("Email"),
-            )
         except Exception as e:  # noqa: BLE001 — a missing user degrades to no authorship
             self.warnings.append(f"user {key} could not be resolved: {e}")
         self._users[key] = principal
@@ -2757,25 +2547,15 @@ class SharePointLibrarySource:
                 # ``CheckoutUser`` is a user field: it only projects when its
                 # sub-properties are selected *and* the field is expanded — a bare
                 # ``$select=CheckoutUser`` is rejected by the server.
-                select = [
-                    "FileRef",
-                    "AuthorId",
-                    "EditorId",
-                    "HasUniqueRoleAssignments",
-                    "CheckoutUser/Id",
-                    "CheckoutUser/Title",
-                ]
+                select = ["FileRef", *_METADATA_SELECT, "CheckoutUser/Id", "CheckoutUser/Title"]
                 if moderates:
                     select.extend(_MODERATION_FIELDS)
                 items = self._sp_list.items.select(select).expand(["CheckoutUser"]).get_all().execute_query()
                 for item in items:
-                    ref = item.properties.get("FileRef")
+                    ref = item.file_ref
                     if ref:
-                        authors[ref] = (
-                            parse_int(item.properties.get("AuthorId")),
-                            parse_int(item.properties.get("EditorId")),
-                        )
-                        unique[ref] = bool(item.properties.get("HasUniqueRoleAssignments"))
+                        authors[ref] = (item.author_id, item.editor_id)
+                        unique[ref] = bool(item.has_unique_role_assignments)
                         if item.properties.get("CheckoutUser"):
                             checkout.add(ref)
                         if moderates:
@@ -2810,8 +2590,9 @@ class SharePointLibrarySource:
     def read_item_state(self, item: MigrationItem) -> dict | None:
         """Approval state that a fresh upload would not reproduce.
 
-        An uploaded document starts out *approved*, so only a draft/pending or
-        rejected source file carries state, together with its approval comments.
+        A copy arrives approved on a list without moderation and pending on one with it,
+        so a pending source says nothing the copy does not already say; a draft, rejected
+        or scheduled one does, together with its approval comments.
         """
         if item.item_type == "folder" or self._list_source is None:
             return None
@@ -2819,8 +2600,8 @@ class SharePointLibrarySource:
         state = (self._item_moderation or {}).get(item.source_path)
         if not state:
             return None
-        status = state.get("_ModerationStatus")
-        if status is None or status == _APPROVED_STATUS:
+        status = state.get(_MODERATION_STATUS)
+        if status is None or status == SPModerationStatusType.Pending.value:
             return None
         return state
 
@@ -2839,6 +2620,12 @@ class SharePointLibraryTarget:
     department is written onto the created folder's item. ``content_type_map``
     rewrites the folder's content type id to its target counterpart, exactly as it
     does for an item record.
+
+    Pass ``structure`` (a :class:`~office365.migration.sharepoint.structure.ListStructure`
+    from :func:`~office365.migration.sharepoint.structure.load_list_structure`) to
+    replay a captured shape onto the library before the first file is uploaded — the
+    columns, content types, views and container settings of a bundle travel in its
+    sidecar, not in each file.
     """
 
     #: Files carry content-approval state (``apply_item_state``). Documents refuse a
@@ -2855,6 +2642,7 @@ class SharePointLibraryTarget:
             concurrency=self._concurrency,
             sp_list=sp_list,
             content_type_map=self._content_type_map,
+            structure=self._structure,
         )
 
     def __init__(
@@ -2863,7 +2651,12 @@ class SharePointLibraryTarget:
         concurrency: int = 1,
         sp_list: "SPList | None" = None,
         content_type_map: "ContentTypeMap | None" = None,
+        structure: "ListStructure | None" = None,
     ) -> None:
+        if structure is not None and sp_list is None:
+            raise ValueError("a structure snapshot needs the target list (sp_list) to be applied to")
+        self._structure = structure
+        self._structure_applied = False
         self._folder = library_folder
         self._concurrency = concurrency
         # The folder-record mapping is the record mapping: reuse the list target so a
@@ -2876,58 +2669,10 @@ class SharePointLibraryTarget:
         self.warnings: list[str] = []
         self._login_cache: dict[int, str | None] = {}
         self._principals_cache: _TargetPrincipals | None = None
-        # Author/Editor values written by ``apply_authorship`` and folded into the
+        # Author/Editor values resolved by ``apply_authorship`` and folded into the
         # final timestamp write so ``Editor`` isn't reset by the latter.
         self._pending_authorship: dict[str, dict] = {}
-        # Target web time zone (lazily loaded) and a UTC->local conversion cache.
-        self._time_zone = None
-        self._local_cache: dict[str, str] = {}
         self._field_scan: SharePointListSource | None = None
-
-    def _utc_to_local(self, *values: str | None) -> list[str | None]:
-        """Convert UTC timestamp strings to web-local wall-clock (one round trip).
-
-        Document items parse form dates in the web's locale, so the desired UTC
-        instant must be converted to local wall-clock first. The conversion runs
-        server-side (``TimeZone.UTCToLocalTime``) so DST is handled correctly.
-        Results are cached by the exact UTC value.
-        """
-        if self._time_zone is None:
-            self._time_zone = self._folder.context.web.regional_settings.time_zone
-        outputs: list[str | None] = [None] * len(values)
-        pending: dict[str, object] = {}
-        assignments: list[tuple[int, str]] = []
-        for index, value in enumerate(values):
-            if not value:
-                continue
-            utc = _sp_utc_timestamp(value)
-            if utc is None:
-                continue
-            if not utc.endswith("Z"):
-                # Unparseable value: pass it through unchanged so a rejection is
-                # surfaced by ``_report_rejected_fields`` rather than silently lost.
-                outputs[index] = str(value)
-                continue
-            cached = self._local_cache.get(utc)
-            if cached is not None:
-                outputs[index] = cached
-                continue
-            instant = parse_datetime(utc)
-            if instant is None:
-                outputs[index] = str(value)
-                continue
-            if utc not in pending:
-                pending[utc] = self._time_zone.utc_to_local_time(instant)
-            assignments.append((index, utc))
-        if pending:
-            self._folder.context.execute_query()
-            for utc, result in pending.items():
-                local = _sp_local_timestamp(getattr(result, "value", None))
-                if local is not None:
-                    self._local_cache[utc] = local
-            for index, utc in assignments:
-                outputs[index] = self._local_cache.get(utc)
-        return outputs
 
     def _principals(self) -> _TargetPrincipals:
         """The (lazily built) target principal/role resolver."""
@@ -2935,12 +2680,33 @@ class SharePointLibraryTarget:
             self._principals_cache = _TargetPrincipals(self._folder.context.web, self.warnings)
         return self._principals_cache
 
+    def configure(self, options) -> None:
+        """Replay the captured structure onto the library before the first upload.
+
+        Called by :class:`MigrationRunner` before the run. A bundle carries the
+        library's columns, content types, views and container settings in a sidecar,
+        not in each file, so they have to exist before the files land — a file
+        uploaded into a bare library stores no column values of its own.
+        """
+        self.apply_structure()
+
+    def apply_structure(self) -> list[str]:
+        """Provision the snapshot passed as ``structure`` (once, idempotent)."""
+        if self._structure is None or self._structure_applied or self._sp_list is None:
+            return []
+        self._structure_applied = True
+        entries = self._content_type_map.entries if self._content_type_map is not None else None
+        warnings = provision_list_structure(self._sp_list, self._structure, content_type_map=entries)
+        self.warnings.extend(warnings)
+        return warnings
+
     def label(self) -> str:
         return f"library:{self._folder.server_relative_url}"
 
     def _url(self, item: MigrationItem) -> str:
         return f"{(self._folder.server_relative_url or '').rstrip('/')}/{str(item.dest_path).strip('/')}"
 
+    @site_access(SiteLevel.READ)
     def exists(self, item: MigrationItem) -> bool:
         url = self._url(item)
         try:
@@ -2961,12 +2727,20 @@ class SharePointLibraryTarget:
         self._folder.ensure_folders(paths)
         self._folder.context.execute_query()
 
+    @site_access(SiteLevel.WRITE)
     def write(self, item: MigrationItem, payload: object) -> None:
         if item.item_type == "folder":
             self._ensure_folders([item])
             if isinstance(payload, dict):
                 self._apply_folder_values(item, payload)
             return
+        if isinstance(payload, dict):
+            # ``str(payload).encode()`` below would write the record's ``repr`` into a file
+            # nobody asked for, and report it as a success: refuse instead.
+            raise ValueError(
+                f"{item.dest_path!r} is a {item.item_type!r} with a dict payload: this target writes files, and a "
+                "list record is not a file body — migrate records into a list"
+            )
         content = payload if isinstance(payload, bytes) else str(payload).encode("utf-8")
         self._folder.upload_file(item.dest_path, content).execute_query()
 
@@ -3048,6 +2822,7 @@ class SharePointLibraryTarget:
             )
         return failures
 
+    @site_access(SiteLevel.READ)
     def list_paths(self) -> list[str]:
         root = (self._folder.server_relative_url or "").rstrip("/")
         extra = _site_assets_scaffolding(self._folder)
@@ -3060,8 +2835,9 @@ class SharePointLibraryTarget:
         # notebook) is recreated server-side, never migrated, so it must not be
         # reported as target-only content during verification. Source folder paths
         # carry a trailing slash; target folder paths mirror that.
-        return [p for p in paths if p != "/" and not _is_system_path(p, extra)]
+        return [p for p in paths if p != "/" and not self._folder.is_system_path(p, extra)]
 
+    @site_access(SiteLevel.READ)
     def read(self, item: MigrationItem) -> bytes:
         """Download the written item's bytes (used by verification for Office files)."""
         if item.item_type == "folder":
@@ -3077,7 +2853,7 @@ class SharePointLibraryTarget:
             if values is None or self._list_target is None:
                 return ""
             return self._list_target.content_checksum(values)
-        return hashlib.md5(self.read(item)).hexdigest()
+        return checksum(self.read(item))
 
     def _target_folder_values(self, item: MigrationItem) -> dict | None:
         """The target folder's column values as they read back (``None`` if unknown)."""
@@ -3087,6 +2863,7 @@ class SharePointLibraryTarget:
         list_item = self._securable(item).select(columns).get().execute_query()
         return _folder_record_values(dict(list_item.properties))
 
+    @site_access(SiteLevel.READ)
     def modified(self, item: MigrationItem) -> str:
         """Last-modified of the target file (for incremental migration)."""
         if item.item_type == "folder":
@@ -3094,32 +2871,43 @@ class SharePointLibraryTarget:
         file = self._folder.context.web.get_file_by_server_relative_url(self._url(item)).get().execute_query()
         return iso_or_none(file.time_last_modified) or ""
 
+    @site_access(SiteLevel.WRITE)
     def apply_timestamps(self, item: MigrationItem) -> None:
         """Best-effort: restore ``Created``/``Modified`` on the written item.
 
-        Uses ``ValidateUpdateListItem``, the only REST path that can set these
-        system fields. For files it runs as a system update
-        (``bNewDocumentUpdate=True``, the CSOM ``UpdateOverwriteVersion`` path) so
-        the metadata lands without creating a new version; folders have no version
-        history. ``preserve_versions`` still needs the server-side API. Authorship
-        values resolved for the same item ride along in this write.
+        ``ValidateUpdateListItem`` is the only REST path that can set these system
+        fields. For files it runs as a system update (``bNewDocumentUpdate=True``, the
+        CSOM ``UpdateOverwriteVersion`` path) so the metadata lands without creating a
+        new version; folders have no version history. ``preserve_versions`` still needs
+        the server-side API. Authorship values resolved for the same item ride along in
+        this write.
         """
-        form_values: dict = {}
-        created, modified = self._utc_to_local(item.created, item.modified)
-        if created:
-            form_values["Created"] = created
-        if modified:
-            form_values["Modified"] = modified
-        form_values.update(self._pending_authorship.pop(item.dest_path, {}))
-        if not form_values:
-            return
+        self._restore_fidelity(item, timestamps=True)
+
+    def _restore_fidelity(self, item: MigrationItem, timestamps: bool) -> None:
+        """One system update carrying every fidelity value this item has.
+
+        A document's item form reads its dates in the web's locale rather than the UTC
+        a caller holds, so the timestamps are converted first (see
+        :func:`_web_local_texts`); the approval state is a write of its own and stays
+        last — see :meth:`apply_item_state`.
+        """
         securable = self._securable(item)
         if securable is None:
             return
-        result = securable.validate_update_list_item(
-            form_values,
-            dates_in_utc=True,
+        created = modified = None
+        if timestamps:
+            created, modified = _web_local_texts(self._folder.context.web, item.created, item.modified)
+        authorship = self._pending_authorship.pop(item.dest_path, {})
+        if not (created or modified or authorship):
+            return
+        result = securable.restore_fidelity(
+            created=created,
+            modified=modified,
+            author=authorship.get("Author"),
+            editor=authorship.get("Editor"),
             new_document_update=item.item_type != "folder",
+            web_local_dates=True,
         ).execute_query()
         _report_rejected_fields(result, self.warnings, f"timestamps {item.dest_path}")
 
@@ -3139,19 +2927,15 @@ class SharePointLibraryTarget:
             return
         author = self._principals().user(item.author.login_name if item.author else None)
         editor = self._principals().user(item.editor.login_name if item.editor else None)
-        if author is not None and _is_system_principal(author):
+        if author is not None and author.is_service_account:
             author = None
-        if editor is not None and _is_system_principal(editor):
+        if editor is not None and editor.is_service_account:
             editor = None
         if author is None and editor is None:
             return
-        form_values: dict[str, FieldUserValue] = {}
-        if author is not None:
-            form_values["Author"] = FieldUserValue(author.id, author.login_name)
-        if editor is not None:
-            form_values["Editor"] = FieldUserValue(editor.id, editor.login_name)
-        self._pending_authorship[item.dest_path] = dict(form_values)
+        self._pending_authorship[item.dest_path] = {"Author": author, "Editor": editor}
 
+    @site_access(SiteLevel.WRITE)
     def finalize_fidelity(self, item: MigrationItem) -> None:
         """Write the fidelity values that were only cached for this item.
 
@@ -3160,19 +2944,9 @@ class SharePointLibraryTarget:
         one system update instead of one per property group. Runs before the
         approval write, which must stay last.
         """
-        form_values = self._pending_authorship.pop(item.dest_path, {})
-        if not form_values:
-            return
-        securable = self._securable(item)
-        if securable is None:
-            return
-        result = securable.validate_update_list_item(
-            form_values,
-            dates_in_utc=True,
-            new_document_update=item.item_type != "folder",
-        ).execute_query()
-        _report_rejected_fields(result, self.warnings, f"authorship {item.dest_path}")
+        self._restore_fidelity(item, timestamps=False)
 
+    @site_access(SiteLevel.MANAGE)
     def apply_permissions(self, item: MigrationItem, permissions: list[PermissionEntry]) -> None:
         """Best-effort: replay a file's or folder's unique ACLs onto the target item.
 
@@ -3186,16 +2960,18 @@ class SharePointLibraryTarget:
         _replay_role_assignments(securable, self._principals(), permissions, self.warnings, item.dest_path)
         securable.context.execute_query()
 
+    @site_access(SiteLevel.WRITE)
     def apply_item_state(self, item: MigrationItem, state: dict) -> None:
         """Best-effort: restore a migrated file's content-approval state.
 
-        An uploaded file starts out approved, and the timestamp/authorship system
-        updates approve it again, so a source draft or rejected file would
-        otherwise silently become visible. Documents reject a moderation change
-        combined with other properties (``You cannot change moderation status and
-        set other item properties at that same time.``), hence a separate write,
-        applied last. A library without moderation enabled has no such fields: the
-        write fails and is reported, never fatal.
+        A fresh document is pending on a moderated library and approved on one without
+        it, so a draft or rejected source file would otherwise silently become visible.
+        Documents reject a moderation change combined with other properties (``You
+        cannot change moderation status and set other item properties at that same
+        time.``), which is why a list item carries its state in its other system update
+        and a file needs this write of its own, applied last. A library without
+        moderation enabled has no such fields: the write fails and is reported, never
+        fatal.
         """
         if item.item_type == "folder" or not state:
             return
@@ -3203,16 +2979,13 @@ class SharePointLibraryTarget:
         if securable is None:
             return
         try:
-            result = securable.validate_update_list_item(
-                dict(state),
-                dates_in_utc=True,
-                new_document_update=True,
-            ).execute_query()
+            result = securable.restore_fidelity(approval=dict(state), new_document_update=True).execute_query()
         except Exception as e:  # noqa: BLE001 — approval state is best-effort
             self.warnings.append(f"approval state for {item.dest_path!r} could not be restored: {e}")
             return
         _report_rejected_fields(result, self.warnings, f"approval state {item.dest_path}")
 
+    @site_access(SiteLevel.READ)
     def read_metadata(self, item: MigrationItem) -> dict | None:
         """Comparable attributes of the written item (for the metadata diff)."""
         if item.item_type == "folder":
@@ -3244,11 +3017,11 @@ class SharePointLibraryTarget:
         if securable is None:
             return None
         try:
-            securable.select(["OData__ModerationStatus"]).get().execute_query()
+            securable.select([_MODERATION_STATUS]).get().execute_query()
         except Exception:  # noqa: BLE001 — a library without moderation has no such column
             return None
-        status = securable.properties.get("OData__ModerationStatus")
-        return None if status is None else str(status)
+        status = securable.moderation_status
+        return None if status is None else str(status.value)
 
     def read_permissions(self, item: MigrationItem) -> list[PermissionEntry]:
         """Read the written item's *unique* role assignments (for the permission diff)."""
@@ -3269,10 +3042,9 @@ class SharePointLibraryTarget:
         securable = self._fresh_securable(item)
         if securable is None:
             return (None, None)
-        properties = securable.properties
         return (
-            _user_login(self._folder.context.web, properties.get("AuthorId"), self._login_cache),
-            _user_login(self._folder.context.web, properties.get("EditorId"), self._login_cache),
+            _user_login(self._folder.context.web, securable.author_id, self._login_cache),
+            _user_login(self._folder.context.web, securable.editor_id, self._login_cache),
         )
 
     def _securable(self, item: MigrationItem):
@@ -3283,7 +3055,6 @@ class SharePointLibraryTarget:
 
     def commit(self, options=None) -> None:
         self._pending_authorship.clear()
-        self._local_cache.clear()
 
     def close(self) -> None:
         pass

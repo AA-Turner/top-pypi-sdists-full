@@ -77,6 +77,22 @@ class ASAP7PDK(LambdaPDK):
                 self.add_displayfileset("klayout")
             self.add_layermapfileset("klayout", "def", "gds", fileset="layermap")
 
+            # KLayout DRC, taken from OpenROAD-flow-scripts (flow/platforms/asap7/drc).
+            # "drc_no_m1" skips the M1 rules (M1.W.1, M1.S.*, M1.A.1), whose remaining
+            # violations come from V1 pads and router patches next to standard-cell pins.
+            drcs = ("drc", "drc_no_m1")
+            with self.active_fileset("klayout.drc"):
+                self.add_file(pdk_path / "setup" / "klayout" / "asap7.lydrc", filetype="drc")
+                for drc in drcs:
+                    self.add_runsetfileset("drc", "klayout", drc)
+
+            for drc in drcs:
+                self.add_klayout_drcparam(drc, "in_gds=<input>")
+                self.add_klayout_drcparam(drc, "topcell=<topcell>")
+                self.add_klayout_drcparam(drc, "report_file=<report>")
+                self.add_klayout_drcparam(drc, "threads=<threads>")
+            self.add_klayout_drcparam("drc_no_m1", "m1=false")
+
             self.set_aprroutinglayers(min="M2", max="M7")
 
             # OpenROAD setup
@@ -97,6 +113,12 @@ class ASAP7PDK(LambdaPDK):
                 self.set_openroad_globalroutingderating(layer, derate)
 
             self.add_openroad_pinlayers(vertical="M5", horizontal="M4")
+
+            # Keep V1 pads inside M1 pins. The 18 x 22 nm VIA12 pad has only edges under
+            # 24 nm, so wherever it sticks out of a pin it is a tip next to the neighbouring
+            # pin (DRM M1.S.2-S.5), which the LEF cannot fully describe. M1 only: the M2
+            # pins of FAx1, XOR2x1, ... would also lose planar access.
+            self.set_openroad_detailedrouteviainpinlayers("M1", "M1")
 
             with self.active_fileset("openroad.routing"):
                 # Relaxed routing rules

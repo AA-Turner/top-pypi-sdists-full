@@ -388,6 +388,56 @@ class TestConfigFinder:
         assert test_dir / "file.robot" in actual_results
         assert len(actual_results) == 1
 
+    def test_gitignore_directory_pattern_in_subdirectory(self, tmp_path):
+        # Arrange
+        (tmp_path / ".git").mkdir()
+        ignored_dir = tmp_path / "sub" / "ignored_dir"
+        ignored_dir.mkdir(parents=True)
+        # files from the ignored directory can't be re-included, the same as in git
+        (tmp_path / "sub" / ".gitignore").write_text("ignored_dir/\n!ignored_dir/keep.robot\n")
+        (tmp_path / "sub" / "file.robot").write_text("*** Test Cases ***\n")
+        (ignored_dir / "keep.robot").write_text("*** Test Cases ***\n")
+
+        # Act
+        actual_results = get_sources_and_configs(tmp_path)
+
+        # Assert
+        assert set(actual_results) == {tmp_path / "sub" / "file.robot"}
+
+    def test_nested_gitignores_and_configs(self, tmp_path):
+        # Arrange
+        (tmp_path / ".git").mkdir()
+        (tmp_path / ".gitignore").write_text("ignored_dir/\n*_ignored.robot\n")
+        (tmp_path / "pyproject.toml").write_text("[tool.robocop.lint]\nselect = ['DOC01']\n")
+        files = [
+            "root.robot",
+            "root_ignored.robot",
+            "ignored_dir/file.robot",
+            "a/b/file.robot",
+            "a/b/file_ignored.robot",
+            "a/b/local.robot",
+            "a/b/c/local.robot",
+            "a/other.robot",
+            "self_ignored/file.robot",
+            "config_dir/sub/file.robot",
+        ]
+        for file in files:
+            (tmp_path / file).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / file).write_text("*** Test Cases ***\n")
+        (tmp_path / "a" / "b" / ".gitignore").write_text("local.robot\n")
+        (tmp_path / "self_ignored" / ".gitignore").write_text("*\n")
+        (tmp_path / "config_dir" / "robocop.toml").write_text("[lint]\nselect = ['DOC02']\n")
+        expected_paths = {tmp_path / file for file in ("root.robot", "a/b/file.robot", "a/other.robot")}
+        expected_paths.add(tmp_path / "config_dir" / "sub" / "file.robot")
+
+        # Act
+        actual_results = get_sources_and_configs(tmp_path)
+
+        # Assert
+        assert set(actual_results) == {path.resolve() for path in expected_paths}
+        assert actual_results[(tmp_path / "a" / "b" / "file.robot").resolve()].linter.select == ["DOC01"]
+        assert actual_results[(tmp_path / "config_dir" / "sub" / "file.robot").resolve()].linter.select == ["DOC02"]
+
     def test_invalid_option_value(self, test_data):
         # Arrange
         config_path = test_data / "invalid_option_values" / "invalid_target_version.toml"

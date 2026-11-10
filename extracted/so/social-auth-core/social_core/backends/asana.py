@@ -3,10 +3,12 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+from social_core.backends.base import ResponseT_co
+
 from .oauth import BaseOAuth2
 
 
-class AsanaOAuth2(BaseOAuth2):
+class AsanaOAuth2(BaseOAuth2[ResponseT_co]):
     name = "asana"
     title = "Asana"
     ID_KEY = "gid"
@@ -54,8 +56,6 @@ class AsanaOAuth2(BaseOAuth2):
     ) -> dict[str, Any]:
         data = super().extra_data(user, uid, response, details, pipeline_kwargs)
         if self.setting("ESTIMATE_EXPIRES_ON"):
-            expires_on = dt.datetime.now(dt.timezone.utc) + dt.timedelta(
-                seconds=data["expires"]
-            )
+            expires_on = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=data["expires"])
             data["expires_on"] = expires_on.isoformat()
         return data

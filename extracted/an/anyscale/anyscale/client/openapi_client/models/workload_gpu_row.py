@@ -351,7 +351,7 @@ class WorkloadGpuRow(object):
     def state(self):
         """Gets the state of this WorkloadGpuRow.  # noqa: E501
 
-        Derived GPU state: offline if the GPU's node stopped reporting metrics (look-back snapshots only), unhealthy if an XID error is active, allocated if a workload is running on the GPU, idle otherwise. An offline GPU keeps its last-known telemetry and XIDs.  # noqa: E501
+        Derived GPU state: offline if the GPU's node stopped reporting metrics (look-back snapshots only), unhealthy if an XID error is active, allocated if a workload is running on the GPU and doing work, idle otherwise -- including a GPU held by a workload whose DCGM_FI_PROF_SM_ACTIVE stayed below 1% for the last 5 minutes. A GPU with no SM_ACTIVE reading is never idled this way. An offline GPU keeps its last-known telemetry and XIDs.  # noqa: E501
 
         :return: The state of this WorkloadGpuRow.  # noqa: E501
         :rtype: GpuState
@@ -362,7 +362,7 @@ class WorkloadGpuRow(object):
     def state(self, state):
         """Sets the state of this WorkloadGpuRow.
 
-        Derived GPU state: offline if the GPU's node stopped reporting metrics (look-back snapshots only), unhealthy if an XID error is active, allocated if a workload is running on the GPU, idle otherwise. An offline GPU keeps its last-known telemetry and XIDs.  # noqa: E501
+        Derived GPU state: offline if the GPU's node stopped reporting metrics (look-back snapshots only), unhealthy if an XID error is active, allocated if a workload is running on the GPU and doing work, idle otherwise -- including a GPU held by a workload whose DCGM_FI_PROF_SM_ACTIVE stayed below 1% for the last 5 minutes. A GPU with no SM_ACTIVE reading is never idled this way. An offline GPU keeps its last-known telemetry and XIDs.  # noqa: E501
 
         :param state: The state of this WorkloadGpuRow.  # noqa: E501
         :type: GpuState

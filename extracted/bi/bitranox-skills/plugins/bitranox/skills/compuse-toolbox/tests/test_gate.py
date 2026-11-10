@@ -96,6 +96,16 @@ def test_every_gate_runs_and_one_red_fails_the_whole_report(tmp_path):
     assert [r.returncode for r in rep.results] == [0, 3]
 
 
+def test_a_pinned_log_marks_each_run_and_the_second_report_says_so(tmp_path):
+    log = tmp_path / "g.log"
+    gates = [("ok", [sys.executable, "-c", "pass"])]
+    first = gate.run_gates(gates, log)
+    assert "holds earlier runs" not in gate.format_report(first, log)
+    second = gate.run_gates(gates, log)
+    assert log.read_text(encoding="utf-8").count(gate.RUN_MARKER) == 2
+    assert "holds earlier runs" in gate.format_report(second, log)
+
+
 def test_the_log_keeps_every_gates_output_for_later_reading(tmp_path):
     log = tmp_path / "g.log"
     gate.run_gates([("one", [sys.executable, "-c", "print('HELLO-FROM-GATE')"])], log)
@@ -853,6 +863,34 @@ class TestAnEmptyDashDashGateIsAUsageError:
         assert exc.value.code == 2
         assert "empty gate" in capsys.readouterr().err
         assert not log.exists()
+
+
+class TestSeveralGatesChainedAfterDashDash:
+    def test_a_second_gate_after_an_inner_dashdash_is_refused_naming_the_gate_form(self, tmp_path, capsys):
+        """`-- uv run pytest -- ruff check` ran pytest with the rest as its arguments: 0 tests."""
+        log = tmp_path / "g.log"
+        with pytest.raises(SystemExit) as exc:
+            gate.main(["--log", str(log), "--", "uv", "run", "pytest", "-q", "--", "ruff", "check", "."])
+        assert exc.value.code == 2
+        err = capsys.readouterr().err
+        assert '--gate "name=cmd"' in err and "ruff" in err
+        assert not log.exists()
+
+    @pytest.mark.parametrize("rest", [["cargo", "test", "--", "--nocapture"],
+                                      ["python3", "tool.py", "--", "input.txt"]])
+    def test_an_inner_dashdash_that_passes_arguments_is_still_one_gate(self, tmp_path, capsys, rest):
+        assert gate.several_gates_after_dashdash(rest) is None
+
+    def test_the_order_error_shows_the_working_order(self, tmp_path, capsys):
+        with pytest.raises(SystemExit):
+            gate.main(["--log", str(tmp_path / "g.log"), "--gate-cwd", str(tmp_path), "--gate", OK])
+        assert '--gate "<cmd>" --gate-cwd' in capsys.readouterr().err
+
+    def test_the_help_shows_the_per_gate_flags_after_their_gate(self, tmp_path, capsys):
+        with pytest.raises(SystemExit):
+            gate.main(["--help"])
+        text = " ".join(capsys.readouterr().out.split())
+        assert '--gate "make push" --gate-cwd DIR --gate-env MSG=@msgfile' in text
 
 
 class TestTheFollowUpPrintsAfterTheReport:

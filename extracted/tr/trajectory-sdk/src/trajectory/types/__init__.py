@@ -262,6 +262,8 @@ from trajectory.types.paginated_response_trajectory_event import (
 from trajectory.types.paginated_response_trajectory_metadata import (
   PaginatedResponseTrajectoryMetadata as PaginatedResponseTrajectoryMetadata,
 )
+from trajectory.types.priority_aggregation import PriorityAggregation as PriorityAggregation
+from trajectory.types.priority_trait import PriorityTrait as PriorityTrait
 from trajectory.types.production_model_slug_response import (
   ProductionModelSlugResponse as ProductionModelSlugResponse,
 )
@@ -309,6 +311,7 @@ from trajectory.types.responses.response_stream_event import (
 )
 from trajectory.types.revoke_secret_response import RevokeSecretResponse as RevokeSecretResponse
 from trajectory.types.run_options import RunOptions as RunOptions
+from trajectory.types.run_options import TrainingAlgorithm as TrainingAlgorithm
 from trajectory.types.run_options_response import ModelRunOptions as ModelRunOptions
 from trajectory.types.run_options_response import RunOptionMetadata as RunOptionMetadata
 from trajectory.types.run_options_response import RunOptionsResponse as RunOptionsResponse
@@ -335,7 +338,6 @@ from trajectory.types.training.training_run_lifecycle_status import (
 from trajectory.types.training.training_run_response import (
   TrainingRunResponse as TrainingRunResponse,
 )
-from trajectory.types.training_algorithm import TrainingAlgorithm as TrainingAlgorithm
 from trajectory.types.training_progress_response import (
   TrainingProgressResponse as TrainingProgressResponse,
 )
@@ -496,6 +498,8 @@ __all__ = [
   "PaginatedResponseTrainingRunResponse",
   "PaginatedResponseTrajectoryEvent",
   "PaginatedResponseTrajectoryMetadata",
+  "PriorityAggregation",
+  "PriorityTrait",
   "ProductionModelSlugResponse",
   "PromoteResponse",
   "PromptTokensDetails",

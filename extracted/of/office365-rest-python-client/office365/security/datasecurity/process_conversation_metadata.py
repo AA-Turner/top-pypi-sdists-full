@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.copilot.ai_agent_info import AiAgentInfo
 from office365.copilot.ai_interaction_plugin import AiInteractionPlugin
@@ -10,7 +10,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class ProcessConversationMetadata(ClientValue):
     accessedResources: StringCollection = field(default_factory=StringCollection)
     accessedResources_v2: ClientValueCollection[ResourceAccessDetail] = field(

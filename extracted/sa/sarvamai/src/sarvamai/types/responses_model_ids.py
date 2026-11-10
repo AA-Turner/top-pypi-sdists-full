@@ -5,14 +5,15 @@ import typing
 ResponsesModelIds = typing.Union[
     typing.Literal[
         "sarvam-105b",
+        "sarvam-105b-conversations",
         "glm5.3",
         "glm5.3-flash",
         "gemma4",
         "deepseekv4.1-flash-1017",
+        "deepseekv4.1-flash-1017-interactive",
         "deepseekv4-pro",
-        "kimi-k3",
-        "mimo-v2.6-flash",
-        "mimo-v2.6-pro",
+        "kimi-k3.1-pro",
+        "qwen38-27b",
     ],
     typing.Any,
 ]

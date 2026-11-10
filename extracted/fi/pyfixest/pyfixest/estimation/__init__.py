@@ -16,9 +16,6 @@ from pyfixest.estimation.api import (
     fepois,
     quantreg,
 )
-from pyfixest.estimation.deprecated.model_matrix_fixest_ import (
-    model_matrix_fixest,
-)
 from pyfixest.estimation.FixestMulti_ import (
     FixestMulti,
 )
@@ -40,6 +37,7 @@ from pyfixest.estimation.post_estimation.multcomp import (
     rwolf,
     wyoung,
 )
+from pyfixest.estimation.post_estimation.savi import optimal_mixture_precision
 from pyfixest.estimation.quantreg.quantreg_ import Quantreg
 
 __all__ = [
@@ -62,7 +60,7 @@ __all__ = [
     "feols",
     "fepois",
     "literals",
-    "model_matrix_fixest",
+    "optimal_mixture_precision",
     "quantreg",
     "rwolf",
     "wyoung",

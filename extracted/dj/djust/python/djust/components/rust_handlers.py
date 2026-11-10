@@ -10,10 +10,13 @@ Block handlers implement:  render(self, args, content, context) -> str
 """
 
 import json as _json
+import re as _re_filters
+import pathlib as _pathlib
 import uuid as _uuid
+from html.parser import HTMLParser
 from typing import Any, cast
 
-from django.utils.html import conditional_escape
+from django.utils.html import conditional_escape, escape
 from django.utils.safestring import mark_safe
 
 
@@ -30,6 +33,7 @@ def _safe(html: str) -> str:
     return cast(str, mark_safe(html))
 
 
+from djust.components.components.dashboard_grid import clamp_cells, clamp_columns
 from djust.components.utils import (
     safe_css_color,
     safe_css_length,
@@ -38,8 +42,13 @@ from djust.components.utils import (
     format_cell as _format_cell_util,
     interpolate_color,
     interpolate_color_gradient,
+    unique_ids as _unique_ids,
     url_attr,
+    data_url_attr,
+    srcset_attr,
 )
+from djust.components.utils import _exact_str
+from djust.template_tags import TYPED_ARGS_KEY
 
 
 # ---------------------------------------------------------------------------
@@ -47,25 +56,50 @@ from djust.components.utils import (
 # ---------------------------------------------------------------------------
 
 
+def _quoted(text: str) -> bool:
+    """``text`` is a quoted literal: it opens and closes with the same quote character."""
+    return len(text) >= 2 and text[0] in "\"'" and text[-1] == text[0]
+
+
 def _parse_args(args: list[str], context: dict[str, object]) -> dict[str, object]:
     """Parse handler arg list ["key='val'", "key2=var"] into a dict.
 
-    Resolves variable references against the template context dict.
-    Values that are JSON-encoded lists/objects (from the Rust engine's
-    variable resolution) are deserialized automatically.
+    The engine has already resolved every operand, so ``val`` is the resolved TEXT (a quoted
+    literal arrives as written). Values that are JSON-encoded lists/objects (from the Rust
+    engine's variable resolution) are deserialized automatically.
+
+    The text is read exactly as it arrived. It used to be stripped (``val.strip()``), which also
+    stripped a RESOLVED value: ``ev = "x "`` reached the page as ``x`` where the Django tag keeps
+    ``"x "`` (#3872). A source token never carries whitespace (the engine splits a tag on it), so
+    nothing but a resolved value was ever stripped.
+
+    A name the engine could not resolve never gets here as a name: an inline tag's argument arrives
+    empty, and ``_TypedBlockOperands`` makes a block tag's the same (#3871). What is left of the
+    ``context.get(val, val)`` fallback is the one thing the engine does not do: a handler called
+    DIRECTLY with a raw token (``render(["users=users"], {"users": ...})``, which is how ~400 tests
+    call one). It also looks a RESOLVED value up a second time, so ``ev = "name"`` becomes whatever
+    the variable ``name`` holds; that is a separate defect, pinned in
+    ``test_a_value_that_is_also_a_variable_name_is_resolved_a_second_time``.
     """
 
     result: dict[str, object] = {}
+    # The operands the engine could only hand over as a stand-in (#3768): a tuple, a namedtuple,
+    # a UUID, a Path. Read once, and consulted BEFORE the text is parsed: the typed value replaces
+    # the operand, so decoding the stand-in (for a 2,000,000-element tuple, a JSON list built and
+    # thrown away) is work for nothing (#3849). The key keeps its place in ``result``.
+    typed = context.get(TYPED_ARGS_KEY)
+    if not isinstance(typed, dict):
+        typed = {}
     for arg in args:
         if "=" not in arg:
             continue
         key, val = arg.split("=", 1)
         key = key.strip()
-        val = val.strip()
+        if key in typed and isinstance(typed[key], _RECOVERED_TYPES):
+            result[key] = _from_typed(typed[key])
+            continue
         # String literal — strip quotes
-        if (val.startswith('"') and val.endswith('"')) or (
-            val.startswith("'") and val.endswith("'")
-        ):
+        if _quoted(val):
             result[key] = val[1:-1]
         # JSON array or object (from Rust variable resolution)
         elif (val.startswith("[") and val.endswith("]")) or (
@@ -85,8 +119,12 @@ def _parse_args(args: list[str], context: dict[str, object]) -> dict[str, object
         # None
         elif val in ("None", "null"):
             result[key] = None
+        elif val != val.strip():
+            # Padding is part of a resolved value (#3872): ``int(" 5 ")`` is 5, and a text that
+            # was ``" 5 "`` is not the number.
+            result[key] = val
         else:
-            # Try numeric before falling back to variable reference
+            # Try numeric before falling back to the text
             try:
                 result[key] = int(val)
             except ValueError:
@@ -98,38 +136,303 @@ def _parse_args(args: list[str], context: dict[str, object]) -> dict[str, object
     return result
 
 
+def _passed_or_context(
+    kw: dict[str, object],
+    name: str,
+    context: dict[str, object],
+    key: str | None = None,
+    default: object = None,
+) -> object:
+    """``kw[name]`` when the argument was PASSED (even empty, ``None`` or ``False``); only when it
+    is ABSENT, the render context's ``key`` (default: ``name``).
+
+    This is the one place a handler reads the context as a stand-in for an argument. It decides on
+    PRESENCE, never on truthiness: ``kw.get(name) or context.get(key)`` used the context's
+    ``rows`` / ``options`` / ``steps`` for ``rows=[]``, where the Python tag uses the empty value
+    it was given.
+    """
+    if name in kw:
+        return kw[name]
+    return context.get(key if key is not None else name, default)
+
+
+class TupleValue(list):  # type: ignore[type-arg]
+    """A tuple a native handler was given (#3768).
+
+    The engine hands a handler a ``tuple`` as a JSON list, and a handler reads a list slot with
+    ``isinstance(rows, list)`` (~55 places): a real ``tuple`` there would be dropped as "not a
+    list", turning ``rows=my_tuple_of_dicts`` (an ordinary thing to pass) into an empty table. So
+    the handler keeps getting a ``list``, a subclass that prints the way the tuple does. A text
+    slot then reads ``(1, 2)`` as Django's tag prints it, where it read ``[1, 2]``.
+
+    ``NamedTupleValue`` is the same for a namedtuple (#3849).
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        # Iterative, like ``_from_typed``: a tuple nested a few hundred deep is legal input (it
+        # printed under Django and under this engine before #3768), and a recursive ``repr`` here
+        # would raise RecursionError one level at a time. Only TupleValue members recurse in
+        # this walk; any other member is printed by its own ``repr``.
+        out = [_opening(self)]
+        stack: list[tuple[TupleValue, int]] = [(self, 0)]
+        while stack:
+            node, index = stack[-1]
+            if index == len(node):
+                if len(node) == 1 and not isinstance(node, NamedTupleValue):
+                    out.append(",")
+                out.append(")")
+                stack.pop()
+                continue
+            stack[-1] = (node, index + 1)
+            if index:
+                out.append(", ")
+            if isinstance(node, NamedTupleValue) and index < len(node._fields):
+                out.append(node._fields[index] + "=")
+            item = node[index]
+            if isinstance(item, TupleValue):
+                out.append(_opening(item))
+                stack.append((item, 0))
+            else:
+                out.append(repr(item))
+        return "".join(out)
+
+    __str__ = __repr__
+
+
+class NamedTupleValue(TupleValue):
+    """A namedtuple a native handler was given, still a ``list`` (#3849).
+
+    Prints as the namedtuple does (``P(x=1, y=2)``, which is what Django's tag prints), and is a
+    ``list`` for the reason ``TupleValue`` is. The class it came from is gone (the engine holds a
+    namedtuple as a name, its fields and its items), so a ``__repr__`` the class defined for itself
+    is not reproduced: this prints the default one.
+    """
+
+    __slots__ = ("_name", "_fields")
+
+    def __init__(self, items: Any = (), name: str = "tuple", fields: tuple[str, ...] = ()) -> None:
+        super().__init__(items)
+        self._name = name
+        self._fields = fields
+
+
+def _opening(node: TupleValue) -> str:
+    """The text a ``TupleValue`` opens with: ``(`` for a tuple, ``P(`` for a namedtuple."""
+    return node._name + "(" if isinstance(node, NamedTupleValue) else "("
+
+
+def _namedtuple_shape(source: tuple[Any, ...]) -> tuple[str, tuple[str, ...]] | None:
+    """``(name, fields)`` when ``source`` is a namedtuple, else ``None``.
+
+    A ``_fields`` tuple with one name per member. This is NARROWER than the engine's rule when it
+    reads a Python object (``Value::NamedTuple`` also accepts a ``list`` ``_fields``): it does not
+    need to be wider, because the typed channel hands a handler the class the engine REBUILT with
+    ``collections.namedtuple``, whose ``_fields`` is always a ``tuple``.
+    """
+    fields = getattr(source, "_fields", None)
+    if type(fields) is tuple and len(fields) == len(source):
+        return type(source).__name__, fields
+    return None
+
+
+def _empty_like(source: tuple[Any, ...]) -> TupleValue:
+    shape = _namedtuple_shape(source)
+    return TupleValue() if shape is None else NamedTupleValue((), *shape)
+
+
+def _from_typed(value: object) -> object:
+    """A typed operand as a handler is handed it: a ``tuple`` becomes a ``TupleValue``, a
+    namedtuple a ``NamedTupleValue`` (#3849); anything else is returned as it is.
+
+    Iterative, not recursive: the members of a tuple are converted too (a row of a tuple of
+    tuples must be a list), and a recursive walk raised RecursionError for a tuple nested 500
+    deep that rendered before. An explicit stack has no depth limit but memory.
+
+    A tuple with no tuple among its members, the usual case and the only one that can be large, is
+    copied in one C-level pass (``list(value)``): the member types are collected with
+    ``set(map(type, value))``, which runs no Python bytecode per member, and a per-member Python
+    loop on a 2,000,000-element tuple was the cost the review of #3843 measured (#3849).
+    """
+    if not isinstance(value, tuple):
+        return value
+    if not any(issubclass(kind, tuple) for kind in set(map(type, value))):
+        shape = _namedtuple_shape(value)
+        return TupleValue(value) if shape is None else NamedTupleValue(value, *shape)
+    root = _empty_like(value)
+    pending = [(value, root)]
+    while pending:
+        source, target = pending.pop()
+        for item in source:
+            if isinstance(item, tuple):
+                child = _empty_like(item)
+                target.append(child)
+                pending.append((item, child))
+            else:
+                target.append(item)
+    return root
+
+
+#: The types a native handler is handed a stand-in for, which a Python tag tells apart from the
+#: stand-in (#3768): a ``UUID`` or a ``Path`` arrives as its ``str`` (``int(uuid)`` works in
+#: Python, ``int("...")`` does not), and a ``tuple`` (not in this tuple: see ``TupleValue``) as
+#: the JSON list ``[1, 2]`` where Django's tag prints ``(1, 2)``. The engine resolves the operand
+#: through the floored walk ``{{ }}`` uses and, for a handler that declares ``TYPED_ARGS``, passes
+#: the real value (``TYPED_ARGS_KEY``); ``_parse_args`` puts it back. Only these types, so a list,
+#: dict, number, string or object reaches a handler exactly as before.
+#:
+#: NOT a ``bytes``, ``set`` or ``frozenset``: they are iterable, and an iterable crosses to Python
+#: as the engine's ``TemplateObject`` wrapper, not as itself (``value_into_handler_pyobject``), so
+#: they cannot be recovered here (recorded in ``KNOWN_TYPE_LOSS``, #3768).
+STANDIN_TYPES = (_uuid.UUID, _pathlib.PurePath)
+
+#: What ``_parse_args`` takes off the typed channel: ``STANDIN_TYPES`` and any ``tuple`` (a plain
+#: one, and a namedtuple, #3849: the engine hands a namedtuple over as its rebuilt class).
+_RECOVERED_TYPES = (tuple, *STANDIN_TYPES)
+
+
+def _typed_args(context: dict[str, object]) -> dict[str, object]:
+    """The operands the engine resolved, as typed Python values, by parameter name (#3756).
+
+    They arrive under ``TYPED_ARGS_KEY``, the reserved context key the engine fills for a
+    handler that declares ``TYPED_ARGS`` (``crates/djust_templates/src/renderer.rs``,
+    ``TYPED_ARGS_KEY``). The constant is defined in ``djust.template_tags`` (``{% live_render %}``
+    reads it too, #3838) and imported above.
+    """
+    typed = context.get(TYPED_ARGS_KEY)
+    return typed if isinstance(typed, dict) else {}
+
+
+class _TypedOperands:
+    """``handler``, declaring ``TYPED_ARGS`` so its ``_parse_args`` gets the types back (#3768).
+
+    A native inline handler reads its operands through ``_parse_args``, which sees the engine's
+    stand-ins (text, JSON). Declaring ``TYPED_ARGS`` makes the engine hand it the operands as the
+    values they are, and ``_parse_args`` takes back the ones in ``STANDIN_TYPES``. Done here, once,
+    for every inline handler, rather than as a class attribute on each of ~130 (one change instead
+    of 130 that can drift); ``json_viewer`` declares it itself and is not wrapped.
+
+    Everything else the engine reads off a handler (``RESOLVE_ARG_POSITIONS``, ...) is forwarded.
+    """
+
+    TYPED_ARGS = True
+    #: Hand over only the operands ``_parse_args`` takes back (a tuple, an object), not every one:
+    #: a 100,000-row list is not materialised a second time as Python objects for nothing.
+    TYPED_ARGS_STANDINS_ONLY = True
+
+    def __init__(self, handler: Any) -> None:
+        self._handler = handler
+
+    def render(self, *args: Any, **kwargs: Any) -> Any:
+        args, kwargs = self._adjust(args, kwargs)
+        return self._handler.render(*args, **kwargs)
+
+    def _adjust(self, args: tuple, kwargs: dict) -> tuple[tuple, dict]:
+        """The arguments the wrapped handler is called with; a subclass changes them here, so
+        ``render`` keeps one signature for every wrapper."""
+        return args, kwargs
+
+    def __getattr__(self, name: str) -> Any:
+        # Only reached for names not found on the wrapper itself.
+        if name == "_handler":
+            raise AttributeError(name)
+        return getattr(self._handler, name)
+
+
+def _with_typed_operands(handler: Any) -> Any:
+    return handler if getattr(handler, "TYPED_ARGS", False) else _TypedOperands(handler)
+
+
+class _TypedBlockOperands(_TypedOperands):
+    """A BLOCK handler, handed an unresolved operand the way an inline handler is (#3871).
+
+    The engine resolves the operands of an inline tag so that a name that does not resolve is
+    EMPTY (``{% dj_button event=nope %}`` -> ``event=``), as the Django tag renders it. A block
+    tag's operands go through another resolver, whose contract is "unresolved => keep the raw
+    token" (a ``{% regroup %}`` keyword must survive it): ``{% nav_menu toggle_event=nope %}``
+    arrived as ``toggle_event=nope`` and the variable's NAME became the event name. The handler
+    cannot tell that text from an operand that RESOLVED to ``nope``, and a lookup against the
+    context (``context.get(val, val)``) answers the wrong question: it re-resolves a resolved
+    value.
+
+    The engine knows. A handler that declares ``TYPED_ARGS`` without ``TYPED_ARGS_STANDINS_ONLY``
+    is handed every operand that resolved (``TYPED_ARGS_KEY``), keyed by parameter name, and an
+    operand that did not is missing from it. This wrapper blanks exactly those, so the handler
+    sees what an inline handler sees. A quoted literal has no resolution to fail (the engine skips
+    it) and is left alone, as is every operand that is in the channel, whatever its value.
+    Positional operands are named at compilation (``with_positional_args``), so they are keyed too.
+    """
+
+    #: Every operand, not only the types ``_parse_args`` takes back: the point is which ones are
+    #: THERE. The operands of a block tag are scalars and short lists, so the second conversion
+    #: ``TYPED_ARGS_STANDINS_ONLY`` avoids for a 100,000-row inline operand is not a cost here.
+    TYPED_ARGS_STANDINS_ONLY = False
+
+    def _adjust(self, args: tuple, kwargs: dict) -> tuple[tuple, dict]:
+        # A block handler is called ``render(args, content, context)``, by position (the engine) or
+        # by name (a direct caller).
+        names = ("args", "content", "context")
+        kwargs = dict(kwargs)
+        try:
+            values = [*args, *(kwargs.pop(name) for name in names[len(args) :])]
+        except KeyError as missing:
+            raise TypeError(f"render() missing the required argument {missing}") from None
+        if len(values) != len(names):
+            raise TypeError(f"render() takes {len(names)} arguments, got {len(values)}")
+        arg_list, content, context = values
+        return (_without_unresolved(arg_list, _typed_args(context)), content, context), kwargs
+
+
+_KEYWORD = _re_filters.compile(r"\w+")
+
+
+def _without_unresolved(args: list[str], resolved: dict[str, object]) -> list[str]:
+    """``args`` with each ``key=<operand>`` the engine could not resolve emptied to ``key=``."""
+    out = []
+    for arg in args:
+        key, sep, val = arg.partition("=")
+        text = val.strip()
+        if (
+            sep
+            and text
+            and _KEYWORD.fullmatch(key.strip())
+            and not _quoted(text)
+            and key.strip() not in resolved
+        ):
+            arg = key + "="
+        out.append(arg)
+    return out
+
+
+def _with_typed_block_operands(handler: Any) -> Any:
+    return handler if getattr(handler, "TYPED_ARGS", False) else _TypedBlockOperands(handler)
+
+
 # ---------------------------------------------------------------------------
 # Block handlers (wrap content — e.g. {% modal %}...{% endmodal %})
 # ---------------------------------------------------------------------------
 
 
 class ModalHandler:
+    """Block handler for {% modal %}: the same markup as the Django tag."""
+
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import render_modal
+
         kw = _parse_args(args, context)
-        is_open = kw.get("open", False)
-        if not is_open:
+        if not kw.get("open", False):
             return ""
-        title = conditional_escape(kw.get("title", ""))
-        size = kw.get("size", "md")
-        close_event = conditional_escape(kw.get("close_event", "close_modal"))
-        size_class = {
-            "sm": "modal-sm",
-            "md": "modal-md",
-            "lg": "modal-lg",
-            "xl": "modal-xl",
-        }.get(str(size), "modal-md")
-        return _safe(
-            f'<div class="modal-overlay {size_class}">'
-            f'<div class="dj-scrim" dj-click="{close_event}"></div>'
-            f'<div class="modal-content">'
-            f'<div class="modal-header">'
-            f'<h3 class="modal-title">{title}</h3>'
-            f'<button class="modal-close" dj-click="{close_event}">&times;</button>'
-            f"</div>"
-            f'<div class="modal-body">{content}</div>'
-            f"</div>"
-            f"</div>"
-        )
+        return str(render_modal(kw, content))
+
+
+class ModalDescriptionHandler:
+    """Block handler for {% modal_description %}...{% endmodal_description %}."""
+
+    def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import render_modal_description
+
+        return str(render_modal_description(content))
 
 
 class CardHandler:
@@ -153,16 +456,6 @@ class CardHandler:
             f'<div class="card-body">{content}</div>'
             f"</div>"
         )
-
-
-class TabsHandler:
-    def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
-        # Tabs need active state from args to render nav — content already rendered
-        kw = _parse_args(args, context)
-        tabs_id = conditional_escape(kw.get("id", "tabs"))
-        # For block-handler mode, the nav is built from child content rendered as panes.
-        # We wrap in the tabs container; view logic controls active tab.
-        return _safe(f'<div class="tabs-container" id="{tabs_id}">{content}</div>')
 
 
 class AccordionHandler:
@@ -295,39 +588,6 @@ class TimelineItemHandler:
 # ---------------------------------------------------------------------------
 
 
-class ToastContainerHandler:
-    ALLOWED_TYPES = {"info", "success", "warning", "error"}
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        toasts = context.get("toasts", [])
-        dismiss_event = "dismiss_toast"
-        if not toasts:
-            # `_safe`, like every other return in this module (#2379). This
-            # early return was the ONE of ~190 handler returns here that
-            # missed the module's own convention, and it was invisible until
-            # the bridge started escaping an unmarked return — the empty
-            # container would have rendered as visible `&lt;div …&gt;` text.
-            # Found by CALLING every handler, not by reading them (#1104).
-            return _safe('<div class="toast-container"></div>')
-        items = []
-        for t in cast("list[object]", toasts):
-            if not isinstance(t, dict):
-                continue
-            t_type = t.get("type", "info")
-            if t_type not in self.ALLOWED_TYPES:
-                t_type = "info"
-            t_id = conditional_escape(str(t.get("id", "")))
-            t_msg = conditional_escape(t.get("message", ""))
-            items.append(
-                f'<div class="toast toast-{t_type}">'
-                f'<span class="toast-message">{t_msg}</span>'
-                f'<button class="toast-close" dj-click="{conditional_escape(dismiss_event)}" '
-                f'data-value="{t_id}">&times;</button>'
-                f"</div>"
-            )
-        return _safe(f'<div class="toast-container">{"".join(items)}</div>')
-
-
 class TooltipHandler:
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
         # Tooltip is actually a block tag - but here used inline fallback
@@ -344,11 +604,12 @@ class TooltipHandler:
 
 class ProgressHandler:
     def render(self, args: list[str], context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import progress as _progress
+
         kw = _parse_args(args, context)
-        try:
-            value = max(0, min(100, int(cast("str | int | float", kw.get("value", 0)))))
-        except (ValueError, TypeError):
-            value = 0
+        # The Python tag's own clamp, so a ``value`` it refuses (``None``: TypeError, ``"abc"``:
+        # ValueError) is refused here and not drawn as 0% (#3667).
+        value = _progress(value=kw.get("value", 0))["value"]
         label = conditional_escape(kw.get("label", ""))
         size = conditional_escape(kw.get("size", "md"))
         color = conditional_escape(kw.get("color", "primary"))
@@ -386,7 +647,13 @@ class BadgeHandler:
 
 class PaginationHandler:
     def render(self, args: list[str], context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import pagination_pages
+
         kw = _parse_args(args, context)
+        # The Python tag's own page list, first: whatever it raises for these numbers
+        # (``total_pages=None``: ``None + 1``) is raised here too (#3667), and the buttons
+        # drawn below are the ones it draws (#3669).
+        shown = pagination_pages(kw.get("page", 1), kw.get("total_pages", 1))
         try:
             page = int(cast("str | int | float", kw.get("page", 1)))
             total_pages = int(cast("str | int | float", kw.get("total_pages", 1)))
@@ -396,9 +663,25 @@ class PaginationHandler:
         next_event = conditional_escape(kw.get("next_event", "page_next"))
         prev_disabled = " disabled" if page <= 1 else ""
         next_disabled = " disabled" if page >= total_pages else ""
+        # One button per page number, wired like the Python tag's: ``next_event`` carrying the
+        # page number as ``data-value`` (that is the event the Python template fires for a
+        # number, and the native markup had no numbered buttons at all, #3669).
+        numbered = ""
+        for p in shown:
+            if p == "...":
+                numbered += '<span class="pagination-ellipsis" aria-hidden="true">&hellip;</span>'
+                continue
+            active = " active" if p == page else ""
+            current = ' aria-current="page"' if p == page else ""
+            number = conditional_escape(p)
+            numbered += (
+                f'<button class="pagination-btn{active}"{current} '
+                f'dj-click="{next_event}" data-value="{number}">{number}</button>'
+            )
         return _safe(
             f'<div class="pagination">'
             f'<button class="pagination-btn"{prev_disabled} dj-click="{prev_event}">&#8592;</button>'
+            f"{numbered}"
             f'<span class="pagination-info">Page {page} of {total_pages}</span>'
             f'<button class="pagination-btn"{next_disabled} dj-click="{next_event}">&#8594;</button>'
             f"</div>"
@@ -414,7 +697,7 @@ class AvatarHandler:
         size = conditional_escape(kw.get("size", "md"))
         status = conditional_escape(kw.get("status", ""))
         img_html = (
-            f'<img class="avatar-image" src="{url_attr(src, image=True)}" alt="{alt}">'
+            f'<img class="avatar-image" src="{data_url_attr(src, image=True)}" alt="{alt}">'
             if src
             else f'<span class="avatar-initials">{initials}</span>'
         )
@@ -475,14 +758,14 @@ class SkeletonHandler:
 class BreadcrumbHandler:
     def render(self, args: list[str], context: dict[str, object]) -> str:
         kw = _parse_args(args, context)
-        items = kw.get("items") or context.get("breadcrumb_items", [])
+        items = _passed_or_context(kw, "items", context, "breadcrumb_items", [])
         if not isinstance(items, (list, tuple)):
             items = []
         parts = []
         for i, item in enumerate(items):
             if isinstance(item, dict):
                 label = conditional_escape(item.get("label", ""))
-                url = url_attr(item.get("url", ""))
+                url = data_url_attr(item.get("url", ""))
                 active = item.get("active", i == len(items) - 1)
             else:
                 label = conditional_escape(str(item))
@@ -608,7 +891,7 @@ class TagChipHandler:
 class StepperHandler:
     def render(self, args: list[str], context: dict[str, object]) -> str:
         kw = _parse_args(args, context)
-        steps = kw.get("steps") or context.get("steps", [])
+        steps = _passed_or_context(kw, "steps", context, default=[])
         if not isinstance(steps, (list, tuple)):
             steps = []
         try:
@@ -640,22 +923,41 @@ class StepperHandler:
 
 class DjButtonHandler:
     def render(self, args: list[str], context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import resolve_dj_button_args
+
         kw = _parse_args(args, context)
-        label = conditional_escape(kw.get("label", ""))
-        variant = conditional_escape(kw.get("variant", "primary"))
-        event = conditional_escape(kw.get("event", ""))
-        icon = kw.get("icon", "")
-        disabled = kw.get("disabled", False)
-        loading = kw.get("loading", False)
-        size = kw.get("size", "md")
+        # The Python tag's own argument resolution (presets, boolean strings), so the event
+        # and the confirmation a button ends up with are decided in one place (#3669).
+        label_, variant_, event_, confirm_, icon, disabled, loading, size = resolve_dj_button_args(
+            kw.get("label", ""),
+            kw.get("variant", "primary"),
+            kw.get("event", ""),
+            kw.get("confirm", ""),
+            kw.get("icon", ""),
+            kw.get("disabled", False),
+            kw.get("loading", False),
+            kw.get("size", "md"),
+            kw.get("preset", ""),
+        )
+        label = conditional_escape(label_)
+        variant = conditional_escape(variant_)
+        # Truthiness is decided on the VALUE, before it becomes text: ``confirm=None`` (or
+        # False, 0, [] ...) wires nothing in the Python tag, and escaping first would turn it
+        # into the string "None" and a spurious confirm dialog.
+        event = conditional_escape(event_) if event_ else ""
+        confirm = conditional_escape(confirm_) if confirm_ else ""
         classes = ["btn", f"btn-{variant}"]
         if size and size != "md":
             classes.append(f"btn-{conditional_escape(size)}")
         if loading:
             classes.append("btn-loading")
         attrs = [f'class="{" ".join(classes)}"']
-        if event and not loading and not disabled:
+        # The event is wired whether or not the button is disabled or loading, as the Python tag
+        # does; a disabled <button> fires no click by itself (#3669).
+        if event:
             attrs.append(f'dj-click="{event}"')
+        if confirm:
+            attrs.append(f'dj-confirm="{confirm}"')
         if disabled or loading:
             attrs.append("disabled")
         spinner = '<span class="btn-spinner"></span>' if loading else ""
@@ -709,7 +1011,7 @@ class DjSelectHandler:
         name = conditional_escape(kw.get("name", ""))
         label = conditional_escape(kw.get("label", ""))
         current = str(kw.get("value", ""))
-        options = kw.get("options") or context.get(cast("str", kw.get("options_var", "")), [])
+        options = _passed_or_context(kw, "options", context, str(kw.get("options_var", "")), [])
         error = conditional_escape(kw.get("error", ""))
         required = kw.get("required", False)
         disabled = kw.get("disabled", False)
@@ -719,13 +1021,17 @@ class DjSelectHandler:
         option_html = []
         for opt in options:
             if isinstance(opt, dict):
-                ov = conditional_escape(str(opt.get("value", "")))
+                raw_ov = opt.get("value", "")
+                ov = conditional_escape(str(raw_ov))
                 ol = conditional_escape(str(opt.get("label", ov)))
             elif isinstance(opt, (list, tuple)) and len(opt) >= 2:
+                raw_ov = opt[0]
                 ov, ol = conditional_escape(str(opt[0])), conditional_escape(str(opt[1]))
             else:
+                raw_ov = opt
                 ov = ol = conditional_escape(str(opt))
-            sel = " selected" if str(ov) == str(current) else ""
+            # The RAW text decides "selected"; ``ov`` is the escaped output only (#3927).
+            sel = " selected" if _exact_str(raw_ov) == _exact_str(current) else ""
             option_html.append(f'<option value="{ov}"{sel}>{ol}</option>')
         select_cls = "form-select" + (" form-select-error" if error else "")
         required_attr = " required" if required else ""
@@ -814,13 +1120,17 @@ class DjRadioHandler:
         kw = _parse_args(args, context)
         name = conditional_escape(kw.get("name", ""))
         label = conditional_escape(kw.get("label", ""))
-        value = conditional_escape(str(kw.get("value", "")))
+        raw_value = kw.get("value", "")
+        value = conditional_escape(str(raw_value))
         current = str(
-            kw.get("current_value", "") or context.get(str(kw.get("current_value_var", "")), "")
+            _passed_or_context(
+                kw, "current_value", context, str(kw.get("current_value_var", "")), ""
+            )
         )
         event = conditional_escape(kw.get("event", name))
         disabled = kw.get("disabled", False)
-        checked_attr = " checked" if str(value) == str(current) else ""
+        # The RAW text decides "checked"; ``value`` is the escaped output only (#3927).
+        checked_attr = " checked" if _exact_str(raw_value) == _exact_str(current) else ""
         disabled_attr = " disabled" if disabled else ""
         return _safe(
             f'<div class="form-radio-wrapper">'
@@ -837,12 +1147,45 @@ class DjRadioHandler:
 _format_cell = _format_cell_util
 _interpolate_color_simple = interpolate_color_gradient
 
+#: What the Python table loads to make a clickable row navigate: it reads ``data-href`` and does
+#: the ``location.assign`` (and the Enter / Space keys, and the nested-control guard). The path is
+#: ``table.html``'s, character for character (#3887).
+_ROW_CLICK_SCRIPT = '<script src="/static/djust_components/data-table-row-click.js" defer></script>'
+#: What makes a clickable row reachable by keyboard and announced as a control (``table.html``).
+_ROW_NAV_A11Y = 'role="button" tabindex="0" style="cursor:pointer"'
+
+
+def _row_text(row: dict[str, object], key: object) -> str:
+    """``row[key]`` as text, the way the Python tag reads it (``table_cell``, #3870).
+
+    A key the row lacks, and a key that cannot be one (a list, a dict: unhashable in Python), are
+    ``""``. A value that is not text is written with ``str()``: ``None`` is ``"None"``, a number is
+    not localised. The Python tag reads a row it is given; this one is handed the row after a JSON
+    round trip, so a non-text key is looked up as the text its row key became (``5`` is ``"5"``).
+    """
+    if isinstance(key, (list, dict, set)):
+        return ""
+    value = row.get(key if isinstance(key, str) else str(key), "")
+    return value if isinstance(value, str) else str(value)
+
+
+def _row_href(row: dict[str, object], key: object) -> str:
+    """``row[key]`` as a URL for ``href`` / ``data-href``: escaped, and a dangerous scheme is ``#``.
+
+    The Python tag's ``table_href`` (``url_attr`` over ``table_cell``): the one URL rule every
+    component uses, so a row's URL reaches the attribute through the same allowlist (#3887).
+    """
+    # ``honor_safe=False``: a marked-safe value (or one with ``__html__``) is checked and escaped
+    # like any other. The engine hands a handler text, so this never differed in the engine; a
+    # handler called directly with a ``SafeString`` row value must not depend on that (#3894).
+    return str(url_attr(_row_text(row, key), honor_safe=False))
+
 
 class DataTableHandler:
     def render(self, args: list[str], context: dict[str, object]) -> str:
         kw = _parse_args(args, context)
-        rows = kw.get("rows") or context.get("rows", [])
-        columns = kw.get("columns") or context.get("columns", [])
+        rows = _passed_or_context(kw, "rows", context, default=[])
+        columns = _passed_or_context(kw, "columns", context, default=[])
         sort_by = conditional_escape(str(kw.get("sort_by", "")))
         sort_desc = kw.get("sort_desc", False)
         sort_event = conditional_escape(kw.get("sort_event", "on_table_sort"))
@@ -874,6 +1217,23 @@ class DataTableHandler:
         page_event = conditional_escape(kw.get("page_event", "on_table_page"))
         striped = kw.get("striped", False)
         compact = kw.get("compact", False)
+        # Row navigation: a clickable row fires ``row_click_event`` (#1111). The Python
+        # template wires it; the native table did not (#3669).
+        # Decided on the value, not on its escaped text: ``row_click_event=None`` wires nothing
+        # in the Python template, and "None" is truthy.
+        _rce = kw.get("row_click_event", "")
+        row_click_event = conditional_escape(_rce) if _rce else ""
+        row_click_value_key = str(kw.get("row_click_value_key", "id"))
+        # ``row_url`` names the row key that holds the row's URL (``data-href``, which the script
+        # below navigates to). A row click wins over it, as in the Python template's ``elif``, and
+        # a falsy ``row_url`` is not the key "None": decided on the value (#3887).
+        _ru = kw.get("row_url", "")
+        row_url = _ru if _ru else ""
+        row_nav_script = _ROW_CLICK_SCRIPT if (row_click_event or row_url) else ""
+        # Backward-compatible pager (``total_pages > 1`` without ``paginate``), as the Python
+        # template draws it (#3669).
+        prev_event = conditional_escape(kw.get("prev_event", "on_table_prev"))
+        next_event = conditional_escape(kw.get("next_event", "on_table_next"))
 
         # Phase 2 parameters (all opt-in)
         editable_columns = kw.get("editable_columns") or []
@@ -1194,6 +1554,7 @@ class DataTableHandler:
                 f'<div class="data-table-loading skeleton-table">'
                 f"{skeleton_rows}"
                 f"</div>"
+                f"{row_nav_script}"
                 f"</div>"
             )
 
@@ -1205,7 +1566,11 @@ class DataTableHandler:
             if isinstance(col, dict):
                 key = conditional_escape(str(col.get("key", "")))
                 col_label = conditional_escape(str(col.get("label", key)))
-                sortable = col.get("sortable", True)
+                # ``None`` is "not given", as in the Python template (``default_if_none``): only
+                # an explicit ``False`` (or any other falsy value) makes a column unsortable.
+                sortable = col.get("sortable")
+                if sortable is None:
+                    sortable = True
                 filterable = col.get("filterable", False)
                 filter_type = col.get("filter_type", "text")
                 filter_options = col.get("filter_options", [])
@@ -1472,6 +1837,17 @@ class DataTableHandler:
                         if rcm_val in rcm_map:
                             row_classes.append(conditional_escape(str(rcm_map[rcm_val])))
             row_attrs += f' data-row-key="{conditional_escape(row_id)}"'
+            if row_click_event:
+                row_classes.append("data-table-row-clickable")
+                row_attrs += (
+                    f' dj-click="{row_click_event}"'
+                    f' data-value="{conditional_escape(str(row.get(row_click_value_key, "")))}"'
+                    f" {_ROW_NAV_A11Y}"
+                )
+            elif row_url:
+                # The row's URL (#3887). ``data-href`` is read by ``data-table-row-click.js``.
+                row_classes.append("data-table-row-clickable")
+                row_attrs += f' data-href="{_row_href(row, row_url)}" {_ROW_NAV_A11Y}'
 
             cells = ""
             # Drag handle cell
@@ -1641,6 +2017,15 @@ class DataTableHandler:
                         f'<span class="cell-renderer cell-renderer-{cell_tpl_esc}"'
                         f' data-value="{cell_val}">{cell_val}</span>'
                     )
+
+                # Link column (#3887, #1110): ``col.link`` names the row key holding the href,
+                # ``col.link_class`` is an optional class on the ``<a>``. Decided on the value:
+                # a falsy ``link`` is plain text, as ``{% if col.link %}`` in the Python template.
+                link_key = col.get("link") if isinstance(col, dict) else None
+                if link_key:
+                    link_class = col.get("link_class") if isinstance(col, dict) else None
+                    link_cls_attr = f' class="{escape(str(link_class))}"' if link_class else ""
+                    cell_val = f'<a href="{_row_href(row, link_key)}"{link_cls_attr}>{cell_val}</a>'
 
                 # Apply conditional formatting to cell content
                 if cf_html and "data-table-cf-data-bar" in " ".join(td_classes):
@@ -1888,6 +2273,18 @@ class DataTableHandler:
                 f' dj-click="{page_event}" data-value="{next_page}">&#8594;</button>'
                 f"</div>"
             )
+        elif total_pages > 1:
+            prev_disabled = " disabled" if page <= 1 else ""
+            next_disabled = " disabled" if page >= total_pages else ""
+            pagination_html = (
+                f'<div class="dj-table__pagination">'
+                f'<button class="dj-table__page-btn"{prev_disabled}'
+                f' dj-click="{prev_event}">&larr; Prev</button>'
+                f'<span class="dj-table__page-info">{page} / {total_pages}</span>'
+                f'<button class="dj-table__page-btn"{next_disabled}'
+                f' dj-click="{next_event}">Next &rarr;</button>'
+                f"</div>"
+            )
 
         # --- Hidden triggers for JS events ---
         triggers_html = ""
@@ -1979,6 +2376,7 @@ class DataTableHandler:
             f"{scroll_close}"
             f"{pagination_html}"
             f"{triggers_html}"
+            f"{row_nav_script}"
             f"</div>"
         )
 
@@ -1989,7 +2387,6 @@ class DataTableHandler:
 
 # Inline handlers: (tag_name, handler_instance)
 INLINE_HANDLERS = [
-    ("toast_container", ToastContainerHandler()),
     ("progress", ProgressHandler()),
     ("badge", BadgeHandler()),
     ("pagination", PaginationHandler()),
@@ -2015,8 +2412,8 @@ INLINE_HANDLERS = [
 # Block handlers: (tag_name, end_tag_name, handler_instance)
 BLOCK_HANDLERS = [
     ("modal", "endmodal", ModalHandler()),
+    ("modal_description", "endmodal_description", ModalDescriptionHandler()),
     ("card", "endcard", CardHandler()),
-    ("tabs", "endtabs", TabsHandler()),
     ("accordion", "endaccordion", AccordionHandler()),
     ("accordion_item", "endaccordion_item", AccordionItemHandler()),
     ("dropdown", "enddropdown", DropdownHandler()),
@@ -2026,6 +2423,64 @@ BLOCK_HANDLERS = [
     ("timeline_item", "endtimeline_item", TimelineItemHandler()),
     ("tooltip", "endtooltip", TooltipHandler()),
 ]
+
+
+#: Tags whose Python tag takes an OBJECT, which the Rust engine cannot carry (#3666).
+#:
+#: A native handler is called with the operands the engine has already resolved to
+#: strings (scalars) or JSON (lists, dicts). A ``BoundField`` arrives as its widget
+#: HTML, a ``Form`` as its ``str``, a ``datetime`` as ``str(datetime)``, an element of
+#: a list as whatever ``str`` gives. The handler cannot read ``field.errors`` or
+#: ``user.get_full_name()`` from any of those, so ``{% field_error field=form.name %}``
+#: rendered nothing under the Rust engine and the Django node rendered the error.
+#:
+#: These tags therefore have no native handler. Each is registered as the generic
+#: ``{% load %}`` bridge handler (``template_libraries.LibraryTagHandler``): it receives the
+#: tag's operands as TOKENS and Django's own node resolves them against the render context,
+#: so the output is the Python tag's by construction. The bridge is registered here, not left
+#: to ``{% load djust_components %}``, so the tags keep working in a template that does not
+#: load the library (every other native tag does) and stay in the parity ratchet.
+#:
+#: The set is not a judgement call, within one question: which tags READ AN ATTRIBUTE of an
+#: argument. ``scripts/lib/template_library_parity/objects.py`` derives that from the Python
+#: tags (it hands each parameter an object that records how it is used) and
+#: ``python/tests/test_native_handler_fidelity_3666_3667.py`` asserts it equals this set, in
+#: both directions: a new tag that reads an attribute of its argument cannot get a native
+#: handler, and a tag listed here that stopped doing so is reported. A tag that dispatches on a
+#: value's TYPE instead reads no attribute and is not seen by that measurement; those are
+#: ``TYPED_ARGUMENT_TAGS`` below (#3756).
+OBJECT_ARGUMENT_TAGS = frozenset(
+    {
+        "avatar_group",
+        "combobox",
+        "conversation_thread",
+        "field_error",
+        "form_errors",
+        "notification_popover",
+        "relative_time",
+        "rich_select",
+        "toast_container",
+    }
+)
+
+#: Native tags whose handler declares ``TYPED_ARGS = True`` (#3756).
+#:
+#: ``json_viewer`` branches on ``isinstance`` and reads no attribute, so the recorder of
+#: ``objects.py`` cannot see it, and a native handler is handed the engine's stand-in for a value
+#: it cannot carry (``str(datetime)``, a ``float`` for a ``Decimal``) and dispatches on THAT. It
+#: stays native, and the engine hands it the operand's TYPE: each ``key=<expression>`` operand is
+#: resolved through the same floored walk ``{{ }}`` uses (``Context::resolve``, which re-protects
+#: after every segment) and passed as a typed Python value. It is NOT moved onto the ``{% load %}``
+#: bridge above: the bridge runs Django's ``Variable`` resolution over raw objects and has no
+#: floor, so ``{% json_viewer data=form.instance.password %}`` printed the hash there.
+#:
+#: Which tags are type-sensitive is measured too, by rendering
+#: (``scripts/lib/template_library_parity/typed_values.py``: the Python tag is run on a value and on
+#: the stand-in the engine would hand a handler, and a tag whose output differs depends on the
+#: type). ``TestTypeDispatch`` in ``python/tests/test_native_handler_fidelity_3666_3667.py`` asserts
+#: this set equals the handlers that declare ``TYPED_ARGS``, and that none of them disagrees with
+#: Django for a realistic type.
+TYPED_ARGUMENT_TAGS = frozenset({"json_viewer"})
 
 
 def register_with_rust_engine() -> None:
@@ -2044,11 +2499,37 @@ def register_with_rust_engine() -> None:
         # Django template engine with {% load djust_components %})
         return
 
+    # Arguments (#3664, #3676): a native handler reads ``key=value`` strings, so
+    # each one is wrapped to take exactly the arguments its Python tag takes.
+    # A ``simple_tag`` / ``inclusion_tag`` accepts positional ones
+    # (``{% dj_tag "Python" %}``), named at compile time after the tag's own
+    # parameters; a raw ``@register.tag`` accepts what its compile function
+    # accepts, and Django refuses a bare ``{% alert val %}``, so does the engine.
+    from djust._positional_args import with_argument_contract
+
+    from .templatetags.djust_components import register as _tag_library
+
     for tag_name, handler in INLINE_HANDLERS:
-        register_tag_handler(tag_name, handler)
+        register_tag_handler(
+            tag_name,
+            with_argument_contract(tag_name, _with_typed_operands(handler), _tag_library),
+        )
 
     for tag_name, end_tag, handler in BLOCK_HANDLERS:
-        register_block_tag_handler(tag_name, end_tag, handler)
+        register_block_tag_handler(
+            tag_name,
+            end_tag,
+            with_argument_contract(tag_name, _with_typed_block_operands(handler), _tag_library),
+        )
+
+    # Tags that take an object (#3666): the Python tag's own node, through the bridge.
+    from djust.template_libraries import LibraryTagHandler
+
+    for tag_name in sorted(OBJECT_ARGUMENT_TAGS):
+        register_tag_handler(
+            tag_name,
+            LibraryTagHandler("djust_components", tag_name, _tag_library.tags[tag_name]),
+        )
 
     # Component system (v0.5.0): {% call %}, {% component %}, {% slot %},
     # {% render_slot %}. Registered here so the tags are available without
@@ -2105,6 +2586,26 @@ def register_with_rust_engine() -> None:
         LibraryRawBlockTagHandler("djust_components", "split_pane", _components_lib.do_split_pane),
     )
 
+    # {% tabs %}…{% tab %}…{% endtab %}…{% endtabs %} — the same reason. The
+    # tab list and the choice of the ONE pane to render come from the `{% tab %}`
+    # children's own arguments (id, label, icon), which a block handler that is
+    # handed the already-rendered body cannot see. The handler that used to be
+    # registered here wrapped that body in a div: no tab list, and every pane
+    # rendered. Django's `do_tabs` reads the children, so the raw path renders
+    # the nav and only the active pane, byte for byte as Django does.
+    register_raw_block_tag_handler(
+        "tabs",
+        "endtabs",
+        LibraryRawBlockTagHandler(
+            "djust_components",
+            "tabs",
+            _components_lib.do_tabs,
+            # The body holds `{% tab %}` blocks, and a Rust template uses these
+            # tags without `{% load djust_components %}`.
+            libraries=(_components_lib.register,),
+        ),
+    )
+
 
 # ===========================================================================
 # TIER 2 REMAINING + TIER 3 HANDLERS
@@ -2125,34 +2626,6 @@ class CodeBlockHandler:
         theme = kwargs.get("theme", "github-dark")
         return str(
             _cb(code=code, language=language, filename=filename, highlight=highlight, theme=theme)
-        )
-
-
-class ComboboxHandler:
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        from djust.components.templatetags.djust_components import combobox as _cb
-
-        kwargs = _parse_args(args, context)
-        options_val = kwargs.get("options", "")
-        if isinstance(options_val, list):
-            options = options_val
-        else:
-            options = cast("list[object]", context.get(cast("str", options_val), []))
-        selected_val = kwargs.get("selected", None)
-        if isinstance(selected_val, str) and selected_val:
-            selected_val = context.get(selected_val, [])
-        return str(
-            _cb(
-                name=kwargs.get("name", ""),
-                label=kwargs.get("label", ""),
-                value=kwargs.get("value", ""),
-                placeholder=kwargs.get("placeholder", "Search…"),
-                options=options,
-                event=kwargs.get("event", ""),
-                search_event=kwargs.get("search_event", ""),
-                multiple=kwargs.get("multiple", False),
-                selected=selected_val,
-            )
         )
 
 
@@ -2181,6 +2654,7 @@ class CopyButtonHandler:
             _c(
                 text=kwargs.get("text", ""),
                 label=kwargs.get("label", "Copy"),
+                copied_label=kwargs.get("copied_label", "Copied!"),
                 variant=kwargs.get("variant", "outline"),
                 size=kwargs.get("size", "sm"),
             )
@@ -2219,6 +2693,10 @@ class NotificationCenterHandler:
         kwargs = _parse_args(args, context)
         notifs_key = kwargs.get("notifications", "notifications")
         notifs = context.get(notifs_key, []) if isinstance(notifs_key, str) else notifs_key
+        if notifs is None:
+            # ``notifications=None`` is an empty list to the Python tag; ``for n in None``
+            # raised here (#3667).
+            notifs = []
         unread = sum(
             1 for n in cast("list[object]", notifs) if isinstance(n, dict) and n.get("unread")
         )
@@ -2260,6 +2738,9 @@ class ColorPickerHandler:
                 value=kwargs.get("value", "#3B82F6"),
                 event=kwargs.get("event", ""),
                 label=kwargs.get("label", ""),
+                # Each swatch carries the event; the Python tag draws the list it is given,
+                # so ignoring it changed how many elements are wired (#3669).
+                swatches=kwargs.get("swatches"),
             )
         )
 
@@ -2317,58 +2798,18 @@ class PopoverHandler:
     """Block handler for {% popover trigger="..." %}...{% endpopover %}"""
 
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
-        kwargs = _parse_args(args, context)
-        trigger = kwargs.get("trigger", "Click me")
-        placement = kwargs.get("placement", "bottom")
-        title = kwargs.get("title", "")
-        from django.utils.html import conditional_escape
+        from djust.components.templatetags.djust_components import render_popover
 
-        e_trigger = conditional_escape(trigger)
-        e_placement = conditional_escape(placement)
-        title_html = (
-            f'<div class="popover-title">{conditional_escape(title)}</div>' if title else ""
-        )
-        return _safe(
-            f'<div class="popover-wrapper">'
-            f'<button class="popover-trigger btn btn-outline btn-sm" '
-            f"onclick=\"(function(el){{var p=el.parentElement;p.classList.toggle('popover-open');"
-            f"document.addEventListener('click',function h(e){{if(!p.contains(e.target)){{p.classList.remove('popover-open');document.removeEventListener('click',h);}}}},true);"
-            f'}})(this)" aria-expanded="false">'
-            f"{e_trigger}</button>"
-            f'<div class="popover popover-{e_placement}" role="tooltip">'
-            f"{title_html}"
-            f'<div class="popover-content">{content}</div>'
-            f"</div>"
-            f"</div>"
-        )
+        return str(render_popover(_parse_args(args, context), content))
 
 
 class CollapsibleHandler:
     """Block handler for {% collapsible trigger="..." %}...{% endcollapsible %}"""
 
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
-        kwargs = _parse_args(args, context)
-        trigger = kwargs.get("trigger", "Toggle")
-        event = kwargs.get("event", "toggle_collapsible")
-        open_ = kwargs.get("open", False)
-        if isinstance(open_, str):
-            open_ = open_.lower() not in ("false", "0", "")
-        from django.utils.html import conditional_escape
+        from djust.components.templatetags.djust_components import render_collapsible
 
-        e_trigger = conditional_escape(trigger)
-        e_event = conditional_escape(event)
-        open_cls = " collapsible-open" if open_ else ""
-        return _safe(
-            f'<div class="collapsible{open_cls}">'
-            f'<button class="collapsible-trigger" '
-            f"onclick=\"(function(el){{el.closest('.collapsible').classList.toggle('collapsible-open');}})(this)\""
-            f' dj-click="{e_event}">'
-            f'<span class="collapsible-label">{e_trigger}</span>'
-            f'<span class="collapsible-icon">▾</span>'
-            f"</button>"
-            f'<div class="collapsible-content">{content}</div>'
-            f"</div>"
-        )
+        return str(render_collapsible(_parse_args(args, context), content))
 
 
 class SheetHandler:
@@ -2442,31 +2883,15 @@ class ContextMenuHandler:
     """Block handler for {% context_menu label="..." %}...{% endcontext_menu %}"""
 
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
-        kwargs = _parse_args(args, context)
-        label = kwargs.get("label", "Right-click here")
-        from django.utils.html import conditional_escape
+        from djust.components.templatetags.djust_components import render_context_menu
 
-        e_label = conditional_escape(label)
-        return _safe(
-            f'<div class="ctx-wrapper" '
-            f'oncontextmenu="(function(e,el){{e.preventDefault();'
-            f"document.querySelectorAll('.ctx-menu[data-open]').forEach(function(m){{delete m.dataset.open;}});"
-            f"var m=el.querySelector('.ctx-menu');"
-            f"m.style.left=e.offsetX+'px';m.style.top=e.offsetY+'px';"
-            f"m.dataset.open='1';"
-            f"document.addEventListener('click',function h(){{delete m.dataset.open;document.removeEventListener('click',h);}},{{once:true}});"
-            f'}})(event,this)">'
-            f'<div class="ctx-trigger">{e_label}</div>'
-            f'<div class="ctx-menu" role="menu">{content}</div>'
-            f"</div>"
-        )
+        return str(render_context_menu(_parse_args(args, context), content))
 
 
 # Extend lists with Tier 2/3 handlers (defined above, after the original lists)
 INLINE_HANDLERS.extend(
     [
         ("code_block", CodeBlockHandler()),
-        ("combobox", ComboboxHandler()),
         ("rating", RatingHandler()),
         ("copy_button", CopyButtonHandler()),
         ("kbd", KbdHandler()),
@@ -3294,27 +3719,6 @@ BLOCK_HANDLERS.extend(
 # ===========================================================================
 
 
-class RichSelectHandler:
-    """Inline handler for {% rich_select name=... options=... %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        from djust.components.templatetags.djust_components import rich_select as _rs
-
-        kwargs = _parse_args(args, context)
-        return str(
-            _rs(
-                name=kwargs.get("name", ""),
-                options=kwargs.get("options"),
-                value=kwargs.get("value", ""),
-                event=kwargs.get("event", ""),
-                placeholder=kwargs.get("placeholder", "Select..."),
-                disabled=kwargs.get("disabled", False),
-                searchable=kwargs.get("searchable", False),
-                label=kwargs.get("label", ""),
-            )
-        )
-
-
 class DataGridHandler:
     """Inline handler for {% data_grid columns=cols rows=rows %}"""
 
@@ -3343,7 +3747,6 @@ class DataGridHandler:
 
 INLINE_HANDLERS.extend(
     [
-        ("rich_select", RichSelectHandler()),
         ("data_grid", DataGridHandler()),
     ]
 )
@@ -3537,13 +3940,13 @@ class ResponsiveImageHandler:
 
     def render(self, args: list[str], context: dict[str, object]) -> str:
         kw = _parse_args(args, context)
-        src = url_attr(kw.get("src", ""), image=True)
+        src = data_url_attr(kw.get("src", ""), image=True)
         alt = conditional_escape(str(kw.get("alt", "")))
         aspect_ratio = conditional_escape(safe_css_ratio(kw.get("aspect_ratio", ""), ""))
         lazy = kw.get("lazy", True)
-        srcset = conditional_escape(str(kw.get("srcset", "")))
+        srcset = srcset_attr(kw.get("srcset", ""), honor_safe=False)
         sizes = conditional_escape(str(kw.get("sizes", "")))
-        placeholder = url_attr(kw.get("placeholder", ""), image=True)
+        placeholder = data_url_attr(kw.get("placeholder", ""), image=True)
         custom_class = conditional_escape(str(kw.get("custom_class", "")))
 
         if isinstance(lazy, str):
@@ -3577,48 +3980,6 @@ class ResponsiveImageHandler:
             )
 
         return _safe(f'<div class="{cls}"{style}>{placeholder_html}{img_tag}</div>')
-
-
-class RelativeTimeHandler:
-    """Inline handler for {% relative_time datetime=created_at %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        dt = kw.get("datetime", "")
-        auto_update = kw.get("auto_update", True)
-        interval = kw.get("interval", 60)
-        custom_class = conditional_escape(str(kw.get("custom_class", "")))
-
-        if isinstance(auto_update, str):
-            auto_update = auto_update.lower() not in ("false", "0", "")
-
-        cls = "dj-relative-time"
-        if custom_class:
-            cls += f" {custom_class}"
-
-        iso_val = ""
-        if dt:
-            if hasattr(dt, "isoformat"):
-                iso_val = dt.isoformat()
-            else:
-                iso_val = str(dt)
-
-        e_iso = conditional_escape(iso_val)
-        auto_str = "true" if auto_update else "false"
-
-        try:
-            interval_val = int(cast("str | int | float", interval))
-        except (ValueError, TypeError):
-            interval_val = 60
-
-        return _safe(
-            f'<time class="{cls}" '
-            f'datetime="{e_iso}" '
-            f'data-auto-update="{auto_str}" '
-            f'data-interval="{interval_val}">'
-            f"{e_iso}"
-            f"</time>"
-        )
 
 
 class CopyableTextHandler:
@@ -3656,7 +4017,6 @@ INLINE_HANDLERS.extend(
         ("scroll_to_top", ScrollToTopHandler()),
         ("code_snippet", CodeSnippetHandler()),
         ("responsive_image", ResponsiveImageHandler()),
-        ("relative_time", RelativeTimeHandler()),
     ]
 )
 
@@ -3700,41 +4060,16 @@ class ThemeToggleHandler:
     """Inline handler for {% theme_toggle current="system" event="set_theme" %}"""
 
     def render(self, args: list[str], context: dict[str, object]) -> str:
-        import uuid
-        from djust.components.icons import render_icon
+        from djust.components.templatetags.djust_components import render_theme_toggle
 
         kw = _parse_args(args, context)
-        current = conditional_escape(kw.get("current", "system"))
-        event = kw.get("event", "")
-        custom_class = kw.get("custom_class", "")
-
-        e_event = conditional_escape(event) if event else ""
-        e_cls = conditional_escape(custom_class)
-
-        cls = "dj-theme-toggle"
-        if e_cls:
-            cls += f" {e_cls}"
-
-        click_attr = f' dj-click="{e_event}"' if e_event else ""
-        sun_svg = render_icon("sun", size="sm")
-        moon_svg = render_icon("moon", size="sm")
-        monitor_svg = render_icon("computer-desktop", size="sm")
-        toggle_id = f"dj-theme-toggle-{uuid.uuid4().hex[:8]}"
-
-        return _safe(
-            f'<div class="{cls}" id="{toggle_id}" '
-            f'data-current="{current}"{click_attr} '
-            f'role="radiogroup" aria-label="Color theme">'
-            f'<button type="button" class="dj-theme-toggle__btn" '
-            f'data-theme="light" aria-label="Light theme" '
-            f'title="Light">{sun_svg}</button>'
-            f'<button type="button" class="dj-theme-toggle__btn" '
-            f'data-theme="dark" aria-label="Dark theme" '
-            f'title="Dark">{moon_svg}</button>'
-            f'<button type="button" class="dj-theme-toggle__btn" '
-            f'data-theme="system" aria-label="System theme" '
-            f'title="System">{monitor_svg}</button>'
-            f"</div>"
+        return str(
+            render_theme_toggle(
+                current=kw.get("current", "system"),
+                event=kw.get("event", ""),
+                custom_class=kw.get("custom_class", ""),
+                toggle_id=kw.get("id", ""),
+            )
         )
 
 
@@ -3845,8 +4180,13 @@ class SliderHandler:
         min_val = int(cast("str | int | float", kw.get("min_val", kw.get("min", 0))))
         max_val = int(cast("str | int | float", kw.get("max_val", kw.get("max", 100))))
         step = int(cast("str | int | float", kw.get("step", 1)))
-        value = kw.get("value", min_val)
+        # ``int()`` of the value and of the range end, like the Python tag (#3667): a
+        # non-numeric one is a ValueError there and used to be echoed into the markup here.
+        value = kw.get("value", None)
+        value = min_val if value is None else int(cast("str | int | float", value))
         value_end = kw.get("value_end", None)
+        if value_end is not None:
+            value_end = int(cast("str | int | float", value_end))
         event = conditional_escape(kw.get("event", name))
         disabled = kw.get("disabled", False)
         show_ticks = kw.get("show_ticks", False)
@@ -4058,7 +4398,7 @@ class AutocompleteHandler:
         event = conditional_escape(kw.get("event", name))
         debounce = int(cast("str | int | float", kw.get("debounce", 300)))
         min_chars = int(cast("str | int | float", kw.get("min_chars", 1)))
-        suggestions = kw.get("suggestions") or context.get("suggestions", [])
+        suggestions = _passed_or_context(kw, "suggestions", context, default=[])
         loading = kw.get("loading", False)
         disabled = kw.get("disabled", False)
         error = conditional_escape(kw.get("error", ""))
@@ -4149,112 +4489,40 @@ INLINE_HANDLERS.extend(
 
 
 class ConfirmDialogHandler:
-    """Inline handler for {% confirm_dialog message="Delete?" confirm_event="delete" %}"""
+    """Inline handler for {% confirm_dialog message="Delete?" confirm_event="delete" %}
 
-    def render(self, args: list[str], context: dict[str, object]) -> str:
+    Also the block handler for ``{% confirm_dialog_block %}...{% endconfirm_dialog_block %}``:
+    ``render`` takes the rendered body as an optional third argument.
+    """
+
+    def render(self, args: list[str], *rest: Any) -> str:
+        from djust.components.templatetags._forms import render_confirm_dialog
+
+        body, context = (rest[0], rest[1]) if len(rest) == 2 else ("", rest[0])
         kw = _parse_args(args, context)
-        is_open = kw.get("is_open", kw.get("open", False))
-        if not is_open:
+        if not kw.get("is_open", kw.get("open", False)):
             return ""
-
-        uid = _uuid.uuid4().hex[:8]
-        title_id = f"dj-confirm-title-{uid}"
-        msg_id = f"dj-confirm-msg-{uid}"
-
-        message = conditional_escape(kw.get("message", "Are you sure?"))
-        confirm_event = conditional_escape(kw.get("confirm_event", "confirm"))
-        cancel_event = conditional_escape(kw.get("cancel_event", "cancel"))
-        title = conditional_escape(kw.get("title", "Confirm"))
-        variant = conditional_escape(kw.get("variant", "default"))
-        confirm_label = conditional_escape(kw.get("confirm_label", "Confirm"))
-        cancel_label = conditional_escape(kw.get("cancel_label", "Cancel"))
-        custom_class = conditional_escape(kw.get("custom_class", ""))
-
-        variant_cls = f" dj-confirm-dialog--{variant}" if variant != "default" else ""
-        extra_cls = f" {custom_class}" if custom_class else ""
-
-        return _safe(
-            f'<div class="dj-confirm-dialog-backdrop">'
-            f'<div class="dj-scrim" dj-click="{cancel_event}"></div>'
-            f'<div class="dj-confirm-dialog{variant_cls}{extra_cls}" '
-            f'role="alertdialog" aria-modal="true" aria-labelledby="{title_id}" '
-            f'aria-describedby="{msg_id}">'
-            f'<div class="dj-confirm-dialog__header">'
-            f'<h3 class="dj-confirm-dialog__title" id="{title_id}">{title}</h3>'
-            f'<button class="dj-confirm-dialog__close" dj-click="{cancel_event}" '
-            f'aria-label="Close">&times;</button>'
-            f"</div>"
-            f'<div class="dj-confirm-dialog__body" id="{msg_id}">'
-            f'<p class="dj-confirm-dialog__message">{message}</p>'
-            f"</div>"
-            f'<div class="dj-confirm-dialog__footer">'
-            f'<button class="dj-confirm-dialog__btn dj-confirm-dialog__btn--cancel" '
-            f'dj-click="{cancel_event}">{cancel_label}</button>'
-            f'<button class="dj-confirm-dialog__btn dj-confirm-dialog__btn--confirm" '
-            f'dj-click="{confirm_event}">{confirm_label}</button>'
-            f"</div>"
-            f"</div>"
-            f"</div>"
-        )
+        return str(render_confirm_dialog(kw, body))
 
 
 class PopconfirmHandler:
     """Block handler for {% popconfirm message="Delete?" %}...{% endpopconfirm %}"""
 
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        message = conditional_escape(kw.get("message", "Are you sure?"))
-        confirm_event = conditional_escape(kw.get("confirm_event", "confirm"))
-        cancel_event = conditional_escape(kw.get("cancel_event", "cancel"))
-        confirm_label = conditional_escape(kw.get("confirm_label", "Yes"))
-        cancel_label = conditional_escape(kw.get("cancel_label", "No"))
-        placement = conditional_escape(kw.get("placement", "top"))
-        variant = conditional_escape(kw.get("variant", "default"))
-        custom_class = conditional_escape(kw.get("custom_class", ""))
+        from djust.components.templatetags._forms import render_popconfirm
 
-        variant_cls = f" dj-popconfirm--{variant}" if variant != "default" else ""
-        extra_cls = f" {custom_class}" if custom_class else ""
-
-        js_toggle = (
-            "(function(el){"
-            "var w=el.closest('.dj-popconfirm-wrapper');"
-            "w.classList.toggle('dj-popconfirm-open');"
-            "document.addEventListener('click',function h(e){"
-            "if(!w.contains(e.target)){"
-            "w.classList.remove('dj-popconfirm-open');"
-            "document.removeEventListener('click',h);"
-            "}},true);"
-            "})(this)"
-        )
-
-        js_close = (
-            "(function(el){"
-            "el.closest('.dj-popconfirm-wrapper').classList.remove('dj-popconfirm-open');"
-            "})(this)"
-        )
-
-        return _safe(
-            f'<div class="dj-popconfirm-wrapper{variant_cls}{extra_cls}">'
-            f'<div class="dj-popconfirm-trigger" onclick="{js_toggle}" '
-            f'aria-expanded="false" aria-haspopup="true">'
-            f"{content}"
-            f"</div>"
-            f'<div class="dj-popconfirm dj-popconfirm-{placement}" role="tooltip">'
-            f'<p class="dj-popconfirm__message">{message}</p>'
-            f'<div class="dj-popconfirm__actions">'
-            f'<button class="dj-popconfirm__btn dj-popconfirm__btn--cancel" '
-            f'onclick="{js_close}" dj-click="{cancel_event}">{cancel_label}</button>'
-            f'<button class="dj-popconfirm__btn dj-popconfirm__btn--confirm" '
-            f'onclick="{js_close}" dj-click="{confirm_event}">{confirm_label}</button>'
-            f"</div>"
-            f"</div>"
-            f"</div>"
-        )
+        return str(render_popconfirm(_parse_args(args, context), content))
 
 
 INLINE_HANDLERS.extend(
     [
         ("confirm_dialog", ConfirmDialogHandler()),
+    ]
+)
+
+BLOCK_HANDLERS.extend(
+    [
+        ("confirm_dialog_block", "endconfirm_dialog_block", ConfirmDialogHandler()),
     ]
 )
 
@@ -4283,9 +4551,7 @@ class DependentSelectHandler:
         error = conditional_escape(kw.get("error", ""))
         custom_class = conditional_escape(kw.get("custom_class", ""))
 
-        options = kw.get("options", None)
-        if options is None:
-            options = context.get("options", [])
+        options = _passed_or_context(kw, "options", context, default=[])
         if not isinstance(options, list):
             options = []
 
@@ -4406,76 +4672,10 @@ class CurrencyInputHandler:
         )
 
 
-class FormErrorsHandler:
-    """Inline handler for {% form_errors form=form %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        form = kw.get("form", None)
-        if form is None:
-            form = context.get("form", None)
-        custom_class = conditional_escape(kw.get("custom_class", ""))
-
-        if form is None or not hasattr(form, "non_field_errors"):
-            return ""
-
-        errors = cast(Any, form).non_field_errors()
-        if not errors:
-            return ""
-
-        cls = "dj-form-errors"
-        if custom_class:
-            cls += f" {custom_class}"
-
-        items = []
-        for err in errors:
-            items.append(f'<li class="dj-form-errors__item">{conditional_escape(str(err))}</li>')
-
-        return _safe(
-            f'<div class="{cls}" role="alert">'
-            f'<ul class="dj-form-errors__list">{"".join(items)}</ul>'
-            f"</div>"
-        )
-
-
-class FieldErrorHandler:
-    """Inline handler for {% field_error field=form.email %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        field = kw.get("field", None)
-        custom_class = conditional_escape(kw.get("custom_class", ""))
-
-        if field is None:
-            return ""
-
-        if hasattr(field, "errors"):
-            errors = field.errors
-        else:
-            return ""
-
-        if not errors:
-            return ""
-
-        cls = "dj-field-error"
-        if custom_class:
-            cls += f" {custom_class}"
-
-        items = []
-        for err in errors:
-            items.append(
-                f'<span class="dj-field-error__message">{conditional_escape(str(err))}</span>'
-            )
-
-        return _safe(f'<div class="{cls}" role="alert">{"".join(items)}</div>')
-
-
 INLINE_HANDLERS.extend(
     [
         ("dependent_select", DependentSelectHandler()),
         ("currency_input", CurrencyInputHandler()),
-        ("form_errors", FormErrorsHandler()),
-        ("field_error", FieldErrorHandler()),
     ]
 )
 
@@ -4559,7 +4759,7 @@ class SidebarItemHandler:
             )
         else:
             trigger = (
-                f'<a class="dj-sidebar__link{active_cls}" href="{url_attr(kw.get("href", "#"))}">'
+                f'<a class="dj-sidebar__link{active_cls}" href="{data_url_attr(kw.get("href", "#"))}">'
                 f'{icon_html}<span class="dj-sidebar__label">{label}</span></a>'
             )
 
@@ -4596,7 +4796,7 @@ class NavMenuHandler:
         kw = _parse_args(args, context)
         nav_id = conditional_escape(kw.get("id", "nav-menu"))
         brand = kw.get("brand", "")
-        brand_href = url_attr(kw.get("brand_href", "/"))
+        brand_href = data_url_attr(kw.get("brand_href", "/"))
         toggle_event = conditional_escape(kw.get("toggle_event", "toggle_nav"))
         mobile_open = kw.get("mobile_open", False)
         custom_class = conditional_escape(kw.get("class", ""))
@@ -4627,6 +4827,10 @@ class NavMenuHandler:
         )
 
 
+#: What ``NavItemHandler`` opens every item with, which is how a parent finds its child items.
+_NAV_ITEM_MARKUP = '<li class="dj-nav__item'
+
+
 class NavItemHandler:
     """Block handler for {% nav_item %}...{% endnav_item %}
 
@@ -4646,7 +4850,15 @@ class NavItemHandler:
         is_active = (item_id and item_id == active) or (href and href == active)
         active_cls = " dj-nav__item--active" if is_active else ""
 
-        has_children = content.strip() != ""
+        # A dropdown parent only when the body holds nav ITEMS (this handler's own ``<li>``).
+        # The Python tag counts child ``{% nav_item %}`` nodes and ignores any other body, so
+        # an item with an ``event`` and a text body stays a clickable button there; "any
+        # non-blank body" dropped that ``dj-click`` (#3669).
+        # KNOWN LIMIT (#3873, pinned by a test): a block handler is handed rendered HTML, so a
+        # child is recognised by the markup this handler draws. A literal
+        # ``<li class="dj-nav__item">`` in the body matches too, and a sub-item inside
+        # ``{% if %}`` / ``{% for %}`` counts here where Django counts only direct child nodes.
+        has_children = _NAV_ITEM_MARKUP in content
 
         if has_children:
             mega_cls = " dj-nav__dropdown--mega" if mega else ""
@@ -4673,15 +4885,86 @@ class NavItemHandler:
 
         return _safe(
             f'<li class="dj-nav__item{active_cls}">'
-            f'<a class="dj-nav__link" href="{url_attr(kw.get("href", "#"))}">'
+            f'<a class="dj-nav__link" href="{data_url_attr(kw.get("href", "#"))}">'
             f"{label}{desc_html}</a></li>"
         )
+
+
+class _AppShellSlotParser(HTMLParser):
+    """Locate a direct sidebar without reserializing the rendered HTML."""
+
+    _VOID_TAGS = frozenset(
+        {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }
+    )
+
+    def __init__(self, content: str) -> None:
+        super().__init__(convert_charrefs=False)
+        self._line_offsets = [0]
+        for line in content.split("\n"):
+            self._line_offsets.append(self._line_offsets[-1] + len(line) + 1)
+        self._stack: list[str] = []
+        self.start: int | None = None
+        self.end: int | None = None
+
+    def _offset(self) -> int:
+        line, column = self.getpos()
+        return self._line_offsets[line - 1] + column
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in self._VOID_TAGS:
+            return
+        if (
+            not self._stack
+            and self.start is None
+            and tag == "aside"
+            and dict(attrs).get("class") == "dj-app-shell__sidebar"
+        ):
+            self.start = self._offset()
+        self._stack.append(tag)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        pass
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag not in self._stack:
+            return
+        # Parent closing tags also close children with optional end tags (e.g. <p>).
+        index = len(self._stack) - 1 - self._stack[::-1].index(tag)
+        del self._stack[index:]
+        if not self._stack and tag == "aside" and self.start is not None and self.end is None:
+            self.end = self._offset() + len("</aside>")
+
+
+def _split_app_shell_sidebar(content: str) -> tuple[str, str]:
+    """Extract only a direct sidebar slot; preserve nested or unbalanced HTML."""
+    parser = _AppShellSlotParser(content)
+    parser.feed(content)
+    if parser.start is None or parser.end is None:
+        return "", content
+    return content[parser.start : parser.end], content[: parser.start] + content[parser.end :]
 
 
 class AppShellHandler:
     """Block handler for {% app_shell %}...{% endapp_shell %}
 
     Wraps sidebar, header, and content regions in a responsive layout.
+    Unlike Django's node, which orders header before content and drops text
+    outside the three slots, Rust keeps template order. Scaffolds put header first.
     """
 
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
@@ -4696,8 +4979,12 @@ class AppShellHandler:
         if custom_class:
             cls += f" {custom_class}"
 
-        # In Rust block mode, content is pre-rendered; wrap in shell layout
-        return _safe(f'<div class="{cls}" id="{shell_id}">{content}</div>')
+        # Keep the sidebar in the outer row and header/content in the main column.
+        sidebar, rest = _split_app_shell_sidebar(content)
+        return _safe(
+            f'<div class="{cls}" id="{shell_id}">{sidebar}'
+            f'<div class="dj-app-shell__main">{rest.strip()}</div></div>'
+        )
 
 
 class AppSidebarHandler:
@@ -4839,97 +5126,80 @@ class InlineEditHandler:
 # ---------------------------------------------------------------------------
 
 
+#: How a ``{% filter_select %}`` / ``{% filter_date_range %}`` / ``{% filter_search %}`` tells the
+#: ``{% filter_bar %}`` that holds it what it was given (#3669). The Python tags render NOTHING of
+#: their own: the bar reads its children's arguments and draws every control, wiring its own
+#: ``event`` and ``clear_event`` onto them (a child's ``event=`` is never read). A native block
+#: handler is handed its children already rendered, so a child leaves its arguments in a comment
+#: the bar reads and removes; a child reached outside a bar leaves an invisible comment, where
+#: the Python tag leaves nothing.
+_FILTER_MARK = _re_filters.compile(
+    r"<!--djust-filter:(select|date_range|search):([A-Za-z0-9_=-]*)-->"
+)
+
+
+class _FilterControlHandler:
+    KIND = ""
+
+    def render(self, args: list[str], context: dict[str, object]) -> str:
+        import base64
+
+        payload = _json.dumps(_parse_args(args, context), default=str, separators=(",", ":"))
+        token = base64.urlsafe_b64encode(payload.encode("utf-8")).decode("ascii")
+        kind = conditional_escape(self.KIND)
+        return _safe(f"<!--djust-filter:{kind}:{conditional_escape(token)}-->")
+
+
+class FilterSelectHandler(_FilterControlHandler):
+    """Inline handler for {% filter_select name="status" options=statuses %}"""
+
+    KIND = "select"
+
+
+class FilterDateRangeHandler(_FilterControlHandler):
+    """Inline handler for {% filter_date_range name="dates" %}"""
+
+    KIND = "date_range"
+
+
+class FilterSearchHandler(_FilterControlHandler):
+    """Inline handler for {% filter_search name="q" %}"""
+
+    KIND = "search"
+
+
 class FilterBarHandler:
     """Block handler for {% filter_bar %}...{% endfilter_bar %}
 
-    Horizontal bar composing filter controls with responsive collapse.
+    Draws the bar with the Python tag's own renderer (``render_filter_bar``) from the controls
+    its children left, so ``event``, ``clear_event`` and the "Clear filters" button are decided
+    in one place (#3669). Anything else in the bar is kept after the controls, as before.
     """
 
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
+        import base64
+
+        from djust.components.templatetags.djust_components import render_filter_bar
+
         kw = _parse_args(args, context)
-        bar_id = conditional_escape(kw.get("id", "filter-bar"))
-        custom_class = conditional_escape(kw.get("class", ""))
+        controls: list[tuple[str, dict[str, Any]]] = []
 
-        cls = "dj-filter-bar"
-        if custom_class:
-            cls += f" {custom_class}"
+        def take(match: Any) -> str:
+            try:
+                data = _json.loads(base64.urlsafe_b64decode(match.group(2).encode("ascii")))
+            except ValueError:
+                return ""
+            if isinstance(data, dict):
+                controls.append((match.group(1), data))
+            return ""
 
-        return _safe(
-            f'<div class="{cls}" id="{bar_id}" role="search">'
-            f'<div class="dj-filter-bar__controls">{content}</div></div>'
-        )
-
-
-class FilterSelectHandler:
-    """Inline handler for {% filter_select name="status" options=statuses %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        name = conditional_escape(kw.get("name", ""))
-        label = conditional_escape(kw.get("label", kw.get("name", "")))
-        options = kw.get("options", [])
-        value = kw.get("value", "")
-        event = conditional_escape(kw.get("event", "filter_change"))
-
-        opt_html = f'<option value="">{label}</option>'
-        if isinstance(options, list):
-            for opt in options:
-                if isinstance(opt, dict):
-                    ov = conditional_escape(str(opt.get("value", "")))
-                    ol = conditional_escape(str(opt.get("label", ov)))
-                    raw_v = str(opt.get("value", ""))
-                else:
-                    ov = conditional_escape(str(opt))
-                    ol = ov
-                    raw_v = str(opt)
-                selected = " selected" if raw_v == str(value) else ""
-                opt_html += f'<option value="{ov}"{selected}>{ol}</option>'
-
-        return _safe(
-            f'<div class="dj-filter-bar__control dj-filter-bar__select-wrap">'
-            f'<select class="dj-filter-bar__select" name="{name}" '
-            f'dj-change="{event}">{opt_html}</select></div>'
-        )
-
-
-class FilterDateRangeHandler:
-    """Inline handler for {% filter_date_range name="dates" %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        name = conditional_escape(kw.get("name", ""))
-        label = conditional_escape(kw.get("label", kw.get("name", "")))
-        start = conditional_escape(str(kw.get("start", "")))
-        end = conditional_escape(str(kw.get("end", "")))
-        event = conditional_escape(kw.get("event", "filter_change"))
-
-        return _safe(
-            f'<div class="dj-filter-bar__control dj-filter-bar__date-range">'
-            f'<label class="dj-filter-bar__label">{label}</label>'
-            f'<input class="dj-filter-bar__date" type="date" name="{name}_start" '
-            f'value="{start}" dj-change="{event}">'
-            f'<span class="dj-filter-bar__date-sep">&ndash;</span>'
-            f'<input class="dj-filter-bar__date" type="date" name="{name}_end" '
-            f'value="{end}" dj-change="{event}"></div>'
-        )
-
-
-class FilterSearchHandler:
-    """Inline handler for {% filter_search name="q" %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        name = conditional_escape(kw.get("name", ""))
-        placeholder = conditional_escape(kw.get("placeholder", "Search\u2026"))
-        value = conditional_escape(str(kw.get("value", "")))
-        debounce = kw.get("debounce", 300)
-        event = conditional_escape(kw.get("event", "filter_change"))
-
-        return _safe(
-            f'<div class="dj-filter-bar__control dj-filter-bar__search-wrap">'
-            f'<input class="dj-filter-bar__search" type="search" name="{name}" '
-            f'placeholder="{placeholder}" value="{value}" '
-            f'dj-input="{event}" dj-debounce="{int(cast("str | int | float", debounce))}"></div>'
+        rest = _FILTER_MARK.sub(take, content)
+        # The id keeps the constant this handler always drew: the Django tag draws a random one,
+        # which would change on every socket render.
+        return str(
+            render_filter_bar(
+                kw, controls, default_id="filter-bar", extra_html=rest if rest.strip() else ""
+            )
         )
 
 
@@ -4957,65 +5227,6 @@ BLOCK_HANDLERS.extend(
 # ===========================================================================
 
 
-class AvatarGroupHandler:
-    """Inline handler for {% avatar_group users=users max=5 %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        users = kw.get("users", [])
-        if isinstance(users, str):
-            users = []
-        max_display = int(cast("str | int | float", kw.get("max", 5)))
-        size = conditional_escape(str(kw.get("size", "md")))
-        custom_class = conditional_escape(str(kw.get("class", "")))
-
-        users_list = cast("list[object]", users)
-        visible = users_list[:max_display]
-        overflow = len(users_list) - max_display
-
-        parts = []
-        for i, user in enumerate(visible):
-            if isinstance(user, dict):
-                name = user.get("name", "")
-                src = user.get("avatar", "") or user.get("src", "")
-            elif hasattr(user, "get_full_name"):
-                name = user.get_full_name() or str(user)
-                src = getattr(user, "avatar", "")
-                if hasattr(src, "url"):
-                    src = src.url
-            else:
-                name = str(user)
-                src = ""
-            e_name = conditional_escape(str(name))
-            e_src = url_attr(src, image=True)
-            initials = conditional_escape("".join(w[0].upper() for w in str(name).split()[:2] if w))
-            z = len(visible) - i
-            if e_src:
-                parts.append(
-                    f'<span class="dj-avatar-group__item" title="{e_name}" '
-                    f'style="z-index:{z}">'
-                    f'<img src="{e_src}" alt="{e_name}" '
-                    f'class="dj-avatar-group__img"></span>'
-                )
-            else:
-                parts.append(
-                    f'<span class="dj-avatar-group__item '
-                    f'dj-avatar-group__initials" title="{e_name}" '
-                    f'style="z-index:{z}">{initials}</span>'
-                )
-
-        overflow_html = ""
-        if overflow > 0:
-            overflow_html = (
-                f'<span class="dj-avatar-group__item dj-avatar-group__overflow">+{overflow}</span>'
-            )
-
-        cls = f"dj-avatar-group dj-avatar-group--{size}"
-        if custom_class:
-            cls += f" {custom_class}"
-        return _safe(f'<div class="{cls}">{"".join(parts)}{overflow_html}</div>')
-
-
 class HoverCardHandler:
     """Block handler for {% hover_card trigger="@user" %}...{% endhover_card %}"""
 
@@ -5039,96 +5250,6 @@ class HoverCardHandler:
         )
 
 
-class NotificationPopoverHandler:
-    """Inline handler for {% notification_popover notifications=notifs %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        notifications = kw.get("notifications", [])
-        if isinstance(notifications, str):
-            notifications = []
-        unread_count = int(cast("str | int | float", kw.get("unread_count", 0)))
-        mark_read_event = conditional_escape(str(kw.get("mark_read_event", "mark_read")))
-        toggle_event = conditional_escape(str(kw.get("toggle_event", "toggle_notifications")))
-        is_open = kw.get("open", False)
-        custom_class = conditional_escape(str(kw.get("class", "")))
-        title = conditional_escape(str(kw.get("title", "Notifications")))
-
-        badge_html = ""
-        if unread_count > 0:
-            display = "99+" if unread_count > 99 else str(unread_count)
-            badge_html = f'<span class="dj-notif-popover__badge">{display}</span>'
-
-        open_cls = "dj-notif-popover--open" if is_open else ""
-        cls = f"dj-notif-popover {open_cls}"
-        if custom_class:
-            cls += f" {custom_class}"
-
-        bell_html = (
-            f'<button class="dj-notif-popover__bell" dj-click="{toggle_event}" '
-            f'aria-label="Notifications">'
-            f'<svg class="dj-notif-popover__icon" viewBox="0 0 24 24" fill="none" '
-            f'stroke="currentColor" stroke-width="2" stroke-linecap="round" '
-            f'stroke-linejoin="round" width="20" height="20">'
-            f'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>'
-            f'<path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
-            f"</svg>"
-            f"{badge_html}"
-            f"</button>"
-        )
-
-        items_html = []
-        for notif in cast("list[object]", notifications):
-            if isinstance(notif, dict):
-                n_id = notif.get("id", "")
-                n_title = notif.get("title", "")
-                n_body = notif.get("body", notif.get("message", ""))
-                n_time = notif.get("time", "")
-                n_read = notif.get("read", False)
-            else:
-                n_id = getattr(notif, "id", "")
-                n_title = getattr(notif, "title", "")
-                n_body = getattr(notif, "body", getattr(notif, "message", ""))
-                n_time = getattr(notif, "time", "")
-                n_read = getattr(notif, "read", False)
-            e_n_id = conditional_escape(str(n_id))
-            e_n_title = conditional_escape(str(n_title))
-            e_n_body = conditional_escape(str(n_body))
-            e_n_time = conditional_escape(str(n_time))
-            read_cls = "dj-notif-popover__item--read" if n_read else ""
-            mark_attr = ""
-            if not n_read:
-                mark_attr = f' dj-click="{mark_read_event}" data-id="{e_n_id}"'
-            items_html.append(
-                f'<div class="dj-notif-popover__item {read_cls}"{mark_attr}>'
-                f'<div class="dj-notif-popover__item-title">{e_n_title}</div>'
-                f'<div class="dj-notif-popover__item-body">{e_n_body}</div>'
-                f'<div class="dj-notif-popover__item-time">{e_n_time}</div>'
-                f"</div>"
-            )
-
-        panel_html = ""
-        if is_open:
-            empty = ""
-            if not notifications:
-                empty = '<div class="dj-notif-popover__empty">No notifications</div>'
-            panel_html = (
-                f'<div class="dj-notif-popover__panel">'
-                f'<div class="dj-notif-popover__header">{title}</div>'
-                f"{''.join(items_html)}{empty}"
-                f"</div>"
-            )
-
-        return _safe(f'<div class="{cls}">{bell_html}{panel_html}</div>')
-
-
-INLINE_HANDLERS.extend(
-    [
-        ("avatar_group", AvatarGroupHandler()),
-        ("notification_popover", NotificationPopoverHandler()),
-    ]
-)
-
 BLOCK_HANDLERS.extend(
     [
         ("hover_card", "endhover_card", HoverCardHandler()),
@@ -5139,92 +5260,6 @@ BLOCK_HANDLERS.extend(
 # ===========================================================================
 # AI CHAT INTERFACE HANDLERS
 # ===========================================================================
-
-
-class ConversationThreadHandler:
-    """Inline handler for {% conversation_thread messages=... %}"""
-
-    def render(self, args: list[str], context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        messages = kw.get("messages", [])
-        stream_event = kw.get("stream_event", "new_message")
-        streaming = kw.get("streaming", False)
-        custom_class = kw.get("class", "")
-
-        e_stream = conditional_escape(str(stream_event))
-        e_class = conditional_escape(str(custom_class))
-
-        cls = "dj-chat-thread"
-        if e_class:
-            cls += f" {e_class}"
-
-        msgs_html = []
-        prev_sender = None
-        if not isinstance(messages, list):
-            messages = []
-        for msg in messages:
-            if isinstance(msg, dict):
-                sender = msg.get("sender", "user")
-                name = msg.get("name", "")
-                text = msg.get("text", "")
-                time = msg.get("time", "")
-            else:
-                sender = getattr(msg, "sender", "user")
-                name = getattr(msg, "name", "")
-                text = getattr(msg, "text", "")
-                time = getattr(msg, "time", "")
-
-            e_name = conditional_escape(str(name))
-            e_text = conditional_escape(str(text))
-            e_time = conditional_escape(str(time))
-
-            grouped = "dj-chat-msg--grouped" if sender == prev_sender else ""
-            side = "dj-chat-msg--ai" if sender == "ai" else "dj-chat-msg--user"
-
-            initials = str(name)[:1].upper() if name else "?"
-            avatar = (
-                f'<span class="dj-chat-avatar">{conditional_escape(initials)}</span>'
-                if sender != prev_sender
-                else '<span class="dj-chat-avatar dj-chat-avatar--hidden"></span>'
-            )
-
-            header = ""
-            if sender != prev_sender:
-                header = (
-                    f'<div class="dj-chat-msg__header">'
-                    f'<span class="dj-chat-msg__name">{e_name}</span>'
-                    f'<span class="dj-chat-msg__time">{e_time}</span>'
-                    f"</div>"
-                )
-
-            msgs_html.append(
-                f'<div class="dj-chat-msg {side} {grouped}">'
-                f"{avatar}"
-                f'<div class="dj-chat-bubble">'
-                f"{header}"
-                f'<div class="dj-chat-msg__text">{e_text}</div>'
-                f"</div></div>"
-            )
-            prev_sender = sender
-
-        streaming_html = ""
-        if streaming:
-            streaming_html = (
-                '<div class="dj-chat-msg dj-chat-msg--ai">'
-                '<span class="dj-chat-avatar">&#8943;</span>'
-                '<div class="dj-chat-bubble">'
-                '<div class="dj-chat-typing">'
-                '<span class="dj-chat-typing__dot"></span>'
-                '<span class="dj-chat-typing__dot"></span>'
-                '<span class="dj-chat-typing__dot"></span>'
-                "</div></div></div>"
-            )
-
-        return _safe(
-            f'<div class="{cls}" data-stream-event="{e_stream}">'
-            f"{''.join(msgs_html)}{streaming_html}"
-            f"</div>"
-        )
 
 
 class ThinkingIndicatorHandler:
@@ -5432,7 +5467,6 @@ class FeedbackWidgetHandler:
 
 INLINE_HANDLERS.extend(
     [
-        ("conversation_thread", ConversationThreadHandler()),
         ("thinking_indicator", ThinkingIndicatorHandler()),
         ("multimodal_input", MultimodalInputHandler()),
         ("feedback", FeedbackWidgetHandler()),
@@ -5537,7 +5571,7 @@ class SourceCitationHandler:
             popover_parts.append(f'<span class="dj-citation__title">{e_title}</span>')
         if e_url:
             popover_parts.append(
-                f'<a class="dj-citation__url" href="{url_attr(url)}" '
+                f'<a class="dj-citation__url" href="{data_url_attr(url)}" '
                 f'target="_blank" rel="noopener noreferrer">{e_url}</a>'
             )
         if relevance is not None:
@@ -5767,7 +5801,7 @@ class ChatBubbleHandler:
         e_name = conditional_escape(str(name))
         e_text = conditional_escape(str(text))
         e_time = conditional_escape(str(time_str))
-        e_avatar = url_attr(avatar_src, image=True)
+        e_avatar = data_url_attr(avatar_src, image=True)
         e_class = conditional_escape(str(custom_class))
 
         side = "dj-bubble--user" if sender == "user" else "dj-bubble--other"
@@ -5858,7 +5892,7 @@ class PresenceAvatarsHandler:
                 status = "online"
 
             e_name = conditional_escape(str(name))
-            e_src = url_attr(src, image=True)
+            e_src = data_url_attr(src, image=True)
             safe_status = status if status in self.VALID_STATUSES else "online"
             initials = conditional_escape(
                 "".join(w[0].upper() for w in str(name).split()[:2] if w) or "?"
@@ -5927,7 +5961,7 @@ class MentionsInputHandler:
                 continue
             uid = conditional_escape(str(user.get("id", "")))
             uname = conditional_escape(str(user.get("name", "")))
-            avatar_src = url_attr(user.get("avatar", ""), image=True)
+            avatar_src = data_url_attr(user.get("avatar", ""), image=True)
 
             initials = (
                 conditional_escape(
@@ -6599,7 +6633,7 @@ class CookieConsentHandler:
 
         privacy_html = ""
         if privacy_url:
-            e_url = url_attr(privacy_url)
+            e_url = data_url_attr(privacy_url)
             privacy_html = f' <a href="{e_url}" class="dj-cookie-consent__link">Privacy Policy</a>'
 
         buttons = [
@@ -6773,68 +6807,30 @@ class PageAlertHandler:
 
 
 class DropdownMenuHandler:
+    """Block handler for {% dropdown_menu %}: the same markup as the Django tag."""
+
     def render(self, args: list[str], content: str, context: dict[str, object]) -> str:
-        kw = _parse_args(args, context)
-        label = kw.get("label", "Menu")
-        items = kw.get("items", [])
-        is_open = kw.get("open", False)
-        toggle_event = kw.get("toggle_event", "toggle_menu")
-        align = kw.get("align", "left")
-        custom_class = kw.get("class", "")
+        from djust.components.templatetags.djust_components import render_dropdown_menu
 
-        e_label = conditional_escape(str(label))
-        e_toggle = conditional_escape(str(toggle_event))
-        e_class = conditional_escape(str(custom_class))
+        return str(render_dropdown_menu(_parse_args(args, context), content))
 
-        classes = ["dj-dropdown-menu"]
-        if is_open:
-            classes.append("dj-dropdown-menu--open")
-        if e_class:
-            classes.append(e_class)
-        class_str = " ".join(classes)
 
-        trigger = (
-            f'<button class="dj-dropdown-menu__trigger" dj-click="{e_toggle}" '
-            f'aria-expanded="{"true" if is_open else "false"}" aria-haspopup="true">{e_label}</button>'
-        )
+class MenuItemHandler:
+    """Inline handler for {% menu_item label=... event=... %} inside {% dropdown_menu %}."""
 
-        if not is_open:
-            return _safe(f'<div class="{class_str}">{trigger}</div>')
+    def render(self, args: list[str], context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import render_menu_item
 
-        if not isinstance(items, list):
-            items = []
+        return _safe(render_menu_item(_parse_args(args, context)))
 
-        menu_items = []
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            if item.get("divider"):
-                menu_items.append('<hr class="dj-dropdown-menu__divider" role="separator">')
-                continue
-            item_cls = "dj-dropdown-menu__item"
-            if item.get("danger"):
-                item_cls += " dj-dropdown-menu__item--danger"
-            if item.get("disabled"):
-                item_cls += " dj-dropdown-menu__item--disabled"
 
-            e_item_label = conditional_escape(str(item.get("label", "")))
-            e_event = conditional_escape(str(item.get("event", "")))
-            disabled_attr = " disabled" if item.get("disabled") else ""
-            event_attr = f' dj-click="{e_event}"' if e_event else ""
-            icon_html = ""
-            if item.get("icon"):
-                icon_html = f'<span class="dj-dropdown-menu__icon">{conditional_escape(str(item["icon"]))}</span>'
-            menu_items.append(
-                f'<button class="{item_cls}" role="menuitem"{event_attr}{disabled_attr}>'
-                f"{icon_html}{e_item_label}</button>"
-            )
+class MenuDividerHandler:
+    """Inline handler for {% menu_divider %} inside {% dropdown_menu %}."""
 
-        menu_html = (
-            f'<div class="dj-dropdown-menu__content dj-dropdown-menu--{conditional_escape(str(align))}" '
-            f'role="menu">{"".join(menu_items)}</div>'
-        )
+    def render(self, args: list[str], context: dict[str, object]) -> str:
+        from djust.components.templatetags.djust_components import _MENU_DIVIDER
 
-        return _safe(f'<div class="{class_str}">{trigger}{menu_html}</div>')
+        return _safe(_MENU_DIVIDER)
 
 
 class MeterHandler:
@@ -7179,11 +7175,13 @@ class SortableListHandler:
         if not isinstance(items, list):
             items = []
 
+        keyed = _unique_ids(items)
         items_html = []
         for item in items:
             if not isinstance(item, dict):
                 continue
             item_id = conditional_escape(str(item.get("id", "")))
+            key_attr = f' data-key="{item_id}"' if keyed else ""
             label = conditional_escape(str(item.get("label", "")))
             handle_html = (
                 '<span class="dj-sortable-list__handle" aria-hidden="true">&#x2630;</span> '
@@ -7192,7 +7190,7 @@ class SortableListHandler:
             )
             drag_attr = ' draggable="true"' if not disabled else ""
             items_html.append(
-                f'<li class="dj-sortable-list__item" data-id="{item_id}"{drag_attr} '
+                f'<li class="dj-sortable-list__item" data-id="{item_id}"{key_attr}{drag_attr} '
                 f'role="listitem">'
                 f"{handle_html}"
                 f'<span class="dj-sortable-list__label">{label}</span></li>'
@@ -7236,23 +7234,25 @@ class SortableGridHandler:
         except (ValueError, TypeError):
             cols = 3
 
+        keyed = _unique_ids(items)
         items_html = []
         for item in items:
             if not isinstance(item, dict):
                 continue
             item_id = conditional_escape(str(item.get("id", "")))
+            key_attr = f' data-key="{item_id}"' if keyed else ""
             label = conditional_escape(str(item.get("label", "")))
             thumbnail = item.get("thumbnail", "")
             thumb_html = ""
             if thumbnail:
-                e_thumb = url_attr(thumbnail, image=True)
+                e_thumb = data_url_attr(thumbnail, image=True)
                 thumb_html = (
                     f'<img class="dj-sortable-grid__thumb" '
                     f'src="{e_thumb}" alt="{label}" loading="lazy">'
                 )
             drag_attr = ' draggable="true"' if not disabled else ""
             items_html.append(
-                f'<div class="dj-sortable-grid__item" data-id="{item_id}"{drag_attr}>'
+                f'<div class="dj-sortable-grid__item" data-id="{item_id}"{key_attr}{drag_attr}>'
                 f"{thumb_html}"
                 f'<span class="dj-sortable-grid__label">{label}</span></div>'
             )
@@ -7278,7 +7278,7 @@ class ImageCropperHandler:
         disabled = kw.get("disabled", False)
         custom_class = kw.get("class", "")
 
-        e_src = url_attr(src, image=True)
+        e_src = data_url_attr(src, image=True)
         e_event = conditional_escape(str(crop_event))
         e_class = conditional_escape(str(custom_class))
 
@@ -7303,20 +7303,26 @@ class ImageCropperHandler:
         except (ValueError, TypeError):
             min_h = 50
 
+        from djust.components.components.image_cropper import cropper_extras
+
+        extras = cropper_extras()
+        e_alt = conditional_escape(str(kw.get("alt", "Image to crop")))
+
         return _safe(
             f'<div class="{class_str}" dj-hook="ImageCropper" '
             f'data-crop-event="{e_event}" '
             f'data-min-width="{min_w}" '
             f'data-min-height="{min_h}"{ratio_attr}>'
             f'<div class="dj-image-cropper__canvas">'
-            f'<img class="dj-image-cropper__image" src="{e_src}" alt="Image to crop" draggable="false">'
+            f'<img class="dj-image-cropper__image" src="{e_src}" alt="{e_alt}" draggable="false">'
             f'<div class="dj-image-cropper__overlay"></div>'
-            f'<div class="dj-image-cropper__selection"></div>'
+            f'<div class="dj-image-cropper__selection"{extras.selection_attrs}>{extras.handles}</div>'
             f"</div>"
             f'<div class="dj-image-cropper__actions">'
             f'<button class="dj-image-cropper__crop-btn" type="button">Crop</button>'
             f'<button class="dj-image-cropper__reset-btn" type="button">Reset</button>'
             f"</div>"
+            f"{extras.status}"
             f"</div>"
         )
 
@@ -7360,20 +7366,29 @@ class SignaturePadHandler:
 
         disabled_attr = " disabled" if disabled else ""
 
+        from djust.components.components.signature_pad import DEFAULT_MAX_BYTES, pad_extras
+
+        extras = pad_extras(
+            kw.get("max_bytes", DEFAULT_MAX_BYTES), kw.get("label"), kw.get("typed", True)
+        )
+
         return _safe(
             f'<div class="{class_str}" dj-hook="SignaturePad" '
             f'data-save-event="{e_event}" '
             f'data-pen-color="{e_color}" '
-            f'data-pen-width="{pw}">'
+            f'data-pen-width="{pw}"{extras.root}>'
             f'<canvas class="dj-signature-pad__canvas" '
             f'width="{w}" height="{h}"'
-            f"{disabled_attr}></canvas>"
+            f"{disabled_attr}{extras.canvas}></canvas>"
             f'<input type="hidden" name="{e_name}" class="dj-signature-pad__value">'
+            f"{extras.typed}"
             f'<div class="dj-signature-pad__actions">'
             f'<button class="dj-signature-pad__clear-btn" type="button">Clear</button>'
+            f"{extras.undo}{extras.toggle}"
             f'<button class="dj-signature-pad__save-btn" type="button"'
             f"{disabled_attr}>Save</button>"
             f"</div>"
+            f"{extras.status}"
             f"</div>"
         )
 
@@ -7387,6 +7402,7 @@ class ResizablePanelHandler:
         initial_size = kw.get("initial_size", "50%")
         disabled = kw.get("disabled", False)
         custom_class = kw.get("class", "")
+        resize_event = kw.get("resize_event", "")
 
         e_class = conditional_escape(str(custom_class))
 
@@ -7411,11 +7427,14 @@ class ResizablePanelHandler:
         style = f'style="{";".join(style_parts)}"'
 
         disabled_attr = ' data-disabled="true"' if disabled else ""
+        event_attr = (
+            f' data-resize-event="{conditional_escape(str(resize_event))}"' if resize_event else ""
+        )
 
         return _safe(
             f'<div class="{class_str}" dj-hook="ResizablePanel" '
             f'data-direction="{direction}" '
-            f'data-min-size="{e_min}" data-max-size="{e_max}" '
+            f'data-min-size="{e_min}" data-max-size="{e_max}"{event_attr} '
             f"{style}{disabled_attr}>"
             f'<div class="dj-resizable-panel__content">{content}</div>'
             f'<div class="dj-resizable-panel__handle" role="separator" '
@@ -7464,7 +7483,7 @@ class LightboxHandler:
         if images and 0 <= idx < total:
             img = images[idx]
             if isinstance(img, dict):
-                e_src = url_attr(img.get("src", ""), image=True)
+                e_src = data_url_attr(img.get("src", ""), image=True)
                 e_alt = conditional_escape(str(img.get("alt", "")))
                 caption = img.get("caption", "")
                 img_html = f'<img class="dj-lightbox__image" src="{e_src}" alt="{e_alt}">'
@@ -7500,7 +7519,7 @@ class LightboxHandler:
             f'data-close-event="{e_close}" data-navigate-event="{e_nav}" '
             f'role="dialog" aria-modal="true">'
             f'<div class="dj-lightbox__backdrop" dj-click="{e_close}"></div>'
-            f'<button class="dj-lightbox__close" dj-click="{e_close}" '
+            f'<button class="dj-lightbox__close" data-dj-close dj-click="{e_close}" '
             f'aria-label="Close">&times;</button>'
             f"{prev_btn}"
             f'<div class="dj-lightbox__stage">{img_html}{caption_html}</div>'
@@ -7533,7 +7552,7 @@ class DashboardGridHandler:
         class_str = " ".join(classes)
 
         try:
-            cols = int(cast("str | int | float", columns))
+            cols = clamp_columns(cast("str | int | float", columns))
         except (ValueError, TypeError):
             cols = 4
 
@@ -7547,22 +7566,16 @@ class DashboardGridHandler:
             pid = conditional_escape(str(panel.get("id", "")))
             title = conditional_escape(str(panel.get("title", "")))
             pcontent = conditional_escape(panel.get("content", ""))
-            try:
-                col = int(panel.get("col", 1))
-            except (ValueError, TypeError):
-                col = 1
-            try:
-                row = int(panel.get("row", 1))
-            except (ValueError, TypeError):
-                row = 1
-            try:
-                w = int(panel.get("width", 1))
-            except (ValueError, TypeError):
-                w = 1
-            try:
-                h = int(panel.get("height", 1))
-            except (ValueError, TypeError):
-                h = 1
+
+            def _whole(key: str) -> int:
+                try:
+                    return int(panel.get(key, 1))
+                except (ValueError, TypeError):
+                    return 1
+
+            col, row, w, h = clamp_cells(
+                cols, _whole("col"), _whole("row"), _whole("width"), _whole("height")
+            )
 
             style = f"grid-column:{col}/span {w};grid-row:{row}/span {h}"
 
@@ -7621,6 +7634,13 @@ BLOCK_HANDLERS.extend(
         ("error_boundary", "enderror_boundary", ErrorBoundaryHandler()),
         ("resizable_panel", "endresizable_panel", ResizablePanelHandler()),
         ("dashboard_grid", "enddashboard_grid", DashboardGridHandler()),
+    ]
+)
+
+INLINE_HANDLERS.extend(
+    [
+        ("menu_item", MenuItemHandler()),
+        ("menu_divider", MenuDividerHandler()),
     ]
 )
 
@@ -8644,6 +8664,8 @@ class TerminalHandler:
         show_line_numbers = kw.get("show_line_numbers", False)
         wrap = kw.get("wrap", False)
         custom_class = kw.get("class", "")
+        max_lines = kw.get("max_lines", 0)
+        auto_scroll = kw.get("auto_scroll", True)
 
         e_class = conditional_escape(str(custom_class))
         classes = ["dj-terminal"]
@@ -8685,8 +8707,21 @@ class TerminalHandler:
             e_stream = conditional_escape(str(stream_event))
             stream_attr = f' data-stream-event="{e_stream}"'
 
+        # What the Terminal hook needs to render and trim streamed lines like these.
+        hook_attrs = ""
+        if show_line_numbers:
+            hook_attrs += ' data-line-numbers="true"'
+        try:
+            max_lines = int(cast("str | int | float", max_lines))
+        except (ValueError, TypeError):
+            max_lines = 0
+        if max_lines > 0:
+            hook_attrs += f' data-max-lines="{max_lines}"'
+        if not auto_scroll:
+            hook_attrs += ' data-auto-scroll="false"'
+
         return _safe(
-            f'<div class="{class_str}" dj-hook="Terminal"{stream_attr}>'
+            f'<div class="{class_str}" dj-hook="Terminal"{stream_attr}{hook_attrs}>'
             f"{title_html}"
             f'<div class="dj-terminal__body">{"".join(lines_html)}</div>'
             f"</div>"
@@ -8771,14 +8806,28 @@ class MarkdownEditorHandler:
             )
 
         panes = f'<div class="dj-md-editor__panes">{textarea_html}{preview_html}</div>'
+        from djust.components.components.markdown_editor import menu_attrs
+
+        menus = menu_attrs(kw.get("bubble_menu"), kw.get("floating_menu"))
 
         return _safe(
-            f'<div class="{class_str}" dj-hook="MarkdownEditor" data-mode="{mode}">{toolbar_html}{panes}</div>'
+            f'<div class="{class_str}" dj-hook="MarkdownEditor" data-mode="{mode}"{menus}>{toolbar_html}{panes}</div>'
         )
 
 
 class JsonViewerHandler:
-    """Inline handler for {% json_viewer data=json_data %}"""
+    """Inline handler for {% json_viewer data=json_data %}.
+
+    ``TYPED_ARGS`` (#3756): the Python tag branches on ``isinstance(value, ...)`` and spells every
+    other type as ``str(value)``, so a handler that only sees the engine's string / JSON stand-in
+    (``str(datetime)``, a ``float`` for a ``Decimal``) dispatches on the wrong type. The engine
+    resolves each ``key=<expression>`` operand through the SAME floored walk ``{{ }}`` uses and,
+    for a handler that declares this, hands the typed value over under
+    ``context["__djust_typed_args__"]``. The handler reads its operand from there and from the
+    string arguments for everything the engine did not resolve (a literal).
+    """
+
+    TYPED_ARGS = True
 
     def _render_node(self, value: object, depth: int, collapsed_depth: int) -> str:
         collapsed = depth >= collapsed_depth
@@ -8850,6 +8899,7 @@ class JsonViewerHandler:
 
     def render(self, args: list[str], context: dict[str, object]) -> str:
         kw = _parse_args(args, context)
+        kw.update(_typed_args(context))
         data = kw.get("data", None)
         collapsed_depth = kw.get("collapsed_depth", 2)
         root_label = kw.get("root_label", "root")
@@ -8971,10 +9021,18 @@ class LogViewerHandler:
             stream_attr = f' data-stream-event="{e_stream}"'
 
         scroll_attr = ' data-auto-scroll="true"' if auto_scroll else ""
+        # What the LogViewer hook needs to append streamed lines like these.
+        hook_attrs = ""
+        if show_line_numbers:
+            hook_attrs += ' data-line-numbers="true"'
+        if max_lines and max_lines > 0:
+            hook_attrs += f' data-max-lines="{int(max_lines)}"'
+        if filter_level:
+            hook_attrs += f' data-filter-level="{conditional_escape(str(filter_level).lower())}"'
 
         return _safe(
             f'<div class="{class_str}" dj-hook="LogViewer"'
-            f'{stream_attr}{scroll_attr} role="log" aria-live="polite">'
+            f'{stream_attr}{scroll_attr}{hook_attrs} role="log" aria-live="polite">'
             f'<div class="dj-log-viewer__body">{"".join(lines_html)}</div>'
             f"</div>"
         )
@@ -9056,6 +9114,7 @@ class FileTreeHandler:
         event = kw.get("event", "select_file")
         show_icons = kw.get("show_icons", True)
         custom_class = kw.get("class", "")
+        toggle_event = kw.get("toggle_event", "")
 
         e_class = conditional_escape(str(custom_class))
         e_event = conditional_escape(str(event))
@@ -9075,9 +9134,12 @@ class FileTreeHandler:
                 self._render_tree_node(node, 0, str(event), show_icons, str(selected))
             )
 
+        toggle_attr = (
+            f' data-toggle-event="{conditional_escape(str(toggle_event))}"' if toggle_event else ""
+        )
         return _safe(
             f'<div class="{class_str}" dj-hook="FileTree" '
-            f'data-event="{e_event}" data-selected="{e_selected}" '
+            f'data-event="{e_event}" data-selected="{e_selected}"{toggle_attr} '
             f'role="tree">{"".join(nodes_html)}</div>'
         )
 
@@ -9148,7 +9210,7 @@ class TourHandler:
         skip_btn = ""
         if show_skip and idx < total - 1:
             skip_btn = (
-                f'<button class="dj-tour__skip" type="button" '
+                f'<button class="dj-tour__skip" data-dj-close type="button" '
                 f'dj-click="{e_event}" data-value="skip">Skip tour</button>'
             )
 
@@ -9732,9 +9794,7 @@ class OrgChartHandler:
         if e_event:
             click_attr = f' dj-click="{e_event}" data-value="{conditional_escape(nid)}"'
         if avatar:
-            avatar_html = (
-                f'<img class="dj-org__avatar" src="{url_attr(avatar, image=True)}" alt="{name}" />'
-            )
+            avatar_html = f'<img class="dj-org__avatar" src="{data_url_attr(avatar, image=True)}" alt="{name}" />'
         else:
             initials = "".join(w[0] for w in str(node.get("name", "")).split()[:2]).upper() or "?"
             avatar_html = f'<span class="dj-org__initials">{conditional_escape(initials)}</span>'
@@ -10066,7 +10126,7 @@ class LiveIndicatorHandler:
             avatar = ""
 
         e_name = conditional_escape(str(name))
-        e_avatar = url_attr(avatar, image=True)
+        e_avatar = data_url_attr(avatar, image=True)
         e_field = conditional_escape(str(field))
         e_action = conditional_escape(str(action))
 
@@ -10115,6 +10175,7 @@ class CollabSelectionHandler:
         kw = _parse_args(args, context)
         users = kw.get("users", [])
         custom_class = kw.get("class", "")
+        target = kw.get("target", "")
 
         if not isinstance(users, list):
             users = []
@@ -10167,10 +10228,11 @@ class CollabSelectionHandler:
 
         total = len(users)
         label = f"{total} selection{'s' if total != 1 else ''}"
+        target_attr = f' data-target="{conditional_escape(str(target))}"' if target else ""
 
         return _safe(
             f'<div class="{cls}" role="group" aria-label="{label}" '
-            f'dj-hook="CollabSelection">'
+            f'dj-hook="CollabSelection"{target_attr}>'
             f"{''.join(parts)}"
             f"</div>"
         )
@@ -10183,12 +10245,9 @@ class ActivityFeedHandler:
         kw = _parse_args(args, context)
         events = kw.get("events", [])
         stream_event = kw.get("stream", "")
-        max_items = 50
-        try:
-            max_items = int(cast("str | int | float", kw.get("max", 50)))
-        except (ValueError, TypeError):
-            # Keep the default (50) if caller passed a non-int.
-            pass
+        # ``int()`` of what the caller passed, like the Python tag (#3667). A non-int used to
+        # keep the default here and is a TypeError / ValueError there.
+        max_items = int(cast("str | int | float", kw.get("max", 50)))
         custom_class = kw.get("class", "")
 
         if not isinstance(events, list):
@@ -10205,6 +10264,8 @@ class ActivityFeedHandler:
         if e_stream:
             attrs.append(f'data-stream-event="{e_stream}"')
             attrs.append('dj-hook="ActivityFeed"')
+            # What the hook needs to keep a streamed feed to the same length.
+            attrs.append(f'data-max-items="{max_items}"')
 
         visible = events[:max_items]
 
@@ -10217,7 +10278,7 @@ class ActivityFeedHandler:
             action = conditional_escape(str(event.get("action", "")))
             target = conditional_escape(str(event.get("target", "")))
             time = conditional_escape(str(event.get("time", "")))
-            avatar_src = url_attr(event.get("avatar", ""), image=True)
+            avatar_src = data_url_attr(event.get("avatar", ""), image=True)
             icon = conditional_escape(str(event.get("icon", "")))
 
             initials = (
@@ -10367,17 +10428,27 @@ class MapPickerHandler:
         e_class = conditional_escape(str(custom_class))
         e_event = conditional_escape(str(pick_event))
         e_height = conditional_escape(safe_css_length(height, "400px"))
+        e_label = conditional_escape(str(kw.get("label", "Map picker")))
 
         cls = "dj-map-picker"
         if e_class:
             cls += f" {e_class}"
 
+        from djust.components.components.map_picker import map_picker_attrs
+
+        extra = map_picker_attrs(
+            kw.get("tile_url"),
+            kw.get("attribution"),
+            kw.get("attribution_url"),
+            kw.get("max_zoom", 19),
+        )
+
         return _safe(
             f'<div class="{cls}" dj-hook="MapPicker" '
             f'data-lat="{lat}" data-lng="{lng}" '
-            f'data-zoom="{zoom}" data-pick-event="{e_event}" '
+            f'data-zoom="{zoom}" data-pick-event="{e_event}"{extra} '
             f'style="height:{e_height}" '
-            f'role="application" aria-label="Map picker">'
+            f'role="application" aria-label="{e_label}">'
             f'<div class="dj-map-picker__map"></div>'
             f"</div>"
         )
@@ -10488,15 +10559,21 @@ class VoiceInputHandler:
 
         cont = "true" if continuous else "false"
 
+        from djust.components.components.voice_input import voice_extras
+
+        extras = voice_extras(kw.get("disclosure"), kw.get("max_seconds", 60))
+
         return _safe(
+            f"{extras.wrap_open}"
             f'<button type="button" class="{cls}" '
             f'dj-hook="VoiceInput" '
             f'data-event="{e_event}" data-lang="{e_lang}" '
-            f'data-continuous="{cont}" '
+            f'data-continuous="{cont}"{extras.button_attrs} '
             f'aria-label="Voice input" aria-pressed="false">'
             f"{mic_svg}"
             f'<span class="dj-voice-input__pulse"></span>'
             f"</button>"
+            f"{extras.disclosure}{extras.interim}{extras.status}{extras.wrap_close}"
         )
 
 
@@ -10573,7 +10650,7 @@ class ErrorPageHandler:
         e_class = conditional_escape(str(custom_class))
         e_title = conditional_escape(str(title))
         e_message = conditional_escape(str(message))
-        e_url = url_attr(action_url)
+        e_url = data_url_attr(action_url)
         e_label = conditional_escape(str(action_label))
 
         cls = "dj-error-page"
@@ -10629,7 +10706,7 @@ class ImageUploadPreviewHandler:
 
         thumbs = []
         for url in previews:
-            e_url = url_attr(url, image=True)
+            e_url = data_url_attr(url, image=True)
             thumbs.append(
                 f'<div class="dj-img-upload__thumb">'
                 f'<img src="{e_url}" alt="Preview" '
@@ -10650,17 +10727,24 @@ class ImageUploadPreviewHandler:
             "</svg>"
         )
 
+        from djust.components.components.image_upload_preview import ITEMS_HTML, upload_attrs
+
+        root_attrs, zone_attrs, input_attrs = upload_attrs(
+            kw.get("upload"), kw.get("max_size", 0), "event" in kw
+        )
+
         return _safe(
             f'<div class="{cls}" dj-hook="ImageUploadPreview" '
-            f'data-event="{e_event}" data-max="{max_count}">'
-            f'<label class="dj-img-upload__dropzone">'
+            f'data-event="{e_event}" data-max="{max_count}"{root_attrs}>'
+            f'<label class="dj-img-upload__dropzone"{zone_attrs}>'
             f"{upload_svg}"
             f'<span class="dj-img-upload__text">Drop images here or click to upload</span>'
             f'<span class="dj-img-upload__hint">Max {max_count} images</span>'
             f'<input type="file" name="{e_name}" accept="{e_accept}" '
-            f'multiple class="dj-img-upload__input" aria-label="Upload images">'
+            f'multiple class="dj-img-upload__input" aria-label="Upload images"{input_attrs}>'
             f"</label>"
             f"{thumbs_html}"
+            f"{ITEMS_HTML}"
             f"</div>"
         )
 
@@ -10705,7 +10789,9 @@ class AnimatedNumberHandler:
         else:
             formatted = f"{int(val):,}"
         if separator != ",":
-            formatted = formatted.replace(",", str(separator))
+            # Not ``str(separator)``: ``str.replace`` refuses a non-str, which is what the
+            # Python tag raises for ``separator=None`` (#3667).
+            formatted = formatted.replace(",", cast("str", separator))
         e_formatted = conditional_escape(formatted)
 
         prefix_html = ""
@@ -10803,7 +10889,7 @@ class BreadcrumbDropdownHandler:
             url = item.get("url", "")
             aria = ' aria-current="page"' if is_last else ""
             if url and not is_last:
-                e_url = url_attr(url)
+                e_url = data_url_attr(url)
                 content = f'<a href="{e_url}" class="dj-breadcrumb__link">{label}</a>'
             else:
                 content = f'<span class="dj-breadcrumb__current">{label}</span>'
@@ -10824,7 +10910,7 @@ class BreadcrumbDropdownHandler:
                 label = conditional_escape(str(it.get("label", "")))
                 url = it.get("url", "")
                 if url:
-                    e_url = url_attr(url)
+                    e_url = data_url_attr(url)
                     dropdown_items.append(
                         f'<li class="dj-breadcrumb__dropdown-item">'
                         f'<a href="{e_url}">{label}</a></li>'
@@ -10914,7 +11000,7 @@ class DataCardGridHandler:
 
             img_html = ""
             if image:
-                e_img = url_attr(image, image=True)
+                e_img = data_url_attr(image, image=True)
                 img_html = f'<img src="{e_img}" alt="{title}" class="dj-data-card-grid__img">'
 
             click_attr = ""

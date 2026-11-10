@@ -130,9 +130,9 @@ class CustomLoss(Loss):
     For screenshots, use session.upload_image() handles to avoid repeating image
     bytes in uploads. Custom requests have a 1 GiB upload limit; automatic
     upload splitting is not implemented. Handles still count toward
-    server limits after resolution: 128 MiB per datum, including repeated image
-    occurrences, and 2 GiB of image bytes per request. The request budget counts
-    each distinct handle once and each inline image occurrence separately.
+    server limits after resolution: a request's encoded datums plus each
+    distinct handle's bytes may total 2 GiB less 64 MiB, and so may one datum
+    counting every handle occurrence.
     """
 
     objective: LossObjective

@@ -10,7 +10,9 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.social.actor import SocialActor
 
 
@@ -22,6 +24,7 @@ class SocialRestFollowingManager(Entity):
             resource_path = ResourcePath("SP.Social.SocialRestFollowingManager")
         super().__init__(context, resource_path)
 
+    @site_access(SiteLevel.READ)
     def followers(self) -> ClientResult[ClientValueCollection[SocialActor]]:
         """The Followers method retrieves the current user's list of followers. For details on the SocialActor type,
         see section 3.1.5.3."""
@@ -40,26 +43,31 @@ class SocialRestFollowingManager(Entity):
     def entity_type_name(self):
         return "SP.Social.SocialRestFollowingManager"
 
+    @odata(name="FollowedDocumentsUri")
     @property
     def followed_documents_uri(self) -> Optional[str]:
         """Gets the FollowedDocumentsUri property"""
         return self.properties.get("FollowedDocumentsUri", None)
 
+    @odata(name="FollowedSitesUri")
     @property
     def followed_sites_uri(self) -> Optional[str]:
         """Gets the FollowedSitesUri property"""
         return self.properties.get("FollowedSitesUri", None)
 
+    @odata(name="MyFollowedDocumentsUri")
     @property
     def my_followed_documents_uri(self) -> Optional[str]:
         """Gets the MyFollowedDocumentsUri property"""
         return self.properties.get("MyFollowedDocumentsUri", None)
 
+    @odata(name="MyFollowedSitesUri")
     @property
     def my_followed_sites_uri(self) -> Optional[str]:
         """Gets the MyFollowedSitesUri property"""
         return self.properties.get("MyFollowedSitesUri", None)
 
+    @odata(name="SocialActor")
     @property
     def social_actor(self) -> SocialActor:
         """Gets the SocialActor property"""
@@ -67,6 +75,7 @@ class SocialRestFollowingManager(Entity):
 
         return self.properties.get("SocialActor", SocialActor())
 
+    @site_access(SiteLevel.WRITE)
     def follow(
         self, account_name: str, actor_type: int, content_uri: str, id_: str, tag_guid: UUID
     ) -> ClientResult[int]:
@@ -102,6 +111,7 @@ class SocialRestFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def followed(self, types: int, count: int) -> ClientResult[ClientValueCollection[SocialActor]]:
         """Followed operation.
 
@@ -118,6 +128,7 @@ class SocialRestFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def followed_count(self, types: int) -> ClientResult[int]:
         """FollowedCount operation.
 
@@ -130,6 +141,7 @@ class SocialRestFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def is_followed(
         self, account_name: str, actor_type: int, content_uri: str, id_: str, tag_guid: UUID
     ) -> ClientResult[bool]:
@@ -165,6 +177,7 @@ class SocialRestFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def merge_followed_sites(self, followed_sites: str) -> ClientResult[str]:
         """MergeFollowedSites operation.
 
@@ -179,6 +192,7 @@ class SocialRestFollowingManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def stop_following(self, account_name: str, actor_type: int, content_uri: str, id_: str, tag_guid: UUID) -> Self:
         """StopFollowing operation.
 
@@ -211,6 +225,7 @@ class SocialRestFollowingManager(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def suggestions(self) -> ClientResult[ClientValueCollection[SocialActor]]:
         """Suggestions operation."""
         from office365.sharepoint.social.actor import SocialActor

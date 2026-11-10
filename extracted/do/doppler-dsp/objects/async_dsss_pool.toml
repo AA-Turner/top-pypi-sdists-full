@@ -18,7 +18,6 @@ extra_link_libs = ["Threads::Threads", "wfm_dsp_core", "gold_core"]
 depends_on = [
     { name = "async_dsss_receiver", link = true },
     { name = "ber" },
-    { name = "acq", link = true },
     { name = "carrier_acq", link = true },
     { name = "dll", link = true },
     { name = "costas", link = true },
@@ -29,11 +28,10 @@ depends_on = [
     { name = "cic", link = true },
     { name = "resample", link = true },
     { name = "psd", link = true },
-    { name = "detector", link = true },
     { name = "detection", link = true },
     { name = "spectral", link = true },
     { name = "doppler_channel" },
-    { name = "corr", link = true },
+    { name = "correlator", link = true },
     { name = "fft", link = true },
     { name = "acc_trace", link = true },
 ]

@@ -23,6 +23,8 @@ from quimb.tensor import (
 )
 from quimb.tensor.tensor_core import _get_gauge_conditioner
 
+from . import jax_case, pytorch_case, requires_symmray, tensorflow_case
+
 requires_autograd = pytest.mark.skipif(
     importlib.util.find_spec("autograd") is None,
     reason="autograd not installed",
@@ -31,6 +33,16 @@ requires_cotengra = pytest.mark.skipif(
     importlib.util.find_spec("cotengra") is None,
     reason="cotengra not installed",
 )
+
+
+@pytest.mark.parametrize("axes", [0, -1, (0, 2)])
+def test_composed_gram(axes):
+    x = np.arange(24).reshape(2, 3, 4) * (1 + 1j)
+    open_axes = (axes,) if isinstance(axes, int) else axes
+    open_axes = tuple(ax % x.ndim for ax in open_axes)
+    contracted = tuple(i for i in range(x.ndim) if i not in open_axes)
+    expected = np.tensordot(x.conj(), x, axes=(contracted, contracted))
+    assert_allclose(ar.do("gram", x, axes=axes), expected)
 
 
 def test_gauge_conditioner_relative_smudge():
@@ -169,6 +181,36 @@ class TestBasicTensorOperations:
         a = Tensor(data, inds=[0, 1, 2], tags="blue")
         a.conj_()
         assert_allclose(data.conj(), a.data)
+
+        b = Tensor(data.copy(), inds=[0, 1, 2], tags="blue")
+        assert b.conj(True) is b
+        assert_allclose(data.conj(), b.data)
+
+    def test_ptensor_conj_output_inds(self):
+        t = qtn.PTensor(lambda x: x, np.array([1.0j]), inds=["a"])
+        tn = TensorNetwork([t])
+        tnc = tn.conj(output_inds=["a"])
+        tc = next(iter(tnc))
+        assert isinstance(tc, qtn.PTensor)
+        assert_allclose(tc.data, np.array([-1.0j]))
+
+        sr = pytest.importorskip("symmray")
+        ix = sr.BlockIndex({0: 1, 1: 1}, dual=True)
+        data = sr.Z2FermionicArray.random(indices=[ix], seed=42)
+        ft = qtn.PTensor(lambda _: data, np.array([0.0]), inds=["a"])
+        with pytest.raises(NotImplementedError, match="Fermionic PTensor"):
+            TensorNetwork([ft]).conj(output_inds=["a"])
+
+    def test_gate_transpose(self):
+        t = qtn.rand_tensor([2, 3], inds="ab", dtype=complex, seed=42)
+        G = qu.rand_matrix(2, dtype=complex, seed=42)
+        assert_allclose(t.gate(G, "a").data, G @ t.data)
+        assert_allclose(t.gate(G, "a", transpose=True).data, G.T @ t.data)
+
+        # `transposed` is the deprecated spelling
+        with pytest.warns(FutureWarning):
+            td = t.gate(G, "a", transposed=True)
+        assert_allclose(td.data, G.T @ t.data)
 
     def test_fuse(self):
         a = Tensor(np.random.rand(2, 3, 4, 5), "abcd", tags={"blue"})
@@ -318,9 +360,7 @@ class TestBasicTensorOperations:
         assert sum(tn ^ all for tn in pp.cut_iter(*bnds)) == pytest.approx(1.0)
         assert pp ^ all == pytest.approx(1.0)
 
-    @pytest.mark.parametrize(
-        "method", ["qr", "svd", "exp", "cayley", "mgs", "svd"]
-    )
+    @pytest.mark.parametrize("method", ["qr", "svd", "exp", "cayley", "mgs"])
     def test_isometrize(self, method):
         t = rand_tensor((2, 3, 4), "abc")
         assert t.H @ t != pytest.approx(3.0)
@@ -854,6 +894,69 @@ class TestTensorFunctions:
         )
         assert z1.almost_equals(z2)
 
+    def test_multiply_index_diagonals(self):
+        x = rand_tensor((3, 4, 5), "abc")
+        sa, sc = qu.randn(3), qu.randn(5)
+        expected = x.multiply_index_diagonal("c", sc).multiply_index_diagonal(
+            "a", sa
+        )
+        assert x.multiply_index_diagonals(("c", "a"), (sc, sa)).almost_equals(
+            expected
+        )
+        x.multiply_index_diagonals_(("c", "a"), (sc, sa))
+        assert x.almost_equals(expected)
+
+    @requires_symmray
+    @pytest.mark.parametrize("fermionic", [False, True])
+    @pytest.mark.parametrize("dtype", ["float64", "complex128"])
+    @pytest.mark.parametrize("inplace", [False, True])
+    def test_multiply_index_diagonals_symmray(self, fermionic, dtype, inplace):
+        import symmray as sr
+
+        cls = sr.Z2FermionicArray if fermionic else sr.Z2Array
+        indices = [
+            sr.BlockIndex({0: 2, 1: 1}, dual=False),
+            sr.BlockIndex({0: 1, 1: 2}, dual=True),
+            sr.BlockIndex({0: 2, 1: 2}, dual=False),
+        ]
+        opts = {"label": "diagonals"} if fermionic else {}
+        data = cls.random(indices, charge=1, dtype=dtype, seed=42, **opts)
+        x = Tensor(data, "abc")
+        original = x.data.to_dense()
+        sa = sr.BlockVector({0: np.array([0.5, 1.5]), 1: np.array([2.5])})
+        sc = sr.BlockVector({0: np.array([2.0, 3.0]), 1: np.array([4.0, 5.0])})
+        expected = (
+            original
+            * np.array([0.5, 1.5, 2.5])[:, None, None]
+            * np.array([2.0, 3.0, 4.0, 5.0])[None, None, :]
+        )
+
+        result = x.multiply_index_diagonals(
+            ("c", "a"), (sc, sa), inplace=inplace
+        )
+        assert isinstance(result.data, cls)
+        assert result.inds == x.inds
+        assert_allclose(result.data.to_dense(), expected)
+        if inplace:
+            assert result is x
+        else:
+            assert_allclose(x.data.to_dense(), original)
+
+    @pytest.mark.parametrize("n_inds, n_xs", [(2, 1), (1, 2)])
+    @pytest.mark.parametrize("inplace", [False, True])
+    def test_multiply_index_diagonals_mismatched_lengths(
+        self, n_inds, n_xs, inplace
+    ):
+        x = rand_tensor((3, 4, 5), "abc", seed=42)
+        original = x.copy()
+        inds = ("a", "c")
+        xs = (np.full(3, 2.0), np.full(5, 3.0))
+        with pytest.raises(ValueError):
+            x.multiply_index_diagonals(
+                inds[:n_inds], xs[:n_xs], inplace=inplace
+            )
+        assert x.almost_equals(original)
+
     @pytest.mark.parametrize("smudge", [1e-6, 1e-12])
     def test_balance_bonds(self, smudge):
         t1 = rand_tensor((3, 4), "ab")
@@ -918,6 +1021,45 @@ class TestTensorFunctions:
 
 
 class TestTensorNetwork:
+    @pytest.mark.parametrize("method", ["make_norm", "make_overlap"])
+    @pytest.mark.parametrize(
+        "layer_tags",
+        [
+            False,
+            True,
+            0,
+            1,
+            np.int64(0),
+            np.int64(1),
+            np.False_,
+            np.True_,
+            None,
+            ("K", "B"),
+        ],
+    )
+    def test_make_layers_tags(self, method, layer_tags):
+        psi = qtn.MPS_rand_state(3, 2, seed=42, dtype="complex128")
+        if method == "make_norm":
+            other = psi
+            tn, ket, bra = psi.make_norm(
+                layer_tags=layer_tags, return_all=True
+            )
+        else:
+            other = qtn.MPS_rand_state(3, 2, seed=43, dtype="complex128")
+            tn, ket, bra = psi.make_overlap(
+                other, layer_tags=layer_tags, return_all=True
+            )
+        tags = ("KET", "BRA") if layer_tags == 1 else layer_tags
+        if tags:
+            assert tags[0] in ket.tags
+            assert tags[1] in bra.tags
+        else:
+            assert ket.tags == psi.tags
+            assert bra.tags == other.tags
+        assert tn.contract() == pytest.approx((other.H & psi).contract())
+        assert "KET" not in psi.tags
+        assert "BRA" not in other.tags
+
     def test_combining_tensors(self):
         a = rand_tensor((2, 3, 4), inds=[0, 1, 2], tags="red")
         b = rand_tensor((3, 4, 5), inds=[1, 2, 3], tags="blue")
@@ -1040,6 +1182,34 @@ class TestTensorNetwork:
 
         for i, arr in enumerate((a_data, b_data, c_data)):
             assert_allclose(tn[f"I{i}"].data, arr.conj())
+
+    @requires_symmray
+    def test_conj_fermionic_dummy_modes(self):
+        import symmray as sr
+
+        psi = sr.PEPS_fermionic_rand(
+            "Z2",
+            2,
+            2,
+            bond_dim=2,
+            phys_dim=2,
+            site_charge=lambda site: 1,
+            seed=42,
+        )
+        norm = psi.make_norm()
+        # a dummy mode pair from site (0, 0), and an unpaired dual one
+        region = qtn.TensorNetwork(
+            [*norm.select_tensors("I0,0"), norm["BRA", "I0,1"]]
+        )
+        oix = region.outer_inds()
+        t = region.contract(output_inds=oix, preserve_tensor=True)
+
+        x = (region.conj() & region).contract()
+        assert x == pytest.approx(t.data.norm() ** 2)
+
+        # conjugating twice gives back the original
+        tcc = region.conj().conj().contract(output_inds=oix)
+        tcc.data.test_allclose(t.data)
 
     def test_multiply(self):
         a = rand_tensor((2, 3, 4), inds=["0", "1", "2"], tags="red")
@@ -1430,7 +1600,7 @@ class TestTensorNetwork:
 
     @pytest.mark.parametrize("absorb", ["both", "left", "right"])
     def test_tensor_compress_bond_reduced_modes(self, absorb):
-        kws = dict(max_bond=4, absorb=absorb)
+        kws = {"max_bond": 4, "absorb": absorb}
 
         A = rand_tensor((3, 4, 5), "abc", tags="A")
         B = rand_tensor((5, 6), "cd", tags="B")
@@ -1632,7 +1802,7 @@ class TestTensorNetwork:
             # tensors two-away from center should now be isometries
             for far_tg in ["L2", "R2", "U2"]:
                 if far_tg != tg:
-                    ttn[far_tg].H @ ttn[far_tg] == pytest.approx(2)
+                    assert ttn[far_tg].H @ ttn[far_tg] == pytest.approx(2)
 
     def test_tn_split_tensor(self):
         mps = MPS_rand_state(4, 3)
@@ -1789,6 +1959,41 @@ class TestTensorNetwork:
         qtn.tensor_gauge_simple_bond(*pair(), g2, renorm=True, info=info)
         assert info == {}
         assert np.linalg.norm(next(iter(g2.values()))) == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("sweep_order", ["auto", "alternate", "fixed"])
+    def test_gauge_all_simple_disconnected(self, sweep_order):
+        # one sweep should gauge the bonds of every component
+        tna = qtn.MPS_rand_state(4, 3, seed=42)
+        tnb = qtn.MPS_rand_state(4, 3, seed=43).reindex_sites_("q{}")
+        tn = tna | tnb
+        gauges = {}
+        tn.gauge_all_simple(
+            max_iterations=1, gauges=gauges, sweep_order=sweep_order
+        )
+        assert set(gauges) == set(tn.inner_inds())
+
+    def test_gauge_all_simple_local_restart(self):
+        # changes at the middle site require new gauges on both sides
+        psi = qtn.MPS_rand_state(16, 4, seed=42)
+        gauges = {}
+        psi.gauge_all_simple_(max_iterations=1000, tol=1e-12, gauges=gauges)
+        psi.isel_({psi.site_ind(8): 0})
+        ref = psi.copy()
+        gauges_ref = dict(gauges)
+        ref.gauge_all_simple_(
+            max_iterations=1000, tol=1e-12, gauges=gauges_ref
+        )
+        info = {}
+        psi.gauge_all_simple_(
+            max_iterations=1000,
+            tol=1e-10,
+            gauges=gauges,
+            touched_tids=psi._get_tids_from_tags("I8"),
+            info=info,
+        )
+        assert info["iterations"] <= 3
+        for ix, g in gauges_ref.items():
+            assert_allclose(gauges[ix], g, atol=1e-8)
 
     def test_cut_bond(self):
         ta = qtn.rand_tensor((2, 2, 2), inds="abc", tags="A")
@@ -2008,6 +2213,151 @@ class TestTensorNetwork:
         xs = mps.to_dense().ravel()
         assert not any(np.allclose(rx, x) for x in xs)
 
+    def test_insert_projectors_between_regions(self):
+        tl = qtn.rand_tensor(
+            (2, 2, 3),
+            inds=("a", "x", "y"),
+            tags="L",
+            dtype="complex128",
+            seed=1,
+        )
+        tr = qtn.rand_tensor(
+            (2, 3, 2),
+            inds=("x", "y", "b"),
+            tags="R",
+            dtype="complex128",
+            seed=2,
+        )
+        tn = tl & tr
+        geometry_hash = tn.geometry_hash()
+
+        rng = np.random.default_rng(3)
+        Pl = rng.normal(size=(6, 4)) + 1j * rng.normal(size=(6, 4))
+        Pr = rng.normal(size=(4, 6)) + 1j * rng.normal(size=(4, 6))
+        expected = np.einsum(
+            "axy,yxk,kzw,wzb->ab",
+            tl.data,
+            Pl.reshape(3, 2, 4),
+            Pr.reshape(4, 3, 2),
+            tr.data,
+        )
+
+        tnp = tn.insert_projectors_between_regions(
+            "L",
+            "R",
+            Pl,
+            Pr,
+            left_inds=("y", "x"),
+            right_inds=("y", "x"),
+            new_tags="P",
+            new_ltags="PL",
+            new_rtags="PR",
+            bond_ind="p",
+        )
+
+        assert tn.geometry_hash() == geometry_hash
+        assert tn.num_tensors == 2
+        assert tnp.num_tensors == 4
+        assert tnp["PL"].inds[-1] == "p"
+        assert tnp["PR"].inds[0] == "p"
+        assert "P" in tnp["PL"].tags
+        assert "P" in tnp["PR"].tags
+        actual = (tnp ^ all).transpose("a", "b").data
+        assert_allclose(actual, expected)
+
+    def test_insert_projectors_between_regions_unfused(self):
+        tl = qtn.rand_tensor((2, 2, 3), inds=("a", "x", "y"), tags="L", seed=1)
+        tr = qtn.rand_tensor((2, 3, 2), inds=("x", "y", "b"), tags="R", seed=2)
+        tn = tl & tr
+
+        rng = np.random.default_rng(3)
+        Pl = rng.normal(size=(3, 2, 4))
+        Pr = rng.normal(size=(4, 3, 2))
+        expected = np.einsum("axy,yxk,kzw,wzb->ab", tl.data, Pl, Pr, tr.data)
+
+        tnp = tn.insert_projectors_between_regions(
+            "L",
+            "R",
+            Pl,
+            Pr,
+            left_inds=("y", "x"),
+            right_inds=("y", "x"),
+        )
+        actual = (tnp ^ all).transpose("a", "b").data
+        assert_allclose(actual, expected)
+
+    def test_insert_projectors_between_regions_multiple_tensors_and_inplace(
+        self,
+    ):
+        inputs = ["abgl", "gfhim", "bcdfe", "iekj"]
+        tags = ["A", "C", "B", "D"]
+        ts = [
+            qtn.rand_tensor(
+                [2] * len(inds),
+                inds=inds,
+                tags=tag,
+                dtype="complex128",
+                seed=i,
+            )
+            for i, (inds, tag) in enumerate(zip(inputs, tags))
+        ]
+        tn = qtn.TensorNetwork(ts)
+        geometry_hash = tn.geometry_hash()
+        expected = tn.contract()
+        Pl = Pr = np.eye(8, dtype=complex)
+
+        inserted = tn.insert_projectors_between_regions(
+            ("A", "B"),
+            ("C", "D"),
+            Pl,
+            Pr,
+            new_ltags="PL",
+            new_rtags="PR",
+        )
+        assert inserted.num_tensors == 6
+        assert inserted.contract().almost_equals(expected)
+        assert "PL" in inserted.tags
+        assert "PR" in inserted.tags
+
+        assert tn.geometry_hash() == geometry_hash
+
+        target = tn.copy()
+        result = target.insert_projectors_between_regions_(
+            ("A", "B"),
+            ("C", "D"),
+            Pl,
+            Pr,
+        )
+        assert result is target
+        assert target.num_tensors == 6
+
+    @pytest.mark.parametrize(
+        "backend",
+        ["numpy", jax_case, pytorch_case, tensorflow_case],
+    )
+    def test_insert_projectors_between_regions_backend(self, backend):
+        xp = ar.get_namespace(backend)
+        tn = qtn.TensorNetwork(
+            [
+                qtn.rand_tensor((2, 3), inds=("a", "x"), tags="L"),
+                qtn.rand_tensor((3, 2), inds=("x", "b"), tags="R"),
+            ]
+        )
+        Pl = xp.asarray(np.ones((3, 2)))
+        Pr = xp.asarray(np.ones((2, 3)))
+
+        tnp = tn.insert_projectors_between_regions(
+            "L",
+            "R",
+            Pl,
+            Pr,
+            new_ltags="PL",
+            new_rtags="PR",
+        )
+
+        assert ar.infer_backend(tnp["PL"].data) == backend
+        assert ar.infer_backend(tnp["PR"].data) == backend
+
     @pytest.mark.parametrize("method_reduce", ["eigh", "svd", "cholesky"])
     def test_insert_compressor_between_regions(self, method_reduce):
         inputs = ["abgl", "gfhim", "bcdfe", "iekj"]
@@ -2042,7 +2392,7 @@ class TestTensorNetwork:
             ["A", "B"],
             ["C", "D"],
             max_bond=4,
-            reduce_opts=dict(method=method_reduce),
+            reduce_opts={"method": method_reduce},
         )
         assert tn.geometry_hash() == gh
         assert tn_other.num_tensors == 6
@@ -2058,6 +2408,30 @@ class TestTensorNetwork:
         assert tn_other.num_tensors == 6
         d = tn_other.distance(tn)
         assert d == pytest.approx(d1)
+
+    @requires_symmray
+    @pytest.mark.parametrize("fermionic", [False, True])
+    def test_insert_compressor_between_regions_mismatched_blocks(
+        self, fermionic
+    ):
+        import symmray as sr
+
+        # the bonds between rows fuse to different blocks on each side
+        tn = sr.networks.TN2D_abelian_rand(
+            "U1",
+            3,
+            3,
+            4,
+            seed=0,
+            site_charge=lambda site: 0,
+            fermionic=fermionic,
+        )
+        ltags = [tn.site_tag(0, j) for j in range(3)]
+        rtags = [tn.site_tag(1, j) for j in range(3)]
+        tnc = tn.insert_compressor_between_regions(
+            ltags, rtags, max_bond=None, cutoff=0.0
+        )
+        assert tnc.contract() == pytest.approx(tn.contract())
 
     @pytest.mark.parametrize(
         "gauge_power,gauge_smudge",
@@ -2183,8 +2557,8 @@ class TestTensorNetworkAsLinearOperator:
         tn_lo = tn.aslinearoperator(("a", "b"), ("c", "d"), optimize=optimize)
         tn_d = tn.to_dense(["a", "b"], ["c", "d"])
 
-        u, s, v = qu.svds(tn_lo, k=5, backend="scipy")
-        ud, sd, vd = qu.svds(tn_d, k=5, backend="scipy")
+        _u, s, _v = qu.svds(tn_lo, k=5, backend="scipy")
+        _ud, sd, _vd = qu.svds(tn_d, k=5, backend="scipy")
 
         assert_allclose(s, sd)
 

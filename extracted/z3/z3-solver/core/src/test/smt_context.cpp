@@ -5,10 +5,13 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "smt/smt_case_split_queue.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
+#include "ast/converters/generic_model_converter.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/rewriter/distribute_forall.h"
@@ -26,6 +29,49 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/smtlogics/smt_tactic.h"
 #include <cstring>
 #include <sstream>
+
+static void check_case_split_relevant_first() {
+    for (unsigned strategy : {0u, 1u, 2u}) {
+        for (unsigned relevancy : {0u, 2u}) {
+            for (unsigned setting : {0u, 1u, 2u}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                params_ref p;
+                p.set_bool("auto_config", false);
+                p.set_uint("case_split", strategy);
+                p.set_uint("relevancy", relevancy);
+                if (setting != 0)
+                    p.set_bool("case_split_relevant_first", setting == 2);
+                smt_params params;
+                params.updt_params(p);
+                params.m_random_var_freq = 0;
+                smt::context ctx(m, params, p);
+                ctx.push();
+                app_ref irrelevant(m.mk_const("irrelevant", m.mk_bool_sort()), m);
+                app_ref relevant(m.mk_const("relevant", m.mk_bool_sort()), m);
+                ctx.internalize(irrelevant, false);
+                ctx.internalize(relevant, false);
+                ctx.mark_as_relevant(relevant.get());
+                smt::bool_var vi = ctx.get_bool_var(irrelevant);
+                smt::bool_var vr = ctx.get_bool_var(relevant);
+                ctx.set_activity(vi, 2);
+                ctx.set_activity(vr, 1);
+                scoped_ptr<smt::case_split_queue> queue(smt::mk_case_split_queue(ctx, params));
+                queue->mk_var_eh(vi);
+                queue->mk_var_eh(vr);
+                bool relevant_first = setting == 2 && relevancy != 0;
+                smt::bool_var next;
+                lbool phase;
+                queue->next_case_split(next, phase);
+                VERIFY(next == (relevant_first ? vr : vi));
+                queue->next_case_split(next, phase);
+                VERIFY(next == (relevant_first ? vi : vr));
+                queue->next_case_split(next, phase);
+                VERIFY(next == smt::null_bool_var);
+            }
+        }
+    }
+}
 
 static void check_sat_smt_recfun(char const* input)
 {
@@ -205,6 +251,228 @@ static void check_array_domain(char const* input, lbool expected) {
     for (expr* a : cmd.assertions())
         slv->assert_expr(a);
     VERIFY(expected == slv->check_sat(0, nullptr));
+}
+
+static void check_quantified_array_ite() {
+    auto check = [](char const* input, bool unsat) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == (unsat ? "unsat\n" : "sat\n"));
+    };
+    for (char const* branch : {"", "(assert b)\n", "(assert (not b))\n"}) {
+        for (bool distinct : {false, true}) {
+            std::ostringstream spec;
+            spec << "(set-logic ALL)\n"
+                 << "(declare-const M (Array Int Int))\n"
+                 << "(declare-const Zero (Array Int Int))\n"
+                 << "(declare-const X (Array Int Int))\n"
+                 << "(declare-const b Bool)\n"
+                 << "(assert (forall ((k Int)) (= (select Zero k) 0)))\n"
+                 << "(assert (forall ((k Int)) (= (select M k) (mod (select M k) 2))))\n"
+                 << "(assert (forall ((k Int))\n"
+                 << " (= (select X k) (mod (select (ite b M Zero) k) 2))))\n"
+                 << branch
+                 << (distinct ? "(assert (not (= (ite b M Zero) X)))\n"
+                              : "(assert (= (ite b M Zero) X))\n");
+            check(spec.str().c_str(), distinct);
+        }
+    }
+    check(
+        "(declare-const M (Array Int Int))\n"
+        "(declare-const b Bool)\n"
+        "(assert (not (= (ite b M ((as const (Array Int Int)) 0))\n"
+        "                (lambda ((k Int)) (ite b (select M k) 0)))))\n", true);
+}
+
+static void check_quantifier_polarities() {
+    for (bool existential : {false, true}) {
+        for (unsigned entry_point = 0; entry_point < 6; ++entry_point) {
+            for (lbool polarity : {l_true, l_false, l_undef}) {
+                if (entry_point >= 3 && polarity != l_undef)
+                    continue;
+                ast_manager m;
+                reg_decl_plugins(m);
+                cmd_context cmd(false, &m);
+                std::istringstream input(existential
+                    ? (polarity == l_true
+                        ? "(assert (exists ((x Int)) (not (= x x))))\n"
+                        : "(assert (exists ((x Int)) (= x x)))\n")
+                    : (polarity == l_true
+                        ? "(assert (forall ((x Int)) (= x 0)))\n"
+                        : "(assert (forall ((x Int)) (= x x)))\n"));
+                VERIFY(parse_smt2_commands(cmd, input));
+                smt_params params;
+                params.m_preprocess = false;
+                params.m_auto_config = false;
+                smt::context ctx(m, params);
+                ctx.push();
+                expr* q = cmd.assertions()[0];
+                switch (entry_point) {
+                case 0:
+                    ctx.internalize(q, true, polarity);
+                    break;
+                case 1:
+                    ctx.internalize(&q, 1, true, polarity);
+                    break;
+                case 2:
+                    ctx.internalize(q, true, 1, polarity);
+                    break;
+                case 3:
+                    ctx.internalize(q, true);
+                    break;
+                case 4:
+                    ctx.internalize(&q, 1, true);
+                    break;
+                case 5:
+                    ctx.internalize(q, true, 1u);
+                    break;
+                }
+                smt::literal lit = ctx.get_literal(q);
+                if (polarity != l_true)
+                    lit.neg();
+                ctx.assign(lit, smt::b_justification::mk_axiom());
+                ctx.mark_as_relevant(lit);
+                VERIFY(ctx.check() == l_false);
+                ctx.pop(1);
+                VERIFY(ctx.check() == l_true);
+            }
+        }
+    }
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream input(
+            "(declare-fun p (Int) Bool)\n"
+            "(assert (forall ((x Int)) (p x)))\n"
+            "(assert (not (p 0)))\n");
+        VERIFY(parse_smt2_commands(cmd, input));
+        smt_params params;
+        params.m_preprocess = false;
+        params.m_auto_config = false;
+        smt::context ctx(m, params);
+        ctx.internalize(cmd.assertions()[0], true, l_false);
+        for (unsigned i = 0; i < 2; ++i) {
+            ctx.push();
+            for (expr* assertion : cmd.assertions()) {
+                proof_ref pr(m.mk_asserted(assertion), m);
+                ctx.internalize_assertion(assertion, pr, 0);
+            }
+            VERIFY(ctx.check() == l_false);
+            if (proofs) {
+                proof_ref pr(ctx.get_proof(), m);
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(pr && checker.check(pr, side_conditions));
+            }
+            ctx.pop(1);
+            VERIFY(ctx.check() == l_true);
+        }
+    }
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(assert (forall ((x Int)) (= x x)))\n", l_true},
+        {"(assert (not (forall ((x Int)) (= x x))))\n", l_false},
+        {"(assert (not (forall ((x Int)) (= x 0))))\n", l_true},
+        {"(assert (exists ((x Int)) (= x 0)))\n", l_true},
+        {"(assert (exists ((x Int)) (not (= x x))))\n", l_false},
+        {"(assert (not (exists ((x Int)) (= x x))))\n", l_false},
+        {"(assert (not (exists ((x Int)) (not (= x x)))))\n", l_true},
+        {"(assert (= (exists ((x Int)) (= x x)) false))\n", l_false},
+        {"(assert (= (exists ((x Int)) (not (= x x))) false))\n", l_true},
+        {"(declare-fun p (Int) Bool)\n"
+         "(assert (forall ((x Int)) (not (p x))))\n"
+         "(assert (exists ((x Int)) (p x)))\n", l_false},
+        {"(declare-fun p (Int) Bool)\n"
+         "(assert (p 0))\n"
+         "(assert (= (exists ((x Int)) (p x)) false))\n", l_false},
+        {"(assert (= (forall ((x Int)) (= x x)) false))\n", l_false},
+        {"(assert (= (forall ((x Int)) (= x 0)) false))\n", l_true},
+        {"(assert (= (forall ((x Int)) (=> (= x 0) (= x 0))) false))\n", l_false},
+        {"(assert (ite (forall ((x Int)) (= x x)) false true))\n", l_false},
+        {"(declare-fun p (Int) Bool)\n"
+         "(assert (forall ((x Int)) (p x)))\n"
+         "(assert (not (forall ((x Int)) (or (p x) (= x 0)))))\n", l_false},
+        {"(declare-fun f (Bool) Bool)\n"
+         "(assert (f (forall ((x Int)) (= x x))))\n"
+         "(assert (not (f true)))\n", l_false},
+        {"(declare-fun f (Bool) Bool)\n"
+         "(assert (f (forall ((x Int)) (= x 0))))\n"
+         "(assert (not (f false)))\n", l_false},
+        {"(declare-fun f (Bool) Bool)\n"
+         "(assert (f (exists ((x Int)) (= x x))))\n"
+         "(assert (not (f true)))\n", l_false},
+        {"(assert (forall ((x Int)) (not (forall ((y Int)) (= y x)))))\n", l_true},
+        {"(assert (forall ((x Int)) (exists ((y Int)) (= y x))))\n", l_true},
+        {"(declare-fun p (Int Int) Bool)\n"
+         "(assert (p 0 0))\n"
+         "(assert (forall ((x Int)) (not (exists ((y Int)) (p x y)))))\n", l_false}
+    };
+    for (bool proofs : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(test.input);
+            VERIFY(parse_smt2_commands(cmd, input));
+            smt_params params;
+            params.m_preprocess = false;
+            params.m_auto_config = false;
+            smt::context ctx(m, params);
+            ctx.push();
+            for (expr* assertion : cmd.assertions()) {
+                proof_ref pr(m.mk_asserted(assertion), m);
+                ctx.internalize_assertion(assertion, pr, 0);
+            }
+            VERIFY(ctx.check() == test.expected);
+            if (proofs && test.expected == l_false) {
+                proof_ref pr(ctx.get_proof(), m);
+                proof_checker checker(m);
+                expr_ref_vector side_conditions(m);
+                VERIFY(pr && checker.check(pr, side_conditions));
+            }
+            ctx.pop(1);
+            VERIFY(ctx.check() == l_true);
+        }
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream input(
+            "(declare-fun p (Int) Bool)\n"
+            "(assert (forall ((x Int)) (p x)))\n"
+            "(assert (not (forall ((x Int)) (or (p x) (= x 0)))))\n");
+        VERIFY(parse_smt2_commands(cmd, input));
+        smt_params params;
+        params.m_preprocess = false;
+        params.m_auto_config = false;
+        struct polarity_context : smt::context {
+            using smt::context::context;
+            using smt::context::internalize_formula;
+        };
+        polarity_context ctx(m, params);
+        expr* q = to_app(cmd.assertions()[1])->get_arg(0);
+        ctx.push();
+        proof_ref pr(m.mk_asserted(cmd.assertions()[0]), m);
+        ctx.internalize_assertion(cmd.assertions()[0], pr, 0);
+        ctx.internalize_formula(q, true, l_true);
+        for (unsigned i = 0; i < 2; ++i) {
+            ctx.push();
+            pr = m.mk_asserted(cmd.assertions()[1]);
+            ctx.internalize_assertion(cmd.assertions()[1], pr, 0);
+            VERIFY(ctx.check() == l_false);
+            ctx.pop(1);
+            VERIFY(ctx.check() == l_true);
+        }
+    }
 }
 
 static void check_stored_lambdas() {
@@ -613,6 +881,166 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_integer_power(bool euf) {
+    struct example { char const* input; lbool expected; };
+    example examples[] = {
+        {"(declare-const x Real)(assert (< x 0.0))"
+         "(assert (distinct (^ x (/ 1.0 2.0)) 0.0))", l_false},
+        {"(declare-const x Real)(assert (= x (- 8.0)))"
+         "(assert (= (^ x (/ 1.0 3.0)) (- 2.0)))", l_true},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x (- 1.0)))(assert (>= x (- 1.0)))"
+         "(assert (<= y (/ 1.0 2.0)))(assert (>= y (/ 1.0 2.0)))"
+         "(assert (distinct (^ x y) 0.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x (- 1.0)))(assert (>= x (- 1.0)))"
+         "(assert (<= y (/ 1.0 2.0)))(assert (>= y (/ 1.0 2.0)))"
+         "(assert (= (^ x y) 0.0))", l_true},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x (- 8.0)))(assert (>= x (- 8.0)))"
+         "(assert (<= y (/ (- 1.0) 3.0)))(assert (>= y (/ (- 1.0) 3.0)))"
+         "(assert (distinct (^ x y) (/ (- 1.0) 2.0)))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (< x 0.0))(assert (= (* y y) 2.0))"
+         "(assert (distinct (^ x y) 0.0))", l_false},
+        {"(assert (= (^ 0.0 0.0) 1.0))", l_true},
+        {"(assert (distinct (^ 0.0 0.0) 1.0))", l_false},
+        {"(declare-const x Real)(assert (distinct (^ x 0.0) 1.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x 0.0))(assert (>= x 0.0))"
+         "(assert (<= y 0.0))(assert (>= y 0.0))"
+         "(assert (distinct (^ x y) 1.0))", l_false},
+        {"(declare-const x Real)(declare-const y Real)"
+         "(assert (<= x 0.0))(assert (>= x 0.0))"
+         "(assert (<= y 0.0))(assert (>= y 0.0))"
+         "(assert (= (^ x y) 1.0))", l_true},
+        {"(set-logic QF_NIA)(assert (= (mod (** 2 (- 3)) 3) 0))", l_true},
+        {"(set-logic QF_NIA)(assert (= (** 0 0) 1))(assert (= (** 0 (- 3)) 0))"
+         "(assert (= (** (- 1) (- 3)) (- 1)))(assert (= (** (- 1) (- 4)) 1))"
+         "(assert (= (** 2 (- 1000000000000000000000000000000)) 0))"
+         "(assert (= (** (- 1) (- 1000000000000000000000000000000)) 1))", l_true},
+        {"(declare-const n Int)(assert (>= n 0))(assert (= (** 2 n) 3))", l_false},
+        {"(set-logic QF_NIA)(declare-const n Int)(assert (> n 10))(assert (= (** 2 n) 2048))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> x y))(assert (>= y 1))(assert (<= (** 2 x) (** 2 y)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
+         "(assert (= (** x y) (- 8)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x (- 1)))(assert (< y (- 2)))(assert (> y (- 4)))"
+         "(assert (= (** x y) 0))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> y 0))(assert (= (** 2 x) (** 3 y)))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< x 0))(assert (< y 0))(assert (= (** 2 x) (** 3 y)))", l_true},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (< y 0))(assert (= (** x y) 0))(assert (= (* x x) 1))", l_false},
+        {"(declare-const n Int)(declare-const f Int)(assert (>= n 1))"
+         "(assert (distinct (* (+ f n) (** 2 n))"
+         " (+ (* 2 (+ f n (- 1)) (** 2 (- n 1))) (** 2 n))))", l_false},
+        {"(declare-const x Int)(declare-const y Int)"
+         "(assert (> (* x x) 4))(assert (> (* y y) 4))"
+         "(assert (= (** (** x y) y) (** x (** y y))))", l_false},
+        {"(declare-const x Int)(assert (= (** x 0) 1))(assert (= x 0))", l_true},
+        {"(declare-const n Int)(declare-const r Real)"
+         "(assert (= (* r r) 2.0))(assert (> r 0.0))"
+         "(assert (>= n 1))(assert (<= n 4))(assert (= (** 2 n) 8))", l_true},
+        {"(declare-const n Int)(declare-const r Real)"
+         "(assert (= (* r r) 2.0))(assert (> r 0.0))"
+         "(assert (>= n 1))(assert (<= n 4))(assert (= (** 2 n) 3))", l_false},
+    };
+    for (auto const& example : examples) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(example.input);
+        ENSURE(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_uint("timeout", 10000);
+        if (euf) {
+            p.set_bool("smt", true);
+            p.set_bool("euf", true);
+        }
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        lbool result = slv->check_sat(0, nullptr);
+        if (result != example.expected) {
+            std::cerr << "integer power: " << example.input << "\nresult: " << result
+                      << "\nreason: " << slv->reason_unknown() << "\n";
+            statistics st;
+            slv->collect_statistics(st);
+            std::cerr << st << "\n";
+        }
+        ENSURE(result == example.expected);
+        if (result == l_true) {
+            model_ref mdl;
+            slv->get_model(mdl);
+            for (expr* assertion : cmd.assertions()) {
+                expr_ref value(m);
+                ENSURE(mdl->eval_expr(assertion, value, true) && m.is_true(value));
+            }
+        }
+        slv->push();
+        slv->assert_expr(m.mk_false());
+        ENSURE(slv->check_sat(0, nullptr) == l_false);
+        slv->pop(1);
+        ENSURE(slv->check_sat(0, nullptr) == example.expected);
+    }
+    {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref n(m.mk_const(symbol("n"), a.mk_int()), m);
+        expr_ref p(m.mk_const(symbol("p"), m.mk_bool_sort()), m);
+        expr_ref q(m.mk_const(symbol("q"), m.mk_bool_sort()), m);
+        expr_ref ten(a.mk_int(10), m), two(a.mk_int(2), m), target(a.mk_int(2048), m);
+        expr_ref positive(a.mk_gt(n, ten), m), power(a.mk_power(two, n), m);
+        expr_ref equality(m.mk_eq(power, target), m), witness(m.mk_and(positive, equality), m);
+        expr_ref zero(a.mk_int(0), m), negative(a.mk_lt(n, zero), m);
+        expr_ref first(m.mk_implies(p, witness), m), second(m.mk_implies(q, negative), m);
+        params_ref params;
+        params.set_bool("unsat_core", true);
+        if (euf) {
+            params.set_bool("smt", true);
+            params.set_bool("euf", true);
+        }
+        ref<solver> slv = mk_smt2_solver(m, params, symbol::null);
+        slv->assert_expr(first);
+        slv->assert_expr(second);
+        expr* assumptions[] = {p, q};
+        ENSURE(slv->check_sat(1, assumptions) == l_true);
+        ENSURE(slv->check_sat(2, assumptions) == l_false);
+        expr_ref_vector core(m);
+        slv->get_unsat_core(core);
+        ENSURE(core.size() == 2 && core.contains(p) && core.contains(q));
+        params.set_uint("rlimit", 20);
+        slv->updt_params(params);
+        ENSURE(slv->check_sat(1, assumptions) != l_false);
+        params.set_uint("rlimit", 0);
+        slv->updt_params(params);
+        ENSURE(slv->check_sat(1, assumptions) == l_true);
+
+        params.set_bool("core.minimize", true);
+        slv = mk_smt2_solver(m, params, symbol::null);
+        expr_ref one(a.mk_int(1), m);
+        positive = a.mk_ge(n, one);
+        expr_ref is_one(m.mk_eq(n, one), m);
+        expr_ref not_one(m.mk_not(is_one), m);
+        first = m.mk_implies(p, positive);
+        second = m.mk_implies(q, not_one);
+        slv->assert_expr(first);
+        slv->assert_expr(second);
+        slv->assert_expr(a.mk_gt(power, zero));
+        ENSURE(slv->check_sat(2, assumptions) == l_true);
+        model_ref mdl;
+        slv->get_model(mdl);
+        expr_ref result(m);
+        ENSURE(mdl->eval_expr(p, result, true) && m.is_true(result));
+        ENSURE(mdl->eval_expr(q, result, true) && m.is_true(result));
+    }
+}
+
 static void check_special_relation_logic() {
     for (char const* logic : {"UFDTLIA", "ALL", ""}) {
         for (bool external : {false, true}) {
@@ -746,6 +1174,338 @@ static void check_qe_rec_proofs() {
     }
 }
 
+static void check_proof_mode_guards() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    tactic_manager tactics;
+    install_tactics(tactics);
+    cmd_context cmd(false, &m);
+    std::istringstream input(
+        "(declare-datatype Color ((red) (green) (blue)))\n"
+        "(declare-const c Color)\n"
+        "(declare-const b (_ BitVec 8))\n"
+        "(declare-const f (_ FloatingPoint 8 24))\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(declare-fun h (Int Int) Int)\n"
+        "(assert (or (= c red) (= c green)))\n"
+        "(assert (= (bvadd b #x01) #x02))\n"
+        "(assert (fp.isZero f))\n"
+        "(assert (> x 0))\n"
+        "(assert (< x 3))\n"
+        "(assert (= (div x y) 3))\n"
+        "(assert (forall ((k Int)) (= (h k 0) k)))\n");
+    ENSURE(parse_smt2_commands(cmd, input));
+    for (char const* name : {
+        "ackermannize_bv", "add-bounds", "aig", "bit-blast", "bv_bound_chk", "diff-neq",
+        "dt2bv", "elim-small-bv", "eq2bv", "ff-sat", "ff-solve", "ff2bv", "fix-dl-var",
+        "fm", "fpa2bv", "horn", "horn-simplify", "lia2card", "lia2pb",
+        "nla2bv", "nlqsat", "nlsat", "normalize-bounds", "occf", "pb2bv", "pb-preprocess",
+        "pqffd", "psat", "psmt", "qe2", "qe_rec",
+        "qffd", "qfnra-nlsat", "qsat",
+        "recover-01", "reduce-args", "reduce-bv-size", "sat", "sat-preprocess",
+        "smtfd", "solver-subsumption", "symmetry-reduce", "tseitin-cnf",
+        "tseitin-cnf-core", "unit-subsume-simplify", "ctx-solver-simplify", "propagate-values",
+        "blast-term-ite", "bv-slice", "bv1-blast", "bvarray2uf", "card2bv",
+        "cofactor-term-ite", "dom-simplify", "elim-predicates", "elim-uncnstr2",
+        "euf-completion", "factor", "fold-unfold",
+        "injectivity", "max-bv-sharing", "propagate-bv-bounds2", "propagate-ineqs",
+        "qe-light", "reduce-args2", "special-relations"
+    }) {
+        bool rejects = false;
+        for (char const* rejecting : {
+            "ackermannize_bv", "aig", "bv_bound_chk", "diff-neq", "elim-small-bv",
+            "ff-sat", "ff-solve", "ff2bv", "fm",
+            "lia2pb", "nla2bv", "nlsat", "occf", "pb2bv", "pqffd", "psat", "psmt",
+            "qe2", "qe_rec", "qffd", "qfnra-nlsat", "qsat", "recover-01", "reduce-bv-size",
+            "sat", "sat-preprocess", "smtfd", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core",
+            "unit-subsume-simplify"
+        })
+            rejects |= !strcmp(name, rejecting);
+        tactic_cmd* factory = tactics.find_tactic_cmd(symbol(name));
+        if (!factory)
+            std::cerr << "Missing proof-mode test tactic: " << name << "\n";
+        ENSURE(factory);
+        tactic_ref t = factory->mk(m);
+        if (!strcmp(name, "bit-blast")) {
+            params_ref p;
+            p.set_bool("blast_quant", true);
+            t->updt_params(p);
+        }
+        for (bool cores : {false, true}) {
+            goal_ref g = alloc(goal, m, true, true, cores);
+            for (expr* a : cmd.assertions())
+                g->assert_expr(a, cores ? a : nullptr);
+            g->set_depth(7);
+            g->add(alloc(generic_model_converter, m, "proof-noop"));
+            goal_ref before = alloc(goal, *g);
+            goal_ref_buffer result;
+            bool rejected = false;
+            try {
+                (*t)(g, result);
+            }
+            catch (z3_exception const& ex) {
+                ENSURE(rejects);
+                ENSURE(strstr(ex.what(), "does not support proof production") ||
+                       strstr(ex.what(), "generation of proof objects is not supported") ||
+                       !strcmp(ex.what(), "QF_FF certificates are not supported in v1") ||
+                       (cores && strstr(ex.what(), "does not support unsat core production")));
+                rejected = true;
+            }
+            ENSURE(rejected == rejects);
+            if (rejected) {
+                t->cleanup();
+                continue;
+            }
+            ENSURE(result.size() == 1 && result[0] == g.get());
+            ENSURE(g->size() == before->size() && g->depth() == before->depth());
+            ENSURE(g->prec() == before->prec());
+            ENSURE(g->pc() == before->pc() && g->mc() == before->mc() && g->dc() == before->dc());
+            for (unsigned i = 0; i < g->size(); ++i) {
+                ENSURE(g->form(i) == before->form(i));
+                ENSURE(g->pr(i) == before->pr(i));
+                ENSURE(g->dep(i) == before->dep(i));
+            }
+            t->cleanup();
+        }
+    }
+
+#ifndef SINGLE_THREAD
+    {
+        goal_ref g = alloc(goal, m, true, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = par_and_then(mk_skip_tactic(), mk_skip_tactic());
+        goal_ref_buffer result;
+        bool rejected = false;
+        try {
+            (*t)(g, result);
+        }
+        catch (tactic_exception const& ex) {
+            ENSURE(!strcmp(ex.what(), "par_and_then does not support proof production"));
+            rejected = true;
+        }
+        ENSURE(rejected);
+    }
+#endif
+
+    struct {
+        char const* name;
+        char const* input;
+    } cases[] = {
+        {"dt2bv", "(declare-datatype C ((r) (g) (b))) (declare-const c C)"
+                  "(assert (or (= c r) (= c g)))"},
+        {"bit-blast", "(declare-const b (_ BitVec 8)) (assert (= (bvadd b #x01) #x02))"},
+        {"fpa2bv", "(declare-const f (_ FloatingPoint 8 24)) (assert (fp.isZero f))"},
+        {"fix-dl-var", "(declare-const x Int) (declare-const y Int) (assert (<= (- x y) 3))"},
+        {"purify-arith", "(declare-const x Int) (declare-const y Int) (assert (= (div x y) 3))"},
+        {"sat", "(declare-const a Bool) (declare-const b Bool) (assert (or a b))"}
+    };
+    for (auto const& test : cases) {
+        ast_manager n;
+        reg_decl_plugins(n);
+        cmd_context ctx(false, &n);
+        std::istringstream source(test.input);
+        ENSURE(parse_smt2_commands(ctx, source));
+        goal_ref g = alloc(goal, n, false, true, false);
+        for (expr* a : ctx.assertions())
+            g->assert_expr(a);
+        tactic_ref normalize = mk_simplify_tactic(n);
+        goal_ref_buffer normalized;
+        (*normalize)(g, normalized);
+        ENSURE(normalized.size() == 1);
+        g = normalized[0];
+        goal_ref before = alloc(goal, *g);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(test.name))->mk(n);
+        goal_ref_buffer result;
+        (*t)(g, result);
+        ENSURE(result.size() == 1);
+        bool changed = result[0]->size() != before->size();
+        for (unsigned i = 0; !changed && i < before->size(); ++i)
+            changed = result[0]->form(i) != before->form(i);
+        ENSURE(changed);
+        t->cleanup();
+    }
+}
+
+static void check_proof_mode_compositions() {
+    struct {
+        char const* name;
+        bool cores;
+    } cases[] = {
+        {"purify-arith", false}, {"nra", false}, {"qfnra", false},
+        {"qfufbv_ackr", false},
+        {"quasi-macros", false}, {"quasi-macros", true}
+    };
+    for (auto const& test : cases) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        tactic_manager tactics;
+        install_tactics(tactics);
+        cmd_context cmd(false, &m);
+        std::istringstream input(
+            !strcmp(test.name, "quasi-macros") ?
+            "(declare-fun h (Int Int) Int)"
+            "(assert (forall ((k Int)) (= (h k 0) k)))"
+            "(assert (not (= (h 1 0) 1)))" :
+            "(declare-const x Real)"
+            "(assert (> (+ x 0.0) 0.0)) (assert (< x 0.0))");
+        ENSURE(parse_smt2_commands(cmd, input));
+        goal_ref g = alloc(goal, m, true, false, test.cores);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a, test.cores ? a : nullptr);
+        goal_ref before = alloc(goal, *g);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(test.name))->mk(m);
+        goal_ref_buffer result;
+        (*t)(g, result);
+        ENSURE(result.size() == 1);
+        bool changed = result[0]->size() != before->size();
+        for (unsigned i = 0; !changed && i < before->size(); ++i)
+            changed = result[0]->form(i) != before->form(i);
+        ENSURE(changed);
+        for (unsigned i = 0; i < result[0]->size(); ++i) {
+            proof* pr = result[0]->pr(i);
+            ENSURE(pr && m.get_fact(pr) == result[0]->form(i));
+            if (test.cores)
+                ENSURE(result[0]->dep(i));
+            for (expr* e : subterms::all(expr_ref(pr, m))) {
+                if (!m.is_asserted(e))
+                    continue;
+                bool original = false;
+                for (expr* a : cmd.assertions())
+                    original |= a == m.get_fact(to_app(e));
+                ENSURE(original);
+            }
+        }
+    }
+
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref zero(a.mk_real(0), m), sum(a.mk_add(x, zero), m);
+    expr_ref lower(a.mk_gt(sum, zero), m), upper(a.mk_lt(x, zero), m);
+    goal_ref g = alloc(goal, m, true, false, false);
+    g->assert_expr(lower);
+    g->assert_expr(upper);
+    tactic_ref t = and_then(mk_simplify_tactic(m), mk_bit_blaster_tactic(m), mk_smt_tactic(m));
+    model_ref md;
+    labels_vec labels;
+    proof_ref pr(m);
+    expr_dependency_ref core(m);
+    std::string reason;
+    ENSURE(check_sat(*t, g, md, labels, pr, core, reason) == l_false);
+    ENSURE(pr && m.is_false(m.get_fact(pr)));
+    proof_checker checker(m);
+    expr_ref_vector side_conditions(m);
+    ENSURE(checker.check(pr, side_conditions));
+}
+
+static void check_proof_mode_sls() {
+    for (char const* name : {"qfbv-sls", "sls-smt"}) {
+        for (bool proofs : {false, true}) {
+            for (bool satisfiable : {false, true}) {
+                ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+                reg_decl_plugins(m);
+                tactic_manager tactics;
+                install_tactics(tactics);
+                cmd_context cmd(false, &m);
+                std::istringstream input(
+                    satisfiable ?
+                    "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x1))" :
+                    "(declare-const x (_ BitVec 4)) (assert (= (bvmul x x) #x2))");
+                ENSURE(parse_smt2_commands(cmd, input));
+                goal_ref g = alloc(goal, m, proofs, true, false);
+                for (expr* a : cmd.assertions())
+                    g->assert_expr(a);
+                tactic_ref t = tactics.find_tactic_cmd(symbol(name))->mk(m);
+                model_ref md;
+                labels_vec labels;
+                proof_ref pr(m);
+                expr_dependency_ref core(m);
+                std::string reason;
+                lbool status;
+                {
+                    scoped_rlimit limit(m.limit(), 50000);
+                    status = check_sat(*t, g, md, labels, pr, core, reason);
+                }
+                if (proofs) {
+                    ENSURE(status == l_undef);
+                    ENSURE(reason == "bv-size-reduction does not support proof production");
+                    ENSURE(!g->is_decided_unsat());
+                }
+                else {
+                    ENSURE(status == (satisfiable ? l_true : l_undef));
+                    if (satisfiable) {
+                        ENSURE(md);
+                        for (expr* assertion : cmd.assertions()) {
+                            expr_ref value(m);
+                            ENSURE(md->eval_expr(assertion, value, true));
+                            ENSURE(m.is_true(value));
+                        }
+                    }
+                    else
+                        ENSURE(!g->is_decided_unsat());
+                }
+                t->cleanup();
+            }
+        }
+    }
+}
+
+static void check_proof_mode_fallbacks() {
+    struct {
+        char const* name;
+        char const* input;
+    } cases[] = {
+        {"qfbv", "(declare-const x (_ BitVec 8))"
+                  "(assert (= (bvand x #x01) #x01))"
+                  "(assert (= (bvand x #x01) #x00))"},
+        {"qffp", "(declare-datatype C ((r) (g) (b))) (declare-const c C)"
+                 "(declare-const f (_ FloatingPoint 8 24)) (assert (fp.isZero f))"
+                 "(assert (or (= c r) (= c g))) (assert (not (= c r))) (assert (not (= c g)))"},
+        {"qfnia", "(declare-const x Int) (assert (> x 0)) (assert (< x 0))"},
+        {"qfnra", "(declare-const x Real) (assert (> x 0.0)) (assert (< x 0.0))"},
+        {"nra", "(declare-const x Real) (assert (> x 0.0)) (assert (< x 0.0))"},
+        {"lra", "(assert (forall ((a Real)) (exists ((b Real))"
+                " (and (>= (+ a b) 0.0) (<= b 0.0)))))"}
+    };
+    for (auto const& test : cases) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        tactic_manager tactics;
+        install_tactics(tactics);
+        cmd_context cmd(false, &m);
+        std::istringstream input(test.input);
+        ENSURE(parse_smt2_commands(cmd, input));
+        goal_ref g = alloc(goal, m, true, false, false);
+        for (expr* a : cmd.assertions())
+            g->assert_expr(a);
+        tactic_ref t = tactics.find_tactic_cmd(symbol(test.name))->mk(m);
+        model_ref md;
+        labels_vec labels;
+        proof_ref pr(m);
+        expr_dependency_ref core(m);
+        std::string reason;
+        ENSURE(check_sat(*t, g, md, labels, pr, core, reason) == l_false);
+        ENSURE(pr && m.is_false(m.get_fact(pr)));
+        for (expr* e : subterms::all(expr_ref(pr, m))) {
+            if (!m.is_asserted(e))
+                continue;
+            bool original = false;
+            for (expr* assertion : cmd.assertions())
+                original |= assertion == m.get_fact(to_app(e));
+            ENSURE(original);
+        }
+        // The legacy checker rejects OEQ definition premises in BV congruence.
+        if (strcmp(test.name, "qfbv")) {
+            proof_checker checker(m);
+            expr_ref_vector side_conditions(m);
+            ENSURE(checker.check(pr, side_conditions));
+        }
+    }
+}
+
 static void check_intblast_signed_mod() {
     for (int x = 0; x < 8; ++x) {
         for (int y = 0; y < 8; ++y) {
@@ -788,6 +1548,13 @@ static void check_intblast_signed_mod() {
 
 void tst_smt_context()
 {
+    check_proof_mode_guards();
+    check_proof_mode_compositions();
+    check_proof_mode_sls();
+    check_proof_mode_fallbacks();
+    check_integer_power(false);
+    check_integer_power(true);
+    check_case_split_relevant_first();
     check_intblast_signed_mod();
     check_qsat_proofs();
     check_qe_rec_proofs();
@@ -800,6 +1567,8 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_sequence_last_index();
     check_array_index_dependencies();
+    check_quantified_array_ite();
+    check_quantifier_polarities();
     check_stored_lambdas();
     check_sat_array_lambdas();
     check_singleton_array_defaults();

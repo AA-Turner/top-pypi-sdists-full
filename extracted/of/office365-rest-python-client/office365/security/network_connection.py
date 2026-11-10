@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +10,6 @@ from office365.security.alerts.securitynetworkprotocol import (
 )
 
 
-@dataclass
 class NetworkConnection(ClientValue):
     applicationName: str | None = None
     destinationAddress: str | None = None

@@ -174,7 +174,7 @@ def _validate_joint_values(values: Sequence[float], name: str) -> tuple[float, .
 
 
 def _validate_gripper(value: float, name: str) -> float:
-    expected = "one number from 0 (open) to 1 (closed)"
+    expected = "one number from 0 (closed) to 1 (open)"
     if isinstance(value, (bool, np.bool_)):
         raise observation_error(name, "a boolean", expected)
     try:

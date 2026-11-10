@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import unittest
 
 import pytest
@@ -51,7 +51,7 @@ class TestQueryParameter(unittest.TestCase):
     def setUp(self) -> None:
         self.number_type = QueryParameter.number_type("Number", 1)
         self.text_type = QueryParameter.text_type("Text", "hello")
-        self.date_type = QueryParameter.date_type("Date", datetime.datetime(2022, 3, 10))
+        self.date_type = QueryParameter.date_type("Date", dt.datetime(2022, 3, 10))
 
     def test_constructors_and_to_dict(self):
         assert self.number_type.to_dict() == {"key": "Number", "type": "number", "value": "1"}
@@ -76,6 +76,25 @@ class TestQueryParameter(unittest.TestCase):
             "Parameter(name=Text, value=hello, type=text)"
             "])"
         )
+
+
+@pytest.mark.parametrize("value", [0, -12, 10**40 + 1, 1.25, 1e-6, -1e-7, 1e20])
+def test_number_parameter_roundtrip(value):
+    parameter = QueryParameter.number_type("minimum_usd", value)
+    decoded = QueryParameter.from_dict(parameter.to_dict())
+    assert decoded == parameter
+    assert type(decoded.value) is type(value)
+
+
+def test_number_parameter_uppercase_exponent():
+    parameter = QueryParameter.from_dict({"key": "minimum_usd", "type": "number", "value": "1E-6"})
+    assert parameter == QueryParameter.number_type("minimum_usd", 1e-6)
+
+
+@pytest.mark.parametrize("value", ["", "not a number", "NaN", "Infinity", "1e", "1e+", "1e2e3"])
+def test_invalid_number_parameter(value):
+    with pytest.raises(ValueError):
+        QueryParameter.from_dict({"key": "minimum_usd", "type": "number", "value": value})
 
 
 if __name__ == "__main__":

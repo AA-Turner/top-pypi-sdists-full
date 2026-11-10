@@ -8,14 +8,17 @@ from typing_extensions import Self
 from office365.runtime.client_result import ClientResult
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.webs.time_zone_information import TimeZoneInformation
 
 
 class TimeZone(Entity):
     """Represents the time zone setting that is implemented on a SharePoint Web site."""
 
+    @site_access(SiteLevel.READ)
     def local_time_to_utc(self, date: datetime) -> ClientResult[datetime]:
         """Converts the specified date from local time to Coordinated Universal Time (UTC).
 
@@ -28,6 +31,7 @@ class TimeZone(Entity):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.MANAGE)
     def set_id(self, id_) -> Self:
         """Args:
         id_ (int):
@@ -36,21 +40,25 @@ class TimeZone(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="Id")
     @property
     def id(self) -> Optional[int]:
         """Gets the identifier of the time zone."""
         return self.properties.get("Id", None)
 
+    @odata(name="Description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description of the time zone."""
         return self.properties.get("Description", None)
 
+    @odata(name="Information")
     @property
     def information(self) -> TimeZoneInformation:
         """Gets information about the time zone."""
         return self.properties.get("Information", TimeZoneInformation())
 
+    @site_access(SiteLevel.READ)
     def utc_to_local_time(self, date: datetime) -> ClientResult[datetime]:
         """UTCToLocalTime operation.
 

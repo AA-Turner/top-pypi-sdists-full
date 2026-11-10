@@ -5,13 +5,16 @@ from office365.directory.applications.application_risk_factors import Applicatio
 from office365.directory.applications.application_risk_score import ApplicationRiskScore
 from office365.directory.applications.service_principal import ApplicationServicePrincipal
 from office365.entity import Entity
+from office365.permissions import require_permission
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import StringCollection
+from office365.runtime.types.odata_property import odata
 
 
 class ApplicationTemplate(Entity):
     """Represents an application in the Azure AD application gallery."""
 
+    @require_permission(delegated=["Application.ReadWrite.All"], application=["Application.ReadWrite.All"])
     def instantiate(self, display_name: str) -> ApplicationServicePrincipal:
         """Add an instance of an application from the Azure AD application gallery into your directory. You can also use
         this API to instantiate non-gallery apps.
@@ -26,11 +29,13 @@ class ApplicationTemplate(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """The name of the application."""
         return self.properties.get("displayName", None)
 
+    @odata(name="categories")
     @property
     def categories(self) -> StringCollection:
         """
@@ -41,11 +46,13 @@ class ApplicationTemplate(Entity):
         """
         return self.properties.get("categories", StringCollection())
 
+    @odata(name="supportedProvisioningTypes")
     @property
     def supported_provisioning_types(self) -> StringCollection:
         """The list of provisioning modes supported by this application"""
         return self.properties.get("supportedProvisioningTypes", StringCollection())
 
+    @odata(name="supportedSingleSignOnModes")
     @property
     def supported_single_signon_modes(self) -> StringCollection:
         """
@@ -54,56 +61,67 @@ class ApplicationTemplate(Entity):
         """
         return self.properties.get("supportedSingleSignOnModes", StringCollection())
 
+    @odata(name="deprecationDate")
     @property
     def deprecation_date(self) -> Optional[date]:
         """Gets the deprecationDate property"""
         return self.properties.get("deprecationDate", None)
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description property"""
         return self.properties.get("description", None)
 
+    @odata(name="endpoints")
     @property
     def endpoints(self) -> StringCollection:
         """Gets the endpoints property"""
         return self.properties.get("endpoints", StringCollection(None))
 
+    @odata(name="homePageUrl")
     @property
     def home_page_url(self) -> Optional[str]:
         """Gets the homePageUrl property"""
         return self.properties.get("homePageUrl", None)
 
+    @odata(name="isEntraIntegrated")
     @property
     def is_entra_integrated(self) -> Optional[bool]:
         """Gets the isEntraIntegrated property"""
         return self.properties.get("isEntraIntegrated", None)
 
+    @odata(name="lastModifiedDateTime")
     @property
     def last_modified_date_time(self) -> Optional[datetime]:
         """Gets the lastModifiedDateTime property"""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
+    @odata(name="logoUrl")
     @property
     def logo_url(self) -> Optional[str]:
         """Gets the logoUrl property"""
         return self.properties.get("logoUrl", None)
 
+    @odata(name="publisher")
     @property
     def publisher(self) -> Optional[str]:
         """Gets the publisher property"""
         return self.properties.get("publisher", None)
 
+    @odata(name="riskFactors")
     @property
     def risk_factors(self) -> ApplicationRiskFactors:
         """Gets the riskFactors property"""
         return self.properties.get("riskFactors", ApplicationRiskFactors())
 
+    @odata(name="riskScore")
     @property
     def risk_score(self) -> ApplicationRiskScore:
         """Gets the riskScore property"""
         return self.properties.get("riskScore", ApplicationRiskScore())
 
+    @odata(name="supportedSingleSignOnModes")
     @property
     def supported_single_sign_on_modes(self) -> StringCollection:
         """Gets the supportedSingleSignOnModes property"""

@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import re
 from collections.abc import Callable
 from typing import Optional, Union
@@ -10,6 +11,7 @@ from aiortc import (
     RTCConfiguration,
     RTCDataChannel,
     RTCIceCandidate,
+    RTCIceTransportPolicy,
     RTCPeerConnection,
     RTCSessionDescription,
 )
@@ -520,6 +522,15 @@ class RTCPeerConnectionTest(TestCase):
         self.assertEqual(pc.iceConnectionState, "closed")
         self.assertEqual(pc.signalingState, "closed")
 
+    def assertCodecNames(
+        self, description: RTCSessionDescription, names: list[str]
+    ) -> None:
+        parsed = SessionDescription.parse(description.sdp)
+        self.assertEqual(
+            [codec.name for media in parsed.media for codec in media.rtp.codecs],
+            names,
+        )
+
     async def assertDataChannelOpen(self, dc: RTCDataChannel) -> None:
         await self.sleepWhile(lambda: dc.readyState == "connecting")
         self.assertEqual(dc.readyState, "open")
@@ -666,6 +677,8 @@ class RTCPeerConnectionTest(TestCase):
                     "addIceCandidate called without remote description"
                 ],
             )
+
+        await pc.close()
 
     @asynctest
     async def test_addTrack_audio(self) -> None:
@@ -862,6 +875,23 @@ class RTCPeerConnectionTest(TestCase):
         await pc.close()
 
         self.assertEqual(pc_states["signalingState"], ["stable", "closed"])
+
+    @asynctest
+    async def test_close_before_connect(self) -> None:
+        pc1 = RTCPeerConnection()
+        pc2 = RTCPeerConnection()
+        pc1.addTrack(AudioStreamTrack())
+
+        await pc1.setLocalDescription()
+        await pc2.setRemoteDescription(pc1.localDescription)
+        await pc2.setLocalDescription()
+
+        # Close before the connection task scheduled above gets to run.
+        with self.assertNoLogs("asyncio", level="ERROR"):
+            await pc2.close()
+            gc.collect()
+
+        await pc1.close()
 
     async def _test_connect_audio_bidirectional(
         self, pc1: RTCPeerConnection, pc2: RTCPeerConnection
@@ -1264,14 +1294,7 @@ a=rtpmap:8 PCMA/8000
         self.assertEqual(pc1.iceGatheringState, "complete")
         self.assertEqual(mids(pc1), ["0"])
         self.assertTrue("m=audio " in pc1.localDescription.sdp)
-        self.assertTrue(
-            lf2crlf(
-                """a=rtpmap:8 PCMA/8000
-a=rtpmap:0 PCMU/8000
-"""
-            )
-            in pc1.localDescription.sdp
-        )
+        self.assertCodecNames(pc1.localDescription, ["PCMA", "PCMU"])
         self.assertTrue("a=sendrecv" in pc1.localDescription.sdp)
         self.assertHasIceCandidates(pc1.localDescription)
         self.assertHasDtls(pc1.localDescription, "actpass")
@@ -1296,14 +1319,7 @@ a=rtpmap:0 PCMU/8000
         await self.assertIceChecking(pc2)
         self.assertEqual(mids(pc2), ["0"])
         self.assertTrue("m=audio " in pc2.localDescription.sdp)
-        self.assertTrue(
-            lf2crlf(
-                """a=rtpmap:8 PCMA/8000
-a=rtpmap:0 PCMU/8000
-"""
-            )
-            in pc2.localDescription.sdp
-        )
+        self.assertCodecNames(pc2.localDescription, ["PCMA", "PCMU"])
         self.assertTrue("a=sendrecv" in pc2.localDescription.sdp)
         self.assertHasIceCandidates(pc2.localDescription)
         self.assertHasDtls(pc2.localDescription, "active")
@@ -2888,8 +2904,7 @@ a=rtpmap:0 PCMU/8000
         parsed.media[0].rtp.codecs.pop(0)
         parsed.media[0].fmt.pop(0)
         desc1 = RTCSessionDescription(sdp=str(parsed), type=pc1.localDescription.type)
-        self.assertFalse("VP8" in desc1.sdp)
-        self.assertTrue("H264" in desc1.sdp)
+        self.assertCodecNames(desc1, ["rtx", "H264", "rtx", "H264", "rtx"])
 
         # handle offer
         await pc2.setRemoteDescription(desc1)
@@ -2913,6 +2928,7 @@ a=rtpmap:0 PCMU/8000
         self.assertTrue("a=sendrecv" in pc2.localDescription.sdp)
         self.assertHasIceCandidates(pc2.localDescription)
         self.assertHasDtls(pc2.localDescription, "active")
+        self.assertCodecNames(pc2.localDescription, ["H264", "rtx", "H264", "rtx"])
 
         # handle answer
         await pc1.setRemoteDescription(pc2.localDescription)
@@ -3107,6 +3123,9 @@ a=rtpmap:0 PCMU/8000
         self.assertHasIceCandidates(pc1.localDescription)
         self.assertHasDtls(pc1.localDescription, "actpass")
         self.assertTrue(VIDEO_SDP in pc1.localDescription.sdp)
+        self.assertCodecNames(
+            pc1.localDescription, ["H264", "rtx", "H264", "rtx", "VP8", "rtx"]
+        )
 
         # handle offer
         await pc2.setRemoteDescription(pc1.localDescription)
@@ -3131,6 +3150,9 @@ a=rtpmap:0 PCMU/8000
         self.assertHasIceCandidates(pc2.localDescription)
         self.assertHasDtls(pc2.localDescription, "active")
         self.assertTrue(VIDEO_SDP in pc2.localDescription.sdp)
+        self.assertCodecNames(
+            pc2.localDescription, ["H264", "rtx", "H264", "rtx", "VP8", "rtx"]
+        )
 
         # handle answer
         await pc1.setRemoteDescription(pc2.localDescription)
@@ -3215,7 +3237,7 @@ a=rtpmap:0 PCMU/8000
         self.assertTrue("a=sendrecv" in pc1.localDescription.sdp)
         self.assertHasIceCandidates(pc1.localDescription)
         self.assertHasDtls(pc1.localDescription, "actpass")
-        self.assertFalse("VP8" in pc1.localDescription.sdp)
+        self.assertCodecNames(pc1.localDescription, ["H264", "rtx", "H264", "rtx"])
 
         # handle offer
         await pc2.setRemoteDescription(pc1.localDescription)
@@ -3239,7 +3261,7 @@ a=rtpmap:0 PCMU/8000
         self.assertTrue("a=sendrecv" in pc2.localDescription.sdp)
         self.assertHasIceCandidates(pc2.localDescription)
         self.assertHasDtls(pc2.localDescription, "active")
-        self.assertFalse("VP8" in pc2.localDescription.sdp)
+        self.assertCodecNames(pc2.localDescription, ["H264", "rtx", "H264", "rtx"])
 
         # handle answer
         await pc1.setRemoteDescription(pc2.localDescription)
@@ -5475,6 +5497,23 @@ a=rtpmap:0 PCMU/8000
         )
 
     @asynctest
+    async def test_icetransportpolicy_relay(self) -> None:
+        pc = RTCPeerConnection(
+            RTCConfiguration(iceTransportPolicy=RTCIceTransportPolicy.RELAY)
+        )
+
+        # Audio and video use separate transports with the balanced bundle policy.
+        pc.addTransceiver("audio")
+        pc.addTransceiver("video")
+
+        await pc.setLocalDescription(await pc.createOffer())
+        self.assertEqual(pc.iceGatheringState, "complete")
+        self.assertNotIn("a=candidate:", pc.localDescription.sdp)
+
+        # close
+        await pc.close()
+
+    @asynctest
     async def test_always_negotiate_datachannels(self) -> None:
         pc = RTCPeerConnection(RTCConfiguration(alwaysNegotiateDataChannels=True))
         pc.addTransceiver("audio")
@@ -5503,3 +5542,6 @@ a=rtpmap:0 PCMU/8000
             offer = await pc.createOffer()
             parsed = SessionDescription.parse(offer.sdp)
             self.assertEqual(len(parsed.media), 2)
+
+        await pc1.close()
+        await pc2.close()

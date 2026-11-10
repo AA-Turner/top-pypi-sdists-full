@@ -1,9 +1,37 @@
-"""Tokeniser for PROV-N (https://www.w3.org/TR/prov-n/, section 3.8).
+"""Tokeniser for PROV-N (https://www.w3.org/TR/prov-n/, section 3.7).
 
-Produces a flat token stream with line and column positions. Keywords are
-not distinguished here: every bare or prefixed name is a ``NAME`` token, and
-the parser decides whether a name at statement start is a keyword. The one
-context-sensitive rule is the language tag, which only follows a string.
+Produces a flat token stream. Every token carries its line and column. Keywords are
+not distinguished here: every bare or prefixed name is a ``NAME`` token, and the
+parser decides whether a name at statement start is a keyword.
+
+The scanner is regex-driven, with a fixed sequence of token classes. At each position
+it skips whitespace and comments, then tries the token classes in that order and takes
+the first match. The order encodes the grammar's precedence rules. Delimited tokens
+(IRIs in angle brackets, quoted strings, quoted qualified names) come first, then
+``xsd:dateTime``, then integers and qualified names, since a digit run can start any
+of the three. Between an integer and a qualified name reading of the same run, the
+scanner takes the longer match and prefers the integer reading on a tie, matching the
+Recommendation's guidance. The ``-`` marker comes after the integer and name readings,
+so ``-4`` is an integer.
+
+The one context-sensitive rule is the language tag. ``@`` starts a language tag only
+when the previous token was a string, since ``@`` is also a legal character inside a
+local name. The rule that a local name may contain but not end with ``.`` lives in the
+name regex itself, so the scanner never trims a match.
+
+The character classes are the Unicode tables the PROV-XML serializer uses for NCNames.
+``prov.identifier`` also holds ``PN_CHARS_ESC``, which the PROV-N writer's escaping
+reads, and ``PN_CHARS_OTHER``, which ``QualifiedName``'s writability check reads, so the
+scanner and the rest of prov read one table for each.
+
+Only skipped whitespace and comments and long strings can hold a line break. The
+scanner counts line breaks in those (``advance_lines``) and moves every other token
+forward by its length. A CR LF pair, a lone CR and a lone LF each count
+as one line break.
+
+The IRI regex excludes line breaks. The short-string and quoted-name regexes admit a
+backslash before a CR, so ``_unescape`` and ``_split_qname`` refuse it before the
+scanner emits the token.
 """
 
 from __future__ import annotations
@@ -15,14 +43,21 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from prov._warnings import future_rejection_message
-from prov.identifier import _NCNAME_CHARS, _NCNAME_START_CHARS
+from prov.identifier import (
+    _NCNAME_START_CHARS,
+    _PN_CHARS,
+    _PN_CHARS_ESC,
+    _PN_CHARS_OTHER,
+    _PN_PREFIX,
+)
 from prov.model import ProvException
+from prov.model._values import LANGTAG_PATTERN, XSD_DATETIME_PATTERN
+from prov.serializers import ProvSerializationError
 
 __all__ = ["ProvNSyntaxError", "Token", "TokenKind", "tokenize"]
 
 
-class ProvNSyntaxError(ProvException):
+class ProvNSyntaxError(ProvSerializationError, ProvException):
     """A PROV-N document could not be tokenised or parsed.
 
     Attributes:
@@ -44,26 +79,28 @@ class ProvNSyntaxError(ProvException):
 class TokenKind(Enum):
     """Token classes; the names follow the Recommendation's productions."""
 
-    NAME = "name"  # QUALIFIED_NAME [51], value (prefix, local)
+    NAME = "name"  # QUALIFIED_NAME [52], value (prefix, local)
     QNAME_LITERAL = "qualified name literal"  # 'prefix:local', value (prefix, local)
-    IRI = "IRI"  # IRI_REF [56], value the IRI text
-    STRING = "string"  # STRING_LITERAL [60], value the unescaped text
-    INT = "integer"  # INT_LITERAL [61], value an int
-    DATETIME = "dateTime"  # DATETIME [62], value the lexical form
-    LANGTAG = "language tag"  # LANGTAG [63], value the tag
+    IRI = "IRI"  # IRI_REF (from SPARQL), value the IRI text
+    STRING = "string"  # STRING_LITERAL [58], value the unescaped text
+    INT = "integer"  # INT_LITERAL [60], value an int
+    DATETIME = "dateTime"  # DATETIME (xsd:dateTime), value the lexical form
+    LANGTAG = "language tag"  # LANGTAG (from SPARQL), value the tag
     TYPED = "%%"
     MARKER = "-"
     LPAREN = "("
     RPAREN = ")"
     LBRACKET = "["
     RBRACKET = "]"
+    LBRACE = "{"
+    RBRACE = "}"
     COMMA = ","
     SEMICOLON = ";"
     EQUALS = "="
     EOF = "end of input"
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True, unsafe_hash=True)
 class Token:
     kind: TokenKind
     text: str
@@ -72,30 +109,21 @@ class Token:
     column: int
 
 
-# Character classes from the Recommendation ([53] to [55]); '.' is handled
-# in the local-part patterns because its placement rules differ, so PN_CHARS
-# is PROV-N's share of prov.identifier's NCName tables minus '.'. PN_CHARS_U
-# (NCName's NameStartChar, '_' included) is that table unchanged; PN_CHARS_BASE
-# (SPARQL's PN_CHARS_BASE, no leading '_') strips '_' back out. Both classes'
-# equivalence to the NCName tables over the full codepoint space is pinned
-# by test_provn_lexer.py.
+# '.' is handled in the local-part patterns because its placement rules differ.
+# PN_CHARS_U is the NCName start table, '_' included. test_provn_lexer.py pins
+# the classes' equivalence to the NCName tables over the full code-point space.
 _PN_CHARS_U = _NCNAME_START_CHARS
-_PN_CHARS_BASE = _PN_CHARS_U.replace("_", "")
-_PN_CHARS = _NCNAME_CHARS.replace(".", "")
-_PN_OTHERS = r"/@~&+*?#$!"
+_PN_OTHERS = re.escape(_PN_CHARS_OTHER)
 _PERCENT = r"%[0-9A-Fa-f]{2}"
-_ESC = r"\\[=',\-:;\[\]().]"
+_ESC = rf"\\[{re.escape(_PN_CHARS_ESC)}]"
 _LOCAL_START = rf"[{_PN_CHARS_U}0-9{_PN_OTHERS}]|{_PERCENT}|{_ESC}"
 _LOCAL_CONT = rf"[{_PN_CHARS}.{_PN_OTHERS}]|{_PERCENT}|{_ESC}"
-# The last character of a local part can't be a bare '.' ([54]); an escaped
+# The last character of a local part can't be a bare '.' (PN_LOCAL, [53]); an escaped
 # '\.' or a percent-escape are still fine, so this is _LOCAL_CONT without
 # the bare-dot alternative. Folding the end rule into the grammar keeps
 # matching linear even for a long run of trailing dots.
 _LOCAL_LAST = rf"[{_PN_CHARS}{_PN_OTHERS}]|{_PERCENT}|{_ESC}"
 _PN_LOCAL = rf"(?:{_LOCAL_START})(?:(?:{_LOCAL_CONT})*(?:{_LOCAL_LAST}))?"
-# SPARQL's PN_PREFIX ([52]'s reference production) is PN_CHARS_BASE
-# ((PN_CHARS | '.')* PN_CHARS)? -- a prefix can't end in '.' either.
-_PN_PREFIX = rf"[{_PN_CHARS_BASE}](?:[{_PN_CHARS}.]*[{_PN_CHARS}])?"
 
 # [52] allows "PN_PREFIX ':'" alone (empty local, e.g. the Recommendation's
 # own `bbc:`), so the prefixed branch's local part is optional; group 3 is
@@ -104,28 +132,25 @@ _QNAME = re.compile(rf"(?:({_PN_PREFIX}):({_PN_LOCAL})?|({_PN_LOCAL}))")
 # Anchored variant of _QNAME, built from the same pattern so the two can't
 # drift apart.
 _QNAME_FULL = re.compile(_QNAME.pattern + r"\Z")
-# DIGIT is [0-9] ([55]); \d would also match other Unicode decimal digits,
+# DIGIT is [0-9] ([62]); \d would also match other Unicode decimal digits,
 # which the grammar treats as ordinary name characters, not digits.
-_DATETIME = re.compile(
-    r"-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
-    r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})?"
-)
+_DATETIME = re.compile(XSD_DATETIME_PATTERN)
 _INT = re.compile(r"-?[0-9]+")
-# [56]'s UCHAR exclusion is [#x00-#x20], not full Unicode whitespace: \s
-# would reject non-breaking space (a legal IRI character) and admit other
-# control characters that aren't spaces. A backslash starts an escape
-# (PROV-N section 6), which _unescape decodes.
+# The IRI_REF rule (from SPARQL) excludes [#x00-#x20], not full Unicode
+# whitespace: \s would reject non-breaking space (a legal IRI character) and
+# admit other control characters that aren't spaces. A backslash starts an
+# escape (PROV-N section 6), which _unescape decodes.
 _IRI_EXCLUDED = r'<>"{}|^`\\\x00-\x20'
 _IRI = re.compile(rf"<((?:[^{_IRI_EXCLUDED}]|\\[^\x00-\x20])*)>")
 _IRI_FORBIDDEN = re.compile(rf"[{_IRI_EXCLUDED}]")
-_LANGTAG = re.compile(r"@([A-Za-z]+(?:-[A-Za-z0-9]+)*)")
+_LANGTAG = re.compile(f"@({LANGTAG_PATTERN})")
 _SHORT_STRING = re.compile(r'"((?:\\.|[^"\\\n\r])*)"')
 _LONG_STRING = re.compile(r'"""((?:\\.|"(?!"")|[^"\\])*)"""', re.S)
 _QNAME_LITERAL = re.compile(r"'((?:\\.|[^'\\\n\r])*)'")
 # WS is space, tab, CR and LF (SPARQL [93], whose terminals PROV-N takes);
-# _Lexer.skip_other_space handles any other Unicode whitespace. A '//'
-# comment ends at CR or LF (the Recommendation's note on comments), not
-# just LF.
+# any other Unicode whitespace between tokens is an error (next_token),
+# U+1680 apart, which is a name character. A '//' comment ends at CR or LF
+# (the Recommendation's note on comments), not just LF.
 _SKIP = re.compile(r"(?:[ \t\r\n]+|//[^\n\r]*|/\*.*?\*/)+", re.S)
 _LINEBREAK = re.compile(r"\r\n|\r|\n")
 _ESCAPE_CHAR = re.compile(r"\\(.)", re.S)
@@ -140,16 +165,19 @@ _STRING_ESCAPES = {
     "\\": "\\",
 }
 
-# ECHAR ([59]) and PROV-N section 6's code point escapes, \uXXXX and
-# \UXXXXXXXX; HEX takes either case, as in SPARQL.
-_ESCAPE = re.compile(r"\\(?:u([0-9A-Fa-f]{4})|U([0-9A-Fa-f]{8})|(.))", re.S)
-_HEX_DIGITS = {"u": "four", "U": "eight"}
+# SPARQL's ECHAR and PROV-N section 6's code point escapes, \uXXXX and
+# \UXXXXXXXX, which take uppercase hex digits only. Production [57] HEX, which
+# takes either case, belongs to PERCENT.
+_ESCAPE = re.compile(r"\\(?:u([0-9A-F]{4})|U([0-9A-F]{8})|(.))", re.S)
+_HEX_DIGITS = {"u": "four uppercase hex digits", "U": "eight uppercase hex digits"}
 
 _PUNCTUATION = {
     "(": TokenKind.LPAREN,
     ")": TokenKind.RPAREN,
     "[": TokenKind.LBRACKET,
     "]": TokenKind.RBRACKET,
+    "{": TokenKind.LBRACE,
+    "}": TokenKind.RBRACE,
     ",": TokenKind.COMMA,
     ";": TokenKind.SEMICOLON,
     "=": TokenKind.EQUALS,
@@ -165,7 +193,7 @@ def _unescape(raw: str, locate: _Locate, start: int, kind: str) -> str:
 
     Escapes are decoded per token, so an escaped '"' cannot end a string.
     An IRI takes only the code point escapes, and they cannot encode a
-    character [56] excludes.
+    character the IRI_REF rule excludes.
     """
     if "\\" not in raw:
         return raw
@@ -178,9 +206,7 @@ def _unescape(raw: str, locate: _Locate, start: int, kind: str) -> str:
         four, eight, char = match.groups()
         if char is not None:
             if char in _HEX_DIGITS:
-                raise fail(
-                    f"escape '\\{char}' needs {_HEX_DIGITS[char]} hex digits", match
-                )
+                raise fail(f"escape '\\{char}' needs {_HEX_DIGITS[char]}", match)
             if kind == "IRI" or char not in _STRING_ESCAPES:
                 raise fail(f"unknown {kind} escape '\\{char}'", match)
             return _STRING_ESCAPES[char]
@@ -218,9 +244,8 @@ def _split_qname(raw: str, locate: _Locate, start: int) -> tuple[str, str]:
 
 
 class _Lexer:
-    def __init__(self, text: str, warnings: list[str]):
+    def __init__(self, text: str):
         self.text = text
-        self.warnings = warnings
         self.pos = 0
         self.line = 1
         self.line_start = 0
@@ -233,8 +258,8 @@ class _Lexer:
     def _line_after(self, chunk: str) -> tuple[int, int]:
         """(line, line_start) reached by moving past ``chunk``, which starts
         at ``self.pos``; a CRLF pair counts as a single line break. Shared by
-        ``advance`` (moving the lexer itself) and ``locate`` (a read-only
-        look-ahead), so the newline arithmetic lives in one place."""
+        ``advance_lines`` (moving the lexer itself) and ``locate`` (a
+        read-only look-ahead), so the newline arithmetic lives in one place."""
         count = 0
         last_end = 0
         for match in _LINEBREAK.finditer(chunk):
@@ -244,7 +269,8 @@ class _Lexer:
             return self.line + count, self.pos + last_end
         return self.line, self.line_start
 
-    def advance(self, length: int) -> None:
+    def advance_lines(self, length: int) -> None:
+        """Move past ``length`` characters that may hold line breaks."""
         chunk = self.text[self.pos : self.pos + length]
         self.line, self.line_start = self._line_after(chunk)
         self.pos += length
@@ -259,9 +285,14 @@ class _Lexer:
         line, line_start = self._line_after(self.text[self.pos : offset])
         return line, offset - line_start + 1
 
-    def emit(self, kind: TokenKind, text: str, value: Any) -> Token:
+    def emit(
+        self, kind: TokenKind, text: str, value: Any, multiline: bool = False
+    ) -> Token:
         token = Token(kind, text, value, self.line, self.column)
-        self.advance(len(text))
+        if multiline:
+            self.advance_lines(len(text))
+        else:
+            self.pos += len(text)
         self.previous = kind
         return token
 
@@ -270,36 +301,13 @@ class _Lexer:
         while True:
             skip = _SKIP.match(text, self.pos)
             if skip:
-                self.advance(skip.end() - self.pos)
-            if self.pos < len(text) and text[self.pos].isspace():
-                self.skip_other_space()
-                continue
-            if text.startswith("/*", self.pos):
-                raise self.error("unterminated comment")
+                self.advance_lines(skip.end() - self.pos)
             if self.pos >= len(text):
                 yield Token(TokenKind.EOF, "", None, self.line, self.column)
                 return
+            if text.startswith("/*", self.pos):
+                raise self.error("unterminated comment")
             yield self.next_token()
-
-    def skip_other_space(self) -> None:
-        """Skip a run of one whitespace character that WS excludes.
-
-        The run is skipped as a separator, and a 3.3.0 message is recorded
-        at its first character.
-        """
-        text, pos = self.text, self.pos
-        char = text[pos]
-        end = pos + 1
-        while text.startswith(char, end):
-            end += 1
-        detail = (
-            f"line {self.line}, column {self.column}:"
-            f" U+{ord(char):04X} is not PROV-N whitespace"
-        )
-        # PN_CHARS_BASE ([53]) includes U+1680, so 3.3.0 reads it as part of a name.
-        outcome = "read it as a name character" if char == "\u1680" else "reject this"
-        self.warnings.append(future_rejection_message(detail, outcome, issue=509))
-        self.advance(end - pos)
 
     def next_token(self) -> Token:
         text, pos = self.text, self.pos
@@ -321,6 +329,11 @@ class _Lexer:
             return token
         if char == "-":
             return self.emit(TokenKind.MARKER, "-", "-")
+        if char.isspace():
+            # WS is space, tab, CR and LF. U+1680 never gets here: it is in
+            # PN_CHARS_BASE, part of PN_LOCAL ([53]), so literal_or_name_token()
+            # reads it as a name.
+            raise self.error(f"U+{ord(char):04X} is not PROV-N whitespace")
         raise self.error(f"unexpected character {char!r}")
 
     def iri_token(self) -> Token:
@@ -367,7 +380,7 @@ class _Lexer:
             raise self.error(f"integer literal has more than {limit} digits") from exc
 
     def name_token(self, match: re.Match[str]) -> Token:
-        # _PN_LOCAL already excludes a bare trailing '.' ([54]), so the
+        # _PN_LOCAL already excludes a bare trailing '.' ([53]), so the
         # match never needs trimming here.
         raw = match.group(0)
         token = self.emit(TokenKind.NAME, raw, _qname_value(match))
@@ -377,7 +390,8 @@ class _Lexer:
 
     def string_token(self) -> Token:
         text, pos = self.text, self.pos
-        if text.startswith('"""', pos):
+        long = text.startswith('"""', pos)
+        if long:
             match = _LONG_STRING.match(text, pos)
             if match is None:
                 raise self.error("unterminated long string")
@@ -386,24 +400,21 @@ class _Lexer:
             if match is None:
                 raise self.error("unterminated string")
         value = _unescape(match.group(1), self.locate, match.start(1), "string")
-        return self.emit(TokenKind.STRING, match.group(0), value)
+        return self.emit(TokenKind.STRING, match.group(0), value, multiline=long)
 
 
-def tokenize(text: str, warnings: list[str] | None = None) -> Iterator[Token]:
+def tokenize(text: str) -> Iterator[Token]:
     """Yield the tokens of ``text``, ending with an ``EOF`` token.
 
     Args:
         text: The PROV-N source.
-        warnings: If given, the lexer appends a message to it, built by
-            :func:`prov._warnings.future_rejection_message`, for each run of
-            whitespace between tokens that PROV-N does not allow. The lexer
-            still skips such whitespace.
 
     Raises:
         ProvNSyntaxError: On the first character that starts no valid token,
-            with the line and column of that character.
+            or on a whitespace character outside space, tab, CR and LF between
+            tokens, with the line and column of that character.
     """
     if text.startswith("﻿"):
         # A UTF-8 byte order mark is not part of the document.
         text = text[1:]
-    return _Lexer(text, [] if warnings is None else warnings).tokens()
+    return _Lexer(text).tokens()

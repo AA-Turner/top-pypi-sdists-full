@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "impit"
-version = "0.15.1"
+version = "0.15.2"
 description = "A library for making HTTP requests through browser impersonation"
 readme = "README.md"
 license = { file = "LICENSE.md" }
@@ -139,7 +139,7 @@ module = ["pproxy"]
 ignore_missing_imports = true
 
 [tool.uv]
-exclude-newer = "1 day"
+exclude-newer = "7 days"
 
 [tool.uv.sources]
 stubdoc = { git = "https://github.com/bayashi-cl/stubdoc" }

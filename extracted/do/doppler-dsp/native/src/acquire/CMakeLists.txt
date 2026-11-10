@@ -16,24 +16,19 @@ add_library(acquire_core OBJECT acquire_core.c bin_to_signed.c)
 target_include_directories(acquire_core PUBLIC ${CMAKE_SOURCE_DIR}/native/inc)
 
 if(BUILD_PYTHON)
-# acquire Python module — aggregates: CarrierAcquisition, Acquisition, BurstAcquisition, BurstCapture, PersistentBurstCapture
+# acquire Python module — aggregates: CarrierAcquisition, BurstCapture, PersistentBurstCapture
 Python3_add_library(acquire MODULE WITH_SOABI acquire_ext.c)
 target_link_libraries(acquire PRIVATE
     acquire_core
     carrier_acq_core
-    acq_core
-    burst_acq_core
     burst_capture_core
     psd_core
     acc_trace_core
-    detector_core
     detection_core
     spectral_core
-    corr_core
-    fft_core
-    Threads::Threads
-    corr2d_core
+    correlator_core
     fft2d_core
+    fft_core
     dp_tlm_core
     Python3::NumPy)
 target_include_directories(acquire PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
@@ -53,19 +48,14 @@ add_executable(test_acquire_core
 target_link_libraries(test_acquire_core PRIVATE
     acquire_core
     carrier_acq_core
-    acq_core
-    burst_acq_core
     burst_capture_core
     psd_core
     acc_trace_core
-    detector_core
     detection_core
     spectral_core
-    corr_core
-    fft_core
-    Threads::Threads
-    corr2d_core
+    correlator_core
     fft2d_core
+    fft_core
     dp_tlm_core
     ${JM_MATH_LIBRARY})
 target_include_directories(test_acquire_core
@@ -78,19 +68,14 @@ add_executable(bench_acquire_core
 target_link_libraries(bench_acquire_core PRIVATE
     acquire_core
     carrier_acq_core
-    acq_core
-    burst_acq_core
     burst_capture_core
     psd_core
     acc_trace_core
-    detector_core
     detection_core
     spectral_core
-    corr_core
-    fft_core
-    Threads::Threads
-    corr2d_core
+    correlator_core
     fft2d_core
+    fft_core
     dp_tlm_core
     ${JM_MATH_LIBRARY})
 target_include_directories(bench_acquire_core

@@ -57,12 +57,21 @@ class WorkspacesMixin:
     def computer_workspace_id(self) -> str | None:
         """The workspace this computer files new projects into, as an id, or None.
 
-        From `Settings.workspace`: PROBE_WORKSPACE, else the context's pin (the
-        setup wizard's choice; `probe workspace use` changes it). An id
+        From `Settings.workspace`: PROBE_WORKSPACE, else this coding-agent session's
+        workspace (`probe example start` pins its example's, D68), else the context's pin
+        (the setup wizard's choice; `probe workspace use` changes it). An id
         (bare or `id:<uuid>`) is used as is; anything else is a workspace SLUG
         and is looked up, so `PROBE_WORKSPACE=engineering` works. An unknown
         slug raises rather than falling through to the server's rule.
         """
+        from probe.sdk.settings.settings import WorkspaceSource
+
+        if not self.settings.workspace or self.settings.workspace_source is WorkspaceSource.PIN:
+            from .runs.home import load_session_workspace
+
+            session_workspace = load_session_workspace(self.settings)
+            if session_workspace:
+                return session_workspace
         return self.workspace_id_for(self.settings.workspace)
 
     def workspace_id_for(self, ref: str | None) -> str | None:
@@ -157,7 +166,9 @@ class WorkspacesMixin:
     def _drop_dead_pin(self, workspace_id: str) -> bool:
         """Forget this computer's pin naming `workspace_id`, which the server no longer has;
         whether the create may go again through the home rule. Only a pin of this client's
-        own login (`WorkspaceSource.PIN`), never `workspace=`, PROBE_WORKSPACE or a limit."""
+        own login (`WorkspaceSource.PIN`), never `workspace=`, PROBE_WORKSPACE or a limit; or
+        this session's workspace (D68), which the computer's own rule then replaces."""
+        from probe.sdk import session_marker
         from probe.sdk.settings.settings import (
             WORKSPACE_CLEAR_RESET,
             ConfigUnreadable,
@@ -166,6 +177,11 @@ class WorkspacesMixin:
         )
         from probe.sdk.settings.workspace_limit import LIMIT_KEY
 
+        from .runs.home import get_session_id, load_session_workspace
+
+        session_id = get_session_id()
+        if session_id and load_session_workspace(self.settings) == workspace_id:
+            return session_marker.clear_session_workspace(session_id)
         if self.settings.workspace_source is not WorkspaceSource.PIN or self.settings.workspace_limit is not None:
             return False
         saved = _load_context_or_empty()

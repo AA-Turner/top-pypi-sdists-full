@@ -26,9 +26,11 @@ it is cheap and safe from any environment.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .seed import check_whole_number
 from .traffic.config import TrafficConfig, TrafficManagerBackendConfig
 from .traffic.parameters import (
     BicycleParameters,
@@ -259,6 +261,13 @@ class EgoVehicleConfig:
     #:   group (the ``ros2`` extra).
     entity: str = "autopilot"
 
+    #: ``entity: autoware`` only: spawn the ego for CARLA 1.0's native
+    #: Autoware interface -- with ``ros2_autoware_control=true`` and the role
+    #: name ``ego``, so the server applies Autoware's control and publishes the
+    #: vehicle status itself (docs/autoware.md).  The framework still finds the
+    #: ego as ``Ego``.
+    native_autoware_interface: bool = False
+
 
 @dataclass
 class NpcVehicleConfig:
@@ -273,8 +282,39 @@ class NpcVehicleConfig:
     #: CARLA vehicle blueprint ID.
     vehicle_type: str = "vehicle.mini.cooper"
 
-    #: Initial speed in km/h applied after warm-up.
+    #: Initial speed in km/h applied after warm-up: finite, 0 or more.
     initial_speed_kmh: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Refuse a ``spawn_lanelet_id`` left unset (:data:`MISSING`, which a
+        plain dataclass does not enforce) or that is not a whole number
+        (``abc``, ``1.5``, a bool; #1984), normalising a whole float to an
+        int; a NaN or infinite ``spawn_s``; and an ``initial_speed_kmh`` that
+        is not finite or is below zero (#1809): a NaN pose fails far from the
+        key behind it, a negative or NaN speed leaves the NPC still with no
+        error and an infinite one breaks its physics.  Each would otherwise
+        fail the run in ``setup()``, once CARLA, the map and the ego are up.
+
+        Raises:
+            ValueError: naming the field.
+        """
+        # str(): the field holds the marker (a str) or a number; compared as
+        # text, the check needs no isinstance of a field typed int.
+        if str(self.spawn_lanelet_id) == MISSING:
+            raise ValueError("spawn_lanelet_id is required: name the NPC's lanelet")
+        self.spawn_lanelet_id = check_whole_number(
+            "spawn_lanelet_id", self.spawn_lanelet_id
+        )
+        if not math.isfinite(self.spawn_s):
+            raise ValueError(f"spawn_s must be finite, got {self.spawn_s}")
+        # NaN fails `>= 0.0` as well.
+        if not (
+            math.isfinite(self.initial_speed_kmh) and self.initial_speed_kmh >= 0.0
+        ):
+            raise ValueError(
+                "initial_speed_kmh must be finite and at least 0, "
+                f"got {self.initial_speed_kmh}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -342,7 +382,7 @@ class DriverLidarSpec:
     lower_fov_deg: float = -25.0
     dropoff_general_rate: float = 0.0
     weather_noise: float = 1.0
-    #: ``null`` takes the run's seed.
+    #: ``null`` takes the run's seed, mixed with ``logical_id``.
     noise_seed: int | None = None
     fog_density_scale: float = 0.001
     position_x: float = 0.0
@@ -616,7 +656,10 @@ class SweepConfig:
     job_timeout_seconds: int = 120
 
     #: 1-indexed job number to resume from.  Jobs before this index are
-    #: skipped.  0 (default) means execute all jobs from the beginning.
+    #: skipped.  0 (default) or ``null`` means execute all jobs from the
+    #: beginning.  A whole number: a bool, a float, a string or a negative
+    #: value is refused (exit 2) before any case runs.  ``--resume-from N``
+    #: (``SWEEP_RESUME_FROM``) wins over it.
     resume_from: int = 0
 
     #: Concrete cases drawn from the ODD (``docs/odd.md``, "Sampling
@@ -628,5 +671,6 @@ class SweepConfig:
 
     #: Keep only the case at this (0-based) index of the expansion; ``None``
     #: keeps them all.  ``++sweep.case_index=0`` on a batch runs each scenario
-    #: on its first case.
+    #: on its first case.  A whole number >= 0 (``3`` or ``"3"``): a bool, a
+    #: fraction such as ``1.9`` or another string is refused, naming the key.
     case_index: int | None = None

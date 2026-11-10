@@ -506,8 +506,10 @@ class KeyqueueTrie:
             return None
 
         b = keys[0] - _MOUSE_BYTE_OFFSET
-        # supports 0-255
-        x, y = (keys[1] - _MOUSE_COORD_OFFSET) % 256, (keys[2] - _MOUSE_COORD_OFFSET) % 256
+        # A terminal sends a byte, and one below the offset wraps to the end of the range, as xterm's NUL past its end.
+        # A code above 255 can come only from an encoder not limited to bytes, such as the curses display,
+        # and carries the coordinate itself.
+        x, y = (k - _MOUSE_COORD_OFFSET if k > _MOUSE_BYTE_MAX else (k - _MOUSE_COORD_OFFSET) % 256 for k in keys[1:3])
 
         prefixes = []
         if b & MouseBit.SHIFT:
@@ -639,10 +641,14 @@ class KeyqueueTrie:
             return None
         if keys[1] != ord("?"):
             return None
+        # "[?", at most _CSI_PARAMETERS_MAX_LEN parameter bytes and the final "$y": a longer run is not a report
+        limit = _CSI_PARAMETERS_MAX_LEN + 4
+        codes = keys[:limit]
+        more_available = more_available and len(keys) < limit
         # read the mode number
         mode = ""
         i = 2
-        for k in keys[i:]:
+        for k in codes[i:]:
             i += 1
             if k == ord(";"):
                 if not mode:
@@ -655,14 +661,14 @@ class KeyqueueTrie:
             if more_available:
                 raise MoreInputRequired
             return None
-        if not keys[i:]:
+        if not codes[i:]:
             if more_available:
                 raise MoreInputRequired
             return None
         # Ps: "0" is a valid value here (mode not recognized), unlike the mode number above.
         value = 0
         got_digit = False
-        for k in keys[i:]:
+        for k in codes[i:]:
             i += 1
             if k == ord("$"):
                 break
@@ -676,11 +682,11 @@ class KeyqueueTrie:
             return None
         if not got_digit:
             return None
-        if not keys[i:]:
+        if not codes[i:]:
             if more_available:
                 raise MoreInputRequired
             return None
-        if keys[i] != ord("y"):
+        if codes[i] != ord("y"):
             return None
         return (("private mode report", mode, value), keys[i + 1 :])
 
@@ -944,6 +950,8 @@ if not typing.TYPE_CHECKING:
 # reported 1-based.
 _MOUSE_BYTE_OFFSET: typing.Final = 32
 _MOUSE_COORD_OFFSET: typing.Final = 33
+# the largest code a terminal sends for one byte of an X10 report
+_MOUSE_BYTE_MAX: typing.Final = 255
 # the 0-based column or row an X10 report cannot carry: xterm sends it, and any farther one, as a NUL byte,
 # which decodes back to this value
 MOUSE_X10_PAST_END: typing.Final = 255 - _MOUSE_BYTE_OFFSET
@@ -1160,6 +1168,14 @@ HYPERLINK_CLOSE: typing.Final = f"{OSC}8;;{ST}"
 # sets entry n (0-15); LINUX_RESET_PALETTE resets all 16 entries to the console default.
 LINUX_SET_PALETTE: typing.Final = f"{OSC}P"
 LINUX_RESET_PALETTE: typing.Final = f"{OSC}R"
+# OSC 2 then the title then BEL sets the window title: every terminal with a title accepts BEL, not all accept ST.
+SET_TITLE: typing.Final = f"{OSC}2;"
+BEL: typing.Final = "\x07"
+# XTWINOPS 22 and 23: push the icon and window title on the terminal's title stack, and pop them back
+TITLE_PUSH: typing.Final = f"{CSI}22;0t"
+TITLE_POP: typing.Final = f"{CSI}23;0t"
+# OSC 52 then the base64 text then BEL puts the text on the system clipboard ("c")
+SET_CLIPBOARD: typing.Final = f"{OSC}52;c;"
 
 
 class PrivateMode(enum.StrEnum):

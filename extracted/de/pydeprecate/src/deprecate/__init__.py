@@ -20,7 +20,13 @@ Core Components:
       raises :class:`TypeError` when applied to a class
     - :func:`~deprecate.utils.void`: Silences IDE and mypy warnings about unused parameters in deprecated stubs
 
-**Audit** (:mod:`deprecate.audit`):
+**Fatal deprecations** (:mod:`deprecate._fatal`):
+    - :class:`~deprecate._fatal.DeprecatedError`: Raised instead of a warning when a deprecation is fatal
+    - :func:`~deprecate._fatal.as_exceptions`: Context manager and decorator that makes deprecations fatal for one
+      block of code in the current thread or task and restores the previous setting on exit
+
+**Audit** (:mod:`deprecate.audit`, loaded on first access to ``deprecate.audit`` or any name below, so a plain
+``import deprecate`` stays light; ``from deprecate import *`` loads it):
     - :func:`~deprecate.audit.validate_deprecation_wrapper`: Validate a single wrapper's configuration
     - :func:`~deprecate.audit.find_deprecation_wrappers`: Scan a package for all deprecated wrappers
     - :func:`~deprecate.audit.generate_deprecation_table`: Build compact or matrix markdown deprecation tables
@@ -82,8 +88,11 @@ Complete Documentation:
 
 """
 
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
+
 from deprecate.__about__ import *  # noqa: F403
-from deprecate._fatal import DeprecatedError, _env_as_exceptions
+from deprecate._fatal import DeprecatedError, _env_as_exceptions, as_exceptions
 
 # Opt-in strict ``property`` replacement: ``from deprecate import property`` shadows the builtin
 # in the importing module only, rejecting inner-order ``@property @deprecated`` at class-body time.
@@ -91,25 +100,6 @@ from deprecate._properties import (
     _StrictProperty as property,  # noqa: F401 # intentional: explicit-import only; excluded from __all__ to prevent star-import from silently enabling strict mode
 )
 from deprecate._types import DeprecationProxy, TargetMode, get_deprecation_config
-from deprecate.audit import (
-    ChainType,
-    DeprecatedCallableInfo,  # noqa: F401 # backward-compat alias for DeprecationWrapperInfo
-    DeprecationStatus,
-    DeprecationWrapperInfo,
-    GraceWindow,
-    PolicyRule,
-    TableStyle,
-    VersionBump,
-    find_deprecated_callables,  # noqa: F401 # deprecated since 0.6, use find_deprecation_wrappers
-    find_deprecation_wrappers,
-    generate_deprecation_table,
-    validate_deprecated_callable,  # noqa: F401 # deprecated since 0.6, use validate_deprecation_wrapper
-    validate_deprecation_chains,
-    validate_deprecation_expiry,
-    validate_deprecation_policy,
-    validate_deprecation_wrapper,
-    validate_mapping_compatibility,
-)
 from deprecate.deprecation import deprecated
 from deprecate.module import deprecated_module
 from deprecate.proxy import deprecated_class, deprecated_instance
@@ -123,7 +113,9 @@ from deprecate.utils import (
 #: Process-wide default for ``as_exception``: when ``True``, every deprecation raises
 #: :class:`~deprecate._fatal.DeprecatedError` instead of warning, including ``as_exception=False``. Seeded from
 #: ``DEPRECATE_AS_EXCEPTIONS`` at import and re-read on every emission, so assigning to it at runtime (or in a
-#: test) takes effect immediately.  An explicit ``as_exception=True`` on a wrapper is fatal regardless of this.
+#: test) takes effect on the next emission, except inside an open :func:`~deprecate._fatal.as_exceptions` scope,
+#: which decides first and applies the assignment only once it closes.  An explicit ``as_exception=True`` on a
+#: wrapper is fatal regardless of this.
 AS_EXCEPTIONS: bool = _env_as_exceptions()
 
 __all__ = [
@@ -138,6 +130,7 @@ __all__ = [
     "TableStyle",
     "TargetMode",
     "VersionBump",
+    "as_exceptions",
     "assert_no_warnings",
     "deprecated",
     "deprecated_callable",
@@ -154,3 +147,71 @@ __all__ = [
     "validate_mapping_compatibility",
     "void",
 ]
+
+if TYPE_CHECKING:
+    from deprecate import audit  # noqa: F401 # lazily served by __getattr__
+    from deprecate.audit import (
+        ChainType,
+        DeprecatedCallableInfo,  # noqa: F401 # backward-compat alias for DeprecationWrapperInfo
+        DeprecationStatus,
+        DeprecationWrapperInfo,
+        GraceWindow,
+        PolicyRule,
+        TableStyle,
+        VersionBump,
+        find_deprecated_callables,  # noqa: F401 # deprecated since 0.6, use find_deprecation_wrappers
+        find_deprecation_wrappers,
+        generate_deprecation_table,
+        validate_deprecated_callable,  # noqa: F401 # deprecated since 0.6, use validate_deprecation_wrapper
+        validate_deprecation_chains,
+        validate_deprecation_expiry,
+        validate_deprecation_policy,
+        validate_deprecation_wrapper,
+        validate_mapping_compatibility,
+    )
+
+#: Names served from :mod:`deprecate.audit` on first access, so ``import deprecate`` does not pay for the audit
+#: tooling (and its ``importlib.metadata`` import) in code that only decorates. The three legacy aliases
+#: (``DeprecatedCallableInfo``, ``find_deprecated_callables``, ``validate_deprecated_callable``) are outside
+#: ``__all__`` but stay reachable as attributes.
+_AUDIT_EXPORTS: frozenset[str] = frozenset(
+    {
+        "ChainType",
+        "DeprecatedCallableInfo",
+        "DeprecationStatus",
+        "DeprecationWrapperInfo",
+        "GraceWindow",
+        "PolicyRule",
+        "TableStyle",
+        "VersionBump",
+        "find_deprecated_callables",
+        "find_deprecation_wrappers",
+        "generate_deprecation_table",
+        "validate_deprecated_callable",
+        "validate_deprecation_chains",
+        "validate_deprecation_expiry",
+        "validate_deprecation_policy",
+        "validate_deprecation_wrapper",
+        "validate_mapping_compatibility",
+    }
+)
+
+
+def __getattr__(name: str) -> Any:  # noqa: ANN401
+    """Load the audit tooling on first access to ``deprecate.audit`` or one of its re-exported names (PEP 562).
+
+    The resolved object is cached in the module namespace, so later lookups skip this hook. ``from deprecate import *``
+    resolves every ``__all__`` name and therefore loads the audit tooling too.
+
+    """
+    if name == "audit" or name in _AUDIT_EXPORTS:
+        audit_module = import_module("deprecate.audit")
+        value = audit_module if name == "audit" else getattr(audit_module, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module 'deprecate' has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    """List the module namespace together with the lazily served audit names."""
+    return sorted(set(globals()) | _AUDIT_EXPORTS | {"audit"})

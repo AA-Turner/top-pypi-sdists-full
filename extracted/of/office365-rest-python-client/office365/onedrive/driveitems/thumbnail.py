@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class Thumbnail(ClientValue):
     """
     The thumbnail resource type represents a thumbnail for an image, video, document,

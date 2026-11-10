@@ -1,9 +1,10 @@
 include = ["objects/*.toml", "modules/*.toml"]
 
 [project]
-jm_version = "0.119.0"
+applied_layout = "mirrored"
+jm_version = "0.126.1"
 name = "doppler"
-version = "0.80.0"
+version = "0.82.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
@@ -78,6 +79,11 @@ status_allow = [
     "CMakeLists.txt:wfm_compose_core",
     "CMakeLists.txt:wfm_sink_stub_core",
     "CMakeLists.txt:wfmgen_core",
+    # The one bench target `jm bench` does not run (jm#2495, doppler#2890).
+    # bench_stream measures the NATS/ZMQ transports and needs a broker, so it
+    # has its own runner, `make bench-stream`. Scoped to the TARGET, so any
+    # other bench added outside `bench_<component>_core` still fails.
+    "native/src/stream/CMakeLists.txt:bench_stream",
 ]
 
 # Benchmark only the 64k block (jm-gh-390). doppler dropped the small-block
@@ -121,6 +127,18 @@ entries = [
 [[enum]]
 name = "wfm_type"
 values = ["tone", "noise", "pn", "bpsk", "qpsk", "chirp", "bits", "symbols", "dsss"]
+
+[[enum]]
+# dp_correlator_flavor_t (correlator_core.h): which flavor Correlator's knobs
+# built, read by its `flavor` property (#2752 step 4). Bound by name, so the
+# C values (1 ... 7) are the compiler's to check.
+name = "correlator_flavor"
+values = ["1d", "2d", "delay_doppler", "detector_1d", "detector_2d", "continuous", "burst"]
+enumerators = [
+  "DP_CORRELATOR_1D", "DP_CORRELATOR_2D", "DP_CORRELATOR_DELAY_DOPPLER",
+  "DP_CORRELATOR_DETECTOR_1D", "DP_CORRELATOR_DETECTOR_2D",
+  "DP_CORRELATOR_SEARCH_CONTINUOUS", "DP_CORRELATOR_SEARCH_BURST",
+]
 
 [[enum]]
 # rc_pulse_t (RateConverter_core.h), bound by name: the C enum carries

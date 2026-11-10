@@ -1,30 +1,81 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: splitio_client
-Version: 10.7.0
+Version: 10.7.1
 Summary: Split.io Python Client
 Home-page: https://github.com/splitio/python-client
-Download-URL: https://github.com/splitio/python-client/tarball/10.7.0
+Download-URL: https://github.com/splitio/python-client/tarball/10.7.1
 Author: Patricio Echague, Sebastian Arrubia
 Author-email: pato@split.io, sebastian@split.io
 License: Apache License 2.0
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Provides-Extra: test
-Provides-Extra: redis
-Provides-Extra: uwsgi
-Provides-Extra: cpphash
-Provides-Extra: asyncio
-Provides-Extra: kerberos
 License-File: LICENSE
 License-File: NOTICE
+Requires-Dist: requests
+Requires-Dist: pyyaml
+Requires-Dist: docopt>=0.6.2
+Requires-Dist: enum34; python_version < "3.4"
+Requires-Dist: bloom-filter2>=2.0.0
+Provides-Extra: test
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: pytest==7.0.1; python_version < "3.9" and extra == "test"
+Requires-Dist: pytest<9,>=8.4; python_version >= "3.9" and extra == "test"
+Requires-Dist: pytest-mock==3.11.1; python_version < "3.9" and extra == "test"
+Requires-Dist: pytest-mock>=3.14; python_version >= "3.9" and extra == "test"
+Requires-Dist: coverage==7.0.0; python_version < "3.9" and extra == "test"
+Requires-Dist: coverage>=7.6; python_version >= "3.9" and extra == "test"
+Requires-Dist: pytest-cov==4.1.0; python_version < "3.9" and extra == "test"
+Requires-Dist: pytest-cov>=6; python_version >= "3.9" and extra == "test"
+Requires-Dist: importlib-metadata==6.7; extra == "test"
+Requires-Dist: tomli==1.2.3; extra == "test"
+Requires-Dist: iniconfig==1.1.1; extra == "test"
+Requires-Dist: attrs==22.1.0; extra == "test"
+Requires-Dist: pytest-asyncio==0.21.0; python_version < "3.9" and extra == "test"
+Requires-Dist: pytest-asyncio==0.21.2; python_version >= "3.9" and extra == "test"
+Requires-Dist: aiohttp>=3.8.4; extra == "test"
+Requires-Dist: aiofiles>=23.1.0; extra == "test"
+Requires-Dist: requests-kerberos>=0.15.0; extra == "test"
+Requires-Dist: urllib3==2.0.7; extra == "test"
+Provides-Extra: redis
+Requires-Dist: redis<7.0.0,>=2.10.5; extra == "redis"
+Provides-Extra: uwsgi
+Requires-Dist: uwsgi>=2.0.0; extra == "uwsgi"
+Provides-Extra: cpphash
+Requires-Dist: mmh3cffi==0.2.1; extra == "cpphash"
+Provides-Extra: asyncio
+Requires-Dist: aiohttp>=3.8.4; extra == "asyncio"
+Requires-Dist: aiofiles>=23.1.0; extra == "asyncio"
+Provides-Extra: kerberos
+Requires-Dist: requests-kerberos>=0.15.0; extra == "kerberos"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Split Python SDK
-![Build Status](https://github.com/splitio/python-client/actions/workflows/ci.yml/badge.svg?branch=master)
+[![PyPI version](https://badge.fury.io/py/splitio_client.svg)](https://badge.fury.io/py/splitio_client)
 
 ## Overview
 This SDK is designed to work with Split, the platform for controlled rollouts, which serves features to your users via a Split feature flag to manage your complete customer experience.

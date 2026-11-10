@@ -136,6 +136,15 @@ repos:
         language: system
         pass_filenames: false
 
+      # A header included twice in one #if branch: the include guard hides
+      # it from the compiler, so four headers carried one (gh-2752 step 4c).
+      - id: dup-include
+        name: a C file includes a header once per branch
+        entry: make -s lint-dup-include
+        language: system
+        pass_filenames: false
+        types_or: [c]
+
       # Every gate the acq engine prices splits pfa over acq_band_cells(), the
       # cells its maximum ranges over; a hand count of the native cells fired
       # it at about twice its pfa (doppler#2218).
@@ -232,6 +241,22 @@ repos:
         pass_filenames: false
         files: (^|/)(Dockerfile[^/]*|[^/]*\.[Dd]ockerfile|Makefile|[^/]*\.mk|[^/]*\.sh)$|^\.github/|^scripts/(\.stock-pull-exempt|check_stock_images\.py)$
 
+      # `make test-all` runs every test target CI runs (#2886 failed CI twice on gaps).
+      - id: test-all-ci
+        name: test-all runs every test target CI runs
+        entry: make -s lint-test-all-ci
+        language: system
+        pass_filenames: false
+        files: ^(\.github/workflows/|Makefile$|[^/]*\.mk$|scripts/(\.test-all-exempt|check_test_all_covers_ci\.py)$)
+
+      # A fragment the release cut would refuse fails here, on its PR (#2896).
+      - id: changelog-fragments
+        name: changelog.d fragments are entries the assembler accepts
+        entry: make -s lint-changelog-fragments
+        language: system
+        pass_filenames: false
+        files: ^(changelog\.d/|scripts/changelog-assemble\.py$)
+
       # uv.lock's bytes depend on the uv that writes it, so uv is pinned once
       # in pyproject.toml and every installer reads that pin (doppler#1940).
       # No `files:` filter: an installer can appear in any tracked file.
@@ -325,6 +350,16 @@ repos:
         pass_filenames: false
         files: ^(native/.*\.[ch]|scripts/(\.ring-internals-ratchet|check_ring_internals\.py))$
 
+      # A size product is checked by dp_size_mul() (clib_common.h) and
+      # nowhere else; the hand-written `SIZE_MAX /` guards left are a
+      # ratchet that only shrinks.
+      - id: size-mul
+        name: checked size products have one home
+        entry: make -s lint-size-mul
+        language: system
+        pass_filenames: false
+        files: ^((native|ffi)/.*\.[ch]|scripts/(\.size-mul-ratchet|check_size_mul_sites\.py|_c_source\.py|_gitbase\.py))$
+
       # A docs fence or an example that computes a claim and drops it (a bare
       # `np.array_equal(...)` statement) runs green and checks nothing; so
       # does an example with no assert at all. doppler#1682.
@@ -336,14 +371,15 @@ repos:
         types_or: [markdown, python]
 
       # A trusted internal allocation goes through clib_common.h's
-      # abort-on-OOM helpers. Fires on any C change: a bare malloc can
-      # appear in any core, and the point is to catch the FIRST one.
+      # abort-on-OOM helpers, and no allocation is sized by an inline
+      # product (dp_mallocn / dp_xmallocn / dp_xreallocn check it). Fires on
+      # any C change, and on a change to either ratchet or the gate.
       - id: alloc-helpers
         name: allocation helpers
         entry: make -s lint-alloc-helpers
         language: system
         pass_filenames: false
-        types_or: [c]
+        files: ^(.*\.[ch]|scripts/(\.alloc-helper-allow|\.alloc-product-ratchet|check_alloc_helpers\.py|_alloc_products\.py|_c_source\.py|_gitbase\.py))$
 
       # The files exempt from the -Wall -Wextra gate may only shrink: every
       # entry exists and none was added since the merge base. Fires on the
@@ -364,6 +400,16 @@ repos:
         entry: make -s lint-retired-names
         language: system
         pass_filenames: false
+
+      # ...and a public name this branch REMOVES must have that row (#2905):
+      # a symbol gone from cmake/public-symbols.txt, or a header gone from
+      # native/inc/doppler, since the merge base with origin/main.
+      - id: retired-symbols
+        name: removed public names have a retired-names row
+        entry: make -s lint-retired-symbols
+        language: system
+        pass_filenames: false
+        files: ^(native/inc/|cmake/public-symbols\.txt$|scripts/\.retired-names$)
 
       # The docs link the release the reader installed, never main (#2857).
       - id: repo-links

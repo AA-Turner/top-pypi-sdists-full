@@ -669,13 +669,13 @@ RULES = (
     ),
     Rule(
         rule_id=PULL_REQUEST_TEMPLATE_SECTIONS_RULE_ID,
-        version=2,
+        version=3,
         default_severity="warning",
         title="Keep the PR template in sync with required sections",
         description=(
             "Each required PR section needs a heading in the PR template. "
-            "Required sections are listed in required_body_sections; "
-            "an empty list needs no template."
+            "Merge Risk is always required by Review Policy; "
+            "required_body_sections adds other required headings."
         ),
         why=(
             "People write PRs from the template. "
@@ -798,7 +798,7 @@ RULE_GOVERNANCE = tuple(
 POLICY_SPEC = PolicySpec(
     schema_version=2,
     policy_id=PolicyId("sarj"),
-    policy_version=34,
+    policy_version=35,
     profile_id=PROFILE_ID,
     title="Sarj repository standard",
     component_kinds=tuple(kind.value for kind in ComponentKind),
@@ -1124,11 +1124,12 @@ def _owned_package_root(
     if not project.name:
         return None
     component = components.nearest(root)
-    explicitly_owned = (
+    if (
         component is not None
         and component.path == root
         and component.kind in _NON_OPERATIONAL_COMPONENT_KINDS
-    )
+    ):
+        return root
     containing_workspaces = tuple(
         workspace
         for workspace in snapshot.inspection.workspaces
@@ -1161,7 +1162,7 @@ def _owned_package_root(
             root, component=component, terraform_modules=snapshot.inspection.terraform_modules
         )
     )
-    return root if explicitly_owned or conventionally_owned else None
+    return root if conventionally_owned else None
 
 
 def _has_standalone_package_evidence(

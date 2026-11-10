@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: scrapy-zyte-api
-Version: 0.36.0
+Version: 0.37.0
 Summary: Client library to process URLs through Zyte API
 Project-URL: source, https://github.com/scrapy-plugins/scrapy-zyte-api
 Project-URL: docs, https://scrapy-zyte-api.readthedocs.io/en/latest/
@@ -13,19 +13,19 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Requires-Dist: packaging>=20.0
-Requires-Dist: scrapy>=2.0.1
-Requires-Dist: typing-extensions>=4.1.0
+Requires-Dist: scrapy>=2.13.3
 Requires-Dist: zyte-api>=0.6.0
 Provides-Extra: provider
 Requires-Dist: andi>=0.6.0; extra == 'provider'
-Requires-Dist: scrapy-poet>=0.22.3; extra == 'provider'
-Requires-Dist: web-poet>=0.17.0; extra == 'provider'
+Requires-Dist: scrapy-poet>=0.28.0; extra == 'provider'
+Requires-Dist: web-poet>=0.25.0; extra == 'provider'
 Requires-Dist: zyte-common-items>=0.27.0; extra == 'provider'
 Provides-Extra: x402
 Requires-Dist: x402<2.0.0; extra == 'x402'

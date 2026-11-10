@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools",
+    "setuptools>=61",
     "setuptools_scm",
 ]
 build-backend = "setuptools.build_meta"
@@ -9,6 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "rocketchat_API"
 dynamic = ["version"]
 description = "Python API wrapper for Rocket.Chat"
+requires-python = ">=3.11"
 
 dependencies = [
     "requests",

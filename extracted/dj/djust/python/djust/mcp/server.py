@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import sys
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -50,32 +50,140 @@ def _path_within(path: str, roots: "list[Any]") -> bool:
     return False
 
 
-def _template_roots() -> "list[str]":
-    """Directories the configured template engines serve from, plus ``BASE_DIR``."""
+def _template_roots(engine: Any) -> "list[str]":
+    """Directories ``engine``'s loaders serve templates from, plus ``BASE_DIR``."""
     from django.conf import settings
-    from django.template import engines
 
-    roots: list[str] = []
-    for backend in engines.all():
-        try:
-            roots.extend(str(d) for d in getattr(backend, "template_dirs", None) or [])
-        except Exception:  # noqa: BLE001 -- a backend without dirs contributes none
-            pass
-        engine = getattr(backend, "engine", None)
-        pending = list(getattr(engine, "template_loaders", None) or [])
-        while pending:
-            loader = pending.pop()
-            pending.extend(getattr(loader, "loaders", None) or [])  # cached.Loader
-            get_dirs = getattr(loader, "get_dirs", None)
-            if callable(get_dirs):
-                try:
-                    roots.extend(str(d) for d in get_dirs())
-                except Exception:  # noqa: BLE001 -- a loader without dirs contributes none
-                    pass
+    roots: list[str] = [str(d) for d in getattr(engine, "dirs", None) or []]
+    pending = list(getattr(engine, "template_loaders", None) or [])
+    while pending:
+        loader = pending.pop()
+        pending.extend(getattr(loader, "loaders", None) or [])  # cached.Loader
+        get_dirs = getattr(loader, "get_dirs", None)
+        if callable(get_dirs):
+            try:
+                roots.extend(str(d) for d in get_dirs())
+            except Exception:  # noqa: BLE001 -- a loader without dirs contributes none
+                pass
     base_dir = getattr(settings, "BASE_DIR", None)
     if base_dir:
         roots.append(str(base_dir))
     return roots
+
+
+# ---------------------------------------------------------------------------
+# Template handler cross-reference (find_handlers_for_template)
+# ---------------------------------------------------------------------------
+
+
+def template_handler_report(template_path: str) -> Dict[str, Any]:
+    """Every view and component whose template uses ``template_path``, and how
+    each binding in that file resolves against it.
+
+    Uses the ``manage.py check`` binding scan (ADR-037): Django's loaders
+    resolve the template, its includes and parents are followed, and each
+    owner is matched by the files its scan actually read, not by file name.
+    """
+    from djust._template_bindings import scan_source
+    from djust.checks.bindings import (
+        OwnerReport,
+        _django_engine,
+        _messages,
+        binding_reports,
+        coverage,
+        owner_kinds,
+    )
+    from djust.components.base import LiveComponent
+    from djust.live_view import LiveView
+    from djust.management.commands.djust_audit import _get_handler_metadata
+
+    engine = _django_engine()
+    if engine is None:
+        return {"error": "No Django template engine is configured."}
+    resolved_path: Optional[str] = None
+    template = None
+    hint = (
+        "Pass either a logical name (e.g. 'demos/counter.html') or an "
+        "absolute path inside the project's template directories or BASE_DIR."
+    )
+    if os.path.isabs(template_path):
+        # Read directly only a file that resolves (symlinks and ``..``
+        # followed) inside a directory the template loaders serve, or inside
+        # BASE_DIR. Anything else gets the answer a missing template gets, so
+        # the reply says nothing about files elsewhere on disk.
+        real_path = os.path.realpath(template_path)
+        if not (os.path.isfile(real_path) and _path_within(real_path, _template_roots(engine))):
+            return {
+                "error": "Could not resolve template %r: %s" % (template_path, template_path),
+                "hint": hint,
+            }
+        resolved_path = real_path
+    else:
+        try:
+            template = engine.get_template(template_path)
+        except Exception as exc:  # noqa: BLE001 -- any loader failure is reported to the caller
+            return {
+                "error": "Could not resolve template %r: %s" % (template_path, exc),
+                "hint": hint,
+            }
+        resolved_path = getattr(getattr(template, "origin", None), "name", None)
+    if not resolved_path or not os.path.isfile(resolved_path):
+        return {
+            "error": "Template file not found for %r" % template_path,
+            "resolved_path": resolved_path,
+        }
+    if template is None:
+        with open(resolved_path, encoding="utf-8", errors="replace") as handle:
+            source = handle.read()
+        try:
+            template = engine.from_string(source)
+        except Exception as exc:  # noqa: BLE001 -- any syntax failure is reported to the caller
+            return {"error": "Could not compile %r: %s" % (resolved_path, exc)}
+    own = scan_source(engine, template, template_path, resolved_path, template.source)
+    in_template = sorted({b.name for b in own.bindings if b.name and b.file == resolved_path})
+
+    kinds = owner_kinds()
+    reports = [r for r in binding_reports() if resolved_path in r.files]
+    views = []
+    for report in reports:
+        base = LiveComponent if kinds.get(report.owner) == "component" else LiveView
+        handler_names = {name for name, _meta in _get_handler_metadata(report.owner, [base])}
+        results = [r for r in report.results if r.binding.file == resolved_path]
+        used = {r.binding.name for r in results if r.binding.name}
+        messages = _messages(
+            [OwnerReport(report.owner, report.template, report.file, results=results)]
+        )
+        views.append(
+            {
+                "class": report.label,
+                "template_name": report.template,
+                "matched_handlers": sorted(handler_names & used),
+                "handlers_in_view_not_in_template": sorted(handler_names - used),
+                "handlers_in_template_not_in_view": sorted(used - handler_names),
+                "bindings": [
+                    {
+                        "binding": r.binding.label,
+                        "line": r.binding.line,
+                        "status": r.status,
+                        **({"reason": r.reason} if r.reason else {}),
+                        "findings": [
+                            m.id
+                            for m in messages
+                            if m.line_number == r.binding.line and m.binding == r.binding.label
+                        ],
+                    }
+                    for r in results
+                ],
+            }
+        )
+    return {
+        "template_path": template_path,
+        "resolved_path": resolved_path,
+        "dj_handlers_in_template": in_template,
+        "view_count": len(views),
+        "views": views,
+        "coverage": coverage(reports),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +252,8 @@ def create_server() -> "FastMCP":
         instructions=(
             "djust MCP server — introspect djust projects, run system checks, "
             "and scaffold LiveView code. Use get_framework_schema() first to "
-            "understand djust directives and patterns."
+            "understand djust directives and patterns. "
+            "Call list_ui_components() before writing template markup."
         ),
     )
 
@@ -181,9 +290,10 @@ def create_server() -> "FastMCP":
         """Get all available djust decorators with usage examples.
 
         Returns @event_handler, @debounce, @throttle, @cache, @rate_limit,
-        @permission_required, @reactive, state() and @computed — and, marked
-        inert, @optimistic (#2699) and @client_state (#2680), which stamp
-        metadata nothing in the shipped client reads.
+        @permission_required, state() and @computed — and, marked inert,
+        @optimistic (#2699) and @client_state (#2680), which stamp metadata
+        nothing in the shipped client reads, and, marked deprecated and
+        broken, @reactive (removed in 2.0).
         Each entry carries its parameters and import path.
         """
         from djust.schema import DECORATORS
@@ -249,6 +359,53 @@ def create_server() -> "FastMCP":
 
         schema = get_project_schema()
         return json.dumps(schema["components"], indent=2)
+
+    @mcp.tool()
+    def list_ui_components(query: str = "") -> str:
+        """List bundled UI template tags and classes before writing templates.
+
+        With query, rank components against an intent using the same search as
+        manage.py djust_ai suggest. Otherwise list the catalog by category.
+        No Django project is required.
+        """
+        from djust.ai_discovery.catalog import CATALOG_VERSION, MAX_QUERY_LENGTH, search
+        from djust.ai_discovery.inventory import catalog_summary
+
+        query = query[:MAX_QUERY_LENGTH]
+        if query:
+            return json.dumps(
+                {
+                    "version": CATALOG_VERSION,
+                    "kind": "suggest",
+                    "query": query,
+                    "results": [
+                        entry.to_dict() | {"score": score} for entry, score in search(query, 10)
+                    ],
+                },
+                indent=2,
+            )
+        return json.dumps(
+            {"version": CATALOG_VERSION, "kind": "catalog", **catalog_summary()}, indent=2
+        )
+
+    @mcp.tool()
+    def get_ui_component(name: str) -> str:
+        """Get a bundled component's purpose, load line, props and example variants.
+
+        Includes signature-required props where introspectable, child tags and
+        related components. Child tag names resolve to their parent component.
+        No Django project is required.
+        """
+        from djust.ai_discovery.catalog import CATALOG_VERSION, close_matches, get_entry
+
+        entry = get_entry(name)
+        if entry is None:
+            return json.dumps(
+                {"error": f"Unknown component '{name}'", "did_you_mean": close_matches(name)},
+                indent=2,
+            )
+        payload = entry.to_dict(full=True)
+        return json.dumps({"version": CATALOG_VERSION, **payload, "kind": "component"}, indent=2)
 
     @mcp.tool()
     def list_routes() -> str:
@@ -421,8 +578,8 @@ def create_server() -> "FastMCP":
             template_path: Either a logical template name (e.g.
                 'demos/counter.html' — what you'd pass to `render`) OR
                 an absolute path to a file inside a directory the template
-                engines serve, or inside BASE_DIR. Other absolute paths get
-                the answer a missing template gets.
+                loaders serve, or inside BASE_DIR. Other absolute paths
+                get the answer a missing template gets.
 
         Returns JSON:
           {
@@ -430,15 +587,21 @@ def create_server() -> "FastMCP":
             "resolved_path": "/abs/path.html",
             "dj_handlers_in_template": ["increment", "decrement", ...],
             "views": [
-              {"class": "CounterView", "template_name": "...",
+              {"class": "app.views.CounterView", "template_name": "...",
                "matched_handlers": ["increment", "decrement"],
                "handlers_in_view_not_in_template": [...],
-               "handlers_in_template_not_in_view": [...]}
-            ]
+               "handlers_in_template_not_in_view": [...],
+               "bindings": [{"binding": 'dj-click="increment"', "line": 12,
+                             "status": "checked", "findings": []}, ...]}
+            ],
+            "coverage": {...}
           }
 
-        Pure static analysis — no framework hooks. Precursor to automated
-        refactoring ("renaming this handler, who's affected?").
+        A view or component uses the template when its own template is this
+        file or includes or extends it. Each binding's ``status`` is checked,
+        dynamic or unsupported, and ``findings`` lists its ``djust.T019``-``T022``
+        IDs: the same scan ``manage.py check`` runs (ADR-037). Static analysis
+        only; nothing is mounted or rendered.
         """
         if not _ensure_django():
             return json.dumps(
@@ -446,141 +609,7 @@ def create_server() -> "FastMCP":
                     "error": "Django not configured. Run via 'python manage.py djust_mcp'.",
                 }
             )
-
-        import os
-        import re
-
-        from djust.schema import get_project_schema
-
-        # Resolve the template to an absolute path. Accept both logical
-        # names and absolute paths so callers can hand either form.
-        resolved_path: str | None = None
-        hint = (
-            "Pass either a logical name (e.g. 'demos/counter.html') or an absolute "
-            "path inside the project's template directories or BASE_DIR."
-        )
-        if os.path.isabs(template_path):
-            # Read directly only a file that resolves (symlinks and ``..``
-            # followed) inside a directory the template engines serve, or
-            # inside BASE_DIR. Anything else gets the answer a missing
-            # template gets, so the reply says nothing about files elsewhere.
-            real_path = os.path.realpath(template_path)
-            if not (os.path.isfile(real_path) and _path_within(real_path, _template_roots())):
-                return json.dumps(
-                    {
-                        "error": f"Could not resolve template '{template_path}': {template_path}",
-                        "hint": hint,
-                    }
-                )
-            resolved_path = real_path
-        else:
-            try:
-                from django.template.loader import get_template
-
-                tpl = get_template(template_path)
-                origin = getattr(tpl, "origin", None)
-                if origin and getattr(origin, "name", None):
-                    resolved_path = origin.name
-            except Exception as e:  # noqa: BLE001
-                return json.dumps(
-                    {
-                        "error": f"Could not resolve template '{template_path}': {e}",
-                        "hint": hint,
-                    }
-                )
-
-        if not resolved_path or not os.path.isfile(resolved_path):
-            return json.dumps(
-                {
-                    "error": f"Template file not found for '{template_path}'",
-                    "resolved_path": resolved_path,
-                }
-            )
-
-        # Scan the template for dj-* handler references.
-        # Matches e.g. dj-click="increment" / dj-submit='add_todo'.
-        # Deliberately doesn't match dj-params / dj-id / dj-view / dj-loading
-        # etc. — only the event-wiring attrs.
-        dj_event_attr_re = re.compile(
-            r'\b(dj-(?:click|submit|change|input|keydown|keyup))\s*=\s*[\'"]([^\'"]+)[\'"]',
-            re.IGNORECASE,
-        )
-        with open(resolved_path, "r", encoding="utf-8", errors="replace") as f:
-            source = f.read()
-        handler_names_in_template = sorted({m.group(2) for m in dj_event_attr_re.finditer(source)})
-
-        # Match against the project's views. A view matches when its
-        # template_name maps to the same resolved path. Compare by basename
-        # + tail so both logical and absolute inputs can match.
-        schema = get_project_schema()
-        logical_tail = template_path.replace(os.sep, "/")
-        resolved_tail_components = resolved_path.replace(os.sep, "/").split("/")
-
-        matched_views = []
-        for view in schema["views"] + schema.get("components", []):
-            view_template = view.get("template_name") or ""
-            if not view_template:
-                continue
-            # Match on exact string, suffix, or resolving the view's
-            # template_name to the same path.
-            same = (
-                view_template == template_path
-                or view_template == logical_tail
-                or (logical_tail and view_template.endswith(logical_tail))
-                or resolved_tail_components[-1] == os.path.basename(view_template)
-            )
-            if not same:
-                continue
-
-            # Also try to resolve view_template through the loader — the
-            # strongest match. Skip if resolution fails.
-            view_resolved = None
-            try:
-                from django.template.loader import get_template
-
-                view_tpl = get_template(view_template)
-                view_origin = getattr(view_tpl, "origin", None)
-                if view_origin and getattr(view_origin, "name", None):
-                    view_resolved = view_origin.name
-            except Exception:  # noqa: BLE001
-                pass
-
-            if view_resolved and view_resolved != resolved_path:
-                # Different actual file despite similar names — skip.
-                continue
-
-            # Build handler-name set from the view's schema (these are
-            # Python-side handler method names).
-            view_handler_names = set()
-            for h in view.get("handlers", []):
-                name = h.get("name") if isinstance(h, dict) else h
-                if name:
-                    view_handler_names.add(name)
-
-            matched_set = view_handler_names & set(handler_names_in_template)
-            only_view = sorted(view_handler_names - set(handler_names_in_template))
-            only_template = sorted(set(handler_names_in_template) - view_handler_names)
-
-            matched_views.append(
-                {
-                    "class": view.get("class"),
-                    "template_name": view_template,
-                    "matched_handlers": sorted(matched_set),
-                    "handlers_in_view_not_in_template": only_view,
-                    "handlers_in_template_not_in_view": only_template,
-                }
-            )
-
-        return json.dumps(
-            {
-                "template_path": template_path,
-                "resolved_path": resolved_path,
-                "dj_handlers_in_template": handler_names_in_template,
-                "view_count": len(matched_views),
-                "views": matched_views,
-            },
-            indent=2,
-        )
+        return json.dumps(template_handler_report(template_path), indent=2)
 
     # === Observability tools ===
     #
@@ -1063,7 +1092,6 @@ def create_server() -> "FastMCP":
 
         Checks for common issues:
         - Missing @event_handler decorators on handler-like methods
-        - Missing **kwargs in handler signatures
         - Public QuerySet attributes (should be _private)
         - Missing mount() method
         - Security issues (mark_safe with f-strings, etc.)
@@ -1156,26 +1184,6 @@ def create_server() -> "FastMCP":
                                 }
                             )
 
-                    # Check **kwargs on event handlers
-                    for dec in item.decorator_list:
-                        is_handler = False
-                        if isinstance(dec, _ast.Name) and dec.id == "event_handler":
-                            is_handler = True
-                        elif isinstance(dec, _ast.Call):
-                            func = dec.func
-                            if isinstance(func, _ast.Name) and func.id == "event_handler":
-                                is_handler = True
-                        if is_handler and not item.args.kwarg:
-                            issues.append(
-                                {
-                                    "severity": "warning",
-                                    "message": "Event handler '%s' should accept **kwargs"
-                                    % item.name,
-                                    "line": item.lineno,
-                                    "fix_hint": "Add **kwargs to the handler signature",
-                                }
-                            )
-
             if not has_template:
                 issues.append(
                     {
@@ -1210,7 +1218,11 @@ def create_server() -> "FastMCP":
             if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
                 continue
             # Only check mount() and handler-like methods
-            if node.name not in ("mount", "connected") and not handler_pattern.match(node.name):
+            if node.name not in (
+                "mount",
+                "connected",
+                "disconnected",
+            ) and not handler_pattern.match(node.name):
                 continue
             for stmt in _ast.walk(node):
                 if isinstance(stmt, _ast.Assign):
@@ -1256,7 +1268,6 @@ def create_server() -> "FastMCP":
 
         Checks for:
         - Service instance assignments (Issue #292)
-        - Missing **kwargs in event handlers
         - Public QuerySet attributes (should be private with _)
         - Missing @event_handler decorators on handler-like methods
 
@@ -1314,23 +1325,6 @@ def create_server() -> "FastMCP":
 
                 if is_decorated_handler:
                     decorated_handlers.add(item.name)
-
-                    # --- Check: missing **kwargs on decorated handlers ---
-                    if not item.args.kwarg:
-                        issues.append(
-                            {
-                                "type": "missing_kwargs",
-                                "severity": "warning",
-                                "message": (
-                                    "Event handler '%s' missing **kwargs parameter" % item.name
-                                ),
-                                "line": item.lineno,
-                                "fix": (
-                                    "Add **kwargs to the method signature:\n"
-                                    "def %s(self, ..., **kwargs):" % item.name
-                                ),
-                            }
-                        )
                 elif handler_pattern.match(item.name) and item.name != "mount":
                     issues.append(
                         {
@@ -1478,11 +1472,55 @@ def create_server() -> "FastMCP":
         Args:
             name: View class name (e.g., 'ProductListView')
             features: Comma-separated features: 'search', 'crud', 'pagination',
-                'form', 'presence', 'streaming', 'auth'
+                'form', 'form_edit', 'presence', 'streaming', 'auth'.
+                'form_edit' generates a ModelFormMixin view that edits one
+                record the signed-in user owns (combine with auth only).
 
         Returns complete Python code for a LiveView with the requested features.
         """
         feature_set = {f.strip().lower() for f in features.split(",") if f.strip()}
+
+        if "form_edit" in feature_set:
+            model = (
+                name[: -len("EditView")]
+                if name.endswith("EditView")
+                else (name[: -len("View")] if name.endswith("View") else name)
+            )
+            snake = "".join(
+                ("_" + c.lower()) if c.isupper() and i else c.lower() for i, c in enumerate(model)
+            )
+            edit_lines = [
+                "from django import forms",
+                "from djust import LiveView",
+                "from djust.forms import ModelFormMixin",
+                "from .models import %s" % model,
+                "",
+                "",
+                "class %sForm(forms.ModelForm):" % model,
+                "    class Meta:",
+                "        model = %s" % model,
+                "        # List exactly the fields the owner may edit: an allowlist, so a",
+                "        # field added to the model later is not editable by default.",
+                '        fields = ["title"]',
+                "",
+                "",
+                "class %s(ModelFormMixin[%s], LiveView):" % (name, model),
+                '    template_name = "myapp/%s_edit.html"' % snake,
+                "    model = %s" % model,
+                "    form_class = %sForm" % model,
+                "    login_required = True",
+                "",
+                "    def get_queryset(self):",
+                "        # Only records the signed-in user owns can be opened. Rename",
+                "        # `owner` to your model's owner field (djust.S013 explains why).",
+                "        return super().get_queryset().filter(owner=self.request.user)",
+                "",
+                "    def form_valid(self, form):",
+                "        self.object = form.save()",
+                '        self.success_message = "Saved!"',
+                "",
+            ]
+            return "\n".join(edit_lines)
 
         # Build imports
         imports = ["from djust import LiveView"]

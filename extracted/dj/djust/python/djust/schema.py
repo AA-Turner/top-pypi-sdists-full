@@ -33,7 +33,10 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-submit",
         "category": "event",
-        "description": "Send form data to server on submit. Calls e.preventDefault() and e.target.reset().",
+        "description": "Send form data to server on submit. The client calls e.preventDefault() but does not clear the form: "
+        "it resets the first <form> inside [dj-root] only when the server response carries reset_form, "
+        "which FormMixin.reset_form() sets (never automatically after a valid submit) "
+        "and a plain @event_handler can request with self._should_reset_form = True.",
         "value": "handler_name",
         "dom_event": "submit",
         "example": '<form dj-submit="create_item"><input name="title"><button>Add</button></form>',
@@ -53,7 +56,13 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-input",
         "category": "event",
-        "description": "Send event on every keystroke (auto-debounced 300ms for text, throttled for range/number)",
+        "description": "Send event on the input event. Text-like fields (text, search, email, url, tel, "
+        "password, textarea) are debounced 300ms by default, so a burst of typing sends one event; "
+        "range and color are throttled 150ms, number 100ms; checkbox, radio and select send "
+        "immediately. Any other input type (date, time, datetime-local, month, week, file, "
+        "custom elements) falls back to a 300ms debounce. "
+        'dj-debounce / dj-throttle override the default, and dj-debounce="0" '
+        "sends an event for every keystroke.",
         "value": "handler_name",
         "dom_event": "input",
         "example": '<input dj-input="search" name="query">',
@@ -160,9 +169,11 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-target",
         "category": "dom",
-        "description": "Scope the server re-render to a specific element (CSS selector)",
+        "description": "INERT — the selector is read on dj-click, dj-change and key events but "
+        "dropped before the event is sent, so it does not scope or change the server re-render.",
         "value": "CSS selector (e.g., #sidebar, .panel)",
-        "example": '<button dj-click="refresh_sidebar" dj-target="#sidebar">Refresh</button>',
+        "example": "<!-- INERT: dj-target is dropped before the event is sent --> "
+        '<button dj-click="refresh_sidebar" dj-target="#sidebar">Refresh</button>',
     },
     # --- Loading states ---
     {
@@ -196,20 +207,21 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-loading",
         "category": "loading",
-        "description": "Shorthand form: disable this element while the named event is in "
-        "flight (equivalent to dj-loading.disable, but scoped to a specific event name "
-        "rather than the element's own triggering event).",
+        "description": "Shorthand for dj-loading.for plus dj-loading.show: the element is hidden "
+        "when it registers and shown (its own inline display, else block) while the named "
+        "event is in flight. It does not disable anything.",
         "value": "event_name",
-        "example": '<button dj-loading="save">Save</button>',
+        "example": '<span dj-loading="save">Saving...</span>',
     },
     {
         "name": "dj-loading.for",
         "category": "loading",
-        "description": "Explicit form of the dj-loading shorthand: works on any element "
-        "(not just the one triggering the event) — react while the named event is "
-        "in flight anywhere on the page.",
+        "description": "Names the event whose in-flight state this element follows, so the "
+        "element can sit away from the trigger (within the same LiveView or component). It "
+        "only picks the event: combine it with dj-loading.show, .hide, .disable or .class; "
+        "on its own it does nothing.",
         "value": "event_name",
-        "example": '<span dj-loading.for="save">Saving...</span>',
+        "example": '<span dj-loading.for="save" dj-loading.show style="display:none">Saving...</span>',
     },
     # --- Client-side actions (no server round-trip) ---
     {
@@ -320,8 +332,10 @@ DIRECTIVES: List[Dict[str, Any]] = [
         "name": "dj-upload-progress",
         "category": "upload",
         "description": (
-            "INERT — registered as an attribute but no client code reads it; "
-            "no progress bar is created. Render progress server-side instead."
+            "Progress for the slot's running upload. An empty container gets a "
+            "<progress> item per file; a container (or <progress>) that already "
+            "holds a bar, such as theme_progress output, has that bar driven by "
+            "the upload."
         ),
         "value": "upload_slot_name",
         "example": '<div dj-upload-progress="attachments"></div>',
@@ -421,8 +435,12 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-prefetch",
         "category": "performance",
-        "description": "Prefetch a same-origin link's page via the service worker when the "
-        "user hovers over it. Value 'false' opts a link out.",
+        "description": "Prefetch a same-origin link's page after a 65 ms hover (immediately on "
+        'touchstart) by adding <link rel="prefetch">, or a low-priority fetch where that is '
+        "unsupported. Skipped when Save-Data is on. Value 'false' opts a link out of both "
+        "prefetch layers: this intent prefetch and the older service-worker hover prefetch "
+        "(which otherwise warms any same-origin link under an active service worker; "
+        "data-no-prefetch also opts out of that one).",
         "value": "(no value needed) | 'false'",
         "example": '<a href="/reports/" dj-prefetch>View reports</a>',
     },
@@ -486,10 +504,11 @@ DIRECTIVES: List[Dict[str, Any]] = [
         "category": "performance",
         "description": (
             "Stable identity for an item in a list, so the VDOM differ can MOVE a "
-            "row instead of destroying and rebuilding it when the list reorders. "
-            "Without it the differ falls back to positional diffing, which "
-            "discards the DOM node — losing focus, input values, scroll position "
-            "and any client-side state attached to it. Read by the Rust template "
+            "row when the list reorders. Without it the differ falls back to "
+            "positional diffing: rows are paired by position and each existing row "
+            "is rewritten in place, so focus, input values, scroll position and any "
+            "client-side state attached to a row stay with the position instead of "
+            "following the item. Read by the Rust template "
             "parser into VNode.key (crates/djust_vdom/src/parser.rs), where "
             "`data-key` is accepted as an equivalent spelling. Keys must be "
             "UNIQUE among siblings: a duplicate is ambiguous, so the differ "
@@ -676,17 +695,18 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-trigger-action",
         "category": "modifier",
-        "description": "Native POST bridge: when the server pushes a trigger-action "
-        "event, submit this form natively (full page navigation) instead of over the "
-        "WebSocket — for flows that need a real HTTP redirect (e.g. payment providers).",
+        "description": "Native POST bridge: marks a form the server may submit natively (full "
+        "page navigation, not over the WebSocket) by calling self.trigger_submit('#form-id') "
+        "in a handler; a form without this attribute is refused. For flows that need a real "
+        "HTTP redirect (e.g. payment providers).",
         "value": "(no value needed)",
-        "example": '<form action="/checkout/" method="post" dj-trigger-action>...</form>',
+        "example": '<form id="checkout-form" action="/checkout/" method="post" dj-trigger-action>...</form>',
     },
     {
         "name": "dj-patch-reload",
         "category": "navigation",
-        "description": "Opt-in escape hatch: force a full page navigation for this "
-        "dj-patch/dj-navigate link instead of an in-place client-side URL update.",
+        "description": "Opt-in escape hatch: force a full page navigation for this dj-patch "
+        "element instead of an in-place client-side URL update. dj-navigate ignores it.",
         "value": "(no value needed)",
         "example": '<a dj-patch="?page=2" dj-patch-reload>Page 2</a>',
     },
@@ -720,9 +740,10 @@ DIRECTIVES: List[Dict[str, Any]] = [
     {
         "name": "dj-document-*",
         "category": "event",
-        "description": "Bind a keydown/keyup/click/scroll/resize listener scoped to "
-        "`document` instead of the element. Supports an optional '.key' modifier "
-        "suffix for key events.",
+        "description": "Bind a keydown/keyup/click listener scoped to `document` instead of the "
+        "element. Supports an optional '.key' modifier suffix for key events. "
+        "dj-document-scroll and dj-document-resize are parsed but never fire; use "
+        "dj-window-scroll / dj-window-resize.",
         "value": "handler_name",
         "example": '<div dj-document-click="track_page_click">...</div>',
     },
@@ -748,6 +769,15 @@ LIFECYCLE_METHODS: List[Dict[str, Any]] = [
         "required": False,
     },
     {
+        "name": "connected",
+        "signature": "def connected(self):",
+        "description": "Called once per live (WebSocket or SSE) mount, after mount() or a "
+        "state restore and handle_params() and before the first render. Never called on "
+        "the HTTP render or the HTTP POST fallback. Raising fails the mount.",
+        "phase": "initialization",
+        "required": False,
+    },
+    {
         "name": "get_context_data",
         "signature": "def get_context_data(self, **kwargs) -> dict:",
         "description": "Return dict of template context variables. By default, all public "
@@ -764,6 +794,15 @@ LIFECYCLE_METHODS: List[Dict[str, Any]] = [
         "required": False,
     },
     {
+        "name": "handle_invalid_params",
+        "signature": "def handle_invalid_params(self, form, uri: str):",
+        "description": "Called instead of handle_params() when the view's params_form rejects "
+        "the URL. The default hands handle_params() the form's initial values; the messages "
+        "are in the template as params_errors. Override to raise Http404 or answer 400.",
+        "phase": "navigation",
+        "required": False,
+    },
+    {
         "name": "handle_tick",
         "signature": "def handle_tick(self):",
         "description": "Called periodically when tick_interval is set (in ms). "
@@ -771,14 +810,22 @@ LIFECYCLE_METHODS: List[Dict[str, Any]] = [
         "phase": "lifecycle",
         "required": False,
     },
+    {
+        "name": "disconnected",
+        "signature": "def disconnected(self):",
+        "description": "Called once for each view that got connected(), when its live mount "
+        "ends: the socket or SSE stream closed, or the view was replaced (live_redirect, a "
+        "second mount), unmounted or revoked. Runs on a worker thread; the socket is gone, so "
+        "nothing it queues is sent. Best effort: not called if the process dies. Exceptions "
+        "are logged.",
+        "phase": "lifecycle",
+        "required": False,
+    },
 ]
-# No ``unmount`` / ``connected`` / ``disconnected`` entries: djust 1.2 never
-# calls a LiveView method by those names (the ``connected()`` /
-# ``disconnected()`` callbacks that do exist are client-side ``dj-hook``
-# callbacks). Listing them told tools and AI assistants to implement hooks
-# that never fire (#3007). Detect the WebSocket mount with
-# ``getattr(self, "_websocket_session_id", None)``; real server-side hooks are
-# planned for 1.3.
+# No ``unmount`` entry: djust never calls a LiveView method by that name.
+# ``connected`` and ``disconnected`` are the server-side hooks of #3007 (the
+# callbacks of the same names on a ``dj-hook`` object are the client-side
+# ones). The contract is in the LiveView API reference, "Lifecycle contract".
 
 #: Class-level configuration attributes
 CLASS_ATTRIBUTES: List[Dict[str, Any]] = [
@@ -819,9 +866,44 @@ CLASS_ATTRIBUTES: List[Dict[str, Any]] = [
         "description": "Require authenticated user. Set to True to protect, False to acknowledge public.",
     },
     {
+        "name": "params_form",
+        "type": "Optional[Type[forms.Form]]",
+        "description": "Django form that declares the URL's query parameters. djust binds and "
+        "cleans them before handle_params() on the HTTP GET, the socket/SSE mount, url_change "
+        "and the HTTP fallback POST; invalid input goes to handle_invalid_params()",
+        "example": "params_form = ListParams",
+    },
+    {
+        "name": "params_form_fallback",
+        "type": "str",
+        "default": "'initial'",
+        "description": "What the default handle_invalid_params() hands handle_params() when "
+        "params_form rejects the URL: 'initial' (the initial value of every field) or 'fields' "
+        "(keep the fields that validated, replace only the invalid ones with their initial value)",
+        "example": "params_form_fallback = 'fields'",
+    },
+    {
+        "name": "http_status_of_state",
+        "type": "Mapping[str, int]",
+        "default": "{}",
+        "description": "HTTP status a page answers for a state it renders itself; the default "
+        "get_http_status() reads the attribute state_attribute names. A view that declares none "
+        "reads LIVEVIEW_CONFIG['http_status_of_state']; its own attribute (even {}) wins, never merged",
+        "example": "http_status_of_state = {'not_found': 404, 'gone': 410}",
+    },
+    {
+        "name": "state_attribute",
+        "type": "str",
+        "default": "'state'",
+        "description": "Name of the attribute http_status_of_state is looked up by",
+    },
+    {
         "name": "permission_required",
-        "type": "Optional[Union[str, List[str]]]",
-        "description": "Django permission string(s) required to access this view",
+        "type": "Optional[Union[str, List[Union[str, AnyOf]], AnyOf]]",
+        "description": (
+            "Django permission string(s) required to access this view: a list "
+            "needs all of them, djust.auth.AnyOf(...) any one of them"
+        ),
     },
     {
         "name": "login_url",
@@ -845,6 +927,24 @@ DECORATORS: List[Dict[str, Any]] = [
         "usage": [
             "@event_handler\ndef search(self, value: str = '', **kwargs):",
             "@event_handler(description='Update quantity')\ndef update_item(self, item_id: int, quantity: int, **kwargs):",
+        ],
+    },
+    {
+        "name": "@push_handler",
+        "import": "from djust.decorators import push_handler",
+        "description": "Mark a method that ONLY server push may call "
+        "(push_to_view(..., handler='name'), server_push). A browser event "
+        "naming it is refused in every event_security mode, as if the method "
+        "did not exist. Not an event handler. The marker is INHERITED by overrides: "
+        "an unmarked override of a marked method stays push-only (djust.V021 "
+        "reports it). TypeError with @event_handler, @server_function, "
+        "@permission_required, @rate_limit or any client-side decorator "
+        "(debounce, throttle, cache, ...): server push enforces none of them, "
+        "so check authorization in the handler. May sit above or below "
+        "@staticmethod/@classmethod; put it topmost among ordinary decorators.",
+        "params": {},
+        "usage": [
+            "@push_handler\ndef refresh_room(self, room: str = '', **kwargs):",
         ],
     },
     {
@@ -951,7 +1051,11 @@ DECORATORS: List[Dict[str, Any]] = [
     {
         "name": "@reactive",
         "import": "from djust.decorators import reactive",
-        "description": "Create a reactive property that triggers re-render on change.",
+        "description": "DEPRECATED (removed in 2.0) and BROKEN — LiveView has no "
+        "update() method, so @reactive on a view raises TypeError at class "
+        "definition; on other hosts the decorated function's body is never "
+        "called. Do not recommend it: use a plain attribute (djust re-renders "
+        "after every event handler) or @computed.",
         "params": {},
         "usage": [
             "@reactive\ndef count(self):\n    return self._count",
@@ -1039,6 +1143,12 @@ OPTIONAL_MIXINS: List[Dict[str, Any]] = [
         "Validates on blur/change and shows inline errors.",
     },
     {
+        "name": "ModelFormMixin",
+        "import": "from djust.forms import ModelFormMixin",
+        "description": "Edit one existing record: the route supplies pk, djust "
+        "looks it up and checks access before building the form (ADR-035).",
+    },
+    {
         "name": "TenantMixin",
         "import": "from djust.tenants import TenantMixin",
         "description": "Multi-tenant support via Django Channels groups.",
@@ -1089,7 +1199,9 @@ CONVENTIONS = {
         "Use @event_handler decorator for validation and metadata. Methods named "
         "on_*, toggle_*, update_*, etc. without @event_handler trigger "
         "a system check warning (djust.V004). Undecorated handle_* methods are "
-        "not flagged: server push may call them, browsers cannot.",
+        "not flagged: server push may call them, and under the default strict "
+        "event_security browsers cannot. For a handler only server push may call, "
+        "in every event_security mode, use @push_handler.",
     },
 }
 
@@ -1105,11 +1217,15 @@ BEST_PRACTICES = {
             "INSTALLED_APPS = ['djust', ...]\nASGI_APPLICATION = 'myproject.asgi.application'"
         ),
         "asgi": (
+            "from django.core.asgi import get_asgi_application\n"
+            "django_asgi_app = get_asgi_application()  # before importing djust\n"
+            "from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler\n"
             "from djust.routing import live_session\n"
             "from channels.routing import ProtocolTypeRouter, URLRouter\n"
             "from channels.auth import AuthMiddlewareStack\n"
             "application = ProtocolTypeRouter({\n"
-            "    'http': get_asgi_application(),\n"
+            "    # serves /static/ (client.js) under uvicorn/daphne in development\n"
+            "    'http': ASGIStaticFilesHandler(django_asgi_app),\n"
             "    'websocket': AuthMiddlewareStack(URLRouter([\n"
             "        live_session('app/', include('myapp.urls')),\n"
             "    ])),\n"
@@ -1154,8 +1270,8 @@ BEST_PRACTICES = {
     "event_handlers": {
         "rules": [
             "All handlers MUST use @event_handler() decorator",
-            "All handlers MUST accept **kwargs",
-            "All handler params MUST have default values",
+            "Declare the parameters the binding sends; manage.py check reports a mismatch (djust.T020)",
+            "Under the legacy policy dj-input/dj-change also send field and _target, and dj-submit sends _target with the form fields: declare them or keep **kwargs",
             "Input/change events use 'value' parameter name",
             "Button data attributes: data-item-id='5' -> item_id=5",
             "Form submission: all fields as kwargs",
@@ -1239,25 +1355,56 @@ BEST_PRACTICES = {
         ],
     },
     "forms": {
-        "description": "Use FormMixin for Django form integration with real-time validation",
+        "description": (
+            "FormMixin validates a Django form in real time. To edit one existing "
+            "record, use ModelFormMixin: the route supplies pk, and djust looks the "
+            "record up and checks access before it builds the form (ADR-035)."
+        ),
         "example": (
+            "from django import forms\n"
+            "from djust import LiveView\n"
             "from djust.forms import FormMixin\n"
             "\n"
-            "class MyFormView(FormMixin, LiveView):\n"
-            "    template_name = 'form.html'\n"
-            "    form_class = MyForm\n"
             "\n"
-            "    def mount(self, request, pk=None, **kwargs):\n"
-            "        if pk:\n"
-            "            self._model_instance = MyModel.objects.get(pk=pk)\n"
-            "        super().mount(request, **kwargs)  # AFTER setting _model_instance\n"
+            "class ContactForm(forms.Form):\n"
+            "    email = forms.EmailField()\n"
+            "    message = forms.CharField(widget=forms.Textarea)\n"
+            "\n"
+            "\n"
+            "class ContactView(FormMixin, LiveView):\n"
+            '    template_name = "contact.html"\n'
+            "    form_class = ContactForm\n"
             "\n"
             "    def form_valid(self, form):\n"
-            "        obj = form.save()\n"
-            "        self.success_message = 'Saved!'\n"
+            '        self.success_message = "Sent!"\n'
             "\n"
             "    def form_invalid(self, form):\n"
-            "        self.error_message = 'Please fix errors below'"
+            '        self.error_message = "Please fix the errors below"'
+        ),
+        "edit_example": (
+            "from django import forms\n"
+            "from djust import LiveView\n"
+            "from djust.forms import ModelFormMixin\n"
+            "from .models import Article\n"
+            "\n"
+            "class ArticleForm(forms.ModelForm):\n"
+            "    class Meta:\n"
+            "        model = Article\n"
+            '        fields = ["title", "body"]\n'
+            "\n"
+            "class ArticleEditView(ModelFormMixin[Article], LiveView):\n"
+            '    template_name = "article_edit.html"\n'
+            "    model = Article\n"
+            "    form_class = ArticleForm\n"
+            "    login_required = True\n"
+            "\n"
+            "    def get_queryset(self):\n"
+            "        # Only the signed-in user's articles can be opened.\n"
+            "        return super().get_queryset().filter(author=self.request.user)\n"
+            "\n"
+            "    def form_valid(self, form):\n"
+            "        self.object = form.save()\n"
+            '        self.success_message = "Saved!"'
         ),
     },
     "security": {
@@ -1342,19 +1489,22 @@ BEST_PRACTICES = {
     },
     "event_handler_signature": {
         "description": (
-            "All event handlers MUST accept **kwargs to handle extra parameters "
-            "sent by the client (data-* attributes, form fields, etc.). Missing "
-            "**kwargs causes TypeError when unexpected params arrive."
+            "Declare the parameters the binding sends. Under the strict policy a "
+            "closed, annotated signature is the contract and **kwargs is not needed. "
+            "Under the legacy policy dj-input and dj-change also send `field` and "
+            "`_target`, and dj-submit sends `_target` with the form fields, so "
+            "declare them or keep **kwargs. `manage.py "
+            "check` reports a binding its handler would reject as djust.T020."
         ),
         "correct": (
-            "@event_handler()\n"
-            "def delete_item(self, item_id: int = 0, **kwargs):\n"
+            '@event_handler(parameter_policy="strict")\n'
+            "def delete_item(self, item_id: int):\n"
             "    Item.objects.filter(id=item_id).delete()"
         ),
         "wrong": (
             "@event_handler()\n"
-            "def delete_item(self, item_id: int = 0):  # Missing **kwargs!\n"
-            "    Item.objects.filter(id=item_id).delete()"
+            "def delete_item(self, **kwargs):  # a catch-all hides a misspelled parameter\n"
+            '    Item.objects.filter(id=kwargs.get("itemid")).delete()'
         ),
     },
     "common_pitfalls": [
@@ -1389,13 +1539,18 @@ BEST_PRACTICES = {
         },
         {
             "id": 3,
-            "problem": "Event handler missing **kwargs",
+            "problem": "A binding sends parameters its handler does not declare",
             "why": (
-                "The client sends additional context (data-* attributes, form fields) as "
-                "keyword arguments. Without **kwargs, Python raises TypeError on unexpected args."
+                "Under the strict policy the browser sends only declared parameters "
+                "and rejects the rest; under legacy, dj-input/dj-change also send field "
+                "and _target and dj-submit sends _target, so an event a closed handler "
+                "does not declare is rejected before the handler runs."
             ),
-            "solution": "Add **kwargs to every event handler signature.",
-            "related_check": "djust.V004",
+            "solution": (
+                "Run manage.py check: djust.T020 names the binding and the handler. "
+                "Declare the parameter, or keep **kwargs on legacy input handlers."
+            ),
+            "related_check": "djust.T020",
         },
         {
             "id": 4,
@@ -1428,8 +1583,11 @@ BEST_PRACTICES = {
             "id": 6,
             "problem": "Search input without debouncing",
             "why": (
-                "Every keystroke sends a WebSocket message and triggers a full re-render. "
-                "This floods the server and causes poor UX with flickering."
+                "dj-input already debounces text fields 300ms by default, so a plain search box "
+                "sends one event per typing pause. The problem shows when that is turned off "
+                '(dj-debounce="0") or when each event is expensive enough that 300ms is too '
+                "short: every keystroke or short pause then sends a WebSocket message and a "
+                "full re-render, which floods the server and causes poor UX with flickering."
             ),
             "solution": (
                 "Apply @debounce(wait=0.5) to the handler: the client collapses "
@@ -1658,6 +1816,17 @@ def _extract_view_schema(cls: type, base_classes: list) -> Dict[str, Any]:
         ):
             if key in meta:
                 handler_info["decorators"][key] = meta[key]
+        if "permission_required" in meta:
+            # An AnyOf group is a tuple, which JSON would flatten into what
+            # reads as "all of"; spell the groups out instead.
+            from .auth.any_of import permission_spec_to_document
+
+            all_of, any_of = permission_spec_to_document(meta["permission_required"])
+            if any_of:
+                handler_info["decorators"]["permission_required"] = {
+                    "all_of": all_of,
+                    "any_of": any_of,
+                }
         handlers.append(handler_info)
 
     # Exposed state

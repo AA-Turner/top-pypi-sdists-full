@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.identitygovernance.lifecycleworkflows.category import LifecycleWorkflowCategory
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TopWorkflowsInsightsSummary(ClientValue):
     failedRuns: int | None = None
     failedUsers: int | None = None

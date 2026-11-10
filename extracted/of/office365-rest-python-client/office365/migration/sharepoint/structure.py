@@ -51,18 +51,30 @@ sent as guaranteed link failures.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import asdict, dataclass
 from dataclasses import field as dc_field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple
-from xml.etree import ElementTree
 
 from office365.migration.map import ContentTypeMap
 from office365.runtime.client_request_exception import ClientRequestException
+from office365.runtime.converters.scalars import normalize_guid
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.sharepoint.contenttypes.fieldlinks.collection import FieldLinkCollection
 from office365.sharepoint.fields.builtin_field_name import SYSTEM_FIELD_NAMES
+from office365.sharepoint.fields.field import (
+    LOOKUP_FIELD_TYPES,
+    is_external_data_column,
+    is_multi_valued_column,
+    is_taxonomy_column,
+    schema_property,
+)
+from office365.sharepoint.fields.schema import CONTAINER_ATTRIBUTES, SERVER_ASSIGNED_ATTRIBUTES, FieldSchema
+from office365.sharepoint.lists.base_type import is_document_library
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 if TYPE_CHECKING:
     from office365.sharepoint.contenttypes.content_type import ContentType
@@ -78,17 +90,23 @@ __all__ = [
     "ContentTypeDefinition",
     "FieldDefinition",
     "ListStructure",
+    "STRUCTURE_SUFFIX",
     "ViewDefinition",
     "WebScopeProvisionReport",
     "WebScopeStructure",
     "capture_list_structure",
     "compare_web_scope_structure",
-    "normalize_guid",
+    "load_list_structure",
     "provision_list_structure",
     "provision_web_scope_columns",
     "rewrite_lookup_schema",
+    "save_list_structure",
     "web_scope_note",
 ]
+
+#: Suffix of a structure sidecar (``Documents.structure.json``) — what
+#: ``capture_structure.py`` writes and a bundle import reads back.
+STRUCTURE_SUFFIX = ".structure.json"
 
 #: Field properties requested per column. ``SchemaXml`` is explicit because it is
 #: the payload used to recreate the column on another list.
@@ -98,6 +116,7 @@ _FIELD_SELECT = [
     "Title",
     "FieldTypeKind",
     "TypeAsString",
+    "AllowMultipleValues",
     "SchemaXml",
     "Required",
     "Hidden",
@@ -149,12 +168,15 @@ _SETTING_DEPENDS_ON = {
 #: ``=IF(Title="",TRUE,FALSE)``), so both sides are compared without decoration.
 _FORMULA_NOISE = re.compile(r"[\s\[\]]")
 
-#: ``SchemaXml`` attributes a faithful re-create legitimately changes: they name the
-#: *containing* site (the owning list, a lookup's target list, a taxonomy column's
-#: hidden note list and its web) or are assigned by the server (column id, storage
-#: column/ordinal). Everything else — type, required/indexed/unique flags, length,
-#: format, rich text, choice list, default, formula, validation — must reproduce.
-_SCHEMA_ATTRIBUTE_NOISE = frozenset({"SourceID", "List", "ListId", "WebId", "TextField", "ID", "ColName", "RowOrdinal"})
+#: ``SchemaXml`` attributes a faithful re-create legitimately changes: the ones that
+#: name a container (:data:`~office365.sharepoint.fields.schema.CONTAINER_ATTRIBUTES`)
+#: and the ones the service assigns when it stores a definition
+#: (:data:`~office365.sharepoint.fields.schema.SERVER_ASSIGNED_ATTRIBUTES`). Everything
+#: else — type, required/indexed/unique flags, length, format, rich text, choice list,
+#: default, formula, validation — must reproduce. Which attributes those two families
+#: hold is what SharePoint means, so the library names them; that a faithful copy may
+#: differ on them is this module's verdict, so the composition is here.
+_SCHEMA_ATTRIBUTE_NOISE = CONTAINER_ATTRIBUTES | SERVER_ASSIGNED_ATTRIBUTES
 
 
 def comparable_setting(name: str, value: Any) -> Any:
@@ -182,33 +204,35 @@ def comparable_schema(schema_xml: Optional[str]) -> Dict[str, Any]:
     a tuple of its options. Unparsable schema yields an empty mapping, so an
     unreadable column is never reported as a difference.
     """
-    if not schema_xml:
-        return {}
     try:
-        root = ElementTree.fromstring(schema_xml)
-    except ElementTree.ParseError:
+        schema = FieldSchema.parse(schema_xml)
+    except ValueError:
+        return {}
+    if schema is None:
         return {}
     comparable: Dict[str, Any] = {
         f"attribute {name}": _comparable_attribute(name, value)
-        for name, value in sorted(root.attrib.items())
+        for name, value in sorted(schema.attributes.items())
         if name not in _SCHEMA_ATTRIBUTE_NOISE
     }
-    for child in root:
-        tag = child.tag.upper()
+    for name in schema.child_names:
+        tag = name.upper()
         if tag == "CHOICES":
-            comparable["choices"] = tuple(choice.text or "" for choice in child)
+            comparable["choices"] = schema.choices
         elif tag == "FIELDREFS":
-            comparable["field references"] = tuple(ref.attrib.get("Name") or "" for ref in child)
+            comparable["field references"] = schema.field_reference_names
         elif tag in {"FORMULA", "VALIDATIONFORMULA"}:
-            comparable[tag.lower()] = _FORMULA_NOISE.sub("", child.text or "")
+            comparable[tag.lower()] = _FORMULA_NOISE.sub("", schema.child_text(name) or "")
         else:
-            comparable[tag.lower()] = (child.text or "").strip()
+            comparable[tag.lower()] = (schema.child_text(name) or "").strip()
     return comparable
 
 
 def _setting_names(base_type: Optional[int]) -> List[str]:
     """The container settings worth capturing for a list of this base type."""
-    return [name for name in _LIST_SETTING_ORDER if base_type == 1 or name not in _LIBRARY_SETTING_NAMES]
+    if is_document_library(base_type):
+        return list(_LIST_SETTING_ORDER)
+    return [name for name in _LIST_SETTING_ORDER if name not in _LIBRARY_SETTING_NAMES]
 
 
 @dataclass
@@ -219,6 +243,7 @@ class FieldDefinition:
     title: Optional[str] = None
     field_type_kind: Optional[int] = None
     type_as_string: Optional[str] = None
+    allow_multiple_values: Optional[bool] = None
     schema_xml: Optional[str] = None
     required: Optional[bool] = None
     hidden: Optional[bool] = None
@@ -240,6 +265,7 @@ class FieldDefinition:
             title=data.get("title"),
             field_type_kind=data.get("field_type_kind"),
             type_as_string=data.get("type_as_string"),
+            allow_multiple_values=data.get("allow_multiple_values"),
             schema_xml=data.get("schema_xml"),
             required=data.get("required"),
             hidden=data.get("hidden"),
@@ -333,8 +359,8 @@ class ListStructure:
 
     @property
     def is_document_library(self) -> bool:
-        """Whether the captured list is a document library (``BaseType`` 1)."""
-        return self.base_type == 1
+        """Whether the captured list is a document library, read off its ``BaseType``."""
+        return is_document_library(self.base_type)
 
     def to_dict(self) -> Dict[str, Any]:
         """Return a JSON-friendly dict (nested dataclasses are expanded)."""
@@ -356,6 +382,53 @@ class ListStructure:
         )
 
 
+def save_list_structure(structure: ListStructure, path: str | Path) -> Path:
+    """Write a snapshot as JSON — the structure sidecar of an export bundle.
+
+    The file is exactly :meth:`ListStructure.to_dict`, so a snapshot captured by
+    ``capture_structure.py`` loads back unchanged and one written here opens there.
+    Nothing is versioned: :meth:`ListStructure.from_dict` ignores keys it does not
+    know, so a newer snapshot still loads in an older reader.
+
+    The sidecar belongs **next to** the exported content, not inside it — a files
+    source copies every file it finds, so a ``structure.json`` inside the tree would
+    be migrated as content.
+
+    Args:
+        structure: The snapshot to write.
+        path: Destination file (parent directories are created).
+
+    Returns:
+        The path written.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(structure.to_dict(), indent=2), encoding="utf-8")
+    return target
+
+
+def load_list_structure(path: str | Path) -> ListStructure:
+    """Read a snapshot written by :func:`save_list_structure` (or by hand).
+
+    Args:
+        path: The JSON sidecar to read.
+
+    Returns:
+        The snapshot, ready for :func:`provision_list_structure`.
+
+    Raises:
+        ValueError: The file's top level is not a JSON object.
+    """
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"{str(path)!r} is not a list-structure snapshot: the top level is a JSON "
+            f"{type(data).__name__}, not an object"
+        )
+    return ListStructure.from_dict(data)
+
+
+@site_access(SiteLevel.READ)
 def capture_list_structure(sp_list: SPList) -> ListStructure:
     """Read a SharePoint list's structure into a :class:`ListStructure` snapshot.
 
@@ -436,28 +509,6 @@ def _is_capturable_content_type(content_type: ContentType) -> bool:
 #: ``0x0101``, ...); custom content types append a 32-hex-digit GUID.
 _MIN_CUSTOM_CONTENT_TYPE_ID_LENGTH = 20
 
-#: A GUID, optionally wrapped in the braces SharePoint uses in ``SchemaXml``.
-_GUID_RE = re.compile(r"^\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}?$")
-#: ``Type="Lookup"`` / ``Type="LookupMulti"`` — the columns that name their list.
-_LOOKUP_TYPE_RE = re.compile(r'\bType="Lookup(?:Multi)?"')
-#: The ``List="..."`` attribute a lookup column carries in its ``SchemaXml``.
-_LIST_ATTR_RE = re.compile(r'\sList="([^"]*)"')
-
-
-def normalize_guid(value: Any) -> Optional[str]:
-    """A lower-cased, brace-stripped GUID, or ``None`` when not a GUID.
-
-    Lookup schemas carry ``List="{...}"`` while the migration threads list ids
-    around as plain strings; normalizing both sides keeps the lookup keyed by the
-    same value regardless of case or brace style.
-    """
-    if value is None:
-        return None
-    text = str(value).strip()
-    if text.startswith("{") and text.endswith("}"):
-        text = text[1:-1]
-    return text.lower() if _GUID_RE.match(text) else None
-
 
 def rewrite_lookup_schema(
     schema_xml: Optional[str], list_id_map: Dict[str, str] | None
@@ -475,12 +526,12 @@ def rewrite_lookup_schema(
     field must be skipped), and the unresolved source list id when the referenced
     list is not part of the migration (so the caller can warn).
     """
-    if not schema_xml or not _LOOKUP_TYPE_RE.search(schema_xml):
+    schema = FieldSchema.parse(schema_xml)
+    if schema is None or schema.type_name not in LOOKUP_FIELD_TYPES:
         return schema_xml, None
-    match = _LIST_ATTR_RE.search(schema_xml)
-    if match is None:
+    if schema.list_id is None:
         return schema_xml, None
-    referenced = normalize_guid(match.group(1))
+    referenced = normalize_guid(schema.list_id)
     if referenced is None:
         # ``List="UserInfo"`` (the User column's user-information list) is a
         # keyword, portable as-is.
@@ -488,52 +539,19 @@ def rewrite_lookup_schema(
     target = (list_id_map or {}).get(referenced)
     if target is None:
         return None, referenced
-    rewritten = f'{schema_xml[: match.start()]} List="{{{target}}}"{schema_xml[match.end() :]}'
-    return rewritten, None
+    return schema.with_list(target).to_xml(), None
 
 
-#: Managed-metadata column types; recreated through ``TaxonomyField.create`` below.
-_TAXONOMY_TYPES = frozenset({"TaxonomyFieldType", "TaxonomyFieldTypeMulti"})
+#: A column bound to an external (BCS) content type. ``FieldType`` carries no member for
+#: the spelling, so the shared predicate reads the type string and the schema.
+def _is_external_data_definition(definition: FieldDefinition) -> bool:
+    """Whether a captured column reads its values from an external (BCS) source."""
+    return is_external_data_column(definition.type_as_string, definition.schema_xml)
 
 
 def _is_taxonomy_definition(definition: FieldDefinition) -> bool:
     """Whether a captured column is a managed-metadata (taxonomy) column."""
-    if (definition.type_as_string or "") in _TAXONOMY_TYPES:
-        return True
-    schema = definition.schema_xml or ""
-    return "TaxonomyFieldType" in schema and "<Name>TermSetId</Name>" in schema
-
-
-#: A column bound to an external (BCS) content type. The generated ``FieldType``
-#: model does not carry this member, so the ``TypeAsString``/``SchemaXml``
-#: spelling is what identifies it.
-_EXTERNAL_DATA_TYPE = "BusinessData"
-
-
-def _is_external_data_definition(definition: FieldDefinition) -> bool:
-    """Whether a captured column reads its values from an external (BCS) source."""
-    if (definition.type_as_string or "") == _EXTERNAL_DATA_TYPE:
-        return True
-    return f'Type="{_EXTERNAL_DATA_TYPE}"' in (definition.schema_xml or "")
-
-
-def _taxonomy_property(schema_xml: Optional[str], name: str) -> Optional[str]:
-    """Read a value from a taxonomy column's ``<Customization>`` property bag."""
-    if not schema_xml:
-        return None
-    match = re.search(
-        r"<Name>\s*" + re.escape(name) + r"\s*</Name>\s*<Value\b[^>]*>\s*([^<\s]+)\s*</Value>",
-        schema_xml,
-        re.IGNORECASE,
-    )
-    return match.group(1).strip() if match else None
-
-
-def _taxonomy_allow_multiple(schema_xml: str) -> bool:
-    match = re.search(r'\bMult="(TRUE|FALSE)"', schema_xml, re.IGNORECASE)
-    if match:
-        return match.group(1).upper() == "TRUE"
-    return 'Type="TaxonomyFieldTypeMulti"' in schema_xml
+    return is_taxonomy_column(definition.type_as_string, definition.schema_xml)
 
 
 def _ensure_taxonomy_field(container: SPList | Web, definition: FieldDefinition, warnings: List[str]) -> Optional[Field]:
@@ -549,7 +567,7 @@ def _ensure_taxonomy_field(container: SPList | Web, definition: FieldDefinition,
     ``execute_query()``), or ``None`` when it could not even be queued.
     """
     name = definition.internal_name
-    term_set = _taxonomy_property(definition.schema_xml, "TermSetId")
+    term_set = schema_property(definition.schema_xml, "TermSetId")
     if not term_set:
         warning = f"taxonomy column '{name}' was not recreated: its term set id could not be read"
         logger.debug(warning)
@@ -562,8 +580,8 @@ def _ensure_taxonomy_field(container: SPList | Web, definition: FieldDefinition,
             container.fields,
             name,
             term_set,
-            _taxonomy_property(definition.schema_xml, "SspId"),
-            _taxonomy_allow_multiple(definition.schema_xml or ""),
+            schema_property(definition.schema_xml, "SspId"),
+            is_multi_valued_column(definition.type_as_string, definition.allow_multiple_values),
         )
     except Exception as exc:  # noqa: BLE001 - best effort, surfaced as a warning
         warning = f"taxonomy column '{name}' could not be recreated: {exc}"
@@ -598,6 +616,7 @@ def _field_definition(field: Field) -> FieldDefinition:
         title=field.title,
         field_type_kind=_field_kind_int(field),
         type_as_string=field.type_as_string,
+        allow_multiple_values=field.properties.get("AllowMultipleValues"),
         schema_xml=_schema_for_copy(field),
         required=field.required,
         hidden=field.hidden,
@@ -672,6 +691,7 @@ def _view_definition(view: View, field_names: Iterable[str]) -> ViewDefinition:
     )
 
 
+@site_access(SiteLevel.MANAGE)
 def provision_list_structure(
     sp_list: SPList,
     structure: ListStructure,
@@ -708,6 +728,10 @@ def provision_list_structure(
     content type (``Column '<name>' does not exist``). Such columns cannot be
     attached over REST, so they are skipped and returned as warnings rather than
     failing the whole provisioning.
+
+    A view is recreated with the captured columns the target list actually has; a
+    column its type cannot hold (a plain list's ``LinkTitle`` on a document
+    library) is dropped and reported rather than failing the replay.
 
     Args:
         sp_list: The target SharePoint list (its container must already exist).
@@ -813,10 +837,11 @@ def provision_list_structure(
         if content_type_map is not None:
             content_type_map.update(ContentTypeMap.build(structure.content_types, loaded.values()).entries)
 
+    view_columns = _existing_field_names(sp_list) if structure.views else set()
     for view in structure.views:
         sp_list.views.ensure_view(
             view.title,
-            fields=list(view.field_internal_names) or None,
+            fields=_view_fields(view, view_columns, warnings),
             row_limit=view.row_limit,
             view_type=view.view_type,
             paged=view.paged,
@@ -829,6 +854,36 @@ def provision_list_structure(
     sp_list.execute_query()
     _apply_formatting(sp_list, structure, warnings)
     return warnings
+
+
+def _existing_field_names(sp_list: SPList) -> Set[str]:
+    """The internal names of the columns ``sp_list`` actually carries.
+
+    One read, and only when the snapshot has views to replay. It is what lets a view
+    be recreated on a list whose type cannot hold every captured column (a plain
+    list's ``LinkTitle`` on a document library) instead of failing the whole replay
+    on ``Column 'LinkTitle' does not exist`` — measured live, 2026-02.
+    """
+    return {
+        field.internal_name
+        for field in sp_list.fields.select(["InternalName"]).get().execute_query()
+        if field.internal_name
+    }
+
+
+def _view_fields(view: ViewDefinition, view_columns: Set[str], warnings: List[str]) -> List[str] | None:
+    """The captured view's columns, minus the ones the target has no column for.
+
+    ``None`` means "the view's own defaults": either the snapshot named no columns or
+    none of them exist on the target. A dropped column is reported, never silent —
+    the view is still created, which is why the replay stays best-effort.
+    """
+    wanted = [name for name in view.field_internal_names if name]
+    missing = [name for name in wanted if name not in view_columns]
+    if not missing:
+        return wanted or None
+    warnings.append(f"view '{view.title}' was created without {', '.join(missing)}: the target list has no such column")
+    return [name for name in wanted if name in view_columns] or None
 
 
 def _apply_formatting(sp_list: SPList, structure: ListStructure, warnings: List[str]) -> None:
@@ -920,7 +975,7 @@ def _apply_list_settings(sp_list: SPList, structure: ListStructure, warnings: Li
         name: value
         for name, value in structure.settings.items()
         if (name in _VALIDATION_SETTING_NAMES) is validation
-        and not (name in _LIBRARY_SETTING_NAMES and structure.base_type != 1)
+        and not (name in _LIBRARY_SETTING_NAMES and not structure.is_document_library)
         and _setting_is_expressible(name, structure.settings)
     }
     if not wanted:

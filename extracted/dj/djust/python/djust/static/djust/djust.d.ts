@@ -250,7 +250,9 @@ declare class LiveViewWebSocket {
   /**
    * Establish a WebSocket connection.
    *
-   * @param url - WebSocket URL. Defaults to `ws[s]://<host>/ws/live/`.
+   * @param url - WebSocket URL. Defaults to `ws[s]://<host><djust.wsPath>`, where
+   *   `wsPath` comes from `<meta name="djust-ws-path">` (emitted by
+   *   `{% djust_client_config %}`, honoring `FORCE_SCRIPT_NAME`) or `/ws/live/`.
    */
   connect(url?: string | null): void;
 
@@ -280,6 +282,15 @@ declare class LiveViewWebSocket {
    * @param data - Message object (will be JSON-serialized).
    */
   sendMessage(data: Record<string, unknown>): void;
+
+  /**
+   * Tell the server that a view hydrated beside the page view (`dj-lazy`,
+   * `mount_batch`) is gone. The page view and the other views stay live.
+   *
+   * @param targetId - The view's address: its container's `data-djust-target`.
+   * @returns Whether an `unmount` frame was sent (false for a view that is not mounted).
+   */
+  unmountView(targetId: string): boolean;
 }
 
 /**
@@ -535,6 +546,23 @@ interface Djust {
    */
   liveViewInstance: LiveViewWebSocket | LiveViewSSE | null;
 
+  /**
+   * Root-relative path the WebSocket connects to (#3186). Resolved once at
+   * bootstrap: an explicit value set before the bundle loads wins, then
+   * `<meta name="djust-ws-path">` (emitted by `{% djust_client_config %}`
+   * from the script prefix, or from the `DJUST_WS_PATH` setting), then
+   * `"/ws/live/"`. Reset to `"/ws/live/"` if the first handshake on a
+   * prefixed path fails before opening.
+   */
+  wsPath: string;
+
+  /**
+   * The same-host `ws:`/`wss:` URL for {@link Djust.wsPath}. A value that is
+   * not root-relative (an absolute or `//host` URL) falls back to
+   * `/ws/live/`, so the socket always targets the page's own host.
+   */
+  wsUrl(): string;
+
   // -------------------------------------------------------------------------
   // Hook System
   // -------------------------------------------------------------------------
@@ -590,6 +618,18 @@ interface Djust {
 
   /** Call `destroyed()` on all active hooks and clear the hook registry. */
   destroyAllHooks(): void;
+
+  /**
+   * The hook instance mounted on an element — the same `this` its
+   * callbacks receive — or `null` when no hook is mounted there (never
+   * mounted, or already destroyed). A string is resolved with
+   * `document.querySelector` (first match).
+   *
+   * @example
+   * const hook = window.djust.getHook(document.querySelector('[dj-hook="MarkdownEditor"]'));
+   * hook?.getEditor()?.chain().focus().addRowAfter().run();
+   */
+  getHook(el: Element | string | null): (DjustHook & DjustHookContext) | null;
 
   /**
    * Map of currently active hook instances, keyed by an internal element ID.
@@ -666,8 +706,15 @@ interface Djust {
   // Accessibility
   // -------------------------------------------------------------------------
 
-  /** Accessibility helpers for announcements and focus management. */
-  accessibility: {
+  /**
+   * Accessibility helpers for announcements and focus management.
+   *
+   * @deprecated djust assigns nothing here: the `accessibility` and `focus`
+   * frames only reach an object your own script defines. The server-side hooks
+   * that send them are deprecated since 1.3 and removed in 2.0.0. Use a
+   * `role="status"` live region and `JS.focus()` through `push_commands()`.
+   */
+  accessibility?: {
     /**
      * Process ARIA live region announcements from the server.
      *

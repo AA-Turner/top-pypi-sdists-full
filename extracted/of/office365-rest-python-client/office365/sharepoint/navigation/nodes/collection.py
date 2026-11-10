@@ -13,6 +13,7 @@ from office365.sharepoint.navigation.nodes.creationinformation import (
     NavigationNodeCreationInformation,
 )
 from office365.sharepoint.navigation.nodes.node import NavigationNode
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 if TYPE_CHECKING:
     from office365.sharepoint.client_context import ClientContext
@@ -32,7 +33,9 @@ class NavigationNodeCollection(EntityCollection[NavigationNode]):
         """Walk every navigation node (top-level and descendants) into a flat collection.
 
         Each visited node's ``Children`` are loaded and stored on the node, so the
-        loaded collection can be exported as a nested tree via ``to_json()``.
+        loaded collection can be exported as a nested tree via ``to_json()``. A
+        collection that an ``$expand`` already filled is walked as it stands, without
+        a second read of the level it already holds.
 
         Args:
             recursive (bool): Whether to walk child nodes recursively (default True).
@@ -55,12 +58,22 @@ class NavigationNodeCollection(EntityCollection[NavigationNode]):
             node.set_property("Children", children)
             _walk(children)
 
-        self.get().after_execute(lambda _: _walk(self))
+        if len(self) == 0:
+            self.get().after_execute(lambda _: _walk(self))
+        else:
+            _walk(self)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def add(self, create_node_info: NavigationNodeCreationInformation) -> NavigationNode:
-        """
-        Creates a navigation node object and adds it to the collection.
+        """Adds a navigation node to the collection.
+
+        The request body carries two fields, which is all the create contract has.
+        Probed live: ``AsLastNode`` and ``PreviousNode`` are rejected as properties
+        ``SP.NavigationNode`` does not have, ``IsExternal`` is the service's own
+        computation from the URL, and ``IsVisible`` is ignored both here and in an
+        update -- so a node cannot be created hidden. See
+        ``tests/unit/test_sharepoint_navigation.py``.
         """
         return_type = NavigationNode(self.context)
         return_type.title = create_node_info.Title  # type: ignore[assignment]
@@ -70,6 +83,7 @@ class NavigationNodeCollection(EntityCollection[NavigationNode]):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def move_after(self, node_id: int, previous_node_id: int) -> Self:
         """
         Moves a navigation node after a specified navigation node in the navigation node collection.
@@ -83,6 +97,7 @@ class NavigationNodeCollection(EntityCollection[NavigationNode]):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_by_index(self, index: int) -> NavigationNode:
         """
         Returns the navigation node at the specified index.

@@ -1,0 +1,1 @@
+var e=new URL(`editor.worker-CRz__AKW.js`,import.meta.url).href;export{e as default};

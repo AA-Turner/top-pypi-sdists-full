@@ -10,8 +10,10 @@ from dateutil.parser import isoparse
 from ..models.auth_kind_enum import AuthKindEnum
 from ..models.authorized_via_enum import AuthorizedViaEnum
 from ..models.blank_enum import BlankEnum
+from ..models.delivery_enum import DeliveryEnum
 
 if TYPE_CHECKING:
+    from ..models.event_consumer_payload_filters import EventConsumerPayloadFilters
     from ..models.event_consumer_scope_output import EventConsumerScopeOutput
 
 
@@ -37,6 +39,17 @@ class EventConsumer:
         auth_token_name (str): Name of the Personal Access Token used, when auth_kind is pat.
         authorized_via (Union[AuthorizedViaEnum, BlankEnum]):
         delivery_blocked_reason (Union[None, str]):
+        delivery (DeliveryEnum):
+        webhook_destination (Union[None, str]): Scheme and host of the webhook URL. The full URL is a credential and is
+            never returned.
+        payload_filters (EventConsumerPayloadFilters):
+        last_delivered_at (Union[None, datetime.datetime]):
+        last_error (str):
+        last_error_at (Union[None, datetime.datetime]):
+        ephemeral (bool): Registered by a short-lived client (a browser tab). Deleted automatically once its queue has
+            had no reader for EVENT_CONSUMER_EPHEMERAL_IDLE_HOURS.
+        unread_since (Union[None, datetime.datetime]): When the sweep first saw this ephemeral consumer's queue without
+            a reader. Cleared when a reader returns or the client re-registers.
         created (datetime.datetime):
         modified (datetime.datetime):
     """
@@ -56,6 +69,14 @@ class EventConsumer:
     auth_token_name: str
     authorized_via: Union[AuthorizedViaEnum, BlankEnum]
     delivery_blocked_reason: Union[None, str]
+    delivery: DeliveryEnum
+    webhook_destination: Union[None, str]
+    payload_filters: "EventConsumerPayloadFilters"
+    last_delivered_at: Union[None, datetime.datetime]
+    last_error: str
+    last_error_at: Union[None, datetime.datetime]
+    ephemeral: bool
+    unread_since: Union[None, datetime.datetime]
     created: datetime.datetime
     modified: datetime.datetime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -103,6 +124,35 @@ class EventConsumer:
         delivery_blocked_reason: Union[None, str]
         delivery_blocked_reason = self.delivery_blocked_reason
 
+        delivery = self.delivery.value
+
+        webhook_destination: Union[None, str]
+        webhook_destination = self.webhook_destination
+
+        payload_filters = self.payload_filters.to_dict()
+
+        last_delivered_at: Union[None, str]
+        if isinstance(self.last_delivered_at, datetime.datetime):
+            last_delivered_at = self.last_delivered_at.isoformat()
+        else:
+            last_delivered_at = self.last_delivered_at
+
+        last_error = self.last_error
+
+        last_error_at: Union[None, str]
+        if isinstance(self.last_error_at, datetime.datetime):
+            last_error_at = self.last_error_at.isoformat()
+        else:
+            last_error_at = self.last_error_at
+
+        ephemeral = self.ephemeral
+
+        unread_since: Union[None, str]
+        if isinstance(self.unread_since, datetime.datetime):
+            unread_since = self.unread_since.isoformat()
+        else:
+            unread_since = self.unread_since
+
         created = self.created.isoformat()
 
         modified = self.modified.isoformat()
@@ -126,6 +176,14 @@ class EventConsumer:
                 "auth_token_name": auth_token_name,
                 "authorized_via": authorized_via,
                 "delivery_blocked_reason": delivery_blocked_reason,
+                "delivery": delivery,
+                "webhook_destination": webhook_destination,
+                "payload_filters": payload_filters,
+                "last_delivered_at": last_delivered_at,
+                "last_error": last_error,
+                "last_error_at": last_error_at,
+                "ephemeral": ephemeral,
+                "unread_since": unread_since,
                 "created": created,
                 "modified": modified,
             }
@@ -135,6 +193,7 @@ class EventConsumer:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.event_consumer_payload_filters import EventConsumerPayloadFilters
         from ..models.event_consumer_scope_output import EventConsumerScopeOutput
 
         d = dict(src_dict)
@@ -208,6 +267,66 @@ class EventConsumer:
 
         delivery_blocked_reason = _parse_delivery_blocked_reason(d.pop("delivery_blocked_reason"))
 
+        delivery = DeliveryEnum(d.pop("delivery"))
+
+        def _parse_webhook_destination(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        webhook_destination = _parse_webhook_destination(d.pop("webhook_destination"))
+
+        payload_filters = EventConsumerPayloadFilters.from_dict(d.pop("payload_filters"))
+
+        def _parse_last_delivered_at(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_delivered_at_type_0 = isoparse(data)
+
+                return last_delivered_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        last_delivered_at = _parse_last_delivered_at(d.pop("last_delivered_at"))
+
+        last_error = d.pop("last_error")
+
+        def _parse_last_error_at(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                last_error_at_type_0 = isoparse(data)
+
+                return last_error_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        last_error_at = _parse_last_error_at(d.pop("last_error_at"))
+
+        ephemeral = d.pop("ephemeral")
+
+        def _parse_unread_since(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                unread_since_type_0 = isoparse(data)
+
+                return unread_since_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        unread_since = _parse_unread_since(d.pop("unread_since"))
+
         created = isoparse(d.pop("created"))
 
         modified = isoparse(d.pop("modified"))
@@ -228,6 +347,14 @@ class EventConsumer:
             auth_token_name=auth_token_name,
             authorized_via=authorized_via,
             delivery_blocked_reason=delivery_blocked_reason,
+            delivery=delivery,
+            webhook_destination=webhook_destination,
+            payload_filters=payload_filters,
+            last_delivered_at=last_delivered_at,
+            last_error=last_error,
+            last_error_at=last_error_at,
+            ephemeral=ephemeral,
+            unread_since=unread_since,
             created=created,
             modified=modified,
         )

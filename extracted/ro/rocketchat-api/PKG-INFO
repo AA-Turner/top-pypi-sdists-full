@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rocketchat_API
-Version: 3.7.1
+Version: 3.8.0
 Summary: Python API wrapper for Rocket.Chat
 Author-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
 Maintainer-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
@@ -8,6 +8,7 @@ License-Expression: MIT
 Project-URL: Homepage, https://github.com/jadolg/rocketchat_API
 Project-URL: Issues, https://github.com/jadolg/rocketchat_API/issues
 Keywords: rocketchat,api,wrapper,rest
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: requests
@@ -47,7 +48,7 @@ pip install .
 
 ## Requirements
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - [requests](https://github.com/kennethreitz/requests)
 
 

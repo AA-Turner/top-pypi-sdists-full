@@ -9,20 +9,14 @@ from prov.identifier import Identifier, Namespace
 from prov.model import (
     Literal,
     ProvDocument,
-    ProvFutureRejectionWarning,
     ProvWarning,
     encoding_provn_value,
 )
+from prov.tests.conftest import ex_document
 
 METACHARS = "='(),:;[]"
 
 NS = Namespace("ex", "http://example.org/")
-
-
-def _doc():
-    document = ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    return document
 
 
 def _roundtrips(document):
@@ -34,26 +28,26 @@ def _roundtrips(document):
 
 @pytest.mark.parametrize("ch", list(METACHARS))
 def test_metachar_local_parts_are_escaped(ch) -> None:
-    document = _doc()
+    document = ex_document()
     document.entity(f"ex:na{ch}me")
     provn = document.get_provn()
     assert f"ex:na\\{ch}me" in provn
 
 
 def test_issue_repro_escaped_end_to_end() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:weird'name)x,y")
     assert "entity(ex:weird\\'name\\)x\\,y)" in document.get_provn()
 
 
 def test_plain_local_parts_unchanged() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:plain-name_1.x")
     assert "entity(ex:plain-name_1.x)" in document.get_provn()
 
 
 def test_string_literal_backslash_escaped_before_quotes() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e1", {"ex:note": 'back\\slash and "quote"'})
     provn = document.get_provn()
     # backslash must be escaped first, giving an unambiguous \\ followed by \"
@@ -61,27 +55,27 @@ def test_string_literal_backslash_escaped_before_quotes() -> None:
 
 
 def test_bundle_identifier_metachar_is_escaped() -> None:
-    document = _doc()
+    document = ex_document()
     bundle = document.bundle("ex:weird'bundle")
     bundle.entity("ex:e1")
     assert "bundle ex:weird\\'bundle" in document.get_provn()
 
 
 def test_bundle_identifier_plain_unchanged() -> None:
-    document = _doc()
+    document = ex_document()
     bundle = document.bundle("ex:plain-bundle")
     bundle.entity("ex:e1")
     assert "bundle ex:plain-bundle" in document.get_provn()
 
 
 def test_attribute_name_metachar_is_escaped() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e1", {"ex:weird'key": "value"})
     assert '[ex:weird\\\'key="value"]' in document.get_provn()
 
 
 def test_attribute_name_plain_unchanged() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e1", {"ex:plain_key": "value"})
     assert '[ex:plain_key="value"]' in document.get_provn()
 
@@ -97,140 +91,49 @@ def test_attribute_name_plain_unchanged() -> None:
     ],
 )
 def test_dash_and_dot_local_parts(local, written) -> None:
-    document = _doc()
+    document = ex_document()
     document.entity(f"ex:{local}")
     provn = _roundtrips(document)
     assert f"entity(ex:{written})" in provn
 
 
-@pytest.mark.parametrize(
-    ("local", "escaped"),
-    [
-        ("a\tb", "a%09b"),  # tab: not a PN_CHAR, previously written raw
-        ("a\u00d7b", "a%C3%97b"),  # multiplication sign, 2-byte UTF-8
-        ("a\u2192b", "a%E2%86%92b"),  # rightwards arrow, 3-byte UTF-8
-        ("a b", "a%20b"),  # space, already covered but kept for symmetry
-    ],
-)
-def test_unrepresentable_chars_are_percent_encoded(local, escaped) -> None:
-    document = _doc()
-    with pytest.warns(ProvFutureRejectionWarning):
-        document.entity(f"ex:{local}")
-    provn = document.get_provn()
-    assert f"entity(ex:{escaped})" in provn
-    # Documented non-round-trip: the reloaded local part is the
-    # percent-encoded text, not the original character.
-    reloaded = ProvDocument.deserialize(content=provn, format="provn")
-    (reloaded_entity,) = reloaded.get_records()
-    assert reloaded_entity.identifier.localpart == escaped
-
-
-def test_percent_encoding_warns_that_the_iri_changes() -> None:
-    with pytest.warns(ProvFutureRejectionWarning):
-        qname = Namespace("ex", "http://example.org/")["a b"]
-    with pytest.warns(ProvWarning, match="percent"):
-        assert qname.provn_bare_representation() == "ex:a%20b"
-
-
-def test_bare_percent_is_written_as_25_with_a_warning() -> None:
-    # "%25" reads back as that text, not as '%', so the IRI changes.
-    namespace = Namespace("ex", "http://example.org/")
-    with pytest.warns(ProvFutureRejectionWarning):
-        qname = namespace["50%"]
-    with pytest.warns(ProvWarning, match="percent-encoded") as record:
-        assert qname.provn_bare_representation() == "ex:50%25"
-    assert len(record) == 1
-
-
-def test_percent_escape_is_written_unchanged_without_a_warning() -> None:
+def test_percent_escape_is_written_unchanged() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error", ProvWarning)
         assert NS["a%20b"].provn_bare_representation() == "ex:a%20b"
 
 
-def test_lone_surrogate_is_percent_encoded() -> None:
-    with pytest.warns(ProvWarning):
-        assert NS["e\udc80"].provn_bare_representation() == "ex:e%ED%B2%80"
-
-
-@pytest.mark.parametrize("first", ["·", "́", "‿"])
-def test_leading_name_char_that_cannot_start_a_local_part_is_encoded(first) -> None:
-    with pytest.warns(ProvWarning):
-        written = NS[first + "a"].provn_bare_representation()
-    assert written.startswith("ex:%")
-    doc = ProvDocument.deserialize(
-        content=f"document\n prefix ex <{NS.uri}>\n entity({written})\nendDocument",
-        format="provn",
-    )
-    assert len(list(doc.get_records())) == 1
-
-
 def test_fast_path_skips_only_local_parts_written_unchanged() -> None:
-    from prov.identifier import _PROVN_LOCAL_NOT_PLAIN, _provn_escape_local
+    from prov.identifier import _PROVN_LOCAL_NEEDS_ESCAPE, _provn_escape_local
 
     # Every BMP character, lone surrogates included, and one astral character,
     # in the three positions the escaping rules tell apart.
     chars = [chr(cp) for cp in (*range(0x10000), 0x1F600)]
     local_parts = [lp for ch in chars for lp in (ch + "a", "a" + ch + "a", "a" + ch)]
-    skipped = [lp for lp in local_parts if not _PROVN_LOCAL_NOT_PLAIN.search(lp)]
+    skipped = [lp for lp in local_parts if not _PROVN_LOCAL_NEEDS_ESCAPE.search(lp)]
 
     assert 0 < len(skipped) < len(local_parts)
-    assert [lp for lp in skipped if _provn_escape_local(lp) != (lp, False)] == []
+    assert [lp for lp in skipped if _provn_escape_local(lp) != lp] == []
 
 
-def test_writable_fast_path_skips_only_local_parts_written_unencoded() -> None:
-    from prov.identifier import _PROVN_LOCAL_WRITABLE, _provn_escape_local
+def test_every_local_part_that_can_be_built_is_written_reversibly() -> None:
+    from prov.identifier import _PROVN_LOCAL_PERCENT_ENCODED, _provn_escape_local
 
-    # The same characters and positions as the test above, for the check
-    # QualifiedName runs on every new name (#524).
+    # The same characters and positions as the test above, against the rule
+    # QualifiedName enforces (#524): what it lets through, the writer spells
+    # with backslash escapes only, which a PROV-N reader reverses.
     chars = [chr(cp) for cp in (*range(0x10000), 0x1F600)]
     local_parts = [lp for ch in chars for lp in (ch + "a", "a" + ch + "a", "a" + ch)]
-    skipped = [lp for lp in local_parts if _PROVN_LOCAL_WRITABLE.fullmatch(lp)]
+    accepted = [lp for lp in local_parts if not _PROVN_LOCAL_PERCENT_ENCODED.search(lp)]
 
-    assert 0 < len(skipped) < len(local_parts)
-    assert [lp for lp in skipped if _provn_escape_local(lp)[1]] == []
-
-
-def test_empty_langtag_literal_written_as_plain_string() -> None:
-    """An empty langtag has no PROV-N spelling, so the writer treats it as none.
-
-    The model itself is unaffected. The ``Literal``'s own ``langtag`` stays
-    ``""`` (not ``None``), so this is a writer-only choice, not a round trip;
-    the JSON/XML/RDF/JSON-LD codecs still keep the empty tag, e.g. PROV-XML's
-    ``xml:lang=""``, which this task leaves untouched.
-    """
-    with pytest.warns(ProvFutureRejectionWarning, match="empty"):
-        literal = Literal("hi", langtag="")
-    assert literal.langtag == ""
-    document = _doc()
-    document.entity("ex:e1", {"ex:note": literal})
-    provn = document.get_provn()
-    assert '[ex:note="hi"]' in provn
-    assert "None" not in provn
-
-
-def test_langtag_underscore_written_as_hyphen() -> None:
-    """An underscore-separated langtag is not valid PROV-N LANGTAG ([63]).
-
-    BCP 47 tags use hyphens, so writing one changes the tag's lexical form
-    from "en_US" to "en-US". That is a different value under the model's
-    case-insensitive langtag comparison, so this is not a round trip like the
-    other fixes here.
-    """
-    document = _doc()
-    with pytest.warns(ProvFutureRejectionWarning, match="en_US"):
-        literal = Literal("hi", langtag="en_US")
-    document.entity("ex:e1", {"ex:note": literal})
-    provn = document.get_provn()
-    assert '[ex:note="hi"@en-US]' in provn
-    reloaded = ProvDocument.deserialize(content=provn, format="provn")
-    (reloaded_entity,) = reloaded.get_records()
-    (reloaded_literal,) = reloaded_entity.get_attribute("ex:note")
-    assert reloaded_literal.langtag == "en-US"
+    assert 0 < len(accepted) < len(local_parts)
+    assert [
+        lp for lp in accepted if _provn_escape_local(lp).replace("\\", "") != lp
+    ] == []
 
 
 def test_short_string_carriage_return_is_escaped() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e1", {"ex:note": "a\rb"})
     provn = _roundtrips(document)
     assert '[ex:note="a\\rb"]' in provn
@@ -238,7 +141,7 @@ def test_short_string_carriage_return_is_escaped() -> None:
 
 def test_crlf_string_stays_triple_quoted() -> None:
     """A CRLF value still takes the triple-quoted path, CR unaffected by the escape fix."""
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e1", {"ex:note": "a\r\nb"})
     provn = _roundtrips(document)
     assert '[ex:note="""a\r\nb"""]' in provn
@@ -252,7 +155,7 @@ def test_mention_bare_keyword_no_prefix() -> None:
     ProvToolbox's ANTLR grammar (PROV_N.g:338), so provconvert keeps parsing prov's output.
     This test locks in the current syntax to prevent silent regressions.
     """
-    document = _doc()
+    document = ex_document()
     bundle = document.bundle("ex:bundle1")
     bundle.entity("ex:report1bis")
     bundle.mentionOf("ex:report1bis", "ex:report1", "ex:bundle2")
@@ -269,7 +172,7 @@ def test_mention_bare_keyword_no_prefix() -> None:
 
 
 def _mention_doc():
-    document = _doc()
+    document = ex_document()
     bundle = document.bundle("ex:b")
     bundle.entity("ex:e0")
     document.entity("ex:e1")
@@ -303,7 +206,7 @@ def test_serialize_strict_matches_get_provn_strict() -> None:
 
 
 def test_strict_flag_changes_nothing_without_a_mention() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e1", {"ex:k": "v"})
     assert document.get_provn(strict=True) == document.get_provn()
 
@@ -318,14 +221,14 @@ def test_code_point_escapes_round_trip() -> None:
 
 
 def test_any_uri_value_with_quote_and_backslash_round_trips() -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e", {"ex:v": Identifier('http://example.org/a"b\\c')})
     assert '"http://example.org/a\\"b\\\\c" %% xsd:anyURI' in _roundtrips(document)
 
 
 @pytest.mark.parametrize("uri", ["http://example.org/a\nb", "http://example.org/a\rb"])
 def test_any_uri_value_with_a_line_break_round_trips(uri) -> None:
-    document = _doc()
+    document = ex_document()
     document.entity("ex:e", {"ex:v": Identifier(uri)})
     _roundtrips(document)
 
@@ -337,3 +240,21 @@ class _Shouted(str):
 
 def test_string_subclass_is_written_through_its_str() -> None:
     assert encoding_provn_value(_Shouted('a"b')) == '"A\\"B"'
+
+
+class _RaisingLiteral(Literal):
+    def provn_representation(self) -> str:
+        raise AttributeError("boom")
+
+    # Without this override the pre-fix `except` branch reached
+    # Literal.__str__ and raised anyway, so the test would pass on the old code.
+    def __str__(self) -> str:
+        return '"fallback"'
+
+
+def test_provn_writer_lets_an_error_in_a_literal_subclass_propagate() -> None:
+    document = ex_document()
+    record = document.entity("ex:e", {"ex:v": _RaisingLiteral("x", NS["custom"])})
+    assert any(type(v) is _RaisingLiteral for v in record.get_attribute("ex:v"))
+    with pytest.raises(AttributeError, match="boom"):
+        document.get_provn()

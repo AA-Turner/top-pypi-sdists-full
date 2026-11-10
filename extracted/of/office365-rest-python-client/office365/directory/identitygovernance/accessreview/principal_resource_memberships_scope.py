@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.identitygovernance.accessreview.scope import AccessReviewScope
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class PrincipalResourceMembershipsScope(AccessReviewScope):
     principalScopes: ClientValueCollection[AccessReviewScope] = field(
         default_factory=lambda: ClientValueCollection(AccessReviewScope)

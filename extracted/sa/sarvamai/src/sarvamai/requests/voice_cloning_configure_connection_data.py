@@ -59,6 +59,14 @@ class VoiceCloningConfigureConnectionDataParams(typing_extensions.TypedDict):
     form before synthesis. Defaults to the server-side setting.
     """
 
+    remove_background_noise: typing_extensions.NotRequired[bool]
+    """
+    Remove background noise from the uploaded reference audio before synthesis.
+    Only applies when `ref_audio` is provided; ignored for `voice_id`.
+    Adds processing latency before the first audio chunk -- roughly 1 second
+    for a typical reference clip.
+    """
+
     output_audio_codec: typing_extensions.NotRequired[VoiceCloningConfigureConnectionDataOutputAudioCodec]
     """
     Audio codec for streamed frames. Default is `mp3`.

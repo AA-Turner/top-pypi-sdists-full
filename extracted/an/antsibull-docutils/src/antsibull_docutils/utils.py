@@ -14,67 +14,29 @@ import io
 import os
 import typing as t
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 
 # docutils.__version_info__ exists since docutils 0.14, released in August 2017.
 # Python 3.7 wasn't even out then. I think we can safely ignore versions before that.
 from docutils import __version_info__, nodes
-from docutils.core import Publisher, publish_parts
+from docutils.core import Publisher
 from docutils.io import StringInput
 from docutils.parsers.rst import Directive
 from docutils.parsers.rst.directives import register_directive
 from docutils.parsers.rst.roles import register_local_role
-from docutils.utils import Reporter as DocutilsReporter
 from docutils.utils import SystemMessage
 
-if t.TYPE_CHECKING:
-    from docutils.parsers.rst.states import Inliner  # pragma: no cover
+from ._utils import RenderResult, SupportedParser, get_docutils_publish_settings
+from ._utils import render as _render
 
-    RSTRole = t.Callable[  # pragma: no cover
+if t.TYPE_CHECKING:  # pragma: no cover
+    from docutils.parsers.rst.states import Inliner
+
+    RSTRole = t.Callable[
         [str, str, str, int, Inliner, Mapping[str, t.Any], Sequence[str]],
         tuple[Sequence[nodes.Node], Sequence[SystemMessage]],
     ]
 
-SupportedParser = t.Union[t.Literal["restructuredtext"], t.Literal["markdown"]]
-
-
-_PARSER_NAME_ARG = "parser" if __version_info__ >= (0, 22) else "parser_name"
-
-_DOCUTILS_PUBLISH_SETTINGS = {
-    "input_encoding": "unicode",
-    "file_insertion_enabled": False,
-    "raw_enabled": False,
-    "_disable_config": True,
-    "report_level": DocutilsReporter.ERROR_LEVEL,
-}
-
-
-def get_docutils_publish_settings(
-    *,
-    warnings_stream: io.IOBase | None = None,
-) -> dict[str, t.Any]:
-    """
-    Provide docutils publish settings.
-    """
-    settings = _DOCUTILS_PUBLISH_SETTINGS.copy()
-    settings["warning_stream"] = warnings_stream or False
-    return settings
-
-
-@dataclass
-class RenderResult:
-    """
-    A rendering result.
-    """
-
-    # The output of the renderer.
-    output: str
-
-    # The set of class names found that weren't supported by this renderer.
-    unsupported_class_names: set[str]
-
-    # List of warnings emitted
-    warnings: list[str]
+_AVOID_SET_COMPONENTS = __version_info__ >= (0, 22)
 
 
 def get_document_structure(
@@ -83,22 +45,13 @@ def get_document_structure(
     """
     Render the document as its internal docutils structure.
     """
-    warnings_stream = io.StringIO()
-    opts: dict[str, t.Any] = {
-        _PARSER_NAME_ARG: parser_name,
-    }
-    parts = publish_parts(
-        source=source,
-        settings_overrides=get_docutils_publish_settings(
-            warnings_stream=warnings_stream
-        ),
-        **opts,
-    )
-    whole = parts["whole"]
-    return RenderResult(
-        whole.decode("utf-8") if isinstance(whole, bytes) else whole,
-        set(),
-        warnings_stream.getvalue().splitlines(),
+    return _render(
+        source,
+        parser_name=parser_name,
+        writer=None,
+        get_unknown_node_types=set,
+        source_path=None,
+        destination_path=None,
     )
 
 
@@ -142,10 +95,18 @@ def parse_document(
     # Doing this more explicit is a bad idea since the classes used are deprecated and will
     # eventually get replaced. Publisher.get_settings() looks like a stable enough API that
     # we can 'just use'.
-    publisher = Publisher(source_class=StringInput)
     reader_name = "standalone"
     writer_name = "pseudoxml"  # doesn't matter, since we just need the parsed document
-    publisher.set_components(reader_name, parser_name, writer_name)
+    publisher_args: dict[str, t.Any] = {
+        "source_class": StringInput,
+    }
+    if _AVOID_SET_COMPONENTS:
+        publisher_args["reader"] = reader_name
+        publisher_args["parser"] = parser_name
+        publisher_args["writer"] = writer_name
+    publisher = Publisher(**publisher_args)
+    if not _AVOID_SET_COMPONENTS:
+        publisher.set_components(reader_name, parser_name, writer_name)
     override = get_docutils_publish_settings(warnings_stream=io.StringIO())
     override.update(
         {

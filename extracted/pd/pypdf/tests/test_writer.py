@@ -598,6 +598,90 @@ def test_remove_text_all_operators(pdf_file_path):
         writer.write(output_stream)
 
 
+@pytest.mark.parametrize(
+    ("resources", "expected"),
+    [
+        pytest.param(NumberObject(1), "Resources are not a dictionary: 1", id="number"),
+        pytest.param(ArrayObject(), "Resources are not a dictionary: []", id="array"),
+        pytest.param(
+            TextStringObject("x"), "Resources are not a dictionary: x", id="string"
+        ),
+        pytest.param(
+            DictionaryObject({NameObject("/XObject"): NumberObject(1)}),
+            "XObject resources are not a dictionary: 1",
+            id="xobject-number",
+        ),
+        pytest.param(NullObject(), None, id="null"),
+        pytest.param(
+            DictionaryObject({NameObject("/XObject"): NullObject()}), None, id="xobject-null"
+        ),
+    ],
+)
+@pytest.mark.parametrize("method", ["remove_images", "remove_text"])
+def test_remove_objects__resources_are_not_a_dictionary(caplog, method, resources, expected):
+    """Malformed resources do not stop images or text from being removed."""
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=72, height=72)
+    page[NameObject("/Resources")] = resources
+    content = DecodedStreamObject()
+    content.set_data(
+        b"BT /F1 12 Tf (Hello) Tj ET q 10 0 0 10 0 0 cm BI /W 1 /H 1 /BPC 8 /CS /G ID \x80 EI Q"
+    )
+    page[NameObject("/Contents")] = writer._add_object(content)
+
+    getattr(writer, method)()
+
+    data = page["/Contents"].get_object().get_data()
+    if method == "remove_images":
+        assert b"BI" not in data
+        assert b"(Hello) Tj" in data
+    else:
+        assert b"(Hello)" not in data
+        assert b"BI" in data
+    if expected is None:
+        assert caplog.text == ""
+    else:
+        assert expected in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("annotations", "expected"),
+    [
+        pytest.param(NumberObject(4), "Annotations are not an array: 4", id="number"),
+        pytest.param(TextStringObject("x"), "Annotations are not an array: x", id="string"),
+        pytest.param(DictionaryObject(), "Annotations are not an array: {}", id="dictionary"),
+    ],
+)
+@pytest.mark.parametrize("method", ["remove_annotations", "remove_links"])
+def test_remove_annotations__annotations_are_not_an_array(caplog, method, annotations, expected):
+    """An /Annots entry that is not an array is left as is, instead of raising a TypeError."""
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=72, height=72)
+    page[NameObject("/Annots")] = annotations
+
+    if method == "remove_annotations":
+        writer.remove_annotations(subtypes=None)
+    else:
+        writer.remove_links()
+
+    assert page["/Annots"] == annotations
+    assert expected in caplog.text
+
+
+def test_remove_annotations__entries_are_not_dictionaries():
+    """Entries that are not dictionaries have no subtype: they are kept by a filter and removed with all."""
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=72, height=72)
+    link = DictionaryObject({NameObject("/Subtype"): NameObject("/Link")})
+    page[NameObject("/Annots")] = ArrayObject([NumberObject(1), TextStringObject("x"), link])
+
+    writer.remove_annotations("/Link")
+    assert page["/Annots"] == ArrayObject([NumberObject(1), TextStringObject("x")])
+
+    writer.remove_annotations(subtypes=None)
+    assert page["/Annots"] == ArrayObject()
+
+
 def test_write_metadata(pdf_file_path):
     pdf_path = RESOURCE_ROOT / "crazyones.pdf"
 
@@ -1769,6 +1853,38 @@ def test_set_page_label(pdf_file_path):
     writer.write(pdf_file_path)
 
 
+def test_set_page_label__start_none():
+    """`start=None` is a legitimate "not set" value and must not crash at write time (#4285).
+
+    It behaves exactly like the default `0`: no `/St` entry is written, so numbering
+    restarts at 1 per the PDF spec.
+    """
+    writer = PdfWriter()
+    for _ in range(4):
+        writer.add_blank_page(width=100, height=100)
+    writer.set_page_label(0, 3, "/D", None, None)
+
+    buffer = BytesIO()
+    writer.write(buffer)
+    buffer.seek(0)
+
+    assert PdfReader(buffer).page_labels == ["1", "2", "3", "4"]
+
+
+def test_set_page_label__prefix_only_without_start():
+    """A prefix-only label with `style=None` and `start=None` works (#4285)."""
+    writer = PdfWriter()
+    for _ in range(4):
+        writer.add_blank_page(width=100, height=100)
+    writer.set_page_label(0, 3, None, "P", None)
+
+    buffer = BytesIO()
+    writer.write(buffer)
+    buffer.seek(0)
+
+    assert PdfReader(buffer).page_labels == ["P", "P", "P", "P"]
+
+
 @pytest.mark.enable_socket
 def test_iss1601():
     url = "https://github.com/py-pdf/pypdf/files/10579503/badges-38.pdf"
@@ -2480,6 +2596,55 @@ def test_missing_info():
     assert b"/Info" not in b.getvalue()
 
 
+def test_clone_from__clone_indirect_info_values():
+    writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    writer._info[NameObject("/Title")] = writer._add_object(TextStringObject("Indirect title"))
+    source = BytesIO()
+    writer.write(source)
+    assert PdfReader(source).metadata.title == "Indirect title"
+
+    writer = PdfWriter(clone_from=PdfReader(source))
+    assert writer._info.raw_get("/Title").pdf is writer
+    output = BytesIO()
+    writer.write(output)
+    assert PdfReader(output).metadata.title == "Indirect title"
+
+
+def test_clone_from__tolerate_dangling_info_reference():
+    writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    writer._info[NameObject("/Title")] = IndirectObject(999, 0, writer)
+    source = BytesIO()
+    writer.write(source)
+
+    writer = PdfWriter(clone_from=PdfReader(source))
+    writer.compress_identical_objects()
+    assert writer._info["/Title"] == NullObject()
+
+
+@pytest.mark.parametrize(
+    "file_identifier",
+    [
+        # Decoded as UTF-16BE text due to the leading null byte.
+        pytest.param(b"\x00\xa1\xb2\xc3\xd4\xe5\xf6\x07\x18\x29\x3a\x4b\x5c\x6d\x7e\x8f", id="leading-null-byte"),
+        # Decoded as UTF-8 text due to the leading BOM.
+        pytest.param(b"\xef\xbb\xbfAb\xe2\x82\xac\xc3\xa912\x00\x00\x00\x00", id="utf8-bom"),
+    ],
+)
+def test_clone_from__keep_file_identifier_bytes(file_identifier):
+    writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    writer._ID = ArrayObject([ByteStringObject(file_identifier), ByteStringObject(file_identifier)])
+    source = BytesIO()
+    writer.write(source)
+    assert isinstance(PdfReader(source).trailer["/ID"][0], TextStringObject)
+
+    writer = PdfWriter(clone_from=PdfReader(source))
+    output = BytesIO()
+    writer.write(output)
+    file_identifiers = PdfReader(output).trailer["/ID"]
+    assert file_identifiers[0].original_bytes == file_identifier
+    assert file_identifiers[1].original_bytes == file_identifier
+
+
 @pytest.mark.enable_socket
 def test_germanfields():
     """Cf #2035"""
@@ -3029,40 +3194,25 @@ def test_compress_identical_objects__remove_unreferenced():
         writer.get_object(reference)
 
 
-@pytest.mark.enable_socket
 def test_compress_identical_objects__deprecation():
-    url = "https://github.com/user-attachments/files/16575458/tt2.pdf"
-    name = "iss2794.pdf"
-    in_bytes = BytesIO(get_data_from_url(url=url, name=name))
-    writer = PdfWriter(in_bytes)
-    with pytest.warns(
-        DeprecationWarning,
+    writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    with pytest.raises(
+        DeprecationError,
         match=(
-            r"^remove_orphans is deprecated and will be removed in pypdf 7\.0\.0\. "
+            r"^remove_orphans is deprecated and was removed in pypdf 7\.0\.0\. "
             r"Use remove_unreferenced instead\.$"
         ),
     ):
         writer.compress_identical_objects(remove_orphans=True)
-    out1 = BytesIO()
-    writer.write(out1)
-    assert 0.5 * len(in_bytes.getvalue()) > len(out1.getvalue())
-    writer.remove_page(
-        1
-    )  # page0 contains fields which keep reference to the deleted page
-    out2 = BytesIO()
-    writer.write(out2)
-    assert len(out1.getvalue()) - 100 < len(out2.getvalue())
-    with pytest.warns(
-        DeprecationWarning,
+
+    with pytest.raises(
+        DeprecationError,
         match=(
-            r"^remove_identicals is deprecated and will be removed in pypdf 7\.0\.0\. "
+            r"^remove_identicals is deprecated and was removed in pypdf 7\.0\.0\. "
             r"Use remove_duplicates instead\.$"
         ),
     ):
         writer.compress_identical_objects(remove_identicals=True)
-    out3 = BytesIO()
-    writer.write(out3)
-    assert len(out2.getvalue()) > len(out3.getvalue())
 
 
 def test_set_need_appearances_writer():
@@ -3244,22 +3394,6 @@ def test_auto_write(tmp_path):
     with PdfWriter(target) as writer:
         writer.add_blank_page(100, 100)
     assert target.stat().st_size > 0
-
-
-def test_deprecate_with_as():
-    """Yet another test for #2905"""
-    with PdfWriter() as writer:
-        with pytest.raises(
-                expected_exception=DeprecationError,
-                match=r"with_as_usage is deprecated and was removed in pypdf 5\.0"
-        ):
-            _ = writer.with_as_usage
-
-        with pytest.raises(
-                expected_exception=DeprecationError,
-                match=r"with_as_usage is deprecated and was removed in pypdf 5\.0"
-        ):
-            writer.with_as_usage = False  # old code allowed setting this, so...
 
 
 @pytest.mark.skipif(GHOSTSCRIPT_BINARY is None, reason="Requires Ghostscript")
@@ -3543,6 +3677,67 @@ def test_merge_with_null_acroform_does_not_raise_typeerror():
     assert "/AcroForm" not in target.root_object
 
 
+@pytest.mark.parametrize(
+    ("fields", "expected_messages"),
+    [
+        pytest.param(NumberObject(1), ["AcroForm /Fields is not an array: 1"], id="number"),
+        pytest.param(NullObject(), ["AcroForm /Fields is not an array: NullObject"], id="null"),
+        pytest.param(ArrayObject([NullObject(), TextStringObject("x"), DictionaryObject()]), [], id="direct-entries"),
+    ],
+)
+def test_append__skips_acroform_fields_that_are_not_an_array_of_references(caplog, fields, expected_messages):
+    reader = PdfReader(RESOURCE_ROOT / "form.pdf")
+    reader.root_object["/AcroForm"][NameObject("/Fields")] = fields
+
+    writer = PdfWriter()
+    writer.append(reader)
+
+    assert writer.root_object["/AcroForm"]["/Fields"] == []
+    assert caplog.messages == expected_messages
+
+
+def test_append__skips_acroform_that_is_not_a_dictionary(caplog):
+    reader = PdfReader(RESOURCE_ROOT / "form.pdf")
+    reader.root_object[NameObject("/AcroForm")] = NumberObject(1)
+
+    writer = PdfWriter()
+    writer.append(reader)
+
+    assert len(writer.pages) == 1
+    assert "/AcroForm" not in writer.root_object
+    assert caplog.messages == ["AcroForm is not a dictionary: 1"]
+
+
+def test_append__keeps_existing_acroform_fields():
+    writer = PdfWriter()
+    writer.append(RESOURCE_ROOT / "form.pdf")
+    assert len(writer.root_object["/AcroForm"]["/Fields"]) == 1
+
+    reader = PdfReader(RESOURCE_ROOT / "form.pdf")
+    del reader.root_object["/AcroForm"]["/Fields"]
+    writer.append(reader)
+    assert len(writer.root_object["/AcroForm"]["/Fields"]) == 1
+
+    del writer.root_object["/AcroForm"]["/Fields"]
+    writer.append(RESOURCE_ROOT / "form.pdf")
+    assert len(writer.root_object["/AcroForm"]["/Fields"]) == 1
+
+    writer.root_object["/AcroForm"][NameObject("/Fields")] = NullObject()
+    writer.append(RESOURCE_ROOT / "form.pdf")
+    assert len(writer.root_object["/AcroForm"]["/Fields"]) == 1
+
+
+def test_append__skips_duplicate_acroform_fields():
+    reader = PdfReader(RESOURCE_ROOT / "form.pdf")
+    fields = reader.root_object["/AcroForm"]["/Fields"]
+    fields.append(fields[0])
+
+    writer = PdfWriter()
+    writer.append(reader)
+
+    assert len(writer.root_object["/AcroForm"]["/Fields"]) == 1
+
+
 def test_compress_identical_objects__info_is_none():
     writer = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
     writer.compress_identical_objects()
@@ -3798,6 +3993,35 @@ def test_append__skips_outline_nodes_that_are_not_dictionaries(caplog, outlines,
     assert caplog.messages == [f"Outline node is not a dictionary: {expected}"]
 
 
+@pytest.mark.parametrize(
+    ("outlines", "expected"),
+    [
+        pytest.param(NumberObject(1), ["Outlines are not a dictionary: 1"], id="number"),
+        pytest.param(ArrayObject(), ["Outlines are not a dictionary: []"], id="array"),
+        pytest.param(TextStringObject("x"), ["Outlines are not a dictionary: x"], id="string"),
+        pytest.param(NullObject(), [], id="null"),
+        pytest.param(DictionaryObject(), [], id="direct-dictionary"),
+    ],
+)
+def test_add_outline_item__outlines_not_an_indirect_dictionary(caplog, outlines, expected) -> None:
+    """An outline item can be added when the existing /Outlines entry is not an indirect dictionary."""
+    source = PdfWriter()
+    source.add_blank_page(width=72, height=72)
+    source.root_object[NameObject("/Outlines")] = outlines
+    stream = BytesIO()
+    source.write(stream)
+    stream.seek(0)
+
+    writer = PdfWriter(clone_from=PdfReader(stream))
+    writer.add_outline_item("Title", 0)
+    stream = BytesIO()
+    writer.write(stream)
+    stream.seek(0)
+
+    assert [item.title for item in PdfReader(stream).outline] == ["Title"]
+    assert caplog.messages == expected
+
+
 @pytest.mark.timeout(5)
 def test_add_articles_thread__cyclic() -> None:
     writer = PdfWriter()
@@ -3971,12 +4195,118 @@ def test_add_uri_out_of_range(page_number):
         writer.add_uri(page_number, "https://example.com", RectangleObject([0, 0, 1, 1]))
 
 
-@pytest.mark.parametrize("page_number", [0, 2, -1, -3])
+@pytest.mark.parametrize("page_number", [0, 1, 2, -1, -3])
 def test_add_named_destination_in_range(page_number):
     writer = PdfWriter()
     for _ in range(3):
         writer.add_blank_page(100, 100)
-    assert writer.add_named_destination("destination", page_number) is not None
+    destination_reference = writer.add_named_destination("destination", page_number)
+    assert destination_reference is not None
+    destination_dictionary = writer.get_object(destination_reference)
+    target_page_reference = destination_dictionary["/D"][0]
+    assert writer.get_object(target_page_reference)["/Type"] == "/Page"
+    assert target_page_reference == writer.pages[page_number].indirect_reference
+
+
+@pytest.mark.parametrize("page_number", [0, 1, 2, -1, -3])
+def test_add_uri_in_range(page_number):
+    writer = PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(100, 100)
+    writer.add_uri(page_number, "https://example.com", RectangleObject([0, 0, 1, 1]))
+    assert "/Annots" in writer.pages[page_number]
+
+
+def create_hierarchical_pdf_bytes() -> bytes:
+    """A minimal 4-page PDF with a 2-level /Pages tree."""
+    writer = PdfWriter()
+    for _ in range(4):
+        writer.add_blank_page(100, 100)
+    root_pages_reference = writer._pages
+    root_pages = root_pages_reference.get_object()
+    (
+        page_reference_0,
+        page_reference_1,
+        page_reference_2,
+        page_reference_3,
+    ) = root_pages["/Kids"]
+
+    first_intermediate_node = DictionaryObject({
+        NameObject("/Type"): NameObject("/Pages"),
+        NameObject("/Count"): NumberObject(2),
+        NameObject("/Kids"): ArrayObject([page_reference_0, page_reference_1]),
+        NameObject("/Parent"): root_pages_reference,
+    })
+    first_node_reference = writer._add_object(first_intermediate_node)
+    second_intermediate_node = DictionaryObject({
+        NameObject("/Type"): NameObject("/Pages"),
+        NameObject("/Count"): NumberObject(2),
+        NameObject("/Kids"): ArrayObject([page_reference_2, page_reference_3]),
+        NameObject("/Parent"): root_pages_reference,
+    })
+    second_node_reference = writer._add_object(second_intermediate_node)
+
+    writer.pages[0][NameObject("/Parent")] = first_node_reference
+    writer.pages[1][NameObject("/Parent")] = first_node_reference
+    writer.pages[2][NameObject("/Parent")] = second_node_reference
+    writer.pages[3][NameObject("/Parent")] = second_node_reference
+
+    root_pages[NameObject("/Kids")] = ArrayObject([
+        first_node_reference,
+        second_node_reference,
+    ])
+    root_pages[NameObject("/Count")] = NumberObject(4)
+
+    buffer = BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+@pytest.mark.parametrize("page_number", [0, 1, 2, 3, -1, -2, -4])
+def test_add_named_destination__hierarchical_tree__valid_page_reference(page_number):
+    pdf_bytes = create_hierarchical_pdf_bytes()
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter(fileobj=BytesIO(pdf_bytes), clone_from=reader, incremental=True)
+
+    destination_reference = writer.add_named_destination("destination", page_number)
+    assert destination_reference is not None
+    destination_dictionary = writer.get_object(destination_reference)
+    target_page_reference = destination_dictionary["/D"][0]
+    assert writer.get_object(target_page_reference)["/Type"] == "/Page"
+    assert target_page_reference == writer.pages[page_number].indirect_reference
+
+
+@pytest.mark.parametrize("page_number", [0, 1, 2, 3, -1, -2, -4])
+def test_add_uri__hierarchical_tree__valid_page_reference(page_number):
+    pdf_bytes = create_hierarchical_pdf_bytes()
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter(fileobj=BytesIO(pdf_bytes), clone_from=reader, incremental=True)
+
+    writer.add_uri(page_number, "https://example.com", RectangleObject([0, 0, 10, 10]))
+    assert "/Annots" in writer.pages[page_number]
+
+    for intermediate_node in writer._pages.get_object()["/Kids"]:
+        assert "/Annots" not in intermediate_node.get_object()
+
+
+@pytest.mark.parametrize("page_number", [4, 100, -5, -100])
+def test_add_named_destination__hierarchical_tree__out_of_range_page_reference(page_number):
+    pdf_bytes = create_hierarchical_pdf_bytes()
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter(fileobj=BytesIO(pdf_bytes), clone_from=reader, incremental=True)
+
+    with pytest.raises(IndexError, match=f"Page number {page_number} is out of range"):
+        writer.add_named_destination("destination", page_number)
+
+
+@pytest.mark.parametrize("page_number", [4, 100, -5, -100])
+def test_add_uri__hierarchical_tree__out_of_range_page_reference(page_number):
+    pdf_bytes = create_hierarchical_pdf_bytes()
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter(fileobj=BytesIO(pdf_bytes), clone_from=reader, incremental=True)
+
+    with pytest.raises(IndexError, match=f"Page number {page_number} is out of range"):
+        writer.add_uri(page_number, "https://example.com", RectangleObject([0, 0, 10, 10]))
 
 
 def test_update_page_form_field_values__warns_for_unannotated_page(caplog):
@@ -4039,3 +4369,36 @@ def test_find_outline_item__cyclic(name: str) -> None:
 
     with pytest.raises(expected_exception=LimitReachedError, match=r"^Detected cyclic outline hierarchy\.$"):
         writer.find_outline_item("Dummy")
+
+
+def test_generate_file_identifiers__non_deterministic() -> None:
+    writer1 = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+    writer2 = PdfWriter(clone_from=RESOURCE_ROOT / "crazyones.pdf")
+
+    assert writer1._ID == writer2._ID
+
+    writer1.generate_file_identifiers()
+    writer2.generate_file_identifiers()
+
+    assert writer1._ID[0] == writer2._ID[0]
+    assert writer1._ID[1] != writer2._ID[1]
+
+
+def test_generate_file_identifiers__initially_identical() -> None:
+    writer = PdfWriter()
+    writer.add_blank_page(width=10, height=10)
+
+    writer.generate_file_identifiers()
+    assert writer._ID[0] == writer._ID[1]
+
+
+def test_generate_file_identifiers__update() -> None:
+    writer = PdfWriter()
+    writer.add_blank_page(width=10, height=10)
+
+    writer.generate_file_identifiers()
+    id_permanent, id_changing = writer._ID[:2]
+
+    writer.generate_file_identifiers()
+    assert writer._ID[0] == id_permanent
+    assert writer._ID[1] != id_changing

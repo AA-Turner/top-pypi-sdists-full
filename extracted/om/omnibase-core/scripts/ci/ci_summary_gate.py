@@ -57,6 +57,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 # The poller's own job — excluded to avoid self-deadlock.
 SELF_JOB_NAME = "CI Summary"
@@ -304,27 +305,18 @@ def external_contexts_for_event(event_name: str) -> tuple[str, ...]:
 # defense-in-depth check — it does not delegate to the aggregate Quality Gate's
 # own strict `== success` aggregation to catch a dropped leaf.
 #
-# `tests/unit/scripts/ci/test_ci_summary_gate.py::test_spec_required_validator_jobs_match_spec`
+# `tests/unit/scripts/ci/test_ci_summary_gate.py::test_spec_validators_match_spec`
 # pins this tuple to the spec (validator_jobs covering job NAMES), so a NEW
 # spec-required validator cannot silently escape this anchor: adding it to the
 # spec forces adding its covering job here, or CI fails.
-SPEC_REQUIRED_VALIDATOR_JOBS: tuple[str, ...] = (
-    "Code Quality",  # lint (ruff-format-check, mypy-type-check)
-    "Mypy Validation Scripts",  # mypy-validation-scripts (mypy-type-check, arch-002)
-    "Core-Infra Boundary",  # core-infra-boundary (arch-002-no-transport-imports)
-    "Enum Governance Check",  # enum-governance
-    "Naming Conventions",  # naming-conventions
-    "Pydantic Patterns",  # pydantic-patterns
-    "AI Slop Patterns",  # aislop-patterns
-    "Doc-Content Scan",  # doc-content-scan
-    "Typed Bootstrap Environment Boundary (OMN-17744)",  # typed-bootstrap-environment-boundary
-    "SPDX Headers",  # spdx-headers
-    "Duplicate Registry Ids",  # duplicate-registry-ids (OMN-14401)
-    "Hardcoded Topic Validator",  # hardcoded-topic-validator (OMN-14430)
-    "Runtime Identity Validator",  # runtime-identity-validator (OMN-17308)
-    "Canonical File Shape (OMN-20304)",  # canonical-file-shape (OMN-20304)
-    "Shape-Gate Independence (OMN-20298)",  # shape-gate-independence (OMN-20298)
+# Notes that sat inside the tables now read from ci_summary_gate_tables.json:
+# `tests/unit/scripts/ci/test_ci_summary_gate.py::test_spec_required_validator_jobs_match_spec`
+# Tables the gate reads as data (the baselined gate file only shrinks).
+_TABLES = json.loads(
+    Path(__file__).with_name("ci_summary_gate_tables.json").read_text(encoding="utf-8")
 )
+
+SPEC_REQUIRED_VALIDATOR_JOBS: tuple[str, ...] = tuple(_TABLES["spec_validators"])
 
 # Conclusions that count as "provably passed".
 GOOD_CONCLUSIONS: frozenset[str] = frozenset({"success", "skipped"})
@@ -412,25 +404,7 @@ _DETAILS_URL_RUN_ID = re.compile(r"/actions/runs/(\d+)(?:/|$)")
 # Layers 1-3 own this run's jobs; layer 4 only looks up registered contexts.
 # Every remaining name is judged here, including rows with unknown provenance.
 # The polarity matters: only a KNOWN non-PR event exempts a row.
-SWEEP_NON_PR_EVENTS: frozenset[str] = frozenset(
-    {
-        "push",
-        "merge_group",
-        "schedule",
-        "workflow_dispatch",
-        "release",
-        "deployment",
-        "deployment_status",
-        "repository_dispatch",
-        "create",
-        "delete",
-        "fork",
-        "page_build",
-        "public",
-        "registry_package",
-        "watch",
-    }
-)
+SWEEP_NON_PR_EVENTS: frozenset[str] = frozenset(_TABLES["sweep_non_pr_events"])
 SWEEP_GOOD_CONCLUSIONS: frozenset[str] = frozenset({"success"})
 
 
@@ -446,42 +420,54 @@ class SweepExclusion:
 
 SWEEP_EXCLUSION_MAX_DAYS: int = 90
 
-# OMN-17427: measured over 15 merged core PR heads on 2026-10-17 using the
-# PR watcher state. These were the only external pull_request-event names
-# non-success by design: handshake-policy-gate skipped on 15/15 heads, and
-# Enable Auto-Merge skipped on 1/8 heads carrying it. Expiry re-arms the sweep.
-EXTERNAL_SWEEP_EXCLUSIONS: dict[str, SweepExclusion] = {
-    "handshake-policy-gate": SweepExclusion(
-        reason="Schedule/workflow_dispatch-only producer leaves a skipped placeholder on PRs.",
-        ticket="OMN-17427",
-        added="2026-10-17",
-        expires="2026-12-20",
-    ),
-    "Enable Auto-Merge": SweepExclusion(
-        reason="Job condition requires a matching PR actor and skips for other actors.",
-        ticket="OMN-17427",
-        added="2026-10-17",
-        expires="2026-12-20",
-    ),
-    # Measured on omnibase_core#2047 (run 39119407826): a PR touching one of
-    # propagate-config.yml's pull_request paths (.pre-commit-hooks.yaml) posts
-    # this unrendered-name row, skipped because the job runs only on release or
-    # workflow_dispatch; its PR-time dry-run is ci.yml's propagate-dry-run.
-    "Propagate ${{ (inputs.propagation_name || 'release-triggered') }}": SweepExclusion(
-        reason="Release/workflow_dispatch-only propagator leaves a skipped placeholder on path-matched PRs.",
-        ticket="OMN-17427",
-        added="2026-10-18",
-        expires="2026-12-20",
-    ),
-    # Measured on CI run 39298561187 (main push of bf1a16372): the workflow_run
-    # harvester posts a skipped row because it runs only for pull_request CI.
-    "Harvest shadow records": SweepExclusion(
-        reason="workflow_run harvester runs only for pull_request CI and leaves a skipped row on pushed heads.",
-        ticket="OMN-17427",
-        added="2026-10-19",
-        expires="2026-12-20",
-    ),
-}
+# The registry is data, in ci_summary_sweep_exclusions.json beside this file
+# (stdlib json: the poller runs with no third-party packages). Each entry names
+# its reason, ticket, added date and expiry; the measurements behind them are in
+# contracts/OMN-17427.yaml. Expiry re-arms the sweep.
+SWEEP_EXCLUSIONS_FILE = Path(__file__).with_name("ci_summary_sweep_exclusions.json")
+
+
+def load_sweep_exclusions(path: Path) -> dict[str, SweepExclusion]:
+    """Read the exclusion registry; a malformed file raises and fails the gate."""
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return {name: SweepExclusion(**fields) for name, fields in raw.items()}
+
+
+EXTERNAL_SWEEP_EXCLUSIONS: dict[str, SweepExclusion] = load_sweep_exclusions(
+    SWEEP_EXCLUSIONS_FILE
+)
+
+# Per-check advisory or blocking mode is data (ruling 2026-11-08): the contract names
+# each mode and the conclusions it adds to success, the overlay declares each check's
+# mode. A neutral passes only for a declared-advisory check; undeclared stays denied.
+# A missing, unparsable or malformed file refuses the gate and admits nothing.
+CHECK_MODES_FILES = [
+    Path(__file__).with_name(f"ci_summary_external_check_modes{part}.json")
+    for part in (".contract", "")
+]
+
+
+def load_check_modes(contract: Path, overlay: Path) -> tuple[dict, list[str]]:
+    # Returns (conclusions each declared check adds to success, refusals).
+    try:
+        spec = json.loads(contract.read_text(encoding="utf-8"))
+        decls = json.loads(overlay.read_text(encoding="utf-8"))
+        modes = {m: frozenset(c) for m, c in spec["modes"].items()}
+        need = sorted({"mode", *spec["entry_fields"]})
+        bad = {
+            n
+            for n, e in decls.items()
+            if not isinstance(e, dict)
+            or not all(isinstance(e.get(f), str) and e[f].strip() for f in need)
+            or e["mode"] not in modes
+        }
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        return {}, [f"unreadable or malformed: {exc!r}"]
+    return {n: modes[e["mode"]] for n, e in decls.items() if n not in bad}, [
+        f"{n}: needs non-empty text {', '.join(need)} and a declared mode"
+        for n in sorted(bad)
+    ]
+
 
 _SWEEP_TICKET_RE = re.compile(r"^OMN-\d+$")
 _SWEEP_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -1262,6 +1248,7 @@ def evaluate_external_sweep(
 
     accounted = frozenset(expected) | in_run_names | {self_name}
     active, _expired = active_sweep_exclusions(exclusions, now=now)
+    check_modes, mode_refusals = load_check_modes(*CHECK_MODES_FILES)
     # Scope before collapsing so a non-PR run cannot hide a PR verdict under
     # the same name. Retain core's skip supersession and latest-wins policy.
     rows = [
@@ -1277,7 +1264,9 @@ def evaluate_external_sweep(
         if (run_id := check_run_workflow_run_id(raw)) is not None
         and run_id not in events
     }
-    failures: list[str] = []
+    # A row a declared-advisory check's mode admits lands in ``excluded`` as
+    # "name (conclusion, declared advisory)"; an unreadable registry is a failure.
+    failures = [f"check-mode registry {r}" for r in mode_refusals]
     running: list[str] = []
     swept: list[str] = []
     excluded: list[str] = []
@@ -1291,6 +1280,8 @@ def evaluate_external_sweep(
             running.append(name)
         elif state.conclusion in SWEEP_GOOD_CONCLUSIONS:
             continue
+        elif state.conclusion in check_modes.get(name, ()):
+            excluded.append(f"{name} ({state.conclusion}, declared advisory)")
         elif (
             name in unread_names
             or verdict_is_provisional(state, now)

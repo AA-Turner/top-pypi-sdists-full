@@ -23,19 +23,24 @@ import asyncio
 import contextlib
 from typing import TYPE_CHECKING, Any
 
+from .._jsonrpc import error_response
 from .._sse import parse_sse_stream
+from ..exceptions import RequestError
 from .protocol import (
     CONNECTION_ID_HEADER,
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_SSE,
+    SESSION_ATTACH_METHODS,
     SESSION_ID_HEADER,
     is_initialize_request,
+    is_response_message,
+    message_id_key,
     method_requires_session_header,
     session_id_from_message,
 )
 
 try:
-    import httpx
+    import httpx2
 except ImportError as exc:  # pragma: no cover - exercised via import guard message
     msg = "The Streamable HTTP transport requires the 'http' extra: pip install agent-client-protocol[http]"
     raise ImportError(msg) from exc
@@ -65,7 +70,7 @@ class _HttpStreamTransport:
         self,
         url: str,
         *,
-        client: httpx.AsyncClient,
+        client: httpx2.AsyncClient,
         owns_client: bool,
         headers: dict[str, str] | None = None,
     ) -> None:
@@ -78,6 +83,8 @@ class _HttpStreamTransport:
         self._inbox: asyncio.Queue[Any] = asyncio.Queue()
         self._stream_tasks: set[asyncio.Task[None]] = set()
         self._session_streams: set[str] = set()
+        # Pending session/load and session/resume requests, keyed by request id.
+        self._pending_loads: dict[str, str] = {}
 
     # -- Transport protocol -------------------------------------------------
 
@@ -87,7 +94,16 @@ class _HttpStreamTransport:
         if is_initialize_request(message):
             await self._send_initialize(message)
             return
-        await self._send_post(message)
+        key = message_id_key(message.get("id"))
+        session_id = session_id_from_message(message)
+        if message.get("method") in SESSION_ATTACH_METHODS and key is not None and session_id is not None:
+            self._pending_loads[key] = session_id
+        try:
+            await self._send_post(message)
+        except BaseException:
+            if key is not None:
+                self._pending_loads.pop(key, None)
+            raise
 
     async def receive(self) -> dict[str, Any] | None:
         item = await self._inbox.get()
@@ -99,6 +115,7 @@ class _HttpStreamTransport:
         if self._closed:
             return
         self._closed = True
+        self._pending_loads.clear()
         for task in list(self._stream_tasks):
             task.cancel()
         for task in list(self._stream_tasks):
@@ -148,7 +165,7 @@ class _HttpStreamTransport:
         # Some servers may answer initialize-like 200 bodies; for 200 with a body enqueue it.
         if response.status_code == 200 and response.content:
             with contextlib.suppress(Exception):
-                self._inbox.put_nowait(response.json())
+                self._handle_incoming(response.json())
 
     def _open_stream(self, *, session_id: str | None) -> None:
         if self._closed:
@@ -175,9 +192,9 @@ class _HttpStreamTransport:
             async with self._client.stream("GET", self._url, headers=headers) as response:
                 if response.status_code != 200:
                     return
-                async for event in parse_sse_stream(_aiter_raw(response)):
+                async for event in parse_sse_stream(_aiter_raw(response), on_error=self._send_protocol_error):
                     self._handle_incoming(event)
-        except (httpx.HTTPError, asyncio.CancelledError):
+        except (httpx2.HTTPError, asyncio.CancelledError):
             return
         finally:
             self._on_stream_closed(session_id)
@@ -197,18 +214,29 @@ class _HttpStreamTransport:
             self._session_streams.discard(session_id)
             return
         if not self._closed:
+            self._pending_loads.clear()
             self._inbox.put_nowait(_EOF)
 
+    async def _send_protocol_error(self, error: RequestError) -> None:
+        with contextlib.suppress(ConnectionError, httpx2.HTTPError, AcpHttpStatusError):
+            await self.send(error_response(error))
+
     def _handle_incoming(self, message: dict[str, Any]) -> None:
-        # Open a session-scoped stream when any message carries a new sessionId
-        # (e.g. a session/new or session/load result on the connection stream).
+        # Load and resume responses may omit sessionId; the ID is in the request.
+        if is_response_message(message):
+            key = message_id_key(message.get("id"))
+            loaded = self._pending_loads.pop(key, None) if key is not None else None
+            if loaded is not None and "result" in message:
+                self._open_stream(session_id=loaded)
         session_id = session_id_from_message(message)
-        if session_id is not None and session_id not in self._session_streams:
+        # Replay stays on the connection stream until load succeeds. Avoid
+        # opening a session GET that a failed load would immediately tear down.
+        if session_id is not None and session_id not in self._pending_loads.values():
             self._open_stream(session_id=session_id)
         self._inbox.put_nowait(message)
 
 
-async def _aiter_raw(response: httpx.Response) -> AsyncIterator[bytes]:
+async def _aiter_raw(response: httpx2.Response) -> AsyncIterator[bytes]:
     async for chunk in response.aiter_bytes():
         yield chunk
 
@@ -216,14 +244,14 @@ async def _aiter_raw(response: httpx.Response) -> AsyncIterator[bytes]:
 def create_http_stream(
     url: str,
     *,
-    client: httpx.AsyncClient | None = None,
+    client: httpx2.AsyncClient | None = None,
     headers: dict[str, str] | None = None,
 ) -> Transport:
     """Create a Streamable HTTP client :class:`Transport`.
 
     Args:
         url: The ACP endpoint URL (e.g. ``https://host/acp``).
-        client: An optional pre-configured ``httpx.AsyncClient``.  If omitted, an
+        client: An optional pre-configured ``httpx2.AsyncClient``.  If omitted, an
             HTTP/2-enabled client with a cookie jar is created and owned by the
             transport (closed on ``close()``).
         headers: Extra headers sent on every request.
@@ -234,5 +262,5 @@ def create_http_stream(
     owns_client = client is None
     if client is None:
         # SSE GET streams are long-lived, so disable read timeouts by default.
-        client = httpx.AsyncClient(http2=True, timeout=httpx.Timeout(None))
+        client = httpx2.AsyncClient(http2=True, timeout=httpx2.Timeout(None))
     return _HttpStreamTransport(url, client=client, owns_client=owns_client, headers=headers)

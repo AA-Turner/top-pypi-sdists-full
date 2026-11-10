@@ -52,6 +52,7 @@ CATEGORY_ORDER: tuple[str, ...] = (
     "Download",
     "Upload",
     "Logging",
+    "Kernels",
     "Deprecated",
 )
 
@@ -926,6 +927,15 @@ DOWNLOAD_TOTAL_TIMEOUT: int = _env_int(
     "Download",
     allow_zero=True,
 )
+
+"""Budget for one hop of the intra-cloud region probe."""
+DOWNLOAD_REGION_PROBE_TIMEOUT_SECONDS: int = _env_int(
+    "MODELSCOPE_DOWNLOAD_REGION_PROBE_TIMEOUT_SECONDS",
+    1,
+    "Per-hop timeout for the intra-cloud region probe (seconds)",
+    "Download",
+)
+
 DOWNLOAD_MIN_BYTES_PER_SECOND: int = _env_int(
     "MODELSCOPE_DOWNLOAD_MIN_BYTES_PER_SECOND",
     1024,
@@ -1526,6 +1536,23 @@ _env_register(
     "Core",
 )
 
+# ---------------------------------------------------------------------------
+# Kernels (``modelscope_hub.kernels``)
+#
+# Publisher trust for HF-style kernel repositories loaded through
+# :mod:`modelscope_hub.kernels`. ModelScope has no trusted-publisher flag,
+# so the default trust decision falls back to an allowlist extended by this
+# environment variable.
+# ---------------------------------------------------------------------------
+ENV_KERNELS_TRUSTED_PUBLISHERS: str = "MS_KERNELS_TRUSTED_PUBLISHERS"
+
+_env_register(
+    ENV_KERNELS_TRUSTED_PUBLISHERS,
+    "",
+    "Comma-separated kernel publishers trusted in addition to the built-in allowlist",
+    "Kernels",
+)
+
 __all__ = [
     "AGENT_PLUGIN_TRUSTED_OWNERS",
     "API_CONNECT_TIMEOUT",
@@ -1561,6 +1588,7 @@ __all__ = [
     "DOWNLOAD_MIN_BYTES_PER_SECOND",
     "DOWNLOAD_LOW_SPEED_WINDOW_SECONDS",
     "DOWNLOAD_RETRY_MAX_DELAY_SECONDS",
+    "DOWNLOAD_REGION_PROBE_TIMEOUT_SECONDS",
     "DOWNLOAD_FILE_LOCK_TIMEOUT_SECONDS",
     "REPO_TREE_PAGE_TIMEOUT_SECONDS",
     "REPO_TREE_LIST_TIMEOUT_SECONDS",
@@ -1570,6 +1598,7 @@ __all__ = [
     "ENV_INTRA_CLOUD_ACCELERATION",
     "ENV_INTRA_CLOUD_REGION",
     "ENV_INTER_CLOUD_REGIONS",
+    "ENV_KERNELS_TRUSTED_PUBLISHERS",
     "ENV_MODELSCOPE_DOMAIN",
     "ENV_PREFER_AI_SITE",
     "ENV_REGISTRY",

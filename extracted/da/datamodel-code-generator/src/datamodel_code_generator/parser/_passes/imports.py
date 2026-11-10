@@ -11,28 +11,35 @@ from __future__ import annotations
 
 import dataclasses
 import operator
+from collections import defaultdict
+from functools import partial
 from itertools import chain, repeat
 from keyword import iskeyword
-from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, TypeVar, cast
 
 from typing_extensions import Protocol
 
 from datamodel_code_generator import DefaultValueTypeWarning, Error, ReuseScope
-from datamodel_code_generator._constraint_applicability import MSGSPEC_OUTPUT, int_beyond_values
-from datamodel_code_generator._message_text import counted, for_count, listed_with_more
+from datamodel_code_generator._constraint_applicability import MSGSPEC_OUTPUT, WIDENED_VALUES_KEY, int_beyond_values
+from datamodel_code_generator._container_kinds import ARRAYS, ITEM_CONTAINERS, MAPPINGS, SLOT_CLASSES
+from datamodel_code_generator._graph import reach
+from datamodel_code_generator._message_text import counted, english_list, for_count, listed_with_more
 from datamodel_code_generator._model_keys import model_key_of
 from datamodel_code_generator._module_paths import (
     dotted_module,
     dotted_name,
     expanded_path,
+    is_package_init,
     is_within,
     is_within_name,
     module_parts,
     normalized_path,
+    written_module_name,
     written_path,
 )
+from datamodel_code_generator._python_syntax import holds_lone_surrogate
 from datamodel_code_generator._python_target_names import is_builtin_type_name
-from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, reference_graph
+from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, walk_graph
 from datamodel_code_generator._requirements import pydantic_floor
 from datamodel_code_generator._target_unicode import is_importable_part
 from datamodel_code_generator._url_redaction import redact_reference
@@ -40,6 +47,7 @@ from datamodel_code_generator.enums import DefaultValueType
 from datamodel_code_generator.imports import (
     IMPORT_ANNOTATIONS,
     IMPORT_LITERAL,
+    IMPORT_TYPE_ALIAS_TYPE,
     Import,
     _aliased_name,
     _import_bindings,
@@ -47,14 +55,14 @@ from datamodel_code_generator.imports import (
     _iter_import_bindings,
     _stored_import,
 )
-from datamodel_code_generator.model._decisions.enum_kind import literal_value_kind
-from datamodel_code_generator.model._decisions.tag_value import struct_tag_clash
+from datamodel_code_generator.model._decisions.enum_kind import enum_member_kinds, literal_value_kind
+from datamodel_code_generator.model._decisions.tag_value import struct_union_refusal
 from datamodel_code_generator.model._render_plan import RENDER_READY
-from datamodel_code_generator.model.base import BaseClassDataType, DataModel, _bare_loads_of
+from datamodel_code_generator.model._rendered_names import FieldNameBindings
+from datamodel_code_generator.model.base import BaseClassDataType, DataModel, _bare_loads_of, _model_key_of_model
 from datamodel_code_generator.model.enum import Enum, Member, get_raw_enum_member_value
 from datamodel_code_generator.model.output import _model_field_name_collisions
 from datamodel_code_generator.model.type_alias import TypeAliasBase
-from datamodel_code_generator.parser._graph_ids import keyed_models
 from datamodel_code_generator.parser._imports_plan import Added, Aliased, ImportProducer, Removed
 from datamodel_code_generator.parser._passes._import_binding import (
     ReferenceExpressionHost,
@@ -63,10 +71,18 @@ from datamodel_code_generator.parser._passes._import_binding import (
     shared_import_bindings,
 )
 from datamodel_code_generator.parser._passes._import_edges import (
+    GenericBaseClassPlacement,
     _written_package,
+    failing_import_reads,
+    import_cycle_seeds,
+    import_plan,
     module_import_edges,
     relative_import_targets,
+    runs_into_import_cycle,
+    written_import_blocks,
 )
+from datamodel_code_generator.parser._passes._name_allocation import scheme_resolver
+from datamodel_code_generator.parser._passes._reference_users import alias_loops
 from datamodel_code_generator.parser._passes._shared import (
     BaseStandInHost,
     DataModelTypeHost,
@@ -78,40 +94,49 @@ from datamodel_code_generator.parser._passes._shared import (
     ReuseOptionsHost,
     RootModelHost,
     _context_models,
-    _declares_unique_items,
     _format_tags,
     _get_data_type_target_full_name,
     _get_model_module_name,
     _is_discriminator_wrapper,
     _iter_discriminator_data_types,
     _named_data_types,
+    _parsed_rule_data_types,
     _string_or_identifier_pattern,
-    _unique_items_tuple,
     definition_reads,
     get_special_path,
     site_display_name,
+    tagged_structs,
+    unimported_model_keys,
+    union_structs,
+    unique_items_plan,
     unused_model_lists,
 )
 from datamodel_code_generator.parser._passes._state import _PYDANTIC_FLOORS, ConfigT, ContextT, ResultT
 from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base
 from datamodel_code_generator.parser._tag_plan import TagPlanHost
 from datamodel_code_generator.python_literal import stable_repr
-from datamodel_code_generator.reference import ModelResolver
+from datamodel_code_generator.reference import field_origin_of, named_schema_location, type_origin_of
 from datamodel_code_generator.types import union_members, written_union_members
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
+    from pathlib import Path
 
     from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator._model_keys import ModelKey
+    from datamodel_code_generator._python_type_annotation import PythonTypeExpr
     from datamodel_code_generator._requirements import PydanticConstruct
     from datamodel_code_generator._target_unicode import ModulePartRow
+    from datamodel_code_generator._user_keys import ConstructionKeys
+    from datamodel_code_generator.config import ParserConfig
+    from datamodel_code_generator.enums import AllExportsScope
     from datamodel_code_generator.imports import Imports, _ImportKey
     from datamodel_code_generator.model._render_plan import RenderReady
     from datamodel_code_generator.model.base import DataModelFieldBase
     from datamodel_code_generator.model_metadata import ModelMetadata
     from datamodel_code_generator.parser._imports_plan import ModuleImportLedger
     from datamodel_code_generator.parser._model_shapes import ReuseGroups
+    from datamodel_code_generator.parser._passes._import_edges import ImportCycleSeeds, ImportPlan
     from datamodel_code_generator.parser._passes._shared import ModuleNamesView
     from datamodel_code_generator.parser._passes._state import (
         FinishRun,
@@ -122,7 +147,8 @@ if TYPE_CHECKING:
         SortedDataModels,
         _FinalizeState,
     )
-    from datamodel_code_generator.reference import ModelType, Reference
+    from datamodel_code_generator.parser.generation import GenerationStore
+    from datamodel_code_generator.reference import ModelResolver, ModelType, Reference
     from datamodel_code_generator.types import DataType
 
 __all__ = [
@@ -136,22 +162,29 @@ __all__ = [
     "bind_module_field_names",
     "builtin_name_bindings",
     "change_imported_model_name",
+    "check_import_reads",
     "decide_config_items",
     "import_models_of_hidden_submodules",
+    "import_names_class",
+    "modules_hidden_by_imports",
     "name_final_classes_of_additional_properties",
     "record_generated_class_names",
     "record_model_placement",
     "record_pydantic_floor",
     "refresh_sequence_interface_after_renames",
+    "reject_class_named_like_submodule",
+    "reject_lone_surrogates_pydantic_reads",
     "reject_unimportable_imports",
     "remap_import_overrides",
     "remove_unused_imports",
     "remove_unused_models",
     "render",
+    "render_module_models",
     "replan_schema_validators_after_renames",
     "resolve_module_import_conflicts",
     "snapshot_model_imports",
     "submodules_hidden_by_packages",
+    "translate_final_name_keys",
     "validate_explicit_field_aliases",
     "warn_about_decimal_defaults",
     "warn_about_dropped_constraints",
@@ -206,9 +239,22 @@ class FinishHost(ReuseOptionsHost, RootModelHost, OutputOptionsHost, TagPlanHost
     _decimal_default_warning_count: int
     _decimal_default_warning_examples: list[str] | None
     _dropped_constraint_fields: frozenset[tuple[ModulePath, str]]
+    final_name_keys_to_assign: tuple[tuple[str, tuple[str, ...]], ...]
     generated_class_names: tuple[tuple[str, str], ...]
     model_placement: dict[ModulePath, frozenset[str]]
     typed_map_values_may_move_models: bool
+
+    @property
+    def _construction_keys(self) -> ConstructionKeys:
+        """The class names that the options read while models are built key (``_user_keys.py``)."""
+
+    @property
+    def generation_store(self) -> GenerationStore:
+        """The generation store of the parse, which records the renames after L2."""
+
+    @property
+    def model_resolver(self) -> ModelResolver:
+        """The resolver of model and field names, which records the final names when the run records its names."""
 
     @property
     def _literal_under_all_enum_reference_ids(self) -> set[ModelKey]:
@@ -220,6 +266,10 @@ class FinishHost(ReuseOptionsHost, RootModelHost, OutputOptionsHost, TagPlanHost
     @property
     def _self_named_root_models(self) -> list[DataModel]:
         """The root models naming themselves that the deduplication of root models dropped, whose users name them."""
+
+    @property
+    def _folded_ref_chains(self) -> dict[str, tuple[tuple[str, str], ...]]:
+        """The name and path of each definition parsed as its ``$ref`` alone that a model naming itself took in."""
 
     @property
     def _reuse_groups(self) -> ReuseGroups:
@@ -261,10 +311,35 @@ class RenderHost(
 
     model_metadata: ModelMetadata | None
     model_metadata_identities: tuple[str, ...]
+    import_cycle_seeds_to_apply: ImportCycleSeeds | None
+    fails_to_import: bool
+    hidden_class_refusal: str | None
+    _hidden_submodule_renames: tuple[tuple[ModulePath, str], ...]
+    _written_imports: list[tuple[ModulePath, Imports]]
+
+    @property
+    def config(self) -> ParserConfig:
+        """The parser configuration."""
 
     @property
     def _self_named_root_models(self) -> list[DataModel]:
         """The root models that name themselves, which deduplication dropped from every module."""
+
+    @property
+    def _import_cycle_seeds(self) -> ImportCycleSeeds:
+        """What an earlier attempt of the run found to fail as the output is imported."""
+
+    @property
+    def custom_template_dir(self) -> Path | None:
+        """The directory of the custom templates, if configured."""
+
+    @property
+    def data_model_type(self) -> type[DataModel]:
+        """The model class the output writes."""
+
+    @property
+    def pydantic_v2_root_model_type(self) -> type[DataModel] | None:
+        """The root model type whose class body evaluates its root type, if the output has one."""
 
     @property
     def _generic_base_model(self) -> DataModel | None:
@@ -341,18 +416,32 @@ def _alias_reserved_names(
     }
 
 
-def _bind_module_field_names(
+def _reserved_aliases(
+    ctx: ModuleContextView, shared_imports: Imports, names: Iterable[str], *, also: Iterable[str]
+) -> dict[str, str]:
+    """Return the alias each of ``names`` takes in the module, in their order (``_reserve_import_alias``).
+
+    The aliases keep off the names ``_alias_reserved_names`` gives and off each other.
+    """
+    reserved = _alias_reserved_names(ctx.models, ctx.imports, shared_imports, also=also)
+    return {name: _reserve_import_alias(name, reserved) for name in names}
+
+
+def _bind_module_field_names(  # noqa: PLR0913
     models: list[DataModel],
     imports: Imports,
     shared_imports: Imports,
     ledger: ModuleImportLedger,
     target: tuple[int, int],
-) -> None:
-    """Allocate aliases only where a property hides an emitted expression name.
+    *,
+    texts: Sequence[str] | None = None,
+) -> bool:
+    """Alias the names a property hides from the text of its class; return whether it aliased any.
 
     The names are those the module's imports bind and the builtin classes of the ``target`` that no import binds,
     which a builtin import binds under the alias. An alias avoids every name the module's and the shared imports
-    bind. Type aliases sit at module scope, so an import they name keeps its name beside the alias.
+    bind. Type aliases sit at module scope, so an import they name keeps its name beside the alias. ``texts`` are the
+    rendered models; without them a model renders where it holds a field of such a name.
     """
     field_names = {field.name for model in models for field in model.fields if field.name is not None}
     shadowable_imports = {binding: key for key, binding in _import_bindings(imports) if binding in field_names}
@@ -362,31 +451,60 @@ def _bind_module_field_names(
         if is_builtin_type_name(name, target)
     )
     if not shadowable_imports:
-        return
+        return False
     collisions: set[str] = set()
-    for model in models:
-        collisions.update(_model_field_name_collisions(model, shadowable_imports))
+    for index, model in enumerate(models):
+        collisions.update(
+            _model_field_name_collisions(model, None if texts is None else texts[index], shadowable_imports)
+        )
     if not collisions:
-        return
+        return False
     reserved_names = _alias_reserved_names(models, imports, shared_imports)
     type_alias_imports = {
         _import_key(import_) for model in models if isinstance(model, TypeAliasBase) for import_ in model.imports
     }
-    bindings: dict[str, str] = {}
+    expressions: dict[str, str] = {}
+    loads: dict[str, str] = {}
     for name, (from_, imported_name) in shadowable_imports.items():
         if name not in collisions:
             continue
         alias = _reserve_import_alias(name, reserved_names)
         keep_unaliased = (from_, imported_name) in type_alias_imports
         aliased_import = Import(from_=from_, import_=imported_name, alias=alias, keep_unaliased=keep_unaliased)
-        bindings[name] = alias
         if from_ == "builtins" or keep_unaliased:
+            expressions[name] = alias
             ledger.append(imports, aliased_import, _FIELD_NAME_BINDINGS)
         else:
+            loads[name] = alias
             ledger.apply_alias(imports, aliased_import, _FIELD_NAME_BINDINGS)
+    bindings = FieldNameBindings(expressions, loads)
     for model in models:
         if not isinstance(model, TypeAliasBase):
             model.set_field_name_bindings(bindings)
+    return True
+
+
+def render_module_models(  # noqa: PLR0913, PLR0917
+    models: list[DataModel],
+    imports: Imports,
+    shared_imports: Imports,
+    ledger: ModuleImportLedger,
+    target: tuple[int, int],
+    overrides: Mapping[str, str] | None,
+) -> list[str]:
+    """Render the models of a module, alias the names a property hides in the texts and render the aliased again.
+
+    Where ``bind_module_field_names`` bound the names before, the texts already write the aliases. The imports the
+    aliases add go through ``--import-overrides`` (``overrides``), as ``remap_import_overrides`` routes the others.
+    """
+    texts = [model.render() for model in models]
+    if not _bind_module_field_names(models, imports, shared_imports, ledger, target, texts=texts):
+        return texts
+    if overrides is not None:
+        _remap_imports(ledger, imports, overrides)
+    return [
+        text if isinstance(model, TypeAliasBase) else model.render() for model, text in zip(models, texts, strict=True)
+    ]
 
 
 def _forward_defined_models(contexts: Iterable[ModuleContextView], forwarder_map: ForwarderMap) -> ForwarderMap:
@@ -425,10 +543,7 @@ def _released_name_imports(  # noqa: PLR0914
         for module, forwarder in forwarder_map.items()
         for released_name, name in forwarder.released
     }
-    unimported = {
-        *parser._base_stand_in_imports,  # noqa: SLF001
-        *(model_key_of(model.reference) for model in parser._self_named_root_models),  # noqa: SLF001
-    }
+    unimported = unimported_model_keys(parser)
     names: dict[ModulePath, tuple[tuple[ModulePath, str, str], ...]] = {}
     for module, forwarder in forwarder_map.items():
         if not forwarder.released:
@@ -436,9 +551,10 @@ def _released_name_imports(  # noqa: PLR0914
         defined = {model.class_name: model for model in contexts_by_module[forwarder.internal_module].models}
         models = [(released_name, model) for released_name, name in forwarder.released if (model := defined.get(name))]
         members = {model_key_of(model.reference) for _, model in models}
-        resolver = ModelResolver(
-            exclude_names={field.name for _, model in models for field in model.fields if field.name is not None},
+        resolver = scheme_resolver(
+            "forwarder",
             target_python_version=parser.target_python_version,
+            exclude_names={field.name for _, model in models for field in model.fields if field.name is not None},
         )
         for released_name, model in models:
             resolver.add([model.path], released_name)
@@ -483,25 +599,16 @@ _MsgspecRefusal: TypeAlias = tuple[tuple[DataModel, ...], str | None]
 _NO_MSGSPEC_REFUSAL: _MsgspecRefusal = ((), None)
 
 
-def _msgspec_refused_structs(models: Iterable[object]) -> _MsgspecRefusal:
+def _msgspec_refused_structs(structs: tuple[DataModel, ...]) -> _MsgspecRefusal:
     """Return the distinct Struct types of a union msgspec refuses, and how their tags clash if all are tagged.
 
     msgspec decodes a union of Struct types only if all are tagged, by one tag field, with distinct tags of one type.
     """
-    structs = (
-        *{
-            id(model): model
-            for model in models
-            if isinstance(model, DataModel) and model.REQUIRES_TAGGED_UNION_DISCRIMINATOR
-        }.values(),
-    )
-    if len(structs) < 2:  # noqa: PLR2004
+    if (refusal := struct_union_refusal([struct.discriminator_tag for struct in structs])) is None:
         return _NO_MSGSPEC_REFUSAL
-    if len(tags := [tag for struct in structs if (tag := struct.discriminator_tag) is not None]) < len(structs):
+    kind, values = refusal
+    if kind == "untagged":
         return structs, None
-    if (clash := struct_tag_clash(tags, "legacy-python-equality")) is None:
-        return _NO_MSGSPEC_REFUSAL
-    kind, values = clash
     if kind == "tag-fields":
         return structs, f"are tagged by different fields {_format_tags(values)}"
     if kind == "tag-types":
@@ -511,9 +618,19 @@ def _msgspec_refused_structs(models: Iterable[object]) -> _MsgspecRefusal:
 
 def _msgspec_refused_member_structs(data_types: Iterable[DataType]) -> _MsgspecRefusal:
     """Return the refused Struct types of a union, through the aliases it names."""
-    return _msgspec_refused_structs(
-        member.reference.source for member, _, _ in _iter_discriminator_data_types(data_types) if member.reference
-    )
+    return _msgspec_refused_structs(union_structs(data_types))
+
+
+def _msgspec_union_members(data_type: DataType) -> Sequence[DataType]:
+    """Return the members of the union a type writes: its own, or the items of a list, set or map of several types.
+
+    Such a container writes its items as a union inside it; the items of a tuple are its positions instead.
+    """
+    if members := union_members(data_type):
+        return members
+    if len(data_type.data_types) > 1 and (data_type in ITEM_CONTAINERS or data_type in MAPPINGS):
+        return data_type.data_types
+    return ()
 
 
 def _iter_union_alias_roots(data_type: DataType) -> Iterator[DataType]:
@@ -531,7 +648,7 @@ def _iter_union_alias_roots(data_type: DataType) -> Iterator[DataType]:
 def _msgspec_refused_union_structs(data_type: DataType) -> _MsgspecRefusal:
     """Return the Struct types of a union msgspec refuses, unless an alias it names is refused on its own."""
     if (
-        not (members := union_members(data_type))
+        not (members := _msgspec_union_members(data_type))
         or not (refusal := _msgspec_refused_member_structs(members))[0]
         or any(_msgspec_refused_member_structs((root,))[0] for root in _iter_union_alias_roots(data_type))
     ):
@@ -593,10 +710,8 @@ def _msgspec_enum_clashes(
     for member in written_union_members(data_types):
         for leaf, _, _ in _iter_discriminator_data_types((member,)):
             if isinstance(source := leaf.reference.source if leaf.reference else None, Enum):
-                if (
-                    kinds := {literal_value_kind(get_raw_enum_member_value(field.default)) for field in source.fields}
-                ) in ({"str"}, {"int"}):
-                    enums[kind := kinds.pop()].add(key := model_key_of(source.reference))
+                if (kinds := _msgspec_enum_kinds(source)) in ({"str"}, {"int"}):
+                    enums[kind := next(iter(kinds))].add(key := model_key_of(source.reference))
                     names[kind][member.type_hint] = None
                     if key not in literal_enum_ids:
                         classes[kind].add(key)
@@ -615,30 +730,169 @@ def _msgspec_enum_clashes(
     )
 
 
-def _msgspec_refused_union_enums(
-    data_type: DataType, literal_enum_ids: Collection[ModelKey]
-) -> tuple[_MsgspecEnumClash, ...]:
-    """Return each kind of a union msgspec refuses for an Enum, unless an alias it names is refused for that kind."""
-    if not (members := union_members(data_type)) or not (clashes := _msgspec_enum_clashes(members, literal_enum_ids)):
+_MsgspecKindClash: TypeAlias = tuple[str, tuple[str, ...]]
+"""A kind of the members of a union that msgspec refuses for holding more than one member of that kind, and its
+written members."""
+
+
+_ClashT = TypeVar("_ClashT", _MsgspecEnumClash, _MsgspecKindClash)
+
+
+def _refused_union_clashes(
+    data_type: DataType, clashes_of: Callable[[Sequence[DataType]], tuple[_ClashT, ...]]
+) -> tuple[_ClashT, ...]:
+    """Return each kind msgspec refuses a union for (``clashes_of`` its members), unless an alias it names is refused.
+
+    ``clashes_of`` is ``_msgspec_enum_clashes`` (an Enum of the kind) or ``_msgspec_kind_clashes`` (more than one
+    member of the kind).
+    """
+    if not (members := _msgspec_union_members(data_type)) or not (clashes := clashes_of(members)):
         return ()
-    covered = {
-        clash[0]
-        for root in _iter_union_alias_roots(data_type)
-        for clash in _msgspec_enum_clashes((root,), literal_enum_ids)
-    }
+    covered = {clash[0] for root in _iter_union_alias_roots(data_type) for clash in clashes_of((root,))}
     return tuple(clash for clash in clashes if clash[0] not in covered)
 
 
-def _msgspec_field_enum_clashes(
-    data_types: Iterable[DataType], literal_enum_ids: Collection[ModelKey]
-) -> dict[str, _MsgspecEnumClash]:
-    """Return the clash of each kind that the unions among some types are refused for, the first union's."""
-    clashes: dict[str, _MsgspecEnumClash] = {}
-    for clash in chain.from_iterable(
-        _msgspec_refused_union_enums(data_type, literal_enum_ids) for data_type in data_types
+def _first_union_clashes(clashes: Iterable[_ClashT]) -> dict[str, _ClashT]:
+    """Return the clash of each kind that the unions among the types of a field are refused for, the first union's."""
+    first: dict[str, _ClashT] = {}
+    for clash in clashes:
+        first.setdefault(clash[0], clash)
+    return first
+
+
+_MSGSPEC_KIND_ASIDES: Final[Mapping[str, str]] = {
+    "dict": " (its Struct types count as one)",
+    "array": "",
+    "str": " (str and Literal str values count as one)",
+    "number": "",
+}
+"""The kinds of which a msgspec union holds one member, besides the Enums of ``_msgspec_enum_clashes``, with what
+counts as one member of the kind."""
+
+
+_MSGSPEC_ANNOTATION_KINDS: Final[Mapping[str, str]] = {
+    **{
+        name: "dict" if slot in MAPPINGS.slots else "array"
+        for slot, written in SLOT_CLASSES.items()
+        for name in (written.name, written.typing_name)
+    },
+    **dict.fromkeys(("str", *_MSGSPEC_STR_TYPES_REFUSED_BESIDE_LITERALS), "str"),
+}
+"""The kind that msgspec counts of each class a Python type annotation writes, by its name: the container classes
+(``SLOT_CLASSES``), str and the other str-like types."""
+
+
+def _msgspec_annotation_slots(expression: PythonTypeExpr) -> Iterator[tuple[str, object]]:
+    """Yield the kind msgspec counts of each member a Python type annotation writes, and the member it counts as.
+
+    The items of a union annotation are members of their own; a class counts by its name
+    (``_MSGSPEC_ANNOTATION_KINDS``), a container as its written type and a str-like type as its name.
+    """
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        is_union_python_type_expr,
+        python_type_expr_arguments,
+        python_type_expr_base_name,
+        render_python_type_expr,
+    )
+
+    if is_union_python_type_expr(expression):
+        for item in python_type_expr_arguments(expression):
+            yield from _msgspec_annotation_slots(item)
+    elif (kind := _MSGSPEC_ANNOTATION_KINDS.get(name := python_type_expr_base_name(expression))) is not None:
+        yield kind, name if kind == "str" else render_python_type_expr(expression)
+
+
+def _msgspec_member_slots(leaf: DataType) -> tuple[tuple[str, object], ...]:
+    """Return each kind of a union member that msgspec counts, with the member it counts as.
+
+    The Struct types of a union count as one dict-like member, and str with the str values of a Literal as one
+    str-like member; an Enum of str values is one str-like member of its own. A type that only holds one member
+    counts as that member, and one a Python type annotation types as the members the annotation writes, where it
+    writes any msgspec counts (``_msgspec_annotation_slots``).
+    """
+    while leaf._writes_nothing_of_its_own and len(leaf.data_types) == 1:  # noqa: SLF001
+        leaf = leaf.data_types[0]
+    if (
+        leaf.python_type is not None
+        and leaf.reference is None
+        and (annotated := (*_msgspec_annotation_slots(leaf.python_type.expression),))
     ):
-        clashes.setdefault(clash[0], clash)
-    return clashes
+        return annotated
+    slot: tuple[str, object] | None = None
+    if (source := leaf.reference.source if leaf.reference else None) is not None:
+        if isinstance(source, Enum):
+            if _msgspec_enum_kinds(source) == {"str"}:
+                slot = "str", model_key_of(source.reference)
+        elif isinstance(source, DataModel) and source.REQUIRES_TAGGED_UNION_DISCRIMINATOR:
+            slot = "dict", None
+    elif leaf in MAPPINGS:
+        slot = "dict", leaf.type_hint
+    elif leaf in ARRAYS:
+        slot = "array", leaf.type_hint
+    elif leaf.literals and not leaf.data_types and not leaf.enum_member_literals:
+        if any(literal_value_kind(literal) == "str" for literal in leaf.literals):
+            slot = "str", "str"
+    elif (
+        not leaf.data_types
+        and not leaf.enum_member_literals
+        and (leaf.type == "str" or leaf.type in _MSGSPEC_STR_TYPES_REFUSED_BESIDE_LITERALS)
+    ):
+        slot = "str", leaf.type
+    number = _msgspec_number_slot(leaf)
+    return (*(() if slot is None else (slot,)), *(() if number is None else (number,)))
+
+
+def _msgspec_number_slot(leaf: DataType) -> tuple[str, object] | None:
+    """Return the number kind of an int ``Literal``, of ``float`` and of ``int``, which msgspec reads in a union.
+
+    msgspec sends every JSON integer to the int ``Literal`` member of a union that also holds ``float``, so an integer
+    that is not one of the values is refused although ``float`` admits it; a union that also holds ``int`` sends them
+    to ``int`` instead (``_msgspec_kind_clashes``).
+    """
+    if leaf.data_types or leaf.enum_member_literals:
+        return None
+    if leaf.literals:
+        return ("number", "int Literal") if any(literal_value_kind(item) == "int" for item in leaf.literals) else None
+    return ("number", leaf.type) if leaf.type in {"float", "int"} else None
+
+
+def _msgspec_kind_clashes(
+    data_types: Iterable[DataType], literal_enum_ids: Collection[ModelKey]
+) -> tuple[_MsgspecKindClash, ...]:
+    """Return each kind and its written members of a union that msgspec refuses for more than one member of the kind.
+
+    msgspec decodes a union only if it holds at most one dict-like member (``dict`` or Struct types), one array-like
+    member (``list``, ``tuple``, ``set``) and one str-like member (``str``, an Enum of str values, ``bytes``, the dates,
+    times, ``UUID`` and ``Decimal``). A kind for which ``_msgspec_enum_clashes`` reports the union is left to it. An int
+    ``Literal`` beside ``float`` loses the integers it does not list only where no ``int`` member takes them.
+    """
+    slots: dict[str, dict[object, None]] = {kind: {} for kind in _MSGSPEC_KIND_ASIDES}
+    names: dict[str, dict[str, None]] = {kind: {} for kind in _MSGSPEC_KIND_ASIDES}
+    members = (*written_union_members(data_types),)
+    for member in members:
+        for leaf, _, _ in _iter_discriminator_data_types((member,)):
+            for kind, counted_as in _msgspec_member_slots(leaf):
+                slots[kind][counted_as] = None
+                names[kind][member.type_hint] = None
+    covered = {clash[0] for clash in _msgspec_enum_clashes(members, literal_enum_ids)}
+    if "int" in slots["number"]:
+        covered.add("number")
+    return tuple((kind, (*names[kind],)) for kind, counted in slots.items() if len(counted) > 1 and kind not in covered)
+
+
+def _msgspec_kind_union_message(name: str, clash: _MsgspecKindClash) -> str:
+    """Describe a union that msgspec refuses to decode because it holds more than one member of a kind."""
+    kind, members = clash
+    if kind == "number":
+        return (
+            f"msgspec cannot decode every integer of the union {name}: its members {', '.join(members)} hold an int "
+            "Literal beside float, and msgspec sends every integer to the Literal, so an integer that is not one of "
+            "its values is refused although float admits it."
+        )
+    return (
+        f"msgspec cannot decode the union {name}: it holds the {kind}-like members {', '.join(members)}, while a "
+        f"msgspec union holds only one {kind}-like member{_MSGSPEC_KIND_ASIDES[kind]}."
+    )
 
 
 def _msgspec_enum_union_message(name: str, clash: _MsgspecEnumClash) -> str:
@@ -697,13 +951,51 @@ def _msgspec_literal_member_message(name: str, member: tuple[str, bool]) -> str:
     )
 
 
+def _refuse_msgspec_bytes_and_str_literal(parser: FinishHost, model: DataModel, field: DataModelFieldBase) -> None:
+    """Refuse a field of msgspec output whose ``Literal`` holds both bytes and str values, which no msgspec type holds.
+
+    The values may also be those of the ``Literal`` members of a union (``Literal[b'ab'] | Literal['a']``). A msgspec
+    ``Literal`` holds no bytes value, and ``bytes`` beside the str values is a union of two str-like members, which
+    msgspec refuses too, so the bound annotation keeps such a ``Literal`` or union as written
+    (``write_refused_literal_values``). ``str`` would take every string and ``bytes`` no str value.
+    """
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        bytes_and_str_literal,
+        literal_values_as_text,
+        render_python_type_expr,
+    )
+
+    if (
+        literal := next(
+            (
+                literal
+                for nested in field.data_type.all_data_types
+                if nested.python_type is not None
+                and (literal := bytes_and_str_literal(nested.python_type.expression)) is not None
+            ),
+            None,
+        )
+    ) is None:
+        return
+    where = "type alias" if parser._is_root_model(model) else "field"  # noqa: SLF001
+    msg = (
+        f"Cannot write `{render_python_type_expr(literal)}` in the msgspec {where} "
+        f"`{site_display_name(parser, model, field)}`: a msgspec union holds one str-like member, so no msgspec type "
+        "holds both bytes and str values. Write values of one kind in the annotation (`x-python-type` or "
+        f"`--type-overrides`), for example `{render_python_type_expr(literal_values_as_text(literal))}` or `bytes`, "
+        "or generate another `--output-model-type`."
+    )
+    raise Error(msg)
+
+
 def _msgspec_null_enum_message(model: Enum) -> str | None:
-    """Describe an enum whose null member msgspec refuses, if the other members are all str or all int."""
-    values = {field.name: get_raw_enum_member_value(field.default) for field in model.fields}
-    if not (nulls := [name for name, value in values.items() if value is None]) or not (
-        (kinds := {literal_value_kind(value) for value in values.values() if value is not None}) <= {"str"}
-        or kinds <= {"int"}
-    ):
+    """Describe an enum whose null member msgspec refuses, if the other members it reads are all str or all int.
+
+    An enum of nothing but null members is described too.
+    """
+    if not (
+        nulls := [field.name for field in model.fields if get_raw_enum_member_value(field.default) is None]
+    ) or not (_msgspec_enum_kinds(model) - {"none"} in ({"str"}, {"int"}) or len(nulls) == len(model.fields)):
         return None
     member = f"its member {nulls[0]} = None"
     fix = (
@@ -716,13 +1008,14 @@ def _msgspec_null_enum_message(model: Enum) -> str | None:
     )
 
 
-_WRITTEN_ENUM_VALUE: Final[Mapping[str, Callable[[Any], object]]] = {
-    "bool": bool,
-    "int": int.__index__,
-    "float": float.__float__,
-    "str": str.__str__,
-}
-"""The value an enum module writes for a member value of each kind: a plain ``bool``, ``int``, ``float`` or ``str``."""
+def _msgspec_enum_kinds(model: Enum) -> frozenset[str]:
+    """Return the kinds of the members of an enum that msgspec reads (``enum_member_kinds``).
+
+    msgspec skips a list or an object value, which has no hash.
+    """
+    return enum_member_kinds(
+        (get_raw_enum_member_value(field.default) for field in model.fields), value_base=model.value_base
+    ) - {"other"}
 
 
 def _msgspec_mixed_enum_message(model: Enum, *, literal_under_all: bool) -> str | None:
@@ -731,28 +1024,12 @@ def _msgspec_mixed_enum_message(model: Enum, *, literal_under_all: bool) -> str 
     The message recommends ``--enum-field-as-literal all`` only where that option writes the enum as a Literal
     (``literal_under_all``).
 
-    The value base of an enum (``Enum.value_base``) makes every value one of its type: that of an ``IntEnum``, a
-    ``StrEnum`` and an ``(int, Enum)`` or ``(str, Enum)`` an int or a str, that of a ``(float, Enum)`` or
-    ``(bytes, Enum)`` a float or bytes. A plain ``Enum`` keeps the values as the module writes them, where one equal to
-    an earlier value is an alias of that member, as Python has it, so ``1`` and ``True`` make one int member; msgspec
-    skips a list or an object value, which has no hash, and refuses an enum left without values.
+    The kinds are those of the members msgspec reads (``_msgspec_enum_kinds``); msgspec refuses an enum left without
+    values.
     """
-    values = [value for field in model.fields if (value := get_raw_enum_member_value(field.default)) is not None]
-    value_base = model.value_base
-    if not values or value_base in {"int", "str"}:
+    if all(get_raw_enum_member_value(field.default) is None for field in model.fields):
         return None
-    kinds: set[str] = set()
-    if value_base is not None:
-        kinds.add(value_base)
-    else:
-        members: dict[object, None] = {}
-        for value in values:
-            if (written := _WRITTEN_ENUM_VALUE.get(kind := literal_value_kind(value))) is not None and (
-                key := written(value)
-            ) not in members:
-                members[key] = None
-                kinds.add(kind)
-    if kinds in ({"str"}, {"int"}):
+    if (kinds := _msgspec_enum_kinds(model) - {"none"}) in ({"str"}, {"int"}):
         return None
     message = f"msgspec cannot decode the enum {model.class_name}: its values are neither all str nor all int."
     if not literal_under_all:
@@ -795,6 +1072,55 @@ def _msgspec_wide_int_enum_message(model: Enum) -> str | None:
     return f"msgspec cannot decode the enum {model.class_name}: its value {value} {_BEYOND_MSGSPEC_INTS}."
 
 
+def _alias_value_aliases(model: DataModel) -> Iterator[DataModel]:
+    """Yield the type aliases that the value of a type alias names, at any nesting."""
+    for data_type in model.all_data_types:
+        if (reference := data_type.reference) is not None and isinstance(source := reference.source, TypeAliasBase):
+            yield source
+
+
+def _msgspec_recursive_alias_messages(models: Sequence[DataModel]) -> Iterator[str]:
+    """Describe each cycle of type aliases whose values name each other through no Struct, in the order of the models.
+
+    msgspec decodes a recursive type only through a Struct: it refuses such an alias in every form the output writes,
+    and every type that uses it. The ``$ref`` chains that loop back without reaching a schema are
+    ``reject_alias_cycles_without_schema``'s (``alias_loops``).
+    """
+    walk = walk_graph(
+        GraphSnapshot.MSGSPEC_ALIAS_RECURSION,
+        EdgeKind.ALIAS_VALUE,
+        (model for model in models if isinstance(model, TypeAliasBase)),
+        _model_key_of_model,
+        _alias_value_aliases,
+    )
+    if not (cycles := walk.graph.circular_components((EdgeKind.ALIAS_VALUE,))):
+        return
+    loops = alias_loops(models, ())
+    order = {id(model): index for index, model in enumerate(models)}
+
+    def position(model: DataModel) -> int:
+        return order.get(id(model), len(order))
+
+    ordered = sorted(
+        (sorted((walk.node_of[key] for key in cycle), key=position) for cycle in cycles),
+        key=lambda cycle: position(cycle[0]),
+    )
+    for cycle in ordered:
+        if id(cycle[0]) in loops:
+            continue
+        names = ", ".join(model.class_name for model in cycle)
+        if len(cycle) == 1:
+            yield (
+                f"msgspec cannot decode the type alias {names}, or a type that uses it: its value names itself "
+                "through no Struct, while msgspec decodes a recursive type only through a Struct."
+            )
+        else:
+            yield (
+                f"msgspec cannot decode the type aliases {names}, or a type that uses them: their values name each "
+                "other through no Struct, while msgspec decodes a recursive type only through a Struct."
+            )
+
+
 def _remap_imports(ledger: ModuleImportLedger, imports: Imports, overrides: Mapping[str, str]) -> None:
     """Move overridden names to their modules, converting import override conflicts to a user-facing generator error."""
     try:
@@ -825,6 +1151,30 @@ def warn_about_decimal_defaults(parser: FinishHost) -> None:
     warn_as_parser_base(message, DefaultValueTypeWarning, stacklevel=2)
 
 
+def widened_values_warning(field: DataModelFieldBase) -> str | None:
+    """Return a warning for the enum or const values a field's type is written in place of, as no Literal holds them.
+
+    The parser keeps them on the type (``record_widened_values``), which admits other values of their types.
+    """
+    if not (
+        widened := (
+            *dict.fromkeys(
+                stable_repr(value)
+                for data_type in field.data_type.all_data_types
+                for value in data_type.__dict__.get(WIDENED_VALUES_KEY, ())
+            ),
+        )
+    ):
+        return None
+    count = len(widened)
+    return field._generated_without_constraints(  # ruff: ignore[private-member-access]
+        f"a Literal of the output model cannot hold the {for_count(count, 'value')} {english_list(widened, 'and')}, "
+        f"so {for_count(count, 'it is', 'they are')} written as {for_count(count, 'its type', 'their types')}, "
+        f"which {for_count(count, 'admits', 'admit')} other values",
+        1,
+    )
+
+
 def warn_about_dropped_constraints(parser: FinishHost, contexts: Sequence[ModuleContextView]) -> None:
     """Warn once per field whose constraints the output model leaves out on its type, and keep each warning."""
     fields: set[tuple[ModulePath, str]] = set()
@@ -832,7 +1182,14 @@ def warn_about_dropped_constraints(parser: FinishHost, contexts: Sequence[Module
         for model in ctx.models:
             for field in model.fields:
                 if message := " ".join(
-                    filter(None, (field.dropped_constraints_warning, tuple_unique_items_warning(parser, field)))
+                    filter(
+                        None,
+                        (
+                            field.dropped_constraints_warning,
+                            widened_values_warning(field),
+                            tuple_unique_items_warning(parser, field),
+                        ),
+                    )
                 ):
                     warn_as_parser_base(message, UserWarning, stacklevel=2)
                     fields.add((ctx.module, message))
@@ -848,31 +1205,14 @@ def tuple_unique_items_warning(parser: FinishHost, field: DataModelFieldBase) ->
         not parser.use_tuple_for_closed_arrays
         or not parser.use_unique_items_as_set
         or parser.generate_schema_validators
-        or not _declares_unique_items(field)
-        or (tuple_type := _unique_items_tuple(field.data_type)) is None
+        or not (tuples := unique_items_plan(field, keeps_tuples=True).tuples)
     ):
         return None
     return field._generated_without_constraints(  # ruff: ignore[private-member-access]
         f"--use-unique-items-as-set writes a uniqueItems array as a set, which would lose the positions of "
-        f"{tuple_type.type_hint}",
-        1,
+        f"{', '.join(tuple_type.type_hint for tuple_type in tuples)}",
+        len(tuples),
     )
-
-
-def _named_alias(model: DataModel) -> TypeAliasBase | None:
-    """Return the type alias that a built-in type alias writes as its whole value, by nothing but its name."""
-    if not isinstance(model, TypeAliasBase) or model._uses_custom_root_template or len(model.fields) != 1:  # noqa: SLF001
-        return None
-    field = model.fields[0]
-    if (
-        (reference := (data_type := field.data_type).reference) is None
-        or not isinstance(target := reference.source, TypeAliasBase)
-        or field.annotated
-        or field.field
-        or field.type_hint.strip("\"'") != (data_type.alias or reference.short_name).strip("\"'")
-    ):
-        return None
-    return target
 
 
 def alias_loop_failure(data_model_type: type[DataModel]) -> str | None:
@@ -887,27 +1227,15 @@ def alias_loop_failure(data_model_type: type[DataModel]) -> str | None:
     return None
 
 
-def _alias_loops(models: Sequence[DataModel], self_named: Sequence[DataModel]) -> dict[int, tuple[DataModel, ...]]:
-    """Map each model of a ``$ref`` chain that loops back without reaching a schema to the loop, starting at it.
+def _loop_error(
+    model: DataModel, cycle: Sequence[DataModel], failure: str, folded: Mapping[str, tuple[tuple[str, str], ...]]
+) -> Error:
+    """Return the error for a model that uses a ``$ref`` chain looping back without reaching a schema.
 
-    The loops are those of the alias graph (`EdgeKind.ALIAS`): type aliases that only name the next alias of a cycle,
-    and the root models of ``self_named``, whose root names the model itself.
+    The chain names the definitions parsed as their ``$ref`` alone that each member took in (``folded``) after it.
     """
-    snapshot = GraphSnapshot.ALIAS_LOOPS
-    keyed = keyed_models((*models, *self_named), snapshot.value)
-    edges = {
-        model_key_of(model.reference): (model_key_of(target.reference),)
-        for model in models
-        if (target := _named_alias(model)) is not None
-    }
-    edges.update((key, (key,)) for key in map(model_key_of, (model.reference for model in self_named)))
-    loops = reference_graph(snapshot, keyed.models, {EdgeKind.ALIAS: edges}).loops(EdgeKind.ALIAS)
-    return {id(keyed.models[key]): tuple(map(keyed.models.__getitem__, loop)) for key, loop in loops.items()}
-
-
-def _loop_error(model: DataModel, cycle: Sequence[DataModel], failure: str) -> Error:
-    """Return the error for a model that uses a ``$ref`` chain looping back without reaching a schema."""
-    chain = " -> ".join(f"{member.class_name} ({redact_reference(member.path)})" for member in (*cycle, cycle[0]))
+    members = [link for member in cycle for link in ((member.class_name, member.path), *folded.get(member.path, ()))]
+    chain = " -> ".join(f"{name} ({redact_reference(path)})" for name, path in (*members, members[0]))
     return Error(
         f"{model.class_name} uses a $ref chain that loops back without reaching a schema, which {failure}: {chain}"
     )
@@ -916,17 +1244,37 @@ def _loop_error(model: DataModel, cycle: Sequence[DataModel], failure: str) -> E
 def _evaluated_data_types(model: DataModel, *, evaluates_annotations: bool) -> Iterator[DataType]:
     """Yield the data types that the statements defining a model evaluate as the module runs.
 
-    They are the types of the fields that ``definition_reads`` reads (row ``legacy-evaluated-without-root-model``), and
-    where it reads the model's own fields, every type of the model, its bases included.
+    Where ``definition_reads`` reads the fields of the model (row ``legacy-evaluated-without-root-model``), they are
+    every type of the model, its bases included. Only Pydantic and msgspec output reaches this check
+    (``alias_loop_failure``), and there a definition reads the model's own fields or none: the subset a functional
+    TypedDict evaluates never comes here.
     """
-    fields = definition_reads(
-        model, row="legacy-evaluated-without-root-model", evaluates_annotations=evaluates_annotations
-    )
-    if fields is model.fields:
+    if (
+        definition_reads(model, row="legacy-evaluated-without-root-model", evaluates_annotations=evaluates_annotations)
+        is not None
+    ):
         yield from model.all_data_types
-        return
-    for field in fields or ():
-        yield from field.data_type.all_data_types
+
+
+def _alias_reached_types(
+    data_types: Iterable[DataType], follows: Callable[[DataType], bool] = lambda _: True
+) -> Iterator[tuple[DataType, object]]:
+    """Yield the types of ``data_types`` and of the type aliases they name, last first, each with the model it names.
+
+    A type that ``follows`` gives a model it names the first time the walk meets that model, else ``None``; the types
+    of a type alias it gives so (``DataModel.all_data_types``) are read next, so an alias is read once, through
+    other aliases or not. The order is that of a stack, which decides the first failure a check reports.
+    """
+    pending = [*data_types]
+    seen: set[int] = set()
+    while pending:
+        data_type = pending.pop()
+        source = None
+        if follows(data_type) and (reference := data_type.reference) is not None and id(reference.source) not in seen:
+            seen.add(id(source := reference.source))
+        yield data_type, source
+        if isinstance(source, TypeAliasBase):
+            pending.extend(source.all_data_types)
 
 
 def reject_alias_cycles_without_schema(
@@ -940,33 +1288,111 @@ def reject_alias_cycles_without_schema(
     no type either: deduplication dropped it while its users still name it (``_self_named_root_models``). A class
     whose fields reach one, directly or through type aliases, could never be built or decode a value. Aliases that no
     class reaches keep their output, unless the module evaluates the name of a dropped root model as it runs, in an
-    alias or, with ``evaluates_annotations``, in a class: it then fails to import, whatever reads the output.
+    alias or, with ``evaluates_annotations``, in a class: it then fails to import. Output that nothing builds from its
+    annotations has no such user left, as ``type_users_of_looping_ref_chains_by_any`` typed them ``Any``.
     """
     self_named_models = parser._self_named_root_models  # noqa: SLF001
     self_named = {id(model): (model,) for model in self_named_models}
     models = _context_models(contexts)
     if (failure := alias_loop_failure(parser.data_model_type)) is not None and (
-        cycles := _alias_loops(models, self_named_models)
+        cycles := alias_loops(models, self_named_models)
     ):
         for model in models:
             if isinstance(model, TypeAliasBase):
                 continue
-            pending = [*model.all_data_types]
-            seen: set[int] = set()
-            while pending:
-                if (reference := pending.pop().reference) is None or id(source := reference.source) in seen:
-                    continue
-                if (cycle := cycles.get(id(source))) is not None:
-                    raise _loop_error(model, cycle, failure)
-                seen.add(id(source))
-                if isinstance(source, TypeAliasBase):
-                    pending.extend(source.all_data_types)
+            for _, source in _alias_reached_types(model.all_data_types):
+                if source is not None and (cycle := cycles.get(id(source))) is not None:
+                    raise _loop_error(model, cycle, failure, parser._folded_ref_chains)  # noqa: SLF001
     if not self_named:
         return
     for model in models:
         for data_type in _evaluated_data_types(model, evaluates_annotations=evaluates_annotations):
             if (reference := data_type.reference) is not None and (cycle := self_named.get(id(reference.source))):
-                raise _loop_error(model, cycle, "Python cannot evaluate as the module runs")
+                raise _loop_error(
+                    model,
+                    cycle,
+                    "Python cannot evaluate as the module runs",
+                    parser._folded_ref_chains,  # noqa: SLF001
+                )
+
+
+_PYDANTIC_ALIAS_ARGUMENTS: Final[Mapping[str, str]] = {
+    "alias": "alias",
+    "validation_alias": "validation alias",
+    "serialization_alias": "serialization alias",
+}
+"""What each alias argument of ``Field()`` is, as the message names it."""
+
+
+def _pydantic_read_aliases(field: DataModelFieldBase) -> Iterator[tuple[str, str]]:
+    """Yield each alias the field's ``Field()`` call writes, which Pydantic reads, with what it is.
+
+    They are the arguments of the frozen render plan: an alias ``--use-serialization-alias`` writes as the serialization
+    alias, or replaces by the one ``--serialization-aliases`` gives, is no alias Pydantic reads. ``validation_alias``
+    writes the ``AliasChoices`` of the field's validation aliases.
+    """
+    plan = field._render_plan()  # noqa: SLF001
+    for call in (plan.call, plan.annotated_call):
+        for argument in () if call is None else call.kwargs:
+            if (kind := _PYDANTIC_ALIAS_ARGUMENTS.get(argument.name)) is None:
+                continue
+            if argument.name == "validation_alias":
+                yield from ((kind, alias) for alias in field.validation_aliases or ())
+            else:
+                yield kind, cast("str", argument.value)
+
+
+def _lone_surrogate_held(model: DataModel, field: DataModelFieldBase) -> tuple[str, str] | None:
+    """Return the first text of a field that Pydantic reads as UTF-8 and that holds a lone surrogate, and its location.
+
+    The texts are the aliases the field's ``Field()`` call writes (``_pydantic_read_aliases``), the str values of its
+    ``Literal`` types and the str values of the enums its types validate as classes, read through the type aliases they
+    name; a ``Literal`` of enum members holds the members, not their values. The text is written as the message writes
+    it (its ``repr``, after what it is), and the location as the message names it: that of the type that holds the
+    value, else of the field, else of the model; an enum's own.
+    """
+    origin = None if (built := field_origin_of(field)) is None else built.location
+    if held := next(
+        ((kind, alias) for kind, alias in _pydantic_read_aliases(field) if holds_lone_surrogate(alias)), None
+    ):
+        return f"its {held[0]} {stable_repr(held[1])}", named_schema_location(origin, model.reference)
+    for data_type, source in _alias_reached_types(
+        field.data_type.all_data_types, lambda data_type: not data_type.enum_member_literals
+    ):
+        if value := next((v for v in data_type.literals if isinstance(v, str) and holds_lone_surrogate(v)), None):
+            location = type_origin_of(data_type) or origin
+            return f"the Literal value {stable_repr(value)}", named_schema_location(location, model.reference)
+        if isinstance(source, Enum):
+            values = (get_raw_enum_member_value(member.default) for member in source.fields)
+            if value := next((v for v in values if isinstance(v, str) and holds_lone_surrogate(v)), None):
+                return (
+                    f"the value {stable_repr(value)} of the enum {source.class_name}",
+                    named_schema_location(None, source.reference),
+                )
+    return None
+
+
+def reject_lone_surrogates_pydantic_reads(parser: FinishHost, contexts: Sequence[ModuleContextView]) -> None:
+    """Refuse output whose Pydantic models hold a lone surrogate in a text that Pydantic reads as UTF-8.
+
+    pydantic-core cannot build the validator or serializer of such a text, so the module would fail to import: an
+    alias of a field (``AliasChoices`` too), a str value of a ``Literal``, and a str value of an enum that a type
+    validates as a class (``_lone_surrogate_held``). The module writes each text as its escape, which keeps it; an enum
+    or a type alias that no model reaches, and a text Pydantic stores as it is (a description, a default), keep their
+    output. The error names the field and the schema location of the text.
+    """
+    for model in _context_models(contexts):
+        if not model._READ_BY_PYDANTIC:  # noqa: SLF001
+            continue
+        for field in model.fields:
+            if not field.is_class_var and (held := _lone_surrogate_held(model, field)) is not None:
+                text, location = held
+                msg = (
+                    f"Pydantic cannot build {site_display_name(parser, model, field)}: {text} at {location} holds a "
+                    "lone surrogate, which no Pydantic validator holds, so the module would fail to import. Remove the "
+                    "lone surrogate from the schema or use another --output-model-type."
+                )
+                raise Error(msg)
 
 
 def record_pydantic_floor(parser: FinishHost, contexts: Sequence[ModuleContextView]) -> None:
@@ -1001,7 +1427,11 @@ def warn_about_variant_discriminator_tags(parser: FinishHost) -> None:
 
 
 def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleContextView]) -> None:  # noqa: PLR0912
-    """Warn once per union and enum of msgspec output that msgspec refuses to decode."""
+    """Warn once per union and enum of msgspec output that msgspec refuses to decode.
+
+    A field whose ``Literal``, or union of ``Literal`` members, holds both bytes and str values, which no msgspec type
+    holds, is refused instead (``_refuse_msgspec_bytes_and_str_literal``).
+    """
     if not parser.data_model_type.REQUIRES_TAGGED_UNION_DISCRIMINATOR:
         return
     from datamodel_code_generator.model.union import _DataTypeUnionBase  # noqa: PLC0415
@@ -1009,6 +1439,8 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
     models = _context_models(contexts)
     named = {model.class_name: model for model in models}
     literal_enum_ids = parser._literal_under_all_enum_reference_ids  # noqa: SLF001
+    enum_clashes_of = partial(_msgspec_enum_clashes, literal_enum_ids=literal_enum_ids)
+    kind_clashes_of = partial(_msgspec_kind_clashes, literal_enum_ids=literal_enum_ids)
     for model in models:
         if isinstance(model, Enum):
             for message in filter(
@@ -1024,7 +1456,8 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
                 warn_as_parser_base(message, UserWarning, stacklevel=2)
             continue
         if isinstance(model, _DataTypeUnionBase):
-            if (refusal := _msgspec_refused_structs(named.get(field.name) for field in model.fields))[0]:
+            structs = tagged_structs(named.get(field.name) for field in model.fields)
+            if (refusal := _msgspec_refused_structs(structs))[0]:
                 warn_as_parser_base(
                     _msgspec_union_message(model.class_name, refusal, discriminated=False), UserWarning, stacklevel=2
                 )
@@ -1032,6 +1465,7 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
         for field in model.fields:
             if field.is_class_var:
                 continue
+            _refuse_msgspec_bytes_and_str_literal(parser, model, field)
             member = _literal_member(field.data_type)
             discriminated = bool(field.extras.get("discriminator"))
             nested = [*field.data_type.all_data_types][::-1]
@@ -1041,9 +1475,14 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
             refused = bool(refusal[0]) and (
                 refusal[1] is not None or not (discriminated and parser.use_msgspec_tagged_unions)
             )
-            clashes = _msgspec_field_enum_clashes(nested, literal_enum_ids)
+            clashes = _first_union_clashes(
+                chain.from_iterable(_refused_union_clashes(data_type, enum_clashes_of) for data_type in nested)
+            )
+            kind_clashes = _first_union_clashes(
+                chain.from_iterable(_refused_union_clashes(data_type, kind_clashes_of) for data_type in nested)
+            )
             wide = _msgspec_wide_int(chain.from_iterable(data_type.literals for data_type in nested))
-            if member is None and not refused and not clashes and wide is None:
+            if member is None and not refused and not clashes and not kind_clashes and wide is None:
                 continue
             name = site_display_name(parser, model, field)
             if member is not None:
@@ -1054,12 +1493,39 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
                 )
             for clash in clashes.values():
                 warn_as_parser_base(_msgspec_enum_union_message(name, clash), UserWarning, stacklevel=2)
+            for kind_clash in kind_clashes.values():
+                warn_as_parser_base(_msgspec_kind_union_message(name, kind_clash), UserWarning, stacklevel=2)
             if wide is not None:
                 warn_as_parser_base(
                     f"msgspec cannot decode {name}: its Literal value {wide} {_BEYOND_MSGSPEC_INTS}.",
                     UserWarning,
                     stacklevel=2,
                 )
+    for message in _msgspec_recursive_alias_messages(models):
+        warn_as_parser_base(message, UserWarning, stacklevel=2)
+    if message := _msgspec_backport_alias_message(models):
+        warn_as_parser_base(message, UserWarning, stacklevel=2)
+
+
+def _msgspec_backport_alias_message(models: Iterable[DataModel]) -> str | None:
+    """Describe the type aliases written as ``typing_extensions.TypeAliasType``, which msgspec may not decode.
+
+    msgspec decodes only ``typing.TypeAliasType``: Python 3.10 and 3.11 have none, and typing_extensions 4.13 and later
+    write a class of their own before Python 3.15. A target of Python 3.12 or later writes ``type`` statements instead.
+    """
+    if not (names := [model.class_name for model in models if IMPORT_TYPE_ALIAS_TYPE in model.imports]):
+        return None
+    aliases = (
+        f"type alias {names[0]}, or a type that uses it: it is"
+        if len(names) == 1
+        else f"type aliases {', '.join(names)}, or a type that uses them: they are"
+    )
+    return (
+        f"msgspec may not decode the {aliases} written as typing_extensions.TypeAliasType, while msgspec decodes only "
+        "typing.TypeAliasType, which Python 3.10 and 3.11 lack and which typing_extensions 4.13 and later replace with "
+        "a class of their own before Python 3.15; --target-python-version 3.12 writes type statements instead, which "
+        "msgspec decodes."
+    )
 
 
 def _names_written_as_text(models: Iterable[DataModel]) -> set[str]:
@@ -1081,6 +1547,42 @@ def _names_written_as_text(models: Iterable[DataModel]) -> set[str]:
     return names
 
 
+def _imported_names(models: Sequence[DataModel], imports: Imports, shared_names: set[str]) -> set[str]:
+    """Return the names the imports of a module bind that a class of the module may not take.
+
+    The imports every module writes (``shared_names``) count only where a type of the module writes the name as text.
+    """
+    imported_names = {
+        imports.alias[from_][i] if i in imports.alias[from_] and i != imports.alias[from_][i] else i
+        for from_, import_ in imports.items()
+        for i in import_
+    }
+    if shared_names and (shadowed := shared_names.intersection(model.class_name for model in models)):
+        imported_names.update(shadowed.intersection(_names_written_as_text(models)))
+    return imported_names
+
+
+def import_names_class(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> bool:
+    """Tell whether a class of a module takes a name the module imports, which ``change_imported_model_name`` reads."""
+    shared_names = shared_import_bindings(parser.imports)
+    return any(
+        not _imported_names(ctx.models, ctx.imports, shared_names).isdisjoint(model.class_name for model in ctx.models)
+        for ctx in state.contexts
+    )
+
+
+def bind_module_field_names(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
+    """Bind the field names of each module that its imports shadow, before the renames read the module imports."""
+    for ctx in state.contexts:
+        _bind_module_field_names(
+            ctx.models,
+            ctx.imports,
+            parser.imports,
+            parser._import_ledger,  # noqa: SLF001
+            parser.target_python_version.version_key,
+        )
+
+
 def change_imported_model_name(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
     """Rename the local models that an import of their module shadows; remember whether any was renamed.
 
@@ -1090,13 +1592,7 @@ def change_imported_model_name(parser: ImportsHost[Any], state: _FinalizeState[A
     shared_names = shared_import_bindings(parser.imports)
     for ctx in state.contexts:
         models, imports = ctx.models, ctx.imports
-        imported_names = {
-            imports.alias[from_][i] if i in imports.alias[from_] and i != imports.alias[from_][i] else i
-            for from_, import_ in imports.items()
-            for i in import_
-        }
-        if shared_names and (shadowed := shared_names.intersection(model.class_name for model in models)):
-            imported_names.update(shadowed.intersection(_names_written_as_text(models)))
+        imported_names = _imported_names(models, imports, shared_names)
         for model in models:
             if model.class_name not in imported_names:  # pragma: no cover
                 continue
@@ -1114,6 +1610,7 @@ def change_imported_model_name(parser: ImportsHost[Any], state: _FinalizeState[A
                     class_name=True,
                     unique=True,
                 ).name,
+                scheme="imported-name",
             )
             state.renamed_models = True
 
@@ -1241,6 +1738,33 @@ def _rebind_import(  # noqa: PLR0913
     return alias
 
 
+def _rebind_users(  # noqa: PLR0913
+    parser: ImportsHost[Any],
+    ctx: ModuleContextView,
+    held: Mapping[str, Reference],
+    users: Mapping[str, tuple[_ImportKey, Sequence[DataType]]],
+    *,
+    held_by: Literal["builtin", "submodule"],
+    producer: ImportProducer,
+) -> None:
+    """Give each import that loses its name the name the module's resolver gives next, and rename the types using it.
+
+    ``users`` holds, by the name each import loses (``_rebind_import``), the import and the types that name a model
+    through it, in the order they are renamed; the names are taken in sorted order. A type writes the new name in place
+    of the old one before the rest of its expression (``list_1.Pop``), and the enum members of the defaults follow
+    (``_follow_renamed_enum_references``).
+    """
+    renamed: list[DataType] = []
+    for binding, (import_key, data_types) in sorted(users.items()):
+        alias = _rebind_import(parser, ctx, binding, held[binding], import_key, held_by=held_by, producer=producer)
+        for data_type in data_types:
+            parser._graph_builder.name_reference(  # noqa: SLF001
+                data_type, alias + (data_type.alias or binding)[len(binding) :]
+            )
+            renamed.append(data_type)
+    _follow_renamed_enum_references(parser, ctx.models, renamed)
+
+
 def _module_binding(expression: str | None) -> str | None:
     """Return the module binding of an expression ``<binding>.<Class>``, or None for another expression."""
     return expression.partition(".")[0] if expression and "." in expression else None
@@ -1338,26 +1862,18 @@ def _alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], ctx: Modul
         for model in ctx.models
         for name in _bare_loads_of(model.render(), shadowing, rule="legacy-flat-bare-loads")
     }
-    aliases = {
-        binding: _rebind_import(
-            parser,
-            ctx,
-            binding,
-            held[binding],
-            imported[binding],
-            held_by="builtin",
-            producer=_BUILTIN_MODULE_BINDINGS,
-        )
-        for binding in sorted(written)
-    }
-    renamed: list[DataType] = []
+    users: dict[str, dict[int, DataType]] = {binding: {} for binding in written}
     for data_type in references:
-        if (binding := _module_binding(data_type.alias)) in aliases:
-            parser._graph_builder.name_reference(  # noqa: SLF001
-                data_type, f"{aliases[binding]}{cast('str', data_type.alias)[len(binding) :]}"
-            )
-            renamed.append(data_type)
-    _follow_renamed_enum_references(parser, ctx.models, renamed)
+        if (binding := _module_binding(data_type.alias)) in users:
+            users[binding][id(data_type)] = data_type
+    _rebind_users(
+        parser,
+        ctx,
+        held,
+        {binding: (imported[binding], (*by_id.values(),)) for binding, by_id in users.items()},
+        held_by="builtin",
+        producer=_BUILTIN_MODULE_BINDINGS,
+    )
 
 
 def alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
@@ -1413,25 +1929,19 @@ def _alias_imports_hidden_by_submodules(
             ):
                 continue
             users.setdefault(binding, []).append((data_type, _import_key(import_)))
-    renamed: list[DataType] = []
     if users:
         resolver.exclude_names.update(shared_import_bindings(parser.imports))
-    for binding, binding_users in sorted(users.items()):
-        alias = _rebind_import(
-            parser,
-            ctx,
-            binding,
-            held[binding],
-            binding_users[0][1],
-            held_by="submodule",
-            producer=_SUBMODULE_IMPORT_BINDINGS,
-        )
-        for data_type, _ in binding_users:
-            parser._graph_builder.name_reference(  # noqa: SLF001
-                data_type, alias + (data_type.alias or binding)[len(binding) :]
-            )
-            renamed.append(data_type)
-    _follow_renamed_enum_references(parser, ctx.models, renamed)
+    _rebind_users(
+        parser,
+        ctx,
+        held,
+        {
+            binding: (binding_users[0][1], [data_type for data_type, _ in binding_users])
+            for binding, binding_users in users.items()
+        },
+        held_by="submodule",
+        producer=_SUBMODULE_IMPORT_BINDINGS,
+    )
 
 
 def _alias_builtins_hidden_by_submodules(
@@ -1454,8 +1964,7 @@ def _alias_builtins_hidden_by_submodules(
     module_code = parser.data_model_type.render_module_code(ctx.models)
     if not (written := {name for found in loads.values() for name in found} | _bare_loads_of(module_code, hidden)):
         return
-    reserved = _alias_reserved_names(ctx.models, ctx.imports, parser.imports, also=submodule_names)
-    bindings = {name: _reserve_import_alias(name, reserved) for name in sorted(written)}
+    bindings = _reserved_aliases(ctx, parser.imports, sorted(written), also=submodule_names)
     parser._import_ledger.append(  # noqa: SLF001
         ctx.imports,
         [Import(from_="builtins", import_=name, alias=alias) for name, alias in bindings.items()],
@@ -1496,18 +2005,6 @@ def builtin_name_bindings(ledger: ModuleImportLedger, imports: Imports) -> dict[
             else ()
         )
     }
-
-
-def bind_module_field_names(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
-    """Bind the field names of each module that its imports shadow."""
-    for ctx in state.contexts:
-        _bind_module_field_names(
-            ctx.models,
-            ctx.imports,
-            parser.imports,
-            parser._import_ledger,  # noqa: SLF001
-            parser.target_python_version.version_key,
-        )
 
 
 def submodules_hidden_by_packages(
@@ -1578,6 +2075,64 @@ def submodules_hidden_by_packages(
     return result
 
 
+def modules_hidden_by_imports(
+    imports: Imports, module_imports: Iterable[tuple[tuple[str, ...], str]]
+) -> frozenset[tuple[str, ...]]:
+    """Return the modules of ``module_imports`` whose binding an import of ``imports`` that names no model binds too.
+
+    ``from . import BaseModel``, which names the models of the module ``BaseModel`` (``BaseModel.Thing``), and
+    ``from pydantic import BaseModel`` bind one name, so the later of the two names what the module writes for both.
+    ``module_imports`` holds each module that the module imports by a binding, by its module name, with that binding.
+    The imports of models never share a name, as the module's resolver names them all.
+    """
+    models = {_import_key(import_) for import_ in imports.reference_paths.values()}
+    bound = {binding for key, binding in _import_bindings(imports) if key not in models}
+    return frozenset(module for module, binding in module_imports if binding in bound)
+
+
+def _submodules_hidden_by_imports(
+    contexts: Iterable[ModuleContextView], module_names: Mapping[str, str]
+) -> dict[ModulePath, frozenset[tuple[str, ...]]]:
+    """Return, by the file of each module, the modules it imports models from by a name another of its imports binds.
+
+    A module named like an import that every module shares is imported from at once (``reference_import_target``),
+    but the other imports of a module are final only now (``modules_hidden_by_imports``).
+    """
+    result: dict[ModulePath, frozenset[tuple[str, ...]]] = {}
+    for ctx in contexts:
+        if modules := modules_hidden_by_imports(
+            ctx.imports,
+            ((module, stale.binding_name) for *_, stale, module in _module_import_users(ctx, module_names)),
+        ):
+            result[ctx.module] = modules
+    return result
+
+
+def _module_import_users(
+    ctx: ModuleContextView, module_names: Mapping[str, str]
+) -> Iterator[tuple[DataModel, DataType, Reference, Import, tuple[str, ...]]]:
+    """Yield the types of a module's models that name a model through the module import that binds its module.
+
+    Each such type writes the binding of the import before its class name (``pets.Pet``, ``_written_reference``); it
+    comes with its model, the model it names, the import and the parts of the dotted module the named model is in.
+    """
+    imports = ctx.imports
+    for model in ctx.models:
+        for data_type in _named_data_types(model):
+            if (
+                (written := _written_reference(data_type)) is not None
+                and (stale := imports.reference_paths.get((reference := written[0]).path)) is not None
+                and _module_binding(written[1]) == stale.binding_name
+            ):
+                yield (
+                    model,
+                    data_type,
+                    reference,
+                    stale,
+                    tuple(_get_data_type_target_full_name(data_type, reference, module_names).split(".")[:-1]),
+                )
+
+
 def _loaded_modules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> set[str]:
     """Return the dotted names of the modules that the written modules import or import from (``module_import_edges``).
 
@@ -1589,7 +2144,7 @@ def _loaded_modules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> set
     loaded = {target for targets in edges.values() for target in targets}
     if state.config.all_exports_scope is not None:
         loaded.update(
-            dotted_module(written_path(ctx.module, treat_dot_as_module=treat_dot_as_module))
+            written_module_name(ctx.module, treat_dot_as_module=treat_dot_as_module)
             for ctx in state.contexts
             if ctx.models
         )
@@ -1637,8 +2192,7 @@ def _alias_imports_hidden_by_loaded_submodules(parser: ImportsHost[Any], state: 
             )
         ):
             continue
-        reserved = _alias_reserved_names(ctx.models, ctx.imports, parser.imports, also=names)
-        bindings = {binding: _reserve_import_alias(binding, reserved) for binding in hidden}
+        bindings = _reserved_aliases(ctx, parser.imports, hidden, also=names)
         for binding, alias in bindings.items():
             from_, name = imported[binding]
             parser._import_ledger.apply_alias(  # noqa: SLF001
@@ -1651,14 +2205,15 @@ def _alias_imports_hidden_by_loaded_submodules(parser: ImportsHost[Any], state: 
 
 
 def import_models_of_hidden_submodules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
-    """Import the models of a submodule from the submodule where its package hides it from the module.
+    """Import the models of a submodule from the submodule where its package or another import hides it from the module.
 
     ``from . import annotations``, which names the models of the module ``annotations`` (``annotations.Item``), gives
     the ``__future__`` feature where the package's ``__init__.py`` writes ``from __future__ import annotations``, and a
-    class where it defines one of that name (``submodules_hidden_by_packages``). Such a model is imported from its
-    module (``from .annotations import Item``), as ``--use-exact-imports`` imports it, under the name the module's
-    resolver gives it once the module import released its name, and every use of the model follows, the class of an
-    enum member literal (``Literal[annotations.Kind.book]``, ``_written_reference``) and the enum members that
+    class where it defines one of that name (``submodules_hidden_by_packages``), and ``from pydantic import BaseModel``
+    where the module imports ``from . import BaseModel`` too (``modules_hidden_by_imports``). Such a model is imported
+    from its module (``from .annotations import Item``), as ``--use-exact-imports`` imports it, under the name the
+    module's resolver gives it once the module import released its name, and every use of the model follows, the class
+    of an enum member literal (``Literal[annotations.Kind.book]``, ``_written_reference``) and the enum members that
     ``set_default_enum_member`` wrote into defaults included (``_follow_renamed_enum_references``). A literal took the
     place of a type that named its enum, whose import of the module stays counted, so a literal's enum drops every count
     of its import of the module (``_held_count``). The name keeps
@@ -1668,23 +2223,21 @@ def import_models_of_hidden_submodules(parser: ImportsHost[Any], state: _Finaliz
     import binds it, as the field render plans froze it written.
     """
     _alias_imports_hidden_by_loaded_submodules(parser, state)
-    if not (hidden := submodules_hidden_by_packages(parser, state.contexts, state, state.config)):
+    by_packages = submodules_hidden_by_packages(parser, state.contexts, state, state.config)
+    by_imports = _submodules_hidden_by_imports(state.contexts, state.model_path_to_module_name)
+    if not (
+        hidden := {
+            module: by_packages.get(module, frozenset()) | by_imports.get(module, frozenset())
+            for module in by_packages.keys() | by_imports.keys()
+        }
+    ):
         return
     ledger, module_names = parser._import_ledger, state.model_path_to_module_name  # noqa: SLF001
     for ctx in state.contexts:
         if not (modules := hidden.get(ctx.module)):
             continue
         imports = ctx.imports
-        users = [
-            (model, data_type, reference, stale)
-            for model in ctx.models
-            for data_type in _named_data_types(model)
-            if (written := _written_reference(data_type)) is not None
-            and tuple(_get_data_type_target_full_name(data_type, reference := written[0], module_names).split(".")[:-1])
-            in modules
-            and (stale := imports.reference_paths.get(reference.path)) is not None
-            and _module_binding(written[1]) == stale.binding_name
-        ]
+        users = [user[:4] for user in _module_import_users(ctx, module_names) if user[4] in modules]
         if not users:
             continue
         for model, *_, stale in users:
@@ -1737,9 +2290,32 @@ def _held_count(ledger: ModuleImportLedger, imports: Imports, import_: Import) -
 
 
 def name_final_classes_of_additional_properties(state: _FinalizeState[Any]) -> None:
-    """Name the final classes that ``extra_items`` and additional properties reference."""
+    """Name the final classes that ``extra_items`` and additional properties reference.
+
+    A setting names them unquoted where each is bound when the class statement runs (``_binds_named_classes``).
+    """
+    positions = {id(model): (ctx.module, index) for ctx in state.contexts for index, model in enumerate(ctx.models)}
     for model in state.additional_properties_models:
-        model._name_final_classes()  # noqa: SLF001
+        model._name_final_classes(binds_named_classes=_binds_named_classes(model, positions))  # noqa: SLF001
+
+
+def _binds_named_classes(model: DataModel, positions: Mapping[int, tuple[ModulePath, int]]) -> bool:
+    """Return whether every class the additional properties type of ``model`` names is bound as the model is defined.
+
+    ``positions`` gives the module of each written model and its place there. A class of another module is bound by
+    the import at the top of the module, which ``check_import_reads`` reads as the module runs; one of the same module
+    only where the module declares it before the model, and one that no module writes nowhere.
+    """
+    if (own := positions.get(id(model))) is None or (data_type := model.additional_properties_type) is None:
+        return False
+    for nested in data_type.all_data_types:
+        if (reference := nested.reference) is None:
+            continue
+        if (position := positions.get(id(reference.source))) is None or (
+            position[0] == own[0] and position[1] >= own[1]
+        ):
+            return False
+    return True
 
 
 def refresh_sequence_interface_after_renames(state: _FinalizeState[Any]) -> None:
@@ -1776,10 +2352,37 @@ def remap_import_overrides(parser: ImportsHost[Any], state: _FinalizeState[Any])
 
 
 def record_generated_class_names(parser: FinishHost, run: FinishRun[Any, ModuleContextView, Any]) -> None:
-    """Record the class name of every generated model."""
+    """Record the class name of every generated model, and its final name where the run records what it names."""
     parser.generated_class_names = tuple(
         (model.class_name, model.duplicate_class_name) for ctx in run.contexts for model in ctx.models
     )
+    if (record := parser.model_resolver.model_name_record) is not None:
+        record.final = {model.path: model.reference.name for ctx in run.contexts for model in ctx.models}
+
+
+def translate_final_name_keys(parser: FinishHost, run: FinishRun[Any, ModuleContextView, Any]) -> None:
+    """Record the output names of the models renamed after L2 that keys of the options read at L1 name, by path.
+
+    Such a name is none a lookup at L1 reads: the parse again (``__init__.py:_parse_generation_run``) gives it to the
+    model built at the path the model had at L2 (``ModelResolver.final_name_keys``), whose keys then also name it. A
+    name is recorded where a ``ConstructionKeys`` key names it or its class name, the part after its last dot, and it
+    is not the name the model had at L2.
+    """
+    origins: dict[str, tuple[str, str]] = {}
+    for rename in parser.generation_store.renames:
+        origin = (
+            origins.pop(rename.import_path, None) if rename.import_path != rename.path else origins.get(rename.path)
+        )
+        origins[rename.path] = origin or (rename.import_path, rename.reference_name)
+    keys = parser._construction_keys  # noqa: SLF001
+    names: dict[str, dict[str, None]] = {}
+    for model in _context_models(run.contexts):
+        if (origin := origins.get(model.path)) is None:
+            continue
+        path, settled_name = origin
+        if (name := model.reference.name) != settled_name and keys.name_any({name, name.rpartition(".")[2]}):
+            names.setdefault(path, {})[name] = None
+    parser.final_name_keys_to_assign = tuple((path, tuple(found)) for path, found in names.items())
 
 
 def add_root_init_result(run: FinishRun[Any, Any, Any]) -> None:
@@ -1835,6 +2438,180 @@ def record_model_placement(
             )
         )
     )
+
+
+def _package_bindings(
+    contexts: Iterable[ModuleContextView], forwarder_map: ForwarderMap, *, treat_dot_as_module: bool | None
+) -> list[tuple[ModulePath, ModuleContextView, tuple[str, ...]]]:
+    """Return each module that writes a package's ``__init__.py``, by its written path, with the names it binds.
+
+    It binds the class names of its models, or where an import cycle merge moved them, the names its forwarder
+    re-exports (``Forwarder.names``).
+    """
+    bindings: list[tuple[ModulePath, ModuleContextView, tuple[str, ...]]] = []
+    for ctx in contexts:
+        if not is_package_init((path := written_path(ctx.module, treat_dot_as_module=treat_dot_as_module))[-1]):
+            continue
+        if ctx.models:
+            bindings.append((path, ctx, tuple(model.class_name for model in ctx.models)))
+        elif (forwarder := forwarder_map.get(ctx.module_key)) is not None:
+            bindings.append((path, ctx, tuple(bound for _, _, bound in forwarder.names)))
+    return sorted(bindings, key=operator.itemgetter(0))
+
+
+def _class_named_like_submodule(
+    contexts: Sequence[ModuleContextView],
+    bindings: Sequence[tuple[ModulePath, ModuleContextView, tuple[str, ...]]],
+    forwarder_map: ForwarderMap,
+    *,
+    treat_dot_as_module: bool | None,
+    all_exports_scope: AllExportsScope | None,
+) -> tuple[ModulePath, str, tuple[str, ...], tuple[str, ...]] | None:
+    """Return the first class a package's ``__init__.py`` binds beside a module of its name that replaces it, or None.
+
+    The module replaces the class where the ``__init__.py`` does not load it while its imports run, before its classes
+    are defined (``reject_class_named_like_submodule``); a forwarder loads the modules it re-exports from
+    (``Forwarder.names``) and what they load. The class comes with the written path of the ``__init__.py``, the
+    module's parts and the path of its file.
+    """
+    written = sorted(
+        ((written_path(ctx.module, treat_dot_as_module=treat_dot_as_module), ctx) for ctx in contexts if ctx.models),
+        key=operator.itemgetter(0),
+    )
+    submodules: dict[tuple[str, ...], tuple[str, ...]] = {}
+    for path, _ in written:
+        parts = module_parts(path)
+        for size in range(1, len(parts) + 1):
+            submodules.setdefault(parts[:size], path if size == len(parts) else (*parts[:size], "__init__.py"))
+    clashes = [
+        (path, name, module, file)
+        for path, _, names in bindings
+        for name in names
+        if (file := submodules.get(module := (*path[:-1], name))) is not None
+    ]
+    if not clashes:
+        return None
+    edges = module_import_edges(contexts, treat_dot_as_module=treat_dot_as_module, all_exports_scope=all_exports_scope)
+    written_modules = {
+        ctx.module_key: written_module_name(ctx.module, treat_dot_as_module=treat_dot_as_module) for ctx in contexts
+    }
+    for ctx in contexts:
+        if not ctx.models and (forwarder := forwarder_map.get(ctx.module_key)) is not None:
+            edges.setdefault(written_modules[ctx.module_key], set()).update(
+                written_modules[source] for source, _, _ in forwarder.names
+            )
+    for path, name, module, file in clashes:
+        loaded = reach([dotted_module(path)], lambda importer: edges.get(importer, ()))
+        if not any(is_within_name(loaded_name, ".".join(module)) for loaded_name in loaded):
+            return path, name, module, file
+    return None
+
+
+def _hidden_class_refusal(
+    hidden: tuple[ModulePath, str, tuple[str, ...], tuple[str, ...]], config: ParserConfig
+) -> str:
+    """Return the refusal of a class that a module of its name replaces (``_class_named_like_submodule``).
+
+    It names what renames the class or the module: --rename-submodules-hidden-by-classes renames the modules of the
+    module structure, not the shared module that tree-scope reuse adds, which ``--shared-module-name`` names.
+    """
+    path, name, module, file = hidden
+    package = ".".join(path[:-1])
+    where = f"the package {stable_repr(package)}" if package else "the root package"
+    if not config.rename_submodules_hidden_by_classes:
+        hint = (
+            "Rename the class or the module in the input, or pass --rename-submodules-hidden-by-classes to rename the "
+            "module."
+        )
+    else:
+        shared = config.reuse_model and config.reuse_scope == ReuseScope.Tree and module == (config.shared_module_name,)
+        hint = (
+            "--rename-submodules-hidden-by-classes renames only the modules that the schema names and the input files "
+            "give: rename the class in the input or give the module another name"
+            f"{' (--shared-module-name)' if shared else ''}."
+        )
+    return (
+        f"Cannot write the class {stable_repr(name)} in {where} beside the module {stable_repr('.'.join(module))} "
+        f"({'/'.join(file)}): importing the module binds its name in the package over the class, so the models that "
+        f"use the class fail to import or decode. {hint}"
+    )
+
+
+def _final_class_seeds(
+    parser: RenderHost[Any, Any, Any],
+    contexts: Iterable[ModuleContextView],
+    forwarder_map: ForwarderMap,
+    bindings: Iterable[tuple[ModulePath, ModuleContextView, tuple[str, ...]]],
+) -> ImportCycleSeeds | None:
+    """Return the seeds of a parse again that renames the submodules of a package by the names it binds, or None.
+
+    A package disagrees with the renames of --rename-submodules-hidden-by-classes where a name its ``__init__.py``
+    binds in the output names a module below it, as a later pass gave a class that name, or where it no longer binds a
+    name a submodule was renamed for (``Parser._hidden_submodule_renames``). Its names join the names it bound in the
+    earlier attempts of the run (``ImportCycleSeeds.package_classes``, by the module path of the module structure):
+    those only grow, and the run is parsed again only where they grow.
+    """
+    modules = {
+        ctx.module_key[:size]
+        for ctx in contexts
+        if ctx.models or ctx.module_key in forwarder_map
+        for size in range(1, len(ctx.module_key) + 1)
+    }
+    bound = {ctx.module_key: frozenset(names) for _, ctx, names in bindings}
+    disagreeing = {package for package, names in bound.items() if any((*package, name) in modules for name in names)}
+    disagreeing.update(
+        package
+        for package, hidden in parser._hidden_submodule_renames  # noqa: SLF001
+        if hidden not in bound.get(package, ())
+    )
+    seeds = parser._import_cycle_seeds  # noqa: SLF001
+    seeded = dict(seeds.package_classes)
+    grown = {
+        **seeded,
+        **{package: seeded.get(package, frozenset()) | bound.get(package, frozenset()) for package in disagreeing},
+    }
+    if grown == seeded:
+        return None
+    return dataclasses.replace(seeds, package_classes=tuple(sorted(grown.items(), key=operator.itemgetter(0))))
+
+
+def reject_class_named_like_submodule(
+    parser: RenderHost[Any, Any, Any],
+    contexts: Sequence[ModuleContextView],
+    forwarder_map: ForwarderMap,
+    *,
+    all_exports_scope: AllExportsScope | None,
+) -> None:
+    """Refuse a package whose ``__init__.py`` binds a class named like a module or package below it.
+
+    Loading ``pkg.Warn`` binds ``Warn`` in ``pkg`` over the class ``Warn`` of ``pkg/__init__.py``, so the models that
+    name the class then fail to import or decode, and ``from . import Warn`` gives the class, so a model of the module
+    (``Warn.Detail``) fails too; a class that an import cycle merge moved into ``_internal`` and the ``__init__.py``
+    re-exports is bound alike. It is judged on the final class names and import plans, where the modules are
+    written. It holds where the ``__init__.py`` loads the module while its imports run, before its classes are
+    defined or re-exported (it imports from the module or below it, a module it imports does, or
+    ``--all-exports-scope`` re-exports a module of it): the class takes the name after, and no later import rebinds it
+    (``submodules_hidden_by_packages``). Renaming the class or the module changes names that the models and the files
+    go by, so the run fails and names both. Under --rename-submodules-hidden-by-classes, where the renames of the
+    submodules disagree with the names the packages bind here (``_final_class_seeds``), the run is parsed again with
+    those names instead, and the refusal is kept for the run (``Parser.hidden_class_refusal``), which raises it if
+    the parse again does not import.
+    """
+    config, treat_dot_as_module = parser.config, parser.treat_dot_as_module
+    bindings = _package_bindings(contexts, forwarder_map, treat_dot_as_module=treat_dot_as_module)
+    hidden = _class_named_like_submodule(
+        contexts, bindings, forwarder_map, treat_dot_as_module=treat_dot_as_module, all_exports_scope=all_exports_scope
+    )
+    refusal = None if hidden is None else _hidden_class_refusal(hidden, config)
+    if (
+        config.rename_submodules_hidden_by_classes
+        and (seeds := _final_class_seeds(parser, contexts, forwarder_map, bindings)) is not None
+    ):
+        parser.import_cycle_seeds_to_apply = seeds
+        parser.hidden_class_refusal = refusal
+        parser.fails_to_import = refusal is not None
+    elif refusal is not None:
+        raise Error(refusal)
 
 
 def reject_unimportable_imports(
@@ -1895,11 +2672,17 @@ def render_modules(  # noqa: PLR0913
     forwarder_map: ForwarderMap,
     require_update: Collection[ModelKey],
 ) -> str | dict[tuple[str, ...], ResultT]:
-    """Render the shared result mapping and apply final output-only transformations."""
+    """Render the shared result mapping and apply final output-only transformations.
+
+    Every relative import block that a module writes is kept (``_record_written_imports``) for the import check of a
+    modular output (``check_import_reads``).
+    """
     future_imports = parser._import_ledger.extract_future(parser.imports, _FUTURE_IMPORTS)  # noqa: SLF001
     future_imports_str = str(future_imports)
+    merges = forwarder_map
     if forwarder_map:
         forwarder_map = _forward_defined_models(contexts, _released_name_imports(parser, contexts, forwarder_map))
+    parser._written_imports = written = []  # noqa: SLF001
 
     # Export depth and collision prefixes must follow the final package layout.
     if (
@@ -1909,6 +2692,7 @@ def render_modules(  # noqa: PLR0913
     ):
         contexts = [ctx._replace(module=expanded_path(ctx.module)) for ctx in contexts]
 
+    reject_class_named_like_submodule(parser, contexts, forwarder_map, all_exports_scope=config.all_exports_scope)
     for ctx in contexts:
         result = parser._generate_module_output(  # noqa: SLF001
             ctx, config, contexts, forwarder_map, require_update, future_imports_str
@@ -1940,4 +2724,177 @@ def render_modules(  # noqa: PLR0913
         results = parser._result_modules_postprocessor(results, empty_init=config.all_exports_scope is not None)  # noqa: SLF001
         if config.all_exports_scope is not None:
             parser._generate_empty_init_exports(results, contexts, config, future_imports_str)  # noqa: SLF001
+    check_import_reads(
+        parser, results, contexts, merges, written, use_deferred_annotations=config.use_deferred_annotations
+    )
     return results
+
+
+def _module_read(text: str | None, submodules: Mapping[str, str]) -> tuple[str, str] | None:
+    """Return the module and name that the expression ``text`` reads through a module it binds, as ``pets.Pet`` does."""
+    binding, dot, rest = (text or "").strip("\"'").partition(".")
+    return (submodules[binding], rest.partition(".")[0]) if dot and binding in submodules else None
+
+
+def _definition_reads(
+    models: Iterable[DataModel],
+    submodules: Mapping[str, str],
+    *,
+    root_model_type: type[DataModel] | None,
+    evaluates_annotations: bool,
+) -> frozenset[tuple[str, str]]:
+    """Return the names of other modules that the definitions of ``models`` read as their module runs.
+
+    A definition reads a name through a module its module imports (``submodules``, by the name it binds each to) in
+    the types of the fields it evaluates (``definition_reads``, where the class annotations count when
+    ``evaluates_annotations`` tells that something evaluates them as the class is defined), its bases, the types of
+    its schema validator rules and of the backend settings its class statement evaluates (TypedDict ``extra_items``),
+    and the enum members its defaults name.
+    """
+    texts: list[str | None] = []
+    for model in models:
+        fields = (
+            definition_reads(model, root_model_type=root_model_type, evaluates_annotations=evaluates_annotations) or ()
+        )
+        for data_type in chain(
+            (data_type for field in fields for data_type in field.data_type.all_data_types),
+            model.base_classes,
+            _parsed_rule_data_types(model),
+            model._setting_data_types_read_at_definition(),  # noqa: SLF001
+        ):
+            texts.append(data_type.alias)
+            texts.extend(enum_class for enum_class, _ in data_type.enum_member_literals)
+        for field in model.fields:
+            values = field.default if isinstance(field.default, list) else [field.default]
+            texts.extend(value.alias for value in values if isinstance(value, Member))
+    return frozenset(read for text in texts if (read := _module_read(text, submodules)) is not None)
+
+
+def _structure_modules(
+    contexts: Iterable[ModuleContextView], forwarder_map: ForwarderMap, written_module: Callable[[ModulePath], str]
+) -> dict[str, frozenset[ModulePath]]:
+    """Return the modules of the module structure that each written module holds, by its dotted name.
+
+    An ``_internal`` module holds the modules of its merge, a module with models or a forwarder itself; the
+    ``_internal`` module of a merge that a grown merge holds, now a forwarder, and an empty package hold none.
+    """
+    released = {module for module, forwarder in forwarder_map.items() if module in forwarder.released_internal_modules}
+    internal_modules = {forwarder.internal_module for forwarder in forwarder_map.values()}
+    return {
+        written_module(ctx.module): frozenset(
+            {
+                module
+                for module, forwarder in forwarder_map.items()
+                if forwarder.internal_module == ctx.module_key and module not in released
+            }
+            if ctx.module_key in internal_modules
+            else {ctx.module_key}
+        )
+        for ctx in contexts
+        if (ctx.models or ctx.module_key in forwarder_map) and ctx.module_key not in released
+    }
+
+
+def _generic_base_class_placement(
+    base: DataModel | None,
+    contexts: Sequence[ModuleContextView],
+    plan: ImportPlan,
+    written_module: Callable[[ModulePath], str],
+) -> GenericBaseClassPlacement | None:
+    """Return where the generic base class ``base`` is written, which modules take it and which import it."""
+    if base is None or (holder := next((ctx for ctx in contexts if any(m is base for m in ctx.models)), None)) is None:
+        return None
+    module, key = written_module(holder.module), model_key_of(base.reference)
+    return GenericBaseClassPlacement(
+        module,
+        base.class_name,
+        tuple(
+            (written_module(ctx.module), ctx.module_key)
+            for ctx in contexts
+            if any(
+                model_key_of(reference) == key
+                for model in ctx.models
+                for base_class in model.base_classes
+                if (reference := base_class.reference) is not None
+            )
+        ),
+        frozenset(
+            importer
+            for importer, blocks in plan.blocks.items()
+            for target, lines in blocks
+            if target == module and any(name == base.class_name for name, _ in lines)
+        ),
+    )
+
+
+def check_import_reads(  # noqa: PLR0913
+    parser: RenderHost[Any, Any, Any],
+    results: Mapping[ModulePath, object],
+    contexts: Sequence[ModuleContextView],
+    forwarder_map: ForwarderMap,
+    written: Sequence[tuple[ModulePath, Imports]],
+    *,
+    use_deferred_annotations: bool,
+) -> None:
+    """Seed a parse again of a modular output where importing one of its modules reads a module that still runs.
+
+    The plan is read from the final facts: the relative import blocks each written module runs (``written``, in the
+    order the formatters write them) and the names its definitions read of the modules it imports as it runs
+    (``_definition_reads``; with custom templates, which decide what a class body evaluates, none). Pydantic builds a
+    class as it is defined, so its annotations count even where the module defers them. Where a module fails to
+    import (``failing_import_reads``, ``fails_to_import``), the parse again moves the generic base class where its
+    import ran into the failure, or merges the modules of that import cycle into an ``_internal`` module
+    (``import_cycle_seeds``), beside the names of the packages that ``reject_class_named_like_submodule`` seeded; an
+    output whose every module imports is parsed once.
+    """
+    treat_dot_as_module = parser.treat_dot_as_module
+    written_module = partial(written_module_name, treat_dot_as_module=treat_dot_as_module)
+
+    imports_of: defaultdict[ModulePath, list[Imports]] = defaultdict(list)
+    for path, imports in written:
+        imports_of[path].append(imports)
+    plan = import_plan(
+        (written_module(path) for path in results if path[-1].endswith(".py")),
+        {
+            written_module(path): written_import_blocks(
+                written_module(path),
+                imports,
+                is_init=is_package_init(written_path(path, treat_dot_as_module=treat_dot_as_module)[-1]),
+            )
+            for path, imports in imports_of.items()
+        },
+    )
+    if not runs_into_import_cycle(plan):
+        return
+    evaluates_annotations = not use_deferred_annotations or parser.data_model_type._READ_BY_PYDANTIC  # noqa: SLF001
+    reads: dict[str, frozenset[tuple[str, str]]] = {}
+    for ctx in contexts if parser.custom_template_dir is None else ():
+        module = written_module(ctx.module)
+        submodules = {
+            binding: submodule
+            for target, lines in plan.blocks.get(module, ())
+            for name, binding in lines
+            if (submodule := dotted_name(target, name)) in plan.modules
+        }
+        if submodules and (
+            names := _definition_reads(
+                ctx.models,
+                submodules,
+                root_model_type=parser.pydantic_v2_root_model_type,
+                evaluates_annotations=evaluates_annotations,
+            )
+        ):
+            reads[module] = names
+    if not (failures := failing_import_reads(dataclasses.replace(plan, reads=reads))):
+        return
+    parser.fails_to_import = True
+    parser.import_cycle_seeds_to_apply = (
+        import_cycle_seeds(
+            failures,
+            plan,
+            parser.import_cycle_seeds_to_apply or parser._import_cycle_seeds,  # noqa: SLF001
+            _structure_modules(contexts, forwarder_map, written_module),
+            _generic_base_class_placement(parser._generic_base_model, contexts, plan, written_module),  # noqa: SLF001
+        )
+        or parser.import_cycle_seeds_to_apply
+    )

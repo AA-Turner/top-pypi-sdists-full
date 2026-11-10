@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing_extensions import Self
 
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.onedrive.workbooks.applications.application import WorkbookApplication
@@ -10,36 +9,34 @@ from office365.onedrive.workbooks.comments.comment import WorkbookComment
 from office365.onedrive.workbooks.functions.functions import WorkbookFunctions
 from office365.onedrive.workbooks.names.collection import WorkbookNamedItemCollection
 from office365.onedrive.workbooks.operations.workbook import WorkbookOperation
+from office365.onedrive.workbooks.quotas import EXCEL_QUOTAS
 from office365.onedrive.workbooks.session_info import WorkbookSessionInfo
 from office365.onedrive.workbooks.tables.collection import WorkbookTableCollection
 from office365.onedrive.workbooks.worksheets.collection import (
     WorkbookWorksheetCollection,
 )
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.limits import Limit, LimitKind, limit
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 
-_DOC = "https://learn.microsoft.com/en-us/graph/throttling-limits"
 
-
-@limit(
-    Limit("excel", 5_000, LimitKind.SUPPORTED, "requests", "app", doc=_DOC, window_seconds=10),
-    Limit("excel", 1_500, LimitKind.SUPPORTED, "requests", "app+tenant", doc=_DOC, window_seconds=10),
-)
+@limit(*EXCEL_QUOTAS)
 class Workbook(Entity):
     """The top-level object that contains related workbook objects such as worksheets, tables, and ranges."""
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def session_info_resource(self) -> ClientResult[WorkbookSessionInfo]:
         return_type = ClientResult(self.context, WorkbookSessionInfo())
         qry = FunctionQuery(self, "sessionInfoResource", None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def create_session(self, persist_changes: bool | None = None) -> ClientResult[WorkbookSessionInfo]:
         """Create a new workbook session.
 
@@ -61,7 +58,7 @@ class Workbook(Entity):
         self.context.add_query(qry)
         return return_type
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def refresh_session(self, session_id: str) -> Self:
         """Use this API to refresh an existing workbook session.
 
@@ -76,7 +73,7 @@ class Workbook(Entity):
         self.context.add_query(qry).before_execute(_construct_request)
         return self
 
-    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite"])
+    @require_permission(delegated=["Files.ReadWrite"], application=["Files.ReadWrite.All"])
     def close_session(self, session_id: str) -> Self:
         """Use this API to close an existing workbook session.
 
@@ -91,6 +88,7 @@ class Workbook(Entity):
         self.context.add_query(qry).before_execute(_construct_request)
         return self
 
+    @odata(name="application", navigation=True)
     @property
     def application(self) -> WorkbookApplication:
         """"""
@@ -99,6 +97,7 @@ class Workbook(Entity):
             WorkbookApplication(self.context, ResourcePath("application", self.resource_path)),
         )
 
+    @odata(name="comments", navigation=True)
     @property
     def comments(self) -> EntityCollection[WorkbookComment]:
         """"""
@@ -111,6 +110,7 @@ class Workbook(Entity):
             ),
         )
 
+    @odata(name="functions", navigation=True)
     @property
     def functions(self) -> WorkbookFunctions:
         """"""
@@ -119,6 +119,7 @@ class Workbook(Entity):
             WorkbookFunctions(self.context, ResourcePath("functions", self.resource_path)),
         )
 
+    @odata(name="tables", navigation=True)
     @property
     def tables(self) -> WorkbookTableCollection:
         """Represents a collection of tables associated with the workbook. Read-only."""
@@ -127,6 +128,7 @@ class Workbook(Entity):
             WorkbookTableCollection(self.context, ResourcePath("tables", self.resource_path)),
         )
 
+    @odata(name="names", navigation=True)
     @property
     def names(self) -> WorkbookNamedItemCollection:
         """Represents a collection of workbook scoped named items (named ranges and constants). Read-only."""
@@ -138,6 +140,7 @@ class Workbook(Entity):
             ),
         )
 
+    @odata(name="operations", navigation=True)
     @property
     def operations(self) -> EntityCollection[WorkbookOperation]:
         """The status of workbook operations. Getting an operation collection is not supported, but you can get the
@@ -152,6 +155,7 @@ class Workbook(Entity):
             ),
         )
 
+    @odata(name="worksheets", navigation=True)
     @property
     def worksheets(self) -> WorkbookWorksheetCollection:
         """Represents a collection of worksheets associated with the workbook. Read-only."""

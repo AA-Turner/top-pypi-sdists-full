@@ -18,13 +18,14 @@ from typing import IO, Callable, Optional
 import requests
 import urllib3
 
-from . import parts, range_requests
+from ..multipart_transfer.transport import TransportResponse
+from . import download_options, parts, range_requests
 from .download_error import S3DownloadError
 
 LOGGER = logging.getLogger(__name__)
 
-# The same block size the existing single-stream download reads in.
-CHUNK_SIZE_BYTES = 1024 * 1024
+# The default of comet.s3_multipart.download_chunk_size.
+CHUNK_SIZE_BYTES = download_options.DEFAULT_DOWNLOAD_CHUNK_SIZE
 
 # What a connection going away looks like while a body is being read from the raw
 # urllib3 stream, which does not translate its exceptions the way requests does.
@@ -48,10 +49,11 @@ class StreamInterrupted(Exception):
 
 
 def stream_body_to_file(
-    response: requests.Response,
+    response: TransportResponse,
     file: IO[bytes],
     limit: Optional[int],
     on_bytes: Optional[Callable[[int], None]] = None,
+    chunk_size: int = CHUNK_SIZE_BYTES,
 ) -> int:
     """Writes the body at the file's current position. Returns the bytes written.
 
@@ -66,7 +68,7 @@ def stream_body_to_file(
     unfinished and the caller resumes both the same way.
     """
     written = 0
-    stream = response.raw.stream(CHUNK_SIZE_BYTES, decode_content=False)
+    stream = response.iter_raw(chunk_size)
     while True:
         try:
             chunk = next(stream)
@@ -115,39 +117,40 @@ class RangedPartReceiver:
         if_match: Optional[str],
         on_bytes: Optional[Callable[[int], None]] = None,
         max_error_attempts: int = range_requests.MAX_S3_PART_DOWNLOAD_ATTEMPTS,
+        chunk_size: int = CHUNK_SIZE_BYTES,
     ):
         self._requester = requester
         self._file_path = file_path
         self._if_match = if_match
         self._on_bytes = on_bytes
         self._max_error_attempts = max_error_attempts
+        self._chunk_size = chunk_size
 
     def transfer_part(self, part: parts.DownloadPart) -> parts.ReceivedPart:
         budget = range_requests.RetryBudget(self._max_error_attempts)
-        response = part.take_response()
+        # Already open when the probe that found the object's size was this range.
+        first_response = part.take_response()
         received = 0
 
         try:
             with open(self._file_path, "r+b") as file:
                 while received < part.length:
                     offset = part.start + received
-                    if response is None:
-                        response = self._requester.open(
-                            first=offset,
-                            last=part.last,
-                            if_match=self._if_match,
-                            budget=budget,
-                            accepted=(206,),
-                        )
-                        _check_range(response, offset, part.last)
+                    response = (
+                        first_response
+                        if first_response is not None
+                        else self._open_range(part, offset, budget)
+                    )
+                    first_response = None
 
-                    file.seek(offset)
                     try:
+                        file.seek(offset)
                         received += stream_body_to_file(
                             response,
                             file,
                             limit=part.length - received,
                             on_bytes=self._on_bytes,
+                            chunk_size=self._chunk_size,
                         )
                         continue
                     except StreamInterrupted as ex:
@@ -157,7 +160,6 @@ class RangedPartReceiver:
                         cause = ex.cause
                     finally:
                         response.close()
-                        response = None
 
                     self._requester.after_error(
                         budget,
@@ -171,13 +173,28 @@ class RangedPartReceiver:
                         due_connection_error=True,
                     )
         finally:
-            if response is not None:
-                response.close()
+            # Only still set if the loop never took it: the file failed to open.
+            if first_response is not None:
+                first_response.close()
 
         return parts.ReceivedPart(part_number=part.part_number, size=received)
 
+    def _open_range(
+        self, part: parts.DownloadPart, offset: int, budget: range_requests.RetryBudget
+    ) -> TransportResponse:
+        """Requests the rest of the part from offset, and checks S3 answered that."""
+        response = self._requester.open(
+            first=offset,
+            last=part.last,
+            if_match=self._if_match,
+            budget=budget,
+            accepted=(206,),
+        )
+        _check_range(response, offset, part.last)
+        return response
 
-def _check_range(response: requests.Response, first: int, last: int) -> None:
+
+def _check_range(response: TransportResponse, first: int, last: int) -> None:
     content_range = range_requests.parse_content_range(
         response.headers.get("Content-Range")
     )

@@ -24,6 +24,7 @@ from mcp.server import Server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.types import Tool, ToolAnnotations, TextContent, Resource, Prompt, PromptMessage, GetPromptResult, CallToolResult
 
+from .cli._stdio import _force_utf8_stdio
 from . import __version__
 from . import config as config_module
 from .embeddings.advice import PROVIDER_HINT as _PROVIDER_HINT
@@ -37,6 +38,8 @@ from .parser.symbols import KIND_ORDER, VALID_KINDS
 from .summarizer import get_provider_name
 from .reindex_state import await_freshness_if_strict
 from .storage import result_cache_invalidate as _result_cache_invalidate
+from .storage import result_cache_write_epoch as _result_cache_write_epoch
+from .storage import result_cache_evict_if_written_since as _result_cache_evict_if_written_since
 from .storage import write_pulse as _write_pulse
 
 try:
@@ -6128,7 +6131,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
     _count_frame: dict = {"inner": False}
     _count_token = _COUNT_FRAME.set(_count_frame)
     _counted_result: "list[TextContent] | CallToolResult | None" = None
+    _outer_counted = False
     try:
+        if _count_parent is None:
+            # A BM25 write-back in progress moves the .db; a call started now
+            # would read it as a rebuild (#1343).
+            await _await_bm25_flush()
+            _bm25_outer_calls[0] += 1
+            _outer_counted = True
         result = _enforce_response_cap(name, await _call_tool_impl(name, arguments))
         _dispatch_ok = not bool(getattr(result, "isError", False))
         _counted_result = result
@@ -6158,7 +6168,49 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
             )
         except Exception:
             logger.debug("Latency recording failed for %s", name, exc_info=True)
+        if _outer_counted:
+            _bm25_outer_calls[0] -= 1
+            if _bm25_outer_calls[0] == 0:
+                _schedule_bm25_flush()
         end_call_context(call_token)
+
+
+# BM25 statistics a search computed are stored in the index after the response
+# is sent, and only while no tool call runs in this server; calls that arrive
+# during the write wait for it. Both halves keep the write outside every
+# call's before/after check on the .db, which would otherwise read it as a
+# rebuild and refuse an absence (#1343).
+_bm25_outer_calls = [0]
+_bm25_flush_task: "list[asyncio.Task | None]" = [None]
+
+
+def _schedule_bm25_flush() -> None:
+    """Start the write-back in the background if anything is queued. Never raises."""
+    try:
+        from .storage import bm25_stats as _bm25_stats
+
+        if not _bm25_stats.pending_count():
+            return
+        task = _bm25_flush_task[0]
+        if task is not None and not task.done() and not task.get_loop().is_closed():
+            return  # what is queued now is stored by the next one
+        _bm25_flush_task[0] = asyncio.get_running_loop().create_task(
+            asyncio.to_thread(_bm25_stats.flush_pending)
+        )
+    except Exception:
+        logger.debug("BM25 statistics write-back not scheduled", exc_info=True)
+
+
+async def _await_bm25_flush() -> None:
+    """Wait for a write-back in progress. Never raises."""
+    task = _bm25_flush_task[0]
+    if task is None or task.done():
+        return
+    try:
+        if task.get_loop() is asyncio.get_running_loop():
+            await asyncio.shield(task)
+    except Exception:
+        logger.debug("BM25 statistics write-back failed", exc_info=True)
 
 
 async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | CallToolResult:
@@ -6185,6 +6237,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
 
     _reporter_ref = None  # progress reporter; drained in finally (#359)
     _deferred_watch = None  # folder to start watching AFTER dispatch (#384)
+    _cache_epoch = None  # result-cache eviction count before the tool ran
     try:   # main handler try starts here, before coerce
         # Extract cross-cutting args that are not part of any tool's schema.
         # `format` controls compact-output encoding (see .encoding package).
@@ -6299,6 +6352,28 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     f"Ask the user whether to turn it back on; do not edit that setting yourself."
                 )
             }, indent=2))
+
+        # refresh_on_read (on by default): before a read answers on a git
+        # repository, re-index what changed since the index was built, or say
+        # why not. Runs before the tool loads the index, so the tool reads one
+        # generation, and after the disabled-tool check, so a refused call writes
+        # nothing. The block rides the body (`index_refresh`), not `_meta`.
+        _index_refresh = None
+        if repo_arg and config_module.get("refresh_on_read", True, repo=repo_arg):
+            try:
+                from . import refresh_on_read as _ror
+                if name in _ror.READ_TOOLS:
+                    _index_refresh = await asyncio.to_thread(
+                        _ror.refresh_before_read, repo_arg, storage_path
+                    )
+            except Exception:
+                logger.debug("refresh_on_read failed", exc_info=True)
+        # Read AFTER the inline refresh, whose own eviction the tool need not
+        # repeat: the tool below reads the index it wrote. What this catches is
+        # a write that lands WHILE the tool runs (the `in_progress` worker, the
+        # in-process watcher): the tool read the old index and `cache_put`s
+        # after the store's eviction, so the dispatcher evicts again below.
+        _cache_epoch = _result_cache_write_epoch()
 
         # Auto-watch: ensure unwatched repos are indexed before tool execution
         try:
@@ -7883,20 +7958,19 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
         # Turn-economy steering (v1.108.158): count hop vs bundle traffic; after
         # _STEER_NUDGE_AT hop calls with no bundle call, advise the one-call
         # opener ONCE, on a search response (where the next-query decision is
-        # made). Forces JSON for that single response so the hint can't be
-        # dropped by a lossy compact encoding.
+        # made). Every schema encoder carries `_meta.steer_hint` (it is in
+        # `UNIVERSAL_META_JSON`), so the response keeps its compact encoding.
         try:
             _steer_note_call(name, arguments, result)
             if _steer_hint_due(name, result):
                 _steer_state["nudged"] = True
-                result.setdefault("_meta", {})["hint"] = (
+                result.setdefault("_meta", {})["steer_hint"] = (
                     "Several search/read hops and no bundle call yet this session. "
                     "For exploration questions, get_ranked_context(repo, query, "
                     "token_budget) returns ranked, budget-packed context in ONE call. "
                     "Pass compress=True to fit more symbols in the same budget; "
                     "repo also accepts '.' or a filesystem path."
                 )
-                _requested_format = "json"
         except Exception:
             logger.debug("Steering attach failed", exc_info=True)
 
@@ -7924,6 +7998,9 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                 _requested_format = "json"
         except Exception:
             logger.debug("policy notice attach failed", exc_info=True)
+
+        if _index_refresh and isinstance(result, dict) and "error" not in result:
+            result = {**result, "index_refresh": _index_refresh}
 
         # (2026-10-28, jjg option B) The license notice, once per machine, on
         # the first successful answer of any tool: an install that never ran
@@ -8052,6 +8129,16 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                 await drain_reporter(_reporter_ref)
             except Exception:
                 logger.debug("Progress drain failed for %s", name, exc_info=True)
+        # An index written WHILE the tool ran (refresh on read's `in_progress`
+        # worker, the in-process watcher) evicted the result cache before the
+        # tool's own `cache_put`, so an answer computed from the old index
+        # survived it. One check here, below every cached tool, instead of one
+        # per tool: the next tool that caches inherits it.
+        if _cache_epoch is not None:
+            try:
+                _result_cache_evict_if_written_since(_cache_epoch)
+            except Exception:
+                logger.debug("post-call cache eviction failed", exc_info=True)
         # Deferred auto-watch (#384): the tool has now indexed this folder, so
         # the watch task can start without repeating that work. Runs even when
         # the tool failed — add_folder is cheap and the watcher's own change
@@ -9016,15 +9103,16 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
     # override is silently invisible in diagnostic output.
     _project_repo_key: Optional[str] = None
     _project_loaded_keys: set = set()
+    _project_ignored_keys: set = set()
     _project_config_path_for_display = Path.cwd() / ".jcodemunch.jsonc"
     if _project_config_path_for_display.is_file():
         try:
             _cfg.load_project_config(str(Path.cwd()))
             _project_repo_key = str(Path.cwd().resolve())
             try:
-                _pc_content = _project_config_path_for_display.read_text(encoding="utf-8")
-                import json as _json_pc
-                _project_loaded_keys = set(_json_pc.loads(_cfg._strip_jsonc(_pc_content)).keys())
+                # Only the keys the project file sets AND that apply: a key the
+                # off-never-on rule ignores is not an override.
+                _project_loaded_keys, _project_ignored_keys = _cfg.project_keys_in_effect(str(Path.cwd()))
             except Exception:
                 _project_loaded_keys = set()
         except Exception:
@@ -9087,6 +9175,13 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
 
     # Load config to get effective values
     _cfg.load_config()
+    if _project_repo_key is not None:
+        # Again, now the user's own config is loaded: whether a project key
+        # applies depends on it.
+        try:
+            _project_loaded_keys, _project_ignored_keys = _cfg.project_keys_in_effect(str(Path.cwd()))
+        except Exception:
+            logger.debug("Could not resolve the project config keys in effect", exc_info=True)
 
     tty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
     enc = getattr(sys.stdout, "encoding", "ascii") or "ascii"
@@ -9146,6 +9241,11 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
             f"  {green(CHECK)} .jcodemunch.jsonc loaded from cwd: {_project_config_path_for_display} "
             f"{dim(f'({len(_project_loaded_keys)} key(s) override global)')}"
         )
+        if _project_ignored_keys:
+            print(
+                f"  {yellow(WARN)} .jcodemunch.jsonc keys ignored (a project file may turn "
+                f"these off, never on): {', '.join(sorted(_project_ignored_keys))}"
+            )
     elif _project_config_path_for_display.is_file():
         print(
             f"  {yellow(WARN)} .jcodemunch.jsonc present but failed to load: "
@@ -9813,53 +9913,6 @@ def _format_refresh(out: dict) -> str:
     return "\n".join(lines)
 
 
-def _force_utf8_stdio() -> None:
-    """Make CLI output UTF-8 regardless of the platform locale (v1.108.262).
-
-    ⚠⚠ On Windows, `sys.stdout` is the **console** stream (already UTF-8) when
-    attached to a terminal and the **locale** stream (cp1252) when piped or
-    redirected. So a command that prints any character cp1252 cannot encode
-    works interactively and dies the moment anyone consumes it:
-
-        jcodemunch-mcp receipt --explain            # fine
-        jcodemunch-mcp receipt --explain | more     # UnicodeEncodeError, no output
-
-    Measured: `receipt --explain` writes U+2212 MINUS SIGN and `render_diagram`
-    writes U+2713 CHECK MARK. That is a hard traceback out of a shipped command,
-    in the one configuration nobody exercises by hand and every script uses.
-    Sibling of the cp1252 DECODE class swept in v1.108.230; that sweep covered
-    subprocess input and left output alone.
-
-    Fixed at the entry point rather than per string, because the next non-ASCII
-    character someone adds must not reintroduce this.
-
-    ⚠ The MCP stdio transport is unaffected: it wraps `sys.stdout.buffer` in its
-    own TextIOWrapper, so it never reads the text layer being reconfigured here.
-    Verified before this shipped.
-
-    ⚠ `errors="replace"` is deliberate. Filesystem paths can carry surrogates
-    from a `surrogateescape` decode, and those raise even under UTF-8. Mangling
-    one character in a display string beats killing the command.
-
-    ⚠ `PYTHONIOENCODING` is honoured as an explicit opt-out: if the operator
-    named an encoding, that is a decision, not an accident.
-    """
-    if os.environ.get("PYTHONIOENCODING"):
-        return
-    for stream_name in ("stdout", "stderr"):
-        stream = getattr(sys, stream_name, None)
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is None:  # replaced by a test harness or a captured buffer
-            continue
-        current = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
-        if current in ("utf8", "utf8mb4"):
-            continue
-        try:
-            reconfigure(encoding="utf-8", errors="replace")
-        except (ValueError, OSError):
-            # A stream that refuses reconfiguration is not a reason to refuse to
-            # run; the command simply keeps the behaviour it had before.
-            logger.debug("Could not force UTF-8 on sys.%s", stream_name, exc_info=True)
 
 
 def _cli_license_reminder(argv: Optional[list[str]]) -> None:

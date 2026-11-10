@@ -35,6 +35,7 @@ from agent_runtimes.adapters.acp_agent import (
     lent_toolsets,
 )
 from agent_runtimes.adapters.base import AgentContext, StreamEvent
+from agent_runtimes.adapters.harness_inference import relay_handle
 from agent_runtimes.adapters.harness_skills import (
     LENT_MARK,
     instructions_markdown,
@@ -57,6 +58,9 @@ from agent_runtimes.types import (
 )
 
 FAKE = Path(__file__).parent / "fixtures" / "acp_fake_agent.py"
+
+#: Where a routed harness calls: the relay on the pod's loopback, never ai-inference.
+RELAY = "http://127.0.0.1:8765/api/v1/inference/relay"
 
 
 def catalogued_fake(monkeypatch: Any, **overrides: Any) -> HarnessSpec:
@@ -1142,7 +1146,7 @@ class TestMcpLentThroughTheGateway:
         assert policies_of(None)[0].scope == "session"
 
     @pytest.mark.asyncio
-    async def test_lent_as_http_with_the_bearer_when_the_agent_advertises_it(
+    async def test_lent_as_http_without_the_bearer_when_the_agent_advertises_it(
         self, workspace: Path
     ) -> None:
         app = connecting("earthdata")
@@ -1158,11 +1162,9 @@ class TestMcpLentThroughTheGateway:
             events = await turn(agent, "mcp")
             assert agent.lends_over_http
             servers = agent._lent_servers("tok-run")
-            assert servers[0].type == "http" and servers[0].url.endswith(
-                "?only=earthdata"
-            )
-            assert servers[0].headers[0].name == "Authorization"
-            assert servers[0].headers[0].value == "Bearer tok-run"
+            assert servers[0].type == "http"
+            assert "/api/v1/mcp/lent/" in servers[0].url
+            assert "tok-run" not in repr(servers)
         finally:
             await agent.cleanup()
         assert "mcp: ['earthdata:http']" in texts(events)
@@ -1171,10 +1173,7 @@ class TestMcpLentThroughTheGateway:
         assert "tok-caller" not in repr(rows)
 
     @pytest.mark.asyncio
-    async def test_lent_over_the_stdio_shim_holding_the_token_otherwise(
-        self, workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("AGENT_SHIELD_HOME", str(tmp_path / "shield"))
+    async def test_lent_over_the_stdio_shim_otherwise(self, workspace: Path) -> None:
         app = connecting("earthdata")
         lent = lent_toolsets(fake_harness(), app)
         agent = an_agent(
@@ -1186,10 +1185,6 @@ class TestMcpLentThroughTheGateway:
         try:
             events = await turn(agent, "mcp")
             assert not agent.lends_over_http
-            [handle] = agent._handles
-            held = tmp_path / "shield" / "lent" / handle
-            assert held.is_file() and (held.stat().st_mode & 0o777) == 0o600
-            assert "tok-caller" in held.read_text()
             servers = agent._lent_servers("tok-caller")
             assert servers[0].command == sys.executable
             assert servers[0].args[:3] == [
@@ -1203,7 +1198,7 @@ class TestMcpLentThroughTheGateway:
         finally:
             await agent.cleanup()
         assert "mcp: ['earthdata:stdio']" in texts(events)
-        assert not held.exists() and agent._handles == []
+        assert agent._handles == []
 
     @pytest.mark.asyncio
     async def test_a_server_not_on_the_allow_list_is_cut(self, workspace: Path) -> None:
@@ -1263,7 +1258,7 @@ class TestMcpLentThroughTheGateway:
     )
     @pytest.mark.asyncio
     async def test_a_lent_toolset_is_real_on_the_gateway(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self,
     ) -> None:
         """Read-only against the gateway: the lent toolset lists its tools, and a tool outside it is refused."""
         import mcp.types as types
@@ -1272,9 +1267,6 @@ class TestMcpLentThroughTheGateway:
         from mcp.client.streamable_http import streamable_http_client
         from mcp.shared._httpx_utils import create_mcp_http_client
 
-        from agent_runtimes.mcp.lent_stdio import hold, release
-
-        monkeypatch.setenv("AGENT_SHIELD_HOME", str(tmp_path / "shield"))
         token = os.environ["DATALAYER_LIVE_GATEWAY_TOKEN"]
         [lent] = lent_toolsets(fake_harness(), connecting("earthdata"))
         assert (
@@ -1298,26 +1290,6 @@ class TestMcpLentThroughTheGateway:
                     types.CallToolResult,
                 )
                 assert outside.is_error
-        # Over the stdio shim: the same toolset, the token held by the shim's process.
-        handle = hold(lent.name, lent.url, token)
-        try:
-            params = StdioServerParameters(
-                command=sys.executable,
-                args=["-m", "agent_runtimes.mcp.lent_stdio", "--lent", handle],
-                env={
-                    "AGENT_SHIELD_HOME": str(tmp_path / "shield"),
-                    "PATH": os.environ["PATH"],
-                },
-            )
-            async with stdio_client(params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    through_shim = {
-                        tool.name for tool in (await session.list_tools()).tools
-                    }
-            assert through_shim == names
-        finally:
-            release(handle)
 
 
 def reading_skills() -> HarnessSpec:
@@ -1385,15 +1357,29 @@ class TestSkillsLentInTheHarnessFormat:
         assert "It needs TAVILY_API_KEY, which Datalayer holds" in text
         assert "do not write it anywhere" in text
 
-    def test_an_unknown_or_disabled_skill_is_refused_at_load(self) -> None:
+    def test_an_unknown_or_disabled_skill_is_refused_at_load(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         with pytest.raises(
             HarnessRefused, match="no skill named 'nope' in the catalogue"
         ):
             skill_specs_of(an_app(skills=["nope"]), reading_skills())
+        # Every skill of the catalogue is enabled (7 November 2026), so the
+        # disabled one is put there for the test.
+        from agent_runtimes.specs import skills as skills_catalogue
+        from agent_runtimes.types.types import SkillSpec
+
+        monkeypatch.setitem(
+            skills_catalogue.SKILLS_CATALOG,
+            "off-skill",
+            SkillSpec(id="off-skill", name="Off skill", enabled=False),
+        )
         with pytest.raises(
-            HarnessRefused, match="'events' is not enabled in the catalogue"
+            HarnessRefused, match="'off-skill' is not enabled in the catalogue"
         ):
-            skill_specs_of(an_app(skills=["crawl", "events:0.0.1"]), reading_skills())
+            skill_specs_of(
+                an_app(skills=["crawl", "off-skill:0.0.1"]), reading_skills()
+            )
         with pytest.raises(HarnessRefused, match="Fake agent reads no skills"):
             skill_specs_of(an_app(), fake_harness())
         assert skill_specs_of(an_app(skills=[]), fake_harness()) == []
@@ -1555,8 +1541,8 @@ class TestResolvingACatalogueHarness:
         fixed = harness_inference.claude_code_environment()
         assert given == {
             **fixed,
-            "ANTHROPIC_BASE_URL": "https://r1.example/api/ai-inference/v1/anthropic",
-            "ANTHROPIC_AUTH_TOKEN": "the-inference-token",
+            "ANTHROPIC_BASE_URL": f"{RELAY}/anthropic",
+            "ANTHROPIC_AUTH_TOKEN": harness_inference.relay_handle(),
         }
         assert "ANTHROPIC_API_KEY" not in given
         # No key needed there: ai-inference answers from Bedrock.
@@ -1568,7 +1554,8 @@ class TestResolvingACatalogueHarness:
         given.pop("PATH", None)
         assert given == {
             **fixed,
-            "ANTHROPIC_BASE_URL": "https://r1.example/api/ai-inference/v1/anthropic",
+            "ANTHROPIC_BASE_URL": f"{RELAY}/anthropic",
+            "ANTHROPIC_AUTH_TOKEN": harness_inference.relay_handle(),
         }
 
     def test_claude_code_asks_for_the_catalogues_model_whatever_its_tier(self) -> None:
@@ -1615,7 +1602,7 @@ class TestResolvingACatalogueHarness:
             environment={"ANTHROPIC_BASE_URL": "https://r1.example/a"},
         )
         agent._give_routed_token()
-        assert agent.agent_env["ANTHROPIC_AUTH_TOKEN"] == "the-inference-token"
+        assert agent.agent_env["ANTHROPIC_AUTH_TOKEN"] != "the-inference-token"
         assert agent.agent_env["ANTHROPIC_CUSTOM_HEADERS"].splitlines() == [
             "X-Datalayer-App-Uid: app-1",
             "X-Datalayer-Deployment-Uid: dep-1",
@@ -1645,10 +1632,8 @@ class TestResolvingACatalogueHarness:
             },
         )
         assert "OPENAI_API_KEY" not in given and "OPENAI_BASE_URL" not in given
-        assert given["DATALAYER_AI_INFERENCE_BASE_URL"] == (
-            "https://r1.example/api/ai-inference/v1/openai/v1"
-        )
-        assert given["DATALAYER_AI_INFERENCE_TOKEN"] == "the-inference-token"
+        assert given["DATALAYER_AI_INFERENCE_BASE_URL"] == f"{RELAY}/openai/v1"
+        assert given["DATALAYER_AI_INFERENCE_TOKEN"] != "the-inference-token"
 
         monkeypatch.setitem(
             models._APP_INSTANCES,
@@ -1673,9 +1658,7 @@ class TestResolvingACatalogueHarness:
         assert config["web_search"] == "disabled"
         assert config["model_context_window"] > 0
         provider = config["model_providers"]["datalayer"]
-        assert (
-            provider["base_url"] == "https://r1.example/api/ai-inference/v1/openai/v1"
-        )
+        assert provider["base_url"] == f"{RELAY}/openai/v1"
         assert provider["env_key"] == "DATALAYER_AI_INFERENCE_TOKEN"
         assert provider["wire_api"] == "responses"
         assert provider["requires_openai_auth"] is False
@@ -1928,9 +1911,9 @@ class TestResolvingACatalogueHarness:
         )
         assert "ANTHROPIC_API_KEY" not in given
         assert given["DATALAYER_AI_INFERENCE_BASE_URL"] == (
-            "https://r1.example/api/ai-inference/v1/anthropic"
+            f"{RELAY}/anthropic"
         )
-        assert given["DATALAYER_AI_INFERENCE_TOKEN"] == "the-inference-token"
+        assert given["DATALAYER_AI_INFERENCE_TOKEN"] != "the-inference-token"
         # Nothing of pi's own reaches outside the boundary.
         assert given["PI_OFFLINE"] == "1" and given["PI_TELEMETRY"] == "0"
 
@@ -1948,7 +1931,7 @@ class TestResolvingACatalogueHarness:
         models_file = (directory / "models.json").read_text()
         assert "the-inference-token" not in models_file
         provider = json.loads(models_file)["providers"]["datalayer"]
-        assert provider["baseUrl"] == "https://r1.example/api/ai-inference/v1/anthropic"
+        assert provider["baseUrl"] == f"{RELAY}/anthropic"
         assert provider["api"] == "anthropic-messages"
         assert provider["apiKey"] == "$DATALAYER_AI_INFERENCE_TOKEN"
         assert provider["authHeader"] is True
@@ -2025,9 +2008,9 @@ class TestResolvingACatalogueHarness:
             DEFAULT_MODEL.value: {"name": DEFAULT_MODEL.value, "tool_call": True}
         }
         assert datalayer_provider["options"] == {
-            "baseURL": "https://r1.example/api/ai-inference/v1",
-            "apiKey": "the-inference-token",
-            "headers": {"Authorization": "Bearer the-inference-token"},
+            "baseURL": RELAY,
+            "apiKey": harness_inference.relay_handle(),
+            "headers": {"Authorization": f"Bearer {harness_inference.relay_handle()}"},
         }
         # The application and deployment a call is metered under go with it.
         route = harness_inference.ROUTES["opencode"]
@@ -2156,7 +2139,7 @@ class TestResolvingACatalogueHarness:
             offered, "_given", {"token": "given-later", "expires_at": None}
         )
         agent._give_routed_token()
-        assert agent.agent_env["ANTHROPIC_AUTH_TOKEN"] == "given-later"
+        assert agent.agent_env["ANTHROPIC_AUTH_TOKEN"] == relay_handle()
 
     def _routed_claude(self, tmp_path: Path) -> ACPAgent:
         from agent_runtimes.specs.harnesses import get_harness
@@ -2202,7 +2185,7 @@ class TestResolvingACatalogueHarness:
             await agent.initialize()
         waited = time.monotonic() - started
         assert 0.3 <= waited < 5.0
-        assert agent.agent_env["ANTHROPIC_AUTH_TOKEN"] == "given-while-waiting"
+        assert agent.agent_env["ANTHROPIC_AUTH_TOKEN"] == relay_handle()
         await giving
 
     @pytest.mark.asyncio

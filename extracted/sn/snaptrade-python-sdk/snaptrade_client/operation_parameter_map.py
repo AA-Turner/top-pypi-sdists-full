@@ -268,6 +268,16 @@ operation_parameter_map = {
             },
         ]
     },
+    '/accounts/{accountId}/orders/{brokerageOrderId}-GET': {
+        'parameters': [
+            {
+                'name': 'accountId'
+            },
+            {
+                'name': 'brokerageOrderId'
+            },
+        ]
+    },
     '/accounts/{accountId}/orders/all-GET': {
         'parameters': [
             {
@@ -278,6 +288,16 @@ operation_parameter_map = {
             },
             {
                 'name': 'days'
+            },
+        ]
+    },
+    '/accounts/{accountId}/orders/recent-GET': {
+        'parameters': [
+            {
+                'name': 'accountId'
+            },
+            {
+                'name': 'only_executed'
             },
         ]
     },

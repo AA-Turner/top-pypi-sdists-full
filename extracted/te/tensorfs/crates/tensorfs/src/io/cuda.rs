@@ -6,8 +6,11 @@
 use std::ffi::{c_char, c_int, c_uint, c_void, CStr};
 use std::sync::OnceLock;
 
+/// A CUDA failure: an allocation refused, no driver, or a driver call's error code.
 #[derive(Clone, Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    Allocation(#[from] varena::Error),
     #[error("CUDA unavailable: {0}")]
     CudaUnavailable(String),
     #[error("{op}: CUDA {code} ({name})")]
@@ -20,47 +23,33 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub type CUresult = c_int;
-pub type CUdevice = c_int;
-pub type CUdeviceptr = u64;
+pub(crate) type CUdevice = c_int;
+pub(crate) type CUdeviceptr = u64;
 pub type CUcontext = *mut c_void;
 pub type CUstream = *mut c_void;
 pub type CUevent = *mut c_void;
-pub type CUmodule = *mut c_void;
-pub type CUfunction = *mut c_void;
+pub(crate) type CUmodule = *mut c_void;
+pub(crate) type CUfunction = *mut c_void;
 /// `CUmemGenericAllocationHandle`: one physical VRAM allocation.
 pub type Handle = u64;
 
-pub const SUCCESS: CUresult = 0;
-pub const ERROR_INVALID_VALUE: CUresult = 1;
-pub const ERROR_OUT_OF_MEMORY: CUresult = 2;
-pub const ERROR_HOST_MEMORY_ALREADY_REGISTERED: CUresult = 712;
-pub const ERROR_NOT_READY: CUresult = 600;
-pub const ERROR_NOT_SUPPORTED: CUresult = 801;
+pub(crate) const SUCCESS: CUresult = 0;
+pub(crate) const ERROR_INVALID_VALUE: CUresult = 1;
+pub(crate) const ERROR_OUT_OF_MEMORY: CUresult = 2;
+pub(crate) const ERROR_HOST_MEMORY_ALREADY_REGISTERED: CUresult = 712;
+pub(crate) const ERROR_NOT_SUPPORTED: CUresult = 801;
 
-pub const STREAM_NON_BLOCKING: c_uint = 0x1;
-pub const EVENT_DEFAULT: c_uint = 0x0;
+pub(crate) const STREAM_NON_BLOCKING: c_uint = 0x1;
+pub(crate) const EVENT_DEFAULT: c_uint = 0x0;
 pub const EVENT_DISABLE_TIMING: c_uint = 0x2;
-pub const MEMHOSTREGISTER_PORTABLE: c_uint = 0x1;
+pub(crate) const MEMHOSTREGISTER_PORTABLE: c_uint = 0x1;
 /// The range is mapped read-only (a sealed layout); the device only reads it.
-pub const MEMHOSTREGISTER_READ_ONLY: c_uint = 0x8;
-pub const MEMHOSTALLOC_PORTABLE: c_uint = 0x1;
+pub(crate) const MEMHOSTREGISTER_READ_ONLY: c_uint = 0x8;
+pub(crate) const MEMHOSTALLOC_PORTABLE: c_uint = 0x1;
 
-pub const ATTR_VMM_SUPPORTED: c_int = 102;
-pub const ATTR_PCI_BUS_ID: c_int = 33;
-pub const ATTR_PCI_DEVICE_ID: c_int = 34;
-pub const ATTR_PCI_DOMAIN_ID: c_int = 50;
-pub const ATTR_POSIX_FD_SUPPORTED: c_int = 103;
-pub const ATTR_WIN32_HANDLE_SUPPORTED: c_int = 104;
-pub const ATTR_READ_ONLY_HOST_REGISTER_SUPPORTED: c_int = 113;
-
-pub const MEM_ALLOCATION_TYPE_PINNED: u32 = 1;
-pub const MEM_LOCATION_TYPE_DEVICE: u32 = 1;
-pub const MEM_HANDLE_TYPE_NONE: u32 = 0;
-pub const MEM_HANDLE_TYPE_POSIX_FD: u32 = 1;
-pub const MEM_HANDLE_TYPE_WIN32: u32 = 2;
-pub const MEM_ACCESS_PROT_READ: u32 = 1;
-pub const MEM_ACCESS_PROT_READWRITE: u32 = 3;
-pub const MEM_GRANULARITY_MINIMUM: u32 = 0;
+pub(crate) const ATTR_PCI_BUS_ID: c_int = 33;
+pub(crate) const ATTR_PCI_DEVICE_ID: c_int = 34;
+pub(crate) const ATTR_PCI_DOMAIN_ID: c_int = 50;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug)]
@@ -89,19 +78,6 @@ pub struct AllocationProp {
 }
 
 impl AllocationProp {
-    /// Pinned device memory on `device`; `handles`: another process may hold it by a POSIX fd.
-    pub fn device(device: CUdevice, handles: u32) -> Self {
-        AllocationProp {
-            kind: MEM_ALLOCATION_TYPE_PINNED,
-            requested_handle_types: handles,
-            location: MemLocation {
-                kind: MEM_LOCATION_TYPE_DEVICE,
-                id: device,
-            },
-            win32_handle_meta_data: std::ptr::null_mut(),
-            alloc_flags: AllocFlags::default(),
-        }
-    }
 }
 
 #[repr(C)]
@@ -184,9 +160,7 @@ pub struct Driver {
     pub mem_host_unregister: F<*mut c_void>,
     pub mem_host_alloc: unsafe extern "C" fn(*mut *mut c_void, usize, c_uint) -> CUresult,
     pub mem_free_host: F<*mut c_void>,
-    pub mem_alloc: unsafe extern "C" fn(*mut CUdeviceptr, usize) -> CUresult,
     pub pointer_get_attribute: unsafe extern "C" fn(*mut c_void, c_int, CUdeviceptr) -> CUresult,
-    pub mem_free: F<CUdeviceptr>,
     pub mem_get_allocation_granularity:
         unsafe extern "C" fn(*mut usize, *const AllocationProp, u32) -> CUresult,
     pub mem_address_reserve:
@@ -219,8 +193,19 @@ pub fn driver() -> Result<&'static Driver> {
     }
 }
 
-pub fn available() -> bool {
-    driver().is_ok()
+/// Native multi-stream callers receive completed backing, including when Varena reuses a
+/// default-stream block. The producer lease excludes capture through allocation and the join.
+pub(super) fn allocate_ready(device: i32, bytes: usize) -> Result<u64> {
+    let _producer = varena::enter_producer(device)?;
+    let ptr = varena::working::alloc(device, bytes, 0, None)?;
+    if ptr != 0 {
+        // SAFETY: the caller entered this device's primary context; stream 0 is never destroyed.
+        // A failed completion leaves the actual live allocation retained by Varena.
+        check("cuStreamSynchronize(native allocation)", unsafe {
+            (driver()?.stream_synchronize)(std::ptr::null_mut())
+        })?;
+    }
+    Ok(ptr)
 }
 
 macro_rules! load {
@@ -297,9 +282,7 @@ impl Driver {
             mem_host_unregister: load!(lib, b"cuMemHostUnregister"),
             mem_host_alloc: load!(lib, b"cuMemHostAlloc"),
             mem_free_host: load!(lib, b"cuMemFreeHost"),
-            mem_alloc: load!(lib, b"cuMemAlloc_v2"),
             pointer_get_attribute: load!(lib, b"cuPointerGetAttribute"),
-            mem_free: load!(lib, b"cuMemFree_v2"),
             mem_get_allocation_granularity: load!(lib, b"cuMemGetAllocationGranularity"),
             mem_address_reserve: load!(lib, b"cuMemAddressReserve"),
             mem_address_free: load!(lib, b"cuMemAddressFree"),
@@ -324,7 +307,7 @@ impl Driver {
         Ok(d)
     }
 
-    pub fn error_name(&self, rc: CUresult) -> String {
+    pub(crate) fn error_name(&self, rc: CUresult) -> String {
         let mut p: *const c_char = std::ptr::null();
         // SAFETY: out-param; the driver returns a static string or fails.
         if unsafe { (self.get_error_name)(rc, &mut p) } == SUCCESS && !p.is_null() {
@@ -397,19 +380,8 @@ pub fn primary_context(ordinal: c_int) -> Result<(CUdevice, CUcontext)> {
     Ok((dev, ctx))
 }
 
-/// How many devices the driver shows this process.
-pub fn device_count() -> Result<c_int> {
-    let d = driver()?;
-    let mut count: c_int = 0;
-    // SAFETY: out-param.
-    check("cuDeviceGetCount", unsafe {
-        (d.device_get_count)(&mut count)
-    })?;
-    Ok(count)
-}
-
 /// The device at `ordinal`; a bad ordinal is a driver error.
-pub fn device_at(ordinal: c_int) -> Result<CUdevice> {
+pub(crate) fn device_at(ordinal: c_int) -> Result<CUdevice> {
     let d = driver()?;
     let mut dev: CUdevice = 0;
     // SAFETY: out-param; a bad ordinal is a driver error, not UB.
@@ -417,7 +389,7 @@ pub fn device_at(ordinal: c_int) -> Result<CUdevice> {
     Ok(dev)
 }
 
-pub fn attribute(dev: CUdevice, attr: c_int) -> Result<i32> {
+pub(crate) fn attribute(dev: CUdevice, attr: c_int) -> Result<i32> {
     let d = driver()?;
     let mut v: c_int = 0;
     // SAFETY: out-param.
@@ -427,18 +399,7 @@ pub fn attribute(dev: CUdevice, attr: c_int) -> Result<i32> {
     Ok(v)
 }
 
-/// The device's LUID: the one its DXGI adapter has (Windows; the driver refuses it elsewhere).
-pub fn luid(dev: CUdevice) -> Result<[u8; 8]> {
-    let d = driver()?;
-    let (mut luid, mut nodes) = ([0u8; 8], 0 as c_uint);
-    // SAFETY: an 8-byte and a node-mask out-param.
-    check("cuDeviceGetLuid", unsafe {
-        (d.device_get_luid)(&mut luid, &mut nodes, dev)
-    })?;
-    Ok(luid)
-}
-
-pub fn uuid(dev: CUdevice) -> Result<String> {
+pub(crate) fn uuid(dev: CUdevice) -> Result<String> {
     let d = driver()?;
     let mut u = [0u8; 16];
     // SAFETY: 16-byte out-param.
@@ -525,42 +486,6 @@ impl Stream {
     pub(crate) fn context(&self) -> CUcontext {
         self.ctx
     }
-    /// Destroy a stream whose GPU work is already checked complete.
-    ///
-    /// # Safety
-    /// No further enqueue or consumer may use this handle; actual capture is excluded.
-    /// On error retain the actual owner until retirement. Neither this method nor Drop
-    /// retries an ambiguous destroy/context release.
-    pub unsafe fn release_completed(&mut self) -> Result<()> {
-        if self.release_failed {
-            return Err(Error::CudaUnavailable(
-                "stream release was already unproven".into(),
-            ));
-        }
-        if self.ctx.is_null() {
-            return Ok(());
-        }
-        self.release_failed = true;
-        let driver = driver()?;
-        {
-            let _ctx = CtxGuard::enter(self.ctx)?;
-            if !self.raw.is_null() {
-                // SAFETY: all stream work is complete and this is its sole owned handle.
-                check("cuStreamDestroy(checked)", unsafe {
-                    (driver.stream_destroy)(self.raw)
-                })?;
-                self.raw = std::ptr::null_mut();
-            }
-        }
-        // Restore the caller's context before releasing a possibly final primary reference.
-        // SAFETY: balances precisely this stream's retained primary-context reference.
-        check("cuDevicePrimaryCtxRelease(checked)", unsafe {
-            (driver.primary_ctx_release)(self.device)
-        })?;
-        self.ctx = std::ptr::null_mut();
-        self.release_failed = false;
-        Ok(())
-    }
 }
 
 impl Drop for Stream {
@@ -598,7 +523,7 @@ unsafe impl Sync for HostPin {}
 /// # Safety
 /// `ptr..ptr+len` remains mapped until the returned guard drops; the caller retains the
 /// current context for the same lifetime and finishes every copy before dropping the guard.
-pub unsafe fn pin_region(ptr: *mut u8, len: usize, read_only: bool) -> Result<HostPin> {
+pub(crate) unsafe fn pin_region(ptr: *mut u8, len: usize, read_only: bool) -> Result<HostPin> {
     let d = driver()?;
     let mut ctx = std::ptr::null_mut();
     // SAFETY: `ctx` is a writable out-pointer.
@@ -627,7 +552,7 @@ pub unsafe fn pin_region(ptr: *mut u8, len: usize, read_only: bool) -> Result<Ho
 /// Whether the current context can copy directly from this page-locked host address.
 /// # Safety
 /// `ptr` is live host memory; its owner holds the registration during the copy.
-pub unsafe fn registered(ptr: *const u8) -> Result<bool> {
+pub(crate) unsafe fn registered(ptr: *const u8) -> Result<bool> {
     let mut kind: c_int = 0;
     // SAFETY: `kind` is a writable out-value; the query only reads the pointer's attributes.
     let rc = unsafe {

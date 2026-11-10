@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cython-lint
-Version: 0.22.0
+Version: 0.22.1
 Summary: Lint Cython files
 Project-URL: Homepage, https://github.com/MarcoGorelli/cython-lint
 Project-URL: Bug Tracker, https://github.com/MarcoGorelli/cython-lint
@@ -9,11 +9,10 @@ License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: cython>=0.29.32
 Requires-Dist: pycodestyle
 Requires-Dist: tokenize-rt>=3.2.0
-Requires-Dist: tomli; python_version < '3.11'
 Description-Content-Type: text/markdown
 
 [![Build Status](https://github.com/MarcoGorelli/cython-lint/workflows/tox/badge.svg)](https://github.com/MarcoGorelli/cython-lint/actions?workflow=tox)
@@ -69,7 +68,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.22.0
+    rev: v0.22.1
     hooks:
     -   id: cython-lint
     -   id: double-quote-cython-strings

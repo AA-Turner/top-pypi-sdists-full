@@ -1,4 +1,4 @@
-use crate::LazyInstance;
+use crate::{evaluation::InstancePosition, LazyInstance};
 use std::borrow::Cow;
 
 use crate::{
@@ -66,14 +66,20 @@ impl<F: Json> Validate<F> for RefValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -107,6 +113,10 @@ struct DirectRefValidator<T> {
 }
 
 impl<F: Json, T: Validate<F>> Validate<F> for DirectRefValidator<T> {
+    fn owned_ref_target(&self) -> Option<&crate::node::SchemaNode<F>> {
+        self.inner.as_owned_node()
+    }
+
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         self.inner.is_valid(instance, ctx)
     }
@@ -143,14 +153,20 @@ impl<F: Json, T: Validate<F>> Validate<F> for DirectRefValidator<T> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -271,20 +287,13 @@ fn compile_reference_validator<'a, F: Json>(
     if reference.is_empty() {
         return None;
     }
-    let (alias, ref_target_base) = match ctx
-        .ref_target(reference, extract_ref_target_base)
-        .map_err(ValidationError::from)
-    {
-        Ok(target) => target,
-        Err(error) => return Some(Err(error)),
-    };
+    let ((alias, ref_target_base), resolved) =
+        match ctx.resolve_ref_target(reference, extract_ref_target_base) {
+            Ok(target) => target,
+            Err(error) => return Some(Err(ValidationError::from(error))),
+        };
 
     let ref_suffix = ctx.suffix().join(keyword);
-
-    let resolved = match ctx.lookup(reference) {
-        Ok(resolved) => resolved,
-        Err(error) => return Some(Err(ValidationError::from(error))),
-    };
     // A pointer counts from the resource the reference names, an anchor from the one it is in.
     let (ref_target_base, target_location, resource_start) = if is_named(&alias) {
         match named_target_base(ctx, &resolved) {
@@ -321,22 +330,16 @@ fn compile_reference_validator<'a, F: Json>(
         return None;
     }
 
-    match ctx.lookup_maybe_recursive(reference, resolved.resolver()) {
-        Ok(Some(validator)) => {
-            return Some(Ok(Box::new(RefValidator {
-                inner: validator,
-                ref_suffix,
-                ref_target_base,
-                target_location,
-            })));
-        }
-        Ok(None) => {}
-        Err(error) => return Some(Err(error)),
+    if let Some(validator) = ctx.lookup_maybe_recursive(&alias, resolved.resolver()) {
+        return Some(Ok(Box::new(RefValidator {
+            inner: validator,
+            ref_suffix,
+            ref_target_base,
+            target_location,
+        })));
     }
 
-    if let Err(error) = ctx.mark_seen(reference) {
-        return Some(Err(ValidationError::from(error)));
-    }
+    ctx.mark_seen(&alias);
 
     if ctx.defers_ref_target(&resolved, &alias) {
         let placeholder = ctx.defer_ref_target(resolved, ref_target_base.clone(), alias);
@@ -393,22 +396,16 @@ fn compile_recursive_validator<'a, F: Json>(
         .map_err(ValidationError::from)?;
     let target_location = target_location(&resolved.resolver().base_uri(), &ref_target_base);
 
-    match ctx.lookup_maybe_recursive(reference, resolved.resolver()) {
-        Ok(Some(validator)) => {
-            return Ok(Box::new(RefValidator {
-                inner: validator,
-                ref_suffix,
-                ref_target_base,
-                target_location,
-            }));
-        }
-        Ok(None) => {}
-        Err(error) => return Err(error),
+    if let Some(validator) = ctx.lookup_maybe_recursive(&alias, resolved.resolver()) {
+        return Ok(Box::new(RefValidator {
+            inner: validator,
+            ref_suffix,
+            ref_target_base,
+            target_location,
+        }));
     }
 
-    if let Err(error) = ctx.mark_seen(reference) {
-        return Err(ValidationError::from(error));
-    }
+    ctx.mark_seen(&alias);
 
     let (contents, resolver, draft) = resolved.into_inner();
     let vocabularies = resolver.find_vocabularies(draft, contents);
@@ -1433,6 +1430,12 @@ mod tests {
         ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
             match uri.as_str() {
                 "file:///ext.yaml" => Ok(json!({
+                    "responses": {
+                        "200": {
+                            "$defs": {"x": {"$anchor": "num", "type": "integer"}},
+                            "$ref": "#num"
+                        }
+                    },
                     "components": {
                         "schemas": {
                             "c3": {
@@ -1512,6 +1515,29 @@ mod tests {
 
         assert!(validator.is_valid(&json!({"p": 42})));
         assert!(!validator.is_valid(&json!({"p": "string"})));
+    }
+
+    // A `$ref` pointer through a numeric object key (an OpenAPI response code) reaches the
+    // references nested under its target
+    #[test_case("#/paths/~1x/responses/200", json!({"/x": {"responses": {"200": {"$ref": "ext.yaml#/components/schemas/c3"}}}}); "numeric key")]
+    #[test_case("#/paths/~1x/responses/0", json!({"/x": {"responses": {"0": {"$ref": "ext.yaml#/components/schemas/c3"}}}}); "zero key")]
+    #[test_case("ext.yaml#/responses/200", json!({}); "external numeric key")]
+    #[test_case("#/paths/~1x/responses/ok", json!({"/x": {"responses": {"ok": {"$ref": "ext.yaml#/components/schemas/c3"}}}}); "string key")]
+    #[allow(clippy::needless_pass_by_value)]
+    fn test_ref_through_numeric_object_key(reference: &str, paths: Value) {
+        let schema = json!({
+            "$id": "file:///tmp",
+            "$ref": reference,
+            "paths": paths
+        });
+
+        let validator = crate::options()
+            .with_retriever(IndirectExternalRetrieve)
+            .build(&schema)
+            .expect("Failed to build validator - external resource was not discovered");
+
+        assert!(validator.is_valid(&json!(42)));
+        assert!(!validator.is_valid(&json!("string")));
     }
 
     struct CrossFileRetrieve;

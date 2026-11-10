@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.security.datasecurity.policy_location import PolicyLocation
 
 
-@dataclass
 class ProtectedApplicationMetadata(ClientValue):
     applicationLocation: PolicyLocation = field(default_factory=PolicyLocation)
 

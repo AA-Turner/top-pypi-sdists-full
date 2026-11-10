@@ -8,55 +8,53 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 from office365.security.ssl_certificate import SslCertificate
+from office365.security.threatintelligence.host_port_banner import HostPortBanner
+from office365.security.threatintelligence.host_port_component import HostPortComponent
+from office365.security.threatintelligence.host_port_protocol import HostPortProtocol
+from office365.security.threatintelligence.host_port_status import HostPortStatus
 
 if TYPE_CHECKING:
     from office365.security.threatintelligence.host import Host
-    from office365.security.threatintelligence.host_port_banner import (
-        HostPortBanner,
-    )
-    from office365.security.threatintelligence.host_port_component import (
-        HostPortComponent,
-    )
-    from office365.security.threatintelligence.host_port_protocol import (
-        HostPortProtocol,
-    )
-    from office365.security.threatintelligence.host_port_status import (
-        HostPortStatus,
-    )
 
 
 class HostPort(Entity):
+    @odata(name="firstSeenDateTime")
     @property
     def first_seen_date_time(self) -> datetime:
         """Gets the firstSeenDateTime property"""
         return self.properties.get("firstSeenDateTime", datetime.min)
 
+    @odata(name="lastScanDateTime")
     @property
     def last_scan_date_time(self) -> datetime:
         """Gets the lastScanDateTime property"""
         return self.properties.get("lastScanDateTime", datetime.min)
 
+    @odata(name="lastSeenDateTime")
     @property
     def last_seen_date_time(self) -> datetime:
         """Gets the lastSeenDateTime property"""
         return self.properties.get("lastSeenDateTime", datetime.min)
 
+    @odata(name="port")
     @property
     def port(self) -> Optional[int]:
         """Gets the port property"""
         return self.properties.get("port", None)
 
+    @odata(name="timesObserved")
     @property
     def times_observed(self) -> Optional[int]:
         """Gets the timesObserved property"""
         return self.properties.get("timesObserved", None)
 
+    @odata(name="host", navigation=True)
     @property
     def host(self) -> Host:
         """Gets the host property"""
         return self.properties.get("host", Host(self.context, ResourcePath("host", self.resource_path)))
 
-    @odata(name="mostRecentSslCertificate")
+    @odata(name="mostRecentSslCertificate", navigation=True)
     @property
     def most_recent_ssl_certificate(self) -> SslCertificate:
         """Gets the mostRecentSslCertificate property"""
@@ -69,38 +67,26 @@ class HostPort(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.security.HostPort"
 
+    @odata(name="banners")
     @property
     def banners(self) -> ClientValueCollection[HostPortBanner]:
         """Gets the banners property"""
-        from office365.security.threatintelligence.host_port_banner import (
-            HostPortBanner,
-        )
-
         return self.properties.get("banners", ClientValueCollection[HostPortBanner](HostPortBanner))
 
+    @odata(name="protocol")
     @property
     def protocol(self) -> HostPortProtocol:
         """Gets the protocol property"""
-        from office365.security.threatintelligence.host_port_protocol import (
-            HostPortProtocol,
-        )
-
         return self.properties.get("protocol", HostPortProtocol.tcp)
 
+    @odata(name="services")
     @property
     def services(self) -> ClientValueCollection[HostPortComponent]:
         """Gets the services property"""
-        from office365.security.threatintelligence.host_port_component import (
-            HostPortComponent,
-        )
-
         return self.properties.get("services", ClientValueCollection[HostPortComponent](HostPortComponent))
 
+    @odata(name="status")
     @property
     def status(self) -> HostPortStatus:
         """Gets the status property"""
-        from office365.security.threatintelligence.host_port_status import (
-            HostPortStatus,
-        )
-
         return self.properties.get("status", HostPortStatus.open)

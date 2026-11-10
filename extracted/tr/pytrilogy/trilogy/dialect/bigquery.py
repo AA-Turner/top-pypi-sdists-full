@@ -24,6 +24,7 @@ from trilogy.dialect.base import (
     BaseDialect,
     TableColumn,
     array_element_type,
+    guard_divisor,
     is_array_arg,
     render_present_extreme,
     render_unsupported,
@@ -33,7 +34,11 @@ from trilogy.dialect.base import null_wrapper as base_null_wrapper
 from trilogy.dialect.bigquery_engine import BigQueryConnection
 from trilogy.dialect.bigquery_persist import expiration_option
 from trilogy.dialect.bigquery_staging import BigQueryPythonStaging
-from trilogy.dialect.common import CONCAT_COALESCE_UPPER, SQL_STANDARD_EXTRACT
+from trilogy.dialect.common import (
+    CONCAT_COALESCE_UPPER,
+    SQL_STANDARD_EXTRACT,
+    render_text_bool_cast,
+)
 
 if TYPE_CHECKING:
     from trilogy.executor import Executor
@@ -145,7 +150,10 @@ FUNCTION_MAP = {
     FunctionType.WEEK: lambda x, types: f"EXTRACT(ISOWEEK from {x[0]})",
     # math
     FunctionType.POWER: lambda x, types: f"POWER({x[0]}, {x[1]})",
-    FunctionType.DIVIDE: lambda x, types: f"COALESCE(SAFE_DIVIDE({x[0]},{x[1]}),0)",
+    # NULL on a zero divisor and on a NULL operand, as `/` is everywhere
+    FunctionType.DIVIDE: lambda x, types: f"SAFE_DIVIDE({x[0]}, {x[1]})",
+    # GoogleSQL has no `%` operator
+    FunctionType.MOD: lambda x, types: f"MOD({x[0]}, {guard_divisor(x[1])})",
     FunctionType.DATE_ADD: lambda x, types: f"DATE_ADD({x[0]}, INTERVAL ({x[2]}) {x[1]})",
     FunctionType.DATE_SUB: lambda x, types: f"DATE_SUB({x[0]}, INTERVAL ({x[2]}) {x[1]})",
     FunctionType.DATE_PART: lambda x, types: f"EXTRACT({transform_date_part(x[1])} FROM {x[0]})",
@@ -156,6 +164,10 @@ FUNCTION_MAP = {
     FunctionType.PARSE_TIME: lambda x, types: f"PARSE_DATETIME({x[1]}, {x[0]})",
     # string
     FunctionType.CONTAINS: lambda x, types: handle_contains(x, types),
+    # a bare TRIM strips all whitespace here; elsewhere only spaces
+    FunctionType.TRIM: lambda x, types: f"TRIM({x[0]}, ' ')",
+    FunctionType.LTRIM: lambda x, types: f"LTRIM({x[0]}, ' ')",
+    FunctionType.RTRIM: lambda x, types: f"RTRIM({x[0]}, ' ')",
     FunctionType.ARRAY_TO_STRING: lambda x, types: handle_array_to_string(x, types),
     FunctionType.RANDOM: lambda x, types: f"FLOOR(RAND()*{x[0]})",
     FunctionType.ARRAY_SUM: lambda x, types: f"(select sum(x) from unnest({x[0]}) as x)",
@@ -171,6 +183,7 @@ FUNCTION_MAP = {
     FunctionType.BOOL_OR: lambda x, types: f"LOGICAL_OR({x[0]})",
     # ARRAY_TO_STRING omits NULL elements when no null_text is given.
     **CONCAT_COALESCE_UPPER,
+    FunctionType.CAST: render_text_bool_cast,
     FunctionType.CONCAT_WS: lambda x, types: (
         f"ARRAY_TO_STRING([{', '.join(x[1:])}], {x[0]})"
     ),
@@ -240,6 +253,10 @@ class BigqueryDialect(BaseDialect):
         **FUNCTION_MAP,
     }
     QUOTE_CHARACTER = "`"
+    ILIKE_AS_LOWER_LIKE = ("LOWER", "LIKE", "NOT ")
+    # LIKE escapes with a backslash natively and takes no ESCAPE clause
+    LIKE_ESCAPE_CLAUSE = False
+    STRING_LITERAL_BACKSLASH_ESCAPES = True
     NULL_WRAPPER = staticmethod(null_wrapper)
     CREATE_TABLE_SQL_TEMPLATE = BQ_CREATE_TABLE_SQL_TEMPLATE
     UNNEST_MODE = UnnestMode.CROSS_JOIN_UNNEST

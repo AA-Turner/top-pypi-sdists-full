@@ -7,14 +7,15 @@ import math
 import shutil
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Collection, Optional, Union
+from typing import TYPE_CHECKING, Any, Collection, Dict, Optional, Union
 
 import typesafe_carla.carla as carla
 
 from .actions._trajectory_run import forget_walkers
-from .actions.environment import forget_tire_friction
+from .actions.environment import forget_tire_friction, forget_weather_conditions
 from .actions.spawn import clear_props
 from .entity.ego import EgoVehicle
+from .entity._walker_ai import forget_all
 from .adversity_activity import clear_adversities
 from .entity.registry import (
     clear_entities,
@@ -35,6 +36,7 @@ from .conditions.base import (
     is_post_run,
 )
 from .actions.base import reset_control_slots
+from .perception_fault import reset_perception_faults
 from .constants import DEFAULT_TM_PORT, EGO_ROLE_NAME, FIXED_DELTA_SECONDS
 from .debug_markers import DebugMarkers
 from .failure import Failure, FailureCategory, progress_detail
@@ -271,6 +273,28 @@ def _failure(
     )
 
 
+def _termination_result(
+    reason: Optional[str],
+    elapsed: float,
+    statuses: list[ConditionStatus],
+) -> ScenarioResult:
+    """The result of a run its ego ended (``termination_requested``), with
+    *reason* (its ``termination_reason``) at *elapsed* seconds and the
+    condition *statuses*: a failure of the DRIVER category, by no condition.
+    An early stop is not a pass, whether the ego asked during the run or
+    while the run waited for it."""
+    message = "Ego entity requested session termination" + (
+        "" if reason is None else f": {reason}"
+    )
+    return ScenarioResult(
+        passed=False,
+        message=message,
+        elapsed_seconds=elapsed,
+        condition_statuses=statuses,
+        failure=_failure("", FailureCategory.DRIVER, elapsed, message, statuses),
+    )
+
+
 def _build_condition_status(
     cond: "BaseCondition",
     index: int,
@@ -458,7 +482,10 @@ def _judge_metrics(
 
     Raises:
         ~autoware_carla_scenario.commonroad.CommonRoadWorkerError: A CommonRoad
-            metric is judged and its workers cannot be started.
+            metric is judged and its workers cannot be started or do not know
+            it, one of them fails (exits, answers out of protocol, or does not
+            answer in time), or the metric fails in every frame evaluated: a
+            metric that read nothing does not pass the run.
     """
     if recorder is None:
         return result
@@ -602,6 +629,34 @@ def _traffic_record(backend: TrafficBackend, scenario_name: str) -> Optional[Any
     return record
 
 
+def _follow_weather_rules(scenario: "BaseScenario") -> None:
+    """Follow the weather rules *scenario* was built with from now on: its
+    ``environment.rules`` (:attr:`BaseScenario._weather_rules_default` and
+    ``_weather_rules_vehicles``), or the default rules when it names none.
+
+    Called at the start of every run, with the other per-run resets: building
+    a scenario follows its rules, and a batch builds every case before any
+    runs, so a run must not inherit the rules of the last case built (#1936)
+    -- not its grip, its visibility, nor the ``rules`` its coverage file
+    records.  :func:`~.weather_rules.use_weather_rules` reads rule files with
+    openodd (a Rust extension) and takes ``environment.rules`` as
+    ``Mapping[str, Any]``, which Codon cannot express: the check
+    (docs/typecheck.md) does not compile it.
+
+    Raises:
+        RulesError: When a rule file can no longer be read, or its rules are
+            not well formed.
+    """
+    from .weather_rules import use_weather_rules  # noqa: PLC0415
+
+    use_weather_rules(
+        {
+            "default": scenario._weather_rules_default,
+            "vehicles": dict(scenario._weather_rules_vehicles),
+        }
+    )
+
+
 def _write_result(
     json_path: Path,
     output_dir: Path,
@@ -622,6 +677,7 @@ def _write_result(
     """
     import json  # noqa: PLC0415
 
+    from .atomic_file import write_text_atomically  # noqa: PLC0415
     from .environment import write as write_environment  # noqa: PLC0415
 
     environment = write_environment(output_dir, file_stem, scenario)
@@ -630,7 +686,9 @@ def _write_result(
         data["environment"] = environment
     if traffic is not None:
         data["traffic"] = traffic
-    json_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    # In one rename: a viewer polling a running sweep never reads it half
+    # written, and a run killed while writing it leaves none (#1956).
+    write_text_atomically(json_path, json.dumps(data, indent=2))
 
 
 def _write_gate_record(
@@ -638,9 +696,16 @@ def _write_gate_record(
     file_stem: str,
     scenario: "BaseScenario",
     result: ScenarioResult,
+    *,
+    result_follows: bool = False,
 ) -> None:
     """Write ``{file_stem}_gate.json``: what a run of a logical scenario with a
     gate leaves for it (``docs/gate.md``), when the scenario has one to give.
+
+    *result_follows* says the run's result (``{file_stem}_result.json``) is
+    written right after the record, so the record names it although it is
+    not there yet: the runner writes the record first, so that a result on
+    disk means the record is too (#1840).
 
     A scenario gives one with a ``gate_record(result, file_stem)`` method
     (:meth:`~autoware_carla_scenario.declarative.DeclarativeScenario.gate_record`)
@@ -668,13 +733,24 @@ def _write_gate_record(
             ("coverage", COVERAGE_SUFFIX),
             ("trajectory", TRAJECTORY_SUFFIX),
         ):
-            if (output_dir / f"{file_stem}{suffix}").exists():
+            if (role == "result" and result_follows) or (
+                output_dir / f"{file_stem}{suffix}"
+            ).exists():
                 record.files[role] = f"{file_stem}{suffix}"
         write_gate_record(path, record)
     except Exception:  # noqa: BLE001 - the run's result matters more than this
         logger.warning("could not write the gate record %s", path, exc_info=True)
         return
     logger.info("Gate record written to: %s", path)
+
+
+def _effect_measures(scenario: BaseScenario, case: Optional[OddCase]) -> Dict[str, str]:
+    """The effects *case* drew that *scenario* measures (quantity -> measure
+    key, :attr:`BaseScenario._effect_measures`); none for a run no sweep drew."""
+    if case is None:
+        return {}
+    drawn = case[0].quantities
+    return {q: k for q, k in scenario._effect_measures.items() if q in drawn}
 
 
 def _record_run(
@@ -1192,7 +1268,9 @@ class ScenarioRunner:
         for one) would record a result before the run began.
 
         Returns as soon as the entity reports readiness, or when it gives up
-        waiting: the tick loop reads ``termination_requested`` and ends the run.
+        waiting: :meth:`run_scenario` then reads ``termination_requested`` and
+        ends the run as a DRIVER failure, before the vehicles are released,
+        traffic starts or any condition is checked.
         Entities that are ready with their actor (the default) return here
         immediately.
         """
@@ -1513,8 +1591,13 @@ class ScenarioRunner:
                 flakiness and the next sweep's flaky search learn from it.
             reset_world: Reset the world at the end (:meth:`reset_world`: a
                 map reload, or a soft reset), so the next scenario starts on a
-                clean world.  A queue's last scenario has no next one, and
-                whatever runs on the server after it loads its map anyway.
+                clean world -- also when the run raises, before the error
+                propagates (best effort: a reset that fails is logged, and
+                the run's error is the one raised); not on a
+                ``KeyboardInterrupt``, which propagates at once.  A queue
+                passes False and resets the world
+                before the attempt that follows instead, so that a reset that
+                raises is that attempt's failure, not this run's.
             file_stem: The stem the run's files are named by.  ``None`` (the
                 default) names them by the scenario's class, numbered past the
                 runs already in the output directory: ``CutInScenario``, then
@@ -1538,6 +1621,50 @@ class ScenarioRunner:
         # seed CARLA or SUMO refuses would otherwise raise once the world is
         # synchronous, outside the cleanup that puts it back.
         seed = check_seed("random_seed", scenario.random_seed)
+        try:
+            result = self._run_scenario(
+                scenario, scenario_name, seed, timeout_seconds, case, file_stem
+            )
+        except Exception:
+            # The world the run left (synchronous, its NPCs, weather and frozen
+            # lights) is put back on this path too, best effort: a reset that
+            # fails is logged, and the run's own error is what propagates.  Not
+            # on a KeyboardInterrupt, which is let through at once: a reset is
+            # a map load, and the run's cleanup has already gone.
+            if reset_world:
+                self._reset_world_after_error(scenario_name)
+            raise
+        if reset_world:
+            self.reset_world(scenario_name)
+        else:
+            logger.info("[%s] World left as it is (not reset here)", scenario_name)
+        return result
+
+    def _reset_world_after_error(self, scenario_name: str) -> None:
+        """Reset the world after a run that raised (:meth:`reset_world`),
+        logging a reset that raises too rather than letting it replace the
+        run's error."""
+        logger.info("[%s] Resetting the world after a run that raised", scenario_name)
+        try:
+            self.reset_world(scenario_name)
+        except Exception:
+            logger.warning(
+                "[%s] Resetting the world after a run that raised failed",
+                scenario_name,
+                exc_info=True,
+            )
+
+    def _run_scenario(
+        self,
+        scenario: BaseScenario,
+        scenario_name: str,
+        seed: int,
+        timeout_seconds: float,
+        case: Optional[OddCase],
+        file_stem: Optional[str],
+    ) -> ScenarioResult:
+        """:meth:`run_scenario` from setup to the result written, without the
+        world reset at the end; *seed* is the scenario's, checked."""
         world = self._world_for_next_run(scenario_name)
         if file_stem is None:
             file_stem = _run_file_stem(self.output_dir, scenario_name)
@@ -1550,6 +1677,11 @@ class ScenarioRunner:
         # but a spawn card ticked outside any run (a test, a tool) holds a
         # speed for an actor id this run's world may reuse.
         clear_entities()
+        # And the walkers a controller drove: a run that never reached its
+        # cleanup left their controllers and targets behind, for an actor id
+        # this run's world may reuse.  Forgotten only: the controllers are
+        # actors, which the leftovers' sweep below destroys.
+        forget_all()
         # What a scenario before carried out is not under way in this one.
         clear_adversities()
         clear_props()
@@ -1593,9 +1725,10 @@ class ScenarioRunner:
         )
 
         # Enable synchronous mode so we control the simulation tick rate.
-        # Original settings are not saved because the reset at the end of
-        # this method (a map reload, or a soft reset to the settings the map
-        # was loaded with) puts them back.
+        # Original settings are not saved because the reset after the run
+        # (this method's, or the queue's before the next attempt: a map
+        # reload, or a soft reset to the settings the map was loaded with)
+        # puts them back.
         settings = world.get_settings()
         settings.synchronous_mode = True
         settings.fixed_delta_seconds = FIXED_DELTA_SECONDS
@@ -1618,9 +1751,11 @@ class ScenarioRunner:
         coverage: Optional[CoverageCollector] = None
         t4_recording: Optional[T4Recording] = None
         npc_events: Optional["NpcCollisionMonitor"] = None
-        # The scenario time of the last tick, which the contacts still under
-        # way when the run ends are ended at.
+        # The scenario time and world frame of the last tick, which the
+        # contacts still under way when the run ends are ended at (-1: no
+        # tick yet).
         last_elapsed = 0.0
+        last_frame = -1
         # The log the Rerun converter takes once the result JSON is written.
         rerun_log: Optional[Path] = None
         # The scenario's seed is the run's (autoware_carla_scenario.seed): what
@@ -1636,11 +1771,25 @@ class ScenarioRunner:
             # autopilot call), and where a backend that cannot run at all -- a
             # simulator that is not installed -- refuses.  Inside the try, so a
             # refusal still gets the cleanup every other failure gets.
-            # How far drivers see, and the grip the road leaves the tires, are
-            # what this run's weather leaves, not what the last run's left in
-            # the same episode (a soft world reset keeps it).
+            # How far drivers see, the grip the road leaves the tires and the
+            # conditions the weather renders are what this run sets, not what
+            # the last run's left in the same episode (a soft world reset
+            # keeps it).
             forget_visibility()
             forget_tire_friction(world)
+            forget_weather_conditions()
+            # The weather rules too: the scenario's own, or the default ones.
+            # A batch builds every case before any runs, and building one
+            # follows its rules, so without this every case would run under
+            # the rules of the last one built (#1936).
+            if TYPE_CHECKING:
+                # use_weather_rules() reads rule files with openodd (a Rust
+                # extension) and takes `environment.rules` as
+                # `Mapping[str, Any]`, which Codon cannot express
+                # (weather_rules is EXCLUDED in typecheck/library.py).
+                pass
+            else:
+                _follow_weather_rules(scenario)
             # CARLA's pedestrian navigation (the AI walker controllers' choice
             # of where to go) from the run's seed, before any walker is spawned.
             world.set_pedestrians_seed(seed)
@@ -1697,6 +1846,9 @@ class ScenarioRunner:
             # Who controls which entity is process-wide too: an action of the
             # previous scenario that never finished holds nothing in this one.
             reset_control_slots()
+            # So is how a road user is reported to the policy: a fault the
+            # previous scenario injected misreports nothing in this one.
+            reset_perception_faults()
             scenario.setup()
             # What setup() registered may need a backend the queue could not
             # see before (a Python scenario's actions): started now, before
@@ -1781,353 +1933,377 @@ class ScenarioRunner:
 
             self._wait_for_ego(world, ego, scenario_name)
 
-            # The init phase is over: the ego is ready and the clock is about to
-            # start, so the brakes that held everything still come off before
-            # anything is handed to TrafficManager or given a speed.
-            self._release_vehicles(world)
-
-            # Traffic last, and only now: the world has been ticking through
-            # the wait above, and a car the backend was already driving would
-            # have spent that time going -- away from the scenario it was placed
-            # for, before its own pre-tick actions had said how it should drive.
-            # When the ego opts out (an ExternallyDrivenEgo), its actor is named
-            # here so external control can drive it instead: one authority per
-            # vehicle, passed as data rather than assumed by the backend.
-            skip_ids: set[int] = set()
-            if not ego.use_autopilot and ego_actor is not None:
-                skip_ids.add(ego_actor.id)
-
-            if TYPE_CHECKING:
-                # Codon 0.19 calls an overridden method through a dispatch
-                # thunk, which takes no keyword argument (docs/typecheck.md):
-                # the check calls TrafficBackend's own, and checks each
-                # backend's start() on its own, through its class.
-                TrafficBackend.start(backend, world, skip_actor_ids=skip_ids)
-            else:
-                backend.start(world, skip_actor_ids=skip_ids)
-
-            # Initial speeds last of all, so they are the speeds the scenario
-            # starts at rather than ones a long wait has bled off.
-            scenario.set_initial_speed(ego_actor)
-
-            _set_warmup_done(True)
-
-            if recording_started:
-                warmup_ticks = int(world.get_snapshot().frame) - recording_start_frame
+            if ego.termination_requested:
+                # The ego gave up waiting (its stack never became ready): the
+                # run ends here, a DRIVER failure, before the brakes come off,
+                # traffic starts or a condition is checked -- a pass condition
+                # already true at the initial pose would otherwise decide a
+                # run that never began.  No frame was recorded, so there are
+                # no metrics to judge and no coverage to write.
                 logger.info(
-                    "[%s] Warm-up took %d tick(s) of the recording",
+                    "[%s] Ego entity requested termination before the run began",
                     scenario_name,
-                    warmup_ticks,
                 )
-
-            # The default timeout, unless the scenario registered its own.
-            _register_default_timeout(scenario, timeout_seconds, scenario_name)
-
-            logger.info("[%s] === Tick loop start ===", scenario_name)
-            # The clock starts here, after the ego is ready: an entity that
-            # needs a stack to come up would otherwise spend most of the
-            # scenario's timeout booting.
-            clock = _ScenarioClock(world)
-            # The motion of everything on the road, recorded from the ticks
-            # this loop steps -- in-process, so no second client has to follow
-            # the world from outside.
-            trajectory.start(world)
-            clock_start_frame = int(world.get_snapshot().frame)
-            # The file starts where the clock does; the recording, warmup_ticks
-            # frames earlier.
-            trajectory.record_warmup(
-                warmup_ticks,
-                recording_start_frame if recording_started else -1,
-                clock_start_frame,
-            )
-            if self.rerun is not None:
-                # The ego's sensors, from the clock's first frame, beside the
-                # trajectory log (rerun.lidar / rerun.cameras; nothing otherwise).
-                lidar_converter: RerunConverter = self.rerun
-                lidar_converter.start_sensors(
-                    trajectory.path, file_stem, clock_start_frame
-                )
-            if self.t4 is not None:
-                # The run as a T4 dataset, from the clock's first frame, with
-                # sensors of its own on the ego (t4.enabled).
-                t4_recorder: T4Recorder = self.t4
-                t4_recording = t4_recorder.start(
-                    self.output_dir,
-                    file_stem,
-                    world,
-                    ego_actor,
-                    clock_start_frame,
-                    scenario_name,
-                    short_map_name(_map_name_of(world)),
-                    self.lanelet2_path,
-                )
-            trajectory.record(world, clock.simulated)
-            trajectory.record_markers(_ego_markers(ego))
-            # What the run covers: the attributes of the run's ODD, sampled
-            # on every tick and judged against its modules, then the
-            # scenario's own items, declared in setup() with register_cover().
-            reset_probes()
-            # An ODD that maps its taxonomy onto scenario measures reads this
-            # scenario's, its own replacements included.
-            if TYPE_CHECKING:
-                # measures holds the model's BaseScenario (it imports
-                # scenario_base through the model: MODELLED_IMPORTS in
-                # typecheck/library.py), which the checked one is not.
-                pass
+                # No condition statuses: none was ever checked, and checking
+                # one now (a pass condition true at the initial pose, a
+                # condition that raises before its first tick) is what this
+                # ending avoids.
+                unchecked: list[ConditionStatus] = []
+                result = _termination_result(ego.termination_reason, 0.0, unchecked)
             else:
-                set_measured_scenario(scenario)
-            set_importance_sampling_weight(scenario.importance_sampling_weight)
-            reset_ego_motion()
-            metric_recorder = _metric_recorder(scenario)
-            # Walkers measured outside a run (or by a run that never reached
-            # its cleanup) are not this run's.
-            forget_walkers()
-            coverage = CoverageCollector(
-                scenario._cover_items, scenario._cross_items, odd=self.odd
-            )
-            coverage.start(world, clock.simulated)
+                # The init phase is over: the ego is ready and the clock is about to
+                # start, so the brakes that held everything still come off before
+                # anything is handed to TrafficManager or given a speed.
+                self._release_vehicles(world)
 
-            # The road users' own collisions and falls, logged (not judged).
-            npc_events = _npc_collision_monitor(backend)
+                # Traffic last, and only now: the world has been ticking through
+                # the wait above, and a car the backend was already driving would
+                # have spent that time going -- away from the scenario it was placed
+                # for, before its own pre-tick actions had said how it should drive.
+                # When the ego opts out (an ExternallyDrivenEgo), its actor is named
+                # here so external control can drive it instead: one authority per
+                # vehicle, passed as data rather than assumed by the backend.
+                skip_ids: set[int] = set()
+                if not ego.use_autopilot and ego_actor is not None:
+                    skip_ids.add(ego_actor.id)
 
-            # Tick loop
-            while not scenario.is_done():
-                # Read once before the world advances and once after, because
-                # on the simulated clock those are a whole `fixed_delta_seconds`
-                # apart rather than the sliver of real time a tick takes.  Each
-                # half of the loop is told the time of the world it is looking
-                # at: a pre-tick action acts on the world as it stands, and
-                # everything below `world.tick()` observes the world it has
-                # become.  Handing the earlier reading to both would date every
-                # post-tick observation one step early.
-                pre_tick_elapsed = clock.simulated
-                tick_count += 1
+                if TYPE_CHECKING:
+                    # Codon 0.19 calls an overridden method through a dispatch
+                    # thunk, which takes no keyword argument (docs/typecheck.md):
+                    # the check calls TrafficBackend's own, and checks each
+                    # backend's start() on its own, through its class.
+                    TrafficBackend.start(backend, world, skip_actor_ids=skip_ids)
+                else:
+                    backend.start(world, skip_actor_ids=skip_ids)
 
-                # Pre-tick actions (receive the time they act at)
-                for action in scenario._pre_tick_actions:
-                    action.tick(world, pre_tick_elapsed)
+                # Initial speeds last of all, so they are the speeds the scenario
+                # starts at rather than ones a long wait has bled off.
+                scenario.set_initial_speed(ego_actor)
 
-                # Pre-tick callbacks
-                for cb in scenario._pre_tick_callbacks:
-                    cb(world)
+                _set_warmup_done(True)
 
-                self._pace_tick()
-                world.tick()
+                if recording_started:
+                    warmup_ticks = (
+                        int(world.get_snapshot().frame) - recording_start_frame
+                    )
+                    logger.info(
+                        "[%s] Warm-up took %d tick(s) of the recording",
+                        scenario_name,
+                        warmup_ticks,
+                    )
 
-                # The world has advanced; everything from here reads the time
-                # it advanced to.
-                elapsed = clock.simulated
-                last_elapsed = elapsed
-                trajectory.record(world, elapsed)
+                # The default timeout, unless the scenario registered its own.
+                _register_default_timeout(scenario, timeout_seconds, scenario_name)
 
-                # Give the ego entity a chance to drive itself before the
-                # scenario's own post-tick hooks observe the new state.
-                ego.on_tick(world, elapsed)
-                # After the ego's tick: a driver policy's ego has just handed
-                # the dataset what its sensors took on it.
-                if t4_recording is not None:
-                    t4_recording.record(world)
+                logger.info("[%s] === Tick loop start ===", scenario_name)
+                # The clock starts here, after the ego is ready: an entity that
+                # needs a stack to come up would otherwise spend most of the
+                # scenario's timeout booting.
+                clock = _ScenarioClock(world)
+                # The motion of everything on the road, recorded from the ticks
+                # this loop steps -- in-process, so no second client has to follow
+                # the world from outside.
+                trajectory.start(world)
+                clock_start_frame = int(world.get_snapshot().frame)
+                # The file starts where the clock does; the recording, warmup_ticks
+                # frames earlier.
+                trajectory.record_warmup(
+                    warmup_ticks,
+                    recording_start_frame if recording_started else -1,
+                    clock_start_frame,
+                )
+                if self.rerun is not None:
+                    # The ego's sensors, from the clock's first frame, beside the
+                    # trajectory log (rerun.lidar / rerun.cameras; nothing otherwise).
+                    lidar_converter: RerunConverter = self.rerun
+                    lidar_converter.start_sensors(
+                        trajectory.path, file_stem, clock_start_frame
+                    )
+                if self.t4 is not None:
+                    # The run as a T4 dataset, from the clock's first frame, with
+                    # sensors of its own on the ego (t4.enabled).
+                    t4_recorder: T4Recorder = self.t4
+                    t4_recording = t4_recorder.start(
+                        self.output_dir,
+                        file_stem,
+                        world,
+                        ego_actor,
+                        clock_start_frame,
+                        scenario_name,
+                        short_map_name(_map_name_of(world)),
+                        self.lanelet2_path,
+                    )
+                trajectory.record(world, clock.simulated)
                 trajectory.record_markers(_ego_markers(ego))
-
-                # Then the traffic, which reacts to where the ego now is.
-                # See TrafficBackend.tick for what a backend does with this.
-                backend.tick(world, elapsed)
-
-                # Post-tick actions (receive elapsed)
-                for action in scenario._post_tick_actions:
-                    action.tick(world, elapsed)
-
-                # Post-tick callbacks
-                for cb in scenario._post_tick_callbacks:
-                    cb(world)
-
-                # Where every action is in its lifecycle after this tick: the
-                # pre-tick ones acted on the frame just recorded, the post-tick
-                # ones on what it showed.
-                for phase, actions in (
-                    ("pre_tick", scenario._pre_tick_actions),
-                    ("post_tick", scenario._post_tick_actions),
-                ):
-                    for i, action in enumerate(actions):
-                        trajectory.record_action(
-                            phase,
-                            i,
-                            action.label,
-                            type(action).__name__,
-                            action.state.value,
-                        )
-                        # What it sampled this tick (NADE's adversities).
-                        for event in action.take_adversity_events():
-                            trajectory.record_adversity(action.label, event)
-                        for arrival in action.take_waypoint_arrivals():
-                            trajectory.record_waypoint_arrival(action.label, arrival)
-                        for entity, actor_id in action.take_spawns():
-                            trajectory.record_spawn(action.label, entity, actor_id)
-                        for entity, actor_id in action.take_despawns():
-                            trajectory.record_despawn(action.label, entity, actor_id)
-                if npc_events is not None:
-                    collisions, falls, fallen_gone = npc_events.tick(world, elapsed)
-                    for collision in collisions:
-                        trajectory.record_collision(collision)
-                    for fall in falls:
-                        trajectory.record_walker_fallen(fall)
-                    for entity, actor_id in fallen_gone:
-                        trajectory.record_despawn(
-                            "fallen walker", entity, actor_id, "fallen"
-                        )
-
-                # The weight the actions above leave the run with, for the
-                # metric that reads it.
+                # What the run covers: the attributes of the run's ODD, sampled
+                # on every tick and judged against its modules, then the
+                # scenario's own items, declared in setup() with register_cover().
+                reset_probes()
+                # An ODD that maps its taxonomy onto scenario measures reads this
+                # scenario's, its own replacements included.
+                if TYPE_CHECKING:
+                    # measures holds the model's BaseScenario (it imports
+                    # scenario_base through the model: MODELLED_IMPORTS in
+                    # typecheck/library.py), which the checked one is not.
+                    pass
+                else:
+                    set_measured_scenario(scenario)
                 set_importance_sampling_weight(scenario.importance_sampling_weight)
-                # The ego's motion, which the weaving metrics read.
-                track_ego_motion(world, elapsed)
-                # The frames the MetricConditions are judged on once the run
-                # is over.
-                if metric_recorder is not None:
-                    metric_recorder.record(
-                        world, elapsed, scenario.importance_sampling_weight
-                    )
+                reset_ego_motion()
+                metric_recorder = _metric_recorder(scenario)
+                # Walkers measured outside a run (or by a run that never reached
+                # its cleanup) are not this run's.
+                forget_walkers()
+                # A drawn case's effects -- what the scenario stages, which the
+                # case drew -- are measured too, for the drift view.
+                effect_measures: Dict[str, str] = _effect_measures(scenario, case)
+                coverage = CoverageCollector(
+                    scenario._cover_items,
+                    scenario._cross_items,
+                    odd=self.odd,
+                    effect_measures=effect_measures,
+                )
+                coverage.start(world, clock.simulated)
 
-                # Coverage samples the world the hooks above have acted on.
-                coverage.tick(world, elapsed)
+                # The road users' own collisions and falls, logged (not judged).
+                npc_events = _npc_collision_monitor(backend)
 
-                # Periodic ego OpenDRIVE position log
-                if tick_count % _CONDITION_LOG_INTERVAL == 0:
-                    _log_ego_opendrive_position(
-                        world, scenario_name, elapsed, tick_count
-                    )
+                # Tick loop
+                while not scenario.is_done():
+                    # Read once before the world advances and once after, because
+                    # on the simulated clock those are a whole `fixed_delta_seconds`
+                    # apart rather than the sliver of real time a tick takes.  Each
+                    # half of the loop is told the time of the world it is looking
+                    # at: a pre-tick action acts on the world as it stands, and
+                    # everything below `world.tick()` observes the world it has
+                    # become.  Handing the earlier reading to both would date every
+                    # post-tick observation one step early.
+                    pre_tick_elapsed = clock.simulated
+                    tick_count += 1
 
-                # Check pass conditions
-                for i, condition in enumerate(scenario._pass_conditions):
-                    check = condition.check(world, elapsed)
-                    trajectory.record_condition(
-                        "pass", i, condition.label, check is not None
-                    )
-                    if check is not None:
-                        logger.info(
-                            "[%s] Pass condition [%d](%s) SATISFIED: %s",
-                            scenario_name,
-                            i,
-                            condition.label,
-                            check.message,
+                    # Pre-tick actions (receive the time they act at)
+                    for action in scenario._pre_tick_actions:
+                        action.tick(world, pre_tick_elapsed)
+
+                    # Pre-tick callbacks
+                    for cb in scenario._pre_tick_callbacks:
+                        cb(world)
+
+                    self._pace_tick()
+                    world.tick()
+
+                    # The world has advanced; everything from here reads the time
+                    # it advanced to.
+                    elapsed = clock.simulated
+                    last_elapsed = elapsed
+                    # Read with the time, so that a tick cut short before the
+                    # NPC monitor's own still ends the contacts on one tick.
+                    last_frame = int(world.get_snapshot().frame)
+                    trajectory.record(world, elapsed)
+
+                    # Give the ego entity a chance to drive itself before the
+                    # scenario's own post-tick hooks observe the new state.
+                    ego.on_tick(world, elapsed)
+                    # After the ego's tick: a driver policy's ego has just handed
+                    # the dataset what its sensors took on it.
+                    if t4_recording is not None:
+                        t4_recording.record(world)
+                    trajectory.record_markers(_ego_markers(ego))
+
+                    # Then the traffic, which reacts to where the ego now is.
+                    # See TrafficBackend.tick for what a backend does with this.
+                    backend.tick(world, elapsed)
+
+                    # Post-tick actions (receive elapsed)
+                    for action in scenario._post_tick_actions:
+                        action.tick(world, elapsed)
+
+                    # Post-tick callbacks
+                    for cb in scenario._post_tick_callbacks:
+                        cb(world)
+
+                    # Where every action is in its lifecycle after this tick: the
+                    # pre-tick ones acted on the frame just recorded, the post-tick
+                    # ones on what it showed.
+                    for phase, actions in (
+                        ("pre_tick", scenario._pre_tick_actions),
+                        ("post_tick", scenario._post_tick_actions),
+                    ):
+                        for i, action in enumerate(actions):
+                            trajectory.record_action(
+                                phase,
+                                i,
+                                action.label,
+                                type(action).__name__,
+                                action.state.value,
+                            )
+                            # What it sampled this tick (NADE's adversities).
+                            for event in action.take_adversity_events():
+                                trajectory.record_adversity(action.label, event)
+                            for arrival in action.take_waypoint_arrivals():
+                                trajectory.record_waypoint_arrival(
+                                    action.label, arrival
+                                )
+                            for entity, actor_id in action.take_spawns():
+                                trajectory.record_spawn(action.label, entity, actor_id)
+                            for entity, actor_id in action.take_despawns():
+                                trajectory.record_despawn(
+                                    action.label, entity, actor_id
+                                )
+                    if npc_events is not None:
+                        collisions, falls, fallen_gone = npc_events.tick(world, elapsed)
+                        for collision in collisions:
+                            trajectory.record_collision(collision)
+                        for fall in falls:
+                            trajectory.record_walker_fallen(fall)
+                        for entity, actor_id in fallen_gone:
+                            trajectory.record_despawn(
+                                "fallen walker", entity, actor_id, "fallen"
+                            )
+
+                    # The weight the actions above leave the run with, for the
+                    # metric that reads it.
+                    set_importance_sampling_weight(scenario.importance_sampling_weight)
+                    # The ego's motion, which the weaving metrics read.
+                    track_ego_motion(world, elapsed)
+                    # The frames the MetricConditions are judged on once the run
+                    # is over.
+                    if metric_recorder is not None:
+                        metric_recorder.record(
+                            world, elapsed, scenario.importance_sampling_weight
                         )
-                        result = ScenarioResult(
-                            passed=True,
-                            message=check.message,
-                            elapsed_seconds=check.elapsed_seconds,
-                            condition_statuses=_condition_statuses(
+
+                    # Coverage samples the world the hooks above have acted on.
+                    coverage.tick(world, elapsed)
+
+                    # Periodic ego OpenDRIVE position log
+                    if tick_count % _CONDITION_LOG_INTERVAL == 0:
+                        _log_ego_opendrive_position(
+                            world, scenario_name, elapsed, tick_count
+                        )
+
+                    # Check pass conditions
+                    for i, condition in enumerate(scenario._pass_conditions):
+                        check = condition.check(world, elapsed)
+                        trajectory.record_condition(
+                            "pass", i, condition.label, check is not None
+                        )
+                        if check is not None:
+                            logger.info(
+                                "[%s] Pass condition [%d](%s) SATISFIED: %s",
+                                scenario_name,
+                                i,
+                                condition.label,
+                                check.message,
+                            )
+                            result = ScenarioResult(
+                                passed=True,
+                                message=check.message,
+                                elapsed_seconds=check.elapsed_seconds,
+                                condition_statuses=_condition_statuses(
+                                    scenario, world, elapsed, scenario_name
+                                ),
+                            )
+                            break
+                        if tick_count % _CONDITION_LOG_INTERVAL == 0:
+                            logger.info(
+                                "[%s] Pass condition [%d](%s) pending at t=%.2fs (tick %d)",
+                                scenario_name,
+                                i,
+                                condition.label,
+                                elapsed,
+                                tick_count,
+                            )
+
+                    if result is not None:
+                        break
+
+                    # Check fail conditions
+                    for i, condition in enumerate(scenario._fail_conditions):
+                        if is_post_run(condition):
+                            # A MetricCondition: judged once the run is over.
+                            continue
+                        check = condition.check(world, elapsed)
+                        trajectory.record_condition(
+                            "fail", i, condition.label, check is not None
+                        )
+                        if check is not None:
+                            logger.info(
+                                "[%s] Fail condition [%d](%s) TRIGGERED: %s",
+                                scenario_name,
+                                i,
+                                condition.label,
+                                check.message,
+                            )
+                            statuses = _condition_statuses(
+                                scenario, world, elapsed, scenario_name
+                            )
+                            result = ScenarioResult(
+                                passed=False,
+                                message=check.message,
+                                elapsed_seconds=check.elapsed_seconds,
+                                condition_statuses=statuses,
+                                failure=_failure(
+                                    _status_label("fail", i, condition),
+                                    scenario.fail_category(i),
+                                    check.elapsed_seconds,
+                                    check.message,
+                                    statuses,
+                                ),
+                            )
+                            break
+
+                    if result is not None:
+                        break
+
+                    # An ego entity can ask to stop early (e.g. the driver policy
+                    # signalled termination).  Conditions are checked first so a
+                    # pass or fail firing on the same tick still decides the outcome;
+                    # on its own, an early stop is not a pass.
+                    if ego.termination_requested:
+                        logger.info(
+                            "[%s] Ego entity requested termination at t=%.2fs (tick %d)",
+                            scenario_name,
+                            elapsed,
+                            tick_count,
+                        )
+                        result = _termination_result(
+                            ego.termination_reason,
+                            elapsed,
+                            _condition_statuses(
                                 scenario, world, elapsed, scenario_name
                             ),
                         )
                         break
-                    if tick_count % _CONDITION_LOG_INTERVAL == 0:
-                        logger.info(
-                            "[%s] Pass condition [%d](%s) pending at t=%.2fs (tick %d)",
-                            scenario_name,
-                            i,
-                            condition.label,
-                            elapsed,
-                            tick_count,
-                        )
 
-                if result is not None:
-                    break
-
-                # Check fail conditions
-                for i, condition in enumerate(scenario._fail_conditions):
-                    if is_post_run(condition):
-                        # A MetricCondition: judged once the run is over.
-                        continue
-                    check = condition.check(world, elapsed)
-                    trajectory.record_condition(
-                        "fail", i, condition.label, check is not None
-                    )
-                    if check is not None:
-                        logger.info(
-                            "[%s] Fail condition [%d](%s) TRIGGERED: %s",
-                            scenario_name,
-                            i,
-                            condition.label,
-                            check.message,
-                        )
-                        statuses = _condition_statuses(
-                            scenario, world, elapsed, scenario_name
-                        )
-                        result = ScenarioResult(
-                            passed=False,
-                            message=check.message,
-                            elapsed_seconds=check.elapsed_seconds,
-                            condition_statuses=statuses,
-                            failure=_failure(
-                                _status_label("fail", i, condition),
-                                scenario.fail_category(i),
-                                check.elapsed_seconds,
-                                check.message,
-                                statuses,
-                            ),
-                        )
-                        break
-
-                if result is not None:
-                    break
-
-                # An ego entity can ask to stop early (e.g. the driver policy
-                # signalled termination).  Conditions are checked first so a
-                # pass or fail firing on the same tick still decides the outcome;
-                # on its own, an early stop is not a pass.
-                if ego.termination_requested:
-                    logger.info(
-                        "[%s] Ego entity requested termination at t=%.2fs (tick %d)",
-                        scenario_name,
-                        elapsed,
-                        tick_count,
-                    )
-                    reason = ego.termination_reason
-                    message = "Ego entity requested session termination" + (
-                        "" if reason is None else f": {reason}"
-                    )
-                    statuses = _condition_statuses(
-                        scenario, world, elapsed, scenario_name
-                    )
+                # If the loop exited via is_done() with no result, treat as passed
+                if result is None:
+                    elapsed = clock.simulated
                     result = ScenarioResult(
-                        passed=False,
-                        message=message,
+                        passed=True,
+                        message="Scenario completed successfully",
                         elapsed_seconds=elapsed,
-                        condition_statuses=statuses,
-                        failure=_failure(
-                            "", FailureCategory.DRIVER, elapsed, message, statuses
-                        ),
                     )
-                    break
 
-            # If the loop exited via is_done() with no result, treat as passed
-            if result is None:
-                elapsed = clock.simulated
-                result = ScenarioResult(
-                    passed=True,
-                    message="Scenario completed successfully",
-                    elapsed_seconds=elapsed,
-                )
+                if TYPE_CHECKING:
+                    # Recorded frames replayed as a world of duck-typed actors,
+                    # and worker processes spoken to in JSON (UNCALLED in
+                    # typecheck/library.py).
+                    pass
+                else:
+                    # The MetricConditions, on the metrics of the recorded frames,
+                    # while the run's map is still loaded.
+                    result = _judge_metrics(
+                        scenario,
+                        metric_recorder,
+                        world,
+                        result,
+                        scenario_name,
+                        trajectory,
+                    )
 
-            if TYPE_CHECKING:
-                # Recorded frames replayed as a world of duck-typed actors,
-                # and worker processes spoken to in JSON (UNCALLED in
-                # typecheck/library.py).
-                pass
-            else:
-                # The MetricConditions, on the metrics of the recorded frames,
-                # while the run's map is still loaded.
-                result = _judge_metrics(
-                    scenario,
-                    metric_recorder,
-                    world,
-                    result,
-                    scenario_name,
-                    trajectory,
-                )
-
-            # Sampled before teardown, while the ego still exists.
-            coverage.end(world, clock.simulated)
+                # Sampled before teardown, while the ego still exists.
+                coverage.end(world, clock.simulated)
 
         finally:
             set_run_seed(previous_seed)
@@ -2137,6 +2313,11 @@ class ScenarioRunner:
             # The walkers the trajectory runs and the vehicles led out of their
             # junctions measured were this run's.
             forget_walkers()
+            # As were the walkers a controller drove.  Forgotten only, with no
+            # call to the server (one that died mid-run would hold each call
+            # for the client's timeout): the controllers are actors, which the
+            # world reset and the next run's leftovers' sweep destroy.
+            forget_all()
             logger.info("[%s] === Cleanup start ===", scenario_name)
             _set_warmup_done(False)
             _clear_entry_speeds()
@@ -2173,7 +2354,7 @@ class ScenarioRunner:
                 # The contacts still under way end with the run, however it
                 # ended, while the trajectory log is still open to take them.
                 try:
-                    for collision in npc_events.finish(last_elapsed):
+                    for collision in npc_events.finish(last_elapsed, last_frame):
                         trajectory.record_collision(collision)
                 except Exception:
                     logger.warning(
@@ -2280,6 +2461,32 @@ class ScenarioRunner:
             json_path = self.output_dir / f"{file_stem}{RESULT_SUFFIX}"
             json_path.parent.mkdir(parents=True, exist_ok=True)
             try:
+                # The coverage file and the gate record go before the result:
+                # a job killed after writing its result then holds its gate
+                # record too, if its scenario has a gate, and a sweep's job
+                # left with a result and no record ran one without a gate
+                # (gate.evaluate's _errored_jobs, #1840).
+                if coverage is not None:
+                    _record_run(coverage, case, result, scenario.outcome_weight)
+                    coverage_path = self.output_dir / f"{file_stem}{COVERAGE_SUFFIX}"
+                    coverage.write(coverage_path, scenario_name)
+                    logger.info(
+                        "[%s] Coverage written to: %s", scenario_name, coverage_path
+                    )
+                if TYPE_CHECKING:
+                    # A logical scenario's gate record: _write_gate_record
+                    # calls a scenario method found with getattr() and writes
+                    # JSON of mixed value types (UNCALLED in
+                    # typecheck/library.py).
+                    pass
+                else:
+                    _write_gate_record(
+                        self.output_dir,
+                        file_stem,
+                        scenario,
+                        result,
+                        result_follows=True,
+                    )
                 if TYPE_CHECKING:
                     # The result document of mixed value types, with the
                     # traffic and environment records (UNCALLED in
@@ -2299,24 +2506,5 @@ class ScenarioRunner:
                     written: RerunConverter = self.rerun
                     written.submit(rerun_log, file_stem)
             logger.info("[%s] Result JSON written to: %s", scenario_name, json_path)
-            if coverage is not None:
-                _record_run(coverage, case, result, scenario.outcome_weight)
-                coverage_path = self.output_dir / f"{file_stem}{COVERAGE_SUFFIX}"
-                coverage.write(coverage_path, scenario_name)
-                logger.info(
-                    "[%s] Coverage written to: %s", scenario_name, coverage_path
-                )
-            if TYPE_CHECKING:
-                # A logical scenario's gate record: _write_gate_record calls a
-                # scenario method found with getattr() and writes JSON of
-                # mixed value types (UNCALLED in typecheck/library.py).
-                pass
-            else:
-                _write_gate_record(self.output_dir, file_stem, scenario, result)
-
-        if reset_world:
-            self.reset_world(scenario_name)
-        else:
-            logger.info("[%s] No scenario follows: world left as it is", scenario_name)
 
         return result

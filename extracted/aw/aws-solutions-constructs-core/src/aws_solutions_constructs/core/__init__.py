@@ -6661,7 +6661,11 @@ class S3OacOrigin(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-solutions-constructs/core.S3OacOrigin",
 ):
-    '''A custom implementation of S3Origin that allows an origin access control (OAC) to be used instead of an origin access identity (OAI), which is currently the only option supported by default CDK.'''
+    '''A custom implementation of S3Origin that attaches an origin access control (OAC) to the origin (rather than an origin access identity, OAI).
+
+    The OAC ID is emitted on every origin this class creates,
+    so it can be used for the default origin or any additional origin.
+    '''
 
     def __init__(
         self,

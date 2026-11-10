@@ -1,5 +1,19 @@
 schema = 1
 
+# locales.ES reads its names with two family names (rules/O6), its given-name
+# list keeping a given name out of the family (decisions/vocabulary-model,
+# the 2026-10-30 phase 3g entry)
+[rules]
+two_family_names = true
+
+[[word]]
+text = "don"
+excluded = { salutation = { reason = "Don, the courtesy title, is a given name wherever names are written in Latin script, Spanish data included: it opens 80 ClinicalTrials.gov officials' names, 86 PatentsView inventors', 11 PSC filers' and 2 of 3 tse-donors filers' (registry DON JOHNSON DE OLIVEIRA E SILVA), and 2,819 FEC given parts after the family comma (ABBOTT, DON), where jrc-names' 874 openers mix it with the Italian clergy's Don (2026-10-30); US SSA 168,839 births. Counted in persons, names open with it far more often than it opens one as the title (decisions/vocabulary-model's phase 3e criterion). Spain's BOE writes it lowercase before every man it appoints (66 of 229 sampled appointment headlines, a doña 53: a doña Oana Madalina Driha), a source of titles no local corpus holds; doña, never a given name there, ships", issue = 753, decided = 2026-10-30 } }
+
+[[word]]
+text = "doña"
+salutation = { default = false, gender = "f", issue = 753, expands = "Doña, the courtesy title before a woman's given name", note = "a Spanish family name too: ORCID's family box 18 records in Spain (Doña Ortega), its given box 0 there; jrc-names writes it opening 2 names, both the title (Doña Sofía) (2026-10-30); off by default and turned on by a Spanish choice, under which it is the title at the head, so a name opening with the family name gives it to the title, before a family comma (Doña Ortega, María, rules/H6) or under a family-first order, accepted costs no local corpus name takes (2026-10-30)" }
+
 [[word]]
 text = "señor"
 salutation = { gender = "m", excluded = { after_given = "spelled SENOR, a surname (Census 2010), and middle names are drawn from surnames" } }
@@ -8,6 +22,7 @@ family = { us_census_2010 = 282, wikidata = 2, as_of = 2026-10-24, note = "the C
 [[word]]
 text = "sr"
 salutation = { gender = "m", same_as = "señor" }
+generation = { issue = 753, note = "Senior, as names written in Spanish write it too: kept beside the salutation so that a Spanish choice leaves Sr a dual position decides, a title in front and the generation behind (J. Smith Sr.), as the default reads it; without it the choice preferred the salutation and a trailing Sr read as the family name, 12 of PSC's filers (Mr Gary Holloway Sr, Ernesto Castro Sr) and 3 committed corpus names (2026-10-30, decisions/vocabulary-model's phase 3g entry)" }
 
 [[word]]
 text = "señora"
@@ -43,12 +58,116 @@ text = "srtas"
 salutation = { gender = "f", same_as = "señoritas", after_given = true }
 
 [[word]]
+text = "excma"
+style = { issue = 1115, gender = "f", expands = "Excelentísima, the feminine of Excmo.", note = "no name bearers in any source tools/name_usage.py reads (2026-11-06)" }
+
+[[word]]
+text = "excmo"
+style = { issue = 1115, gender = "m", expands = "Excelentísimo, Most Excellent, the style of a high office (Excmo. Sr. Juan Pérez)", note = "no name bearers in any source tools/name_usage.py reads (2026-11-06)" }
+
+[[word]]
+text = "act"
+excluded = { academic = { reason = "Act., Actuario or Actuaria abbreviated in Mexico, but ACT is also a credential written after names, a certified athletic trainer (Terry L Grindstaff, PhD, PT, ACT), which a title reading takes from the suffix after a comma; its dotted spelling opening a name is a title by the leading-abbreviation shape already, and the 45 local corpus names opening with it all read so (2026-11-07)", issue = [1115, 1129] } }
+
+[[word]]
+text = "arq"
+academic = { issue = 753, expands = "Arq., Arquitecto or Arquitecta abbreviated", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 12 records, the title typed in, 4 ORCID names and 2 PatentsView ones opening with it (Arq. Julia Romero) (2026-10-30)" }
+
+[[word]]
+text = "biól"
+academic = { issue = [1115, 1129], expands = "Biól., Biólogo or Bióloga abbreviated, in Mexico (Biól. Ana Ruiz)", note = "no name bearer in any source tools/name_usage.py reads; 5 names in the local corpora open with it (2026-11-07)" }
+
+[[word]]
+text = "doctora"
+academic = { gender = "f", issue = 753, expands = "Doctora, the feminine of doctor", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 4 records, the title typed in, and 2 names open with it (Doctora Yenny Nereida Montilla Polo) (2026-10-30); its family box holds it once, written last (Ma. Theresa Mae Doctora, Philippines), so a name written family first that opens with it reads it as the title, read by default since #1115 (2026-11-06)" }
+
+[[word]]
 text = "dra"
 academic = { gender = "f", expands = "Doctora, Doutora" }
 
 [[word]]
+text = "ingeniero"
+academic = { gender = "m", issue = 753, expands = "Ingeniero, engineer, a form of address", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 12 records, the title typed in (2026-10-30). The abbreviation Ing. reads as a title at the head by its shape (rules/H2); written bare it stays excluded (mul.toml)" }
+
+[[word]]
+text = "ingeniera"
+academic = { gender = "f", issue = 753, same_as = "ingeniero", expands = "Ingeniera, the feminine of ingeniero", note = "no name bearer in any source tools/name_usage.py reads (2026-10-30)" }
+
+[[word]]
+text = "licenciado"
+academic = { gender = "m", issue = 753, expands = "Licenciado, the holder of a licenciatura, a form of address in Mexico and Central America", note = "no name bearer in any source tools/name_usage.py reads; 1 ORCID name opens with it (2026-10-30); ORCID's family box holds it once, written last (Abraham Licenciado, Venezuela), so a name written family first that opens with it reads it as the title, read by default since #1115 (2026-11-06)" }
+
+[[word]]
+text = "lcdo"
+academic = { gender = "m", issue = 753, same_as = "licenciado", expands = "Lcdo., Licenciado abbreviated", note = "no name bearer in any source tools/name_usage.py reads; 1 ORCID name opens with it (2026-10-30)" }
+
+[[word]]
+text = "lic"
+academic = { issue = 753, same_as = "licenciado", expands = "Lic., Licenciado or Licenciada abbreviated", note = "ORCID's given box 92 records, the title typed in (Cuba 17, Ecuador 12, Mexico 6), its family box 10, PatentsView's family box 1 (Alenko Lic, Austria, written last; 2026-11-06); 48 ORCID names open with it (Lic Arisleidy Noriega Cisneros), and ClinicalTrials.gov officials write lic. phil. and Lic. Med. after a comma (2026-10-30). With its period it already reads as a title at the head by its shape (rules/H2)" }
+
+[[word]]
+text = "licenciada"
+academic = { gender = "f", issue = 753, same_as = "licenciado", expands = "Licenciada, the feminine of licenciado", note = "no name bearer in any source tools/name_usage.py reads; 2 ORCID names open with it (2026-10-30)" }
+
+[[word]]
+text = "lcda"
+academic = { gender = "f", issue = 753, same_as = "licenciada", expands = "Lcda., Licenciada abbreviated", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 22 records, the title typed in, 3 names opening with it (Lcda. Ligia Elena Sánchez Baque) (2026-10-30)" }
+
+[[word]]
+text = "licda"
+academic = { gender = "f", same_as = "licenciada", issue = 1115, expands = "Licda., Licenciada abbreviated, in Central America and Mexico (Licda. Gabriela Morales Valdivia)", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 4 records, the title typed in; Mexico's DOF signatures 14 (2026-11-06)" }
+
+[[word]]
+text = "maestra"
+academic = { default = false, gender = "f", issue = 980, expands = "Maestra, the holder of a master's degree, a form of address in Mexico: Maestra Ana Ruiz Paz", note = "off by default and turned on by a Spanish choice: also the word for a schoolteacher in Spanish and Italian, and borne as a family name, ORCID's family box 9 records (2 in Spain, 1 in Italy, 6 with no country), PatentsView's 1 (Spain), FEC 1 (MAESTRA, SUSAN M.); no US Census or US SSA bearer, and Wikidata's zero proves nothing. Mexico's DOF writes it in 39 signatures (Maestra 35, MAESTRA 4), 38 opening the name; 3 of those, 2 names, continue with a complement (Maestra en Derecho, MAESTRA EN ADMINISTRACION), which the title run does not take; ORCID 1 (2026-11-03). Its masculine, maestro, is excluded, a family name" }
+
+[[word]]
+text = "mtra"
+academic = { gender = "f", issue = 753, same_as = "maestra", expands = "Mtra., Maestra abbreviated", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 7 records, the title typed in (2026-10-30)" }
+
+[[word]]
+text = "maestro"
+excluded = { academic = { reason = "a Spanish and Italian family name (ORCID's family box 43 records in Spain, US Census 200), and the form of address is written abbreviated, Mtro., where it is written at all: only 3 names open with it in every local corpus, 2 of them a conductor's honorific (Maestro Solti) (2026-10-30); Mexico's DOF signatures spell it out now and then (Maestro Arturo Serrano Meneses), against Mtro. in 2.7% of 150 sampled", issue = 753, decided = 2026-10-30 } }
+
+[[word]]
+text = "map"
+excluded = { academic = { reason = "MAP, Maestro or Maestra en Administración Pública in Mexico, but also an English word, a credential written after names (Jorge Luis Loáiciga Gutiérrez, MAP, Lic) and a given name filed in the US (FEC: SAN, MAP), each of which a title reading after a comma takes; under a Spanish choice it moved 3 local corpus names, 1 to the title the writer meant (2026-11-07)", issue = [1115, 1129] } }
+
+[[word]]
+text = "mgtr"
+academic = { issue = [1115, 1129], expands = "Mgtr., Magíster abbreviated, in Ecuador and Peru", note = "no name bearer: under 100 US Census, under 5 US SSA a year, none on Wikidata; ORCID's given box 7 records, the title typed in (Ecuador 5), its family box 5 (2026-11-07)" }
+
+[[word]]
+text = "mtr"
+excluded = { academic = { reason = "Mtr., Maestro or Maestra abbreviated in Mexico, but MTR is also a credential written after names, a master's in translational research (ClinicalTrials.gov officials 10, all after a comma: Shana McCormack, MD, MTR), which a title reading after a comma takes from the suffix; its dotted spelling opening a name is a title by the leading-abbreviation shape already (2026-11-07)", issue = [1115, 1129] } }
+
+[[word]]
+text = "mtro"
+academic = { gender = "m", issue = 753, expands = "Mtro., Maestro abbreviated: the holder of a master's degree, a form of address in Mexico", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 8 records, the title typed in, Mexico 5 (2026-10-30)" }
+
+[[word]]
+text = "profesor"
+academic = { issue = [753, 804], expands = "Profesor, Professor", note = "read by default since #804 (2026-11-03). ClinicalTrials.gov's officials write it in 123 records, 122 after a comma, and of the 113 distinct names whose reading the change moves, 62 stand on studies located only in France (Antoine DURRBACH, Profesor) and 9 on studies located in Poland, by a lookup of each name's study in ClinicalTrials.gov's API; Mexico's DOF signatures open 7 names with it and ORCID 3 (Profesor José María Serbia). No US Census, US SSA or nam_dict bearer; Wikidata holds 5 given-name statements (Spain 1, Russia 1, Uganda 1, the Soviet Union 1, 2 with no citizenship), a lower bound, and every ORCID given or family box holding it holds the title typed in (Profesor Andrzej) (2026-11-03)" }
+
+[[word]]
+text = "profesora"
+academic = { gender = "f", issue = [753, 804], same_as = "profesor", expands = "Profesora, the feminine of profesor", note = "no name bearer in any source tools/name_usage.py reads; 5 ORCID names open with it (Profesora Jennifer Isabel Arroyo Chacón) (2026-10-30)" }
+
+[[word]]
+text = "profr"
+academic = { gender = "m", same_as = "profesor", issue = 1115, expands = "Profr., Profesor abbreviated, in Mexico (Profr. Adolfo Núñez González)", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 2 records (2026-11-06)" }
+
+[[word]]
+text = "gral"
+military = { issue = 1115, expands = "Gral., General abbreviated (GRAL. BGDA. JOSE RAMON MENDEZ GARCIA)", note = "no name bearer: under 100 US Census, under 5 US SSA a year, 5 Wikidata family statements; ORCID's family box 2 records; Mexico's DOF signatures 12 (2026-11-06)" }
+
+[[word]]
+text = "tte"
+military = { issue = 1115, expands = "Tte., Teniente abbreviated, lieutenant (TTE. COR. MARCELO EUAN CIME)", note = "no name bearer in any source tools/name_usage.py reads; ORCID's given box 7 records, the rank typed in (Tte Com Leticia González) (2026-11-06)" }
+
+[[word]]
 text = "h"
-generation = { default = false, expands = "hijo, the son: Juan Pérez H.", issue = 752, note = "written with its period, it is exactly how an initial is written (rules/T5), so no default reads it; a Spanish pack turns it on" }
+excluded = { generation = { reason = "hijo, the son (Juan Pérez H.), but written exactly as an initial is (rules/T5), and in names mostly one: turned on by a Spanish choice it moved 6,569 FEC names, 6,565 of them a middle initial H (ABBOTT, DALLAS H read generation H), about 35 ORCID records (Chan, Charles W H; de Faria Santos, H., left with no given name), 11 JRC-Names ones (Anthony Floc h) and 8 ClinicalTrials.gov officials (Amy h, MD), and read no hijo in any of them (2026-10-30). No writing tells the two apart, so no pack reads it", issue = [752, 753], decided = 2026-10-30 } }
 
 [[word]]
 text = "de"
@@ -101,3 +220,107 @@ text = "y"
 [word.conjunction]
 [word.conjunction.excluded]
 may_be_initial = { reason = "the commonest Hispanic double-surname link and this library's oldest fixture, 'Velasquez y Garcia': marking it would read the link of every one-case Hispanic record as a middle initial; a caller who wants the Dutch reading adds it", issue = [383, 479] }
+
+[[word]]
+text = "angeles"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de los Ángeles written without its accent): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 327 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "caridad"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de la Caridad): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 228 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "carmen"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Carmen): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 1,261 times and open a family box of more words with it behind a particle 5 (2026-11-03, #704)" }
+
+[[word]]
+text = "cisne"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Cisne): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 29 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "concepción"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de la Concepción): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 17 times and open a family box of more words with it behind a particle 1 (2026-11-03, #704)" }
+
+[[word]]
+text = "consuelo"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Consuelo): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 11 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "fatima"
+given = { after_particle = true, note = "Fátima written without its accent (de Fatima): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 91 times and open a family box of more words with it behind a particle 0, over the whole extract, as fátima is marked on its Spanish counts; in Portugal, Brazil and Portuguese-speaking Africa 185 and 45 (2026-11-06, #1118)" }
+
+[[word]]
+text = "fco"
+given = { same_as = "francisco", note = "Francisco written short: ORCID given boxes 137 (Spain 75, Mexico 7), family boxes 3 (2026-11-06); written with its period at the head of a name (Fco. Javier Barbas González), it read as a title by the leading-abbreviation shape (#1115)" }
+
+[[word]]
+text = "fátima"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de Fátima): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 27 times and open a family box of more words with it behind a particle 1; in Portugal, Brazil and Portuguese-speaking Africa 32 and 4, below the 90% the other words meet, so it is Spanish here alone (2026-11-03, #704)" }
+
+[[word]]
+text = "jesús"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de Jesús): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 446 times and open a family box of more words with it behind a particle 11 (2026-11-03, #704)" }
+
+[[word]]
+text = "lady"
+given = { default = false, note = "a given name in Spanish-speaking Latin America (Lady Heidenreich, Lady Guillén) as well as the British title (en.toml's lady): ORCID records whose given box holds it 137, 111 in Spanish-speaking countries (Ecuador 41, Colombia 30, Peru 12) and 9 in the Philippines, against psc-individuals' 160 title boxes and 19 forename boxes and ukec-individuals' 59 names opening with it, all titles (2026-11-03); off by default, and turned on by a Spanish choice, which makes the title one only inside a title phrase (rules/H9, #913)" }
+
+[[word]]
+text = "lourdes"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de Lourdes): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 76 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "mar"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Mar): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 86 times and open a family box of more words with it behind a particle 3 (2026-11-03, #704)" }
+
+[[word]]
+text = "maria"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de Maria, without its accent): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 18 times and open a family box of more words with it behind a particle 1 (2026-11-03, #704)" }
+
+[[word]]
+text = "maría"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de María): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 35 times and open a family box of more words with it behind a particle 3 (2026-11-03, #704)" }
+
+[[word]]
+text = "mercedes"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de las Mercedes): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 56 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "milagro"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Milagro): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 30 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "milagros"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de los Milagros): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 27 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "nieves"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de las Nieves): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 15 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "pilar"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Pilar): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 322 times and open a family box of more words with it behind a particle 1 (2026-11-03, #704)" }
+
+[[word]]
+text = "rocio"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Rocio, without its accent): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 57 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "rocío"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Rocío): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 77 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "rosario"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Rosario): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 260 times and open a family box of more words with it behind a particle 27 (2026-11-03, #704)" }
+
+[[word]]
+text = "socorro"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Socorro): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 154 times and open a family box of more words with it behind a particle 0 (2026-11-03, #704)" }
+
+[[word]]
+text = "valle"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (del Valle): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 235 times and open a family box of more words with it behind a particle 26 (2026-11-03, #704)" }
+
+[[word]]
+text = "ángeles"
+given = { after_particle = true, note = "the second of a compound given name written behind a particle (de los Ángeles): ORCID holders in Spain and Spanish-speaking America end the given box with it behind a particle 230 times and open a family box of more words with it behind a particle 1 (2026-11-03, #704)" }

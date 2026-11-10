@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: i2
-Version: 0.1.91
+Version: 0.1.92
 Summary: The middleware toolbox: signatures as data, decorators, wrappers and multi-object composition
 Project-URL: Homepage, https://github.com/i2mint/i2
 Project-URL: Documentation, https://i2mint.github.io/i2

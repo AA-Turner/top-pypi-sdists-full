@@ -1,5 +1,5 @@
 """Contracts: the registry of every shared record, the vocabularies their fields use, the
-product-analytics event and surface catalogs and the client-message vocabulary."""
+product-analytics event and surface catalogs, the client-message vocabulary and the pin kinds."""
 
 from __future__ import annotations
 
@@ -18,22 +18,46 @@ from .client_messages import (
     MessageCode,
     Severity,
 )
+from .pane_api import PaneApi
+from .pins import Pins
 from .records import (
     AnchorLevel,
     Artifact,
     ArtifactStatus,
+    Command,
+    CommandAnswer,
+    CommandAsk,
+    CommandClaim,
+    CommandData,
+    CommandKind,
+    CommandState,
+    EditActorKind,
+    EditCounts,
+    EditOp,
+    EditPhase,
+    EditState,
+    EditTarget,
     Experiment,
     LineageEntityType,
     LineageRelation,
     MetricPoint,
+    MoveSeriesArgs,
     ParentRelation,
     Project,
     ProjectKind,
     Record,
+    RenameArgs,
+    RevertArgs,
     Run,
     RunCounts,
+    RunEdit,
     RunStatus,
+    ScaleArgs,
+    SetConfigArgs,
+    ShiftStepArgs,
+    ShiftTimeArgs,
     Span,
+    WatchArgs,
 )
 from .settings import SetBy, SettingKey
 from .transcript_switch import SwitchedBy, TranscriptState
@@ -60,11 +84,34 @@ class Contracts:
     transcript_switch: tuple[type[Enum], ...] = ()
     #: The settings file's keys and writers (settings/).
     settings: tuple[type[Enum], ...] = ()
+    #: What a pane's code may call and its caps (pane_api/).
+    pane_api: PaneApi | None = None
+    #: What a project's Pinned area can hold (pins/).
+    pins: Pins | None = None
 
 
 CONTRACTS = Contracts(
-    records=(Run, Experiment, Project, Artifact, MetricPoint, Span),
-    nested=(RunCounts,),
+    records=(Run, Experiment, Project, Artifact, MetricPoint, Span, RunEdit, Command),
+    # An edit's target, counts and each op's arguments (records/edit.py; HideArgs has no fields); a command's
+    # arguments, ask, claim and answer bodies and its live notice (records/command.py; CancelArgs and RetryArgs
+    # have no fields).
+    nested=(
+        RunCounts,
+        EditTarget,
+        EditCounts,
+        ShiftStepArgs,
+        ShiftTimeArgs,
+        ScaleArgs,
+        RenameArgs,
+        MoveSeriesArgs,
+        SetConfigArgs,
+        RevertArgs,
+        WatchArgs,
+        CommandAsk,
+        CommandClaim,
+        CommandAnswer,
+        CommandData,
+    ),
     enums=(
         RunStatus,
         ParentRelation,
@@ -73,10 +120,18 @@ CONTRACTS = Contracts(
         AnchorLevel,
         LineageEntityType,
         LineageRelation,
+        EditOp,
+        EditState,
+        EditPhase,
+        EditActorKind,
+        CommandKind,
+        CommandState,
     ),
     events=EventCatalog.load(),
     surfaces=SurfaceCatalog.load(),
     messages=(Severity, Action, Audience, MessageCode, ClientMessage, ClientRefusalBody, ClientMessageList),
     transcript_switch=(TranscriptState, SwitchedBy),
     settings=(SettingKey, SetBy),
+    pane_api=PaneApi.load(),
+    pins=Pins.load(),
 )

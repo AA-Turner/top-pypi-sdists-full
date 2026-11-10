@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: agent-client-protocol
-Version: 0.12.1
+Version: 1.0.0
 Summary: A Python implement of Agent Client Protocol (ACP, by Zed Industries)
 Keywords: python
 Author-Email: Chojan Shang <psiace@apache.org>, Frost Ming <me@frostming.com>
@@ -12,18 +12,21 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Project-URL: Homepage, https://agentclientprotocol.github.io/python-sdk/
 Project-URL: Repository, https://github.com/agentclientprotocol/python-sdk
 Project-URL: Documentation, https://agentclientprotocol.github.io/python-sdk/
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Requires-Dist: pydantic>=2.7
+Requires-Dist: pydantic-core>=2.18.1
 Provides-Extra: logfire
 Requires-Dist: logfire>=0.14; extra == "logfire"
 Requires-Dist: opentelemetry-sdk>=1.28.0; extra == "logfire"
 Provides-Extra: http
-Requires-Dist: httpx[http2]>=0.27; extra == "http"
+Requires-Dist: httpx2[http2]>=2.12; extra == "http"
 Requires-Dist: websockets>=12.0; extra == "http"
+Requires-Dist: starlette>=0.49.3; extra == "http"
 Description-Content-Type: text/markdown
 
 <a href="https://agentclientprotocol.com/">
@@ -32,7 +35,7 @@ Description-Content-Type: text/markdown
 
 # Agent Client Protocol (Python)
 
-Build ACP-compliant agents and clients in Python with generated schema models, asyncio transports, helper builders, and runnable demos.
+Build ACP-compliant agents and clients in Python with generated schema models, asyncio transports, and runnable demos.
 
 > Releases track the upstream ACP schema; contributions that tighten coverage or tooling are always welcome.
 
@@ -47,14 +50,14 @@ uv add agent-client-protocol
 ## At a glance
 
 - **Spec parity:** Generated Pydantic models in `acp.schema` track every ACP release so payloads stay valid.
+- **Direct construction:** Generated discriminator fields have defaults, so models can be instantiated directly.
 - **Runtime ergonomics:** Async base classes, stdio JSON-RPC plumbing, and lifecycle helpers keep custom agents tiny.
 - **Examples ready:** Streaming, permissions, Gemini bridge, and duet demos live under `examples/`.
-- **Helper builders:** `acp.helpers` mirrors the Go/TS SDK APIs for content blocks, tool calls, and session updates.
 - **Contrib utilities:** Session accumulators, tool call trackers, and permission brokers share patterns from real deployments.
 
 ## Who benefits
 
-- Agent authors who need typed models, helper builders, and event-stream ergonomics for ACP-compatible assistants.
+- Agent authors who need typed models and event-stream ergonomics for ACP-compatible assistants.
 - Client integrators embedding ACP parties inside Python applications or wrapping existing CLIs via stdio.
 - Tooling teams experimenting with permission flows, streaming UX, or Gemini bridges without re-implementing transports.
 See real adopters like kimi-cli in the [Use Cases list](https://agentclientprotocol.github.io/python-sdk/use-cases/).
@@ -80,7 +83,7 @@ See real adopters like kimi-cli in the [Use Cases list](https://agentclientproto
 
 ## Project layout
 
-- `src/acp/`: runtime package (agents, clients, transports, helpers, schema bindings, contrib utilities)
+- `src/acp/`: runtime package (agents, clients, transports, schema bindings, contrib utilities)
 - `schema/`: upstream JSON schema sources (regenerate via `make gen-all`)
 - `docs/`: MkDocs content backing the published documentation
 - `examples/`: runnable scripts covering stdio orchestration patterns

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-agents
-Version: 1.1.0
+Version: 1.1.2
 Summary: Mistral Agents SDK - build and serve agents in Python
 Author-email: Mistral AI <support@mistral.ai>
 License: Apache-2.0
@@ -16,7 +16,7 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: cachetools<8,>=7.1.6
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: mistralai-otel-observability>=0.5.0
-Requires-Dist: mistralai-vibe-harness[observability,workflows]==0.1.19
+Requires-Dist: mistralai-vibe-harness[observability,workflows]==0.1.21
 Requires-Dist: mistralai-vibe-sdk<0.15,>=0.14.0
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1
 Requires-Dist: mistralai-workflows<4,>=3.16.0
@@ -35,7 +35,7 @@ Provides-Extra: koyeb
 Requires-Dist: koyeb-sdk<2,>=1.5.5; extra == 'koyeb'
 Provides-Extra: sessions-client
 Requires-Dist: httpx>=0.28.1; extra == 'sessions-client'
-Requires-Dist: mistralai-vibe-harness==0.1.19; extra == 'sessions-client'
+Requires-Dist: mistralai-vibe-harness==0.1.21; extra == 'sessions-client'
 Description-Content-Type: text/markdown
 
 # Mistral Managed Agents

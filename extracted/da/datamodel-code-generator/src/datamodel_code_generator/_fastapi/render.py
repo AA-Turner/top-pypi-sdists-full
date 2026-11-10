@@ -30,6 +30,7 @@ from datamodel_code_generator._fastapi.packages import (
 )
 from datamodel_code_generator._fastapi.plan import (
     Default,
+    FilePartSpec,
     JsonPartSpec,
     MemberDefault,
     ParameterDefault,
@@ -95,11 +96,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._openapi_codec_plan import PydanticBackend
     from datamodel_code_generator._openapi_wire_plan import WirePlan
-    from datamodel_code_generator._target_contract import (
-        GeneratedTypeContractBatch,
-        Requirement,
-        TypeView,
-    )
+    from datamodel_code_generator._target_contract import GeneratedTypeContractBatch, TypeView
     from datamodel_code_generator._target_module import TypeNames
     from datamodel_code_generator._target_templates import Role, Templated, TemplateOverlay
 
@@ -295,8 +292,8 @@ class Module(TargetModule):
             return subscript_text(self.hint(value.base), arguments)
         flag = CONTAINER_FLAGS[slot]
         if flag in MAPPINGS.flags:
-            return self.container(flag, arguments[-1], key=arguments[0])
-        return self.container(flag, arguments[0])
+            return self.container(flag, arguments[-1], key=arguments[0], given=value.given)
+        return self.container(flag, arguments[0], given=value.given)
 
     def constraints(self, value: ConstructorType, base: BuiltinType | ImportedType) -> tuple[str, ...]:
         """Return the metadata of a constrained scalar's keywords, split as the model generator splits them."""
@@ -915,7 +912,7 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
             module.local("_runtime.server.application", "checked"),
             spec.python_name,
             stable_repr(label),
-            tuple_display(stable_repr(argument.name) for argument in spec.arguments),
+            stable_repr(tuple(argument.name for argument in spec.arguments)),
             asynchronous,
         )
         parameters = [
@@ -984,7 +981,7 @@ class ServerRenderer:  # ruff: ignore[too-many-public-methods]
             authorize=authorize,
             authenticate=authenticate,
             parameters=tuple(parameters),
-            requirements=tuple_display(_requirement(item) for item in requirements),
+            requirements=stable_repr(requirements),
             credentials=dict_display((stable_repr(scheme), names[scheme]) for scheme in scopes),
             challenge=stable_repr(challenge),
         )
@@ -1375,6 +1372,12 @@ def _json_part(module: Module, part: JsonPartSpec) -> str:
     )
 
 
+def _file_part(module: Module, part: FilePartSpec) -> str:
+    """Return the FilePart constructor of one multipart member holding files, whose parts are read as their octets."""
+    repeated = (keyword_argument("repeated", "True"),) if part.repeated else ()
+    return call_text(module.local("_runtime.server.requests", "FilePart"), (stable_repr(part.name), *repeated))
+
+
 def _body_media(module: Module, body: BodySpec) -> str:
     """Return the BodyMedia constructors of an adapter body, as one tuple."""
     media: list[str] = []
@@ -1386,12 +1389,16 @@ def _body_media(module: Module, body: BodySpec) -> str:
             entries.append(f"fields={tuple_display(member_plan(module.local, plan) for plan in fields)}")
         if parts := item.json_parts:
             entries.append(f"json_parts={tuple_display(_json_part(module, part) for part in parts)}")
+        if files := item.file_parts:
+            entries.append(f"file_parts={tuple_display(_file_part(module, part) for part in files)}")
         if (additional := item.additional) is not None:
-            plan = (
-                _json_part(module, additional)
-                if isinstance(additional, JsonPartSpec)
-                else member_plan(module.local, additional)
-            )
+            match additional:
+                case JsonPartSpec():
+                    plan = _json_part(module, additional)
+                case FilePartSpec():
+                    plan = _file_part(module, additional)
+                case _:
+                    plan = member_plan(module.local, additional)
             entries.append(f"additional={plan}")
         if (checked := item.checked) is not None:
             type_adapter = module.name("pydantic", "TypeAdapter")
@@ -1559,7 +1566,3 @@ def _scheme(module: Module, scheme: SchemeSpec, name: str) -> Scheme:
     )
     keywords.extend((Keyword("scheme_name", stable_repr(scheme.name)), Keyword("auto_error", "False")))
     return Scheme(name, scheme.name, cls, tuple(keywords))
-
-
-def _requirement(requirement: Requirement) -> str:
-    return tuple_display(f"({stable_repr(name)}, {stable_repr(scopes)})" for name, scopes in requirement)

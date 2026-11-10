@@ -3,11 +3,12 @@ import array
 import datetime
 import decimal
 from _ctypes import COMError, CopyComPointer
+from collections.abc import Sequence
 from ctypes import *
 from ctypes import Array as _CArrayType
 from ctypes import _Pointer
 from ctypes.wintypes import DWORD, LONG, UINT, VARIANT_BOOL, WCHAR, WORD
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional, overload
 
 import comtypes
 import comtypes.patcher
@@ -26,6 +27,38 @@ if TYPE_CHECKING:
     from comtypes._memberspec import _DispMemberSpec
 else:
     _CArgObject = type(byref(c_int()))
+
+
+# ============================================================
+# Fixed-point number (VT_CY / VT_DECIMAL) marshaling helpers
+# ============================================================
+
+# CY range constants
+_CY_BITS = 64
+_LLONG_MIN = -(1 << (_CY_BITS - 1))
+_LLONG_MAX = (1 << (_CY_BITS - 1)) - 1
+_CY_SCALE = decimal.Decimal("10000")
+_CY_MIN = decimal.Decimal(_LLONG_MIN) / _CY_SCALE
+_CY_MAX = decimal.Decimal(_LLONG_MAX) / _CY_SCALE
+
+# DECIMAL limits
+_DECIMAL_MAX_SCALE = 28
+_DECIMAL_MAX_DIGITS = 96  # 96 bits = max 28 decimal digits (2**96-1 has 29 digits, but we use 96-bit mantissa)
+_DECIMAL_MAX_MANTISSA = (1 << 96) - 1
+
+
+def _coerce_decimal(value: Any, context: str) -> decimal.Decimal:
+    """Coerce a value to Decimal for VARIANT marshaling.
+
+    Accepts only Decimal. Rejects int, float, bool, NaN, and Infinity.
+    """
+    if not isinstance(value, decimal.Decimal):
+        raise TypeError(f"{context}: only Decimal is accepted")
+    if value.is_nan():
+        raise ValueError(f"{context}: NaN cannot be converted to VARIANT")
+    if value.is_infinite():
+        raise OverflowError(f"{context}: Infinity cannot be converted to VARIANT")
+    return value
 
 
 LCID = DWORD
@@ -110,6 +143,37 @@ VT_TYPEMASK = 4095
 class tagCY(Structure):
     _fields_ = [("int64", c_longlong)]
 
+    def as_decimal(self) -> decimal.Decimal:
+        """Convert a tagCY struct to Decimal with scale 4 (10000)."""
+        return decimal.Decimal(self.int64) / _CY_SCALE
+
+    def __repr__(self) -> str:
+        return f"tagCY(int64={self.int64})"
+
+    @classmethod
+    def from_decimal(cls, d: decimal.Decimal) -> "hints.Self":
+        """Create a tagCY from a Decimal.
+
+        The value is multiplied by 10000 and must be exactly representable
+        as an integer (no fractional part after scaling). Raises OverflowError
+        if the value has more than 4 decimal places, or if the value is
+        outside the int64 range.
+        """
+        d = _coerce_decimal(d, "tagCY.from_decimal")
+        # Use localcontext with high precision to avoid context-dependent rounding
+        with decimal.localcontext(decimal.Context(prec=decimal.MAX_PREC)):
+            scaled = d * _CY_SCALE
+            # Check if the scaled value has a fractional part
+            if scaled != scaled.to_integral_value():
+                raise OverflowError(
+                    f"Value {d} has more than 4 decimal places, cannot convert to VT_CY exactly. "
+                    f"Round explicitly before calling."
+                )
+            n = int(scaled)
+        if not _LLONG_MIN <= n <= _LLONG_MAX:
+            raise OverflowError(f"Value {d} out of range for VT_CY")
+        return cls(n)
+
 
 CY = tagCY
 CURRENCY = CY
@@ -134,6 +198,92 @@ class tagDEC(Structure):
         digits = (self.Hi32 << 64) + self.Lo64
         sign = "-" if self.sign else ""
         return decimal.Decimal(f"{sign}{digits}e-{self.scale}")
+
+    def __repr__(self) -> str:
+        return f"tagDEC(scale={self.scale}, sign={self.sign}, Hi32={self.Hi32}, Lo64={self.Lo64})"
+
+    @classmethod
+    def from_decimal(cls, d: decimal.Decimal) -> "hints.Self":
+        """Create a tagDEC from a Decimal.
+
+        The scale is chosen as min(max(-exponent, 0), 28) for zero values,
+        and min(-exponent, 28) for non-zero values. Trailing zeros in the
+        fractional part are stripped only when they would cause the scale
+        to exceed 28 (i.e., when exponent < -28). This allows values like
+        1.230000... (many trailing zeros) to be accepted by reducing scale.
+
+        Returns a tagDEC instance.
+
+        Raises:
+            TypeError: If d is not a Decimal.
+            ValueError: If d is NaN.
+            OverflowError: If:
+                - d is Infinity.
+                - The value has more than 28 non-zero decimal places (exceeds
+                  VT_DECIMAL maximum scale).
+                - The value exceeds the 96-bit mantissa (≈7.9e28) at the
+                  required scale.
+        """
+        d = _coerce_decimal(d, "tagDEC.from_decimal")
+        sign, digits, exp = d.as_tuple()
+        coef = int("".join(map(str, digits))) if digits else 0
+
+        # Handle zero specially - preserve scale and sign for round-trip fidelity
+        if coef == 0:
+            # Zero: scale = min(max(-exp, 0), 28) to preserve trailing zeros
+            scale = min(max(-exp, 0), _DECIMAL_MAX_SCALE)
+            scaled_coef = 0
+        else:
+            # Strip trailing zeros from coefficient ONLY when they would cause
+            # scale to exceed 28 (i.e., when exp < -28). This allows values like
+            # 1.230000... (many trailing zeros) to be accepted by reducing scale.
+            while exp < -_DECIMAL_MAX_SCALE and coef % 10 == 0:
+                coef //= 10
+                exp += 1
+
+            # Check for huge positive exponent that would cause huge integer allocation
+            # 96-bit mantissa max is 2**96-1 ≈ 7.9e28, so 29+ digits exceeds it.
+            # Use 29 explicitly (not _DECIMAL_MAX_SCALE + 1) to avoid confusion.
+            if d.adjusted() >= 29:
+                raise OverflowError(
+                    f"Value {d} exceeds 96-bit mantissa. "
+                    f"Reduce precision explicitly before calling."
+                )
+
+            # Start with scale = min(-exp, 28)
+            scale = min(-exp, _DECIMAL_MAX_SCALE) if exp < 0 else 0
+
+            # If the value has more decimal places than max scale, it cannot be
+            # represented exactly in VT_DECIMAL. Require explicit rounding by caller.
+            if exp < -_DECIMAL_MAX_SCALE:
+                raise OverflowError(
+                    f"Value {d} has more than {_DECIMAL_MAX_SCALE} decimal places, "
+                    f"cannot convert to VT_DECIMAL exactly. Round explicitly before calling."
+                )
+
+            # After the check above, we know exp >= -28 (or exp >= 0).
+            # For exp >= 0: scale=0, multiply by 10**exp.
+            # For exp < 0: scale=-exp, use coef directly (no scaling needed).
+            if exp >= 0:
+                scaled_coef = coef * 10**exp
+            else:
+                scaled_coef = coef
+
+        # Check if it fits in 96 bits at the required scale
+        if scaled_coef > _DECIMAL_MAX_MANTISSA:
+            raise OverflowError(
+                f"Value {d} exceeds 96-bit mantissa at scale {scale}. "
+                f"Reduce precision explicitly before calling."
+            )
+
+        # Build the tagDEC
+        dec = cls()
+        dec.wReserved = 0
+        dec.scale = scale
+        dec.sign = 0x80 if sign else 0x00
+        dec.Hi32 = (scaled_coef >> 64) & 0xFFFFFFFF
+        dec.Lo64 = scaled_coef & 0xFFFFFFFFFFFFFFFF
+        return dec
 
 
 DECIMAL = tagDEC
@@ -169,9 +319,10 @@ class tagVARIANT(Structure):
                     ("VT_UI4", c_ulong),
                     ("VT_UI8", c_ulonglong),
                     ("VT_UINT", c_uint),
+                    ("scode", SCODE),
                     ("VT_R4", c_float),
                     ("VT_R8", c_double),
-                    ("VT_CY", c_longlong),
+                    ("VT_CY", tagCY),
                     ("c_wchar_p", c_wchar_p),
                     ("c_void_p", c_void_p),
                     ("pparray", POINTER(POINTER(_safearray.tagSAFEARRAY))),
@@ -199,10 +350,14 @@ class tagVARIANT(Structure):
             self.value = args[0]
 
     def __del__(self):
+        # In `ctypes`, `_b_needsfree_` indicates ownership of the memory buffer.
         if self._b_needsfree_:
-            # XXX This does not work.  _b_needsfree_ is never
-            # set because the buffer is internal to the object.
+            # Standalone instances own their buffer (`_b_needsfree_ == 1`) even
+            # when using an inline buffer, so `_VariantClear` is invoked.
             _VariantClear(self)
+        # Referenced instances (e.g., struct members, array elements, or pointer
+        # contents) do not own the buffer (`_b_needsfree_ == 0`), so clearing
+        # is skipped.
 
     def __repr__(self):
         if self.vt & VT_BYREF:
@@ -213,7 +368,11 @@ class tagVARIANT(Structure):
             return "VARIANT.empty"
         elif self is type(self).missing:
             return "VARIANT.missing"
-        return f"VARIANT(vt=0x{self.vt:x}, {self.value!r})"
+        elif self.vt == VT_ERROR:
+            value = self._.scode
+        else:
+            value = self.value
+        return f"VARIANT(vt=0x{self.vt:x}, {value!r})"
 
     @classmethod
     def from_param(cls, value):
@@ -294,8 +453,26 @@ class tagVARIANT(Structure):
             com_days /= comtypes.npsupport.numpy.timedelta64(1, "D")
             self.vt = VT_DATE
             self._.VT_R8 = com_days
-        elif decimal is not None and isinstance(value, decimal.Decimal):
-            self._.VT_CY = int(round(value * 10000))
+        elif isinstance(value, tagDEC):
+            # decVal overlaps with __tagVARIANT in the union, so set decVal first,
+            # then set vt to avoid overwriting it.
+            self.decVal = value
+            self.vt = VT_DECIMAL
+        elif isinstance(value, tagCY):
+            self.vt = VT_CY
+            self._.VT_CY = value
+        elif isinstance(value, decimal.Decimal):
+            # TODO: Use `self._.VT_CY = tagCY.from_decimal(value)` directly.
+            # Currently writing via `VT_I8` because `VT_CY` is now a `tagCY`
+            # struct in the union. This is correct since `VT_I8` and `VT_CY`
+            # share the same memory in the union.
+            #
+            # Direct assignment to `VT_CY` would require constructing a
+            # `tagCY` instance. This is avoided because `tagCY.from_decimal()`
+            # raises `OverflowError` for values outside the CY range or with
+            # more than 4 decimal places, which would break user code that
+            # implicitly relied on rounding behavior.
+            self._.VT_I8 = int(round(value * _CY_SCALE))
             self.vt = VT_CY
         elif isinstance(value, POINTER(IDispatch)):
             CopyComPointer(value, byref(self._))
@@ -453,13 +630,15 @@ class tagVARIANT(Structure):
             return self._.VT_R8
         elif vt == VT_BOOL:
             return self._.VT_BOOL
+        elif vt == VT_ERROR:
+            return self
         elif vt == VT_BSTR:
             return self._.bstrVal
         elif vt == VT_DATE:
             days = self._.VT_R8
             return datetime.timedelta(days=days) + _com_null_date
         elif vt == VT_CY:
-            return self._.VT_CY / decimal.Decimal("10000")
+            return self._.VT_CY.as_decimal()
         elif vt == VT_UNKNOWN:
             val = self._.c_void_p
             if not val:
@@ -512,10 +691,28 @@ class tagVARIANT(Structure):
 
             return value
         elif self.vt & VT_ARRAY:
-            typ = _vartype_to_ctype[self.vt & ~VT_ARRAY]
-            return cast(self._.pparray, _midlSAFEARRAY(typ)).unpack()
-        else:
-            raise NotImplementedError(f"typecode {vt} = 0x{vt:x})")
+            try:
+                typ = _vartype_to_ctype[self.vt & ~VT_ARRAY]
+                return cast(self._.pparray, _midlSAFEARRAY(typ)).unpack()
+            except KeyError:
+                pass
+
+            if (self.vt & ~VT_ARRAY) == VT_RECORD:
+                from comtypes.client import GetModule
+
+                # Get generic safearray and its IRecordInfo
+                pa = cast(self._.pparray, POINTER(_safearray.SAFEARRAY))
+                ri = _safearray.SafeArrayGetRecordInfo(pa)
+
+                # Now containing typelib and through it the right class type
+                mod = GetModule(ri.GetTypeInfo().GetContainingTypeLib()[0])
+                ricls = getattr(mod, ri.GetName())
+
+                # Cast the array to the right safearray(type), unpack -> return
+                return cast(self._.pparray, _midlSAFEARRAY(ricls)).unpack()
+
+            # Else we cannot unpack the array
+        raise NotImplementedError(f"typecode {vt} = 0x{vt:x})")
 
     def __getitem__(self, index):
         if index != 0:
@@ -532,7 +729,6 @@ class tagVARIANT(Structure):
             return v.value
 
     # these are missing:
-    # getter[VT_ERROR]
     # getter[VT_ARRAY]
     # getter[VT_BYREF|VT_UI1]
     # getter[VT_BYREF|VT_I2]
@@ -601,6 +797,7 @@ VARIANT.empty = VARIANT()
 VARIANT.missing = v = VARIANT()
 v.vt = VT_ERROR
 v._.VT_I4 = 0x80020004
+assert v._.scode == hresult.DISP_E_PARAMNOTFOUND, "the shared 32-bit storage problem"
 del v
 
 
@@ -641,16 +838,22 @@ class IEnumVARIANT(IUnknown):
     _idlflags_ = ["hidden"]
     _dynamic = False
 
-    def __iter__(self):
+    if TYPE_CHECKING:
+
+        def Skip(self, cConnections: int) -> hints.Hresult: ...
+        def Reset(self) -> hints.Hresult: ...
+        def Clone(self) -> hints.Self: ...
+
+    def __iter__(self) -> "hints.Self":
         return self
 
-    def __next__(self):
+    def __next__(self) -> Any:
         item, fetched = self.Next(1)
         if fetched:
             return item
         raise StopIteration
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Any:
         self.Reset()
         # Does not yet work.
         # if isinstance(index, slice):
@@ -662,15 +865,66 @@ class IEnumVARIANT(IUnknown):
             return item
         raise IndexError
 
-    def Next(self, celt):
+    @overload
+    def Next(self, celt: Literal[1]) -> tuple[Any, int]: ...
+    @overload
+    def Next(self, celt: int) -> Sequence[Any]: ...
+    def Next(self, celt):  # type: ignore
+        """Retrieve the next *celt* items from the enumeration.
+
+        This method behaves differently depending on the value of *celt*:
+
+        - `celt == 1`:
+          A single `VARIANT` is fetched via one COM call.  The return
+          value is `(value, fetched)` — a two-element tuple where *value*
+          is the retrieved object and *fetched* is the number of items
+          actually returned (`0` or `1`).
+
+        - `celt != 1` (including `0`):
+          A `VARIANT` array of length *celt* is allocated and filled in a
+          single COM call.  Only the first *fetched* slots are meaningful;
+          the rest are discarded.  The return value is fetched items
+          (possibly empty when `celt == 0` or nothing is left in the
+          enumeration).
+
+        Args:
+            celt: The maximum number of items to retrieve.
+
+        Returns:
+            A `(value, fetched)` tuple when *celt* is `1`.
+            Fetched items when *celt* is not `1`.
+
+        Note:
+            This object implements dunder methods that define iterator and
+            container behavior, so a more Pythonic approach is recommended
+            for accessing its elements rather than calling this method
+            directly.
+        """
+        # This wrapper deviates from a plain COM `IEnumVARIANT::Next` proxy in
+        # two ways that are specific to this package:
+        #
+        # 1. Support for celt != 1 (commit 9f68b6a, by theller):
+        #    "this allows to get more objects at a time."
+        #    When celt != 1, the method allocates a VARIANT array, fetches up
+        #    to `celt` items in a single COM call, and returns them as a list.
+        #
+        # 2. Return type for celt == 1 (commit 65bdc13, by theller):
+        #    The original override returned only the unwrapped value. It was
+        #    later corrected so that celt == 1 returns a tuple corresponding
+        #    exactly to the two `[out]` parameters declared by the COM method
+        #    specifier.
+        #
+        # Both decisions are those of the package originator (theller) and are
+        # intentionally preserved here.
         fetched = c_ulong()
         if celt == 1:
             v = VARIANT()
-            self.__com_Next(celt, v, fetched)
+            self.__com_Next(celt, v, fetched)  # type: ignore
             return v._get_value(dynamic=self._dynamic), fetched.value
         array = (VARIANT * celt)()
-        self.__com_Next(celt, array, fetched)
+        self.__com_Next(celt, array, fetched)  # type: ignore
         result = [v._get_value(dynamic=self._dynamic) for v in array[: fetched.value]]
+        # Release VARIANT refcounts before the temporary array is freed.
         for v in array:
             v.value = None
         return result
@@ -960,6 +1214,8 @@ _ctype_to_vartype: dict[type["_CDataType"], int] = {
     BSTR: VT_BSTR,
     HRESULT: VT_HRESULT,
     VARIANT: VT_VARIANT,
+    tagCY: VT_CY,
+    tagDEC: VT_DECIMAL,
     # SAFEARRAY(VARIANT *)
     #
     # It is unlear to me if this is allowed or not.  Apparently there

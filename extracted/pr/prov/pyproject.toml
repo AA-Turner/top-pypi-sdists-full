@@ -16,7 +16,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -29,7 +28,7 @@ classifiers = [
     "Topic :: Security",
     "Topic :: System :: Logging",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # No unconditional runtime dependencies as of 3.0.
 dependencies = []
 
@@ -56,10 +55,17 @@ plot = [
     "pydot>=1.2.0",
     "networkx>=2.0",
 ]
+# Pygments lexer for PROV-N (prov.pygments), found by name through its entry point.
+pygments = [
+    "pygments>=2.13",
+]
 
 [project.scripts]
 prov-convert = "prov.scripts.convert:main"
 prov-compare = "prov.scripts.compare:main"
+
+[project.entry-points."pygments.lexers"]
+provn = "prov.pygments:ProvNLexer"
 
 [project.urls]
 Homepage = "https://github.com/trungdong/prov"
@@ -73,28 +79,20 @@ Discussions = "https://github.com/trungdong/prov/discussions"
 requires = ["setuptools>=40.8.0", "wheel"]  # PEP 508 specifications.
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+# The wheel holds only the package-data listed below; MANIFEST.in grafts src/prov/tests into the sdist alone.
+include-package-data = false
+
 [tool.setuptools.dynamic]
 version = {attr = "prov.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["prov.tests", "prov.tests.*"]
 
 [tool.setuptools.package-data]
 prov = ["py.typed"]
 "prov.serializers" = ["*.jsonld"]
-"prov.tests" = [
-    "json/*.json",
-    "xml/*.xml",
-    "rdf/*.ttl",
-    "rdf/*.trig",
-    "jsonld/*",
-    "unification/*.json",
-    "unification/constraints/*",
-    "malformed/*",
-    "schemas/*",
-    "provn/README.md",
-    "provn/spec/prov-n/*.provn",
-    "provn/spec/prov-dm/*.provn",
-    "provn/provtoolbox/*.provn",
-    "provn/provtoolbox-corpus/*.provn",
-]
 
 [dependency-groups]
 dev = [
@@ -109,6 +107,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.15.20",
     "types-networkx>=3.4.2.20250509",
+    "types-Pygments>=2.21.0.20260819",
 ]
 bench = [
     "pytest-benchmark>=5.1.0",
@@ -134,7 +133,7 @@ constraint-dependencies = ["numpy<2.5"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["build"]  # dist/.eggs are already in ruff's default excludes
 
 [tool.ruff.lint]
@@ -146,7 +145,7 @@ select = [
     "C4",  # flake8-comprehensions
     "I",   # isort (import sorting)
     "SIM", # flake8-simplify
-    "UP",  # pyupgrade (3.10-safe)
+    "UP",  # pyupgrade (3.11-safe)
     "RUF", # ruff-specific rules
 ]
 ignore = [
@@ -163,6 +162,8 @@ combine-as-imports = true  # keep multi-name `X as X` re-export blocks compact
 "src/prov/model/__init__.py" = ["F403", "F405"]
 "src/prov/serializers/provjson.py" = ["F403", "F405"]
 "src/prov/serializers/provxml.py" = ["F403", "F405"]
+# types-Pygments (typeshed) types the lexer's class attributes as ClassVar; Pygments' own lexers carry no annotation.
+"src/prov/pygments.py" = ["RUF012"]
 "src/prov/tests/test_statements.py" = ["F403", "F405"]
 "src/prov/tests/test_dot.py" = ["E402"]
 "src/prov/tests/test_graphs.py" = ["E402"]
@@ -196,50 +197,33 @@ exclude_lines = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 
 # Test modules that do not yet pass strict mypy. The list only shrinks. A PR
-# that makes a module pass deletes its name, and a new test module never joins.
+# that makes a module pass deletes its name here and from MYPY_OVERRIDE_LIST in
+# src/prov/tests/test_public_api.py, and a new test module never joins.
 [[tool.mypy.overrides]]
 module = [
-    "prov.tests.conftest",
-    "prov.tests.examples",
-    "prov.tests.strategies",
     "prov.tests.test_attribute_merging",
-    "prov.tests.test_attributes",
     "prov.tests.test_chaining",
     "prov.tests.test_cli_smoke",
-    "prov.tests.test_conformance_dm",
     "prov.tests.test_datetime_parsing",
     "prov.tests.test_dot",
-    "prov.tests.test_examples",
     "prov.tests.test_extras",
     "prov.tests.test_graphs",
-    "prov.tests.test_identifier_slots",
-    "prov.tests.test_json",
-    "prov.tests.test_json_schema",
     "prov.tests.test_jsonld",
-    "prov.tests.test_jsonld_schema",
-    "prov.tests.test_jsonld_semantics",
-    "prov.tests.test_malformed",
     "prov.tests.test_model",
     "prov.tests.test_namespace_cache",
     "prov.tests.test_numeric_typing",
-    "prov.tests.test_property_roundtrip",
     "prov.tests.test_provn",
-    "prov.tests.test_provn_corpus",
     "prov.tests.test_provn_escaping",
     "prov.tests.test_provn_lexer",
     "prov.tests.test_provn_profiles",
-    "prov.tests.test_public_api",
-    "prov.tests.test_qnames",
     "prov.tests.test_rdf",
     "prov.tests.test_read",
     "prov.tests.test_scripts",
     "prov.tests.test_statements",
-    "prov.tests.test_unification_constraints",
     "prov.tests.test_xml",
-    "prov.tests.test_xml_schema",
 ]
 ignore_errors = true

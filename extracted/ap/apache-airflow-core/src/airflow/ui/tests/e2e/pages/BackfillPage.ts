@@ -19,12 +19,14 @@
 import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { testConfig } from "playwright.config";
+
 import { BasePage } from "tests/e2e/pages/BasePage";
 import {
   apiCancelAllActiveBackfills,
   apiCancelBackfill,
   apiWaitForNoActiveBackfill,
 } from "tests/e2e/utils/api/backfills";
+import { DATA_ROWS } from "tests/e2e/utils/ui/selectors";
 
 export const REPROCESS_API_TO_UI = {
   completed: "All Runs",
@@ -75,8 +77,10 @@ function getColumnIndex(columnMap: Map<string, number>, name: string): number {
   return index;
 }
 
+// Columns getBackfillDetailsByDateRange reads; findBackfillRowByDateRange waits for all of them.
+const DETAIL_COLUMNS = ["From", "To", "Reprocess Behavior", "Created at", "Completed at"];
+
 export class BackfillPage extends BasePage {
-  public readonly backfillDateError: Locator;
   public readonly backfillFromTrigger: Locator;
   public readonly backfillModeRadio: Locator;
   public readonly backfillRunButton: Locator;
@@ -102,7 +106,6 @@ export class BackfillPage extends BasePage {
     this.backfillToTrigger = page.getByTestId("datetime-input").nth(1);
     this.backfillRunButton = page.getByRole("button", { name: "Run Backfill" });
     this.backfillsTable = page.getByTestId("table-list");
-    this.backfillDateError = page.getByText("Start Date must be before the End Date");
     this.cancelButton = page.getByRole("button", { name: "Cancel backfill" });
     this.pauseButton = page.getByRole("button", { name: "Pause backfill" });
     this.unpauseButton = page.getByRole("button", { name: "Unpause backfill" });
@@ -281,20 +284,30 @@ export class BackfillPage extends BasePage {
             const fromIndex = columnMap.get("From");
             const toIndex = columnMap.get("To");
 
-            if (fromIndex === undefined || toIndex === undefined) {
+            // Headers come from the "common" and "components" i18next namespaces, which load in
+            // parallel. With useSuspense: false a header renders its raw key (e.g.
+            // `backfill.reprocessBehavior`) until its namespace arrives.
+            if (
+              fromIndex === undefined ||
+              toIndex === undefined ||
+              !DETAIL_COLUMNS.every((column) => columnMap.has(column))
+            ) {
               return false;
             }
 
-            const rows = this.backfillsTable.locator("tbody tr");
+            const rows = this.backfillsTable.locator(DATA_ROWS);
             const rowCount = await rows.count();
 
             for (let i = 0; i < rowCount; i++) {
               const row = rows.nth(i);
               const cells = row.locator("td");
-              const fromCell = ((await cells.nth(fromIndex).textContent()) ?? "").slice(0, 10);
-              const toCell = ((await cells.nth(toIndex).textContent()) ?? "").slice(0, 10);
+              const fromCell = (await cells.nth(fromIndex).locator("time").getAttribute("datetime")) ?? "";
+              const toCell = (await cells.nth(toIndex).locator("time").getAttribute("datetime")) ?? "";
 
-              if (fromCell === expectedFrom.slice(0, 10) && toCell === expectedTo.slice(0, 10)) {
+              if (
+                fromCell.slice(0, 10) === expectedFrom.slice(0, 10) &&
+                toCell.slice(0, 10) === expectedTo.slice(0, 10)
+              ) {
                 foundRow = row;
                 foundColumnMap = columnMap;
 
@@ -311,7 +324,7 @@ export class BackfillPage extends BasePage {
         },
         {
           intervals: [2000, 5000],
-          message: `Backfill row with dates ${expectedFrom} ~ ${expectedTo} not found in table`,
+          message: `Backfill row with dates ${expectedFrom} ~ ${expectedTo} not found (waiting for columns: ${DETAIL_COLUMNS.join(", ")})`,
           timeout,
         },
       )
@@ -335,8 +348,8 @@ export class BackfillPage extends BasePage {
     const completedAtIndex = getColumnIndex(columnMap, "Completed at");
 
     const [fromDate, toDate, reprocessBehavior, createdAt, completedAt] = await Promise.all([
-      cells.nth(fromIndex).textContent(),
-      cells.nth(toIndex).textContent(),
+      cells.nth(fromIndex).locator("time").getAttribute("datetime"),
+      cells.nth(toIndex).locator("time").getAttribute("datetime"),
       cells.nth(reprocessIndex).textContent(),
       cells.nth(createdAtIndex).textContent(),
       cells.nth(completedAtIndex).textContent(),
@@ -349,14 +362,6 @@ export class BackfillPage extends BasePage {
       reprocessBehavior: (reprocessBehavior ?? "").trim(),
       toDate: (toDate ?? "").trim(),
     };
-  }
-
-  public getColumnHeader(columnName: string): Locator {
-    return this.backfillsTable.getByRole("columnheader", { name: columnName });
-  }
-
-  public getFilterButton(): Locator {
-    return this.page.getByRole("button", { name: /filter table columns/i });
   }
 
   public async navigateToBackfillsTab(dagName: string): Promise<void> {
@@ -377,16 +382,6 @@ export class BackfillPage extends BasePage {
     await this.triggerButton.click({ timeout: 15_000 });
     await this.backfillModeRadio.click();
     await expect(this.backfillFromTrigger).toBeVisible();
-  }
-
-  public async openFilterMenu(): Promise<void> {
-    await expect(async () => {
-      if (!(await this.page.getByRole("menu").isVisible())) {
-        await this.getFilterButton().click();
-      }
-      await expect(this.page.getByRole("menu")).toBeVisible({ timeout: 3000 });
-      await this.page.getByRole("menuitem").first().click({ timeout: 3000, trial: true });
-    }).toPass({ intervals: [1000], timeout: 15_000 });
   }
 
   public async pauseBackfillViaApi(backfillId: number): Promise<boolean> {
@@ -458,10 +453,6 @@ export class BackfillPage extends BasePage {
       }
       await expect(dateInput).toHaveCount(0, { timeout: 800 });
     }).toPass({ intervals: [300, 700, 1500], timeout: 15_000 });
-  }
-
-  public async toggleColumn(columnName: string): Promise<void> {
-    await this.page.getByRole("menuitem", { name: columnName }).click();
   }
 
   public async togglePauseState(): Promise<void> {

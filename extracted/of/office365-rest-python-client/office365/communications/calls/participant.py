@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional
 
+from office365.communications.callrecords.media_stream import MediaStream
 from office365.communications.calls.invitation_participant_info import (
     InvitationParticipantInfo,
 )
@@ -12,19 +13,19 @@ from office365.communications.operations.invite_participants import (
 )
 from office365.communications.operations.start_hold_music import StartHoldMusicOperation
 from office365.communications.operations.stop_hold_music import StopHoldMusicOperation
+from office365.communications.recording_info import RecordingInfo
+from office365.communications.removed_state import RemovedState
 from office365.entity import Entity
+from office365.permissions import require_permission
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.queries.service_operation import ServiceOperationQuery
-
-if TYPE_CHECKING:
-    from office365.communications.callrecords.media_stream import MediaStream
-    from office365.communications.recording_info import RecordingInfo
-    from office365.communications.removed_state import RemovedState
+from office365.runtime.types.odata_property import odata
 
 
 class Participant(Entity):
     """Represents a participant in a call."""
 
+    @require_permission(application=["Calls.InitiateGroupCall.All"])
     def invite(self, participants: List[InvitationParticipantInfo], client_context: str) -> InviteParticipantsOperation:
         """Invite participants to the active call.
 
@@ -41,6 +42,7 @@ class Participant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(application=["Calls.AccessMedia.All"])
     def start_hold_music(
         self, custom_prompt: Optional[str] = None, client_context: Optional[str] = None
     ) -> StartHoldMusicOperation:
@@ -56,6 +58,7 @@ class Participant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(application=["Calls.AccessMedia.All"])
     def stop_hold_music(self, client_context: Optional[str] = None) -> StopHoldMusicOperation:
         """Reincorporate a participant previously put on hold to the call.
 
@@ -68,52 +71,55 @@ class Participant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="info")
     @property
     def info(self) -> ParticipantInfo:
         """Information about the participant."""
         return self.properties.get("info", ParticipantInfo())
 
+    @odata(name="metadata")
     @property
     def metadata(self) -> Optional[str]:
         """A blob of data provided by the participant in the roster."""
         return self.properties.get("metadata", None)
 
+    @odata(name="restrictedExperience")
     @property
-    def restricted_experience(self):
+    def restricted_experience(self) -> OnlineMeetingRestricted:
         """Information about the reason or reasons media content from a participant is restricted."""
         return self.properties.get("restrictedExperience", OnlineMeetingRestricted())
 
+    @odata(name="isInLobby")
     @property
     def is_in_lobby(self) -> Optional[bool]:
         """Gets the isInLobby property"""
         return self.properties.get("isInLobby", None)
 
+    @odata(name="isMuted")
     @property
     def is_muted(self) -> Optional[bool]:
         """Gets the isMuted property"""
         return self.properties.get("isMuted", None)
 
+    @odata(name="mediaStreams")
     @property
     def media_streams(self) -> ClientValueCollection[MediaStream]:
         """Gets the mediaStreams property"""
-        from office365.communications.callrecords.media_stream import MediaStream
-
         return self.properties.get("mediaStreams", ClientValueCollection[MediaStream](MediaStream))
 
+    @odata(name="recordingInfo")
     @property
     def recording_info(self) -> RecordingInfo:
         """Gets the recordingInfo property"""
-        from office365.communications.recording_info import RecordingInfo
-
         return self.properties.get("recordingInfo", RecordingInfo())
 
+    @odata(name="removedState")
     @property
     def removed_state(self) -> RemovedState:
         """Gets the removedState property"""
-        from office365.communications.removed_state import RemovedState
-
         return self.properties.get("removedState", RemovedState())
 
+    @odata(name="rosterSequenceNumber")
     @property
     def roster_sequence_number(self) -> Optional[int]:
         """Gets the rosterSequenceNumber property"""

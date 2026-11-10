@@ -9,16 +9,17 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.contenttypes.content_type_id import ContentTypeId
+from office365.sharepoint.documents.gridinitinfotype import GridInitInfoType
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.listitems.caml.query import CamlQuery
 from office365.sharepoint.listitems.collection import ListItemCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 from office365.sharepoint.views.field_collection import ViewFieldCollection
 from office365.sharepoint.views.visualization.visualization import Visualization
 
 if TYPE_CHECKING:
     from office365.sharepoint.client_context import ClientContext
-    from office365.sharepoint.documents.gridinitinfotype import GridInitInfoType
     from office365.sharepoint.lists.list import List
     from office365.sharepoint.views.collection import ViewCollection
 
@@ -35,6 +36,7 @@ class View(Entity):
         super().__init__(context, resource_path)
         self._parent_list = parent_list
 
+    @site_access(SiteLevel.READ)
     def get_items(self) -> ListItemCollection:
         """Get list items per a view"""
         assert self.parent_list is not None
@@ -50,6 +52,7 @@ class View(Entity):
         self.ensure_properties(["ViewQuery", "ViewFields"]).after_execute(lambda _: _get_items())
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_as_html(self) -> ClientResult[str]:
         """Returns the list view as HTML."""
         return_type = ClientResult[str](self.context)
@@ -57,6 +60,7 @@ class View(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_view_xml(self, view_xml: str) -> Self:
         """Sets the view schema.
 
@@ -67,11 +71,13 @@ class View(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="Aggregations")
     @property
     def aggregations(self) -> Optional[str]:
         """Specifies fields and functions that define totals shown in a list view."""
         return self.properties.get("Aggregations", None)
 
+    @odata(name="AggregationsStatus")
     @property
     def aggregations_status(self) -> Optional[str]:
         """
@@ -80,16 +86,19 @@ class View(Entity):
         """
         return self.properties.get("AggregationsStatus", None)
 
+    @odata(name="AssociatedContentTypeId")
     @property
     def associated_content_type_id(self) -> Optional[str]:
         """Represents the content type identifier associated with the view."""
         return self.properties.get("AssociatedContentTypeId", None)
 
+    @odata(name="CalendarViewStyles")
     @property
     def calendar_view_styles(self) -> Optional[str]:
         """Represents an object specifying the style of a SharePoint calendar view."""
         return self.properties.get("CalendarViewStyles", None)
 
+    @odata(name="ColumnWidth")
     @property
     def column_width(self) -> Optional[int]:
         """Specifies the width of columns."""
@@ -113,6 +122,7 @@ class View(Entity):
             raise ValueError("Parent collection is not initialized")
         return cast(ViewCollection, self._parent_collection)
 
+    @odata(name="JSLink")
     @property
     def js_link(self) -> Optional[str]:
         """Specifies the JavaScript files used for the view."""
@@ -129,6 +139,7 @@ class View(Entity):
         """Sets the identifier of the content type with which the view is associated."""
         self.set_property("ContentTypeId", value)
 
+    @odata(name="CustomFormatter")
     @property
     def custom_formatter(self) -> Optional[str]:
         """Specifies the Custom Formatter used for the view."""
@@ -139,6 +150,7 @@ class View(Entity):
         """"""
         return self.properties.get("CustomOrder", None)
 
+    @odata(name="EditorModified")
     @property
     def editor_modified(self) -> Optional[bool]:
         """Specifies whether the list view was modified in an editor."""
@@ -176,7 +188,7 @@ class View(Entity):
         """Specifies whether the list view is the default list view for the content type specified by ContentTypeId."""
         return self.properties.get("DefaultViewForContentType", None)
 
-    @odata(name="ViewFields")
+    @odata(name="ViewFields", navigation=True)
     @property
     def view_fields(self) -> ViewFieldCollection:
         """Gets a value that specifies the collection of fields in the list view."""
@@ -185,11 +197,13 @@ class View(Entity):
             ViewFieldCollection(self.context, ResourcePath("ViewFields", self.resource_path)),
         )
 
+    @odata(name="ViewQuery")
     @property
     def view_query(self) -> Optional[str]:
         """Gets or sets a value that specifies the query that is used by the list view."""
         return self.properties.get("ViewQuery", None)
 
+    @odata(name="BaseViewId")
     @property
     def base_view_id(self) -> Optional[str]:
         """Gets a value that specifies the base view identifier of the list view."""
@@ -199,28 +213,31 @@ class View(Entity):
         """Specifies whether the list view is read-only."""
         return self.properties.get("ReadOnlyView", None)
 
-    @odata(name="ServerRelativePath")
+    @odata(name="ServerRelativePath", beta=True)
     @property
     def server_relative_path(self) -> Optional[SPResPath]:
         """Gets the server-relative Path of the View."""
         return self.properties.get("ServerRelativePath", SPResPath())
 
+    @odata(name="ViewJoins")
     @property
     def view_joins(self) -> Optional[str]:
         """Specifies the joins that are used in the list view"""
         return self.properties.get("ViewJoins", None)
 
-    @odata(name="VisualizationInfo")
+    @odata(name="VisualizationInfo", beta=True)
     @property
     def visualization_info(self) -> Visualization:
         """Specifies how the view is layed out."""
         return self.properties.get("VisualizationInfo", Visualization())
 
+    @odata(name="Id")
     @property
     def id(self) -> Optional[str]:
         """Gets the view identifier."""
         return self.properties.get("Id", None)
 
+    @odata(name="Title")
     @property
     def title(self) -> Optional[str]:
         """Gets the view title."""
@@ -272,113 +289,133 @@ class View(Entity):
         """Gets whether the view is ordered."""
         return self.properties.get("OrderedView", None)
 
+    @odata(name="GridInitInfo")
     @property
     def grid_init_info(self) -> GridInitInfoType:
         """Gets the GridInitInfo property"""
-        from office365.sharepoint.documents.gridinitinfotype import GridInitInfoType
-
         return self.properties.get("GridInitInfo", GridInitInfoType())
 
+    @odata(name="GridLayout")
     @property
     def grid_layout(self) -> Optional[str]:
         """Gets the GridLayout property"""
         return self.properties.get("GridLayout", None)
 
+    @odata(name="HtmlSchemaXml")
     @property
     def html_schema_xml(self) -> Optional[str]:
         """Gets the HtmlSchemaXml property"""
         return self.properties.get("HtmlSchemaXml", None)
 
+    @odata(name="ImageUrl")
     @property
     def image_url(self) -> Optional[str]:
         """Gets the ImageUrl property"""
         return self.properties.get("ImageUrl", None)
 
+    @odata(name="IncludeRootFolder")
     @property
     def include_root_folder(self) -> Optional[bool]:
         """Gets the IncludeRootFolder property"""
         return self.properties.get("IncludeRootFolder", None)
 
+    @odata(name="ListViewXml")
     @property
     def list_view_xml(self) -> Optional[str]:
         """Gets the ListViewXml property"""
         return self.properties.get("ListViewXml", None)
 
+    @odata(name="Method")
     @property
     def method(self) -> Optional[str]:
         """Gets the Method property"""
         return self.properties.get("Method", None)
 
+    @odata(name="MobileDefaultView")
     @property
     def mobile_default_view(self) -> Optional[bool]:
         """Gets the MobileDefaultView property"""
         return self.properties.get("MobileDefaultView", None)
 
+    @odata(name="MobileView")
     @property
     def mobile_view(self) -> Optional[bool]:
         """Gets the MobileView property"""
         return self.properties.get("MobileView", None)
 
+    @odata(name="ModerationType")
     @property
     def moderation_type(self) -> Optional[str]:
         """Gets the ModerationType property"""
         return self.properties.get("ModerationType", None)
 
+    @odata(name="NewDocumentTemplates")
     @property
     def new_document_templates(self) -> Optional[str]:
         """Gets the NewDocumentTemplates property"""
         return self.properties.get("NewDocumentTemplates", None)
 
+    @odata(name="PageRenderType", beta=True)
     @property
     def page_render_type(self) -> Optional[int]:
         """Gets the PageRenderType property"""
         return self.properties.get("PageRenderType", None)
 
+    @odata(name="ViewProjectedFields")
     @property
     def view_projected_fields(self) -> Optional[str]:
         """Gets the ViewProjectedFields property"""
         return self.properties.get("ViewProjectedFields", None)
 
+    @odata(name="RequiresClientIntegration")
     @property
     def requires_client_integration(self) -> Optional[bool]:
         """Gets the RequiresClientIntegration property"""
         return self.properties.get("RequiresClientIntegration", None)
 
+    @odata(name="Scope")
     @property
     def scope(self) -> Optional[int]:
         """Gets the Scope property"""
         return self.properties.get("Scope", None)
 
+    @odata(name="StyleId")
     @property
     def style_id(self) -> Optional[str]:
         """Gets the StyleId property"""
         return self.properties.get("StyleId", None)
 
+    @odata(name="TabularView")
     @property
     def tabular_view(self) -> Optional[bool]:
         """Gets the TabularView property"""
         return self.properties.get("TabularView", None)
 
+    @odata(name="Threaded")
     @property
     def threaded(self) -> Optional[bool]:
         """Gets the Threaded property"""
         return self.properties.get("Threaded", None)
 
+    @odata(name="Toolbar")
     @property
     def toolbar(self) -> Optional[str]:
         """Gets the Toolbar property"""
         return self.properties.get("Toolbar", None)
 
+    @odata(name="ToolbarTemplateName")
     @property
     def toolbar_template_name(self) -> Optional[str]:
         """Gets the ToolbarTemplateName property"""
         return self.properties.get("ToolbarTemplateName", None)
 
+    @odata(name="ViewData")
     @property
     def view_data(self) -> Optional[str]:
         """Gets the ViewData property"""
         return self.properties.get("ViewData", None)
 
+    @odata(name="ViewType2")
     @property
     def view_type2(self) -> Optional[str]:
         """Gets the ViewType2 property"""

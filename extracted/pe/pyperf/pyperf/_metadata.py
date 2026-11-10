@@ -14,10 +14,8 @@ def _common_metadata(metadatas):
 
     metadata = dict(metadatas[0])
     for run_metadata in metadatas[1:]:
-        for key in set(metadata) - set(run_metadata):
-            del metadata[key]
-        for key in set(run_metadata) & set(metadata):
-            if run_metadata[key] != metadata[key]:
+        for key in list(metadata):
+            if metadata[key] != run_metadata.get(key,None):
                 del metadata[key]
     return metadata
 
@@ -63,7 +61,7 @@ def format_noop(value):
 # types: accepted types
 _MetadataInfo = collections.namedtuple('_MetadataInfo', 'formatter types check_value unit')
 
-BYTES = _MetadataInfo(format_filesize, (int,), is_strictly_positive, 'byte')
+BYTES = _MetadataInfo(format_filesize, (int,), is_positive, 'byte')
 DATETIME = _MetadataInfo(format_noop, (str,), None, None)
 LOOPS = _MetadataInfo(format_number, (int,), is_strictly_positive, 'integer')
 WARMUPS = _MetadataInfo(format_number, (int,), is_positive, 'integer')

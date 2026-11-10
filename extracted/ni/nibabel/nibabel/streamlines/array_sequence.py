@@ -239,6 +239,8 @@ class ArraySequence:
         in_cached_build = build_cache is not None
         if not in_cached_build:  # One shot append, not part of sequence
             build_cache = _BuildCache(self, common_shape, element.dtype)
+        if common_shape != build_cache.common_shape:
+            raise ValueError('All dimensions, except the first one, must match exactly')
         next_offset = build_cache.next_offset
         req_rows = next_offset + n_items
         if self._data.shape[0] < req_rows:
@@ -402,7 +404,7 @@ class ArraySequence:
 
         raise TypeError(
             'Index must be either an int, a slice, a list of int'
-            ' or a ndarray of bool! Not ' + str(type(idx))
+            f' or a ndarray of bool! Not {type(idx)}'
         )
 
     def __setitem__(self, idx, elements):
@@ -445,7 +447,7 @@ class ArraySequence:
         else:
             raise TypeError(
                 'Index must be either an int, a slice, a list of int'
-                ' or a ndarray of bool! Not ' + str(type(idx))
+                f' or a ndarray of bool! Not {type(idx)}'
             )
 
         if is_array_sequence(elements):

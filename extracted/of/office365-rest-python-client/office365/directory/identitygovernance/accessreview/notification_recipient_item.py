@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.identitygovernance.accessreview.notification_recipient_scope import (
     AccessReviewNotificationRecipientScope,
@@ -8,7 +8,6 @@ from office365.directory.identitygovernance.accessreview.notification_recipient_
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AccessReviewNotificationRecipientItem(ClientValue):
     notificationRecipientScope: AccessReviewNotificationRecipientScope = field(
         default_factory=AccessReviewNotificationRecipientScope

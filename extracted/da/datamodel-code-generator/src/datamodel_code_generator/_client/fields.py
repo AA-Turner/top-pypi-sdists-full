@@ -67,9 +67,11 @@ class _Fields:
     def operation(self, spec: OperationSpec) -> OperationSpec:
         """Plan an operation's field branches and why other media have none, refusing names that name no field.
 
-        Explicit names, configured or `--aliases` entries, must be new beside the method's other arguments. Each other
-        field takes its model field's name, or for a key that is no identifier the name a field would take, suffixed
-        apart from the other arguments; a field of several media takes one name.
+        Explicit names, configured or `--aliases` entries, must be new beside the method's other arguments. A media's
+        field takes the explicit name its own media gives it, the configured one first; a field its media does not name
+        takes the explicit name of the first media that names that property, so media that name it differently keep
+        their own names. A property that no media names takes one name in every media: its first model field's name,
+        or for a key that is no identifier the name a field would take, suffixed apart from the other arguments.
         """
         if spec.body is None or spec.body_arguments != "both":
             return spec
@@ -85,8 +87,14 @@ class _Fields:
             (media_type, item.wire_name): given
             for media_type, fields in declared
             for item in fields
-            if (given := names.pop((media_type, item.wire_name), None) or self._aliased(item)) is not None
+            if (given := names.pop((media_type, item.wire_name), None) or (item.name if item.explicit else None))
+            is not None
         }
+        shared = {wire_name: given for (_, wire_name), given in reversed(explicit.items())}
+
+        def named(media_type: str, wire_name: str) -> str | None:
+            return explicit.get((media_type, wire_name)) or shared.get(wire_name)
+
         self.problems.extend(
             CLIENT.problem(
                 "E_CONFIG_VALUE",
@@ -100,7 +108,7 @@ class _Fields:
         helpers = HELPER_ARGUMENTS if spec.contract.id in self.helpers else ()
         scope = NameScope((*RESERVED_ARGUMENTS, *helpers, *(parameter.python_name for parameter in spec.parameters)))
         for media_type, fields in declared:
-            given = [explicit[key] for item in fields if (key := (media_type, item.wire_name)) in explicit]
+            given = [name for item in fields if (name := named(media_type, item.wire_name)) is not None]
             counts = Counter(given)
             if taken := sorted({name for name in given if name in scope or counts[name] > 1}):
                 self.problems.append(
@@ -114,9 +122,9 @@ class _Fields:
         for name in explicit.values():
             scope.take(name)
         pending: dict[str, str] = {}
-        for media_type, fields in declared:
+        for _, fields in declared:
             for item in fields:
-                if (media_type, item.wire_name) not in explicit:
+                if item.wire_name not in shared:
                     pending.setdefault(item.wire_name, self.base(item))
         derived = dict(
             zip(
@@ -130,7 +138,7 @@ class _Fields:
                 media_type=media_type,
                 fields=tuple(
                     FieldArgument(
-                        python_name=explicit.get((media_type, item.wire_name)) or derived[item.wire_name],
+                        python_name=named(media_type, item.wire_name) or derived[item.wire_name],
                         wire_name=item.wire_name,
                         required=item.required,
                         type=item.type,
@@ -141,10 +149,6 @@ class _Fields:
             for media_type, fields in declared
         )
         return replace(spec, fields=branches, body_only=tuple(body_only))
-
-    def _aliased(self, field: ModelField) -> str | None:
-        """Return a field's model name when an `--aliases` entry gave it, which names its argument as given."""
-        return field.name if self.names.aliased(field.wire_name, field.name) else None
 
     def base(self, field: ModelField) -> str:
         """Return the name a field's argument derives from: its model field's name, or for a key, a field's name."""

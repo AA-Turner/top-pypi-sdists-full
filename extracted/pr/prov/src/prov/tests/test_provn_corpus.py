@@ -4,30 +4,59 @@ Three sets: the examples of the PROV-N and PROV-DM Recommendations (strict
 grammar, and round-trip through our writer), ProvToolbox's own PROV-N test
 documents (default profile), and the PROV-N that ProvToolbox's writer
 produced from the shared test corpus, compared for equality with the
-PROV-JSON fixture of the same name (the interoperability claim)."""
+PROV-JSON fixture of the same name (the interoperability claim).
+
+Each set has a table of files it leaves out, with the reason per file, and
+one test that proves the exclusion still holds: an excluded example or
+document still fails to parse, and a listed corpus file still differs from
+its fixture. A file that starts to pass is removed from its table.
+
+A third table, ``IGNORED_EXTENSIONS``, counts the extensibility expressions the
+reader drops from a file that otherwise parses. The two parse tests assert that
+count as the number of warnings, and that no other warning appears."""
+
+from __future__ import annotations
 
 import warnings
+from collections.abc import Collection
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
-from prov.model import ProvDocument, ProvFutureRejectionWarning
+from prov.model import ProvDocument, ProvWarning
+from prov.serializers.provn_lexer import ProvNSyntaxError
+
+if TYPE_CHECKING:
+    from _pytest.mark import ParameterSet
 
 CORPUS = Path(__file__).parent / "provn"
 JSON_FIXTURES = Path(__file__).parent / "json"
 
-# Specification examples that are not complete statements, or that the
-# formal grammar rejects even though the Recommendation's prose presents
-# them as valid; keep this list in step with provn/README.md.
+# The specifications use a prefix in a qualified-name value without declaring
+# it; prov rejects the value (#516), and the examples are not normative.
+_UNDECLARED_VALUE_PREFIX = (
+    "a qualified-name value uses a prefix the example does not declare (#516)"
+)
+
+# Specification examples that are not complete statements, that the formal
+# grammar rejects even though the Recommendation's prose presents them as valid,
+# or that use an undeclared prefix in a value.
 EXCLUDED_SPEC_EXAMPLES: dict[str, str] = {
     "prov-n-example-16.provn": (
         "the sixth wasGeneratedBy variant reuses tr:WD-prov-dm-20111215 as its "
         "time argument, which is not a dateTime; a copy-paste artefact in the "
         "Recommendation's own text"
     ),
+    "prov-n-example-34.provn": _UNDECLARED_VALUE_PREFIX,
+    "prov-n-example-35.provn": _UNDECLARED_VALUE_PREFIX,
     "prov-n-example-37.provn": (
         "wasAssociatedWith(ex:a1, ex:ag1) gives the agent without the paired "
         "plan; production [20] requires them together"
+    ),
+    "prov-n-example-51.provn": (
+        "a prefix declaration before the default declaration; production [45] "
+        "puts the default first"
     ),
     "prov-n-example-52.provn": "a bare typed-literal pair, not a statement",
     "prov-n-example-53.provn": "a bare typed-literal pair, not a statement",
@@ -41,15 +70,6 @@ EXCLUDED_SPEC_EXAMPLES: dict[str, str] = {
         "the bundle identifier 'b' has no declared default namespace; the "
         "example illustrates qualified-name resolution for ex:e001, not the "
         "bundle name itself"
-    ),
-    "prov-n-example-63.provn": (
-        "the dictionary set-of-pairs literal '{(\"k1\",e1), ...}' is "
-        "PROV-Dictionary syntax the lexer has no punctuation for, "
-        "unsupported by design"
-    ),
-    "prov-n-example-64.provn": (
-        "dictExt:hadMembers(...) is an extensibility expression "
-        "(prefix:name(...)), unsupported by design"
     ),
     "prov-dm-example-03.provn": (
         "used and wasGeneratedBy give only the entity/activity without the "
@@ -70,8 +90,14 @@ EXCLUDED_SPEC_EXAMPLES: dict[str, str] = {
         "wasAssociatedWith and wasGeneratedBy give only the activity/entity "
         "without the paired plan or time"
     ),
+    "prov-dm-example-27.provn": _UNDECLARED_VALUE_PREFIX,
+    "prov-dm-example-31.provn": _UNDECLARED_VALUE_PREFIX,
     "prov-dm-example-34.provn": (
         "wasAssociatedWith gives only the activity and agent without the paired plan"
+    ),
+    "prov-dm-example-42.provn": (
+        "statements after the bundle; production [1] puts every expression "
+        "before the first bundle"
     ),
     "prov-dm-example-52.provn": (
         "wasAssociatedWith gives only the activity and agent without the paired plan"
@@ -84,24 +110,9 @@ EXCLUDED_SPEC_EXAMPLES: dict[str, str] = {
     "prov-dm-example-57.provn": "a list of bare literals, not a statement",
     "prov-dm-example-58.provn": "a bare typed-literal pair, not a statement",
     "prov-dm-example-59.provn": "a bare qualified-name literal, not a statement",
-    "prov-dm-example-63.provn": "used gives only the activity and entity without the paired time",
-}
-
-_UNDECLARED_VALUE_PREFIX = "does not resolve, because its prefix '.*' is not declared"
-
-# Recommendation examples that the strict profile reads with a 3.3.0 warning
-# (#516, #519). The examples are not normative, so the grammar wins.
-STRICT_WARNING_EXAMPLES: dict[str, str] = {
-    "prov-n-example-51.provn": "'default' follows a 'prefix' declaration",
-    "prov-dm-example-42.provn": "a statement follows a bundle",
-    # The specifications use these prefixes in a qualified-name value
-    # without declaring them (#516).
-    "prov-n-example-34.provn": _UNDECLARED_VALUE_PREFIX,
-    "prov-n-example-35.provn": _UNDECLARED_VALUE_PREFIX,
-    "prov-dm-example-27.provn": _UNDECLARED_VALUE_PREFIX,
-    "prov-dm-example-31.provn": _UNDECLARED_VALUE_PREFIX,
     "prov-dm-example-61.provn": _UNDECLARED_VALUE_PREFIX,
     "prov-dm-example-62.provn": _UNDECLARED_VALUE_PREFIX,
+    "prov-dm-example-63.provn": "used gives only the activity and entity without the paired time",
 }
 
 # ProvToolbox-written documents that legitimately differ from our JSON
@@ -291,87 +302,129 @@ KNOWN_DIFFERENCES: dict[str, str] = {
 }
 
 # ProvToolbox's own hand-written PROV-N test documents that fall outside
-# what a document under the default profile can express. Documented in
-# provn/README.md.
+# what a document under the default profile can express.
 EXCLUDED_PROVTOOLBOX_DOCUMENTS: dict[str, str] = {
     "container0.provn": (
         "several entity identifiers are bare local names ('\\--', '\\-', "
         "'\\.') with no default namespace declared anywhere in the document"
     ),
     "container1.provn": (
-        "derivedByInsertionFrom's dictionary set-of-pairs literal "
-        "'{(\"k1\", ex:e2)}' is PROV-Dictionary syntax the lexer has no "
-        "punctuation for, unsupported by design"
+        "'\"hello2\"@EN %% xsd:string' at line 12 gives one literal a language "
+        "tag and a datatype, which productions [41] and [43] do not allow; the "
+        "document also holds wasRevisionOf, wasQuotedFrom and hadPrimarySource, "
+        "which PROV-N has no production for, and declares 'bundle ex3:b2' with "
+        "ex3 declared nowhere. Its 'prov:' dictionary statements parse as "
+        "extensibility expressions"
     ),
     "container2.provn": (
         "'%% <http://example.org/type>' uses a bare IRI as a datatype; "
         "production [53] requires datatype to be a qualifiedName"
     ),
-    "prov-family.provn": (
-        "derivedByInsertionFrom's dictionary set-of-pairs literal "
-        "'{('tr:prov-dm', tr2011:WD-prov-dm-20111018)}' is PROV-Dictionary "
-        "syntax the lexer has no punctuation for, unsupported by design"
-    ),
-    "prov-family-graphics.provn": (
-        "derivedByInsertionFrom's dictionary set-of-pairs literal "
-        "'{('tr:prov-dm', tr2011:WD-prov-dm-20111018)}' is PROV-Dictionary "
-        "syntax the lexer has no punctuation for, unsupported by design"
-    ),
 }
+
+# Extensibility expressions the reader drops from a file that parses, one
+# warning each, and the records the two family documents hold without them.
+IGNORED_EXTENSIONS: dict[str, int] = {
+    "prov-n-example-63.provn": 1,
+    "prov-n-example-64.provn": 1,
+    "prov-family.provn": 12,
+    "prov-family-graphics.provn": 12,
+}
+FAMILY_RECORDS = {"prov-family.provn": 742, "prov-family-graphics.provn": 764}
 
 
 def _files(subdir: str) -> list[Path]:
     return sorted((CORPUS / subdir).glob("*.provn"))
 
 
-def _param(subdir: str, excluded: dict[str, str] | None = None):
-    params = []
-    for path in _files(subdir):
-        marks = []
-        if excluded and path.name in excluded:
-            marks.append(pytest.mark.xfail(strict=True, reason=excluded[path.name]))
-        params.append(pytest.param(path, id=path.name, marks=marks))
-    return params
+def _params(subdir: str, excluded: Collection[str]) -> list[ParameterSet]:
+    return [
+        pytest.param(path, id=path.name)
+        for path in _files(subdir)
+        if path.name not in excluded
+    ]
 
 
-def _read_strict(expected, **source) -> ProvDocument:
-    """Read PROV-N with the strict profile, warning as ``expected`` matches, or
-    not at all if it is ``None``."""
-    if expected is None:
-        return ProvDocument.deserialize(format="provn", profile="strict", **source)
-    with pytest.warns(ProvFutureRejectionWarning, match=expected):
-        return ProvDocument.deserialize(format="provn", profile="strict", **source)
+def _read(path: Path, profile: str = "default") -> ProvDocument:
+    return ProvDocument.deserialize(str(path), format="provn", profile=profile)
+
+
+def _fixture(path: Path) -> ProvDocument:
+    return ProvDocument.deserialize(
+        str(JSON_FIXTURES / f"{path.stem}.json"), format="json"
+    )
+
+
+SPEC_EXAMPLES = {
+    path.name: path for path in _files("spec/prov-n") + _files("spec/prov-dm")
+}
+
+
+def _read_recording_drops(path: Path, profile: str) -> ProvDocument:
+    """Read ``path`` and assert it warns only for its dropped extensions."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        document = _read(path, profile)
+    expected = IGNORED_EXTENSIONS.get(path.name, 0)
+    ours = [w for w in caught if issubclass(w.category, ProvWarning)]
+    assert len(ours) == expected
+    assert all(
+        str(w.message).startswith("PROV-N extensibility expression dropped:")
+        for w in ours
+    )
+    return document
 
 
 @pytest.mark.parametrize(
     "path",
-    _param("spec/prov-n", EXCLUDED_SPEC_EXAMPLES)
-    + _param("spec/prov-dm", EXCLUDED_SPEC_EXAMPLES),
+    _params("spec/prov-n", EXCLUDED_SPEC_EXAMPLES)
+    + _params("spec/prov-dm", EXCLUDED_SPEC_EXAMPLES),
 )
-def test_spec_examples_parse_strictly_and_round_trip(path) -> None:
-    expected = STRICT_WARNING_EXAMPLES.get(path.name)
-    # prov writes an undeclared prefix back as it read it.
-    rewritten = expected if expected == _UNDECLARED_VALUE_PREFIX else None
+def test_spec_examples_parse_strictly_and_round_trip(path: Path) -> None:
+    document = _read_recording_drops(path, "strict")
+    # The writer emits no extensibility expression, so the reparse is silent.
     with warnings.catch_warnings():
-        warnings.simplefilter("error", ProvFutureRejectionWarning)
-        document = _read_strict(expected, source=str(path))
-        reloaded = _read_strict(rewritten, content=document.get_provn(strict=True))
-        assert reloaded == document
+        warnings.simplefilter("error", ProvWarning)
+        reloaded = ProvDocument.deserialize(
+            content=document.get_provn(strict=True), format="provn", profile="strict"
+        )
+    assert reloaded == document
 
 
-@pytest.mark.parametrize("path", _param("provtoolbox", EXCLUDED_PROVTOOLBOX_DOCUMENTS))
-def test_provtoolbox_documents_parse(path) -> None:
-    document = ProvDocument.deserialize(str(path), format="provn")
+def test_excluded_spec_examples_still_fail_to_parse() -> None:
+    for name in EXCLUDED_SPEC_EXAMPLES:
+        with pytest.raises(ProvNSyntaxError):
+            _ = _read(SPEC_EXAMPLES[name], "strict")
+
+
+@pytest.mark.parametrize("path", _params("provtoolbox", EXCLUDED_PROVTOOLBOX_DOCUMENTS))
+def test_provtoolbox_documents_parse(path: Path) -> None:
+    document = _read_recording_drops(path, "default")
     assert document.get_records() or document.has_bundles()
+    if path.name in FAMILY_RECORDS:
+        assert len(document.get_records()) == FAMILY_RECORDS[path.name]
 
 
-@pytest.mark.parametrize("path", _param("provtoolbox-corpus", KNOWN_DIFFERENCES))
-def test_provtoolbox_corpus_equals_json_fixture(path) -> None:
-    expected = ProvDocument.deserialize(
-        str(JSON_FIXTURES / f"{path.stem}.json"), format="json"
+def test_excluded_provtoolbox_documents_still_fail_to_parse() -> None:
+    for name in EXCLUDED_PROVTOOLBOX_DOCUMENTS:
+        with pytest.raises(ProvNSyntaxError):
+            _ = _read(CORPUS / "provtoolbox" / name)
+    # Each counted file is a corpus file that parses, so no key is stale.
+    parsed = (SPEC_EXAMPLES.keys() | {p.name for p in _files("provtoolbox")}) - (
+        EXCLUDED_SPEC_EXAMPLES.keys() | EXCLUDED_PROVTOOLBOX_DOCUMENTS.keys()
     )
-    document = ProvDocument.deserialize(str(path), format="provn")
-    assert document == expected
+    assert IGNORED_EXTENSIONS.keys() | FAMILY_RECORDS.keys() <= parsed
+
+
+@pytest.mark.parametrize("path", _params("provtoolbox-corpus", KNOWN_DIFFERENCES))
+def test_provtoolbox_corpus_equals_json_fixture(path: Path) -> None:
+    assert _read(path) == _fixture(path)
+
+
+def test_known_differences_still_differ_from_the_json_fixture() -> None:
+    for name in KNOWN_DIFFERENCES:
+        path = CORPUS / "provtoolbox-corpus" / name
+        assert _read(path) != _fixture(path), name
 
 
 def test_every_json_fixture_has_a_counterpart_or_is_listed() -> None:

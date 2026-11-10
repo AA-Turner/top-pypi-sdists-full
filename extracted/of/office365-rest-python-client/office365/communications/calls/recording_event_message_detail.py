@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import timedelta
 
 from office365.communications.callrecords.status import CallRecordingStatus
@@ -8,7 +8,6 @@ from office365.directory.permissions.identity_set import IdentitySet
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class CallRecordingEventMessageDetail(ClientValue):
     callId: str | None = None
     callRecordingDisplayName: str | None = None

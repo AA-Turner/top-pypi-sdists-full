@@ -8,6 +8,7 @@ import inspect
 import logging
 import os
 import re
+import textwrap
 from collections.abc import Iterator
 from typing import Any, Optional
 
@@ -20,11 +21,13 @@ from djust.checks.utils import (
     DjustWarning,
     _has_noqa,
     _is_check_suppressed,
+    _is_framework_internal_class,
     _iter_python_files,
     _iter_template_files,
     _parse_python_file,
     _walk_subclasses,
     _get_template_dirs,
+    _blank_template_comments,
     _strip_verbatim_blocks,
     _LIVE_RENDER_TAG_RE,
     _LIVE_RENDER_STICKY_TRUTHY_RE,
@@ -61,10 +64,6 @@ _SERVICE_INSTANCE_KEYWORDS = re.compile(r"(Service|Client|Session|API|Connection
 # ``<div dj-view dj-sticky-view="audio-player" ...>``); that example tag is
 # inside a comment, not the real root, so it must NOT trigger V012. Covers
 # Django block comments, Django inline comments, and HTML comments.
-_DJANGO_COMMENT_BLOCK_RE = re.compile(
-    r"\{%\s*comment\b[^%]*%\}.*?\{%\s*endcomment\s*%\}", re.DOTALL
-)
-_DJANGO_INLINE_COMMENT_RE = re.compile(r"\{#.*?#\}", re.DOTALL)
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
@@ -78,8 +77,7 @@ def _strip_template_comments(content: str) -> str:
     """
     if "{%" not in content and "{#" not in content and "<!--" not in content:
         return content
-    content = _DJANGO_COMMENT_BLOCK_RE.sub("", content)
-    content = _DJANGO_INLINE_COMMENT_RE.sub("", content)
+    content = _blank_template_comments(content)
     content = _HTML_COMMENT_RE.sub("", content)
     return content
 
@@ -301,7 +299,9 @@ def _v013_warnings(cls: type, cls_label: str) -> list[CheckMessage]:
                     % (cls_label, ancestor_label, methods_str, decorated_note),
                     hint=(
                         "Move this setup into mount(self, request, "
-                        "**kwargs) so it runs on every transport. For "
+                        "**kwargs) so it runs on every transport. To set "
+                        "the HTTP status of the first render (404, 403), "
+                        "override get_http_status() instead of get(). For "
                         "auth/tenant-family logic specifically, see "
                         "djust.auth.core.run_pre_mount_auth -- the "
                         "canonical pre-mount hook every live mount path "
@@ -401,7 +401,8 @@ def check_liveviews(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
         return errors
 
     from django.conf import settings
-    from djust.decorators import is_event_handler
+    from djust._component_subscriptions import is_component_subscription
+    from djust.decorators import is_event_handler, is_push_only
 
     # Discover LiveViews from BOTH __subclasses__() (imported classes) AND the
     # root URLconf (URL-routed views, whose module may not be imported anywhere
@@ -425,19 +426,17 @@ def check_liveviews(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
         discovered,
         key=lambda c: (getattr(c, "__module__", ""), getattr(c, "__qualname__", "")),
     ):
-        # Skip abstract-looking classes (mixins, bases defined in djust itself)
+        # Skip internal djust classes -- only check user classes, but still
+        # check classes in djust's own examples/tests.
         module = getattr(cls, "__module__", "") or ""
-        if module.startswith("djust.") or module.startswith("djust_"):
-            # Skip internal djust classes -- only check user classes
-            # But still check classes in djust's own examples/tests
-            if "test" not in module and "example" not in module:
-                # A user app or package named djust_* is not djust: V013 still
-                # inspects it (the other per-class checks keep skipping it).
-                from djust.auth.core import is_framework_module as _is_framework_module
+        if _is_framework_internal_class(cls):
+            # A user app or package named djust_* is not djust: V013 still
+            # inspects it (the other per-class checks keep skipping it).
+            from djust.auth.core import is_framework_module as _is_framework_module
 
-                if not _is_framework_module(module) and cls.__dict__.get("abstract") is not True:
-                    errors.extend(_v013_warnings(cls, "%s.%s" % (module, cls.__qualname__)))
-                continue
+            if not _is_framework_module(module) and cls.__dict__.get("abstract") is not True:
+                errors.extend(_v013_warnings(cls, "%s.%s" % (module, cls.__qualname__)))
+            continue
 
         # User-declared abstract base classes opt out of all per-class V/Q checks
         # by setting `abstract = True` on the class body (#1605). Consulted via
@@ -589,6 +588,16 @@ def check_liveviews(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
                 continue
             if is_event_handler(method):
                 continue
+            # A ``@<component>.on.<output>`` callback is dispatched by its
+            # component, not the browser, and ``subscribe()`` refuses the
+            # ``@event_handler`` V004 would suggest (ADR-034; #3134).
+            if is_component_subscription(method):
+                continue
+            # ``@push_handler`` marks a method only server push may call; V004's
+            # fix (``@event_handler``) would make it a browser event target
+            # (#3002). Any name, not just ``handle_*``.
+            if is_push_only(cls, name, method):
+                continue
             # ``handle_*`` is also the server-push namespace: ``server_push``
             # calls an undecorated ``handle_*`` method by design, and leaving it
             # undecorated is the only way to make a handler push can call but a
@@ -609,7 +618,10 @@ def check_liveviews(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
                     DjustInfo(
                         "%s.%s() looks like an event handler but is missing @event_handler."
                         % (cls_label, name),
-                        hint="Add @event_handler decorator or prefix with _ if it is private.",
+                        hint=(
+                            "Add @event_handler decorator, mark it @push_handler if only "
+                            "server push calls it, or prefix with _ if it is private."
+                        ),
                         id="djust.V004",
                         fix_hint=(
                             "Add `@event_handler()` decorator above the method `%s` in `%s`."
@@ -679,47 +691,8 @@ def check_liveviews(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
                 )
             )
 
-        # V007 -- event handler missing **kwargs
-        for name, method in cls.__dict__.items():
-            if not callable(method):
-                continue
-            if not is_event_handler(method):
-                continue
-            # Unwrap decorators to get original function
-            inner = method
-            for _attempt in range(10):
-                inner = getattr(inner, "__wrapped__", None) or getattr(inner, "func", None)
-                if inner is None:
-                    break
-            sig_target = inner if inner is not None else method
-            try:
-                sig = inspect.signature(sig_target)
-            except (ValueError, TypeError):
-                continue
-            has_var_keyword = any(
-                p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-            )
-            if not has_var_keyword and not _is_check_suppressed("djust.V007"):
-                method_file = ""
-                method_line = None
-                try:
-                    method_file = inspect.getfile(sig_target)
-                    method_line = inspect.getsourcelines(sig_target)[1]
-                except (OSError, TypeError):
-                    pass  # Source introspection may fail for built-in or C-extension classes
-                errors.append(
-                    DjustWarning(
-                        "%s.%s() event handler missing **kwargs in signature." % (cls_label, name),
-                        hint="Add **kwargs to the event handler signature to receive event parameters.",
-                        id="djust.V007",
-                        fix_hint=(
-                            "Add `**kwargs` to the `%s` method signature in `%s`."
-                            % (name, method_file or cls_label)
-                        ),
-                        file_path=method_file,
-                        line_number=method_line,
-                    )
-                )
+        # V007 (event handler missing **kwargs) is retired by ADR-037 D3: a
+        # closed signature is encouraged, not suspicious. The ID is never reused.
 
         # V009 -- on_mount contains non-callable items
         on_mount_hooks = cls.__dict__.get("on_mount")
@@ -942,7 +915,7 @@ def check_sticky_child_optin(app_configs: Any, **kwargs: Any) -> list[CheckMessa
         if relname is None:
             continue
 
-        scan_source = _strip_verbatim_blocks(content)
+        scan_source = _blank_template_comments(_strip_verbatim_blocks(content))
         for match in _LIVE_RENDER_TAG_RE.finditer(scan_source):
             args = match.group(1)
 
@@ -1786,3 +1759,453 @@ def _build_primitive_return_funcs(tree: ast.Module) -> set[str]:
             for item in node.body:
                 _collect(item)
     return safe_funcs
+
+
+@register("djust")
+def check_interactive_actor_views(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """V020 (Error): an interactive component declared on a ``use_actors`` view.
+
+    ADR-034 owner decision Q5: interactive components (``djust.components.
+    interactive``) are not supported on actor views in 1.3. The actor path has
+    its own dispatch and render baseline, which the component registry does not
+    use. Without this check the view fails on first access; with it, at
+    ``manage.py check``. Nothing is constructed or mounted.
+    """
+    errors: list[CheckMessage] = []
+    if _is_check_suppressed("djust.V020"):
+        return errors
+    try:
+        from djust._component_subscriptions import DECLARATIONS_ATTR
+        from djust.live_view import LiveView
+    except ImportError:
+        return errors
+
+    # Walk the URLconf first: importing it registers routed views (#2559).
+    candidates = set(_routed_liveview_classes()) | set(_walk_subclasses(LiveView))
+    for cls in sorted(candidates, key=lambda c: (c.__module__, c.__qualname__)):
+        if _is_framework_internal_class(cls) or getattr(cls, "use_actors", False) is not True:
+            continue
+        declared = sorted(getattr(cls, DECLARATIONS_ATTR, None) or {})
+        if not declared:
+            continue
+        label = "%s.%s" % (cls.__module__, cls.__qualname__)
+        try:
+            file_path = inspect.getsourcefile(cls) or ""
+            line_number: Optional[int] = inspect.getsourcelines(cls)[1]
+        except (OSError, TypeError):
+            file_path, line_number = "", None
+        errors.append(
+            DjustError(
+                "%s sets use_actors = True and declares interactive component(s) %s, "
+                "which actor views do not support." % (label, ", ".join(declared)),
+                hint=(
+                    "Remove use_actors = True from this view, or move the interactive "
+                    "component to a view that does not use actors."
+                ),
+                id="djust.V020",
+                fix_hint="Remove `use_actors = True` from `%s`." % label,
+                file_path=file_path,
+                line_number=line_number,
+            )
+        )
+    return errors
+
+
+@register("djust")
+def check_push_handler_overrides(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """V021: a subclass overrides a ``@push_handler`` method without the marker.
+
+    The marker is inherited by method name: dispatch refuses a browser event
+    for any name that a class in the MRO defines with ``@push_handler``, so an
+    unmarked override is still push-only (Info: protected, but surprising). An
+    override that adds ``@event_handler`` is a contradiction (Warning): the
+    decorator cannot make the name browser-callable, so the event handler is
+    dead code (#3002).
+    """
+    messages: list[CheckMessage] = []
+    if _is_check_suppressed("djust.V021"):
+        return messages
+    try:
+        from djust.decorators import is_event_handler, is_push_handler
+        from djust.live_view import LiveView
+    except ImportError:
+        return messages
+
+    candidates = set(_routed_liveview_classes()) | set(_walk_subclasses(LiveView))
+    for cls in sorted(candidates, key=lambda c: (c.__module__, c.__qualname__)):
+        if _is_framework_internal_class(cls):
+            continue
+        label = "%s.%s" % (cls.__module__, cls.__qualname__)
+        # Names some class in the MRO defines with the marker; the effective
+        # definition of each is the first one in MRO order, which may live on a
+        # different base than the marker (``class V(A, B)`` with A.foo
+        # unmarked and B.foo marked).
+        marked: dict[str, list[type]] = {}
+        for klass in cls.__mro__:
+            for name, member in klass.__dict__.copy().items():
+                if is_push_handler(member):
+                    marked.setdefault(name, []).append(klass)
+        for name, markers in sorted(marked.items()):
+            owner = next(k for k in cls.__mro__ if name in k.__dict__)
+            function = getattr(owner.__dict__[name], "__func__", owner.__dict__[name])
+            if not callable(function) or is_push_handler(function):
+                continue
+            # An own override, or one on a class that is not itself checked
+            # (a plain mixin). A LiveView base that carries the override reports
+            # it on its own.
+            reported_by_owner = owner is not cls and owner in candidates
+            if reported_by_owner and any(m in owner.__mro__ for m in markers):
+                continue
+            try:
+                file_path = inspect.getsourcefile(function) or ""
+                line_number: Optional[int] = inspect.getsourcelines(function)[1]
+            except (OSError, TypeError):
+                file_path, line_number = "", None
+            where = "" if owner is cls else " (inherited from %s)" % owner.__qualname__
+            if is_event_handler(function):
+                messages.append(
+                    DjustWarning(
+                        "%s.%s()%s is an @event_handler but overrides a @push_handler method; "
+                        "browsers are still refused (the marker is inherited by name)."
+                        % (label, name, where),
+                        hint=(
+                            "Remove @event_handler to keep it push-only, or rename the "
+                            "method if a browser should be able to call it."
+                        ),
+                        id="djust.V021",
+                        fix_hint="Remove `@event_handler` from `%s.%s`."
+                        % (owner.__qualname__, name),
+                        file_path=file_path,
+                        line_number=line_number,
+                    )
+                )
+            else:
+                messages.append(
+                    DjustInfo(
+                        "%s.%s()%s overrides a @push_handler method without the marker; "
+                        "it is still push-only (the marker is inherited by name)."
+                        % (label, name, where),
+                        hint="Add @push_handler to the override to say so.",
+                        id="djust.V021",
+                        fix_hint="Add `@push_handler` above `%s.%s`." % (owner.__qualname__, name),
+                        file_path=file_path,
+                        line_number=line_number,
+                    )
+                )
+    return messages
+
+
+#: Attributes ``LiveView.__init__`` sets that a view may still assign:
+#: ``request`` (Django's ``View`` convention) and ``_object`` (the
+#: ``get_object()`` cache, ADR-017).
+_V022_ASSIGNABLE = frozenset({"request", "_object"})
+
+
+def _reserved_view_attributes() -> frozenset[str]:
+    """The attributes a bare ``LiveView`` keeps its own state under."""
+    from djust.live_view import LiveView
+
+    return frozenset(vars(LiveView())) - _V022_ASSIGNABLE
+
+
+def _self_assignments(function: Any) -> Iterator[tuple[str, int]]:
+    """``(attribute, line)`` for each ``self.<attribute> = ...`` in ``function``."""
+    try:
+        lines, start = inspect.getsourcelines(function)
+    except (OSError, TypeError):
+        return
+    try:
+        tree = ast.parse(textwrap.dedent("".join(lines)))
+    except SyntaxError:
+        return
+    if not tree.body or not isinstance(tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return
+    args = tree.body[0].args
+    positional = args.posonlyargs + args.args
+    if not positional:
+        return
+    receiver = positional[0].arg
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+            targets = [node.target]
+        else:
+            continue
+        for target in targets:
+            for leaf in ast.walk(target):
+                if (
+                    isinstance(leaf, ast.Attribute)
+                    and isinstance(leaf.value, ast.Name)
+                    and leaf.value.id == receiver
+                    and isinstance(leaf.ctx, ast.Store)
+                ):
+                    yield leaf.attr, start + node.lineno - 1
+
+
+@register("djust")
+def check_reserved_view_attributes(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """V022 (Warning): view code assigns an attribute djust keeps its state under.
+
+    ``LiveView.__init__`` sets ``_streams``, ``_components``,
+    ``_pending_navigation`` and others. A view (or a mixin it uses) that
+    assigns one of them replaces djust's state, and the error surfaces far
+    from the assignment — ``self._streams = {...}`` failed every render with
+    ``'builtin_function_or_method' object is not iterable``.
+    """
+    messages: list[CheckMessage] = []
+    if _is_check_suppressed("djust.V022"):
+        return messages
+    try:
+        from djust.live_view import LiveView
+
+        reserved = _reserved_view_attributes()
+    except Exception:  # noqa: BLE001 — djust not importable/configured: nothing to check
+        return messages
+
+    candidates = set(_routed_liveview_classes()) | set(_walk_subclasses(LiveView))
+    seen: set[tuple[type, str, str]] = set()
+    for cls in sorted(candidates, key=lambda c: (c.__module__, c.__qualname__)):
+        if _is_framework_internal_class(cls):
+            continue
+        label = "%s.%s" % (cls.__module__, cls.__qualname__)
+        for klass in cls.__mro__:
+            module = getattr(klass, "__module__", "") or ""
+            if klass is object or module == "builtins" or _is_framework_internal_class(klass):
+                continue
+            # A LiveView base that is itself checked reports its own code.
+            if klass is not cls and klass in candidates:
+                continue
+            for name, member in klass.__dict__.copy().items():
+                function = getattr(member, "__func__", member)
+                if not inspect.isfunction(function):
+                    continue
+                for attr, line in _self_assignments(function):
+                    if attr not in reserved or (klass, name, attr) in seen:
+                        continue
+                    seen.add((klass, name, attr))
+                    where = "" if klass is cls else " (in %s)" % klass.__qualname__
+                    hint = (
+                        "djust's LiveView keeps its own state in self.%s, so this "
+                        "assignment replaces it. Rename the attribute, for example "
+                        "self.%s_data." % (attr, attr)
+                    )
+                    if attr == "_streams":
+                        hint += " To keep a list in a stream, call self.stream(name, items)."
+                    messages.append(
+                        DjustWarning(
+                            "%s %s()%s assigns self.%s, an attribute djust's LiveView "
+                            "uses for its own state." % (label, name, where, attr),
+                            hint=hint,
+                            id="djust.V022",
+                            fix_hint="Rename `self.%s` in `%s.%s()`."
+                            % (attr, klass.__qualname__, name),
+                            file_path=inspect.getsourcefile(function) or "",
+                            line_number=line,
+                        )
+                    )
+    return messages
+
+
+@register("djust")
+def check_params_form_declarations(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """V023 (Error): a ``params_form`` the request path cannot use (#3706, #3874).
+
+    The framework binds the URL's parameters with ``form_class(data=...)`` and
+    nothing else (``djust._params_form.bind_params``). A ``params_form`` that is
+    not a form class raises ``ImproperlyConfigured``, and a form whose
+    ``__init__`` needs another argument raises ``TypeError``, both on the first
+    request of the view. The verdicts are the runtime's own
+    (``form_class_problem`` / ``construction_problem``) for every failure
+    visible in the signature. No view is constructed and no form is
+    instantiated, so an ``__init__`` that raises, a positional-only ``data``
+    that the form's own ``super().__init__`` rejects, or a lazy object wrapping
+    a form class is not found here and still fails on the first request.
+
+    A view that declares a ``params_form`` is also held to a known
+    ``params_form_fallback`` (``fallback_problem``): the request path reads it
+    on every request of such a view and raises ``ImproperlyConfigured`` on a
+    typo, rather than silently keeping the default.
+    """
+    messages: list[CheckMessage] = []
+    if _is_check_suppressed("djust.V023"):
+        return messages
+    try:
+        from djust._params_form import (
+            FALLBACK_INITIAL,
+            construction_problem,
+            fallback_problem,
+            form_class_problem,
+        )
+        from djust.live_view import LiveView
+    except Exception:  # noqa: BLE001 — djust not importable/configured: nothing to check
+        return messages
+
+    candidates = set(_routed_liveview_classes()) | set(_walk_subclasses(LiveView))
+    for cls in sorted(candidates, key=lambda c: (c.__module__, c.__qualname__)):
+        if _is_framework_internal_class(cls):
+            continue
+        # Read from the class, as the request path does: an inherited
+        # declaration is the subclass's declaration too.
+        declared = getattr(cls, "params_form", None)
+        if declared is None:
+            continue
+        label = "%s.%s" % (cls.__module__, cls.__qualname__)
+        problems: list[tuple[str, str, str]] = []  # (attribute, problem, hint)
+        problem = form_class_problem(declared)
+        if problem is not None:
+            problems.append(
+                (
+                    "params_form",
+                    problem,
+                    "Set params_form to a Django form class (a subclass of "
+                    "django.forms.Form), not an instance, a dotted path or another "
+                    "object. Without this the first request raises ImproperlyConfigured.",
+                )
+            )
+        else:
+            problem = construction_problem(declared)
+            if problem is not None:
+                problems.append(
+                    (
+                        "params_form",
+                        problem,
+                        "The framework calls %s(data=...) with the URL's parameters and "
+                        "nothing else. Give every other __init__ argument a default, or "
+                        "read it from the view in handle_params() instead. Without this "
+                        "the first request raises TypeError." % declared.__name__,
+                    )
+                )
+        # The fallback mode is read with the form, on every request of a view that
+        # declares one (#3874), so a typo is as broken as a bad form class.
+        problem = fallback_problem(getattr(cls, "params_form_fallback", FALLBACK_INITIAL))
+        if problem is not None:
+            problems.append(
+                (
+                    "params_form_fallback",
+                    problem,
+                    "Use 'initial' (the default) or 'fields'. Without this the first "
+                    "request raises ImproperlyConfigured.",
+                )
+            )
+        for attribute, problem, hint in problems:
+            messages.append(
+                DjustError(
+                    "%s.%s %s." % (label, attribute, problem),
+                    hint=hint,
+                    id="djust.V023",
+                    fix_hint="Fix the `%s` declaration of `%s`." % (attribute, cls.__qualname__),
+                )
+            )
+    return messages
+
+
+@register("djust")
+def check_query_budget_declarations(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """V024 (Error): a ``query_budget`` nothing can enforce (#3701).
+
+    The smoke test raises ``ValueError`` on it, the run-time meter logs it and
+    measures nothing, and ``djust_audit`` lists it as invalid; this reports it at
+    ``manage.py check``, before any of those run. The verdict is
+    ``djust._query_budget.declared_budget``, the one reader of the attribute: an
+    unknown key, a bool or negative number, a handler named in ``events`` that the
+    view does not have, or one a budget cannot be enforced on (``async def``,
+    ``@background``). No view is constructed.
+    """
+    messages: list[CheckMessage] = []
+    if _is_check_suppressed("djust.V024"):
+        return messages
+    try:
+        from djust._query_budget import declared_budget, is_declared
+        from djust.live_view import LiveView
+    except Exception:  # noqa: BLE001 — djust not importable/configured: nothing to check
+        return messages
+
+    candidates = set(_routed_liveview_classes()) | set(_walk_subclasses(LiveView))
+    for cls in sorted(candidates, key=lambda c: (c.__module__, c.__qualname__)):
+        if _is_framework_internal_class(cls) or not is_declared(cls):
+            continue
+        try:
+            declared_budget(cls)
+        except ValueError as exc:
+            messages.append(
+                DjustError(
+                    "%s.%s has an invalid query_budget: %s"
+                    % (cls.__module__, cls.__qualname__, exc),
+                    hint=(
+                        "An invalid query_budget is not measured at run time and fails the smoke "
+                        "test. Use an int, or a dict with 'mount', 'render', 'event' and 'events' "
+                        "({handler: n} for synchronous @event_handler methods of this view)."
+                    ),
+                    id="djust.V024",
+                    fix_hint="Fix the `query_budget` of `%s`." % cls.__qualname__,
+                )
+            )
+    return messages
+
+
+@register("djust")
+def check_get_http_status_overrides(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
+    """V025 (Warning): ``get_http_status()`` overridden while a project-wide map is configured (#3706).
+
+    ``LIVEVIEW_CONFIG["http_status_of_state"]`` exists so no view repeats the same
+    ``get_http_status()`` just to answer 404 for its not-found state (#3688). An
+    override replaces the default and with it the map, so the copies the map was
+    meant to remove would creep back one view at a time. This reports each class
+    that defines the method, once, wherever it is inherited from, while the map is
+    configured. It is a Warning: an override can be a real special case (a status
+    that is not a function of one state), and one that calls ``super()`` still
+    reads the map.
+    """
+    messages: list[CheckMessage] = []
+    if _is_check_suppressed("djust.V025"):
+        return messages
+    try:
+        from djust.config import config
+        from djust.live_view import LiveView
+    except Exception:  # noqa: BLE001 — djust not importable/configured: nothing to check
+        return messages
+
+    if not config.get("http_status_of_state"):
+        return messages
+
+    owners: dict[type, None] = {}
+    candidates = set(_routed_liveview_classes()) | set(_walk_subclasses(LiveView))
+    for cls in candidates:
+        # The class whose body defines the method the view runs: the same lookup the
+        # request path does, so an override inherited from a mixin is found too.
+        owner = next((c for c in cls.__mro__ if "get_http_status" in vars(c)), None)
+        if owner is None or _is_framework_internal_class(owner):
+            continue
+        owners[owner] = None
+
+    for owner in sorted(owners, key=lambda c: (c.__module__, c.__qualname__)):
+        label = "%s.%s" % (owner.__module__, owner.__qualname__)
+        owner_file = ""
+        owner_line = None
+        try:
+            owner_file = inspect.getfile(owner)
+            owner_line = inspect.getsourcelines(vars(owner)["get_http_status"])[1]
+        except (OSError, TypeError):
+            pass  # Source introspection may fail for built-in or C-extension classes
+        messages.append(
+            DjustWarning(
+                "%s overrides get_http_status() while LIVEVIEW_CONFIG['http_status_of_state'] "
+                "is configured; the override replaces the project-wide map for every view that "
+                "uses it." % label,
+                hint=(
+                    "Delete the override and set self.state to a state the map names, so the "
+                    "project-wide map answers; or keep it for a real special case and call "
+                    "super().get_http_status() first so the map still applies. Suppress with "
+                    "DJUST_CONFIG = {'suppress_checks': ['V025']}."
+                ),
+                id="djust.V025",
+                fix_hint=(
+                    "Remove `get_http_status()` from `%s`, or have it fall back to "
+                    "`super().get_http_status()`." % owner.__qualname__
+                ),
+                file_path=owner_file,
+                line_number=owner_line,
+            )
+        )
+    return messages

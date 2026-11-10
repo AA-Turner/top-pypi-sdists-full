@@ -16,6 +16,7 @@ from pikepdf import (
     Matrix,
     Name,
     Object,
+    Page,
     PdfInlineImage,
     parse_content_stream,
 )
@@ -28,6 +29,7 @@ class XobjectSettings(NamedTuple):
     """Info about an XObject found in a PDF."""
 
     name: str
+    resource_name: Name
     shorthand: tuple[float, float, float, float, float, float]
     stack_depth: int
     fill_ink: Ink
@@ -150,6 +152,15 @@ _GLYPHLESS_FONT_NAMES = frozenset({'glyphlessfont', 'occulta', 'occulta-regular'
 _SUBSET_PREFIX = re.compile(r'^[A-Z]{6}\+')
 
 
+def _name_text(name: Name) -> str:
+    """Return a PDF name as text, even if it is not valid UTF-8.
+
+    PDF names are byte sequences in no particular encoding, so str() may
+    raise on non-UTF-8 names; unparse() gives the escaped PDF syntax form.
+    """
+    return name.unparse().decode('ascii', 'replace')
+
+
 def _is_glyphless_font(font: Object | None) -> bool:
     """Check if a font dictionary is a known glyphless font, by its name."""
     if not isinstance(font, Dictionary):
@@ -157,9 +168,7 @@ def _is_glyphless_font(font: Object | None) -> bool:
     basefont = font.get(Name.BaseFont)
     if not isinstance(basefont, Name):
         return False
-    # PDF names are byte sequences in no particular encoding, so str() may
-    # raise on non-UTF-8 names; unparse() gives the escaped PDF syntax form.
-    name = basefont.unparse().decode('ascii', 'replace').removeprefix('/')
+    name = _name_text(basefont).removeprefix('/')
     name = _SUBSET_PREFIX.sub('', name, count=1)
     return name.lower() in _GLYPHLESS_FONT_NAMES
 
@@ -169,22 +178,14 @@ def _font_resources(container: Object) -> Dictionary | None:
 
     A page may inherit its resources from its ancestors in the page tree.
     """
-    node = container
-    for _ in range(64):  # Guard against cycles in the page tree
-        try:
-            resources = node.get(Name.Resources)
-        except (AttributeError, TypeError, ValueError):
-            return None
-        if isinstance(resources, Dictionary):
-            fonts = resources.get(Name.Font)
-            return fonts if isinstance(fonts, Dictionary) else None
-        if node.get(Name.Type) != Name.Page and node.get(Name.Type) != Name.Pages:
-            return None
-        parent = node.get(Name.Parent)
-        if not isinstance(parent, Dictionary):
-            return None
-        node = parent
-    return None
+    try:
+        resources = Page(container).get_resources()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if resources is None:
+        return None
+    fonts = resources.get(Name.Font)
+    return fonts if isinstance(fonts, Dictionary) else None
 
 
 def _text_render_mode(operands) -> int | None:
@@ -339,8 +340,11 @@ def _interpret_contents(
                 warn("PDF content stream has a malformed 'Do' - PDF may be malformed")
                 continue
             image_name = operands[0]
+            if not isinstance(image_name, Name):
+                continue  # only a name can refer to a resource
             settings = XobjectSettings(
-                name=image_name,
+                name=_name_text(image_name),
+                resource_name=image_name,
                 shorthand=ctm.shorthand,
                 stack_depth=len(stack),
                 fill_ink=fill_ink,
@@ -348,7 +352,7 @@ def _interpret_contents(
                 glyphless_font=glyphless_font,
             )
             xobject_settings.append(settings)
-            name_index[str(image_name)].append(settings)
+            name_index[settings.name].append(settings)
         elif operator == 'INLINE IMAGE':  # BI/ID/EI are grouped into this
             iimage = operands[0]
             inline = InlineSettings(
@@ -365,7 +369,7 @@ def _interpret_contents(
                 text_render_mode = mode
         elif operator == 'Tf':
             if operands and isinstance(operands[0], Name):
-                font_key = operands[0].unparse().decode('ascii', 'replace')
+                font_key = _name_text(operands[0])
                 if font_key not in glyphless_cache:
                     font = (
                         font_resources.get(operands[0])

@@ -60,7 +60,7 @@ def panel_LMlag(y, x, w):
     trw = ww.diagonal().sum() + wTw.diagonal().sum()
     num1 = np.asarray(sp.identity(t * n) - spdot(x, spdot(ols.xtxi, x.T)))
     num2 = spdot(wxb.T, spdot(num1, wxb))
-    num = num2 + (trw * trw * ols.sig2)
+    num = num2 + (t * trw * ols.sig2)
     J = num / ols.sig2
     utwy = spdot(ols.u.T, spdot(Wsp_nt, y))
     lm = utwy ** 2 / (ols.sig2 ** 2 * J)
@@ -215,10 +215,11 @@ def panel_Hausman(panel_fe, panel_re, sp_lag=True):
     else:
         raise Exception("Only same spatial interaction allowed")
 
-    vard = panel_re.varb[1:, 1:] - panel_fe.varb
+    # H = d' [Var(b_FE) - Var(b_RE)]^{-1} d, with df = number of compared coefficients
+    vard = panel_fe.varb - panel_re.varb[1:, 1:]
     vardi = la.inv(vard)
     h = spdot(d.T, spdot(vardi, d))
-    pval = chisqprob(h, panel_re.k)
+    pval = chisqprob(h, d.shape[0])
     return (h[0][0], pval[0][0])
 
 def BSK_tests(reg, w, which="all", GM_BSK=False):

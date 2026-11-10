@@ -10,28 +10,49 @@ pub(crate) fn simplify_string<'c>(
     match string_expr.op() {
         AstOp::StringS(_) | AstOp::StringV(_) => Ok(string_expr),
         AstOp::StrConcat(..) => {
-            let (arc, arc1) = (
-                state.get_child_simplified(0)?,
-                state.get_child_simplified(1)?,
-            );
-            match (arc.op(), arc1.op()) {
-                (AstOp::StringV(str1), AstOp::StringV(str2)) => {
-                    let concatenated = format!("{str1}{str2}");
-                    Ok(ctx.stringv(concatenated)?)
+            fn literal<'a>(ast: &'a AstRef<'_>) -> Option<&'a str> {
+                match ast.op() {
+                    AstOp::StringV(s) => Some(s.as_str()),
+                    _ => None,
                 }
-                _ => Ok(ctx.str_concat(arc, arc1)?),
+            }
+
+            // Simplify all children in one batch, as the bitvector Concat does,
+            // then flatten nested StrConcats and drop empty literals.
+            let pieces: Vec<AstRef<'c>> = state
+                .get_all_simplified()?
+                .into_iter()
+                .flat_map(|arg| match arg.op() {
+                    AstOp::StrConcat(inner) => inner.clone(),
+                    _ => vec![arg],
+                })
+                .filter(|arg| literal(arg) != Some(""))
+                .collect();
+
+            // Merge each run of adjacent literals into one
+            let merged = pieces
+                .chunk_by(|a, b| literal(a).is_some() && literal(b).is_some())
+                .map(|run| match run {
+                    [single] => Ok(single.clone()),
+                    run => ctx.stringv(run.iter().filter_map(literal).collect::<String>()),
+                })
+                .collect::<Result<Vec<_>, ClarirsError>>()?;
+
+            match merged.as_slice() {
+                // Every piece was the empty string
+                [] => Ok(ctx.stringv("")?),
+                [single] => Ok(single.clone()),
+                _ => Ok(ctx.str_concat(merged)?),
             }
         }
         AstOp::StrSubstr(..) => {
-            let (arc, arc1, arc2) = (
-                state.get_child_simplified(0)?,
-                state.get_child_simplified(1)?,
-                state.get_child_simplified(2)?,
-            );
-            match (arc.op(), arc1.op(), arc2.op()) {
+            let string = state.get_child_simplified(0)?;
+            let start_idx = state.get_child_simplified(1)?;
+            let count = state.get_child_simplified(2)?;
+            match (string.op(), start_idx.op(), count.op()) {
                 (AstOp::StringV(s), AstOp::BVV(start_bv), AstOp::BVV(length_bv)) => {
                     // Convert the bitvectors to usize indices.
-                    let start = start_bv.to_usize().unwrap_or(0);
+                    let start = start_bv.to_usize().unwrap_or(usize::MAX);
                     let length = length_bv.to_usize().unwrap_or(s.chars().count());
                     let num_chars = s.chars().count();
 
@@ -43,21 +64,23 @@ pub(crate) fn simplify_string<'c>(
 
                     // Convert character-based indices to byte-based indices.
                     let char_start = s.chars().take(start).map(|c| c.len_utf8()).sum();
-                    let char_end = s.chars().take(start + length).map(|c| c.len_utf8()).sum();
+                    let char_end = s
+                        .chars()
+                        .take(start.saturating_add(length))
+                        .map(|c| c.len_utf8())
+                        .sum();
 
                     let substring = s.get(char_start..char_end).unwrap_or("").to_string();
                     Ok(ctx.stringv(substring)?)
                 }
-                _ => Ok(ctx.str_substr(arc, arc1, arc2)?),
+                _ => Ok(ctx.str_substr(string, start_idx, count)?),
             }
         }
         AstOp::StrReplace(..) => {
-            let (arc, arc1, arc2) = (
-                state.get_child_simplified(0)?,
-                state.get_child_simplified(1)?,
-                state.get_child_simplified(2)?,
-            );
-            match (arc.op(), arc1.op(), arc2.op()) {
+            let string = state.get_child_simplified(0)?;
+            let from = state.get_child_simplified(1)?;
+            let to = state.get_child_simplified(2)?;
+            match (string.op(), from.op(), to.op()) {
                 (AstOp::StringV(initial), AstOp::StringV(pattern), AstOp::StringV(replacement)) => {
                     // Case: Replace first occurrence of `pattern` with `replacement` in `initial` as per ClariPy DONE
                     let new_value = initial.replacen(pattern, replacement, 1);
@@ -65,12 +88,12 @@ pub(crate) fn simplify_string<'c>(
                     // let new_value = initial.replace(pattern, replacement);
                     Ok(ctx.stringv(new_value)?)
                 }
-                _ => Ok(ctx.str_replace(arc, arc1, arc2)?), // Fallback to symbolic StrReplace
+                _ => Ok(ctx.str_replace(string, from, to)?), // Fallback to symbolic StrReplace
             }
         }
         AstOp::BVToStr(..) => {
-            let arc = state.get_child_simplified(0)?;
-            match arc.op() {
+            let inner = state.get_child_simplified(0)?;
+            match inner.op() {
                 AstOp::BVV(value) => {
                     // Convert the BitVec value to an integer, then to a string
                     let int_value = value.to_biguint();
@@ -78,35 +101,10 @@ pub(crate) fn simplify_string<'c>(
 
                     Ok(ctx.stringv(string_value)?)
                 }
-                _ => Ok(ctx.bv_to_str(arc)?),
+                _ => Ok(ctx.bv_to_str(inner)?),
             }
         }
-        AstOp::ITE(..) => {
-            let (if_, then_, else_) = (
-                state.get_child_simplified(0)?,
-                state.get_child_simplified(1)?,
-                state.get_child_simplified(2)?,
-            );
-
-            // If both branches are identical, return either one
-            if then_ == else_ {
-                return Ok(then_.clone());
-            }
-
-            match if_.op() {
-                // If the condition is a concrete boolean value, return the appropriate branch
-                AstOp::BoolV(value) => {
-                    if *value {
-                        Ok(then_.clone())
-                    } else {
-                        Ok(else_.clone())
-                    }
-                }
-                // If the condition has a Not at the top level, invert the branches
-                AstOp::Not(inner) => Ok(ctx.ite(inner, else_, then_)?),
-                _ => Ok(ctx.ite(if_, then_, else_)?),
-            }
-        }
+        AstOp::ITE(..) => super::simplify_ite(state),
         _ => unreachable!("non-string op dispatched to simplify_string"),
     }
 }

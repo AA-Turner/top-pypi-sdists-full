@@ -22,6 +22,8 @@ from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
 from typing_extensions import Annotated
 from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
+from lusid.models.collateral_funding_terms import CollateralFundingTerms
+from lusid.models.collateral_optimisation_terms import CollateralOptimisationTerms
 from lusid.models.counterparty_identifier import CounterpartyIdentifier
 from lusid.models.margin_item import MarginItem
 from lusid.models.margin_rounding import MarginRounding
@@ -43,11 +45,15 @@ class CollateralAgreementRequest(BaseModel):
     rounding: MarginRounding
     settlement_lag: MarginSettlementLag = Field(alias="settlementLag")
     match_tolerance: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The tolerance within which our margin figure and the counterparty's are considered to match. Optional.", alias="matchTolerance")
+    funding: Optional[CollateralFundingTerms] = None
+    optimisation: Optional[CollateralOptimisationTerms] = None
     variation_margin: Optional[List[MarginItem]] = Field(default=None, description="The variation margin arrangements under the agreement.", alias="variationMargin")
     initial_margin: Optional[List[MarginItem]] = Field(default=None, description="The initial margin arrangements under the agreement.", alias="initialMargin")
     properties: Optional[Dict[str, ModelProperty]] = Field(default=None, description="A set of properties to decorate onto the Collateral Agreement. Filterable.")
     effective_at: Optional[datetime] = Field(default=None, description="The effective datetime from which the Collateral Agreement applies. Defaults to the beginning of time if not specified, so that the agreement is visible at every effective datetime.", alias="effectiveAt")
-    __properties = ["code", "counterpartyId", "applicabilityFilter", "baseCurrency", "cutLabel", "recipeId", "minimumTransferAmount", "rounding", "settlementLag", "matchTolerance", "variationMargin", "initialMargin", "properties", "effectiveAt"]
+    notification_cut_label:  Optional[StrictStr] = Field(None,alias="notificationCutLabel", description="The cut label giving the time of day by which collateral we deliver under a margin call must settle. Each run resolves it on the business date and records it as the call's deadline; the allocation excludes assets that cannot settle by it. Optional.") 
+    return_notification_cut_label:  Optional[StrictStr] = Field(None,alias="returnNotificationCutLabel", description="The cut label giving the time of day by which collateral the counterparty delivers, or returns to us, must settle. Recorded as the deadline of the calls they post under. Optional.") 
+    __properties = ["code", "counterpartyId", "applicabilityFilter", "baseCurrency", "cutLabel", "recipeId", "minimumTransferAmount", "rounding", "settlementLag", "matchTolerance", "funding", "optimisation", "variationMargin", "initialMargin", "properties", "effectiveAt", "notificationCutLabel", "returnNotificationCutLabel"]
 
     class Config:
         """Pydantic configuration"""
@@ -93,6 +99,12 @@ class CollateralAgreementRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of settlement_lag
         if self.settlement_lag:
             _dict['settlementLag'] = self.settlement_lag.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of funding
+        if self.funding:
+            _dict['funding'] = self.funding.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of optimisation
+        if self.optimisation:
+            _dict['optimisation'] = self.optimisation.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in variation_margin (list)
         _items = []
         if self.variation_margin:
@@ -144,6 +156,16 @@ class CollateralAgreementRequest(BaseModel):
         if self.effective_at is None and "effective_at" in self.__fields_set__:
             _dict['effectiveAt'] = None
 
+        # set to None if notification_cut_label (nullable) is None
+        # and __fields_set__ contains the field
+        if self.notification_cut_label is None and "notification_cut_label" in self.__fields_set__:
+            _dict['notificationCutLabel'] = None
+
+        # set to None if return_notification_cut_label (nullable) is None
+        # and __fields_set__ contains the field
+        if self.return_notification_cut_label is None and "return_notification_cut_label" in self.__fields_set__:
+            _dict['returnNotificationCutLabel'] = None
+
         return _dict
 
     @classmethod
@@ -166,6 +188,8 @@ class CollateralAgreementRequest(BaseModel):
             "rounding": MarginRounding.from_dict(obj.get("rounding")) if obj.get("rounding") is not None else None,
             "settlement_lag": MarginSettlementLag.from_dict(obj.get("settlementLag")) if obj.get("settlementLag") is not None else None,
             "match_tolerance": obj.get("matchTolerance"),
+            "funding": CollateralFundingTerms.from_dict(obj.get("funding")) if obj.get("funding") is not None else None,
+            "optimisation": CollateralOptimisationTerms.from_dict(obj.get("optimisation")) if obj.get("optimisation") is not None else None,
             "variation_margin": [MarginItem.from_dict(_item) for _item in obj.get("variationMargin")] if obj.get("variationMargin") is not None else None,
             "initial_margin": [MarginItem.from_dict(_item) for _item in obj.get("initialMargin")] if obj.get("initialMargin") is not None else None,
             "properties": dict(
@@ -174,7 +198,9 @@ class CollateralAgreementRequest(BaseModel):
             )
             if obj.get("properties") is not None
             else None,
-            "effective_at": obj.get("effectiveAt")
+            "effective_at": obj.get("effectiveAt"),
+            "notification_cut_label": obj.get("notificationCutLabel"),
+            "return_notification_cut_label": obj.get("returnNotificationCutLabel")
         })
         return _obj
 

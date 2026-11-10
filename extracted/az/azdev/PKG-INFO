@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azdev
-Version: 0.2.14
+Version: 0.2.15
 Summary: Microsoft Azure CLI Developer Tools
 Author-email: Microsoft Corporation <azpycli@microsoft.com>
 License-Expression: MIT
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: azure-multiapi-storage
+Requires-Dist: azure-multiapi-storage<1.5
 Requires-Dist: build
 Requires-Dist: docutils
 Requires-Dist: flake8
@@ -32,7 +32,7 @@ Requires-Dist: pytest-forked
 Requires-Dist: pytest<9.2,>=5.0.0
 Requires-Dist: pyyaml
 Requires-Dist: requests
-Requires-Dist: sphinx==1.6.7
+Requires-Dist: sphinx>=7
 Requires-Dist: tox
 Requires-Dist: jsbeautifier~=1.14.7
 Requires-Dist: deepdiff~=8.6.1
@@ -41,7 +41,7 @@ Requires-Dist: packaging
 Requires-Dist: pkginfo
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tqdm
-Requires-Dist: setuptools>=78.1.1
+Requires-Dist: setuptools<80,>=78.1.1
 Requires-Dist: wheel
 Requires-Dist: microsoft-security-utilities-secret-masker~=1.0.0b4
 Dynamic: license-file
@@ -194,6 +194,13 @@ License
 
 Release History
 ===============
+0.2.15
+++++++
+* `azdev cli generate-docs` / `azdev extension generate-docs`: replace `sphinx==1.6.7` with `sphinx>=7`, use the supported docutils `Directive` API, and set an explicit documentation language. This removes the documentation generator's dependency on `pkg_resources`. (#562)
+* Include the reference-documentation subpackages and RST files in azdev wheels and source distributions. Installed packages previously lacked the modules and source files required for documentation generation. (#562)
+* `azdev extension publish`: constrain `azure-multiapi-storage<1.5` to retain the Track 1 `BlockBlobService` API used for publishing. (#562)
+* Temporarily restore the runtime requirement `setuptools>=78.1.1,<80` for downstream release scripts that still import `pkg_resources`. Keep the security floor and the uncapped isolated build requirement. Remove the runtime cap once those consumers migrate to `packaging.version`. (#562)
+
 0.2.14
 ++++++
 * `azdev extension add`/`list`/`build`: discover extensions by packaging configuration instead of globbing for `setup.py`, so extensions that have migrated to `pyproject.toml` are found. Previously a migrated extension was reported as `extension(s) not found`.

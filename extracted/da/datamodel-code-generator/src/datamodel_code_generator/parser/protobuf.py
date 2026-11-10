@@ -21,6 +21,11 @@ from datamodel_code_generator import Error, ProtobufVersion, SchemaParseError, V
 from datamodel_code_generator._json_schema import definition_ref
 from datamodel_code_generator._message_text import install_command
 from datamodel_code_generator._paths import files_under
+from datamodel_code_generator._python_syntax import (
+    normalize_newlines,  # noqa: F401  # Preserve the established parser.protobuf export.
+)
+from datamodel_code_generator._source import input_text as _input_text
+from datamodel_code_generator.parser import _schema_documents
 from datamodel_code_generator.parser._null_facts import null_schema, with_null
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
 from datamodel_code_generator.python_literal import _converted_float, stable_repr
@@ -144,15 +149,20 @@ WELL_KNOWN_SCHEMAS: dict[str, dict[str, Any]] = {
     "google.protobuf.Any": {"type": "object", "additionalProperties": True},
     "google.protobuf.Empty": {"type": "object", "properties": {}, "additionalProperties": False},
     "google.protobuf.FieldMask": {"type": "string"},
-    "google.protobuf.DoubleValue": with_null({"type": "number", "format": "double"}, "member"),
-    "google.protobuf.FloatValue": with_null({"type": "number", "format": "float"}, "member"),
-    "google.protobuf.Int64Value": with_null({"type": "integer", "format": "int64"}, "member"),
-    "google.protobuf.UInt64Value": with_null({"type": "integer", "format": "int64", "minimum": 0}, "member"),
-    "google.protobuf.Int32Value": with_null({"type": "integer", "format": "int32"}, "member"),
-    "google.protobuf.UInt32Value": with_null({"type": "integer", "format": "int32", "minimum": 0}, "member"),
-    "google.protobuf.BoolValue": with_null({"type": "boolean"}, "member"),
-    "google.protobuf.StringValue": with_null({"type": "string"}, "member"),
-    "google.protobuf.BytesValue": with_null({"type": "string", "format": "binary"}, "member"),
+    **{
+        f"google.protobuf.{name}Value": with_null(SCALAR_SCHEMAS[type_], "member")
+        for name, type_ in (
+            ("Double", TYPE_DOUBLE),
+            ("Float", TYPE_FLOAT),
+            ("Int64", TYPE_INT64),
+            ("UInt64", TYPE_UINT64),
+            ("Int32", TYPE_INT32),
+            ("UInt32", TYPE_UINT32),
+            ("Bool", TYPE_BOOL),
+            ("String", TYPE_STRING),
+            ("Bytes", TYPE_BYTES),
+        )
+    },
 }
 
 
@@ -286,6 +296,7 @@ def _convert_protobuf_schema_data(  # noqa: PLR0913
     schema_version_mode: VersionMode | None = None,
     encoding: str = "utf-8",
     source_safe_non_finite: bool,
+    untrusted_input: bool = False,
 ) -> dict[str, Any]:
     """Convert Protocol Buffers data for a parser that may need source-safe float values."""
     if not isinstance(raw_schema, str):
@@ -297,6 +308,7 @@ def _convert_protobuf_schema_data(  # noqa: PLR0913
         protobuf_version=protobuf_version,
         schema_version_mode=schema_version_mode,
         encoding=encoding,
+        untrusted_input=untrusted_input,
     )
     return parser._convert_to_json_schema_data(source_safe_non_finite=source_safe_non_finite)  # noqa: SLF001
 
@@ -415,9 +427,10 @@ class _ProtoInputPreparer:
         else:  # pragma: no cover
             target = temp_path / source_path.name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            _sanitize_proto_source(source_path.read_text(encoding=self.parser.encoding)), encoding=self.parser.encoding
-        )
+        encoding = self.parser.encoding
+        data = self.parser._prefetched_data(source_path)  # noqa: SLF001
+        text = _input_text(source_path, encoding, data)
+        target.write_text(_sanitize_proto_source(text), encoding=encoding)
         return target
 
     def _write_missing_weak_imports(self, input_files: Iterable[Path], include_paths: Sequence[Path]) -> None:
@@ -721,6 +734,12 @@ class ProtobufParser(JsonSchemaParser):
         super().__init__(source=source, config=config, **options)
 
     def _compile_descriptor_set(self) -> tuple[Any, frozenset[str]]:
+        if self.untrusted_input:
+            msg = (
+                "Protocol Buffers input is refused under --untrusted-input: protoc reads the files its imports name "
+                "from the include paths by itself, so the input cannot be kept to the given document."
+            )
+            raise Error(msg)
         protoc, well_known_include = _load_grpc_tools()
         descriptor_pb2 = _load_descriptor_pb2()
         with _ProtoInputPreparer(self) as (input_files, include_paths, input_file_names):
@@ -833,6 +852,7 @@ class ProtobufParser(JsonSchemaParser):
             source = next(self.iter_source)
             source.raw_data = raw_obj
             self.raw_obj = raw_obj
+            _schema_documents.note_converted_document(self, [])
             self._parse_file(raw_obj, "Model", [])
 
 

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Markdown"
-version = "3.11.2.20261029"
+version = "3.11.3.20261108"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Markdown"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`Markdown`](https://github.com/Python-Markdown/markdown) package. It can be used by type checkers
 to check code that uses `Markdown`. This version of
 `types-Markdown` aims to provide accurate annotations for
-`Markdown~=3.11.2`.
+`Markdown~=3.11.3`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,13 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.90
+* [ty](https://docs.astral.sh/ty/) 0.0.95
 
 It was generated from typeshed commit
-[`d3fe4dd2f928b33aa50d347a21ea30a8c9c9811e`](https://github.com/python/typeshed/commit/d3fe4dd2f928b33aa50d347a21ea30a8c9c9811e).
+[`b2764c4d5e2dd833e5c191ad0e905ef4b7f8cd59`](https://github.com/python/typeshed/commit/b2764c4d5e2dd833e5c191ad0e905ef4b7f8cd59).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

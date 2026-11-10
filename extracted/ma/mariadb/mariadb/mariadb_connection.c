@@ -214,7 +214,7 @@ void MrdbConnection_process_status_info(void *data, enum enum_mariadb_status_inf
   va_list ap;
   MrdbConnection *self= (MrdbConnection *)data;
   PyObject *dict= NULL;
-  PyObject *dict_key= NULL, *dict_val= NULL;
+  PyObject *dict_key= NULL, *dict_val= NULL, *res;
 
   PyGILState_STATE gstate;
   /* Acquire the GIL */
@@ -232,7 +232,9 @@ void MrdbConnection_process_status_info(void *data, enum enum_mariadb_status_inf
       PyDict_SetItem(dict, dict_key, dict_val);
       Py_DECREF(dict_key);
       Py_DECREF(dict_val);
-      PyObject_CallFunction(self->status_callback, "OO", (PyObject *)data, dict);
+      res= PyObject_CallFunction(self->status_callback, "OO", (PyObject *)data, dict);
+      Py_XDECREF(res);
+      Py_DECREF(dict);
     }
   }
   if (type == SESSION_TRACK_TYPE)
@@ -261,7 +263,9 @@ void MrdbConnection_process_status_info(void *data, enum enum_mariadb_status_inf
       PyDict_SetItem(dict, dict_key, dict_val);
       Py_DECREF(dict_key);
       Py_DECREF(dict_val);
-      PyObject_CallFunction(self->status_callback, "OO", (PyObject *)data, dict);
+      res= PyObject_CallFunction(self->status_callback, "OO", (PyObject *)data, dict);
+      Py_XDECREF(res);
+      Py_DECREF(dict);
     }
 
     if (track_type == SESSION_TRACK_SYSTEM_VARIABLES)
@@ -269,16 +273,22 @@ void MrdbConnection_process_status_info(void *data, enum enum_mariadb_status_inf
       MARIADB_CONST_STRING *key= va_arg(ap, MARIADB_CONST_STRING *);
       MARIADB_CONST_STRING *val= va_arg(ap, MARIADB_CONST_STRING *);
 
-      if (!strncmp(key->str, "character_set_client", key->length) &&
-           strncmp(val->str, "utf8mb4", val->length))
+      if (((key->length == strlen("character_set_client") &&
+            !strncmp(key->str, "character_set_client", key->length)) ||
+           (key->length == strlen("character_set_results") &&
+            !strncmp(key->str, "character_set_results", key->length))) &&
+          (val->length != strlen("utf8mb4") ||
+           strncmp(val->str, "utf8mb4", val->length)))
       {
         /* mariadb_throw_exception (PyUnicode_FormatV)
            doesn't support string with length,
            so we need a temporary variable */
         char charset[128];
+        size_t copy_len= val->length < sizeof(charset) ?
+                         val->length : sizeof(charset) - 1;
 
-        memcpy(charset, val->str, val->length);
-        charset[val->length]= 0;
+        memcpy(charset, val->str, copy_len);
+        charset[copy_len]= 0;
         mariadb_throw_exception(NULL, Mariadb_ProgrammingError, 1,
                 "Character set '%s' is not supported", charset);
         goto end;
@@ -291,7 +301,9 @@ void MrdbConnection_process_status_info(void *data, enum enum_mariadb_status_inf
         PyDict_SetItem(dict, dict_key, dict_val);
         Py_DECREF(dict_key);
         Py_DECREF(dict_val);
-        PyObject_CallFunction(self->status_callback, "OO", (PyObject *)data, dict);
+        res= PyObject_CallFunction(self->status_callback, "OO", (PyObject *)data, dict);
+        Py_XDECREF(res);
+        Py_DECREF(dict);
       }
     }
   }
@@ -357,6 +369,10 @@ MrdbConnection_Initialize(MrdbConnection *self,
                                                   "(found version %s)", mysql_get_client_info());
     }
 #else
+    if (status_callback == Py_None)
+        status_callback= NULL;
+    Py_XINCREF(status_callback);
+    Py_XDECREF(self->status_callback);
     self->status_callback= status_callback;
 #endif
 
@@ -530,6 +546,18 @@ static PyObject *MrdbConnection_repr(MrdbConnection *self)
     return PyUnicode_FromString(cobj_repr);
 }
 
+static int
+MrdbConnection_clear(MrdbConnection *self)
+{
+    Py_CLEAR(self->last_executed_stmt);
+    Py_CLEAR(self->converter);
+#if MARIADB_PACKAGE_VERSION_ID > 30301
+    Py_CLEAR(self->status_callback);
+#endif
+    Py_CLEAR(self->dsn);
+    return 0;
+}
+
 static void ma_connection_close(MrdbConnection *conn)
 {
     if (conn)
@@ -549,9 +577,17 @@ static void MrdbConnection_dealloc(PyObject *obj)
 {
     MrdbConnection *self = (MrdbConnection *)obj;
 
-    if (self && self->mysql)
-        ma_connection_close(self);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    if (self) {
+        PyObject_GC_UnTrack(self);
+        if (self->weakreflist != NULL) {
+            PyObject_ClearWeakRefs((PyObject *)self);
+        }
+        if (self->mysql) {
+            ma_connection_close(self);
+        }
+        MrdbConnection_clear(self);
+        Py_TYPE(self)->tp_free((PyObject *)self);
+    }
 }
 
 PyTypeObject MrdbConnection_Type = {
@@ -562,6 +598,7 @@ PyTypeObject MrdbConnection_Type = {
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_BASETYPE,
     .tp_doc = connection__doc__,
     .tp_new = PyType_GenericNew,
+    .tp_clear = (inquiry)MrdbConnection_clear,
     .tp_traverse = (traverseproc)MrdbConnection_traverse,
     .tp_methods = (struct PyMethodDef *)MrdbConnection_Methods,
     .tp_members = (struct PyMemberDef *)MrdbConnection_Members,
@@ -569,7 +606,8 @@ PyTypeObject MrdbConnection_Type = {
     .tp_init = (initproc)MrdbConnection_Initialize,
     .tp_alloc = PyType_GenericAlloc,
     .tp_dealloc = MrdbConnection_dealloc,
-    .tp_finalize = (destructor)MrdbConnection_finalize
+    .tp_finalize = (destructor)MrdbConnection_finalize,
+    .tp_weaklistoffset = offsetof(MrdbConnection, weakreflist),
 };
 
 PyObject *
@@ -607,6 +645,8 @@ MrdbConnection_executecommand(MrdbConnection *self,
   MARIADB_CHECK_CONNECTION(self, NULL);
 
   cmd= PyUnicode_AsUTF8AndSize(command, NULL);
+  if (!cmd)
+      return NULL;
 
   Py_BEGIN_ALLOW_THREADS;
   rc= mysql_send_query(self->mysql, cmd, (long)strlen(cmd));
@@ -622,8 +662,6 @@ MrdbConnection_executecommand(MrdbConnection *self,
 
 PyObject *MrdbConnection_close(MrdbConnection *self)
 {
-    MARIADB_CHECK_CONNECTION(self, NULL);
-
     ma_connection_close(self);
     self->closed= 1;
     Py_RETURN_NONE;
@@ -939,7 +977,8 @@ static PyObject *MrdbConnection_escape_string(MrdbConnection *self,
         PyObject *str)
 {
     PyObject *new_string= NULL;
-    size_t from_length, to_length;
+    Py_ssize_t from_length= 0;
+    size_t to_length;
     char *from, *to;
 
     /* escaping depends on the server status, so we need a valid
@@ -951,8 +990,11 @@ static PyObject *MrdbConnection_escape_string(MrdbConnection *self,
         return NULL;
     }
 
-    from= (char *)PyUnicode_AsUTF8AndSize(str, (Py_ssize_t *)&from_length);
-    if (!(to= (char *)PyMem_Calloc(1, from_length * 2 + 1)))
+    from= (char *)PyUnicode_AsUTF8AndSize(str, &from_length);
+    if (!from)
+        return NULL;
+
+    if (!(to= (char *)PyMem_Calloc(1, (size_t)from_length * 2 + 1)))
     {
         return NULL;
     }

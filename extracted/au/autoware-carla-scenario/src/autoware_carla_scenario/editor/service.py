@@ -56,7 +56,7 @@ from ..authoring.models import (
     as_action_phase,
     condition_refs,
 )
-from ..authoring.persistence import Draft, DraftStore
+from ..authoring.persistence import Draft, DraftStore, load_yaml
 from ..authoring.registry import (
     default_params,
     TRUTHY_VALUES,
@@ -303,7 +303,7 @@ class EditorService:
         """Return the directory holding *draft_id*'s staged archive.
 
         Keyed by the draft, not the document: every draft made from one starter
-        shares a document id (``cut_in``, ``new_scenario``), and an archive
+        shares a document id (``my_cut_in``, ``new_scenario``), and an archive
         keyed by that was served by every one of them.
         """
         return self.export_dir / draft_id
@@ -315,8 +315,8 @@ class EditorService:
     def archive_path(self, draft: Draft) -> Path:
         """Return where an export of *draft* stages its wheelhouse now.
 
-        A directory per draft, and a file named after the scenario, so the
-        download is called what the package inside it is called.
+        A directory per draft, and a file named after the scenario id (the
+        package inside it is the id's package, ``<id>_scenario``).
         """
         return self._archive_dir(draft.id) / f"{draft.document.id}{_ARCHIVE_SUFFIX}"
 
@@ -2004,7 +2004,9 @@ def parse_route_yaml(text: str) -> Optional["RouteSearch"]:
     if not text.strip():
         return None
     try:
-        raw = yaml.safe_load(text)
+        # Read as a document is read, so a route written here and the same
+        # route in a document mean the same thing (#1946).
+        raw = load_yaml(text)
     except yaml.YAMLError as exc:
         raise EditorError(f"Route search: not YAML ({exc})") from exc
     if not isinstance(raw, dict):

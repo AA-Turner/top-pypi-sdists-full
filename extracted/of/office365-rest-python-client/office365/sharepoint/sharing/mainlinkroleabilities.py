@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.sharing.ability_status import SharingAbilityStatus
 
 
-@dataclass
 class MainLinkRoleAbilities(ClientValue):
     commentRoleAvailable: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
     editRoleAvailable: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)

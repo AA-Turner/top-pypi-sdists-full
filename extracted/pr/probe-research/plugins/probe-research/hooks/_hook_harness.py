@@ -36,6 +36,8 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DOCUMENT = None
+#: `harness_registry.WAKE_BY_STOP_HOOK` (a test holds them equal): the harness's Stop hook wakes it.
+WAKE_BY_STOP_HOOK = "stop-hook"
 
 
 def load_sibling(name: str):
@@ -68,6 +70,14 @@ def _document() -> dict:
     return _DOCUMENT
 
 
+#: The hook outputs (a row's `hook_output`) with a line shown to the PERSON and never the model:
+#: Claude Code's `systemMessage`, which Codex shows too and pi's extension says. Kimi Code's
+#: `message-json` has no such field (`harness_io.translate` drops it), and Cursor's `cursor-json`
+#: shows a hook's `user_message` only for a refused prompt or tool call (CLI 2026.11.05), so the
+#: Probe service drops it too (`cursor_agent/replies.get_context`).
+PERSON_LINE_OUTPUTS = ("claude-json",)
+
+
 class Row:
     """One registry row: its plain fields from the JSON, everything else from
     the full loader's row, loaded on first use."""
@@ -79,9 +89,16 @@ class Row:
         self.question_tool = raw.get("question_tool")
         self.session_env = raw.get("session_env")
         self.plugin = raw.get("plugin")
+        #: How it starts a turn for a late answer (`harness_registry.WAKE_BY_*`), None: it cannot.
+        self.wake_by = raw.get("wake_by")
 
     def can(self, capability: str) -> bool:
         return (self._raw.get("capabilities") or {}).get(capability) is True
+
+    def shows_person_line(self) -> bool:
+        """Does this harness show a hook's person-only line (`systemMessage`) to anyone? Where it
+        does not, a notice meant for the person once is never spent here (`server_notices`)."""
+        return (self._raw.get("hook_output") or "claude-json") in PERSON_LINE_OUTPUTS
 
     def __getattr__(self, name):
         return getattr(registry().get(self.id), name)
@@ -122,6 +139,17 @@ def current(env=None) -> Row:
     return Row(next(raw for raw in rows if raw["id"] == document["default"]))
 
 
+def instruction_file(env=None) -> "str | None":
+    """This harness's global rules file (`agent_rules.memory_path`), or None when it has none here."""
+    try:
+        row = current(env)
+        home = row.home_dir(env)
+        name = (row.instructions or {}).get("global")
+    except Exception:  # noqa: BLE001 -- no registry row to read: no file
+        return None
+    return os.path.join(str(home), name) if home is not None and name else None
+
+
 def session_id(env=None) -> str:
     """This session's id from the environment ("" when none): the current
     harness's session variable first, then a captured harness's. Only captured
@@ -135,6 +163,43 @@ def session_id(env=None) -> str:
         if raw.get("captured") is True and name and values.get(name):
             return values[name]
     return ""
+
+
+#: A transcript file named for the thread that writes it ends in that thread's id:
+#: `rollout-<time>-<uuid>.jsonl` (the registry's `uuid_suffix` naming). Matched and
+#: compared with no regard to case: a UUID's hex digits name the same thread either way.
+_THREAD_FILE = r"-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$"
+
+
+def from_helper_agent(payload: dict) -> bool:
+    """Did a helper agent (subagent) fire this hook, not the agent the researcher
+    talks to? What lands in a helper's context never reaches the researcher, and
+    its prompt is the main agent's words. Any one mark is enough:
+
+      * `agent_id`: on every hook fired inside a helper and never on the main
+        thread (Claude Code 2.1.283's hook-input schema; Codex 0.166 sets it on
+        a helper's prompt and tool calls too, live run 2026-11-06);
+      * a transcript inside a `subagents/` folder (Claude Code's helper
+        transcripts; its `transcript_path` stays the main one, so a second net);
+      * a transcript named for a thread other than `session_id`: a helper hook
+        that carries the root's `session_id` beside its own rollout and names no
+        `agent_id` (the service's `get_thread_id` reads the same mark). A main
+        thread's transcript is named for its own session."""
+    if payload.get("agent_id"):
+        return True
+    path = payload.get("transcript_path")
+    if not isinstance(path, str):
+        return False
+    path = path.replace("\\", "/")
+    if "/subagents/" in path:
+        return True
+    root = payload.get("session_id")
+    if not isinstance(root, str) or not root:
+        return False
+    import re  # noqa: PLC0415 -- json has loaded it already
+
+    found = re.search(_THREAD_FILE, path, re.IGNORECASE)
+    return found is not None and found.group(1).lower() != root.lower()
 
 
 def manifest_dir(env=None) -> str:

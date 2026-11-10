@@ -3,13 +3,27 @@
 from decimal import Decimal
 from typing import Annotated, Any, Self
 
-from pydantic import AfterValidator, AliasChoices, BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveFloat, PositiveInt, model_validator
+from pydantic import (
+    AfterValidator,
+    AliasChoices,
+    BaseModel,
+    Field,
+    NonNegativeFloat,
+    NonNegativeInt,
+    PositiveFloat,
+    PositiveInt,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from ..base import Base, UniqueList, round_float
 from ..enhanced_sampling import REST2Settings
 from ..method import FFMethod, Method, ProteinForceField, WaterForceField
 from ..pdb import PDB
 from ..restraint import MDRestraints
+from ..solvent import FORCEFIELD_SOLVENTS, SolventModel
 from ..trajectory_clustering import TrajectoryClustering
 from ..types import UUID, NonPolymerResidueMapping, ProteinMDTrajectory, round_list, round_vector3d
 from .workflow import ProteinStructureWorkflow, SMILESWorkflow
@@ -160,7 +174,7 @@ class ProteinMDSimulationSettings(BaseModel):
     water_ff: WaterForceField = WaterForceField.TIP3P
     equilibration_time_ns: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 0.5
     simulation_time_ns: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 10
-    temperature: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 300
+    temperature: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 298.15
     pressure_atm: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 1.0
     langevin_timescale_ps: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 1.0
     random_seed: Annotated[PositiveInt, Field(strict=True, le=2147483647)] | None = None
@@ -204,18 +218,24 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
     follows the state through exchanges, not a fixed replica. Exchange trajectories
     describe equilibrium sampling, not physical kinetics.
 
+    Explicit water is the default. GBn2 uses nonperiodic dynamics without a
+    barostat or hydration-site analysis. Input waters are removed and submitted
+    ions retained. `ionic_strength_M` controls implicit salt screening.
+    `pressure_atm`, `water_buffer`, and `nonbonded_cutoff` must be null for GBn2.
+
     Attributes:
         protein: PDB or UUID of the (holo) protein.
+        implicit_solvent: continuum solvent model
         equilibration_time_ns: how long to equilibrate trajectories for, in ns
         simulation_time_ns: how long to run trajectories for, in ns
         temperature: temperature, in K
-        pressure_atm: pressure, in atm
+        pressure_atm: explicit-solvent barostat pressure, in atm
         langevin_timescale_ps: timescale for Langevin integrator, in ps⁻¹
         timestep_fs: timestep, in femtoseconds
         constrain_hydrogens: use SHAKE to freeze bonds to hydrogen when true
-        nonbonded_cutoff: nonbonded cutoff for particle-mesh Ewald, in Å
+        nonbonded_cutoff: explicit-solvent PME cutoff, in Å
         ionic_strength_M: ionic strength of solution, in M (molar)
-        water_buffer: amount of water to add around protein, in Å
+        water_buffer: explicit-water padding around the protein, in Å
         frame_save_interval_ps: how often to save frames to the trajectory, in ps
         clustering: clustering method and parameters; `None` disables clustering
         analysis_interval_ps: interval between frames at which to compute expensive per-frame
@@ -223,7 +243,7 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
 
         num_trajectories: number of trajectories to run
         enhanced_sampling: enhanced sampling settings; `None` uses conventional MD
-        save_solvent: save solvent when true
+        save_solvent: retain explicit solvent in saved trajectories
         num_solvent_to_save: saves this many solvent molecules nearest the binder, or all if None;
             only meaningful when save_solvent is True and a binder is present
 
@@ -250,10 +270,13 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
             one binder chain → backbone N/CA/C/O); `mmgbsa_scores` holds MM/GBSA scores when a
             binder is present; `contacts` is currently never populated.
 
-        hydration_sites: hydration sites aggregated across all replicates; populated only when
-            a small-molecule binder is present
+        hydration_sites: binder hydration sites aggregated across explicit-solvent replicates
     """
 
+    implicit_solvent: SolventModel | None = None
+    pressure_atm: Annotated[PositiveFloat, AfterValidator(round_float(3))] | None = 1.0
+    nonbonded_cutoff: Annotated[PositiveFloat, AfterValidator(round_float(3))] | None = 8.0
+    water_buffer: Annotated[PositiveFloat, AfterValidator(round_float(3))] | None = 8.0
     num_trajectories: PositiveInt = 1
     enhanced_sampling: REST2Settings | None = Field(default=None, discriminator="type")
     save_solvent: bool = False
@@ -276,12 +299,39 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
         """Validate REST2 against the physical temperature and integration timestep."""
         if self.enhanced_sampling is None:
             return self
+        if self.implicit_solvent is not None:
+            raise ValueError("REST2 is not supported with implicit solvent")
         if self.enhanced_sampling.effective_temperatures[0] != self.temperature:
             raise ValueError("effective_temperatures must start at the workflow temperature")
         interval_fs = Decimal(str(self.enhanced_sampling.exchange_interval_ps)) * 1000
         if interval_fs % Decimal(str(self.timestep_fs)) != 0:
             raise ValueError("exchange_interval_ps must be an integer multiple of timestep_fs")
         return self
+
+    @model_validator(mode="after")
+    def validate_solvent_options(self) -> Self:
+        """Reject incompatible solvent settings."""
+        if self.implicit_solvent is None:
+            if any(value is None for value in (self.pressure_atm, self.nonbonded_cutoff, self.water_buffer)):
+                raise ValueError("Explicit solvent requires pressure_atm, nonbonded_cutoff, and water_buffer")
+            return self
+        if self.implicit_solvent not in FORCEFIELD_SOLVENTS:
+            raise ValueError(f"Unsupported force-field solvent model: {self.implicit_solvent.value}")
+        if self.save_solvent or self.num_solvent_to_save is not None:
+            raise ValueError("Implicit solvent cannot be combined with solvent-saving options")
+        if any(value is not None for value in (self.pressure_atm, self.nonbonded_cutoff, self.water_buffer)):
+            raise ValueError("pressure_atm, nonbonded_cutoff, and water_buffer require explicit solvent")
+        return self
+
+    @model_serializer(mode="wrap")
+    def serialize_solvent_options(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict[str, Any]:
+        """Preserve inactive solvent settings through serialization."""
+        data = handler(self)
+        if self.implicit_solvent is not None:
+            for name in ("pressure_atm", "nonbonded_cutoff", "water_buffer"):
+                if (info.include is None or name in info.include) and (info.exclude is None or name not in info.exclude):
+                    data[name] = None
+        return data
 
     @model_validator(mode="after")
     def validate_restraints(self) -> Self:

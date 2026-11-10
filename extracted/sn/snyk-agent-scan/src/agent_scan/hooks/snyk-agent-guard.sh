@@ -21,10 +21,8 @@
 #
 set -euo pipefail
 
-# --- BEGIN install-time variables ---
-# Agent-scan CLI version (replaced at install time).
-AGENT_SCAN_VERSION="__AGENT_SCAN_VERSION__"
-# --- END install-time variables ---
+# Agent-scan CLI version (replaced by the release pipeline).
+AGENT_SCAN_VERSION="0.6.11"
 
 # Hook API version.
 VERSION="2025-11-11"

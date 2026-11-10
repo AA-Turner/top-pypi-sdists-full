@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zeit-cdts
-Version: 3.0.0
+Version: 3.4.0
 Summary: Change detection and time series analysis of Earth observation data cubes: LandTrendr, CCDC, BFAST, TWDTW, phenology, accuracy assessment, embeddings and deep learning
 License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://github.com/sacridini/zeit-cdts

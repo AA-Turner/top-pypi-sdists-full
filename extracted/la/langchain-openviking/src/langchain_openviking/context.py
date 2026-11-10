@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import warnings
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import asynccontextmanager, contextmanager
 from copy import deepcopy
@@ -16,6 +17,7 @@ from typing import Any, Iterator
 from pydantic import PrivateAttr
 
 try:
+    from langchain_core.chat_history import BaseChatMessageHistory
     from langchain_core.messages import BaseMessage, SystemMessage
     from langchain_core.runnables import ConfigurableFieldSpec, RunnableLambda
     from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -130,9 +132,11 @@ class _InvocationOpenVikingChatMessageHistory(OpenVikingChatMessageHistory):
         recorder: OpenVikingSessionRecorder,
         sync_write_lock_pool: _SyncSessionWriteLockPool,
         async_write_lock_pools: LoopScopedAsyncClientCache,
+        host_history: BaseChatMessageHistory | None = None,
         **kwargs: Any,
     ):
         super().__init__(*args, _recorder=recorder, **kwargs)
+        self._host_history = host_history
         self._entry_snapshot: list[BaseMessage] | None = None
         self._sync_write_lock_pool = sync_write_lock_pool
         self._async_write_lock_pools = async_write_lock_pools
@@ -140,17 +144,25 @@ class _InvocationOpenVikingChatMessageHistory(OpenVikingChatMessageHistory):
     @property
     def messages(self) -> list[BaseMessage]:  # type: ignore[override]
         if self._entry_snapshot is None:
-            self._entry_snapshot = list(super().messages)
+            self._entry_snapshot = list(
+                self._host_history.messages if self._host_history is not None else super().messages
+            )
         return list(self._entry_snapshot)
 
     async def aget_messages(self) -> list[BaseMessage]:
         if self._entry_snapshot is None:
-            self._entry_snapshot = list(await super().aget_messages())
+            self._entry_snapshot = list(
+                await self._host_history.aget_messages()
+                if self._host_history is not None
+                else await super().aget_messages()
+            )
         return list(self._entry_snapshot)
 
     def add_messages(self, messages: Sequence[BaseMessage]) -> None:
         try:
             with self._sync_write_lock_pool.acquire(self.session_id):
+                if self._host_history is not None:
+                    self._host_history.add_messages(messages)
                 super().add_messages(messages)
         finally:
             self._entry_snapshot = None
@@ -159,6 +171,8 @@ class _InvocationOpenVikingChatMessageHistory(OpenVikingChatMessageHistory):
         try:
             lock_pool = self._async_write_lock_pools.get(_AsyncSessionWriteLockPool)
             async with lock_pool.acquire(self.session_id):
+                if self._host_history is not None:
+                    await self._host_history.aadd_messages(messages)
                 await super().aadd_messages(messages)
         finally:
             self._entry_snapshot = None
@@ -175,11 +189,11 @@ class OpenVikingSessionContextAssembler:
         retriever: OpenVikingRetriever | None = None,
         url: str | None = None,
         api_key: str | None = None,
+        auth_mode: str | None = None,
         account: str | None = None,
         user: str | None = None,
         user_id: str | None = None,
         actor_peer_id: str | None = None,
-        path: str | None = None,
         timeout: float = 60.0,
         extra_headers: dict[str, str] | None = None,
         auto_initialize: bool = True,
@@ -187,7 +201,7 @@ class OpenVikingSessionContextAssembler:
         limit: int = 5,
         score_threshold: float | None = None,
         token_budget: int = 128_000,
-        include_session_context: bool = True,
+        include_session_context: bool = False,
         include_active_messages: bool = True,
         include_recall: bool = True,
         recall_header: str = "Relevant OpenViking context:",
@@ -197,11 +211,11 @@ class OpenVikingSessionContextAssembler:
             async_client=async_client,
             url=url,
             api_key=api_key,
+            auth_mode=auth_mode,
             account=account,
             user=user,
             user_id=user_id,
             actor_peer_id=actor_peer_id,
-            path=path,
             timeout=timeout,
             extra_headers=extra_headers,
             auto_initialize=auto_initialize,
@@ -211,11 +225,11 @@ class OpenVikingSessionContextAssembler:
             async_client=async_client,
             url=url,
             api_key=api_key,
+            auth_mode=auth_mode,
             account=account,
             user=user,
             user_id=user_id,
             actor_peer_id=actor_peer_id,
-            path=path,
             timeout=timeout,
             extra_headers=extra_headers,
             auto_initialize=auto_initialize,
@@ -303,7 +317,9 @@ class OpenVikingSessionContextAssembler:
         block = self._format_context_block(session_context, recall_documents)
         return OpenVikingAssembledContext(
             block=block,
-            context_parts=context_parts_from_documents(recall_documents),
+            context_parts=context_parts_from_documents(
+                recall_documents, metadata_prefix=self.retriever.metadata_prefix
+            ),
             session_context=session_context,
             recall_documents=recall_documents,
         )
@@ -327,15 +343,12 @@ class OpenVikingSessionContextAssembler:
         whose method calls support recovery. Direct attributes on that handle
         are best-effort during recovery; use ``await handle.get()`` only to read
         raw properties immediately because recovery may replace that snapshot.
-        Embedded ``path=`` connections return an adapter-owned synchronous
-        client whose calls are dispatched through a worker thread.
         """
 
         self._raise_if_closed()
         client = await ensure_async_client(
             self._connection,
             client_cache=self._async_clients,
-            embedded_client_factory=self._get_client,
         )
         self._raise_if_closed()
         return client
@@ -629,10 +642,10 @@ def with_openviking_context(
     async_client: Any = None,
     url: str | None = None,
     api_key: str | None = None,
+    auth_mode: str | None = None,
     account: str | None = None,
     user: str | None = None,
     user_id: str | None = None,
-    path: str | None = None,
     timeout: float = 60.0,
     extra_headers: dict[str, str] | None = None,
     auto_initialize: bool = True,
@@ -650,6 +663,7 @@ def with_openviking_context(
     session_id_config_key: str = "session_id",
     peer_id_config_key: str = "peer_id",
     inject_context: bool = True,
+    history_factory: Callable[[str], BaseChatMessageHistory] | None = None,
 ) -> OpenVikingContextRunnable:
     """Wrap a runnable with invocation-scoped history and managed resources.
 
@@ -657,16 +671,24 @@ def with_openviking_context(
     ``await aclose()`` when it is no longer needed.
     """
 
+    if history_factory is None:
+        warnings.warn(
+            "with_openviking_context uses OV as the history backend and requires Working Memory. "
+            "Use with_openviking_memory with a host history_factory when WM is disabled.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
     assembler = OpenVikingSessionContextAssembler(
         client=client,
         async_client=async_client,
         url=url,
         api_key=api_key,
+        auth_mode=auth_mode,
         account=account,
         user=user,
         user_id=user_id,
         actor_peer_id=actor_peer_id,
-        path=path,
         timeout=timeout,
         extra_headers=extra_headers,
         auto_initialize=auto_initialize,
@@ -674,6 +696,7 @@ def with_openviking_context(
         limit=limit,
         score_threshold=score_threshold,
         token_budget=token_budget,
+        include_session_context=history_factory is None,
         include_active_messages=False,
         include_recall=inject_context,
     )
@@ -682,11 +705,11 @@ def with_openviking_context(
         async_client=async_client,
         url=url,
         api_key=api_key,
+        auth_mode=auth_mode,
         account=account,
         user=user,
         user_id=user_id,
         actor_peer_id=actor_peer_id,
-        path=path,
         timeout=timeout,
         extra_headers=extra_headers,
         auto_initialize=auto_initialize,
@@ -701,6 +724,7 @@ def with_openviking_context(
         return _InvocationOpenVikingChatMessageHistory(
             session_id=active_session_id,
             recorder=recorder,
+            host_history=history_factory(active_session_id) if history_factory else None,
             sync_write_lock_pool=sync_write_lock_pool,
             async_write_lock_pools=async_write_lock_pools,
             peer_id=peer_id,
@@ -819,6 +843,22 @@ def with_openviking_context(
     return wrapped
 
 
+def with_openviking_memory(
+    runnable: Any,
+    *,
+    history_factory: Callable[[str], BaseChatMessageHistory],
+    **kwargs: Any,
+) -> OpenVikingContextRunnable:
+    """Add recall and recording while the caller owns persisted chat history.
+
+    The history provider must supply its own retention/compaction policy. OV
+    commits never determine which messages the next model invocation can see.
+    """
+    if not callable(history_factory):
+        raise ValueError("history_factory must provide host-managed chat history")
+    return with_openviking_context(runnable, history_factory=history_factory, **kwargs)
+
+
 def _session_id_from_config(config: dict[str, Any] | None, *, key: str) -> str:
     configurable = (config or {}).get("configurable") or {}
     return _validate_session_id(configurable.get(key), key=key)
@@ -879,6 +919,9 @@ def _latest_user_text_from_input(input_value: Any, input_messages_key: str | Non
     if isinstance(input_value, str):
         return input_value
     if isinstance(input_value, dict):
+        value = input_value.get(input_messages_key or "messages")
+        if isinstance(value, str):
+            return value.strip()
         for value in input_value.values():
             if isinstance(value, str) and value.strip():
                 return value.strip()
@@ -886,13 +929,13 @@ def _latest_user_text_from_input(input_value: Any, input_messages_key: str | Non
 
 
 def _input_messages(input_value: Any, input_messages_key: str | None) -> list[Any]:
-    if isinstance(input_value, list):
-        return list(input_value)
     if isinstance(input_value, dict):
         key = input_messages_key or "messages"
-        value = input_value.get(key)
-        if isinstance(value, list):
-            return list(value)
+        input_value = input_value.get(key)
+    if isinstance(input_value, (list, tuple)):
+        return list(input_value)
+    if isinstance(input_value, BaseMessage):
+        return [input_value]
     return []
 
 
@@ -901,13 +944,17 @@ def _inject_system_context(
     context_block: str,
     input_messages_key: str | None,
 ) -> Any:
-    if isinstance(input_value, list):
-        return _merge_system_message(input_value, context_block)
+    if isinstance(input_value, (list, tuple, BaseMessage)):
+        return _merge_system_message(
+            _input_messages(input_value, input_messages_key), context_block
+        )
     if isinstance(input_value, dict):
         key = input_messages_key or "messages"
-        if isinstance(input_value.get(key), list):
+        if isinstance(input_value.get(key), (list, tuple, BaseMessage)):
             updated = dict(input_value)
-            updated[key] = _merge_system_message(input_value[key], context_block)
+            updated[key] = _merge_system_message(
+                _input_messages(input_value, input_messages_key), context_block
+            )
             return updated
         updated = dict(input_value)
         updated["openviking_context"] = context_block
@@ -919,8 +966,12 @@ def _merge_system_message(messages: Sequence[Any], context_block: str) -> list[A
     updated = list(messages)
     for index, message in enumerate(updated):
         if isinstance(message, SystemMessage):
-            content = extract_message_text(message.content)
-            updated[index] = SystemMessage(content=f"{content}\n\n{context_block}".strip())
+            content = (
+                [*deepcopy(message.content), {"type": "text", "text": context_block}]
+                if isinstance(message.content, list)
+                else f"{extract_message_text(message.content)}\n\n{context_block}".strip()
+            )
+            updated[index] = message.model_copy(update={"content": content})
             return updated
     return [SystemMessage(content=context_block), *updated]
 

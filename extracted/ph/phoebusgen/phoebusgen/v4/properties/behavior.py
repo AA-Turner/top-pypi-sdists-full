@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List, Optional, Union
 
 from .property_helpers import PropertyBase
 from .types import (
@@ -7,6 +8,8 @@ from .types import (
     ButtonMode,
     Color,
     ColorMode,
+    ColorType,
+    IntEnumType,
     InterpolationType,
     ObservableList,
     Rule,
@@ -17,9 +20,9 @@ from .types import (
 
 
 class HasActionsRulesAndScripts(PropertyBase):
-    actions: ObservableList[Action]
-    rules: ObservableList[Rule]
-    scripts: ObservableList[Script]
+    actions: List[Action]
+    rules: List[Rule]
+    scripts: List[Script]
 
 class HasToolTip(PropertyBase):
     tooltip: str
@@ -28,10 +31,10 @@ class HasShowLimits(PropertyBase):
     show_limits: bool
 
 class HasWarningLevels(PropertyBase):
-    level_hihi: float = 20.0
+    level_hihi: float = 90.0
     level_high: float = 80.0
-    level_low: float = 10.0
-    level_lolo: float = 90.0
+    level_low: float = 20.0
+    level_lolo: float = 10.0
 
 class HasWarningLevelsVisibility(PropertyBase):
     show_hihi: bool = True
@@ -40,22 +43,22 @@ class HasWarningLevelsVisibility(PropertyBase):
     show_lolo: bool = True
 
 class HasEnabled(PropertyBase):
-    enabled: bool
+    enabled: bool = True
 
 class HasConfirmation(PropertyBase):
     show_confirm_dialog: bool
-    confirm_message: str
+    confirm_message: str = 'Are your sure you want to do this?'
     password: str
 
 class HasButtonMode(PropertyBase):
-    mode: ButtonMode
+    mode: IntEnumType[ButtonMode]
 
 class HasMinMax(PropertyBase):
-    minimum: float
-    maximum: float
+    minimum: float = 0.0
+    maximum: float = 100.0
 
 class HasBarLength(PropertyBase):
-    bar_length: float
+    bar_length: float = 10.0
 
 class HasIncrement(PropertyBase):
     increment: float = 1.0
@@ -70,7 +73,7 @@ class HasEditable(PropertyBase):
     editable: bool
 
 class HasFallbackSymbol(PropertyBase):
-    fallback_symbol: Path
+    fallback_symbol: Optional[Union[Path, str]] = None
 
 class HasPreserveRatio(PropertyBase):
     preserve_ratio: bool = True
@@ -84,10 +87,10 @@ class HasArrayIndex(PropertyBase):
 
 class HasFallback(PropertyBase):
     fallback_label: str = 'Err'
-    fallback_color: Color = Color((255, 0, 255))
+    fallback_color: ColorType = Color((255, 0, 255))
 
 class HasStates(PropertyBase):
-    states: ObservableList[State] = ObservableList([State(label='State 1', color=Color((60, 100, 60))), State(value=1, label='State 2', color=Color((60, 255, 60)))])
+    states: List[State] = ObservableList([State(label='State 1', color=Color((60, 100, 60))), State(value=1, label='State 2', color=Color((60, 255, 60)))])
 
 class HasLogScale(PropertyBase):
     log_scale: bool
@@ -100,16 +103,16 @@ class HasDataWidthAndHeight(PropertyBase):
     data_height: int = 100
 
 class HasInterpolation(PropertyBase):
-    interpolation: InterpolationType = InterpolationType.AUTOMATIC
+    interpolation: IntEnumType[InterpolationType] = InterpolationType.AUTOMATIC
 
 class HasColorMode(PropertyBase):
-    color_mode: ColorMode = ColorMode.TYPE_MONO
+    color_mode: IntEnumType[ColorMode] = ColorMode.TYPE_MONO
 
 class HasItems(PropertyBase):
-    items: ObservableList[str]
+    items: List[str]
 
 class HasTraces(PropertyBase):
-    traces: ObservableList[Trace]
+    traces: List[Trace]
 
 class HasXAxis(PropertyBase):
     x_axis: Axis
@@ -118,7 +121,7 @@ class HasYAxis(PropertyBase):
     y_axis: Axis
 
 class HasYAxes(PropertyBase):
-    y_axes: ObservableList[Axis]
+    y_axes: List[Axis]
 
 class HasAutoScale(PropertyBase):
     auto_scale: bool = True
@@ -127,7 +130,7 @@ class HasUnisignedData(PropertyBase):
     unsigned_data: bool = False
 
 class HasAlarmBorder(PropertyBase):
-    border_alarm_sensitive: bool = False
+    border_alarm_sensitive: bool = True
 
 class HasInteractive(PropertyBase):
-    interactive: bool =  True
+    interactive: bool = False

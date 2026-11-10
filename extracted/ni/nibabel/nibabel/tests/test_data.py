@@ -113,6 +113,7 @@ def test__cfg_value():
             pass
 
 
+@pytest.mark.thread_unsafe
 def test_data_path(with_nimd_env):
     # wipe out any sources of data paths
     if DATA_KEY in env:
@@ -132,7 +133,7 @@ def test_data_path(with_nimd_env):
         def_dirs.append(pjoin('/usr/local', 'share', 'nipy'))
     assert old_pth == def_dirs + ['/user/path']
     # then we'll try adding some of our own
-    tst_pth = '/a/path' + os.path.pathsep + '/b/ path'
+    tst_pth = f'/a/path{os.path.pathsep}/b/ path'
     tst_list = ['/a/path', '/b/ path']
     # First, an environment variable
     os.environ[DATA_KEY] = tst_list[0]
@@ -185,6 +186,7 @@ def test_find_data_dir():
     assert dd == here
 
 
+@pytest.mark.thread_unsafe
 def test_make_datasource(with_nimd_env):
     pkg_def = dict(relpath='pkg')
     with TemporaryDirectory() as tmpdir:
@@ -214,6 +216,7 @@ def test_bomber_inspect():
     assert not hasattr(b, 'any_attribute')
 
 
+@pytest.mark.thread_unsafe
 def test_datasource_or_bomber(with_nimd_env):
     pkg_def = dict(relpath='pkg')
     with TemporaryDirectory() as tmpdir:

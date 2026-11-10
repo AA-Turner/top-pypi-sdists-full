@@ -35,7 +35,7 @@ class ChannelArgs:
         :param pulumi.Input[_builtins.str] recording_configuration_arn: Recording configuration ARN.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         if authorized is not None:
             pulumi.set(__self__, "authorized", authorized)
@@ -128,7 +128,7 @@ class ChannelArgs:
     @pulumi.getter
     def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         return pulumi.get(self, "type")
 
@@ -164,7 +164,7 @@ class _ChannelState:
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
-        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         if arn is not None:
             pulumi.set(__self__, "arn", arn)
@@ -313,7 +313,7 @@ class _ChannelState:
     @pulumi.getter
     def type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         return pulumi.get(self, "type")
 
@@ -373,7 +373,7 @@ class Channel(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] recording_configuration_arn: Recording configuration ARN.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
-        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         ...
     @overload
@@ -490,7 +490,7 @@ class Channel(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: Map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
-        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        :param pulumi.Input[_builtins.str] type: Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -508,6 +508,34 @@ class Channel(pulumi.CustomResource):
         __props__.__dict__["tags_all"] = tags_all
         __props__.__dict__["type"] = type
         return Channel(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            authorized: pulumi.Input[Optional[_builtins.bool]] = None,
+            ingest_endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+            latency_mode: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            playback_url: pulumi.Input[Optional[_builtins.str]] = None,
+            recording_configuration_arn: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            type: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["arn"] = arn
+        __props__["authorized"] = authorized
+        __props__["ingestEndpoint"] = ingest_endpoint
+        __props__["latencyMode"] = latency_mode
+        __props__["name"] = name
+        __props__["playbackUrl"] = playback_url
+        __props__["recordingConfigurationArn"] = recording_configuration_arn
+        __props__["region"] = region
+        __props__["tags"] = tags
+        __props__["tagsAll"] = tags_all
+        __props__["type"] = type
+        return pulumi.runtime.exists_resource(None, 'aws:ivs/channel:Channel', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -593,7 +621,7 @@ class Channel(pulumi.CustomResource):
     @pulumi.getter
     def type(self) -> pulumi.Output[_builtins.str]:
         """
-        Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`.
+        Channel type, which determines the allowable resolution and bitrate. Valid values: `STANDARD`, `BASIC`, `ADVANCED_SD`, `ADVANCED_HD`.
         """
         return pulumi.get(self, "type")
 

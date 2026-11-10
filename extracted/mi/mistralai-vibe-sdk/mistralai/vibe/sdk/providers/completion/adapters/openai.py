@@ -172,7 +172,9 @@ class OpenAICompletion(CompletionModel):
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [
-                message.model_dump(exclude_none=True, exclude={"reasoning_content"})
+                message.model_dump(
+                    exclude_none=True, exclude={"reasoning_content", "reasoning_signature"}
+                )
                 for message in request.messages
             ],
             "stream": True,

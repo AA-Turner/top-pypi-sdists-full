@@ -49,7 +49,10 @@ reported. `queues` prints a one-line pointer here while any such file exists.
 An intent leaves the queue by one of two OUTCOMES, and they are not interchangeable: `ship` for
 what was delivered, `drop` for what turned out wrong or stale. Both block a re-queue; only the
 outcome recorded differs, and recording a delivered contribution as rejected misleads every later
-reader about whether the work was done. `drain` closes the WHOLE queue at once, recording every
+reader about whether the work was done. Both outcomes are stored in ONE file,
+`<hash>.contrib-rejected.jsonl` - the name predates `ship` - told apart only by each record's
+`outcome`, so count closed entries with `shipped` and `rejected`, never by that file's lines.
+`drain` closes the WHOLE queue at once, recording every
 entry as shipped, and so fits only a sweep where every entry shipped - to close one entry, use
 `ship`.
 
@@ -66,6 +69,7 @@ import math
 import os
 import re
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -111,6 +115,20 @@ def _read_or_report(reader, proj, what):
         return None
 
 
+def _home_note(path):
+    """Why a queue's path is not where new entries go, or "": a key made from a worktree or a
+    subdirectory before queues were keyed by repo, or a temp dir nothing will come back to."""
+    home = sig.queue_home(path)
+    if os.path.abspath(home) != os.path.abspath(path):
+        return "  (inside %s: new entries go to that repo's queue)" % home
+    try:
+        temp = tempfile.gettempdir()
+        inside_temp = os.path.commonpath([os.path.abspath(path), temp]) == temp
+    except ValueError:
+        inside_temp = False
+    return "  (temp dir)" if inside_temp else ""
+
+
 def _queue_rows(qdir):
     """[(key, open count or None when unreadable, live claims, where)] per queue file in `qdir`."""
     rows = []
@@ -127,7 +145,7 @@ def _queue_rows(qdir):
         if not path:
             where = "(project unknown - queued before the path was recorded)"
         elif os.path.isdir(path):
-            where = path
+            where = path + _home_note(path)
         else:
             where = "%s  (cwd gone)" % path
         claimed = sum(1 for r in recs if sig.claim_state(r) == "live")
@@ -138,7 +156,7 @@ def _queue_rows(qdir):
 def _print_queues():
     """The `queues` verb. Exit 0 listed; 2 when a queue file could not be read (it is listed as
     unreadable, never counted as holding nothing)."""
-    # The queue is addressed by cwd, and the filename is a one-way hash of it - so without this
+    # The queue is addressed by repo (or by cwd outside one), and the filename is a one-way hash - so without this
     # there is no way to ask which projects have pending contributions, and a queue whose cwd was
     # deleted or renamed is invisible AND unreachable by every other verb. Entries added since the
     # `proj` stamp landed carry their own path; older ones cannot be resolved and say so.
@@ -281,7 +299,8 @@ def main(argv=None):
     dp.add_argument("--match", default="", help="unique text from its what/target - order-proof")
     dp.add_argument("--reason", default="", help="why it is wrong or stale (kept in the tombstone)")
     dp.add_argument("proj", nargs="?", default=None)
-    rj = sub.add_parser("rejected", help="show the dropped intents and why")
+    rj = sub.add_parser("rejected", help="show the dropped intents and why (the "
+                                         ".contrib-rejected.jsonl store also holds shipped ones)")
     rj.add_argument("proj", nargs="?", default=None)
     sl = sub.add_parser("shipped", help="show the intents that delivered, and where")
     sl.add_argument("proj", nargs="?", default=None)

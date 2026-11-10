@@ -31,6 +31,10 @@ OPTIONS = [
     *("--target-python-version", "3.11", "--openapi-scopes", "schemas", "api"),
     *("--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--disable-timestamp"),
 ]
+ASYNCAPI_OPTIONS = [
+    *("--target-python-version", "3.11", "--output-model-type", "pydantic_v2.BaseModel"),
+    *("--formatters", "builtin", "--disable-timestamp"),
+]
 PACKAGES = ["--client-package", "client", "--client-model-package", "models"]
 CLIENT = ["--generate-client", "httpx2", "--client-output", "client", *PACKAGES]
 MISSING = ["--use-missing-sentinel", "--target-pydantic-version", "2.14"]
@@ -517,7 +521,25 @@ def test_client_cli_selector_replaces_pyproject(
         ),
         (
             [*OPTIONS, *CLIENT, "--input-file-type", "jsonschema"],
-            "--generate-client requires --input-file-type openapi, not jsonschema",
+            "--generate-client requires --input-file-type openapi or asyncapi, not jsonschema",
+        ),
+        (
+            [*OPTIONS, *CLIENT, "--client-asyncapi-perspective", "client"],
+            "--client-asyncapi-perspective requires --input-file-type asyncapi",
+        ),
+        (
+            [*OPTIONS, *CLIENT, "--input-file-type", "asyncapi", "--client-protocols", "{}"],
+            "--client-protocols cannot be used with --input-file-type asyncapi, whose channels the client opens",
+        ),
+        (
+            [
+                *OPTIONS,
+                "--input-file-type",
+                "asyncapi",
+                *("--generate-server", "fastapi", "--server-output", "server", "--server-package", "server"),
+                *("--server-model-package", "models"),
+            ],
+            "--generate-server requires --input-file-type openapi, not asyncapi",
         ),
     ],
     ids=[
@@ -528,6 +550,9 @@ def test_client_cli_selector_replaces_pyproject(
         "missing-settings",
         "server-option",
         "input-file-type",
+        "asyncapi-perspective-openapi",
+        "asyncapi-protocols",
+        "asyncapi-server",
     ],
 )
 def test_client_cli_usage(
@@ -977,6 +1002,41 @@ def test_client_cli_shadowed_module(tmp_path: Path, monkeypatch: pytest.MonkeyPa
             f"{item.category.__name__}: {str(item.message).replace(tmp_path.as_posix(), '<root>')}" for item in recorded
         )
     assert_output("\n".join(lines) + "\n", EXPECTED / "cli" / "shadowed-module.txt")
+
+
+@pytest.mark.parametrize(
+    "option",
+    [[], ["--check"], ["--diff-against", str(DATA / "openapi" / "modular.yaml")]],
+    ids=["write", "check", "diff"],
+)
+def test_client_cli_models_package_onto_a_file(
+    option: list[str], tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuse a models package whose output is an existing file, as a model run does, and write nothing (#4497).
+
+    --diff-against reads no destination, so it compares the two inputs instead.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "models").write_text("kept = 1\n", encoding="utf-8")
+    compares = bool(option) and option[0] == "--diff-against"
+    run_main_and_assert(
+        input_path=DATA / "openapi" / "modular.yaml",
+        output_path=Path("models"),
+        input_file_type="openapi",
+        extra_args=[*OPTIONS, *CLIENT, *option],
+        expected_exit=Exit.OK if compares else Exit.ERROR,
+        capsys=capsys,
+        expected_stderr=None if compares else "Error: Modular references require an output directory, not a file\n",
+        expected_output="kept = 1\n" if compares else None,
+        assert_no_stderr=compares,
+    )
+    assert_output(
+        "".join(
+            f"{path.relative_to(tmp_path).as_posix()}: {path.read_text(encoding='utf-8')}"
+            for path in sorted(tmp_path.rglob("*"))
+            if path.is_file()
+        )
+    )
 
 
 def test_client_cli_leftover_files(
@@ -1491,6 +1551,31 @@ against the document's URL when it is read from one.""",
             ),
         ),
         pytest.param(
+            "options-deep-object.yaml",
+            ["--client-deep-object-brackets"],
+            "client/_operations.py",
+            "deep-object-brackets/_operations.py",
+            id="client-deep-object-brackets",
+            marks=pytest.mark.cli_doc(
+                options=["--client-deep-object-brackets"],
+                option_description="""Write deepObject values in brackets: a[]=v, a=v, a[k][k]=v (experimental).
+
+OpenAPI defines `style: deepObject` for objects of scalars alone, so an operation whose deepObject query parameter, or
+member of an `application/x-www-form-urlencoded` body, takes an array, a scalar, a nested object or a union of a
+scalar and an object is left out with a warning. With this option the client writes such values in the bracket form:
+an array of scalars as `name[]=value` for each item, such as `expand[]=a&expand[]=b`, a scalar as `name=value`, the
+members of objects as `name[key]=value` at any depth, such as `shipping[address][city]=Paris`, and an array of objects
+by index, such as `items[0][price]=p_1`, with the brackets percent-encoded as those of an object's `name[key]` pairs
+are. A value that may be a scalar or an object or array is written as the one a call gives: `created=5` or
+`created[gt]=5`, and an empty string as `metadata=`. Arrays of arrays, recursive values, and unions whose members a
+value does not tell apart stay left out. `--no-client-deep-object-brackets` turns off the
+`client-deep-object-brackets` key of pyproject.toml.""",
+                input_schema="generation_platform/client/cli/options-deep-object.yaml",
+                cli_args=[*DOC_OPTIONS, "--client-deep-object-brackets"],
+                golden_output=f"{DOC_OUTPUT}/deep-object-brackets/_operations.py",
+            ),
+        ),
+        pytest.param(
             "options.yaml",
             ["--client-protocols", "protocols.json"],
             "client/protocols/_helpers.py",
@@ -1525,6 +1610,39 @@ def test_client_cli_options(
         copy_files=[(CLI / source, tmp_path / source), (CLI / "protocols.json", tmp_path / "protocols.json")],
     )
     assert_file_content(tmp_path / generated, f"cli/options/{expected}")
+
+
+@pytest.mark.cli_doc(
+    options=["--client-asyncapi-perspective"],
+    option_description="""Read an AsyncAPI document as its server's or its client's (experimental).
+
+With `--input-file-type asyncapi`, `--generate-client` opens each channel of a `ws` or `wss` server as
+`client.<channel>.connect(...)`, a WebSocket session that sends one message type and receives another. `server` (the
+default) reads the document as the server's, as the AsyncAPI operations define it: the client sends what the server
+receives (AsyncAPI 2 `publish`, AsyncAPI 3 `action: receive`) and receives what it sends (`subscribe`,
+`action: send`). `client` reads the document as the client's and swaps the two. A server-sent event channel, which
+`client.<channel>.open(...)` opens, flows from the server only, so the client receives each of its messages whichever
+the option says. Other input types refuse the option.""",
+    input_schema="generation_platform/client/asyncapi-market-v3.yaml",
+    cli_args=[
+        *("--input-file-type", "asyncapi", "--output", "models.py"),
+        *ASYNCAPI_OPTIONS,
+        *CLIENT,
+        *("--client-asyncapi-perspective", "client"),
+    ],
+    golden_output="api_generation/client_cli/asyncapi_perspective.txt",
+)
+def test_client_cli_asyncapi_perspective(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Swap the messages a client of an AsyncAPI document sends and receives under the client perspective."""
+    monkeypatch.chdir(tmp_path)
+    run_main_and_assert(
+        input_path=Path("asyncapi.yaml"),
+        output_path=Path("models.py"),
+        input_file_type="asyncapi",
+        extra_args=[*ASYNCAPI_OPTIONS, *CLIENT, "--client-asyncapi-perspective", "client"],
+        copy_files=[(SOURCE / "asyncapi-market-v3.yaml", tmp_path / "asyncapi.yaml")],
+    )
+    assert_output((tmp_path / "client" / "protocols" / "_plans.py").read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize(

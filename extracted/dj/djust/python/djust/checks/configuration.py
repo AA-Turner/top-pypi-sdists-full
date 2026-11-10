@@ -16,7 +16,9 @@ from djust.checks.utils import (
     DjustError,
     DjustInfo,
     DjustWarning,
+    _blank_template_comments,
     _is_check_suppressed,
+    _is_production,
     _walk_subclasses,
     _get_template_dirs,
 )
@@ -94,7 +96,8 @@ def _check_tailwind_cdn_in_production(errors: list[CheckMessage]) -> None:
                         filepath = os.path.join(root, filename)
                         try:
                             with open(filepath, "r", encoding="utf-8") as f:
-                                content = f.read()
+                                # A mention inside a comment loads nothing.
+                                content = _blank_template_comments(f.read())
                                 # Scan template content for CDN reference (not URL validation)
                                 # nosemgrep: python.lang.security.audit.dangerous-system-call.dangerous-system-call
                                 cdn_domain = "cdn.tailwindcss.com"
@@ -162,7 +165,11 @@ def _check_missing_compiled_css(errors: list[CheckMessage]) -> None:
     has_input_css = False
 
     # Check for input.css in STATICFILES_DIRS
-    static_dirs = getattr(settings, "STATICFILES_DIRS", [])
+    # Django accepts a `(prefix, path)` tuple in place of a plain path.
+    static_dirs = [
+        entry[1] if isinstance(entry, (list, tuple)) else entry
+        for entry in getattr(settings, "STATICFILES_DIRS", [])
+    ]
     for static_dir in static_dirs:
         if os.path.exists(os.path.join(static_dir, "css", "input.css")):
             has_input_css = True
@@ -197,7 +204,6 @@ def _check_missing_compiled_css(errors: list[CheckMessage]) -> None:
                     DjustInfo(
                         "Tailwind CSS configured but output.css is missing or stale (development mode).",
                         hint=(
-                            "djust will use Tailwind CDN as fallback in development. "
                             "A placeholder or empty output.css triggers this — run a "
                             "real Tailwind build for production-grade output:\n"
                             "  python manage.py djust_setup_css tailwind --watch"
@@ -309,7 +315,7 @@ def _check_manual_client_js(errors: list[CheckMessage]) -> None:
                         filepath = os.path.join(root, filename)
                         try:
                             with open(filepath, "r", encoding="utf-8") as f:
-                                lines = f.readlines()
+                                lines = _blank_template_comments(f.read()).split("\n")
                                 for line_num, line in enumerate(lines, 1):
                                     # Look for manual client.js or client.min.js loading
                                     has_manual_ref = (
@@ -491,6 +497,315 @@ def _check_tenant_strict_mode_disabled(errors: list[CheckMessage]) -> None:
     )
 
 
+def _check_server_state_max_age(errors: list[CheckMessage]) -> None:
+    """C020 — DJUST_SERVER_STATE_MAX_AGE must be an int from 1 to 86400 seconds.
+
+    ADR-038 explicit server-state envelopes use it as their restore lifetime. An
+    invalid value makes every explicit persistence adapter fail closed at
+    runtime, so report it at startup instead. Absent means the 3600 s default.
+    """
+    from django.conf import settings
+
+    if _is_check_suppressed("djust.C020"):
+        return
+    if not hasattr(settings, "DJUST_SERVER_STATE_MAX_AGE"):
+        return
+    value = settings.DJUST_SERVER_STATE_MAX_AGE
+    if type(value) is int and 0 < value <= 86400:
+        return
+    errors.append(
+        DjustError(
+            "DJUST_SERVER_STATE_MAX_AGE must be an integer number of seconds from 1 to 86400.",
+            hint=(
+                "It bounds how long an explicit server-state envelope can be restored. "
+                "With an invalid value, explicit views cannot load or save server "
+                "state. Remove the setting to use the default of 3600."
+            ),
+            id="djust.C020",
+            fix_hint="Set `DJUST_SERVER_STATE_MAX_AGE = 3600` (or remove it) in your settings.",
+        )
+    )
+
+
+def _check_explicit_state_save_timeout(errors: list[CheckMessage]) -> None:
+    """C024 — DJUST_EXPLICIT_STATE_SAVE_TIMEOUT must be seconds in (0, 10].
+
+    It bounds how long an ADR-038 explicit turn waits for its state save,
+    counted from when the save starts running (#3200). At runtime an invalid
+    value falls back to the 0.15 s default, so report it at startup instead
+    of letting the configured value be silently ignored.
+    """
+    from django.conf import settings
+
+    from .._exposure_sessions import valid_explicit_state_save_timeout
+
+    if _is_check_suppressed("djust.C024"):
+        return
+    if not hasattr(settings, "DJUST_EXPLICIT_STATE_SAVE_TIMEOUT"):
+        return
+    if valid_explicit_state_save_timeout(settings.DJUST_EXPLICIT_STATE_SAVE_TIMEOUT):
+        return
+    errors.append(
+        DjustError(
+            "DJUST_EXPLICIT_STATE_SAVE_TIMEOUT must be a number of seconds greater than 0 "
+            "and at most 10.",
+            hint=(
+                "It bounds how long an explicit view's turn waits for its state save. "
+                "With an invalid value the runtime uses the default of 0.15 seconds."
+            ),
+            id="djust.C024",
+            fix_hint="Set `DJUST_EXPLICIT_STATE_SAVE_TIMEOUT = 0.5` (or remove it) in your settings.",
+        )
+    )
+
+
+def _check_worker_threads(errors: list[CheckMessage]) -> None:
+    """C021 — ``LIVEVIEW_CONFIG['worker_threads']`` must be a documented value.
+
+    ``None`` / ``False`` / ``0`` (stock), ``True`` / ``"auto"`` (one thread per
+    CPU) or an ``int`` thread count (#3074). Anything else is treated as "off"
+    at runtime, so a typo would silently keep the single shared thread.
+    ``LIVEVIEW_CONFIG['worker_pinning']`` must be ``True`` or ``False``.
+    """
+    from ..config import config
+    from ..worker_pool import resolve_pool_size
+
+    if _is_check_suppressed("djust.C021"):
+        return
+    try:
+        resolve_pool_size(config.get("worker_threads", None))
+    except ValueError as exc:
+        errors.append(
+            DjustError(
+                str(exc),
+                hint=(
+                    "worker_threads pins each WebSocket session to one thread of a pool. "
+                    "With an invalid value djust keeps the default: one thread shared by "
+                    "every session."
+                ),
+                id="djust.C021",
+                fix_hint=(
+                    "Set `LIVEVIEW_CONFIG['worker_threads']` to `True` (one thread per CPU), "
+                    "an integer thread count, or remove it."
+                ),
+            )
+        )
+    pinning = config.get("worker_pinning", True)
+    if pinning is not True and pinning is not False:
+        errors.append(
+            DjustError(
+                "LIVEVIEW_CONFIG['worker_pinning'] must be True or False; got %s"
+                % repr(pinning)[:80],
+                hint=(
+                    "worker_pinning=False gives each WebSocket session a lane of the "
+                    "worker pool instead of a thread of its own. With an invalid value "
+                    "djust keeps the default: each session pinned to one thread."
+                ),
+                id="djust.C021",
+                fix_hint="Set `LIVEVIEW_CONFIG['worker_pinning']` to `True` or `False`, or remove it.",
+            )
+        )
+
+
+def _check_event_parameter_policy(errors: list[CheckMessage]) -> None:
+    """C022 — the ADR-036 project parameter policy must be "legacy" or "strict".
+
+    Dispatch resolves every handler without its own ``parameter_policy`` through
+    the same resolver this check calls, and rejects the event when the value is
+    invalid. Legacy is the default, so an absent key never reports anything.
+    """
+    from djust._parameter_contract import ContractError
+    from djust.config import config
+    from djust.validation import get_project_parameter_policy
+
+    if _is_check_suppressed("djust.C022"):
+        return
+    try:
+        get_project_parameter_policy()
+    except ContractError:
+        errors.append(
+            DjustError(
+                "LIVEVIEW_CONFIG['event_parameter_policy'] is %s; it must be 'legacy' or 'strict'."
+                % repr(config.get("event_parameter_policy"))[:80],
+                hint=(
+                    "Every event handler that does not declare its own parameter_policy "
+                    "inherits this value, so each of their events is rejected until it "
+                    "is fixed. Remove the key to keep the 'legacy' default."
+                ),
+                id="djust.C022",
+                fix_hint="Set `LIVEVIEW_CONFIG['event_parameter_policy']` to `'legacy'` or `'strict'`.",
+            )
+        )
+
+
+def _check_ws_path(errors: list[CheckMessage]) -> None:
+    """C025 — ``DJUST_WS_PATH`` must be a path starting with a single ``/`` (#3186).
+
+    ``{% djust_client_config %}`` emits the setting verbatim as the WebSocket
+    path. The client honors only a root-relative path (so the socket always
+    targets the page's own host); any other value is ignored with a browser
+    ``console.warn`` and the socket goes to ``/ws/live/``, which is not what
+    the operator asked for.
+    """
+    from django.conf import settings
+
+    from ..templatetags.live_tags import ws_path_is_valid
+
+    if _is_check_suppressed("djust.C025"):
+        return
+    value = getattr(settings, "DJUST_WS_PATH", None)
+    if isinstance(value, str):
+        value = value.strip()  # the client trims the emitted value
+    # Falsy is unset, as in {% djust_client_config %} (``if pinned:``).
+    if not value or ws_path_is_valid(value):
+        return
+    errors.append(
+        DjustError(
+            "DJUST_WS_PATH is %s; it must be a path starting with a single '/'." % repr(value)[:80],
+            hint=(
+                "The client ignores any other value (an absolute URL, '//host/...', a "
+                "relative path) and connects to '/ws/live/' instead, so the socket never "
+                "uses the path you set."
+            ),
+            id="djust.C025",
+            fix_hint="Set `DJUST_WS_PATH` to a path such as `'/ws/live/'`, or remove it.",
+        )
+    )
+
+
+def _check_view_state_in_session(errors: list[CheckMessage]) -> None:
+    """C027 — ``LIVEVIEW_CONFIG['view_state_in_session']`` must be a bool.
+
+    Only ``False`` turns the session copy of view state off. Any other value
+    (``"false"``, ``0``, ``None``) keeps the default, so a typo would silently
+    keep writing view state into ``django_session``.
+    """
+    from ..config import config
+
+    if _is_check_suppressed("djust.C027"):
+        return
+    value = config.get("view_state_in_session", True)
+    if type(value) is bool:
+        return
+    errors.append(
+        DjustError(
+            "LIVEVIEW_CONFIG['view_state_in_session'] is %s; it must be True or False."
+            % repr(value)[:80],
+            hint=(
+                "Only False keeps view state out of the Django session. With any other "
+                "value djust keeps the default and saves each view's state in the session."
+            ),
+            id="djust.C027",
+            fix_hint=(
+                "Set `LIVEVIEW_CONFIG['view_state_in_session']` to `False` (stateless) "
+                "or `True`, or remove it."
+            ),
+        )
+    )
+
+
+def _check_http_fallback_background_timeout(errors: list[CheckMessage]) -> None:
+    """C028 — ``LIVEVIEW_CONFIG['http_fallback_background_timeout']`` is ``None`` or a number in (0, TIMEOUT_MAX].
+
+    Anything else (``"30"``, ``0``, ``True``, ``nan``) is read as no deadline,
+    so a typo would silently leave the page-POST fallback waiting on a task that
+    never returns (#3634).
+    """
+    from ..config import config, valid_http_fallback_background_timeout
+
+    if _is_check_suppressed("djust.C028"):
+        return
+    value = config.get("http_fallback_background_timeout")
+    if value is None or valid_http_fallback_background_timeout(value):
+        return
+    try:
+        shown = repr(value)[:80]
+    except ValueError:  # an int of more than 4300 digits has no repr
+        shown = "an integer with too many digits to show"
+    errors.append(
+        DjustError(
+            "LIVEVIEW_CONFIG['http_fallback_background_timeout'] is %s; it must be None or a "
+            "number of seconds greater than 0 and at most threading.TIMEOUT_MAX "
+            "(about 9.2e9)." % shown,
+            hint=(
+                "With any other value djust applies no deadline: a start_async task that does "
+                "not return holds the HTTP fallback POST open for as long as it runs. A value "
+                "above threading.TIMEOUT_MAX (the longest a thread can wait) is rejected, not "
+                "clamped."
+            ),
+            id="djust.C028",
+            fix_hint=(
+                "Set `LIVEVIEW_CONFIG['http_fallback_background_timeout']` to a number of "
+                "seconds such as `30`, or remove it."
+            ),
+        )
+    )
+
+
+def _check_query_budget_mode(errors: list[CheckMessage]) -> None:
+    """C029 — ``LIVEVIEW_CONFIG['query_budget']`` is ``None``, ``"off"``, ``"warn"`` or ``"error"``.
+
+    Anything else (``True``, ``"WARN"``, ``1``) is read as ``"warn"`` by the
+    request path, which says so once in the log; a project that wrote
+    ``"query_budget": True`` meaning "on, as errors" would never learn it (#3701).
+    """
+    from .._query_budget import MODES, _shown, valid_mode
+    from ..config import config
+
+    if _is_check_suppressed("djust.C029"):
+        return
+    value = config.get("query_budget")
+    if valid_mode(value):
+        return
+    errors.append(
+        DjustError(
+            "LIVEVIEW_CONFIG['query_budget'] is %s; it must be None or one of %s."
+            % (_shown(value), ", ".join(repr(m) for m in MODES)),
+            hint=(
+                "djust reads any other value as 'warn'. 'warn' logs a phase over its "
+                "view's query_budget, 'error' raises QueryBudgetExceeded, 'off' never measures."
+            ),
+            id="djust.C029",
+            fix_hint='Set `LIVEVIEW_CONFIG[\'query_budget\']` to `"warn"`, `"error"` or `"off"`, or remove it.',
+        )
+    )
+
+
+def _check_liveview_middleware(errors: list[CheckMessage]) -> None:
+    """C026 — every ``LIVEVIEW_MIDDLEWARE`` entry is an importable ``async def`` (ADR-044).
+
+    The turn-middleware chain is built on the first turn; a bad entry would
+    otherwise fail every turn at runtime (each one raising
+    ``ImproperlyConfigured``). Sync middleware is not supported: it would
+    cost a thread hop on every turn.
+    """
+    from django.conf import settings
+    from django.core.exceptions import ImproperlyConfigured
+
+    from ..turns import resolve_middleware
+
+    if _is_check_suppressed("djust.C026"):
+        return
+    try:
+        resolve_middleware(getattr(settings, "LIVEVIEW_MIDDLEWARE", None))
+    except ImproperlyConfigured as exc:
+        errors.append(
+            DjustError(
+                str(exc),
+                hint=(
+                    "LIVEVIEW_MIDDLEWARE is a list of dotted paths to "
+                    "`async def mw(turn, next)` callables; every LiveView turn runs them."
+                ),
+                id="djust.C026",
+                fix_hint=(
+                    "Point each `LIVEVIEW_MIDDLEWARE` entry at an importable `async def "
+                    "mw(turn, next)` function that returns `await next(turn)` or a "
+                    "`djust.turns.Refuse` refusal."
+                ),
+            )
+        )
+
+
 def _check_unknown_extensions(errors: list) -> None:
     """C015 -- unknown adapter name in ``DJUST_CONFIG['extensions']`` (#2063).
 
@@ -535,8 +850,8 @@ def _check_unknown_extensions(errors: list) -> None:
             )
 
 
-#: LIVEVIEW_CONFIG keys that have defaults but that nothing reads (#2984).
-#: Setting one has no effect; they are removed in 1.3.
+#: LIVEVIEW_CONFIG keys removed in 1.3 (#2984). Nothing ever read them; their
+#: defaults are gone, and C018 warns a project that still sets one.
 DEAD_LIVEVIEW_CONFIG_KEYS = (
     "jit_cache_backend",
     "jit_cache_dir",
@@ -548,7 +863,7 @@ DEAD_LIVEVIEW_CONFIG_KEYS = (
 
 
 def _check_dead_config_keys(errors: list) -> None:
-    """C018 -- a LIVEVIEW_CONFIG key that djust never reads is set (#2984)."""
+    """C018 -- a LIVEVIEW_CONFIG key removed in djust 1.3 is still set (#2984)."""
     from django.conf import settings
 
     if _is_check_suppressed("djust.C018"):
@@ -564,16 +879,17 @@ def _check_dead_config_keys(errors: list) -> None:
         return
     errors.append(
         DjustWarning(
-            "%s %s set but djust never reads %s; setting %s has no effect."
+            "%s %s set, but %s removed in djust 1.3 and djust never read %s; "
+            "setting %s has no effect."
             % (
                 ", ".join(found),
                 "is" if len(found) == 1 else "are",
+                "that key was" if len(found) == 1 else "those keys were",
                 "it" if len(found) == 1 else "them",
                 "it" if len(found) == 1 else "them",
             ),
             hint=(
-                "Remove the key%s from settings. These keys are deprecated and will "
-                "be removed in djust 1.3. Suppress with DJUST_CONFIG = "
+                "Remove the key%s from settings. Suppress with DJUST_CONFIG = "
                 "{'suppress_checks': ['C018']}." % ("" if len(found) == 1 else "s")
             ),
             id="djust.C018",
@@ -585,22 +901,27 @@ def _check_dead_config_keys(errors: list) -> None:
 def _check_presence_backend(errors: list) -> None:
     """C019 -- unknown ``DJUST_CONFIG['PRESENCE_BACKEND']`` value (#2973).
 
-    The presence registry falls back to the per-process memory backend for any
-    value it does not know, so a typo (or the pre-#2973 ``tenant_redis``,
-    which the registry did not accept) silently loses cross-process presence.
+    The presence registry raises ``ImproperlyConfigured`` for a value it does
+    not know, on first use. Before #2973 it silently built the per-process
+    memory backend (a typo, or ``tenant_redis``, which it did not accept), so
+    cross-process presence quietly stopped working. The check reports the same
+    value at startup, before the first presence call.
     """
     from ..backends.registry import KNOWN_PRESENCE_BACKENDS
     from ..config import get_djust_config
 
     if _is_check_suppressed("djust.C019"):
         return
-    value = get_djust_config().get("PRESENCE_BACKEND")
-    if value is None or value in KNOWN_PRESENCE_BACKENDS:
-        return
+    config = get_djust_config()
+    if "PRESENCE_BACKEND" not in config:
+        return  # unset: the registry's default (memory)
+    value = config["PRESENCE_BACKEND"]
+    if value in KNOWN_PRESENCE_BACKENDS:
+        return  # ``None`` is not known: the registry raises for it too
     errors.append(
-        DjustWarning(
+        DjustError(
             "DJUST_CONFIG['PRESENCE_BACKEND'] is %r, which djust does not know; "
-            "presence falls back to the in-memory backend (one process only)." % (value,),
+            "the first presence call raises ImproperlyConfigured." % (value,),
             hint=(
                 "Use one of: %s. Suppress with DJUST_CONFIG = "
                 "{'suppress_checks': ['C019']}." % ", ".join(KNOWN_PRESENCE_BACKENDS)
@@ -609,6 +930,151 @@ def _check_presence_backend(errors: list) -> None:
             fix_hint=(
                 "Set DJUST_CONFIG['PRESENCE_BACKEND'] to 'redis' or 'tenant_redis' for "
                 "multi-process presence, or 'memory' for a single process."
+            ),
+        )
+    )
+
+
+_REDIS_CORE_LAYER = "channels_redis.core.RedisChannelLayer"
+# channels_redis' core layer blocks on BZPOPMIN for this many seconds
+# (``RedisChannelLayer.brpop_timeout``); redis-py 8's default socket_timeout
+# is the same 5 s, so a host must set a longer one (20 is recommended, #3210).
+_REDIS_BLOCKING_READ_SECONDS = 5
+
+
+def _installed_redis_version() -> "str | None":
+    """redis-py's installed version, read from metadata (never imports redis)."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("redis")
+    except PackageNotFoundError:
+        return None
+
+
+def _redis_major(version: "str | None") -> int:
+    try:
+        return int(version.split(".")[0]) if version else 0
+    except ValueError:
+        return 0
+
+
+def _url_socket_timeout(url: str) -> "tuple[bool, str | None]":
+    """``(present, value)`` for a ``socket_timeout`` query option in a redis URL."""
+    from urllib.parse import parse_qs, urlsplit
+
+    values = parse_qs(urlsplit(url).query).get("socket_timeout")
+    return (True, values[-1]) if values else (False, None)
+
+
+def _redis_host_timeout_is_safe(host: Any) -> "bool | None":
+    """Whether one channels_redis ``hosts`` entry reads with ``socket_timeout`` > 5 s.
+
+    Returns ``None`` for a shape this check does not recognise (channels_redis
+    reports those itself when it builds the layer). The precedence follows
+    ``redis.ConnectionPool.from_url``: a ``socket_timeout`` in the URL query
+    overrides the keyword, which overrides redis-py's default.
+    """
+    if isinstance(host, dict):
+        present, timeout = False, None
+        address = host.get("address")
+        if isinstance(address, str):
+            present, timeout = _url_socket_timeout(address)
+        if not present and "socket_timeout" in host:
+            present, timeout = True, host["socket_timeout"]
+        if not present:
+            return False
+    elif isinstance(host, str):
+        present, timeout = _url_socket_timeout(host)
+        if not present:
+            return False
+    elif isinstance(host, (list, tuple)):
+        # (host, port) tuples carry no connection options.
+        return False
+    else:
+        return None
+    if timeout is None:
+        return True
+    try:
+        return float(timeout) > _REDIS_BLOCKING_READ_SECONDS
+    except (TypeError, ValueError):
+        return None  # redis-py rejects it when it connects
+
+
+def _is_redis_core_layer(backend: Any) -> bool:
+    """The core layer, or a project subclass of it (the pub/sub layer never blocks)."""
+    if not isinstance(backend, str) or not backend:
+        return False
+    if backend == _REDIS_CORE_LAYER:
+        return True
+    if "." not in backend:
+        return False
+    try:
+        from django.utils.module_loading import import_string
+
+        core = import_string(_REDIS_CORE_LAYER)
+        cls = import_string(backend)
+    except Exception:  # noqa: BLE001 -- channels reports a bad BACKEND itself
+        logger.debug("C023: could not import %s to check for a RedisChannelLayer subclass", backend)
+        return False
+    return isinstance(cls, type) and issubclass(cls, core)
+
+
+def _check_redis_channel_layer_socket_timeout(errors: list) -> None:
+    """C023 -- channels_redis core layer left at redis-py 8's 5 s socket timeout (#3199).
+
+    redis-py 8 changed the default ``socket_timeout`` from ``None`` to 5 s,
+    equal to the core layer's ``BZPOPMIN`` timeout, so an idle consumer's read
+    times out and its WebSocket closes (django/channels_redis#422). Settings
+    shapes channels_redis itself would reject are skipped, never raised on.
+    """
+    from django.conf import settings
+
+    if _is_check_suppressed("djust.C023"):
+        return
+    redis_version = _installed_redis_version()
+    if _redis_major(redis_version) < 8:
+        return
+    layers = getattr(settings, "CHANNEL_LAYERS", None)
+    if not isinstance(layers, dict):
+        return
+    affected = []
+    for alias, layer in layers.items():
+        if not isinstance(layer, dict) or not _is_redis_core_layer(layer.get("BACKEND")):
+            continue
+        config = layer.get("CONFIG")
+        if config is None:
+            config = {}
+        if not isinstance(config, dict):
+            continue
+        hosts = config.get("hosts")
+        if not hosts:
+            # channels_redis defaults to localhost:6379 with no connection options.
+            affected.append(alias)
+            continue
+        if not isinstance(hosts, (list, tuple)):
+            continue  # channels_redis raises "You must pass a list of Redis hosts"
+        if any(_redis_host_timeout_is_safe(h) is False for h in hosts):
+            affected.append(alias)
+    if not affected:
+        return
+    errors.append(
+        DjustWarning(
+            "CHANNEL_LAYERS %s: channels_redis' RedisChannelLayer keeps redis-py %s's "
+            "default socket_timeout (5 s), which equals the layer's blocking-read "
+            "timeout, so idle WebSockets are dropped every few seconds."
+            % (", ".join(repr(a) for a in affected), redis_version),
+            hint=(
+                "Use the dict host form with a longer timeout (20 is recommended), e.g. "
+                '"hosts": [{"address": REDIS_URL, "socket_timeout": 20}] '
+                "(see django/channels_redis#422), or pin redis<8. Suppress with "
+                "DJUST_CONFIG = {'suppress_checks': ['C023']}."
+            ),
+            id="djust.C023",
+            fix_hint=(
+                "In CHANNEL_LAYERS, give every channels_redis host a socket_timeout "
+                'above 5 s (20 is recommended): "hosts": [{"address": REDIS_URL, '
+                '"socket_timeout": 20}].'
             ),
         )
     )
@@ -704,7 +1170,7 @@ def _check_templates_shape(errors: list) -> None:
                         id="djust.C016",
                         fix_hint=(
                             "Reorder TEMPLATES so the "
-                            "'djust.template_backend.DjustTemplateBackend' entry precedes "
+                            "'djust.template.backend.DjustTemplateBackend' entry precedes "
                             "'django.template.backends.django.DjangoTemplates'."
                         ),
                     )
@@ -923,8 +1389,36 @@ def check_configuration(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     # C019 -- Unknown DJUST_CONFIG['PRESENCE_BACKEND'] value (#2973)
     _check_presence_backend(errors)
 
+    # C023 -- channels_redis core layer at redis-py 8's 5 s socket timeout (#3199)
+    _check_redis_channel_layer_socket_timeout(errors)
+
     # S006 -- DJUST_TENANTS['STRICT_MODE']=False disables fail-closed tenancy
     _check_tenant_strict_mode_disabled(errors)
+
+    # C021 -- LIVEVIEW_CONFIG['worker_threads'] has an undocumented value (#3074)
+    _check_worker_threads(errors)
+
+    # C020 -- DJUST_SERVER_STATE_MAX_AGE out of range (ADR-038 E2-9)
+    _check_server_state_max_age(errors)
+
+    # C024 -- DJUST_EXPLICIT_STATE_SAVE_TIMEOUT out of range (#3200)
+    _check_explicit_state_save_timeout(errors)
+
+    # C022 -- ADR-036 project event parameter policy
+    _check_event_parameter_policy(errors)
+
+    # C025 -- DJUST_WS_PATH is not a root-relative path (#3186)
+    _check_ws_path(errors)
+    _check_liveview_middleware(errors)
+
+    # C027 -- LIVEVIEW_CONFIG['view_state_in_session'] is not a bool
+    _check_view_state_in_session(errors)
+
+    # C028 -- LIVEVIEW_CONFIG['http_fallback_background_timeout'] is not None or a number > 0
+    _check_http_fallback_background_timeout(errors)
+
+    # C029 -- LIVEVIEW_CONFIG['query_budget'] is not None / "off" / "warn" / "error"
+    _check_query_budget_mode(errors)
 
     # C005 -- WebSocket routes missing AuthMiddlewareStack
     # A001 -- WebSocket routes missing AllowedHostsOriginValidator (#659)
@@ -985,20 +1479,20 @@ def check_configuration(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
                 if not has_origin_validator:
                     errors.append(
                         DjustError(
-                            "WebSocket routes are not wrapped in AllowedHostsOriginValidator; "
+                            "WebSocket routes are not wrapped in an Origin validator; "
                             "the app is vulnerable to Cross-Site WebSocket Hijacking (CSWSH).",
                             hint=(
                                 "Any cross-origin page on the internet can open a WebSocket "
                                 "connection to your app, mount any LiveView, and dispatch events "
                                 "from a victim browser. Wrap the WebSocket router in "
-                                "channels.security.websocket.AllowedHostsOriginValidator "
-                                "(DjustMiddlewareStack does this by default since #653). "
+                                "djust.routing.DjustOriginValidator, which compares the full "
+                                "origin (DjustMiddlewareStack does this by default). "
                                 "Prerequisite: settings.ALLOWED_HOSTS must not contain '*'."
                             ),
                             id="djust.A001",
                             fix_hint=(
                                 "Wrap your WebSocket router: "
-                                '"websocket": AllowedHostsOriginValidator(DjustMiddlewareStack(URLRouter(...))). '
+                                '"websocket": DjustOriginValidator(AuthMiddlewareStack(URLRouter(...))). '
                                 "Or update DjustMiddlewareStack — since djust 0.4.1 it wraps "
                                 "the origin validator by default."
                             ),
@@ -1017,7 +1511,7 @@ def check_configuration(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     trusted_proxies = getattr(settings, "DJUST_TRUSTED_PROXIES", None)
     proxy_ssl_header = getattr(settings, "SECURE_PROXY_SSL_HEADER", None)
     proxy_trusted = bool(trusted_proxies) and bool(proxy_ssl_header)
-    if not getattr(settings, "DEBUG", False) and not proxy_trusted:
+    if _is_production() and not proxy_trusted:
         if "*" in allowed_hosts and len(allowed_hosts) == 1:
             errors.append(
                 DjustError(
@@ -1077,7 +1571,7 @@ def check_configuration(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
 
     # A014 -- SECRET_KEY still has the insecure scaffold prefix in production
     secret_key = getattr(settings, "SECRET_KEY", "") or ""
-    if not getattr(settings, "DEBUG", False) and secret_key.startswith("django-insecure-"):
+    if _is_production() and secret_key.startswith("django-insecure-"):
         errors.append(
             DjustError(
                 "SECRET_KEY starts with 'django-insecure-' in production.",

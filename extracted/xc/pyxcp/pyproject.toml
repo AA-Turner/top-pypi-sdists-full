@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyxcp"
-version = "0.30.3"
+version = "0.30.4"
 description = "Universal Calibration Protocol for Python"
 readme = "docs/README.rst"
 license = {text = "LGPLv3"}
@@ -34,7 +34,6 @@ dependencies = [
     "chardet>=7.0.0",
     "traitlets>=5.9,<6",
     "toml>=0.10,<1",
-    "pytz>=2024.1",
     "pydantic>=2.5,<3",
 ]
 
@@ -78,7 +77,7 @@ bumpver = ">=2023.1124"
 cmake = "^4.3.4"
 
 [tool.bumpver]
-current_version = "0.30.3"
+current_version = "0.30.4"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
@@ -96,7 +95,7 @@ push = false
 [tool.poetry]
 authors = ["Christoph Schueler <cpu.gems@googlemail.com>"]
 name = "pyxcp"
-version = "0.30.3"
+version = "0.30.4"
 readme = "docs/README.rst"
 description = "Universal Calibration Protocol for Python"
 keywords = ["automotive", "ecu", "xcp", "asam", "autosar"]
@@ -125,7 +124,6 @@ rich = ">=13.0,<15"
 chardet = ">=7.0.0"
 traitlets = ">=5.9,<6"
 toml = ">=0.10,<1"
-pytz = ">=2024.1"
 pydantic = ">=2.5,<3"
 
 [tool.poetry.scripts]

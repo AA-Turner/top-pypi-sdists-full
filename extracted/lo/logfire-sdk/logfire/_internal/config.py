@@ -52,7 +52,12 @@ from opentelemetry.sdk.metrics import (
     ObservableUpDownCounter,
     UpDownCounter,
 )
-from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    AggregationTemporality,
+    MetricExporter,
+    MetricReader,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import OsResourceDetector, Resource, ResourceDetector, get_aggregated_resources
 from opentelemetry.sdk.trace import (
@@ -93,6 +98,12 @@ from .constants import (
     RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
 )
+from .exporters.api_key_gate import (
+    ApiKeyGatedLogExporter,
+    ApiKeyGatedMetricExporter,
+    ApiKeyGatedSpanExporter,
+    ApiKeyWriteAccess,
+)
 from .exporters.console import (
     ConsoleColorsValues,
     ConsoleLogExporter,
@@ -115,6 +126,7 @@ from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWr
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
+from .fleet import FleetOptions, LogfireFleetWarning, load_fleet
 from .forwarding import OTLPForwardingManager
 from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
@@ -147,6 +159,14 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 """Default base URL for the Logfire API."""
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
+API_KEY_CANNOT_WRITE_HINT = (
+    'Logfire used the configured `api_key` to send telemetry because no write token was found. '
+    'An API key can send telemetry only if it has the `project:write_otlp` ("Send telemetry") scope. '
+    'Use an API key with that scope, set `LOGFIRE_TOKEN` to a project write token, '
+    'or pass `send_to_logfire=False` to use the API key only for other Logfire APIs.'
+)
+"""Warning text for a 401 on a token that is the configured `api_key`."""
+
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
 
 METRICS_PREFERRED_TEMPORALITY = {
@@ -553,6 +573,7 @@ def configure(
     code_source: CodeSource | None = None,
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
+    fleet: bool | FleetOptions | None = None,
     advanced: AdvancedOptions | None = None,
 ) -> Logfire:
     """Configure the logfire SDK.
@@ -573,6 +594,10 @@ def configure(
         api_key: API key for the Logfire API.
 
             If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
+
+            If no write token or project credentials file is found, the API key is also used to send
+            telemetry, unless `send_to_logfire` is `False`. This requires a project API key with the
+            `project:write_otlp` scope. Otherwise Logfire warns that the key cannot send telemetry.
 
         service_name: Name of this service.
 
@@ -630,12 +655,20 @@ def configure(
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         variables: Options related to managed variables.
-        distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
+        distributed_tracing: By default, incoming context is extracted, but generates a warning.
             Set to `True` to disable the warning.
-            Set to `False` to suppress extraction of incoming trace context.
+            Set to `False` to suppress extraction of all incoming context, preserving local context.
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        fleet: Whether to manage this SDK from Logfire Fleet: the Fleet policy then applies to everything it sends
+            (sampling, which signals are sent, log levels, redaction and volume limits, the console included).
+            `True` takes the Fleet server from the `OTEL_OPAMP_*` environment variables; a
+            [`FleetOptions`][logfire.fleet.FleetOptions] gives it in code. Needs the 'fleet' extra.
+            It never blocks or raises: until Fleet answers, the last policy saved is in force, else the SDK's own
+            settings, and where Fleet can't be joined it warns and the SDK runs unmanaged.
+
+            Defaults to the `LOGFIRE_FLEET` environment variable, otherwise `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -666,6 +699,7 @@ def configure(
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            fleet=fleet,
             advanced=advanced,
         )
     except LogfireConfigError as e:
@@ -754,6 +788,9 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
+    fleet: FleetOptions | Literal[False]
+    """How to join Logfire Fleet, or `False` to run unmanaged."""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -782,6 +819,7 @@ class _LogfireConfigData:
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        fleet: bool | FleetOptions | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -798,6 +836,13 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
+        if isinstance(fleet, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            fleet = FleetOptions(**fleet)  # pyright: ignore[reportUnknownArgumentType]
+        if fleet is None:
+            fleet = param_manager.load_param('fleet')
+        # `False` rather than `None`, so a child process (executors.py) doesn't read `LOGFIRE_FLEET` again.
+        self.fleet = FleetOptions() if fleet is True else (fleet or False)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -895,6 +940,7 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self._project_url: str | None = None
+        self._api_key_write_access: ApiKeyWriteAccess | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -975,6 +1021,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
+        fleet: bool | FleetOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
 
@@ -1005,6 +1052,7 @@ class LogfireConfig(_LogfireConfigData):
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
+            fleet=fleet,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -1045,6 +1093,7 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
+        fleet: bool | FleetOptions | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -1070,6 +1119,7 @@ class LogfireConfig(_LogfireConfigData):
                 code_source,
                 variables,
                 distributed_tracing,
+                fleet,
                 advanced,
             )
             self.initialize()
@@ -1174,7 +1224,12 @@ class LogfireConfig(_LogfireConfigData):
         otlp_forwarding_destinations: list[tuple[str, str]] = []
 
         with suppress_instrumentation():
+            # The Fleet client, where `fleet` is set and it can run: it is called below where the policy acts.
+            fleet = load_fleet(self.fleet) if self.fleet else None
             resource = self._build_resource()
+            if fleet is not None:
+                # The instance ID Fleet knows this process by.
+                resource = resource.merge(Resource(fleet.resource_attributes))
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -1183,6 +1238,9 @@ class LogfireConfig(_LogfireConfigData):
                     sampler = ParentBasedTraceIdRatio(head)
             else:
                 sampler = head
+            if fleet is not None:
+                # The live sampler: the SDK's own until the Fleet policy sets a sampling rate or rules.
+                sampler = fleet.head_sampler(sampler)
             tracer_provider = SDKTracerProvider(
                 sampler=sampler,
                 resource=resource,
@@ -1255,13 +1313,29 @@ class LogfireConfig(_LogfireConfigData):
                         raise
                     credentials = None
 
+                # An API key with the `project:write_otlp` scope can also write telemetry.
+                # It is the last fallback, so a write token or a creds file always takes priority.
+                # An API key without that scope gets one warning from the token check below.
+                api_key_write_access: ApiKeyWriteAccess | None = None
+                if not self.token and credentials is None and self.api_key:
+                    self.token = self.api_key
+                    api_key_write_access = ApiKeyWriteAccess()
+                self._api_key_write_access = api_key_write_access
+
                 if not self.token and self.send_to_logfire is True and credentials is None:
-                    # If we don't have tokens or credentials from a file,
-                    # try initializing a new project and writing a new creds file.
-                    # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.server_response_hook)
-                    credentials = LogfireCredentials.initialize_project(client=client)
-                    credentials.write_creds_file(self.data_dir)
+                    # Project setup belongs in the CLI, not application startup. Never consult legacy user logins here.
+                    raise LogfireConfigError(
+                        'No usable project credentials found. Run `uvx logfire-cli auth`, then '
+                        '`uvx logfire-cli init` from your project directory, and rerun your code. '
+                        'Alternatively, run `uvx logfire-cli wizard` for guided setup. '
+                        'CLI sign-in alone does not configure the SDK: OAuth credentials stay in the OS '
+                        'credential store, while `init` saves the project write token locally. '
+                        'Pass the same `--region` or `--base-url` to both commands for a non-default server, '
+                        'and use `init --data-dir` to match a custom SDK data directory. '
+                        'You can also set `LOGFIRE_TOKEN` to a project write token, or set `LOGFIRE_API_KEY` '
+                        'to a project API key with the `project:write_otlp` scope. '
+                        'To run without sending telemetry, pass `send_to_logfire=False` to `logfire.configure()`.'
+                    )
 
                 if credentials is not None:
                     # Get token and base_url from credentials if not already set.
@@ -1291,13 +1365,18 @@ class LogfireConfig(_LogfireConfigData):
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
                     def check_tokens():
-                        with suppress_instrumentation():
-                            for token in token_list:
-                                validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None:
-                                    self._project_url = self._project_url or validated_credentials.project_url
-                                    if show_project_link and token not in printed_tokens:
-                                        validated_credentials.print_token_summary()
+                        try:
+                            with suppress_instrumentation():
+                                for token in token_list:
+                                    validated_credentials = self._initialize_credentials_from_token(token)
+                                    if validated_credentials is not None:
+                                        self._project_url = self._project_url or validated_credentials.project_url
+                                        if show_project_link and token not in printed_tokens:
+                                            validated_credentials.print_token_summary()
+                        finally:
+                            # Exports with the API key wait for this check, so they must not wait after it ends.
+                            if api_key_write_access is not None:
+                                api_key_write_access.settle()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
@@ -1309,7 +1388,8 @@ class LogfireConfig(_LogfireConfigData):
                         # thawed although nothing is wrong, and running the check synchronously would
                         # slow down every cold start. The check is not essential: the exporters
                         # report a rejected token on the first export anyway.
-                        pass
+                        if api_key_write_access is not None:
+                            api_key_write_access.settle()
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
@@ -1340,7 +1420,17 @@ class LogfireConfig(_LogfireConfigData):
                             headers=headers,
                         )
                         span_exporter = QuietSpanExporter(span_exporter)
+                        if fleet is not None:
+                            # Redaction under the retries, so a span they make is redacted too.
+                            span_exporter = fleet.redacting_spans(span_exporter)
                         span_exporter = RetryFewerSpansSpanExporter(span_exporter)
+                        if fleet is not None:
+                            # The policy's gate above the retries, so each span is decided and counted once.
+                            span_exporter = fleet.spans(span_exporter)
+                        if api_key_write_access is not None:
+                            # Above the Fleet gate, so a rejected key's spans are not counted.
+                            # Inside `RemovePendingSpansExporter`, which `add_span_processor` detects by type.
+                            span_exporter = ApiKeyGatedSpanExporter(span_exporter, api_key_write_access)
                         span_exporter = RemovePendingSpansExporter(span_exporter)
                         if emscripten:  # pragma: no cover
                             # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
@@ -1352,23 +1442,28 @@ class LogfireConfig(_LogfireConfigData):
                         # TODO should we warn here if we have metrics but we're in emscripten?
                         # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
                         if metric_readers is not None and not emscripten:
-                            metric_readers.append(
-                                PeriodicExportingMetricReader(
-                                    QuietMetricExporter(
-                                        OTLPMetricExporter(
-                                            endpoint=urljoin(base_url, '/v1/metrics'),
-                                            headers=headers,
-                                            session=session,
-                                            compression=compression,
-                                            # I'm pretty sure that this line here is redundant,
-                                            # and that passing it to the QuietMetricExporter is what matters
-                                            # because the PeriodicExportingMetricReader will read it from there.
-                                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                        ),
-                                        preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                    )
-                                )
+                            metric_exporter: MetricExporter = QuietMetricExporter(
+                                OTLPMetricExporter(
+                                    endpoint=urljoin(base_url, '/v1/metrics'),
+                                    headers=headers,
+                                    session=session,
+                                    compression=compression,
+                                    # I'm pretty sure that this line here is redundant,
+                                    # and that passing it to the QuietMetricExporter is what matters
+                                    # because the PeriodicExportingMetricReader will read it from there.
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                ),
+                                preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
                             )
+                            if fleet is not None:
+                                metric_exporter = fleet.metrics(metric_exporter)
+                            if api_key_write_access is not None:
+                                metric_exporter = ApiKeyGatedMetricExporter(
+                                    metric_exporter,
+                                    api_key_write_access,
+                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                )
+                            metric_readers.append(PeriodicExportingMetricReader(metric_exporter))
 
                         log_exporter = OTLPLogExporter(
                             endpoint=urljoin(base_url, '/v1/logs'),
@@ -1377,6 +1472,10 @@ class LogfireConfig(_LogfireConfigData):
                             compression=compression,
                         )
                         log_exporter = QuietLogExporter(log_exporter)
+                        if fleet is not None:
+                            log_exporter = fleet.logs(log_exporter)
+                        if api_key_write_access is not None:
+                            log_exporter = ApiKeyGatedLogExporter(log_exporter, api_key_write_access)
 
                         if emscripten:  # pragma: no cover
                             # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
@@ -1513,6 +1612,21 @@ class LogfireConfig(_LogfireConfigData):
 
             self._logger_provider.set_provider(logger_provider)
             self._logger_provider.set_min_level(self.min_level)
+
+            if fleet is not None:
+                # Every other exporter on the providers (the console, `additional_span_processors`,
+                # `OTEL_EXPORTER_OTLP_*`) gets the policy's gates too, and the Fleet client starts.
+                try:
+                    fleet.start(
+                        resource,
+                        tracer_provider=tracer_provider,
+                        meter_provider=meter_provider,
+                        logger_provider=logger_provider,
+                    )
+                except Exception as e:  # pragma: no cover - the client promises not to raise
+                    warn_at_user_stacklevel(
+                        f'Logfire Fleet could not start: {e!r}. The SDK runs unmanaged.', category=LogfireFleetWarning
+                    )
 
             if self is GLOBAL_CONFIG and not self._has_set_providers:
                 self._has_set_providers = True
@@ -1706,7 +1820,13 @@ class LogfireConfig(_LogfireConfigData):
         # be deduplicated against it. The synchronous exporter setup already warns for every
         # token in the same list, so stay silent here.
         return LogfireCredentials.from_token(
-            token, session, self.advanced.generate_base_url(token, warn_unknown_region=False)
+            token,
+            session,
+            self.advanced.generate_base_url(token, warn_unknown_region=False),
+            rejected_hint=API_KEY_CANNOT_WRITE_HINT if self.api_key and token == self.api_key else None,
+            on_rejected=self._api_key_write_access.reject
+            if self._api_key_write_access is not None and token == self.api_key
+            else None,
         )
 
     def _ensure_flush_after_aws_lambda(self):
@@ -1803,6 +1923,7 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
                 'tail_sampling_enabled': sampling.tail is not None,
                 'code_source_set': config.code_source is not None,
                 'variables_set': config.variables is not None,
+                'fleet_enabled': bool(config.fleet),
                 'token_count': token_count,
                 'api_key': bool(config.api_key),
                 'service_name': bool(config.service_name),
@@ -1917,12 +2038,23 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+    def from_token(
+        cls,
+        token: str,
+        session: requests.Session,
+        base_url: str,
+        *,
+        rejected_hint: str | None = None,
+        on_rejected: Callable[[], None] | None = None,
+    ) -> Self | None:
         """Check that the token is valid.
 
         Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
 
         We continue unless we get a 401. If something is wrong, we'll later store data locally for back-fill.
+
+        `rejected_hint` is appended to the warning when the API rejects the token with a 401.
+        `on_rejected` is called for that 401 too.
 
         Raises:
             LogfireConfigError: If the token is invalid.
@@ -1938,15 +2070,18 @@ class LogfireCredentials:
             return None
 
         if response.status_code != 200:
+            hint = f'\n{rejected_hint}' if rejected_hint and response.status_code == 401 else ''
+            if on_rejected is not None and response.status_code == 401:
+                on_rejected()
             try:
                 detail = response.json()['detail']
             except Exception:
                 warnings.warn(
-                    f'Logfire API returned status code {response.status_code}, you may have trouble sending data.',
+                    f'Logfire API returned status code {response.status_code}, you may have trouble sending data.{hint}',
                 )
             else:
                 warnings.warn(
-                    f'Logfire API returned status code {response.status_code}. Detail: {detail}',
+                    f'Logfire API returned status code {response.status_code}. Detail: {detail}{hint}',
                 )
             return None
 
@@ -2232,61 +2367,6 @@ class LogfireCredentials:
                 continue
             else:
                 return project
-
-    @classmethod
-    def initialize_project(
-        cls,
-        *,
-        client: LogfireClient,
-    ) -> Self:
-        """Create a new project or use an existing project on logfire.dev requesting the given project name.
-
-        Args:
-            client: The Logfire client to use when making requests.
-
-        Returns:
-            The new credentials.
-
-        Raises:
-            LogfireConfigError: If there was an error on creating/configuring the project.
-        """
-        credentials: dict[str, Any] | None = None
-
-        print(
-            'No Logfire project credentials found.\n'  # TODO: Add a link to the docs about where we look
-            'All data sent to Logfire must be associated with a project.\n'
-        )
-
-        projects = client.get_user_projects()
-        if projects:
-            # `default=True` already says what "no answer" means, same as a real person
-            # pressing Enter would give -- an exhausted stdin gets that same outcome
-            # rather than an EOFError traceback (see `ask_or_default`).
-            use_existing_projects = ask_or_default(
-                lambda: Confirm.ask('Do you want to use one of your existing projects? ', default=True), True
-            )
-            if use_existing_projects:  # pragma: no branch
-                credentials = cls.use_existing_project(client=client, projects=projects)
-
-        if not credentials:
-            credentials = cls.create_new_project(client=client)
-
-        try:
-            result = cls(**credentials, logfire_api_url=client.base_url)
-            # This prompt exists to give a person a beat before moving on -- nothing is
-            # done with the answer either way. When there is no one to press the key,
-            # there is no beat to give, so an exhausted stdin just continues rather than
-            # raising an EOFError traceback after the project was already created.
-            try:
-                Prompt.ask(
-                    f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
-                    'Press Enter to continue'
-                )
-            except EOFError:
-                pass
-            return result
-        except TypeError as e:  # pragma: no cover
-            raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e
 
     def write_creds_file(self, creds_dir: Path) -> None:
         """Write a credentials file to the given path."""

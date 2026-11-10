@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from nab_provider._vendor.packaging.ranges import VersionRange
     from nab_provider._vendor.packaging.requirements import Requirement
 
-    from .policy import BuildPolicy, DistPolicy
+    from .policy import BuildPolicy, DistPolicy, MetadataPolicy
 
 __all__ = ["IndexOverride", "PackageOverride"]
 
@@ -56,8 +56,10 @@ class PackageOverride(SlottedValue):
         "name",
         "version_range",
         "dist_policy",
+        "metadata_policy",
         "dist_trust_unverified_deps",
         "assume_universal_deps",
+        "assume_consistent_metadata",
         "build_policy",
         "allow_zip_sdists",
         "uploaded_prior_to",
@@ -81,8 +83,10 @@ class PackageOverride(SlottedValue):
         name: str,
         version_range: VersionRange,
         dist_policy: DistPolicy | None = None,
+        metadata_policy: MetadataPolicy | None = None,
         dist_trust_unverified_deps: bool | None = None,
         assume_universal_deps: bool | None = None,
+        assume_consistent_metadata: bool | None = None,
         build_policy: BuildPolicy | None = None,
         allow_zip_sdists: bool | None = None,
         uploaded_prior_to: datetime | None = None,
@@ -100,8 +104,10 @@ class PackageOverride(SlottedValue):
         self.version_range = version_range
 
         self.dist_policy = dist_policy
+        self.metadata_policy = metadata_policy
         self.dist_trust_unverified_deps = dist_trust_unverified_deps
         self.assume_universal_deps = assume_universal_deps
+        self.assume_consistent_metadata = assume_consistent_metadata
         self.build_policy = build_policy
         self.allow_zip_sdists = allow_zip_sdists
         self.uploaded_prior_to = uploaded_prior_to
@@ -151,8 +157,10 @@ class IndexOverride(SlottedValue):
 
     __slots__ = __match_args__ = (
         "dist_policy",
+        "metadata_policy",
         "dist_trust_unverified_deps",
         "assume_universal_deps",
+        "assume_consistent_metadata",
         "build_policy",
         "allow_zip_sdists",
         "uploaded_prior_to",
@@ -160,12 +168,14 @@ class IndexOverride(SlottedValue):
         "assume_fresh_seconds",
     )
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - one keyword per independently scoped policy
         self,
         *,
         dist_policy: DistPolicy | None = None,
+        metadata_policy: MetadataPolicy | None = None,
         dist_trust_unverified_deps: bool | None = None,
         assume_universal_deps: bool | None = None,
+        assume_consistent_metadata: bool | None = None,
         build_policy: BuildPolicy | None = None,
         allow_zip_sdists: bool | None = None,
         uploaded_prior_to: datetime | None = None,
@@ -174,8 +184,10 @@ class IndexOverride(SlottedValue):
     ) -> None:
         """Record the policy declared for one index."""
         self.dist_policy = dist_policy
+        self.metadata_policy = metadata_policy
         self.dist_trust_unverified_deps = dist_trust_unverified_deps
         self.assume_universal_deps = assume_universal_deps
+        self.assume_consistent_metadata = assume_consistent_metadata
         self.build_policy = build_policy
         self.allow_zip_sdists = allow_zip_sdists
         self.uploaded_prior_to = uploaded_prior_to

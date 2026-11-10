@@ -1,61 +1,52 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.entity import Entity
+from office365.intune.devices.compliance.policyplatformtype import PolicyPlatformType
+from office365.intune.devices.compliance.status import ComplianceStatus
+from office365.intune.devices.management.compliance_policy_setting_state import DeviceCompliancePolicySettingState
 from office365.runtime.client_value_collection import ClientValueCollection
-
-if TYPE_CHECKING:
-    from office365.intune.devices.compliance.policyplatformtype import (
-        PolicyPlatformType,
-    )
-    from office365.intune.devices.compliance.status import ComplianceStatus
-    from office365.intune.devices.management.compliance_policy_setting_state import (
-        DeviceCompliancePolicySettingState,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class DeviceCompliancePolicyState(Entity):
     """Device Compliance Policy State for a given device"""
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """Gets the displayName property"""
         return self.properties.get("displayName", None)
 
+    @odata(name="platformType")
     @property
     def platform_type(self) -> PolicyPlatformType:
         """Gets the platformType property"""
-        from office365.intune.devices.compliance.policyplatformtype import (
-            PolicyPlatformType,
-        )
-
         return self.properties.get("platformType", PolicyPlatformType.android)
 
+    @odata(name="settingCount")
     @property
     def setting_count(self) -> Optional[int]:
         """Gets the settingCount property"""
         return self.properties.get("settingCount", None)
 
+    @odata(name="settingStates")
     @property
     def setting_states(self) -> ClientValueCollection[DeviceCompliancePolicySettingState]:
         """Gets the settingStates property"""
-        from office365.intune.devices.management.compliance_policy_setting_state import (
-            DeviceCompliancePolicySettingState,
-        )
-
         return self.properties.get(
             "settingStates",
             ClientValueCollection[DeviceCompliancePolicySettingState](DeviceCompliancePolicySettingState),
         )
 
+    @odata(name="state")
     @property
     def state(self) -> ComplianceStatus:
         """Gets the state property"""
-        from office365.intune.devices.compliance.status import ComplianceStatus
-
         return self.properties.get("state", ComplianceStatus.unknown)
 
+    @odata(name="version")
     @property
     def version(self) -> Optional[int]:
         """Gets the version property"""

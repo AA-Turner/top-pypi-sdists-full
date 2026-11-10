@@ -515,6 +515,7 @@ class DescribeAccountSettingsTypeTypeDef(TypedDict):
 
 class DescribeAutoScalingInstancesTypeTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     MaxRecords: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -570,6 +571,7 @@ class NotificationConfigurationTypeDef(TypedDict):
 
 class DescribeNotificationConfigurationsTypeTypeDef(TypedDict):
     AutoScalingGroupNames: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     NextToken: NotRequired[str]
     MaxRecords: NotRequired[int]
 
@@ -577,6 +579,7 @@ class DescribePoliciesTypeTypeDef(TypedDict):
     AutoScalingGroupName: NotRequired[str]
     PolicyNames: NotRequired[Sequence[str]]
     PolicyTypes: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     NextToken: NotRequired[str]
     MaxRecords: NotRequired[int]
 
@@ -921,6 +924,7 @@ class DetachTrafficSourcesTypeTypeDef(TypedDict):
 class AutoScalingGroupNamesTypeTypeDef(TypedDict):
     AutoScalingGroupNames: NotRequired[Sequence[str]]
     IncludeInstances: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
     NextToken: NotRequired[str]
     MaxRecords: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -929,23 +933,27 @@ class DescribeScalingActivitiesTypeTypeDef(TypedDict):
     ActivityIds: NotRequired[Sequence[str]]
     AutoScalingGroupName: NotRequired[str]
     IncludeDeletedGroups: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
     MaxRecords: NotRequired[int]
     NextToken: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 class DescribeTagsTypeTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    IncludeManagedResources: NotRequired[bool]
     NextToken: NotRequired[str]
     MaxRecords: NotRequired[int]
 
 class AutoScalingGroupNamesTypePaginateTypeDef(TypedDict):
     AutoScalingGroupNames: NotRequired[Sequence[str]]
     IncludeInstances: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeAutoScalingInstancesTypePaginateTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeLoadBalancerTargetGroupsRequestPaginateTypeDef(TypedDict):
@@ -958,23 +966,27 @@ class DescribeLoadBalancersRequestPaginateTypeDef(TypedDict):
 
 class DescribeNotificationConfigurationsTypePaginateTypeDef(TypedDict):
     AutoScalingGroupNames: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribePoliciesTypePaginateTypeDef(TypedDict):
     AutoScalingGroupName: NotRequired[str]
     PolicyNames: NotRequired[Sequence[str]]
     PolicyTypes: NotRequired[Sequence[str]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeScalingActivitiesTypePaginateTypeDef(TypedDict):
     ActivityIds: NotRequired[Sequence[str]]
     AutoScalingGroupName: NotRequired[str]
     IncludeDeletedGroups: NotRequired[bool]
+    IncludeManagedResources: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeTagsTypePaginateTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeWarmPoolTypePaginateTypeDef(TypedDict):
@@ -1090,6 +1102,7 @@ class DescribeScheduledActionsTypePaginateTypeDef(TypedDict):
     ScheduledActionNames: NotRequired[Sequence[str]]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
+    IncludeManagedResources: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeScheduledActionsTypeTypeDef(TypedDict):
@@ -1097,6 +1110,7 @@ class DescribeScheduledActionsTypeTypeDef(TypedDict):
     ScheduledActionNames: NotRequired[Sequence[str]]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
+    IncludeManagedResources: NotRequired[bool]
     NextToken: NotRequired[str]
     MaxRecords: NotRequired[int]
 

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -7,7 +7,6 @@ from office365.sharepoint.comments.client.identity import Identity
 from office365.sharepoint.comments.contentanchor import ContentAnchor
 
 
-@dataclass
 class CommentInformation(ClientValue):
     text: Optional[str] = None
     mentions: ClientValueCollection[Identity] = field(default_factory=lambda: ClientValueCollection(Identity))

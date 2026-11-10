@@ -18,6 +18,8 @@ class IdentityProvider:
     """
     Attributes:
         provider (str):
+        issuer (str): The issuer identifier the ID token must carry.
+        jwks_url (str): The endpoint publishing the keys that sign ID tokens.
         label (str): Human-readable identity provider is label.
         protected_fields (Union[Unset, list[str]]):
         allowed_redirects (Union[Unset, list[str]]):
@@ -43,6 +45,8 @@ class IdentityProvider:
     """
 
     provider: str
+    issuer: str
+    jwks_url: str
     label: str
     protected_fields: Union[Unset, list[str]] = UNSET
     allowed_redirects: Union[Unset, list[str]] = UNSET
@@ -67,6 +71,10 @@ class IdentityProvider:
 
     def to_dict(self) -> dict[str, Any]:
         provider = self.provider
+
+        issuer = self.issuer
+
+        jwks_url = self.jwks_url
 
         label = self.label
 
@@ -127,6 +135,8 @@ class IdentityProvider:
         field_dict.update(
             {
                 "provider": provider,
+                "issuer": issuer,
+                "jwks_url": jwks_url,
                 "label": label,
             }
         )
@@ -177,6 +187,10 @@ class IdentityProvider:
 
         d = dict(src_dict)
         provider = d.pop("provider")
+
+        issuer = d.pop("issuer")
+
+        jwks_url = d.pop("jwks_url")
 
         label = d.pop("label")
 
@@ -239,6 +253,8 @@ class IdentityProvider:
 
         identity_provider = cls(
             provider=provider,
+            issuer=issuer,
+            jwks_url=jwks_url,
             label=label,
             protected_fields=protected_fields,
             allowed_redirects=allowed_redirects,

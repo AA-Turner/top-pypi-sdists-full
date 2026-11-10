@@ -7,9 +7,12 @@ per-hypothesis work runs in, and how a fractional carrier offset is applied,
 by checking each claim against the shipped pipeline:
 
 1. **The reference is the shipped pipeline.** ``full()`` is numpy's
-   statement of one hypothesis run through DelayDoppler end to end: mix,
+   statement of one hypothesis run through DelayDoppler (now the
+   delay-Doppler flavor of ``Correlator``) end to end: mix,
    weight, row correlation, slow-time FFT. It is first checked against
-   ``doppler.spectral.DelayDoppler`` itself, so every later comparison is a
+   ``doppler.spectral.DelayDoppler`` itself (since #2752 step 4c
+   ``doppler.correlation.Correlator(code, doppler_rows=ny)``), so every
+   later comparison is a
    comparison with what ships, not with a reading of it.
 2. **Both orderings equal the reference, for every hypothesis.** Rows are
    transformed once; carrier hypotheses (outer) pay the row inverses; rate
@@ -47,8 +50,9 @@ Usage::
     python prototype.py --check   # exit 1 if a claim fails or a block
                                   # differs (the gate, in docs-check)
 
-Claim 1 compares against the compiled ``DelayDoppler``, so it runs in
-``src/doppler/spectral/tests/test_corr2d_hypotheses_oracle.py`` where the
+Claim 1 compares against the compiled ``DelayDoppler`` (now the
+delay-Doppler ``Correlator``), so it runs in
+``src/doppler/correlation/tests/test_corr2d_hypotheses_oracle.py`` where the
 extension is built; everything here is numpy and runs anywhere.
 
 Examples
@@ -145,7 +149,8 @@ ORACLE_TEST = "test_corr2d_hypotheses_oracle.py"
 
 def oracle_error() -> float:
     """Claim 1: the worst relative error between the numpy reference and
-    the shipped DelayDoppler, over signed fractional carrier offsets and
+    the shipped DelayDoppler (now the delay-Doppler ``Correlator``), over
+    signed fractional carrier offsets and
     two rate weightings. Needs the extension (``make pyext``)."""
     rng = np.random.default_rng(2683)
     code = code_of(NX, rng)
@@ -163,14 +168,15 @@ def oracle_error() -> float:
 
 
 def oracle(x: CF, code: CF, ny: int, ny_out: int, f: float, w: CF) -> CF:
-    """The same hypothesis through the SHIPPED DelayDoppler: mix and weight
-    the input here, then let the C kernel do the rest."""
-    from doppler.spectral import DelayDoppler
+    """The same hypothesis through the SHIPPED delay-Doppler map (the
+    delay-Doppler flavor of ``Correlator``): mix and weight the input here,
+    then let the C kernel do the rest."""
+    from doppler.correlation import Correlator
 
     nx = code.size
     n = np.arange(nx)
     y = x[: ny * nx].reshape(ny, nx) * np.exp(-2j * np.pi * f * n) * w[:, None]
-    dd = DelayDoppler(code.astype(np.complex64), ny=ny, ny_out=ny_out)
+    dd = Correlator(code.astype(np.complex64), doppler_rows=ny, ny_out=ny_out)
     out = dd.execute(y.astype(np.complex64).ravel())
     return np.asarray(out, dtype=np.complex128).reshape(ny_out, nx)
 
@@ -300,7 +306,8 @@ def run() -> list[tuple[str, bool, str, str]]:
     x = stream(code, NY, 5.4, f0)
     res.append(
         (
-            "the numpy reference equals the shipped `DelayDoppler`",
+            "the numpy reference equals the shipped delay-Doppler "
+            "`Correlator` (then `DelayDoppler`)",
             True,
             f"held by {ORACLE_TEST}",
             f"2e-5 (float32 kernel), `{ORACLE_TEST}`",

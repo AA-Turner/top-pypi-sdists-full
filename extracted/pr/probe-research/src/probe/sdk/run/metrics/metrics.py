@@ -176,14 +176,17 @@ class MetricsMixin:
         # A SIGTERM handler installed since `probe.init` that runs ours only
         # after its own (Lightning's) gets ours put first (`preempt.run_first`).
         _preempt.run_first()
+        # A safe point: the commands this writer claimed run here, on the training thread (agentic W&B W17).
+        if self._commands.due and kind != "hardware":
+            self._run_due_commands()
         # Resume guard (research-os#364): a step at or below the resume point is a retry (DESIGN.md).
-        if (
+        guarded = (
             kind != "hardware"
             and self._resume_from_step is not None
             and step is not _UNSET
             and step is not None
-            and step <= self._resume_from_step
-        ):
+        )
+        if guarded and self._resume_key_floors is None and step <= self._resume_from_step:
             return self._drop_below_resume(step, strict=strict)
         # Plan (d): only a Mapping value (and any DictConfig) flattens to `/` keys (DESIGN.md).
         if _is_omegaconf(metrics) or any(isinstance(value, Mapping) for value in metrics.values()):
@@ -196,6 +199,13 @@ class MetricsMixin:
                 other[key] = _json_safe(key, value)
             else:
                 numeric[key] = as_number
+        if guarded and self._resume_key_floors is not None:
+            # Per key (#364, D18): only the keys the first execution reached at this step drop.
+            numeric, other, dropped = self._keep_above_key_floors(
+                kind, int(step), numeric, other, is_strict=strict
+            )
+            if dropped and not numeric and not other:
+                return None
 
         # Plan (f): `commit=False`, or a row pending for this kind, takes the buffered path.
         if commit is False or kind in self._pending_rows:

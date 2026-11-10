@@ -1,6 +1,6 @@
 [project]
 name = "deadcode"
-version = "2.4.1"
+version = "2.6.0"
 authors = [
     {name = "Albertas Gimbutas", email = "albertasgim@gmail.com"},
 ]
@@ -16,20 +16,26 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
-    "tomli>=2.0.1"
+    "tomli>=2.0.1; python_version<'3.11'"
 ]
 
 [project.optional-dependencies]
 test = [
     "hatch",
-    "ruff",
-    "mypy",
+    "ruff==0.5.1",
+    "mypy==1.10.1",
     "pip-audit",
     "deadcode",
-    "pytest",
-    "pytest-cov",
+    "diff-cover==10.6.0",
+    "pre-commit",
+    "pytest==9.0.3",
+    "pytest-cov==5.0.0",
+    "pytest-xdist==3.8.0",
 ]
 
 [project.scripts]
@@ -148,7 +154,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
     "S101",  # allow assert and no docs in tests
-    "PT009",
     "ANN201",
     "D",
 ]
@@ -163,6 +168,10 @@ color_output = true
 show_error_codes = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["importlib_metadata", "tomli"]
+ignore_missing_imports = true
 
 [tool.deadcode]
 ignore_names = [
@@ -183,10 +192,7 @@ ignore_names = [
     "show",
     "visit_*",
 ]
-ignore_names_in_files = [
-    "deadcode/utils/base_test_case.py"
-]
-exclude = ["tests"]
+exclude = ["tests", "docs", "docs/*"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=. --no-cov-on-fail --cov-fail-under=88.0"
+addopts = "--cov=deadcode --no-cov-on-fail --cov-fail-under=100.0"

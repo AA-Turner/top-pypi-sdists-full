@@ -43,6 +43,11 @@ EXPECTED_JOBS: dict[str, str] = {
     "build": BUILD_GATE,
 }
 
+# Rust splits run-build between its plain build and the phased PGO + BOLT build.
+GATE_OVERRIDES: dict[tuple[str, str], str] = {
+    ("rust-ci.yml", "build"): "needs.plan.outputs.run-plain-build == 'true'",
+}
+
 
 def _load_workflow(name: str) -> dict:
     path = WORKFLOW_DIR / name
@@ -1178,6 +1183,19 @@ def _render_env(
     return rendered
 
 
+_RUN_UNLESS_A_NEED_FAILED = (
+    "always() && !cancelled() && !contains(needs.*.result, 'failure') && "
+)
+
+# Plan outputs derived from predict-version's gates: run-build split into the
+# plain and the phased (PGO + BOLT) build, and the arm64 parity leg on its own.
+_RUN_BUILD_SPLIT = {
+    "run-plain-build": "run-build",
+    "run-phased-build": "run-build",
+    "run-arm64-parity": "run-arm64-check",
+}
+
+
 def _gate_outputs(expression: str) -> set[str]:
     """The plan outputs whose ``'true'`` makes a job's ``if:`` fire.
 
@@ -1186,7 +1204,9 @@ def _gate_outputs(expression: str) -> set[str]:
     never pass by looking familiar.
     """
     names = set()
-    for clause in str(expression).split("||"):
+    # A job behind both build paths runs unless one failed, then reads its gates.
+    expression = str(expression).removeprefix(_RUN_UNLESS_A_NEED_FAILED)
+    for clause in expression.split("||"):
         match = re.fullmatch(
             r"needs\.plan\.outputs\.([a-z0-9-]+) == 'true'", clause.strip()
         )
@@ -1315,8 +1335,12 @@ class TestArm64Parity:
                 )
 
     def _build_runs(self, gates: dict[str, str]) -> bool:
-        condition = _load_workflow("rust-ci.yml")["jobs"]["build"]["if"]
-        firing = _gate_outputs(condition)
+        jobs = _load_workflow("rust-ci.yml")["jobs"]
+        firing = {
+            _RUN_BUILD_SPLIT.get(name, name)
+            for job in ("build", "build-pgo-profile")
+            for name in _gate_outputs(jobs[job]["if"])
+        }
         return any(gates.get(name) == "true" for name in firing)
 
     @pytest.mark.parametrize(
@@ -1380,15 +1404,33 @@ class TestArm64Parity:
     def test_only_rust_widens_its_build_gate(self) -> None:
         # python/ts/go have no arm64 leg to run, so the parity signal must not
         # reach their build gates -- it would build everything they have.
-        assert "run-arm64-check" in str(
+        assert "run-arm64-parity" in str(
             _load_workflow("rust-ci.yml")["jobs"]["build"]["if"]
         )
         for name in ("python-ci.yml", "go-ci.yml", "ts-ci.yml", "ci.yml"):
             condition = str(_load_workflow(name)["jobs"]["build"].get("if", ""))
-            assert "run-arm64-check" not in condition, (
+            assert "run-arm64" not in condition, (
                 f"{name}: build gate reads run-arm64-check, which only rust-ci.yml "
                 "has a matrix leg for"
             )
+
+    def test_a_release_push_never_starts_both_build_paths(self) -> None:
+        # predict-version sets run-arm64-check on a release push too, so the
+        # plain build must key off the parity-only output, or a GA release
+        # runs both paths and uploads build-dist-<arch> twice.
+        wf = _load_workflow("rust-ci.yml")
+        plain = _gate_outputs(wf["jobs"]["build"]["if"])
+        assert plain == {"run-plain-build", "run-arm64-parity"}
+        parity = wf["jobs"]["plan"]["outputs"]["run-arm64-parity"]
+        assert "steps.predict.outputs.run-build != 'true'" in parity
+
+    def test_a_validate_only_phased_build_does_not_read_as_shipping(self) -> None:
+        # A literal HYPERCI_CHANNEL would make every phased run a ship signal
+        # and refuse bolt-optimize-args on an optimize-tier dispatch.
+        jobs = _load_workflow("rust-ci.yml")["jobs"]
+        for name in ("build-pgo-profile", "build-pgo-optimize", "build-bolt"):
+            step = next(s for s in jobs[name]["steps"] if s.get("name") == "Run build")
+            assert "will-release == 'true'" in step["env"]["HYPERCI_CHANNEL"], name
 
     def test_the_release_tail_skips_a_parity_build(self) -> None:
         # The tail used to be reached exactly when Build ran. A parity build
@@ -1670,15 +1712,17 @@ class TestBoltOptimizeArgsThreading:
         # variable, which would put unreviewed flags on every run.
         wf = _load_workflow("rust-ci.yml")
         assert "HYPERCI_BOLT_OPTIMIZE_ARGS" not in wf.get("env", {})
-        steps = wf["jobs"]["build"]["steps"]
-        run_build = next(s for s in steps if s.get("name") == "Run build")
-        assert run_build["env"]["HYPERCI_BOLT_OPTIMIZE_ARGS"] == BOLT_ARGS_ENV
-        for step in steps:
-            assert "bolt-optimize-args" not in str(step.get("run", "")), step.get(
-                "name"
-            )
+        build_jobs = ("build", "build-pgo-profile", "build-pgo-optimize", "build-bolt")
+        for job in build_jobs:
+            steps = wf["jobs"][job]["steps"]
+            run_build = next(s for s in steps if s.get("name") == "Run build")
+            assert run_build["env"]["HYPERCI_BOLT_OPTIMIZE_ARGS"] == BOLT_ARGS_ENV
+            for step in steps:
+                assert "bolt-optimize-args" not in str(step.get("run", "")), step.get(
+                    "name"
+                )
         text = (WORKFLOW_DIR / "rust-ci.yml").read_text(encoding="utf-8")
-        assert text.count("inputs.bolt-optimize-args") == 1
+        assert text.count("inputs.bolt-optimize-args") == len(build_jobs)
 
     @pytest.mark.parametrize(
         "workflow_name",
@@ -1953,6 +1997,7 @@ def test_job_uses_canonical_gate(
         )
     job = jobs[job_name]
     actual = job.get("if", "")
+    expected_gate = GATE_OVERRIDES.get((workflow_name, job_name), expected_gate)
     # Allow extra conditions joined with `||` for some jobs (e.g. test
     # job may also need `|| github.event_name == 'workflow_dispatch'`),
     # but the canonical gate string MUST appear unmodified.
@@ -2000,206 +2045,214 @@ def test_release_tail_uses_shared_workflow(workflow_name: str) -> None:
 
 
 class TestRunnerSelection:
-    """The `runs-on` expression is duplicated per language, so it drifts.
+    """The `runs-on` expressions are duplicated per language, so they drift.
 
     Runner NAMES are not asserted here and must not be: they live in the
-    `GH_RUNNER_*` org variables, which is the only place that can hold them --
-    GitHub evaluates `runs-on` before any of our code runs (issue #99). What is
-    duplicated, and therefore what this guards, is the fallback chain.
+    `GH_RUNNER_*` org variables, because GitHub evaluates `runs-on` before any of
+    our code runs (issue #99). What is duplicated, and therefore guarded, is the
+    mode check and the fallback chain.
+
+    Plan resolves the mode once (predict-version's runner_mode.py): the caller's
+    input, then GH_RUNNER_MODE, then the repo's visibility. Every later job reads
+    Plan's output. Plan and Commit messages run before that, so they read the
+    payload's visibility themselves.
     """
 
-    # Every gated runs-on ends the same way, so an unset variable always lands
-    # somewhere real.
     TAIL = "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
-
-    # `free` mode is what lets an org with no self-hosted fleet use these
-    # workflows; losing it strands them on a runner that never answers.
-    FREE_MODE = (
-        "(inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' && 'ubuntu-latest'"
+    EXPLICIT = "(inputs.runner-mode || vars.GH_RUNNER_MODE)"
+    PRE_PLAN_CHAIN = (
+        "${{ ((inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' || "
+        "!(inputs.runner-mode || vars.GH_RUNNER_MODE) && "
+        "github.event.repository.visibility == 'public') && 'ubuntu-latest' || "
+        "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
     )
-
-    RENOVATE = "startsWith(github.head_ref || github.ref_name, 'renovate/')"
-
+    FREE_AFTER_PLAN = "needs.plan.outputs.runner-mode == 'free' && "
+    GATE_CHAIN = (
+        "${{ needs.plan.outputs.runner-mode == 'free' && 'ubuntu-latest' || "
+        "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
+    )
+    RETIRED = (
+        "renovate/",
+        "GH_RUNNER_RENOVATE",
+        "GH_RUNNER_PUBLISH",
+        "GH_RUNNER_ARM64",
+        # Still declared on rust-ci.yml so an old caller starts, but read nowhere.
+        "inputs.runner-arm64-check",
+    )
     LANG_VAR = {
         "rust-ci.yml": "GH_RUNNER_RUST",
         "python-ci.yml": "GH_RUNNER_PYTHON",
         "go-ci.yml": "GH_RUNNER_GOLANG",
         "ts-ci.yml": "GH_RUNNER_TYPESCRIPT",
     }
-
-    # Jobs that need no toolchain resolve through the default set alone
-    # (issue #291). A renovate carve-out would move them onto a heavier image.
-    # Plan belongs here because the composite brings uv and PyYAML itself.
-    TOOLCHAIN_FREE_JOBS = ("plan", "commit-check", "gate")
-    DEFAULT_CHAIN = (
-        "${{ (inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' && "
-        "'ubuntu-latest' || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
-    )
+    PRE_PLAN_JOBS = ("plan", "commit-check")
 
     @staticmethod
-    def _gated_runs_on(workflow_name: str) -> list[tuple[str, str]]:
-        """Every (job, runs-on) that resolves through an org variable."""
-        wf = _load_workflow(workflow_name)
+    def _toolchain_runs_on(workflow_name: str) -> list[tuple[str, str]]:
+        """Every (job, runner expression) that needs the language toolchain."""
         found = []
-        for name, job in wf.get("jobs", {}).items():
+        for name, job in _load_workflow(workflow_name)["jobs"].items():
+            if name in ("plan", "commit-check", "gate") or "uses" in job:
+                continue
             runs_on = str(job.get("runs-on", ""))
+            if runs_on == "${{ matrix.os }}":
+                runs_on = str(job["strategy"]["matrix"]["os"])
             if "GH_RUNNER" in runs_on:
                 found.append((name, runs_on))
         return found
 
-    @classmethod
-    def _toolchain_runs_on(cls, workflow_name: str) -> list[tuple[str, str]]:
-        """The gated jobs that need the language toolchain."""
-        return [
-            (job, runs_on)
-            for job, runs_on in cls._gated_runs_on(workflow_name)
-            if job not in cls.TOOLCHAIN_FREE_JOBS
-        ]
-
     @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_toolchain_free_jobs_use_the_default_chain(
-        self, workflow_name: str
+    @pytest.mark.parametrize("job", PRE_PLAN_JOBS)
+    def test_jobs_before_plan_read_the_payload(
+        self, workflow_name: str, job: str
     ) -> None:
-        jobs = _load_workflow(workflow_name)["jobs"]
-        for job in self.TOOLCHAIN_FREE_JOBS:
-            runs_on = str(jobs[job]["runs-on"])
-            assert runs_on == self.DEFAULT_CHAIN, (
-                f"{workflow_name}.{job}: runs-on must be the default chain, "
-                f"so it follows GH_RUNNER_DEFAULT and free mode.\n"
-                f"  expected: {self.DEFAULT_CHAIN}\n  actual:   {runs_on}"
-            )
-
-    @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_every_language_gates_at_least_one_job(self, workflow_name: str) -> None:
-        assert self._gated_runs_on(workflow_name), (
-            f"{workflow_name}: no job resolves its runner through GH_RUNNER_* — "
-            "the org variables are the SSoT and something now bypasses them"
+        runs_on = str(_load_workflow(workflow_name)["jobs"][job]["runs-on"])
+        assert runs_on == self.PRE_PLAN_CHAIN, (
+            f"{workflow_name}.{job}: runs-on must be the pre-Plan chain.\n"
+            f"  expected: {self.PRE_PLAN_CHAIN}\n  actual:   {runs_on}"
         )
 
-    @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_the_fallback_chain_always_terminates(self, workflow_name: str) -> None:
-        for job, runs_on in self._gated_runs_on(workflow_name):
-            assert self.TAIL in runs_on, (
-                f"{workflow_name}.{job}: runs-on must end with "
-                f"{self.TAIL!r} so an unset variable still lands on a real "
-                f"runner.\n  actual: {runs_on}"
-            )
+    @pytest.mark.parametrize(
+        ("context", "runner"),
+        [
+            ({"github.event.repository.visibility": "public"}, "ubuntu-latest"),
+            ({"github.event.repository.visibility": "private"}, "arc"),
+            ({"github.event.repository.visibility": "internal"}, "arc"),
+            ({}, "arc"),
+            ({"vars.GH_RUNNER_MODE": "free"}, "ubuntu-latest"),
+            ({"inputs.runner-mode": "free"}, "ubuntu-latest"),
+            (
+                {
+                    "vars.GH_RUNNER_MODE": "self-hosted",
+                    "github.event.repository.visibility": "public",
+                },
+                "arc",
+            ),
+            (
+                {
+                    "inputs.runner-mode": "self-hosted",
+                    "vars.GH_RUNNER_MODE": "free",
+                },
+                "arc",
+            ),
+        ],
+        ids=[
+            "public",
+            "private",
+            "internal",
+            "no-payload-repo",
+            "var-free",
+            "input-free",
+            "var-self-hosted-beats-public",
+            "input-beats-var",
+        ],
+    )
+    def test_the_pre_plan_chain_routes(
+        self, context: dict[str, object], runner: str
+    ) -> None:
+        # A payload with no repository must never pick a billed runner.
+        rendered = _gh_render(
+            self.PRE_PLAN_CHAIN, {"vars.GH_RUNNER_DEFAULT": "arc", **context}
+        )
+        assert rendered == runner
 
     @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_free_mode_escape_is_present(self, workflow_name: str) -> None:
-        for job, runs_on in self._gated_runs_on(workflow_name):
-            assert self.FREE_MODE in runs_on, (
-                f"{workflow_name}.{job}: runs-on lost the `free` mode escape, "
-                f"so an org with no self-hosted fleet queues forever.\n"
-                f"  actual: {runs_on}"
-            )
+    def test_the_gate_reads_plans_mode(self, workflow_name: str) -> None:
+        runs_on = str(_load_workflow(workflow_name)["jobs"]["gate"]["runs-on"])
+        assert runs_on == self.GATE_CHAIN
 
     @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_renovate_carveout_is_present(self, workflow_name: str) -> None:
-        for job, runs_on in self._toolchain_runs_on(workflow_name):
-            assert self.RENOVATE in runs_on, (
-                f"{workflow_name}.{job}: runs-on lost the renovate carve-out "
-                f"(issue #91).\n  actual: {runs_on}"
-            )
-
-    @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_each_language_uses_its_own_variable(self, workflow_name: str) -> None:
-        # Copy-paste between the four workflows is the drift mode: a python job
-        # resolving through GH_RUNNER_RUST lands on the wrong image and the
-        # symptom is a missing toolchain, not a wrong-runner error.
+    def test_toolchain_jobs_read_plans_mode_and_their_own_variable(
+        self, workflow_name: str
+    ) -> None:
+        # A python job resolving through GH_RUNNER_RUST lands on the wrong image,
+        # and the symptom is a missing toolchain, not a wrong-runner error.
         mine = self.LANG_VAR[workflow_name]
         theirs = {v for k, v in self.LANG_VAR.items() if k != workflow_name}
-        for job, runs_on in self._toolchain_runs_on(workflow_name):
-            assert mine in runs_on, (
-                f"{workflow_name}.{job}: runs-on does not reference {mine}"
+        jobs = self._toolchain_runs_on(workflow_name)
+        assert jobs, f"{workflow_name}: no toolchain job resolves through GH_RUNNER_*"
+        for job, runs_on in jobs:
+            assert self.FREE_AFTER_PLAN in runs_on, (job, runs_on)
+            assert self.EXPLICIT not in runs_on, (job, runs_on)
+            assert f"vars.{mine}" in runs_on, (job, runs_on)
+            assert not any(f"vars.{other}" in runs_on for other in theirs)
+            assert "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest'" in runs_on
+
+    @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
+    def test_build_matrix_runners_read_the_resolved_mode(
+        self, workflow_name: str
+    ) -> None:
+        # Build legs take their runner from a step env, which runs-on checks miss.
+        seen = 0
+        for job in _load_workflow(workflow_name)["jobs"].values():
+            for step in job.get("steps", []):
+                for key, value in (step.get("env") or {}).items():
+                    if not key.endswith("_RUNNER"):
+                        continue
+                    seen += 1
+                    text = str(value)
+                    hosted = (
+                        "'ubuntu-24.04-arm'" if "ARM64" in key else "'ubuntu-latest'"
+                    )
+                    assert (
+                        f"steps.predict.outputs.runner-mode == 'free' && {hosted}"
+                        in text
+                    )
+                    if "ARM64" in key:
+                        assert text.endswith("'ubuntu-24.04-arm' }}"), text
+                        assert "GH_RUNNER" not in text, text
+        if workflow_name in ("rust-ci.yml", "go-ci.yml"):
+            assert seen, f"{workflow_name}: no build matrix runner found"
+
+    @pytest.mark.parametrize(
+        "workflow_name", (*LANGUAGE_WORKFLOWS, "_release-tail.yml", "iac-ci.yml")
+    )
+    def test_retired_routes_are_gone(self, workflow_name: str) -> None:
+        lines = (WORKFLOW_DIR / workflow_name).read_text(encoding="utf-8").splitlines()
+        live = [line for line in lines if not line.lstrip().startswith("#")]
+        for retired in self.RETIRED:
+            hits = [line.strip() for line in live if retired in line]
+            assert not hits, f"{workflow_name}: {retired} is retired: {hits}"
+
+    @pytest.mark.parametrize(
+        "workflow_name", (*LANGUAGE_WORKFLOWS, "_release-tail.yml", "iac-ci.yml")
+    )
+    def test_no_bare_runner_mode_variable(self, workflow_name: str) -> None:
+        # The variable is only ever read paired with the caller's input.
+        text = (WORKFLOW_DIR / workflow_name).read_text(encoding="utf-8")
+        assert text.count("vars.GH_RUNNER_MODE") == text.count(self.EXPLICIT)
+
+    @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
+    def test_plan_resolves_and_exports_the_mode(self, workflow_name: str) -> None:
+        plan = _load_workflow(workflow_name)["jobs"]["plan"]
+        assert plan["outputs"]["runner-mode"] == (
+            "${{ steps.predict.outputs.runner-mode }}"
+        )
+        predict = next(s for s in plan["steps"] if s.get("id") == "predict")
+        assert predict["with"]["runner-mode"] == f"${{{{ {self.EXPLICIT} }}}}"
+
+    def test_rust_jobs_export_the_resolved_mode_to_the_cli(self) -> None:
+        # swap.py and the free memory floor read HYPERCI_RUNNER_MODE.
+        wf = _load_workflow("rust-ci.yml")
+        assert "HYPERCI_RUNNER_MODE" not in (wf.get("env") or {})
+        for job in ("quality", "test", "build"):
+            assert wf["jobs"][job]["env"]["HYPERCI_RUNNER_MODE"] == (
+                "${{ needs.plan.outputs.runner-mode }}"
             )
-            for other in theirs:
-                # GH_RUNNER_RUST is a substring of GH_RUNNER_RENOVATE_RUST, so
-                # match the variable reference rather than the bare name.
-                assert f"vars.{other}" not in runs_on, (
-                    f"{workflow_name}.{job}: runs-on references {other}, which "
-                    f"belongs to another language.\n  actual: {runs_on}"
-                )
-
-
-def test_the_container_build_resolves_its_runner_through_the_org_variables() -> None:
-    """issue #80: the tail hardcoded ubuntu-latest, so GH_RUNNER_PUBLISH was set
-    org-wide and read by nothing while the multi-arch container build paid for
-    hosted minutes. TestRunnerSelection only covers the four language workflows,
-    which is why this went unseen.
-
-    The container build is the whole saving, so it is the only job asserted
-    here; tag-and-release cannot run there at all (next test).
-
-    No renovate carve-out here on purpose: the tail gates on will-publish and
-    push-to-main, so it never runs on a renovate/ branch.
-    """
-    runs_on = str(_load_workflow("_release-tail.yml")["jobs"]["container"]["runs-on"])
-    assert "vars.GH_RUNNER_PUBLISH" in runs_on, (
-        f"_release-tail.container: runs-on must resolve through "
-        f"GH_RUNNER_PUBLISH.\n  actual: {runs_on}"
-    )
-    assert "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}" in runs_on, (
-        f"_release-tail.container: the fallback chain must terminate on a real "
-        f"runner.\n  actual: {runs_on}"
-    )
-    assert TestRunnerSelection.FREE_MODE in runs_on, (
-        f"_release-tail.container: lost the free-mode escape, so an org with "
-        f"no self-hosted fleet queues forever.\n  actual: {runs_on}"
-    )
-
-
-def test_the_arm64_container_leg_runs_on_a_native_arm64_runner() -> None:
-    """issue #709: an arm64 image builds on arm64, never under QEMU on x64."""
-    runs_on = str(
-        _load_workflow("_release-tail.yml")["jobs"]["container-build"]["runs-on"]
-    )
-    arm64, _, amd64 = runs_on.partition(") || (")
-    assert arm64.startswith("${{ matrix.platform == 'linux/arm64' && (")
-    for want in (
-        "'ubuntu-24.04-arm'",
-        "vars.GH_RUNNER_ARM64_CONTAINER || vars.GH_RUNNER_ARM64",
-    ):
-        assert want in arm64, f"arm64 leg runner chain lost {want}: {runs_on}"
-    assert arm64.index("GH_RUNNER_ARM64_CONTAINER") < arm64.index(
-        "vars.GH_RUNNER_ARM64 "
-    )
-    assert "vars.GH_RUNNER_PUBLISH" in amd64 and "ARM64" not in amd64
-
-
-def test_the_publish_job_resolves_a_runner_like_the_container_job() -> None:
-    """Both tail jobs pick a runner the same way.
-
-    This job was pinned to `ubuntu-latest` while the ARC images carried no aws
-    CLI and the R2 upload needed one. `native_deps.ensure_aws_cli` installs
-    AWS's signed v2 bundle on demand, so the pin is gone; apt cannot supply it,
-    since noble offers no awscli candidate.
-    """
-    runs_on = str(
-        _load_workflow("_release-tail.yml")["jobs"]["tag-and-release"]["runs-on"]
-    )
-    assert "vars.GH_RUNNER_PUBLISH" in runs_on, (
-        f"_release-tail.tag-and-release: runs-on must resolve through "
-        f"GH_RUNNER_PUBLISH.\n  actual: {runs_on}"
-    )
-    assert "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}" in runs_on, (
-        f"_release-tail.tag-and-release: the fallback chain must terminate on a "
-        f"real runner.\n  actual: {runs_on}"
-    )
-    assert TestRunnerSelection.FREE_MODE in runs_on, (
-        f"_release-tail.tag-and-release: lost the free-mode escape, so an org "
-        f"with no self-hosted fleet queues forever.\n  actual: {runs_on}"
-    )
 
 
 class TestReleaseTailRunnerMode:
     """issue #442: the tail read `vars.GH_RUNNER_MODE` alone, so a caller's
     `runner-mode: free` stopped at the language workflow and the release jobs
-    still landed on ARC.
+    still landed on ARC. The tail now takes Plan's resolved mode as its input.
     """
 
     TAIL = "_release-tail.yml"
-    FORWARD = "${{ inputs.runner-mode }}"
+    FORWARD = "${{ needs.plan.outputs.runner-mode }}"
+    CHAIN = (
+        "${{ inputs.runner-mode == 'free' && 'ubuntu-latest' || "
+        "vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}"
+    )
 
     def test_the_tail_declares_an_optional_runner_mode_input(self) -> None:
         # A required input fails every caller that predates it at startup.
@@ -2211,40 +2264,29 @@ class TestReleaseTailRunnerMode:
         assert spec.get("required", False) is False
         assert spec.get("default") == ""
 
-    def test_every_tail_job_on_an_org_runner_reads_the_callers_mode(self) -> None:
-        jobs = _load_workflow(self.TAIL)["jobs"]
-        gated = {
-            name: str(job.get("runs-on", ""))
-            for name, job in jobs.items()
-            if "GH_RUNNER" in str(job.get("runs-on", ""))
-        }
-        assert gated, f"{self.TAIL}: no job resolves its runner through GH_RUNNER_*"
-        for job, runs_on in gated.items():
-            assert TestRunnerSelection.FREE_MODE in runs_on, (
-                f"{self.TAIL}.{job}: runs-on ignores the caller's runner-mode.\n"
-                f"  actual: {runs_on}"
-            )
+    @pytest.mark.parametrize(
+        "job",
+        ("container-plan", "container", "prepare", "prepare-failed", "tag-and-release"),
+    )
+    def test_every_x64_tail_job_reads_the_callers_mode(self, job: str) -> None:
+        runs_on = str(_load_workflow(self.TAIL)["jobs"][job]["runs-on"])
+        assert runs_on == self.CHAIN, f"{self.TAIL}.{job}: {runs_on}"
 
-    @pytest.mark.parametrize("workflow_name", (*LANGUAGE_WORKFLOWS, TAIL))
-    def test_no_bare_runner_mode_variable(self, workflow_name: str) -> None:
-        # Covers if:, matrix and env as well as runs-on.
-        text = (WORKFLOW_DIR / workflow_name).read_text(encoding="utf-8")
-        total = text.count("vars.GH_RUNNER_MODE")
-        combined = text.count("(inputs.runner-mode || vars.GH_RUNNER_MODE)")
-        assert total == combined, (
-            f"{workflow_name}: {total - combined} read(s) of vars.GH_RUNNER_MODE "
-            f"skip the caller's runner-mode input"
-        )
+    def test_the_arm64_container_leg_runs_on_a_native_arm64_runner(self) -> None:
+        """issue #709: an arm64 image builds on arm64, never under QEMU on x64."""
+        runs_on = str(_load_workflow(self.TAIL)["jobs"]["container-build"]["runs-on"])
+        assert runs_on.startswith(
+            "${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || ("
+        ), runs_on
+        assert self.CHAIN.removeprefix("${{ ").removesuffix(" }}") in runs_on
 
     @pytest.mark.parametrize("workflow_name", LANGUAGE_WORKFLOWS)
-    def test_the_language_workflow_forwards_runner_mode(
+    def test_the_language_workflow_forwards_the_resolved_mode(
         self, workflow_name: str
     ) -> None:
         wf = _load_workflow(workflow_name)
         on = wf.get("on") or wf.get(True, {})
-        assert "runner-mode" in on["workflow_call"]["inputs"], (
-            f"{workflow_name}: workflow_call has no runner-mode input to forward"
-        )
+        assert "runner-mode" in on["workflow_call"]["inputs"]
         calls = [
             (name, job)
             for name, job in wf["jobs"].items()
@@ -2252,11 +2294,7 @@ class TestReleaseTailRunnerMode:
         ]
         assert calls, f"{workflow_name}: no job calls {self.TAIL}"
         for name, job in calls:
-            passed = job.get("with", {}).get("runner-mode")
-            assert passed == self.FORWARD, (
-                f"{workflow_name}.{name}: must pass runner-mode: {self.FORWARD} "
-                f"to {self.TAIL}.\n  actual: {passed!r}"
-            )
+            assert job.get("with", {}).get("runner-mode") == self.FORWARD, name
 
 
 def test_every_workflow_pins_the_cli_interpreter() -> None:
@@ -2281,32 +2319,6 @@ def test_every_workflow_pins_the_cli_interpreter() -> None:
         assert expected in install, (
             f"{name}: HYPERCI_INSTALL must pin the CLI's own interpreter with "
             f"`{expected}`.\n  actual: {install}"
-        )
-
-
-def test_rust_renovate_carveout_never_lands_on_a_toolchainless_runner() -> None:
-    """issue #91: renovate/ branches must resolve to a runner with cargo.
-
-    GH_RUNNER_RENOVATE and GH_RUNNER_DEFAULT point at vanilla sets, and Rust
-    does not bootstrap its toolchain at job time -- so rust-ci.yml's renovate
-    carve-out must chain GH_RUNNER_RENOVATE_RUST -> GH_RUNNER_RUST, never the
-    shared GH_RUNNER_RENOVATE.
-    """
-    import re
-
-    text = (WORKFLOW_DIR / "rust-ci.yml").read_text(encoding="utf-8")
-    expressions = [
-        line for line in text.splitlines() if "renovate/" in line and "${{" in line
-    ]
-    assert expressions, "rust-ci.yml: the renovate carve-out has vanished entirely"
-    for line in expressions:
-        assert not re.search(r"GH_RUNNER_RENOVATE(?!_RUST)", line), (
-            f"rust-ci.yml routes a renovate/ branch through the shared "
-            f"GH_RUNNER_RENOVATE (a vanilla set with no cargo): {line.strip()}"
-        )
-        assert "GH_RUNNER_RUST" in line, (
-            f"rust-ci.yml renovate carve-out must fall back to GH_RUNNER_RUST: "
-            f"{line.strip()}"
         )
 
 
@@ -3065,7 +3077,7 @@ class TestIacWorkflow:
         return jobs["iac"]
 
     def test_the_job_follows_the_default_runner_chain(self) -> None:
-        assert self._job()["runs-on"] == TestRunnerSelection.DEFAULT_CHAIN
+        assert self._job()["runs-on"] == TestRunnerSelection.PRE_PLAN_CHAIN
 
     def test_it_declares_no_secrets_and_reads_only_contents(self) -> None:
         workflow = self._workflow()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adcp
-Version: 9.6.1
+Version: 9.6.2
 Summary: Official Python client for the Ad Context Protocol (AdCP)
 Author-email: AdCP Community <maintainers@adcontextprotocol.org>
 License: Apache-2.0
@@ -45,6 +45,7 @@ Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
 Requires-Dist: pytest-xdist<4,>=3.8; extra == "dev"
+Requires-Dist: tzdata==2026.6; extra == "dev"
 Requires-Dist: freezegun==1.5.5; extra == "dev"
 Requires-Dist: mypy==1.20.2; extra == "dev"
 Requires-Dist: pyright==1.1.414; extra == "dev"

@@ -218,7 +218,7 @@ class REPLApplication(ConsoleApplication):
             self._logfile.flush()
 
     def _usage(self) -> str:
-        return "%(prog)s [options] target"
+        return "%(prog)s [options] target [args...]"
 
     def _needs_target(self) -> bool:
         return True
@@ -503,6 +503,9 @@ class REPLApplication(ConsoleApplication):
                     fragments.append(("", "\n" + "\n".join(trimmed_stack)))
 
             output = FormattedText(fragments)
+        except NoScriptError:
+            self._print("No script loaded, use %reload to load one")
+            return success
         except frida.InvalidOperationError:
             return success
         if output != "undefined":
@@ -676,12 +679,14 @@ class REPLApplication(ConsoleApplication):
         return prompt_string
 
     def _evaluate_expression(self, expression: str) -> Tuple[str, bytes]:
-        assert self._script is not None
+        if self._script is None:
+            raise NoScriptError("no script loaded")
         result = self._script.exports_sync.frida_evaluate_expression(expression)
         return self._parse_evaluate_result(result)
 
     def _evaluate_quick_command(self, tokens: List[str]) -> Tuple[str, bytes]:
-        assert self._script is not None
+        if self._script is None:
+            raise NoScriptError("no script loaded")
         result = self._script.exports_sync.frida_evaluate_quick_command(tokens)
         return self._parse_evaluate_result(result)
 
@@ -1119,7 +1124,10 @@ class FridaCompleter(Completer):
             return []
 
         names = repl_inspect.to_string_list(value[0])
-        return sorted(filter(self._is_valid_name, set(names)))
+        return sorted(
+            filter(self._is_valid_name, set(names)),
+            key=lambda n: (n.startswith("_"), n.startswith("__"), n.lower()),
+        )
 
     def _is_valid_name(self, name) -> bool:
         tokens = list(self._lexer.get_tokens(name))
@@ -1152,6 +1160,10 @@ class JavaScriptError(Exception):
         super().__init__(error["message"])
 
         self.error = error
+
+
+class NoScriptError(frida.InvalidOperationError):
+    pass
 
 
 class DumbStdinReader:

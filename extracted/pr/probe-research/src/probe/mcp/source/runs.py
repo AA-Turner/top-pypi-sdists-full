@@ -5,6 +5,7 @@ import base64
 from typing import Any
 from ...sdk.reads import nonfinite
 from ...sdk.client.resources.runs.metrics import SOURCE_READ_CONTRACT
+from ...sdk.values.tags import canonical_tags
 
 
 class RunReadsMixin:
@@ -104,6 +105,15 @@ class RunReadsMixin:
     def run_events(self, run_id: str) -> list[dict]:
         return self.client.events.for_run(run_id)
 
+    def run_commands(self, run_id: str, *, after: int | None = None, limit: int | None = None) -> dict:
+        """``GET /v1/runs/{ref}/commands``: one page of what was asked of the run, by seq after ``after``
+        (``{commands, seq, next_after}``)."""
+        return self.client.list_run_commands(run_id, after=after, limit=limit)
+
+    def run_edits(self, run_id: str) -> list[dict]:
+        """``GET /v1/runs/{ref}/edits``: the run's edits, newest first."""
+        return self.client.list_edits(run_id)
+
     def run_views(self, run_id: str) -> list[dict]:
         """``GET /v1/runs/{ref}/views``: the metric views saved on the run."""
         return self.client.list_views(run_id)
@@ -159,6 +169,39 @@ class RunReadsMixin:
             project_id=project_id, experiment_id=experiment_id, tags=tags, **parameters
         )
         return list(page.items), page.next_cursor
+
+    def run_counts(
+        self,
+        *,
+        project_id: str | None = None,
+        experiment_id: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
+        is_active: bool = False,
+        exclude_origin_session: str | None = None,
+    ) -> dict:
+        """``GET /v1/runs/counts``: `{total, by_status}` for the same filter as `run_list`. Raises on
+        an API without the route (404) or a count past its bound (503); the caller marks it."""
+        parameters: dict[str, Any] = {}
+        for key, value in (
+            ("project_id", project_id),
+            ("experiment_id", experiment_id),
+            ("status", status),
+            ("exclude_origin_session", exclude_origin_session),
+        ):
+            if value is not None:
+                parameters[key] = value
+        if tags:
+            # The page's own canonical form (`list_runs`), so both filter the same rows.
+            parameters["tags"] = canonical_tags(tags)
+        if is_active:
+            parameters["active"] = "true"
+        return self.client.transport.get("/v1/runs/counts", params=parameters)
+
+    def run_failures(self, run_ids: list[str]) -> list[dict]:
+        """``GET /v1/runs/failures``: why each named failed/crashed run failed (at most 20)."""
+        answer = self.client.transport.get("/v1/runs/failures", params={"ids": ",".join(run_ids)})
+        return list((answer or {}).get("failures") or [])
 
     @staticmethod
     def run_cursor_after(row: dict) -> str | None:

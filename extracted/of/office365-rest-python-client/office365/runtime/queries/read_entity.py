@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, List, Optional, cast
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.client_query import ClientQuery, ReturnT
+from office365.runtime.types.odata_property import request_version
 
 if TYPE_CHECKING:
     from office365.runtime.client_object import ClientObject
     from office365.runtime.odata.query_options import QueryOptions
+    from office365.runtime.schema import TypeSchema
 
 
 class ReadEntityQuery(ClientQuery[ReturnT]):
@@ -27,12 +30,23 @@ class ReadEntityQuery(ClientQuery[ReturnT]):
         return self._query_options
 
     def _build_query_options(self) -> "QueryOptions":
-        """Resolve query options for the return object, expanding the requested properties."""
+        """Resolve the query options this read asks for, expanding the requested properties.
+
+        Built on a copy: the request asks for the properties it needs and the object's own
+        projection stays what its caller made it. A projection written back onto the object
+        would narrow every later read of it to the one property this read fetched.
+        """
         from office365.runtime.client_object import ClientObject
         from office365.runtime.client_object_collection import ClientObjectCollection
 
         client_object = cast(ClientObject, self._return_type)
-        query_options = client_object.query_options
+        declared = client_object.query_options
+        query_options = replace(
+            declared,
+            select=list(declared.select),
+            expand=list(declared.expand),
+            custom=dict(declared.custom),
+        )
         for name in self._properties_to_include or []:
             if name in query_options.select:
                 continue
@@ -50,7 +64,8 @@ class ReadEntityQuery(ClientQuery[ReturnT]):
     @property
     def url(self) -> str:
         assert self.binding_type is not None
-        if self.query_options.is_empty:
+        query_options = self._wire_projection()
+        if query_options.is_empty:
             return self.binding_type.resource_url or ""
 
         delimiter = "?"
@@ -59,4 +74,33 @@ class ReadEntityQuery(ClientQuery[ReturnT]):
             delimiter = "&"
         resource_url = self.binding_type.resource_url
         assert resource_url is not None
-        return resource_url + delimiter + str(self.query_options)
+        return resource_url + delimiter + str(query_options)
+
+    def _wire_projection(self) -> "QueryOptions":
+        """The query options as the request's service root can honour them.
+
+        A projection is built from the model, not from a client:
+        ``TypeSchema.of(Event).columns`` is one list of names whichever root the request goes to, and a manifest names
+        columns read from some snapshot. So the names this root does not declare are
+        dropped here -- at the single edge where a projection becomes a URL.
+        """
+        query_options = self.query_options
+        version = request_version(self.context)
+        schema = self._declared_schema()
+        if version is None or schema is None:
+            return query_options
+        return replace(
+            query_options,
+            select=schema.projection(query_options.select, version),
+            expand=schema.projection(query_options.expand, version),
+        )
+
+    def _declared_schema(self) -> Optional["TypeSchema"]:
+        """The schema the projection applies to: the item type, for a collection."""
+        from office365.runtime.client_object import ClientObject
+        from office365.runtime.client_object_collection import ClientObjectCollection
+
+        binding = self.binding_type
+        if isinstance(binding, ClientObjectCollection):
+            return getattr(binding._item_type, "_schema", None)
+        return getattr(binding, "_schema", None) if isinstance(binding, ClientObject) else None

@@ -10,10 +10,12 @@ from pydantic import BaseModel, ValidationError
 from strawberry.scalars import is_scalar
 from strawberry.types.base import (
     StrawberryList,
+    StrawberryMaybe,
     StrawberryOptional,
     get_object_definition,
 )
 from strawberry.types.lazy_type import LazyType
+from strawberry.types.maybe import Maybe
 from strawberry.utils.typing import is_union
 
 from .error import InputValidationError, ValidationErrorDetail
@@ -40,12 +42,12 @@ def _is_nested_model(type_: object) -> TypeGuard[type[BaseModel]]:
 
 
 def _unwrap_annotation(annotation: Any) -> Any:
-    """Return `annotation` without `Annotated` and `None`.
+    """Return `annotation` without `Annotated`, `None` and `Maybe`.
 
     e.g. `list[int]` for `Annotated[list[int] | None, Field(min_length=1)]`.
     """
     while True:
-        if get_origin(annotation) is Annotated:
+        if get_origin(annotation) in (Annotated, Maybe):
             annotation = get_args(annotation)[0]
         elif is_union(annotation):
             types = [arg for arg in get_args(annotation) if arg is not type(None)]
@@ -159,6 +161,14 @@ def _to_python_value(
     context: InputContext,
     keys: tuple[str | int, ...],
 ) -> Any:
+    if isinstance(type_, StrawberryMaybe):
+        # the value is passed as it is, null included: pydantic validates it as
+        # the type inside the `Maybe` and wraps it in `Some` itself, see
+        # `strawberry.pydantic.maybe`. So null is `Some(None)` for
+        # `Maybe[T | None]`, and for `Maybe[T]` it's reported like any other
+        # invalid value, at the field, with the other problems of the input
+        return _to_python_value(value, type_.of_type, context, keys)
+
     if value is None:
         return None
 

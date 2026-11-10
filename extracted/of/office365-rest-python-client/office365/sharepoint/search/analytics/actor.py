@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AnalyticsActor(ClientValue):
     Id: str | None = None
     Properties: dict = field(default_factory=dict)

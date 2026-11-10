@@ -51,6 +51,8 @@ class WriterLeaseMixin:
             return
         if resp.get("liveness_protocol"):
             self._lease_protocol = resp["liveness_protocol"]
+        if "commands_seq" in resp:
+            self._check_sample_commands(resp["commands_seq"])
         if resp.get("lease") == "gone" and not getattr(self, "_lease_gone_warned", False):
             self._lease_gone_warned = True
             _diagnostics.warn(
@@ -168,6 +170,8 @@ class WriterLeaseMixin:
             return None if owns_verdict or data is None else data
         if resp.get("liveness_protocol"):
             self._lease_protocol = resp["liveness_protocol"]
+        if "commands_seq" in resp:
+            self._check_sample_commands(resp["commands_seq"])
         row = dict(data if isinstance(data, dict) else self._data)
         if resp.get("run_status"):
             row["status"] = resp["run_status"]
@@ -186,6 +190,8 @@ class WriterLeaseMixin:
         lease = self._lease or {}
         body = {k: v for k, v in lease.items() if k != "session_id"}
         body.update({"write_epoch": self.write_epoch or 1, **self._progress.snapshot()})
+        # What this script can be asked: a beat without it reads as an SDK older than run commands (W16).
+        body["capabilities"] = self._get_command_capabilities()
         if getattr(self, "attached", False):
             body["attached"] = True
         delivery = _delivery_body(self._client, self.id)

@@ -296,6 +296,7 @@ def run_yam(
     hud_job=None,
     recorder=None,
     steady_send=None,
+    connect=None,
     input_fn=input,
     print_fn=print,
     rig_factory=YamRig,
@@ -303,6 +304,8 @@ def run_yam(
     end_effector_adapter=None,
     hud_platform=None,
 ):
+    if connect is None:
+        connect = aconnect
     print_fn = safe_printer(print_fn)
     instruction = task_instructions(instruction)
     if not _runs_on_yam(model, checkpoint):
@@ -356,8 +359,8 @@ def run_yam(
             while_compute_starts=partial(watch_resident_holds, config.arms),
             **({"observe": deployment_observe(rig, lambda: runner)} if names_cameras else {}),
             # The preview and the task loop share this connection.
-            **({"connect": partial(aconnect, steady_send=steady_send)}
-               if steady_send is not None else {}),
+            connect=partial(connect, steady_send=steady_send)
+            if steady_send is not None else connect,
             model=model,
             mode=mode,
             keep_warm=keep_warm,

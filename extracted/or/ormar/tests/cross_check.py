@@ -13,7 +13,7 @@ the result the old way and fails if the two differ:
   sides
 - ``dump_for_save`` must return the same values as ``model_dump()``
 
-Tests that count built statements or constructed instances switch it off with
+Only tests that count built statements or constructed instances switch it off with
 ``monkeypatch.setattr(cross_check, "ENABLED", False)``.
 """
 
@@ -36,11 +36,32 @@ from ormar.queryset.templates import (
     delete_template,
     insert_template,
     pk_select_template,
-    primary_key_column,
     update_template,
 )
 
 ENABLED = True
+
+
+def primary_key_condition(model_cls: Any, pk: Any) -> Any:
+    """
+    Build the condition matching one row of a model by primary key, with the
+    key value inlined as literals (as the fresh statements here are built).
+
+    :param model_cls: model class
+    :type model_cls: Any
+    :param pk: primary key value
+    :type pk: Any
+    :return: condition over the key columns
+    :rtype: Any
+    """
+    key = model_cls.ormar_config.pk
+    return sqlalchemy.and_(
+        *(
+            column == part
+            for column, part in zip(key.columns(), key.flat_parts(value=pk))
+        )
+    )
+
 
 # numbered placeholders in rendered SQL: ``$1`` (asyncpg) or ``:1`` (numeric)
 NUMBERED = re.compile(r"[$:](\d+)")
@@ -308,7 +329,7 @@ def checked_update_template(
         fresh = (
             table.update()
             .values(literal_values(table=table, values=values))
-            .where(primary_key_column(model_cls=model_cls) == pk)
+            .where(primary_key_condition(model_cls=model_cls, pk=pk))
         )
         assert_same_write(model_cls=model_cls, template=template, fresh=fresh)
     return template
@@ -328,7 +349,7 @@ def checked_delete_template(model_cls: Any, pk: Any) -> StatementTemplate:
     template = ORIGINAL_DELETE_TEMPLATE(model_cls=model_cls, pk=pk)
     if ENABLED:
         table = model_cls.ormar_config.table
-        fresh = table.delete().where(primary_key_column(model_cls=model_cls) == pk)
+        fresh = table.delete().where(primary_key_condition(model_cls=model_cls, pk=pk))
         assert_same_write(model_cls=model_cls, template=template, fresh=fresh)
     return template
 
@@ -347,20 +368,20 @@ def checked_pk_select_template(model_cls: Any, pk: Any) -> StatementTemplate:
     template = ORIGINAL_PK_SELECT_TEMPLATE(model_cls=model_cls, pk=pk)
     if ENABLED:
         table = model_cls.ormar_config.table
-        fresh = table.select().where(primary_key_column(model_cls=model_cls) == pk)
+        fresh = table.select().where(primary_key_condition(model_cls=model_cls, pk=pk))
         assert_same_write(model_cls=model_cls, template=template, fresh=fresh)
     return template
 
 
-def detached_copy(model: Any) -> Any:
+def bare_copy(model: Any) -> Any:
     """
-    Return a copy of a related model with the same field values and its own
-    relation manager, so relations registered on the copy do not reach the
-    model.
+    Return a copy of a model with the same field values and its own, empty
+    relation manager, so it has no relations and relations registered on the
+    copy do not reach the model.
 
-    :param model: related model
+    :param model: model to copy
     :type model: Any
-    :return: detached copy
+    :return: copy without relations
     :rtype: Any
     """
     copy = object.__new__(type(model))
@@ -374,6 +395,34 @@ def detached_copy(model: Any) -> Any:
         object.__setattr__(copy, name, getattr(model, name, None))
     object.__setattr__(copy, "__dict__", dict(model.__dict__))
     copy._initialize_internal_attributes()
+    return copy
+
+
+def detached_copy(model: Any) -> Any:
+    """
+    Return a copy of a related model with the same field values and its own
+    relation manager, so relations registered on the copy do not reach the
+    model.
+
+    The models the copy points at through its foreign keys are registered on
+    it as bare copies (one level), as a required foreign key, e.g. one in the
+    primary key, would otherwise read ``None`` and fail validation. Reverse
+    and many-to-many relations stay empty.
+
+    :param model: related model
+    :type model: Any
+    :return: detached copy
+    :rtype: Any
+    """
+    copy = bare_copy(model=model)
+    fields = type(model).ormar_config.model_fields
+    for name in type(model).extract_related_names():
+        field = fields[name]
+        if field.virtual or field.is_multi:
+            continue
+        related = model._orm.get(name)
+        if isinstance(related, ormar.Model):
+            field.expand_relationship(value=bare_copy(model=related), child=copy)
     return copy
 
 

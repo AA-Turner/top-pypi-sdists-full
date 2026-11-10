@@ -32,7 +32,6 @@ import operator
 import os
 import sys
 import time
-import six
 
 
 logger = logging.getLogger(__name__)
@@ -429,7 +428,7 @@ class JLink(object):
           ``int``
         """
         regs = list(self.register_name(idx) for idx in self.register_list())
-        if isinstance(register, six.string_types):
+        if isinstance(register, str):
             try:
                 result = regs.index(register)
             except ValueError:
@@ -745,6 +744,18 @@ class JLink(object):
         result = self._dll.JLINKARM_OpenEx(self.log_handler, self.error_handler)
         result = ctypes.cast(result, ctypes.c_char_p).value
         if result is not None:
+            # A failed 'JLINKARM_OpenEx()' leaves the DLL partially open and
+            # still holding our log/error callbacks.  As '_open_refcount' is
+            # still zero, 'close()' would do nothing, and the DLL would instead
+            # call 'JLINKARM_Close()' from its destructor at process exit, at
+            # which point the callbacks have been freed and it crashes.  Close
+            # it here while the callbacks are still alive.
+            self._dll.JLINKARM_Close()
+
+            if self._lock is not None:
+                del self._lock
+                self._lock = None
+
             raise errors.JLinkException(result.decode())
 
         # Configuration of the J-Link DLL.  These are configuration steps that
@@ -1137,7 +1148,13 @@ class JLink(object):
         # like 'unlock' or 'lock'.
         index = self.get_device_index(chip_name)
 
+        # If this call targets a different device than the one we were last
+        # connected to (e.g. switching cores on a multi-core target), we must
+        # force a real reconnect below even though the J-Link may still
+        # report 'connected' (just to the previous device/core).
+        prev_device = self._device
         self._device = self.supported_device(index)
+        device_changed = (prev_device is not None and prev_device.name != self._device.name)
 
         # This is weird but is currently the only way to specify what the
         # target is to the J-Link.
@@ -1154,8 +1171,13 @@ class JLink(object):
 
         # When we specify 'Device =', we will trigger an auto-connect to the
         # target under debugging. If the 'exec_command' failed, then we want
-        # to force the connect here.
-        if not self.target_connected():
+        # to force the connect here. We also force it when switching to a
+        # different device/core mid-session: 'target_connected()' can still
+        # report True because the J-Link is connected to the *previous*
+        # device, which would otherwise make us silently stay attached to
+        # the wrong core instead of reconnecting to the requested one (see
+        # issue #278).
+        if not self.target_connected() or device_changed:
             result = self._dll.JLINKARM_Connect()
             if result < 0:
                 raise errors.JLinkException(result)
@@ -3480,7 +3502,7 @@ class JLink(object):
           The value stored in the given register.
         """
         # TODO: rename 'register_index' to 'register'
-        if isinstance(register_index, six.string_types):
+        if isinstance(register_index, str):
             register_index = self._get_register_index_from_name(register_index)
         return self._dll.JLINKARM_ReadReg(register_index)
 
@@ -3504,7 +3526,7 @@ class JLink(object):
         register_indices = register_indices[:]
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
-            if isinstance(indice, six.string_types):
+            if isinstance(indice, str):
                 register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(0)
@@ -3539,7 +3561,7 @@ class JLink(object):
           JLinkException: on write error.
         """
         # TODO: rename 'reg_index' to 'register'
-        if isinstance(reg_index, six.string_types):
+        if isinstance(reg_index, str):
             reg_index = self._get_register_index_from_name(reg_index)
         res = self._dll.JLINKARM_WriteReg(reg_index, value)
         if res != 0:
@@ -3573,7 +3595,7 @@ class JLink(object):
 
         num_regs = len(register_indices)
         for idx, indice in enumerate(register_indices):
-            if isinstance(indice, six.string_types):
+            if isinstance(indice, str):
                 register_indices[idx] = self._get_register_index_from_name(indice)
         buf = (ctypes.c_uint32 * num_regs)(*register_indices)
         data = (ctypes.c_uint32 * num_regs)(*values)

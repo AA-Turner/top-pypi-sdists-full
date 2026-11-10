@@ -1,17 +1,22 @@
 import dataclasses
+import json
+import pickle
 import sys
+from pathlib import Path
 
 import pytest
 
-from nameparser import Parser, parse
-from nameparser._lexicon import Lexicon
+from nameparser import Locale, Parser, PolicyPatch, locales, parse, parser_for
+from nameparser._lexicon import Lexicon, _normalize
 from nameparser._pipeline import run
 from nameparser._pipeline import _post_rules
 from nameparser._pipeline._post_rules import suffix_entries
+from nameparser._pipeline._vocab import suffix_as_written
 from nameparser._pipeline._state import ParseState
 from nameparser._policy import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
                                 GIVEN_FIRST, PatronymicRule, Policy,
                                 Script)
+from nameparser.locales._es_given_names import GIVEN_NAMES
 from nameparser._types import (FOLDED_TAG, STABLE_TAGS,
                                UNJOINED_CONJUNCTION_TAG, UNJOINED_TAG,
                                AmbiguityKind, Role)
@@ -24,28 +29,34 @@ from nameparser._types import (FOLDED_TAG, STABLE_TAGS,
 # found three such words when it was written (#395): `dr` and `md` were
 # absent while shipping as titles, and `la` sat in the never-given half
 # while shipping as ambiguous.
-_LEX = Lexicon(
-    titles=frozenset({"mr", "sir", "dr"}),
-    given_name_titles=frozenset({"sir"}),
-    after_given_titles=frozenset({"mr"}),
-    particles=frozenset({"de", "der", "ibn", "la", "van", "vd"}),
-    particles_ambiguous=frozenset({"la", "van"}),
+_LEX = (
+    Lexicon()
+    .add("dr", kind="title")
+    .add("mr", kind="title", after_given=True)
+    .add("sir", kind="title", addresses="given")
+    .add("de", "der", "la", "van", "vd", kind="particle")
+    .add("ibn", kind="patronymic")
+    .add("la", "van", kind="given")     # ambiguous particles
     # `씨` is a ONE-LETTER suffix word, which starts no credential run
     # (rules/S8's two-letter minimum -- any longer suffix word would,
     # an honorific included since #679), the filler a test needs where
     # a credential would now take the rest of the part
-    suffix_words=frozenset({"jr", "씨"}),
+    .add("jr", kind="suffix")
+    .add("씨", kind="honorific")
     # `vd` mirrors its shipped dual membership -- particle AND
-    # UNAMBIGUOUS suffix acronym -- which is what puts a name on P6's
+    # UNAMBIGUOUS credential -- which is what puts a name on P6's
     # suffix arm below. `ma` mirrors the ambiguous class, which starts
     # no run either.
-    suffix_acronyms=frozenset({"md", "vd", "ma"}),
-    suffix_acronyms_ambiguous=frozenset({"ma"}),
-    # and `ma` is a given name written short too (Filipino María, #789),
-    # read so only period-marked at the head of the given part
-    given_name_abbreviations=frozenset({"ma"}),
-    conjunctions=frozenset({"y"}),
-    bound_given_names=frozenset({"abdul"}),
+    .add("md", "vd", "ma", kind="credential")
+    # and `ma` is a given name written short too (Filipino María,
+    # #789), read so only period-marked at the head of the given part;
+    # the given reading is also what makes its credential ambiguous
+    .add("ma", kind="given", same_as="maría")
+    # `maría` is a given name written behind a particle too ('de
+    # María'), which rules/O7 reads (#704)
+    .add("maría", "maria", kind="given", after_particle=True)
+    .add("y", kind="conjunction")
+    .add("abdul", kind="bound_given")
 )
 
 
@@ -287,7 +298,7 @@ def test_leading_never_given_particle_folds_into_family() -> None:
 
 
 def test_leading_ambiguous_particle_stays_given() -> None:
-    # 'van' is particles_ambiguous: the given reading stands (v1 parity)
+    # 'van' is an ambiguous particle: the given reading stands (v1 parity)
     out = _parsed("van Gogh")
     assert _by_role(out, Role.GIVEN) == "van"
     assert _by_role(out, Role.FAMILY) == "Gogh"
@@ -370,19 +381,116 @@ def test_leading_piece_scan_skips_pieces_that_hold_no_name(
     # a family comma has already fixed the family; the post-comma part
     # is the given name and must not be folded into it
     ("de Mesnil, Juan", "de Mesnil", "Juan"),
-    # degenerate: nothing to fold, so no surname is invented
-    ("de", "de", ""),
+    # degenerate: nothing to fold, so no surname is invented, and a lone
+    # word is placed by Policy.lone_name_word, given by default under
+    # every order (rules/O5, #1111)
+    ("de", "", "de"),
     # the leading piece is not a particle
     ("Juan de Mesnil", "Juan", "de Mesnil"),
-    # 'van' is particles_ambiguous -- out of the rule's scope in EVERY
-    # order, so a family-first order still splits at the particle (#360)
-    ("van Gogh", "van", "Gogh"),
+    # a capitalized ambiguous particle is out of the rule's scope in
+    # EVERY order, so a family-first order still splits at the particle
+    # (#360); a lowercase one in a mixed-case name folds (#670, below)
+    ("Van Gogh", "Van", "Gogh"),
 ])
 def test_family_first_leading_particle_cases_that_do_not_fold(
         policy: Policy, text: str, family: str, given: str) -> None:
     out = _parsed(text, policy)
     assert _by_role(out, Role.FAMILY) == family
     assert _by_role(out, Role.GIVEN) == given
+
+
+@pytest.mark.parametrize("policy", _FAMILY_FIRST)
+@pytest.mark.parametrize("text,family,given", [
+    # rules/P1's fold under a family-first order also takes an
+    # ambiguous particle the writing settles: lower case in a name of
+    # mixed case (#670)
+    ("van den Berg Cornelia", "van den Berg", "Cornelia"),
+    ("van Gogh Vincent", "van Gogh", "Vincent"),
+    ("van Gogh", "van Gogh", ""),
+    ("le Van Thanh", "le Van Thanh", ""),
+    # capitalized, or in a name of one case, the particle keeps its
+    # positional reading: the Vietnamese canaries
+    ("Le Van Thanh", "Le", "Van Thanh"),
+    ("Do Van Thanh", "Do", "Van Thanh"),
+    ("VAN GOGH VINCENT", "VAN", None),
+    # a lone word is placed by Policy.lone_name_word (rules/O5, #1111)
+    ("van", "", "van"),
+    # and a particle chain a title-particle lets P2 build is cut where
+    # the fold cuts a lone particle's run (#828)
+    ("St de Mesnil Jean", "de Mesnil", "Jean"),
+    ("Freiherr von Berg Otto", "von Berg", "Otto"),
+    ("St van Berg Jan", "van Berg", "Jan"),
+    # the ranks #709 made title-particles, as freiherr is, reach the cut
+    # too (master at e5992892 read each family 'von Berg Otto' and so on)
+    ("Graf von Berg Otto", "von Berg", "Otto"),
+    ("Gräfin von Dönhoff Marion", "von Dönhoff", "Marion"),
+    ("Prinz von Hannover Ernst", "von Hannover", "Ernst"),
+    # a chain the fold would take whole keeps its reading: H1's given
+    # behind a given-name title, P5's bound given name
+    ("St Sir de Mesnil", "", "de Mesnil"),
+    ("St abu Bakar", "abu Bakar", ""),
+    # and a chain holding a word the trailing read weighed against the
+    # whole chain stands, the read and its report being the chain's
+    # (#828's review): no word is stranded in the given name -- read off
+    # the read's report, not the word's vocabulary
+    ("St de Mesnil Jean V", "de Mesnil Jean V", ""),
+    ("Freiherr von Berg Otto Junior", "von Berg Otto Junior", ""),
+    ("Freiherr von Berg Otto Ing", "von Berg Otto Ing", ""),
+    ("Freiherr von Bishop X.Y.Z.", "von Bishop X.Y.Z.", ""),
+    # but a listed word the read took as a name word, reporting nothing,
+    # is no reason to keep the chain: it is cut (the fix commit's
+    # review; a vocabulary-tag test kept all four whole)
+    ("St de Mesnil Junior Jean", "de Mesnil", None),
+    ("Freiherr von Berg MA Hans", "von Berg", None),
+    ("St de Berg MA J.", "de Berg", None),
+    ("St de Mesnil Jean J. V", "de Mesnil", None),
+    # and the suffix-comma shape, which reads its first part as the
+    # comma-less name does
+    ("St de Mesnil Jean, Jr.", "de Mesnil", None),
+    ("van der Berg Jan, PhD", "van der Berg", None),
+])
+def test_family_first_fold_reads_the_writing_and_the_chain(
+        policy: Policy, text: str, family: str, given: str | None) -> None:
+    # the shipped vocabulary, the rows' words being the particles and
+    # titles whose classification is the point
+    out = run(ParseState(original=text, lexicon=Lexicon.default(),
+                         policy=policy))
+    assert _by_role(out, Role.FAMILY) == family
+    if given is not None:
+        assert _by_role(out, Role.GIVEN) == given
+
+
+@pytest.mark.parametrize("policy", _FAMILY_FIRST)
+@pytest.mark.parametrize("text,last", [
+    ("St de Mesnil Jean Junior V", "V"),
+    ("Freiherr von Berg Otto Junior VI", "VI"),
+])
+def test_a_report_behind_another_names_the_whole_chain(
+        policy: Policy, text: str, last: str) -> None:
+    # two words past the fold's reach the trailing read reported keep the
+    # chain whole (#828), so the last one's name reading, every other word
+    # read as the parse read it, joins the family -- read off the words
+    # post_rules marks past the reach, which the stand-in oracle cannot
+    # check here (its stand-in rereads the other report away)
+    # Negative control, 2026-11-04: with post_rules' PAST_REACH_TAG write
+    # removed, all four parses fail.
+    out = Parser(policy=policy).parse(text)
+    alt = next(a.alternative for a in out.ambiguities
+               if [t.text for t in a.tokens] == [last])
+    assert alt is not None and alt.role is Role.FAMILY
+
+
+def test_a_lowercase_particle_the_fold_takes_is_not_reported() -> None:
+    # the writing settled the fork, so no particle-or-given report
+    # (#670); a capitalized one is still reported
+    ff = Parser(policy=Policy(name_order=FAMILY_FIRST))
+    assert not ff.parse("van Gogh Vincent").ambiguities
+    assert [a.kind for a in ff.parse("Van Gogh Vincent").ambiguities] == [
+        AmbiguityKind.PARTICLE_OR_GIVEN]
+    # and under the default order it is still reported: the fold
+    # does not fire there
+    assert [a.kind for a in Parser().parse("van Gogh Vincent").ambiguities
+            ] == [AmbiguityKind.PARTICLE_OR_GIVEN]
 
 
 @pytest.mark.parametrize("text,title,given,middle,family,suffix", [
@@ -494,8 +602,8 @@ def test_the_family_the_run_joins_must_have_a_base() -> None:
     # the guard is never consulted. `family` is asserted as well as the
     # tag, because inverting the guard retags the run to FAMILY without
     # the tag -- which `_folded` alone cannot see.
-    out = _parsed("van Berg Jan de", Policy(name_order=FAMILY_FIRST))
-    assert _by_role(out, Role.FAMILY) == "van"
+    out = _parsed("Van Berg Jan de", Policy(name_order=FAMILY_FIRST))
+    assert _by_role(out, Role.FAMILY) == "Van"
     assert _by_role(out, Role.MIDDLE) == "Jan de"
     assert not _folded(out)
 
@@ -604,7 +712,7 @@ def test_no_never_given_particle_is_left_as_the_given_name(
     nothing about which words are in the set.
     """
     lex = Lexicon.default()
-    never_given = sorted(lex.particles - lex.particles_ambiguous)
+    never_given = sorted(lex._sets.particles - lex._sets.particles_ambiguous)
     assert never_given, "no never-given particles to exercise"
     failures = []
     for particle in never_given:
@@ -738,10 +846,10 @@ def test_the_two_family_first_orders_differ_at_two_leftovers() -> None:
 
 @pytest.mark.parametrize("policy", _FAMILY_FIRST)
 @pytest.mark.parametrize("text,family", [
-    # an AMBIGUOUS leading particle is out of the rule's scope in every
-    # order: the fold never fires on it, so there is no run to stop.
-    # Untouched by #395
-    ("van Gogh Jan", "van"),
+    # a capitalized AMBIGUOUS leading particle is out of the rule's
+    # scope in every order: the fold never fires on it, so there is no
+    # run to stop. Untouched by #395 and #670
+    ("Van Gogh Jan", "Van"),
     # a family comma has already fixed the surname, so there is no
     # positional read for a declared order to narrow (state.order is
     # None on this path)
@@ -763,9 +871,8 @@ def test_the_fixture_guard_fires(
     # -- the same inertness it exists to prevent.
     assert not _fixture_mirrors_shipped("de la Cruz Juan", Policy())
     monkeypatch.setattr(sys.modules[__name__], "_LEX",
-                        dataclasses.replace(
-                            _LEX, particles=frozenset(),
-                            particles_ambiguous=frozenset()))
+                        _LEX.remove("de", "der", "ibn", "la", "van", "vd",
+                                    kind="particle"))
     assert "'de'" in _fixture_mirrors_shipped("de la Cruz Juan",
                                               Policy())
 
@@ -779,7 +886,7 @@ def test_the_stop_reads_the_effective_order_not_the_policy() -> None:
     # never read family-first. Needs a custom lexicon (every shipped
     # particle is Latin, and Latin has no script_orders entry), so it
     # builds the state directly rather than going through _parsed.
-    lex = Lexicon(particles=frozenset({"ノ"}))
+    lex = Lexicon().add("ノ", kind="particle")
     policy = Policy(name_order=FAMILY_FIRST,
                     script_orders=((Script.KATAKANA, GIVEN_FIRST),))
     out = run(ParseState(original="ノ クルス フアン カルロス",
@@ -876,11 +983,17 @@ def test_a_dual_membership_word_decides_rather_than_raising() -> None:
     # the table for the attachment to decline
     # (mechanisms.md#AMBIGUITY-AT-THE-DECISION-SITE -- report the
     # branch actually taken).
-    lex = dataclasses.replace(
-        _LEX,
-        particles=frozenset(_LEX.particles | {"zz"}),
-        particles_ambiguous=frozenset(_LEX.particles_ambiguous | {"zz"}),
-        suffix_acronyms=frozenset(_LEX.suffix_acronyms | {"zz"}))
+    #
+    # Since 3.0's 4i-b no configuration reaches it either: the `given`
+    # reading that makes a particle possibly given also gates a
+    # credential beside it, so the word is an ambiguous acronym too.
+    # The arms stay ordered all the same, and the sets are built here
+    # by hand, so the stage's defense is still what this holds.
+    lex = (_LEX.add("zz", kind="particle").add("zz", kind="given")
+           .add("zz", kind="credential"))
+    object.__setattr__(lex, "_sets", dataclasses.replace(
+        lex._sets, suffix_acronyms_ambiguous=(
+            lex._sets.suffix_acronyms_ambiguous - {"zz"})))
     out = run(ParseState(original="Berg, Jan zz", lexicon=lex,
                          policy=Policy()))
     # token order, so the attachment shows as the run joining the
@@ -1028,12 +1141,13 @@ def test_a_bare_marker_maiden_clause_does_not_part_the_run() -> None:
 
     Since #601 a bare marker counts only behind a name word, so the
     clause stands between two post-nominals only inside #602's
-    credential run: 'Jr.' starts it and takes 'Smith' in, the marker
+    credential run: 'Esq.' starts it and takes 'Smith' in, the marker
     standing after that name word. The fixture was 'Smith, MD nee Jones
     PhD' until then, a marker in the given part after a family comma,
-    which is an ordinary word now."""
-    assert _entry_tags("Jane Doe Jr. Smith nee Jones PhD") == [
-        ("Jr.", False), ("Smith", True), ("PhD", True)]
+    which is an ordinary word now, and 'Jr.' started the run until a
+    generation word before a name word stopped starting it (S8)."""
+    assert _entry_tags("Jane Doe Esq. Smith nee Jones PhD") == [
+        ("Esq.", False), ("Smith", True), ("PhD", True)]
 
 
 def test_a_marker_the_policy_names_as_a_delimiter_parts_the_run() -> None:
@@ -1049,10 +1163,10 @@ def test_a_marker_the_policy_names_as_a_delimiter_parts_the_run() -> None:
     # place a bare clause stands between two post-nominals since #601
     # (the bare test above says why); it was 'John Doe, MD nee Jones
     # PhD' until then
-    assert _entry_tags("Jane Doe Jr. Smith nee Jones PhD", nee) == [
-        ("Jr.", False), ("Smith", True), ("PhD", False)]
-    assert _entry_tags("Jane Doe Jr. Smith nee Jones PhD") == [
-        ("Jr.", False), ("Smith", True), ("PhD", True)]
+    assert _entry_tags("Jane Doe Esq. Smith nee Jones PhD", nee) == [
+        ("Esq.", False), ("Smith", True), ("PhD", False)]
+    assert _entry_tags("Jane Doe Esq. Smith nee Jones PhD") == [
+        ("Esq.", False), ("Smith", True), ("PhD", True)]
 
 
 def test_a_dropped_core_parts_two_entries() -> None:
@@ -1225,7 +1339,7 @@ def test_an_all_particle_part_keeps_r2s_mark_and_gains_no_other(
     # the part is all particles R2's mark already readmits every word,
     # a word that is BOTH particle and connective included. Swapping
     # the branches moves the caller's own rows.
-    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
     r = p.parse("Juan de y")
     y = [t for t in r.tokens if t.text == "y"][0]
     assert UNJOINED_TAG in y.tags
@@ -1243,7 +1357,7 @@ def test_a_word_that_is_both_particle_and_connective_is_marked_too(
     # Without the arm the both-vocabulary word takes neither mark,
     # drops as an ordinary family particle, and the part's own base
     # disagrees with the view over it.
-    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
     r = p.parse("Juan de y and")
     assert r.family == "de y and"
     assert r.initials() == "J. y. a."
@@ -1255,6 +1369,29 @@ def test_a_word_that_is_both_particle_and_connective_is_marked_too(
     # rather than "nothing else here"
     assert UNJOINED_CONJUNCTION_TAG not in tags["de"]
     assert UNJOINED_TAG not in tags["de"]
+
+
+@pytest.mark.parametrize("pack, word, text, middle, family", [
+    (locales.RU, "petrovich", "Sidorov Ivan Petrovich", "",
+     "Petrovich Sidorov"),
+    (locales.TR_AZ, "oglu", "Mammadov Ali Huseyn oglu", "Huseyn",
+     "oglu Mammadov"),
+])
+def test_o1_and_o2_read_the_lists_after_their_own_rotation(
+        pack: Locale, word: str, text: str, middle: str, family: str) -> None:
+    # rules/O1's and O2's rotations put the name's last word in a middle
+    # under the default order; where a caller's lexicon makes that word a
+    # particle, P6 attaches it, reading the lists the rotation left. Each
+    # rotation recomputes them (#359's bug shape; decisions/parse-cost,
+    # #1089). Recorded negative control (2026-11-05): with both
+    # recomputes dropped, the rows read middle 'Petrovich', family
+    # 'Sidorov' and middle 'Huseyn oglu', family 'Mammadov'; the readings
+    # below are 21a4fe15's, the tree before the recompute moved.
+    base = parser_for(pack)
+    parser = Parser(lexicon=base.lexicon.add(word, kind="particle"),
+                    policy=base.policy)
+    name = parser.parse(text)
+    assert (name.middle, name.family) == (middle, family)
 
 
 def test_two_family_names_declines_a_family_first_name_whose_family_is_not_first() -> None:
@@ -1296,3 +1433,793 @@ def test_two_family_names_counts_every_listed_hyphen_as_two_words(
                   Policy(two_family_names=True))
     assert _by_role(out, Role.MIDDLE) == "María"
     assert _by_role(out, Role.FAMILY) == f"García{hyphen}López"
+
+
+#: rules/O6's given-name veto (#959) reads Lexicon.given_names, which
+#: the default leaves empty; these rows carry the list a pack ships.
+_ES_GIVEN = Lexicon.default() | Lexicon(given_names=GIVEN_NAMES)
+
+
+def _roles(text: str, policy: Policy, lexicon: Lexicon) -> tuple[str, ...]:
+    name = Parser(policy=policy, lexicon=lexicon).parse(text)
+    return name.given, name.middle, name.family
+
+
+#: Each row's reading with the switch alone and with the list beside
+#: it: the second column is the veto's negative control, recorded so a
+#: row the veto never reaches cannot pass as one it decides (AGENTS.md,
+#: "Guard tests"). Rows whose two columns agree are the shapes the veto
+#: must leave alone: a family comma, an empty head, a word the list does
+#: not hold, and a taken unit that already counts as two words.
+_VETO_EFFECT = [
+    ("José Luis Pérez", GIVEN_FIRST,
+     ("José", "", "Luis Pérez"), ("José", "Luis", "Pérez")),
+    ("Jose Luis Perez", GIVEN_FIRST,
+     ("Jose", "", "Luis Perez"), ("Jose", "Luis", "Perez")),
+    ("JOSÉ LUIS PÉREZ", GIVEN_FIRST,
+     ("JOSÉ", "", "LUIS PÉREZ"), ("JOSÉ", "LUIS", "PÉREZ")),
+    ("José Lúis Pérez", GIVEN_FIRST,
+     ("José", "", "Lúis Pérez"), ("José", "Lúis", "Pérez")),
+    # NFD: the accent a combining mark, dropped by the key as the
+    # composed one is
+    ("José Luís Pérez", GIVEN_FIRST,
+     ("José", "", "Luís Pérez"),
+     ("José", "Luís", "Pérez")),
+    ("Dr. José Luis Pérez Jr.", GIVEN_FIRST,
+     ("José", "", "Luis Pérez"), ("José", "Luis", "Pérez")),
+    ("José (Pepe) Luis Pérez", GIVEN_FIRST,
+     ("José", "", "Luis Pérez"), ("José", "Luis", "Pérez")),
+    ("José Luis Pérez, PhD", GIVEN_FIRST,
+     ("José", "", "Luis Pérez"), ("José", "Luis", "Pérez")),
+    ("José Luis de la Vega", GIVEN_FIRST,
+     ("José", "", "Luis de la Vega"), ("José", "Luis", "de la Vega")),
+    ("Pérez José Luis", FAMILY_FIRST,
+     ("Luis", "", "Pérez José"), ("José", "Luis", "Pérez")),
+    ("Pérez Luis José", FAMILY_FIRST_GIVEN_LAST,
+     ("José", "", "Pérez Luis"), ("José", "Luis", "Pérez")),
+    ("Pérez, José Luis", GIVEN_FIRST,
+     ("José", "Luis", "Pérez"), ("José", "Luis", "Pérez")),
+    ("Luis, José Pérez", GIVEN_FIRST,
+     ("José", "Pérez", "Luis"), ("José", "Pérez", "Luis")),
+    (", José Luis Pérez", GIVEN_FIRST,
+     ("José", "Luis Pérez", ""), ("José", "Luis Pérez", "")),
+    ("Ana Martín López", GIVEN_FIRST,
+     ("Ana", "", "Martín López"), ("Ana", "", "Martín López")),
+    # a hyphenated word taken counts as one, and the veto reads each
+    # of its parts (#959): every part listed, it stays
+    ("Ana María-Luis López", GIVEN_FIRST,
+     ("Ana", "", "María-Luis López"), ("Ana", "María-Luis", "López")),
+    ("Ana María-Torres López", GIVEN_FIRST,
+     ("Ana", "", "María-Torres López"), ("Ana", "", "María-Torres López")),
+    ("José Luis Pérez-García", GIVEN_FIRST,
+     ("José", "Luis", "Pérez-García"), ("José", "Luis", "Pérez-García")),
+    # a listed word behind a particle is a surname unit, taken as
+    # before (the #959 review: the first draft left `de Miguel`)
+    ("Ana de Miguel de la Vega", GIVEN_FIRST,
+     ("Ana", "", "de Miguel de la Vega"), ("Ana", "", "de Miguel de la Vega")),
+]
+
+
+@pytest.mark.parametrize("text,order,switch_alone,with_list", _VETO_EFFECT,
+                         ids=[row[0] for row in _VETO_EFFECT])
+def test_two_family_names_leaves_a_listed_given_name(
+        text: str, order: tuple[Role, Role, Role],
+        switch_alone: tuple[str, ...], with_list: tuple[str, ...]) -> None:
+    policy = Policy(name_order=order, two_family_names=True)
+    assert _roles(text, policy, Lexicon.default()) == switch_alone
+    assert _roles(text, policy, _ES_GIVEN) == with_list
+
+
+def test_the_veto_counts_its_rows() -> None:
+    # The table is the veto's negative control only while some row moves
+    # under it and some does not, in both families of order.
+    moved = [r for r in _VETO_EFFECT if r[2] != r[3]]
+    assert {r[1] for r in moved} == {GIVEN_FIRST, FAMILY_FIRST,
+                                     FAMILY_FIRST_GIVEN_LAST}
+    assert len(moved) == 12 and len(_VETO_EFFECT) - len(moved) == 7
+
+
+def test_the_veto_leaves_the_word_to_two_given_names() -> None:
+    # rules/O7's precedence: O6 reads first, and a listed word it leaves
+    # is the middle O7 then takes
+    both = Policy(two_family_names=True, two_given_names=True)
+    assert _roles("José Luis Pérez", both, Lexicon.default()) == (
+        "José", "", "Luis Pérez")
+    assert _roles("José Luis Pérez", both, _ES_GIVEN) == (
+        "José Luis", "", "Pérez")
+    # ... where it stands beside the given name: a given part of two
+    # units gives O7 the first, and the listed word stays a middle
+    assert _roles("Ana María Luis Pérez", both, _ES_GIVEN) == (
+        "Ana María", "Luis", "Pérez")
+
+
+def test_a_caller_entry_matches_as_written_and_by_its_key() -> None:
+    # An entry with its accent matches the word written with it; one
+    # without matches every spelling, the key dropping the accent.
+    o6 = Policy(two_family_names=True)
+    accented = Lexicon.default() | Lexicon(given_names={"Lúis"})
+    assert _roles("José Lúis Pérez", o6, accented)[2] == "Pérez"
+    assert _roles("José Luis Pérez", o6, accented)[2] == "Luis Pérez"
+    bare = Lexicon.default() | Lexicon(given_names={"luis"})
+    for written in ("Luis", "Lúis", "LUIS", "Luís"):
+        assert _roles(f"José {written} Pérez", o6, bare)[2] == "Pérez", written
+
+
+@pytest.mark.parametrize("policy", [
+    pytest.param(Policy(), id="default"),
+    pytest.param(Policy(two_given_names=True), id="two_given_names"),
+    pytest.param(Policy(name_order=FAMILY_FIRST), id="family-first"),
+])
+def test_the_list_reads_nothing_without_two_family_names(
+        policy: Policy) -> None:
+    # Only O6 reads the field, so a lexicon carrying it parses every
+    # rule example as one without it wherever O6 is off.
+    corpus = Path(__file__).parents[3] / "tools" / "differential" / (
+        "corpus_rules.jsonl")
+    texts = [json.loads(line) for line in
+             corpus.read_text(encoding="utf-8").split("\n") if line]
+    plain = Parser(policy=policy)
+    listed = Parser(policy=policy, lexicon=_ES_GIVEN)
+    assert texts
+    assert [t for t in texts
+            if plain.parse(t).as_dict() != listed.parse(t).as_dict()] == []
+
+
+#: rules/P10, O6 and O7 read two properties of a name reading (#704): a
+#: given name written behind a particle (`after_particle`, `carmen` in
+#: "María del Carmen") and a name a community gives every member
+#: (`shared`, Sikh `kaur`). Each row's reading with the shipped readings
+#: and with them removed, the recorded negative control (AGENTS.md,
+#: "Guard tests"): rows whose two columns agree are the shapes the
+#: properties must leave alone -- nothing left for the family, a family
+#: comma (whose part O7 already reads whole), a word nobody listed, a
+#: given name of two words, a middle between, and under the default
+#: policy every shape but P10's own.
+_POLICIES_704 = {
+    "O7": Policy(two_given_names=True),
+    "O6": Policy(two_family_names=True),
+    "both": Policy(two_family_names=True, two_given_names=True),
+    "family-first+O7": Policy(name_order=FAMILY_FIRST, two_given_names=True),
+    "default": Policy(),
+    "family-first+O6": Policy(name_order=FAMILY_FIRST, two_family_names=True),
+    "family-first-given-last+O7": Policy(name_order=FAMILY_FIRST_GIVEN_LAST,
+                                         two_given_names=True),
+    "family-first+both": Policy(name_order=FAMILY_FIRST, two_given_names=True,
+                                two_family_names=True),
+    "turkic+O7": Policy(two_given_names=True,
+                        patronymic_rules=frozenset({PatronymicRule.TURKIC})),
+}
+_BARE_704 = (Lexicon.default().remove("carmen", "mar", "ángeles", kind="given")
+             .remove("kaur", "singh", kind="family"))
+_EFFECT_704 = [
+    ("María del Carmen García", "O7", ("María del Carmen", "", "García"), ("María", "", "del Carmen García")),
+    ("María de los Ángeles López Pérez", "O7", ("María de los Ángeles", "", "López Pérez"), ("María", "", "de los Ángeles López Pérez")),
+    ("Dr. María del Mar García Jr.", "O7", ("María del Mar", "", "García"), ("María", "", "del Mar García")),
+    ("María del Carmen", "O7", ("María", "", "del Carmen"), ("María", "", "del Carmen")),
+    ("García, María del Carmen", "O7", ("María del Carmen", "", "García"), ("María del Carmen", "", "García")),
+    ("Maria da Silva Santos", "O7", ("Maria", "", "da Silva Santos"), ("Maria", "", "da Silva Santos")),
+    ("María-José del Carmen García", "O7", ("María-José", "", "del Carmen García"), ("María-José", "", "del Carmen García")),
+    ("Ana María del Carmen García", "O7", ("Ana María", "", "del Carmen García"), ("Ana María", "", "del Carmen García")),
+    ("García María del Carmen", "family-first+O7", ("María del Carmen", "", "García"), ("María del Carmen", "", "García")),
+    ("María del Carmen de la Vega", "O6", ("María", "del Carmen", "de la Vega"), ("María", "", "del Carmen de la Vega")),
+    ("María del Carmen de la Vega", "both", ("María del Carmen", "", "de la Vega"), ("María", "", "del Carmen de la Vega")),
+    ("María del Carmen García López", "both", ("María del Carmen", "", "García López"), ("María", "", "del Carmen García López")),
+    ("María del Carmen García", "default", ("María", "del Carmen", "García"), ("María", "", "del Carmen García")),
+    ("Domingo Santa María González", "default", ("Domingo", "", "Santa María González"), ("Domingo", "", "Santa María González")),
+    ("Harpreet Kaur Dhillon", "O7", ("Harpreet", "Kaur", "Dhillon"), ("Harpreet Kaur", "", "Dhillon")),
+    ("Harpreet Kaur Dhillon", "O6", ("Harpreet", "Kaur", "Dhillon"), ("Harpreet", "", "Kaur Dhillon")),
+    ("Harpreet Simran Kaur", "O6", ("Harpreet", "Simran", "Kaur"), ("Harpreet", "", "Simran Kaur")),
+    ("Dhillon, Harpreet Kaur", "O7", ("Harpreet", "Kaur", "Dhillon"), ("Harpreet Kaur", "", "Dhillon")),
+    ("Harpreet Kaur", "both", ("Harpreet", "", "Kaur"), ("Harpreet", "", "Kaur")),
+    ("Harpreet Kaur Dhillon", "default", ("Harpreet", "Kaur", "Dhillon"), ("Harpreet", "Kaur", "Dhillon")),
+    # the #1057 review's rows: O6 declines only the shape O7 takes, not a
+    # family-first unit after the family or a phrase behind a middle; O7
+    # leaves no lone connective as the family, nor the father's name
+    # before a Turkic marker
+    ("García del Carmen María", "family-first+O6", ("María", "", "García del Carmen"), ("María", "", "García del Carmen")),
+    ("Juan Antonio del Carmen de la Vega", "O6", ("Juan", "Antonio", "del Carmen de la Vega"), ("Juan", "Antonio", "del Carmen de la Vega")),
+    ("María del Carmen y", "O7", ("María", "", "del Carmen y"), ("María", "", "del Carmen y")),
+    ("Ali del Carmen oglu", "turkic+O7", ("Ali", "", "del Carmen oglu"), ("Ali", "", "del Carmen oglu")),
+    # ... and a given name of two words, which O7 would not complete,
+    # leaves O6 the phrase (the second #1057 review)
+    ("María-José del Carmen de la Vega", "O6", ("María-José", "", "del Carmen de la Vega"), ("María-José", "", "del Carmen de la Vega")),
+    ("abdul Rahman del Carmen de la Vega", "O6", ("abdul Rahman", "", "del Carmen de la Vega"), ("abdul Rahman", "", "del Carmen de la Vega")),
+    # the #1057 test review's rows: a shared word as the given name (the
+    # family-first-given-last given name is the last word), a family
+    # written before the given name, the given name's own guards on the
+    # phrase path, and a bound pair whose bound word is also a particle,
+    # which O6's count passes over ('Abu Bakr', where 'abdul' is none)
+    ("Dhillon Harpreet Kaur", "family-first-given-last+O7", ("Kaur", "Harpreet", "Dhillon"), ("Harpreet Kaur", "", "Dhillon")),
+    ("Kaur Harpreet Dhillon", "O7", ("Kaur", "Harpreet", "Dhillon"), ("Kaur Harpreet", "", "Dhillon")),
+    ("de los Ángeles López María", "family-first+both", ("María", "", "de los Ángeles López"), ("María", "", "de los Ángeles López")),
+    ("3 del Carmen García", "O7", ("3", "", "del Carmen García"), ("3", "", "del Carmen García")),
+    ("María del Carmen 3", "O7", ("María", "", "del Carmen 3"), ("María", "", "del Carmen 3")),
+    ("bin del Carmen García", "O7", ("bin", "", "del Carmen García"), ("bin", "", "del Carmen García")),
+    ("Kaur del Carmen García", "O7", ("Kaur", "", "del Carmen García"), ("Kaur", "", "del Carmen García")),
+    ("Abu Bakr del Carmen García", "O7", ("Abu Bakr", "", "del Carmen García"), ("Abu Bakr", "", "del Carmen García")),
+    ("Abu Bakr del Carmen de la Vega", "O6", ("Abu Bakr", "", "del Carmen de la Vega"), ("Abu Bakr", "", "del Carmen de la Vega")),
+    ("Abu Bakr Carlos García", "O7", ("Abu Bakr", "Carlos", "García"), ("Abu Bakr", "Carlos", "García")),
+    # the #1058 test review's rows: O6 takes a family a saint particle
+    # opens, and P10's guards hold under the default policy it runs on,
+    # a patronymic and a mark as the given name; the family comma row
+    # pins the reading, the order test refusing it before the comma's
+    ("Domingo Santa María de la Vega", "O6", ("Domingo", "", "Santa María de la Vega"), ("Domingo", "", "Santa María de la Vega")),
+    ("del Carmen García, María", "default", ("María", "", "del Carmen García"), ("María", "", "del Carmen García")),
+    ("bin del Carmen García", "default", ("bin", "", "del Carmen García"), ("bin", "", "del Carmen García")),
+    ("3 del Carmen García", "default", ("3", "", "del Carmen García"), ("3", "", "del Carmen García")),
+]
+
+
+@pytest.mark.parametrize("text,policy,shipped,bare", _EFFECT_704,
+                         ids=[f"{r[1]}:{r[0]}" for r in _EFFECT_704])
+def test_p10_and_the_two_name_switches_read_particle_given_and_shared_names(
+        text: str, policy: str, shipped: tuple[str, ...],
+        bare: tuple[str, ...]) -> None:
+    assert _roles(text, _POLICIES_704[policy], Lexicon.default()) == shipped
+    assert _roles(text, _POLICIES_704[policy], _BARE_704) == bare
+
+
+def test_the_704_table_counts_its_rows() -> None:
+    # the table is the properties' negative control only while some rows
+    # move without them and some do not
+    moved = [r for r in _EFFECT_704 if r[2] != r[3]]
+    assert len(moved) == 13 and len(_EFFECT_704) - len(moved) == 27
+
+
+def test_a_callers_reading_reaches_the_switches() -> None:
+    # a caller's add() states the property as a file does (3.0's 4i-b)
+    o7 = Policy(two_given_names=True)
+    mine = (Lexicon.default().add("zorba", kind="given", after_particle=True)
+            .add("zeta", kind="family", shared=True))
+    assert _roles("Ana del Zorba García", o7, mine) == (
+        "Ana del Zorba", "", "García")
+    assert _roles("Ana del Zorba García", o7, Lexicon.default()) == (
+        "Ana", "", "del Zorba García")
+    assert _roles("Ana Zeta García", o7, mine) == ("Ana", "Zeta", "García")
+    assert _roles("Ana Zeta García", o7, Lexicon.default()) == (
+        "Ana Zeta", "", "García")
+    # shared on a given reading too, a name reading of either kind
+    given_shared = Lexicon.default().add("zeta", kind="given", shared=True)
+    assert _roles("Ana Zeta García", o7, given_shared) == (
+        "Ana", "Zeta", "García")
+    # and both properties survive a pickle round trip
+    loaded = pickle.loads(pickle.dumps(mine))
+    assert _roles("Ana del Zorba García", o7, loaded) == (
+        "Ana del Zorba", "", "García")
+    assert _roles("Ana Zeta García", o7, loaded) == ("Ana", "Zeta", "García")
+
+
+def test_a_strict_choice_keeps_the_704_readings() -> None:
+    # kaur and singh stand in mul.toml, which every choice reads, and the
+    # Spanish words in es.toml, so a strict Spanish parser, whose pack
+    # turns two_family_names on, keeps both (the #1057 review found the
+    # first, in pa.toml, read family 'Kaur Dhillon' there)
+    strict_es = parser_for(locales.ES, strict=True)
+    name = strict_es.parse("Harpreet Kaur Dhillon")
+    assert (name.middle, name.family) == ("Kaur", "Dhillon")
+    with_o7 = parser_for(locales.ES, Locale(
+        code="x", lexicon=Lexicon.empty(),
+        policy=PolicyPatch(two_given_names=True)), strict=True)
+    assert with_o7.parse("María del Carmen García").given == "María del Carmen"
+
+
+def test_the_704_tags_reach_no_published_token() -> None:
+    # SHARED_NAME_TAG and PARTICLE_GIVEN_TAG serve the post rules only,
+    # dropped at assemble like the kind tags (_assemble._KIND_TAGS)
+    names = [parse("Harpreet Kaur Dhillon"),
+             Parser(policy=Policy(two_given_names=True)).parse(
+                 "María del Carmen García")]
+    published = {tag for n in names for t in n.tokens for tag in t.tags}
+    assert not published & {"vocab:shared-name", "vocab:particle-given"}
+
+
+def test_a_saint_particle_opens_no_given_name_phrase() -> None:
+    # rules/P10's saint clause: 'Santa María' is a surname, the given
+    # name phrases being written with a preposition or an article. The
+    # control reads santa as a preposition, which the phrase then takes
+    default = (Policy(), Lexicon.default())
+    assert _roles("Domingo Santa María González", *default) == (
+        "Domingo", "", "Santa María González")
+    as_preposition = (Lexicon.default().remove("santa", kind="saint")
+                      .add("santa", kind="preposition"))
+    assert _roles("Domingo Santa María González", Policy(),
+                  as_preposition) == ("Domingo", "Santa María", "González")
+
+
+def test_a_report_behind_a_given_name_phrase_names_the_family() -> None:
+    # a word behind a particle chain lands beside the chain's LAST word:
+    # rules/P10 reads the chain's opening phrase as a middle name, and
+    # the agnomen read as a name would join the family 'Cardoso Filho'
+    name = parse("Jairo do Valle Cardoso Filho")
+    assert (name.middle, name.family, name.suffix) == (
+        "do Valle", "Cardoso", "Filho")
+    assert [a.alternative.role for a in name.ambiguities
+            if a.alternative is not None] == [Role.FAMILY]
+    # and under rules/O6's family-first cut, which lays the chain's TAIL
+    # out by the order, the head's field: middle_as_family folds the
+    # tail's middle into the family, where the word lands (the first
+    # fix named the tail's 'given', #1058 second review)
+    folded = Parser(policy=Policy(name_order=FAMILY_FIRST,
+                                  two_family_names=True,
+                                  middle_as_family=True)).parse(
+        "Ana de María Pérez Filho")
+    assert [a.alternative.role for a in folded.ambiguities
+            if a.alternative is not None] == [Role.FAMILY]
+
+
+def test_a_dotted_member_keeping_a_comma_in_its_clause_is_set_apart() -> None:
+    # rules/S1's set-apart pass reads a dotted member with the comma its
+    # clause keeps on it left off (rules/N1), so 'M.A,' joins the suffix
+    # as 'M.A' alone does; the comma's trim off the word is the test
+    # below's
+    name = parse("John Smith (M.A, PhD)")
+    assert (name.given, name.family, name.suffix, name.nickname) == (
+        "John", "Smith", "M.A, PhD", "")
+
+
+#: rules/S1's comma inside a clause it sets apart, no part of the word
+#: it is written against: each row's title and suffix fields and its title
+#: and suffix tokens, as the pass leaves them with the comma trimmed off each
+#: clause word's text and span (#792).
+_SET_APART_COMMAS = {
+    "John (Dr, Prof) Smith": ("Dr Prof", "", ("Dr", "Prof")),
+    "John Smith (Dr., PhD)": ("Dr.", "PhD", ("Dr.", "PhD")),
+    "John Smith (MD ,PhD)": ("", "MD, PhD", ("MD", "PhD")),
+    "John Smith (Jr.,) III": ("", "Jr., III", ("Jr.", "III")),
+    "John Smith (M.A, PhD)": ("", "M.A, PhD", ("M.A", "PhD")),
+}
+
+#: The same rows with the trim off -- `_set_apart_clauses` giving the
+#: role and leaving text and span as tokenize cut them: the test's
+#: negative control, recorded 2026-11-05 in a scratch copy of the tree.
+#: The title keeps the comma; a suffix field reads the same where R1's
+#: entry join puts the comma back, but its word still holds it.
+_UNGUARDED_EFFECT = {
+    "John (Dr, Prof) Smith": ("Dr, Prof", "", ("Dr,", "Prof")),
+    "John Smith (Dr., PhD)": ("Dr.,", "PhD", ("Dr.,", "PhD")),
+    "John Smith (MD ,PhD)": ("", "MD ,PhD", ("MD", ",PhD")),
+    "John Smith (Jr.,) III": ("", "Jr., III", ("Jr.,", "III")),
+    "John Smith (M.A, PhD)": ("", "M.A, PhD", ("M.A,", "PhD")),
+}
+
+
+@pytest.mark.parametrize("text", sorted(_SET_APART_COMMAS))
+def test_a_set_apart_clause_trims_its_comma_off_the_word(text: str) -> None:
+    name = parse(text)
+    words = tuple(t.text for t in name.tokens
+                  if t.role in (Role.TITLE, Role.SUFFIX))
+    assert (name.title, name.suffix, words) == _SET_APART_COMMAS[text]
+    # the span is trimmed with the text, so it still slices the word
+    assert all(text[t.span.start:t.span.end] == t.text
+               for t in name.tokens if t.span is not None)
+    # and every row is one the trim moves
+    assert _SET_APART_COMMAS[text] != _UNGUARDED_EFFECT[text]
+
+
+#: rules/S1's set-apart word asks `suffix_as_written`, the question a
+#: bare word is asked, so a credential S3 reads joined by a slash or a
+#: hyphen is set apart in brackets after the name as its split spelling
+#: is (#1088). Inside the name the initials Except decides, which the
+#: two-spelling invariant below reads.
+_BRACKETED_WORDS = ("PhD", "Jr.", "MD/PhD", "MD-PhD", "md/phd", "Md-PhD",
+                    "MD/PhD/MPH", "M.D./Ph.D.", "M.A./PhD", "Jr/Sr",
+                    "MD/Bob", "MA/PhD", "MA/MBA", "Smith-Jones", "Ae-Ra", "I-V",
+                    "MD/")
+
+#: The rows the guard moves, as the tree before #1088 read them, the
+#: set-apart word asking its own copy of the unambiguous suffix sets:
+#: the test's negative control, recorded 2026-11-05 from a detached
+#: worktree of 4109b026 as (suffix, nickname).
+_UNGUARDED_EFFECT_1088 = {
+    "MD/PhD": ("", "MD/PhD"),
+    "MD-PhD": ("", "MD-PhD"),
+    "md/phd": ("", "md/phd"),
+    "Md-PhD": ("", "Md-PhD"),
+    "MD/PhD/MPH": ("", "MD/PhD/MPH"),
+    "M.A./PhD": ("", "M.A./PhD"),
+    "Jr/Sr": ("", "Jr/Sr"),
+}
+
+#: The grid's words S3 refuses, pinned apart from the predicate the
+#: test asks, so a refusal S3 lost would not move both sides at once.
+_REFUSED_JOINED = frozenset({"MD/Bob", "MA/MBA", "Smith-Jones", "Ae-Ra",
+                             "I-V", "MD/"})
+
+
+@pytest.mark.parametrize("word", _BRACKETED_WORDS)
+def test_a_bracketed_word_is_the_suffix_where_the_bare_word_is_one(
+        word: str) -> None:
+    lexicon = Lexicon.default()
+    suffix = suffix_as_written(_normalize(word), word, lexicon)
+    assert suffix is (word not in _REFUSED_JOINED)
+    name = parse(f"John Smith ({word})")
+    read = (name.suffix, name.nickname)
+    assert read == ((word, "") if suffix else ("", word))
+    if word in _UNGUARDED_EFFECT_1088:
+        assert _UNGUARDED_EFFECT_1088[word] != read
+
+
+def test_the_bracketed_word_control_names_words_of_the_grid() -> None:
+    # a control row outside the grid would guard nothing
+    assert set(_UNGUARDED_EFFECT_1088) <= set(_BRACKETED_WORDS)
+    assert len(_UNGUARDED_EFFECT_1088) == 7
+
+
+def test_a_dotted_member_a_caller_lists_as_a_title_still_reports() -> None:
+    # rules/S13's report asks the member's writing whatever else the
+    # vocabulary reads it as: a caller listing 'm.a' as a title makes a
+    # title-only clause behind a credential, which keeps its pair's
+    # reading (rules/S1), and the member left the nickname still
+    # reports (#1088's review: the first draft read the report off the
+    # set-apart kind, which answers "title" there)
+    parser = Parser(lexicon=Lexicon.default().add("m.a", kind="title"))
+    for text in ("John Smith PhD (M.A)", "John Smith PhD (M.A.)"):
+        name = parser.parse(text)
+        assert name.nickname == text[16:-1]
+        assert [a.kind for a in name.ambiguities] == [
+            AmbiguityKind.SUFFIX_OR_NICKNAME], text
+
+
+def test_a_member_a_caller_lists_as_a_title_is_the_title() -> None:
+    # a title outranks a member in a set-apart clause, as it did before
+    # #1088: unreachable with the default vocabulary, which lists no
+    # member of the ambiguous class as a title
+    parser = Parser(lexicon=Lexicon.default().add("aca", kind="title"))
+    assert "aca" in Lexicon.default()._sets.suffix_acronyms_ambiguous
+    name = parser.parse("John Smith (Aca)")
+    assert (name.title, name.nickname) == ("Aca", "")
+
+
+@pytest.mark.parametrize("text, suffix, reported", [
+    # a member its writing leaves unsettled is settled by a credential of
+    # its clause after the name (rules/S1, #1138), with a comma, a space
+    # or a joiner between them
+    ("John Smith (Ma, PhD)", "Ma, PhD", False),
+    ("John Smith (Ma PhD)", "Ma PhD", False),
+    ("JOHN SMITH (PHD, MBA)", "PHD, MBA", False),
+    ("John Smith (MA/PhD)", "MA/PhD", False),
+    ("Smith, John (Ma, PhD)", "Ma, PhD", False),
+    # nothing settles members alone, nor a title
+    ("John Smith (Ma, Ed)", "", True),
+    ("John Smith (MA/MBA)", "", True),
+    ("John Smith (Dr, Ma)", "", True),
+    # inside the name or before it, a member stays the nickname,
+    # reported, joined or written apart (rules/S13)
+    ("John (Ma, PhD) Smith", "", True),
+    ("John (MA/PhD) Smith", "", True),
+    ("(MA/PhD) John Smith", "", True),
+    ("John (M.A/PhD) Smith", "", True),
+    # a member its periods make a suffix as written is no member here
+    ("John (M.A./PhD) Smith", "", False),
+    ("Smith (M.A./PhD), John", "M.A./PhD", False),
+    # before a family comma is not after the name
+    ("Smith (Ma, PhD), John", "", True),
+    # the joined spelling with a hyphen, inside the name
+    ("John (MA-PhD) Smith", "", True),
+    ("John (M.A-PhD) Smith", "", True),
+    # a credential listed whole, its member chunk no member of the word
+    ("John (CPNP-PC) Smith", "CPNP-PC", False),
+    # a member listed as a suffix WORD, not an acronym
+    ("John Smith (Junior, PhD)", "Junior, PhD", False),
+    # a member its periods settle settles another; one its capitals
+    # settle does not, as no joined chunk is settled by case
+    ("John Smith (M.A, Ma)", "M.A, Ma", False),
+    ("John Smith (MBA, Ma)", "", True),
+    ("John Smith (MA, Ed)", "", True),
+    # a generation, a numeral or a title too settles nothing: 'Ed Jr'
+    # is a name a person goes by
+    ('Edward Smith "Ed Jr"', "", True),
+    ("Edward Smith (Ed II)", "", True),
+    ("John Smith (Ma, Ms)", "", True),
+    ("John Smith (Ma/Ms)", "", True),
+    ("John Smith (Ma, 씨)", "", True),  # an honorific neither
+    # a joined word settles one where a chunk of it would
+    ("John Smith (Ed, Jr/Sr)", "", True),
+    ("John Smith (Ma, Ms/Jr)", "", True),
+    ("John Smith (Ma, PhD/Jr)", "Ma, PhD/Jr", False),
+    ("John Smith (Ma, MA/PhD)", "Ma, MA/PhD", False),
+    ("John Smith (Ma, Esq)", "Ma, Esq", False),
+])
+def test_a_credential_settles_a_member_of_its_clause_after_the_name(
+        text: str, suffix: str, reported: bool) -> None:
+    name = parse(text)
+    assert name.suffix == suffix
+    assert (AmbiguityKind.SUFFIX_OR_NICKNAME in
+            [a.kind for a in name.ambiguities]) is reported
+
+
+#: rules/S1's two spellings of a credential pair, joined by a slash or a
+#: hyphen and written apart with a comma, read alike in a clause, the
+#: initials Except asking each chunk of the joined word (#1088, axis 11
+#: of docs/design/AGENTS.md: an invariant over two inputs). The chunks
+#: are credentials S1 sets apart with no other reading -- a word that
+#: is a title too, or a member of the ambiguous class, reads by its own
+#: rules written apart -- and the second never ends in a period, which
+#: would hand the comma spelling the period escape. 'NP-C', 'OTR/L' and
+#: 'CCC-SLP' are credentials the vocabulary lists whole with a joiner of
+#: their own (#1103), the chunks a cut at every joiner breaks, the last
+#: one whose pieces are listed too, so a cut that rebuilds a run from
+#: pieces it does not list whole reads differently there.
+_PAIR_CHUNKS = ("MD", "PhD", "JP", "Jr", "M.D.", "RN", "Esq", "NP-C",
+                "OTR/L", "CCC-SLP")
+_PAIR_SHAPES = ("John Smith ({})", "John ({}) Smith", "({}) John Smith",
+                "({})", "Smith ({}), John", "Smith, John ({})",
+                "JOHN ({}) SMITH", "Jack ({})", "John Smith ({}), Jr.",
+                ", John ({})", "John Smith, Jr. ({})")
+_PAIR_PARSERS = (Parser(), Parser(policy=Policy(name_order=FAMILY_FIRST)),
+                 Parser(policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST)))
+
+#: How many of those rows read apart with the initials Except asking
+#: the whole joined word, as the first draft of #1088 did: the negative
+#: control, recorded 2026-11-05 with `reads_as_initials`' chunk loop
+#: switched off. Each is a joined pair inside or before a name word of
+#: its comma part, set apart where its spelling written apart stays the
+#: nickname. 540 over the grid before #1103 added its three chunks;
+#: re-taken 2026-11-06.
+_UNGUARDED_PAIRS_1088 = 918
+
+#: How many of the same rows read apart with the joined word cut at
+#: every joiner, as before #1103, recorded 2026-11-06: in-process,
+#: `_vocab._joined_chunks` replaced by a function returning
+#: `_JOINERS.split(text)` where every chunk counts as a suffix as
+#: written and None otherwise, the rows chosen by the guarded tree's
+#: `suffix_as_written` before the replacement. A pair holding a run
+#: listed whole reads as a name word or a nickname where its spelling
+#: written apart is the suffix. On the pre-#1103 tree itself the
+#: filter admits fewer pairs, so there the row count is what fails.
+_UNGUARDED_PAIRS_1103 = 1860
+
+
+#: How many (pair, shape, order) rows the invariant reads, so a grid
+#: trimmed to nothing cannot pass it.
+_PAIRS_CHECKED = 5280
+
+
+def _pair_differences() -> list[str]:
+    found = []
+    checked = 0
+    for a in _PAIR_CHUNKS:
+        for b in _PAIR_CHUNKS:
+            if a == b or b.endswith("."):
+                continue
+            for joined in (f"{a}/{b}", f"{a}-{b}"):
+                # a pair S3 reads as no suffix bare ('Jr-Esq', written as
+                # a hyphenated name is) is no joined credential at all
+                if not suffix_as_written(_normalize(joined), joined,
+                                         Lexicon.default()):
+                    continue
+                for shape in _PAIR_SHAPES:
+                    for parser in _PAIR_PARSERS:
+                        apart = f"{a}, {b}"
+                        one = {k: v.replace(joined, apart) for k, v in
+                               parser.parse(shape.format(joined))
+                               .as_dict().items()}
+                        if one != parser.parse(shape.format(apart)).as_dict():
+                            found.append(shape.format(joined))
+                        checked += 1
+    assert checked == _PAIRS_CHECKED
+    return found
+
+
+def test_a_joined_credential_reads_as_its_spelling_written_apart() -> None:
+    assert _pair_differences() == []
+    # the control is a share of the grid the guard reads
+    assert 0 < _UNGUARDED_PAIRS_1088 < _PAIRS_CHECKED
+    assert 0 < _UNGUARDED_PAIRS_1103 < _PAIRS_CHECKED
+
+
+#: #1138's twin of the invariant above for a member of the ambiguous
+#: class beside a credential that settles it: joined, the word is a
+#: member S13 settles by position (rules/S3), and written apart the
+#: credential settles the member in its clause (rules/S1), so the two
+#: spellings read alike in every shape. Fields only, as above.
+_MEMBERS = ("MA", "Ma", "M.A", "MBA", "Ed", "KC", "JD")
+_SETTLERS = ("PhD", "MD", "RN", "Esq", "NP-C", "MS", "RA")
+
+#: How many rows' two spellings read differently with `set_apart_kind`
+#: reading a joined word holding a member as a plain suffix, the
+#: position test skipped: the control, recorded 2026-11-07 in-process by
+#: replacing `_vocab.joined_member` with a function returning False.
+#: Each is a joined pair inside or before a name word, set apart where
+#: its spelling written apart stays the nickname. 'MS' and 'RA', words
+#: that are titles too, joined the settlers after the second review
+#: found them settling a joined member and not a clause one.
+_UNGUARDED_MEMBER_PAIRS_1138 = 1608
+
+#: How many (pair, shape, order) rows the member invariant reads.
+_MEMBER_PAIRS_CHECKED = 4752
+
+
+def _member_pair_differences() -> tuple[list[str], int]:
+    found = []
+    checked = 0
+    for m in _MEMBERS:
+        for c in _SETTLERS:
+            for a, b in ((m, c), (c, m)):
+                for joined in (f"{a}/{b}", f"{a}-{b}"):
+                    if not suffix_as_written(_normalize(joined), joined,
+                                             Lexicon.default()):
+                        continue
+                    apart = f"{a}, {b}"
+                    for shape in _PAIR_SHAPES:
+                        for parser in _PAIR_PARSERS:
+                            one = {k: v.replace(joined, apart) for k, v in
+                                   parser.parse(shape.format(joined))
+                                   .as_dict().items()}
+                            if one != parser.parse(
+                                    shape.format(apart)).as_dict():
+                                found.append(shape.format(joined))
+                            checked += 1
+    return found, checked
+
+
+def test_a_joined_member_reads_as_its_spelling_written_apart() -> None:
+    found, checked = _member_pair_differences()
+    assert found == []
+    assert checked == _MEMBER_PAIRS_CHECKED
+    assert 0 < _UNGUARDED_MEMBER_PAIRS_1138 < _MEMBER_PAIRS_CHECKED
+
+
+# rules/W5's surname pair (#845): a four-character Han name opening with
+# two listed single surnames reads them as the family, two units of it.
+_ZH = parser_for(locales.ZH)
+
+
+@pytest.mark.parametrize("text", ["王李小明", "王李 小明", "王李小明先生",
+                                  "王李小明 先生"])
+def test_a_surname_pair_is_the_family_in_two_units(text: str) -> None:
+    name = _ZH.parse(text)
+    assert (name.family, name.given, name.middle) == ("王李", "小明", "")
+    assert (name.surname1, name.surname2) == ("王", "李")
+
+
+def test_reading_an_undivided_pair_reports_the_reading_not_taken() -> None:
+    name = _ZH.parse("王李小明")
+    assert [a.kind for a in name.ambiguities] == [
+        AmbiguityKind.SEGMENTATION]
+    assert [t.text for t in name.ambiguities[0].tokens] == ["王", "李", "小明"]
+    assert "'王' + '李小明' also reads" in name.ambiguities[0].detail
+    # the writer's space already said where the given name starts
+    assert _ZH.parse("王李 小明").ambiguities == ()
+
+
+@pytest.mark.parametrize("parser, text, fields", [
+    # the pair's order is not family-first, so nothing is divided past
+    # W1's own division and the name reads as before the rule (#845's
+    # review): given, middle, family and the word count
+    (parser_for(locales.ZH, base=Parser(policy=Policy(script_orders=()))),
+     "王李小明", ("王", "", "李小明", 2)),
+    (_ZH, "Amy 王李小明", ("Amy", "王", "李小明", 3)),
+    (_ZH, "王李小明 Amy", ("王", "李小明", "Amy", 3)),
+    (parser_for(locales.ZH,
+                base=Parser(policy=Policy(two_given_names=True))),
+     "王李小明 Amy", ("王李小明", "", "Amy", 3)),
+])
+def test_a_pair_the_order_does_not_read_is_not_divided(
+        parser: Parser, text: str, fields: tuple[str, str, str, int]) -> None:
+    name = parser.parse(text)
+    assert (name.given, name.middle, name.family, len(name.tokens)) == fields
+    assert (name.surname2, name.ambiguities) == ("", ())
+
+
+@pytest.mark.parametrize("text, fields", [
+    # a Latin name word beside the pair: the name is not wholly Han, so
+    # the pair is not divided even under a declared family-first order.
+    # The word count is asserted because R1's join renders an extra
+    # division inside one field as the word it was cut from
+    # (W1's own 王 + 李小明 makes four words; the pair would make five)
+    ("Amy 王李小明 Amy", ("Amy", "王", "李小明 Amy", 4)),
+    ("Amy Amy 王李小明", ("Amy", "Amy", "王李小明", 4)),
+])
+def test_a_declared_family_first_order_reads_no_pair_beside_latin(
+        text: str, fields: tuple[str, str, str, int]) -> None:
+    name = parser_for(locales.ZH, base=Parser(
+        policy=Policy(name_order=FAMILY_FIRST))).parse(text)
+    assert (name.family, name.given, name.middle,
+            len(name.tokens)) == fields
+    assert name.surname2 == ""
+
+
+def test_hans_own_order_outranks_a_declared_one_for_the_pair() -> None:
+    # Han's script_orders entry given-first, the declaration
+    # family-first: assign reads the entry, so the pair is not divided
+    name = parser_for(locales.ZH, base=Parser(policy=Policy(
+        script_orders=((Script.HAN, GIVEN_FIRST),),
+        name_order=FAMILY_FIRST))).parse("王李小明")
+    assert (name.given, name.family, len(name.tokens)) == ("王", "李小明", 2)
+
+
+@pytest.mark.parametrize("text, suffix", [
+    ("王李小明さん", "さん"), ("王李小明씨", "씨"), ("王李小明 PhD", "PhD"),
+])
+def test_post_nominals_ending_the_name_leave_the_pair_read(
+        text: str, suffix: str) -> None:
+    # no name piece of assign's, so they key no order (#845's review)
+    name = _ZH.parse(text)
+    assert (name.family, name.given, name.suffix, name.surname2) == (
+        "王李", "小明", suffix, "李")
+
+
+def test_a_folded_middle_does_not_join_the_word_it_was_cut_from() -> None:
+    # W1's 李 + 小明, the 李 folded in front by middle_as_family: the
+    # fold renders first and apart, as v1 prepended it (rules/R1)
+    name = parser_for(locales.ZH, base=Parser(policy=Policy(
+        middle_as_family=True,
+        name_order=FAMILY_FIRST_GIVEN_LAST))).parse("李小明 Amy")
+    assert name.family == "小明 李"
+
+
+def test_a_revised_pair_family_joins_with_a_space() -> None:
+    # a revised value's words carry no spans, so the join cannot see
+    # they were written together: accepted (decisions/W5, #845)
+    revised = _ZH.revise(_ZH.parse("王李小明"), family="王李")
+    assert (revised.family, revised.given) == ("王 李", "小明")
+
+
+@pytest.mark.parametrize("text", ["王李小明", "王李 小明", "王李小明 Amy"])
+def test_the_surname_pair_tag_is_never_published(text: str) -> None:
+    assert all("vocab:surname-pair" not in tok.tags
+               for tok in _ZH.parse(text).tokens)
+
+
+def test_a_word_a_division_cut_joins_whole_in_any_field() -> None:
+    # rules/R1's join is not W5's alone: W1's 김 + 민준, both given
+    # names in a mixed-script name read given-first, render as written
+    name = parse("김민준 John")
+    assert (name.given, name.middle, name.given_names) == ("김", "민준", "김민준")
+
+
+def test_a_divided_surname_pair_renders_as_written() -> None:
+    assert str(_ZH.parse("王李小明")) == "王李小明"
+
+
+def test_a_surname_pair_reads_the_same_with_two_family_names_on() -> None:
+    p = parser_for(locales.ZH,
+                   base=Parser(policy=Policy(two_family_names=True)))
+    name = p.parse("王李小明")
+    assert (name.family, name.given, name.surname2) == ("王李", "小明", "李")
+
+
+def test_a_spaced_pair_lays_the_rest_out_by_the_order() -> None:
+    name = _ZH.parse("王李 小明 美华")
+    assert (name.family, name.given, name.middle) == ("王李", "小明", "美华")
+
+
+@pytest.mark.parametrize("text, family, given", [
+    ("歐陽小明", "歐陽", "小明"),     # a listed compound keeps its reading
+    ("李林伟", "李", "林伟"),          # three characters are not reached
+])
+def test_a_surname_pair_leaves_its_exceptions_alone(
+        text: str, family: str, given: str) -> None:
+    name = _ZH.parse(text)
+    assert (name.family, name.given, name.surname2) == (family, given, "")
+
+
+@pytest.mark.parametrize("text, order, tagged", [
+    # given-first: the order reads no family before the pair
+    ("王李小明 Amy", GIVEN_FIRST, 1),
+    # family-first, the tagged word not the one right after the family
+    ("Amy Amy 王李小明", FAMILY_FIRST, 2),
+])
+def test_a_surname_pair_tag_post_rules_cannot_read_is_inert(
+        text: str, order: tuple[Role, Role, Role], tagged: int) -> None:
+    # script_segment tags only where post_rules will read the pair, so
+    # these declines are reached by a hand-placed tag alone: they keep
+    # a future drift between the two stages' order readings from
+    # marking a family the order did not build (rules/W5, #845)
+    from nameparser._pipeline import STAGES
+    from nameparser._pipeline._post_rules import post_rules
+    from nameparser._pipeline._state import (
+        SURNAME_PAIR_TAG, copy_with)
+    parser = parser_for(locales.ZH, base=Parser(
+        policy=Policy(name_order=order)))
+    state = ParseState(original=text, lexicon=parser.lexicon,
+                       policy=parser.policy)
+    for stage in STAGES[:-1]:
+        state = stage(state)
+    tokens = list(state.tokens)
+    tokens[tagged] = copy_with(
+        tokens[tagged], tags=tokens[tagged].tags | {SURNAME_PAIR_TAG})
+    out = post_rules(copy_with(state, tokens=tuple(tokens)))
+    assert not any("vocab:second-surname" in t.tags for t in out.tokens)
+    assert out.ambiguities == state.ambiguities

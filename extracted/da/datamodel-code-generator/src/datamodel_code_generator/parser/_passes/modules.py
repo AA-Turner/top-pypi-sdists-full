@@ -6,32 +6,45 @@ models of other modules, reuse, collapse and discriminator tags through the narr
 ``CollapseHost`` and ``DiscriminatorHost``) and the state through ``ModuleStateView``, which ``Parser`` and its module
 state satisfy structurally. ``process_each_module`` runs the passes of each module through the
 ``_process_single_module`` hook (``ModuleLoopHost``); ``settle_kept_parent_roots``, ``apply_base_stand_in_imports``,
-``write_rule_aliases_as_classes`` (``RuleAliasHost``), ``name_inner_models_in_rules`` and
-``settle_discriminated_unions`` run once every module is processed, on the run through ``ModulesRun``.
+``write_rule_aliases_as_classes`` (``RuleAliasHost``), ``name_inner_models_in_rules``, ``settle_discriminated_unions``
+and ``type_users_of_looping_ref_chains_by_any`` (``DroppedRootModelUsersHost``) run once every module is processed, on
+the run through ``ModulesRun``.
 """
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from dataclasses import replace
+from functools import partial
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast, get_args
 
 from typing_extensions import Protocol, Unpack
 
 from datamodel_code_generator import CollapseRootModelsNameStrategy, FieldTypeCollisionStrategy, ReuseScope
-from datamodel_code_generator._constraint_applicability import TAG_LITERAL_UNTAKEN_KEYWORD
+from datamodel_code_generator._constraint_applicability import (
+    ITEM_COUNT_KEYWORDS,
+    STRING_KEYWORDS,
+    TAG_LITERAL_UNTAKEN_KEYWORD,
+)
 from datamodel_code_generator._container_kinds import (
     BUILTIN_CONTAINERS,
     CONTAINER_FLAGS,
     CONTAINERS,
+    GIVEN_CONTAINERS,
     MAPPINGS,
+    SETS,
     UNHASHABLE_CONTAINERS,
 )
 from datamodel_code_generator._graph import reach
 from datamodel_code_generator._internal_utils import get_most_of_parent
-from datamodel_code_generator._model_keys import FIELDLESS_SITE_KEY, ModelKey, model_key_of, names_by_path
+from datamodel_code_generator._model_keys import (
+    FIELDLESS_SITE_KEY,
+    ModelKey,
+    is_item_counts_site,
+    model_key_of,
+    names_by_path,
+)
 from datamodel_code_generator._reference_graph import (
     EdgeKind,
     GraphSnapshot,
@@ -40,7 +53,7 @@ from datamodel_code_generator._reference_graph import (
 )
 from datamodel_code_generator._requirements import python_target_meets
 from datamodel_code_generator._shared_types import _CollapseRootModelsRecursionError
-from datamodel_code_generator._user_keys import class_field_key
+from datamodel_code_generator._user_keys import class_field_key, model_type_override
 from datamodel_code_generator.enums import DefaultValueType
 from datamodel_code_generator.imports import IMPORT_OPTIONAL, IMPORT_UNION, Import
 from datamodel_code_generator.model._decisions.collapse_eligibility import (
@@ -65,10 +78,14 @@ from datamodel_code_generator.model.base import (
     _model_key_of_model,
     _ModelKeys,
     _reference_names_model,
+    _root_constraint_keywords,
     _share_path_identity,
     get_inherited_fields,
+    inherited_root_field,
 )
 from datamodel_code_generator.model.enum import Enum, Member, _enum_class, enum_value_base, get_raw_enum_member_value
+from datamodel_code_generator.model.type_alias import TypeAlias as PlainTypeAlias
+from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.parser._graph_ids import UNRESOLVED_MODEL_KEY, keyed_models
 from datamodel_code_generator.parser._imports_plan import ImportProducer
 from datamodel_code_generator.parser._model_shapes import REUSE_MODEL
@@ -82,8 +99,14 @@ from datamodel_code_generator.parser._passes._import_binding import (
     reimport_references,
     set_reference_expressions,
 )
-from datamodel_code_generator.parser._passes._keys import _DERIVED_FROM_KEY, declares_type_list_unique_items
+from datamodel_code_generator.parser._passes._keys import _DERIVED_FROM_KEY, site_constraints, with_unique_items_set
 from datamodel_code_generator.parser._passes._name_allocation import scheme_resolver
+from datamodel_code_generator.parser._passes._reference_users import (
+    ReferenceUsersHost,
+    alias_loops,
+    type_additional_properties_users,
+    type_reference_users,
+)
 from datamodel_code_generator.parser._passes._shared import (
     _TYPE_DEPENDENT_CONSTRAINTS_KEY,
     BaseStandInHost,
@@ -94,12 +117,12 @@ from datamodel_code_generator.parser._passes._shared import (
     DeduplicationHost,
     DiscriminatorValue,
     GenerationStoreHost,
+    GenericBaseHost,
     GraphBuilderHost,
     MergedDuplicatesHost,
     ModuleScopeView,
     OutputOptionsHost,
     RecursionFactsHost,
-    RenamedTypesHost,
     ReplacedRootsHost,
     RootModelHost,
     RootModelTypeHost,
@@ -109,32 +132,37 @@ from datamodel_code_generator.parser._passes._shared import (
     _annotated_references,
     _assign_module_name,
     _context_models,
-    _declares_unique_items,
     _derived_models,
     _get_enum_from_base,
     _get_model_module_name,
-    _is_discriminator_wrapper,
     _ModelPositions,
     _named_data_types,
+    _nodes_with_paths,
     _restore_inherited_field_names_for_unique_aliases,
     _rule_data_types,
     _runtime_validation_reference_keys,
-    _unique_items_tuple,
+    additional_properties_holder,
+    aliases_first,
     compared_models,
     definition_reads,
     enum_site_override_import,
+    generic_base_config,
     get_constructor_field_adjustment,
     get_inherited_constructor_info,
+    holds_own_unique_items_set,
     merge_duplicate,
     merged_models,
     module_members,
-    record_renamed_type,
     removes_reuse_duplicate,
     replace_model_in_list,
     require_update_action,
     run_unused_models,
     site_display_name,
     subclass_duplicate,
+    takes_hashable_value,
+    unhashable_unique_sets,
+    unimported_model_keys,
+    unique_items_plan,
     without_stand_ins,
 )
 from datamodel_code_generator.parser._passes._state import (
@@ -144,16 +172,18 @@ from datamodel_code_generator.parser._passes._state import (
     ResultT,
     _KeptHolder,
     _KeptParentRoot,
-    _RenamedType,
 )
 from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base
+from datamodel_code_generator.parser._phases import container_copy, rewrite_additional_properties, rewrite_field_copy
 from datamodel_code_generator.parser._tag_plan import (
     KeptTagField,
     MsgspecUnion,
     TagPlanHost,
     UnionTagDecision,
     UnionView,
+    VariantTagField,
     appended_takes_struct_tag,
+    collapsed_duplicate,
     field_namer,
     has_any_variant,
     has_reused_variant,
@@ -170,21 +200,31 @@ from datamodel_code_generator.parser._tag_plan import (
     site_validity,
     tag_capabilities,
     tag_msgspec_unions,
+    tag_satisfies_pattern,
+    taggable_variant,
     union_site,
 )
 from datamodel_code_generator.python_literal import runtime_expression_imports, stable_repr
-from datamodel_code_generator.reference import _ALIAS_RESOLUTION_CLASS_NAME_KEY, ModelResolver
+from datamodel_code_generator.reference import (
+    _ALIAS_RESOLUTION_CLASS_NAME_KEY,
+    ModelResolver,
+    enum_literal_of,
+    schema_path_of,
+)
 from datamodel_code_generator.types import DataType, Types, _copy_data_type
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
     from pathlib import Path
 
+    from datamodel_code_generator._user_keys import ClassScope
     from datamodel_code_generator.config import ParserConfig
-    from datamodel_code_generator.enums import DataclassArguments
+    from datamodel_code_generator.enums import DataclassArguments, TargetPydanticVersion
     from datamodel_code_generator.imports import Imports
+    from datamodel_code_generator.model.output import OutputModelContext
     from datamodel_code_generator.parser._field_rows import FieldFacts, FieldRow
     from datamodel_code_generator.parser._imports_plan import ModuleImportLedger
+    from datamodel_code_generator.parser._passes._shared import UniqueItemsPlan
     from datamodel_code_generator.parser._passes._state import (
         ModuleContextView,
         ModulePath,
@@ -195,6 +235,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.parser._tag_plan import (
         DiscriminatorTag,
         InlineVariantTags,
+        MergedVariantTags,
         TagPlan,
     )
     from datamodel_code_generator.parser.generation import GraphBuilder
@@ -204,11 +245,13 @@ if TYPE_CHECKING:
 __all__ = [
     "CollapseHost",
     "DiscriminatorHost",
+    "DroppedRootModelUsersHost",
     "ImportFromHost",
     "ModuleLoopHost",
     "ModuleStateView",
     "ModulesHost",
     "ModulesRun",
+    "PlainAliasHost",
     "ReuseHost",
     "RuleAliasHost",
     "apply_base_class_type_overrides",
@@ -226,7 +269,8 @@ __all__ = [
     "record_decimal_alias_models",
     "remove_overridden_models",
     "rename_fields_hiding_types",
-    "replace_type_list_unique_list_to_set",
+    "replace_merged_unique_list_to_set",
+    "replace_unhashable_unique_set_to_list",
     "replace_unique_list_to_set",
     "restore_inherited_field_names_for_unique_aliases",
     "reuse_model",
@@ -239,6 +283,8 @@ __all__ = [
     "sort_models",
     "type_const_narrowed_values",
     "type_dict_keys_by_root_types",
+    "type_users_of_looping_ref_chains_by_any",
+    "write_plain_aliases_for_recursive_models",
     "write_rule_aliases_as_classes",
 ]
 
@@ -265,11 +311,11 @@ def renames_colliding_types(parser: CollisionRenameHost) -> bool:
 
 class ModulesHost(
     CollisionRenameHost,
+    GenericBaseHost,
     ConstructorInfoHost,
     ReplacedRootsHost,
-    RenamedTypesHost,
     TypeOverrideHost,
-    GraphBuilderHost,
+    GenerationStoreHost,
     MergedDuplicatesHost,
     CollapseRootModelsHost,
     OutputOptionsHost,
@@ -279,6 +325,26 @@ class ModulesHost(
     Protocol,
 ):
     """The options, run state and hooks of the parser that the module passes read and write."""
+
+    @property
+    def remove_unused_models_beside_type_overrides(self) -> bool:
+        """Whether the unused models leave a module that model-level type overrides take models out of."""
+
+    @property
+    def _python_import_target_paths(self) -> set[str]:
+        """The paths of the empty models parsed for schemas whose ``x-python-import`` types their uses."""
+
+    @property
+    def _output_model_context(self) -> OutputModelContext:
+        """The capabilities of the output model types."""
+
+    def _mark_untaken_constraints(
+        self,
+        field: DataModelFieldBase,
+        untaken: dict[str, Any],
+        keywords_for: Callable[[str], frozenset[str]],
+    ) -> None:
+        """Remember the declared constraints a field leaves out, and the target version that would take each."""
 
     @property
     def _const_narrowed_values(self) -> dict[int, tuple[DataType, _ConstNarrowing]]:
@@ -361,6 +427,10 @@ class ModulesHost(
         """Whether closed arrays are written as tuples."""
 
     @property
+    def use_unique_items_as_set_by_value(self) -> bool:
+        """Whether the sets are decided on the final types."""
+
+    @property
     def use_unique_items_as_set(self) -> bool:
         """Whether arrays of unique items are written as sets."""
 
@@ -370,8 +440,12 @@ class ModulesHost(
     def _apply_override_to_field(self, field: DataModelFieldBase, override_import: Import) -> None:
         """Replace a field's type by the type of a type override."""
 
-    def _create_set_from_list(self, data_type: DataType) -> DataType | None:
-        """Return a set copy of a list type, or the type after its nested lists became sets in place."""
+    def _create_set_from_list(self, data_type: DataType) -> DataType:
+        """Return the set copy of a list type, which holds its items."""
+
+    @property
+    def _unique_set_defaults(self) -> dict[int, tuple[DataModelFieldBase, Any]]:
+        """The list default of each field whose default --use-unique-items-as-set wrote as a set, by the field's id."""
 
 
 class ReuseHost(RecursionFactsHost, DeduplicationHost, Protocol):
@@ -380,6 +454,19 @@ class ReuseHost(RecursionFactsHost, DeduplicationHost, Protocol):
     @property
     def _removed_reuse_users(self) -> dict[int, tuple[DataType, list[str]]]:
         """The data types whose duplicate reuse removed, by id, with the paths they named."""
+
+
+class ParsedModelsHost(Protocol):
+    """The parsed models."""
+
+    @property
+    def results(self) -> list[DataModel]:
+        """The parsed models."""
+
+
+def _parsed_and_module_models(parser: ParsedModelsHost, models: Iterable[DataModel]) -> Collection[DataModel]:
+    """Return the parsed models and ``models``, each once, in the order they come first."""
+    return {id(model): model for model in chain(parser.results, models)}.values()
 
 
 class InlineVariantHost(Protocol):
@@ -405,13 +492,21 @@ class InlineVariantHost(Protocol):
     def use_enum_values_in_discriminator(self) -> bool:
         """Whether discriminator tags are written as the members of their enums."""
 
+    @property
+    def merge_shared_variant_tags(self) -> bool:
+        """Whether a variant that discriminated unions tag differently takes every tag they give it."""
+
+    @property
+    def _collapsed_reuse_users(self) -> dict[int, tuple[DataType, Reference]]:
+        """The data types collapsed reuse redirected, with the reference each named before."""
+
 
 class CollapseHost(
     CollisionRenameHost,
+    GenericBaseHost,
     InlineVariantHost,
     RecursionFactsHost,
     ReimportHost,
-    RenamedTypesHost,
     GenerationStoreHost,
     CollapseRootModelsHost,
     RootModelHost,
@@ -420,8 +515,44 @@ class CollapseHost(
     """The options, run state and hooks of the parser that collapsing root models reads and writes."""
 
     @property
+    def _model_type_override_imports(self) -> dict[str, Import]:
+        """The imports of the types that override models, by model name; collapse keeps the models they replace."""
+
+    @property
     def _collapses_list_item_root_models(self) -> bool:
         """Whether collapse inlines the root models that list items name."""
+
+    @property
+    def use_tuple_for_closed_arrays(self) -> bool:
+        """Whether a closed array is written as a tuple."""
+
+    @property
+    def keep_constrained_root_models_in_every_container(self) -> bool:
+        """Whether a constrained root model stays named inside every container of its holder."""
+
+    @property
+    def keep_enum_literal_aliases(self) -> bool:
+        """Whether a type alias of the Literal of an enum stays named under collapse."""
+
+    @property
+    def keep_reference_null_on_collapsed_root_models(self) -> bool:
+        """Whether a site that collapse gives the type of a root model admitting null keeps that null."""
+
+    @property
+    def keep_shared_members_on_collapsed_root_models(self) -> bool:
+        """Whether a member that inlined copies of a root type share is replaced in every copy under collapse."""
+
+    @property
+    def collapse_constrained_root_models_as_annotated(self) -> bool:
+        """Whether collapse inlines a constrained string root as a member writing its constraints in ``Annotated``."""
+
+    @property
+    def use_annotated(self) -> bool:
+        """Whether the output writes field constraints in ``Annotated``."""
+
+    @property
+    def target_pydantic_version(self) -> TargetPydanticVersion | None:
+        """The Pydantic version the output targets, if configured."""
 
     @property
     def _const_narrowed_values(self) -> dict[int, tuple[DataType, _ConstNarrowing]]:
@@ -454,6 +585,14 @@ class CollapseHost(
     @property
     def generate_schema_validators(self) -> bool:
         """Whether models get the schema validator rules the types cannot express."""
+
+    @property
+    def _self_named_root_models(self) -> list[DataModel]:
+        """The root models naming themselves that the deduplication of root models dropped, whose users name them."""
+
+    @property
+    def data_type_manager(self) -> DataTypeManager:
+        """The data type manager of the parser."""
 
 
 class DiscriminatorHost(InlineVariantHost, CollapsedReuseHost, RootModelHost, Protocol):
@@ -495,7 +634,7 @@ class DiscriminatorHost(InlineVariantHost, CollapsedReuseHost, RootModelHost, Pr
         data_type: DataType,
         *,
         source_name: str | None = None,
-        class_name: str | None = None,
+        scope: ClassScope | None = None,
         **facts: Unpack[FieldFacts],
     ) -> DataModelFieldBase:
         """Build a field of a model the parser writes, with the configured options its ``row`` takes."""
@@ -507,6 +646,18 @@ class ImportFromHost(ReferenceExpressionHost, ReplacedRootsHost, BaseStandInHost
     @property
     def _self_named_root_models(self) -> list[DataModel]:
         """The root models naming themselves that the deduplication of root models dropped, whose users name them."""
+
+
+class DroppedRootModelUsersHost(ReferenceUsersHost, Protocol):
+    """The dropped roots, the store and the data types that typing the users of a dropped root model reads."""
+
+    @property
+    def _self_named_root_models(self) -> list[DataModel]:
+        """The root models naming themselves that the deduplication of root models dropped, whose users name them."""
+
+    @property
+    def data_type_manager(self) -> DataTypeManager:
+        """The data type manager of the parser."""
 
 
 class ModuleLoopHost(RecursionFactsHost, TagPlanHost, Protocol[ConfigT, ContextT, ResultT]):
@@ -549,6 +700,14 @@ class RuleAliasHost(ImportFromHost, DataModelTypeHost, Protocol):
         """Create a model of ``model_type``, the model type of the output by default."""
 
 
+class PlainAliasHost(RuleAliasHost, Protocol):
+    """The option of the parser that writing the aliases of self-referencing classes as plain aliases reads."""
+
+    @property
+    def use_plain_alias_for_recursive_models(self) -> bool:
+        """Whether a Pydantic alias whose value is a class that names itself is a plain ``TypeAlias``."""
+
+
 class ModuleStateView(ModuleScopeView, Protocol):
     """What the module passes read and write of the state of one ``_process_single_module`` call."""
 
@@ -585,6 +744,10 @@ class ModulesRun(ModuleScopeView, Protocol):
     def unused_models(self) -> list[DataModel]:
         """The models no module writes."""
 
+    @property
+    def model_to_module_models(self) -> dict[DataModel, tuple[ModulePath, list[DataModel]]]:
+        """The module and the model list the module structure recorded for each model."""
+
 
 def _named_enum(source: DataModel) -> Enum | None:
     """Return the enum a value typed by ``source`` names: ``source``, or the enum the root of a nullable enum types.
@@ -614,7 +777,9 @@ def _is_builtin_type_collision(current_name: str, data_type: DataType) -> bool:
         return True
 
     if (slot := BUILTIN_CONTAINERS.get(current_name)) is not None:
-        return bool(getattr(data_type, CONTAINER_FLAGS[slot]))
+        return bool(getattr(data_type, CONTAINER_FLAGS[slot])) or (
+            (given := data_type.given_container) is not None and GIVEN_CONTAINERS[given].written.name == current_name
+        )
 
     return False
 
@@ -842,11 +1007,11 @@ def _parent_strategy_skipped(inner_class_name: str, reason: str) -> str:
     return f"Cannot apply 'parent' strategy for '{inner_class_name}' - {reason}. Skipping collapse."
 
 
-def _reaches_data_type(data_type: DataType, target: DataType) -> bool:
-    """Return whether target is data_type or lies under it, through nested data types and dict keys."""
+def _reached_ids(data_type: DataType) -> set[int]:
+    """Return the ids of ``data_type`` and the types under it, through nested data types and dict keys."""
     reached: set[int] = set()
     data_type.walk(lambda _: None, reached)
-    return id(target) in reached
+    return reached
 
 
 def _tag_discriminator_unions(
@@ -895,38 +1060,33 @@ def _discriminator_tag_constraints(field: DataModelFieldBase) -> tuple[Constrain
     return constraints, values, pattern
 
 
-def _tag_satisfies_pattern(value: DiscriminatorValue, pattern: str) -> bool:
-    """Return whether a tag value satisfies a pattern as ``re.search`` finds it, which a non-string always does.
-
-    A pattern Python cannot compile counts as satisfied.
-    """
-    try:
-        return not isinstance(value, str) or re.search(pattern, value) is not None
-    except re.error:
-        return True
-
-
 def _drop_discriminator_tag_patterns(
     builder: GraphBuilder,
-    tag_fields: Iterable[tuple[DataModelFieldBase, Sequence[DiscriminatorValue]]],
+    tag_fields: Iterable[VariantTagField],
+    *,
+    union_name: str,
+    property_name: str,
 ) -> None:
     """Write the tags of a union without patterns where an output model writes constraints as ``Field()`` arguments.
 
     Pydantic checks a pattern on the tag's ``Literal`` by validating the value again as a ``str``, which hides the
-    ``Literal`` from the discriminator, and the ``Literal`` decides the tag anyway once every tag value satisfies the
-    pattern. A tag value outside its pattern leaves every pattern of the union, as the schema rejects that variant.
+    ``Literal`` from the discriminator, so the module does not import; the ``Literal`` decides a tag value inside its
+    pattern anyway. A tag value outside its pattern is warned about, as the schema accepts no variant with that tag.
     The other constraints stay.
     """
-    patterned = [
-        (field, found, tag_values)
-        for field, tag_values in tag_fields
-        if (found := _discriminator_tag_constraints(field)) is not None
-    ]
-    if not all(
-        _tag_satisfies_pattern(value, pattern) for _, (_, _, pattern), tag_values in patterned for value in tag_values
-    ):
-        return
-    for field, (constraints, values, _), _ in patterned:
+    for variant, field, tag_values in tag_fields:
+        if (found := _discriminator_tag_constraints(field)) is None:
+            continue
+        constraints, values, pattern = found
+        for value in tag_values:
+            if not tag_satisfies_pattern(value, pattern):
+                warn_as_parser_base(
+                    f"Discriminator {stable_repr(property_name)} of {union_name} tags {variant.class_name} with "
+                    f"{stable_repr(value)}, which the pattern {stable_repr(pattern)} of its tag field rejects, so the "
+                    f"schema accepts no {variant.class_name} with that tag; the tag is written without the pattern.",
+                    UserWarning,
+                    stacklevel=2,
+                )
         builder.set_field_constraints(field, type(constraints).model_validate(values))
         field.invalidate_semantic_caches()
 
@@ -937,6 +1097,18 @@ def inline_variant_models(parser: InlineVariantHost) -> InlineVariantTags:
         parser.results,
         field_namer(parser.model_resolver, parser.field_name_model_type),
         enum_member_tags=parser.use_enum_values_in_discriminator,
+    )
+
+
+def merged_variant_models(parser: InlineVariantHost) -> MergedVariantTags:
+    """Return the merged tags of the variants unions tag differently, none without ``--merge-shared-variant-tags``."""
+    if not parser.merge_shared_variant_tags:
+        return {}
+    return parser._tag_plan.merged_variant_tags(  # noqa: SLF001
+        parser.results,
+        field_namer(parser.model_resolver, parser.field_name_model_type),
+        enum_member_tags=parser.use_enum_values_in_discriminator,
+        collapsed_users=parser._collapsed_reuse_users,  # noqa: SLF001
     )
 
 
@@ -963,68 +1135,159 @@ def record_decimal_alias_models(parser: ModulesHost, state: ModuleStateView) -> 
 
 
 def replace_unique_list_to_set(parser: ModulesHost, models: list[DataModel]) -> None:
-    """Write each uniqueItems array that is a list as a set, and its list default as a set, where a list became one.
+    """Write the uniqueItems arrays of each field's own schema that ``unique_items_plan`` decides as sets.
 
     A field typed as another container, such as a ``Sequence``, keeps its type and its default. The array of a type
-    list waits for reuse (``replace_type_list_unique_list_to_set``).
+    list and the arrays a nested schema declares unique wait for reuse (``replace_merged_unique_list_to_set``). The type
+    aliases are decided first, so the arrays of their holders read the sets their values hold (``aliases_first``). This
+    is row ``legacy-unique-items-decided-before-collapse``: under --use-unique-items-as-set-by-value every array stays a
+    list for the decision on the final types (``parser/_unique_sets.py``). The models the items name are read once
+    root models collapsed (``replace_unhashable_unique_set_to_list``).
     """
-    for model, model_field in _unique_list_fields(parser, models, type_list=False):
-        _write_unique_set(parser, model, model_field)
-
-
-def replace_type_list_unique_list_to_set(parser: ModulesHost, models: list[DataModel]) -> None:
-    """Write the uniqueItems array of a type list as a set where every model merged into its model declares it too.
-
-    The array of ``type: [array, string]`` reads ``uniqueItems`` since 0.89.0; deduplication and reuse compared it as
-    the list 0.88.0 wrote, so a model merged into its model may declare no ``uniqueItems`` there, or declare it
-    through a base: the field then keeps the list, which takes the values of both.
-    """
-    for model, model_field in _unique_list_fields(parser, models, type_list=True):
-        if all(_declares_unique_items_at(merged, model_field.name) for merged in merged_models(parser, model)):
-            _write_unique_set(parser, model, model_field)
-
-
-def _unique_list_fields(
-    parser: ModulesHost, models: list[DataModel], *, type_list: bool
-) -> Iterator[tuple[DataModel, DataModelFieldBase]]:
-    """Yield the fields declaring uniqueItems that a set may take, of a type list or not as ``type_list`` says."""
-    if not parser.use_unique_items_as_set:
+    if not parser.use_unique_items_as_set or parser.use_unique_items_as_set_by_value:
         return
-    for model in models:
+    for model in aliases_first(models):
         for model_field in model.fields:
             if (
-                _declares_unique_items(model_field)
-                and declares_type_list_unique_items(model_field) is type_list
-                and not (parser.use_tuple_for_closed_arrays and _unique_items_tuple(model_field.data_type) is not None)
-            ):
-                yield model, model_field
+                plan := unique_items_plan(model_field, keeps_tuples=parser.use_tuple_for_closed_arrays, sources="field")
+            ).sets:
+                _write_unique_sets(parser, model_field, plan)
 
 
-def _declares_unique_items_at(model: DataModel, name: str | None) -> bool:
-    """Return whether the field ``name`` of a model, its own or else the one it inherits, declares uniqueItems."""
+def replace_merged_unique_list_to_set(parser: ModulesHost, models: list[DataModel]) -> None:
+    """Write the other uniqueItems arrays as sets where every model merged into its model declares them too.
+
+    They are the array of ``type: [array, string]``, which reads ``uniqueItems`` since 0.89.0, and the arrays that a
+    member of an anyOf or oneOf, the items of an array or the values of a map declare unique. Deduplication and reuse
+    compared them as lists, so a model merged into the field's model may declare no ``uniqueItems`` at the same place,
+    or declare it through a base: the array then keeps the list, which takes the values of both. An array in a union
+    beside another member of its kind, an array or a map, that keeps its lists keeps the list too, as a msgspec union
+    holds one of each. An array of the field's own schema that ``replace_unique_list_to_set`` kept a list, as its items
+    were lists then, is read again with them: it becomes a set where the sets they become hash, frozen sets under
+    --use-generic-container-types, and every model merged into its model declares it too. The type aliases are decided
+    first, as in ``replace_unique_list_to_set``, so a holder never reads a set its alias's value keeps a list. The type
+    of the additional properties that the settings of a model write (TypedDict ``extra_items``) is read as the field
+    built from the additionalProperties schema, whose arrays are all those of nested schemas
+    (``additional_properties_holder``). Under --use-unique-items-as-set-by-value the decision on the final types writes
+    them (``parser/_unique_sets.py``).
+    """
+    if not parser.use_unique_items_as_set or parser.use_unique_items_as_set_by_value:
+        return
+    keeps_tuples = parser.use_tuple_for_closed_arrays
+    for model in aliases_first(models):
+        merged = merged_models(parser, model)
+        for model_field in model.fields:
+            if (
+                plan := unique_items_plan(
+                    model_field,
+                    keeps_tuples=keeps_tuples,
+                    sources="merged",
+                    merged=[_field_named(other, model_field.name) for other in merged],
+                )
+            ).sets:
+                _write_unique_sets(parser, model_field, plan)
+        if (holder := additional_properties_holder(model)) is not None and (
+            plan := unique_items_plan(
+                holder,
+                keeps_tuples=keeps_tuples,
+                sources="merged",
+                merged=[additional_properties_holder(other) for other in merged],
+            )
+        ).sets:
+            rewrite_additional_properties(
+                parser._graph_builder,  # noqa: SLF001
+                _copy_data_type,
+                model,
+                plan.sets,
+                _unique_set_of(parser),
+            )
+
+
+def _field_named(model: DataModel, name: str | None) -> DataModelFieldBase | None:
+    """Return the field ``name`` of a model, its own or else the one it inherits."""
     found = None
     for model_field in model.iter_all_fields():
         if model_field.name == name:
             found = model_field
-    return found is not None and _declares_unique_items(found)
+    return found
 
 
-def _write_unique_set(parser: ModulesHost, model: DataModel, model_field: DataModelFieldBase) -> None:
-    """Write a uniqueItems list of a field as a set, and its list default as a set.
+def _write_unique_sets(parser: ModulesHost, model_field: DataModelFieldBase, plan: UniqueItemsPlan) -> None:
+    """Write the lists of a field's type that ``plan`` decides as sets, and the field's list default as its set.
 
-    A default whose items cannot hash keeps the field and its default as they are; the nested lists that became sets
-    in place change the imports of the model.
+    Each set records that it is one (``with_unique_items_set``) and takes the place of its list in the type that holds
+    it: a field's type holds its arrays, as the union an array's type is built in does (``legacy-non-array-first``).
+    The field's list default is kept for ``replace_unhashable_unique_set_to_list``.
     """
-    if (set_data_type := parser._create_set_from_list(model_field.data_type)) is None:  # noqa: SLF001
+    builder = parser._graph_builder  # noqa: SLF001
+    as_set = _unique_set_of(parser)
+    for list_type in plan.sets:
+        builder.swap_data_type(list_type, as_set(list_type), refresh="deferred")
+    if plan.default is not None:
+        parser._unique_set_defaults[id(model_field)] = (model_field, model_field.default)  # noqa: SLF001
+        builder.set_field_default(model_field, plan.default)
+    builder.replace_field_type(model_field, model_field.data_type)
+
+
+def _unique_set_of(parser: ModulesHost) -> Callable[[DataType], DataType]:
+    """Return what writes a list as the set --use-unique-items-as-set writes from it, which records that it is one."""
+    return lambda list_type: with_unique_items_set(parser._create_set_from_list(list_type))  # noqa: SLF001
+
+
+def _unique_list_of(set_type: DataType) -> DataType:
+    """Return the list that a set --use-unique-items-as-set wrote turns back into, without the set record."""
+    return with_unique_items_set(container_copy(set_type, is_set=False), wrote=False)
+
+
+def replace_unhashable_unique_set_to_list(parser: ModulesHost, models: list[DataModel]) -> None:
+    """Write back as lists the uniqueItems sets that cannot hold their items once root models collapsed.
+
+    ``replace_unique_list_to_set`` and ``replace_merged_unique_list_to_set`` write the sets before collapse, which may
+    still inline the model that the items of a set name, a RootModel written as an alias. Once it has, a set whose
+    items take no hashable value, read with the class of the models they name, or that sits beside a member of its
+    kind that such a set turned back into, is a list again (``unhashable_unique_sets``), asked for until none is left;
+    a field none of whose sets of its own level is left takes back its list default. The type aliases are decided
+    first, as in ``replace_unique_list_to_set``, so a holder reads the lists their values hold again. The type of the
+    additional properties that the settings of a model write is read as a field (``additional_properties_holder``).
+    A field takes a copy of its type tree, as collapse shares the nodes of a root type with every holder, whose sets
+    at those paths are lists (``rewrite_field_copy`` by path, as the decision reads where each set sits).
+    """
+    if not parser.use_unique_items_as_set or parser.use_unique_items_as_set_by_value:
         return
-    if isinstance(model_field.default, list):
-        try:
-            converted_default = set(model_field.default)
-        except TypeError:
-            parser._graph_builder.note_changed_models(model)  # noqa: SLF001
-            return
-        parser._graph_builder.set_field_default(model_field, converted_default)  # noqa: SLF001
-    parser._graph_builder.replace_field_type(model_field, set_data_type)  # noqa: SLF001
+    defaults = parser._unique_set_defaults  # noqa: SLF001
+    keeps_tuples = parser.use_tuple_for_closed_arrays
+    config = generic_base_config(parser)
+    for model in aliases_first(models):
+        for model_field in model.fields:
+            lists: set[tuple[int, ...]] = set()
+            while paths := unhashable_unique_sets(
+                model_field, keeps_tuples=keeps_tuples, generic_base_config=config, lists=lists
+            ):
+                rewrite_field_copy(
+                    parser._graph_builder,  # noqa: SLF001
+                    _copy_data_type,
+                    model_field,
+                    _unique_list_of,
+                    paths=paths,
+                )
+                lists.update(paths)
+            if id(model_field) in defaults and not holds_own_unique_items_set(model_field):
+                parser._graph_builder.set_field_default(model_field, defaults.pop(id(model_field))[1])  # noqa: SLF001
+        reverted: set[tuple[int, ...]] = set()
+        while (holder := additional_properties_holder(model)) is not None and (
+            paths := unhashable_unique_sets(
+                holder, keeps_tuples=keeps_tuples, generic_base_config=config, lists=reverted
+            )
+        ):
+            nodes = dict(_nodes_with_paths(holder.data_type, ()))
+            rewrite_additional_properties(
+                parser._graph_builder,  # noqa: SLF001
+                _copy_data_type,
+                model,
+                (nodes[path] for path in paths),
+                _unique_list_of,
+            )
+            reverted.update(paths)
 
 
 def extract_inherited_enum(models: list[DataModel]) -> None:
@@ -1190,13 +1453,6 @@ def _root_type_models(model: DataModel) -> list[DataModel]:
     ]
 
 
-def _root_constraint_keywords(root_field: DataModelFieldBase) -> dict[str, Any]:
-    """Return the constraints other than ``unique_items`` that a root field sets, by their keywords."""
-    if not isinstance(constraints := root_field.constraints, ConstraintsBase):
-        return {}
-    return constraints.model_dump(by_alias=True, exclude_none=True, exclude={"unique_items"})
-
-
 def _constrains_root_field(model: DataModel) -> bool:
     """Return whether the root field of ``model`` carries a constraint other than ``unique_items``."""
     return bool(model.fields) and bool(_root_constraint_keywords(model.fields[0]))
@@ -1205,12 +1461,29 @@ def _constrains_root_field(model: DataModel) -> bool:
 def _has_preservable_root_constraints(model: DataModel) -> bool:
     """Return whether flattening a root wrapper would discard field-owned constraints.
 
-    True when ``model``, or a model the snapshot of root types reaches from it, constrains its root field.
+    True when ``model``, or a model the snapshot of root types reaches from it, constrains its root field. The alias
+    of an item-count site that the walk reaches keeps its counts once ``model`` is inlined, as its holder names it, so
+    only the models it reaches count.
     """
     walk = walk_graph(
         GraphSnapshot.ROOT_CONSTRAINTS, EdgeKind.ROOT_TYPE, (model,), _model_key_of_model, _root_type_models
     )
-    return any(map(_constrains_root_field, walk.node_of.values()))
+    return any(
+        _constrains_root_field(node)
+        for key, node in walk.node_of.items()
+        if key in walk.starts or not is_item_counts_site(node.reference)
+    )
+
+
+def _wrapped_model_reference(root_data_type: DataType) -> Reference | None:
+    """Return the reference of the model a root type is, which the holder names in its place, or None.
+
+    The alias of an item-count site stands for the array that was inline there up to 0.89.0, so a root type that
+    names it alone is inlined as any other type.
+    """
+    if (reference := root_data_type.reference) is None or is_item_counts_site(reference):
+        return None
+    return reference
 
 
 def _site_needs_model_regex_engine(model: DataModel) -> bool:
@@ -1241,27 +1514,84 @@ def collapse_site_facts(
     root_data_type = root_field.data_type
     constrained_root_field = _has_root_field_constraints(root_field, row="declared")
     constrained_root = _has_root_field_constraints(root_field)
+    member_carries_constraints = (
+        field_constraints
+        and constrained_root_field
+        and isinstance(data_type.parent, DataType)
+        and annotated_member_type(parser, root_field) is not None
+    )
     return CollapseSiteFacts(
         has_root_field=True,
+        type_overridden=model_type_override(
+            parser._model_type_override_imports,  # noqa: SLF001
+            root_model.reference,
+            row="class-name",
+        )
+        is not None,
         circular=model_key_of(root_model.reference) in circular_root_models,
         runtime_object_validation=root_model.has_runtime_object_validation,
+        unhashable_set_item=isinstance(holder := data_type.parent, DataType)
+        and holder in SETS
+        and not root_model.IS_ALIAS
+        and not root_model._instances_never_hash(generic_base_config(parser))  # noqa: SLF001
+        and not takes_hashable_value(
+            root_data_type,
+            keeps_tuples=parser.use_tuple_for_closed_arrays,
+            generic_base_config=generic_base_config(parser),
+        ),
+        enum_literal_alias=parser.keep_enum_literal_aliases
+        and isinstance(root_model, TypeAliasBase)
+        and enum_literal_of(root_data_type),
         needs_model_regex_engine=_site_needs_model_regex_engine(root_model),
         field_constraints=field_constraints,
         constrains_through_root_types=not field_constraints and _has_preservable_root_constraints(root_model),
         constrained_root_field=constrained_root_field,
         constrained_root=constrained_root,
         root_type_is_map=root_data_type in MAPPINGS,
-        root_type_names_model=root_data_type.reference is not None,
+        root_type_names_model=_wrapped_model_reference(root_data_type) is not None,
         names_inner_models=parser.collapse_root_models_name_strategy is not None,
+        member_carries_constraints=member_carries_constraints,
         holder_has_container=field_constraints
         and constrained_root
+        and not member_carries_constraints
         and any(
-            member.is_union or member in CONTAINERS.without("legacy-collapse-beside-lists-and-dicts")
+            member.is_union
+            or member
+            in (
+                CONTAINERS
+                if parser.keep_constrained_root_models_in_every_container
+                else CONTAINERS.without("legacy-collapse-beside-lists-and-dicts")
+            )
             for member in model_field.data_type.all_data_types
         ),
         list_item=isinstance(parent := data_type.parent, DataType) and parent.is_list,
         collapses_list_items=parser._collapses_list_item_root_models,  # noqa: SLF001
     )
+
+
+def annotated_member_type(parser: CollapseHost, root_field: DataModelFieldBase) -> DataType | None:
+    """Return the string type that writes the ``Field()`` constraints of ``root_field`` in its ``Annotated`` form.
+
+    Under --collapse-constrained-root-models-as-annotated with --use-annotated, where the root type is the string type
+    and its constraints are string keywords, which the type manager writes into the string type as a dict key schema
+    writes them (``root_key_data_type``); None for any other root, and where the output writes no constraint in a type.
+    """
+    if not (parser.collapse_constrained_root_models_as_annotated and parser.use_annotated):
+        return None
+    keywords = _root_constraint_keywords(root_field)
+    root_type = root_field.data_type
+    string_type = parser.data_type_manager.get_data_type(Types.string)
+    if (
+        not keywords
+        or not keywords.keys() <= STRING_KEYWORDS
+        or root_type.is_optional
+        or (root_type.type, root_type.import_) != (string_type.type, string_type.import_)
+    ):
+        return None
+    member = parser.data_type_manager.get_data_type(
+        Types.string, use_annotated=True, target_pydantic_version=parser.target_pydantic_version, **keywords
+    )
+    return member if member.kwargs else None
 
 
 def has_other_root_references(parser: CollapseHost, reference: Reference, data_type: DataType) -> bool:
@@ -1294,7 +1624,9 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
     names stays written after its holders inline it: the rule checks values through its class. A root model that its
     inner model replaces leaves; once every module is processed, the rules name the inner model instead
     (``name_inner_models_in_rules``). The model of a site that earlier releases wrote as a model without fields
-    (``FIELDLESS_SITE_KEY``) keeps the types it names, so collapsing leaves every model those releases wrote.
+    (``FIELDLESS_SITE_KEY``) keeps the types it names, so collapsing leaves every model those releases wrote. The type
+    alias of an item-count site (``ITEM_COUNTS_SITE_KEY``) is read as the inline array it was up to 0.89.0: a root model
+    that names it is inlined as that array was, and its holder names the alias.
     """
     generation_store = parser.generation_store
     generation_index = generation_store.index
@@ -1319,14 +1651,15 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                     not reference
                     or not is_root_model(root_type_model := cast("DataModel", reference.source))
                     or keeps_root_model_named(
-                        collapse_site_facts(parser, model_field, data_type, root_type_model, circular_root_models)
+                        site_facts := collapse_site_facts(
+                            parser, model_field, data_type, root_type_model, circular_root_models
+                        )
                     )
                     is not None
                 ):
                     continue
                 root_type_field = root_type_model.fields[0]
-                if root_type_field.data_type.reference:
-                    inner_reference = root_type_field.data_type.reference
+                if (inner_reference := _wrapped_model_reference(root_type_field.data_type)) is not None:
                     inner_model = cast("DataModel", inner_reference.source)
 
                     if (kept_root := parser._kept_parent_roots.get(id(root_type_model))) is not None:  # noqa: SLF001
@@ -1391,6 +1724,7 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                             retire_root(parser, root_type_model, inner_model, model_path_to_module_name)
                     graph_builder.collapse_root_data_type(data_type, inner_reference)
                     carry_const_narrowings(parser, root_type_field.data_type, data_type)
+                    keep_root_null(parser, root_type_field, data_type)
 
                     redirected_holders.append((
                         model,
@@ -1405,18 +1739,25 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
 
                     continue
 
-                # set copied data_type
                 source_module_name = _get_model_module_name(root_type_model, model_path_to_module_name)
                 target_module_name = _get_model_module_name(model, model_path_to_module_name)
-                copied_data_type = (
-                    parser._copy_model_type(root_type_field.data_type)  # noqa: SLF001
-                    if source_module_name != target_module_name
-                    else graph_builder.inline_shared(root_type_field.data_type, data_type)
-                )
+                if site_facts.member_carries_constraints:
+                    copied_data_type = cast("DataType", annotated_member_type(parser, root_type_field))
+                elif isinstance(data_type.parent, DataType) and any(
+                    dropped is root_type_model
+                    for dropped in parser._self_named_root_models  # noqa: SLF001
+                ):
+                    copied_data_type = parser.data_type_manager.get_data_type(Types.null)
+                elif source_module_name != target_module_name:
+                    copied_data_type = parser._copy_model_type(root_type_field.data_type)  # noqa: SLF001
+                else:
+                    copied_data_type = graph_builder.inline_shared(root_type_field.data_type, data_type)
                 carry_const_narrowings(parser, root_type_field.data_type, copied_data_type)
+                carry_site_constraints(parser, data_type, copied_data_type)
                 has_remaining_root_references = has_other_root_references(parser, root_type_model.reference, data_type)
 
                 replacement_context = None
+                shared_holders: tuple[DataType, ...] = ()
                 if isinstance(field_ := data_type.parent, parser.data_model_field_type):
                     # for field
                     # override empty field by root-type field
@@ -1450,8 +1791,10 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                     )
 
                 elif isinstance(parent_data_type := data_type.parent, DataType):
+                    shared_holders, kept_holders = shared_member_holders(parser, data_type, copied_data_type)
+                    has_remaining_root_references = has_remaining_root_references or bool(kept_holders)
                     if parent_data_type.is_list:
-                        if parser.field_constraints:
+                        if parser.field_constraints and not site_facts.member_carries_constraints:
                             graph_builder.set_field_constraints(
                                 model_field,
                                 ConstraintsBase.merge_constraints(root_type_field.constraints, model_field.constraints),
@@ -1478,6 +1821,7 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                                     inline_variants=inline_variant_models(parser),
                                     union_written=parser._tag_plan.union_written,  # noqa: SLF001
                                     enum_member_tags=parser.use_enum_values_in_discriminator,
+                                    merged_tags=merged_variant_models(parser),
                                 )
                                 == "tagged"
                             ):
@@ -1487,6 +1831,7 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                         copied_data_type,
                         owner=parent_data_type,
                         replacement_kind="nested",
+                        holders=(shared_holders, kept_holders),
                     )
                 else:  # pragma: no cover
                     continue
@@ -1497,7 +1842,7 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                 model_field.inherit_untaken_constraints(
                     root_type_field, whole_type=isinstance(field_, parser.data_model_field_type)
                 )
-                if isinstance(owner := data_type.parent, DataType) and _reaches_data_type(copied_data_type, owner):
+                if isinstance(owner := data_type.parent, DataType) and id(owner) in _reached_ids(copied_data_type):
                     msg = (
                         f"Inlining {root_type_model.class_name} into {model.class_name} would make a data type "
                         "contain itself"
@@ -1530,6 +1875,7 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
                         )
 
                 parser._import_ledger.remove_referenced_imports(imports, root_type_model.path, producer)  # noqa: SLF001
+                keep_root_null(parser, root_type_field, copied_data_type, shared_holders)
                 if (
                     not has_remaining_root_references
                     and model_key_of(root_type_model.reference) not in rule_named_roots
@@ -1549,6 +1895,50 @@ def collapse_root_models_in_scope(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, 
     )
 
 
+def shared_member_holders(
+    parser: CollapseHost, member: DataType, replacement: DataType
+) -> tuple[tuple[DataType, ...], tuple[DataType, ...]]:
+    """Return the inlined copies holding ``member`` beside its parent that take ``replacement``, and those that keep it.
+
+    Under --keep-shared-members-on-collapsed-root-models; without it no copy takes ``replacement`` and ``member``
+    leaves its reference, so the copies write an empty member, as in 0.90.0. A copy that ``replacement`` reaches keeps
+    ``member``, which then keeps naming its model: putting ``replacement`` there would make a type contain itself.
+    """
+    if not parser.keep_shared_members_on_collapsed_root_models or not (
+        holders := parser.generation_store.index.inlined_holders_of(member)
+    ):
+        return (), ()
+    reached = _reached_ids(replacement)
+    return (
+        tuple(holder for holder in holders if id(holder) not in reached),
+        tuple(holder for holder in holders if id(holder) in reached),
+    )
+
+
+def keep_root_null(
+    parser: CollapseHost, root_field: DataModelFieldBase, site: DataType, shared_holders: tuple[DataType, ...] = ()
+) -> None:
+    """Put the type that collapse gave ``site`` inside a type admitting null, where the root model admits null.
+
+    Under --keep-reference-null-on-collapsed-root-models. The null is the root field's own (``nullable``, as an
+    OpenAPI 3.0 ``nullable: true`` root reads), which the root type inlined at ``site`` does not write; a type that
+    is optional itself already writes its null. The inlined copies ``shared_holders`` that hold ``site`` beside its
+    parent (``shared_member_holders``) take the same type in its place. That type is the plain type of the type
+    manager, not the class of ``site``, which can write its own text (the ``Annotated`` string type of
+    --collapse-constrained-root-models-as-annotated) in place of its members'.
+    """
+    if not parser.keep_reference_null_on_collapsed_root_models or root_field.nullable is not True or site.is_optional:
+        return
+    graph_builder = parser._graph_builder  # noqa: SLF001
+    holder = parser.data_type_manager.data_type(is_optional=True)
+    graph_builder.swap_data_type(site, holder)
+    for shared_holder in shared_holders:
+        graph_builder.set_nested_data_types(
+            shared_holder, [holder if member is site else member for member in shared_holder.data_types]
+        )
+    graph_builder.set_nested_data_types(holder, [site])
+
+
 def carry_const_narrowings(parser: CollapseHost, source: DataType, copied: DataType) -> None:
     """Give each node of ``copied`` that collapse inlines the const narrowing of the ``source`` node it copies.
 
@@ -1556,14 +1946,20 @@ def carry_const_narrowings(parser: CollapseHost, source: DataType, copied: DataT
     """
     if not parser._const_narrowed_values:  # noqa: SLF001
         return
-    pending = [(source, copied)]
-    while pending:
-        source_node, copied_node = pending.pop()
+    for source_node, copied_node in zip(source.all_data_types, copied.all_data_types, strict=True):
         if (entry := parser._const_narrowed_values.get(id(source_node))) is not None and entry[0] is source_node:  # noqa: SLF001
             parser._const_narrowed_values[id(copied_node)] = (copied_node, entry[1])  # noqa: SLF001
-        pending.extend(zip(source_node.data_types, copied_node.data_types, strict=True))
-        if (key := source_node.dict_key) is not None:
-            pending.append((key, cast("DataType", copied_node.dict_key)))
+
+
+def carry_site_constraints(parser: CollapseHost, replaced: DataType, copied: DataType) -> None:
+    """Give ``copied``, which collapse inlines in place of ``replaced``, the constraints its allOf site adds.
+
+    They are those of ``replaced`` (``site_constraints``) over those ``copied`` takes from the root type it copies,
+    which the site of the root model's own type adds: the site's are the intersection of its parts, the root model's
+    schema among them.
+    """
+    if site := site_constraints(replaced):
+        parser._graph_builder.record_site_constraints(copied, {**site_constraints(copied), **site})  # noqa: SLF001
 
 
 def take_recursion_facts(parser: CollapseHost, model: DataModel, path_owner: DataModel) -> None:
@@ -1595,20 +1991,19 @@ def name_inner_after_root(
     """Give the inner model the class name of the root model it replaces, in the module that emits it.
 
     The inner model also takes the root model's path, which tag values read. Modules processed earlier imported the
-    inner model by its old name under its old path.
+    inner model by its old name under its old path, which the rename records (``import_renamed_types``).
     """
-    old_class_name, old_path = inner_model.class_name, inner_model.path
     inner_module_name = emitting_module_name(parser, inner_model, model_path_to_module_name)
+    _share_path_identity(root_model, inner_model)
     parser._graph_builder.rename_model(  # noqa: SLF001
         inner_model,
         class_name=root_model.class_name,
         new_path=root_model.reference.path,
+        scheme="collapsed-root",
+        schema_path=schema_path_of(root_model.reference),
     )
-    _share_path_identity(root_model, inner_model)
     take_recursion_facts(parser, inner_model, root_model)
     _assign_module_name(model_path_to_module_name, inner_model, inner_module_name)
-    if inner_model.class_name != old_class_name:
-        record_renamed_type(parser, inner_model, _RenamedType(old_class_name, old_path))
 
 
 def retire_root(
@@ -1673,11 +2068,12 @@ def settle_kept_parent_roots(parser: CollapseHost, run: ModulesRun) -> None:
                 )
             continue
         retire_root(parser, root_model, inner_model, model_path_to_module_name)
-        root_data_type = root_model.fields[0].data_type
+        root_field = root_model.fields[0]
         holders_by_module: dict[int, tuple[ModuleContextView, list[tuple[DataModel, DataType, Import | None]]]] = {}
         for holder in kept_root.holders:
             graph_builder.collapse_root_data_type(holder.data_type, inner_model.reference)
-            carry_const_narrowings(parser, root_data_type, holder.data_type)
+            carry_const_narrowings(parser, root_field.data_type, holder.data_type)
+            keep_root_null(parser, root_field, holder.data_type)
             if (ctx := contexts.get(id(holder.model))) is not None:
                 holders_by_module.setdefault(id(ctx), (ctx, []))[1].append((
                     holder.model,
@@ -1821,6 +2217,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
     for site in iter_union_sites(models):
         model, field = site.model, site.field
         inline_models = inline_variant_models(parser)
+        merged_models = merged_variant_models(parser)
         names = site_names(site.property_name, namer)
         mapping = site.mapping
         discriminator = {**site.discriminator, "propertyName": names.field_name}
@@ -1838,6 +2235,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                 inline_variants=inline_models,
                 union_written=plan.union_written,
                 enum_member_tags=parser.use_enum_values_in_discriminator,
+                merged_tags=merged_models,
             ),
         )
         if decision.status != "tagged":
@@ -1861,6 +2259,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
             inline_models,
             plan.union_written,
             parser.use_enum_values_in_discriminator,
+            merged_models,
         )
         field_name = names.field_name
 
@@ -1874,14 +2273,9 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
         ):
             if not data_type.reference:  # pragma: no cover
                 continue
-            discriminator_model = data_type.reference.source
-            if (
-                not isinstance(discriminator_model, DataModel)
-                or not tag_capabilities(type(discriminator_model), type(field)).variant_takes_tag
-                or _is_discriminator_wrapper(discriminator_model)
-            ):  # pragma: no cover
+            if (taggable := taggable_variant(data_type, type(field))) is None:  # pragma: no cover
                 continue
-            struct_tags = tag_capabilities(type(discriminator_model), type(field)).struct_tags
+            discriminator_model, struct_tags = taggable[0], taggable[1].struct_tags
 
             annotates_new_tag = index is not None and reused_variant and not (tagged_unions and struct_tags)
             # A resolved Python name can equal a different field's wire name.
@@ -1892,12 +2286,9 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                     (union_name, field.data_type.data_types, mapping),
                     *collapsed_unions,
                 ):
-                    user, reference = parser._collapsed_reuse_users.get(id(collapsed_types[index]), (None, None))  # noqa: SLF001
                     if (
-                        user is collapsed_types[index]
-                        and reference is not None
-                        and isinstance(removed := reference.source, DataModel)
-                    ):
+                        removed := collapsed_duplicate(parser._collapsed_reuse_users, collapsed_types[index])  # noqa: SLF001
+                    ) is not None:
                         plan.record_collapsed_tags(
                             discriminator_model,
                             collapsed_name,
@@ -1918,7 +2309,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                 discriminator_field = decided.field
                 match decided:
                     case KeptTagField(form="kept-literal"):
-                        tag_fields.append((discriminator_field, (decided.tag,)))
+                        tag_fields.append((discriminator_model, discriminator_field, (decided.tag,)))
                         if not reused_variant:
                             plan.record_reused_tag_field(discriminator_field, annotates_tag=False)
                         if struct_tags:
@@ -1941,7 +2332,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                         )
                         builder.replace_field_type(discriminator_field, new_discriminator_data_type)
                         discriminator_field.data_type.parent = discriminator_field
-                        tag_fields.append((discriminator_field, discriminator_values))
+                        tag_fields.append((discriminator_model, discriminator_field, discriminator_values))
                         plan.record_reused_tag_field(discriminator_field, annotates_tag=annotates_new_tag)
                         literal_default = None
                         if tagged_unions and struct_tags:
@@ -1979,7 +2370,9 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                             alias=names.alias,
                             original_name=names.property_name,
                             source_name=names.property_name,
-                            class_name=discriminator_model.name,
+                            scope=parser.model_resolver.class_scope(
+                                "reference-name", discriminator_model.reference, discriminator_model.reference.path
+                            ),
                             required=True,
                         ),
                         "tag",
@@ -1987,7 +2380,9 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                     ),
                 )
                 if parser.config.aliases:
-                    discriminator_field.__dict__[_ALIAS_RESOLUTION_CLASS_NAME_KEY] = discriminator_model.class_name
+                    discriminator_field.__dict__[_ALIAS_RESOLUTION_CLASS_NAME_KEY] = parser.model_resolver.class_scope(
+                        "class-name", discriminator_model.reference, discriminator_model.reference.path
+                    )
                     parser.model_resolver.prepare_explicit_field_aliases(
                         [discriminator_field], discriminator_model.reference, parser.field_name_model_type
                     )
@@ -2004,7 +2399,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
                         discriminator_field,
                         mapped_struct_tag(discriminator_values, base_enum_source),
                     ))
-        _drop_discriminator_tag_patterns(builder, tag_fields)
+        _drop_discriminator_tag_patterns(builder, tag_fields, union_name=union_name, property_name=names.property_name)
         if not tags:
             continue
         tag_field = struct_tag_field(
@@ -2019,7 +2414,7 @@ def apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
         plan.deferred_msgspec = _tag_discriminator_unions(
             builder,
             [*deferred, *unions],
-            _derived_models({id(model): model for model in chain(parser.results, models)}.values()),
+            _derived_models(_parsed_and_module_models(parser, models)),
             defers_related=plan.defers_related,
         )
 
@@ -2049,12 +2444,9 @@ def set_tag_literal_default(
     parser._graph_builder.apply_literal_default(discriminator_field, decision)  # noqa: SLF001
 
 
-def set_nested_discriminator_literal_defaults(
-    parser: DiscriminatorHost,
-    tag_fields: Iterable[tuple[DataModelFieldBase, Sequence[DiscriminatorValue]]],
-) -> None:
+def set_nested_discriminator_literal_defaults(parser: DiscriminatorHost, tag_fields: Iterable[VariantTagField]) -> None:
     """Keep the single-literal tags of variants that nested choices give a union valid like the direct ones."""
-    for tag_field, values in tag_fields:
+    for _, tag_field, values in tag_fields:
         if tag_field.data_type.literals == [*values]:
             set_tag_literal_default(parser, tag_field, values[0], "tag")
 
@@ -2250,11 +2642,11 @@ def _adopt_keyless_references(
     of the model reaches them. A root model that collapse replaced stays among the parsed models at the path of the
     inner model that took its name, and is no candidate: the emitted model is.
     """
-    models = {
-        id(model): model
-        for model in chain(parser.results, all_models)
+    models = [
+        model
+        for model in _parsed_and_module_models(parser, all_models)
         if id(model) not in parser._replaced_root_models  # noqa: SLF001
-    }.values()
+    ]
     keyed = keyed_models(models, "renamed types")
     if (source := keyed.models.get(keyed.key_at(reference.path))) is None:
         return None
@@ -2299,8 +2691,9 @@ def rename_named_type(  # noqa: PLR0913, PLR0917
         )
         for name in _family_field_names(_model_family(user, derived_models))
     )
-    record_renamed_type(parser, source, _RenamedType(source.class_name, reference.path))
-    parser._graph_builder.rename_model(source, class_name=resolver.add(["type"], source.class_name).name)  # noqa: SLF001
+    parser._graph_builder.rename_model(  # noqa: SLF001
+        source, class_name=resolver.add(["type"], source.class_name).name, scheme="field-type"
+    )
     class_names.add(source.class_name)
 
 
@@ -2345,7 +2738,7 @@ def rename_fields_hiding_types(parser: ModulesHost, models: list[DataModel], *, 
     if not declarations:
         return
     positions = _ModelPositions(models, "hidden named types")
-    all_models = {id(model): model for model in chain(parser.results, models)}.values()
+    all_models = _parsed_and_module_models(parser, models)
     derived_models = _derived_models(all_models)
     rename_type = renames_colliding_types(parser)
     class_names = {model.class_name for model in models} if rename_type else set()
@@ -2382,11 +2775,18 @@ def rename_fields_hiding_types(parser: ModulesHost, models: list[DataModel], *, 
 
 
 def remove_overridden_models(parser: ModulesHost, state: ModuleStateView) -> None:
-    """Keep the models that custom types override (model-level only), and the stand-ins, out of the module.
+    """Keep the models that custom types override (model-level only), and those imports replace, out of the module.
 
     Only model-level overrides (keys without dots) cause model removal.
     Scoped overrides (ClassName.field) only affect specific fields. The module keeps its list before the removal.
+    Under --remove-unused-models-beside-type-overrides the models leave the list the module structure recorded, which
+    stays the list the module writes, so unused-model removal takes the models collapse left out of it
+    (``unused_model_lists``); without it the module writes a new list, which keeps them, as in 0.90.0.
+    Imports replace the stand-ins, and the unnamed empty models of ``x-python-import`` schemas leave first
+    (``_drop_unnamed_python_import_models``).
     """
+    if imported := parser._python_import_target_paths:  # noqa: SLF001
+        _drop_unnamed_python_import_models(parser, state.model_list, imported)
     state.model_list_before_override_removal = models = state.model_list
     overrides, stand_ins = parser._model_type_override_imports, parser._base_stand_in_imports  # noqa: SLF001
     if not (overrides or stand_ins):
@@ -2394,14 +2794,40 @@ def remove_overridden_models(parser: ModulesHost, state: ModuleStateView) -> Non
     kept: list[DataModel] = []
     for model in models:
         if (
-            model.class_name in overrides
+            model_type_override(overrides, model.reference, row="class-name") is not None
             or enum_site_override_import(parser, model.reference) is not None
             or model_key_of(model.reference) in stand_ins
         ):
             parser._graph_builder.retire_model(model)  # noqa: SLF001
         else:
             kept.append(model)
-    state.model_list = kept
+    if parser.remove_unused_models_beside_type_overrides:
+        state.model_list_before_override_removal = list(models)
+        models[:] = kept
+    else:
+        state.model_list = kept
+
+
+def _drop_unnamed_python_import_models(parser: ModulesHost, models: list[DataModel], imported: set[str]) -> None:
+    """Take the empty models of schemas whose ``x-python-import`` types every field that names them out of ``models``.
+
+    Such a model (#5533), or the empty subclass reuse makes of it, leaves once reuse and collapse settled the bases,
+    where no model names it as a base: neither one of the module, where reuse builds its subclasses, nor a reference the
+    parse recorded. The list stays the one the module writes, from which unused-model removal takes the models collapse
+    left.
+    """
+    has_references = parser.generation_store.index.has_data_type_references
+    module_bases = {model_key_of(base.reference) for model in models for base in model.base_classes if base.reference}
+    unnamed = [
+        model
+        for model in models
+        if (model.reused_reference or model.reference).path in imported
+        and model_key_of(model.reference) not in module_bases
+        and not has_references(model.reference)
+    ]
+    for model in unnamed:
+        models.remove(model)
+        parser._graph_builder.retire_model(model)  # noqa: SLF001
 
 
 def derived_override_import(parser: ModulesHost, model: DataModel) -> Import | None:
@@ -2416,7 +2842,7 @@ def derived_override_import(parser: ModulesHost, model: DataModel) -> Import | N
         or (target := model.reference.__dict__.get(_DERIVED_FROM_KEY)) is None
     ):
         return None
-    return parser._model_type_override_imports.get(target.name)  # noqa: SLF001
+    return model_type_override(parser._model_type_override_imports, target, row="class-name")  # noqa: SLF001
 
 
 def apply_field_type_overrides(parser: ModulesHost, models: list[DataModel]) -> None:
@@ -2446,9 +2872,10 @@ def root_key_data_type(parser: ModulesHost, root_model: DataModel) -> DataType |
 
     The model-level type overrides apply to the copy, as the module of a root model processed later applies them to
     the root type itself. A container cannot be a key. Constraints that the root keeps as ``Field()`` arguments are
-    written into the string type as a key schema writes them; a root of another type cannot keep them.
+    written into the string type as a key schema writes them; a root of another type cannot keep them. The root field
+    is that of the root model the empty subclass that reuse makes of it inherits (`inherited_root_field`).
     """
-    root_field = root_model.fields[0]
+    root_field = inherited_root_field(root_model)
     root_type = root_field.data_type
     keywords = _root_constraint_keywords(root_field)
     string_type = parser.data_type_manager.get_data_type(Types.string)
@@ -2475,10 +2902,14 @@ def type_dict_keys_by_root_types(parser: ModulesHost, state: ModuleStateView) ->
     Runs once the root types are final: after collapse, const narrowing and type overrides. Such a root model
     named inside the root type a key takes is typed the same way, and a cycle of them stops at the first repeated
     model. A root type that cannot be a dict key either keeps the root model, as does a member of a key that is no
-    reference: another member may take every key. Each changed model refreshes its backend config, as a pattern
-    that a key takes may need another regex engine.
+    reference: another member may take every key. A key that the copies of a collapsed root type share
+    (``GenerationIndex.inlined_holders_of``) is replaced in each holder as the module of its model reaches it, with
+    the imports of that module, and leaves its reference once no holder keeps it: the holder that kept it otherwise
+    named the root model through a key that no longer names it. Each changed model refreshes its backend config, as a
+    pattern that a key takes may need another regex engine.
     """
     imports = state.imports
+    index = parser.generation_store.index
     for model in state.model_list:
         changed = False
         for field in model.fields:
@@ -2499,7 +2930,11 @@ def type_dict_keys_by_root_types(parser: ModulesHost, state: ModuleStateView) ->
                     or (root_type := root_key_data_type(parser, root_model)) is None
                 ):
                     continue
-                parser._graph_builder.detach_data_type_ref(data_type)  # noqa: SLF001
+                if not any(
+                    holder is not parent and isinstance(holder, DataType)
+                    for holder in (data_type.parent, *index.inlined_holders_of(data_type))
+                ):
+                    parser._graph_builder.detach_data_type_ref(data_type)  # noqa: SLF001
                 _replace_in_place(parser._graph_builder, parent, data_type, root_type)  # noqa: SLF001
                 producer = ImportProducer("type-dict-keys-by-root-types", model, field)
                 import_references(
@@ -2564,6 +2999,120 @@ def settle_discriminated_unions(parser: ModulesHost, run: ModulesRun) -> None:
                         builder.set_type_discriminator(nested, None)
 
 
+def constrain_fields_by_their_reference_sites(parser: ModulesHost, run: ModulesRun) -> None:
+    """Write on each field the constraints that the allOf site of its whole type adds, where that type is no class.
+
+    The parse types such a site by its first ``$ref`` alone and records on that type what the other parts of the site
+    add to it (``site_constraints``), which root-model collapse carries to the type it inlines; once every module is
+    processed the field types are final. A field whose type is one collapse inlined, or names a type alias, writes
+    those that the type it stands for takes (``constrained_value_type``: an alias stands for its root type, a reuse
+    alias for that of the alias it reuses): the
+    keywords that type takes in this output (``DataTypeManager.constraint_keywords``, as a type override decides
+    them) and the property counts where it is a map, which the render then normalizes for that type, as for its own
+    (the integers the bounds of an int admit), and in msgspec, which rejects a constraint twice, none the alias sets
+    itself. It is generated without the others, with the warning of a field that leaves out what its type does not
+    take. A field whose type names a class keeps its output, as does
+    a type that ``--type-overrides`` replaced, whose constraints left with it.
+
+    Where a ``Field()`` call is a constructor default (``REQUIRED_ASSIGNMENT_COUNTS_AS_CONSTRUCTOR_DEFAULT``, a Pydantic
+    dataclass), a field that writes no call takes them in ``Annotated`` metadata, as ``--use-annotated`` writes them,
+    and a field that writes one takes them in it: the field keeps the place, the default and the positional use it has
+    in the constructor without them.
+    """
+    builder = parser._graph_builder  # noqa: SLF001
+    layers = parser._output_model_context.layers_repeated_constraints  # noqa: SLF001
+    version = parser.target_python_version.version_key
+    for ctx in run.contexts:
+        for model in ctx.models:
+            for field in model.fields:
+                if not (site := site_constraints(field.data_type)):
+                    continue
+                alias = (
+                    None
+                    if (reference := (data_type := _reused_value(field.data_type)).reference) is None
+                    else reference.source
+                )
+                if (reference is not None and not isinstance(alias, TypeAliasBase)) or (
+                    value_type := field.constrained_value_type(data_type)
+                ) is None:
+                    continue
+                takes = partial(parser.data_type_manager.constraint_keywords, value_type, version)
+                counts = ITEM_COUNT_KEYWORDS if value_type in MAPPINGS else frozenset()
+                taken = {key: value for key, value in site.items() if key in counts or key in takes()}
+                constraints_class = _field_constraints_class(type(field))
+                if isinstance(alias, TypeAliasBase) and not layers and (root := alias.fields[0].constraints):
+                    written = root.model_dump(by_alias=True, exclude_none=True)
+                    taken = {key: value for key, value in taken.items() if key not in written}
+                in_annotated = (
+                    bool(taken)
+                    and model.REQUIRED_ASSIGNMENT_COUNTS_AS_CONSTRUCTOR_DEFAULT
+                    and not (field.use_annotated or field.field)
+                )
+                builder.set_field_constraints(
+                    field,
+                    ConstraintsBase.merge_constraints(field.constraints, constraints_class.model_validate(taken))
+                    if taken
+                    else field.constraints,
+                )
+                if in_annotated:
+                    builder.write_field_call_in_annotated(field)
+                if untaken := {key: value for key, value in site.items() if key not in counts and key not in takes()}:
+                    parser._mark_untaken_constraints(  # noqa: SLF001
+                        field,
+                        {**field.untaken_constraints[0], **untaken},
+                        lambda minimum, takes=takes: takes(number_values=True, target_model_version=minimum),
+                    )
+
+
+def _reused_value(data_type: DataType) -> DataType:
+    """Return the type that holds the value ``data_type`` names: the base of the alias it names where that is a reuse.
+
+    A type alias that ``--reuse-model`` makes of a duplicate has no field and names the alias it reuses as its base,
+    whose field holds its value.
+    """
+    if (
+        (reference := data_type.reference) is not None
+        and isinstance(source := reference.source, TypeAliasBase)
+        and not source.fields
+        and source.base_classes
+    ):
+        return source.base_classes[0]
+    return data_type
+
+
+def _field_constraints_class(field_type: type[DataModelFieldBase]) -> type[ConstraintsBase]:
+    """Return the constraints class of the fields of ``field_type``, which their parse validates constraints into."""
+    annotation = field_type.model_fields["constraints"].annotation
+    return next(arg for arg in get_args(annotation) if isinstance(arg, type) and issubclass(arg, ConstraintsBase))
+
+
+def type_users_of_looping_ref_chains_by_any(parser: DroppedRootModelUsersHost, run: ModulesRun) -> None:
+    """Type every user of a ``$ref`` chain that loops back without reaching a schema by ``Any``, outside the chain.
+
+    Such a chain is a root model whose root names itself, which deduplication dropped (``_self_named_root_models``), or
+    a loop of type aliases that only name each other (``alias_loops``): no module writes a type for it, and the output
+    names a class it never defines or an alias whose name never resolves. Where nothing builds from the annotations
+    (``alias_loop_failure``), its users take ``Any``, what a schema without a type gives, in every place a type names
+    it (``type_reference_users``), the typed additional properties of the models included; the aliases of a loop keep
+    naming each other, as no class reaches them. Every module is processed: collapse and the type overrides of each
+    module have written the types that name it.
+    """
+    any_type = partial(parser.data_type_manager.get_data_type, Types.any)
+    models = _context_models(run.contexts)
+    chains = [
+        *((dropped, frozenset[int]()) for dropped in parser._self_named_root_models),  # noqa: SLF001
+        *((loop[0], frozenset(map(id, loop))) for loop in alias_loops(models, ()).values()),
+    ]
+    for head, members in chains:
+        reference = head.reference
+        type_reference_users(parser, reference, any_type, kept_owners=members)
+        for model in models:
+            if reference.path in (classes := model.additional_properties_reference_classes):
+                type_additional_properties_users(
+                    parser, model, reference, any_type, {path for path in classes if path != reference.path}
+                )
+
+
 def apply_base_stand_in_imports(parser: ModulesHost, run: ModulesRun) -> None:
     """Replace the bases that name a stand-in by the import of the class it stands for, once every module is processed.
 
@@ -2599,7 +3148,7 @@ def name_inner_models_in_rules(parser: CollapseHost, run: ModulesRun) -> None:
     collapse does not redirect, then name the inner model, and their module imports it as a collapsed field's
     module does.
     """
-    unused = run_unused_models(run)
+    unused = run_unused_models(parser, run)
     inner_references = {
         model_key_of(root_model.reference): inner_model.reference
         for root_model, inner_model in parser._replaced_root_models.values()  # noqa: SLF001
@@ -2632,10 +3181,7 @@ def change_from_import(parser: ImportFromHost, state: ModuleStateView) -> None:
     whose imports follow its written hints, which the new expressions changed, registers its imports again.
     """
     models = without_stand_ins(parser, module_members(parser, state.model_list))
-    unimported = {
-        *parser._base_stand_in_imports,  # noqa: SLF001
-        *(model_key_of(model.reference) for model in parser._self_named_root_models),  # noqa: SLF001
-    }
+    unimported = unimported_model_keys(parser)
     members = keyed_models(models, "module members")
     imports, scoped_model_resolver = state.imports, state.scoped_model_resolver
     model_path_to_module_name = state.model_path_to_module_name
@@ -2711,6 +3257,111 @@ def settle_update_actions(parser: RecursionFactsHost, listed_paths: Iterable[str
     )
 
 
+def _rebuilt_as(parser: RuleAliasHost, model: DataModel, model_type: type[DataModel]) -> DataModel:
+    """Return a model of ``model_type`` built from ``model``: its reference, fields, options and template data."""
+    return parser._create_data_model(  # noqa: SLF001
+        model_type=model_type,
+        reference=model.reference,
+        fields=model.fields,
+        decorators=model.decorators,
+        custom_base_class=model.custom_base_class,
+        custom_template_dir=parser.custom_template_dir,
+        extra_template_data=defaultdict(dict, {model.path: model.extra_template_data}),
+        path=model.file_path,
+        description=model.description,
+        nullable=model.nullable,
+        keyword_only=parser.keyword_only,
+        treat_dot_as_module=parser.treat_dot_as_module,
+        dataclass_arguments=parser.dataclass_arguments,
+    )
+
+
+def _replace_aliases(
+    parser: RuleAliasHost,
+    run: ProcessingRun[Any, ModuleContextView, Any],
+    aliases: Sequence[DataModel],
+    replacements: Mapping[int, DataModel],
+) -> None:
+    """Put each replacement of ``aliases``, by the id of the alias, in its place in every model list of the run."""
+    for model_list in chain(
+        (ctx.models for ctx in run.contexts),
+        (models for _, models in run.module_models),
+        (prepared.model_list for prepared in parser._prepared_modules),  # noqa: SLF001
+        (prepared.model_list_before_override_removal for prepared in parser._prepared_modules),  # noqa: SLF001
+    ):
+        model_list[:] = [replacements.get(id(model), model) for model in model_list]
+    for model in aliases:
+        parser._graph_builder.replace_model(model, replacements[id(model)])  # noqa: SLF001
+    if (identities := run.model_identities) is not None:
+        run.model_identities = {replacements.get(id(model), model): identity for model, identity in identities.items()}
+
+
+def _recursive_class_of_alias(model: DataModel) -> DataModel | None:
+    """Return the class that a ``TypeAliasType`` alias writes as its whole value, where the class names itself.
+
+    The value may carry metadata (``Annotated``). A class whose fields name the alias as well builds it through its own
+    cycle; it is no such class.
+    """
+    if not isinstance(model, TypeAliasBase) or not model._WRITES_REFERENCE_ALIAS_TYPE or len(model.fields) != 1:  # noqa: SLF001
+        return None
+    data_type = model.fields[0].data_type
+    if (
+        (reference := data_type.reference) is None
+        or not isinstance(target := reference.source, DataModel)
+        or target.IS_ALIAS
+        or model.fields[0].type_hint.strip("\"'") != (data_type.alias or reference.short_name)
+    ):
+        return None
+    named = {id(nested.reference) for field in target.fields for nested in field.data_type.all_data_types}
+    return target if id(reference) in named and id(model.reference) not in named else None
+
+
+def write_plain_aliases_for_recursive_models(
+    parser: PlainAliasHost, run: ProcessingRun[Any, ModuleContextView, Any]
+) -> None:
+    """Write each Pydantic type alias whose whole value is a class that names itself as a plain ``TypeAlias``.
+
+    Pydantic 2 builds the schema of such a ``TypeAliasType`` (or ``type`` statement) for the first model that uses
+    it and refuses it in the next one: as a circular reference (``circular-reference-schema``), so the module fails to
+    import, or, where the value carries metadata, as a recursion loop as that model validates. A plain alias is the
+    class itself, which every model builds; the module order writes it after the class, as it writes every alias
+    after the models its value names. With ``--use-plain-alias-for-recursive-models`` every such alias takes that
+    form; without it, each one that two or more classes use is warned about. Every module is processed: the alias
+    values that collapse and reuse rewrite, and the aliases written as classes, are final.
+    """
+    written = run_unused_models(parser, run).written(_context_models(run.contexts))
+    if not (aliases := [(alias, target) for alias in written if (target := _recursive_class_of_alias(alias))]):
+        return
+    if not parser.use_plain_alias_for_recursive_models:
+        for alias, target in aliases:
+            users = [
+                model.class_name
+                for model in written
+                if not model.IS_ALIAS
+                and any(
+                    nested.reference is alias.reference
+                    for field in model.fields
+                    for nested in field.data_type.all_data_types
+                )
+            ]
+            if len(users) > 1:
+                warn_as_parser_base(
+                    _recursive_alias_message(alias.class_name, target.class_name, users), UserWarning, stacklevel=2
+                )
+        return
+    replacements = {id(alias): _rebuilt_as(parser, alias, PlainTypeAlias) for alias, _ in aliases}
+    _replace_aliases(parser, run, [alias for alias, _ in aliases], replacements)
+
+
+def _recursive_alias_message(alias: str, target: str, users: Sequence[str]) -> str:
+    """Describe a type alias of a self-referencing class that Pydantic refuses in the second class that uses it."""
+    return (
+        f"Pydantic refuses the type alias {alias} of the class {target}, which names itself, in the second of the "
+        f"classes that use it ({', '.join(users)}): the module fails to import, or that class fails to validate. Pass "
+        "--use-plain-alias-for-recursive-models to write it as a plain TypeAlias."
+    )
+
+
 def write_rule_aliases_as_classes(parser: RuleAliasHost, run: ProcessingRun[Any, ModuleContextView, Any]) -> None:
     """Write each alias that holds schema validator rules and that collapse left written as the RootModel class.
 
@@ -2724,7 +3375,7 @@ def write_rule_aliases_as_classes(parser: RuleAliasHost, run: ProcessingRun[Any,
     if not (
         aliases := [
             model
-            for model in run_unused_models(run).written(_context_models(run.contexts))
+            for model in run_unused_models(parser, run).written(_context_models(run.contexts))
             if model._unwritable_runtime_rules  # noqa: SLF001
         ]
     ):
@@ -2732,35 +3383,8 @@ def write_rule_aliases_as_classes(parser: RuleAliasHost, run: ProcessingRun[Any,
     root_model_type = cast(
         "Callable[[], type[DataModel]]", parser.data_model_type.SCHEMA_RUNTIME_VALIDATION_ROOT_MODEL
     )()
-    replacements = {
-        id(model): parser._create_data_model(  # noqa: SLF001
-            model_type=root_model_type,
-            reference=model.reference,
-            fields=model.fields,
-            decorators=model.decorators,
-            custom_base_class=model.custom_base_class,
-            custom_template_dir=parser.custom_template_dir,
-            extra_template_data=defaultdict(dict, {model.path: model.extra_template_data}),
-            path=model.file_path,
-            description=model.description,
-            nullable=model.nullable,
-            keyword_only=parser.keyword_only,
-            treat_dot_as_module=parser.treat_dot_as_module,
-            dataclass_arguments=parser.dataclass_arguments,
-        )
-        for model in aliases
-    }
-    for model_list in chain(
-        (ctx.models for ctx in run.contexts),
-        (models for _, models in run.module_models),
-        (prepared.model_list for prepared in parser._prepared_modules),  # noqa: SLF001
-        (prepared.model_list_before_override_removal for prepared in parser._prepared_modules),  # noqa: SLF001
-    ):
-        model_list[:] = [replacements.get(id(model), model) for model in model_list]
-    for model in aliases:
-        parser._graph_builder.replace_model(model, replacements[id(model)])  # noqa: SLF001
-    if (identities := run.model_identities) is not None:
-        run.model_identities = {replacements.get(id(model), model): identity for model, identity in identities.items()}
+    replacements = {id(model): _rebuilt_as(parser, model, root_model_type) for model in aliases}
+    _replace_aliases(parser, run, aliases, replacements)
     classes = {id(model) for model in replacements.values()}
     for ctx in run.contexts:
         members = keyed_models(module_members(parser, ctx.models), "module members")

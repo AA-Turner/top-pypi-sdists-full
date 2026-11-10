@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import List, Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +7,6 @@ from office365.runtime.types.collections import StringCollection
 from office365.sharepoint.fields.type import FieldType
 
 
-@dataclass
 class FieldCreationInformation(ClientValue):
     """Represents metadata about fields creation.
 

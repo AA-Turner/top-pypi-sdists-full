@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .model_object_access import ModelObjectAccess
 
 
 class ModelObject(UniversalBaseModel):
@@ -11,6 +12,10 @@ class ModelObject(UniversalBaseModel):
     object: typing.Optional[typing.Literal["model"]] = None
     created: int
     owned_by: str
+    access: typing.Optional[ModelObjectAccess] = pydantic.Field(default=None)
+    """
+    How the model is offered. `"provisioned"`: Provisioned Throughput, enabled per organisation (without access, `deepseekv4-pro` returns `400` and the others return `404` and aren't listed). `"standard"`: serverless, any API key can call it.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

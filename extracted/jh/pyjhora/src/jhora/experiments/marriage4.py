@@ -18,7 +18,7 @@ from jhora.horoscope.dhasa.graha import vimsottari
 from jhora.horoscope.dhasa.raasi import kalachakra
 from jhora.horoscope.dhasa.annual import patyayini
 from jhora.horoscope.transit.tajaka import annual_chart, both_planets_within_their_deeptamsa
-from jhora.horoscope.transit.saham import vivaha_saham_from_jd_place
+from jhora.horoscope.transit.saham import vivaha_saham
 
 # ---------- Config: strict-first → fallback ----------
 _marriage_age_year_range = (20, 32)
@@ -79,7 +79,7 @@ def predict_marriage_windows_from_jd_place(
     )
 
     # Vimshottari segments (MD/AD time ranges)
-    _, vdb_info = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place, divisional_chart_factor=divisional_chart_factor)
+    _, vdb_info = vimsottari.get_dhasa_antardhasa(jd, place, divisional_chart_factor=divisional_chart_factor)
     segments = _expand_to_md_ad_segments(vdb_info)
 
     candidates = []
@@ -514,7 +514,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
 
     jd_years = drik.next_solar_date(jd, place, years=running_year)
 
-    vs_abs_long = vivaha_saham_from_jd_place(jd_years, place, divisional_chart_factor=1)
+    vs_abs_long = vivaha_saham(jd_years, place)
     vs_sign, vs_lon_in_sign = drik.dasavarga_from_long(vs_abs_long)
 
     ven_abs_long = _get_planet_abs_long_from_positions(annual_pp_d1, const.VENUS_ID)
@@ -530,7 +530,7 @@ def _get_varshaphala_marriage_triggers(jd, place, year, derived):
     muntha_sign = (natal_lagna_sign + years_from_dob) % 12
     muntha_lord = house.house_owner_from_planet_positions(annual_pp_d1, muntha_sign)
 
-    patyayini_raw = patyayini.get_dhasa_bhukthi(jd_years, place, divisional_chart_factor=1, chart_method=1)
+    patyayini_raw = patyayini.get_dhasa_antardhasa(jd_years, place, divisional_chart_factor=1, chart_method=1)
     patyayini_schedule = _expand_patyayini_schedule(patyayini_raw)
     patyayini_major_schedule = _expand_patyayini_major_schedule(patyayini_raw)
 
@@ -1030,15 +1030,15 @@ if __name__ == "__main__":
         ba = arudhas.bhava_arudhas_from_planet_positions(nava_pp)
         print('Bhava Lagnas Navamsa',{"A"+str(l+1):ba[l] for l in range(12)},'matches PVR chart')
         from jhora.horoscope.dhasa.graha import vimsottari
-        _,vdb = vimsottari.get_vimsottari_dhasa_bhukthi(jd, place)
+        _,vdb = vimsottari.get_dhasa_antardhasa(jd, place)
         print('vimosottari',vdb)
         years_from_dob = 25
         from jhora.horoscope.dhasa import sudharsana_chakra
-        scdl,_,_ = sudharsana_chakra.get_dhasa_bhukthi(jd, place, dob, 
+        scdl,_,_ = sudharsana_chakra.get_dhasa_antardhasa(jd, place, dob, 
                                                     years_from_dob=years_from_dob, divisional_chart_factor=9)
         print('sudarsana chakra dhasa for 1998-1999\n',scdl[0])
         jd_years = drik.next_solar_date(jd, place, years=26)
-        pd = patyayini.get_dhasa_bhukthi(jd_years, place, divisional_chart_factor=1)
+        pd = patyayini.get_dhasa_antardhasa(jd_years, place, divisional_chart_factor=1)
         print('patyayini dhasa',pd)
         td_pp,td = annual_chart(jd, place, divisional_chart_factor=1, years=26)
         td_chart = utils.get_house_planet_list_from_planet_positions(td_pp)

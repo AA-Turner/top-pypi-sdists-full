@@ -13,6 +13,7 @@ travel name-only in the registration, injected at worker bootstrap.
 """
 from __future__ import annotations
 
+import math
 from typing import Callable, Optional
 
 from sequence_base.contract import (
@@ -26,7 +27,7 @@ from sequence_base.contract import (
 )
 
 from seq.code_bundle import pack, pack_dir, with_sources
-from seq.errors import PolicyDefinitionError, build_failed, still_building
+from seq.errors import PolicyDefinitionError, build_failed, out_of_time, still_building
 from seq.project_deps import image_for
 from seq.registry import (
     context_declared,
@@ -183,7 +184,8 @@ class DeploymentHandle:
     ) -> DeploymentStatusResponse:
         """Poll to a terminal state and return it. `failed` raises `sequence_ai.errors.Conflict` with
         `details["state"] == "failed"` (never a silent success, goal 23); still `building` at the bounded deadline
-        raises `Unavailable` with `code == "timeout"` (never an infinite hang, goal 24)."""
+        raises `Unavailable` with `code == "timeout"` (never an infinite hang, goal 24). `timeout_s` is this watch's,
+        and stops nothing; what stops a build is the time `seq.deploy(timeout_s=)` gave it."""
         kwargs: dict = {}
         if timeout_s is not None:
             kwargs["timeout_s"] = timeout_s
@@ -193,7 +195,7 @@ class DeploymentHandle:
             kwargs["on_poll"] = on_poll
         final = self._client.wait(self.name, **kwargs)
         if final.status == DeploymentState.FAILED:
-            raise build_failed(f"deployment {self.name!r}", final.error)
+            raise build_failed(f"deployment {self.name!r}", final.error, hint=out_of_time(final.error, "seq.deploy"))
         if final.status != DeploymentState.READY:
             raise still_building(f"deployment {self.name!r}", f"seq policy status {self.name} --wait")
         return final
@@ -233,7 +235,10 @@ def deploy(
     @seq.infer, missing weights, a handler the worker could not import — is refused before anything is sent), and the
     returned `DeploymentHandle` stands for the deployment name. A benchmark: its declaration and source become the
     `POST /v1/benchmarks` body, and its name comes back. `wait=True` (the default, as in `seq deploy`) blocks until the
-    platform's build is ready, raising when it fails or outlasts `timeout_s`. `name` replaces the declared name.
+    platform's build ends, raising when it does not end ready. `timeout_s` (`seq deploy --timeout`): how long the build may
+    run, from when the platform accepts it - then the platform stops it, whether or not anything still waits (`wait=False`
+    too): its machines end, what ran until then is billed, and a wait raises `Conflict`. Without it, it runs until it ends,
+    or to the platform's own limit. `name` replaces the declared name.
     The API key is a Bearer credential only, never in the payload or any output."""
     target = _resolve_policy(cls)
     from seq.benchmark_registry import _BENCH_ATTR
@@ -245,33 +250,25 @@ def deploy(
 
     request = deployment_request(target, name=name)
     client = DeploymentsClient(api_key=api_key, base_url=base_url)
-    accepted = client.submit(request)
+    accepted = client.submit(request, time_limit_s=timeout_s)
     handle = DeploymentHandle(accepted.deployment_id, client)
     if wait:
-        handle.wait(timeout_s=timeout_s, poll_interval_s=poll_interval_s)
+        handle.wait(timeout_s=math.inf, poll_interval_s=poll_interval_s)
     return handle
 
 
 def _register_benchmark(cls: type, *, name: str | None, base_url: str | None, api_key: str | None, wait: bool,
                         timeout_s: float | None) -> str:
-    """POST the benchmark's declaration and source; with `wait`, until the platform has built its sim image."""
-    from seq._eval_gateway import BENCHMARK_WAIT_S, EvalGatewayClient
+    """POST the benchmark's declaration and source, the time its build may run with it; with `wait`, to the build's end."""
+    from seq._eval_gateway import EvalGatewayClient
     from seq.benchmark_registry import benchmark_request
 
     request = benchmark_request(cls, name=name)
     client = EvalGatewayClient(api_key=api_key, base_url=base_url)
-    client.register(request)
+    client.register(request, time_limit_s=timeout_s)
     if not wait:
         return request.name
-
-    stalled: list[float] = []
-    final = client.wait_benchmark(request.name, timeout_s=timeout_s or BENCHMARK_WAIT_S,
-                                  while_moving=timeout_s is None, on_stall=stalled.append)
+    final = client.wait_benchmark(request.name, timeout_s=math.inf)
     if final.status == DeploymentState.FAILED:
-        raise build_failed(f"benchmark {request.name!r}", final.error)
-    if final.status != DeploymentState.READY:
-        from seq._eval_gateway import BUILD_MOVED_S
-
-        raise still_building(f"benchmark {request.name!r}", f"seq benchmark status {request.name} --wait",
-                             stalled_s=BUILD_MOVED_S if stalled else None)
+        raise build_failed(f"benchmark {request.name!r}", final.error, hint=out_of_time(final.error, "seq.deploy"))
     return request.name

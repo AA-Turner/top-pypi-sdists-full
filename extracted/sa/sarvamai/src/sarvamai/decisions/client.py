@@ -37,17 +37,25 @@ class DecisionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SystemOneResponse:
         """
-        Answers a set of typed questions about one input and returns a calibrated probability for every allowed option. The model does not generate text, so there is nothing to parse. The order of `choice` options does not affect the answer.
+        Answers a set of typed questions about one input and returns a calibrated probability for every allowed option. The model does not generate text, so there is nothing to parse.
+
+        **Models:** `sarvam-prism` (serverless) and `clef` (Provisioned Throughput; also reads images).
 
         Requires `api-subscription-key`, or `Authorization: Bearer <key>`.
 
         **Question types:** `noul` (yes/no), `choice` (one of your options) and `score` (a level on your ordered scale).
 
-        **Repeatability:** probabilities can vary slightly between identical requests; the top answer is stable.
+        **Repeatability:** on `sarvam-prism`, probabilities can vary slightly between identical requests and the top answer is stable; the order of `choice` options does not affect the answer. On `clef`, identical requests return identical probabilities.
 
-        **Not supported:** images and streaming. Generation fields such as `temperature`, `max_tokens`, `stream` and `images` are refused: image URLs return `400`, and the others return `422`. Unknown keys inside a question also return `422`.
+        **Images:** `clef` reads base64 images in `images`; image URLs return `400`. `sarvam-prism` refuses `images` (image URLs return `400`, inline images `422`).
 
-        **Limits:** 32,768 tokens per question (state + question + options), 2–255 options per `choice` and 2–10 levels per `score`. There is no cap on the number of questions. The state is not truncated, and if any one question breaks a limit the whole request fails with `422`.
+        **Not supported:** streaming. `temperature` returns `422` on both models. `sarvam-prism` also refuses `max_tokens` and `stream` with `422`; `clef` accepts and ignores them. Unknown keys inside a question return `422`.
+
+        **Limits:**
+        - `sarvam-prism`: 32,768 tokens per question (state + question + options), 2–255 options per `choice`, and 2–10 levels per `score`. If any one question breaks a limit, the whole request fails with `422`.
+        - `clef`: 65,536 tokens per request (state, every question and its options, and images), 1–255 options per `choice`, and 1–10 levels per `score`. A longer request fails with `400`.
+
+        There is no cap on the number of questions, and the state is never truncated.
 
         **Timeout:** each request must finish within 60 seconds. A longer request fails with `503 model_overloaded`; split very large batches across several requests before retrying.
 
@@ -56,7 +64,7 @@ class DecisionsClient:
         Parameters
         ----------
         model : str
-            The decision model to use. Currently `sarvam-prism` (Sarvam Prism).
+            The decision model to use. `sarvam-prism` (Sarvam Prism, serverless) or `clef` (Clef, on Provisioned Throughput; also accepts base64 `images`, up to 65,536 tokens per request).
 
         state : StateParams
             The input to decide on: text, or an object or array that is rendered as compact JSON. Required; an empty string is allowed. It is never truncated: if any one question (state + question + options) exceeds 32,768 tokens the request fails with `422`.
@@ -122,17 +130,25 @@ class AsyncDecisionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SystemOneResponse:
         """
-        Answers a set of typed questions about one input and returns a calibrated probability for every allowed option. The model does not generate text, so there is nothing to parse. The order of `choice` options does not affect the answer.
+        Answers a set of typed questions about one input and returns a calibrated probability for every allowed option. The model does not generate text, so there is nothing to parse.
+
+        **Models:** `sarvam-prism` (serverless) and `clef` (Provisioned Throughput; also reads images).
 
         Requires `api-subscription-key`, or `Authorization: Bearer <key>`.
 
         **Question types:** `noul` (yes/no), `choice` (one of your options) and `score` (a level on your ordered scale).
 
-        **Repeatability:** probabilities can vary slightly between identical requests; the top answer is stable.
+        **Repeatability:** on `sarvam-prism`, probabilities can vary slightly between identical requests and the top answer is stable; the order of `choice` options does not affect the answer. On `clef`, identical requests return identical probabilities.
 
-        **Not supported:** images and streaming. Generation fields such as `temperature`, `max_tokens`, `stream` and `images` are refused: image URLs return `400`, and the others return `422`. Unknown keys inside a question also return `422`.
+        **Images:** `clef` reads base64 images in `images`; image URLs return `400`. `sarvam-prism` refuses `images` (image URLs return `400`, inline images `422`).
 
-        **Limits:** 32,768 tokens per question (state + question + options), 2–255 options per `choice` and 2–10 levels per `score`. There is no cap on the number of questions. The state is not truncated, and if any one question breaks a limit the whole request fails with `422`.
+        **Not supported:** streaming. `temperature` returns `422` on both models. `sarvam-prism` also refuses `max_tokens` and `stream` with `422`; `clef` accepts and ignores them. Unknown keys inside a question return `422`.
+
+        **Limits:**
+        - `sarvam-prism`: 32,768 tokens per question (state + question + options), 2–255 options per `choice`, and 2–10 levels per `score`. If any one question breaks a limit, the whole request fails with `422`.
+        - `clef`: 65,536 tokens per request (state, every question and its options, and images), 1–255 options per `choice`, and 1–10 levels per `score`. A longer request fails with `400`.
+
+        There is no cap on the number of questions, and the state is never truncated.
 
         **Timeout:** each request must finish within 60 seconds. A longer request fails with `503 model_overloaded`; split very large batches across several requests before retrying.
 
@@ -141,7 +157,7 @@ class AsyncDecisionsClient:
         Parameters
         ----------
         model : str
-            The decision model to use. Currently `sarvam-prism` (Sarvam Prism).
+            The decision model to use. `sarvam-prism` (Sarvam Prism, serverless) or `clef` (Clef, on Provisioned Throughput; also accepts base64 `images`, up to 65,536 tokens per request).
 
         state : StateParams
             The input to decide on: text, or an object or array that is rendered as compact JSON. Required; an empty string is allowed. It is never truncated: if any one question (state + question + options) exceeds 32,768 tokens the request fails with `422`.

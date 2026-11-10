@@ -152,7 +152,7 @@ def sync_detailed(
 ) -> Response[AnonymousChatKpiResponse]:
     """Aggregate KPI roll-up
 
-     Returns aggregate counters and rates for the anonymous chat flow. Filters are honoured (date range
+     Returns aggregate counters and rates for the anonymous chat flow. Filters are honored (date range
     etc.) so the same parameters work as on the list endpoint.
 
     Args:
@@ -235,7 +235,7 @@ def sync(
 ) -> AnonymousChatKpiResponse:
     """Aggregate KPI roll-up
 
-     Returns aggregate counters and rates for the anonymous chat flow. Filters are honoured (date range
+     Returns aggregate counters and rates for the anonymous chat flow. Filters are honored (date range
     etc.) so the same parameters work as on the list endpoint.
 
     Args:
@@ -313,7 +313,7 @@ async def asyncio_detailed(
 ) -> Response[AnonymousChatKpiResponse]:
     """Aggregate KPI roll-up
 
-     Returns aggregate counters and rates for the anonymous chat flow. Filters are honoured (date range
+     Returns aggregate counters and rates for the anonymous chat flow. Filters are honored (date range
     etc.) so the same parameters work as on the list endpoint.
 
     Args:
@@ -394,7 +394,7 @@ async def asyncio(
 ) -> AnonymousChatKpiResponse:
     """Aggregate KPI roll-up
 
-     Returns aggregate counters and rates for the anonymous chat flow. Filters are honoured (date range
+     Returns aggregate counters and rates for the anonymous chat flow. Filters are honored (date range
     etc.) so the same parameters work as on the list endpoint.
 
     Args:

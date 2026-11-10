@@ -17,9 +17,21 @@ import httpx2
 
 from datamodel_code_generator import Error
 from tests.api_generation.scenarios.client_allowreserved import reserved_paths
+from tests.api_generation.scenarios.client_asyncapi_sockets import (
+    asyncapi_connections,
+    asyncapi_enum_tag_sends,
+    asyncapi_handshake,
+    asyncapi_messages,
+    asyncapi_perspective,
+    asyncapi_serverless,
+    asyncapi_sockets,
+    asyncapi_subclass_sends,
+    asyncapi_union_sends,
+)
+from tests.api_generation.scenarios.client_asyncapi_streams import asyncapi_event_unions, asyncapi_events
 from tests.api_generation.scenarios.client_auth_errors import auth_errors
 from tests.api_generation.scenarios.client_auth_flows import auth_flows
-from tests.api_generation.scenarios.client_auth_values import auth_values
+from tests.api_generation.scenarios.client_auth_values import auth_parameters, auth_shared_wire, auth_values
 from tests.api_generation.scenarios.client_bodies import bodies
 from tests.api_generation.scenarios.client_body_replay import body_replay, multipart_replay
 from tests.api_generation.scenarios.client_body_replay_faults import body_replay_faults
@@ -35,7 +47,13 @@ from tests.api_generation.scenarios.client_headers import headers, native_bounda
 from tests.api_generation.scenarios.client_hooks import hooks
 from tests.api_generation.scenarios.client_missing_sentinel import missing_members
 from tests.api_generation.scenarios.client_mock_transport import mock_transport
-from tests.api_generation.scenarios.client_multipart import kinded_parts, multipart, split_parts
+from tests.api_generation.scenarios.client_multipart import (
+    kinded_parts,
+    media_text_parts,
+    multipart,
+    split_parts,
+    text_files,
+)
 from tests.api_generation.scenarios.client_naming import (
     naming,
     naming_full_path,
@@ -69,7 +87,7 @@ from tests.api_generation.scenarios.client_polling import polling
 from tests.api_generation.scenarios.client_polling_resume import polling_resume
 from tests.api_generation.scenarios.client_protocol_contracts import protocol_contracts
 from tests.api_generation.scenarios.client_protocol_errors import protocol_errors
-from tests.api_generation.scenarios.client_query import query
+from tests.api_generation.scenarios.client_query import bracketed, free_objects, item_or_array, query
 from tests.api_generation.scenarios.client_raw import raw
 from tests.api_generation.scenarios.client_redirects import head_redirects, redirects
 from tests.api_generation.scenarios.client_regressions import (
@@ -871,6 +889,8 @@ SCENARIOS: Final[dict[str, tuple[str, tuple[str, ...], Callable[[ModuleType, lis
     "auth-errors": ("auth", ("pydantic_v2.BaseModel",), auth_errors),
     "auth-values": ("auth", ("pydantic_v2.BaseModel",), auth_values),
     "auth-flows": ("auth", ("pydantic_v2.BaseModel",), auth_flows),
+    "auth-shared-wire": ("auth-shared-wire", ("pydantic_v2.BaseModel",), auth_shared_wire),
+    "auth-parameters": ("auth-parameters", ("pydantic_v2.BaseModel",), auth_parameters),
     "deadline-options": ("pets", ("pydantic_v2.BaseModel",), deadline_options),
     "deadline-cleanup": ("pets", ("pydantic_v2.BaseModel",), deadline_cleanup),
     "deadline-races": ("pets", ("pydantic_v2.BaseModel",), deadline_races),
@@ -904,6 +924,8 @@ SCENARIOS: Final[dict[str, tuple[str, tuple[str, ...], Callable[[ModuleType, lis
     "multipart-split": ("multipart-split", STRUCTURAL, split_parts),
     "multipart-split-all": ("multipart-split-all", STRUCTURAL, split_parts),
     "multipart-kinds": ("multipart-kinds", ALL_BUT_MSGSPEC, kinded_parts),
+    "multipart-text-files": ("multipart-text-files", ("pydantic_v2.BaseModel", "msgspec.Struct"), text_files),
+    "multipart-media-text": ("multipart-media-text", ("pydantic_v2.BaseModel", "msgspec.Struct"), media_text_parts),
     "headers": ("pets", ("pydantic_v2.BaseModel",), headers),
     "native-boundaries": ("native-boundaries", BACKENDS, native_boundaries),
     "call-layers": ("call-layers", ("pydantic_v2.BaseModel",), call_layers),
@@ -916,6 +938,9 @@ SCENARIOS: Final[dict[str, tuple[str, tuple[str, ...], Callable[[ModuleType, lis
     "parameter-kinds-literal": ("parameter-kinds-literal", BACKENDS, parameter_kinds),
     "parameter-kinds-strict": ("parameter-kinds-strict", BACKENDS, parameter_kinds),
     "query": ("pets", ("pydantic_v2.BaseModel",), query),
+    "item-or-array": ("parameter-item-or-array", ("pydantic_v2.BaseModel", "msgspec.Struct"), item_or_array),
+    "query-free-objects": ("query-free-objects", ("pydantic_v2.BaseModel", "msgspec.Struct"), free_objects),
+    "deep-object-brackets": ("deep-object-brackets", ("pydantic_v2.BaseModel", "msgspec.Struct"), bracketed),
     "signatures": ("pets", BACKENDS, signatures),
     "signatures-unpack": ("pets-unpack", BACKENDS, signatures),
     "keywords": ("keywords", ("pydantic_v2.BaseModel",), keywords),
@@ -923,7 +948,9 @@ SCENARIOS: Final[dict[str, tuple[str, tuple[str, ...], Callable[[ModuleType, lis
     "naming-snake": ("naming-snake", ("pydantic_v2.BaseModel",), naming_snake),
     "naming-parent-prefixed": ("naming-parent-prefixed", ("pydantic_v2.BaseModel",), naming_parent_prefixed),
     "naming-full-path": ("naming-full-path", ("pydantic_v2.BaseModel",), naming_full_path),
+    "naming-enclosing-model": ("naming-enclosing-model", ("pydantic_v2.BaseModel",), naming_full_path),
     "naming-primary-first": ("naming-primary-first", ("pydantic_v2.BaseModel",), naming_primary_first),
+    "naming-definitions-first": ("naming-definitions-first", ("pydantic_v2.BaseModel",), naming_primary_first),
     "hooks": ("pets", ("pydantic_v2.BaseModel",), hooks),
     "webhook-contracts": ("pets-protocols", BACKENDS, webhook_contracts),
     "webhook-errors": ("pets-protocols", ("pydantic_v2.BaseModel",), webhook_errors),
@@ -957,6 +984,29 @@ SCENARIOS: Final[dict[str, tuple[str, tuple[str, ...], Callable[[ModuleType, lis
     "stream-resume": ("stream-resume", ("pydantic_v2.BaseModel",), stream_resume),
     "ndjson-split": ("ndjson-split", STRUCTURAL, ndjson_split),
     "sockets": ("sockets", ("pydantic_v2.BaseModel",), sockets),
+    "asyncapi-sockets": ("asyncapi-market-v3", ("pydantic_v2.BaseModel", "dataclasses.dataclass"), asyncapi_sockets),
+    "asyncapi-perspective": ("asyncapi-perspective", ("pydantic_v2.BaseModel",), asyncapi_perspective),
+    "asyncapi-serverless": ("asyncapi-serverless", ("pydantic_v2.BaseModel",), asyncapi_serverless),
+    "asyncapi-messages": (
+        "asyncapi-messages",
+        ("pydantic_v2.BaseModel", "dataclasses.dataclass", "typing.TypedDict"),
+        asyncapi_messages,
+    ),
+    "asyncapi-union-sends": ("asyncapi-messages-aliases", ("pydantic_v2.BaseModel",), asyncapi_union_sends),
+    "asyncapi-subclass-sends": (
+        "asyncapi-messages",
+        ("pydantic_v2.BaseModel", "pydantic_v2.dataclass", "msgspec.Struct"),
+        asyncapi_subclass_sends,
+    ),
+    "asyncapi-enum-tag-sends": ("asyncapi-messages-enums", ("typing.TypedDict",), asyncapi_enum_tag_sends),
+    "asyncapi-handshake": ("asyncapi-handshake", ("pydantic_v2.BaseModel", "msgspec.Struct"), asyncapi_handshake),
+    "asyncapi-connections": (
+        "asyncapi-connections",
+        ("pydantic_v2.BaseModel", "typing.TypedDict"),
+        asyncapi_connections,
+    ),
+    "asyncapi-events": ("asyncapi-events", ("pydantic_v2.BaseModel", "msgspec.Struct"), asyncapi_events),
+    "asyncapi-event-unions": ("asyncapi-events", ("pydantic_v2.BaseModel",), asyncapi_event_unions),
     "protocol-errors": ("pets-protocols", ("pydantic_v2.BaseModel",), protocol_errors),
     "cache": ("caching", ("pydantic_v2.BaseModel",), caching),
     "cache-stores": ("caching-oauth", ("pydantic_v2.BaseModel",), cache_stores),

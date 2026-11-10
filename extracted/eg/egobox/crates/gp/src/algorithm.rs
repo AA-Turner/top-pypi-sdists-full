@@ -1,33 +1,26 @@
 use crate::errors::{GpError, Result};
+use crate::linalg::{UPLO, cholesky, eigh, qr, singular_values, solve_triangular, tri_solve};
 use crate::mean_models::*;
-use crate::optimization::{CobylaParams, optimize_params, prepare_multistart};
+use crate::optimization::{
+    CobylaParams, broadcast_bounds, broadcast_theta0, check_kpls_dim, into_f64,
+    multistart_minimize, pls_rotation, prepare_multistart,
+};
 use crate::parameters::{GpParams, GpValidParams};
-use crate::utils::{DiffMatrix, NormalizedData, pairwise_differences};
-use crate::{ThetaTuning, correlation_models::*};
+use crate::utils::{DiffMatrix, NormalizedData, check_training_size, pairwise_differences};
+use crate::{ParamTuning, ThetaTuning, correlation_models::*};
 
-use linfa::dataset::{WithLapack, WithoutLapack};
-use linfa::prelude::{Dataset, DatasetBase, Fit, Float, PredictInplace};
+use linfa::prelude::{DatasetBase, Fit, Float, PredictInplace};
 
-#[cfg(not(feature = "blas"))]
-use linfa_linalg::{cholesky::*, eigh::*, qr::*, svd::*, triangular::*};
-#[cfg(feature = "blas")]
-use log::warn;
-#[cfg(feature = "blas")]
-use ndarray_linalg::{cholesky::*, eigh::*, qr::*, svd::*, triangular::*};
-
-use linfa_pls::PlsRegression;
 use ndarray::{Array, Array1, Array2, ArrayBase, Axis, Data, Ix1, Ix2, Zip, s};
 
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::Normal;
 use ndarray_stats::QuantileExt;
 
-use log::debug;
-use rayon::prelude::*;
 #[cfg(feature = "serializable")]
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::time::Instant;
+use std::sync::OnceLock;
 
 /// Default number of multistart for hyperparameters optimization
 pub const GP_OPTIM_N_START: usize = 10;
@@ -57,6 +50,9 @@ pub(crate) struct GpInnerParams<F: Float> {
     ft: Array2<F>,
     /// R upper triangle matrix of QR decomposition of the matrix Ft
     ft_qr_r: Array2<F>,
+    /// \[R\]^-1 x F, prediction-only term computed lazily on first use (not serialized)
+    #[cfg_attr(feature = "serializable", serde(skip))]
+    r_inv_f: OnceLock<Array2<F>>,
 }
 
 impl<F: Float> Clone for GpInnerParams<F> {
@@ -68,7 +64,16 @@ impl<F: Float> Clone for GpInnerParams<F> {
             r_chol: self.r_chol.to_owned(),
             ft: self.ft.to_owned(),
             ft_qr_r: self.ft_qr_r.to_owned(),
+            r_inv_f: self.r_inv_f.clone(),
         }
+    }
+}
+
+impl<F: Float> GpInnerParams<F> {
+    /// \[R\]^-1 x F = Rc^-T x Ft where Rc is the Cholesky factor of \[R\]
+    fn r_inv_f(&self) -> &Array2<F> {
+        self.r_inv_f
+            .get_or_init(|| tri_solve(&self.r_chol.t(), self.ft.to_owned(), UPLO::Upper))
     }
 }
 
@@ -174,6 +179,9 @@ impl<F: Float> Clone for GpInnerParams<F> {
 pub struct GaussianProcess<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> {
     /// Parameter of the autocorrelation model equal to the inverse of length scale
     theta: Array1<F>,
+    /// Noise-to-signal ratio `tau^2 / sigma^2` (0 when no noise is modeled)
+    #[cfg_attr(feature = "serializable", serde(default = "F::zero"))]
+    noise_ratio: F,
     /// Reduced likelihood value (result from internal optimization)
     /// Maybe used to compare different trained models
     likelihood: F,
@@ -212,6 +220,7 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> Clone
     fn clone(&self) -> Self {
         Self {
             theta: self.theta.to_owned(),
+            noise_ratio: self.noise_ratio,
             likelihood: self.likelihood,
             inner_params: self.inner_params.clone(),
             w_star: self.w_star.to_owned(),
@@ -229,13 +238,13 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> fmt::Display
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "GP(mean={}, corr={}, theta={}, variance={}, likelihood={})",
-            self.params.mean,
-            self.params.corr,
-            self.theta,
-            self.inner_params.sigma2,
-            self.likelihood,
-        )
+            "GP(mean={}, corr={}, theta={}, variance={}",
+            self.params.mean, self.params.corr, self.theta, self.inner_params.sigma2,
+        )?;
+        if self.noise_ratio > F::zero() {
+            write!(f, ", noise variance={}", self.noise_variance())?;
+        }
+        write!(f, ", likelihood={})", self.likelihood)
     }
 }
 
@@ -344,37 +353,11 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
     ) -> (Array2<F>, Array2<F>) {
         let inners = &self.inner_params;
 
-        let corr_t = corr.t().to_owned();
-        #[cfg(feature = "blas")]
-        let rt = inners
-            .r_chol
-            .to_owned()
-            .with_lapack()
-            .solve_triangular(UPLO::Lower, Diag::NonUnit, &corr_t.with_lapack())
-            .unwrap()
-            .without_lapack();
-        #[cfg(not(feature = "blas"))]
-        let rt = inners
-            .r_chol
-            .solve_triangular(&corr_t, UPLO::Lower)
-            .unwrap();
-
+        // rt = Rc^-1 . r(x, X)^t
+        let rt = tri_solve(&inners.r_chol, corr.t().to_owned(), UPLO::Lower);
+        // u = Rq^-t . (Ft^t . rt - f(x)^t) where Rq^t is lower triangular
         let rhs = inners.ft.t().dot(&rt) - self.params.mean.coefs(xnorm).t();
-        #[cfg(feature = "blas")]
-        let u = inners
-            .ft_qr_r
-            .to_owned()
-            .t()
-            .with_lapack()
-            .solve_triangular(UPLO::Upper, Diag::NonUnit, &rhs.with_lapack())
-            .unwrap()
-            .without_lapack();
-        #[cfg(not(feature = "blas"))]
-        let u = inners
-            .ft_qr_r
-            .t()
-            .solve_triangular(&rhs, UPLO::Lower)
-            .unwrap();
+        let u = tri_solve(&inners.ft_qr_r.t(), rhs, UPLO::Lower);
         (rt, u)
     }
 
@@ -432,6 +415,17 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
         self.inner_params.sigma2
     }
 
+    /// Noise-to-signal ratio `tau^2 / sigma^2` used by the model (0 when no noise is modeled)
+    pub fn noise_ratio(&self) -> F {
+        self.noise_ratio
+    }
+
+    /// Estimated variance `tau^2` of the gaussian noise on training outputs
+    /// (0 when no noise is modeled)
+    pub fn noise_variance(&self) -> F {
+        self.noise_ratio * self.inner_params.sigma2
+    }
+
     /// Retrieve reduced likelihood value
     pub fn likelihood(&self) -> F {
         self.likelihood
@@ -456,7 +450,6 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
     /// fixed, and the correlation matrix's Cholesky factor is updated with an
     /// exact block (rank-`m`) update instead of being recomputed from scratch.
     /// Consumes `self` and returns a new `GaussianProcess`.
-    #[cfg(not(feature = "blas"))]
     pub fn update(
         self,
         x_new: &ArrayBase<impl Data<Elem = F>, Ix2>,
@@ -476,28 +469,28 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
         // R21 (m, n): correlation between new points and existing training points.
         let r21 = self._compute_correlation(&xnew_norm);
 
-        // R22 (m, m): correlation among the new points themselves (+ nugget),
+        // R22 (m, m): correlation among the new points themselves (+ nugget and noise ratio),
         // built the same way `reduced_likelihood` builds R for a fresh fit.
         let new_distances = DiffMatrix::new(&xnew_norm);
         let rnew =
             self.params
                 .corr
                 .rval_from_distances(&new_distances.d, &self.theta, &self.w_star);
-        let mut r22: Array2<F> = Array2::<F>::eye(m).mapv(|v| v + v * self.params.nugget());
-        for (i, ij) in new_distances.d_indices.outer_iter().enumerate() {
-            r22[[ij[0], ij[1]]] = rnew[[i, 0]];
-            r22[[ij[1], ij[0]]] = rnew[[i, 0]];
-        }
+        let r22 = correlation_matrix(
+            &new_distances,
+            &rnew,
+            self.params.nugget() + self.noise_ratio,
+        );
 
         let l11 = self.inner_params.r_chol; // (n, n) lower triangular
 
         // L21 (m, n): solve L11 @ L21^T = R21^T
-        let l21_t = l11.solve_triangular(&r21.t().to_owned(), UPLO::Lower)?; // (n, m)
+        let l21_t = solve_triangular(&l11, r21.t().to_owned(), UPLO::Lower)?; // (n, m)
         let l21 = l21_t.t().to_owned(); // (m, n)
 
         // Schur complement and its Cholesky factor L22 (m, m)
         let schur = r22 - l21.dot(&l21_t);
-        let l22 = schur.cholesky()?;
+        let l22 = cholesky(schur)?;
 
         // Assemble the augmented Cholesky factor L (n+m, n+m)
         let mut l = Array2::<F>::zeros((n + m, n + m));
@@ -510,7 +503,7 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
         // need a new (small) triangular solve against L22.
         let fnew = self.params.mean.coefs(&xnew_norm); // (m, p)
         let ft_top = self.inner_params.ft; // (n, p)
-        let ft_bottom = l22.solve_triangular(&(&fnew - &l21.dot(&ft_top)), UPLO::Lower)?;
+        let ft_bottom = solve_triangular(&l22, &fnew - &l21.dot(&ft_top), UPLO::Lower)?;
         let mut ft = Array2::<F>::zeros((n + m, ft_top.ncols()));
         ft.slice_mut(s![..n, ..]).assign(&ft_top);
         ft.slice_mut(s![n.., ..]).assign(&ft_bottom);
@@ -518,25 +511,15 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
         // Extend the whitened targets yt = L^-1 y. yt_top is an O(n^2) solve
         // against the frozen L11 (NOT a refactorization); yt_bottom is a small
         // solve against L22.
-        let yt_top = l11.solve_triangular(&self.yt_norm.data, UPLO::Lower)?; // (n, 1)
-        let yt_bottom = l22.solve_triangular(&(&ynew_norm - &l21.dot(&yt_top)), UPLO::Lower)?;
+        let yt_top = solve_triangular(&l11, self.yt_norm.data.to_owned(), UPLO::Lower)?; // (n, 1)
+        let yt_bottom = solve_triangular(&l22, &ynew_norm - &l21.dot(&yt_top), UPLO::Lower)?;
         let mut yt = Array2::<F>::zeros((n + m, 1));
         yt.slice_mut(s![..n, ..]).assign(&yt_top);
         yt.slice_mut(s![n.., ..]).assign(&yt_bottom);
 
         // Re-run the cheap (p is small) GLS step on the augmented system.
-        let (ft_qr_q, ft_qr_r) = ft.qr().unwrap().into_decomp();
-        let beta = ft_qr_r
-            .clone()
-            .solve_triangular_into(ft_qr_q.t().dot(&yt), UPLO::Upper)?;
-        let rho = &yt - &ft.dot(&beta);
-        let rho_sqr = rho.mapv(|v| v * v).sum_axis(Axis(0));
-        let gamma = l.t().solve_triangular_into(rho, UPLO::Upper)?;
-
-        let n_obs = F::cast(n + m);
-        let logdet = l.diag().mapv(|v: F| v.log10()).sum() * F::cast(2.) / n_obs;
-        let sigma2_n = rho_sqr[0] / n_obs;
-        let likelihood = -n_obs * (sigma2_n.log10() + logdet);
+        let ft_qr = qr(&ft)?;
+        let (likelihood, inner_params) = gls_params(l, ft, ft_qr, yt, self.yt_norm.std[0])?;
 
         // Append the new points to the stored (normalized and raw) datasets.
         let mut xt_data = Array2::<F>::zeros((n + m, self.xt_norm.data.ncols()));
@@ -557,160 +540,9 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
 
         Ok(GaussianProcess {
             theta: self.theta,
+            noise_ratio: self.noise_ratio,
             likelihood,
-            inner_params: GpInnerParams {
-                sigma2: sigma2_n * self.yt_norm.std[0] * self.yt_norm.std[0],
-                beta,
-                gamma,
-                r_chol: l,
-                ft,
-                ft_qr_r,
-            },
-            w_star: self.w_star,
-            xt_norm: NormalizedData {
-                data: xt_data,
-                mean: self.xt_norm.mean,
-                std: self.xt_norm.std,
-            },
-            yt_norm: NormalizedData {
-                data: yt_data,
-                mean: self.yt_norm.mean,
-                std: self.yt_norm.std,
-            },
-            training_data: (x_train, y_train),
-            params: self.params,
-        })
-    }
-
-    /// See non-blas version above for the full explanation. Same algorithm,
-    /// using the ndarray-linalg / LAPACK triangular-solve & Cholesky API.
-    /// Consumes `self` and returns a new `GaussianProcess`.
-    #[cfg(feature = "blas")]
-    pub fn update(
-        self,
-        x_new: &ArrayBase<impl Data<Elem = F>, Ix2>,
-        y_new: &ArrayBase<impl Data<Elem = F>, Ix1>,
-    ) -> Result<Self> {
-        let m = x_new.nrows();
-        if m == 0 {
-            return Ok(self);
-        }
-        let n = self.xt_norm.data.nrows();
-
-        let xnew_norm = (x_new - &self.xt_norm.mean) / &self.xt_norm.std;
-        let ynew_norm =
-            (&y_new.to_owned().insert_axis(Axis(1)) - &self.yt_norm.mean) / &self.yt_norm.std;
-
-        let r21 = self._compute_correlation(&xnew_norm); // (m, n)
-
-        let new_distances = DiffMatrix::new(&xnew_norm);
-        let rnew =
-            self.params
-                .corr
-                .rval_from_distances(&new_distances.d, &self.theta, &self.w_star);
-        let mut r22: Array2<F> = Array2::<F>::eye(m).mapv(|v| v + v * self.params.nugget());
-        for (i, ij) in new_distances.d_indices.outer_iter().enumerate() {
-            r22[[ij[0], ij[1]]] = rnew[[i, 0]];
-            r22[[ij[1], ij[0]]] = rnew[[i, 0]];
-        }
-
-        let l11 = self.inner_params.r_chol.with_lapack(); // (n, n)
-        let r21_t = r21.t().to_owned().with_lapack();
-        let l21_t = l11
-            .solve_triangular(UPLO::Lower, Diag::NonUnit, &r21_t)
-            .unwrap(); // (n, m)
-        let l21 = l21_t.t().to_owned(); // (m, m)... (m, n) in lapack space
-
-        let l21_owned = l21.without_lapack();
-        let l21_t_owned = l21_t.without_lapack();
-        let schur = r22 - l21_owned.dot(&l21_t_owned);
-        let l22 = schur.with_lapack().cholesky(UPLO::Lower)?;
-
-        let mut l = Array2::<F>::zeros((n + m, n + m));
-        l.slice_mut(s![..n, ..n])
-            .assign(&l11.to_owned().without_lapack());
-        l.slice_mut(s![n.., ..n]).assign(&l21_owned);
-        l.slice_mut(s![n.., n..])
-            .assign(&l22.to_owned().without_lapack());
-
-        let fnew = self.params.mean.coefs(&xnew_norm);
-        let ft_top = self.inner_params.ft;
-        let rhs_f = (&fnew - &l21_owned.dot(&ft_top)).with_lapack();
-        let ft_bottom = l22
-            .solve_triangular(UPLO::Lower, Diag::NonUnit, &rhs_f)
-            .unwrap()
-            .without_lapack();
-        let mut ft = Array2::<F>::zeros((n + m, ft_top.ncols()));
-        ft.slice_mut(s![..n, ..]).assign(&ft_top);
-        ft.slice_mut(s![n.., ..]).assign(&ft_bottom);
-
-        let yt_top = l11
-            .solve_triangular(
-                UPLO::Lower,
-                Diag::NonUnit,
-                &self.yt_norm.data.to_owned().with_lapack(),
-            )
-            .unwrap()
-            .without_lapack();
-        let rhs_y = (&ynew_norm - &l21_owned.dot(&yt_top)).with_lapack();
-        let yt_bottom = l22
-            .solve_triangular(UPLO::Lower, Diag::NonUnit, &rhs_y)
-            .unwrap()
-            .without_lapack();
-        let mut yt = Array2::<F>::zeros((n + m, 1));
-        yt.slice_mut(s![..n, ..]).assign(&yt_top);
-        yt.slice_mut(s![n.., ..]).assign(&yt_bottom);
-
-        let (ft_qr_q, ft_qr_r) = ft.to_owned().with_lapack().qr().unwrap();
-        let beta = ft_qr_r
-            .solve_triangular_into(
-                UPLO::Upper,
-                Diag::NonUnit,
-                ft_qr_q.t().dot(&yt.to_owned().with_lapack()),
-            )
-            .unwrap();
-        let rho = &yt.to_owned().with_lapack() - &ft.to_owned().with_lapack().dot(&beta);
-        let rho_sqr = rho.mapv(|v| v * v).sum_axis(Axis(0));
-        let gamma = l
-            .to_owned()
-            .with_lapack()
-            .t()
-            .solve_triangular_into(UPLO::Upper, Diag::NonUnit, rho)
-            .unwrap()
-            .without_lapack();
-
-        let n_obs = F::cast(n + m);
-        let logdet = l.diag().mapv(|v: F| v.log10()).sum() * F::cast(2.) / n_obs;
-        let sigma2_n = F::cast(rho_sqr[0]) / n_obs;
-        let likelihood = -n_obs * (sigma2_n.log10() + logdet);
-
-        let mut xt_data = Array2::<F>::zeros((n + m, self.xt_norm.data.ncols()));
-        xt_data.slice_mut(s![..n, ..]).assign(&self.xt_norm.data);
-        xt_data.slice_mut(s![n.., ..]).assign(&xnew_norm);
-
-        let mut yt_data = Array2::<F>::zeros((n + m, 1));
-        yt_data.slice_mut(s![..n, ..]).assign(&self.yt_norm.data);
-        yt_data.slice_mut(s![n.., ..]).assign(&ynew_norm);
-
-        let mut x_train = Array2::<F>::zeros((n + m, x_new.ncols()));
-        x_train.slice_mut(s![..n, ..]).assign(&self.training_data.0);
-        x_train.slice_mut(s![n.., ..]).assign(x_new);
-
-        let mut y_train = Array1::<F>::zeros(n + m);
-        y_train.slice_mut(s![..n]).assign(&self.training_data.1);
-        y_train.slice_mut(s![n..]).assign(y_new);
-
-        Ok(GaussianProcess {
-            theta: self.theta,
-            likelihood,
-            inner_params: GpInnerParams {
-                sigma2: sigma2_n * self.yt_norm.std[0] * self.yt_norm.std[0],
-                beta: beta.without_lapack(),
-                gamma,
-                r_chol: l,
-                ft,
-                ft_qr_r: ft_qr_r.without_lapack(),
-            },
+            inner_params,
             w_star: self.w_star,
             xt_norm: NormalizedData {
                 data: xt_data,
@@ -838,154 +670,102 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
         jac
     }
 
-    /// Predict variance derivatives at a point `x` specified as a (nx,) vector where x has nx components.
-    /// Returns a (nx,) vector containing variance derivatives at `x` wrt each nx components
-    #[cfg(not(feature = "blas"))]
-    pub fn predict_var_gradients_single(
+    /// Predict value, variance and their derivatives at a point `x` specified as a (nx,) vector.
+    /// The correlation and its jacobian are evaluated once, and the four predictions share
+    /// the two triangular solves against the Cholesky factor of \[R\].
+    fn _predict_valvar_with_gradients_single(
         &self,
         x: &ArrayBase<impl Data<Elem = F>, Ix1>,
-    ) -> Array1<F> {
-        let x = &(x.to_owned().insert_axis(Axis(0)));
+    ) -> (F, F, Array1<F>, Array1<F>) {
+        let inners = &self.inner_params;
         let xnorm = (x - &self.xt_norm.mean) / &self.xt_norm.std;
-        let sigma2 = self.inner_params.sigma2;
-        let r_chol = &self.inner_params.r_chol;
 
-        let (r, dr) = self.params.corr.rval_with_jac(
-            &xnorm.row(0),
-            &self.xt_norm.data,
-            &self.theta,
-            &self.w_star,
+        // r(x, X) (n, 1) and dr(x, X)/dx (n, nx)
+        let (r, dr) =
+            self.params
+                .corr
+                .rval_with_jac(&xnorm, &self.xt_norm.data, &self.theta, &self.w_star);
+        // f(x) (1, p) and df(x)/dx (p, nx)
+        let f = self.params.mean.coefs(&xnorm.view().insert_axis(Axis(0)));
+        let df = self.params.mean.jac(&xnorm);
+
+        // Value and its derivatives
+        let val = (f.dot(&inners.beta) + r.t().dot(&inners.gamma))[[0, 0]];
+        let dval = df.t().dot(&inners.beta) + dr.t().dot(&inners.gamma);
+
+        // rt = Rc^-1 . r(x, X)
+        let rt = tri_solve(&inners.r_chol, r, UPLO::Lower);
+        // With A = f(x) - r(x, X)^t . R^-1 . F = f(x) - rt^t . Ft and Ft = Q . Rq
+        // u = Rq^-t . (Ft^t . rt - f(x)^t) = -Rq^-t . A^t
+        let u = tri_solve(
+            &inners.ft_qr_r.t(),
+            inners.ft.t().dot(&rt) - f.t(),
+            UPLO::Lower,
         );
+        let mse = F::one() - rt.mapv(|v| v * v).sum() + u.mapv(|v| v * v).sum();
 
-        // rho1 = Rc^-1 . r(x, X)
-        let rho1 = r_chol.solve_triangular(&r, UPLO::Lower).unwrap();
-
-        // inv_kr = Rc^t^-1 . Rc^-1 . r(x, X) = R^-1 . r(x, X)
-        let inv_kr = r_chol.t().solve_triangular(&rho1, UPLO::Upper).unwrap();
-
-        // p1 = ((dr(x, X)/dx)^t . R^-1 . r(x, X))^t = ((R^-1 . r(x, X))^t . dr(x, X)/dx) = r(x, X)^t . R^-1 . dr(x, X)/dx = p2
-        // let p1 = dr.t().dot(&inv_kr).t().to_owned();
-
-        // p2 = ((R^-1 . r(x, X))^t . dr(x, X)/dx)^t = dr(x, X)/dx)^t . R^-1 . r(x, X) = p1
+        // inv_kr = Rc^-t . Rc^-1 . r(x, X) = R^-1 . r(x, X)
+        let inv_kr = tri_solve(&inners.r_chol.t(), rt, UPLO::Upper);
+        // p2 = r(x, X)^t . R^-1 . dr(x, X)/dx
         let p2 = inv_kr.t().dot(&dr);
 
-        let f_x = self.params.mean.coefs(&xnorm).t().to_owned();
-        let f_mean = self.params.mean.coefs(&self.xt_norm.data);
-
-        // rho2 = Rc^-1 . F(X)
-        let rho2 = r_chol.solve_triangular(&f_mean, UPLO::Lower).unwrap();
-        // inv_kf = Rc^-1^t . Rc^-1 . F(X) = R^-1 . F(X)
-        let inv_kf = r_chol.t().solve_triangular(&rho2, UPLO::Upper).unwrap();
-
-        // A = f(x)^t - r(x, X)^t . R^-1 . F(X)   -> (1 x m)
-        let a_mat = f_x.t().to_owned() - r.t().dot(&inv_kf);
-
-        // B = F(X)^t . R^-1 . F(X)
-        let b_mat = f_mean.t().dot(&inv_kf);
-        // rho3 = Bc
-        let rho3 = b_mat.cholesky().unwrap();
-        // inv_bat = Bc^-1 . A^t
-        let inv_bat = rho3.solve_triangular(&a_mat.t(), UPLO::Lower).unwrap();
-        // D = Bc^t-1 . Bc^-1 . A^t = B^-1 . A^t
-        let d_mat = rho3.t().solve_triangular(&inv_bat, UPLO::Upper).unwrap();
-
-        let df = self.params.mean.jac(&xnorm.row(0));
-
+        // B = F^t . R^-1 . F = Rq^t . Rq hence D = B^-1 . A^t = -Rq^-1 . u
+        let d_mat = tri_solve(&inners.ft_qr_r, u.mapv(|v| -v), UPLO::Upper);
         // dA/dx = df(x)/dx^t - dr(x, X)/dx^t . R^-1 . F
-        let d_a = df.t().to_owned() - dr.t().dot(&inv_kf);
-
-        // p3 = (dA/dx . B^-1 . A^t)^t = A . B^-1 . dA/dx^t
-        // let p3 = d_a.dot(&d_mat).t().to_owned();
-
-        // p4 = (B^-1 . A)^t . dA/dx^t = A^t . B^-1 . dA/dx^t = p3
+        let d_a = df.t().to_owned() - dr.t().dot(inners.r_inv_f());
+        // p4 = A . B^-1 . dA/dx^t
         let p4 = d_mat.t().dot(&d_a.t());
-        let two = F::cast(2.);
-        let prime = (p4 - p2).mapv(|v| two * v);
 
         let x_std = &self.xt_norm.std;
-        let dvar = (prime / x_std).mapv(|v| v * sigma2);
-        dvar.row(0).into_owned()
+        let y_std = self.yt_norm.std[0];
+        let sigma2 = inners.sigma2;
+        let two = F::cast(2.);
+        (
+            val * y_std + self.yt_norm.mean[0],
+            // Mean Squared Error might be slightly negative depending on
+            // machine precision: set to zero in that case
+            sigma2 * if mse < F::zero() { F::zero() } else { mse },
+            dval.column(0).to_owned() * y_std / x_std,
+            (p4 - p2).row(0).mapv(|v| two * sigma2 * v) / x_std,
+        )
     }
 
-    /// See non blas version
-    #[cfg(feature = "blas")]
+    /// Predict output values, variances and their derivatives at a set of points `x`
+    /// specified as a (n, nx) matrix where x has nx components.
+    /// Returns (values (n,), variances (n,), value derivatives (n, nx), variance derivatives (n, nx)).
+    /// Cheaper than calling `predict_valvar` and `predict_valvar_gradients` separately
+    /// as the computations are shared.
+    #[allow(clippy::type_complexity)]
+    pub fn predict_valvar_with_gradients(
+        &self,
+        x: &ArrayBase<impl Data<Elem = F>, Ix2>,
+    ) -> Result<(Array1<F>, Array1<F>, Array2<F>, Array2<F>)> {
+        let mut vals = Array1::zeros(x.nrows());
+        let mut vars = Array1::zeros(x.nrows());
+        let mut val_derivs = Array2::zeros((x.nrows(), x.ncols()));
+        let mut var_derivs = Array2::zeros((x.nrows(), x.ncols()));
+        Zip::from(&mut vals)
+            .and(&mut vars)
+            .and(val_derivs.rows_mut())
+            .and(var_derivs.rows_mut())
+            .and(x.rows())
+            .for_each(|val, var, mut val_der, mut var_der, x| {
+                let (v, s, dv, ds) = self._predict_valvar_with_gradients_single(&x);
+                *val = v;
+                *var = s;
+                val_der.assign(&dv);
+                var_der.assign(&ds);
+            });
+        Ok((vals, vars, val_derivs, var_derivs))
+    }
+
+    /// Predict variance derivatives at a point `x` specified as a (nx,) vector where x has nx components.
+    /// Returns a (nx,) vector containing variance derivatives at `x` wrt each nx components
     pub fn predict_var_gradients_single(
         &self,
         x: &ArrayBase<impl Data<Elem = F>, Ix1>,
     ) -> Array1<F> {
-        let x = &(x.to_owned().insert_axis(Axis(0)));
-        let xnorm = (x - &self.xt_norm.mean) / &self.xt_norm.std;
-
-        let dx = pairwise_differences(&xnorm, &self.xt_norm.data);
-
-        let sigma2 = self.inner_params.sigma2;
-        let r_chol = &self.inner_params.r_chol.to_owned().with_lapack();
-
-        let r = self
-            .params
-            .corr
-            .rval_from_distances(&dx, &self.theta, &self.w_star)
-            .with_lapack();
-        let dr = self
-            .params
-            .corr
-            .jac(&xnorm.row(0), &self.xt_norm.data, &self.theta, &self.w_star)
-            .with_lapack();
-
-        let rho1 = r_chol
-            .solve_triangular(UPLO::Lower, Diag::NonUnit, &r)
-            .unwrap();
-        let inv_kr = r_chol
-            .t()
-            .solve_triangular(UPLO::Upper, Diag::NonUnit, &rho1)
-            .unwrap();
-
-        // let p1 = dr.t().dot(&inv_kr).t().to_owned();
-
-        let p2 = inv_kr.t().dot(&dr);
-
-        let f_x = self.params.mean.coefs(x).t().to_owned();
-        let f_mean = self.params.mean.coefs(&self.xt_norm.data).with_lapack();
-
-        let rho2 = r_chol
-            .solve_triangular(UPLO::Lower, Diag::NonUnit, &f_mean)
-            .unwrap();
-        let inv_kf = r_chol
-            .t()
-            .solve_triangular(UPLO::Upper, Diag::NonUnit, &rho2)
-            .unwrap();
-
-        let a_mat = f_x.t().to_owned().with_lapack() - r.t().dot(&inv_kf);
-
-        let b_mat = f_mean.t().dot(&inv_kf);
-
-        let d_mat = match b_mat.cholesky(UPLO::Lower) {
-            Ok(rho3) => {
-                let inv_bat = rho3
-                    .solve_triangular(UPLO::Upper, Diag::NonUnit, &a_mat.t().to_owned())
-                    .unwrap();
-                rho3.t()
-                    .solve_triangular(UPLO::Upper, Diag::NonUnit, &inv_bat)
-                    .unwrap()
-            }
-            Err(_) => {
-                warn!("Cholesky decomposition error during variance dervivatives computation");
-                Array2::zeros((b_mat.nrows(), b_mat.ncols()))
-            }
-        };
-
-        let df = self.params.mean.jac(&xnorm.row(0)).with_lapack();
-
-        let d_a = df.t().to_owned() - dr.t().dot(&inv_kf);
-        // let p3 = d_a.dot(&d_mat).t();
-        let p4 = d_mat.t().dot(&d_a.t());
-
-        let two = F::cast(2.);
-        let prime_t = (p4 - p2).without_lapack().mapv(|v| two * v);
-
-        let x_std = &self.xt_norm.std;
-        let dvar = (prime_t / x_std).mapv(|v| v * sigma2);
-        dvar.row(0).into_owned()
+        self._predict_valvar_with_gradients_single(x).3
     }
 
     /// Predict variance derivatives at a set of points `x` specified as a (n, nx) matrix where x has nx components.
@@ -1004,15 +784,7 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GaussianProc
         &self,
         x: &ArrayBase<impl Data<Elem = F>, Ix2>,
     ) -> (Array2<F>, Array2<F>) {
-        let mut val_derivs = Array::zeros((x.nrows(), x.ncols()));
-        let mut var_derivs = Array::zeros((x.nrows(), x.ncols()));
-        Zip::from(val_derivs.rows_mut())
-            .and(var_derivs.rows_mut())
-            .and(x.rows())
-            .for_each(|mut val_der, mut var_der, x| {
-                val_der.assign(&self.predict_jacobian(&x).column(0));
-                var_der.assign(&self.predict_var_gradients_single(&x));
-            });
+        let (_, _, val_derivs, var_derivs) = self.predict_valvar_with_gradients(x).unwrap();
         (val_derivs, var_derivs)
     }
 }
@@ -1085,17 +857,8 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>, D: Data<Elem
     ) -> Result<Self::Object> {
         let x = dataset.records();
         let y = dataset.targets().to_owned().insert_axis(Axis(1));
-
-        if let Some(d) = self.kpls_dim()
-            && *d > x.ncols()
-        {
-            return Err(GpError::InvalidValueError(format!(
-                "Dimension reduction {} should be smaller than actual \
-                    training input dimensions {}",
-                d,
-                x.ncols()
-            )));
-        }
+        check_training_size(x)?;
+        check_kpls_dim(self.kpls_dim(), x.ncols())?;
 
         let dim = if let Some(n_components) = self.kpls_dim() {
             *n_components
@@ -1103,48 +866,18 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>, D: Data<Elem
             x.ncols()
         };
 
-        let (x, y, active, init) = match self.theta_tuning() {
-            ThetaTuning::Fixed(init) | ThetaTuning::Full { init, bounds: _ } => (
-                x.to_owned(),
-                y.to_owned(),
-                (0..dim).collect::<Vec<_>>(),
-                init,
-            ),
-            ThetaTuning::Partial {
-                init,
-                bounds: _,
-                active,
-            } => (x.to_owned(), y.to_owned(), active.to_vec(), init),
+        let active = match self.theta_tuning() {
+            ThetaTuning::Partial { active, .. } => active.to_vec(),
+            ThetaTuning::Fixed(_) | ThetaTuning::Full { .. } => (0..dim).collect::<Vec<_>>(),
         };
         // Initial guess for theta
-        let theta0_dim = init.len();
-        let theta0 = if theta0_dim == 1 {
-            Array1::from_elem(dim, init[0])
-        } else if theta0_dim == dim {
-            init.to_owned()
-        } else {
-            panic!(
-                "Initial guess for theta should be either 1-dim or dim of xtrain (w_star.ncols()), got {theta0_dim}"
-            )
-        };
+        let theta0 = broadcast_theta0(self.theta_tuning().init(), dim);
 
-        let xtrain = NormalizedData::new(&x);
+        let xtrain = NormalizedData::new(x);
         let ytrain = NormalizedData::new(&y);
 
-        let mut w_star = Array2::eye(x.ncols());
-        if let Some(n_components) = self.kpls_dim() {
-            let ds = Dataset::new(x.to_owned(), y.to_owned());
-            w_star = PlsRegression::params(*n_components).fit(&ds).map_or_else(
-                |e| match e {
-                    linfa_pls::PlsError::PowerMethodConstantResidualError() => {
-                        Ok(Array2::zeros((x.ncols(), *n_components)))
-                    }
-                    err => Err(err),
-                },
-                |v| Ok(v.rotations().0.to_owned()),
-            )?;
-        };
-        let x_distances = DiffMatrix::new(&xtrain.data);
+        let w_star = pls_rotation(x, &y, self.kpls_dim())?;
+        let mut x_distances = DiffMatrix::new(&xtrain.data);
         let sums = x_distances
             .d
             .mapv(|v| num_traits::float::Float::abs(v))
@@ -1152,115 +885,130 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>, D: Data<Elem
         if *sums.min().unwrap() == F::zero() {
             log::warn!("Warning: multiple x have the same value (at least same row twice).");
         }
+        // Distances are transformed once for all correlation computations below
+        let prepared_distances = self
+            .corr()
+            .prepare_distances(std::mem::take(&mut x_distances.d));
         let fx = self.mean().coefs(&xtrain.data);
 
-        let opt_params = match self.theta_tuning() {
-            ThetaTuning::Fixed(init) => {
-                // Easy path no optimization
-                init.to_owned()
-            }
+        // Noise ratio: either fixed or optimized along with theta
+        let (noise_bounds, noise0) = match self.noise_ratio() {
+            ParamTuning::Fixed(ratio) => (None, *ratio),
+            ParamTuning::Optimized { init, bounds } => (Some(*bounds), *init),
+        };
+
+        // Theta base value, components to optimize (none when theta is fixed) and their bounds
+        let (theta_base, active, theta_bounds) = match self.theta_tuning() {
+            ThetaTuning::Fixed(init) => (init.to_owned(), vec![], vec![]),
             ThetaTuning::Full { init: _, bounds }
             | ThetaTuning::Partial {
                 init: _,
                 bounds,
                 active: _,
             } => {
-                let base: f64 = 10.;
-                let objfn = |x: &[f64], _gradient: Option<&mut [f64]>, _params: &mut ()| -> f64 {
-                    let mut theta = theta0.to_owned();
-                    let xarr = x.iter().map(|v| base.powf(*v)).collect::<Vec<_>>();
-                    std::iter::zip(active.clone(), xarr).for_each(|(i, xi)| theta[i] = F::cast(xi));
+                let bounds = broadcast_bounds(bounds, w_star.ncols());
 
-                    for v in theta.iter() {
-                        // check theta as optimizer may return nan values
-                        if v.is_nan() {
-                            // shortcut return worst value wrt to rlf minimization
-                            return f64::INFINITY;
-                        }
-                    }
-                    let rxx = self
-                        .corr()
-                        .rval_from_distances(&x_distances.d, &theta, &w_star);
-                    match reduced_likelihood(&fx, rxx, &x_distances, &ytrain, self.nugget()) {
-                        Ok(r) => unsafe { -(*(&r.0 as *const F as *const f64)) },
-                        Err(_) => f64::INFINITY,
-                    }
-                };
-
-                // Multistart: user theta0 + 1e-5, 1e-4, 1e-3, 1e-2, 0.1, 1., 10.
-                // let bounds = vec![(F::cast(-6.), F::cast(2.)); theta0.len()];
-                let bounds_dim = bounds.len();
-                let bounds = if bounds_dim == 1 {
-                    vec![bounds[0]; w_star.ncols()]
-                } else if bounds_dim == w_star.ncols() {
-                    bounds.to_vec()
-                } else {
-                    panic!(
-                        "Bounds for theta should be either 1-dim or dim of xtrain ({}), got {}",
-                        w_star.ncols(),
-                        bounds_dim
-                    )
-                };
-
-                // Select init params and bounds wrt to activity
+                // Select bounds wrt to activity
                 let active_bounds = bounds
                     .iter()
                     .enumerate()
                     .filter(|(i, _)| active.contains(i))
                     .map(|(_, &b)| b)
                     .collect::<Vec<_>>();
-                let (theta_inits, bounds) = prepare_multistart(
-                    self.n_start(),
-                    &theta0.select(Axis(0), &active),
-                    &active_bounds,
-                );
-                debug!("Optimize with multistart theta = {theta_inits:?} and bounds = {bounds:?}");
-                let now = Instant::now();
-                let opt_params = (0..theta_inits.nrows())
-                    .into_par_iter()
-                    .map(|i| {
-                        optimize_params(
-                            objfn,
-                            &theta_inits.row(i).to_owned(),
-                            &bounds,
-                            CobylaParams {
-                                maxeval: (10 * theta_inits.ncols())
-                                    .clamp(GP_COBYLA_MIN_EVAL, self.max_eval()),
-                                ..CobylaParams::default()
-                            },
-                        )
-                    })
-                    .reduce(
-                        || (f64::INFINITY, Array::ones((theta_inits.ncols(),))),
-                        |a, b| if b.0 < a.0 { b } else { a },
-                    );
-                debug!("elapsed optim = {:?}", now.elapsed().as_millis());
-                opt_params.1.mapv(|v| F::cast(base.powf(v)))
+                (theta0.to_owned(), active, active_bounds)
             }
         };
+        let n_theta = active.len();
 
-        // In case of partial optimization we set only active components
-        let opt_params = match self.theta_tuning() {
-            ThetaTuning::Fixed(_) | ThetaTuning::Full { init: _, bounds: _ } => opt_params,
+        let (opt_active, opt_noise) = if n_theta == 0 && noise_bounds.is_none() {
+            // Easy path no optimization
+            (Array1::zeros(0), noise0)
+        } else {
+            let base: f64 = 10.;
+            let objfn = |x: &[f64], _gradient: Option<&mut [f64]>, _params: &mut ()| -> f64 {
+                let mut theta = theta_base.to_owned();
+                std::iter::zip(&active, &x[..n_theta])
+                    .for_each(|(&i, xi)| theta[i] = F::cast(base.powf(*xi)));
+                let noise_ratio = if noise_bounds.is_some() {
+                    F::cast(base.powf(x[n_theta]))
+                } else {
+                    noise0
+                };
+
+                // check params as optimizer may return nan values
+                if noise_ratio.is_nan() || theta.iter().any(|v| v.is_nan()) {
+                    // shortcut return worst value wrt to rlf minimization
+                    return f64::INFINITY;
+                }
+                let rxx =
+                    self.corr()
+                        .rval_from_prepared_distances(&prepared_distances, &theta, &w_star);
+                match reduced_likelihood(
+                    &fx,
+                    rxx,
+                    &x_distances,
+                    &ytrain,
+                    self.nugget(),
+                    noise_ratio,
+                ) {
+                    Ok(r) => -into_f64(&r.0),
+                    Err(_) => f64::INFINITY,
+                }
+            };
+
+            // Optimization parameters: [theta_active..., [noise_ratio]] (log10 scale)
+            let mut params0 = theta_base.select(Axis(0), &active).to_vec();
+            let mut bounds = theta_bounds;
+            if let Some(noise_bounds) = noise_bounds {
+                params0.push(noise0);
+                bounds.push(noise_bounds);
+            }
+            // Multistart: user params0 + LHS samples within bounds
+            let (params_inits, bounds) =
+                prepare_multistart(self.n_start(), &Array1::from_vec(params0), &bounds);
+            let opt_params = multistart_minimize(
+                objfn,
+                &params_inits,
+                &bounds,
+                CobylaParams {
+                    maxeval: (10 * params_inits.ncols()).clamp(GP_COBYLA_MIN_EVAL, self.max_eval()),
+                    ..CobylaParams::default()
+                },
+            );
+            let opt_params = opt_params.1.mapv(|v| F::cast(base.powf(v)));
+            let opt_noise = if noise_bounds.is_some() {
+                opt_params[n_theta]
+            } else {
+                noise0
+            };
+            (opt_params.slice(s![..n_theta]).to_owned(), opt_noise)
+        };
+
+        // Set optimized theta components
+        let opt_theta = match self.theta_tuning() {
+            ThetaTuning::Fixed(init) => init.to_owned(),
+            ThetaTuning::Full { init: _, bounds: _ } => opt_active,
             ThetaTuning::Partial {
                 init,
                 bounds: _,
                 active,
             } => {
+                // In case of partial optimization we set only active components
                 let mut opt_theta = init.to_owned();
-                std::iter::zip(active.clone(), opt_params)
+                std::iter::zip(active.clone(), opt_active)
                     .for_each(|(i, xi)| opt_theta[i] = F::cast(xi));
                 opt_theta
             }
         };
 
-        let rxx = self
-            .corr()
-            .rval_from_distances(&x_distances.d, &opt_params, &w_star);
+        let rxx =
+            self.corr()
+                .rval_from_prepared_distances(&prepared_distances, &opt_theta, &w_star);
         let (lkh, inner_params) =
-            reduced_likelihood(&fx, rxx, &x_distances, &ytrain, self.nugget())?;
+            reduced_likelihood(&fx, rxx, &x_distances, &ytrain, self.nugget(), opt_noise)?;
         Ok(GaussianProcess {
-            theta: opt_params,
+            theta: opt_theta,
+            noise_ratio: opt_noise,
             likelihood: lkh,
             inner_params,
             w_star,
@@ -1272,40 +1020,51 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>, D: Data<Elem
     }
 }
 
+/// Correlation matrix of the points of `distances` given the correlation values `rvals`
+/// of their pairs, with `diag` added on the diagonal (nugget and noise ratio)
+fn correlation_matrix<F: Float>(
+    distances: &DiffMatrix<F>,
+    rvals: &ArrayBase<impl Data<Elem = F>, Ix2>,
+    diag: F,
+) -> Array2<F> {
+    let mut r_mx: Array2<F> = Array2::<F>::eye(distances.n_obs).mapv(|v| v + v * diag);
+    for (i, ij) in distances.d_indices.outer_iter().enumerate() {
+        r_mx[[ij[0], ij[1]]] = rvals[[i, 0]];
+        r_mx[[ij[1], ij[0]]] = rvals[[i, 0]];
+    }
+    r_mx
+}
+
 /// Compute reduced likelihood function
 /// fx: mean factors term at x samples,
 /// rxx: correlation factors at x samples,
 /// x_distances: pairwise distances between x samples
 /// ytrain: normalized output training values
-/// nugget: factor to improve numerical stability  
-#[cfg(not(feature = "blas"))]
+/// nugget: factor to improve numerical stability
+/// noise_ratio: noise-to-signal ratio tau^2 / sigma^2 added to the diagonal of R
 fn reduced_likelihood<F: Float>(
     fx: &ArrayBase<impl Data<Elem = F>, Ix2>,
     rxx: ArrayBase<impl Data<Elem = F>, Ix2>,
     x_distances: &DiffMatrix<F>,
     ytrain: &NormalizedData<F>,
     nugget: F,
+    noise_ratio: F,
 ) -> Result<(F, GpInnerParams<F>)> {
     // Set up R
-    let mut r_mx: Array2<F> = Array2::<F>::eye(x_distances.n_obs).mapv(|v| v + v * nugget);
-    for (i, ij) in x_distances.d_indices.outer_iter().enumerate() {
-        r_mx[[ij[0], ij[1]]] = rxx[[i, 0]];
-        r_mx[[ij[1], ij[0]]] = rxx[[i, 0]];
-    }
-    let fxl = fx;
+    let r_mx = correlation_matrix(x_distances, &rxx, nugget + noise_ratio);
     // R cholesky decomposition
-    let r_chol = r_mx.cholesky()?;
+    let r_chol = cholesky(r_mx)?;
     // Solve generalized least squared problem
-    let ft = r_chol.solve_triangular(fxl, UPLO::Lower)?;
-    let (ft_qr_q, ft_qr_r) = ft.qr().unwrap().into_decomp();
+    let ft = solve_triangular(&r_chol, fx.to_owned(), UPLO::Lower)?;
+    let ft_qr = qr(&ft)?;
 
     // Check whether we have an ill-conditionned problem
-    let (_, sv_qr_r, _) = ft_qr_r.svd(false, false).unwrap();
+    let sv_qr_r = singular_values(&ft_qr.1)?;
     let cond_ft = sv_qr_r[sv_qr_r.len() - 1] / sv_qr_r[0];
-    if F::cast(cond_ft) < F::cast(1e-10) {
-        let (_, sv_f, _) = &fxl.svd(false, false).unwrap();
+    if cond_ft < F::cast(1e-10) {
+        let sv_f = singular_values(fx)?;
         let cond_fx = sv_f[0] / sv_f[sv_f.len() - 1];
-        if F::cast(cond_fx) > F::cast(1e15) {
+        if cond_fx > F::cast(1e15) {
             return Err(GpError::LikelihoodComputationError(
                 "F is too ill conditioned. Poor combination \
                 of regression model and observations."
@@ -1318,16 +1077,30 @@ fn reduced_likelihood<F: Float>(
             ));
         }
     }
-    let yt = r_chol.solve_triangular(&ytrain.data, UPLO::Lower)?;
+    let yt = solve_triangular(&r_chol, ytrain.data.to_owned(), UPLO::Lower)?;
 
-    let beta = ft_qr_r.solve_triangular_into(ft_qr_q.t().dot(&yt), UPLO::Upper)?;
+    gls_params(r_chol, ft, ft_qr, yt, ytrain.std[0])
+}
+
+/// Generalized least squares estimation of the GP parameters and reduced likelihood given
+/// the Cholesky factor `r_chol` of the correlation matrix R, the regression matrix whitened
+/// by R `ft = r_chol^-1 . F` with its QR decomposition, the normalized outputs whitened by R
+/// `yt = r_chol^-1 . y` and the outputs standard deviation `y_std`
+fn gls_params<F: Float>(
+    r_chol: Array2<F>,
+    ft: Array2<F>,
+    (ft_qr_q, ft_qr_r): (Array2<F>, Array2<F>),
+    yt: Array2<F>,
+    y_std: F,
+) -> Result<(F, GpInnerParams<F>)> {
+    let beta = solve_triangular(&ft_qr_r, ft_qr_q.t().dot(&yt), UPLO::Upper)?;
     let rho = yt - ft.dot(&beta);
     let rho_sqr = rho.mapv(|v| v * v).sum_axis(Axis(0));
 
-    let gamma = r_chol.t().solve_triangular_into(rho, UPLO::Upper)?;
+    let gamma = solve_triangular(&r_chol.t(), rho, UPLO::Upper)?;
     // The determinant of R is equal to the squared product of
     // the diagonal elements of its Cholesky decomposition r_chol
-    let n_obs: F = F::cast(x_distances.n_obs);
+    let n_obs: F = F::cast(r_chol.nrows());
 
     let logdet = r_chol.diag().mapv(|v: F| v.log10()).sum() * F::cast(2.) / n_obs;
 
@@ -1338,102 +1111,13 @@ fn reduced_likelihood<F: Float>(
     Ok((
         reduced_likelihood,
         GpInnerParams {
-            sigma2: sigma2[0] * ytrain.std[0] * ytrain.std[0],
+            sigma2: sigma2[0] * y_std * y_std,
             beta,
             gamma,
             r_chol,
             ft,
             ft_qr_r,
-        },
-    ))
-}
-
-/// See non blas version
-#[cfg(feature = "blas")]
-fn reduced_likelihood<F: Float>(
-    fx: &ArrayBase<impl Data<Elem = F>, Ix2>,
-    rxx: ArrayBase<impl Data<Elem = F>, Ix2>,
-    x_distances: &DiffMatrix<F>,
-    ytrain: &NormalizedData<F>,
-    nugget: F,
-) -> Result<(F, GpInnerParams<F>)> {
-    // Set up R
-    let mut r_mx: Array2<F> = Array2::<F>::eye(x_distances.n_obs).mapv(|v| v + v * nugget);
-    for (i, ij) in x_distances.d_indices.outer_iter().enumerate() {
-        r_mx[[ij[0], ij[1]]] = rxx[[i, 0]];
-        r_mx[[ij[1], ij[0]]] = rxx[[i, 0]];
-    }
-
-    let fxl = fx.to_owned().with_lapack();
-
-    // R cholesky decomposition
-    let r_chol = r_mx.with_lapack().cholesky(UPLO::Lower)?;
-
-    // Solve generalized least squared problem
-    let ft = r_chol.solve_triangular(UPLO::Lower, Diag::NonUnit, &fxl)?;
-    let (ft_qr_q, ft_qr_r) = ft.qr().unwrap();
-
-    // Check whether we have an ill-conditionned problem
-    let (_, sv_qr_r, _) = ft_qr_r.svd(false, false).unwrap();
-    let cond_ft = sv_qr_r[sv_qr_r.len() - 1] / sv_qr_r[0];
-    if F::cast(cond_ft) < F::cast(1e-10) {
-        let (_, sv_f, _) = &fxl.svd(false, false).unwrap();
-        let cond_fx = sv_f[0] / sv_f[sv_f.len() - 1];
-        if F::cast(cond_fx) > F::cast(1e15) {
-            return Err(GpError::LikelihoodComputationError(
-                "F is too ill conditioned. Poor combination \
-                of regression model and observations."
-                    .to_string(),
-            ));
-        } else {
-            // ft is too ill conditioned, get out (try different theta)
-            return Err(GpError::LikelihoodComputationError(
-                "ft is too ill conditioned, try another theta again".to_string(),
-            ));
-        }
-    }
-
-    let yt = r_chol.solve_triangular(
-        UPLO::Lower,
-        Diag::NonUnit,
-        &ytrain.data.to_owned().with_lapack(),
-    )?;
-
-    let beta = ft_qr_r.solve_triangular_into(UPLO::Upper, Diag::NonUnit, ft_qr_q.t().dot(&yt))?;
-
-    let rho = yt - ft.dot(&beta);
-    let rho_sqr = rho.mapv(|v| v * v).sum_axis(Axis(0));
-    let rho_sqr = rho_sqr.without_lapack();
-
-    let gamma = r_chol
-        .t()
-        .solve_triangular_into(UPLO::Upper, Diag::NonUnit, rho)?;
-
-    // The determinant of R is equal to the squared product of
-    // the diagonal elements of its Cholesky decomposition r_chol
-    let n_obs: F = F::cast(x_distances.n_obs);
-
-    let logdet = r_chol
-        .to_owned()
-        .without_lapack()
-        .diag()
-        .mapv(|v: F| v.log10())
-        .sum()
-        * F::cast(2.)
-        / n_obs;
-
-    // Reduced likelihood
-    let sigma2: Array1<F> = rho_sqr / n_obs;
-    let reduced_likelihood = -n_obs * (sigma2.sum().log10() + logdet);
-    Ok((
-        reduced_likelihood,
-        GpInnerParams {
-            sigma2: sigma2[0] * ytrain.std[0] * ytrain.std[0],
-            beta: beta.without_lapack(),
-            gamma: gamma.without_lapack(),
-            r_chol: r_chol.without_lapack(),
-            ft: ft.without_lapack(),
-            ft_qr_r: ft_qr_r.without_lapack(),
+            r_inv_f: OnceLock::new(),
         },
     ))
 }
@@ -1452,19 +1136,9 @@ pub(crate) fn sample<F: Float>(
 ) -> Array2<F> {
     let n_eval = x.nrows();
     let c = match method {
-        GpSamplingMethod::Cholesky => {
-            #[cfg(not(feature = "blas"))]
-            let c = cov_x.with_lapack().cholesky().unwrap();
-            #[cfg(feature = "blas")]
-            let c = cov_x.with_lapack().cholesky(UPLO::Lower).unwrap();
-            c
-        }
+        GpSamplingMethod::Cholesky => cholesky(cov_x).unwrap(),
         GpSamplingMethod::EigenValues => {
-            #[cfg(feature = "blas")]
-            let (v, w) = cov_x.with_lapack().eigh(UPLO::Lower).unwrap();
-            #[cfg(not(feature = "blas"))]
-            let (v, w) = cov_x.with_lapack().eigh_into().unwrap();
-            let v = v.mapv(F::cast);
+            let (v, w) = eigh(cov_x).unwrap();
             let v = v.mapv(|x| {
                 // We lower bound the float value at 1e-9
                 if x < F::cast(1e-9) {
@@ -1472,15 +1146,9 @@ pub(crate) fn sample<F: Float>(
                 }
                 x.sqrt()
             });
-            let d = Array2::from_diag(&v).with_lapack();
-            #[cfg(feature = "blas")]
-            let c = w.dot(&d);
-            #[cfg(not(feature = "blas"))]
-            let c = w.dot(&d);
-            c
+            w.dot(&Array2::from_diag(&v))
         }
-    }
-    .without_lapack();
+    };
     let normal = Normal::new(0., 1.).unwrap();
     let ary = Array::random((n_eval, n_traj), normal).mapv(|v| F::cast(v));
     mean_x.to_owned() + c.dot(&ary)
@@ -1492,7 +1160,7 @@ mod tests {
     use approx::{assert_abs_diff_eq, assert_abs_diff_ne};
     use argmin_testfunctions::rosenbrock;
     use egobox_doe::{Lhs, LhsKind, SamplingMethod};
-    use linfa::prelude::Predict;
+    use linfa::prelude::{Dataset, Predict};
     #[cfg(not(feature = "blas"))]
     use linfa_linalg::norm::Norm;
     use ndarray::{Array, Zip, arr1, arr2, array};
@@ -1506,6 +1174,63 @@ mod tests {
     use paste::paste;
     use rand_xoshiro::Xoshiro256Plus;
 
+    #[test]
+    fn test_fit_single_point_is_an_error() {
+        let xt = arr2(&[[0.5, 1.0]]);
+        let yt = arr1(&[3.0]);
+        let res = GaussianProcess::<f64, ConstantMean, SquaredExponentialCorr>::params(
+            ConstantMean::default(),
+            SquaredExponentialCorr::default(),
+        )
+        .fit(&Dataset::new(xt, yt));
+        assert!(matches!(res, Err(GpError::InvalidValueError(_))));
+    }
+
+    #[test]
+    fn test_fit_less_points_than_regression_terms_is_an_error() {
+        // 5 points for the 6 terms of a 2D quadratic trend
+        let xt = arr2(&[[0., 0.], [1., 0.], [0., 1.], [1., 1.], [0.5, 0.2]]);
+        let yt = arr1(&[0., 1., 2., 3., 4.]);
+        let res = GaussianProcess::<f64, QuadraticMean, SquaredExponentialCorr>::params(
+            QuadraticMean::default(),
+            SquaredExponentialCorr::default(),
+        )
+        .fit(&Dataset::new(xt, yt));
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_f32_and_f64_fits_agree() {
+        // Same training data in single and double precision: the hyperparameters
+        // optimization must give close models (likelihoods converted to f64 safely),
+        // up to single precision effects on a flat likelihood (about 1% with blas)
+        let xt = arr2(&[[0.0], [5.0], [10.0], [15.0], [18.0], [20.0], [25.0]]);
+        let yt = (&xt - 3.5) * ((&xt - 3.5) / std::f64::consts::PI).mapv(|v| v.sin());
+        let yt = yt.remove_axis(Axis(1));
+        let gp64 = GaussianProcess::<f64, ConstantMean, SquaredExponentialCorr>::params(
+            ConstantMean::default(),
+            SquaredExponentialCorr::default(),
+        )
+        .fit(&Dataset::new(xt.clone(), yt.clone()))
+        .expect("f64 GP fitted");
+        let gp32 = GaussianProcess::<f32, ConstantMean, SquaredExponentialCorr>::params(
+            ConstantMean::default(),
+            SquaredExponentialCorr::default(),
+        )
+        .fit(&Dataset::new(xt.mapv(|v| v as f32), yt.mapv(|v| v as f32)))
+        .expect("f32 GP fitted");
+        let (theta64, theta32) = (gp64.theta()[0], gp32.theta()[0] as f64);
+        assert!(
+            (theta64 - theta32).abs() <= 5e-2 * theta64.abs(),
+            "theta f64 = {theta64}, theta f32 = {theta32}"
+        );
+        assert!(
+            (gp64.likelihood() - gp32.likelihood() as f64).abs() <= 5e-2 * gp64.likelihood().abs(),
+            "likelihood f64 = {}, likelihood f32 = {}",
+            gp64.likelihood(),
+            gp32.likelihood()
+        );
+    }
     #[test]
     fn test_constant_function() {
         let dim = 3;
@@ -2155,6 +1880,116 @@ mod tests {
         assert!(!trajs.fold(false, |acc, v| acc || v.is_nan())); // check no nans
     }
 
+    fn sin_mix(x: &Array2<f64>) -> Array1<f64> {
+        let x0 = x.column(0);
+        let x1 = x.column(1);
+        let x2 = x.column(2);
+        &x0 * &x0 + x1.mapv(f64::sin) * x2 + &x0 * &x2
+    }
+
+    /// Check analytic derivatives `deriv` (n, nx) at `x` against central finite differences of `f`
+    fn assert_fdiff_close(
+        f: impl Fn(&Array2<f64>) -> Array1<f64>,
+        x: &Array2<f64>,
+        deriv: &Array2<f64>,
+        scale: f64,
+    ) {
+        let e = 1e-6;
+        for (i, xi) in x.rows().into_iter().enumerate() {
+            for k in 0..x.ncols() {
+                let mut xp = xi.to_owned().insert_axis(Axis(0));
+                let mut xm = xp.clone();
+                xp[[0, k]] += e;
+                xm[[0, k]] -= e;
+                let fdiff = (f(&xp)[0] - f(&xm)[0]) / (2. * e);
+                assert_abs_diff_eq!(
+                    deriv[[i, k]],
+                    fdiff,
+                    epsilon = 1e-2 * fdiff.abs() + 1e-9 * scale
+                );
+            }
+        }
+    }
+
+    macro_rules! test_gp_valvar_with_gradients {
+        ($regr:ident, $corr:ident, $kpls:literal) => {
+            paste! {
+                #[test]
+                fn [<test_gp_valvar_with_gradients_ $regr:snake _ $corr:snake _kpls_ $kpls>]() {
+                    let mut rng = Xoshiro256Plus::seed_from_u64(42);
+                    let xlimits = array![[-3., 3.], [-3., 3.], [-3., 3.]];
+                    let xt = Lhs::new(&xlimits).with_rng(rng.clone()).sample(30);
+                    let yt = sin_mix(&xt);
+
+                    let params = GaussianProcess::<f64, [<$regr Mean>], [<$corr Corr>]>::params(
+                        [<$regr Mean>]::default(),
+                        [<$corr Corr>]::default(),
+                    );
+                    let params = if $kpls > 0 { params.kpls_dim(Some($kpls)) } else { params };
+                    let gp = params.fit(&Dataset::new(xt, yt)).expect("GP fitting");
+
+                    let x = Array::random_using((5, 3), Uniform::new(-3., 3.), &mut rng);
+                    let (vals, vars, dvals, dvars) = gp.predict_valvar_with_gradients(&x).unwrap();
+
+                    // Same values as the separate prediction methods
+                    let (expected_vals, expected_vars) = gp.predict_valvar(&x).unwrap();
+                    let var_scale = gp.variance();
+                    assert_abs_diff_eq!(vals, expected_vals, epsilon = 1e-8 * (1. + expected_vals.mapv(f64::abs).sum()));
+                    assert_abs_diff_eq!(vars, expected_vars, epsilon = 1e-8 * var_scale);
+                    let (val_grads, var_grads) = gp.predict_valvar_gradients(&x);
+                    assert_abs_diff_eq!(dvals, gp.predict_gradients(&x), epsilon = 1e-8 * (1. + dvals.mapv(f64::abs).sum()));
+                    assert_abs_diff_eq!(dvals, val_grads);
+                    assert_abs_diff_eq!(dvars, var_grads);
+                    assert_abs_diff_eq!(dvars, gp.predict_var_gradients(&x));
+
+                    // Derivatives match finite differences
+                    let val_scale = 1. + vals.mapv(f64::abs).sum();
+                    assert_fdiff_close(|x| gp.predict(x).unwrap(), &x, &dvals, val_scale);
+                    assert_fdiff_close(|x| gp.predict_var(x).unwrap(), &x, &dvars, var_scale);
+                }
+            }
+        };
+    }
+
+    test_gp_valvar_with_gradients!(Constant, SquaredExponential, 0);
+    test_gp_valvar_with_gradients!(Linear, SquaredExponential, 0);
+    test_gp_valvar_with_gradients!(Quadratic, SquaredExponential, 0);
+    test_gp_valvar_with_gradients!(Constant, Matern52, 0);
+    test_gp_valvar_with_gradients!(Linear, Matern32, 0);
+    test_gp_valvar_with_gradients!(Quadratic, Matern52, 0);
+    test_gp_valvar_with_gradients!(Constant, AbsoluteExponential, 0);
+    test_gp_valvar_with_gradients!(Constant, SquaredExponential, 2);
+    test_gp_valvar_with_gradients!(Linear, Matern52, 1);
+
+    #[cfg(feature = "serializable")]
+    #[test]
+    fn test_valvar_with_gradients_after_deserialization() {
+        let xlimits = array![[-3., 3.], [-3., 3.], [-3., 3.]];
+        let xt = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(20);
+        let yt = sin_mix(&xt);
+        let gp = GaussianProcess::<f64, LinearMean, Matern52Corr>::params(
+            LinearMean::default(),
+            Matern52Corr::default(),
+        )
+        .fit(&Dataset::new(xt, yt))
+        .expect("GP fitting");
+
+        let x = array![[0.5, -1.2, 2.], [-2.5, 0.3, -0.7]];
+        // populate the lazily computed term before saving: it must not be serialized
+        let expected = gp.predict_valvar_with_gradients(&x).unwrap();
+        let json = serde_json::to_string(&gp).unwrap();
+        assert!(!json.contains("r_inv_f"));
+        let loaded: GaussianProcess<f64, LinearMean, Matern52Corr> =
+            serde_json::from_str(&json).unwrap();
+        let actual = loaded.predict_valvar_with_gradients(&x).unwrap();
+        assert_abs_diff_eq!(actual.0, expected.0, epsilon = 1e-10);
+        assert_abs_diff_eq!(actual.1, expected.1, epsilon = 1e-10);
+        assert_abs_diff_eq!(actual.2, expected.2, epsilon = 1e-10);
+        assert_abs_diff_eq!(actual.3, expected.3, epsilon = 1e-10);
+    }
+
     fn assert_rel_or_abs_error(y_deriv: f64, fdiff: f64) {
         println!("analytic deriv = {y_deriv}, fdiff = {fdiff}");
         if fdiff.abs() < 1. {
@@ -2243,5 +2078,224 @@ mod tests {
 
         assert_abs_diff_eq!(y_deriv[[0, 0]], diff_g, epsilon = 1e-5);
         assert_abs_diff_eq!(y_deriv[[0, 1]], diff_d, epsilon = 1e-5);
+    }
+
+    /// Noisy observations of sin(x) on [0, 10] with a gaussian noise of std `noise_std`
+    fn noisy_sin(nt: usize, noise_std: f64, seed: u64) -> (Array2<f64>, Array1<f64>) {
+        let mut rng = Xoshiro256Plus::seed_from_u64(seed);
+        let xt = Lhs::new(&array![[0., 10.]])
+            .with_rng(rng.clone())
+            .sample(nt);
+        let noise = Array1::random_using(nt, Normal::new(0., noise_std).unwrap(), &mut rng);
+        let yt = xt.column(0).mapv(f64::sin) + noise;
+        (xt, yt)
+    }
+
+    #[test]
+    fn test_noise_ratio_estimation() {
+        let noise_std = 0.1;
+        let (xt, yt) = noisy_sin(40, noise_std, 42);
+        let xtest = Array::linspace(0., 10., 200).insert_axis(Axis(1));
+        let ytest = xtest.column(0).mapv(f64::sin);
+
+        let gp_interp = Kriging::params()
+            .fit(&Dataset::new(xt.clone(), yt.clone()))
+            .expect("GP fitting");
+        assert_eq!(gp_interp.noise_ratio(), 0.);
+        assert_eq!(gp_interp.noise_variance(), 0.);
+
+        let gp_noisy = Kriging::params()
+            .noise_ratio(ParamTuning::Optimized {
+                init: 1e-2,
+                bounds: (1e-8, 10.),
+            })
+            .fit(&Dataset::new(xt.clone(), yt))
+            .expect("GP fitting");
+        println!("{gp_noisy}");
+
+        // Estimated noise variance close to the actual one
+        let noise_var = noise_std * noise_std;
+        assert!(
+            gp_noisy.noise_variance() > noise_var / 4.
+                && gp_noisy.noise_variance() < 4. * noise_var,
+            "noise variance {} should be close to {noise_var}",
+            gp_noisy.noise_variance()
+        );
+        assert_abs_diff_eq!(
+            gp_noisy.noise_variance(),
+            gp_noisy.noise_ratio() * gp_noisy.variance()
+        );
+
+        // Smoothing noisy observations gives a better approximation of the underlying function
+        let rmse = |gp: &GaussianProcess<f64, ConstantMean, SquaredExponentialCorr>| {
+            let ypred = gp.predict(&xtest).unwrap();
+            (ypred.sq_l2_dist(&ytest).unwrap() / ytest.len() as f64).sqrt()
+        };
+        println!(
+            "rmse interp = {}, rmse noisy = {}",
+            rmse(&gp_interp),
+            rmse(&gp_noisy)
+        );
+        assert!(rmse(&gp_noisy) < rmse(&gp_interp));
+        assert!(rmse(&gp_noisy) < noise_std);
+
+        // Latent variance does not vanish at training points anymore
+        let var_train = gp_noisy.predict_var(&xt).unwrap();
+        assert!(var_train.iter().all(|&v| v > 1e-4 * noise_var));
+    }
+
+    #[test]
+    fn test_noise_ratio_with_fixed_theta() {
+        let (xt, yt) = noisy_sin(30, 0.1, 0);
+        let theta = array![1.];
+        let gp = Kriging::params()
+            .theta_tuning(ThetaTuning::Fixed(theta.clone()))
+            .noise_ratio(ParamTuning::Optimized {
+                init: 1e-2,
+                bounds: (1e-8, 10.),
+            })
+            .fit(&Dataset::new(xt, yt))
+            .expect("GP fitting");
+        assert_abs_diff_eq!(*gp.theta(), theta);
+        assert!(gp.noise_ratio() > 1e-8 && gp.noise_ratio() < 10.);
+        assert_abs_diff_ne!(gp.noise_ratio(), 1e-2);
+    }
+
+    #[test]
+    fn test_fixed_noise_ratio() {
+        let (xt, yt) = noisy_sin(20, 0.1, 0);
+        let gp = Kriging::params()
+            .noise_ratio(ParamTuning::Fixed(0.1))
+            .fit(&Dataset::new(xt, yt))
+            .expect("GP fitting");
+        assert_eq!(gp.noise_ratio(), 0.1);
+        assert_abs_diff_eq!(gp.noise_variance(), 0.1 * gp.variance());
+    }
+
+    #[test]
+    fn test_noise_ratio_validation() {
+        use linfa::ParamGuard;
+
+        let invalid = [
+            ParamTuning::Fixed(-1.),
+            ParamTuning::Optimized {
+                init: 1e-2,
+                bounds: (0., 1.),
+            },
+            ParamTuning::Optimized {
+                init: 1e-2,
+                bounds: (1., 1e-1),
+            },
+            ParamTuning::Optimized {
+                init: 2.,
+                bounds: (1e-3, 1.),
+            },
+        ];
+        for noise_ratio in invalid {
+            let params = Kriging::<f64>::params().noise_ratio(noise_ratio.clone());
+            assert!(
+                params.check_ref().is_err(),
+                "{noise_ratio:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn test_update_vs_refit_with_noise_ratio() {
+        let (xt, yt) = noisy_sin(40, 0.1, 42);
+        let params = Kriging::params()
+            .theta_tuning(ThetaTuning::Fixed(array![1.]))
+            .noise_ratio(ParamTuning::Fixed(1e-2));
+
+        let n0 = 30;
+        let mut gp_update = params
+            .clone()
+            .fit(&Dataset::new(
+                xt.slice(s![..n0, ..]).to_owned(),
+                yt.slice(s![..n0]).to_owned(),
+            ))
+            .expect("GP fitting");
+        for i in (n0..xt.nrows()).step_by(5) {
+            gp_update = gp_update
+                .update(&xt.slice(s![i..i + 5, ..]), &yt.slice(s![i..i + 5]))
+                .expect("GP update");
+        }
+        assert_eq!(gp_update.noise_ratio(), 1e-2);
+
+        let gp_refit = params
+            .fit(&Dataset::new(xt.clone(), yt.clone()))
+            .expect("GP fitting");
+
+        let xtest = Array::linspace(0., 10., 50).insert_axis(Axis(1));
+        let (val_update, var_update) = gp_update.predict_valvar(&xtest).unwrap();
+        let (val_refit, var_refit) = gp_refit.predict_valvar(&xtest).unwrap();
+        // Input normalization is frozen at the initial fit by update while the refit
+        // renormalizes (hence a different length scale for the same fixed theta)
+        assert_abs_diff_eq!(val_update, val_refit, epsilon = 5e-2);
+        assert_abs_diff_eq!(var_update, var_refit, epsilon = 5e-2 * gp_refit.variance());
+
+        // Added noisy observations are smoothed, not interpolated
+        let xnew = xt.slice(s![n0.., ..]);
+        let ynew = yt.slice(s![n0..]);
+        let max_residual = |gp: &GaussianProcess<f64, ConstantMean, SquaredExponentialCorr>| {
+            *(gp.predict(&xnew).unwrap() - ynew)
+                .mapv(f64::abs)
+                .max()
+                .unwrap()
+        };
+        assert!(max_residual(&gp_update) > 0.5 * max_residual(&gp_refit));
+    }
+
+    #[test]
+    fn test_valvar_gradients_with_noise_ratio() {
+        let xlimits = array![[-3., 3.], [-3., 3.], [-3., 3.]];
+        let mut rng = Xoshiro256Plus::seed_from_u64(42);
+        let xt = Lhs::new(&xlimits).with_rng(rng.clone()).sample(30);
+        let yt = sin_mix(&xt);
+        let gp = Kriging::params()
+            .noise_ratio(ParamTuning::Fixed(1e-2))
+            .fit(&Dataset::new(xt, yt))
+            .expect("GP fitting");
+
+        let x = Array::random_using((5, 3), Uniform::new(-3., 3.), &mut rng);
+        let (vals, _vars, dvals, dvars) = gp.predict_valvar_with_gradients(&x).unwrap();
+        let val_scale = 1. + vals.mapv(f64::abs).sum();
+        assert_fdiff_close(|x| gp.predict(x).unwrap(), &x, &dvals, val_scale);
+        assert_fdiff_close(|x| gp.predict_var(x).unwrap(), &x, &dvars, gp.variance());
+    }
+
+    #[cfg(feature = "serializable")]
+    #[test]
+    fn test_noise_ratio_serialization() {
+        let (xt, yt) = noisy_sin(20, 0.1, 0);
+        let gp = Kriging::params()
+            .noise_ratio(ParamTuning::Optimized {
+                init: 1e-2,
+                bounds: (1e-8, 10.),
+            })
+            .fit(&Dataset::new(xt.clone(), yt.clone()))
+            .expect("GP fitting");
+        let json = serde_json::to_string(&gp).unwrap();
+        let loaded: GaussianProcess<f64, ConstantMean, SquaredExponentialCorr> =
+            serde_json::from_str(&json).unwrap();
+        // JSON float round trip may differ by one ulp
+        assert_abs_diff_eq!(loaded.noise_ratio(), gp.noise_ratio(), epsilon = 1e-15);
+        assert_eq!(loaded.params.noise_ratio(), gp.params.noise_ratio());
+
+        // Models saved before noise ratio introduction load as noise-free models
+        let gp = Kriging::params()
+            .fit(&Dataset::new(xt.clone(), yt))
+            .expect("GP fitting");
+        let mut value = serde_json::to_value(&gp).unwrap();
+        value.as_object_mut().unwrap().remove("noise_ratio");
+        value["params"]
+            .as_object_mut()
+            .unwrap()
+            .remove("noise_ratio");
+        let loaded: GaussianProcess<f64, ConstantMean, SquaredExponentialCorr> =
+            serde_json::from_value(value).unwrap();
+        assert_eq!(loaded.noise_ratio(), 0.);
+        assert_eq!(*loaded.params.noise_ratio(), ParamTuning::Fixed(0.));
+        assert_abs_diff_eq!(loaded.predict(&xt).unwrap(), gp.predict(&xt).unwrap());
     }
 }

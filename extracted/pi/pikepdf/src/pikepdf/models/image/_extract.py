@@ -34,6 +34,8 @@ from pikepdf.models.image._bomb import _pillow_pixel_limit
 from pikepdf.models.image._shared import (
     TERMINAL_FILTERS,
     RGBDecodeArray,
+    _decodeparms_list,
+    _metadata_from_obj,
 )
 from pikepdf.objects import Array, Name
 
@@ -43,7 +45,7 @@ if TYPE_CHECKING:
     from pikepdf.models.image._classes import PdfImage
 
 
-def remove_simple_filters(pim: PdfImage):
+def remove_simple_filters(pim: PdfImage) -> tuple[bytes, list[str]]:
     """Strip generalized/specialized filters, leaving the terminal codec.
 
     Returns ``(data, remaining_filters)``. Any number of simple
@@ -74,7 +76,9 @@ def remove_simple_filters(pim: PdfImage):
     with Pdf.new() as tmp_pdf:
         obj_copy = tmp_pdf.copy_foreign(pim.obj)
         obj_copy.Filter = Array([Name(str(filt)) for filt in pim.filters[:n]])
-        obj_copy.DecodeParms = Array(pim.decode_parms[:n])
+        # Take the parameters from the copy: those of pim belong to pim's Pdf.
+        parms = _metadata_from_obj(obj_copy, 'DecodeParms', _decodeparms_list, [])
+        obj_copy.DecodeParms = Array(parms[:n])
         return obj_copy.read_bytes(StreamDecodeLevel.specialized), pim.filters[n:]
 
 
@@ -235,7 +239,7 @@ def _transcoded_lab(pim: PdfImage) -> Image.Image:
         for s in range(256):
             phys = dmin + (s / 255.0) * (dmax - dmin)
             val = phys / 100.0 * 255.0 if lightness else phys + 128.0
-            out.append(int(round(min(255.0, max(0.0, val)))))
+            out.append(round(min(255.0, max(0.0, val))))
         return out
 
     # Interpret the interleaved L,a,b bytes as a 3-band image and split.
@@ -350,7 +354,8 @@ def extract_transcoded(pim: PdfImage) -> Image.Image:
     # Note: /Decode is applied by as_pil_image (the pixel-space chokepoint),
     # not here, so that it is applied exactly once across all code paths.
     if pim.colorspace == '/ICCBased' and pim.icc is not None:
-        im.info['icc_profile'] = pim.icc.tobytes()
+        # types-Pillow leaves ImageCmsProfile.tobytes unannotated
+        im.info['icc_profile'] = pim.icc.tobytes()  # type: ignore[no-untyped-call]
     else:
         cal_icc = pim._synthesize_cal_icc()
         if cal_icc is not None:

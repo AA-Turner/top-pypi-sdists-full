@@ -5,6 +5,7 @@ Tests for AJAX views in the aasrp app.
 # Standard Library
 import json
 from http import HTTPStatus
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 # Third Party
@@ -20,6 +21,8 @@ from aasrp.models import RequestComment, SrpLink, SrpRequest
 from aasrp.tests import BaseTestCase
 from aasrp.tests.utils import create_fake_user, random_id
 from aasrp.views.ajax import (
+    srp_link_update_total_cost,
+    srp_link_view_requests_data,
     srp_request_approve,
     srp_request_deny,
     srp_request_remove,
@@ -83,60 +86,6 @@ class BaseViewsTestCase(BaseTestCase):
             ship=cls.ship_test,
         )
         cls.srp_request_pending.save()
-
-
-class TestDashboardSrpLinksData(BaseViewsTestCase):
-    """
-    Tests for the dashboard_srp_links_data view.
-    """
-
-    def test_returns_active_srp_links(self):
-        """
-        Test that the view returns only active SRP links.
-
-        :return:
-        :rtype:
-        """
-
-        self.client.force_login(self.user_wesley_crusher)
-
-        response = self.client.get(reverse("aasrp:ajax_dashboard_srp_links_data"))
-
-        self.assertEqual(len(response.json()), 1)
-        self.assertEqual(response.json()[0]["srp_name"], "Active SRP")
-
-    def test_returns_all_srp_links_when_show_all_is_true(self):
-        """
-        Test that the view returns all SRP links when show_all_links is True.
-
-        :return:
-        :rtype:
-        """
-
-        self.client.force_login(self.user_wesley_crusher)
-
-        url = reverse("aasrp:ajax_dashboard_srp_links_all_data")
-        response = self.client.get(url)
-
-        self.assertEqual(len(response.json()), 2)
-
-    def test_includes_copy_icon_for_active_links(self):
-        """
-        Test that the view includes a copy icon for active SRP links.
-
-        :return:
-        :rtype:
-        """
-
-        self.client.force_login(self.user_wesley_crusher)
-        url = reverse("aasrp:ajax_dashboard_srp_links_data")
-
-        response = self.client.get(url)
-
-        self.assertIn(
-            '<span class="copy-to-clipboard-icon">',
-            response.json()[0]["srp_code"]["display"],
-        )
 
 
 class TestSrpRequestsBulkRemove(BaseViewsTestCase):
@@ -338,6 +287,57 @@ class TestSrpRequestDeny(BaseViewsTestCase):
         mock_notify.assert_called_once()
 
     @patch("aasrp.models.SrpRequest.objects.get")
+    @patch("aasrp.views.ajax.SrpRequestRejectForm")
+    @patch("aasrp.views.ajax.get_user_settings")
+    @patch("aasrp.views.ajax.notify_requester")
+    def test_does_not_notify_requester_when_notifications_are_disabled(
+        self, mock_notify, mock_get_user_settings, mock_form, mock_get
+    ):
+        """
+        Test that the view does not notify the requester when notifications are disabled.
+
+        :param mock_notify:
+        :type mock_notify:
+        :param mock_get_user_settings:
+        :type mock_get_user_settings:
+        :param mock_form:
+        :type mock_form:
+        :param mock_get:
+        :type mock_get:
+        :return:
+        :rtype:
+        """
+
+        srp_request = SrpRequest.objects.create(
+            srp_link=self.srp_link_active,
+            creator=self.user_jean_luc_picard,
+        )
+        mock_get.return_value = srp_request
+        mock_form.return_value.is_valid.return_value = True
+        mock_form.return_value.cleaned_data = {"comment": "Rejection reason"}
+        mock_get_user_settings.return_value.disable_notifications = True
+
+        request = MagicMock(
+            method="POST", body=json.dumps({"comment": "Rejection reason"})
+        )
+        request.user = self.user_jean_luc_picard
+
+        response = srp_request_deny(
+            request, srp_request.srp_link.srp_code, srp_request.request_code
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {
+                "success": True,
+                "message": "SRP request has been rejected",
+                "pending_requests": 1,
+            },
+        )
+        mock_notify.assert_not_called()
+
+    @patch("aasrp.models.SrpRequest.objects.get")
     def test_returns_error_when_request_does_not_exist(self, mock_get):
         """
         Test that the view returns an error when the SRP request does not exist.
@@ -482,6 +482,77 @@ class TestSrpRequestsBulkApprove(BaseViewsTestCase):
         mock_notify.assert_called()
 
     @patch("aasrp.models.SrpRequest.objects.filter")
+    @patch("aasrp.models.SrpRequest.objects.bulk_update")
+    @patch("aasrp.models.RequestComment.objects.bulk_create")
+    @patch("aasrp.views.ajax.get_user_settings")
+    @patch("aasrp.views.ajax.notify_requester")
+    def test_does_not_notify_requesters_with_notifications_disabled(
+        self,
+        mock_notify,
+        mock_get_user_settings,
+        mock_bulk_create,
+        mock_bulk_update,
+        mock_filter,
+    ):
+        """
+        Test that bulk approval skips notifications when requesters disabled notifications.
+
+        :param mock_notify:
+        :type mock_notify:
+        :param mock_get_user_settings:
+        :type mock_get_user_settings:
+        :param mock_bulk_create:
+        :type mock_bulk_create:
+        :param mock_bulk_update:
+        :type mock_bulk_update:
+        :param mock_filter:
+        :type mock_filter:
+        :return:
+        :rtype:
+        """
+
+        mock_request = MagicMock(
+            method="POST", body=json.dumps({"srp_request_codes": ["code1", "code2"]})
+        )
+        mock_request.user = self.user_jean_luc_picard
+        mock_get_user_settings.return_value.disable_notifications = True
+
+        srp_request_1 = SrpRequest.objects.create(
+            srp_link=self.srp_link_active,
+            creator=self.user_jean_luc_picard,
+            request_status=SrpRequest.Status.PENDING,
+            loss_amount=100,
+            ship=self.ship_test,
+        )
+        srp_request_2 = SrpRequest.objects.create(
+            srp_link=self.srp_link_active,
+            creator=self.user_wesley_crusher,
+            request_status=SrpRequest.Status.PENDING,
+            loss_amount=200,
+            ship=self.ship_test,
+        )
+        mock_queryset = MagicMock()
+        mock_queryset.__iter__.return_value = [srp_request_1, srp_request_2]
+        mock_queryset.count.return_value = 2
+        mock_queryset.exists.return_value = True
+        mock_filter.return_value = mock_queryset
+
+        response = srp_requests_bulk_approve(mock_request, "valid_srp_code")
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {
+                "success": True,
+                "message": "SRP requests have been approved",
+                "pending_requests": 2,
+            },
+        )
+        mock_bulk_update.assert_called_once()
+        mock_bulk_create.assert_called_once()
+        mock_notify.assert_not_called()
+
+    @patch("aasrp.models.SrpRequest.objects.filter")
     def test_returns_error_when_no_matching_requests_found(self, mock_filter):
         """
         Test that the view returns an error when no matching SRP requests are found.
@@ -590,6 +661,118 @@ class TestSrpRequestApprove(BaseViewsTestCase):
         mock_notify.assert_called_once()
 
     @patch("aasrp.models.SrpRequest.objects.get")
+    @patch("aasrp.models.RequestComment.objects.bulk_create")
+    @patch("aasrp.views.ajax.get_user_settings")
+    @patch("aasrp.views.ajax.notify_requester")
+    @patch("aasrp.views.ajax.SrpRequestAcceptForm")
+    def test_creates_only_status_change_comment_when_reviser_comment_is_empty(
+        self,
+        mock_form,
+        mock_notify,
+        mock_get_user_settings,
+        mock_bulk_create,
+        mock_get,
+    ):
+        """
+        Test that approving without a reviser comment creates only the status-change comment.
+
+        :param mock_form:
+        :type mock_form:
+        :param mock_notify:
+        :type mock_notify:
+        :param mock_get_user_settings:
+        :type mock_get_user_settings:
+        :param mock_bulk_create:
+        :type mock_bulk_create:
+        :param mock_get:
+        :type mock_get:
+        :return:
+        :rtype:
+        """
+
+        mock_request = MagicMock(method="POST", body=json.dumps({"comment": ""}))
+        mock_request.user = self.user_jean_luc_picard
+        mock_get_user_settings.return_value.disable_notifications = False
+
+        srp_request = SrpRequest.objects.create(
+            srp_link=self.srp_link_active,
+            creator=self.user_wesley_crusher,
+            request_status=SrpRequest.Status.PENDING,
+            loss_amount=100,
+            ship=self.ship_test,
+        )
+        mock_get.return_value = srp_request
+        mock_form.return_value.is_valid.return_value = True
+        mock_form.return_value.cleaned_data = {"comment": ""}
+
+        response = srp_request_approve(
+            mock_request, srp_request.srp_link.srp_code, srp_request.request_code
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(json.loads(response.content)["success"], True)
+        comments = mock_bulk_create.call_args.args[0]
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0].comment_type, RequestComment.Type.STATUS_CHANGE)
+        mock_notify.assert_called_once()
+
+    @patch("aasrp.models.SrpRequest.objects.get")
+    @patch("aasrp.models.RequestComment.objects.bulk_create")
+    @patch("aasrp.views.ajax.get_user_settings")
+    @patch("aasrp.views.ajax.notify_requester")
+    @patch("aasrp.views.ajax.SrpRequestAcceptForm")
+    def test_does_not_notify_requester_when_notifications_are_disabled(
+        self,
+        mock_form,
+        mock_notify,
+        mock_get_user_settings,
+        mock_bulk_create,
+        mock_get,
+    ):
+        """
+        Test that requester notification is skipped when requester disabled notifications.
+
+        :param mock_form:
+        :type mock_form:
+        :param mock_notify:
+        :type mock_notify:
+        :param mock_get_user_settings:
+        :type mock_get_user_settings:
+        :param mock_bulk_create:
+        :type mock_bulk_create:
+        :param mock_get:
+        :type mock_get:
+        :return:
+        :rtype:
+        """
+
+        mock_request = MagicMock(
+            method="POST", body=json.dumps({"comment": "Looks good"})
+        )
+        mock_request.user = self.user_jean_luc_picard
+        mock_get_user_settings.return_value.disable_notifications = True
+
+        srp_request = SrpRequest.objects.create(
+            srp_link=self.srp_link_active,
+            creator=self.user_wesley_crusher,
+            request_status=SrpRequest.Status.PENDING,
+            loss_amount=100,
+            ship=self.ship_test,
+        )
+        mock_get.return_value = srp_request
+        mock_form.return_value.is_valid.return_value = True
+        mock_form.return_value.cleaned_data = {"comment": "Looks good"}
+
+        response = srp_request_approve(
+            mock_request, srp_request.srp_link.srp_code, srp_request.request_code
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(json.loads(response.content)["success"], True)
+        mock_bulk_create.assert_called_once()
+        mock_notify.assert_not_called()
+
+    @patch("aasrp.models.SrpRequest.objects.get")
     def test_returns_error_when_request_does_not_exist(self, mock_get):
         """
         Test that the view returns an error when the SRP request does not exist.
@@ -636,6 +819,45 @@ class TestSrpRequestApprove(BaseViewsTestCase):
         self.assertEqual(
             json.loads(response.content),
             {"success": False, "message": "Invalid request method"},
+        )
+
+    @patch("aasrp.views.ajax.SrpRequestAcceptForm")
+    @patch("aasrp.models.SrpRequest.objects.get")
+    def test_returns_error_when_approval_form_data_is_invalid(
+        self, mock_get, mock_form
+    ):
+        """
+        Test that the view returns an error when the approval form data is invalid.
+
+        :param mock_get:
+        :type mock_get:
+        :param mock_form:
+        :type mock_form:
+        :return:
+        :rtype:
+        """
+
+        srp_request = SrpRequest.objects.create(
+            srp_link=self.srp_link_active,
+            creator=self.user_wesley_crusher,
+            request_status=SrpRequest.Status.PENDING,
+            loss_amount=100,
+            ship=self.ship_test,
+        )
+        mock_get.return_value = srp_request
+        mock_form.return_value.is_valid.return_value = False
+
+        mock_request = MagicMock(method="POST", body=json.dumps({"comment": ""}))
+        mock_request.user = self.user_jean_luc_picard
+
+        response = srp_request_approve(
+            mock_request, srp_request.srp_link.srp_code, srp_request.request_code
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {"success": False, "message": "Invalid form data"},
         )
 
 
@@ -819,7 +1041,6 @@ class TestSrpLinkViewRequestsData(BaseViewsTestCase):
             srp_code="SRP123",
             fleet_time=timezone.now(),
             fleet_doctrine="Test Doctrine",
-            fleet_commander=self.user_jean_luc_picard.profile.main_character,
             creator=self.user_jean_luc_picard,
         )
 
@@ -863,7 +1084,6 @@ class TestSrpLinkViewRequestsData(BaseViewsTestCase):
             srp_code="SRP123",
             fleet_time=timezone.now(),
             fleet_doctrine="Test Doctrine",
-            fleet_commander=self.user_jean_luc_picard.profile.main_character,
             creator=self.user_jean_luc_picard,
         )
         srp_request = SrpRequest.objects.create(
@@ -961,6 +1181,13 @@ class TestSrpLinkViewRequestsData(BaseViewsTestCase):
 
     @patch("aasrp.models.SrpRequest.objects.filter")
     def test_returns_empty_list_for_invalid_srp_code(self, mock_filter):
+        """
+        Test that the view returns an empty list when an invalid SRP code is provided.
+
+        :param mock_filter:
+        :return:
+        """
+
         mock_filter.return_value = SrpRequest.objects.none()
 
         self.client.force_login(self.user_jean_luc_picard)
@@ -970,3 +1197,214 @@ class TestSrpLinkViewRequestsData(BaseViewsTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
+
+    def test_returns_character_name_for_requests_with_character(self):
+        """
+        Test that the view returns the character name for requests that have a character associated with them.
+
+        :return:
+        """
+
+        srp_link = SrpLink.objects.create(
+            srp_name="Test Fleet",
+            srp_code="SRP123",
+            fleet_time=timezone.now(),
+            fleet_doctrine="Test Doctrine",
+            creator=self.user_jean_luc_picard,
+        )
+
+        srp_request = SrpRequest.objects.create(
+            request_code="REQ123",
+            srp_link=srp_link,
+            character=self.user_wesley_crusher.profile.main_character,
+            ship=ItemType.objects.all().first(),
+            loss_amount=1000000,
+            payout_amount=500000,
+            creator=self.user_jean_luc_picard,
+            post_time=timezone.now(),
+        )
+
+        self.client.force_login(self.user_jean_luc_picard)
+        response = self.client.get(
+            reverse("aasrp:ajax_srp_link_view_requests_data", args=["SRP123"])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["request_code"], "REQ123")
+        self.assertEqual(data[0]["character"], srp_request.character.character_name)
+        self.assertEqual(
+            data[0]["character_html"]["sort"], srp_request.character.character_name
+        )
+
+    def test_returns_unknown_character_label_when_character_is_missing(self):
+        """
+        Test that the view returns "Unknown character" when the character is missing (None).
+
+        :return:
+        """
+
+        srp_link = SrpLink.objects.create(
+            srp_name="Test Fleet",
+            srp_code="SRP124",
+            fleet_time=timezone.now(),
+            fleet_doctrine="Test Doctrine",
+            creator=self.user_jean_luc_picard,
+        )
+
+        SrpRequest.objects.create(
+            request_code="REQ124",
+            srp_link=srp_link,
+            character=None,
+            ship=ItemType.objects.all().first(),
+            loss_amount=1000000,
+            payout_amount=500000,
+            creator=self.user_jean_luc_picard,
+            post_time=timezone.now(),
+        )
+
+        self.client.force_login(self.user_jean_luc_picard)
+        response = self.client.get(
+            reverse("aasrp:ajax_srp_link_view_requests_data", args=["SRP124"])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["character"], "Unknown character")
+        self.assertEqual(data[0]["character_html"]["sort"], "Unknown character")
+        self.assertIn("Unknown character", data[0]["character_html"]["display"])
+
+    @patch("aasrp.views.ajax.get_user_settings")
+    @patch("aasrp.views.ajax.get_srp_request_action_icons")
+    @patch("aasrp.views.ajax.get_srp_request_status_icon")
+    @patch("aasrp.models.SrpRequest.objects.filter")
+    def test_returns_unknown_character_label_when_character_cannot_be_loaded(
+        self,
+        mock_filter,
+        mock_status_icon,
+        mock_action_icons,
+        mock_get_user_settings,
+    ):
+        """
+        Test that the view returns "Unknown character" when the character cannot be loaded (e.g., due to a database error).
+
+        :param mock_filter:
+        :param mock_status_icon:
+        :param mock_action_icons:
+        :param mock_get_user_settings:
+        :return:
+        """
+
+        request = MagicMock(user=self.user_jean_luc_picard)
+        mock_get_user_settings.return_value.ui_character_id = None
+        mock_status_icon.return_value = ""
+        mock_action_icons.return_value = ""
+
+        srp_request = SimpleNamespace(
+            request_info_comments=[],
+            killboard_link="",
+            character=object(),
+            ship=ItemType.objects.create(name="Test Ship", id=42),
+            creator=self.user_jean_luc_picard,
+            post_time=timezone.now(),
+            request_code="REQ125",
+            srp_link=SimpleNamespace(srp_code="SRP125"),
+            loss_amount=1000000,
+            payout_amount=500000,
+            request_status=SrpRequest.Status.PENDING,
+            get_request_status_display=lambda: "Pending",
+        )
+
+        mock_queryset = MagicMock()
+        mock_queryset.prefetch_related.return_value = mock_queryset
+        mock_queryset.__iter__.return_value = [srp_request]
+        mock_queryset.count.return_value = 1
+        mock_filter.return_value = mock_queryset
+
+        response = srp_link_view_requests_data(request, "SRP125")
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data[0]["character"], "Unknown character")
+        self.assertEqual(data[0]["character_html"]["sort"], "Unknown character")
+
+
+class TestSrpLinkUpdateTotalCost(BaseViewsTestCase):
+    """
+    Tests for the srp_link_update_total_cost view.
+    """
+
+    def test_returns_success_and_updates_total_cost_for_existing_srp_link(self):
+        """
+        Test that the view returns success and updates the total cost for an existing SRP link.
+
+        :return:
+        """
+
+        request = MagicMock(method="POST", body=json.dumps({"total_cost": 987654321}))
+
+        response = srp_link_update_total_cost(request, self.srp_link_active.srp_code)
+        self.srp_link_active.refresh_from_db()
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {"success": True, "message": "Total cost updated successfully"},
+        )
+        self.assertEqual(self.srp_link_active.total_cost, 987654321)
+
+    def test_returns_success_and_allows_zero_total_cost(self):
+        """
+        Test that the view returns success and allows setting the total cost to zero.
+
+        :return:
+        """
+
+        self.srp_link_active.total_cost = 42
+        self.srp_link_active.save()
+
+        request = MagicMock(method="POST", body=json.dumps({"total_cost": 0}))
+
+        response = srp_link_update_total_cost(request, self.srp_link_active.srp_code)
+        self.srp_link_active.refresh_from_db()
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {"success": True, "message": "Total cost updated successfully"},
+        )
+        self.assertEqual(self.srp_link_active.total_cost, 0)
+
+    def test_returns_error_when_srp_link_does_not_exist(self):
+        """
+        Test that the view returns an error when the SRP link does not exist.
+
+        :return:
+        """
+
+        request = MagicMock(method="POST", body=json.dumps({"total_cost": 500}))
+
+        response = srp_link_update_total_cost(request, "unknown_srp_code")
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {"success": False, "message": "SRP link not found"},
+        )
+
+    def test_returns_error_for_non_post_requests(self):
+        """
+        Test that the view returns an error for non-POST requests.
+
+        :return:
+        """
+
+        request = MagicMock(method="GET")
+
+        response = srp_link_update_total_cost(request, self.srp_link_active.srp_code)
+
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(
+            json.loads(response.content),
+            {"success": False, "message": "Invalid request method"},
+        )

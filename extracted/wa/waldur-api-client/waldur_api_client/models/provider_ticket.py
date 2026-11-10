@@ -7,8 +7,6 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
-from ..types import UNSET, Unset
-
 T = TypeVar("T", bound="ProviderTicket")
 
 
@@ -30,19 +28,19 @@ class ProviderTicket:
         parent_issue_uuid (UUID):
         provider_helpdesk_uuid (Union[None, UUID]):
         is_escalated (bool): Whether this issue has been escalated.
+        escalated_at (Union[None, datetime.datetime]): When the issue was escalated.
         provider_assignee (Union[None, UUID]):
         provider_assignee_name (str):
         first_response_deadline (Union[None, datetime.datetime]): Deadline for first response from support staff.
         resolution_deadline (Union[None, datetime.datetime]): Deadline for issue resolution.
         first_response_at (Union[None, datetime.datetime]): Timestamp of first response from support staff.
         sla_breached (bool): Whether SLA has been breached for this issue.
+        customer (Union[None, str]):
         customer_uuid (Union[None, UUID]):
         customer_name (Union[None, str]):
+        project (Union[None, str]):
         project_uuid (Union[None, UUID]):
         project_name (Union[None, str]):
-        escalated_at (Union[None, Unset, datetime.datetime]): When the issue was escalated.
-        customer (Union[None, Unset, str]):
-        project (Union[None, Unset, str]):
     """
 
     url: str
@@ -59,19 +57,19 @@ class ProviderTicket:
     parent_issue_uuid: UUID
     provider_helpdesk_uuid: Union[None, UUID]
     is_escalated: bool
+    escalated_at: Union[None, datetime.datetime]
     provider_assignee: Union[None, UUID]
     provider_assignee_name: str
     first_response_deadline: Union[None, datetime.datetime]
     resolution_deadline: Union[None, datetime.datetime]
     first_response_at: Union[None, datetime.datetime]
     sla_breached: bool
+    customer: Union[None, str]
     customer_uuid: Union[None, UUID]
     customer_name: Union[None, str]
+    project: Union[None, str]
     project_uuid: Union[None, UUID]
     project_name: Union[None, str]
-    escalated_at: Union[None, Unset, datetime.datetime] = UNSET
-    customer: Union[None, Unset, str] = UNSET
-    project: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -107,6 +105,12 @@ class ProviderTicket:
 
         is_escalated = self.is_escalated
 
+        escalated_at: Union[None, str]
+        if isinstance(self.escalated_at, datetime.datetime):
+            escalated_at = self.escalated_at.isoformat()
+        else:
+            escalated_at = self.escalated_at
+
         provider_assignee: Union[None, str]
         if isinstance(self.provider_assignee, UUID):
             provider_assignee = str(self.provider_assignee)
@@ -135,6 +139,9 @@ class ProviderTicket:
 
         sla_breached = self.sla_breached
 
+        customer: Union[None, str]
+        customer = self.customer
+
         customer_uuid: Union[None, str]
         if isinstance(self.customer_uuid, UUID):
             customer_uuid = str(self.customer_uuid)
@@ -144,6 +151,9 @@ class ProviderTicket:
         customer_name: Union[None, str]
         customer_name = self.customer_name
 
+        project: Union[None, str]
+        project = self.project
+
         project_uuid: Union[None, str]
         if isinstance(self.project_uuid, UUID):
             project_uuid = str(self.project_uuid)
@@ -152,26 +162,6 @@ class ProviderTicket:
 
         project_name: Union[None, str]
         project_name = self.project_name
-
-        escalated_at: Union[None, Unset, str]
-        if isinstance(self.escalated_at, Unset):
-            escalated_at = UNSET
-        elif isinstance(self.escalated_at, datetime.datetime):
-            escalated_at = self.escalated_at.isoformat()
-        else:
-            escalated_at = self.escalated_at
-
-        customer: Union[None, Unset, str]
-        if isinstance(self.customer, Unset):
-            customer = UNSET
-        else:
-            customer = self.customer
-
-        project: Union[None, Unset, str]
-        if isinstance(self.project, Unset):
-            project = UNSET
-        else:
-            project = self.project
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -191,24 +181,21 @@ class ProviderTicket:
                 "parent_issue_uuid": parent_issue_uuid,
                 "provider_helpdesk_uuid": provider_helpdesk_uuid,
                 "is_escalated": is_escalated,
+                "escalated_at": escalated_at,
                 "provider_assignee": provider_assignee,
                 "provider_assignee_name": provider_assignee_name,
                 "first_response_deadline": first_response_deadline,
                 "resolution_deadline": resolution_deadline,
                 "first_response_at": first_response_at,
                 "sla_breached": sla_breached,
+                "customer": customer,
                 "customer_uuid": customer_uuid,
                 "customer_name": customer_name,
+                "project": project,
                 "project_uuid": project_uuid,
                 "project_name": project_name,
             }
         )
-        if escalated_at is not UNSET:
-            field_dict["escalated_at"] = escalated_at
-        if customer is not UNSET:
-            field_dict["customer"] = customer
-        if project is not UNSET:
-            field_dict["project"] = project
 
         return field_dict
 
@@ -255,6 +242,21 @@ class ProviderTicket:
         provider_helpdesk_uuid = _parse_provider_helpdesk_uuid(d.pop("provider_helpdesk_uuid"))
 
         is_escalated = d.pop("is_escalated")
+
+        def _parse_escalated_at(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                escalated_at_type_0 = isoparse(data)
+
+                return escalated_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        escalated_at = _parse_escalated_at(d.pop("escalated_at"))
 
         def _parse_provider_assignee(data: object) -> Union[None, UUID]:
             if data is None:
@@ -320,6 +322,13 @@ class ProviderTicket:
 
         sla_breached = d.pop("sla_breached")
 
+        def _parse_customer(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        customer = _parse_customer(d.pop("customer"))
+
         def _parse_customer_uuid(data: object) -> Union[None, UUID]:
             if data is None:
                 return data
@@ -341,6 +350,13 @@ class ProviderTicket:
             return cast(Union[None, str], data)
 
         customer_name = _parse_customer_name(d.pop("customer_name"))
+
+        def _parse_project(data: object) -> Union[None, str]:
+            if data is None:
+                return data
+            return cast(Union[None, str], data)
+
+        project = _parse_project(d.pop("project"))
 
         def _parse_project_uuid(data: object) -> Union[None, UUID]:
             if data is None:
@@ -364,41 +380,6 @@ class ProviderTicket:
 
         project_name = _parse_project_name(d.pop("project_name"))
 
-        def _parse_escalated_at(data: object) -> Union[None, Unset, datetime.datetime]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                escalated_at_type_0 = isoparse(data)
-
-                return escalated_at_type_0
-            except:  # noqa: E722
-                pass
-            return cast(Union[None, Unset, datetime.datetime], data)
-
-        escalated_at = _parse_escalated_at(d.pop("escalated_at", UNSET))
-
-        def _parse_customer(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        customer = _parse_customer(d.pop("customer", UNSET))
-
-        def _parse_project(data: object) -> Union[None, Unset, str]:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(Union[None, Unset, str], data)
-
-        project = _parse_project(d.pop("project", UNSET))
-
         provider_ticket = cls(
             url=url,
             uuid=uuid,
@@ -414,19 +395,19 @@ class ProviderTicket:
             parent_issue_uuid=parent_issue_uuid,
             provider_helpdesk_uuid=provider_helpdesk_uuid,
             is_escalated=is_escalated,
+            escalated_at=escalated_at,
             provider_assignee=provider_assignee,
             provider_assignee_name=provider_assignee_name,
             first_response_deadline=first_response_deadline,
             resolution_deadline=resolution_deadline,
             first_response_at=first_response_at,
             sla_breached=sla_breached,
+            customer=customer,
             customer_uuid=customer_uuid,
             customer_name=customer_name,
+            project=project,
             project_uuid=project_uuid,
             project_name=project_name,
-            escalated_at=escalated_at,
-            customer=customer,
-            project=project,
         )
 
         provider_ticket.additional_properties = d

@@ -42,12 +42,13 @@ out of context:
   digest was introduced no longer match and fall back to a normal mount.
 - ``tenant`` — the tenant scope of the view that captured the snapshot
   (``"tenant:<id>"`` for a ``TenantMixin`` view, ``""`` for a view that is not
-  tenant-scoped). A snapshot is accepted only by a mount under the tenant that captured it,
+  tenant-scoped; see :func:`djust._tenant_state.snapshot_tenant_scope`). A
+  snapshot is accepted only by a mount under the tenant that captured it,
   even with the same session and view path. A tenant view
-  that has resolved no tenant neither mints nor accepts a token. A blob issued
-  before this field existed has no ``tenant`` and counts as ``""``, so it still
-  serves a view that is not tenant-scoped and is refused by a tenant view (one
-  fresh mount, then a new token).
+  that has resolved no tenant neither mints nor accepts a token. A blob
+  issued before this field existed has no ``tenant`` and counts as ``""``, so
+  it still serves a view that is not tenant-scoped and is refused by a tenant
+  view (one fresh mount, then a new token).
 - ``state`` — the serialized public-state JSON itself.
 
 Both halves (emit + restore) go through this single module so the envelope
@@ -58,7 +59,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional, cast
+from typing import Any, Dict, Optional, cast
 
 from django.conf import settings
 from django.core import signing
@@ -141,9 +142,11 @@ def sign_snapshot(
         view_slug: The dotted view path the snapshot was captured for.
         session_key: The Django session key, or ``None``/empty for anonymous.
             Only a keyed digest of it is placed in the envelope.
-        tenant_scope: The view's tenant scope (``""`` for a view that is not
-            tenant-scoped, ``"tenant:<id>"`` otherwise). A caller whose scope
-            is ``None`` (a tenant view with no resolved tenant) must not sign.
+        tenant_scope: The view's tenant scope
+            (:func:`djust._tenant_state.snapshot_tenant_scope`): ``""`` for a
+            view that is not tenant-scoped, ``"tenant:<id>"`` otherwise.
+            A caller whose scope is ``None`` (a tenant view with no resolved
+            tenant) must not sign at all.
 
     Returns:
         An opaque signed string the client stores verbatim and echoes back.
@@ -177,7 +180,7 @@ def unsign_snapshot(
     Returns ``None`` (and logs at WARNING/INFO) on ANY failure: a bad or
     missing signature, an expired snapshot, a tampered/garbage blob, a
     non-string input, a slug mismatch (cross-view replay), or a session
-    mismatch (cross-session replay). A ``None`` return means the caller MUST
+    mismatch (cross-session replay), or a tenant mismatch. A ``None`` return means the caller MUST
     drop the snapshot and fall back to a normal ``mount()``.
 
     This function is the ONLY place a snapshot becomes trusted. Unsigned input
@@ -257,9 +260,9 @@ def unsign_snapshot(
         )
         return None
 
-    # Identity binding — the tenant must match. A blob without the field
-    # predates the binding and is unscoped (""). ``None`` is a tenant view that
-    # resolved no tenant: it accepts nothing.
+    # Identity binding — the tenant must match. A blob without the
+    # field predates the binding and is unscoped (""). ``None`` is a tenant
+    # view that resolved no tenant: it accepts nothing.
     signed_tenant = envelope.get("tenant", "")
     if (
         tenant_scope is None
@@ -281,3 +284,42 @@ def unsign_snapshot(
         return None
 
     return state_json
+
+
+def legacy_snapshot_fields(
+    view: Any, view_path: Optional[str], session_key: Optional[str]
+) -> Dict[str, Any]:
+    """Capture a legacy opt-in token, or explicitly revoke an uncapturable one."""
+    from .._exposure import uses_legacy_exposure
+    from .._tenant_state import snapshot_tenant_scope
+
+    if not uses_legacy_exposure(view) or not getattr(
+        settings, "DJUST_STATE_SNAPSHOT_ENABLED", True
+    ):
+        return {}
+    if not getattr(view, "enable_state_snapshot", False):
+        return {}
+    snapshot_fn = getattr(view, "_capture_snapshot_state", None)
+    if not isinstance(view_path, str) or not view_path or not callable(snapshot_fn):
+        return {}
+    fields: Dict[str, Any] = {"view": view_path, "state_snapshot_signed": None}
+    try:
+        from ..sync_turn import run_sync_step
+
+        # ``_capture_snapshot_state`` is a documented override that runs on a worker
+        # thread here, as at the mount: the same ``"lifecycle"`` step (#3646). The mount
+        # twin was stepped in #3637; this per-event refresh (#3098) was missed.
+        public_state = run_sync_step(view, "lifecycle", snapshot_fn, strict=True)
+        if isinstance(public_state, dict) and public_state:
+            state_json = json.dumps(public_state, sort_keys=True, separators=(",", ":"))
+            scope = snapshot_tenant_scope(view)
+            if scope is not None:  # None: tenant view, no tenant; revoke, never mint
+                fields["state_snapshot_signed"] = sign_snapshot(
+                    state_json, view_path, session_key, scope
+                )
+    except Exception:  # noqa: BLE001 — invalidate a stale token without breaking the event
+        logger.warning(
+            "Legacy event snapshot unavailable for %s; cached snapshot invalidated",
+            sanitize_for_log(view_path),
+        )
+    return fields

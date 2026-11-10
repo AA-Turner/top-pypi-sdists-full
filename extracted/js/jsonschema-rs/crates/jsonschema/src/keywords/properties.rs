@@ -10,22 +10,25 @@ use crate::{
     keywords::CompilationResult,
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
-    properties::{KeyHead, PropertyName, HASHMAP_THRESHOLD},
+    properties::{
+        compile_big_map, scan_members, BigValidatorsMap, KeyHead, NameLengths,
+        PropertiesValidatorsMap as _, PropertyName, HASHMAP_THRESHOLD,
+    },
     types::JsonType,
     validator::{EvaluationResult, Validate, ValidationContext},
     Json, Node, Object, SerdeJson,
 };
-use ahash::AHashMap;
 use referencing::{Uri, Vocabulary};
 use serde_json::{Map, Value};
 use std::sync::Arc;
 
 pub(crate) struct SmallPropertiesValidator<F: Json = SerdeJson> {
     pub(crate) properties: Vec<(PropertyName, F::PreparedKey, SchemaNode<F>)>,
+    lengths: NameLengths,
 }
 
 pub(crate) struct BigPropertiesValidator<F: Json = SerdeJson> {
-    pub(crate) properties: AHashMap<String, SchemaNode<F>>,
+    pub(crate) properties: BigValidatorsMap<F>,
 }
 
 /// Fused validator for `properties` + `required: [2 items]` (no `additionalProperties: false`).
@@ -56,7 +59,10 @@ impl SmallPropertiesValidator {
                 compiler::compile(&ctx, ctx.as_resource_ref(subschema))?,
             ));
         }
-        Ok(Box::new(SmallPropertiesValidator { properties }))
+        Ok(Box::new(SmallPropertiesValidator {
+            properties,
+            lengths: NameLengths::of(map.keys().map(String::as_str)),
+        }))
     }
 }
 
@@ -66,16 +72,9 @@ impl BigPropertiesValidator {
         ctx: &compiler::Context<F>,
         map: &'a Map<String, Value>,
     ) -> CompilationResult<'a, F> {
-        let ctx = ctx.new_at_location("properties");
-        let mut properties = AHashMap::with_capacity(map.len());
-        for (key, subschema) in map {
-            let pctx = ctx.new_at_location(key.as_str());
-            properties.insert(
-                key.clone(),
-                compiler::compile(&pctx, pctx.as_resource_ref(subschema))?,
-            );
-        }
-        Ok(Box::new(BigPropertiesValidator { properties }))
+        Ok(Box::new(BigPropertiesValidator {
+            properties: compile_big_map(ctx, map)?,
+        }))
     }
 }
 
@@ -116,14 +115,17 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
         let Some(object) = instance.as_object() else {
             return true;
         };
-        // Walk the smaller side: short instance in one pass, wide instance via targeted lookups.
-        if object.len() <= self.properties.len() {
+        // Short instance in one pass, wide instance via targeted lookups.
+        if scan_members(object.len(), self.properties.len()) {
             for (name, value) in object.members() {
                 let name = name.as_ref();
+                if !self.lengths.may_contain(name.len()) {
+                    continue;
+                }
                 let head = KeyHead::of(name);
                 for (prop_name, _, node) in &self.properties {
                     if prop_name.matches(head, name) {
-                        if !node.is_valid(&value, ctx) {
+                        if !node.is_valid_child(&value, ctx) {
                             return false;
                         }
                         break;
@@ -133,7 +135,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
         } else {
             for (_, key, node) in &self.properties {
                 if let Some(prop) = object.get(key) {
-                    if !node.is_valid(&prop, ctx) {
+                    if !node.is_valid_child(&prop, ctx) {
                         return false;
                     }
                 }
@@ -152,7 +154,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
         let Some(object) = instance.as_object() else {
             return Ok(());
         };
-        if object.len() <= self.properties.len() {
+        if scan_members(object.len(), self.properties.len()) {
             for (name, value) in object.members() {
                 let name = name.as_ref();
                 let head = KeyHead::of(name);
@@ -184,7 +186,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
         let Some(object) = instance.as_object() else {
             return;
         };
-        if object.len() <= self.properties.len() {
+        if scan_members(object.len(), self.properties.len()) {
             for (name, value) in object.members() {
                 let name = name.as_ref();
                 let head = KeyHead::of(name);
@@ -218,7 +220,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
         };
         let mut matched_props = Vec::with_capacity(object.len());
         let mut children = ChildList::default();
-        if object.len() <= self.properties.len() {
+        if scan_members(object.len(), self.properties.len()) {
             for (name, value) in object.members() {
                 let name = name.as_ref();
                 let head = KeyHead::of(name);
@@ -227,7 +229,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
                         let path = location.push(name);
                         matched_props.push(prop_name.as_str().to_owned());
                         let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                        children.push(&mut ctx.arena, child);
+                        children.push(ctx.arena(), child);
                         break;
                     }
                 }
@@ -238,7 +240,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
                     let path = location.push(prop_name.as_str());
                     matched_props.push(prop_name.as_str().to_owned());
                     let child = node.evaluate_instance_below(&prop, &path, tracker, ctx);
-                    children.push(&mut ctx.arena, child);
+                    children.push(ctx.arena(), child);
                 }
             }
         }
@@ -293,7 +295,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
         if object.len() < 2 {
             return false;
         }
-        if object.len() <= self.properties.len() {
+        if scan_members(object.len(), self.properties.len()) {
             // One pass validates matching properties and confirms both required keys.
             let mut seen_first = false;
             let mut seen_second = false;
@@ -307,7 +309,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                 }
                 for (prop_name, _, node) in &self.properties {
                     if prop_name.matches(head, name) {
-                        if !node.is_valid(&value, ctx) {
+                        if !node.is_valid_child(&value, ctx) {
                             return false;
                         }
                         break;
@@ -321,7 +323,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
             }
             for (_, key, node) in &self.properties {
                 if let Some(prop) = object.get(key) {
-                    if !node.is_valid(&prop, ctx) {
+                    if !node.is_valid_child(&prop, ctx) {
                         return false;
                     }
                 }
@@ -340,7 +342,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
         let Some(object) = instance.as_object() else {
             return Ok(());
         };
-        if object.len() <= self.properties.len() {
+        if scan_members(object.len(), self.properties.len()) {
             // One pass validates matching properties and confirms both required keys.
             let mut seen_first = false;
             let mut seen_second = false;
@@ -401,7 +403,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
             if object.get(&self.second_key).is_none() {
                 errors.push(self.missing(&self.second, instance, location, tracker));
             }
-            if object.len() <= self.properties.len() {
+            if scan_members(object.len(), self.properties.len()) {
                 for (name, value) in object.members() {
                     let name = name.as_ref();
                     let head = KeyHead::of(name);
@@ -434,7 +436,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
         if let Some(object) = instance.as_object() {
             let mut matched_props = Vec::with_capacity(object.len());
             let mut children = ChildList::default();
-            if object.len() <= self.properties.len() {
+            if scan_members(object.len(), self.properties.len()) {
                 for (name, value) in object.members() {
                     let name = name.as_ref();
                     let head = KeyHead::of(name);
@@ -443,7 +445,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                             let path = location.push(name);
                             matched_props.push(prop_name.as_str().to_owned());
                             let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
-                            children.push(&mut ctx.arena, child);
+                            children.push(ctx.arena(), child);
                             break;
                         }
                     }
@@ -454,7 +456,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                         let path = location.push(prop_name.as_str());
                         matched_props.push(prop_name.as_str().to_owned());
                         let child = node.evaluate_instance_below(&prop, &path, tracker, ctx);
-                        children.push(&mut ctx.arena, child);
+                        children.push(ctx.arena(), child);
                     }
                 }
             }
@@ -492,12 +494,12 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                         &self.required_location,
                         self.required_absolute_location.as_ref(),
                     ),
-                    location.into(),
+                    ctx.instance_position(location),
                     None,
                     required_errors,
                     ChildList::default(),
                 );
-                children.push(&mut ctx.arena, child);
+                children.push(ctx.arena(), child);
             }
             let mut application = EvaluationResult::from_children(children);
             application.annotate(Annotations::new(Value::from(matched_props)));
@@ -513,8 +515,8 @@ impl<F: Json> Validate<F> for BigPropertiesValidator<F> {
         if let Some(object) = instance.as_object() {
             // Iterate over instance properties and look up in schema's HashMap
             for (name, prop) in object.members() {
-                if let Some(node) = self.properties.get(name.as_ref()) {
-                    if !node.is_valid(&prop, ctx) {
+                if let Some(node) = self.properties.get_validator(name.as_ref()) {
+                    if !node.is_valid_child(&prop, ctx) {
                         return false;
                     }
                 }
@@ -534,7 +536,7 @@ impl<F: Json> Validate<F> for BigPropertiesValidator<F> {
     ) -> Result<(), ValidationError<'i>> {
         if let Some(object) = instance.as_object() {
             for (name, value) in object.members() {
-                if let Some(node) = self.properties.get(name.as_ref()) {
+                if let Some(node) = self.properties.get_validator(name.as_ref()) {
                     node.validate(&value, &location.push(name.as_ref()), tracker, ctx)?;
                 }
             }
@@ -554,7 +556,7 @@ impl<F: Json> Validate<F> for BigPropertiesValidator<F> {
             return;
         };
         for (name, prop) in object.members() {
-            if let Some(node) = self.properties.get(name.as_ref()) {
+            if let Some(node) = self.properties.get_validator(name.as_ref()) {
                 let instance_path = location.push(name.as_ref());
                 node.collect_errors(&prop, &instance_path, tracker, ctx, errors);
             }
@@ -572,11 +574,11 @@ impl<F: Json> Validate<F> for BigPropertiesValidator<F> {
             let mut matched_props = Vec::with_capacity(object.len());
             let mut children = ChildList::default();
             for (prop_name, prop) in object.members() {
-                if let Some(node) = self.properties.get(prop_name.as_ref()) {
+                if let Some(node) = self.properties.get_validator(prop_name.as_ref()) {
                     let path = location.push(prop_name.as_ref());
                     matched_props.push(prop_name.as_ref().to_owned());
                     let child = node.evaluate_instance_below(&prop, &path, tracker, ctx);
-                    children.push(&mut ctx.arena, child);
+                    children.push(ctx.arena(), child);
                 }
             }
             let mut application = EvaluationResult::from_children(children);
@@ -671,6 +673,85 @@ mod tests {
     use serde_json::{json, Map, Value};
     use test_case::test_case;
 
+    // Member subschemas that only check `type`, against every kind of value
+    #[test_case(&json!({"type": "string"}), &json!(null), false; "string child, null")]
+    #[test_case(&json!({"type": "string"}), &json!(true), false; "string child, true")]
+    #[test_case(&json!({"type": "string"}), &json!(1), false; "string child, 1")]
+    #[test_case(&json!({"type": "string"}), &json!(1.0), false; "string child, 1.0")]
+    #[test_case(&json!({"type": "string"}), &json!(1.5), false; "string child, 1.5")]
+    #[test_case(&json!({"type": "string"}), &json!("s"), true; "string child, string")]
+    #[test_case(&json!({"type": "string"}), &json!([]), false; "string child, array")]
+    #[test_case(&json!({"type": "string"}), &json!({}), false; "string child, object")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!(null), true; "null or object child, null")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!(true), false; "null or object child, true")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!(1), false; "null or object child, 1")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!(1.0), false; "null or object child, 1.0")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!(1.5), false; "null or object child, 1.5")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!("s"), false; "null or object child, string")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!([]), false; "null or object child, array")]
+    #[test_case(&json!({"type": ["null", "object"]}), &json!({}), true; "null or object child, object")]
+    #[test_case(&json!({"type": "number"}), &json!(null), false; "number child, null")]
+    #[test_case(&json!({"type": "number"}), &json!(true), false; "number child, true")]
+    #[test_case(&json!({"type": "number"}), &json!(1), true; "number child, 1")]
+    #[test_case(&json!({"type": "number"}), &json!(1.0), true; "number child, 1.0")]
+    #[test_case(&json!({"type": "number"}), &json!(1.5), true; "number child, 1.5")]
+    #[test_case(&json!({"type": "number"}), &json!("s"), false; "number child, string")]
+    #[test_case(&json!({"type": "number"}), &json!([]), false; "number child, array")]
+    #[test_case(&json!({"type": "number"}), &json!({}), false; "number child, object")]
+    #[test_case(&json!({"type": "integer"}), &json!(null), false; "integer child, null")]
+    #[test_case(&json!({"type": "integer"}), &json!(true), false; "integer child, true")]
+    #[test_case(&json!({"type": "integer"}), &json!(1), true; "integer child, 1")]
+    #[test_case(&json!({"type": "integer"}), &json!(1.0), true; "integer child, 1.0")]
+    #[test_case(&json!({"type": "integer"}), &json!(1.5), false; "integer child, 1.5")]
+    #[test_case(&json!({"type": "integer"}), &json!("s"), false; "integer child, string")]
+    #[test_case(&json!({"type": "integer"}), &json!([]), false; "integer child, array")]
+    #[test_case(&json!({"type": "integer"}), &json!({}), false; "integer child, object")]
+    #[test_case(&json!(true), &json!(null), true; "true child, null")]
+    #[test_case(&json!(true), &json!(true), true; "true child, true")]
+    #[test_case(&json!(true), &json!(1), true; "true child, 1")]
+    #[test_case(&json!(true), &json!(1.0), true; "true child, 1.0")]
+    #[test_case(&json!(true), &json!(1.5), true; "true child, 1.5")]
+    #[test_case(&json!(true), &json!("s"), true; "true child, string")]
+    #[test_case(&json!(true), &json!([]), true; "true child, array")]
+    #[test_case(&json!(true), &json!({}), true; "true child, object")]
+    #[test_case(&json!(false), &json!(null), false; "false child, null")]
+    #[test_case(&json!(false), &json!(true), false; "false child, true")]
+    #[test_case(&json!(false), &json!(1), false; "false child, 1")]
+    #[test_case(&json!(false), &json!(1.0), false; "false child, 1.0")]
+    #[test_case(&json!(false), &json!(1.5), false; "false child, 1.5")]
+    #[test_case(&json!(false), &json!("s"), false; "false child, string")]
+    #[test_case(&json!(false), &json!([]), false; "false child, array")]
+    #[test_case(&json!(false), &json!({}), false; "false child, object")]
+    #[test_case(&json!({}), &json!(null), true; "empty child, null")]
+    #[test_case(&json!({}), &json!(true), true; "empty child, true")]
+    #[test_case(&json!({}), &json!(1), true; "empty child, 1")]
+    #[test_case(&json!({}), &json!(1.0), true; "empty child, 1.0")]
+    #[test_case(&json!({}), &json!(1.5), true; "empty child, 1.5")]
+    #[test_case(&json!({}), &json!("s"), true; "empty child, string")]
+    #[test_case(&json!({}), &json!([]), true; "empty child, array")]
+    #[test_case(&json!({}), &json!({}), true; "empty child, object")]
+    fn child_matches_is_valid(child: &Value, value: &Value, expected: bool) {
+        let schema = json!({"properties": {"a": child}});
+        let instance = json!({"a": value});
+        let validator = crate::validator_for(&schema).expect("schema compiles");
+        assert_eq!(validator.is_valid(&instance), expected);
+        assert_eq!(validator.validate(&instance).is_ok(), expected);
+        assert_eq!(validator.evaluate(&instance).flag().valid, expected);
+    }
+
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-04/schema#", "properties": {"a": {"type": "integer"}}}), &json!({"a": 1.0}), false; "draft 4 integer rejects 1.0")]
+    #[test_case(&json!({"$schema": "http://json-schema.org/draft-07/schema#", "definitions": {"s": {"type": "string"}}, "properties": {"a": {"$ref": "#/definitions/s", "type": "number"}}}), &json!({"a": "x"}), true; "draft 7 ignores type beside ref")]
+    #[test_case(&json!({"properties": {"a": {"type": "string"}}, "additionalProperties": {"type": "integer"}}), &json!({"a": "x", "b": 2}), true; "additional properties typed")]
+    #[test_case(&json!({"properties": {"a": {"type": "string"}}, "additionalProperties": {"type": "integer"}}), &json!({"a": "x", "b": "y"}), false; "additional properties wrong type")]
+    #[test_case(&json!({"patternProperties": {"^x-": {"type": "boolean"}}}), &json!({"x-a": true}), true; "pattern properties typed")]
+    #[test_case(&json!({"patternProperties": {"^x-": {"type": "boolean"}}}), &json!({"x-a": 1}), false; "pattern properties wrong type")]
+    fn typed_members(schema: &Value, instance: &Value, expected: bool) {
+        let validator = crate::validator_for(schema).expect("schema compiles");
+        assert_eq!(validator.is_valid(instance), expected);
+        assert_eq!(validator.validate(instance).is_ok(), expected);
+        assert_eq!(validator.evaluate(instance).flag().valid, expected);
+    }
+
     #[test]
     fn location() {
         tests_util::assert_schema_location(
@@ -678,6 +759,62 @@ mod tests {
             &json!({"foo": {"bar": {}}}),
             "/properties/foo/properties/bar/required",
         );
+    }
+
+    // `same-head*` names share a slot: they differ only in the middle.
+    fn many_properties(additional: Option<bool>) -> Value {
+        let mut properties = Map::new();
+        for index in 0..20 {
+            properties.insert(format!("p{index}"), json!({"const": index}));
+        }
+        for middle in ["A", "B", "C"] {
+            let name = format!("same-head{middle}same-tail");
+            properties.insert(name.clone(), json!({"const": name}));
+        }
+        let mut schema = json!({ "properties": properties });
+        if let Some(additional) = additional {
+            schema["additionalProperties"] = json!(additional);
+        }
+        schema
+    }
+
+    #[test_case(None, &json!({"p0": 0, "p19": 19}), true; "declared names")]
+    #[test_case(None, &json!({"p7": 8}), false; "declared name with a wrong value")]
+    #[test_case(None, &json!({"same-headBsame-tail": "same-headBsame-tail"}), true; "same head")]
+    #[test_case(None, &json!({"same-headBsame-tail": "same-headCsame-tail"}), false; "same head, other value")]
+    #[test_case(None, &json!({"same-headDsame-tail": 1, "p20": 1, "": 1}), true; "undeclared names")]
+    #[test_case(Some(false), &json!({"p3": 3, "same-headAsame-tail": "same-headAsame-tail"}), true; "closed, declared names")]
+    #[test_case(Some(false), &json!({"same-headBsame-tail": "same-headBsame-tail", "same-headCsame-tail": "same-headCsame-tail"}), true; "closed, every name with the same head")]
+    #[test_case(Some(false), &json!({"same-headDsame-tail": 1}), false; "closed, undeclared name with a declared head")]
+    #[test_case(Some(false), &json!({"p20": 1}), false; "closed, undeclared name")]
+    #[test_case(Some(false), &json!({"p2": 3}), false; "closed, declared name with a wrong value")]
+    fn many_properties_lookup(additional: Option<bool>, instance: &Value, expected: bool) {
+        let validator = crate::validator_for(&many_properties(additional)).unwrap();
+        assert_eq!(validator.is_valid(instance), expected);
+        assert_eq!(validator.validate(instance).is_ok(), expected);
+        assert_eq!(validator.iter_errors(instance).next().is_none(), expected);
+    }
+
+    // 70 bytes, and 6 bytes: lengths 64 apart share a bit in the length filter.
+    const LONG: &str = "property-name-that-is-seventy-bytes-long-so-that-it-wraps-past-sixty-4";
+
+    #[test_case(&json!({LONG: 1}), true; "long name")]
+    #[test_case(&json!({LONG: "x"}), false; "long name with a wrong value")]
+    #[test_case(&json!({"abcdef": "x"}), false; "short name with a wrong value")]
+    #[test_case(&json!({"ab": "x"}), true; "undeclared name")]
+    #[test_case(&json!({"abcdeg": "x", LONG: 1}), true; "undeclared name sharing a length")]
+    #[test_case(&json!({"property-name-that-is-seventy-bytes-long-so-that-it-wraps-past-sixty-5": "x"}), true; "undeclared long name")]
+    fn names_by_length(instance: &Value, expected: bool) {
+        let schema = json!({
+            "properties": {
+                LONG: {"type": "integer"},
+                "abcdef": {"type": "integer"},
+                "a": {"type": "integer"}
+            }
+        });
+        let validator = crate::validator_for(&schema).unwrap();
+        assert_eq!(validator.is_valid(instance), expected);
+        assert_eq!(validator.validate(instance).is_ok(), expected);
     }
 
     // SmallPropertiesWithRequired2Validator tests
@@ -1015,5 +1152,27 @@ mod tests {
             "5 is not of type \"object\"",
             "/properties",
         );
+    }
+
+    // Two declared properties; four keys or fewer per property take the members pass, more take lookups.
+    #[test_case(json!({"a": 1, "b": "x"}), true; "members pass valid")]
+    #[test_case(json!({"a": "x", "b": "x", "c": 0, "d": 0, "e": 0}), false; "members pass invalid")]
+    #[test_case(json!({"a": 1, "b": "x", "c": 0, "d": 0, "e": 0, "f": 0, "g": 0, "h": 0}), true; "members pass at the bound")]
+    #[test_case(json!({"a": 1, "b": "x", "c": 0, "d": 0, "e": 0, "f": 0, "g": 0, "h": 0, "i": 0}), true; "lookups valid")]
+    #[test_case(json!({"a": 1, "b": 2, "c": 0, "d": 0, "e": 0, "f": 0, "g": 0, "h": 0, "i": 0}), false; "lookups invalid")]
+    #[test_case(json!({"c": 0, "d": 0, "e": 0, "f": 0, "g": 0, "h": 0, "i": 0, "j": 0, "k": 0}), true; "lookups none declared")]
+    #[allow(clippy::needless_pass_by_value)]
+    fn verdicts_on_both_sides_of_the_scan_bound(instance: Value, expected: bool) {
+        for required in [json!([]), json!(["a", "b"])] {
+            let schema = json!({
+                "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+                "required": required
+            });
+            let validator = crate::validator_for(&schema).expect("schema builds");
+            let expected = expected
+                && (required.as_array().unwrap().is_empty() || instance.get("a").is_some());
+            assert_eq!(validator.is_valid(&instance), expected);
+            assert_eq!(validator.validate(&instance).is_ok(), expected);
+        }
     }
 }

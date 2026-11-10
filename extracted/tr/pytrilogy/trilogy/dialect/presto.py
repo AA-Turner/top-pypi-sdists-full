@@ -12,6 +12,7 @@ from trilogy.dialect.base import (
 from trilogy.dialect.common import (
     CONCAT_COALESCE_LOWER,
     SQL_STANDARD_EXTRACT,
+    render_text_bool_cast,
     sunday_first_from_iso,
 )
 
@@ -43,6 +44,7 @@ FUNCTION_MAP = {
     FunctionType.REGEXP_CONTAINS: lambda x, types: f"REGEXP_LIKE({x[0]}, {x[1]})",
     # array_join omits NULL elements when no null_replacement is given.
     **CONCAT_COALESCE_LOWER,
+    FunctionType.CAST: render_text_bool_cast,
     FunctionType.CONCAT_WS: lambda x, types: (
         f"array_join(ARRAY[{', '.join(x[1:])}], {x[0]})"
     ),
@@ -57,6 +59,7 @@ class PrestoDialect(BaseDialect):
         **FUNCTION_MAP,
     }
     QUOTE_CHARACTER = '"'
+    ILIKE_AS_LOWER_LIKE = ("LOWER", "LIKE", "NOT ")
 
     DATATYPE_MAP: ClassVar[dict[DataType, str]] = {
         **BaseDialect.DATATYPE_MAP,

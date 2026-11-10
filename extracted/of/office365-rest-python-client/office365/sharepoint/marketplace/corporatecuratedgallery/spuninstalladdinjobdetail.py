@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -9,7 +9,6 @@ from office365.sharepoint.marketplace.corporatecuratedgallery.spuninstalladdiner
 )
 
 
-@dataclass
 class SPUninstallAddinJobDetail(ClientValue):
     absoluteUrl: Optional[str] = None
     appInstanceId: Optional[str] = None

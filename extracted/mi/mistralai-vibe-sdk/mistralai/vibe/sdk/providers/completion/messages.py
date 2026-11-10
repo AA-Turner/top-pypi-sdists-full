@@ -52,6 +52,7 @@ class Message(BaseModel):
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
     reasoning_content: str | None = None
+    reasoning_signature: str | None = None
 
 
 def text_content_for_provider(

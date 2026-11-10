@@ -10,7 +10,50 @@ class FileTree(Component):
     """File browser tree with icons, expand/collapse, and selection.
 
     Renders a tree of file/folder nodes. Folders can be expanded/collapsed.
-    Uses ``dj-hook="FileTree"`` for client-side interactions.
+    Uses ``dj-hook="FileTree"`` for client-side interactions; the page must
+    include ``djust_components/file-tree.js``. Clicking a folder (or its arrow)
+    expands or collapses it on the page without a server round trip. The
+    reader's choice is remembered by the folder's name path (its name and its
+    parents'), not its position, so it survives a re-render that inserts,
+    removes or reorders rows, and keyboard focus stays on the same row; a
+    folder the reader has not touched shows the server's ``expanded`` state, a
+    renamed folder counts as a new one, and two siblings with one name are told
+    apart by order. The hook writes the choice as an inline ``display`` on the
+    children block itself (no stylesheet is required, and the server's own
+    ``display:none`` keeps applying to folders the reader has not touched),
+    marks a block the reader changed with ``data-dj-open``, and keeps the row's
+    ``dj-file-tree__node--expanded`` class and ARIA state in step. The keyboard follows the WAI-ARIA tree pattern: one tab stop, Up/Down
+    through the visible rows, Right/Left to open, close and step in or out,
+    Home/End, typing a letter to jump, Enter/Space to open a folder or select
+    a file. Selecting a file clicks its row, so it fires ``event`` exactly as a
+    mouse click does; the script sends nothing of its own.
+
+    The selection event carries the row's ``name`` from the browser, so treat
+    it as untrusted: accept it only if it names a node you rendered.
+
+    With ``toggle_event`` set, expanding or collapsing a folder (by the reader:
+    mouse or keyboard) also sends that event with ``{"path": ["src", "utils"],
+    "expanded": true}``, the folder's name and its parents' names from the root
+    down, so the server can remember which folders a user opened and render
+    them with ``expanded`` next time (the reader's own state on the page and
+    the server's then agree, and the page follows the server again). It is
+    sent once per change, never for a server re-render. The path comes from
+    the browser: treat it as untrusted and look it up in the tree you rendered
+    before storing anything (two siblings with one name give identical paths;
+    give them distinct names)::
+
+        @event_handler()
+        def folder_toggled(self, path: list = None, expanded: bool = False, **kwargs):
+            if not isinstance(expanded, bool):
+                return
+            key = "/".join(str(p) for p in (path or []))
+            if key not in self.known_folder_paths:  # not a folder of this tree: ignore
+                return
+            (self.open_folders.add if expanded else self.open_folders.discard)(key)
+    An app's own ``FileTree`` hook, in ``window.djust.hooks`` or
+    ``window.DjustHooks``, replaces the shipped one (a hook assigned with
+    ``window.DjustHooks = {...}`` after the script also drops it; merge with
+    ``Object.assign`` instead).
 
     Usage in a LiveView::
 
@@ -46,6 +89,8 @@ class FileTree(Component):
         event: djust event fired on file selection
         show_icons: show file/folder icons (default True)
         custom_class: additional CSS classes
+        toggle_event: djust event sent with ``{"path": [...], "expanded": bool}`` when the
+            reader expands or collapses a folder (optional)
     """
 
     FILE_ICONS = {
@@ -76,6 +121,7 @@ class FileTree(Component):
         event: str = "select_file",
         show_icons: bool = True,
         custom_class: str = "",
+        toggle_event: str = "",
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -84,6 +130,7 @@ class FileTree(Component):
             event=event,
             show_icons=show_icons,
             custom_class=custom_class,
+            toggle_event=toggle_event,
             **kwargs,
         )
         self.nodes = nodes or []
@@ -91,6 +138,7 @@ class FileTree(Component):
         self.event = event
         self.show_icons = show_icons
         self.custom_class = custom_class
+        self.toggle_event = toggle_event
 
     def _get_icon(self, name: str, node_type: str, expanded: bool = False) -> str:
         if node_type == "folder":
@@ -161,8 +209,13 @@ class FileTree(Component):
         for node in self.nodes:
             nodes_html.append(self._render_node(node))
 
+        toggle_attr = (
+            f' data-toggle-event="{html.escape(str(self.toggle_event))}"'
+            if self.toggle_event
+            else ""
+        )
         return (
             f'<div class="{class_str}" dj-hook="FileTree" '
-            f'data-event="{e_event}" data-selected="{e_selected}" '
+            f'data-event="{e_event}" data-selected="{e_selected}"{toggle_attr} '
             f'role="tree">{"".join(nodes_html)}</div>'
         )

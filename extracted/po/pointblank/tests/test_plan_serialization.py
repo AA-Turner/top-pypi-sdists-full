@@ -1,3 +1,4 @@
+import json
 import warnings
 
 import pytest
@@ -224,10 +225,77 @@ def test_col_vals_in_table_ref_path_roundtrips(tmp_path):
     assert f"ref_table={str(ref_path)!r}" in code or f'ref_table="{ref_path}"' in code
     assert _exec_code(code, tbl).interrogate().n_failed(i=1, scalar=True) == 1
 
-    # `set_tbl=` replaces the table, but the placeholder table name must still be loadable
-    yaml_text = yaml_text.replace("tbl: your_data", "tbl: small_table")
+    # With `set_tbl=`, the placeholder `tbl: your_data` is never loaded
+    assert "tbl: your_data" in yaml_text
     rebuilt = yaml_interrogate(yaml_text, set_tbl=tbl)
     assert rebuilt.n_failed(i=1, scalar=True) == 1
+
+
+def _ref_plan(reference):
+    # `pb.ref()` steps need the reference data to be set on the rebuilt plan as well
+    import polars as pl
+
+    tbl = pl.DataFrame({"a": [1, 2, 3]})
+    validation = (
+        Validate(data=tbl, reference=reference)
+        .col_avg_le(columns="a", value=pb.ref("a"))
+        .col_sum_eq(columns="a", value=pb.ref("a"))
+    )
+    return tbl, validation
+
+
+@pytest.mark.parametrize("as_path", [False, True])
+def test_reference_path_roundtrips(tmp_path, as_path):
+    import polars as pl
+
+    ref_path = tmp_path / "ref.csv"
+    pl.DataFrame({"a": [1, 2, 4]}).write_csv(ref_path)
+    tbl, validation = _ref_plan(ref_path if as_path else str(ref_path))
+    expected = validation.interrogate().n_failed(scalar=False)
+    assert expected == {1: 0, 2: 1}
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        code = validation.to_code()
+        yaml_text = validation.to_yaml()
+
+    assert f"reference={json.dumps(str(ref_path))}," in code
+    assert _exec_code(code, tbl).interrogate().n_failed(scalar=False) == expected
+
+    assert f"reference: {ref_path}" in yaml_text
+    rebuilt = yaml_interrogate(yaml_text, set_tbl=tbl)
+    assert rebuilt.n_failed(scalar=False) == expected
+
+
+def test_reference_in_memory_uses_placeholder():
+    import polars as pl
+
+    ref = pl.DataFrame({"a": [1, 2, 4]})
+    tbl, validation = _ref_plan(ref)
+    expected = validation.interrogate().n_failed(scalar=False)
+
+    with pytest.warns(UserWarning, match="`reference=` table is an in-memory table"):
+        code = validation.to_code()
+    assert "reference=your_reference_data," in code
+
+    # With the placeholder bound to the reference table, the generated code gives the same plan
+    namespace = {}
+    exec(
+        code.replace("your_data", "data"),
+        {"pb": pb, "data": tbl, "your_reference_data": ref},
+        namespace,
+    )
+    assert namespace["validation"].interrogate().n_failed(scalar=False) == expected
+
+    with pytest.warns(UserWarning, match="`reference=` table is an in-memory table"):
+        yaml_text = validation.to_yaml()
+    assert "reference: your_reference_data" in yaml_text
+
+
+def test_no_reference_is_not_serialized(small_table):
+    validation = Validate(data=small_table).col_vals_gt(columns="d", value=0)
+    assert "reference" not in validation.to_code()
+    assert "reference" not in validation.to_yaml()
 
 
 def test_to_yaml_roundtrips_via_yaml_interrogate(small_table):
@@ -344,3 +412,666 @@ def test_empty_plan_serializes(small_table):
         yaml_str = validation.to_yaml()
     assert "pb.Validate(" in code
     assert "steps: []" in yaml_str
+
+
+# ─── Serialization parity across every validation method ────────────────────────
+#
+# Each validation method needs a case here: it must serialize with `to_code()` and `to_yaml()`
+# (not be skipped), and the serialized plan must rebuild into the same steps. Methods whose
+# arguments can't be serialized (callables, LLM prompts) are checked for a buildable plan only.
+
+_MISSING = pb.MissingSpec(reasons={8: "refused", -99: "not_asked"}, categories={"x": ["refused"]})
+
+
+def _serialization_cases(ref_path):
+    import polars as pl
+
+    return {
+        "col_vals_gt": lambda v: v.col_vals_gt(columns="d", value=1000, na_pass=True),
+        "col_vals_lt": lambda v: v.col_vals_lt(columns="c", value=pb.col("a"), missing=_MISSING),
+        "col_vals_eq": lambda v: v.col_vals_eq(columns="a", value=3),
+        "col_vals_ne": lambda v: v.col_vals_ne(columns="a", value=3, segments="f"),
+        "col_vals_ge": lambda v: v.col_vals_ge(
+            columns="a", value=3, segments=("f", ["low", "mid"])
+        ),
+        "col_vals_le": lambda v: v.col_vals_le(columns="a", value=3, segments=["f", ("e", True)]),
+        "col_vals_between": lambda v: v.col_vals_between(
+            columns="c", left=1, right=8, inclusive=(False, True)
+        ),
+        "col_vals_outside": lambda v: v.col_vals_outside(columns="c", left=2, right=4),
+        "col_vals_in_set": lambda v: v.col_vals_in_set(columns="f", set=["low", "mid"]),
+        "col_vals_not_in_set": lambda v: v.col_vals_not_in_set(columns="f", set=["low"]),
+        "col_vals_null": lambda v: v.col_vals_null(columns="c"),
+        "col_vals_not_null": lambda v: v.col_vals_not_null(columns=["a", "c"]),
+        "col_vals_regex": lambda v: v.col_vals_regex(columns="b", pattern="^[0-5]", inverse=True),
+        "col_vals_within_spec": lambda v: v.col_vals_within_spec(columns="b", spec="isbn"),
+        "col_vals_str_len": lambda v: v.col_vals_str_len(columns="b", min_val=9, max_val=9),
+        "col_vals_increasing": lambda v: v.col_vals_increasing(
+            columns="date_time", allow_stationary=True
+        ),
+        "col_vals_decreasing": lambda v: v.col_vals_decreasing(columns="a"),
+        "col_vals_in_table": lambda v: v.col_vals_in_table(
+            columns="a", ref_table=str(ref_path), ref_column="a"
+        ),
+        "col_exists": lambda v: v.col_exists(columns=["a", "z"]),
+        "col_pct_null": lambda v: v.col_pct_null(columns="c", p=0.15, tol=(0.05, 0.1)),
+        "col_pct_missing": lambda v: v.col_pct_missing(
+            columns="c", missing=_MISSING, max_pct=0.3, category="x"
+        ),
+        "col_missing_coded": lambda v: v.col_missing_coded(columns="c", missing=_MISSING),
+        "col_missing_only_coded": lambda v: v.col_missing_only_coded(
+            columns="c", missing=_MISSING, min_val=0, max_val=7
+        ),
+        "col_missing_consistent": lambda v: v.col_missing_consistent(
+            columns=["a", "c"], missing=_MISSING, when_reason="refused"
+        ),
+        "rows_distinct": lambda v: v.rows_distinct(columns_subset=["f"]),
+        "rows_complete": lambda v: v.rows_complete(),
+        "col_count_match": lambda v: v.col_count_match(count=7, inverse=True),
+        "row_count_match": lambda v: v.row_count_match(count=10, tol=3),
+        "col_schema_match": lambda v: v.col_schema_match(
+            schema=pb.Schema(columns=[("a", "Int64"), ("z",)]), complete=False
+        ),
+        "data_freshness": lambda v: v.data_freshness(
+            column="date_time", max_age="2 days", reference_time="2016-01-31 00:00:00"
+        ),
+        "tbl_match": lambda v: v.tbl_match(tbl_compare=str(ref_path)),
+        "tbl_reconcile": lambda v: v.tbl_reconcile(
+            tbl_compare=str(ref_path), keys="f", measures="a"
+        ),
+        "col_sum_gt": lambda v: v.col_sum_gt(columns="a", value=50),
+        "col_avg_le": lambda v: v.col_avg_le(columns="a", value=4, tol=0.5),
+        "col_sd_eq": lambda v: v.col_sd_eq(columns="a", value=2, tol=1),
+        "col_vals_expr": lambda v: v.col_vals_expr(expr=pl.col("a") > 1),
+        "conjointly": lambda v: v.conjointly(lambda df: pl.col("a") > 1),
+        "specially": lambda v: v.specially(expr=lambda df: [True]),
+        "prompt": lambda v: v.prompt(
+            prompt="Values look plausible", model="anthropic:claude-sonnet-5", batch_size=10
+        ),
+    }
+
+
+# Methods whose plans can't be fully serialized (callables, or LLM calls at interrogation), so
+# only the rebuilt plan's structure is compared
+_LOSSY_METHODS = {"col_vals_expr", "conjointly", "specially", "prompt"}
+
+# Public `Validate` methods that don't add validation steps
+_NON_STEP_METHODS = {
+    "above_threshold", "add_steps", "all_passed", "assert_below_threshold",
+    "assert_dimension_scores", "assert_passing", "critical", "error", "f_failed", "f_passed",
+    "from_prompt", "get_data_extracts", "get_dataframe_report", "get_dimension_scores",
+    "get_health_score", "get_json_report", "get_note", "get_notes", "get_scorecard",
+    "get_step_report", "get_sundered_data", "get_tabular_report", "interrogate", "n",
+    "n_failed", "n_passed", "set_tbl", "suggest_improvements", "to_code", "to_json_schema",
+    "to_yaml", "warning",
+}  # fmt: skip
+
+
+@pytest.fixture
+def ref_path(tmp_path, small_table):
+    path = tmp_path / "ref.csv"
+    small_table.head(10).write_csv(path)
+    return path
+
+
+def _results(validation):
+    return [
+        (s.assertion_type, s.n, s.n_passed, s.n_failed, s.eval_error)
+        for s in validation.validation_info
+    ]
+
+
+def test_every_validation_method_has_a_serialization_case(tmp_path):
+    import inspect
+
+    from pointblank._agg import is_valid_agg
+
+    public = {
+        name
+        for name, _ in inspect.getmembers(Validate, inspect.isfunction)
+        if not name.startswith("_")
+    }
+    step_methods = public - _NON_STEP_METHODS
+    cases = set(_serialization_cases(tmp_path / "ref.csv"))
+
+    # Aggregate methods are covered by one case per aggregate kind
+    uncovered = {m for m in step_methods - cases if not is_valid_agg(m)}
+    assert not uncovered, f"Add serialization cases for: {sorted(uncovered)}"
+
+
+@pytest.mark.parametrize("method", sorted(_serialization_cases(None)))
+@pytest.mark.parametrize("interrogated", [False, True])
+def test_every_validation_method_serializes(method, interrogated, small_table, ref_path):
+    build = _serialization_cases(ref_path)[method]
+    lossy = method in _LOSSY_METHODS
+
+    validation = build(Validate(data=small_table, tbl_name="small_table"))
+    if interrogated and not lossy:
+        validation = validation.interrogate()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        code = validation.to_code()
+        yaml_str = validation.to_yaml()
+    messages = [str(w.message) for w in caught]
+    assert not any("not supported by plan serialization" in m for m in messages), messages
+    if not lossy:
+        assert not messages, messages
+
+    rebuilt_code = _exec_code(code, small_table)
+
+    # `set_tbl=` is used, so the YAML's `tbl` is never loaded
+    yaml_str = yaml_str.replace("tbl: small_table\n", "tbl: not_a_loadable_table\n", 1)
+    if lossy:
+        from pointblank.yaml import YAMLValidator
+
+        # The placeholders written for callables (e.g., `lambda df: df`) are Python code
+        validator = YAMLValidator()
+        rebuilt_yaml = validator.build_validation(
+            validator.load_config(yaml_str), tbl=small_table, allow_python=True
+        )
+        expected = [s.assertion_type for s in validation.validation_info]
+        assert [s.assertion_type for s in rebuilt_code.validation_info] == expected
+        assert [s.assertion_type for s in rebuilt_yaml.validation_info] == expected
+        return
+
+    rebuilt_yaml = yaml_interrogate(yaml_str, set_tbl=small_table)
+    expected = _results(validation if interrogated else validation.interrogate())
+    assert not any(eval_error for *_, eval_error in expected)
+    assert _results(rebuilt_code.interrogate()) == expected
+    assert _results(rebuilt_yaml) == expected
+
+
+def test_to_yaml_after_interrogation_writes_original_segments(small_table):
+    # Interrogation expands a segmented step into one step per segment; serializing writes the
+    # original `segments=` value once, not the expanded (column, value) pairs
+    validation = (
+        Validate(data=small_table, tbl_name="small_table")
+        .col_vals_gt(columns="a", value=2, segments="f")
+        .col_vals_gt(columns="a", value=2, segments=("f", "low"))
+        .interrogate()
+    )
+    assert len(validation.validation_info) == 4
+
+    code = validation.to_code()
+    assert '.col_vals_gt(columns="a", value=2, segments="f")' in code
+    assert '.col_vals_gt(columns="a", value=2, segments=("f", "low"))' in code
+
+    yaml_str = validation.to_yaml()
+    assert "segments: f\n" in yaml_str
+    assert "segments:\n    - - f\n      - low\n" in yaml_str
+
+    rebuilt = yaml_interrogate(yaml_str)
+    assert [s.segments for s in rebuilt.validation_info] == [
+        s.segments for s in validation.validation_info
+    ]
+    assert _results(rebuilt) == _results(validation)
+
+
+def _active_plan(data):
+    import polars as pl
+
+    return (
+        Validate(data=data, tbl_name="tbl")
+        .col_vals_gt(columns="x", value=0)
+        .col_vals_gt(columns="z", value=0)
+        .col_vals_gt(columns="x", value=1, active=False)
+        .col_vals_gt(columns="x", value=2, active=pb.has_columns("y"))
+        .col_vals_gt(columns="x", value=3, active=lambda tbl: 1 / 0)
+        .col_vals_gt(columns="x", value=4, pre=lambda tbl: tbl.not_a_method())
+        .col_vals_expr(expr=pl.col("q") > 0)
+    )
+
+
+def _serialize_quietly(validation):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return validation.to_code(), validation.to_yaml()
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas"])
+def test_serializing_after_interrogation_keeps_original_active(backend):
+    # Interrogation sets `active` to the value resolved against the table (`False` for a step that
+    # can't be evaluated or whose callable is falsy or raises); serializing writes the `active=`
+    # values as given, so the exported plan doesn't depend on the data it was last run on
+    import pandas as pd
+    import polars as pl
+
+    data = pl.DataFrame({"x": [1, 2]}) if backend == "polars" else pd.DataFrame({"x": [1, 2]})
+    validation = _active_plan(data)
+    before = _serialize_quietly(validation)
+
+    validation.interrogate()
+    assert [s.active for s in validation.validation_info] == [True] + [False] * 6
+    assert _serialize_quietly(validation) == before
+
+    # A second interrogation doesn't change the serialized plan either
+    validation.interrogate()
+    assert _serialize_quietly(validation) == before
+
+    code, yaml_str = before
+    # The callable `active=` values are written with the `True` placeholder
+    assert code.count("active=False") == 1
+    assert code.count("active=True") == 2
+    assert yaml_str.count("active: false") == 1
+    assert yaml_str.count("active: true") == 2
+
+
+@pytest.mark.parametrize("backend", ["polars", "pandas"])
+def test_serializing_after_interrogating_empty_table_keeps_steps_active(backend):
+    # Every row-based step on a table with no rows can't be evaluated, and running the exported
+    # plan on a table with rows should still evaluate the step
+    import pandas as pd
+    import polars as pl
+
+    if backend == "polars":
+        empty = pl.DataFrame({"x": pl.Series([], dtype=pl.Int64)})
+        good = pl.DataFrame({"x": [1, 2]})
+    else:
+        empty = pd.DataFrame({"x": pd.Series([], dtype="int64")})
+        good = pd.DataFrame({"x": [1, 2]})
+
+    validation = Validate(data=empty, tbl_name="tbl").col_vals_gt(columns="x", value=0)
+    before = (validation.to_code(), validation.to_yaml())
+
+    validation.interrogate()
+    assert validation.validation_info[0].eval_error
+    assert validation.validation_info[0].active is False
+
+    code, yaml_str = validation.to_code(), validation.to_yaml()
+    assert (code, yaml_str) == before
+    assert "active" not in code
+    assert "active" not in yaml_str
+
+    for rebuilt in [
+        _exec_code(code, good).interrogate(),
+        yaml_interrogate(yaml_str, set_tbl=good),
+    ]:
+        step = rebuilt.validation_info[0]
+        assert step.active is True
+        assert not step.eval_error
+        assert step.n_passed == 2
+
+
+def test_to_yaml_callable_active_placeholder_loads(small_table):
+    # The placeholder for a callable `active=` is the boolean `true`, not the string 'true' (which
+    # `yaml_interrogate()` would try to evaluate as Python code)
+    validation = Validate(data=small_table, tbl_name="small_table").col_vals_gt(
+        columns="a", value=0, active=lambda tbl: False
+    )
+    with pytest.warns(UserWarning, match="callable `active=` condition"):
+        yaml_str = validation.to_yaml()
+    assert "active: true\n" in yaml_str
+
+    rebuilt = yaml_interrogate(yaml_str)
+    assert rebuilt.validation_info[0].active is True
+    assert rebuilt.validation_info[0].n_passed == 13
+
+
+def test_add_steps_from_interrogated_validation_keeps_original_active():
+    import polars as pl
+
+    data = pl.DataFrame({"x": [1, 2]})
+    source = _active_plan(data)
+    source.interrogate()
+
+    expected = [s.active_spec for s in source.validation_info]
+    assert expected[:3] == [True, True, False]
+    assert all(callable(active) for active in expected[3:5])
+    assert expected[5:] == [True, True]
+
+    validation = Validate(data=data).add_steps(source)
+    assert [s.active for s in validation.validation_info] == expected
+
+    validation.interrogate()
+    assert [s.active for s in validation.validation_info] == [True] + [False] * 6
+    assert validation.validation_info[0].n_passed == 2
+
+
+@pytest.mark.parametrize("method", sorted(_serialization_cases(None)))
+@pytest.mark.parametrize("interrogated", [False, True])
+def test_add_steps_copies_every_validation_method(method, interrogated, small_table, ref_path):
+    # A step copied from a `Validate` object with `add_steps()` gets the arguments it was defined
+    # with, so the copy has the same plan and the same results
+    if interrogated and method == "prompt":
+        pytest.skip("`prompt()` steps call a model at interrogation")
+
+    build = _serialization_cases(ref_path)[method]
+    source = build(Validate(data=small_table, tbl_name="small_table"))
+    plan = _serialize_quietly(source)
+    if interrogated:
+        source.interrogate()
+
+    validation = Validate(data=small_table, tbl_name="small_table").add_steps(source)
+    assert _serialize_quietly(validation) == plan
+    if method == "prompt":
+        return
+
+    expected = _results(source if interrogated else build(Validate(data=small_table)).interrogate())
+    assert _results(validation.interrogate()) == expected
+
+
+def test_add_steps_copies_expanded_steps_as_defined():
+    # Interrogation expands a step with a column selector or `segments=` into one step per column
+    # or segment; `add_steps()` copies the step as defined, so it's expanded for the new table
+    import polars as pl
+
+    source = (
+        Validate(data=pl.DataFrame({"a1": [1, 2], "a2": [3, 4], "s": ["p", "q"]}), thresholds=1)
+        .col_vals_gt(columns=pb.starts_with("a"), value=0)
+        .col_vals_gt(columns="a1", value=0, segments="s")
+        .col_vals_not_null(columns="a2")
+        .col_vals_not_null(columns=pb.starts_with("zz"))
+        .interrogate()
+    )
+    assert len(source.validation_info) == 6
+
+    data = pl.DataFrame({"a1": [1, 2, 3], "a2": [4, 5, 6], "a3": [7, 8, 9], "s": ["p", "q", "r"]})
+    validation = Validate(data=data, thresholds=(0.5, 0.8)).add_steps(source)
+    steps = validation.validation_info
+    assert [s.column for s in steps] == [
+        source.validation_info[0].column_spec,
+        "a1",
+        "a2",
+        source.validation_info[-1].column_spec,
+    ]
+    assert steps[1].segments == "s"
+
+    # Thresholds equal to the source's global thresholds give way to those of the new validation
+    assert all(s.thresholds == validation.thresholds for s in steps)
+
+    validation.interrogate()
+    assert [(s.column, s.segments) for s in validation.validation_info] == [
+        ("a1", None),
+        ("a2", None),
+        ("a3", None),
+        ("a1", ("s", "p")),
+        ("a1", ("s", "q")),
+        ("a1", ("s", "r")),
+        ("a2", None),
+        (str(pb.starts_with("zz")), None),
+    ]
+    assert validation.validation_info[-1].eval_error
+
+    # Positions in `exclude=` count the steps as defined, not as expanded
+    validation = Validate(data=data).add_steps(source, exclude=[2, 4], columns_map={"a2": "a3"})
+    assert [(s.assertion_type, s.column) for s in validation.validation_info] == [
+        ("col_vals_gt", source.validation_info[0].column_spec),
+        ("col_vals_not_null", "a3"),
+    ]
+
+
+def test_add_steps_keeps_unserializable_arguments():
+    # The arguments that `to_code()` replaces with placeholders (callables, tables, actions) are
+    # copied as they are
+    import polars as pl
+
+    data = pl.DataFrame({"a": [1, 2, 3]})
+    ref = pl.DataFrame({"x": [1, 2]})
+    actions = pb.Actions(warning="warned")
+
+    def pre(tbl):
+        return tbl.with_columns(b=pl.col("a") * 2)
+
+    source = (
+        Validate(data=data)
+        .col_vals_gt(columns="b", value=3, pre=pre, thresholds=1, actions=actions)
+        .col_vals_in_table(columns="a", ref_table=ref, ref_column="x")
+        .tbl_match(tbl_compare=data)
+    )
+
+    validation = Validate(data=data).add_steps(source)
+    first, in_table, match = validation.validation_info
+    assert first.pre is pre
+    assert first.actions is actions
+    assert in_table.values["ref_table"] is ref
+    assert match.values["tbl_compare"] is data
+
+    validation.interrogate()
+    assert [s.n_failed for s in validation.validation_info] == [1, 1, 0]
+
+
+def test_serializing_after_interrogation_keeps_brief_templates(small_table):
+    # Interrogation fills in the template elements of `brief`; serializing and `add_steps()` use
+    # the brief as given, so a copied step gets its own step number and column
+    def build(validation):
+        return (
+            validation.col_vals_gt(columns="a", value=0, brief="Step {step}: {col} > {value}")
+            .col_vals_lt(columns=["a", "c"], value=10, brief="{col} is small")
+            .col_vals_not_null(columns="b", brief=True)
+            .col_vals_not_null(columns="d")
+        )
+
+    source = build(Validate(data=small_table, tbl_name="small_table"))
+    before = (source.to_code(), source.to_yaml())
+
+    source.interrogate()
+    assert source.validation_info[0].brief == "Step 1: a > 0"
+    assert source.validation_info[2].brief == "c is small"
+    assert (source.to_code(), source.to_yaml()) == before
+
+    code, yaml_str = before
+    assert 'brief="Step {step}: {col} > {value}"' in code
+    assert 'brief="{col} is small"' in code
+    assert "brief=True" in code
+    assert code.count("brief=") == 3
+
+    validation = (
+        Validate(data=small_table).col_vals_not_null(columns="a").add_steps(source).interrogate()
+    )
+    assert [s.brief for s in validation.validation_info] == [
+        None,
+        "Step 2: a > 0",
+        "a is small",
+        "c is small",
+        "{auto}",
+        None,
+    ]
+
+
+def test_yaml_segments_pairs_and_columns(small_table):
+    # In a `segments:` list, a string is a column and a two-item list is a (column, value) pair
+    yaml_str = """
+tbl: small_table
+steps:
+- col_vals_gt:
+    columns: a
+    value: 2
+    segments: [f, [e, true], [f, [low, mid]]]
+"""
+    validation = yaml_interrogate(yaml_str)
+    assert [s.segments for s in validation.validation_info] == [
+        ("f", "high"),
+        ("f", "low"),
+        ("f", "mid"),
+        ("e", True),
+        ("f", "low"),
+        ("f", "mid"),
+    ]
+    assert not any(s.eval_error for s in validation.validation_info)
+
+    bad = yaml_str.replace("[f, [e, true], [f, [low, mid]]]", "[f, [e, true, false]]")
+    with pytest.raises(Exception, match="Invalid 'segments' item"):
+        yaml_interrogate(bad)
+
+
+def test_yaml_interrogate_set_tbl_does_not_load_config_tbl(small_table):
+    yaml_str = """
+tbl: this_is_not_a_dataset
+steps:
+- col_vals_not_null:
+    columns: a
+"""
+    validation = yaml_interrogate(yaml_str, set_tbl=small_table)
+    assert validation.all_passed()
+
+
+@pytest.mark.parametrize("value", ["pb.col('a')", 'pb.col("a")', "pb.ref('a')"])
+def test_yaml_column_reference_value_without_python_block(small_table, value):
+    from pointblank.column import Column, ReferenceColumn
+
+    yaml_str = f"""
+tbl: small_table
+steps:
+- col_vals_gt:
+    columns: d
+    value: {value}
+"""
+    if value.startswith("pb.ref"):
+        from pointblank.yaml import YAMLValidator
+
+        validator = YAMLValidator()
+        built = validator.build_validation(validator.load_config(yaml_str))
+        assert isinstance(built.validation_info[0].values, ReferenceColumn)
+        return
+
+    validation = yaml_interrogate(yaml_str)
+    assert isinstance(validation.validation_info[0].values, Column)
+    assert validation.all_passed()
+    assert f"value={value}" in pb.yaml_to_python(yaml_str)
+
+
+def test_to_code_conjointly_renders_positional_expressions(small_table):
+    validation = Validate(data=small_table).conjointly(lambda df: df["a"] > 0)
+    with pytest.warns(UserWarning, match="could not be fully serialized"):
+        code = validation.to_code()
+    assert ".conjointly(lambda df: df)" in code
+    assert _exec_code(code, small_table).validation_info[0].assertion_type == "conjointly"
+
+
+def test_to_code_renders_seg_group(small_table):
+    validation = Validate(data=small_table).col_vals_gt(
+        columns="a", value=2, segments=("f", pb.seg_group([["low", "mid"], ["high"]]))
+    )
+    code = validation.to_code()
+    assert 'segments=("f", pb.seg_group([["low", "mid"], ["high"]]))' in code
+
+    yaml_str = validation.to_yaml().replace("tbl: your_data", "tbl: small_table")
+    rebuilt = yaml_interrogate(yaml_str)
+    assert _results(rebuilt) == _results(validation.interrogate())
+
+
+# ─── Decimal, time, and timezone-aware values ────────────────────────────────────
+
+
+@pytest.fixture
+def typed_table():
+    import datetime
+    from decimal import Decimal
+    from zoneinfo import ZoneInfo
+
+    import polars as pl
+
+    utc, new_york = datetime.timezone.utc, ZoneInfo("America/New_York")
+    return pl.DataFrame(
+        {
+            "x": [1.5, 2.5, 3.5],
+            "d": pl.Series(
+                [Decimal("1.5"), Decimal("2.5"), Decimal("3.5")], dtype=pl.Decimal(10, 2)
+            ),
+            "t": [datetime.time(8, 0), datetime.time(9, 0), datetime.time(10, 0)],
+            "ts": [datetime.datetime(2024, 1, 1, h, tzinfo=utc) for h in (8, 9, 10)],
+            "ny": [datetime.datetime(2024, 1, 1, h, tzinfo=new_york) for h in (8, 9, 10)],
+        }
+    )
+
+
+def _typed_value_plan(data):
+    import datetime
+    from decimal import Decimal
+    from zoneinfo import ZoneInfo
+
+    utc = datetime.timezone.utc
+    plus_five = datetime.timezone(datetime.timedelta(hours=5))
+    return (
+        Validate(data=data)
+        .col_vals_gt(columns="x", value=Decimal("2.2"))
+        .col_vals_le(columns="d", value=Decimal("3.0"))
+        .col_vals_between(columns="x", left=Decimal("1"), right=Decimal("3"))
+        .col_vals_outside(columns="d", left=Decimal("5"), right=Decimal("6"))
+        .col_sum_gt(columns="x", value=Decimal("5.5"))
+        .col_vals_eq(columns="t", value=datetime.time(9, 0))
+        .col_vals_ne(columns="t", value=datetime.time(9, 0))
+        .col_vals_gt(columns="t", value=datetime.time(8, 30, 15, 250))
+        .col_vals_between(columns="t", left=datetime.time(8, 30), right=datetime.time(9, 30))
+        .col_vals_ge(columns="ts", value=datetime.datetime(2024, 1, 1, 9, tzinfo=utc))
+        .col_vals_eq(columns="ts", value=datetime.datetime(2024, 1, 1, 14, tzinfo=plus_five))
+        .col_vals_lt(
+            columns="ny",
+            value=datetime.datetime(2024, 1, 1, 9, 30, tzinfo=ZoneInfo("America/New_York")),
+        )
+    )
+
+
+def test_to_code_roundtrips_decimal_time_and_timezone_values(typed_table):
+    code = _typed_value_plan(typed_table).to_code()
+
+    # The values are written as Python expressions, with the imports they need
+    assert code.startswith(
+        "import datetime\nfrom decimal import Decimal\nfrom zoneinfo import ZoneInfo\n\n"
+        "import pointblank as pb\n"
+    )
+    assert 'value=Decimal("2.2")' in code
+    assert "value=datetime.time(8, 30, 15, 250)" in code
+    assert 'value="2024-01-01T14:00:00+05:00"' in code
+    assert 'value=datetime.datetime(2024, 1, 1, 9, 30, tzinfo=ZoneInfo("America/New_York"))' in code
+
+    namespace = {"your_data": typed_table}
+    exec(code, namespace)
+    expected = _results(_typed_value_plan(typed_table).interrogate())
+    assert _results(namespace["validation"].interrogate()) == expected
+    assert [step[2] for step in expected] == [2, 2, 2, 3, 1, 1, 2, 2, 1, 2, 1, 2]
+
+
+def test_to_yaml_roundtrips_decimal_time_and_timezone_values(typed_table):
+    yaml_str = _typed_value_plan(typed_table).to_yaml()
+
+    assert 'python: Decimal("2.2")' in yaml_str
+    assert "python: datetime.time(9, 0)" in yaml_str
+    assert "value: '2024-01-01T14:00:00+05:00'" in yaml_str
+
+    # The values load without `allow_python=True` and give the same results
+    rebuilt = yaml_interrogate(yaml_str, set_tbl=typed_table)
+    assert _results(rebuilt) == _results(_typed_value_plan(typed_table).interrogate())
+
+    # `yaml_to_python()` adds the imports that the values need
+    python_code = pb.yaml_to_python(yaml_str)
+    assert python_code.startswith(
+        "```python\nimport datetime\nfrom decimal import Decimal\nfrom zoneinfo import ZoneInfo\n\n"
+        "import pointblank as pb\n"
+    )
+    assert 'value=Decimal("2.2")' in python_code
+
+
+def test_to_code_imports_nothing_extra_for_plain_values(small_table):
+    code = Validate(data=small_table).col_vals_gt(columns="d", value=100).to_code()
+    assert code.startswith("import pointblank as pb\n\nvalidation = (")
+    assert "```python\nimport pointblank as pb\n\n(" in pb.yaml_to_python(
+        Validate(data=small_table, tbl_name="small_table")
+        .col_vals_gt(columns="d", value=100)
+        .to_yaml()
+    )
+
+
+@pytest.mark.parametrize("tolerance_in_dict", [False, True])
+def test_to_code_tbl_match_timedelta_tolerance_imports_datetime(tolerance_in_dict):
+    import datetime
+
+    import polars as pl
+
+    data = pl.DataFrame({"k": [1, 2], "ts": [datetime.datetime(2024, 1, d) for d in (1, 2)]})
+    compare = data.with_columns(pl.col("ts") + pl.duration(seconds=1))
+    tolerance = datetime.timedelta(seconds=2)
+    if tolerance_in_dict:
+        tolerance = {"ts": tolerance}
+    validation = Validate(data=data).tbl_match(compare, keys="k", tolerance=tolerance)
+
+    with pytest.warns(UserWarning, match="could not be fully serialized"):
+        code = validation.to_code()
+    assert code.startswith("import datetime\n\nimport pointblank as pb\n")
+
+    namespace = {"your_data": data, "your_comparison_table": compare}
+    exec(code, namespace)
+    rebuilt = namespace["validation"].interrogate()
+    assert _results(rebuilt) == _results(validation.interrogate())
+    assert rebuilt.all_passed() is tolerance_in_dict

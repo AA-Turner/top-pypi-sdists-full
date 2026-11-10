@@ -1,9 +1,15 @@
+import time
+
 import pytest
 
 from quimb.utils import (
+    Every,
     deprecated,
+    load_from_disk,
     oset,
+    parse_time_spec,
     raise_cant_find_library_function,
+    save_to_disk,
 )
 
 
@@ -84,3 +90,114 @@ class TestOset:
         a = oset("abcdefg")
         a.difference_update(oset("abd"), oset("bdf"))
         assert list(a) == ["c", "e", "g"]
+
+
+class TestParseTimeSpec:
+    @pytest.mark.parametrize(
+        "spec,expected",
+        [
+            (30, 30.0),
+            (2.5, 2.5),
+            ("30", 30.0),
+            ("30s", 30.0),
+            ("90 secs", 90.0),
+            ("10mins", 600.0),
+            ("1.5 hours", 5400.0),
+            ("1h30m", 5400.0),
+            ("2 days", 172800.0),
+            ("1 day 12h", 129600.0),
+        ],
+    )
+    def test_specs(self, spec, expected):
+        assert parse_time_spec(spec) == pytest.approx(expected)
+
+    def test_bad_unit(self):
+        with pytest.raises(ValueError, match="Unknown time unit"):
+            parse_time_spec("10 fortnights")
+
+    def test_no_number(self):
+        with pytest.raises(ValueError, match="Could not parse"):
+            parse_time_spec("soon")
+
+
+class TestEvery:
+    @pytest.mark.parametrize("spec", [None, 0, False])
+    def test_never(self, spec):
+        every = Every(spec)
+        assert not every
+        assert not every.due(1)
+
+    def test_counts(self):
+        every = Every(3)
+        assert every
+        assert [n for n in range(1, 10) if every.due(n)] == [3, 6, 9]
+
+    def test_duration(self, monkeypatch):
+        now = 1000.0
+        monkeypatch.setattr(time, "time", lambda: now)
+
+        every = Every("10mins")
+        assert every
+        assert every.spec == "10mins"
+        # the first check just starts the clock
+        assert not every.due()
+
+        now += 599.0
+        assert not every.due()
+        now += 1.0
+        assert every.due()
+        # the clock restarts from the last due check
+        assert not every.due()
+        now += 600.0
+        assert every.due()
+
+    def test_duration_resets(self, monkeypatch):
+        now = 1000.0
+        monkeypatch.setattr(time, "time", lambda: now)
+
+        every = Every("1min")
+        assert not every.due()
+        now += 59.0
+        # the clock restarts, so those 59 seconds don't count
+        every.reset()
+        assert not every.due()
+        now += 59.0
+        assert not every.due()
+        now += 1.0
+        assert every.due()
+
+    def test_bad_duration(self):
+        with pytest.raises(ValueError, match="positive duration"):
+            Every("0s")
+
+
+class TestSaveToDisk:
+    @pytest.mark.parametrize("atomic", [False, True])
+    @pytest.mark.parametrize("ext", [".dmp", ".gz"])
+    def test_roundtrip(self, tmp_path, atomic, ext):
+        pytest.importorskip("joblib")
+        fname = tmp_path / f"obj{ext}"
+        save_to_disk({"a": [1, 2, 3]}, fname, atomic=atomic)
+        assert load_from_disk(fname) == {"a": [1, 2, 3]}
+        assert [p.name for p in tmp_path.iterdir()] == [fname.name]
+
+    def test_atomic_overwrite(self, tmp_path):
+        pytest.importorskip("joblib")
+        fname = tmp_path / "obj.dmp"
+        save_to_disk(1, fname)
+        save_to_disk(2, fname, atomic=True)
+        assert load_from_disk(fname) == 2
+
+    def test_atomic_failure_keeps_old_file(self, tmp_path):
+        pytest.importorskip("joblib")
+
+        class Unpicklable:
+            def __reduce__(self):
+                raise RuntimeError("boom")
+
+        fname = tmp_path / "obj.dmp"
+        save_to_disk(1, fname)
+        with pytest.raises(RuntimeError, match="boom"):
+            save_to_disk(Unpicklable(), fname, atomic=True)
+        assert load_from_disk(fname) == 1
+        assert [p.name for p in tmp_path.iterdir()] == [fname.name]

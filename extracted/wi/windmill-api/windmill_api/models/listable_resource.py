@@ -30,6 +30,7 @@ class ListableResource:
         is_expired (Union[Unset, bool]):
         refresh_error (Union[Unset, str]):
         account (Union[Unset, float]):
+        scopes (Union[Unset, List[str]]): OAuth scopes the linked account was connected with
         created_by (Union[Unset, str]):
         edited_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
@@ -61,6 +62,7 @@ class ListableResource:
     is_expired: Union[Unset, bool] = UNSET
     refresh_error: Union[Unset, str] = UNSET
     account: Union[Unset, float] = UNSET
+    scopes: Union[Unset, List[str]] = UNSET
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
@@ -88,6 +90,10 @@ class ListableResource:
         is_expired = self.is_expired
         refresh_error = self.refresh_error
         account = self.account
+        scopes: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.scopes, Unset):
+            scopes = self.scopes
+
         created_by = self.created_by
         edited_at: Union[Unset, str] = UNSET
         if not isinstance(self.edited_at, Unset):
@@ -132,6 +138,8 @@ class ListableResource:
             field_dict["refresh_error"] = refresh_error
         if account is not UNSET:
             field_dict["account"] = account
+        if scopes is not UNSET:
+            field_dict["scopes"] = scopes
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if edited_at is not UNSET:
@@ -187,6 +195,8 @@ class ListableResource:
 
         account = d.pop("account", UNSET)
 
+        scopes = cast(List[str], d.pop("scopes", UNSET))
+
         created_by = d.pop("created_by", UNSET)
 
         _edited_at = d.pop("edited_at", UNSET)
@@ -223,6 +233,7 @@ class ListableResource:
             is_expired=is_expired,
             refresh_error=refresh_error,
             account=account,
+            scopes=scopes,
             created_by=created_by,
             edited_at=edited_at,
             labels=labels,

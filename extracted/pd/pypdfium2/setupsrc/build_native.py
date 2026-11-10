@@ -37,6 +37,7 @@ DEPS_URLS = dict(
     zlib        = _CR_PREFIX + "chromium/src/third_party/zlib",
     harfbuzz    = _CR_PREFIX + "external/github.com/harfbuzz/harfbuzz",
     dragonbox   = _CR_PREFIX + "external/github.com/jk-jeon/dragonbox",
+    highway     = _CR_PREFIX + "external/github.com/google/highway",
     # unittests
     gtest      = _CR_PREFIX + "external/github.com/google/googletest",
     test_fonts = _CR_PREFIX + "chromium/src/third_party/test_fonts",
@@ -47,6 +48,7 @@ PDFIUM_DIR_build = PDFIUM_DIR / "build"
 PDFIUM_3RDPARTY = PDFIUM_DIR / "third_party"
 CUSTOM_TOOLCHAIN_DIR = PDFIUM_DIR_build/"toolchain"/"linux"/"custom"
 
+# TODO(geisserml) build with libyuv?
 DefaultConfig = {
     "is_debug": False,
     "use_glib": False,
@@ -57,7 +59,9 @@ DefaultConfig = {
     "pdf_is_standalone": True,
     "pdf_enable_v8": False,
     "pdf_enable_xfa": False,
+    "pdf_enable_brotli": False,
     "pdf_use_skia": False,
+    "pdf_use_libyuv": False,
     "pdf_use_partition_alloc": False,
     "use_sysroot": False,
     "use_cxx23": False,
@@ -106,8 +110,13 @@ class DepsFetcher:
                 return True
             else:
                 return False
-        mkdir(target_dir.parent)  # assuming git >= 2.49.0
-        run_cmd(["git", "-c", "advice.detachedHead=false", "clone", "--depth=1", "--revision", self.deps_info[name], DEPS_URLS[name], target_dir.name], cwd=target_dir.parent)
+        mkdir(target_dir)
+        revision, url = self.deps_info[name], DEPS_URLS[name]
+        #run_cmd(["git", "-c", "advice.detachedHead=false", "clone", "--depth=1", "--revision", revision, url, target_dir.name], cwd=target_dir.parent)  # git >= 2.49.0
+        run_cmd(["git", "init"], cwd=target_dir, silent=True)
+        run_cmd(["git", "remote", "add", "origin", url], cwd=target_dir, silent=True)
+        run_cmd(["git", "fetch", "--depth=1", "origin", revision], cwd=target_dir)
+        run_cmd(["git", "-c", "advice.detachedHead=false", "checkout", "FETCH_HEAD"], cwd=target_dir)
         return True
 
 
@@ -139,7 +148,7 @@ class _DeferredDeps:
 
 def handle_deps(config, vendor_deps, with_tests):
     
-    deps_fields = ["build", "abseil", "fast_float", "simdutf", "dragonbox"]
+    deps_fields = ["build", "abseil", "fast_float", "simdutf", "dragonbox", "highway"]
     
     if "libc++" in vendor_deps:
         deps_fields += ("buildtools", "libcxx", "libcxxabi", "llvm_libc")
@@ -222,6 +231,8 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         )
         if sys.byteorder == "big":
             git_apply_patch(PatchDir/"bigendian.patch", cwd=PDFIUM_DIR)
+        if Host._raw_machine in ("armv7l", "armv8l"):
+            git_apply_patch(PatchDir/"armhf_scanline.patch", cwd=PDFIUM_DIR)
         if is_pyodide:
             git_apply_patch(PatchDir/"unknown_cpu.patch", cwd=PDFIUM_DIR)
             git_apply_patch(PatchDir/"wasm"/"pdfium.patch", cwd=PDFIUM_DIR)
@@ -287,6 +298,7 @@ checkout_libpng = true\
     df.fetch("fast_float", PDFIUM_3RDPARTY/"fast_float"/"src")
     df.fetch("simdutf", PDFIUM_3RDPARTY/"simdutf")
     df.fetch("dragonbox", PDFIUM_3RDPARTY/"dragonbox"/"src")
+    df.fetch("highway", PDFIUM_3RDPARTY/"highway"/"src")
     
     if "libc++" in vendor_deps:
         df.fetch("buildtools", PDFIUM_DIR/"buildtools")
@@ -395,7 +407,7 @@ def build(build_dir, config_dict, with_tests, n_jobs, is_pyodide):
         pyodide_utils.link(build_dir)
 
 
-def test(build_dir, vendor_deps, compiler):
+def test(build_dir, vendor_deps, compiler, ignore_test_failure):
     gtest_filter = []
     # obscure failure if either system libc++ or gcc config (or both) are used
     if "libc++" not in vendor_deps or compiler is Compiler.gcc:
@@ -409,12 +421,12 @@ def test(build_dir, vendor_deps, compiler):
         gtest_filter.append("CPDFPageImageCacheTest.RenderBug1924")  # FIXME actually crashes
     if gtest_filter:
         os.environ["GTEST_FILTER"] = "*:-" + ":".join(gtest_filter)
-    run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR)
+    run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR, check=(not ignore_test_failure))
 
 
 # TODO(geisserml) refactor to pass along an args object?
 
-def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, use_sysroot=False, is_pyodide=False):
+def main(build_ver=None, with_tests=False, ignore_test_failure=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, use_sysroot=False, is_pyodide=False):
     
     if build_ver is None:
         build_ver = SBUILD_NATIVE_PIN
@@ -465,7 +477,7 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     handle_sysroot(use_sysroot, config, compiler, vendor_deps)
     build(build_dir, config, with_tests, n_jobs, is_pyodide)
     if with_tests:
-        test(build_dir, vendor_deps, compiler)
+        test(build_dir, vendor_deps, compiler, ignore_test_failure)
     
     return pack_sourcebuild(PDFIUM_DIR, build_dir, "native", full_ver, build_ver, load_lib=(not is_pyodide))
 
@@ -507,6 +519,12 @@ Some params take a default from an environment variable, for easy passthrough wi
         action = "store_true",
         default = bool(int( os.environ.get("TEST_PDFIUM", 0) )),
         help = "Whether to build and run tests. Recommended, except on very slow hosts. Defaults to $TEST_PDFIUM.",
+    )
+    parser.add_argument(
+        "--ignore-test-failure",
+        action = "store_true",
+        default = bool(int( os.environ.get("TEST_IGNORE_FAILURE", 0) )),
+        help = "Exercise the test suite but suppress failure as a whole.",
     )
     parser.add_argument(
         "-j", "--jobs",

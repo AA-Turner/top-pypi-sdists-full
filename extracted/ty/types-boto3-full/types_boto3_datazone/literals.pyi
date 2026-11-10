@@ -225,6 +225,8 @@ ConnectionTypeType = Literal[
     "TERADATA",
     "VERTICA",
     "VPC",
+    "WORKDAYICEBERGRESTCATALOG",
+    "WORKDAYLDQ",
     "WORKFLOWS_MWAA",
 ]
 DataAssetActivityStatusType = Literal[
@@ -315,6 +317,8 @@ GlueConnectionTypeType = Literal[
     "SQLSERVER",
     "TERADATA",
     "VERTICA",
+    "WORKDAYICEBERGRESTCATALOG",
+    "WORKDAYLDQ",
 ]
 GovernanceTypeType = Literal["AWS_MANAGED", "USER_MANAGED"]
 GovernedEntityTypeType = Literal["ASSET"]

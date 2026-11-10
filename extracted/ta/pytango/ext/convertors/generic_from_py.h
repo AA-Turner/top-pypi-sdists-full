@@ -109,6 +109,8 @@ inline std::string type_missmatch_error(const int tangoTypeConst) {
 
 // Due to python does not provide conversion from python integers
 // to all the data types accepted by tango we must check the ranges manually.
+// The unsigned PyLong_As* variants additionally reject anything that is not a python int, numpy
+// integer scalars included, so a failed conversion is retried through __index__.
 #define DEFINE_FROM_PY_NUMERIC(tangoTypeConst, cpy_type, FN)                                                        \
     template <>                                                                                                     \
     struct python_scalar_to_cpp<tangoTypeConst> {                                                                   \
@@ -125,7 +127,17 @@ inline std::string type_missmatch_error(const int tangoTypeConst) {
                    (PyArray_DescrFromScalar(py_val) == PyArray_DescrFromType(TANGO_const2numpy(tangoTypeConst)))) { \
                     PyArray_ScalarAsCtype(py_val, reinterpret_cast<void *>(&tg));                                   \
                     return;                                                                                         \
-                } else {                                                                                            \
+                }                                                                                                   \
+                bool converted = false;                                                                             \
+                if(TangoScalarTypeLimits::is_integer) {                                                             \
+                    py::object index_val = py::reinterpret_steal<py::object>(PyNumber_Index(py_val));               \
+                    if(index_val) {                                                                                 \
+                        cpy_value = FN(index_val.ptr());                                                            \
+                        converted = PyErr_Occurred() == nullptr;                                                    \
+                    }                                                                                               \
+                    PyErr_Clear();                                                                                  \
+                }                                                                                                   \
+                if(!converted) {                                                                                    \
                     PyErr_SetString(PyExc_TypeError, type_missmatch_error(tangoTypeConst).c_str());                 \
                     throw py::error_already_set();                                                                  \
                 }                                                                                                   \
@@ -169,34 +181,32 @@ DEFINE_FROM_PY_NUMERIC(Tango::DEV_DOUBLE, double, PyFloat_AsDouble)
 template <int tangoArrayTypeConst>
 struct array_element_from_py : public python_scalar_to_cpp<TANGO_const2scalarconst(tangoArrayTypeConst)> { };
 
-template <>
-struct array_element_from_py<Tango::DEVVAR_CHARARRAY> {
-    static const int tangoArrayTypeConst = Tango::DEVVAR_CHARARRAY;
+// Owns the cpp value converted from a python object: DEV_STRING conversion allocates
+// a buffer with new[], and the Tango setters copy the string instead of taking it over.
+template <int tangoTypeConst>
+class TangoScalar {
+  public:
+    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
 
-    typedef TANGO_const2scalartype(tangoArrayTypeConst) TangoScalarType;
-    typedef std::numeric_limits<TangoScalarType> TangoScalarTypeLimits;
-
-    static void convert(const py::object &val, TangoScalarType &tg) {
-        DISABLE_WARNING("-Wold-style-cast")
-        PyObject *py_val = val.ptr();
-        long cpy_value = PyLong_AsLong(py_val);
-        if(PyErr_Occurred() != nullptr) {
-            PyErr_Clear();
-            if(PyArray_CheckScalar(py_val) && (PyArray_DescrFromScalar(py_val) ==
-                                               PyArray_DescrFromType(TANGO_const2scalarnumpy(tangoArrayTypeConst)))) {
-                PyArray_ScalarAsCtype(py_val, reinterpret_cast<void *>(&tg));
-                return;
-            } else {
-                std::string err_msg = "Expecting a char type but it is not. "
-                                      "If you use a numpy type instead of"
-                                      "python core types, then it must exactly match";
-                PyErr_SetString(PyExc_TypeError, err_msg.c_str());
-                throw py::error_already_set();
-            }
-        }
-        tg = static_cast<TangoScalarType>(cpy_value);
-        RESTORE_WARNING
+    explicit TangoScalar(const py::object &py_value) {
+        python_scalar_to_cpp<tangoTypeConst>::convert(py_value, m_value);
     }
+
+    TangoScalar(const TangoScalar &) = delete;
+    TangoScalar &operator=(const TangoScalar &) = delete;
+
+    ~TangoScalar() {
+        if constexpr(tangoTypeConst == Tango::DEV_STRING) {
+            delete[] m_value;
+        }
+    }
+
+    const TangoScalarType &get() const noexcept {
+        return m_value;
+    }
+
+  private:
+    TangoScalarType m_value{};
 };
 
 /**
@@ -217,9 +227,11 @@ void python_seq_to_tango(const py::object &py_value, _CORBA_Sequence<TangoElemen
         throw std::overflow_error("py::len(py_value) is too large for CORBA::ULong/Py_ssize_t");
     }
 
+    py::sequence py_seq = py::reinterpret_borrow<py::sequence>(py_value);
+
     result.length(static_cast<CORBA::ULong>(len));
     for(size_t i = 0; i < len; ++i) {
-        TangoElementType ch = py::cast<TangoElementType>(py_value.attr("__getitem__")(i));
+        TangoElementType ch = py::cast<TangoElementType>(py_seq[i]);
         result[static_cast<CORBA::ULong>(i)] = ch;
     }
 }
@@ -231,36 +243,16 @@ void python_seq_to_tango(const py::object &py_value, Tango::DevVarStringArray &r
 void python_seq_to_tango(const py::object &py_value, Tango::DevVarDoubleStringArray &result);
 void python_seq_to_tango(const py::object &py_value, Tango::DevVarLongStringArray &result);
 
-// helper method to extract numeric and string arrays from py::object
-inline void __long_double_string_array_helper(const py::object &py_value,
-                                              DevVarNumericStringArray type,
-                                              std::string f_name,
-                                              py::object &py_numeric,
-                                              py::object &py_string) {
-    std::string err_type, err_desription;
-    switch(type) {
-    case DevVarNumericStringArray::LONG_STRING: {
-        err_type = "PyDs_WrongPythonDataTypeForLongStringArray";
-        err_desription = "Converter from python object to DevVarLongStringArray "
-                         "needs a python sequence<sequence<int>, sequence<str>>";
-        break;
-    }
-    case DevVarNumericStringArray::DOUBLE_STRING: {
-        err_type = "PyDs_WrongPythonDataTypeForDoubleStringArray";
-        err_desription = "Converter from python object to DevVarDoubelStringArray "
-                         "needs a python sequence<sequence<float>, sequence<str>>";
-        break;
-    }
-    }
+// Splits a python sequence<numeric sequence, string sequence> into its two halves.
+template <typename TangoArrayType>
+inline void split_numeric_string_sequence(const py::object &py_value,
+                                          const std::string &f_name,
+                                          py::object &py_numeric,
+                                          py::object &py_string) {
+    using traits = numeric_string_array_traits<TangoArrayType>;
 
-    if(py::isinstance<py::str>(py_value) || !py::isinstance<py::sequence>(py_value)) {
-        Tango::Except::throw_exception(err_type, err_desription, f_name);
-    }
-
-    size_t size = py::len(py_value);
-
-    if(size != 2) {
-        Tango::Except::throw_exception(err_type, err_desription, f_name);
+    if(py::isinstance<py::str>(py_value) || !py::isinstance<py::sequence>(py_value) || py::len(py_value) != 2) {
+        Tango::Except::throw_exception(traits::error_reason, traits::error_description, f_name);
     }
 
     py_numeric = py_value.attr("__getitem__")(0);

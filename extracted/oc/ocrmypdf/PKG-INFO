@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ocrmypdf
-Version: 17.13.0
+Version: 17.14.1
 Summary: OCRmyPDF adds an OCR text layer to scanned PDF files, allowing them to be searched
 Project-URL: Documentation, https://ocrmypdf.readthedocs.io/
 Project-URL: Source, https://github.com/ocrmypdf/OCRmyPDF
@@ -25,20 +25,23 @@ Classifier: Topic :: Scientific/Engineering :: Image Recognition
 Classifier: Topic :: Text Processing :: Indexing
 Classifier: Topic :: Text Processing :: Linguistic
 Requires-Python: >=3.11
-Requires-Dist: fpdf2>=2.8.0
-Requires-Dist: img2pdf>=0.5
+Requires-Dist: fpdf2>=2.9.0
+Requires-Dist: img2pdf>=0.6
 Requires-Dist: packaging>=20
 Requires-Dist: pdfminer-six>=20260107
-Requires-Dist: pikepdf[pdfa]>=10.15
-Requires-Dist: pillow>=12
+Requires-Dist: pikepdf[pdfa]>=10.18
+Requires-Dist: pillow>=13
 Requires-Dist: pluggy>=1
-Requires-Dist: pydantic>=2.12.5
-Requires-Dist: pypdfium2>=5.0.0
+Requires-Dist: pydantic>=2.14
+Requires-Dist: pypdfium2>=5.15.0
 Requires-Dist: rich>=13
 Requires-Dist: typing-extensions>=4.12; python_version < '3.13'
 Requires-Dist: uharfbuzz>=0.53.2
 Provides-Extra: heic
 Requires-Dist: pillow-heif>=1.7.0; extra == 'heic'
+Provides-Extra: rapidocr
+Requires-Dist: onnxruntime>=1.21; extra == 'rapidocr'
+Requires-Dist: rapidocr>=3.10; extra == 'rapidocr'
 Provides-Extra: watcher
 Requires-Dist: cyclopts>=3; extra == 'watcher'
 Requires-Dist: python-dotenv; extra == 'watcher'
@@ -214,7 +217,7 @@ OCRmyPDF provides a plugin interface allowing its capabilities to be extended or
 
 - [Going paperless with OCRmyPDF](https://medium.com/@ikirichenko/going-paperless-with-ocrmypdf-e2f36143f46a)
 - [Converting a scanned document into a compressed searchable PDF with redactions](https://medium.com/@treyharris/converting-a-scanned-document-into-a-compressed-searchable-pdf-with-redactions-63f61c34fe4c)
-- [c't 1-2014, page 59](https://heise.de/-2279695): Detailed presentation of OCRmyPDF v1.0 in the leading German IT magazine c't
+- [c't 1-2014, page 59](https://web.archive.org/web/20220115123833/https://www.heise.de/ct/ausgabe/2014-1-kurz-vorgestellt-Texterkennung-2279695.html): Detailed presentation of OCRmyPDF v1.0 in the leading German IT magazine c't
 - [heise Open Source, 09/2014: Texterkennung mit OCRmyPDF](https://heise.de/-2356670)
 - [heise Durchsuchbare PDF-Dokumente mit OCRmyPDF erstellen](https://www.heise.de/ratgeber/Durchsuchbare-PDF-Dokumente-mit-OCRmyPDF-erstellen-4607592.html)
 - [Excellent Utilities: OCRmyPDF](https://www.linuxlinks.com/excellent-utilities-ocrmypdf-add-ocr-text-layer-scanned-pdfs/)

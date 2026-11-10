@@ -10,17 +10,20 @@ import pytest
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Uses the macOS script utility")
-@pytest.mark.parametrize("exit_code", [0, 7])
-def test_macos_claude_handoff_has_terminal_streams_and_preserves_exit_status(
-  tmp_path: Path, exit_code: int
+@pytest.mark.parametrize("assistant", ["claude", "codex"])
+@pytest.mark.parametrize("exit_code", [0, 101])
+def test_macos_installer_handoff_has_pollable_terminal_and_preserves_exit_status(
+  tmp_path: Path, assistant: str, exit_code: int
 ) -> None:
   project = tmp_path / "project with spaces"
   project.mkdir()
-  executable = tmp_path / "claude"
+  executable = tmp_path / assistant
   executable.write_text(
     f"#!{sys.executable}\n"
-    "import json, os, sys\n"
+    "import json, os, selectors, sys\n"
     "from pathlib import Path\n"
+    "with selectors.KqueueSelector() as selector:\n"
+    "  selector.register(sys.stdin, selectors.EVENT_READ)\n"
     "Path('invocation.json').write_text(json.dumps({"
     "'tty': [os.isatty(fd) for fd in range(3)], 'args': sys.argv[1:]}))\n"
     f"raise SystemExit({exit_code})\n"
@@ -33,10 +36,17 @@ def test_macos_claude_handoff_has_terminal_streams_and_preserves_exit_status(
   environment["PATH"] = str(tmp_path) + os.pathsep + environment.get("PATH", "")
   result = subprocess.run(
     [
+      "/usr/bin/script",
+      "-q",
+      "/dev/null",
+      "/bin/sh",
+      "-c",
+      'exec "$@" </dev/tty',
+      "sh",
       sys.executable,
       "-c",
       "from pathlib import Path; from trajectory.lib.cli.assistants import handoff; "
-      "result = handoff('claude', Path.cwd(), 'benchmark', "
+      f"result = handoff({assistant!r}, Path.cwd(), 'benchmark', "
       "'Literal $(touch unexpected) `touch unexpected`', None, None, True); "
       "raise SystemExit(result['exit_code'])",
     ],
@@ -48,7 +58,7 @@ def test_macos_claude_handoff_has_terminal_streams_and_preserves_exit_status(
     timeout=15,
     check=False,
   )
-  assert result.returncode == exit_code, result.stderr
+  assert result.returncode == exit_code, result.stdout + result.stderr
   invocation = json.loads((project / "invocation.json").read_text())
   assert invocation["tty"] == [True, True, True]
   assert len(invocation["args"]) == 1

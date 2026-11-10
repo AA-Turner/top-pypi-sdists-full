@@ -6,7 +6,7 @@ from typing import Literal, TypeAlias
 
 from trajectory._models import BaseModel
 
-EvalTaskSplit: TypeAlias = Literal["test", "all"]
+EvalTaskSplit: TypeAlias = Literal["test", "train", "all"]
 
 
 class EvalTaskSelection(BaseModel):

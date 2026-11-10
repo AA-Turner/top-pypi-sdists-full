@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 
 import pytest
 
+from scrapy.exceptions import ScrapyDeprecationWarning
 from scrapy.http import HtmlResponse, Response, TextResponse
-from scrapy.utils.python import to_bytes
 from scrapy.utils.response import (
     get_base_url,
     get_meta_refresh,
@@ -31,7 +31,7 @@ def test_open_in_browser():
 
     def browser_open(burl: str) -> bool:
         bbody = _read_browser_output(burl)
-        assert b'<base href="' + to_bytes(url) + b'">' in bbody
+        assert b'<base href="' + url.encode() + b'">' in bbody
         return True
 
     response = HtmlResponse(url, body=body)
@@ -42,72 +42,27 @@ def test_open_in_browser():
         open_in_browser(resp, _openfunc=browser_open)
 
 
-def test_get_meta_refresh():
-    r1 = HtmlResponse(
-        "http://www.example.com",
-        body=b"""
-    <html>
-    <head><title>Dummy</title><meta http-equiv="refresh" content="5;url=http://example.org/newpage" /></head>
-    <body>blahablsdfsal&amp;</body>
-    </html>""",
-    )
-    r2 = HtmlResponse(
-        "http://www.example.com",
-        body=b"""
-    <html>
-    <head><title>Dummy</title><noScript>
-    <meta http-equiv="refresh" content="5;url=http://example.org/newpage" /></head>
-    </noSCRIPT>
-    <body>blahablsdfsal&amp;</body>
-    </html>""",
-    )
-    r3 = HtmlResponse(
-        "http://www.example.com",
-        body=b"""
-<noscript><meta http-equiv="REFRESH" content="0;url=http://www.example.com/newpage</noscript>
-<script type="text/javascript">
-if(!checkCookies()){
-    document.write('<meta http-equiv="REFRESH" content="0;url=http://www.example.com/newpage">');
-}
-</script>
-    """,
-    )
-    r4 = HtmlResponse(
-        "http://www.example.com",
-        body=b"""
-    <html>
-    <head><title>Dummy</title>
-    <base href="http://www.another-domain.com/base/path/">
-    <meta http-equiv="refresh" content="5;url=target.html"</head>
-    <body>blahablsdfsal&amp;</body>
-    </html>""",
-    )
-    assert get_meta_refresh(r1) == (5.0, "http://example.org/newpage")
-    assert get_meta_refresh(r2) == (None, None)
-    assert get_meta_refresh(r3) == (None, None)
-    assert get_meta_refresh(r4) == (
-        5.0,
-        "http://www.another-domain.com/base/path/target.html",
-    )
+def test_get_meta_refresh() -> None:
+    body = b'<noscript><meta http-equiv="refresh" content="5;url=/a"></noscript>'
+    response = HtmlResponse("http://www.example.com", body=body)
+    with pytest.warns(ScrapyDeprecationWarning, match="TextResponse.meta_refresh"):
+        assert get_meta_refresh(response) == (None, None)
+    with pytest.warns(ScrapyDeprecationWarning):
+        assert get_meta_refresh(response, ignore_tags=["script"]) == (
+            5.0,
+            "http://www.example.com/a",
+        )
+    with (
+        pytest.warns(ScrapyDeprecationWarning),
+        pytest.raises(ValueError, match="div"),
+    ):
+        get_meta_refresh(response, ignore_tags=["div"])
 
 
-def test_get_base_url():
-    resp = HtmlResponse(
-        "http://www.example.com",
-        body=b"""
-    <html>
-    <head><base href="http://www.example.com/img/" target="_blank"></head>
-    <body>blahablsdfsal&amp;</body>
-    </html>""",
-    )
-    assert get_base_url(resp) == "http://www.example.com/img/"
-
-    resp2 = HtmlResponse(
-        "http://www.example.com",
-        body=b"""
-    <html><body>blahablsdfsal&amp;</body></html>""",
-    )
-    assert get_base_url(resp2) == "http://www.example.com"
+def test_get_base_url() -> None:
+    response = HtmlResponse("http://www.example.com", body=b'<base href="/a/">')
+    with pytest.warns(ScrapyDeprecationWarning, match="TextResponse.base_url"):
+        assert get_base_url(response) == "http://www.example.com/a/"
 
 
 def test_response_status_message():
@@ -196,11 +151,11 @@ def test_response_status_message():
     ],
 )
 def test_inject_base_url(body: bytes) -> None:
-    url = "http://www.example.com"
+    url = "http://www.example.com/"
 
     def check_base_url(burl):
         bbody = _read_browser_output(burl)
-        base_tag = b'<base href="' + to_bytes(url) + b'">'
+        base_tag = b'<base href="' + url.encode() + b'">'
         assert bbody.count(base_tag) == 1
         index = bbody.index(base_tag)
         # The base tag is not commented out.
@@ -248,7 +203,7 @@ def test_open_in_browser_redos_head():
 
 
 def test_open_in_browser_preserves_html_comments():
-    url = "http://www.example.com"
+    url = "http://www.example.com/"
     body = (
         b"<html>"
         b"<!-- preserved comment -->"
@@ -291,7 +246,7 @@ def test_open_in_browser_keeps_base_url_of_response(
 
 
 def test_open_in_browser_injects_base_when_only_in_comment():
-    url = "http://www.example.com"
+    url = "http://www.example.com/"
     body = (
         b"<html>"
         b"<!-- <base href='http://other.com'> -->"
@@ -302,7 +257,7 @@ def test_open_in_browser_injects_base_when_only_in_comment():
 
     def check(burl):
         bbody = _read_browser_output(burl)
-        assert b'<base href="' + to_bytes(url) + b'">' in bbody
+        assert b'<base href="' + url.encode() + b'">' in bbody
         return True
 
     response = HtmlResponse(url, body=body)
@@ -310,7 +265,7 @@ def test_open_in_browser_injects_base_when_only_in_comment():
 
 
 def test_open_in_browser_injects_base_before_head_contents():
-    url = "http://www.example.com"
+    url = "http://www.example.com/"
     body = (
         b"<html>"
         b"<!--<head>comment head</head>-->"
@@ -321,8 +276,8 @@ def test_open_in_browser_injects_base_before_head_contents():
 
     def check(burl):
         bbody = _read_browser_output(burl)
-        assert bbody.count(b'<base href="' + to_bytes(url) + b'">') == 1
-        base_pos = bbody.find(b'<base href="' + to_bytes(url) + b'">')
+        assert bbody.count(b'<base href="' + url.encode() + b'">') == 1
+        base_pos = bbody.find(b'<base href="' + url.encode() + b'">')
         title_pos = bbody.find(b"<title>Actual</title>")
         assert base_pos < title_pos
         return True

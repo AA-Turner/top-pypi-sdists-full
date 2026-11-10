@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.287
+Version: 0.3.288
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -69,7 +69,7 @@ Requires-Dist: aws-bedrock-token-generator; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: brotli; extra == "dev"
-Requires-Dist: google-genai>=2.31.0; extra == "dev"
+Requires-Dist: google-genai>=3.0.0; extra == "dev"
 Requires-Dist: griffe>=2; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.6.0; extra == "dev"
@@ -102,7 +102,7 @@ Requires-Dist: pytest-textual-snapshot; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: pytest-watcher; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: ruff==0.9.6; extra == "dev"
+Requires-Dist: ruff==0.17.2; extra == "dev"
 Requires-Dist: textual-dev>=0.86.2; extra == "dev"
 Requires-Dist: together>=2.0.0; extra == "dev"
 Requires-Dist: trio; extra == "dev"

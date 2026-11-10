@@ -1,7 +1,7 @@
 import ast
 from fnmatch import fnmatch, fnmatchcase
 from pathlib import Path
-from typing import Iterable, Set, Union
+from collections.abc import Callable, Iterable
 
 from deadcode.visitor.code_item import CodeItem
 
@@ -19,6 +19,26 @@ PYTEST_METHOD_NAMES = {
     'setup_method',
     'teardown_method',
 }
+UNITTEST_METHOD_NAMES = {
+    'setUp',
+    'tearDown',
+    'setUpClass',
+    'tearDownClass',
+    'asyncSetUp',
+    'asyncTearDown',
+}
+UNITTEST_FUNCTION_NAMES = {
+    'setUpModule',
+    'tearDownModule',
+}
+# Built-in interface markers: abstract and overriding definitions are never reported, no option needed.
+IGNORED_INTERFACE_DECORATOR_NAMES: set[str] = {
+    '@abstractmethod',
+    '@abc.abstractmethod',
+    '@override',
+    '@typing.override',
+    '@typing_extensions.override',
+}
 
 ERROR_CODES = {
     'variable': b'DC01',
@@ -29,15 +49,20 @@ ERROR_CODES = {
     'name': b'DC06',
     'import': b'DC07',
     'property': b'DC08',
-    'unreachable_code': b'DC09',
+    'unreachable_body': b'DC09',
     'empty_file': b'DC11',
     'commented_out_code': b'DC12',
-    'ignore_expression': b'DC13',
+    'ignore_expression': b'DC',
+    'unreachable_code': b'DC13',
 }
 
 
-def _get_unused_items(defined_items: Iterable[CodeItem], used_names: Set[str]) -> Iterable[CodeItem]:
-    unused_items = [item for item in defined_items if item.name not in used_names]
+def _get_unused_items(
+    defined_items: Iterable[CodeItem],
+    used_names: set[str],
+    is_used: Callable[[CodeItem], bool] | None = None,
+) -> Iterable[CodeItem]:
+    unused_items = [item for item in defined_items if item.name not in used_names and not (is_used and is_used(item))]
     unused_items.sort(key=lambda item: item.name.lower())
     return unused_items
 
@@ -46,12 +71,12 @@ def _is_special_name(name: str) -> bool:
     return name.startswith('__') and name.endswith('__')
 
 
-def _match(name: Union[str, Path], patterns: Iterable[str], case: bool = True) -> bool:
+def _match(name: str | Path, patterns: Iterable[str], case: bool = True) -> bool:
     func = fnmatchcase if case else fnmatch
     return any(func(str(name), pattern) for pattern in patterns)
 
 
-def _match_many(names: Union[Iterable[str], Iterable[Path]], patterns: Iterable[str], case: bool = True) -> bool:
+def _match_many(names: Iterable[str] | Iterable[Path], patterns: Iterable[str], case: bool = True) -> bool:
     return any(_match(name, patterns, case) for name in names)
 
 
@@ -84,12 +109,20 @@ def _ignore_import(filename: Path, import_name: str) -> bool:
 
 
 def _ignore_function(filename: Path, function_name: str) -> bool:
-    return (function_name in PYTEST_FUNCTION_NAMES or function_name.startswith('test_')) and _is_test_file(filename)
+    # Class-level lifecycle methods such as `def setUpClass(cls)` have no decorator and a first argument other
+    # than `self`, so `visit_FunctionDef` classifies them as functions and they must be suppressed here as well.
+    return (
+        function_name in PYTEST_FUNCTION_NAMES
+        or function_name in UNITTEST_METHOD_NAMES
+        or function_name in UNITTEST_FUNCTION_NAMES
+        or function_name.startswith('test_')
+    ) and _is_test_file(filename)
 
 
 def _ignore_method(filename: Path, method_name: str) -> bool:
     return _is_special_name(method_name) or (
-        (method_name in PYTEST_METHOD_NAMES or method_name.startswith('test_')) and _is_test_file(filename)
+        (method_name in PYTEST_METHOD_NAMES or method_name in UNITTEST_METHOD_NAMES or method_name.startswith('test_'))
+        and _is_test_file(filename)
     )
 
 

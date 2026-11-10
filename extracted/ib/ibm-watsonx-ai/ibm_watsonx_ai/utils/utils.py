@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from IPython.display import HTML
 
     from ibm_watsonx_ai import APIClient
+    from ibm_watsonx_ai.gateway import Gateway
 
     PipelineType: TypeAlias = Any
     MLModelType: TypeAlias = Any
@@ -1354,3 +1355,87 @@ def get_from_json(json_object: Any, key_chain: list[Any], default: Any = None) -
         return default
 
     return json_object
+
+
+def _parse_model_id_from_mrn(model_id: str) -> str:
+    """Extract the plain model id from a Model Gateway MRN.
+
+    Example: ``mrn:v1-beta:test:software:cpd:us-south:g:gateway-model:gateway-model:ibm/granite-embedding-278m-multilingual::watsonxai/wxai``
+    gives ``ibm/granite-embedding-278m-multilingual``.
+
+    Values that are not MRNs are returned unchanged.
+
+    :param model_id: model id or MRN
+    :type model_id: str
+
+    :return: plain model id
+    :rtype: str
+    """
+    if not isinstance(model_id, str) or not model_id.startswith("mrn:"):
+        return model_id
+
+    # An MRN has 9 colon-separated prefix fields, the model id is everything after them
+    # (so it may itself contain colons, e.g. ``llama3:8b``).
+    resource_part = model_id.split("::", 1)[0]
+    return resource_part.split(":", 9)[-1]
+
+
+def _parse_model_resource_key_from_mrn(model_id: str) -> str | None:
+    """Extract the model resource key (``<provider type>/<provider name>``) from a Model Gateway MRN.
+
+    Example: ``mrn:v1-beta:test:software:cpd:us-south:g:gateway-model:gateway-model:ibm/granite-embedding-278m-multilingual::watsonxai/wxai``
+    gives ``watsonxai/wxai``.
+
+    :param model_id: model id or MRN
+    :type model_id: str
+
+    :return: model resource key, or ``None`` if the value is not an MRN or has no resource key
+    :rtype: str | None
+    """
+    if not isinstance(model_id, str) or not model_id.startswith("mrn:"):
+        return None
+
+    _, separator, resource_key = model_id.partition("::")
+    return resource_key if separator and resource_key else None
+
+
+def _resolve_gateway_model_name_from_mrn(gateway: Gateway, model_id: str) -> str:
+    """Get the name under which a model is called in Model Gateway, based on its MRN.
+
+    An MRN identifies the model by its id (``baseModelId``) and by the provider it comes from
+    (``modelResourceKey``, which is the provider's ``owned_by`` with ``:`` replaced by ``/``).
+    The Model Gateway model with matching id and provider is called by its alias, or by its id
+    when it has no alias.
+
+    When ``model_id`` is not an MRN, the plain model id (see :func:`_parse_model_id_from_mrn`)
+    is returned. The same happens, with a warning, when no registered model matches.
+
+    :param gateway: Model Gateway instance used to list the registered models
+    :type gateway: Gateway
+
+    :param model_id: model id or MRN
+    :type model_id: str
+
+    :return: name of the model to use in Model Gateway calls
+    :rtype: str
+    """
+    plain_model_id = _parse_model_id_from_mrn(model_id)
+    resource_key = _parse_model_resource_key_from_mrn(model_id)
+    if resource_key is None:
+        return plain_model_id
+
+    for model in gateway.models.get_details().get("data") or []:
+        if (
+            model.get("id") == plain_model_id
+            and (model.get("owned_by") or "").replace(":", "/") == resource_key
+        ):
+            return model.get("alias") or plain_model_id
+
+    logging.getLogger(__name__).warning(
+        "No Model Gateway model matches the MRN '%s' (model id '%s', provider '%s'). "
+        "Falling back to the plain model id, which fails if the model is registered under an alias.",
+        model_id,
+        plain_model_id,
+        resource_key,
+    )
+    return plain_model_id

@@ -7,6 +7,7 @@ This module provides functions for formatting and displaying XBRL data.
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -22,14 +23,17 @@ from edgar.display.formatting import cik_text
 from edgar.richtools import repr_rich, rich_to_text
 from edgar.xbrl import standardization
 from edgar.xbrl.core import (
-    PERIOD_END_LABEL,
-    PERIOD_START_LABEL,
+    INFINITE_PRECISION,
     decimals_for_scaling,
     determine_dominant_scale,
     format_date,
     format_value,
+    is_period_boundary_label_role,
+    is_period_end_label_role,
+    is_period_start_label_role,
     parse_date,
 )
+from edgar.xbrl.parsers.instance import _quarter_for_date
 
 # Import color schemes from entity package
 try:
@@ -834,6 +838,10 @@ share_concepts = [
     'us-gaap_WeightedAverageNumberOfSharesOutstandingDiluted',
     'us-gaap_WeightedAverageNumberOfDilutedSharesOutstanding',
     'us-gaap_CommonStockSharesIssued',
+    'us-gaap_CommonStockSharesAuthorized',
+    'us-gaap_PreferredStockSharesAuthorized',
+    'us-gaap_PreferredStockSharesIssued',
+    'us-gaap_PreferredStockSharesOutstanding',
 ]
 
 eps_concepts = [
@@ -849,6 +857,7 @@ eps_concepts = [
     'us-gaap_CommonStockDividendsPerShareDeclared',
     'us-gaap_CommonStockDividendsPerShareCashPaid',
     'us-gaap_CommonStockParOrStatedValuePerShare',
+    'us-gaap_PreferredStockParOrStatedValuePerShare',
 ]
 
 
@@ -1034,8 +1043,8 @@ def _format_period_labels(
                 if 80 <= duration_days <= 100:  # Quarterly period
                     fy_end_month = entity_info.get('fiscal_year_end_month') if entity_info else None
                     if fy_end_month:
-                        month_offset = (end_date_obj.month - fy_end_month - 1) % 12
-                        q_num = f"Q{(month_offset // 3) + 1}"
+                        # First-week ends of 52/53-week filers belong to the prior month (GH #1738)
+                        q_num = _quarter_for_date(end_date_obj, fy_end_month)
                     else:
                         # Fallback to calendar quarters if no fiscal year info
                         month = end_date_obj.month
@@ -1357,7 +1366,9 @@ def _create_units_note(
 # Originally the Income Statement and Cash Flow Statement (Issue #463); extended
 # to the Balance Sheet for contra accounts such as Treasury Stock (Issue #568) --
 # APD, JPM and XOM negate Treasury Stock, JPM also Allowance for Loan Losses.
-PRESENTATION_SIGN_STATEMENTS = ('IncomeStatement', 'CashFlowStatement', 'BalanceSheet')
+# The comprehensive income statement too: AAL presents its pension OCI with a
+# negated label, and without the sign the components did not foot (GH #1676).
+PRESENTATION_SIGN_STATEMENTS = ('IncomeStatement', 'CashFlowStatement', 'BalanceSheet', 'ComprehensiveIncome')
 
 
 def apply_presentation_sign(
@@ -1387,6 +1398,13 @@ def apply_presentation_sign(
     if preferred_sign is None or preferred_sign == 0:
         return value
     return value * preferred_sign
+
+
+def _filed_decimal_places(value: Union[int, float], decimals: Union[int, str, None]) -> int:
+    """Decimal places a value was filed with: all of its digits when exact ('INF')."""
+    if decimals == INFINITE_PRECISION and math.isfinite(value):
+        return max(0, -Decimal(repr(value)).as_tuple().exponent)
+    return decimals_for_scaling(decimals)
 
 
 def _format_value_for_display_as_string(
@@ -1448,10 +1466,12 @@ def _format_value_for_display_as_string(
     # A statement stores the filed accuracy, which may be the sentinel 'INF'
     # (GH #1229); scaling needs a number, and an exact value implies no scale.
     fact_decimals = 0
+    filed_decimals = None
     if period_key:
         decimals_dict = item.get('decimals', {})
         if decimals_dict:
-            fact_decimals = decimals_for_scaling(decimals_dict.get(period_key))
+            filed_decimals = decimals_dict.get(period_key)
+            fact_decimals = decimals_for_scaling(filed_decimals)
 
     # Apply presentation logic for display (Issue #463)
     value = apply_presentation_sign(
@@ -1470,8 +1490,11 @@ def _format_value_for_display_as_string(
                 # For EPS values >= 10, use 2 decimal places
                 return f"{value:.2f}"
             else:
-                # For typical EPS values < 10, use up to 3 decimal places but remove trailing zeros
-                formatted = f"{value:.3f}".rstrip('0').rstrip('.')
+                # For typical EPS values < 10, use up to 3 decimal places but remove trailing zeros.
+                # Keep any finer precision the value was filed with, so an exact
+                # $0.00001 par value does not round to zero (GH #1475).
+                places = max(3, _filed_decimal_places(value, filed_decimals))
+                formatted = f"{value:.{places}f}".rstrip('0').rstrip('.')
                 # Ensure at least 2 decimal places for EPS
                 if '.' not in formatted or len(formatted.split('.')[1]) < 2:
                     return f"{value:.2f}"
@@ -1958,7 +1981,7 @@ def render_statement(
         # share the node label and can't be told apart otherwise).
         already_roll_forward = (
             not item.get('is_dimension')
-            and item.get('preferred_label') in (PERIOD_START_LABEL, PERIOD_END_LABEL)
+            and is_period_boundary_label_role(item.get('preferred_label'))
         )
         if statement_type == 'StatementOfEquity' and concept and not already_roll_forward:
             total_occurrences = concept_occurrence_count.get(concept, 1)
@@ -2036,9 +2059,8 @@ def render_statement(
             # Only non-dimensional rows carry a reliable per-reference label;
             # dimensional rows share the node label and use the equity logic above.
             item_preferred_label = None if item.get('is_dimension') else item.get('preferred_label')
-            if value == "" and period.end_date and item_preferred_label in (
-                    PERIOD_START_LABEL, PERIOD_END_LABEL):
-                if (item_preferred_label == PERIOD_START_LABEL
+            if value == "" and period.end_date and is_period_boundary_label_role(item_preferred_label):
+                if (is_period_start_label_role(item_preferred_label)
                         and getattr(period, 'start_date', None)):
                     from datetime import datetime, timedelta
                     try:
@@ -2049,7 +2071,7 @@ def render_statement(
                             value = item['values'].get(f"instant_{period.start_date}", "")
                     except (ValueError, AttributeError):
                         pass
-                if value == "" and item_preferred_label == PERIOD_END_LABEL:
+                if value == "" and is_period_end_label_role(item_preferred_label):
                     value = item['values'].get(f"instant_{period.end_date}", "")
 
             # Get comparison info for this item and period if available

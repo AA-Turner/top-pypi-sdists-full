@@ -15,10 +15,6 @@ text = "goodwife"
 salutation = { gender = "f", expands = "the archaic Mrs., 'Goodwife Proctor'", after_given = true }
 
 [[word]]
-text = "madam"
-salutation = { gender = "f", after_given = true }
-
-[[word]]
 text = "madame"
 salutation = { gender = "f", after_given = true }
 
@@ -28,32 +24,8 @@ salutation = { addresses = "given", gender = "m", expands = "the style for a boy
 family = { us_census_2010 = 2735, wikidata = 61, as_of = 2026-10-24 }
 
 [[word]]
-text = "miss"
-salutation = { gender = "f", after_given = true }
-family = { us_census_2010 = 164, wikidata = 4, as_of = 2026-10-24, note = "kept for after_given (decisions/H8): a middle name of this spelling is the accepted cost" }
-
-[[word]]
 text = "misses"
 salutation = { gender = "f", expands = "the plural of miss, 'the Misses Smith'", after_given = true }
-
-[[word]]
-text = "mr"
-salutation = { gender = "m", after_given = true, note = "borne as a given name: US SSA 5 births (2026-10-24); kept for after_given (decisions/H8); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
-
-[[word]]
-text = "mister"
-salutation = { gender = "m", same_as = "mr", excluded = { after_given = "a given name and a surname, borne as a middle name either way" }, note = "borne as a given name: US SSA 746 births (2026-10-24); kept here, not as a `given` reading, which would make the title one only inside a title phrase (rules/H9)" }
-family = { us_census_2010 = 1211, wikidata = 2, as_of = 2026-10-24 }
-
-[[word]]
-text = "mrs"
-salutation = { gender = "f", after_given = true }
-
-[[word]]
-text = "ms"
-salutation = { gender = "f" }
-[word.credential]
-note = "NOT marked as possibly a name (no name reading), though #296's audit table put it there for the leading-title collision: the gate is position-blind and the collision is not (gated, 'John Smith, MS' read title 'MS'); a title/credential dual that position decides (decisions/C8)"
 
 [[word]]
 text = "mx"
@@ -91,7 +63,7 @@ style = {}
 
 [[word]]
 text = "hon"
-style = { same_as = "honorable", note = "kept though Hon is a given name: the judges' Hon. was judged the commoner reading" }
+style = { same_as = "honorable", abbreviation = true, attaches = ["mr", "mrs", "lord", "lady", "sir", "justice"], note = "kept though Hon is a given name: the judges' Hon. was judged the commoner reading; attaches: Hon Mr, Hon Mrs, Hon Lord, Hon Lady, Hon Sir, Hon Justice (rules/H9), the phrases a Chinese choice, which gives the word zh.toml's given reading, keeps as titles (#999); six words at most, the most a refusal message shows of a list the 2.x translation rewrites (decisions/H9)" }
 
 [[word]]
 text = "honourable"
@@ -99,19 +71,28 @@ style = { same_as = "honorable" }
 
 [[word]]
 text = "majesty"
-style = {}
+style = { issue = 913, decided = 2026-11-03, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'His Majesty King Charles' and 'Her Majesty Queen Elizabeth' read the title, 'CAMPBELL, MAJESTY BARRETT' and 'Majesty Smith' the given name" }
+given = { us_ssa = 3299, as_of = 2026-11-03, note = "US SSA: female births 2,568, male 731; Wikidata lists none, which proves nothing" }
 
 [[word]]
 text = "advocate"
-academic = { expands = "the address of an advocate, 'Adv. Smith' in South Africa and India" }
+academic = { expands = "the address of an advocate, 'Adv. Smith' in South Africa and India", attaches = ["gen"], note = "attaches: Judge Advocate Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
+
+[[word]]
+text = "adv"
+academic = { same_as = "advocate", issue = 1115, note = "Adv., the address of an advocate in India and South Africa (Adv Sakina Abdul Latif); no name bearers: under 100 US Census, under 5 US SSA a year, none on Wikidata; ORCID's given box holds it 37 times (India 14), each a title typed there (2026-11-06)" }
 
 [[word]]
 text = "attorney"
-academic = { expands = "the address of a lawyer, 'Atty. Cruz'" }
+academic = { expands = "the address of a lawyer, 'Atty. Cruz'", attaches = ["gen"], note = "attaches: Attorney Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "engineer"
 academic = { expands = "the address of an engineer, 'Engr. Cruz' in the Philippines and Nigeria" }
+
+[[word]]
+text = "engr"
+academic = { same_as = "engineer", issue = 1115, note = "Engr., the address of an engineer in Pakistan, Nigeria, Bangladesh and the Philippines (Engr. Ahsen Ali); no name bearers: under 100 US Census, under 5 US SSA a year, none on Wikidata; ORCID's given box holds it 255 times (Pakistan 86, Nigeria 44), each a title typed there (2026-11-06)" }
 
 [[word]]
 text = "nurse"
@@ -155,7 +136,7 @@ religious = {}
 
 [[word]]
 text = "bishop"
-religious = {}
+religious = { issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 7,091 births (6,980 male), Census 116,618 (rank 262), Wikidata 43 given and 1,247 family. Given a given reading alone it moves 43 names (44 in the fourteen-word spike, whose Sir Michael Bishop moved by sir's): psc-individuals' title box 18 against 1 forename box, and fec-individuals' 18 mostly clergy (GORDON, BISHOP SIMON). The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "bp"
@@ -180,7 +161,7 @@ given = { us_ssa = 6, wikidata = 4, as_of = 2026-10-26, note = "US SSA: male bir
 
 [[word]]
 text = "canon"
-religious = {}
+religious = { issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 2,792 births (2,751 male), Census 2,644 (rank 11,839), Wikidata 22 family and no given. Given a given reading it moved 27 names: psc-individuals' title box 16 against no forename box, and jrc-names' 7 mostly the camera maker (Canon PowerShot). The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "cardinal"
@@ -258,7 +239,7 @@ religious = {}
 
 [[word]]
 text = "pope"
-religious = { addresses = "given" }
+religious = { addresses = "given", attaches = ["saint"], note = "attaches: Pope Saint (rules/H9, #913), the saint being a title only in a phrase" }
 
 [[word]]
 text = "prelate"
@@ -294,7 +275,9 @@ religious = { same_as = "reverend" }
 
 [[word]]
 text = "saint"
-religious = {}
+religious = { attaches = ["pope"], issue = 913, decided = 2026-11-03, note = "attaches: Saint Pope; a title only inside a title phrase, its given reading the clash (rules/H9): 'Pope Saint John Paul II' and 'Saint Pope John Paul II' read the title, 'Saint Clair Soares' and 'Mr Saint Martin Sterling' read the given name, reported title-or-name since those phrases hold it, and 'SAINT CLAIR, ELAINE' keeps the surname whole, unreported, the head before a family comma being no report site" }
+given = { us_ssa = 7476, wikidata = 11, as_of = 2026-11-03, note = "US SSA: male births 7,288, female 188; Wikidata is a lower bound (United States 5); the Brazilian given name Saint Clair (TSE donors, 2026-11-03)" }
+family = { us_census_2010 = 1897, wikidata = 65, as_of = 2026-11-03, note = "US Census rank 15,442; Wikidata United States 12, France 11; most borne as the first word of a two-word surname (Saint Clair, Saint Jean, Saint Victor)" }
 
 [[word]]
 text = "saoshyant"
@@ -327,7 +310,7 @@ religious = { note = "stays out of GIVEN_NAME_TITLES: its traditions split on su
 
 [[word]]
 text = "vicar"
-religious = {}
+religious = { attaches = ["gen"], note = "attaches: Vicar Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "archduchess"
@@ -339,7 +322,7 @@ nobility = { gender = "m" }
 
 [[word]]
 text = "baron"
-nobility = { gender = "m" }
+nobility = { gender = "m", issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 7,059 births (all male), Wikidata 49 given; Census 16,308 (rank 2,234), Wikidata 568 family (France 117). Given a given reading alone it moved 129 names, about 58 given names (FEC 30 of 31, SMITH, BARON P) against about 63 titles: jrc-names' peers (Baron Falconer of Thoroton), and in PSC 15 filers put it in the title box against 6 in the forename box. The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "baroness"
@@ -381,7 +364,7 @@ nobility = { gender = "m" }
 
 [[word]]
 text = "empress"
-nobility = { gender = "f" }
+nobility = { gender = "f", issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 1,753 births (all female), Wikidata none, Census under 100. Given a given reading it moved 3 names: 1 psc-individuals forename box (Empress Lawrence) against jrc-names' Empress Michiko twice. The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "heir"
@@ -403,7 +386,7 @@ nobility = { gender = "m", expands = "the rank the post-nominal knt names", issu
 
 [[word]]
 text = "lady"
-nobility = { gender = "f", attaches = ["justice"], note = "attaches: Lady Justice (rules/H9, #913); stays out of GIVEN_NAME_TITLES, decided: the given-name form ('Lady Diana') is a courtesy style for the daughters of the senior ranks alone, while every wife takes the title or surname ('Lady Thatcher'), and the text does not carry the rank (#519)" }
+nobility = { gender = "f", attaches = ["justice", "chief", "mayor", "provost", "captain"], note = "attaches: Lady Justice, Lady Chief Justice, Lady Mayor, Lady Provost, Lady Captain (rules/H9, #913), the offices it stood in front of as a title, which a Spanish choice keeps as titles; words rather than kinds, as hon's are; kept a title in the default, decided 2026-11-03 (decisions/H9): US SSA 2,068 births (all female), Census 1,070 (rank 23,675), Wikidata 17 given (Peru 9) and 3 family; given a given reading it moved 557 names, psc-individuals' filers typing it in the title box 160 times and the forename box 19, and ukec-individuals' 59 all titles (Lady Annabel Goldsmith), while 137 orcid-researchers typed it as their given name, 111 in Spanish-speaking countries, so es.toml gives it a given reading a Spanish choice turns on; stays out of GIVEN_NAME_TITLES, decided: the given-name form ('Lady Diana') is a courtesy style for the daughters of the senior ranks alone, while every wife takes the title or surname ('Lady Thatcher'), and the text does not carry the rank (#519)" }
 
 [[word]]
 text = "lord"
@@ -435,7 +418,9 @@ family = { us_census_2010 = 106, wikidata = 1, as_of = 2026-10-27, note = "US Ce
 
 [[word]]
 text = "pharaoh"
-nobility = {}
+nobility = { issue = 913, decided = 2026-11-03, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Pharaoh Mwale' reads the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 1997, as_of = 2026-11-03, note = "US SSA: male births 1,992, female 5; Wikidata lists none; a Zambian given name in ORCID (2026-11-03)" }
+family = { us_census_2010 = 173, wikidata = 1, as_of = 2026-11-03, note = "US Census rank 103,655" }
 
 [[word]]
 text = "prince"
@@ -457,7 +442,7 @@ family = { us_census_2010 = 18557, wikidata = 66, as_of = 2026-10-27, note = "US
 
 [[word]]
 text = "sir"
-nobility = { addresses = "given", gender = "m", expands = "a knight or baronet, 'Sir John'" }
+nobility = { addresses = "given", gender = "m", expands = "a knight or baronet, 'Sir John'", issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 2,172 births (all male), Census 245 (rank 78,040), Wikidata 1 given and 8 family. Given a given reading it moved 742 names holding it (27 committed fixtures): psc-individuals' filers typed it in the title box 287 times and the forename box 17, and govuk-people's 195 and ukec-individuals' 141 are knights (Admiral Sir Ben Key); orcid-researchers 7 given boxes. The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "viscount"
@@ -497,7 +482,7 @@ military = { expands = "Airman Basic" }
 
 [[word]]
 text = "adjutant"
-military = {}
+military = { attaches = ["gen"], note = "attaches: Adjutant Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "admiral"
@@ -525,7 +510,12 @@ military = { same_as = "bg" }
 
 [[word]]
 text = "brigadier"
-military = {}
+military = { attaches = ["gen"], note = "attaches: Brigadier Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
+
+[[word]]
+text = "brig"
+military = { same_as = "brigadier", abbreviation = true, attaches = ["gen", "general", "sir"], issue = 999, decided = 2026-11-03, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Brig Gen Mark Kimmitt' and 'Brig General John Smith' read the title, 'Brig Klyce' the given name, and 'Brig. Saeed Akhtar' the title by H2's shape; written with its period at the end it is H5's trailing title ('JENKINS, ROBERT G. BRIG. GEN.'); no title before #999, so a bare 'Brig John Smith' reads given 'Brig' as it did" }
+given = { us_ssa = 72, as_of = 2026-11-03, note = "a rare given name: US SSA 72 births; PatentsView inventors 12 (US 11), ORCID given boxes 11 (India 3, likely the rank typed into the box); Wikidata none found; nam_dict not listed" }
 
 [[word]]
 text = "captain"
@@ -554,11 +544,11 @@ military = { expands = "Chief Master Sergeant" }
 
 [[word]]
 text = "colonel"
-military = {}
+military = { attaches = ["gen"], issue = 913, note = "attaches: Colonel Gen (rules/H9, #999), the rank written short being a title only in a phrase; kept a title, decided 2026-11-03 (decisions/H9): US SSA 1,250 births (all male), Census 174 (rank 103,181), Wikidata 6 given and 4 family. Given a given reading it moved 28 names, nearly all officers: psc-individuals' title box 7 against no forename box, fec-individuals 11 (BARROWS, COLONEL BOB). The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "col"
-military = { same_as = "colonel" }
+military = { same_as = "colonel", attaches = ["gen"], note = "attaches: Col Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "commander"
@@ -645,11 +635,13 @@ military = { expands = "General of the Air Force" }
 
 [[word]]
 text = "general"
-military = {}
+military = { issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 4,025 births (all male), Census 778 (rank 30,139), Wikidata 8 given and 5 family. Given a given reading it moved 94 names (20 also holding sir), nearly all officers: govuk-people 26 (Lieutenant General Ian Cave), jrc-names 27 (General De Gaulle), ctgov-officials 20, psc-individuals' title box 5 against 1 forename box. The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "gen"
-military = { same_as = "general" }
+military = { same_as = "general", abbreviation = true, attaches = ["sir"], issue = 999, decided = 2026-11-03, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Lt Gen John Smith' and 'Maj Gen John Smith' read the title, 'Gen Goto' and 'Mr Gen Zhang' the given name, and 'Gen. John Smith' the title by H2's shape, 'Gen Sir Nick Carter' the title 'Gen Sir'; written with its period at the end it is H5's trailing title ('SMITH, JOHN GEN.')" }
+given = { us_ssa = 79, wikidata = 102, as_of = 2026-11-03, note = "a Japanese and Chinese given name: ORCID records whose given box opens with it 680 (China 155, Japan 100), PatentsView inventors 274 (Japan 207); nam_dict band 2 in Korea, 1 in China and Japan; Wikidata is a lower bound (Japan 43, Ming dynasty 18); US SSA 79 births (67 male)" }
+family = { us_census_2010 = 162, wikidata = 4, as_of = 2026-11-03, note = "US Census rank 109,258; Wikidata Turkey 2" }
 
 [[word]]
 text = "generalissimo"
@@ -669,11 +661,11 @@ military = { expands = "Lance Corporal" }
 
 [[word]]
 text = "lieutenant"
-military = {}
+military = { attaches = ["gen"], note = "attaches: Lieutenant Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "lt"
-military = { same_as = "lieutenant" }
+military = { same_as = "lieutenant", attaches = ["gen"], note = "attaches: Lt Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 credential = {}
 
 [[word]]
@@ -698,11 +690,13 @@ military = { expands = "Lieutenant (junior grade)" }
 
 [[word]]
 text = "maj"
-military = { expands = "Major" }
+military = { expands = "Major", abbreviation = true, attaches = ["gen", "general", "sir"], issue = 999, decided = 2026-11-03, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Maj Gen John Smith' reads the title, 'Maj Sjöwall' and 'Mr Maj Zura' the given name, and 'Maj. John Smith' the title by H2's shape; written with its period at the end it is H5's trailing title ('SMITH, JOHN B. MAJ.'); attaches: Maj Gen, Maj General" }
+given = { wikidata = 98, as_of = 2026-11-03, note = "a Scandinavian given name: nam_dict band 8 in Sweden, 6 in Denmark, 4 in Finland, 2 in Norway; Wikidata is a lower bound (Sweden 52, Denmark 12, Slovenia 8, Finland 6, Norway 5); US SSA under 5 births a year. Of the 65 local-corpus texts the gate moves (2026-11-03) 47 are given names, 2 unclear, the rest ranks written bare (ctgov's 'MAJ Ian Stewart, MD')" }
+family = { us_census_2010 = 470, wikidata = 90, as_of = 2026-11-03, note = "a Polish surname: US Census rank 45,495; Wikidata Poland 34" }
 
 [[word]]
 text = "major"
-military = { issue = 752, decided = 2026-10-25, attaches = ["general"], note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Major General Smith' reads the title, 'Major Smith' and 'Mr Major Smith' the given name; attaches: Major General" }
+military = { issue = 752, decided = 2026-10-25, attaches = ["gen", "general"], note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Major General Smith' reads the title, 'Major Smith' and 'Mr Major Smith' the given name; attaches: Major General, and since #999 Major Gen" }
 given = { us_ssa = 21749, wikidata = 65, as_of = 2026-10-25, note = "US SSA: female and male births added" }
 family = { us_census_2010 = 20977, wikidata = 400, as_of = 2026-10-25 }
 
@@ -800,11 +794,11 @@ military = { expands = "Senior Chief Petty Officer" }
 
 [[word]]
 text = "sergeant"
-military = { attaches = ["major"], issue = 752, decided = 2026-10-26, note = "attaches: Sergeant Major (rules/H9); a word, not the military kind, which made Sgt Marshal Smith a title" }
+military = { attaches = ["maj", "major"], issue = 752, decided = 2026-10-26, note = "attaches: Sergeant Major (rules/H9), and since #999 Sergeant Maj; a word, not the military kind, which made Sgt Marshal Smith a title" }
 
 [[word]]
 text = "sgt"
-military = { attaches = ["major"], issue = 752, decided = 2026-10-26, note = "attaches: Sergeant Major (rules/H9); a word, not the military kind, which made Sgt Marshal Smith a title", same_as = "sergeant" }
+military = { attaches = ["maj", "major"], issue = 752, decided = 2026-10-26, note = "attaches: Sergeant Major (rules/H9), and since #999 Sgt Maj; a word, not the military kind, which made Sgt Marshal Smith a title", same_as = "sergeant" }
 
 [[word]]
 text = "sfc"
@@ -969,7 +963,7 @@ office = { issue = 606, note = "one of #606's English offices, completing runs l
 
 [[word]]
 text = "comptroller"
-office = {}
+office = { attaches = ["gen"], note = "attaches: Comptroller Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "controller"
@@ -1015,11 +1009,11 @@ office = { same_as = "deputy" }
 
 [[word]]
 text = "director"
-office = {}
+office = { attaches = ["gen"], note = "attaches: Director Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "dir"
-office = { same_as = "director" }
+office = { same_as = "director", attaches = ["gen"], note = "attaches: Dir Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "envoy"
@@ -1027,11 +1021,11 @@ office = {}
 
 [[word]]
 text = "governor"
-office = {}
+office = { attaches = ["gen"], note = "attaches: Governor Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "gov"
-office = { same_as = "governor" }
+office = { same_as = "governor", attaches = ["gen"], note = "attaches: Gov Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "headman"
@@ -1137,7 +1131,7 @@ office = { same_as = "representative" }
 
 [[word]]
 text = "secretary"
-office = {}
+office = { attaches = ["gen"], note = "attaches: Secretary Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "senator"
@@ -1234,7 +1228,7 @@ occupation = {}
 
 [[word]]
 text = "author"
-occupation = {}
+occupation = { issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 2,173 births (all male), Wikidata none, Census under 100. Given a given reading it moved 9 names: 4 the word as a role label after a comma (Bob Jones, author), 4 orcid-researchers records opening with it, 2 of them typed in the given box. The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "bandleader"
@@ -1504,7 +1498,7 @@ occupation = {}
 
 [[word]]
 text = "lawyer"
-occupation = {}
+occupation = { issue = 913, note = "kept a title, decided 2026-11-03 (decisions/H9): US SSA 1,021 births (all male), Census 4,112 (rank 8,049), Wikidata 5 given and 11 family. Given a given reading it moved 3 names: 1 given name (WESTBROOK, LAWYER III) against 2 role labels (Lawyer Valerio Astuni, a psc-individuals title box). The given count stands here rather than as a given reading, which would make it a title only inside a title phrase (rules/H9)" }
 
 [[word]]
 text = "lecturer"
@@ -1702,11 +1696,13 @@ occupation = { issue = 752, note = "occupation rather than modifier since 2026-1
 
 [[word]]
 text = "rt"
-occupation = { issue = 752, expands = "Right, abbreviated ('Rt Hon'); also a respiratory therapist", note = "occupation rather than modifier since 2026-10-25: a part after a comma written 'RT' is the person's role, which decision 10's modifier rule would read out of the title (decisions/vocabulary-model)" }
+occupation = { issue = 752, attaches = ["hon"], expands = "Right, abbreviated ('Rt Hon'); also a respiratory therapist", note = "occupation rather than modifier since 2026-10-25: a part after a comma written 'RT' is the person's role, which decision 10's modifier rule would read out of the title (decisions/vocabulary-model); attaches: Rt Hon (rules/H9, #999), the phrase a Chinese choice, which gives hon zh.toml's given reading, keeps as a title" }
 
 [[word]]
 text = "sailor"
-occupation = {}
+occupation = { issue = 913, decided = 2026-11-03, note = "a title only inside a title phrase, its given reading the clash (rules/H9): 'Sailor Smith' and 'Mr Sailor Vinod' read the given name, unreported, since no listed phrase holds it" }
+given = { us_ssa = 4290, wikidata = 8, as_of = 2026-11-03, note = "US SSA: female births 3,603, male 687; Wikidata is a lower bound (United States 5)" }
+family = { us_census_2010 = 2412, wikidata = 8, as_of = 2026-11-03, note = "US Census rank 12,789" }
 
 [[word]]
 text = "satirist"
@@ -1750,7 +1746,7 @@ occupation = {}
 
 [[word]]
 text = "solicitor"
-occupation = {}
+occupation = { attaches = ["gen"], note = "attaches: Solicitor Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "soprano"
@@ -1762,7 +1758,7 @@ occupation = {}
 
 [[word]]
 text = "surgeon"
-occupation = {}
+occupation = { attaches = ["gen"], note = "attaches: Surgeon Gen (rules/H9, #999), the rank written short being a title only in a phrase" }
 
 [[word]]
 text = "teacher"
@@ -1883,6 +1879,10 @@ modifier = {}
 [[word]]
 text = "assistant"
 modifier = {}
+
+[[word]]
+text = "assist"
+modifier = { same_as = "assistant", issue = 1115, note = "Assist. Prof., written by ClinicalTrials.gov officials and ORCID holders in Turkey, Egypt and Iraq (Esra Oz, Assist Prof); no name bearers: under 100 US Census, under 5 US SSA a year, none on Wikidata (2026-11-06)" }
 
 [[word]]
 text = "asst"
@@ -2315,18 +2315,6 @@ given = { us_ssa = 188, wikidata = 17, as_of = 2026-10-26, note = "US SSA: femal
 family = { us_census_2010 = 12614, wikidata = 218, as_of = 2026-10-26 }
 
 [[word]]
-text = "jr"
-generation = {}
-
-[[word]]
-text = "jnr"
-generation = { same_as = "jr" }
-
-[[word]]
-text = "junior"
-generation = { same_as = "jr" }
-
-[[word]]
 text = "sr"
 generation = {}
 
@@ -2387,8 +2375,20 @@ family = { us_census_2010 = 477, wikidata = 26, as_of = 2026-10-21 }
 credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
+text = "acma"
+credential = { expands = "Associate of the Chartered Institute of Management Accountants", note = "NPPES 3 US healthcare providers (August 2026 file); govuk-people 1 name (counted 2026-10-30); ORCID's family box holds it 10 times (GB 1, IR 1, 8 with no country) and its given box once, the credential typed into the box; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "acnp"
+credential = { expands = "Acute Care Nurse Practitioner", note = "NPPES 2,333 US healthcare providers (August 2026 file); 12 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "acp"
 credential = {}
+
+[[word]]
+text = "acsw"
+credential = { expands = "Academy of Certified Social Workers", note = "NPPES 3,386 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "ae"
@@ -2409,6 +2409,10 @@ credential = {}
 [[word]]
 text = "afm"
 credential = {}
+
+[[word]]
+text = "agacnp"
+credential = { expands = "Adult-Gerontology Acute Care Nurse Practitioner", note = "NPPES 2,011 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "agacnp-bc"
@@ -2455,6 +2459,10 @@ text = "ame"
 credential = {}
 
 [[word]]
+text = "amft"
+credential = { expands = "Associate Marriage and Family Therapist", note = "NPPES 4,291 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21). Not marked: Wikidata 5 family bearers (2026-11-03) against 4,291 providers, under the 200 Census and 20 Wikidata thresholds and the credential reading far the larger (C-i, 2026-10-21 rule). The counts stand here rather than as a family reading, which would mark the word (decisions/vocabulary-model, 2026-10-25)", issue = 993 }
+
+[[word]]
 text = "amieee"
 credential = {}
 
@@ -2464,12 +2472,20 @@ family = { us_census_2010 = 135, wikidata = 2, as_of = 2026-10-21 }
 credential = { note = "NPPES 5 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
 
 [[word]]
+text = "anp"
+credential = { expands = "Adult Nurse Practitioner", note = "NPPES 4,177 US healthcare providers (August 2026 file); 19 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "aphr"
 credential = {}
 
 [[word]]
 text = "apn"
 credential = {}
+
+[[word]]
+text = "apnp"
+credential = { expands = "Advanced Practice Nurse Prescriber", note = "NPPES 3,895 US healthcare providers (August 2026 file); 8 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "apr"
@@ -2495,6 +2511,10 @@ credential = {}
 text = "arm"
 family = { us_census_2010 = 283, wikidata = 8, as_of = 2026-10-21 }
 credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "arnp"
+credential = { expands = "Advanced Registered Nurse Practitioner", note = "NPPES 27,998 US healthcare providers (August 2026 file); 23 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "arrc"
@@ -2524,8 +2544,16 @@ family = { us_census_2010 = 733, wikidata = 63, as_of = 2026-10-21 }
 credential = { note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
 
 [[word]]
+text = "asw"
+credential = { expands = "Associate Clinical Social Worker", note = "NPPES 2,615 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "atc"
 credential = {}
+
+[[word]]
+text = "atc/l"
+credential = { expands = "Athletic Trainer, Certified, Licensed", note = "NPPES 447 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1103 }
 
 [[word]]
 text = "awb"
@@ -2543,6 +2571,14 @@ note = "Ba is a real surname (Vietnamese; Senegalese Fula) about as common as BA
 [[word]]
 text = "bca"
 credential = {}
+
+[[word]]
+text = "bcba"
+credential = { expands = "Board Certified Behavior Analyst", note = "NPPES 31,700 US healthcare providers (August 2026 file); 5 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "bch"
+excluded = { credential = { reason = "Bachelor of Surgery (B.Ch., 270 ClinicalTrials.gov officials after a comma), the second half of the split MB BCh (rules/S12), kept out as chb is (measured 2026-11-07); B.Ch is read by its shape, rules/S3", issue = 1131, decided = 2026-11-07 } }
 
 [[word]]
 text = "bcl"
@@ -2586,8 +2622,16 @@ text = "bs"
 credential = { expands = "Bachelor of Science", note = "NPPES 18,880 US healthcare providers (August 2026 file); 449 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
-text = "bsc"
-credential = { cased = "BSc" }
+text = "bscmed"
+credential = { cased = "BScMed", expands = "Bachelor of Medical Science", note = "NPPES 1 US healthcare provider (August 2026 file); 7 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1131 }
+
+[[word]]
+text = "bsn"
+credential = { expands = "Bachelor of Science in Nursing", note = "NPPES 15,137 US healthcare providers (August 2026 file); 238 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "bsw"
+credential = { expands = "Bachelor of Social Work", note = "NPPES 4,795 US healthcare providers (August 2026 file); 6 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "bt"
@@ -2602,8 +2646,16 @@ text = "bts"
 credential = {}
 
 [[word]]
+text = "bvsc"
+credential = { cased = "BVSc", expands = "Bachelor of Veterinary Science", note = "NPPES 7 US healthcare providers (August 2026 file); govuk-people 1 name; ctgov-officials 4, all after a comma, written BVSc 3, BVsc 1 (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
 text = "cacts"
 credential = {}
+
+[[word]]
+text = "cadc"
+credential = { expands = "Certified Alcohol and Drug Counselor", note = "NPPES 4,506 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "cae"
@@ -2654,6 +2706,10 @@ credential = { note = "NPPES 0 US healthcare providers write it (healthcare only
 [[word]]
 text = "cas"
 credential = {}
+
+[[word]]
+text = "casac"
+credential = { expands = "Credentialed Alcoholism and Substance Abuse Counselor", note = "NPPES 2,299 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "casp"
@@ -2728,6 +2784,10 @@ text = "ccc/slp"
 credential = { same_as = "ccc-slp", expands = "Certificate of Clinical Competence in Speech-Language Pathology", note = "NPPES 4,039 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
+text = "ccc-slp/l"
+credential = { expands = "Certificate of Clinical Competence in Speech-Language Pathology, Licensed", note = "NPPES 908 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1103 }
+
+[[word]]
 text = "ccca"
 credential = {}
 
@@ -2738,6 +2798,10 @@ credential = {}
 [[word]]
 text = "cce"
 credential = {}
+
+[[word]]
+text = "cchem"
+credential = { cased = "CChem", expands = "Chartered Chemist", note = "govuk-people 4 names, 3 after a comma (counted 2026-10-30); ORCID's family box holds it 3 times (IN 3), the credential typed into the box; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
 
 [[word]]
 text = "cchp"
@@ -2800,12 +2864,24 @@ text = "cdal"
 credential = {}
 
 [[word]]
+text = "cdca"
+credential = { note = "NPPES 5,008 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "cde"
+credential = { expands = "Certified Diabetes Educator", note = "NPPES 4,217 US healthcare providers (August 2026 file); 23 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "cdfm"
 credential = {}
 
 [[word]]
 text = "cdmp"
 credential = {}
+
+[[word]]
+text = "cdn"
+credential = { expands = "Certified Dietitian Nutritionist", note = "NPPES 2,210 US healthcare providers (August 2026 file); 3 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "cds"
@@ -2969,6 +3045,10 @@ text = "cha"
 [word.excluded.credential]
 reason = "Cha, the Korean 차, dominates CHA (Certified Hotel Administrator): removed 2026-09-07 by the relative-frequency criterion (decisions/suffix-acronym-collisions)"
 issue = 342
+
+[[word]]
+text = "chb"
+excluded = { credential = { reason = "Bachelor of Surgery (Ch.B., 368 ClinicalTrials.gov officials after a comma), but listed alone it stops MB ChB merging into the split MBChB (rules/S12): MB ChB, PhD read family MB, suffix ChB, PhD (measured 2026-11-07); Ch.B. is read by its shape, rules/S3", issue = 1131, decided = 2026-11-07 } }
 
 [[word]]
 text = "chba"
@@ -3171,6 +3251,17 @@ text = "cnp"
 credential = {}
 
 [[word]]
+text = "cns"
+credential = { expands = "Clinical Nurse Specialist", note = "NPPES 3,683 US healthcare providers (August 2026 file); 19 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "cota"
+family = { us_census_2010 = 11554, wikidata = 39, as_of = 2026-11-03, note = "Wikidata is a lower bound; also a Brazilian and Mexican surname: 91 tse-donors name pairs, 70 dof-signatures signatures (data 2026-10-23, 2025-12-31)" }
+[word.excluded.credential]
+reason = "COTA is Certified Occupational Therapy Assistant (NPPES 13,363 US healthcare providers, August 2026 file; no ClinicalTrials.gov study official writes it after a comma, data 2026-10-21), and Cota is a surname (Census 2010 11,554 bearers, Wikidata 39 family) borne at the end of the name: marked ambiguous, it took the surname from 49 tse-donors names written in capitals with no comma (ADÃO FERREIRA COTA read suffix 'COTA'), against no measured gain, so the trailing name reading dominates (decisions/suffix-acronym-collisions)"
+issue = 993
+
+[[word]]
 text = "cota/l"
 credential = { expands = "Certified Occupational Therapy Assistant, Licensed", note = "NPPES 11,917 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
@@ -3239,6 +3330,10 @@ text = "cpm"
 credential = {}
 
 [[word]]
+text = "cpnp"
+credential = { expands = "Certified Pediatric Nurse Practitioner", note = "NPPES 5,870 US healthcare providers (August 2026 file); 28 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "cpnp-pc"
 credential = { expands = "Certified Pediatric Nurse Practitioner, Primary Care", note = "NPPES 2,697 US healthcare providers (August 2026 file); 6 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
@@ -3279,6 +3374,10 @@ text = "cpwa"
 credential = {}
 
 [[word]]
+text = "crc"
+credential = { expands = "Certified Rehabilitation Counselor", note = "NPPES 2,221 US healthcare providers (August 2026 file); 6 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "crde"
 credential = {}
 
@@ -3297,6 +3396,10 @@ credential = {}
 [[word]]
 text = "crna"
 credential = {}
+
+[[word]]
+text = "crnp"
+credential = { expands = "Certified Registered Nurse Practitioner", note = "NPPES 23,599 US healthcare providers (August 2026 file); 73 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "cro"
@@ -3329,6 +3432,10 @@ credential = {}
 [[word]]
 text = "cscp"
 credential = {}
+
+[[word]]
+text = "cscs"
+credential = { expands = "Certified Strength and Conditioning Specialist", note = "NPPES 3,721 US healthcare providers (August 2026 file); 15 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "cscu"
@@ -3374,6 +3481,14 @@ credential = {}
 [[word]]
 text = "cste"
 credential = {}
+
+[[word]]
+text = "cstj"
+credential = { cased = "CStJ", expands = "Commander of the Order of St John", note = "govuk-people 1 name, after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "csw"
+credential = { note = "NPPES 4,127 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "ctbs"
@@ -3537,6 +3652,17 @@ credential = {}
 [[word]]
 text = "djur"
 credential = {}
+
+[[word]]
+text = "dl"
+family = { note = "DL written as a name, mostly a person's initials: ORCID's family box holds DL for 21 people and its given box 54, counted 2026-10-30 by tools/name_usage.py --boxes; psc-individuals Dl 7; no US Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer" }
+[word.credential]
+acronym = false
+title_case_is_name = true
+cased = "DL"
+expands = "Deputy Lieutenant"
+issue = 965
+note = "govuk-people 18 names, 6 after a comma; ukec-individuals 6; ctgov-officials 12 (counted 2026-10-30). A word, not an acronym, gated by its family reading (rules/S11) as kc is: 'Jane Doe, DL' ends in the suffix, 'Anna DL' keeps the family; the dotted D.L. stays the paired initials rules/S3 leaves to the name"
 
 [[word]]
 text = "dm"
@@ -3818,12 +3944,21 @@ text = "fieee"
 credential = {}
 
 [[word]]
+text = "fiet"
+family = { us_census_2010 = 140, as_of = 2026-10-30, note = "Dutch Fiet; ORCID family box 5 (NL 2), PatentsView 3" }
+credential = { expands = "Fellow of the Institution of Engineering and Technology", note = "govuk-people 6 names, 2 after a comma; ctgov-officials 1, after a comma (counted 2026-10-30); gated by its family reading (rules/S4)", issue = 965 }
+
+[[word]]
 text = "fmp"
 credential = {}
 
 [[word]]
 text = "fmva"
 credential = {}
+
+[[word]]
+text = "fnp"
+credential = { expands = "Family Nurse Practitioner", note = "NPPES 54,178 US healthcare providers (August 2026 file); 32 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "fnp-bc"
@@ -3838,6 +3973,10 @@ text = "fnss"
 credential = {}
 
 [[word]]
+text = "fnuci"
+credential = { cased = "FNucI", expands = "Fellow of the Nuclear Institute", note = "govuk-people 1 name (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
 text = "fp&a"
 credential = {}
 
@@ -3850,8 +3989,34 @@ text = "fpc"
 credential = {}
 
 [[word]]
+text = "fraes"
+credential = { cased = "FRAeS", expands = "Fellow of the Royal Aeronautical Society", note = "govuk-people 5 names, written FRAeS 4, FRAes 1 (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "freng"
+family = { us_census_2010 = 187, wikidata = 2, as_of = 2026-10-30, note = "Norwegian Freng; ORCID family box 6 (GB 2, NO 1, US 1)" }
+[word.credential]
+expands = "Fellow of the Royal Academy of Engineering"
+issue = 965
+note = "govuk-people 14 names, 4 after a comma; ctgov-officials 1, after a comma (counted 2026-10-30); gated by its family reading (rules/S4): written FREng it reads as the name (rules/S6), as MEng does"
+[word.credential.excluded]
+cased = { reason = "a mask applies in every role, and Freng is borne as a surname: 'ANNA FRENG' would render 'Anna FREng' (measured 2026-10-30)", issue = 965 }
+
+[[word]]
 text = "frm"
 credential = {}
+
+[[word]]
+text = "frmets"
+credential = { cased = "FRMetS", expands = "Fellow of the Royal Meteorological Society", note = "govuk-people 1 name, after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "frs"
+credential = { expands = "Fellow of the Royal Society", note = "govuk-people 10 names, 0 after a comma; ctgov-officials 18, all after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "frsa"
+credential = { expands = "Fellow of the Royal Society of Arts", note = "govuk-people 6 names, 1 after a comma; ctgov-officials 1 (counted 2026-10-30); ORCID's family box holds it 15 times, the credential typed into the box (GB 5); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
 
 [[word]]
 text = "fsa"
@@ -3944,6 +4109,14 @@ text = "hccp"
 credential = {}
 
 [[word]]
+text = "hha"
+credential = { expands = "Home Health Aide", note = "NPPES 2,095 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "hmi"
+credential = { expands = "His Majesty's Inspector", note = "govuk-people 1 name (counted 2026-10-30); ORCID's given box holds it once; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
 text = "hrs"
 credential = {}
 
@@ -3954,6 +4127,10 @@ credential = {}
 [[word]]
 text = "iaee"
 credential = {}
+
+[[word]]
+text = "ibclc"
+credential = { expands = "International Board Certified Lactation Consultant", note = "NPPES 6,401 US healthcare providers (August 2026 file); 7 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "iccm-d"
@@ -4013,6 +4190,18 @@ text = "kbe"
 credential = {}
 
 [[word]]
+text = "kc"
+family = { note = "Nepali K.C. (Khatri Chhetri), written bare as well as dotted. Counted 2026-10-30 by tools/name_usage.py --boxes and the local corpora, none of which this reading's keys hold: ORCID's family box writes KC for 584 people, 163 of them in Nepal (0.90% of its Nepal records); nepal-candidates writes it K.C. 342, K.C 129, Kc 21; psc-individuals Kc 30; no US Census or Wikidata count" }
+given = { us_ssa = 2794, as_of = 2026-10-30, note = "both sexes summed (F 843, M 1,951); ORCID's given box 268. A leading KC is no suffix slot, so this reading is the name's provenance, not the clash" }
+[word.credential]
+acronym = false
+title_case_is_name = true
+cased = "KC"
+expands = "King's Counsel"
+issue = 965
+note = "a word, not an acronym: the dotted K.C. stays the Nepali surname (rules/S3's paired initials, #864); gated by its family reading (rules/S11), so 'John Smith KC' ends in the suffix and 'Ram KC' keeps the family. Accepted: 'Gita Bahadur KC' reads suffix KC, and 'Lord Doe KC' family KC, a title leaving no word to spare (decisions/S11, 2026-10-30 #965)"
+
+[[word]]
 text = "kcb"
 credential = {}
 
@@ -4035,6 +4224,10 @@ credential = {}
 [[word]]
 text = "kcvo"
 credential = {}
+
+[[word]]
+text = "kfsm"
+credential = { expands = "King's Fire Service Medal", note = "govuk-people 2 names (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
 
 [[word]]
 text = "kg"
@@ -4067,6 +4260,39 @@ note = "Lac is a Vietnamese given name (the trailing word in native order, Nguye
 cased = { reason = "a mask applies in every role, and Lac is a Vietnamese given name and a French surname: 'tran lac' would render 'Tran LAc' (measured 2026-09-25, #540)", issue = 459 }
 
 [[word]]
+text = "ladc"
+credential = { expands = "Licensed Alcohol and Drug Counselor", note = "NPPES 5,205 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lat"
+family = { us_census_2010 = 395, wikidata = 1, as_of = 2026-11-03 }
+credential = { expands = "Licensed Athletic Trainer", note = "NPPES 10,677 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study official after a comma, as typed (data 2026-10-21) writes it. Marked on C-i: the surname reading is substantial (Census 2010 bearers 395, over the 200 threshold)", issue = 993 }
+
+[[word]]
+text = "lba"
+credential = { expands = "Licensed Behavior Analyst", note = "NPPES 4,925 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study official after a comma, as typed (data 2026-10-21) writes it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lcadc"
+credential = { expands = "Licensed Clinical Alcohol and Drug Counselor", note = "NPPES 2,041 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lcas"
+credential = { expands = "Licensed Clinical Addiction Specialist", note = "NPPES 2,155 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lcdc"
+credential = { expands = "Licensed Chemical Dependency Counselor", note = "NPPES 2,994 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lcmhc"
+credential = { expands = "Licensed Clinical Mental Health Counselor", note = "NPPES 4,520 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study official after a comma, as typed (data 2026-10-21) writes it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lcmhca"
+credential = { expands = "Licensed Clinical Mental Health Counselor Associate", note = "NPPES 2,019 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "lcmt"
 credential = {}
 
@@ -4080,19 +4306,39 @@ credential = {}
 
 [[word]]
 text = "lcsw-c"
-credential = { expands = "Licensed Certified Social Worker-Clinical", note = "NPPES 6,745 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+credential = { expands = "Licensed Certified Social Worker-Clinical", note = "NPPES 6,745 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study official after a comma, as typed (data 2026-10-21) writes it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
 text = "lcsw-r"
 credential = { note = "NPPES 3,023 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
+text = "lcswa"
+credential = { expands = "Licensed Clinical Social Worker Associate", note = "NPPES 3,865 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "ld"
 credential = { note = "NPPES 11,703 US healthcare providers (August 2026 file); 45 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Not marked: 45 US SSA births (both sexes summed, 2026-10-21) against 11,703 providers, the credential reading far the larger (C-i, 2026-10-21 rule). The given count stands here rather than as a given reading, which would mark the word (decisions/vocabulary-model, 2026-10-25)", issue = 797 }
 
 [[word]]
+text = "ldn"
+credential = { expands = "Licensed Dietitian Nutritionist", note = "NPPES 9,565 US healthcare providers (August 2026 file); 24 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "lg"
 credential = {}
+
+[[word]]
+text = "lgsw"
+credential = { expands = "Licensed Graduate Social Worker", note = "NPPES 2,284 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "licsw"
+credential = { expands = "Licensed Independent Clinical Social Worker", note = "NPPES 26,761 US healthcare providers (August 2026 file); 4 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lisw"
+credential = { expands = "Licensed Independent Social Worker", note = "NPPES 7,442 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "lisw-s"
@@ -4111,12 +4357,44 @@ text = "litp"
 credential = {}
 
 [[word]]
+text = "llb"
+credential = { expands = "Bachelor of Laws", note = "NPPES 4 US healthcare providers (August 2026 file); govuk-people 2 names; ctgov-officials 4, all after a comma (counted 2026-10-30); ORCID's family box holds it 8 times (ZA 2, GB 1, GH 1, IN 1, KE 1, 2 with no country), the credential typed into the box; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
 text = "llm"
 credential = {}
 
 [[word]]
+text = "llmsw"
+credential = { expands = "Limited Licensed Master Social Worker", note = "NPPES 4,554 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "llp"
+credential = { expands = "Limited Licensed Psychologist", note = "NPPES 2,016 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "llpc"
+credential = { expands = "Limited Licensed Professional Counselor", note = "NPPES 2,467 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "lm"
 credential = {}
+
+[[word]]
+text = "lmft"
+credential = { expands = "Licensed Marriage and Family Therapist", note = "NPPES 39,345 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study official after a comma, as typed (data 2026-10-21) writes it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lmhc"
+credential = { expands = "Licensed Mental Health Counselor", note = "NPPES 33,308 US healthcare providers (August 2026 file); 6 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lmhca"
+credential = { expands = "Licensed Mental Health Counselor Associate", note = "NPPES 2,203 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lmp"
+credential = { expands = "Licensed Massage Practitioner", note = "NPPES 9,495 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "lmsw"
@@ -4139,6 +4417,14 @@ text = "lpc"
 credential = {}
 
 [[word]]
+text = "lpca"
+credential = { expands = "Licensed Professional Counselor Associate", note = "NPPES 2,700 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "lpcc"
+credential = { expands = "Licensed Professional Clinical Counselor", note = "NPPES 13,851 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "lpn"
 credential = {}
 
@@ -4147,12 +4433,20 @@ text = "lpss"
 credential = {}
 
 [[word]]
+text = "lpta"
+credential = { expands = "Licensed Physical Therapist Assistant", note = "NPPES 3,201 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "lsi"
 credential = {}
 
 [[word]]
 text = "lsit"
 credential = {}
+
+[[word]]
+text = "lsw"
+credential = { expands = "Licensed Social Worker", note = "NPPES 19,914 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "lvn"
@@ -4187,12 +4481,12 @@ text = "mb"
 credential = { expands = "Bachelor of Medicine", note = "NPPES 596 US healthcare providers (August 2026 file); 314 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
-text = "mba"
-credential = {}
-
-[[word]]
 text = "mbbch"
 credential = { cased = "MBBCh", expands = "Bachelor of Medicine, Bachelor of Surgery", note = "NPPES 813 US healthcare providers (August 2026 file); 190 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mbbs"
+credential = { expands = "Bachelor of Medicine, Bachelor of Surgery", note = "NPPES 7,250 US healthcare providers (August 2026 file); 4,540 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "mbchb"
@@ -4224,6 +4518,14 @@ credential = {}
 [[word]]
 text = "mcdba"
 credential = {}
+
+[[word]]
+text = "mch"
+credential = { cased = "MCh", expands = "Master of Surgery", note = "NPPES 37 US healthcare providers (August 2026 file); 118 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1131 }
+
+[[word]]
+text = "mchema"
+credential = { cased = "MChemA", expands = "Master Chemical Analyst", note = "govuk-people 2 names, 1 after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
 
 [[word]]
 text = "mches"
@@ -4271,6 +4573,10 @@ text = "mdphd"
 credential = { cased = "MDPhD", expands = "Doctor of Medicine and Doctor of Philosophy", note = "NPPES 61 US healthcare providers (August 2026 file); 129 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
+text = "med"
+excluded = { credential = { reason = "Master of Education, 20,201 NPPES providers (August 2026 file) and 2,121 ClinicalTrials.gov officials after a comma, but med is the German medical field in Dr. med. and Dr. med. dent.: its mask MEd would write Dr. MEd. into every such title, and without the mask listing it leaves M.Ed. force-repairing to M.ED., as the shape reading does without it, so it buys nothing (measured 2026-11-07); M.Ed. is read by its shape, rules/S3", issue = 1131, decided = 2026-11-07 } }
+
+[[word]]
 text = "mem"
 credential = {}
 
@@ -4290,8 +4596,24 @@ text = "mfa"
 credential = {}
 
 [[word]]
+text = "mft"
+credential = { expands = "Marriage and Family Therapist", note = "NPPES 13,618 US healthcare providers (August 2026 file); 3 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "mhpp"
+credential = { note = "NPPES 2,534 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "mhsc"
 credential = { cased = "MHSc", expands = "Master of Health Science", note = "NPPES 80 US healthcare providers (August 2026 file); 104 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mibiol"
+credential = { cased = "MIBiol", expands = "Member of the Institute of Biology", note = "govuk-people 1 name, after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "micfor"
+credential = { cased = "MICFor", expands = "Member of the Institute of Chartered Foresters", note = "govuk-people 2 names, both after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
 
 [[word]]
 text = "micp"
@@ -4338,6 +4660,10 @@ text = "mmed"
 credential = { cased = "MMed", expands = "Master of Medicine", note = "NPPES 25 US healthcare providers (August 2026 file); 189 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
+text = "mms"
+credential = { expands = "Master of Medical Science", note = "NPPES 582 US healthcare providers (August 2026 file); govuk-people 1 name; ctgov-officials 45, all after a comma (counted 2026-10-30); ORCID's given box holds it 5 times and its family box 3, mostly with no country; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
 text = "mmsc"
 credential = { cased = "MMSc", expands = "Master of Medical Science", note = "NPPES 432 US healthcare providers (August 2026 file); 111 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
@@ -4350,15 +4676,20 @@ text = "mnae"
 credential = {}
 
 [[word]]
+text = "moid"
+excluded = { credential = { reason = "Moid is a borne given name, written last in South Asian and Arabic names (Syed Abdul Moid): psc-individuals writes it Moid 4, nepal-candidates 2, ORCID's given box 20 (IN 2, PK 2, US 2) and family box 14 (IN 4, US 2, 8 with no country). Listed and gated by a given reading, it would read the suffix only spelled MOID in a mixed-case name or after a comma, and take the family from a three-word name written in one case (SYED ABDUL MOID); spelled MoID, as GOV.UK writes it, it would still read as the name (rules/S6), and GOV.UK's one MoID already reads as the suffix behind a listed credential. Measured 2026-10-30 on fec-individuals (3 names writing it), govuk-people (1), orcid-researchers (0) and psc-individuals (4): no name reads differently gated or refused", issue = 965 } }
+
+[[word]]
+text = "mot"
+family = { us_census_2010 = 109, wikidata = 3, as_of = 2026-11-03, note = "Wikidata is a lower bound; family by citizenship France 1, Belgium 1" }
+credential = { expands = "Master of Occupational Therapy", note = "NPPES 4,681 US healthcare providers (August 2026 file); 10 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Marked on C-i although its surname counts are under the 200 Census threshold: listed plain it read the surname as the credential in every case (Jane Doe Mot read suffix 'Mot'); marked, it costs only a name written in one case with a word to spare, such as tse-donors' DIVA DA MOT (family 'DA', suffix 'MOT', reported) (decisions/suffix-acronym-collisions)", issue = 993 }
+
+[[word]]
 text = "mp"
 credential = {}
 
 [[word]]
 text = "mpa"
-credential = {}
-
-[[word]]
-text = "mph"
 credential = {}
 
 [[word]]
@@ -4370,24 +4701,52 @@ text = "mpse"
 credential = {}
 
 [[word]]
+text = "mpt"
+credential = { expands = "Master of Physical Therapy", note = "NPPES 9,278 US healthcare providers (August 2026 file); 135 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "mra"
 credential = {}
+
+[[word]]
+text = "mrpharms"
+credential = { cased = "MRPharmS", expands = "Member of the Royal Pharmaceutical Society", note = "govuk-people 1 name, after a comma; ctgov-officials 3, all after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
+
+[[word]]
+text = "mrtpi"
+credential = { expands = "Member of the Royal Town Planning Institute", note = "govuk-people 3 names, 1 after a comma (counted 2026-10-30); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 965 }
 
 [[word]]
 text = "msa"
 credential = {}
 
 [[word]]
-text = "msc"
-credential = { cased = "MSc" }
-
-[[word]]
 text = "mscmsm"
 credential = {}
 
 [[word]]
+text = "msd"
+credential = { expands = "Master of Science in Dentistry", note = "NPPES 2,328 US healthcare providers (August 2026 file); 125 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "msed"
+credential = { cased = "MSEd", expands = "Master of Science in Education", note = "NPPES 6,680 US healthcare providers (August 2026 file); 9 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "msm"
 credential = {}
+
+[[word]]
+text = "msn"
+credential = { expands = "Master of Science in Nursing", note = "NPPES 25,815 US healthcare providers (August 2026 file); 402 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "mspt"
+credential = { expands = "Master of Science in Physical Therapy", note = "NPPES 5,447 US healthcare providers (August 2026 file); 151 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "msw"
+credential = { expands = "Master of Social Work", note = "NPPES 62,731 US healthcare providers (August 2026 file); 137 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "mt"
@@ -4442,6 +4801,10 @@ text = "ncarb"
 credential = {}
 
 [[word]]
+text = "ncc"
+credential = { expands = "National Certified Counselor", note = "NPPES 15,833 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "nccp"
 credential = {}
 
@@ -4472,6 +4835,10 @@ credential = {}
 [[word]]
 text = "nmd"
 credential = {}
+
+[[word]]
+text = "nnp"
+credential = { expands = "Neonatal Nurse Practitioner", note = "NPPES 2,070 US healthcare providers (August 2026 file); 11 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "np"
@@ -4522,6 +4889,10 @@ text = "ocp"
 credential = {}
 
 [[word]]
+text = "ocs"
+credential = { expands = "Orthopaedic Clinical Specialist", note = "NPPES 2,208 US healthcare providers (August 2026 file); 25 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "od"
 credential = {}
 
@@ -4540,8 +4911,24 @@ text = "ot"
 credential = {}
 
 [[word]]
+text = "ot/l"
+credential = { expands = "Occupational Therapist, Licensed", note = "NPPES 945 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1103 }
+
+[[word]]
+text = "otd"
+credential = { expands = "Doctor of Occupational Therapy", note = "NPPES 7,967 US healthcare providers (August 2026 file); 48 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "otr"
+credential = { expands = "Occupational Therapist, Registered", note = "NPPES 21,981 US healthcare providers (August 2026 file); 137 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "otr/l"
 credential = { expands = "Occupational Therapist Registered, Licensed", note = "NPPES 61,789 US healthcare providers (August 2026 file); 103 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "otrl"
+credential = { same_as = "otr/l", expands = "Occupational Therapist Registered, Licensed", note = "NPPES 4,375 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "pa"
@@ -4552,6 +4939,22 @@ credential = { expands = "Physician Assistant", note = "NPPES 54,128 US healthca
 [[word]]
 text = "pa-c"
 credential = {}
+
+[[word]]
+text = "pac"
+family = { us_census_2010 = 535, wikidata = 62, as_of = 2026-11-03 }
+credential = { same_as = "pa-c", expands = "Physician Assistant, Certified", note = "NPPES 5,910 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21). Marked on C-i: the surname reading is substantial (Census 2010 bearers 535, over the 200 threshold)", issue = 993 }
+
+[[word]]
+text = "pc"
+family = { note = "PC written as a name, mostly a person's initials: ORCID's family box holds PC for 112 people (IN 29, US 5, NP 2) and its given box 149 (IN 20), counted 2026-10-30 by tools/name_usage.py --boxes; psc-individuals Pc 1; no US Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer" }
+[word.credential]
+acronym = false
+title_case_is_name = true
+cased = "PC"
+expands = "Privy Counsellor"
+issue = 965
+note = "govuk-people 4 names (counted 2026-10-30); also the US Professional Corporation, NPPES 2,246 providers (written PC 1,551, P.C. 622, August 2026 file), ctgov-officials 35, 7 after a comma. A word, not an acronym, gated by its family reading (rules/S11) as kc is: 'Jane Doe PC' ends in the suffix, 'Ravi PC' keeps the family. Accepted: the dotted P.C. stays the paired initials rules/S3 leaves to the name, NPPES's 622 included (decisions/S11, 2026-10-30 #965)"
 
 [[word]]
 text = "pcc"
@@ -4587,10 +4990,6 @@ text = "phc"
 credential = { cased = "PhC" }
 
 [[word]]
-text = "phd"
-credential = { expands = "Doctor of Philosophy", cased = "PhD" }
-
-[[word]]
 text = "phr"
 credential = {}
 
@@ -4610,12 +5009,20 @@ text = "pla"
 credential = {}
 
 [[word]]
+text = "plpc"
+credential = { expands = "Provisional Licensed Professional Counselor", note = "NPPES 2,504 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "pls"
 credential = {}
 
 [[word]]
 text = "pmc"
 credential = {}
+
+[[word]]
+text = "pmhnp"
+credential = { expands = "Psychiatric-Mental Health Nurse Practitioner", note = "NPPES 10,684 US healthcare providers (August 2026 file); 4 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "pmhnp-bc"
@@ -4628,6 +5035,10 @@ credential = {}
 [[word]]
 text = "pmp"
 credential = {}
+
+[[word]]
+text = "pnp"
+credential = { expands = "Pediatric Nurse Practitioner", note = "NPPES 3,400 US healthcare providers (August 2026 file); 6 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "pp"
@@ -4662,6 +5073,10 @@ text = "pta"
 credential = {}
 
 [[word]]
+text = "pta/l"
+credential = { expands = "Physical Therapist Assistant, Licensed", note = "NPPES 38 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1103 }
+
+[[word]]
 text = "qam"
 credential = {}
 
@@ -4680,6 +5095,14 @@ credential = {}
 [[word]]
 text = "qgm"
 credential = {}
+
+[[word]]
+text = "qmhp"
+credential = { expands = "Qualified Mental Health Professional", note = "NPPES 2,009 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "qmhs"
+credential = { note = "NPPES 2,937 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "qpm"
@@ -4706,6 +5129,10 @@ issue = 342
 [[word]]
 text = "rba"
 credential = {}
+
+[[word]]
+text = "rbt"
+credential = { expands = "Registered Behavior Technician", note = "NPPES 35,073 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "rci"
@@ -4764,6 +5191,10 @@ text = "rn"
 credential = {}
 
 [[word]]
+text = "rnfa"
+credential = { expands = "Registered Nurse First Assistant", note = "NPPES 2,173 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "rp"
 credential = {}
 
@@ -4773,7 +5204,7 @@ credential = {}
 
 [[word]]
 text = "rpa-c"
-credential = { expands = "Registered Physician Assistant, Certified", note = "NPPES 2,162 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+credential = { expands = "Registered Physician Assistant, Certified", note = "NPPES 2,162 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study official after a comma, as typed (data 2026-10-21) writes it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
 
 [[word]]
 text = "rph"
@@ -4782,6 +5213,10 @@ credential = { cased = "RPh" }
 [[word]]
 text = "rpl"
 credential = {}
+
+[[word]]
+text = "rpt"
+credential = { expands = "Registered Physical Therapist", note = "NPPES 4,466 US healthcare providers (August 2026 file); 30 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "rrc"
@@ -4874,6 +5309,18 @@ text = "siie"
 credential = {}
 
 [[word]]
+text = "slp"
+credential = { expands = "Speech-Language Pathologist", note = "NPPES 22,354 US healthcare providers (August 2026 file); 24 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
+text = "slp/l"
+credential = { expands = "Speech-Language Pathologist, Licensed", note = "NPPES 46 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 1103 }
+
+[[word]]
+text = "slpa"
+credential = { expands = "Speech-Language Pathology Assistant", note = "NPPES 2,591 US healthcare providers (August 2026 file); no ClinicalTrials.gov study official writes it after a comma (data 2026-10-21); no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
+
+[[word]]
 text = "smieee"
 credential = {}
 
@@ -4957,6 +5404,10 @@ note = "NOT marked as possibly a name (no name reading) though also a particle: 
 [[word]]
 text = "vrd"
 credential = {}
+
+[[word]]
+text = "whnp"
+credential = { expands = "Women's Health Nurse Practitioner", note = "NPPES 2,528 US healthcare providers (August 2026 file); 3 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 993 }
 
 [[word]]
 text = "whnp-bc"
@@ -5050,3 +5501,171 @@ given = { same_as = "samuel", note = "Samuel written short; no US SSA year reach
 [[word]]
 text = "thos"
 given = { us_ssa = 166, as_of = 2026-10-26, same_as = "thomas", note = "Thomas written short; US SSA male births only; Wikidata labels no one Thos as a given name" }
+
+[[word]]
+text = "macarthur"
+family = { cased = "MacArthur", note = "#1014: written MacArthur 14 times and Macarthur 4 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macaskill"
+family = { cased = "MacAskill", note = "#1014: written MacAskill 5 times and Macaskill 3 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maccallum"
+family = { cased = "MacCallum", note = "#1014: written MacCallum 5 times and Maccallum 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maccarthy"
+family = { cased = "MacCarthy", note = "#1014: written MacCarthy 10 times and Maccarthy 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maccormick"
+family = { cased = "MacCormick", note = "#1014: written MacCormick 3 times and Maccormick 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maccready"
+family = { cased = "MacCready", note = "#1014: written MacCready 3 times and Maccready 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macdermid"
+family = { cased = "MacDermid", note = "#1014: written MacDermid 20 times and Macdermid 2 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macdermott"
+family = { cased = "MacDermott", note = "#1014: written MacDermott 4 times and Macdermott 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macdiarmid"
+family = { cased = "MacDiarmid", note = "#1014: written MacDiarmid 8 times and Macdiarmid 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macdonald"
+family = { cased = "MacDonald", note = "#1014: written MacDonald 143 times and Macdonald 77 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macdonell"
+family = { cased = "MacDonell", note = "#1014: written MacDonell 4 times and Macdonell 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macdougall"
+family = { cased = "MacDougall", note = "#1014: written MacDougall 21 times and Macdougall 7 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macfarland"
+family = { cased = "MacFarland", note = "#1014: written MacFarland 3 times and Macfarland 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macgillivray"
+family = { cased = "MacGillivray", note = "#1014: written MacGillivray 3 times and Macgillivray 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macgowan"
+family = { cased = "MacGowan", note = "#1014: written MacGowan 2 times and Macgowan 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macgregor"
+family = { cased = "MacGregor", note = "#1014: written MacGregor 24 times and Macgregor 4 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macinnis"
+family = { cased = "MacInnis", note = "#1014: written MacInnis 4 times and Macinnis 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macintyre"
+family = { cased = "MacIntyre", note = "#1014: written MacIntyre 18 times and Macintyre 8 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macisaac"
+family = { cased = "MacIsaac", note = "#1014: written MacIsaac 3 times and Macisaac 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maciver"
+family = { cased = "MacIver", note = "#1014: written MacIver 2 times and Maciver 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "mackechnie"
+family = { cased = "MacKechnie", note = "#1014: written MacKechnie 3 times and Mackechnie 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "mackillop"
+family = { cased = "MacKillop", note = "#1014: written MacKillop 10 times and Mackillop 3 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "mackinnon"
+family = { cased = "MacKinnon", note = "#1014: written MacKinnon 11 times and Mackinnon 6 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "mackrill"
+family = { cased = "MacKrill", note = "#1014: written MacKrill 2 times and Mackrill 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maclaren"
+family = { cased = "MacLaren", note = "#1014: written MacLaren 16 times and Maclaren 2 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maclaughlin"
+family = { cased = "MacLaughlin", note = "#1014: written MacLaughlin 4 times and Maclaughlin 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maclean"
+family = { cased = "MacLean", note = "#1014: written MacLean 23 times and Maclean 18 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maclellan"
+family = { cased = "MacLellan", note = "#1014: written MacLellan 3 times and Maclellan 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "maclennan"
+family = { cased = "MacLennan", note = "#1014: written MacLennan 9 times and Maclennan 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macleod"
+family = { cased = "MacLeod", note = "#1014: written MacLeod 39 times and Macleod 18 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macmahon"
+family = { cased = "MacMahon", note = "#1014: written MacMahon 9 times and Macmahon 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macmanus"
+family = { cased = "MacManus", note = "#1014: written MacManus 5 times and Macmanus 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macmaster"
+family = { cased = "MacMaster", note = "#1014: written MacMaster 4 times and Macmaster 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macmillan"
+family = { cased = "MacMillan", note = "#1014: written MacMillan 27 times and Macmillan 9 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macneil"
+family = { cased = "MacNeil", note = "#1014: written MacNeil 16 times and Macneil 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macneill"
+family = { cased = "MacNeill", note = "#1014: written MacNeill 8 times and Macneill 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macphail"
+family = { cased = "MacPhail", note = "#1014: written MacPhail 4 times and Macphail 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macphee"
+family = { cased = "MacPhee", note = "#1014: written MacPhee 2 times and Macphee 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macqueen"
+family = { cased = "MacQueen", note = "#1014: written MacQueen 7 times and Macqueen 1 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macrae"
+family = { cased = "MacRae", note = "#1014: written MacRae 19 times and Macrae 7 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "macsween"
+family = { cased = "MacSween", note = "#1014: written MacSween 3 times and Macsween 0 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }
+
+[[word]]
+text = "mactaggart"
+family = { cased = "MacTaggart", note = "#1014: written MacTaggart 8 times and Mactaggart 5 in the ORCID, UK Electoral Commission, GOV.UK and ClinicalTrials.gov local corpora (2026-11-02); without the mask case repair title-cases it" }

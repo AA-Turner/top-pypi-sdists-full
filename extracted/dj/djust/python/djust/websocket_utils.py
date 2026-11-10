@@ -14,8 +14,9 @@ from asgiref.sync import sync_to_async
 from django.core.exceptions import PermissionDenied
 
 
+from ._class_snapshot import attribute_names
 from .config import config as djust_config
-from .decorators import is_event_handler
+from .decorators import is_event_handler, is_push_only
 from .rate_limit import (
     ConnectionRateLimiter,
     caller_key,
@@ -61,10 +62,14 @@ def _format_handler_not_found_error(owner_instance: object, event_name: str) -> 
     hints = []
 
     # 1. Typo detection — suggest similar public method names
+    # A @push_handler method is server-push only and must look absent to a
+    # browser, so it is never suggested (#3002).
     public_methods = [
         name
-        for name in dir(owner_instance)
-        if not name.startswith("_") and callable(getattr(owner_instance, name, None))
+        for name in attribute_names(owner_instance)  # dir() races class writes (#3151)
+        if not name.startswith("_")
+        and callable(getattr(owner_instance, name, None))
+        and not is_push_only(owner_instance, name, getattr(owner_instance, name, None))
     ]
     close = difflib.get_close_matches(event_name, public_methods, n=3, cutoff=0.6)
     if close:
@@ -73,7 +78,7 @@ def _format_handler_not_found_error(owner_instance: object, event_name: str) -> 
     # 2. Private-method collision — method exists with underscore prefix
     if hasattr(owner_instance, f"_{event_name}"):
         method = getattr(owner_instance, f"_{event_name}")
-        if callable(method):
+        if callable(method) and not is_push_only(owner_instance, f"_{event_name}", method):
             hints.append(
                 f"  Found '_{event_name}' (private). "
                 "Rename it to remove the leading underscore so it can be called as an event."
@@ -82,10 +87,11 @@ def _format_handler_not_found_error(owner_instance: object, event_name: str) -> 
     # 3. List available @event_handler methods on the class
     handlers = [
         name
-        for name in dir(owner_instance)
+        for name in attribute_names(owner_instance)  # dir() races class writes (#3151)
         if not name.startswith("_")
         and callable(getattr(owner_instance, name, None))
         and is_event_handler(getattr(owner_instance, name))
+        and not is_push_only(owner_instance, name, getattr(owner_instance, name))
     ]
     if handlers:
         hints.append(f"  Available handlers on {cls.__name__}: {', '.join(sorted(handlers))}")
@@ -106,9 +112,9 @@ def get_handler_coerce_setting(handler: Callable[..., Any]) -> bool:
     Returns:
         True if type coercion should be enabled (default), False if disabled
     """
-    if hasattr(handler, "_djust_decorators"):
-        return bool(handler._djust_decorators.get("event_handler", {}).get("coerce_types", True))
-    return True
+    from .validation import get_handler_coercion
+
+    return get_handler_coercion(handler)
 
 
 def _check_event_security(
@@ -120,6 +126,30 @@ def _check_event_security(
     Returns None if allowed, or an error message string if blocked.
     Only @event_handler-decorated methods are allowed.
     """
+    from ._component_subscriptions import ComponentDeclaration, is_component_subscription
+
+    if is_component_subscription(handler):
+        return "Component output subscription callbacks cannot be invoked as client events"
+    # Server-push only, in EVERY event_security mode (strict/warn/open).
+    # _validate_event_security already treats such a handler as missing; this
+    # keeps the gate closed for a caller that reaches the check directly.
+    if is_push_only(owner_instance, event_name, handler):
+        return "Server push handlers cannot be invoked as client events"
+    # ``LiveView.server_push(handler, payload)`` is the view's own way to run a
+    # push handler. It is public and undecorated, so under ``event_security``
+    # "warn" / "open" a browser event named ``server_push`` would run a
+    # push-only handler with a client payload. Refused in every mode, by NAME
+    # (a subclass that overrides ``server_push`` is still the push API) and by
+    # FUNCTION (whatever name the event carries, it is the same method) (#3809).
+    from .mixins.server_push import ServerPushMixin
+
+    if event_name == "server_push" or (
+        getattr(handler, "__func__", handler) is ServerPushMixin.server_push
+    ):
+        return "Server push methods cannot be invoked as client events"
+    if isinstance(owner_instance, ComponentDeclaration) and not is_event_handler(handler):
+        return "Interactive components accept only declared event actions"
+
     mode = djust_config.get("event_security", "strict")
     if mode not in ("warn", "strict"):
         return None
@@ -243,6 +273,11 @@ async def _validate_event_security(
         return None
 
     handler: Optional[Callable[..., Any]] = getattr(owner_instance, event_name, None)
+    if is_push_only(owner_instance, event_name, handler):
+        # A @push_handler method (or an override of one, which stays push-only) is callable by server push only (#3002). To a
+        # browser it must be indistinguishable from a method that does not
+        # exist: same refusal, same log line, no hint that it is there.
+        handler = None
     if not handler or not callable(handler):
         error_msg = _format_handler_not_found_error(owner_instance, event_name)
         logger.warning("Handler not found: %s", sanitize_for_log(event_name))
@@ -265,7 +300,9 @@ async def _validate_event_security(
     # The per-connection ``ConnectionRateLimiter`` keeps owning the GLOBAL
     # per-message abuse-disconnect (#17, in websocket.py:receive). On a
     # per-handler rejection we still bump that connection's warning counter so a
-    # single-connection per-handler flood trips should_disconnect() → close.
+    # single-connection per-handler flood trips should_disconnect() → close --
+    # unless the handler opted into ``on_exceed="drop"`` (#3003), which only
+    # drops the event: a quick honest burst must not cost the connection.
     rl_settings = get_rate_limit_settings(handler)
     if rl_settings:
         client_ip = getattr(ws, "_client_ip", None)
@@ -275,6 +312,13 @@ async def _validate_event_security(
         # two names is one handler and holds one budget (event_name is still used
         # for the log lines below).
         if not handler_rate_check(key, handler_identity(owner_instance, handler), rl_settings):
+            if rl_settings.get("on_exceed") == "drop":
+                logger.debug(
+                    "Per-handler rate limit exceeded for '%s' (dropped)",
+                    sanitize_for_log(event_name),
+                )
+                await ws.send_error("Rate limit exceeded, event dropped")
+                return None
             rate_limiter.warnings += 1
             logger.warning(
                 "Per-handler rate limit exceeded for '%s' (warning %d/%d)",
@@ -302,15 +346,24 @@ async def _validate_event_security(
         logger.warning(
             "Permission check skipped (no request) for handler with @permission_required"
         )
-        await ws.send_error("Permission denied")
+        await ws.send_error("Permission denied", code="permission_denied")
         return None
     # Wrap in sync_to_async (#1648, sibling of #1638): for a @permission_required
     # handler, check_handler_permission calls user.has_perms(), which under the
     # default ModelBackend queries the DB for a non-superuser — raising
     # SynchronousOnlyOperation when called bare from this async def.
-    if owner_request and not await sync_to_async(check_handler_permission)(handler, owner_request):
-        await ws.send_error("Permission denied")
-        return None
+    #
+    # Without @permission_required the check reads the decorator metadata and
+    # returns True: no database, no hop. Calling it inline saves a thread hop
+    # on the event loop for every event (#3095).
+    if owner_request:
+        if handler_meta.get("permission_required") is None:
+            permitted = check_handler_permission(handler, owner_request)
+        else:
+            permitted = await sync_to_async(check_handler_permission)(handler, owner_request)
+        if not permitted:
+            await ws.send_error("Permission denied", code="permission_denied")
+            return None
 
     # What only the view's post() runs on the HTTP request (a decorator
     # applied to post, a post() override that gates) is not applied at mount,
@@ -319,7 +372,7 @@ async def _validate_event_security(
     # through the page view's post()). A cached lookup for views without such
     # code.
     if await _post_only_rules_deny(owner_instance, root_view):
-        await ws.send_error("Permission denied")
+        await ws.send_error("Permission denied", code="permission_denied")
         return None
 
     # Object-level permission check (ADR-017 § Decision 7, v0.9.5-1b).
@@ -365,7 +418,7 @@ async def _validate_event_security(
         # No custom get_object → no object-permission lifecycle → fall
         # through silently (preserves the existing no-op contract).
     else:
-        from .auth.core import check_object_permission
+        from .auth.core import _has_custom_get_object, check_object_permission
 
         try:
             # Wrap in sync_to_async to mirror the mount path
@@ -375,19 +428,32 @@ async def _validate_event_security(
             # raised SynchronousOnlyOperation, which the fail-closed catch below
             # mistranslated into a spurious "Access denied" on the first event
             # of every URL-bound LiveView (#1638).
-            await sync_to_async(check_object_permission)(owner_instance, owner_request)
+            #
+            # A view that does not override get_object() has no object
+            # lifecycle: the check returns at once, with no database access,
+            # so it runs inline and saves a thread hop per event (#3095).
+            if _has_custom_get_object(owner_instance):
+                await sync_to_async(check_object_permission)(owner_instance, owner_request)
+            else:
+                check_object_permission(owner_instance, owner_request)
         except PermissionDenied:
             await ws.send_error(
                 "Access denied for this object.",
                 code="permission_denied",
             )
             return None
-        except Exception:  # noqa: BLE001 — fail-closed by design
-            logger.exception(
+        except Exception as exc:  # noqa: BLE001 — fail-closed by design
+            from ._exposure_diagnostics import log_failure_for
+
+            log_failure_for(
+                logger,
+                (owner_instance,),
+                exc,
                 "Object-permission check raised non-PermissionDenied exception "
                 "for %s on event %s; failing closed (denying)",
                 owner_instance.__class__.__name__,
                 sanitize_for_log(event_name or ""),
+                traceback=True,
             )
             await ws.send_error(
                 "Access denied for this object.",
@@ -399,7 +465,10 @@ async def _validate_event_security(
 
 
 async def _call_handler(
-    handler: Callable[..., Any], params: Optional[Dict[str, Any]] = None
+    handler: Callable[..., Any],
+    params: Optional[Dict[str, Any]] = None,
+    *,
+    positional_args: tuple[Any, ...] = (),
 ) -> Any:
     """
     Call an event handler, handling both sync and async handlers.
@@ -408,17 +477,16 @@ async def _call_handler(
         handler: The event handler method (sync or async)
         params: Optional dictionary of parameters to pass to the handler.
             Note: Empty dict {} is treated as no params (falsy check).
-            Positional args from dj-click="handler('value')" syntax are merged
-            into params by validate_handler_params() before calling this.
+        positional_args: Validated positional arguments. Strict call plans
+            preserve positional-only arguments rather than flattening them into
+            keywords. Legacy validation retains its existing keyword mapping.
 
     Returns:
         The result of calling the handler
     """
     if inspect.iscoroutinefunction(handler):
         # Handler is already async, call it directly
-        if params:
-            return await handler(**params)
-        return await handler()
+        return await handler(*positional_args, **(params or {}))
     else:
         # Sync handler — run via sync_to_async to avoid blocking the event
         # loop. Handlers commonly do ORM queries or other I/O. The worker
@@ -426,7 +494,7 @@ async def _call_handler(
         # is installed there too while a capture scope is active (#2961).
         from .observability.sql import run_in_capture_scope
 
-        call = run_in_capture_scope(handler)
-        if params:
-            return await sync_to_async(call)(**params)
-        return await sync_to_async(call)()
+        from .sync_turn import sync_step
+
+        call = sync_step(getattr(handler, "__self__", None), "event", run_in_capture_scope(handler))
+        return await sync_to_async(call)(*positional_args, **(params or {}))

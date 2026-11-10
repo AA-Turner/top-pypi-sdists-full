@@ -5,6 +5,7 @@ import ctypes
 import decimal
 import gc
 import os
+import random
 import re
 import uuid
 from collections.abc import Iterator
@@ -402,13 +403,13 @@ def test_bit(cursor: pyodbc.Cursor):
 def test_decimal(cursor: pyodbc.Cursor):
     # From test provided by planders (thanks!) in Issue 91
 
-    for mode in (True, False):
+    for mode in ('binary', 'text', 'locale'):
         for (precision, scale, negative) in [
                 (1, 0, False), (1, 0, True), (6, 0, False), (6, 2, False),
                 (6, 4, True), (6, 6, True), (38, 0, False), (38, 10, False),
                 (38, 38, False), (38, 0, True), (38, 10, True), (38, 38, True)]:
 
-            cursor.connection.fetch_decimal_as_string = mode
+            cursor.connection.decimal_mode = mode
             try:
                 cursor.execute("drop table t1")
             except Exception:
@@ -436,6 +437,58 @@ def test_decimal_e(cursor: pyodbc.Cursor):
     cursor.execute("insert into t1 values (?)", value)
     result = cursor.execute("select * from t1").fetchone()[0]
     assert result == value
+
+
+def test_decimal_fast_executemany_huge_exponent(cursor: pyodbc.Cursor):
+    """An exponent far too large for SQL_NUMERIC_STRUCT is an overflow, not a crash."""
+    cursor.execute("create table t1(v decimal(18, 2))")
+    cursor.fast_executemany = True
+    # The largest exponent decimal allows, which is smaller on 32-bit platforms.
+    value = Decimal(f"1E+{decimal.MAX_EMAX}")
+    with pytest.raises(pyodbc.ProgrammingError, match="Numeric overflow"):
+        cursor.executemany("insert into t1 values (?)", [(value,)])
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+def test_decimal_special_values_rejected(cursor: pyodbc.Cursor, value):
+    # pyodbc sends NaN and Infinity as text, for databases that store them, and SQL Server
+    # rejects them.
+    cursor.execute("create table t1(v decimal(18, 2))")
+    with pytest.raises(pyodbc.DataError):
+        cursor.execute("insert into t1 values (?)", Decimal(value))
+    assert cursor.execute("select count(*) from t1").fetchval() == 0
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+def test_decimal_special_values_fast_executemany_rejected(cursor: pyodbc.Cursor, value):
+    # A SQL_NUMERIC_STRUCT cannot hold these.
+    cursor.execute("create table t1(v decimal(18, 2))")
+    cursor.fast_executemany = True
+    with pytest.raises(pyodbc.ProgrammingError, match="fast_executemany"):
+        cursor.executemany("insert into t1 values (?)", [(Decimal(value),)])
+
+
+@pytest.mark.parametrize("fast", [False, True])
+def test_decimal_snan_rejected(cursor: pyodbc.Cursor, fast):
+    cursor.execute("create table t1(v decimal(18, 2))")
+    cursor.fast_executemany = fast
+    with pytest.raises(pyodbc.ProgrammingError, match="signaling NaN"):
+        cursor.executemany("insert into t1 values (?)", [(Decimal("sNaN"),)])
+
+
+def test_fast_executemany_cursor_usable_after_dae_error(cursor: pyodbc.Cursor):
+    """
+    An error while sending data-at-execution (max-type) parameters must restore the
+    cursor's parameter-array settings, or the next execute on the cursor fails or crashes.
+    """
+    cursor.execute("create table t1(id int primary key, v varchar(max))")
+    cursor.execute("insert into t1 values (1, 'x')")
+    cursor.fast_executemany = True
+    with pytest.raises(pyodbc.IntegrityError):
+        cursor.executemany("insert into t1 values (?, ?)", [(i, "a") for i in range(1, 6)])
+
+    cursor.execute("insert into t1(id, v) values (?, ?)", 100, "z")
+    assert cursor.execute("select v from t1 where id = 100").fetchval() == "z"
 
 
 @pytest.mark.parametrize("prec", [10, 28, 38])
@@ -475,6 +528,21 @@ def test_decimal_fast_executemany_trailing_zeros(cursor: pyodbc.Cursor):
 
     rows = cursor.execute("select id, v from t1 order by id").fetchall()
     assert [r.v for r in rows] == values
+
+
+@pytest.mark.parametrize("fast", [False, True])
+def test_setinputsizes_without_scale(cursor: pyodbc.Cursor, fast):
+    """
+    A (sqltype, size) input size with no scale must keep the existing scale, not use the
+    size as the scale.  Scale 18 with precision 18 made both values out of range.
+    """
+    cursor.execute("create table t1(id int, v decimal(18, 2))")
+    cursor.fast_executemany = fast
+    cursor.setinputsizes([None, (pyodbc.SQL_DECIMAL, 18)])
+    cursor.executemany("insert into t1(id, v) values (?, ?)", [(0, 123), (1, Decimal("4.5"))])
+
+    rows = cursor.execute("select v from t1 order by id").fetchall()
+    assert [r.v for r in rows] == [Decimal("123.00"), Decimal("4.50")]
 
 
 def test_subquery_params(cursor: pyodbc.Cursor):
@@ -1863,6 +1931,44 @@ def test_tvp_with_nulls(cursor: pyodbc.Cursor):
     cursor.commit()
 
 
+@pytest.fixture
+def tvp_count_proc(cursor: pyodbc.Cursor) -> Iterator[str]:
+    """A procedure taking a one-int-column TVP and returning its row count."""
+    cursor.execute("drop procedure if exists tvp_count_p")
+    cursor.execute("drop type if exists tvp_count_t")
+    cursor.execute("create type tvp_count_t as table (n int)")
+    cursor.execute("create procedure tvp_count_p @t tvp_count_t readonly"
+                   " as select count(*) from @t")
+    cursor.commit()
+    yield "{call tvp_count_p(?)}"
+    cursor.execute("drop procedure if exists tvp_count_p")
+    cursor.execute("drop type if exists tvp_count_t")
+    cursor.commit()
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS does not support TVP")
+def test_tvp_name_errors(cursor: pyodbc.Cursor, tvp_count_proc: str):
+    """Type and schema names that can't be used raise instead of crashing."""
+    rows = ["tvp_count_t", "dbo", (1,), (2,)]
+    assert cursor.execute(tvp_count_proc, (rows,)).fetchval() == 2
+
+    with pytest.raises(TypeError, match="must be str"):
+        cursor.execute(tvp_count_proc, ([b"tvp_count_t", "dbo", (1,)],))
+    with pytest.raises(TypeError, match="must be str"):
+        cursor.execute(tvp_count_proc, (["tvp_count_t", b"dbo", (1,)],))
+    with pytest.raises(UnicodeEncodeError):
+        cursor.execute(tvp_count_proc, (["tvp_count_t\ud800", "dbo", (1,)],))
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS does not support TVP")
+def test_tvp_empty_first_row(cursor: pyodbc.Cursor, tvp_count_proc: str):
+    """An empty first row followed by a non-empty one is a shape error, not a crash."""
+    with pytest.raises(pyodbc.ProgrammingError, match="same size"):
+        cursor.execute(tvp_count_proc, (["tvp_count_t", "dbo", (), (1,)],))
+
+
 @pytest.mark.skipif(SQLSERVER_YEAR < 2000, reason='sql_variant not supported until 2000')
 def test_sql_variant(cursor: pyodbc.Cursor):
     """
@@ -2025,3 +2131,246 @@ def test_set_string_attr(cursor: pyodbc.Cursor):
     cursor.connection.set_attr(pyodbc.SQL_ATTR_CURRENT_CATALOG, "master")
     new_db = cursor.execute("SELECT db_name()").fetchval()
     assert new_db == "master"
+
+
+@pytest.fixture
+def tvp_binary_proc(cursor: pyodbc.Cursor) -> Iterator[str]:
+    """A procedure taking a one-varbinary-column TVP and returning its rows."""
+    cursor.execute("drop procedure if exists tvp_binary_p")
+    cursor.execute("drop type if exists tvp_binary_t")
+    cursor.execute("create type tvp_binary_t as table (id int, b varbinary(100))")
+    cursor.execute("create procedure tvp_binary_p @t tvp_binary_t readonly"
+                   " as select id, b from @t order by id")
+    cursor.commit()
+    yield "{call tvp_binary_p(?)}"
+    cursor.execute("drop procedure if exists tvp_binary_p")
+    cursor.execute("drop type if exists tvp_binary_t")
+    cursor.commit()
+
+
+class _FreshValuesRow:
+    "A TVP row that builds new value objects every time one is read"
+    def __init__(self, n):
+        self.n = n
+
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, i):
+        if i == 0:
+            return self.n + 1000000
+        if i == 1:
+            return b"value-%d-" % self.n + b"x" * 50
+        raise IndexError(i)
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS does not support TVP")
+def test_tvp_rows_with_fresh_values(cursor: pyodbc.Cursor, tvp_binary_proc: str):
+    "Values are kept alive until the driver has read them"
+    rows = [_FreshValuesRow(n) for n in range(5)]
+    result = cursor.execute(tvp_binary_proc, (rows,)).fetchall()
+    assert [tuple(r) for r in result] == [(row[0], row[1]) for row in rows]
+
+
+class _ShapeShiftingRow:
+    "A TVP row that reports two columns when bound and four when executed"
+    def __init__(self):
+        self.len_calls = 0
+
+    def __len__(self):
+        self.len_calls += 1
+        return 2 if self.len_calls == 1 else 4
+
+    def __getitem__(self, i):
+        if i >= 4:
+            raise IndexError(i)
+        return 1 if i == 0 else b"x"
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS does not support TVP")
+def test_tvp_row_changes_size(cursor: pyodbc.Cursor, tvp_binary_proc: str):
+    "A row whose length changes after binding raises instead of overrunning the bindings"
+    with pytest.raises(pyodbc.ProgrammingError, match="same size"):
+        cursor.execute(tvp_binary_proc, ([_ShapeShiftingRow()],))
+
+
+def test_decimal_mode_default(cursor: pyodbc.Cursor):
+    assert cursor.connection.decimal_mode == 'binary'
+
+
+@pytest.mark.parametrize("initsize", [1, 2, 3, 5])
+def test_readvar_initsize_tiny(cursor: pyodbc.Cursor, initsize):
+    # A buffer smaller than one character plus the terminator made the driver write before the
+    # buffer, and an odd size split UTF-16 characters.
+    cursor.execute("create table t1(n nvarchar(max), v varchar(max), b varbinary(max))")
+    values = [("abcdéfghij", "abcdefghij", b"0123456789"), ("x", "x", b"x"), ("", "", b"")]
+    for value in values:
+        cursor.execute("insert into t1 values (?, ?, ?)", *value)
+    cursor.connection.readvar_initsize = initsize
+    rows = cursor.execute("select n, v, b from t1 order by len(v) desc").fetchall()
+    assert [tuple(row) for row in rows] == values
+
+
+@pytest.mark.parametrize("length", [1022, 1023, 1024, 2000])
+def test_long_diagnostic_messages(cursor: pyodbc.Cursor, length):
+    # Messages longer than the initial 1023-character buffer are read again with a larger one.
+    text = "x" * (length - 1) + "z"
+    with pytest.raises(pyodbc.ProgrammingError) as info:
+        cursor.execute(f"raiserror('{text}', 16, 1)")
+    assert text in str(info.value)
+
+    cursor.execute(f"print '{text}'")
+    assert any(m[1].endswith(text) for m in cursor.messages)
+
+
+class _BadTupleDecimal(Decimal):
+    "A Decimal whose as_tuple() returns the given tuple"
+    def __new__(cls, value, parts):
+        d = super().__new__(cls, value)
+        d.parts = parts
+        return d
+
+    def as_tuple(self):
+        return self.parts
+
+
+_BAD_DECIMAL_PARTS = [
+    pytest.param((-5, (1,), 0), id="negative-sign"),
+    pytest.param((2, (1,), 0), id="large-sign"),
+    pytest.param((0, (99,), 0), id="digit-too-large"),
+    pytest.param((0, (-1,), 0), id="negative-digit"),
+    pytest.param((0, ("1",), 0), id="str-digit"),
+    pytest.param((0, (), 0), id="no-digits"),
+    pytest.param((0, (1, 2)), id="short-tuple"),
+]
+
+
+@pytest.mark.parametrize("fast", [False, True])
+@pytest.mark.parametrize("parts", _BAD_DECIMAL_PARTS)
+def test_decimal_subclass_bad_as_tuple(cursor: pyodbc.Cursor, fast, parts):
+    "A Decimal subclass whose as_tuple() returns nonsense raises instead of corrupting memory"
+    cursor.execute("create table t1(v decimal(18, 2))")
+    cursor.fast_executemany = fast
+    with pytest.raises(TypeError, match="as_tuple"):
+        cursor.executemany("insert into t1 values (?)", [(_BadTupleDecimal("1", parts),)])
+
+
+@pytest.mark.parametrize("fast", [False, True])
+@pytest.mark.parametrize("exp, match", [
+    (2**62, "Numeric overflow"),
+    (2**70, "Numeric overflow"),
+    (-2**70, "digits after the decimal point"),
+])
+def test_decimal_subclass_huge_exponent(cursor: pyodbc.Cursor, fast, exp, match):
+    """An exponent larger than any Decimal's, from a subclass, raises instead of overflowing,
+    with the same error whether or not it fits a Py_ssize_t."""
+    cursor.execute("create table t1(v decimal(18, 2))")
+    cursor.fast_executemany = fast
+    value = _BadTupleDecimal("1", (0, (1,), exp))
+    with pytest.raises(pyodbc.ProgrammingError, match=match):
+        cursor.executemany("insert into t1 values (?)", [(value,)])
+
+
+@pytest.mark.parametrize("fast", [False, True])
+def test_decimal_scale_too_large(cursor: pyodbc.Cursor, fast):
+    "A scale too large to bind raises instead of being truncated to a SQLSMALLINT"
+    cursor.execute("create table t1(v decimal(18, 2))")
+    cursor.fast_executemany = fast
+    with pytest.raises(pyodbc.ProgrammingError, match="digits after the decimal point"):
+        cursor.executemany("insert into t1 values (?)", [(Decimal("1E-40000"),)])
+
+
+class _BadUUID(uuid.UUID):
+    "A UUID whose bytes_le is the wrong length"
+    @property
+    def bytes_le(self):
+        return b"short"
+
+
+def test_uuid_subclass_bad_bytes_le(cursor: pyodbc.Cursor):
+    cursor.execute("create table t1(v uniqueidentifier)")
+    with pytest.raises(TypeError, match="bytes_le"):
+        cursor.execute("insert into t1 values (?)", _BadUUID(int=1))
+
+
+@pytest.mark.parametrize("fast", [False, True])
+@pytest.mark.parametrize("length", [10, 4000, 100000])
+def test_bytearray_params(cursor: pyodbc.Cursor, fast, length):
+    "bytearray parameters are copied when bound and inserted correctly, long or short"
+    cursor.execute("create table t1(n int, v varbinary(max))")
+    cursor.fast_executemany = fast
+    values = [bytearray(range(256)) * (length // 256) + bytearray(b"x" * (length % 256)),
+              bytearray(b"y" * length)]
+    cursor.executemany("insert into t1 values (?, ?)", list(enumerate(values)))
+    rows = cursor.execute("select v from t1 order by n").fetchall()
+    assert [row.v for row in rows] == [bytes(v) for v in values]
+
+
+@pytest.fixture
+def tvp_decimal_proc(cursor: pyodbc.Cursor) -> Iterator[str]:
+    """A procedure taking a one-decimal-column TVP and returning its rows."""
+    cursor.execute("drop procedure if exists tvp_decimal_p")
+    cursor.execute("drop type if exists tvp_decimal_t")
+    cursor.execute("create type tvp_decimal_t as table (v decimal(20, 4))")
+    cursor.execute("create procedure tvp_decimal_p @t tvp_decimal_t readonly"
+                   " as select v from @t")
+    cursor.commit()
+    yield "{call tvp_decimal_p(?)}"
+    cursor.execute("drop procedure if exists tvp_decimal_p")
+    cursor.execute("drop type if exists tvp_decimal_t")
+    cursor.commit()
+
+
+class _RaisingDecimal(Decimal):
+    "A Decimal whose as_tuple() raises"
+    def as_tuple(self):
+        raise ValueError("as_tuple failed")
+
+
+@pytest.mark.skipif(SQLSERVER_YEAR < 2008, reason="TVP not supported until 2008")
+@pytest.mark.skipif(IS_FREETDS, reason="FreeTDS does not support TVP")
+def test_tvp_decimal_column_errors(cursor: pyodbc.Cursor, tvp_decimal_proc: str):
+    "Errors from a later row of a Decimal TVP column are raised, not replaced"
+    rows = [(Decimal("1.5"),), (Decimal("2.25"),)]
+    results = [r.v for r in cursor.execute(tvp_decimal_proc, (rows,))]
+    assert results == [Decimal("1.5000"), Decimal("2.2500")]
+    with pytest.raises(TypeError, match="Expected Decimal"):
+        cursor.execute(tvp_decimal_proc, ([(Decimal("1.5"),), (5,)],))
+    with pytest.raises(ValueError, match="as_tuple failed"):
+        cursor.execute(tvp_decimal_proc, ([(Decimal("1.5"),), (_RaisingDecimal("2"),)],))
+    with pytest.raises(TypeError, match="invalid sign"):
+        cursor.execute(tvp_decimal_proc,
+                       ([(Decimal("1.5"),), (_BadTupleDecimal("2", (-5, (2,), 0)),)],))
+
+
+def _decimal_samples(precision: int, scale: int) -> list[str]:
+    "Random values that fit decimal(precision, scale), plus zero and the extremes"
+    rnd = random.Random(precision * 100 + scale)
+    values = ['0', '9' * (precision - scale) + ('.' + '9' * scale if scale else '')
+              if precision > scale else '0.' + '9' * scale]
+    for _ in range(50):
+        digits = ''.join(rnd.choice('0123456789') for _ in range(rnd.randint(1, precision)))
+        whole = digits[:max(0, len(digits) - scale)] or '0'
+        frac = digits[max(0, len(digits) - scale):].rjust(scale, '0') if scale else ''
+        values.append(rnd.choice(['', '-']) + whole + ('.' + frac if scale else ''))
+    return values
+
+
+DECIMAL_SHAPES = [(38, 0), (38, 10), (38, 38), (18, 2), (10, 9), (5, 0), (1, 0), (1, 1)]
+
+
+@pytest.mark.parametrize("precision, scale", DECIMAL_SHAPES)
+def test_decimal_binary_and_text_identical(cursor: pyodbc.Cursor, precision, scale):
+    "Binary and text reads give identical Decimals, including the exponent"
+    values = _decimal_samples(precision, scale)
+    rows = ', '.join(f"({i}, cast('{s}' as decimal({precision}, {scale})))"
+                     for i, s in enumerate(values))
+    sql = f"select v from (values {rows}) t(n, v) order by n"
+    results = {}
+    for mode in ('binary', 'text'):
+        cursor.connection.decimal_mode = mode
+        results[mode] = [row[0] for row in cursor.execute(sql)]
+    assert [d.as_tuple() for d in results['binary']] == [d.as_tuple() for d in results['text']]
+    assert results['text'] == [Decimal(s) for s in values]

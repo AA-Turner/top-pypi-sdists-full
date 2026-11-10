@@ -14,7 +14,7 @@ import collections.abc
 import contextlib
 from typing import Any
 
-from tango._instrumentation import _trace_client
+from tango._internal.instrumentation import _trace_client
 from tango._tango import (
     Connection,
     DeviceData,

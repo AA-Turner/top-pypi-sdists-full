@@ -24,11 +24,11 @@
 
 #include <libpff/types.h>
 
-#define LIBPFF_VERSION					20260926
+#define LIBPFF_VERSION					20261030
 
 /* The version string
  */
-#define LIBPFF_VERSION_STRING				"20260926"
+#define LIBPFF_VERSION_STRING				"20261030"
 
 /* The access flags definitions
  * bit 1        set to 1 for read access

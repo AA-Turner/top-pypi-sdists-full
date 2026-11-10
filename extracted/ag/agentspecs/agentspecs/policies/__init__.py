@@ -24,12 +24,22 @@ usual ``id``, ``version``, ``name``, ``description``, ``enabled`` and
 ``tags``; the wrapper's JSON Schema is ``policies/policy.schema.json``, whose
 ``policy`` property points at the Shield's schema.
 
+A document may carry ``dogwood``: a Dogwood policy set (Cedar, and ``when
+temporal`` conditions over the session's events — AgentCore Policy's
+language) the Shield decides every classed action with. It is validated as
+it is read: the temporal clauses by agent-shield's own parser, carried here
+verbatim as ``policies/dogwood.py`` (:data:`DOGWOOD_PARSER_PATH`), AgentCore's
+quotas (20 temporal policies, 3 temporal operators in one, a 24-hour window
+at most), and the Cedar by ``cedarpy`` when it is installed — when it is not,
+the spec's :attr:`PolicySpec.dogwood_notes` says the Cedar was not checked.
+
 ``python -m agentspecs.policies`` writes both schemas beside the specs and the
 reference page of the documentation.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 from pathlib import Path
@@ -38,6 +48,8 @@ from typing import Any
 import jsonschema
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from . import dogwood
 
 _ROOT = Path(__file__).resolve().parent.parent
 
@@ -49,10 +61,36 @@ SHIELD_SCHEMA_PATH = POLICIES_DIR / "shield-policy.schema.json"
 #: The agent-shield release the carried schema was copied from: the test holding the copy
 #: verbatim compares against an installed agent-shield at least this new, and skips an
 #: older one (the two packages release in turn, each pinning the other's last).
-SHIELD_SCHEMA_SOURCE_VERSION = "0.2.0"
+SHIELD_SCHEMA_SOURCE_VERSION = "0.2.18"
+
+#: agent-shield's Dogwood parser (``agent_shield.policy.dogwood``), verbatim.
+DOGWOOD_PARSER_PATH = POLICIES_DIR / "dogwood.py"
 
 #: The catalogue entry's schema, beside the specs.
 SCHEMA_PATH = POLICIES_DIR / "policy.schema.json"
+
+#: The Shield's firewall rules, an agent's ``policy.shield``, verbatim
+#: (``agent_shield.firewall.firewall_json_schema()``).
+SHIELD_FIREWALL_SCHEMA_PATH = POLICIES_DIR / "shield-firewall.schema.json"
+#: The agent-shield release the carried firewall schema was copied from.
+SHIELD_FIREWALL_SCHEMA_SOURCE_VERSION = "0.2.14"
+#: The keys an agent's ``policy`` takes.
+AGENT_POLICY_KEYS = ("shield",)
+#: The ranges an egress entry may not name: the platform's own, the base layer's
+#: (``agent_shield.firewall.model.NON_PUBLIC``).
+NON_PUBLIC = (
+    "0.0.0.0/8",
+    "10.0.0.0/8",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "172.16.0.0/12",
+    "192.0.0.0/24",
+    "192.168.0.0/16",
+    "198.18.0.0/15",
+    "224.0.0.0/4",
+    "240.0.0.0/4",
+)
 
 #: Where the reference page is kept in the documentation site, when the checkout has one.
 REFERENCE_PATH = _ROOT.parent / "docs" / "docs" / "policies" / "index.md"
@@ -86,6 +124,103 @@ def document_problems(document: Any) -> list[str]:
     ):
         where = ".".join(str(part) for part in error.absolute_path) or "the document"
         problems.append(f"{where}: {error.message}")
+    section = document.get("dogwood")
+    if not problems and isinstance(section, dict):
+        problems.extend(f"dogwood: {said}" for said in dogwood_problems(section)[0])
+    return problems
+
+
+def dogwood_problems(section: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """Why a document's ``dogwood`` set cannot hold, and what could not be checked.
+
+    The temporal clauses are parsed and AgentCore's quotas held by
+    agent-shield's parser; the Cedar is parsed by ``cedarpy`` when it is
+    installed, and the notes say so when it is not.
+    """
+    text = section.get("policies")
+    if not isinstance(text, str):
+        return ["'policies' is the policy set's text"], []
+    return dogwood.validate(text)
+
+
+def shield_firewall_schema() -> dict[str, Any]:
+    """The Shield's firewall rules' JSON Schema, as carried here."""
+    return json.loads(SHIELD_FIREWALL_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+_FIREWALL_VALIDATOR = jsonschema.Draft202012Validator(shield_firewall_schema())
+
+
+def _entry_problem(entry: str, direction: str) -> str | None:
+    """Why one egress or ingress entry cannot hold, beyond the schema's pattern; None when it can."""
+    if entry in ("*", "platform"):
+        if entry == "platform" and direction == "egress":
+            return "'platform' is an ingress source; the platform's own egress is the base layer's"
+        return None
+    target, _, port = entry.partition(":")
+    if port and not 1 <= int(port) <= 65535:
+        return f"{entry!r}: port {port} is not between 1 and 65535"
+    if re.match(r"^[0-9./]+$", target):
+        try:
+            network = ipaddress.IPv4Network(target, strict=True)
+        except ValueError as error:
+            return f"{entry!r} is not an IPv4 address or CIDR: {error}"
+        if direction == "egress" and any(
+            network.overlaps(ipaddress.IPv4Network(item)) for item in NON_PUBLIC
+        ):
+            return (
+                f"{entry!r} is a private or reserved address: the platform's own addresses are the "
+                "base layer's, and an agent cannot ask for them"
+            )
+        return None
+    if direction == "ingress":
+        return f"{entry!r}: an ingress source is 'platform', '*', an address or a CIDR, not a host name"
+    if "." not in target:
+        return f"{entry!r} is not an exact, fully qualified host name"
+    return None
+
+
+def agent_policy_problems(policy: Any) -> list[str]:
+    """Why an agent's ``policy`` cannot hold, in sentences; empty when it can.
+
+    An agent's ``policy`` is its own ask of the Shield, beside the catalogue's
+    documents (which decide at a scope): today one section, ``shield``, the
+    firewall's rules in agent-shield's schema (carried verbatim as
+    ``policies/shield-firewall.schema.json``), held to what the firewall takes —
+    ``*`` alone, no private or reserved address in egress, no wildcard host, each
+    entry once.
+    """
+    if not isinstance(policy, dict):
+        return [f"an agent's policy is a mapping, not {type(policy).__name__}"]
+    problems = [
+        f"policy.{key}: an agent's policy takes {', '.join(AGENT_POLICY_KEYS)} only"
+        for key in policy
+        if key not in AGENT_POLICY_KEYS
+    ]
+    shield = policy.get("shield")
+    if shield is None:
+        return problems
+    for error in sorted(_FIREWALL_VALIDATOR.iter_errors(shield), key=lambda e: list(e.absolute_path)):
+        where = ".".join(str(part) for part in error.absolute_path)
+        if "pattern" == error.validator and isinstance(error.instance, str) and "*" in error.instance:
+            problems.append(
+                f"policy.shield.{where}: {error.instance!r}: a firewall sees addresses, not names, so a wildcard "
+                "host cannot hold; name each host"
+            )
+            continue
+        problems.append(f"policy.shield{'.' + where if where else ''}: {error.message}")
+    if problems or not isinstance(shield, dict):
+        return problems
+    for direction in ("egress", "ingress"):
+        entries = shield.get(direction) or []
+        if "*" in entries and len(entries) > 1:
+            problems.append(f"policy.shield.{direction}: '*' stands alone")
+        if len(set(entries)) != len(entries):
+            problems.append(f"policy.shield.{direction}: an entry is named twice")
+        for entry in entries:
+            said = _entry_problem(entry, direction)
+            if said:
+                problems.append(f"policy.shield.{direction}: {said}")
     return problems
 
 
@@ -129,6 +264,12 @@ class PolicySpec(BaseModel):
     @property
     def scope(self) -> str:
         return str(self.policy.get("scope"))
+
+    @property
+    def dogwood_notes(self) -> list[str]:
+        """What could not be checked of the ``dogwood`` set (the Cedar, without cedarpy)."""
+        section = self.policy.get("dogwood")
+        return dogwood_problems(section)[1] if isinstance(section, dict) else []
 
 
 def load_policies(directory: Path = POLICIES_DIR) -> dict[str, PolicySpec]:
@@ -193,6 +334,17 @@ def _threshold(value: Any) -> str:
     return f"{value.get('soft')} then {value.get('hard')}"
 
 
+def _dogwood_cell(section: Any) -> str:
+    if not isinstance(section, dict):
+        return "—"
+    try:
+        parsed = dogwood.parse_set(str(section.get("policies", "")))
+    except dogwood.DogwoodRefused:
+        return "refused"
+    temporal = len(parsed.temporal_policies)
+    return f"{len(parsed.policies)} policies, {temporal} temporal ({section.get('mode', 'enforce')})"
+
+
 def reference_text() -> str:
     """The reference page: every policy with what it says."""
     lines = [
@@ -207,17 +359,20 @@ def reference_text() -> str:
         "decision winning, a lower scope only tightening. The catalogue holds the documents",
         "the platform ships or shows, each wrapped under the catalogue's fields.",
         "",
-        "| Policy | Id | Scope | Rules | Tool calls | Model tokens | Spend (credits) | Harnesses |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Policy | Id | Scope | Enabled | Rules | Tool calls | Model tokens | Spend (credits) "
+        "| Harnesses | Dogwood |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for spec in sorted(POLICY_CATALOGUE.values(), key=lambda s: s.id):
         limits = spec.policy.get("limits") or {}
         harnesses = spec.policy.get("harnesses") or {}
         admitted = ", ".join(harnesses.get("admit") or []) or "every registered one"
         lines.append(
-            f"| {_cell(spec.name)} | `{spec.id}` | {spec.scope} | {len(spec.policy.get('rules') or [])} | "
+            f"| {_cell(spec.name)} | `{spec.id}` | {spec.scope} | {'yes' if spec.enabled else 'no'} | "
+            f"{len(spec.policy.get('rules') or [])} | "
             f"{_threshold(limits.get('tool_calls'))} | {_threshold(limits.get('model_tokens'))} | "
-            f"{_threshold(limits.get('spend'))} | {_cell(admitted)} ({harnesses.get('credentials', 'account')}) |"
+            f"{_threshold(limits.get('spend'))} | {_cell(admitted)} ({harnesses.get('credentials', 'account')}) | "
+            f"{_dogwood_cell(spec.policy.get('dogwood'))} |"
         )
     lines += ["", "## Each policy", ""]
     for spec in sorted(POLICY_CATALOGUE.values(), key=lambda s: s.id):
@@ -230,7 +385,49 @@ def reference_text() -> str:
                 else ""
             )
             lines.append(f"- **{rule['name']}**: {rule['decision']} — {what}{where}")
+        section = spec.policy.get("dogwood")
+        if isinstance(section, dict):
+            lines += [
+                "",
+                f"Its Dogwood set, in {section.get('mode', 'enforce')} mode:",
+                "",
+                "```cedar",
+                str(section.get("policies", "")).rstrip(),
+                "```",
+            ]
         lines.append("")
+    lines += [
+        "## An organization's firewall ceiling",
+        "",
+        "An organization's document may carry `firewall: {egress, ingress}`, the most any agent of",
+        "the organization may be granted by its own `policy.shield` (agent-shield 0.2.16 and later).",
+        "When a runtime's rule is applied, an agent's entry holds only if the ceiling allows it: `*`",
+        "in the ceiling allows anything public; an exact host must match exactly; an address or CIDR",
+        "must be covered by a ceiling CIDR; a port must match. An agent's `*` becomes the ceiling's",
+        "own entries, and `platform` always stays in ingress. A direction the ceiling leaves out",
+        "bounds nothing. Only an organization document carries `firewall`.",
+        "",
+        "## Dogwood: temporal policies",
+        "",
+        "A document may carry `dogwood: {policies, mode}`: a Dogwood policy set, the language",
+        "AgentCore Policy writes its temporal policies in (agent-shield 0.2.18 and later). It is",
+        "Cedar — `permit` and `forbid` over a principal (`Datalayer::User`, with `org_uid`, `app_uid`",
+        'and `agent_uid`), an action (`Datalayer::Action::"<server>___<tool>"`, the Shield\'s own',
+        "`shield___<kind>`) and a resource (`Datalayer::Runtime`), with the tool's arguments under",
+        "`context.input` — plus `when temporal { … }` conditions over the session's earlier events:",
+        "`formerly within`, `since within`, `count` and `sum` (a distinct count leaves the timepoint",
+        "out of its domain). An event is a `request`, a `response` (a permitted call that completed)",
+        "or an `error` (a refused or failed one); the request being decided counts. Deny by default,",
+        "a `forbid` overriding any `permit`. The Shield decides every classed action with it: a deny",
+        "wins over any rule; in `log_only` mode it is recorded and the action goes on.",
+        "",
+        "A set is validated as it is read: the temporal clauses by agent-shield's parser, carried",
+        "verbatim as `policies/dogwood.py`; AgentCore's quotas — at most 20 temporal policies, 3",
+        "temporal operators in one, a 24-hour window; and the Cedar by `cedarpy` when it is installed",
+        "(without it, the Cedar is not checked, and the spec's `dogwood_notes` says so). The catalogue's",
+        "Dogwood examples are off (`enabled: false`).",
+        "",
+    ]
     return "\n".join(lines) + "\n"
 
 
@@ -246,20 +443,26 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "DOGWOOD_PARSER_PATH",
     "POLICIES_DIR",
     "POLICY_CATALOGUE",
     "REFERENCE_PATH",
     "SCHEMA_PATH",
+    "AGENT_POLICY_KEYS",
     "SCOPES",
+    "SHIELD_FIREWALL_SCHEMA_PATH",
     "SHIELD_SCHEMA_PATH",
     "PolicyError",
     "PolicySpec",
+    "agent_policy_problems",
     "document_problems",
+    "dogwood_problems",
     "get_policy",
     "json_schema",
     "load_policies",
     "main",
     "reference_text",
     "schema_text",
+    "shield_firewall_schema",
     "shield_schema",
 ]

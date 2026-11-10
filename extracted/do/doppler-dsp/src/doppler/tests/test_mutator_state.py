@@ -156,6 +156,29 @@ ROOT = repo_root(__file__)
 STUBS = ROOT / "src" / "doppler"
 
 PASSING = ("TRAVELS", "KEYED", "READS", "HANDLE")
+# The detail of a row whose mutator refused every value the probe made: the
+# row's object does not serve it, and _aggregate leaves such a row out.
+_REFUSES_EVERY_VALUE = "no value the mutator accepts"
+#: A refusal of every value that was NOT the declared D3 refusal: the row is
+#: not left out of the aggregate (only _REFUSES_EVERY_VALUE is).
+_REFUSES_OTHERWISE = "no value the mutator accepts, refused by other means"
+
+
+def _is_flavor_refusal(mut_name: str, e: BaseException) -> bool:
+    """The declared refusal of a member its object does not serve (#2752
+    section 18, D3): a property's AttributeError (getter_status, or a
+    setter's declared error), or a method's ValueError carrying the
+    member's own declared message, which names the member first
+    (`execute_all: ...`, `push: ...`). Any other exception is not."""
+    # Only the off-flavor sentence counts ("name: only ..."; DP_ERR_UNSUPPORTED
+    # in C): a bad value on a served flavor ("name: must ...") is a value
+    # refusal, and Python's own AttributeError for a missing attribute is not
+    # a declaration at all.
+    return isinstance(e, (AttributeError, ValueError)) and str(e).startswith(
+        mut_name + ": only "
+    )
+
+
 LISTABLE = ("LOST", "NONDETERMINISTIC", "UNPROBED", "CRASHES", "C_ONLY")
 LISTABLE += ("NO_RECIPE",)
 
@@ -378,7 +401,11 @@ def _takes_a_write(obj: Any, name: str, declared: bool) -> bool:
 
 def _writable(cls: str, props: list[str]) -> list[str]:
     """The properties that take a write: asked of an instance when the
-    matrix can build one, else of the stub's setters."""
+    matrix can build one, else of the stub's setters. Asked of EVERY row's
+    instance: one class can build several flavors (the Correlator's seven),
+    and a flavor that does not serve a property refuses its setter with the
+    same AttributeError an unbound one raises, so the first row alone would
+    call a setter the class binds absent."""
     setters = _stubs()[cls].setters
     recipes = _RECIPES.get(cls)
     if not recipes:
@@ -388,7 +415,9 @@ def _writable(cls: str, props: list[str]) -> list[str]:
         return [
             p
             for p in props
-            if _takes_a_write(recipes[0][0](), p, p in setters)
+            if any(
+                _takes_a_write(make(), p, p in setters) for make, _ in recipes
+            )
         ]
 
 
@@ -512,6 +541,17 @@ def _c_only(cls: str, comp: str, bound: set[str]) -> list[Mutator]:
 
 def discover() -> list[Mutator]:
     found: list[Mutator] = []
+    # What each component's classes bind, its views' included, as the C
+    # suffix each would carry: a method's own name, and set_<p> for a
+    # writable property. A view shares its parent's core and header, so a
+    # C function a view binds has a Python face even when the parent's
+    # class does not bind it (the correlator's Acquisition, #2752 3.4b).
+    bound_by: dict[str, set[str]] = {}
+    for d in _serializable():
+        props, methods = _members(python_type(d.cls))
+        bound_by.setdefault(d.comp, set()).update(
+            set(methods) | {f"set_{p}" for p in _writable(d.cls, props)}
+        )
     for d in _serializable():
         stub = _stubs()[d.cls]
         props, methods = _members(python_type(d.cls))
@@ -547,10 +587,7 @@ def discover() -> list[Mutator]:
                 )
             )
         if d.view is None:  # a view shares its parent's core and its header
-            # What the type binds, as the C suffix it would carry: a
-            # method's own name, and set_<p> for a writable property.
-            bound = set(methods) | {f"set_{p}" for p in writable}
-            found += _c_only(d.cls, d.comp, bound)
+            found += _c_only(d.cls, d.comp, bound_by[d.comp])
     return found
 
 
@@ -881,7 +918,7 @@ def _built(
 
 def _accepted(
     mut: Mutator, make, feed, cands: Iterable[Any]
-) -> tuple[list[Any], list[tuple], bool]:
+) -> tuple[list[Any], list[tuple], bool, bool]:
     """Values M takes without raising, deduplicated by what the probe
     observes, with their observations; and whether every call handed back
     a value. A property's are deduplicated by readback too, starting from a
@@ -891,13 +928,20 @@ def _accepted(
     refs: list[tuple] = []
     returned = True
     seen_rb: set[bytes] = set()
+    # Every value tried was refused with the declared D3 refusal: true only
+    # once at least one was tried, so a row with no candidate is not left
+    # out of the aggregate as one its object does not serve.
+    refused_any = False
+    flavor_only = True
     if mut.kind == "property":
         seen_rb.add(_own(make(), mut))
     for v in itertools.islice(cands, 40):
         o = _warm(make, feed)
         try:
             got = _apply(o, mut, v)
-        except Exception:  # the mutator refused this value: try the next
+        except Exception as e:  # the mutator refused this value: try the next
+            refused_any = True
+            flavor_only = flavor_only and _is_flavor_refusal(mut.name, e)
             continue
         if mut.kind == "property":
             rb = _own(o, mut)
@@ -910,7 +954,12 @@ def _accepted(
         returned = returned and got is not None
         vals.append(v)
         refs.append(ref)
-    return vals, refs, returned and mut.kind == "method"
+    return (
+        vals,
+        refs,
+        returned and mut.kind == "method",
+        refused_any and flavor_only,
+    )
 
 
 def _restore_into(target: Any, blob: bytes) -> bool:
@@ -1019,9 +1068,12 @@ def _judge(
     still write through a member), so a pure method is READS only where the
     probe also observes it inert, and a visible write stays the write's
     verdict, red."""
-    vals, refs, returned = _accepted(mut, make, feed, cands)
+    vals, refs, returned, flavor_only = _accepted(mut, make, feed, cands)
     if not vals:
-        return Verdict("UNPROBED", "no value the mutator accepts"), vals
+        return Verdict(
+            "UNPROBED",
+            _REFUSES_EVERY_VALUE if flavor_only else _REFUSES_OTHERWISE,
+        ), vals
     # Two builds of the same object, fed the same, must observe the same: a
     # blob that differs between them carries bytes that are not state
     # (uninitialised padding or buffer tails), and no restore can be judged.
@@ -1060,12 +1112,28 @@ def _judge(
     return seen[0], vals
 
 
+def _current(name: str, obj) -> tuple[Any, Verdict | None]:
+    """A property's value before the probe writes, or the verdict of a row
+    whose object does not serve it: a getter refused off its flavors
+    (#2752 section 18) raises the declared refusal on the READ, before any
+    value is offered, and that row is left out exactly as one refusing
+    every write is (_REFUSES_EVERY_VALUE). Any other exception is raised."""
+    try:
+        return getattr(obj, name), None
+    except AttributeError as e:
+        if _is_flavor_refusal(name, e):
+            return None, Verdict("UNPROBED", _REFUSES_EVERY_VALUE)
+        raise
+
+
 def probe(mut: Mutator, make, feed) -> Verdict:
     why = _unmakeable(mut)
     if why:
         return Verdict("UNPROBED", why)
     if mut.kind == "property":
-        current = getattr(_warm(make, feed), mut.name)
+        current, refused = _current(mut.name, _warm(make, feed))
+        if refused:
+            return refused
         cands: list[Any] = _scalar_candidates(_bare(mut.ann), current)
         if not cands:  # the stub is silent or vague: type the value itself
             for kind in (bool, int, float, complex):
@@ -1133,7 +1201,17 @@ _MUTATORS = discover()
 def _aggregate(seen: list[Verdict]) -> Verdict:
     """One verdict from every row's. A failure in any row is the verdict,
     and a pass needs a row that probed. READS needs EVERY row inert: a call
-    one row sees write is no reader for being inert in another."""
+    one row sees write is no reader for being inert in another.
+
+    A row that refused every value the probe made WITH THE DECLARED D3
+    REFUSAL (_is_flavor_refusal) is not one the member is served on (a
+    Correlator flavor refuses what it does not honor, #2752 section 18), so
+    it is left out while another row took a value: it observed nothing, and
+    cannot make a reader a writer or a pass a fail. A row that refused any
+    value some other way stays in. When every row refused, that is the
+    verdict."""
+    took = [v for v in seen if v.detail != _REFUSES_EVERY_VALUE]
+    seen = took or seen
     for name in ("NONDETERMINISTIC", "LOST"):
         for verdict in seen:
             if verdict.name == name:
@@ -1409,3 +1487,115 @@ def test_a_stub_signature_reads_positional_only_parameters(
     req, opt = _signature(f.args)
     assert [p.name for p in req] == required
     assert [p.name for p in opt] == defaulted
+
+
+def test_a_served_row_that_loses_stays_red_beside_a_refusing_row() -> None:
+    # One flavor refuses the member (the declared D3 refusal), another
+    # serves it and LOSES the value: the aggregate is LOST, never the
+    # refusing row's UNPROBED (#2752 step 4c review: the gate's own test).
+    refusing = Verdict("UNPROBED", _REFUSES_EVERY_VALUE)
+    assert _aggregate([refusing, Verdict("LOST", "drops it")]).name == "LOST"
+    assert _aggregate([Verdict("LOST", "drops it"), refusing]).name == "LOST"
+    # A row that refused some other way is not left out: beside a reader it
+    # keeps the aggregate from reading as a pass.
+    other = Verdict("UNPROBED", _REFUSES_OTHERWISE)
+    assert _aggregate([other, Verdict("READS")]).name == "UNPROBED"
+    assert _aggregate([refusing, Verdict("READS")]).name == "READS"
+
+
+def test_a_refused_read_leaves_the_row_out() -> None:
+    """A row whose getter refuses the read (keep_surface off the continuous
+    search) is the same left-out row as one refusing every write; a read
+    that works returns the value and no verdict."""
+
+    class Refuses:
+        @property
+        def keep(self):
+            raise AttributeError("keep: only the continuous search")
+
+    class Serves:
+        keep = 0
+
+    _value, verdict = _current("keep", Refuses())
+    assert verdict == Verdict("UNPROBED", _REFUSES_EVERY_VALUE)
+    assert _aggregate([verdict, Verdict("TRAVELS")]).name == "TRAVELS"
+    assert _current("keep", Serves()) == (0, None)
+
+
+def test_an_undeclared_attribute_error_on_a_read_stays_red() -> None:
+    """Python's own AttributeError (a missing attribute, a typo) names no
+    member first: the read raises, and the row is not left out."""
+
+    class Broken:
+        @property
+        def keep(self):
+            raise AttributeError("'Broken' object has no attribute '_x'")
+
+    with pytest.raises(AttributeError):
+        _current("keep", Broken())
+    assert not _is_flavor_refusal("keep", AttributeError("'X' has no 'y'"))
+
+
+def test_a_row_with_no_candidate_is_not_left_out() -> None:
+    """An empty candidate list tried nothing, so it refused nothing: the
+    row is UNPROBED by other means and stays in the aggregate. A row that
+    tried values and saw only the declared refusal is the one left out."""
+
+    class Obj:
+        def go(self, v):
+            raise ValueError("go: only a search")
+
+    mut = Mutator(cls="Obj", comp="obj", name="go", kind="method")
+    _, _, _, flavor_only = _accepted(mut, Obj, lambda o, n: None, [])
+    assert flavor_only is False
+    _, _, _, flavor_only = _accepted(
+        mut, Obj, lambda o, n: None, [Call(args=(1,)), Call(args=(2,))]
+    )
+    assert flavor_only is True
+
+
+def test_a_value_refusal_on_a_served_flavor_keeps_the_row() -> None:
+    """Every value refused as out of range ("name: must ..."), on a flavor
+    that serves the member: that row observed a refusal of VALUES, so it is
+    not left out as one its object does not serve."""
+
+    class Obj:
+        def go(self, v):
+            raise ValueError("go: must lie in 0..1")
+
+    mut = Mutator(cls="Obj", comp="obj", name="go", kind="method")
+    _, _, _, flavor_only = _accepted(
+        mut, Obj, lambda o, n: None, [Call(args=(2,)), Call(args=(3,))]
+    )
+    assert flavor_only is False
+
+
+def test_an_empty_candidate_list_is_unprobed_by_other_means() -> None:
+    """End to end through _judge: no candidate tried is UNPROBED with the
+    reason that keeps the row in the aggregate, not the left-out one."""
+
+    class Obj:
+        def go(self, v):
+            return None
+
+    mut = Mutator(cls="Obj", comp="obj", name="go", kind="method")
+    verdict, vals = _judge(
+        mut, Obj, lambda o, n: None, [], valued=False, may_read=False
+    )
+    assert vals == []
+    assert verdict == Verdict("UNPROBED", _REFUSES_OTHERWISE)
+
+
+def test_only_the_declared_refusal_reads_as_a_flavor_refusal() -> None:
+    assert _is_flavor_refusal("eta", AttributeError("eta: only a search"))
+    # A bad value on a flavor that serves the member is a value refusal.
+    assert not _is_flavor_refusal(
+        "set_carrier_freq_hz",
+        ValueError("set_carrier_freq_hz: must be 0 (no carrier) or finite"),
+    )
+    assert _is_flavor_refusal(
+        "push", ValueError("push: only a detector or a search pushes")
+    )
+    assert not _is_flavor_refusal("push", ValueError("bad length"))
+    assert not _is_flavor_refusal("push", TypeError("push: wrong type"))
+    assert not _is_flavor_refusal("push", RuntimeError("push: crashed"))

@@ -334,6 +334,32 @@ document.addEventListener("keydown", (event) => {
   home.click();
 });
 
+// An email's head sticks with its subject above the top, however tall: only its buttons stay.
+// Once the way back beside the subject is out of sight, one shows at the end of the buttons.
+const emailTopWatch = new WeakSet();
+const watchEmailTops = () => document.querySelectorAll(".email-top").forEach((top) => {
+  if (emailTopWatch.has(top)) return;
+  emailTopWatch.add(top);
+  const title = top.querySelector(".email-title");
+  const actions = top.querySelector(".email-actions");
+  if (!title || !actions) return;
+  new ResizeObserver(() => {
+    const height = actions.getBoundingClientRect().top - title.getBoundingClientRect().top;
+    top.style.setProperty("--email-title-height", `${Math.max(0, Math.round(height))}px`);
+  }).observe(title);
+  const back = title.querySelector(".icon-btn");
+  if (back) {
+    new IntersectionObserver(([entry]) => {
+      top.classList.toggle("is-scrolled", !entry.isIntersecting);
+    }).observe(back);
+  }
+});
+// Watched however the email came: also the next one, loaded ahead without htmx (welcome.js).
+document.addEventListener("DOMContentLoaded", () => {
+  watchEmailTops();
+  new MutationObserver(watchEmailTops).observe(document.body, { childList: true, subtree: true });
+});
+
 // A menu behind ⋮ (e.g. an email's other actions) closes on a click elsewhere or on its items.
 document.addEventListener("click", (event) => {
   document.querySelectorAll("details.email-more[open]").forEach((menu) => {

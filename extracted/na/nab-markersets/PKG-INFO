@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-markersets
-Version: 0.0.26
+Version: 0.0.28
 Summary: PEP 508 marker algebra: markers as sets of environments
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -20,9 +20,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: nab-resolver==0.0.26
+Requires-Dist: nab-resolver==0.0.28
 Provides-Extra: nab-vendored-packaging
-Requires-Dist: nab-provider==0.0.26; extra == 'nab-vendored-packaging'
+Requires-Dist: nab-provider==0.0.28; extra == 'nab-vendored-packaging'
 Provides-Extra: packaging
 Requires-Dist: packaging>=26.3; extra == 'packaging'
 Description-Content-Type: text/markdown

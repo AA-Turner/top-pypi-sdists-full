@@ -63,11 +63,13 @@ def encode_tool_call_id(provider_id: str | None) -> str:
 def _make_delta_recipe(
     *,
     thinking_delta: str | None,
+    thinking_signature: str | None,
     content_delta: str | None,
     thinking_index: int | None,
     message_index: int | None,
 ) -> Callable[[Any], None]:
     def apply_delta_recipe(draft: Any) -> None:
+        history_len = len(draft.history)
         _apply_assistant_delta(
             draft,
             delta=thinking_delta,
@@ -75,6 +77,12 @@ def _make_delta_recipe(
             channel="thinking",
             block_type="thinking",
         )
+        if thinking_signature is not None:
+            index = thinking_index
+            if index is None and len(draft.history) > history_len:
+                index = history_len
+            if index is not None:
+                _set_thinking_signature(draft, index, thinking_signature)
         _apply_assistant_delta(
             draft,
             delta=content_delta,
@@ -123,6 +131,12 @@ def _apply_assistant_delta(
         content.append(content_block)
 
 
+def _set_thinking_signature(draft: Any, entry_index: int, signature: str) -> None:
+    content = draft.history[entry_index].payload.content
+    if content and content[-1].type == "thinking":
+        content[-1].signature = signature
+
+
 # ---------------------------------------------------------------------------
 # stream_to_mutations — streaming LLM bridge
 # ---------------------------------------------------------------------------
@@ -162,7 +176,7 @@ async def stream_to_mutations(
         if chunk.usage is not None:
             latest_usage = chunk.usage
 
-        if chunk.thinking_delta or chunk.content_delta:
+        if chunk.thinking_delta or chunk.content_delta or chunk.thinking_signature:
             history_len = len(current_state.history)
             creates_thinking_entry = bool(chunk.thinking_delta) and thinking_entry_index is None
             creates_message_entry = bool(chunk.content_delta) and message_entry_index is None
@@ -171,6 +185,7 @@ async def stream_to_mutations(
                 current_state,
                 _make_delta_recipe(
                     thinking_delta=chunk.thinking_delta,
+                    thinking_signature=chunk.thinking_signature,
                     content_delta=chunk.content_delta,
                     thinking_index=thinking_entry_index,
                     message_index=message_entry_index,
@@ -265,7 +280,9 @@ async def stream_to_mutations(
             continue
 
         # Usage only chunk e.g. trailing usage that providers emit after finish_reason.
-        if chunk.usage is not None and not (chunk.thinking_delta or chunk.content_delta):
+        if chunk.usage is not None and not (
+            chunk.thinking_delta or chunk.content_delta or chunk.thinking_signature
+        ):
             yield (current_state, [], None, latest_usage)
 
 

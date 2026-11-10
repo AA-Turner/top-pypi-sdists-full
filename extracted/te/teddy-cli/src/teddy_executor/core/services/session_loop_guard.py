@@ -7,7 +7,7 @@ from teddy_executor.core.ports.outbound.system_environment import ISystemEnviron
 
 class ProductionSessionLoopGuard(ISessionLoopGuard):
     """
-    Production implementation: bounds a non-interactive run by turns and cost.
+    Production implementation: bounds a yolo or pipeline run by turns and cost.
     """
 
     def __init__(  # noqa: PLR0913  # Explicit DI: config, environment, baselines, and CLI overrides.
@@ -71,9 +71,9 @@ class ProductionSessionLoopGuard(ISessionLoopGuard):
         )
 
     def should_continue(
-        self, turn_count: int, cumulative_cost: float, interactive: bool
+        self, turn_count: int, cumulative_cost: float, require_approval: bool
     ) -> tuple[bool, Optional[str]]:
-        if interactive:
+        if require_approval:
             return True, None
 
         if not bool(self._read_config("enabled", True)):

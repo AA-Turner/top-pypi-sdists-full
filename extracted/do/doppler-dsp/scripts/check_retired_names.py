@@ -83,23 +83,58 @@ SKIP_PARTS = frozenset(
 )
 # Dated measurement records: the tree as it was measured, never edited to
 # follow a rename (see main()).
-RECORDS = ("docs/design/frame-description-measurements.md",)
+RECORDS = (
+    "docs/design/frame-description-measurements.md",
+    # acq's measurements, by the names it had then (#2752 step 3.4b moved
+    # it into the correlator): the records and the scripts they ran.
+    "docs/design/acq-surface-measurements.md",
+    "docs/design/async-dsss-receiver-measurements.md",
+    "docs/design/acq-surface-measurements/equiv-2825/sabotage.py",
+    "docs/design/acq-surface-measurements/schedules-2831/sabotage.py",
+)
+# Rename codemods and their tests: each names every old identifier it
+# rewrites (see main()).
+RENAME_TOOLS = (
+    "scripts/codemod_correlator_rename.py",
+    "src/doppler/tests/test_codemod_correlator_rename.py",
+)
 
+# `.cmake`: a hand-owned `<obj>_extra.cmake` names C functions in its
+# compile definitions, and #2752 3.4b's rename left one stale there that
+# no file this gate read could show.
 SUFFIXES = frozenset(
-    {".c", ".h", ".py", ".md", ".txt", ".toml", ".yml", ".yaml", ".sh", ".pyi"}
+    {
+        ".c",
+        ".h",
+        ".py",
+        ".md",
+        ".txt",
+        ".toml",
+        ".yml",
+        ".yaml",
+        ".sh",
+        ".pyi",
+        ".cmake",
+    }
 )
 
 
-def _rows() -> list[tuple[re.Pattern[str], str, str]]:
-    """Parse `.retired-names` into (compiled, raw pattern, replacement)."""
+def rows(
+    path: Path = RETIRED,
+) -> list[tuple[re.Pattern[str], str, str]]:
+    """Parse `.retired-names` into (compiled, raw pattern, replacement).
+
+    `path` defaults to this repo's list; `check_retired_symbols.py` reads
+    the same rows through here, pointed at a seeded tree in its tests.
+    """
     out: list[tuple[re.Pattern[str], str, str]] = []
-    for n, line in enumerate(RETIRED.read_text().splitlines(), 1):
+    for n, line in enumerate(path.read_text().splitlines(), 1):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
         if "\t" not in line:
             print(
-                f"{RETIRED.name}:{n}: expected '<regex>\\t<replacement>'",
+                f"{path.name}:{n}: expected '<regex>\\t<replacement>'",
                 file=sys.stderr,
             )
             sys.exit(2)
@@ -147,8 +182,8 @@ def _skipped(rel: str) -> bool:
 
 
 def main() -> int:
-    rows = _rows()
-    if not rows:
+    declared = rows()
+    if not declared:
         print("retired-names: no retired names declared")
         return 0
 
@@ -169,6 +204,9 @@ def main() -> int:
     # later rename would rewrite the evidence. Named file by file, so a
     # design page that describes the present is still held to the rule.
     exempt |= {(ROOT / rel).resolve() for rel in RECORDS}
+    # ...and a RENAME TOOL with its test: the codemod's table IS the list of
+    # old names, so it cannot do its job without them. Named file by file.
+    exempt |= {(ROOT / rel).resolve() for rel in RENAME_TOOLS}
 
     hits: list[str] = []
     for path in _files():
@@ -179,7 +217,7 @@ def main() -> int:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        for compiled, pat, repl in rows:
+        for compiled, pat, repl in declared:
             for n, line in enumerate(text.splitlines(), 1):
                 if compiled.search(line):
                     rel = path.relative_to(ROOT).as_posix()
@@ -195,7 +233,10 @@ def main() -> int:
         )
         return 1
 
-    print(f"retired-names: OK — {len(rows)} retired pattern(s), 0 occurrences")
+    print(
+        f"retired-names: OK — {len(declared)} retired pattern(s),"
+        " 0 occurrences"
+    )
     return 0
 
 

@@ -1,5 +1,11 @@
 #include "types.h"
 
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
+
 PyObject *point_new_internal(ModuleState *state, TSPoint point);
 
 #define SET_ATTRIBUTE_ERROR(name)                                                                  \
@@ -38,7 +44,9 @@ void parser_dealloc(Parser *self) {
     ts_parser_delete(self->parser);
     Py_XDECREF(self->language);
     Py_XDECREF(self->logger);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 static const char *parser_read_wrapper(void *payload, uint32_t byte_offset, TSPoint position,
@@ -60,18 +68,24 @@ static const char *parser_read_wrapper(void *payload, uint32_t byte_offset, TSPo
     // Form arguments to callable.
     PyObject *byte_offset_obj = PyLong_FromUnsignedLong(byte_offset);
     PyObject *position_obj = point_new_internal(wrapper_payload->state, position);
-    if (!position_obj || !byte_offset_obj) {
+    if (byte_offset_obj == NULL || position_obj == NULL) {
+        Py_XDECREF(byte_offset_obj);
+        Py_XDECREF(position_obj);
         *bytes_read = 0;
         return NULL;
     }
 
     PyObject *args = PyTuple_Pack(2, byte_offset_obj, position_obj);
-    Py_XDECREF(byte_offset_obj);
-    Py_XDECREF(position_obj);
+    Py_DECREF(byte_offset_obj);
+    Py_DECREF(position_obj);
+    if (args == NULL) {
+        *bytes_read = 0;
+        return NULL;
+    }
 
     // Call callable.
     PyObject *rv = PyObject_Call(read_cb, args, NULL);
-    Py_XDECREF(args);
+    Py_DECREF(args);
 
     // If error or None returned, we're done parsing.
     if (rv == NULL || rv == Py_None) {
@@ -95,9 +109,17 @@ static const char *parser_read_wrapper(void *payload, uint32_t byte_offset, TSPo
 }
 
 static bool parser_progress_callback(TSParseState *state) {
-    PyObject *result = PyObject_CallFunction((PyObject *)state->payload, "Ip",
-                                             state->current_byte_offset, state->has_error);
-    return PyObject_IsTrue(result);
+    // Py_BuildValue only accepts the "p" format since Python 3.14
+    PyObject *result =
+        PyObject_CallFunction((PyObject *)state->payload, "IO", state->current_byte_offset,
+                              state->has_error ? Py_True : Py_False);
+    if (result == NULL) {
+        // stop parsing so that the exception is raised immediately
+        return true;
+    }
+    int truth = PyObject_IsTrue(result);
+    Py_DECREF(result);
+    return truth > 0;
 }
 
 PyObject *parser_parse(Parser *self, PyObject *args, PyObject *kwargs) {
@@ -225,6 +247,14 @@ PyObject *parser_print_dot_graphs(Parser *self, PyObject *arg) {
         if (fd < 0) {
             return NULL;
         }
+#ifndef _WIN32
+        fd = dup(fd);
+#else
+        fd = _dup(fd);
+#endif
+        if (fd < 0) {
+            return PyErr_SetFromErrno(PyExc_OSError);
+        }
         Py_BEGIN_ALLOW_THREADS
         ts_parser_print_dot_graphs(self->parser, fd);
         Py_END_ALLOW_THREADS
@@ -310,7 +340,12 @@ static void log_callback(void *payload, TSLogType log_type, const char *buffer) 
     LoggerPayload *logger_payload = (LoggerPayload *)payload;
     PyObject *log_type_enum =
         PyObject_CallFunction((PyObject *)logger_payload->log_type_type, "i", log_type);
-    PyObject_CallFunction(logger_payload->callback, "Os", log_type_enum, buffer);
+    if (log_type_enum == NULL) {
+        return;
+    }
+    PyObject *result = PyObject_CallFunction(logger_payload->callback, "Os", log_type_enum, buffer);
+    Py_DECREF(log_type_enum);
+    Py_XDECREF(result);
 }
 
 int parser_set_logger(Parser *self, PyObject *arg, void *Py_UNUSED(payload)) {

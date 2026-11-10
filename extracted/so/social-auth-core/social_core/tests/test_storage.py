@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import cast
 from unittest.mock import Mock, patch
 
@@ -164,7 +164,7 @@ class UserMixinRefreshTokenTests(unittest.TestCase):
 
     def test_missing_renewal_credential(self) -> None:
         unusable_tokens: tuple[object, ...] = (None, "", False, 0, [], {}, 123)
-        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        now = datetime(2026, 1, 1, tzinfo=UTC)
         for backend_class in (BaseOAuth2, OpenIdConnectAuth, ElixirOpenIdConnect):
             backend = backend_class(self.strategy)
             for token in unusable_tokens:
@@ -307,7 +307,7 @@ class BrokenAssociationTests(unittest.TestCase):
             with self.subTest(lifetime=lifetime, now=now):
                 association.lifetime = lifetime
                 self.assertEqual(association.is_expired(now), expired)
-                with patch("social_core.storage.time.time", return_value=now):
+                with patch("social_core.storage._time", return_value=now):
                     self.assertEqual(association.is_expired(), expired)
 
     association = BrokenAssociation

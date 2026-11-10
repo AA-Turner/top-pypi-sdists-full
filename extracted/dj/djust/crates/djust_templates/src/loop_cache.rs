@@ -690,9 +690,9 @@ fn hash_value(value: &djust_core::Value, hasher: &mut DefaultHasher) {
         Value::Encoded(e) => {
             11u8.hash(hasher);
             e.type_name.hash(hasher);
-            e.display.hash(hasher);
-            e.display_safe.hash(hasher);
-            e.json.hash(hasher);
+            e.display().hash(hasher);
+            e.display_safe().hash(hasher);
+            e.json().hash(hasher);
         }
         Value::Bool(b) => {
             1u8.hash(hasher);
@@ -857,6 +857,7 @@ fn node_is_position_dependent(node: &Node) -> bool {
         | Node::Comment
         | Node::Load(_)
         | Node::CsrfToken
+        | Node::DjustAudio
         | Node::Static(_)
         | Node::Extends(_)
         | Node::TemplateTag(_)

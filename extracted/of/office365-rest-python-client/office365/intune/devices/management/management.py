@@ -12,14 +12,20 @@ from office365.intune.devices.category import DeviceCategory
 from office365.intune.devices.enrollment.configuration import (
     DeviceEnrollmentConfiguration,
 )
+from office365.intune.devices.management.device_protection_overview import DeviceProtectionOverview
 from office365.intune.devices.management.managed.collection import (
     ManagedDeviceCollection,
 )
 from office365.intune.devices.management.reports.reports import DeviceManagementReports
+from office365.intune.devices.management.settings import DeviceManagementSettings
+from office365.intune.devices.management.subscriptionstate import DeviceManagementSubscriptionState
 from office365.intune.devices.management.terms_and_conditions import TermsAndConditions
+from office365.intune.devices.management.user_experience_analytics_settings import UserExperienceAnalyticsSettings
 from office365.intune.devices.management.virtualendpoint.virtual_endpoint import (
     VirtualEndpoint,
 )
+from office365.intune.devices.management.windows_malware_overview import WindowsMalwareOverview
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
@@ -51,9 +57,6 @@ if TYPE_CHECKING:
         ApplePushNotificationCertificate,
     )
     from office365.intune.devices.management.detected_app import DetectedApp
-    from office365.intune.devices.management.device_protection_overview import (
-        DeviceProtectionOverview,
-    )
     from office365.intune.devices.management.imported_windows_autopilot_device_identity import (
         ImportedWindowsAutopilotDeviceIdentity,
     )
@@ -75,15 +78,8 @@ if TYPE_CHECKING:
         RemoteAssistancePartner,
     )
     from office365.intune.devices.management.resource_operation import ResourceOperation
-    from office365.intune.devices.management.settings import DeviceManagementSettings
     from office365.intune.devices.management.software_update_status_summary import (
         SoftwareUpdateStatusSummary,
-    )
-    from office365.intune.devices.management.subscriptionstate import (
-        DeviceManagementSubscriptionState,
-    )
-    from office365.intune.devices.management.user_experience_analytics_settings import (
-        UserExperienceAnalyticsSettings,
     )
     from office365.intune.devices.management.userexperienceanalytics.user_experience_analytics_app_health_app_performance_by_app_version_details import (  # noqa: E501
         UserExperienceAnalyticsAppHealthAppPerformanceByAppVersionDetails,
@@ -160,9 +156,6 @@ if TYPE_CHECKING:
     from office365.intune.devices.management.windows_information_protection_network_learning_summary import (
         WindowsInformationProtectionNetworkLearningSummary,
     )
-    from office365.intune.devices.management.windows_malware_overview import (
-        WindowsMalwareOverview,
-    )
     from office365.intune.devices.management.windowsmalware.windows_malware_information import WindowsMalwareInformation
     from office365.intune.devices.management_exchange_connector import (
         DeviceManagementExchangeConnector,
@@ -180,6 +173,10 @@ class DeviceManagement(Entity):
     configuration.
     """
 
+    @require_permission(
+        delegated=["DeviceManagementRBAC.Read.All"],
+        application=["DeviceManagementRBAC.Read.All"],
+    )
     def get_effective_permissions(self, scope=None) -> ClientResult[ClientValueCollection[RolePermission]]:
         """Retrieves the effective permissions of the currently authenticated user"""
         return_type = ClientResult(self.context, ClientValueCollection(RolePermission))
@@ -188,7 +185,7 @@ class DeviceManagement(Entity):
         self.context.add_query(qry)
         return return_type
 
-    @odata(name="auditEvents")
+    @odata(name="auditEvents", navigation=True)
     @property
     def audit_events(self) -> AuditEventCollection:
         """"""
@@ -197,7 +194,7 @@ class DeviceManagement(Entity):
             AuditEventCollection(self.context, ResourcePath("auditEvents", self.resource_path)),
         )
 
-    @odata(name="virtualEndpoint")
+    @odata(name="virtualEndpoint", navigation=True)
     @property
     def virtual_endpoint(self) -> VirtualEndpoint:
         """"""
@@ -206,7 +203,7 @@ class DeviceManagement(Entity):
             VirtualEndpoint(self.context, ResourcePath("virtualEndpoint", self.resource_path)),
         )
 
-    @odata(name="termsAndConditions")
+    @odata(name="termsAndConditions", navigation=True)
     @property
     def terms_and_conditions(self) -> EntityCollection[TermsAndConditions]:
         """"""
@@ -219,7 +216,7 @@ class DeviceManagement(Entity):
             ),
         )
 
-    @odata(name="deviceCategories")
+    @odata(name="deviceCategories", navigation=True)
     @property
     def device_categories(self) -> EntityCollection[DeviceCategory]:
         """"""
@@ -232,7 +229,7 @@ class DeviceManagement(Entity):
             ),
         )
 
-    @odata(name="deviceEnrollmentConfigurations")
+    @odata(name="deviceEnrollmentConfigurations", navigation=True)
     @property
     def device_enrollment_configurations(self) -> EntityCollection[DeviceEnrollmentConfiguration]:
         """"""
@@ -250,7 +247,7 @@ class DeviceManagement(Entity):
     def intune_brand(self) -> IntuneBrand:
         return self.properties.get("intuneBrand", IntuneBrand())
 
-    @odata(name="managedDevices")
+    @odata(name="managedDevices", navigation=True)
     @property
     def managed_devices(self) -> ManagedDeviceCollection:
         """"""
@@ -262,6 +259,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="reports", navigation=True)
     @property
     def reports(self) -> DeviceManagementReports:
         """"""
@@ -270,56 +268,43 @@ class DeviceManagement(Entity):
             DeviceManagementReports(self.context, ResourcePath("reports", self.resource_path)),
         )
 
+    @odata(name="intuneAccountId")
     @property
     def intune_account_id(self) -> Optional[UUID]:
         """Gets the intuneAccountId property"""
         return self.properties.get("intuneAccountId", None)
 
+    @odata(name="settings")
     @property
     def settings(self) -> DeviceManagementSettings:
         """Gets the settings property"""
-        from office365.intune.devices.management.settings import (
-            DeviceManagementSettings,
-        )
-
         return self.properties.get("settings", DeviceManagementSettings())
 
+    @odata(name="deviceProtectionOverview")
     @property
     def device_protection_overview(self) -> DeviceProtectionOverview:
         """Gets the deviceProtectionOverview property"""
-        from office365.intune.devices.management.device_protection_overview import (
-            DeviceProtectionOverview,
-        )
-
         return self.properties.get("deviceProtectionOverview", DeviceProtectionOverview())
 
+    @odata(name="subscriptionState")
     @property
     def subscription_state(self) -> DeviceManagementSubscriptionState:
         """Gets the subscriptionState property"""
-        from office365.intune.devices.management.subscriptionstate import (
-            DeviceManagementSubscriptionState,
-        )
-
         return self.properties.get("subscriptionState", DeviceManagementSubscriptionState.pending)
 
+    @odata(name="userExperienceAnalyticsSettings")
     @property
     def user_experience_analytics_settings(self) -> UserExperienceAnalyticsSettings:
         """Gets the userExperienceAnalyticsSettings property"""
-        from office365.intune.devices.management.user_experience_analytics_settings import (
-            UserExperienceAnalyticsSettings,
-        )
-
         return self.properties.get("userExperienceAnalyticsSettings", UserExperienceAnalyticsSettings())
 
+    @odata(name="windowsMalwareOverview")
     @property
     def windows_malware_overview(self) -> WindowsMalwareOverview:
         """Gets the windowsMalwareOverview property"""
-        from office365.intune.devices.management.windows_malware_overview import (
-            WindowsMalwareOverview,
-        )
-
         return self.properties.get("windowsMalwareOverview", WindowsMalwareOverview())
 
+    @odata(name="deviceCompliancePolicies", navigation=True)
     @property
     def device_compliance_policies(self) -> EntityCollection[DeviceCompliancePolicy]:
         """Gets the deviceCompliancePolicies property"""
@@ -332,6 +317,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="deviceCompliancePolicyDeviceStateSummary", navigation=True)
     @property
     def device_compliance_policy_device_state_summary(self) -> DeviceCompliancePolicyDeviceStateSummary:
         """Gets the deviceCompliancePolicyDeviceStateSummary property"""
@@ -346,6 +332,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="deviceCompliancePolicySettingStateSummaries", navigation=True)
     @property
     def device_compliance_policy_setting_state_summaries(
         self,
@@ -364,6 +351,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="deviceConfigurationDeviceStateSummaries", navigation=True)
     @property
     def device_configuration_device_state_summaries(self) -> DeviceConfigurationDeviceStateSummary:
         """Gets the deviceConfigurationDeviceStateSummaries property"""
@@ -378,6 +366,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="deviceConfigurations", navigation=True)
     @property
     def device_configurations(self) -> EntityCollection[DeviceConfiguration]:
         """Gets the deviceConfigurations property"""
@@ -392,6 +381,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="iosUpdateStatuses", navigation=True)
     @property
     def ios_update_statuses(self) -> EntityCollection[IosUpdateDeviceStatus]:
         """Gets the iosUpdateStatuses property"""
@@ -404,6 +394,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="softwareUpdateStatusSummary", navigation=True)
     @property
     def software_update_status_summary(self) -> SoftwareUpdateStatusSummary:
         """Gets the softwareUpdateStatusSummary property"""
@@ -416,6 +407,7 @@ class DeviceManagement(Entity):
             SoftwareUpdateStatusSummary(self.context, ResourcePath("softwareUpdateStatusSummary", self.resource_path)),
         )
 
+    @odata(name="complianceManagementPartners", navigation=True)
     @property
     def compliance_management_partners(self) -> EntityCollection[ComplianceManagementPartner]:
         """Gets the complianceManagementPartners property"""
@@ -432,6 +424,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="conditionalAccessSettings", navigation=True)
     @property
     def conditional_access_settings(self) -> OnPremisesConditionalAccessSettings:
         """Gets the conditionalAccessSettings property"""
@@ -446,6 +439,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="deviceManagementPartners", navigation=True)
     @property
     def device_management_partners(self) -> EntityCollection[DeviceManagementPartner]:
         """Gets the deviceManagementPartners property"""
@@ -458,6 +452,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="exchangeConnectors", navigation=True)
     @property
     def exchange_connectors(self) -> EntityCollection[DeviceManagementExchangeConnector]:
         """Gets the exchangeConnectors property"""
@@ -472,6 +467,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="mobileThreatDefenseConnectors", navigation=True)
     @property
     def mobile_threat_defense_connectors(self) -> EntityCollection[MobileThreatDefenseConnector]:
         """Gets the mobileThreatDefenseConnectors property"""
@@ -488,6 +484,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="applePushNotificationCertificate", navigation=True)
     @property
     def apple_push_notification_certificate(self) -> ApplePushNotificationCertificate:
         """Gets the applePushNotificationCertificate property"""
@@ -502,6 +499,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="detectedApps", navigation=True)
     @property
     def detected_apps(self) -> EntityCollection[DetectedApp]:
         """Gets the detectedApps property"""
@@ -512,6 +510,7 @@ class DeviceManagement(Entity):
             EntityCollection[DetectedApp](self.context, DetectedApp, ResourcePath("detectedApps", self.resource_path)),
         )
 
+    @odata(name="managedDeviceOverview", navigation=True)
     @property
     def managed_device_overview(self) -> ManagedDeviceOverview:
         """Gets the managedDeviceOverview property"""
@@ -522,6 +521,7 @@ class DeviceManagement(Entity):
             ManagedDeviceOverview(self.context, ResourcePath("managedDeviceOverview", self.resource_path)),
         )
 
+    @odata(name="mobileAppTroubleshootingEvents", navigation=True)
     @property
     def mobile_app_troubleshooting_events(self) -> EntityCollection[MobileAppTroubleshootingEvent]:
         """Gets the mobileAppTroubleshootingEvents property"""
@@ -538,6 +538,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthApplicationPerformance", navigation=True)
     @property
     def user_experience_analytics_app_health_application_performance(
         self,
@@ -556,6 +557,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthApplicationPerformanceByAppVersionDetails", navigation=True)
     @property
     def user_experience_analytics_app_health_application_performance_by_app_version_details(
         self,
@@ -576,6 +578,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthApplicationPerformanceByAppVersionDeviceId", navigation=True)
     @property
     def user_experience_analytics_app_health_application_performance_by_app_version_device_id(
         self,
@@ -596,6 +599,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthApplicationPerformanceByOSVersion", navigation=True)
     @property
     def user_experience_analytics_app_health_application_performance_by_os_version(
         self,
@@ -614,6 +618,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthDeviceModelPerformance", navigation=True)
     @property
     def user_experience_analytics_app_health_device_model_performance(
         self,
@@ -632,6 +637,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthDevicePerformance", navigation=True)
     @property
     def user_experience_analytics_app_health_device_performance(
         self,
@@ -650,6 +656,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthDevicePerformanceDetails", navigation=True)
     @property
     def user_experience_analytics_app_health_device_performance_details(
         self,
@@ -668,6 +675,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthOSVersionPerformance", navigation=True)
     @property
     def user_experience_analytics_app_health_os_version_performance(
         self,
@@ -686,6 +694,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsAppHealthOverview", navigation=True)
     @property
     def user_experience_analytics_app_health_overview(self) -> UserExperienceAnalyticsCategory:
         """Gets the userExperienceAnalyticsAppHealthOverview property"""
@@ -700,6 +709,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsBaselines", navigation=True)
     @property
     def user_experience_analytics_baselines(self) -> EntityCollection[UserExperienceAnalyticsBaseline]:
         """Gets the userExperienceAnalyticsBaselines property"""
@@ -716,6 +726,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsCategories", navigation=True)
     @property
     def user_experience_analytics_categories(self) -> EntityCollection[UserExperienceAnalyticsCategory]:
         """Gets the userExperienceAnalyticsCategories property"""
@@ -732,6 +743,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsDevicePerformance", navigation=True)
     @property
     def user_experience_analytics_device_performance(self) -> EntityCollection[UserExperienceAnalyticsDevicePerformance]:
         """Gets the userExperienceAnalyticsDevicePerformance property"""
@@ -748,6 +760,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsDeviceScores", navigation=True)
     @property
     def user_experience_analytics_device_scores(self) -> EntityCollection[UserExperienceAnalyticsDeviceScores]:
         """Gets the userExperienceAnalyticsDeviceScores property"""
@@ -764,6 +777,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsDeviceStartupHistory", navigation=True)
     @property
     def user_experience_analytics_device_startup_history(
         self,
@@ -782,6 +796,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsDeviceStartupProcesses", navigation=True)
     @property
     def user_experience_analytics_device_startup_processes(
         self,
@@ -800,6 +815,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsDeviceStartupProcessPerformance", navigation=True)
     @property
     def user_experience_analytics_device_startup_process_performance(
         self,
@@ -818,6 +834,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsMetricHistory", navigation=True)
     @property
     def user_experience_analytics_metric_history(self) -> EntityCollection[UserExperienceAnalyticsMetricHistory]:
         """Gets the userExperienceAnalyticsMetricHistory property"""
@@ -834,6 +851,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsModelScores", navigation=True)
     @property
     def user_experience_analytics_model_scores(self) -> EntityCollection[UserExperienceAnalyticsModelScores]:
         """Gets the userExperienceAnalyticsModelScores property"""
@@ -850,6 +868,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsOverview", navigation=True)
     @property
     def user_experience_analytics_overview(self) -> UserExperienceAnalyticsOverview:
         """Gets the userExperienceAnalyticsOverview property"""
@@ -864,6 +883,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsScoreHistory", navigation=True)
     @property
     def user_experience_analytics_score_history(self) -> EntityCollection[UserExperienceAnalyticsScoreHistory]:
         """Gets the userExperienceAnalyticsScoreHistory property"""
@@ -880,6 +900,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsWorkFromAnywhereHardwareReadinessMetric", navigation=True)
     @property
     def user_experience_analytics_work_from_anywhere_hardware_readiness_metric(
         self,
@@ -897,6 +918,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsWorkFromAnywhereMetrics", navigation=True)
     @property
     def user_experience_analytics_work_from_anywhere_metrics(
         self,
@@ -915,6 +937,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="userExperienceAnalyticsWorkFromAnywhereModelPerformance", navigation=True)
     @property
     def user_experience_analytics_work_from_anywhere_model_performance(
         self,
@@ -933,6 +956,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="windowsMalwareInformation", navigation=True)
     @property
     def windows_malware_information(self) -> EntityCollection[WindowsMalwareInformation]:
         """Gets the windowsMalwareInformation property"""
@@ -947,6 +971,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="importedWindowsAutopilotDeviceIdentities", navigation=True)
     @property
     def imported_windows_autopilot_device_identities(self) -> EntityCollection[ImportedWindowsAutopilotDeviceIdentity]:
         """Gets the importedWindowsAutopilotDeviceIdentities property"""
@@ -963,6 +988,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="windowsAutopilotDeviceIdentities", navigation=True)
     @property
     def windows_autopilot_device_identities(self) -> EntityCollection[WindowsAutopilotDeviceIdentity]:
         """Gets the windowsAutopilotDeviceIdentities property"""
@@ -979,6 +1005,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="notificationMessageTemplates", navigation=True)
     @property
     def notification_message_templates(self) -> EntityCollection[NotificationMessageTemplate]:
         """Gets the notificationMessageTemplates property"""
@@ -995,6 +1022,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="resourceOperations", navigation=True)
     @property
     def resource_operations(self) -> EntityCollection[ResourceOperation]:
         """Gets the resourceOperations property"""
@@ -1009,6 +1037,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="roleAssignments", navigation=True)
     @property
     def role_assignments(self) -> EntityCollection[DeviceAndAppManagementRoleAssignment]:
         """Gets the roleAssignments property"""
@@ -1023,6 +1052,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="roleDefinitions", navigation=True)
     @property
     def role_definitions(self) -> EntityCollection[RoleDefinition]:
         """Gets the roleDefinitions property"""
@@ -1035,6 +1065,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="remoteAssistancePartners", navigation=True)
     @property
     def remote_assistance_partners(self) -> EntityCollection[RemoteAssistancePartner]:
         """Gets the remoteAssistancePartners property"""
@@ -1049,6 +1080,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="troubleshootingEvents", navigation=True)
     @property
     def troubleshooting_events(self) -> EntityCollection[DeviceManagementTroubleshootingEvent]:
         """Gets the troubleshootingEvents property"""
@@ -1065,6 +1097,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="windowsInformationProtectionAppLearningSummaries", navigation=True)
     @property
     def windows_information_protection_app_learning_summaries(
         self,
@@ -1083,6 +1116,7 @@ class DeviceManagement(Entity):
             ),
         )
 
+    @odata(name="windowsInformationProtectionNetworkLearningSummaries", navigation=True)
     @property
     def windows_information_protection_network_learning_summaries(
         self,

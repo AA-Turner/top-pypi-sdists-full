@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-garmin
-Version: 0.1.55
+Version: 0.1.57
 Summary: Python client for Garmin Connect API
 Author-email: Ron Klinkien <ron@cyberjunky.nl>
 License-Expression: MIT
@@ -261,7 +261,17 @@ The library automatically adds computed fields for convenience:
 - **VO2 Max**: training status (running, else cycling), then profile settings, then recent activities
 - **Training plan goal**: the plan's goal event, else the upcoming (primary) race on your calendar
 - **Skin temperature**: `avgSkinTempDeviationC` is the nightly change from your baseline, not an absolute temperature
+- **Sleep stress**: `sleepStress` is the overnight series as `[{time, value}]` with UTC datetimes; samples Garmin could not measure are dropped
 - **Sanity checks**: a `metabolicAge` that can't be an age in years is returned as `None`
+
+## Community
+
+Questions, ideas or just want to chat? Join The Junkyard on Discord:
+
+<a href="https://discord.gg/hUBQxRhJCU">
+  <img src="https://raw.githubusercontent.com/cyberjunky/cyberjunky/main/assets/junkyard-discord.svg"
+       alt="Join The Junkyard on Discord" width="600">
+</a>
 
 ## License
 

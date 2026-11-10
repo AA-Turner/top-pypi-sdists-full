@@ -27,18 +27,37 @@ from office365.migration.assessment.issue import AssessmentIssue
 from office365.migration.assessment.report import AssessmentReport
 from office365.migration.assessment.runner import ScanRunner
 from office365.migration.assessment.scanners import AssessmentOptions
-from office365.migration.sharepoint.adapters import is_taxonomy_validation
 from office365.migration.sharepoint.options import SharePointAssessmentOptions
 from office365.migration.sharepoint.registry import sharepoint_scan_pairs
 from office365.migration.sharepoint.scanners.summary import SiteScanSummary
 from office365.runtime.client_result import ClientResult
 from office365.runtime.operations import emit_progress
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.exceptions import SPFieldValidationException
 
 if TYPE_CHECKING:
     from office365.runtime.operations import Progress
     from office365.sharepoint.sites.site import Site
     from office365.sharepoint.webs.web import Web
+
+
+#: The projection every list-items scan reads: the row's identity, the ``File`` part,
+#: and the row's kind. A column a scan reads through the model must be selected here —
+#: ``tests/unit/test_migration_scans.py`` walks the scanners' source and says so.
+_ITEM_SCAN_SELECT = [
+    "FileRef",
+    "FileLeafRef",
+    "File/Length",
+    "File/MajorVersion",
+    "File/MinorVersion",
+    "File/CheckOutType",
+    "File/TimeCreated",
+    "File/TimeLastModified",
+    "FileSystemObjectType",
+]
+
+#: The paged unique-permission projection; ``PermissionScanner`` reads just these two.
+_UNIQUE_ITEM_SCAN_SELECT = ["HasUniqueRoleAssignments", "FileRef"]
 
 
 class MigrationAssessor(Entity):
@@ -230,7 +249,7 @@ class MigrationAssessor(Entity):
             report.webs_skipped = True
         elif location.endswith("web/lists"):
             report.lists_skipped = True
-        if is_taxonomy_validation(error):
+        if isinstance(error, SPFieldValidationException) and error.is_missing_term:
             report.issues.append(
                 AssessmentIssue(
                     "warning",
@@ -305,18 +324,9 @@ class MigrationAssessor(Entity):
                 )
             if has_items:
                 pending["count"] += 1
-                lst.items.select(
-                    [
-                        "FileRef",
-                        "FileLeafRef",
-                        "File/Length",
-                        "File/MajorVersion",
-                        "File/MinorVersion",
-                        "File/CheckOutType",
-                        "File/TimeCreated",
-                        "File/TimeLastModified",
-                    ]
-                ).expand(["File", "File/ModifiedBy", "File/CheckedOutByUser"]).get().on_error(_fail).after_execute(
+                lst.items.select(list(_ITEM_SCAN_SELECT)).expand(
+                    ["File", "File/ModifiedBy", "File/CheckedOutByUser"]
+                ).get().on_error(_fail).after_execute(
                     lambda col, lst=lst, loc=location, done=_scan_done: (
                         self._scan_items(runner, col, loc),
                         done(lst),
@@ -325,7 +335,7 @@ class MigrationAssessor(Entity):
             if has_unique_items:
                 pending["count"] += 1
                 (
-                    lst.items.select(["HasUniqueRoleAssignments", "FileRef"])
+                    lst.items.select(list(_UNIQUE_ITEM_SCAN_SELECT))
                     .get_all()
                     .on_error(_fail)
                     .after_execute(

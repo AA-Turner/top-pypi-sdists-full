@@ -31,7 +31,7 @@ class CallReviewerPool:
         reviewer_name (Union[None, str]): Get reviewer name from profile or invited_user.
         reviewer_email (Union[None, str]): Get email from profile, invited_user, or invited_email.
         has_profile (bool): Check if reviewer has a profile.
-        invited_email (str): Email address for direct invitations
+        invited_email (str): Email address for direct invitations Default: ''.
         invited_user (Union[None, str]): Waldur user if email matches existing account
         invited_user_name (str):
         invited_at (datetime.datetime):
@@ -71,7 +71,6 @@ class CallReviewerPool:
     reviewer_name: Union[None, str]
     reviewer_email: Union[None, str]
     has_profile: bool
-    invited_email: str
     invited_user: Union[None, str]
     invited_user_name: str
     invited_at: datetime.datetime
@@ -91,6 +90,7 @@ class CallReviewerPool:
     reviews_completed: int
     override_reason: str
     overridden_at: Union[None, datetime.datetime]
+    invited_email: str = ""
     overridden_by_name: str = ""
     max_assignments: Union[Unset, int] = UNSET
     expertise_match_score: Union[None, Unset, float] = UNSET

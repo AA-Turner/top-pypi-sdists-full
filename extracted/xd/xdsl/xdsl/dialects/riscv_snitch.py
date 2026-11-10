@@ -26,13 +26,10 @@ from xdsl.dialects.riscv import (
     IntRegisterType,
     RdRsRsOperation,
     RISCVAsmOperation,
-    RISCVCustomFormatOperation,
     RISCVInstruction,
     RISCVRegallocOperation,
     RISCVRegisterType,
     RsRsIntegerOperation,
-    parse_immediate_value,
-    print_immediate_value,
     si12,
     ui5,
 )
@@ -51,7 +48,6 @@ from xdsl.irdl import (
     irdl_op_definition,
     lazy_traits_def,
     operand_def,
-    opt_attr_def,
     prop_def,
     region_def,
     result_def,
@@ -107,7 +103,7 @@ class ScfgwOp(RsRsIntegerOperation):
 
 
 @irdl_op_definition
-class ScfgwiOp(RISCVCustomFormatOperation, RISCVInstruction):
+class ScfgwiOp(RISCVInstruction):
     """
     Write the value in rs to the Snitch stream configuration location pointed by
     immediate value in the memory-mapped address space.
@@ -121,6 +117,10 @@ class ScfgwiOp(RISCVCustomFormatOperation, RISCVInstruction):
 
     rs1 = operand_def(IntRegisterType)
     immediate = attr_def(IntegerAttr[SI12])
+
+    assembly_format = (
+        "$rs1 `,` $immediate attr-dict `:` `(` type($rs1) `)` `->` `(` `)`"
+    )
 
     traits = traits_def(MemoryWriteEffect())
 
@@ -145,17 +145,6 @@ class ScfgwiOp(RISCVCustomFormatOperation, RISCVInstruction):
 
     def assembly_line_args(self) -> tuple[AssemblyInstructionArg, ...]:
         return self.rs1, self.immediate
-
-    @classmethod
-    def custom_parse_attributes(cls, parser: Parser) -> dict[str, Attribute]:
-        attributes = dict[str, Attribute]()
-        attributes["immediate"] = parse_immediate_value(parser, si12)
-        return attributes
-
-    def custom_print_attributes(self, printer: Printer) -> set[str]:
-        printer.print_string(", ")
-        print_immediate_value(printer, self.immediate)
-        return {"immediate"}
 
 
 @irdl_op_definition
@@ -1037,9 +1026,7 @@ class VFMaxSOp(riscv.RdRsRsFloatOperationWithFastMath):
     traits = traits_def(AlwaysSpeculatable())
 
 
-class RdRsRsAccumulatingFloatOperationWithFastMath(
-    RISCVCustomFormatOperation, RISCVInstruction, ABC
-):
+class RdRsRsAccumulatingFloatOperationWithFastMath(RISCVInstruction, ABC):
     """
     A base class for RISC-V operations that have one destination floating-point register,
     that also acts as a source register, and two source floating-point registers and can
@@ -1055,7 +1042,12 @@ class RdRsRsAccumulatingFloatOperationWithFastMath(
     rs1 = operand_def(FloatRegisterType)
     rs2 = operand_def(FloatRegisterType)
 
-    fastmath = opt_attr_def(FastMathFlagsAttr)
+    fastmath = attr_def(FastMathFlagsAttr, default_value=FastMathFlagsAttr("none"))
+
+    assembly_format = (
+        "$rd_in `,` $rs1 `,` $rs2 (`fastmath` `` $fastmath^)? attr-dict `:` "
+        "functional-type(operands, results)"
+    )
 
     traits = traits_def(AlwaysSpeculatable())
 
@@ -1085,28 +1077,13 @@ class RdRsRsAccumulatingFloatOperationWithFastMath(
     def assembly_line_args(self) -> tuple[AssemblyInstructionArg, ...]:
         return self.rd_in, self.rs1, self.rs2
 
-    @classmethod
-    def custom_parse_attributes(cls, parser: Parser) -> dict[str, Attribute]:
-        attributes = dict[str, Attribute]()
-        flags = FastMathFlagsAttr("none")
-        if parser.parse_optional_keyword("fastmath") is not None:
-            flags = FastMathFlagsAttr(FastMathFlagsAttr.parse_parameter(parser))
-        attributes["fastmath"] = flags
-        return attributes
-
-    def custom_print_attributes(self, printer: Printer) -> set[str]:
-        if self.fastmath is not None and self.fastmath != FastMathFlagsAttr("none"):
-            printer.print_string(" fastmath")
-            self.fastmath.print_parameter(printer)
-        return {"fastmath"}
-
     def get_register_constraints(self) -> RegisterConstraints:
         return RegisterConstraints(
             (self.rs1, self.rs2), (), ((self.rd_in, self.rd_out),)
         )
 
 
-class RdRsAccumulatingFloatOperation(RISCVCustomFormatOperation, RISCVInstruction, ABC):
+class RdRsAccumulatingFloatOperation(RISCVInstruction, ABC):
     """
     A base class for RISC-V operations that have one destination floating-point register,
     that also acts as a source register, and a source floating-point register.
@@ -1119,6 +1096,8 @@ class RdRsAccumulatingFloatOperation(RISCVCustomFormatOperation, RISCVInstructio
     rd_out = result_def(SAME_FLOAT_REGISTER_TYPE)
     rd_in = operand_def(SAME_FLOAT_REGISTER_TYPE)
     rs = operand_def(FloatRegisterType)
+
+    assembly_format = "$rd_in `,` $rs attr-dict `:` functional-type(operands, results)"
 
     traits = traits_def(AlwaysSpeculatable())
 

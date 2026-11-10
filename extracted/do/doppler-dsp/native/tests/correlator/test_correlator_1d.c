@@ -1,0 +1,359 @@
+#include "doppler/correlator/correlator_core.h"
+#include "doppler/dp_complex.h"
+#include "dp_state_test.h"
+#include "dp_test.h"
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TOL 1e-4f /* CF32 round-trip tolerance */
+
+int
+main (void)
+{
+  const size_t N = 16;
+
+  /* ── lifecycle ────────────────────────────────────────────────────── */
+  {
+    float _Complex ref[16];
+    for (size_t i = 0; i < N; i++)
+      ref[i] = 1.0f + 0.0f * I;
+
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 1, 1, 0);
+    DP_CHECK (obj != NULL);
+    DP_CHECK (obj->n == N);
+    DP_CHECK (obj->dwell == 1);
+    DP_CHECK (obj->count == 0);
+    /* The 1-D flavor is the single-row path: its own row plans, no 2-D. */
+    DP_CHECK (obj->flavor == DP_CORRELATOR_1D);
+    DP_CHECK (obj->fast_path == 1 && obj->ny == 1 && obj->nx == N);
+    DP_CHECK (obj->fwd1d != NULL && obj->inv1d != NULL);
+    DP_CHECK (obj->fwd == NULL && obj->inv == NULL);
+    dp_correlator_reset (obj); /* must not crash */
+    DP_CHECK (obj->count == 0);
+    dp_correlator_destroy (obj);
+    dp_correlator_destroy (NULL); /* must not crash */
+  }
+
+  /* ── self-correlation of a unit impulse (dwell=1) ─────────────────── *
+   * corr(δ, δ)[τ] = δ[τ]  — peak at lag 0, zeros elsewhere.
+   * With the FFT correlator the output is circular; the impulse at index 0
+   * maps to lag 0 = index 0 in the output.                               */
+  {
+    float _Complex ref[16] = { 0 };
+    ref[0]                 = 1.0f + 0.0f * I; /* unit impulse */
+
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 1, 1, 0);
+    DP_CHECK (obj != NULL);
+
+    float _Complex out[16];
+    size_t n_out = dp_correlator_execute (obj, ref, N, out, N, NULL);
+
+    DP_CHECK (n_out == N); /* dwell=1 → always dumps */
+    DP_CHECK (dp_cnearf (out[0], 1.0f + 0.0f * I, TOL)); /* peak at lag 0 */
+    for (size_t k = 1; k < N; k++)
+      DP_CHECK (dp_cnearf (out[k], 0.0f + 0.0f * I, TOL));
+
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── known tone: self-correlation equals tone scaled by N ─────────── *
+   * For x[n] = exp(j·2π·k₀·n/N), the circular auto-correlation is       *
+   * N · exp(j·2π·k₀·τ/N) — the same tone scaled by N; every lag has     *
+   * equal magnitude N.  Verify a few lag values.                          */
+  {
+    float _Complex ref[16];
+    for (size_t n = 0; n < N; n++)
+      {
+        float ph = 2.0f * 3.14159265358979f * 2.0f * (float)n / (float)N;
+        ref[n]   = cosf (ph) + sinf (ph) * I;
+      }
+
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 1, 1, 0);
+    float _Complex out[16];
+    dp_correlator_execute (obj, ref, N, out, N, NULL);
+
+    /* out[τ] = N · ref[τ]; magnitude at every lag should be N. */
+    for (size_t k = 0; k < N; k++)
+      {
+        float expected_re = (float)N * crealf (ref[k]);
+        float expected_im = (float)N * cimagf (ref[k]);
+        DP_CHECK (fabsf (crealf (out[k]) - expected_re) < TOL * (float)N);
+        DP_CHECK (fabsf (cimagf (out[k]) - expected_im) < TOL * (float)N);
+      }
+
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── integrate-and-dump: dwell=3 ─────────────────────────────────── *
+   * First two calls return 0; third call returns n and resets counter.  */
+  {
+    float _Complex ref[16] = { 0 };
+    ref[0]                 = 1.0f;
+
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 3, 1, 0);
+    float _Complex out[16];
+
+    size_t n1 = dp_correlator_execute (obj, ref, N, out, N, NULL);
+    DP_CHECK (n1 == 0);
+    DP_CHECK (obj->count == 1);
+
+    size_t n2 = dp_correlator_execute (obj, ref, N, out, N, NULL);
+    DP_CHECK (n2 == 0);
+    DP_CHECK (obj->count == 2);
+
+    size_t n3 = dp_correlator_execute (obj, ref, N, out, N, NULL);
+    DP_CHECK (n3 == N);         /* dump on third call */
+    DP_CHECK (obj->count == 0); /* counter reset */
+
+    /* After 3 frames of impulse-against-impulse, out[0] ≈ 3.0 */
+    DP_CHECK (crealf (out[0]) > 2.9f && crealf (out[0]) < 3.1f);
+
+    /* Immediate fourth call starts fresh — returns 0 */
+    size_t n4 = dp_correlator_execute (obj, ref, N, out, N, NULL);
+    DP_CHECK (n4 == 0);
+    DP_CHECK (obj->count == 1);
+
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── dp_correlator_reset clears mid-dwell accumulation ───────────── */
+  {
+    float _Complex ref[16] = { 0 };
+    ref[0]                 = 1.0f;
+
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 4, 1, 0);
+    float _Complex out[16];
+
+    dp_correlator_execute (obj, ref, N, out, N, NULL); /* count = 1 */
+    dp_correlator_execute (obj, ref, N, out, N, NULL); /* count = 2 */
+    dp_correlator_reset (obj);                         /* back to 0 */
+    DP_CHECK (obj->count == 0);
+    DP_CHECK (dp_cnearf (obj->accum[0], 0.0f + 0.0f * I, TOL));
+
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── dp_correlator_set_ref recomputes and resets ──────────────────── */
+  {
+    float _Complex ref_a[16] = { 0 };
+    float _Complex ref_b[16] = { 0 };
+    ref_a[0]                 = 1.0f;
+    ref_b[1]                 = 1.0f; /* impulse at lag 1 */
+
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref_a, N, 1, 1, 0);
+    float _Complex out[16];
+
+    /* Correlate ref_b (impulse at 1) against ref_a (impulse at 0).
+     * R[τ] = IFFT(FFT(δ[n-1]) · conj(FFT(δ[n]))) / N
+     *       = δ[τ-1]  → peak at index 1.                         */
+    dp_correlator_execute (obj, ref_b, N, out, N, NULL);
+    DP_CHECK (dp_cnearf (out[1], 1.0f + 0.0f * I, TOL));
+
+    /* Switch to ref_b; correlate ref_b against itself → peak at lag 0. */
+    dp_correlator_set_ref (obj, ref_b);
+    DP_CHECK (obj->count == 0);
+    dp_correlator_execute (obj, ref_b, N, out, N, NULL);
+    DP_CHECK (dp_cnearf (out[0], 1.0f + 0.0f * I, TOL));
+
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── max_out returns n_out (native = n) ────────────────────────────── */
+  {
+    float _Complex ref[16]     = { 0 };
+    ref[0]                     = 1.0f;
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 1, 1, 0);
+    DP_CHECK (dp_correlator_execute_max_out (obj) == N);
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── decoupled inverse: interpolated output length + peak location ── *
+   * impulse ref, input shifted to lag 1 → native peak at 1; inverted on  *
+   * a 16→32 grid, the peak lands at 1·32/16 = 2.                         */
+  {
+    float _Complex ref[16]     = { 0 };
+    ref[0]                     = 1.0f;
+    float _Complex in[16]      = { 0 };
+    in[1]                      = 1.0f;
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 1, 1, 32);
+    DP_CHECK (obj->n_out == 32);
+    DP_CHECK (dp_correlator_execute_max_out (obj) == 32);
+
+    float _Complex out[32];
+    size_t no = dp_correlator_execute (obj, in, N, out, 32, NULL);
+    DP_CHECK (no == 32);
+    size_t pk = 0;
+    for (size_t k = 1; k < 32; k++)
+      if (cabsf (out[k]) > cabsf (out[pk]))
+        pk = k;
+    DP_CHECK (pk == 2);
+    /* The value, not only the place: the inverse is scaled by the native
+       length n, so a lag that lands on the finer grid keeps the native
+       peak, 1. Scaling by n_out instead would halve it here. */
+    DP_CHECK (dp_cnearf (out[2], 1.0f + 0.0f * I, TOL));
+    dp_correlator_destroy (obj);
+  }
+
+  /* ── pass_capacity: emission stops at max_out (jm gh-138) ────────── */
+  {
+    /* This block cannot serve a short buffer by writing less -- the inverse
+     * FFT plan is fixed at n_out and writes all of it -- so a short `out` is
+     * served from a bounce buffer. The prefix must still be bit-identical to
+     * the unclamped surface, which is what makes truncation a prefix rather
+     * than a different answer. */
+    float _Complex ref[16] = { 0 }, in[16] = { 0 };
+    ref[0]                   = 1.0f;
+    in[2]                    = 1.0f;
+    dp_correlator_state_t *a = dp_correlator_create_1d (ref, 16, 1, 1, 0);
+    dp_correlator_state_t *b = dp_correlator_create_1d (ref, 16, 1, 1, 0);
+    float _Complex full[16], part[16];
+    DP_CHECK (a != NULL && b != NULL);
+    for (int i = 0; i < 16; i++)
+      part[i] = 42.0f + 42.0f * I;
+
+    DP_CHECK (dp_correlator_execute (a, in, 16, full, 16, NULL) == 16);
+    DP_CHECK (dp_correlator_execute (b, in, 16, part, 5, NULL) == 5);
+    for (int i = 0; i < 5; i++)
+      DP_CHECK (
+          dp_cnearf (part[i], full[i], TOL)); /* prefix is the same surface */
+    for (int i = 5; i < 16; i++)
+      DP_CHECK (
+          dp_cnearf (part[i], 42.0f + 42.0f * I, TOL)); /* tail untouched */
+
+    /* Zero capacity writes nothing, and the dump still consumes -- the
+     * frames are spent either way, so `count` must not desynchronise. */
+    for (int i = 0; i < 16; i++)
+      part[i] = 42.0f + 42.0f * I;
+    DP_CHECK (dp_correlator_execute (b, in, 16, part, 0, NULL) == 0);
+    for (int i = 0; i < 16; i++)
+      DP_CHECK (dp_cnearf (part[i], 42.0f + 42.0f * I, TOL));
+    dp_correlator_destroy (a);
+    dp_correlator_destroy (b);
+  }
+
+  /* serializable state — accumulator + count resume; FFT plans + ref rebuilt.
+   */
+  {
+    float _Complex ref[16], in[16], out[16];
+    for (int i = 0; i < 16; i++)
+      {
+        ref[i] = (float)(i % 4) + 0.5f * I;
+        in[i]  = (float)(i % 3) - 1.0f + 0.2f * I;
+      }
+    dp_correlator_state_t *a = dp_correlator_create_1d (ref, 16, 3, 1, 0);
+    dp_correlator_state_t *b = dp_correlator_create_1d (ref, 16, 3, 1, 0);
+    DP_CHECK (a != NULL && b != NULL);
+    (void)dp_correlator_execute (a, in, 16, out, 16, NULL);
+    DP_STATE_ROUNDTRIP_TEST (dp_correlator, a, b);
+    DP_CHECK (b->count == a->count && b->accum[0] == a->accum[0]);
+    dp_correlator_destroy (a);
+    dp_correlator_destroy (b);
+  }
+
+  /* ── n_in must equal n: any other length is REFUSED (#1925) ──────────
+   * The forward FFT reads state->n samples whatever n_in was: a shorter
+   * array was a heap over-read (ASan sees it here, each array is exactly
+   * the wrong length), a longer one was silently truncated. A refusal also
+   * must not count toward the dwell -- with dwell 2, refused calls between
+   * two good frames must leave the dump on the second good frame. */
+  {
+    float _Complex ref[16];
+    for (size_t i = 0; i < N; i++)
+      ref[i] = (i == 0) ? 1.0f : 0.0f;
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 2, 1, 0);
+    DP_CHECK (obj != NULL);
+    float _Complex good[16], out[16];
+    for (size_t i = 0; i < N; i++)
+      good[i] = 1.0f;
+    for (size_t i = 0; i < N; i++)
+      out[i] = CMPLXF (-7.0f, -7.0f);
+
+    DP_CHECK (dp_correlator_execute (obj, good, N, out, N, NULL)
+              == 0); /* frame 1 */
+    const size_t bad[] = { 0, 1, N - 1, N + 1, 2 * N };
+    for (size_t k = 0; k < sizeof bad / sizeof *bad; k++)
+      {
+        float _Complex *x
+            = (float _Complex *)calloc (bad[k] ? bad[k] : 1, sizeof *x);
+        DP_CHECK (dp_correlator_execute (obj, x, bad[k], out, N, NULL)
+                  == SIZE_MAX);
+        DP_CHECK (obj->count == 1); /* not counted */
+        free (x);
+      }
+    int untouched = 1;
+    for (size_t i = 0; i < N; i++)
+      untouched &= crealf (out[i]) == -7.0f;
+    DP_CHECK (untouched);
+    DP_CHECK (dp_correlator_execute (obj, good, N, out, N, NULL)
+              == N); /* frame 2 dumps */
+    DP_CHECK (dp_nearf (crealf (out[0]), 2.0f, 1e-5f));
+    dp_correlator_destroy (obj);
+  }
+
+  /* set_state refuses a frame count a live correlator cannot hold
+     (doppler#2641): a live count is 0 .. dwell-1, and one at or past the
+     dwell would never dump again. A forged count keeps the blob's size, so
+     the envelope passes it; the payload check refuses it, and the target's
+     own blob is byte-identical afterwards. */
+  {
+    enum
+    {
+      N = 16
+    };
+    float _Complex ref[N], x[N], out[N];
+    for (size_t i = 0; i < N; i++)
+      {
+        ref[i] = (float)(i % 3) - 1.0f + I * (float)(i % 2);
+        x[i]   = ref[i];
+      }
+    dp_correlator_state_t *obj = dp_correlator_create_1d (ref, N, 3, 1, 0);
+    DP_CHECK (obj != NULL);
+    DP_CHECK (dp_correlator_execute (obj, x, N, out, N, NULL)
+              == 0); /* count = 1 */
+    size_t         sb     = dp_correlator_state_bytes (obj);
+    unsigned char *blob   = malloc (sb);
+    unsigned char *before = malloc (sb);
+    unsigned char *after  = malloc (sb);
+    dp_correlator_get_state (obj, blob);
+    dp_correlator_get_state (obj, before);
+    DP_CHECK (dp_correlator_set_state (obj, blob)
+              == DP_OK); /* positive control */
+
+    /* The count is the payload's seventh u64, after flavor, ny, ny_out,
+       fast_path, col_out and nx_out; the dwell - 1 accept below proves the
+       offset lands on it. */
+    const size_t at     = sizeof (dp_state_hdr_t) + 6 * sizeof (uint64_t);
+    uint64_t     forged = 3; /* == dwell: never dumps again */
+    memcpy (blob + at, &forged, sizeof forged);
+    DP_CHECK (dp_state_validate (blob, sb, CORRELATOR_STATE_MAGIC,
+                                 CORRELATOR_STATE_VERSION)
+              == DP_OK);
+    DP_CHECK (dp_correlator_set_state (obj, blob) == DP_ERR_INVALID);
+    dp_correlator_get_state (obj, after);
+    DP_CHECK (memcmp (before, after, sb) == 0);
+
+    forged = 2; /* dwell - 1: the last count a live one holds */
+    memcpy (blob + at, &forged, sizeof forged);
+    DP_CHECK (dp_correlator_set_state (obj, blob) == DP_OK);
+    DP_CHECK (obj->count == 2);
+    free (blob);
+    free (before);
+    free (after);
+    dp_correlator_destroy (obj);
+  }
+
+  /* dwell = 0 is refused at create (doppler#2641): it never dumps, and
+     set_state would refuse every blob it could write. */
+  {
+    float _Complex ref[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+    DP_CHECK (dp_correlator_create_1d (ref, 4, 0, 1, 0) == NULL);
+    dp_correlator_state_t *ok = dp_correlator_create_1d (ref, 4, 1, 1, 0);
+    DP_CHECK (ok != NULL);
+    dp_correlator_destroy (ok);
+  }
+
+  DP_TEST_END ("test_correlator_1d");
+}

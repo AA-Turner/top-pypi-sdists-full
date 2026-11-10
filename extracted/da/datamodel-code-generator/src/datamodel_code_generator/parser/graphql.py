@@ -25,6 +25,8 @@ from datamodel_code_generator._format_types import DatetimeClassType
 from datamodel_code_generator._graph import reach
 from datamodel_code_generator._message_text import install_command
 from datamodel_code_generator._requirements import python_target_meets
+from datamodel_code_generator._user_keys import ClassScope
+from datamodel_code_generator._user_keys import class_scope as _class_scope_of
 from datamodel_code_generator.model._decisions.enum_kind import decide_enum_kind, enum_as_literal
 from datamodel_code_generator.model._decisions.union_assembly import MEMBER, UnionPolicy, assemble_union
 from datamodel_code_generator.model.base import _find_base_classes, get_inherited_fields
@@ -180,6 +182,10 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
 
                 self.support_graphql_types[resolved_type].append(type_)
 
+    def _class_scope(self, name: str) -> ClassScope:
+        """Return the scope of the class of the GraphQL type ``name``: the type name, then its output names keyed."""
+        return self.model_resolver.class_scope("predicted", name, self.references[name].path)
+
     def _typename_field(self, name: str, excludes: set[str]) -> DataModelFieldBase:
         field_name = "typename__"
         if field_name in excludes:
@@ -192,7 +198,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             name=field_name,
             alias="__typename",
             source_name="__typename",
-            class_name=name,
+            scope=self._class_scope(name),
             default=name,
             required=False,
             use_one_literal_as_default=True,
@@ -249,7 +255,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             model_type=self.data_model_root_type,
             reference=self.references[enum_object.name],
             fields=[self._build_field("bare", data_type, required=True)],
-            custom_base_class=self._resolve_base_class(enum_object.name),
+            custom_base_class=self._resolve_base_class(self._class_scope(enum_object.name)),
             custom_template_dir=self.custom_template_dir,
             extra_template_data=self.extra_template_data,
             path=self.current_source_path,
@@ -315,15 +321,21 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         )
         self._graph_builder.register_model(enum)
 
-    def parse_field(
+    def parse_field(  # noqa: PLR0913
         self,
         field_name: str,
         alias: str | list[str] | None,
         field: graphql.GraphQLField | graphql.GraphQLInputField,
         original_field_name: str,
         class_name: str | None = None,
+        *,
+        output_names: tuple[str, ...] = (),
     ) -> DataModelFieldBase:
-        """Parse a GraphQL field and return a data model field."""
+        """Parse a GraphQL field and return a data model field.
+
+        The class keys of the options read ``class_name``, then the class's names in the output (``output_names``).
+        """
+        scope = _class_scope_of(class_name, output_names)
         final_data_type = self._graphql_data_type(is_optional=True)
         data_type = final_data_type
         obj = field.type
@@ -369,7 +381,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             default if has_schema_default else None,
             has_default=has_schema_default,
             required=required,
-            class_name=class_name,
+            scope=scope,
         )
 
         extras = {} if self.default_field_extras is None else self.default_field_extras.copy()
@@ -383,7 +395,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             name=field_name,
             alias=alias,
             source_name=original_field_name,
-            class_name=class_name,
+            scope=scope,
             default=effective_default,
             required=required,
             nullable=null_facts.admits_null,
@@ -400,18 +412,20 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         """Parse a GraphQL object-like type and add it to results."""
         fields = []
         exclude_field_names: set[str] = set()
+        scope = self._class_scope(obj.name)
 
         for original_field_name, field in obj.fields.items():
             field_name_, alias = self.model_resolver.get_valid_field_name_and_alias(
                 original_field_name,
                 excludes=exclude_field_names,
                 model_type=self.field_name_model_type,
-                class_name=obj.name,
+                class_name=scope.name,
+                output_names=scope.output_names,
             )
             exclude_field_names.add(field_name_)
 
             data_model_field_type = self.parse_field(
-                field_name_, alias, field, original_field_name, class_name=obj.name
+                field_name_, alias, field, original_field_name, class_name=scope.name, output_names=scope.output_names
             )
             fields.append(data_model_field_type)
 
@@ -435,7 +449,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             reference=self.references[obj.name],
             fields=fields,
             base_classes=base_classes,
-            custom_base_class=self._resolve_base_class(obj.name),
+            custom_base_class=self._resolve_base_class(scope),
             custom_template_dir=self.custom_template_dir,
             extra_template_data=self.extra_template_data,
             path=self.current_source_path,
@@ -470,7 +484,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             self.data_model_union_type,
             reference=self.references[union_object.name],
             fields=fields,
-            custom_base_class=self._resolve_base_class(union_object.name),
+            custom_base_class=self._resolve_base_class(self._class_scope(union_object.name)),
             custom_template_dir=self.custom_template_dir,
             extra_template_data=self.extra_template_data,
             path=self.current_source_path,
@@ -573,7 +587,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
                         ),
                         wire_name,
                         source_name=wire_name,
-                        class_name=obj.name,
+                        scope=self._class_scope(obj.name),
                         row="rename",
                     )
                     excludes.add(cast("str", field.name))
@@ -611,7 +625,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
                 ),
                 "__typename",
                 source_name="__typename",
-                class_name=obj.name,
+                scope=self._class_scope(obj.name),
                 row="rename",
             )
 

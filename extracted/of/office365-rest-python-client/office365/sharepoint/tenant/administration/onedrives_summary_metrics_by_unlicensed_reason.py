@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.tenant.administration.onedrives_count_and_size import (
@@ -11,7 +11,6 @@ from office365.sharepoint.tenant.administration.owner_not_in_entra_onedrives_sum
 )
 
 
-@dataclass
 class OneDrivesSummaryMetricsByUnlicensedReason(ClientValue):
     activeUsersWithoutLicense: OneDrivesCountAndSize = field(default_factory=OneDrivesCountAndSize)
     duplicateOfLicensedUser: OneDrivesCountAndSize = field(default_factory=OneDrivesCountAndSize)

@@ -919,7 +919,9 @@ const arrayviz = (() => {
     const yLabelParts = [];
     const setCommonLabelStyles = (label) => {
       label.style.whiteSpace = 'pre';
-      label.style.borderBottom = '0.1em solid black';
+      label.style.color = 'var(--treescope-axis-label-color)';
+      label.style.borderBottom =
+          '0.1em solid var(--treescope-axis-label-color)';
       label.style.fontSize =
           'calc(min(1, max(0.6, var(--arrayviz-zoom))) * var(--base-font-size))';
     };
@@ -994,7 +996,7 @@ const arrayviz = (() => {
       slider.min = spec.start;
       slider.max = spec.end - 1;
       slider.step = 1;
-      slider.style.width = `calc(max(40ch, ${size}px))`;
+      slider.style.width = `calc(min(500px, max(40ch, ${size}px)))`;
       currentSliceBox.appendChild(slider);
       const sliceSliderCallback = ((evt) => {
         slider.value = evt.target.value;

@@ -13,6 +13,8 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from .._cookies import MemoryAcpCookieStore
+from .._jsonrpc import decode_message, error_response
+from ..exceptions import RequestError
 
 try:
     import websockets
@@ -53,9 +55,14 @@ class _WebSocketTransport:
             if isinstance(frame, bytes):
                 continue
             try:
-                return json.loads(frame)
-            except json.JSONDecodeError:
-                continue
+                message = decode_message(frame)
+                if message is not None:
+                    return message
+            except RequestError as error:
+                # Sending while closing may wait for buffered frames to drain.
+                if self._ws.state == websockets.State.OPEN:
+                    with contextlib.suppress(websockets.ConnectionClosed):
+                        await self.send(error_response(error))
 
     async def close(self) -> None:
         if self._closed:

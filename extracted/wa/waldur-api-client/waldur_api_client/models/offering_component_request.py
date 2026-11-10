@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -8,6 +8,10 @@ from attrs import field as _attrs_field
 from ..models.billing_type_enum import BillingTypeEnum
 from ..models.limit_period_enum import LimitPeriodEnum
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.offering_component_request_spending_limit_periods import OfferingComponentRequestSpendingLimitPeriods
+
 
 T = TypeVar("T", bound="OfferingComponentRequest")
 
@@ -32,6 +36,10 @@ class OfferingComponentRequest:
         max_available_limit (Union[None, Unset, float]):
         is_boolean (Union[Unset, bool]):
         default_limit (Union[None, Unset, float]):
+        spending_limit_periods (Union[Unset, OfferingComponentRequestSpendingLimitPeriods]): Periods (day, week, month,
+            quarter, year, total) for which customers can set a spending limit on this usage-based component; total counts
+            all the usage since the resource started and never resets. Day and week need the integration to report usage per
+            day. Empty when customers cannot set spending limits.
         is_prepaid (Union[Unset, bool]):
         overage_component (Union[None, UUID, Unset]):
         min_prepaid_duration (Union[None, Unset, int]):
@@ -60,6 +68,7 @@ class OfferingComponentRequest:
     max_available_limit: Union[None, Unset, float] = UNSET
     is_boolean: Union[Unset, bool] = UNSET
     default_limit: Union[None, Unset, float] = UNSET
+    spending_limit_periods: Union[Unset, "OfferingComponentRequestSpendingLimitPeriods"] = UNSET
     is_prepaid: Union[Unset, bool] = UNSET
     overage_component: Union[None, UUID, Unset] = UNSET
     min_prepaid_duration: Union[None, Unset, int] = UNSET
@@ -126,6 +135,10 @@ class OfferingComponentRequest:
             default_limit = UNSET
         else:
             default_limit = self.default_limit
+
+        spending_limit_periods: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.spending_limit_periods, Unset):
+            spending_limit_periods = self.spending_limit_periods.to_dict()
 
         is_prepaid = self.is_prepaid
 
@@ -206,6 +219,8 @@ class OfferingComponentRequest:
             field_dict["is_boolean"] = is_boolean
         if default_limit is not UNSET:
             field_dict["default_limit"] = default_limit
+        if spending_limit_periods is not UNSET:
+            field_dict["spending_limit_periods"] = spending_limit_periods
         if is_prepaid is not UNSET:
             field_dict["is_prepaid"] = is_prepaid
         if overage_component is not UNSET:
@@ -227,6 +242,10 @@ class OfferingComponentRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.offering_component_request_spending_limit_periods import (
+            OfferingComponentRequestSpendingLimitPeriods,
+        )
+
         d = dict(src_dict)
         billing_type = BillingTypeEnum(d.pop("billing_type"))
 
@@ -307,6 +326,13 @@ class OfferingComponentRequest:
             return cast(Union[None, Unset, float], data)
 
         default_limit = _parse_default_limit(d.pop("default_limit", UNSET))
+
+        _spending_limit_periods = d.pop("spending_limit_periods", UNSET)
+        spending_limit_periods: Union[Unset, OfferingComponentRequestSpendingLimitPeriods]
+        if isinstance(_spending_limit_periods, Unset):
+            spending_limit_periods = UNSET
+        else:
+            spending_limit_periods = OfferingComponentRequestSpendingLimitPeriods.from_dict(_spending_limit_periods)
 
         is_prepaid = d.pop("is_prepaid", UNSET)
 
@@ -397,6 +423,7 @@ class OfferingComponentRequest:
             max_available_limit=max_available_limit,
             is_boolean=is_boolean,
             default_limit=default_limit,
+            spending_limit_periods=spending_limit_periods,
             is_prepaid=is_prepaid,
             overage_component=overage_component,
             min_prepaid_duration=min_prepaid_duration,

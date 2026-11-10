@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 import importlib.util
+import io
 from pathlib import Path
 import sys
 import threading
@@ -105,6 +106,54 @@ def test_script_names_cannot_replace_rpc_internals(rpc_module: types.ModuleType)
     assert rpc.get_object("Doc", "Box") == {"Name": "Box"}
 
 
+def test_sync_stdout_excludes_async_worker_output(
+    rpc_module: types.ModuleType, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    console = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", console)
+    rpc = rpc_module.FreeCADRPC()
+    rpc_module.FreeCAD.audit_go = threading.Event()
+    rpc_module.FreeCAD.audit_printed = threading.Event()
+    started = rpc.execute_code_async(
+        'assert FreeCAD.audit_go.wait(3)\n'
+        'print("background output", flush=True)\n'
+        'FreeCAD.audit_printed.set()'
+    )
+    assert started["success"] is True
+    reply = rpc.execute_code(
+        'print("request output")\n'
+        'FreeCAD.audit_go.set()\n'
+        'assert FreeCAD.audit_printed.wait(3)'
+    )
+    assert reply["success"] is True
+    assert reply["message"].endswith("request output\n")
+    assert "background output" not in reply["message"]
+    assert console.getvalue() == "background output\n"
+    assert sys.stdout is console
+
+
+def test_timed_out_script_keeps_capture_until_it_finishes(
+    rpc_module: types.ModuleType, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    console = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", console)
+    release = threading.Event()
+    rpc_module.FreeCAD.audit_release = release
+    rpc = rpc_module.FreeCADRPC()
+    try:
+        reply = rpc.execute_code(
+            'FreeCAD.audit_release.wait(3)\nprint("late script output")', timeout=0.02
+        )
+        assert reply["success"] is False
+        print("console while task is running")
+    finally:
+        release.set()
+        rpc_module.test_dispatch._waker.join()
+    assert sys.stdout is console
+    assert console.getvalue() == "console while task is running\n"
+    assert rpc.execute_code('print("next call")')["message"].endswith("next call\n")
+
+
 @pytest.mark.parametrize(
     ("code", "error"),
     [
@@ -119,7 +168,7 @@ def test_script_exit_fails_the_call_and_preserves_rpc_dispatch(
     # Run the Qt callback synchronously so an escaping BaseException fails
     # this test instead of merely terminating a test worker thread.
     rpc_module.test_dispatch._waker = types.SimpleNamespace(
-        wake=lambda: rpc_module.test_dispatch.process_gui_tasks(reschedule=False)
+        wake=lambda: rpc_module.test_dispatch.process_gui_tasks()
     )
     rpc = rpc_module.FreeCADRPC()
     stdout = sys.stdout
@@ -529,28 +578,50 @@ def test_thread_start_failure_does_not_leave_a_running_job(
     assert rpc.get_rpc_status()["async_jobs_running"] == []
 
 
-def test_job_result_is_available_while_cleanup_is_blocked(
-    rpc_module: types.ModuleType, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    cleanup, release = threading.Event(), threading.Event()
-    original = rpc_module.dispatch_to_gui
-
-    def dispatch(task, **kwargs):
-        if kwargs["operation_name"] == "clear_async_status":
-            cleanup.set()
-            release.wait(5)
-            return {"success": False, "error": "GUI busy"}
-        return original(task, **kwargs)
-
-    monkeypatch.setattr(rpc_module, "dispatch_to_gui", dispatch)
+def test_job_result_is_available_while_cleanup_is_blocked(rpc_module: types.ModuleType) -> None:
     rpc = rpc_module.FreeCADRPC()
-    job_id = rpc.execute_code_async("raise ValueError('failed before cleanup')")["job_id"]
+    release = threading.Event()
+    rpc_module.FreeCAD.test_release = release
+    busy = threading.Thread(
+        target=lambda: rpc.execute_code("FreeCAD.test_release.wait(5)", timeout=10), daemon=True,
+    )
+    busy.start()
     try:
-        assert cleanup.wait(2)
+        deadline = time.monotonic() + 2
+        while rpc.get_rpc_status()["gui_dispatch"]["state"] != "busy":
+            assert time.monotonic() < deadline
+            time.sleep(0.005)
+        # The status-bar updates queue behind the busy GUI task; the job's
+        # result must not wait for them.
+        job_id = rpc.execute_code_async("raise ValueError('failed before cleanup')")["job_id"]
         assert wait_for_job(rpc, job_id)["state"] == "failed"
         assert rpc.get_rpc_status()["async_jobs_running"] == []
     finally:
         release.set()
+        busy.join(timeout=5)
+
+
+def test_status_message_is_cleared_after_a_job_that_ran_behind_a_busy_gui(
+    rpc_module: types.ModuleType,
+) -> None:
+    status_bar = rpc_module.FreeCADGui.getMainWindow().statusBar()
+    rpc = rpc_module.FreeCADRPC()
+    release = threading.Event()
+    rpc_module.FreeCAD.test_release = release
+    busy = threading.Thread(
+        target=lambda: rpc.execute_code("FreeCAD.test_release.wait(5)", timeout=10), daemon=True,
+    )
+    busy.start()
+    deadline = time.monotonic() + 2
+    while rpc.get_rpc_status()["gui_dispatch"]["state"] != "busy":
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    job_id = rpc.execute_code_async("pass")["job_id"]
+    assert wait_for_job(rpc, job_id)["state"] == "done"
+    release.set()
+    busy.join(timeout=5)
+    rpc_module.test_dispatch.process_gui_tasks()
+    assert status_bar.currentMessage() == ""
 
 
 def test_scripts_and_job_queries_do_not_scan_unrelated_documents(rpc_module: types.ModuleType) -> None:
@@ -563,3 +634,25 @@ def test_scripts_and_job_queries_do_not_scan_unrelated_documents(rpc_module: typ
     job_id = rpc.execute_code_async("value += 1")["job_id"]
     assert wait_for_job(rpc, job_id)["state"] == "done"
     assert rpc.execute_code("print(value)")["message"].endswith("43\n")
+
+
+def test_async_start_does_not_wait_for_a_busy_gui_thread(rpc_module: types.ModuleType) -> None:
+    rpc = rpc_module.FreeCADRPC()
+    release = threading.Event()
+    rpc_module.FreeCAD.test_release = release
+    busy = threading.Thread(
+        target=lambda: rpc.execute_code("FreeCAD.test_release.wait(5)", timeout=10), daemon=True,
+    )
+    busy.start()
+    try:
+        deadline = time.monotonic() + 2
+        while rpc.get_rpc_status()["gui_dispatch"]["state"] != "busy":
+            assert time.monotonic() < deadline
+            time.sleep(0.005)
+        before = time.monotonic()
+        job_id = rpc.execute_code_async("pass")["job_id"]
+        assert time.monotonic() - before < 0.5
+        assert wait_for_job(rpc, job_id)["state"] == "done"
+    finally:
+        release.set()
+        busy.join(timeout=5)

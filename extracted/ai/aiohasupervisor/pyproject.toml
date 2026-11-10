@@ -23,7 +23,7 @@ dependencies = [
     "mashumaro>=3.11,<4.0",
     "orjson>=3.6.1,<4.0.0",
 ]
-version = "0.9.0"
+version = "0.10.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -36,13 +36,13 @@ dev = [
     "aiointercept==1.0.0",
     "codespell==2.4.3",
     "coverage==7.17.0",
-    "mypy==2.4.0",
+    "mypy==2.4.1",
     "pre-commit==4.7.0",
-    "pytest-asyncio==1.4.0",
+    "pytest-asyncio==1.4.1.post1",
     "pytest-cov==7.1.0",
     "pytest-timeout==2.4.0",
-    "pytest==9.1.1",
-    "ruff==0.17.2",
+    "pytest==9.2.0",
+    "ruff==0.17.3",
     "yamllint==1.38.0",
 ]
 
@@ -81,6 +81,7 @@ norecursedirs = [
 log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s:%(filename)s:%(lineno)s %(message)s"
 log_date_format = "%Y-%m-%d %H:%M:%S"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "error",
     "ignore:pkg_resources is deprecated as an API:DeprecationWarning:dirhash",

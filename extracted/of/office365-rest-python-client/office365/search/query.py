@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SearchQuery(ClientValue):
     """
     Represents a search query that contains search terms and optional filters.

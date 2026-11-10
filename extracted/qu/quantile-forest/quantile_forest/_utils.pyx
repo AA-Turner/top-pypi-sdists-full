@@ -1,5 +1,4 @@
 from libc.stdlib cimport free, malloc
-from libcpp.set cimport set
 from libcpp.vector cimport vector
 
 import numpy as np
@@ -8,7 +7,7 @@ cimport numpy as cnp
 cnp.import_array()
 
 
-cdef inline void parallel_qsort_asc(
+cdef void parallel_qsort_asc(
     vector[double]& a,
     vector[double]& b,
     intp_t left,
@@ -58,55 +57,6 @@ cdef inline void parallel_qsort_asc(
         parallel_qsort_asc(a, b, i, right)
 
 
-cpdef vector[intp_t] generate_unsampled_indices(
-    vector[intp_t] sample_indices,
-    intp_t n_total_samples,
-    vector[set[intp_t]] duplicates,
-) noexcept nogil:
-    """Return a list of every unsampled index, accounting for duplicates.
-
-    Parameters
-    ----------
-    sample_indices : array-like of shape (n_samples,)
-        Sampled indices.
-
-    n_total_samples : int
-        Number of total samples, sampled and unsampled.
-
-    duplicates : list of sets of ints
-        List of sets of functionally identical indices.
-
-    Returns
-    -------
-    unsampled_indices : array-like
-        List of unsampled indices.
-    """
-    cdef intp_t n_samples, n_duplicates
-    cdef intp_t i
-    cdef intp_t sampled_idx
-    cdef set[intp_t] sampled_set
-    cdef vector[intp_t] unsampled_indices
-
-    n_samples = sample_indices.size()
-    n_duplicates = duplicates.size()
-
-    for i in range(n_samples):
-        sampled_set.insert(sample_indices[i])
-
-    # Account for duplicates of sampled indices.
-    for i in range(n_duplicates):
-        for sampled_idx in duplicates[i]:
-            if sampled_set.count(sampled_idx):
-                sampled_set.insert(duplicates[i].begin(), duplicates[i].end())
-
-    # If the index is not in `sampled_set`, it is unsampled.
-    for i in range(n_total_samples):
-        if not sampled_set.count(i):
-            unsampled_indices.push_back(i)
-
-    return unsampled_indices
-
-
 cpdef group_indices_by_value(cnp.ndarray[intp_t, ndim=1] a):
     """Group indices of a sorted array based on unique values.
 
@@ -138,7 +88,10 @@ cpdef group_indices_by_value(cnp.ndarray[intp_t, ndim=1] a):
     cdef intp_t* unq_first_indices
 
     num_samples = a.shape[0]
-    sort_idx = np.argsort(a)
+    # A stable sort keeps each group's indices in their original order. An
+    # unstable sort orders ties differently on different CPUs (NumPy's SIMD
+    # sorts), which would change the samples that leaf subsampling keeps.
+    sort_idx = np.argsort(a, kind="stable")
     a_sorted = a[sort_idx]
     unq_count_idx = 0
     unq_count = <intp_t*>malloc(num_samples * sizeof(intp_t))
@@ -186,61 +139,3 @@ cpdef group_indices_by_value(cnp.ndarray[intp_t, ndim=1] a):
     free(unq_first_indices)
 
     return np_unq_items, unq_idx
-
-
-cpdef map_indices_to_leaves(
-    cnp.ndarray[intp_t, ndim=3] y_train_leaves_slice,
-    cnp.ndarray[intp_t, ndim=2] bootstrap_indices,
-    vector[intp_t] leaf_indices,
-    vector[vector[intp_t]] leaf_values_list,
-):
-    """Return a mapping of training sample indices to a tree's leaf nodes.
-
-    Parameters
-    ----------
-    y_train_leaves_slice : array-like of shape (n_leaves, n_outputs, n_indices)
-        Unpopulated mapping representing a list of nodes, each with a list of
-        indices of the training samples residing at that node.
-
-    bootstrap_indices : array-like of shape (n_samples, n_outputs)
-        Bootstrap indices of training samples.
-
-    leaf_indices : list of ints
-        List of leaf node indices. Values correspond to `leaf_values_list`.
-
-    leaf_values_list : list of list of ints
-        List of leaf node sample indices. Values correspond to `leaf_indices`.
-
-    Returns
-    -------
-    y_train_leaves_slice : array-like of shape (n_leaves, n_outputs, n_indices)
-        Populated mapping of training sample indices to leaf nodes. Nodes with
-        no samples (e.g., internal nodes) are empty. Internal nodes are
-        included so that leaf node indices match their ``est.apply`` outputs.
-        Each node list is padded to equal length with 0s.
-    """
-    cdef intp_t n_samples, n_outputs, n_leaves
-    cdef intp_t i, j, k
-    cdef vector[intp_t] leaf_values
-    cdef intp_t leaf_index, leaf_value, y_index
-    cdef intp_t[:, :, :] y_train_leaves_slice_view
-
-    n_outputs = bootstrap_indices.shape[1]
-    n_leaves = leaf_indices.size()
-
-    y_train_leaves_slice_view = y_train_leaves_slice  # memoryview
-
-    with nogil:
-        for i in range(n_leaves):
-            leaf_index = leaf_indices[i]
-            leaf_values = leaf_values_list[i]
-
-            n_samples = leaf_values.size()
-            for j in range(n_samples):
-                leaf_value = leaf_values[j]
-                for k in range(n_outputs):
-                    y_index = bootstrap_indices[leaf_value, k]
-                    if y_index > 0:
-                        y_train_leaves_slice_view[leaf_index, k, j] = y_index
-
-    return np.asarray(y_train_leaves_slice_view)

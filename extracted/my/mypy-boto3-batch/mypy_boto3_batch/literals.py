@@ -42,6 +42,7 @@ __all__ = (
     "EFSTransitEncryptionType",
     "EksAccessEntryDesiredStateType",
     "EksAccessEntryStatusType",
+    "EksSeccompProfileTypeType",
     "FirelensConfigurationTypeType",
     "JQStateType",
     "JQStatusType",
@@ -112,6 +113,7 @@ EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
 EksAccessEntryDesiredStateType = Literal["DISABLED", "ENABLED", "INHERIT_FROM_CLUSTER"]
 EksAccessEntryStatusType = Literal["ACTIVE", "INACTIVE"]
+EksSeccompProfileTypeType = Literal["Localhost", "RuntimeDefault", "Unconfined"]
 FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 JQStateType = Literal["DISABLED", "ENABLED"]
 JQStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]
@@ -159,6 +161,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -263,6 +266,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -308,13 +312,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -382,6 +385,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -516,6 +520,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -566,7 +571,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

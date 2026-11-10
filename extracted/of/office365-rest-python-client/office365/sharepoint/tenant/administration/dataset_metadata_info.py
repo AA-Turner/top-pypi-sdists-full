@@ -12,6 +12,7 @@ class DatasetMetadataInfo(ClientValue):
     lastSyncedInADLSDate: str | None = None
     subType: str | None = None
     uploadFileToADLSProgressStatus: str | None = None
+    window: str | None = None
 
     @property
     def entity_type_name(self) -> str:

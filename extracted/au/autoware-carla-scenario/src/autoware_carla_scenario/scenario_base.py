@@ -13,6 +13,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    TypeAlias,
     Union,
 )
 
@@ -49,6 +50,9 @@ from .traffic.driven import BackendDriven
 
 logger = logging.getLogger(__name__)
 
+#: The plain callbacks of one phase (init, pre-tick or post-tick).
+_TickCallbacks: TypeAlias = List[Callable[[carla.World], None]]
+
 
 class _Registrations:
     """A copy of what a scenario had registered when its first run started.
@@ -57,8 +61,9 @@ class _Registrations:
     (:meth:`BaseScenario._reset_registrations`).  The scenario copies each
     list on the way in and on the way out, so a run that appends to the
     scenario's lists leaves this one as it was.  Filled field by field rather
-    than through a constructor: Codon cannot express a parameter of a list of
-    callables (docs/typecheck.md), only an attribute declared as one.
+    than through a constructor: the check cannot spell a parameter of a list
+    of callables unless its type is named with a ``TypeAlias``, as
+    ``_TickCallbacks`` is (docs/typecheck.md).
     """
 
     entities: List[VehicleEntity]
@@ -137,6 +142,23 @@ class BaseScenario(ABC):
     _cross_items: List[CrossItem]
     _measures: dict[str, Measure]
     _initial_registrations: Optional[_Registrations]
+    #: The weather rules the scenario's runs follow (the config's
+    #: ``environment.rules``, which the runner's ``add_environment`` sets):
+    #: the file the default rules are read over (``None``: the packaged ones
+    #: alone) and each ``vehicles`` entry's ``(pattern, file)``, in order.
+    #: The runner follows them at the start of every run
+    #: (:func:`~autoware_carla_scenario.weather_rules.use_weather_rules`), so a
+    #: batch, which builds every case before any runs, runs each under its own
+    #: (#1936).  No registration: a retry or a re-run keeps them.
+    _weather_rules_default: Optional[str]
+    _weather_rules_vehicles: List[tuple[str, str]]
+    #: The effects a case draws for the scenario and the measure each is
+    #: measured by: quantity -> measure key, from the config's ``controls``
+    #: (a control names its measure and the ``quantity`` it writes), which
+    #: the runner's ``add_effect_measures`` sets.  A run of a drawn case
+    #: measures them beside the ODD (``effects.samples``), for the drift
+    #: view (openodd's docs/drift.md, "Effects: what a scenario sets up").
+    _effect_measures: Dict[str, str]
 
     def __init__(
         self,
@@ -221,6 +243,10 @@ class BaseScenario(ABC):
         # Taken when the first run starts, after a subclass's __init__ has
         # registered what it registers there (_reset_registrations).
         self._initial_registrations = None
+        # The default rules, unless the runner's config names others.
+        self._weather_rules_default = None
+        self._weather_rules_vehicles = []
+        self._effect_measures = {}
 
     # ------------------------------------------------------------------
     # Ego construction
@@ -589,7 +615,7 @@ class BaseScenario(ABC):
         self,
         cb: Union[BaseAction, Callable[["carla.World"], None]],
         actions: List[BaseAction],
-        callbacks: List[Callable[["carla.World"], None]],
+        callbacks: _TickCallbacks,
     ) -> None:
         """Dispatch *cb* into the appropriate list.
 

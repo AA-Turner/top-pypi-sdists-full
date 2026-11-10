@@ -1,9 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: nibabel
-Version: 5.4.2
+Version: 5.5.0
 Summary: Access a multitude of neuroimaging data formats
-Project-URL: Homepage, https://nipy.org/nibabel
-Project-URL: Development, https://github.com/nipy/nibabel
+Project-URL: homepage, https://nipy.org/nibabel
+Project-URL: source, https://github.com/nipy/nibabel
 Author-email: NiBabel developers <neuroimaging@python.org>
 Maintainer: Christopher Markiewicz
 License-Expression: MIT
@@ -13,49 +13,50 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: importlib-resources>=5.12; python_version < '3.12'
-Requires-Dist: numpy>=1.25
+Requires-Dist: numpy>=2.0
 Requires-Dist: packaging>=20
 Requires-Dist: typing-extensions>=4.6; python_version < '3.13'
 Provides-Extra: all
 Requires-Dist: backports-zstd>=1.1; (python_version < '3.14') and extra == 'all'
-Requires-Dist: h5py>=3.8; extra == 'all'
-Requires-Dist: indexed-gzip>=1.6; extra == 'all'
-Requires-Dist: pillow>=8.4; extra == 'all'
+Requires-Dist: h5py>=3.11; extra == 'all'
+Requires-Dist: indexed-gzip>=1.9.1; extra == 'all'
+Requires-Dist: pillow>=10.2; extra == 'all'
 Requires-Dist: pydicom>=2.3; extra == 'all'
-Requires-Dist: scipy>=1.11; extra == 'all'
+Requires-Dist: scipy>=1.12; extra == 'all'
 Provides-Extra: dev
 Provides-Extra: dicom
 Requires-Dist: pydicom>=2.3; extra == 'dicom'
 Provides-Extra: dicomfs
-Requires-Dist: pillow>=8.4; extra == 'dicomfs'
+Requires-Dist: pillow>=10.2; extra == 'dicomfs'
 Requires-Dist: pydicom>=2.3; extra == 'dicomfs'
 Provides-Extra: doc
 Provides-Extra: doctest
 Provides-Extra: indexed-gzip
-Requires-Dist: indexed-gzip>=1.6; extra == 'indexed-gzip'
+Requires-Dist: indexed-gzip>=1.9.1; extra == 'indexed-gzip'
 Provides-Extra: minc2
-Requires-Dist: h5py>=3.8; extra == 'minc2'
+Requires-Dist: h5py>=3.11; extra == 'minc2'
 Provides-Extra: spm
-Requires-Dist: scipy>=1.11; extra == 'spm'
+Requires-Dist: scipy>=1.12; extra == 'spm'
 Provides-Extra: style
 Provides-Extra: test
 Requires-Dist: coverage[toml]>=7.2; extra == 'test'
 Requires-Dist: pytest-cov>=6; extra == 'test'
 Requires-Dist: pytest-doctestplus>=1.4; extra == 'test'
 Requires-Dist: pytest-httpserver>=1.0.7; extra == 'test'
+Requires-Dist: pytest-run-parallel>=0.8.2; extra == 'test'
 Requires-Dist: pytest-xdist>=3.5; extra == 'test'
 Requires-Dist: pytest>=8; extra == 'test'
 Provides-Extra: typing
 Provides-Extra: viewers
-Requires-Dist: matplotlib>=3.7; extra == 'viewers'
+Requires-Dist: matplotlib>=3.9; extra == 'viewers'
 Provides-Extra: zstd
 Requires-Dist: backports-zstd>=1.1; (python_version < '3.14') and extra == 'zstd'
 Description-Content-Type: text/x-rst

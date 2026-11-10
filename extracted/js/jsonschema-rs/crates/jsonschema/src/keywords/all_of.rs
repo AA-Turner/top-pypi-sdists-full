@@ -1,4 +1,4 @@
-use crate::LazyInstance;
+use crate::{evaluation::InstancePosition, LazyInstance};
 use std::borrow::Cow;
 
 use crate::{
@@ -74,14 +74,20 @@ impl<F: Json> Validate<F> for AllOfValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -89,7 +95,7 @@ impl<F: Json> Validate<F> for AllOfValidator<F> {
         for node in &self.schemas {
             let child =
                 node.evaluate_instance_at(instance, location, instance_location, tracker, ctx);
-            children.push(&mut ctx.arena, child);
+            children.push(ctx.arena(), child);
         }
         EvaluationResult::from_children(children)
     }
@@ -146,21 +152,27 @@ impl<F: Json> Validate<F> for SingleValueAllOfValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
         let node =
             self.node
                 .evaluate_instance_at(instance, location, instance_location, tracker, ctx);
-        EvaluationResult::from_node(&mut ctx.arena, node)
+        EvaluationResult::from_node(ctx.arena(), node)
     }
 }
 

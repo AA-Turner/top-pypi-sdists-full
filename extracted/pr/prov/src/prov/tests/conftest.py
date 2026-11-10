@@ -1,20 +1,26 @@
-"""Pytest-native shared scaffolding for the round-trip test matrix.
+"""Shared scaffolding for the round-trip test matrix.
 
-This replaces the old ``RoundTripTestCase``/``do_tests`` inheritance
-machinery. Each shared test (in ``test_statements.py``, ``test_attributes.py``,
+Each shared test (``test_statements.py``, ``test_attributes.py``,
 ``test_qnames.py``, ``test_examples.py``) builds a document and hands it to
-the ``roundtrip`` fixture, which is parametrized over ``SHARED_TARGETS`` so
-every case runs once per serialization format AND once under the
-non-serializing ``model`` target.
+the ``roundtrip`` fixture, which is parametrised over ``SHARED_TARGETS`` so
+every case runs once per serialisation format and once under the
+non-serialising ``model`` target.
 """
 
 import io
 import os
+from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from hypothesis import settings
 
-from prov.model import ProvBundle, ProvDocument, ProvMention
+from prov.identifier import Namespace
+from prov.model import (
+    ProvBundle,
+    ProvDocument,
+    ProvMention,
+)
 
 # Hypothesis profiles for the property-based round-trip tests
 # (``test_property_roundtrip.py``). The local ``default`` profile is
@@ -28,11 +34,15 @@ settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 # Formats that support a full serialize -> deserialize -> compare round trip.
 ROUNDTRIP_FORMATS = ("json", "xml", "rdf", "jsonld", "provn")
+# The formats that read a literal's text as given; rdflib rewrites some on read (C10).
+TEXT_FORMATS = tuple(fmt for fmt in ROUNDTRIP_FORMATS if fmt != "rdf")
 # The full target axis: the round-trip formats PLUS a "model" target that
 # constructs the document, exercises PROV-N generation, and checks the
-# self-equality invariant WITHOUT serialization. The model axis preserves the
-# coverage the old RoundTripModelTest provided.
+# self-equality invariant WITHOUT serialization.
 SHARED_TARGETS = ("model", *ROUNDTRIP_FORMATS)
+# What the ``roundtrip`` fixture returns: a check that a document survives
+# the current target and returns what came back.
+Roundtrip = Callable[[ProvDocument], ProvDocument]
 
 
 def contains_mention(doc: ProvDocument) -> bool:
@@ -58,18 +68,19 @@ def roundtrip_document(doc: ProvDocument, fmt: str) -> ProvDocument:
 
 
 @pytest.fixture(params=SHARED_TARGETS)
-def fmt(request):
+def fmt(request: pytest.FixtureRequest) -> str:
     """The target under test — "model" or a serialization format.
 
     Parametrizes every shared statement/attribute/qname/example case, so each
     runs once per round-trip format AND once under the non-serializing model
     target.
     """
-    return request.param
+    target: str = request.param
+    return target
 
 
 @pytest.fixture
-def roundtrip(fmt):
+def roundtrip(fmt: str) -> Roundtrip:
     """Return a ``_check(doc)`` callable that asserts ``doc`` survives its target.
 
     For a serialization format: serialize -> deserialize -> ``doc == reloaded``.
@@ -123,7 +134,9 @@ def add_ordered_namespaces(container: ProvBundle) -> list[str]:
     return list(ORDERED_NAMESPACE_PREFIXES)
 
 
-def pytest_assertrepr_compare(config, op, left, right):
+def pytest_assertrepr_compare(
+    config: pytest.Config, op: str, left: object, right: object
+) -> list[str] | None:
     """Readable diff for ``assert doc == reloaded`` on two ProvDocuments."""
     if op != "==" or not (
         isinstance(left, ProvDocument) and isinstance(right, ProvDocument)
@@ -141,3 +154,38 @@ def pytest_assertrepr_compare(config, op, left, right):
         f"  in right only ({len(only_right)}):",
         *(f"    + {r}" for r in only_right),
     ]
+
+
+#  Helpers for the tests of the checks at assertion.
+EX_URI = "http://example.org/"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+"""The repository root, for tests that read files outside the package."""
+
+
+def default_namespace(uri: str) -> Namespace:
+    """The default namespace a document holds once it declares ``uri``."""
+    document = ProvDocument()
+    document.set_default_namespace(uri)
+    namespace = document.get_default_namespace()
+    if namespace is None:
+        raise AssertionError("set_default_namespace() set no default")
+    return namespace
+
+
+def ex_document() -> ProvDocument:
+    """A document with ``ex`` declared at ``http://example.org/``."""
+    document = ProvDocument()
+    document.add_namespace("ex", EX_URI)
+    return document
+
+
+#  The reasons a name does not resolve, and the sentence that carries one.
+UNDECLARED_PREFIX = "its prefix 'zz' is not declared"
+HTTP_PREFIX = "its prefix 'http' is not declared"
+BLANK_PREFIX = "its prefix '_' is reserved for blank nodes"
+NO_PREFIX = "it has no prefix and no default namespace is declared"
+
+
+def unresolved_sentence(text: str, reason: str, of: str = "") -> str:
+    """The qualified-name sentence for ``text``; ``of`` is ``" of <attribute>"``."""
+    return f"the qualified name {text!r}{of} does not resolve, because {reason}"

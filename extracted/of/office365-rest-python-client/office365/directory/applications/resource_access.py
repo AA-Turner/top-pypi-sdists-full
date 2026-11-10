@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ResourceAccess(ClientValue):
     """Object used to specify an OAuth 2.0 permission scope or an app role that an application requires,
     through the resourceAccess property of the requiredResourceAccess resource type.

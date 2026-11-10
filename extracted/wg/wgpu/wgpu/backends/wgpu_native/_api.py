@@ -1498,10 +1498,11 @@ class GPUDevice(classes.GPUDevice, GPUObjectBase):
             depthOrArrayLayers=size[2],
         )
 
-        if view_formats:
-            raise NotImplementedError(
-                "create_texture(.. view_formats is not yet supported."
-            )
+        # Formats that views of this texture may reinterpret it as. The main
+        # use is taking a non-srgb view of an srgb target (or the reverse) to
+        # read or write the raw bytes without the transfer function applied.
+        view_formats_list = [enummap["TextureFormat." + x] for x in view_formats]
+        c_view_formats = new_array("WGPUTextureFormat[]", view_formats_list)
 
         if not mip_level_count:
             mip_level_count = 1  # or lib.WGPU_MIP_LEVEL_COUNT_UNDEFINED ?
@@ -1522,8 +1523,8 @@ class GPUDevice(classes.GPUDevice, GPUObjectBase):
             dimension=dimension,
             format=format,
             usage=usage,
-            # not used: viewFormatCount
-            # not used: viewFormats
+            viewFormatCount=len(view_formats),
+            viewFormats=c_view_formats,
         )
         # H: WGPUTexture f(WGPUDevice device, WGPUTextureDescriptor const * descriptor)
         id = libf.wgpuDeviceCreateTexture(self._internal, struct)
@@ -1699,9 +1700,10 @@ class GPUDevice(classes.GPUDevice, GPUObjectBase):
         entries: Sequence[structs.BindGroupEntryStruct],
     ) -> GPUBindGroup:
         c_entries_list = []
+        _keep_alive = []
         for entry in entries:
             check_struct("BindGroupEntry", entry)
-            # The resource can be a buffer, sampler, texture view, or buffer descriptor
+            # The resource can be a buffer, sampler, texture, texture view, or buffer descriptor
             resource = entry["resource"]
             if isinstance(resource, GPUBuffer):
                 # H: nextInChain: WGPUChainedStruct *, binding: int, buffer: WGPUBuffer, offset: int, size: int, sampler: WGPUSampler, textureView: WGPUTextureView
@@ -1727,7 +1729,11 @@ class GPUDevice(classes.GPUDevice, GPUObjectBase):
                     sampler=resource._internal,
                     textureView=ffi.NULL,
                 )
-            elif isinstance(resource, GPUTextureView):
+            elif isinstance(resource, (GPUTextureView, GPUTexture)):
+                if type(resource) is GPUTexture:
+                    # also see https://github.com/pygfx/wgpu-py/issues/825
+                    resource = resource.create_view()
+                    _keep_alive.append(resource)
                 # H: nextInChain: WGPUChainedStruct *, binding: int, buffer: WGPUBuffer, offset: int, size: int, sampler: WGPUSampler, textureView: WGPUTextureView
                 c_entry = new_struct(
                     "WGPUBindGroupEntry",
@@ -1767,6 +1773,7 @@ class GPUDevice(classes.GPUDevice, GPUObjectBase):
 
         # H: WGPUBindGroup f(WGPUDevice device, WGPUBindGroupDescriptor const * descriptor)
         id = libf.wgpuDeviceCreateBindGroup(self._internal, struct)
+        del _keep_alive
         return GPUBindGroup(label, id, self)
 
     def create_pipeline_layout(
@@ -2452,10 +2459,6 @@ class GPUBuffer(classes.GPUBuffer, GPUObjectBase):
         # If mapped at creation, set to write mode (no point in reading zeros)
         if self._map_state == enums.BufferMapState.mapped:
             self._mapped_status = 0, self.size, flags.MapMode.WRITE
-
-    def _get_size(self):
-        # H: WGPUBufferUsage f(WGPUBuffer buffer)
-        return libf.wgpuBufferGetUsage(self._internal)
 
     def _check_range(self, offset, size):
         # Apply defaults
@@ -4080,8 +4083,8 @@ class GPUQueue(classes.GPUQueue, GPUObjectBase):
         return data
 
     def on_submitted_work_done_async(self) -> GPUPromise[None]:
-        @ffi.callback("void(WGPUQueueWorkDoneStatus, void *, void *)")
-        def work_done_callback(status, _userdata1, _userdata2):
+        @ffi.callback("void(WGPUQueueWorkDoneStatus, WGPUStringView, void *, void *)")
+        def work_done_callback(status, _message, _userdata1, _userdata2):
             token.set_done()
             if status == lib.WGPUQueueWorkDoneStatus_Success:
                 promise._wgpu_set_input(True)

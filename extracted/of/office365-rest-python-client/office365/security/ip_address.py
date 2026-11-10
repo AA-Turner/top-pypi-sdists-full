@@ -1,24 +1,26 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.entity import Entity
-
-if TYPE_CHECKING:
-    from office365.security.autonomous_system import AutonomousSystem
+from office365.runtime.types.odata_property import odata
+from office365.security.autonomous_system import AutonomousSystem
 
 
 class IpAddress(Entity):
+    @odata(name="countryOrRegion")
     @property
     def country_or_region(self) -> Optional[str]:
         """Gets the countryOrRegion property"""
         return self.properties.get("countryOrRegion", None)
 
+    @odata(name="hostingProvider")
     @property
     def hosting_provider(self) -> Optional[str]:
         """Gets the hostingProvider property"""
         return self.properties.get("hostingProvider", None)
 
+    @odata(name="netblock")
     @property
     def netblock(self) -> Optional[str]:
         """Gets the netblock property"""
@@ -28,9 +30,8 @@ class IpAddress(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.security.IpAddress"
 
+    @odata(name="autonomousSystem")
     @property
     def autonomous_system(self) -> AutonomousSystem:
         """Gets the autonomousSystem property"""
-        from office365.security.autonomous_system import AutonomousSystem
-
         return self.properties.get("autonomousSystem", AutonomousSystem())

@@ -54,6 +54,8 @@ class CertificateConfig:
     certifi_path: Optional[str] = None
     bundle_exists: bool = False
     bundle_size_kb: Optional[int] = None
+    # Labels of distrusted roots found in the SSL_CERT_FILE / SSL_CERT_DIR that replaces the OS store
+    distrusted_roots: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -71,9 +73,19 @@ class HttpClientState:
     client_created: bool = False
     client_verify: Optional[bool] = None
     configured_verify: bool = True
-    use_system_certs: bool = False
+    use_system_certs: bool = False  # True when the OS store verifies, the 6.0 default
+    cert_source: str = "os-store"  # edgar.httpclient.get_cert_source()
     settings_match: bool = True
     rate_limit_per_sec: int = 9
+
+
+CERT_SOURCE_LABELS = {
+    "os-store": "OS certificate store",
+    "SSL_CERT_FILE": "SSL_CERT_FILE",
+    "SSL_CERT_DIR": "SSL_CERT_DIR",
+    "custom": "custom SSL context",
+    "disabled": "nothing (verification disabled)",
+}
 
 
 @dataclass
@@ -198,7 +210,7 @@ class DiagnosticResult:
         env_table.add_row("Python:", self.environment.python_version)
         env_table.add_row("Platform:", self.environment.platform)
         env_table.add_row("edgartools:", self.environment.edgartools_version)
-        env_table.add_row("httpx:", self.environment.httpx_version)
+        env_table.add_row("httpx2:", self.environment.httpx_version)
         if self.environment.certifi_version:
             env_table.add_row("certifi:", self.environment.certifi_version)
         crypto = self.environment.cryptography_version or "[yellow]Not installed[/yellow]"
@@ -206,6 +218,8 @@ class DiagnosticResult:
         if self.environment.truststore_version:
             active = " [green](active)[/green]" if self.http_client_state.use_system_certs else ""
             env_table.add_row("truststore:", f"{self.environment.truststore_version}{active}")
+        env_table.add_row("Verifies against:", CERT_SOURCE_LABELS.get(self.http_client_state.cert_source,
+                                                                      self.http_client_state.cert_source))
 
         sections.append(Panel(env_table, title="[bold]Environment[/bold]", border_style="dim", padding=(0, 1)))
 

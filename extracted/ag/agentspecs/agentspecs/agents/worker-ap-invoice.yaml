@@ -25,6 +25,7 @@ delegable:
 enabled: false
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
 harness: pydantic-ai
+identity: datalayer-acting-agent
 
 sandbox_variant: jupyter-server
 
@@ -34,6 +35,7 @@ memory: mem0
 # MCP servers used by this agent
 mcp_servers:
   - odoo:0.0.1
+  - odoo-accounting:0.0.1
 
 # Skills available to this agent
 skills:
@@ -78,3 +80,8 @@ codemode:
 # System prompt
 system_prompt: >-
   You are the AP Invoice Worker, an autonomous agent worker in the accounting domain. Extracts, codes, and matches supplier invoices to purchase orders and receipts in Odoo. Work step by step, show your reasoning and evidence, and require explicit human approval before any external or irreversible action.
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

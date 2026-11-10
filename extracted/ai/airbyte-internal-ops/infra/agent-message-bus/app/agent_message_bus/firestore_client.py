@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
+from google.api_core.exceptions import AlreadyExists
 from google.cloud import firestore  # type: ignore[attr-defined]
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -237,3 +238,29 @@ class SubscriptionStore:
         if data.get("watch_events"):
             data["watch_events"] = [WatchEvent(e) for e in data["watch_events"]]
         return Subscription.model_validate(data)
+
+
+class StopWakeStore:
+    """Firestore-backed Stop hook deduplication storage."""
+
+    def __init__(self, project: str | None = None) -> None:
+        """Initialize the Firestore client."""
+        self._db = firestore.Client(project=project)
+        self._events = self._db.collection("devin_stop_events")
+
+    def claim_event(self, session_id: str, prompt_id: str) -> bool:
+        """Claim a Stop event once per session and prompt."""
+        now = datetime.now(tz=timezone.utc)
+        doc_ref = self._events.document(f"{session_id}:{prompt_id}")
+        try:
+            doc_ref.create(
+                {
+                    "session_id": session_id,
+                    "prompt_id": prompt_id,
+                    "received_at": now,
+                    "expires_at": now + timedelta(days=7),
+                }
+            )
+        except AlreadyExists:
+            return False
+        return True

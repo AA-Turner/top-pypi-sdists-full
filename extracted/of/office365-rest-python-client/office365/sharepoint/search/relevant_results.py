@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -9,7 +9,6 @@ from office365.sharepoint.search.simple_data_row import SimpleDataRow
 from office365.sharepoint.search.simple_data_table import SimpleDataTable
 
 
-@dataclass
 class RelevantResults(ClientValue):
     """
     The RelevantResults table contains the actual query results. It MUST only be present if the ResultTypes element
@@ -27,10 +26,10 @@ class RelevantResults(ClientValue):
     TotalRows: int | None = None
     TotalRowsIncludingDuplicates: int | None = None
 
-    def set_property(self, k, v, persist_changes=True):
-        if k == "Properties":
-            v = parse_key_value_collection(v)
-        super().set_property(k, v, persist_changes)
+    def set_property(self, name, value, persist_changes=True):
+        if name == "Properties":
+            value = parse_key_value_collection(value)
+        super().set_property(name, value, persist_changes)
         return self
 
     @property

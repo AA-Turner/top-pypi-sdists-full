@@ -20,12 +20,19 @@ pub enum FilterType {
     Escape(EscapeFilter),
     Escapejs(EscapejsFilter),
     External(ExternalFilter),
+    First(FirstFilter),
     FloatFormat(FloatFormatFilter),
+    Tz(TzFilter),
+    L10n(L10nFilter),
+    LanguageInfo(LanguageInfoFilter),
+    Humanize(HumanizeFilter),
     ForceEscape(ForceEscapeFilter),
     Join(JoinFilter),
+    Justify(JustifyFilter),
     Last(LastFilter),
     Linebreaks(LinebreaksFilter),
     Linebreaksbr(LinebreaksbrFilter),
+    Linenumbers(LinenumbersFilter),
     Lower(LowerFilter),
     Length(LengthFilter),
     Safe(SafeFilter),
@@ -34,7 +41,28 @@ pub enum FilterType {
     Timesince(TimesinceFilter),
     Title(TitleFilter),
     TruncateChars(TruncateCharsFilter),
+    TruncateCharsHtml(TruncateCharsHtmlFilter),
     TruncateWords(TruncateWordsFilter),
+    Pluralize(PluralizeFilter),
+    GetDigit(GetDigitFilter),
+    Phone2numeric(Phone2numericFilter),
+    Urlencode(UrlencodeFilter),
+    Iriencode(IriencodeFilter),
+    MakeList(MakeListFilter),
+    Escapeseq(EscapeseqFilter),
+    Safeseq(SafeseqFilter),
+    Random(RandomFilter),
+    Pprint(PprintFilter),
+    Filesizeformat(FilesizeformatFilter),
+    UnorderedList(UnorderedListFilter),
+    Striptags(StriptagsFilter),
+    Stringformat(StringformatFilter),
+    Dictsort(DictsortFilter),
+    Dictsortreversed(DictsortreversedFilter),
+    JsonScript(JsonScriptFilter),
+    TruncateWordsHtml(TruncateWordsHtmlFilter),
+    Urlize(UrlizeFilter),
+    Urlizetrunc(UrlizetruncFilter),
     Upper(UpperFilter),
     Wordcount(WordcountFilter),
     Wordwrap(WordwrapFilter),
@@ -158,6 +186,9 @@ impl LastFilter {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FirstFilter;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ForceEscapeFilter;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -171,6 +202,9 @@ pub struct LinebreaksFilter;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LinebreaksbrFilter;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LinenumbersFilter;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SafeFilter;
@@ -207,8 +241,7 @@ impl SliceArgument {
     }
 
     /// Parses `str(arg)` the way Django does. Returns `None` for bits that
-    /// are not plain optionally signed ASCII integers, leaving Python's
-    /// `int()` rules (whitespace, underscores, Unicode digits) to Django.
+    /// [`python_int`] can't convert, leaving them to Django.
     pub fn parse(text: &str) -> Option<Self> {
         let bits: Vec<&str> = text.split(':').collect();
         // `slice()` takes at most three arguments, so Django's TypeError
@@ -221,11 +254,7 @@ impl SliceArgument {
             if bit.is_empty() {
                 continue;
             }
-            let digits = bit.strip_prefix(['-', '+']).unwrap_or(bit);
-            if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
-                return None;
-            }
-            *value = Some(bit.parse().ok()?);
+            *value = Some(isize::try_from(python_int(bit)?).ok()?);
         }
         let [first, second, step] = values;
         Some(match bits.len() {
@@ -241,6 +270,37 @@ impl SliceArgument {
             },
         })
     }
+}
+
+/// Python's `int(text)` for ASCII text: surrounding whitespace, an optional
+/// sign, and digits with single underscores between them. Other text,
+/// including non-ASCII digits and whitespace, returns `None` and is left to
+/// Python, as are values beyond `i64`.
+pub fn python_int(text: &str) -> Option<i64> {
+    // The ASCII whitespace `int()` strips; unlike `str.isspace()`, it keeps
+    // the separators U+001C to U+001F.
+    let text = text.trim_matches(|c: char| matches!(c, '\t'..='\r' | ' '));
+    let digits = text.strip_prefix(['-', '+']).unwrap_or(text);
+    let mut previous_digit = false;
+    for byte in digits.bytes() {
+        match byte {
+            b'0'..=b'9' => previous_digit = true,
+            b'_' if previous_digit => previous_digit = false,
+            _ => return None,
+        }
+    }
+    if !previous_digit {
+        return None;
+    }
+    let negative = text.starts_with('-');
+    let mut value: i64 = 0;
+    for byte in digits.bytes().filter(u8::is_ascii_digit) {
+        let digit = i64::from(byte - b'0');
+        value = value
+            .checked_mul(10)?
+            .checked_add(if negative { -digit } else { digit })?;
+    }
+    Some(value)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -266,8 +326,170 @@ pub struct TruncateCharsFilter {
     pub django: DjangoFilter,
 }
 
+/// Django's `truncatechars_html`. Strings with an integer length call
+/// Django's HTML `Truncator` with the cached translation of the truncation
+/// text; other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TruncateCharsHtmlFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `ljust` and `rjust`, computed natively for strings and an
+/// integer width. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct JustifyFilter {
+    pub django: DjangoFilter,
+    pub side: Justify,
+}
+
+/// Which side `ljust` and `rjust` keep the text on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Justify {
+    Left,
+    Right,
+}
+
 /// Django's `truncatewords`, computed natively for strings and an integer
 /// length. Other inputs call Django's filter.
+/// Django's `pluralize`, computed natively for numbers, bools, lists, tuples
+/// and dicts with a string suffix argument. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PluralizeFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `get_digit`, computed natively for non-negative integers and
+/// digit strings with an integer argument. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GetDigitFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `phone2numeric`, computed natively for ASCII strings. Other
+/// inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Phone2numericFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `urlencode`, computed natively with the default or an ASCII
+/// `safe` argument. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UrlencodeFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `iriencode`, computed natively. Values whose `str()` fails call
+/// Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IriencodeFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `make_list`, building the list of characters natively.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MakeListFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `escapeseq`, walking lists and tuples natively. Other values
+/// call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EscapeseqFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `safeseq`, walking lists and tuples natively. Other values call
+/// Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SafeseqFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `random`, calling `random.choice` directly for lists and tuples.
+/// Other values call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RandomFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `pprint`, calling `pprint.pformat` directly for values that
+/// aren't safe strings. Safe strings call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PprintFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `filesizeformat`, computed natively for values `int()` converts,
+/// below 2⁵³. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FilesizeformatFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `unordered_list`, built natively for nested lists and tuples.
+/// Other values call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnorderedListFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `striptags`, done natively for well-formed tags.
+/// Other text calls Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StriptagsFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `stringformat`, done natively for common specifiers on strings,
+/// integers and floats. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StringformatFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `dictsort`, sorting lists and tuples natively by a key path.
+/// Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DictsortFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `dictsortreversed`, sorting lists and tuples natively by a key
+/// path. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DictsortreversedFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `json_script`, serialized natively for plain JSON values.
+/// Other values call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct JsonScriptFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `truncatewords_html`, truncated natively for well-formed HTML.
+/// Other text calls Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TruncateWordsHtmlFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `urlize`. Links are built by `render::urlize`, which leaves a
+/// few kinds of word to Django's `Urlizer`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UrlizeFilter {
+    pub django: DjangoFilter,
+}
+
+/// Django's `urlizetrunc`. Links are built by `render::urlize`, which leaves
+/// a few kinds of word to Django's `Urlizer`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UrlizetruncFilter {
+    pub django: DjangoFilter,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TruncateWordsFilter {
     pub django: DjangoFilter,
@@ -312,6 +534,75 @@ impl DivisibleByFilter {
     pub fn new(at: At, argument: Argument) -> Self {
         Self { at, argument }
     }
+}
+
+/// Which conversion one of the `{% load tz %}` filters makes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TzConversion {
+    /// `localtime`: to the current time zone.
+    Localtime,
+    /// `utc`: to UTC.
+    Utc,
+    /// `timezone:arg`: to a named time zone or tzinfo.
+    Timezone,
+}
+
+/// Django's `localtime`, `utc` and `timezone` filters, converted natively for
+/// exact `datetime` values. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TzFilter {
+    pub conversion: TzConversion,
+    pub django: DjangoFilter,
+}
+
+/// Django's `localize` and `unlocalize` filters, formatted natively for
+/// numbers, dates and strings. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct L10nFilter {
+    /// `true` for `localize`, `false` for `unlocalize`.
+    pub localize: bool,
+    pub django: DjangoFilter,
+}
+
+/// Which field of `get_language_info(code)` an `{% load i18n %}` filter reads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LanguageField {
+    /// `language_name`.
+    Name,
+    /// `language_name_local`.
+    NameLocal,
+    /// `language_name_translated`: `gettext` of the English name.
+    NameTranslated,
+    /// `language_bidi`.
+    Bidi,
+}
+
+/// Django's `language_name*` and `language_bidi` filters, answered from a
+/// per-render cache of `get_language_info`. Other inputs call Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LanguageInfoFilter {
+    pub field: LanguageField,
+    pub django: DjangoFilter,
+}
+
+/// Which `{% load humanize %}` filter a [`HumanizeFilter`] stands in for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HumanizeKind {
+    Apnumber,
+    Intcomma,
+    Intword,
+    Naturalday,
+    Naturaltime,
+    Ordinal,
+}
+
+/// Django's `humanize` filters, computed natively for plain numbers and
+/// datetimes with translations cached per language. Other inputs call
+/// Django's filter.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HumanizeFilter {
+    pub kind: HumanizeKind,
+    pub django: DjangoFilter,
 }
 
 /// Django-backed filters preserve Python protocol and escaping behavior.

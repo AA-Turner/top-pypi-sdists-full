@@ -1,5 +1,6 @@
 import array
 import threading
+from collections.abc import Sequence
 from ctypes import POINTER, Structure, byref, c_long, cast, memmove, pointer, sizeof
 from typing import TYPE_CHECKING
 
@@ -298,8 +299,10 @@ def _make_safearray_type(itemtype):
         def _get_elements_raw(self, num_elements):
             """Returns a flat list or ndarray containing ALL elements in
             the safearray."""
-            from comtypes.automation import VARIANT
+            from comtypes.automation import VARIANT, tagCY, tagDEC
 
+            if self._vartype_ == VT_RECORD:
+                return self._get_records(num_elements)
             # XXX Not sure this is true:
             # For VT_UNKNOWN and VT_DISPATCH, we should retrieve the
             # interface iid by SafeArrayGetIID().
@@ -327,6 +330,12 @@ def _make_safearray_type(itemtype):
                             # return a NULL-interface pointer.
                             result.append(POINTER(itf)())
                     return result
+                elif self._itemtype_ == tagCY:
+                    # Convert tagCY to Decimal for easier use
+                    return [x.as_decimal() for x in ptr[:num_elements]]
+                elif self._itemtype_ == tagDEC:
+                    # Convert tagDEC to Decimal for easier use
+                    return [x.as_decimal() for x in ptr[:num_elements]]
                 else:
                     # If the safearray element are NOT native python
                     # objects, the containing safearray must be kept
@@ -336,8 +345,10 @@ def _make_safearray_type(itemtype):
                         # we can get the most speed-up.
                         # XXX Only try to convert types known to
                         #     numpy.ctypeslib.
+                        # typecodes maps NumPy dtype strings to ctypes, so
+                        # compare against its values (see issue #551).
                         if safearray_as_ndarray and self._itemtype_ in list(
-                            comtypes.npsupport.typecodes.keys()
+                            comtypes.npsupport.typecodes.values()
                         ):
                             arr = comtypes.npsupport.numpy.ctypeslib.as_array(
                                 ptr, (num_elements,)
@@ -345,13 +356,67 @@ def _make_safearray_type(itemtype):
                             return arr.copy()
                         return ptr[:num_elements]
 
-                    def keep_safearray(v):
-                        v.__keepref = self
-                        return v
-
-                    return [keep_safearray(x) for x in ptr[:num_elements]]
+                    # A Structure subtype without `_recordinfo_` cannot represent
+                    # a valid COM SAFEARRAY of VT_RECORD: the COM specification
+                    # requires IRecordInfo to describe the record layout.
+                    # Reaching here means the type was constructed outside the
+                    # normal COM codegen path.  No safe extraction strategy
+                    # exists, so raise rather than silently returning corrupt data.
+                    raise NotImplementedError(
+                        f"{self._itemtype_!r} is a Structure without"
+                        " _recordinfo_; safe extraction from SAFEARRAY is not"
+                        " supported."
+                    )
             finally:
                 _safearray.SafeArrayUnaccessData(self)
+
+        def _get_records(self, num_elements: int) -> Sequence[Structure]:
+            """Extract element records as a flat list while avoiding double-free
+            crashes.
+
+            The source `SAFEARRAY` may be destroyed at any time by COM.
+            Without proper lifetime management, returned elements would suffer
+            use-after-free, or the array would double-free when its Python
+            instance is finalized.
+
+            We avoid this by deep-copying the `SAFEARRAY`. The returned
+            (copied) element record instances each hold a reference to the
+            copied array instance, keeping the copied array alive until all
+            returned element records are gone.
+
+            Once the array and all element records are GC'd in Python, the
+            copied array is automatically `SafeArrayDestroy`ed, which destroys
+            the array descriptor and all data: `IRecordInfo::RecordClear` on
+            records.
+            """
+            ptr = POINTER(self._itemtype_)()  # container for the values
+            # Make an independent `SAFEARRAY` so its data does not depend on
+            # the lifetime of the source `SAFEARRAY`, which is `self`.
+            copied = _safearray.SafeArrayCopy(self)  # type: ignore
+            # Setting this flag makes `__del__` call `SafeArrayDestroy`
+            # when the Python wrapper is finalized.
+            copied._needsfree = True
+            # Lock the copied `SAFEARRAY` and get its native record storage.
+            # A direct `ptr` avoids making a separately owned record copy.
+            _safearray.SafeArrayAccessData(copied, byref(ptr))
+            try:
+
+                def keep_safearray(v):
+                    v1 = v.__class__()
+                    # Copy bytes, not pointed-to data; `copied` owns that data.
+                    memmove(byref(v1), byref(v), sizeof(v))
+                    # This strong reference keeps `copied` alive while `v1`
+                    # is alive, so `copied.__del__` cannot run and destroy
+                    # the SAFEARRAY. A weak reference would not do this.
+                    v1.__keepref = copied
+                    return v1
+
+                # Return only the requested number of records.
+                # Each result keeps the `copied` wrapper alive.
+                return [keep_safearray(x) for x in ptr[:num_elements]]
+            finally:
+                # Unlock the native SAFEARRAY storage; this does not destroy it.
+                _safearray.SafeArrayUnaccessData(copied)
 
         def _get_row(self, dim, indices, lowerbounds, upperbounds):
             # loop over the index of dimension 'dim'

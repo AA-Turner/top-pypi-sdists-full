@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Optional
 from office365.directory.domains.dns_record import DomainDnsRecord
 from office365.directory.domains.state import DomainState
 from office365.directory.objects.collection import DirectoryObjectCollection
-from office365.directory.permissions.require_permission import require_permission
 from office365.directory.quotas import IDENTITY_QUOTAS
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
@@ -43,6 +43,17 @@ class Domain(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="id")
+    @property
+    def id(self) -> Optional[str]:
+        """The domain name, which the caller supplies when adding the domain.
+
+        Every other entity's ``id`` is assigned by the service, so ``Entity`` declares it
+        ``readonly`` and a request body never carries it; a domain is the exception, and
+        this declaration is the only place that says so.
+        """
+        return self.properties.get("id", None)
+
     @odata(name="supportedServices")
     @property
     def supported_services(self) -> StringCollection:
@@ -54,7 +65,7 @@ class Domain(Entity):
         """
         return self.properties.get("supportedServices", StringCollection())
 
-    @odata(name="domainNameReferences")
+    @odata(name="domainNameReferences", navigation=True)
     @property
     def domain_name_references(self) -> DirectoryObjectCollection:
         """
@@ -68,7 +79,7 @@ class Domain(Entity):
             DirectoryObjectCollection(self.context, ResourcePath("domainNameReferences", self.resource_path)),
         )
 
-    @odata(name="serviceConfigurationRecords")
+    @odata(name="serviceConfigurationRecords", navigation=True)
     @property
     def service_configuration_records(self) -> EntityCollection[DomainDnsRecord]:
         """
@@ -84,7 +95,7 @@ class Domain(Entity):
             ),
         )
 
-    @odata(name="verificationDnsRecords")
+    @odata(name="verificationDnsRecords", navigation=True)
     @property
     def verification_dns_records(self) -> EntityCollection[DomainDnsRecord]:
         """
@@ -100,66 +111,79 @@ class Domain(Entity):
             ),
         )
 
+    @odata(name="state")
     @property
     def state(self) -> DomainState:
         """Status of asynchronous operations scheduled for the domain."""
         return self.properties.get("state", DomainState())
 
+    @odata(name="authenticationType")
     @property
     def authentication_type(self) -> Optional[str]:
         """Gets the authenticationType property"""
         return self.properties.get("authenticationType", None)
 
+    @odata(name="availabilityStatus")
     @property
     def availability_status(self) -> Optional[str]:
         """Gets the availabilityStatus property"""
         return self.properties.get("availabilityStatus", None)
 
+    @odata(name="isAdminManaged")
     @property
     def is_admin_managed(self) -> Optional[bool]:
         """Gets the isAdminManaged property"""
         return self.properties.get("isAdminManaged", None)
 
+    @odata(name="isDefault")
     @property
     def is_default(self) -> Optional[bool]:
         """Gets the isDefault property"""
         return self.properties.get("isDefault", None)
 
+    @odata(name="isInitial")
     @property
     def is_initial(self) -> Optional[bool]:
         """Gets the isInitial property"""
         return self.properties.get("isInitial", None)
 
+    @odata(name="isRoot")
     @property
     def is_root(self) -> Optional[bool]:
         """Gets the isRoot property"""
         return self.properties.get("isRoot", None)
 
+    @odata(name="isVerified")
     @property
     def is_verified(self) -> Optional[bool]:
         """Gets the isVerified property"""
         return self.properties.get("isVerified", None)
 
+    @odata(name="manufacturer")
     @property
     def manufacturer(self) -> Optional[str]:
         """Gets the manufacturer property"""
         return self.properties.get("manufacturer", None)
 
+    @odata(name="model")
     @property
     def model(self) -> Optional[str]:
         """Gets the model property"""
         return self.properties.get("model", None)
 
+    @odata(name="passwordNotificationWindowInDays")
     @property
     def password_notification_window_in_days(self) -> Optional[int]:
         """Gets the passwordNotificationWindowInDays property"""
         return self.properties.get("passwordNotificationWindowInDays", None)
 
+    @odata(name="passwordValidityPeriodInDays")
     @property
     def password_validity_period_in_days(self) -> Optional[int]:
         """Gets the passwordValidityPeriodInDays property"""
         return self.properties.get("passwordValidityPeriodInDays", None)
 
+    @odata(name="federationConfiguration", navigation=True)
     @property
     def federation_configuration(self) -> EntityCollection[InternalDomainFederation]:
         """Gets the federationConfiguration property"""
@@ -174,6 +198,7 @@ class Domain(Entity):
             ),
         )
 
+    @odata(name="rootDomain", navigation=True)
     @property
     def root_domain(self) -> Domain:
         """Gets the rootDomain property"""

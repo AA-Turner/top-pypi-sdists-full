@@ -268,11 +268,10 @@ pub fn transform_constraints(y: &Array2<f64>, specs: &[CstrSpec]) -> Array2<f64>
 }
 
 /// Same as [`transform_constraints`] with `n_obj` leading objective columns.
-pub(crate) fn transform_constraints_at(
-    y: &Array2<f64>,
-    n_obj: usize,
-    specs: &[CstrSpec],
-) -> Array2<f64> {
+///
+/// Input `y` has shape `(nrows, n_obj + n_user_cstrs)` and the result has shape
+/// `(nrows, n_obj + n_internal_cstrs)`, objective columns being copied as is.
+pub fn transform_constraints_at(y: &Array2<f64>, n_obj: usize, specs: &[CstrSpec]) -> Array2<f64> {
     let nrows = y.nrows();
     let n_intern = n_internal_cstrs(specs);
     let mut result = Array2::zeros((nrows, n_obj + n_intern));
@@ -399,6 +398,79 @@ pub fn function_cstr_affine_mapping(
             Ok(mapping)
         }
         None => Ok((0..n_fcstrs).map(|idx| (idx, 1.0, 0.0)).collect()),
+    }
+}
+
+/// Function constraints expanded with their specifications (see [`function_cstr_affine_mapping`]):
+/// the k-th internal function constraint is `scale_k * fcstrs[raw_k] + offset_k`
+pub(crate) fn affine_fcstrs<C: CstrFn>(
+    fcstrs: &[C],
+    specs: Option<&[CstrSpec]>,
+) -> Vec<impl CstrFn + use<C>> {
+    function_cstr_affine_mapping(fcstrs.len(), specs)
+        .expect("validated function-constraint specs")
+        .into_iter()
+        .map(|(raw_idx, scale, offset)| {
+            let cstr = fcstrs[raw_idx].clone();
+            move |x: &[f64], gradient: Option<&mut [f64]>, params: &mut InfillObjData<f64>| -> f64 {
+                if let Some(g) = gradient {
+                    let raw = cstr(x, Some(g), params);
+                    g.iter_mut().for_each(|v| *v *= scale);
+                    scale * raw + offset
+                } else {
+                    scale * cstr(x, None, params) + offset
+                }
+            }
+        })
+        .collect()
+}
+
+/// Points selected by an EGO iteration, one row per point, before their evaluation
+pub(crate) struct Candidates {
+    /// Locations
+    pub(crate) x: Array2<f64>,
+    /// Virtual (predicted) output values
+    pub(crate) y: Array2<f64>,
+    /// Function constraints values
+    pub(crate) c: Array2<f64>,
+    /// Penalized output values used in case of evaluation failure
+    pub(crate) y_penalized: Array2<f64>,
+    /// Infill criterion value
+    pub(crate) infill_value: f64,
+}
+
+impl Candidates {
+    /// No point yet, given dimensions of x, y and function constraints
+    pub(crate) fn empty(nx: usize, ny: usize, nc: usize) -> Self {
+        Candidates {
+            x: Array2::zeros((0, nx)),
+            y: Array2::zeros((0, ny)),
+            c: Array2::zeros((0, nc)),
+            y_penalized: Array2::zeros((0, ny)),
+            infill_value: f64::INFINITY,
+        }
+    }
+
+    /// Append `other` points, the infill criterion value becomes the `other` one
+    pub(crate) fn append(&mut self, other: Candidates) {
+        self.x = ndarray::concatenate![ndarray::Axis(0), self.x, other.x];
+        self.y = ndarray::concatenate![ndarray::Axis(0), self.y, other.y];
+        self.c = ndarray::concatenate![ndarray::Axis(0), self.c, other.c];
+        self.y_penalized =
+            ndarray::concatenate![ndarray::Axis(0), self.y_penalized, other.y_penalized];
+        self.infill_value = other.infill_value;
+    }
+
+    /// Candidates of given row `indices`
+    pub(crate) fn select(&self, indices: &[usize]) -> Candidates {
+        let axis = ndarray::Axis(0);
+        Candidates {
+            x: self.x.select(axis, indices),
+            y: self.y.select(axis, indices),
+            c: self.c.select(axis, indices),
+            y_penalized: self.y_penalized.select(axis, indices),
+            infill_value: self.infill_value,
+        }
     }
 }
 
@@ -602,6 +674,23 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use ndarray::array;
+
+    #[test]
+    fn test_candidates_select_keeps_rows_aligned() {
+        let candidates = Candidates {
+            x: array![[0.], [1.], [2.]],
+            y: array![[10.], [11.], [12.]],
+            c: array![[20.], [21.], [22.]],
+            y_penalized: array![[30.], [31.], [32.]],
+            infill_value: 1.,
+        };
+        let selected = candidates.select(&[1, 2]);
+        assert_eq!(selected.x, array![[1.], [2.]]);
+        assert_eq!(selected.y, array![[11.], [12.]]);
+        assert_eq!(selected.c, array![[21.], [22.]]);
+        assert_eq!(selected.y_penalized, array![[31.], [32.]]);
+        assert_eq!(selected.infill_value, 1.);
+    }
 
     #[test]
     fn test_untransform_constraints_round_trip() {

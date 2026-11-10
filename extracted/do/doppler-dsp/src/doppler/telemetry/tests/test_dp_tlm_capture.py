@@ -382,3 +382,53 @@ class TestExitFinalizesRatherThanFrees:
             _make_a_hole(tlm, pid)
             with pytest.raises(ValueError, match="block bound"):
                 teardown(cap)
+
+
+@pytest.mark.parametrize("bad", [-1, 2**64, 2**64 + 5])
+def test_records_refuses_a_count_outside_size_t(bad):
+    # `K` used to mask these, so records(2**64 + 5) handed back five records
+    # and records(-1) everything; the binding now refuses them outright.
+    tlm, pid = _tlm()
+    with MemoryCapture(tlm, BLOCK, SampleClock(1e6)) as cap:
+        _run(tlm, pid, cap)
+    with pytest.raises(OverflowError, match="out of range for size_t"):
+        cap.records(bad)
+    assert len(cap.records()) == 8
+
+
+@pytest.mark.parametrize("bad", [-1, 2**64, 2**64 + 5])
+def test_read_dict_refuses_a_count_outside_size_t(bad):
+    # records() is the spec: read_dict() converts `n` the same way, so
+    # read_dict(2**64 + 5) no longer hands back five records.
+    tlm, pid = _tlm()
+    with MemoryCapture(tlm, BLOCK, SampleClock(1e6)) as cap:
+        _run(tlm, pid, cap)
+    with pytest.raises(OverflowError, match=r"n: .* out of range for size_t"):
+        cap.read_dict(bad)
+    assert cap.read_dict()["bench.x"].size == 8
+
+
+def test_memory_capture_refuses_a_negative_block_samples():
+    # `K` used to mask -1 to 2**64 - 1 and hand that to the C open, which
+    # refused it with a ValueError; the binding now refuses the value itself.
+    tlm, _ = _tlm()
+    with pytest.raises(
+        OverflowError, match=r"block_samples: -1 is out of range for size_t"
+    ):
+        MemoryCapture(tlm, -1, None)
+    # Positive control: the same arguments at a sane size open a capture, so
+    # the refusal above comes from the value and not from the context.
+    with MemoryCapture(tlm, BLOCK, None) as cap:
+        cap.close()
+
+
+def test_file_capture_refuses_a_negative_block_samples(tmp_path):
+    tlm, _ = _tlm()
+    path = str(tmp_path / "s.tlm")
+    with pytest.raises(
+        OverflowError, match=r"block_samples: -1 is out of range for size_t"
+    ):
+        Capture(tlm, -1, path, SampleClock(1e6))
+    # Positive control: a valid block_samples opens the same path.
+    with Capture(tlm, BLOCK, path, SampleClock(1e6)) as cap:
+        cap.close()

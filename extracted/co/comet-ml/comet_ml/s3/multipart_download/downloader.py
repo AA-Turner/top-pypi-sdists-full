@@ -15,14 +15,15 @@ import os
 import uuid
 from typing import Any, Optional
 
-import requests
-
 from ..multipart_transfer import (
     CancellationToken,
     PartsTransferPool,
     PartsTransferScheduler,
+    S3Transport,
     ThrottleGate,
+    TransportResponse,
     create_parts_transfer_scheduler,
+    get_s3_transport,
 )
 from . import collectors, parts, range_requests, receivers
 from .download_error import S3DownloadError
@@ -86,11 +87,14 @@ class S3MultipartDownloader:
         options: MultipartDownloadOptions,
         parts_pool: Optional[PartsTransferPool] = None,
         verify_tls: bool = True,
-        session_provider: Optional[range_requests.SessionProvider] = None,
+        transport: Optional[S3Transport] = None,
         throttle_gate: Optional[ThrottleGate] = None,
         cancel_token: Optional[CancellationToken] = None,
     ) -> "S3MultipartDownloader":
-        """Without a parts pool, parts are fetched one after another on this thread."""
+        """Without a parts pool, parts are fetched one after another on this thread.
+
+        ``verify_tls`` only applies to the default transport.
+        """
         return cls(
             url=url,
             file_path=file_path,
@@ -100,10 +104,10 @@ class S3MultipartDownloader:
             ),
             requester=range_requests.RangeRequester(
                 url=url,
-                session_provider=(
-                    session_provider
-                    if session_provider is not None
-                    else range_requests.session_provider_for(verify_tls)
+                transport=(
+                    transport
+                    if transport is not None
+                    else get_s3_transport(verify_tls=verify_tls)
                 ),
                 throttle_gate=(
                     throttle_gate
@@ -176,7 +180,7 @@ class S3MultipartDownloader:
                     first=None, last=None, if_match=None, budget=budget, accepted=(200,)
                 )
 
-            return self._download_whole(path, response, collector)
+            return _download_whole(path, response, collector, self._options.chunk_size)
         finally:
             # Harmless when a part already owns it and closed it.
             response.close()
@@ -184,7 +188,7 @@ class S3MultipartDownloader:
     def _download_ranges(
         self,
         path: str,
-        first_response: requests.Response,
+        first_response: TransportResponse,
         total_size: int,
         collector: collectors.DownloadPartsCollector,
         monitor: Optional[Any],
@@ -215,6 +219,7 @@ class S3MultipartDownloader:
             file_path=path,
             if_match=first_response.headers.get("ETag"),
             on_bytes=collector.on_bytes_received,
+            chunk_size=self._options.chunk_size,
         )
         self._scheduler.transfer(
             source=source, transferrer=receiver, collector=collector
@@ -240,33 +245,36 @@ class S3MultipartDownloader:
 
         return total_size
 
-    def _download_whole(
-        self,
-        path: str,
-        response: requests.Response,
-        collector: collectors.DownloadPartsCollector,
-    ) -> int:
-        expected = _content_length(response)
-        with open(path, "wb") as file:
-            try:
-                written = receivers.stream_body_to_file(
-                    response,
-                    file,
-                    limit=expected,
-                    on_bytes=collector.on_bytes_received,
-                )
-            except receivers.StreamInterrupted as ex:
-                # Nothing to resume from: whatever served this does not take ranges.
-                raise S3DownloadError(
-                    reason="Download from S3 was cut off after %d bytes%s"
-                    % (ex.written, "" if ex.cause is None else " (%s)" % ex.cause),
-                    due_connection_error=True,
-                ) from ex
 
-        return written
+def _download_whole(
+    path: str,
+    response: TransportResponse,
+    collector: collectors.DownloadPartsCollector,
+    chunk_size: int,
+) -> int:
+    """Streams a response that holds the whole object into path, in one go."""
+    expected = _content_length(response)
+    with open(path, "wb") as file:
+        try:
+            written = receivers.stream_body_to_file(
+                response,
+                file,
+                limit=expected,
+                on_bytes=collector.on_bytes_received,
+                chunk_size=chunk_size,
+            )
+        except receivers.StreamInterrupted as ex:
+            # Nothing to resume from: whatever served this does not take ranges.
+            raise S3DownloadError(
+                reason="Download from S3 was cut off after %d bytes%s"
+                % (ex.written, "" if ex.cause is None else " (%s)" % ex.cause),
+                due_connection_error=True,
+            ) from ex
+
+    return written
 
 
-def _content_length(response: requests.Response) -> Optional[int]:
+def _content_length(response: TransportResponse) -> Optional[int]:
     try:
         return int(response.headers["Content-Length"])
     except (KeyError, TypeError, ValueError):

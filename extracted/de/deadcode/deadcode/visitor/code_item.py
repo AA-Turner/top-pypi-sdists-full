@@ -1,35 +1,4 @@
-# TODO: filename is incorrect, because `.` is used instead of the actual file.
-
-
-# TODO: use dataclass with these fields:
-# filename: Filename
-# name: str
-# name_line: IndexInt
-# name_column: IndexInt
-# expression_line_start: IndexInt
-# expression_line_end: Optional[IndexInt]
-# expression_column_start: IndexInt
-# expression_column_end: Optional[IndexInt]
-# variable_type: VariableTypes
-# usage_count: int = 0
-
-
-# @dataclass
-# class VariableInfo:
-#     filename: Filename
-#     name: str
-#     name_line: IndexInt
-#     name_column: IndexInt
-#     expression_line_start: IndexInt
-#     expression_line_end: Optional[IndexInt]
-#     expression_column_start: IndexInt
-#     expression_column_end: Optional[IndexInt]
-#     variable_type: VariableTypes
-#     usage_count: int = 0
-
-
 from pathlib import Path
-from typing import List, Optional
 
 from deadcode.constants import UnusedCodeType, ERROR_TYPE_TO_ERROR_CODE
 
@@ -60,11 +29,11 @@ class CodeItem:  # TODO: This should also be a dataclass, because hash and tuple
         name: str,
         type_: UnusedCodeType,
         filename: Path,
-        code_parts: Optional[List[Part]] = None,  # TODO: I should use a dataclass instead of a tuple for Part.
-        scope: Optional[str] = None,
-        inherits_from: Optional[List[str]] = None,
-        name_line: Optional[int] = None,
-        name_column: Optional[int] = None,
+        code_parts: list[Part] | None = None,
+        scope: str | None = None,
+        inherits_from: list[str] | None = None,
+        name_line: int | None = None,
+        name_column: int | None = None,
         message: str = '',
         number_of_uses: int = 0,
     ):
@@ -98,32 +67,6 @@ class CodeItem:  # TODO: This should also be a dataclass, because hash and tuple
             if self.name_column is not None:
                 filename_with_position += f':{self.name_column}:'
         return filename_with_position
-
-    # @property
-    # def size(self) -> int:
-    #     assert self.last_lineno >= self.first_lineno
-    #     return self.last_lineno - self.first_lineno + 1
-
-    # def get_report(self) -> str:
-    #     from deadcode.visitor.utils import format_path
-
-    #     return "{}:{:d}: {}".format(
-    #         format_path(self.filename),
-    #         self.first_lineno,
-    #         self.message,
-    #     )
-
-    # def get_whitelist_string(self) -> str:
-    #     from deadcode.visitor.utils import format_path
-
-    #     filename = format_path(self.filename)
-    #     if self.type_ == "unreachable_code":
-    #         return f"# {self.message} ({filename}:{self.first_lineno})"
-    #     else:
-    #         prefix = ""
-    #         if self.type_ in ["attribute", "method", "property"]:
-    #             prefix = "_."
-    #         return "{}{}  # unused {} ({}:{:d})".format(prefix, self.name, self.type_, filename, self.first_lineno)
 
     def __repr__(self) -> str:
         return repr(self.name)

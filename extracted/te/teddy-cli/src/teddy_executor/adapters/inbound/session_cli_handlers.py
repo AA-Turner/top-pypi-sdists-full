@@ -13,6 +13,7 @@ from teddy_executor.core.ports.inbound.get_context_use_case import IGetContextUs
 from teddy_executor.core.ports.inbound.init import IInitUseCase
 from teddy_executor.core.ports.inbound.run_plan_use_case import IRunPlanUseCase
 from teddy_executor.core.ports.outbound.session_manager import ISessionManager
+from teddy_executor.core.ports.outbound.system_environment import ISystemEnvironment
 from teddy_executor.core.domain.models.session import SessionOptions
 from teddy_executor.core.ports.outbound.user_interactor import IUserInteractor
 from teddy_executor.core.ports.outbound.session_loop_guard import ISessionLoopGuard
@@ -135,44 +136,42 @@ def _shim_is_current(hooks_dir: Path, hook_type: str) -> bool:
     )
 
 
-def _ensure_commit_hooks() -> None:
+def _workspace_notice(verbose: bool, message: str, color: str) -> None:
+    """Emit one workspace maintenance line only when ``verbose`` is set.
+
+    The start path always requests verbose output, so every repair outcome is
+    visible there. The gate lets a caller run the repairs without banner noise."""
+    if verbose:
+        typer.secho(message, fg=color, err=True)
+
+
+def _ensure_commit_hooks(verbose: bool = True) -> None:
     """Install pre-commit hooks if config exists and CLI is available.
-    Shows green notification on success, yellow warning if config missing,
-    CLI not found, CLI lookup fails, or install subprocess fails."""
+
+    The repair runs whether or not ``verbose`` is set; only the green and
+    yellow banner lines are gated."""
     config_path = Path.cwd() / ".pre-commit-config.yaml"
     if not config_path.exists():
-        typer.secho(
-            "⚠ No pre-commit hooks configured",
-            fg=typer.colors.YELLOW,
-            err=True,
+        _workspace_notice(
+            verbose, "⚠ No pre-commit hooks configured", typer.colors.YELLOW
         )
         return
     try:
         pre_commit_path = shutil.which("pre-commit")
     except (OSError, AttributeError):
         logger.debug("pre-commit CLI lookup failed", exc_info=True)
-        typer.secho(
-            "⚠ Could not check for pre-commit CLI",
-            fg=typer.colors.YELLOW,
-            err=True,
+        _workspace_notice(
+            verbose, "⚠ Could not check for pre-commit CLI", typer.colors.YELLOW
         )
         return
     if not pre_commit_path:
-        typer.secho(
-            "⚠ pre-commit CLI not found",
-            fg=typer.colors.YELLOW,
-            err=True,
-        )
+        _workspace_notice(verbose, "⚠ pre-commit CLI not found", typer.colors.YELLOW)
         return
     hooks_dir = _resolve_hooks_dir()
     if hooks_dir is not None and all(
         _shim_is_current(hooks_dir, hook_type) for hook_type in _HOOK_TYPES
     ):
-        typer.secho(
-            "✓ pre-commit hooks installed",
-            fg=typer.colors.GREEN,
-            err=True,
-        )
+        _workspace_notice(verbose, "✓ pre-commit hooks installed", typer.colors.GREEN)
         return
     try:
         subprocess.run(  # nosec B603 B607
@@ -182,79 +181,53 @@ def _ensure_commit_hooks() -> None:
         )
     except subprocess.CalledProcessError:
         logger.debug("pre-commit install failed", exc_info=True)
-        typer.secho(
-            "⚠ pre-commit install failed",
-            fg=typer.colors.YELLOW,
-            err=True,
-        )
+        _workspace_notice(verbose, "⚠ pre-commit install failed", typer.colors.YELLOW)
         return
-    typer.secho(
-        "✓ pre-commit hooks installed",
-        fg=typer.colors.GREEN,
-        err=True,
-    )
+    _workspace_notice(verbose, "✓ pre-commit hooks installed", typer.colors.GREEN)
 
 
-def _check_git_initialized() -> None:
+def _check_git_initialized(verbose: bool = True) -> None:
     """Verify git repository status. Auto-initializes if not a repo.
-    Shows green notification if already a repo or freshly initialized,
-    yellow warning if git CLI not found, CLI lookup fails, or git init
-    fails.
-    Only checks the current working directory for a `.git` marker.
+
+    The repair runs whether or not ``verbose`` is set; only the banner lines
+    are gated. Only checks the current working directory for a `.git` marker.
     Does NOT walk up parent directories."""
     try:
         git_path = shutil.which("git")
     except (OSError, AttributeError):
         logger.debug("git CLI lookup failed", exc_info=True)
-        typer.secho(
-            "⚠ Could not check for git CLI",
-            fg=typer.colors.YELLOW,
-            err=True,
-        )
+        _workspace_notice(verbose, "⚠ Could not check for git CLI", typer.colors.YELLOW)
         return
     if not git_path:
-        typer.secho(
-            "⚠ Git CLI not found",
-            fg=typer.colors.YELLOW,
-            err=True,
-        )
+        _workspace_notice(verbose, "⚠ Git CLI not found", typer.colors.YELLOW)
         return
     # Check if CWD itself contains a .git marker (directory or file)
     if (Path.cwd() / ".git").exists():
-        typer.secho(
-            "✓ Git repository detected",
-            fg=typer.colors.GREEN,
-            err=True,
-        )
+        _workspace_notice(verbose, "✓ Git repository detected", typer.colors.GREEN)
         return
     # No local .git found – auto-initialize
     try:
         subprocess.run(["git", "init"], check=True, capture_output=True)  # nosec B603 B607
     except subprocess.CalledProcessError:
         logger.debug("git init failed", exc_info=True)
-        typer.secho(
-            "⚠ git init failed",
-            fg=typer.colors.YELLOW,
-            err=True,
-        )
+        _workspace_notice(verbose, "⚠ git init failed", typer.colors.YELLOW)
         return
-    typer.secho(
-        "✓ Git repository initialized",
-        fg=typer.colors.GREEN,
-        err=True,
-    )
+    _workspace_notice(verbose, "✓ Git repository initialized", typer.colors.GREEN)
 
 
-def _run_health_checks(config_service: IConfigService) -> None:
-    """Run each startup health check the workspace toggles allow.
+def _run_health_checks(config_service: IConfigService, verbose: bool = True) -> None:
+    """Run each workspace health check the toggles allow on session start.
 
-    A disabled step is skipped without a warning, because the setting is the
-    user's own choice and needs no reminder.
+    Only the start path invokes this helper, so a resumed session never repairs
+    the workspace. A disabled step is skipped without a warning, because the
+    setting is the user's own choice and needs no reminder. ``verbose`` is
+    forwarded to both helpers so a caller can run the repairs without their
+    banner lines.
     """
     if config_service.get_setting("workspace.pre-commit", True):
-        _ensure_commit_hooks()
+        _ensure_commit_hooks(verbose=verbose)
     if config_service.get_setting("workspace.init", True):
-        _check_git_initialized()
+        _check_git_initialized(verbose=verbose)
 
 
 _GIT_PULL_TIMEOUT_SECONDS = 15
@@ -449,28 +422,34 @@ def _start_background_update_check() -> None:
     thread.start()
 
 
-def _run_startup_preamble(
+def _run_startup_preamble(  # noqa: PLR0913 - forwards the shared CLI startup options
     container: Container,
     agent: Optional[str] = None,
     setup_editor: Optional[bool] = None,
     setup_api_key: Optional[bool] = None,
-    pull_workspace: bool = False,
+    workspace_maintenance: bool = False,
+    verbose_workspace: bool = False,
 ) -> None:
     """Run the shared startup preamble for both session entry points.
 
-    The order is fixed so the banner layout cannot drift: health checks, the
-    start-only workspace fast-forward line, one separator blank line, the
-    ``Checking configurations...`` line, the cached update notice, then the
-    preflight check with its drift advice. ``start`` forwards its ``agent`` so
-    the preflight validates the agent prompt and enables ``pull_workspace``;
-    ``resume`` leaves the agent ``None`` and keeps the pull off.
+    The order is fixed so the banner layout cannot drift: workspace maintenance,
+    one separator blank line, the ``Checking configurations...`` line, the cached
+    update notice, then the preflight check with its drift advice. ``start``
+    forwards its ``agent`` so the preflight validates the agent prompt, enables
+    ``workspace_maintenance``, and sets ``verbose_workspace`` to keep the
+    workspace banner and its separator blank; ``resume`` leaves the agent
+    ``None`` and keeps the workspace repairs, the workspace banner, and the
+    separator blank off.
     """
     config_service = container.resolve(IConfigService)
-    _run_health_checks(config_service)
-    if pull_workspace:
+    if workspace_maintenance:
+        _run_health_checks(config_service, verbose=verbose_workspace)
         _pull_workspace_on_start(config_service)
     # One separator groups the checkmark block above with the notices below.
-    typer.echo("", err=True)
+    # It prints only when the workspace banner above is shown, so a silent
+    # resume never opens with an orphan leading blank line.
+    if verbose_workspace:
+        typer.echo("", err=True)
     typer.echo("Checking configurations...", err=True)
     _display_update_notification(container, _update_cache_path())
     _run_cli_preflight_check(
@@ -568,7 +547,7 @@ def _is_communication_turn(report: Any) -> bool:
 def _orchestrate_session_loop(  # noqa: PLR0913
     container: Container,
     session_name: str,
-    interactive: bool,
+    require_approval: bool,
     no_copy: bool,
     pipeline: bool = False,
     message: Optional[str] = None,
@@ -617,7 +596,7 @@ def _orchestrate_session_loop(  # noqa: PLR0913
             turn_count += 1
             session_name, report = orchestrator.resume(
                 session_name=session_name,
-                interactive=interactive,
+                require_approval=require_approval,
                 pipeline=pipeline,
                 message=message,
             )
@@ -656,7 +635,7 @@ def _orchestrate_session_loop(  # noqa: PLR0913
                 loop_guard.reset_baseline(turn_count, cumulative_cost)
 
             should_continue, guard_reason = loop_guard.should_continue(
-                turn_count, cumulative_cost, interactive
+                turn_count, cumulative_cost, require_approval
             )
             if not should_continue:
                 _emit_guard_termination(guard_reason)
@@ -821,7 +800,7 @@ def handle_new_session(  # noqa: PLR0913
     container: Container,
     name: Optional[str],
     agent: str,
-    interactive: bool = True,
+    require_approval: bool = True,
     no_copy: bool = False,
     message: Optional[str] = None,
     pipeline: bool = False,
@@ -836,6 +815,11 @@ def handle_new_session(  # noqa: PLR0913
     _start_background_update_check()
 
     try:
+        # 0. An empty or whitespace-only -m means the flag was omitted: the
+        # interactive opening prompt fires, and pipeline mode errors on empty.
+        if message is not None and not message.strip():
+            message = None
+
         # 0. Pipeline mode requires an initial message
         if pipeline and message is None:
             raise ValueError(
@@ -845,22 +829,27 @@ def handle_new_session(  # noqa: PLR0913
         # 1. Ensure project is initialized
         container.resolve(IInitUseCase).ensure_initialized()
 
-        # 2. Shared startup preamble (health checks + preflight)
+        # 2. Shared startup preamble (workspace maintenance + preflight)
         _run_startup_preamble(
             container,
             agent=agent,
             setup_editor=setup_editor,
             setup_api_key=setup_api_key,
-            pull_workspace=True,
+            workspace_maintenance=True,
+            verbose_workspace=True,
         )
         _echo_config_success(container, agent, model=model)
 
         session_manager: ISessionManager = container.resolve(ISessionManager)
         user_interactor: IUserInteractor = container.resolve(IUserInteractor)
 
-        # 2. Resolve message first if missing
+        # 2. Resolve message first if missing. Without a terminal nobody can
+        # answer the opening prompt, so the run falls through to the existing
+        # no-input termination instead of entering the ask loop.
         if message is None:
-            message = user_interactor.ask_question("What are we working on?")
+            system_env: ISystemEnvironment = container.resolve(ISystemEnvironment)
+            if system_env.isatty():
+                message = user_interactor.ask_question("What are we working on?")
             if not message:
                 raise EOFError("No terminal input provided for initial message.")
 
@@ -880,7 +869,7 @@ def handle_new_session(  # noqa: PLR0913
         _orchestrate_session_loop(
             container=container,
             session_name=Path(session_dir).name,
-            interactive=interactive,
+            require_approval=require_approval,
             no_copy=no_copy,
             pipeline=pipeline,
             max_turns=max_turns,
@@ -1417,23 +1406,22 @@ def handle_context_gathering(
     context_service: IGetContextUseCase = container.resolve(IGetContextUseCase)
     context_files = detect_session_context()
 
-    if only and not additional_context:
-        raise typer.BadParameter("--only requires at least one --context value.")
-
-    if additional_context:
+    if only:
+        # An explicit-only run drops the default and session sets. With no -c
+        # the explicit scope stays empty, so the payload carries no Resource
+        # Contents section instead of falling back to the defaults.
+        context_files = {"Explicit": list(additional_context or [])}
+    elif additional_context:
         explicit_scope = {"Explicit": list(additional_context)}
-        if only:
-            context_files = explicit_scope
-        else:
-            # Outside a session no scope map exists, so the defaults are
-            # resolved here: the service globs only when the map is falsy.
-            scopes = (
-                dict(context_files)
-                if context_files
-                else {"Default": _default_context_paths(container)}
-            )
-            scopes.update(explicit_scope)
-            context_files = scopes
+        # Outside a session no scope map exists, so the defaults are
+        # resolved here: the service globs only when the map is falsy.
+        scopes = (
+            dict(context_files)
+            if context_files
+            else {"Default": _default_context_paths(container)}
+        )
+        scopes.update(explicit_scope)
+        context_files = scopes
 
     # Performance: Formatting context for Markdown doesn't use tokens, so we skip them.
     context_result = context_service.get_context(
@@ -1504,7 +1492,7 @@ def _sync_and_display_session_meta(
 def handle_resume_session(  # noqa: PLR0913
     container: Container,
     path: Optional[str] = None,
-    interactive: bool = True,
+    require_approval: bool = True,
     no_copy: bool = False,
     model: Optional[str] = None,
     agent: Optional[str] = None,
@@ -1519,7 +1507,7 @@ def handle_resume_session(  # noqa: PLR0913
     _start_background_update_check()
 
     try:
-        # 1. Shared startup preamble (health checks + preflight)
+        # 1. Shared startup preamble (preflight only; workspace repairs are start-only)
         _run_startup_preamble(
             container,
             setup_editor=setup_editor,
@@ -1549,7 +1537,7 @@ def handle_resume_session(  # noqa: PLR0913
         _orchestrate_session_loop(
             container=container,
             session_name=session_name,
-            interactive=interactive,
+            require_approval=require_approval,
             no_copy=no_copy,
             message=message,
             pipeline=pipeline,

@@ -738,7 +738,7 @@ class StockDataFrame(pd.DataFrame):
             # Set Supertrend value
             supertrend[i] = final_lb[i] if direction[i] == 1 else final_ub[i]
 
-        self["supertrend"] = supertrend
+        self[meta.name] = supertrend
         self[f"{meta.name}_ub"] = final_ub
         self[f"{meta.name}_lb"] = final_lb
 
@@ -1354,7 +1354,7 @@ class StockDataFrame(pd.DataFrame):
         else:
             m = (window * xy_sum - x_sum * y_sum) / divisor
             b = (y_sum * x2_sum - x_sum * xy_sum) / divisor
-            ret_vals = m * (window - 1) + b
+            ret_vals = m * window + b
 
         out = np.zeros(n, dtype=float)
         out[window - 1:] = ret_vals
@@ -1415,13 +1415,16 @@ class StockDataFrame(pd.DataFrame):
         self[macds] = self.ema(self[macd], signal_w)
         self[macdh] = self[macd] - self[macds]
 
-    def _ppo_and_pvo(self, name: str, ser: pd.Series, meta: _Meta):
+    def _ppo_and_pvo(self, ser: pd.Series, meta: _Meta):
         short_w, long_w, signal_w = meta.int0, meta.int1, meta.int2
         pvo_short = self.ema(ser, short_w).values
         pvo_long = self.ema(ser, long_w).values
-        self[name] = self.to_series((pvo_short - pvo_long) / pvo_long * 100)
-        self[f"{name}s"] = self.ema(self[name], signal_w)
-        self[f"{name}h"] = self[name] - self[f"{name}s"]
+        line = meta.name
+        signal = meta.name_ex("s")
+        hist = meta.name_ex("h")
+        self[line] = self.to_series((pvo_short - pvo_long) / pvo_long * 100)
+        self[signal] = self.ema(self[line], signal_w)
+        self[hist] = self[line] - self[signal]
 
     def _get_pvo(self, meta: _Meta):
         """Percentage Volume Oscillator
@@ -1443,7 +1446,7 @@ class StockDataFrame(pd.DataFrame):
 
         PVO Histogram: PVO - Signal Line
         """
-        return self._ppo_and_pvo("pvo", self.volume, meta)
+        return self._ppo_and_pvo(self.volume, meta)
 
     def _get_ppo(self, meta: _Meta):
         """Percentage Price Oscillator
@@ -1457,7 +1460,7 @@ class StockDataFrame(pd.DataFrame):
 
         PPO Histogram: PPO - Signal Line
         """
-        return self._ppo_and_pvo("ppo", self.close, meta)
+        return self._ppo_and_pvo(self.close, meta)
 
     def _eri(self, window):
         ema = self.ema(self.close, window, adjust=False)
@@ -1767,7 +1770,7 @@ class StockDataFrame(pd.DataFrame):
         slow_ema_smoothing = 2.0 / (slow + 1)
         smoothing_2 = fast_ema_smoothing - slow_ema_smoothing
         efficient_smoothing = efficiency_ratio * smoothing_2
-        smoothing = (2 * (efficient_smoothing + slow_ema_smoothing)).values
+        smoothing = ((efficient_smoothing + slow_ema_smoothing) ** 2).values
 
         # start with simple moving average
         col = self[meta.column]
@@ -2293,8 +2296,24 @@ class StockDataFrame(pd.DataFrame):
                     "Invalid number of return arguments "
                     f"after parsing column name: '{key}'"
                 )
-            meta = _Meta(name, windows=n, column=col)
-            self._get_handler(name)(meta)
+            handler, meta = self._resolve_handler(name, n, col)
+            handler(meta)
+
+    def _resolve_handler(self, name: str, windows, column):
+        """Find the handler and meta for a parsed column name.
+
+        A member of a multi-column indicator, like ``macds`` in
+        ``macds_5,10,3``, has no handler of its own.  It is served by the
+        handler of the whole family, which creates all of its columns.
+        """
+        if not hasattr(self, f"_get_{name}"):
+            for names, handler in self.handler.items():
+                if name in names:
+                    family = handler.__name__[5:]
+                    return handler, _Meta(family, windows=windows,
+                                          column=column)
+        return (self._get_handler(name),
+                _Meta(name, windows=windows, column=column))
 
     def __init_column(self, key):
         if key not in self:

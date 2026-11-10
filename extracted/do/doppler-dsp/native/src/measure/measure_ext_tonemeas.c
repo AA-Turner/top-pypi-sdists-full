@@ -1027,7 +1027,10 @@ static PyTypeObject ToneMeasureObjType = {
     "fs : float, default 1.0\n"
     "    Sample rate (Hz, > 0).\n"
     "n_harmonics : int, default 8\n"
-    "    Harmonics to track (k = 2..n_harmonics).\n"
+    "    Harmonics to track (k = 2..n_harmonics). Its n_harmonics + 1 bin "
+    "slots\n"
+    "    are allocated here, so a count whose slots do not fit in memory is\n"
+    "    refused here, not at analysis.\n"
     "full_scale : float, default 1.0\n"
     "    Amplitude that equals 0 dBFS (> 0). Ignored if bits > 0.\n"
     "bits : int, default 0\n"
@@ -1045,15 +1048,7 @@ static PyTypeObject ToneMeasureObjType = {
     "Create with defaults:\n"
     "\n"
     ">>> from doppler.measure import ToneMeasure\n"
-    ">>> obj = ToneMeasure(\n"
-    "...     n=8192,\n"
-    "...     fs=1.0,\n"
-    "...     n_harmonics=8,\n"
-    "...     full_scale=1.0,\n"
-    "...     bits=0,\n"
-    "...     dynamic_range_db=0.0,\n"
-    "...     dc_guard=0,\n"
-    "... )\n",
+    ">>> obj = ToneMeasure()\n",
   .tp_methods = ToneMeasureObj_methods,
   .tp_getset  = ToneMeasure_getset,
   .tp_new     = ToneMeasureObj_new,

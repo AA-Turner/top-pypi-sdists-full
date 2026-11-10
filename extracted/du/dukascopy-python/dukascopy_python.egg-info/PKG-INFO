@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dukascopy-python
-Version: 5.0.0
+Version: 6.0.0
 Summary: Download and stream historical price data for variety of financial instruments (Forex, Commodities and Indices) from Dukascopy Bank SA.
 Author-email: Eghosa Osayande <osayandeeghosam@gmail.com>
 License: MIT License
@@ -39,6 +39,7 @@ Requires-Dist: twine; extra == "dev"
 Dynamic: license-file
 
 # dukascopy-python
+[![PyPI Downloads](https://static.pepy.tech/badge/dukascopy-python)](https://pepy.tech/projects/dukascopy-python)
 
 Download historical financial market data from [Dukascopy Bank SA](https://www.dukascopy.com), including tick-level prices and OHLCV candles for Forex, commodities, indices, and other financial instruments.
 

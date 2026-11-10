@@ -26,7 +26,7 @@ from sentry_protos.billing.v1 import date_pb2 as sentry__protos_dot_billing_dot_
 from sentry_protos.billing.v1.services.engagement.v1 import endpoint_get_active_trials_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_engagement_dot_v1_dot_endpoint__get__active__trials__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nKsentry_protos/billing/v1/services/engagement/v1/endpoint_create_trial.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\x1aPsentry_protos/billing/v1/services/engagement/v1/endpoint_get_active_trials.proto\"\xc1\x02\n\x12\x43reateTrialRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x17\n\rline_item_uid\x18\x02 \x01(\tH\x00\x12\x15\n\x0bpackage_uid\x18\x03 \x01(\tH\x00\x12M\n\x07\x63onfigs\x18\x04 \x03(\x0b\x32<.sentry_protos.billing.v1.services.engagement.v1.TrialConfig\x12\x37\n\nstart_date\x18\x05 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateH\x01\x88\x01\x01\x12\x35\n\x08\x65nd_date\x18\x06 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateH\x02\x88\x01\x01\x42\x07\n\x05scopeB\r\n\x0b_start_dateB\x0b\n\t_end_date\"&\n\x13\x43reateTrialResponse\x12\x0f\n\x07\x63reated\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nKsentry_protos/billing/v1/services/engagement/v1/endpoint_create_trial.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\x1aPsentry_protos/billing/v1/services/engagement/v1/endpoint_get_active_trials.proto\"\xe3\x02\n\x12\x43reateTrialRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x17\n\rline_item_uid\x18\x02 \x01(\tH\x00\x12\x15\n\x0bpackage_uid\x18\x03 \x01(\tH\x00\x12M\n\x07\x63onfigs\x18\x04 \x03(\x0b\x32<.sentry_protos.billing.v1.services.engagement.v1.TrialConfig\x12\x37\n\nstart_date\x18\x05 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateH\x01\x88\x01\x01\x12\x35\n\x08\x65nd_date\x18\x06 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateH\x02\x88\x01\x01\x12\x14\n\x07user_id\x18\x07 \x01(\x04H\x03\x88\x01\x01\x42\x07\n\x05scopeB\r\n\x0b_start_dateB\x0b\n\t_end_dateB\n\n\x08_user_id\"&\n\x13\x43reateTrialResponse\x12\x0f\n\x07\x63reated\x18\x01 \x01(\x08\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,7 +34,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CREATETRIALREQUEST']._serialized_start=248
-  _globals['_CREATETRIALREQUEST']._serialized_end=569
-  _globals['_CREATETRIALRESPONSE']._serialized_start=571
-  _globals['_CREATETRIALRESPONSE']._serialized_end=609
+  _globals['_CREATETRIALREQUEST']._serialized_end=603
+  _globals['_CREATETRIALRESPONSE']._serialized_start=605
+  _globals['_CREATETRIALRESPONSE']._serialized_end=643
 # @@protoc_insertion_point(module_scope)

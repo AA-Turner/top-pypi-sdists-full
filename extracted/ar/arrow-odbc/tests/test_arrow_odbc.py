@@ -1,7 +1,8 @@
 import datetime
 import os
+from collections.abc import Sequence
 from subprocess import check_output
-from typing import Any, Sequence
+from typing import Any
 
 import duckdb
 import pyarrow as pa
@@ -57,6 +58,19 @@ def test_connection_options():
     read_arrow_batches_from_odbc(
         query="SELECT 1 AS a", connection_string=MSSQL, login_timeout_sec=2, packet_size=4096
     )
+
+
+def test_entra_id_is_passed_to_driver():
+    """
+    We have no Microsoft Entra ID to test against. Yet the Microsoft driver rejects an access token
+    in combination with user and password. Seeing this error proves the token reaches the driver.
+    """
+    expected_error = (
+        "Cannot use Access Token with any of the following options: "
+        "Authentication, Integrated Security, User, Password."
+    )
+    with raises(Error, match=expected_error):
+        connect(connection_string=MSSQL, entra_id="dummy-token")
 
 
 def test_should_report_error_on_invalid_connection_string_reading():

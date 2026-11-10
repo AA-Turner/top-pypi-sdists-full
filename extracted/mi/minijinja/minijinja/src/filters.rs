@@ -221,24 +221,49 @@ mod builtins {
     ///
     /// Words are started by whitespace or one of `-`, `(`, `{`, `[` and `<`.
     /// Other punctuation such as `'`, `.` or `_` does not start a new word,
-    /// so `don't` becomes `Don't` rather than `Don'T`.
+    /// so `don't` becomes `Don't` rather than `Don'T`.  The first character
+    /// of every word is uppercased, the rest is lowercased.
     ///
     /// ```jinja
     /// <h1>{{ chapter.title|title }}</h1>
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn title(v: Cow<'_, str>) -> String {
-        let mut rv = String::new();
+        fn is_word_separator(c: char) -> bool {
+            matches!(c, '-' | '(' | '{' | '[' | '<') || c.is_whitespace()
+        }
+
+        let mut rv = String::with_capacity(v.len());
         let mut capitalize = true;
-        for c in v.chars() {
-            if matches!(c, '-' | '(' | '{' | '[' | '<') || c.is_whitespace() {
+        let mut chars = v.chars();
+        while let Some(c) = chars.next() {
+            if is_word_separator(c) {
                 rv.push(c);
                 capitalize = true;
             } else if capitalize {
-                write!(rv, "{}", c.to_uppercase()).unwrap();
+                if c.is_ascii() {
+                    rv.push(c.to_ascii_uppercase());
+                } else {
+                    rv.extend(c.to_uppercase());
+                }
                 capitalize = false;
+            } else if c.is_ascii() {
+                rv.push(c.to_ascii_lowercase());
+            } else if c == '\u{3a3}' {
+                // Whether a capital sigma lowercases to a final sigma
+                // depends on the rest of the word, so lowercase the rest
+                // of the word at once.
+                let idx = v.len() - chars.as_str().len() - c.len_utf8();
+                let word_start = v[..idx].rfind(is_word_separator).map_or(0, |pos| {
+                    pos + v[pos..].chars().next().map_or(0, char::len_utf8)
+                });
+                let word_end = v[idx..]
+                    .find(is_word_separator)
+                    .map_or(v.len(), |pos| idx + pos);
+                push_lowercase_tail(&mut rv, &v[word_start..word_end], idx - word_start);
+                chars = v[word_end..].chars();
             } else {
-                write!(rv, "{}", c.to_lowercase()).unwrap();
+                rv.extend(c.to_lowercase());
             }
         }
         rv
@@ -247,29 +272,127 @@ mod builtins {
     /// Convert the string with all its characters lowercased
     /// apart from the first char which is uppercased.
     ///
+    /// Like in Python, the first character is converted to its titlecase
+    /// form, so `ǆ` becomes `ǅ` and `ß` becomes `Ss`.
+    ///
     /// ```jinja
     /// <h1>{{ chapter.title|capitalize }}</h1>
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn capitalize(value: StringInput<'_>) -> Value {
-        let mut chars = value.as_str().chars();
-        let output = match chars.next() {
-            None => String::new(),
-            Some(first) => {
-                first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+        let s = value.as_str();
+        let mut output = String::with_capacity(s.len());
+        if let Some(first) = s.chars().next() {
+            push_titlecase(&mut output, first);
+            push_lowercase_tail(&mut output, s, first.len_utf8());
+        }
+        value.preserve_safety(output)
+    }
+
+    /// Appends `word[start..]` lowercased.
+    ///
+    /// `word[..start]` is still taken into account for the context
+    /// dependent lowercasing of the capital sigma.
+    fn push_lowercase_tail(rv: &mut String, word: &str, start: usize) {
+        let tail = &word[start..];
+        if tail.is_ascii() {
+            let rv_start = rv.len();
+            rv.push_str(tail);
+            rv[rv_start..].make_ascii_lowercase();
+        } else if tail.contains('\u{3a3}') {
+            // A capital sigma lowercases to a final sigma at the end of a
+            // word.  The standard library handles this when lowercasing
+            // whole strings, so lowercase the full word and drop the
+            // prefix.  Apart from the capital sigma all characters are
+            // lowercased on their own, and `Σ` lowercases to `σ` or `ς`
+            // which have the same length, so the length of the lowercased
+            // prefix is known.
+            let lowered = word.to_lowercase();
+            let skip: usize = word[..start]
+                .chars()
+                .flat_map(char::to_lowercase)
+                .map(char::len_utf8)
+                .sum();
+            rv.push_str(&lowered[skip..]);
+        } else {
+            rv.extend(tail.chars().flat_map(char::to_lowercase));
+        }
+    }
+
+    /// Appends the titlecase form of a character.
+    ///
+    /// For most characters this is the same as the uppercase form.  The
+    /// exceptions are taken from the Unicode character database.
+    fn push_titlecase(rv: &mut String, c: char) {
+        if c.is_ascii() {
+            rv.push(c.to_ascii_uppercase());
+            return;
+        }
+        let cp = c as u32;
+        let title = match cp {
+            // the digraphs DŽ, LJ, NJ and DZ have dedicated titlecase forms
+            0x1c4..=0x1cc => cp - (cp - 0x1c4) % 3 + 1,
+            0x1f1..=0x1f3 => 0x1f2,
+            // Georgian Mkhedruli letters are their own titlecase form
+            0x10d0..=0x10fa | 0x10fd..=0x10ff => cp,
+            // Greek letters with ypogegrammeni titlecase to prosgegrammeni
+            0x1f80..=0x1faf => cp | 0x08,
+            0x1fb3 | 0x1fbc => 0x1fbc,
+            0x1fc3 | 0x1fcc => 0x1fcc,
+            0x1ff3 | 0x1ffc => 0x1ffc,
+            _ => {
+                rv.push_str(match c {
+                    '\u{df}' => "Ss",
+                    '\u{587}' => "\u{535}\u{582}",
+                    '\u{1fb2}' => "\u{1fba}\u{345}",
+                    '\u{1fb4}' => "\u{386}\u{345}",
+                    '\u{1fb7}' => "\u{391}\u{342}\u{345}",
+                    '\u{1fc2}' => "\u{1fca}\u{345}",
+                    '\u{1fc4}' => "\u{389}\u{345}",
+                    '\u{1fc7}' => "\u{397}\u{342}\u{345}",
+                    '\u{1ff2}' => "\u{1ffa}\u{345}",
+                    '\u{1ff4}' => "\u{38f}\u{345}",
+                    '\u{1ff7}' => "\u{3a9}\u{342}\u{345}",
+                    '\u{fb00}' => "Ff",
+                    '\u{fb01}' => "Fi",
+                    '\u{fb02}' => "Fl",
+                    '\u{fb03}' => "Ffi",
+                    '\u{fb04}' => "Ffl",
+                    '\u{fb05}' | '\u{fb06}' => "St",
+                    '\u{fb13}' => "\u{544}\u{576}",
+                    '\u{fb14}' => "\u{544}\u{565}",
+                    '\u{fb15}' => "\u{544}\u{56b}",
+                    '\u{fb16}' => "\u{54e}\u{576}",
+                    '\u{fb17}' => "\u{544}\u{56d}",
+                    _ => {
+                        rv.extend(c.to_uppercase());
+                        return;
+                    }
+                });
+                return;
             }
         };
-        value.preserve_safety(output)
+        rv.extend(char::from_u32(title));
     }
 
     /// Does a string replace.
     ///
     /// It replaces all occurrences of the first parameter with the second.
+    /// If the optional third parameter `count` is given, only that many
+    /// occurrences are replaced.  A negative count replaces all occurrences.
+    /// The count can also be passed as keyword argument.
     ///
     /// ```jinja
     /// {{ "Hello World"|replace("Hello", "Goodbye") }}
     ///   -> Goodbye World
+    /// {{ "aaa"|replace("a", "b", 2) }}
+    ///   -> bba
+    /// {{ "aaa"|replace("a", "b", count=1) }}
+    ///   -> baa
     /// ```
+    ///
+    /// When called directly from Rust, this function always replaces all
+    /// occurrences.
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn replace(
         state: &mut State,
@@ -277,30 +400,119 @@ mod builtins {
         from: StringInput<'_>,
         to: StringInput<'_>,
     ) -> Result<Value, Error> {
+        replace_impl(state, value, from, to, None)
+    }
+
+    fn replace_impl(
+        state: &mut State,
+        value: StringInput<'_>,
+        from: StringInput<'_>,
+        to: StringInput<'_>,
+        count: Option<i64>,
+    ) -> Result<Value, Error> {
         let safety_aware = !matches!(state.auto_escape(), AutoEscape::None)
             && (value.is_safe() || from.is_safe() || to.is_safe());
+        let count = count
+            .and_then(|count| usize::try_from(count).ok())
+            .unwrap_or(usize::MAX);
 
         if safety_aware {
-            let output = value
-                .format(state)?
-                .replace(from.as_str(), &to.format(state)?);
-            Ok(Value::from_safe_string(output))
+            let value = value.format(state)?;
+            let to = to.format(state)?;
+            ok!(ensure_fuel_for_replace(
+                state,
+                &value,
+                from.as_str(),
+                &to,
+                count
+            ));
+            Ok(Value::from_safe_string(value.replacen(
+                from.as_str(),
+                &to,
+                count,
+            )))
         } else {
-            Ok(Value::from(
-                value.as_str().replace(from.as_str(), to.as_str()),
-            ))
+            ok!(ensure_fuel_for_replace(
+                state,
+                value.as_str(),
+                from.as_str(),
+                to.as_str(),
+                count
+            ));
+            Ok(Value::from(value.as_str().replacen(
+                from.as_str(),
+                to.as_str(),
+                count,
+            )))
         }
+    }
+
+    /// The `replace` filter as registered, which also accepts `count` as
+    /// keyword argument.
+    pub(crate) fn replace_with_kwargs(
+        state: &mut State,
+        args: Rest<ValueOrKwargs>,
+    ) -> Result<Value, Error> {
+        let args = args.into_values();
+        // functions only support up to five arguments, so the keyword
+        // arguments need manual argument parsing.
+        type Args<'a> = (
+            StringInput<'a>,
+            StringInput<'a>,
+            StringInput<'a>,
+            Option<i64>,
+            Kwargs,
+        );
+        let (value, from, to, count, kwargs) = ok!(
+            <Args<'_> as crate::value::FunctionArgs>::from_values_mut(Some(state), &args)
+        );
+        let count = match count {
+            Some(count) => Some(count),
+            None => ok!(kwargs.get::<Option<i64>>("count")),
+        };
+        ok!(kwargs.assert_all_used());
+        replace_impl(state, value, from, to, count)
+    }
+
+    /// Refuses a replacement that would create a string larger than the
+    /// remaining fuel can pay for.
+    fn ensure_fuel_for_replace(
+        state: &State,
+        value: &str,
+        from: &str,
+        to: &str,
+        count: usize,
+    ) -> Result<(), Error> {
+        if to.len() > from.len() {
+            // the cheap upper bound assumes that everything matches, only if
+            // that cannot be paid for are the matches counted.
+            let size = |matches: usize| {
+                matches
+                    .saturating_mul(to.len() - from.len())
+                    .saturating_add(value.len())
+            };
+            let max_matches = (value.len() / from.len().max(1) + 1).min(count);
+            if state.ensure_bytes_quiet(size(max_matches)).is_err() {
+                ok!(state.ensure_bytes(size(value.matches(from).take(count).count())));
+            }
+        }
+        Ok(())
     }
 
     /// Returns the "length" of the value
     ///
     /// By default this filter is also registered under the alias `count`.
+    /// Like in Jinja2, undefined values have a length of `0` unless strict
+    /// undefined behavior is used.
     ///
     /// ```jinja
     /// <p>Search results: {{ results|length }}
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn length(v: &Value) -> Result<usize, Error> {
+        if v.is_undefined() {
+            return Ok(0);
+        }
         v.len().ok_or_else(|| {
             Error::new(
                 ErrorKind::InvalidOperation,
@@ -308,6 +520,11 @@ mod builtins {
             )
             .with_undefined_origin(v)
         })
+    }
+
+    pub(crate) fn length_checked(state: &State, v: &Value) -> Result<usize, Error> {
+        ok!(state.undefined_behavior().assert_iterable(v));
+        length(v)
     }
 
     /// Sorts `(key, payload)` pairs by key.
@@ -374,6 +591,18 @@ mod builtins {
     /// * `reverse`: set to `true` to sort in reverse.
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn dictsort(v: &Value, kwargs: Kwargs) -> Result<Value, Error> {
+        dictsort_impl(None, v, kwargs)
+    }
+
+    pub(crate) fn dictsort_fueled(
+        state: &State,
+        v: &Value,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
+        dictsort_impl(Some(state), v, kwargs)
+    }
+
+    fn dictsort_impl(state: Option<&State>, v: &Value, kwargs: Kwargs) -> Result<Value, Error> {
         if v.kind() != ValueKind::Map {
             return Err(Error::new(
                 ErrorKind::InvalidOperation,
@@ -385,16 +614,27 @@ mod builtins {
         let case_sensitive = ok!(kwargs.get::<Option<bool>>("case_sensitive")).unwrap_or(false);
         let reverse = ok!(kwargs.get::<Option<bool>>("reverse")).unwrap_or(false);
         let mut rv: Vec<_> = if let Some(iter) = v.as_object().and_then(|v| v.try_iter_pairs()) {
-            ok!(checked(iter).try_collect_vec())
+            let mut rv = Vec::with_capacity(untrusted_size_hint(iter.size_hint().0));
+            for pair in checked(iter) {
+                if let Some(state) = state {
+                    ok!(state.charge_items(1));
+                }
+                rv.push(ok!(pair));
+            }
+            rv
         } else {
             let mut rv = Vec::new();
-            for key in ok!(v.try_iter()).checked() {
+            for key in checked(State::opt_fuel_iter(state, ok!(v.try_iter()))) {
                 let key = ok!(key);
                 let value = v.get_item(&key).unwrap_or(Value::UNDEFINED);
                 rv.push((key, value));
             }
             rv
         };
+        if let Some(state) = state {
+            ok!(state.charge_sort(rv.len()));
+            ok!(state.ensure_slots(rv.len().saturating_mul(3)));
+        }
         safe_sort(&mut rv, |a, b| {
             let (a, b) = if by_value { (&a.1, &b.1) } else { (&a.0, &b.0) };
             cmp_helper(a, b, case_sensitive, reverse)
@@ -410,7 +650,8 @@ mod builtins {
     /// which is typically arbitrary unless the `preserve_order` feature
     /// is used in which case the original order of the map is retained.
     /// It's generally better to use `|dictsort` which sorts the map by
-    /// key before iterating.
+    /// key before iterating.  Like in Jinja2, undefined values give no
+    /// pairs unless strict undefined behavior is used.
     ///
     /// ```jinja
     /// <dl>
@@ -422,7 +663,9 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn items(v: &Value) -> Result<Value, Error> {
-        if v.kind() == ValueKind::Map {
+        if v.is_undefined() {
+            Ok(Value::make_iterable(|| None::<Value>.into_iter()))
+        } else if v.kind() == ValueKind::Map {
             Ok(Value::make_object_iterable(v.clone(), |v| {
                 match v.as_object().and_then(|v| v.try_iter_pairs()) {
                     // invalid keys are passed through rather than wrapped in a pair
@@ -448,7 +691,15 @@ mod builtins {
         }
     }
 
+    pub(crate) fn items_checked(state: &State, v: &Value) -> Result<Value, Error> {
+        ok!(state.undefined_behavior().assert_iterable(v));
+        items(v)
+    }
+
     /// Reverses an iterable or string
+    ///
+    /// Like in Jinja2, `none` cannot be reversed.  Undefined values are
+    /// returned unchanged unless strict undefined behavior is used.
     ///
     /// ```jinja
     /// {% for user in users|reverse %}
@@ -457,7 +708,23 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn reverse(value: &Value) -> Result<Value, Error> {
-        if value.kind() == ValueKind::String {
+        reverse_impl(None, value)
+    }
+
+    pub(crate) fn reverse_fueled(state: &State, value: &Value) -> Result<Value, Error> {
+        reverse_impl(Some(state), value)
+    }
+
+    fn reverse_impl(state: Option<&State>, value: &Value) -> Result<Value, Error> {
+        if let Some(state) = state {
+            ok!(state.undefined_behavior().assert_iterable(value));
+        }
+        if value.is_none() {
+            Err(Error::new(
+                ErrorKind::InvalidOperation,
+                "cannot reverse values of type none",
+            ))
+        } else if value.kind() == ValueKind::String {
             let string = value.as_str().unwrap();
             let output = string.chars().rev().collect::<String>();
             if value.is_safe() {
@@ -466,7 +733,7 @@ mod builtins {
                 Ok(Value::from(output))
             }
         } else {
-            value.reverse()
+            value.reverse_with_fuel(state)
         }
     }
 
@@ -514,9 +781,25 @@ mod builtins {
         attribute: Option<&str>,
         kwargs: Kwargs,
     ) -> Result<Value, Error> {
-        fn join_plain(iter: impl Iterator<Item = Value>, joiner: &str) -> Result<String, Error> {
+        // The joiner is repeated for every item, so the size of the result is
+        // not bounded by the size of the items.  This charges for every item
+        // and checks that the output can be paid for before it grows.
+        fn charge_join(state: &State, output: &str, joiner: &str) -> Result<(), Error> {
+            ok!(state.charge_items(1));
+            if !joiner.is_empty() {
+                ok!(state.ensure_bytes(output.len().saturating_add(joiner.len())));
+            }
+            Ok(())
+        }
+
+        fn join_plain(
+            state: &State,
+            iter: impl Iterator<Item = Value>,
+            joiner: &str,
+        ) -> Result<String, Error> {
             let mut output = String::new();
             for (idx, item) in iter.enumerate() {
+                ok!(charge_join(state, &output, joiner));
                 ok!(item.check());
                 if idx > 0 {
                     output.push_str(joiner);
@@ -537,6 +820,7 @@ mod builtins {
         ) -> Result<String, Error> {
             let mut output = String::new();
             for (idx, item) in iter.enumerate() {
+                ok!(charge_join(state, &output, joiner));
                 ok!(item.check());
                 if idx > 0 {
                     output.push_str(joiner);
@@ -561,6 +845,7 @@ mod builtins {
         ok!(kwargs.assert_all_used());
 
         let joiner_str = joiner.as_ref().map(StringInput::as_str).unwrap_or_default();
+        ok!(state.undefined_behavior().assert_iterable(value));
         let iter = ok!(value.try_iter().map_err(|err| {
             Error::new(
                 ErrorKind::InvalidOperation,
@@ -571,7 +856,7 @@ mod builtins {
         let iter = iter.map(|item| map_attribute(item, attribute));
 
         if matches!(state.auto_escape(), AutoEscape::None) {
-            return Ok(Value::from(ok!(join_plain(iter, joiner_str))));
+            return Ok(Value::from(ok!(join_plain(state, iter, joiner_str))));
         }
 
         if joiner.as_ref().is_some_and(StringInput::is_safe) {
@@ -582,7 +867,7 @@ mod builtins {
 
         // A plain joiner only becomes safe if at least one item is safe.  This
         // is the one case where the iterable must be inspected before output.
-        let items = ok!(checked(iter).try_collect_vec());
+        let items = ok!(checked(state.fuel_iter(iter)).try_collect_vec());
         if items.iter().any(Value::is_safe) {
             let joiner = match joiner.as_ref() {
                 Some(joiner) => ok!(joiner.format(state)),
@@ -594,7 +879,11 @@ mod builtins {
                 &joiner
             ))))
         } else {
-            Ok(Value::from(ok!(join_plain(items.into_iter(), joiner_str))))
+            Ok(Value::from(ok!(join_plain(
+                state,
+                items.into_iter(),
+                joiner_str
+            ))))
         }
     }
 
@@ -887,7 +1176,7 @@ mod builtins {
         ok!(kwargs.assert_all_used());
 
         let mut rv = start;
-        let iter = ok!(state.undefined_behavior().try_iter(values));
+        let iter = state.fuel_iter(ok!(state.undefined_behavior().try_iter(values)));
         for value in iter.map(|item| map_attribute(item, attribute)) {
             ok!(value.check());
             if value.is_undefined() {
@@ -1133,7 +1422,9 @@ mod builtins {
 
     /// Returns the first item from an iterable.
     ///
-    /// If the list is empty `undefined` is returned.
+    /// If the list is empty `undefined` is returned.  Like in Jinja2,
+    /// undefined values are returned unchanged unless strict undefined
+    /// behavior is used.
     ///
     /// ```jinja
     /// <dl>
@@ -1143,7 +1434,9 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn first(value: &Value) -> Result<Value, Error> {
-        if let Some(s) = value.as_str() {
+        if value.is_undefined() {
+            Ok(value.clone())
+        } else if let Some(s) = value.as_str() {
             Ok(s.chars().next().map_or(Value::UNDEFINED, Value::from))
         } else if let Some(iter) = value.as_object().and_then(|x| x.try_iter()) {
             checked(iter)
@@ -1158,9 +1451,16 @@ mod builtins {
         }
     }
 
+    pub(crate) fn first_checked(state: &State, value: &Value) -> Result<Value, Error> {
+        ok!(state.undefined_behavior().assert_iterable(value));
+        first(value)
+    }
+
     /// Returns the last item from an iterable.
     ///
-    /// If the list is empty `undefined` is returned.
+    /// For maps this is the last key.  If the list is empty `undefined` is
+    /// returned.  Like in Jinja2, undefined values are returned unchanged
+    /// unless strict undefined behavior is used.
     ///
     /// ```jinja
     /// <h2>Most Recent Update</h2>
@@ -1175,7 +1475,20 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn last(value: Value) -> Result<Value, Error> {
-        if let Some(string) = value.as_str() {
+        last_impl(None, value)
+    }
+
+    pub(crate) fn last_fueled(state: &State, value: Value) -> Result<Value, Error> {
+        last_impl(Some(state), value)
+    }
+
+    fn last_impl(state: Option<&State>, value: Value) -> Result<Value, Error> {
+        if let Some(state) = state {
+            ok!(state.undefined_behavior().assert_iterable(&value));
+        }
+        if value.is_undefined() {
+            Ok(value)
+        } else if let Some(string) = value.as_str() {
             Ok(string.chars().next_back().map_or(Value::UNDEFINED, |ch| {
                 if value.is_safe() {
                     Value::from_safe_string(ch.to_string())
@@ -1183,8 +1496,11 @@ mod builtins {
                     Value::from(ch)
                 }
             }))
-        } else if matches!(value.kind(), ValueKind::Seq | ValueKind::Iterable) {
-            let rev = ok!(value.reverse());
+        } else if matches!(
+            value.kind(),
+            ValueKind::Seq | ValueKind::Iterable | ValueKind::Map
+        ) {
+            let rev = ok!(value.reverse_with_fuel(state));
             let mut iter = ok!(rev.try_iter()).checked();
             iter.next().transpose().map(Option::unwrap_or_default)
         } else {
@@ -1209,8 +1525,7 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn min(state: &State, value: Value, kwargs: Kwargs) -> Result<Value, Error> {
-        // like `Iterator::min` this returns the first of equal minimums
-        min_max(state, value, kwargs, |ordering| ordering == Ordering::Less)
+        min_max(state, value, kwargs, Ordering::Less)
     }
 
     /// Returns the largest item from an iterable.
@@ -1227,15 +1542,17 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn max(state: &State, value: Value, kwargs: Kwargs) -> Result<Value, Error> {
-        // like `Iterator::max` this returns the last of equal maximums
-        min_max(state, value, kwargs, |ordering| ordering != Ordering::Less)
+        min_max(state, value, kwargs, Ordering::Greater)
     }
 
+    /// Implements `min` and `max`.  An item replaces the current candidate only
+    /// if its key compares strictly as `wanted` so that, like in Jinja2 (and
+    /// Python's `min`/`max`), the first of multiple equal items is returned.
     fn min_max(
         state: &State,
         value: Value,
         kwargs: Kwargs,
-        replaces: fn(Ordering) -> bool,
+        wanted: Ordering,
     ) -> Result<Value, Error> {
         let iter = ok!(state.undefined_behavior().try_iter(value).map_err(|err| {
             Error::new(ErrorKind::InvalidOperation, "cannot convert value to list").with_source(err)
@@ -1243,14 +1560,14 @@ mod builtins {
         let case_sensitive = ok!(kwargs.get::<Option<bool>>("case_sensitive")).unwrap_or(false);
         let attr = ok!(kwargs.get::<Option<&str>>("attribute"));
         let mut rv = None::<(Value, Value)>;
-        for item in iter {
+        for item in state.fuel_iter(iter) {
             ok!(item.check());
             let key = match attr {
                 Some(attr) => item.get_path_or_default(attr, &Value::UNDEFINED),
                 None => item.clone(),
             };
             if rv.as_ref().map_or(true, |(rv_key, _)| {
-                replaces(cmp_helper(&key, rv_key, case_sensitive, false))
+                cmp_helper(&key, rv_key, case_sensitive, false) == wanted
             }) {
                 rv = Some((key, item));
             }
@@ -1284,14 +1601,14 @@ mod builtins {
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn sort(state: &State, value: Value, kwargs: Kwargs) -> Result<Value, Error> {
-        let items = ok!(ok!(state
-            .undefined_behavior()
-            .try_iter_checked(value)
-            .map_err(|err| {
+        let items = ok!(checked(state.fuel_iter(ok!(
+            state.undefined_behavior().try_iter(value).map_err(|err| {
                 Error::new(ErrorKind::InvalidOperation, "cannot convert value to list")
                     .with_source(err)
-            }))
+            })
+        )))
         .try_collect_vec());
+        ok!(state.charge_sort(items.len()));
 
         let case_sensitive = ok!(kwargs.get::<Option<bool>>("case_sensitive")).unwrap_or(false);
         let reverse = ok!(kwargs.get::<Option<bool>>("reverse")).unwrap_or(false);
@@ -1352,14 +1669,12 @@ mod builtins {
     /// an empty list is returned.
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn list(state: &State, value: Value) -> Result<Value, Error> {
-        let iter = ok!(state
-            .undefined_behavior()
-            .try_iter_checked(value)
-            .map_err(|err| {
-                Error::new(ErrorKind::InvalidOperation, "cannot convert value to list")
-                    .with_source(err)
-            }));
-        Ok(Value::from(ok!(iter.try_collect_vec())))
+        let iter = ok!(state.undefined_behavior().try_iter(value).map_err(|err| {
+            Error::new(ErrorKind::InvalidOperation, "cannot convert value to list").with_source(err)
+        }));
+        Ok(Value::from(ok!(
+            checked(state.fuel_iter(iter)).try_collect_vec()
+        )))
     }
 
     /// Converts a value into a string if it's not one already.
@@ -1371,7 +1686,11 @@ mod builtins {
         Ok(if value.kind() == ValueKind::String {
             value.clone()
         } else {
-            value.to_string().into()
+            let rv = value.to_string();
+            if value.as_object().is_some() {
+                ok!(state.charge_serialized(rv.len()));
+            }
+            rv.into()
         })
     }
 
@@ -1418,7 +1737,12 @@ mod builtins {
         if count == 0 {
             return Err(Error::new(ErrorKind::InvalidOperation, "count cannot be 0"));
         }
-        let items = ok!(ok!(state.undefined_behavior().try_iter_checked(value)).try_collect_vec());
+        let items = ok!(
+            checked(state.fuel_iter(ok!(state.undefined_behavior().try_iter(value))))
+                .try_collect_vec()
+        );
+        // every slice is a new list
+        ok!(state.ensure_slots(count.saturating_add(items.len())));
         let len = items.len();
         let items_per_slice = len / count;
         let slices_with_extra = len % count;
@@ -1478,7 +1802,7 @@ mod builtins {
         let mut rv = Vec::with_capacity(untrusted_size_hint(value.len().unwrap_or(0) / count));
         let mut tmp = Vec::with_capacity(untrusted_size_hint(count));
 
-        for item in ok!(state.undefined_behavior().try_iter(value)) {
+        for item in state.fuel_iter(ok!(state.undefined_behavior().try_iter(value))) {
             ok!(item.check());
             if tmp.len() == count {
                 rv.push(Value::from(mem::replace(
@@ -1491,6 +1815,7 @@ mod builtins {
 
         if !tmp.is_empty() {
             if let Some(filler) = fill_with {
+                ok!(state.ensure_slots(count - tmp.len()));
                 for _ in 0..count - tmp.len() {
                     tmp.push(filler.clone());
                 }
@@ -1530,6 +1855,26 @@ mod builtins {
     #[cfg_attr(docsrs, doc(cfg(all(feature = "builtins", feature = "json"))))]
     #[cfg(feature = "json")]
     pub fn tojson(value: &Value, indent: Option<Value>, args: Kwargs) -> Result<Value, Error> {
+        tojson_impl(None, value, indent, args)
+    }
+
+    #[cfg(feature = "json")]
+    pub(crate) fn tojson_fueled(
+        state: &State,
+        value: &Value,
+        indent: Option<Value>,
+        args: Kwargs,
+    ) -> Result<Value, Error> {
+        tojson_impl(Some(state), value, indent, args)
+    }
+
+    #[cfg(feature = "json")]
+    fn tojson_impl(
+        state: Option<&State>,
+        value: &Value,
+        indent: Option<Value>,
+        args: Kwargs,
+    ) -> Result<Value, Error> {
         let indent = match indent {
             Some(indent) => Some(indent),
             None => ok!(args.get("indent")),
@@ -1548,11 +1893,13 @@ mod builtins {
             None => crate::json::JsonStyle::Spaced,
         };
         // When this filter is used the return value is safe for both HTML and JSON
-        crate::json::to_json(value, style, true)
-            .map_err(|err| {
-                Error::new(ErrorKind::InvalidOperation, "cannot serialize to JSON").with_source(err)
-            })
-            .map(Value::from_safe_string)
+        let rv = ok!(crate::json::to_json(value, style, true).map_err(|err| {
+            Error::new(ErrorKind::InvalidOperation, "cannot serialize to JSON").with_source(err)
+        }));
+        if let Some(state) = state {
+            ok!(state.charge_serialized(rv.len()));
+        }
+        Ok(Value::from_safe_string(rv))
     }
 
     /// Indents a value with spaces.
@@ -1585,6 +1932,45 @@ mod builtins {
         indent_blank_lines: Option<bool>,
         kwargs: Kwargs,
     ) -> Result<Value, Error> {
+        indent_impl(
+            None,
+            value,
+            width,
+            indent_first_line,
+            indent_blank_lines,
+            kwargs,
+        )
+    }
+
+    pub(crate) fn indent_fueled(state: &State, args: Rest<ValueOrKwargs>) -> Result<Value, Error> {
+        let args = args.into_values();
+        // functions only support up to five arguments, so the state needs
+        // to be accompanied by manual argument parsing.
+        let (value, width, indent_first_line, indent_blank_lines, kwargs): (
+            StringInput<'_>,
+            Option<usize>,
+            Option<bool>,
+            Option<bool>,
+            Kwargs,
+        ) = ok!(crate::value::from_args(&args));
+        indent_impl(
+            Some(state),
+            value,
+            width,
+            indent_first_line,
+            indent_blank_lines,
+            kwargs,
+        )
+    }
+
+    fn indent_impl(
+        state: Option<&State>,
+        value: StringInput<'_>,
+        width: Option<usize>,
+        indent_first_line: Option<bool>,
+        indent_blank_lines: Option<bool>,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
         fn strip_trailing_newline(mut input: &str) -> &str {
             if let Some(stripped) = input.strip_suffix('\n') {
                 input = stripped;
@@ -1610,6 +1996,10 @@ mod builtins {
         ok!(kwargs.assert_all_used());
 
         let input = strip_trailing_newline(value.as_str());
+        if let Some(state) = state {
+            let lines = input.bytes().filter(|&b| b == b'\n').count() + 1;
+            ok!(state.ensure_bytes(width.saturating_mul(lines).saturating_add(input.len())));
+        }
         let indent_with = " ".repeat(width);
         let mut output = String::new();
         let mut iterator = input.split('\n');
@@ -1702,6 +2092,8 @@ mod builtins {
             None
         };
         for value in ok!(state.undefined_behavior().try_iter(value)) {
+            // this cannot use `fuel_iter` as the test needs a mutable state.
+            ok!(state.charge_items(1));
             ok!(value.check());
             let test_value = if let Some(ref attr) = attr {
                 ok!(value.get_path(attr))
@@ -1713,6 +2105,7 @@ mod builtins {
                     .into_iter()
                     .chain(args.iter().cloned())
                     .collect::<Vec<_>>();
+                ok!(state.charge_call(&new_args));
                 ok!(test.call(state, &new_args)).is_true()
             } else {
                 test_value.is_true()
@@ -1859,7 +2252,7 @@ mod builtins {
             } else {
                 Value::UNDEFINED
             };
-            for value in ok!(state.undefined_behavior().try_iter(value)) {
+            for value in state.fuel_iter(ok!(state.undefined_behavior().try_iter(value))) {
                 ok!(value.check());
                 let sub_val = match attr.as_str() {
                     Some(path) => value.get_path(path),
@@ -1894,12 +2287,17 @@ mod builtins {
             .get_filter(filter_name)
             .ok_or_else(|| Error::from(ErrorKind::UnknownFilter)));
         for value in ok!(state.undefined_behavior().try_iter(value)) {
+            // this cannot use `fuel_iter` as the filter needs a mutable state.
+            ok!(state.charge_items(1));
             ok!(value.check());
             let new_args = Some(value.clone())
                 .into_iter()
                 .chain(args.iter().skip(1).cloned())
                 .collect::<Vec<_>>();
-            rv.push(ok!(filter.call(state, &new_args)));
+            ok!(state.charge_call(&new_args));
+            let mapped = ok!(filter.call(state, &new_args));
+            ok!(state.charge_value(&mapped));
+            rv.push(mapped);
         }
         Ok(rv)
     }
@@ -1954,13 +2352,39 @@ mod builtins {
     /// `case_sensitive=True`.
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn groupby(value: Value, attribute: Option<&str>, kwargs: Kwargs) -> Result<Value, Error> {
+        groupby_impl(None, value, attribute, kwargs)
+    }
+
+    pub(crate) fn groupby_fueled(
+        state: &State,
+        value: Value,
+        attribute: Option<&str>,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
+        groupby_impl(Some(state), value, attribute, kwargs)
+    }
+
+    fn groupby_impl(
+        state: Option<&State>,
+        value: Value,
+        attribute: Option<&str>,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
         let default = ok!(kwargs.get::<Option<Value>>("default")).unwrap_or_default();
         let case_sensitive = ok!(kwargs.get::<Option<bool>>("case_sensitive")).unwrap_or(false);
         let attr = match attribute {
             Some(attr) => attr,
             None => ok!(kwargs.get::<&str>("attribute")),
         };
-        let items: Vec<Value> = ok!(checked(ok!(value.try_iter())).try_collect_vec());
+        if let Some(state) = state {
+            ok!(state.undefined_behavior().assert_iterable(&value));
+        }
+        let items: Vec<Value> =
+            ok!(checked(State::opt_fuel_iter(state, ok!(value.try_iter()))).try_collect_vec());
+        if let Some(state) = state {
+            ok!(state.charge_sort(items.len()));
+            ok!(state.ensure_slots(items.len().saturating_mul(2)));
+        }
         let mut keyed: Vec<_> = items
             .into_iter()
             .map(|item| (Some(item.get_path_or_default(attr, &default)), item))
@@ -2008,17 +2432,22 @@ mod builtins {
         let mut grouper = None::<Value>;
         let mut list = Vec::new();
 
+        // Like in Jinja2 a group is labelled with the key of its first item
+        // (the sort is stable) when keys compare equal but are not identical
+        // such as `"CA"` and `"ca"` or `1` and `1.0`.
         for (group_by, item) in keyed {
             let group_by = group_by.unwrap_or_default();
-            if let Some(ref last_grouper) = grouper {
-                if cmp_helper(last_grouper, &group_by, case_sensitive, false) != Ordering::Equal {
+            let starts_group = grouper.as_ref().map_or(true, |current| {
+                cmp_helper(current, &group_by, case_sensitive, false) != Ordering::Equal
+            });
+            if starts_group {
+                if let Some(current) = grouper.replace(group_by) {
                     rv.push(Value::from_object(GroupTuple {
-                        grouper: last_grouper.clone(),
+                        grouper: current,
                         list: std::mem::take(&mut list),
                     }));
                 }
             }
-            grouper = Some(group_by);
             list.push(item);
         }
 
@@ -2066,7 +2495,7 @@ mod builtins {
         let mut rv = Vec::new();
         let mut seen = BTreeSet::new();
 
-        let iter = ok!(state.undefined_behavior().try_iter(values));
+        let iter = state.fuel_iter(ok!(state.undefined_behavior().try_iter(values)));
         for item in iter {
             ok!(item.check());
             let value_to_compare = if let Some(attr) = attr {
@@ -2082,6 +2511,7 @@ mod builtins {
                 value_to_compare.clone()
             };
 
+            ok!(state.charge_lookup(seen.len()));
             if !seen.contains(&memorized_value) {
                 rv.push(item);
                 seen.insert(memorized_value);
@@ -2232,6 +2662,12 @@ mod builtins {
         format!("{value:#?}")
     }
 
+    pub(crate) fn pprint_fueled(state: &State, value: &Value) -> Result<String, Error> {
+        let rv = pprint(value);
+        ok!(state.charge_serialized(rv.len()));
+        Ok(rv)
+    }
+
     /// Apply the given values to a [printf-style] format string.
     ///
     /// ```jinja
@@ -2264,11 +2700,17 @@ mod builtins {
         // like any other string conversion, formatting undefined values fails
         // with strict undefined behavior.
         let undefined_behavior = state.undefined_behavior();
+        // width and precision can request arbitrarily large output, so check
+        // that the fuel can pay for it before formatting.
+        let mut min_output_len = string.len();
         if format_str.is_safe() {
             let output = ok!(format_printf_with(
                 string,
                 &format_args,
-                |value, conversion| {
+                |value, conversion, min_len| {
+                    min_output_len = min_output_len.saturating_add(min_len);
+                    ok!(state.charge_format_spec());
+                    ok!(state.ensure_bytes(min_output_len));
                     ok!(undefined_behavior.assert_value_not_undefined(value));
                     if conversion == FormatConversion::Character {
                         return Err(Error::new(
@@ -2291,7 +2733,10 @@ mod builtins {
             ));
             Ok(Value::from_safe_string(output))
         } else {
-            format_printf_with(string, &format_args, |value, _| {
+            format_printf_with(string, &format_args, |value, _, min_len| {
+                min_output_len = min_output_len.saturating_add(min_len);
+                ok!(state.charge_format_spec());
+                ok!(state.ensure_bytes(min_output_len));
                 ok!(undefined_behavior.assert_value_not_undefined(value));
                 Ok(None)
             })

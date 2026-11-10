@@ -1,6 +1,6 @@
 [project]
 name = "composio-client"
-version = "2.1.0"
+version = "2.1.9"
 description = "The official Python library for the Composio API, generated from the v3.1 OpenAPI spec with hey-api"
 readme = "README.md"
 license = "Apache-2.0"

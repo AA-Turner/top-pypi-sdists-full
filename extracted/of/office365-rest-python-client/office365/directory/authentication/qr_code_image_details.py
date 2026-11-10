@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.authentication.error_correction_level import (
     ErrorCorrectionLevel,
 )
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class QrCodeImageDetails(ClientValue):
     binaryValue: bytes | None = None
     rawContent: bytes | None = None

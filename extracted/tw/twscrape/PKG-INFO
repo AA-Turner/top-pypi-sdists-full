@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: twscrape
-Version: 0.20.1
+Version: 0.21.0
 Summary: Twitter GraphQL and Search API implementation with SNScrape data models
 Project-URL: repository, https://github.com/vladkens/twscrape
 Author-email: vladkens <v.pronsky@gmail.com>
@@ -17,13 +17,12 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: aiosqlite>=0.17.0
 Requires-Dist: beautifulsoup4>=4.13.0
+Requires-Dist: curl-cffi>=0.9.0
 Requires-Dist: fake-useragent>=1.4.0
 Requires-Dist: httpx>=0.26.0
 Requires-Dist: loguru>=0.7.0
 Requires-Dist: py-machineid>=1.0.0
 Requires-Dist: pyotp>=2.9.0
-Provides-Extra: curl
-Requires-Dist: curl-cffi>=0.7.0; extra == 'curl'
 Description-Content-Type: text/markdown
 
 # twscrape
@@ -41,7 +40,7 @@ Description-Content-Type: text/markdown
 twscrape is an async Python library and CLI for X/Twitter Search and GraphQL endpoints. It runs on your own account pool, keeps sessions in SQLite, rotates accounts when an endpoint is rate-limited, and returns either parsed SNScrape-style models or raw API responses.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.1/.github/example.png" alt="example of cli usage" height="400px">
+  <img src="https://raw.githubusercontent.com/vladkens/twscrape/41c10aa4099a35dc99ada89d7243f403ae7cce19/.github/example.png" alt="example of cli usage" height="400px">
 </div>
 
 ## Install
@@ -50,13 +49,7 @@ twscrape is an async Python library and CLI for X/Twitter Search and GraphQL end
 pip install twscrape
 ```
 
-`httpx` is the default HTTP backend. For browser-like TLS fingerprinting, install the optional `curl-cffi` backend:
-
-```bash
-pip install "twscrape[curl]"
-
-TWS_HTTP_BACKEND=curl twscrape user_by_login xdevelopers
-```
+twscrape uses [curl-cffi](https://github.com/lexiforest/curl_cffi) by default, with a browser-like TLS fingerprint that Cloudflare requires on some operations, for example `user_by_id`. If something breaks, `TWS_HTTP_BACKEND=httpx` switches back to `httpx`.
 
 ## Features
 
@@ -71,16 +64,16 @@ TWS_HTTP_BACKEND=curl twscrape user_by_login xdevelopers
 ## Sponsor
 
 <p align="center">
-  <a href="https://www.rapidproxy.io/?ref=twscrape">
-    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.1/.github/rapidproxy.jpg" alt="RapidProxy logo" width="460">
+  <a href="https://proxy-seller.com/?utm_source=github&utm_medium=referral&utm_campaign=partner_promo&utm_term=github&partner=A5588ADD6A634EF3">
+    <img src="https://raw.githubusercontent.com/vladkens/twscrape/41c10aa4099a35dc99ada89d7243f403ae7cce19/.github/proxyseller.png" alt="Proxy-Seller banner" width="600">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://www.rapidproxy.io/?ref=twscrape"><strong>RapidProxy</strong></a> is a residential proxy platform with 90M+ real IPs across 200+ countries. It supports rotation, geo-targeting, and high concurrency to improve scraping success and reduce bans. Start your free trial today!
+  <a href="https://proxy-seller.com/?utm_source=github&utm_medium=referral&utm_campaign=partner_promo&utm_term=github&partner=A5588ADD6A634EF3"><strong>Proxy-Seller</strong></a> provides residential, ISP, IPv4 and IPv6 proxies in 220+ locations, from $0.70 per GB, with 24/7 support.
 </p>
 
-<p align="center">Discount Code: <code>RAPID10</code> to get 10% off.</p>
+<p align="center">Promo code <code>TWSCRAPE</code> gives 15% off ISP, IPv4 and residential proxies.</p>
 
 ## Start With Cookies
 
@@ -102,7 +95,7 @@ twscrape add_cookie my_account
 
 Cookie accounts that include `auth_token` and `ct0` are activated immediately; no `login_accounts` step is needed.
 
-Ready-to-use cookie accounts are available from [this provider](https://kutt.to/ueeM5f). Proxy users can bring their own proxies or use [this provider](https://kutt.to/eb3rXk). These are referral links.
+Ready-to-use cookie accounts are available from [this provider](https://kutt.to/ueeM5f). Proxy users can bring their own proxies or use [Proxy-Seller](https://proxy-seller.com/?utm_source=github&utm_medium=referral&utm_campaign=partner_promo&utm_term=github&partner=A5588ADD6A634EF3). These are referral links.
 
 X/Twitter's Terms of Service discourage using multiple accounts. Use this project responsibly and at your own discretion.
 
@@ -145,6 +138,8 @@ api = API(raise_when_no_account=True, wait_timeout=30, wait_interval=1)
 ```
 
 `wait_timeout` limits how long to wait for a locked account, `wait_interval` controls how often the pool checks again, and `raise_when_no_account` raises `NoAccountError` instead of ending the operation. By default, twscrape waits indefinitely while active accounts are locked.
+
+X sometimes sends a tweet without its author's profile. The tweet is still returned, with a placeholder `tweet.user` (the same goes for retweeted and quoted tweets): only `id` is known, plus `username` and sometimes `displayname` when the referencing tweet names the author. Its counts are 0, `created` is the Unix epoch and `profileImageUrl` is empty, which never happens for a real profile, so check `tweet.user.profileImageUrl == ""` before storing user stats.
 
 Search defaults to the Latest tab. Pass `kv={"product": "Top"}` or `kv={"product": "Media"}` to use another search product:
 
@@ -237,10 +232,21 @@ Trends:
 await gather(api.trends("news"))  # list[Trend]
 await gather(api.trends("sport"))  # list[Trend]
 await gather(api.trends("entertainment"))  # list[Trend]
-await gather(api.trends("VGltZWxpbmU6DAC2CwABAAAACHRyZW5kaW5nAAA"))  # list[Trend]
+await gather(api.trends("VGltZWxpbmU6DAC2CwABAAAACHRyZW5kaW5nAAA="))  # list[Trend]
 ```
 
 Parsed `Tweet`, `User`, `Community`, and trend objects can be converted with `.dict()` or `.json()`.
+
+## Errors
+
+A failed request raises instead of looking like an empty result:
+
+- `AbortReqError` when twscrape gives up on a request, for example on an HTML block page, including `GqlFeaturesOutdatedError` when X requires GraphQL features twscrape can't enable
+- `ApiError`, its subclass, when X answers with errors and no data; a busy or timed-out X (`LoadShed`, `DeadlineExceeded`) is retried a few times first
+- `XClIdParseError` when the X client transaction ID can't be generated
+- `ParseError` when `tweet_details()`, `user_about()` or `community_info()` gets the requested object but twscrape can't parse it; its subclass `UserParseError` for `user_by_id()` and `user_by_login()`
+
+A paginated method raises on the page that failed, after yielding the earlier pages, and skips single items it can't parse. `None` from `tweet_details()`, `user_by_id()`, `user_by_login()`, `user_about()` or `community_info()` means X has no such object (or no account was available and `raise_when_no_account` is off). In the CLI, a failed request exits with code 1 without a traceback.
 
 ## CLI
 
@@ -336,6 +342,7 @@ twscrape accounts
 twscrape stats
 twscrape relogin user1 user2
 twscrape relogin_failed
+twscrape reactivate user1 user2
 twscrape reset_locks
 twscrape delete_inactive
 twscrape del_accounts user1 user2
@@ -392,7 +399,7 @@ Do not set `api.proxy` or `TWS_PROXY` when you want per-account proxies to be us
 - `TWS_PROXY` - global proxy for all accounts
 - `TWS_WAIT_EMAIL_CODE` - email verification timeout in seconds, default `30`
 - `TWS_RAISE_WHEN_NO_ACCOUNT` - raise `NoAccountError` instead of waiting; accepts `false`, `0`, `true`, `1`
-- `TWS_HTTP_BACKEND` - `httpx` or `curl`
+- `TWS_HTTP_BACKEND` - `curl` (default) or `httpx`
 - `TWS_LOG_LEVEL` - logger level, default `INFO`
 - `TWS_TELEMETRY=0` - disable anonymous telemetry
 
@@ -405,3 +412,7 @@ twscrape collects anonymous, aggregated telemetry about used GraphQL operation n
 - [twitter-advanced-search](https://github.com/igorbrigadir/twitter-advanced-search) - guide on search filters
 - [TweeterPy](https://github.com/iSarabjitDhiman/TweeterPy) - another X client
 - [twitter-api-client](https://github.com/trevorhobenshield/twitter-api-client) - implementation of Twitter's v1, v2, and GraphQL APIs
+
+## Contributing
+
+Pull requests are welcome, including ones made with agents: point yours at [agents.md](https://github.com/vladkens/twscrape/blob/main/agents.md).

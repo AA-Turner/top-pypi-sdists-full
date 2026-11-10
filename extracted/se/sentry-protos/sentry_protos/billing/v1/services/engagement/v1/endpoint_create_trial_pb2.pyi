@@ -24,9 +24,12 @@ class CreateTrialRequest(google.protobuf.message.Message):
     CONFIGS_FIELD_NUMBER: builtins.int
     START_DATE_FIELD_NUMBER: builtins.int
     END_DATE_FIELD_NUMBER: builtins.int
+    USER_ID_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     line_item_uid: builtins.str
     package_uid: builtins.str
+    user_id: builtins.int
+    """The user who starts the trial. Not set when no user starts it."""
     @property
     def configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.engagement.v1.endpoint_get_active_trials_pb2.TrialConfig]:
         """Defines what is granted with this trial"""
@@ -46,13 +49,16 @@ class CreateTrialRequest(google.protobuf.message.Message):
         configs: collections.abc.Iterable[sentry_protos.billing.v1.services.engagement.v1.endpoint_get_active_trials_pb2.TrialConfig] | None = ...,
         start_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         end_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
+        user_id: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "configs", b"configs", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "organization_id", b"organization_id", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "_user_id", b"_user_id", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date", "user_id", b"user_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_end_date", b"_end_date", "_start_date", b"_start_date", "_user_id", b"_user_id", "configs", b"configs", "end_date", b"end_date", "line_item_uid", b"line_item_uid", "organization_id", b"organization_id", "package_uid", b"package_uid", "scope", b"scope", "start_date", b"start_date", "user_id", b"user_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_end_date", b"_end_date"]) -> typing.Literal["end_date"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_start_date", b"_start_date"]) -> typing.Literal["start_date"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_user_id", b"_user_id"]) -> typing.Literal["user_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["scope", b"scope"]) -> typing.Literal["line_item_uid", "package_uid"] | None: ...
 

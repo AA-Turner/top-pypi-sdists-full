@@ -30,8 +30,11 @@ from .literals import (
     AutoTuneDesiredStateType,
     AutoTuneStateType,
     CapabilityStatusType,
+    ClonedBlueGreenScheduledActionTypeType,
     ConfigChangeStatusType,
     ConnectionModeType,
+    CutoverStatusType,
+    CutoverTargetType,
     DataSourceAttachmentStatusType,
     DataSourceStatusType,
     DeploymentStatusType,
@@ -82,6 +85,7 @@ from .literals import (
     ReplicationStatusType,
     RequirementLevelType,
     ReservedInstancePaymentOptionType,
+    RetentionActionType,
     RolesKeyIdCOptionType,
     RollbackOnDisableType,
     ScheduleAtType,
@@ -91,6 +95,7 @@ from .literals import (
     SkipUnavailableStatusType,
     SubjectKeyIdCOptionType,
     TLSSecurityPolicyType,
+    TrafficSplitStatusType,
     UpgradeStatusType,
     UpgradeStepType,
     ValidationFailureSeverityType,
@@ -166,6 +171,9 @@ __all__ = (
     "ChangeProgressDetailsTypeDef",
     "ChangeProgressStageTypeDef",
     "ChangeProgressStatusDetailsTypeDef",
+    "ClonedBlueGreenOptionsTypeDef",
+    "ClonedBlueGreenScheduledActionTypeDef",
+    "ClonedBlueGreenUpgradeDetailsTypeDef",
     "CloudWatchDirectQueryDataSourceTypeDef",
     "ClusterConfigOutputTypeDef",
     "ClusterConfigStatusTypeDef",
@@ -191,6 +199,8 @@ __all__ = (
     "CreateVpcEndpointRequestTypeDef",
     "CreateVpcEndpointResponseTypeDef",
     "CrossClusterSearchConnectionPropertiesTypeDef",
+    "CutoverOptionsTypeDef",
+    "CutoverRequestOptionsTypeDef",
     "DataSourceAttachmentSummaryTypeDef",
     "DataSourceDetailsTypeDef",
     "DataSourceTypeDef",
@@ -213,6 +223,7 @@ __all__ = (
     "DeleteVpcEndpointResponseTypeDef",
     "DeploymentStrategyOptionsStatusTypeDef",
     "DeploymentStrategyOptionsTypeDef",
+    "DeploymentStrategyOverrideOptionsTypeDef",
     "DeregisterCapabilityRequestTypeDef",
     "DeregisterCapabilityResponseTypeDef",
     "DescribeDataSourceAttachmentRequestTypeDef",
@@ -417,6 +428,7 @@ __all__ = (
     "ReservedInstanceOfferingTypeDef",
     "ReservedInstanceTypeDef",
     "ResponseMetadataTypeDef",
+    "RetentionOptionsTypeDef",
     "RevokeVpcEndpointAccessRequestTypeDef",
     "RollbackServiceSoftwareOptionsTypeDef",
     "RollbackServiceSoftwareUpdateRequestTypeDef",
@@ -451,8 +463,13 @@ __all__ = (
     "SwitchoverReplicationResponseTypeDef",
     "TagTypeDef",
     "TimestampTypeDef",
+    "TrafficPercentsTypeDef",
+    "TrafficSplitOptionsTypeDef",
+    "TrafficSplitRequestOptionsTypeDef",
     "UpdateApplicationRequestTypeDef",
     "UpdateApplicationResponseTypeDef",
+    "UpdateCloneRequestTypeDef",
+    "UpdateCloneResponseTypeDef",
     "UpdateDataSourceRequestTypeDef",
     "UpdateDataSourceResponseTypeDef",
     "UpdateDirectQueryDataSourceRequestTypeDef",
@@ -720,6 +737,21 @@ class ValidationFailureTypeDef(TypedDict):
     Severity: NotRequired[ValidationFailureSeverityType]
 
 
+class RetentionOptionsTypeDef(TypedDict):
+    RetentionInHours: NotRequired[int]
+    RetentionAction: NotRequired[RetentionActionType]
+
+
+class ClonedBlueGreenScheduledActionTypeDef(TypedDict):
+    Action: NotRequired[ClonedBlueGreenScheduledActionTypeType]
+    ScheduledTime: NotRequired[datetime]
+
+
+class TrafficPercentsTypeDef(TypedDict):
+    PrimaryReadTrafficPercent: int
+    CloneReadTrafficPercent: int
+
+
 class CloudWatchDirectQueryDataSourceTypeDef(TypedDict):
     RoleArn: str
 
@@ -861,6 +893,15 @@ class PackageSourceTypeDef(TypedDict):
 
 class PackageVendingOptionsTypeDef(TypedDict):
     VendingEnabled: bool
+
+
+class CutoverOptionsTypeDef(TypedDict):
+    Target: CutoverTargetType
+    Status: CutoverStatusType
+
+
+class CutoverRequestOptionsTypeDef(TypedDict):
+    Target: CutoverTargetType
 
 
 class DataSourceAttachmentSummaryTypeDef(TypedDict):
@@ -1490,6 +1531,11 @@ class SwitchoverReplicationRequestTypeDef(TypedDict):
     PeerDomainArn: str
 
 
+class TrafficSplitRequestOptionsTypeDef(TypedDict):
+    Strategy: Literal["ShiftReadTrafficPercent"]
+    CloneReadTrafficPercent: int
+
+
 class UpdateIndexRequestTypeDef(TypedDict):
     DomainName: str
     IndexName: str
@@ -1508,13 +1554,6 @@ class UpdateScheduledActionRequestTypeDef(TypedDict):
     ActionType: ActionTypeType
     ScheduleAt: ScheduleAtType
     DesiredStartTime: NotRequired[int]
-
-
-class UpgradeDomainRequestTypeDef(TypedDict):
-    DomainName: str
-    TargetVersion: str
-    PerformCheckOnly: NotRequired[bool]
-    AdvancedOptions: NotRequired[Mapping[str, str]]
 
 
 class UpgradeStepItemTypeDef(TypedDict):
@@ -1854,31 +1893,6 @@ class GetCapabilityResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class UpgradeDomainResponseTypeDef(TypedDict):
-    UpgradeId: str
-    DomainName: str
-    TargetVersion: str
-    PerformCheckOnly: bool
-    AdvancedOptions: dict[str, str]
-    ChangeProgressDetails: ChangeProgressDetailsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ChangeProgressStatusDetailsTypeDef(TypedDict):
-    ChangeId: NotRequired[str]
-    StartTime: NotRequired[datetime]
-    Status: NotRequired[OverallChangeStatusType]
-    PendingProperties: NotRequired[list[str]]
-    CompletedProperties: NotRequired[list[str]]
-    TotalNumberOfStages: NotRequired[int]
-    ChangeProgressStages: NotRequired[list[ChangeProgressStageTypeDef]]
-    LastUpdatedTime: NotRequired[datetime]
-    ConfigChangeStatus: NotRequired[ConfigChangeStatusType]
-    InitiatedBy: NotRequired[InitiatedByType]
-    ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
-    AcceptedWarnings: NotRequired[list[str]]
-
-
 class DryRunProgressStatusTypeDef(TypedDict):
     DryRunId: str
     DryRunStatus: str
@@ -1886,6 +1900,22 @@ class DryRunProgressStatusTypeDef(TypedDict):
     UpdateDate: str
     ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
     AcceptedWarnings: NotRequired[list[str]]
+
+
+class ClonedBlueGreenOptionsTypeDef(TypedDict):
+    RetentionOptions: NotRequired[RetentionOptionsTypeDef]
+
+
+class ClonedBlueGreenUpgradeDetailsTypeDef(TypedDict):
+    TrafficSplit: NotRequired[TrafficPercentsTypeDef]
+    ScheduledAction: NotRequired[ClonedBlueGreenScheduledActionTypeDef]
+    RetentionInHours: NotRequired[int]
+
+
+class TrafficSplitOptionsTypeDef(TypedDict):
+    Current: TrafficPercentsTypeDef
+    Target: TrafficPercentsTypeDef
+    Status: TrafficSplitStatusType
 
 
 class CognitoOptionsStatusTypeDef(TypedDict):
@@ -2332,6 +2362,13 @@ class StorageTypeTypeDef(TypedDict):
     StorageTypeLimits: NotRequired[list[StorageTypeLimitTypeDef]]
 
 
+class UpdateCloneRequestTypeDef(TypedDict):
+    DomainName: str
+    TrafficSplitOptions: NotRequired[TrafficSplitRequestOptionsTypeDef]
+    CutoverOptions: NotRequired[CutoverRequestOptionsTypeDef]
+    RetentionOptions: NotRequired[RetentionOptionsTypeDef]
+
+
 class UpgradeHistoryTypeDef(TypedDict):
     UpgradeName: NotRequired[str]
     StartTimestamp: NotRequired[datetime]
@@ -2404,8 +2441,33 @@ class DescribeDomainHealthResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeDomainChangeProgressResponseTypeDef(TypedDict):
-    ChangeProgressStatus: ChangeProgressStatusDetailsTypeDef
+class DeploymentStrategyOverrideOptionsTypeDef(TypedDict):
+    DeploymentStrategy: Literal["ClonedBlueGreen"]
+    ClonedBlueGreenOptions: NotRequired[ClonedBlueGreenOptionsTypeDef]
+
+
+class ChangeProgressStatusDetailsTypeDef(TypedDict):
+    ChangeId: NotRequired[str]
+    StartTime: NotRequired[datetime]
+    Status: NotRequired[OverallChangeStatusType]
+    PendingProperties: NotRequired[list[str]]
+    CompletedProperties: NotRequired[list[str]]
+    TotalNumberOfStages: NotRequired[int]
+    ChangeProgressStages: NotRequired[list[ChangeProgressStageTypeDef]]
+    LastUpdatedTime: NotRequired[datetime]
+    ConfigChangeStatus: NotRequired[ConfigChangeStatusType]
+    InitiatedBy: NotRequired[InitiatedByType]
+    ClonedBlueGreenUpgradeDetails: NotRequired[ClonedBlueGreenUpgradeDetailsTypeDef]
+    ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+    AcceptedWarnings: NotRequired[list[str]]
+
+
+class UpdateCloneResponseTypeDef(TypedDict):
+    DomainName: str
+    ChangeId: str
+    CutoverOptions: CutoverOptionsTypeDef
+    TrafficSplitOptions: TrafficSplitOptionsTypeDef
+    RetentionOptions: RetentionOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2728,6 +2790,30 @@ class AutoTuneOptionsInputTypeDef(TypedDict):
 
 
 AutoTuneOptionsUnionTypeDef = Union[AutoTuneOptionsTypeDef, AutoTuneOptionsExtraTypeDef]
+
+
+class UpgradeDomainRequestTypeDef(TypedDict):
+    DomainName: str
+    TargetVersion: str
+    PerformCheckOnly: NotRequired[bool]
+    AdvancedOptions: NotRequired[Mapping[str, str]]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOverrideOptionsTypeDef]
+
+
+class UpgradeDomainResponseTypeDef(TypedDict):
+    UpgradeId: str
+    DomainName: str
+    TargetVersion: str
+    PerformCheckOnly: bool
+    AdvancedOptions: dict[str, str]
+    DeploymentStrategyOptions: DeploymentStrategyOverrideOptionsTypeDef
+    ChangeProgressDetails: ChangeProgressDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeDomainChangeProgressResponseTypeDef(TypedDict):
+    ChangeProgressStatus: ChangeProgressStatusDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteOutboundConnectionResponseTypeDef(TypedDict):

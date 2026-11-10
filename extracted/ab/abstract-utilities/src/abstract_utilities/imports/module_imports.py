@@ -1,4 +1,6 @@
 from abstract_essentials import (
+    FrameLite,
+    light_stack,
     combineList,
     compare_lists,
     ensure_nested_list,

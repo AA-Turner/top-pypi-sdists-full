@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.46.0
+Version: 1.49.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -52,7 +52,7 @@ Requires-Dist: azure-ai-inference; extra == "azure"
 Provides-Extra: watsonx
 Requires-Dist: ibm-watsonx-ai; python_version < "3.14" and extra == "watsonx"
 Provides-Extra: together
-Requires-Dist: together<4,>=2.0.0; extra == "together"
+Requires-Dist: together<4,>=3.0.0; extra == "together"
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.6.0; extra == "ollama"
 Provides-Extra: voyage

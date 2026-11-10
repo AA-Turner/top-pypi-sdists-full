@@ -27,6 +27,11 @@ class Attachment:
         file_name (Union[Unset, str]):
         backend_id (Union[Unset, str]):
         destroy_is_available (Union[Unset, bool]):
+        can_delete (Union[Unset, bool]): Whether the caller may delete this attachment, by the check the delete route
+            runs. Whether the support backend allows deleting it is destroy_is_available.
+        delete_is_local_only (Union[Unset, bool]): True when the attachment's ticket was routed to a provider helpdesk
+            that has since been removed from Waldur: deleting removes the file from Waldur only, and any copy on the
+            provider's helpdesk stays.
     """
 
     url: Union[Unset, str] = UNSET
@@ -40,6 +45,8 @@ class Attachment:
     file_name: Union[Unset, str] = UNSET
     backend_id: Union[Unset, str] = UNSET
     destroy_is_available: Union[Unset, bool] = UNSET
+    can_delete: Union[Unset, bool] = UNSET
+    delete_is_local_only: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,6 +76,10 @@ class Attachment:
 
         destroy_is_available = self.destroy_is_available
 
+        can_delete = self.can_delete
+
+        delete_is_local_only = self.delete_is_local_only
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -94,6 +105,10 @@ class Attachment:
             field_dict["backend_id"] = backend_id
         if destroy_is_available is not UNSET:
             field_dict["destroy_is_available"] = destroy_is_available
+        if can_delete is not UNSET:
+            field_dict["can_delete"] = can_delete
+        if delete_is_local_only is not UNSET:
+            field_dict["delete_is_local_only"] = delete_is_local_only
 
         return field_dict
 
@@ -132,6 +147,10 @@ class Attachment:
 
         destroy_is_available = d.pop("destroy_is_available", UNSET)
 
+        can_delete = d.pop("can_delete", UNSET)
+
+        delete_is_local_only = d.pop("delete_is_local_only", UNSET)
+
         attachment = cls(
             url=url,
             uuid=uuid,
@@ -144,6 +163,8 @@ class Attachment:
             file_name=file_name,
             backend_id=backend_id,
             destroy_is_available=destroy_is_available,
+            can_delete=can_delete,
+            delete_is_local_only=delete_is_local_only,
         )
 
         attachment.additional_properties = d

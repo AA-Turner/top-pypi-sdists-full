@@ -27,6 +27,7 @@ Usage::
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
         ListClusterEventsPaginator,
+        ListClusterExtensionsPaginator,
         ListClusterNodesPaginator,
         ListClusterSchedulerConfigsPaginator,
         ListClustersPaginator,
@@ -123,6 +124,7 @@ Usage::
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
     list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
+    list_cluster_extensions_paginator: ListClusterExtensionsPaginator = client.get_paginator("list_cluster_extensions")
     list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator("list_cluster_nodes")
     list_cluster_scheduler_configs_paginator: ListClusterSchedulerConfigsPaginator = client.get_paginator("list_cluster_scheduler_configs")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
@@ -240,6 +242,8 @@ from .type_defs import (
     ListCandidatesForAutoMLJobResponseTypeDef,
     ListClusterEventsRequestPaginateTypeDef,
     ListClusterEventsResponseTypeDef,
+    ListClusterExtensionsRequestPaginateTypeDef,
+    ListClusterExtensionsResponseTypeDef,
     ListClusterNodesRequestPaginateTypeDef,
     ListClusterNodesResponseTypeDef,
     ListClusterSchedulerConfigsRequestPaginateTypeDef,
@@ -415,6 +419,7 @@ __all__ = (
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
     "ListClusterEventsPaginator",
+    "ListClusterExtensionsPaginator",
     "ListClusterNodesPaginator",
     "ListClusterSchedulerConfigsPaginator",
     "ListClustersPaginator",
@@ -767,6 +772,24 @@ class ListClusterEventsPaginator(_ListClusterEventsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListClusterEvents.html#SageMaker.Paginator.ListClusterEvents.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listclustereventspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListClusterExtensionsPaginatorBase = Paginator[ListClusterExtensionsResponseTypeDef]
+else:
+    _ListClusterExtensionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListClusterExtensionsPaginator(_ListClusterExtensionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListClusterExtensions.html#SageMaker.Paginator.ListClusterExtensions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listclusterextensionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListClusterExtensionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListClusterExtensionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListClusterExtensions.html#SageMaker.Paginator.ListClusterExtensions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/paginators/#listclusterextensionspaginator)
         """
 
 if TYPE_CHECKING:

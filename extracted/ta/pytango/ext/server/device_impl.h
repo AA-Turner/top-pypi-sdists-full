@@ -194,4 +194,15 @@ class Device_XImplTrampoline : public TangoDeviceImpl {
 #endif
 };
 
+/// When a device is used before DeviceImpl.__init__ has constructed its C++ object,
+/// pybind11 allocates raw memory with the type's operator_new and uses it as an
+/// unconstructed device. Make that allocation raise instead.
+template <typename TangoDeviceImpl>
+inline void raise_on_use_before_init() {
+    py::detail::get_type_info(typeid(TangoDeviceImpl), true)->operator_new = [](size_t) -> void * {
+        throw std::runtime_error("Tango device used before DeviceImpl.__init__() was called: "
+                                 "call the base class __init__ first");
+    };
+}
+
 #endif // _DEVICE_IMPL_H

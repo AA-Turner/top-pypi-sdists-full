@@ -14,7 +14,7 @@ from _pytest.config import Config
 from _pytest.config.argparsing import Parser
 from _pytest.fixtures import SubRequest
 from _pytest.nodes import Item
-from pytest import Collector, fixture, hookimpl
+from pytest import Collector, Session, fixture, hookimpl
 
 # factory-boy
 try:
@@ -120,6 +120,11 @@ def pytest_configure(config: Config) -> None:
     if config.pluginmanager.hasplugin("xdist"):
         config.pluginmanager.register(XdistHooks())
 
+    if hasattr(config, "workerinput"):  # pragma: no cover
+        # pytest-xdist: use seed resolved on main, which also wrote the cache.
+        config.option.randomly_seed = config.workerinput["randomly_seed"]
+        return
+
     seed_value = config.getoption("randomly_seed")
     if seed_value == "last":
         assert hasattr(config, "cache"), (
@@ -128,11 +133,7 @@ def pytest_configure(config: Config) -> None:
         assert config.cache is not None
         seed = config.cache.get("randomly_seed", make_seed())
     elif seed_value == "default":
-        if hasattr(config, "workerinput"):  # pragma: no cover
-            # pytest-xdist: use seed generated on main.
-            seed = config.workerinput["randomly_seed"]
-        else:
-            seed = make_seed()
+        seed = make_seed()
     else:
         seed = seed_value
     if hasattr(config, "cache"):
@@ -184,9 +185,13 @@ def _reseed(config: Config, offset: int = 0) -> int:
     return seed
 
 
+@hookimpl(tryfirst=True)
+def pytest_sessionstart(session: Session) -> None:
+    _reseed(session.config)
+
+
 def pytest_report_header(config: Config) -> str:
     seed = config.getoption("randomly_seed")
-    _reseed(config)
     return f"Using --randomly-seed={seed}"
 
 
@@ -287,7 +292,7 @@ def reduce_list_of_lists(lists: list[list[T]]) -> list[T]:
 
 @lru_cache
 def _crc32(string: str) -> int:
-    return crc32(string.encode())
+    return crc32(string.encode(errors="surrogatepass"))
 
 
 if have_faker:  # pragma: no branch

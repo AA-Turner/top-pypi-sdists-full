@@ -16,14 +16,17 @@
 # under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias, cast
 
 import structlog
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import and_, select
 
-from airflow.api_fastapi.common.db.common import SessionDep, apply_filters_to_select
+from airflow.api_fastapi.common.asset_expression import redact_asset_expression
+from airflow.api_fastapi.common.db.common import SessionDep, apply_filters_to_select, paginated_select
 from airflow.api_fastapi.common.parameters import (
+    QueryLimit,
+    QueryOffset,
     QueryPartitionedDagRunDagIdFilter,
     QueryPartitionedDagRunHasCreatedDagRunIdFilter,
 )
@@ -40,6 +43,7 @@ from airflow.api_fastapi.core_api.datamodels.ui.partitioned_dag_runs import (
 )
 from airflow.api_fastapi.core_api.openapi.exceptions import create_openapi_http_exception_doc
 from airflow.api_fastapi.core_api.security import (
+    ReadableAssetsFilterDep,
     ReadableDagsFilterDep,
     requires_access_asset,
     requires_access_dag,
@@ -246,7 +250,10 @@ def _build_response(row, required_count: int, received_count: int) -> Partitione
 )
 def get_partitioned_dag_runs(
     session: SessionDep,
+    limit: QueryLimit,
+    offset: QueryOffset,
     readable_dags_filter: ReadableDagsFilterDep,
+    readable_assets_filter: ReadableAssetsFilterDep,
     dag_id: QueryPartitionedDagRunDagIdFilter,
     has_created_dag_run_id: QueryPartitionedDagRunHasCreatedDagRunIdFilter,
 ) -> PartitionedDagRunCollectionResponse:
@@ -270,10 +277,17 @@ def get_partitioned_dag_runs(
     readable_dag_ids = readable_dags_filter.value
     if readable_dag_ids is not None:
         query = query.where(AssetPartitionDagRun.target_dag_id.in_(readable_dag_ids))
-    query = query.order_by(AssetPartitionDagRun.created_at.desc())
+    query = query.order_by(AssetPartitionDagRun.created_at.desc(), AssetPartitionDagRun.id.desc())
+
+    query, total_entries = paginated_select(
+        statement=query,
+        offset=offset,
+        limit=limit,
+        session=session,
+    )
 
     if not (rows := session.execute(query).all()):
-        if dag_id.value is not None:
+        if dag_id.value is not None and total_entries == 0:
             # An unreadable-but-existing Dag must return 404 too — otherwise the caller
             # can probe by dag_id and learn which Dags exist outside their permitted set.
             if readable_dag_ids is not None:
@@ -283,7 +297,7 @@ def get_partitioned_dag_runs(
                     )
             elif session.scalar(select(DagModel.dag_id).where(DagModel.dag_id == dag_id.value)) is None:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, f"Dag with id {dag_id.value} was not found")
-        return PartitionedDagRunCollectionResponse(partitioned_dag_runs=[], total=0)
+        return PartitionedDagRunCollectionResponse(partitioned_dag_runs=[], total=total_entries)
 
     # Batch-fetch DagModels (for cached partition_mapper_info), required assets,
     # and APDR log entries in three single queries instead of N per-Dag queries.
@@ -340,29 +354,37 @@ def get_partitioned_dag_runs(
 
     asset_expressions: dict[str, dict | None] | None = None
     if dag_id.value is None:
-        asset_expressions = {dm.dag_id: dm.asset_expression for dm in dag_models.values()}
+        readable_asset_ids = readable_assets_filter.value or set()
+        asset_expressions = {
+            dm.dag_id: redact_asset_expression(dm.asset_expression, readable_asset_ids=readable_asset_ids)
+            for dm in dag_models.values()
+        }
 
-    return PartitionedDagRunCollectionResponse(
-        partitioned_dag_runs=results,
-        total=len(results),
-        asset_expressions=asset_expressions,
-    )
+    model_data: dict[str, Any] = {
+        "partitioned_dag_runs": results,
+        "total": total_entries,
+        "asset_expressions": asset_expressions,
+    }
+    return PartitionedDagRunCollectionResponse.model_validate(model_data)
 
 
 @partitioned_dag_runs_router.get(
     "/pending_partitioned_dag_run/{dag_id}",
+    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND]),
     dependencies=[Depends(requires_access_asset(method="GET")), Depends(requires_access_dag(method="GET"))],
 )
 def get_pending_partitioned_dag_run(
     dag_id: str,
     partition_key: str,
     session: SessionDep,
+    readable_assets_filter: ReadableAssetsFilterDep,
+    partitioned_dag_run_id: int | None = None,
 ) -> PartitionedDagRunDetailResponse:
     """Return full details for pending PartitionedDagRun."""
     # partition_key is a query param, not a path segment: it is a free-form key
     # (up to 250 chars) that may itself contain "/", which would otherwise be
     # ambiguous (or mis-routed) as a path segment.
-    partitioned_dag_run = session.execute(
+    query = (
         select(
             AssetPartitionDagRun.id,
             AssetPartitionDagRun.target_dag_id,
@@ -377,11 +399,11 @@ def get_pending_partitioned_dag_run(
             AssetPartitionDagRun.partition_key == partition_key,
             AssetPartitionDagRun.created_dag_run_id.is_(None),
         )
-        # Duplicate pending rows for the same (dag_id, partition_key) can exist
-        # after a crash; mirror _get_or_create_apdr and work on the latest one.
         .order_by(AssetPartitionDagRun.id.desc())
-        .limit(1)
-    ).first()
+    )
+    if partitioned_dag_run_id is not None:
+        query = query.where(AssetPartitionDagRun.id == partitioned_dag_run_id)
+    partitioned_dag_run = session.execute(query.limit(1)).first()
 
     if partitioned_dag_run is None:
         raise HTTPException(
@@ -423,8 +445,13 @@ def get_pending_partitioned_dag_run(
     has_rollup_mappers = dag_model is not None and dag_model.has_rollup_mappers
     rollup_timetable = load_partitioned_timetable(dag_id, session) if has_rollup_mappers else None
 
+    readable_asset_ids = readable_assets_filter.value or set()
+
     assets = []
     for asset_row in asset_rows:
+        # The row itself is still needed in full below: the rollup mapper is keyed by the asset's
+        # real name and uri, and the received-key lookup by its real id. Only the response is blanked.
+        is_hidden = asset_row.id not in readable_asset_ids
         received_keys = sorted(received_keys_by_asset.get(asset_row.id, set()))
         required_keys: list[str] = [partition_key]
         is_rollup = (
@@ -466,9 +493,10 @@ def get_pending_partitioned_dag_run(
             received_count = 1 if received_keys else 0
         assets.append(
             PartitionedDagRunAssetResponse(
-                asset_id=asset_row.id,
-                asset_name=asset_row.name,
-                asset_uri=asset_row.uri,
+                asset_id=None if is_hidden else asset_row.id,
+                asset_name=None if is_hidden else asset_row.name,
+                asset_uri=None if is_hidden else asset_row.uri,
+                hidden=is_hidden,
                 received=received_count >= required_count and required_count > 0,
                 received_count=received_count,
                 required_count=required_count,
@@ -482,17 +510,22 @@ def get_pending_partitioned_dag_run(
 
     total_received = sum(a.received_count for a in assets)
     total_required = sum(a.required_count for a in assets)
-    asset_expression = dag_model.asset_expression if dag_model is not None else None
-
-    return PartitionedDagRunDetailResponse(
-        id=partitioned_dag_run.id,
-        dag_id=dag_id,
-        partition_key=partition_key,
-        created_at=partitioned_dag_run.created_at.isoformat() if partitioned_dag_run.created_at else None,
-        updated_at=partitioned_dag_run.updated_at.isoformat() if partitioned_dag_run.updated_at else None,
-        created_dag_run_id=partitioned_dag_run.created_dag_run_id,
-        assets=assets,
-        total_required=total_required,
-        total_received=total_received,
-        asset_expression=asset_expression,
+    asset_expression = (
+        redact_asset_expression(dag_model.asset_expression, readable_asset_ids=readable_asset_ids)
+        if dag_model is not None
+        else None
     )
+
+    model_data: dict[str, Any] = {
+        "id": partitioned_dag_run.id,
+        "dag_id": dag_id,
+        "partition_key": partition_key,
+        "created_at": partitioned_dag_run.created_at.isoformat() if partitioned_dag_run.created_at else None,
+        "updated_at": partitioned_dag_run.updated_at.isoformat() if partitioned_dag_run.updated_at else None,
+        "created_dag_run_id": partitioned_dag_run.created_dag_run_id,
+        "assets": assets,
+        "total_required": total_required,
+        "total_received": total_received,
+        "asset_expression": asset_expression,
+    }
+    return PartitionedDagRunDetailResponse.model_validate(model_data)

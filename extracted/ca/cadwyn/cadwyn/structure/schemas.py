@@ -1,9 +1,10 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from types import MethodType
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, Union, cast
 
-from pydantic import AliasChoices, AliasPath, BaseModel, Field
-from pydantic._internal._decorators import PydanticDescriptorProxy, unwrap_wrapped_function
+from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, Field
+from pydantic._internal._decorators import Decorator, PydanticDescriptorProxy, unwrap_wrapped_function
 from pydantic.fields import FieldInfo
 
 from cadwyn._utils import (
@@ -14,7 +15,7 @@ from cadwyn._utils import (
 )
 from cadwyn.exceptions import CadwynStructureError
 
-from .common import _HiddenAttributeMixin, _validate_schema_is_versionable
+from .common import _validate_schema_is_versionable
 
 if TYPE_CHECKING:
     from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
@@ -107,7 +108,7 @@ class FieldChanges:
 
 
 @dataclass(**DATACLASS_SLOTS)
-class FieldHadInstruction(_HiddenAttributeMixin):
+class FieldHadInstruction:
     schema: type[BaseModel]
     name: str
     type: type
@@ -116,20 +117,20 @@ class FieldHadInstruction(_HiddenAttributeMixin):
 
 
 @dataclass(**DATACLASS_SLOTS)
-class FieldDidntHaveInstruction(_HiddenAttributeMixin):
+class FieldDidntHaveInstruction:
     schema: type[BaseModel]
     name: str
     attributes: tuple[str, ...]
 
 
 @dataclass(**DATACLASS_SLOTS)
-class FieldDidntExistInstruction(_HiddenAttributeMixin):
+class FieldDidntExistInstruction:
     schema: type[BaseModel]
     name: str
 
 
 @dataclass(**DATACLASS_SLOTS)
-class FieldExistedAsInstruction(_HiddenAttributeMixin):
+class FieldExistedAsInstruction:
     schema: type[BaseModel]
     name: str
     field: FieldInfo
@@ -185,7 +186,6 @@ class AlterFieldInstructionFactory:
         json_schema_extra: Union[dict[str, Any], Callable[[dict[str, Any]], None], None] = Sentinel,
     ) -> FieldHadInstruction:
         return FieldHadInstruction(
-            is_hidden_from_changelog=False,
             schema=self.schema,
             name=self.name,
             type=type,
@@ -237,13 +237,11 @@ class AlterFieldInstructionFactory:
                 raise CadwynStructureError(
                     f"Unknown attribute {attribute!r}. Are you sure it's a valid field attribute?"
                 )
-        return FieldDidntHaveInstruction(
-            is_hidden_from_changelog=False, schema=self.schema, name=self.name, attributes=attributes
-        )
+        return FieldDidntHaveInstruction(schema=self.schema, name=self.name, attributes=attributes)
 
     @property
     def didnt_exist(self) -> FieldDidntExistInstruction:
-        return FieldDidntExistInstruction(is_hidden_from_changelog=False, schema=self.schema, name=self.name)
+        return FieldDidntExistInstruction(schema=self.schema, name=self.name)
 
     def existed_as(
         self,
@@ -254,7 +252,7 @@ class AlterFieldInstructionFactory:
         if info is None:
             info = cast("FieldInfo", Field())
         info.annotation = type
-        return FieldExistedAsInstruction(is_hidden_from_changelog=False, schema=self.schema, name=self.name, field=info)
+        return FieldExistedAsInstruction(schema=self.schema, name=self.name, field=info)
 
 
 def _get_model_decorators(model: type[BaseModel]):
@@ -281,20 +279,90 @@ class ValidatorDidntExistInstruction:
     name: str
 
 
+def _get_validators(model: type[BaseModel]) -> "dict[str, Decorator[Any]]":
+    decorators = model.__pydantic_decorators__
+    return {
+        **decorators.validators,
+        **decorators.field_validators,
+        **decorators.root_validators,
+        **decorators.model_validators,
+    }
+
+
+def _get_validator_names(model: type[BaseModel], func: object) -> list[str]:
+    return [
+        name
+        for name, decorator in _get_validators(model).items()
+        if _validator_functions_match(_get_registered_callable(decorator), func)
+    ]
+
+
+def _get_registered_callable(decorator: "Decorator[Any]") -> object:
+    if decorator.shim is None:
+        return decorator.func
+    # Pydantic wraps V1-style validators in a shim whose only closure cell is the registered callable
+    shim: Any = decorator.func
+    (cell,) = shim.__closure__
+    return cell.cell_contents
+
+
+def _validator_functions_match(registered: object, reference: object) -> bool:
+    if registered is reference:
+        return True
+    if isinstance(reference, classmethod | staticmethod):
+        return _validator_functions_match(registered, reference.__func__)
+    if not isinstance(registered, MethodType):
+        return False
+    if not isinstance(reference, MethodType):
+        return registered.__func__ is reference
+    return registered.__func__ is reference.__func__ and registered.__self__ is reference.__self__
+
+
+def _raise_for_ambiguous_validator(model: type[BaseModel], names: list[str]) -> None:
+    raise CadwynStructureError(
+        f'The passed function is used by multiple validators on "{model.__name__}": '
+        f"{', '.join(names)}. Pass the attribute name instead, e.g. "
+        f'schema({model.__name__}).validator("{names[0]}").didnt_exist.'
+    )
+
+
+def _resolve_like_cadwyn_8(func: object) -> Union[_ValidatorReference, None]:
+    """Return the decorated function or validator method that Cadwyn 8 accepted, or None."""
+    func = unwrap_wrapped_function(func)
+    if isinstance(func, PydanticDescriptorProxy):
+        return func
+    owner = getattr(func, "__self__", None)
+    if (
+        isinstance(owner, type)
+        and issubclass(owner, BaseModel)
+        and any(  # pragma: no branch
+            fully_unwrap_decorator(decorator.func, decorator.shim) == func for decorator in _get_model_decorators(owner)
+        )
+    ):
+        return cast("Callable[..., object]", func)
+    return None
+
+
 @dataclass(**DATACLASS_SLOTS)
 class AlterValidatorInstructionFactory:
     schema: type[BaseModel]
-    func: _ValidatorReference
+    func: Union[_ValidatorReference, str]
 
     @property
     def existed(self) -> ValidatorExistedInstruction:
+        if isinstance(self.func, str):
+            raise CadwynStructureError(
+                f'"{self.schema.__name__}" already has the validator "{self.func}", so it cannot be added. '
+                "Pass a validator function decorated outside the model instead."
+            )
         return ValidatorExistedInstruction(self.schema, self.func)
 
     @property
     def didnt_exist(self) -> ValidatorDidntExistInstruction:
-        return ValidatorDidntExistInstruction(
-            self.schema, get_name_of_function_wrapped_in_pydantic_validator(self.func)
+        name = (
+            self.func if isinstance(self.func, str) else get_name_of_function_wrapped_in_pydantic_validator(self.func)
         )
+        return ValidatorDidntExistInstruction(self.schema, name)
 
 
 AlterSchemaSubInstruction = Union[
@@ -308,11 +376,33 @@ AlterSchemaSubInstruction = Union[
 
 
 @dataclass(**DATACLASS_SLOTS)
-class SchemaHadInstruction(_HiddenAttributeMixin):
+class SchemaHadInstruction:
     schema: type[BaseModel]
     name: str = Sentinel
     # The docstring of the model (`__doc__`), which pydantic uses as its description. None means no description
     description: Union[str, None] = Sentinel
+    config: Union[ConfigDict, None] = None
+
+
+_VERSIONABLE_CONFIG_KEYS = (
+    "arbitrary_types_allowed",
+    "extra",
+    "frozen",
+    "json_schema_extra",
+    "str_strip_whitespace",
+    "title",
+    "validate_by_alias",
+    "validate_by_name",
+)
+
+
+def _validate_config_keys(model: type[BaseModel], config: ConfigDict) -> None:
+    for key in config:
+        if key not in _VERSIONABLE_CONFIG_KEYS:
+            raise CadwynStructureError(
+                f'Cannot version config key "{key}" of "{model.__name__}". '
+                f"Cadwyn can version only these config keys: {', '.join(_VERSIONABLE_CONFIG_KEYS)}."
+            )
 
 
 @dataclass(**DATACLASS_SLOTS)
@@ -327,28 +417,33 @@ class AlterSchemaInstructionFactory:
 
     def validator(
         self,
-        func: "Union[Callable[..., Any], classmethod[Any, Any, Any], PydanticDescriptorProxy[_ValidatorReturnT]]",
+        func: "Union[str, Callable[..., Any], classmethod[Any, Any, Any], PydanticDescriptorProxy[_ValidatorReturnT]]",
         /,
     ) -> AlterValidatorInstructionFactory:
-        func = unwrap_wrapped_function(func)
-
-        if isinstance(func, PydanticDescriptorProxy):
+        if isinstance(func, str):
+            if func not in _get_validators(self.schema):
+                raise CadwynStructureError(f'"{self.schema.__name__}" has no field or model validator named "{func}".')
             return AlterValidatorInstructionFactory(self.schema, func)
-        if hasattr(func, "__self__"):
-            owner = func.__self__
-            if (
-                isinstance(owner, type)
-                and issubclass(owner, BaseModel)
-                and any(  # pragma: no branch
-                    fully_unwrap_decorator(decorator.func, decorator.shim) == func
-                    for decorator in _get_model_decorators(owner)
-                )
-            ):
-                return AlterValidatorInstructionFactory(self.schema, cast("Callable[..., object]", func))
-        raise CadwynStructureError("The passed function must be a pydantic validator")
+        # Match the registered callable before unwrapping partials or descriptors
+        names = _get_validator_names(self.schema, func)
+        cadwyn_8_reference = _resolve_like_cadwyn_8(func)
+        if len(names) == 1:
+            return AlterValidatorInstructionFactory(self.schema, names[0])
+        if names:
+            # Cadwyn 8 removed the validator named after the function, so keep that choice when it is one of them
+            name = getattr(cadwyn_8_reference, "__name__", None)
+            if cadwyn_8_reference is None or name not in names:
+                _raise_for_ambiguous_validator(self.schema, names)
+            return AlterValidatorInstructionFactory(self.schema, cast("str", name))
+        if cadwyn_8_reference is None:
+            raise CadwynStructureError("The passed function must be a pydantic validator")
+        return AlterValidatorInstructionFactory(self.schema, cadwyn_8_reference)
 
-    def had(self, *, name: str = Sentinel, description: Union[str, None] = Sentinel) -> SchemaHadInstruction:
-        if name is Sentinel and description is Sentinel:
+    def had(
+        self, *, name: str = Sentinel, description: Union[str, None] = Sentinel, config: Union[ConfigDict, None] = None
+    ) -> SchemaHadInstruction:
+        """Change a schema's name, docstring, or selected model config keys in older versions."""
+        if name is Sentinel and description is Sentinel and not config:
             raise CadwynStructureError(
                 f"You must pass at least one of the arguments of schema({self.schema.__name__}).had()"
             )
@@ -358,9 +453,9 @@ class AlterSchemaInstructionFactory:
                 f"The description that you passed to schema({self.schema.__name__}).had() is blank. "
                 "Pass description=None to remove the description instead."
             )
-        return SchemaHadInstruction(
-            is_hidden_from_changelog=False, schema=self.schema, name=name, description=description
-        )
+        if config:
+            _validate_config_keys(self.schema, config)
+        return SchemaHadInstruction(schema=self.schema, name=name, description=description, config=config)
 
 
 def schema(model: type[BaseModel], /) -> AlterSchemaInstructionFactory:

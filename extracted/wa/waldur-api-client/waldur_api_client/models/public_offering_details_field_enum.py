@@ -35,8 +35,6 @@ class PublicOfferingDetailsFieldEnum(str, Enum):
     FILES = "files"
     FULL_DESCRIPTION = "full_description"
     GETTING_STARTED = "getting_started"
-    GOOGLE_CALENDAR_IS_PUBLIC = "google_calendar_is_public"
-    GOOGLE_CALENDAR_LINK = "google_calendar_link"
     HAS_COMPLIANCE_REQUIREMENTS = "has_compliance_requirements"
     HELPDESK_URL = "helpdesk_url"
     IMAGE = "image"

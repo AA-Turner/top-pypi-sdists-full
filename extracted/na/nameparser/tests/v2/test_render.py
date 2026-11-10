@@ -5,15 +5,13 @@ import warnings
 import pytest
 
 from nameparser._policy import CapsSuffixes
-from nameparser import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, HumanName,
+from nameparser import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
                         Parser, Policy, parse)
 from nameparser._lexicon import Lexicon
-from nameparser.config import Constants
 from nameparser._render import _apply_mask, _collapse, render
 from nameparser._types import (FOLDED_TAG, UNCLASSIFIED_TAG, UNJOINED_TAG,
                                Ambiguity, AmbiguityKind, ParsedName, Role,
                                Span, Token)
-from tests.removals import ignore_removals
 
 
 def test_collapse_is_the_254_algorithm() -> None:
@@ -31,6 +29,20 @@ def test_collapse_is_the_254_algorithm() -> None:
     assert _collapse("John Smith ''") == "John Smith"
     assert _collapse('John Smith ""') == "John Smith"
     assert _collapse("") == ""
+
+
+@pytest.mark.parametrize("space", ["\t", "\u00a0", "\u3000"])
+def test_collapse_reads_any_whitespace_as_a_space(space: str) -> None:
+    # A spec may separate fields with any whitespace, and an empty field
+    # leaves two of it, or one before a comma. Until 3.0 _render's
+    # _SPACES and _SPACE_BEFORE_COMMA were also pinned to config's
+    # copies, which #1008 removed; measured 2026-11-02, narrowing
+    # either to a literal space failed nothing else in the suite.
+    pn = parse("John Smith")
+    assert render(pn, f"{{given}}{space}{{middle}}{space}{{family}}") \
+        == "John Smith"
+    assert render(pn, f"{{family}}{space}{{middle}}, {{given}}") \
+        == "Smith, John"
 
 
 def _pn(original: str, tokens: list[Token]) -> ParsedName:
@@ -99,6 +111,110 @@ def test_default_str_includes_nickname_and_maiden() -> None:
         "Dr. Juan Q. Xavier de la Vega III")
 
 
+# rules/R6, the order-aware default: one row per layout and per
+# separator kind, the comma shapes, and the pairs that take the joiner
+@pytest.mark.parametrize(("text", "order", "want"), [
+    # the three layouts; a family comma lays out given-first under any
+    ("김민준", None, "김민준"),
+    ("Wang Xiaoming", FAMILY_FIRST, "Wang Xiaoming"),
+    ("Nguyen Van Anh", FAMILY_FIRST_GIVEN_LAST, "Nguyen Van Anh"),
+    ("Dr. Wang Xiaoming Jr.", FAMILY_FIRST, "Dr. Wang Xiaoming Jr."),
+    ("Smith, John", FAMILY_FIRST, "John Smith"),
+    ("Smith, John", FAMILY_FIRST_GIVEN_LAST, "John Smith"),
+    ("Wang, Xiaoming", FAMILY_FIRST, "Xiaoming Wang"),
+    # the family-first layout's decorations stand beside their fields
+    ("山田「タロ」太郎", None, '山田 太郎 "タロ"'),
+    ("山田 花子 旧姓 佐藤", None, "山田 (佐藤) 花子"),
+    # separator kinds: nothing, whitespace (U+3000, a tab, a run),
+    # interpunct, nakaguro (spaced and halfwidth), each comma
+    ("王小明先生", None, "王小明先生"),
+    ("山田\u3000太郎", None, "山田 太郎"),
+    ("John\t \tSmith", None, "John Smith"),
+    ("威廉·莎士比亚", None, "威廉·莎士比亚"),
+    ("ジョン ・ スミス", None, "ジョン・スミス"),
+    ("ｼﾞｮﾝ･ｽﾐｽ", None, "ｼﾞｮﾝ･ｽﾐｽ"),
+    ("John Smith ,Jr.", None, "John Smith, Jr."),
+    ("John Smith,Jr.", None, "John Smith, Jr."),
+    ("John Smith， Jr.", None, "John Smith，Jr."),
+    ("محمد علي، الابن", None, "محمد علي، الابن"),
+    # comma shapes: no comma, a full name, one word and nothing before
+    # it, and a third part
+    ("John Smith Jr.", None, "John Smith Jr."),
+    ("John Smith, Jr.", None, "John Smith, Jr."),
+    ("Smith, Jr.", None, "Smith, Jr."),
+    (", Jr.", None, "Jr."),
+    ("Smith, John, Jr.", None, "John Smith Jr."),
+    ("Wang Xiaoming, Jr.", FAMILY_FIRST, "Wang Xiaoming, Jr."),
+    ("Wang Xiaoming, Jr.", FAMILY_FIRST_GIVEN_LAST, "Wang Xiaoming, Jr."),
+    ("John Smith, MD, PhD", None, "John Smith, MD, PhD"),
+    ("John Smith MD PhD", None, "John Smith MD PhD"),
+    # a family comma is never kept, also where its given part went to
+    # the family and the two words stay side by side; a comma between
+    # titles moved up from past a second comma is kept (rules/R6's
+    # Accepted bullet: it reads back as a family comma)
+    ("Smith, de Mesnil Jean", None, "Smith de Mesnil Jean"),
+    # a comma with only a suffix after it stays (decisions/R6's
+    # 2026-10-29 A SUFFIX COMMA entry)
+    ("Smith, MD", None, "Smith, MD"),
+    ("Smith, Jr., John", None, "Smith, Jr., John"),
+    ("John, Jr.", None, "John, Jr."),
+    ("John Smith, Jr., Dr., Prof.", None, "Dr., Prof. John Smith, Jr."),
+    ("John Smith Dr., Prof.", None, "Dr., Prof. John Smith"),
+    # the joiner: a hyphen word stays one word, two commas, a zero-width
+    # space, a delimiter, a dropped marker word
+    ("John Smith,, Jr.", None, "John Smith Jr."),
+    ("John\u200bSmith", None, "John Smith"),
+    ("John\u2063Smith", None, "John Smith"),
+    ("John (Jack) Smith", None, 'John "Jack" Smith'),
+    ("Jane Smith née Jones, PhD", None, "Jane Smith (Jones) PhD"),
+    ("Jane (née , Jones) Smith", None, 'Jane "née, Jones" Smith'),
+])
+def test_the_default_render_follows_the_written_name(
+        text: str, order: tuple[Role, Role, Role] | None, want: str) -> None:
+    parser = Parser(policy=Policy(name_order=order)) if order else Parser()
+    name = parser.parse(text)
+    assert str(name) == want, text
+    assert name.render() == name.render(None) == want
+
+
+def test_a_family_first_maiden_reads_back_as_the_given_first_one_does(
+        ) -> None:
+    """A parenthesized maiden name reads back as a nickname wherever the
+    layout puts it (decisions/render-default's accepted cost), under a
+    family-first layout as under the given-first one; the name words
+    read back in place, where 2.x's given-first rendering of this name
+    read them back swapped ('花子 山田 (佐藤)')."""
+    for text, order in (("Jane Smith née Jones", None),
+                        ("山田 花子 旧姓 佐藤", None),
+                        ("Wang Xiaoming née Li", FAMILY_FIRST)):
+        parser = Parser(policy=Policy(name_order=order)) if order else Parser()
+        name = parser.parse(text)
+        back = parser.parse(str(name))
+        assert (back.given, back.family) == (name.given, name.family), text
+        assert (back.maiden, back.nickname) == ("", name.maiden), text
+
+
+def test_a_spec_renders_as_written_whatever_the_order() -> None:
+    # rules/R6's Because: a caller's spec keeps 2.x's meaning
+    name = parse("김민준")
+    assert name.render("{given} {family}") == "민준 김"
+    assert name.render('{title} {given} "{nickname}" {middle} {family} '
+                       "({maiden}) {suffix}") == "민준 김"
+    assert parse("John Smith, Jr.").render("{given} {family} {suffix}") == (
+        "John Smith Jr.")
+
+
+def test_a_word_the_parse_did_not_place_takes_the_joiner() -> None:
+    # synthetic tokens (span None) are side by side with nothing as
+    # written; a replaced field renders space-joined in the layout
+    name = parse("김민준").replace(given="서연")
+    assert str(name) == "김 서연"
+    pn = _pn("ab", [Token("a", Span(0, 1), Role.FAMILY),
+                    Token("b", Span(1, 2), Role.GIVEN)])
+    assert str(pn) == "b a"   # no order recorded: given-first
+    assert str(dataclasses.replace(pn, order=FAMILY_FIRST)) == "ab"
+
+
 def test_parsedname_render_and_str_delegate() -> None:
     pn = _delavega()
     assert pn.render() == "Dr. Juan de la Vega III"
@@ -112,13 +228,17 @@ def test_a_suffix_run_survives_a_render_and_a_reparse() -> None:
 
     The instability #429 recorded and left open: its fix made
     'Smith, MD PhD' render suffix 'MD PhD', and str() of that parse
-    is 'Smith MD PhD' -- a NO-COMMA string, which the no-comma path
+    was 'Smith MD PhD' -- a NO-COMMA string, which the no-comma path
     then read back as 'MD, PhD'. One writing round-tripped, the other
     did not, and which was which depended on a comma the render had
     already dropped. Three spellings of one run, each its own path
     into the entry rule: a lone family plus the run, the full name
-    plus a comma, and the full name with no comma at all.
+    plus a comma, and the full name with no comma at all. Since 3.0
+    the render keeps a comma before a suffix (rules/R6), so the first
+    two render with theirs; the third still reads back comma-less.
     """
+    assert [str(parse(t)) for t in ("Smith, MD PhD", "John Smith MD PhD")] \
+        == ["Smith, MD PhD", "John Smith MD PhD"]
     for text in ("Smith, MD PhD", "John Smith, MD PhD",
                  "John Smith MD PhD"):
         once = parse(text)
@@ -174,11 +294,12 @@ def test_repair_keeps_a_conjunction_lowercase_in_a_particle_part() -> None:
     # mechanisms.md#VOCABULARY-OVERLAP-AS-PRECONDITION: "assert the
     # intersection as a precondition" -- built here rather than found,
     # so what has to hold is the half not being added.
-    assert "y" in Lexicon.default().conjunctions, (
+    assert any(r.category == "conjunction"
+               for r in Lexicon.default().readings_of("y")), (
         "'y' left the default conjunctions; this test builds the "
         "particle/conjunction overlap it needs from the other side and "
         "no longer has one. Pick another shipped conjunction.")
-    lex = Lexicon.default().add(particles={"y"})
+    lex = Lexicon.default().add("y", kind="particle")
     p = Parser(lexicon=lex)
 
     van = p.parse("Anh y Van")
@@ -208,11 +329,12 @@ def test_initials_readmits_a_conjunction_in_a_particle_part() -> None:
     values quoted in prose by decisions/, mechanisms.md and
     `_render.py` from going stale unnoticed.
     """
-    assert "y" in Lexicon.default().conjunctions, (
+    assert any(r.category == "conjunction"
+               for r in Lexicon.default().readings_of("y")), (
         "'y' left the default conjunctions; this test builds the "
         "particle/conjunction overlap it needs from the other side and "
         "no longer has one. Pick another shipped conjunction.")
-    p = Parser(lexicon=Lexicon.default().add(particles={"y"}))
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
 
     # the part the mark has turned into name words: every word of it
     # initials, the conjunction included, and the base agrees
@@ -241,6 +363,64 @@ def test_initials_readmits_a_conjunction_in_a_particle_part() -> None:
     assert parse("Juan y Garcia").initials() == "J. y. G."
     assert parse("Juan de y").initials() == "J. y."
     assert parse("Juan y").initials() == "J. y."
+
+
+def test_initials_readmits_a_shared_word_between_particles() -> None:
+    """rules/R2's scoping of its connective set-aside (#939).
+
+    R2 sets aside a connective standing between the words of a part
+    when it asks whether every word is particle vocabulary, but only a
+    connective that is not also particle vocabulary: a word listed as
+    both is asked the question as a particle WHEREVER it stands, so it
+    keeps the readmission the test above pins at the end of a part and
+    at its start. These are the interior rows, which nothing else
+    reaches -- INV2's connective grid never puts the shared word
+    between particles.
+    """
+    p = Parser(lexicon=Lexicon.default().add("y", kind="particle"))
+    de_y_la = p.parse("Juan de y la")
+    assert de_y_la.family_base == "de y la"
+    assert de_y_la.initials() == "J. d. y. l."
+    assert p.parse("Fritz Freiherr y von Bar").initials() == "F. F. y. v. B."
+
+
+def test_a_connective_between_particles_is_set_aside(
+) -> None:
+    """rules/R2's connective set-aside under the default vocabulary
+    (#939), in each of the views it moves.
+
+    A connective that is no particle, standing between two words of a
+    part, is not asked whether it is particle vocabulary, so particles
+    joined by it are an all-particle part: they anchor the base,
+    initial and capitalize as name words, while the connective stays
+    in the base, initials nothing and keeps its lowercase. At either
+    end of the part it joins nothing and the set-aside does not reach
+    it -- the rows after the first two.
+    """
+    fritz = parse("Fritz Freiherr und von Bar")
+    assert fritz.family_base == "Freiherr und von Bar"
+    assert fritz.family_particles == ""
+    assert fritz.initials() == "F. F. v. B."
+    assert str(parse("FRITZ FREIHERR UND VON BAR").capitalized()) == (
+        "Fritz Freiherr und Von Bar")
+    # any part, not only the family: a middle of particles joined by it
+    assert parse("Bar, Fritz Freiherr und von").initials() == "F. F. v. B."
+    # at either end of the part, it is the base (rules/R3's own row)
+    assert parse("Juan de y").family_base == "y"
+    assert parse("Juan de y").initials() == "J. y."
+    assert parse("y de la, Juan").family_base == "y"
+    assert parse("y de la, Juan").initials() == "J. y."
+
+
+def test_revise_recomputes_the_connective_set_aside() -> None:
+    """`_types._remarked`, the twin of the pipeline's walk, applies
+    rules/R2's set-aside too (#939): revising another field recomputes
+    both unjoined marks over every part, and an all-particle middle
+    joined by a connective must keep reading as one."""
+    p = Parser()
+    revised = p.revise(parse("Bar, Fritz Freiherr und von"), given="Hans")
+    assert revised.middle == "Freiherr und von"
+    assert revised.initials() == "H. F. v. B."
 
 
 def test_repair_keeps_a_lone_connective_lowercase_where_it_initials(
@@ -273,9 +453,6 @@ def test_repair_capitalizes_a_generation_the_connective_also_spells(
     tag alone, so a suffix-roled letter is repaired as the suffix it
     was read as. Without that test these gave 'John Quincy Smith i'
     and 'Carod i', where every release through 2.3 gave the capital.
-
-    Both surfaces, because the v1 facade repairs through this same
-    helper and a fix on one of them would be a split.
     """
     assert parse("John Quincy Smith i").suffix == "i"
     assert str(parse("John Quincy Smith i").capitalized(
@@ -283,12 +460,6 @@ def test_repair_capitalizes_a_generation_the_connective_also_spells(
     assert str(parse("Carod i").capitalized(force=True)) == "Carod I"
     assert str(parse("Josep Lluis Carod i III").capitalized(
         force=True)) == "Josep Lluis Carod I III"
-    v1 = HumanName("John Quincy Smith i")
-    v1.capitalize(force=True)
-    assert str(v1) == "John Quincy Smith I"
-    v1_two = HumanName("Carod i")
-    v1_two.capitalize(force=True)
-    assert str(v1_two) == "Carod I"
     # the contrast that keeps the role test honest: the SAME letter
     # in a NAME part is a connective and keeps its lowercase, which
     # is the answer 'y' has always had there
@@ -336,30 +507,24 @@ def test_repair_keeps_a_plain_connective_the_suffix_field_holds_lower(
         assert name.suffix.split()[0] == text.split(", ")[-1].split()[0]
         assert str(name.capitalized()) == plain, text
         assert str(name.capitalized(force=True)) == forced, text
-        v1 = HumanName(text)
-        v1.capitalize(force=True)
-        assert str(v1) == forced, text
     # A SPLICED field is the other way in, and rules/R4's Accepted
     # bullet "The boundary is drawn per question rather than per field"
     # is explicit about it (decisions/R4): text nobody read gets the
     # vocabulary's answer, so a suffix set to 'de y' keeps its 'y'
     # exactly as a family set to 'de y' does. 1.4.0 and 2.3.0 both
     # give 'John Smith De, y'.
-    spliced = HumanName(first="John", last="Smith", suffix="de y")
-    spliced.capitalize(force=True)
-    assert str(spliced) == "John Smith De, y"
+    spliced = parse("John Smith").replace(suffix="de y")
+    assert str(spliced.capitalized(force=True)) == "John Smith De, y"
     # ... and the vocabulary's answer is what a spliced 'i' gets too,
     # which is a CHANGE from the parent and the shape to know about:
     # 'i' is connective vocabulary here and was not there, so the
     # spliced field follows 'y' now where it used to follow the
     # numeral. The PARSED name is unaffected -- it has a reading, and
     # the reading is the generation (above).
-    spliced_i = HumanName(first="John", last="Smith", suffix="i")
-    spliced_i.capitalize(force=True)
-    assert str(spliced_i) == "John Smith i"
-    spliced_y = HumanName(first="John", last="Smith", suffix="y")
-    spliced_y.capitalize(force=True)
-    assert str(spliced_y) == "John Smith y"
+    spliced_i = parse("John Smith").replace(suffix="i")
+    assert str(spliced_i.capitalized(force=True)) == "John Smith i"
+    spliced_y = parse("John Smith").replace(suffix="y")
+    assert str(spliced_y.capitalized(force=True)) == "John Smith y"
 
 
 def test_initials_order_folded_words_first_like_the_family_field() -> None:
@@ -382,10 +547,6 @@ def test_initials_order_folded_words_first_like_the_family_field() -> None:
     van_der = parse("der, y van")
     assert van_der.family == "van der"
     assert van_der.initials() == "y. v. d."
-    # and the facade, which reached this answer by its own route
-    # (its *_list views prepend the carriers) -- so the core view was
-    # the one out of step
-    assert HumanName("der, y van").initials() == "y. v. d."
 
     # O3's fold, which is where the reach is (71 of the corpus's 1094
     # names move under this policy at the default order, measured
@@ -535,7 +696,9 @@ def test_capitalized_all_lower_input_v1_parity() -> None:
     out = _lowercase_mac().capitalized()
     assert out.given == "Bob"
     assert out.middle == "V."
-    assert out.family == "de la MacDole-Eisenhower"  # particles stay lower
+    # particles stay lower; Mac title-cased, no mask recording
+    # 'macdole' (#1014, where 1.4.0 through 2.8.0 gave 'MacDole')
+    assert out.family == "de la Macdole-Eisenhower"
     assert out.suffix == "PhD"                       # exceptions map, a mask
     # same spans, new texts (provenance is a documented non-invariant)
     assert [t.span for t in out.tokens] == [t.span for t in _lowercase_mac().tokens]
@@ -550,12 +713,13 @@ def test_capitalized_all_upper_input() -> None:
 
 
 def test_capitalized_preserves_mixed_case_unless_forced() -> None:
-    pn = _pn("Shirley Maclaine", [
-        Token("Shirley", Span(0, 7), Role.GIVEN),
-        Token("Maclaine", Span(8, 16), Role.FAMILY),
+    pn = _pn("Ronald Macdonald", [
+        Token("Ronald", Span(0, 6), Role.GIVEN),
+        Token("Macdonald", Span(7, 16), Role.FAMILY),
     ])
     assert pn.capitalized() == pn                       # untouched
-    assert pn.capitalized(force=True).family == "MacLaine"
+    # forced, the vocabulary's mask applies (#1014)
+    assert pn.capitalized(force=True).family == "MacDonald"
 
 
 @pytest.mark.parametrize("text", ["JOHN SMITH MA", "john smith ma",
@@ -587,7 +751,7 @@ def test_the_gate_leaves_the_suffixes_out() -> None:
                            # token: the gate excludes every SUFFIX-roled
                            # token, not only the last one
                            ("juan garcia PhD MD", "Juan Garcia PhD MD"),
-                           ("juan garcia, PhD, MD", "Juan Garcia PhD, MD"),
+                           ("juan garcia, PhD, MD", "Juan Garcia, PhD, MD"),
                            # an untagged suffix: 'VI' reads suffix by
                            # shape (roman numeral) and carries no
                            # vocab:* tag, so a tag-driven gate would
@@ -596,7 +760,7 @@ def test_the_gate_leaves_the_suffixes_out() -> None:
                            # the gate over each comma shape: SUFFIX_COMMA,
                            # FAMILY_COMMA, and a FAMILY_COMMA plus a
                            # trailing suffix segment
-                           ("juan garcia, III", "Juan Garcia III"),
+                           ("juan garcia, III", "Juan Garcia, III"),
                            ("garcia, juan III", "Juan Garcia III"),
                            ("GARCIA, JUAN, Jr.", "Juan Garcia Jr.")):
         assert str(parse(text).capitalized()) == repaired, text
@@ -617,8 +781,8 @@ def test_the_gate_leaves_the_suffixes_out() -> None:
     # no case at all (trivially one-case), so the name is admitted --
     # and then the suffix, written in more than one case, is kept as
     # written (2026-09-24), while one written in one case repairs
-    assert str(parse("김민준 Phd").capitalized()) == "민준 김 Phd"
-    assert str(parse("김민준 PHD").capitalized()) == "민준 김 PhD"
+    assert str(parse("김민준 Phd").capitalized()) == "김민준 Phd"
+    assert str(parse("김민준 PHD").capitalized()) == "김민준 PhD"
     # no non-suffix token at all -- a synthetic name only, since every
     # parse names somebody (rules/H4): the empty text is one-case
     only_suffixes = _pn("phd md", [
@@ -639,18 +803,18 @@ def test_a_suffix_written_in_more_than_one_case_is_kept_as_written(
     the acronym clause would write 'EDD' -- while one written in a
     single case is repaired as before. Force repairs both. The cost is
     the garbled spelling kept with the deliberate one ('Iii'), pinned
-    here as a boundary. Both surfaces."""
+    here as a boundary."""
     for text, plain, forced in (
             ("john smith EdD", "John Smith EdD", "John Smith EDD"),
-            ("JANE DOE, DSc", "Jane Doe DSc", "Jane Doe DSc"),
+            ("JANE DOE, DSc", "Jane Doe, DSc", "Jane Doe, DSc"),
             ("juan garcia PsyD", "Juan Garcia PsyD", "Juan Garcia PsyD"),
             ("john smith B.Tech.", "John Smith B.Tech.",
              "John Smith B.TECH."),
-            ("john smith, EdD, PhD", "John Smith EdD, PhD",
-             "John Smith EDD, PhD"),
+            ("john smith, EdD, PhD", "John Smith, EdD, PhD",
+             "John Smith, EDD, PhD"),
             # boundary: the garbled spelling is kept too
             ("juan garcia Iii", "Juan Garcia Iii", "Juan Garcia III"),
-            ("john smith Mba", "John Smith Mba", "John Smith MBA"),
+            ("john smith Mph", "John Smith Mph", "John Smith MPH"),
             # a suffix written in ONE case is repaired as any token is
             ("juan garcia III", "Juan Garcia III", "Juan Garcia III"),
             ("JUAN GARCIA iii", "Juan Garcia III", "Juan Garcia III"),
@@ -661,12 +825,6 @@ def test_a_suffix_written_in_more_than_one_case_is_kept_as_written(
         name = parse(text)
         assert str(name.capitalized()) == plain, text
         assert str(name.capitalized(force=True)) == forced, text
-        hn = HumanName(text)
-        hn.capitalize()
-        assert str(hn) == plain, text
-        hn = HumanName(text)
-        hn.capitalize(force=True)
-        assert str(hn) == forced, text
 
 
 def test_the_gate_and_the_parser_read_a_cased_suffix_differently() -> None:
@@ -686,7 +844,7 @@ def test_the_gate_and_the_parser_read_a_cased_suffix_differently() -> None:
     for name, repaired in ((mixed, "John e Jones III"),
                            (one_case, "John E Jones III"),
                            (parse("jack MA"), "Jack MA"),
-                           (parse("MD, PhD"), "Md PhD")):
+                           (parse("MD, PhD"), "Md, PhD")):
         assert str(name.capitalized()) == repaired, name.original
 
 
@@ -706,7 +864,7 @@ def test_a_word_takes_its_capital_past_a_caseless_lead() -> None:
     once = parse("ŉa smith").capitalized()
     assert once.given == "ʼNa"
     assert once.capitalized(force=True) == once
-    # and inside the Mac/Mc prefix's name run, which the chunk step
+    # and inside the Mc prefix's name run, which the chunk step
     # repairs too
     mac = parse("mcŉa smith").capitalized()
     assert mac.given == "McʼNa"
@@ -736,7 +894,7 @@ def test_a_recorded_casing_keeps_an_abbreviations_ending() -> None:
 def test_capitalized_with_explicit_lexicon() -> None:
     # empty lexicon: no particle rule, no exceptions -> plain capitalize
     out = _lowercase_mac().capitalized(Lexicon.empty())
-    assert out.family == "De La MacDole-Eisenhower"
+    assert out.family == "De La Macdole-Eisenhower"
     assert out.suffix == "Phd"
 
 
@@ -766,10 +924,10 @@ def test_a_mask_recases_the_word_as_the_writer_punctuated_it() -> None:
         == "John Smith Ph. D."
     # the mask is asked BEFORE the acronym clause, which would give
     # 'BSC' -- bsc is a listed acronym too
-    assert "bsc" in Lexicon.default().suffix_acronyms
+    assert "bsc" in Lexicon.default()._sets.suffix_acronyms
     # forced: a mixed-case corpus name R5 would otherwise hold back
     assert str(parse("Dr. med. univ. Margit Popp, MSc").capitalized(
-        force=True)) == "Dr. Med. Univ. Margit Popp MSc"
+        force=True)) == "Dr. Med. Univ. Margit Popp, MSc"
     # the mask is also asked BEFORE the numeral clause, which would
     # give 'III' -- an identity mask ('iii' stays lowercase) proves
     # the mask decided rather than merely agreeing with it
@@ -789,7 +947,13 @@ def test_a_mixed_case_credential_listed_for_797_repairs_to_its_mask() -> None:
                          ("JANE SMITH MBCHB", "MBChB"),
                          ("jane smith, dphil", "DPhil"),
                          ("jane smith m.b.ch.b.", "M.B.Ch.B."),
-                         ("jane smith mdphd", "MDPhD")):
+                         ("jane smith mdphd", "MDPhD"),
+                         # #993: MSEd, while MSN, MSD and MSPT are
+                         # written in capitals far more often than as
+                         # MsN, MsD and MsPT (ClinicalTrials.gov
+                         # officials, data 2026-10-21), so no mask
+                         ("JANE SMITH, MSED", "MSEd"),
+                         ("jane smith msn", "MSN")):
         assert parse(text).capitalized().suffix == suffix, text
 
 
@@ -835,8 +999,8 @@ def test_a_joined_acronym_is_capitals_only_as_a_listed_suffix() -> None:
     too, and a mixed-case spelling is left alone unless forced."""
     for text, whole in (("otr/l smith", "Otr/L Smith"),
                         ("john otr/l smith", "John Otr/L Smith"),
-                        ("john smith, md, xyz-q", "John Smith MD, Xyz-Q"),
-                        ("john smith, md, xyz/q", "John Smith MD, Xyz/Q")):
+                        ("john smith, md, xyz-q", "John Smith, MD, Xyz-Q"),
+                        ("john smith, md, xyz/q", "John Smith, MD, Xyz/Q")):
         assert str(parse(text).capitalized()) == whole, text
     for text, suffix in ((", otr/l", "OTR/L"),
                          ("smith, otr/l", "OTR/L"),
@@ -865,7 +1029,7 @@ def test_a_recorded_casing_reaches_a_joined_token_in_any_role() -> None:
                         ("john smith-jones", "John SMiTH-JoNES"),
                         ("smith-jones, john", "John SMiTH-JoNES"),
                         ("dipl.-ing john smith", "dIpl.-Ing John Smith"),
-                        ("john smith dipl.-ing", "John Smith dIpl.-Ing")):
+                        ("john dipl.-ing smith", "John dIpl.-Ing Smith")):
         assert str(parser.capitalized(parser.parse(text))) == whole, text
 
 
@@ -1037,9 +1201,6 @@ def test_a_split_initial_is_capitalized_only_where_the_mask_keeps_it_joined(
                          ("john smith m.s.c.", "M.S.C."),
                          ("john smith p.h.d.", "P.H.D.")):
         assert parse(text).capitalized().suffix == suffix, text
-        hn = HumanName(text)
-        hn.capitalize()
-        assert hn.suffix == suffix, text
     # the boundary the rule draws: a two-letter run beside a period
     # is not lone, and still takes the mask's case
     assert parse("john smith b.sc.").capitalized().suffix == "B.Sc."
@@ -1063,6 +1224,41 @@ def test_a_decomposed_mask_value_reads_the_same_split_as_composed() -> None:
                                "john smith pé.x.").suffix == "Pé.X."
 
 
+
+@pytest.mark.parametrize(("text", "repaired"), [
+    # #1014: each run a full stop divides asks its own mask, first,
+    # last or both, as a word standing alone does (rules/R4)
+    ("J.MACDONALD SMITH", "J.MacDonald Smith"),
+    ("JOHN MACDONALD.SMITH", "John MacDonald.Smith"),
+    ("JOHN MACDONALD.MACLEOD", "John MacDonald.MacLeod"),
+    # a chunk no mask records is title-cased, Mac included
+    ("J.MACHADO SMITH", "J.Machado Smith"),
+    # every mask, not only a surname's: a credential chunk too
+    ("john smith msc.ed.", "John Smith MSc.Ed."),
+    ("JOHN X.PHD", "John X.PhD"),
+    # a mask matches the whole run, never a prefix of it
+    ("JOHN MACDONALDS", "John Macdonalds"),
+])
+def test_a_chunk_after_a_full_stop_takes_its_own_mask(
+        text: str, repaired: str) -> None:
+    assert str(parse(text).capitalized()) == repaired
+
+
+def test_a_callers_mask_decides_a_mac_or_mc_name() -> None:
+    # #1014: Mac takes its inner capital only from a mask, so a caller's
+    # spelling decides it, on the whole word and on a chunk; and a mask
+    # outranks the Mc convention for a name it does not fit
+    default = Lexicon.default()
+    lex = dataclasses.replace(default, capitalization_exceptions=(
+        *default.capitalization_exceptions,
+        ("machale", "MacHale"), ("mchunu", "Mchunu")))
+    for text, plain, masked in (
+            ("SEAN MACHALE", "Sean Machale", "Sean MacHale"),
+            ("J.MACHALE SMITH", "J.Machale Smith", "J.MacHale Smith"),
+            ("JOHN MCHUNU", "John McHunu", "John Mchunu")):
+        assert str(parse(text).capitalized()) == plain
+        assert str(parse(text).capitalized(lex)) == masked
+
 def _nfc_texts(name: ParsedName) -> list[str]:
     return [unicodedata.normalize("NFC", t.text) for t in name.tokens]
 
@@ -1070,10 +1266,10 @@ def _nfc_texts(name: ParsedName) -> list[str]:
 @pytest.mark.parametrize(("pairs", "text"), [
     # the plain word clause: 'a' after the mark is not a word of its own
     ((), "josé garcía"),
-    # Mac/Mc, decided on the composed spelling: 'mac' + 'ée' passes
-    # _MAC's \w{2,} composed and fails it at the mark decomposed
-    ((), "macée smith"),
-    ((), "MACÉINRÍ SMITH"),
+    # Mc, decided on the composed spelling: 'mc' + 'ée' passes _MC's
+    # \w{2,} composed and fails it at the mark decomposed
+    ((), "mcée smith"),
+    ((), "MCÉINRÍ SMITH"),
     # the split-off-initial override reads the full stop past the mark
     ((("éx", "éx"),), "john smith é.x."),
     # a letter after a mark still has the letter before it as neighbour
@@ -1086,7 +1282,7 @@ def test_a_decomposed_word_repairs_as_its_composed_twin(
         pairs: tuple[tuple[str, str], ...], text: str) -> None:
     """#542: a combining mark belongs to the letter before it, so every
     clause of case repair reads a decomposed (NFD) word as it reads the
-    composed one -- the word splitter, the Mac/Mc clause, and the mask's
+    composed one -- the word splitter, the Mc clause, and the mask's
     neighbour tests -- and the output keeps the decomposed form. These
     are the shapes the corpus walk in test_properties.py does not
     reach. The two mask rows guard _beside: 'é.x.' agreed before the
@@ -1115,9 +1311,10 @@ def test_a_spliced_decomposed_initial_reads_as_its_composed_twin() -> None:
 
 
 @pytest.mark.parametrize(("text", "want"), [
-    # decomposed hangul: jamo are letters, not marks, and the initial
-    # is the whole syllable they spell, as composed
-    ("김 민준", "민. 김."),
+    # decomposed hangul: jamo are letters, not marks, so the initial
+    # would be the whole syllable they spell, as composed -- and hangul
+    # writes no initials, so it gives none (rules/R3, #754)
+    ("김 민준", ""),
     # a composed Bengali vowel sign is a mark that composes with
     # nothing: it stays out of the initial in both forms (#585 does not
     # decide the Indic syllable question)
@@ -1132,13 +1329,11 @@ def test_a_spliced_decomposed_initial_reads_as_its_composed_twin() -> None:
 def test_a_decomposed_initial_is_its_composed_twins(text: str,
                                                     want: str) -> None:
     """#585: an initial is the shortest start of its word that composes
-    to the composed word's first character, kept in the form written --
-    on both surfaces."""
+    to the composed word's first character, kept in the form written."""
     decomposed = unicodedata.normalize("NFD", text)
-    for got in (parse(decomposed).initials(),
-                HumanName(decomposed).initials()):
-        assert unicodedata.normalize("NFC", got) == want
-        assert unicodedata.is_normalized("NFD", got)
+    got = parse(decomposed).initials()
+    assert unicodedata.normalize("NFC", got) == want
+    assert unicodedata.is_normalized("NFD", got)
 
 
 def test_a_composed_initial_is_the_first_character_as_before() -> None:
@@ -1220,7 +1415,6 @@ def test_a_masks_punctuation_marks_its_joins_and_is_never_written() -> None:
     repair the writer's 'h.c.' differently."""
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        ignore_removals()
         lex = dataclasses.replace(
             Lexicon.default(),
             capitalization_exceptions=(("md", "M.D."),))
@@ -1228,19 +1422,8 @@ def test_a_masks_punctuation_marks_its_joins_and_is_never_written() -> None:
     assert str(p.capitalized(p.parse("john smith md"))) == "John Smith MD"
     assert str(p.capitalized(p.parse("john smith m.d."))) \
         == "John Smith M.D."
-    # the facade twin: warning-free at the first parse, where the
-    # shim's lazily built Lexicon snapshot is the one place a
-    # construction diagnostic could be raised
-    c = Constants(capitalization_exceptions={'md': 'M.D.'})
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        ignore_removals()
-        hn = HumanName("john smith md", constants=c)
-    hn.capitalize()
-    assert str(hn) == "John Smith MD"
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        ignore_removals()
         joined = dataclasses.replace(
             Lexicon.default(), capitalization_exceptions=(("hc", "h.c"),))
         split = dataclasses.replace(
@@ -1377,7 +1560,7 @@ def test_a_link_inside_a_hyphenated_word_keeps_its_lowercase() -> None:
             ("juan garcia-lopez-y", "Juan Garcia-Lopez-Y"),
             # non-link parts inside a THREE-part hyphenated token still
             # get the full per-word repair -- the particle arm
-            # ("de"/"la") and the Mac rule ("mcnabb") each apply per
+            # ("de"/"la") and the Mc rule ("mcnabb") each apply per
             # part, not only to a two-part compound
             ("juan garcia-de-la-vega", "Juan Garcia-de-la-Vega"),
             ("donovan mcnabb-y-smith", "Donovan McNabb-y-Smith"),
@@ -1401,7 +1584,8 @@ def test_a_link_inside_a_hyphenated_word_keeps_its_lowercase() -> None:
     assert mixed.capitalized() == mixed
     assert str(mixed.capitalized(force=True)) == "Jose Ortega-y-Gasset"
     # not connective vocabulary, so not reached (decisions/R4)
-    assert "a" not in Lexicon.default().conjunctions
+    assert not any(r.category == "conjunction"
+                   for r in Lexicon.default().readings_of("a"))
     assert str(parse("Te Awanui-a-Rangi Black").capitalized(
         force=True)) == "Te Awanui-A-Rangi Black"
     # a single letter marked with a period is an initial there,
@@ -1431,18 +1615,15 @@ def test_the_hyphen_is_the_writers_join_even_in_a_one_case_name() -> None:
     name is in. The cost is a one-case name whose hyphenated bare
     initials spell a connective -- 'J-E-P DUPONT' repairs to
     'J-e-P Dupont', where 1.4.0 and the parent gave 'J-E-P'. And
-    conjunctions_ambiguous, P8's knob, does not reach a hyphenated
+    a `may_be_initial` conjunction reading, P8's knob, does not reach a hyphenated
     word: marking 'y' moves the spaced spelling only."""
     for text, repaired in (("J-E-P DUPONT", "J-e-P Dupont"),
                            ("JOHN A-Y-B SMITH", "John A-y-B Smith"),
                            ("maria silva-e-sousa", "Maria Silva-e-Sousa"),
                            ("maria silva e sousa", "Maria Silva E Sousa")):
         assert str(parse(text).capitalized()) == repaired, text
-        hn = HumanName(text)
-        hn.capitalize()
-        assert str(hn) == repaired, text
     marked = Parser(lexicon=Lexicon.default().add(
-        conjunctions_ambiguous={"y"}))
+        "y", kind="conjunction", may_be_initial=True))
     for text, default, under_mark in (
             ("JOSE ORTEGA Y GASSET", "Jose Ortega y Gasset",
              "Jose Ortega Y Gasset"),
@@ -1459,22 +1640,19 @@ def test_a_shipped_mask_spells_its_suffix_in_either_single_case() -> None:
     them -- `john smith <key>` puts the key in the suffix role, and
     repair spells it as the mask whether it was written all lower or
     all upper, where the acronym clause alone would write it in
-    capitals. Both surfaces. The suffix keys only: since #604 the map
+    capitals. The suffix keys only: since #604 the map
     also carries particle masks, whose fork is the next test's."""
     lexicon = Lexicon.default()
     pairs = tuple((key, mask) for key, mask
                   in lexicon.capitalization_exceptions
-                  if key in lexicon.suffix_acronyms
-                  or key in lexicon.suffix_words)
+                  if key in lexicon._sets.suffix_acronyms
+                  or key in lexicon._sets.suffix_words)
     assert pairs  # an empty map would make the loop vacuous
     for key, mask in pairs:
         for text in (f"john smith {key}", f"JOHN SMITH {key.upper()}"):
             name = parse(text)
             assert name.suffix.lower() == key, text
             assert name.capitalized().suffix == mask, text
-            hn = HumanName(text)
-            hn.capitalize()
-            assert hn.suffix == mask, text
 
 
 def test_a_shipped_particle_mask_outranks_the_particle_lowercase() -> None:
@@ -1484,37 +1662,30 @@ def test_a_shipped_particle_mask_outranks_the_particle_lowercase() -> None:
     mask serves, derived from the pairs: `john <key> smith` puts the
     key in particle position, and repair spells it as the mask from
     either single case. The control is a particle with no mask, which
-    keeps its lowercase. Both surfaces."""
+    keeps its lowercase."""
     lexicon = Lexicon.default()
     pairs = tuple((key, mask) for key, mask
                   in lexicon.capitalization_exceptions
-                  if key in lexicon.particles)
+                  if key in lexicon._sets.particles)
     assert pairs  # an empty selection would make the loop vacuous
     for key, mask in pairs + (("de", "de"),):
         for text in (f"john {key} smith", f"JOHN {key.upper()} SMITH"):
             assert parse(text).family.lower() == f"{key} smith", text
             assert parse(text).capitalized().family == f"{mask} Smith", text
-            hn = HumanName(text)
-            hn.capitalize()
-            assert hn.last == f"{mask} Smith", text
 
 
 def test_a_caller_particle_mask_outranks_the_particle_lowercase() -> None:
     """rules/R4, #604, decided for CALLER maps too (decisions/R4,
     2026-10-04): 1.4.0 through 2.3.0 kept a particle lowercase whatever
-    the map held. The control is the same name with no entry. Both
-    surfaces."""
+    the map held. The control is the same name with no entry."""
     lex = Lexicon.default() | Lexicon(
         capitalization_exceptions=(("van", "Van"),))
     assert str(parse("ludwig van beethoven").capitalized()) == \
         "Ludwig van Beethoven"
     assert str(parse("ludwig van beethoven").capitalized(lex)) == \
         "Ludwig Van Beethoven"
-    constants = Constants()
-    constants.capitalization_exceptions["van"] = "Van"
-    hn = HumanName("ludwig van beethoven", constants=constants)
-    hn.capitalize(force=True)
-    assert str(hn) == "Ludwig Van Beethoven"
+    assert str(parse("ludwig van beethoven").capitalized(lex, force=True)) \
+        == "Ludwig Van Beethoven"
 
 
 def test_a_listed_acronym_that_is_a_name_word_gets_no_mask() -> None:
@@ -1542,9 +1713,6 @@ def test_a_listed_acronym_that_is_a_name_word_gets_no_mask() -> None:
                            ("nguyen van lac", "Nguyen Van LAC"),
                            ("john smith edd", "John Smith EDD")):
         assert str(parse(text).capitalized()) == repaired, text
-        hn = HumanName(text)
-        hn.capitalize()
-        assert str(hn) == repaired, text
     default = Lexicon.default()
     masked = Parser(lexicon=dataclasses.replace(
         default, capitalization_exceptions=tuple(
@@ -1656,23 +1824,22 @@ def test_initials_has_no_lexicon_so_a_spliced_field_is_all_name_words()\
     spliced in as raw text has no reading, and this view has nothing to
     read one from, so every word of it initials.
 
-    That disagrees with the facade and with the same name parsed, and
+    That disagrees with the same name parsed, and
     it is a 2.0-core defect rather than a decision -- see #464, filed
     for giving `Parser` an `initials` crossing. A fallback to
     `Lexicon.default()` was written and dropped: it guesses a
     vocabulary, and under a caller's own the guess erases a whole
-    field (`Lexicon.default().add(particles={'y'})`, family 'de y').
+    field (`Lexicon.default().add('y', kind='particle')`, family 'de y').
     """
     p = Parser()
     base = p.parse("john smith")
 
     assert base.replace(family="de la vega").initials() == "j. d. l. v."
     assert p.parse("john de la vega").initials() == "j. v."
-    assert HumanName("john de la vega").initials() == "j. v."
 
     # the vocabulary a fallback would have had to guess, and the field
     # it erased when it guessed wrong
-    y_lex = Lexicon.default().add(particles={"y"})
+    y_lex = Lexicon.default().add("y", kind="particle")
     py = Parser(lexicon=y_lex)
     assert py.parse("Juan de y").initials() == "J. d. y."
     assert py.parse("Juan Perez").replace(family="de y").initials() == "J. d. y."
@@ -1754,79 +1921,41 @@ def test_capitalized_one_case_connective_that_reads_as_an_initial() -> None:
     assert str(parse("John e Smith").capitalized()) == "John e Smith"
 
 
-def test_facade_initials_follow_the_one_case_fork() -> None:
-    """Both surfaces read the same letter the same way (#528).
-
-    The core's initials() follows the parse's tags: in a name written
+def test_initials_follow_the_one_case_fork() -> None:
+    """initials() follows the parse's tags (#528): in a name written
     wholly in one case an 'e' is an INITIAL and a 'y' is the connective
     (rules/P8), so R3's "each given, middle, and base family word"
-    reaches the first and not the second. Until #528 HumanName.initials()
-    re-derived that from the lexicon and the part's raw shape instead,
-    and kept 1.4.0's answer on both letters; it now reads the same tags,
-    so the two views of one parse agree. decisions/R3 records it.
+    reaches the first and not the second. decisions/R3 records it.
     """
     assert parse("john e smith").initials() == "j. e. s."
-    assert HumanName("john e smith").initials() == "j. e. s."
-    # #461 moved the VALUE and not the agreement: 'Y' holds the middle
-    # part alone, so it initials on both surfaces -- which is also
-    # 1.4.0's answer on this name, restored. The joined control below
-    # is where the letter still drops, on both surfaces.
+    # #461 moved the VALUE and not the tag: 'Y' holds the middle
+    # part alone, so it initials -- which is also 1.4.0's answer on
+    # this name, restored. The joined control below is where the
+    # letter still drops.
     assert parse("JUAN Y GARCIA").initials() == "J. Y. G."
-    assert HumanName("JUAN Y GARCIA").initials() == "J. Y. G."
     assert parse("JUAN GARCIA Y LOPEZ").initials() == "J. G. L."
-    assert HumanName("JUAN GARCIA Y LOPEZ").initials() == "J. G. L."
     # The mixed-case controls, where the writing decides the letter and
-    # nothing moved on either surface
-    assert HumanName("John E Smith").initials() == "J. E. S."
-    assert HumanName("Juan Y. Garcia").initials() == "J. Y. G."
+    # nothing moved
+    assert parse("John E Smith").initials() == "J. E. S."
+    assert parse("Juan Y. Garcia").initials() == "J. Y. G."
     # 'maria y lopez' is a ONE-CASE control, not a mixed-case one: written
     # wholly in lowercase, its 'y' is outside the marked set (rules/P8),
-    # so it stays the CONNECTIVE on both surfaces rather than reading as
+    # so it stays the CONNECTIVE rather than reading as
     # an initial the way 'e' does. What it no longer
     # witnesses is the DROP: #461 gave the letter its initial back here,
     # because it holds the middle part alone and so joins nothing
     # (decisions/R3). The joining one-case control below is where
     # a lowercase 'y' still drops, which is what keeps this row's point
     # -- the tag, not the value -- observable.
-    assert HumanName("maria y lopez").initials() == "m. y. l."
     assert parse("maria y lopez").initials() == "m. y. l."
-    assert HumanName("juan garcia y lopez").initials() == "j. g. l."
     assert parse("juan garcia y lopez").initials() == "j. g. l."
-    # The GIVEN group, where #461 dropped the facade's own blanket
-    # exemption as well as the core's: a connective among given names
-    # is joining there like anywhere else, so it contributes nothing
-    # on BOTH surfaces. Without the facade half these read 'J. a. J.
-    # S.' and 'D. o. E.' while the core reads them as below, which is
-    # the disagreement the one rule exists to prevent.
+    # The GIVEN group, where #461 dropped the blanket exemption: a
+    # connective among given names is joining there like anywhere
+    # else, so it contributes nothing.
     assert parse("John and Jane Smith").initials() == "J. J. S."
-    assert HumanName("John and Jane Smith").initials() == "J. J. S."
     assert parse("Duke of Edinburgh").initials() == "D. E."
-    assert HumanName("Duke of Edinburgh").initials() == "D. E."
     assert parse("John & Jane").initials() == "J. J."
-    assert HumanName("John & Jane").initials() == "J. J."
-    # The one corpus name where the two views still differ, and it is
-    # not this rule's: the facade merges 'Ph.' + 'D.' into one list
-    # element and renders it with no inner delimiter
-    # (fix(initials-per-word) the Ph. D. merge, decisions/phd-merge)
-    assert HumanName("Ph. D., John").initials() == "J. P D."
     assert parse("Ph. D., John").initials() == "J. P. D."
-
-
-def test_initials_separator_is_honored_on_the_live_token_path() -> None:
-    # tests/test_initials.py's two "Van Berg" separator tests call
-    # _process_initial("Van Berg", firstname=True) directly -- v1's
-    # string path, with tokens=None -- which #528 kept working but no
-    # longer the path HumanName.initials() itself takes. This pins
-    # initials_separator on the live TOKEN path (tokens= passed by
-    # _initials_lists), so a regression that reads initials_separator
-    # only on the string branch would pass those two tests and fail
-    # here. Measured.
-    assert HumanName("Ph. D., John", initials_separator="-").initials() \
-        == "J. P-D."
-    assert HumanName("Ph. D., John", initials_separator="").initials() \
-        == "J. PD."
-    assert HumanName("Ph. D., John", initials_separator="") \
-        .initials_list() == ["J", "PD"]
 
 
 def test_a_caps_credential_after_a_comma_keeps_its_capitals_in_every_setting(
@@ -1840,9 +1969,9 @@ def test_a_caps_credential_after_a_comma_keeps_its_capitals_in_every_setting(
     # EVERYWHERE. Forced, since R5 leaves a mixed-case name alone.
     for setting in (CapsSuffixes.AFTER_COMMA, CapsSuffixes.EVERYWHERE):
         parser = Parser(policy=Policy(unlisted_caps_suffixes=setting))
-        for text, rendered in (("John Smith, XYZ", "John Smith XYZ"),
-                               ("John Smith, LEED AP", "John Smith LEED AP"),
-                               ("John Smith, PhD XYZ", "John Smith PhD XYZ")):
+        for text, rendered in (("John Smith, XYZ", "John Smith, XYZ"),
+                               ("John Smith, LEED AP", "John Smith, LEED AP"),
+                               ("John Smith, PhD XYZ", "John Smith, PhD XYZ")):
             name = parser.parse(text)
             assert str(name.capitalized(force=True)) == rendered, (setting, text)
 
@@ -1856,8 +1985,7 @@ def test_a_marked_particle_lowercases_only_where_the_particle_arm_would(
     the token repairs by the walk exactly as before. The first version
     sent every whole-token particle through the rest of _cap_word, and
     the full suite passed it: 'ED-' became 'Ed-' and a configured
-    'van-der' became 'Van-der' (the #700 fix-commit review). Both
-    surfaces for the lowercase; the declines on the core."""
+    'van-der' became 'Van-der' (the #700 fix-commit review)."""
     lowered = {
         "IVOI, PAUL D'": "Paul d' Ivoi",
         "rashid, harun al-": "Harun al- Rashid",
@@ -1865,9 +1993,7 @@ def test_a_marked_particle_lowercases_only_where_the_particle_arm_would(
     }
     for text, expected in lowered.items():
         assert str(parse(text).capitalized()) == expected, text
-        hn = HumanName(text)
-        hn.capitalize(force=True)
-        assert str(hn) == expected, text
+        assert str(parse(text).capitalized(force=True)) == expected, text
     declined = {
         # an all-particle part: repaired as ordinary name words
         ", PAUL D'": "Paul D'",
@@ -1881,7 +2007,7 @@ def test_a_marked_particle_lowercases_only_where_the_particle_arm_would(
     name = given_last.parse("IVOI PAUL D'")
     assert name.given == "D'"  # the declared given slot, not P6's
     assert name.capitalized().given == "D'"
-    hyphened = Parser(lexicon=Lexicon.default().add(particles={"van-der"}))
+    hyphened = Parser(lexicon=Lexicon.default().add("van-der", kind="particle"))
     assert str(hyphened.capitalized(hyphened.parse("jan van-der"))) == \
         "Jan Van-Der"
 
@@ -1923,3 +2049,72 @@ def test_repairing_a_generation_word_that_is_also_a_name_keeps_its_reading(
     name = parse(text)
     repaired = name.capitalized()
     assert parse(str(repaired)).as_dict() == repaired.as_dict()
+
+
+def test_a_group_of_particles_and_a_connective_initials_the_connective(
+) -> None:
+    # #397 review: the middle here is a working particle plus a
+    # connective with nothing to join, so the connective is readmitted
+    # and initials (#461)
+    assert parse("Vega, Santa de y").initials() == "S. y. V."
+
+
+#: the negative control for the sweep below: what `JOHN <WORD> SMITH`
+#: repairs to with the set emptied, every word of 2026-11-04 written
+#: lowercase, as master at dadf39b7 wrote it; recorded so the sweep
+#: cannot pass vacuously
+_UNGUARDED_CAPITALIZED = {
+    "freiherr": "freiherr Smith", "freiherrin": "freiherrin Smith",
+    "fürst": "fürst Smith", "graf": "graf Smith", "gräfin": "gräfin Smith",
+    "prinz": "prinz Smith", "san": "san Smith", "santa": "santa Smith",
+    "st": "st Smith", "sta": "sta Smith", "ste": "ste Smith",
+    "sto": "sto Smith",
+}
+
+
+def _repaired_families(lex: Lexicon) -> dict[str, str]:
+    return {word: parse(f"JOHN {word.upper()} SMITH").capitalized(lex).family
+            for word in sorted(lex._sets.capitalized_particles)}
+
+
+def test_every_saint_and_rank_particle_repairs_with_its_capital() -> None:
+    """rules/R4, #1069: a particle of the `saint` or `rank` kind is
+    written as a name word is, keyed on the kind, so the sweep runs over
+    the compiled set rather than a list."""
+    lex = Lexicon.default()
+    repaired = _repaired_families(lex)
+    assert repaired.keys() >= _UNGUARDED_CAPITALIZED.keys()
+    for word, family in repaired.items():
+        assert parse(f"JOHN {word.upper()} SMITH").family.lower() == \
+            f"{word} smith", word
+        assert family == f"{word.title()} Smith", word
+
+
+def test_the_capitalized_sweep_fails_with_the_set_emptied() -> None:
+    """The negative control, taken live: a fresh lexicon whose
+    `capitalized_particles` is emptied repairs every word lowercase, as
+    `_UNGUARDED_CAPITALIZED` records."""
+    lex = Lexicon.default().add("zaint", kind="particle")  # a fresh copy
+    unguarded = dataclasses.replace(
+        lex._sets, capitalized_particles=frozenset())
+    words = sorted(lex._sets.capitalized_particles)
+    object.__setattr__(lex, "_sets", unguarded)
+    got = {word: parse(f"JOHN {word.upper()} SMITH").capitalized(lex).family
+           for word in words}
+    assert {w: got[w] for w in _UNGUARDED_CAPITALIZED} == \
+        _UNGUARDED_CAPITALIZED
+
+
+@pytest.mark.parametrize(("kind", "written"), [
+    ("saint", "Zaint Smith"),
+    ("rank", "Zaint Smith"),
+    # the control: a plain particle a caller adds is still lowercased
+    ("particle", "zaint Smith"),
+])
+def test_a_caller_word_of_a_capitalized_kind_keeps_its_capital(
+        kind: str, written: str) -> None:
+    """rules/R4, #1069: the set compiles from the kind, so a caller's
+    word of either kind reaches it as a shipped one does."""
+    lex = Lexicon.default().add("zaint", kind=kind)
+    name = Parser(lexicon=lex).parse("JOHN ZAINT SMITH")
+    assert name.capitalized(lex).family == written

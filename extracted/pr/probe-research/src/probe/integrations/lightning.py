@@ -141,6 +141,8 @@ PREFIX_SEPARATOR = "/"
 
 #: How a kept checkpoint is recorded: a path reference (default) or its bytes.
 CHECKPOINTS = _checkpoints.MODES
+#: The `meta.callback` of a checkpoint `ProbeCommands` saved for a command.
+COMMANDED_OWNER = "ProbeCommands"
 
 #: How long closing the previous trial's run may hold the next Trainer's start
 #: before the rest of its delivery is deferred to the outbox (plan (j)'s bound).
@@ -170,7 +172,9 @@ class ProbeLogger(Logger):
 
     ``project`` / ``experiment`` / ``name`` and any other keyword go to
     ``probe.init()`` (``question=``, ``tags=``, ``config=``, ``client=``, ...).
-    A run the script already opened with ``probe.init()`` is adopted instead
+    With neither ``project`` nor ``experiment`` it opens the run with
+    ``project=probe.FROM_ENV`` (``PROBE_PROJECT``, this chat's project, ``probe
+    project use``). A run the script already opened with ``probe.init()`` is adopted instead
     and never finished by this logger; its ``config=`` is merged into that run
     and the other arguments are ignored, with a warning. A second ProbeLogger
     adopting that same run is warned that the two Trainers share it (call
@@ -363,6 +367,9 @@ class ProbeLogger(Logger):
                     f"opened this job's run), so ProbeLogger's {', '.join(dropped)} were not "
                     "applied: the logger writes to that run.",
                 )
+        elif kwargs.get("project") is None and kwargs.get("experiment") is None:
+            # `ProbeLogger()` naming no project: PROBE_PROJECT and the other defaults (R22).
+            kwargs["project"] = probe.FROM_ENV
         owned_client = None
         if "client" not in kwargs and self._client_settings is not None:
             from probe.sdk.client.client import Client
@@ -441,7 +448,7 @@ class ProbeLogger(Logger):
             try:
                 from probe.sdk import diagnostics
 
-                diagnostics.report_exception(active, cause)
+                diagnostics.report_run_crash(active, cause)
             except Exception:  # noqa: BLE001 -- evidence never gates the close
                 pass
         try:
@@ -561,6 +568,19 @@ class ProbeLogger(Logger):
             return
         self._guarded("checkpoint", self._record_checkpoints, run, checkpoint_callback)
 
+    def record_commanded_checkpoint(self, path: str, step: int, command_id: str) -> str | None:
+        """A checkpoint `ProbeCommands` saved for a command, which no checkpoint callback reports: recorded as this
+        logger records checkpoints (``checkpoints=``), carrying `meta.command_id`, and written in hand so the
+        command's answer names it (agentic W&B C.1). Its artifact id; None when nothing was recorded
+        (``log_model=False``, no run) or its row is still queued."""
+        if not self._log_model:
+            return None
+        run = self._run_for_write()
+        if run is None:
+            return None
+        return self._guarded("checkpoint", self._record_one, run, path, _CallbackView.make_for_command(step), exact=True,
+                             command_id=command_id)  # fmt: skip
+
     def finalize(self, status: str) -> None:
         """Never closes the run. On ``"failed"``, tell the exit close why.
 
@@ -656,12 +676,15 @@ class ProbeLogger(Logger):
                 self._record_one(run, path, view, exact=False)
         self._refresh_checkpoints(run, view)
 
-    def _record_one(self, run: Any, path: str, view: _CallbackView, *, exact: bool) -> None:
+    def _record_one(self, run: Any, path: str, view: _CallbackView, *, exact: bool,
+                    command_id: str | None = None) -> str | None:  # fmt: skip
+        """Record one checkpoint path. ``command_id``: the checkpoint command it answers, kept on the row's meta; the
+        row is then written in hand and its artifact id returned."""
         local = os.path.abspath(path)
         try:
             info = os.stat(local)
         except OSError:
-            return  # removed by top-k pruning before we got here
+            return None  # removed by top-k pruning before we got here
         is_dir = stat.S_ISDIR(info.st_mode)
         if is_dir:
             size, n_files, complete = hashing.folder_size(local)
@@ -683,7 +706,7 @@ class ProbeLogger(Logger):
             signature = (None, info.st_mtime_ns)
         previous = self._checkpoint_rows.get(local)
         if previous is not None and previous.signature == signature:
-            return
+            return None
         meta = {
             "original_filename": os.path.basename(local),
             # Which callback saved it: two ModelCheckpoints each keep their own.
@@ -698,38 +721,28 @@ class ProbeLogger(Logger):
             # may find the path gone) keeps what the first write said.
             "written_during_run": True,
             "written_at": datetime.fromtimestamp(info.st_mtime, tz=timezone.utc).isoformat(),
+            # The checkpoint command this save answers (`probe run send RUN checkpoint`).
+            "command_id": command_id,
         }
         if is_dir:
             meta.update(is_directory=True, n_files=n_files)
             if not complete:
                 meta["size_partial"] = True
         meta = {k: v for k, v in meta.items() if v is not None}
-        name = os.path.basename(local.rstrip(os.sep))
-        if self._checkpoints == _checkpoints.UPLOAD:
-            name, meta = _checkpoints.upload_set(
-                run, local, name=name, step=view.step, meta=meta, size=size,
-                strict=self._strict, warn=self._warn_once, taken=self._set_names,
-            )
-            if previous is not None and previous.name != name and not previous.gone:
-                # Saved again in place (`last.ckpt`): this path now holds the
-                # newer set, so the earlier set's index says it is no longer
-                # what is kept there, and is no longer followed.
-                self._send_row(run, local, previous, {
-                    **previous.meta, "superseded": True, "last": False,
-                    **({"best": False} if "best" in previous.meta else {}),
-                })
-        else:
-            _checkpoints.warn_if_throwaway(local, self._warn_once)
-            run.log_artifact(
-                name,
-                path=local,
-                kind="checkpoint",
-                reference=True,
-                size_bytes=size,
-                step_index=view.step,
-                meta=dict(meta),
-                strict=self._strict,
-            )
+        name, meta, artifact_id = _checkpoints.record_row(
+            run, local, mode=self._checkpoints, name=os.path.basename(local.rstrip(os.sep)), step=view.step,
+            meta=meta, size=size, is_strict=self._strict, warn=self._warn_once, taken=self._set_names,
+            should_sync=command_id is not None,
+        )  # fmt: skip
+        if (self._checkpoints == _checkpoints.UPLOAD and previous is not None and previous.name != name
+                and not previous.gone):  # fmt: skip
+            # Saved again in place (`last.ckpt`): this path now holds the
+            # newer set, so the earlier set's index says it is no longer
+            # what is kept there, and is no longer followed.
+            self._send_row(run, local, previous, {
+                **previous.meta, "superseded": True, "last": False,
+                **({"best": False} if "best" in previous.meta else {}),
+            })
         self._checkpoint_rows[local] = _CheckpointRow(
             name=name,
             owner=view.owner,
@@ -738,6 +751,7 @@ class ProbeLogger(Logger):
             meta=meta,
             signature=signature,
         )
+        return artifact_id
 
     def _refresh_checkpoints(self, run: Any, view: _CallbackView | None) -> None:
         """Re-send a row whose truth changed since it was written.
@@ -879,6 +893,13 @@ class _CallbackView:
         # Two ModelCheckpoints (top-k by val_loss, every N steps) each keep
         # their own set; one must never mark the other's files superseded.
         self.owner = getattr(callback, "state_key", None) or type(callback).__name__
+
+    @classmethod
+    def make_for_command(cls, step: int) -> _CallbackView:
+        """A save `ProbeCommands` made for a command: no callback keeps or ranks it, so only its step and owner."""
+        view = cls(None)
+        view.step, view.owner = step, COMMANDED_OWNER
+        return view
 
     def keeps(self, local: str) -> bool:
         if self.save_top_k == -1:

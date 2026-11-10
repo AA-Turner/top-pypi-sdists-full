@@ -144,6 +144,8 @@ def _checked(*lines):
     _checked("if s.count(START) != 1:", "    raise SystemExit('start')",
              "if s.count(END) != 1:", "    sys.exit('end')"),
     _checked("if not s.count(START) == 1 or s.count(END) != 1:", "    raise ValueError('x')"),
+    _checked("for anchor in (START, END):", "    if s.count(anchor) != 1:", "        raise SystemExit(anchor)"),
+    _checked("for anchor in [START, END]:", "    assert s.count(anchor) == 1"),
     # string-constant anchors paired with the same constant
     "s = p.read_text()\nassert s.count('# BEGIN') == 1 and s.count('# END') == 1\n"
     "a = s.index('# BEGIN'); b = s.index('# END')\np.write_text(s[:a] + new + s[b:])\n",
@@ -151,13 +153,18 @@ def _checked(*lines):
 def test_a_fully_checked_splice_is_exempt(program):
     assert S.splices_between_found_anchors(program)
     assert S.every_anchor_checked(program)
-    assert not S.runs_an_unchecked_splice(heredoc("python3 - ", program))
+    bounded = program.replace("p.write_text(", "assert s[a:b].count('\\n') == 12\np.write_text(", 1)
+    assert not S.runs_an_unchecked_splice(heredoc("python3 - ", bounded))
+    assert S.runs_an_unchecked_splice(heredoc("python3 - ", program))    # uniqueness alone refused
 
 
 @pytest.mark.parametrize("program", [
     # the recorded recurrence was the END marker: checking only the start is not enough
     _checked("assert s.count(START) == 1"),
     _checked("assert s.count(END) == 1"),
+    _checked("for anchor in (START,):", "    assert s.count(anchor) == 1"),
+    _checked("for anchor in names:", "    assert s.count(anchor) == 1"),
+    _checked("for anchor in (START, END):", "    if s.count(anchor) != 1:", "        print('warn')"),
     # the wrong comparison: present at least once is not unique
     _checked("assert s.count(START) >= 1", "assert s.count(END) >= 1"),
     _checked("assert s.count(START) == 1", "assert s.count(END) == 2"),
@@ -178,3 +185,26 @@ def test_a_splice_not_fully_checked_is_still_refused(program):
     assert S.splices_between_found_anchors(program)
     assert not S.every_anchor_checked(program)
     assert S.runs_an_unchecked_splice(heredoc("python3 - ", program))
+
+
+@pytest.mark.parametrize("program", [
+    "r = s[a:b]\nassert r.count('\\n') == 12\n",
+    "r = s[a:b]\nassert r.count('\\n') <= LIMIT\n",
+    "assert len(s[a:b].splitlines()) == 12\n",
+    "r = s[a:b]\nif r.count('\\n') != 12:\n    raise ValueError('x')\n",
+    "r = s[a:b]\nassert 12 >= r.count('\\n') and ok\n",
+])
+def test_region_lines_checked_accepts_a_bound_on_the_cut_region(program):
+    assert S.region_lines_checked(program)
+
+
+@pytest.mark.parametrize("program", [
+    "assert s.count('\\n') == 12\n",                     # the whole text, not the region
+    "r = s[:b]\nassert r.count('\\n') == 12\n",          # an open-ended slice
+    "r = s[a:b]\nassert r.count('x') == 12\n",            # not a line count
+    "r = s[a:b]\nassert r.count('\\n') > 12\n",          # a floor does not bound it
+    "r = s[a:b]\nif r.count('\\n') != 12:\n    print('x')\n",   # a check that does not stop
+    "not python (",
+])
+def test_region_lines_checked_refuses_anything_else(program):
+    assert not S.region_lines_checked(program)

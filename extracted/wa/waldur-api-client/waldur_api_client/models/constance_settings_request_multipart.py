@@ -357,6 +357,9 @@ class ConstanceSettingsRequestMultipart:
         metrics_archive_grace_days (Union[Unset, int]):
         usage_poll_record_retention_months (Union[Unset, int]):
         slurm_policy_evaluation_log_retention_days (Union[Unset, int]):
+        firecrest_allowed_api_urls (Union[Unset, str]):
+        slurm_monitor_allowed_api_urls (Union[Unset, str]):
+        oidc_token_max_idle_days (Union[Unset, int]):
         federated_identity_sync_enabled (Union[Unset, bool]):
         federated_identity_sync_allowed_attributes (Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]]):
         federated_identity_authoritative_isd (Union[Unset, str]):
@@ -368,6 +371,8 @@ class ConstanceSettingsRequestMultipart:
         enabled_reporting_screens (Union[Unset, list[Union[BlankEnum, ENABLEDREPORTINGSCREENSEnum]]]):
         posix_id_pool_utilization_threshold (Union[Unset, int]):
         affiliates_enabled (Union[Unset, bool]):
+        vat_taxation_enabled (Union[Unset, bool]):
+        vat_oss_enabled (Union[Unset, bool]):
         matrix_enabled (Union[Unset, bool]):
         matrix_auto_create_project_rooms (Union[Unset, bool]):
         matrix_homeserver_url (Union[Unset, str]):
@@ -379,6 +384,8 @@ class ConstanceSettingsRequestMultipart:
         matrix_tokens_managed_by (Union[Unset, str]):
         matrix_history_export_enabled (Union[Unset, bool]):
         matrix_export_media (Union[Unset, bool]):
+        matrix_ticket_context_messages (Union[Unset, int]):
+        matrix_ticket_draft_ttl_minutes (Union[Unset, int]):
         matrix_history_export_retention_days (Union[Unset, int]):
         matrix_user_registration_secret (Union[Unset, str]):
         matrix_user_id_format (Union[Unset, str]):
@@ -389,11 +396,15 @@ class ConstanceSettingsRequestMultipart:
         matrix_livekit_url (Union[Unset, str]):
         matrix_livekit_public_url (Union[Unset, str]):
         site_agent_log_max_rows_per_identity (Union[Unset, int]):
+        api_token_max_lifetime_minutes (Union[Unset, int]):
         pat_enabled (Union[Unset, bool]):
         pat_max_lifetime_days (Union[Unset, int]):
         pat_max_tokens_per_user (Union[Unset, int]):
         pat_max_acl_entries (Union[Unset, int]):
         pat_max_audit_events_per_hour (Union[Unset, int]):
+        mcp_enabled (Union[Unset, bool]):
+        mcp_resource_urls (Union[Unset, str]):
+        event_consumer_ephemeral_idle_hours (Union[Unset, int]):
     """
 
     site_name: Union[Unset, str] = UNSET
@@ -707,6 +718,9 @@ class ConstanceSettingsRequestMultipart:
     metrics_archive_grace_days: Union[Unset, int] = UNSET
     usage_poll_record_retention_months: Union[Unset, int] = UNSET
     slurm_policy_evaluation_log_retention_days: Union[Unset, int] = UNSET
+    firecrest_allowed_api_urls: Union[Unset, str] = UNSET
+    slurm_monitor_allowed_api_urls: Union[Unset, str] = UNSET
+    oidc_token_max_idle_days: Union[Unset, int] = UNSET
     federated_identity_sync_enabled: Union[Unset, bool] = UNSET
     federated_identity_sync_allowed_attributes: Union[Unset, list[Union[BlankEnum, UserAttributeEnum]]] = UNSET
     federated_identity_authoritative_isd: Union[Unset, str] = UNSET
@@ -718,6 +732,8 @@ class ConstanceSettingsRequestMultipart:
     enabled_reporting_screens: Union[Unset, list[Union[BlankEnum, ENABLEDREPORTINGSCREENSEnum]]] = UNSET
     posix_id_pool_utilization_threshold: Union[Unset, int] = UNSET
     affiliates_enabled: Union[Unset, bool] = UNSET
+    vat_taxation_enabled: Union[Unset, bool] = UNSET
+    vat_oss_enabled: Union[Unset, bool] = UNSET
     matrix_enabled: Union[Unset, bool] = UNSET
     matrix_auto_create_project_rooms: Union[Unset, bool] = UNSET
     matrix_homeserver_url: Union[Unset, str] = UNSET
@@ -729,6 +745,8 @@ class ConstanceSettingsRequestMultipart:
     matrix_tokens_managed_by: Union[Unset, str] = UNSET
     matrix_history_export_enabled: Union[Unset, bool] = UNSET
     matrix_export_media: Union[Unset, bool] = UNSET
+    matrix_ticket_context_messages: Union[Unset, int] = UNSET
+    matrix_ticket_draft_ttl_minutes: Union[Unset, int] = UNSET
     matrix_history_export_retention_days: Union[Unset, int] = UNSET
     matrix_user_registration_secret: Union[Unset, str] = UNSET
     matrix_user_id_format: Union[Unset, str] = UNSET
@@ -739,11 +757,15 @@ class ConstanceSettingsRequestMultipart:
     matrix_livekit_url: Union[Unset, str] = UNSET
     matrix_livekit_public_url: Union[Unset, str] = UNSET
     site_agent_log_max_rows_per_identity: Union[Unset, int] = UNSET
+    api_token_max_lifetime_minutes: Union[Unset, int] = UNSET
     pat_enabled: Union[Unset, bool] = UNSET
     pat_max_lifetime_days: Union[Unset, int] = UNSET
     pat_max_tokens_per_user: Union[Unset, int] = UNSET
     pat_max_acl_entries: Union[Unset, int] = UNSET
     pat_max_audit_events_per_hour: Union[Unset, int] = UNSET
+    mcp_enabled: Union[Unset, bool] = UNSET
+    mcp_resource_urls: Union[Unset, str] = UNSET
+    event_consumer_ephemeral_idle_hours: Union[Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -1613,6 +1635,12 @@ class ConstanceSettingsRequestMultipart:
 
         slurm_policy_evaluation_log_retention_days = self.slurm_policy_evaluation_log_retention_days
 
+        firecrest_allowed_api_urls = self.firecrest_allowed_api_urls
+
+        slurm_monitor_allowed_api_urls = self.slurm_monitor_allowed_api_urls
+
+        oidc_token_max_idle_days = self.oidc_token_max_idle_days
+
         federated_identity_sync_enabled = self.federated_identity_sync_enabled
 
         federated_identity_sync_allowed_attributes: Union[Unset, list[str]] = UNSET
@@ -1681,6 +1709,10 @@ class ConstanceSettingsRequestMultipart:
 
         affiliates_enabled = self.affiliates_enabled
 
+        vat_taxation_enabled = self.vat_taxation_enabled
+
+        vat_oss_enabled = self.vat_oss_enabled
+
         matrix_enabled = self.matrix_enabled
 
         matrix_auto_create_project_rooms = self.matrix_auto_create_project_rooms
@@ -1702,6 +1734,10 @@ class ConstanceSettingsRequestMultipart:
         matrix_history_export_enabled = self.matrix_history_export_enabled
 
         matrix_export_media = self.matrix_export_media
+
+        matrix_ticket_context_messages = self.matrix_ticket_context_messages
+
+        matrix_ticket_draft_ttl_minutes = self.matrix_ticket_draft_ttl_minutes
 
         matrix_history_export_retention_days = self.matrix_history_export_retention_days
 
@@ -1725,6 +1761,8 @@ class ConstanceSettingsRequestMultipart:
 
         site_agent_log_max_rows_per_identity = self.site_agent_log_max_rows_per_identity
 
+        api_token_max_lifetime_minutes = self.api_token_max_lifetime_minutes
+
         pat_enabled = self.pat_enabled
 
         pat_max_lifetime_days = self.pat_max_lifetime_days
@@ -1734,6 +1772,12 @@ class ConstanceSettingsRequestMultipart:
         pat_max_acl_entries = self.pat_max_acl_entries
 
         pat_max_audit_events_per_hour = self.pat_max_audit_events_per_hour
+
+        mcp_enabled = self.mcp_enabled
+
+        mcp_resource_urls = self.mcp_resource_urls
+
+        event_consumer_ephemeral_idle_hours = self.event_consumer_ephemeral_idle_hours
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -2372,6 +2416,12 @@ class ConstanceSettingsRequestMultipart:
             field_dict["USAGE_POLL_RECORD_RETENTION_MONTHS"] = usage_poll_record_retention_months
         if slurm_policy_evaluation_log_retention_days is not UNSET:
             field_dict["SLURM_POLICY_EVALUATION_LOG_RETENTION_DAYS"] = slurm_policy_evaluation_log_retention_days
+        if firecrest_allowed_api_urls is not UNSET:
+            field_dict["FIRECREST_ALLOWED_API_URLS"] = firecrest_allowed_api_urls
+        if slurm_monitor_allowed_api_urls is not UNSET:
+            field_dict["SLURM_MONITOR_ALLOWED_API_URLS"] = slurm_monitor_allowed_api_urls
+        if oidc_token_max_idle_days is not UNSET:
+            field_dict["OIDC_TOKEN_MAX_IDLE_DAYS"] = oidc_token_max_idle_days
         if federated_identity_sync_enabled is not UNSET:
             field_dict["FEDERATED_IDENTITY_SYNC_ENABLED"] = federated_identity_sync_enabled
         if federated_identity_sync_allowed_attributes is not UNSET:
@@ -2394,6 +2444,10 @@ class ConstanceSettingsRequestMultipart:
             field_dict["POSIX_ID_POOL_UTILIZATION_THRESHOLD"] = posix_id_pool_utilization_threshold
         if affiliates_enabled is not UNSET:
             field_dict["AFFILIATES_ENABLED"] = affiliates_enabled
+        if vat_taxation_enabled is not UNSET:
+            field_dict["VAT_TAXATION_ENABLED"] = vat_taxation_enabled
+        if vat_oss_enabled is not UNSET:
+            field_dict["VAT_OSS_ENABLED"] = vat_oss_enabled
         if matrix_enabled is not UNSET:
             field_dict["MATRIX_ENABLED"] = matrix_enabled
         if matrix_auto_create_project_rooms is not UNSET:
@@ -2416,6 +2470,10 @@ class ConstanceSettingsRequestMultipart:
             field_dict["MATRIX_HISTORY_EXPORT_ENABLED"] = matrix_history_export_enabled
         if matrix_export_media is not UNSET:
             field_dict["MATRIX_EXPORT_MEDIA"] = matrix_export_media
+        if matrix_ticket_context_messages is not UNSET:
+            field_dict["MATRIX_TICKET_CONTEXT_MESSAGES"] = matrix_ticket_context_messages
+        if matrix_ticket_draft_ttl_minutes is not UNSET:
+            field_dict["MATRIX_TICKET_DRAFT_TTL_MINUTES"] = matrix_ticket_draft_ttl_minutes
         if matrix_history_export_retention_days is not UNSET:
             field_dict["MATRIX_HISTORY_EXPORT_RETENTION_DAYS"] = matrix_history_export_retention_days
         if matrix_user_registration_secret is not UNSET:
@@ -2436,6 +2494,8 @@ class ConstanceSettingsRequestMultipart:
             field_dict["MATRIX_LIVEKIT_PUBLIC_URL"] = matrix_livekit_public_url
         if site_agent_log_max_rows_per_identity is not UNSET:
             field_dict["SITE_AGENT_LOG_MAX_ROWS_PER_IDENTITY"] = site_agent_log_max_rows_per_identity
+        if api_token_max_lifetime_minutes is not UNSET:
+            field_dict["API_TOKEN_MAX_LIFETIME_MINUTES"] = api_token_max_lifetime_minutes
         if pat_enabled is not UNSET:
             field_dict["PAT_ENABLED"] = pat_enabled
         if pat_max_lifetime_days is not UNSET:
@@ -2446,6 +2506,12 @@ class ConstanceSettingsRequestMultipart:
             field_dict["PAT_MAX_ACL_ENTRIES"] = pat_max_acl_entries
         if pat_max_audit_events_per_hour is not UNSET:
             field_dict["PAT_MAX_AUDIT_EVENTS_PER_HOUR"] = pat_max_audit_events_per_hour
+        if mcp_enabled is not UNSET:
+            field_dict["MCP_ENABLED"] = mcp_enabled
+        if mcp_resource_urls is not UNSET:
+            field_dict["MCP_RESOURCE_URLS"] = mcp_resource_urls
+        if event_consumer_ephemeral_idle_hours is not UNSET:
+            field_dict["EVENT_CONSUMER_EPHEMERAL_IDLE_HOURS"] = event_consumer_ephemeral_idle_hours
 
         return field_dict
 
@@ -4279,6 +4345,24 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.firecrest_allowed_api_urls, Unset):
+            files.append(
+                ("FIRECREST_ALLOWED_API_URLS", (None, str(self.firecrest_allowed_api_urls).encode(), "text/plain"))
+            )
+
+        if not isinstance(self.slurm_monitor_allowed_api_urls, Unset):
+            files.append(
+                (
+                    "SLURM_MONITOR_ALLOWED_API_URLS",
+                    (None, str(self.slurm_monitor_allowed_api_urls).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.oidc_token_max_idle_days, Unset):
+            files.append(
+                ("OIDC_TOKEN_MAX_IDLE_DAYS", (None, str(self.oidc_token_max_idle_days).encode(), "text/plain"))
+            )
+
         if not isinstance(self.federated_identity_sync_enabled, Unset):
             files.append(
                 (
@@ -4400,6 +4484,12 @@ class ConstanceSettingsRequestMultipart:
         if not isinstance(self.affiliates_enabled, Unset):
             files.append(("AFFILIATES_ENABLED", (None, str(self.affiliates_enabled).encode(), "text/plain")))
 
+        if not isinstance(self.vat_taxation_enabled, Unset):
+            files.append(("VAT_TAXATION_ENABLED", (None, str(self.vat_taxation_enabled).encode(), "text/plain")))
+
+        if not isinstance(self.vat_oss_enabled, Unset):
+            files.append(("VAT_OSS_ENABLED", (None, str(self.vat_oss_enabled).encode(), "text/plain")))
+
         if not isinstance(self.matrix_enabled, Unset):
             files.append(("MATRIX_ENABLED", (None, str(self.matrix_enabled).encode(), "text/plain")))
 
@@ -4458,6 +4548,22 @@ class ConstanceSettingsRequestMultipart:
         if not isinstance(self.matrix_export_media, Unset):
             files.append(("MATRIX_EXPORT_MEDIA", (None, str(self.matrix_export_media).encode(), "text/plain")))
 
+        if not isinstance(self.matrix_ticket_context_messages, Unset):
+            files.append(
+                (
+                    "MATRIX_TICKET_CONTEXT_MESSAGES",
+                    (None, str(self.matrix_ticket_context_messages).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.matrix_ticket_draft_ttl_minutes, Unset):
+            files.append(
+                (
+                    "MATRIX_TICKET_DRAFT_TTL_MINUTES",
+                    (None, str(self.matrix_ticket_draft_ttl_minutes).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.matrix_history_export_retention_days, Unset):
             files.append(
                 (
@@ -4515,6 +4621,14 @@ class ConstanceSettingsRequestMultipart:
                 )
             )
 
+        if not isinstance(self.api_token_max_lifetime_minutes, Unset):
+            files.append(
+                (
+                    "API_TOKEN_MAX_LIFETIME_MINUTES",
+                    (None, str(self.api_token_max_lifetime_minutes).encode(), "text/plain"),
+                )
+            )
+
         if not isinstance(self.pat_enabled, Unset):
             files.append(("PAT_ENABLED", (None, str(self.pat_enabled).encode(), "text/plain")))
 
@@ -4532,6 +4646,20 @@ class ConstanceSettingsRequestMultipart:
                 (
                     "PAT_MAX_AUDIT_EVENTS_PER_HOUR",
                     (None, str(self.pat_max_audit_events_per_hour).encode(), "text/plain"),
+                )
+            )
+
+        if not isinstance(self.mcp_enabled, Unset):
+            files.append(("MCP_ENABLED", (None, str(self.mcp_enabled).encode(), "text/plain")))
+
+        if not isinstance(self.mcp_resource_urls, Unset):
+            files.append(("MCP_RESOURCE_URLS", (None, str(self.mcp_resource_urls).encode(), "text/plain")))
+
+        if not isinstance(self.event_consumer_ephemeral_idle_hours, Unset):
+            files.append(
+                (
+                    "EVENT_CONSUMER_EPHEMERAL_IDLE_HOURS",
+                    (None, str(self.event_consumer_ephemeral_idle_hours).encode(), "text/plain"),
                 )
             )
 
@@ -5701,6 +5829,12 @@ class ConstanceSettingsRequestMultipart:
 
         slurm_policy_evaluation_log_retention_days = d.pop("SLURM_POLICY_EVALUATION_LOG_RETENTION_DAYS", UNSET)
 
+        firecrest_allowed_api_urls = d.pop("FIRECREST_ALLOWED_API_URLS", UNSET)
+
+        slurm_monitor_allowed_api_urls = d.pop("SLURM_MONITOR_ALLOWED_API_URLS", UNSET)
+
+        oidc_token_max_idle_days = d.pop("OIDC_TOKEN_MAX_IDLE_DAYS", UNSET)
+
         federated_identity_sync_enabled = d.pop("FEDERATED_IDENTITY_SYNC_ENABLED", UNSET)
 
         federated_identity_sync_allowed_attributes = []
@@ -5820,6 +5954,10 @@ class ConstanceSettingsRequestMultipart:
 
         affiliates_enabled = d.pop("AFFILIATES_ENABLED", UNSET)
 
+        vat_taxation_enabled = d.pop("VAT_TAXATION_ENABLED", UNSET)
+
+        vat_oss_enabled = d.pop("VAT_OSS_ENABLED", UNSET)
+
         matrix_enabled = d.pop("MATRIX_ENABLED", UNSET)
 
         matrix_auto_create_project_rooms = d.pop("MATRIX_AUTO_CREATE_PROJECT_ROOMS", UNSET)
@@ -5841,6 +5979,10 @@ class ConstanceSettingsRequestMultipart:
         matrix_history_export_enabled = d.pop("MATRIX_HISTORY_EXPORT_ENABLED", UNSET)
 
         matrix_export_media = d.pop("MATRIX_EXPORT_MEDIA", UNSET)
+
+        matrix_ticket_context_messages = d.pop("MATRIX_TICKET_CONTEXT_MESSAGES", UNSET)
+
+        matrix_ticket_draft_ttl_minutes = d.pop("MATRIX_TICKET_DRAFT_TTL_MINUTES", UNSET)
 
         matrix_history_export_retention_days = d.pop("MATRIX_HISTORY_EXPORT_RETENTION_DAYS", UNSET)
 
@@ -5867,6 +6009,8 @@ class ConstanceSettingsRequestMultipart:
 
         site_agent_log_max_rows_per_identity = d.pop("SITE_AGENT_LOG_MAX_ROWS_PER_IDENTITY", UNSET)
 
+        api_token_max_lifetime_minutes = d.pop("API_TOKEN_MAX_LIFETIME_MINUTES", UNSET)
+
         pat_enabled = d.pop("PAT_ENABLED", UNSET)
 
         pat_max_lifetime_days = d.pop("PAT_MAX_LIFETIME_DAYS", UNSET)
@@ -5876,6 +6020,12 @@ class ConstanceSettingsRequestMultipart:
         pat_max_acl_entries = d.pop("PAT_MAX_ACL_ENTRIES", UNSET)
 
         pat_max_audit_events_per_hour = d.pop("PAT_MAX_AUDIT_EVENTS_PER_HOUR", UNSET)
+
+        mcp_enabled = d.pop("MCP_ENABLED", UNSET)
+
+        mcp_resource_urls = d.pop("MCP_RESOURCE_URLS", UNSET)
+
+        event_consumer_ephemeral_idle_hours = d.pop("EVENT_CONSUMER_EPHEMERAL_IDLE_HOURS", UNSET)
 
         constance_settings_request_multipart = cls(
             site_name=site_name,
@@ -6189,6 +6339,9 @@ class ConstanceSettingsRequestMultipart:
             metrics_archive_grace_days=metrics_archive_grace_days,
             usage_poll_record_retention_months=usage_poll_record_retention_months,
             slurm_policy_evaluation_log_retention_days=slurm_policy_evaluation_log_retention_days,
+            firecrest_allowed_api_urls=firecrest_allowed_api_urls,
+            slurm_monitor_allowed_api_urls=slurm_monitor_allowed_api_urls,
+            oidc_token_max_idle_days=oidc_token_max_idle_days,
             federated_identity_sync_enabled=federated_identity_sync_enabled,
             federated_identity_sync_allowed_attributes=federated_identity_sync_allowed_attributes,
             federated_identity_authoritative_isd=federated_identity_authoritative_isd,
@@ -6200,6 +6353,8 @@ class ConstanceSettingsRequestMultipart:
             enabled_reporting_screens=enabled_reporting_screens,
             posix_id_pool_utilization_threshold=posix_id_pool_utilization_threshold,
             affiliates_enabled=affiliates_enabled,
+            vat_taxation_enabled=vat_taxation_enabled,
+            vat_oss_enabled=vat_oss_enabled,
             matrix_enabled=matrix_enabled,
             matrix_auto_create_project_rooms=matrix_auto_create_project_rooms,
             matrix_homeserver_url=matrix_homeserver_url,
@@ -6211,6 +6366,8 @@ class ConstanceSettingsRequestMultipart:
             matrix_tokens_managed_by=matrix_tokens_managed_by,
             matrix_history_export_enabled=matrix_history_export_enabled,
             matrix_export_media=matrix_export_media,
+            matrix_ticket_context_messages=matrix_ticket_context_messages,
+            matrix_ticket_draft_ttl_minutes=matrix_ticket_draft_ttl_minutes,
             matrix_history_export_retention_days=matrix_history_export_retention_days,
             matrix_user_registration_secret=matrix_user_registration_secret,
             matrix_user_id_format=matrix_user_id_format,
@@ -6221,11 +6378,15 @@ class ConstanceSettingsRequestMultipart:
             matrix_livekit_url=matrix_livekit_url,
             matrix_livekit_public_url=matrix_livekit_public_url,
             site_agent_log_max_rows_per_identity=site_agent_log_max_rows_per_identity,
+            api_token_max_lifetime_minutes=api_token_max_lifetime_minutes,
             pat_enabled=pat_enabled,
             pat_max_lifetime_days=pat_max_lifetime_days,
             pat_max_tokens_per_user=pat_max_tokens_per_user,
             pat_max_acl_entries=pat_max_acl_entries,
             pat_max_audit_events_per_hour=pat_max_audit_events_per_hour,
+            mcp_enabled=mcp_enabled,
+            mcp_resource_urls=mcp_resource_urls,
+            event_consumer_ephemeral_idle_hours=event_consumer_ephemeral_idle_hours,
         )
 
         constance_settings_request_multipart.additional_properties = d

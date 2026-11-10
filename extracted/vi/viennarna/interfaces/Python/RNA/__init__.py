@@ -35,7 +35,7 @@ Amongst other things, our implementations allow you to:
 - predict interactions between multiple RNA molecules
 '''
 
-__version__ = '2.7.2'
+__version__ = '2.8.0'
 
 __author__ = 'Ronny Lorenz <rna@tbi.univie.ac.at>'
 

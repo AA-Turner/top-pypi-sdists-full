@@ -88,6 +88,20 @@ namespace sogen::test
         EXPECT_EQ(this->thread->await_file_io, storage);
     }
 
+    TEST_F(IdleSchedulerTest, PendingHostConditionDoesNotBusyPoll)
+    {
+        this->create();
+        size_t polls{};
+        this->thread->await_host_condition = [&polls] {
+            ++polls;
+            return false;
+        };
+        this->stop_after(std::chrono::milliseconds(50));
+        EXPECT_FALSE(this->emu->perform_thread_switch(this->emu->vcpu(0)));
+        EXPECT_GT(polls, 0u);
+        EXPECT_LT(polls, 1000u);
+    }
+
     TEST_F(IdleSchedulerTest, HostConditionMakesParkedThreadRunnable)
     {
         this->create();
@@ -97,6 +111,29 @@ namespace sogen::test
         EXPECT_EQ(polls, 3u);
         EXPECT_FALSE(this->thread->await_host_condition);
         EXPECT_EQ(STATUS_SUCCESS, this->emu->vcpu(0).x64_cpu().reg<uint64_t>(x86_register::rax));
+    }
+
+    // A host predicate cannot be saved: a thread parked on one comes back from a snapshot still parked, until the device
+    // that parked it sets its condition again.
+    TEST_F(IdleSchedulerTest, HostConditionWaitStaysParkedAcrossASnapshot)
+    {
+        this->create();
+        this->thread->await_host_condition = [] { return false; };
+        const auto thread_id = this->thread->id;
+
+        utils::buffer_serializer snapshot{};
+        this->emu->serialize(snapshot);
+        utils::buffer_deserializer input{snapshot};
+        this->emu->deserialize(input);
+
+        auto* restored = this->emu->process.find_thread_by_id(thread_id);
+        ASSERT_NE(restored, nullptr);
+        EXPECT_FALSE(restored->await_host_condition);
+        EXPECT_FALSE(this->emu->synchronize([&] { return restored->is_thread_ready(*this->emu); }));
+
+        restored->await_host_condition = [] { return true; };
+        EXPECT_TRUE(this->emu->synchronize([&] { return restored->is_thread_ready(*this->emu); }));
+        EXPECT_FALSE(restored->awaits_restored_host_condition);
     }
 
     TEST_F(IdleSchedulerTest, FileCompletionMakesParkedThreadRunnable)

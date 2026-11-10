@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from office365.backuprestore.root import BackupRestoreRoot
 from office365.booking.business.collection import BookingBusinessCollection
 from office365.booking.currency import BookingCurrency
@@ -7,11 +11,14 @@ from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 
+if TYPE_CHECKING:
+    from office365.directory.migrations_root import MigrationsRoot
+
 
 class SolutionsRoot(Entity):
     """The entry point for Microsoft Bookings, virtual event, and business scenario APIs."""
 
-    @odata(name="bookingBusinesses")
+    @odata(name="bookingBusinesses", navigation=True)
     @property
     def booking_businesses(self) -> BookingBusinessCollection:
         """Get a collection of bookingBusiness objects that has been created for the tenant."""
@@ -20,7 +27,7 @@ class SolutionsRoot(Entity):
             BookingBusinessCollection(self.context, ResourcePath("bookingBusinesses", self.resource_path)),
         )
 
-    @odata(name="bookingCurrencies")
+    @odata(name="bookingCurrencies", navigation=True)
     @property
     def booking_currencies(self):
         """Get a list of bookingCurrency objects available to a Microsoft Bookings business"""
@@ -33,7 +40,7 @@ class SolutionsRoot(Entity):
             ),
         )
 
-    @odata(name="backupRestore")
+    @odata(name="backupRestore", navigation=True)
     @property
     def backup_restore(self) -> BackupRestoreRoot:
         """Get a Microsoft 365 Backup Storage service in a tenant"""
@@ -42,7 +49,7 @@ class SolutionsRoot(Entity):
             BackupRestoreRoot(self.context, ResourcePath("backupRestore", self.resource_path)),
         )
 
-    @odata(name="virtualEvents")
+    @odata(name="virtualEvents", navigation=True)
     @property
     def virtual_events(self) -> VirtualEventsRoot:
         """A collection of virtual events."""
@@ -53,3 +60,17 @@ class SolutionsRoot(Entity):
                 ResourcePath("virtualEvents", self.resource_path),
             ),
         )
+
+    @odata(name="migrations", navigation=True)
+    @property
+    def migrations(self) -> MigrationsRoot:
+        """Gets the migrations property"""
+        from office365.directory.migrations_root import MigrationsRoot
+
+        return self.properties.get(
+            "migrations", MigrationsRoot(self.context, ResourcePath("migrations", self.resource_path))
+        )
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.SolutionsRoot"

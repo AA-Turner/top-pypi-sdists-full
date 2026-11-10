@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from office365.directory.identitygovernance.entitlementmanagement.custom_extension_behavior_on_error import (  # noqa: E501
+    CustomExtensionBehaviorOnError,
+)
 from office365.entity import Entity
-
-if TYPE_CHECKING:
-    from office365.directory.identitygovernance.entitlementmanagement.custom_extension_behavior_on_error import (
-        CustomExtensionBehaviorOnError,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class CustomAuthenticationExtension(Entity):
+    @odata(name="behaviorOnError")
     @property
     def behavior_on_error(self) -> CustomExtensionBehaviorOnError:
         """Gets the behaviorOnError property"""
-        from office365.directory.identitygovernance.entitlementmanagement.custom_extension_behavior_on_error import (
-            CustomExtensionBehaviorOnError,
-        )
-
         return self.properties.get("behaviorOnError", CustomExtensionBehaviorOnError())
 
     @property

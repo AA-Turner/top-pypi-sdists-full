@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "edgartools"
 description = 'Python library to access and analyze SEC Edgar filings, XBRL financial statements, 10-K, 10-Q, and 8-K reports'
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 keywords = [
     "sec", "edgar", "filings", "sec filings", "edgar filings",
@@ -21,7 +21,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -37,15 +36,17 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
-  # Upper cap is deliberate: httpx upstream is dormant (last release 0.28.1,
-  # Dec 2024; issues and discussions closed Feb 2026). Any future release would
-  # be unexpected — do not auto-adopt it. The migration path is httpx2
-  # (edgartools-q2iz); lift or retarget this cap there, not here.
-  "httpx>=0.25.0,<0.29",
-  "pandas>=2.0.0",
+  # httpx2 is Pydantic's maintained fork of httpx, under its own import name;
+  # plain httpx is dormant (last release 0.28.1, Dec 2024). The floor is the
+  # release this was verified against, not a researched minimum. The cap keeps a
+  # future 3.x, which may break the API, from arriving unannounced.
+  "httpx2>=2.13.1,<3",
+  # 2.2.2 is the first pandas that runs on numpy 2, which a fresh install gets,
+  # and it is the version the CI floor leg pins, so the floor is tested rather
+  # than claimed. pandas 3 stays optional until 7.0 (edgartools-b7j4).
+  "pandas>=2.2.2",
   "tabulate>=0.9.0",
   "pyarrow>=23.0.1",
-  "beautifulsoup4>=4.10.0",
   # 6.1.3 stops loading external DTD parameter entities by default
   # (LP#2165901); edgar.xmltools.xml_parser blocks them too (edgartools-o6y3i).
   "lxml>=6.1.3",
@@ -53,30 +54,25 @@ dependencies = [
   "humanize>=4.0.0",
   "stamina>=24.2.0",
   "orjson>=3.11.6",
-  "textdistance>=4.5.0",
   "rank_bm25>=0.2.1",
   "rapidfuzz>=3.5.0",
-  "unidecode>=1.2.0",
+  # anyascii (ISC) replaced unidecode (GPL) for transliterating names in search.
+  "anyascii>=0.3.3",
   "pydantic>=2.4.0",
   "tqdm>=4.66.3",
-  "nest-asyncio>=1.5.1",
   "jinja2>=3.1.6",
-  "pyrate-limiter>=3.0.0",
-  # The [httpx] extra is required, not decorative: from 0.6.0 httpxthrottlecache
+  # 4.x blocks on a full bucket by default; httpxthrottlecache>=0.6.1 needs >=4.0 too.
+  "pyrate-limiter>=4.0.0",
+  # The [httpx2] extra is required, not decorative: from 0.6.0 httpxthrottlecache
   # declares httpx and httpx2 as optional extras and installs neither by default.
-  # 0.5.0 briefly hard-required the httpx2 fork — which is why this was capped
-  # below it — and 0.6.0 reversed that, so the cap is no longer needed to stay on
-  # plain httpx. Migrating to httpx2 is tracked separately (edgartools-q2iz).
+  # It uses httpx2 whenever httpx2 is importable, and edgar/httpclient.py refuses
+  # to import if it ever picks anything else.
   # The 0.6.1 floor is load-bearing: caching data.sec.gov reaches an age check
   # that raised uncaught on a machine whose clock trails the origin's Date header
   # (paultiq/httpxthrottlecache#43), taking down the whole get_facts() call.
   # 0.6.1 clamps it.
-  "httpxthrottlecache[httpx]>=0.6.1",
+  "httpxthrottlecache[httpx2]>=0.6.1",
   "truststore>=0.9.0",
-  # httpx verifies against certifi's bundle unless EDGAR_USE_SYSTEM_CERTS is set,
-  # so certifi's age is edgartools' trust store. 2026.10.19 drops the emSign ECC
-  # Root CA - G3, whose CAs had compromised private keys (2026-10-20 advisory).
-  "certifi>=2026.10.19",
 ]
 dynamic = ["version"]
 
@@ -195,11 +191,11 @@ dependencies = [
   "pytest-asyncio",
   "pytest-retry",
   "pytest-vcr",
-  # 8.3.0 is the first vcrpy that can intercept httpx2. Its httpx stub crashes
-  # (`'NoneType' object has no attribute 'encode'`) on a cassette with a null
-  # reason phrase, which 79 of ours have; tests/_vcr_compat.py carries the fix
-  # until kevin1024/vcrpy#1029 is released.
-  "vcrpy>=8.3.0,<9",
+  # 8.3.0 is the first vcrpy that can intercept httpx2, and 8.4.0 the first that
+  # replays a cassette with a null reason phrase (kevin1024/vcrpy#1029), which
+  # 79 of ours have. 8.3.0 crashes on them with `'NoneType' object has no
+  # attribute 'encode'`; tests/meta/test_vcr_null_reason_phrase.py checks it.
+  "vcrpy>=8.4.0,<9",
   "filelock",
   "pyinstrument",
   "pyright",
@@ -330,9 +326,8 @@ dependencies = [
   "pytest-retry",
   "pytest-mock",
   "pytest-vcr",
-  # Same floor as the default env; tests/_vcr_compat.py carries the
-  # null-reason-phrase fix this version needs.
-  "vcrpy>=8.3.0,<9",
+  # Same floor as the default env: 8.4.0 replays null reason phrases.
+  "vcrpy>=8.4.0,<9",
   "filelock",
   "tqdm",
   "responses",
@@ -340,7 +335,7 @@ dependencies = [
 ]
 
 [[tool.hatch.envs.test.matrix]]
-python = ["39", "310", "311", "312"]
+python = ["311", "312"]
 
 [tool.coverage.run]
 branch = true
@@ -357,8 +352,6 @@ omit = [
   "edgar/reference/financials.py",
   # Training scripts (ML training utilities, not runtime code)
   "edgar/entity/training/*",
-  # Migration utilities (one-time migration helpers)
-  "edgar/documents/migration.py",
   # CLI entry points (tested via integration, not unit tests)
   "edgar/**/__main__.py",
   # MCP server (optional external integration, requires MCP runtime)

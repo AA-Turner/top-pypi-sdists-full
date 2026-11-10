@@ -27,7 +27,7 @@ class ConnectionArgs:
         The set of arguments for constructing a Connection resource.
 
         :param pulumi.Input[_builtins.str] connection_name: Name of the connection.
-        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`.
+        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
@@ -54,7 +54,7 @@ class ConnectionArgs:
     @pulumi.getter(name="providerType")
     def provider_type(self) -> pulumi.Input[_builtins.str]:
         """
-        Source repository provider. Valid values: `GITHUB`.
+        Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         """
         return pulumi.get(self, "provider_type")
 
@@ -102,7 +102,7 @@ class _ConnectionState:
 
         :param pulumi.Input[_builtins.str] arn: ARN of the connection.
         :param pulumi.Input[_builtins.str] connection_name: Name of the connection.
-        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`.
+        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] status: Current state of the App Runner connection. When the state is `AVAILABLE`, you can use the connection to create an `apprunner.Service` resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
@@ -151,7 +151,7 @@ class _ConnectionState:
     @pulumi.getter(name="providerType")
     def provider_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Source repository provider. Valid values: `GITHUB`.
+        Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         """
         return pulumi.get(self, "provider_type")
 
@@ -250,7 +250,7 @@ class Connection(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] connection_name: Name of the connection.
-        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`.
+        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
@@ -353,7 +353,7 @@ class Connection(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] arn: ARN of the connection.
         :param pulumi.Input[_builtins.str] connection_name: Name of the connection.
-        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`.
+        :param pulumi.Input[_builtins.str] provider_type: Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[_builtins.str] status: Current state of the App Runner connection. When the state is `AVAILABLE`, you can use the connection to create an `apprunner.Service` resource.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Key-value map of resource tags. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
@@ -371,6 +371,26 @@ class Connection(pulumi.CustomResource):
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
         return Connection(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            connection_name: pulumi.Input[Optional[_builtins.str]] = None,
+            provider_type: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            status: pulumi.Input[Optional[_builtins.str]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["arn"] = arn
+        __props__["connectionName"] = connection_name
+        __props__["providerType"] = provider_type
+        __props__["region"] = region
+        __props__["status"] = status
+        __props__["tags"] = tags
+        __props__["tagsAll"] = tags_all
+        return pulumi.runtime.exists_resource(None, 'aws:apprunner/connection:Connection', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -392,7 +412,7 @@ class Connection(pulumi.CustomResource):
     @pulumi.getter(name="providerType")
     def provider_type(self) -> pulumi.Output[_builtins.str]:
         """
-        Source repository provider. Valid values: `GITHUB`.
+        Source repository provider. Valid values: `GITHUB`, `BITBUCKET`.
         """
         return pulumi.get(self, "provider_type")
 

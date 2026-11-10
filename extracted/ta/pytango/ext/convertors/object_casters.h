@@ -50,14 +50,22 @@ template <typename T>
 void assign_attr_prop(py::object &py_obj, const std::string &attr_name, Tango::AttrProp<T> &attr_prop) {
     py::object attr_value = py_obj.attr(attr_name.c_str());
 
-    try {
-        attr_prop = attr_value.cast<std::string>();
-    } catch(const py::cast_error &) {
+    // pybind11's std::string caster accepts bytes and bytearray as well as str
+    if(py::isinstance<py::str>(attr_value) || py::isinstance<py::bytes>(attr_value) ||
+       py::isinstance<py::bytearray>(attr_value)) {
         try {
-            attr_prop = attr_value.cast<T>();
+            attr_prop = attr_value.cast<std::string>();
+            return;
         } catch(const py::cast_error &) {
-            throw std::runtime_error("Failed to cast : " + attr_name);
+            // the caster also requires a str to encode to UTF-8: if it does not,
+            // the value is handled below like any other non-string
         }
+    }
+
+    try {
+        attr_prop = attr_value.cast<T>();
+    } catch(const py::cast_error &) {
+        throw std::runtime_error("Failed to cast : " + attr_name);
     }
 }
 
@@ -77,19 +85,13 @@ void from_py_object(py::object &py_obj, Tango::MultiAttrProp<T> &multi_attr_prop
     multi_attr_prop.display_unit = py::str(py_obj.attr("display_unit")).cast<std::string>();
     multi_attr_prop.format = py::str(py_obj.attr("format")).cast<std::string>();
 
-    std::vector<std::pair<std::string, Tango::AttrProp<T> &>> attributes = {
-        {"min_value", multi_attr_prop.min_value},
-        {"max_value", multi_attr_prop.max_value},
-        {"min_alarm", multi_attr_prop.min_alarm},
-        {"max_alarm", multi_attr_prop.max_alarm},
-        {"min_warning", multi_attr_prop.min_warning},
-        {"max_warning", multi_attr_prop.max_warning},
-        {"delta_val", multi_attr_prop.delta_val},
-    };
-
-    for(auto &[attr_name, attr_prop] : attributes) {
-        assign_attr_prop(py_obj, attr_name, attr_prop);
-    }
+    assign_attr_prop(py_obj, "min_value", multi_attr_prop.min_value);
+    assign_attr_prop(py_obj, "max_value", multi_attr_prop.max_value);
+    assign_attr_prop(py_obj, "min_alarm", multi_attr_prop.min_alarm);
+    assign_attr_prop(py_obj, "max_alarm", multi_attr_prop.max_alarm);
+    assign_attr_prop(py_obj, "min_warning", multi_attr_prop.min_warning);
+    assign_attr_prop(py_obj, "max_warning", multi_attr_prop.max_warning);
+    assign_attr_prop(py_obj, "delta_val", multi_attr_prop.delta_val);
 
     assign_attr_prop(py_obj, "delta_t", multi_attr_prop.delta_t);
     assign_attr_prop(py_obj, "event_period", multi_attr_prop.event_period);
@@ -100,9 +102,3 @@ void from_py_object(py::object &py_obj, Tango::MultiAttrProp<T> &multi_attr_prop
     assign_double_attr_prop(py_obj, "archive_rel_change", multi_attr_prop.archive_rel_change);
     assign_double_attr_prop(py_obj, "archive_abs_change", multi_attr_prop.archive_abs_change);
 }
-
-template <>
-void from_py_object(py::object &py_obj, Tango::MultiAttrProp<Tango::DevEncoded> &multi_attr_prop);
-
-template <>
-void from_py_object(py::object &py_obj, Tango::MultiAttrProp<Tango::DevString> &multi_attr_prop);

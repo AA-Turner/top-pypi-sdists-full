@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.synchronization.progress import SynchronizationProgress
@@ -12,7 +12,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.security.string_key_long_value_pair import StringKeyLongValuePair
 
 
-@dataclass
 class SynchronizationStatus(ClientValue):
     """Represents the current status of the synchronizationJob."""
 

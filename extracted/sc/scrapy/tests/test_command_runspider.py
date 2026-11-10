@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import inspect
 import platform
+import subprocess
 import sys
 from typing import TYPE_CHECKING
 
 import pytest
 
+from scrapy.utils.test import get_testenv
 from tests.spiders import ExceptionSpider, NoRequestsSpider
 from tests.utils.cmdline import proc
 
@@ -155,10 +157,125 @@ class MySpider(scrapy.Spider):
         log = self.get_log(tmp_path, "", name="myspider.txt")
         assert "Unable to load" in log
 
+    @pytest.mark.skipif(
+        platform.system() == "Windows", reason="process substitution requires bash"
+    )
+    def test_runspider_fd(self) -> None:
+        command = (
+            f"{sys.executable} -m scrapy.cmdline runspider"
+            f" <(cat <<'EOF'\n{self.debug_log_spider}\nEOF\n)"
+        )
+        p = subprocess.run(
+            ["bash", "-c", command],
+            check=False,
+            capture_output=True,
+            encoding="utf-8",
+            timeout=15,
+            env=get_testenv(),
+        )
+        assert p.returncode == 0, p.stderr
+        assert "DEBUG: It Works!" in p.stderr
+
+    def test_sibling_import(self, tmp_path: Path) -> None:
+        (tmp_path / "spiders").mkdir()
+        (tmp_path / "spiders" / "helper_mod.py").write_text(
+            "MESSAGE = 'It Works!'\n", encoding="utf-8"
+        )
+        spider_code = """
+import scrapy
+from helper_mod import MESSAGE
+
+class MySpider(scrapy.Spider):
+    name = 'myspider'
+
+    async def start(self):
+        self.logger.debug(MESSAGE)
+        return
+        yield
+"""
+        log = self.get_log(
+            tmp_path, spider_code, name=f"spiders/{self.spider_filename}"
+        )
+        assert "DEBUG: It Works!" in log
+
+    def test_dataclass(self, tmp_path: Path) -> None:
+        spider_code = """
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import ClassVar
+
+import scrapy
+
+@dataclass
+class Item:
+    kind: ClassVar[str] = "item"
+    message: str = "It Works!"
+
+class MySpider(scrapy.Spider):
+    name = 'myspider'
+
+    async def start(self):
+        self.logger.debug(Item().message)
+        return
+        yield
+"""
+        log = self.get_log(tmp_path, spider_code)
+        assert "DEBUG: It Works!" in log
+
+    def test_module_name_taken(self, tmp_path: Path) -> None:
+        spider_code = """
+import json
+
+import scrapy
+
+class MySpider(scrapy.Spider):
+    name = 'myspider'
+
+    async def start(self):
+        self.logger.debug(json.loads('"It Works!"'))
+        return
+        yield
+"""
+        (tmp_path / "spiders").mkdir()
+        log = self.get_log(tmp_path, spider_code, name="spiders/json.py")
+        assert "DEBUG: It Works!" in log
+
     def test_start_errors(self, tmp_path: Path) -> None:
         log = self.get_log(tmp_path, self.badspider, name="badspider.py")
         assert "start" in log
         assert "badspider.py" in log, log
+
+    def test_errorcount_exit_code(self, tmp_path: Path) -> None:
+        spider_code = """
+import scrapy
+
+class MySpider(scrapy.Spider):
+    name = 'myspider'
+    custom_settings = {'CLOSESPIDER_ERRORCOUNT': 1}
+
+    async def start(self):
+        raise Exception('Expected exception')
+        yield
+"""
+        returncode, _, err = self.runspider(tmp_path, spider_code)
+        assert "Spider closed (closespider_errorcount)" in err
+        assert returncode != 0
+
+    def test_start_error_exit_code(self, tmp_path: Path) -> None:
+        spider_code = """
+import scrapy
+
+class MySpider(scrapy.Spider):
+    name = 'myspider'
+
+    async def start(self):
+        raise Exception('Expected exception')
+        yield
+"""
+        returncode, _, err = self.runspider(tmp_path, spider_code)
+        assert "Spider closed (start_error)" in err
+        assert returncode == 1
 
     def test_asyncio_enabled_true(self, tmp_path: Path) -> None:
         log = self.get_log(
@@ -191,6 +308,10 @@ class MySpider(scrapy.Spider):
         assert (
             "Using reactor: twisted.internet.asyncioreactor.AsyncioSelectorReactor"
             not in log
+        )
+        assert (
+            "Using a Twisted reactor other than twisted.internet.asyncioreactor.AsyncioSelectorReactor is deprecated"
+            in log
         )
 
     @pytest.mark.requires_uvloop
@@ -274,7 +395,7 @@ class MySpider(scrapy.Spider):
         args = ["-O", "example.json"]
         log = self.get_log(tmp_path, spider_code, args=args)
         assert (
-            '[myspider] DEBUG: FEEDS: {"example.json": {"format": "json", "overwrite": true}}'
+            '[myspider] DEBUG: FEEDS: {"example.json": {"format": "json", "mode": "overwrite"}}'
             in log
         )
         with (tmp_path / "example.json").open(encoding="utf-8") as f2:

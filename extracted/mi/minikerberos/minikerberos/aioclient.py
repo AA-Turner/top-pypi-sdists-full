@@ -9,6 +9,7 @@ import asyncio
 from typing import List
 
 from minikerberos import logger
+from minikerberos.protocol.tgs_checksum import tgs_checksum
 from minikerberos.common.ccache import CCACHE
 from minikerberos.common.spn import KerberosSPN
 from minikerberos.protocol.asn1_structs import METHOD_DATA, ETYPE_INFO, ETYPE_INFO2, \
@@ -24,7 +25,6 @@ from minikerberos.protocol.rfc3244 import KRB5ChangePassword, KRB5CHPWReply, KRB
 from minikerberos.protocol.errors import KerberosErrorCode, KerberosError
 from minikerberos.protocol.encryption import Key, _enctype_table, _HMACMD5, Enctype, _checksum_table, _SHA1AES128,_SHA1AES256
 from minikerberos.protocol.constants import PaDataType, EncryptionType, NAME_TYPE, MESSAGE_TYPE
-from minikerberos.protocol.structures import AuthenticatorChecksum
 from minikerberos.gssapi.gssapi import GSSAPIFlags
 from minikerberos.network.aioclientsocket import AIOKerberosClientSocket, AIOKerberosPWChangeClientSocket
 
@@ -433,7 +433,7 @@ class AIOKerberosClient:
 		except Exception as e:
 			return None, None, None, e
 
-	async def get_TGS(self, spn_user:KerberosSPN, override_etype = None, is_linux = False, flags = ['forwardable','renewable','renewable_ok', 'canonicalize']):
+	async def get_TGS(self, spn_user:KerberosSPN, override_etype = None, flags = ['forwardable','renewable','renewable-ok', 'canonicalize']):
 		"""
 		Requests a TGS ticket for the specified user.
 		Retruns the TGS ticket, end the decrpyted encTGSRepPart.
@@ -471,7 +471,8 @@ class AIOKerberosClient:
 				# but we can request etype 23 here for which all is implemented
 				kdc_req_body['etype'] = [23]
 			else:
-				kdc_req_body['etype'] = [self.kerberos_cipher_type, 23]
+				# the service ticket's session key etype is independent of the TGT's
+				kdc_req_body['etype'] = [18, 17, 23]
 
 		authenticator_data = {}
 		authenticator_data['authenticator-vno'] = krb5_pvno
@@ -480,18 +481,12 @@ class AIOKerberosClient:
 		authenticator_data['cusec'] = now.microsecond
 		authenticator_data['ctime'] = now.replace(microsecond=0)
 		
-		if is_linux:
-			ac = AuthenticatorChecksum()
-			ac.flags = 0
-			ac.channel_binding = b'\x00'*16
-			
-			chksum = {}
-			chksum['cksumtype'] = 0x8003
-			chksum['checksum'] = ac.to_bytes()
-
-
-			authenticator_data['cksum'] = Checksum(chksum)
-			authenticator_data['seq-number'] = 0
+		kdc_req_body = KDC_REQ_BODY(kdc_req_body)
+		cksum = tgs_checksum(self.kerberos_session_key, kdc_req_body.dump())
+		if cksum is not None:
+			authenticator_data['cksum'] = Checksum(cksum)
+		else:
+			logger.debug('No keyed checksum profile for session key enctype %s; sending TGS-REQ without authenticator checksum' % self.kerberos_session_key.enctype)
 		
 		authenticator_data_enc = self.kerberos_cipher.encrypt(self.kerberos_session_key, 7, Authenticator(authenticator_data).dump(), None)
 		
@@ -511,7 +506,7 @@ class AIOKerberosClient:
 		kdc_req['pvno'] = krb5_pvno
 		kdc_req['msg-type'] = MESSAGE_TYPE.KRB_TGS_REQ.value
 		kdc_req['padata'] = [pa_data_1]
-		kdc_req['req-body'] = KDC_REQ_BODY(kdc_req_body)
+		kdc_req['req-body'] = kdc_req_body
 		
 		req = TGS_REQ(kdc_req)
 		logger.debug('Constructing TGS request to server')
@@ -534,7 +529,6 @@ class AIOKerberosClient:
 			logger.debug('[U2U] TGT is not available! Fetching TGT...')
 			await self.get_TGT()
 
-		supp_enc = self.credential.get_preferred_enctype(supp_enc_methods)
 		now = datetime.datetime.now(datetime.timezone.utc)
 		authenticator_data = {}
 		authenticator_data['authenticator-vno'] = krb5_pvno
@@ -564,7 +558,7 @@ class AIOKerberosClient:
 		krb_tgs_body['realm'] = self.credential.domain.upper()
 		krb_tgs_body['till'] = (now + datetime.timedelta(days=1)).replace(microsecond=0)
 		krb_tgs_body['nonce'] = secrets.randbits(31)
-		krb_tgs_body['etype'] = [23] # dunno why it must be 23?
+		krb_tgs_body['etype'] = [18, 17, 23] # AES preferred; KDC picks a supported one.
 		krb_tgs_body['additional-tickets'] = [Ticket(self.kerberos_TGT['ticket'])]
 		
 		
@@ -706,7 +700,7 @@ class AIOKerberosClient:
 		krb_tgs_body['realm'] = self.credential.domain.upper()
 		krb_tgs_body['till'] = (now + datetime.timedelta(days=1)).replace(microsecond=0)
 		krb_tgs_body['nonce'] = secrets.randbits(31)
-		krb_tgs_body['etype'] = [self.kerberos_session_key.enctype] #[supp_enc.value] #selecting according to server's preferences
+		krb_tgs_body['etype'] = [18, 17, 23] # AES preferred; KDC picks a supported one. Independent of the TGT session key etype.
 		
 		
 		krb_tgs_req = {}
@@ -775,7 +769,7 @@ class AIOKerberosClient:
 		krb_tgs_body['realm'] = self.credential.domain.upper()
 		krb_tgs_body['till'] = (now + datetime.timedelta(days=1)).replace(microsecond=0)
 		krb_tgs_body['nonce'] = secrets.randbits(31)
-		krb_tgs_body['etype'] = [self.kerberos_session_key.enctype] #[supp_enc.value] #selecting according to server's preferences
+		krb_tgs_body['etype'] = [18, 17, 23] # AES preferred; KDC picks a supported one. Independent of the TGT session key etype.
 		krb_tgs_body['additional-tickets'] = [s4uself_ticket]
 		
 		
@@ -887,7 +881,7 @@ class AIOKerberosClient:
 		krb_tgs_body['realm'] = self.credential.domain.upper()
 		krb_tgs_body['till'] = (now + datetime.timedelta(days=1)).replace(microsecond=0)
 		krb_tgs_body['nonce'] = BODY_NONCE
-		krb_tgs_body['etype'] = [self.kerberos_session_key.enctype] #[supp_enc.value] #selecting according to server's preferences
+		krb_tgs_body['etype'] = [18, 17, 23] # AES preferred; KDC picks a supported one. Independent of the TGT session key etype.
 		
 		
 		krb_tgs_req = {}

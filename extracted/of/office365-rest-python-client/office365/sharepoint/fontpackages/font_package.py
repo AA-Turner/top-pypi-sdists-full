@@ -8,59 +8,71 @@ from typing_extensions import Self
 from office365.runtime.client_result import ClientResult
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class FontPackage(Entity):
     """Represents a font package."""
 
+    @odata(name="ID", beta=True)
     @property
     def id(self) -> Optional[UUID]:
         """Gets the ID property"""
         return self.properties.get("ID", None)
 
+    @odata(name="IsHidden", beta=True)
     @property
     def is_hidden(self) -> Optional[bool]:
         """Gets the IsHidden property"""
         return self.properties.get("IsHidden", None)
 
+    @odata(name="IsValid", beta=True)
     @property
     def is_valid(self) -> Optional[bool]:
         """Gets the IsValid property"""
         return self.properties.get("IsValid", None)
 
+    @odata(name="MissingFontFiles", beta=True)
     @property
     def missing_font_files(self) -> Optional[str]:
         """Gets the MissingFontFiles property"""
         return self.properties.get("MissingFontFiles", None)
 
+    @odata(name="PackageJson", beta=True)
     @property
     def package_json(self) -> Optional[str]:
         """Gets the PackageJson property"""
         return self.properties.get("PackageJson", None)
 
+    @odata(name="Store", beta=True)
     @property
     def store(self) -> Optional[int]:
         """Gets the Store property"""
         return self.properties.get("Store", None)
 
+    @odata(name="Title", beta=True)
     @property
     def title(self) -> Optional[str]:
         """Gets the Title property"""
         return self.properties.get("Title", None)
 
+    @site_access(SiteLevel.MANAGE)
     def apply(self) -> Self:
         """Apply operation."""
         qry = ServiceOperationQuery(self, "Apply", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def delete(self) -> Self:
         """Delete operation."""
         qry = ServiceOperationQuery(self, "Delete", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def font_stream(self, font_family: str) -> ClientResult[bytes]:
         """FontStream operation.
 

@@ -113,9 +113,6 @@ BASELINE_ASSETS = {
     "firefox-151.0-stealth-linux-x86_64.tar.gz": {
         "platform": "linux", "arch": "x86_64", "sha256": "1" * 64, "size": 1,
         "entry_rel": "firefox", "omni_sha256": "", "build_id": "20260101000002"},
-    "firefox-151.0-stealth-linux-arm64.tar.gz": {
-        "platform": "linux", "arch": "arm64", "sha256": "2" * 64, "size": 1,
-        "entry_rel": "firefox", "omni_sha256": "", "build_id": "20260101000003"},
 }
 
 #: "already published and byte-identical" - a NO-OP, not a refusal.
@@ -1208,5 +1205,5 @@ def test_publish_refuses_a_core_sealed_to_no_downloadable_binary(core):
     text = out_of(r)
     assert r.returncode == 1, text
     assert "no assets" in text
-    assert "roll_seal" in text
+    assert "gh release download" in text and "seal.json" in text
     assert "twine" not in text, "an upload command was formed for a local-sealed core"

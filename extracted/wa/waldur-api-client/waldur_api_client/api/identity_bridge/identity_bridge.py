@@ -59,7 +59,8 @@ def sync_detailed(
 
      Allows Identity Service Domains (ISDs) to push user attributes to Waldur. Creates or updates a user
     based on username (CUID). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller must be staff
-    or an identity manager with the declared source in managed_isds.
+    or an identity manager with the declared source in managed_isds. Only staff may push staff, support
+    or identity manager accounts.
 
     Args:
         body (IdentityBridgeRequestRequest):
@@ -92,7 +93,8 @@ def sync(
 
      Allows Identity Service Domains (ISDs) to push user attributes to Waldur. Creates or updates a user
     based on username (CUID). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller must be staff
-    or an identity manager with the declared source in managed_isds.
+    or an identity manager with the declared source in managed_isds. Only staff may push staff, support
+    or identity manager accounts.
 
     Args:
         body (IdentityBridgeRequestRequest):
@@ -120,7 +122,8 @@ async def asyncio_detailed(
 
      Allows Identity Service Domains (ISDs) to push user attributes to Waldur. Creates or updates a user
     based on username (CUID). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller must be staff
-    or an identity manager with the declared source in managed_isds.
+    or an identity manager with the declared source in managed_isds. Only staff may push staff, support
+    or identity manager accounts.
 
     Args:
         body (IdentityBridgeRequestRequest):
@@ -151,7 +154,8 @@ async def asyncio(
 
      Allows Identity Service Domains (ISDs) to push user attributes to Waldur. Creates or updates a user
     based on username (CUID). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller must be staff
-    or an identity manager with the declared source in managed_isds.
+    or an identity manager with the declared source in managed_isds. Only staff may push staff, support
+    or identity manager accounts.
 
     Args:
         body (IdentityBridgeRequestRequest):

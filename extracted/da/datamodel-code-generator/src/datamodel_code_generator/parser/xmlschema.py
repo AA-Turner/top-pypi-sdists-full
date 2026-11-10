@@ -28,7 +28,7 @@ from datamodel_code_generator._name_words import first_upper
 from datamodel_code_generator._xmlschema_detection import XML_SCHEMA_NAMESPACE, XML_SCHEMA_TAG
 from datamodel_code_generator._xmlschema_detection import is_xml_schema_text as _is_xml_schema_text
 from datamodel_code_generator.enums import VersionMode, XMLSchemaVersion
-from datamodel_code_generator.parser import _xmlschema_literals
+from datamodel_code_generator.parser import _schema_documents, _xmlschema_literals
 from datamodel_code_generator.parser._convert_common import _copy_schema, _name_definitions
 from datamodel_code_generator.parser._null_facts import with_null
 from datamodel_code_generator.parser._xmlschema_literals import (
@@ -39,6 +39,7 @@ from datamodel_code_generator.parser._xmlschema_literals import (
     _safe_day_time_duration_expression,
     _safe_float,
     _safe_time_expression,
+    invalid_duration_message,
 )
 from datamodel_code_generator.parser.base import Source, title_to_class_name
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
@@ -83,8 +84,12 @@ QNameKey = tuple[str | None, str]
 DefinitionKey = tuple[str, str | None, str]
 PYTHON_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _XML_SCHEMA_DATA_CACHE_MAX_SIZE = 128
-_XMLSchemaDataCacheKey = tuple[Path, Path, str, str, XMLSchemaVersion | None, VersionMode | None, bool, bool]
-_XMLSchemaDataSeenKey = tuple[Path, Path, str, XMLSchemaVersion | None, VersionMode | None, bool, bool]
+_XMLSchemaDataCacheKey = tuple[
+    Path, Path, str, str, XMLSchemaVersion | None, VersionMode | None, bool, bool, frozenset[Path] | None
+]
+_XMLSchemaDataSeenKey = tuple[
+    Path, Path, str, XMLSchemaVersion | None, VersionMode | None, bool, bool, frozenset[Path] | None
+]
 
 
 class _XMLSchemaDataCacheEntry(NamedTuple):
@@ -261,9 +266,9 @@ def _has_xmlschema_versioning_attribute(element: ET.Element) -> bool:
     return any(_namespace(attribute) == XML_SCHEMA_VERSIONING_NAMESPACE for attribute in element.attrib)
 
 
-def _read_xml_text(path: Path, encoding: str) -> str:
+def _read_xml_text(path: Path, encoding: str, data: bytes | None = None) -> str:
     record_watch_dependency(path)
-    return _decode_xml_bytes(path.read_bytes(), encoding)
+    return _decode_xml_bytes(path.read_bytes() if data is None else data, encoding)
 
 
 def _decode_xml_bytes(data: bytes, encoding: str) -> str:
@@ -305,10 +310,17 @@ def _load_xml_schema_data_from_path(  # noqa: PLR0913
     schema_version_mode: VersionMode | None,
     use_xmlschema_datetime_default: bool,
     source_safe_non_finite: bool,
+    input_files: frozenset[Path] | None,
 ) -> dict[str, YamlValue]:
     resolved_path = path.resolve()
     resolved_base_path = base_path.resolve()
-    options = (xmlschema_version, schema_version_mode, use_xmlschema_datetime_default, source_safe_non_finite)
+    options = (
+        xmlschema_version,
+        schema_version_mode,
+        use_xmlschema_datetime_default,
+        source_safe_non_finite,
+        input_files,
+    )
     seen_key = (resolved_path, resolved_base_path, encoding, *options)
     with _xml_schema_data_cache_lock:
         use_cache = _xml_schema_data_seen_keys.mark(seen_key, _XML_SCHEMA_DATA_CACHE_MAX_SIZE)
@@ -320,6 +332,7 @@ def _load_xml_schema_data_from_path(  # noqa: PLR0913
         schema_version_mode=schema_version_mode,
         use_xmlschema_datetime_default=use_xmlschema_datetime_default,
         source_safe_non_finite=source_safe_non_finite,
+        input_files=input_files,
     )
     if not use_cache:
         return converter.convert(Source(path=path.relative_to(base_path), text=_read_xml_text(path, encoding)))
@@ -382,8 +395,14 @@ def _convert_xml_schema_data(  # noqa: PLR0913
     schema_version_mode: VersionMode | None = None,
     encoding: str = "utf-8",
     source_safe_non_finite: bool,
+    placeholder_title: bool = True,
+    input_files: frozenset[Path] | None = None,
 ) -> dict[str, YamlValue]:
-    """Convert XML Schema data for a parser that may need source-safe float values."""
+    """Convert XML Schema data for a parser that may need source-safe float values.
+
+    A root that holds several global elements takes the title ``Model``, unless ``placeholder_title`` is False. With
+    ``input_files``, the schema includes or imports no other file (``_XMLSchemaConverter``).
+    """
     if not isinstance(raw_schema, str):
         msg = "XML Schema schemaFormat requires an XSD schema string"
         raise Error(msg)
@@ -393,7 +412,8 @@ def _convert_xml_schema_data(  # noqa: PLR0913
         xmlschema_version=xmlschema_version,
         schema_version_mode=schema_version_mode,
         source_safe_non_finite=source_safe_non_finite,
-    ).convert(Source(path=Path("__asyncapi_schema__.xsd"), text=raw_schema))
+        input_files=input_files,
+    ).convert(Source(path=Path("__asyncapi_schema__.xsd"), text=raw_schema), placeholder_title=placeholder_title)
 
 
 class _XMLSchemaConverter:
@@ -406,13 +426,19 @@ class _XMLSchemaConverter:
         schema_version_mode: VersionMode | None = None,
         use_xmlschema_datetime_default: bool = False,
         source_safe_non_finite: bool = False,
+        input_files: frozenset[Path] | None = None,
     ) -> None:
+        """Convert XML Schema sources read from ``base_path``.
+
+        With ``input_files`` (under --untrusted-input), an include, import, redefine or override reads only those files.
+        """
         self.base_path = base_path
         self.encoding = encoding
         self.xmlschema_version = xmlschema_version
         self.schema_version_mode = schema_version_mode or VersionMode.Lenient
         self.use_xmlschema_datetime_default = use_xmlschema_datetime_default
         self.source_safe_non_finite = source_safe_non_finite
+        self.input_files = input_files
         self.namespaces: dict[str, str] = {}
         self.simple_types: dict[QNameKey, ET.Element] = {}
         self.complex_types: dict[QNameKey, ET.Element] = {}
@@ -435,7 +461,7 @@ class _XMLSchemaConverter:
         self._definition_names: dict[DefinitionKey, str] = {}
         self.loaded_source_paths: set[Path] = set()
 
-    def convert(self, source: Source) -> dict[str, YamlValue]:
+    def convert(self, source: Source, *, placeholder_title: bool = True) -> dict[str, YamlValue]:
         if source.raw_data is not None:
             if not isinstance(source.raw_data, dict):  # pragma: no cover
                 msg = f"Expected dict, got {type(source.raw_data).__name__}"
@@ -489,7 +515,7 @@ class _XMLSchemaConverter:
                 name = cast("str", element.get("name"))
                 properties[name] = self._convert_global_element_as_property(element)
             schema = {
-                "title": "Model",
+                **({"title": "Model"} if placeholder_title else {}),
                 "type": "object",
                 "properties": properties,
                 "required": list(properties),
@@ -527,6 +553,15 @@ class _XMLSchemaConverter:
             if not (schema_location := child.get("schemaLocation")):
                 continue
             location = self._resolve_schema_location(source_dir, schema_location)
+            # Refused before the existence check, so that the outcome tells nothing about files outside the input; a
+            # location already seen was read, so it is a file of the input.
+            if self.input_files is not None and location not in self.input_files:
+                msg = (
+                    f"Reading the XML Schema {_local_name(child.tag)} schemaLocation {schema_location} is refused "
+                    "under --untrusted-input.\nReason: --untrusted-input reads only the input, so a schema can include "
+                    "or import only a file of the input."
+                )
+                raise Error(msg)
             if (seen is not None and location in seen) or not location.is_file():
                 continue
             self.loaded_source_paths.add(location)
@@ -795,7 +830,16 @@ class _XMLSchemaConverter:
         if documentation := _documentation(element):
             schema["description"] = documentation
         if "default" in element.attrib:
-            schema["default"] = self._parse_literal(str(element.get("default")), schema, parse_temporal=True)
+            default = str(element.get("default"))
+            self._warn_invalid_default(
+                "element",
+                element.get("name"),
+                default,
+                element.get("type"),
+                _first_xsd_child(element, "simpleType"),
+                element,
+            )
+            schema["default"] = self._parse_literal(default, schema, parse_temporal=True)
         if "fixed" in element.attrib:
             self._apply_fixed_value(schema, self._parse_literal(str(element.get("fixed")), schema))
         if element.get("nillable") in {"true", "1"}:
@@ -863,6 +907,46 @@ class _XMLSchemaConverter:
         if (simple_type := _first_xsd_child(restriction, "simpleType")) is not None:
             return self._convert_simple_type(simple_type)
         return _copy_schema(STRING_SCHEMA)
+
+    def _builtin_base_name(
+        self,
+        type_name: str | None,
+        simple_type: ET.Element | None,
+        context: ET.Element,
+        seen: frozenset[QNameKey] = frozenset(),
+    ) -> str | None:
+        """Return the local name of the built-in type a declared simple type is or restricts; None for any other."""
+        if type_name:
+            builtin, key = self._builtin_qname(type_name, context)
+            if builtin:
+                return _local_name(type_name)
+            if key not in self.simple_types or key in seen:
+                return None
+            simple_type = self.simple_types[key]
+            seen |= {key}
+        if simple_type is None or (restriction := _first_xsd_child(simple_type, "restriction")) is None:
+            return None
+        return self._builtin_base_name(
+            restriction.get("base"), _first_xsd_child(restriction, "simpleType"), restriction, seen
+        )
+
+    def _warn_invalid_default(  # noqa: PLR0913, PLR0917
+        self,
+        kind: str,
+        name: str | None,
+        default: str,
+        type_name: str | None,
+        simple_type: ET.Element | None,
+        context: ET.Element,
+    ) -> None:
+        """Warn when the default of a declaration of a built-in duration type is no lexical value of that type."""
+        if (type_ := self._builtin_base_name(type_name, simple_type, context)) and (
+            reason := invalid_duration_message(type_, default)
+        ):
+            warnings.warn(
+                f"The default of {kind} {name!r} is kept as written, but {reason}",
+                stacklevel=2,
+            )
 
     def _apply_restriction_facets(self, restriction: ET.Element, schema: JsonSchema) -> JsonSchema:  # noqa: PLR0912
         schema = _copy_schema(schema)
@@ -1204,6 +1288,7 @@ class _XMLSchemaConverter:
         if not name:
             return
         use = attribute.get("use") or source_attribute.get("use")
+        simple_type = None
         if type_name := attribute.get("type") or source_attribute.get("type"):
             attribute_schema = self._schema_for_qname(type_name, attribute)
         else:
@@ -1218,6 +1303,7 @@ class _XMLSchemaConverter:
         if default is None and "default" not in attribute.attrib and "fixed" not in attribute.attrib:
             default = source_attribute.get("default")
         if default is not None:
+            self._warn_invalid_default("attribute", name, default, type_name, simple_type, attribute)
             attribute_schema["default"] = self._parse_literal(default, attribute_schema, parse_temporal=True)
         fixed = attribute.get("fixed")
         if fixed is None and "fixed" not in attribute.attrib:
@@ -1293,17 +1379,28 @@ class _XMLSchemaConverter:
         current = schema.get(key)
         schema[key] = current * value if isinstance(current, int) else value
 
-    def _schema_for_qname(self, qname: str, element: ET.Element | None = None) -> JsonSchema:
-        local = _local_name(qname)
+    def _builtin_qname(self, qname: str, element: ET.Element | None) -> tuple[bool, QNameKey]:
+        """Return whether a qname names a built-in type, and the key of the type it resolves to.
+
+        A name in the XML Schema namespace does, and so does an unprefixed name of a built-in type that no type of
+        the schema declares.
+        """
         namespace = self._qname_namespace(qname, element)
-        is_unprefixed_builtin = namespace is None and local in BUILTIN_TYPE_SCHEMAS
         key = self._resolve_key(qname, self.simple_types, self.complex_types, element=element)
-        is_user_defined = key in self.simple_types or key in self.complex_types
-        if namespace == XML_SCHEMA_NAMESPACE or (is_unprefixed_builtin and not is_user_defined):
-            return self._builtin_type_schema(local, default=STRING_SCHEMA)
-        if is_user_defined:
+        return namespace == XML_SCHEMA_NAMESPACE or (
+            namespace is None
+            and _local_name(qname) in BUILTIN_TYPE_SCHEMAS
+            and key not in self.simple_types
+            and key not in self.complex_types
+        ), key
+
+    def _schema_for_qname(self, qname: str, element: ET.Element | None = None) -> JsonSchema:
+        builtin, key = self._builtin_qname(qname, element)
+        if builtin:
+            return self._builtin_type_schema(_local_name(qname), default=STRING_SCHEMA)
+        if key in self.simple_types or key in self.complex_types:
             return {"$ref": self._ref(self._type_definition_key(key))}
-        return self._builtin_type_schema(local, default={})
+        return self._builtin_type_schema(_local_name(qname), default={})
 
     def _builtin_type_schema(self, local: str, *, default: JsonSchema) -> JsonSchema:
         schema = _copy_schema(BUILTIN_TYPE_SCHEMAS.get(local, default))
@@ -1411,14 +1508,15 @@ class XMLSchemaParser(JsonSchemaParser):
             "schema_version_mode": config.schema_version_mode,
             "use_xmlschema_datetime_default": self.use_xmlschema_datetime_default,
             "source_safe_non_finite": True,
+            "input_files": self._input_files if self.untrusted_input else None,
         }
 
     def _source_from_xml_path(self, path: Path) -> Source:
         relative_path = path.relative_to(self.base_path)
-        if not self._use_parsed_source_cache:
-            return Source(path=relative_path, text=_read_xml_text(path, self.encoding))
-        data = _load_xml_schema_data_from_path(path, self.base_path, self.encoding, **self._converter_options())
-        return Source(path=relative_path, raw_data=data)
+        if (data := self._prefetched_data(path)) is not None or not self._use_parsed_source_cache:
+            return Source(path=relative_path, text=_read_xml_text(path, self.encoding, data))
+        raw_data = _load_xml_schema_data_from_path(path, self.base_path, self.encoding, **self._converter_options())
+        return Source(path=relative_path, raw_data=raw_data)
 
     @property
     def iter_source(self) -> Iterator[Source]:
@@ -1439,7 +1537,9 @@ class XMLSchemaParser(JsonSchemaParser):
     def parse_raw(self) -> None:
         """Parse all XML Schema input sources into data models."""
         options = self._converter_options()
-        self._parse_converted_sources(lambda: _XMLSchemaConverter(self.base_path, self.encoding, **options))
+        _schema_documents.parse_converted_sources(
+            self, lambda: _XMLSchemaConverter(self.base_path, self.encoding, **options)
+        )
         self._register_runtime_expression_imports()
 
     def _register_runtime_expression_imports(self) -> None:

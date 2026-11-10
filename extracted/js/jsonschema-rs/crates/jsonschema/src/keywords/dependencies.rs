@@ -1,4 +1,4 @@
-use crate::LazyInstance;
+use crate::{evaluation::InstancePosition, LazyInstance};
 use std::borrow::Cow;
 
 use crate::{
@@ -61,7 +61,7 @@ impl<F: Json> Validate<F> for DependenciesValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         if let Some(object) = instance.as_object() {
             for (property, node) in &self.dependencies {
-                if object.get(property).is_some() && !node.is_valid(instance, ctx) {
+                if object.get(property).is_some() && !node.is_valid_child(instance, ctx) {
                     return false;
                 }
             }
@@ -113,14 +113,20 @@ impl<F: Json> Validate<F> for DependenciesValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -135,7 +141,7 @@ impl<F: Json> Validate<F> for DependenciesValidator<F> {
                         tracker,
                         ctx,
                     );
-                    children.push(&mut ctx.arena, child);
+                    children.push(ctx.arena(), child);
                 }
             }
             EvaluationResult::from_children(children)
@@ -209,7 +215,7 @@ impl<F: Json> Validate<F> for DependentRequiredValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         if let Some(object) = instance.as_object() {
             for (property, node) in &self.dependencies {
-                if object.get(property).is_some() && !node.is_valid(instance, ctx) {
+                if object.get(property).is_some() && !node.is_valid_child(instance, ctx) {
                     return false;
                 }
             }
@@ -261,14 +267,20 @@ impl<F: Json> Validate<F> for DependentRequiredValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -283,7 +295,7 @@ impl<F: Json> Validate<F> for DependentRequiredValidator<F> {
                         tracker,
                         ctx,
                     );
-                    children.push(&mut ctx.arena, child);
+                    children.push(ctx.arena(), child);
                 }
             }
             EvaluationResult::from_children(children)
@@ -327,7 +339,7 @@ impl<F: Json> Validate<F> for DependentSchemasValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         if let Some(object) = instance.as_object() {
             for (property, node) in &self.dependencies {
-                if object.get(property).is_some() && !node.is_valid(instance, ctx) {
+                if object.get(property).is_some() && !node.is_valid_child(instance, ctx) {
                     return false;
                 }
             }
@@ -379,14 +391,20 @@ impl<F: Json> Validate<F> for DependentSchemasValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -401,7 +419,7 @@ impl<F: Json> Validate<F> for DependentSchemasValidator<F> {
                         tracker,
                         ctx,
                     );
-                    children.push(&mut ctx.arena, child);
+                    children.push(ctx.arena(), child);
                 }
             }
             EvaluationResult::from_children(children)

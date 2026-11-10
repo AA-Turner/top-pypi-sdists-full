@@ -24,7 +24,7 @@ class WaitOutcome(StrEnum):
     UNREACHABLE = "unreachable"
     #: The worker kept dying with nothing delivered.
     WORKER_CRASH_LOOP = "worker_crash_loop"
-    #: No Probe service could be reached or started here to send them.
+    #: No Probe service here took them to send (none answered, or none took the drain).
     NO_SENDER = "no_sender"
     #: As NO_SENDER, and the key passed in code never reached a service (plan D21): only a
     #: process holding that key can send them.
@@ -70,6 +70,8 @@ class WaitResult:
     service_version: str | None = None
     #: The outbox folder, for `KEY_NOT_HANDED` (the recovery names it).
     outbox: str | None = None
+    #: For `KEY_NOT_HANDED`: the run's server when not the default (the recovery's drain must name it).
+    server: str | None = None
     #: For `DATA_REFUSED`: the run read's `ingest.refusals` of this attempt, each with its kind,
     #: counts and the server's sentence (`message.text`).
     refusals: list = field(default_factory=list)

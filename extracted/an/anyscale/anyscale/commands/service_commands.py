@@ -46,6 +46,8 @@ from anyscale.controllers.service_controller import ServiceController
 from anyscale.errors import from_command_exception
 import anyscale.service
 from anyscale.service.models import (
+    MAX_STATIC_TRAFFIC_WEIGHT,
+    MIN_STATIC_TRAFFIC_WEIGHT,
     ServiceConfig,
     ServiceLogMode,
     ServiceSortField,
@@ -1399,6 +1401,13 @@ def _parse_traffic_weights(weights: Tuple[str, ...]) -> Dict[str, int]:
                 f"The weight of cloud resource '{resource}' must be an integer, not '{weight}'.",
                 param_hint="--weight",
             ) from None
+        if not MIN_STATIC_TRAFFIC_WEIGHT <= parsed[resource] <= MAX_STATIC_TRAFFIC_WEIGHT:
+            raise click.BadParameter(
+                f"The weight of cloud resource '{resource}' must be from "
+                f"{MIN_STATIC_TRAFFIC_WEIGHT} to {MAX_STATIC_TRAFFIC_WEIGHT}, "
+                f"not {parsed[resource]}.",
+                param_hint="--weight",
+            )
     return parsed
 
 
@@ -1460,7 +1469,7 @@ def _parse_traffic_weights(weights: Tuple[str, ...]) -> Dict[str, int]:
     multiple=True,
     help=(
         "Relative weight of one cloud resource, as RESOURCE=WEIGHT with the cloud "
-        "resource's name and an integer of at least 1. Repeat it for each cloud "
+        "resource's name and an integer from 1 to 100. Repeat it for each cloud "
         "resource. Requires --type static."
     ),
 )

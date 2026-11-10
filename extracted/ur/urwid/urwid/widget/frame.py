@@ -11,7 +11,7 @@ from urwid.canvas import CanvasCombine, CompositeCanvas, SolidCanvas
 from urwid.split_repr import remove_defaults
 from urwid.util import is_mouse_press
 
-from .constants import Sizing, VAlign
+from .constants import MouseButton, Sizing, VAlign
 from .container import (
     _SELECT_COMMANDS,
     SelectNavigationMixin,
@@ -43,6 +43,67 @@ def _check_widget_subclass(widget: AbstractWidget | None) -> None:
         _deprecation.warn(f"{obj_class_path} is not implementing Widget API.", since="2.4.0", removed_in="7.0")
 
 
+class _FrameContents(
+    MutableMapping[
+        Literal["header", "footer", "body"],
+        tuple[BodyWidget | HeaderWidget | FooterWidget, None],
+    ]
+):
+    """Mapping view onto a Frame's `header`, `body`, and `footer` slots, as :attr:`Frame.contents` returns it."""
+
+    __slots__ = ("__weakref__", "_frame")
+
+    def __init__(self, frame: Frame[BodyWidget, HeaderWidget, FooterWidget]) -> None:
+        """Hold the Frame the view reads and writes."""
+        self._frame = frame
+
+    def __len__(self) -> int:
+        """Return the number of parts the Frame has."""
+        return len(self._frame._contents_keys())
+
+    def __getitem__(
+        self,
+        key: Literal["header", "footer", "body"],
+    ) -> tuple[BodyWidget | HeaderWidget | FooterWidget, None]:
+        """Return the ``(widget, options)`` pair for *key*.
+
+        :raises KeyError: *key* is not one of the three frame parts, or names a part this Frame does not have.
+        """
+        return self._frame._contents__getitem__(key)
+
+    def __setitem__(
+        self,
+        key: Literal["header", "footer", "body"],
+        value: tuple[BodyWidget | HeaderWidget | FooterWidget, None],
+    ) -> None:
+        """Replace the ``(widget, options)`` pair for *key*.
+
+        :raises KeyError: *key* is not one of the three frame parts.
+        :raises FrameError: *value* is not a valid ``(widget, options)`` pair.
+        """
+        # The overloads pair each key with its own widget type; this view takes any key with any of them.
+        self._frame._contents__setitem__(key, value)  # type: ignore[arg-type]
+
+    def __delitem__(self, key: Literal["header", "footer", "body"]) -> None:
+        """Remove the header or footer.
+
+        :raises KeyError: *key* is not a removable part, or names a part this Frame does not have.
+        """
+        self._frame._contents__delitem__(key)  # type: ignore[arg-type]
+
+    def __iter__(self) -> Iterator[Literal["header", "footer", "body"]]:
+        """Yield the keys of the parts the Frame has, the body first."""
+        yield from self._frame._contents_keys()
+
+    def __repr__(self) -> str:
+        """Return the parts and the Frame."""
+        return f"<FrameContents({dict(self)}) for {self._frame}>"
+
+    def __rich_repr__(self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
+        """Yield the ``(key, (widget, options))`` items."""
+        yield from self.items()
+
+
 class Frame(
     Widget,
     SelectNavigationMixin[Literal["header", "footer", "body"]],
@@ -53,7 +114,13 @@ class Frame(
     .. note:: The main difference between a Frame and a :class:`Pile` widget
         defined as: `Pile([('pack', header), body, ('pack', footer)])` is that
         the Frame will not automatically change focus up and down in response to keystrokes.
+
+    Sends ``"focus changed"`` after :attr:`focus_part` changed, also when removing the header or the footer in focus
+    moves the focus to the body.
+    Its handlers receive the frame, the old and the new focus part.
     """
+
+    signals: typing.ClassVar[list[str]] = ["focus changed"]
 
     _selectable = True
     _sizing = frozenset([Sizing.BOX])
@@ -87,7 +154,7 @@ class Frame(
         self._body = body
         self._footer = footer
         if focus_part in {"header", "footer", "body"}:
-            self.focus_part: Literal["header", "footer", "body"] = focus_part
+            self.focus_part = focus_part
         elif focus_part == header:
             self.focus_part = "header"
         elif focus_part == footer:
@@ -101,6 +168,39 @@ class Frame(
         _check_widget_subclass(header)
         _check_widget_subclass(body)
         _check_widget_subclass(footer)
+
+    def __setstate__(self, state: typing.Any) -> None:
+        """Restore the attributes from a pickle or a copy.
+
+        Pickles of urwid 5.0.x and older store the focus part as ``focus_part``, which is restored as ``_focus_part``.
+
+        :param state: the instance dictionary, or ``(dictionary, slots)`` for a subclass with slots.
+        :raises ValueError: the state has no focus part.
+            Its focus part is not ``'header'``, ``'footer'`` or ``'body'``.
+            It has the focus part more than once: under both names, or in both the dictionary and the slots.
+        """
+        attributes, slots = state if isinstance(state, tuple) else (state, None)
+        attributes = dict(attributes or {})
+        slots = dict(slots or {})
+        # the places a focus part can be stored: the old name, the current one, and a slot of a subclass
+        stored = [
+            holder.pop(name)
+            for holder, name in ((attributes, "focus_part"), (attributes, "_focus_part"), (slots, "_focus_part"))
+            if name in holder
+        ]
+        if not stored:
+            raise ValueError("Frame state has no focus part")
+        if len(stored) > 1:
+            raise ValueError("Frame state has the focus part more than once")
+        (part,) = stored
+        # an exact str, so that a value which only compares equal to a part name is rejected, a str subclass included
+        if type(part) is not str or part not in {"header", "footer", "body"}:  # pylint: disable=unidiomatic-typecheck
+            raise ValueError(f"Frame state has an invalid focus part: {part!r}")
+        vars(self).update(attributes)
+        # into the slot of a subclass that has one, otherwise into the instance dictionary
+        object.__setattr__(self, "_focus_part", part)
+        for name, value in slots.items():
+            setattr(self, name, value)
 
     def _repr_attrs(self) -> dict[str, typing.Any]:
         attrs = {
@@ -120,6 +220,30 @@ class Frame(
         yield "footer", self._footer
         yield "focus_part", self.focus_part
         yield "select_navigation", self.select_navigation, False
+
+    @property
+    def focus_part(self) -> Literal["header", "footer", "body"]:
+        """Return which part of the frame is in focus.
+
+        Setting it to another part redraws the frame and sends ``"focus changed"``.
+        Unlike the :attr:`focus_position` setter, it does not check that the frame has that part.
+        """
+        return self._focus_part
+
+    @focus_part.setter
+    def focus_part(self, part: Literal["header", "footer", "body"]) -> None:
+        # The previous part is absent while the constructor sets the first one,
+        # or when a subclass sets one before it calls the constructor.
+        # Setting the first part is not a change, so it is not reported.
+        # read without a subclass __getattr__, which could supply a value the frame does not have
+        try:
+            old_part = object.__getattribute__(self, "_focus_part")
+        except AttributeError:
+            old_part = None
+        self._focus_part: Literal["header", "footer", "body"] = part
+        if old_part is not None and part != old_part:
+            self._invalidate()
+            self._emit("focus changed", old_part, part)
 
     @property
     def header(self) -> HeaderWidget | None:
@@ -218,38 +342,7 @@ class Frame(
         to create the options value is recommended for forwards
         compatibility.
         """
-
-        # noinspection PyMethodParameters
-        class FrameContents(
-            MutableMapping[
-                Literal["header", "footer", "body"],
-                # pyrefly: ignore[invalid-type-var]  # the class TypeVars are reused in a nested signature
-                tuple[BodyWidget | HeaderWidget | FooterWidget, None],
-            ]
-        ):
-            """Mapping view onto this Frame's `header`, `body`, and `footer` slots."""
-
-            # pylint: disable=no-self-argument
-
-            __slots__ = ()
-
-            def __len__(inner_self) -> int:
-                return len(self._contents_keys())
-
-            __getitem__ = self._contents__getitem__
-            __setitem__ = self._contents__setitem__  # type: ignore[assignment]
-            __delitem__ = self._contents__delitem__  # type: ignore[assignment]
-
-            def __iter__(inner_self) -> Iterator[Literal["header", "footer", "body"]]:
-                yield from self._contents_keys()
-
-            def __repr__(inner_self) -> str:
-                return f"<{inner_self.__class__.__name__}({dict(inner_self)}) for {self}>"  # type: ignore[misc]
-
-            def __rich_repr__(inner_self) -> Iterator[tuple[str | None, typing.Any] | typing.Any]:
-                yield from inner_self.items()
-
-        return FrameContents()
+        return _FrameContents(self)
 
     def _contents_keys(self) -> list[Literal["header", "footer", "body"]]:
         keys: list[Literal["header", "footer", "body"]] = ["body"]
@@ -447,10 +540,20 @@ class Frame(
         if foot:
             combinelist.append((foot, "footer", self.focus_part == "footer"))
 
+        # A header or footer of 0 rows is not drawn, but its rows decided the layout.
+        # It is listed in the canvas children, so the canvas cache drops this canvas when it changes.
+        undrawn = [
+            (0, 0, part.render((maxcol,)), name)
+            for part, name, rows in ((header, "header", hrows), (footer, "footer", frows))
+            if part is not None and not rows
+        ]
         if not combinelist:
             # No part has rows: an empty combination would lose the width.
-            return CompositeCanvas(SolidCanvas(" ", maxcol, maxrow))
-        return CanvasCombine(combinelist)
+            out = CompositeCanvas(SolidCanvas(" ", maxcol, maxrow))
+        else:
+            out = CanvasCombine(combinelist)
+        out.children.extend(undrawn)
+        return out
 
     def keypress(
         self,
@@ -538,7 +641,7 @@ class Frame(
 
         if header is not None and row < htrim:  # within header
             focus = focus and self.focus_part == "header"
-            if is_mouse_press(event) and button == 1 and header.selectable():
+            if is_mouse_press(event) and button == MouseButton.LEFT and header.selectable():
                 self.focus_position = "header"
 
             if not hasattr(header, "mouse_event"):
@@ -547,7 +650,7 @@ class Frame(
 
         if footer is not None and row >= maxrow - ftrim:  # within footer
             focus = focus and self.focus_part == "footer"
-            if is_mouse_press(event) and button == 1 and footer.selectable():
+            if is_mouse_press(event) and button == MouseButton.LEFT and footer.selectable():
                 self.focus_position = "footer"
 
             if not hasattr(footer, "mouse_event"):
@@ -556,7 +659,7 @@ class Frame(
 
         # within body
         focus = focus and self.focus_part == "body"
-        if is_mouse_press(event) and button == 1 and self.body.selectable():
+        if is_mouse_press(event) and button == MouseButton.LEFT and self.body.selectable():
             self.focus_position = "body"
 
         if not hasattr(self.body, "mouse_event"):

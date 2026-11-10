@@ -1,7 +1,7 @@
 import json
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 import redis
 from rq import Queue, Worker
@@ -70,6 +70,23 @@ class BasicTestCase(unittest.TestCase):
         job_url = '/0/view/job/' + job.id
         response = self.client.get(job_url)
         self.assertEqual(response.status_code, HTTP_OK)
+        job.delete()
+
+    def test_single_job_view_escaping(self):
+        def some_work():
+            return
+        q = Queue(connection=self.app.redis_conn)
+        job = q.enqueue(some_work, description="<script>alert('xss')</script>")
+        job_url = '/0/view/job/' + job.id
+        response = self.client.get(job_url)
+        self.assertEqual(response.status_code, HTTP_OK)
+        content = response.data.decode('utf8')
+        self.assertIn("$('<div/>').text(d.description).html()", content)
+        self.assertIn("$('<div/>').text(d.exc_info).html()", content)
+        self.assertIn("$('<div/>').text(d.metadata).html()", content)
+        self.assertNotIn("<%= d.description %>", content)
+        self.assertNotIn("<%= d.exc_info %>", content)
+        self.assertNotIn("<%= d.metadata %>", content)
         job.delete()
 
     def test_del_job_mechanism(self):
@@ -153,6 +170,32 @@ class BasicTestCase(unittest.TestCase):
         job_info_url = f'/0/data/job/{job.id}.json'
         response_info = self.client.get(job_info_url)
         self.assertEqual(response_info.status_code, HTTP_OK)
+
+    def test_job_info_with_dependency(self):
+        def some_work():
+            return
+        q = Queue(connection=self.app.redis_conn)
+        job1 = q.enqueue(some_work)
+        job2 = q.enqueue(some_work, depends_on=job1)
+        job_info_url = f'/0/data/job/{job2.id}.json'
+        response_info = self.client.get(job_info_url)
+        self.assertEqual(response_info.status_code, HTTP_OK)
+
+    def test_job_info_with_dependency_str(self):
+        """Simulate rq >= 2.6, where dependency_ids returns str, not bytes."""
+        def some_work():
+            return
+        q = Queue(connection=self.app.redis_conn)
+        job1 = q.enqueue(some_work)
+        job2 = q.enqueue(some_work, depends_on=job1)
+        with patch(
+                'rq.job.Job.dependency_ids',
+                new_callable=PropertyMock,
+                return_value=[f'{job1.id}'],
+        ):
+            job_info_url = f'/0/data/job/{job2.id}.json'
+            response_info = self.client.get(job_info_url)
+            self.assertEqual(response_info.status_code, HTTP_OK)
 
     def test_compact_queue(self):
         def some_work():

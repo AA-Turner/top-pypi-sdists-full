@@ -102,7 +102,7 @@ class CatalogReadsMixin:
             if not self.client.supports_feature(CATALOG_FEATURE):
                 raise errors.CapabilityUnavailable(
                     _CATALOG_CAPABILITY,
-                    f"this Probe Research server does not serve GET {path} yet "
+                    f"this Probe server does not serve GET {path} yet "
                     "(it predates the data catalog); nothing was looked up",
                 ) from None
             raise

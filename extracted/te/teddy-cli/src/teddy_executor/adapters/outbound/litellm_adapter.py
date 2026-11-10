@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Any, Dict, List, Optional, Protocol
 from teddy_executor.core.ports.outbound.config_service import IConfigService
 from teddy_executor.core.domain.models.exceptions import ConfigurationError
@@ -274,12 +275,25 @@ class LiteLLMAdapter(ILlmClient):
     def get_completion_cost(
         self, completion_response: Any, model_override: Optional[str] = None
     ) -> float:
-        """Calculates the precise USD cost of a completion response."""
+        """Calculates the precise USD cost of a completion response.
+
+        Prefers the cost the provider already reported on the response (litellm
+        stores it in ``_hidden_params["response_cost"]``) because it reflects the
+        vendor that actually served the request. Falls back to the registry
+        recompute when no reported cost is present.
+        """
+        reported = self._reported_cost(completion_response)
+        if reported is not None:
+            self._mark_cost_recorded(completion_response)
+            return reported
+
         litellm = self._get_litellm()
         try:
-            return float(
+            cost = float(
                 litellm.completion_cost(completion_response=completion_response)
             )
+            self._mark_cost_recorded(completion_response)
+            return cost
         except (Exception, TypeError) as e:
             if "This model isn't mapped yet" in str(e) and self._hydrator:
                 candidates = set()
@@ -291,11 +305,13 @@ class LiteLLMAdapter(ILlmClient):
 
                 if self._hydrate_all_candidates(candidates):
                     try:
-                        return float(
+                        cost = float(
                             litellm.completion_cost(
                                 completion_response=completion_response
                             )
                         )
+                        self._mark_cost_recorded(completion_response)
+                        return cost
                     except (Exception, TypeError) as retry_error:
                         self._log_cost_failure(
                             retry_error, completion_response, model_override
@@ -305,6 +321,106 @@ class LiteLLMAdapter(ILlmClient):
             # Graceful fallback for unmapped models or hydration failure
             self._log_cost_failure(e, completion_response, model_override)
             return 0.0
+
+    def _reported_cost(self, completion_response: Any) -> Optional[float]:
+        """Returns the cost the response reports, preferring real spend.
+
+        OpenRouter reports two figures on a BYOK request: ``usage.cost``, the
+        fee it charges for the request (``0`` while the monthly free allowance
+        lasts), and ``usage.cost_details.upstream_inference_cost``, the spend the
+        user's own provider actually billed. The upstream spend is the real
+        cost, so it wins whenever it is positive, with any reported fee added on
+        top when OpenRouter also charged one. Every other response falls through
+        to the reported cost from ``_hidden_params``, so non-BYOK and native
+        providers keep their existing behavior unchanged.
+        """
+        upstream = self._upstream_inference_cost(completion_response)
+        if upstream is not None and upstream > 0.0:
+            fee = self._hidden_reported_cost(completion_response)
+            return upstream + (fee if fee else 0.0)
+        return self._hidden_reported_cost(completion_response)
+
+    def _upstream_inference_cost(self, completion_response: Any) -> Optional[float]:
+        """Returns OpenRouter's BYOK upstream spend, or None when absent.
+
+        OpenRouter documents ``usage.cost_details.upstream_inference_cost`` as
+        the spend charged by the user's upstream provider, reported only for
+        BYOK requests (``0`` or ``null`` otherwise). litellm preserves the field
+        as a plain ``dict`` on the response usage, so a non-dict ``cost_details``
+        is treated as absent. That also keeps an auto-specced test double from
+        being mistaken for real spend. A non-finite value is absent too.
+        """
+        usage = getattr(completion_response, "usage", None)
+        if usage is None:
+            return None
+        details = getattr(usage, "cost_details", None)
+        if not isinstance(details, dict):
+            return None
+        return self._finite_cost(details.get("upstream_inference_cost"))
+
+    def _hidden_reported_cost(self, completion_response: Any) -> Optional[float]:
+        """Returns the cost the provider reported on the response, if any.
+
+        litellm writes the vendor-reported spend to
+        ``_hidden_params["response_cost"]``; when that key is absent, the same
+        reported spend may instead be carried by the OpenRouter response-cost
+        header under ``_hidden_params["additional_headers"]``, exactly as the
+        litellm ``get_response_cost_from_hidden_params`` helper reads it. A
+        non-dict holder, an absent key, a ``None`` value, or an unconvertible or
+        non-finite value all mean "no reported cost" from that source, so the
+        read falls through to the next source and ultimately the recompute. A
+        ``0.0`` reported cost is a valid free-model price and is returned as-is.
+        """
+        hidden = getattr(completion_response, "_hidden_params", None)
+        if not isinstance(hidden, dict):
+            return None
+
+        direct = self._finite_cost(hidden.get("response_cost"))
+        if direct is not None:
+            return direct
+
+        additional_headers = hidden.get("additional_headers")
+        if isinstance(additional_headers, dict):
+            header_cost = self._finite_cost(
+                additional_headers.get("llm_provider-x-litellm-response-cost")
+            )
+            if header_cost is not None:
+                return header_cost
+
+        return None
+
+    @staticmethod
+    def _finite_cost(value: Any) -> Optional[float]:
+        """Converts a reported value to a finite float, or None when unusable.
+
+        A ``NaN`` or infinite reported cost cannot be a spend, so it is treated
+        as absent. The graph at the call site depends only on which price source
+        is authoritative, never on a non-finite anomaly.
+        """
+        if value is None:
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) else None
+
+    @staticmethod
+    def _mark_cost_recorded(completion_response: Any) -> None:
+        """Flags the response so the display can trust the recorded cost.
+
+        A real price was used whenever a reported value is returned or the
+        registry recompute succeeds, including a valid free-model ``0.0``. The
+        fallback ``0.0`` (a recompute failure) is deliberately NOT marked, so
+        the display keeps its ``$???`` placeholder for a genuinely unpriced
+        model. A response that forbids attribute assignment still yields its
+        cost; only the display hint is lost.
+        """
+        try:
+            completion_response._teddy_cost_recorded = True
+        except (AttributeError, TypeError):
+            # Only the display hint is affected; the cost itself is unaffected.
+            pass
 
     def _log_cost_failure(
         self, error: Exception, completion_response: Any, model_override: Optional[str]
@@ -347,12 +463,20 @@ class LiteLLMAdapter(ILlmClient):
     def _resolve_cost_model(
         self, completion_response: Any, model_override: Optional[str]
     ) -> Optional[str]:
-        """Resolves the model identity used by cost-failure diagnostics."""
-        if model_override:
-            return str(model_override)
+        """Resolves the model identity used by cost-failure diagnostics.
+
+        Prefers ``completion_response.model`` because that is the identity the
+        registry recompute actually prices against. A configured override names
+        the routing alias (e.g. ``openrouter/foo``), which need not be present in
+        the registry, so naming it would both mislabel the anomaly summary and
+        pick the wrong log tier — silently downgrading a real priced-model
+        failure to DEBUG instead of WARNING.
+        """
         model_id = getattr(completion_response, "model", None)
         if model_id:
             return str(model_id)
+        if model_override:
+            return str(model_override)
         config_model = self._config_service.get_setting("llm.model")
         return str(config_model) if config_model else None
 

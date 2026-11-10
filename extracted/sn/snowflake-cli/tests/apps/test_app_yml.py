@@ -153,6 +153,7 @@ _PYTHON_APP_YML = dedent(
     package_name: PY_APP
     code_stage: SNOWFLAKE_APPS.PUBLIC.PY_CODE
     artifact_repo: SNOWFLAKE_APPS.PUBLIC.PY_REPO
+    runtime: python
     install:
       commands:
         - ["uv", "sync"]
@@ -238,47 +239,20 @@ class TestAppYmlDefinition:
         assert set(model.targets) == {"dev", "prod"}
 
     @pytest.mark.parametrize(
-        "phases, expected",
+        "fields, expected",
         [
-            pytest.param({}, False, id="node-defaults"),
+            pytest.param({}, False, id="node-default"),
+            pytest.param({"runtime": "python"}, True, id="declared-python"),
+            pytest.param({"runtime": "node"}, False, id="declared-node"),
             pytest.param(
-                {"install": {"commands": [["pip", "install", "-r", "req.txt"]]}},
-                True,
-                id="pip-install",
-            ),
-            pytest.param(
-                {"install": {"commands": [["npm", "ci"], ["uv", "sync"]]}},
-                True,
-                id="uv-in-later-command",
-            ),
-            pytest.param(
-                {"build": {"commands": [["pip3.12", "install", "."]]}},
-                True,
-                id="versioned-pip-build",
-            ),
-            pytest.param(
-                {"run": {"command": ["/usr/bin/python3", "-m", "app"]}},
-                True,
-                id="python-path-run",
-            ),
-            pytest.param(
-                {"dev": {"command": ["uvx", "fastapi", "dev"]}}, True, id="uvx-dev"
-            ),
-            pytest.param(
-                {"run": {"command": ["node", "pipeline.js"]}},
+                {"install": {"commands": [["uv", "sync"]]}},
                 False,
-                id="python-tool-only-as-argument",
+                id="python-commands-are-not-inspected",
             ),
-            pytest.param(
-                {"install": {"commands": [["pipenv", "install"]]}},
-                False,
-                id="similar-prefix-not-matched",
-            ),
-            pytest.param({"install": {"commands": [[]]}}, False, id="empty-command"),
         ],
     )
-    def test_is_python_runtime(self, phases, expected):
-        assert _definition(**phases).is_python_runtime is expected
+    def test_is_python_runtime(self, fields, expected):
+        assert _definition(**fields).is_python_runtime is expected
 
     def test_legacy_targets_default_key_rejected(self):
         # The pre-release form nested ``default`` under ``targets``; it is now a
@@ -2510,38 +2484,76 @@ class TestSharedCommandsFromAppYml:
             call()
 
 
-class TestCngHealthMonitoringDisabled:
-    """Event-table health monitoring is not available for serverless apps."""
+class TestCngHealthMonitoring:
+    """Serverless apps read the event table when the server can serve it."""
 
     @pytest.mark.parametrize(
-        "kwargs",
+        "kwargs, event_table_type",
         [
-            {"event_type": "metric"},
-            {"event_type": "lifecycle"},
-            {"since": "1h"},
-            {"until": "1h"},
-            {"event_type": "log", "since": "30m"},
+            ({"event_type": "metric"}, "METRIC"),
+            ({"event_type": "lifecycle"}, "EVENT"),
+            ({"since": "1h"}, "LOG"),
+            ({"until": "1h"}, "LOG"),
+            ({"event_type": "log", "since": "30m"}, "LOG"),
         ],
     )
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_paths_rejected_for_serverless(
-        self, mock_ctx, mock_mgr_cls, kwargs, tmp_path
+    def test_event_table_paths_query_server_for_serverless(
+        self, mock_ctx, mock_mgr_cls, kwargs, event_table_type, tmp_path
     ):
         from snowflake.cli._plugins.apps.commands import snowflake_app_events
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.return_value = "[]"
+
+        snowflake_app_events(None, None, target="prod", **kwargs)
+
+        mgr.get_event_table_data.assert_called_once()
+        assert mgr.get_event_table_data.call_args.args[1] == event_table_type
+        mgr.get_service_logs.assert_not_called()
+
+    @pytest.mark.parametrize("errno", [2, 94550])
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_event_table_unavailable_for_serverless(
+        self, mock_ctx, mock_mgr_cls, errno, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.side_effect = ProgrammingError(
+            "Event table data is not available", errno=errno
+        )
 
         with pytest.raises(
             CliError,
-            match="Health monitoring is not available for serverless apps",
+            match="Health monitoring is not yet available for serverless apps",
         ):
-            snowflake_app_events(None, None, target="prod", **kwargs)
+            snowflake_app_events(None, None, event_type="metric", target="prod")
 
-        mgr.get_event_table_data.assert_not_called()
-        mgr.get_service_logs.assert_not_called()
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_other_event_table_errors_keep_generic_message(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.side_effect = ProgrammingError(
+            "Insufficient privileges", errno=3001
+        )
+
+        with pytest.raises(CliError, match="Could not retrieve metric data"):
+            snowflake_app_events(None, None, event_type="metric", target="prod")
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
@@ -2578,25 +2590,6 @@ class TestCngHealthMonitoringDisabled:
         mgr.get_service_logs.assert_called_once()
         mgr.get_event_table_data.assert_not_called()
         assert result.message == "cng-live-log"
-
-    @patch(f"{_COMMANDS}.SnowflakeAppManager")
-    @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_allowed_when_serverless_parameters_disabled(
-        self, mock_ctx, mock_mgr_cls, tmp_path
-    ):
-        from snowflake.cli._plugins.apps.commands import snowflake_app_events
-
-        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
-        mock_ctx.return_value = _make_ctx(tmp_path)
-        mgr = _make_manager_mock(mock_mgr_cls)
-        mgr.serverless_account_parameters_enabled.return_value = False
-        mgr.get_event_table_data.return_value = "[]"
-
-        result = snowflake_app_events(None, None, event_type="metric", target="prod")
-
-        mgr.get_event_table_data.assert_called_once()
-        mgr.get_service_logs.assert_not_called()
-        assert list(result.result) == []
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")

@@ -67,6 +67,9 @@ def build_main_parser(*, version: str) -> argparse.ArgumentParser:
             "pyproject.toml. Relative paths are resolved from the current directory."
         ),
     )
+    from skylos.typecheck.cli import add_type_check_args
+
+    add_type_check_args(parser)
     parser.add_argument(
         "--gate",
         action="store_true",
@@ -104,6 +107,17 @@ def build_main_parser(*, version: str) -> argparse.ArgumentParser:
         "--trace",
         action="store_true",
         help="Run tests with call tracing to capture dynamic dispatch (e.g., visitor patterns)",
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Profile Skylos analysis phases and scanner functions; does not enable target-code execution.",
+    )
+    parser.add_argument(
+        "--profile-output",
+        metavar="PATH",
+        default=None,
+        help="Write analysis profiling JSON to this file (also enables --profile).",
     )
     parser.add_argument(
         "--cache",
@@ -361,6 +375,26 @@ def build_main_parser(*, version: str) -> argparse.ArgumentParser:
         "--sca",
         action="store_true",
         help="Scan dependencies for known vulnerabilities (CVEs) via OSV.dev.",
+    )
+    parser.add_argument(
+        "--sca-threat-intel",
+        action="store_true",
+        help=(
+            "Add dated EPSS/CISA KEV context to dependency CVEs (implies --sca; "
+            "requires ca9>=0.9.0). Optional provider lookups never change severity or gates."
+        ),
+    )
+    parser.add_argument(
+        "--review-upgrades",
+        action="store_true",
+        dest="review_upgrades",
+        help=(
+            "With --diff or --diff-base (implies --sca), download the old and new "
+            "version of each npm/PyPI package the change upgrades and report new "
+            "install hooks, .pth/sitecustomize code and other risky code "
+            "(SKY-SCA-UPG001/UPG002), and your lines that use Python API the "
+            "upgrade removed (SKY-SCA-API001). Never installs or runs them."
+        ),
     )
     parser.add_argument(
         "--scan-publisher-changes",

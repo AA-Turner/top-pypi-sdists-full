@@ -18,8 +18,8 @@ static void command_inout_asynch_cb(py::object py_self,
     Tango::Connection *self = py_self.cast<Tango::Connection *>();
     PyCallBackAutoDie *cb = py_cb.cast<PyCallBackAutoDie *>();
 
-    py::gil_scoped_release no_gil;
     try {
+        py::gil_scoped_release no_gil;
         self->command_inout_asynch(const_cast<std::string &>(cmd_name), const_cast<Tango::DeviceData &>(argin), *cb);
     } catch(...) {
         cb->delete_me();
@@ -29,7 +29,10 @@ static void command_inout_asynch_cb(py::object py_self,
 
 py::str get_fqdn() {
     std::string fqdn;
-    Tango::Connection::get_fqdn(fqdn);
+    {
+        py::gil_scoped_release no_gil;
+        Tango::Connection::get_fqdn(fqdn);
+    }
     return py::str(fqdn.c_str());
 }
 } // namespace PyConnection
@@ -121,6 +124,7 @@ void export_connection(py::module &m) {
              )doc")
         .def("connect",
              &Tango::Connection::connect,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Creates a connection to a TANGO device using it's stringified
                 CORBA reference i.e. IOR or corbaloc.
@@ -133,6 +137,7 @@ void export_connection(py::module &m) {
              py::arg("corba_name"))
         .def("reconnect",
              &Tango::Connection::reconnect,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Reconnect to to a CORBA object.
 

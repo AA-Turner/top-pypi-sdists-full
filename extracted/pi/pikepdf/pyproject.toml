@@ -18,7 +18,7 @@ sdist.exclude = ["qpdf"]
 
 [project]
 name = "pikepdf"
-version = "10.17.0"
+version = "10.18.0"
 description = "Read, write, repair, and transform PDFs in Python, powered by qpdf"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -63,11 +63,12 @@ test-groups = ["test"]
 #   this file sets skip to deselect what cannot be built
 skip = [
   "*-win32", # no 32-bit builds/not supported by Pillow anymore
+  "cp3*t-win*", # free-threaded Windows wheels crash in tests: issue #757
 ]
 # We publish cp314t free-threaded wheels (built by default now that 3.14
-# free-threading is stable) but not cp313t: cp313t requires the
-# `cpython-freethreading` enable group, which we deliberately leave disabled,
-# so it is never built and needs no skip selector.
+# free-threading is stable), except on Windows for now, but not cp313t: cp313t
+# requires the `cpython-freethreading` enable group, which we deliberately
+# leave disabled, so it is never built and needs no skip selector.
 # Use plain `build` (pip-backed isolation) rather than `build[uv]`: the uv
 # bundled into the manylinux/musllinux images has a regression where `uv pip
 # install` into build's isolated env fails with "Failed to inspect Python
@@ -160,6 +161,7 @@ environment.QPDF_BUILD_LIBDIR = "$QPDF_DIR/lib"
 
 [tool.mypy]
 exclude = ["^_qpdf\\.py$"]
+strict = true
 
 [[tool.mypy.overrides]]
 module = ["fontTools", "fontTools.*", "jsonschema", "jsonschema.*"]
@@ -212,16 +214,27 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = [
+  "B",    # flake8-bugbear
   "D",    # pydocstyle
   "E",    # pycodestyle
   "W",    # pycodestyle
   "F",    # pyflakes
   "I001", # isort
+  "RUF",  # ruff-specific rules
   "TID",  # flake8-tidy-imports
   "UP",   # pyupgrade
   "YTT",  # flake8-2020
 ]
-ignore = ["D105", "B028"]
+ignore = [
+  "D105",
+  # Glyph tables, mathematical notation and non-Latin test strings are
+  # deliberate in a PDF library, not typos for ASCII look-alikes
+  "RUF001",
+  "RUF002",
+  "RUF003",
+  # __all__ lists are grouped by topic rather than sorted
+  "RUF022",
+]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -249,7 +262,22 @@ convention = "google"
 "docs/*.py" = ["D", "E501", "E402", "F401"]
 "examples/*.py" = ["D103"]
 "fuzzing/*.py" = ["D", "E501"]
-"tests/*test*.py" = ["D", "E501"]
+"tests/*test*.py" = [
+  "D",
+  "E501",
+  # hypothesis strategies are immutable and conventionally used as defaults
+  "B008",
+  # Bare comparisons and expressions are evaluated to provoke an exception or
+  # warning, usually inside pytest.raises
+  "B015",
+  "B018",
+  # Class-level lists and dicts in test classes are constant tables
+  "RUF012",
+  # Decimal is constructed from float on purpose, to test inexact values
+  "RUF032",
+  # match= patterns are plain message text; an unescaped "." is harmless
+  "RUF043",
+]
 "tests/test_pdfa_*.py" = ["D", "E402", "E501"]
 
 [tool.ruff.format]

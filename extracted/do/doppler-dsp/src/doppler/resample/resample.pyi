@@ -1,5 +1,6 @@
 # resample/resample.pyi — type stubs for the resample C extension.
-from typing import final, Literal
+from typing import Literal, final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -28,7 +29,7 @@ class Resampler:
     ValueError
         If construction fails. The exception message is ``Resampler: invalid
         parameter (need rate finite and > 0; a bank of num_phases a power of
-        two, num_taps >= 1)``.
+        two <= 2^32, num_taps >= 1)``.
 
     Examples
     --------
@@ -656,7 +657,7 @@ class CIC:
         Parameters
         ----------
         x : npt.NDArray[np.complex64]
-            Input.
+            CF32 input block, |Re| and |Im| <= 2.0 (clipped otherwise).
         out : npt.NDArray[np.complex64] | None
             Output buffer; must hold at least max_out elements.
 
@@ -850,7 +851,7 @@ class RateConverter:
     ValueError
         If construction fails. The exception message is ``RateConverter:
         invalid parameter (need rate > 0, 0 <= beta <= 1, span >= 1, pulse_sps
-        > 0, num_phases a power of two >= 2)``.
+        > 0, num_phases a power of two in [2, 2^32])``.
 
     Examples
     --------
@@ -876,7 +877,7 @@ class RateConverter:
         Parameters
         ----------
         x : npt.NDArray[np.complex64]
-            Input.
+            CF32 input block.
         out : npt.NDArray[np.complex64] | None
             Output buffer; must hold at least max_out samples.
 
@@ -1238,15 +1239,16 @@ class MatchedRateConverter:
         matched filter has a symbol duration, and the planner still knows
         nothing of symbols.
     num_phases : int, default 1024
-        Terminal-stage arms; power of two. Sets the fractional timing
-        resolution to `1/num_phases` of an output period.
+        Terminal-stage arms; a power of two from 2 to RESAMP_MAX_PHASES (2^32),
+        the most the terminal resampler's 32-bit phase word can address. Sets
+        the fractional timing resolution to `1/num_phases` of an output period.
 
     Raises
     ------
     ValueError
         If construction fails. The exception message is ``RateConverter:
         invalid parameter (need rate > 0, 0 <= beta <= 1, span >= 1, pulse_sps
-        > 0, num_phases a power of two >= 2)``.
+        > 0, num_phases a power of two in [2, 2^32])``.
 
     Warns
     -----
@@ -1262,15 +1264,7 @@ class MatchedRateConverter:
     Create with defaults:
 
     >>> from doppler.resample import MatchedRateConverter
-    >>> obj = MatchedRateConverter(
-    ...     rate=1.0,
-    ...     compensate=1,
-    ...     pulse="rrc",
-    ...     beta=0.35,
-    ...     span=8,
-    ...     pulse_sps=2.0,
-    ...     num_phases=1024,
-    ... )
+    >>> obj = MatchedRateConverter()
 
     """
 
@@ -1298,7 +1292,7 @@ class MatchedRateConverter:
         Parameters
         ----------
         x : npt.NDArray[np.complex64]
-            Input.
+            CF32 input block.
         out : npt.NDArray[np.complex64] | None
             Output buffer; must hold at least max_out samples.
 
@@ -1648,7 +1642,7 @@ class Farrow:
     Create with defaults:
 
     >>> from doppler.resample import Farrow
-    >>> obj = Farrow(order="cubic")
+    >>> obj = Farrow()
 
     """
 
@@ -1894,7 +1888,8 @@ class HalfbandDecimatorQ15:
         Parameters
         ----------
         x : npt.NDArray[np.int16]
-            Input.
+            Interleaved int16_t IQ input array of 2*n_in elements (I₀ Q₀ I₁ Q₁
+            …).
         out : npt.NDArray[np.int16] | None
             Output buffer; caller must provide space for 2*max_out int16_t
             values (one interleaved I/Q pair per output).

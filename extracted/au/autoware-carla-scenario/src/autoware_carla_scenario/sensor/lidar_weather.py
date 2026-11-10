@@ -2,9 +2,10 @@
 
 The server casts every ray through clear air whatever ``carla.WeatherParameters``
 says, so a sweep in heavy rain or thick fog is a dry day's.  This adds to a raw
-sweep, from the weather's ``precipitation`` and ``fog_density`` (0-100, what the
-ODD's ``rain`` and ``fog`` knobs, ``environment.rain`` and
-``environment.fog_density``, set), the three things a real sensor suffers:
+sweep, from the weather's ``precipitation`` and ``fog_density`` (0-100: what the
+weather rules render a run's rainfall rate and fog visibility as, or what
+``environment.precipitation`` and ``environment.fog_density`` set), the three
+things a real sensor suffers:
 
 * **attenuation** -- the beam is scattered both ways, so a return at range ``r``
   keeps ``T = exp(-2 * alpha * r)`` of its power: its intensity is scaled by
@@ -31,6 +32,7 @@ as thick at CARLA's default.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -98,13 +100,15 @@ def apply_weather(
     gain: float,
     seed: int,
     frame: int,
+    stream: Optional[int] = None,
 ) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
     """*raw* (``[N, 4]`` x, y, z, intensity, in the sensor frame) as seen through *weather*.
 
     A new array: fewer points (lost to attenuation), the rest moved along their
     rays, some returned early.  *raw* itself when *gain* is 0 or the weather
     clear.  The noise is drawn from a generator seeded with *seed* and the
-    sweep's *frame* (both non-negative), so a sweep's noise repeats.
+    sweep's *frame* (both non-negative), so a sweep's noise repeats; with
+    *stream* (non-negative) too, so sensors sharing a seed draw apart (#2018).
     """
     count = raw.shape[0]
     if gain <= 0.0 or weather.clear or count == 0:
@@ -116,7 +120,9 @@ def apply_weather(
         / FOG_REFERENCE_SCALE
     )
     fog_start = max(weather.fog_distance, 0.0)
-    rng = np.random.default_rng([seed, frame])
+    rng = np.random.default_rng(
+        [seed, frame] if stream is None else [seed, frame, stream]
+    )
 
     xyz = raw[:, :3]
     ranges = np.sqrt(np.sum(xyz * xyz, axis=1)).astype(np.float64)

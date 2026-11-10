@@ -15,9 +15,17 @@ pub fn get_param<'a>(params: &'a HashMap<String, String>, canonical: &str) -> Op
         .or_else(|| params.get(&canonical.replace('-', "")))
 }
 
-/// Parse a boolean parameter value ("true" or "1").
+/// Parse a boolean parameter value ("true" or "1", case-insensitive).
+///
+/// Case-insensitive because the Gateway stringifies Python booleans (`str(True)` is
+/// `"True"`); a case-sensitive match silently read `recordingwriteexisting` as false.
 pub fn parse_bool(value: Option<&String>) -> bool {
-    value.map(|v| v == "true" || v == "1").unwrap_or(false)
+    value
+        .map(|v| {
+            let v = v.trim();
+            v.eq_ignore_ascii_case("true") || v == "1"
+        })
+        .unwrap_or(false)
 }
 
 /// URL schemes that mean "a ZMQ socket the gateway has already bound", not a directory.

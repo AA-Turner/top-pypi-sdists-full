@@ -25,8 +25,8 @@ from stl import cached_property
 # Then, make a branch and run "Sourcebuild", "Sourcebuild Native" and "CIBW" on CI to see if all targets continue to work.
 # Commit the new version to the main branch only when all is green. Better stay on an older version for a while than break a target.
 # Updating and testing the patch sets can be a lot of work, so we might not want to do this too frequrently.
-SBUILD_NATIVE_PIN = 8076
-SBUILD_TOOLCHAINED_PIN = 8076
+SBUILD_NATIVE_PIN = 8149
+SBUILD_TOOLCHAINED_PIN = 8149
 
 PlatSpec_EnvVar = "PDFIUM_PLATFORM"
 PlatSpec_VerSep = ":"
@@ -108,6 +108,7 @@ class PlatNames:
     linux_musl_x64   = SysNames.linux   + "_musl_x64"
     linux_musl_x86   = SysNames.linux   + "_musl_x86"
     linux_musl_arm64 = SysNames.linux   + "_musl_arm64"
+    linux_musl_arm32 = SysNames.linux   + "_musl_arm32"
     android_arm64    = SysNames.android + "_arm64"       # device
     android_arm32    = SysNames.android + "_arm32"       # device
     android_x64      = SysNames.android + "_x64"         # simulator
@@ -134,6 +135,7 @@ PdfiumBinariesMap = {
     PlatNames.linux_musl_x64:   "linux-musl-x64",
     PlatNames.linux_musl_x86:   "linux-musl-x86",
     PlatNames.linux_musl_arm64: "linux-musl-arm64",
+    PlatNames.linux_musl_arm32: "linux-musl-arm",
     PlatNames.android_arm64:    "android-arm64",
     PlatNames.android_arm32:    "android-arm",
     PlatNames.android_x64:      "android-x64",
@@ -543,6 +545,7 @@ class _host_platform:
             for prefix, resolved_mach in prefix_map:
                 if mach.startswith(prefix):
                     mach = resolved_mach
+                    break
             if self.is_32bit:
                 mach = {"x86_64": "i686", "aarch64": "armv8l", "mips64le": "mipsle"}.get(mach, mach)
             if mach == "x86_64":
@@ -552,7 +555,7 @@ class _host_platform:
             elif mach == "aarch64":
                 return self._handle_linux("arm64")
             elif mach in ("armv7l", "armv8l"):
-                return self._handle_linux("arm32", musl_ok=False)
+                return self._handle_linux("arm32")
             elif mach in ("ppc64le", "mips64le", "mipsle"):
                 return self._handle_linux(mach, musl_ok=False)
         
@@ -649,7 +652,8 @@ class _LazyClass:
     def ctypesgen(self):
         
         if not CtypesgenDir.exists():
-            log("Warning: ctypesgen is not in place yet, we'll clone it for you...")
+            log("ctypesgen is not in place yet - we'll clone it for you at the latest revision.\n"
+                "WARNING: If you're on a non-latest commit, you have to prepare a matching version of ctypesgen on your own!")
             mkdir(CtypesgenDir.parent)
             run_cmd(["git", "clone", "--depth", "1", "-b", _CTG_BRANCH, "https://github.com/pypdfium2-team/ctypesgen"], cwd=CtypesgenDir.parent)
         else:
@@ -660,7 +664,7 @@ class _LazyClass:
         
         import ctypesgen
         import ctypesgen.__main__
-        if not ctypesgen.__version__.split(" ")[0] == "pypdfium2-ctypesgen":
+        if not ctypesgen.__version__ == "pypdfium2-ctypesgen rolling":
             raise ValueError("You are using a wrong version or brand of ctypesgen. pypdfium2 depends on a modernized, debloated fork of ctypesgen, and both codebases are maintained in sync, i.e. each pypdfium2 commit ought to be coupled with the then head of pypdfium2-team/ctypesgen@pypdfium2. Do not remove or alter this check, or you will end up with an incorrect and unsupported result.")
         
         return ctypesgen

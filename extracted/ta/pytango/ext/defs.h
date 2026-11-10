@@ -73,10 +73,4 @@ enum EncodingType {
     JPEG_RGB32
 };
 
-// internal enum
-enum DevVarNumericStringArray {
-    LONG_STRING,
-    DOUBLE_STRING
-};
-
 // clang-format on

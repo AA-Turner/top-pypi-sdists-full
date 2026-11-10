@@ -208,6 +208,17 @@ def error_line(error: Any, stage: str | None = None, width: int = 100) -> str:
     return first.removesuffix(":").rstrip()[:width]
 
 
+def _how_it_ended(build: dict) -> str:
+    """A build that did not end ready, on one line of a list: failed in its step, with its error - or canceled, as a build
+    stopped at the time its deploy gave it says it, by no fault of its own (seq.errors.canceled)."""
+    from seq.errors import CANCELED, canceled
+
+    stage = build.get("failed_stage")
+    first = error_line(build.get("error"), stage).removeprefix(CANCELED)
+    how = "canceled" if canceled(build.get("error")) else "failed"
+    return (f"{how} in its {stage} step" if stage else how) + (f": {first}" if first else "")
+
+
 def versions(name: str, base_url: str | None = None, echo=print) -> dict:
     """`seq policy versions <name>`: a deployment's versions, newest first - building, serving, every earlier one kept until
     it is deleted, one on its way out ("deleting") - each
@@ -250,8 +261,7 @@ def versions(name: str, base_url: str | None = None, echo=print) -> dict:
             if image := image_said(b.get("why")):
                 echo(f"{'':{lead}}  ↳ image: {image}")
         if b.get("failed_stage"):
-            first = error_line(b.get("error"), b["failed_stage"])
-            echo(f"{'':{lead}}  ↳ failed in its {b['failed_stage']} step" + (f": {first}" if first else ""))
+            echo(f"{'':{lead}}  ↳ {_how_it_ended(b)}")
         elif r.get("error"):
             echo(f"{'':{lead}}  ↳ {error_line(r['error'])}")
 
@@ -270,10 +280,7 @@ def versions(name: str, base_url: str | None = None, echo=print) -> dict:
 
 
             if b.get("replaced_by") is not None:
-                first = error_line(b.get("error"), b.get("failed_stage"))
-                where = f"failed in its {b['failed_stage']} step" if b.get("failed_stage") else "failed"
-                echo(f"{'':{gone_widths[0]}}  ↳ {where}" + (f": {first}" if first else "")
-                     + f"; replaced by v{b['replaced_by']}")
+                echo(f"{'':{gone_widths[0]}}  ↳ {_how_it_ended(b)}; replaced by v{b['replaced_by']}")
     if any(r["state"] == "kept" for r in rows):
         echo(f"go back to one with `seq policy rollback {name}@v<ver>` (no rebuild)")
     if built:
@@ -479,10 +486,17 @@ def _deletion_said(plan: dict, *, force: bool = False) -> list[str]:
     elif keys:
         out.append(f"delete its robot key{'' if len(keys) == 1 else 's'}: "
                    + ", ".join(f"{k.get('name') or 'unnamed'} ({k['key']})" for k in keys))
-    numbers = plan.get("versions") or []
+
+
+
+    failed = plan.get("failed_versions") or []
+    numbers = [v for v in plan.get("versions") or [] if v not in failed]
     if numbers:
         out.append(f"delete its version{'' if len(numbers) == 1 else 's'} " + ", ".join(f"v{v}" for v in numbers)
                    + (", and stop the build that is running" if plan.get("build_in_flight") else ""))
+    if failed:
+        out.append(f"delete its failed version{'' if len(failed) == 1 else 's'} " + ", ".join(f"v{v}" for v in failed)
+                   + f" and {'its' if len(failed) == 1 else 'their'} build log{'' if len(failed) == 1 else 's'}")
     storage = plan.get("storage")
     if storage is None:
         out.append("delete the files it stores - their billing stops now (their size could not be read)")

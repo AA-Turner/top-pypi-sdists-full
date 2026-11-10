@@ -26,7 +26,7 @@ from collections.abc import (
 )
 from contextlib import ExitStack, contextmanager, suppress
 from decimal import Decimal
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
@@ -54,11 +54,13 @@ from pikepdf._core import (
     ObjectStreamMode,
     Page,
     Pdf,
+    PdfError,
     Rectangle,
     StreamDecodeLevel,
     StreamParser,
     _ContentScopeWalk,
     _ObjectMapping,
+    _OwnerLock,
 )
 from pikepdf._exceptions import PageCopyWarning
 from pikepdf._io import (
@@ -118,27 +120,15 @@ def _mudraw(buffer: bytes | memoryview, fmt: Literal["svg"]) -> bytes:
 @augments(Object)
 class Extend_Object:
     def emplace(self, other: Object, retain: Iterable[Name] | None = None):
-        if not self.same_owner_as(other):
-            raise TypeError("Objects must have the same owner for emplace()")
-
         # Default to (Name.Parent,) lazily so that importing this module does
         # not allocate a persistent pikepdf.Object instance in the function's
         # __defaults__ tuple (which nanobind reports as a shutdown leak).
         if retain is None:
             retain = (Name.Parent,)
 
-        # .keys() returns strings, so make all strings
-        retain_set: set[str] = {str(k) for k in retain}
-        self_keys = set(self.keys())
-        other_keys = set(other.keys())
-
-        assert all(isinstance(k, str) for k in (retain_set | self_keys | other_keys))
-
-        del_keys = self_keys - other_keys - retain_set
-        for k in (k for k in other_keys if k not in retain_set):
-            self[k] = other[k]  # pylint: disable=unsupported-assignment-operation
-        for k in del_keys:
-            del self[k]  # pylint: disable=unsupported-delete-operation
+        # Converted here, before _emplace takes any lock, since iterating
+        # retain may run arbitrary Python code.
+        self._emplace(other, [str(k) for k in retain])
 
     def _type_check_write(self, filter_, decode_parms):
         # A native Python value (int, str, dict...) cannot be a filter or its
@@ -172,8 +162,8 @@ class Extend_Object:
             )
         if len(decode_parms) != 0 and len(filter_) != len(decode_parms):
             raise ValueError(
-                f"filter ({repr(filter_)}) and decode_parms "
-                f"({repr(decode_parms)}) must be arrays of same length"
+                f"filter ({filter_!r}) and decode_parms "
+                f"({decode_parms!r}) must be arrays of same length"
             )
         if len(filter_) == 1:
             filter_ = filter_[0]
@@ -299,8 +289,10 @@ class Extend_Pdf:
         pages: Iterable[int] | range | slice | None = None,
         *,
         forms: Literal['preserve', 'strip'] = 'preserve',
+        layers: Literal['preserve', 'ignore'] = 'preserve',
+        outlines: Literal['preserve', 'ignore'] = 'preserve',
     ) -> PageCopyResult:
-        """Append pages from another ``Pdf``, preserving interactive form fields.
+        """Append pages from another ``Pdf``, with what the document holds for them.
 
         Unlike ``pdf.pages.extend(src.pages)``, this carries the document's
         AcroForm form fields so they remain functional in Adobe Acrobat. Fields
@@ -324,6 +316,24 @@ class Extend_Pdf:
         names that collide with existing destinations are renamed and reported in
         :attr:`pikepdf.PageCopyResult.renamed_dests`.
 
+        Optional content groups (layers) that the copied pages depend on are
+        listed in this document's ``/OCProperties``, without which viewers
+        ignore them and show content that the source hid. Each group keeps
+        the default state it had in the source, and its place in the layer
+        list, lock, radio button groups and automatic states, as given by the
+        source's default configuration. Layers already in this document are
+        unaffected. Only the default configuration is carried, not alternate
+        ones in ``/Configs``.
+
+        Outline items (bookmarks) of the source that lead to a copied page are
+        appended to this document's outline, leading to the copy. An item that
+        leads elsewhere is kept, without a destination, only if an item below
+        it is kept, so the hierarchy survives. Titles, colour, bold and italic
+        and whether an item is open are preserved. Items that lead to pages
+        that were not copied, or that run an action other than going to a
+        page, are left behind and counted in
+        :attr:`pikepdf.PageCopyResult.outline_items_dropped`.
+
         Args:
             src: Source ``Pdf`` to copy pages from.
             pages: Zero-based indices (iterable, ``range`` or ``slice``) of
@@ -332,13 +342,27 @@ class Extend_Pdf:
                 (including ``range``) must be valid or ``IndexError`` is raised.
             forms: ``'preserve'`` (default) carries form fields; ``'strip'``
                 removes widget annotations from the copied pages.
+            layers: ``'preserve'`` (default) lists the optional content groups
+                used by the copied pages in this document; ``'ignore'`` copies
+                the pages only, as before pikepdf 10.18, which leaves their
+                optional content always visible unless this document
+                already lists the groups.
+            outlines: ``'preserve'`` (default) carries the outline items that
+                lead to the copied pages; ``'ignore'`` carries none.
 
         Returns:
             A :class:`pikepdf.PageCopyResult` describing the operation.
+
+        .. versionchanged:: 10.18
+            Added *layers* and *outlines*. Layers and outline items are now
+            carried by default.
         """
         from pikepdf._page_copy import copy_pages
 
-        return copy_pages(self, src, pages, forms=forms)
+        with _OwnerLock((self, src)):
+            return copy_pages(
+                self, src, pages, forms=forms, layers=layers, outlines=outlines
+            )
 
     def close(self) -> None:
         self._close()
@@ -375,17 +399,41 @@ class Extend_Pdf:
             def handle_eof(self):
                 pass
 
+        # This follows QPDFJob::doCheck, which implements qpdf --check, step by
+        # step. qpdf prints warnings and errors as they arise, so the warnings
+        # are collected before each error to keep the two in that order.
         problems: list[str] = []
+
+        def collect_warnings():
+            problems.extend("WARNING: " + warning for warning in self.get_warnings())
+
+        if self.is_linearized:
+            # Everything this finds is added to the warnings. If the caller has
+            # already checked linearization, the same warnings are pending, and
+            # are not reported a second time.
+            pending = self.get_warnings()
+            self.check_linearization(StringIO())
+            found = self.get_warnings()
+            repeated = set(found)
+            for warning in [w for w in pending if w not in repeated] + found:
+                problems.append("WARNING: " + warning)
+
+        self._check_document_structures()
+        if len(self.pages) == 0:
+            collect_warnings()
+            problems.append("ERROR: file does not contain any pages")
 
         self._decode_all_streams_and_discard(progress)
 
         discarding_parser = DiscardingParser()
-        for page in self.pages:
-            page.parse_contents(discarding_parser)
+        for pageno, page in enumerate(self.pages, start=1):
+            try:
+                page.parse_contents(discarding_parser)
+            except PdfError as e:
+                collect_warnings()
+                problems.append(f"ERROR: page {pageno}: {e}")
 
-        for warning in self.get_warnings():
-            problems.append("WARNING: " + warning)
-
+        collect_warnings()
         return problems
 
     def save(
@@ -426,6 +474,7 @@ class Extend_Pdf:
                 "not reachable from /AcroForm; they may not display in Adobe "
                 "Acrobat. Use Pdf.add_pages_from() to copy pages with forms.",
                 PageCopyWarning,
+                stacklevel=2,
             )
         with ExitStack() as stack:
             if hasattr(filename_or_stream, 'seek'):
@@ -583,7 +632,8 @@ class Extend_Pdf:
                 "It looks like you called with Pdf.open(data) with a bytes-like object "
                 "containing a PDF. This will probably fail because this function "
                 "expects a filename or opened file-like object. Instead, please use "
-                "Pdf.open(BytesIO(data))."
+                "Pdf.open(BytesIO(data)).",
+                stacklevel=2,
             )
         if isinstance(filename_or_stream, int | float):
             # Attempted to open with integer file descriptor?
@@ -690,14 +740,6 @@ class Extend_Page:
             return self._images_recursive
         return self._images
 
-    @property
-    def resources(self) -> Dictionary:
-        if Name.Resources not in self.obj:
-            self.obj.Resources = Dictionary()
-        elif not isinstance(self.obj.Resources, Dictionary):
-            raise TypeError("Page /Resources exists but is not a dictionary")
-        return self.obj.Resources
-
     def add_resource(
         self,
         res: Object,
@@ -707,25 +749,30 @@ class Extend_Page:
         prefix: str = '',
         replace_existing: bool = True,
     ) -> Name:
-        resources = self.resources
-        if res_type not in resources:
-            resources[res_type] = Dictionary()
-
         if name is not None and prefix:
             raise ValueError("Must specify one of name= or prefix=")
         if name is None:
             name = Name.random(prefix=prefix)
 
-        for res_dict in resources.as_dict().values():
-            if not isinstance(res_dict, Dictionary):
-                continue
-            if name in res_dict:
-                if replace_existing:
-                    del res_dict[name]
-                else:
-                    raise ValueError(f"Name {name} already exists in page /Resources")
+        with _OwnerLock((self, res)):
+            resources = self.resources
+            holders = [
+                res_dict
+                for res_dict in resources.as_dict().values()
+                if isinstance(res_dict, Dictionary) and name in res_dict
+            ]
+            if holders and not replace_existing:
+                raise ValueError(f"Name {name} already exists in page /Resources")
 
-        resources[res_type][name] = res.with_same_owner_as(self.obj)
+            # Converted before the page is changed, so that a resource that
+            # cannot be added, such as one that refers to another Pdf, leaves
+            # the page as it was.
+            value = res.with_same_owner_as(self.obj)
+            for res_dict in holders:
+                del res_dict[name]
+            if res_type not in resources:
+                resources[res_type] = Dictionary()
+            resources[res_type][name] = value
         return name
 
     def _over_underlay(
@@ -737,38 +784,39 @@ class Extend_Page:
         shrink: bool,
         expand: bool,
     ) -> Name:
-        formx = None
-        if isinstance(other, Page):
-            formx = other.as_form_xobject()
-        elif isinstance(other, Dictionary) and other.get(Name.Type) == Name.Page:
-            formx = Page(other).as_form_xobject()
-        elif (
-            isinstance(other, Stream)
-            and other.get(Name.Type) == Name.XObject
-            and other.get(Name.Subtype) == Name.Form
-        ):
-            formx = other
+        with _OwnerLock((self, other)):
+            formx = None
+            if isinstance(other, Page):
+                formx = other.as_form_xobject()
+            elif isinstance(other, Dictionary) and other.get(Name.Type) == Name.Page:
+                formx = Page(other).as_form_xobject()
+            elif (
+                isinstance(other, Stream)
+                and other.get(Name.Type) == Name.XObject
+                and other.get(Name.Subtype) == Name.Form
+            ):
+                formx = other
 
-        if formx is None:
-            raise TypeError(
-                "other object is not something we can convert to Form XObject"
+            if formx is None:
+                raise TypeError(
+                    "other object is not something we can convert to Form XObject"
+                )
+
+            if rect is None:
+                rect = Rectangle(self.trimbox)
+
+            formx_placed_name = self.add_resource(formx, Name.XObject)
+            cs = self.calc_form_xobject_placement(
+                formx, formx_placed_name, rect, allow_shrink=shrink, allow_expand=expand
             )
 
-        if rect is None:
-            rect = Rectangle(self.trimbox)
+            if push_stack:
+                self.contents_add(b'q\n', prepend=True)  # prepend q
+                self.contents_add(b'Q\n', prepend=False)  # i.e. append Q
 
-        formx_placed_name = self.add_resource(formx, Name.XObject)
-        cs = self.calc_form_xobject_placement(
-            formx, formx_placed_name, rect, allow_shrink=shrink, allow_expand=expand
-        )
-
-        if push_stack:
-            self.contents_add(b'q\n', prepend=True)  # prepend q
-            self.contents_add(b'Q\n', prepend=False)  # i.e. append Q
-
-        self.contents_add(cs, prepend=under)
-        self.contents_coalesce()
-        return formx_placed_name
+            self.contents_add(cs, prepend=under)
+            self.contents_coalesce()
+            return formx_placed_name
 
     def add_overlay(
         self,

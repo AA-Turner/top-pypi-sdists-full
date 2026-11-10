@@ -260,8 +260,24 @@ def test_html_check_skips_trees_the_standard_does_not_round_trip(markup: str) ->
         html_check(markup)
 
 
-def test_xml_check_passes_the_serializer() -> None:
-    assert xml_check("<p a=1>x<svg><circle r=1></circle></svg>") is None
+@pytest.mark.parametrize(
+    "markup",
+    [
+        pytest.param("<p a=1>x<svg><circle r=1></circle></svg>", id="nested-content"),
+        pytest.param("<p><!--end-\x01--></p>", id="comment-trailing-hyphen-after-control"),
+        pytest.param("<p><!--a-\x01-b--></p>", id="comment-double-hyphen-across-control"),
+    ],
+)
+def test_xml_check_passes_the_serializer(markup: str) -> None:
+    assert xml_check(markup) is None
+
+
+def test_xml_check_drops_invalid_namespace_declaration() -> None:
+    assert xml_check("<p xmlns:foo>") is None
+
+
+def test_xml_check_normalizes_processing_instruction_space_after_invalid_character() -> None:
+    assert xml_check("<p><?foo \x00\tbar?></p>") is None
 
 
 @pytest.mark.parametrize("markup", ["<!DOCTYPE", "<d<>", "<z:>", "<l :>"])
@@ -472,10 +488,27 @@ def test_css_semantics_check_skips_a_document_without_style() -> None:
         css_semantics_check("<p>x")
 
 
-def test_css_semantics_check_skips_invalid_distributive_shorthand() -> None:
-    markup = "<style>i{margin-right:0}i{margin:0 1px 1r;margin-top:0;margin-bottom:0px}</style><i></i>"
+@pytest.mark.parametrize(
+    "markup",
+    [
+        pytest.param(
+            "<style>i{margin-right:0}i{margin:0 1px 1r;margin-top:0;margin-bottom:0px}</style><i></i>",
+            id="invalid-unit",
+        ),
+        pytest.param("<style>body{padding:0 a, b}</style>", id="unsupported-token"),
+        pytest.param("<style>body{padding:0 f}</style>", id="unsupported-padding-keyword"),
+        pytest.param("<style>body{margin:0 f}</style>", id="unsupported-margin-keyword"),
+        pytest.param("<style>body{border-width:0 f}</style>", id="unsupported-border-keyword"),
+    ],
+)
+def test_css_semantics_check_skips_invalid_distributive_shorthand(markup: str) -> None:
     with pytest.raises(OutOfScopeError):
         css_semantics_check(markup)
+
+
+def test_css_semantics_check_keeps_supported_shorthand_keywords() -> None:
+    markup = "<style>i{margin:0 auto;border-width:thin thick}</style><i></i>"
+    assert css_semantics_check(markup) is None
 
 
 @pytest.mark.parametrize(
@@ -669,10 +702,17 @@ def test_generation_public_consumers_accept_domain_bytes(name: str, data: bytes)
         pytest.param(markdown_source_check, "<img src=x alt='op>A <a href=https://ok.example>safe</a>'>", id="source"),
         pytest.param(markdown_html_check, "<img src=x alt='k</a'>", id="html"),
         pytest.param(markdown_html_check, "<img src=x alt='a*b & c'>", id="punctuation-and-entity"),
+        pytest.param(markdown_html_check, '<table><td><img alt="  ">', id="table-alt-spaces"),
+        pytest.param(markdown_html_check, '<table><td><img src="a  b" alt="x">', id="table-src-spaces"),
+        pytest.param(markdown_html_check, '<table><td><img src="x" title="c  d">', id="table-title-spaces"),
     ],
 )
 def test_markdown_oracle_keeps_image_alt_escapes(check: Callable[[str], str | None], source: str) -> None:
     assert check(source) is None
+
+
+def test_markdown_source_omits_hidden_title_in_pre() -> None:
+    assert markdown_source_check("<pre/><title>") is None
 
 
 @pytest.mark.parametrize("name", ["markdown-source", "markdown-html"])
@@ -717,6 +757,8 @@ def test_markdown_source_grammar_skips_lost_control_whitespace() -> None:
         pytest.param(b"<meta charset=windows-1252><p>\xe9</p>", "UTF-8", True, "é", id="prescan"),
         pytest.param(b" " * 1025 + b"<meta charset=windows-1251><p>\xc0</p>", "UTF-8", True, "\u0410", id="late-meta"),
         pytest.param(b"<p>a<!--c-->b<strong>c</strong>d</p>", "UTF-8", False, "abcd", id="comment-tails"),
+        pytest.param(b"<select><style>\x00", "UTF-8", False, "\ufffd", id="select-style-nul"),
+        pytest.param(b"<select><title>\x00", "UTF-8", False, "\ufffd", id="select-title-nul"),
         pytest.param(("<div>" * 1200 + "x" + "</div>" * 1200).encode(), "UTF-8", False, "x", id="deep-tree"),
     ],
 )
@@ -823,9 +865,25 @@ def test_generation_first_conversion_loss(name: str, data: bytes) -> None:
         target.callback(data)
 
 
-def test_generation_changed_decoder_text() -> None:
+@pytest.mark.parametrize(
+    "data", [pytest.param(b"<p>kept</p>", id="ordinary"), pytest.param(b"<select><style>\x00", id="select-style")]
+)
+def test_generation_changed_decoder_text(data: bytes) -> None:
     with pytest.raises(AssertionError, match="Encoded parser text differs"):
-        encoding_observation(b"<p>kept</p>", decode=lambda _data, _codec: "<p>wrong</p>")
+        encoding_observation(data, decode=lambda _data, _codec: "<p>wrong</p>")
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param("<svg></p>\0", "", id="svg-unmatched-p"),
+        pytest.param("<math><mrow></p>\0", "", id="math-unmatched-p"),
+        pytest.param("<svg>\0", "\ufffd", id="svg-null"),
+        pytest.param("<svg></p>\0<svg>\0", "\ufffd", id="following-svg-null"),
+    ],
+)
+def test_generation_foreign_unmatched_p_null(markup: str, expected: str) -> None:
+    assert encoding_observation(markup.encode()) == expected
 
 
 @pytest.mark.parametrize(
@@ -1091,6 +1149,7 @@ def test_corpus_preserves_generated_bindings(tmp_path: Path) -> None:
         pytest.param(b"p { color: #ff0000; margin: 0px; }", "p{color:red;margin:0}", id="sheet"),
         pytest.param('p { content: "水😀"; }'.encode(), 'p{content:"水😀"}', id="unicode"),
         pytest.param(b'p { content: "</style>"; color: red; }', 'p{content:"</style>";color:red}', id="html-boundary"),
+        pytest.param(b"p{e:c(\\3  x)}", "p{e:c(\\3  x)}", id="function-hex-escape"),
     ],
 )
 def test_stylesheet_consumer_exact_source(source: bytes, expected: str) -> None:

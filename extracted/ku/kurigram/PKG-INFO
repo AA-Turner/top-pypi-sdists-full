@@ -1,11 +1,11 @@
 Metadata-Version: 2.5
 Name: Kurigram
-Version: 2.2.26
+Version: 2.2.27
 Summary: Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
 Project-URL: Homepage, https://kurigram.icu
 Project-URL: Documentation, https://docs.kurigram.icu
-Project-URL: Source, https://github.com/KurimuzonAkuma/pyrogram
-Project-URL: Issues, https://github.com/KurimuzonAkuma/pyrogram/issues
+Project-URL: Source, https://github.com/kurigram-org/kurigram
+Project-URL: Issues, https://github.com/kurigram-org/kurigram/issues
 Project-URL: Community, https://t.me/kurigram_chat
 Author-email: Dan <dan@pyrogram.org>
 Maintainer: KurimuzonAkuma
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -40,46 +41,62 @@ Requires-Python: >=3.10
 Requires-Dist: pyaes>=1.2.0
 Requires-Dist: python-socks[asyncio]>=2.4.0
 Provides-Extra: fast
-Requires-Dist: tgcrypto>=1.2.2; extra == 'fast'
+Requires-Dist: kuricrypt>=0.1.0; extra == 'fast'
 Requires-Dist: uvloop>=0.21.0; (sys_platform == 'darwin' or sys_platform == 'linux') and extra == 'fast'
 Provides-Extra: qrcode
 Requires-Dist: qrcode>=5.2.2; extra == 'qrcode'
 Description-Content-Type: text/markdown
 
 <p align="center">
-    <a href="https://github.com/KurimuzonAkuma/kurigram">
-        <img src="https://raw.githubusercontent.com/KurimuzonAkuma/kurigramartwork/master/kurigram-logo.png" alt="Kurigram" width="128">
+    <a href="https://github.com/kurigram-org/kurigram">
+        <img
+            src="https://raw.githubusercontent.com/kurigram-org/artwork/master/kurigram_logo_github.png"
+            alt="Kurigram"
+            height="128"
+        />
     </a>
-    <br>
+    <br />
     <b>Telegram MTProto API Framework for Python</b>
-    <br>
-    <a href="https://kurigram.icu">
-        Homepage
-    </a>
+    <br />
+    <a href="https://kurigram.icu"> Homepage </a>
     •
-    <a href="https://docs.kurigram.icu">
-        Documentation
-    </a>
+    <a href="https://docs.kurigram.icu"> Documentation </a>
     •
-    <a href="https://t.me/kurigram_news">
-        News
-    </a>
+    <a href="https://t.me/kurigram_news"> News </a>
     •
-    <a href="https://t.me/kurigram_chat">
-        Chat
-    </a>
-    <br/>
-    <br/>
+    <a href="https://t.me/kurigram_chat"> Chat </a>
+    <br />
+    <br />
+    <img
+        src="https://img.shields.io/github/actions/workflow/status/kurigram-org/kurigram/python.yml?branch=dev&logo=github&label=CI"
+        alt="CI Tests"
+    />
     <a href="https://pypi.python.org/pypi/kurigram">
-        <img src="https://img.shields.io/pypi/v/kurigram.svg?logo=pypi&logoColor=white" alt="PyPI package version">
-    </a>
-    <a href="https://pypi.python.org/pypi/kurigram">
-        <img src="https://img.shields.io/pypi/l/kurigram.svg" alt="License">
+        <img
+            src="https://img.shields.io/pypi/v/kurigram.svg?logo=pypi&logoColor=white&color=%23f55b25"
+            alt="PyPI package version"
+        />
     </a>
     <a href="https://pypi.python.org/pypi/kurigram">
-        <img src="https://img.shields.io/pypi/pyversions/kurigram.svg" alt="Python versions">
+        <img
+            src="https://static.pepy.tech/badge/kurigram/month"
+            alt="Downloads"
+        />
+    </a>
+    <a href="https://pypi.python.org/pypi/kurigram">
+        <img
+            src="https://img.shields.io/pypi/pyversions/kurigram.svg?logo=python&logoColor=white&color=%23fd5216"
+            alt="Python versions"
+        />
+    </a>
+    <a href="https://github.com/kurigram-org/kurigram/blob/dev/COPYING">
+        <img
+            src="https://img.shields.io/github/license/kurigram-org/kurigram.svg?color=%23fd5216"
+            alt="License"
+        />
     </a>
 </p>
+
 
 ## Kurigram
 
@@ -119,7 +136,7 @@ Thank you for supporting Kurigram ❤️
 - **Ready**: Install Kurigram with pip and start building your applications right away.
 - **Easy**: Makes the Telegram API simple and intuitive, while still allowing advanced usages.
 - **Elegant**: Low-level details are abstracted and re-presented in a more convenient way.
-- **Fast**: Boosted up by [TgCrypto](https://github.com/pyrogram/tgcrypto), a high-performance cryptography library written in C.
+- **Fast**: Boosted up by [kuricrypt](https://github.com/kurigram-org/kuricrypt), a high-performance cryptography library written in Rust.
 - **Type-hinted**: Types and methods are all type-hinted, enabling excellent editor support.
 - **Async**: Fully asynchronous (also usable synchronously if wanted, for convenience).
 - **Powerful**: Full access to Telegram's API to execute any official client action and more.
@@ -135,13 +152,13 @@ pip install kurigram
 Dev version
 
 ``` bash
-pip install https://github.com/KurimuzonAkuma/kurigram/archive/dev.zip --force-reinstall
+pip install https://github.com/kurigram-org/kurigram/archive/main.zip --force-reinstall
 ```
 
 Optional dependencies
 
 ``` bash
-pip install kurigram[fast]     # TgCrypto and uvloop for better performance
+pip install kurigram[fast]     # kuricrypt and uvloop for better performance
 pip install kurigram[qrcode]   # QR code login support
 ```
 

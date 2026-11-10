@@ -49,6 +49,7 @@ __all__ = (
     "ComplianceStatusType",
     "ComplianceUploadTypeType",
     "ConnectionStatusType",
+    "DHMCPermissionModelType",
     "DeletionModeType",
     "DescribeActivationsFilterKeysType",
     "DescribeActivationsPaginatorName",
@@ -268,6 +269,7 @@ ComplianceSeverityType = Literal[
 ComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 ComplianceUploadTypeType = Literal["COMPLETE", "PARTIAL"]
 ConnectionStatusType = Literal["connected", "notconnected"]
+DHMCPermissionModelType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
 DeletionModeType = Literal["RemoveSharing", "RollbackMigration"]
 DescribeActivationsFilterKeysType = Literal["ActivationIds", "DefaultInstanceName", "IamRole"]
 DescribeActivationsPaginatorName = Literal["describe_activations"]

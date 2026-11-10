@@ -46,16 +46,16 @@ from office365.migration.sharepoint.site_settings import WebSettingsReport, appl
 from office365.migration.sharepoint.structure import (
     capture_list_structure,
     compare_web_scope_structure,
-    normalize_guid,
     provision_list_structure,
     provision_web_scope_columns,
     web_scope_note,
 )
 from office365.migration.tasks import FILE_SHARE, SHAREPOINT, MigrationTask
+from office365.runtime.converters.scalars import normalize_guid
 from office365.runtime.operations import Progress
-from office365.sharepoint.lists.base_type import BaseType
 from office365.sharepoint.lists.templates.type import ListTemplateType
 from office365.sharepoint.webs.creation_information import WebCreationInformation
+from office365.sharepoint.webs.templates.type import WebTemplateType
 
 if TYPE_CHECKING:
     from office365.migration.settings import MigrationSettings
@@ -72,39 +72,57 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["is_document_library", "is_migratable_list", "resolve_site_task", "resolve_task"]
+__all__ = ["LIST_SCOPE_SELECT", "is_migrated_as_items", "resolve_site_task", "resolve_task"]
 
-#: SharePoint's own infrastructure templates (user information, catalogs,
-#: workflow/translation plumbing) plus the Site Pages library, which needs
-#: page-aware handling the generic adapters do not provide yet.
-_SYSTEM_BASE_TEMPLATES = frozenset({112, 113, 114, 115, 116, 117, 118, 119, 121, 122, 123, 124, 125, 126, 127, 130})
+#: ``SPListTemplateType.WebPageLibrary`` — the modern pages library.
+_WEB_PAGE_LIBRARY = ListTemplateType.WebPageLibrary.value
 
-#: ``SPBaseType.DocumentLibrary`` — libraries hold files; everything else is a
-#: record list.
-_DOCUMENT_LIBRARY = BaseType.DocumentLibrary.value
+#: What a scope decision reads off a list handle. The default list read omits
+#: ``AllowDeletion`` and ``IsSystemList``, so a read that wants
+#: :func:`is_migrated_as_items` to mean anything has to name them. ``Title``, ``Id``,
+#: ``BaseType``, ``BaseTemplate``, ``Description`` and ``ContentTypesEnabled`` ride
+#: along because the same handles go on to structure capture.
+LIST_SCOPE_SELECT = (
+    "Title",
+    "Id",
+    "Hidden",
+    "AllowDeletion",
+    "IsSystemList",
+    "BaseType",
+    "BaseTemplate",
+    "Description",
+    "ContentTypesEnabled",
+)
 
 
-def is_document_library(sp_list: SPList) -> bool:
-    """Whether a SharePoint list is a document library (holds files, not records)."""
-    return sp_list.base_type == _DOCUMENT_LIBRARY
+def is_migrated_as_items(sp_list: SPList) -> bool:
+    """Whether a whole-site migration carries this list's content as items.
 
+    Skips hidden lists, and the ones the service protects from deletion and itself marks as
+    holding no end-user data (``AllowDeletion`` + ``IsSystemList``): that pair is how
+    SharePoint marks the lists it provisions for itself (user information, the galleries,
+    the taxonomy list), whatever template each came from. The pair is not deletion
+    protection on its own -- the service also protects the default document library, which
+    holds the site's own files (253 items on the tenant this was measured against, and the
+    service reports ``IsSystemList`` false for it). The Site Pages library is skipped by
+    name: a page row copied as a list item carries no canvas, so pages travel through
+    :func:`~office365.migration.sharepoint.pages.copy_site_pages` instead. A business-data
+    (BCS) external list is skipped too: it is a view over a BDC model that a copy cannot
+    provision, so :func:`~office365.migration.sharepoint.handoff.detect_handoff` reports it
+    instead of the structure replay creating a hollow list.
 
-def is_migratable_list(sp_list: SPList) -> bool:
-    """Whether a list/library takes part in a whole-site migration.
-
-    Skips hidden lists, SharePoint infrastructure templates, and system lists
-    that cannot be deleted (e.g. ``User Information``). A business-data (BCS)
-    external list is skipped too: it is a view over a BDC model that a copy
-    cannot provision, so :func:`~office365.migration.sharepoint.handoff.detect_handoff`
-    reports it instead of the structure replay creating a hollow list.
+    The verdict is only as good as the read behind it: the default list read omits
+    ``AllowDeletion`` and ``IsSystemList``, so a handle fetched without
+    :data:`LIST_SCOPE_SELECT` answers ``True`` for a list the service provisions for
+    itself.
     """
     if sp_list.hidden:
         return False
-    if sp_list.allow_deletion is False:
+    if sp_list.allow_deletion is False and sp_list.is_system_list:
         return False
-    if sp_list.base_template == EXTERNAL_LIST_TEMPLATE:
+    if sp_list.base_template in (EXTERNAL_LIST_TEMPLATE, _WEB_PAGE_LIBRARY):
         return False
-    return sp_list.base_template not in _SYSTEM_BASE_TEMPLATES
+    return True
 
 
 def resolve_task(
@@ -388,7 +406,7 @@ def _resolve_web(
             warnings.append(f"navigation replication failed for {_web_url(source_context.web)}: {e}")
     _apply_web_settings(source_context.web, target_context.web, preserve_site_settings, warnings)
     _report(progress, 0, None, "lists")
-    source_lists: Iterable[SPList] = source_context.web.lists.get().execute_query()
+    source_lists: Iterable[SPList] = source_context.web.lists.select(LIST_SCOPE_SELECT).get().execute_query()
     # Modern and classic wiki pages are copied; web part data bindings, wiki markup
     # that addresses the source site, workflows, InfoPath forms, BCS external lists
     # and pages with no copyable body are outside what a client-side copy can carry —
@@ -488,7 +506,7 @@ def _select_lists(
             continue
         if include_titles is not None and title not in include_titles:
             continue
-        if not is_migratable_list(source_list):
+        if not is_migrated_as_items(source_list):
             continue
         selected.append(source_list)
     return selected
@@ -579,7 +597,7 @@ def _list_adapters(
     source_list: SPList, target_list: SPList, *, content_type_map: ContentTypeMap | None = None
 ) -> tuple[Source, Target]:
     """Build the source/target adapter pair for one resolved list/library."""
-    if is_document_library(source_list):
+    if source_list.is_document_library:
         source = SharePointLibrarySource(source_list.root_folder, sp_list=source_list)
         folder = target_list.root_folder.get().execute_query()
         target = SharePointLibraryTarget(folder, sp_list=target_list, content_type_map=content_type_map)
@@ -621,17 +639,13 @@ def _web_identity(web: Web) -> tuple[str, str, str]:
     raw = _web_url(web)
     leaf = raw.rstrip("/").rsplit("/", 1)[-1]
     title = web.title or leaf
-    template = web.web_template or "STS#3"
+    template = web.web_template or WebTemplateType.STS_MODERN.value
     return leaf, title, template
 
 
 def _web_url(web: Web) -> str:
-    """A web's absolute URL, or its server-relative URL when only that is loaded."""
-    for name in ("Url", "ServerRelativeUrl"):
-        value = web.get_property(name)
-        if value:
-            return str(value)
-    return web.server_relative_url or web.url or ""
+    """A web's URL, or empty when the read asked for neither spelling of it."""
+    return web.absolute_url or ""
 
 
 def _web_leaf(web: Web) -> str:
@@ -646,7 +660,29 @@ def _template_type(source_list: SPList) -> ListTemplateType:
             return ListTemplateType(value)
         except ValueError:
             pass
-    return ListTemplateType.DocumentLibrary if is_document_library(source_list) else ListTemplateType.GenericList
+    return ListTemplateType.DocumentLibrary if source_list.is_document_library else ListTemplateType.GenericList
+
+
+def _shape_refusal(source_title: "str | None", source_holds_files: bool, target_title: "str | None") -> str:
+    """Why a source/target pair cannot carry content, in the terms the caller used.
+
+    A file has no list-record shape and a record is not a file body, so a pair that
+    disagrees about files vs records cannot migrate anything: the record target fails
+    on the first write (``TypeError: object is not iterable``) and the file target
+    writes the record's ``repr`` into a file. Refusing at resolve time costs one
+    round-trip and says what to change.
+    """
+    source = repr(source_title) if source_title else "the source"
+    target = repr(target_title) if target_title else "the target"
+    if source_holds_files:
+        return (
+            f"{source} holds files and {target} is a list, not a document library: a file has no "
+            "list-record shape, so nothing would be written — point the task at a document library"
+        )
+    return (
+        f"{source} holds list records and {target} is a document library: a record is not a file, "
+        "and the library target would write one whose content is the record's repr — point the task at a list"
+    )
 
 
 def _file_share(
@@ -657,6 +693,8 @@ def _file_share(
     source = FileSystemSource(task.file_share_source)
     target_context = _context_for(context, task.target_site_url)
     target_list, folder = _target_folder(target_context, task)
+    if not target_list.is_document_library:
+        raise ValueError(_shape_refusal(task.file_share_source, True, target_list.title))
     return source, _build_target(task, target_context, settings, target_list, folder)
 
 
@@ -672,6 +710,8 @@ def _sharepoint(
     source_list = source_context.web.get_list_by_title(task.source_list).get().execute_query()
     source = _list_source(source_list)
     target_list, folder = _target_folder(target_context, task)
+    if source_list.is_document_library != target_list.is_document_library:
+        raise ValueError(_shape_refusal(source_list.title, source_list.is_document_library, target_list.title))
     # Always replay structure over REST. The server-side package path does not
     # emit columns/content types/views yet, so skipping this would silently drop
     # them from the target (the package builder only carries the library, folders,
@@ -687,7 +727,7 @@ def _sharepoint(
 
 
 def _list_source(source_list: SPList) -> Source:
-    if is_document_library(source_list):
+    if source_list.is_document_library:
         return SharePointLibrarySource(source_list.root_folder, sp_list=source_list)
     return SharePointListSource(source_list)
 
@@ -727,8 +767,23 @@ def _build_target(
     content_type_map: ContentTypeMap | None = None,
 ) -> Target:
     if settings is not None and settings.use_migration_api:
-        return _package_target(task, context, target_list)
-    if is_document_library(target_list):
+        if target_list.is_document_library:
+            return _package_target(task, context, target_list)
+        # A package can express a file, a folder and a file's list item — nothing
+        # else: there is no ``<List>`` provisioning object, so a record has no
+        # shape in ``Manifest.xml`` and would be written as a file whose content is
+        # the record's repr. Records have no version history to preserve either, so
+        # the REST path loses nothing a package could have carried.
+        target = SharePointListTarget(target_list, content_type_map=content_type_map)
+        _attach_warnings(
+            target,
+            [
+                f"{target_list.title!r} is a list, not a document library: the server-side Migration API "
+                "carries files and folders only, so this task migrates records over REST"
+            ],
+        )
+        return target
+    if target_list.is_document_library:
         return SharePointLibraryTarget(folder, sp_list=target_list, content_type_map=content_type_map)
     return SharePointListTarget(target_list, content_type_map=content_type_map)
 

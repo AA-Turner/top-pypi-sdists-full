@@ -23,7 +23,7 @@ from pathlib import Path
 from .. import state_paths, vault, writer_lease
 from .. import structured_collections as collections
 from ..cli_ops import OpError
-from . import admission, authority, connection, legacy, legacy_import
+from . import admission, authority, connection, inventory, legacy, legacy_import
 
 #: Seconds for the whole preflight: one audit scan plus every collection's capture and proof.
 DEADLINE_SECONDS = 300
@@ -81,38 +81,68 @@ def _row(path, manifest=None, *, status, blocker=None, **found) -> dict:
     row = {"path": path, "status": status,
            "collection_id": None if manifest is None else manifest.collection_id,
            "semantic_profile": None if manifest is None else manifest.semantic_profile,
-           "layout": None if manifest is None else manifest.storage.strategy, **found}
+           "layout": None if manifest is None else manifest.storage.strategy,
+           "view_mode": None if manifest is None else manifest.view_mode, **found}
     if blocker is not None:
         row["blocker"] = blocker
     return row
 
 
-def preflight(vault_root) -> dict:
+def preflight(vault_root, cursor=None) -> dict:
     """Report, per file collection, its rows, legacy audit status, proof result and blockers.
 
     Owner-only, because it reads every collection with full authority. The report holds
     counts, statuses, codes and paths, never row values. A dataset is skipped, because it
-    keeps file authority. Collections the vault's marker routes to the store are counted, not
-    listed: their paths are store-owned. The vault is ``migratable`` only when no file
-    collection is blocked and a writer-lease coordinator is configured; without one, a vault
-    with something left to migrate is ``blocked`` with a vault-level ``blocker``.
+    keeps file authority. Collections the vault's marker routes to the store are counted in
+    ``store_collections``, not listed in ``collections``: their paths are store-owned. The vault
+    is ``migratable`` only when no file collection is blocked and a writer-lease coordinator is
+    configured; without one, a vault with something left to migrate is ``blocked`` with a
+    vault-level ``blocker``. ``inventory`` pages every store and file collection; ``cursor`` is
+    its ``next_cursor``.
     """
+    from . import ownership
+
     admission.require_owner(vault_root, "the collections-store preflight")
+    after = inventory.position(cursor)
     root = Path(vault_root).resolve()
     try:
         coordinator = coordinator_capability()
     except OpError as error:
         # An outage leaves the collections' answer standing; only the coordinator's is unknown.
         coordinator = {"status": "unavailable", "code": error.code}
-    rows, pending, store_ids = candidates(root)
+    proof = ownership.current(root)
+    rows, pending, store_ids = candidates(root, ownership_proof=proof)
     if pending:
         rows.extend(_prove_all(root, pending))
-    found = report(rows, store_ids)
+    found = {**report(rows, store_ids), "inventory": inventory.page(root, rows, proof, after)}
     if coordinator["status"] == "not_configured" and found["verdict"] != "nothing_to_migrate":
         # The apply would refuse, so the vault is not migratable here, whatever its collections prove.
         refusal = admission.coordination_required("the collections-store migration")
         found = {**found, "verdict": "blocked", "blocker": {"code": refusal.code, "reason": refusal.reason}}
     return {**found, "dry_run": True, "coordinator": coordinator}
+
+
+def tool_report(vault_root, cursor=None) -> dict:
+    """``preflight`` as a tool call answers it, through an egress that withholds each path it cannot release.
+
+    Only a process that serves the store can release a store collection's path, so elsewhere, as in
+    the CLI, the answer keeps ``inventory.total`` but lists no store row. Its ``outcome`` says so and
+    names where every row reads. The host command ``exomem collections migrate --dry-run`` prints
+    ``preflight`` itself.
+    """
+    from . import runtime
+    from .preview import bound_writer
+
+    found = preflight(vault_root, cursor)
+    root = Path(vault_root).resolve()
+    stored = sum(row["authority"] == inventory.STORE for row in found["inventory"]["collections"])
+    if stored and bound_writer(root) is None and not runtime.served(root):
+        found["outcome"] = (
+            f"This process does not serve the collection store, so this answer withholds the {stored} store "
+            "collection row(s) of this page: inventory.total counts them, and inventory.collections lists only "
+            "file collections. Ask the running service, or run `exomem collections migrate --dry-run` on the "
+            "host, for every row.")
+    return found
 
 
 def candidates(root, *, ownership_proof=None):
@@ -151,6 +181,9 @@ def candidates(root, *, ownership_proof=None):
                         for manifest in group)
             continue
         pending.extend(group)
+    rows.extend(_row(manifest.path, manifest, status="blocked", blocker=_blocker(collections.sqlite_store_required()))
+                for manifest in pending if manifest.storage.strategy == collections.SQLITE_STORAGE)
+    pending = [manifest for manifest in pending if manifest.storage.strategy != collections.SQLITE_STORAGE]
     rows.extend(_row(manifest.path, manifest, status="skipped", reason="a dataset keeps file authority")
                 for manifest in pending if not legacy_import.importable(manifest))
     staying = [authority.file_ownership(manifest) for manifest in pending if not legacy_import.importable(manifest)]
@@ -296,7 +329,8 @@ def _prove_once(root, manifest, staging, audit, context, record=None, *, present
     except _REFUSALS as error:
         return _row(manifest.path, manifest, status="blocked", blocker=_blocker(error))
     found = {"rows": len(captured.snapshot.records),
-             "legacy_audit_status": captured.legacy_inspection["status"]}
+             "legacy_audit_status": captured.legacy_inspection["status"],
+             "stamped_items": len(captured.snapshot.note_identity_paths)}
     staging.execute("BEGIN IMMEDIATE")
     try:
         with legacy_import.checked_sql(staging, audit._check):

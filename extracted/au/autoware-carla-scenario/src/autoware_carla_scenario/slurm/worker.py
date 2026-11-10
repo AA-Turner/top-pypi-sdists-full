@@ -40,8 +40,10 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..constants import MAX_ROS_DOMAIN_ID
 from ..run_outputs import remove_run_outputs
 from ..run_timeout import run_timeout_seconds
+from ..seed import check_whole_number
 from .manifest import (
     BatchLayout,
     config_key,
@@ -50,6 +52,7 @@ from .manifest import (
 from .ports import (
     CarlaWatchdog,
     PortSlot,
+    RosDomains,
     acquire_slot,
     first_slot,
     kill_carla_on_port,
@@ -134,13 +137,28 @@ class _RssSampler(threading.Thread):
         )
 
 
-def worker_overrides(cfg: "DictConfig", slot: PortSlot) -> dict[str, Any]:
-    """Point *cfg* at the task's ports (in place); what it changed.
+#: The keys :func:`worker_overrides` may write where the config leaves them
+#: out, its dataclass default standing in for them.
+_DEFAULTED = frozenset({"autoware.address", "driver.bridge.address", "ros2.domain_id"})
+
+
+def worker_overrides(
+    cfg: "DictConfig", slot: PortSlot, domains: RosDomains | None = None
+) -> dict[str, Any]:
+    """Point *cfg* at the task's ports and ROS domains (in place); what it changed.
 
     The CARLA server and its TrafficManager, and the bridges the run itself
     hosts.  ``driver.address`` is left alone: a policy the run serves itself
     (``driver.policy``) listens on a port the OS picks, and one that is not
     is a server someone else runs, which every task dials.
+
+    With *domains*, the DDS domains the run's ROS 2 nodes join are the
+    task's own (:class:`.ports.RosDomains`), none shared with another task on
+    the node: ``ros2.domain_id`` for ``ego.entity=ros2``, each
+    ``autoware.launcher.ros_domain_ids`` entry for the docker launcher (one,
+    from the launcher's ``env.ROS_DOMAIN_ID`` or 0, when it lists none), and
+    ``ROS_DOMAIN_ID`` in ``autoware.launcher.env`` for the command launcher
+    (from its own, else this process's ``ROS_DOMAIN_ID``, else 0).
     """
     from omegaconf import OmegaConf  # noqa: PLC0415
 
@@ -148,18 +166,187 @@ def worker_overrides(cfg: "DictConfig", slot: PortSlot) -> dict[str, Any]:
         "server.port": slot.rpc,
         "traffic_manager.port": slot.traffic_manager,
     }
+    # A bridge that names no address of its own listens on
+    # AutowareBridgeConfig's default, which every task on the node would then
+    # share (#1883, #1885).
+    from autoware_carla_scenario.autoware_bridge.base import (  # noqa: PLC0415
+        AutowareBridgeConfig,
+    )
+
     autoware = cfg.get("autoware")
-    if autoware is not None and autoware.get("address"):
-        changes["autoware.address"] = _with_port(autoware.address, slot.autoware_bridge)
+    if autoware is not None:
+        address = autoware.get("address") or AutowareBridgeConfig.address
+        changes["autoware.address"] = _with_port(address, slot.autoware_bridge)
     driver = cfg.get("driver")
     bridge = None if driver is None else driver.get("bridge")
-    if bridge is not None and bridge.get("address"):
-        changes["driver.bridge.address"] = _with_port(
-            bridge.address, slot.driver_bridge
-        )
+    if bridge is not None:
+        address = bridge.get("address") or AutowareBridgeConfig.address
+        changes["driver.bridge.address"] = _with_port(address, slot.driver_bridge)
+    if domains is not None:
+        changes.update(_domain_overrides(cfg, domains))
     for key, value in changes.items():
-        OmegaConf.update(cfg, key, value, merge=False)
+        # force_add: a group need not hold the key its default stands for.
+        OmegaConf.update(cfg, key, value, merge=False, force_add=key in _DEFAULTED)
+    tm_key = _backend_tm_port_key(cfg, slot.traffic_manager)
+    if tm_key is not None:
+        changes[tm_key] = slot.traffic_manager
+        OmegaConf.update(cfg, tm_key, slot.traffic_manager, merge=False, force_add=True)
     return changes
+
+
+def _env_domain_id(value: str, key: str) -> int:
+    """``ROS_DOMAIN_ID`` as an environment holds it (a ``str``), as an int;
+    refused naming *key* unless it is a whole number."""
+    text = value.strip()
+    if not (text.isascii() and text.isdigit()):
+        raise ValueError(
+            f"{key} must be a ROS domain id, a whole number from 0 to "
+            f"{MAX_ROS_DOMAIN_ID}, got {value!r}"
+        )
+    return int(text)
+
+
+def _take_domain(domains: RosDomains, wanted: int, key: str) -> int:
+    """The task's domain for *wanted*, the value of *key*; an id out of
+    range refused naming the key."""
+    if not 0 <= wanted <= MAX_ROS_DOMAIN_ID:
+        raise ValueError(
+            f"{key} must be a ROS domain id, a whole number from 0 to "
+            f"{MAX_ROS_DOMAIN_ID}, got {wanted}"
+        )
+    return domains.take(wanted)
+
+
+def _domain_overrides(cfg: "DictConfig", domains: RosDomains) -> dict[str, Any]:
+    """The ROS domain settings of *cfg* moved to the task's own domains.
+
+    The values are checked as a local run checks them (``Ros2EgoConfig``,
+    ``examples.run._launcher_ros_domain_ids`` and ``_launcher_str_mapping``),
+    so a SLURM task and a local run take and refuse the same ones.
+    """
+    from omegaconf import OmegaConf  # noqa: PLC0415
+
+    from ..examples import run  # noqa: PLC0415 - the local run's checks
+
+    def plain(value: Any) -> Any:
+        if OmegaConf.is_config(value):
+            return OmegaConf.to_container(value, resolve=True)
+        return value
+
+    changes: dict[str, Any] = {}
+    ego = cfg.get("ego")
+    ros2 = cfg.get("ros2")
+    if (
+        ego is not None
+        and str(ego.get("entity", "autopilot")) == "ros2"
+        and ros2 is not None
+    ):
+        # A ros2 group without domain_id joins Ros2EgoConfig's default, which
+        # every task on the node would then share (#1885).
+        from ..ros2.config import Ros2EgoConfig  # noqa: PLC0415
+
+        key = "ros2.domain_id"
+        wanted = check_whole_number(key, ros2.get("domain_id", Ros2EgoConfig.domain_id))
+        new = wanted not in domains.mapping
+        domain = _take_domain(domains, wanted, key)
+        if new and domain != wanted:
+            # ROS 2 nodes started outside the framework must follow it.
+            logger.warning(
+                "%s %d is another task's on this node: this task's ROS 2 ego "
+                "joins domain %d instead; start its ROS 2 nodes with "
+                "ROS_DOMAIN_ID=%d (recorded as ros_domains in the task's file)",
+                key,
+                wanted,
+                domain,
+                domain,
+            )
+        changes[key] = domain
+    # The launcher is built (and validated) only for an Autoware ego, as a
+    # local run does: any other ego takes no domain for it.
+    if ego is None or str(ego.get("entity", "autopilot")) != "autoware":
+        return changes
+    autoware = cfg.get("autoware")
+    launcher = None if autoware is None else autoware.get("launcher")
+    if launcher is None:
+        return changes
+    kind = str(launcher.get("type", "none"))
+    if kind not in ("docker", "command"):
+        return changes
+    env = run._launcher_str_mapping("env", plain(launcher.get("env")))
+    env_key = "autoware.launcher.env.ROS_DOMAIN_ID"
+    default = 0
+    if env.get("ROS_DOMAIN_ID"):
+        default = _env_domain_id(env["ROS_DOMAIN_ID"], env_key)
+    elif kind == "command" and os.environ.get("ROS_DOMAIN_ID", "").strip():
+        # The command inherits this process's environment: the job's
+        # exported ROS_DOMAIN_ID is the one it would have joined.
+        env_key = "ROS_DOMAIN_ID (the job's environment)"
+        default = _env_domain_id(os.environ["ROS_DOMAIN_ID"], env_key)
+    if kind == "docker":
+        key = "autoware.launcher.ros_domain_ids"
+        ids = run._launcher_ros_domain_ids(
+            {"ros_domain_ids": plain(launcher.get("ros_domain_ids"))}
+        )
+        if ids:
+            changes[key] = [_take_domain(domains, i, key) for i in ids]
+        else:
+            changes[key] = [_take_domain(domains, default, env_key)]
+    else:
+        # The whole mapping, so a null env is replaced rather than descended into.
+        changes["autoware.launcher.env"] = {
+            **env,
+            "ROS_DOMAIN_ID": str(_take_domain(domains, default, env_key)),
+        }
+    return changes
+
+
+def _record_domains(task: Any, domains: RosDomains | None) -> None:
+    """Record the task's ROS domains (configured id to domain) beside its
+    ports, for the ROS 2 nodes started outside the framework to read."""
+    if domains is not None and domains.mapping:
+        task.update(ros_domains={str(k): v for k, v in sorted(domains.mapping.items())})
+
+
+#: The option each built-in backend reads the TrafficManager's port from
+#: (``conf/traffic/<backend>.yaml``).
+_TM_PORT_OPTIONS = {"traffic_manager": "port", "sumo": "tm_port"}
+
+
+def _backend_tm_port_key(cfg: "DictConfig", port: int) -> str | None:
+    """The traffic backend's TrafficManager port option, when it must be set.
+
+    The traffic groups interpolate it from ``traffic_manager.port``, which then
+    follows the slot (*port*) by itself: ``None``.  A value stated outright --
+    ``traffic.options.port: 8101``, a ``null`` that leaves the backend's own
+    default, or the option left out -- would put every task on the node on one
+    TrafficManager, so it is the key to point at the slot's port, with a
+    warning when it named another port (#1863).  A config with no ``traffic``
+    group reads ``traffic_manager.port`` itself, and other backends name no
+    TrafficManager port.
+    """
+    from omegaconf import OmegaConf  # noqa: PLC0415
+
+    traffic = cfg.get("traffic")
+    if traffic is None:
+        return None
+    option = _TM_PORT_OPTIONS.get(str(traffic.get("backend", "traffic_manager")))
+    if option is None:
+        return None
+    options = traffic.get("options")
+    if options is not None and option in options:
+        current = options.get(option)
+        if current == port and OmegaConf.is_interpolation(options, option):
+            return None
+        if current is not None and current != port:
+            logger.warning(
+                "traffic.options.%s: %s is replaced by the task's TrafficManager "
+                "port %d: tasks sharing a node each have a port of their own "
+                "(docs/slurm.md)",
+                option,
+                current,
+                port,
+            )
+    return f"traffic.options.{option}"
 
 
 def _differences(
@@ -621,6 +808,7 @@ def _batch_configs(
     chunk: list[int],
     configs: list[Any],
     slot: PortSlot,
+    domains: RosDomains | None = None,
 ) -> dict[int, Any]:
     """The configs of the cases *record* (the manifest's ``batch_settings``)
     names, by index: this task's own from *configs* (its cases, *chunk*), the
@@ -641,7 +829,7 @@ def _batch_configs(
         case = manifest["cases"][index]
         cfg = run._compose_config(case["scenario"], list(case["overrides"]))
         _check_same_config(case, cfg, manifest.get("cwd"))
-        worker_overrides(cfg, slot)
+        worker_overrides(cfg, slot, domains)
         found[index] = cfg
     return found
 
@@ -688,6 +876,7 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
     signal.signal(signal.SIGUSR1, _raise_interrupt)
 
     slot: PortSlot | None = None
+    domains: RosDomains | None = None
     watchdog: CarlaWatchdog | None = None
     # Converts each case's trajectory log into a Rerun recording as the case
     # ends (rerun.enabled): each task converts its own cases.
@@ -707,16 +896,20 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
         if settings.start_stagger_seconds > 0:
             task.update(state="waiting")
             wait_for_start_turn(layout.start_lock, settings.start_stagger_seconds)
+        lock_dir = (
+            Path(settings.port_lock_dir).expanduser()
+            if settings.port_lock_dir
+            else None
+        )
         slot = acquire_slot(
             settings.port_base,
             settings.port_slots,
             start=first_slot(os.environ, settings.port_slots),
-            lock_dir=(
-                Path(settings.port_lock_dir).expanduser()
-                if settings.port_lock_dir
-                else None
-            ),
+            lock_dir=lock_dir,
         )
+        # Taken as the configs ask for them (worker_overrides), beside the
+        # slot's locks; they go when this process does.
+        domains = RosDomains(lock_dir)
         port_file = layout.task_port(submission_index, task_index)
         try:
             watchdog = CarlaWatchdog(slot, port_file)
@@ -739,11 +932,12 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
         for case in cases:
             cfg = run._compose_config(case["scenario"], list(case["overrides"]))
             _check_same_config(case, cfg, manifest.get("cwd"))
-            worker_overrides(cfg, slot)
+            worker_overrides(cfg, slot, domains)
             # Refused before anything is built, as a local batch refuses it
             # (the submitting process already did, for a batch it checked).
             timeouts.append(run_timeout_seconds(cfg))
             configs.append(cfg)
+        _record_domains(task, domains)
         # A declarative case on another map than its document names, as the
         # submitting process refused it (#1424); refused again, beside
         # check_batch_map, for a manifest it did not check -- and before
@@ -773,7 +967,10 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
             run.apply_canvas(*configs)
             _apply_metrics(run, configs)
         else:
-            chosen = _batch_configs(run, manifest, record, chunk, configs, slot)
+            chosen = _batch_configs(
+                run, manifest, record, chunk, configs, slot, domains
+            )
+            _record_domains(task, domains)
             first_cfg = chosen[int(record.get("first_case", 0))]
             rerun = run.build_rerun_converter(
                 *(chosen[int(i)] for i in record.get("rerun_cases", []))
@@ -829,9 +1026,9 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
                 )
                 started = time.time()
                 (result,) = queue.run_all(release=True, continue_on_error=True)
-                # The case's recording is a few milliseconds' work, done while
-                # the world was reset: wait for it, so its outcome is in the
-                # case's record for `collect`.
+                # The case's recording is a few milliseconds' work, done in the
+                # background: wait for it, so its outcome is in the case's
+                # record for `collect`.
                 rerun_error = (
                     run.rerun_errors([result], rerun.wait()).get(0)
                     if rerun is not None
@@ -897,6 +1094,8 @@ def run_task(manifest_path: Path, submission_index: int, task_index: int) -> int
             # With CARLA left, the watchdog ends it when this process does,
             # and keeps the slot locked until then.
             slot.release(keep_lock=watchdog is not None and bool(left))
+        if domains is not None:
+            domains.release()
     return exit_status
 
 

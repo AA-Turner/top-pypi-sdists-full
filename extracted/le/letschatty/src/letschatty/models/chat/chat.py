@@ -25,6 +25,7 @@ from .seguimiento_estado import EstadoDelSeguimiento
 from ..company.assets.ai_agents_v2.chatty_ai_agent_in_chat import ChattyAiAgentInChatStatus
 from ..messages.chatty_messages.base.message_draft import MessageDraft
 from .time_left import TimeLeft
+from .reply_window import is_free_window_open
 from ..company.conversation_topic import TopicTimelineEntry
 from ..company.CRM.funnel import ActiveFunnel
 import logging
@@ -323,8 +324,8 @@ class Chat(CompanyAssetModel):
 
     @property
     def is_free_conversation_active(self) -> bool:
-        """Check if the free conversation is active"""
-        return self._seconds_until(self.free_conversation_expire_date) > 0
+        """Check if the free conversation is active (the rule is `models/chat/reply_window.py`, ENG-340)"""
+        return is_free_window_open(self.free_conversation_expire_date, datetime.now(tz=_UTC))
 
     @property
     def time_left_for_free_conversation(self) -> float:

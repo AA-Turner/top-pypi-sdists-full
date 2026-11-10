@@ -23,6 +23,132 @@ class TestConnection(unittest.TestCase):
     def tearDown(self):
         del self.connection
 
+    def test_status_callback_reference(self):
+        import gc
+        import sys
+        import weakref
+
+        # PyPy has no sys.getrefcount: there the reference count checks are
+        # skipped and only the weak reference below proves the release.
+        getrefcount = getattr(sys, "getrefcount", lambda obj: None)
+
+        def callback(connection, info):
+            calls.append(info)
+
+        calls = []
+        alive = weakref.ref(callback)
+        before = getrefcount(callback)
+        connection = create_connection({"status_callback": callback})
+        if before is not None:
+            self.assertEqual(getrefcount(callback), before + 1)
+
+        cursor = connection.cursor()
+        cursor.execute("SET @@session.autocommit = NOT @@session.autocommit")
+        cursor.close()
+        del cursor  # a cursor references its connection
+        self.assertTrue(any("autocommit" in info for info in calls), calls)
+
+        # A cycle through the connection: the cyclic collector must reach
+        # the callback through tp_traverse. PyPy never collects a cycle that
+        # runs through a C extension object, so the cycle is CPython only.
+        if platform.python_implementation() != "PyPy":
+            connection._converter = {0: connection}
+        connection.close()
+        del connection
+        gc.collect()
+        if before is not None:
+            self.assertEqual(getrefcount(callback), before)
+
+        connection = create_connection({"status_callback": callback})
+        if before is not None:
+            self.assertEqual(getrefcount(callback), before + 1)
+        connection.close()
+        del connection
+        gc.collect()
+        if before is not None:
+            self.assertEqual(getrefcount(callback), before)
+
+        # Nothing but this frame holds the callback any more. PyPy frees an
+        # object that was handed to C over a few collections, not one.
+        del callback
+        for _ in range(10):
+            gc.collect()
+            if alive() is None:
+                break
+        self.assertIsNone(alive())
+
+        # None means no callback
+        connection = create_connection({"status_callback": None})
+        cursor = connection.cursor()
+        cursor.execute("SET @@session.autocommit = NOT @@session.autocommit")
+        cursor.close()
+        connection.close()
+
+    def test_conpy364(self):
+        # When the cyclic collector reclaims a connection it clears the
+        # instance dict. _closed lives in the C struct and survives that, so
+        # close() used to die on the missing _Connection__pool with an
+        # AttributeError. Clearing the dict here is what subtype_clear does,
+        # without waiting on a collection.
+        connection = create_connection()
+        self.assertIn("_Connection__pool", connection.__dict__)
+        connection.__dict__.clear()
+        self.assertFalse(connection._closed)
+        connection.close()
+        self.assertTrue(connection._closed)
+
+    def test_conpy364_close_twice(self):
+        connection = create_connection()
+        connection.close()
+        self.assertTrue(connection._closed)
+        connection.close()
+        with self.assertRaises(mariadb.ProgrammingError):
+            connection.cursor()
+
+    def test_conpy364_pooled_connection_still_returns_to_pool(self):
+        # With the dict intact the pool path must be unchanged: close() returns
+        # the connection to the pool instead of closing it.
+        pool = mariadb.ConnectionPool(pool_name="test_conpy364", pool_size=1,
+                                      **conf())
+        try:
+            connection = pool.get_connection()
+            connection.close()
+            self.assertFalse(connection._closed)
+            # the only connection of the pool must be the one just returned
+            self.assertIs(pool.get_connection(), connection)
+        finally:
+            pool.close()
+
+    def test_conpy331(self):
+        # A wrong type on an integer connection argument used to raise a bare
+        # "'str' object cannot be interpreted as an integer" from the C
+        # argument parser, naming neither the argument nor the expected type.
+        int_keywords = ("port", "connect_timeout", "read_timeout",
+                        "write_timeout", "local_infile", "compress",
+                        "ssl_verify_cert", "ssl", "client_flag", "pool_size",
+                        "pool_reset_connection")
+        for keyword in int_keywords:
+            with self.subTest(keyword=keyword):
+                with self.assertRaises(mariadb.ProgrammingError) as ctx:
+                    mariadb.connect(**{**conf(), keyword: "5"})
+                message = str(ctx.exception)
+                self.assertIn(keyword, message)
+                self.assertIn("int", message)
+                self.assertIn("str", message)
+
+    def test_conpy331_valid_values_still_accepted(self):
+        # Integers, booleans and the ssl dictionary form must keep working;
+        # ssl=0/ssl=1 were rejected before because any non-bool was treated as
+        # a mapping by the ssl compatibility branch.
+        for kwargs in ({"port": int(conf()["port"])}, {"ssl": False},
+                       {"ssl": 0}, {"compress": True},
+                       {"ssl": {"ca": None}}):
+            with self.subTest(kwargs=kwargs):
+                args = conf().copy()
+                args.update(kwargs)
+                connection = mariadb.connect(**args)
+                connection.close()
+
     def test_conpy36(self):
         if platform.system() == "Windows":
             self.skipTest("unix_socket not supported on Windows")
@@ -133,6 +259,41 @@ class TestConnection(unittest.TestCase):
         self.assertEqual(conn.database, "test1")
         conn.database = default_conf["database"]
         self.assertEqual(conn.database, default_conf["database"])
+        cursor.close()
+        conn.close()
+
+    def test_unsupported_character_set(self):
+        """The connector talks utf8mb4 in both directions: a statement that
+        moves the client or the result character set away from it is refused,
+        on the text and on the binary protocol, with a ProgrammingError (not
+        a SystemError from an exception left pending in the C callback)."""
+        if self.connection.server_version < 100202:
+            self.skipTest("session tracking not supported")
+        if is_maxscale():
+            self.skipTest("MAXSCALE doesn't forward session state changes")
+
+        for statement in ("SET NAMES latin1",
+                          "SET character_set_client = latin1",
+                          "SET character_set_results = latin1"):
+            for binary in (False, True):
+                with self.subTest(statement=statement, binary=binary):
+                    conn = create_connection()
+                    cursor = conn.cursor(binary=binary)
+                    with self.assertRaises(mariadb.ProgrammingError) as exc:
+                        if binary:
+                            cursor.execute(statement, ())
+                        else:
+                            cursor.execute(statement)
+                    self.assertIn("latin1", str(exc.exception))
+                    cursor.close()
+                    conn.close()
+
+        # a variable the connector does not depend on, and utf8mb4 itself,
+        # pass
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SET character_set_connection = latin1")
+        cursor.execute("SET character_set_results = utf8mb4")
         cursor.close()
         conn.close()
 

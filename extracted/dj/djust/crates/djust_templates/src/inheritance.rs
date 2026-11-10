@@ -51,6 +51,11 @@ pub fn set_include_origins(nodes: &mut [Node], name: &str) -> Result<()> {
 /// Preserve the defining template name when includes move through inheritance.
 fn attach_include_origins(nodes: &mut [Node], name: &str) {
     for node in nodes {
+        if let Node::Located { lazy_origin, .. } = node {
+            if lazy_origin.is_none() {
+                *lazy_origin = Some(name.to_owned());
+            }
+        }
         if let Node::Include { origin, .. } = node {
             if origin.is_none() {
                 *origin = Some(name.to_string());
@@ -367,6 +372,7 @@ fn node_references_block_super(node: &Node) -> bool {
         | Node::Load(_)
         | Node::TemplateTag(_)
         | Node::CsrfToken
+        | Node::DjustAudio
         | Node::Static(_)
         | Node::Now(_)
         | Node::Extends(_)
@@ -1228,6 +1234,7 @@ fn node_to_template_string(node: &Node) -> String {
             result
         }
         Node::CsrfToken => "{% csrf_token %}".to_string(),
+        Node::DjustAudio => "{% djust_audio %}".to_string(),
         Node::Static(operand) => format!("{{% static {operand} %}}"),
         Node::ReactComponent { .. } => {
             // React components should be preserved as-is if possible
@@ -1377,7 +1384,14 @@ fn node_to_template_string(node: &Node) -> String {
             }
             result.push_str(" %}");
             result.push_str(&nodes_to_template_string(children));
-            result.push_str(&format!("{{% end{name} %}}"));
+            // The end tag the handler REGISTERED, not `end{name}`: a tag may
+            // name its own closing tag (`end_theme_card_block`, #2894), and
+            // re-emitting `endtheme_card_block` is a parse error on the
+            // resolved template.
+            result.push_str(&format!(
+                "{{% {} %}}",
+                crate::registry::block_handler_exists(name).unwrap_or_else(|| format!("end{name}"))
+            ));
             result
         }
         Node::RawBlockCustomTag { name, args, body } => {
@@ -1390,7 +1404,12 @@ fn node_to_template_string(node: &Node) -> String {
             }
             result.push_str(" %}");
             result.push_str(body);
-            result.push_str(&format!("{{% end{name} %}}"));
+            // Registered end tag, as for `BlockCustomTag` above (#2894).
+            result.push_str(&format!(
+                "{{% {} %}}",
+                crate::registry::raw_block_handler_exists(name)
+                    .unwrap_or_else(|| format!("end{name}"))
+            ));
             result
         }
         Node::Language { expr, children } => {

@@ -35,6 +35,12 @@ class WhileloopFlow:
                 'WhileloopFlowParallelismType2', Unset]): Maps input parameters for a step. Can be a static value or a
                 JavaScript expression that references previous results or flow inputs
             squash (Union[Unset, bool]):
+            max_iterations (Union[Unset, int]): Maximum number of iterations. Checked after each iteration; when reached and
+                stop_after_if did not stop the loop, the loop fails with an error named 'LoopExhausted'
+            max_duration_secs (Union[Unset, int]): Maximum wall-clock seconds since the first iteration started, checked
+                after each iteration. A running iteration is not interrupted, so the loop can exceed the limit by up to one
+                iteration; the timeout of the body's steps caps an iteration. When reached and stop_after_if did not stop the
+                loop, the loop fails with an error named 'LoopExhausted'
     """
 
     modules: List["WhileloopFlowModulesItem"]
@@ -45,6 +51,8 @@ class WhileloopFlow:
         "WhileloopFlowParallelismType0", "WhileloopFlowParallelismType1", "WhileloopFlowParallelismType2", Unset
     ] = UNSET
     squash: Union[Unset, bool] = UNSET
+    max_iterations: Union[Unset, int] = UNSET
+    max_duration_secs: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -81,6 +89,8 @@ class WhileloopFlow:
                 parallelism = self.parallelism.to_dict()
 
         squash = self.squash
+        max_iterations = self.max_iterations
+        max_duration_secs = self.max_duration_secs
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -97,6 +107,10 @@ class WhileloopFlow:
             field_dict["parallelism"] = parallelism
         if squash is not UNSET:
             field_dict["squash"] = squash
+        if max_iterations is not UNSET:
+            field_dict["max_iterations"] = max_iterations
+        if max_duration_secs is not UNSET:
+            field_dict["max_duration_secs"] = max_duration_secs
 
         return field_dict
 
@@ -169,6 +183,10 @@ class WhileloopFlow:
 
         squash = d.pop("squash", UNSET)
 
+        max_iterations = d.pop("max_iterations", UNSET)
+
+        max_duration_secs = d.pop("max_duration_secs", UNSET)
+
         whileloop_flow = cls(
             modules=modules,
             skip_failures=skip_failures,
@@ -176,6 +194,8 @@ class WhileloopFlow:
             parallel=parallel,
             parallelism=parallelism,
             squash=squash,
+            max_iterations=max_iterations,
+            max_duration_secs=max_duration_secs,
         )
 
         whileloop_flow.additional_properties = d

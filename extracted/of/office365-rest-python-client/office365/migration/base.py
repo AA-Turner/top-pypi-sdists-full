@@ -7,9 +7,13 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field, fields
 from enum import Enum
+from typing import TYPE_CHECKING, Any
 
 from office365.runtime.limits import DEFAULT_BATCH_SIZE
 from office365.runtime.operations import OperationStats
+
+if TYPE_CHECKING:
+    from office365.migration.identity import IdentityMap
 
 
 class ConflictResolution(str, Enum):
@@ -78,8 +82,6 @@ class MigrationItem:
     error_code: str | None = None  # failure category/code (e.g. exception type name)
     modified: str | None = None  # source last-modified (ISO-8601), for incremental
     created: str | None = None  # source created (ISO-8601)
-    author_id: int | None = None  # source author user id (system ``AuthorId``)
-    editor_id: int | None = None  # source last-modified-by user id (system ``EditorId``)
     source_id: str | None = None  # source item identity (e.g. file UniqueId), for the old→new map
     version_label: str | None = None  # current version label (e.g. ``"3.0"``)
     # Older versions, oldest first, as ``(label, content)`` — populated only for a
@@ -90,6 +92,10 @@ class MigrationItem:
     # the manifest (they are small, JSON-safe dicts), never checkpointed.
     author: "Principal | None" = None
     editor: "Principal | None" = None
+    # Adapter-defined envelope attributes carried with the item (e.g. a mail
+    # message's subject/recipients/categories). Persisted in the manifest so a
+    # portable export writes its own index; the runner never interprets it.
+    metadata: dict[str, Any] | None = None
 
 
 # SharePoint Online renders ``UserInfo.UserId.NameId`` as a 16-character hex PUID
@@ -143,12 +149,18 @@ class Principal:
     Migration API's ``UserGroup.xml`` ``SystemId`` requires, in its canonical
     form (see :func:`normalize_puid`). A GUID or a claims login there fails the
     ingestion job, so only a resolved PUID is carried.
+
+    ``user_id`` is the **site-local numeric id** that referred to this user at the
+    source (``AuthorId``/``EditorId`` on a list item, a ``site_users`` id). It means
+    nothing in another site — ``UserGroup.xml`` is written from ``system_id`` — so
+    it is a convenience for reading a value back, not an identity.
     """
 
     login_name: str
     system_id: str | None = None
     display_name: str | None = None
     email: str | None = None
+    user_id: int | None = None
 
 
 @dataclass
@@ -168,12 +180,26 @@ class PermissionEntry:
     principal_name: str
     roles: list[str] = field(default_factory=list)
     # PUID (``UserInfo.UserId.NameId``) for a user principal; ``None`` for a group
-    # or an unresolved principal (the package target skips those).
+    # or an unresolved principal.
     system_id: str | None = None
     display_name: str | None = None
     email: str | None = None
     # Role name -> decimal permission mask (e.g. ``"Read" -> "756052856929"``).
     role_masks: dict[str, str] = field(default_factory=dict)
+    # Principal kind, when the source knows it: ``"user"``, ``"group"`` (a
+    # SharePoint group, matched on the target by title) or ``None`` for anything
+    # else — a distribution list, a security group, an unresolved principal. The
+    # server-side package target grants a group by name; the client-side REST path
+    # and the permission diff ignore this field.
+    principal_type: str | None = None
+    # The group's owner, resolved to a PUID, for a ``principal_type="group"``
+    # entry: ``UserGroup.xml`` requires an ``Owner`` on every ``<Group>``. ``None``
+    # when the owner is a group (see ``owner_groups``) or is not resolvable.
+    owner: "Principal | None" = None
+    # The owner chain above this group, **nearest first**: a group's owner may be
+    # another group (a site's ``Visitors`` group is normally owned by its
+    # ``Owners`` group), and each one needs its own ``<Group>`` entry.
+    owner_groups: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -212,6 +238,11 @@ class MigrationOptions:
     modified_after: str | None = None
     batch_size: int = DEFAULT_BATCH_SIZE
     concurrency: int = 1  # parallel workers for bulk file upload / batched writes
+    # Source → target principal map for authorship and ACLs (cross-tenant, or a
+    # tenant whose logins were normalized). ``None`` keeps source logins as they
+    # are, which is correct inside one tenant. See
+    # :class:`~office365.migration.identity.IdentityMap`.
+    identity_map: "IdentityMap | None" = None
 
 
 def item_to_dict(item: MigrationItem) -> dict:

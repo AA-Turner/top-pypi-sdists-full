@@ -1,12 +1,12 @@
 import ast
 import http.server
+import logging
 import os
 import re
 import signal
 import socketserver
 import tempfile
 import time
-import warnings
 import webbrowser
 import zipfile
 
@@ -32,14 +32,13 @@ from rich.text import Text
 
 from edgar.config import SEC_BASE_URL
 from edgar.documents.utils.html_utils import create_lxml_parser
-from edgar.exceptions import AttachmentNotFoundError
+from edgar.exceptions import AttachmentNotFoundError, ValidationError
 from edgar.core import binary_extensions, has_html_content, text_extensions
-from edgar.files._deprecation import PAGE_BREAK_DEPRECATION
-from edgar.files.html_documents import get_clean_html
-from edgar.files.markdown import to_markdown
 from edgar.httpclient import async_http_client
 from edgar.httprequests import download_file, download_file_async, get_with_retry
-from edgar.richtools import print_rich, print_xml, repr_rich, rich_to_text
+from edgar.richtools import print_rich, print_xml, repr_rich
+
+log = logging.getLogger(__name__)
 
 xbrl_document_types = ['XBRL INSTANCE DOCUMENT', 'XBRL INSTANCE FILE', 'EXTRACTED XBRL INSTANCE DOCUMENT']
 
@@ -308,26 +307,22 @@ def _first_by_class(element, tag: str, class_name: str):
 
 
 def _as_lxml_root(root, api: str):
-    """Accept the BeautifulSoup this API used to take, for one more major version.
+    """Reject the BeautifulSoup this API took until 6.0, with the call that replaces it.
 
-    `Attachments` and `FilingHomepage` are both exported from `edgar`, so the
-    tree they are handed is part of a public signature; it was a BeautifulSoup
-    until this release. Duck-typed on ``xpath`` rather than isinstance, so that
-    checking does not re-import the bs4 this module no longer depends on.
+    `Attachments` and `FilingHomepage` are both exported from `edgar`, so the tree
+    they are handed is part of a public signature. 5.x re-parsed a soup with a
+    DeprecationWarning; 6.0 dropped bs4, so a soup fails here rather than inside a
+    selector with "'NoneType' object is not callable".
 
     ``callable``, not ``hasattr``: a BeautifulSoup answers any unknown attribute
     with the first child tag of that name, or None -- so ``hasattr(soup,
-    "xpath")`` is True, and the soup would sail past the check and fail later
-    inside a selector with "'NoneType' object is not callable".
+    "xpath")`` is True.
     """
     if root is None or callable(getattr(root, "xpath", None)):
         return root
-    warnings.warn(
-        f"Passing a BeautifulSoup to {api} is deprecated and will be removed in v6.0; "
-        f"it is re-parsed with lxml, which costs a second parse. Pass "
-        f"edgar.attachments.parse_homepage_html(html) instead.",
-        DeprecationWarning, stacklevel=3)
-    return parse_homepage_html(str(root))
+    raise TypeError(
+        f"{api} takes an lxml tree, not {type(root).__name__}. BeautifulSoup is no "
+        f"longer accepted as of 6.0; pass edgar.attachments.parse_homepage_html(html).")
 
 
 class FilerInfo(BaseModel):
@@ -344,6 +339,47 @@ class FilerInfo(BaseModel):
 
     def __repr__(self):
         return repr_rich(self.__rich__())
+
+
+def safe_attachment_filename(name: Optional[str]) -> str:
+    """Reduce a filer-chosen attachment name to a bare file name.
+
+    Attachment names come from the filing itself, so a name such as
+    ``../x.htm`` or ``/etc/x`` must not choose where a download lands. Every
+    directory part is dropped (both ``/`` and ``\\`` count as separators);
+    an ordinary name like ``aapl-20240928.htm`` comes back unchanged. A name
+    with nothing usable left raises ``ValidationError``.
+    """
+    raw = "" if name is None else str(name)
+    base = raw.replace("\\", "/").rsplit("/", 1)[-1]
+    if base.strip() in ("", ".", "..") or "\x00" in base:
+        raise ValidationError(
+            f"Attachment name {raw!r} is not a usable file name",
+            parameter="document",
+            invalid_value=raw,
+        )
+    if base != raw:
+        log.warning("Attachment name %r contains a path; saving it as %r", raw, base)
+    return base
+
+
+def safe_attachment_path(directory: Union[str, Path], name: Optional[str]) -> Path:
+    """The path inside ``directory`` where the attachment ``name`` is saved.
+
+    Raises ``ValidationError`` if the resulting path would fall outside
+    ``directory`` (for example a Windows drive-relative name like ``C:x``).
+    """
+    directory = Path(directory)
+    base = safe_attachment_filename(name)
+    file_path = directory / base
+    resolved_dir = directory.resolve()
+    if file_path.resolve().parent != resolved_dir:
+        raise ValidationError(
+            f"Attachment name {name!r} would be saved outside {directory}",
+            parameter="document",
+            invalid_value=name,
+        )
+    return file_path
 
 
 class Attachment:
@@ -488,7 +524,7 @@ class Attachment:
 
         # Determine if the path is a directory or a file
         if path.is_dir():
-            file_path = path / self.document
+            file_path = safe_attachment_path(path, self.document)
         else:
             file_path = path
 
@@ -510,9 +546,11 @@ class Attachment:
             if self.is_text():
                 content = self.content
                 if self.is_html() or has_html_content(content):
-                    from edgar import Document
-                    document = Document.parse(content)
-                    print_rich(document)
+                    from edgar.documents import HTMLParser, ParserConfig
+                    from edgar.sgml.text_extraction import decode_html_bytes
+                    if isinstance(content, (bytes, bytearray)):
+                        content = decode_html_bytes(content)
+                    print_rich(HTMLParser(ParserConfig()).parse(content))
                 elif self.is_xml():
                     print_xml(content)
                 else:
@@ -533,28 +571,22 @@ class Attachment:
         if self.is_text():
             content = self.content
             if self.is_html() or has_html_content(content):
-                from edgar import Document
-                document = Document.parse(content)
-                return rich_to_text(document)
+                # The same rule FilingSGML.text() and Filing.text() apply to HTML,
+                # so an exhibit reads the same whichever object you reach it from.
+                from edgar.sgml.text_extraction import attachment_html_to_text
+                return attachment_html_to_text(content)
             else:
                 return content
         return None
 
-    def markdown(self, include_page_breaks: bool = False, start_page_number: int = 0) -> Optional[str]:
+    def markdown(self) -> Optional[str]:
         """
         Convert the attachment to markdown format if it's HTML content.
 
         Rendered by ``edgar.documents``, the same pipeline as ``Filing.markdown()``,
         so images survive (GH #886) with their ``src`` resolved against this
-        attachment's URL.
-
-        Args:
-            include_page_breaks: If True, include ``{N}----`` page break
-                delimiters in the markdown. **Deprecated** — routes the document
-                through the legacy ``edgar.files`` renderer and forfeits images.
-                Removed in 6.0.
-            start_page_number: Starting page number for page break markers
-                (default: 0). Only meaningful with ``include_page_breaks=True``.
+        attachment's URL. Page-break markers are not rendered: the parser treats
+        page-break rules and page-number footers as print layout and drops them.
 
         Returns:
             None if the attachment is not HTML or cannot be converted.
@@ -568,15 +600,6 @@ class Attachment:
 
         # Check if content has HTML structure
         if not has_html_content(content):
-            return None
-
-        if include_page_breaks:
-            warnings.warn(PAGE_BREAK_DEPRECATION.format(cls="Attachment"),
-                          DeprecationWarning, stacklevel=2)
-            clean_html = get_clean_html(content)
-            if clean_html:
-                return to_markdown(clean_html, include_page_breaks=True,
-                                   start_page_number=start_page_number)
             return None
 
         from edgar.documents import HTMLParser, ParserConfig
@@ -891,9 +914,8 @@ class Attachments:
             self.sgml.download(path, archive)
             return
 
-        import asyncio
-        loop = asyncio.get_event_loop()
-        downloaded_files = loop.run_until_complete(Attachments._download_all_attachments(self._attachments))
+        from edgar.core import run_async_or_sync
+        downloaded_files = run_async_or_sync(Attachments._download_all_attachments(self._attachments))
 
         # Ensure path is a Path object
         path = Path(path)
@@ -906,13 +928,13 @@ class Attachments:
                 with zipfile.ZipFile(path, 'w') as zipf:
                     for attachment, downloaded in zip(self._attachments, downloaded_files, strict=False):
                         if isinstance(downloaded, bytes):
-                            zipf.writestr(attachment.document, downloaded)
+                            zipf.writestr(safe_attachment_filename(attachment.document), downloaded)
                         else:
-                            zipf.writestr(attachment.document, downloaded.encode('utf-8'))
+                            zipf.writestr(safe_attachment_filename(attachment.document), downloaded.encode('utf-8'))
         else:
             if path.is_dir():
                 for attachment, downloaded in zip(self._attachments, downloaded_files, strict=False):
-                    file_path = path / attachment.document
+                    file_path = safe_attachment_path(path, attachment.document)
                     if isinstance(downloaded, bytes):
                         file_path.write_bytes(downloaded)
                     else:
@@ -965,15 +987,9 @@ class Attachments:
 
             return thread, httpd, url
 
-    def markdown(self, include_page_breaks: bool = False, start_page_number: int = 0) -> Dict[str, str]:
+    def markdown(self) -> Dict[str, str]:
         """
         Convert all HTML attachments to markdown format.
-
-        Args:
-            include_page_breaks: If True, include page break delimiters in the
-                markdown. **Deprecated** — see :meth:`Attachment.markdown`.
-                Removed in 6.0.
-            start_page_number: Starting page number for page break markers (default: 0)
 
         Returns:
             A dictionary mapping attachment document names to their markdown content.
@@ -983,7 +999,7 @@ class Attachments:
 
         for attachment in self._attachments:
             if attachment.is_html():
-                md_content = attachment.markdown(include_page_breaks=include_page_breaks, start_page_number=start_page_number)
+                md_content = attachment.markdown()
                 if md_content:
                     markdown_attachments[attachment.document] = md_content
 
@@ -1165,19 +1181,7 @@ class FilingHomepage:
     def __init__(self,
                  url: str,
                  root: lxml.html.HtmlElement = None,
-                 attachments: Attachments = None,
-                 *,
-                 soup=None):
-        # The second argument was named `soup` and typed BeautifulSoup until
-        # this release. Both halves of the old call keep working -- the keyword
-        # spelling here, the old type in _as_lxml_root -- and both warn; both go
-        # in 6.0.
-        if soup is not None:
-            warnings.warn(
-                "FilingHomepage(soup=...) is deprecated and will be removed in v6.0. "
-                "Pass the tree as `root`.",
-                DeprecationWarning, stacklevel=2)
-            root = soup
+                 attachments: Attachments = None):
         self.attachments = attachments
         self.url = url
         self._root = _as_lxml_root(root, "FilingHomepage")

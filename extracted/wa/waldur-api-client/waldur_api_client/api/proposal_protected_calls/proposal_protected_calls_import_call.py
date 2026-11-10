@@ -57,7 +57,7 @@ def sync_detailed(
 ) -> Response[CallImportResponse]:
     """Import call configuration
 
-     Create a draft call under the given call managing organisation from a document produced by
+     Create a draft call under the given call managing organization from a document produced by
     export_call. References that cannot be resolved by name on this portal are skipped and reported in
     warnings. The import is atomic.
 
@@ -90,7 +90,7 @@ def sync(
 ) -> CallImportResponse:
     """Import call configuration
 
-     Create a draft call under the given call managing organisation from a document produced by
+     Create a draft call under the given call managing organization from a document produced by
     export_call. References that cannot be resolved by name on this portal are skipped and reported in
     warnings. The import is atomic.
 
@@ -118,7 +118,7 @@ async def asyncio_detailed(
 ) -> Response[CallImportResponse]:
     """Import call configuration
 
-     Create a draft call under the given call managing organisation from a document produced by
+     Create a draft call under the given call managing organization from a document produced by
     export_call. References that cannot be resolved by name on this portal are skipped and reported in
     warnings. The import is atomic.
 
@@ -149,7 +149,7 @@ async def asyncio(
 ) -> CallImportResponse:
     """Import call configuration
 
-     Create a draft call under the given call managing organisation from a document produced by
+     Create a draft call under the given call managing organization from a document produced by
     export_call. References that cannot be resolved by name on this portal are skipped and reported in
     warnings. The import is atomic.
 

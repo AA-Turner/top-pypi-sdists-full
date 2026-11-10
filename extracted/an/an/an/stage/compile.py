@@ -42,9 +42,13 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 from an.base import (
+    BESIDE_HOST_OVERRIDE,
     DEFAULT_FPS,
     DEFAULT_RESOLUTION,
+    GROUND_OVERRIDE,
     PAINT_KEYS_OVERRIDE,
+    RIDER_BEHIND,
+    RIDER_IN_FRONT,
     paint_key_items,
     paint_key_rank,
     rider_host_key,
@@ -88,7 +92,7 @@ from an.stage.rig import (  # noqa: F401  (re-exported)
 )
 from an.genres import action_kind, action_kind_names, entity_kind, entity_space_resolver
 from an.genres.registry import CompilePass
-from an.ir.frames import lag_filter
+from an.ir.frames import lag_filter, lag_resample
 from an.ir.compose import FlatAction, flatten
 from an.ir.schema import (
     CameraKey,
@@ -126,7 +130,11 @@ from an.ir.camera import (
     dolly_frames,
     dolly_growth,
     follow_overlay,
+)
+from an.frame_clock import (  # the grid rules (an#626)
+    camera_grid,
     frame_times,
+    step_times,
 )
 from an.ir.migrate import DocumentKind, migrate
 from an.stage.environments import PLANE_FILL_SPAN as _PLANE_FILL_SPAN
@@ -147,7 +155,7 @@ from an.stage.paths import (
 )
 from an.stage import tree as stage_tree
 from an.stage.text_layout import build_text_subtree, svg_data_uri, text_document  # noqa: F401  (re-exported)
-from an.stage.text import font_base_dir, text_entity_problem
+from an.stage.text import font_base_dir, halo_engine_problem, text_entity_problem
 from an.paint import Gradient
 from an.styles import STYLE_DOCUMENT_KIND, StylePack, resolve_palette, surface_for
 from an.stage.surface import (
@@ -200,6 +208,7 @@ def compile_args(
     scene_step_hz: float | None = None,
     style_pack: "StylePack | None" = None,
     default_easing: Any = None,
+    frame_samples: Sequence[Sequence[float]] | None = None,
 ) -> dict[str, Any]:
     """:func:`compile_shot`'s keywords for ``shot`` from settled values: the
     ONE place they are spelled out (an#713). The render path calls it with its
@@ -209,7 +218,9 @@ def compile_args(
     ``fps`` may be fractional (a camera's 29.97): the compiled document's frame
     grid is integral, so it is rounded here, and capture and mux keep the exact
     rate. The step grid is the shot's over the scene's
-    (:func:`an.ir.schema.resolve_step_hz`).
+    (:func:`an.ir.schema.resolve_step_hz`). ``frame_samples`` are the
+    instants the render samples (``RenderContext.frame_samples``), which a
+    follow or a dolly is keyed at too (an#626); ``None``, a frame each.
 
     >>> args = compile_args(Shot(id="s"), mall={}, fps=29.97, width=8, height=6, scene_step_hz=12.0)
     >>> args["fps"], args["step_hz"], (args["width"], args["height"])
@@ -224,6 +235,8 @@ def compile_args(
         step_hz=resolve_step_hz(shot, scene_step_hz),
         style_pack=style_pack,
         default_easing=default_easing,
+        frame_samples=frame_samples,
+        sample_fps=float(fps) if frame_samples is not None else None,
     )
 
 
@@ -888,8 +901,20 @@ def compile_shot(
     expression_provider: Any = None,
     style_pack: "StylePack | None" = None,
     default_easing: Any = None,
+    frame_samples: Sequence[Sequence[float]] | None = None,
+    sample_fps: float | None = None,
 ) -> CutoutSceneJSON:
     """Compile a single cutout-style `Shot` to its JS-runtime JSON form.
+
+    ``frame_samples`` (an#626) are the scene instants the render samples, per
+    frame (``RenderContext.frame_samples``: a shutter's sub-frame ones). A
+    camera the compiler keys itself — a follow, a dolly — is keyed at each of
+    them too (:func:`an.frame_clock.camera_grid`), so a sample lands
+    on an exact key instead of between two frames' keys. ``None`` (default)
+    keys a frame each and leaves the document byte-identical to before the
+    knob existed; so does any value for a shot with no such camera.
+    ``sample_fps`` is the rate they were taken at, when ``fps`` (the compiled
+    grid's, integral) rounds it: they are counted at it.
 
     ``default_easing`` (an#166) is the scene's ``meta.default_easing``: the
     curve of every authored tween that names none (tween > this > the built-in
@@ -914,7 +939,9 @@ def compile_shot(
     Exempt by construction, because they are separate
     emission sites rather than string-sniffed: the camera (`_add_camera_clips`
     — a stepped character under a translating camera slides in screen space,
-    which is why the practice keeps cameras on ones), compiled blinks, `play`
+    which is why the practice keeps cameras on ones; a FOLLOW is the
+    exception, computed from the stepped poses and stepped with them, an#626),
+    compiled blinks, `play`
     clips, and swap channels (already stepped by format). The value is
     stamped into ``meta.step_hz`` — only when set — so a serialized scene
     declares its timing policy without moving the contract hash of one that
@@ -941,6 +968,7 @@ def compile_shot(
         )
     if default_easing is not None:
         _check_default_easing(default_easing)
+    _refuse_unlowered_ground(shot)
     shot, retired = retire_front_spelling(shot)
     if retired:
         warnings.warn(
@@ -963,6 +991,12 @@ def compile_shot(
         default_easing=default_easing,
         style_pack=style_pack,
         expression_provider=expression_provider,
+        frame_samples=(
+            None
+            if frame_samples is None
+            else tuple(tuple(float(t) for t in f) for f in frame_samples)
+        ),
+        sample_fps=sample_fps,
     )
     replaced = stage_replacements()
     if replaced:
@@ -993,6 +1027,10 @@ class CompileState:
     default_easing: Any = None
     style_pack: "StylePack | None" = None
     expression_provider: Any = None
+    #: The render's sample instants per frame (an#626), ``None`` for a frame each.
+    frame_samples: tuple[tuple[float, ...], ...] | None = None
+    #: The rate ``frame_samples`` were taken at (a camera's 29.97), else ``fps``.
+    sample_fps: float | None = None
     textures: dict[str, AssetJSON] = field(default_factory=dict)
     resolutions: list[AssetResolutionJSON] = field(default_factory=list)
     overlay_children: list[NodeJSON] = field(default_factory=list)
@@ -1177,8 +1215,10 @@ def _camera_follow_pass(state: CompileState) -> None:
     frame by the runtime's executable spec (`evaluate_timeline`), and the
     target's position composed up its chain (`screen_position`, with no camera
     yet, so it is the scene position). The camera keeps the target where it
-    stood at the shot's start: one linear key per frame, which is exact at
-    every frame the render draws."""
+    stood at the shot's start: one key per instant of
+    :func:`an.frame_clock.camera_grid` — every frame (linear), every
+    step too on a stepped shot (step-eased), and every instant the render
+    samples (an#626) — so it is exact wherever the render looks."""
     camera = state.shot.camera
     if camera is None or camera.follow is None:
         return
@@ -1188,22 +1228,53 @@ def _camera_follow_pass(state: CompileState) -> None:
 
 
 def _camera_dolly_pass(state: CompileState) -> None:
-    """A dollying camera (an#478): its keys, one per frame (:func:`dolly_frames`),
-    so the root's zoom is the character plane's pinhole growth at every frame
-    and the parallax pass grows each plane by its own. A camera with no
-    ``dolly`` is left exactly as it was."""
+    """A dollying camera (an#478): its keys, one per instant of
+    :func:`an.frame_clock.camera_grid` (:func:`dolly_frames`), so the
+    root's zoom is the character plane's pinhole growth wherever the render
+    samples and the parallax pass grows each plane by its own. A camera with
+    no ``dolly`` is left exactly as it was."""
     keys = state.products.get(CAMERA_KEYS_PRODUCT)
     if keys is None:
         keys = camera_keys(state.shot, width=state.width, height=state.height)
     framed = dolly_frames(
-        keys, duration=max(0.001, float(state.shot.duration)), fps=state.fps
+        keys,
+        duration=max(0.001, float(state.shot.duration)),
+        fps=state.fps,
+        step_hz=_camera_step_hz(state),
+        frame_samples=state.frame_samples,
+        sample_fps=state.sample_fps,
     )
     if framed is not keys:
         state.products[CAMERA_KEYS_PRODUCT] = framed
 
 
+def _camera_step_hz(state: CompileState) -> float | None:
+    """The step grid the shot's compiled camera is sampled under (an#626).
+
+    A FOLLOW steps with a stepped shot: it is computed from the target's
+    stepped poses, and keyed on ones it would ramp across a frame while the
+    target holds. An AUTHORED camera (a move, keys, a dolly of them) stays on
+    ones, as `compile_shot` keeps every authored camera off the step grid (the
+    practice keeps cameras on ones: a stepped pan slides a stepped character
+    in screen space). A dolly over a follow's keys samples them on the
+    follow's own grid, so it re-reads them exactly.
+    """
+    camera = state.shot.camera
+    follows = camera is not None and camera.follow is not None
+    return state.step_hz if follows else None
+
+
 def camera_follow_keys(state: CompileState) -> list[CameraKey]:
-    """The keys of ``state.shot``'s follow camera, one per frame (an#445)."""
+    """The keys of ``state.shot``'s follow camera (an#445), one per instant
+    of :func:`an.frame_clock.camera_grid` under the shot's step grid
+    and the render's sample instants (an#626).
+
+    A ``lag`` (an#504) is filtered over the camera's own grid (every frame,
+    and every step on a stepped shot), and a sample instant between two of
+    its points takes the filter's own trajectory there
+    (:func:`an.ir.frames.lag_resample`): nothing changes at the grid, and a
+    shutter sample sees where the lagging camera really is.
+    """
     from an.stage.timeline import (
         evaluate_timeline,
         screen_position,
@@ -1214,25 +1285,51 @@ def camera_follow_keys(state: CompileState) -> list[CameraKey]:
     doc = _assemble_document(state, background="#000000")
     timeline = timeline_from_scene(doc)
     duration = max(0.001, float(state.shot.duration))
-    # One grid with the dolly pass's (`dolly_frames`): the keys stay exact.
-    times = frame_times(duration=duration, fps=state.fps)
+    # One sampler with the dolly pass's (`dolly_frames`): the keys stay exact.
+    grid = camera_grid(
+        duration,
+        fps=state.fps,
+        step_hz=_camera_step_hz(state),
+        frame_samples=state.frame_samples,
+        sample_fps=state.sample_fps,
+    )
+    times = list(grid.times)
     centre = (state.width / 2.0, state.height / 2.0)
-    try:
-        positions = [
-            screen_position(doc, follow.target, pose=evaluate_timeline(timeline, t))
-            for t in times
-        ]
-    except (KeyError, ValueError) as e:
-        raise CutoutCompileError(
-            f"shot {state.shot.id!r}: the camera follows {follow.target!r}, which "
-            f"is not a node of this shot ({e}). Follow an entity id or one of its "
-            "nodes."
-        ) from e
-    if follow.lag:
-        dt = 1.0 / state.fps
-        xs = lag_filter([x for x, _ in positions], lag=follow.lag, dt=dt)
-        ys = lag_filter([y for _, y in positions], lag=follow.lag, dt=dt)
-        positions = list(zip(xs, ys))
+
+    def target_at(instants):
+        try:
+            return [
+                screen_position(doc, follow.target, pose=evaluate_timeline(timeline, t))
+                for t in instants
+            ]
+        except (KeyError, ValueError) as e:
+            raise CutoutCompileError(
+                f"shot {state.shot.id!r}: the camera follows {follow.target!r}, "
+                f"which is not a node of this shot ({e}). Follow an entity id or "
+                "one of its nodes."
+            ) from e
+
+    if not follow.lag:
+        positions = target_at(times)
+    else:
+        base = list(grid.base)
+        raw = target_at(base)
+        # One dt rule: whenever the base grid IS the frame grid (on ones, or
+        # steps that fall on frames, as on twos), the uniform frame step the
+        # follow always used, to the bit; else the grid's own steps (frames and
+        # steps interleave), which `b - a` would only match up to float noise.
+        on_frames = base == frame_times(duration, fps=state.fps)
+        dt = 1.0 / state.fps if on_frames else [b - a for a, b in zip(base, base[1:])]
+        tracks = []
+        for axis in (0, 1):
+            values = [p[axis] for p in raw]
+            lagged = lag_filter(values, lag=follow.lag, dt=dt)
+            tracks.append(
+                lagged
+                if times == base
+                else lag_resample(base, values, lagged, times, lag=follow.lag)
+            )
+        positions = list(zip(*tracks))
     # The target relative to the root's origin (the canvas centre), where the
     # zoom is about: on screen it is `centre + g · (d − cam)`, so holding it
     # where it stood as the shot opened (`g0 · d0`) while the root zooms by `g`
@@ -1245,7 +1342,7 @@ def camera_follow_keys(state: CompileState) -> list[CameraKey]:
                 at=t,
                 x=(x - x0) if "x" in follow.axes else 0.0,
                 y=(y - y0) if "y" in follow.axes else 0.0,
-                easing="linear",
+                easing=grid.easing,
             )
             for t, (x, y) in zip(times, positions)
         ]
@@ -1264,7 +1361,7 @@ def camera_follow_keys(state: CompileState) -> list[CameraKey]:
             y=(dy - held[1] / g) if "y" in follow.axes else still[1] - held[1] / g,
             zoom=zoom,
             dolly=dolly,
-            easing="linear",
+            easing=grid.easing,
         )
         for t, (dx, dy), g, (zoom, dolly) in zip(times, d, gains, overlay)
     ]
@@ -2027,7 +2124,11 @@ def _place_after(
     placed entity root, in today's order (backdrop planes, the cast in entity
     order, the foreground planes). An entity placed after an anchor is taken
     out and drawn right after it, followed by whatever is placed after IT;
-    several after one anchor keep ``shot.entities`` order. Then runs of one
+    several after one anchor keep ``shot.entities`` order. An attached member
+    the world marks (:data:`an.base.BESIDE_HOST_OVERRIDE`, an#692) is drawn
+    right beside its host wherever the host is drawn, behind it or in front
+    of it (after what is placed after the host), several on one side in
+    ``shot.entities`` order (:func:`_beside_their_hosts_atoms`). Then runs of one
     environment's planes are packed into containers, the first named for the
     environment, the next ``<env>__band_<k>`` with ``scope=<env>`` so every
     plane stays ``<env>/<plane>``; and entities placed right after a plane
@@ -2074,18 +2175,35 @@ def _place_after(
     for kind, name, node in atoms:
         if kind == "entity" and name in afters:
             followers.setdefault(afters[name], []).append((kind, name, node))
-    base = [a for a in atoms if not (a[0] == "entity" and a[1] in afters)]
+    riders = _beside_their_hosts_atoms(shot, afters, placed=placed)
+    behind: dict[str, list[tuple[str, str, NodeJSON]]] = {}
+    in_front: dict[str, list[tuple[str, str, NodeJSON]]] = {}
+    for kind, name, node in atoms:
+        if kind == "entity" and name in riders:
+            host, side = riders[name]
+            sides = behind if side == RIDER_BEHIND else in_front
+            sides.setdefault(host, []).append((kind, name, node))
+    base = [
+        a
+        for a in atoms
+        if not (a[0] == "entity" and (a[1] in afters or a[1] in riders))
+    ]
 
     # (atom, the plane it rides: "env/plane" | None)
     ordered: list[tuple[tuple[str, str, NodeJSON], str | None]] = []
 
     def emit(atom, rides):
-        ordered.append((atom, rides))
         kind, name, node = atom
+        mine = kind == "entity"  # only an entity has riders (an#692)
+        for rider in behind.get(name, ()) if mine else ():
+            emit(rider, rides)  # in its host's wrapper, if it has one
+        ordered.append((atom, rides))
         # A plane's anchor is its path, `<env>/<plane>`, in every band.
         key = stage_tree.join(name, node.name) if kind == "plane" else name
         for follower in followers.get(key, ()):
             emit(follower, key if kind == "plane" else None)
+        for rider in in_front.get(name, ()) if mine else ():
+            emit(rider, rides)
 
     for atom in base:
         emit(atom, None)
@@ -2139,6 +2257,87 @@ def _place_after(
         if bands is not None:
             bands.append(AfterBand(wrapper=out[-1].name, environment=env, plane=plane))
     return out
+
+
+def _beside_their_hosts_atoms(
+    shot: Shot, afters: Mapping[str, str], *, placed: Collection[str]
+) -> dict[str, tuple[str, int]]:
+    """``{entity: (host, side)}`` for each entity of ``shot`` the world marked
+    to be drawn beside its host (:data:`an.base.BESIDE_HOST_OVERRIDE`, an#692),
+    both drawn in the scene (``placed``). Not one that names its own ``after``
+    (``afters``), nor one whose host is drawn, through ``after`` or its own
+    host, relative to that entity itself (the author's ``right.after: hat``,
+    ``hat`` on ``right``): that one keeps its own place, as the author's
+    ``after`` already draws it beside its host.
+
+    >>> from an.ir.schema import AssetRef, Shot
+    >>> def prop(id, host=None):
+    ...     mark = {BESIDE_HOST_OVERRIDE: {"host": host, "side": -1}} if host else None
+    ...     return AssetRef(kind="prop", id=id, store="props", ref="r", overrides=mark)
+    >>> shot = Shot(id="s", duration=1.0, entities=[
+    ...     prop("hat", "right"), prop("cap", "x"), prop("right"), prop("x")])
+    >>> _beside_their_hosts_atoms(shot, {"x": "cap"}, placed={"hat", "cap", "right", "x"})
+    {'hat': ('right', -1)}
+    """
+    out: dict[str, tuple[str, int]] = {}
+    for e in shot.entities:
+        mark = (e.overrides or {}).get(BESIDE_HOST_OVERRIDE)
+        if mark is None or e.id in afters or e.id not in placed:
+            continue
+        host, side = _beside_host_mark(shot.id, e.id, mark)
+        if host in placed:
+            out[e.id] = (host, side)
+    for eid in list(out):  # an `after` chain is acyclic: a cycle passes a rider
+        seen, at = set(), out[eid][0]
+        while at is not None and at != eid and at not in seen:
+            seen.add(at)
+            at = afters.get(at) or (out[at][0] if at in out else None)
+        if at == eid:
+            del out[eid]
+    return out
+
+
+def _refuse_unlowered_ground(shot: Shot) -> None:
+    """Refuse a :data:`an.base.GROUND_OVERRIDE` mark on a shot no world lowered
+    (one with no ``viewpoint``): it is the world's lowering's own record of
+    the floor under a member (an#519), never an authoring field, and nothing
+    reads it there (:func:`an.ir.world.world_ground_mark`).
+
+    >>> from an.ir.schema import AssetRef, Shot
+    >>> e = AssetRef(kind="prop", id="p", store="props", ref="r", overrides={"ground": 100})
+    >>> _refuse_unlowered_ground(Shot(id="s", duration=1.0, viewpoint="v", entities=[e]))
+    >>> _refuse_unlowered_ground(Shot(id="s", duration=1.0, entities=[e]))
+    Traceback (most recent call last):
+    ...
+    an.stage.compile.CutoutCompileError: shot 's': ['p'] carry `overrides.ground`, ...
+    """
+    if shot.viewpoint is not None:
+        return
+    marked = [e.id for e in shot.entities if GROUND_OVERRIDE in (e.overrides or {})]
+    if marked:
+        raise CutoutCompileError(
+            f"shot {shot.id!r}: {marked} carry `overrides.{GROUND_OVERRIDE}`, "
+            "the world's lowering's record of the floor under a member, not an "
+            "authoring field. Declare the shot's floor as `solve: {ground: y}`, "
+            "or the world's as `world: {ground: y}` and frame the shot with a "
+            "`viewpoint`."
+        )
+
+
+def _beside_host_mark(shot_id: str, entity_id: str, mark: Any) -> tuple[str, int]:
+    """``(host, side)`` of a :data:`an.base.BESIDE_HOST_OVERRIDE` mark, or a
+    :class:`CutoutCompileError` naming what is wrong with a malformed one (the
+    world writes it; a hand-written one is read the same way)."""
+    host = mark.get("host") if isinstance(mark, Mapping) else None
+    side = mark.get("side") if isinstance(mark, Mapping) else None
+    if not isinstance(host, str) or side not in (RIDER_BEHIND, RIDER_IN_FRONT):
+        raise CutoutCompileError(
+            f"shot {shot_id!r}: {entity_id!r} has a malformed "
+            f"`{BESIDE_HOST_OVERRIDE}` override {mark!r}: it is "
+            f"{{host: <entity id>, side: {RIDER_BEHIND} (behind) or "
+            f"{RIDER_IN_FRONT} (in front)}}"
+        )
+    return host, int(side)
 
 
 def _compensated_planes(shot: Shot, mall: Mapping[str, Mapping]) -> set[str]:
@@ -2214,6 +2413,7 @@ def _build_prop_entity(entity: AssetRef, build: SceneBuild) -> None:
             fonts=build.fonts,
             width=build.width,
             height=build.height,
+            renderer=build.shot.renderer,
         )
         (build.overlay if layer == "overlay" else build.children).append(sub)
         return
@@ -3237,11 +3437,13 @@ def _build_text_block(
     fonts: dict[str, str],
     width: int,
     height: int,
+    renderer: str,
 ) -> tuple[NodeJSON, str]:
     """A text block (an#155): its node, and the layer it belongs to.
 
     Every refusal of the typesetting path — a font that is not a file, a
-    glyph the face lacks, an override the schema does not know — becomes a
+    glyph the face lacks, an override the schema does not know, a ``halo``
+    the shot's ``renderer`` cannot draw (an#701) — becomes a
     :class:`CutoutCompileError` naming the entity; nothing falls back.
     """
     try:
@@ -3262,6 +3464,9 @@ def _build_text_block(
     problem = text_entity_problem(entity, desc)
     if problem is not None:
         raise CutoutCompileError(problem)
+    problem = halo_engine_problem(lay.units, renderer)
+    if problem is not None:
+        raise CutoutCompileError(f"text {entity.id!r}: {problem}")
     if entity.id in fonts:
         raise CutoutCompileError(
             f"two text blocks in shot share the id {entity.id!r}; a unit path "
@@ -4016,43 +4221,6 @@ def _build_anim_for(
             ],
         )
     raise TypeError(f"unsupported anim build for {type(action).__name__}")
-
-
-def step_times(start: float, duration: float, step_hz: float) -> list[float]:
-    """Clip-local times at which a stepped tween updates its pose (an#89).
-
-    The grid is SHOT-wide — multiples of ``1/step_hz`` on the shot's clock,
-    shared by every tween in the shot — not the tween's own: "on twos" means
-    every character changes pose on the same frames, so a tween starting at
-    0.033 s updates at the next grid point, not 0.033 s later. (Shots compile
-    independently, so the grid restarts at each cut.) Local 0 (the tween's
-    start) and ``duration`` (where the end value lands) are always present, so
-    a tween shorter than one step is a single step to its end value.
-
-    ``step_hz`` must be positive: with a non-positive rate the walk below never
-    reaches ``duration`` — an infinite loop, not an error — so it is refused.
-
-    >>> step_times(0.0, 0.3, 10)
-    [0.0, 0.1, 0.2, 0.3]
-    >>> [round(t, 3) for t in step_times(0.05, 0.3, 10)]
-    [0.0, 0.05, 0.15, 0.25, 0.3]
-    >>> step_times(0.0, 0.02, 10)
-    [0.0, 0.02]
-    """
-    if not step_hz > 0:
-        raise ValueError(f"step_hz must be positive; got {step_hz!r}")
-    eps = 1e-9
-    j = math.ceil(start * step_hz - eps)
-    times = [0.0]
-    while True:
-        t = j / step_hz - start
-        if t >= duration - eps:
-            break
-        if t > eps:
-            times.append(t)
-        j += 1
-    times.append(float(duration))
-    return times
 
 
 def _stepped_keyframes(

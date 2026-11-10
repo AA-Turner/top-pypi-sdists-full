@@ -3,13 +3,13 @@
 #include <CLI/CLI.hpp>
 
 #include <windows_emulator.hpp>
-#include <emulator_process_target.hpp>
-#include <inherited_pipes.hpp>
+#include <managed_process_start.hpp>
 #include <backend_selection.hpp>
 #include <win_gdb_stub_handler.hpp>
 #include <minidump_loader.hpp>
 #include <scoped_hook.hpp>
 #include <registry/registry_file.hpp>
+#include <registry/registry_state_file.hpp>
 
 #include "object_watching.hpp"
 #include <snapshot.hpp>
@@ -41,9 +41,23 @@ namespace sogen
             return utils::get_current_executable_path().parent_path();
         }
 
-#ifndef OS_EMSCRIPTEN
-        std::filesystem::path get_sandbox_executable()
+        const std::map<std::string, backend_type>& get_backend_names()
         {
+            static const std::map<std::string, backend_type> backends{
+                {"unicorn", backend_type::unicorn}, {"icicle", backend_type::icicle}, {"whp", backend_type::whp},
+                {"kvm", backend_type::kvm},         {"fex", backend_type::fex},       {"hvf", backend_type::hvf},
+            };
+            return backends;
+        }
+
+#ifndef OS_EMSCRIPTEN
+        // The sandbox runner is only built for WHP and KVM hosts; on the others the analyzer runs child processes itself.
+        std::filesystem::path get_managed_process_executable(const bool use_sandbox)
+        {
+            if (!use_sandbox)
+            {
+                return utils::get_current_executable_path();
+            }
 #ifdef _WIN32
             return get_current_binary_dir() / "sandbox.exe";
 #else
@@ -66,11 +80,15 @@ namespace sogen
             bool log_foreign_module_access{false};
             bool tenet_trace{false};
             bool prepend_call_count{false};
+#ifndef OS_EMSCRIPTEN
+            bool trace_children{false};
+#endif
 #if defined(OS_EMSCRIPTEN) && !defined(SOGEN_EMSCRIPTEN_SUPPORT_NODEJS)
             bool pause_before_start{false};
 #endif
             std::optional<uint64_t> break_call{};
             std::filesystem::path dump{};
+            std::filesystem::path snapshot_directory{"snapshots"};
             std::filesystem::path minidump_path{};
             std::filesystem::path report_path{};
             std::filesystem::path stdout_path{};
@@ -78,10 +96,13 @@ namespace sogen
             std::string whp_execution_hook_mode{"auto"};
             std::optional<backend_type> backend{};
             network::network_mode network{network::network_mode::offline};
-            bool disable_instruction_precision{false};
+            std::optional<bool> instruction_precision{};
+            bool native_timing{false};
+            bool keep_guest_time{false};
             uint32_t vcpu_count{1};
             std::filesystem::path registry_path{get_current_binary_dir() / "registry"};
             std::vector<std::filesystem::path> registry_files{};
+            std::filesystem::path registry_state{};
             std::filesystem::path emulation_root{};
             std::filesystem::path working_directory{};
             uint16_t managed_process_port{};
@@ -94,9 +115,51 @@ namespace sogen
 
 #ifndef OS_EMSCRIPTEN
         std::vector<std::string> create_managed_process_arguments(const analysis_options& options, const uint16_t port,
-                                                                  const std::string& token)
+                                                                  const std::string& token, const uint64_t child_id)
         {
             std::vector<std::string> arguments{"--managed-process-port", std::to_string(port), "--managed-process-token", token};
+            if (options.trace_children)
+            {
+                arguments.insert(arguments.end(), {"--trace-children", "--backend", "whp"});
+                const auto add_flag = [&](const std::string_view flag, const bool enabled) {
+                    if (enabled)
+                    {
+                        arguments.emplace_back(flag);
+                    }
+                };
+                add_flag("--very-concise", options.skip_generic_activity);
+                add_flag("--concise", options.concise_logging);
+                add_flag("--verbose", options.verbose_logging);
+                const auto add_output = [&](const std::string_view option, std::filesystem::path path) {
+                    if (!path.empty())
+                    {
+                        path.replace_filename(path.stem().string() + ".child-" + std::to_string(child_id) + path.extension().string());
+                        arguments.emplace_back(option);
+                        arguments.push_back(path.string());
+                    }
+                };
+                add_output("--report", options.report_path);
+                add_output("--stdout", options.stdout_path);
+                arguments.insert(arguments.end(), {"--report-format", options.report_format});
+                for (const auto& module : options.modules)
+                {
+                    arguments.insert(arguments.end(), {"--module", module});
+                }
+                for (const auto& function : options.ignored_functions)
+                {
+                    arguments.insert(arguments.end(), {"--ignore", function});
+                }
+            }
+            else if (options.backend)
+            {
+                const auto& names = get_backend_names();
+                const auto name = std::ranges::find(names, *options.backend, [](const auto& entry) { return entry.second; });
+                if (name != names.end())
+                {
+                    arguments.emplace_back("--backend");
+                    arguments.push_back(name->first);
+                }
+            }
             arguments.emplace_back("--network");
             arguments.emplace_back(network::to_string(options.network));
             if (options.spoof_gpu_features)
@@ -106,6 +169,14 @@ namespace sogen
             if (options.elevated)
             {
                 arguments.emplace_back("--elevated");
+            }
+            if (options.reproducible)
+            {
+                arguments.emplace_back("--reproducible");
+            }
+            if (options.instruction_precision)
+            {
+                arguments.emplace_back(*options.instruction_precision ? "--inst-precision" : "--no-inst-precision");
             }
 
             const auto add_path = [&](const std::string_view option, const std::filesystem::path& path) {
@@ -117,6 +188,7 @@ namespace sogen
             };
             add_path("--emulation", options.emulation_root);
             add_path("--registry", options.registry_path);
+            add_path("--snapshot-dir", options.snapshot_directory);
             for (const auto& registry_file : options.registry_files)
             {
                 arguments.emplace_back("--reg-file");
@@ -415,6 +487,60 @@ namespace sogen
             }
         }
 
+#ifndef OS_EMSCRIPTEN
+        // Runs the process until it exits or is interrupted. Ctrl+Alt+Shift+S in its window saves it to the directory
+        // meanwhile, and it keeps running.
+        void run_with_snapshot_hotkey(windows_emulator& win_emu, const std::filesystem::path& directory,
+                                      const std::atomic_uint32_t& signals_received)
+        {
+            snapshot::controller snapshots{win_emu,
+                                           {},
+                                           directory,
+                                           [&](const snapshot::snapshot_outcome& outcome) {
+                                               if (outcome.error.empty())
+                                               {
+                                                   win_emu.log.force_print(color::green, "Saved the process to %s\n",
+                                                                           outcome.path.string().c_str());
+                                               }
+                                               else
+                                               {
+                                                   win_emu.log.error("Saving the process failed: %s\n", outcome.error.c_str());
+                                               }
+                                           },
+                                           true};
+            win_emu.ui().set_snapshot_request_sink([&] { snapshots.request(); });
+            const auto snapshot_sink_guard = utils::finally([&] { win_emu.ui().set_snapshot_request_sink({}); });
+
+            // The interrupt handler only stops the emulator, which does not end a run between two saves, and it cannot take
+            // the controller's locks: this thread stops the controller for it.
+            std::mutex mutex{};
+            std::condition_variable changed{};
+            bool watching = true;
+            std::thread watcher([&] {
+                std::unique_lock lock(mutex);
+                while (watching)
+                {
+                    changed.wait_for(lock, std::chrono::milliseconds(50));
+                    if (signals_received > 0)
+                    {
+                        snapshots.stop();
+                        return;
+                    }
+                }
+            });
+            const auto watcher_guard = utils::finally([&] {
+                {
+                    const std::scoped_lock lock(mutex);
+                    watching = false;
+                }
+                changed.notify_all();
+                watcher.join();
+            });
+
+            snapshots.run();
+        }
+#endif
+
         bool run_emulation(const analysis_context& c, const analysis_options& options)
         {
             auto& win_emu = *c.win_emu;
@@ -482,7 +608,11 @@ namespace sogen
                         debugger::enter_breakpoint(win_emu, win_emu.mod_manager.executable->entry_point);
                     }
 #endif
+#ifdef OS_EMSCRIPTEN
                     win_emu.start();
+#else
+                    run_with_snapshot_hotkey(win_emu, options.snapshot_directory, signals_received);
+#endif
                 }
 
                 if (signals_received > 0)
@@ -544,11 +674,50 @@ namespace sogen
             return wide_args;
         }
 
-        emulator_settings create_emulator_settings(const analysis_options& options)
+        backend_type backend_from_environment_for(const PEMachineType machine)
+        {
+            return get_machine_type(machine) == machine_type::arm64 ? get_arm64_emulator_backend_from_environment()
+                                                                    : get_x86_64_emulator_backend_from_environment();
+        }
+
+        // Under a hypervisor, precision turns every guest instruction into a VM exit, so it has to be asked for there.
+        // Reproducible runs keep it: their clock advances with the executed instruction count. Without --backend the
+        // backend comes from the environment, and which environment answers depends on the guest machine, so a run
+        // whose machine is not known yet keeps precision.
+        bool uses_instruction_precision(const analysis_options& options, const std::optional<PEMachineType> machine)
+        {
+            if (options.instruction_precision)
+            {
+                return *options.instruction_precision;
+            }
+
+            if (options.reproducible || !machine)
+            {
+                return true;
+            }
+
+            const auto backend = options.backend ? *options.backend : backend_from_environment_for(*machine);
+
+            return backend != backend_type::hvf;
+        }
+
+#ifdef __APPLE__
+        // KUSER_SHARED_DATA lies inside the __PAGEZERO segment of every 64-bit macOS process, so it cannot be mapped as plain
+        // memory and every read has to be emulated; there --native-timing only drops the rdtsc trap, as in the sandbox.
+        constexpr bool kusd_needs_intercept = true;
+#else
+        constexpr bool kusd_needs_intercept = false;
+#endif
+
+        emulator_settings create_emulator_settings(const analysis_options& options,
+                                                   const std::optional<PEMachineType> machine = std::nullopt)
         {
             return {
                 .use_relative_time = options.reproducible,
-                .use_instruction_precision = !options.disable_instruction_precision,
+                .use_instruction_precision = uses_instruction_precision(options, machine),
+                .intercept_rdtsc = !options.native_timing,
+                .intercept_kusd = kusd_needs_intercept || !options.native_timing,
+                .keep_guest_time_across_snapshots = options.keep_guest_time,
                 .emulation_root = options.emulation_root,
                 .registry_directory = options.registry_path,
                 .root_mode = options.root_mode,
@@ -636,7 +805,7 @@ namespace sogen
         std::unique_ptr<windows_emulator> create_empty_emulator(const analysis_options& options, emulator_interfaces interfaces = {},
                                                                 const PEMachineType machine = PEMachineType::AMD64)
         {
-            const auto settings = create_emulator_settings(options);
+            const auto settings = create_emulator_settings(options, machine);
             return std::make_unique<windows_emulator>(create_configured_backend(options, machine), settings, emulator_callbacks{},
                                                       std::move(interfaces));
         }
@@ -646,8 +815,8 @@ namespace sogen
                                                                       emulator_interfaces interfaces = {})
         {
             auto app_settings = create_application_settings(options, args);
-            const auto settings = create_emulator_settings(options);
-            const auto machine = get_application_machine(settings, app_settings);
+            const auto machine = get_application_machine(create_emulator_settings(options), app_settings);
+            const auto settings = create_emulator_settings(options, machine);
             return std::make_unique<windows_emulator>(create_configured_backend(options, machine), std::move(app_settings), settings,
                                                       emulator_callbacks{}, std::move(interfaces));
         }
@@ -717,39 +886,64 @@ namespace sogen
                 .auto_break_before_call = options.break_call,
             };
 
+#ifndef OS_EMSCRIPTEN
+            std::atomic<uint64_t> child_counter{};
+#endif
             std::unique_ptr<process_manager> manager{};
 
 #ifndef OS_EMSCRIPTEN
             const auto is_x86_64_target = get_target_machine(options, args) != PEMachineType::ARM64;
-            if (is_x86_64_target && options.backend.value_or(get_x86_64_emulator_backend_from_environment()) == backend_type::whp)
+            const auto use_sandbox =
+                is_x86_64_target && options.backend.value_or(get_x86_64_emulator_backend_from_environment()) == backend_type::whp;
+            if (options.trace_children && !use_sandbox)
             {
-                manager = std::make_unique<subprocess_process_manager>(get_sandbox_executable(), [&](const auto port, const auto& token) {
-                    return create_managed_process_arguments(options, port, token);
-                });
+                throw std::runtime_error("--trace-children requires an x86 or x64 target with the WHP backend");
             }
+            manager = std::make_unique<subprocess_process_manager>(
+                get_managed_process_executable(use_sandbox && !options.trace_children), [&](const auto port, const auto& token) {
+                    return create_managed_process_arguments(options, port, token, ++child_counter);
+                });
 #endif
+            // Declared before the emulator, so the guest's windows are gone while this process waits for its children. Any
+            // other way out leaves the children to the process manager's destructor.
+            bool guest_exited = false;
+            const auto children_guard = utils::finally([&] {
+                if (manager && guest_exited)
+                {
+                    manager->wait_for_processes();
+                }
+            });
+            std::unique_ptr<registry_state_file> registry_state{};
+            if (!options.registry_state.empty())
+            {
+                if (!options.dump.empty() || !options.minidump_path.empty())
+                {
+                    throw std::runtime_error("Registry state cannot be combined with a snapshot or minidump");
+                }
+#ifndef OS_EMSCRIPTEN
+                if (options.managed_process)
+                {
+                    throw std::runtime_error("Registry state belongs to the primary analyzer process");
+                }
+#endif
+                registry_state = std::make_unique<registry_state_file>(options.registry_state);
+            }
             const auto concise_logging = options.concise_logging;
             const auto win_emu = setup_emulator(options, args, emulator_interfaces{.processes = manager.get()});
             if (options.network == network::network_mode::live)
             {
                 win_emu->log.warn("Network mode is live: the guest can use the host network\n");
             }
+            if (registry_state)
+            {
+                registry_state->load(win_emu->registry);
+            }
             apply_registry_files(*win_emu, options);
 #ifndef OS_EMSCRIPTEN
             std::unique_ptr<emulator_process_target> managed_target{};
             if (options.managed_process)
             {
-                win_emu->setup_process_if_necessary();
-                if (options.managed_process->request().debugged)
-                {
-                    win_emu->attach_debugger();
-                }
-                install_inherited_pipes(*win_emu, options.managed_process->request(), options.managed_process->take_inherited_pipes());
-                managed_target = std::make_unique<emulator_process_target>(*win_emu);
-                if (!options.managed_process->wait_for_resume(*managed_target))
-                {
-                    throw std::runtime_error("Acknowledging managed process startup failed");
-                }
+                managed_target = start_managed_process(*win_emu, *options.managed_process);
             }
             const auto managed_process_guard = utils::finally([&] {
                 if (options.managed_process)
@@ -829,6 +1023,7 @@ namespace sogen
 
             const auto& exe = *win_emu->mod_manager.executable;
             const auto is_whp = win_emu->emu().get_name() == "Windows Hypervisor Platform";
+            const auto runs_sse4_and_avx = is_whp || win_emu->emu().get_name().starts_with("FEX");
 
             if (auto* x64 = dynamic_cast<x86_64_emulator*>(&win_emu->emu()))
             {
@@ -845,7 +1040,7 @@ namespace sogen
                             context.emit_observation<cpuid_event>([&](auto& event) { event.leaf = leaf; });
                         }
 
-                        if (leaf == 1 && !is_whp)
+                        if (leaf == 1 && !runs_sse4_and_avx)
                         {
                             // NOTE: We hard-code these values to disable SSE4.x and AVX
                             //       See: https://github.com/momo5502/sogen/issues/560
@@ -989,6 +1184,10 @@ namespace sogen
             }
 
             const auto success = run_emulation(context, options);
+            if (registry_state && win_emu->process.exit_status.has_value())
+            {
+                registry_state->save(win_emu->registry);
+            }
 #ifndef OS_EMSCRIPTEN
             if (options.managed_process && win_emu->process.exit_status)
             {
@@ -999,6 +1198,7 @@ namespace sogen
                 }
             }
 #endif
+            guest_exited = win_emu->process.exit_status.has_value();
             return success;
         }
 
@@ -1051,13 +1251,24 @@ namespace sogen
             app.add_flag("--first-exec", options.log_first_section_execution, "Print first executions of sections");
             app.add_flag("--inst-summary", options.instruction_summary, "Print a summary of executed instructions of the analyzed modules");
             app.add_flag("--skip-syscalls", options.skip_syscalls, "Skip the logging of regular syscalls");
-            app.add_flag("--reproducible", options.reproducible, "Stub clocks and other mechanisms to make executions reproducible");
+            auto* const reproducible_option =
+                app.add_flag("--reproducible", options.reproducible, "Stub clocks and other mechanisms to make executions reproducible");
+            app.add_flag("--native-timing", options.native_timing,
+                         "Let the guest read the host TSC and a periodically refreshed KUSER_SHARED_DATA without trapping (faster, "
+                         "timing is no longer exact); on macOS KUSER_SHARED_DATA stays trapped and only rdtsc runs natively")
+                ->excludes(reproducible_option);
+            app.add_flag("--keep-guest-time", options.keep_guest_time,
+                         "Keep the guest's time across snapshots: its clocks stand still while the process is saved or loaded "
+                         "and continue from the save, as a game that times out without its server needs");
             app.add_flag("--spoof-gpu-features", options.spoof_gpu_features,
                          "Report Vulkan features DXVK requires even if the GPU lacks them (e.g. Mali)");
             app.add_flag("--elevated", options.elevated, "Run the process with an elevated administrator token");
-            app.add_flag("--no-inst-precision", options.disable_instruction_precision,
-                         "Disable per-instruction precision (faster, less precise)");
+            app.add_flag("--inst-precision,!--no-inst-precision", options.instruction_precision,
+                         "Enable or disable per-instruction precision (default: on, off on HVF unless --reproducible)");
             app.add_flag("--call-count", options.prepend_call_count, "Prefix function and syscall lines with a traced-call count");
+#ifndef OS_EMSCRIPTEN
+            app.add_flag("--trace-children", options.trace_children, "Run managed child processes in the analyzer with tracing enabled");
+#endif
 #if defined(OS_EMSCRIPTEN) && !defined(SOGEN_EMSCRIPTEN_SUPPORT_NODEJS)
             app.add_flag("--break-start", options.pause_before_start, "Pause before executing the first instruction");
 #endif
@@ -1067,6 +1278,10 @@ namespace sogen
             app.add_option("--managed-process-port", options.managed_process_port)->group("");
             app.add_option("--managed-process-token", options.managed_process_token)->group("");
             app.add_option("-a,--snapshot", options.dump, "Load snapshot dump from path");
+#ifndef OS_EMSCRIPTEN
+            app.add_option("--snapshot-dir", options.snapshot_directory, "Where Ctrl+Alt+Shift+S saves the process, which keeps running")
+                ->capture_default_str();
+#endif
             app.add_option("--minidump", options.minidump_path, "Load minidump from path");
             app.add_option("--report", options.report_path, "Write machine-readable analysis events to a file");
             app.add_option("--report-format", options.report_format, "Report format (supported: jsonl)")->capture_default_str();
@@ -1075,6 +1290,9 @@ namespace sogen
                 ->capture_default_str()
                 ->check(CLI::IsMember({"auto", "int3"}));
             app.add_option("-r,--registry", options.registry_path, "Set registry path");
+#ifndef OS_EMSCRIPTEN
+            app.add_option("--registry-state", options.registry_state, "Load registry overlay state and save it after the guest exits");
+#endif
             app.add_option("--reg-file", options.registry_files, "Import registry values from a .reg file")
                 ->type_name("FILE")
                 ->expected(1)
@@ -1138,11 +1356,7 @@ namespace sogen
 
                 if (!backend_name.empty())
                 {
-                    static const std::map<std::string, backend_type> backends{
-                        {"unicorn", backend_type::unicorn}, {"icicle", backend_type::icicle}, {"whp", backend_type::whp},
-                        {"kvm", backend_type::kvm},         {"fex", backend_type::fex},       {"hvf", backend_type::hvf},
-                    };
-                    options.backend = backends.at(backend_name);
+                    options.backend = get_backend_names().at(backend_name);
                 }
 
                 for (auto& module_name : tracked_modules)

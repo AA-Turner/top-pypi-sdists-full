@@ -78,9 +78,11 @@ def prov_to_graph(prov_document: ProvDocument) -> nx.MultiDiGraph[Any]:
     <https://networkx.github.io/documentation/stable/reference/classes/multidigraph.html>`_
     instance of the `NetworkX <https://networkx.github.io/>`_ library.
 
-    The document is first :meth:`~prov.model.ProvBundle.unified` so that
-    records referring to the same real-world thing are merged before the
-    graph is built. Every PROV element becomes a graph node. Each relation
+    The document is :meth:`~prov.model.ProvDocument.flattened`, so the
+    records of every bundle are included, and then
+    :meth:`~prov.model.ProvDocument.unified`, so records that share an
+    identifier, in the document or across its bundles, are merged before
+    the graph is built. Every PROV element becomes a graph node. Each relation
     becomes an edge between the elements named in its first two formal
     attributes, with the relation record stored under the edge's
     ``"relation"`` attribute; if either of those two elements was not
@@ -99,26 +101,25 @@ def prov_to_graph(prov_document: ProvDocument) -> nx.MultiDiGraph[Any]:
 
     Raises:
         ProvUnificationError: Propagated, unhandled, from
-            :meth:`~prov.model.ProvBundle.unified`.
+            :meth:`~prov.model.ProvDocument.unified`, when records that
+            share an identifier, in the document or across its bundles,
+            disagree.
 
     Warns:
         ProvWarning: For each relation skipped because one of its first two
             formal attributes is unset, or because an undeclared endpoint's
             element type cannot be inferred (its attribute has no
             :data:`INFERRED_ELEMENT_CLASS` entry).
-        ProvFutureRejectionWarning: Propagated from
-            :meth:`~prov.model.ProvBundle.unified`, which prov 3.3.0 makes
-            raise instead.
     """
     g: nx.MultiDiGraph[Any] = nx.MultiDiGraph()
-    unified = prov_document.unified()
+    unified = prov_document.flattened().unified()
     node_map: dict[QualifiedName | None, ProvRecord] = {}
     for element in unified.get_records(ProvElement):
         g.add_node(element)
         node_map[element.identifier] = element
 
     for relation in unified.get_records(ProvRelation):
-        # taking the first two elements of a relation
+        # the first two formal attributes of the relation
         attr_pair_1, attr_pair_2 = relation.formal_attributes[:2]
         # only need the QualifiedName (i.e. the value of the attribute)
         qn1, qn2 = attr_pair_1[1], attr_pair_2[1]
@@ -160,7 +161,11 @@ def graph_to_prov(g: nx.MultiDiGraph[Any]) -> ProvDocument:
     a bundle is added to the new document; nodes without a bundle (e.g. bare
     nodes inferred by :func:`prov_to_graph`) are skipped. Every edge whose
     ``"relation"`` data is a :class:`~prov.model.ProvRecord` is likewise
-    added; edges without relation data are skipped.
+    added; edges without relation data are skipped. The new document declares
+    what the first record's document declares, and a prefix for every other
+    default namespace a record's bundle or document reads, as
+    :meth:`~prov.model.ProvDocument.flattened` does, so every name keeps a
+    spelling.
 
     Args:
         g: The graph instance to convert.
@@ -169,16 +174,24 @@ def graph_to_prov(g: nx.MultiDiGraph[Any]) -> ProvDocument:
         A new :class:`~prov.model.ProvDocument` containing the elements and
         relations recovered from ``g``.
     """
+    elements = [
+        n for n in g.nodes() if isinstance(n, ProvRecord) and n._bundle is not None
+    ]
+    relations = [
+        relation
+        for _, _, edge_data in g.edges(data=True)
+        if isinstance(relation := edge_data.get("relation"), ProvRecord)
+    ]
+    records = [*elements, *relations]
+    # the document and bundles the records come from, in order, once each
+    scopes = list({id(b): b for r in records if (b := r._bundle) is not None}.values())
     prov_doc = ProvDocument()
-    for n in g.nodes():
-        if isinstance(n, ProvRecord) and n.bundle is not None:
-            prov_doc.add_record(n)
-    for _, _, edge_data in g.edges(data=True):
-        try:
-            relation = edge_data["relation"]
-            if isinstance(relation, ProvRecord):
-                prov_doc.add_record(relation)
-        except KeyError:
-            pass
+    if scopes:
+        # the records' document; its declarations spell their names
+        parent = scopes[0]._namespaces.parent
+        prov_doc._copy_declarations_from(scopes[0] if parent is None else parent)
+        prov_doc._declare_prefixes_for_bundle_defaults(scopes)
+    for record in records:
+        prov_doc.add_record(record)
 
     return prov_doc

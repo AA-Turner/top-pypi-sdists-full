@@ -1,7 +1,6 @@
 import FreeCAD
 import FreeCADGui
 
-import contextlib
 import base64
 import io
 import math
@@ -14,8 +13,6 @@ from collections.abc import Callable
 from typing import Any
 from xmlrpc.client import Fault
 
-from PySide import QtCore
-
 from rpc_server.commands import register_commands, schedule_toggle_sync
 from rpc_server.fem_executor import run_fem_analysis as _run_fem_analysis
 from rpc_server.gui_dispatch import (
@@ -23,8 +20,10 @@ from rpc_server.gui_dispatch import (
     dispatch_to_gui,
     get_dispatch_status,
     init_waker,
-    process_gui_tasks,
+    log_error,
+    post_to_gui,
     request_shutdown,
+    start_heartbeat,
 )
 from rpc_server.ip_filter import FilteredXMLRPCServer, validate_allowed_ips
 from rpc_server.object_factory import create_object_gui, edit_object_gui
@@ -32,6 +31,7 @@ from rpc_server.parts_library import get_parts_list, insert_part_from_library
 from rpc_server.property_mapper import Object
 from rpc_server.serialize import serialize_object
 from rpc_server.settings import load_settings, save_settings
+from rpc_server.stdout_capture import capture_stdout
 from rpc_server.version import PROTOCOL_VERSION, __version__ as ADDON_VERSION
 from rpc_server.view_manager import get_displayed_3d_view, save_active_screenshot
 
@@ -274,30 +274,28 @@ class FreeCADRPC:
         functions can reuse it in later async calls. It may only be called from
         an async worker, not from a synchronous script or GUI callback.
         """
-        def _set_status(msg):
-            dispatch_to_gui(
-                lambda: FreeCADGui.getMainWindow().statusBar().showMessage(msg),
-                operation_name="show_async_status",
-            )
+        status_message = "MCP: running background task…"
 
-        def _clear_status():
-            # Short timeout: this runs in the worker's finally block, so a wedged
-            # or busy GUI thread must not keep the worker alive for the full
-            # default dispatch timeout. Losing a status-bar reset is harmless.
-            dispatch_to_gui(
-                lambda: FreeCADGui.getMainWindow().statusBar().clearMessage(),
-                timeout=5,
-                operation_name="clear_async_status",
-            )
+        # Both status updates are fire and forget, so neither this call nor the
+        # worker waits behind a long GUI task. The FIFO queue runs the clear
+        # after the show, and the clear leaves any newer message alone.
+        def _set_status() -> None:
+            post_to_gui(lambda: FreeCADGui.getMainWindow().statusBar().showMessage(status_message))
+
+        def _clear_status() -> None:
+            def clear() -> None:
+                status_bar = FreeCADGui.getMainWindow().statusBar()
+                if status_bar.currentMessage() == status_message:
+                    status_bar.clearMessage()
+
+            post_to_gui(clear)
 
         job_id = f"job-{uuid.uuid4().hex}"
         code_preview = code if len(code) <= 200 else code[:200] + "…"
 
         def worker() -> None:
-            # NOTE: we do NOT redirect sys.stdout here. contextlib.redirect_stdout
-            # swaps stdout process-wide, not per-thread, so it would race with the
-            # GUI thread and other concurrent work. Background code should report
-            # via FreeCAD.Console (which is thread-safe) instead.
+            # Synchronous capture routes only the GUI thread, so this worker's
+            # prints stay on the console rather than entering another RPC reply.
             # Execute against the live dictionary. Merging a snapshot on exit
             # would restore stale values and lose deletions/concurrent writes.
             _async_execution.active = True
@@ -322,7 +320,7 @@ class FreeCADRPC:
                     if outcome["state"] == "done":
                         FreeCAD.Console.PrintMessage("Async code execution completed.\n")
                     else:
-                        FreeCAD.Console.PrintError(
+                        log_error(
                             f"Async code error ({job_id}): {outcome['error']}\n{outcome['traceback']}\n"
                         )
                 except Exception:
@@ -334,7 +332,7 @@ class FreeCADRPC:
 
         _record_job(job_id, state="running", started=time.time(), code=code_preview)
         try:
-            _set_status("MCP: running background task…")
+            _set_status()
             threading.Thread(target=worker, daemon=True).start()
         except Exception as e:
             import traceback as _tb
@@ -383,7 +381,7 @@ class FreeCADRPC:
         output_buffer = io.StringIO()
 
         def task():
-            with contextlib.redirect_stdout(output_buffer):
+            with capture_stdout(output_buffer):
                 exec(code, _EXEC_NAMESPACE)
             return True
 
@@ -400,7 +398,7 @@ class FreeCADRPC:
             }
         # Log the offending code (truncated) to make errors traceable
         code_preview = code if len(code) <= 800 else code[:800] + "\n...(truncated)"
-        FreeCAD.Console.PrintError(
+        log_error(
             f"Error executing Python code: {res}\n"
             f"--- code ---\n{code_preview}\n--- end ---\n"
         )
@@ -608,7 +606,7 @@ def start_rpc_server(port: int = 9875) -> str:
     try:
         server.register_instance(FreeCADRPC())
         init_waker()
-        QtCore.QTimer.singleShot(500, process_gui_tasks)
+        start_heartbeat()
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
     except Exception:

@@ -221,6 +221,7 @@ class MessagesResource(SyncAPIResource):
         to: SequenceNotStr[str],
         continuation_message: message_create_params.ContinuationMessage | Omit = omit,
         exclude_from: SequenceNotStr[str] | Omit = omit,
+        force_notify: bool | Omit = omit,
         override_optout: bool | Omit = omit,
         idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -276,11 +277,10 @@ class MessagesResource(SyncAPIResource):
         - Voice memos are **not** supported here. To send an iMessage voice-memo bubble,
           use `POST /v3/chats/{chatId}/voicememo` with a known chat id.
 
-        ## Service preference, effects, decorations, inline stickers
+        ## Effects, decorations, inline stickers
 
-        Set `message.preferred_service` (`iMessage` | `RCS` | `SMS`), `message.effect`,
-        and per-part `text_decorations` and `inline_stickers` exactly as on the other
-        send endpoints.
+        Set `message.effect` and per-part `text_decorations` and `inline_stickers`
+        exactly as on the other send endpoints.
 
         Always responds `202 Accepted` — chat creation is incidental to the send.
 
@@ -321,6 +321,11 @@ class MessagesResource(SyncAPIResource):
               like `4155551234` is rejected rather than silently skipped. Excluding every one
               of your available lines returns 400 when a line has to be picked.
 
+          force_notify: iMessage only. If the recipient has Do Not Disturb or another Focus on and the
+              message is delivered silently, alert them anyway (iMessage's "Notify Anyway").
+              Best effort: ignored for SMS and RCS, and a no-op when the recipient was already
+              notified.
+
           override_optout: Send even though the recipient asked you to stop (`403`, error code `2024`).
               Applies to this request only: the opt-out stays in place, so the next send
               without this flag is rejected again. Every override is recorded against your API
@@ -343,6 +348,7 @@ class MessagesResource(SyncAPIResource):
                     "to": to,
                     "continuation_message": continuation_message,
                     "exclude_from": exclude_from,
+                    "force_notify": force_notify,
                     "override_optout": override_optout,
                 },
                 message_create_params.MessageCreateParams,
@@ -507,7 +513,8 @@ class MessagesResource(SyncAPIResource):
         - laugh 😂
         - emphasize ‼️
         - question ❓
-        - custom - any emoji as a tapback (use `custom_emoji` field to specify)
+        - custom - any emoji or image as a tapback (use `custom_emoji` for an emoji, or
+          `url` / `attachment_id` for an image)
         - sticker - an emoji or image peeled onto the message (use `emoji`, `url` or
           `attachment_id`)
 
@@ -516,27 +523,37 @@ class MessagesResource(SyncAPIResource):
         `sticker` is peeled onto the bubble itself, and can be dragged, resized and
         rotated. Both accept an emoji; they do not look alike.
 
+        **Image tapbacks** are iMessage-only. Remove one with `operation: "remove"` and
+        `type: "custom"`; no image is needed.
+
         **Stickers** are iMessage-only and cannot be removed, so `operation: "remove"`
         with `type: "sticker"` is rejected. Position, size and rotation are optional via
         `placement`, and can be changed afterwards with
         `PATCH /v3/messages/{messageId}/reactions/{reactionId}`. An animated image peels
         as an animated sticker, in whatever shape the file already has.
 
+        **Polls** take stickers only. Any tapback on a poll message — standard or
+        `custom` — is rejected with a 400.
+
         Args:
           operation: Whether to add or remove the reaction
 
           type: Type of reaction. Standard iMessage tapbacks are love, like, dislike, laugh,
-              emphasize, question. Custom emoji reactions have type "custom" with the actual
-              emoji in the custom_emoji field. Sticker reactions have type "sticker" with
-              sticker attachment details in the sticker field.
+              emphasize, question. Custom tapbacks have type "custom": an emoji tapback
+              carries the emoji in the custom_emoji field, and an image tapback carries the
+              image in the sticker field. Sticker reactions have type "sticker" with sticker
+              attachment details in the sticker field.
 
-          attachment_id: Reference to a sticker image pre-uploaded via `POST /v3/attachments`. Only valid
-              when type is "sticker".
+          attachment_id: Reference to an image pre-uploaded via `POST /v3/attachments`. Valid when type
+              is "sticker", or when adding a type "custom" reaction to make it an image
+              tapback.
 
               Exactly one of `emoji`, `url` or `attachment_id` is required when type is
               "sticker".
 
-          custom_emoji: Custom emoji string. Required when type is "custom".
+          custom_emoji: Custom emoji string. When adding a type "custom" reaction, provide exactly one
+              of `custom_emoji`, `url` or `attachment_id`. To remove an emoji reaction, pass
+              the same `custom_emoji`.
 
               This is a **tapback** — the emoji sits in the tapback bubble on the corner of
               the message. To peel an emoji onto the message as a draggable sticker instead,
@@ -556,14 +573,31 @@ class MessagesResource(SyncAPIResource):
           placement: Optional position, size and rotation of a sticker on the target bubble. Only
               valid when type is "sticker".
 
-              Every field is independent and optional — omit the object entirely, or any field
-              within it, to keep the default (centred, default size, unrotated).
+              `x` and `y` set where the sticker's centre lands, as a fraction of the target
+              bubble's width and height:
 
-          url: Linq attachment URL of the sticker image — the `download_url` returned by
-              `POST /v3/attachments`. Only valid when type is "sticker".
+              | Position            | `x` | `y` |
+              | ------------------- | --- | --- |
+              | Top-left corner     | 0   | 0   |
+              | Top-right corner    | 1   | 0   |
+              | Centre              | 0.5 | 0.5 |
+              | Bottom-left corner  | 0   | 1   |
+              | Bottom-right corner | 1   | 1   |
 
-              The image must already be stored with us. To send a sticker from elsewhere,
-              upload it with `POST /v3/attachments` first and pass `attachment_id`.
+              Every field is independent and optional. Omit `x` and `y` and the sticker lands
+              on the top-left corner.
+
+              Position and size are relative to the target bubble, so a sticker keeps its
+              place on the bubble on every device. Its size follows the bubble's width: the
+              same sticker is drawn smaller on a bubble that a recipient's screen renders
+              narrower than the sender's.
+
+          url: Linq attachment URL of the image — the `download_url` returned by
+              `POST /v3/attachments`. Valid when type is "sticker", or when adding a type
+              "custom" reaction to make it an image tapback.
+
+              The image must already be stored with us. To use an image from elsewhere, upload
+              it with `POST /v3/attachments` first and pass `attachment_id`.
 
               Exactly one of `emoji`, `url` or `attachment_id` is required when type is
               "sticker".
@@ -805,8 +839,24 @@ class MessagesResource(SyncAPIResource):
           placement: Optional position, size and rotation of a sticker on the target bubble. Only
               valid when type is "sticker".
 
-              Every field is independent and optional — omit the object entirely, or any field
-              within it, to keep the default (centred, default size, unrotated).
+              `x` and `y` set where the sticker's centre lands, as a fraction of the target
+              bubble's width and height:
+
+              | Position            | `x` | `y` |
+              | ------------------- | --- | --- |
+              | Top-left corner     | 0   | 0   |
+              | Top-right corner    | 1   | 0   |
+              | Centre              | 0.5 | 0.5 |
+              | Bottom-left corner  | 0   | 1   |
+              | Bottom-right corner | 1   | 1   |
+
+              Every field is independent and optional. Omit `x` and `y` and the sticker lands
+              on the top-left corner.
+
+              Position and size are relative to the target bubble, so a sticker keeps its
+              place on the bubble on every device. Its size follows the bubble's width: the
+              same sticker is drawn smaller on a bubble that a recipient's screen renders
+              narrower than the sender's.
 
           extra_headers: Send extra headers
 
@@ -1010,6 +1060,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         to: SequenceNotStr[str],
         continuation_message: message_create_params.ContinuationMessage | Omit = omit,
         exclude_from: SequenceNotStr[str] | Omit = omit,
+        force_notify: bool | Omit = omit,
         override_optout: bool | Omit = omit,
         idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -1065,11 +1116,10 @@ class AsyncMessagesResource(AsyncAPIResource):
         - Voice memos are **not** supported here. To send an iMessage voice-memo bubble,
           use `POST /v3/chats/{chatId}/voicememo` with a known chat id.
 
-        ## Service preference, effects, decorations, inline stickers
+        ## Effects, decorations, inline stickers
 
-        Set `message.preferred_service` (`iMessage` | `RCS` | `SMS`), `message.effect`,
-        and per-part `text_decorations` and `inline_stickers` exactly as on the other
-        send endpoints.
+        Set `message.effect` and per-part `text_decorations` and `inline_stickers`
+        exactly as on the other send endpoints.
 
         Always responds `202 Accepted` — chat creation is incidental to the send.
 
@@ -1110,6 +1160,11 @@ class AsyncMessagesResource(AsyncAPIResource):
               like `4155551234` is rejected rather than silently skipped. Excluding every one
               of your available lines returns 400 when a line has to be picked.
 
+          force_notify: iMessage only. If the recipient has Do Not Disturb or another Focus on and the
+              message is delivered silently, alert them anyway (iMessage's "Notify Anyway").
+              Best effort: ignored for SMS and RCS, and a no-op when the recipient was already
+              notified.
+
           override_optout: Send even though the recipient asked you to stop (`403`, error code `2024`).
               Applies to this request only: the opt-out stays in place, so the next send
               without this flag is rejected again. Every override is recorded against your API
@@ -1132,6 +1187,7 @@ class AsyncMessagesResource(AsyncAPIResource):
                     "to": to,
                     "continuation_message": continuation_message,
                     "exclude_from": exclude_from,
+                    "force_notify": force_notify,
                     "override_optout": override_optout,
                 },
                 message_create_params.MessageCreateParams,
@@ -1296,7 +1352,8 @@ class AsyncMessagesResource(AsyncAPIResource):
         - laugh 😂
         - emphasize ‼️
         - question ❓
-        - custom - any emoji as a tapback (use `custom_emoji` field to specify)
+        - custom - any emoji or image as a tapback (use `custom_emoji` for an emoji, or
+          `url` / `attachment_id` for an image)
         - sticker - an emoji or image peeled onto the message (use `emoji`, `url` or
           `attachment_id`)
 
@@ -1305,27 +1362,37 @@ class AsyncMessagesResource(AsyncAPIResource):
         `sticker` is peeled onto the bubble itself, and can be dragged, resized and
         rotated. Both accept an emoji; they do not look alike.
 
+        **Image tapbacks** are iMessage-only. Remove one with `operation: "remove"` and
+        `type: "custom"`; no image is needed.
+
         **Stickers** are iMessage-only and cannot be removed, so `operation: "remove"`
         with `type: "sticker"` is rejected. Position, size and rotation are optional via
         `placement`, and can be changed afterwards with
         `PATCH /v3/messages/{messageId}/reactions/{reactionId}`. An animated image peels
         as an animated sticker, in whatever shape the file already has.
 
+        **Polls** take stickers only. Any tapback on a poll message — standard or
+        `custom` — is rejected with a 400.
+
         Args:
           operation: Whether to add or remove the reaction
 
           type: Type of reaction. Standard iMessage tapbacks are love, like, dislike, laugh,
-              emphasize, question. Custom emoji reactions have type "custom" with the actual
-              emoji in the custom_emoji field. Sticker reactions have type "sticker" with
-              sticker attachment details in the sticker field.
+              emphasize, question. Custom tapbacks have type "custom": an emoji tapback
+              carries the emoji in the custom_emoji field, and an image tapback carries the
+              image in the sticker field. Sticker reactions have type "sticker" with sticker
+              attachment details in the sticker field.
 
-          attachment_id: Reference to a sticker image pre-uploaded via `POST /v3/attachments`. Only valid
-              when type is "sticker".
+          attachment_id: Reference to an image pre-uploaded via `POST /v3/attachments`. Valid when type
+              is "sticker", or when adding a type "custom" reaction to make it an image
+              tapback.
 
               Exactly one of `emoji`, `url` or `attachment_id` is required when type is
               "sticker".
 
-          custom_emoji: Custom emoji string. Required when type is "custom".
+          custom_emoji: Custom emoji string. When adding a type "custom" reaction, provide exactly one
+              of `custom_emoji`, `url` or `attachment_id`. To remove an emoji reaction, pass
+              the same `custom_emoji`.
 
               This is a **tapback** — the emoji sits in the tapback bubble on the corner of
               the message. To peel an emoji onto the message as a draggable sticker instead,
@@ -1345,14 +1412,31 @@ class AsyncMessagesResource(AsyncAPIResource):
           placement: Optional position, size and rotation of a sticker on the target bubble. Only
               valid when type is "sticker".
 
-              Every field is independent and optional — omit the object entirely, or any field
-              within it, to keep the default (centred, default size, unrotated).
+              `x` and `y` set where the sticker's centre lands, as a fraction of the target
+              bubble's width and height:
 
-          url: Linq attachment URL of the sticker image — the `download_url` returned by
-              `POST /v3/attachments`. Only valid when type is "sticker".
+              | Position            | `x` | `y` |
+              | ------------------- | --- | --- |
+              | Top-left corner     | 0   | 0   |
+              | Top-right corner    | 1   | 0   |
+              | Centre              | 0.5 | 0.5 |
+              | Bottom-left corner  | 0   | 1   |
+              | Bottom-right corner | 1   | 1   |
 
-              The image must already be stored with us. To send a sticker from elsewhere,
-              upload it with `POST /v3/attachments` first and pass `attachment_id`.
+              Every field is independent and optional. Omit `x` and `y` and the sticker lands
+              on the top-left corner.
+
+              Position and size are relative to the target bubble, so a sticker keeps its
+              place on the bubble on every device. Its size follows the bubble's width: the
+              same sticker is drawn smaller on a bubble that a recipient's screen renders
+              narrower than the sender's.
+
+          url: Linq attachment URL of the image — the `download_url` returned by
+              `POST /v3/attachments`. Valid when type is "sticker", or when adding a type
+              "custom" reaction to make it an image tapback.
+
+              The image must already be stored with us. To use an image from elsewhere, upload
+              it with `POST /v3/attachments` first and pass `attachment_id`.
 
               Exactly one of `emoji`, `url` or `attachment_id` is required when type is
               "sticker".
@@ -1594,8 +1678,24 @@ class AsyncMessagesResource(AsyncAPIResource):
           placement: Optional position, size and rotation of a sticker on the target bubble. Only
               valid when type is "sticker".
 
-              Every field is independent and optional — omit the object entirely, or any field
-              within it, to keep the default (centred, default size, unrotated).
+              `x` and `y` set where the sticker's centre lands, as a fraction of the target
+              bubble's width and height:
+
+              | Position            | `x` | `y` |
+              | ------------------- | --- | --- |
+              | Top-left corner     | 0   | 0   |
+              | Top-right corner    | 1   | 0   |
+              | Centre              | 0.5 | 0.5 |
+              | Bottom-left corner  | 0   | 1   |
+              | Bottom-right corner | 1   | 1   |
+
+              Every field is independent and optional. Omit `x` and `y` and the sticker lands
+              on the top-left corner.
+
+              Position and size are relative to the target bubble, so a sticker keeps its
+              place on the bubble on every device. Its size follows the bubble's width: the
+              same sticker is drawn smaller on a bubble that a recipient's screen renders
+              narrower than the sender's.
 
           extra_headers: Send extra headers
 

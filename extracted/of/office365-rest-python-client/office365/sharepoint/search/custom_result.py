@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.search.simple_data_table import SimpleDataTable
 
 
-@dataclass
 class CustomResult(ClientValue):
     """
     This contains a list of query results, all of which are of the type specified in TableType.

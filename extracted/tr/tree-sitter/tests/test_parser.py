@@ -1,13 +1,13 @@
 from typing import cast
 from unittest import TestCase
 
-from tree_sitter import Language, LogType, Node, Parser, Range, Tree
-
 import tree_sitter_html
 import tree_sitter_javascript
 import tree_sitter_json
 import tree_sitter_python
 import tree_sitter_rust
+
+from tree_sitter import Language, LogType, Node, Parser, Range, Tree
 
 
 def simple_range(start, end):
@@ -32,9 +32,7 @@ class TestParser(TestCase):
         self.assertListEqual(parser.included_ranges, [self.max_range])
 
     def test_init_args(self):
-        parser = Parser(
-            language=self.python, included_ranges=[self.min_range]
-        )
+        parser = Parser(language=self.python, included_ranges=[self.min_range])
         self.assertEqual(parser.language, self.python)
         self.assertListEqual(parser.included_ranges, [self.min_range])
 
@@ -80,6 +78,7 @@ class TestParser(TestCase):
                 ]
 
         with self.subTest(setter="logger"):
+
             def logger(log_type, message):
                 print(log_type.name, message)
 
@@ -126,6 +125,7 @@ class TestParser(TestCase):
             def wrapped(*args):
                 rv = cb(*args)
                 return ret_type(rv) if rv is not None else None
+
             return wrapped
 
         def assert_nodes_equal(tree: Tree):
@@ -169,6 +169,54 @@ class TestParser(TestCase):
         parser = Parser(self.python)
         with self.assertRaises(ValueError):
             parser.parse(b"foo", encoding="ascii")  # pyright: ignore
+
+    def test_parse_progress_callback(self):
+        parser = Parser(self.javascript)
+        source = b"[" + b"1, " * 1000 + b"]"
+        calls = []
+
+        def read(byte_offset, _):
+            return source[byte_offset : byte_offset + 64]
+
+        def progress(byte_offset, has_error):
+            calls.append((byte_offset, has_error))
+            return False
+
+        tree = parser.parse(read, progress_callback=progress)
+        self.assertFalse(tree.root_node.has_error)
+        self.assertGreater(len(calls), 0)
+        for byte_offset, has_error in calls:
+            self.assertIsInstance(byte_offset, int)
+            self.assertIs(has_error, False)
+
+    def test_parse_progress_callback_cancel(self):
+        parser = Parser(self.javascript)
+        source = b"[" + b"1, " * 1000 + b"]"
+
+        def read(byte_offset, _):
+            return source[byte_offset : byte_offset + 64]
+
+        with self.assertRaises(ValueError):
+            parser.parse(read, progress_callback=lambda *_: True)
+
+        parser.reset()
+        self.assertFalse(parser.parse(b"[1]").root_node.has_error)
+
+    def test_parse_progress_callback_error(self):
+        parser = Parser(self.javascript)
+        source = b"[" + b"1, " * 1000 + b"]"
+        calls = []
+
+        def read(byte_offset, _):
+            return source[byte_offset : byte_offset + 64]
+
+        def progress(byte_offset, _):
+            calls.append(byte_offset)
+            raise ZeroDivisionError
+
+        with self.assertRaises(ZeroDivisionError):
+            parser.parse(read, progress_callback=progress)
+        self.assertEqual(len(calls), 1)
 
     def test_parse_with_one_included_range(self):
         source_code = b"<span>hi</span><script>console.log('sup');</script>"

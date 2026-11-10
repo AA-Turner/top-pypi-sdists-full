@@ -39,6 +39,8 @@ class OutputToolSearchServerToolItemTypedDict(TypedDict):
     r"""The JSON arguments of the model call, verbatim. Replaying the item reuses them."""
     call_id: NotRequired[str]
     r"""The ID of the model call that ran the search. Replaying the item reuses it."""
+    catalog_changes: NotRequired[str]
+    r"""What the announced index added and removed since the previous one, when the request opted into `announce_catalog_changes` and the catalog changed between model turns. Replaying the item shows the same lines."""
     catalog_index: NotRequired[str]
     r"""The deferred-tool index the router showed the model with a pre-search, listing tool sources and names. Replaying the item shows the same index."""
     error: NotRequired[str]
@@ -50,6 +52,8 @@ class OutputToolSearchServerToolItemTypedDict(TypedDict):
     id: NotRequired[str]
     matches: NotRequired[List[MatchTypedDict]]
     query: NotRequired[str]
+    sources: NotRequired[Dict[str, List[str]]]
+    r"""The other deferred tools of each source a match came from, by name, when the search listed siblings. Replaying the item shows the same names."""
     turn_call_ids: NotRequired[List[str]]
     r"""The IDs of every tool call in the model response that ran the search, in order. Replaying the item keeps those calls in one turn."""
 
@@ -66,6 +70,9 @@ class OutputToolSearchServerToolItem(BaseModel):
 
     call_id: Optional[str] = None
     r"""The ID of the model call that ran the search. Replaying the item reuses it."""
+
+    catalog_changes: Optional[str] = None
+    r"""What the announced index added and removed since the previous one, when the request opted into `announce_catalog_changes` and the catalog changed between model turns. Replaying the item shows the same lines."""
 
     catalog_index: Optional[str] = None
     r"""The deferred-tool index the router showed the model with a pre-search, listing tool sources and names. Replaying the item shows the same index."""
@@ -87,6 +94,9 @@ class OutputToolSearchServerToolItem(BaseModel):
 
     query: Optional[str] = None
 
+    sources: Optional[Dict[str, List[str]]] = None
+    r"""The other deferred tools of each source a match came from, by name, when the search listed siblings. Replaying the item shows the same names."""
+
     turn_call_ids: Optional[List[str]] = None
     r"""The IDs of every tool call in the model response that ran the search, in order. Replaying the item keeps those calls in one turn."""
 
@@ -96,6 +106,7 @@ class OutputToolSearchServerToolItem(BaseModel):
             [
                 "arguments",
                 "call_id",
+                "catalog_changes",
                 "catalog_index",
                 "error",
                 "format",
@@ -103,6 +114,7 @@ class OutputToolSearchServerToolItem(BaseModel):
                 "id",
                 "matches",
                 "query",
+                "sources",
                 "turn_call_ids",
             ]
         )

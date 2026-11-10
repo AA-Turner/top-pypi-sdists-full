@@ -19,10 +19,10 @@ class ProviderSupportUser:
     Attributes:
         url (str):
         uuid (UUID):
-        user (str):
+        user (str): User who is the agent. Only staff can change it.
         user_full_name (str):
         user_email (str):
-        provider_helpdesk (UUID):
+        provider_helpdesk (UUID): Helpdesk the agent answers for. Only staff can change it.
         open_ticket_count (int):
         has_capacity (bool):
         created (datetime.datetime):

@@ -11,27 +11,32 @@ void export_dserver(py::module &m) {
     py::class_<Tango::DServer, LeakingSmartPtr<Tango::DServer>, Tango::Device_6Impl>(m, "DServer")
         .def("query_class",
              &Tango::DServer::query_class,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to read all the classes used in a device server process
              )doc")
         .def("query_device",
              &Tango::DServer::query_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to read all the devices implemented by a device server process
              )doc")
         .def("query_sub_device",
              &Tango::DServer::query_sub_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to read all the sub devices used by a device server process
              )doc")
         .def("kill",
              &Tango::DServer::kill,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to kill the device server process. This is done by starting a thread which will kill the process.
                 Starting a thread allows the client to receive something from the server before it is killed
              )doc")
         .def("restart",
              py::overload_cast<const std::string &>(&Tango::DServer::restart),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to restart a device
 
@@ -41,25 +46,31 @@ void export_dserver(py::module &m) {
              py::arg("d_name"))
         .def("restart_server",
              &Tango::DServer::restart_server,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
-                Command to restart a server (all devices embedded within the server))doc")
+                Command to restart a server (all devices embedded within the server)
+             )doc")
         .def("query_class_prop",
              &Tango::DServer::query_class_prop,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to return the list of property device at class level for the specified class
              )doc")
         .def("query_dev_prop",
              &Tango::DServer::query_dev_prop,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to return the list of property device at device level for the specified class
              )doc")
         .def("polled_device",
              &Tango::DServer::polled_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                Command to read all the devices actually polled by the device server
              )doc")
         .def("dev_poll_status",
              &Tango::DServer::dev_poll_status,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to read device polling status
 
@@ -70,6 +81,7 @@ void export_dserver(py::module &m) {
              )doc")
         .def("add_obj_polling",
              &Tango::DServer::add_obj_polling,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to add one object to be polled
 
@@ -92,6 +104,7 @@ void export_dserver(py::module &m) {
              py::arg("delta_ms") = 0)
         .def("upd_obj_polling_period",
              &Tango::DServer::upd_obj_polling_period,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to update an already polled object update period
 
@@ -110,6 +123,7 @@ void export_dserver(py::module &m) {
              py::arg("with_db_upd") = true)
         .def("rem_obj_polling",
              &Tango::DServer::rem_obj_polling,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to remove an already polled object from the device polled object list
 
@@ -123,26 +137,31 @@ void export_dserver(py::module &m) {
              py::arg("with_db_upd") = true)
         .def("stop_polling",
              &Tango::DServer::stop_polling,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to stop the polling thread
              )doc")
         .def("start_polling",
              py::overload_cast<>(&Tango::DServer::start_polling),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to start the polling thread
              )doc")
         .def("add_event_heartbeat",
              &Tango::DServer::add_event_heartbeat,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to ask the heartbeat thread to send the event heartbeat every 9 seconds
              )doc")
         .def("rem_event_heartbeat",
              &Tango::DServer::rem_event_heartbeat,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to ask the heartbeat thread to stop sending the event heartbeat
              )doc")
         .def("lock_device",
              &Tango::DServer::lock_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to lock device
 
@@ -152,6 +171,7 @@ void export_dserver(py::module &m) {
              py::arg("in_data"))
         .def("un_lock_device",
              &Tango::DServer::un_lock_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to unlock device
 
@@ -161,6 +181,7 @@ void export_dserver(py::module &m) {
              py::arg("in_data"))
         .def("re_lock_devices",
              &Tango::DServer::re_lock_devices,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to relock device
 
@@ -170,6 +191,7 @@ void export_dserver(py::module &m) {
              py::arg("in_data"))
         .def("dev_lock_status",
              &Tango::DServer::dev_lock_status,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Command to get device lock status
 
@@ -181,9 +203,10 @@ void export_dserver(py::module &m) {
              py::arg("dev_name"))
         .def("delete_devices",
              &Tango::DServer::delete_devices,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(Call destructor for all objects registered in the server)doc")
-        .def("start_logging", &Tango::DServer::start_logging)
-        .def("stop_logging", &Tango::DServer::stop_logging)
+        .def("start_logging", &Tango::DServer::start_logging, py::call_guard<py::gil_scoped_release>())
+        .def("stop_logging", &Tango::DServer::stop_logging, py::call_guard<py::gil_scoped_release>())
         .def("get_process_name", &Tango::DServer::get_process_name)
         .def("get_personal_name", &Tango::DServer::get_personal_name)
         .def("get_instance_name", &Tango::DServer::get_instance_name)

@@ -140,7 +140,7 @@ pub fn register_custom_filter(
     let mut registry = FILTER_REGISTRY.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Filter registry lock: {e}"))
     })?;
-    registry.insert(
+    let removed = registry.insert(
         name,
         FilterEntry {
             callable,
@@ -150,6 +150,9 @@ pub fn register_custom_filter(
             },
         },
     );
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     // Flip the hot-path guard so renderer's ``is_custom_filter_safe`` stops
     // short-circuiting and starts consulting the registry. ``Release``
     // pairs with the renderer's ``Acquire`` load to ensure registry
@@ -168,7 +171,10 @@ pub fn unregister_custom_filter(name: &str) -> PyResult<bool> {
     let mut registry = FILTER_REGISTRY.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Filter registry lock: {e}"))
     })?;
-    Ok(registry.remove(name).is_some())
+    let removed = registry.remove(name);
+    drop(registry);
+    drop(_bump);
+    Ok(removed.is_some())
 }
 
 /// Check if a custom filter is registered (intended for tests + diagnostics).
@@ -189,7 +195,10 @@ pub fn clear_custom_filters() -> PyResult<()> {
     let mut registry = FILTER_REGISTRY.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Filter registry lock: {e}"))
     })?;
-    registry.clear();
+    let removed = registry.clear();
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -500,20 +509,26 @@ pub fn apply_custom_filter(
     if !ANY_CUSTOM_FILTERS_REGISTERED.load(Ordering::Acquire) {
         return None;
     }
-    let (callable, meta) = {
+    // Attach BEFORE taking the read lock (#3074): `render_with_diff` runs
+    // detached, and a detached thread that held this lock while waiting to
+    // re-attach would deadlock against a `register_filter` that holds the
+    // GIL while it waits for the write lock. See `registry.rs` "Lock order".
+    let (callable, meta) = Python::attach(|py| {
         let registry = FILTER_REGISTRY.read().ok()?;
         let entry = registry.get(name)?;
-        // clone_ref under the GIL; meta is plain Copy-ish.
-        let callable = Python::attach(|py| entry.callable.clone_ref(py));
-        (callable, entry.meta.clone())
-    };
+        Some((entry.callable.clone_ref(py), entry.meta.clone()))
+    })?;
 
     let result = Python::attach(|py| -> Result<(Value, bool), String> {
         use pyo3::IntoPyObject;
 
-        let py_value = value
-            .clone()
-            .into_pyobject(py)
+        // The live object, not its `str()`: a Django filter receives the
+        // object the context holds, so `{{ row|f }}` must hand `f` the row.
+        // `value_into_handler_pyobject` is the one conversion every Python
+        // consumer of a render `Value` uses -- the tag bridge (#2731) and the
+        // handler-argument path -- including the sidecar floor that keeps a
+        // model's protected fields out of Python code (#1646).
+        let py_value = djust_core::value_into_handler_pyobject(py, value.clone())
             .map_err(|e| format!("Failed to convert filter input value: {e}"))?;
         // #2290: `Value` is safety-blind, so restore the `SafeData` markers the
         // renderer tracked before the filter ever sees the value.
@@ -561,10 +576,9 @@ pub fn apply_custom_filter(
                         .map_err(|e| format!("Failed to resolve filter arg '{s}': {e}"))?
                     {
                         Some(
-                            resolved
-                                .into_pyobject(py)
-                                .map_err(|e| format!("Failed to convert resolved filter arg: {e}"))?
-                                .into_any(),
+                            djust_core::value_into_handler_pyobject(py, resolved).map_err(|e| {
+                                format!("Failed to convert resolved filter arg: {e}")
+                            })?,
                         )
                     } else {
                         // No binding — pass the raw identifier as a string,

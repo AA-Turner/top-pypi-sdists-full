@@ -178,7 +178,8 @@ namespace sogen
                         (void)reader.read<connect_process_info>();
                     }
                     const auto process_flags = reader.read<uint32_t>();
-                    const auto architecture = reader.read<uint16_t>();
+                    // On 19041-19045 Connect has no process architecture parameter.
+                    const auto architecture = win_emu.version.is_build_within(19041, 19046) ? uint16_t{} : reader.read<uint16_t>();
                     const auto reserve_count = reader.read<uint32_t>();
                     if (reserve_count > maximum_reserved_ids)
                     {
@@ -428,7 +429,7 @@ namespace sogen
                              const std::u16string& executable, uint32_t process_flags, uint16_t architecture, uint32_t reserve_count)
             {
                 const auto process_id = static_cast<uint32_t>(win_emu.process.process_id);
-                const auto context_id = static_cast<uint64_t>(this->clients_.size() + 1);
+                const auto context_id = static_cast<uint64_t>(this->clients_.size()) + 1;
                 if (this->next_id_ > std::numeric_limits<uint64_t>::max() - reserve_count)
                 {
                     return STATUS_INVALID_PARAMETER;

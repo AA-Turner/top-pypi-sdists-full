@@ -1,8 +1,7 @@
 # typedesc.py - classes representing C type descriptions
-from typing import Any, Optional, SupportsInt
-from typing import Union as _UnionT
+from typing import Any, Generic, Optional, SupportsInt, TypeVar, final
 
-import comtypes
+_TD = TypeVar("_TD")
 
 
 class Argument:
@@ -72,6 +71,7 @@ class Function(_HasArgs):
         self.extern = extern
 
 
+@final
 class Constructor(_HasArgs):
     location = None
 
@@ -98,6 +98,7 @@ class FunctionType(_HasArgs):
         self.attributes = attributes
 
 
+@final
 class Method(_HasArgs):
     location = None
 
@@ -107,42 +108,46 @@ class Method(_HasArgs):
         self.returns = returns
 
 
+@final
 class FundamentalType:
     location = None
 
-    def __init__(self, name, size, align):
+    def __init__(self, name: str, size: int, align: int) -> None:
         self.name = name
-        if name != "void":
-            self.size = int(size)
-            self.align = int(align)
+        self.size = int(size)
+        self.align = int(align)
 
 
-class PointerType:
+@final
+class PointerType(Generic[_TD]):
     location = None
 
-    def __init__(self, typ, size, align):
+    def __init__(self, typ: _TD, size: int, align: int) -> None:
         self.typ = typ
         self.size = int(size)
         self.align = int(align)
 
 
-class Typedef:
+@final
+class Typedef(Generic[_TD]):
     location = None
 
-    def __init__(self, name, typ):
+    def __init__(self, name: str, typ: _TD) -> None:
         self.name = name
         self.typ = typ
 
 
-class ArrayType:
+@final
+class ArrayType(Generic[_TD]):
     location = None
 
-    def __init__(self, typ: Any, min: int, max: int) -> None:
+    def __init__(self, typ: _TD, min: int, max: int) -> None:
         self.typ = typ
         self.min = min
         self.max = max
 
 
+@final
 class StructureHead:
     location = None
 
@@ -150,6 +155,7 @@ class StructureHead:
         self.struct = struct
 
 
+@final
 class StructureBody:
     location = None
 
@@ -160,8 +166,7 @@ class StructureBody:
 class _Struct_Union_Base:
     name: str
     align: int
-    members: list[_UnionT["Field", Method, Constructor]]
-    bases: list["_Struct_Union_Base"]
+    members: list["Field"]
     artificial: Optional[Any]
     size: Optional[int]
     _recordinfo_: tuple[str, int, int, int, str]
@@ -179,20 +184,19 @@ class _Struct_Union_Base:
         return self.struct_head
 
 
+@final
 class Structure(_Struct_Union_Base):
     def __init__(
         self,
         name: str,
         align: SupportsInt,
         members: list["Field"],
-        bases: list[Any],
         size: Optional[SupportsInt],
         artificial: Optional[Any] = None,
     ) -> None:
         self.name = name
         self.align = int(align)
         self.members = members
-        self.bases = bases
         self.artificial = artificial
         if size is not None:
             self.size = int(size)
@@ -201,20 +205,19 @@ class Structure(_Struct_Union_Base):
         super().__init__()
 
 
+@final
 class Union(_Struct_Union_Base):
     def __init__(
         self,
         name: str,
         align: SupportsInt,
         members: list["Field"],
-        bases: list[Any],
         size: Optional[SupportsInt],
         artificial: Optional[Any] = None,
     ) -> None:
         self.name = name
         self.align = int(align)
         self.members = members
-        self.bases = bases
         self.artificial = artificial
         if size is not None:
             self.size = int(size)
@@ -223,6 +226,7 @@ class Union(_Struct_Union_Base):
         super().__init__()
 
 
+@final
 class Field:
     def __init__(
         self, name: str, typ: Any, bits: Optional[Any], offset: SupportsInt
@@ -240,6 +244,7 @@ class CvQualifiedType:
         self.volatile = volatile
 
 
+@final
 class Enumeration:
     location = None
 
@@ -253,6 +258,7 @@ class Enumeration:
         self.values.append(v)
 
 
+@final
 class EnumValue:
     def __init__(self, name: str, value: int, enumeration: Enumeration) -> None:
         self.name = name

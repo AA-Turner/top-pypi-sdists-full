@@ -1,12 +1,13 @@
 //! Building a JSON Schema validator.
 //! The main idea is to create a tree from the input JSON Schema. This tree will contain
 //! everything needed to perform such validation in runtime.
-use std::{collections::hash_map::Entry, sync::Arc};
+use std::{collections::hash_map::Entry, mem::ManuallyDrop, sync::Arc};
 
 use crate::{
     error::ErrorIterator,
     evaluation::{
         Annotations, ChildList, ErrorDescription, Evaluation, EvaluationArena, EvaluationNode,
+        InstancePosition,
     },
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
@@ -70,21 +71,51 @@ pub struct ValidationContext {
     /// used to break cycles from self-referential `$dynamicRef`/`$recursiveRef` under
     /// `unevaluatedProperties`/`unevaluatedItems`.
     marking: Vec<(usize, NodeIdentity)>,
-    /// Lazy-initialized cache for recursive schema validation.
+    /// Lazy-initialized cache for recursive schema validation; kept out of `lazy` because every
+    /// `$ref` visit reads it.
     is_valid_cache: Option<AHashMap<(usize, NodeIdentity), bool>>,
     /// Visits to `$ref` targets so far; a visit's share of it decides whether its result is cached.
     ref_visits: u32,
-    /// Lazy-initialized cache for ECMA regex transformation results during format "regex" validation.
-    ecma_regex_cache: Option<AHashMap<String, bool>>,
-    evaluation_path_cache: Option<Box<EvaluationPathCache>>,
     evaluation_path_calls: u32,
     /// Instance location of the node being evaluated; only the `evaluate` path sets it.
-    instance_location: Option<Location>,
-    /// Holds every node of the tree the `evaluate` path builds.
-    pub(crate) arena: EvaluationArena,
+    instance_location: Option<InstancePosition>,
+    /// State most `is_valid` and `validate` calls never create, behind one pointer: each call
+    /// creates and drops a context, and dropping an empty one is a single check.
+    lazy: Lazy,
     /// Outcomes this run assumes for regex matches the engine could not finish; boxed and only
     /// created once one is met, so validation without them carries a single null pointer.
     matches: Option<Box<MatchAssumptions>>,
+}
+
+#[cfg(all(target_arch = "x86_64", target_pointer_width = "64"))]
+const _: () = assert!(std::mem::size_of::<ValidationContext>() == 144);
+
+/// Checks for the state inline when dropped: the drop glue of a plain `Option<Box<_>>` is an
+/// out-of-line call even when there is nothing to free.
+#[derive(Default)]
+struct Lazy(ManuallyDrop<Option<Box<LazyState>>>);
+
+impl Drop for Lazy {
+    #[inline]
+    fn drop(&mut self) {
+        if let Some(state) = self.0.take() {
+            release(state);
+        }
+    }
+}
+
+#[cold]
+fn release(state: Box<LazyState>) {
+    drop(state);
+}
+
+#[derive(Default)]
+struct LazyState {
+    /// Cache for ECMA regex transformation results during format "regex" validation.
+    ecma_regex_cache: Option<AHashMap<String, bool>>,
+    evaluation_path_cache: Option<EvaluationPathCache>,
+    /// Holds every node of the tree the `evaluate` path builds.
+    arena: EvaluationArena,
 }
 
 /// Runs `run` in a fresh context that assumes the outcomes in `matches`.
@@ -173,18 +204,52 @@ impl ValidationContext {
     }
 
     #[inline]
-    pub(crate) fn instance_location(&self) -> Option<&Location> {
-        self.instance_location.as_ref()
+    fn lazy(&mut self) -> &mut LazyState {
+        if self.lazy.0.is_none() {
+            self.create_lazy();
+        }
+        self.lazy.0.as_mut().expect("created above")
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn create_lazy(&mut self) {
+        *self.lazy.0 = Some(Box::default());
+    }
+
+    /// Holds every node of the tree the `evaluate` path builds.
+    #[inline]
+    pub(crate) fn arena(&mut self) -> &mut EvaluationArena {
+        &mut self.lazy().arena
     }
 
     #[inline]
-    pub(crate) fn enter_instance_location(&mut self, location: Location) -> Option<Location> {
-        self.instance_location.replace(location)
+    pub(crate) fn enter_instance_location(
+        &mut self,
+        position: InstancePosition,
+    ) -> Option<InstancePosition> {
+        self.instance_location.replace(position)
     }
 
     #[inline]
-    pub(crate) fn leave_instance_location(&mut self, previous: Option<Location>) {
+    pub(crate) fn leave_instance_location(&mut self, previous: Option<InstancePosition>) {
         self.instance_location = previous;
+    }
+
+    /// The position of `location`, rendered now since its parent position is not known.
+    pub(crate) fn instance_position(&mut self, location: &LazyLocation) -> InstancePosition {
+        if location.parent().is_none() {
+            return InstancePosition::ROOT;
+        }
+        self.arena().rendered_position(location.into())
+    }
+
+    /// The position one segment below the one being evaluated, rendered only when read.
+    pub(crate) fn instance_position_below(&mut self, location: &LazyLocation) -> InstancePosition {
+        match self.instance_location {
+            Some(parent) => self.arena().position_below(parent, location.segment()),
+            None => self.instance_position(location),
+        }
     }
 
     /// Returns `true` if cycle detected. `None` identity disables cycle tracking for this node.
@@ -295,20 +360,27 @@ impl ValidationContext {
         if self.evaluation_path_calls < EVALUATION_PATH_CACHE_THRESHOLD {
             return tracker.evaluation_path_with_prefix(tracker.prefix(), location);
         }
-        self.evaluation_path_cache
-            .get_or_insert_with(Box::default)
+        self.lazy()
+            .evaluation_path_cache
+            .get_or_insert_with(EvaluationPathCache::default)
             .evaluation_path(tracker, location)
     }
 
     /// Check if an ECMA regex pattern is valid.
     pub(crate) fn is_valid_ecma_regex(&mut self, pattern: &str) -> bool {
-        if let Some(cache) = &self.ecma_regex_cache {
+        if let Some(cache) = self
+            .lazy
+            .0
+            .as_ref()
+            .and_then(|lazy| lazy.ecma_regex_cache.as_ref())
+        {
             if let Some(&result) = cache.get(pattern) {
                 return result;
             }
         }
         let result = jsonschema_regex::is_valid_ecma_regex(pattern);
-        self.ecma_regex_cache
+        self.lazy()
+            .ecma_regex_cache
             .get_or_insert_with(AHashMap::new)
             .insert(pattern.to_owned(), result);
         result
@@ -367,7 +439,7 @@ pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -378,12 +450,14 @@ pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
     fn evaluate(
         &self,
         instance: &F::Node<'_>,
-        location: &LazyLocation,
-        tracker: Option<&RefTracker>,
+        _location: &LazyLocation,
+        _tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
         let mut collected = Vec::new();
-        self.collect_errors(instance, location, tracker, ctx, &mut collected);
+        // An `ErrorDescription` keeps only the keyword and the message, which depend on the error
+        // kind and the instance alone, so collecting at the root renders no paths.
+        self.collect_errors(instance, &LazyLocation::new(), None, ctx, &mut collected);
         let errors: Vec<ErrorDescription> = collected
             .iter()
             .map(ErrorDescription::from_validation_error)
@@ -407,6 +481,27 @@ pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
     fn canonical_location(&self) -> Option<(&Location, Option<&Arc<Uri<String>>>)> {
         None
     }
+
+    /// Whether `is_valid` answers for this keyword alone. `false` when it lets through instances a
+    /// sibling keyword always rejects, so it cannot stand in for `validate`.
+    fn is_valid_alone(&self) -> bool {
+        true
+    }
+
+    /// The types this validator accepts when all it checks is `type`.
+    fn accepted_types(&self) -> Option<crate::types::JsonTypeSet> {
+        None
+    }
+
+    /// The compiled target when this validator is a `$ref` that owns it.
+    fn owned_ref_target(&self) -> Option<&crate::node::SchemaNode<F>> {
+        None
+    }
+
+    /// This validator as a compiled node, for `owned_ref_target`.
+    fn as_owned_node(&self) -> Option<&crate::node::SchemaNode<F>> {
+        None
+    }
 }
 
 /// `evaluate` for a keyword that asserts on the instance alone and annotates nothing: a valid
@@ -414,14 +509,13 @@ pub(crate) trait Validate<F: Json = SerdeJson>: Send + Sync {
 pub(crate) fn evaluate_assertion<F: Json, V: Validate<F>>(
     validator: &V,
     instance: &F::Node<'_>,
-    location: &LazyLocation,
-    tracker: Option<&RefTracker>,
     ctx: &mut ValidationContext,
 ) -> EvaluationResult {
     if validator.is_valid(instance, ctx) {
         return EvaluationResult::valid_empty();
     }
-    match validator.validate(instance, location, tracker, ctx) {
+    // The description depends on the error kind and the instance alone; see `Validate::evaluate`.
+    match validator.validate(instance, &LazyLocation::new(), None, ctx) {
         Ok(()) => EvaluationResult::valid_empty(),
         Err(error) => {
             EvaluationResult::invalid_empty(vec![ErrorDescription::from_validation_error(&error)])
@@ -723,8 +817,9 @@ impl<F: Json> Validator<F> {
             .evaluate_instance(&instance, &LazyLocation::new(), None, &mut ctx);
         match ctx.matches.take() {
             None => {
-                let root = ctx.arena.push(root);
-                Evaluation::new(std::mem::take(&mut ctx.arena), root)
+                let arena = ctx.arena();
+                let root = arena.push(root);
+                Evaluation::new(std::mem::take(arena), root)
             }
             // What the instance evaluates to depends on the unfinished matches; only the errors
             // shared by every outcome are known.
@@ -739,6 +834,7 @@ impl<F: Json> Validator<F> {
     fn evaluation_from_errors(errors: Vec<ValidationError<'_>>) -> Evaluation {
         let root_location = crate::evaluation::format_keyword_location(&Location::new(), None);
         let mut arena = EvaluationArena::default();
+        let root = arena.rendered_position(Location::new());
         if errors.is_empty() {
             return Evaluation::with_root(
                 arena,
@@ -746,7 +842,7 @@ impl<F: Json> Validator<F> {
                     Location::new(),
                     None,
                     root_location,
-                    Location::new(),
+                    root,
                     None,
                     ChildList::default(),
                 ),
@@ -754,13 +850,14 @@ impl<F: Json> Validator<F> {
         }
         let mut children = ChildList::default();
         for error in &errors {
+            let position = arena.rendered_position(error.instance_path().clone());
             children.push(
                 &mut arena,
                 EvaluationNode::invalid(
                     error.evaluation_path().clone(),
                     None,
                     crate::evaluation::format_keyword_location(error.schema_path(), None),
-                    error.instance_path().clone(),
+                    position,
                     None,
                     vec![ErrorDescription::from_validation_error(error)],
                     ChildList::default(),
@@ -773,7 +870,7 @@ impl<F: Json> Validator<F> {
                 Location::new(),
                 None,
                 root_location,
-                Location::new(),
+                root,
                 None,
                 Vec::new(),
                 children,
@@ -1394,6 +1491,26 @@ mod tests {
         assert_eq!(error.to_string(), "\"foo\" is not of type \"number\"");
     }
 
+    // Messages shorter and longer than the buffer `evaluate` formats into first.
+    #[test_case(&json!({"const": "x"}); "short")]
+    #[test_case(&json!({"const": "x".repeat(113)}); "fills the buffer")]
+    #[test_case(&json!({"const": "x".repeat(114)}); "one past the buffer")]
+    #[test_case(&json!({"const": "x".repeat(300)}); "far past the buffer")]
+    fn evaluate_message_matches_validate(schema: &Value) {
+        let validator = crate::validator_for(schema).expect("Valid schema");
+        let instance = json!("y");
+        let expected = validator
+            .validate(&instance)
+            .expect_err("Should fail")
+            .to_string();
+        let evaluation = validator.evaluate(&instance);
+        let messages: Vec<_> = evaluation
+            .iter_errors()
+            .map(|entry| entry.error.message())
+            .collect();
+        assert_eq!(messages, vec![expected.as_str()]);
+    }
+
     #[test]
     fn custom_keyword_validation_error_paths() {
         struct AlwaysFailValidator;
@@ -1433,6 +1550,13 @@ mod tests {
             "/properties/name/alwaysFail"
         );
         assert_eq!(error.kind().keyword(), "alwaysFail");
+
+        let evaluation = validator.evaluate(&instance);
+        let descriptions: Vec<_> = evaluation
+            .iter_errors()
+            .map(|entry| (entry.error.keyword(), entry.error.message()))
+            .collect();
+        assert_eq!(descriptions, vec![("alwaysFail", "always fails")]);
     }
 
     #[test]

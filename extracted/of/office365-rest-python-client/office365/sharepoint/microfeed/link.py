@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.microfeed.linkaction import MicrofeedLinkAction
 
 
-@dataclass
 class MicrofeedLink(ClientValue):
     ClickAction: MicrofeedLinkAction = field(default_factory=MicrofeedLinkAction)
     ContentUri: Optional[str] = None

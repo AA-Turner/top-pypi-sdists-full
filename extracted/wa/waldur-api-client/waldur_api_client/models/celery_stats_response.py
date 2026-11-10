@@ -26,7 +26,7 @@ class CeleryStatsResponse:
             Keys are worker names, values are lists of scheduled tasks with ETA.
         reserved (Union['CeleryStatsResponseReservedType0', None]): Tasks that have been received but not yet started
             per worker. Keys are worker names, values are lists of reserved tasks.
-        revoked (Union['CeleryStatsResponseRevokedType0', None]): IDs of revoked (cancelled) tasks per worker. Keys are
+        revoked (Union['CeleryStatsResponseRevokedType0', None]): IDs of revoked (canceled) tasks per worker. Keys are
             worker names, values are lists of task IDs.
         query_task (Union['CeleryStatsResponseQueryTaskType0', None]): Query results for specific tasks. May be null if
             no query was performed.

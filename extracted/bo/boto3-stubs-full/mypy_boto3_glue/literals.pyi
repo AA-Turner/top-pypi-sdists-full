@@ -60,6 +60,10 @@ __all__ = (
     "DataOperationType",
     "DataQualityEncryptionModeType",
     "DataQualityEngineType",
+    "DataQualityEvaluationConfigLevelType",
+    "DataQualityEvaluationConfigManagedRulesetType",
+    "DataQualityEvaluationConfigTriggerType",
+    "DataQualityEvaluationRunModeType",
     "DataQualityModelStatusType",
     "DataQualityRuleResultStatusType",
     "DatabaseAttributesType",
@@ -102,6 +106,7 @@ __all__ = (
     "GlueRecordTypeType",
     "GlueResourceTypeType",
     "GlueServiceName",
+    "GovernanceModeType",
     "HTTPMethodType",
     "HudiTargetCompressionTypeType",
     "HyperTargetCompressionTypeType",
@@ -126,6 +131,7 @@ __all__ = (
     "ListAssetTypesPaginatorName",
     "ListBlueprintsPaginatorName",
     "ListConnectionTypesPaginatorName",
+    "ListDataQualityEvaluationConfigsPaginatorName",
     "ListDataQualityResultsV2PaginatorName",
     "ListEntitiesPaginatorName",
     "ListFormTypesPaginatorName",
@@ -438,6 +444,10 @@ DataFormatType = Literal["AVRO", "JSON", "PROTOBUF"]
 DataOperationType = Literal["READ", "WRITE"]
 DataQualityEncryptionModeType = Literal["DISABLED", "SSE-KMS"]
 DataQualityEngineType = Literal["PYTHON", "SPARK"]
+DataQualityEvaluationConfigLevelType = Literal["CATALOG", "DATABASE", "TABLE"]
+DataQualityEvaluationConfigManagedRulesetType = Literal["ADVANCED", "SIMPLE"]
+DataQualityEvaluationConfigTriggerType = Literal["METADATA_CHANGE", "ONCE", "SCHEDULE"]
+DataQualityEvaluationRunModeType = Literal["EVALUATION_CONFIG", "ON_DEMAND"]
 DataQualityModelStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 DataQualityRuleResultStatusType = Literal["ERROR", "FAIL", "PASS"]
 DatabaseAttributesType = Literal["NAME", "TARGET_DATABASE"]
@@ -510,6 +520,7 @@ GlueRecordTypeType = Literal[
     "BIGDECIMAL", "BYTE", "DATE", "DOUBLE", "FLOAT", "INT", "LONG", "SHORT", "STRING", "TIMESTAMP"
 ]
 GlueResourceTypeType = Literal["JOB", "SESSION"]
+GovernanceModeType = Literal["IAM_ONLY", "LAKE_FORMATION"]
 HTTPMethodType = Literal["GET", "POST"]
 HudiTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 HyperTargetCompressionTypeType = Literal["uncompressed"]
@@ -599,6 +610,7 @@ LastRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 ListAssetTypesPaginatorName = Literal["list_asset_types"]
 ListBlueprintsPaginatorName = Literal["list_blueprints"]
 ListConnectionTypesPaginatorName = Literal["list_connection_types"]
+ListDataQualityEvaluationConfigsPaginatorName = Literal["list_data_quality_evaluation_configs"]
 ListDataQualityResultsV2PaginatorName = Literal["list_data_quality_results_v2"]
 ListEntitiesPaginatorName = Literal["list_entities"]
 ListFormTypesPaginatorName = Literal["list_form_types"]
@@ -1213,6 +1225,7 @@ PaginatorName = Literal[
     "list_asset_types",
     "list_blueprints",
     "list_connection_types",
+    "list_data_quality_evaluation_configs",
     "list_data_quality_results_v2",
     "list_entities",
     "list_form_types",

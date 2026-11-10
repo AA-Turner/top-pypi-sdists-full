@@ -1,56 +1,53 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: schema-salad
-Version: 8.10.20260825112551
+Version: 8.10.20261106141337
 Summary: Schema Annotations for Linked Avro Data (SALAD)
-Home-page: https://schema-salad.readthedocs.io/
-Download-URL: https://github.com/common-workflow-language/schema_salad/releases
-Author: Common workflow language working group
-Author-email: common-workflow-language@googlegroups.com
-License: Apache 2.0
+Project-URL: Documentation, https://schema-salad.readthedocs.io/
+Project-URL: Homepage, https://www.commonwl.org
+Project-URL: Changelog, https://github.com/common-workflow-language/schema_salad/releases
+Project-URL: Repository, https://github.com/common-workflow-language/schema_salad/
+Project-URL: Issues, https://github.com/common-workflow-language/schema_salad/issues
+Project-URL: Related Tools, https://www.commonwl.org/tools/
+Author-email: Common workflow language working group <common-workflow-language@googlegroups.com>
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.10,<3.16
-Description-Content-Type: text/x-rst
-License-File: LICENSE.txt
-Requires-Dist: requests>=1.0
-Requires-Dist: ruamel.yaml<0.20,>=0.17.6
+Requires-Python: >=3.10
+Requires-Dist: cachecontrol[filecache]<0.15,>=0.13.1
+Requires-Dist: mistune<3.5,>=3.3.0
+Requires-Dist: mypy-extensions
 Requires-Dist: rdflib<8.0.0,>=4.2.2
-Requires-Dist: mistune<3.4,>=3.3.0
-Requires-Dist: CacheControl[filecache]<0.15,>=0.13.1
-Requires-Dist: mypy_extensions
+Requires-Dist: requests>=1.0
 Requires-Dist: rich-argparse
+Requires-Dist: ruamel-yaml<0.20,>=0.17.6
 Provides-Extra: docs
-Requires-Dist: sphinx>=2.2; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=1; extra == "docs"
-Requires-Dist: pytest<10; extra == "docs"
-Requires-Dist: sphinx-autoapi; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
-Requires-Dist: sphinxcontrib-autoprogram; extra == "docs"
+Requires-Dist: pytest<10; extra == 'docs'
+Requires-Dist: sphinx-autoapi; extra == 'docs'
+Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme>=1; extra == 'docs'
+Requires-Dist: sphinx>=2.2; extra == 'docs'
+Requires-Dist: sphinxcontrib-autoprogram; extra == 'docs'
+Provides-Extra: mypy
+Requires-Dist: black<26.11,>=26.10.1; extra == 'mypy'
+Requires-Dist: cachecontrol[filecache]<0.15,>=0.14.0; extra == 'mypy'
+Requires-Dist: mypy==2.4.1; extra == 'mypy'
+Requires-Dist: types-dataclasses; extra == 'mypy'
+Requires-Dist: types-requests; extra == 'mypy'
 Provides-Extra: pycodegen
-Requires-Dist: black; extra == "pycodegen"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: black; extra == 'pycodegen'
+Description-Content-Type: text/x-rst
 
 |Linux Build Status| |Code coverage| |Documentation Status| |CII Best Practices|
 

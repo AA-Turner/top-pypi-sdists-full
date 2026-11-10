@@ -6,7 +6,7 @@ Generates project-aware documentation files for AI coding assistants:
 - .cursorrules for Cursor
 - .github/copilot-instructions.md for GitHub Copilot
 
-Each file includes: framework directives, project views with handlers,
+Each file includes: UI building blocks, framework directives, project views with handlers,
 template bindings, and available components.
 
 Usage:
@@ -14,12 +14,29 @@ Usage:
     python manage.py djust_ai_context --format cursor    # -> .cursorrules
     python manage.py djust_ai_context --format copilot   # -> .github/copilot-instructions.md
     python manage.py djust_ai_context --format claude --output /path/to/file
+    python manage.py djust_ai_context --format claude --force   # replace an existing file
+
+An existing target file is never overwritten unless ``--force`` is passed.
 """
 
+import contextlib
 import os
+import shutil
+import tempfile
 from typing import Any
 
-from django.core.management.base import CommandParser, BaseCommand
+from django.core.management.base import BaseCommand, CommandError, CommandParser
+
+from djust.ai_discovery.manifest import (  # noqa: F401 -- compatibility re-exports
+    _FULL_CATEGORIES,
+    _category_order,
+    _section_directives,
+    _section_lifecycle,
+    _section_decorators,
+    _section_conventions,
+    _section_security,
+    _section_state,
+)
 
 
 class Command(BaseCommand):
@@ -44,6 +61,11 @@ class Command(BaseCommand):
             action="store_true",
             dest="print_stdout",
             help="Print to stdout instead of writing to file",
+        )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Replace the target file if it already exists (it is refused otherwise)",
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
@@ -70,10 +92,80 @@ class Command(BaseCommand):
         if parent and not os.path.exists(parent):
             os.makedirs(parent, exist_ok=True)
 
-        with open(output_path, "w") as f:
-            f.write(content)
+        # The target is often a hand-written file (a CLAUDE.md with project
+        # rules), and the generated one replaces it whole: refuse (#3297).
+        # Mode "x" makes the existence check and the create one atomic step.
+        # The text is UTF-8 whatever the locale (it carries an em dash, and an
+        # ASCII default encoding failed AFTER the file was created), and a
+        # failed write must not leave a half-written file behind (#3312).
+        if options.get("force", False):
+            _replace_existing(output_path, content)
+        else:
+            try:
+                _write_new(output_path, content)
+            except FileExistsError:
+                raise CommandError(
+                    "%s already exists and was not written; the generated file would replace it "
+                    "entirely. Rerun with --force to overwrite it, --output to write elsewhere, "
+                    "or --print to see the generated text." % output_path
+                ) from None
 
         self.stdout.write(self.style.SUCCESS("Wrote %s" % output_path))
+
+
+def _discard(path: str) -> None:
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        # The temporary file was already removed.
+        pass
+
+
+def _replace_existing(path: str, content: str) -> None:
+    """Replace ``path`` with ``content`` so that a failure keeps what was there.
+
+    The text is written to a uniquely named file beside the REAL target (a
+    symlinked ``AGENTS.md -> CLAUDE.md`` is written through, as ``open(path, "w")``
+    did, instead of being replaced by a regular file) and renamed over it. The
+    original's permission bits and, where allowed, owner are carried over, so a
+    0600 file stays 0600.
+    """
+    real = os.path.realpath(path)
+    if not os.path.exists(real):
+        _write_new(real, content)
+        return
+    original = os.stat(real)
+    fd, scratch = tempfile.mkstemp(
+        dir=os.path.dirname(real) or ".", prefix=".%s." % os.path.basename(real), suffix=".tmp"
+    )
+    os.close(fd)
+    try:
+        with open(scratch, "w", encoding="utf-8") as f:
+            f.write(content)
+        shutil.copymode(real, scratch)
+        with contextlib.suppress(OSError):  # chown needs privilege; the mode is what matters
+            os.chown(scratch, original.st_uid, original.st_gid)
+        os.replace(scratch, real)
+    except BaseException:
+        _discard(scratch)
+        raise
+
+
+def _write_new(path: str, content: str) -> None:
+    """Create ``path`` (it must not exist) holding ``content``, as UTF-8.
+
+    Raises ``FileExistsError`` if it exists. Anything that goes wrong after the
+    file was created removes it again, so the rerun is not refused as "already
+    exists" by a 0-byte or truncated leftover.
+    """
+    try:
+        with open(path, "x", encoding="utf-8") as f:
+            f.write(content)
+    except FileExistsError:
+        raise  # not ours: someone else's file, left alone
+    except BaseException:
+        _discard(path)
+        raise
 
 
 def _default_path(fmt: str) -> str:
@@ -103,16 +195,23 @@ def _generate_content(framework: dict, project: dict, fmt: str) -> str:
         sections.append("Auto-generated by `python manage.py djust_ai_context --format copilot`.\n")
 
     sections.append(
+        "Regenerate it with the same command after upgrading djust or adding views. The command "
+        "refuses to overwrite an existing file unless you pass `--force`, so keep your own rules "
+        "in a separate file.\n"
+    )
+
+    sections.append(
         "This project uses the **djust** framework (v%s) — "
         "a hybrid Python/Rust framework bringing Phoenix LiveView-style "
         "reactive server-side rendering to Django.\n" % framework.get("version", "?")
     )
 
-    # Framework quick reference
-    sections.append(_section_directives(framework))
-    sections.append(_section_lifecycle(framework))
-    sections.append(_section_decorators(framework))
-    sections.append(_section_conventions(framework))
+    # Shared manifest reference; keep project sections and format headers local.
+    from djust.ai_discovery.manifest import AI_CONTEXT_SECTIONS, manifest_sections
+
+    sections.extend(
+        text for key, text in manifest_sections(framework) if key in AI_CONTEXT_SECTIONS
+    )
 
     # Project-specific
     if project.get("views") or project.get("components"):
@@ -122,116 +221,6 @@ def _generate_content(framework: dict, project: dict, fmt: str) -> str:
         sections.append(_section_routes(project))
 
     return "\n".join(sections)
-
-
-def _section_directives(framework: dict) -> str:
-    """Generate the template directives reference section."""
-    lines = ["## Template Directives\n"]
-
-    by_category: dict[str, list[Any]] = {}
-    for d in framework.get("directives", []):
-        cat = d.get("category", "other")
-        by_category.setdefault(cat, []).append(d)
-
-    category_order = [
-        "event",
-        "binding",
-        "dom",
-        "loading",
-        "client",
-        "modifier",
-        "hooks",
-        "navigation",
-        "streaming",
-        "upload",
-    ]
-
-    for cat in category_order:
-        directives = by_category.get(cat, [])
-        if not directives:
-            continue
-        lines.append("### %s\n" % cat.title())
-        for d in directives:
-            lines.append("- **`%s`** = `%s`" % (d["name"], d.get("value", "")))
-            lines.append("  %s" % d.get("description", ""))
-            if d.get("modifiers"):
-                lines.append("  Modifiers: %s" % ", ".join(".%s" % m for m in d["modifiers"]))
-            if d.get("example"):
-                lines.append("  ```html\n  %s\n  ```" % d["example"])
-            lines.append("")
-
-    # Data attribute types
-    lines.append("### Data Attribute Type Coercion\n")
-    for suffix, desc in framework.get("data_attribute_types", {}).items():
-        lines.append("- `data-name:%s` — %s" % (suffix, desc))
-    lines.append("")
-
-    return "\n".join(lines)
-
-
-def _section_lifecycle(framework: dict) -> str:
-    """Generate the lifecycle methods section."""
-    lines = ["## Lifecycle Methods\n"]
-
-    for method in framework.get("lifecycle_methods", []):
-        lines.append("- **`%s`** — %s" % (method["name"], method["description"]))
-        lines.append("  ```python\n  %s\n  ```" % method["signature"])
-
-    lines.append("")
-
-    # Navigation methods
-    lines.append("### Server-Side Navigation\n")
-    for m in framework.get("navigation_methods", []):
-        lines.append("- `%s` — %s" % (m["signature"], m["description"]))
-
-    # Stream methods
-    lines.append("\n### Streams API\n")
-    for m in framework.get("stream_methods", []):
-        lines.append("- `%s` — %s" % (m["signature"], m["description"]))
-
-    # Push events
-    lines.append("\n### Push Events\n")
-    for m in framework.get("push_event_methods", []):
-        lines.append("- `%s` — %s" % (m["signature"], m["description"]))
-
-    lines.append("")
-    return "\n".join(lines)
-
-
-def _section_decorators(framework: dict) -> str:
-    """Generate the decorators section."""
-    lines = ["## Decorators\n"]
-
-    for dec in framework.get("decorators", []):
-        lines.append("### `%s`\n" % dec["name"])
-        lines.append("%s\n" % dec["description"])
-        lines.append("`%s`\n" % dec["import"])
-        if dec.get("params"):
-            lines.append("Parameters:")
-            for pname, pdesc in dec["params"].items():
-                lines.append("- `%s`: %s" % (pname, pdesc))
-            lines.append("")
-        if dec.get("usage"):
-            lines.append("```python")
-            lines.append(dec["usage"][0])
-            lines.append("```\n")
-
-    return "\n".join(lines)
-
-
-def _section_conventions(framework: dict) -> str:
-    """Generate the conventions section."""
-    lines = ["## Conventions\n"]
-
-    for key, conv in framework.get("conventions", {}).items():
-        lines.append("### %s\n" % key.replace("_", " ").title())
-        lines.append("%s\n" % conv["description"])
-        if "examples" in conv:
-            for example, desc in conv["examples"].items():
-                lines.append("- `%s` — %s" % (example, desc))
-            lines.append("")
-
-    return "\n".join(lines)
 
 
 def _section_project_views(project: dict) -> str:

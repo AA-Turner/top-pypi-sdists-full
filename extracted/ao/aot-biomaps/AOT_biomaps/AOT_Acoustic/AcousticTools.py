@@ -46,6 +46,50 @@ def _get_xp(xp=None):
         return xp
     return cp if CUPY_AVAILABLE else np
 
+def _get_dynamic_chunk_size(field_shape, ortho_axis, xp, multiplier=10.0):
+    """
+    Calculates the optimal chunk size based on available GPU VRAM.
+    If the GPU has enough memory, it returns the full dimension (processes all at once).
+
+    Args:
+        field_shape (tuple): Shape of the input field.
+        ortho_axis (int): The axis along which the field will be chunked.
+        xp (module): Array namespace (cupy or numpy).
+        multiplier (float): Safety factor for peak memory usage during FFT operations.
+
+    Returns:
+        int: The optimal chunk size.
+    """
+    N_ortho = field_shape[ortho_axis]
+    
+    # If using CPU (numpy), RAM is usually large enough, process everything at once
+    if xp.__name__ != 'cupy':
+        return N_ortho
+
+    # Clear cached memory to get an accurate reading of available VRAM
+    mempool = xp.get_default_memory_pool()
+    mempool.free_all_blocks()
+
+    # Get free and total memory in bytes
+    free_mem, total_mem = xp.cuda.Device().mem_info
+    
+    # Calculate how many bytes a single slice along the ortho_axis requires (float32 = 4 bytes)
+    elements_per_slice = np.prod(field_shape) / N_ortho
+    bytes_per_slice = elements_per_slice * 4 
+
+    # We use 80% of free memory to leave a safe margin for OS and other background tasks
+    safe_mem = free_mem * 0.8
+    
+    # If the entire array fits safely, do it in one single pass
+    if bytes_per_slice * N_ortho * multiplier < safe_mem:
+        return N_ortho
+
+    # Otherwise, calculate how many slices can fit in the safe VRAM budget
+    optimal_chunk = int(safe_mem / (bytes_per_slice * multiplier))
+    
+    # Ensure chunk is at least 1, and at most the full size
+    return max(1, min(optimal_chunk, N_ortho))
+
 # ---------------------------------------------------------------------------
 # MAT / IO helpers
 # ---------------------------------------------------------------------------
@@ -338,56 +382,26 @@ def compute_field_numba(field, t, active_indices, apod_window, weight_base,
 # ---------------------------------------------------------------------------
 
 def sensor_data_to_grid(data, Nx, Nz, backend="python", xp=None):
-    """
-    Normalizes k-Wave sensor output to the grid layout (Nx, Nz, Nt), time last.
-
-    The pure-Python k-Wave backend returns 'p' flattened in C-order (row-major),
-    while compiled C++/CUDA binaries apply an internal Fortran-order 
-    (column-major) flatten and return (Ns, Nt). This function detects the 
-    layout, forces the correct C-contiguous array, and aggressively frees RAM/VRAM.
-
-    Args:
-        data (np.ndarray): Raw array from k-Wave output.
-        Nx (int): Number of grid points in the X dimension.
-        Nz (int): Number of grid points in the Z dimension.
-        backend (str): The k-Wave backend used ("python", "cpp", or "cuda").
-        xp (module, optional): Array namespace (cupy or numpy).
-
-    Returns:
-        array: Array of shape (Nx, Nz, Nt) in the requested namespace.
-    """
     xp = _get_xp(xp)
     mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
     
     Ns = Nx * Nz
-    
-    # Align axes to (Ns, Nt) for C++ backend compatibility
     if data.ndim == 2 and data.shape[1] == Ns and data.shape[0] != Ns:
         data = data.T
         
-    # Transfer data to the target device (GPU VRAM if cupy is used)
     data_array = xp.asarray(data, dtype=xp.float32)
-    
-    # CRITICAL: Free CPU RAM immediately to prevent system memory fragmentation
     del data
     gc.collect()
     
-    # Reshape according to the backend memory layout
     if backend in ["cpp", "cuda"]:
-        # C++ flattens the grid varying Nx fastest (Fortran-like in this context)
         out = data_array.reshape((Nz, Nx, -1)).transpose(1, 0, 2)
     else:
-        # Python backend keeps native spatial order
         out = data_array.reshape((Nx, Nz, -1))
         
-    # Force memory contiguity to prevent phantom copies during FFT operations
     out = xp.ascontiguousarray(out)
-    
-    # Clean up intermediate GPU array and flush the memory pool
     del data_array
     if mempool:
         mempool.free_all_blocks()
-    
     return out
 
 def to_pipeline_layout(field, xp=None):
@@ -406,22 +420,10 @@ def to_pipeline_layout(field, xp=None):
     return xp.ascontiguousarray(field.transpose(2, 1, 0))
 
 def hilbert_analytic(field, xp=None):
-    """
-    Computes the FFT-based Hilbert transform (analytic signal) along the last axis.
 
-    Args:
-        field (array): Real input array. Time must be on the last axis.
-        xp (module, optional): Array namespace (cupy or numpy).
-
-    Returns:
-        array: Complex analytic signal, same shape as input.
-    """
     xp = _get_xp(xp)
-    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
-    
     Nt = field.shape[-1]
     
-    # Construct the Hilbert multiplier mask
     h = xp.zeros((1, 1, Nt), dtype=xp.float32)
     h[..., 0] = 1.0
     if Nt % 2 == 0:
@@ -430,86 +432,51 @@ def hilbert_analytic(field, xp=None):
     else:
         h[..., 1:(Nt + 1) // 2] = 2.0
         
-    # 1. Compute Forward FFT
     f_fft = xp.fft.fft(field, axis=-1)
-    if mempool:
-        mempool.free_all_blocks()
-    
-    # 2. Apply Hilbert mask (in-place modification to save VRAM)
     f_fft *= h
     del h
-    if mempool:
-        mempool.free_all_blocks()
     
-    # 3. Compute Inverse FFT
     analytic = xp.fft.ifft(f_fft, axis=-1)
     del f_fft
-    if mempool:
-        mempool.free_all_blocks()
-    
     return analytic
 
-def calculate_envelope_squared(field, xp=None):
+def calculate_envelope_squared(field, xp=None, chunk_size=None):
     """
-    Computes the squared envelope |s_a(t)|^2 of a grid-layout field.
-
-    This function heavily manipulates VRAM. To avoid OutOfMemory errors on 
-    smaller GPUs (e.g., 12GB limits), it deletes the original input field 
-    from VRAM as soon as the analytic signal is computed.
-
-    Args:
-        field (array): Array with time on the LAST axis (Nx, Nz, Nt).
-                       WARNING: This array will be deleted in-place to free VRAM.
-        xp (module, optional): Array namespace (cupy or numpy).
-
-    Returns:
-        array: Squared envelope (float32), same shape as input.
+    Computes the squared envelope. Dynamically adapts to VRAM.
     """
     xp = _get_xp(xp)
     mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
     
-    # Compute complex analytic signal
-    analytic = hilbert_analytic(field, xp)
+    Nx = field.shape[0]
     
-    # CRITICAL: Delete the original high-res field immediately to free ~1.7GB VRAM
+    # Dynamically determine the best chunk size based on available VRAM
+    if chunk_size is None:
+        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis=0, xp=xp, multiplier=10.0)
+    
+    out_env_sq = xp.empty_like(field, dtype=xp.float32)
+    
+    for i in range(0, Nx, chunk_size):
+        end = min(i + chunk_size, Nx)
+        field_chunk = field[i:end, ...]
+        
+        analytic_chunk = hilbert_analytic(field_chunk, xp)
+        out_env_sq[i:end, ...] = (analytic_chunk.real ** 2 + analytic_chunk.imag ** 2).astype(xp.float32)
+        
+        del field_chunk, analytic_chunk
+        if mempool:
+            mempool.free_all_blocks()
+            
     del field
     if mempool:
         mempool.free_all_blocks()
-    
-    # Break down the magnitude computation to avoid massive temporary allocations
-    real_sq = analytic.real ** 2
-    if mempool:
-        mempool.free_all_blocks()
-        
-    imag_sq = analytic.imag ** 2
-    del analytic
-    if mempool:
-        mempool.free_all_blocks()
-    
-    # Combine and cast
-    env_sq = (real_sq + imag_sq).astype(xp.float32)
-    del real_sq
-    del imag_sq
-    if mempool:
-        mempool.free_all_blocks()
-    
-    return env_sq
+            
+    return out_env_sq
 
-def calculate_envelope(field, xp=None):
-    """
-    Computes the envelope |s_a(t)| of a grid-layout field.
-
-    Args:
-        field (array): Array with time on the LAST axis (Nx, Nz, Nt).
-        xp (module, optional): Array namespace (cupy or numpy).
-
-    Returns:
-        array: Envelope (float32), same shape as input.
-    """
+def calculate_envelope(field, xp=None, chunk_size=None):
     xp = _get_xp(xp)
     mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
     
-    env_sq = calculate_envelope_squared(field, xp)
+    env_sq = calculate_envelope_squared(field, xp, chunk_size=chunk_size)
     env = xp.sqrt(env_sq)
     
     del env_sq
@@ -518,24 +485,10 @@ def calculate_envelope(field, xp=None):
         
     return env
 
-def resample_bandlimited(field, axis, M, xp=None):
+def resample_bandlimited(field, axis, M, xp=None, chunk_size=None):
     """
-    Band-limited resampling of `field` along `axis` from N to M samples.
-
-    Pipeline: rfft -> raised-cosine anti-alias window -> irfft(n=M) -> amplitude correction.
-    
-    VRAM optimization: The input `field` is deleted immediately after the forward 
-    FFT to make room for the heavily memory-bound inverse FFT step.
-
-    Args:
-        field (array): Input array (real).
-                       WARNING: This array will be deleted during processing to save VRAM.
-        axis (int): Axis to resample (default is the time axis).
-        M (int): Target number of samples on `axis`.
-        xp (module, optional): Array namespace (cupy or numpy).
-
-    Returns:
-        array: Resampled array.
+    Band-limited resampling. Dynamically adapts to VRAM to process in one pass 
+    if memory allows, or falls back to chunks if tight on memory.
     """
     xp = _get_xp(xp)
     mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
@@ -544,100 +497,80 @@ def resample_bandlimited(field, axis, M, xp=None):
     if M == N:
         return field
         
-    # 1. Forward Real FFT
-    E = xp.fft.rfft(field, axis=axis)
+    shape_out = list(field.shape)
+    shape_out[axis] = M
+    out = xp.empty(tuple(shape_out), dtype=xp.float32)
     
-    # CRITICAL: Free the original high-resolution field before creating spectral masks
-    del field
-    if mempool:
-        mempool.free_all_blocks()
+    ortho_axis = 1 if axis == 0 else 0
+    N_ortho = field.shape[ortho_axis]
     
-    K = E.shape[axis]                 
+    # Calculate optimal chunk size (Needs a slightly higher multiplier for resample)
+    if chunk_size is None:
+        chunk_size = _get_dynamic_chunk_size(field.shape, ortho_axis, xp=xp, multiplier=12.0)
+    
     Mk = M // 2 + 1                   
-    cut = min(K, Mk)                  
+    cut = min(N // 2 + 1, Mk)                  
     kc = min(N, M) / 2.0              
 
-    # 2. Build Raised-Cosine anti-aliasing window
     kb = xp.arange(cut, dtype=xp.float32)
     w = xp.where(kb <= 0.70 * kc, 1.0,
                  xp.where(kb <= kc,
                           0.5 * (1 + xp.cos(xp.pi * (kb - 0.70 * kc) / (0.30 * kc))),
                           0.0))
-    w = w.reshape([cut if ax == axis else 1 for ax in range(E.ndim)])
+    w_shape = [cut if ax == axis else 1 for ax in range(field.ndim)]
+    w = w.reshape(w_shape)
     del kb
 
-    # 3. Apply mask to a newly shaped array
-    shape = list(E.shape)
-    shape[axis] = Mk
-    E2 = xp.zeros(tuple(shape), dtype=E.dtype)
-    
-    sl = [slice(None)] * E.ndim
-    sl[axis] = slice(0, cut)
-    E2[tuple(sl)] = E[tuple(sl)] * w
-    
-    del E
-    del w
-    if mempool:
-        mempool.free_all_blocks()
+    for i in range(0, N_ortho, chunk_size):
+        end = min(i + chunk_size, N_ortho)
+        
+        sl_in = [slice(None)] * field.ndim
+        sl_in[ortho_axis] = slice(i, end)
+        
+        chunk = field[tuple(sl_in)]
+        
+        E_chunk = xp.fft.rfft(chunk, axis=axis)
+        del chunk
+        
+        E2_shape = list(E_chunk.shape)
+        E2_shape[axis] = Mk
+        E2_chunk = xp.zeros(tuple(E2_shape), dtype=E_chunk.dtype)
+        
+        sl_cut = [slice(None)] * E_chunk.ndim
+        sl_cut[axis] = slice(0, cut)
+        E2_chunk[tuple(sl_cut)] = E_chunk[tuple(sl_cut)] * w
+        del E_chunk
+        
+        out_chunk = xp.fft.irfft(E2_chunk, n=M, axis=axis)
+        del E2_chunk
+        
+        out_chunk *= xp.float32(M / N)
+        
+        out[tuple(sl_in)] = out_chunk
+        del out_chunk
+        
+        if mempool:
+            mempool.free_all_blocks()
 
-    # 4. Inverse Real FFT
-    out = xp.fft.irfft(E2, n=M, axis=axis)
-    
-    del E2
-    if mempool:
-        mempool.free_all_blocks()
-    
-    # 5. Amplitude correction (in-place)
-    out *= xp.float32(M / N)          
-    
+    del w
+    del field
     if mempool:
         mempool.free_all_blocks()
         
     return out
 
 def resample_field(field, target_sizes, xp=None):
-    """
-    Performs band-limited downsampling of a grid-layout field (Nx, Nz, Nt).
-    
-    Decimation is performed iteratively in this specific order: 
-    time (axis 2) -> z (axis 1) -> x (axis 0).
-    The GPU memory pool is flushed between each axis processing.
-
-    Args:
-        field (array): Grid-layout array (Nx, Nz, Nt), time last.
-        target_sizes (tuple): Target sizes as (Nt_t, Nz_t, Nx_t).
-        xp (module, optional): Array namespace (cupy or numpy).
-
-    Returns:
-        array: Resampled grid layout.
-    """
     xp = _get_xp(xp)
-    mempool = xp.get_default_memory_pool() if xp.__name__ == 'cupy' else None
     
     Nt_t, Nz_t, Nx_t = target_sizes
     
-    # Step 1: Resample Time axis
     field = resample_bandlimited(field, 2, Nt_t, xp)
-    if mempool:
-        mempool.free_all_blocks()
-        
-    # Step 2: Resample Z axis
     field = resample_bandlimited(field, 1, Nz_t, xp)
-    if mempool:
-        mempool.free_all_blocks()
-        
-    # Step 3: Resample X axis
     field = resample_bandlimited(field, 0, Nx_t, xp)
-    if mempool:
-        mempool.free_all_blocks()
         
     return field
 
 def compute_target_sizes(Nx, Nz, Nt, dx, dz, dt, target_dt, target_dx, target_dz):
-    """
-    Target grid sizes + EFFECTIVE steps (<= targets) from target resolutions.
-    Returns (sizes, steps) with sizes=(Nt_t, Nz_t, Nx_t), steps=(dt', dz', dx').
-    """
     Nt_t = max(2, int(np.floor(Nt * dt / target_dt + 1e-9)))
     Nz_t = max(2, int(np.floor(Nz * dz / target_dz + 1e-9)))
     Nx_t = max(2, int(np.floor(Nx * dx / target_dx + 1e-9)))

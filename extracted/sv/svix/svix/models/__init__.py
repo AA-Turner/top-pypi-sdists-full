@@ -14,6 +14,9 @@ from .application_in import ApplicationIn
 from .application_out import ApplicationOut
 from .application_patch import ApplicationPatch
 from .application_token_expire_in import ApplicationTokenExpireIn
+from .archive_status import ArchiveStatus
+from .ascend_config import AscendConfig
+from .ascend_config_out import AscendConfigOut
 from .auto_config_out import AutoConfigOut
 from .auto_config_sink_type import AutoConfigSinkType
 from .auto_config_subscription_out import AutoConfigSubscriptionOut
@@ -23,9 +26,13 @@ from .azure_blob_storage_config_patch import AzureBlobStorageConfigPatch
 from .background_task_out import BackgroundTaskOut
 from .background_task_status import BackgroundTaskStatus
 from .background_task_type import BackgroundTaskType
+from .batch_create_messages_in import BatchCreateMessagesIn
+from .batch_message_in import BatchMessageIn
 from .big_query_config_in import BigQueryConfigIn
 from .big_query_config_out import BigQueryConfigOut
 from .big_query_config_patch import BigQueryConfigPatch
+from .bitbucket_config import BitbucketConfig
+from .bitbucket_config_out import BitbucketConfigOut
 from .bulk_expunge_contents_in import BulkExpungeContentsIn
 from .bulk_expunge_contents_out import BulkExpungeContentsOut
 from .bulk_expunge_status import BulkExpungeStatus
@@ -60,8 +67,10 @@ from .easypost_config_out import EasypostConfigOut
 from .elastic_search_config_in import ElasticSearchConfigIn
 from .elastic_search_config_out import ElasticSearchConfigOut
 from .elastic_search_config_patch import ElasticSearchConfigPatch
+from .elastic_search_operation import ElasticSearchOperation
 from .empty_response import EmptyResponse
 from .endpoint_attempt_stats import EndpointAttemptStats
+from .endpoint_challenge_mode import EndpointChallengeMode
 from .endpoint_headers_in import EndpointHeadersIn
 from .endpoint_headers_out import EndpointHeadersOut
 from .endpoint_headers_patch_in import EndpointHeadersPatchIn
@@ -95,6 +104,9 @@ from .event_type_patch import EventTypePatch
 from .event_type_upsert_in import EventTypeUpsertIn
 from .expunge_all_contents_out import ExpungeAllContentsOut
 from .fifo_endpoint_config_in import FifoEndpointConfigIn
+from .generic_webhook_config import GenericWebhookConfig
+from .generic_webhook_config_out import GenericWebhookConfigOut
+from .generic_webhook_response import GenericWebhookResponse
 from .github_config import GithubConfig
 from .github_config_out import GithubConfigOut
 from .google_cloud_pub_sub_config_in import GoogleCloudPubSubConfigIn
@@ -141,6 +153,12 @@ from .list_response_operational_webhook_endpoint_out import (
 from .list_response_stream_event_type_out import ListResponseStreamEventTypeOut
 from .list_response_stream_out import ListResponseStreamOut
 from .list_response_stream_sink_out import ListResponseStreamSinkOut
+from .mcp_events_delivery_mode import McpEventsDeliveryMode
+from .mcp_events_subscribe_delivery_in import McpEventsSubscribeDeliveryIn
+from .mcp_events_subscribe_in import McpEventsSubscribeIn
+from .mcp_events_subscribe_out import McpEventsSubscribeOut
+from .mcp_events_unsubscribe_delivery_in import McpEventsUnsubscribeDeliveryIn
+from .mcp_events_unsubscribe_in import McpEventsUnsubscribeIn
 from .merge_config import MergeConfig
 from .merge_config_out import MergeConfigOut
 from .message_attempt_out import MessageAttemptOut
@@ -184,6 +202,9 @@ from .polling_endpoint_message_out import PollingEndpointMessageOut
 from .polling_endpoint_out import PollingEndpointOut
 from .port_io_config import PortIoConfig
 from .port_io_config_out import PortIoConfigOut
+from .post_hog_config_in import PostHogConfigIn
+from .post_hog_config_out import PostHogConfigOut
+from .post_hog_config_patch import PostHogConfigPatch
 from .postgres_config_in import PostgresConfigIn
 from .postgres_config_out import PostgresConfigOut
 from .postgres_config_patch import PostgresConfigPatch
@@ -207,6 +228,9 @@ from .s3_config_out import S3ConfigOut
 from .s3_config_patch import S3ConfigPatch
 from .segment_config import SegmentConfig
 from .segment_config_out import SegmentConfigOut
+from .segment_sink_config_in import SegmentSinkConfigIn
+from .segment_sink_config_out import SegmentSinkConfigOut
+from .segment_sink_config_patch import SegmentSinkConfigPatch
 from .shopify_config import ShopifyConfig
 from .shopify_config_out import ShopifyConfigOut
 from .sink_http_config_in import SinkHttpConfigIn
@@ -253,6 +277,8 @@ from .tailscale_config import TailscaleConfig
 from .tailscale_config_out import TailscaleConfigOut
 from .telnyx_config import TelnyxConfig
 from .telnyx_config_out import TelnyxConfigOut
+from .tricentis_qtest_config import TricentisQtestConfig
+from .tricentis_qtest_config_out import TricentisQtestConfigOut
 from .vapi_config import VapiConfig
 from .vapi_config_out import VapiConfigOut
 from .veriff_config import VeriffConfig
@@ -278,6 +304,9 @@ __all__ = [
     "ApplicationOut",
     "ApplicationPatch",
     "ApplicationTokenExpireIn",
+    "ArchiveStatus",
+    "AscendConfig",
+    "AscendConfigOut",
     "AutoConfigOut",
     "AutoConfigSinkType",
     "AutoConfigSubscriptionOut",
@@ -287,9 +316,13 @@ __all__ = [
     "BackgroundTaskOut",
     "BackgroundTaskStatus",
     "BackgroundTaskType",
+    "BatchCreateMessagesIn",
+    "BatchMessageIn",
     "BigQueryConfigIn",
     "BigQueryConfigOut",
     "BigQueryConfigPatch",
+    "BitbucketConfig",
+    "BitbucketConfigOut",
     "BulkExpungeContentsIn",
     "BulkExpungeContentsOut",
     "BulkExpungeStatus",
@@ -324,8 +357,10 @@ __all__ = [
     "ElasticSearchConfigIn",
     "ElasticSearchConfigOut",
     "ElasticSearchConfigPatch",
+    "ElasticSearchOperation",
     "EmptyResponse",
     "EndpointAttemptStats",
+    "EndpointChallengeMode",
     "EndpointHeadersIn",
     "EndpointHeadersOut",
     "EndpointHeadersPatchIn",
@@ -359,6 +394,9 @@ __all__ = [
     "EventTypeUpsertIn",
     "ExpungeAllContentsOut",
     "FifoEndpointConfigIn",
+    "GenericWebhookConfig",
+    "GenericWebhookConfigOut",
+    "GenericWebhookResponse",
     "GithubConfig",
     "GithubConfigOut",
     "GoogleCloudPubSubConfigIn",
@@ -403,6 +441,12 @@ __all__ = [
     "ListResponseStreamEventTypeOut",
     "ListResponseStreamOut",
     "ListResponseStreamSinkOut",
+    "McpEventsDeliveryMode",
+    "McpEventsSubscribeDeliveryIn",
+    "McpEventsSubscribeIn",
+    "McpEventsSubscribeOut",
+    "McpEventsUnsubscribeDeliveryIn",
+    "McpEventsUnsubscribeIn",
     "MergeConfig",
     "MergeConfigOut",
     "MessageAttemptOut",
@@ -444,6 +488,9 @@ __all__ = [
     "PollingEndpointOut",
     "PortIoConfig",
     "PortIoConfigOut",
+    "PostHogConfigIn",
+    "PostHogConfigOut",
+    "PostHogConfigPatch",
     "PostgresConfigIn",
     "PostgresConfigOut",
     "PostgresConfigPatch",
@@ -467,6 +514,9 @@ __all__ = [
     "S3ConfigPatch",
     "SegmentConfig",
     "SegmentConfigOut",
+    "SegmentSinkConfigIn",
+    "SegmentSinkConfigOut",
+    "SegmentSinkConfigPatch",
     "ShopifyConfig",
     "ShopifyConfigOut",
     "SinkHttpConfigIn",
@@ -513,6 +563,8 @@ __all__ = [
     "TailscaleConfigOut",
     "TelnyxConfig",
     "TelnyxConfigOut",
+    "TricentisQtestConfig",
+    "TricentisQtestConfigOut",
     "VapiConfig",
     "VapiConfigOut",
     "VeriffConfig",

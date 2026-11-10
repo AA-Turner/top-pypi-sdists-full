@@ -5,7 +5,6 @@ import typing as t
 from abc import ABC, abstractmethod
 from collections import deque
 from functools import cached_property
-from pathlib import Path
 
 import jinja2
 from dbt.config.runtime import RuntimeConfig
@@ -321,10 +320,18 @@ class SeedNodeHashCalculator(NodeHashCalculator):
     @cached_property
     def node_body_hash(self) -> t.Optional[str]:
         seed_node = t.cast(SeedNode, self.node)
-        if seed_node.root_path:
-            seed_path = Path(seed_node.root_path) / seed_node.original_file_path
-        else:
-            seed_path = Path(self._config.project_root) / seed_node.original_file_path
+        # path resolution based on dbt core implementation https://github.com/dbt-labs/dbt/blob/02946b1ff4f2b052c644ee09e74fe26a5a19af2c/core/dbt/context/providers.py#L729
+        package_path = (
+            os.path.join(self._config.packages_install_path, seed_node.package_name)
+            if seed_node.package_name != self._config.project_name
+            else "."
+        )
+        seed_path = os.path.join(
+            self._config.project_root, package_path, seed_node.original_file_path
+        )
+        if not os.path.exists(seed_path):
+            assert seed_node.root_path
+            seed_path = os.path.join(seed_node.root_path, seed_node.original_file_path)
 
         md5 = hashlib.md5(usedforsecurity=False)
         with open(seed_path, "rb") as f:

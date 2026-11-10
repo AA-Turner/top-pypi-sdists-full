@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.sharepoint.fields.lookup_value import FieldLookupValue
 from office365.sharepoint.principal.users.user import User
 
 
-@dataclass
 class FieldUserValue(FieldLookupValue):
     """Represents the value of a user fields for a list item."""
 

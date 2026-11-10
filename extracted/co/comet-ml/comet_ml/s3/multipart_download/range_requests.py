@@ -17,8 +17,8 @@ from typing import Callable, Collection, Dict, NamedTuple, Optional
 import requests
 
 from ...config import UPLOAD_FILE_MAX_RETRIES, UPLOAD_FILE_RETRY_BACKOFF_FACTOR
-from ...connection import http_session
 from ..multipart_transfer import cancellation, retry_policy, throttling
+from ..multipart_transfer.transport import S3Transport, TransportResponse
 from .download_error import S3DownloadError
 
 LOGGER = logging.getLogger(__name__)
@@ -36,25 +36,6 @@ REQUEST_NETWORK_ERRORS = (
     requests.Timeout,
     ConnectionError,
 )
-
-SessionProvider = Callable[[], requests.Session]
-
-
-def session_provider_for(verify_tls: bool) -> SessionProvider:
-    """The session used for ranged GETs straight to S3.
-
-    Like the upload path's: no Comet headers, because this goes to S3, and no
-    transport-level retries, because retrying is owned here. Cached per thread, so
-    every worker of the parts pool keeps its own connection across the ranges it
-    fetches.
-    """
-
-    def provider() -> requests.Session:
-        return http_session.get_cached_http_session(
-            retry=False, verify_tls=verify_tls, tcp_keep_alive=False
-        )
-
-    return provider
 
 
 class RetryBudget:
@@ -139,7 +120,7 @@ class RangeRequester:
     def __init__(
         self,
         url: str,
-        session_provider: SessionProvider,
+        transport: S3Transport,
         throttle_gate: Optional[throttling.ThrottleGate],
         request_timeout: Optional[float] = None,
         retry_backoff_factor: float = UPLOAD_FILE_RETRY_BACKOFF_FACTOR,
@@ -149,7 +130,7 @@ class RangeRequester:
         """With a cancel_token, every attempt, backoff and wait on the gate stops
         with TransferCancelled once it is cancelled."""
         self.url = url
-        self._session_provider = session_provider
+        self._transport = transport
         self._throttle_gate = throttle_gate
         self._request_timeout = request_timeout
         self._retry_backoff_factor = retry_backoff_factor
@@ -165,7 +146,7 @@ class RangeRequester:
         if_match: Optional[str],
         budget: RetryBudget,
         accepted: Collection[int],
-    ) -> requests.Response:
+    ) -> TransportResponse:
         """Sends ``Range: bytes=first-last``, or a plain GET when first is None."""
         headers: Dict[str, str] = {}
         if first is not None:
@@ -183,11 +164,8 @@ class RangeRequester:
             self._raise_if_cancelled()
 
             try:
-                response = self._session_provider().get(
-                    self.url,
-                    headers=headers,
-                    stream=True,
-                    timeout=self._request_timeout,
+                response = self._transport.get(
+                    self.url, headers=headers, timeout=self._request_timeout
                 )
             except REQUEST_NETWORK_ERRORS:
                 LOGGER.debug(
@@ -207,7 +185,7 @@ class RangeRequester:
                     self._throttle_gate.report_success()
                 return response
 
-            text = _read_error_text(response)
+            text = response.read_error_text()
             retry_after = retry_policy.retry_after_seconds(response)
             response.close()
 
@@ -325,17 +303,6 @@ class RangeRequester:
             self._cancel_token.raise_if_cancelled()
             if left <= CANCELLATION_POLL_SECONDS:
                 return False
-
-
-def _read_error_text(response: requests.Response) -> str:
-    # An error body from S3 is a short XML document. Anything else that answers with
-    # an error status could send an arbitrarily large one, so only the start is kept.
-    try:
-        return response.raw.read(1024, decode_content=True).decode(
-            "utf-8", errors="replace"
-        )
-    except Exception:
-        return ""
 
 
 _default_download_gate = throttling.ThrottleGate()

@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: MIT
 import logging
 import re
-import warnings
-from functools import lru_cache, partial
-from typing import List, Optional, Union
+import functools
 
 from edgar.__about__ import __version__
 
@@ -17,11 +15,10 @@ from edgar._filings import (
     FilingHomepage,
     Filings,
     get_by_accession_number,
-    get_by_accession_number_enriched,
     get_filings,
 )
-from edgar.context import HasContext, compose_context
-from edgar.core import listify
+from edgar._filings import get_by_accession_number_enriched as _get_by_accession_number_enriched
+from edgar.core import listify as _listify
 from edgar.settings import get_identity, set_identity
 from edgar.exceptions import (
     AttachmentNotFoundError,
@@ -38,7 +35,6 @@ from edgar.exceptions import (
     TooManyRequestsError,
     TransportError,
     ValidationError,
-    warn_will_raise,
 )
 from edgar.current_filings import CurrentFilings, get_all_current_filings, get_current_filings, iter_current_filings_pages
 
@@ -54,17 +50,11 @@ from edgar.entity import (
     Entity,
     EntityData,
     find_company,
-    get_cik_lookup_data,
     get_company_facts,
     get_company_tickers,
     get_entity,
-    get_entity_submissions,
     get_icon_from_ticker,
-    get_ticker_to_cik_lookup,
 )
-from edgar.entity.entity_facts import clear_company_facts_cache
-from edgar.files import detect_page_breaks, mark_page_breaks
-from edgar.files.html import Document
 from edgar.filesystem import is_cloud_storage_enabled, sync_to_cloud, use_cloud_storage
 from edgar.financials import Financials, MultiFinancials
 from edgar.funds import Fund, FundClass, FundCompany, FundSeries, find_fund, find_funds
@@ -86,18 +76,6 @@ from edgar.bdc import BDCEntities, BDCEntity, get_bdc_list, get_active_bdc_ciks,
 # HTTP configuration functions for runtime SSL/proxy configuration
 from edgar.httpclient import configure_http, get_http_config
 from edgar.npx import NPX
-from edgar.paths import (
-    get_anchor_cache_directory,
-    get_cache_directory,
-    get_claude_skills_directory,
-    get_data_directory,
-    get_search_cache_directory,
-    get_test_directory,
-    set_cache_directory,
-    set_claude_skills_directory,
-    set_data_directory,
-    set_test_directory,
-)
 from edgar.proxy import PROXY_FORMS, ProxyContests, ProxyStatement, proxy_contests
 from edgar.storage import (
     StorageAnalysis,
@@ -147,19 +125,19 @@ latest_filings = get_current_filings
 current_filings = get_current_filings
 
 # Fund portfolio report filings
-get_fund_portfolio_filings = partial(get_filings, form=NPORT_FORMS)
+get_fund_portfolio_filings = functools.partial(get_filings, form=NPORT_FORMS)
 
 # Money market fund filings
-get_money_market_filings = partial(get_filings, form=MONEY_MARKET_FORMS)
+get_money_market_filings = functools.partial(get_filings, form=MONEY_MARKET_FORMS)
 
 # Restricted stock sales
-get_restricted_stock_filings = partial(get_filings, form=[144])
+get_restricted_stock_filings = functools.partial(get_filings, form=[144])
 
 # Insider transaction filings
-get_insider_transaction_filings = partial(get_filings, form=[3, 4, 5])
+get_insider_transaction_filings = functools.partial(get_filings, form=[3, 4, 5])
 
 # 13F filings - portfolio holdings
-get_portfolio_holding_filings = partial(get_filings, form=THIRTEENF_FORMS)
+get_portfolio_holding_filings = functools.partial(get_filings, form=THIRTEENF_FORMS)
 
 
 # ---------------------------------------------------------------------------
@@ -172,30 +150,13 @@ get_portfolio_holding_filings = partial(get_filings, form=THIRTEENF_FORMS)
 # API?" other than whether the import happened to work, which made every
 # removal a guess about who might be relying on what (bead edgartools-07lk.5).
 #
-# WHAT BEING ABSENT FROM THIS LIST MEANS TODAY. Nothing breaks. Every name that
-# was importable before still is; `__all__` only governs `from edgar import *`.
-# What it does say is that a name outside this list is internal, and 6.0 may
-# make it private (bead edgartools-07lk.23 stages the declaration in 5.x and
-# the enforcement in 6.0). If something you depend on is missing here, that is
-# worth an issue before 6.0 rather than after.
-#
-# THREE THINGS DELIBERATELY LEFT OUT. (No count here on purpose — this line used
-# to say "of 141 public names on 2026-08-10" and was 153 eleven days later, with
-# nothing to catch it. `tests/issues/regression/test_public_api_surface.py`
-# derives the current figures; run it with `-s` to see them.)
-#
-#   1. `List`, `Optional`, `Union`, `lru_cache`, `partial` — imported above for
-#      annotations and never API. `from edgar import Optional` works today and
-#      is an accident.
-#   2. `Document`, `detect_page_breaks`, `mark_page_breaks` — these come from
-#      `edgar.files`, which 6.0 removes (bead edgartools-07lk.3). `edgar.Document`
-#      is the LEGACY parser and a different class from `edgar.documents.Document`;
-#      no documentation teaches `from edgar import Document`, and the name
-#      collides with its own replacement.
-#   3. Filesystem/config plumbing (`edgar.paths`), the internal cache-clearing
-#      helpers behind `clear_cache`, and lower-level variants of supported entry
-#      points (`get_by_accession_number_enriched`, `get_entity_submissions`,
-#      `get_cik_lookup_data`, `get_ticker_to_cik_lookup`).
+# WHAT BEING ABSENT FROM THIS LIST MEANS. Through 5.x a name outside this list
+# was internal but still importable. 6.0 made those names private
+# (edgartools-07lk.5): every non-module name reachable from `edgar` is now in
+# `__all__`, and `tests/issues/regression/test_public_api_surface.py` fails if a
+# new one appears without being listed. The names that went are in
+# `_PRIVATE_IN_6_0` below, each with its supported replacement. If something you
+# depend on is missing here, that is worth an issue.
 #
 # Submodules are not listed. `from edgar.xbrl import XBRL` works regardless of
 # `__all__`; this governs the top-level namespace only.
@@ -227,7 +188,6 @@ __all__ = [
     "SectionNotFoundError", "AttachmentNotFoundError",
     "ParsingError", "DataObjectError",
     "ValidationError",
-    "DataObjectException",  # deprecated alias, removed in 6.0
 
     # -- Financial statements ------------------------------------------------
     "Financials", "MultiFinancials", "XBRL",
@@ -261,7 +221,6 @@ __all__ = [
 
     # -- Identity, HTTP and diagnostics --------------------------------------
     "set_identity", "get_identity",
-    "NORMAL", "CAUTION", "CRAWL",
     "configure_http", "get_http_config", "diagnose_ssl",
 
     # -- Local and cloud storage ---------------------------------------------
@@ -281,14 +240,15 @@ __all__ = [
 ]
 
 
-@lru_cache(maxsize=16)
-def find(search_id: Union[str, int]) -> Optional[Union[Filing, Entity, CompanySearchResults, FundCompany, FundClass, FundSeries]]:
+@functools.lru_cache(maxsize=16)
+def find(search_id: str | int) -> Filing | Entity | CompanySearchResults | FundCompany | FundClass | FundSeries | None:
     """This is an uber search function that can take a variety of search ids and return the appropriate object
         - accession number -> returns a Filing
         - CIK -> returns an Entity
         - Class/Contract ID -> returns a FundClass
         - Series ID -> returns a FundSeries
-        - Ticker -> returns a Company or a Fund if the ticker is a fund ticker
+        - Ticker -> returns an Entity (use Company(ticker) for get_financials()); a ticker no company has falls back
+          to a company-name search, and a mutual fund ticker (four uppercase letters then X) goes to find_fund()
         - Company name -> returns CompanySearchResults
 
     :type: object
@@ -296,10 +256,10 @@ def find(search_id: Union[str, int]) -> Optional[Union[Filing, Entity, CompanySe
     if isinstance(search_id, int):
         return Entity(search_id)
     elif re.match(r"\d{10}-\d{2}-\d{6}", search_id):
-        return get_by_accession_number_enriched(search_id)
+        return _get_by_accession_number_enriched(search_id)
     elif re.match(r"^\d{18}$", search_id): # accession number with no dashes
         accession_number = search_id[:10] + "-" + search_id[10:12] + "-" + search_id[12:]
-        return get_by_accession_number_enriched(accession_number)
+        return _get_by_accession_number_enriched(accession_number)
     elif re.match(r"\d{4,10}$", search_id):
         return Entity(search_id)
     elif re.match(r"^[A-Z]{4}X$", search_id):  # Mutual Fund Ticker
@@ -317,9 +277,9 @@ def find(search_id: Union[str, int]) -> Optional[Union[Filing, Entity, CompanySe
     elif re.match(r"^\d{6,}-", search_id):
         # It looks like an accession number and is not one. Every other branch
         # above answers a well-formed identifier; this one only fires on input
-        # that is malformed, so None here means "you typed it wrong" — which is
-        # the one thing a return value cannot say.
-        malformed = ValidationError(
+        # that is malformed, and "you typed it wrong" is the one thing a return
+        # value cannot say (edgartools-07lk.10: a FutureWarning and None in 5.x).
+        raise ValidationError(
             f"'{search_id}' is not a valid accession number.",
             parameter="search_id",
             invalid_value=search_id,
@@ -328,49 +288,20 @@ def find(search_id: Union[str, int]) -> Optional[Union[Filing, Entity, CompanySe
                 "dashes are optional — 000032019323000106 also works",
             ],
         )
-        # The offending value stays on the error — which strict mode raises and
-        # 6.0 will raise — but must stay out of the warning, or a script
-        # validating a list of accessions warns once per bad entry.
-        malformed.warning_summary = (
-            "find() was given something shaped like an accession number that is "
-            "not a valid accession number. The format is 10 digits, 2 digits, "
-            "6 digits: 0000320193-23-000106; dashes are optional."
-        )
-        warn_will_raise(malformed)
-        return None
     else:
         return find_company(search_id)
 
 
-def matches_form(sec_filing: Filing,
-                 form: Union[str, List[str]]) -> bool:
+def _matches_form(sec_filing: Filing,
+                  form: str | list[str]) -> bool:
     """Check if the filing matches the forms"""
-    form_list = listify(form)
+    form_list = _listify(form)
     if sec_filing.form in form_list + [f"{f}/A" for f in form_list if not f.endswith("/A")]:
         return True
     return False
 
 
-class DataObjectException(DataObjectError):
-    """Deprecated: use edgar.exceptions.DataObjectError. Removed in 6.0.
-
-    Kept as a subclass rather than a plain alias because this one takes a
-    Filing, and DataObjectError takes primitives — edgar.exceptions imports
-    nothing from edgar. It was never raised anywhere, so the constructor is
-    almost certainly unused, but a name in __all__ gets the full treatment.
-    """
-
-    def __init__(self, filing: Filing):
-        warnings.warn(
-            "DataObjectException is deprecated and will be removed in v6.0. "
-            "Use DataObjectError instead (from edgar.exceptions import DataObjectError).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(form=filing.form, accession_no=filing.accession_no)
-
-
-def get_obj_info(form: str) -> tuple[bool, Optional[str], Optional[str]]:
+def _get_obj_info(form: str) -> tuple[bool, str | None, str | None]:
     """
     Get information about whether a form type has a structured data object.
 
@@ -491,10 +422,8 @@ def get_obj_info(form: str) -> tuple[bool, Optional[str], Optional[str]]:
 def _no_xml_to_parse(sec_filing: Filing) -> DataObjectError:
     """The error for a form we model whose XML we could not get.
 
-    Built as a value rather than raised, so `warn_will_raise` can decide. It is
-    also why this is not a function that *does* the warning: an extra frame
-    between the warning and the user would land the `stacklevel` on our own
-    source instead of on the line the reader has to change.
+    Raised by `obj()` for Form 3, 4, 5, EFFECT and D (edgartools-07lk.10); in
+    5.x it was a `FutureWarning` and `None`.
     """
     error = DataObjectError(
         f"Form {sec_filing.form} filing {sec_filing.accession_no} has no XML document, "
@@ -504,17 +433,10 @@ def _no_xml_to_parse(sec_filing: Filing) -> DataObjectError:
         form=sec_filing.form,
         accession_no=sec_filing.accession_no,
     )
-    # Stable across filings so a walk through a company's whole ownership
-    # history warns once, not once per pre-2003 filing — see warn_will_raise.
-    error.warning_summary = (
-        f"Form {sec_filing.form} filings without an XML document cannot build a "
-        f"data object. This is a property of the filing, not of the form — "
-        f"ownership forms filed before roughly 2003 predate the XML requirement."
-    )
     return error
 
 
-def obj(sec_filing: Filing) -> Optional[object]:
+def obj(sec_filing: Filing) -> object | None:
     """
     Depending on the filing return the data object that contains the data for the filing
 
@@ -527,9 +449,7 @@ def obj(sec_filing: Filing) -> Optional[object]:
         about the filing.
 
         It is NOT how failure is reported. A form we *do* model whose data we
-        could not read is a `DataObjectError` — today that path emits a
-        `FutureWarning` and still returns `None`, and in 6.0 it raises. Set
-        `EDGARTOOLS_STRICT_ERRORS=1` to get the 6.0 behaviour now.
+        could not read raises `DataObjectError`.
 
     :param sec_filing: The filing
     :return:
@@ -543,15 +463,15 @@ def obj(sec_filing: Filing) -> Optional[object]:
     from edgar.ownership import Form3, Form4, Form5, Ownership
     from edgar.tender_offers import Schedule14D9
 
-    if matches_form(sec_filing, "6-K"):
+    if _matches_form(sec_filing, "6-K"):
         return SixK(sec_filing)
-    if matches_form(sec_filing, "8-K"):
+    if _matches_form(sec_filing, "8-K"):
         return EightK(sec_filing)
-    elif matches_form(sec_filing, "10-Q"):
+    elif _matches_form(sec_filing, "10-Q"):
         return TenQ(sec_filing)
-    elif matches_form(sec_filing, "10-K"):
+    elif _matches_form(sec_filing, "10-K"):
         return TenK(sec_filing)
-    elif matches_form(sec_filing, "10-D"):
+    elif _matches_form(sec_filing, "10-D"):
         # Only return TenD for CMBS filings (have EX-102 XML asset data)
         # Non-CMBS 10-D filings don't have structured data worth extracting
         attachments = sec_filing.attachments
@@ -562,104 +482,104 @@ def obj(sec_filing: Filing) -> Optional[object]:
         if has_cmbs_data:
             from edgar.abs import TenD
             return TenD(sec_filing)
-    elif matches_form(sec_filing, "20-F"):
+    elif _matches_form(sec_filing, "20-F"):
         return TwentyF(sec_filing)
-    elif matches_form(sec_filing, "40-F"):
+    elif _matches_form(sec_filing, "40-F"):
         from edgar.company_reports import FortyF
         return FortyF(sec_filing)
-    elif matches_form(sec_filing, THIRTEENF_FORMS):
+    elif _matches_form(sec_filing, THIRTEENF_FORMS):
         # ThirteenF can work with either XML (2013+) or TXT (2012 and earlier) format
         return ThirteenF(sec_filing)
-    elif matches_form(sec_filing, "144"):
+    elif _matches_form(sec_filing, "144"):
         return Form144.from_filing(sec_filing)
-    elif matches_form(sec_filing, "MA-I"):
+    elif _matches_form(sec_filing, "MA-I"):
         return MunicipalAdvisorForm.from_filing(sec_filing)
-    elif matches_form(sec_filing, "3"):
+    elif _matches_form(sec_filing, "3"):
         xml = sec_filing.xml()
         if xml:
             return Form3(**Ownership.parse_xml(xml))
-        warn_will_raise(_no_xml_to_parse(sec_filing), stacklevel=4)
-    elif matches_form(sec_filing, "4"):
+        raise _no_xml_to_parse(sec_filing)
+    elif _matches_form(sec_filing, "4"):
         xml = sec_filing.xml()
         if xml:
             return Form4(**Ownership.parse_xml(xml))
-        warn_will_raise(_no_xml_to_parse(sec_filing), stacklevel=4)
-    elif matches_form(sec_filing, "5"):
+        raise _no_xml_to_parse(sec_filing)
+    elif _matches_form(sec_filing, "5"):
         xml = sec_filing.xml()
         if xml:
             return Form5(**Ownership.parse_xml(xml))
-        warn_will_raise(_no_xml_to_parse(sec_filing), stacklevel=4)
-    elif matches_form(sec_filing, ["SCHEDULE 13D", "SC 13D"]):
+        raise _no_xml_to_parse(sec_filing)
+    elif _matches_form(sec_filing, ["SCHEDULE 13D", "SC 13D"]):
         return Schedule13D.from_filing(sec_filing)
-    elif matches_form(sec_filing, ["SCHEDULE 13G", "SC 13G"]):
+    elif _matches_form(sec_filing, ["SCHEDULE 13G", "SC 13G"]):
         return Schedule13G.from_filing(sec_filing)
-    elif matches_form(sec_filing, "SC 14D9"):
+    elif _matches_form(sec_filing, "SC 14D9"):
         return Schedule14D9.from_filing(sec_filing)
-    elif matches_form(sec_filing, "EFFECT"):
+    elif _matches_form(sec_filing, "EFFECT"):
         xml = sec_filing.xml()
         if xml:
             return Effect.from_xml(xml)
-        warn_will_raise(_no_xml_to_parse(sec_filing), stacklevel=4)
-    elif matches_form(sec_filing, "D"):
+        raise _no_xml_to_parse(sec_filing)
+    elif _matches_form(sec_filing, "D"):
         xml = sec_filing.xml()
         if xml:
             return FormD.from_xml(xml)
-        warn_will_raise(_no_xml_to_parse(sec_filing), stacklevel=4)
-    elif matches_form(sec_filing, ["C", "C-U", "C-AR", "C-TR"]):
+        raise _no_xml_to_parse(sec_filing)
+    elif _matches_form(sec_filing, ["C", "C-U", "C-AR", "C-TR"]):
         return FormC.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, "DRS"):
-        from edgar.offerings.drs import DraftRegistrationStatement
+    elif _matches_form(sec_filing, "DRS"):
+        from edgar.offerings.prospectus.drs import DraftRegistrationStatement
         return DraftRegistrationStatement.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ['S-1', 'F-1']):
-        from edgar.offerings.registration_s1 import RegistrationS1
+    elif _matches_form(sec_filing, ['S-1', 'F-1']):
+        from edgar.offerings.prospectus.registration_s1 import RegistrationS1
         return RegistrationS1.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ['S-3', 'S-3ASR', 'S-3D', 'S-3DPOS', 'F-3', 'F-3ASR']):
-        from edgar.offerings.registration_s3 import RegistrationS3
+    elif _matches_form(sec_filing, ['S-3', 'S-3ASR', 'S-3D', 'S-3DPOS', 'F-3', 'F-3ASR']):
+        from edgar.offerings.prospectus.registration_s3 import RegistrationS3
         return RegistrationS3.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ['S-4', 'F-4']):
-        from edgar.offerings.registration_s4 import RegistrationS4
+    elif _matches_form(sec_filing, ['S-4', 'F-4']):
+        from edgar.offerings.prospectus.registration_s4 import RegistrationS4
         return RegistrationS4.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ['424B1', '424B2', '424B3', '424B4', '424B5', '424B7', '424B8']):
+    elif _matches_form(sec_filing, ['424B1', '424B2', '424B3', '424B4', '424B5', '424B7', '424B8']):
         from edgar.offerings.prospectus import Prospectus424B
         return Prospectus424B.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, PROSPECTUS497K_FORMS):
+    elif _matches_form(sec_filing, PROSPECTUS497K_FORMS):
         return Prospectus497K.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, NCEN_FORMS):
+    elif _matches_form(sec_filing, NCEN_FORMS):
         return FundCensus.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, NCSR_FORMS):
+    elif _matches_form(sec_filing, NCSR_FORMS):
         return FundShareholderReport.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, MONEY_MARKET_FORMS):
+    elif _matches_form(sec_filing, MONEY_MARKET_FORMS):
         return MoneyMarketFund.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ["NPORT-P", "NPORT-EX"]):
+    elif _matches_form(sec_filing, ["NPORT-P", "NPORT-EX"]):
         return FundReport.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ["N-PX"]):
+    elif _matches_form(sec_filing, ["N-PX"]):
         return NPX.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, PROXY_FORMS):
+    elif _matches_form(sec_filing, PROXY_FORMS):
         return ProxyStatement.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, CORRESPONDENCE_FORMS):
+    elif _matches_form(sec_filing, CORRESPONDENCE_FORMS):
         return Correspondence.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, "24F-2NT"):
+    elif _matches_form(sec_filing, "24F-2NT"):
         from edgar.funds.twentyfourf import FundFeeNotice
         return FundFeeNotice.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ATS_N_WITHDRAWAL_FORMS):
+    elif _matches_form(sec_filing, ATS_N_WITHDRAWAL_FORMS):
         return AlternativeTradingSystemWithdrawal.from_filing(sec_filing)
 
-    elif matches_form(sec_filing, ATS_N_FORMS + ATS_N_AMENDMENT_FORMS):
+    elif _matches_form(sec_filing, ATS_N_FORMS + ATS_N_AMENDMENT_FORMS):
         return AlternativeTradingSystem.from_filing(sec_filing)
 
     else:
@@ -680,24 +600,26 @@ def obj(sec_filing: Filing) -> Optional[object]:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Deprecated access modes (GH #1326), removed in 6.0.
-#
-# NORMAL / CAUTION / CRAWL stay in __all__ and importable from the top-level
-# namespace, but are served lazily so that `import edgar` does not itself raise
-# the DeprecationWarning. Importing them eagerly here would warn every user on
-# every import, naming this module instead of the code reaching for a mode.
-# ---------------------------------------------------------------------------
-# Exactly the four names the eager `from edgar.settings import ...` used to place
-# in this namespace, and no more. They are still reachable, so `dir(edgar)` still
-# reports them - deprecating a name does not remove it, and a name you can read
-# but cannot see is a worse surface than either.
-#
-# `edgar_access_mode` is deliberately excluded. It has never been reachable from
-# the top-level namespace (only from edgar.core and edgar.settings), and serving
-# it here would widen the public surface in a change whose purpose is to narrow
-# it. Reach it at edgar.settings.edgar_access_mode, where it has always lived.
-_DEPRECATED_TOP_LEVEL_NAMES = ("CAUTION", "CRAWL", "NORMAL", "edgar_mode")
+# Names 6.0 removed from the top level along with the legacy `edgar.files`
+# parser. They were never in `__all__`, but `from edgar import Document` worked
+# for years, so the AttributeError says where to go instead of only "no attribute".
+_REMOVED_IN_6_0 = {
+    "Document": (
+        "edgar.Document was the legacy HTML parser and was removed in edgartools 6.0. "
+        "Use filing.parse() or edgar.documents.parse_html(html), which return "
+        "edgar.documents.Document."
+    ),
+    "detect_page_breaks": (
+        "edgar.detect_page_breaks was removed in edgartools 6.0 with the legacy "
+        "edgar.files parser. It has no replacement: edgar.documents treats page "
+        "breaks as print layout and drops them."
+    ),
+    "mark_page_breaks": (
+        "edgar.mark_page_breaks was removed in edgartools 6.0 with the legacy "
+        "edgar.files parser. It has no replacement: edgar.documents treats page "
+        "breaks as print layout and drops them."
+    ),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -723,6 +645,32 @@ _LAZY_EXPORTS = {
 }
 
 
+# Names that were importable from `edgar` through 5.x without being in
+# `__all__`, made private in 6.0 (edgartools-07lk.5). `edgar.X` says where each
+# one lives; `from edgar import X` cannot carry the message (Python replaces an
+# AttributeError from a module `__getattr__` with a bare ImportError), so
+# docs/upgrade/6.0.md carries the same table.
+_PRIVATE_IN_6_0 = {
+    **{name: "import it from typing" for name in ("List", "Optional", "Union")},
+    **{name: "import it from functools" for name in ("lru_cache", "partial")},
+    **{name: "import it from edgar.paths" for name in (
+        "get_anchor_cache_directory", "get_cache_directory", "get_claude_skills_directory",
+        "get_data_directory", "get_search_cache_directory", "get_test_directory",
+        "set_cache_directory", "set_claude_skills_directory", "set_data_directory",
+        "set_test_directory",
+    )},
+    **{name: "import it from edgar.context" for name in ("HasContext", "compose_context")},
+    **{name: "import it from edgar.entity" for name in (
+        "get_entity_submissions", "get_cik_lookup_data", "get_ticker_to_cik_lookup",
+    )},
+    "clear_company_facts_cache": "call edgar.clear_cache(), or import it from edgar.entity.entity_facts",
+    "listify": "import it from edgar.core",
+    "get_by_accession_number_enriched": "call edgar.find(accession_no), which uses it",
+    "get_obj_info": "use Filing.obj_type, the class name filing.obj() would return, or None",
+    "matches_form": "compare filing.form directly",
+}
+
+
 def __getattr__(name: str):
     if name in _LAZY_EXPORTS:
         import importlib
@@ -730,13 +678,15 @@ def __getattr__(name: str):
         value = getattr(importlib.import_module(_LAZY_EXPORTS[name]), name)
         globals()[name] = value  # later lookups skip this hook
         return value
-    if name in _DEPRECATED_TOP_LEVEL_NAMES:
-        from edgar import settings as _settings
-
-        _settings.warn_access_mode_deprecated(name)
-        return _settings.DEPRECATED_ACCESS_MODE_NAMES[name]
+    if name in _REMOVED_IN_6_0:
+        raise AttributeError(_REMOVED_IN_6_0[name])
+    if name in _PRIVATE_IN_6_0:
+        raise AttributeError(
+            f"edgar.{name} is not part of the public API and was made private in "
+            f"edgartools 6.0; {_PRIVATE_IN_6_0[name]}. See docs/upgrade/6.0.md."
+        )
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__():
-    return sorted(set(globals()) | set(_DEPRECATED_TOP_LEVEL_NAMES) | set(_LAZY_EXPORTS))
+    return sorted(set(globals()) | set(_LAZY_EXPORTS))

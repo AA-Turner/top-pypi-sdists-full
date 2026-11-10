@@ -4,18 +4,24 @@ Consumes: pieces + piece_tags (grouped), segments, structure, tokens,
 one_case, and tail_reads -- rules/S2's trailing run as group read it
 once, after P3's joins and before the particle chain (#614), which the
 main segment's placement takes rather than peeling again, save where
-group's joins left no name word in front of it.
+group's joins left no name word in front of it; and interpunct_offsets,
+whose 间隔号 keeps a transcription in its declared order (rules/W4).
 Produces: tokens with roles set on every main-stream token, and the
-folded-middle tag on the particles P6's attachment joins to the family
-after a family comma (#613).
-Reads: Policy.name_order (#270), is_suffix_lenient on the trailing
+folded-middle and attached tags on the particles P6's attachment joins
+to the family after a family comma (#613; the attached tag, 3.0's 4c,
+tells rules/R9 the attachment from O3's fold); and order, the order
+the positional read used, None where none happened (ParseState.order).
+Reads: Policy.name_order (#270), Policy.lone_name_word (rules/O5,
+the field a lone name word takes, #1111), is_suffix_lenient on the trailing
 piece of a two-part comma name, and Policy.script_orders (#271, which
 overrides it when every name piece is written wholly in one script, or
 in the Han/Hiragana/Katakana repertoire the #272 kana license shares
 across pieces); token/piece tags; Lexicon only through tags already
 applied by classify (plus the leading-title period rule), and
 Lexicon.given_name_titles, which an ambiguity's alternative asks for
-rules/P5's given-name-title licence.
+rules/P5's given-name-title licence; and Lexicon.title_phrases, titles
+and titles_ambiguous through _vocab.in_a_title_phrase, for rules/H9's
+TITLE_OR_NAME report on a contested word opening the name.
 
 Implements rules H2, H4, H5, H6, H7, H8, N3, O4, O5, S10, W4, and P6 after a family comma,
 of docs/design/rules/,
@@ -26,7 +32,8 @@ leading title pieces chain while no given-position name has been seen
 then positional assignment per name_order with the trailing-suffix
 rule: the piece from which everything after is a strict suffix is the
 last name-position piece, the rest are suffixes. Behind that peel a
-trailing run of period-marked title words chains into the title from
+trailing run of the title words H5's chain takes
+(`_pieces.trailing_titles`) chains into the title from
 the end, leaving one name piece standing; where the run TAKES
 something the peel was only provisional and runs again over the pieces
 with the titled ones spliced out, the two alternating until the run
@@ -58,13 +65,17 @@ and segments 2+ are read as after a family comma.
 Emits PARTICLE_OR_GIVEN when the leading name piece is a lone
 particles_ambiguous token with more pieces following ("Van Johnson",
 and since #367 "Dr. Van Johnson" too, a title no longer displacing the
-particle out of that position) -- whatever role name_order assigns --
+particle out of that position) -- whatever role name_order assigns,
+save a lowercase one in a mixed-case name under a family-first order,
+which P1's fold takes (rules/P11, #670) --
 and, since #613, at P6's attachment after a family comma where the run
 holds an ambiguous particle ("Beethoven, Ludwig van").
 Emits SUFFIX_OR_NAME at these sites: the trailing roman numeral, taken
 or declined (since #718 for want of words to spare, since #752 for its
 Title case), a numeral ending the family part before a family comma,
-one of two or more letters ending a given part's walk, each
+one of two or more letters ending a given part's walk, a bare I or V
+read as the generation ending that walk behind a name word (since
+#877), each
 ambiguous acronym the trailing peel had to resolve, the bare-suffix
 carve-out where an input that is nothing but post-nominal vocabulary
 gets its first word made into the name (H4's suffix half, #491),
@@ -94,7 +105,7 @@ from typing import NamedTuple
 from nameparser._lexicon import Lexicon, _run_addresses_by_given
 from nameparser._pipeline._vocab import (
     _ROMAN, effective_script, in_a_title_phrase, is_initial_shaped,
-    PARTICLE_READING, TITLE_READING, is_listed_numeral,
+    TITLE_READING, is_listed_numeral, particle_reading,
     is_suffix_lenient, name_reading, suffix_reading,
     numeral_leans_to_the_name, numeral_settled_by_case,
     reads_as_a_reported_numeral, reads_as_generation, resolve_script_set,
@@ -103,13 +114,15 @@ from nameparser._pipeline._pieces import (
     split_credential_report,
     anchor_in_reach, credential_at_the_given_slot, given_slot_anchors,
     _NOT_A_RUN_START, has_name_content, is_lone_never_given_particle,
-    Peel, TailRead, is_suffix_piece, is_title_piece, leading_titles,
+    is_lowercase_ambiguous_particle,
+    Peel, TailRead, is_prefix_piece, is_suffix_piece, is_title_piece,
+    leading_titles,
     particle_tail, listed_lean, peel_walk, settled_by_case,
     starts_a_credential_run,
     tail_reading, trailing_titles,
 )
 from nameparser._pipeline._state import (
-    AMBIGUOUS_ACRONYM_TAG, NAME_ROLES, TITLE_AMBIGUOUS_TAG, ParseState,
+    AMBIGUOUS_ACRONYM_TAG, ATTACHED_TAG, NAME_ROLES, TITLE_AMBIGUOUS_TAG, ParseState,
     Beside, Deferred, PendingAmbiguity, PendingReading, Structure,
     WorkToken, _AMBIGUOUS_CREDENTIAL_TAGS, _NEVER_FLIPPED, copy_with,
 )
@@ -135,7 +148,16 @@ def _slot_field(state: ParseState, seg_idx: int, pos: int, count: int,
     """The field position `pos` of `count` name words takes in segment
     `seg_idx`, every other word read as the parse read it: the family
     before a family comma, the given part's given or middle name after
-    one, and otherwise the order the main segment's read set."""
+    one, and otherwise the order the main segment's read set.
+
+    `count` is two or more wherever no family comma decides, so rules/O5's
+    lone-word field is never asked here: `as_a_name` counts one more than
+    the name pieces, of which assign always places one (its lone-piece
+    branches index the first, so a parse with none would raise there); a split
+    pair stands behind a name word H4's carve-out keeps; and
+    `_resolve_deferred` counts a chained word one more than its name's,
+    and reads a join that would leave the name one word as no join
+    (rules/P3) before it asks."""
     if state.structure is Structure.FAMILY_COMMA:
         return (Role.FAMILY if seg_idx == 0
                 else Role.GIVEN if pos == 0 else Role.MIDDLE)
@@ -173,9 +195,13 @@ def _name_alt(token: WorkToken, role: Role,
     bound = first and "vocab:bound-given" in tags
     if ("particle" in tags and (len(front) > 1 or not first) and not bound
             or licensed and bound and len(front) == 1):
-        # a front P6 has already attached held `role`'s field before it
+        # a front P6 has already attached held `role`'s field before it;
+        # `last` names the front's last word, which rules/P10 leaves the
+        # family where it reads the chain's opening phrase as a middle
+        # name (decisions/P10, #704)
         return copy_with(alt, role=Beside(
-            front[0], role if FOLDED_TAG in tags else tokens[front[0]].role))
+            front[0], role if FOLDED_TAG in tags else tokens[front[0]].role,
+            last=front[-1]))
     return alt
 
 
@@ -197,8 +223,8 @@ def _absorbed(piece: Sequence[int], tokens: Sequence[WorkToken],
 #: could speak, so O5's convention decided nothing. Built from M4's
 #: `_NEVER_FLIPPED` pair rather than respelling it: the two sets answer
 #: different questions -- may M4 retag the word, and did anything
-#: decide the field -- and share the pair because a word vocabulary
-#: claimed as a given name, or wrote as an initial, answers both. The
+#: decide the field -- and share the pair because a bound given name,
+#: or a word written as an initial, answers both. The
 #: third, `particle`, is here alone because a lone particle's reading
 #: is P4's. None is a predicate this emitter owns: they are read off
 #: the tags classify already recorded (mechanisms.md#TWO-LAYER-ASSIGN).
@@ -340,17 +366,11 @@ def _name_positions(order: tuple[Role, Role, Role],
     """Roles for `count` name pieces (titles/suffixes already peeled),
     per name_order. GIVEN_FIRST: given, middles..., family.
     FAMILY_FIRST: family, given, middles... FAMILY_FIRST_GIVEN_LAST:
-    family, middles..., given. One piece takes order[0]'s role; two
-    pieces take order[0] and the other primary."""
+    family, middles..., given. One piece takes order[0], which
+    `_assign_main`, placing a lone name word, overrides with rules/O5's
+    field (every other caller lays out two or more, or slices the first
+    slot off); two pieces take order[0] and the other primary."""
     first, second = order[0], order[1]
-    # rules/O5: "a name of one name word that nothing else has
-    # decided reads that word as the given name under the default
-    # given-first order, and as the family name under a declared
-    # family-first one" -- a convention, not a determination: O4 has
-    # no positions to compare at one word, so this line is where the
-    # library picks one of two equally consistent readings and picks
-    # it the same way every time. The rules that DO decide such a
-    # name (H1, N3, M4) run after this and retag.
     if count == 1:
         return [first]
     if first is Role.GIVEN:                      # GIVEN_FIRST
@@ -432,12 +452,16 @@ def _assign_main(seg_idx: int, state: ParseState,
     # the WHOLE segment before any title peeling -- 'Xyz. (Bud) Smith'
     # has two pieces, so the title peel wins and this rule declines;
     # H1 then names Smith the family (rules/N3's title bullet)
+    # A suffix makes two pieces as a title does: that shape is N3's
+    # suffix clause, at O5's site below.
     # The nickname scan sits LAST in the test: it is a generator, which
     # every interpreter resumes once per token (seven call events on
     # the reference name), and only a one-piece segment ever reads its
     # answer. Hoisting it to the top of the read, where it once stood,
     # is what put 3.12-3.15 one call over the band (decisions/parse-cost).
-    if (len(pieces) == 1 and len(rest) == 1
+    # Behind `state.extracted`, as at N3's suffix clause below: a
+    # nickname is a clause extract set aside.
+    if (len(pieces) == 1 and len(rest) == 1 and state.extracted
             and any(t.role is Role.NICKNAME for t in tokens)):
         _set_roles(tokens, pieces[rest[0]], Role.FAMILY)
         return None
@@ -530,7 +554,20 @@ def _assign_main(seg_idx: int, state: ParseState,
     resolved = _effective_order(state.policy, pieces, name_pieces, tokens,
                                 dot_divided=bool(state.interpunct_offsets))
     order = resolved.order
-    roles = _name_positions(order, len(name_pieces))
+    # rules/O5: "a name of one name word that nothing else has
+    # decided reads that word as the field the caller's lone-word
+    # setting names" -- `Policy.lone_name_word`, a convention, not a
+    # determination: O4 has no positions to compare at one word, so
+    # this line is where the library picks one of two equally
+    # consistent readings and picks it the same way every time. A
+    # script that settles the order decides a lone word's field too
+    # (O5's W4 Except). The rules that DO decide such a name (H1, M4
+    # and N3's suffix clause; N3's bare shape returns before reaching
+    # here) run after this and retag (decisions/O5, #1111).
+    lone_field = (order[0] if resolved.by_script
+                  else state.policy.lone_name_word)
+    roles = ([lone_field] if len(name_pieces) == 1
+             else _name_positions(order, len(name_pieces)))
     for pos, piece_idx in enumerate(name_pieces):
         _set_roles(tokens, pieces[piece_idx], roles[pos])
     for piece_idx in suffix_pieces:
@@ -553,7 +590,7 @@ def _assign_main(seg_idx: int, state: ParseState,
                     and _run_addresses_by_given(
                         (tokens[j].text for k in range(name_pieces[0])
                          for j in pieces[k]),
-                        state.lexicon.given_name_titles))
+                        state.lexicon._sets.given_name_titles))
         return _name_alt(tokens[i],
                          _slot_field(state, seg_idx, len(name_pieces),
                                      len(name_pieces) + 1, order),
@@ -603,12 +640,12 @@ def _assign_main(seg_idx: int, state: ParseState,
                 alternative=suffix_reading(tokens[head[0]])))
         # One name piece off the peel: the convention placed a lone
         # name word. A suffix beside it is not a decision -- 'Smith
-        # Jr.' and "'Smitty' Jones Jr." ARE this convention -- and the
-        # count comes off the peel rather than off name_pieces, which
-        # is what keeps the carve-out above out of these branches.
-        # Title vocabulary in the unit makes the doubt H4's or H7's (is
-        # the WORD a title), anything else O5's (which FIELD it took),
-        # so only the second reads `field_undecided`.
+        # Jr.' IS this convention -- and the count comes off the peel
+        # rather than off name_pieces, which is what keeps the carve-out
+        # above out of these branches. Title vocabulary in the unit makes
+        # the doubt H4's or H7's (is the WORD a title), anything else
+        # O5's (which FIELD it took, or N3's where a nickname decides
+        # it), so only the second reads `field_undecided`.
         if peeled.names == 1 and not resolved.by_script:
             # rules/H4: "an input whose only remaining name word
             # after the title peel is itself title vocabulary reads
@@ -637,9 +674,9 @@ def _assign_main(seg_idx: int, state: ParseState,
                     field_tail=None if lone else " by convention",
                     alternative=TITLE_READING))
             # rules/O5: "a name of one name word that nothing else has
-            # decided reads that word as the given name under the default
-            # given-first order, and as the family name under a declared
-            # family-first one" (history: decisions/O5). Past
+            # decided reads that word as the field the caller's lone-word
+            # setting names" -- the report for that reading (history:
+            # decisions/O5, #449, #1111). Past
             # `field_undecided`, two clauses of O5's own: the word's
             # own reading may have claimed it, and A2's content test
             # -- a piece with no alphanumeric character is no name
@@ -650,18 +687,32 @@ def _assign_main(seg_idx: int, state: ParseState,
                             for i in head)
                     and any(c.isalnum() for i in head
                             for c in tokens[i].text)):
-                text = " ".join(tokens[i].text for i in head)
-                ambiguities.append(PendingAmbiguity(
-                    AmbiguityKind.GIVEN_OR_FAMILY,
-                    f"{text!r} is the only name word and nothing else "
-                    f"decides it; read as ", tuple(head),
-                    field_tail=" by convention, which follows the read "
-                               "order",
-                    # the other primary field, named from the final
-                    # role by assemble
-                    alternative=PendingReading(ReadingKind.NAME,
-                                               ReadingSource.POSITION,
-                                               Deferred.OTHER_PRIMARY)))
+                # rules/N3: "a name that is only a nickname and one name
+                # word reads that word as the family name, whatever
+                # suffix stands beside them" -- the suffixed shape the
+                # early count above declines, decided here, where the
+                # peel has set the suffix aside and O5's clauses have
+                # said nothing else decided the word (decisions/N3,
+                # #815). The early count's scan, behind
+                # `state.extracted` as at N3's bare site above (a
+                # nickname is only ever a clause extract), so a name
+                # with no clause pays no frame for it.
+                if state.extracted and any(t.role is Role.NICKNAME
+                                           for t in tokens):
+                    _set_roles(tokens, head, Role.FAMILY)
+                else:
+                    text = " ".join(tokens[i].text for i in head)
+                    ambiguities.append(PendingAmbiguity(
+                        AmbiguityKind.GIVEN_OR_FAMILY,
+                        f"{text!r} is the only name word and nothing else "
+                        f"decides it; read as ", tuple(head),
+                        field_tail=" by convention, the field "
+                                   "Policy.lone_name_word names",
+                        # the other primary field, named from the final
+                        # role by assemble
+                        alternative=PendingReading(ReadingKind.NAME,
+                                                   ReadingSource.POSITION,
+                                                   Deferred.OTHER_PRIMARY)))
     # rules/S10: "a one-letter numeral before a credential is the
     # family name, and the reading is reported" -- the part's last name
     # word with nothing but the trailing run behind it (#721, Derek:
@@ -737,8 +788,15 @@ def _assign_main(seg_idx: int, state: ParseState,
     # leading ambiguous particle read as a name (#121 surfaced)
     if name_pieces:
         head = pieces[name_pieces[0]]
+        # rules/P11: "an ambiguous particle written in lower case, in a
+        # name of mixed case, opens the name as a never-given one does"
+        # -- and "nothing is reported" there, the writing having settled
+        # the fork (decisions/P11, #670)
         if (len(head) == 1 and len(name_pieces) > 1
-                and "vocab:particle-ambiguous" in tokens[head[0]].tags):
+                and "vocab:particle-ambiguous" in tokens[head[0]].tags
+                and not (order is not None and order[0] is Role.FAMILY
+                         and is_lowercase_ambiguous_particle(
+                             head, tokens, state.one_case))):
             # the field is assemble's to word from the final role
             # (`PendingAmbiguity.field_tail`, #626), never assumed given:
             # `order` above is _effective_order's answer, not
@@ -749,20 +807,47 @@ def _assign_main(seg_idx: int, state: ParseState,
                 AmbiguityKind.PARTICLE_OR_GIVEN,
                 f"leading {tokens[head[0]].text!r} may be a family-name "
                 f"particle; read as ", tuple(head), field_tail="",
-                alternative=PARTICLE_READING))
+                alternative=particle_reading(tokens[head[0]].tags)))
     return order
+
+
+def _names_before(fam_pieces: Sequence[Sequence[int]],
+                  tokens: Sequence[WorkToken], lead: int, k: int) -> int:
+    """How many name words stand in front of the numeral at
+    `fam_pieces[k]`, the title run's `lead` pieces left out: the pieces
+    that are not wholly linking words (`_is_linking_word`)."""
+    # rules/S10: "a particle or a connective is no name word there,
+    # wherever it stands in the part" -- the count of the family part's
+    # numeral site; a chain or join holding a name word is one piece and
+    # counts (decisions/P9 (#1080), decisions/S10 (#1093))
+    return sum(1 for j in range(lead, k)
+               if not all(_is_linking_word(tokens[t].tags, j == k - 1)
+                          for t in fam_pieces[j]))
+
+
+def _is_linking_word(tags: Set[str], beside: bool) -> bool:
+    """Whether a word of the family part is a linking word, which the
+    numeral's count leaves out: a particle, or a connective, save one
+    that is also suffix vocabulary standing `beside` the numeral."""
+    # rules/S10: "A connective that is also suffix vocabulary, as the
+    # generational 'i' is, stays in the count where P13 has not linked
+    # the letter" -- the exception's half of this predicate
+    # (decisions/P13 (#1097))
+    return "particle" in tags or ("conjunction" in tags and not (
+        beside and "vocab:suffix" in tags))
 
 
 def _family_part_numeral(word: WorkToken, preceding: str, names: int,
                          one_case: bool | None) -> Role | None:
     """The role of a roman numeral ending the family part before a
-    family comma, behind `names` pieces of that part, as the comma-less
-    name reads one ending it (rules/S10), or None where the numeral's
+    family comma, behind `names` name words of that part (`_names_before`,
+    which leaves its linking words out), as the comma-less name reads one
+    ending it (rules/S10), or None where the numeral's
     predicate reads no numeral there (an initial in front, a letter with
     its period): the suffix where it reads as the generation, a
-    one-letter numeral needing two name words in front of it, and the
-    family name where that count fails or its Title case leans to the
-    name."""
+    one-letter numeral needing two name words in front of it, save one
+    its written case settles (T4), and the family name where that count
+    fails or its Title case leans to the name."""
     if reads_as_generation(word.text, word.tags, preceding, one_case):
         if (names < 2 and len(word.text) == 1
                 and not numeral_settled_by_case(word.text, one_case)):
@@ -870,7 +955,7 @@ def _inside_a_credential_run(seg: Sequence[Sequence[int]],
         f"{text!r} written without periods is both a post-nominal and a "
         f"family-name particle; between credentials after a family "
         f"comma it reads as a post-nominal",
-        tuple(run), alternative=PARTICLE_READING))
+        tuple(run), alternative=particle_reading(tokens[run[0]].tags)))
     return True
 
 
@@ -991,7 +1076,7 @@ def _attach_particle_tail(pieces: Sequence[Sequence[int]],
     for i in run:
         tokens[i] = copy_with(
             tokens[i], role=Role.FAMILY,
-            tags=tokens[i].tags | {FOLDED_TAG})
+            tags=tokens[i].tags | {FOLDED_TAG, ATTACHED_TAG})
 
 
 def _split_name_alt(state: ParseState, tokens: Sequence[WorkToken],
@@ -1630,8 +1715,17 @@ def assign(state: ParseState) -> ParseState:
 
             def as_a_middle(m: int, token: WorkToken) -> PendingReading:
                 # the name reading of a word the walk read as a suffix:
-                # a middle name, or taken in by the name word in front
+                # a middle name, taken in by the name word in front, or
+                # the family where P1's fold opens the part
                 front = pieces[m - 1]
+                # P1's fold after a family comma takes the rest of the
+                # part into the family whatever the order, so a word past
+                # the opening particle's own piece lands there; the word
+                # directly behind it is `_name_alt`'s, which takes it into
+                # that piece; decisions/C9 (#877)
+                if n < m - 1 and is_lone_never_given_particle(pieces[n],
+                                                               tokens):
+                    return name_reading(token, Role.FAMILY)
                 return _name_alt(
                     token, Role.MIDDLE,
                     front if tokens[front[0]].role in NAME_ROLES else None,
@@ -1675,6 +1769,30 @@ def assign(state: ParseState) -> ParseState:
                             tokens[pieces[m][0]].text.upper())):
                     _set_roles(tokens, pieces[m], Role.MIDDLE)
                     continue
+                # rules/C9: "The bare letter read as the generation behind
+                # a name word is reported" -- the shape a middle initial
+                # is written in, as S10 reports it with no comma;
+                # decisions/C9 (#877); `len` first, C-level
+                if (len(pieces[m]) == 1
+                        and len((tok := tokens[pieces[m][0]]).text) == 1
+                        and (m >= sticky_from and not k6 <= m < end6
+                             or m < sticky_from and suffix_here)
+                        and _ROMAN.match(tok.text) is not None
+                        and tokens[pieces[m - 1][0]].role in NAME_ROLES
+                        # a particle in front may take the letter into
+                        # its chain or stand alone, the field the name
+                        # reading names depending on which; decisions/C9
+                        # (#877)
+                        and not is_prefix_piece(pieces[m - 1], ptags[m - 1],
+                                                tokens)
+                        and not numeral_settled_by_case(tok.text,
+                                                        state.one_case)):
+                    ambiguities.append(PendingAmbiguity(
+                        AmbiguityKind.SUFFIX_OR_NAME,
+                        f"{tok.text!r} is a roman numeral, so it reads as a "
+                        f"generational suffix; any other single letter "
+                        f"there would be a middle initial",
+                        (pieces[m][0],), alternative=as_a_middle(m, tok)))
                 if m >= sticky_from and not k6 <= m < end6:
                     # inside the run: a title word reads as a title,
                     # every other word as a suffix, and a word the walk
@@ -1826,7 +1944,9 @@ def assign(state: ParseState) -> ParseState:
         # 'RA PhD Jr. John' reads title 'RA'). A dual is a title wherever
         # a name word follows it ('Rev. Sr. Smith, Mary').
         # `is_title_piece` is H5's vocabulary read, so the two slots that
-        # refuse the shape agree on what a title word is.
+        # refuse the shape agree on what a title word is, save H5's
+        # written-short clause, which this slot does not read
+        # (decisions/H9, #999: 'Maj. Smith, John' keeps family 'Maj. Smith').
         lead = 0
         floor = len(fam_pieces)
         # the length test and the tag test first, both C-level: a part
@@ -1872,8 +1992,9 @@ def assign(state: ParseState) -> ParseState:
             # rules/C1: "a numeral ending the family part is read as the
             # comma-less name reads it" -- the numeral's predicate, a
             # one-letter numeral with two name words in front of it
-            # (rules/S10), so 'John Smith V, M.J.' keeps suffix 'V' as
-            # 'John Smith III, M.J.' keeps 'III' (#774). `_ROMAN`
+            # (rules/S10; name words only, `_names_before`), so 'John
+            # Smith V, M.J.' keeps suffix 'V' as 'John Smith III, M.J.'
+            # keeps 'III' (#774). `_ROMAN`
             # first, C-level, so a family word pays no frame
             elif (k > lead and len(piece) == 1
                     and _ROMAN.match(
@@ -1884,7 +2005,8 @@ def assign(state: ParseState) -> ParseState:
                             for j in range(k + 1, len(fam_pieces)))
                     and (numeral := _family_part_numeral(
                         word, tokens[fam_pieces[k - 1][0]].text,
-                        k - lead, state.one_case)) is not None):
+                        _names_before(fam_pieces, tokens, lead, k),
+                        state.one_case)) is not None):
                 _set_roles(tokens, piece, numeral)
                 # reported where taken: a name word here is the family
                 # name the comma has just named, which nobody misreads

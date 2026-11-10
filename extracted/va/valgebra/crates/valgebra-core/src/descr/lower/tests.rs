@@ -4,8 +4,9 @@ use std::sync::{Arc, LazyLock};
 use proptest::prelude::*;
 
 use super::{
-    BUDGET, Bounds, Constants, DEPTH, Operand, Room, WORK, an_empty_reading_stands, descend, lower,
-    lower_widened, lower_within, nests_past_the_depth, read_widened,
+    BUDGET, Bounds, Constants, DEPTH, Operand, Room, WORK, an_empty_reading_stands, descend,
+    floats_meet, lower, lower_widened, lower_within, narrowed_cover, nests_past_the_depth,
+    read_widened, reads_as_words,
 };
 use crate::descr::budget;
 use crate::descr::classes::Class;
@@ -321,6 +322,284 @@ fn a_step_meets_the_bounds() {
     assert!(evens.admits(Value::integer(2)) && evens.admits(Value::integer(4)));
     assert!(!evens.admits(Value::integer(0)), "the bound excludes it");
     assert!(!evens.admits(Value::integer(3)), "the step excludes it");
+}
+
+/// A step over floats lands on the whole floats of its residue, whichever number
+/// spells it, and a bound beside it cuts the same floats: no float multiple of one
+/// lies strictly between 30 and 31, where the fractional floats do.
+#[test]
+fn a_step_over_floats_lowers_to_its_multiples() {
+    let pool = Pool(vec![
+        Operand::Integer(3),
+        Operand::Float(3.0),
+        Operand::Boolean(true),
+        Operand::Float(30.0),
+        Operand::Float(31.0),
+        Operand::Integer(-3),
+    ]);
+    let refined = |constraints: Vec<Constraint>| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Float),
+                constraints: constraints.into(),
+            },
+            &pool,
+        )
+    };
+    let step = |at: usize| Constraint::MultipleOf(OperandIx::new(at));
+    let threes = refined(vec![step(0)]).expect("a small step over floats lowers");
+    assert!(threes.admits(Value::float(6.0)) && threes.admits(Value::float(-3.0)));
+    assert!(threes.admits(Value::float(0.0)) && threes.admits(Value::float(-0.0)));
+    assert!(!threes.admits(Value::float(4.0)) && !threes.admits(Value::float(1.5)));
+    assert!(!threes.admits(Value::float(f64::INFINITY)));
+    assert!(!threes.admits(Value::float(f64::NAN)));
+    assert_eq!(
+        refined(vec![step(1)]),
+        Some(threes.clone()),
+        "a whole float step"
+    );
+    assert_eq!(
+        refined(vec![step(5)]),
+        Some(threes),
+        "the sign changes nothing"
+    );
+
+    let wholes = refined(vec![step(2)]).expect("`True` is the step one");
+    assert!(wholes.admits(Value::float(30.0)) && !wholes.admits(Value::float(30.5)));
+
+    let between = |step_first: Vec<Constraint>| refined(step_first).expect("it lowers");
+    let (above, below) = (
+        Constraint::Gt(OperandIx::new(3)),
+        Constraint::Lt(OperandIx::new(4)),
+    );
+    assert_eq!(
+        between(vec![step(2), above.clone(), below.clone()]).emptiness(),
+        Verdict::Empty
+    );
+    assert_eq!(
+        between(vec![above, below]).emptiness(),
+        Verdict::Inhabited,
+        "a float lies there, and only the step refused it"
+    );
+}
+
+/// A step no table holds stays undecided rather than rounded: a fractional float,
+/// one past the period, and a whole float over an `int`, which `%` rounds first.
+#[test]
+fn a_step_the_floats_cannot_hold_refuses_the_lowering() {
+    let refined = |base: Schema, operand: Operand| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(base),
+                constraints: vec![Constraint::MultipleOf(OperandIx::new(0))].into(),
+            },
+            &Pool(vec![operand]),
+        )
+    };
+    assert!(refined(Schema::Float, Operand::Float(0.5)).is_none());
+    assert!(refined(Schema::Float, Operand::Float(1.5)).is_none());
+    assert!(refined(Schema::Float, Operand::Integer(4097)).is_none());
+    assert!(refined(Schema::Float, Operand::Float(4097.0)).is_none());
+    assert!(refined(Schema::Float, Operand::Float(f64::INFINITY)).is_none());
+    assert!(refined(Schema::Float, Operand::Float(1e300)).is_none());
+    assert!(refined(Schema::Int, Operand::Float(2.0)).is_none());
+    assert!(refined(Schema::Float, Operand::Float(4096.0)).is_some());
+    assert!(refined(Schema::Int, Operand::Integer(2)).is_some());
+}
+
+/// A clause's key reads as a language where the connectives and a pattern or a
+/// length spell one, and a whole part beside it keeps its part.
+#[test]
+fn a_narrowed_key_lowers_to_the_language_it_spells() {
+    let pattern = |text: &str| Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex(text.to_owned())].into(),
+    };
+    let long = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::MinLen(2), Constraint::MaxLen(3)].into(),
+    };
+    let reads = |key: &Schema, word: &[u8]| {
+        let (_, words) = narrowed_cover(key).expect("the key reads as words");
+        words.holds(word)
+    };
+    assert!(reads(&pattern("a+"), b"aa") && !reads(&pattern("a+"), b"b"));
+    assert!(reads(&long, b"ab") && !reads(&long, b"a") && !reads(&long, b"abcd"));
+    let either = Schema::union([pattern("a"), pattern("b")]);
+    assert!(reads(&either, b"a") && reads(&either, b"b") && !reads(&either, b"c"));
+    let both = Schema::meet([pattern("a."), pattern(".b")]);
+    assert!(reads(&both, b"ab") && !reads(&both, b"aa") && !reads(&both, b"bb"));
+    let other = pattern("a").complement();
+    assert!(reads(&other, b"b") && !reads(&other, b"a"));
+    // Beside a narrowing, a whole kind reads as its words or its part.
+    let or_str = Schema::Union(vec![pattern("a"), Schema::Str].into());
+    assert!(reads(&or_str, b"") && reads(&or_str, b"z"));
+    let or_nothing = Schema::Union(vec![pattern("a"), Schema::Nothing].into());
+    assert!(reads(&or_nothing, b"a") && !reads(&or_nothing, b""));
+
+    // Beside the words, the whole parts: a complement of a pattern holds every
+    // other kind, a union its members', and a meet what both do.
+    let parts_of = |key: &Schema| narrowed_cover(key).expect("the key reads as words").0;
+    assert!(parts_of(&other).contains(&Some(Kind::Int)));
+    assert!(parts_of(&other).contains(&None));
+    assert!(!parts_of(&other).contains(&Some(Kind::Str)));
+    assert_eq!(parts_of(&pattern("a")), Vec::new());
+    let with_int = Schema::union([pattern("a"), Schema::Int]);
+    assert_eq!(
+        parts_of(&with_int),
+        vec![Some(Kind::Bool), Some(Kind::Int)],
+        "a `bool` key is an `int` key"
+    );
+    assert!(parts_of(&Schema::meet([with_int, other])).contains(&Some(Kind::Int)));
+    let or_everything = Schema::Union(vec![pattern("a"), Schema::ANYTHING].into());
+    assert!(parts_of(&or_everything).contains(&Some(Kind::Float)));
+    // Each kind beside a narrowing holds its own part and no other.
+    for (kind, part) in [
+        (Schema::NoneType, Kind::NoneType),
+        (Schema::Bool, Kind::Bool),
+        (Schema::Float, Kind::Float),
+        (Schema::Bytes, Kind::Bytes),
+    ] {
+        let beside = Schema::Union(vec![pattern("a"), kind].into());
+        assert_eq!(parts_of(&beside), vec![Some(part)], "{part:?}");
+    }
+    // A meet holds what both members do, a part neither shares among what it drops.
+    let int_or = Schema::Union(vec![pattern("a"), Schema::Int].into());
+    let float_or = Schema::Union(vec![pattern("a"), Schema::Float].into());
+    let both_kinds = Schema::Intersection(vec![int_or, float_or].into());
+    assert_eq!(parts_of(&both_kinds), Vec::new());
+    assert!(reads(&both_kinds, b"a"));
+}
+
+/// A key holding no refinement is no language asked for: a meet of whole kinds stays
+/// the rules' to read, and a build of it declines.
+#[test]
+fn a_key_of_whole_kinds_is_not_read_as_a_language() {
+    for key in [
+        Schema::Str,
+        Schema::Nothing,
+        Schema::ANYTHING,
+        Schema::meet([Schema::Int, Schema::Complement(Arc::new(Schema::Bool))]),
+        Schema::union([Schema::Str, Schema::Int]),
+    ] {
+        assert!(narrowed_cover(&key).is_none(), "{key:?} narrows nothing");
+    }
+}
+
+/// What no language spells leaves the map to the rules: a literal beside a pattern,
+/// whose reading is its value and not its type, a bound, and a base of other kinds.
+#[test]
+fn a_key_no_language_spells_refuses_the_lowering() {
+    let pattern = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex("a".to_owned())].into(),
+    };
+    for key in [
+        Schema::union([pattern.clone(), Schema::Literal(ConstIx::new(0))]),
+        Schema::Refine {
+            base: Arc::new(Schema::Str),
+            constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+        },
+        Schema::Refine {
+            base: Arc::new(Schema::union([Schema::Str, Schema::Int])),
+            constraints: vec![Constraint::MinLen(1)].into(),
+        },
+        Schema::Instance(ClassIx::new(0)),
+    ] {
+        assert!(narrowed_cover(&key).is_none(), "{key:?} spells no language");
+    }
+}
+
+/// A meet reads away the part of a kind a refinement over a wider base holds,
+/// where another member holds none of the kind: the key is the words it leaves.
+/// Where a member keeps the kind, or the bound is no word constraint, the key
+/// spells no language.
+#[test]
+fn a_meet_keys_the_words_a_refinement_over_every_value_leaves() {
+    let over = |constraints: Vec<Constraint>| Schema::refine(Schema::ANYTHING, constraints);
+    let reads = |key: &Schema, word: &[u8]| {
+        let (parts, words) = narrowed_cover(key).expect("the key reads as words");
+        assert_eq!(parts, Vec::new(), "{key:?} holds no whole part");
+        words.holds(word)
+    };
+    for key in [
+        Schema::meet([Schema::Str, over(vec![Constraint::MinLen(2)])]),
+        Schema::meet([over(vec![Constraint::MinLen(2)]), Schema::Str]),
+        Schema::meet([Schema::Str, over(vec![Constraint::MaxLen(1)]).complement()]),
+    ] {
+        assert!(reads(&key, b"ab") && reads(&key, b"abc"), "{key:?}");
+        assert!(!reads(&key, b"a") && !reads(&key, b""), "{key:?}");
+        assert!(reads_as_words(&key));
+    }
+    // A length over `bytes` met with `str` is no word at all.
+    let none = Schema::meet([
+        Schema::Str,
+        Schema::refine(Schema::Bytes, vec![Constraint::MinLen(1)]),
+    ]);
+    assert!(!reads(&none, b"") && !reads(&none, b"a"));
+
+    for key in [
+        over(vec![Constraint::MinLen(2)]),
+        Schema::meet([
+            Schema::union([Schema::Str, Schema::Bytes]),
+            over(vec![Constraint::MinLen(2)]),
+        ]),
+        Schema::meet([Schema::Str, over(vec![Constraint::Gt(OperandIx::new(0))])]),
+        Schema::union([Schema::Str, over(vec![Constraint::MinLen(2)])]),
+    ] {
+        assert!(narrowed_cover(&key).is_none(), "{key:?} spells no language");
+        assert!(!reads_as_words(&key));
+    }
+}
+
+/// A map over a narrowed key holds what its clauses say, and a literal key a clause
+/// holds reads the join of the two.
+#[test]
+fn a_map_over_a_narrowed_key_lowers_to_its_clauses() {
+    let pool = Pool(vec![Operand::Word(b"ab".to_vec(), Kind::Str)]);
+    let pattern = Schema::Refine {
+        base: Arc::new(Schema::Str),
+        constraints: vec![Constraint::Regex("a.*".to_owned())].into(),
+    };
+    let map = Schema::keyed_map(
+        Vec::new(),
+        vec![
+            MapClause {
+                key: pattern,
+                value: Schema::Int,
+            },
+            MapClause {
+                key: Schema::Literal(ConstIx::new(0)),
+                value: Schema::Str,
+            },
+        ],
+    );
+    let lowered = lower(&map, &pool).expect("a small map");
+    let (narrow, wide) = (
+        lower(
+            &Schema::keyed_map(
+                Vec::new(),
+                vec![MapClause {
+                    key: Schema::Str,
+                    value: Schema::union([Schema::Int, Schema::Str]),
+                }],
+            ),
+            &pool,
+        )
+        .expect("a small map"),
+        lowered.clone(),
+    );
+    assert_eq!(
+        wide.intersect(&narrow.complement()).map(|d| d.emptiness()),
+        Some(Verdict::Empty),
+        "every key it admits maps into the join"
+    );
+    assert_eq!(
+        narrow
+            .intersect(&lowered.complement())
+            .map(|d| d.emptiness()),
+        Some(Verdict::Inhabited)
+    );
 }
 
 /// A sequence lowers through the one constructor its three spellings share.
@@ -704,6 +983,122 @@ fn a_length_bound_over_more_than_words_refuses() {
     );
 }
 
+/// A bound over every value met with a kind it counts lowers as that bound over
+/// the kind, and its complement as the complement within the kind: the meet is
+/// the same set either way [FCB08, Def. 4.1].
+#[test]
+fn a_bound_over_every_value_is_read_within_the_rest_of_its_meet() {
+    let pool = scalar_pool();
+    let over = |constraints: Vec<Constraint>| Schema::refine(Schema::ANYTHING, constraints);
+    let same = |a: &Schema, b: &Schema| {
+        assert_eq!(
+            a.descriptor_contained_in(b, &pool, &[]),
+            Relation::Holds,
+            "{a:?} in {b:?}"
+        );
+        assert_eq!(
+            b.descriptor_contained_in(a, &pool, &[]),
+            Relation::Holds,
+            "{b:?} in {a:?}"
+        );
+    };
+    let two = || vec![Constraint::MinLen(2)];
+    let words = Schema::refine(Schema::Str, two());
+    same(&Schema::meet([Schema::Str, over(two())]), &words);
+    same(&Schema::meet([over(two()), Schema::Str]), &words);
+    same(
+        &Schema::meet([Schema::Str, over(vec![Constraint::MaxLen(1)]).complement()]),
+        &words,
+    );
+    let list = Schema::list(SeqShape::homogeneous(Schema::Int));
+    same(
+        &Schema::meet([list.clone(), over(two())]),
+        &Schema::refine(list, two()),
+    );
+    let positive = vec![Constraint::Gt(OperandIx::new(0))];
+    same(
+        &Schema::meet([Schema::Int, over(positive.clone())]),
+        &Schema::refine(Schema::Int, positive),
+    );
+    // A refinement the members it is met with narrow, read with them.
+    same(
+        &Schema::meet([words.clone(), over(vec![Constraint::MaxLen(5)])]),
+        &Schema::refine(
+            Schema::Str,
+            vec![Constraint::MinLen(2), Constraint::MaxLen(5)],
+        ),
+    );
+
+    // Where the rest still holds a kind the bound cannot count, or there is no
+    // rest to read within, the meet refuses as the bound alone does.
+    let set = Schema::set(Schema::Int);
+    assert!(lower(&Schema::meet([set, over(two())]), &pool).is_none());
+    assert!(
+        lower(
+            &Schema::meet([over(two()), over(vec![Constraint::MaxLen(5)])]),
+            &pool
+        )
+        .is_none()
+    );
+}
+
+/// A base the law below meets a bound over every value with.
+fn met_base() -> impl Strategy<Value = Schema> {
+    let list = Schema::list(SeqShape::homogeneous(Schema::Int));
+    prop_oneof![
+        Just(Schema::Str),
+        Just(Schema::Bytes),
+        Just(Schema::Int),
+        Just(Schema::Float),
+        Just(Schema::NoneType),
+        Just(Schema::tuple(SeqShape::homogeneous(Schema::Int))),
+        Just(Schema::union([Schema::Str, list.clone()])),
+        Just(Schema::set(Schema::Int)),
+        Just(list),
+    ]
+}
+
+/// A length or an order bound over the scalar pool's integers.
+fn met_bound() -> impl Strategy<Value = Constraint> {
+    prop_oneof![
+        (0usize..4).prop_map(Constraint::MinLen),
+        (0usize..4).prop_map(Constraint::MaxLen),
+        (0usize..3).prop_map(|slot| Constraint::Gt(OperandIx::new(slot))),
+        (0usize..3).prop_map(|slot| Constraint::Le(OperandIx::new(slot))),
+    ]
+}
+
+proptest! {
+    /// A bound over every value met with a base is the base under the bound,
+    /// and its complement met with the base is the base less it: a refinement
+    /// is its base met with its constraints' set [JV20, §3.2], and a meet is
+    /// associative and commutative [FCB08, Def. 4.1]. Where both spellings
+    /// lower they lower to one set.
+    #[test]
+    fn a_bound_met_with_a_base_is_the_base_under_the_bound(
+        base in met_base(),
+        bounds in prop::collection::vec(met_bound(), 1..3),
+    ) {
+        let pool = scalar_pool();
+        let refined = Schema::refine(base.clone(), bounds.clone());
+        let over = Schema::refine(Schema::ANYTHING, bounds);
+        let spellings = [
+            (Schema::meet([base.clone(), over.clone()]), refined.clone()),
+            (
+                Schema::meet([base.clone(), over.complement()]),
+                Schema::meet([base, refined.complement()]),
+            ),
+        ];
+        for (meet, read) in spellings {
+            if lower(&meet, &pool).is_none() || lower(&read, &pool).is_none() {
+                continue;
+            }
+            prop_assert_eq!(meet.descriptor_contained_in(&read, &pool, &[]), Relation::Holds);
+            prop_assert_eq!(read.descriptor_contained_in(&meet, &pool, &[]), Relation::Holds);
+        }
+    }
+}
+
 /// A word constraint on a base with no words refuses.
 ///
 /// The bound has no component to land in: an integer has no length, so
@@ -880,13 +1275,13 @@ fn the_forms_with_nowhere_to_land_refuse() {
         // core has none.
         Schema::Instance(crate::ir::ClassIx::new(0)),
         Schema::Ref(crate::ir::DefIx::new(0)),
-        // A key schema that is neither a kind nor a constant covers part of
-        // a part, and the default is a function on the parts.
+        // A key covering part of a part no language holds, and the default is
+        // a function on the parts.
         Schema::KeyedMap {
             fields: Vec::new().into(),
             defaults: vec![MapClause {
                 key: Schema::Refine {
-                    base: Arc::new(Schema::Str),
+                    base: Arc::new(Schema::Int),
                     constraints: vec![Constraint::MinLen(1)].into(),
                 },
                 value: Schema::Int,
@@ -1306,6 +1701,8 @@ proptest! {
         let rational = Operand::Rational {
             floor: p.div_euclid(q),
             ceil: -(-p).div_euclid(q),
+            below: f64::NAN,
+            above: f64::NAN,
         };
         let set = lower(
             &Schema::Refine {
@@ -1601,13 +1998,12 @@ fn a_length_bound_over_a_list_lowers_two_hundred_elements_deep() {
 }
 
 // THEORY: a-length-is-a-count-beside-the-automaton
-/// What a length bound over a list costs: three units of the build's allowance
-/// an element, for a lower bound and an upper one, and 134 at twenty elements
-/// for a lower one. So the longest lower bound the default allowance of 4,096
-/// lowers is 1,340 elements. Asking every position its own letter and every
-/// pair its own rest costs 83 an element, which stops a bound near 48.
+/// What a length bound over a list costs: two units of the build's allowance an
+/// element, for a lower bound and an upper one, and 95 at twenty elements for a
+/// lower one. So the default allowance reaches past four thousand elements, and it
+/// is the state bound that stops a relation, at 2,046.
 #[test]
-fn a_length_bound_costs_three_units_an_element() {
+fn a_length_bound_costs_two_units_an_element() {
     let pool = empty_pool();
     let cost = |constraint: Constraint| {
         let schema = bounded_list(constraint);
@@ -1639,9 +2035,9 @@ fn a_length_bound_costs_three_units_an_element() {
     };
     for bound in [Constraint::MinLen, Constraint::MaxLen] {
         let (twenty, forty) = (cost(bound(20)), cost(bound(40)));
-        assert_eq!(forty - twenty, 60, "{:?}", bound(0));
+        assert_eq!(forty - twenty, 40, "{:?}", bound(0));
     }
-    assert_eq!(cost(Constraint::MinLen(20)), 134);
+    assert_eq!(cost(Constraint::MinLen(20)), 95);
 }
 
 /// An integer bound no float equals is read against the neighbor on the
@@ -1652,6 +2048,53 @@ fn a_length_bound_costs_three_units_an_element() {
 /// cuts at the float *above*, an upper bound at the float *below*; reading the
 /// nearest one instead moves the boundary by one representable step, and
 /// reading the wrong side of it turns a lower bound into an upper one.
+/// A rational no float equals is cut at the neighbor on the side the bound keeps,
+/// whichever way it is strict, and one a float equals at that float, where
+/// strictness is what tells `>` from `>=`.
+#[test]
+fn a_rational_bound_over_the_floats_cuts_at_the_float_on_its_side() {
+    let of = |below: f64, above: f64| {
+        Pool(vec![Operand::Rational {
+            floor: 0,
+            ceil: 1,
+            below,
+            above,
+        }])
+    };
+    let set = |pool: &Pool, constraint: Constraint| {
+        lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Float),
+                constraints: vec![constraint].into(),
+            },
+            pool,
+        )
+        .expect("a small refinement")
+    };
+    let at = OperandIx::new(0);
+    let admits =
+        |pool: &Pool, constraint: Constraint, x: f64| set(pool, constraint).admits(Value::float(x));
+
+    let (below, above) = (0.1_f64.next_down(), 0.1_f64);
+    let inexact = of(below, above);
+    for constraint in [Constraint::Ge(at), Constraint::Gt(at)] {
+        assert!(admits(&inexact, constraint.clone(), above));
+        assert!(!admits(&inexact, constraint, below));
+    }
+    for constraint in [Constraint::Le(at), Constraint::Lt(at)] {
+        assert!(admits(&inexact, constraint.clone(), below));
+        assert!(!admits(&inexact, constraint, above));
+    }
+
+    let exact = of(0.5, 0.5);
+    assert!(admits(&exact, Constraint::Ge(at), 0.5));
+    assert!(!admits(&exact, Constraint::Gt(at), 0.5));
+    assert!(admits(&exact, Constraint::Le(at), 0.5));
+    assert!(!admits(&exact, Constraint::Lt(at), 0.5));
+    assert!(admits(&exact, Constraint::Gt(at), 0.5_f64.next_up()));
+    assert!(admits(&exact, Constraint::Lt(at), 0.5_f64.next_down()));
+}
+
 #[test]
 fn a_float_bound_over_an_inexact_integer_cuts_at_the_right_neighbor() {
     // Two integers with no float of their own, one either side of the rounding:
@@ -2062,6 +2505,16 @@ fn scalar_schema() -> impl Strategy<Value = Schema> {
         )),
         Just(Schema::refine(Schema::Str, vec![Constraint::MaxLen(0)])),
         Just(Schema::refine(Schema::Str, vec![Constraint::MinLen(1)])),
+        // A bound over every value, which a meet reads within its other
+        // members: refused alone, it lowers met with a kind it counts.
+        Just(Schema::refine(
+            Schema::ANYTHING,
+            vec![Constraint::MinLen(1)]
+        )),
+        Just(Schema::refine(
+            Schema::ANYTHING,
+            vec![Constraint::Gt(operand(0))]
+        )),
     ];
     leaf.prop_recursive(3, 12, 3, |inner| {
         prop_oneof![
@@ -3388,6 +3841,224 @@ proptest! {
                 ..Bounds::DEFAULT
             };
             prop_assert_eq!(built, lower_within(past_any_depth, &schema, &pool), "{:?}", schema);
+        }
+    }
+}
+
+/// The operands [`floats_meet`]'s rows read, by slot: `0.5` and the float above it,
+/// both infinities, `nan`, an integer no float equals, the integer `2`, `-1.0`,
+/// `1.5`, a step past the sets' tables, a word, and `2.0`.
+fn edges_pool() -> Pool {
+    Pool(vec![
+        Operand::Float(0.5),
+        Operand::Float(0.5_f64.next_up()),
+        Operand::Float(f64::INFINITY),
+        Operand::Float(f64::NEG_INFINITY),
+        Operand::Float(f64::NAN),
+        Operand::Integer(9_007_199_254_740_993),
+        Operand::Integer(2),
+        Operand::Float(-1.0),
+        Operand::Float(1.5),
+        Operand::Integer(crate::descr::integers::MAX_PERIOD + 1),
+        Operand::Word(b"a".to_vec(), Kind::Str),
+        Operand::Float(2.0),
+    ])
+}
+
+/// Each row's constraints, [`floats_meet`]'s answer over [`edges_pool`], and why.
+type EdgeRow = (Vec<Constraint>, Option<bool>, &'static str);
+
+fn the_rows_meet_as_written(rows: Vec<EdgeRow>) {
+    let pool = edges_pool();
+    for (constraints, answer, why) in rows {
+        assert_eq!(
+            floats_meet(&constraints, &pool),
+            answer,
+            "{why}: {constraints:?}"
+        );
+    }
+}
+
+/// The bounds are read at their edges, as the lowering reads a float base: a strict
+/// bound at the float beside it, and an integer no float equals at its neighbor on
+/// the side it keeps.
+#[test]
+fn the_floats_a_list_of_bounds_meets_are_read_at_its_edges() {
+    let o = OperandIx::new;
+    let (half, past_half, inf, minus_inf, nan, wide, word) =
+        (o(0), o(1), o(2), o(3), o(4), o(5), o(10));
+    the_rows_meet_as_written(vec![
+        (vec![Constraint::Ge(half)], Some(true), "a lower bound"),
+        (
+            vec![Constraint::Ge(half), Constraint::Le(half)],
+            Some(true),
+            "one float",
+        ),
+        (
+            vec![Constraint::Gt(half), Constraint::Le(half)],
+            Some(false),
+            "a strict lower edge",
+        ),
+        (
+            vec![Constraint::Ge(half), Constraint::Lt(half)],
+            Some(false),
+            "a strict upper edge",
+        ),
+        (
+            vec![Constraint::Gt(half), Constraint::Lt(past_half)],
+            Some(false),
+            "no float between two neighbors",
+        ),
+        (
+            vec![Constraint::Gt(half), Constraint::Le(past_half)],
+            Some(true),
+            "the neighbor past a strict edge",
+        ),
+        (vec![Constraint::Ge(inf)], Some(true), "infinity is a float"),
+        (
+            vec![Constraint::Le(minus_inf)],
+            Some(true),
+            "so is its negation",
+        ),
+        (
+            vec![Constraint::Gt(inf)],
+            Some(false),
+            "none is past infinity",
+        ),
+        (
+            vec![Constraint::Lt(minus_inf)],
+            Some(false),
+            "none is below its negation",
+        ),
+        (vec![Constraint::Ge(nan)], None, "nan orders no float"),
+        (
+            vec![Constraint::Ge(wide), Constraint::Le(wide)],
+            Some(false),
+            "an integer no float equals, read from both sides",
+        ),
+        (vec![Constraint::Ge(word)], None, "a word orders no float"),
+        (
+            vec![Constraint::MinLen(1)],
+            None,
+            "a length is no order bound",
+        ),
+        (
+            vec![Constraint::Predicate(PredIx::new(0))],
+            None,
+            "a callback is read by no one",
+        ),
+    ]);
+}
+
+/// A step is read through the sets beside an interval clear of zero, and not at all
+/// beside one holding it: zero is a multiple of every step, so a step past the
+/// sets' tables holds a value there and declines elsewhere.
+#[test]
+fn the_floats_a_list_with_a_step_meets_are_read_past_zero() {
+    let o = OperandIx::new;
+    let (half, two, minus_one, one_half, vast, word, two_f) =
+        (o(0), o(6), o(7), o(8), o(9), o(10), o(11));
+    the_rows_meet_as_written(vec![
+        (
+            vec![
+                Constraint::MultipleOf(two),
+                Constraint::Ge(minus_one),
+                Constraint::Le(half),
+            ],
+            Some(true),
+            "zero is a multiple of a step",
+        ),
+        (
+            vec![
+                Constraint::MultipleOf(two_f),
+                Constraint::Ge(half),
+                Constraint::Le(one_half),
+            ],
+            Some(false),
+            "no multiple of two between a half and one and a half",
+        ),
+        (
+            vec![Constraint::MultipleOf(two), Constraint::Ge(one_half)],
+            Some(true),
+            "a multiple past a bound clear of zero",
+        ),
+        (
+            vec![Constraint::MultipleOf(vast), Constraint::Le(half)],
+            Some(true),
+            "zero holds where the sets read no table for the step",
+        ),
+        (
+            vec![Constraint::MultipleOf(vast), Constraint::Ge(half)],
+            None,
+            "past zero, a step the sets cannot read declines",
+        ),
+        (
+            vec![Constraint::MultipleOf(half)],
+            None,
+            "a step no integer equals declines",
+        ),
+        (
+            vec![Constraint::MultipleOf(word)],
+            None,
+            "a word is no step",
+        ),
+        (
+            vec![Constraint::MultipleOf(two), Constraint::MinLen(1)],
+            None,
+            "a length beside a step",
+        ),
+    ]);
+}
+
+proptest! {
+    /// Where `floats_meet` answers, it answers what the lowering's set does: a float
+    /// base under the same constraints holds a value exactly where it says one meets
+    /// them, over bounds at, beside and past the floats, both infinities, `-0.0`,
+    /// integers no float equals, and the steps the sets read.
+    #[test]
+    fn the_floats_a_list_meets_are_the_set_the_lowering_builds(
+        picks in proptest::collection::vec((0usize..5, 0usize..10), 1..4),
+    ) {
+        let operands = vec![
+            Operand::Float(0.5),
+            Operand::Float(0.5_f64.next_up()),
+            Operand::Float(-0.0),
+            Operand::Float(f64::INFINITY),
+            Operand::Float(f64::NEG_INFINITY),
+            Operand::Integer(9_007_199_254_740_993),
+            Operand::Integer(3),
+            Operand::Float(-2.5),
+            Operand::Integer(-3),
+            Operand::Float(2.0),
+        ];
+        let constraints: Vec<Constraint> = picks
+            .iter()
+            .map(|&(which, at)| {
+                let at = OperandIx::new(at);
+                match which {
+                    0 => Constraint::Ge(at),
+                    1 => Constraint::Gt(at),
+                    2 => Constraint::Le(at),
+                    3 => Constraint::Lt(at),
+                    _ => Constraint::MultipleOf(OperandIx::new([6, 9].get(at.get() % 2).copied().unwrap_or(6))),
+                }
+            })
+            .collect();
+        let pool = Pool(operands);
+        let Some(meets) = floats_meet(&constraints, &pool) else {
+            return Ok(());
+        };
+        let set = lower(
+            &Schema::Refine {
+                base: Arc::new(Schema::Float),
+                constraints: constraints.clone().into(),
+            },
+            &pool,
+        );
+        if let Some(set) = set {
+            let held = set.emptiness();
+            prop_assert_ne!(held, Verdict::Unknown, "{:?}", constraints);
+            prop_assert_eq!(meets, held == Verdict::Inhabited, "{:?}", constraints);
         }
     }
 }

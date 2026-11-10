@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import threading
@@ -29,10 +30,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from ..slurm.manifest import BatchLayout, recorded_verdict
+from ..slurm.manifest import (
+    BatchLayout,
+    no_job_note,
+    recorded_verdict,
+    sbatch_in_flight,
+    sbatch_timed_out,
+)
 from ..slurm.queue import ACTIVE_STATES, squeue_states
 from . import slurm_options as _options
-from .slurm_case_state import case_state
+from .case_paths import session_order
+from .slurm_case_state import case_state, no_job_case_state
 
 # SLURM's command-line tools are run in the checked slurm.queue (#1634):
 # whether SLURM is here, and its partitions, are re-exported from there.
@@ -217,24 +225,86 @@ def submission() -> Submission | None:
 
 
 def _new_manifests(base: Path, before: set[Path]) -> list[Path]:
-    return sorted(set((base / "outputs").glob("*/*/slurm/manifest.json")) - before)
+    """The batch manifests written since *before*, oldest session first
+    (``outputs/{date}/{time}/slurm/manifest.json``; ``-10`` after ``-9``,
+    #1845)."""
+    return sorted(
+        set((base / "outputs").glob("*/*/slurm/manifest.json")) - before,
+        key=lambda p: (p.parents[2].name, *session_order(p.parents[1].name)),
+    )
+
+
+#: How long the ``scenario ... --no-wait`` a submit runs may take (#1786).
+#: It expands and checks the batch before it calls sbatch -- the Codon check
+#: alone may take up to ``typecheck.check.DEFAULT_TIMEOUT_SECONDS`` (600 s),
+#: and ``uv run`` may sync the environment first -- so it is given minutes;
+#: past them the submit is recorded as failed (:data:`TIMED_OUT`), and the
+#: viewer takes a new one.
+SUBMIT_TIMEOUT_SECONDS = 1800.0
+
+
+def _kill_group(process: subprocess.Popen[str]) -> None:
+    """SIGKILL *process*'s group (its own session's, ``start_new_session``):
+    the ``scenario`` it ran, the ``uv run`` in front of it and the sbatch or
+    checks it started."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # Every process of the group has ended already.
+
+
+def _run_submit(command: list[str], base: Path) -> tuple[int | None, str]:
+    """Run the submitting *command* in *base*, as :func:`run_cli` runs
+    ``scenario-slurm``: its exit status and output; :data:`TIMED_OUT`, with
+    why, when it did not end within :data:`SUBMIT_TIMEOUT_SECONDS`, its whole
+    process group killed; ``None`` when it could not be started."""
+    try:
+        process = subprocess.Popen(  # noqa: S603
+            command,
+            cwd=str(base),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+            start_new_session=True,
+        )
+    except (OSError, ValueError) as exc:  # ValueError: a NUL in an argument
+        return None, f"Could not run {command[0]}: {exc}"
+    timeout = SUBMIT_TIMEOUT_SECONDS
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_group(process)
+        # Bounded: what the killed group wrote, once its pipes close.
+        try:
+            stdout, stderr = process.communicate(timeout=10.0)
+        except subprocess.TimeoutExpired:
+            # A process that left the group holds the pipes: reap ours.
+            process.wait()
+            stdout, stderr = "", ""
+        output = "\n".join(s for s in (stdout, stderr) if s)
+        reason = (
+            f"{command[0]} did not end within {timeout:g} s and was stopped: "
+            "the batch's checks or sbatch hung (is the SLURM controller "
+            "answering?). Stopped during sbatch, it keeps the batch's "
+            "submission record, as the controller may have taken the job: if "
+            "`squeue --me` lists it, it runs and the batch can be collected "
+            "once it ends (or scancel it), and resubmits of that batch are "
+            "refused until 600 s after the record was made. A new submit (a "
+            "new batch) is taken now."
+        )
+        return TIMED_OUT, f"{output}\n{reason}" if output else reason
+    except BaseException:
+        _kill_group(process)
+        process.wait()
+        raise
+    return process.returncode, "\n".join(s for s in (stdout, stderr) if s)
 
 
 def _submit(command: list[str], base: Path, record: Submission) -> None:
     before = set((base / "outputs").glob("*/*/slurm/manifest.json"))
-    try:
-        done = subprocess.run(  # noqa: S603
-            command,
-            cwd=str(base),
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-        output = "\n".join(s for s in (done.stdout, done.stderr) if s)
-        returncode = done.returncode
-    except (OSError, ValueError) as exc:  # ValueError: a NUL in an argument
-        output, returncode = f"Could not run {command[0]}: {exc}", None
+    returncode, output = _run_submit(command, base)
     match = None
     for match in _OUTPUTS_IN.finditer(output):
         pass
@@ -308,7 +378,18 @@ def _case_states(
         queued: str | None = None
         squeue_known = at_case = False
         task, job_id, task_state, task_error = 0, "", "", None
-        if record is None and index in given:
+        no_job: tuple[str, str] | None = None
+        if record is None and index in given and not given[index][2].get("job_id"):
+            # No job to ask squeue about, nor to name: never "job None" and
+            # never missing while its sbatch is in flight or timed out (#1791).
+            sub_index, _task, sub = given[index]
+            no_job = no_job_case_state(
+                sub_index,
+                sbatch_timed_out(sub),
+                sbatch_in_flight(sub),
+                f"{sub.get('sbatch_timed_out_at') or ''}",
+            )
+        elif record is None and index in given:
             sub_index, task, sub = given[index]
             states = squeue.get(sub_index)
             squeue_known = states is not None
@@ -323,7 +404,7 @@ def _case_states(
                 task_state = f"{status.get('state', 'never started')}"
                 if status.get("error"):
                     task_error = f"{status['error']}"
-        state, message = case_state(
+        state, message = no_job or case_state(
             record is not None,
             errored,
             passed,
@@ -356,7 +437,9 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
     its cases (``passed``, ``failed``, ``errored``, ``running``, ``pending``,
     ``missing`` or ``unknown``), its submissions with their jobs' and tasks'
     states (``squeue``), and whether it has been collected.  A submission
-    whose record cannot be read is listed ``unreadable`` with a ``note``."""
+    whose record cannot be read is listed ``unreadable`` with a ``note``, as
+    is one with no job id, which says why (``in_flight`` or
+    ``sbatch_timed_out``, else a stale record; #1791)."""
     layout = BatchLayout(batch_dir)
     try:
         manifest = layout.read_manifest()
@@ -389,6 +472,9 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
         job = sub.get("job_id")
         states = squeue_states(str(job)) if job else {}
         squeue[index] = states
+        # Its sbatch has not returned yet; one that timed out has (#1791).
+        timed_out = not job and sbatch_timed_out(sub)
+        in_flight = not job and not timed_out and sbatch_in_flight(sub)
         tasks = []
         for task, chunk in enumerate(sub.get("chunks") or []):
             status = layout.read_task(index, task) or {}
@@ -412,12 +498,19 @@ def batch_status(batch_dir: Path) -> dict[str, Any] | None:
                 "collect_job_id": sub.get("collect_job_id"),
                 "collect_error": sub.get("collect_error"),
                 "cases": len(sub.get("cases") or []),
-                "active": states is not None
-                and any(s in ACTIVE_STATES for s in states.values()),
+                # One being submitted is followed as a queued one is.
+                "active": in_flight
+                or (
+                    states is not None
+                    and any(s in ACTIVE_STATES for s in states.values())
+                ),
                 "squeue_unavailable": states is None,
                 "tasks": tasks,
                 "unreadable": False,
-                "note": None,
+                # Why it has no job id: in flight, timed out or stale (#1791).
+                "note": None if job else no_job_note(sub),
+                "sbatch_timed_out": bool(timed_out),
+                "in_flight": bool(in_flight),
             }
         )
     cases = _case_states(layout, manifest, squeue)

@@ -27,6 +27,7 @@ imported when the tool is created. Each framework extra installs it.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import contextvars
 import inspect
@@ -44,6 +45,7 @@ from restate.agents._turn import stop_signal_of, tool_call_ended, tool_call_star
 from restate.exceptions import TerminalError
 from restate.handler import Handler, handler_from_callable
 from restate.sessions import SessionContext
+from restate.sessions.internal import attach_invocation, start
 
 T = typing.TypeVar("T")
 
@@ -98,8 +100,18 @@ def tools_in(ctx: SessionContext) -> Generator[None, None, None]:
 
 
 def current_call(call_id: str) -> ToolCall:
-    """Return tool call ``call_id`` of the framework run in progress (see ``tools_in``)."""
-    return ToolCall(_RUNNING.get(), call_id)
+    """Return tool call ``call_id`` of the framework run in progress (see ``tools_in``).
+
+    Raises:
+        RuntimeError: If no run is in progress: the framework runs the agent outside ``agent`` or ``prompt``.
+    """
+    try:
+        ctx = _RUNNING.get()
+    except LookupError:
+        raise RuntimeError(
+            "restate.agents tools run in an agent that this package's agent() or prompt() runs, in a Restate handler"
+        ) from None
+    return ToolCall(ctx, call_id)
 
 
 @dataclass(frozen=True)
@@ -153,6 +165,12 @@ class Tool:
             # cancelled).
             stop = stop_signal_of(call.ctx)
             if stop is not None and stop.reason is not None:
+                task = asyncio.current_task()
+                if isinstance(error, asyncio.CancelledError) and task is not None and task.cancelling():
+                    # Its own task is being cancelled (by the framework, as the turn stopped): it ends as
+                    # cancelled, since a framework that cancels a task and waits for it (ADK's runner) expects
+                    # nothing else. The turn still stops with its reason, from the stop signal.
+                    raise
                 raise stop.reason from error
             if isinstance(error, TerminalError):
                 # A terminal error is the tool's result, which the model can act on.
@@ -283,13 +301,22 @@ def tool(
 # --- The tools that are Restate itself ------------------------------------------------------------
 
 
-async def _once(name: str, input: object, call: ToolCall, body: Callable[[ToolCall], Awaitable[T]]) -> T:
+async def _once(
+    name: str,
+    input: object,
+    call: ToolCall,
+    body: Callable[[ToolCall], Awaitable[T]],
+    *,
+    rejoin: bool = True,
+    approval: bool = False,
+) -> T:
     """Run ``body``, a Restate call of tool ``name``, so that it is made once however often the tool call runs.
 
     ``body`` gets the id under which the call was first made, possibly by an
-    earlier attempt, and so the same idempotency key (see ``_calls.py``).
+    earlier attempt, and so the same idempotency key (see ``_calls.py``);
+    ``rejoin`` and ``approval`` are ``call_of``'s.
     """
-    made = await call_of(call.ctx, name, input, call.call_id)
+    made = await call_of(call.ctx, name, input, call.call_id, rejoin=rejoin, approval=approval)
     try:
         result = await body(ToolCall(call.ctx, made.id))
     except TerminalError as error:
@@ -300,24 +327,39 @@ async def _once(name: str, input: object, call: ToolCall, body: Callable[[ToolCa
     return result
 
 
-def _untyped(ctx: SessionContext) -> Any:
+async def run_workflow(ctx: SessionContext, target: Callable[..., Any], value: Any, workflow_id: str) -> Any:
+    """Run the workflow ``target`` (its main handler) with the id ``workflow_id`` to its end, and return its result.
+
+    It sends to the workflow, and waits for the invocation the send started.
+    A workflow runs once per id: a send to one whose run started already
+    starts nothing, and its invocation id is that run's. So a tool call made
+    again after a crash, or a ``key`` that ran before, waits for that run. The
+    run is the workflow's own, not a call of the turn: stopping the turn
+    doesn't cancel it.
+    """
+    handler = handler_of(target)
+    invocation_id = await start(ctx, target, *inputs_of(handler, value), key=workflow_id)
+    return handler.handler_io.output_serde.deserialize(await attach_invocation(ctx, invocation_id))
+
+
+def untyped(ctx: SessionContext) -> Any:
     """Return ``ctx`` untyped, to call a handler whose input type is known only at run time."""
     return ctx
 
 
-def _inputs(handler: Handler[Any, Any], value: Any) -> tuple[Any, ...]:
+def inputs_of(handler: Handler[Any, Any], value: Any) -> tuple[Any, ...]:
     """Return the positional arguments for calling ``handler``: ``(value,)`` if it takes an input."""
     return (value,) if handler.arity >= 2 else ()
 
 
-def _handler(target: Callable[..., Any]) -> Handler[Any, Any]:
+def handler_of(target: Callable[..., Any]) -> Handler[Any, Any]:
     try:
         return handler_from_callable(target)
     except ValueError:
         raise TypeError(f"{target!r} is not a handler of a service, an object or a workflow") from None
 
 
-def _input_type(handler: Handler[Any, Any]) -> Any:
+def input_type_of(handler: Handler[Any, Any]) -> Any:
     """Return the type of a handler's input, or ``None`` if it takes none."""
     if handler.arity < 2:
         return None
@@ -374,7 +416,7 @@ def _input_of(input_type: Any, model_keys: str | None) -> _Input:
     return _Input(schema=schema, validate=validate)
 
 
-def _keyed(handler: Handler[Any, Any]) -> bool:
+def keyed(handler: Handler[Any, Any]) -> bool:
     return handler.service_tag.kind != "service"
 
 
@@ -408,19 +450,19 @@ def call(
     Raises:
         TypeError: If ``target`` is not a handler.
     """
-    handler = _handler(target)
+    handler = handler_of(target)
     service = handler.service_tag.name
-    model_keys = service if _keyed(handler) and key is None else None
-    shape = _input_of(_input_type(handler), model_keys)
+    model_keys = service if keyed(handler) and key is None else None
+    shape = _input_of(input_type_of(handler), model_keys)
 
     async def run(arguments: dict[str, Any], tool_call: ToolCall) -> Any:
         chosen, value = arguments["key"], arguments["value"]
 
         async def made(c: ToolCall) -> Any:
             target_key = chosen if key is None else await configured(key, c.ctx)
-            target_key = target_key if _keyed(handler) else None
-            return await _untyped(c.ctx).call(
-                target, *_inputs(handler, value), key=target_key, idempotency_key=c.idempotency_key
+            target_key = target_key if keyed(handler) else None
+            return await untyped(c.ctx).call(
+                target, *inputs_of(handler, value), key=target_key, idempotency_key=c.idempotency_key
             )
 
         return await _once(f"{service}/{handler.name}", arguments["raw"], tool_call, made)
@@ -461,18 +503,18 @@ def send(
     Raises:
         TypeError: If ``target`` is not a handler.
     """
-    handler = _handler(target)
+    handler = handler_of(target)
     service = handler.service_tag.name
-    model_keys = service if _keyed(handler) and key is None else None
-    shape = _input_of(_input_type(handler), model_keys)
+    model_keys = service if keyed(handler) and key is None else None
+    shape = _input_of(input_type_of(handler), model_keys)
 
     async def run(arguments: dict[str, Any], tool_call: ToolCall) -> Any:
         chosen, value = arguments["key"], arguments["value"]
 
         async def made(c: ToolCall) -> str:
-            target_key = (chosen if key is None else await configured(key, c.ctx)) if _keyed(handler) else None
-            _untyped(c.ctx).send(
-                target, *_inputs(handler, value), key=target_key, delay=delay, idempotency_key=c.idempotency_key
+            target_key = (chosen if key is None else await configured(key, c.ctx)) if keyed(handler) else None
+            untyped(c.ctx).send(
+                target, *inputs_of(handler, value), key=target_key, delay=delay, idempotency_key=c.idempotency_key
             )
             return f"sent to {service}{'' if target_key is None else f'/{target_key}'}/{handler.name}"
 
@@ -497,7 +539,9 @@ def workflow(
     """Create a tool that runs a workflow to completion and returns its result.
 
     Each tool call starts a workflow of its own, whose id is built from the
-    agent's key and the tool call's id, unless ``key`` is given.
+    agent's key and the tool call's id, unless ``key`` is given. A workflow
+    runs once per id: a tool call run again after a crash waits for the run
+    it started, and a ``key`` that already ran gets that run's result.
 
     Args:
         target: The workflow's main handler.
@@ -511,18 +555,16 @@ def workflow(
     Raises:
         TypeError: If ``target`` is not a handler.
     """
-    handler = _handler(target)
+    handler = handler_of(target)
     service = handler.service_tag.name
-    shape = _input_of(_input_type(handler), None)
+    shape = _input_of(input_type_of(handler), None)
 
     async def run(arguments: dict[str, Any], tool_call: ToolCall) -> Any:
         value = arguments["value"]
 
         async def made(c: ToolCall) -> Any:
             workflow_id = f"{c.ctx.key}-{c.call_id}" if key is None else await configured(key, c.ctx)
-            return await _untyped(c.ctx).call(
-                target, *_inputs(handler, value), key=workflow_id, idempotency_key=c.idempotency_key
-            )
+            return await run_workflow(c.ctx, target, value, workflow_id)
 
         return await _once(service, arguments["raw"], tool_call, made)
 
@@ -632,14 +674,7 @@ def wait_for_signal(signal: str, *, description: str, input: Any = None, name: s
     shape = _input_of(input, None)
 
     async def run(arguments: dict[str, Any], tool_call: ToolCall) -> Any:
-        async def made(c: ToolCall) -> Any:
-            wait_id = c.idempotency_key
-            request: _signals.WaitRequest = {"id": wait_id, "name": signal}
-            if input is not None:
-                request["input"] = arguments["raw"]
-            return await c.ctx.call(_signals.wait, request, key=_signals.signals_of(c.ctx), idempotency_key=wait_id)
-
-        return await _once(f"signal/{signal}", arguments["raw"], tool_call, made)
+        return await _wait(tool_call, signal, arguments["raw"], shown=input is not None)
 
     return Tool(
         name=name or f"wait_for_{signal}",
@@ -648,3 +683,50 @@ def wait_for_signal(signal: str, *, description: str, input: Any = None, name: s
         _run=run,
         _validate=lambda args: _split(shape, args),
     )
+
+
+async def _wait(
+    call: ToolCall, signal: str, input: object, *, shown: bool, rejoin: bool = True, approval: bool = False
+) -> Any:
+    """Wait for signal ``signal`` as tool call ``call``, once however often it runs; ``pending`` shows ``input`` if
+    ``shown``. ``rejoin`` and ``approval`` are ``call_of``'s."""
+
+    async def made(c: ToolCall) -> Any:
+        wait_id = c.idempotency_key
+        request: _signals.WaitRequest = {"id": wait_id, "name": signal}
+        if shown:
+            request["input"] = input
+        return await c.ctx.call(_signals.wait, request, key=_signals.signals_of(c.ctx), idempotency_key=wait_id)
+
+    return await _once(f"signal/{signal}", input, call, made, rejoin=rejoin, approval=approval)
+
+
+async def wait_for(ctx: SessionContext, call_id: str, signal: str, input: Any = None, *, approval: bool = False) -> Any:
+    """Wait for signal ``signal`` to the agent, for the model's tool call ``call_id``, and return its value.
+
+    It is what a ``wait_for_signal`` tool does, for a framework whose own
+    tool calls wait for something outside (Pydantic AI's deferred tool
+    calls, say): the wait's id is ``<invocation id>:<call id>``, the agent's
+    ``pending`` view lists it, and its ``signal`` view resolves it. The wait
+    is opened once however often the tool call runs, and a crash carries on
+    waiting on the same one.
+
+    The wait is the tool call's alone: the framework stores its tool call
+    before it waits, so a retried attempt waits again under the same id. A
+    new call with the same input (the model asking again, after the first's
+    answer) waits anew, as its answer is not the earlier call's.
+
+    Args:
+        ctx: The agent's context.
+        call_id: The id of the model's tool call.
+        signal: The signal's name.
+        input: What the call waits for (the tool call's arguments, say), as JSON, which ``pending`` shows; None
+            to show nothing.
+        approval: Whether the tool call runs only after the wait (an approval), so that the wait's returning is
+            not the call's: a turn stopped before the call's result is stored reports the call as not done,
+            rather than as done.
+
+    Returns:
+        The value the signal resolves the wait with.
+    """
+    return await _wait(ToolCall(ctx, call_id), signal, input, shown=input is not None, rejoin=False, approval=approval)

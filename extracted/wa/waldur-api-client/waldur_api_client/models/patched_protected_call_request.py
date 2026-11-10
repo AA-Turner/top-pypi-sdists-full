@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 from ..models.evaluation_start_enum import EvaluationStartEnum
 from ..models.order_author_enum import OrderAuthorEnum
 from ..models.publish_results_enum import PublishResultsEnum
+from ..models.resource_template_selection_mode_enum import ResourceTemplateSelectionModeEnum
 from ..models.undecided_at_round_completion_enum import UndecidedAtRoundCompletionEnum
 from ..types import UNSET, Unset
 
@@ -36,6 +37,7 @@ class PatchedProtectedCallRequest:
         proposal_field_config (Union[Unset, CallProposalFieldConfigRequest]):
         evaluation_start (Union[Unset, EvaluationStartEnum]):
         publish_results (Union[Unset, PublishResultsEnum]):
+        resource_template_selection_mode (Union[Unset, ResourceTemplateSelectionModeEnum]):
         created_by (Union[None, Unset, str]):
         reference_code (Union[Unset, str]):
         compliance_checklist (Union[None, UUID, Unset]): Compliance checklist that proposals must complete before
@@ -55,9 +57,9 @@ class PatchedProtectedCallRequest:
         applicant_visibility_config (Union['CallApplicantVisibilityConfigRequest', None, Unset]):
         order_author (Union[Unset, OrderAuthorEnum]):
         order_author_user (Union[None, UUID, Unset]): The person orders are attributed to when the author is a named
-            contact. Must hold a role on this call or on the organisation managing it.
+            contact. Must hold a role on this call or on the organization managing it.
         carry_over_drafts (Union[Unset, bool]): Whether a draft still open when its round's cut-off passes moves on to
-            the call's next round instead of being cancelled. Without a later round the draft is cancelled either way.
+            the call's next round instead of being canceled. Without a later round the draft is canceled either way.
         undecided_at_round_completion (Union[Unset, UndecidedAtRoundCompletionEnum]):
     """
 
@@ -72,6 +74,7 @@ class PatchedProtectedCallRequest:
     proposal_field_config: Union[Unset, "CallProposalFieldConfigRequest"] = UNSET
     evaluation_start: Union[Unset, EvaluationStartEnum] = UNSET
     publish_results: Union[Unset, PublishResultsEnum] = UNSET
+    resource_template_selection_mode: Union[Unset, ResourceTemplateSelectionModeEnum] = UNSET
     created_by: Union[None, Unset, str] = UNSET
     reference_code: Union[Unset, str] = UNSET
     compliance_checklist: Union[None, UUID, Unset] = UNSET
@@ -128,6 +131,10 @@ class PatchedProtectedCallRequest:
         publish_results: Union[Unset, str] = UNSET
         if not isinstance(self.publish_results, Unset):
             publish_results = self.publish_results.value
+
+        resource_template_selection_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.resource_template_selection_mode, Unset):
+            resource_template_selection_mode = self.resource_template_selection_mode.value
 
         created_by: Union[None, Unset, str]
         if isinstance(self.created_by, Unset):
@@ -234,6 +241,8 @@ class PatchedProtectedCallRequest:
             field_dict["evaluation_start"] = evaluation_start
         if publish_results is not UNSET:
             field_dict["publish_results"] = publish_results
+        if resource_template_selection_mode is not UNSET:
+            field_dict["resource_template_selection_mode"] = resource_template_selection_mode
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
         if reference_code is not UNSET:
@@ -325,6 +334,13 @@ class PatchedProtectedCallRequest:
             publish_results = UNSET
         else:
             publish_results = PublishResultsEnum(_publish_results)
+
+        _resource_template_selection_mode = d.pop("resource_template_selection_mode", UNSET)
+        resource_template_selection_mode: Union[Unset, ResourceTemplateSelectionModeEnum]
+        if isinstance(_resource_template_selection_mode, Unset):
+            resource_template_selection_mode = UNSET
+        else:
+            resource_template_selection_mode = ResourceTemplateSelectionModeEnum(_resource_template_selection_mode)
 
         def _parse_created_by(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -456,6 +472,7 @@ class PatchedProtectedCallRequest:
             proposal_field_config=proposal_field_config,
             evaluation_start=evaluation_start,
             publish_results=publish_results,
+            resource_template_selection_mode=resource_template_selection_mode,
             created_by=created_by,
             reference_code=reference_code,
             compliance_checklist=compliance_checklist,

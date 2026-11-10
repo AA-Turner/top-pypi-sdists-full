@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -10,7 +10,6 @@ from office365.sharepoint.administration.orgassets.library_collection import (
 from office365.sharepoint.types.resource_path import ResourcePath
 
 
-@dataclass
 class OrgAssets(ClientValue):
     OrgAssetsLibraries: OrgAssetsLibraryCollection = field(default_factory=OrgAssetsLibraryCollection)
     CentralAssetRepositoryLibraries: OrgAssetsLibraryCollection = field(default_factory=OrgAssetsLibraryCollection)

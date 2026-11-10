@@ -52,6 +52,7 @@ class TestEcatHeader(tws._TestWrapStructBase):
         # Called from test_bytes test method.  Specific to the header data type
         hdr['scan_start_time'] = 42
 
+    @pytest.mark.thread_unsafe
     def test_dtype(self):
         # dtype not specified in header, only in subheaders
         hdr = self.header_class()
@@ -71,6 +72,18 @@ class TestEcatHeader(tws._TestWrapStructBase):
         assert hdr['num_frames'] == 0
         hdr['num_frames'] = 2
         assert hdr['num_frames'] == 2
+
+    def test_patient_birth_date_signed(self):
+        # patient_birth_date is a time_t (seconds since the Unix epoch) and
+        # must be signed so that pre-1970 birth dates survive as negative
+        # values rather than wrapping to a far-future unsigned value (gh-1434).
+        assert np.issubdtype(
+            self.header_class.template_dtype['patient_birth_date'], np.signedinteger
+        )
+        hdr = self.header_class()
+        # 19 Dec 1915, i.e. -1704153600 seconds from the epoch
+        hdr['patient_birth_date'] = -1704153600
+        assert hdr['patient_birth_date'] == -1704153600
 
     def test_from_eg_file(self):
         # Example header is big-endian
@@ -186,6 +199,7 @@ class TestEcatImage(TestCase):
         assert Path(self.img.file_map['header'].filename) == Path(self.example_file)
         assert Path(self.img.file_map['image'].filename) == Path(self.example_file)
 
+    @pytest.mark.thread_unsafe
     def test_save(self):
         tmp_file = 'tinypet_tmp.v'
         with InTemporaryDirectory():
@@ -222,6 +236,7 @@ class TestEcatImage(TestCase):
         for sliceobj in slicer_samples(self.img.shape):
             assert_array_equal(arr[sliceobj], prox[sliceobj])
 
+    @pytest.mark.thread_unsafe
     def test_isolation(self):
         # Test image isolated from external changes to affine
         img_klass = self.image_class

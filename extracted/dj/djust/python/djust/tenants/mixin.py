@@ -32,15 +32,29 @@ Configuration::
 """
 
 import logging
+from contextlib import nullcontext
 from typing import Any, Dict, Optional, TYPE_CHECKING
 from urllib.parse import quote
 
+from .._exposure import ProviderContract
+from .._exposure_providers import provide_context
 from .resolvers import TenantInfo, resolve_tenant
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
+
+
+def _tenant_context_name(view_class: Any) -> Any:
+    from ..config import get_djust_config
+
+    return get_djust_config().get("TENANT_CONTEXT_NAME", view_class.tenant_context_name)
+
+
+def _tenant_provider(view_class: type) -> ProviderContract:
+    """ADR-038 E2-1: the configured tenant context key, render-only."""
+    return ProviderContract("djust.tenants", rendered=frozenset({_tenant_context_name(view_class)}))
 
 
 class TenantMixin:
@@ -52,7 +66,7 @@ class TenantMixin:
     - Makes tenant available as self.tenant in all methods
     - Adds tenant to template context automatically
     - Provides tenant-scoped presence keys
-    - Integrates with tenant-aware state backends
+    - Keys saved view state by tenant (``get_state_key_prefix()``)
 
     Usage::
 
@@ -72,6 +86,8 @@ class TenantMixin:
     # Class-level configuration
     tenant_required: bool = True  # Override per-view if needed
     tenant_context_name: str = "tenant"  # Name in template context
+    # ADR-038 E2-1: the tenant key is a registered, render-only provider.
+    _djust_context_providers = (_tenant_provider,)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -199,7 +215,11 @@ class TenantMixin:
 
         Called automatically before mount() and event handlers.
         """
+        from .._exposure import uses_legacy_exposure
+
         if self._tenant_resolved:
+            if not uses_legacy_exposure(self):
+                request.tenant = self._tenant
             return
 
         self._tenant = self.resolve_tenant(request)
@@ -211,6 +231,15 @@ class TenantMixin:
             from django.http import Http404
 
             raise Http404("Tenant not found")
+        if not uses_legacy_exposure(self):
+            request.tenant = self._tenant
+
+    def _explicit_tenant_context(self) -> Any:
+        """Scope explicit HTTP auth/render queries without leaking to the next request."""
+        from .._exposure import uses_legacy_exposure
+        from .middleware import tenant_context
+
+        return nullcontext() if uses_legacy_exposure(self) else tenant_context(self._tenant)
 
     def _is_tenant_required(self) -> bool:
         """Check if tenant is required for this view."""
@@ -239,8 +268,21 @@ class TenantMixin:
 
         context_name = get_djust_config().get("TENANT_CONTEXT_NAME", self.tenant_context_name)
 
-        context[context_name] = self._tenant
+        provide_context(self, context, "djust.tenants", context_name, self._tenant)
         return context
+
+    def _djust_render_only_context_keys(self) -> frozenset:
+        """The tenant key renders but is never saved state.
+
+        A legacy session save drops these keys. Without this the saved
+        ``tenant`` value was restored through the ``tenant`` property setter,
+        so the first HTTP fallback POST or snapshot reconnect after a save
+        replaced ``self.tenant`` with its serialized form.
+        """
+        parent = getattr(super(), "_djust_render_only_context_keys", None)
+        keys = set(parent()) if callable(parent) else set()
+        keys.add(_tenant_context_name(type(self)))
+        return frozenset(keys)
 
     def get_presence_key(self) -> str:
         """
@@ -259,30 +301,16 @@ class TenantMixin:
 
         return tenant_scoped_presence_key(self, base_key)
 
-    def _djust_render_only_context_keys(self) -> frozenset:
-        """The tenant key renders but is never saved state.
-
-        A session save drops these keys. Without this the saved ``tenant``
-        value was restored through the ``tenant`` property setter, so the first
-        HTTP fallback POST or reconnect after a save replaced ``self.tenant``
-        with its serialized form.
-        """
-        from ..config import get_djust_config
-
-        parent = getattr(super(), "_djust_render_only_context_keys", None)
-        keys = set(parent()) if callable(parent) else set()
-        keys.add(get_djust_config().get("TENANT_CONTEXT_NAME", self.tenant_context_name))
-        return frozenset(keys)
-
     def get_state_key_prefix(self) -> str:
         """
         Get the tenant prefix for this view's saved-state key.
 
-        Saved view state (state backend and Django session) is keyed by it, so
-        one session that reaches two tenants on the same URL keeps two entries.
-        Returns ``"tenant:<id>"``, or ``""`` when no tenant is resolved; the
-        empty string means *no saved state* for this view, never the shared
-        unprefixed key. Override it to change the scope, keeping that rule.
+        ``_initialize_rust_view`` prepends ``<prefix>:`` to the state-backend
+        key, so one session that reaches two tenants on the same URL keeps two
+        entries (#2973). Returns ``"tenant:<id>"``, or ``""`` when no tenant is
+        resolved; the empty string means *no saved state* for this view, never
+        the shared unprefixed key. Override it to change the scope, keeping
+        that rule.
         """
         if self._tenant:
             # Quoted so a ``:`` in the id (header/session/custom resolvers
@@ -294,17 +322,20 @@ class TenantMixin:
     def dispatch(self, request: "HttpRequest", *args: Any, **kwargs: Any) -> Any:
         """Resolve tenant before dispatching."""
         self._ensure_tenant(request)
-        return super().dispatch(request, *args, **kwargs)  # type: ignore[misc]
+        with self._explicit_tenant_context():
+            return super().dispatch(request, *args, **kwargs)  # type: ignore[misc]
 
     def get(self, request: "HttpRequest", *args: Any, **kwargs: Any) -> Any:
         """Resolve tenant before GET handling."""
         self._ensure_tenant(request)
-        return super().get(request, *args, **kwargs)  # type: ignore[misc]
+        with self._explicit_tenant_context():
+            return super().get(request, *args, **kwargs)  # type: ignore[misc]
 
     def post(self, request: "HttpRequest", *args: Any, **kwargs: Any) -> Any:
         """Resolve tenant before POST handling."""
         self._ensure_tenant(request)
-        return super().post(request, *args, **kwargs)  # type: ignore[misc]
+        with self._explicit_tenant_context():
+            return super().post(request, *args, **kwargs)  # type: ignore[misc]
 
 
 class TenantScopedMixin(TenantMixin):

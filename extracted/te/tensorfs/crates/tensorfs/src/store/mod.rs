@@ -21,16 +21,13 @@
 
 mod checkpoint;
 mod folder;
-pub(crate) use folder::{copy_checked, files as folder_files};
+pub use folder::{copy_checked, files as folder_files};
 mod gc;
 mod records;
-pub(crate) mod retention;
+pub mod retention;
 
 pub use checkpoint::{wanted, Checkpoint};
-pub use gc::{Collected, Evicted};
-pub use retention::{Room, RoomLane};
 pub(crate) use records::is_name;
-pub use retention::TTL;
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -42,20 +39,19 @@ use std::time::{Duration, SystemTime};
 use platform::durable::{self, DiskClass, FileId};
 
 use crate::err::{Code, Refusal};
-use crate::fetch;
 use crate::format::{self, is_digest, ObjectRef};
 use crate::sha256::{hex, Sha256};
 
 /// [`crate::STORE_FORMAT`] as the store's `format` record.
 /// The store format this TensorFS reads and writes (its `format` record).
-pub const FORMAT: &str = "tensorfs.store/3";
+pub(crate) const FORMAT: &str = "tensorfs.store/3";
 const LAYOUT: [&str; 6] = ["blobs", "refs", "holds", "files", "uses", "tmp"];
 
 /// How long an unreferenced object outlives its last write or reuse.
-pub const GRACE: Duration = Duration::from_secs(3600);
+pub(crate) const GRACE: Duration = Duration::from_secs(3600);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Durability {
+pub(crate) enum Durability {
     /// Each object and record is flushed before it is named (local machines).
     Durable,
     /// Nothing is flushed until one `syncfs`, which runs before a record names objects this
@@ -65,7 +61,7 @@ pub enum Durability {
 
 impl Durability {
     /// What the filesystem under `path` calls for: ephemeral on tmpfs and overlay, else durable.
-    pub fn of(path: &Path) -> Durability {
+    pub(crate) fn of(path: &Path) -> Durability {
         match DiskClass::of(path) {
             DiskClass::Ephemeral => Durability::Ephemeral.supported(),
             _ => Durability::Durable,
@@ -81,6 +77,7 @@ impl Durability {
     }
 }
 
+/// Why a store operation failed: I/O, a full disk, an absent or mismatched object, a bad document.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("{op} {}: {source}", path.display())]
@@ -104,16 +101,6 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn code(&self) -> &'static str {
-        match self {
-            Error::Io { .. } => "io",
-            Error::Full { .. } => "full",
-            Error::Absent(_) => "absent",
-            Error::Mismatch { .. } => "mismatch",
-            Error::Invalid { .. } => "invalid",
-            Error::Format(error) => error.code(),
-        }
-    }
 }
 
 impl Error {
@@ -139,6 +126,7 @@ impl Error {
     }
 }
 
+/// A result that fails with a store `Error`.
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub(crate) fn fail(op: &'static str, path: impl Into<PathBuf>) -> impl FnOnce(io::Error) -> Error {
@@ -183,6 +171,7 @@ pub(crate) fn same_family(tag: &str, want: &str) -> bool {
     tag.split_once('/').map(|t| t.0) == want.split_once('/').map(|w| w.0)
 }
 
+/// A handle on the store at one root; clones share its sync, collection and reclaim state.
 #[derive(Clone, Debug)]
 pub struct Store {
     root: PathBuf,
@@ -276,27 +265,8 @@ impl Store {
         self
     }
 
-    pub fn with_durability(mut self, durability: Durability) -> Store {
-        self.durability = durability.supported();
-        self
-    }
-
-    pub fn with_grace(mut self, grace: Duration) -> Store {
-        self.grace = grace;
-        self
-    }
-
     pub fn root(&self) -> &Path {
         &self.root
-    }
-
-    pub fn durability(&self) -> Durability {
-        self.durability
-    }
-
-    /// How long an unreferenced object outlives its last write or reuse.
-    pub fn grace(&self) -> Duration {
-        self.grace
     }
 
     /// Where `object` lives. A malformed digest has no path.
@@ -321,7 +291,7 @@ impl Store {
 
     /// The one door. Bytes written to the [`Admission`] become an object at
     /// [`Admission::finish`]; with `expect`, any other bytes are refused.
-    pub fn admit(&self, expect: Option<&ObjectRef>) -> Result<Admission> {
+    pub(crate) fn admit(&self, expect: Option<&ObjectRef>) -> Result<Admission> {
         if let Some(expect) = expect {
             self.path(expect)?;
         }
@@ -338,13 +308,14 @@ impl Store {
             hash: Sha256::new(),
             length: 0,
             over: false,
+            paced: durable::Paced::default(),
         })
     }
 
     /// `object` for a fetch, which writes each range at its offset and can be cut at any moment, a kill
     /// included ([`Partial`]). One that another fetch holds is left to it, and this one keeps nothing: a
     /// cancelled fetch's commit holds it a moment after the next run claims the object (gate 41991226171).
-    pub(crate) fn partial(&self, object: &ObjectRef) -> Result<Partial> {
+    pub fn partial(&self, object: &ObjectRef) -> Result<Partial> {
         self.path(object)?;
         let temp = self.root.join("tmp").join(format!("partial-{}", object.sha256));
         let (temp, file, journal, keep) = match partial(&temp) {
@@ -364,7 +335,7 @@ impl Store {
             return Err(Error::Full { op: "admit", path: self.root.clone() });
         }
         file.set_len(object.length).map_err(fail("size", &temp))?;
-        Ok(Partial { store: self.clone(), object: object.clone(), temp, file: Some(file), journal: journal.map(|j| Arc::new(Mutex::new(j))), held, keep })
+        Ok(Partial { store: self.clone(), object: object.clone(), temp, file: Some(file), journal: journal.map(|j| Arc::new(Mutex::new(j))), held: Arc::new(Mutex::new(held)), keep })
     }
 
     /// Admits everything `src` yields. With `expect`, an object already here is reused without
@@ -456,7 +427,7 @@ impl Store {
 
     /// Makes every object this handle admitted durable. Ephemeral: one `syncfs`, which the
     /// next record commit also runs. Durable objects already are.
-    pub fn sync(&self) -> Result<()> {
+    pub(crate) fn sync(&self) -> Result<()> {
         if !self.unsynced.swap(false, Ordering::SeqCst) {
             return Ok(());
         }
@@ -621,7 +592,7 @@ fn partial(path: &Path) -> Option<(File, bool)> {
 }
 
 /// Bytes on their way into the store. Dropped unfinished, it leaves nothing behind.
-pub struct Admission {
+pub(crate) struct Admission {
     store: Store,
     expect: Option<ObjectRef>,
     temp: PathBuf,
@@ -629,11 +600,12 @@ pub struct Admission {
     hash: Sha256,
     length: u64,
     over: bool,
+    paced: durable::Paced,
 }
 
 impl Admission {
     /// Hashes, checks, flushes and names the bytes written. Whatever the end, they stay nowhere else.
-    pub fn finish(mut self) -> Result<ObjectRef> {
+    pub(crate) fn finish(mut self) -> Result<ObjectRef> {
         let got = ObjectRef {
             length: self.length,
             sha256: hex(&std::mem::take(&mut self.hash).finish()),
@@ -692,6 +664,7 @@ impl Write for Admission {
             .as_mut()
             .expect("an admission has its file until it finishes");
         let n = file.write(bytes)?;
+        self.paced.wrote(file, self.length, n as u64);
         self.hash.update(&bytes[..n]);
         self.length += n as u64;
         Ok(n)
@@ -709,50 +682,61 @@ impl Drop for Admission {
     }
 }
 
-/// An object a fetch writes at its offsets (`tmp/partial-<sha256>`, as long as the object), kept across a
-/// cut or a kill: `.held` beside it records each stretch once written, so the next fetch asks only for
-/// the rest. Nothing is hashed until commit, which reads the whole file back: only the object's digest
+/// An object a fetch or an upload writes at its offsets (`tmp/partial-<sha256>`, as long as the object),
+/// kept across a cut or a kill: `.held` beside it records each stretch once written, so the next asks
+/// only for the rest. Nothing is hashed until commit, which reads the whole file back: only the object's digest
 /// lets it in, and wrong bytes leave nothing kept.
-pub(crate) struct Partial {
+pub struct Partial {
     store: Store,
     object: ObjectRef,
     temp: PathBuf,
     file: Option<File>,
     journal: Option<Arc<Mutex<File>>>,
-    held: Vec<(u64, u64)>,
+    held: Arc<Mutex<Vec<(u64, u64)>>>,
     /// Whether what it holds outlives it.
     keep: bool,
 }
 
 /// Bytes written at their offsets, each stretch recorded once written.
-struct Stretch {
+pub struct Stretch {
     file: File,
     journal: Option<Arc<Mutex<File>>>,
+    held: Arc<Mutex<Vec<(u64, u64)>>>,
     path: PathBuf,
+    paced: durable::Paced,
 }
 
-impl fetch::RangeWrite for Stretch {
-    fn write_at(&mut self, at: u64, bytes: &[u8]) -> crate::err::Result<()> {
+impl Stretch {
+    /// `bytes` at `at`, the stretch recorded once written.
+    pub fn write_at(&mut self, at: u64, bytes: &[u8]) -> crate::err::Result<()> {
         write_all_at(&self.file, bytes, at).map_err(|error| fail("write", &self.path)(error).refusal())?;
+        self.paced.wrote(&self.file, at, bytes.len() as u64);
         if let Some(journal) = &self.journal {
             let mut journal = journal.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             writeln!(journal, "{at} {}", at + bytes.len() as u64).map_err(|error| fail("write", journal_path(&self.path))(error).refusal())?;
         }
+        let mut held = self.held.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        held.push((at, at + bytes.len() as u64));
+        *held = merged(std::mem::take(&mut held));
         Ok(())
     }
 }
 
-impl fetch::Admission for Partial {
-    fn held(&self) -> Vec<(u64, u64)> {
-        self.held.clone()
+impl Partial {
+    /// What it holds now, an earlier one's bytes and this one's writes: sorted, disjoint `[start, end)`
+    /// stretches. `commit` judges them all.
+    pub fn held(&self) -> Vec<(u64, u64)> {
+        self.held.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
 
-    fn writer(&self) -> crate::err::Result<Box<dyn fetch::RangeWrite>> {
+    /// A writer of bytes at their offsets, one per request.
+    pub fn writer(&self) -> crate::err::Result<Stretch> {
         let file = self.file.as_ref().expect("a partial has its file until it commits").try_clone().map_err(|error| fail("open", &self.temp)(error).refusal())?;
-        Ok(Box::new(Stretch { file, journal: self.journal.clone(), path: self.temp.clone() }))
+        Ok(Stretch { file, journal: self.journal.clone(), held: self.held.clone(), path: self.temp.clone(), paced: durable::Paced::default() })
     }
 
-    fn commit(mut self: Box<Self>) -> crate::err::Result<()> {
+    /// Hashes what was written and installs it: only the object's digest lets it in.
+    pub fn commit(mut self) -> crate::err::Result<()> {
         let mut file = self.file.take().expect("a partial has its file until it commits");
         let got = (|| -> io::Result<ObjectRef> {
             file.seek(SeekFrom::Start(0))?;
@@ -792,10 +776,6 @@ impl fetch::Admission for Partial {
         self.keep = false;
         installed.map_err(Error::refusal)
     }
-
-    fn discard(mut self: Box<Self>) {
-        self.keep = false;
-    }
 }
 
 impl Drop for Partial {
@@ -820,14 +800,19 @@ fn journal_path(temp: &Path) -> PathBuf {
 fn read_held(mut journal: &File, length: u64) -> Vec<(u64, u64)> {
     let mut text = String::new();
     let _ = journal.read_to_string(&mut text);
-    let mut stretches: Vec<(u64, u64)> = text
+    let stretches = text
         .lines()
         .filter_map(|line| {
             let (a, b) = line.split_once(' ')?;
             Some((a.parse().ok()?, b.parse::<u64>().ok()?.min(length)))
         })
-        .filter(|(a, b)| a < b)
         .collect();
+    merged(stretches)
+}
+
+/// `stretches` sorted, those that touch as one.
+fn merged(mut stretches: Vec<(u64, u64)>) -> Vec<(u64, u64)> {
+    stretches.retain(|(a, b)| a < b);
     stretches.sort_unstable();
     let mut merged: Vec<(u64, u64)> = Vec::new();
     for (a, b) in stretches {
@@ -860,27 +845,11 @@ pub(crate) fn sync_dir(dir: &Path) -> Result<()> {
     durable::sync_dir(dir).map_err(platform("sync directory", dir))
 }
 
-/// The fetcher admits through the store's one door (design §5).
-impl fetch::ObjectStore for Store {
-    fn has(&self, object: &ObjectRef) -> bool {
-        self.reuse(object).unwrap_or(false)
-    }
-
-    fn open(&self, object: &ObjectRef) -> io::Result<File> {
-        self.file(object).map_err(|error| match error {
-            Error::Absent(_) => io::Error::new(io::ErrorKind::NotFound, error.to_string()),
-            Error::Io { source, .. } => source,
-            other => io::Error::other(other.to_string()),
-        })
-    }
-
-    fn admit(&self, object: &ObjectRef) -> crate::err::Result<Box<dyn fetch::Admission>> {
-        Ok(Box::new(Store::partial(self, object).map_err(Error::refusal)?))
-    }
-
-    /// A lock on `tmp/fetching-<sha256>`, which an exit lets go. A claim that can't be made is no
+impl Store {
+    /// Claims `object`'s download among everything sharing this store, until the claim drops. None:
+    /// another holds it now. A lock on `tmp/fetching-<sha256>`, which an exit lets go. A claim that can't be made is no
     /// reason to wait: the worst of one is a second download.
-    fn claim(&self, object: &ObjectRef) -> Option<Box<dyn Send + Sync>> {
+    pub fn claim(&self, object: &ObjectRef) -> Option<Box<dyn Send + Sync>> {
         struct Claim(#[allow(dead_code)] File, PathBuf);
         impl Drop for Claim {
             fn drop(&mut self) {

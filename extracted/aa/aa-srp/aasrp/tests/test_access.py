@@ -77,7 +77,6 @@ class TestAccess(BaseTestCase):
             fleet_doctrine="Ships",
             aar_link="",
             srp_code=get_random_string(length=16),
-            fleet_commander=None,
             creator=cls.user_with_create_srp,
         )
         cls.defaul_srp_link.save()
@@ -151,6 +150,22 @@ class TestAccess(BaseTestCase):
         # then
         self.assertNotEqual(first=res.status_code, second=HTTPStatus.OK)
         self.assertEqual(first=res.status_code, second=HTTPStatus.FOUND)
+
+    def test_basic_user_cannot_access_all_links_data(self):
+        """
+        Test that a user with basic_access cannot access the all links data endpoint
+
+        :return:
+        """
+
+        self.client.force_login(user=self.user_with_basic_access)
+
+        response = self.client.get(
+            path=reverse("aasrp:ajax_dashboard_srp_links_all_data"),
+            data={"draw": 1, "start": 0, "length": 10},
+        )
+
+        self.assertEqual(response.status_code, HTTPStatus.FORBIDDEN)
 
     def test_srp_link_add_with_create_srp_permission(self):
         """

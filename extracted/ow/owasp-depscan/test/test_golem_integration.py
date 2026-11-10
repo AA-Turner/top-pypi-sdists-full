@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from analysis_lib import Counts, ReachabilityAnalysisKV
+from analysis_lib.golem_slices import _slice_reachability
 from analysis_lib.reachability import FrameworkReachability
 from analysis_lib.utils import process_vuln_occ
 from depscan.lib.bom import run_golem_reachability
@@ -403,14 +404,57 @@ def _golem_reached_on_real_cve(tmp_path: Path) -> dict:
     return res.reached_purls or {}
 
 
+def _skip_unless_slice_reachability(tmp_path: Path):
+    """Skip the unused-dependency check when golem gave no slice verdicts.
+
+    golem releases up to 4.1.0 do not emit ``dataFlow.sliceReachability``, so
+    every slice of the blank-imported gorilla/mux looks application-driven and
+    nothing in the report lets depscan tell it apart from a called module.
+    Decided from the report itself rather than the version string, so
+    development builds and future releases are handled the same way.
+    """
+    report_path = tmp_path / "golem.json"
+    report = json.loads(report_path.read_text()) if report_path.exists() else {}
+    if _slice_reachability(report.get("dataFlow") or {}) is None:
+        # pytestmark skips the whole module when the golem binary is missing.
+        assert GOLEM_BIN is not None
+        version = golem_mod.get_golem_version(GOLEM_BIN) or "unknown"
+        pytest.skip(
+            f"golem {version} reports no usable dataFlow.sliceReachability; "
+            "unused-dependency precision needs a golem built after "
+            "cdxgen-plugins-bin 4.1.0"
+        )
+
+
 def test_real_cve_reached_vs_unused_dep(tmp_path, golem_env):
     """On a real published module, golem must reconcile the versioned purl and
     mark the CALLED dependency (satori/go.uuid) as reached while leaving the
     unused dependency (gorilla/mux) unreached."""
     reached = _golem_reached_on_real_cve(tmp_path)
     assert SATORI_PURL in reached, "satori/go.uuid MUST be reached -- the app calls uuid.NewV4()"
+    _skip_unless_slice_reachability(tmp_path)
     assert MUX_PURL not in reached, (
         "gorilla/mux MUST NOT be reached -- it is imported but never called"
+    )
+
+
+@pytest.mark.parametrize("callgraph_mode", ["none", "static", "cha", "rta", "vta"])
+def test_real_cve_verdict_independent_of_callgraph_mode(
+    tmp_path, golem_env, monkeypatch, callgraph_mode
+):
+    """golem computes slice and package reachability on RTA whatever
+    ``--callgraph`` builds, so the reached/unreached split must not move with
+    the mode -- CHA alone used to put gorilla/mux back in the reached set."""
+    import depscan.lib.bom as bom_mod
+
+    monkeypatch.setattr(bom_mod, "GOLEM_DEFAULT_CALLGRAPH_MODE", callgraph_mode)
+    reached = _golem_reached_on_real_cve(tmp_path)
+    assert SATORI_PURL in reached, (
+        f"satori/go.uuid must be reached under --callgraph {callgraph_mode}"
+    )
+    _skip_unless_slice_reachability(tmp_path)
+    assert MUX_PURL not in reached, (
+        f"gorilla/mux must stay unreached under --callgraph {callgraph_mode}"
     )
 
 
@@ -484,6 +528,7 @@ def test_real_cve_advisory_marked_reachable_in_vdr(tmp_path, golem_env):
     assert "Reachable" in satori_insights.get("depscan:insights", ""), (
         "the reached module's advisory MUST be marked Reachable in the VDR"
     )
+    _skip_unless_slice_reachability(tmp_path)
     assert "Reachable" not in mux_insights.get("depscan:insights", ""), (
         "the unused module's advisory MUST NOT be marked Reachable in the VDR"
     )

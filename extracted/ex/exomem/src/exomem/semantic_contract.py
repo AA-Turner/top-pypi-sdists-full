@@ -26,6 +26,7 @@ from . import (
     activation,
     activation_manifest,
     call_spans,
+    capabilities,
     foreground_priority,
     freshness,
     lifecycle_statuses,
@@ -35,16 +36,18 @@ from . import (
     note_types,
     relation_endpoints,
     relation_registry,
+    request_budget,
     semantic_authoring,
     semantic_language_registry,
     semantic_units,
     vault,
 )
 from . import find as find_module
-from .cli_ops import RELATION_REVIEW_STABLE_ID_REMEDIATION, OpError
+from .cli_ops import OpError, relation_review_stable_id_remediation
 from .kbdir import kb_dirname
 from .memory_refs import ID_FIELD, normalize_id
 from .semantic_units import SemanticUnitDocument, SourceSpan
+from .structure_promotion import BREADTH_SLUG_SUFFIXES, BREADTH_TAGS
 from .vocabulary import instances
 
 _REVIEW_KINDS = frozenset({"reviewed_none", "bootstrap"})
@@ -52,9 +55,6 @@ _DISPOSITION_KINDS = frozenset(
     {"qualifying_relation", "reviewed_none", "bootstrap", "missing", "stale"}
 )
 _TARGET_STATUSES = frozenset({"resolved", "unresolved", "ambiguous"})
-_EXCLUDED_FAMILIES = frozenset(
-    {"link", "citation", "derivation", "evidence", "mention", "observation", "provenance"}
-)
 # Origins that can carry a connectivity signal, chosen to mirror
 # `audit._check_relation_debt` exactly: it clears a page on authored relation rows
 # or body wikilinks, and ignores `sources:`.
@@ -83,12 +83,6 @@ _GRANDFATHERED_OPERATIONS = frozenset(
 )
 _SEMANTIC_UNIT_EXEMPT_PARTS = frozenset(
     {"sources", "evidence", "_trash", "trash", "_schema", "templates", "data"}
-)
-_SEMANTIC_UNIT_EXEMPT_TAGS = frozenset({"hub", "snapshot"})
-_SEMANTIC_UNIT_EXEMPT_SUFFIXES = (
-    "-architecture",
-    "-snapshot",
-    "-catalog-snapshot",
 )
 _WIKILINK_RE = re.compile(r"\[\[([^\]\n]+)\]\]")
 
@@ -640,6 +634,12 @@ class RelationDisposition:
     # before reaching any caller-visible surface.
     review_reason: str | None = None
     review_reference: str | None = None
+    # True when a reviewed-none decision stays in force although the page's bytes
+    # moved on: the decision binds the page's identity until an edit of the page
+    # removes its last connection, so an edit that leaves the page unconnected does
+    # not ask for it again. A disconnection made by another page's edit or outside
+    # the server does not lapse it.
+    review_renewed: bool = False
 
     def __post_init__(self) -> None:
         if self.kind not in _DISPOSITION_KINDS:
@@ -661,6 +661,7 @@ class RelationDisposition:
             "qualifying_signal": self.qualifying_signal,
             "review_reason": self.review_reason,
             "review_reference": self.review_reference,
+            "review_renewed": self.review_renewed,
         }
 
 
@@ -859,7 +860,18 @@ VALIDATE_FORM = "validate_only=true"
 
 # Tool parameter spellings fixed by the tool signatures, not registry vocabulary.
 # A writer operation absent here validates with VALIDATE_FORM.
-_OPERATION_VALIDATE_FORMS = MappingProxyType({"observe": "operation=validate"})
+_OPERATION_VALIDATE_ROUTES = MappingProxyType({
+    "observe": ("observe_memory", MappingProxyType({"operation": "validate"})),
+})
+
+
+def validate_form(operation: str) -> str:
+    """The validate call of a writer operation, spelled for the surface serving this call."""
+    route = _OPERATION_VALIDATE_ROUTES.get(operation)
+    if route is None:
+        return VALIDATE_FORM
+    command, arguments = route
+    return capabilities.active_call_text(command, arguments)
 
 
 def blocking_finding_text(finding: ContractFinding) -> str:
@@ -897,8 +909,7 @@ def blocking_reason(
     rendered = "; ".join(blocking_finding_text(item) for item in shown)
     omitted = len(findings) - len(shown)
     if omitted:
-        validate_form = _OPERATION_VALIDATE_FORMS.get(result.operation, VALIDATE_FORM)
-        rendered += f"; +{omitted} more ({validate_form} returns the full set)"
+        rendered += f"; +{omitted} more ({validate_form(result.operation)} returns the full set)"
     return f"{prefix}: {rendered}"
 
 
@@ -930,7 +941,7 @@ def _path_excluded_from_semantic_minimum(path: str) -> bool:
     parts = _path_parts(path)
     name = parts[-1] if parts else ""
     stem = PurePosixPath(name).stem
-    return any(stem.endswith(suffix) for suffix in _SEMANTIC_UNIT_EXEMPT_SUFFIXES)
+    return any(stem.endswith(suffix) for suffix in BREADTH_SLUG_SUFFIXES)
 
 
 def _route_name(path: str) -> str | None:
@@ -998,7 +1009,7 @@ def _frontmatter_tags(page: SemanticPageState) -> frozenset[str]:
 def _semantic_unit_explicitly_exempt(page: SemanticPageState) -> bool:
     return bool(
         _path_excluded_from_semantic_minimum(page.path)
-        or (_frontmatter_tags(page) & _SEMANTIC_UNIT_EXEMPT_TAGS)
+        or (_frontmatter_tags(page) & BREADTH_TAGS)
     )
 
 
@@ -1497,6 +1508,7 @@ def _parse_page_state(
     complete_authored_effects: bool = False,
 ) -> SemanticPageState:
     """Build detached semantic state from one already-read Markdown string."""
+    request_budget.checkpoint()
     root = Path(vault_root)
     rel_path = _normalize_path(root, path)
     raw_source = source
@@ -1519,6 +1531,7 @@ def _parse_page_state(
         "withheld": provenance.withheld_spans(body, owner_path=rel_path),
     }
     for start, end in reversed(owned):
+        request_budget.checkpoint()
         body = body[:start] + re.sub(r"[^\n]", " ", body[start:end]) + body[end:]
     candidates = semantic_units.scan_semantic_units(body, path=rel_path)
     document = semantic_units.parse_semantic_units(
@@ -1549,6 +1562,7 @@ def _parse_page_state(
     body_links: list[tuple[str, int]] = []
     seen_link_targets: set[str] = set()
     for match in vault.find_body_wikilinks(body):
+        request_budget.checkpoint()
         if not complete_authored_effects and len(body_links) >= _MAX_WIKILINK_FACTS_PER_PAGE:
             break
         target = match.group(0)[2:-2].split("|", 1)[0].split("#", 1)[0].strip()
@@ -1848,7 +1862,7 @@ def current_reference_identity_snapshot(
             declined[f"declined_{reason}"] = 1
 
     root = Path(vault_root)
-    with _CORPUS_CONTEXT_UPDATE_LOCK:
+    with request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK):
         if not tolerate_external_pending and freshness.external_pending(root):
             return decline("external_pending")
         if not freshness.is_live(root, "vault"):
@@ -1892,7 +1906,7 @@ def reference_identity_snapshot_is_current(
     :func:`current_reference_identity_snapshot`.
     """
     root = Path(vault_root)
-    with _CORPUS_CONTEXT_UPDATE_LOCK:
+    with request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK):
         if (
             not tolerate_external_pending and freshness.external_pending(root)
         ) or not freshness.is_live(root, "vault"):
@@ -1936,6 +1950,7 @@ def current_writer_resolver_entries(
     `declined_<reason>` counter for its timing span.
     """
 
+    request_budget.checkpoint()
     def decline(reason: str) -> None:
         if declined is not None:
             declined[f"declined_{reason}"] = 1
@@ -1946,7 +1961,7 @@ def current_writer_resolver_entries(
     except Exception:  # noqa: BLE001 - an unkeyable root has no authority
         return decline("unkeyable")
 
-    with _CORPUS_CONTEXT_UPDATE_LOCK:
+    with request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK):
         if freshness.external_pending(root):
             return decline("external_pending")
         if not freshness.is_live(root, "vault"):
@@ -1994,7 +2009,7 @@ def current_writer_resolver_entries(
     ):
         return decline("identity_changed")
 
-    with _CORPUS_CONTEXT_UPDATE_LOCK:
+    with request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK):
         if (
             freshness.external_pending(root)
             or not freshness.is_live(root, "vault")
@@ -2276,6 +2291,7 @@ def _corpus_census(root: Path) -> tuple | None:
     ``None`` when the tree cannot be fingerprinted safely; callers must then
     build uncached so the build path surfaces its own safety errors.
     """
+    request_budget.checkpoint()
     entries: set[tuple[str, str, int, int]] = set()
     kb = vault.kb_root(root)
 
@@ -2283,6 +2299,7 @@ def _corpus_census(root: Path) -> tuple | None:
         # Mirror of _build_identity_census: every canonical entry under KB,
         # alias-free. Closed runtime namespaces are never knowledge inputs.
         for child in os.scandir(directory):
+            request_budget.checkpoint()
             if _prune_identity_census_directory(kb, directory, child.name):
                 continue
             path = Path(child.path)
@@ -2323,6 +2340,7 @@ def _corpus_census(root: Path) -> tuple | None:
         # Mirror of vault.walk_vault_md: skip dirs and sync-conflict copies,
         # with the same is_dir()/is_file() semantics (which traverse links).
         for child in os.scandir(directory):
+            request_budget.checkpoint()
             path = Path(child.path)
             if child.is_dir():
                 if vault.in_excluded_scan_dir(path.relative_to(root).as_posix()):
@@ -2357,6 +2375,7 @@ def _corpus_census(root: Path) -> tuple | None:
             strict_walk(kb)
         loose_walk(root)
         for extra in _config_inputs(root):
+            request_budget.checkpoint()
             marker = str(extra.relative_to(root).as_posix())
             try:
                 info = extra.stat()
@@ -2674,7 +2693,7 @@ def _identity_guarded_delta_source(root: Path, rel_path: str) -> str | None:
             f"could not safely inspect stable identity at {rel_path}",
         ) from error
     try:
-        source = source_path.read_bytes().decode("utf-8")
+        source = _read_corpus_source(root, source_path)
         guard.recheck(root)
     except (OSError, UnicodeDecodeError, vault.PathGuardError) as error:
         governed_writable = (
@@ -2710,6 +2729,7 @@ def _reconcile_markdown_delta(
     paths. Any read or identity ambiguity raises through the same full-build
     validation types instead of blessing partial state.
     """
+    request_budget.checkpoint()
     states = dict(context.pages)
     previous_identities = {entry.path: entry for entry in context.identity_census.entries}
     identities = dict(previous_identities)
@@ -2719,6 +2739,7 @@ def _reconcile_markdown_delta(
     reference_only = dict(previous_reference_only)
     kb_rel = vault.kb_root(root).relative_to(root).as_posix().rstrip("/")
     for rel_path in changed_paths:
+        request_budget.checkpoint()
         reference_only_path = _is_reference_only_path(rel_path)
         if reference_only_path:
             # Read as the reference scan reads it and as leniently: a deleted
@@ -2738,7 +2759,7 @@ def _reconcile_markdown_delta(
             source = _identity_guarded_delta_source(root, rel_path)
         else:
             try:
-                source = source_path.read_bytes().decode("utf-8")
+                source = _read_corpus_source(root, source_path)
             except FileNotFoundError:
                 source = None
         if source is None:
@@ -3197,6 +3218,7 @@ def _build_and_admit_corpus_context(root: Path, cache_key: tuple[str, str]) -> b
             relation_definitions=relation_definitions,
             language=language,
         )
+        request_budget.checkpoint()
         build_ms = (time.perf_counter() - started) * 1000.0
         # Keep the publisher's full-build cost visible independently of warmup.
         metrics.observe_duration_ms(
@@ -3233,7 +3255,10 @@ def _build_and_admit_corpus_context(root: Path, cache_key: tuple[str, str]) -> b
         )
         return True
     except BaseException as error:
-        flight.error = error
+        if isinstance(error, request_budget.ReadBudgetExhausted):
+            flight.discarded = True
+        else:
+            flight.error = error
         raise
     finally:
         flight.discarded = flight.result is None and flight.error is None
@@ -3514,6 +3539,7 @@ def _build_corpus_context_with_census(
     afterward). A caller that gets ``None`` here has no cheaper option than
     its own fresh walk — same as before this existed.
     """
+    request_budget.checkpoint()
     root = Path(vault_root)
     relation_definitions = registry or relation_registry.core_registry()
     language = language_registry or semantic_language_registry.core_registry()
@@ -3569,7 +3595,7 @@ def _build_corpus_context_with_census(
                 with _CORPUS_CONTEXT_CACHE_LOCK:
                     entry = _CORPUS_CONTEXT_CACHE.get(cache_key)
                 if entry is not None and entry[0] == census:
-                    with _CORPUS_CONTEXT_UPDATE_LOCK, _CORPUS_CONTEXT_CACHE_LOCK:
+                    with request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK), _CORPUS_CONTEXT_CACHE_LOCK:
                         current = _CORPUS_CONTEXT_CACHE.get(cache_key)
                         if current is not entry:
                             entry = current
@@ -3603,7 +3629,7 @@ def _build_corpus_context_with_census(
                             relation_definitions=relation_definitions,
                             language=language,
                         )
-                        with _CORPUS_CONTEXT_UPDATE_LOCK:
+                        with request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK):
                             confirmed = _deferred_corpus_census(root, walk_log, "census")
                             with _CORPUS_CONTEXT_CACHE_LOCK:
                                 current = _CORPUS_CONTEXT_CACHE.get(cache_key)
@@ -3669,8 +3695,12 @@ def _build_corpus_context_with_census(
                         else max(0.0, join_deadline - time.monotonic())
                     )
                     # Any thread may own the flight, a bulk pass included.
+                    check = request_budget.current_checkpoint()
+                    if check is not None:
+                        remaining = min(remaining, check.remaining())
                     with foreground_priority.awaiting_bulk():
                         completed = flight.done.wait(timeout=remaining)
+                request_budget.checkpoint()
             if not completed or (
                 not warm
                 and (not same_inputs or flight.discarded)
@@ -3752,13 +3782,14 @@ def _build_corpus_context_with_census(
         if census is not None and cache_key is not None:
             # Entered outside the update lock, so its queued samples are
             # emitted only after that lock releases.
-            with _census_walk_log() as publish_log, _CORPUS_CONTEXT_UPDATE_LOCK:
+            with _census_walk_log() as publish_log, request_budget.locked(_CORPUS_CONTEXT_UPDATE_LOCK):
                 stable_census = census
                 # A busy watcher/media worker can change Markdown while the cold
                 # build runs. Once publication begins, serialize with event
                 # freshness+cache updates, absorb exact deltas, then stamp the same
                 # state atomically so a newer event context cannot be overwritten.
                 for _ in range(3):
+                    request_budget.checkpoint()
                     confirmed = _deferred_corpus_census(root, publish_log, "census")
                     if confirmed == stable_census:
                         break
@@ -3816,7 +3847,10 @@ def _build_corpus_context_with_census(
         )
     except BaseException as error:
         if flight is not None:
-            flight.error = error
+            if isinstance(error, request_budget.ReadBudgetExhausted):
+                flight.discarded = True
+            else:
+                flight.error = error
             _finish_corpus_context_flight(cache_key, flight)
         raise
     if flight is not None:
@@ -3832,10 +3866,12 @@ def _build_corpus_context_uncached(
     relation_definitions: relation_registry.RelationRegistry,
     language: semantic_language_registry.SemanticLanguageRegistry,
 ) -> SemanticCorpusContext:
+    request_budget.checkpoint()
     states: dict[str, SemanticPageState] = {}
     candidate_path = candidate.path if candidate is not None else None
     eligible: dict[str, Path] = {}
     for disk_path in sorted(vault.walk_vault_md(root), key=lambda item: item.as_posix()):
+        request_budget.checkpoint()
         try:
             rel_path = disk_path.resolve().relative_to(root.resolve()).as_posix()
         except ValueError:
@@ -3856,10 +3892,11 @@ def _build_corpus_context_uncached(
     identity_census, _ = _build_identity_census(root, consume=consume)
     kb_prefix = vault.kb_root(root).relative_to(root).as_posix() + "/"
     for rel_path, disk_path in eligible.items():
+        request_budget.checkpoint()
         if rel_path.startswith(kb_prefix):
             continue
         try:
-            source = disk_path.read_bytes().decode("utf-8")
+            source = _read_corpus_source(root, disk_path)
         except (OSError, UnicodeDecodeError) as error:
             if (
                 activation.is_managed_governed_path(root, disk_path)
@@ -3884,12 +3921,20 @@ def _build_corpus_context_uncached(
     )
 
 
+
+def _read_corpus_source(root: Path, path: Path) -> str:
+    if request_budget.current_checkpoint() is None:
+        return path.read_bytes().decode("utf-8")
+    return vault.read_guarded_text(root, path)[0]
+
+
 def _build_identity_census(
     root: Path,
     *,
     consume: Callable[[str, str], None] | None = None,
 ) -> tuple[StableIdentityCensus, Mapping[str, str]]:
     """Validate canonical KB pages and immediately consume each page's raw text."""
+    request_budget.checkpoint()
     kb = vault.kb_root(root)
     entries: list[StableIdentityEntry] = []
 
@@ -3902,6 +3947,7 @@ def _build_identity_census(
                 "could not enumerate the stable-identity census",
             ) from error
         for child in children:
+            request_budget.checkpoint()
             if _prune_identity_census_directory(kb, directory, child.name):
                 continue
             path = Path(child.path)
@@ -3960,7 +4006,7 @@ def _build_identity_census(
                 )
             rel = path.relative_to(root).as_posix()
             try:
-                source = path.read_bytes().decode("utf-8")
+                source = _read_corpus_source(root, path)
             except FileNotFoundError:
                 # Deleted between the stat and the read: the same window #528
                 # closed one call earlier, and the same answer. Splitting the
@@ -4047,6 +4093,7 @@ def _context_from_state_map(
     *,
     writer_visibility: Any = _DECIDE,
 ) -> SemanticCorpusContext:
+    request_budget.checkpoint()
     ordered_pages = {path: states[path] for path in sorted(states)}
     entries = tuple((path, ordered_pages[path].title) for path in ordered_pages)
     resolver = vault.WikilinkResolver.from_entries(root, entries)
@@ -4512,6 +4559,14 @@ def _authored_relations(
     return registry
 
 
+def page_relation_behaviours(
+    page: SemanticPageState, corpus: SemanticCorpusContext, canonical_relation: str | None
+) -> frozenset[str]:
+    """What code does with a relation authored on `page`, read in the registry that judged it."""
+    registry = _authored_relations(page, corpus.registry)
+    return registry.behaviours_of(canonical_relation or "")
+
+
 def _derive_relation_facts(
     root: Path,
     states: Mapping[str, SemanticPageState],
@@ -4558,21 +4613,13 @@ def _derive_relation_facts(
                         "reverse": False,
                     }
                 )
-        frontmatter_relations = (
-            ("sources", "derived_from", False),
-            ("evidence", "evidenced_by", False),
-            ("evidences", "evidenced_by", False),
-            ("evidence_paths", "evidenced_by", False),
-            ("related", "links_to", False),
-            ("supersedes", "supersedes", False),
-            ("superseded_by", "supersedes", True),
-        )
-        for field_name, raw_relation, reverse in frontmatter_relations:
+        for field_name, binding in registry.frontmatter_fields().items():
+            reverse = binding.direction == "reverse"
             for raw_target in _frontmatter_targets(state.frontmatter.get(field_name)):
                 raw_facts.append(
                     {
                         "authored": state,
-                        "raw_relation": raw_relation,
+                        "raw_relation": binding.relation,
                         "raw_target": raw_target,
                         "line": None,
                         "anchor": field_name,
@@ -4587,6 +4634,7 @@ def _derive_relation_facts(
                 raw_facts.append(
                     {
                         "authored": state,
+                        # Debt (wikilink producer): a producer constant; `origins: [wikilink]` already names the relation.
                         "raw_relation": "links_to",
                         "raw_target": raw_target,
                         "line": line,
@@ -4742,11 +4790,12 @@ def _structural_relation_reasons(
     expected_successor = fact.logical_source_path.removesuffix(".md").casefold()
     mutual_supersession = bool(
         definition is not None
-        and definition.family == "supersession"
+        and registry.has(definition.key, "replaces")
         and target_page is not None
         and target_page.status_class == "superseded"
         and any(
             _dependency_key(raw) == expected_successor
+            # Debt (K21): naming the field is sound; "a successor pointer means not current" repeats here.
             for raw in _frontmatter_targets(target_page.frontmatter.get("superseded_by"))
         )
     )
@@ -4801,18 +4850,18 @@ def qualify_relation(
 ) -> RelationQualification:
     """Whether ``fact`` is a deliberate typed epistemic edge.
 
-    Registry-marked generic associations and excluded families do not qualify.
-    Frontmatter only counts for supersession; targets must be eligible governed pages.
+    Registry-marked generic associations and associative relations do not qualify.
+    Frontmatter only counts for a relation that replaces; targets must be eligible governed pages.
     """
     reasons, definition = _structural_relation_reasons(
         fact, registry=registry, corpus=corpus, target_paths=corpus.eligible_governed_paths
     )
-    if definition is not None and definition.family in _EXCLUDED_FAMILIES:
+    if definition is not None and registry.has(definition.key, "associative"):
         reasons.append("excluded_family")
     if definition is not None and definition.generic:
         reasons.append("generic_relation")
     if fact.origin == "frontmatter":
-        if definition is None or definition.family != "supersession":
+        if definition is None or not registry.has(definition.key, "replaces"):
             reasons.append("frontmatter_not_supersession")
     elif fact.origin not in {"markdown_relation", "semantic_relation", "semantic_block"}:
         reasons.append("unsupported_origin")
@@ -4882,6 +4931,13 @@ def _qualifying_body_wikilink_targets(
     return tuple(targets)
 
 
+def _unique_stable_identity(page: SemanticPageState, corpus: SemanticCorpusContext) -> bool:
+    return (
+        page.identity_kind == "exomem_id"
+        and corpus.identity_census.paths_by_identity.get(page.identity) == (page.path,)
+    )
+
+
 def review_identity_is_current(
     review: RelationReviewState,
     page: SemanticPageState,
@@ -4896,11 +4952,7 @@ def review_identity_is_current(
     exists to prevent. That is categorically different from the page's own
     content having changed, and must never be treated as recoverable.
     """
-    return (
-        page.identity_kind == "exomem_id"
-        and review.page_identity == page.identity
-        and corpus.identity_census.paths_by_identity.get(page.identity) == (page.path,)
-    )
+    return review.page_identity == page.identity and _unique_stable_identity(page, corpus)
 
 
 def is_relation_review_current(
@@ -4977,6 +5029,14 @@ def writer_view_relations(
     )
 
 
+def writer_visible(corpus: SemanticCorpusContext) -> Callable[[str], bool]:
+    """Whether the current writer may see a page; every page for the owner or an ungoverned vault."""
+    visible = corpus.writer_visibility
+    if visible is _DECIDE:
+        visible = vault.writer_link_visibility(corpus.vault_root)
+    return visible if callable(visible) else (lambda path: True)
+
+
 def writer_authored_facts(
     page: SemanticPageState,
     corpus: SemanticCorpusContext,
@@ -5018,7 +5078,19 @@ def _relation_disposition(
     before: SemanticPageState | None,
     before_corpus: SemanticCorpusContext,
     mode: str,
+    carry_stale_review: bool,
+    prior: RelationDisposition | None = None,
 ) -> RelationDisposition:
+    """Judge one page's relation disposition.
+
+    A reviewed-none decision binds the page's stable identity, not its exact bytes.
+    `carry_stale_review` lets a decision found for an older fingerprint stand for
+    the page as it is now; it is set for a page that already exists in the vault
+    (the before state of an edit, and any audit). `prior` is the disposition the
+    page held before the edit being judged; an edit that leaves the page
+    unconnected keeps a prior reviewed-none, and an edit that disconnects a
+    connected page does not (prior is then a qualifying relation).
+    """
     outbound, inbound, visible = writer_view_relations(page, corpus)
     directional: list[tuple[str, RelationFact]] = []
     directional.extend(("outbound", fact) for fact in outbound)
@@ -5106,28 +5178,17 @@ def _relation_disposition(
             review_reference=review.reference,
         )
     if (
-        review is not None
+        carry_stale_review
+        and review is not None
         and review.kind == "reviewed_none"
         and not review_is_current
         and review_identity_is_current(review, page, corpus)
-        and _no_other_governed(other_governed, other_unknown)
     ):
-        # Renewable ONLY because the identity check above still holds: the review
-        # provably describes this page, and the sole thing that drifted is its
-        # content fingerprint. A review that went non-current through contested
-        # stable identity is a different matter entirely and stays stale.
-        #
-        # The review's content fingerprint moved, but its SUBJECT did not: with
-        # no other governed page in the corpus there is nothing a qualifying
-        # typed relation could point at, so "reviewed none" is not merely the
-        # easier answer, it is the only available one. Without this, every edit
-        # to the page re-fires RELATION_DISPOSITION_STALE — the fingerprint
-        # changes on any content change — and each append costs three tool calls
-        # (blocked, validate_only, commit-with-tokens) to re-assert a fact that
-        # cannot have changed. Worse, the remediation steers toward
-        # `reviewed_none`, which succeeds and leaves the cause in place, so the
-        # loop never terminates. A fresh Knowledge Base hits this by
-        # construction: its first note has no peer to relate to.
+        # The decision's content fingerprint moved but its subject did not: the
+        # same page, still unconnected. The fingerprint hashes the whole page,
+        # including the server-written `updated:` stamp, so binding to it made
+        # every edit void the decision and cost three calls to re-assert a fact
+        # that had not changed. A contested identity never reaches this branch.
         return RelationDisposition(
             "reviewed_none",
             True,
@@ -5135,6 +5196,31 @@ def _relation_disposition(
             rejected_facts=tuple(rejected),
             review_reason=review.reason,
             review_reference=review.reference,
+            review_renewed=True,
+        )
+    if (
+        prior is not None
+        and prior.kind == "reviewed_none"
+        and before is not None
+        and before.eligible_compiled
+        and before.identity == page.identity
+        and _unique_stable_identity(page, corpus)
+    ):
+        # The edit being judged leaves an unconnected page unconnected. The
+        # decision stays in force on what the before state proved; it lapses
+        # only when the edit being judged removes the page's last connection,
+        # and that case never gets here because `prior` is then a qualifying
+        # relation. A disconnection that no edit of this page made (a peer's
+        # edit, or one outside the server) is not seen here: the older decision
+        # carries, and the audit reports it as carried.
+        return RelationDisposition(
+            "reviewed_none",
+            True,
+            True,
+            rejected_facts=tuple(rejected),
+            review_reason=prior.review_reason,
+            review_reference=prior.review_reference,
+            review_renewed=True,
         )
     if (
         review_is_current
@@ -5466,7 +5552,7 @@ def _endpoint_findings(
                     f"relation {fact.canonical_relation!r}: the {' and '.join(sides)} page is "
                     "outside the endpoints the relation declares"
                 ),
-                remediation=RELATION_QUALITY_ADVISORIES["endpoint_mismatch"]["remediation"],
+                remediation=relation_quality_advisory("endpoint_mismatch")["remediation"],
                 governed_element_identity=("relations", fact.identity),
                 resolved_rule=("relations", fact.canonical_relation, "endpoints"),
             )
@@ -5648,11 +5734,9 @@ def _disposition_finding(
     disposition: RelationDisposition,
     *,
     existing: bool = True,
-    operation: str = "edit",
 ) -> ContractFinding | None:
     if disposition.satisfied or not page.eligible_compiled:
         return None
-    validate_form = _OPERATION_VALIDATE_FORMS.get(operation, VALIDATE_FORM)
     return ContractFinding(
         code=(
             "RELATION_DISPOSITION_STALE"
@@ -5663,36 +5747,20 @@ def _disposition_finding(
         path=page.path,
         span=None,
         detail=_disposition_detail(page, disposition),
-        # The two branches are NOT equivalent, and presenting them as equals
-        # trained agents to always take the second one: `reviewed_none` reliably
-        # succeeds and reliably leaves the cause in place, so the next edit
-        # blocks again at three tool calls apiece, forever. Lead with the fix
-        # that actually resolves it and say plainly what the fallback costs.
-        # Kept terse deliberately. Findings share a bounded response budget, and
-        # a wordier draft of this string pushed omitted contract results from 1
-        # to 17 in the 120 KB directory-review validation. The size guard in
-        # test_disposition_remediation_is_route_neutral is the ceiling to
-        # respect when editing it.
+        # Both routes resolve the finding, and neither names a validate call: a
+        # reviewed-none decision binds the page until it gains or loses a connection,
+        # so sending it with its reason commits in one call on every route. Findings
+        # share a bounded response budget, so this stays short; the size guard in
+        # test_legacy_edit_reports_identity_backfill_before_review_replay is the
+        # ceiling to respect when editing it.
         remediation=(
-            ("Add a qualifying typed relation. " + RELATION_REVIEW_STABLE_ID_REMEDIATION)
+            ("Add a qualifying typed relation. " + relation_review_stable_id_remediation())
             if existing and page.identity_kind == "path"
             else (
-                "Add a qualifying typed relation. Retriggers: "
-                f"{validate_form}; re-issue the same edit with "
-                "transition_token=<returned>, "
-                "relation_disposition=\"reviewed_none\", "
-                "relation_review_hash=<returned>, "
-                "relation_review_reason."
-            )
-            if existing
-            else (
-                "Add a qualifying typed relation. Retriggers: "
-                f"call {validate_form}, then "
-                "re-issue the same creation unchanged with draft_id=<returned draft_id>, "
-                "draft_hash=<returned draft_hash>, draft_token=<returned "
-                "draft_token>, relation_disposition=\"reviewed_none\", "
-                "relation_review_hash=<returned relation_review_hash>, and "
-                "relation_review_reason."
+                f"Link a related page (even with {relation_registry.link_relation_key()}), or "
+                "re-issue the same "
+                f"{'edit' if existing else 'creation'} with "
+                "relation_disposition=\"reviewed_none\" and relation_review_reason."
             )
         ),
         governed_element_identity=("relations", "disposition"),
@@ -5701,44 +5769,44 @@ def _disposition_finding(
 
 
 # These closed contract finding codes share fixed presentation text with compact replies.
-RELATION_QUALITY_ADVISORIES = MappingProxyType({
-    "endpoint_mismatch": {
-        "detail": (
-            "an authored relation joins a page outside the endpoints its relation declares; "
-            "the edge is written"
-        ),
-        "remediation": (
-            "Optional. The edge is kept. Review the relation with "
-            "`schema_memory(operation='inspect', subject='relations')`; keep it, or use a "
-            "relation whose declared endpoints fit. Never rewrite an edge merely to clear "
-            "this warning."
-        ),
-    },
-    "RELATION_TYPED_EDGE_ABSENT": {
-        "detail": (
-            "connected through wikilinks, cited provenance or generic associations only; "
-            "no qualifying specific relation names the relationship"
-        ),
-        "remediation": (
-            "Optional. Review the source and registered vocabulary with "
-            "`schema_memory(operation='inspect', subject='relations')`. Author a specific relation "
-            "only when supported; genuine generic relations or no edge remain valid. "
-            "Never author an edge merely to clear this warning."
-        ),
-    },
-    "RELATION_AUTHORED_ALL_GENERIC": {
-        "detail": (
-            "the admitted registered explicit relations authored by this page are all "
-            "generic associations; incoming specific relations may still qualify"
-        ),
-        "remediation": (
-            "Optional. Review the source and registered vocabulary with "
-            "`schema_memory(operation='inspect', subject='relations')`. Use governed authorship "
-            "for a supported specific relation; keep genuine generic relations or no "
-            "edge when appropriate. Never author an edge merely to clear this warning."
-        ),
-    },
+# `{inspect}` is the relation-vocabulary read, spelled for the surface serving the call.
+_RELATION_QUALITY_ADVISORIES = MappingProxyType({
+    "endpoint_mismatch": (
+        "an authored relation joins a page outside the endpoints its relation declares; "
+        "the edge is written",
+        "Optional. The edge is kept. Review the relation with "
+        "`{inspect}`; keep it, or use a "
+        "relation whose declared endpoints fit. Never rewrite an edge merely to clear "
+        "this warning.",
+    ),
+    "RELATION_TYPED_EDGE_ABSENT": (
+        "connected through wikilinks, cited provenance or generic associations only; "
+        "no qualifying specific relation names the relationship",
+        "Optional. Review the source and registered vocabulary with "
+        "`{inspect}`. Author a specific relation "
+        "only when supported; a plain link or no edge remains valid. "
+        "Never author an edge merely to clear this warning.",
+    ),
+    "RELATION_AUTHORED_ALL_GENERIC": (
+        "the admitted registered explicit relations authored by this page are all "
+        "generic associations; incoming specific relations may still qualify",
+        "Optional. Review the source and registered vocabulary with "
+        "`{inspect}`. Use governed authorship "
+        "for a supported specific relation; where none fits, propose a relation, write a "
+        "plain link or leave no edge, because a write cannot add a generic relation. "
+        "Never author an edge merely to clear this warning.",
+    ),
 })
+RELATION_QUALITY_CODES = frozenset(_RELATION_QUALITY_ADVISORIES)
+
+
+def relation_quality_advisory(code: str) -> dict[str, str]:
+    """The detail and remediation of a relation-quality advisory, for the serving surface."""
+    detail, remediation = _RELATION_QUALITY_ADVISORIES[code]
+    inspect = capabilities.active_call_text(
+        "schema_memory", {"operation": "inspect", "subject": "relations"}
+    )
+    return {"detail": detail, "remediation": remediation.format(inspect=inspect)}
 
 
 def _authored_generic_finding(
@@ -5769,7 +5837,7 @@ def _authored_generic_finding(
         severity="warning",
         path=page.path,
         span=None,
-        **RELATION_QUALITY_ADVISORIES["RELATION_AUTHORED_ALL_GENERIC"],
+        **relation_quality_advisory("RELATION_AUTHORED_ALL_GENERIC"),
         governed_element_identity=("relations", "authored_generic"),
         resolved_rule=("relations", "*", "authored_generic"),
     )
@@ -5792,7 +5860,7 @@ def _typed_edge_finding(
         severity="warning",
         path=page.path,
         span=None,
-        **RELATION_QUALITY_ADVISORIES["RELATION_TYPED_EDGE_ABSENT"],
+        **relation_quality_advisory("RELATION_TYPED_EDGE_ABSENT"),
         governed_element_identity=("relations", "typed_edge"),
         resolved_rule=("relations", "*", "typed_edge"),
     )
@@ -5830,6 +5898,8 @@ def _raw_findings(
     before_corpus: SemanticCorpusContext,
     mode: str,
     include_relation_disposition: bool,
+    carry_stale_review: bool,
+    prior: RelationDisposition | None = None,
 ) -> tuple[list[ContractFinding], RelationDisposition | None]:
     disposition = None
     if include_relation_disposition:
@@ -5841,11 +5911,20 @@ def _raw_findings(
             before=before,
             before_corpus=before_corpus,
             mode=mode,
+            carry_stale_review=carry_stale_review,
+            prior=prior,
         )
     findings: list[ContractFinding] = []
     structure_finding = compiled_structure_finding(page)
     if structure_finding is not None:
         findings.append(structure_finding)
+    if "stance" in page.frontmatter and type(page.frontmatter["stance"]) is not bool:
+        findings.append(ContractFinding(
+            code="INVALID_STANCE", severity="error", path=page.path, span=None,
+            detail="stance must be a boolean", remediation="Set stance to true or false.",
+            governed_element_identity=("frontmatter", "stance"),
+            resolved_rule=("semantic_contract", "stance", "boolean"),
+        ))
     findings.extend(_diagnostic_findings(page))
     minimum_finding = _missing_semantic_unit_finding(page)
     if minimum_finding is not None:
@@ -5880,7 +5959,6 @@ def _raw_findings(
             page,
             disposition,
             existing=before is not None or mode == "posthoc",
-            operation=operation,
         )
         if disposition_finding is not None:
             findings.append(disposition_finding)
@@ -5951,21 +6029,8 @@ def evaluate(
     effective_after_corpus = (
         after_corpus if after_context_matches else after_corpus.with_candidate(after)
     )
-    after_findings, disposition = _raw_findings(
-        after,
-        after_contracts,
-        effective_after_corpus,
-        review=after_review,
-        operation=operation,
-        before=before,
-        before_corpus=effective_before_corpus,
-        mode=mode,
-        include_relation_disposition=include_relation_disposition,
-    )
-    if not after_context_matches:
-        after_findings.append(_corpus_mismatch_finding(after, phase="after"))
-    if before is not None and not before_context_matches:
-        after_findings.append(_corpus_mismatch_finding(before, phase="before"))
+    # The before state is judged first: the page's standing decision decides
+    # whether an edit that leaves it unconnected needs the decision asked again.
     before_findings: list[ContractFinding] = []
     before_disposition: RelationDisposition | None = None
     if before is not None:
@@ -5979,7 +6044,29 @@ def evaluate(
             before_corpus=effective_before_corpus,
             mode=mode,
             include_relation_disposition=include_relation_disposition,
+            carry_stale_review=True,
         )
+    # An audit judges the page as it stands, so it carries a decision the way the
+    # before state does. A precommit check of an edit carries only through the
+    # before state's disposition, so a create-like operation never carries.
+    transition_carry = mode == "precommit" and operation not in _CREATE_LIKE
+    after_findings, disposition = _raw_findings(
+        after,
+        after_contracts,
+        effective_after_corpus,
+        review=after_review,
+        operation=operation,
+        before=before,
+        before_corpus=effective_before_corpus,
+        mode=mode,
+        include_relation_disposition=include_relation_disposition,
+        carry_stale_review=mode == "posthoc",
+        prior=before_disposition if transition_carry else None,
+    )
+    if not after_context_matches:
+        after_findings.append(_corpus_mismatch_finding(after, phase="after"))
+    if before is not None and not before_context_matches:
+        after_findings.append(_corpus_mismatch_finding(before, phase="before"))
 
     raw_before_error_keys = {
         finding.key for finding in before_findings if finding.severity == "error"

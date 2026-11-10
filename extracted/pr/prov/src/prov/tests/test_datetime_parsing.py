@@ -1,6 +1,7 @@
 """Unit tests for the stdlib-based xsd:dateTime parser (3.0 dateutil drop, #237)."""
 
 import datetime
+import re
 import warnings
 
 import pytest
@@ -11,12 +12,15 @@ from prov.model import (
     Literal,
     ProvDocument,
     ProvException,
-    ProvFutureRejectionWarning,
+    ProvValueError,
+    ProvWarning,
     parse_xsd_datetime,
 )
-from prov.tests.conftest import ROUNDTRIP_FORMATS
+from prov.serializers.provrdf import ProvRDFException
+from prov.tests.conftest import ROUNDTRIP_FORMATS, TEXT_FORMATS, ex_document
+from prov.tests.format_errors import READER_ERRORS
 
-UTC = datetime.timezone.utc
+UTC = datetime.UTC
 
 
 @pytest.mark.parametrize(
@@ -39,14 +43,18 @@ UTC = datetime.timezone.utc
                 tzinfo=datetime.timezone(datetime.timedelta(hours=5, minutes=30)),
             ),
         ),
-        # fractional seconds of any length (fromisoformat on 3.10 takes only 3 or 6 digits)
+        # fractional seconds of one to six digits
         (
             "2012-12-03T21:08:16.68Z",
             datetime.datetime(2012, 12, 3, 21, 8, 16, 680000, tzinfo=UTC),
         ),
         (
-            "2012-12-03T21:08:16.1234567Z",
-            datetime.datetime(2012, 12, 3, 21, 8, 16, 123456, tzinfo=UTC),
+            "2012-12-03T21:08:16.1Z",
+            datetime.datetime(2012, 12, 3, 21, 8, 16, 100000, tzinfo=UTC),
+        ),
+        (
+            "2012-12-03T21:08:16.1234",
+            datetime.datetime(2012, 12, 3, 21, 8, 16, 123400),
         ),
         # xsd:dateTime end-of-day form maps to 00:00:00 of the next day
         ("2011-11-16T24:00:00", datetime.datetime(2011, 11, 17, 0, 0)),
@@ -81,6 +89,18 @@ def test_parse_xsd_datetime_accepts(text, expected) -> None:
         "Nov 7, 2011",  # dateutil-style leniency is gone in 3.0
         "9999-12-31T24:00:00",  # legal hour-24 form, but rollover overflows datetime.MAXYEAR
         "2011-11-16T21:08:16z",  # lowercase "z" is not a valid xsd:dateTime UTC designator
+        # Outside the xsd:dateTime lexical form (XSD 1.1 section 3.3.7),
+        # which fromisoformat alone would read.
+        "2012-12-03T21:08Z",  # no seconds
+        "20121203T210816Z",  # basic format
+        "2012-W01-1T21:08:16Z",  # week date
+        "2012-12-03T21:08:16,5Z",  # comma before the fraction
+        "2012-12-03 21:08:16",  # space for the T
+        "2012-12-03T21:08:16+0100",  # offset without a colon
+        "2012-12-03T21:08:16.5 +01:00",  # space before the offset
+        "2012-01-01T00:00:00+14:00:30",  # seconds in the offset
+        "2012-12-03T21:08:16.1234567Z",  # a seventh fractional digit, which a datetime cannot hold (#514)
+        "2012-12-03T21:08:16.999999999+01:00",  # nine fractional digits (#514)
     ],
 )
 def test_parse_xsd_datetime_rejects(text) -> None:
@@ -94,14 +114,14 @@ def test_factory_rejects_bad_time_with_prov_exception() -> None:
         document.activity("ex:a1", startTime="not a date")
 
 
-def _document() -> ProvDocument:
-    document = ProvDocument()
-    document.add_namespace("ex", "http://example.org/")
-    return document
+def test_factory_accepts_the_hour_24_form() -> None:
+    # #237: xsd:dateTime's end-of-day form reads as the next midnight.
+    activity = ex_document().activity("ex:a1", startTime="2011-11-16T24:00:00")
+    assert activity.get_startTime() == datetime.datetime(2011, 11, 17, 0, 0)
 
 
 def test_time_attributes_accept_a_typed_datetime_literal() -> None:
-    document = _document()
+    document = ex_document()
     activity = document.activity(
         "ex:a1",
         startTime=Literal("2012-01-01T00:00:00", XSD_DATETIME),
@@ -127,7 +147,7 @@ def test_time_attribute_rejects_any_other_literal(value) -> None:
     with pytest.raises(
         ProvException, match="Invalid value for attribute prov:startTime"
     ):
-        _document().activity("ex:a1", startTime=value)
+        ex_document().activity("ex:a1", startTime=value)
 
 
 def test_prov_o_time_outside_the_lexical_space_raises() -> None:
@@ -138,13 +158,18 @@ def test_prov_o_time_outside_the_lexical_space_raises() -> None:
         'ex:a1 a prov:Activity ; prov:startedAtTime "2012-13-01T00:00:00"^^xsd:dateTime .\n'
     )
     with pytest.raises(
-        ProvException, match="Invalid value for attribute prov:startTime"
-    ):
+        ProvRDFException,
+        match=re.escape(
+            "subject 'http://example.org/a1': Invalid value for attribute prov:startTime"
+        ),
+    ) as ctx:
         ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+    cause = ctx.value.__cause__
+    assert cause is not None
+    assert pytest.ExceptionInfo.from_exception(cause).type is ProvException
 
 
 _BEYOND = "has a timezone offset beyond ±14:00"
-_BEYOND_ISSUE = 513
 
 
 @pytest.mark.parametrize(
@@ -152,7 +177,6 @@ _BEYOND_ISSUE = 513
     [
         "2012-01-01T00:00:00+15:00",
         "2012-01-01T00:00:00-14:01",
-        "2012-01-01T00:00:00+14:00:30",
         datetime.datetime(
             2012,
             1,
@@ -162,15 +186,10 @@ _BEYOND_ISSUE = 513
         Literal("2012-01-01T00:00:00+15:00", XSD_DATETIME),
     ],
 )
-def test_time_beyond_the_offset_bound_warns(time) -> None:
-    with pytest.warns(
-        ProvFutureRejectionWarning,
-        match=rf"^prov:startTime \S+ {_BEYOND}\. prov 3\.3\.0 will reject this \(#{_BEYOND_ISSUE}\)$",
-    ) as caught:
-        activity = _document().activity("ex:a1", startTime=time)
-    assert len(caught) == 1
-    offset = activity.get_startTime().utcoffset()
-    assert abs(offset) > datetime.timedelta(hours=14)
+def test_time_beyond_the_offset_bound_raises(time) -> None:
+    # XSD 1.1 section 3.3.7 bounds the offset, so no xsd:dateTime has it (#513).
+    with pytest.raises(ProvValueError, match=rf"^prov:startTime \S+ {_BEYOND}$"):
+        ex_document().activity("ex:a1", startTime=time)
 
 
 @pytest.mark.parametrize(
@@ -182,22 +201,32 @@ def test_time_beyond_the_offset_bound_warns(time) -> None:
         "2012-01-01T00:00:00",
     ],
 )
-def test_time_within_the_offset_bound_does_not_warn(text) -> None:
+def test_time_within_the_offset_bound_is_accepted(text) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        _document().activity("ex:a1", startTime=text)
+        ex_document().activity("ex:a1", startTime=text)
 
 
-def test_typed_datetime_value_beyond_the_offset_bound_warns() -> None:
+def test_datetime_value_beyond_the_offset_bound_raises() -> None:
+    # A Python datetime is rejected in any position, not only as a time of
+    # the statement, because no writer could emit it as an xsd:dateTime.
+    value = datetime.datetime(
+        2012, 1, 1, tzinfo=datetime.timezone(datetime.timedelta(hours=14, minutes=30))
+    )
+    with pytest.raises(
+        ProvValueError, match=rf"^ex:t 2012-01-01T00:00:00\+14:30 {_BEYOND}$"
+    ):
+        ex_document().entity("ex:e1", {"ex:t": value})
+
+
+def test_typed_datetime_value_beyond_the_offset_bound_stays_a_literal() -> None:
+    # The text has no xsd:dateTime value, so it is kept as written, as an
+    # ill-formed typed literal is.
     value = Literal("2011-11-16T16:05:33+15:00", XSD_DATETIME)
-    with pytest.warns(
-        ProvFutureRejectionWarning,
-        match=r'^ex:t "2011-11-16T16:05:33\+15:00" %% xsd:dateTime'
-        rf" {_BEYOND}\. prov 3\.3\.0 will keep it as a Literal \(#{_BEYOND_ISSUE}\)$",
-    ) as caught:
-        entity = _document().entity("ex:e1", {"ex:t": value})
-    assert len(caught) == 1
-    assert entity.get_attribute("ex:t") == {parse_xsd_datetime(value.value)}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        entity = ex_document().entity("ex:e1", {"ex:t": value})
+    assert entity.get_attribute("ex:t") == {value}
 
 
 @pytest.mark.parametrize(
@@ -209,33 +238,114 @@ def test_typed_datetime_value_beyond_the_offset_bound_warns() -> None:
         "2011-11-16T16:05:33",
     ],
 )
-def test_typed_datetime_value_within_the_offset_bound_does_not_warn(text) -> None:
+def test_typed_datetime_value_within_the_offset_bound_is_a_datetime(text) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        _document().entity("ex:e1", {"ex:t": Literal(text, XSD_DATETIME)})
+        entity = ex_document().entity("ex:e1", {"ex:t": Literal(text, XSD_DATETIME)})
+    assert entity.get_attribute("ex:t") == {parse_xsd_datetime(text)}
+
+
+def _written_with(fmt: str, build, old: str, new: str) -> str:
+    # The model no longer holds the value, so the text is written with an
+    # accepted one and edited; the formats all write the offset as given.
+    document = ex_document()
+    build(document)
+    text = document.serialize(format=fmt)
+    assert text.count(old) == 1
+    return text.replace(old, new)
+
+
+# What starts each reader's message for a time outside the bound. PROV-N
+# chains the model's error from a positioned syntax error; the other readers
+# chain it from their own error, naming the record.
+_TIME_WHERE = {
+    "json": r"record 'ex:a1': ",
+    "xml": r"line \d+, <prov:activity> 'ex:a1': ",
+    "jsonld": r"prov:Activity 'ex:a1': ",
+    "rdf": r"subject 'http://example.org/a1': prov:startTime ",
+    "provn": r"line \d+, column \d+: ",
+}
 
 
 @pytest.mark.parametrize("fmt", ROUNDTRIP_FORMATS)
-def test_every_reader_warns_about_an_offset_beyond_the_bound(fmt) -> None:
-    document = _document()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", ProvFutureRejectionWarning)
-        document.activity("ex:a1", startTime="2012-01-01T00:00:00+15:00")
-        document.entity(
-            "ex:e1", {"ex:t": Literal("2011-11-16T16:05:33+15:00", XSD_DATETIME)}
-        )
+def test_every_reader_rejects_a_time_beyond_the_bound(fmt) -> None:
+    text = _written_with(
+        fmt,
+        lambda d: d.activity("ex:a1", startTime="2012-01-01T00:00:00+14:00"),
+        "+14:00",
+        "+15:00",
+    )
+    with pytest.raises(READER_ERRORS[fmt]) as ctx:
+        ProvDocument.deserialize(content=text, format=fmt)
+    error = ctx.value.__cause__
+    assert isinstance(error, ProvValueError)
+    assert str(error) == f"prov:startTime 2012-01-01T00:00:00+15:00 {_BEYOND}"
+    assert re.match(_TIME_WHERE[fmt], str(ctx.value))
+    assert not isinstance(ctx.value, ValueError)
+
+
+@pytest.mark.parametrize("fmt", ROUNDTRIP_FORMATS)
+def test_every_reader_keeps_a_typed_time_beyond_the_bound_as_a_literal(fmt) -> None:
+    document = ex_document()
+    document.entity(
+        "ex:e1", {"ex:t": Literal("2011-11-16T16:05:33+15:00", XSD_DATETIME)}
+    )
     text = document.serialize(format=fmt)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ProvWarning)
+        assert ProvDocument.deserialize(content=text, format=fmt) == document
 
-    with pytest.warns(ProvFutureRejectionWarning) as caught:
-        read = ProvDocument.deserialize(content=text, format=fmt)
 
-    future = [w for w in caught if w.category is ProvFutureRejectionWarning]
-    assert {w.filename for w in future} == {__file__}
-    messages = sorted(str(w.message) for w in future)
-    assert messages == [
-        f'ex:t "2011-11-16T16:05:33+15:00" %% xsd:dateTime {_BEYOND}.'
-        f" prov 3.3.0 will keep it as a Literal (#{_BEYOND_ISSUE})",
-        f"prov:startTime 2012-01-01T00:00:00+15:00 {_BEYOND}."
-        f" prov 3.3.0 will reject this (#{_BEYOND_ISSUE})",
-    ]
-    assert read == document
+# Each reader reports a fraction beyond six digits as it reports a time outside
+# the lexical form (#514, the #513 precedent).
+# PROV-O is the one format that cannot reject or keep the text; see
+# test_prov_o_truncates_a_fraction_beyond_six_digits.
+
+
+@pytest.mark.parametrize("fmt", TEXT_FORMATS)
+def test_every_reader_rejects_a_fraction_beyond_six_digits(fmt) -> None:
+    text = _written_with(
+        fmt,
+        lambda d: d.activity("ex:a1", startTime="2012-01-01T00:00:00.123456Z"),
+        ".123456",
+        ".1234567",
+    )
+    with pytest.raises(READER_ERRORS[fmt]):
+        ProvDocument.deserialize(content=text, format=fmt)
+
+
+@pytest.mark.parametrize("fmt", TEXT_FORMATS)
+def test_every_reader_keeps_a_typed_time_with_a_long_fraction_as_a_literal(fmt) -> None:
+    document = ex_document()
+    document.entity(
+        "ex:e1", {"ex:t": Literal("2011-11-16T16:05:33.1234567Z", XSD_DATETIME)}
+    )
+    text = document.serialize(format=fmt)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ProvWarning)
+        assert ProvDocument.deserialize(content=text, format=fmt) == document
+
+
+def test_prov_o_truncates_a_fraction_beyond_six_digits() -> None:
+    # rdflib normalises a literal when it builds it (NORMALIZE_LITERALS), so
+    # the PROV-O reader never sees the seventh digit: a time of a statement
+    # reads truncated to microseconds, and a typed attribute value reads as
+    # the truncated datetime, where every other format rejects the first and
+    # keeps the second as a Literal (#514; conformance caveat C10).
+    truncated = datetime.datetime(2012, 1, 1, 0, 0, 0, 123456, tzinfo=UTC)
+    text = _written_with(
+        "rdf",
+        lambda d: d.activity("ex:a1", startTime="2012-01-01T00:00:00.123456Z"),
+        ".123456",
+        ".1234567",
+    )
+    (activity,) = ProvDocument.deserialize(content=text, format="rdf").get_records()
+    assert activity.get_startTime() == truncated
+    document = ex_document()
+    document.entity(
+        "ex:e1", {"ex:t": Literal("2012-01-01T00:00:00.1234567Z", XSD_DATETIME)}
+    )
+    (entity,) = ProvDocument.deserialize(
+        content=document.serialize(format="rdf"), format="rdf"
+    ).get_records()
+    assert entity.get_attribute("ex:t") == {truncated}

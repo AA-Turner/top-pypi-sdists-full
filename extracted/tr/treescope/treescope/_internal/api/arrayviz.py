@@ -232,7 +232,7 @@ def render_array(
         size beyond this point. Ignored unless ``truncate`` is True.
       minimum_edge_items: How many values to keep along each axis for truncated
         arrays. We may keep more than this up to the budget of maximum_size.
-        Ignored unless ``truncate`` is True.
+        Must be at least 1. Ignored unless ``truncate`` is True.
       axis_item_labels: An optional mapping from axis names/positions to a list
         of strings, of the same length as the axis length, giving a label to
         each item along that axis. For instance, this could be the token string
@@ -249,7 +249,8 @@ def render_array(
       axis_labels: Optional mapping from axis names / indices to the labels we
         should use for that axis. If not provided, we label the named axes with
         their names and the positional axes with "axis {i}", and also add th
-        axis size.
+        axis size. As with ``axis_item_labels``, names that don't match any axes
+        in the input are ignored.
       pixels_per_cell: Size of each rendered array element in pixels, between 1
         and 21 inclusive. This controls the zoom level of the rendering. Array
         elements are always drawn at 7 pixels per cell and then rescaled, so
@@ -274,9 +275,18 @@ def render_array(
         "pixels_per_cell must be between 1 and 21 inclusive, got"
         f" {pixels_per_cell}"
     )
+  if truncate and minimum_edge_items < 1:
+    raise ValueError(
+        f"minimum_edge_items must be at least 1, got {minimum_edge_items}"
+    )
 
   # Extract information about axis names, indices, and sizes.
   array_axis_info = adapter.get_axis_info_for_array_data(array)
+  if any(info.size == 0 for info in array_axis_info):
+    raise ValueError(
+        "Cannot render an empty array (shape has a zero-size axis):"
+        f" {tuple(info.size for info in array_axis_info)}"
+    )
 
   data_axis_from_axis_info = {
       info: axis for axis, info in enumerate(array_axis_info)
@@ -421,14 +431,22 @@ def _render_pretruncated(
     else:
       raise ValueError(f"Unrecognized axis info {type(info)}")
 
-  axis_labels_by_info = {
-      info_by_name_or_position[orig_key]: value
-      for orig_key, value in axis_labels.items()
-  }
-  axis_item_labels_by_info = {
-      info_by_name_or_position[orig_key]: value
-      for orig_key, value in axis_item_labels.items()
-  }
+  def _labels_by_info(labels):
+    result = {}
+    for key, value in labels.items():
+      if key in info_by_name_or_position:
+        result[info_by_name_or_position[key]] = value
+      elif isinstance(key, int):
+        raise ValueError(
+            f"Axis position {key} is out of range for an array with"
+            f" {positional_count} positional axes."
+        )
+      # Otherwise, this is an axis name that isn't in this array. We ignore it,
+      # so that the same labels can be reused for arrays with different axes.
+    return result
+
+  axis_labels_by_info = _labels_by_info(axis_labels)
+  axis_item_labels_by_info = _labels_by_info(axis_item_labels)
 
   skip_start_indices = [
       edge_items if edge_items is not None else axis_info.size

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from office365.common.telecom_provider_settings import TelecomProviderSettings
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.directory.authentication.methods.target import (
@@ -13,11 +15,13 @@ if TYPE_CHECKING:
 
 
 class VoiceAuthenticationMethodConfiguration(Entity):
+    @odata(name="isOfficePhoneAllowed")
     @property
     def is_office_phone_allowed(self) -> Optional[bool]:
         """Gets the isOfficePhoneAllowed property"""
         return self.properties.get("isOfficePhoneAllowed", None)
 
+    @odata(name="includeTargets", navigation=True)
     @property
     def include_targets(self) -> EntityCollection[AuthenticationMethodTarget]:
         """Gets the includeTargets property"""
@@ -35,3 +39,9 @@ class VoiceAuthenticationMethodConfiguration(Entity):
     @property
     def entity_type_name(self) -> str:
         return "microsoft.graph.VoiceAuthenticationMethodConfiguration"
+
+    @odata(name="telecomProviderSettings")
+    @property
+    def telecom_provider_settings(self) -> Optional[TelecomProviderSettings]:
+        """Gets the telecomProviderSettings property"""
+        return self.properties.get("telecomProviderSettings", None)

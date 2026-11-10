@@ -248,3 +248,38 @@ async fn ssh_does_carry_server_alive_interval() {
         emitted_value(&arg_names, &connect, "server-alive-interval")
     );
 }
+
+#[tokio::test]
+async fn python_stringified_booleans_reach_guacd_as_lowercase_true() {
+    // Gateway QUIC path: str(True) == "True". guacd compares recording-write-existing with
+    // a case-sensitive "true"; anything else makes libguac skip the Gateway's FIFO and
+    // write `<name>.1`, which the uploader never reads (header-only recordings).
+    for protocol in ["ssh", "rdp"] {
+        let (arg_names, connect) = emitted_connect(
+            protocol,
+            &[
+                ("hostname", "host.example"),
+                ("password", "True"),
+                ("recordingpath", "/var/pipes"),
+                ("recordingname", "s.ses"),
+                ("recordingwriteexisting", "True"),
+            ],
+        )
+        .await;
+
+        assert_eq!(
+            Some("true"),
+            emitted_value(&arg_names, &connect, "recording-write-existing"),
+            "{protocol}"
+        );
+        assert_eq!(
+            Some("/var/pipes"),
+            emitted_value(&arg_names, &connect, "recording-path")
+        );
+        assert_eq!(
+            Some("True"),
+            emitted_value(&arg_names, &connect, "password"),
+            "non-boolean values must never be rewritten"
+        );
+    }
+}

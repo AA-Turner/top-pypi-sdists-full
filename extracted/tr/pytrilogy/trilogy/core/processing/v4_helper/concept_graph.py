@@ -47,9 +47,11 @@ from trilogy.core.processing.node_generators.presence_probe import (
     member_binding_datasources,
     probe_member_address,
 )
+from trilogy.core.processing.node_generators.select_node import root_is_unsourced
 from trilogy.utility import unique
 
 from .constants import (
+    REPEAT_BLIND_AGGREGATES,
     ROW_SHAPE_BARRIER_DERIVATIONS,
     DepthLabel,
     EdgeKind,
@@ -172,6 +174,8 @@ def _walk_aggregate_grain_inputs(
         # A filter's keys name its KEY content as an entity; a grainless one
         # (a union output) is a row value, so its rows are the identity.
         return _walk_aggregate_grain_inputs(concept.lineage.content, environment, seen)
+    if derived_key(concept):
+        return [concept]
     if concept.purpose == Purpose.PROPERTY and concept.keys:
         return [
             environment.concepts[c] for c in concept.keys if c in environment.concepts
@@ -198,6 +202,34 @@ def _walk_aggregate_grain_inputs(
         else:
             collected.extend(_walk_aggregate_grain_inputs(arg, environment, seen))
     return collected
+
+
+def _derived_key_row_grain(
+    concept: BuildConcept, environment: BuildEnvironment
+) -> frozenset[str]:
+    """The rows a derived key is computed on: its inputs'. Its values are its
+    own grain, but the stream deriving it holds one per input row, and pairs
+    with its siblings on those rows' keys (`crown2` by `cls` and `genus`
+    joins back to the trees on both)."""
+    out: set[str] = set()
+    for arg in concept.lineage.concept_arguments if concept.lineage else ():
+        resolved = environment.concepts.get(arg.address) or arg
+        if resolved.grain:
+            out |= resolved.grain.components
+    return frozenset(out)
+
+
+def derived_key(concept: BuildConcept) -> bool:
+    """A key computed by an expression is its own row identity, not its
+    inputs'. A rename of a key is not: it has its source's rows."""
+    if concept.purpose != Purpose.KEY or concept.derivation != Derivation.BASIC:
+        return False
+    lineage = concept.lineage
+    return not (
+        isinstance(lineage, BuildFunction)
+        and lineage.operator == FunctionType.ALIAS
+        and all(arg.purpose == Purpose.KEY for arg in lineage.concept_arguments)
+    )
 
 
 def _split_condition_label(label: str) -> tuple[str, int | None] | None:
@@ -642,6 +674,8 @@ def _walk_scoped_aggregate_grain_inputs(
                 )
             else:
                 out.append(c)
+        if _reads_value_set(aggregate, concept, out, environment):
+            return [concept]
         return out
     # Counting a key counts its own values; anything else ranges over the
     # rowset's identity.
@@ -662,6 +696,31 @@ def _walk_scoped_aggregate_grain_inputs(
         _rowset_local_grain_identity(c, lineage.rowset.name, environment, keep_rowsets)
         for c in inputs
     ]
+
+
+def _reads_value_set(
+    aggregate: BuildConcept,
+    argument: BuildConcept,
+    identity: list[BuildConcept],
+    environment: BuildEnvironment,
+) -> bool:
+    """A repeat-blind aggregate over one column, bare or in a scalar of it
+    alone, reads only the column's set of values (`ValueSet.value_set_min_exact`
+    and its siblings), which a complete binding holds at whatever grain it is
+    stored. The row identity stays the preferred read, since sibling
+    aggregates share its stream; where no datasource binds a component of it,
+    the column's own values are its identity. A repeat-sensitive aggregate has
+    no such reading (`ValueSet.value_set_misses_repeats`)."""
+    lineage = aggregate.lineage
+    return (
+        isinstance(lineage, BuildAggregateWrapper)
+        and lineage.function.operator in REPEAT_BLIND_AGGREGATES
+        and {c.address for c in lineage.function.concept_arguments}
+        == {argument.address}
+        and argument.canonical_address
+        in environment.non_partial_materialized_canonical_concepts
+        and any(root_is_unsourced(c, environment) for c in identity)
+    )
 
 
 def _aggregate_authored_grain(
@@ -1069,6 +1128,16 @@ _UPSTREAM: dict[Derivation, UpstreamFetcher] = {
 }
 
 
+def upstream_concepts(
+    concept: BuildConcept, environment: BuildEnvironment
+) -> list[BuildConcept]:
+    """Every concept the graph walks from `concept`: its lineage arguments and
+    the row identities, grain keys and partition keys its derivation reads."""
+    return list(
+        _UPSTREAM.get(concept.derivation, _upstream_default)(concept, environment)
+    )
+
+
 def node_id(label: str, address: str) -> str:
     """Compose a concept-graph node key from (label, address).
 
@@ -1371,13 +1440,13 @@ def _aggregate_input_grain(
                     or c.derivation not in ROW_SHAPE_BARRIER_DERIVATIONS
                 )
             ]
-            # A scalar of an inner aggregate's own grain keys is evaluated on
-            # that aggregate's rows; its own (finer) grain would fan them out.
+            # An inner aggregate is read at its own grain, as a bare one is
+            # (`sum(s + 0)` is `sum(s)`), and a scalar of those keys on its
+            # rows; that scalar's own (finer) grain would fan them out.
             inner_grain = _inner_aggregate_grain(arg)
-            on_inner = [c for c in sub_args if _function_of(c, inner_grain)]
-            if on_inner:
+            if inner_grain:
                 input_grain.update(inner_grain)
-                sub_args = [c for c in sub_args if c not in on_inner]
+                sub_args = [c for c in sub_args if not _function_of(c, inner_grain)]
         else:
             continue
         for sub in sub_args:
@@ -1422,9 +1491,15 @@ def _inner_aggregate_grain(arg: BuildConceptArgs) -> set[str]:
 
 
 def _function_of(concept: BuildConcept, keys: set[str]) -> bool:
+    """`concept` is fixed once `keys` are: a key, an aggregate `by` some of
+    them (`SelectGrain.fixed_on_keys`), or a scalar of those."""
     if concept.address in keys or concept.canonical_address in keys:
         return True
-    if concept.derivation != Derivation.BASIC or not keys:
+    if not keys:
+        return False
+    if concept.derivation == Derivation.AGGREGATE:
+        return set(concept.grain.components) <= keys
+    if concept.derivation != Derivation.BASIC:
         return False
     return all(_function_of(c, keys) for c in concept.concept_arguments)
 
@@ -1727,6 +1802,8 @@ def _add_concept(
         and concept.lineage.operator == FunctionType.ALIAS
     )
     out_grain = frozenset(concept.grain.components) if concept.grain else frozenset()
+    if not is_materialized_root and derived_key(concept):
+        out_grain = _derived_key_row_grain(concept, environment)
     if not is_materialized_root:
         out_grain = axis_scalar_reads(concept, environment) or out_grain
     if _scalar_of_materialized(concept, materialized_roots, environment):
@@ -1874,8 +1951,7 @@ def _add_concept(
     # row identity intact through the SUM. Same story for window
     # partition keys and filter property keys. So every fetcher result
     # gets a lineage edge, not just `concept_arguments`.
-    fetcher = _UPSTREAM.get(concept.derivation, _upstream_default)
-    upstreams = list(fetcher(concept, environment))
+    upstreams = upstream_concepts(concept, environment)
     upstreams.extend(_rowset_key_handles(concept, upstreams, environment))
     # A BASIC whose grain is the coalesced axis of a rowset-crossing preserving
     # relation reads the COMPLETED axis row: a null-sensitive scalar

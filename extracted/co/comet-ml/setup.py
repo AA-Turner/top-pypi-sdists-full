@@ -52,7 +52,13 @@ setuptools.setup(
         "wrapt>=1.11.2",
         "wurlitzer>=1.0.2",
     ],
-    extras_require={"cpu_logging": []},
+    extras_require={
+        "cpu_logging": [],
+        # Direct S3 transfers that do not hold the GIL; see
+        # comet.s3_multipart.http_client and docs/DIRECT_S3_TRANSFERS.md.
+        # pyreqwest needs Python 3.11+.
+        "fast-transfer": ['pyreqwest>=0.15,<1; python_version >= "3.11"'],
+    },
     entry_points={
         "console_scripts": [
             "comet = comet_ml.scripts.comet:main",
@@ -73,5 +79,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.58.10",
+    version="3.58.11",
 )

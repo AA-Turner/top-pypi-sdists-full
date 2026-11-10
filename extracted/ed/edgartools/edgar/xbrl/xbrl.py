@@ -255,6 +255,110 @@ def _follows_disclosure_family(role_def: str, family_key: Tuple[str, ...],
     return stem_key is not None and stem_declares_disclosure[stem_key]
 
 
+_XBRL_DOCUMENT_KINDS = ('schema', 'label', 'presentation', 'calculation', 'definition', 'instance')
+# Forms whose submissions are checked for size before reading their XBRL. The check
+# costs one index-page request, so it is limited to the annual and quarterly reports
+# that get_financials() reads and that carry the large submissions; every other form
+# keeps its single request for the .txt.
+_SELECTIVE_DOWNLOAD_FORMS = frozenset({'10-K', '10-KT', '10-Q', '10-QT', '20-F', '40-F'})
+_HOMEPAGE_SIC = re.compile(r'SIC:\s*(\d+)')
+
+
+class _SelectiveXBRLSources:
+    """The XBRL files of a large filing, fetched one by one instead of in the submission .txt."""
+
+    def __init__(self, attachments: 'XBRLAttachments', period_of_report: str,
+                 sic: Optional[str], filing_summary):
+        self.attachments = attachments
+        self.period_of_report = period_of_report
+        self.sic = sic
+        self.filing_summary = filing_summary
+
+
+def _submission_size(homepage, accession_no: str) -> Optional[int]:
+    """Bytes in the complete submission .txt, as the filing index page lists it."""
+    for attachment in homepage.attachments:
+        if attachment.document == f"{accession_no}.txt":
+            try:
+                return int(attachment.size)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _selective_xbrl_sources(filing) -> Optional[_SelectiveXBRLSources]:
+    """The XBRL files of a large filing fetched individually, or None to read the whole submission.
+
+    A large submission is mostly exhibits, images and PDFs: VALE's FY2025 20-F is
+    169.5 MB, and its XBRL files are 0.76 MB of what goes over the wire. This
+    fetches the filing index page, then only the XBRL files and FilingSummary.xml,
+    and takes the period of report and SIC from the index page (edgartools-vk270.1).
+
+    None keeps today's path: the setting is off, the form is not an annual or
+    quarterly report, the submission is already loaded
+    or comes from local storage or datamule, it is at or below
+    ``selective_attachment_download_min_bytes``, or anything here fails. That path reads the
+    whole submission and reports any real error itself.
+    """
+    from edgar.settings import selective_attachment_download, selective_attachment_download_min_bytes
+    from edgar.storage import is_using_local_storage
+    from edgar.storage.datamule import is_using_datamule_storage
+
+    if not selective_attachment_download():
+        return None
+    form = (getattr(filing, 'form', None) or '').upper().removesuffix('/A')
+    if form not in _SELECTIVE_DOWNLOAD_FORMS:
+        return None
+    if getattr(filing, '_sgml', None) is not None:
+        return None
+    if is_using_local_storage() or is_using_datamule_storage():
+        return None
+    try:
+        homepage = filing.homepage
+        size = _submission_size(homepage, filing.accession_no)
+        if size is None or size <= selective_attachment_download_min_bytes:
+            return None
+        period_of_report = homepage.period_of_report
+        if not period_of_report:
+            return None
+        attachments = XBRLAttachments(homepage.attachments)
+        if not attachments.has_instance_document:
+            return None
+        attachments.prefetch()
+        sic = None
+        filers = homepage.get_filers()
+        if filers:
+            match = _HOMEPAGE_SIC.search(filers[0].identification or '')
+            sic = match.group(1) if match else None
+        filing_summary = _download_filing_summary(homepage.url)
+    except Exception as e:
+        log.debug("Reading the whole submission for %s; selective XBRL download unavailable: %s",
+                  getattr(filing, 'accession_no', '<unknown filing>'), e)
+        return None
+    return _SelectiveXBRLSources(attachments, period_of_report, sic, filing_summary)
+
+
+def _download_filing_summary(homepage_url: str):
+    """FilingSummary.xml from the filing folder, or None when it is missing or unreadable.
+
+    Its categories are optional: from_filing skips them on any failure.
+    """
+    from edgar.httprequests import download_file
+    from edgar.sgml.filing_summary import FilingSummary
+    try:
+        content = download_file(f"{homepage_url.rsplit('/', 1)[0]}/FilingSummary.xml")
+        if isinstance(content, bytes):
+            content = content.decode('utf-8', errors='replace')
+        if not content:
+            return None
+        filing_summary = FilingSummary.parse(content)
+        filing_summary.reports._filing_summary = filing_summary
+        return filing_summary
+    except Exception as e:
+        log.debug("No FilingSummary.xml at %s: %s", homepage_url, e)
+        return None
+
+
 def _capture_sgml_period_of_report(xbrl: "XBRL", filing) -> None:
     """Record the filing header's period_of_report on `xbrl`, or say why not.
 
@@ -278,6 +382,19 @@ def _capture_sgml_period_of_report(xbrl: "XBRL", filing) -> None:
         )
 
 
+def _sic_code_from_header(sic: Optional[str]) -> Optional[str]:
+    """The bare SIC code in a filing header's SIC field, or None if there is none.
+
+    The full-text SEC header shows the SIC as 'NATIONAL COMMERCIAL BANKS [6021]',
+    or '[]' when the filer has none. The daily-feed header's ASSIGNED-SIC is
+    already the bare '6021'.
+    """
+    if not sic:
+        return None
+    code = sic.strip().rpartition("[")[2].rstrip("]")
+    return code if code.isdigit() else None
+
+
 # Members that aggregate other members of the same axis, rather than being a
 # disjoint part of the breakdown. Adding one of these to its own components
 # double-counts them.
@@ -293,6 +410,46 @@ _AGGREGATE_MEMBER_NAMES = frozenset({
     'parentmember',
     'consolidatedentitiesmember',
 })
+
+
+# Axes whose members are not parts of one whole: the same figure for another
+# reporting entity (a parent-only or subsidiary column), another scenario, or
+# a restatement of it. Summing their members adds a figure to itself (GH #1703).
+_NON_ADDITIVE_AXES = frozenset({
+    'dei_LegalEntityAxis',
+    'srt_ConsolidatedEntitiesAxis',
+    'srt_ConsolidationItemsAxis',
+    'srt_RestatementAxis',
+    'srt_StatementScenarioAxis',
+    'us-gaap_StatementScenarioAxis',
+    'us-gaap_RelatedPartyTransactionsByRelatedPartyAxis',
+    'srt_CounterpartyNameAxis',
+})
+
+
+def _contains_a_subtotal(values: List[float], max_members: int = 12) -> bool:
+    """Whether one value equals the sum of two or more of the others.
+
+    Members on an axis the statement does not present carry no hierarchy to
+    say they are disjoint. When one of them is the sum of others, the axis
+    holds a subtotal beside its own parts (KB Home's construction and land
+    costs beside its housing and land detail), and adding everything counts
+    the parts twice (GH #1703). Past max_members the search is skipped.
+    """
+    # A zero is part of no double count: three zero members are not a subtotal.
+    values = [v for v in values if v]
+    if len(values) < 3 or len(values) > max_members:
+        return False
+    from itertools import combinations
+    scale = max(abs(v) for v in values)
+    tolerance = scale * 1e-6
+    for i, target in enumerate(values):
+        others = values[:i] + values[i + 1:]
+        for size in range(2, len(others) + 1):
+            for combo in combinations(others, size):
+                if abs(sum(combo) - target) <= tolerance:
+                    return True
+    return False
 
 
 def _is_aggregate_member(member: str) -> bool:
@@ -319,36 +476,6 @@ class XBRLFilingWithNoXbrlData(NotFoundError):
         super().__init__(message)
 
 
-def no_xbrl_attachments(filing) -> XBRLFilingWithNoXbrlData:
-    """The error for a filing that carries no XBRL attachments at all.
-
-    Built as a value rather than raised, so `warn_will_raise` decides — and so
-    the frame between the warning and the user is not one of ours, which is
-    what keeps `stacklevel` pointing at the line the reader has to change. Same
-    shape as `_no_xml_to_parse` in `edgar/__init__.py`, for the same reasons.
-
-    Lives here, next to the class and the condition it describes, but is raised
-    from `Financials.extract` rather than from `from_filing`: `filing.xbrl()`
-    answering `None` is a documented true absence, while a truthy `Financials`
-    whose accessors all answer `None` is the failure worth naming.
-    """
-    error = XBRLFilingWithNoXbrlData(
-        f"Filing {filing.accession_no} ({filing.form}) has no XBRL attachments, "
-        f"so there are no financial statements to read from it. This is a "
-        f"property of the filing, not of the form — SEC phased XBRL in between "
-        f"2009 and 2011, and filings from before then carry none."
-    )
-    # Stable across filings so a walk through a company's whole filing history
-    # warns once, not once per pre-2009 filing — see warn_will_raise.
-    error.warning_summary = (
-        "This filing has no XBRL attachments, so there are no financial "
-        "statements to read from it. This is a property of the filing, not of "
-        "the form — SEC phased XBRL in between 2009 and 2011, and filings from "
-        "before then carry none."
-    )
-    return error
-
-
 class XBRLAttachments:
     """
     An adapter for the Attachments class that provides easy access to the XBRL documents.
@@ -356,6 +483,11 @@ class XBRLAttachments:
 
     def __init__(self, attachments: Attachments):
         self._documents = dict()
+        # The instance is read here to recognise it; keep that text so parsing
+        # does not read it again. An attachment without an in-memory SGML copy
+        # downloads on every .content access (edgartools-vk270.1).
+        self._contents = dict()
+        self._attachments = attachments
         if attachments.data_files:
             for attachment in attachments.data_files:
                 if attachment.document_type in ["XML", 'EX-101.INS'] and attachment.extension.endswith(
@@ -363,6 +495,7 @@ class XBRLAttachments:
                     content = attachment.content
                     if content and '<xbrl' in content[:2000]:
                         self._documents['instance'] = attachment
+                        self._contents['instance'] = content
                 elif attachment.document_type == 'EX-101.SCH':
                     self._documents['schema'] = attachment
                 elif attachment.document_type == 'EX-101.DEF':
@@ -388,6 +521,36 @@ class XBRLAttachments:
 
     def get(self, doc_type: str):
         return self._documents.get(doc_type)
+
+    def content(self, doc_type: str):
+        """The text of one XBRL document, or None when the filing has none of that type."""
+        if doc_type in self._contents:
+            return self._contents[doc_type]
+        attachment = self._documents.get(doc_type)
+        return attachment.content if attachment is not None else None
+
+    def inline_document(self):
+        """The inline XBRL document SEC extracted the instance from, or None.
+
+        SEC names an extracted instance after its source: `gecc-20241231.htm`
+        becomes `gecc-20241231_htm.xml`. Nothing is read here; the caller reads
+        `.content` only if it needs the document.
+        """
+        instance = self._documents.get('instance')
+        name = getattr(instance, 'document', None) or ''
+        if not name.lower().endswith('_htm.xml'):
+            return None
+        source = (name[:-len('_htm.xml')] + '.htm').lower()
+        for attachment in getattr(self._attachments, 'documents', None) or []:
+            if (getattr(attachment, 'document', None) or '').lower() == source:
+                return attachment
+        return None
+
+    def prefetch(self) -> None:
+        """Read every XBRL document now, so a failed download surfaces before parsing starts."""
+        for doc_type in self._documents:
+            if doc_type not in self._contents:
+                self._contents[doc_type] = self._documents[doc_type].content
 
     def __rich__(self):
         table = Table(Column("Type"),
@@ -425,11 +588,16 @@ class XBRL:
         self._statement_by_role_uri = {}
         self._statement_by_role_name = {}
         self._all_statements_cached = None
+        # GH #1468: role URI -> the co-registrant member a face statement belongs to
+        self._coregistrant_members: Optional[Dict[str, str]] = None
 
         # SGML period_of_report for date discrepancy detection
         self._sgml_period_of_report: Optional[str] = None
         self._validated_period_of_report_cache: Optional[str] = None
         self._period_of_report_warning_logged: bool = False
+        # The inline XBRL document to read footnotes from on first use, set only
+        # when the extracted instance had none (bead edgartools-s21p2).
+        self._inline_footnote_document = None
         # Set when the SGML date could not be read at all, which turns the
         # discrepancy check off rather than making it disagree. Carried so that
         # "the dates agreed" and "we never had a second date" are distinguishable
@@ -441,6 +609,11 @@ class XBRL:
 
         # Reverse index: element_name -> list of context_ids with facts (lazy-initialized)
         self._element_context_index = None
+        self._prefix_variant_keys = None
+
+        # Most-used iso4217 measure among this filing's facts (lazy; '' when there is none)
+        self._reporting_currency_cache: Optional[str] = None
+        self._currency_choice_logged = False
 
         # FilingSummary-based role categories (role_uri -> category string)
         self._filing_summary_categories: Dict[str, str] = {}
@@ -526,7 +699,32 @@ class XBRL:
     @property
     def footnotes(self):
         """Access to XBRL footnotes."""
+        self._load_inline_footnotes()
         return self.parser.footnotes
+
+    def _load_inline_footnotes(self) -> None:
+        """Fill footnotes from the inline XBRL document when the instance had none.
+
+        Some SEC-extracted instances drop every footnoteLink that the inline
+        document carries as ix:footnote/ix:relationship (bead edgartools-s21p2).
+        Runs at most once, and only when from_filing found the instance empty of
+        footnotes; the document is read on first use, not at parse time.
+        """
+        document = getattr(self, '_inline_footnote_document', None)
+        if document is None:
+            return
+        self._inline_footnote_document = None
+        try:
+            content = document.content
+        except Exception as e:
+            log.warning(f"Could not read inline XBRL document {getattr(document, 'document', '')} "
+                        f"for its footnotes: {e}")
+            return
+        if not content:
+            return
+        marker = b'relationship' if isinstance(content, bytes) else 'relationship'
+        if marker in content:
+            self.parser.parse_inline_footnotes_content(content)
 
     @property
     def standardization(self):
@@ -884,6 +1082,34 @@ class XBRL:
             self._element_context_index = index
         return self._element_context_index
 
+    def _fact_element_key(self, element_name: str) -> str:
+        """The key the instance's facts use for a linkbase element ID.
+
+        A linkbase names an element by its schema fragment, the instance by
+        its own prefix, and the two can differ. The FASB supplement schema
+        gives its elements 'us-gaap_' fragments while filings declare them as
+        us-gaap-supplement:, so Gladstone Investment's total expenses row was
+        blank although the three facts were filed (GH #1680). When the element
+        ID has no facts, a fact key with the same local name under a prefix
+        that extends the element's prefix ('us-gaap' -> 'us-gaap-supplement')
+        is used, provided exactly one exists.
+        """
+        index = self.element_context_index
+        if element_name in index or '_' not in element_name:
+            return element_name
+        if self._prefix_variant_keys is None:
+            variants: Dict[Tuple[str, str], List[str]] = {}
+            for key in index:
+                prefix, _, local = key.partition('_')
+                if '-' in prefix and local:
+                    base = prefix.split('-', 1)[0]
+                    variants.setdefault((base, local), []).append(key)
+            self._prefix_variant_keys = variants
+        prefix, _, local = element_name.partition('_')
+        candidates = [key for key in self._prefix_variant_keys.get((prefix.split('-', 1)[0], local), [])
+                      if key.partition('_')[0].startswith(prefix + '-')]
+        return candidates[0] if len(candidates) == 1 else element_name
+
     @classmethod
     def from_directory(cls, directory_path: Union[str, Path]) -> 'XBRL':
         """
@@ -972,7 +1198,10 @@ class XBRL:
 
         xbrl = cls()
 
-        xbrl_attachments = XBRLAttachments(filing.attachments)
+        # A large submission is mostly exhibits and PDFs; fetch just its XBRL files
+        # when that is possible, else read the whole submission (edgartools-vk270.1).
+        selective = _selective_xbrl_sources(filing)
+        xbrl_attachments = selective.attachments if selective else XBRLAttachments(filing.attachments)
 
         if xbrl_attachments.empty:
             # Silent on purpose. `filing.xbrl()` answering None for a filing
@@ -985,22 +1214,26 @@ class XBRL:
             return None
 
         if xbrl_attachments.get('schema'):
-            xbrl.parser.parse_schema_content(xbrl_attachments.get('schema').content)
+            xbrl.parser.parse_schema_content(xbrl_attachments.content('schema'))
 
         if xbrl_attachments.get('label'):
-            xbrl.parser.parse_labels_content(xbrl_attachments.get('label').content)
+            xbrl.parser.parse_labels_content(xbrl_attachments.content('label'))
 
         if xbrl_attachments.get('presentation'):
-            xbrl.parser.parse_presentation_content(xbrl_attachments.get('presentation').content)
+            xbrl.parser.parse_presentation_content(xbrl_attachments.content('presentation'))
 
         if xbrl_attachments.get('calculation'):
-            xbrl.parser.parse_calculation_content(xbrl_attachments.get('calculation').content)
+            xbrl.parser.parse_calculation_content(xbrl_attachments.content('calculation'))
 
         if xbrl_attachments.get('definition'):
-            xbrl.parser.parse_definition_content(xbrl_attachments.get('definition').content)
+            xbrl.parser.parse_definition_content(xbrl_attachments.content('definition'))
 
         if xbrl_attachments.get('instance'):
-            xbrl.parser.parse_instance_content(xbrl_attachments.get('instance').content)
+            xbrl.parser.parse_instance_content(xbrl_attachments.content('instance'))
+            if not xbrl.parser.footnotes:
+                # Read lazily: most filings with no footnoteLink have no footnotes,
+                # and the inline document can be a large download (edgartools-s21p2).
+                xbrl._inline_footnote_document = xbrl_attachments.inline_document()
         elif not xbrl_attachments.empty:
             # Filing bundle is in local storage AND has linkbases, but the XBRL
             # instance document itself is missing. This is typical for iXBRL filings
@@ -1018,6 +1251,8 @@ class XBRL:
                         f"Fetching just the instance from the SEC homepage (network fallback)."
                     )
                     xbrl.parser.parse_instance_content(homepage_xbrl.get('instance').content)
+                    if not xbrl.parser.footnotes:
+                        xbrl._inline_footnote_document = homepage_xbrl.inline_document()
                 else:
                     log.warning(
                         f"XBRL instance document not found for {filing.accession_no} — "
@@ -1032,42 +1267,58 @@ class XBRL:
                     f"the filing — entity info and facts will be empty."
                 )
 
-        # Capture SGML period_of_report for date discrepancy detection.
-        _capture_sgml_period_of_report(xbrl, filing)
+        # Capture SGML period_of_report for date discrepancy detection. The
+        # selective path takes it from the index page: filing.period_of_report
+        # would load the whole submission.
+        if selective:
+            xbrl._sgml_period_of_report = selective.period_of_report
+        else:
+            _capture_sgml_period_of_report(xbrl, filing)
 
         # Try to set industry from filing header SIC for industry-specific standardization
         try:
-            if hasattr(filing, '_sgml') and filing._sgml is not None:
+            if selective:
+                if selective.sic:
+                    xbrl.standardization.set_industry_from_sic(selective.sic)
+            elif hasattr(filing, '_sgml') and filing._sgml is not None:
                 # Only use SIC if header is already loaded (no extra network call)
                 header = filing._sgml.header
                 if header and header.filers:
-                    sic = header.filers[0].company_data.assigned_sic
+                    company = header.filers[0].company_information
+                    sic = _sic_code_from_header(company.sic) if company else None
                     if sic:
                         xbrl.standardization.set_industry_from_sic(sic)
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(
+                "Could not set the industry from the filing header SIC for %s: %s",
+                getattr(filing, "accession_no", "<unknown filing>"),
+                e,
+            )
 
-        # Load authoritative categories from FilingSummary.xml
-        # SGML is already loaded from filing.attachments above, so this is zero-cost
+        # Load authoritative categories from FilingSummary.xml. On today's path the
+        # SGML is already loaded from filing.attachments above, so this is zero-cost;
+        # the selective path fetched FilingSummary.xml on its own.
         try:
-            sgml = filing.sgml()
-            if sgml:
-                filing_summary = sgml.filing_summary
-                if filing_summary:
-                    _MENU_CATEGORY_TO_CLASSIFICATION = {
-                        'Notes': 'note',
-                        'Tables': 'note',
-                        'Policies': 'note',
-                        'Details': 'disclosure',
-                        'Cover': 'document',
-                    }
-                    for report in filing_summary.reports:
-                        if report.role and report.menu_category:
-                            classification = _MENU_CATEGORY_TO_CLASSIFICATION.get(report.menu_category)
-                            if classification:
-                                xbrl._filing_summary_categories[report.role] = classification
-                            xbrl._filing_summary_menu_categories[report.role] = report.menu_category
-                    xbrl._filing_summary = filing_summary
+            if selective:
+                filing_summary = selective.filing_summary
+            else:
+                sgml = filing.sgml()
+                filing_summary = sgml.filing_summary if sgml else None
+            if filing_summary:
+                _MENU_CATEGORY_TO_CLASSIFICATION = {
+                    'Notes': 'note',
+                    'Tables': 'note',
+                    'Policies': 'note',
+                    'Details': 'disclosure',
+                    'Cover': 'document',
+                }
+                for report in filing_summary.reports:
+                    if report.role and report.menu_category:
+                        classification = _MENU_CATEGORY_TO_CLASSIFICATION.get(report.menu_category)
+                        if classification:
+                            xbrl._filing_summary_categories[report.role] = classification
+                        xbrl._filing_summary_menu_categories[report.role] = report.menu_category
+                xbrl._filing_summary = filing_summary
         except Exception:
             pass
 
@@ -1510,12 +1761,17 @@ class XBRL:
 
         The presentation linkbase defines which dimensional members should appear
         on a statement. This function builds a mapping from axis to valid members
-        by examining the Domain nodes in the tree.
+        by walking everything the tree nests under each Axis node.
 
         Pattern in presentation tree:
         - Axis nodes (e.g., PropertyPlantAndEquipmentByTypeAxis) have Domain children
         - Domain nodes (e.g., PropertyPlantAndEquipmentTypeDomain) have Member children
-        - The valid members are the children of the Domain nodes
+        - Members may nest further members, at any depth
+
+        Only the domain's direct children used to count, so a face line the filer
+        nests under a member vanished from every view but DETAILED: Tesla's
+        Automotive sales, regulatory credits and leasing, which sit under
+        AutomotiveRevenuesMember (GH #1759).
 
         Args:
             tree: PresentationTree for the statement
@@ -1523,27 +1779,48 @@ class XBRL:
         Returns:
             Dict mapping axis names (normalized) to sets of valid member names (normalized)
         """
-        valid_members = {}
+        return {axis: set(parents) for axis, parents in self._get_dimensional_member_parents(tree).items()}
 
+    @staticmethod
+    def _get_dimensional_member_parents(tree) -> Dict[str, Dict[str, Optional[str]]]:
+        """Each axis's members in a presentation tree, mapped to the member they nest under.
+
+        Keyed by normalized axis, then normalized member. The parent is None for
+        the domain and for the domain's direct children (the top of the breakdown),
+        and otherwise the enclosing member, so a caller can tell a member from
+        the sub-members already inside it.
+        """
+        result: Dict[str, Dict[str, Optional[str]]] = {}
         for node_id, node in tree.all_nodes.items():
-            # Find Domain nodes - they contain valid members as children
-            if 'Domain' in node_id and node.children:
-                # Find the parent Axis node
-                # Domain nodes are children of Axis nodes
-                parent_node = tree.all_nodes.get(node.parent)
-                if parent_node and 'Axis' in node.parent:
-                    # Normalize axis name (remove prefix, use underscore)
-                    axis_name = node.parent.replace(':', '_')
-
-                    # Collect all member children (normalized)
-                    members = set()
-                    for child in node.children:
-                        # Normalize member name
-                        members.add(child.replace(':', '_'))
-
-                    valid_members[axis_name] = members
-
-        return valid_members
+            if not node_id.endswith('Axis') or not node.children:
+                continue
+            axis_name = node_id.replace(':', '_')
+            parents: Dict[str, Optional[str]] = {}
+            heads = set()
+            # The domain heads the breakdown; its children are top-level members.
+            stack = [(child, None, True) for child in node.children]
+            while stack:
+                child_id, parent_member, is_head = stack.pop()
+                member = child_id.replace(':', '_')
+                if member in parents:
+                    continue
+                parents[member] = parent_member
+                child_node = tree.all_nodes.get(child_id)
+                is_domain = is_head and 'Domain' in child_id
+                if is_domain:
+                    heads.add(member)
+                if child_node is None:
+                    continue
+                # A domain's children are the top level; below that, each
+                # member encloses its own children.
+                enclosing = None if is_domain else member
+                for grandchild in child_node.children:
+                    stack.append((grandchild, enclosing, False))
+            # An axis presented with its domain alone names no members, and
+            # does not restrict which ones a statement shows.
+            if set(parents) - heads:
+                result[axis_name] = parents
+        return result
 
     def get_statement(self, role_or_type: str,
                       period_filter: Optional[str] = None,
@@ -1585,7 +1862,9 @@ class XBRL:
 
         # Get valid dimensional members from presentation tree
         # This ensures we only show members that are actually defined in the linkbase
-        valid_dimensional_members = self._get_valid_dimensional_members(tree) if should_display_dimensions else {}
+        member_parents = self._get_dimensional_member_parents(tree)
+        valid_dimensional_members = ({axis: set(parents) for axis, parents in member_parents.items()}
+                                     if should_display_dimensions else {})
 
         # Generate line items recursively, from EVERY root the role declares.
         # Walking only tree.root_element_id left everything beneath the second
@@ -1597,7 +1876,7 @@ class XBRL:
         for root_id in tree.root_element_ids:
             self._generate_line_items(root_id, tree.all_nodes, line_items, period_filter, None,
                                       should_display_dimensions, valid_dimensional_members, view,
-                                      statement_role=found_role)
+                                      statement_role=found_role, member_parents=member_parents)
 
         # Apply revenue deduplication for income statements to fix Issue #438
         if actual_statement_type == 'IncomeStatement':
@@ -1664,7 +1943,8 @@ class XBRL:
                              valid_dimensional_members: Optional[Dict[str, Set[str]]] = None,
                              view: Optional['StatementView'] = None,
                              statement_role: Optional[str] = None,
-                             preferred_label_override: Optional[str] = None) -> None:
+                             preferred_label_override: Optional[str] = None,
+                             member_parents: Optional[Dict[str, Dict[str, Optional[str]]]] = None) -> None:
         """
         Recursively generate line items for a statement.
 
@@ -1687,6 +1967,9 @@ class XBRL:
                 roll-forward references that share one node but use different label
                 roles (e.g. cash-flow periodStart vs periodEnd balances).
                 (edgartools-0609)
+            member_parents: Each presented axis's members mapped to the member
+                they nest under (see _get_dimensional_member_parents), so a
+                synthesized total does not add a member to its own sub-members.
         """
         from edgar.xbrl.presentation import StatementView
         if element_id not in nodes:
@@ -1754,6 +2037,11 @@ class XBRL:
                 balance = get_balance_type(element_id)
 
         # Get weight and calculation parent from calculation trees (Issue #463, #514, GH-712)
+        # A calculation relationship belongs to its own role (XBRL 2.1 section
+        # 3.5.3.9.7.3), so a statement row reads only the statement role's network
+        # and has no weight or parent when that network has no arc for it. Taking
+        # them from another role gave Sonoco's income-statement share count the
+        # EPS note's parent (GH #1702).
         calculation_parent = None
         if hasattr(self, 'calculation_trees') and self.calculation_trees:
             # GH-712: Prefer calc tree matching this statement's role URI
@@ -1764,8 +2052,8 @@ class XBRL:
                     weight = calc_node.weight
                     calculation_parent = calc_node.parent
 
-            # Fallback: iterate all calc trees if not found in statement's own tree
-            if weight is None:
+            # Fallback only when no statement role is known
+            if weight is None and not statement_role:
                 for calc_tree in self.calculation_trees.values():
                     if element_id_normalized in calc_tree.all_nodes:
                         calc_node = calc_tree.all_nodes[element_id_normalized]
@@ -1785,6 +2073,11 @@ class XBRL:
 
         # Find facts for any of these concept names
         all_relevant_facts = self._find_facts_for_element(node.element_name, period_filter)
+
+        # GH #1468: a co-registrant's own face statement reads that registrant's facts
+        coregistrant_member = self._coregistrant_member(statement_role)
+        if coregistrant_member:
+            all_relevant_facts = _project_coregistrant_facts(all_relevant_facts, coregistrant_member)
 
         # Group facts by period for better selection
         facts_by_period = {}
@@ -1850,11 +2143,19 @@ class XBRL:
                             # Skip this dimensional fact - member not in presentation linkbase
                             continue
 
-                        # Use the dimension_key we already generated
-                        dim_key_str = dimension_key
+                        # Group by the members themselves, not only their labels:
+                        # two members of one axis can share a display label (GE
+                        # labels both SubsidiariesGeccMember and GECapitalMember
+                        # "GE Capital"), and grouping by label let one member's
+                        # amounts overwrite the other's (GH #1682).
+                        member_identity = tuple(sorted(
+                            (str(d.get('dimension', '')).replace(':', '_'),
+                             str(d.get('member', '')).replace(':', '_'))
+                            for d in dimension_info))
 
                         # Store dimensioned fact with the full dimension metadata
-                        dimensioned_facts[dim_key_str].append((period_key, fact, dimension_info))
+                        dimensioned_facts[(dimension_key, member_identity)].append(
+                            (period_key, fact, dimension_info))
                     else:
                         # Collect non-dimensioned facts to select most precise later
                         non_dimensioned_facts_for_period.append((context_id, wrapped_fact))
@@ -1867,7 +2168,9 @@ class XBRL:
                         fact = wrapped_fact['fact']
                     else:
                         # Multiple non-dimensioned contexts for same period - select by precision
-                        best = max(non_dimensioned_facts_for_period,
+                        candidates = self._prefer_reporting_currency(
+                            non_dimensioned_facts_for_period, fact_of=lambda x: x[1]['fact'])
+                        best = max(candidates,
                                    key=lambda x: self._get_fact_precision(x[1]['fact']))
                         context_id, wrapped_fact = best
                         fact = wrapped_fact['fact']
@@ -1913,23 +2216,11 @@ class XBRL:
                         if is_valid:
                             filtered_dim_facts.append((cid, wf))
 
-                    synthetic = self._compute_synthetic_total(filtered_dim_facts, element_id_normalized)
+                    synthetic = self._compute_synthetic_total(filtered_dim_facts, element_id_normalized,
+                                                              member_parents)
                     if synthetic:
-                        values[period_key] = synthetic['total']
-                        fact = synthetic['fact']
-                        context_id = synthetic['context_id']
-
-                        fact_decimals = normalize_decimals(fact.decimals)
-                        if fact_decimals is not None:
-                            decimals[period_key] = fact_decimals
-
-                        units[period_key] = fact.unit_ref
-
-                        if context_id in self.contexts:
-                            context = self.contexts[context_id]
-                            if hasattr(context, 'period') and context.period:
-                                pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
-                                period_types[period_key] = pt
+                        self._store_synthetic_total(synthetic, period_key, values, decimals,
+                                                    units, period_types)
 
             else:
                 # For standard financial statements, prefer non-dimensioned facts
@@ -1943,7 +2234,8 @@ class XBRL:
                         context_id, wrapped_fact = non_dim_facts[0]
                         fact = wrapped_fact['fact']
                     else:
-                        best = min(non_dim_facts,
+                        candidates = self._prefer_reporting_currency(non_dim_facts, fact_of=lambda x: x[1]['fact'])
+                        best = min(candidates,
                                    key=lambda x: (len(x[1]['dimension_info']),
                                                   -self._get_fact_precision(x[1]['fact'])))
                         context_id, wrapped_fact = best
@@ -1970,23 +2262,11 @@ class XBRL:
                         (cid, wf) for cid, wf in period_facts
                         if wf['dimension_info'] and len(wf['dimension_info']) == 1
                     ]
-                    synthetic = self._compute_synthetic_total(dim_facts, element_id_normalized)
+                    synthetic = self._compute_synthetic_total(dim_facts, element_id_normalized,
+                                                              member_parents)
                     if synthetic:
-                        values[period_key] = synthetic['total']
-                        fact = synthetic['fact']
-                        context_id = synthetic['context_id']
-
-                        fact_decimals = normalize_decimals(fact.decimals)
-                        if fact_decimals is not None:
-                            decimals[period_key] = fact_decimals
-
-                        units[period_key] = fact.unit_ref
-
-                        if context_id in self.contexts:
-                            context = self.contexts[context_id]
-                            if hasattr(context, 'period') and context.period:
-                                pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
-                                period_types[period_key] = pt
+                        self._store_synthetic_total(synthetic, period_key, values, decimals,
+                                                    units, period_types)
 
         # Create preferred_signs dict for all periods (same value for all periods of this concept)
         preferred_signs = {}
@@ -2053,7 +2333,7 @@ class XBRL:
             # Track dimensional items added for this concept (for hierarchy post-processing)
             dim_items_added = []
             # Add each dimension as a child line item with increased depth
-            for dim_key, facts_list in dimensioned_facts.items():
+            for (dim_key, _member_identity), facts_list in dimensioned_facts.items():
                 dim_values = {}
                 dim_decimals = {}
                 dim_units = {}  # Store unit_ref for each period
@@ -2150,7 +2430,7 @@ class XBRL:
 
             # Post-process: apply member hierarchy from definition linkbase
             if dim_items_added:
-                self._apply_member_hierarchy(dim_items_added)
+                self._apply_member_hierarchy(dim_items_added, statement_role)
             # Now add to result in correct order
             result.extend(dim_items_added)
 
@@ -2164,9 +2444,11 @@ class XBRL:
             self._generate_line_items(child_id, nodes, result, period_filter, current_path,
                                       should_display_dimensions, valid_dimensional_members, view,
                                       statement_role=statement_role,
-                                      preferred_label_override=child_override)
+                                      preferred_label_override=child_override,
+                                      member_parents=member_parents)
 
-    def _apply_member_hierarchy(self, dim_items: List[Dict[str, Any]]) -> None:
+    def _apply_member_hierarchy(self, dim_items: List[Dict[str, Any]],
+                                statement_role: Optional[str] = None) -> None:
         """Adjust level of dimensional items based on definition linkbase member hierarchy.
 
         The definition linkbase defines member-to-member relationships (e.g.,
@@ -2184,6 +2466,13 @@ class XBRL:
         rows would collide and the earlier one would be dropped; the domain
         hierarchy cannot say which axis's row it nests, so neither is
         reordered and both pass through (edgartools-3h3q).
+
+        A domain-member network belongs to its extended link role (XBRL
+        Dimensions 1.0 section 2.4), so with ``statement_role`` given only that
+        role's member relationships nest rows. The union across roles nested
+        Tesla's "Services and other" under a subtotal member that only a note
+        declares (GH #1701). A role with no domain-member arcs falls back to the
+        union, so filings without a per-role definition network keep their nesting.
         """
         member_to_item = {}
         ambiguous = set()
@@ -2205,7 +2494,9 @@ class XBRL:
             return
 
         member_ids = set(member_to_item.keys())
-        domains = self.parser.domains
+        # A role with no domain-member arcs of its own (no definition network
+        # for the statement) keeps the cross-role union, as before GH #1701.
+        domains = (self.parser.domains_for_role(statement_role) if statement_role else None) or self.parser.domains
 
         # Find members that are parents of other members in our set
         member_children = {}
@@ -2364,7 +2655,7 @@ class XBRL:
 
         return line_items
 
-    def _compute_synthetic_total(self, dim_facts, element_id_normalized):
+    def _compute_synthetic_total(self, dim_facts, element_id_normalized, member_parents=None):
         """
         Issue #646: Compute a synthetic total from single-axis dimensional members.
 
@@ -2374,33 +2665,40 @@ class XBRL:
         Guards:
         - Skips per-share and ratio concepts (summing them is meaningless)
         - Expects only single-axis facts (caller must filter multi-axis facts)
+        - Skips members nested under another member that has a fact, when
+          member_parents (from _get_dimensional_member_parents) says so
 
-        Returns dict with 'total', 'fact', 'context_id' or None if not computable.
+        Returns None if not computable, else a dict with 'total', 'computed'
+        (True for a sum, False when the total is one filed fact), 'unit_ref',
+        'decimals' and 'component_context_ids'. 'fact' and 'context_id' name
+        the filed fact, and are None for a sum.
         """
         if not dim_facts:
             return None
 
         # Guard: don't synthesize totals for per-share or ratio concepts
-        element = self.element_catalog.get(element_id_normalized)
-        if element:
-            dt = (element.data_type or '').lower()
-            if 'pershare' in dt or 'pure' in dt:
-                return None
+        if self._is_per_share_or_ratio_concept(element_id_normalized):
+            return None
 
-        from collections import defaultdict
-        axis_groups = defaultdict(list)
-        for cid, wf in dim_facts:
-            dim_info = wf['dimension_info']
-            val = wf['fact'].numeric_value
-            if val is not None:
-                axis = dim_info[0].get('dimension', '')
-                axis_groups[axis].append((cid, wf, val))
+        dim_facts = self._facts_in_statement_scope(dim_facts, member_parents or {})
 
+        axis_groups = self._group_by_axis(dim_facts)
         if not axis_groups:
             return None
 
         # Pick the axis with most members (most complete breakdown)
         best_axis = max(axis_groups.values(), key=len)
+
+        # A member the statement nests under another member is already inside
+        # it: Tesla's Automotive sales is part of AutomotiveRevenuesMember. Keep
+        # only the outermost members that carry a fact (GH #1759).
+        axis_key = best_axis[0][1]['dimension_info'][0].get('dimension', '').replace(':', '_')
+        parents = (member_parents or {}).get(axis_key)
+        if parents:
+            best_axis = self._outermost_members(best_axis, parents)
+
+        if self._units_do_not_add(best_axis):
+            return None
 
         # Sharing an axis does not make members disjoint. A statement of
         # shareholders' equity breaks equity down by component AND carries the
@@ -2410,53 +2708,311 @@ class XBRL:
         # filed $98,879,000,000, because the four components, their
         # ParentMember subtotal, the noncontrolling interest and the issuer's
         # own total member were all added together (gh #1281).
-        aggregates, components = [], []
-        for entry in best_axis:
-            member = (entry[1]['dimension_info'][0].get('member') or '')
-            (aggregates if _is_aggregate_member(member) else components).append(entry)
+        aggregates, components = self._split_aggregate_members(best_axis)
 
         if aggregates:
-            # The filing states its own total; report that rather than adding
-            # anything up. Never fall through to the sum here: an aggregate and
-            # its own components in one group is exactly the double count.
-            #
-            # Which aggregate is THE total is settled by agreement with the
-            # components when there are any, since a filing can carry several
-            # nested subtotals -- Disney files ParentMember at 95,008 AND a
-            # total-equity member at 98,879, and only the latter covers the
-            # whole axis.
-            component_total = sum(v for _, _, v in components)
-            if components:
-                scale = max((abs(v) for _, _, v in best_axis), default=0)
-                tolerance = max(abs(component_total), scale) * 1e-6
-                for cid, wf, value in aggregates:
-                    if abs(value - component_total) <= tolerance:
-                        return {'total': value, 'fact': wf['fact'], 'context_id': cid}
-
-            # Either the group is nothing but an aggregate -- Coca-Cola tags
-            # shareowners' equity solely against ParentMember, so there is no
-            # arithmetic to do and no ambiguity -- or several aggregates are
-            # present and none reconciles, which happens when the members are
-            # not parts of one whole at all (Apple's receivable concentration
-            # lists two named customers beside a carriers total). In both cases
-            # a filed total is a better answer than a sum that mixes levels,
-            # so prefer the filer's explicitly named total.
-            named = [e for e in aggregates
-                     if 'total' in (e[1]['dimension_info'][0].get('member') or '').lower()]
-            cid, wf, value = max(named or aggregates, key=lambda e: abs(e[2]))
-            return {'total': value, 'fact': wf['fact'], 'context_id': cid}
+            return self._aggregate_total(best_axis, aggregates, components)
 
         # No aggregate members: a genuine disjoint breakdown, which is the case
         # this helper was added for (gh #646 -- Disney's own cost of services
         # and cost of products summing to total costs).
-        total = sum(v for _, _, v in best_axis)
-        first_cid, first_wf, _ = best_axis[0]
+        if self._breakdown_sum_misleads(best_axis, parents, element_id_normalized):
+            return None
 
+        if len(best_axis) == 1:
+            cid, wf, value = best_axis[0]
+            return self._filed_total(value, wf['fact'], cid)
+
+        return self._summed_total(best_axis)
+
+    def _is_per_share_or_ratio_concept(self, element_id) -> bool:
+        """Whether the catalog types this concept as per-share or pure."""
+        element = self.element_catalog.get(element_id)
+        if not element:
+            return False
+        dt = (element.data_type or '').lower()
+        return 'pershare' in dt or 'pure' in dt
+
+    @staticmethod
+    def _group_by_axis(dim_facts):
+        """(context_id, fact, value) entries of the numeric facts, grouped by axis."""
+        from collections import defaultdict
+        axis_groups = defaultdict(list)
+        for cid, wf in dim_facts:
+            dim_info = wf['dimension_info']
+            val = wf['fact'].numeric_value
+            if val is not None:
+                axis = dim_info[0].get('dimension', '')
+                axis_groups[axis].append((cid, wf, val))
+        return axis_groups
+
+    @staticmethod
+    def _outermost_members(entries, parents):
+        """The entries whose member is not nested under another entry's member."""
+        present = {(entry[1]['dimension_info'][0].get('member') or '').replace(':', '_')
+                   for entry in entries}
+
+        def nested_in_present(member):
+            seen = set()
+            parent = parents.get(member)
+            while parent and parent not in seen:
+                if parent in present:
+                    return True
+                seen.add(parent)
+                parent = parents.get(parent)
+            return False
+
+        return [entry for entry in entries
+                if not nested_in_present(
+                    (entry[1]['dimension_info'][0].get('member') or '').replace(':', '_'))]
+
+    def _units_do_not_add(self, entries) -> bool:
+        """Whether the entries' units rule out adding them up."""
+        # The catalog only types the filer's own extension concepts, so a
+        # us-gaap per-share concept passes the check above untyped. The facts'
+        # units say it for every concept: a divide unit (USD per share) or a
+        # pure one (a percentage) is an intensive amount that does not add up.
+        # Constellation Brands' basic EPS came out as 19.92, the Class A 10.44
+        # and Class B 9.48 added together (GH #1683). One member alone is a
+        # filed value, not a sum.
+        if len(entries) > 1 and any(self._is_non_additive_unit(entry[1]['fact'].unit_ref)
+                                    for entry in entries):
+            return True
+
+        # Amounts in different units do not add: MXN 327M and USD 19M are not
+        # 346M of anything (GH #1689). Nor is a smaller axis then a better
+        # answer, so there is no total.
+        return len({entry[1]['fact'].unit_ref for entry in entries}) > 1
+
+    @staticmethod
+    def _split_aggregate_members(entries):
+        """Split entries into (aggregate members, component members)."""
+        aggregates, components = [], []
+        for entry in entries:
+            member = (entry[1]['dimension_info'][0].get('member') or '')
+            (aggregates if _is_aggregate_member(member) else components).append(entry)
+        return aggregates, components
+
+    def _aggregate_total(self, entries, aggregates, components) -> Dict[str, Any]:
+        """The filed total among the aggregate members of an axis."""
+        # The filing states its own total; report that rather than adding
+        # anything up. Never fall through to the sum here: an aggregate and
+        # its own components in one group is exactly the double count.
+        #
+        # Which aggregate is THE total is settled by agreement with the
+        # components when there are any, since a filing can carry several
+        # nested subtotals -- Disney files ParentMember at 95,008 AND a
+        # total-equity member at 98,879, and only the latter covers the
+        # whole axis.
+        component_total = sum(v for _, _, v in components)
+        if components:
+            scale = max((abs(v) for _, _, v in entries), default=0)
+            tolerance = max(abs(component_total), scale) * 1e-6
+            for cid, wf, value in aggregates:
+                if abs(value - component_total) <= tolerance:
+                    return self._filed_total(value, wf['fact'], cid)
+
+        # Either the group is nothing but an aggregate -- Coca-Cola tags
+        # shareowners' equity solely against ParentMember, so there is no
+        # arithmetic to do and no ambiguity -- or several aggregates are
+        # present and none reconciles, which happens when the members are
+        # not parts of one whole at all (Apple's receivable concentration
+        # lists two named customers beside a carriers total). In both cases
+        # a filed total is a better answer than a sum that mixes levels,
+        # so prefer the filer's explicitly named total.
+        named = [e for e in aggregates
+                 if 'total' in (e[1]['dimension_info'][0].get('member') or '').lower()]
+        cid, wf, value = max(named or aggregates, key=lambda e: abs(e[2]))
+        return self._filed_total(value, wf['fact'], cid)
+
+    def _breakdown_sum_misleads(self, entries, parents, element_id) -> bool:
+        """Whether adding a disjoint breakdown would give a partial or double count."""
+        if len(entries) > 1 and parents and not self._presented_members_covered(entries, parents,
+                                                                                element_id):
+            return True
+
+        # On an axis the statement does not present there is no hierarchy to
+        # say the members are disjoint; one that is the sum of others is a
+        # subtotal beside its parts (GH #1703).
+        return not parents and _contains_a_subtotal([v for _, _, v in entries])
+
+    @staticmethod
+    def _summed_total(entries) -> Dict[str, Any]:
+        """A synthetic-total result that adds up the entries."""
+        # A sum is no filed fact: it carries no single context or fact id, its
+        # precision is that of its least precise component, and it says it was
+        # computed (GH #1689).
+        component_facts = [wf['fact'] for _, wf, _ in entries]
+        precisions = [normalize_decimals(f.decimals) for f in component_facts]
+        finite = [d for d in precisions if isinstance(d, int)]
         return {
-            'total': total,
-            'fact': first_wf['fact'],
-            'context_id': first_cid,
+            'total': sum(v for _, _, v in entries),
+            'computed': True,
+            'fact': None,
+            'context_id': None,
+            'component_context_ids': [cid for cid, _, _ in entries],
+            'unit_ref': component_facts[0].unit_ref,
+            'decimals': min(finite) if finite else next((d for d in precisions if d is not None), None),
         }
+
+    def _presented_members_covered(self, entries, parents, element_id=None) -> bool:
+        """Whether the members with facts make up every member the axis presents.
+
+        A balance is the sum of every component the statement presents. When a
+        presented component has no balance, the sum of the rest is a partial
+        that looks like a total: Coca-Cola files no common-stock component of
+        StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest,
+        so its 2021 year-end equity came out 23,100M against 24,860M filed. A
+        member counts as covered when it, a member it nests under, or every
+        member nested under it has a fact.
+
+        An uncovered member is a gap only when it belongs to this concept's
+        breakdown: it sits inside a member that also encloses a summed one
+        (Coca-Cola's common stock, beside capital surplus under ParentMember),
+        or it carries this concept in another context (Golub's unaffiliated
+        issuers, filed at other dates). Disney's derivative table presents
+        liability locations beside the asset ones; they never carry an asset
+        concept, so its 275M + 635M of gross derivative assets still adds up.
+
+        Flows are left alone: a component with no net income or dividend line
+        is a zero, not a gap. The caller applies this to sums only; one
+        member's fact is a filed value.
+        """
+        if self._context_period_type(entries[0][0]) != 'instant':
+            return True
+
+        present = {(entry[1]['dimension_info'][0].get('member') or '').replace(':', '_') for entry in entries}
+        children = self._member_children(parents)
+
+        uncovered = [m for m in parents
+                     if not m.endswith('Domain') and not self._member_covered(m, present, parents, children)]
+        if not uncovered:
+            return True
+        enclosing = self._enclosing_members
+        summed_enclosing = set().union(*(enclosing(m, parents) for m in present))
+        axis = (entries[0][1]['dimension_info'][0].get('dimension') or '').replace(':', '_')
+        elsewhere = self._members_carrying(element_id, axis) if element_id else set()
+        return not any(m in elsewhere or enclosing(m, parents) & summed_enclosing for m in uncovered)
+
+    def _context_period_type(self, context_id) -> Optional[str]:
+        """The period type ('instant' or 'duration') of a context, if known."""
+        context = self.contexts.get(context_id)
+        period = getattr(context, 'period', None) if context is not None else None
+        return period.get('type') if isinstance(period, dict) else getattr(period, 'type', None)
+
+    @staticmethod
+    def _member_children(parents) -> Dict[str, List[str]]:
+        """The members nested directly under each member."""
+        children: Dict[str, List[str]] = {}
+        for member, parent in parents.items():
+            if parent:
+                children.setdefault(parent, []).append(member)
+        return children
+
+    @staticmethod
+    def _member_covered(member, present, parents, children, seen=()) -> bool:
+        """Whether a member, a member it nests under, or every member nested under it has a fact."""
+        if member in present:
+            return True
+        parent = parents.get(member)
+        while parent:
+            if parent in present:
+                return True
+            parent = parents.get(parent)
+        kids = [k for k in children.get(member, []) if k not in seen]
+        return bool(kids) and all(XBRL._member_covered(k, present, parents, children, seen + (member,))
+                                  for k in kids)
+
+    @staticmethod
+    def _enclosing_members(member, parents) -> Set[str]:
+        """Every member a member nests under."""
+        found, parent = set(), parents.get(member)
+        while parent and parent not in found:
+            found.add(parent)
+            parent = parents.get(parent)
+        return found
+
+    def _members_carrying(self, element_id, axis) -> Set[str]:
+        """The members of an axis that carry a fact of this concept in any context."""
+        members = set()
+        for context_id in self.element_context_index.get(element_id, []):
+            context = self.contexts.get(context_id)
+            for dim, member in (getattr(context, 'dimensions', None) or {}).items():
+                if dim.replace(':', '_') == axis:
+                    members.add(str(member).replace(':', '_'))
+        return members
+
+    @staticmethod
+    def _facts_in_statement_scope(dim_facts, member_parents):
+        """The dimensional facts a statement's synthesized plain row may add up.
+
+        A concept's facts come from every disclosure that uses it, not only the
+        statement being built. Deutsche Bank's consolidated cash flow tags its
+        figures with dei:LegalEntityAxis = consolidatedBankEntityMember, and the
+        parent-only note uses the same concept with DeutscheBankAGMember; adding
+        both read operating cash flow 2024 as EUR -58,501 million against a
+        filed -28,584 million (GH #1703).
+
+        - On an axis the statement's presentation tree declares, only the
+          declared members are in scope, in every view (DETAILED relaxes which
+          dimensional rows are shown, not what the plain row adds up).
+        - When the concept has facts on a declared axis, those are the
+          statement's own breakdown and facts on other axes are out of scope.
+        - Otherwise, axes whose members are other entities, scenarios or
+          restatements of one figure (never parts of it) are out of scope.
+        """
+        def axis_and_member(wf):
+            dim = wf['dimension_info'][0]
+            return ((dim.get('dimension') or '').replace(':', '_'),
+                    (dim.get('member') or '').replace(':', '_'))
+
+        declared = [(cid, wf) for cid, wf in dim_facts
+                    if axis_and_member(wf)[0] in member_parents]
+        if declared:
+            return [(cid, wf) for cid, wf in declared
+                    if axis_and_member(wf)[1] in member_parents[axis_and_member(wf)[0]]]
+        return [(cid, wf) for cid, wf in dim_facts
+                if axis_and_member(wf)[0] not in _NON_ADDITIVE_AXES]
+
+    def _store_synthetic_total(self, synthetic, period_key, values, decimals, units, period_types) -> None:
+        """Write a `_compute_synthetic_total()` result into a line item's period maps."""
+        values[period_key] = synthetic['total']
+        if synthetic['decimals'] is not None:
+            decimals[period_key] = synthetic['decimals']
+        units[period_key] = synthetic['unit_ref']
+        # Every component shares the period, so any one context gives its type.
+        context = self.contexts.get(synthetic['component_context_ids'][0])
+        if context is not None and getattr(context, 'period', None):
+            period = context.period
+            period_types[period_key] = (period.get('type') if isinstance(period, dict)
+                                        else getattr(period, 'type', None))
+
+    @staticmethod
+    def _filed_total(value, fact, context_id) -> Dict[str, Any]:
+        """A synthetic-total result that is one filed fact, not a sum."""
+        return {
+            'total': value,
+            'computed': False,
+            'fact': fact,
+            'context_id': context_id,
+            'component_context_ids': [context_id],
+            'unit_ref': fact.unit_ref,
+            'decimals': normalize_decimals(fact.decimals),
+        }
+
+    def _is_non_additive_unit(self, unit_ref: Optional[str]) -> bool:
+        """Whether amounts in this unit are ratios that cannot be summed.
+
+        True for a divide unit (USD per share) and for xbrli:pure (percentages,
+        ratios). Shares, currencies and other simple measures add up.
+        """
+        unit = self.units.get(unit_ref) if unit_ref else None
+        if not unit:
+            return False
+        if unit.get('type') == 'divide':
+            return True
+        measure = (unit.get('measure') or '').split(':')[-1].lower()
+        return measure == 'pure'
 
     @staticmethod
     def _get_fact_precision(fact) -> int:
@@ -2467,6 +3023,8 @@ class XBRL:
         - INF (infinite precision) returns 1_000_000
         - Numeric decimals return their value (e.g., -6 for millions, 2 for hundredths)
         - None or invalid returns 0 (default/unknown precision)
+        - A valueless (nil) fact returns -2_000_000, below any valued fact, because
+          its missing decimals says nothing about precision (GH #1750)
 
         Args:
             fact: An XBRL Fact object with a decimals attribute
@@ -2474,6 +3032,8 @@ class XBRL:
         Returns:
             Integer precision value for comparison (higher = more precise)
         """
+        if fact.numeric_value is None and fact.value in (None, ''):
+            return -2_000_000  # Nil/valueless: never outranks a fact with a value
         if fact.decimals == 'INF':
             return 1_000_000  # Infinite precision = highest
         elif fact.decimals is not None:
@@ -2514,6 +3074,138 @@ class XBRL:
 
         return best_fact
 
+    def _currency_measure(self, unit_ref: Optional[str]) -> Optional[str]:
+        """The iso4217 measure a fact's unit denominates its value in, else None."""
+        return unit_currency_measure(self.parser.units.get(unit_ref)) if unit_ref else None
+
+    def _reporting_currency(self) -> Optional[str]:
+        """
+        The iso4217 measure most of this filing's facts are reported in.
+
+        A tie in the count goes to the currency of an undimensioned us-gaap:Assets
+        fact, then to the alphabetically first measure, so the choice never
+        depends on fact order.
+        """
+        if self._reporting_currency_cache is None:
+            counts: Dict[str, int] = {}
+            for fact in self.parser.facts.values():
+                measure = self._currency_measure(fact.unit_ref)
+                if measure:
+                    counts[measure] = counts.get(measure, 0) + 1
+            choice = ''
+            if counts:
+                top = max(counts.values())
+                tied = sorted(m for m, n in counts.items() if n == top)
+                choice = tied[0]
+                if len(tied) > 1:
+                    for fact in self.parser.facts.values():
+                        context = self.contexts.get(fact.context_ref)
+                        if (fact.element_id in ('us-gaap:Assets', 'us-gaap_Assets') and context is not None
+                                and not context.dimensions):
+                            measure = self._currency_measure(fact.unit_ref)
+                            if measure in tied:
+                                choice = measure
+                                break
+            self._reporting_currency_cache = choice
+        return self._reporting_currency_cache or None
+
+    def _prefer_reporting_currency(self, items: list, fact_of=None) -> list:
+        """
+        Narrow candidates in different units to those in the reporting currency.
+
+        Facts in different currencies are different data points (XBRL 2.1 §4.10,
+        U-Equal), but a statement cell holds one value. Ranking them by decimals
+        alone let a CAD or EUR amount replace the USD one in a USD statement
+        (GH #1704). Facts in other units stay reachable through xbrl.facts.
+
+        When duplicates differ by unit, the statement shows the reporting-currency
+        amount even where the foreign fact is the exact face amount (for example
+        EUR-denominated notes, such as Netflix's, tagged in EUR beside a USD
+        equivalent). A warning is logged once per filing when this happens.
+
+        ``fact_of`` maps an item to its Fact, for callers whose candidates are
+        wrapped (context id, fact dict) pairs; by default items are Facts.
+        """
+        fact_of = fact_of or (lambda item: item)
+        if len(items) < 2 or len({fact_of(i).unit_ref for i in items}) < 2:
+            return items
+        currency = self._reporting_currency()
+        preferred = [i for i in items if currency and self._currency_measure(fact_of(i).unit_ref) == currency]
+        if preferred and len(preferred) < len(items) and not self._currency_choice_logged:
+            kept = {id(i) for i in preferred}
+            dropped = sorted({str(fact_of(i).unit_ref) for i in items if id(i) not in kept})
+            log.warning(
+                "%s is reported in %s and in %s for the same period; statements show the %s amount. "
+                "All amounts remain in xbrl.facts. Logged once per filing (GH #1704).",
+                fact_of(items[0]).element_id, currency, ", ".join(dropped), currency,
+            )
+            self._currency_choice_logged = True
+        return preferred or items
+
+    def _coregistrant_member(self, role: Optional[str]) -> Optional[str]:
+        """
+        Return the legal-entity member whose own face statement this role is, or None.
+
+        GH #1468: a filing for several registrants (AAL with American Airlines,
+        Inc.; Duke with its utilities) gives each subsidiary its own statement
+        roles. Their presentation trees list dei:LegalEntityAxis with the domain
+        and one member, so under XBRL rules the undimensioned facts -- the
+        parent's -- fill the plain rows, and SEC's R-file viewer shows them that
+        way. The filing's HTML shows only the subsidiary. A role counts as the
+        subsidiary's own statement when it:
+
+        - is a face statement (FilingSummary 'Statements' menu, or a classified
+          statement type when the filing has no FilingSummary),
+        - names exactly one dei:LegalEntityAxis member, and
+        - has a sibling face statement of the same kind without the axis, which
+          is the parent's.
+
+        The sibling check matters: Simon Property, NextEra and Dominion file one
+        combined role per statement holding the parent's facts plus one
+        subsidiary member, and that role is the parent's own statement. Notes
+        and details roles with a single member legitimately show both entities
+        and are never matched.
+        """
+        if not role:
+            return None
+        if self._coregistrant_members is None:
+            self._coregistrant_members = self._find_coregistrant_members()
+        return self._coregistrant_members.get(role)
+
+    def _find_coregistrant_members(self) -> Dict[str, str]:
+        has_filing_summary = bool(self._filing_summary_menu_categories)
+        face_types = set(statement_to_concepts)
+
+        def is_face(statement: Dict[str, Any]) -> bool:
+            if has_filing_summary:
+                return (statement.get('menu_category') or '').lower() == 'statements'
+            statement_type = statement.get('type') or ''
+            return statement_type.removesuffix('Parenthetical') in face_types
+
+        def kind(statement: Dict[str, Any]) -> Tuple[Any, Any, bool]:
+            parenthetical = 'parenthetical' in (statement.get('definition') or '').lower()
+            return statement.get('primary_concept'), statement.get('type'), parenthetical
+
+        candidates = {}
+        plain_kinds = []
+        for statement in self.get_all_statements():
+            tree = self.presentation_trees.get(statement['role'])
+            if tree is None or not is_face(statement):
+                continue
+            members = _legal_entity_members(tree.all_nodes)
+            if members is None:
+                plain_kinds.append(kind(statement))
+            elif len(members) == 1:
+                candidates[statement['role']] = (members[0], kind(statement))
+
+        coregistrant_members = {}
+        for role, (member, (concept, statement_type, parenthetical)) in candidates.items():
+            if any((concept == plain_concept or (statement_type and statement_type == plain_type))
+                   and parenthetical == plain_parenthetical
+                   for plain_concept, plain_type, plain_parenthetical in plain_kinds):
+                coregistrant_members[role] = member
+        return coregistrant_members
+
     def _find_facts_for_element(self, element_name: str, period_filter: Optional[str] = None,
                                 dimensions: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
@@ -2531,11 +3223,12 @@ class XBRL:
         relevant_facts = {}
 
         # Use reverse index to only check contexts that actually have facts for this element
+        element_name = self._fact_element_key(element_name)
         context_ids = self.element_context_index.get(element_name, [])
         for context_id in context_ids:
             # Issue #564: Get ALL facts for this element/context and select the most precise
             facts_list = self.parser.get_facts_by_key(element_name, context_id)
-            fact = self._select_most_precise_fact(facts_list)
+            fact = self._select_most_precise_fact(self._prefer_reporting_currency(facts_list))
 
             if fact:
                 # If period filter is specified, check if context matches period
@@ -2688,6 +3381,25 @@ class XBRL:
                 - Found role URI (or None if not found)
                 - Actual statement type (may be different from input if matched by role/name)
         """
+        # Literal role identifiers must not enter canonical/name guessing.
+        if statement_type.lower().startswith(('http://', 'https://')):
+            tree = self.presentation_trees.get(statement_type)
+            if tree is None:
+                return [], None, statement_type
+            matching_statements = [
+                stmt for stmt in self.get_all_statements()
+                if stmt.get('role') == statement_type
+            ]
+            if not matching_statements:
+                # A tree can be available without catalog classification.
+                matching_statements = [{
+                    'role': statement_type,
+                    'definition': tree.definition,
+                    'element_count': len(tree.all_nodes),
+                    'type': None,
+                }]
+            return matching_statements, statement_type, matching_statements[0]['type']
+
         # Initialize statement resolver if not already done
         if self._statement_resolver is None:
             self._statement_resolver = StatementResolver(self)
@@ -2800,6 +3512,13 @@ class XBRL:
 
         # Find the statement using the unified statement finder with parenthetical support
         matching_statements, found_role, actual_statement_type = self.find_statement(statement_type, parenthetical)
+        statement_identifier = statement_type
+        if parenthetical:
+            if not found_role:
+                return None
+            statement_identifier = found_role
+            # Resolve the selected role's own kind rather than the primary name.
+            matching_statements, _, actual_statement_type = self.find_statement(found_role)
 
         # Get statement definition from matching statements
         role_definition = ""
@@ -2812,7 +3531,7 @@ class XBRL:
         should_display_dimensions = True
 
         # Get the statement data with all dimensional data, passing view for filtering
-        statement_data = self.get_statement(statement_type, period_filter, should_display_dimensions, view=view)
+        statement_data = self.get_statement(statement_identifier, period_filter, should_display_dimensions, view=view)
         if not statement_data:
             return None
 
@@ -2834,7 +3553,7 @@ class XBRL:
                 statement_title = statement_type
 
         # Add "Parenthetical" to the title if appropriate
-        if parenthetical:
+        if parenthetical and 'parenthetical' not in statement_title.lower():
             statement_title = f"{statement_title} (Parenthetical)"
 
         # GH #1469: honour period_filter the way Statement.to_dataframe()
@@ -3053,6 +3772,7 @@ class XBRL:
         Returns:
             List of Footnote objects associated with the fact
         """
+        self._load_inline_footnotes()
         footnotes = []
 
         # First check if any fact has this ID and get its footnote references
@@ -3071,6 +3791,7 @@ class XBRL:
         Returns:
             Dictionary of fact_key -> Fact for all facts with footnotes
         """
+        self._load_inline_footnotes()
         facts_with_footnotes = {}
         for key, fact in self.parser.facts.items():
             if fact.footnotes:
@@ -3237,6 +3958,27 @@ class XBRL:
             True if hypercube/table definitions exist for this role.
         """
         return role_uri in self.tables and len(self.tables[role_uri]) > 0
+
+    def presented_axes_for_role(self, role_uri: str) -> Optional[Dict[str, bool]]:
+        """The axes a role's presentation tree shows, as 'prefix_AxisName'.
+
+        Each maps to whether the tree names members under it; an axis shown
+        with only its domain (Disney's dei_LegalEntityAxis > EntityDomain)
+        names none. None when the role has no presentation tree. A role
+        without a definition linkbase still lists, in its presentation tree,
+        every axis it prints; IFRS filers such as SAP file no hypercubes for
+        their face statements (GH #1670).
+        """
+        cache = self.__dict__.setdefault('_presented_axes_cache', {})
+        if role_uri not in cache:
+            tree = self.presentation_trees.get(role_uri)
+            if tree is None:
+                cache[role_uri] = None
+            else:
+                with_members = self._get_dimensional_member_parents(tree)
+                cache[role_uri] = {node_id.replace(':', '_'): node_id.replace(':', '_') in with_members
+                                   for node_id in tree.all_nodes if node_id.endswith('Axis')}
+        return cache[role_uri]
 
     def __rich__(self):
         """Rich representation for pretty printing in console."""
@@ -3436,3 +4178,50 @@ class XBRL:
         """
         from edgar.richtools import Docs
         return Docs(self)
+
+
+_LEGAL_ENTITY_AXIS = 'dei_LegalEntityAxis'
+
+
+def _legal_entity_members(nodes: Dict[str, PresentationNode]) -> Optional[List[str]]:
+    """Return the dei:LegalEntityAxis members under a presentation tree, or None without the axis."""
+    axis = nodes.get(_LEGAL_ENTITY_AXIS)
+    if axis is None:
+        return None
+    members = []
+    pending = list(axis.children)
+    while pending:
+        element_id = pending.pop()
+        if not element_id.endswith('Domain'):
+            members.append(element_id)
+        node = nodes.get(element_id)
+        if node is not None:
+            pending.extend(node.children)
+    return members
+
+
+def _project_coregistrant_facts(facts: Dict[str, Any], member: str) -> Dict[str, Any]:
+    """
+    Keep one co-registrant's facts and present them as the statement's own (GH #1468).
+
+    A fact tagged with the member loses that axis and keeps any other (equity
+    components, consolidation items), so it lands on the plain row or the same
+    breakdown row the parent's fact would. Undimensioned facts are the
+    parent's, and facts for other legal entities belong to other statements;
+    both are dropped.
+    """
+    projected = {}
+    for context_id, wrapped_fact in facts.items():
+        dimension_info = wrapped_fact['dimension_info']
+        own = [info for info in dimension_info
+               if info['dimension'].replace(':', '_') == _LEGAL_ENTITY_AXIS
+               and info['member'].replace(':', '_') == member]
+        if not own:
+            continue
+        remaining = [info for info in dimension_info if info not in own]
+        projected[context_id] = {
+            **wrapped_fact,
+            'dimension_info': remaining,
+            'dimension_key': ", ".join(sorted(info['format_key'] for info in remaining)),
+        }
+    return projected

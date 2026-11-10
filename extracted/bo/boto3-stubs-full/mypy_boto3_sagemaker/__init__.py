@@ -33,6 +33,7 @@ Usage::
         ListAutoMLJobsPaginator,
         ListCandidatesForAutoMLJobPaginator,
         ListClusterEventsPaginator,
+        ListClusterExtensionsPaginator,
         ListClusterNodesPaginator,
         ListClusterSchedulerConfigsPaginator,
         ListClustersPaginator,
@@ -150,6 +151,7 @@ Usage::
     list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
     list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = client.get_paginator("list_candidates_for_auto_ml_job")
     list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator("list_cluster_events")
+    list_cluster_extensions_paginator: ListClusterExtensionsPaginator = client.get_paginator("list_cluster_extensions")
     list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator("list_cluster_nodes")
     list_cluster_scheduler_configs_paginator: ListClusterSchedulerConfigsPaginator = client.get_paginator("list_cluster_scheduler_configs")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
@@ -246,6 +248,7 @@ from .paginator import (
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
     ListClusterEventsPaginator,
+    ListClusterExtensionsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -366,6 +369,7 @@ __all__ = (
     "ListAutoMLJobsPaginator",
     "ListCandidatesForAutoMLJobPaginator",
     "ListClusterEventsPaginator",
+    "ListClusterExtensionsPaginator",
     "ListClusterNodesPaginator",
     "ListClusterSchedulerConfigsPaginator",
     "ListClustersPaginator",

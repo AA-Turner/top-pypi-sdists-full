@@ -3,11 +3,11 @@ from __future__ import annotations
 import dataclasses
 import traceback
 from collections.abc import MutableMapping
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal, NamedTuple
 
 import anyio
-from pydantic import AwareDatetime, BaseModel, BeforeValidator, Field, RootModel
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, Field, RootModel, field_validator
 from pydantic_core import from_json
 
 from pgqueuer.domain.types import (
@@ -28,7 +28,7 @@ from pgqueuer.domain.types import (
 
 def utc_now() -> datetime:
     """Return the current time in UTC."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Event(BaseModel):
@@ -40,7 +40,7 @@ class Event(BaseModel):
     received_at: AwareDatetime = Field(
         init=False,
         default_factory=lambda: datetime.now(
-            tz=timezone.utc,
+            tz=UTC,
         ),
     )
 
@@ -134,7 +134,8 @@ class Log(BaseModel):
     entrypoint: QueueEntrypoint
     traceback: Annotated[
         TracebackRecord | None,
-        BeforeValidator(lambda x: None if x is None else from_json(x)),
+        # asyncpg returns jsonb as text, psycopg as an already-parsed dict.
+        BeforeValidator(lambda x: x if x is None or isinstance(x, dict) else from_json(x)),
     ]
     aggregated: bool
 
@@ -167,8 +168,7 @@ class LogStatistics(BaseModel):
 
 @dataclasses.dataclass
 class Context:
-    """
-    Runtime context shared across components.
+    """Runtime context shared across components.
 
     Attributes:
         cancellation: The root CancelScope controlling shutdown of running tasks.
@@ -183,8 +183,7 @@ class Context:
 
 @dataclasses.dataclass
 class ScheduleContext:
-    """
-    Runtime context for scheduled tasks, mirroring Context for queue jobs.
+    """Runtime context for scheduled tasks, mirroring Context for queue jobs.
 
     Attributes:
         resources: A mutable mapping for user-provided, pre-initialized shared
@@ -242,7 +241,7 @@ class ThroughputStats(BaseModel):
 
 
 class ThroughputBucket(BaseModel):
-    """Per-minute processed-job count for one (entrypoint, status)."""
+    """Processed-job count for one (entrypoint, status) in one time bucket."""
 
     bucket: AwareDatetime
     entrypoint: QueueEntrypoint
@@ -317,6 +316,21 @@ class TracebackRecord(BaseModel):
     exception_message: str
     traceback: str
     additional_context: dict[str, object] | None
+
+    @field_validator("exception_message", "traceback", "additional_context", mode="after")
+    @classmethod
+    def escape_nul(cls, value: object) -> object:
+        """Spell out NUL in strings, including ones nested in dicts, lists, and tuples.
+
+        PostgreSQL's jsonb refuses a NUL, so one in a record fails the whole log write.
+        """
+        if isinstance(value, str):
+            return value.replace("\x00", "\\x00")
+        if isinstance(value, dict):
+            return {cls.escape_nul(key): cls.escape_nul(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return type(value)(cls.escape_nul(item) for item in value)
+        return value
 
     @classmethod
     def from_exception(

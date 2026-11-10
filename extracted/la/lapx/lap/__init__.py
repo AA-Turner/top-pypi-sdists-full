@@ -11,7 +11,7 @@ Single-matrix solvers
 - lapjvc uses Christoph Heindl's classic JV variant. It returns (rows, cols).
 - lapjvs extends Vadim Markovtsev's lapjv. It supports mapping arrays and aligned index arrays.
 - lapjvsa wraps lapjvs. It returns assignment pairs with shape (K, 2).
-- lapjvr uses a Rust JV core; lapjvh uses C++ square completion in the same core.
+- lapjvr uses a Rust JV core. lapjvh uses C++ square completion in the same core.
   Both return aligned int64 indices, or pairs with output='pairs'.
 
 Batch solvers
@@ -91,7 +91,7 @@ def __getattr__(name):
         return obj
     raise AttributeError(f"LAPX could not find attribute '{name}'.")
 
-__version__ = '0.13.0'
+__version__ = '0.13.1'
 __author__ = 'Ratha SIV'
 __description__ = 'Linear assignment problem solvers, including single and batch solvers.'
 __homepage__ = 'https://github.com/rathaROG/lapx'

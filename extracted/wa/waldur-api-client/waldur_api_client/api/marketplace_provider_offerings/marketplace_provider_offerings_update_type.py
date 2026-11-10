@@ -55,10 +55,11 @@ def sync_detailed(
 ) -> Response[Any]:
     """Swap offering type
 
-     Changes the offering's `type` between Marketplace.Basic and the site-agent type (Marketplace.Slurm).
-    Both plugins share the same data shape (the site-agent processors inherit from Basic and only
-    delegate the send paths to the external agent), so the swap is safe in either direction. Refused if
-    the offering's current type is not in the swappable set.
+     Changes the offering's `type` between Marketplace.Basic and the site-agent type
+    (Marketplace.SiteAgent; the legacy name Marketplace.Slurm is accepted). Both plugins share the same
+    data shape (the site-agent processors inherit from Basic and only delegate the send paths to the
+    external agent), so the swap is safe in either direction. Refused if the offering's current type is
+    not in the swappable set.
 
     Args:
         uuid (UUID):
@@ -92,10 +93,11 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Swap offering type
 
-     Changes the offering's `type` between Marketplace.Basic and the site-agent type (Marketplace.Slurm).
-    Both plugins share the same data shape (the site-agent processors inherit from Basic and only
-    delegate the send paths to the external agent), so the swap is safe in either direction. Refused if
-    the offering's current type is not in the swappable set.
+     Changes the offering's `type` between Marketplace.Basic and the site-agent type
+    (Marketplace.SiteAgent; the legacy name Marketplace.Slurm is accepted). Both plugins share the same
+    data shape (the site-agent processors inherit from Basic and only delegate the send paths to the
+    external agent), so the swap is safe in either direction. Refused if the offering's current type is
+    not in the swappable set.
 
     Args:
         uuid (UUID):

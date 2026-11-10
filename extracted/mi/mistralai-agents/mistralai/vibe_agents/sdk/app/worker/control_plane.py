@@ -32,7 +32,7 @@ from mistralai.vibe_agents.session_workflow import (
 )
 from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.config.config import config as workflow_config
-from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
+from mistralai.workflows.core.temporal.context_handler_interceptor import define_context, retrieve_context
 
 # Carries the calling Session's Workflow execution token. The worker's credential only names a
 # workspace; the token lets the Agents API refuse a caller that only holds an API key.
@@ -136,17 +136,19 @@ def _build_client(binding_id: str, execution_token: str | None = None) -> HttpSe
     return HttpSessionControlPlane(base_url=binding.base_url, headers=headers)
 
 
-def workflow_execution_token() -> str | None:
-    """The execution token of the running Workflow, read in its main task.
+def _activity_execution_token(legacy_argument: str | None) -> str | None:
+    """Return the run's execution token from the Activity's context, else ``legacy_argument``.
 
-    Only the Workflow's main task holds the token: a signal or update handler task starts
-    without it, so Activities it schedules would carry none. Workflow code reads the token
-    once here and passes it to each Session procedure Activity as an argument.
+    Never pass the token as an Activity argument: the Workflow history stores arguments.
+    ``legacy_argument`` is set only by Activities that an older worker scheduled.
     """
     context = retrieve_context()
-    return context.execution_token if context is not None and context.execution_token else None
+    return context.execution_token if context is not None and context.execution_token else legacy_argument
 
 
+# ``execution_token`` is set only by older workers; see _activity_execution_token. Remove it once
+# no worker older than this SDK version runs. Callers pass None for it: Temporal ignores the type
+# hints, and decodes the request as a dict, when an Activity gets fewer arguments than it declares.
 @workflows.activity(
     name="harness_session_start", retry_policy_max_attempts=3, start_to_close_timeout=timedelta(seconds=65)
 )
@@ -154,7 +156,7 @@ async def start_session_activity(
     binding_id: str, request: StartSessionRequest, execution_token: str | None = None
 ) -> StartSessionResult | ProcedureRejected:
     try:
-        return await _build_client(binding_id, execution_token).start_session(request)
+        return await _build_client(binding_id, _activity_execution_token(execution_token)).start_session(request)
     except SessionControlPlaneError as error:
         return ProcedureRejected.from_error(error)
 
@@ -166,7 +168,7 @@ async def send_command_activity(
     binding_id: str, request: SendSessionCommandRequest, execution_token: str | None = None
 ) -> SessionCommandResult | ProcedureRejected:
     try:
-        return await _build_client(binding_id, execution_token).send_command(request)
+        return await _build_client(binding_id, _activity_execution_token(execution_token)).send_command(request)
     except SessionControlPlaneError as error:
         return ProcedureRejected.from_error(error)
 
@@ -197,7 +199,7 @@ class ChildVerification(BaseModel):
 async def verify_child_session_activity(
     binding_id: str, request: VerifyChildSessionRequest, execution_token: str | None = None
 ) -> ChildVerification:
-    return await ask_agents_api_about_child(binding_id, request, execution_token)
+    return await ask_agents_api_about_child(binding_id, request, _activity_execution_token(execution_token))
 
 
 async def ask_agents_api_about_child(
@@ -224,13 +226,16 @@ async def ask_agents_api_about_child(
 
 
 class ActivitySessionControlPlane:
-    def __init__(self, binding_id: str, *, execution_token: str | None = None) -> None:
+    def __init__(self, binding_id: str) -> None:
         self._binding_id = binding_id
-        self._execution_token = execution_token
+        # Build this in the Workflow's main task: only that task's context holds the execution token.
+        # Each call restores this context, so Activities scheduled from a handler still carry the token.
+        self._workflow_context = retrieve_context()
 
     async def start_session(self, request: StartSessionRequest) -> StartSessionResult:
         try:
-            result = await start_session_activity(self._binding_id, request, self._execution_token)
+            with define_context(self._workflow_context):
+                result = await start_session_activity(self._binding_id, request, None)
             if isinstance(result, ProcedureRejected):
                 raise result.to_error()
             return result
@@ -239,7 +244,8 @@ class ActivitySessionControlPlane:
 
     async def send_command(self, request: SendSessionCommandRequest) -> SessionCommandResult:
         try:
-            result = await send_command_activity(self._binding_id, request, self._execution_token)
+            with define_context(self._workflow_context):
+                result = await send_command_activity(self._binding_id, request, None)
             if isinstance(result, ProcedureRejected):
                 raise result.to_error()
             return result
@@ -247,7 +253,8 @@ class ActivitySessionControlPlane:
             raise _delivery_error(error) from error
 
     async def verify_child_session(self, request: VerifyChildSessionRequest) -> ChildVerification:
-        return await verify_child_session_activity(self._binding_id, request, self._execution_token)
+        with define_context(self._workflow_context):
+            return await verify_child_session_activity(self._binding_id, request, None)
 
     async def count_active(self, request: CountActiveRequest) -> CountActiveResult:
         # No pre-check across the Session API: its start_session and send_command

@@ -1,9 +1,10 @@
 """What each group's node renders, stated from stage-2 facts.
 
 `output_concepts` is what readers read off a group; its node renders a little
-more and a little less: the preserve keys its readers ask that it can hold,
-its row identity, the relation members a scan computes, and never a value a
-twin read through (`final_cover.unrendered`). The FINAL add passes read this
+more and a little less: the required grain its readers ask (each edge asks
+only what it can carry, `join_plan.carryable`), its row identity, the
+relation members a scan computes, and never a value a twin read through
+(`final_cover.unrendered`). The FINAL add passes read this
 instead of built nodes. See `docs/join_axis_audit_2026_10.md` §7.
 """
 
@@ -22,7 +23,6 @@ from .join_plan import (
     _is_handle,
     _over_own_rows,
     _renderable,
-    _widenable,
     lineage_pinned_grain,
 )
 from .models import GroupAttrs
@@ -38,7 +38,7 @@ def renders(
     asked: dict[str, set[str]] = defaultdict(set)
     for group in attrs.values():
         for contract in group.input_contracts:
-            asked[contract.parent_group_id] |= contract.preserve_keys
+            asked[contract.parent_group_id] |= contract.required_grain
     return {
         gid: _renders(group_graph, group_edges, attrs, gid, asked[gid], environment)
         - dropped.get(gid, frozenset())
@@ -56,7 +56,7 @@ def _renders(
     environment: BuildEnvironment,
 ) -> frozenset[str]:
     """A one-value group renders its value. Otherwise a group renders what it
-    exposes, and each preserve key a reader asks that it can hold; a rowset
+    exposes, and each key of a reader's required grain that it can hold; a rowset
     handle or relation member only under a name it reads (an aggregate by
     `kb` over side a's rows renders the axis as `ka`)."""
     group = attrs[gid]
@@ -68,7 +68,7 @@ def _renders(
         | _over_own_rows(group)
         | {
             a
-            for a in asked & _widenable(group_graph, attrs, gid, environment)
+            for a in asked
             if a in group.row_columns
             or not (_is_handle(a, environment) or a in members)
         }

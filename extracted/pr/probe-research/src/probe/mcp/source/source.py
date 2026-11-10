@@ -1,4 +1,4 @@
-"""Probe Research API data-source adapter used by the read-only MCP service."""
+"""Probe API data-source adapter used by the read-only MCP service."""
 
 from __future__ import annotations
 import time
@@ -42,7 +42,7 @@ class ResearchOSSource(
     DocumentReadsMixin,
     SessionReadsMixin,
 ):
-    """Read authoritative structured data through Probe Research APIs.
+    """Read authoritative structured data through Probe APIs.
 
     The source never connects directly to Postgres or R2. The API enforces
     tenancy and returns object-store resource pointers where appropriate.
@@ -161,7 +161,7 @@ class ResearchOSSource(
     def _browse_unavailable(self) -> errors.CapabilityUnavailable:
         return errors.CapabilityUnavailable(
             Capability.STRUCTURED_BROWSE,
-            "this Probe Research backend predates GET /v1/browse",
+            "this Probe backend predates GET /v1/browse",
         )
 
     def _capability_unavailable(self) -> errors.CapabilityUnavailable:

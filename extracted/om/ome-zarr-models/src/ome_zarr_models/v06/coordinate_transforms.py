@@ -444,10 +444,11 @@ class Affine(Transform):
         return [row[-1] for row in self.affine_matrix]
 
     def transform_point(self, point: typing.Sequence[float]) -> tuple[float, ...]:
-        if len(point) != len(self.affine_matrix):
+        in_ndim = len(self.affine_matrix[0]) - 1
+        if len(point) != in_ndim:
             raise ValueError(
                 f"Dimensionality of point ({len(point)}) does not match "
-                f"dimensionality of transform ({len(self.affine_matrix)})"
+                f"dimensionality of transform ({in_ndim})"
             )
         return tuple(np.dot(self._matrix, point) + self._translation)
 
@@ -577,7 +578,7 @@ class Sequence(Transform):
             input=self.output,
             output=self.input,
             name=self._inverse_name,
-            transformations=(t.get_inverse() for t in self.transformations[::-1]),
+            transformations=tuple(t.get_inverse() for t in self.transformations[::-1]),
         )
 
     def transform_point(self, point: typing.Sequence[float]) -> tuple[float, ...]:
@@ -731,7 +732,7 @@ class ByDimensionTransform(BaseAttrs):
     A transformation item within a byDimension coordinate transformation.
 
     As well as the actual transform, this specifies which
-    axes it operates on via the input_axes and output_axes fields.
+    axes it operates on via the inputAxes and outputAxes fields.
     """
 
     transformation: AnyTransform = Field(

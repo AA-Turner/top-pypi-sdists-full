@@ -222,8 +222,8 @@ class PendingSnapshot:
             notices = self._queue_ready()
         if failure is not None:
             notices.insert(0, note_record_gap(self._client, f"{type(failure).__name__} ({failure})"))
-        # Done before anything is said (a successful async open always has a notice): a stderr
-        # that blocks must not hold a reader of the pin, queued already (final review of #3792).
+        # Done before anything is said: a stderr that blocks must not hold a reader of the pin,
+        # queued already (final review of #3792).
         self._record_done.set()
         self._say(notices)
 

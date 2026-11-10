@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from enum import Enum
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -12,6 +13,9 @@ from office365.sharepoint.files.file import File
 from office365.sharepoint.pages.wiki_page_creation_information import (
     WikiPageCreationInformation,
 )
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.principal.source import PrincipalSource
+from office365.sharepoint.principal.type import PrincipalType
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 from office365.sharepoint.utilities.email_properties import EmailProperties
 from office365.sharepoint.utilities.principal_info import PrincipalInfo
@@ -33,6 +37,7 @@ class Utility(Entity):
         return self._resource_path
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def create_email_body_for_invitation(context: ClientContext, page_address: str) -> ClientResult[str]:
         """Creates the contents of the e-mail message used to invite users to a document or resource in a site
 
@@ -56,6 +61,7 @@ class Utility(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_current_user_email_addresses(context: ClientContext) -> ClientResult[str]:
         """Returns the email addresses of the current user. If more than one email address exists for the current user,
         returns a list of email addresses separated by semicolons.
@@ -71,6 +77,7 @@ class Utility(Entity):
         return result
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_user_permission_levels(
         context: ClientContext,
     ) -> ClientResult[StringCollection]:
@@ -84,6 +91,7 @@ class Utility(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def search_principals_using_context_web(
         context: ClientContext,
         s_input: str,
@@ -120,6 +128,7 @@ class Utility(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def create_wiki_page_in_context_web(
         context: ClientContext,
         parameters: WikiPageCreationInformation,
@@ -145,6 +154,7 @@ class Utility(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def send_email(context: ClientContext, properties: EmailProperties) -> Utility:
         """This method is a static method.
 
@@ -159,6 +169,7 @@ class Utility(Entity):
         return utility
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def unmark_discussion_as_featured(context: ClientContext, list_id: str, topic_ids: str) -> Utility:
         """This method is a static method.
 
@@ -174,6 +185,7 @@ class Utility(Entity):
         return utility
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def expand_groups_to_principals(
         context: ClientContext,
         inputs: List[str],
@@ -198,6 +210,7 @@ class Utility(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.WRITE)
     def log_custom_app_error(context: ClientContext, error: str) -> ClientResult[int]:
         """Logs an error from a SharePoint Add-in. The return value indicates the success or failure of this operation.
         These errors are of interest to administrators who monitor such apps (2).
@@ -217,11 +230,12 @@ class Utility(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def resolve_principal_in_current_context(
         context: ClientContext,
         string_input: str,
-        scopes: Optional[int] = None,
-        sources: Optional[str] = None,
+        scopes: Union[PrincipalType, int] = PrincipalType.All,
+        sources: Union[PrincipalSource, int] = PrincipalSource.All,
         input_is_email_only: Optional[bool] = None,
         add_to_user_info_list: Optional[bool] = None,
         match_user_info_list: Optional[bool] = None,
@@ -229,11 +243,15 @@ class Utility(Entity):
         """Returns information about a principal that matches the specified search criteria in the context of the current
         Web site.
 
+        Both ``scopes`` and ``sources`` are OData ``Edm.Int32`` flags and are required
+        by the service: sent as ``null`` they make the operation answer ``null`` for
+        every input rather than report a bad request.
+
         Args:
             context (office365.sharepoint.client_context.ClientContext):
             string_input (str): Specifies the value to be used when searching for a principal.
-            scopes (int): Specifies the type to be used when searching for a principal.
-            sources (str): Specifies the source to be used when searching for a principal.
+            scopes (PrincipalType): Specifies the type to be used when searching for a principal.
+            sources (PrincipalSource): Specifies the source to be used when searching for a principal.
             input_is_email_only (bool): Specifies whether only the e-mail address is used when searching for a principal
             add_to_user_info_list (bool): Specifies whether to add the principal to the user information list.
             match_user_info_list (bool): Specifies whether to return the principal found in the user information list.
@@ -241,8 +259,8 @@ class Utility(Entity):
         utility = Utility(context)
         payload = {
             "input": string_input,
-            "scopes": scopes,
-            "sources": sources,
+            "scopes": scopes.value if isinstance(scopes, Enum) else scopes,
+            "sources": sources.value if isinstance(sources, Enum) else sources,
             "inputIsEmailOnly": input_is_email_only,
             "addToUserInfoList": add_to_user_info_list,
             "matchUserInfoList": match_user_info_list,

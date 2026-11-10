@@ -7,6 +7,7 @@ from dateutil.parser import isoparse
 
 from ..models.get_script_by_path_response_200_kind import GetScriptByPathResponse200Kind
 from ..models.get_script_by_path_response_200_language import GetScriptByPathResponse200Language
+from ..models.get_script_by_path_response_200_on_concurrency_limit import GetScriptByPathResponse200OnConcurrencyLimit
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -53,6 +54,9 @@ class GetScriptByPathResponse200:
         envs (Union[Unset, List[str]]):
         concurrent_limit (Union[Unset, int]):
         concurrency_time_window_s (Union[Unset, int]):
+        on_concurrency_limit (Union[Unset, GetScriptByPathResponse200OnConcurrencyLimit]): What a run does when its
+            concurrency limit is reached when a worker picks it up. `queue` (default) re-queues it to a later slot, `fail`
+            ends it immediately as failed.
         concurrency_key (Union[Unset, str]):
         debounce_key (Union[Unset, str]):
         debounce_delay_s (Union[Unset, int]):
@@ -125,6 +129,7 @@ class GetScriptByPathResponse200:
     envs: Union[Unset, List[str]] = UNSET
     concurrent_limit: Union[Unset, int] = UNSET
     concurrency_time_window_s: Union[Unset, int] = UNSET
+    on_concurrency_limit: Union[Unset, GetScriptByPathResponse200OnConcurrencyLimit] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
     debounce_key: Union[Unset, str] = UNSET
     debounce_delay_s: Union[Unset, int] = UNSET
@@ -195,6 +200,10 @@ class GetScriptByPathResponse200:
 
         concurrent_limit = self.concurrent_limit
         concurrency_time_window_s = self.concurrency_time_window_s
+        on_concurrency_limit: Union[Unset, str] = UNSET
+        if not isinstance(self.on_concurrency_limit, Unset):
+            on_concurrency_limit = self.on_concurrency_limit.value
+
         concurrency_key = self.concurrency_key
         debounce_key = self.debounce_key
         debounce_delay_s = self.debounce_delay_s
@@ -296,6 +305,8 @@ class GetScriptByPathResponse200:
             field_dict["concurrent_limit"] = concurrent_limit
         if concurrency_time_window_s is not UNSET:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
+        if on_concurrency_limit is not UNSET:
+            field_dict["on_concurrency_limit"] = on_concurrency_limit
         if concurrency_key is not UNSET:
             field_dict["concurrency_key"] = concurrency_key
         if debounce_key is not UNSET:
@@ -423,6 +434,13 @@ class GetScriptByPathResponse200:
 
         concurrency_time_window_s = d.pop("concurrency_time_window_s", UNSET)
 
+        _on_concurrency_limit = d.pop("on_concurrency_limit", UNSET)
+        on_concurrency_limit: Union[Unset, GetScriptByPathResponse200OnConcurrencyLimit]
+        if isinstance(_on_concurrency_limit, Unset):
+            on_concurrency_limit = UNSET
+        else:
+            on_concurrency_limit = GetScriptByPathResponse200OnConcurrencyLimit(_on_concurrency_limit)
+
         concurrency_key = d.pop("concurrency_key", UNSET)
 
         debounce_key = d.pop("debounce_key", UNSET)
@@ -530,6 +548,7 @@ class GetScriptByPathResponse200:
             envs=envs,
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,
+            on_concurrency_limit=on_concurrency_limit,
             concurrency_key=concurrency_key,
             debounce_key=debounce_key,
             debounce_delay_s=debounce_delay_s,

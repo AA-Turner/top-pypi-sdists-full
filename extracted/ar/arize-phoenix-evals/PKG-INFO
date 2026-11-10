@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-evals
-Version: 3.9.5
+Version: 3.10.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.15
 Requires-Python: <3.16,>=3.11
 Requires-Dist: jsonpath-ng
 Requires-Dist: openinference-instrumentation>=0.1.20
-Requires-Dist: openinference-semantic-conventions>=0.1.19
+Requires-Dist: openinference-semantic-conventions>=0.1.41
 Requires-Dist: opentelemetry-api
 Requires-Dist: pandas
 Requires-Dist: pydantic>=2.0.0
@@ -31,6 +31,7 @@ Requires-Dist: anthropic<2,>=1; extra == 'dev'
 Requires-Dist: boto3; extra == 'dev'
 Requires-Dist: litellm!=1.107.0,>=1.83.14; (python_version < '3.14') and extra == 'dev'
 Requires-Dist: openai>=1.0.0; extra == 'dev'
+Requires-Dist: typesafe-sdk<1,>=0.7; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: anthropic<2,>=1; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
@@ -42,6 +43,7 @@ Requires-Dist: pandas; extra == 'test'
 Requires-Dist: pandas-stubs; extra == 'test'
 Requires-Dist: tqdm; extra == 'test'
 Requires-Dist: types-tqdm; extra == 'test'
+Requires-Dist: typesafe-sdk<1,>=0.7; extra == 'test'
 Requires-Dist: typing-extensions<5,>=4.5; extra == 'test'
 Description-Content-Type: text/markdown
 

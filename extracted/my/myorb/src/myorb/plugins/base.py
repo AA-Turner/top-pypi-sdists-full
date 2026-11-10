@@ -115,6 +115,9 @@ class Row:
     history: tuple[HistoryDay, ...] = ()
     # A picture before the title, e.g. a video's thumbnail: the address of an image.
     image: str = ""
+    # A glyph before the subtitle, e.g. a Strava activity's sport: an <svg> filled with
+    # currentColor. Shown as markup, so only ever one of the plugin's own, never fetched text.
+    subtitle_icon: str = ""
 
 
 @dataclass(frozen=True)
@@ -146,6 +149,11 @@ class WidgetData:
     # Names the rows' groups (Row.group) in the plural, e.g. "workspaces": with more than one
     # group, the list can be narrowed to one of them ("All workspaces", "archivis (64)", …).
     group_label: str | None = None
+    # A picture before a group's name in that list, by name, e.g. a YouTube channel's logo.
+    group_images: dict[str, str] = field(default_factory=dict)
+    # A glyph before a group's name, by name, e.g. a sport's: an <svg> filled with
+    # currentColor. Shown as markup, so only ever one of the plugin's own (see Row.subtitle_icon).
+    group_icons: dict[str, str] = field(default_factory=dict)
     # Buttons in the details' footer that POST, e.g. "Mark all as seen".
     actions: list[Action] = field(default_factory=list)
     # More buttons next to `action`, e.g. one per connected account: "Open archivis", "Open swida".

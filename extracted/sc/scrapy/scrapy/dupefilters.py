@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from pathlib import Path
-from typing import TYPE_CHECKING
+from shutil import rmtree
+from tempfile import mkdtemp
+from typing import TYPE_CHECKING, Self
 from warnings import warn
 
 from scrapy.exceptions import ScrapyDeprecationWarning
+from scrapy.utils.conf import _job_dir
 from scrapy.utils.deprecate import method_is_overridden
-from scrapy.utils.job import job_dir
 from scrapy.utils.request import (
     RequestFingerprinter,
     RequestFingerprinterProtocol,
@@ -18,9 +21,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from twisted.internet.defer import Deferred
-
-    # typing.Self requires Python 3.11
-    from typing_extensions import Self
 
     from scrapy.crawler import Crawler
     from scrapy.http.request import Request
@@ -132,7 +132,7 @@ class RFPDupeFilter(BaseDupeFilter):
     def from_crawler(cls, crawler: Crawler) -> Self:
         debug = crawler.settings.getbool("DUPEFILTER_DEBUG")
         return cls(
-            job_dir(crawler.settings),
+            _job_dir(crawler.settings),
             debug,
             fingerprinter=crawler.request_fingerprinter,
         )
@@ -174,3 +174,71 @@ class RFPDupeFilter(BaseDupeFilter):
             self.logdupes = False
 
         spider.crawler.stats.inc_value("dupefilter/filtered")
+
+
+class DiskDupeFilter(RFPDupeFilter):
+    """Duplicate request filtering class (:setting:`DUPEFILTER_CLASS`) that
+    keeps seen request fingerprints on disk, in an SQLite database, instead of
+    in memory, trading some speed for a much lower memory usage on crawls that
+    send a large number of requests.
+
+    .. versionadded:: 2.20.0
+
+    Job directory contents
+    ======================
+
+    .. warning:: The files that this class generates in the :ref:`job directory
+        <job-dir>` are an implementation detail, and may change without a
+        warning in a future version of Scrapy. Do not rely on the following
+        information for anything other than debugging purposes.
+
+    When using :setting:`JOBDIR`, seen fingerprints are tracked in an SQLite
+    database named :file:`requests.seen.db` in the :ref:`job directory
+    <job-dir>`.
+    """
+
+    def __init__(
+        self,
+        path: str | None = None,
+        debug: bool = False,
+        *,
+        fingerprinter: RequestFingerprinterProtocol | None = None,
+    ) -> None:
+        super().__init__(debug=debug, fingerprinter=fingerprinter)
+        if path:
+            self._tempdir: str | None = None
+        else:
+            self._tempdir = path = mkdtemp()
+        self._db = sqlite3.connect(Path(path, "requests.seen.db"))
+        self._db.execute("PRAGMA journal_mode=WAL").close()
+        self._db.execute("PRAGMA synchronous=NORMAL")
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS seen (fingerprint BLOB PRIMARY KEY)"
+            " WITHOUT ROWID"
+        )
+        self._sync_every = 0
+        self._changes = 0
+
+    @classmethod
+    def from_crawler(cls, crawler: Crawler) -> Self:
+        dupefilter = super().from_crawler(crawler)
+        dupefilter._sync_every = crawler.settings.getint("JOBDIR_SYNC_EVERY")
+        return dupefilter
+
+    def request_seen(self, request: Request) -> bool:
+        fp = self._fingerprint(request)
+        cursor = self._db.execute("INSERT OR IGNORE INTO seen VALUES (?)", (fp,))
+        if not cursor.rowcount:
+            return True
+        if self._sync_every:
+            self._changes += 1
+            if self._changes >= self._sync_every:
+                self._changes = 0
+                self._db.commit()
+        return False
+
+    def close(self, reason: str) -> None:
+        self._db.commit()
+        self._db.close()
+        if self._tempdir:
+            rmtree(self._tempdir)

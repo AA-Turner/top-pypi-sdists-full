@@ -13,6 +13,9 @@ from ....delivery.transport.transport import Page
 from ....run.run import Run  # noqa: E402
 from probe.sdk.routes import WriteOp, path_for
 
+#: Runs one `get_run_failures` call may name (the server's cap).
+MAX_FAILURE_IDS = 20
+
 
 class RunReadsMixin:
     """Part of Client: its methods run with `self` the Client; compose() folds them into Client."""
@@ -39,12 +42,13 @@ class RunReadsMixin:
         """
         src = self.get_run(source)
         fork_name = name or f"{src.get('name') or str(src['id'])[:8]}-fork"
-        if name is None and run_kw.get("authored_by") is None:
+        if not name and run_kw.get("authored_by") is None and not run_kw.get("description"):
             # THE SDK composed this NAME, so say so -- but only when the caller
             # has not declared anything. `--authored-by human` on a fork with no
             # `--name` is the normal shape of "the researcher dictated the
             # description", and overwriting it here made the flag silently
-            # inert on the exact path it is most used on.
+            # inert on the exact path it is most used on. A description riding
+            # along is someone's words: `agent` would hand it to generation.
             run_kw["authored_by"] = agent_session.AUTHORSHIP_AGENT
         kw = dict(run_kw, parent_run_id=src["id"], parent_relation="fork")
         experiment_id = src.get("experiment_id")
@@ -72,6 +76,15 @@ class RunReadsMixin:
     # -- runs (read) --------------------------------------------------------
     def get_run(self, run_id: str) -> dict:
         return self.transport.get(f"/v1/runs/{run_id}")
+
+    def get_run_failures(self, run_ids: list[str]) -> list[dict]:
+        """Why each failed or crashed run failed (`GET /v1/runs/failures`, at most
+        `MAX_FAILURE_IDS`): its cause, exception, exit code and last log lines. A run that did not
+        fail is left out. A server from before the route raises `NotFoundError`."""
+        if len(run_ids) > MAX_FAILURE_IDS:
+            raise ValueError(f"at most {MAX_FAILURE_IDS} runs per call, got {len(run_ids)}")
+        data = self.transport.get("/v1/runs/failures", params={"ids": ",".join(run_ids)})
+        return list((data or {}).get("failures") or [])
 
     # -- trials (read) ------------------------------------------------------
     def list_run_trials(
@@ -139,8 +152,14 @@ class RunReadsMixin:
         notes: str | None = None,
         status: str | None = None,
         authored_by: str | None = None,
+        expected_name: str | None = None,
     ) -> dict:
         """PATCH /v1/runs/{id} — amend a run's authored fields.
+
+        ``expected_name`` makes a ``name`` write a compare-and-set: the name read before it, so a rename
+        meanwhile refuses the write (409) instead of being overwritten. It marks the script's own name
+        being applied to the run its launcher opened (a ``probe exec`` join), so the name goes out like a
+        create-time one: undeclared and kept, unless Probe composed it (``agent_session.ComposedName``).
 
         ``status`` CORRECTS the run's recorded status and sends nothing else: no
         ``ended_at``, no ``started_at``, no ``write_epoch``, so the run's start,
@@ -177,7 +196,15 @@ class RunReadsMixin:
         # wrote the OTHER fields; on its own it declares authorship of nothing,
         # and letting it satisfy "at least one field to set" would turn a
         # no-op call into a PATCH.
-        _put_authorship(body, authored_by)
+        if expected_name is not None and name is not None:
+            body["expected_name"] = expected_name
+        if expected_name is not None and set(body) == {"name", "expected_name"}:
+            # The script's own name alone, like a create-time name; a description or note beside it is not.
+            if authored_by is None and isinstance(name, agent_session.ComposedName):
+                authored_by = agent_session.AUTHORSHIP_AGENT
+            _put_authorship(body, authored_by, is_new_run_name=True)
+        else:
+            _put_authorship(body, authored_by)
         row = self.transport.patch(path_for(WriteOp.RUN_PATCH, run_id), body)
         self._warn_if_notes_dropped(notes, row, "runs")
         return row

@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: djlint
-Version: 1.49.9
-Summary: HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Liquid, Go templates)
+Version: 1.49.10
+Summary: HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Mustache, Liquid, Go templates, Angular, Tera, Askama, Mako)
 Project-URL: documentation, https://djlint.com
 Project-URL: repository, https://github.com/djlint/djLint
 Author: Christopher Pickering
@@ -10,7 +10,7 @@ Maintainer-email: monosans <hsyqixco@protonmail.com>
 License-Expression: GPL-3.0-or-later
 License-File: LICENSE
 License-File: LICENSE-THIRD-PARTY
-Keywords: askama,django,formatter,go templates,handlebars,helm,html,hugo,jinja,jinja2,linter,liquid,mustache,nunjucks,templates,tera,twig
+Keywords: angular,askama,django,formatter,go templates,handlebars,helm,html,hugo,jinja,jinja2,linter,liquid,mako,mustache,nunjucks,templates,tera,twig
 Classifier: Environment :: Console
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
@@ -58,7 +58,7 @@ Description-Content-Type: text/markdown
 <h4 align="center">What lang are you using?</h4>
 
 <p align="center">
-   <a href="https://djlint.com/docs/languages/django/">Django</a> • <a href="https://djlint.com/docs/languages/jinja/">Jinja</a> • <a href="https://djlint.com/docs/languages/twig/">Twig</a> • <a href="https://djlint.com/docs/languages/nunjucks/">Nunjucks</a> • <a href="https://djlint.com/docs/languages/handlebars/">Handlebars</a> • <a href="https://djlint.com/docs/languages/liquid/">Liquid</a> • <a href="https://djlint.com/docs/languages/golang/">Go templates</a> • <a href="https://djlint.com/docs/languages/angular/">Angular</a> • <a href="https://djlint.com/docs/languages/mustache/">Mustache</a> • <a href="https://djlint.com/docs/languages/tera/">Tera</a> • <a href="https://djlint.com/docs/languages/askama/">Askama</a> • <a href="https://djlint.com/docs/languages/mako/">Mako</a>
+   <a href="https://djlint.com/docs/languages/django/">Django</a> • <a href="https://djlint.com/docs/languages/jinja/">Jinja</a> • <a href="https://djlint.com/docs/languages/twig/">Twig</a> • <a href="https://djlint.com/docs/languages/nunjucks/">Nunjucks</a> • <a href="https://djlint.com/docs/languages/handlebars/">Handlebars</a> • <a href="https://djlint.com/docs/languages/mustache/">Mustache</a> • <a href="https://djlint.com/docs/languages/liquid/">Liquid</a> • <a href="https://djlint.com/docs/languages/golang/">Go templates</a> • <a href="https://djlint.com/docs/languages/angular/">Angular</a> • <a href="https://djlint.com/docs/languages/tera/">Tera</a> • <a href="https://djlint.com/docs/languages/askama/">Askama</a> • <a href="https://djlint.com/docs/languages/mako/">Mako</a>
 </p>
 
 ## 🤔 For What?
@@ -171,7 +171,7 @@ djlint . --lint
 Check your format
 
 ```bash
-djlint . --check
+djlint . --check --single-attribute-per-line
 ```
 
 Fix my format!
@@ -191,7 +191,7 @@ Or use `pre-commit` to reformat, then lint!
 ```yaml
 repos:
   - repo: https://github.com/djlint/djLint
-    rev: v1.49.9 # use the latest version instead
+    rev: v1.49.10 # use the latest version instead
     hooks:
       - id: djlint-reformat
       - id: djlint

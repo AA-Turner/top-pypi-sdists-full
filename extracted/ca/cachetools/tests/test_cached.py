@@ -1,5 +1,4 @@
 import unittest
-import warnings
 
 import cachetools
 import cachetools.keys
@@ -149,6 +148,30 @@ class DecoratorTestMixin(SimplifiedTestCaseProtocol):
         self.assertEqual(cond.wait_count, 0)
         self.assertEqual(cond.notify_count, 2)
 
+    def test_decorator_cond_error_info(self):
+        cache = self.cache(2)
+        lock = cond = CountedCondition()
+        wrapper = cachetools.cached(cache, condition=cond, info=True)(self.error_func)
+
+        maxsize = cache.maxsize if isinstance(cache, cachetools.Cache) else None
+
+        with self.assertRaises(ValueError):
+            wrapper(0)
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(lock.count, 2)
+        self.assertEqual(cond.wait_count, 0)
+        self.assertEqual(cond.notify_count, 1)
+        self.assertEqual(wrapper.cache_info(), (0, 1, maxsize, 0))  # takes the lock
+
+        # verify pending set is cleaned up, otherwise this might deadlock
+        with self.assertRaises(ValueError):
+            wrapper(0)
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(lock.count, 5)
+        self.assertEqual(cond.wait_count, 0)
+        self.assertEqual(cond.notify_count, 2)
+        self.assertEqual(wrapper.cache_info(), (0, 2, maxsize, 0))
+
     def test_decorator_wrapped(self):
         cache = self.cache(2)
         wrapper = cachetools.cached(cache)(self.func)
@@ -173,6 +196,7 @@ class DecoratorTestMixin(SimplifiedTestCaseProtocol):
         self.assertIs(wrapper.cache_key, cachetools.keys.hashkey)
         self.assertIs(wrapper.cache_lock, None)
         self.assertIs(wrapper.cache_condition, None)
+        self.assertFalse(hasattr(wrapper, "cache_info"))
 
     def test_decorator_attributes_lock(self):
         cache = self.cache(2)
@@ -183,6 +207,7 @@ class DecoratorTestMixin(SimplifiedTestCaseProtocol):
         self.assertIs(wrapper.cache_key, cachetools.keys.hashkey)
         self.assertIs(wrapper.cache_lock, lock)
         self.assertIs(wrapper.cache_condition, None)
+        self.assertFalse(hasattr(wrapper, "cache_info"))
 
     def test_decorator_attributes_cond(self):
         cache = self.cache(2)
@@ -193,6 +218,12 @@ class DecoratorTestMixin(SimplifiedTestCaseProtocol):
         self.assertIs(wrapper.cache_key, cachetools.keys.hashkey)
         self.assertIs(wrapper.cache_lock, lock)
         self.assertIs(wrapper.cache_condition, cond)
+        self.assertFalse(hasattr(wrapper, "cache_info"))
+
+    def test_decorator_repr(self):
+        for info in (False, True):
+            wrapper = cachetools.cached(self.cache(2), info=info)(self.func)
+            self.assertEqual(repr(wrapper), f"<cached {self.func!r}>")
 
     def test_decorator_clear(self):
         cache = self.cache(2)
@@ -453,8 +484,20 @@ class CacheWrapperTest(unittest.TestCase, DecoratorTestMixin):
         self.assertEqual(mock.get(value=1), 42)
         mock.get.assert_called_with(value=1)
 
+    def test_self_keyword(self):
+        # https://github.com/tkem/cachetools/issues/451
+        def func(**kwargs):
+            return kwargs
 
-class DictWrapperTest(unittest.TestCase, DecoratorTestMixin):
+        cache = self.cache(2)
+        wrapper = cachetools.cached(cache)(func)
+        self.assertEqual(wrapper(self=1), {"self": 1})
+        self.assertEqual(wrapper(self=1), {"self": 1})
+        self.assertIn(cachetools.keys.hashkey(self=1), cache)
+        self.assertEqual(len(cache), 1)
+
+
+class DictTest(unittest.TestCase, DecoratorTestMixin):
     def cache(self, minsize):
         return {}
 
@@ -473,44 +516,118 @@ class DictWrapperTest(unittest.TestCase, DecoratorTestMixin):
         self.assertEqual(wrapper.cache_info(), (0, 0, None, 0))
 
 
-class NoneWrapperTest(unittest.TestCase):
+class CustomCacheTest(unittest.TestCase, DecoratorTestMixin):
+    class CustomCache:
+        """Duck-typed cache that is not a `collections.abc.Mapping` instance."""
+
+        def __init__(self):
+            self.__data = {}
+
+        def __contains__(self, key):
+            return key in self.__data
+
+        def __getitem__(self, key):
+            return self.__data[key]
+
+        def __setitem__(self, key, value):
+            self.__data[key] = value
+
+        def __len__(self):
+            return len(self.__data)
+
+        def setdefault(self, key, value=None):
+            return self.__data.setdefault(key, value)
+
+        def clear(self):
+            self.__data.clear()
+
+    def cache(self, minsize):
+        return self.CustomCache()
+
+    def test_decorator_info(self):
+        cache = self.cache(2)
+        wrapper = cachetools.cached(cache, info=True)(self.func)  # type: ignore
+        self.assertEqual(wrapper.cache_info(), (0, 0, None, 0))
+        self.assertEqual(wrapper(0), 0)
+        self.assertEqual(wrapper.cache_info(), (0, 1, None, 1))
+        self.assertEqual(wrapper(1), 1)
+        self.assertEqual(wrapper.cache_info(), (0, 2, None, 2))
+        self.assertEqual(wrapper(0), 0)
+        self.assertEqual(wrapper.cache_info(), (1, 2, None, 2))
+        wrapper.cache_clear()
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(wrapper.cache_info(), (0, 0, None, 0))
+
+
+class InvalidCacheTest(unittest.TestCase):
     def func(self, *args, **kwargs):
         return args + tuple(kwargs.items())
 
     def test_decorator(self):
-        with warnings.catch_warnings(record=True) as w:
-            wrapper = cachetools.cached(None)(self.func)
-            self.assertIs(w[0].category, DeprecationWarning)
-
-        self.assertEqual(wrapper(0), (0,))
-        self.assertEqual(wrapper(1), (1,))
-        self.assertEqual(wrapper(1, foo="bar"), (1, ("foo", "bar")))
-
-    def test_decorator_attributes(self):
-        with warnings.catch_warnings(record=True) as w:
-            wrapper = cachetools.cached(None)(self.func)
-            self.assertIs(w[0].category, DeprecationWarning)
-
-        self.assertIs(wrapper.cache, None)
-        self.assertIs(wrapper.cache_key, cachetools.keys.hashkey)
-        self.assertIs(wrapper.cache_lock, None)
-
-    def test_decorator_clear(self):
-        with warnings.catch_warnings(record=True) as w:
-            wrapper = cachetools.cached(None)(self.func)
-            self.assertIs(w[0].category, DeprecationWarning)
-
-        wrapper.cache_clear()  # no-op
+        # passing cache=None is no longer supported since v8.0.0
+        with self.assertRaisesRegex(TypeError, "None"):
+            cachetools.cached(None)  # type: ignore
 
     def test_decorator_info(self):
-        with warnings.catch_warnings(record=True) as w:
-            wrapper = cachetools.cached(None, info=True)(self.func)
-            self.assertIs(w[0].category, DeprecationWarning)
+        # passing cache=None is no longer supported since v8.0.0
+        with self.assertRaisesRegex(TypeError, "None"):
+            cachetools.cached(None, info=True)  # type: ignore
 
-        self.assertEqual(wrapper.cache_info(), (0, 0, 0, 0))
+    def test_decorator_info_no_len(self):
+        # caches that are not Cache instances must support len() with info=True
+        class NoLenCache:
+            def __init__(self):
+                self.data = {}
+
+            def __getitem__(self, key):
+                return self.data[key]
+
+            def __setitem__(self, key, value):
+                self.data[key] = value
+
+            def clear(self):
+                self.data.clear()
+
+        cache = NoLenCache()
+        wrapper = cachetools.cached(cache, info=True)(self.func)  # type: ignore
         self.assertEqual(wrapper(0), (0,))
-        self.assertEqual(wrapper.cache_info(), (0, 1, 0, 0))
-        self.assertEqual(wrapper(1), (1,))
-        self.assertEqual(wrapper.cache_info(), (0, 2, 0, 0))
+        self.assertEqual(wrapper(0), (0,))
+        self.assertEqual(cache.data, {(0,): (0,)})
+        with self.assertRaisesRegex(TypeError, "len"):
+            wrapper.cache_info()
         wrapper.cache_clear()
-        self.assertEqual(wrapper.cache_info(), (0, 0, 0, 0))
+        self.assertEqual(cache.data, {})
+
+
+class PickleTest(unittest.TestCase):
+    # wrappers are pickled by qualified name, so they must be reachable
+    # via attribute lookup from module level
+
+    @staticmethod
+    @cachetools.cached(cachetools.LRUCache(maxsize=2), info=True)
+    def pickled_func(n):
+        return n
+
+    class Pickled:
+        @cachetools.cached(cachetools.LRUCache(maxsize=2))
+        def method(self, n):
+            return n
+
+    def test_pickle(self):
+        import pickle
+
+        func = self.pickled_func
+        self.assertIs(pickle.loads(pickle.dumps(func)), func)
+
+    def test_pickle_method(self):
+        import pickle
+
+        method = self.Pickled.method
+        self.assertIs(pickle.loads(pickle.dumps(method)), method)
+
+    def test_copy(self):
+        import copy
+
+        func = self.pickled_func
+        self.assertIs(copy.copy(func), func)
+        self.assertIs(copy.deepcopy(func), func)

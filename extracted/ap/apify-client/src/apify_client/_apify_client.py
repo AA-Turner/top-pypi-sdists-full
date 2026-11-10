@@ -23,6 +23,8 @@ from apify_client._resource_clients import (
     ActorEnvVarClientAsync,
     ActorEnvVarCollectionClient,
     ActorEnvVarCollectionClientAsync,
+    ActorServerClient,
+    ActorServerClientAsync,
     ActorVersionClient,
     ActorVersionClientAsync,
     ActorVersionCollectionClient,
@@ -152,11 +154,14 @@ class ApifyClient:
             user_agent_suffix: Extra part or parts appended to the default `User-Agent` header, separated by `; `, for
                 example to identify the tool built on top of the client. With `with_custom_http_client`, pass it to
                 the HTTP client's constructor.
-            compression: Compression algorithm for request bodies. Pass a string literal to select an algorithm,
-                or an `HttpCompressor` instance for finer-grained control.
+            compression: Compression algorithm for request bodies. Defaults to `'gzip'`. Pass a string literal to select
+                an algorithm, or an `HttpCompressor` instance for finer-grained control. `'brotli'` needs the `brotli`
+                extra (`pip install "apify-client[brotli]"`). It is not the default because the `brotli` package is a C
+                extension, while gzip support is part of the Python standard library.
 
         Raises:
             ValueError: If `max_retries` is negative.
+            ImportError: If `compression` is `'brotli'` and the `brotli` extra is not installed.
         """
         if max_retries < 0:
             raise ValueError(f'max_retries must be a non-negative integer, got {max_retries}')
@@ -188,6 +193,7 @@ class ApifyClient:
             actor_collection_client=ActorCollectionClient,
             actor_env_var_client=ActorEnvVarClient,
             actor_env_var_collection_client=ActorEnvVarCollectionClient,
+            actor_server_client=ActorServerClient,
             actor_version_client=ActorVersionClient,
             actor_version_collection_client=ActorVersionCollectionClient,
             build_client=BuildClient,
@@ -531,11 +537,14 @@ class ApifyClientAsync:
             user_agent_suffix: Extra part or parts appended to the default `User-Agent` header, separated by `; `, for
                 example to identify the tool built on top of the client. With `with_custom_http_client`, pass it to
                 the HTTP client's constructor.
-            compression: Compression algorithm for request bodies. Pass a string literal to select an algorithm,
-                or an `HttpCompressor` instance for finer-grained control.
+            compression: Compression algorithm for request bodies. Defaults to `'gzip'`. Pass a string literal to select
+                an algorithm, or an `HttpCompressor` instance for finer-grained control. `'brotli'` needs the `brotli`
+                extra (`pip install "apify-client[brotli]"`). It is not the default because the `brotli` package is a C
+                extension, while gzip support is part of the Python standard library.
 
         Raises:
             ValueError: If `max_retries` is negative.
+            ImportError: If `compression` is `'brotli'` and the `brotli` extra is not installed.
         """
         if max_retries < 0:
             raise ValueError(f'max_retries must be a non-negative integer, got {max_retries}')
@@ -567,6 +576,7 @@ class ApifyClientAsync:
             actor_collection_client=ActorCollectionClientAsync,
             actor_env_var_client=ActorEnvVarClientAsync,
             actor_env_var_collection_client=ActorEnvVarCollectionClientAsync,
+            actor_server_client=ActorServerClientAsync,
             actor_version_client=ActorVersionClientAsync,
             actor_version_collection_client=ActorVersionCollectionClientAsync,
             build_client=BuildClientAsync,

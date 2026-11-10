@@ -7,27 +7,17 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.order_info_response import OrderInfoResponse
-from ...models.resource_end_date_change_request_request import ResourceEndDateChangeRequestRequest
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
-    *,
-    body: ResourceEndDateChangeRequestRequest,
 ) -> dict[str, Any]:
-    headers: dict[str, Any] = {}
-
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": f"/api/marketplace-resource-end-date-change-requests/{uuid}/cancel/",
     }
 
-    _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
-
-    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -56,13 +46,11 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceEndDateChangeRequestRequest,
 ) -> Response[OrderInfoResponse]:
     """Cancel resource end date change request. Only the creator can cancel.
 
     Args:
         uuid (UUID):
-        body (ResourceEndDateChangeRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -74,7 +62,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
-        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -88,13 +75,11 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceEndDateChangeRequestRequest,
 ) -> OrderInfoResponse:
     """Cancel resource end date change request. Only the creator can cancel.
 
     Args:
         uuid (UUID):
-        body (ResourceEndDateChangeRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -107,7 +92,6 @@ def sync(
     return sync_detailed(
         uuid=uuid,
         client=client,
-        body=body,
     ).parsed
 
 
@@ -115,13 +99,11 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceEndDateChangeRequestRequest,
 ) -> Response[OrderInfoResponse]:
     """Cancel resource end date change request. Only the creator can cancel.
 
     Args:
         uuid (UUID):
-        body (ResourceEndDateChangeRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -133,7 +115,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
-        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -145,13 +126,11 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: ResourceEndDateChangeRequestRequest,
 ) -> OrderInfoResponse:
     """Cancel resource end date change request. Only the creator can cancel.
 
     Args:
         uuid (UUID):
-        body (ResourceEndDateChangeRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -165,6 +144,5 @@ async def asyncio(
         await asyncio_detailed(
             uuid=uuid,
             client=client,
-            body=body,
         )
     ).parsed

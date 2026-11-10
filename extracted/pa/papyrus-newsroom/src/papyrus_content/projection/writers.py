@@ -11,10 +11,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
-from ..edge_invalidation import invalidate_distribution
+from ..edge_invalidation import InvalidationCapped, invalidate_distribution, invalidate_exact_paths
+from ..page_refresh.paths import paths_for_page_keys
 
 STATE_PREFIX = "_papyrus/"
 HEAD_WORKERS = 16
+PUT_WORKERS = 16
+S3_MAX_POOL_CONNECTIONS = 32   # above HEAD_WORKERS and PUT_WORKERS, so parallel requests never wait for a pooled connection ("Connection pool is full")
 DEFAULT_HTML_S_MAXAGE_SECONDS = 300
 FALLBACK_HTML_S_MAXAGE_SECONDS = 60
 HTML_STALE_WHILE_REVALIDATE_SECONDS = 60
@@ -74,6 +77,7 @@ class StoredObject:
     etag: str | None = None
     version: int | None = None
     inputs: str | None = None
+    last_modified: str | None = None   # ISO time the store wrote it (S3 LastModified), where the store says
 
 
 def body_etag(body: bytes) -> str:
@@ -132,13 +136,16 @@ class LocalDirectoryWriter:
 
 
 class S3PageWriter:
+    source_markers = True   # item pages end with the papyrus-source-version marker (page_refresh/marker.py)
+
     def __init__(
         self, bucket: str, s3_client: Any = None, html_s_maxage_seconds: int = DEFAULT_HTML_S_MAXAGE_SECONDS
     ) -> None:
         if s3_client is None:
             import boto3
+            from botocore.config import Config
 
-            s3_client = boto3.client("s3")
+            s3_client = boto3.client("s3", config=Config(max_pool_connections=S3_MAX_POOL_CONNECTIONS))
         self._bucket = bucket
         self._s3 = s3_client
         self._html_s_maxage_seconds = html_s_maxage_seconds
@@ -155,6 +162,7 @@ class S3PageWriter:
             etag=str(headers.get("ETag", "")).strip('"') or None,
             version=int(version) if version not in (None, "") else None,
             inputs=metadata.get(INPUTS_METADATA_KEY),
+            last_modified=headers["LastModified"].isoformat() if hasattr(headers.get("LastModified"), "isoformat") else None,
         )
 
     def head(self, key: str) -> StoredObject | None:
@@ -217,6 +225,17 @@ class S3PageWriter:
             arguments["Metadata"] = metadata
         self._s3.put_object(**arguments)
 
+    def put_many(self, pages: list[tuple[str, bytes, int | None, str | None]]) -> None:
+        """Write ``(key, body, version, inputs)`` with up to ``PUT_WORKERS`` requests at once. Sitemaps and feeds (``.xml``) go after every
+        other page of the batch, as the engine orders them, so a sitemap never names a page that is not written yet. Raises the first failure."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        phases = [[page for page in pages if not page[0].endswith(".xml")], [page for page in pages if page[0].endswith(".xml")]]
+        with ThreadPoolExecutor(max_workers=PUT_WORKERS) as pool:
+            for phase in phases:
+                for future in [pool.submit(self.put, key, body, version=version, inputs=inputs) for key, body, version, inputs in phase]:
+                    future.result()
+
     def delete(self, key: str) -> None:
         self._s3.delete_object(Bucket=self._bucket, Key=key)
 
@@ -231,14 +250,9 @@ def request_paths_for_key(key: str) -> tuple[str, ...]:
     return ("/" + key,)
 
 
-def invalidation_paths_for(keys: list[str]) -> list[str]:
-    paths: list[str] = []
-    for key in keys:
-        paths.append("/" + key)
-        if PurePosixPath(key).name == "index.html":
-            directory = str(PurePosixPath(key).parent)
-            paths.append("/" if directory == "." else f"/{directory}/")
-    return list(dict.fromkeys(paths))
+def invalidation_paths_for(keys: list[str], url_style: str = "html") -> list[str]:
+    """The request paths to invalidate for written page keys, every form a page is cached under (``page_refresh/paths.py``)."""
+    return paths_for_page_keys(keys, url_style)
 
 
 class CloudFrontInvalidator:
@@ -248,6 +262,27 @@ class CloudFrontInvalidator:
 
     def invalidate(self, keys: list[str]) -> list[str]:
         return invalidate_distribution(self._distribution_id, invalidation_paths_for(keys), self._cloudfront)
+
+
+class TargetedCloudFrontInvalidator:
+    """``cache.invalidation: "targeted"``: purge exactly the pages a publish wrote, in both URL forms, and never collapse to ``/*``.
+
+    More than ``cap`` paths (``publication.cache.maxInvalidationPaths``) purge the first ``cap`` and raise ``InvalidationCapped`` naming the rest.
+    """
+
+    def __init__(self, distribution_id: str, cap: int, cloudfront_client: Any = None) -> None:
+        self._distribution_id = distribution_id
+        self._cap = cap
+        self._cloudfront = cloudfront_client
+
+    def invalidate(self, keys: list[str]) -> list[str]:
+        paths = invalidation_paths_for(keys)
+        listed, skipped = paths[: self._cap], paths[self._cap :]
+        if listed:
+            invalidate_exact_paths(self._distribution_id, listed, self._cloudfront)
+        if skipped:
+            raise InvalidationCapped(listed, skipped, self._cap)
+        return listed
 
 
 class RedirectStore(Protocol):

@@ -57,15 +57,20 @@ def _init_offline(
     _install_exit_hooks()
     _install_sigterm_flush()
     _start_offline_lineage(run, capture, ignore)
+    _start_offline_log(run, capture)
     return run
 
 
 def _attach_offline(named: str, kw: dict, *, reinit_mode: str, capture: dict) -> "Run":
     """Join the offline run an offline `execute()` handed this process (``PROBE_RUN_ID=local:<key>``),
-    as an online child joins its launcher's run: identity arguments refused, the rest named."""
+    as an online child joins its launcher's run: `project=FROM_ENV` accepted, other identity
+    arguments refused (no server to check them against), the rest named."""
+    from ...client import FROM_ENV
     from ...delivery.offline.offline import attach_offline_run
     from ..attach import _IDENTITY_KWARGS, _nonzero_global_rank
 
+    if kw.get("project") is FROM_ENV:
+        kw = {k: v for k, v in kw.items() if k != "project"}
     conflicting = sorted(k for k in _IDENTITY_KWARGS if kw.get(k) is not None)
     if conflicting:
         raise errors.ValidationError(
@@ -96,6 +101,7 @@ def _attach_offline(named: str, kw: dict, *, reinit_mode: str, capture: dict) ->
     if config is not None and _nonzero_global_rank() is None:
         run.update_config(config)
     _start_offline_lineage(run, capture, ignore)
+    _start_offline_log(run, capture)
     return run
 
 
@@ -108,6 +114,15 @@ def _normalized_ignore(ignore: Any) -> Any:
         return _ignore.normalize(ignore)
     except ValueError as exc:
         raise errors.ValidationError(str(exc)) from None
+
+
+def _start_offline_log(run: "Run", capture: dict) -> None:
+    """What the run prints, kept as its log in its queue for `probe sync` (T18): the log only, output files
+    stay online-only. A no-op when a launcher on this host (an offline `execute()`) tees this process."""
+    try:
+        run._start_capture(capture_outputs=capture.get("capture_outputs"), should_keep_files=False)
+    except Exception:  # noqa: BLE001 -- the log is never a reason for a run not to open
+        pass
 
 
 def _start_offline_lineage(run: "Run", capture: dict, ignore: Any) -> None:

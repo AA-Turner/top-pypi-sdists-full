@@ -7,8 +7,8 @@ from typing_extensions import Self
 
 from office365.planner.tasks.check_list_item import PlannerChecklistItem
 from office365.runtime.client_value import ClientValue
-from office365.runtime.converters.value import deserialize_value, serialize_value
-from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.converters.value import coerce_value, serialize_value
+from office365.runtime.odata.json_format import JsonProfile
 
 
 class PlannerChecklistItems(ClientValue):
@@ -21,11 +21,11 @@ class PlannerChecklistItems(ClientValue):
 
     _item_type = PlannerChecklistItem
 
-    def set_property(self, k: str | int, v: Any, persist_changes: bool = True) -> Self:
+    def set_property(self, name: str | int, value: Any, persist_changes: bool = True) -> Self:
         # Map raw JSON objects onto the typed item so reads stay strongly typed.
-        if isinstance(v, dict):
-            v = deserialize_value(self._item_type, v, None, persist_changes)
-        return super().set_property(k, v, persist_changes)
+        if isinstance(value, dict):
+            value = coerce_value(self._item_type, value, None, persist_changes)
+        return super().set_property(name, value, persist_changes)
 
     def add(self, title: str, *, is_checked: bool = False, order_hint: str = " !") -> str:
         """Adds a checklist item and returns its generated id.
@@ -47,6 +47,6 @@ class PlannerChecklistItems(ClientValue):
         self.set_property(item_id, None)
         return self
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any]:
+    def to_json(self, profile: Optional[JsonProfile] = None) -> Dict[str, Any]:
         """Serializes the checklist, preserving ``null`` entries used to remove items."""
-        return {k: (None if v is None else serialize_value(v, json_format)) for k, v in self}
+        return {k: (None if v is None else serialize_value(v, profile)) for k, v in self}

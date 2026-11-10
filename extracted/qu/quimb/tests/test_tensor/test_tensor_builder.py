@@ -1,9 +1,16 @@
+import importlib
+
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
 import quimb as qu
 import quimb.tensor as qtn
+
+requires_symmray = pytest.mark.skipif(
+    importlib.util.find_spec("symmray") is None,
+    reason="symmray not installed",
+)
 
 
 class TestGeometries:
@@ -75,6 +82,18 @@ class TestSpinHam1D:
 
         assert_allclose(H_mpo.to_dense(), H_sps.toarray())
 
+    @pytest.mark.parametrize("cyclic", [False, True])
+    @pytest.mark.parametrize("n", [2, 3, 5])
+    def test_build_sparse_matches_mpo(self, cyclic, n):
+        HB = qtn.SpinHam1D(S=1 / 2, cyclic=cyclic)
+        HB += -1.0, "X", "X"
+        HB += -0.7, "Z"
+        assert_allclose(
+            HB.build_mpo(n).to_dense(),
+            HB.build_sparse(n).toarray(),
+            atol=1e-12,
+        )
+
     def test_no_default_term(self):
         N = 10
         builder = qtn.SpinHam1D(1 / 2)
@@ -126,6 +145,73 @@ class TestMPSSpecificStates:
             mps.to_dense(), qu.up() & qu.down() & qu.plus() & qu.minus()
         )
 
+    # (1, True) is degenerate: the lone tensor would trace its own bond
+    @pytest.mark.parametrize("L,cyclic", [(1, False), (5, False), (5, True)])
+    def test_product_state(self, L, cyclic):
+        psis = [qu.rand_ket(2) for _ in range(L)]
+        mps = qtn.MPS_product_state(psis, cyclic=cyclic)
+        assert mps.L == L
+        assert mps.cyclic is cyclic
+        assert all(d == 1 for d in mps.bond_sizes())
+        assert_allclose(mps.to_dense(), qu.kron(*psis))
+
+    @requires_symmray
+    @pytest.mark.parametrize(
+        "symmetry,chargemap,charges",
+        [
+            ("Z2", {0: 2, 1: 2}, [0, 1, 0, 1]),
+            ("U1", {0: 2, 1: 2}, [0, 1, 0, 1]),
+            (
+                "U1U1",
+                {(0, 0): 2, (1, 0): 2, (0, 1): 2, (1, 1): 2},
+                [(0, 0), (1, 0), (0, 1), (1, 1)],
+            ),
+        ],
+    )
+    def test_product_state_blocksparse(self, symmetry, chargemap, charges):
+        import symmray as sr
+
+        # each vector spans the full physical index but has definite charge,
+        # so only that one sector is occupied
+        def rand_vecs(seed0):
+            return [
+                sr.utils.get_rand(
+                    symmetry,
+                    (chargemap,),
+                    duals=(False,),
+                    charge=c,
+                    seed=seed0 + j,
+                )
+                for j, c in enumerate(charges)
+            ]
+
+        avs, bvs = rand_vecs(0), rand_vecs(100)
+        mpsa = qtn.MPS_product_state(avs)
+        mpsb = qtn.MPS_product_state(bvs)
+        L = len(charges)
+
+        # the two ends of each bond must have opposite duals, else they are
+        # not contractible
+        for i in range(L - 1):
+            bond = mpsa.bond(i, i + 1)
+            ta, tb = mpsa[i], mpsa[i + 1]
+            ia = ta.data.indices[ta.inds.index(bond)]
+            ib = tb.data.indices[tb.inds.index(bond)]
+            # right bonds are dual, left bonds are not
+            assert ia.dual is True
+            assert ib.dual is False
+            assert ia.matches(ib)
+
+        # the overlap of two product states factorizes over the sites, which
+        # pins down the charge flow the new bonds impose
+        overlaps = [
+            np.vdot(a.to_dense(), b.to_dense()) for a, b in zip(avs, bvs)
+        ]
+        assert mpsa.H @ mpsb == pytest.approx(np.prod(overlaps))
+        assert mpsa.H @ mpsa == pytest.approx(
+            np.prod([np.linalg.norm(a.to_dense()) ** 2 for a in avs])
+        )
+
 
 class TestMatrixProductOperatorSpecifics:
     @pytest.mark.parametrize("L", [1, 5])
@@ -160,6 +246,177 @@ class TestGenericTN:
             normalize=True,
         )
         assert tn.contract() == pytest.approx(1.0)
+
+    def test_TN_from_strings_join_trees(self):
+        edges = tuple(qtn.edges_2d_square(4, 4)) * 2
+        opts = {"join": True, "random_rewire": True, "random_rewire_seed": 42}
+        tn = qtn.TN_from_strings(edges, contract_sites=False, **opts)
+        assert len(tn.subgraphs()) > 1
+        assert {t.ndim for t in tn} == {2}
+        for join_prefer in (None, "short"):
+            tn_cactus = qtn.TN_from_strings(
+                edges,
+                contract_sites=False,
+                join_trees=True,
+                join_prefer=join_prefer,
+                **opts,
+            )
+            # all loops form one tree
+            assert len(tn_cactus.subgraphs()) == 1
+            # each tensor gains at most one bond
+            assert {t.ndim for t in tn_cactus} == {2, 3}
+
+    def test_TN_from_strings_avoid_loop_length(self):
+        strings = [(0, 1), (0, 1), (1, 2)]
+        opts = {"join": True, "contract_sites": False}
+
+        def count_loops(**kwargs):
+            tn = qtn.TN_from_strings(strings, **opts, **kwargs)
+            return sum(
+                all(t.ndim == 2 for t in subgraph)
+                for subgraph in tn.subgraphs()
+            )
+
+        assert count_loops() == 0
+        assert count_loops(join_avoid_loop_length=0) == 1
+
+        with pytest.warns(FutureWarning, match="join_avoid_self_loops"):
+            assert count_loops(join_avoid_self_loops=True) == 0
+        with pytest.warns(FutureWarning, match="join_avoid_self_loops"):
+            assert count_loops(join_avoid_self_loops=False) == 1
+
+    def test_TN_from_strings_join_prefer(self):
+        def get_contracted_loop_lengths(tn):
+            return [
+                sum(tag in subgraph.tag_map for tag in subgraph.site_tags)
+                for subgraph in tn.subgraphs()
+            ]
+
+        edges = tuple(qtn.edges_2d_square(6, 6)) * 2
+        opts = {
+            "join": True,
+            "random_rewire": True,
+            "random_rewire_seed": 42,
+            "contract_sites": False,
+        }
+        loop_lengths = {}
+        for prefer in ("short", "long"):
+            tn = qtn.TN_from_strings(edges, join_prefer=prefer, **opts)
+            loop_lengths[prefer] = get_contracted_loop_lengths(tn)
+
+        # short pairing makes more, smaller loops
+        assert len(loop_lengths["short"]) > len(loop_lengths["long"])
+        assert min(loop_lengths["short"]) < min(loop_lengths["long"])
+        assert max(loop_lengths["short"]) < max(loop_lengths["long"])
+
+        tn_allow_parallel = qtn.TN_from_strings(
+            edges, join_prefer="short", join_avoid_loop_length=0, **opts
+        )
+        parallel_loop_count = sum(
+            length <= 2 for length in loop_lengths["short"]
+        )
+        parallel_loop_count_allowed = sum(
+            length <= 2
+            for length in get_contracted_loop_lengths(tn_allow_parallel)
+        )
+        assert parallel_loop_count < parallel_loop_count_allowed
+
+        tn_avoid_squares = qtn.TN_from_strings(
+            edges, join_prefer="short", join_avoid_loop_length=4, **opts
+        )
+        small_loop_count = sum(length <= 4 for length in loop_lengths["short"])
+        small_loop_count_avoided = sum(
+            length <= 4
+            for length in get_contracted_loop_lengths(tn_avoid_squares)
+        )
+        assert small_loop_count_avoided < small_loop_count
+
+        cases = (
+            (2, [(0, 1), (0, 1)], {}),
+            (4, [(0, 1), (1, 2), (2, 3), (3, 0)], {}),
+        )
+        for expected, strings, case_opts in cases:
+            tn = qtn.TN_from_strings(
+                strings,
+                join=True,
+                join_prefer="short",
+                contract_sites=False,
+                **case_opts,
+            )
+            assert get_contracted_loop_lengths(tn) == [expected]
+
+        with pytest.raises(ValueError):
+            qtn.TN_from_strings(edges, join_prefer="shortest", **opts)
+
+        with pytest.raises(
+            ValueError, match='join_prefer is not supported with join="all"'
+        ):
+            qtn.TN_from_strings(
+                edges,
+                join_prefer="short",
+                **{**opts, "join": "all"},
+            )
+
+    def test_TN_from_strings_join_prefer_short_groups(self):
+        strings = [
+            (0, 1),
+            (0, 2, 3, 4),
+            (0, 5, 6),
+            (0, 7, 8, 9, 10, 11),
+        ]
+        tn = qtn.TN_from_strings(
+            strings,
+            join=True,
+            join_prefer="short",
+            contract_sites=False,
+        )
+        endpoint_pairs = {
+            frozenset(next(iter(t.tags)) for t in subgraph if t.ndim == 1)
+            for subgraph in tn.subgraphs()
+        }
+        assert endpoint_pairs == {
+            frozenset(("I1", "I6")),
+            frozenset(("I4", "I11")),
+        }
+
+    def test_TN_rand_hidden_loop_deduplicates_edges(self):
+        tn = qtn.TN_rand_hidden_loop(
+            [(0, 1), (1, 0), (1, 2), (2, 0)], line_density=1, seed=42
+        )
+        assert tn.sites == (0, 1, 2)
+        assert tn.num_tensors == 3
+        assert tn.max_bond() == 2
+
+    def test_TN_rand_hidden_cactus_exact(self):
+        edges = qtn.edges_2d_square(3, 3)
+        opts = {"seed": 42, "gauge_random": False}
+        tn_uncontracted = qtn.TN_rand_hidden_cactus(
+            edges, contract_sites=False, **opts
+        )
+        assert len(tn_uncontracted.subgraphs()) == 1
+        tn_contracted = qtn.TN_rand_hidden_cactus(edges, **opts)
+        assert tn_contracted.contract(...) == pytest.approx(
+            tn_uncontracted.contract(...)
+        )
+        # added bonds disappear when each site is contracted
+        tn_ref = qtn.TN_rand_hidden_loop(edges, **opts)
+        for site in tn_contracted.sites:
+            assert sorted(tn_contracted[site].shape) == sorted(
+                tn_ref[site].shape
+            )
+
+    def test_TN3D_rand_hidden_cactus(self):
+        tn_uncontracted = qtn.TN3D_rand_hidden_cactus(
+            2, 2, 2, seed=42, gauge_random=False, contract_sites=False
+        )
+        assert len(tn_uncontracted.subgraphs()) == 1
+        tn_contracted = qtn.TN3D_rand_hidden_cactus(
+            2, 2, 2, seed=42, gauge_random=False
+        )
+        assert tn_contracted.num_tensors == 8
+        assert tn_contracted.contract(...) == pytest.approx(
+            tn_uncontracted.contract(...)
+        )
 
     @pytest.mark.parametrize("Lx", [3])
     @pytest.mark.parametrize("Ly", [2, 4])

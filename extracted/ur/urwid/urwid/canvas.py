@@ -62,6 +62,8 @@ if typing.TYPE_CHECKING:
             "pop up anchor": NotRequired[tuple[int, int, int]],
             # Same (x, y) as "pop up"; the data part is the pop-up widget and its unhandled key callback.
             "pop up unhandled key": NotRequired[tuple[int, int, tuple[AbstractWidget, Callable[[str], str | None]]]],
+            # Same (x, y) as "pop up"; the data part is the pop-up widget and its outside click callback.
+            "pop up click outside": NotRequired[tuple[int, int, tuple[AbstractWidget, Callable[[], None]]]],
             "cursor": NotRequired[tuple[int, int, None]],
         },
     )
@@ -401,6 +403,18 @@ class Canvas:
             return None
         return on_key[2][1]
 
+    def get_pop_up_click_outside(self) -> Callable[[], None] | None:
+        """Return the outside click callback set with the pop-up on this canvas.
+
+        :returns: the callback, or ``None`` when none was set.
+        """
+        pop_up = self.coords.get("pop up", None)
+        on_click = self.coords.get("pop up click outside", None)
+        # As for the anchor, use only the callback set together with this pop-up.
+        if pop_up is None or on_click is None or on_click[:2] != pop_up[:2] or on_click[2][0] is not pop_up[2][0]:
+            return None
+        return on_click[2][1]
+
     def set_pop_up(
         self,
         w: AbstractWidget,
@@ -411,6 +425,7 @@ class Canvas:
         *,
         anchor_height: int | None = None,
         on_unhandled_key: Callable[[str], str | None] | None = None,
+        on_click_outside: Callable[[], None] | None = None,
     ) -> None:
         """Add pop-up information to the canvas.
 
@@ -434,6 +449,9 @@ class Canvas:
         :param on_unhandled_key: called by :class:`PopUpTarget <urwid.PopUpTarget>` with a key that `w` returned
             unhandled while it is the topmost open pop-up; it returns ``None`` when it handled the key, or the key
             to pass on. ``None`` passes every unhandled key on.
+        :param on_click_outside: called by :class:`PopUpTarget <urwid.PopUpTarget>` instead of passing on a press of
+            mouse button 1, 2 or 3 outside `w` while it is the topmost open pop-up.
+            ``None`` leaves such a press unhandled.
         :raises CanvasError: the canvas is already finalised, the anchor height is negative
             or the overlay size is not positive
         """
@@ -458,6 +476,10 @@ class Canvas:
             self.coords.pop("pop up unhandled key", None)
         else:
             self.coords["pop up unhandled key"] = (left, top, (w, on_unhandled_key))
+        if on_click_outside is None:
+            self.coords.pop("pop up click outside", None)
+        else:
+            self.coords["pop up click outside"] = (left, top, (w, on_click_outside))
 
     def translate_coords(self, dx: int, dy: int) -> _CanvasCoords:
         """Return coords shifted by (dx, dy)."""
@@ -1066,14 +1088,15 @@ class CompositeCanvas(Canvas):
             bottom_shards = shards_trim_top(side_shards, height)
             side_shards = shards_trim_rows(side_shards, height)
 
-        left_shards: list[list[tuple[int, list[_CView]]]] = []
-        right_shards: list[list[tuple[int, list[_CView]]]] = []
-        if left > 0:
-            left_shards = [shards_trim_sides(side_shards, 0, left)]
-        if right > 0:
-            right_shards = [shards_trim_sides(side_shards, max(0, left + width), right)]
-
-        middle_shards = shards_join((*left_shards, other.shards, *right_shards)) if left or right else other.shards
+        if left > 0 and right > 0:
+            left_shards, right_shards = _shards_cut_columns(side_shards, ((0, left), (left + width, right)))
+            middle_shards = shards_join((left_shards, other.shards, right_shards))
+        elif left > 0:
+            middle_shards = shards_join((shards_trim_sides(side_shards, 0, left), other.shards))
+        elif right > 0:
+            middle_shards = shards_join((other.shards, shards_trim_sides(side_shards, max(0, left + width), right)))
+        else:
+            middle_shards = other.shards
 
         self.shards = top_shards + middle_shards + bottom_shards
 
@@ -1314,36 +1337,51 @@ def shards_trim_sides(
         raise ValueError(left)
     if cols <= 0:
         raise ValueError(cols)
+    return _shards_cut_columns(shards, ((left, cols),))[0]
+
+
+def _shards_cut_columns(
+    shards: Iterable[tuple[int, list[_CView]]],
+    column_ranges: Sequence[tuple[int, int]],
+) -> list[list[tuple[int, list[_CView]]]]:
+    """Return the shards of each ``(left, cols)`` column range.
+
+    *shards* is walked once for all ranges.
+    Each range starts at a non-negative column and has a positive width.
+
+    :returns: one shard list per entry of *column_ranges*, in the same order.
+    :raises CanvasError: the cviews of a shard overflow the gaps the shards above it leave.
+    """
     shard_tail: list[tuple[int, int, Iterator[_ContentLine] | None, _CView]] = []
-    new_shards: list[tuple[int, list[_CView]]] = []
-    right = left + cols
+    results: list[list[tuple[int, list[_CView]]]] = [[] for _ in column_ranges]
     for num_rows, cviews in shards:
         # Cviews starting in this shard get this shard's marker and continued ones keep an earlier one:
         # done_rows cannot tell them apart, since it stays 0 for a cview continued past a shard of no rows.
         started_here: Iterator[_ContentLine] = iter(())
         sbody = shard_body(cviews, shard_tail, False, started_here, num_rows=num_rows)
         shard_tail = shard_body_tail(num_rows, sbody)
-        new_cviews = []
-        col = 0
-        for _done_rows, content_iter, cv in sbody:
-            cv_cols = cv[2]
-            next_col = col + cv_cols
-            if content_iter is not started_here or next_col <= left or col >= right:
+        for new_shards, (left, cols) in zip(results, column_ranges, strict=True):
+            right = left + cols
+            new_cviews = []
+            col = 0
+            for _done_rows, content_iter, cv in sbody:
+                next_col = col + cv[2]
+                if content_iter is not started_here or next_col <= left or col >= right:
+                    col = next_col
+                    continue
+                if col < left:
+                    cv = cview_trim_left(cv, left - col)  # noqa: PLW2901
+                    col = left
+                if next_col > right:
+                    cv = cview_trim_cols(cv, right - col)  # noqa: PLW2901
+                new_cviews.append(cv)
                 col = next_col
-                continue
-            if col < left:
-                cv = cview_trim_left(cv, left - col)  # noqa: PLW2901
-                col = left
-            if next_col > right:
-                cv = cview_trim_cols(cv, right - col)  # noqa: PLW2901
-            new_cviews.append(cv)
-            col = next_col
-        if not new_cviews:
-            prev_num_rows, prev_cviews = new_shards[-1]
-            new_shards[-1] = (prev_num_rows + num_rows, prev_cviews)
-        else:
-            new_shards.append((num_rows, new_cviews))
-    return new_shards
+            if not new_cviews:
+                prev_num_rows, prev_cviews = new_shards[-1]
+                new_shards[-1] = (prev_num_rows + num_rows, prev_cviews)
+            else:
+                new_shards.append((num_rows, new_cviews))
+    return results
 
 
 def shards_join(shard_lists: Iterable[Iterable[tuple[int, list[_CView]]]]) -> list[tuple[int, list[_CView]]]:

@@ -7,14 +7,16 @@ and utility functions for detecting schema versions.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar
+from dataclasses import dataclass, field, fields, replace
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, TypeVar
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 from datamodel_code_generator.enums import AsyncAPIVersion, JsonSchemaVersion, OpenAPIVersion
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from datamodel_code_generator.types import Types
 
 
@@ -32,7 +34,13 @@ class FeatureMetadata(TypedDict):
     description: str
     """User-facing description of the feature."""
     status: Literal["supported", "partial", "not_supported"]
-    """Implementation status: supported, partial, or not_supported."""
+    """Implementation status of model generation: supported, partial, or not_supported."""
+    client_status: NotRequired[Literal["supported", "partial", "not_supported"]]
+    """Status in the Python client (`--generate-client`), for a feature the client plans itself.
+
+    An operation that uses a feature the client does not support, or a part of a partial one it does not, is left
+    out of the client with a warning that names the feature.
+    """
 
 
 _DRAFT_FLAG_CHANGES: tuple[tuple[JsonSchemaVersion, dict[str, Any]], ...] = (
@@ -59,7 +67,13 @@ _DRAFT_FLAG_CHANGES: tuple[tuple[JsonSchemaVersion, dict[str, Any]], ...] = (
     (JsonSchemaVersion.Draft7, {"read_only_write_only": True}),
     (
         JsonSchemaVersion.Draft201909,
-        {"defs_not_definitions": True, "definitions_key": "$defs", "anchor": True, "recursive_ref": True},
+        {
+            "defs_not_definitions": True,
+            "definitions_key": "$defs",
+            "anchor": True,
+            "recursive_ref": True,
+            "ref_sibling_keywords": True,
+        },
     ),
     (JsonSchemaVersion.Draft202012, {"prefix_items": True, "dynamic_ref": True}),
 )
@@ -298,6 +312,15 @@ class JsonSchemaFeatures:
             status="supported",
         ),
     )
+    ref_sibling_keywords: bool = field(
+        default=False,
+        metadata=FeatureMetadata(
+            introduced="2019-09",
+            doc_name="$ref with sibling keywords",
+            description="Keywords beside `$ref` apply with the referenced schema (ignored in Draft 4-7 and OAS 3.0)",
+            status="partial",
+        ),
+    )
 
     @classmethod
     def from_version(cls, version: JsonSchemaVersion) -> JsonSchemaFeatures:
@@ -338,20 +361,13 @@ class OpenAPISchemaFeatures(JsonSchemaFeatures):
         metadata=FeatureMetadata(
             introduced="OAS 3.1",
             doc_name="webhooks",
-            description="Top-level webhooks object for incoming events",
+            description="Top-level webhooks object for incoming events; the client generates no methods for webhook "
+            "operations, only helpers that verify and decode deliveries",
             status="supported",
+            client_status="partial",
         ),
     )
     # --- Partially supported features ---
-    ref_sibling_keywords: bool = field(
-        default=False,
-        metadata=FeatureMetadata(
-            introduced="OAS 3.1",
-            doc_name="$ref with sibling keywords",
-            description="$ref can coexist with description, summary (no allOf workaround)",
-            status="partial",
-        ),
-    )
     media_item_schema: bool = field(
         default=False,
         metadata=FeatureMetadata(
@@ -375,8 +391,10 @@ class OpenAPISchemaFeatures(JsonSchemaFeatures):
         metadata=FeatureMetadata(
             introduced="OAS 3.2",
             doc_name="querystring",
-            description="Query string parameter object without a parameter name",
+            description="Query string parameter object without a parameter name; the client ignores the `encoding` "
+            "declarations of the members of a nameless form querystring",
             status="supported",
+            client_status="partial",
         ),
     )
     # --- Unsupported features ---
@@ -425,19 +443,109 @@ class OpenAPISchemaFeatures(JsonSchemaFeatures):
             status="not_supported",
         ),
     )
+    # --- Features the Python client plans itself (client_status) ---
+    http_auth_schemes: bool = field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.0",
+            doc_name="http security schemes",
+            description="HTTP authentication schemes; the client sends `basic` and `bearer` only",
+            status="not_supported",
+            client_status="partial",
+        ),
+    )
+    mutual_tls: bool = field(
+        default=False,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.1",
+            doc_name="mutualTLS",
+            description="Mutual TLS security scheme",
+            status="not_supported",
+            client_status="not_supported",
+        ),
+    )
+    cookie_style: bool = field(
+        default=False,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.2",
+            doc_name="style: cookie",
+            description="Cookie parameter style; earlier versions do not declare it",
+            status="supported",
+            client_status="supported",
+        ),
+    )
+    deep_object_style: bool = field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.0",
+            doc_name="style: deepObject",
+            description="Query parameters written as `name[key]=value`; the client writes objects of scalars, and "
+            "arrays, scalars, nested objects and arrays of objects, which OpenAPI leaves undefined, of query "
+            "parameters and URL-encoded form members as `name[]=value`, `name=value`, `name[key][key]=value` and "
+            "`name[0][key]=value` only with `--client-deep-object-brackets`",
+            status="supported",
+            client_status="partial",
+        ),
+    )
+    structured_parameter_values: bool = field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.0",
+            doc_name="Structured style values",
+            description="Parameter and form member values that are no single scalar kind, such as nested objects, "
+            "unions and `allOf`, written with a style; the client writes only a parameter outside a header, or a "
+            "URL-encoded form member, that takes one item or an array of them, and with "
+            "`--client-deep-object-brackets` deepObject values, as `style: deepObject` describes",
+            status="supported",
+            client_status="partial",
+        ),
+    )
+    binary_in_text_media: bool = field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.0",
+            doc_name="Binary strings in text media",
+            description="`format: binary` strings inside a JSON, URL-encoded or text body, a parameter or a header",
+            status="supported",
+            client_status="not_supported",
+        ),
+    )
+    multipart_media: bool = field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.0",
+            doc_name="multipart media types",
+            description="Multipart bodies; the client maps the parts of `multipart/form-data` with an object schema, "
+            "or a union of objects that agree on the parts of each property, only, such as not `multipart/related`",
+            status="supported",
+            client_status="partial",
+        ),
+    )
+    part_content_type: bool = field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced="OAS 3.0",
+            doc_name="Encoding contentType",
+            description="Media types of form-data parts; the client writes a part holding no files as JSON, or its "
+            "scalars as text in a media type other than a form or multipart media type",
+            status="supported",
+            client_status="partial",
+        ),
+    )
 
     @classmethod
     def from_openapi_version(cls, version: OpenAPIVersion) -> OpenAPISchemaFeatures:
         """Create OpenAPISchemaFeatures from an OpenAPI version."""
         if version == OpenAPIVersion.V30:
             return cls(definitions_key="definitions", read_only_write_only=True, nullable_keyword=True)
-        flags: dict[str, Any] = {
-            **_draft_flags(JsonSchemaVersion.Draft202012),
-            "webhooks": True,
-            "ref_sibling_keywords": True,
-        }
+        flags: dict[str, Any] = {**_draft_flags(JsonSchemaVersion.Draft202012), "webhooks": True, "mutual_tls": True}
         if version == OpenAPIVersion.V32:
-            flags |= {"media_item_schema": True, "openapi_self": True, "querystring_parameter": True}
+            flags |= {
+                "media_item_schema": True,
+                "openapi_self": True,
+                "querystring_parameter": True,
+                "cookie_style": True,
+            }
         return cls(**flags)
 
     @classmethod
@@ -446,6 +554,147 @@ class OpenAPISchemaFeatures(JsonSchemaFeatures):
         if version == AsyncAPIVersion.V2:
             return cls.from_openapi_version(OpenAPIVersion.V30)
         return cls.from_openapi_version(OpenAPIVersion.V31)
+
+
+def _client_feature(
+    *, introduced: str, doc_name: str, description: str, client_status: Literal["partial", "not_supported"]
+) -> Any:
+    """Return a field of the AsyncAPI client feature table, whose models every status generates."""
+    return field(
+        default=True,
+        metadata=FeatureMetadata(
+            introduced=introduced,
+            doc_name=doc_name,
+            description=description,
+            status="supported",
+            client_status=client_status,
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class AsyncAPIClientFeatures:
+    """The AsyncAPI features the Python client plans itself (`client_status`).
+
+    A channel that uses a feature the client does not support, or a part of a partial one it does not, is left out of
+    the client with a warning that names the feature; its models are generated as for any other channel. Message
+    headers are the exception: the client opens their channels and neither sends nor reads them.
+    """
+
+    server_protocols: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="server protocols",
+        description="The protocol of a server; the client opens the channels of `ws` and `wss` servers as "
+        "WebSockets, and the server-sent event channels of `http`, `https` and `sse` servers",
+        client_status="partial",
+    )
+    server_sent_events: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="server-sent event channels",
+        description="A channel that carries `text/event-stream` messages, its own or a trait's, or that no `ws` or "
+        "`wss` server serves and an `sse` server serves or whose `http` binding fixes `Accept` or `Content-Type` to "
+        "`text/event-stream`; the client opens it with a GET, whose query and header parameters are those of the "
+        "`http` bindings of the channel and its operations, and receives the JSON data of each of its messages until "
+        "the stream ends, without reconnecting; it does not receive other content types on it or open it with another "
+        "method",
+        client_status="partial",
+    )
+    server_variables: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="server variables",
+        description="The variables of a server's URL; the client substitutes each by its `default`, which OpenAPI "
+        "requires and AsyncAPI does not",
+        client_status="partial",
+    )
+    channel_addresses: bool = _client_feature(
+        introduced="AsyncAPI 3.0",
+        doc_name="channels without an address",
+        description="A channel whose `address` is null or absent, which the client cannot open",
+        client_status="not_supported",
+    )
+    websocket_bindings: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="WebSocket channel bindings",
+        description="`bindings.ws` of a channel; the client opens GET handshakes, with the properties of objects "
+        "`query` and `headers` as parameters, and the values a `Sec-WebSocket-Protocol` header fixes as the "
+        "subprotocols it offers",
+        client_status="partial",
+    )
+    message_content_types: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="message content types",
+        description="The payloads of messages; the client codes JSON, `text/plain` strings and "
+        "`application/octet-stream` payloads of JSON Schema or AsyncAPI schemas, and no `contentEncoding` string "
+        "outside JSON",
+        client_status="partial",
+    )
+    message_payloads: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="messages without a payload",
+        description="A message that declares no `payload`, which the client cannot code",
+        client_status="not_supported",
+    )
+    message_headers: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="message headers",
+        description="The `headers` of a message; the client codes its payload but neither sends nor reads headers, "
+        "which a WebSocket frame does not carry, and opens the channel without a warning",
+        client_status="partial",
+    )
+    several_messages: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="several messages per direction",
+        description="More than one message that an application sends, or receives, on one channel; the client tells "
+        "JSON messages apart by a tag their models declare, else by their class when it sends them, and Pydantic "
+        "models code them as a union; it does not receive text and JSON messages on one channel",
+        client_status="partial",
+    )
+    shared_addresses: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="channels sharing an address",
+        description="Channels at one address on the same servers, which the client opens as one connection that "
+        "carries the messages of them all; their handshakes must take the same parameters, offer the same "
+        "subprotocols and need the same security",
+        client_status="partial",
+    )
+    operation_replies: bool = _client_feature(
+        introduced="AsyncAPI 3.0",
+        doc_name="operation replies",
+        description="The `reply` of an operation; the client sends or receives its messages on the operation's "
+        "connection, without correlating them with a request, and does not open a reply on a channel at another "
+        "address or sent to an address a runtime expression gives",
+        client_status="partial",
+    )
+    security_requirements: bool = _client_feature(
+        introduced="AsyncAPI 2.0",
+        doc_name="security requirements",
+        description="The security of a server or an operation, its own or a trait's; the client sends `httpApiKey`, "
+        "`http`, `oauth2` and `openIdConnect` credentials on a handshake, and needs every server of a channel to "
+        "require the same",
+        client_status="partial",
+    )
+
+
+_NEUTRAL_LABELS: Final = {"structured_parameter_values": "structured parameter values"}
+"""The names of the OpenAPI features whose documented name is OpenAPI's own wording, as an AsyncAPI input reads."""
+
+
+def feature_label(feature: str, *, asyncapi: bool = False) -> str:
+    """Return how messages name a feature: its documented name and the version that introduced it.
+
+    The feature is a field of `OpenAPISchemaFeatures` or of `AsyncAPIClientFeatures`. For an AsyncAPI input
+    (`asyncapi`), an OpenAPI feature, which a channel's handshake uses as an HTTP request, is named without OpenAPI's
+    version and wording (`_NEUTRAL_LABELS`).
+    """
+    owner, metadata = next(
+        (owner, item.metadata)
+        for owner in (OpenAPISchemaFeatures, AsyncAPIClientFeatures)
+        for item in fields(owner)
+        if item.name == feature
+    )
+    if asyncapi and owner is OpenAPISchemaFeatures:
+        return _NEUTRAL_LABELS.get(feature, metadata["doc_name"])
+    return f"{metadata['doc_name']} ({metadata['introduced']})"
 
 
 SchemaFeaturesT = TypeVar("SchemaFeaturesT", bound=JsonSchemaFeatures)
@@ -517,6 +766,84 @@ def detect_asyncapi_version(data: dict[str, Any]) -> AsyncAPIVersion:
     if isinstance(version := data.get("asyncapi", ""), str) and version.startswith("2."):
         return AsyncAPIVersion.V2
     return AsyncAPIVersion.V3
+
+
+SchemaKind: TypeAlias = Literal["jsonschema", "openapi", "asyncapi"]
+SchemaVersion: TypeAlias = JsonSchemaVersion | OpenAPIVersion | AsyncAPIVersion
+
+
+@dataclass(frozen=True)
+class DocumentDialect:
+    """The schema version a document is read by, and the features of that version."""
+
+    version: SchemaVersion
+    features: JsonSchemaFeatures
+
+
+@dataclass(frozen=True)
+class _KindReading:
+    """How a kind of document declares its version: the config field, ``auto``, the declaration and the features."""
+
+    config_field: str
+    auto: SchemaVersion
+    declares: Callable[[dict[str, Any]], bool]
+    detect: Callable[[dict[str, Any]], Any]
+    features: Callable[[Any], JsonSchemaFeatures]
+
+
+_KIND_READINGS: Final[dict[SchemaKind, _KindReading]] = {
+    "jsonschema": _KindReading(
+        "jsonschema_version",
+        JsonSchemaVersion.Auto,
+        lambda raw: _detect_declared_jsonschema_version(raw) is not None,
+        detect_jsonschema_version,
+        JsonSchemaFeatures.from_version,
+    ),
+    "openapi": _KindReading(
+        "openapi_version",
+        OpenAPIVersion.Auto,
+        lambda raw: "openapi" in raw,
+        detect_openapi_version,
+        OpenAPISchemaFeatures.from_openapi_version,
+    ),
+    "asyncapi": _KindReading(
+        "asyncapi_version",
+        AsyncAPIVersion.Auto,
+        lambda raw: "asyncapi" in raw,
+        detect_asyncapi_version,
+        OpenAPISchemaFeatures.from_asyncapi_version,
+    ),
+}
+
+
+def document_dialect(
+    raw: dict[str, Any],
+    kind: SchemaKind,
+    *,
+    configured: SchemaVersion | None = None,
+    inherited: DocumentDialect | None = None,
+) -> DocumentDialect:
+    """Return the schema version a document of ``kind`` is read by, and its features.
+
+    The configured version unless it is ``auto``; else the version the document declares (`$schema`, or the
+    ``openapi`` or ``asyncapi`` field of a specification); else ``inherited``, the dialect of the document whose
+    reference loads it; without one, the document is read by itself (no `$schema`: `$defs` reads as 2020-12, else
+    draft 7; an empty document as ``auto``). A JSON Schema document that a specification loads reads its keywords by
+    its own `$schema` and the specification's own fields as the loading document does.
+    """
+    reading = _KIND_READINGS[kind]
+    if configured is not None and configured != reading.auto:
+        version: Any = configured
+    elif inherited is None or reading.declares(raw):
+        version = reading.detect(raw) if raw else reading.auto
+    elif (version := _detect_declared_jsonschema_version(raw)) is None:
+        return inherited
+    else:
+        own = JsonSchemaFeatures.from_version(version)
+        return DocumentDialect(
+            version, replace(inherited.features, **{item.name: getattr(own, item.name) for item in fields(own)})
+        )
+    return DocumentDialect(version, reading.features(version))
 
 
 DataFormatMapping: TypeAlias = "dict[str, dict[str, Types]]"
@@ -602,12 +929,15 @@ def get_data_formats(*, is_openapi: bool = False) -> DataFormatMapping:
 
 __all__ = [
     "DataFormatMapping",
+    "DocumentDialect",
     "FeatureMetadata",
     "JsonSchemaFeatures",
     "OpenAPISchemaFeatures",
     "SchemaFeaturesT",
+    "SchemaKind",
     "detect_asyncapi_version",
     "detect_jsonschema_version",
     "detect_openapi_version",
+    "document_dialect",
     "get_data_formats",
 ]

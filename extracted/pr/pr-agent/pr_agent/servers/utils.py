@@ -12,7 +12,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from pr_agent.algo.setting_utils import normalize_setting_list
+from pr_agent.algo.setting_utils import _as_bool_setting, normalize_setting_list
 from pr_agent.config_loader import get_settings
 from pr_agent.log import get_logger
 
@@ -85,6 +85,11 @@ def is_ask_command_comment(body) -> bool:
     if not stripped:
         return False
     return stripped.split(maxsplit=1)[0] in ("/ask", "/ask_line")
+
+
+def auto_feedback_disabled() -> bool:
+    """Whether config.disable_auto_feedback stops every auto command (pr_commands, push_commands, ...)."""
+    return _as_bool_setting(get_settings().get("config.disable_auto_feedback", False))
 
 
 def get_pr_commands(provider: str) -> Sequence[str]:

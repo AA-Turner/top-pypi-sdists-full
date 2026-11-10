@@ -193,6 +193,7 @@ class InsightsRepositoryPort(Protocol):
     async def throughput_timeseries(
         self,
         last: timedelta,
+        bucket: timedelta = timedelta(minutes=1),
     ) -> list[models.ThroughputBucket]: ...
 
     async def log_statistics(
@@ -261,6 +262,8 @@ class ScheduleRepositoryPort(Protocol):
         self,
         ids: set[types.ScheduleId],
         entrypoints: set[CronEntrypoint],
+        *,
+        keep: set[models.CronExpressionEntrypoint] | None = None,
     ) -> None: ...
 
     async def clear_schedule(self) -> None: ...

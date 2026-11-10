@@ -11,6 +11,7 @@ use super::{Copy, Dst, Issued, ReadControl, ReadOpts, ReadStats, Src};
 use crate::failure::{Failure, Kind};
 use crate::format::ObjectRef;
 
+/// `len` bytes from `source`, placed at `offset`; `part_end` marks a part's last item.
 #[derive(Debug, Clone)]
 pub struct Item {
     pub offset: u64,
@@ -27,6 +28,7 @@ pub struct Placement<'a> {
     pub dst: Dst,
 }
 
+/// Bytes read so far, by path: cached, direct, buffered and inline.
 #[derive(Debug, Default)]
 pub struct IoTally {
     pub cached_bytes: AtomicU64,
@@ -36,6 +38,7 @@ pub struct IoTally {
     pub direct_refused: AtomicU64,
 }
 
+/// How a read goes: only `Cache` may use O_DIRECT; `Buffered` tallies its cached bytes as buffered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Cache,
@@ -43,6 +46,7 @@ pub enum Mode {
     Cached,
 }
 
+/// A placement read's failure: a bad item or source, or the engine's read error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
@@ -50,7 +54,38 @@ pub enum Error {
     #[error(transparent)]
     Read(#[from] super::Error),
 }
+/// A source read's outcome.
 pub type Result<T> = std::result::Result<T, Error>;
+
+// The plan owns every file/inline source that a borrowed engine copy refers to.
+enum OwnedSource {
+    Zero,
+    File(Arc<File>, u64),
+    Inline(Arc<[u8]>),
+}
+struct OwnedCopy {
+    src: OwnedSource,
+    dst: Dst,
+}
+impl OwnedCopy {
+    fn borrowed(&self) -> Copy<'_> {
+        Copy {
+            src: match &self.src {
+                OwnedSource::Zero => Src::Zero,
+                OwnedSource::File(file, offset) => Src::File(file, *offset),
+                OwnedSource::Inline(bytes) => Src::Host(bytes.as_ptr()),
+            },
+            dst: self.dst,
+        }
+    }
+}
+struct ReadPlan {
+    copies: Vec<OwnedCopy>,
+    placement: Vec<usize>,
+    inline: u64,
+    bytes: u64,
+}
+
 fn invalid(detail: impl Into<String>) -> Error {
     Failure {
         kind: Kind::Invalid,
@@ -59,9 +94,11 @@ fn invalid(detail: impl Into<String>) -> Error {
     .into()
 }
 
+/// The verified objects placements read from: open files, or a checkpoint's chunks opened on read.
 pub struct Source {
-    #[cfg(feature = "store")]
     view: Option<super::view::View>,
+    /// What the source's views borrow from (a `tensorfs::Checkpoint`), kept alive with it.
+    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
     files: Mutex<HashMap<String, Arc<File>>>,
     direct_io: bool,
 }
@@ -69,8 +106,8 @@ pub struct Source {
 impl Source {
     pub fn files(files: Vec<(ObjectRef, File)>, direct_io: bool, _plane: usize) -> Source {
         Source {
-            #[cfg(feature = "store")]
             view: None,
+            _owner: None,
             files: Mutex::new(
                 files
                     .into_iter()
@@ -81,15 +118,15 @@ impl Source {
         }
     }
 
-    /// Retain metadata and the source context. No chunk opens or downloads until a read.
-    #[cfg(feature = "store")]
-    pub(crate) fn checkpoint(view: &super::view::View, direct_io: bool) -> Source {
+    /// Retain metadata and the source context (`owner`, kept alive with it). No chunk opens or
+    /// downloads until a read.
+    pub fn checkpoint(view: &super::view::View, direct_io: bool, owner: impl std::any::Any + Send + Sync) -> Source {
         let mut source = Self::files(Vec::new(), direct_io, 0);
         source.view = Some(view.clone());
+        source._owner = Some(Box::new(owner));
         source
     }
 
-    #[cfg(feature = "store")]
     fn load(&self, objects: &[ObjectRef]) -> Result<()> {
         if let Some(view) = &self.view {
             let missing = {
@@ -111,15 +148,6 @@ impl Source {
         Ok(())
     }
 
-    /// Verify every object is locally present, opening and caching its descriptor exactly as
-    /// a read would. On a local-only source a missing object errors here, before any GPU work,
-    /// so a caller can refuse and fall back to a fetch-capable read. The opened files are
-    /// retained, so a following read through this source reuses these verified descriptors.
-    #[cfg(feature = "store")]
-    pub fn verify_local(&self, objects: &[ObjectRef]) -> Result<()> {
-        self.load(objects)
-    }
-
     fn file(&self, object: &ObjectRef) -> Result<Arc<File>> {
         if let Some(file) = self.files.lock().unwrap().get(&object.sha256).cloned() {
             return Ok(file);
@@ -131,37 +159,9 @@ impl Source {
     }
 
     pub fn resident(&self, obj: &ObjectRef, _tally: &IoTally) -> Result<bool> {
-        #[cfg(feature = "store")]
         self.load(std::slice::from_ref(obj))?;
         let file = self.file(obj)?;
         Ok(platform::durable::cached(&file, 0, obj.length).unwrap_or(false))
-    }
-
-    /// Asks the kernel to read `items`' object bytes into the page cache ahead of their fills
-    /// (`POSIX_FADV_WILLNEED`, Linux; elsewhere nothing): host RAM is the page cache. Best effort.
-    pub fn readahead(&self, items: &[Item]) -> Result<()> {
-        #[cfg(feature = "store")]
-        {
-            let objects: std::collections::BTreeMap<_, _> = items.iter().filter_map(|i| match &i.source {
-                ItemSource::Object(range) => Some((range.obj.sha256.clone(), range.obj.clone())),
-                ItemSource::Inline(_) => None,
-            }).collect();
-            self.load(&objects.into_values().collect::<Vec<_>>())?;
-        }
-        for item in items {
-            if let ItemSource::Object(range) = &item.source {
-                let file = self.file(&range.obj)?;
-                #[cfg(target_os = "linux")]
-                // SAFETY: advice on a descriptor this source holds open.
-                unsafe {
-                    use std::os::fd::AsRawFd;
-                    libc::posix_fadvise(file.as_raw_fd(), range.off as libc::off_t, range.len as libc::off_t, libc::POSIX_FADV_WILLNEED);
-                }
-                #[cfg(not(target_os = "linux"))]
-                let _ = file;
-            }
-        }
-        Ok(())
     }
 
     /// Transfer a placement range. Uncovered padding is zeroed through the same engine.
@@ -242,16 +242,7 @@ impl Source {
         unsafe { self.read_controlled(placements, threads, mode, tally, issued, Some(cancel)) }
     }
 
-    unsafe fn read_controlled(
-        &self,
-        placements: &[Placement],
-        threads: usize,
-        mode: Mode,
-        tally: &IoTally,
-        issued: Option<Issued>,
-        cancel: Option<&ReadControl>,
-    ) -> Result<ReadStats> {
-        #[cfg(feature = "store")]
+    fn plan_placements(&self, placements: &[Placement<'_>]) -> Result<ReadPlan> {
         {
             let wanted = placements
                 .iter()
@@ -282,7 +273,7 @@ impl Source {
         for (p, &Placement { items, origin, dst }) in placements.iter().enumerate() {
             // Each placement's copies in destination order, gaps included, so contiguous runs
             // merge (`coalesce`).
-            let mut ordered: Vec<(u64, Copy)> = Vec::with_capacity(items.len() + 1);
+            let mut ordered: Vec<(u64, OwnedCopy)> = Vec::with_capacity(items.len() + 1);
             let mut intervals = Vec::with_capacity(items.len());
             for item in items {
                 if let ItemSource::Object(range) = &item.source {
@@ -307,16 +298,16 @@ impl Source {
                 }
                 intervals.push((start, end));
                 let src = match &item.source {
-                    ItemSource::Object(range) => Src::File(&files[&range.obj.sha256], range.off),
+                    ItemSource::Object(range) => OwnedSource::File(Arc::clone(&files[&range.obj.sha256]), range.off),
                     ItemSource::Inline(bytes) => {
                         if bytes.len() as u64 != item.len {
                             return Err(invalid("inline length differs from item"));
                         }
                         inline += item.len;
-                        Src::Host(bytes.as_ptr())
+                        OwnedSource::Inline(Arc::clone(bytes))
                     }
                 };
-                ordered.push((start, Copy {
+                ordered.push((start, OwnedCopy {
                     src,
                     dst: dst.slice(start as usize, item.len as usize),
                 }));
@@ -331,16 +322,16 @@ impl Source {
                     return Err(invalid("placement items overlap"));
                 }
                 if start > cursor {
-                    ordered.push((cursor, Copy {
-                        src: Src::Zero,
+                    ordered.push((cursor, OwnedCopy {
+                        src: OwnedSource::Zero,
                         dst: dst.slice(cursor as usize, (start - cursor) as usize),
                     }));
                 }
                 cursor = end;
             }
             if cursor < dst.len() as u64 {
-                ordered.push((cursor, Copy {
-                    src: Src::Zero,
+                ordered.push((cursor, OwnedCopy {
+                    src: OwnedSource::Zero,
                     dst: dst.slice(cursor as usize, dst.len() - cursor as usize),
                 }));
             }
@@ -348,6 +339,26 @@ impl Source {
             of.resize(of.len() + ordered.len(), p);
             copies.extend(ordered.into_iter().map(|(_, c)| c));
         }
+        Ok(ReadPlan {
+            copies,
+            placement: of,
+            inline,
+            bytes: placements.iter().flat_map(|p| p.items).map(|item| item.len).sum(),
+        })
+    }
+
+    unsafe fn read_controlled(
+        &self,
+        placements: &[Placement],
+        threads: usize,
+        mode: Mode,
+        tally: &IoTally,
+        issued: Option<Issued>,
+        cancel: Option<&ReadControl>,
+    ) -> Result<ReadStats> {
+        let plan = self.plan_placements(placements)?;
+        let copies = plan.copies.iter().map(OwnedCopy::borrowed).collect();
+        let of = &plan.placement;
         let (copies, firsts) = super::coalesce(copies);
         // Each run's placements, and the runs each placement waits for.
         let runs: Vec<Vec<usize>> = (0..firsts.len())
@@ -378,44 +389,14 @@ impl Source {
             // SAFETY: as above; ordinary reads keep their existing issue observer.
             None => unsafe { super::read_staged(&copies, &opts, issued.map(|_| &run_issued as Issued)) }?,
         };
-        stats.bytes = placements
-            .iter()
-            .flat_map(|p| p.items)
-            .map(|item| item.len)
-            .sum();
+        stats.bytes = plan.bytes;
         tally.direct_bytes.fetch_add(stats.direct, Relaxed);
-        tally.inline_bytes.fetch_add(inline, Relaxed);
+        tally.inline_bytes.fetch_add(plan.inline, Relaxed);
         if mode == Mode::Buffered {
             tally.buffered_bytes.fetch_add(stats.cached, Relaxed);
         } else {
             tally.cached_bytes.fetch_add(stats.cached, Relaxed);
         }
         Ok(stats)
-    }
-
-    /// # Safety
-    /// `dst` is exclusively writable for `item.len` bytes.
-    pub unsafe fn read_item(
-        &self,
-        item: &Item,
-        dst: *mut u8,
-        mode: Mode,
-        tally: &IoTally,
-    ) -> Result<()> {
-        // SAFETY: inherited from caller.
-        unsafe {
-            self.read_items(
-                std::slice::from_ref(item),
-                item.offset,
-                Dst::Host {
-                    ptr: dst,
-                    len: item.len as usize,
-                },
-                1,
-                mode,
-                tally,
-            )
-        }
-        .map(|_| ())
     }
 }

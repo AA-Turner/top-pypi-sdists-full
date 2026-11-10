@@ -22,6 +22,7 @@ from pathlib import Path
 from . import (
     access,
     deferred_index,
+    document_containers,
     held_fs,
     media_engines,
     media_jobs,
@@ -31,6 +32,7 @@ from . import (
     recall_policy,
     rename_journal,
     reserved_paths,
+    temporal,
 )
 from .asr_facts import LANGUAGE_MODE_MULTILINGUAL, LANGUAGE_MODE_SINGLE
 from .cli_ops import OpError
@@ -129,6 +131,7 @@ class ReconcileResult:
     job_id: int | None
     requeued: int = 0
     attached: bool = False  # the job row carries the request that reconcile_media was given
+    document_container: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -141,13 +144,23 @@ class ExtractionRequest:
 
 
 @dataclass(frozen=True)
-class _BinaryProvenance:
+class _PageFacts:
+    """What a pending page records about its original."""
+
     relative_path: str
     original_filename: str
     sha256: str
     size: int
-    mtime_ns: int
-    ctime_ns: int
+    # None is "not read yet". `_read_provenance` always sets both hints. `render_pending_page`
+    # and `_render_pending_sidecar` (for a page that still holds both as null) pass None.
+    mtime_ns: int | None
+    ctime_ns: int | None
+
+
+@dataclass(frozen=True)
+class _BinaryProvenance(_PageFacts):
+    """The facts read from the open original, with the identity that revalidates it."""
+
     device: int
     inode: int
 
@@ -177,11 +190,14 @@ _IDENTITY_FIELDS = (
 )
 # Cache hints only: filesystem timestamps move without the bytes changing.
 _TIMESTAMP_FIELDS = ("binary_mtime_ns", "binary_ctime_ns")
+_UNTIMED_PROVENANCE_FIELDS = tuple(
+    field for field in _PROVENANCE_FIELDS if field not in _TIMESTAMP_FIELDS
+)
 
 
 def classify_media(path: str | Path) -> str | None:
     """Return the canonical extraction kind for ``path``, case-insensitively."""
-    return media_types.media_type_for(path)
+    return "asic-e" if document_containers.is_container(path) else media_types.media_type_for(path)
 
 
 def _preserve_module():
@@ -239,6 +255,76 @@ def _defer_until_terminal(work: Callable[[], list[object]]) -> bool:
     return defer_until_terminal_persisted(work)
 
 
+def process_container(
+    vault_root: Path, binary_path: str | Path, *, retry: bool = False,
+    commit_guard: Callable[[], AbstractContextManager[object]] | None = None,
+) -> ReconcileResult:
+    """Explicitly inspect an existing original, recover exact payload pairs, then use media jobs."""
+    from . import add, media_store
+    from .vault import PathGuard
+
+    vault = Path(vault_root).resolve()
+    binary = Path(binary_path)
+    binary = Path(os.path.abspath(binary if binary.is_absolute() else vault / binary))
+    try:
+        relative = binary.relative_to(vault).as_posix()
+        _require_media_access(vault, binary)
+        sidecar = originals.sidecar_path(binary)
+        _confine_sidecar(vault, sidecar)
+        before, page_guard = read_guarded_text(vault, sidecar)
+        fm = parse_frontmatter(before, strict=True)[0]
+        with media_store.open_original(vault, binary) as source:
+            digest, size = add.artifact_identity(source.stream)
+            binding = originals.binary_binding(fm)
+            if binding is None or binding != originals.BinaryBinding(relative, digest, size):
+                raise MediaProcessingError("CONTAINER_CONFLICT", "the container companion must bind the current original bytes; restore the exact original or repair its custody companion")
+            with document_containers.plan(
+                vault, parent=relative, parent_page=sidecar.relative_to(vault).as_posix(),
+                digest=digest, size=size, stream=source.stream, date_iso=dt.date.today().isoformat(), existing=True,
+            ) as planned:
+                metadata = planned.metadata()
+                rendered = _preserve_module()._remove_frontmatter_fields(before, lambda key: key == "document_container")
+                rendered = document_containers.annotate(rendered, "document_container", metadata)
+                writes = list(planned.writes)
+                if rendered != before:
+                    writes.append(PlannedWrite(sidecar, rendered, guard=page_guard, expected_hash=content_hash(before)))
+                if writes:
+                    boundary = commit_guard() if commit_guard is not None else nullcontext()
+                    with boundary:
+                        source.require_current()
+                        mutated = {write.path.relative_to(vault).as_posix() for write in writes}
+                        guards = tuple(guard for guard in (page_guard, *planned.guards) if guard.target not in mutated)
+                        guards = (*guards, PathGuard.capture(vault, relative, leaf_policy="content", expected_content_hash=digest))
+                        _preserve_module().commit_media_sidecar_writes(vault, tuple(writes), required_guards=guards)
+                children = list(planned.children)
+    except MediaProcessingError:
+        raise
+    except ValueError as error:
+        raise MediaProcessingError("CONTAINER_CONFLICT", str(error)) from error
+    except (OSError, reserved_paths.ReservedPathLeafError) as error:
+        raise MediaProcessingError("MEDIA_NOT_FOUND", "the container original or custody companion is missing or unsafe; restore its exact bytes, then run media process again") from error
+    results = [
+        retry_media(vault, child, commit_guard=commit_guard) if retry else reconcile_media(vault, child, commit_guard=commit_guard)
+        for child in children
+    ]
+    if metadata["inspection_state"] != "inspected":
+        state = media_jobs.BLOCKED
+    elif results and all(result.state == "completed" for result in results):
+        state = "completed"
+    elif any(result.state == media_jobs.FAILED for result in results):
+        state = media_jobs.FAILED
+    elif any(result.state == media_jobs.BLOCKED for result in results):
+        state = media_jobs.BLOCKED
+    else:
+        state = media_jobs.PENDING
+    metadata["processing"] = [
+        {"path": child, "state": result.state, "job_id": result.job_id}
+        for child, result in zip(children, results, strict=True)
+    ]
+    return ReconcileResult("asic-e", state, sidecar, None,
+                           requeued=sum(result.requeued for result in results), document_container=metadata)
+
+
 def reconcile_media(
     vault_root: Path,
     binary_path: str | Path,
@@ -272,6 +358,30 @@ def reconcile_media(
     binary = Path(os.path.abspath(binary))
     if not explicit and not _is_automatic_media_candidate(vault, binary):
         return None
+
+    if document_containers.is_container(binary):
+        if explicit:
+            return process_container(vault, binary, commit_guard=commit_guard)
+        # Automatic capture processing may consume committed payloads, never repair opaque custody.
+        sidecar = originals.sidecar_path(binary)
+        original = _read_sidecar_text(vault, sidecar)
+        metadata = parse_frontmatter(original)[0].get("document_container") if original is not None else None
+        if not isinstance(metadata, dict) or metadata.get("inspection_state") != "inspected":
+            return None
+        children = metadata.get("payloads")
+        if not isinstance(children, list):
+            return None
+        for child in children:
+            try:
+                dependency = document_containers.parent_for_path(vault, child)
+                if dependency is None or dependency[0] != binary.relative_to(vault).as_posix():
+                    return None
+            except (ValueError, OSError, reserved_paths.ReservedPathLeafError):
+                return None
+        for child in children:
+            reconcile_media(vault, child, explicit=False, commit_guard=commit_guard,
+                            defer_fanout_to_terminal=defer_fanout_to_terminal)
+        return ReconcileResult("asic-e", "pending", sidecar, None, document_container=metadata)
 
     media_type = classify_media(binary)
     if media_type is None:
@@ -757,6 +867,8 @@ def awaits_reconciliation(vault: Path, binary: Path, text: str) -> bool:
     Reconciliation renders and queues such a stub itself. A scene frame names its
     parent video: the media worker wrote it, so it is never such a stub.
     """
+    if document_containers.is_container(binary):
+        return False  # The child documents own extraction demand; opaque containers need explicit processing.
     media_type = classify_media(binary)
     frontmatter, _body, raw_frontmatter = parse_frontmatter(text)
     if media_type is None or raw_frontmatter is None or frontmatter.get("parent_media"):
@@ -777,6 +889,8 @@ def _needs_reconciliation(
     if original is None:
         return True
 
+    if document_containers.is_container(binary):
+        return False  # Existing child documents are scanned independently; never auto-repair opaque custody.
     media_type = classify_media(binary)
     if media_type is None:
         return False
@@ -810,13 +924,8 @@ def _capture_owned_shape_is_valid(frontmatter: dict[str, object]) -> bool:
     A non-empty `tags` list was required for the same reason, and did the same
     to a capture that legitimately has none.
     """
-    captured = frontmatter.get("captured")
-    try:
-        if isinstance(captured, dt.date):
-            captured.isoformat()
-        else:
-            dt.date.fromisoformat(str(captured))
-    except (TypeError, ValueError):
+    # A frontmatter rewrite, such as offload's, stores a read timestamp as quoted text with a time.
+    if temporal.parse(frontmatter.get("captured")) is None:
         return False
     title = frontmatter.get("title")
     source_type = frontmatter.get("source_type")
@@ -853,8 +962,10 @@ def _is_pending_sidecar_shape(
         and frontmatter.get("processing_state") == "pending"
         and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
         and _is_nonnegative_int(frontmatter.get("binary_size"))
-        and _is_nonnegative_int(frontmatter.get("binary_mtime_ns"))
-        and _is_nonnegative_int(frontmatter.get("binary_ctime_ns"))
+        and (
+            _hints_unread(frontmatter)
+            or all(_is_nonnegative_int(frontmatter.get(field)) for field in _TIMESTAMP_FIELDS)
+        )
     )
 
 
@@ -991,7 +1102,8 @@ def _pending_sidecar_matches_current_provenance(
     ):
         return False
     values = _provenance_values(provenance, frontmatter=frontmatter)
-    return all(frontmatter.get(field) == values[field] for field in _PROVENANCE_FIELDS)
+    fields = _UNTIMED_PROVENANCE_FIELDS if _hints_unread(frontmatter) else _PROVENANCE_FIELDS
+    return all(frontmatter.get(field) == values[field] for field in fields)
 
 
 def _block_ambiguous_retry(
@@ -1052,8 +1164,16 @@ def _retry_ambiguous_batch_failure(
             original, media_type=durable.media_type, provenance=provenance
         )
         if completed == "valid":
-            store.discard(durable)
-            return ReconcileResult(durable.media_type, "completed", sidecar, None)
+            # The transcript settles the extraction stage only: a CLIP or re-embed stage the failed
+            # job still owes goes back to the queue, as it does for the retry of an unambiguous row.
+            dropped = store.drop_completed_extraction(durable)
+            owed = store.get_by_binary(binary)
+            if owed is None:
+                return ReconcileResult(durable.media_type, "completed", sidecar, None)
+            # The drop leaves a row claimed since as it was: answer from the row and the drop's count.
+            return ReconcileResult(
+                durable.media_type, owed.state, sidecar, owed.id, requeued=dropped
+            )
         if not _pending_sidecar_matches_current_provenance(
             original,
             vault=vault,
@@ -1083,6 +1203,8 @@ def retry_media(
     vault_root: Path, binary_path: str | Path, *,
     commit_guard: Callable[[], AbstractContextManager[object]] | None = None,
 ) -> ReconcileResult:
+    if document_containers.is_container(binary_path):
+        return process_container(vault_root, binary_path, retry=True, commit_guard=commit_guard)
     from .media_store import open_original
 
     if originals.binding_for(vault_root) is None:
@@ -1140,7 +1262,10 @@ def _retry_media_local(
         with boundary:
             offloads = media_store.retry_offload(vault, binary)
         result = replace(result, requeued=result.requeued + offloads)
-    if result.state == "completed" or result.job_id is None:
+    # A completed transcript carries no job id, yet reconcile only retired the OCR stage: a CLIP or
+    # re-embed stage that a pause blocked is still owed, so the retry reaches the ledger for it too.
+    owes_stage = result.state == "completed" and media_jobs.job_store_path(vault).exists()
+    if result.job_id is None and not owes_stage:
         return result
     if _runtime_unavailable(vault) is not None:
         return result
@@ -1151,13 +1276,15 @@ def _retry_media_local(
         requeued = store.retry(binary_path=binary, include_failed=True)
         if requeued == 0:
             return result
-        durable_job = store.get(result.job_id)
+        durable_job = (
+            store.get(result.job_id) if result.job_id is not None else store.get_by_binary(binary)
+        )
         state = durable_job.state if durable_job is not None else media_jobs.PENDING
     return ReconcileResult(
         result.media_type,
         state,
         result.sidecar_path,
-        result.job_id,
+        durable_job.id if durable_job is not None else result.job_id,
         requeued=requeued + offloads,
     )
 
@@ -1477,6 +1604,21 @@ def _read_provenance(
     )
 
 
+def read_timestamp_hints(binary: Path) -> tuple[int, int] | None:
+    """The mtime and ctime of `binary` as `_read_provenance` reads them: from the open handle.
+
+    Reconciliation compares the handle's values with a page's hints. `Path.stat` reports another
+    ctime on Windows, so a caller that records hints for a page reads them here. The result is
+    None when the file cannot be opened; the page then keeps its hints unread.
+    """
+    try:
+        with binary.open("rb") as stream:
+            info = os.fstat(stream.fileno())
+    except OSError:
+        return None
+    return (info.st_mtime_ns, info.st_ctime_ns)
+
+
 def _verify_binary_identity(
     binary: Path, resolved_binary: Path, provenance: _BinaryProvenance
 ) -> None:
@@ -1525,20 +1667,30 @@ def _render_pending_sidecar(
     existing_id: str | None = None
     preserved_notes: str | None = None
     adoption_receipt: Mapping[str, object] | None = None
+    container_binding = None
     if original is not None:
         frontmatter, body, raw_frontmatter = parse_frontmatter(original)
         existing_id = memory_refs.normalize_id(frontmatter.get("exomem_id"))
+        container_binding = frontmatter.get("container_member")
         candidate_receipt = frontmatter.get("artifact_adoption")
         if isinstance(candidate_receipt, Mapping):
             adoption_receipt = candidate_receipt
         if _is_canonical_pending_shape(frontmatter, media_type, provenance):
-            rendered = original
-            pending_fields = _pending_fields(provenance, frontmatter=frontmatter)
-            if frontmatter.get("processing_state") == media_jobs.BLOCKED:
-                pending_fields = pending_fields[1:]
-            for field, value in pending_fields:
-                rendered = preserve._set_frontmatter_field(rendered, field, str(value))
-            return rendered
+
+            def render(facts: _PageFacts) -> str:
+                fields = _pending_fields(facts, frontmatter=frontmatter)
+                if frontmatter.get("processing_state") == media_jobs.BLOCKED:
+                    fields = fields[1:]
+                return _set_fields(original, fields)
+
+            if _hints_unread(frontmatter):
+                # A page committed with its original (`render_pending_page`) is current as it
+                # is: its hints are not identity (`_TIMESTAMP_FIELDS`), and a second commit
+                # for them is what that page exists to avoid. Changed bytes are not current.
+                unread = render(replace(provenance, mtime_ns=None, ctime_ns=None))
+                if unread == original:
+                    return unread
+            return render(provenance)
         preserved_notes = _preservable_notes(
             body if raw_frontmatter is not None else original
         )
@@ -1554,11 +1706,15 @@ def _render_pending_sidecar(
         extracted_by="pending",
         tree=tree,
         adoption_receipt=adoption_receipt,
+        governance_artifact_path=provenance.relative_path if container_binding else None,
+        governance_artifact_sha256=provenance.sha256 if container_binding else None,
+        governance_artifact_size=provenance.size if container_binding else None,
     )
+    if isinstance(container_binding, Mapping):
+        rendered = document_containers.annotate(rendered, "container_member", container_binding)
     if existing_id is not None:
         rendered = preserve._set_frontmatter_field(rendered, "exomem_id", existing_id)
-    for field, value in _pending_fields(provenance):
-        rendered = preserve._set_frontmatter_field(rendered, field, str(value))
+    rendered = _set_fields(rendered, _pending_fields(provenance))
     if preserved_notes:
         rendered = (
             rendered.rstrip("\n")
@@ -1617,8 +1773,55 @@ def _original_filename(frontmatter: dict[str, object] | None, fallback: str) -> 
     return value if isinstance(value, str) and value and _preserve_module()._sanitize_filename(value) == value else fallback
 
 
+def render_pending_page(
+    stub: str, *, relative_path: str, original_filename: str, sha256: str, size: int
+) -> str:
+    """`stub` as `reconcile_media` renders it once it has read the stored original.
+
+    For a caller that commits the original and its stub together and reconciles straight
+    after: that reconcile finds the page current and only queues the job, instead of
+    committing the page a second time. The original is not on disk yet, and renaming it into
+    place moves its ctime, so no timestamp read beforehand can be exact. Both hints are null,
+    "not read yet" (`_hints_unread`), and reconciliation leaves them so.
+    """
+    facts = _PageFacts(relative_path, original_filename, sha256, size, mtime_ns=None, ctime_ns=None)
+    return _set_fields(stub, _pending_fields(facts))
+
+
+def _set_fields(content: str, fields: tuple[tuple[str, object], ...]) -> str:
+    set_field = _preserve_module()._set_frontmatter_field
+    for field, value in fields:
+        content = set_field(content, field, str(value))
+    return content
+
+
+def _hints_unread(frontmatter: dict[str, object]) -> bool:
+    """Whether the page holds both timestamp hints as null, as `render_pending_page` leaves them.
+
+    A missing hint is not unread: it stays a malformed page, as before.
+    """
+    return all(field in frontmatter and frontmatter[field] is None for field in _TIMESTAMP_FIELDS)
+
+
+def _hint_value(hint: int | None) -> int | str:
+    return "null" if hint is None else hint
+
+
+def record_read_hints(page: str, *, mtime_ns: int, ctime_ns: int) -> str:
+    """`page` with the timestamp hints of its original, when the page holds them as unread.
+
+    A caller that completes a page stored by `render_pending_page` passes the hints it has
+    verified, so that no completed page keeps null hints and none is repaired later. A page
+    that records its hints is returned as it is.
+    """
+    frontmatter, _body, raw_frontmatter = parse_frontmatter(page)
+    if raw_frontmatter is None or not _hints_unread(frontmatter):
+        return page
+    return _set_fields(page, (("binary_mtime_ns", mtime_ns), ("binary_ctime_ns", ctime_ns)))
+
+
 def _pending_fields(
-    provenance: _BinaryProvenance, *, frontmatter: dict[str, object] | None = None,
+    provenance: _PageFacts, *, frontmatter: dict[str, object] | None = None,
 ) -> tuple[tuple[str, object], ...]:
     return (
         ("processing_state", "pending"),
@@ -1626,8 +1829,8 @@ def _pending_fields(
         ("original_filename", yaml_scalar(_original_filename(frontmatter, provenance.original_filename))),
         ("binary_sha256", provenance.sha256),
         ("binary_size", provenance.size),
-        ("binary_mtime_ns", provenance.mtime_ns),
-        ("binary_ctime_ns", provenance.ctime_ns),
+        ("binary_mtime_ns", _hint_value(provenance.mtime_ns)),
+        ("binary_ctime_ns", _hint_value(provenance.ctime_ns)),
     )
 
 
@@ -1709,7 +1912,7 @@ def _backfill_completed_provenance(
 
 
 def _provenance_values(
-    provenance: _BinaryProvenance, *, frontmatter: dict[str, object] | None = None,
+    provenance: _PageFacts, *, frontmatter: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Provenance as parsed frontmatter would carry it, for comparison."""
     return {

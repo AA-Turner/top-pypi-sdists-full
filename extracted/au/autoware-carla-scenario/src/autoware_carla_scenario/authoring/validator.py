@@ -11,6 +11,7 @@ neither CARLA nor lanelet2 -- the editor validates on every keystroke.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
@@ -37,8 +38,9 @@ from ..trajectory.authoring import (
     vertex_problems,
 )
 from ..constants import MIN_BACKGROUND_SPEED_KMH
+from ..scaffold.names import SCENARIO_NAME_PATTERN
 from .hydra_config import MAP_EXCLUSION_REF
-from .package_names import framework_name_problem
+from .package_names import framework_name_problem, scenario_id_problem
 from ._builders_generated import (
     FAILURE_ONLY_CONDITIONS,
     ONCE_ACTIONS,
@@ -66,6 +68,17 @@ Severity = Literal["error", "warning"]
 #: showing amber to one movement still has vehicles in it, which is exactly why
 #: a real one never shows amber to a movement that crosses it either.
 PERMISSIVE_SIGNAL_STATES = frozenset({"green", "yellow"})
+
+#: The rule an action or condition node id follows (#1889): the one entity ids
+#: and the document id follow (``models._ID_PATTERN``), since a node id is a
+#: Hydra key (``scenario.param_overrides.<node id>.<field>``) as they are.
+_NODE_ID_PATTERN = re.compile(SCENARIO_NAME_PATTERN)
+
+#: Appended to a :func:`scenario_id_problem` reported as a validation warning.
+EXPORT_REFUSAL_NOTE = (
+    "The scenario still runs, but Export Wheelhouse refuses it until the id "
+    "is changed."
+)
 
 
 @dataclass(frozen=True)
@@ -392,6 +405,51 @@ def _check_unknown_params(
             )
 
 
+def _check_choices(
+    out: _Collector,
+    path: str,
+    spec: "ActionSpec | ConditionSpec",
+    params: dict[str, Any],
+    object_id: str | None,
+) -> None:
+    """Require the field a select hands to the constructor.
+
+    An :class:`~autoware_carla_scenario.authoring.registry.ArgumentChoice`
+    says which field feeds a constructor argument for each option of a
+    select.  That field is optional on the card -- the other options do not
+    read it -- but once its option is the one picked, it is the argument: a
+    Set Traffic Signal card that targets "Selected Lanelet2 IDs" with none
+    listed would set no light and only say so in the run's log.
+    """
+    fields = {f.name: f for f in spec.fields}
+    for choice in spec.choices:
+        picked = params.get(choice.discriminator)
+        for case in choice.cases:
+            if not case.field or case.when != picked:
+                continue
+            value = params.get(case.field)
+            if not (_is_blank(value) or value == [] or value == ()):
+                continue
+            selector = fields.get(choice.discriminator)
+            target = fields.get(case.field)
+            option = case.when
+            if selector is not None:
+                option = next(
+                    (o.label for o in selector.options if o.value == case.when),
+                    case.when,
+                )
+            out.error(
+                f"{path}.{case.field}",
+                f"{spec.title} with "
+                f"{selector.label if selector is not None else choice.discriminator}"
+                f" {option!r} needs "
+                f"{target.label if target is not None else case.field} "
+                f"({case.field}): leave it empty only with another "
+                f"{choice.discriminator}.",
+                object_id,
+            )
+
+
 # ---------------------------------------------------------------------------
 # Node checking
 # ---------------------------------------------------------------------------
@@ -432,6 +490,7 @@ def _check_condition(
     for field_spec in spec.fields:
         _check_field(out, path, field_spec, node.params, refs, node.id)
     _check_unknown_params(out, path, spec.fields, node.params, node.id)
+    _check_choices(out, path, spec, node.params, node.id)
 
     if owner is not None and owner in condition_refs(node, "action"):
         out.error(
@@ -601,30 +660,27 @@ def _check_action(out: _Collector, path: str, node: ActionNode, refs: _Refs) -> 
         out.error(path, f"Unknown action type {node.type!r}.", node.id)
         return
 
-    if spec.actor_required:
-        if _is_blank(node.actor):
-            out.error(f"{path}.actor", f"{spec.title} needs an actor.", node.id)
-        elif node.actor not in refs.entities:
+    if spec.actor_required and _is_blank(node.actor):
+        out.error(f"{path}.actor", f"{spec.title} needs an actor.", node.id)
+    elif node.actor is not None and node.actor not in refs.entities:
+        if spec.actor_required:
+            message = f"{spec.title} references unknown entity {node.actor!r}."
+        else:
+            message = f"Action references unknown entity {node.actor!r}."
+        out.error(f"{path}.actor", message, node.id)
+    elif node.actor is not None and spec.scope == "actor":
+        # Whenever an actor is named, not only where one is required: a Spawn
+        # or Despawn card may leave it out, but the one it names still has to
+        # be a kind the card is for -- the ego is in the scene from the start
+        # and cannot be despawned, which the actions refuse only at setup.
+        kind = refs.entity_kinds.get(str(node.actor), "")
+        if kind and actor_kind(kind) not in spec.actor_kinds:
             out.error(
                 f"{path}.actor",
-                f"{spec.title} references unknown entity {node.actor!r}.",
+                f"{spec.title} cannot be performed by a {kind}; it is for "
+                f"{' or '.join(spec.actor_kinds)}.",
                 node.id,
             )
-        else:
-            kind = refs.entity_kinds.get(str(node.actor), "")
-            if kind and actor_kind(kind) not in spec.actor_kinds:
-                out.error(
-                    f"{path}.actor",
-                    f"{spec.title} cannot be performed by a {kind}; it is for "
-                    f"{' or '.join(spec.actor_kinds)}.",
-                    node.id,
-                )
-    elif node.actor is not None and node.actor not in refs.entities:
-        out.error(
-            f"{path}.actor",
-            f"Action references unknown entity {node.actor!r}.",
-            node.id,
-        )
     if node.overrides and node.type not in OVERRIDING_ACTIONS:
         # A document written by hand: the editor offers it only where it means
         # something, and the builder would drop it without a word.
@@ -647,6 +703,7 @@ def _check_action(out: _Collector, path: str, node: ActionNode, refs: _Refs) -> 
     for field_spec in spec.fields:
         _check_field(out, path, field_spec, node.params, refs, node.id)
     _check_unknown_params(out, path, spec.fields, node.params, node.id)
+    _check_choices(out, path, spec, node.params, node.id)
     if node.type == "routing":
         _check_routing(out, path, node)
     if node.type == "spawn":
@@ -737,7 +794,8 @@ def _check_advance_conditions(
                 f"Vertex {gate.vertex}'s condition waits for its own action to "
                 f"reach {state or 'another state'}, which it cannot while the "
                 "entity waits at the vertex: the action is running all that "
-                "time. Wait on another action, or end the run with until.",
+                "time. Wait on another action, or on the world (a time, a "
+                "distance, a speed) instead.",
                 child.id,
             )
 
@@ -1326,10 +1384,14 @@ def _check_binding(
 
 
 def _check_entity_numbers(out: _Collector, path: str, entity: Entity) -> None:
-    """Reject a NaN or infinite speed, offset, heading or size.
+    """Reject a NaN or infinite speed, offset, heading or size, and a
+    negative initial speed.
 
     The model accepts them (a Pydantic float does), and the runtime would
-    place the actor at no position, or drive it at no speed.
+    place the actor at no position, or drive it at no speed.  A negative
+    speed is refused by the entity's config at run time
+    (``VehicleEntityConfig``, ``ego.initial_speed_kmh``, #1809), once CARLA
+    is already running: refused here, it is refused on its path.
     """
     numbers: list[tuple[str, float]] = [
         ("initial_speed_kmh", entity.initial_speed_kmh),
@@ -1345,6 +1407,12 @@ def _check_entity_numbers(out: _Collector, path: str, entity: Entity) -> None:
     for key, number in numbers:
         if not math.isfinite(number):
             out.error(f"{path}.{key}", "This must be a finite number.", entity.id)
+    if math.isfinite(entity.initial_speed_kmh) and entity.initial_speed_kmh < 0.0:
+        out.error(
+            f"{path}.initial_speed_kmh",
+            "This must be 0 or more: a speed is never below zero.",
+            entity.id,
+        )
 
 
 def _check_unread_fields(out: _Collector, path: str, entity: Entity) -> None:
@@ -1631,17 +1699,65 @@ def _check_hidden_spawns(out: _Collector, document: ScenarioDocument) -> None:
             )
 
 
+def _check_declared_spawns(out: _Collector, document: ScenarioDocument) -> None:
+    """A Spawn card with no place brings its entity in where it was declared
+    to spawn, which a hidden entity on lanelet 0 or less does not have
+    (#2014): an error, as the run would refuse to bring it in.  In a scenario
+    whose route is found on any map, a hidden entity's lanelet names a
+    lanelet of one map only: a warning, as on another map the run refuses it
+    too.
+    """
+    for index, action in enumerate(document.actions):
+        if action.type != "spawn" or action.actor is None:
+            continue
+        if not _is_blank(action.params.get("name")) or _has_place(action):
+            continue
+        entity = document.entity(str(action.actor))
+        if entity is None or not entity.spawn.hidden:
+            continue
+        spawn = entity.spawn
+        path = f"actions[{index}].lanelet_id"
+        if spawn.mode == "fixed" and spawn.lanelet_id <= 0:
+            out.error(
+                path,
+                f"This Spawn card brings {entity.display_name} in where it was "
+                "declared to spawn, but it spawns on no lanelet of its own "
+                f"({spawn.lanelet_id}). Give the card a place: a lanelet (and "
+                "s) or a route pose.",
+                action.id,
+            )
+        elif document.route is not None:
+            out.warn(
+                path,
+                f"This Spawn card brings {entity.display_name} in where it was "
+                f"declared to spawn, lanelet {spawn.lanelet_id}, which names a "
+                "lanelet of one map, in a scenario whose route is found on any "
+                "map: on another it is not brought in. Give the card a route "
+                "pose.",
+                action.id,
+            )
+
+
 def _check_id(out: _Collector, scenario_id: str) -> None:
     """Check the package the id *scenario_id* exports as (#1695).
 
     An error when that package would be the framework's own
-    (``autoware_carla`` and ``autoware_carla_scenario``), so the editor shows
-    it before an export starts rather than ``uv lock`` failing on a package
-    that depends on itself.
+    (``autoware_carla``), so the editor shows it before an export starts
+    rather than ``uv lock`` failing on a package that depends on itself; and
+    when the id names a built-in scenario (``cut_in``, ``lane_change``, ...,
+    #1808), which the installed package would replace.  A warning when the
+    package would be another id's (``__``, a trailing ``_``, #1358), which
+    the export refuses.
     """
     problem = framework_name_problem(scenario_id)
     if problem is not None:
         out.error("id", problem)
+        return
+    # A warning, not an error: an id the export refuses still runs, compiles
+    # and passes the tests of a package exported before #1358.
+    shared = scenario_id_problem(scenario_id)
+    if shared is not None:
+        out.warn("id", f"{shared} {EXPORT_REFUSAL_NOTE}")
 
 
 def validate_document(document: ScenarioDocument) -> ValidationReport:
@@ -1685,19 +1801,16 @@ def validate_document(document: ScenarioDocument) -> ValidationReport:
         entity_kinds={e.id: e.kind for e in document.entities},
     )
 
-    seen_actions: set[str] = set()
+    _check_node_ids(out, document)
     for index, action in enumerate(document.actions):
-        path = f"actions[{index}]"
-        if action.id in seen_actions:
-            out.error(path, f"Duplicate action id {action.id!r}.", action.id)
-        seen_actions.add(action.id)
-        _check_action(out, path, action, refs)
+        _check_action(out, f"actions[{index}]", action, refs)
 
     _check_step_order(out, document)
     _check_untriggered_actions(out, document)
     _check_init_triggers(out, document)
     _check_duplicate_ego_routing(out, document)
     _check_hidden_spawns(out, document)
+    _check_declared_spawns(out, document)
 
     for index, condition in enumerate(document.assertions.pass_conditions):
         _check_condition(out, f"assertions.pass[{index}]", condition, refs)
@@ -1729,6 +1842,78 @@ def validate_document(document: ScenarioDocument) -> ValidationReport:
     _check_gate(out, document)
 
     return ValidationReport(issues=tuple(out.issues))
+
+
+def _condition_ids(path: str, node: ConditionNode) -> list[tuple[str, str, str]]:
+    """Return ``(path, "condition", id)`` for *node* and every descendant."""
+    found = [(path, "condition", node.id)]
+    for index, child in enumerate(node.children):
+        found.extend(_condition_ids(f"{path}.children[{index}]", child))
+    return found
+
+
+def _node_ids(document: ScenarioDocument) -> list[tuple[str, str, str]]:
+    """Return ``(path, kind, id)`` for every action and condition node (#1889).
+
+    Actions first, then each action's trigger and waypoint conditions, then the
+    assertions -- every tree :meth:`ScenarioDocument.condition_roots` returns,
+    each with the path the rest of the validator reports it under.
+    """
+    found: list[tuple[str, str, str]] = []
+    for index, action in enumerate(document.actions):
+        found.append((f"actions[{index}]", "action", action.id))
+    for index, action in enumerate(document.actions):
+        path = f"actions[{index}]"
+        if action.trigger is not None:
+            found.extend(_condition_ids(f"{path}.trigger", action.trigger))
+        for gate_index, gate in enumerate(action.advance_conditions):
+            found.extend(
+                _condition_ids(
+                    f"{path}.advance_conditions[{gate_index}].condition",
+                    gate.condition,
+                )
+            )
+    for index, condition in enumerate(document.assertions.pass_conditions):
+        found.extend(_condition_ids(f"assertions.pass[{index}]", condition))
+    for index, condition in enumerate(document.assertions.fail_conditions):
+        found.extend(_condition_ids(f"assertions.fail[{index}]", condition))
+    return found
+
+
+def _check_node_ids(out: _Collector, document: ScenarioDocument) -> None:
+    """Check every action and condition node id (#1889).
+
+    A node id is a key in more than one place: a sweep writes
+    ``scenario.param_overrides.<node id>.<field>``, a lanelet slot is
+    ``<node id>.<field>``, and a run looks the node a ``param_overrides``
+    entry names up among the actions first, then the conditions
+    (``declarative``), so a condition sharing an action's id would never get
+    its override.  So each must be
+    an identifier -- the rule entity ids follow, which the editor's own
+    ``a_xxxxxxxx`` / ``p_xxxxxxxx`` ids do -- and no two nodes, an action and
+    a condition included, may share one.
+    """
+    first: dict[str, tuple[str, str]] = {}
+    for path, kind, node_id in _node_ids(document):
+        if not _NODE_ID_PATTERN.fullmatch(node_id):
+            out.error(
+                path,
+                f"{kind.capitalize()} id {node_id!r} must be lower_snake_case "
+                "starting with a letter: it names the node's Hydra overrides "
+                "(scenario.param_overrides.<id>.<field>).",
+                node_id,
+            )
+        earlier = first.get(node_id)
+        if earlier is None:
+            first[node_id] = (path, kind)
+            continue
+        earlier_path, earlier_kind = earlier
+        out.error(
+            path,
+            f"Duplicate {kind} id {node_id!r}: the {earlier_kind} at "
+            f"{earlier_path} has it too.",
+            node_id,
+        )
 
 
 def _check_gate(out: _Collector, document: ScenarioDocument) -> None:

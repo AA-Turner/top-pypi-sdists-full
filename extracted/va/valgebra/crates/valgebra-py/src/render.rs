@@ -183,7 +183,17 @@ fn render_at(
                 })
                 .collect::<PyResult<Vec<_>>>()?;
             in_reading_order(&mut markers);
-            let mut parts = vec![r(base)?];
+            // A display is no type, and Python 3.11's `typing` refuses one as
+            // `Annotated`'s base (`'dict' object has no attribute
+            // '__module__'`), which 3.12 takes. Printed as the validator it
+            // builds, it reads back on every interpreter, as the same schema.
+            let base = r(base)?;
+            let base = if base.starts_with('{') || base.starts_with('[') {
+                format!("Validator({base})")
+            } else {
+                base
+            };
+            let mut parts = vec![base];
             parts.extend(markers.into_iter().map(|(_, text)| text));
             format!("Annotated[{}]", parts.join(", "))
         }
@@ -526,10 +536,10 @@ fn render_keyed_map(
                 // back as the record whose key lacks the `?` and is optional.
                 // It prints marked instead, a syntax error where it is read, as
                 // a constant whose `repr` would read back as another value does.
-                format!("<required: {}>", python_repr(py, &field.name))
+                format!("<required: {}>", python_repr(py, &field.name)?)
             } else {
                 let suffix = if field.required { "" } else { "?" };
-                python_repr(py, &format!("{}{suffix}", field.name))
+                python_repr(py, &format!("{}{suffix}", field.name))?
             };
             Ok(format!("{name}: {}", r(&field.schema)?))
         })
@@ -568,7 +578,7 @@ fn render_constraint(
         Constraint::MaxLen(n) => format!("MaxLen({n})"),
         Constraint::MultipleOf(i) => format!("MultipleOf({})", operand_repr(py, pool, i.get())?),
         Constraint::Predicate(_) => "Predicate(...)".to_owned(),
-        Constraint::Regex(pattern) => format!("Regex({})", python_repr(py, pattern)),
+        Constraint::Regex(pattern) => format!("Regex({})", python_repr(py, pattern)?),
     })
 }
 
@@ -580,13 +590,11 @@ fn render_constraint(
 /// renders has a repr of its own, so the pattern inside it is spelled by the
 /// interpreter that will read it rather than by the language that printed it.
 ///
-/// A `str`'s `__repr__` does not raise, so the fallback is unreachable; it is
-/// the Rust spelling rather than a placeholder, because a pattern a reader can
-/// see is worth more here than one they cannot.
-fn python_repr(py: Python<'_>, text: &str) -> String {
-    PyString::new(py, text)
-        .repr()
-        .map_or_else(|_| format!("{text:?}"), |repr| repr.to_string())
+/// A `str`'s `__repr__` raises only `MemoryError`, where the interpreter could
+/// not give the text room, and that propagates as every fatal signal does: a
+/// render in another spelling would be a schema the rendered one is not.
+fn python_repr(py: Python<'_>, text: &str) -> PyResult<String> {
+    Ok(stored(&PyString::new(py, text).repr()?))
 }
 
 /// A pooled constant, spelled by its own `repr` in full.

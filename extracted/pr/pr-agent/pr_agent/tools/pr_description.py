@@ -27,7 +27,6 @@ from pr_agent.algo.run_details import get_run_details, init_run_details, record_
 from pr_agent.algo.run_output import push_outputs_async, show_relevant_configurations, show_run_details
 from pr_agent.algo.skills_loader import get_skills_context
 from pr_agent.algo.token_budget import AttemptTokenBudget
-from pr_agent.algo.token_handler import TokenHandler
 from pr_agent.algo.utils import (
     ModelType,
     filter_generated_labels,
@@ -64,6 +63,8 @@ def _build_unprocessed_files_block(file_list: list, label: str, max_files: int =
 
 
 class PRDescription:
+    COLLAPSIBLE_FILE_LIST_THRESHOLD = 8
+
     def __init__(self, pr_url: str, args: list = None,
                  ai_handler: partial[BaseAiHandler,] = LiteLLMAIHandler):
         """
@@ -113,23 +114,13 @@ class PRDescription:
             "enable_semantic_files_types": get_settings().pr_description.enable_semantic_files_types,
             "related_tickets": "",
             "related_tickets_omitted": 0,
-            "include_file_summary_changes": (
-                len(self.git_provider.get_diff_files()) <= self.COLLAPSIBLE_FILE_LIST_THRESHOLD
-            ),
+            "include_file_summary_changes": True,
             "duplicate_prompt_examples": get_settings().config.get("duplicate_prompt_examples", False),
             "enable_pr_diagram": enable_pr_diagram,
             "enable_pr_description": get_settings().pr_description.get("enable_pr_description", True),
         }
 
         self.user_description = self.git_provider.get_user_description()
-
-        # Initialize the token handler
-        self.token_handler = TokenHandler(
-            self.git_provider.pr,
-            self.vars,
-            get_settings().pr_description_prompt.system,
-            get_settings().pr_description_prompt.user,
-        )
 
         # Initialize patches_diff and prediction attributes
         self.patches_diff = None
@@ -163,6 +154,12 @@ class PRDescription:
                 self.progress_response = self.git_provider.publish_comment(
                     DESCRIBE_PROGRESS_COMMENT, is_temporary=True)
 
+            # PyGithub fetches diff files synchronously; keep large fetches off the webhook event loop.
+            diff_files = await asyncio.to_thread(self.git_provider.get_diff_files)
+            self.vars["include_file_summary_changes"] = (
+                len(diff_files) <= self.COLLAPSIBLE_FILE_LIST_THRESHOLD
+            )
+
             # ticket extraction if exists
             await extract_and_cache_pr_tickets(self.git_provider, self.vars)
             self._raw_prompt_vars = copy.deepcopy(self.vars)
@@ -171,9 +168,20 @@ class PRDescription:
 
             if self.prediction:
                 self._prepare_data()
-                self._write_json_output(self.data)
+                try:
+                    self._write_json_output(self.data)
+                except (OSError, TypeError, ValueError):
+                    if not (review_json_output_path.get() and
+                            get_settings().config.git_provider == "plain-diff"):
+                        raise
+                    # Keep Markdown available even when a requested JSON file cannot be written.
+                    record_command_failure()
             else:
                 get_logger().warning(f"Empty prediction, PR: {self.pr_id}")
+                # A skipped Plain Diff description cannot satisfy an explicit
+                # JSON artifact request, even though skipping is otherwise valid.
+                if review_json_output_path.get() and get_settings().config.git_provider == "plain-diff":
+                    record_command_failure()
                 return None
 
             if get_settings().pr_description.enable_semantic_files_types:
@@ -185,6 +193,8 @@ class PRDescription:
             else:
                 get_logger().debug("Publishing labels disabled")
 
+            # Preserve labels before rendering can remove them from model data.
+            label_data = {"labels": self.data["labels"]} if "labels" in (self.data or {}) else {}
             if get_settings().pr_description.use_description_markers:
                 pr_title, pr_body = self._prepare_pr_answer_with_markers()
             else:
@@ -235,7 +245,10 @@ class PRDescription:
             if get_settings().config.publish_output:
                 # Emit to the optional external sinks before touching the provider, so a sink
                 # still receives the description if publishing it to the PR fails.
-                await push_outputs_async("describe", payload=self._prepare_output_payload(), markdown=pr_body)
+                await push_outputs_async(
+                    "describe", payload=self._prepare_output_payload(pr_title, label_data),
+                    markdown=pr_body, git_provider=self.git_provider,
+                )
 
                 # publish labels
                 if (
@@ -289,7 +302,7 @@ class PRDescription:
                         self.git_provider.publish_description(title_to_publish, pr_body)
                     except Exception:
                         try:
-                            self.git_provider.publish_comment("Failed to update PR description")
+                            self.git_provider.publish_tool_failure("describe", "Failed to update PR description")
                         except Exception as publication_error:
                             get_logger().exception(
                                 f"Failed to publish PR description failure result, error: {publication_error}"
@@ -388,7 +401,8 @@ class PRDescription:
         output_token_reserve_kwargs = (
             {"output_token_reserve": output_token_reserve} if callable(output_token_reserve) else {}
         )
-        output = get_pr_diff(
+        output = await asyncio.to_thread(
+            get_pr_diff,
             self.git_provider,
             self.token_handler,
             model,
@@ -444,7 +458,8 @@ class PRDescription:
                 token_handler_only_files_prompt
             )
             (patches_compressed_list, total_tokens_list, deleted_files_list, remaining_files_list, file_dict,
-             files_in_patches_list) = get_pr_diff_multiple_patchs(
+             files_in_patches_list) = await asyncio.to_thread(
+                get_pr_diff_multiple_patchs,
                 self.git_provider,
                 token_handler_only_files_prompt,
                 model,
@@ -649,6 +664,11 @@ class PRDescription:
             # extend the prediction with additional files not included in the original prediction
             pr_files = self.git_provider.get_diff_files()
             prediction_extra = "pr_files:"
+            extra_file_summary = ""
+            overflow_summary = ""
+            if self.vars.get("include_file_summary_changes", True):
+                extra_file_summary = "  changes_summary: |\n    No detailed description available."
+                overflow_summary = "  changes_summary: |\n    Additional changed files are omitted from this table."
             MAX_EXTRA_FILES_TO_OUTPUT = 100
             counter_extra_files = 0
             for file in pr_files:
@@ -658,13 +678,14 @@ class PRDescription:
                 # add up to MAX_EXTRA_FILES_TO_OUTPUT files
                 counter_extra_files += 1
                 if counter_extra_files > MAX_EXTRA_FILES_TO_OUTPUT:
-                    extra_file_yaml = """\
+                    extra_file_yaml = f"""\
 - filename: |
     Additional files not shown
   changes_title: |
     ...
   label: |
     additional files
+{overflow_summary}
 """
                     prediction_extra = prediction_extra + "\n" + extra_file_yaml.strip()
                     get_logger().debug(f"Too many remaining files, clipping to {MAX_EXTRA_FILES_TO_OUTPUT}")
@@ -677,6 +698,7 @@ class PRDescription:
     ...
   label: |
     additional files
+{extra_file_summary}
 """
                 prediction_extra = prediction_extra + "\n" + extra_file_yaml.strip()
 
@@ -693,8 +715,8 @@ class PRDescription:
                     new_yaml = yaml.dump(original_prediction_dict)
                     if load_yaml(new_yaml, keys_fix_yaml=self.keys_fix):
                         prediction = new_yaml
-                if isinstance(original_prediction, list):
-                    prediction = yaml.dump(original_prediction_dict["pr_files"])
+                        if isinstance(original_prediction_loaded, list):
+                            prediction = yaml.dump(original_prediction_dict["pr_files"])
 
             return prediction
         except Exception as e:
@@ -776,6 +798,7 @@ class PRDescription:
             ai_handler=self.ai_handler,
             default_output_tokens=OUTPUT_BUFFER_TOKENS_HARD_THRESHOLD,
             preserve_minimum=True,
+            require_full_text=prompt != "pr_description_only_description_prompts",
         )
         if prompt != "pr_description_only_description_prompts" and fitted.optional_text != patches_diff:
             raise FallbackEligibleError(
@@ -792,6 +815,8 @@ class PRDescription:
             system=system_prompt,
             user=user_prompt
         )
+        if finish_reason == "length":
+            raise FallbackEligibleError(f"PR description response was truncated by {model}")
 
         return response
 
@@ -804,6 +829,14 @@ class PRDescription:
         # Load the AI prediction data into a dictionary
         self.data = load_yaml(self.prediction.strip(), keys_fix_yaml=self.keys_fix)
         self._validate_description_schema(self.data)
+
+        # Preserve wholly unusable lists so they retain their existing handling.
+        for field in ("type", "labels"):
+            values = self.data.get(field)
+            if isinstance(values, list):
+                valid_values = [value for value in values if isinstance(value, str)]
+                if any(value.strip() for value in valid_values):
+                    self.data[field] = valid_values
 
         # A separate comment leaves the PR body untouched, so repeating the user text would duplicate it.
         if (get_settings().pr_description.add_original_user_description and self.user_description
@@ -848,9 +881,9 @@ class PRDescription:
             return False
         return True
 
-    def _prepare_output_payload(self) -> dict:
-        """Filter generated label fields for external sinks without mutating model data."""
-        payload = dict(self.data or {})
+    def _prepare_output_payload(self, title: str, label_data: dict) -> dict:
+        """Restore the selected title and labels, keeping rendered field omissions and label filtering."""
+        payload = {**(self.data or {}), **label_data, "title": title}
         for field in ("labels", "type"):
             if field not in payload:
                 continue
@@ -901,7 +934,9 @@ class PRDescription:
 
         body = self.user_description
         if get_settings().pr_description.include_generated_by_header:
-            ai_header = f"### 🤖 Generated by PR Agent at {self.git_provider.last_commit_id.sha}\n\n"
+            head_sha = self.git_provider.get_pr_head_sha()
+            commit_suffix = f" at {head_sha}" if head_sha else ""
+            ai_header = f"### 🤖 Generated by PR Agent{commit_suffix}\n\n"
         else:
             ai_header = ""
 
@@ -1010,6 +1045,8 @@ class PRDescription:
                 changes_walkthrough += f"{changes_walkthrough_table}\n\n"
                 changes_walkthrough += "</details>\n\n"
             elif key.lower().strip() == 'description':
+                if value is None:
+                    value = ''
                 if isinstance(value, list):
                     value = ', '.join(v.rstrip() for v in value)
                 # Makes the bullet points more readable by adding double space
@@ -1041,7 +1078,8 @@ class PRDescription:
                                          artifact={"file": file})
                     continue
                 filename = file['filename'].replace("'", "`").replace('"', "`")
-                changes_summary = (file.get('changes_summary') or "").strip()
+                summary = file.get("changes_summary")
+                changes_summary = summary.strip() if isinstance(summary, str) else ""
                 changes_title = file['changes_title'].strip()
                 label = file['label'].strip().lower()
                 if label not in file_label_dict:
@@ -1130,7 +1168,7 @@ class PRDescription:
                     pr_body += """</table></details></td></tr>"""
                 else:
                     pr_body += """</table></td></tr>"""
-            pr_body += """</tr></tbody></table>"""
+            pr_body += """</tbody></table>"""
 
         except Exception as e:
             get_logger().error(f"Error processing pr files to markdown {self.pr_id}: {str(e)}")

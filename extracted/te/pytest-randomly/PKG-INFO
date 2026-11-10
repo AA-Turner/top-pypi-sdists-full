@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-randomly
-Version: 5.0.0
+Version: 5.1.0
 Summary: Pytest plugin to randomly order tests and control random.seed.
 Keywords: pytest,random,randomise,randomize,randomly
 Author: Adam Johnson
@@ -12,7 +12,6 @@ Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -20,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Dist: pytest>=8
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Changelog, https://github.com/pytest-dev/pytest-randomly/blob/main/CHANGELOG.rst
 Project-URL: Funding, https://adamj.eu/books/
 Project-URL: Repository, https://github.com/pytest-dev/pytest-randomly
@@ -144,7 +143,7 @@ Install with:
 
     python -m pip install pytest-randomly
 
-Python 3.10 to 3.15 supported.
+Python 3.11 to 3.15 supported.
 
 Usage
 =====

@@ -65,6 +65,7 @@ class ListQueueResponse200Item:
         is_retry (Union[Unset, bool]):
         trigger_kind (Union[Unset, ListQueueResponse200ItemTriggerKind]): job trigger kind (schedule, http,
             websocket...)
+        trigger_path (Union[Unset, str]): Path of the trigger, schedule or app that started the job, if any
         worker (Union[Unset, str]):
     """
 
@@ -104,6 +105,7 @@ class ListQueueResponse200Item:
     preprocessed: Union[Unset, bool] = UNSET
     is_retry: Union[Unset, bool] = UNSET
     trigger_kind: Union[Unset, ListQueueResponse200ItemTriggerKind] = UNSET
+    trigger_path: Union[Unset, str] = UNSET
     worker: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -175,6 +177,7 @@ class ListQueueResponse200Item:
         if not isinstance(self.trigger_kind, Unset):
             trigger_kind = self.trigger_kind.value
 
+        trigger_path = self.trigger_path
         worker = self.worker
 
         field_dict: Dict[str, Any] = {}
@@ -246,6 +249,8 @@ class ListQueueResponse200Item:
             field_dict["is_retry"] = is_retry
         if trigger_kind is not UNSET:
             field_dict["trigger_kind"] = trigger_kind
+        if trigger_path is not UNSET:
+            field_dict["trigger_path"] = trigger_path
         if worker is not UNSET:
             field_dict["worker"] = worker
 
@@ -383,6 +388,8 @@ class ListQueueResponse200Item:
         else:
             trigger_kind = ListQueueResponse200ItemTriggerKind(_trigger_kind)
 
+        trigger_path = d.pop("trigger_path", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         list_queue_response_200_item = cls(
@@ -422,6 +429,7 @@ class ListQueueResponse200Item:
             preprocessed=preprocessed,
             is_retry=is_retry,
             trigger_kind=trigger_kind,
+            trigger_path=trigger_path,
             worker=worker,
         )
 

@@ -514,6 +514,7 @@ def _emit_entry(
         declared_node=entry.declared,
         contexts=details.get("contexts") or None,
         prompt=details.get("prompt"),
+        metadata=details.get("metadata"),
         nested_trace=(
             {
                 "trace_id": nested.trace_id,

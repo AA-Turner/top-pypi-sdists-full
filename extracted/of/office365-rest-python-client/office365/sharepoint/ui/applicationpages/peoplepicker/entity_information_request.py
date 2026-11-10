@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.principal.type import PrincipalType
 
 
-@dataclass
 class PickerEntityInformationRequest(ClientValue):
     """Represents a request for GetPickerEntityInformation
 

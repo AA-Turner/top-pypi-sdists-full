@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit"
-version = "0.17.0"
+version = "0.17.1"
 description = "GitHub SDK for Python"
 license = "MIT"
 readme = "README.md"
@@ -12,7 +12,7 @@ requires-python = ">=3.10, <4.0"
 dependencies = [
     "anyio >=3.6.1, <5.0.0",
     "httpx >=0.23.0, <1.0.0",
-    "hishel[async,httpx] >=1.4.0, <=2.0.0",
+    "hishel[async,httpx] >=1.4.0, <2.0.0",
     "typing-extensions >=4.13.0, <5.0.0",
     "pydantic >=1.9.1, <3.0.0, !=2.5.0, !=2.5.1",
     "githubkit-schemas >=26.5.7",
@@ -150,6 +150,7 @@ ignore = [
     "RUF002",
     "RUF003",
 ]
+extend-safe-fixes = ["RUF036"]
 
 [tool.ruff.lint.per-file-ignores]
 "packages/githubkit-schemas-**/**" = [
@@ -764,6 +765,9 @@ type = "integer"
 
 [tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-waiting/properties/workflow_job/properties/run_id"]
 type = "integer"
+
+[tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/0/properties/steps/items/properties/status/enum"]
+"<add>" = ["pending"]
 
 [tool.codegen.overrides.schema_overrides."/components/schemas/webhook-workflow-job-completed/properties/workflow_job/allOf/1/properties/runner_id"]
 type = [

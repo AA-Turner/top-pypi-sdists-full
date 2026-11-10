@@ -42,6 +42,9 @@ class Invoice:
         reference_number (Union[Unset, str]): Reference number associated with the invoice.
         compensations (Union[Unset, float]):
         incurred_costs (Union[Unset, float]):
+        volume_discounts (Union[Unset, float]): What the volume discount lines take off, as a negative amount like
+            `compensations`. Already part of `price` and `incurred_costs`; on an
+            open invoice the lines are estimates.
     """
 
     url: Union[Unset, str] = UNSET
@@ -64,6 +67,7 @@ class Invoice:
     reference_number: Union[Unset, str] = UNSET
     compensations: Union[Unset, float] = UNSET
     incurred_costs: Union[Unset, float] = UNSET
+    volume_discounts: Union[Unset, float] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -128,6 +132,8 @@ class Invoice:
 
         incurred_costs = self.incurred_costs
 
+        volume_discounts = self.volume_discounts
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -171,6 +177,8 @@ class Invoice:
             field_dict["compensations"] = compensations
         if incurred_costs is not UNSET:
             field_dict["incurred_costs"] = incurred_costs
+        if volume_discounts is not UNSET:
+            field_dict["volume_discounts"] = volume_discounts
 
         return field_dict
 
@@ -265,6 +273,8 @@ class Invoice:
 
         incurred_costs = d.pop("incurred_costs", UNSET)
 
+        volume_discounts = d.pop("volume_discounts", UNSET)
+
         invoice = cls(
             url=url,
             uuid=uuid,
@@ -286,6 +296,7 @@ class Invoice:
             reference_number=reference_number,
             compensations=compensations,
             incurred_costs=incurred_costs,
+            volume_discounts=volume_discounts,
         )
 
         invoice.additional_properties = d

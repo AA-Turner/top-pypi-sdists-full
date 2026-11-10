@@ -42,15 +42,19 @@ OAUTH_CALLBACK_PATH = "/oauth/callback"
 OAUTH_SESSION_COOKIE_NAME = "airbyte_ops_webapp_session"
 OAUTH_SESSION_PATH = "/oauth/session"
 OAUTH_TOKEN_PATH = "/oauth/token"
+OAUTH_LOGIN_PATH = "/oauth/login"
+OAUTH_ADDITIONAL_REDIRECT_URIS_ENV_VAR = (
+    "AIRBYTE_OPS_WEBAPP_OAUTH_ADDITIONAL_REDIRECT_URIS"
+)
 
 
-def oauth_config() -> OAuthConfigState:
+def oauth_config(request: Request | None = None) -> OAuthConfigState:
     issuer = os.getenv(OAUTH_ISSUER_ENV_VAR, DEFAULT_OAUTH_ISSUER).strip().rstrip("/")
     return OAuthConfigState(
         enabled=_oauth_enabled(),
         issuer=issuer,
         client_id=os.getenv(OAUTH_CLIENT_ID_ENV_VAR, DEFAULT_OAUTH_CLIENT_ID).strip(),
-        redirect_uri=_oauth_redirect_uri(),
+        redirect_uri=_oauth_redirect_uri(request),
         authorization_endpoint=f"{issuer}/protocol/openid-connect/auth",
         token_endpoint=f"{issuer}/protocol/openid-connect/token",
         session_endpoint=OAUTH_SESSION_PATH,
@@ -59,6 +63,9 @@ def oauth_config() -> OAuthConfigState:
 
 
 def register_oauth_routes(mcp: FastMCP) -> None:
+    mcp.custom_route(OAUTH_LOGIN_PATH, methods=["GET"], name="ops_oauth_login")(
+        oauth_login_response
+    )
     mcp.custom_route(OAUTH_CALLBACK_PATH, methods=["GET"], name="ops_oauth_callback")(
         oauth_callback_response
     )
@@ -168,8 +175,45 @@ def logout_oauth_action() -> Fetch:
     )
 
 
-async def oauth_callback_response(_request: Request) -> HTMLResponse:
-    config = oauth_config()
+async def oauth_login_response(request: Request) -> HTMLResponse:
+    config = oauth_config(request)
+    return_to = request.query_params.get("return_to", "/")
+    parsed = urllib.parse.urlsplit(return_to)
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or not return_to.startswith("/")
+        or return_to.startswith("//")
+        or "\\" in return_to
+    ):
+        return_to = "/"
+    state = {
+        "oauth_config": config.model_dump(mode="json"),
+        "oauth_return_to": urllib.parse.urljoin(config.redirect_uri, return_to),
+    }
+    state_json = json.dumps(state).replace("</", r"<\/")
+    start_oauth = OAUTH_JS_ACTIONS["startOAuth"]
+    html = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Airbyte sign-in</title></head>
+<body><p id="status">Starting Airbyte sign-in...</p><script>
+const startOAuth = ({start_oauth});
+startOAuth({state_json}).then(result => {{
+  document.getElementById("status").textContent = result.oauth_status;
+}}).catch(() => {{
+  document.getElementById("status").textContent = "Unable to start sign-in. Reload this page to retry.";
+}});
+</script></body></html>"""
+    return HTMLResponse(
+        html,
+        headers={
+            "Content-Security-Policy": _oauth_callback_csp(),
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+async def oauth_callback_response(request: Request) -> HTMLResponse:
+    config = oauth_config(request)
     return HTMLResponse(
         _oauth_callback_html(config),
         headers={"Content-Security-Policy": _oauth_callback_csp()},
@@ -194,7 +238,13 @@ async def oauth_token_response(request: Request) -> JSONResponse:
         )
 
     try:
-        return _json_no_store_response(_exchange_oauth_token(code, code_verifier))
+        return _json_no_store_response(
+            _exchange_oauth_token(
+                code,
+                code_verifier,
+                redirect_uri=_oauth_redirect_uri(request),
+            )
+        )
     except OAuthTokenExchangeError as error:
         return _json_no_store_response(
             {
@@ -548,13 +598,18 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
-def _exchange_oauth_token(code: str, code_verifier: str) -> dict[str, object]:
+def _exchange_oauth_token(
+    code: str,
+    code_verifier: str,
+    *,
+    redirect_uri: str | None = None,
+) -> dict[str, object]:
     config = oauth_config()
     token_request = {
         "grant_type": "authorization_code",
         "client_id": config.client_id,
         "code": code,
-        "redirect_uri": config.redirect_uri,
+        "redirect_uri": redirect_uri or config.redirect_uri,
         "code_verifier": code_verifier,
     }
     client_secret = os.getenv(OAUTH_CLIENT_SECRET_ENV_VAR, "").strip()
@@ -645,7 +700,14 @@ def _oauth_enabled() -> bool:
     }
 
 
-def _oauth_redirect_uri() -> str:
+def _oauth_redirect_uri(request: Request | None = None) -> str:
+    if request is not None:
+        scheme = "https" if _request_is_secure(request) else "http"
+        requested = f"{scheme}://{request.url.netloc}{OAUTH_CALLBACK_PATH}"
+        additional = os.getenv(OAUTH_ADDITIONAL_REDIRECT_URIS_ENV_VAR, "")
+        allowed = {uri.strip() for uri in additional.split(",") if uri.strip()}
+        if requested in allowed:
+            return requested
     configured_redirect_uri = os.getenv(OAUTH_REDIRECT_URI_ENV_VAR, "").strip()
     if configured_redirect_uri:
         return configured_redirect_uri
@@ -761,7 +823,7 @@ OAUTH_JS_ACTIONS = {
       sessionStorage.setItem("airbyte_ops_webapp_code_verifier", codeVerifier);
       sessionStorage.setItem("airbyte_ops_webapp_state", oauthState);
       sessionStorage.setItem("airbyte_ops_webapp_nonce", nonce);
-      sessionStorage.setItem("airbyte_ops_webapp_return_to", navigationLocation.href);
+      sessionStorage.setItem("airbyte_ops_webapp_return_to", state.oauth_return_to || navigationLocation.href);
       const params = new URLSearchParams({
         client_id: config.client_id,
         redirect_uri: config.redirect_uri,

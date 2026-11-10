@@ -5,8 +5,8 @@ import io
 from typing import Any
 
 from prov._warnings import warn
-from prov.model import ProvDocument, ProvFutureRejectionWarning
-from prov.serializers import Serializer, _is_text_stream
+from prov.model import ProvDocument
+from prov.serializers import ProvSerializationError, Serializer, _is_text_stream
 from prov.serializers.provn_lexer import ProvNSyntaxError
 from prov.serializers.provn_parser import PROFILES, ProvNParser
 
@@ -18,26 +18,39 @@ class ProvNSerializer(Serializer):
 
     deserialize_options = frozenset({"profile"})
 
-    def serialize(self, stream: io.IOBase, strict: bool = False, **args: Any) -> None:
+    serialize_options = frozenset({"strict", "width"})
+    """The :meth:`serialize` keywords the command line may name."""
+
+    def serialize(
+        self,
+        stream: io.IOBase,
+        strict: bool = False,
+        width: int | None = 80,
+        **args: Any,
+    ) -> None:
         """Serialize ``self.document`` to `PROV-N <http://www.w3.org/TR/prov-n/>`_.
 
         Args:
             stream: Stream to write the output to. Text streams receive the
                 PROV-N text directly; other (binary) streams receive it
                 UTF-8-encoded.
-            strict: Write ``prov:mentionOf`` instead of the bare
-                ``mentionOf`` keyword so the output parses under the strict
-                PROV-N profile.
+            strict: Write output that parses under the strict PROV-N
+                profile, as :meth:`prov.model.ProvRecord.get_provn` describes,
+                dropping what ``alternateOf``, ``specializationOf`` and
+                ``hadMember`` cannot carry there, with a warning each.
+            width: The column limit for one line, as
+                :meth:`prov.model.ProvRecord.get_provn` describes. ``None``
+                writes every statement on one line.
             **args: Unused; accepted for interface compatibility with
                 :meth:`Serializer.serialize`.
 
         Raises:
-            Exception: If ``self.document`` is ``None``.
+            ProvSerializationError: If ``self.document`` is ``None``.
         """
         if self.document is None:
-            raise Exception("No document to serialize")
+            raise ProvSerializationError("No document to serialize.")
 
-        provn_content = self.document.get_provn(strict=strict)
+        provn_content = self.document.get_provn(strict=strict, width=width)
         stream.write(
             provn_content if _is_text_stream(stream) else provn_content.encode("utf-8")
         )
@@ -51,10 +64,13 @@ class ProvNSerializer(Serializer):
             stream: Text or binary stream holding PROV-N; binary content is
                 decoded as UTF-8.
             profile: ``"strict"`` (the Recommendation grammar only),
-                ``"default"`` (plus the bare ``mentionOf`` keyword that
-                ``prov`` and ProvToolbox write) or ``"lenient"`` (as
-                ``default``, skipping any statement that fails to parse with
-                a :class:`~prov.model.ProvWarning`).
+                ``"default"`` (plus the forms ``"strict"`` refuses, such as the
+                bare ``mentionOf`` keyword that ``prov`` and ProvToolbox
+                write) or ``"lenient"`` (as ``default``, skipping any
+                statement that fails to parse with a
+                :class:`~prov.model.ProvWarning`). Every profile drops an
+                extensibility expression (``prefix:name(...)``) with one
+                :class:`~prov.model.ProvWarning` and reads no record from it.
             **args: Unused; accepted for interface compatibility.
 
         Returns:
@@ -70,11 +86,9 @@ class ProvNSerializer(Serializer):
             content = bytes(content).decode("utf-8")
         parser = ProvNParser(content, profile)
         document = parser.parse()
-        # Warned here, not inside the parser, so every message -- document-level
-        # or inside a bundle alike -- is attributed to the caller of
-        # ProvDocument.deserialize().
+        # Warned here, not inside the parser, so every skipped statement,
+        # document-level or inside a bundle alike, is attributed to the caller
+        # of ProvDocument.deserialize().
         for message in parser.skipped:
             warn(message)
-        for message in parser.warnings:
-            warn(message, ProvFutureRejectionWarning)
         return document

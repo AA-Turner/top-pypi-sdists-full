@@ -64,6 +64,8 @@ Convention gate: e^{+jωt}, ε̃ = ε_r − jσ/ωε₀, asserted at import.
 from __future__ import annotations
 
 import collections
+import contextlib
+import contextvars
 import functools
 import os
 import threading
@@ -287,14 +289,337 @@ def _point_sdp_kw():
     return {}
 
 
+# momwire#1860 L1, the opt-in feature `factored_columns` (`_features`, reach
+# 1, native): a grid-shaped column -- few distinct z and z' over many members,
+# the coaxial rod x vertical column of a buried rod under a vertical -- takes
+# each exponential factor once per distinct value (`mw899::Grid` in
+# `_near_interface_core.cpp`). A solver asked for it sets this around its
+# fill (`factored_columns_scope`); off, the default, the twin is called as
+# before and answers bit for bit as before.
+_FACTORED_COLUMNS: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "momwire_factored_columns", default=False
+)
+
+
+@contextlib.contextmanager
+def factored_columns_scope(on):
+    """Run the body with the factored column route on (`on` truthy) or off."""
+    token = _FACTORED_COLUMNS.set(bool(on))
+    try:
+        yield
+    finally:
+        _FACTORED_COLUMNS.reset(token)
+
+
+# momwire#1860 L2, the opt-in feature `height_sheet_recal` (`_features`, reach
+# 1, python): the height census at the measured worth of a horizontal wire's
+# rows, and heights a few ulp apart taken as one sheet (`_census`,
+# `_SHEET_HEIGHT_LONE_WORTH`, `_SHEET_HEIGHT_SNAP_ULPS`). A solver asked for it
+# sets this around its fill (`height_sheet_recal_scope`); off, the default,
+# `sheet_plan` decides as before, bit for bit.
+_HEIGHT_SHEET_RECAL: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "momwire_height_sheet_recal", default=False
+)
+
+
+@contextlib.contextmanager
+def height_sheet_recal_scope(on):
+    """Run the body with the recalibrated height census on (`on` truthy) or
+    off."""
+    token = _HEIGHT_SHEET_RECAL.set(bool(on))
+    try:
+        yield
+    finally:
+        _HEIGHT_SHEET_RECAL.reset(token)
+
+
+# momwire#1860 L5, the opt-in feature `crossing_table` (`_features`, reach 1,
+# native): the crossing rows a fill would send to the column twin are read
+# instead from ONE table per frequency, the approach of the NEC-4 theory
+# manual sec. 5.1.3 at a finer grid and a higher order. The grid is uniform
+# and fixed in free-space wavelengths -- rho in [0, 0.5], z in [0, 0.25],
+# |z'| in [0, 0.06], spacing 1/100 (1/200 in z') -- so its node count (51 x
+# 26 x 13) does not depend on the deck, and it has no refinement: the part
+# singular at the corner rho = z = z' = 0 is taken out in closed form before
+# storing and put back on reading (`_crossing_table_inline.h` has the forms
+# and their derivation; they are this module's own expansion, not the
+# manual's), and the remainder is stored times R, which then goes to zero at
+# the corner. Read tricubically. Rows outside the extents stay with the twin.
+#
+# Measured (momwire#1860, Skylake, against the exact route): printed Zin moves
+# <= 0.12 ohm on the EFHW decks (~6 kohm), 0.05 ohm on d3_hub, 0.04 ohm on the
+# Beverage; diag(Z^-1) <= 1e-3 relative. Coarse by design: the accuracy class
+# Steve accepted ("lambda/100"), not the twin's.
+#
+# Whether a fill takes it is decided on what the fill asks, never on what is
+# cached (`_CrossingFill`): a call's twin rows inside the extents are counted
+# at their cost (a column setup is `_CROSSING_TABLE_SETUP` members), and when
+# one call's pass the build's own cost (a column per rho node, each node
+# `_CROSSING_TABLE_NODE` members) the table serves that call's rows and every
+# later call's in the fill. A fill with few crossing rows keeps the twin throughout. Off,
+# the default, the twin is called exactly as before.
+#
+# The weights are fitted (Skylake, T1, the dumped column calls of eight
+# fills): twin wall = 0.13 ms a column + 1.9 us a member, so a setup is ~68
+# members; the build (51 columns, 17,238 nodes, factored) is 43 ms, ~1.1
+# members a node past its setups. The Beverage's crossing rows inside the
+# extents come to less than the build, and it keeps the twin.
+_CROSSING_TABLE_D = 0.01
+_CROSSING_TABLE_ZFAC = 0.5
+_CROSSING_TABLE_EXTENT = (0.5, 0.25, 0.06)
+_CROSSING_TABLE_SETUP = 68.0
+_CROSSING_TABLE_NODE = 1.1
+_CROSSING_TABLE_CACHE_MAX = 8
+_CROSSING_TABLE_CACHE = collections.OrderedDict()
+_CROSSING_TABLE_LOCK = threading.Lock()
+# Route proof: rows the table served and rows inside it the twin kept, tables
+# built, fills that took it.
+_CROSSING_TABLE_STATS = dict.fromkeys(
+    ("table_rows", "kept_rows", "tables_built", "fills_taken"), 0
+)
+
+
+class _CrossingFill:
+    """Whether one fill has taken the table."""
+
+    __slots__ = ("taken",)
+
+    def __init__(self):
+        self.taken = False
+
+
+_CROSSING_TABLE: contextvars.ContextVar[_CrossingFill | None] = contextvars.ContextVar(
+    "momwire_crossing_table", default=None
+)
+
+
+def _have_crossing_table():
+    return _nia is not None and hasattr(_nia, "crossing_table_1860")
+
+
+@contextlib.contextmanager
+def crossing_table_scope(on):
+    """Run the body (one fill) with the crossing table on (`on` truthy) or
+    off."""
+    token = _CROSSING_TABLE.set(
+        _CrossingFill() if on and _have_crossing_table() else None
+    )
+    try:
+        yield
+    finally:
+        _CROSSING_TABLE.reset(token)
+
+
+def crossing_table_grid(k_p):
+    """The table's spacing h (3,) in metres and node counts n (3,) at k_p."""
+    lam0 = 2.0 * np.pi / float(k_p)
+    step = np.array(
+        [_CROSSING_TABLE_D, _CROSSING_TABLE_D, _CROSSING_TABLE_D * _CROSSING_TABLE_ZFAC]
+    )
+    n = np.array(
+        [int(round(e / s)) + 1 for e, s in zip(_CROSSING_TABLE_EXTENT, step)],
+        dtype=np.intp,
+    )
+    return step * lam0, n
+
+
+def _crossing_table_vals(k_p, k_m, lam_mult):
+    """The cached table at (k_p, k_m): (h, n, vals). A node's value depends
+    on its key alone, so sharing it across fills cannot move a bit."""
+    h, n = crossing_table_grid(k_p)
+    key = (
+        float(k_p),
+        complex(k_m),
+        float(lam_mult),
+        int(_COLUMN_P),
+        float(_DETOUR),
+        _CROSSING_TABLE_D,
+        _CROSSING_TABLE_ZFAC,
+        _CROSSING_TABLE_EXTENT,
+    )
+    with _CROSSING_TABLE_LOCK:
+        vals = _CROSSING_TABLE_CACHE.pop(key, None)
+        if vals is None:
+            vals = np.asarray(
+                _nia.crossing_table_build(
+                    float(k_p),
+                    complex(k_m),
+                    h,
+                    n,
+                    float(lam_mult),
+                    int(_COLUMN_P),
+                    float(_DETOUR),
+                    _physical_cpu_count(),
+                    _GX,
+                    _GW,
+                    cancel_flag=_cancel.ptr(),
+                )
+            )
+            _CROSSING_TABLE_STATS["tables_built"] += 1
+        _CROSSING_TABLE_CACHE[key] = vals
+        while len(_CROSSING_TABLE_CACHE) > _CROSSING_TABLE_CACHE_MAX:
+            _CROSSING_TABLE_CACHE.popitem(last=False)
+    return h, n, vals
+
+
+def crossing_singular(rho, z, zp, k_p, k_m):
+    """The closed-form part the table takes out, (m, 6): the numpy walk of
+    `mw1860::crossing_singular` (`_crossing_table_inline.h`)."""
+    rho, z, zp = (np.asarray(a, dtype=float) for a in (rho, z, zp))
+    s = z - zp
+    R = np.hypot(rho, s)
+    al = float(k_p) ** 2
+    be = complex(k_m) ** 2
+    tot = al + be
+    A = 2.0 / tot
+    C = (be - al) / tot
+    tau = 0.5 * (al * z - be * zp)
+    L = -np.log(s + R)
+    c3 = 0.5 * tau * tau + al * be / tot - 0.5 * tot
+    tL = tau * L
+    return np.stack(
+        [
+            1.0 / R + tL,
+            A / R + A * tL,
+            C * L,
+            -C / R - C * tL,
+            -A * (2.0 * s * s - rho * rho) / R**5 - A * (tau * s / R**3 + c3 / R),
+            C / R + C * tL,
+        ],
+        axis=1,
+    )
+
+
+def crossing_table_lookup_numpy(k_p, k_m, h, n, vals, rho, z, zp):
+    """The numpy walk of `crossing_table_lookup`: tricubic in R (f - S) on
+    the uniform grid, divided by R, plus S."""
+    rho, z, zp = (np.asarray(a, dtype=float) for a in (rho, z, zp))
+
+    def stencil(t, hh, nn):
+        u = t / hh
+        i = np.clip(np.floor(u).astype(np.intp) - 1, 0, nn - 4)
+        x = u - i
+        w = np.stack(
+            [
+                -(x - 1.0) * (x - 2.0) * (x - 3.0) / 6.0,
+                x * (x - 2.0) * (x - 3.0) / 2.0,
+                -x * (x - 1.0) * (x - 3.0) / 2.0,
+                x * (x - 1.0) * (x - 2.0) / 6.0,
+            ],
+            axis=1,
+        )
+        return i, w
+
+    i, wr = stencil(rho, h[0], n[0])
+    j, wz = stencil(z, h[1], n[1])
+    k, wp = stencil(-zp, h[2], n[2])
+    g = np.zeros((rho.size, 6), dtype=complex)
+    for a in range(4):
+        for b in range(4):
+            for c in range(4):
+                w = wr[:, a] * wz[:, b] * wp[:, c]
+                g += w[:, None] * vals[i + a, j + b, k + c]
+    R = np.hypot(rho, z - zp)
+    return g / R[:, None] + crossing_singular(rho, z, zp, k_p, k_m)
+
+
+def _twin_columns(k_p, k_m, rho_c, offsets, zs, zps, lam_mult, cache=None):
+    """`near_interface_six_columns` over a fill's columns, the crossing table
+    serving the members inside it when the fill's scope has taken it
+    (momwire#1860 L5). Off, exactly the twin's call as it always was."""
+    extra = {} if cache is None else {"cache": cache}
+
+    def twin(rc, off, z_, zp_):
+        return _nia.near_interface_six_columns(
+            k_p,
+            k_m,
+            rc,
+            off,
+            z_,
+            zp_,
+            float(lam_mult),
+            int(_COLUMN_P),
+            float(_DETOUR),
+            _physical_cpu_count(),
+            _GX,
+            _GW,
+            cancel_flag=_cancel.ptr(),
+            **extra,
+            **_columns_lanes_kw(),
+        )
+
+    fill = _CROSSING_TABLE.get()
+    if fill is None:
+        return twin(rho_c, offsets, zs, zps)
+    h, n = crossing_table_grid(k_p)
+    lim = h * (n - 1)
+    sizes = np.diff(offsets)
+    col = np.repeat(np.arange(sizes.size), sizes)
+    rho = np.asarray(rho_c, dtype=float)[col]
+    inside = (rho <= lim[0]) & (zs <= lim[1]) & (-zps <= lim[2])
+    n_in = int(np.count_nonzero(inside))
+    if not fill.taken:
+        # A call takes the table on its OWN work inside the extents: what an
+        # earlier call already spent on the twin is spent, and counting it
+        # took the table for a late call that a build did not pay for
+        # (aca_vertical_screen under nec5-bspline: 816 rows for a 40 ms
+        # build). Once a call has taken it, the fill keeps it.
+        cost = 0.0
+        if n_in:
+            cols_in = int(
+                np.count_nonzero(np.bincount(col[inside], minlength=sizes.size))
+            )
+            cost = cols_in * _CROSSING_TABLE_SETUP + n_in
+        if n_in and cost >= n[0] * _CROSSING_TABLE_SETUP + _CROSSING_TABLE_NODE * float(
+            np.prod(n)
+        ):
+            fill.taken = True
+            _CROSSING_TABLE_STATS["fills_taken"] += 1
+        else:
+            _CROSSING_TABLE_STATS["kept_rows"] += n_in
+            return twin(rho_c, offsets, zs, zps)
+    if not n_in:
+        return twin(rho_c, offsets, zs, zps)
+    h, n, vals_t = _crossing_table_vals(k_p, k_m, lam_mult)
+    out = np.empty((zs.size, N_KEYS), dtype=np.complex128)
+    out[inside] = _nia.crossing_table_lookup(
+        float(k_p),
+        complex(k_m),
+        h,
+        n,
+        vals_t,
+        np.ascontiguousarray(rho[inside]),
+        np.ascontiguousarray(zs[inside]),
+        np.ascontiguousarray(zps[inside]),
+        _physical_cpu_count(),
+    )
+    _CROSSING_TABLE_STATS["table_rows"] += n_in
+    rest = ~inside
+    if rest.any():
+        cnt = np.bincount(col[rest], minlength=sizes.size)
+        keep = cnt > 0
+        off2 = np.zeros(int(keep.sum()) + 1, dtype=np.intp)
+        off2[1:] = np.cumsum(cnt[keep])
+        out[rest] = twin(
+            np.ascontiguousarray(np.asarray(rho_c, dtype=float)[keep]),
+            off2,
+            np.ascontiguousarray(zs[rest]),
+            np.ascontiguousarray(zps[rest]),
+        )
+    return out
+
+
 def _columns_lanes_kw():
     """`near_interface_six_columns`' lanes and steepest-descent switches, for
-    a binding that has them."""
+    a binding that has them, and its factored route (`grid`) when the
+    caller's scope asks for it."""
     kw = {}
     if not _SIX_COLUMNS_LANES and hasattr(_nia, "six_columns_lanes_1441"):
         kw["lanes"] = False
     if not _SDP and hasattr(_nia, "six_columns_sdp_1595"):
         kw["sdp"] = False
+    if _FACTORED_COLUMNS.get() and hasattr(_nia, "six_columns_grid_1860"):
+        kw["grid"] = True
     return kw
 
 
@@ -2170,7 +2495,16 @@ class ProductMemo(TripleMemo):
 
 
 def designed_tables(
-    eps_t, k2, rho, z, zp, rtol=1e-10, lam_mult=_LAM_MULT, memo=None, group_labels=None
+    eps_t,
+    k2,
+    rho,
+    z,
+    zp,
+    rtol=1e-10,
+    lam_mult=_LAM_MULT,
+    memo=None,
+    group_labels=None,
+    keep=None,
 ):
     """Broadcast wrapper over the designed evaluation. Accepts z′ = 0 and
     z = 0 exactly (no clamp); refuses only R = 0. Returns dict over `KEYS`.
@@ -2249,6 +2583,12 @@ def designed_tables(
     max|Z|) that way. The point routes evaluate each row on its own and
     ignore the labels. Without `memo` the sequence dedups nothing across its
     calls, which one call cannot reproduce, so labels need a memo.
+
+    `keep` (a `TripleMemo.key_set`, momwire#1860 B2) is `designed_rows`':
+    of the fresh rows only those it holds are inserted into `memo`. The
+    lookup comes first, so the answer is the same bits; only what a LATER
+    call through `memo` can hit changes, and the caller vouches that every
+    row such a call asks is in `keep`.
     """
     _check_memo(memo)
     rho_b, z_b, zp_b = np.broadcast_arrays(
@@ -2267,7 +2607,7 @@ def designed_tables(
         # steps up (as in `_crossing_fill._chunked_tables`).
         prev = np.maximum.accumulate(np.concatenate(([-1], inverse[:-1])))
         labels = lab[np.flatnonzero(inverse > prev)]
-    block = _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, labels)
+    block = _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, labels, keep)
     if rows.shape[0]:
         # The scatter a kernel at a time: the same copies as
         # `ascontiguousarray(block[inverse].T)`, without its (n, 6) gather
@@ -2322,7 +2662,8 @@ def _designed_block(
             ins = np.asarray(keep_mask, dtype=bool)[fresh_pos]
             sub, vals = sub[ins], vals[ins]
         elif keep is not None:
-            ins = keep.contains(sub)
+            # An empty key set holds nothing: no lookup to ask it.
+            ins = keep.contains(sub) if len(keep) else np.zeros(sub.shape[0], bool)
             sub, vals = sub[ins], vals[ins]
         memo.insert(sub, vals)
         del sub, vals  # copied into `block` (and the memo); not needed below
@@ -2573,22 +2914,8 @@ def _column_twin(
     # numbers: the twin refuses the same set (before it builds a single
     # column), but from C++ it cannot spell the values.
     _refuse_bad_members(np.repeat(rho_c, sizes), zs, zps)
-    vals = _nia.near_interface_six_columns(
-        k_p,
-        k_m,
-        rho_c,
-        offsets,
-        zs,
-        zps,
-        float(lam_mult),
-        int(_COLUMN_P),
-        float(_DETOUR),
-        _physical_cpu_count(),
-        _GX,
-        _GW,
-        cancel_flag=_cancel.ptr(),
-        cache=column_cache,
-        **_columns_lanes_kw(),
+    vals = _twin_columns(
+        k_p, k_m, rho_c, offsets, zs, zps, lam_mult, cache=column_cache
     )
     if permuted:
         pos = np.empty(member_order.size, dtype=np.intp)
@@ -2707,6 +3034,30 @@ _SHEET_BUILD_WEIGHT = 0.15
 # so the tests' handle on the planes does not turn every mast node into a
 # sheet.
 _SHEET_HEIGHT_WEIGHT = 0.15
+# momwire#1860 L2 (the opt-in `height_sheet_recal`): a height row's worth when
+# its fixed-side (x, y) group holds no other height -- a horizontal wire's
+# node, as the EFHW's 1 cm counterpoise is -- in place of `_SHEET_ROW_WORTH`.
+# Rows of a group that spans heights (a mast: the coaxial column of a rod
+# under a vertical) keep `_SHEET_ROW_WORTH`, so a mast's heights are not
+# split off the column they share (and the factored route, L1, serves).
+#
+# Measured (Rocketlake, T=1, efhw_hi at 3.62 MHz, nec5-razor-2p): the
+# counterpoise's 23,712 rows at z = 0.01 cost 106 ms exact (4.5 us a row,
+# setups included) and its sheet's 14,256 nodes 117 ms to build (8.2 us a
+# node), so one row is worth ~0.55 node: 0.082 in this rule's units against
+# the 1/40 above. A single fill alone breaks even there; a crossing solve
+# plans the same heights in both of its fills (the point-observer block and
+# the main sandwich), which read ONE cached sheet, so 1/10 takes a height
+# whose rows the solve asks about twice. A deck that asked a height in one
+# fill only, at a rows-to-nodes ratio between 1.5 and 1.8, would pay up to
+# ~20 % of those rows' exact cost; that is what the timing gates watch.
+_SHEET_HEIGHT_LONE_WORTH = 1.0 / 10.0
+# momwire#1860 L2: heights within this many ulp of each other are one height
+# in the census and one sheet (`SheetPlan.lo` / `.hi`). nec5-bspline's
+# knots put the EFHW's 0.01 m counterpoise at 0.009999999999999998, 0.01
+# and 0.010000000000000002, which split one sheet's rows three ways (and,
+# forced, built three tables and ran slower).
+_SHEET_HEIGHT_SNAP_ULPS = 4
 # A pre-filter only, so a small plane never pays for the census: no plane
 # sheet is smaller than three cells, 432 nodes.
 _SHEET_MIN_ROWS = 512
@@ -2795,19 +3146,34 @@ class SheetPlan:
     (`TripleMemo.sheet_plan`), so every call of the fill -- tiles, chunks,
     end spans, ACA samples -- serves the same rows from a sheet."""
 
-    __slots__ = ("planes", "heights", "depths", "cones", "fold", "column_cache")
+    __slots__ = (
+        "planes",
+        "heights",
+        "depths",
+        "cones",
+        "fold",
+        "column_cache",
+        "lo",
+        "hi",
+    )
 
-    def __init__(self, planes=(), heights=(), cones=(), fold=0.0):
+    def __init__(self, planes=(), heights=(), cones=(), fold=0.0, windows=None):
         """`heights`: (h, depth) pairs. `cones`: the sloped-wire sheets
         (momwire#1595 option A), each `(zf, beta_lo, beta_hi, d, heights,
         p_fan)` (`_cone_census`, heights a sorted array, p_fan the fan
         correction's nodes a cell, 0 on a fan of one slope), kept in the
         census's order; `fold` is the wire radius their rows' rho was folded with
-        (`radius_fold`)."""
+        (`radius_fold`). `windows` (momwire#1860 L2, `height_sheet_recal`):
+        per height h, the (lo, hi) span of the heights snapped to it; a row
+        is on h's sheet when lo <= z <= hi. None, the default, is z == h."""
         self.planes = np.asarray(sorted(float(v) for v in planes), dtype=float)
         hd = sorted((float(h), float(dd)) for h, dd in heights)
         self.heights = np.asarray([h for h, _dd in hd], dtype=float)
         self.depths = np.asarray([dd for _h, dd in hd], dtype=float)
+        self.lo = self.hi = None
+        if windows is not None:
+            self.lo = np.asarray([windows[h][0] for h, _dd in hd], dtype=float)
+            self.hi = np.asarray([windows[h][1] for h, _dd in hd], dtype=float)
         self.cones = tuple(
             (
                 float(zf),
@@ -2835,6 +3201,35 @@ class SheetPlan:
             f"heights={list(zip(self.heights.tolist(), self.depths.tolist()))}, "
             f"cones={[(c[0], c[1], c[2], c[3], c[4].size, c[5]) for c in self.cones]})"
         )
+
+
+def _on_window(z, plan, k):
+    """The rows z on height k's snapped window (momwire#1860 L2)."""
+    at = z >= plan.lo[k]
+    at &= z <= plan.hi[k]
+    return at
+
+
+def _snap_heights(z):
+    """`z` with every run of values within `_SHEET_HEIGHT_SNAP_ULPS` ulp of
+    its neighbour mapped to one value -- the run's most frequent, the least
+    on a tie -- and the runs as (rep, lo, hi) arrays, ascending (momwire#1860
+    L2). A function of the multiset of values alone."""
+    z = np.asarray(z, dtype=float) + 0.0
+    vals, inv, cnt = np.unique(z, return_inverse=True, return_counts=True)
+    if vals.size == 0:
+        return z, vals, vals, vals
+    tol = _SHEET_HEIGHT_SNAP_ULPS * np.spacing(np.abs(vals[1:]))
+    new = np.concatenate([[True], np.diff(vals) > tol])
+    run = np.cumsum(new) - 1
+    starts = np.flatnonzero(new)
+    ends = np.append(starts[1:], vals.size) - 1
+    # Per run its most frequent value, the least on a tie: the first of
+    # each run in (run, -count, value) order.
+    order = np.lexsort((np.arange(vals.size), -cnt, run))
+    first = np.concatenate([[True], run[order][1:] != run[order][:-1]])
+    rep = vals[order[first]]
+    return rep[run][np.asarray(inv).ravel()], rep, vals[starts], vals[ends]
 
 
 def _sheet_take(sub, plan, cones=True):
@@ -2869,8 +3264,8 @@ def _sheet_take(sub, plan, cones=True):
             cone = None
     if plan.heights.size:
         take = take.copy() if take is on_plane else take
-        for h, dep in zip(plan.heights.tolist(), plan.depths.tolist()):
-            at = z == h
+        for k, (h, dep) in enumerate(zip(plan.heights.tolist(), plan.depths.tolist())):
+            at = z == h if plan.lo is None else _on_window(z, plan, k)
             if not at.any():
                 continue
             at &= ok
@@ -2883,7 +3278,7 @@ def _sheet_take(sub, plan, cones=True):
     return (take, on_plane, cone) if take.any() else None
 
 
-def _plane_pays(k_p, k_m, d, parts, depth=None):
+def _plane_pays(k_p, k_m, d, parts, depth=None, lone_worth=None):
     """The cost rule for one sheet at distance d from its singular point, on
     its census `parts`, each an (R, Zg, S, credit) quadruple: R the (G, H)
     folded rho between G (x, y) groups on the side that varies in depth and H
@@ -2907,13 +3302,34 @@ def _plane_pays(k_p, k_m, d, parts, depth=None):
     only between them, so the decision is always the exact rule's: an upper
     bound (every credited group pair its own column and every row distinct)
     that still fails declines, and a lower bound (the distinct credited rho
-    of a prefix) that already pays takes."""
+    of a prefix) that already pays takes.
+
+    `lone_worth` (a height sheet under momwire#1860 L2's `height_sheet_recal`):
+    `credit` then marks the fixed groups that hold no other height, whose
+    distinct rows are worth `lone_worth` each, the rest `_SHEET_ROW_WORTH`;
+    no column setup is counted (the worth is measured with setups in)."""
     _cancel.poll()
     rho_max = max(float(r.max()) for r, _zg, _sg, _c in parts)
     s_max = max(float(sg.max()) for _r, _zg, sg, _c in parts)
     nodes = _sheet_nodes_to(k_p, k_m, d, rho_max, s_max, depth)
     need = nodes * (_SHEET_BUILD_WEIGHT if depth is None else _SHEET_HEIGHT_WEIGHT)
     w = _SHEET_ROW_WORTH
+    if lone_worth is not None:
+        # The upper bound first, as below: every row distinct.
+        ub = 0.0
+        for r, zg, _s, c in parts:
+            n_z = sum(z.size for z in zg)
+            n_c = int(np.count_nonzero(c))
+            ub += n_z * (n_c * lone_worth + (r.shape[1] - n_c) * w)
+        if ub < need:
+            return False
+        n_all = _distinct_pairs(parts)
+        if all(c.all() for _r, _zg, _s, c in parts):
+            n_lone = n_all
+        else:
+            lone = [(r[:, c], zg, s, c[c]) for r, zg, s, c in parts if c.any()]
+            n_lone = _distinct_pairs(lone) if lone else 0
+        return n_lone * lone_worth + (n_all - n_lone) * w >= need
     n_rows_ub = sum(r.shape[1] * sum(z.size for z in zg) for r, zg, _s, _c in parts)
     credited = [r if c.all() else r[:, c] for r, _zg, _s, c in parts]
     n_rho_ub = sum(r.size for r in credited)
@@ -3076,12 +3492,32 @@ def sheet_plan(eps_t, k2, specs, wire_radius):
             sides.append((pa, pb))
     planes = _census(sides, False, k_p, k_m, a)
     cones = _cone_census(sides, k_p, k_m, a, planes)
-    heights = _census(sides, True, k_p, k_m, a, skip=planes)
+    windows = None
+    if _HEIGHT_SHEET_RECAL.get():
+        # momwire#1860 L2: the height census on snapped heights, at the
+        # horizontal wires' measured row worth.
+        snapped, rep, lo, hi = _snap_heights(
+            np.concatenate([np.empty(0)] + [pa[:, 2] for pa, _pb in sides])
+        )
+        h_sides, off = [], 0
+        for pa, pb in sides:
+            pa = pa.copy()
+            pa[:, 2] = snapped[off : off + pa.shape[0]]
+            off += pa.shape[0]
+            h_sides.append((pa, pb))
+        heights = _census(h_sides, True, k_p, k_m, a, skip=planes, recal=True)
+        at = np.searchsorted(rep, [h for h, _dep in heights])
+        windows = {
+            h: (float(lo[i]), float(hi[i]))
+            for (h, _dep), i in zip(heights, at.tolist())
+        }
+    else:
+        heights = _census(sides, True, k_p, k_m, a, skip=planes)
     _SHEET_STATS["fills_planned"] += 1
     _SHEET_STATS["planes_planned"] += len(planes)
     _SHEET_STATS["heights_planned"] += len(heights)
     _SHEET_STATS["cones_planned"] += len(cones)
-    return SheetPlan(planes, heights, cones, a)
+    return SheetPlan(planes, heights, cones, a, windows=windows)
 
 
 # The census measures distances in chunks of at most this many (node, group)
@@ -3105,7 +3541,7 @@ def _rho_matrix(gxy, hxy, a):
     return out
 
 
-def _census(sides, height, k_p, k_m, a, skip=()):
+def _census(sides, height, k_p, k_m, a, skip=(), recal=False):
     """The sheets one kind of census takes: planes (`height` False; the
     above side varies, a depth's below nodes are fixed) or heights (the below
     side varies, less the depths in `skip`; a height's above nodes are
@@ -3120,7 +3556,11 @@ def _census(sides, height, k_p, k_m, a, skip=()):
     for that is declined there -- a Beverage's rod depths, each its own depth
     with two nodes, are hundreds of such. The survivors take the full census
     (`_plane_pays`), one at a time, so only one candidate's rho matrices are
-    ever held."""
+    ever held.
+
+    `recal` (heights only, momwire#1860 L2): a fixed node whose (x, y) holds
+    no other height is LONE, as a plane's is, and its rows are worth
+    `_SHEET_HEIGHT_LONE_WORTH` (`_plane_pays`' `lone_worth`)."""
     per, cand = [], {}
     for pa, pb in sides:
         _cancel.poll()
@@ -3137,14 +3577,28 @@ def _census(sides, height, k_p, k_m, a, skip=()):
         inv = np.asarray(inv).ravel()
         # A fixed-side node earns its columns' setups only on a plane, and
         # only when its (x, y) holds no other depth (`_plane_pays`).
-        if height:
+        big = cnt * vary.shape[0] >= _SHEET_MIN_ROWS
+        if recal and not big.any():
+            continue
+        if height and recal:
+            # momwire#1860 L2: lone as below, its (group, height) pairs
+            # counted as one int key each (no row-wise unique).
+            # Exact (x, y) as one complex key: numpy orders complex values
+            # by real then imaginary part, so equal keys are equal pairs.
+            xy, finv = np.unique(
+                (fx[:, 0] + 0.0) + 1j * (fx[:, 1] + 0.0), return_inverse=True
+            )
+            finv = np.asarray(finv).ravel().astype(np.int64)
+            key = np.unique(finv * vals.size + inv)
+            per_group = np.bincount(key // vals.size, minlength=xy.size)
+            lone = (per_group == 1)[finv]
+        elif height:
             lone = np.zeros(fx.shape[0], dtype=bool)
         else:
             _fxy, finv = _xy_groups(fx[:, 0], fx[:, 1])
             pairs = np.unique(np.stack([finv, inv], axis=1), axis=0)
             lone = (np.bincount(pairs[:, 0], minlength=_fxy.shape[0]) == 1)[finv]
         n_lone = np.bincount(inv, weights=lone, minlength=vals.size)
-        big = cnt * vary.shape[0] >= _SHEET_MIN_ROWS
         if not big.any():
             continue
         gxy, zg, glo, ghi = _grouped(vary, 2)
@@ -3165,7 +3619,7 @@ def _census(sides, height, k_p, k_m, a, skip=()):
             sep = v - zlo if height else zhi - v
             got = cand.setdefault(v, [0, 0, 0.0, 0.0])
             got[0] += int(cnt[i]) * vary.shape[0]
-            got[1] += int(n_lone[i]) * gxy.shape[0]
+            got[1] += int(n_lone[i]) * (vary.shape[0] if recal else gxy.shape[0])
             got[2] = max(got[2], float(far[i]))
             got[3] = max(got[3], sep)
         per.append((gxy, zg, glo, ghi, fx, vals, inv, big, lone))
@@ -3184,7 +3638,11 @@ def _census(sides, height, k_p, k_m, a, skip=()):
         # has two below d; a height sheet's s axis may stop at one).
         n_r = 2 + max(0.0, np.ceil(np.log2(max(rho_lb, d) / d)))
         n_s = max(1.0, np.ceil(np.log2(max(s_lb, d) / d)))
-        best = n_rows * w + (0 if height else n_rho)
+        if recal:
+            # n_rho: the lone fixed nodes' rows (`_census` above).
+            best = (n_rows - n_rho) * w + n_rho * _SHEET_HEIGHT_LONE_WORTH
+        else:
+            best = n_rows * w + (0 if height else n_rho)
         if best < n_r * (1 if height else n_s) * per_cell * weight or (
             not height and best < _sheet_nodes_to(k_p, k_m, d, rho_lb, s_lb) * weight
         ):
@@ -3213,7 +3671,8 @@ def _census(sides, height, k_p, k_m, a, skip=()):
                 sep = ghi - v
             parts.append((_rho_matrix(gxy, hxy, a), zg, sep, credit))
         depth = _height_reach(deep) if height else None
-        if not _plane_pays(k_p, k_m, d, parts, depth):
+        lone_worth = _SHEET_HEIGHT_LONE_WORTH if recal else None
+        if not _plane_pays(k_p, k_m, d, parts, depth, lone_worth):
             _SHEET_STATS["declined_rows"] += n_rows
             continue
         taken.append((v, depth) if height else v)
@@ -4262,7 +4721,10 @@ def _serve_from_sheets(k_p, k_m, sub, lam_mult, take, plan, out, family):
     # s = z - z' peaks where z does; on a height, where z' is least).
     for height, values, col in ((False, plan.planes, 2), (True, plan.heights, 1)):
         for k, v in enumerate(values.tolist()):
-            sel = sub[:, col] == v
+            if height and plan.lo is not None:
+                sel = _on_window(sub[:, col], plan, k)
+            else:
+                sel = sub[:, col] == v
             if height:
                 sel &= take
                 sel[on_plane] = False
@@ -4283,7 +4745,16 @@ def _serve_from_sheets(k_p, k_m, sub, lam_mult, take, plan, out, family):
             sheet = _plane_sheet(
                 k_p, k_m, v, lam_mult, rho_max, s_max, height, depth, family
             )
-            sheet.interpolate(sub, idx, out)
+            if height and plan.lo is not None and plan.lo[k] != plan.hi[k]:
+                # momwire#1860 L2: a snapped window's rows are read AT its
+                # height (the interpolator asks z == h of a height row).
+                part = sub[idx]
+                part[:, 1] = v
+                vals = np.empty((idx.size, out.shape[1]), dtype=out.dtype)
+                sheet.interpolate(part, np.arange(idx.size), vals)
+                out[idx] = vals
+            else:
+                sheet.interpolate(sub, idx, out)
             n_sheets += 1
             if height:
                 n_height += idx.size
@@ -4377,22 +4848,7 @@ def _designed_tables_reference(
                 # numbers: the twin refuses the same set (before it builds a
                 # single column), but from C++ it cannot spell the values.
                 _refuse_bad_members(np.repeat(rho_c, sizes), zs, zps)
-                vals = _nia.near_interface_six_columns(
-                    k_p,
-                    k_m,
-                    rho_c,
-                    offsets,
-                    zs,
-                    zps,
-                    float(lam_mult),
-                    int(_COLUMN_P),
-                    float(_DETOUR),
-                    _physical_cpu_count(),
-                    _GX,
-                    _GW,
-                    cancel_flag=_cancel.ptr(),
-                    **_columns_lanes_kw(),
-                )
+                vals = _twin_columns(k_p, k_m, rho_c, offsets, zs, zps, lam_mult)
                 placed = fresh_pos[member_order]
             block[placed] = vals
             n_filled += placed.size
@@ -4624,17 +5080,34 @@ def _column_blocks(sub, labels=None):
 
 
 def radius_tables(
-    eps_t, k2, rho, z, zp, wire_radius, rtol=1e-10, memo=None, group_labels=None
+    eps_t,
+    k2,
+    rho,
+    z,
+    zp,
+    wire_radius,
+    rtol=1e-10,
+    memo=None,
+    group_labels=None,
+    keep=None,
 ):
     """`designed_tables` with the thin-wire offset folded in:
     ρ_eff = hypot(ρ, a) — the same-edge moments' R = √(Δz² + a²)
     convention extended to the cross family (the derivation's radius
     rule: every cross-family evaluation whose pair distance can reach
     the a-scale carries the offset; at R ≫ a it is invisible). `memo`
-    keys on the FOLDED ρ_eff (see `designed_tables`)."""
+    keys on the FOLDED ρ_eff (see `designed_tables`), and so does `keep`."""
     rho_eff = radius_fold(rho, wire_radius)
     return designed_tables(
-        eps_t, k2, rho_eff, z, zp, rtol=rtol, memo=memo, group_labels=group_labels
+        eps_t,
+        k2,
+        rho_eff,
+        z,
+        zp,
+        rtol=rtol,
+        memo=memo,
+        group_labels=group_labels,
+        keep=keep,
     )
 
 

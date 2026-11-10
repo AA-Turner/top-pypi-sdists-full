@@ -1,0 +1,1 @@
+import{aK as c}from"./index-B4TYyLv3.js";const o=[["path",{d:"M12 6v6h4",key:"135r8i"}],["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}]],n=c("clock-3",o);const e=[["circle",{cx:"12",cy:"8",r:"5",key:"1hypcn"}],["path",{d:"M20 21a8 8 0 0 0-16 0",key:"rfgkzh"}]],a=c("user-round",e);export{n as C,a as U};

@@ -11,7 +11,7 @@ from django.http import HttpRequest
 from django.utils import timezone
 from djust import LiveView
 from djust._log_utils import sanitize_for_log
-from djust.decorators import debounce, event_handler, state
+from djust.decorators import StateProperty, debounce, event_handler, state
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +259,7 @@ class SocialAccountsView(AdminBaseMixin, LiveView):
 
     search_query = state(default="")
     current_page = state(default=1)
-    ordering = state(default="-date_joined")
+    ordering: StateProperty[str | None] = state(default="-date_joined")
     filter_provider = state(default="")
 
     def mount(self, request: HttpRequest, **kwargs: Any) -> None:

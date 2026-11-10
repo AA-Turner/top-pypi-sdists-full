@@ -52,6 +52,7 @@ from snaptrade_client.apis.paths.snap_trade_stats import SnapTradeStats
 from snaptrade_client.apis.paths.accounts_account_id_orders_v2 import AccountsAccountIdOrdersV2
 from snaptrade_client.apis.paths.accounts_account_id_orders_all import AccountsAccountIdOrdersAll
 from snaptrade_client.apis.paths.accounts_account_id_recent_orders_v2 import AccountsAccountIdRecentOrdersV2
+from snaptrade_client.apis.paths.accounts_account_id_orders_recent import AccountsAccountIdOrdersRecent
 from snaptrade_client.apis.paths.accounts_account_id_symbols import AccountsAccountIdSymbols
 from snaptrade_client.apis.paths.brokerages import Brokerages
 from snaptrade_client.apis.paths.institutions import Institutions
@@ -62,6 +63,7 @@ from snaptrade_client.apis.paths.symbols import Symbols
 from snaptrade_client.apis.paths.symbols_query import SymbolsQuery
 from snaptrade_client.apis.paths.accounts_account_id_trading_simple import AccountsAccountIdTradingSimple
 from snaptrade_client.apis.paths.accounts_account_id_orders_details_v2_brokerage_order_id import AccountsAccountIdOrdersDetailsV2BrokerageOrderId
+from snaptrade_client.apis.paths.accounts_account_id_orders_brokerage_order_id import AccountsAccountIdOrdersBrokerageOrderId
 
 PathToApi = typing_extensions.TypedDict(
     'PathToApi',
@@ -117,6 +119,7 @@ PathToApi = typing_extensions.TypedDict(
         PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_V2: AccountsAccountIdOrdersV2,
         PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_ALL: AccountsAccountIdOrdersAll,
         PathValues.ACCOUNTS_ACCOUNT_ID_RECENT_ORDERS_V2: AccountsAccountIdRecentOrdersV2,
+        PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_RECENT: AccountsAccountIdOrdersRecent,
         PathValues.ACCOUNTS_ACCOUNT_ID_SYMBOLS: AccountsAccountIdSymbols,
         PathValues.BROKERAGES: Brokerages,
         PathValues.INSTITUTIONS: Institutions,
@@ -127,6 +130,7 @@ PathToApi = typing_extensions.TypedDict(
         PathValues.SYMBOLS_QUERY: SymbolsQuery,
         PathValues.ACCOUNTS_ACCOUNT_ID_TRADING_SIMPLE: AccountsAccountIdTradingSimple,
         PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_DETAILS_V2_BROKERAGE_ORDER_ID: AccountsAccountIdOrdersDetailsV2BrokerageOrderId,
+        PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_BROKERAGE_ORDER_ID: AccountsAccountIdOrdersBrokerageOrderId,
     }
 )
 
@@ -183,6 +187,7 @@ path_to_api = PathToApi(
         PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_V2: AccountsAccountIdOrdersV2,
         PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_ALL: AccountsAccountIdOrdersAll,
         PathValues.ACCOUNTS_ACCOUNT_ID_RECENT_ORDERS_V2: AccountsAccountIdRecentOrdersV2,
+        PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_RECENT: AccountsAccountIdOrdersRecent,
         PathValues.ACCOUNTS_ACCOUNT_ID_SYMBOLS: AccountsAccountIdSymbols,
         PathValues.BROKERAGES: Brokerages,
         PathValues.INSTITUTIONS: Institutions,
@@ -193,5 +198,6 @@ path_to_api = PathToApi(
         PathValues.SYMBOLS_QUERY: SymbolsQuery,
         PathValues.ACCOUNTS_ACCOUNT_ID_TRADING_SIMPLE: AccountsAccountIdTradingSimple,
         PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_DETAILS_V2_BROKERAGE_ORDER_ID: AccountsAccountIdOrdersDetailsV2BrokerageOrderId,
+        PathValues.ACCOUNTS_ACCOUNT_ID_ORDERS_BROKERAGE_ORDER_ID: AccountsAccountIdOrdersBrokerageOrderId,
     }
 )

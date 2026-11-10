@@ -15,7 +15,7 @@ class PatchedProviderCannedResponseRequest:
     """
     Attributes:
         name (Union[Unset, str]):
-        provider_helpdesk (Union[Unset, UUID]):
+        provider_helpdesk (Union[Unset, UUID]): Helpdesk the response belongs to. Only staff can change it.
         text (Union[Unset, str]): Template text. Supports Django template syntax.
         category (Union[Unset, str]):
     """

@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+    from datamodel_code_generator._python_type_binding import BoundPythonType
+    from datamodel_code_generator.model._decisions.hashability import SetItemHash
+
 __all__ = ["DataTypeView", "FieldView", "ModelForm", "ModelView", "ReferenceView"]
 
 ModelForm: TypeAlias = Literal["alias", "root", "enum", "object"]
@@ -28,7 +31,7 @@ class ReferenceView(Protocol):
     """The reference of a model: which model a type, a base or a reuse names."""
 
 
-class DataTypeView(Protocol):
+class DataTypeView(Protocol):  # noqa: PLR0904
     """A data type as the decision phase reads it."""
 
     @property
@@ -84,12 +87,20 @@ class DataTypeView(Protocol):
         """Whether the type is a tuple."""
 
     @property
+    def given_container(self) -> str | None:
+        """The container class an ``x-python-type`` gives the type, which it is written as."""
+
+    @property
     def tuple_item_count(self) -> int | None:
         """The item count of a fixed-length tuple."""
 
     @property
     def is_custom_type(self) -> bool:
         """Whether the type is a custom type the schema names."""
+
+    @property
+    def python_type(self) -> BoundPythonType | None:
+        """The Python type annotation that types it (``x-python-type``), with the imports that bind its names."""
 
     @property
     def literals(self) -> Sequence[bool | int | str]:
@@ -110,6 +121,14 @@ class DataTypeView(Protocol):
     @property
     def admits_none(self) -> bool:
         """Whether the rendered type hint includes None."""
+
+    @property
+    def _writes_nothing_of_its_own(self) -> bool:
+        """Whether the type writes no text, names no model and is no container, so only its members write."""
+
+    @property
+    def _renders_none(self) -> bool:
+        """Whether the type writes ``None``: the type None, or a type whose one member writes it."""
 
 
 class FieldView(Protocol):
@@ -146,6 +165,10 @@ class FieldView(Protocol):
     @property
     def nullable(self) -> bool | None:
         """Whether the schema makes the field nullable."""
+
+    @property
+    def nullable_without_default(self) -> bool | None:
+        """The ``nullable`` of the field as one without its default (``--omit-incomplete-model-defaults``)."""
 
     @property
     def default(self) -> object:
@@ -228,6 +251,10 @@ class ModelView(Protocol):
         """The model whose duplicate the model is."""
 
     @property
+    def effective_fields(self) -> Sequence[FieldView]:
+        """The named fields of an instance after C3 inheritance and overrides (``get_effective_fields``)."""
+
+    @property
     def holds_null(self) -> bool:
         """Whether the class holds null as its own value: a root model or alias admitting None, or an enum with None."""
 
@@ -238,3 +265,14 @@ class ModelView(Protocol):
     @property
     def value_base(self) -> str | None:
         """The builtin type an enum subclasses for the values of its members (``str`` of a ``StrEnum``), or None."""
+
+    @property
+    def has_length(self) -> bool:
+        """Whether the instance of the model has a length: a root model written with the sequence interface."""
+
+    @property
+    def additional_properties_type(self) -> DataTypeView | None:
+        """The type of the additional properties the class settings write (TypedDict ``extra_items``), or None."""
+
+    def set_item_hash(self, *, user_imports: bool) -> SetItemHash:
+        """How the instances of the class hash as set items, by the class alone (``DataModel.set_item_hash``)."""

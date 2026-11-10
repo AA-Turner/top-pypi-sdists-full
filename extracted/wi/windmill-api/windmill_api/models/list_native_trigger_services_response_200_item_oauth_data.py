@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ListNativeTriggerServicesResponse200ItemOauthData")
 
@@ -13,13 +15,14 @@ class ListNativeTriggerServicesResponse200ItemOauthData:
         client_id (str): The OAuth client ID for the workspace
         client_secret (str): The OAuth client secret for the workspace
         base_url (str): The base URL of the workspace
-        redirect_uri (str): The OAuth redirect URI
+        redirect_uri (Union[Unset, str]): The redirect URI registered on the OAuth app. Absent for an app saved before
+            it was stored, which uses the workspace settings page.
     """
 
     client_id: str
     client_secret: str
     base_url: str
-    redirect_uri: str
+    redirect_uri: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -35,9 +38,10 @@ class ListNativeTriggerServicesResponse200ItemOauthData:
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "base_url": base_url,
-                "redirect_uri": redirect_uri,
             }
         )
+        if redirect_uri is not UNSET:
+            field_dict["redirect_uri"] = redirect_uri
 
         return field_dict
 
@@ -50,7 +54,7 @@ class ListNativeTriggerServicesResponse200ItemOauthData:
 
         base_url = d.pop("base_url")
 
-        redirect_uri = d.pop("redirect_uri")
+        redirect_uri = d.pop("redirect_uri", UNSET)
 
         list_native_trigger_services_response_200_item_oauth_data = cls(
             client_id=client_id,

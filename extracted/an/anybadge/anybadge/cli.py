@@ -5,8 +5,10 @@ import textwrap
 from anybadge.styles import Style
 from anybadge.templates import get_template
 from anybadge import __version__ as anybadge_version
+from anybadge import logos
 from . import config
 from .badge import Badge
+from .exceptions import UnknownBadgeTemplate
 
 
 def parse_args(args):
@@ -48,6 +50,13 @@ examples:
     CI Pipeline
         anybadge.py --label=pipeline --value=passing --file=pipeline.svg \\
           passing=green failing=red
+
+    Badge with a logo
+        anybadge.py --label=stars --value=123 --logo=python --file=stars.svg
+
+    Download logos to files, so badge generation can work without
+    network access (e.g. on a CI runner or network-gated server):
+        anybadge.py fetch-logos python github docker --dir=logos
 
 """
         ),
@@ -156,6 +165,52 @@ examples:
         help="Treat value and thresholds as semantic versions.",
     )
     parser.add_argument(
+        "-ef",
+        "--emoji-font-size",
+        type=int,
+        help="Font size used to render emoji characters. Default is the "
+        "font size plus 3. Emoji are rendered at a visually smaller "
+        "size than the surrounding text at the same font size, so "
+        "they are wrapped in tspans at this font size to restore the "
+        "balance. Pass the same value as --font-size to disable.",
+    )
+    parser.add_argument(
+        "--logo",
+        type=str,
+        default=None,
+        help="Logo to embed in the badge. This may be a path to a local "
+        "image file (.svg, .png, .jpg, .gif), an http(s) URL, a Simple "
+        "Icons slug (e.g. python), or a data URI. Simple Icons slugs are "
+        "looked up in --logos-dir directories first, then in the logos "
+        "bundled with the package (%s), and are otherwise downloaded "
+        "from the Simple Icons CDN." % ", ".join(logos.builtin_logos()),
+    )
+    parser.add_argument(
+        "--logo-color",
+        type=str,
+        default=None,
+        help="Color used to render Simple Icons logos (e.g. #fff). "
+        "Applies only when the logo is downloaded from the Simple Icons "
+        "CDN.",
+    )
+    parser.add_argument(
+        "--logo-position",
+        type=str,
+        default=config.DEFAULT_LOGO_POSITION,
+        choices=config.VALID_LOGO_POSITIONS,
+        help="Position of the logo: left (next to the label) or right "
+        "(after the value). Default is left.",
+    )
+    parser.add_argument(
+        "--logos-dir",
+        type=str,
+        action="append",
+        default=None,
+        help="Directory searched for logo files when --logo is a Simple "
+        "Icons slug. May be passed multiple times. Vendored logos allow "
+        "badge generation without network access.",
+    )
+    parser.add_argument(
         "--no-escape-label",
         action="store_true",
         default=False,
@@ -184,67 +239,166 @@ def main(args=None) -> int:
         int: 0 if successful, 1 otherwise.
     """
 
-    # Args may be sent from command line of as args directly.
-    if not args:
+    # Args may be sent from the command line or passed in directly. Note
+    # that an empty list is a valid argument list, so only fall back to
+    # reading sys.argv when no arguments were passed in at all.
+    if args is None:
         args = sys.argv[1:]
 
     if args == ["--version"]:
         print(anybadge_version)
         return 0
 
-    # Parse command line arguments
-    args = parse_args(args)
+    try:
+        # "fetch-logos" is a special first argument that switches the CLI
+        # into logo vending mode, downloading logos to files for use in
+        # network-gated environments.
+        if args and args[0] == "fetch-logos":
+            return _run_fetch_logos(args[1:])
 
-    label = args.label
-    threshold_text = args.args
-    suffix = args.suffix
+        return _run(args)
+    except (ValueError, RuntimeError, UnknownBadgeTemplate, OSError) as e:
+        # Report expected user errors (e.g. bad colors, unknown fonts, bad
+        # thresholds, missing templates or output files) as a single clean
+        # error line instead of a traceback.
+        print("ERROR: %s" % e)
+        return 1
+
+
+def _run_fetch_logos(args) -> int:
+    """Download logos to files using the fetch-logos argument list.
+
+    Args:
+        args(list): List of arguments, as received from the command line
+            following the "fetch-logos" argument.
+
+    Returns:
+        int: 0 if successful, 1 otherwise.
+
+    Raises:
+        ValueError: When a logo cannot be downloaded.
+    """
+    parser = argparse.ArgumentParser(
+        prog="anybadge fetch-logos",
+        description=textwrap.dedent(
+            """\
+Download logos (icon SVGs and images) to files.
+
+This is a convenience mechanism for environments that are gated from the
+network: logos can be downloaded wherever network access is available,
+committed to source control or passed on as build artifacts, and then
+referenced at badge generation time using --logos-dir, without any
+network access.
+"""
+        ),
+    )
+    parser.add_argument(
+        "names",
+        nargs="+",
+        help="Simple Icons slugs (e.g. python github) or http(s) URLs to " "download.",
+    )
+    parser.add_argument(
+        "-d",
+        "--dir",
+        type=str,
+        default=".",
+        help="Directory to write logo files into (default: current " "directory).",
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite logo files that already exist.",
+    )
+
+    parsed_args = parser.parse_args(args)
+
+    paths = logos.fetch_logos(
+        parsed_args.names, parsed_args.dir, overwrite=parsed_args.force
+    )
+
+    for path in paths:
+        print("Wrote %s" % path)
+
+    return 0
+
+
+def _run(args) -> int:
+    """Build and output a badge using the given argument list.
+
+    Args:
+        args(list): List of arguments, as received from the command line.
+
+    Returns:
+        int: 0 if successful, 1 otherwise.
+
+    Raises:
+        Any exception raised while parsing arguments or building the badge
+        will be propagated to the caller.  This includes ValueError,
+        RuntimeError and UnknownBadgeTemplate, which are treated as user
+        errors and handled in :func:`main`.
+    """
+
+    # Parse command line arguments
+    parsed_args = parse_args(args)
+
+    label = parsed_args.label
+    threshold_text = parsed_args.args
+    suffix = parsed_args.suffix
 
     # Check whether thresholds were sent as one word, and is in the
     # list of available styles.  If so, swap in the style.
-    if len(args.args) == 1 and Style.exists(args.args[0].upper()):
-        style_name = args.args[0].upper()
+    if len(threshold_text) == 1 and Style.exists(threshold_text[0].upper()):
+        style_name = threshold_text[0].upper()
         style = Style[style_name]
         threshold_text = style.threshold.split(" ")
-        if not args.label and style.label:
+        if not label and style.label:
             label = style.label
-        if not args.suffix and style.suffix:
+        if not suffix and style.suffix:
             suffix = style.suffix
 
     # Create threshold list from args
     try:
         threshold_list = [x.split("=") for x in threshold_text]
         threshold_dict = {x[0]: x[1] for x in threshold_list}
-    except Exception as e:
-        print(f"ERROR: Failed to parse threshold values: '{' '.join(threshold_text)}'")
-        print(f"ERROR: Thresholds should be in the form '<value>=color'")
-        return 1
+    except Exception:
+        raise ValueError(
+            "Failed to parse threshold values '%s'. Thresholds should be "
+            "in the form '<value>=<color>', e.g. '2=red 4=orange'"
+            % " ".join(threshold_text)
+        )
 
     # Create badge object
     badge = Badge(
         label,
-        args.value,
-        value_prefix=args.prefix,
+        parsed_args.value,
+        value_prefix=parsed_args.prefix,
         value_suffix=suffix,
-        default_color=args.color,
-        num_padding_chars=args.padding,
-        num_label_padding_chars=args.label_padding,
-        num_value_padding_chars=args.value_padding,
-        font_name=args.font,
-        font_size=args.font_size,
-        template=args.template,
-        style=args.style,
-        use_max_when_value_exceeds=args.use_max,
+        default_color=parsed_args.color,
+        num_padding_chars=parsed_args.padding,
+        num_label_padding_chars=parsed_args.label_padding,
+        num_value_padding_chars=parsed_args.value_padding,
+        font_name=parsed_args.font,
+        font_size=parsed_args.font_size,
+        template=parsed_args.template,
+        style=parsed_args.style,
+        use_max_when_value_exceeds=parsed_args.use_max,
         thresholds=threshold_dict,
-        value_format=args.value_format,
-        text_color=args.text_color,
-        semver=args.semver,
-        escape_label=not args.no_escape_label,
-        escape_value=not args.no_escape_value,
+        value_format=parsed_args.value_format,
+        text_color=parsed_args.text_color,
+        semver=parsed_args.semver,
+        escape_label=not parsed_args.no_escape_label,
+        escape_value=not parsed_args.no_escape_value,
+        emoji_font_size=parsed_args.emoji_font_size,
+        logo=parsed_args.logo,
+        logo_color=parsed_args.logo_color,
+        logo_position=parsed_args.logo_position if parsed_args.logo else None,
+        logo_dirs=parsed_args.logos_dir,
     )
 
-    if args.file:
+    if parsed_args.file:
         # Write badge SVG to file
-        badge.write_badge(args.file, overwrite=args.overwrite)
+        badge.write_badge(parsed_args.file, overwrite=parsed_args.overwrite)
     else:
         print(badge.badge_svg_text)
 

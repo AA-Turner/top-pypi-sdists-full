@@ -150,7 +150,10 @@ def metric_loss_score(
                 )
             score_dict = metric.compute(predictions=y_processed_predict, references=y_processed_true)
             if "rouge" in metric_name:
-                score = score_dict[metric_name].mid.fmeasure
+                score = score_dict[metric_name]
+                # evaluate returns a scalar; older datasets metrics return AggregateScore.
+                if hasattr(score, "mid"):
+                    score = score.mid.fmeasure
             elif metric_name.startswith("seqeval"):
                 metric_submetric_names = metric_name.split(":")
                 score = score_dict[metric_submetric_names[1] if len(metric_submetric_names) > 1 else "overall_accuracy"]
@@ -261,7 +264,7 @@ def sklearn_metric_loss_score(
         score = log_loss(y_true, y_predict, labels=labels, sample_weight=sample_weight)
     elif "mape" == metric_name:
         try:
-            score = mean_absolute_percentage_error(y_true, y_predict)
+            score = mean_absolute_percentage_error(y_true, y_predict, sample_weight=sample_weight)
         except ValueError:
             return np.inf
     elif "micro_f1" == metric_name:

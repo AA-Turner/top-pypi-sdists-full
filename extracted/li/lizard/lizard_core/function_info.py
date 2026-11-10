@@ -49,6 +49,7 @@ class FunctionInfo(Nesting):  # pylint: disable=R0902
         self.general_fan_out = 0
         self.max_nesting_depth = 0  # Initialize max_nesting_depth to 0
         self.forgiven_metrics = set()
+        self.defined_in_function = False
 
     @property
     def name_in_space(self):
@@ -70,7 +71,7 @@ class FunctionInfo(Nesting):  # pylint: disable=R0902
         # Binding patterns can occupy formal slots without introducing names.
         return sum(
             bool(_PARAMETER_NAME.search(parameter))
-            or parameter.strip() in ('{}', '[]')
+            or parameter.strip() in ('{}', '[]', '()')
             for parameter in self.full_parameters)
 
     @property

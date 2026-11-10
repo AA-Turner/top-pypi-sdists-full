@@ -392,8 +392,15 @@ class WorkQueue:
             return
         visited.add(group)
         parent = group.parent
-        if parent is not None and parent in group_set:
-            self._add_group(parent, group_set, new_root_groups, visited, parent_task)
+        if parent is not None:
+            if parent in group_set:
+                self._add_group(
+                    parent, group_set, new_root_groups, visited, parent_task
+                )
+
+            # Discard newly discovered children of removed parents.
+            if parent not in self._group_nodes:
+                return
 
         self._group_nodes[group] = _GroupNode()
 
@@ -401,7 +408,9 @@ class WorkQueue:
             new_root_groups.append(group)
         elif parent:
             parent_node = self._group_nodes.get(parent)
-            if parent_node:
+            # defensive guard mirroring the JS version; children of
+            # removed parents have already been discarded above
+            if parent_node:  # pragma: no branch
                 parent_node.child_groups.append(group)
 
     def _add_task(self, task: WorkTask) -> None:
@@ -421,7 +430,9 @@ class WorkQueue:
         if not parent_task:
             return streams
         task_node = self._task_nodes.get(parent_task)
-        if task_node:
+        # defensive guard mirroring the JS version; work of removed
+        # tasks is ignored before it is integrated
+        if task_node:  # pragma: no branch
             task_node.child_streams.extend(streams)
         return []
 
@@ -437,7 +448,8 @@ class WorkQueue:
         for new_group in new_groups:
             new_group_node = group_nodes.get(new_group)
             if new_group_node:
-                if new_group_node.pending:
+                # Settled tasks can still hold values that have not been published.
+                if new_group_node.tasks:
                     non_empty_new_groups.append(new_group)
                 else:
                     del group_nodes[new_group]
@@ -448,14 +460,29 @@ class WorkQueue:
 
     def _start_new_work(
         self, new_groups: Sequence[Group], new_streams: Sequence[Stream]
-    ) -> None:
-        """Promote new groups and streams to root and start them."""
-        for group in new_groups:
+    ) -> list[GroupValuesEvent | GroupSuccessEvent]:
+        """Promote new groups and streams to root and start them.
+
+        Returns the events for groups that could be finished right away.
+        """
+        group_events: list[GroupValuesEvent | GroupSuccessEvent] = []
+        # Completing a released group can append more groups and streams to start.
+        groups_to_start = list(new_groups)
+        streams_to_start = list(new_streams)
+        for group in groups_to_start:
             self._root_groups[group] = None
             self._start_group(group)
-        for stream in new_streams:
+            group_node = self._group_nodes.get(group)
+            # defensive guard mirroring the JS version; starting a group
+            # never removes its node
+            if group_node:  # pragma: no branch
+                self._maybe_finish_group(
+                    group, group_node, group_events, groups_to_start, streams_to_start
+                )
+        for stream in streams_to_start:
             self._root_streams[stream] = None
             self._start_stream(stream)
+        return group_events
 
     def _start_group(self, group: Group) -> None:
         """Start all tasks of a group."""
@@ -469,13 +496,17 @@ class WorkQueue:
     def _start_task(self, task: WorkTask) -> None:
         """Start a task, pushing a graph event when its computation settles."""
         task_nodes = self._task_nodes
-        if task in task_nodes:
-            return
-        task_nodes[task] = _TaskNode()
+        already_started = task in task_nodes
+        if not already_started:
+            task_nodes[task] = _TaskNode()
         try:
             result = task.computation.result()
-        except Exception as error:
+        except (Exception, CancelledError) as error:
             self._push(_TaskFailure(task, error))
+            return
+        if already_started:
+            # Pending tasks already have a result handler. Successful results are
+            # handled once for all owning groups, including those not yet started.
             return
         if is_awaitable(result):
             future: Future[WorkResult] = ensure_future(result)
@@ -544,42 +575,58 @@ class WorkQueue:
         task, result = graph_event
         value, work = result
         task_node = self._task_nodes.get(task)
-        if task_node:
-            task_node.value = value
+        if not task_node:
+            return []
+        task_node.value = value
         self._maybe_integrate_work(work, task)
 
         group_events: list[GroupValuesEvent | GroupSuccessEvent] = []
         new_groups: list[Group] = []
         new_streams: list[Stream] = []
-        root_groups = self._root_groups
         for group in task.groups:
             group_node = self._group_nodes.get(group)
             if group_node:
                 group_node.pending -= 1
-                if group in root_groups and not group_node.pending:
-                    (
-                        group_values_event,
-                        group_success_event,
-                        child_new_groups,
-                        child_new_streams,
-                    ) = self._finish_group_success(group, group_node)
-                    if group_values_event:
-                        group_events.append(group_values_event)
-                    group_events.append(group_success_event)
-                    new_groups.extend(child_new_groups)
-                    new_streams.extend(child_new_streams)
+                self._maybe_finish_group(
+                    group, group_node, group_events, new_groups, new_streams
+                )
 
-        self._start_new_work(new_groups, new_streams)
-        return group_events
+        return [*group_events, *self._start_new_work(new_groups, new_streams)]
+
+    def _maybe_finish_group(
+        self,
+        group: Group,
+        group_node: _GroupNode,
+        group_events: list[GroupValuesEvent | GroupSuccessEvent],
+        new_groups: list[Group],
+        new_streams: list[Stream],
+    ) -> None:
+        """Finish a root group if it has no pending tasks left."""
+        if group not in self._root_groups:
+            return
+        if not group_node.pending:
+            (
+                group_values_event,
+                group_success_event,
+                child_new_groups,
+                child_new_streams,
+            ) = self._finish_group_success(group, group_node)
+            if group_values_event:
+                group_events.append(group_values_event)
+            group_events.append(group_success_event)
+            new_groups.extend(child_new_groups)
+            new_streams.extend(child_new_streams)
 
     def _task_failure(self, graph_event: _TaskFailure) -> Sequence[GroupFailureEvent]:
         """Handle a task failure, removing all groups it belongs to."""
         task, error = graph_event
-        self._task_nodes.pop(task, None)
+        if task not in self._task_nodes:
+            return []
         group_failure_events: list[GroupFailureEvent] = []
+        root_groups = self._root_groups
         for group in task.groups:
             group_node = self._group_nodes.get(group)
-            if group_node:
+            if group_node and group in root_groups:
                 group_failure_events.append(
                     self._finish_group_failure(group, group_node, error)
                 )
@@ -596,6 +643,9 @@ class WorkQueue:
         for value, work in items:
             item_new_groups, item_new_streams = self._maybe_integrate_work(work)
             non_empty_new_groups = self._prune_empty_groups(item_new_groups)
+            # These groups are newly introduced, so their task outcomes have not yet
+            # been processed. Even synchronous task results are queued as graph
+            # events. Therefore, no group events can be returned here.
             self._start_new_work(non_empty_new_groups, item_new_streams)
             values.append(value)
             new_groups.extend(non_empty_new_groups)
@@ -644,11 +694,11 @@ class WorkQueue:
     ) -> GroupFailureEvent:
         """Finish a failed group, removing its whole subtree."""
         self._remove_group(group, group_node)
-        self._root_groups.pop(group, None)
         return GroupFailureEvent(group, error)
 
     def _remove_group(self, group: Group, group_node: _GroupNode) -> None:
         """Remove a group with its tasks and child groups from the graph."""
+        self._root_groups.pop(group, None)
         group_nodes = self._group_nodes
         del group_nodes[group]
         for task in list(group_node.tasks):
@@ -656,7 +706,9 @@ class WorkQueue:
                 self._remove_task(task)
         for child_group in group_node.child_groups:
             child_group_node = group_nodes.get(child_group)
-            if child_group_node:
+            # defensive guard mirroring the JS version; only root groups
+            # fail, so the children of a removed group still exist
+            if child_group_node:  # pragma: no branch
                 self._remove_group(child_group, child_group_node)
 
     def _remove_task(self, task: WorkTask) -> None:

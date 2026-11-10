@@ -1,5 +1,10 @@
+use std::sync::{Arc, OnceLock};
+
 pub(crate) trait RegexEngine: Sized + Send + Sync {
     type Error: RegexError;
+    /// Whether callers keep the match out of line. An inlined sequence match costs the callers'
+    /// non-string exits their prologue-free path.
+    const MATCH_OUT_OF_LINE: bool = false;
     fn is_match(&self, text: &str) -> Result<bool, Self::Error>;
     /// The compiled pattern its errors name, for engines that can fail.
     fn pattern(&self) -> Option<&str> {
@@ -107,6 +112,136 @@ impl RegexEngine for regex::Regex {
     }
 }
 
+/// A compiled `pattern`: characters counted for `^X{m,n}$` over one class, the engine otherwise.
+#[derive(Debug, Clone)]
+pub(crate) enum Compiled<R> {
+    RepeatedClass(RepeatedClass),
+    Engine(R),
+}
+
+impl<R: RegexEngine> RegexEngine for Compiled<R> {
+    type Error = R::Error;
+
+    #[inline]
+    fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
+        match self {
+            Self::RepeatedClass(class) => Ok(class.is_match(text)),
+            Self::Engine(regex) => regex.is_match(text),
+        }
+    }
+
+    fn pattern(&self) -> Option<&str> {
+        match self {
+            Self::RepeatedClass(_) => None,
+            Self::Engine(regex) => regex.pattern(),
+        }
+    }
+}
+
+impl<R: RegexEngine> RegexEngine for Arc<R> {
+    type Error = R::Error;
+
+    fn pattern(&self) -> Option<&str> {
+        (**self).pattern()
+    }
+
+    #[inline]
+    fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
+        (**self).is_match(text)
+    }
+}
+
+/// A [`jsonschema_regex::Sequence`], with `fallback` deciding the subjects it cannot.
+#[derive(Debug)]
+pub(crate) struct SequenceMatcher<R> {
+    pub(crate) sequence: Arc<jsonschema_regex::Sequence>,
+    pub(crate) fallback: R,
+}
+
+impl<R: RegexEngine> RegexEngine for SequenceMatcher<R> {
+    type Error = R::Error;
+    const MATCH_OUT_OF_LINE: bool = true;
+
+    fn pattern(&self) -> Option<&str> {
+        self.fallback.pattern()
+    }
+
+    #[inline]
+    fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
+        match self.sequence.is_match(text.as_bytes()) {
+            Some(matched) => Ok(matched),
+            None => self.fallback.is_match(text),
+        }
+    }
+}
+
+impl From<RegexBackendPanic> for FancyRegexError {
+    fn from(panic: RegexBackendPanic) -> Self {
+        Self::Panicked {
+            pattern: panic.pattern,
+        }
+    }
+}
+
+/// A `regex::Regex` built on its first match. Only for patterns `Sequence::compile` accepts, whose
+/// size budget keeps them far below the engine's default size limit.
+#[derive(Debug)]
+pub(crate) struct LazyRegex {
+    translated: Arc<str>,
+    regex: OnceLock<regex::Regex>,
+}
+
+impl LazyRegex {
+    pub(crate) fn new(translated: Arc<str>) -> Self {
+        Self {
+            translated,
+            regex: OnceLock::new(),
+        }
+    }
+}
+
+impl RegexEngine for LazyRegex {
+    type Error = RegexBackendPanic;
+
+    fn pattern(&self) -> Option<&str> {
+        Some(&self.translated)
+    }
+
+    fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
+        let regex = self.regex.get_or_init(|| {
+            regex::Regex::new(&self.translated).expect("sequence patterns build without limits")
+        });
+        RegexEngine::is_match(regex, text)
+    }
+}
+
+pub(crate) enum Part {
+    Sequence(Arc<SequenceMatcher<LazyRegex>>),
+    Regex(Arc<Compiled<regex::Regex>>),
+}
+
+/// Matches when every part does: the parts [`jsonschema_regex::split_leading_lookaheads`] makes
+/// of a pattern, each compiled without lookaround support.
+pub(crate) struct AllMatch(pub(crate) Box<[Part]>);
+
+impl RegexEngine for AllMatch {
+    type Error = RegexBackendPanic;
+
+    #[inline]
+    fn is_match(&self, text: &str) -> Result<bool, Self::Error> {
+        for part in &self.0 {
+            let matched = match part {
+                Part::Sequence(sequence) => sequence.is_match(text)?,
+                Part::Regex(regex) => RegexEngine::is_match(&**regex, text)?,
+            };
+            if !matched {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}
+
 /// Uninhabited error type for literal matchers — matching never fails.
 #[derive(Debug)]
 pub(crate) enum LiteralMatchError {}
@@ -122,6 +257,7 @@ impl RegexError for LiteralMatchError {
 }
 
 /// [`RegexEngine`] for literal patterns — either `starts_with` (prefix) or `==` (exact).
+#[derive(Clone)]
 pub(crate) enum LiteralMatcher {
     Prefix {
         literal: String,
@@ -166,42 +302,77 @@ pub(crate) enum PatternOptimization {
     NoWhitespace,
 }
 
-pub(crate) use jsonschema_regex::contains_ecma_whitespace;
+impl From<PatternOptimization> for LiteralMatcher {
+    fn from(optimization: PatternOptimization) -> Self {
+        match optimization {
+            PatternOptimization::Prefix(literal) => LiteralMatcher::Prefix { literal },
+            PatternOptimization::Exact(exact) => LiteralMatcher::Exact { exact },
+            PatternOptimization::Alternation(alternatives) => {
+                LiteralMatcher::Alternation { alternatives }
+            }
+            PatternOptimization::NoWhitespace => LiteralMatcher::NoWhitespace,
+        }
+    }
+}
 
-/// Build a fancy-regex matcher, applying engine limits; `Err(())` on a rejected pattern.
+pub(crate) use jsonschema_regex::contains_ecma_whitespace;
+use jsonschema_regex::{RepeatedClass, Search};
+
+/// `pattern`, translated as `translated`, as a character count or compiled by `build`.
+fn compile<R>(
+    pattern: &str,
+    translated: &str,
+    build: impl FnOnce(&str) -> Result<R, ()>,
+) -> Result<Compiled<R>, ()> {
+    match jsonschema_regex::search_form(pattern, translated) {
+        Some(Search::RepeatedClass(class)) => Ok(Compiled::RepeatedClass(class)),
+        Some(Search::Collapsed(collapsed)) => build(&collapsed).map(Compiled::Engine),
+        None => build(translated).map(Compiled::Engine),
+    }
+}
+
+/// Build a fancy-regex matcher for `pattern`, translated as `translated`, applying engine limits;
+/// `Err(())` on a rejected pattern.
 pub(crate) fn build_fancy_regex(
+    pattern: &str,
     translated: &str,
     backtrack_limit: Option<usize>,
     size_limit: Option<usize>,
     dfa_size_limit: Option<usize>,
-) -> Result<fancy_regex::Regex, ()> {
-    let mut builder = fancy_regex::RegexBuilder::new(translated);
-    if let Some(limit) = backtrack_limit {
-        builder.backtrack_limit(limit);
-    }
-    if let Some(limit) = size_limit {
-        builder.delegate_size_limit(limit);
-    }
-    if let Some(limit) = dfa_size_limit {
-        builder.delegate_dfa_size_limit(limit);
-    }
-    builder.build().map_err(|_| ())
+) -> Result<Compiled<fancy_regex::Regex>, ()> {
+    compile(pattern, translated, |translated| {
+        let mut builder = fancy_regex::RegexBuilder::new(translated);
+        if let Some(limit) = backtrack_limit {
+            builder.backtrack_limit(limit);
+        }
+        if let Some(limit) = size_limit {
+            builder.delegate_size_limit(limit);
+        }
+        if let Some(limit) = dfa_size_limit {
+            builder.delegate_dfa_size_limit(limit);
+        }
+        builder.build().map_err(|_| ())
+    })
 }
 
-/// Build a standard-regex matcher, applying engine limits; `Err(())` on a rejected pattern.
+/// Build a standard-regex matcher for `pattern`, translated as `translated`, applying engine
+/// limits; `Err(())` on a rejected pattern.
 pub(crate) fn build_standard_regex(
+    pattern: &str,
     translated: &str,
     size_limit: Option<usize>,
     dfa_size_limit: Option<usize>,
-) -> Result<regex::Regex, ()> {
-    let mut builder = regex::RegexBuilder::new(translated);
-    if let Some(limit) = size_limit {
-        builder.size_limit(limit);
-    }
-    if let Some(limit) = dfa_size_limit {
-        builder.dfa_size_limit(limit);
-    }
-    builder.build().map_err(|_| ())
+) -> Result<Compiled<regex::Regex>, ()> {
+    compile(pattern, translated, |translated| {
+        let mut builder = regex::RegexBuilder::new(translated);
+        if let Some(limit) = size_limit {
+            builder.size_limit(limit);
+        }
+        if let Some(limit) = dfa_size_limit {
+            builder.dfa_size_limit(limit);
+        }
+        builder.build().map_err(|_| ())
+    })
 }
 
 /// Analyze a pattern and return a [`PatternOptimization`] if one applies, or `None` if a full

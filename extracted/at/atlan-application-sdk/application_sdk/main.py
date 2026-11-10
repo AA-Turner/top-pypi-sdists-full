@@ -52,6 +52,8 @@ if _importlib_util.find_spec("application_sdk.handler.base") is None:
         "pip install --force-reinstall --no-deps atlan-application-sdk-api"
     )
 
+from application_sdk.app.base import _pascal_to_kebab
+from application_sdk.app.registry import AppRegistry, TaskRegistry
 from application_sdk.common import restart_marker
 from application_sdk.common._env import env_int as _env_int
 from application_sdk.common.backoff import Backoff
@@ -73,9 +75,6 @@ from application_sdk.main_errors import (
     UnknownModeError,
 )
 from application_sdk.observability.logger_adaptor import get_logger
-
-# Enable faulthandler so C-level crashes dump a traceback to stderr.
-faulthandler.enable()
 
 # Module-level reference to the running event loop (set in worker/combined mode).
 # Used by the SIGUSR1 debug handler to snapshot asyncio tasks.
@@ -111,8 +110,17 @@ def _debug_dump_handler(signum: int, frame: object) -> None:
     print(f"Debug dump written to {dump_path}", file=sys.stderr, flush=True)
 
 
-if hasattr(signal, "SIGUSR1"):
-    signal.signal(signal.SIGUSR1, _debug_dump_handler)
+def _install_debug_handlers() -> None:
+    """Enable crash tracebacks and the SIGUSR1 debug dump for this process.
+
+    Called from :func:`main` only, so importing this module (dev scripts that
+    call :func:`run_dev_combined`, tests) leaves the process's fault and
+    signal handlers alone.
+    """
+    # C-level crashes dump a traceback to stderr.
+    faulthandler.enable()
+    if hasattr(signal, "SIGUSR1"):
+        signal.signal(signal.SIGUSR1, _debug_dump_handler)
 
 
 def _log_process_memory_baseline() -> None:
@@ -153,6 +161,7 @@ if TYPE_CHECKING:
     from application_sdk.infrastructure._dapr.http import AsyncDaprClient
     from application_sdk.infrastructure.context import InfrastructureContext
     from application_sdk.infrastructure.secrets import SecretStore
+    from application_sdk.storage.errors import DeploymentObjectStoreMissingError
 
 
 logger = get_logger(__name__)
@@ -468,6 +477,11 @@ async def _log_dapr_components(
     * missing    + declared disabled        → INFO ("disabled by config")
     * missing    + declared unset           → INFO ("legacy/unknown intent")
 
+    The deployment object store is the exception: it is required, so a
+    missing one is an ERROR whatever ``ATLAN_ENABLE_OBJECTSTORE`` says, and
+    ``_create_infrastructure`` then fails with
+    ``DeploymentObjectStoreMissingError``.
+
     Every binding always produces a log line so operators can see, with a
     reason, how each one was handled. This is best-effort: any failure to
     query Dapr metadata is logged as a WARNING and never blocks startup.
@@ -539,7 +553,20 @@ async def _log_dapr_components(
         raw, declared = _read_enable_tri_state(enable_var)
         is_registered = comp_name in registered
 
-        if is_registered and declared is not False:
+        if comp_name == DEPLOYMENT_OBJECT_STORE_NAME and not is_registered:
+            # Required whatever the flag says. The chart sets ATLAN_ENABLE_* only
+            # on the env-seeder init container, so the app container usually
+            # sees it unset; an absent object store is never "expected".
+            logger.error(
+                "Dapr binding %s (role=%s) is not registered in sidecar (%s=%s) — "
+                "the deployment object store is required and startup will fail; "
+                "set deploy.dapr.objectstore to true in the app contract",
+                comp_name,
+                role,
+                enable_var,
+                raw if raw is not None else "<unset>",
+            )
+        elif is_registered and declared is not False:
             # conformance: ignore[L006] one-time startup validation over the fixed 4-element `expected` tuple, not a hot loop
             logger.info(
                 "Dapr binding %s (role=%s) accepted: registered in sidecar (%s=%s)",
@@ -660,6 +687,41 @@ async def _fetch_binding_secrets(
     return secrets
 
 
+def _deployment_object_store_missing(
+    name: str, components_dir: Path, cause: Exception
+) -> DeploymentObjectStoreMissingError:
+    """Log and build the startup error for an absent deployment object store.
+
+    Keyed on the missing component, never on ``ATLAN_ENABLE_OBJECTSTORE``: the
+    chart sets that flag only on the env-seeder init container, so the app
+    container usually sees it unset.  When it is visible and false, the
+    message says so, because then the contract itself disabled the store.
+    """
+    from application_sdk.constants import (  # noqa: PLC0415 — cold path: lazy access to env-var-derived constants
+        _read_enable_tri_state,
+    )
+    from application_sdk.storage.errors import (  # noqa: PLC0415 — cold path: startup failure only
+        DeploymentObjectStoreMissingError,
+    )
+
+    _, declared = _read_enable_tri_state("ATLAN_ENABLE_OBJECTSTORE")
+    flag_note = (
+        " ATLAN_ENABLE_OBJECTSTORE=false is set in this container: the app's "
+        "contract disables the object store."
+        if declared is False
+        else ""
+    )
+    message = (
+        f"No Dapr component named '{name}' found in {components_dir}. The "
+        "deployment object store is required; the atlan-app chart omits it "
+        "when the app's contract sets deploy.dapr.objectstore to false. Set "
+        "deploy.dapr.objectstore to true (dapr {{ objectstore = true }} in "
+        f"contract/app.pkl), regenerate atlan.yaml and redeploy.{flag_note}"
+    )
+    logger.error("Deployment object store missing at startup: %s", message)
+    return DeploymentObjectStoreMissingError(message, binding_name=name, cause=cause)
+
+
 async def _create_infrastructure(
     credential_stores: Mapping[str, SecretStore] | None = None,
 ) -> InfrastructureContext:
@@ -677,7 +739,10 @@ async def _create_infrastructure(
         Configured InfrastructureContext.
 
     Raises:
-        RuntimeError: If DAPR_HTTP_PORT is not set (no Dapr sidecar).
+        DaprNotDetectedError: If DAPR_HTTP_PORT is not set (no Dapr sidecar).
+        DeploymentObjectStoreMissingError: If the deployment object-store
+            component is absent — the store is required (set
+            ``deploy.dapr.objectstore`` to true in the app contract).
     """
     from application_sdk.infrastructure.context import (  # noqa: PLC0415 — cold path: only when infrastructure init is needed
         InfrastructureContext,
@@ -711,6 +776,9 @@ async def _create_infrastructure(
         from application_sdk.storage.binding import (  # noqa: PLC0415 — cold path: private helper used only inside _create_infrastructure
             _create_store_from_binding_optional_with_put_attrs,
         )
+        from application_sdk.storage.errors import (  # noqa: PLC0415 — cold path: storage init only when Dapr is present
+            StorageBindingNotFoundError,
+        )
 
         await wait_for_dapr_sidecar()
         dapr_client = AsyncDaprClient()
@@ -735,13 +803,18 @@ async def _create_infrastructure(
             components_dir=components_dir,
         )
         set_fetched_binding_secrets(DEPLOYMENT_OBJECT_STORE_NAME, deployment_secrets)
-        deployment_store, deployment_put_attrs = (
-            create_store_from_binding_with_put_attrs(
-                DEPLOYMENT_OBJECT_STORE_NAME,
-                components_dir=components_dir,
-                secrets=deployment_secrets,
+        try:
+            deployment_store, deployment_put_attrs = (
+                create_store_from_binding_with_put_attrs(
+                    DEPLOYMENT_OBJECT_STORE_NAME,
+                    components_dir=components_dir,
+                    secrets=deployment_secrets,
+                )
             )
-        )
+        except StorageBindingNotFoundError as exc:
+            raise _deployment_object_store_missing(
+                DEPLOYMENT_OBJECT_STORE_NAME, components_dir, exc
+            ) from exc
 
         # The only place the two component *names* are compared: identity cannot
         # be tested before the second object exists, so this is the decision
@@ -820,10 +893,6 @@ async def _create_infrastructure(
 def _derive_service_name(app_module: str) -> str:
     """Convert "my_package.apps:MyApp" to "my-app" (kebab-case)."""
     if ":" in app_module:
-        from application_sdk.app.base import (  # noqa: PLC0415 — circular: app.* imports from main.py via _pascal_to_kebab
-            _pascal_to_kebab,
-        )
-
         return _pascal_to_kebab(app_module.split(":")[1])
     return "application-sdk"
 
@@ -1186,16 +1255,125 @@ class _FatalTeardownWatchdog:
 
 
 # Upper bound on what runs after the worker has drained on a shutdown signal:
-# closing infrastructure, flushing telemetry and the interpreter's exit hooks.
-# No activity is in flight by then, yet these steps have been seen to block for
-# the whole pod grace period when a telemetry endpoint is unreachable, holding
-# the pod's requests and its node. 0 or negative disables the bound.
+# the worker wrapper's cleanup (credential directories, sizing rows, the
+# Pushgateway final push, hold and DELETE), closing infrastructure, flushing
+# telemetry and the interpreter's exit hooks. No activity is in flight by then,
+# yet these steps have been seen to block for the whole pod grace period when a
+# telemetry endpoint is unreachable, holding the pod's requests and its node.
+# 0 or negative disables the bound. Unset, it is derived from
+# ATLAN_SHUTDOWN_GRACE_SECONDS when that is set (ShutdownBudget), else 120.
 # The exit code is non-zero and distinct (1 is the fatal-teardown watchdog, 2 is
 # argparse) so a cut-short shutdown shows in the container's last exit code
 # instead of passing as a clean stop.
 _POST_DRAIN_EXIT_TIMEOUT_ENV = "ATLAN_POST_DRAIN_EXIT_TIMEOUT_SECONDS"
 _POST_DRAIN_EXIT_TIMEOUT_DEFAULT_SECONDS = 120
 _POST_DRAIN_EXIT_CODE = 3
+
+
+def _post_drain_exit_timeout_seconds() -> int:
+    """Explicit env override, else the grace-derived bound, else 120 s."""
+    from application_sdk.constants import (  # noqa: PLC0415 — cold path: shutdown only
+        load_shutdown_budget,
+    )
+
+    budget = load_shutdown_budget()
+    default = (
+        budget.post_drain_seconds
+        if budget is not None
+        else _POST_DRAIN_EXIT_TIMEOUT_DEFAULT_SECONDS
+    )
+    return _env_int(_POST_DRAIN_EXIT_TIMEOUT_ENV, default)
+
+
+class _PostDrainExitArm:
+    """Starts the post-drain exit deadline at most once, and only on shutdown.
+
+    Armed from the worker's ``on_drained`` hook the moment the Temporal drain
+    returns — so the worker wrapper's own cleanup, including the Pushgateway's
+    pre-DELETE hold and two HTTP calls, runs under the deadline — and again
+    after the supervisor returns, as a fallback for a stop that never reached
+    the hook. A worker that stops without a shutdown signal (a supervised
+    restart after a fatal error) never arms it.
+    """
+
+    def __init__(self, *, enabled: bool, shutdown_event: asyncio.Event) -> None:
+        self._enabled = enabled
+        self._shutdown_event = shutdown_event
+        self._lock = threading.Lock()
+        self._started = False
+
+    def on_worker_drained(self) -> None:
+        if self._shutdown_event.is_set():
+            self.start()
+
+    def start(self) -> None:
+        if not self._enabled:
+            return
+        with self._lock:
+            if self._started:
+                return
+            self._started = True
+        _start_post_drain_exit_deadline()
+
+
+def _log_shutdown_budget() -> None:
+    """Log the effective shutdown bounds once, and warn when they overrun the grace.
+
+    Every bound has its own env override, so the effective values can disagree
+    with the declared grace. A sum past the grace means SIGKILL lands before
+    shutdown finishes; logging it at startup makes that visible before it
+    happens instead of after.
+    """
+    from application_sdk.constants import (  # noqa: PLC0415 — cold path: worker startup only
+        PROMETHEUS_PUSHGATEWAY_HTTP_TIMEOUT_SECONDS,
+        PROMETHEUS_PUSHGATEWAY_SHUTDOWN_DELETE_DELAY_SECONDS,
+        SHUTDOWN_DRAIN_DELAY_SECONDS,
+        SHUTDOWN_GRACE_SECONDS_ENV,
+        load_shutdown_budget,
+    )
+    from application_sdk.execution.settings import (  # noqa: PLC0415 — cold path: worker startup only
+        load_execution_settings,
+    )
+
+    budget = load_shutdown_budget()
+    drain = load_execution_settings().graceful_shutdown_timeout_seconds
+    post_drain = _post_drain_exit_timeout_seconds()
+    logger.info(
+        "Shutdown budget: grace=%s drain_delay=%ss drain=%ss post_drain=%ss "
+        "pushgateway_http_timeout=%ss pushgateway_delete_delay=%ss",
+        budget.grace_seconds if budget is not None else "undeclared",
+        SHUTDOWN_DRAIN_DELAY_SECONDS,
+        drain,
+        post_drain,
+        PROMETHEUS_PUSHGATEWAY_HTTP_TIMEOUT_SECONDS,
+        PROMETHEUS_PUSHGATEWAY_SHUTDOWN_DELETE_DELAY_SECONDS,
+    )
+    if budget is None:
+        return
+    # A disabled post-drain deadline (<= 0) is unbounded; count the derived
+    # value so the check still reflects what the grace was split for.
+    total = (
+        SHUTDOWN_DRAIN_DELAY_SECONDS
+        + drain
+        + (post_drain if post_drain > 0 else budget.post_drain_seconds)
+        # Kept back for daprd's stop after the process exits; eating into it
+        # leaves the sidecar to be SIGKILLed.
+        + budget.headroom_seconds
+    )
+    if total > budget.grace_seconds:
+        logger.warning(
+            "Shutdown bounds overrun the pod grace period: drain_delay %ss + "
+            "drain %ss + post_drain %ss + daprd headroom %ss = %ss > %s=%s; "
+            "SIGKILL will land before shutdown finishes. Unset the explicit "
+            "overrides to derive them from the grace",
+            SHUTDOWN_DRAIN_DELAY_SECONDS,
+            drain,
+            post_drain,
+            budget.headroom_seconds,
+            total,
+            SHUTDOWN_GRACE_SECONDS_ENV,
+            budget.grace_seconds,
+        )
 
 
 def _start_post_drain_exit_deadline(
@@ -1212,9 +1390,7 @@ def _start_post_drain_exit_deadline(
     it dies with the process. It writes to stderr directly because the logging
     pipeline is one of the things that can be stuck.
     """
-    timeout = _env_int(
-        _POST_DRAIN_EXIT_TIMEOUT_ENV, _POST_DRAIN_EXIT_TIMEOUT_DEFAULT_SECONDS
-    )
+    timeout = _post_drain_exit_timeout_seconds()
     if timeout <= 0:
         return None
 
@@ -1544,10 +1720,6 @@ async def run_worker_mode(
     global _worker_event_loop
     _worker_event_loop = asyncio.get_running_loop()
 
-    from application_sdk.app.registry import (  # noqa: PLC0415 — circular: app.* imports from main.py via _pascal_to_kebab
-        AppRegistry,
-        TaskRegistry,
-    )
     from application_sdk.execution._temporal.backend import (  # noqa: PLC0415 — cold path: only loaded in worker mode (execution backend)
         create_temporal_client,
     )
@@ -1698,6 +1870,7 @@ async def run_worker_mode(
             enable_pushgateway=True,
             on_activity=health_server.record_activity,
             on_fatal_error=_on_worker_fatal,
+            on_drained=post_drain_arm.on_worker_drained,
         )
 
     # Log registrations
@@ -1718,6 +1891,12 @@ async def run_worker_mode(
     def _signal_handler() -> None:
         logger.info("Shutdown signal received")
         shutdown_event.set()
+
+    # Read by _build_worker's on_drained hook, which only runs after this point.
+    post_drain_arm = _PostDrainExitArm(
+        enabled=bound_post_drain_exit, shutdown_event=shutdown_event
+    )
+    _log_shutdown_budget()
 
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(_loop_exception_handler)
@@ -1747,8 +1926,8 @@ async def run_worker_mode(
         # leaves the marker in place, which is what makes the next start a restart.
         restart_marker.clear()
 
-    if bound_post_drain_exit:
-        _start_post_drain_exit_deadline()
+    # Normally already armed by the worker's on_drained hook; idempotent.
+    post_drain_arm.start()
 
     from application_sdk.infrastructure.context import (  # noqa: PLC0415 — cold path: only when infrastructure init is needed
         close_infrastructure,
@@ -1872,10 +2051,6 @@ async def run_combined_mode(
 
     import uvicorn  # noqa: PLC0415 — cold path: uvicorn only loaded in worker/handler runtime modes
 
-    from application_sdk.app.registry import (  # noqa: PLC0415 — circular: app.* imports from main.py via _pascal_to_kebab
-        AppRegistry,
-        TaskRegistry,
-    )
     from application_sdk.execution._temporal.backend import (  # noqa: PLC0415 — cold path: only loaded in worker mode (execution backend)
         create_temporal_client,
     )
@@ -2030,6 +2205,7 @@ async def run_combined_mode(
             handler=handler,
             on_activity=health_server.record_activity,
             on_fatal_error=_on_worker_fatal,
+            on_drained=post_drain_arm.on_worker_drained,
         )
 
     for registered_app in AppRegistry.get_instance().list_apps():
@@ -2091,6 +2267,12 @@ async def run_combined_mode(
         shutdown_event.set()
         uvicorn_server.should_exit = True
 
+    # Read by _build_worker's on_drained hook, which only runs after this point.
+    post_drain_arm = _PostDrainExitArm(
+        enabled=bound_post_drain_exit, shutdown_event=shutdown_event
+    )
+    _log_shutdown_budget()
+
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(_loop_exception_handler)
     _install_graceful_signal_handlers(loop, _signal_handler)
@@ -2118,8 +2300,8 @@ async def run_combined_mode(
             ),
         )
 
-    if bound_post_drain_exit:
-        _start_post_drain_exit_deadline()
+    # Normally already armed by the worker's on_drained hook; idempotent.
+    post_drain_arm.start()
 
     from application_sdk.infrastructure.context import (  # noqa: PLC0415 — cold path: only when infrastructure init is needed
         close_infrastructure,
@@ -2522,6 +2704,7 @@ Examples:
 
 def main() -> NoReturn:
     """CLI entry point."""
+    _install_debug_handlers()
     _install_excepthook()
 
     args = parse_args()

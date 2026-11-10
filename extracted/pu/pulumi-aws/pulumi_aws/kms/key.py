@@ -43,7 +43,7 @@ class KeyArgs:
         :param pulumi.Input[_builtins.str] description: Description of the key as viewed in AWS console.
         :param pulumi.Input[_builtins.bool] enable_key_rotation: Whether [key rotation](http://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] is_enabled: Whether the key is enabled. Defaults to `true`.
-        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         :param pulumi.Input[_builtins.bool] multi_region: Whether the KMS key is a multi-Region (`true`) or regional (`false`) key. Defaults to `false`.
         :param pulumi.Input[_builtins.str] policy: Valid policy JSON document. Although this is a key policy, not an IAM policy, an `iam_get_policy_document`, in the form that designates a principal, can be used. For more information about building policy documents with Terraform, see the AWS IAM Policy Document Guide.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
@@ -170,7 +170,7 @@ class KeyArgs:
     @pulumi.getter(name="keyUsage")
     def key_usage(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         """
         return pulumi.get(self, "key_usage")
 
@@ -285,7 +285,7 @@ class _KeyState:
         :param pulumi.Input[_builtins.bool] enable_key_rotation: Whether [key rotation](http://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] is_enabled: Whether the key is enabled. Defaults to `true`.
         :param pulumi.Input[_builtins.str] key_id: Globally unique identifier for the key.
-        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         :param pulumi.Input[_builtins.bool] multi_region: Whether the KMS key is a multi-Region (`true`) or regional (`false`) key. Defaults to `false`.
         :param pulumi.Input[_builtins.str] policy: Valid policy JSON document. Although this is a key policy, not an IAM policy, an `iam_get_policy_document`, in the form that designates a principal, can be used. For more information about building policy documents with Terraform, see the AWS IAM Policy Document Guide.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
@@ -443,7 +443,7 @@ class _KeyState:
     @pulumi.getter(name="keyUsage")
     def key_usage(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         """
         return pulumi.get(self, "key_usage")
 
@@ -893,7 +893,7 @@ class Key(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: Description of the key as viewed in AWS console.
         :param pulumi.Input[_builtins.bool] enable_key_rotation: Whether [key rotation](http://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] is_enabled: Whether the key is enabled. Defaults to `true`.
-        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         :param pulumi.Input[_builtins.bool] multi_region: Whether the KMS key is a multi-Region (`true`) or regional (`false`) key. Defaults to `false`.
         :param pulumi.Input[_builtins.str] policy: Valid policy JSON document. Although this is a key policy, not an IAM policy, an `iam_get_policy_document`, in the form that designates a principal, can be used. For more information about building policy documents with Terraform, see the AWS IAM Policy Document Guide.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
@@ -1332,7 +1332,7 @@ class Key(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] enable_key_rotation: Whether [key rotation](http://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html) is enabled. Defaults to `false`.
         :param pulumi.Input[_builtins.bool] is_enabled: Whether the key is enabled. Defaults to `true`.
         :param pulumi.Input[_builtins.str] key_id: Globally unique identifier for the key.
-        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        :param pulumi.Input[_builtins.str] key_usage: Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         :param pulumi.Input[_builtins.bool] multi_region: Whether the KMS key is a multi-Region (`true`) or regional (`false`) key. Defaults to `false`.
         :param pulumi.Input[_builtins.str] policy: Valid policy JSON document. Although this is a key policy, not an IAM policy, an `iam_get_policy_document`, in the form that designates a principal, can be used. For more information about building policy documents with Terraform, see the AWS IAM Policy Document Guide.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
@@ -1365,6 +1365,46 @@ class Key(pulumi.CustomResource):
         __props__.__dict__["tags_all"] = tags_all
         __props__.__dict__["xks_key_id"] = xks_key_id
         return Key(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            arn: pulumi.Input[Optional[_builtins.str]] = None,
+            bypass_policy_lockout_safety_check: pulumi.Input[Optional[_builtins.bool]] = None,
+            custom_key_store_id: pulumi.Input[Optional[_builtins.str]] = None,
+            customer_master_key_spec: pulumi.Input[Optional[_builtins.str]] = None,
+            deletion_window_in_days: pulumi.Input[Optional[_builtins.int]] = None,
+            description: pulumi.Input[Optional[_builtins.str]] = None,
+            enable_key_rotation: pulumi.Input[Optional[_builtins.bool]] = None,
+            is_enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            key_id: pulumi.Input[Optional[_builtins.str]] = None,
+            key_usage: pulumi.Input[Optional[_builtins.str]] = None,
+            multi_region: pulumi.Input[Optional[_builtins.bool]] = None,
+            policy: pulumi.Input[Optional[_builtins.str]] = None,
+            region: pulumi.Input[Optional[_builtins.str]] = None,
+            rotation_period_in_days: pulumi.Input[Optional[_builtins.int]] = None,
+            tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            tags_all: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            xks_key_id: pulumi.Input[Optional[_builtins.str]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["arn"] = arn
+        __props__["bypassPolicyLockoutSafetyCheck"] = bypass_policy_lockout_safety_check
+        __props__["customKeyStoreId"] = custom_key_store_id
+        __props__["customerMasterKeySpec"] = customer_master_key_spec
+        __props__["deletionWindowInDays"] = deletion_window_in_days
+        __props__["description"] = description
+        __props__["enableKeyRotation"] = enable_key_rotation
+        __props__["isEnabled"] = is_enabled
+        __props__["keyId"] = key_id
+        __props__["keyUsage"] = key_usage
+        __props__["multiRegion"] = multi_region
+        __props__["policy"] = policy
+        __props__["region"] = region
+        __props__["rotationPeriodInDays"] = rotation_period_in_days
+        __props__["tags"] = tags
+        __props__["tagsAll"] = tags_all
+        __props__["xksKeyId"] = xks_key_id
+        return pulumi.runtime.exists_resource(None, 'aws:kms/key:Key', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter
@@ -1442,7 +1482,7 @@ class Key(pulumi.CustomResource):
     @pulumi.getter(name="keyUsage")
     def key_usage(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, or `GENERATE_VERIFY_MAC`. Defaults to `ENCRYPT_DECRYPT`.
+        Intended use of the key. Valid values: `ENCRYPT_DECRYPT`, `SIGN_VERIFY`, `GENERATE_VERIFY_MAC`, or `KEY_AGREEMENT`. Defaults to `ENCRYPT_DECRYPT`.
         """
         return pulumi.get(self, "key_usage")
 

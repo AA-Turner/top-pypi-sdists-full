@@ -9,9 +9,9 @@ from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.jsonable_encoder import jsonable_encoder
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
+from ..errors.bad_request_error import BadRequestError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.unauthorized_error import UnauthorizedError
-from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.create_dubbing_job_response import CreateDubbingJobResponse
 from ..types.dubbing_export_option import DubbingExportOption
 from ..types.dubbing_export_status_response import DubbingExportStatusResponse
@@ -19,6 +19,7 @@ from ..types.dubbing_language import DubbingLanguage
 from ..types.dubbing_live_status_response import DubbingLiveStatusResponse
 from ..types.dubbing_pace_preset import DubbingPacePreset
 from ..types.dubbing_register import DubbingRegister
+from ..types.dubbing_source_language import DubbingSourceLanguage
 from ..types.dubbing_start_response import DubbingStartResponse
 
 # this is used as the default value for optional parameters
@@ -32,7 +33,7 @@ class RawDubbingClient:
     def create(
         self,
         *,
-        source_language_code: DubbingLanguage,
+        source_language_code: DubbingSourceLanguage,
         target_language_codes: typing.Sequence[DubbingLanguage],
         export_options: typing.Optional[typing.Sequence[DubbingExportOption]] = OMIT,
         voice_cloning: typing.Optional[bool] = OMIT,
@@ -61,8 +62,8 @@ class RawDubbingClient:
 
         Parameters
         ----------
-        source_language_code : DubbingLanguage
-            Source language of the input media (BCP-47).
+        source_language_code : DubbingSourceLanguage
+            Source language of the input media (BCP-47), or `auto` to detect it. Pass the language when you know it: detection is not always accurate. See [Specify Language Codes](/api/api-guides-tutorials/dubbing/how-to/specify-language-codes).
 
         target_language_codes : typing.Sequence[DubbingLanguage]
             One or more target languages to dub into. A single job dubs into all of them.
@@ -135,8 +136,8 @@ class RawDubbingClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -146,8 +147,8 @@ class RawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -210,8 +211,8 @@ class RawDubbingClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -221,8 +222,8 @@ class RawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -285,8 +286,8 @@ class RawDubbingClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -296,8 +297,8 @@ class RawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -372,8 +373,8 @@ class RawDubbingClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -383,8 +384,8 @@ class RawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -418,7 +419,7 @@ class AsyncRawDubbingClient:
     async def create(
         self,
         *,
-        source_language_code: DubbingLanguage,
+        source_language_code: DubbingSourceLanguage,
         target_language_codes: typing.Sequence[DubbingLanguage],
         export_options: typing.Optional[typing.Sequence[DubbingExportOption]] = OMIT,
         voice_cloning: typing.Optional[bool] = OMIT,
@@ -447,8 +448,8 @@ class AsyncRawDubbingClient:
 
         Parameters
         ----------
-        source_language_code : DubbingLanguage
-            Source language of the input media (BCP-47).
+        source_language_code : DubbingSourceLanguage
+            Source language of the input media (BCP-47), or `auto` to detect it. Pass the language when you know it: detection is not always accurate. See [Specify Language Codes](/api/api-guides-tutorials/dubbing/how-to/specify-language-codes).
 
         target_language_codes : typing.Sequence[DubbingLanguage]
             One or more target languages to dub into. A single job dubs into all of them.
@@ -521,8 +522,8 @@ class AsyncRawDubbingClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -532,8 +533,8 @@ class AsyncRawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -596,8 +597,8 @@ class AsyncRawDubbingClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -607,8 +608,8 @@ class AsyncRawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -671,8 +672,8 @@ class AsyncRawDubbingClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -682,8 +683,8 @@ class AsyncRawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -758,8 +759,8 @@ class AsyncRawDubbingClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 401:
-                raise UnauthorizedError(
+            if _response.status_code == 400:
+                raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -769,8 +770,8 @@ class AsyncRawDubbingClient:
                         ),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
+            if _response.status_code == 401:
+                raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

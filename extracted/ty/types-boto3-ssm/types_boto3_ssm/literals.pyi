@@ -49,6 +49,7 @@ __all__ = (
     "ComplianceStatusType",
     "ComplianceUploadTypeType",
     "ConnectionStatusType",
+    "DHMCPermissionModelType",
     "DeletionModeType",
     "DescribeActivationsFilterKeysType",
     "DescribeActivationsPaginatorName",
@@ -268,6 +269,7 @@ ComplianceSeverityType = Literal[
 ComplianceStatusType = Literal["COMPLIANT", "NON_COMPLIANT"]
 ComplianceUploadTypeType = Literal["COMPLETE", "PARTIAL"]
 ConnectionStatusType = Literal["connected", "notconnected"]
+DHMCPermissionModelType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
 DeletionModeType = Literal["RemoveSharing", "RollbackMigration"]
 DescribeActivationsFilterKeysType = Literal["ActivationIds", "DefaultInstanceName", "IamRole"]
 DescribeActivationsPaginatorName = Literal["describe_activations"]
@@ -646,6 +648,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -750,6 +753,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -795,13 +799,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -869,6 +872,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -1003,6 +1007,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1053,7 +1058,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -9,6 +9,11 @@ log via `/_djust/observability/sql_queries/`.
 Unlike Django's own `connection.queries`, this buffer survives across
 requests + is event-scoped — so the agent can ask "what SQL did the
 increment handler just run?" and get a clean answer.
+
+ADR-038 D-d: query parameters are often derived from view state, so they are
+redacted when the capture's owning view is nonlegacy, or when the active
+diagnostic scope is restricted (which covers captures opened without an owner).
+The SQL text, tags and timing are kept. Legacy owners are unchanged.
 """
 
 from __future__ import annotations
@@ -18,7 +23,9 @@ import functools
 import threading
 import time
 import traceback
+import weakref
 from collections import deque
+from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterator, List, Optional, TypeVar
 
@@ -37,8 +44,52 @@ _active: "contextvars.ContextVar[Optional[Dict[str, Any]]]" = contextvars.Contex
 )
 
 
+_REDACTED = "[redacted]"
+
+
 def _get_active() -> Optional[Dict[str, Any]]:
     return _active.get()
+
+
+def _params_allowed(scope: Dict[str, Any]) -> bool:
+    """Raw params only for a legacy (or absent) owner in an unrestricted scope."""
+    from djust._exposure import uses_legacy_exposure
+    from djust._exposure_diagnostics import diagnostics_allowed
+
+    owner_ref = scope.get("owner")
+    if owner_ref is not None:
+        owner = owner_ref()
+        # A collected owner (a context copy outliving the turn) cannot prove
+        # it is legacy: redact.
+        if owner is None or not uses_legacy_exposure(owner):
+            return False
+    return diagnostics_allowed()
+
+
+def _owner_ref(owner: Any) -> Optional[Callable[[], Any]]:
+    """A weak reference to the scope's owner (#3116).
+
+    The scope lives in a ContextVar, so every copy of the context taken during
+    the turn (a task the handler creates, a thread started from it on 3.14+)
+    keeps it; a strong reference would keep a disconnected session alive.
+    """
+    if owner is None:
+        return None
+    try:
+        return weakref.ref(owner)
+    except TypeError:
+        return lambda: owner
+
+
+def _redact_params(params: Any, many: Any) -> Any:
+    """Keep the parameter shape (count or placeholder names), drop the values."""
+    if params is None:
+        return None
+    if isinstance(params, Mapping):
+        return {key: _REDACTED for key in params}
+    if many:
+        return [_REDACTED for _ in params]
+    return [_REDACTED] * len(list(params))
 
 
 def _push_entry(entry: Dict[str, Any]) -> None:
@@ -75,13 +126,17 @@ def _execute_wrapper(execute: Any, sql: Any, params: Any, many: Any, context: An
     if scope is None:
         # Not in a capture scope (e.g. a stray query outside event dispatch).
         # Still record it so the buffer stays honest about global activity.
-        scope = {"session_id": None, "event_id": None, "handler_name": None}
+        scope = {"session_id": None, "event_id": None, "handler_name": None, "owner": None}
 
     t0 = time.perf_counter()
     try:
         return execute(sql, params, many, context)
     finally:
         duration_ms = (time.perf_counter() - t0) * 1000
+        if _params_allowed(scope):
+            recorded_params = list(params) if params is not None else None
+        else:
+            recorded_params = _redact_params(params, many)
         _push_entry(
             {
                 "timestamp_ms": int(time.time() * 1000),
@@ -89,7 +144,7 @@ def _execute_wrapper(execute: Any, sql: Any, params: Any, many: Any, context: An
                 "event_id": scope.get("event_id"),
                 "handler_name": scope.get("handler_name"),
                 "sql": sql if isinstance(sql, str) else str(sql),
-                "params": list(params) if params is not None else None,
+                "params": recorded_params,
                 "many": bool(many),
                 "duration_ms": +round(duration_ms, 3),
                 "stack_top": _short_stack_top(),
@@ -102,11 +157,15 @@ def capture_for_event(
     session_id: Optional[str] = None,
     event_id: Optional[str] = None,
     handler_name: Optional[str] = None,
+    owner: Any = None,
 ) -> Iterator[None]:
     """Install the wrapper for the duration of a handler invocation.
 
     Nested scopes are supported — the outermost scope's tags stick until
     it exits. (Most handlers don't nest; the protection is defensive.)
+
+    ``owner`` is the view whose turn this is. A nonlegacy owner has its
+    query parameters redacted (ADR-038 D-d).
     """
     # Lazy import so djust.observability can be used without Django.
     try:
@@ -121,6 +180,7 @@ def capture_for_event(
             "session_id": session_id,
             "event_id": event_id,
             "handler_name": handler_name,
+            "owner": _owner_ref(owner),
         }
     )
     try:

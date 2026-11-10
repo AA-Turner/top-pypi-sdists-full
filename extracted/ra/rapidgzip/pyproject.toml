@@ -31,7 +31,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rapidgzip"
-version = "0.16.1"
+version = "0.16.2"
 description = "Parallel random access to gzip files"
 authors = [{name = "Maximilian Knespel", email = "mxmlnknp@gmail.com"}]
 license = {text = "MIT"}
@@ -45,15 +45,13 @@ classifiers = [
     "Operating System :: Unix",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: C++",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",

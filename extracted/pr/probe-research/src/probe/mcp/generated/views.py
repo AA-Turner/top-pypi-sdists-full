@@ -58,6 +58,8 @@ class View(StrEnum):
     SUMMARY_HISTORY = "summary_history"
     BRANCHES = "branches"
     PICKS = "picks"
+    EDITS = "edits"
+    COMMANDS = "commands"
 
 
 #: What a view MEANS on a kind -- the union across both agent
@@ -112,7 +114,9 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.ARTIFACTS,
             View.CARD,
             View.CODE,
+            View.COMMANDS,
             View.DIFF,
+            View.EDITS,
             View.EVENTS,
             View.HANDOFF,
             View.LINEAGE,
@@ -141,8 +145,10 @@ VIEW_PURPOSE: dict[View, str] = {
     View.BRANCHES: "lines of work: best value, effort, state; view_options.branch for one in full",
     View.CARD: "identity, status, and this kind's available_views",
     View.CODE: "the GitHub resolution at this grain; diff with view_options.compare_to",
+    View.COMMANDS: "what was asked of the running script (checkpoint, config, stop, ...): who, its state, why, result",
     View.CONTENT: "the artifact's own bytes",
     View.DIFF: "what changed, against the comparison this kind defines",
+    View.EDITS: "the run's data edits, newest first: who changed what, how, why, and whether it was undone",
     View.EVENTS: "the append-only lifecycle log",
     View.GROUPS: "sweeps and ensembles under an experiment",
     View.HANDOFF: "what a new session needs to continue the work",

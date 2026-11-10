@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -11,7 +11,6 @@ from office365.sharepoint.search.query.personal_result_suggestion import (
 from office365.sharepoint.search.query.suggestionquery import QuerySuggestionQuery
 
 
-@dataclass
 class QuerySuggestionResults(ClientValue):
     """
     The QuerySuggestionResults complex type is a container for arrays of query suggestions, people name suggestions,

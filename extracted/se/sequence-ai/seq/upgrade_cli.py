@@ -14,9 +14,11 @@ code to a newer version of the template it came from.
 """
 from __future__ import annotations
 
+import math
 import os
 from typing import Any, Callable
 
+from seq.errors import build_failed, following, out_of_time, state_said
 from sequence_ai._core.names import segment
 
 from sequence_ai._core.money import per_hour
@@ -231,19 +233,31 @@ def plan_lines(plan: dict, kind: str) -> list[str]:
 def upgrade(name: str, *, kind: str = "policy", to: str | None = None, dry_run: bool = False, wait: bool = True,
             timeout: float | None = None, base_url: str | None = None, echo: Callable[[str], None] = print) -> dict:
     """`seq policy upgrade <name> [--to TEMPLATE@vN]` / `seq benchmark upgrade <name> [--to TEMPLATE@vN]`: POST
-    .../upgrade, print what it does, and (unless --dry-run or --no-wait) follow the new version's build to ready.
+    .../upgrade, print what it does, and (unless --dry-run or --no-wait) follow the new version's build to its end, which
+    raises when it does not end ready.
     `to` names a version of the template `name` was made from - any other template is refused before anything is
     deployed, by the platform's own dry run of it (its `from`) - and none is the template's stable version.
+    `timeout` (--timeout): how long the build may run, the platform stopping it then, as `seq deploy --timeout`.
     """
     from seq.deployments_cli import _call
 
     path = f"/v1/{'deployments' if kind == 'policy' else 'benchmarks'}/{segment(name)}/upgrade"
+    limit = {"time_limit_s": timeout} if timeout is not None and not dry_run else {}
     if to is None:
-        plan = _call("POST", path, base_url, {"to": None, "dry_run": dry_run})
+        plan = _call("POST", path, base_url, {"to": None, "dry_run": dry_run, **limit})
     else:
-        from seq.cli_parser import at_version
+        from seq.cli_parser import at_version, version_alone
         from sequence_ai.errors import InvalidRequest
 
+        alone = version_alone(to)
+        if alone is not None:
+
+
+
+
+            own = (_call("POST", path, base_url, {"to": f"v{alone}", "dry_run": True}).get("from") or {}).get("name")
+            raise InvalidRequest(f"--to v{alone} names a version but not its template: {name} is made from {own}, so "
+                                 f"write --to {own}@v{alone}")
         template, version = at_version(to, "template version")
         if version is None:
             raise InvalidRequest(f"{to!r} names no template version: --to TEMPLATE@vN (e.g. toy-policy@v3)")
@@ -253,7 +267,7 @@ def upgrade(name: str, *, kind: str = "policy", to: str | None = None, dry_run: 
             raise InvalidRequest(f"{name} is made from {own}, not {template}: --to names a version of its own template, "
                                  f"e.g. --to {own}@v{version}")
         if not dry_run:
-            plan = _call("POST", path, base_url, {"to": f"v{version}", "dry_run": False})
+            plan = _call("POST", path, base_url, {"to": f"v{version}", "dry_run": False, **limit})
     if plan.get("already_runs"):
 
 
@@ -278,10 +292,11 @@ def upgrade(name: str, *, kind: str = "policy", to: str | None = None, dry_run: 
         until = f"until it passes its check, evals run v{runs}" if runs else "an eval runs it once it passes its check"
         echo(f"{name} v{version} is building ({made}); {until}")
         if wait:
-            from seq._eval_gateway import BENCHMARK_WAIT_S, EvalGatewayClient
+            from seq._eval_gateway import EvalGatewayClient
 
-            final = EvalGatewayClient(base_url=base_url).wait_benchmark(name, timeout_s=timeout or BENCHMARK_WAIT_S)
-            echo(f"{name}: {final.status.value}")
+            with following(f"benchmark {name} v{version}", timeout, f"`seq benchmark cancel {name}` stops it now"):
+                final = EvalGatewayClient(base_url=base_url).wait_benchmark(name, timeout_s=math.inf)
+            _ended(final, name, kind, echo)
         return plan
     echo(f"{name} v{version} is building beside the one serving ({made})")
     if not wait:
@@ -290,7 +305,16 @@ def upgrade(name: str, *, kind: str = "policy", to: str | None = None, dry_run: 
     from seq._deploy_gateway import DeploymentsClient
 
     client = DeploymentsClient(api_key=None, base_url=base_url or os.environ.get("SEQUENCES_BASE_URL"))
-    kwargs: dict = {"timeout_s": timeout} if timeout is not None else {}
-    final = client.wait(name, **kwargs)
-    echo(f"{name}: {final.status.value}")
+    with following(f"{name} v{version}", timeout):
+        final = client.wait(name, timeout_s=math.inf)
+    _ended(final, name, kind, echo)
     return plan
+
+
+def _ended(final: Any, name: str, kind: str, echo: Callable[[str], None]) -> None:
+    """An upgrade's build as it ended, said: ready, or raised as `seq deploy`'s is, so a script hears it. Before, a build that
+    failed read `name: failed` and exited 0."""
+    echo(f"{name}: {state_said(final.status.value, final.error)}")
+    if final.status.value == "failed":
+        raise build_failed(f"benchmark {name}" if kind == "benchmark" else name, final.error,
+                           hint=out_of_time(final.error, f"seq {kind} upgrade {name}"))

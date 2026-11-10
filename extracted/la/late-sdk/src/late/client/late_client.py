@@ -24,6 +24,7 @@ from ..resources import (
     AdTargetingResource,
     AnalyticsResource,
     ApiKeysResource,
+    AutomationsResource,
     BlogsResource,
     BrandedCallingResource,
     BroadcastsResource,
@@ -37,6 +38,7 @@ from ..resources import (
     ConnectedAppsResource,
     ConnectResource,
     ContactsResource,
+    ContentRetentionResource,
     ConversionsResource,
     CreatorCampaignsResource,
     CreatorPortalResource,
@@ -184,6 +186,7 @@ class Zernio(BaseClient):
         self.ads = AdsResource(self)
         self.analytics = AnalyticsResource(self)
         self.api_keys = ApiKeysResource(self)
+        self.automations = AutomationsResource(self)
         self.blogs = BlogsResource(self)
         self.branded_calling = BrandedCallingResource(self)
         self.broadcasts = BroadcastsResource(self)
@@ -197,6 +200,7 @@ class Zernio(BaseClient):
         self.connect = ConnectResource(self)
         self.connected_apps = ConnectedAppsResource(self)
         self.contacts = ContactsResource(self)
+        self.content_retention = ContentRetentionResource(self)
         self.conversions = ConversionsResource(self)
         self.creator_campaigns = CreatorCampaignsResource(self)
         self.creator_portal = CreatorPortalResource(self)

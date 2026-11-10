@@ -21,9 +21,12 @@ here (#601), so no join can reach it; marker tokens land in dropped;
 and tail_reads, rules/S2's trailing run of each main segment read
 ONCE, after P3's connective joins and before the particle chain and
 the bound-given join, and split off so neither reaches it (#614),
-which assign places and reports rather than peeling again.
+which assign places and reports rather than peeling again; and,
+last in each part, P12's join of a listed pair past the start, the
+classify tag left only on the bound word of a pair it joined (#694).
 Reads: token tags (from classify), Lexicon.given_name_titles (the
-P5 licence, #369) and Policy.extra_suffix_delimiters, whose
+P5 licence, #369), Policy.name_order (rules/P13's joins at the end
+of a name read given-first, #1098) and Policy.extra_suffix_delimiters, whose
 delimiter-core tokens part a tail segment as a comma would and are
 dropped (v1 suffix_delimiter parity, #549), as the built-in cores'
 are (rules/C10, #889); and, through
@@ -34,7 +37,7 @@ them). The v1
 per-parse state that dissolves with the state (v1 kept per-parse sets
 for the same reason).
 
-Implements rules P2, P3, P4 and M2, S2's trailing read (#614), C1's
+Implements rules P2, P3, P4, P12 and M2, S2's trailing read (#614), C1's
 decision through _comma, and
 the
 group half of M1 (#329: the marker dropped inside EXTRACTED maiden
@@ -77,13 +80,15 @@ from nameparser._pipeline._pieces import (
     trailing_start_past_titles,
 )
 from nameparser._pipeline._state import (
-    AMBIGUOUS_ACRONYM_TAG, SPLIT_CREDENTIAL_TAG, SPLIT_MEMBER_TAG, ParseState,
+    AMBIGUOUS_ACRONYM_TAG, BOUND_PHRASE_TAG, SPLIT_CREDENTIAL_TAG,
+    JOINED_TITLE_TAG, SPLIT_MEMBER_TAG, TRAILING_TITLE_TAG, ParseState,
     Deferred, PendingAmbiguity, Structure, WorkToken,
     _AMBIGUOUS_CREDENTIAL_TAGS, copy_with,
 )
 import nameparser._pipeline._comma as _comma
 from nameparser._pipeline._vocab import (
-    comma_follows_marker, delimiter_cores, name_reading,
+    ROMAN, comma_follows_marker, delimiter_cores, ends_in_a_generation,
+    composed, name_reading, numeral_settled_by_case,
     reads_as_a_reported_numeral, suffix_reading,
 )
 from nameparser._types import AmbiguityKind, Role
@@ -507,6 +512,101 @@ def _is_rootname(piece: Sequence[int], ptags: Set[str],
                 or is_suffix_piece(piece, ptags, tokens))
 
 
+def _is_lone_letter(piece: Sequence[int], tokens: Sequence[WorkToken],
+                    one_case: bool | None) -> bool:
+    """A piece of one word that is one letter, with or without its
+    period: the letter P13 links. Not a connective, the word P13 asks
+    about, nor a lowercase letter in a name of mixed case, which S10
+    reads as the generation by its writing."""
+    if len(piece) != 1 or "conjunction" in tokens[piece[0]].tags:
+        return False
+    letter = composed(tokens[piece[0]].text.rstrip("."))
+    return (len(letter) == 1 and letter.isalpha()
+            and not numeral_settled_by_case(letter, one_case))
+
+
+def _is_name_word(piece: Sequence[int], ptags: Set[str],
+                  tokens: Sequence[WorkToken]) -> bool:
+    return not (is_conj_piece(piece, ptags, tokens)
+                or is_title_piece(piece, ptags, tokens)
+                or is_suffix_piece(piece, ptags, tokens))
+
+
+def _is_trailing_title(piece: Sequence[int], ptags: Set[str],
+                       tokens: Sequence[WorkToken]) -> bool:
+    """A title word H5 reads as ending the name: a period-marked one,
+    or a title listed whole with a period inside it (JOINED_TITLE_TAG).
+    P13 reads the name words past it."""
+    return len(piece) == 1 and (
+        tokens[piece[0]].text.endswith(".")
+        and is_title_piece(piece, ptags, tokens)
+        # rules/H5: "a title the vocabulary lists whole with a period
+        # inside it chains without a final one" (decisions/H5, #1104)
+        or JOINED_TITLE_TAG in tokens[piece[0]].tags)
+
+
+def _link_the_last_letter(pieces: list[list[int]], ptags: list[set[str]],
+                          tokens: Sequence[WorkToken],
+                          one_case: bool | None, keep_a_name: bool) -> None:
+    """P13's two joins at the end of the part holding the family name,
+    made ahead of P3's carve-out. `keep_a_name` marks the whole name's
+    part, where a piece past the title run must stand in front of the
+    join, so the name keeps a word for its given name. The connective
+    is looked for before the title run is counted, so a part with no
+    connective where P13 looks pays only the walk back from the end,
+    not leading_titles' count."""
+    # rules/P13: "A single-letter connective in front of a lone letter
+    # ending the name words joins it to the word before" and "A
+    # connective with nothing to link joins the word before it alone"
+    # -- both joins, made ahead of P3's carve-out (decisions/P13
+    # (#1097, #1098))
+    e = len(pieces) - 1
+    lone = False
+    while e >= 0:
+        piece = pieces[e]
+        if _is_lone_letter(piece, tokens, one_case):
+            lone = True
+            break
+        if not (_is_trailing_title(piece, ptags[e], tokens)
+                or is_suffix_piece(piece, ptags[e], tokens)
+                or (e > 0 and len(piece) == 1
+                    # reads_as_generation's own first test, asked at C
+                    # level as _comma._whole_name and _group_segment's
+                    # P3 numeral count ask it, so a word that is no
+                    # numeral pays no frame for the call
+                    and ROMAN.match(tokens[piece[0]].text.rstrip("."))
+                    is not None
+                    and ends_in_a_generation(
+                        [tokens[pieces[e - 1][-1]].text,
+                         tokens[piece[0]].text], one_case))):
+            break
+        e -= 1
+    if e < 1:
+        return
+    # the connective: in front of the lone letter, or the word the walk
+    # stopped at
+    at = e - 1 if lone else e
+    if (at < 1 or len(pieces[at]) != 1
+            or "conjunction" not in tokens[pieces[at][0]].tags):
+        return
+    word = tokens[pieces[at][0]]
+    text = composed(word.text)
+    if lone:
+        if not (len(text) == 1 and text.isalpha()):
+            return
+    elif not (text.isalpha()
+              and not (one_case and len(text) == 1
+                       and text.lower() != text.upper())
+              and "vocab:suffix" not in word.tags
+              and not (len(text) > 1 and e + 1 < len(pieces)
+                       and _is_trailing_title(pieces[e + 1], ptags[e + 1],
+                                              tokens))):
+        return
+    if (at - 1 >= leading_titles(pieces, ptags, tokens) + keep_a_name
+            and _is_name_word(pieces[at - 1], ptags[at - 1], tokens)):
+        merge_pieces(pieces, ptags, at - 1, e + 1)
+
+
 # rules/P3: "a word the rest of the parse reads as a name word
 # rather than as a generation, a credential or an honorific, looked
 # for past any run of connectives standing between. A connective with
@@ -620,6 +720,39 @@ def _settle_splits(pieces: list[Piece], ptags: list[set[str]]) -> None:
         k += 1
 
 
+# rules/P12: "the two words are one name unit past the first name word"
+# -- past the piece P5's leading join reads, which this leaves as it
+# was, its reserve included; classify's tag says the word and the
+# token after it are a listed phrase (history: decisions/P12, #694)
+def _join_bound_phrases(pieces: list[Piece], ptags: list[set[str]],
+                        tokens: Sequence[WorkToken],
+                        joined_heads: set[int]) -> None:
+    # built in one pass: a merge per pair would shift every piece
+    # behind it, a quadratic in a run of pairs (merge_pieces' note)
+    k = leading_titles(pieces, ptags, tokens) + 1
+    out, out_tags = pieces[:k], ptags[:k]
+    n = len(pieces)
+    joined = False
+    while k < n:
+        word = pieces[k]
+        if (k + 1 < n and len(word) == 1 and not ptags[k]
+                and BOUND_PHRASE_TAG in tokens[word[0]].tags
+                and pieces[k + 1] == [word[0] + 1] and not ptags[k + 1]):
+            joined_heads.add(word[0])
+            word.extend(pieces[k + 1])
+            out.append(word)
+            out_tags.append(set())
+            joined = True
+            k += 2
+            continue
+        out.append(word)
+        out_tags.append(ptags[k])
+        k += 1
+    if joined:
+        pieces[:] = out
+        ptags[:] = out_tags
+
+
 def _group_segment(seg: tuple[int, ...], additional: int,
                    tokens: Sequence[WorkToken],
                    bound_join: BoundJoin = BoundJoin.STRICT,
@@ -630,6 +763,8 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                    one_case: bool | None,
                    site: ClauseSite,
                    reads: list[TailRead | None] | None = None,
+                   phrase_heads: set[int] | None = None,
+                   given_first: bool,
                    ) -> tuple[list[Piece], list[set[str]], MaidenTake | None]:
     pieces: list[Piece] = [[i] for i in seg]
     ptags: list[set[str]] = [set() for _ in seg]
@@ -641,7 +776,9 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     # The maiden take reports on this same channel: it reports only at
     # the TRAILING site, which group() never suppresses.
 
-    # ph-d merge first: "Ph." "D." adjacent -> one suffix piece
+    # ph-d merge first: "Ph." "D." adjacent -> one suffix piece,
+    # where the lexicon lists `phd` as unambiguous suffix vocabulary
+    # (#1000)
     # (decisions/phd-merge; v1 fix_phd did this by regex on the
     # raw string)
     # A suffix never BEGINS a name: position outranks the vocabulary
@@ -699,29 +836,51 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     # Not in the part before a family comma, which reads no member as
     # a suffix ('Smith MA, John'). Classify tagged each pair's first
     # word, so the test here is a tag.
+    #
+    # Written into fresh lists in one pass, `pos` being the index the
+    # piece stands at once the merges before it are made: a merge in
+    # place shifts the rest of the list (`merge_pieces`' comment), and
+    # a run of pairs would shift it once per pair. A merged pair is
+    # never a member of another, so the scan moves past both words.
     splits = False
     given_from: int | None = None
+    out: list[Piece] = []
+    out_tags: list[set[str]] = []
+    n = len(pieces)
     k = 0
-    while k < len(pieces) - 1:
-        a, b = pieces[k], pieces[k + 1]
-        tags = tokens[a[0]].tags
-        if (len(a) == 1 and len(b) == 1
-                and not (opens_the_name and k == 0 and a[0] == 0)):
-            if SPLIT_CREDENTIAL_TAG in tags:
-                merge_pieces(pieces, ptags, k, k + 2, add={"suffix"})
-                continue
-            if SPLIT_MEMBER_TAG in tags:
-                if site is ClauseSite.TRAILING:
-                    merge_pieces(pieces, ptags, k, k + 2, add={"split"})
-                    splits = True
-                    continue
-                if site is ClauseSite.GIVEN_SLOT:
-                    if given_from is None:
-                        given_from = leading_titles(pieces, ptags, tokens)
-                    if k > given_from:
-                        merge_pieces(pieces, ptags, k, k + 2, add={"split"})
-                        continue
-        k += 1
+    while k < n:
+        a = pieces[k]
+        add: str | None = None
+        if k + 1 < n:
+            b = pieces[k + 1]
+            tags = tokens[a[0]].tags
+            pos = len(out)
+            if (len(a) == 1 and len(b) == 1
+                    and not (opens_the_name and pos == 0 and a[0] == 0)):
+                if SPLIT_CREDENTIAL_TAG in tags:
+                    add = "suffix"
+                elif SPLIT_MEMBER_TAG in tags:
+                    if site is ClauseSite.TRAILING:
+                        add = "split"
+                        splits = True
+                    elif site is ClauseSite.GIVEN_SLOT:
+                        if given_from is None:
+                            given_from = leading_titles(
+                                out + pieces[k:], out_tags + ptags[k:],
+                                tokens)
+                        if pos > given_from:
+                            add = "split"
+        if add is None:
+            out.append(a)
+            out_tags.append(ptags[k])
+            k += 1
+            continue
+        a.extend(pieces[k + 1])
+        out.append(a)
+        out_tags.append(joined_tags(ptags, k, k + 2, add={add}))
+        k += 2
+    pieces[:] = out
+    ptags[:] = out_tags
 
     # rules/M2: "A marker that counts takes the words after it as
     # the maiden name, and is itself dropped" (history:
@@ -762,6 +921,18 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     if splits and len(pieces) + additional < 3:
         _settle_splits(pieces, ptags)
     if len(pieces) + additional >= 3:
+        # the part holding the family name -- the end of the name
+        # only under a given-first order -- and only where a one-word
+        # connective stands: a plain loop, no frame, for a name with none
+        if ((site is ClauseSite.TRAILING and given_first)
+                or site is ClauseSite.FAMILY_PART):
+            for piece in pieces:
+                if (len(piece) == 1
+                        and "conjunction" in tokens[piece[0]].tags):
+                    _link_the_last_letter(
+                        pieces, ptags, tokens, one_case,
+                        keep_a_name=site is ClauseSite.TRAILING)
+                    break
         # rules/P3: "A connective that is also generational
         # vocabulary joins only where a name word stands on each side
         # of it" (#397). `frozen` holds the TOKEN index of every such
@@ -829,6 +1000,27 @@ def _group_segment(seg: tuple[int, ...], additional: int,
             total = sum(_is_rootname(p, t, tokens)
                         for p, t in zip(pieces, ptags)
                         if p[0] not in frozen) + additional
+            # rules/P3: "a numeral ending the name, or standing before
+            # the listed suffix words a name ends with, that the trailing fork
+            # reads as the generation is no word of the three, as a
+            # listed one is not" -- the C3 count's question, asked by
+            # its predicate; decisions/C3 (#893). The suffix words are
+            # stepped over by their tag and the shape tested by a
+            # C-level match, so a name ending in a word pays no frame;
+            # the walk stops short of every listed suffix word, a listed
+            # numeral included, so `last` is never one
+            e = len(pieces) - 1
+            while (e > 0 and len(pieces[e]) == 1
+                   and "vocab:suffix" in tokens[pieces[e][0]].tags):
+                e -= 1
+            last = tokens[pieces[e][0]]
+            if (e > 0 and len(pieces[e]) == 1
+                    and ROMAN.match(last.text.rstrip(".")) is not None
+                    and pieces[e][0] not in frozen
+                    and ends_in_a_generation(
+                        [tokens[pieces[e - 1][-1]].text, last.text],
+                        one_case)):
+                total -= 1
             # The threshold of P3's carve-out ("except a single-letter
             # connective in a three-word name, which stays a name word")
             # reads the ROOTNAME count, and since #397 a connective counts
@@ -987,7 +1179,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 # STRICTLY before k -- one of those titles, and, being
                 # before the title run's end, a prefix as well
                 # (`chain_lead`): a word in both vocabularies (`st`,
-                # `freiherr` by default, or any overlap a caller
+                # `freiherr` and the rank particles by default, or any overlap a caller
                 # configures). A plain title alone can no longer put a
                 # particle off the name's leading piece; it is stepped
                 # over and _assign reports the fork instead.
@@ -1167,7 +1359,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
             # plus the bare salutations H8 adds after a family comma
             # (`salutations=True`),
             # which the LENIENT join reads no peel for and so asks here,
-            # only where a title word follows ('Berg, abdul Prof.',
+            # only where a title word or one written short follows ('Berg, abdul Prof.',
             # #637; where the given part's own walk then reads the words
             # behind it otherwise, the title stays a name word, which
             # rules/P5 accepts); in a part past the second
@@ -1194,7 +1386,17 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                         and settled_by_case(tokens[nxt[0]], one_case))
                     or ((site is ClauseSite.TAIL
                          or bound_join is BoundJoin.LENIENT)
-                        and is_title_piece(nxt, nxt_tags, tokens)
+                        and (is_title_piece(nxt, nxt_tags, tokens)
+                             # after a family comma only: a title
+                             # written short that may be a given name,
+                             # which H5's run takes with its period
+                             # (#999), the tail_reading test deciding;
+                             # past a second comma C2 reads only a
+                             # listed title
+                             or (site is not ClauseSite.TAIL
+                                 and len(nxt) == 1
+                                 and TRAILING_TITLE_TAG
+                                 in tokens[nxt[0]].tags))
                         and (site is ClauseSite.TAIL
                              or fk + 1 in tail_reading(
                                  peel_walk(fk, ptags), pieces, ptags,
@@ -1303,6 +1505,10 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                     # carried (rules/P5); joined_tags says why the
                     # title tag is dropped. Pinned in test_group.py.
                     merge_pieces(pieces, ptags, fk, fk + 2, drop={"title"})
+    # `phrase_heads` is passed only for a part holding a tagged word
+    if (phrase_heads is not None and bound_join is not BoundJoin.DISABLED
+            and site is not ClauseSite.TAIL):
+        _join_bound_phrases(pieces, ptags, tokens, phrase_heads)
     if reads is not None:
         reads.append(read)
     pieces.extend(tail_pieces)
@@ -1398,13 +1604,29 @@ def group(state: ParseState) -> ParseState:
         ptags = []
         seg_reads: list[TailRead | None] = []
         for part in parts:
+            # a plain loop, no frame: a name with no listed pair pays
+            # nothing (rules/P12)
+            heads: set[int] | None = None
+            for i in part:
+                if BOUND_PHRASE_TAG in tokens[i].tags:
+                    heads = set()
+                    break
             part_pieces, part_ptags, taken = _group_segment(
                 part, additional, tokens, bound_join,
                 None if family_comma else ambiguities,
-                state.lexicon.given_name_titles,
+                state.lexicon._sets.given_name_titles,
                 opens_the_name=(seg_idx == 0 and not family_comma),
                 one_case=state.one_case,
-                site=site, reads=seg_reads)
+                site=site, reads=seg_reads, phrase_heads=heads,
+                given_first=state.policy.name_order[0] is Role.GIVEN)
+            if heads is not None:
+                # the tag stays only on a pair P12 joined, which O6
+                # counts as one word; P5's pair at the start, and a
+                # pair a chain or a comma kept apart, count as two
+                for i in part:
+                    if BOUND_PHRASE_TAG in tokens[i].tags and i not in heads:
+                        tokens[i] = copy_with(
+                            tokens[i], tags=tokens[i].tags - {BOUND_PHRASE_TAG})
             pieces.extend(part_pieces)
             ptags.extend(part_ptags)
             # the marker is dropped and the maiden name's tokens become

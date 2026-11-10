@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.onedrive.operations.public_error_detail import PublicErrorDetail
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class PublicInnerError(ClientValue):
     code: str | None = None
     details: ClientValueCollection[PublicErrorDetail] = field(

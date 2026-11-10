@@ -39,6 +39,7 @@ goal: >-
 
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
 harness: pydantic-ai
+identity: datalayer-service-agent
 
 sandbox_variant: jupyter-server
 
@@ -292,3 +293,8 @@ system_prompt_codemode_addons: null
 
 welcome_notebook: null
 welcome_document: null
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

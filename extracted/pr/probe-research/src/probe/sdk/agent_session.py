@@ -1,4 +1,4 @@
-"""Coding-agent session attribution for outbound Probe Research requests.
+"""Coding-agent session attribution for outbound Probe requests.
 
 Every request carries the id of the coding-agent session driving it, when
 there is one, so the backend can record which conversation produced a run and
@@ -94,7 +94,7 @@ class AgentSpec:
     """Where the session id lives, or None if the agent does not expose one."""
 
     captured: bool
-    """Whether transcripts for this agent actually reach Research OS."""
+    """Whether transcripts for this agent actually reach Probe."""
 
     version_env: str | None = None
     min_version: tuple[int, int, int] | None = None
@@ -537,8 +537,21 @@ AUTHORSHIP_HUMAN = "human"
 DAEMON_SESSION_ENV = "PROBE_DAEMON_SESSION"
 
 
-def default_authorship(env: Mapping[str, str] | None = None) -> str | None:
+class ComposedName(str):
+    """A run name Probe composed itself (a fallback, a trial number), so its run declares ``"agent"``
+    and generation may improve it. Mark it last: ``str()`` returns a plain str and drops the mark."""
+
+
+def default_authorship(
+    env: Mapping[str, str] | None = None, *, is_new_run_name: bool = False
+) -> str | None:
     """``"agent"`` when a coding agent is driving this process, else ``None``.
+
+    A NEW RUN'S NAME IS ``None`` UNDER AN AGENT TOO (``is_new_run_name``). The name a
+    script gives its run is an identifier code reads (a pane finds ``baseline`` by it),
+    and who typed it into the script is exactly what the environment cannot tell. Left
+    undeclared, the server keeps it (`authorship_locked`), so neither the daemon nor
+    the title kind renames it. Names Probe makes up are `ComposedName` and declare.
 
     THE ONE HEURISTIC IN THE AUTHORSHIP PATH, and it answers the only question
     the environment can answer. Whether a PROGRAM is running the command is
@@ -570,4 +583,6 @@ def default_authorship(env: Mapping[str, str] | None = None) -> str | None:
     e = _env(env)
     if e.get(DAEMON_SESSION_ENV):
         return AUTHORSHIP_AGENT
+    if is_new_run_name:
+        return None
     return AUTHORSHIP_AGENT if detect_agent(e) is not None else None

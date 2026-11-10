@@ -1,136 +1,54 @@
-use crate::criteria::InfillComposition;
 use crate::errors::Result;
-use crate::{types::*, utils};
+use crate::types::*;
 use egobox_moe::{XType, to_discrete_space};
 
-use crate::utils::{compute_cstr_scales, logpofs, logpofs_grad, pofs, pofs_grad};
+use crate::utils::{compute_cstr_scales, pofs, update_data};
 use crate::{EgorSolver, solver::coego};
+
+use super::acquisition::{MonoAcquisition, PofWeighting, infill_objective};
 
 use basin::{CostFunction, Problem};
 
-use egobox_doe::{Lhs, LhsKind, SamplingMethod};
+use egobox_doe::{Lhs, SamplingMethod};
 use egobox_moe::MixtureGpSurrogate;
 
 use log::{debug, info, warn};
-use ndarray::{
-    Array, Array1, Array2, ArrayBase, ArrayView2, Axis, Data, Ix1, Ix2, Zip, concatenate, s, stack,
-};
-use ndarray_rand::rand::seq::SliceRandom;
+use ndarray::{Array, Array1, Array2, ArrayBase, ArrayView2, Axis, Data, Ix1, Ix2, Zip, s};
 
-use ndarray_rand::rand::Rng;
 use ndarray_stats::QuantileExt;
 use rand_xoshiro::Xoshiro256Plus;
 use serde::de::DeserializeOwned;
 
 const CSTR_DOUBT: f64 = 3.;
 
-fn neutral_infill_val(composition: InfillComposition) -> f64 {
-    if composition.is_log() { 0.0 } else { -1.0 }
-}
-
-fn neutral_infill_grad(dim: usize) -> Array1<f64> {
-    Array1::zeros(dim)
-}
-
-fn neutral_infill(composition: InfillComposition, dim: usize) -> (f64, Array1<f64>) {
-    (neutral_infill_val(composition), neutral_infill_grad(dim))
-}
-
-/// LocalMultiStarter is a multistart strategy that samples points in the xlimits.
-#[allow(dead_code)]
-pub(crate) struct LhsMultiStarter<'a, R: Rng + Clone> {
-    xlimits: &'a Array2<f64>,
-    rng: R,
-}
-
-impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter for LhsMultiStarter<'_, R> {
-    fn multistart(&mut self, n_start: usize, active: &[usize]) -> Array2<f64> {
-        let sampling = Lhs::new(&self.xbounds(active))
-            .kind(LhsKind::Maximin)
-            .with_rng(&mut self.rng);
-        sampling.sample(n_start)
-    }
-
-    fn xbounds(&self, active: &[usize]) -> Array2<f64> {
-        coego::get_active_x(Axis(0), self.xlimits, active)
+/// Infill objective data of the deprecated infill objective evaluation methods
+fn infill_obj_data(
+    fmin: f64,
+    scale: f64,
+    scale_ic: f64,
+    feasibility: bool,
+    sigma_weight: f64,
+) -> InfillObjData<f64> {
+    InfillObjData {
+        fmin,
+        scale_infill_obj: scale,
+        scale_wb2: scale_ic,
+        feasibility,
+        sigma_weight,
+        ..Default::default()
     }
 }
 
-impl<'a, R: Rng + Clone> LhsMultiStarter<'a, R> {
-    #[allow(dead_code)]
-    pub fn new(xlimits: &'a Array2<f64>, rng: R) -> Self {
-        LhsMultiStarter { xlimits, rng }
-    }
-}
-
-/// MiddlePickerMultiStarter is a multistart strategy where starting points
-/// are picked in the area in between the training data points where
-/// infill criterion is expected to be high
-pub(crate) struct MiddlePickerMultiStarter<'a, 'b, R: Rng + Clone> {
-    xlimits: &'a Array2<f64>,
-    xtrain: &'b Array2<f64>,
-    rng: R,
-}
-
-impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter
-    for MiddlePickerMultiStarter<'_, '_, R>
-{
-    fn multistart(&mut self, n_start: usize, active: &[usize]) -> Array2<f64> {
-        let xlimits = coego::get_active_x(Axis(0), self.xlimits, active);
-
-        let nt = self.xtrain.nrows();
-        // Compute the maximum number of points n to consider to generate midpoints
-        // to avoid too much computation when large training set
-        // Consider one tenth of training points as midpoints nb will grow as (n * (n-1) / 2)
-        // and multistart rarely exceeds 50. We do not want to pick only midpoints
-        // but keep some diversity by adding LHS points (at least when nt is small < 50).
-        let n = (nt / 10).max(2);
-
-        let xt = self.xtrain;
-        let mut indices: Vec<usize> = (0..xt.nrows()).collect();
-        indices.shuffle(&mut self.rng);
-        let selected = indices
-            .iter()
-            .take(n)
-            .map(|&i| xt.slice(s![i, ..]))
-            .collect::<Vec<_>>();
-        let xt = stack(Axis(0), &selected).unwrap();
-
-        let xt = coego::get_active_x(Axis(1), &xt, active);
-        let midpoints =
-            utils::start_points(&xt, &xlimits.column(0), &xlimits.column(1), Some(n_start));
-        let n_midpoints = midpoints.nrows();
-        let missing_points: i32 = n_start as i32 - n_midpoints as i32;
-        if missing_points <= 0 {
-            debug!("MiddlePickerMultiStarter: pick {n_midpoints} pts");
-            midpoints
-        } else {
-            debug!(
-                "MiddlePickerMultiStarter: pick {n_midpoints} pt(s), add {missing_points} LHS pt(s)"
-            );
-            // complete with LHS
-            let sampling = Lhs::new(&xlimits)
-                .kind(LhsKind::Maximin)
-                .with_rng(&mut self.rng);
-            let missings = sampling.sample((missing_points as usize).max(3)); // sampling with at least 3 points
-            let missings = missings.slice(s![0..(missing_points as usize), ..]);
-            concatenate(Axis(0), &[midpoints.view(), missings]).unwrap()
-        }
-    }
-
-    fn xbounds(&self, active: &[usize]) -> Array2<f64> {
-        coego::get_active_x(Axis(0), self.xlimits, active)
-    }
-}
-
-impl<'a, 'b, R: Rng + Clone> MiddlePickerMultiStarter<'a, 'b, R> {
-    pub fn new(xlimits: &'a Array2<f64>, xtrain: &'b Array2<f64>, rng: R) -> Self {
-        MiddlePickerMultiStarter {
-            xlimits,
-            xtrain,
-            rng,
-        }
-    }
+/// Results of the evaluation of new points appended to the data
+pub(crate) struct Evaluation {
+    /// Output values (internal layout)
+    pub(crate) y: Array2<f64>,
+    /// Number of points added to the data: valid points and failed points with imputed values
+    pub(crate) add_count: usize,
+    /// Number of valid points, appended last
+    pub(crate) valid_count: usize,
+    /// Points where the evaluation failed
+    pub(crate) x_fail: Option<Array2<f64>>,
 }
 
 impl<SB, C> EgorSolver<SB, C>
@@ -145,7 +63,7 @@ where
         obj_model: &dyn MixtureGpSurrogate,
         cstr_models: &[Box<dyn MixtureGpSurrogate>],
         cstr_tols: &Array1<f64>,
-        fcstrs: &[impl CstrFn],
+        n_fcstr: usize,
         fmin: f64,
         sigma_weight: f64,
     ) -> (f64, Array1<f64>, Array1<f64>, f64) {
@@ -198,22 +116,26 @@ where
             scale_cstr
         };
 
-        let scale_fcstr = if fcstrs.is_empty() {
-            Array1::zeros((0,))
-        } else {
-            let fcstr_values = self.eval_fcstrs(fcstrs, &scaling_points).map(|v| v.abs());
-            let mut scale_fcstr = Array1::zeros(fcstr_values.ncols());
-            Zip::from(&mut scale_fcstr)
-                .and(fcstr_values.columns())
-                .for_each(|sc, vals| *sc = *vals.max().unwrap());
-            info!("Fonctional constraints scaling is updated to {scale_fcstr}");
-            scale_fcstr
-        };
+        // Function constraints are exact: they are handled in user units (scale 1) so that
+        // the constraint tolerances apply as given (see `optimize_infill_criterion`)
+        let scale_fcstr = Array1::ones(n_fcstr);
         (scale_infill_obj, scale_cstr, scale_fcstr, scale_ic)
     }
 
     /// Mean prediction of a constraint surrogate model scaled by scale_cstr
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn mean_cstr(
+        cstr_model: &dyn MixtureGpSurrogate,
+        x: &[f64],
+        gradient: Option<&mut [f64]>,
+        scale_cstr: f64,
+        active: &[usize],
+    ) -> f64 {
+        Self::scaled_mean_cstr(cstr_model, x, gradient, scale_cstr, active)
+    }
+
+    /// Mean prediction of a constraint surrogate model scaled by scale_cstr
+    pub(crate) fn scaled_mean_cstr(
         cstr_model: &dyn MixtureGpSurrogate,
         x: &[f64],
         gradient: Option<&mut [f64]>,
@@ -228,20 +150,27 @@ where
                 .row(0)
                 .mapv(|v| v / scale_cstr)
                 .to_vec();
-            let grd_coop = grd
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| active.contains(i))
-                .map(|(_, &g)| g)
-                .collect::<Vec<_>>();
-            grad[..].copy_from_slice(&grd_coop);
+            grad[..].copy_from_slice(&coego::get_active_grad(&grd, active));
         }
         cstr_model.predict(&x.view()).unwrap()[0] / scale_cstr
     }
 
     /// Upper trust bound prediction of a constraint surrogate model scaled by scale_cstr
     /// with a doubt factor CSTR_DOUBT
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn upper_trust_bound_cstr(
+        cstr_model: &dyn MixtureGpSurrogate,
+        x: &[f64],
+        gradient: Option<&mut [f64]>,
+        scale_cstr: f64,
+        active: &[usize],
+    ) -> f64 {
+        Self::scaled_upper_trust_bound_cstr(cstr_model, x, gradient, scale_cstr, active)
+    }
+
+    /// Upper trust bound prediction of a constraint surrogate model scaled by scale_cstr
+    /// with a doubt factor CSTR_DOUBT
+    pub(crate) fn scaled_upper_trust_bound_cstr(
         cstr_model: &dyn MixtureGpSurrogate,
         x: &[f64],
         gradient: Option<&mut [f64]>,
@@ -250,29 +179,23 @@ where
     ) -> f64 {
         let x = Array::from_shape_vec((1, x.len()), x.to_vec()).unwrap();
 
-        let (pred, var) = cstr_model.predict_valvar(&x.view()).unwrap();
-        let sigma = var[0].sqrt();
-        let cstr_val = pred[0];
-
-        if let Some(grad) = gradient {
-            let (pred_grad, var_grad) = cstr_model.predict_valvar_gradients(&x.view()).unwrap();
+        let (cstr_val, sigma) = if let Some(grad) = gradient {
+            let (pred, var, pred_grad, var_grad) =
+                cstr_model.predict_valvar_with_gradients(&x.view()).unwrap();
+            let sigma = var[0].sqrt();
+            // d(sigma)/dx = d(var)/dx / (2 * sigma)
             let sigma_prime = if sigma < f64::EPSILON {
-                0.
+                Array1::zeros(var_grad.ncols())
             } else {
-                var_grad[[0, 0]] / (2. * sigma)
+                var_grad.row(0).mapv(|v| v / (2. * sigma))
             };
-            let grd = pred_grad
-                .row(0)
-                .mapv(|v| (v + CSTR_DOUBT * sigma_prime) / scale_cstr)
-                .to_vec();
-            let grd_coop = grd
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| active.contains(i))
-                .map(|(_, &g)| g)
-                .collect::<Vec<_>>();
-            grad[..].copy_from_slice(&grd_coop);
-        }
+            let grd = ((&pred_grad.row(0) + &(sigma_prime * CSTR_DOUBT)) / scale_cstr).to_vec();
+            grad[..].copy_from_slice(&coego::get_active_grad(&grd, active));
+            (pred[0], sigma)
+        } else {
+            let (pred, var) = cstr_model.predict_valvar(&x.view()).unwrap();
+            (pred[0], var[0].sqrt())
+        };
         (cstr_val + CSTR_DOUBT * sigma) / scale_cstr
     }
 
@@ -402,18 +325,11 @@ where
         let mut crit_vals = Array1::zeros(x.nrows());
         let (mut nan_count, mut inf_count) = (0, 0);
 
+        let acquisition = self.mono_acquisition(obj_model, None, None);
+        let data = infill_obj_data(fmin, 1.0, scale_ic, true, sigma_weight);
         // Filter out points that are NaN or Inf in the infill criterion evaluation
         Zip::from(&mut crit_vals).and(x.rows()).for_each(|c, x| {
-            let val = self.eval_infill_obj(
-                &x.to_vec(),
-                obj_model,
-                fmin,
-                None,
-                None,
-                scale_ic,
-                sigma_weight,
-                1.0,
-            );
+            let (val, _) = infill_objective(&acquisition, None, &x.to_vec(), &data, false);
             *c = if val.is_nan() {
                 nan_count += 1;
                 1.0
@@ -444,37 +360,25 @@ where
         }
     }
 
-    /// Compute infill criterion objective expected to be minimized
-    /// meaning infill criterion objective is negative infill criterion
-    /// the latter is expected to be maximized
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn eval_infill_obj(
-        &self,
-        x: &[f64],
-        obj_model: &dyn MixtureGpSurrogate,
-        fmin: f64,
-        viability_model: Option<&dyn MixtureGpSurrogate>,
+    /// Mono-objective acquisition of the configured infill criterion
+    pub(crate) fn mono_acquisition<'a>(
+        &'a self,
+        obj_model: &'a dyn MixtureGpSurrogate,
+        viability_model: Option<&'a dyn MixtureGpSurrogate>,
         alpha: Option<f64>,
-        scale: f64,
-        scale_ic: f64,
-        sigma_weight: f64,
-    ) -> f64 {
-        let x_f = x.to_vec();
-        let obj = -(self.config.infill_criterion.value(
-            &x_f,
+    ) -> MonoAcquisition<'a> {
+        MonoAcquisition {
+            criterion: &*self.config.infill_criterion,
             obj_model,
-            fmin,
             viability_model,
             alpha,
-            Some(sigma_weight),
-            Some(scale_ic),
-        ));
-        obj / scale
+        }
     }
 
     /// Compute gradient of infill criterion objective expected to be minimized
     /// meaning infill criterion objective is negative infill criterion
     #[allow(clippy::too_many_arguments)]
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn eval_grad_infill_obj(
         &self,
         x: &[f64],
@@ -485,22 +389,16 @@ where
         scale: f64,
         scale_ic: f64,
     ) -> Vec<f64> {
-        let x_f = x.to_vec();
-        let grad = -(self.config.infill_criterion.grad(
-            &x_f,
-            obj_model,
-            fmin,
-            viability_model,
-            alpha,
-            None,
-            Some(scale_ic),
-        ));
-        (grad / scale).to_vec()
+        let acquisition = self.mono_acquisition(obj_model, viability_model, alpha);
+        let data = infill_obj_data(fmin, scale, scale_ic, true, 1.0);
+        let (_, grad) = infill_objective(&acquisition, None, x, &data, true);
+        grad.expect("infill objective gradient").to_vec()
     }
 
     /// Compute infill criterion objective with constraints handling
     /// expected to be minimized meaning infill criterion objective is negative infill criterion
     #[allow(clippy::too_many_arguments)]
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn eval_infill_obj_with_cstrs(
         &self,
         x: &[f64],
@@ -515,35 +413,19 @@ where
         feasibility: bool,
         sigma_weight: f64,
     ) -> f64 {
-        let composition = self.config.infill_criterion.composition();
-        let infill_obj = if feasibility {
-            self.eval_infill_obj(
-                x,
-                obj_model,
-                fmin,
-                viability_model,
-                alpha,
-                scale,
-                scale_ic,
-                sigma_weight,
-            )
-        } else {
-            // when no feasible point is found,
-            // make the infill criterion value a neutral factor
-            // that is -1 when CEI, 0 when logCEI
-            // in order to just use probability of feasibility for the infill criterion value
-            // and not penalize it more than that
-            neutral_infill_val(composition)
+        let acquisition = self.mono_acquisition(obj_model, viability_model, alpha);
+        let tols = cstr_tols.to_vec();
+        let pof = PofWeighting {
+            models: cstr_models,
+            tols: &tols,
         };
-        if composition.is_log() {
-            infill_obj - logpofs(x, cstr_models, &cstr_tols.to_vec())
-        } else {
-            infill_obj * pofs(x, cstr_models, &cstr_tols.to_vec())
-        }
+        let data = infill_obj_data(fmin, scale, scale_ic, feasibility, sigma_weight);
+        infill_objective(&acquisition, Some(&pof), x, &data, false).0
     }
 
     /// Compute gradient of infill criterion objective with constraints handling
     #[allow(clippy::too_many_arguments)]
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn eval_grad_infill_obj_with_cstrs(
         &self,
         x: &[f64],
@@ -558,69 +440,31 @@ where
         feasibility: bool,
         sigma_weight: f64,
     ) -> Vec<f64> {
-        if cstr_models.is_empty() {
-            self.eval_grad_infill_obj(x, obj_model, fmin, viability_model, alpha, scale, scale_ic)
-        } else {
-            let composition = self.config.infill_criterion.composition();
-
-            if composition.is_log() {
-                let infill_grad = if feasibility {
-                    Array1::from_vec(self.eval_grad_infill_obj(
-                        x,
-                        obj_model,
-                        fmin,
-                        viability_model,
-                        alpha,
-                        scale,
-                        scale_ic,
-                    ))
-                } else {
-                    // when no feasible point is found,
-                    // make the infill criterion gradient a neutral factor
-                    neutral_infill_grad(x.len())
-                };
-
-                let logcei_grad = infill_grad - logpofs_grad(x, cstr_models, &cstr_tols.to_vec());
-                logcei_grad.to_vec()
-            } else {
-                let (infill, infill_grad) = if feasibility {
-                    (
-                        self.eval_infill_obj(
-                            x,
-                            obj_model,
-                            fmin,
-                            viability_model,
-                            alpha,
-                            scale,
-                            scale_ic,
-                            sigma_weight,
-                        ),
-                        Array1::from_vec(self.eval_grad_infill_obj(
-                            x,
-                            obj_model,
-                            fmin,
-                            viability_model,
-                            alpha,
-                            scale,
-                            scale_ic,
-                        )),
-                    )
-                } else {
-                    // when no feasible point is found, use the criterion neutral fallback
-                    neutral_infill(composition, x.len())
-                };
-
-                let pofs = pofs(x, cstr_models, &cstr_tols.to_vec());
-                let pofs_grad = pofs_grad(x, cstr_models, &cstr_tols.to_vec());
-
-                let cei_grad = infill_grad * pofs + pofs_grad * infill;
-                cei_grad.to_vec()
-            }
-        }
+        let acquisition = self.mono_acquisition(obj_model, viability_model, alpha);
+        let tols = cstr_tols.to_vec();
+        let pof = PofWeighting {
+            models: cstr_models,
+            tols: &tols,
+        };
+        let data = infill_obj_data(fmin, scale, scale_ic, feasibility, sigma_weight);
+        let (_, grad) = infill_objective(&acquisition, Some(&pof), x, &data, true);
+        grad.expect("infill objective gradient").to_vec()
     }
 
     /// Evaluate the objective function at given x points
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn eval_obj<
+        O: CostFunction<Param = Array2<f64>, Output = Array2<f64>, Error = crate::EgoError>,
+    >(
+        &self,
+        pb: &mut Problem<O>,
+        x: &Array2<f64>,
+    ) -> Result<Array2<f64>> {
+        self.evaluate_obj(pb, x)
+    }
+
+    /// Evaluate the objective function at given x points
+    pub(crate) fn evaluate_obj<
         O: CostFunction<Param = Array2<f64>, Output = Array2<f64>, Error = crate::EgoError>,
     >(
         &self,
@@ -656,7 +500,17 @@ where
     }
 
     /// Evaluate the constraints given as function at given x points
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn eval_fcstrs(
+        &self,
+        fcstrs: &[impl CstrFn],
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Array2<f64> {
+        self.evaluate_fcstrs(fcstrs, x)
+    }
+
+    /// Evaluate the constraints given as function at given x points
+    pub(crate) fn evaluate_fcstrs(
         &self,
         fcstrs: &[impl CstrFn],
         x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
@@ -693,6 +547,30 @@ where
         }
     }
 
+    /// Function constraints as given to the infill criterion optimizer working in the
+    /// internal continuous space: functions are evaluated in the space they expect
+    /// (discrete variables in folded space) and their gradients are mapped back to the
+    /// continuous space. Values are in user units (not scaled).
+    pub(crate) fn infill_fcstrs<'a>(&'a self, fcstrs: &'a [impl CstrFn]) -> Vec<impl CstrFn + 'a> {
+        fcstrs
+            .iter()
+            .map(|cstr| {
+                move |x: &[f64], gradient: Option<&mut [f64]>, params: &mut InfillObjData<f64>| {
+                    let xuser = self.fcstr_input(x);
+                    match gradient {
+                        Some(g) if self.config.discrete() => {
+                            let mut gfold = vec![0.; xuser.len()];
+                            let v = cstr(&xuser, Some(&mut gfold), params);
+                            self.unfold_fcstr_gradient(&gfold, g);
+                            v
+                        }
+                        gradient => cstr(&xuser, gradient, params),
+                    }
+                }
+            })
+            .collect()
+    }
+
     /// Map a function constraint gradient computed in folded space `gfold`
     /// to the internal continuous (unfolded) space `g`.
     /// Gradient components are passed through for Float, Int and Ord variables
@@ -715,7 +593,18 @@ where
 
     /// Evaluate the constraints given as function at given x points
     /// within the problem structure so that the function is taken from there
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn eval_problem_fcstrs<O: Constraints<C>>(
+        &self,
+        pb: &Problem<O>,
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Array2<f64> {
+        self.evaluate_problem_fcstrs(pb, x)
+    }
+
+    /// Evaluate the constraints given as function at given x points
+    /// within the problem structure so that the function is taken from there
+    pub(crate) fn evaluate_problem_fcstrs<O: Constraints<C>>(
         &self,
         pb: &Problem<O>,
         x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
@@ -724,12 +613,42 @@ where
         let fcstrs = problem.constraints();
         let fcstr_specs = problem.constraint_specs();
 
-        let res = self.eval_fcstrs(fcstrs, x);
+        let res = self.evaluate_fcstrs(fcstrs, x);
         if let Some(specs) = fcstr_specs {
             crate::types::transform_function_constraints(&res, specs)
         } else {
             res
         }
+    }
+
+    /// Evaluate the objective then the function constraints at `x_new` points, and append
+    /// them to `data`. With the imputation failsafe strategy, failed points are appended
+    /// with their `y_penalized` values (one row per `x_new` row).
+    pub(crate) fn evaluate_and_append<
+        O: CostFunction<Param = Array2<f64>, Output = Array2<f64>, Error = crate::EgoError>
+            + Constraints<C>,
+    >(
+        &self,
+        problem: &mut Problem<O>,
+        x_new: &Array2<f64>,
+        y_penalized: Option<&Array2<f64>>,
+        (x_data, y_data, c_data): (&mut Array2<f64>, &mut Array2<f64>, &mut Array2<f64>),
+    ) -> Result<Evaluation> {
+        let y_new = self.evaluate_obj(problem, x_new)?;
+        let y_new = self.config.to_internal_outputs(y_new);
+        let c_new = self.evaluate_problem_fcstrs(problem, x_new);
+
+        let y_penalized =
+            y_penalized.filter(|_| self.config.failsafe_strategy == FailsafeStrategy::Imputation);
+        debug_assert!(y_penalized.is_none_or(|y_pen| y_pen.nrows() == x_new.nrows()));
+        let (add_count, valid_count, x_fail) =
+            update_data(x_data, y_data, c_data, x_new, &y_new, &c_new, y_penalized);
+        Ok(Evaluation {
+            y: y_new,
+            add_count,
+            valid_count,
+            x_fail,
+        })
     }
 }
 
@@ -750,6 +669,106 @@ mod tests {
             .check()
             .unwrap();
         EgorSolver::new(config)
+    }
+
+    /// Constraint model in 3D with distinct partial derivatives
+    fn cstr_model() -> egobox_moe::GpMixture {
+        use egobox_moe::GpMixture;
+        use linfa::prelude::{Dataset, Fit};
+        use ndarray_rand::rand::SeedableRng;
+
+        let xt = Lhs::new(&array![[-2., 2.], [-2., 2.], [-2., 2.]])
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .sample(8);
+        let yt = xt.map_axis(Axis(1), |x: ndarray::ArrayView1<f64>| {
+            x[0] * x[1] + x[2].sin() + x[0] * x[0]
+        });
+        GpMixture::params()
+            .fit(&Dataset::new(xt, yt))
+            .expect("GP fitted")
+    }
+
+    #[test]
+    fn test_upper_trust_bound_cstr_gradient() {
+        let model = cstr_model();
+        let utb = |x: &[f64], grad: Option<&mut [f64]>| {
+            EgorSolver::<GpMixtureParams<f64>, Cstr>::scaled_upper_trust_bound_cstr(
+                &model,
+                x,
+                grad,
+                2.,
+                &[0, 1, 2],
+            )
+        };
+
+        let x = [0.3, -1.1, 0.7];
+        let mut grad = [0.; 3];
+        let value = utb(&x, Some(&mut grad));
+        assert_eq!(value, utb(&x, None));
+
+        // the uncertainty term must weigh in the gradient for the test to be meaningful
+        let (_, var) = model.predict_valvar(&array![x]).unwrap();
+        assert!(var[0].sqrt() > 0.1);
+        let e = 1e-5;
+        for k in 0..3 {
+            let (mut xp, mut xm) = (x, x);
+            xp[k] += e;
+            xm[k] -= e;
+            let fdiff = (utb(&xp, None) - utb(&xm, None)) / (2. * e);
+            approx::assert_abs_diff_eq!(grad[k], fdiff, epsilon = 1e-2 * fdiff.abs() + 1e-6);
+        }
+    }
+
+    type CstrEval = fn(&dyn MixtureGpSurrogate, &[f64], Option<&mut [f64]>, f64, &[usize]) -> f64;
+
+    #[test]
+    fn test_cstr_gradients_follow_activity_order() {
+        // CoEGO: the optimized variables are the active components in the order of the
+        // activity, x being the full point with these components set
+        let model = cstr_model();
+        let cstrs: [(&str, CstrEval); 2] = [
+            (
+                "mean",
+                EgorSolver::<GpMixtureParams<f64>, Cstr>::scaled_mean_cstr,
+            ),
+            (
+                "upper trust bound",
+                EgorSolver::<GpMixtureParams<f64>, Cstr>::scaled_upper_trust_bound_cstr,
+            ),
+        ];
+        let active = [2, 0];
+        let x = [0.3, -1.1, 0.7];
+        for (name, cstr) in cstrs {
+            let mut grad = [0.; 2];
+            cstr(&model, &x, Some(&mut grad), 2., &active);
+            let e = 1e-5;
+            for (k, &i) in active.iter().enumerate() {
+                let (mut xp, mut xm) = (x, x);
+                xp[i] += e;
+                xm[i] -= e;
+                let fdiff = (cstr(&model, &xp, None, 2., &active)
+                    - cstr(&model, &xm, None, 2., &active))
+                    / (2. * e);
+                approx::assert_abs_diff_eq!(grad[k], fdiff, epsilon = 1e-2 * fdiff.abs() + 1e-6);
+            }
+            println!("{name} constraint gradient {grad:?} ok");
+        }
+    }
+
+    #[test]
+    fn test_seed_reaches_surrogate_builder() {
+        // The surrogate builder random generator (e.g. used by clustering)
+        // is seeded with the optimizer seed
+        let builder = || {
+            let config = EgorConfig::default()
+                .xtypes(&to_xtypes(&array![[0., 1.]]))
+                .seed(42)
+                .check()
+                .unwrap();
+            let solver: EgorSolver<GpMixtureParams<f64>, Cstr> = EgorSolver::new(config);
+            serde_json::to_string(&solver.surrogate_builder).unwrap()
+        };
+        assert_eq!(builder(), builder());
     }
 
     #[test]
@@ -817,22 +836,5 @@ mod tests {
             .compute_virtual_point(&xk, &y, &[], &[])
             .unwrap();
         assert_eq!(virtual_point, vec![1., 0.3]);
-    }
-
-    #[test]
-    fn test_infeasible_infill_obj_matches_composition() {
-        assert_eq!(neutral_infill_val(InfillComposition::Linear), -1.0);
-        assert_eq!(neutral_infill_val(InfillComposition::Log), 0.0);
-    }
-
-    #[test]
-    fn test_neutral_infill_matches_composition() {
-        let (linear_value, linear_grad) = neutral_infill(InfillComposition::Linear, 3);
-        assert_eq!(linear_value, -1.0);
-        assert_eq!(linear_grad, Array1::<f64>::zeros(3));
-
-        let (log_value, log_grad) = neutral_infill(InfillComposition::Log, 2);
-        assert_eq!(log_value, 0.0);
-        assert_eq!(log_grad, Array1::<f64>::zeros(2));
     }
 }

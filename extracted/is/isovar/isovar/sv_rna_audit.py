@@ -1,29 +1,29 @@
 """Manifest-driven, source-separated nominated-SV reconstruction and audit."""
 
 import csv
+import gzip
+import json
+import logging
+import sqlite3
 from collections import defaultdict
 from collections.abc import Iterable
 from contextlib import ExitStack, closing
 from dataclasses import dataclass
-import gzip
 from hashlib import sha256
 from importlib.metadata import version
 from inspect import signature
-import json
-import logging
 from pathlib import Path
-import sqlite3
 from tempfile import TemporaryDirectory
 from typing import Any
 
 import pysam
 
 from . import __version__
-from ._audit_json import write_json_stream
-from .json_files import read_json
-from ._file_identity import file_sha256
 from .audit_bundle import software_identity
+from .audit_json import write_json_stream
+from .file_identity import file_sha256
 from .fusion import fusion_from_dict, reconstruct_fusion
+from .json_files import read_json
 from .read_collector import ReadCollector
 from .rna_library import RnaLibraryIndex, prepare_rna_library
 from .sv_path_routing import PathEvidenceQuery, route_path_evidence
@@ -86,15 +86,20 @@ def _files(manifest, root):
     return files
 
 
+def _paths_with_supported(paths, relation):
+    """How many paths have a directly supported junction with this relation."""
+    return sum(any(j["direct_support"].get("fragments", 0) and j["relation"] == relation
+                   for j in p["junctions"]) for p in paths)
+
+
 def _summary(snapshot, artifact):
     assessment = snapshot.get("assessment", {})
     paths = assessment.get("paths", [])
     return dict(event_id=snapshot["event_id"], source_id=snapshot["source_id"],
                 view_id=snapshot["view_id"], status=snapshot["status"],
                 retained_paths=len(paths),
-                paths_with_direct_junction=sum(any(j["direct_support"].get("fragments", 0)
-                                                  and j["relation"] == "breakpoint_junction"
-                                                  for j in p["junctions"]) for p in paths),
+                paths_with_direct_junction=_paths_with_supported(paths, "breakpoint_junction"),
+                paths_with_event_compatible_junction=_paths_with_supported(paths, "event_compatible_junction"),
                 paths_with_event_linked_protein=sum(any(c["event_linked"] for c in p["proteins"]) for p in paths),
                 limitations=snapshot.get("limitations", assessment.get("limitations", [])),
                 artifact=artifact)

@@ -6,7 +6,9 @@ void tree_dealloc(Tree *self) {
     ts_tree_delete(self->tree);
     Py_XDECREF(self->language);
     Py_XDECREF(self->source);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 PyObject *tree_get_root_node(Tree *self, void *Py_UNUSED(payload)) {
@@ -119,11 +121,14 @@ PyObject *tree_changed_ranges(Tree *self, PyObject *args, PyObject *kwargs) {
 
     PyObject *result = PyList_New(length);
     if (result == NULL) {
+        PyMem_Free(ranges);
         return NULL;
     }
     for (unsigned i = 0; i < length; ++i) {
         Range *range = PyObject_New(Range, state->range_type);
         if (range == NULL) {
+            Py_DECREF(result);
+            PyMem_Free(ranges);
             return NULL;
         }
         range->range = ranges[i];
@@ -141,11 +146,14 @@ PyObject *tree_get_included_ranges(Tree *self, PyObject *Py_UNUSED(args)) {
 
     PyObject *result = PyList_New(length);
     if (result == NULL) {
+        PyMem_Free(ranges);
         return NULL;
     }
     for (unsigned i = 0; i < length; ++i) {
         Range *range = PyObject_New(Range, state->range_type);
         if (range == NULL) {
+            Py_DECREF(result);
+            PyMem_Free(ranges);
             return NULL;
         }
         range->range = ranges[i];

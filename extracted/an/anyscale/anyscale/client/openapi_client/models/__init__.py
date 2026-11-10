@@ -658,6 +658,8 @@ from openapi_client.models.invitation_pending_access import InvitationPendingAcc
 from openapi_client.models.invitationpendingaccess_response import InvitationpendingaccessResponse
 from openapi_client.models.invitee_pending_access import InviteePendingAccess
 from openapi_client.models.inviteependingaccess_list_response import InviteependingaccessListResponse
+from openapi_client.models.ip_allowlist import IpAllowlist
+from openapi_client.models.ipallowlist_response import IpallowlistResponse
 from openapi_client.models.job_access import JobAccess
 from openapi_client.models.job_config_response import JobConfigResponse
 from openapi_client.models.job_config_response_metadata import JobConfigResponseMetadata

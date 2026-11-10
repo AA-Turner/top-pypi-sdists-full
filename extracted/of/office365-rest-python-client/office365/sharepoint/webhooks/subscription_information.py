@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Dict, Optional, cast
 
@@ -9,7 +9,6 @@ from office365.runtime.converters.scalars import iso_z
 from office365.runtime.types.collections import StringCollection
 
 
-@dataclass
 class SubscriptionInformation(ClientValue):
     """Parameter class for webhook Update and Create REST operations."""
 
@@ -20,8 +19,8 @@ class SubscriptionInformation(ClientValue):
     resourceData: Optional[str] = None
     scenarios: StringCollection = field(default_factory=StringCollection)
 
-    def to_json(self, json_format=None):
-        json = cast(Dict, super().to_json(json_format))
+    def to_json(self, profile=None):
+        json = cast(Dict, super().to_json(profile))
         json["expirationDateTime"] = iso_z(self.expirationDateTime)
         return json
 

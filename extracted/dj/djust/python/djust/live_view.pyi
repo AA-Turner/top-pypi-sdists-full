@@ -7,7 +7,7 @@ StreamsMixin, and StreamingMixin that are used at runtime but may not be
 fully discoverable by static analysis tools.
 """
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 from django.views import View
 
@@ -17,6 +17,8 @@ from .mixins.push_events import PushEventMixin
 from .mixins.streams import StreamsMixin
 from .streaming import StreamingMixin
 from .session_utils import Stream
+from ._component_subscriptions import SubscriptionBinding
+from .components.base import LiveComponent
 
 # Module-level framework-internal attribute denylist used by change-detection
 # (consumed by djust.websocket._snapshot_assigns). Declared here so strict
@@ -52,11 +54,26 @@ class LiveView(
 
     template_name: Optional[str] = None
     template: Optional[str] = None
+    query_budget: Optional[Union[int, Dict[str, Any]]] = None
+    exposure_policy: str = "legacy"
+    http_status_of_state: Mapping[str, int] = {}
+    state_attribute: str = "state"
+    params_form: Optional[type] = None
+    params_form_fallback: str = "initial"
+    _component_bindings: dict[str, object]
+    _components: dict[str, LiveComponent]
+    _component_subscriptions: tuple[SubscriptionBinding, ...]
+    def _register_component(self, component: Any, attr_name: Optional[str] = None) -> None: ...
 
     # LiveView lifecycle methods
+    def __init__(self, **kwargs: Any) -> None: ...
     def mount(self, request: Any, **kwargs: Any) -> None: ...
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]: ...
+    def template_paths(self) -> Dict[str, List[str]]: ...
+    def serialize_for_template(self, value: Any, name: str) -> Any: ...
+    def get_render_only_context(self) -> Dict[str, Any]: ...
     def handle_tick(self) -> None: ...
+    def handle_restore(self, request: Any) -> None: ...
     def get_state(self) -> Dict[str, Any]: ...
 
     # NavigationMixin methods
@@ -73,6 +90,7 @@ class LiveView(
         replace: bool = False,
     ) -> None: ...
     def handle_params(self, params: Dict[str, Any], uri: str) -> None: ...
+    def handle_invalid_params(self, form: Any, uri: str) -> None: ...
 
     # PushEventMixin methods
     def push_event(self, event: str, payload: Optional[Dict[str, Any]] = None) -> None: ...
@@ -138,4 +156,16 @@ class LiveView(
         stream_name: str,
         selector: str,
     ) -> None: ...
+    async def astream_insert(
+        self,
+        stream_name: str,
+        html: str,
+        at: str = "append",
+        target: Optional[str] = None,
+    ) -> None: ...
+    async def astream_delete(self, stream_name: str, selector: str) -> None: ...
     async def push_state(self) -> None: ...
+
+class PersistentLiveView(LiveView):
+    abstract: bool
+    enable_state_snapshot: bool

@@ -28,6 +28,7 @@ from office365.runtime.limits import SAFE_PAGE_SIZE
 from office365.runtime.verification import VerificationReport
 
 if TYPE_CHECKING:
+    from office365.runtime.converters.coercion import ConverterSpec
     from office365.runtime.converters.dataframe import DataFrameResult
     from office365.runtime.converters.upsert import UpsertTarget
     from office365.runtime.imports import CheckpointStore, ImportCheckpoint, ImportResult
@@ -62,22 +63,35 @@ def _apply_mapping(convert: Callable[[Any], list[dict]], mapping: Dict[str, str]
 class RecordCollection(ClientObjectCollection[ClientObjectT]):
     """A collection with record import/export capabilities."""
 
+    #: Whether the item type accepts members it does not declare. A typed Graph entity
+    #: rejects them, so an unknown column is dropped; a SharePoint list item forwards
+    #: every key to the server, whose columns are defined per list at runtime.
+    _accepts_unknown_columns = False
+
     # ── Export ───────────────────────────────────────────────────
 
     def export_to(self, target: Any, *, format: str = "csv", page_size: Optional[int] = None, **opts: Any) -> Self:  # noqa: A002
         """Deferred export of the loaded items to ``target`` in ``format``.
 
         The writer is resolved from the format registry, so formats are pluggable.
+        A queued read is written when it resolves; an already-loaded collection
+        (nothing pending, e.g. one filled by an ``after_execute`` chain) is written
+        there and then, so no second ``execute_query()`` is needed.
         Pass ``page_size`` to **stream** an appendable format (CSV/TSV/NDJSON/JSON)
         page by page — bounded memory for large collections:
 
             >>> client.users.get_all().export_to(f, format="csv").execute_query()
+            >>> col.execute_query()
+            >>> col.to_csv(f)
             >>> lst.items.export_to("out.csv", page_size=2000).execute_query()
         """
         if page_size:
             return self._export_paged(target, format, page_size, opts)
         writer = registry.writer_for(format)
-        return self.after_execute(lambda _: writer(self, target, **opts))
+        if self.context.has_pending_request:
+            return self.after_execute(lambda _: writer(self, target, **opts))
+        writer(self, target, **opts)
+        return self
 
     def _export_paged(self, target: Any, format: str, page_size: int, opts: Dict[str, Any]) -> Self:  # noqa: A002
         """Page through the collection and append records (bounded memory)."""
@@ -194,13 +208,17 @@ class RecordCollection(ClientObjectCollection[ClientObjectT]):
 
         return iter_records(self, raw=raw)
 
-    def to_csv(self, file: IO[str]) -> Self:
-        """Export loaded items to CSV (deferred)."""
-        return self.export_to(file, format="csv")
+    def to_csv(self, target: Union[str, PathLike, IO[str]]) -> Self:
+        """Export the items to CSV — a path or an already-open text stream.
 
-    def to_ndjson(self, file: IO[str]) -> Self:
-        """Export loaded items as NDJSON — one record per line (deferred)."""
-        return self.export_to(file, format="ndjson")
+        Written when a queued read resolves, or immediately when nothing is
+        pending (an already-loaded collection).
+        """
+        return self.export_to(target, format="csv")
+
+    def to_ndjson(self, target: Union[str, PathLike, IO[str]]) -> Self:
+        """Export the items as NDJSON — one record per line (path or open stream)."""
+        return self.export_to(target, format="ndjson")
 
     def to_excel(self, target: Union[str, PathLike]) -> Self:
         """Export loaded items to an Excel (.xlsx) worksheet (deferred).
@@ -331,17 +349,32 @@ class RecordCollection(ClientObjectCollection[ClientObjectT]):
 
     # ── Import: deferred (queue-all) ─────────────────────────────
 
-    def queue_records(self, records: List[dict], progress: "ProgressCallback | None" = None) -> Self:
+    def queue_records(
+        self,
+        records: List[dict],
+        progress: "ProgressCallback | None" = None,
+        coerce: "Dict[str, ConverterSpec] | None" = None,
+    ) -> Self:
         """Queue a create per record (deferred, run with ``execute_query()``).
 
         The neutral queue-all counterpart of :meth:`to_records`. Records are
         normalized to the item type and each becomes an entity queued for
         creation. Use the streaming :meth:`from_records` for large or
-        resumable/idempotent imports (bounded memory).
+        resumable/idempotent imports (bounded memory). ``coerce`` types a cell the
+        entity's declared property type cannot (see
+        :func:`~office365.runtime.converters.coercion.converter_for`).
         """
         from office365.runtime.converters.csv_reader import coerce_records
 
-        return self._import_records(coerce_records(self._item_type, records), progress=progress)
+        return self._import_records(
+            coerce_records(
+                self._item_type,
+                records,
+                coerce=coerce,
+                allow_unknown=self._accepts_unknown_columns,
+            ),
+            progress=progress,
+        )
 
     def queue_dataframe(self, df, progress: "ProgressCallback | None" = None) -> Self:
         """Queue a create per DataFrame row (deferred, run with ``execute_query()``)."""
@@ -384,7 +417,7 @@ class RecordCollection(ClientObjectCollection[ClientObjectT]):
         dry_run: bool = False,
         dead_letter: "str | PathLike | None" = None,
         mapping: "Dict[str, str] | None" = None,
-        coerce: "Dict[str, Callable[[Any], Any]] | None" = None,
+        coerce: "Dict[str, ConverterSpec] | None" = None,
     ) -> "ImportResult":
         """Stream a source into this collection, memory-bounded (the streaming entry).
 
@@ -394,9 +427,12 @@ class RecordCollection(ClientObjectCollection[ClientObjectT]):
         :class:`~office365.runtime.imports.ImportResult`; choose the terminal
         (``execute_query``/``execute_batch``) or iterate it. ``key`` enables
         idempotent skip/upsert via :meth:`upsert_target`; ``mapping`` renames
-        source columns/keys; ``coerce`` maps a record key to a value converter
-        (used for typed destination fields).
+        source columns/keys; ``coerce`` maps a *destination* key (after ``mapping``
+        has renamed it) to a value converter -- a callable, a Python type, a type
+        name such as ``"Edm.DateTimeOffset"``, or a SharePoint ``FieldType`` (see
+        :func:`~office365.runtime.converters.coercion.converter_for`).
         """
+        from office365.runtime.converters.csv_reader import apply_converters, resolve_converters
         from office365.runtime.imports import ImportResult
 
         chunks, convert, inferred_total = self._resolve_source(source, format, chunksize, to_records)
@@ -405,6 +441,7 @@ class RecordCollection(ClientObjectCollection[ClientObjectT]):
         if mapping:
             convert = _apply_mapping(convert, mapping)
 
+        converters = resolve_converters(self._item_type, coerce, allow_unknown=self._accepts_unknown_columns)
         raw_key_columns = [key] if isinstance(key, str) else (list(key) if key else [])
         key_columns = [self._key_column(c) for c in raw_key_columns]
         target = self.upsert_target(key_field=key_field, enforce_unique=enforce_unique) if key_columns else None
@@ -434,14 +471,11 @@ class RecordCollection(ClientObjectCollection[ClientObjectT]):
             keys_loaded = True
 
         def _queue(records: list[dict]) -> tuple[int, int]:
-            if coerce:
-                records = [
-                    {
-                        key: (coerce[key](value) if key in coerce and value is not None else value)
-                        for key, value in record.items()
-                    }
-                    for record in records
-                ]
+            # The user's ``coerce`` layer runs here, once, and leaves the shape of the
+            # record alone -- column filtering and declared typing stay in
+            # ``queue_records``, where a keyed import never passes (its key columns
+            # need not be declared on the model).
+            records = apply_converters(records, converters)
             if target is None:
                 if not dry_run:
                     self.queue_records(records)

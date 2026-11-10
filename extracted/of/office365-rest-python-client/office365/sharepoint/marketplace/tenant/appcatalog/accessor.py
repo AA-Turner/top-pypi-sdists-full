@@ -4,6 +4,7 @@ from uuid import UUID
 
 from typing_extensions import Self
 
+from office365.permissions.roles import DirectoryRole
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
@@ -25,11 +26,13 @@ from office365.sharepoint.marketplace.corporatecuratedgallery.spappaddanddeployr
 )
 from office365.sharepoint.marketplace.corporatecuratedgallery.teams_package_download import TeamsPackageDownload
 from office365.sharepoint.marketplace.sitecollection.appcatalog.allowed_items import SiteCollectionAppCatalogAllowedItems
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class TenantCorporateCatalogAccessor(Entity):
     """Accessor for the tenant corporate catalog."""
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add(self, content: bytes, overwrite: bool, url: Optional[str] = None) -> File:
         """Adds a file to the corporate catalog.
 
@@ -54,6 +57,7 @@ class TenantCorporateCatalogAccessor(Entity):
         url = os.path.basename(path)
         return self.add(content=content, overwrite=overwrite, url=url)
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def app_requests(self) -> ClientResult[SPStoreAppResponseInformation]:
         """"""
         return_type = ClientResult(self.context, SPStoreAppResponseInformation())
@@ -62,6 +66,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def download_teams_solution(self, id_: int) -> TeamsPackageDownload:
         """Downloads a Microsoft Teams solution package associated with an app from the SharePoint App Catalog
 
@@ -81,6 +86,7 @@ class TenantCorporateCatalogAccessor(Entity):
         params = {"itemUniqueId": item_unique_id}
         return CorporateCatalogAppMetadata(self.context, ServiceOperationPath("GetAppById", params, self.resource_path))
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def is_app_upgrade_available(self, id_: int) -> ClientResult[AppUpgradeAvailability]:
         """Determines if an upgrade is available for an app in the SharePoint app catalog
 
@@ -93,6 +99,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def upload(self, content, overwrite, url, xor_hash=None):
         """"""
         payload = {"Content": content, "Overwrite": overwrite, "Url": url, "XorHash": xor_hash}
@@ -100,6 +107,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE, role=DirectoryRole.SharePointAdministrator)
     def send_app_request_status_notification_email(self, request_guid: str) -> Self:
         """Sends email notifications about the status of an app request in the corporate app catalog
 
@@ -110,7 +118,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return self
 
-    @odata(name="AvailableApps")
+    @odata(name="AvailableApps", navigation=True, beta=True)
     @property
     def available_apps(self) -> CorporateCatalogAppMetadataCollection:
         """Returns the apps available in this corporate catalog."""
@@ -119,7 +127,7 @@ class TenantCorporateCatalogAccessor(Entity):
             CorporateCatalogAppMetadataCollection(self.context, ResourcePath("AvailableApps", self.resource_path)),
         )
 
-    @odata(name="CardDesigns")
+    @odata(name="CardDesigns", navigation=True, beta=True)
     @property
     def card_designs(self) -> CardDesigns:
         """Returns the card designs available in this corporate catalog."""
@@ -127,7 +135,7 @@ class TenantCorporateCatalogAccessor(Entity):
             "CardDesigns", CardDesigns(self.context, ResourcePath("CardDesigns", self.resource_path))
         )
 
-    @odata(name="SiteCollectionAppCatalogsSites")
+    @odata(name="SiteCollectionAppCatalogsSites", navigation=True, beta=True)
     @property
     def site_collection_app_catalogs_sites(self) -> SiteCollectionAppCatalogAllowedItems:
         """Returns an accessor to the allow list of site collections allowed to have site collection corporate
@@ -143,6 +151,7 @@ class TenantCorporateCatalogAccessor(Entity):
     def entity_type_name(self):
         return "Microsoft.SharePoint.Marketplace.CorporateCuratedGallery.TenantCorporateCatalogAccessor"
 
+    @odata(name="StoreApps", navigation=True, beta=True)
     @property
     def store_apps(self) -> EntityCollection[CorporateCatalogAppMetadata]:
         """Gets the StoreApps property"""
@@ -153,6 +162,7 @@ class TenantCorporateCatalogAccessor(Entity):
             ),
         )
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_and_deploy_store_app_by_id(
         self,
         caller_id: str,
@@ -191,6 +201,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def solution_contains_teams_component(self, id_: UUID) -> ClientResult[bool]:
         """SolutionContainsTeamsComponent operation.
 
@@ -202,6 +213,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE, role=DirectoryRole.SharePointAdministrator)
     def sync_solution_to_teams(self, id_: int) -> ClientResult[int]:
         """SyncSolutionToTeams operation.
 
@@ -213,6 +225,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE, role=DirectoryRole.SharePointAdministrator)
     def sync_solution_to_teams_by_unique_id(self, id_: UUID) -> Self:
         """SyncSolutionToTeamsByUniqueId operation.
 
@@ -223,6 +236,7 @@ class TenantCorporateCatalogAccessor(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE, role=DirectoryRole.SharePointAdministrator)
     def update_my_request_status(self, request_id: UUID, status: int) -> Self:
         """UpdateMyRequestStatus operation.
 

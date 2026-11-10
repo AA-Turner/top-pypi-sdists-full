@@ -126,6 +126,7 @@ def test_load_xml_schema_data_from_path_evicts_lru_entries(tmp_path: Path, monke
         "schema_version_mode": None,
         "use_xmlschema_datetime_default": False,
         "source_safe_non_finite": True,
+        "input_files": None,
     }
 
     def load_schema_data(path: Path, encoding: str) -> object:  # noqa: ARG001
@@ -1481,3 +1482,61 @@ def test_xmlschema_composed_content(output_file: Path, entrypoint: str, schema_g
                 json.dumps(results, indent=2) + "\n",
                 EXPECTED_XML_SCHEMA_PATH / schema_group / f"{case.get('expected', name)}.txt",
             )
+
+
+def test_main_xmlschema_warn_invalid_duration_defaults(output_file: Path) -> None:
+    """Warn about a duration default that is no lexical value of its type and keep it as written (#5536).
+
+    The type is read through restrictions of named and inline simple types; strings, lists, simple content, an
+    untyped attribute and a restriction of itself are not read as durations.
+    """
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=XML_SCHEMA_DATA_PATH / "invalid_duration_defaults.xsd",
+            output_path=output_file,
+            input_file_type="xmlschema",
+            extra_args=["--disable-timestamp", "--target-python-version", "3.10"],
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        name="warnings",
+    )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param([], id="default"),
+        pytest.param(["--ignore-ref-siblings-by-schema-version"], id="ignore-ref-siblings"),
+        pytest.param(
+            ["--ignore-ref-siblings-by-schema-version", "--read-schema-version-per-document"], id="per-document"
+        ),
+    ],
+)
+def test_main_xmlschema_named_type_element_defaults(output_file: Path, extra_args: list[str]) -> None:
+    """Keep the default and documentation of an element of a named type under the option (#6394).
+
+    The converter writes them beside the ``$ref`` to the named type, as parts of the element, so
+    --ignore-ref-siblings-by-schema-version, which ignores the keywords beside a draft 7 ``$ref``, keeps them.
+    """
+    run_main_and_assert(
+        input_path=XML_SCHEMA_DATA_PATH / "named_type_element_defaults.xsd",
+        output_path=output_file,
+        input_file_type="xmlschema",
+        extra_args=[*extra_args, "--target-python-version", "3.10", "--disable-timestamp", "--formatters", "builtin"],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="xmlschema_named_type_element_defaults",
+        model_name="Paint",
+        valid_json="{}",
+        invalid_json='{"color": "green"}',
+        expected_error_type="enum",
+        expected_attribute_path=("color",),
+        expected_attribute_value="blue",
+    )

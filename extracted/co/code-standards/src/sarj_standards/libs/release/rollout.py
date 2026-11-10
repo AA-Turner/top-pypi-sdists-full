@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -27,6 +28,7 @@ from pydantic import AliasPath, BaseModel, Field, ValidationError
 from repo_standards.repository import parse_baseline_bytes as parse_repository_baseline
 import typer
 import yaml
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
 from sarj_standards import __version__ as _controller_version
 from sarj_standards.libs.adoption import (
@@ -38,26 +40,38 @@ from sarj_standards.libs.adoption import (
     packagemanager as adoption_packagemanager,
     repository_baseline,
     scaffold as adoption_scaffold,
-    upgrade as adoption_upgrade,
+    transaction as adoption_transaction,
+    typescript_migration,
+    typescript_tooling,
     uvtool as adoption_uvtool,
 )
+from sarj_standards.libs.adoption.configs import (
+    BIOME_CONFIG_NAMES,
+    LEGACY_ESLINT_CONFIG_NAMES,
+    LEGACY_ESLINT_SUPPRESSIONS,
+    OXFMT_ENTRYPOINT,
+    OXLINT_ENTRYPOINT,
+    OXLINT_PRESET,
+    OXLINT_SUPPRESSIONS,
+)
+from sarj_standards.libs.diagnostics import baseline as diagnostic_baseline
 from sarj_standards.libs.json_boundary import parse_json, parse_json_documents
-from sarj_standards.libs.linting import eslint_directives, native_byte_bridge
+from sarj_standards.libs.linting import directive_formatter, native_byte_bridge, oxlint, oxlint_directives
 from sarj_standards.libs.release import metadata_verification, retirement
 from sarj_standards.libs.release.verification_process import BaseWatch
 from sarj_standards.libs.repository import ledger as rule_ledger, rule_catalog_artifact
+from sarj_standards.libs.rules import oxlint_ids
 from sarj_standards.libs.typed_containers import is_object_mapping
-from sarj_standards.libs.yaml_boundary import parse_yaml
+from sarj_standards.libs.yaml_boundary import compose_yaml, mapping_items, parse_yaml, scalar_value, sequence_items
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Mapping, Sequence
+    from collections.abc import Callable, Generator, Sequence
 
     from pydantic import JsonValue
 
 
-_NO_DIRECTIVE_REWRITES: Mapping[str, eslint_directives.SourcePostimage] = MappingProxyType({})
-_ESLINT_SOURCE_SUFFIXES = frozenset({".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"})
+_NO_DIRECTIVE_REWRITES: Mapping[str, oxlint_directives.SourcePostimage] = MappingProxyType({})
 
 DEFAULT_REGISTRY = Path(".sarj-standards-rollout.toml")
 DEFAULT_WORKFLOW_RUNNER = "ubuntu-latest"
@@ -91,7 +105,7 @@ VERIFICATION_UNCHANGED_DETAIL = (
     "reconcile retries once one of them changes"
 )
 CONTROLLER_MARKER_PREFIX = "<!-- sarj-standards-rollout:controller"
-RETIRED_ESLINT_SELECTORS = ("@sarj/prefer-single-sentence-comment", "@sarj/prefer-string-literal-union")
+RETIRED_SARJ_RULES = ("@sarj/prefer-single-sentence-comment", "@sarj/prefer-string-literal-union")
 SOURCE_SUFFIXES = frozenset(
     {".py", ".pyi", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".sql"}
 )
@@ -138,14 +152,12 @@ MANAGED_ROLLOUT_NAMES = frozenset(
         ".yamllint.yaml",
         "bun.lock",
         "doctor.config.json",
-        "eslint.config.js",
-        "eslint.config.mjs",
-        "eslint.config.cjs",
-        "eslint.config.ts",
-        "eslint.config.mts",
-        "eslint.config.cts",
-        "eslint.strict.mjs",
-        "eslint.strict.ts",
+        *LEGACY_ESLINT_CONFIG_NAMES,
+        OXFMT_ENTRYPOINT,
+        "oxfmt.strict.mts",
+        OXLINT_SUPPRESSIONS,
+        OXLINT_ENTRYPOINT,
+        OXLINT_PRESET,
         "package-lock.json",
         "package.json",
         "pnpm-lock.yaml",
@@ -169,9 +181,13 @@ DEFAULT_ALLOWED_ROLLOUT_PATHS = frozenset(
         "eslint.config.ts",
         "eslint.config.mts",
         "eslint.config.cts",
+        OXLINT_ENTRYPOINT,
         *MANAGED_WORKFLOW_PATHS,
     }
 )
+#: Files the TypeScript migration owns only in the adopted TypeScript root: setup adds project
+#: references to tsconfig.json and turns the Biome formatter off once oxfmt formats the repository.
+TYPESCRIPT_ROOT_ROLLOUT_NAMES = frozenset({*BIOME_CONFIG_NAMES, LEGACY_ESLINT_SUPPRESSIONS, "tsconfig.json"})
 MAX_VERIFICATION_ATTEMPTS = 2
 BASE_MANIFEST_READ_ATTEMPTS = 3
 BASE_MANIFEST_READ_RETRY_DELAY = timedelta(seconds=1)
@@ -263,6 +279,7 @@ class RolloutArgs:
     command_timeout: float = 900
     github_output: Path | None = None
     enable_repository_rules: tuple[str, ...] = ()
+    preserve_baselines: bool = False
 
 
 class CommandRunner(Protocol):
@@ -905,7 +922,9 @@ def map_consumers(
         return tuple(pool.map(run_consumer, consumers))
 
 
-def changed_paths(repo: Path, runner: CommandRunner) -> tuple[str, ...]:
+def changed_paths(
+    repo: Path, runner: CommandRunner, *, deletions: frozenset[str] = MANAGED_DELETIONS
+) -> tuple[str, ...]:
     result = runner.run(("git", "status", "--porcelain=v1", "-z", "--untracked-files=all"), cwd=repo)
     fields = [field for field in (result.stdout or "").split("\0") if field]
     paths: list[str] = []
@@ -916,7 +935,7 @@ def changed_paths(repo: Path, runner: CommandRunner) -> tuple[str, ...]:
             msg = "git returned an invalid porcelain status record"
             raise RolloutError(msg)
         state, path = record[:2], record[3:]
-        if "R" in state or ("D" in state and path not in MANAGED_DELETIONS):
+        if "R" in state or ("D" in state and path not in deletions):
             msg = f"update may not delete or rename files: {path}"
             raise RolloutError(msg)
         paths.append(path)
@@ -924,11 +943,13 @@ def changed_paths(repo: Path, runner: CommandRunner) -> tuple[str, ...]:
     return tuple(paths)
 
 
-def committed_paths(repo: Path, base: str, runner: CommandRunner) -> tuple[str, ...]:
+def committed_paths(
+    repo: Path, base: str, runner: CommandRunner, *, deletions: frozenset[str] = MANAGED_DELETIONS
+) -> tuple[str, ...]:
     comparison = f"origin/{base}...HEAD"
     renamed = stdout(runner.run(("git", "diff", "--name-only", "--diff-filter=R", comparison), cwd=repo))
     deleted = stdout(runner.run(("git", "diff", "--name-only", "--diff-filter=D", comparison), cwd=repo))
-    unsafe_deletions = tuple(path for path in deleted.splitlines() if path not in MANAGED_DELETIONS)
+    unsafe_deletions = tuple(path for path in deleted.splitlines() if path not in deletions)
     if renamed or unsafe_deletions:
         affected = renamed or ", ".join(unsafe_deletions)
         msg = f"rollout branch may not delete or rename files: {affected}"
@@ -979,11 +1000,56 @@ def native_bootstrap_rewrites(
     version: str,
 ) -> dict[str, retirement.NativePinRewrite]:
     expected: dict[str, retirement.NativePinRewrite] = {}
-    for relative, original in _tracked_shell_blobs(repo, base_sha, paths, runner).items():
-        rewritten = launcher.rewrite_native_bootstrap_pin(original.contents, version=version)
+    for relative, original in _tracked_native_bootstrap_blobs(repo, base_sha, paths, runner).items():
+        rewrite = (
+            launcher.rewrite_native_bootstrap_pin if Path(relative).suffix == ".sh" else _rewrite_native_action_pin
+        )
+        rewritten = rewrite(original.contents, version=version)
         if rewritten is not None:
             expected[relative] = retirement.NativePinRewrite(rewritten, original.mode)
     return expected
+
+
+def _rewrite_native_action_pin(source: bytes, *, version: str) -> bytes | None:
+    try:
+        text = source.decode("utf-8")
+        document = compose_yaml(text)
+    except UnicodeError, yaml.YAMLError, RecursionError:
+        return None
+    runs = _yaml_member(document, "runs")
+    using = _yaml_member(runs, "using")
+    steps = _yaml_member(runs, "steps")
+    if not isinstance(using, ScalarNode) or scalar_value(using) != "composite" or not isinstance(steps, SequenceNode):
+        return None
+    replacements: dict[tuple[int, int], str] = {}
+    for step in sequence_items(steps):
+        shell = _yaml_member(step, "shell")
+        command = _yaml_member(step, "run")
+        if not isinstance(shell, ScalarNode) or scalar_value(shell) != "bash" or not isinstance(command, ScalarNode):
+            continue
+        command_text = scalar_value(command)
+        start, end = command.start_mark.index, command.end_mark.index
+        # Keep quoted/folded scalars and scalar aliases protected; identify the literal run value.
+        if (
+            command.style is not None
+            or start < step.start_mark.index
+            or end > step.end_mark.index
+            or text[start:end] != command_text
+        ):
+            continue
+        rewritten = launcher.rewrite_native_bootstrap_pin(command_text.encode("utf-8"), version=version)
+        if rewritten is not None:
+            replacements[start, end] = rewritten.decode("utf-8")
+    for (start, end), replacement in sorted(replacements.items(), reverse=True):
+        text = text[:start] + replacement + text[end:]
+    return text.encode("utf-8") if replacements else None
+
+
+def _yaml_member(node: Node | None, name: str) -> Node | None:
+    if not isinstance(node, MappingNode):
+        return None
+    values = [value for key, value in mapping_items(node) if isinstance(key, ScalarNode) and scalar_value(key) == name]
+    return values[0] if len(values) == 1 else None
 
 
 def validate_rollout_native_pins(
@@ -997,13 +1063,13 @@ def validate_rollout_native_pins(
         permitted = retirement.validate_native_pins(repo, expected)
     except ValueError as exc:
         raise RolloutError(str(exc)) from exc
-    if revision and _tracked_shell_blobs(repo, revision, tuple(expected), runner) != expected:
+    if revision and _tracked_native_bootstrap_blobs(repo, revision, tuple(expected), runner) != expected:
         msg = "committed native bootstrap pin rewrite differs from the immutable-base expectation"
         raise RolloutError(msg)
     return permitted
 
 
-def prepare_unused_eslint_directives(
+def prepare_unused_oxlint_directives(
     repo: Path,
     runner: CommandRunner,
     tool_prefix: tuple[str, ...],
@@ -1011,67 +1077,249 @@ def prepare_unused_eslint_directives(
     environment: Mapping[str, str],
     version: str,
     base_sha: str,
-) -> Mapping[str, eslint_directives.SourcePostimage]:
+    preserve_baselines: bool = False,
+    update_postimages: Mapping[str, bytes] = MappingProxyType({}),
+    update_paths: Sequence[str] = (),
+) -> Mapping[str, oxlint_directives.SourcePostimage]:
+    if preserve_baselines:
+        return _NO_DIRECTIVE_REWRITES
     adopted = adoption_manifest.load(repo)
-    if adopted is None or "eslint" not in adopted.configs or "eslint" not in adopted.enabled_capabilities:
+    if adopted is None or adoption_lifecycle.TYPESCRIPT_CAPABILITY not in adopted.enabled_capabilities:
         return _NO_DIRECTIVE_REWRITES
     if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", base_sha) is None:
         msg = "unused directive cleanup requires the exact immutable consumer base"
         raise RolloutError(msg)
     native_environment = native_byte_bridge.child_environment(environment)
-    listed = runner.run(
-        ("git", "--no-optional-locks", "ls-files", "--cached", "-z"),
-        cwd=repo,
-        env=native_environment,
-        check=False,
-    )
-    if listed.returncode != 0:
-        msg = "could not enumerate tracked ESLint directive inputs"
-        raise RolloutError(msg)
     selected = tuple(
         relative
-        for relative in (listed.stdout or "").split("\0")
-        if relative and Path(relative).suffix.lower() in _ESLINT_SOURCE_SUFFIXES
+        for relative in _tracked_files(repo, runner, native_environment)
+        if oxlint.is_oxlint_source(Path(relative), include_config_sources=True)
     )
-
-    def run_native(
-        command: adoption_lifecycle.Command,
-    ) -> subprocess.CompletedProcess[str]:
-        return runner.run((*tool_prefix, *command.argv), cwd=command.cwd, env=native_environment, check=False)
-
+    run_native = _native_runner(runner, tool_prefix, native_environment)
     try:
-        expected = eslint_directives.plan(repo, selected, run=run_native)
+        # A migrating update seeds the oxfmt configs the formatter reads; its admitted paths are owned.
+        expected = oxlint_directives.plan(repo, selected, run=run_native, owned=update_paths)
     except (OSError, TypeError, ValueError) as exc:
-        msg = f"canonical unused ESLint directive cleanup is invalid: {exc}"
+        msg = f"canonical unused Oxlint directive cleanup is invalid: {exc}"
         raise RolloutError(msg) from exc
     if expected and version != _controller_version:
         msg = f"unused directive planning requires controller {version}; running {_controller_version}"
         raise RolloutError(msg)
+    _require_update_postimages(expected, update_postimages)
     try:
         _validate_directive_tree(
             repo,
-            {relative: (proof.before, proof.mode) for relative, proof in expected.items()},
+            {
+                relative: (proof.before, proof.mode)
+                for relative, proof in expected.items()
+                if relative not in update_postimages
+            },
             runner,
             revision=base_sha,
         )
-        eslint_directives.apply(repo, expected)
+        oxlint_directives.apply(repo, expected)
     except (OSError, TypeError, ValueError) as exc:
-        msg = f"canonical unused ESLint directive cleanup is invalid: {exc}"
+        msg = f"canonical unused Oxlint directive cleanup is invalid: {exc}"
         raise RolloutError(msg) from exc
     return expected
 
 
+def _tracked_files(repo: Path, runner: CommandRunner, environment: Mapping[str, str]) -> tuple[str, ...]:
+    listed = runner.run(
+        ("git", "--no-optional-locks", "ls-files", "--cached", "-z"), cwd=repo, env=environment, check=False
+    )
+    if listed.returncode != 0:
+        msg = "could not enumerate tracked consumer files"
+        raise RolloutError(msg)
+    return tuple(relative for relative in (listed.stdout or "").split("\0") if relative)
+
+
+def _native_runner(
+    runner: CommandRunner, tool_prefix: tuple[str, ...], environment: Mapping[str, str]
+) -> Callable[[adoption_lifecycle.Command], subprocess.CompletedProcess[str]]:
+    def run(command: adoption_lifecycle.Command) -> subprocess.CompletedProcess[str]:
+        return runner.run((*tool_prefix, *command.argv), cwd=command.cwd, env=environment, check=False)
+
+    return run
+
+
+def _require_update_postimages(
+    expected: Mapping[str, oxlint_directives.SourcePostimage], update_postimages: Mapping[str, bytes]
+) -> None:
+    # A source the update already rewrote is proven against that canonical postimage instead of the base.
+    if any(
+        update_postimages[relative] != proof.before
+        for relative, proof in expected.items()
+        if relative in update_postimages
+    ):
+        msg = "canonical unused Oxlint directive cleanup does not start from the proven update postimage"
+        raise RolloutError(msg)
+
+
+class TypescriptMigration(NamedTuple):
+    # Paths are repository-relative. `rewrites` are the migration's own source postimages, predicted on
+    # the immutable base before `update` runs; `formats` is the root the one-time oxfmt reformat covers.
+    rewrites: Mapping[str, bytes] = MappingProxyType({})
+    deletions: frozenset[str] = frozenset()
+    formats: str | None = None
+    regenerates_baseline: bool = False
+
+
+def expected_typescript_migration(
+    repo: Path, managed_paths: frozenset[str], *, target_version: str = _controller_version
+) -> TypescriptMigration:
+    adopted = load_consumer_manifest(repo, for_setup=True)
+    if adopted is None or adoption_lifecycle.TYPESCRIPT_CAPABILITY not in adopted.enabled_capabilities:
+        return TypescriptMigration()
+    repository = repo.resolve()
+    root = (repository / adopted.typescript_dest).resolve()
+    try:
+        migration = typescript_migration.plan(repository, root, adoption_doctor.authored_files(repository))
+        # Setup plans the oxfmt seeding with the migration; seeding from .oxfmtrc.json deletes it.
+        seeding = typescript_tooling.plan_oxfmt_config(root)
+    except (OSError, TypeError, ValueError) as exc:
+        msg = f"could not plan the canonical TypeScript migration: {exc}"
+        raise RolloutError(msg) from exc
+    rewrites = {
+        relative: contents.encode("utf-8")
+        for path, contents in migration.writes
+        if (relative := path.relative_to(repository).as_posix()) not in managed_paths
+    }
+    seeds_formatter = not (root / OXFMT_ENTRYPOINT).is_file()
+    deletions = {path.relative_to(repository).as_posix() for path in (*migration.deletes, *seeding.deletes)}
+    if (rewrites or deletions) and target_version != _controller_version:
+        msg = (
+            f"TypeScript migration planning requires controller {target_version}; running {_controller_version}. "
+            "Run the rollout controller from the exact target bundle."
+        )
+        raise RolloutError(msg)
+    return TypescriptMigration(
+        MappingProxyType(rewrites),
+        frozenset(deletions),
+        root.relative_to(repository).as_posix() if seeds_formatter else None,
+        regenerates_baseline=oxlint.oxlint_config(root) is None,
+    )
+
+
+def prove_typescript_migration(
+    candidates: Sequence[str],
+    expected: TypescriptMigration,
+    *,
+    read: Callable[[str], bytes],
+    base: Callable[[Sequence[str]], Mapping[str, bytes]],
+    format_source: Callable[[str, bytes], bytes],
+) -> dict[str, bytes]:
+    # Admit a changed path only when its bytes are exactly the migration's predicted rewrite, or exactly
+    # what the repository's own oxfmt makes of that rewrite (or of the base blob) in the seeding update.
+    formats = expected.formats
+    formatted = (
+        tuple(
+            relative
+            for relative in candidates
+            if relative not in expected.rewrites and (formats == "." or relative.startswith(f"{formats}/"))
+        )
+        if formats is not None
+        else ()
+    )
+    preimages = {**base(formatted), **expected.rewrites}
+    proved: dict[str, bytes] = {}
+    for relative in candidates:
+        preimage = preimages.get(relative)
+        if preimage is None:
+            continue
+        current = read(relative)
+        if current == preimage or (formats is not None and format_source(relative, preimage) == current):
+            proved[relative] = current
+    return proved
+
+
+def validate_typescript_migration(
+    repo: Path,
+    proved: Mapping[str, bytes],
+    directive_rewrites: Mapping[str, oxlint_directives.SourcePostimage] = _NO_DIRECTIVE_REWRITES,
+    deletions: frozenset[str] = frozenset(),
+) -> frozenset[str]:
+    for relative, contents in proved.items():
+        path = repo / relative
+        directive = directive_rewrites.get(relative)
+        expected = contents if directive is None else directive.after
+        if path.is_symlink() or not path.is_file() or path.read_bytes() != expected:
+            msg = f"source differs from its canonical TypeScript migration postimage: {relative}"
+            raise RolloutError(msg)
+    # A predicted deletion admits only the deletion: a file the update kept and changed stays protected.
+    deleted = {relative for relative in deletions if not (repo / relative).exists(follow_symlinks=False)}
+    return frozenset(proved) | deleted
+
+
+def _prove_update_migration(
+    repo: Path,
+    expected: TypescriptMigration,
+    *,
+    worktree_paths: Sequence[str],
+    allowed_paths: frozenset[str],
+    runner: CommandRunner,
+    tool_prefix: tuple[str, ...],
+    environment: Mapping[str, str],
+    base_sha: str,
+) -> dict[str, bytes]:
+    if expected.formats is not None and not (repo / expected.formats / OXFMT_ENTRYPOINT).is_file():
+        # The update did not seed oxfmt, so it formatted nothing.
+        expected = expected._replace(formats=None)
+    candidates = tuple(
+        relative
+        for relative in worktree_paths
+        if relative not in allowed_paths and relative not in expected.deletions and (repo / relative).is_file()
+    )
+    if not candidates:
+        return {}
+    native_environment = native_byte_bridge.child_environment(environment)
+    # The seeding update writes the oxfmt configs the formatter proof reads; they are owned paths.
+    tracked = frozenset((*_tracked_files(repo, runner, native_environment), *worktree_paths))
+    runtimes: dict[Path, directive_formatter.RuntimeProof] = {}
+    run_native = _native_runner(runner, tool_prefix, native_environment)
+
+    def format_source(relative: str, source: bytes) -> bytes:
+        owner = directive_formatter.select(
+            repo.resolve(),
+            relative,
+            tracked,
+            runtimes=runtimes,
+            _node=lambda cwd: native_byte_bridge.resolve_node(cwd, run=run_native),
+        )
+        result = native_byte_bridge.run_bytes(owner.invocation, source, run=run_native)
+        directive_formatter.validate(owner)
+        if result.returncode != 0:
+            msg = f"oxfmt could not format the base of {relative}"
+            raise RolloutError(msg)
+        return result.stdout
+
+    try:
+        return prove_typescript_migration(
+            candidates,
+            expected,
+            read=lambda relative: (repo / relative).read_bytes(),
+            base=lambda paths: {
+                relative: rewrite.contents
+                for relative, rewrite in _tracked_text_blobs(repo, base_sha, paths, runner).items()
+            },
+            format_source=format_source,
+        )
+    except (OSError, ValueError) as exc:
+        msg = f"canonical TypeScript migration proof is invalid: {exc}"
+        raise RolloutError(msg) from exc
+
+
 def validate_rollout_directives(
     repo: Path,
-    expected: Mapping[str, eslint_directives.SourcePostimage],
+    expected: Mapping[str, oxlint_directives.SourcePostimage],
     runner: CommandRunner,
     *,
     revision: str = "",
 ) -> frozenset[str]:
     try:
-        permitted = eslint_directives.validate(repo, expected)
+        permitted = oxlint_directives.validate(repo, expected)
     except (OSError, TypeError, ValueError) as exc:
-        msg = "source differs from its immutable native ESLint directive postimage"
+        msg = "source differs from its immutable native Oxlint directive postimage"
         raise RolloutError(msg) from exc
     if not revision or not permitted:
         return permitted
@@ -1145,10 +1393,21 @@ def _directive_blob_identity(contents: bytes, object_id: str) -> str:
     raise RolloutError(msg)
 
 
-def _tracked_shell_blobs(
+def _tracked_native_bootstrap_blobs(
     repo: Path, revision: str, paths: Sequence[str], runner: CommandRunner
 ) -> dict[str, retirement.NativePinRewrite]:
-    selected = tuple(path for path in paths if Path(path).suffix == ".sh")
+    selected = tuple(
+        path
+        for path in paths
+        if Path(path).suffix == ".sh"
+        or (path.startswith(".github/actions/") and Path(path).name in {"action.yml", "action.yaml"})
+    )
+    return _tracked_text_blobs(repo, revision, selected, runner)
+
+
+def _tracked_text_blobs(
+    repo: Path, revision: str, selected: Sequence[str], runner: CommandRunner
+) -> dict[str, retirement.NativePinRewrite]:
     if not selected:
         return {}
     result = runner.run(("git", "--no-replace-objects", "ls-tree", "-r", "-z", revision, "--", *selected), cwd=repo)
@@ -1222,7 +1481,7 @@ def amend_safe_changes(
     allowed_baseline_paths: frozenset[str] = frozenset(),
     allowed_paths: frozenset[str] = DEFAULT_ALLOWED_ROLLOUT_PATHS,
     native_pin_rewrites: Mapping[str, retirement.NativePinRewrite] | None = None,
-    directive_rewrites: Mapping[str, eslint_directives.SourcePostimage] = _NO_DIRECTIVE_REWRITES,
+    directive_rewrites: Mapping[str, oxlint_directives.SourcePostimage] = _NO_DIRECTIVE_REWRITES,
 ) -> bool:
     native_paths = validate_rollout_native_pins(repo, native_pin_rewrites or {}, runner)
     directive_paths = validate_rollout_directives(repo, directive_rewrites, runner)
@@ -1357,7 +1616,73 @@ def assert_baselines_unchanged(expected: Mapping[Path, bytes]) -> None:
         assert_baseline_unchanged(path, contents)
 
 
-def repository_baseline_migration(repo: Path, before: bytes | None) -> dict[Path, bytes]:
+def assert_preserved_baselines(repo: Path, expected: Mapping[Path, adoption_transaction.FileSnapshot]) -> None:
+    if not expected:
+        return
+    paths = tuple(expected)
+    adoption_transaction.validate_targets(repo, paths)
+    current = adoption_transaction.FileTransaction.capture(repo, paths, explicit_only=True).before
+    if current != expected:
+        msg = "consumer verification mutated controller-owned baseline bytes or metadata"
+        raise RolloutError(msg)
+
+
+@dataclass(frozen=True)
+class PreservedBaselines:
+    snapshots: Mapping[Path, adoption_transaction.FileSnapshot]
+    refreshed: frozenset[str] = frozenset()
+
+
+def refresh_preserved_provenance(
+    repo: Path, expected: Mapping[Path, adoption_transaction.FileSnapshot]
+) -> PreservedBaselines:
+    # A bundle update rewrites only the diagnostic baseline's provenance; accept exactly that refresh.
+    if not expected:
+        return PreservedBaselines(expected)
+    paths = tuple(expected)
+    adoption_transaction.validate_targets(repo, paths)
+    current = adoption_transaction.FileTransaction.capture(repo, paths, explicit_only=True).before
+    diagnostic = _diagnostic_baseline_path(repo)
+    for path, before in expected.items():
+        after = current[path]
+        if after != before and not (
+            path == diagnostic
+            and before.contents is not None
+            and after.contents is not None
+            and (before.mode, before.group) == (after.mode, after.group)
+            and diagnostic_baseline.provenance_only_change(before.contents, after.contents)
+        ):
+            msg = "consumer verification mutated controller-owned baseline bytes or metadata"
+            raise RolloutError(msg)
+    refreshed = frozenset(path.relative_to(repo).as_posix() for path in paths if current[path] != expected[path])
+    return PreservedBaselines(current, refreshed)
+
+
+def _diagnostic_baseline_path(repo: Path) -> Path | None:
+    adopted = load_consumer_manifest(repo)
+    return None if adopted is None or adopted.diagnostic_baseline is None else repo / adopted.diagnostic_baseline
+
+
+def snapshot_consumer_baselines(
+    repo: Path, consumer: Consumer, *, preserve_baselines: bool = True
+) -> Mapping[Path, adoption_transaction.FileSnapshot]:
+    if not preserve_baselines:
+        return {}
+    adopted = load_consumer_manifest(repo)
+    names = {repository_baseline.PATH, *consumer.baseline_paths}
+    if adopted is not None and adopted.diagnostic_baseline is not None:
+        names.add(adopted.diagnostic_baseline)
+    paths = tuple(repo / name for name in sorted(names))
+    adoption_transaction.validate_targets(repo, paths)
+    return adoption_transaction.FileTransaction.capture(repo, paths, explicit_only=True).before
+
+
+def repository_baseline_migration(
+    repo: Path,
+    before: bytes | None,
+    previous_manifest: bytes | None = None,
+    retired: frozenset[str] = frozenset(),
+) -> dict[Path, bytes]:
     path = repo / repository_baseline.PATH
     after = repository_baseline.read_optional(repo)
     if after is None:
@@ -1370,11 +1695,10 @@ def repository_baseline_migration(repo: Path, before: bytes | None) -> dict[Path
         raise RolloutError(msg)
     try:
         target = parse_repository_baseline(after).policy_version
-        expected = repository_baseline.migrate(
-            before,
-            (repo / ".repo-standards/repository.toml").read_bytes(),
-            target_policy_version=target,
-        )
+        manifest = (repo / ".repo-standards/repository.toml").read_bytes()
+        if previous_manifest is not None:
+            before = repository_baseline.rescope(before, previous_manifest, manifest, retired)
+        expected = repository_baseline.migrate(before, manifest, target_policy_version=target)
     except (OSError, TypeError, ValueError) as exc:
         msg = f"rollout repository baseline migration is not compatible: {exc}"
         raise RolloutError(msg) from exc
@@ -1382,6 +1706,11 @@ def repository_baseline_migration(repo: Path, before: bytes | None) -> dict[Path
         msg = "rollout changed repository baseline fields beyond reviewed policy metadata"
         raise RolloutError(msg)
     return {path: after}
+
+
+def _repository_manifest(repo: Path) -> bytes | None:
+    path = repo / ".repo-standards/repository.toml"
+    return path.read_bytes() if path.is_file() else None
 
 
 def load_consumer_manifest(repo: Path, *, for_setup: bool = False) -> adoption_manifest.Manifest | None:
@@ -1403,8 +1732,8 @@ def managed_rollout_paths(repo: Path, workflow_paths: frozenset[str]) -> frozens
     if adopted is not None:
         roots.update({repo / adopted.python_dest, repo / adopted.typescript_dest})
         allowed.update(
-            path.relative_to(repo.resolve()).as_posix()
-            for path in adoption_upgrade.planned_eslint_declaration_paths(repo, adopted)
+            (repo / adopted.typescript_dest / name).relative_to(repo).as_posix()
+            for name in TYPESCRIPT_ROOT_ROLLOUT_NAMES
         )
         if adopted.hook_manager == "lefthook" and (lefthook := adoption_hooks.lefthook_config(repo)) is not None:
             allowed.add(lefthook.relative_to(repo).as_posix())
@@ -1493,7 +1822,10 @@ def run_consumer_bootstrap(
         repo / adopted.typescript_dest,
         repo,
     )
-    javascript_roots = secondary_javascript_roots(repo, primary_typescript_root)
+    javascript_roots = (
+        *_uninstalled_primary_javascript(primary_typescript_root),
+        *secondary_javascript_roots(repo, primary_typescript_root),
+    )
     if javascript_roots:
         installs.append(partial(_install_secondary_javascript, javascript_roots, tool_prefix, runner, environment))
     if len(installs) > 1:
@@ -1517,6 +1849,13 @@ def run_consumer_bootstrap(
         if result.returncode != 0:
             return result
     return None
+
+
+def _uninstalled_primary_javascript(root: Path) -> tuple[Path, ...]:
+    # `update` installs the primary root only when its plan changes dependencies, so a
+    # routine bump leaves it empty; consumer bootstrap scripts still need its packages.
+    has_lock = any((root / name).is_file() for name, _manager in adoption_packagemanager.LOCKFILES)
+    return (root,) if has_lock and not (root / "node_modules").exists() else ()
 
 
 def _install_secondary_javascript(
@@ -1626,14 +1965,14 @@ def synchronize_repository_checker(repo: Path) -> bool:
     return True
 
 
-def remove_retired_eslint_suppressions(repo: Path, runner: CommandRunner) -> frozenset[str]:
+def remove_retired_lint_suppressions(repo: Path, runner: CommandRunner) -> frozenset[str]:
     matched = runner.run(
-        ("git", "grep", "-lz", "eslint-disable", "--", "*.js", "*.jsx", "*.ts", "*.tsx"),
+        ("git", "grep", "-lzE", "(eslint|oxlint)-disable", "--", "*.js", "*.jsx", "*.ts", "*.tsx"),
         cwd=repo,
         check=False,
     )
     if matched.returncode not in {0, 1}:
-        msg = "could not enumerate retired ESLint suppressions"
+        msg = "could not enumerate retired lint suppressions"
         raise RolloutError(msg)
     changed: set[str] = set()
     for relative in (item for item in (matched.stdout or "").split("\0") if item):
@@ -1642,8 +1981,8 @@ def remove_retired_eslint_suppressions(repo: Path, runner: CommandRunner) -> fro
         lines: list[str] = []
         for line in original.splitlines(keepends=True):
             updated = line
-            if "eslint-disable" in updated:
-                for selector in RETIRED_ESLINT_SELECTORS:
+            if "eslint-disable" in updated or "oxlint-disable" in updated:
+                for selector in RETIRED_SARJ_RULES:
                     updated = updated.replace(f", {selector}", "").replace(f"{selector}, ", "").replace(selector, "")
             lines.append(updated)
         rendered = "".join(lines)
@@ -1757,10 +2096,11 @@ def rollout_baseline_rules(
     catalog = rule_catalog_artifact.selector_index()
     retired = {(entry.kind, entry.id): entry for entry in rule_ledger.load().retired}
     selectors: list[str] = []
-    for selector in consumer.baseline_rules:
-        resolved = _rollout_baseline_selector(selector, catalog, retired)
-        if resolved is not None:
-            selectors.append(resolved)
+    for configured in consumer.baseline_rules:
+        for selector in oxlint_ids.canonical_selectors(configured):
+            resolved = _rollout_baseline_selector(selector, catalog, retired)
+            if resolved is not None:
+                selectors.append(resolved)
     if before != after and (after.config is not None or after.package_pin is not None):
         selectors.append("react-doctor:*")
     return tuple(dict.fromkeys(selectors))
@@ -1772,11 +2112,18 @@ def apply_one(
     runner: CommandRunner,
     *,
     dry_run: bool = False,
+    preserve_baselines: bool = False,
     enable_repository_rules: Sequence[str] = (),
 ) -> Outcome:
     with timed_progress(consumer) as report:
         return _apply_one(
-            consumer, version, runner, dry_run=dry_run, report=report, enable_repository_rules=enable_repository_rules
+            consumer,
+            version,
+            runner,
+            dry_run=dry_run,
+            preserve_baselines=preserve_baselines,
+            report=report,
+            enable_repository_rules=enable_repository_rules,
         )
 
 
@@ -1808,6 +2155,7 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
     runner: CommandRunner,
     *,
     dry_run: bool,
+    preserve_baselines: bool,
     report: Callable[[str], None],
     enable_repository_rules: Sequence[str] = (),
 ) -> Outcome:
@@ -1843,10 +2191,12 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
         if re.fullmatch(r"[0-9a-f]{40}", base_sha) is None:
             msg = f"{consumer.name}: cloned base did not resolve to a full commit SHA"
             raise RolloutError(msg)
+        preserved = snapshot_consumer_baselines(repo, consumer, preserve_baselines=preserve_baselines)
         preparation = prepare_branch(repo, version, base_sha, runner)
         branch = preparation.branch
         previous_react_doctor_policy = react_doctor_policy_snapshot(repo)
         previous_repository_baseline = repository_baseline.read_optional(repo)
+        previous_repository_manifest = _repository_manifest(repo)
         tool = (
             "uvx",
             "--no-config",
@@ -1872,6 +2222,9 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
             retired_rewrites = retirement.expected_rewrites(repo, allowed_paths, target_version=version)
         except ValueError as exc:
             raise RolloutError(str(exc)) from exc
+        migration = expected_typescript_migration(repo, allowed_paths, target_version=version)
+        deletions = MANAGED_DELETIONS | migration.deletions
+        retired_fingerprints = repository_baseline.retired_fingerprints(repo, migration.deletions)
         failures: list[str] = []
         directive_rewrites = _NO_DIRECTIVE_REWRITES
         report("updating bundle and dependencies")
@@ -1884,36 +2237,64 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
                     tool_prefix,
                     tool,
                     environment=unauthenticated,
+                    preserve_baselines=preserve_baselines,
                     enable_repository_rules=enable_repository_rules,
                 )
             except subprocess.CalledProcessError as exc:
-                msg = f"{consumer.name}: dependency installation failed before a coherent rollout patch was prepared:\n"
+                msg = f"{consumer.name}: update failed before a coherent rollout patch was prepared:\n"
                 raise RolloutError(msg + process_failure_detail(exc)) from exc
-            repository_baselines = repository_baseline_migration(repo, previous_repository_baseline)
+            refreshed_baselines = refresh_preserved_provenance(repo, preserved)
+            preserved = refreshed_baselines.snapshots
+            migration_postimages = _prove_update_migration(
+                repo,
+                migration,
+                worktree_paths=changed_paths(repo, runner, deletions=deletions),
+                allowed_paths=allowed_paths,
+                runner=candidate_runner,
+                tool_prefix=tool_prefix,
+                environment=unauthenticated,
+                base_sha=base_sha,
+            )
+            repository_baselines = repository_baseline_migration(
+                repo, previous_repository_baseline, previous_repository_manifest, retired_fingerprints
+            )
             assert_consumer_base_current(consumer, base_sha, runner)
-            report("bootstrapping consumer and refreshing scoped baselines")
+            report("bootstrapping consumer and checking baseline state")
             baseline_rules = rollout_baseline_rules(
                 consumer,
                 previous_react_doctor_policy,
                 react_doctor_policy_snapshot(repo),
             )
             allowed_baseline_paths, baseline_path, expected_baseline, bootstrap = _prepare_rollout_baseline(
-                consumer, repo, candidate_runner, baseline_rules, tool_prefix, tool=tool, environment=unauthenticated
+                consumer,
+                repo,
+                candidate_runner,
+                baseline_rules,
+                tool_prefix,
+                tool=tool,
+                environment=unauthenticated,
+                preserve_baselines=preserve_baselines,
+                repository_baseline_paths=tuple(repository_baselines),
+                regenerate=migration.regenerates_baseline,
             )
-            allowed_baseline_paths |= frozenset(path.relative_to(repo).as_posix() for path in repository_baselines)
+            allowed_baseline_paths |= refreshed_baselines.refreshed
+            assert_preserved_baselines(repo, preserved)
             if bootstrap is None:
-                if eslint_directives.SUPPORTS_DIRECTIVE_REWRITES:
-                    report("preparing canonical unused ESLint directive cleanup")
-                    directive_rewrites = prepare_unused_eslint_directives(
+                if oxlint_directives.SUPPORTS_DIRECTIVE_REWRITES:
+                    report("checking canonical Oxlint directive state")
+                    directive_rewrites = prepare_unused_oxlint_directives(
                         repo,
                         candidate_runner,
                         tool_prefix,
                         environment=unauthenticated,
                         version=version,
                         base_sha=base_sha,
+                        preserve_baselines=preserve_baselines,
+                        update_postimages=migration_postimages,
+                        update_paths=changed_paths(repo, candidate_runner, deletions=deletions),
                     )
                 else:
-                    report("leaving ESLint directives unchanged: canonical rewrites require POSIX privacy checks")
+                    report("leaving Oxlint directives unchanged: canonical rewrites require POSIX privacy checks")
             assert_baseline_unchanged(baseline_path, expected_baseline)
             assert_baselines_unchanged(repository_baselines)
             report("diagnosing adoption")
@@ -1923,20 +2304,31 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
             assert_baseline_unchanged(baseline_path, expected_baseline)
             assert_baselines_unchanged(repository_baselines)
             consumer_baselines = _update_consumer_baselines(
-                consumer, repo, candidate_runner, tool_prefix, bootstrap, environment=unauthenticated, failures=failures
+                consumer,
+                repo,
+                candidate_runner,
+                tool_prefix,
+                bootstrap,
+                environment=unauthenticated,
+                failures=failures,
+                preserve_baselines=preserve_baselines,
             )
+            assert_preserved_baselines(repo, preserved)
             assert_baselines_unchanged(repository_baselines)
             consumer_baselines.update(repository_baselines)
-        worktree_paths = changed_paths(repo, runner)
+        worktree_paths = changed_paths(repo, runner, deletions=deletions)
         allowed_workflow_paths = pin_workflow_paths | canonical_commit_policy_workflow_paths(repo, worktree_paths)
         retired_paths = _validate_rollout_retirements(repo, retired_rewrites)
         directive_paths = validate_rollout_directives(repo, directive_rewrites, runner)
+        migration_paths = validate_typescript_migration(repo, migration_postimages, directive_rewrites, deletions)
         native_pin_rewrites = native_bootstrap_rewrites(repo, base_sha, worktree_paths, runner, version=version)
         native_paths = validate_rollout_native_pins(repo, native_pin_rewrites, runner)
-        retired_baselines = frozenset(path for path in retired_paths if "baseline" in path.lower())
+        retired_baselines = frozenset(
+            path for path in retired_paths if not preserve_baselines and "baseline" in path.lower()
+        )
         reject_unsafe_diff(
             worktree_paths,
-            allowed_source_paths=retired_paths | native_paths | directive_paths,
+            allowed_source_paths=retired_paths | native_paths | directive_paths | migration_paths,
             allowed_workflow_paths=allowed_workflow_paths,
             allowed_baseline_paths=allowed_baseline_paths | retired_baselines,
             allowed_paths=allowed_paths,
@@ -1972,14 +2364,15 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
             if verification_failure_detail:
                 failures.append("consumer verification failed:\n" + verification_failure_detail)
         verification_failure = "\n\n".join(failures)[-4000:]
-        branch_paths = committed_paths(repo, consumer.branch, runner)
+        branch_paths = committed_paths(repo, consumer.branch, runner, deletions=deletions)
         allowed_workflow_paths = pin_workflow_paths | canonical_commit_policy_workflow_paths(repo, branch_paths)
         _validate_rollout_retirements(repo, retired_rewrites)
         validate_rollout_native_pins(repo, native_pin_rewrites, runner, revision="HEAD")
         directive_paths = validate_rollout_directives(repo, directive_rewrites, runner, revision="HEAD")
+        validate_typescript_migration(repo, migration_postimages, directive_rewrites)
         reject_unsafe_diff(
             branch_paths,
-            allowed_source_paths=retired_paths | native_paths | directive_paths,
+            allowed_source_paths=retired_paths | native_paths | directive_paths | migration_paths,
             allowed_workflow_paths=allowed_workflow_paths,
             allowed_baseline_paths=allowed_baseline_paths | retired_baselines,
             allowed_paths=allowed_paths,
@@ -1991,6 +2384,7 @@ def _apply_one(  # ruff: ignore[too-many-locals] - one transaction binds verific
             comparison=f"origin/{consumer.branch}...HEAD",
         )
         report("validating and pushing managed head")
+        assert_preserved_baselines(repo, preserved)
         pushed_head_sha = push_rollout_head(
             repo, consumer, preparation, base_sha, runner, version=version, environment=unauthenticated
         )
@@ -2024,9 +2418,13 @@ def update_consumer_bundle(
     tool: tuple[str, ...],
     *,
     environment: Mapping[str, str],
+    preserve_baselines: bool = False,
     sleep: Callable[[float], None] = time.sleep,
     enable_repository_rules: Sequence[str] = (),
 ) -> None:
+    if preserve_baselines and enable_repository_rules:
+        msg = "baseline-preserving rollout cannot activate repository rules; use a separate migration"
+        raise RolloutError(msg)
     # Refresh once for consumer-specific uv and newly published siblings; reuse its cache afterward.
     command = (*tool_prefix, tool[0], "--refresh", *tool[1:], "--version")
     for attempt in range(RELEASE_VISIBILITY_ATTEMPTS):
@@ -2052,7 +2450,8 @@ def update_consumer_bundle(
     # The CLI still rejects an executing-version mismatch, installs consumer
     # dependencies and performs its complete preflight/postflight checks.
     update_environment = {**environment, "SARJ_STANDARDS_BOOTSTRAPPED": "1"}
-    runner.run((*tool_prefix, *tool, "update", "--to", version), cwd=repo, env=update_environment)
+    options = ("--preserve-baselines",) if preserve_baselines else ()
+    runner.run((*tool_prefix, *tool, "update", "--to", version, *options), cwd=repo, env=update_environment)
     if enable_repository_rules:
         rule_options = tuple(f"--enable-repository-rule={rule_id}" for rule_id in enable_repository_rules)
         runner.run((*tool_prefix, *tool, "setup", "--no-install", *rule_options), cwd=repo, env=environment)
@@ -2152,6 +2551,7 @@ def apply(
     runner: CommandRunner,
     *,
     dry_run: bool = False,
+    preserve_baselines: bool = False,
     consumer: str | None = None,
     jobs: int = 1,
     enable_repository_rules: Sequence[str] = (),
@@ -2179,7 +2579,13 @@ def apply(
     settled.update(
         (item.consumer, item)
         for item in _apply_consumers(
-            ready, version, runner, dry_run=dry_run, jobs=jobs, enable_repository_rules=enable_repository_rules
+            ready,
+            version,
+            runner,
+            dry_run=dry_run,
+            preserve_baselines=preserve_baselines,
+            jobs=jobs,
+            enable_repository_rules=enable_repository_rules,
         )
     )
     return tuple(settled[item] for item in targets)
@@ -2301,6 +2707,7 @@ def execute(args: RolloutArgs, runner: CommandRunner) -> int:
                 consumers,
                 runner,
                 dry_run=args.dry_run,
+                preserve_baselines=args.preserve_baselines,
                 consumer=args.consumer,
                 jobs=args.jobs,
                 enable_repository_rules=args.enable_repository_rules,
@@ -2363,6 +2770,7 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         channel: RolloutChannel,
         *,
         dry_run: bool = False,
+        preserve_baselines: bool = False,
         consumer: str | None = None,
         enable_repository_rules: Sequence[str] = (),
     ) -> None:
@@ -2371,6 +2779,7 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         args.version = version
         args.channel = channel
         args.dry_run = dry_run
+        args.preserve_baselines = preserve_baselines
         args.consumer = consumer
         args.enable_repository_rules = tuple(enable_repository_rules)
         exit_code = _execute_cli(args, runner or SubprocessRunner(command_timeout=args.command_timeout))
@@ -2404,6 +2813,9 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         version: Annotated[str, typer.Option("--version")],
         channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
         dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+        preserve_baselines: Annotated[
+            bool, typer.Option("--preserve-baselines", help="preserve baseline bytes and suppressions")
+        ] = False,
         consumer: Annotated[
             str | None, typer.Option("--consumer", help="repository@branch; default: every consumer")
         ] = None,
@@ -2417,6 +2829,7 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
             version,
             channel,
             dry_run=dry_run,
+            preserve_baselines=preserve_baselines,
             consumer=consumer,
             enable_repository_rules=enable_repository_rule or (),
         )
@@ -2442,11 +2855,21 @@ def main(argv: Sequence[str] | None = None, *, runner: CommandRunner | None = No
         version: Annotated[str | None, typer.Option("--version", help="default: latest published version")] = None,
         channel: Annotated[RolloutChannel, typer.Option("--channel")] = RolloutChannel.STABLE,
         dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+        preserve_baselines: Annotated[
+            bool, typer.Option("--preserve-baselines", help="preserve baseline bytes and suppressions")
+        ] = False,
         consumer: Annotated[
             str | None, typer.Option("--consumer", help="repository@branch; default: every consumer")
         ] = None,
     ) -> None:
-        run(RolloutCommand.RECONCILE, version, channel, dry_run=dry_run, consumer=consumer)
+        run(
+            RolloutCommand.RECONCILE,
+            version,
+            channel,
+            dry_run=dry_run,
+            preserve_baselines=preserve_baselines,
+            consumer=consumer,
+        )
 
     try:
         app(args=None if argv is None else list(argv), prog_name="standards-rollout")
@@ -2698,12 +3121,20 @@ def _apply_consumers(
     runner: CommandRunner,
     *,
     dry_run: bool,
+    preserve_baselines: bool = False,
     jobs: int = 1,
     enable_repository_rules: Sequence[str] = (),
 ) -> tuple[Outcome, ...]:
     return map_consumers(
         consumers,
-        lambda item: apply_one(item, version, runner, dry_run=dry_run, enable_repository_rules=enable_repository_rules),
+        lambda item: apply_one(
+            item,
+            version,
+            runner,
+            dry_run=dry_run,
+            preserve_baselines=preserve_baselines,
+            enable_repository_rules=enable_repository_rules,
+        ),
         jobs=jobs,
     )
 
@@ -2766,7 +3197,7 @@ def _publish_rollout_pull(
             reject_rollout_downgrade(desired_version(str(pull.get("body", ""))), version)
         except RolloutError as exc:
             return Outcome(consumer, OutcomeState.BLOCKED, str(pull.get("url", "")), str(exc))
-    body = _rollout_pull_body(
+    body = rollout_pull_body(
         consumer,
         version,
         pushed_head_sha=pushed_head_sha,
@@ -2858,7 +3289,7 @@ def _publish_rollout_pull(
     return Outcome(consumer, OutcomeState.PR_OPEN, url)
 
 
-def _rollout_pull_body(
+def rollout_pull_body(
     consumer: Consumer,
     version: str,
     *,
@@ -2871,35 +3302,29 @@ def _rollout_pull_body(
         if (marker := controller_marker()) is not None:
             markers += f"{marker}\n"
         markers += f"{VERIFICATION_FAILED_MARKER}\n"
-        evidence = (
-            "Controller preparation or verification is blocked; later configured checks may not have run.\n\n"
-            f"Consumer verification is blocked:\n\n```text\n{verification_failure}\n```"
+        longest_backticks = max(
+            (match.end() - match.start() for match in re.finditer(r"`+", verification_failure)), default=0
         )
+        fence = "`" * max(3, longest_backticks + 1)
+        evidence = f"Checks blocked; later checks may be unrun.\n\n{fence}text\n{verification_failure}\n{fence}"
     elif consumer.verify:
-        evidence = (
-            "Controller preparation and selected local verification completed for the candidate tree. "
-            "The published head retains the verified tree and consumer base."
-        )
+        evidence = "Selected checks passed for tree/base."
     else:
-        evidence = "No consumer verification command is configured; no consumer checks are claimed."
-    paths = "\n".join(f"    {json.dumps(path)}" for path in sorted(branch_paths))
+        evidence = "No local checks configured."
+    verification = "decent 👀" if consumer.verify and not verification_failure else "poor ⚠️"
     return (
         f"{markers}\n## Summary\n\n"
-        f"Adopt the published Standards bundle for `{consumer.identity}`.\n\n"
-        f"## What & why\n\nDesired bundle: `code-standards=={version}`.\n\n"
-        f"## Scope accounting\n\nExact pushed head: `{pushed_head_sha}`.\n\n"
-        f"Committed paths ({len(branch_paths)}):\n\n{paths}\n\n"
-        "## One-way or two-way door\n\n"
-        "Two-way door through a reviewed revert of the complete committed diff.\n\n"
-        "## QA impact / blast radius\n\n"
-        "This consumer's developer and CI gates can change with the bundle, generated configuration and dependencies.\n\n"
-        "Manual verification instructions (not recorded executions):\n\n"
-        f"1. Check out `{pushed_head_sha}`.\n"
-        "2. Review every committed path, including generated configuration, pins, locks and any baseline changes.\n"
-        "3. Run the registered consumer verification and inspect hosted CI and required reviews before merging.\n\n"
+        f"Adopt `code-standards=={version}`.\n\n"
+        "## What & why\n\nSync published tooling.\n\n"
+        f"## Scope accounting\n\nHead: `{pushed_head_sha}`.\n\n"
+        f"[{len(branch_paths)} paths](https://github.com/{consumer.repository}/commit/{pushed_head_sha}).\n\n"
+        "## One-way or two-way door\n\nRevert the PR.\n\n"
+        "## QA impact / blast radius\n\nTools, CI and dependencies.\n\n"
         f"## Test evidence\n\n{evidence}\n\n"
-        "Hosted CI, required approvals and product QA remain separate gates.\n\n"
-        "## Design\n\nN/A: tooling adoption has no visual design change.\n\nGenerated by `make rollout`."
+        "CI, approvals and product QA remain.\n\nGenerated by `make rollout`.\n\n"
+        "## Merge Risk\n\n"
+        "Merge Risk: medium\nAlignment: good ✅\nImpact: medium 👀\n"
+        f"Verification: {verification}\nRollback cost: low ✅\nError detection: decent 👀"
     )
 
 
@@ -2945,14 +3370,21 @@ def _prepare_rollout_baseline(
     *,
     tool: tuple[str, ...],
     environment: Mapping[str, str],
+    preserve_baselines: bool = False,
+    repository_baseline_paths: Sequence[Path] = (),
+    regenerate: bool = False,
 ) -> _RolloutBaseline:
     adopted = load_consumer_manifest(repo)
     baseline_relative = None if adopted is None else adopted.diagnostic_baseline
     allowed_baseline_paths = frozenset(
-        (*(() if baseline_relative is None else (baseline_relative,)), *consumer.baseline_paths)
+        (
+            *(() if baseline_relative is None else (baseline_relative,)),
+            *consumer.baseline_paths,
+            *(path.relative_to(repo).as_posix() for path in repository_baseline_paths),
+        )
     )
     baseline_path = None if baseline_relative is None else repo / baseline_relative
-    if baseline_rules and (baseline_path is None or baseline_relative is None):
+    if baseline_rules and not preserve_baselines and (baseline_path is None or baseline_relative is None):
         msg = (
             f"{consumer.name}: registry declares promoted baseline rules, but the updated "
             "consumer manifest does not declare diagnostic_baseline"
@@ -2960,30 +3392,56 @@ def _prepare_rollout_baseline(
         raise RolloutError(msg)
     # Declared generators must finish before analysis captures accepted diagnostics.
     bootstrap = _bootstrap_for_baseline(repo, tool_prefix, runner, environment, baseline_path=baseline_path)
-    if bootstrap is None and baseline_path is not None and baseline_relative is not None and baseline_rules:
-        baseline_command = [
-            *tool_prefix,
-            *tool,
-            "baseline",
-            "update",
-            "--output",
-            baseline_relative,
-            "--trust-repository-code",
-            "--jobs",
-            str(consumer.baseline_jobs),
-        ]
-        for selector in baseline_rules:
-            baseline_command.extend(("--rule", selector))
-        try:
-            runner.run(tuple(baseline_command), cwd=repo, env=environment)
-        except subprocess.CalledProcessError as exc:
-            msg = f"{consumer.name}: scoped diagnostic baseline generation failed:\n"
-            raise RolloutError(msg + process_failure_detail(exc)) from exc
-        if not baseline_path.is_file():
-            msg = f"{consumer.name}: scoped diagnostic baseline generation did not create {baseline_path}"
-            raise RolloutError(msg)
+    updates_baseline = bool(baseline_rules) or regenerate
+    if not preserve_baselines and bootstrap is None and baseline_path is not None and updates_baseline:
+        # ESLint-era fingerprints cannot be recomputed for Oxlint findings, so the switch to Oxlint
+        # regenerates the whole baseline instead of translating it; that covers any promoted rules too.
+        _generate_baseline(
+            consumer,
+            repo,
+            runner=runner,
+            tool=(*tool_prefix, *tool),
+            environment=environment,
+            baseline_path=baseline_path,
+            selectors=() if regenerate else baseline_rules,
+        )
     expected_baseline = None if baseline_path is None or not baseline_path.is_file() else baseline_path.read_bytes()
-    return _RolloutBaseline(allowed_baseline_paths, baseline_path, expected_baseline, bootstrap)
+    return _RolloutBaseline(
+        frozenset() if preserve_baselines else allowed_baseline_paths, baseline_path, expected_baseline, bootstrap
+    )
+
+
+def _generate_baseline(
+    consumer: Consumer,
+    repo: Path,
+    *,
+    runner: CommandRunner,
+    tool: tuple[str, ...],
+    environment: Mapping[str, str],
+    baseline_path: Path,
+    selectors: Sequence[str],
+) -> None:
+    command = [
+        *tool,
+        "baseline",
+        "update",
+        "--output",
+        baseline_path.relative_to(repo).as_posix(),
+        "--trust-repository-code",
+        "--jobs",
+        str(consumer.baseline_jobs),
+    ]
+    for selector in selectors:
+        command.extend(("--rule", selector))
+    scope = "scoped " if selectors else ""
+    try:
+        runner.run(tuple(command), cwd=repo, env=environment)
+    except subprocess.CalledProcessError as exc:
+        msg = f"{consumer.name}: {scope}diagnostic baseline generation failed:\n"
+        raise RolloutError(msg + process_failure_detail(exc)) from exc
+    if not baseline_path.is_file():
+        msg = f"{consumer.name}: {scope}diagnostic baseline generation did not create {baseline_path}"
+        raise RolloutError(msg)
 
 
 def _bootstrap_for_baseline(
@@ -3030,7 +3488,7 @@ def _verify_rollout_patch(
     allowed_paths: frozenset[str],
     standards_tool: tuple[str, ...] = (),
     native_pin_rewrites: Mapping[str, retirement.NativePinRewrite] | None = None,
-    directive_rewrites: Mapping[str, eslint_directives.SourcePostimage] = _NO_DIRECTIVE_REWRITES,
+    directive_rewrites: Mapping[str, oxlint_directives.SourcePostimage] = _NO_DIRECTIVE_REWRITES,
 ) -> str:
     verification_failure_detail = ""
     for attempt in range(MAX_VERIFICATION_ATTEMPTS):
@@ -3200,8 +3658,9 @@ def _update_consumer_baselines(
     *,
     environment: Mapping[str, str],
     failures: list[str],
+    preserve_baselines: bool = False,
 ) -> dict[Path, bytes]:
-    if bootstrap is None and consumer.baseline_update:
+    if bootstrap is None and consumer.baseline_update and not preserve_baselines:
         baseline_update = runner.run(
             (*tool_prefix, *consumer.baseline_update),
             cwd=repo,

@@ -5,6 +5,7 @@ Generates a comprehensive report of every LiveView and LiveComponent: what they
 expose, how they're configured, and what decorators protect them.
 
 Usage:
+    python manage.py djust_audit --ast              # security + UI rules
     python manage.py djust_audit                  # pretty terminal output
     python manage.py djust_audit --json           # machine-readable JSON
     python manage.py djust_audit --app myapp      # filter to one Django app
@@ -24,6 +25,7 @@ from django.core.management.base import CommandParser, BaseCommand
 
 # Shared class-introspection helpers live in djust.management._introspect so
 # djust_audit and djust_typecheck stay in sync.
+from djust.auth.any_of import permission_spec_to_document
 from djust.management._introspect import app_label_for_class as _app_label_for_class
 from djust.management._introspect import is_user_class as _is_user_class
 from djust.management._introspect import walk_subclasses as _walk_subclasses
@@ -41,6 +43,7 @@ KNOWN_MIXINS = {
     "OfflineMixin",
     "SyncMixin",
     "FormMixin",
+    "ModelFormMixin",
 }
 
 # Decorator keys stored in _djust_decorators (besides 'event_handler')
@@ -58,40 +61,19 @@ _DECORATOR_KEYS = {
 def _get_handler_metadata(
     cls: type, base_classes: Optional[list[type]] = None
 ) -> Iterator[tuple[str, dict[str, Any]]]:
-    """Extract event handler metadata from class without instantiating.
+    """Event handler metadata of ``cls``, by name, without instantiating it.
 
-    Skips handlers that are defined only on base framework classes (e.g.,
-    update_model from ModelBindingMixin) unless overridden by the user class.
+    Handlers come from ``_parameter_metadata.declared_handlers``, the discovery
+    dispatch uses (ADR-037 D1). A handler whose resolving declaration belongs
+    to one of ``base_classes`` (e.g. ``update_model`` from ``ModelBindingMixin``
+    on ``LiveView``) is framework surface, not the application's, and is skipped.
     """
-    # Collect handler names defined on framework base classes
-    base_handler_names = set()
-    if base_classes:
-        for base in base_classes:
-            for name in dir(base):
-                if name.startswith("_"):
-                    continue
-                try:
-                    attr = getattr(base, name, None)
-                except Exception:
-                    continue
-                if callable(attr) and hasattr(attr, "_djust_decorators"):
-                    if "event_handler" in attr._djust_decorators:
-                        base_handler_names.add(name)
+    from djust._parameter_metadata import declared_handlers
 
-    for name in sorted(dir(cls)):
-        if name.startswith("_"):
-            continue
-        # Skip handlers inherited unchanged from framework base
-        if name in base_handler_names and name not in cls.__dict__:
-            continue
-        try:
-            attr = getattr(cls, name, None)
-        except Exception:
-            continue
-        if callable(attr) and hasattr(attr, "_djust_decorators"):
-            meta = attr._djust_decorators
-            if "event_handler" in meta:
-                yield name, meta
+    framework = {klass for base in base_classes or () for klass in base.__mro__}
+    handlers = [h for h in declared_handlers(cls) if h.owner not in framework]
+    for handler in sorted(handlers, key=lambda h: h.name):
+        yield handler.name, vars(handler.function)["_djust_decorators"]
 
 
 def _format_handler_params(handler_meta: dict[str, Any]) -> str:
@@ -220,6 +202,7 @@ def _extract_auth_info(cls: type) -> dict[str, Any]:
 
     Returns:
         dict with keys like 'login_required', 'permission_required',
+        'permission_required_any' (one list per AnyOf group),
         'custom_check', 'dispatch_mixin'.
     """
     info: dict[str, Any] = {}
@@ -227,7 +210,13 @@ def _extract_auth_info(cls: type) -> dict[str, Any]:
         info["login_required"] = True
     perm = getattr(cls, "permission_required", None)
     if perm:
-        info["permission_required"] = perm if isinstance(perm, list) else [perm]
+        # ``permission_required`` is the all-of list; each AnyOf group is a
+        # list in ``permission_required_any`` (djust.auth.any_of).
+        all_of, any_of = permission_spec_to_document(perm)
+        if all_of:
+            info["permission_required"] = all_of
+        if any_of:
+            info["permission_required_any"] = any_of
     # Check if check_permissions is overridden by a user class
     for klass in cls.__mro__:
         if klass.__name__ in ("LiveView", "LiveComponent", "object"):
@@ -311,7 +300,38 @@ def _audit_class(
     if template_vars is not None:
         result["template_vars"] = template_vars
 
+    # The declared query budget (#3701), read by the same ``declared_budget`` as
+    # the smoke test, the run-time meter and the system check, so the listing says
+    # what they enforce: the normalized budget (JSON-safe), or None plus the reason
+    # it is invalid (a bad declaration never crashes the audit, and is never shown
+    # as a budget).
+    if cls_type == "LiveView":
+        from djust._query_budget import declared_budget, is_declared
+
+        result["query_budget"] = None
+        if is_declared(cls):
+            try:
+                result["query_budget"] = declared_budget(cls).declared()
+            except ValueError as exc:
+                result["query_budget_error"] = str(exc)[:300]
+
     return result
+
+
+def _describe_query_budget(audit: dict[str, Any]) -> str:
+    """The ``Query budget:`` line for the report."""
+    if audit.get("query_budget_error"):
+        return "invalid: %s" % audit["query_budget_error"]
+    budget = audit.get("query_budget")
+    if budget is None:
+        return "(none)"
+    if not isinstance(budget, dict):
+        return "%s (mount + first render)" % (budget,)
+    parts = ["%s %s" % (key, budget[key]) for key in ("mount", "render", "event") if key in budget]
+    events = budget.get("events")
+    if events:
+        parts.append("events " + ", ".join("%s %s" % (name, n) for name, n in events.items()))
+    return ", ".join(parts) if parts else "(empty)"
 
 
 def _extract_vars(cls: type) -> Optional[Any]:
@@ -450,7 +470,7 @@ class Command(BaseCommand):
                 "user Python and template files looking for IDOR, missing "
                 "auth on state-mutating handlers, SQL string formatting, "
                 "open redirects, and mark_safe/|safe abuse. Emits stable "
-                "X001-X007 finding codes."
+                "X001-X008 security codes and X101-X106 UI-component warnings (ADR-043)."
             ),
         )
         parser.add_argument(
@@ -475,6 +495,18 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--ast-no-ui",
+            action="store_true",
+            dest="ast_no_ui",
+            help="Skip the X1xx UI-component rules in --ast mode.",
+        )
+        parser.add_argument(
+            "--ast-no-ui-cache",
+            action="store_true",
+            dest="ast_no_ui_cache",
+            help="Do not write .djust/audit-ui.json after an --ast run.",
+        )
+        parser.add_argument(
             "--ast-no-templates",
             action="store_true",
             dest="ast_no_templates",
@@ -487,8 +519,9 @@ class Command(BaseCommand):
             help=(
                 "Run the accessibility (Y0xx) audit (#1523). Regex-scans "
                 "template files for missing accessible names, image alt "
-                "text, form-control labels, and positive tabindex. Emits "
-                "stable Y001-Y004 finding codes. All findings are warnings: "
+                "text, form-control labels, positive tabindex, charts and "
+                "svgs with no name, and colour-only legends. Emits "
+                "stable Y001-Y006 finding codes. All findings are warnings: "
                 "normal mode always exits 0; --strict exits 1 if any "
                 "finding exists."
             ),
@@ -558,9 +591,25 @@ class Command(BaseCommand):
 
         return None
 
+    def _static_dirs_from_settings(self) -> list:
+        """Read configured static directories without requiring Django setup."""
+        from django.conf import settings
+        from django.core.exceptions import ImproperlyConfigured
+
+        try:
+            if not settings.configured:
+                return []
+            return list(getattr(settings, "STATICFILES_DIRS", []))
+        except (ImproperlyConfigured, TypeError, ValueError):
+            self.stderr.write(
+                "WARNING: STATICFILES_DIRS could not be read; configured stylesheets skipped."
+            )
+            return []
+
     def _run_ast_audit(self, options: dict[str, Any]) -> None:
         """Run the AST security anti-pattern scanner (#660)."""
         from djust.audit_ast import run_ast_audit
+        from djust.audit_ui import write_ui_summary
 
         root = options.get("ast_path") or os.getcwd()
         exclude = options.get("ast_exclude") or []
@@ -572,12 +621,20 @@ class Command(BaseCommand):
             root=root,
             include_templates=include_templates,
             exclude=exclude,
+            include_ui=not options.get("ast_no_ui", False),
+            static_dirs=self._static_dirs_from_settings(),
         )
+        cache_path, cache_error = None, None
+        if report.ui_ran and not options.get("ast_no_ui_cache", False):
+            cache_path, cache_error = write_ui_summary(report, root)
 
         if json_output:
-            self.stdout.write(json.dumps(report.to_dict(), indent=2))
+            payload = report.to_dict()
+            payload["ui_cache"] = cache_path
+            payload["ui_cache_error"] = cache_error
+            self.stdout.write(json.dumps(payload, indent=2))
         else:
-            self._output_ast_pretty(report, root)
+            self._output_ast_pretty(report, root, cache_path, cache_error)
 
         # Exit code mirrors --live / --permissions semantics:
         #   strict mode: any error or warning fails
@@ -588,7 +645,13 @@ class Command(BaseCommand):
             raise SystemExit(1)
         return
 
-    def _output_ast_pretty(self, report: Any, root: str) -> None:
+    def _output_ast_pretty(
+        self,
+        report: Any,
+        root: str,
+        cache_path: Optional[str] = None,
+        cache_error: Optional[str] = None,
+    ) -> None:
         """Pretty-print an ASTAuditReport to the terminal."""
         line = "=" * 50
         self.stdout.write("")
@@ -597,6 +660,17 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING(line))
         self.stdout.write(f"  Root:    {root}")
         self.stdout.write(f"  Files:   {report.files_scanned} scanned")
+        for _, reason in report.files_skipped:
+            if reason.startswith("UI rules failed:"):
+                self.stdout.write(
+                    self.style.WARNING("  WARNING: UI rules failed; UI scan incomplete.")
+                )
+                break
+        if report.ui_ran:
+            self.stdout.write(
+                f"  UI rules: {sum(report.ui_templates.values())} live template(s), "
+                f"{len(report.ui_stylesheets)} stylesheet(s)"
+            )
         self.stdout.write("")
 
         errors = report.errors
@@ -626,6 +700,10 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  Summary: {len(errors)} error(s), {len(warnings_)} warning(s), {len(infos)} info"
         )
+        if cache_path:
+            self.stdout.write(f"  UI summary: {cache_path}")
+        elif cache_error:
+            self.stdout.write(f"  UI summary not written: {cache_error}")
         self.stdout.write("")
 
     def _run_a11y_audit(self, options: dict[str, Any]) -> None:
@@ -635,7 +713,7 @@ class Command(BaseCommand):
         directly, branches on ``--json``, and applies the strict exit-code
         rule.
 
-        Exit-code nuance — Y001-Y004 are *all* :class:`DjustWarning`; there
+        Exit-code nuance — Y001-Y006 are *all* :class:`DjustWarning`; there
         is no error tier. So normal mode NEVER exits non-zero; ``--strict``
         exits 1 if any finding exists. This is consistent with ``--ast``,
         which also only fails on warnings under ``strict`` — accessibility
@@ -704,7 +782,7 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         if findings:
-            # Group findings by stable code (Y001-Y004) for readability.
+            # Group findings by stable code (Y001-Y006) for readability.
             by_code: Dict[str, list] = {}
             for f in findings:
                 by_code.setdefault(getattr(f, "id", "") or "", []).append(f)
@@ -965,6 +1043,8 @@ class Command(BaseCommand):
                     if auth.get("permission_required"):
                         perms = auth["permission_required"]
                         parts.append("permission: %s" % ", ".join(perms))
+                    for group in auth.get("permission_required_any") or ():
+                        parts.append("permission: any of %s" % " | ".join(group))
                     if auth.get("custom_check"):
                         parts.append("custom check_permissions()")
                     if auth.get("dispatch_mixin"):
@@ -985,6 +1065,9 @@ class Command(BaseCommand):
                     self.stdout.write("    Mixins:     %s" % ", ".join(audit["mixins"]))
                 else:
                     self.stdout.write("    Mixins:     (none)")
+
+                if "query_budget" in audit:
+                    self.stdout.write("    Query budget: %s" % _describe_query_budget(audit))
 
                 # Config flags
                 config = audit["config"]

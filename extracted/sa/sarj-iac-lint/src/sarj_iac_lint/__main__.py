@@ -15,11 +15,13 @@ from sarj_rule_contracts import NewlinePolicy, RuleId, fix_file, iter_source_fil
 import typer
 
 from sarj_iac_lint import __version__
-from sarj_iac_lint._hcl import suppression_comment_lines
+from sarj_iac_lint._hcl import blocks, suppression_comment_lines
 from sarj_iac_lint.autofix import fix_source
 from sarj_iac_lint.json_boundary import is_object_mapping, parse_json
 from sarj_iac_lint.rule_base import DefaultLevel, Diagnostic, is_suppressed
 from sarj_iac_lint.rules import REGISTRY
+from sarj_iac_lint.rules.no_terraform_comments import NoTerraformComments
+from sarj_iac_lint.rules.no_terraform_guard_blocks import NoTerraformGuardBlocks, guard_blocks
 
 
 if TYPE_CHECKING:
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
 
     from sarj_rule_contracts import SourceCatalog
 
+    from sarj_iac_lint._hcl import Block
+    from sarj_iac_lint.guard_contracts import GuardContracts
     from sarj_iac_lint.rule_base import Rule
 
 
@@ -80,13 +84,27 @@ def _suppression_comments(path: Path, source: str, lines: list[str]) -> Mapping[
     return suppression_comment_lines(source)
 
 
-def _check(rule_names: Sequence[str], paths: list[Path], *, sources: SourceCatalog | None = None) -> list[Diagnostic]:
+def _check(
+    rule_names: Sequence[str],
+    paths: list[Path],
+    *,
+    sources: SourceCatalog | None = None,
+    guard_contracts: GuardContracts | None = None,
+    module_summaries: bool = False,
+) -> list[Diagnostic]:
     unknown = [name for name in rule_names if name not in REGISTRY]
     if unknown:
         sys.stderr.write(f"unknown rule(s): {', '.join(unknown)}\n")
         sys.stderr.write(f"available: {', '.join(sorted(REGISTRY))}\n")
         raise SystemExit(2)
-    rules = [REGISTRY[RuleId(name)]() for name in rule_names]
+    rules: list[Rule] = []
+    for name in rule_names:
+        if name == NoTerraformGuardBlocks.id:
+            rules.append(NoTerraformGuardBlocks(guard_contracts))
+        elif name == NoTerraformComments.id:
+            rules.append(NoTerraformComments(module_summaries=module_summaries))
+        else:
+            rules.append(REGISTRY[RuleId(name)]())
     diags: list[Diagnostic] = []
     for p in _expand_paths(paths):
         source = (
@@ -110,7 +128,20 @@ def _source_diagnostics(rules: Sequence[Rule], path: Path, source: str) -> list[
             if diagnostic.suppressible and is_suppressed(lines, diagnostic.line, diagnostic.code, comments=comments):
                 continue
             diagnostics.append(diagnostic)
-    return diagnostics
+    diagnostics = _guard_ban_precedence(rules, path, source, diagnostics)
+    precedence = {
+        "SARJ204": ("SARJ221", "SARJ215"),
+        "SARJ219": ("SARJ218",),
+        "SARJ221": ("SARJ215",),
+    }
+    covered = {
+        (diagnostic.line, diagnostic.col, code)
+        for diagnostic in diagnostics
+        for code in precedence.get(diagnostic.code, ())
+    }
+    return [
+        diagnostic for diagnostic in diagnostics if (diagnostic.line, diagnostic.col, diagnostic.code) not in covered
+    ]
 
 
 def _blocking_comment_ban(rules: Sequence[Rule]) -> bool:
@@ -121,13 +152,66 @@ def _blocking_comment_ban(rules: Sequence[Rule]) -> bool:
     return False
 
 
+def _blocking_guard_rule(rules: Sequence[Rule]) -> Rule | None:
+    for rule in rules:
+        if rule.id == "no-terraform-guard-blocks":
+            documentation = rule.documentation
+            return rule if documentation is not None and documentation.default_level is DefaultLevel.ERROR else None
+    return None
+
+
+def _guard_ban_precedence(
+    rules: Sequence[Rule], path: Path, source: str, diagnostics: list[Diagnostic]
+) -> list[Diagnostic]:
+    guard_rule = _blocking_guard_rule(rules)
+    if guard_rule is None:
+        return diagnostics
+    lines = source.splitlines()
+    comments = _suppression_comments(path, source, lines)
+    guards = (
+        guard_rule.prohibited_guards(path, source)
+        if isinstance(guard_rule, NoTerraformGuardBlocks)
+        else guard_blocks(path, source)
+    )
+    banned_guards = tuple(
+        block for block in guards if not is_suppressed(lines, block.line, guard_rule.code, comments=comments)
+    )
+    if not banned_guards:
+        return diagnostics
+    covered_resources = {
+        (owner.line, owner.col) for owner in blocks(source) if _all_lifecycle_guards_banned(owner, banned_guards)
+    }
+    return [
+        diagnostic
+        for diagnostic in diagnostics
+        if not (diagnostic.code == "SARJ210" and (diagnostic.line, diagnostic.col) in covered_resources)
+        and not _covered_by_guard_ban(diagnostic, banned_guards)
+    ]
+
+
+def _all_lifecycle_guards_banned(owner: Block, guards: Sequence[Block]) -> bool:
+    lifecycle = owner.child("lifecycle")
+    if lifecycle is None:
+        return False
+    conditions = tuple(child for child in lifecycle.blocks if child.type in {"precondition", "postcondition"})
+    return bool(conditions) and all(condition in guards for condition in conditions)
+
+
+def _covered_by_guard_ban(diagnostic: Diagnostic, guards: Sequence[Block]) -> bool:
+    if diagnostic.code not in {"SARJ209", "SARJ217"}:
+        return False
+    return any(block.line <= diagnostic.line <= block.end_line for block in guards)
+
+
 def analyze(
     rule_ids: Sequence[str],  # sarj-noqa: SARJ093 -- Public parsing boundary accepts raw names.
     paths: list[Path],
     *,
     sources: SourceCatalog | None = None,
+    guard_contracts: GuardContracts | None = None,
+    module_summaries: bool = False,
 ) -> list[Diagnostic]:
-    return _check(rule_ids, paths, sources=sources)
+    return _check(rule_ids, paths, sources=sources, guard_contracts=guard_contracts, module_summaries=module_summaries)
 
 
 def _baseline_path(path: Path, *, root: Path | None = None) -> str:

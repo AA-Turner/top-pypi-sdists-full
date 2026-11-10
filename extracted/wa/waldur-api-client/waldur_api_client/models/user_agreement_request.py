@@ -1,10 +1,11 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.agreement_type_enum import AgreementTypeEnum
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="UserAgreementRequest")
 
@@ -15,12 +16,13 @@ class UserAgreementRequest:
     Attributes:
         content (str):
         agreement_type (AgreementTypeEnum):
-        language (str): ISO 639-1 language code (e.g., 'en', 'de', 'et'). Leave empty for the default version.
+        language (Union[Unset, str]): ISO 639-1 language code (e.g., 'en', 'de', 'et'). Leave empty for the default
+            version. Default: ''.
     """
 
     content: str
     agreement_type: AgreementTypeEnum
-    language: str
+    language: Union[Unset, str] = ""
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -36,9 +38,10 @@ class UserAgreementRequest:
             {
                 "content": content,
                 "agreement_type": agreement_type,
-                "language": language,
             }
         )
+        if language is not UNSET:
+            field_dict["language"] = language
 
         return field_dict
 
@@ -49,7 +52,7 @@ class UserAgreementRequest:
 
         agreement_type = AgreementTypeEnum(d.pop("agreement_type"))
 
-        language = d.pop("language")
+        language = d.pop("language", UNSET)
 
         user_agreement_request = cls(
             content=content,

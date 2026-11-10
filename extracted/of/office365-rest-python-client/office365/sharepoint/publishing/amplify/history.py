@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -7,7 +7,6 @@ from office365.sharepoint.publishing.amplify.historyresult import (
 )
 
 
-@dataclass
 class AmplifyPublishingHistory(ClientValue):
     results: ClientValueCollection[AmplifyPublishingHistoryResult] = field(
         default_factory=lambda: ClientValueCollection(AmplifyPublishingHistoryResult)

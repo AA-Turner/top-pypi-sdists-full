@@ -151,7 +151,9 @@ def prepare_image(
     data = base64.b64encode(Path(__file__).with_name("assets.tar.gz").read_bytes()).decode("ascii")
     prepared.add_commands(
         [
-            "mkdir -p /tmp/beam-vm-assets && "
+            # This step adds apt sources. Keep that setup visible to the builder
+            # so temporary mirror mounts cannot leave indexes for different sources.
+            "mkdir -p /etc/apt/keyrings /tmp/beam-vm-assets && "
             f"printf '%s' '{data}' | base64 -d | tar -xz -C /tmp/beam-vm-assets && "
             f"bash /tmp/beam-vm-assets/install {'true' if desktop or kiosk else 'false'}"
             + (" true" if kiosk else "")
@@ -452,7 +454,10 @@ class VM:
                     raise RuntimeError(f"Unable to prepare volume {selected.name}")
                 spec["volumes"].append(selected.export().to_dict(casing=betterproto.Casing.SNAKE))
 
-        if not (self.template or self._snapshot_source):
+        # Forks keep their source's SSH setting. A template's belongs to its
+        # publisher, and public templates drop it, so VMs from one get SSH with
+        # this machine's key like any new VM.
+        if not self._snapshot_source:
             spec.setdefault("ssh", True)
         if spec.get("ssh", True):
             spec["ssh_public_key"] = public_key()

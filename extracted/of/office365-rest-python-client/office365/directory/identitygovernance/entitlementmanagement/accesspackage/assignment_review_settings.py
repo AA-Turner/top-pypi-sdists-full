@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.identitygovernance.accessreview.expirationbehavior import AccessReviewExpirationBehavior
 from office365.directory.identitygovernance.entitlementmanagement.schedule import EntitlementManagementSchedule
@@ -9,7 +9,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class AccessPackageAssignmentReviewSettings(ClientValue):
     expirationBehavior: AccessReviewExpirationBehavior = AccessReviewExpirationBehavior.keepAccess
     fallbackReviewers: ClientValueCollection[SubjectSet] = field(

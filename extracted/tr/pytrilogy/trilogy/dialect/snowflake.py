@@ -3,7 +3,13 @@ from typing import ClassVar
 
 from trilogy.core.enums import FunctionType, NullSort, UnnestMode
 from trilogy.core.models.core import CONCRETE_TYPES, DataType
-from trilogy.dialect.base import BaseDialect, TableColumn, render_present_extreme
+from trilogy.dialect.base import (
+    BaseDialect,
+    TableColumn,
+    is_array_arg,
+    render_ln_log,
+    render_present_extreme,
+)
 from trilogy.dialect.common import (
     CONCAT_COALESCE_UPPER,
     SQL_STANDARD_EXTRACT,
@@ -25,8 +31,15 @@ def date_part(expr: str, part: str) -> str:
 
 
 FUNCTION_MAP = {
-    # LOG takes the base first; there is no LOG10
-    FunctionType.LOG: lambda x, types: f"LOG({x[1]}, {x[0]})",
+    FunctionType.CONTAINS: lambda x, types: (
+        f"ARRAY_CONTAINS({x[1]}::variant, {x[0]})"
+        if is_array_arg(types)
+        else f"CONTAINS(LOWER({x[0]}), LOWER({x[1]}))"
+    ),
+    # there is no STRPOS; POSITION takes the needle first
+    FunctionType.STRPOS: lambda x, types: f"POSITION({x[1]}, {x[0]})",
+    # there is no LOG10, and LOG(1, x) raises: change the base over LN
+    FunctionType.LOG: lambda x, types: render_ln_log("LN", x),
     FunctionType.GREATEST: render_present_extreme("GREATEST"),
     FunctionType.LEAST: render_present_extreme("LEAST"),
     FunctionType.BIT_AND: lambda x, types: f"BITAND({x[0]}, {x[1]})",
@@ -40,7 +53,6 @@ FUNCTION_MAP = {
     FunctionType.WEEK: lambda x, types: f"WEEKISO({x[0]})",
     # math
     FunctionType.POWER: lambda x, types: f"POWER({x[0]}, {x[1]})",
-    FunctionType.DIVIDE: lambda x, types: f"DIV0({x[0]},{x[1]})",
     FunctionType.UNNEST: lambda x, types: f"table(flatten({x[0]}))",
     FunctionType.ARRAY: lambda x, types: f"ARRAY_CONSTRUCT({', '.join(x)})",
     # no FILTER clause; ARRAY_AGG ignores NULL elements natively, and returns
@@ -80,6 +92,7 @@ class SnowflakeDialect(BaseDialect):
         DataType.TIMESTAMP: "TIMESTAMP_TZ",
     }
     QUOTE_CHARACTER = '"'
+    STRING_LITERAL_BACKSLASH_ESCAPES = True
     QUOTE_CTE_NAMES = True
     UNNEST_MODE = UnnestMode.SNOWFLAKE
     SUPPORTS_AGGREGATE_GROUPING_MODES = True

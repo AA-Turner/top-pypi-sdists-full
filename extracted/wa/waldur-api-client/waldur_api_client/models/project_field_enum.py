@@ -52,8 +52,11 @@ class ProjectFieldEnum(str, Enum):
     TYPE_UUID = "type_uuid"
     URL = "url"
     USER_AFFILIATIONS = "user_affiliations"
+    USER_ASSURANCE_LEVELS = "user_assurance_levels"
     USER_EMAIL_PATTERNS = "user_email_patterns"
     USER_IDENTITY_SOURCES = "user_identity_sources"
+    USER_NATIONALITIES = "user_nationalities"
+    USER_ORGANIZATION_TYPES = "user_organization_types"
     UUID = "uuid"
 
     def __str__(self) -> str:

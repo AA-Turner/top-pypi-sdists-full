@@ -29,15 +29,15 @@ use pyo3::{
     ffi::{PyImport_GetModule, PyList_New, PyList_SetItem, PyUnicode_AsUTF8AndSize, Py_DECREF},
     intern,
     prelude::*,
-    types::{PyAny, PyDict, PyList, PyString, PyType},
+    types::{PyAny, PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple, PyType},
     wrap_pyfunction,
 };
+use referencing::{parse_index, unescape_segment};
 use regex::{FancyRegexOptions, RegexOptions};
 #[cfg(not(target_arch = "wasm32"))]
 use retriever::DetachedRetriever;
 use retriever::{into_retriever, Retriever};
 use ser::to_value;
-use serde::Serialize;
 #[macro_use]
 extern crate pyo3_built;
 
@@ -46,6 +46,7 @@ mod clone;
 mod email;
 #[cfg(not(target_arch = "wasm32"))]
 mod http;
+mod output;
 mod regex;
 mod registry;
 mod retriever;
@@ -81,12 +82,16 @@ fn referencing_error_type(py: Python<'_>) -> PyResult<Bound<'_, PyType>> {
 
 /// Whether `text` is the number `value` writes back to, i.e. a Python float carries the literal.
 fn float_spells(value: f64, text: &str) -> bool {
-    let mut buffer = zmij::Buffer::new();
-    let written = buffer.format_finite(value);
     // Two written forms of one value share a canonical form, so this compares values, not text: `1e20`
     // and `100000000000000000000` agree, while `100000000000000000000.1` differs from both.
-    canonical_number(written).as_deref().unwrap_or(written)
-        == canonical_number(text).as_deref().unwrap_or(text)
+    let same_value = |written: &str| {
+        canonical_number(written).as_deref().unwrap_or(written)
+            == canonical_number(text).as_deref().unwrap_or(text)
+    };
+    let mut buffer = zmij::Buffer::new();
+    // A whole float past 2^53 may be written with its exact digits, which its shortest text can miss.
+    same_value(buffer.format_finite(value))
+        || (value.fract() == 0.0 && same_value(&format!("{value:.1}")))
 }
 
 /// Convert a serde_json::Value to a Python object, properly handling arbitrary precision numbers
@@ -167,16 +172,6 @@ fn map_to_python(
     Ok(py_dict.into_any().unbind())
 }
 
-fn evaluation_output_to_python<T>(py: Python<'_>, output: &T) -> PyResult<Py<PyAny>>
-where
-    T: Serialize + ?Sized,
-{
-    let json_value = serde_json::to_value(output).map_err(|err| {
-        PyValueError::new_err(format!("Failed to serialize evaluation output: {err}"))
-    })?;
-    value_to_python(py, &json_value)
-}
-
 fn annotation_entry_to_py(
     py: Python<'_>,
     entry: jsonschema::AnnotationEntry<'_>,
@@ -230,20 +225,19 @@ impl PyEvaluation {
 
     /// Return the flag output representation as a Python object.
     fn flag(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let flag = self.inner.flag();
-        evaluation_output_to_python(py, &flag)
+        Ok(output::flag(py, self.inner.is_valid())?.into_any().unbind())
     }
 
     /// Return the list output representation as a Python object.
     fn list(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let list_output = self.inner.list();
-        evaluation_output_to_python(py, &list_output)
+        Ok(output::list(py, self.inner.root())?.into_any().unbind())
     }
 
     /// Return the hierarchical output representation as a Python object.
     fn hierarchical(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let hierarchical_output = self.inner.hierarchical();
-        evaluation_output_to_python(py, &hierarchical_output)
+        Ok(output::hierarchical(py, self.inner.root())?
+            .into_any()
+            .unbind())
     }
 
     /// Return collected annotations for all evaluated nodes.
@@ -363,6 +357,7 @@ impl ValidationErrorKind {
         py: Python<'_>,
         kind: jsonschema::error::ValidationErrorKind,
         mask: Option<&str>,
+        root: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         Ok(match kind {
             jsonschema::error::ValidationErrorKind::AdditionalItems { limit } => {
@@ -375,7 +370,7 @@ impl ValidationErrorKind {
             }
             jsonschema::error::ValidationErrorKind::AnyOf { context } => {
                 ValidationErrorKind::AnyOf {
-                    context: convert_validation_context(py, context, mask)?,
+                    context: convert_validation_context(py, context, mask, root)?,
                 }
             }
             jsonschema::error::ValidationErrorKind::BacktrackLimitExceeded { error } => {
@@ -463,12 +458,12 @@ impl ValidationErrorKind {
             },
             jsonschema::error::ValidationErrorKind::OneOfMultipleValid { context } => {
                 ValidationErrorKind::OneOfMultipleValid {
-                    context: convert_validation_context(py, context, mask)?,
+                    context: convert_validation_context(py, context, mask, root)?,
                 }
             }
             jsonschema::error::ValidationErrorKind::OneOfNotValid { context } => {
                 ValidationErrorKind::OneOfNotValid {
-                    context: convert_validation_context(py, context, mask)?,
+                    context: convert_validation_context(py, context, mask, root)?,
                 }
             }
             jsonschema::error::ValidationErrorKind::Pattern { pattern } => {
@@ -479,7 +474,8 @@ impl ValidationErrorKind {
                     error: {
                         create_validation_error_object(
                             py,
-                            into_validation_error_args(py, *error, mask)?,
+                            // The nested error reports the property name at the object's location.
+                            into_validation_error_args(py, *error, mask, None)?,
                         )?
                     },
                 }
@@ -673,6 +669,7 @@ fn convert_validation_context(
     py: Python<'_>,
     context: Vec<Vec<jsonschema::error::ValidationError<'static>>>,
     mask: Option<&str>,
+    root: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyList>> {
     unsafe {
         let outer_len = context.len() as pyo3::ffi::Py_ssize_t;
@@ -690,7 +687,7 @@ fn convert_validation_context(
             }
 
             for (inner_idx, error) in errors.into_iter().enumerate() {
-                let args = match into_validation_error_args(py, error, mask) {
+                let args = match into_validation_error_args(py, error, mask, root) {
                     Ok(args) => args,
                     Err(e) => {
                         Py_DECREF(inner_list);
@@ -760,10 +757,59 @@ fn location_to_list(py: Python<'_>, location: &Location) -> PyResult<Py<PyList>>
     })
 }
 
+// The object at `location` under `root`, when it and everything in it are plain JSON types, which
+// convert to and from JSON unchanged. Other values keep their JSON form.
+fn plain_instance_at<'py>(
+    root: &Bound<'py, PyAny>,
+    location: &Location,
+) -> Option<Bound<'py, PyAny>> {
+    let mut current = root.clone();
+    // The container decides how to read a segment: `segments()` would read the key "200" as an index.
+    for segment in location.as_str().split('/').skip(1) {
+        current = if let Ok(dict) = current.cast_exact::<PyDict>() {
+            dict.get_item(unescape_segment(segment).as_ref()).ok()??
+        } else if let Ok(list) = current.cast_exact::<PyList>() {
+            list.get_item(parse_index(segment)?).ok()?
+        } else {
+            current
+                .cast_exact::<PyTuple>()
+                .ok()?
+                .get_item(parse_index(segment)?)
+                .ok()?
+        };
+    }
+    is_plain_json(&current, 0).then_some(current)
+}
+
+fn is_plain_json(value: &Bound<'_, PyAny>, depth: u8) -> bool {
+    // Deeper values, cycles included, keep the conversion that reports the recursion limit.
+    if depth == ser::RECURSION_LIMIT {
+        return false;
+    }
+    if value.is_none()
+        || value.is_exact_instance_of::<PyString>()
+        || value.is_exact_instance_of::<PyBool>()
+        || value.is_exact_instance_of::<PyInt>()
+        || value.is_exact_instance_of::<PyFloat>()
+    {
+        return true;
+    }
+    if let Ok(list) = value.cast_exact::<PyList>() {
+        return list.iter().all(|item| is_plain_json(&item, depth + 1));
+    }
+    if let Ok(dict) = value.cast_exact::<PyDict>() {
+        return dict.iter().all(|(key, item)| {
+            key.is_exact_instance_of::<PyString>() && is_plain_json(&item, depth + 1)
+        });
+    }
+    false
+}
+
 fn into_validation_error_args(
     py: Python<'_>,
     error: jsonschema::ValidationError<'_>,
     mask: Option<&str>,
+    root: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<ValidationErrorArgs> {
     // Sized for the message plus what `to_error_message` appends, so neither reallocates.
     let mut message = String::with_capacity(256);
@@ -786,8 +832,18 @@ fn into_validation_error_args(
     } else {
         location_to_list(py, &parts.evaluation_path)?
     };
-    let kind = ValidationErrorKind::try_new(py, parts.kind, mask)?;
-    let instance = value_to_python(py, parts.instance.as_ref())?;
+    let kind = ValidationErrorKind::try_new(py, parts.kind, mask, root)?;
+    // Scalars convert faster than the path to them is followed.
+    let original = match parts.instance.as_ref() {
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            root.and_then(|root| plain_instance_at(root, &parts.instance_path))
+        }
+        _ => None,
+    };
+    let instance = match original {
+        Some(instance) => instance.unbind(),
+        None => value_to_python(py, parts.instance.as_ref())?,
+    };
     let absolute_keyword_location = parts
         .absolute_keyword_location
         .map(|u| u.as_str().to_owned());
@@ -806,8 +862,9 @@ pub(crate) fn into_py_err(
     py: Python<'_>,
     error: jsonschema::ValidationError<'_>,
     mask: Option<&str>,
+    root: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyErr> {
-    let args = into_validation_error_args(py, error, mask)?;
+    let args = into_validation_error_args(py, error, mask, root)?;
     let is_custom = matches!(args.kind, ValidationErrorKind::Custom { .. });
     let py_err = validation_error_pyerr(py, args)?;
     if is_custom {
@@ -1191,7 +1248,7 @@ fn iter_on_error(
 
         panic::catch_unwind(AssertUnwindSafe(|| {
             for error in validator.iter_errors(node) {
-                pyerrors.push(into_py_err(py, error, mask)?);
+                pyerrors.push(into_py_err(py, error, mask, Some(instance))?);
             }
             PyResult::Ok(())
         }))
@@ -1215,7 +1272,10 @@ fn raise_on_error(
         let error = panic::catch_unwind(AssertUnwindSafe(|| validator.validate(node)))
             .map_err(handle_format_checked_panic)?
             .err();
-        error.map_or_else(|| Ok(()), |err| Err(into_py_err(py, err, mask)?))
+        error.map_or_else(
+            || Ok(()),
+            |err| Err(into_py_err(py, err, mask, Some(instance))?),
+        )
     })
 }
 
@@ -1345,7 +1405,7 @@ fn is_valid(
             }))
             .map_err(handle_format_checked_panic)?
         }),
-        Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
+        Err(error) => Err(into_py_err(py, error, mask.as_deref(), None)?),
     }
 }
 
@@ -1406,7 +1466,7 @@ fn validate(
             mask.as_deref(),
             runs_python(formats, keywords),
         ),
-        Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
+        Err(error) => Err(into_py_err(py, error, mask.as_deref(), None)?),
     }
 }
 
@@ -1466,7 +1526,7 @@ fn iter_errors(
             mask.as_deref(),
             runs_python(formats, keywords),
         ),
-        Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
+        Err(error) => Err(into_py_err(py, error, mask.as_deref(), None)?),
     }
 }
 
@@ -1576,7 +1636,7 @@ fn evaluate(
     let schema = ser::to_value(schema)?;
     let validator = match options.build(&schema) {
         Ok(validator) => validator,
-        Err(error) => return Err(into_py_err(py, error, None)?),
+        Err(error) => return Err(into_py_err(py, error, None, None)?),
     };
     let evaluation = surface_pending_errors(instance, runs_python(formats, keywords), || {
         panic::catch_unwind(AssertUnwindSafe(|| {
@@ -1767,7 +1827,7 @@ fn validator_map_for(
             mask,
             holding: runs_python(formats, keywords),
         }),
-        Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
+        Err(error) => Err(into_py_err(py, error, mask.as_deref(), None)?),
     }
 }
 
@@ -1941,7 +2001,7 @@ fn validator_for_impl(
             mask,
             holding: runs_python(formats, keywords),
         }),
-        Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
+        Err(error) => Err(into_py_err(py, error, mask.as_deref(), None)?),
     }
 }
 
@@ -2536,14 +2596,14 @@ mod meta {
                 if let Some(result) = compiled_validate(schema) {
                     return match result? {
                         Ok(()) => Ok(()),
-                        Err(error) => Err(crate::into_py_err(py, error, None)?),
+                        Err(error) => Err(crate::into_py_err(py, error, None, None)?),
                     };
                 }
                 match jsonschema::meta::validate_for::<Pyo3>(schema.as_borrowed()) {
                     Ok(()) => Ok(()),
                     Err(error) => {
                         raise_if_unresolvable(py, &error)?;
-                        Err(crate::into_py_err(py, error, None)?)
+                        Err(crate::into_py_err(py, error, None, None)?)
                     }
                 }
             });
@@ -2556,7 +2616,7 @@ mod meta {
             Ok(()) => Ok(()),
             Err(error) => {
                 raise_if_unresolvable(py, &error)?;
-                Err(crate::into_py_err(py, error, None)?)
+                Err(crate::into_py_err(py, error, None, None)?)
             }
         }
     }

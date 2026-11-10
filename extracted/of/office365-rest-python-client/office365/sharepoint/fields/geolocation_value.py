@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class FieldGeolocationValue(ClientValue):
     """
     Specifies altitude, latitude, longitude and measure values for FieldGeolocation (section 3.2.5.185).<191>

@@ -2,6 +2,7 @@ import logging
 import os
 
 from pysqlsync.base import BaseContext, Explorer
+from rich.markup import escape
 
 from ..replicator import meta_schema
 
@@ -111,7 +112,7 @@ class VersionUpgrader:
                     await self.base_context.execute(sql)
             except FileNotFoundError:
                 err_str = f"Upgrade failed. Migration file {file_name} is missing. Please verify your installation."
-                ui.error(err_str)
+                ui.error(escape(err_str))
                 logger.error(err_str)
                 raise
 

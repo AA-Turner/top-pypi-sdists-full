@@ -1,7 +1,7 @@
 [project]
 name = "djlint"
-version = "1.49.9"
-description = "HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Liquid, Go templates)"
+version = "1.49.10"
+description = "HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Mustache, Liquid, Go templates, Angular, Tera, Askama, Mako)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
@@ -12,6 +12,7 @@ maintainers = [
   { name = "monosans", email = "hsyqixco@protonmail.com" },
 ]
 keywords = [
+  "angular",
   "askama",
   "django",
   "formatter",
@@ -24,6 +25,7 @@ keywords = [
   "jinja2",
   "linter",
   "liquid",
+  "mako",
   "mustache",
   "nunjucks",
   "templates",
@@ -50,7 +52,7 @@ classifiers = [
 ]
 urls.documentation = "https://djlint.com"
 urls.repository = "https://github.com/djlint/djLint"
-scripts.djlint = "djlint:main"
+scripts.djlint = "djlint._cli:main"
 dependencies = [
   "click>=8.2.0",
   "cssbeautifier>=1.13.0",
@@ -67,7 +69,7 @@ dev = [
   "covdefaults==2.3.0",
   "pytest-cov==7.1.0",
   "ruff==0.17.3",
-  "types-pyyaml==6.0.12.20261030",
+  "types-pyyaml==6.0.12.20261103",
   "types-regex==2026.9.29.20261030",
   { include-group = "test" },
 ]
@@ -113,11 +115,11 @@ dependencies = [
   "jsbeautifier==2.0.3",
   "json5==0.17.3",
   "mypy==2.4.1",
-  "types-pyyaml==6.0.12.20261030",
+  "types-pyyaml==6.0.12.20261103",
   "types-regex==2026.9.29.20261030",
 ]
 enable-by-default = false
-exclude = ["src/djlint/__main__.py"]
+exclude = ["src/djlint/__init__.py", "src/djlint/__main__.py"]
 options = { opt_level = "3", debug_level = "0" }
 
 [tool.uv]

@@ -20,11 +20,11 @@ from hypothesis import strategies as st
 from nameparser._policy import CapsSuffixes
 from nameparser import (
     DEFAULT_SCRIPT_ORDERS, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
-    GIVEN_FIRST, HumanName, Lexicon, Parser, PatronymicRule, Policy,
+    GIVEN_FIRST, Lexicon, Parser, PatronymicRule, Policy,
     Script, parse,
 )
-from nameparser.config import Constants
 from nameparser._lexicon import _VOCAB_FIELDS
+from nameparser._reading_index import CATEGORY as _READING_KINDS
 from nameparser._pipeline import run
 from nameparser._pipeline._state import (AMBIGUOUS_ACRONYM_TAG,
                                          ParseState)
@@ -158,12 +158,14 @@ def test_a_leading_ambiguous_particle_is_reported_once_and_only_once(
     # vocabulary, for the reason test_parser.py's _TITLE_PARTICLES block
     # gives; a no-op against today's data, and #360-proof against
     # tomorrow's.
-    lex = Lexicon.default().add(titles={"freiherr"}, particles={"freiherr"})
+    lex = (Lexicon.default().add("freiherr", kind="title")
+           .add("freiherr", kind="particle"))
     # bound-given prefixes are excluded, not overlooked: 'abu' is both
     # an ambiguous particle and a bound given prefix, so whether it
     # forks depends on whether the bound join fired -- a second rule,
     # covered by the case corpus rather than by this sweep
-    particles = sorted(lex.particles_ambiguous - lex.bound_given_names)
+    particles = sorted(lex._sets.particles_ambiguous
+                       - lex._sets.bound_given_names)
     assert particles, "no ambiguous particles to exercise"
     failures = []
     for particle in particles:
@@ -451,6 +453,49 @@ _MAIDEN_AGREEMENT_EXCEPTIONS = 1026
 _MAIDEN_SETTLED_BODY_PAIRS = 288
 _MAIDEN_AGREEMENT_DIGEST = (
     "4b70727a2633fea1a9c219173d48b223cc0866a5d340b69a9eb4f14fc386ae6a")
+
+
+#: Words that open the part before the comma: names, initials and
+#: given names a credential spells, credentials, generations, the
+#: title/suffix duals, period-marked suffix words H2 reads as titles,
+#: and a plain name and a plain title beside them.
+_OPENERS = ("Md", "MD", "Cem", "JP", "A.M.", "M.S.", "Junior", "Jr", "PhD",
+            "II", "Mdiv", "Sr.", "Ms", "RA", "Jr.", "Esq.", "Md.", "Sam",
+            "Dr.")
+_OPENED_BODIES = ("Rahman", "van der Berg", "Smith Jones", "(Bob) Rahman",
+                  "Rahman nee Khan", "de la Vega")
+_CREDENTIAL_PARTS = (", PhD", ", MD", ", PhD, FACS", ", Ph.D.", ",PhD",
+                     " ,PhD")
+
+
+def test_a_head_before_a_credential_reads_as_it_does_alone() -> None:
+    """rules/C3's count is what lets C1 read the part before a
+    credential run as the whole name it is, so a head of two or more
+    words reads, the suffix aside, exactly as it reads with no comma,
+    under every order -- whatever word opens it, a suffix word
+    included ('Md Rahman, PhD' as 'Md Rahman'). A split credential's
+    member opening the part is the one exception C3 states ('MB ChB,
+    PhD'), and is left out of the grid.
+
+    Negative control, recorded 2026-11-02 on master at c1ceb3b3, before
+    C3 counted an opening suffix word: 1,062 of the 2,052 rows differed
+    from the head alone."""
+    rows = 0
+    differ = []
+    for order in (GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST):
+        parser = Parser(policy=Policy(name_order=order))
+        for opener, body, part in itertools.product(
+                _OPENERS, _OPENED_BODIES, _CREDENTIAL_PARTS):
+            head = f"{opener} {body}"
+            whole = parser.parse(head + part).as_dict()
+            alone = parser.parse(head).as_dict()
+            whole.pop("suffix")
+            alone.pop("suffix")
+            rows += 1
+            if whole != alone:
+                differ.append((order, head + part))
+    assert rows == 2052
+    assert differ == []
 
 
 def _one_case(text: str) -> bool | None:
@@ -1305,43 +1350,91 @@ _VOCAB = st.sampled_from([
     "김", "남궁", "남", "毛", "欧阳",
 ])
 
-# given_name_titles is the one field matched as a space-joined run, so
+# given_name_titles is the one set matched as a space-joined run, so
 # a multi-word phrase there is meaningful (not dead) and must not warn.
 # Derived from _VOCAB rather than duplicated, so the two pools cannot
 # drift apart.
 _TITLE_VOCAB = st.one_of(_VOCAB, st.just("grand duke"))
 
+#: Each compiled vocabulary set, by its `_LexiconSets` name, and the
+#: readings (kind, properties) a word drawn for it is given -- the
+#: readings that compile a word into that set, since 3.0 configures a
+#: Lexicon by reading (#754, 4i-b). One draw per set, as the 2.x
+#: strategy drew one per field, so every set is fuzzed in every example.
+_READINGS_FOR: dict[str, tuple[tuple[str, dict[str, object]], ...]] = {
+    "titles": (("title", {}),),
+    "given_name_titles": (("title", {"addresses": "given"}),),
+    "suffix_acronyms": (("credential", {}),),
+    "suffix_words": (("suffix", {}),),
+    "suffix_acronyms_ambiguous": (("credential", {}), ("family", {})),
+    "particles": (("particle", {}),),
+    "particles_ambiguous": (("particle", {}), ("given", {})),
+    "conjunctions": (("conjunction", {}),),
+    "conjunctions_ambiguous": (("conjunction", {"may_be_initial": True}),),
+    "bound_given_names": (("bound_given", {}),),
+    "given_name_abbreviations": (("given", {"same_as": "jack"}),),
+    "maiden_markers": (("birth_marker", {}),),
+    "honorific_tails": (("honorific", {"attached": "after"}),),
+    "after_given_titles": (("salutation", {"after_given": True}),),
+    "suffix_words_ambiguous": (("generation", {}), ("family", {})),
+    "agnomens": (("agnomen", {}), ("family", {})),
+    "titles_ambiguous": (("title", {}), ("given", {})),
+    "title_modifiers": (("modifier", {}),),
+    "title_styles": (("style", {}),),
+    # a phrase of the word and any title of kind `title` drawn
+    "title_phrases": (("title", {"attaches": ["title"]}),),
+}
 
-def _fix_invariants(**fields: frozenset[str]) -> dict[str, frozenset[str]]:
-    """Repair a random draw into a legal Lexicon instead of generating
-    one legally.
-
-    Drawing dependent subsets directly (particles_ambiguous from
-    whatever particles happened to be drawn) makes the strategy tree
-    deep and mostly rejects; intersecting after the fact keeps every
-    draw usable and still reaches every shape. The seven rules are
-    Lexicon's own, restated here on purpose -- if one changes, this
-    fails loudly rather than silently fuzzing a narrower space.
-    """
-    fields["particles_ambiguous"] &= fields["particles"]
-    fields["suffix_acronyms_ambiguous"] &= fields["suffix_acronyms"]
-    fields["suffix_words"] -= fields["suffix_acronyms_ambiguous"]
-    # order matters: must run AFTER the suffix_words subtraction above,
-    # or that later subtraction could re-orphan a tail this repair just
-    # fixed
-    fields["honorific_tails"] &= fields["suffix_words"]
-    fields["suffix_words_ambiguous"] &= fields["suffix_words"]
-    fields["suffix_words_ambiguous"] -= (
-        fields["suffix_acronyms"] - fields["suffix_acronyms_ambiguous"])
-    fields["bound_given_names"] -= (
-        fields["particles"] - fields["particles_ambiguous"])
-    return fields
-
-
-# Derived, never listed: a new vocabulary field must be fuzzed the day
-# it is added, and a hand-copied list would leave it silently unfuzzed
-# -- the invisible gap this whole layer exists to prevent.
+# Derived, never listed: a new vocabulary set must be fuzzed the day it
+# is added, and a hand-copied list would leave it silently unfuzzed --
+# the invisible gap this whole layer exists to prevent. The lists stay
+# constructor fields; every other set is reached through its readings,
+# and a set with no entry above fails here rather than going unfuzzed.
 _SET_FIELDS = _VOCAB_FIELDS
+assert set(_READINGS_FOR) == set(_SET_FIELDS) - {"surnames", "given_names"}
+
+#: The order the drawn readings are added in: titles first, so a title
+#: reading never lands on a word already holding a given one (the add
+#: that would warn, rules/H9), then the names, so a bound given name
+#: that is also a particle holds its given reading before it is bound
+#: (an add the Lexicon would refuse) -- the compiled sets are the same
+#: in any order.
+_CATEGORY_ORDER = ("title", "name", "suffix", "particle", "conjunction",
+                   "bound_given", "relation")
+
+
+def _fix_invariants(drawn: dict[str, frozenset[str]],
+                    ) -> dict[str, dict[str, dict[str, object]]]:
+    """Repair a random draw into legal readings instead of generating
+    them legally, word -> kind -> properties.
+
+    Drawing dependent memberships directly makes the strategy tree deep
+    and mostly rejects; repairing after the fact keeps every draw
+    usable and still reaches every shape. The three rules are the
+    Lexicon's own refusals, restated here on purpose -- if one changes,
+    this fails loudly rather than silently fuzzing a narrower space: a
+    word holds one suffix kind (the first drawn, in `_READINGS_FOR`
+    order, is kept); `may_be_initial` marks only a single cased letter;
+    and a bound given name that is a particle with no given reading
+    stops being a bound given name.
+    """
+    out: dict[str, dict[str, dict[str, object]]] = {}
+    for name, readings in _READINGS_FOR.items():
+        for word in sorted(drawn[name]):
+            held = out.setdefault(word, {})
+            for kind, props in readings:
+                if _READING_KINDS[kind] == "suffix" and any(
+                        _READING_KINDS[k] == "suffix" and k != kind for k in held):
+                    continue
+                if props.get("may_be_initial") and not (
+                        len(word) == 1 and word.upper() != word.lower()):
+                    props = {}
+                held.setdefault(kind, {}).update(props)
+    for word, held in out.items():
+        if ("bound_given" in held and "given" not in held
+                and any(_READING_KINDS[k] == "particle" for k in held)):
+            del held["bound_given"]
+    return out
 
 
 @st.composite
@@ -1358,14 +1451,24 @@ def _recased(draw: st.DrawFn, word: str) -> str:
 
 @st.composite
 def _lexicons(draw: st.DrawFn) -> Lexicon:
-    fields = {name: draw(st.frozensets(
+    drawn = {name: draw(st.frozensets(
         _TITLE_VOCAB if name == "given_name_titles" else _VOCAB,
         max_size=5))
               for name in _SET_FIELDS}
     keys = draw(st.lists(_VOCAB, max_size=3))
     caps = [(key, draw(_recased(key))) for key in keys]
-    return Lexicon(capitalization_exceptions=tuple(caps),
-                   **_fix_invariants(**fields))
+    lexicon = Lexicon(capitalization_exceptions=tuple(caps),
+                      surnames=drawn["surnames"],
+                      given_names=drawn["given_names"])
+    readings = _fix_invariants(drawn)
+    adds = sorted(
+        ((_READING_KINDS[kind], kind, sorted(props.items()), word)
+         for word, held in readings.items()
+         for kind, props in held.items()),
+        key=lambda a: (_CATEGORY_ORDER.index(a[0]), a[1], repr(a[2]), a[3]))
+    for _category, kind, props, word in adds:
+        lexicon = lexicon.add(word, kind=kind, **dict(props))
+    return lexicon
 
 
 # script_orders' legal values are as restricted as name_order's (only
@@ -1418,6 +1521,7 @@ def _policies(draw: st.DrawFn) -> Policy:
         lenient_comma_suffixes=draw(st.booleans()),
         strip_emoji=draw(st.booleans()),
         strip_bidi=draw(st.booleans()),
+        lone_name_word=draw(st.sampled_from([Role.GIVEN, Role.FAMILY])),
     )
 
 
@@ -1436,7 +1540,7 @@ def _names_using(draw: st.DrawFn, lexicon: Lexicon,
     note.
     """
     vocab = sorted({w for name in _SET_FIELDS
-                    for w in getattr(lexicon, name)})
+                    for w in getattr(lexicon._sets, name)})
     # script_segment (#271, #308) holds the two halves a space-joined
     # name can never reach, and BOTH need their token derived from the
     # draw: waiting for a drawn entry and a matching literal to
@@ -1459,8 +1563,12 @@ def _names_using(draw: st.DrawFn, lexicon: Lexicon,
     # derandomize=True seed -- peel and surname split are told apart by
     # its tail_tag argument -- and origin/master's version of this
     # strategy counts ZERO surname splits against two peels, while this
-    # one counts 23 against one. That figure is reproducible by anyone
-    # in one command and moves only when these strategies do.
+    # one counted 23 against one when this was written; re-taken on
+    # 2026-11-02, the 2.8-era strategy at 3.0's 4i-b base counted 9
+    # against 1, and the reading-built strategy that replaced it 7
+    # against 5, its `attaches` making real title phrases in the pool.
+    # Reproducible in one command, and moving only when these
+    # strategies do.
     # Being in the POOL is not the same as being in the NAME, and for
     # the surname half that gap was the whole story. Two things must
     # coincide before the shape is legal at all -- a HANGUL surname
@@ -1533,7 +1641,7 @@ def _names_using(draw: st.DrawFn, lexicon: Lexicon,
     # every index sampled_from draws -- which would defeat
     # derandomize=True on the whole strategy, not just this slice.
     unspaced = sorted(w + "민준" for w in lexicon.surnames)
-    glued = sorted("민준" + w for w in lexicon.honorific_tails)
+    glued = sorted("민준" + w for w in lexicon._sets.honorific_tails)
     # plain names and structure characters are always available, so the
     # pool is never empty even for an empty lexicon
     pieces = st.sampled_from(
@@ -1632,8 +1740,14 @@ _HOSTILE = st.sampled_from([
 _POLICY_FIELDS = tuple(f.name for f in dataclasses.fields(Policy))
 
 
-@given(st.sampled_from(_SET_FIELDS + ("capitalization_exceptions",)),
-       _HOSTILE)
+#: What a caller configures a Lexicon through: its three fields, and
+#: since 3.0 a reading of each kind, the word given to add() (#754,
+#: 4i-b). Derived from the kind table, so a new kind is fuzzed too.
+_LEXICON_INPUTS = ("surnames", "given_names", "capitalization_exceptions",
+                   *(f"kind:{k}" for k in _READING_KINDS))
+
+
+@given(st.sampled_from(_LEXICON_INPUTS), _HOSTILE)
 @settings(max_examples=200, deadline=None, derandomize=True)
 def test_bad_lexicon_field_fails_cleanly(field: str, value: object) -> None:
     """A rejected configuration must be a DOCUMENTED rejection.
@@ -1643,7 +1757,11 @@ def test_bad_lexicon_field_fails_cleanly(field: str, value: object) -> None:
     where the message no longer names the field the caller typed.
     """
     try:
-        lexicon = Lexicon(**{field: value})     # type: ignore[arg-type]
+        if field.startswith("kind:"):
+            lexicon = Lexicon.empty().add(
+                value, kind=field[len("kind:"):])  # type: ignore[arg-type]
+        else:
+            lexicon = Lexicon(**{field: value})     # type: ignore[arg-type]
     except (ValueError, TypeError):
         return
     # Accepted, so it has to survive an actual parse -- construction
@@ -1823,8 +1941,8 @@ def _class_letters(lexicon: Lexicon) -> frozenset[str]:
     grids ask this of every row and there are five lexicons between
     them.
     """
-    return frozenset(w for w in lexicon.conjunctions
-                     if w in lexicon.suffix_words)
+    return frozenset(w for w in lexicon._sets.conjunctions
+                     if w in lexicon._sets.suffix_words)
 
 
 #: The two grids' lexicon variants, module-level so
@@ -1832,13 +1950,13 @@ def _class_letters(lexicon: Lexicon) -> frozenset[str]:
 #: `_rows` for what the third element of each declares.
 _CONNECTIVE_LEXICONS: _Variants = (
     ("default", Lexicon.default(), frozenset()),
-    ("conj+v", Lexicon.default().add(conjunctions={"v"}),
+    ("conj+v", Lexicon.default().add("v", kind="conjunction"),
      frozenset({"v"})),
-    ("part+y", Lexicon.default().add(particles={"y"}),
+    ("part+y", Lexicon.default().add("y", kind="particle"),
      frozenset({"y"})))
 _OFF_SWITCH_LEXICONS: _Variants = (
     ("default", Lexicon.default(), frozenset()),
-    ("conj+v", Lexicon.default().add(conjunctions={"v"}),
+    ("conj+v", Lexicon.default().add("v", kind="conjunction"),
      frozenset({"v"})))
 
 
@@ -2165,7 +2283,7 @@ def test_the_mark_is_exactly_the_parts_with_nothing_to_join() -> None:
 
     Stated over the PAIR of marks deliberately: keyed on the new mark
     alone it fails 272 times, every one of them under
-    `add(particles={"y"})`, where the part is all-particle and R2's
+    `add("y", kind="particle")`, where the part is all-particle and R2's
     OLD mark does the readmitting. Mutation-checked, re-measured
     2026-09-20 on the trimmed grid: neutering the walk's
     lone-connective arm, so the new mark is never written, fails this
@@ -2190,7 +2308,7 @@ def test_initials_take_only_base_words_and_drop_only_joiners() -> None:
     Mutation-checked, re-measured 2026-09-20 on the trimmed grid:
     swapping the two branches of the mark walk fails this on 94
     parses (188 over the full cross product) -- `Carod y` under
-    `add(particles={"y"})`, whose base is empty while its `y`
+    `add("y", kind="particle")`, whose base is empty while its `y`
     initials.
     """
     failures = _connective_findings()["INV3/4"]
@@ -2320,7 +2438,8 @@ def _off_switch(parser: Parser, letters: frozenset[str]) -> Parser:
     key = (id(parser), letters)
     if key not in _OFF_PARSERS:
         _OFF_PARSERS[key] = Parser(
-            lexicon=parser.lexicon.remove(conjunctions=set(letters)),
+            lexicon=parser.lexicon.remove(*sorted(letters),
+                                          kind="conjunction"),
             policy=parser.policy)
     return _OFF_PARSERS[key]
 
@@ -2439,6 +2558,31 @@ def _link_joins_between_name_words(on: ParsedName, off: ParsedName,
     return False
 
 
+def _linked_letters(on: ParsedName,
+                    letters: frozenset[str]) -> set[tuple[int, int]]:
+    """rules/P13's link (#1097): a single-letter link in front of a lone
+    letter ending the name words takes that letter as the name it
+    links. The spans of the letters so taken, judged on the configured
+    parse: a one-letter word right after a class link, in the link's
+    name role, and the last word of that role, so a link that also
+    took a word behind the letter (a credential) is not excused. The
+    letter's off-switch reading is not asked."""
+    toks = _placed(on)
+    taken: set[tuple[int, int]] = set()
+    for i, ((tok, _span), (nxt, nxt_span)) in enumerate(
+            zip(toks, toks[1:])):
+        if ("conjunction" not in tok.tags
+                or tok.text.lower() not in letters
+                or tok.role not in _NAME_ROLES):
+            continue
+        letter = nxt.text.rstrip(".")
+        if (len(letter) == 1 and letter.isalpha()
+                and nxt.role is tok.role
+                and not any(t.role is tok.role for t, _ in toks[i + 2:])):
+            taken.add(nxt_span)
+    return taken
+
+
 @functools.cache
 def _off_switch_findings() -> dict[str, list[str]]:
     """One walk of the off-switch grid; FOUR invariants' answers.
@@ -2446,10 +2590,11 @@ def _off_switch_findings() -> dict[str, list[str]]:
     Both parses of a row -- as configured, and with the class letters
     out of the connectives -- are taken once here and handed to all
     four predicates, which is the whole of what this walk does. The
-    exemptions stay each test's own: INV6 takes the join and the
-    initial reading, INV1-strengthened the initial reading and the
-    link-free control, INV7 the join and the initial reading plus
-    R4's placed-connective sentence, exactly as their docstrings say.
+    exemptions stay each test's own: INV6 takes the join, the
+    initial reading and P13's linked letter, INV1-strengthened the
+    initial reading, the link-free control and P13's linked letter,
+    INV7 the join and the initial reading plus R4's
+    placed-connective sentence, exactly as their docstrings say.
 
     INV6b costs NO parse at all, which is why it joins this walk
     rather than opening a grid of its own: the grid already writes
@@ -2462,7 +2607,6 @@ def _off_switch_findings() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {k: [] for k in
                                  ("INV6", "INV1-strengthened", "INV7",
                                   "INV6b")}
-    v1_off: dict[frozenset[str], Constants] = {}
     #: (label, text) -> the roles the configured parse gave, in token
     #: order, for INV6b's casing comparison below.
     roles_by: dict[tuple[str, str],
@@ -2484,7 +2628,7 @@ def _off_switch_findings() -> dict[str, list[str]]:
         # marked subset, so 'carod y rovira, v' and its ALL-CAPS twin
         # disagree, identically at the parent 46651750 (20 rows,
         # measured 2026-09-20, every one of them strict-comma).
-        if letters <= parser.lexicon.conjunctions_ambiguous:
+        if letters <= parser.lexicon._sets.conjunctions_ambiguous:
             roles_by[(label, text)] = tuple(
                 (tok.text.lower(), tok.role.value,
                  AMBIGUOUS_ACRONYM_TAG in tok.tags) for tok in on.tokens)
@@ -2497,11 +2641,13 @@ def _off_switch_findings() -> dict[str, list[str]]:
         moved = _initial_reading_moved(on, off, letters)
         if not (same_fields
                 or _link_joins_between_name_words(on, off, letters)
+                or _linked_letters(on, letters)
                 or moved):
             out["INV6"].append(f"[{label}] {text!r}: {on.as_dict()} != "
                                f"off-switch {off.as_dict()}")
         if not moved:
             off_role = _off_roles(off)
+            linked = _linked_letters(on, letters)
             for role in _NAME_ROLES:
                 part = on.tokens_for(role)
                 if len(part) < 2:
@@ -2517,6 +2663,11 @@ def _off_switch_findings() -> dict[str, list[str]]:
                     # carries one, and this grid holds no spliced
                     # parse.
                     if "conjunction" in tok.tags or tok.span is None:
+                        continue
+                    # nor the lone letter rules/P13 links as the name
+                    # (#1097), which the off-switch parse reads as the
+                    # generation
+                    if tok.span in linked:
                         continue
                     if off_role.get(tok.span) is not Role.SUFFIX:
                         continue
@@ -2559,16 +2710,6 @@ def _off_switch_findings() -> dict[str, list[str]]:
                 out["INV7"].append(
                     f"[{label}] {text!r} force={force}: {here!r} != "
                     f"off-switch {there!r}")
-            if label != "default/default":
-                continue
-            if letters not in v1_off:
-                v1_off[letters] = _v1_off_switch(letters)
-            v1_here = _v1_capitalized(text, None, force)
-            v1_there = _v1_capitalized(text, v1_off[letters], force)
-            if v1_here != v1_there:
-                out["INV7"].append(
-                    f"[v1] {text!r} force={force}: {v1_here!r} != "
-                    f"off-switch {v1_there!r}")
     # INV6b, over what the walk above already read. A text that is
     # its own lower-casing and is not its own upper-casing is the
     # all-lower spelling of a one-case name, and the grid wrote its
@@ -2657,7 +2798,11 @@ def test_a_link_that_joins_nothing_changes_no_field() -> None:
     a letter that joins nothing must leave every field where the
     parent left it.
 
-    Two exemptions, both narrow and both P3's own OTHER clauses. A
+    Three exemptions, each narrow. The third, since #1097, is
+    rules/P13's: a link taking the lone letter that ends the name
+    words as the name it links (`_linked_letters`, which excuses only
+    a letter that is its role's last word). The first two are P3's own
+    OTHER clauses. A
     letter that JOINED between name words is the rule working, judged
     on the off-switch parse's classes so an absorbed suffix cannot
     pass itself off as the name word on the right. And a letter the
@@ -2665,7 +2810,8 @@ def test_a_link_that_joins_nothing_changes_no_field() -> None:
     clause, which the switch decides along with the join and so
     cannot hold fixed.
 
-    Mutation-checked, re-measured 2026-09-20 over the grid as it
+    Mutation-checked, re-measured 2026-09-20, under the exemptions
+    #1097's linked letter predates, over the grid as it
     now stands (the second review added the two trailing-title
     suffix runs, so every count here moved with it): this fails on
     1,480 parses at c8550b64, the commit the first review was
@@ -2695,13 +2841,17 @@ def test_a_trailing_credential_never_joins_into_a_name_part() -> None:
     is deliberately absent -- a link joining elsewhere in the name
     never licenses a credential joining here.
 
+    P13's linked letter is a fourth (#1097), the letter alone and not
+    the row, so a credential the link took behind it still fails here.
+
     THE LINK-FREE CONTROL is its third exemption, added by the
     second review and documented at the walk: a credential can land
     in a name part for a reason older than #397 and untouched by it,
     and deleting the link is how this asks whether the link is what
     put it there.
 
-    Mutation-checked, re-measured 2026-09-20 over the grid as it now
+    Mutation-checked, re-measured 2026-09-20, under the exemptions
+    #1097's linked letter predates, over the grid as it now
     stands: this fails on 639 parses at c8550b64, where INV1 fails
     on none of them, on the same 639 where the both-sides gate tests
     POSITION rather than class, and on 105 at dc3bdf9c -- the
@@ -2731,30 +2881,16 @@ def _placed_as_a_connective(on: ParsedName,
     return False
 
 
-def _v1_off_switch(letters: frozenset[str]) -> Constants:
-    constants = Constants()
-    for letter in letters:
-        constants.conjunctions.remove(letter)
-    return constants
-
-
-def _v1_capitalized(text: str, constants: Constants | None,
-                    force: bool) -> str:
-    name = HumanName(text) if constants is None else HumanName(text,
-                                                               constants)
-    name.capitalize(force=force)
-    return str(name)
-
-
 def test_a_letter_that_did_not_join_repairs_as_the_off_switch_does() -> None:
     """INV7 (#397 review). Case repair is the third view, and the one
     the differential cannot see at all, so it gets the same treatment
     INV6 gives the fields: turning the class letter OFF is the
     parent's reading, so a letter that became no connective of this
     name must leave every repair where the parent left it, plain and
-    forced, on both surfaces.
+    forced.
 
-    Three exemptions. The first two are INV6's -- a name whose FIELDS
+    Three exemptions. The first two are INV6's join and initial ones
+    (not its #1097 linked-letter one) -- a name whose FIELDS
     moved is a name the join changed, and a letter the two parses
     disagree about being an INITIAL is the marked-subset clause. The
     third is rules/R4's own sentence: a connective the parse
@@ -2770,9 +2906,9 @@ def test_a_letter_that_did_not_join_repairs_as_the_off_switch_does() -> None:
     at dc3bdf9c -- dc3bdf9c PASSES it, which is the point of INV7b
     below: the guard there was the suffix ROLE alone, which is too
     wide, and too wide in a direction this invariant's subject
-    cannot reach. The v1 arm runs on the default-lexicon,
-    default-policy rows, the only ones a `Constants` can express,
-    and 1,017 of the e540d4c5 failures are its.
+    cannot reach. Those counts include a v1-facade arm deleted in
+    3.0, which ran on the default-lexicon, default-policy rows and
+    held 1,017 of the e540d4c5 failures.
     """
     failures = _off_switch_findings()["INV7"]
     assert not failures, (
@@ -2859,7 +2995,7 @@ def test_a_connective_the_suffix_field_holds_keeps_its_lowercase() -> None:
     GENERATION and not on the field: a connective the suffix field
     merely holds, which the suffix vocabulary does not know, was read
     as no generation, so case repair leaves it lowercase -- plain and
-    forced, on both surfaces.
+    forced.
 
     INV7 cannot see this. Its oracle is the off switch and its
     subject is the class letter, and no name here carries one: `and`,
@@ -2885,12 +3021,10 @@ def test_a_connective_the_suffix_field_holds_keeps_its_lowercase() -> None:
             continue
         for force in (False, True):
             repaired = str(parser.capitalized(name, force=force))
-            v1 = _v1_capitalized(text, None, force)
-            for label, got in (("core", repaired), ("v1", v1)):
-                if word not in got.split():
-                    failures.append(
-                        f"[{label}] {text!r} force={force}: {got!r} does "
-                        f"not keep {word!r} lowercase")
+            if word not in repaired.split():
+                failures.append(
+                    f"{text!r} force={force}: {repaired!r} does "
+                    f"not keep {word!r} lowercase")
     assert not failures, (
         f"{len(failures)} repair(s) capitalized a connective the "
         f"suffix field merely holds:\n" + "\n".join(failures[:10]))
@@ -2973,7 +3107,7 @@ def _link_texts() -> dict[str, str]:
     tokens and then read the first parse at those offsets.
     """
     out: dict[str, str] = {}
-    markers = sorted(Lexicon.default().maiden_markers)
+    markers = sorted(Lexicon.default()._sets.maiden_markers)
     for head, marker, body, tail, comma in itertools.product(
             _LINK_HEADS, markers, _LINK_BODIES, _LINK_TAILS,
             (False, True)):
@@ -3125,28 +3259,23 @@ def test_no_birth_name_word_reads_as_a_word_of_the_current_name() -> None:
 # and one with the map emptied. The fuzzed half rides the existing
 # hypothesis walk instead (test_any_valid_config_still_parses_totally),
 # which already draws masks. Measured 2026-09-23 on py3.11: 1606 texts,
-# and the whole walk -- two lexicons, both surfaces, plain and forced
+# and the whole walk -- two lexicons, plain and forced
 # -- under a second (`--durations`).
 
 _CASE_ONLY_TEXTS = list(dict.fromkeys(
     [*_FORK_CORPUS, *(case.text for case in CASES)]))
-_FACADE_LISTS = ("title_list", "first_list", "middle_list", "last_list",
-                 "suffix_list", "nickname_list", "maiden_list")
 
 
 def _case_only_violations() -> list[str]:
-    """Every repaired token, and every repaired facade list element,
-    that differs from what it repaired by more than case. Compared
-    token by token on the core and list by list on the facade, never
-    through a rendered string, so render spacing cannot hide or fake
-    a difference."""
+    """Every repaired token that differs from what it repaired by
+    more than case. Compared token by token, never through a rendered
+    string, so render spacing cannot hide or fake a difference."""
     emptied = dataclasses.replace(Lexicon.default(),
                                   capitalization_exceptions=())
-    configs = (("default", Parser(), Constants()),
-               ("map emptied", Parser(lexicon=emptied),
-                Constants(capitalization_exceptions={})))
+    configs = (("default", Parser()),
+               ("map emptied", Parser(lexicon=emptied)))
     out: list[str] = []
-    for label, parser, constants in configs:
+    for label, parser in configs:
         for text in _CASE_ONLY_TEXTS:
             name = parser.parse(text)
             for force in (False, True):
@@ -3157,26 +3286,12 @@ def _case_only_violations() -> list[str]:
                         out.append(
                             f"[core, {label}, force={force}] {text!r}: "
                             f"{was.text!r} -> {now.text!r}")
-            human = HumanName(text, constants=constants)
-            before = {attr: getattr(human, attr) for attr in _FACADE_LISTS}
-            # capitalize() mutates in place, so the forced call repairs
-            # the plain call's output -- still compared against the
-            # lists as parsed, which casefold equality makes transitive
-            for force in (False, True):
-                human.capitalize(force=force)
-                for attr in _FACADE_LISTS:
-                    after = getattr(human, attr)
-                    if ([s.casefold() for s in after]
-                            != [s.casefold() for s in before[attr]]):
-                        out.append(
-                            f"[facade, {label}, force={force}] {text!r} "
-                            f"{attr}: {before[attr]!r} -> {after!r}")
     return out
 
 
 def test_case_repair_changes_case_and_nothing_else() -> None:
     """rules/R4 read as an invariant: a repaired token equals its
-    input under str.casefold(), on both surfaces, plain and forced,
+    input under str.casefold(), plain and forced,
     under the shipped lexicon and under one whose exceptions map is
     empty. casefold(), not a character-for-character check, is the
     comparator because the rule was never stated against Python's own
@@ -3192,8 +3307,8 @@ def test_case_repair_changes_case_and_nothing_else() -> None:
     Recorded negative control, measured 2026-09-23 over this walk: at
     the parent 4d0680e6, where the exceptions map SUBSTITUTED its
     value ('md' -> 'M.D.', 'iii.' -> 'III'), this fails on 257
-    repairs, every one under the shipped lexicon and none with the map
-    emptied. The live control is the test below.
+    repairs, counted with a v1-facade half deleted in 3.0, every one
+    under the shipped lexicon and none with the map emptied. The live control is the test below.
     """
     failures = _case_only_violations()
     assert not failures, (
@@ -3206,12 +3321,13 @@ def test_the_case_only_walk_can_fail(
     """The walk above must be able to report a violation, or its
     silence proves nothing. Putting the pre-#459 substitution back --
     the mask applier returning the map's value verbatim -- has to be
-    seen. Measured 2026-09-23, it fails on 16 repairs: 8 token repairs
-    counted on both surfaces (core and facade), the same way the
-    parent's 257 is counted -- the five texts that write Ph.D. with
-    its periods, in either case, including the all-initials spelling
-    p.h.d., which the mask 'PhD' would strip of them. Far fewer than
-    the parent's 257 because the shipped map no longer holds a value
+    seen. Measured 2026-10-28 on the core alone, it fails on 64
+    repairs: every period-marked spelling of a masked word, which the
+    mask would strip of its periods -- Ph.D. in each case and the
+    all-initials p.h.d. (47), PhD. (5), Ing. and its spellings (7),
+    Ó. (4) and Knt. (1). (On 2026-09-23 it was 16, counted on the core and
+    the 2.x facade, over a smaller corpus.) Far fewer than the
+    parent's 257 because the shipped map no longer holds a value
     spelled unlike its key's common spellings; the count is a floor on
     the walk's reach, not a target.
     """
@@ -3256,14 +3372,12 @@ def _nfd_twin_findings() -> tuple[list[str], list[str], int]:
             set_aside.append(text)
             continue
         compared += 1
-        human, twin = HumanName(decomposed), HumanName(nfc(text))
-        for surface, decomposed_initials, composed_initials in (
-                ("core", name.initials(), composed.initials()),
-                ("facade", human.initials(), twin.initials())):
-            if nfc(decomposed_initials) != composed_initials:
-                out.append(f"[initials, {surface}] {text!r}: "
-                           f"{nfc(decomposed_initials)!r} != "
-                           f"{composed_initials!r}")
+        decomposed_initials = name.initials()
+        composed_initials = composed.initials()
+        if nfc(decomposed_initials) != composed_initials:
+            out.append(f"[initials, core] {text!r}: "
+                       f"{nfc(decomposed_initials)!r} != "
+                       f"{composed_initials!r}")
         for force in (False, True):
             got = [nfc(t.text) for t in
                    parser.capitalized(name, force=force).tokens]
@@ -3272,25 +3386,18 @@ def _nfd_twin_findings() -> tuple[list[str], list[str], int]:
             if got != want:
                 out.append(f"[core, force={force}] {text!r}: "
                            f"{got!r} != {want!r}")
-        for force in (False, True):
-            human.capitalize(force=force)
-            twin.capitalize(force=force)
-            for attr in _FACADE_LISTS:
-                got = [nfc(s) for s in getattr(human, attr)]
-                if got != getattr(twin, attr):
-                    out.append(f"[facade, force={force}] {text!r} {attr}: "
-                               f"{got!r} != {getattr(twin, attr)!r}")
     return out, set_aside, compared
 
 
 def test_a_decomposed_name_renders_as_its_composed_twin() -> None:
     """rules/R3 and #R4 read as an invariant over encodings: a
     letter written as a base letter and its combining accent initials
-    (#585) and repairs (#542) as the letter written whole does. Core
-    and facade; repair plain and forced. The output is compared
+    (#585) and repairs (#542) as the letter written whole does;
+    repair plain and forced. The output is compared
     composed because both views keep the form they were given.
 
-    Recorded negative controls, measured 2026-10-02. Repair, with
+    Recorded negative controls, measured 2026-10-02 with a v1-facade
+    half deleted in 3.0. Repair, with
     97af1f02's _render.py, before a word ran on through its marks, over
     #542's corpus (its own two R4 rows included): 144 disagreements over
     the 137 texts compared, 47 more set aside, every one hangul
@@ -3325,14 +3432,13 @@ def test_the_decomposed_walk_can_fail(
 def test_the_decomposed_initials_walk_can_fail(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """Taking a token's first code point again -- #585's defect -- has
-    to be seen by the walk above, on both surfaces."""
+    to be seen by the walk above."""
     import nameparser._render as render_module
     monkeypatch.setattr(render_module, "_first_letter",
                         lambda text: text[0])
     failures, _, _ = _nfd_twin_findings()
-    for surface in ("core", "facade"):
-        assert any(line.startswith(f"[initials, {surface}]")
-                   for line in failures), failures
+    assert any(line.startswith("[initials, core]")
+               for line in failures), failures
 
 
 _TWIN_HEADS = ("Smith, John,", "Smith, John, Jr.,", "Doe, Jane, PhD")
@@ -3497,12 +3603,11 @@ def test_a_glued_semicolon_reads_as_its_space_twin() -> None:
 #
 # Every particle reader in the package is a site, and each is checked
 # by every view the comparison takes: the parse's own fields, reports,
-# initials and case repair, and the v1 facade's initials and its
-# last-name split. The grid is the eight words below, two and three at
+# initials and case repair. The grid is the eight words below, two and three at
 # a time, every comma position, each name holding 'Ó.' and run as
 # written, upper-cased and lower-cased: 537 texts. One walk of both
 # sides is about 0.75s; the 'Q.' side is walked once per lexicon and
-# shared, so the invariant and its four-site control together cost
+# shared, so the invariant and its site control together cost
 # about 3s (measured 2026-10-04, py3.11).
 _P7_WORDS = ('Ó.', 'de', 'Pérez', 'Juan', 'MA', 'Ed', 'DO', 'Jr.')
 
@@ -3524,11 +3629,8 @@ def _p7_views(text: str, lexicon: Lexicon) -> str:
     out = []
     for written in (text, text.upper(), text.lower()):
         name = parser.parse(written)
-        legacy = HumanName(written)
         out.append((name.as_dict(), [a.kind for a in name.ambiguities],
-                    name.initials(), str(name.capitalized(lexicon)),
-                    legacy.initials(), legacy.last_prefixes,
-                    legacy.last_base))
+                    name.initials(), str(name.capitalized(lexicon))))
     return str(out)
 
 
@@ -3561,17 +3663,19 @@ def test_a_one_letter_particle_with_its_period_reads_as_any_initial() -> None:
 #: opening the part either way: nine of classify's, 'DO Ó., ...'
 #: shapes, and one of the facade's), and re-measured 2026-10-06 after
 #: #613 decided the comma once at group's head, which moved classify,
-#: the facade and _render one text each. Every site moves
+#: the facade and _render one text each, and again 2026-11-02, when
+#: rules/C3 began counting a suffix word opening the part before the
+#: comma as a name word, which moved classify's by one ('Jr. Ó., Jr.',
+#: whose readings with the veto off and on now agree). Every site moves
 #: some, so none is decoration. _render's is measured without the
 #: particle case masks, as for a caller's one-letter particle that has
 #: none: with the shipped 'ó' mask the repair takes the mask before
 #: the particle arm is asked (rules/R4), so the default vocabulary
 #: alone cannot see that veto.
 _P7_SITE_EFFECT = {
-    "nameparser._pipeline._classify": 404,
+    "nameparser._pipeline._classify": 403,
     "nameparser._pipeline._vocab": 21,
     "nameparser._render": 339,
-    "nameparser._facade": 121,
 }
 
 
@@ -3579,7 +3683,7 @@ def _without_particle_masks() -> Lexicon:
     default = Lexicon.default()
     return dataclasses.replace(default, capitalization_exceptions=tuple(
         (key, mask) for key, mask in default.capitalization_exceptions
-        if key not in default.particles))
+        if key not in default._sets.particles))
 
 
 @pytest.mark.parametrize("module", sorted(_P7_SITE_EFFECT))
@@ -3642,8 +3746,16 @@ _ONE_CASE_HEADS = (("john", "smith", "jones"), ("carod", "puig", "rovira"),
 #: letter initial taken out, with the numeral fork's one-case letter
 #: in front taken out, and with the strict suffix test's one-case veto
 #: taken out (#727: the 54 strict comma pairs and the 18 honorific
-#: ones, which are 2444f847's 72) -- each guard seen on its own
-_ONE_CASE_UNGUARDED = 387
+#: ones, which are 2444f847's 72) -- each guard seen on its own; the
+#: letter initial's re-taken 2026-11-02 when a generation word before
+#: a name word stopped starting S8's run, its unguarded letter then
+#: counting as a name word behind 'jr' in lower case only (387 -> 396);
+#: re-taken 2026-11-06 when a lone word's field stopped following the
+#: order (#1111): an initial before a maiden marker, which M4 leaves to
+#: O5's convention, now reads given under the two family-first orders,
+#: where unguarded M4 makes the letter the family ('j nee smith', the
+#: three letters v, x and j behind three heads, 396 -> 414)
+_ONE_CASE_UNGUARDED = 414
 _ONE_CASE_LETTER_IN_FRONT_UNGUARDED = 117
 _ONE_CASE_STRICT_VETO_UNGUARDED = 72
 
@@ -3797,8 +3909,10 @@ def test_a_given_name_written_short_reads_as_a_given_name() -> None:
     shape fire somewhere, so a pass is not a grid the shape never
     reaches."""
     lexicon = Lexicon.default()
-    off = lexicon.remove(
-        given_name_abbreviations=set(lexicon.given_name_abbreviations))
+    abbreviations = sorted(lexicon._sets.given_name_abbreviations)
+    # the set emptied: each word keeps its given reading, without the
+    # full name that makes it one written short
+    off = lexicon.add(*abbreviations, kind="given", same_as=None)
 
     def fields(name: ParsedName, plain: str = "", head: str = "") -> dict[str, str]:
         return {k: v.replace(plain, head) if plain else v
@@ -3816,7 +3930,7 @@ def test_a_given_name_written_short_reads_as_a_given_name() -> None:
         # is compared only with the set emptied)
         stand_in = Parser(policy=dataclasses.replace(
             policy, unlisted_caps_suffixes=CapsSuffixes.OFF))
-        for word in sorted(lexicon.given_name_abbreviations):
+        for word in abbreviations:
             # the bare spellings too, which the set must never move
             for head, plain in ((word.title() + ".", "Jack"),
                                 (word.upper() + ".", "JACK"),

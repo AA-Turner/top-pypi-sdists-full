@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from office365.entity import Entity
+from office365.onedrive.termstore.relation_type import RelationType
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
-    from office365.onedrive.termstore.relation_type import RelationType
     from office365.onedrive.termstore.sets.set import Set
 
 
@@ -25,7 +25,7 @@ class Relation(Entity):
     reflected in the other term sets in which the term is reused.
     """
 
-    @odata(name="fromTerm")
+    @odata(name="fromTerm", navigation=True)
     @property
     def from_term(self):
         """The from term of the relation. The term from which the relationship is defined.
@@ -34,7 +34,7 @@ class Relation(Entity):
 
         return self.properties.get("fromTerm", Term(self.context, ResourcePath("fromTerm", self.resource_path)))
 
-    @odata(name="toTerm")
+    @odata(name="toTerm", navigation=True)
     @property
     def to_term(self):
         """The to term of the relation. The term to which the relationship is defined."""
@@ -42,6 +42,7 @@ class Relation(Entity):
 
         return self.properties.get("toTerm", Term(self.context, ResourcePath("toTerm", self.resource_path)))
 
+    @odata(name="set", navigation=True)
     @property
     def set(self):
         """The set in which the relation is relevant."""
@@ -49,6 +50,7 @@ class Relation(Entity):
 
         return self.properties.get("set", Set(self.context, ResourcePath("set", self.resource_path)))
 
+    @odata(name="set", navigation=True)
     @property
     def set_(self) -> Set:
         from office365.onedrive.termstore.sets.set import Set
@@ -60,9 +62,8 @@ class Relation(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.termStore.Relation"
 
+    @odata(name="relationship")
     @property
     def relationship(self) -> RelationType:
         """Gets the relationship property"""
-        from office365.onedrive.termstore.relation_type import RelationType
-
         return self.properties.get("relationship", RelationType.pin)

@@ -5,17 +5,17 @@ from typing import Any, Callable, Optional, Type
 
 import asyncclick as click
 
-from .. import ui
 from ..actions.download_incremental import download_incremental
 from ..actions.download_schema import download_schema
 from ..actions.download_snapshot import download_snapshot
 from ..actions.drop_db import drop_db
 from ..actions.init_db import init_db
 from ..actions.list_db import list_db
+from ..actions.list_namespaces import list_namespaces
 from ..actions.list_tables import list_tables
 from ..actions.sync_db import sync_db
 from ..dap_types import Credentials, Format
-from ..integration.database import get_parameters
+from ..integration.database import get_dialect, get_parameters
 from ..log import set_namespace, set_table
 from ..timestamp import valid_utc_datetime
 from .global_options import GlobalOptions, pass_global_options
@@ -134,18 +134,17 @@ def connection_string_option_callback(
 
     logger.debug("Checking for valid database connection string")
     try:
-        _, _ = get_parameters(value)
+        dialect, _ = get_parameters(value)
+        _ = get_dialect(dialect)
 
         return value
-    except ValueError:
+    except ValueError as e:
         err_str = (
             "Invalid database connection string. "
             "Please verify its format and ensure special characters are properly URL-encoded."
         )
 
-        ui.error(err_str)
-        logger.error(err_str)
-        raise
+        raise ValueError(f"{err_str} Cause: {e}") from e
 
 
 def connection_string_option(f: Callable) -> Callable:
@@ -159,17 +158,33 @@ def connection_string_option(f: Callable) -> Callable:
     )(f)
 
 
+class AliasGroup(click.Group):
+    """
+    A click Group whose commands may be registered under alias names.
+    Aliases resolve to their target command but are omitted from help output,
+    so each command is listed only once under its primary name.
+    """
+
+    def __init__(self, *args: Any, aliases: dict[str, str], **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.aliases = aliases
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.Command]:
+        cmd_name = self.aliases.get(cmd_name, cmd_name)
+        return super().get_command(ctx, cmd_name)
+
+
 @dap_command(
     "Lists the name of all tables available for querying in the specified namespace.",
 )
 @pass_global_options
 @namespace_option
-async def list(
+async def tables(
     global_options: GlobalOptions,
     namespace: str,
 ) -> None:
     logger.debug(
-        "Running list command with parameters: namespace=%s",
+        "Running list tables command with parameters: namespace=%s",
         namespace,
     )
 
@@ -182,6 +197,37 @@ async def list(
         namespace=namespace,
         tracking=global_options.tracking,
     )
+
+
+@dap_command("Lists the name of all namespaces available for querying.")
+@pass_global_options
+async def namespaces(global_options: GlobalOptions) -> None:
+    logger.debug("Running list namespaces command")
+
+    await list_namespaces(
+        base_url=global_options.base_url,
+        credentials=Credentials.create(
+            client_id=global_options.client_id,
+            client_secret=global_options.client_secret,
+        ),
+        tracking=global_options.tracking,
+    )
+
+
+list = AliasGroup(
+    name="list",
+    help="Lists tables or namespaces available for querying.",
+    short_help="Lists tables or namespaces available for querying.",
+    context_settings={"help_option_names": ["--help", "-h"]},
+    commands={
+        "tables": tables,
+        "namespaces": namespaces,
+    },
+    aliases={
+        "table": "tables",
+        "namespace": "namespaces",
+    },
+)
 
 
 @dap_command("Returns the JSON schema that records in the table conform to.")

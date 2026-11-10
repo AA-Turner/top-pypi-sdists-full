@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SPTeamsAppComponent(ClientValue):
     appDescription: str | None = None
     appId: str | None = None

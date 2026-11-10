@@ -167,7 +167,7 @@ class vrna_build_ext(build_ext):
 
     def build_extensions(self):
         for ext in self.extensions:
-            ext.define_macros += [('VRNA_VERSION', "\"2.7.2\"")]
+            ext.define_macros += [('VRNA_VERSION', "\"2.8.0\"")]
             # we include config.h, so let's tell the source files about it
             if not self.compiler_is_msvc():
                 ext.define_macros += [('HAVE_CONFIG_H', None)]
@@ -198,7 +198,7 @@ class vrna_build_ext(build_ext):
                 ext.define_macros += [('VRNA_WITH_SIMD_SSE41', None)]
                 # disable C11 features since they are supported by MSVC only in parts (if at all)
                 ext.define_macros += [('VRNA_DISABLE_C11_FEATURES', None)]
-                ext.sources.append("src/dlib-20.0/dlib/all/source.cpp")
+                ext.sources.append("src/dlib-20.0.1/dlib/all/source.cpp")
             else:
                 if (platform.machine() == "arm64" or "arm64" in os.getenv("ARCHFLAGS", "")) or \
                    (platform.machine() == "aarch64" or "aarch64" in os.getenv("ARCHFLAGS", "")):
@@ -223,6 +223,7 @@ class vrna_build_ext(build_ext):
 
             if self.compiler_is_msvc():
                 ext.libraries.remove("m")
+                ext.extra_compile_args += ['/std:c++17']
                 try:
                     ext.libraries.remove("stdc++")
                 except:
@@ -342,12 +343,12 @@ def vrna_ext(name = "RNA._RNA"):
     includeDirs.append('.')
     includeDirs.append('src')
     includeDirs.append('src/ViennaRNA')
-    includeDirs.append('src/dlib-20.0')
+    includeDirs.append('src/dlib-20.0.1')
     includeDirs.append('src/cephes')
 
-    if "src/libsvm-3.35" != "src/":
-        srcFiles += ['src/libsvm-3.35/svm.cpp']
-        includeDirs.append('src/libsvm-3.35')
+    if "src/libsvm-3.37" != "src/":
+        srcFiles += ['src/libsvm-3.37/svm.cpp']
+        includeDirs.append('src/libsvm-3.37')
 
     #print("includeDirs:")
     #print(includeDirs)

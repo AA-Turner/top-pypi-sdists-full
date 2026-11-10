@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class Identity(ClientValue):
     """The Identity resource represents an identity of an actor. For example, an actor can be a user, device,
     or application."""

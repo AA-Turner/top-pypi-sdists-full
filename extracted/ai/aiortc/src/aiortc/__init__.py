@@ -8,7 +8,12 @@ from .mediastreams import (
     MediaStreamTrack,
     VideoStreamTrack,
 )
-from .rtcconfiguration import RTCBundlePolicy, RTCConfiguration, RTCIceServer
+from .rtcconfiguration import (
+    RTCBundlePolicy,
+    RTCConfiguration,
+    RTCIceServer,
+    RTCIceTransportPolicy,
+)
 from .rtcdatachannel import RTCDataChannel, RTCDataChannelParameters
 from .rtcdtlstransport import (
     RTCCertificate,
@@ -50,7 +55,7 @@ from .stats import (
     RTCTransportStats,
 )
 
-__version__ = "1.15.0"
+__version__ = "1.16.0"
 
 # Set default logging handler to avoid "No handler found" warnings.
 logging.getLogger(__name__).addHandler(logging.NullHandler())
@@ -74,6 +79,7 @@ __all__ = [
     "RTCIceParameters",
     "RTCIceServer",
     "RTCIceTransport",
+    "RTCIceTransportPolicy",
     "RTCInboundRtpStreamStats",
     "RTCOutboundRtpStreamStats",
     "RTCPeerConnection",

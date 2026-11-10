@@ -23,7 +23,7 @@ from __future__ import annotations
 import contextlib
 import copy
 from codecs import BOM_UTF8, lookup
-from typing import TypeVar
+from typing import Self, TypeVar
 
 from lxml import etree
 
@@ -93,7 +93,7 @@ class LISAunit(base.TranslationUnit):
                 return False
         return True
 
-    def copy(self) -> LISAunit:
+    def copy(self) -> Self:
         """
         Make a copy of the translation unit.
 
@@ -586,7 +586,7 @@ class LISAfile(base.TranslationStore[U]):
                         node.tag = namespaced(self.namespace, qname.localname)
         super().addunit(unit)
         if new:
-            self.body.append(unit.xmlelement)  # ty:ignore[unresolved-attribute]
+            self.body.append(unit.xmlelement)  # ty:ignore[missing-union-attribute]
 
     def removeunit(self, unit) -> None:
         super().removeunit(unit)
@@ -594,6 +594,14 @@ class LISAfile(base.TranslationStore[U]):
 
     def serialize_hook(self, treestring: str) -> bytes:
         return treestring.encode(self.encoding)
+
+    @staticmethod
+    def _validate_xml_encoding(encoding: str) -> None:
+        """Reject XML encodings that Python cannot use for serialization."""
+        try:
+            lookup(encoding)
+        except LookupError as error:
+            raise base.ParseError(f"Unsupported XML encoding: {encoding}") from error
 
     def _remember_utf8_bom(self, xml: str | bytes) -> None:
         """Record the input BOM for subsequent serialization."""
@@ -644,8 +652,8 @@ class LISAfile(base.TranslationStore[U]):
 
         out.write(self.serialize_hook(treestring))  # ty:ignore[invalid-argument-type]
 
-    def parse(self, xml) -> None:  # ty:ignore[invalid-method-override]
-        """Populates this object from the given xml string."""
+    def parse(self, xml) -> None:  # ty:ignore[lost-keyword-for-regular-parameter]
+        """Populate from XML, rejecting encodings unsupported by Python."""
         if not hasattr(self, "filename"):
             self.filename = getattr(xml, "name", "")
         if hasattr(xml, "read"):
@@ -653,6 +661,7 @@ class LISAfile(base.TranslationStore[U]):
             posrc = xml.read()
             xml = posrc
         self.document = parse_xml(xml, strip_cdata=False).getroottree()
+        self._validate_xml_encoding(self.document.docinfo.encoding)
         self._remember_utf8_bom(xml)
         self.encoding = self.document.docinfo.encoding
         self.initbody()

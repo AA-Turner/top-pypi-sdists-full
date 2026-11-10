@@ -62,6 +62,7 @@ class QueuedJob:
         preprocessed (Union[Unset, bool]):
         is_retry (Union[Unset, bool]):
         trigger_kind (Union[Unset, QueuedJobTriggerKind]): job trigger kind (schedule, http, websocket...)
+        trigger_path (Union[Unset, str]): Path of the trigger, schedule or app that started the job, if any
         worker (Union[Unset, str]):
     """
 
@@ -101,6 +102,7 @@ class QueuedJob:
     preprocessed: Union[Unset, bool] = UNSET
     is_retry: Union[Unset, bool] = UNSET
     trigger_kind: Union[Unset, QueuedJobTriggerKind] = UNSET
+    trigger_path: Union[Unset, str] = UNSET
     worker: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -172,6 +174,7 @@ class QueuedJob:
         if not isinstance(self.trigger_kind, Unset):
             trigger_kind = self.trigger_kind.value
 
+        trigger_path = self.trigger_path
         worker = self.worker
 
         field_dict: Dict[str, Any] = {}
@@ -243,6 +246,8 @@ class QueuedJob:
             field_dict["is_retry"] = is_retry
         if trigger_kind is not UNSET:
             field_dict["trigger_kind"] = trigger_kind
+        if trigger_path is not UNSET:
+            field_dict["trigger_path"] = trigger_path
         if worker is not UNSET:
             field_dict["worker"] = worker
 
@@ -378,6 +383,8 @@ class QueuedJob:
         else:
             trigger_kind = QueuedJobTriggerKind(_trigger_kind)
 
+        trigger_path = d.pop("trigger_path", UNSET)
+
         worker = d.pop("worker", UNSET)
 
         queued_job = cls(
@@ -417,6 +424,7 @@ class QueuedJob:
             preprocessed=preprocessed,
             is_retry=is_retry,
             trigger_kind=trigger_kind,
+            trigger_path=trigger_path,
             worker=worker,
         )
 

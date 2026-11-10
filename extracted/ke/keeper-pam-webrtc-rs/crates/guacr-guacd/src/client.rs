@@ -166,6 +166,38 @@ const NON_CONNECT_PARAMS: &[&str] = &[
     "image",
 ];
 
+/// Connect parameters guacd parses as booleans with a case-sensitive `strcmp(..., "true")`.
+///
+/// Callers that stringify a Python bool (`str(True)`) hand us `"True"`, which guacd reads
+/// as false. For `recording-write-existing` that is not cosmetic: libguac then refuses to
+/// reuse the Gateway-created FIFO at `recordingpath/recordingname` and records into
+/// `<name>.1`, which nothing reads. Only these names are rewritten; credentials and other
+/// free-text values are never touched. Normalized form (hyphens/underscores removed).
+const BOOLEAN_CONNECT_PARAMS: &[&str] = &[
+    "recordingwriteexisting",
+    "typescriptwriteexisting",
+    "createrecordingpath",
+    "createtypescriptpath",
+    "recordingexcludeoutput",
+    "recordingexcludemouse",
+    "recordingincludekeys",
+];
+
+/// Canonicalise the spelling of a boolean connect parameter to `"true"` / `"false"`.
+/// Unrecognised spellings and non-boolean parameters are returned unchanged.
+pub(crate) fn canonical_connect_value(normalized_name: &str, value: &str) -> String {
+    if BOOLEAN_CONNECT_PARAMS.contains(&normalized_name) {
+        let trimmed = value.trim();
+        if trimmed.eq_ignore_ascii_case("true") || trimmed == "1" {
+            return "true".to_string();
+        }
+        if trimmed.eq_ignore_ascii_case("false") || trimmed == "0" {
+            return "false".to_string();
+        }
+    }
+    value.to_string()
+}
+
 /// Names of supplied connect parameters that guacd's `args` list has no slot for, and
 /// which the positional `connect` instruction therefore discards.
 ///
@@ -671,8 +703,8 @@ where
             // Look up the parameter value using the normalized key
             let param_value = normalized_config_map
                 .get(&normalized_guacd_param)
-                .cloned()
-                .unwrap_or_else(String::new);
+                .map(|v| canonical_connect_value(&normalized_guacd_param, v))
+                .unwrap_or_default();
 
             connect_args.push(param_value);
         }

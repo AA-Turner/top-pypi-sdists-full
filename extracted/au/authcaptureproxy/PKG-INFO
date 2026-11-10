@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: authcaptureproxy
-Version: 1.3.7
+Version: 1.3.9
 Summary: A Python project to create a proxy to capture authentication information from a webpage. This is useful to capture oauth login details without access to a third-party oauth.
 License-Expression: Apache-2.0
 License-File: LICENSE.txt
@@ -8,12 +8,14 @@ Author: Alan D. Tse
 Author-email: alandtse@gmail.com
 Maintainer: Alan D. Tse
 Maintainer-email: alandtse@gmail.com
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Classifier: Development Status :: 3 - Alpha
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Environment :: Console

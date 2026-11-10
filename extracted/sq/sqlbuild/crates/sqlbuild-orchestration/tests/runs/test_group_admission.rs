@@ -22,6 +22,7 @@ use crate::runs::tests::test_types::{
     AdmissionParent, GroupAdmissionTestCase, GroupChildLimitTestCase, GroupQueueTestCase,
     MixedAdmissionTestCase, RunLifecycleTestCase,
 };
+use crate::store::tests::lease_helpers::extend_lease_through_test;
 use crate::store::tests::replica_helpers::second_store;
 use crate::store::tests::store_helpers::{close_store, close_test_store, open_test_store, run};
 use crate::store::tests::store_test_types::Backend;
@@ -91,6 +92,7 @@ fn given_mixed_physical_and_parent_waiters_when_admitting_then_priority_and_queu
                         reason: "Exercise mixed queue ordering".into(),
                         priority: test_case.parent_priority,
                         window: None,
+                        full_refresh: false,
                     },
                 )
                 .await
@@ -190,6 +192,7 @@ fn given_group_children_sharing_a_limit_of_one_when_claiming_then_they_run_one_a
                     reason: "Load the warehouse once".into(),
                     priority: 1,
                     window: None,
+                    full_refresh: false,
                 },
             )
             .await
@@ -291,6 +294,7 @@ fn given_an_unserved_queued_group_when_dispatching_an_eligible_scope_then_unknow
                         reason: "Exercise launcher eligibility".into(),
                         priority: 1,
                         window: None,
+                        full_refresh: false,
                     },
                 )
                 .await
@@ -528,6 +532,7 @@ fn given_capacity_and_multistage_cycles_when_replicas_admit_and_resume_groups_th
                             reason: "Exercise capacity-aware admission".into(),
                             priority: index as i64 + 1,
                             window: None,
+                            full_refresh: false,
                         },
                     )
                     .await
@@ -653,6 +658,7 @@ fn given_an_older_blocked_allow_group_when_an_independent_generation_is_queued_t
                 reason: "Older group".into(),
                 priority: 1,
                 window: None,
+                full_refresh: false,
             };
             request_job_run(store, &actor, &older)
                 .await
@@ -802,10 +808,11 @@ fn given_a_large_healthy_project_with_blocked_groups_when_claiming_then_unrelate
             let published = publish_snapshot(store, &input)
                 .await
                 .expect("publish large project");
-            let lease = acquire_lease(store, Uuid::now_v7())
+            let elected = acquire_lease(store, Uuid::now_v7())
                 .await
                 .expect("elect")
                 .expect("leader");
+            let lease = extend_lease_through_test(store, elected).await;
             let limits = BTreeMap::from([("warehouse".into(), NonZeroU32::new(1).expect("one"))]);
             let scope = (location, "development");
             let mut physical = request((location, published.snapshot_id), 1, 10, &["products"]);
@@ -827,6 +834,7 @@ fn given_a_large_healthy_project_with_blocked_groups_when_claiming_then_unrelate
                         reason: "Exercise blocked group queue".into(),
                         priority: 1,
                         window: None,
+                        full_refresh: false,
                     },
                 )
                 .await

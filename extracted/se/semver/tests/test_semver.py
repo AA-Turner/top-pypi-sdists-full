@@ -2,6 +2,8 @@ import pytest  # noqa
 
 from semver import Version
 
+UTF8_VERSION = "1.0.0"
+
 
 @pytest.mark.parametrize(
     "string,expected", [("rc", "rc"), ("rc.1", "rc.2"), ("2x", "3x")]
@@ -77,6 +79,19 @@ def test_should_versioninfo_isvalid():
     assert Version.is_valid("foo") is False
 
 
+@pytest.mark.parametrize(
+    "version,expected",
+    [
+        pytest.param(b"1.0.0", True, id="valid-bytes"),
+        pytest.param(b"foo", False, id="invalid-version-bytes"),
+        pytest.param(UTF8_VERSION.encode("UTF-8"), True, id="utf8-encoded-version"),
+        pytest.param(b"\xff", False, id="invalid-utf8"),
+    ],
+)
+def test_is_valid_bytes(version, expected):
+    assert Version.is_valid(version) is expected
+
+
 def test_versioninfo_compare_should_raise_when_passed_invalid_value():
     with pytest.raises(TypeError):
         Version(1, 2, 3).compare(4)
@@ -134,3 +149,15 @@ def test_should_succeed_with_compatible_subclass_for_is_compatible():
     class CustomVersion(Version): ...
 
     assert CustomVersion(1, 0, 0).is_compatible(Version(1, 0, 0))
+
+
+@pytest.mark.parametrize(
+    "old, new",
+    [
+        # build metadata is ignored for compatibility, also for major 0
+        ((0, 1, 2, None, "build.1"), (0, 1, 2, None, "build.2")),
+        ((1, 2, 3, None, "build.1"), (1, 2, 3, None, "build.2")),
+    ],
+)
+def test_should_ignore_build_metadata_in_is_compatible(old, new):
+    assert Version(*old).is_compatible(Version(*new))

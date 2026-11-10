@@ -1,6 +1,7 @@
 """
 Low-level JAR runner for opendataloader-pdf.
 """
+import json
 import math
 import os
 import subprocess
@@ -8,7 +9,7 @@ import sys
 import tempfile
 import threading
 import importlib.resources as resources
-from typing import IO, List, Optional
+from typing import IO, Dict, List, Optional, Tuple
 
 # The consistent name of the JAR file bundled with the package
 _JAR_NAME = "opendataloader-pdf-cli.jar"
@@ -27,7 +28,74 @@ def _temp_dir_options() -> List[str]:
     for name in _JAVA_OPTION_VARS:
         if "-Djava.io.tmpdir=" in os.environ.get(name, ""):
             return []
-    return [f"-Djava.io.tmpdir={tempfile.gettempdir()}"]
+    return [f"-Djava.io.tmpdir={_ascii_path(tempfile.gettempdir())}"]
+
+
+_ON_WINDOWS = os.name == "nt"
+
+# Environment variable that the CLI reads its arguments from, as a JSON array,
+# when the command line has none
+_ARGS_ENV_VAR = "OPENDATALOADER_PDF_ARGS"
+
+
+def _short_path(path: str) -> Optional[str]:
+    """Return the Windows short (8.3) form of an existing path, or None.
+
+    Returns None on other platforms or if the path does not exist. If the
+    path has no short name, for example on a volume that does not create
+    8.3 names, GetShortPathNameW returns the long path, so this function
+    returns that path, not None.
+    """
+    if not _ON_WINDOWS:
+        return None
+    # ctypes.windll exists only on Windows, so import here
+    import ctypes
+    from ctypes import wintypes
+
+    get_short_path = ctypes.windll.kernel32.GetShortPathNameW
+    get_short_path.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    get_short_path.restype = wintypes.DWORD
+
+    length = get_short_path(path, None, 0)
+    if length == 0:
+        return None
+    buffer = ctypes.create_unicode_buffer(length)
+    if get_short_path(path, buffer, length) == 0:
+        return None
+    return buffer.value
+
+
+def _ascii_path(path: str) -> str:
+    """Return a form of an existing path that the Java launcher can read.
+
+    On Windows the Java launcher decodes the command line with the ANSI code
+    page of the system, not UTF-8. Characters outside that code page (Greek,
+    Cyrillic, CJK on a Western-locale system) become "?". The short (8.3) form
+    of a path is ASCII and keeps its meaning. Used for the JAR path and the
+    temporary folder, which are JVM options and never name output.
+    Return the path unchanged if it is ASCII or has no ASCII short form.
+    """
+    if path.isascii():
+        return path
+    short = _short_path(os.path.abspath(path))
+    return short if short and short.isascii() else path
+
+
+def _jar_arguments(args: List[str]) -> Tuple[List[str], Optional[Dict[str, str]]]:
+    """Return the command-line arguments and the environment for the JAR.
+
+    On Windows the Java launcher turns characters outside the ANSI code page
+    into "?", so Java cannot find a non-ASCII input path, and output names and
+    image links would be wrong. The CLI also reads its arguments from
+    OPENDATALOADER_PDF_ARGS, so pass them there instead. json.dumps escapes
+    non-ASCII characters, so the value is ASCII and survives any code page.
+    The environment is None when the arguments go on the command line.
+    """
+    # subprocess accepts pathlib.Path arguments, so accept them here too
+    args = [os.fspath(arg) for arg in args]
+    if not _ON_WINDOWS or all(arg.isascii() for arg in args):
+        return args, None
+    return [], {**os.environ, _ARGS_ENV_VAR: json.dumps(args)}
 
 
 # How long to wait for the relay thread after the JVM has been KILLED. Only the
@@ -67,12 +135,37 @@ def _relay_lines(stream: IO[str], sink: List[str], errors: List[Exception]) -> N
         stream.close()
 
 
-def run_jar(args: List[str], quiet: bool = False, timeout: Optional[float] = None) -> str:
+def _report_failure(error: BaseException, message: str, relay: bool) -> None:
+    """Write a failure message to stderr, or, without relay, add it to the error.
+
+    Without relay (the library API), nothing goes to the console, also on a
+    failure. The message goes into the notes of the error, which a traceback
+    shows.
+    """
+    if relay:
+        print(message, file=sys.stderr)
+    else:
+        error.add_note(message)
+
+
+def run_jar(
+    args: List[str],
+    quiet: bool = False,
+    timeout: Optional[float] = None,
+    *,
+    relay: bool = True,
+) -> str:
     """Run the opendataloader-pdf JAR with the given arguments.
 
     Args:
         args: Arguments to pass to the CLI.
         quiet: Suppress the JAR's log stream (stderr) and return its stdout.
+        relay: Write the JAR's output to the console as well as returning it
+            (the default). The bundled CLI uses this. ``False`` writes nothing
+            to the console, whatever ``quiet`` is: the JAR's stdout is
+            returned and its log stream (stderr) is dropped. On a failure, the
+            message that ``True`` writes to stderr goes into the notes of the
+            raised error instead. ``convert()`` uses ``False``.
         timeout: Wall-clock limit in seconds for the JAR process. ``None``
             (the default) waits indefinitely, which is the historical
             behaviour. On expiry the JVM is killed and
@@ -107,6 +200,7 @@ def run_jar(args: List[str], quiet: bool = False, timeout: Optional[float] = Non
         # Access the embedded JAR inside the package
         jar_ref = resources.files("opendataloader_pdf").joinpath("jar", _JAR_NAME)
         with resources.as_file(jar_ref) as jar_path:
+            jar_args, env = _jar_arguments(args)
             # Force headless AWT so macOS doesn't surface a Dock icon (and
             # steal focus) every time the JVM touches ImageIO/PDFBox
             # rendering. Safe on all OSes — the CLI never opens a UI window,
@@ -117,17 +211,19 @@ def run_jar(args: List[str], quiet: bool = False, timeout: Optional[float] = Non
                 "-Dapple.awt.UIElement=true",
                 *_temp_dir_options(),
                 "-jar",
-                str(jar_path),
-                *args,
+                _ascii_path(str(jar_path)),
+                *jar_args,
             ]
 
-            if quiet:
+            if quiet or not relay:
                 # Quiet mode → suppress the JAR's log stream (stderr) but
                 # relay its stdout to the caller: --to-stdout content and the
                 # folder summary line arrive on stdout, and swallowing them
                 # breaks pipe consumers (`... --quiet --to-stdout | jq`).
+                # Without relay (the library API) → only return the stdout.
                 result = subprocess.run(
                     command,
+                    env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
@@ -138,13 +234,14 @@ def run_jar(args: List[str], quiet: bool = False, timeout: Optional[float] = Non
                     # raising TimeoutExpired, so no JVM is left behind.
                     timeout=wait_timeout,
                 )
-                if result.stdout:
+                if relay and result.stdout:
                     _write_stdout(result.stdout)
                 return result.stdout
 
             # Streaming mode → live output
             with subprocess.Popen(
                 command,
+                env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -215,33 +312,32 @@ def run_jar(args: List[str], quiet: bool = False, timeout: Optional[float] = Non
                     )
                 return captured_output
 
-    except FileNotFoundError:
-        print(
+    except FileNotFoundError as error:
+        _report_failure(
+            error,
             "Error: 'java' command not found. Please ensure Java is installed and in your system's PATH.",
-            file=sys.stderr,
+            relay,
         )
         raise
 
     except subprocess.TimeoutExpired as error:
         # The JVM has already been killed; surface the bound that was hit so a
         # timeout is distinguishable from a crash in the caller's logs.
-        print(
-            f"opendataloader-pdf CLI timed out after {error.timeout}s.",
-            file=sys.stderr,
-        )
+        _report_failure(error, f"opendataloader-pdf CLI timed out after {error.timeout}s.", relay)
         raise
 
     except subprocess.CalledProcessError as error:
-        print("Error running opendataloader-pdf CLI.", file=sys.stderr)
-        print(f"Return code: {error.returncode}", file=sys.stderr)
+        lines = ["Error running opendataloader-pdf CLI.", f"Return code: {error.returncode}"]
         # Streaming mode already wrote the JAR's output live to stdout, so
         # re-printing the captured copy would duplicate it. Only surface the
-        # captured streams in quiet mode, where the caller has not seen them.
+        # captured streams in quiet mode or without relay, where the caller
+        # has not seen them.
         # Note: CalledProcessError.output and .stdout are aliases for the same
         # attribute — printing both produces the same content twice.
-        if quiet:
+        if quiet or not relay:
             if error.stdout:
-                print(f"Stdout: {error.stdout}", file=sys.stderr)
+                lines.append(f"Stdout: {error.stdout}")
             if error.stderr:
-                print(f"Stderr: {error.stderr}", file=sys.stderr)
+                lines.append(f"Stderr: {error.stderr}")
+        _report_failure(error, "\n".join(lines), relay)
         raise

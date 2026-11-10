@@ -1,17 +1,23 @@
+import pytest
+
+from nameparser import (
+    Parser, Reading, ReadingKind, ReadingSource, locales, parse, parser_for,
+)
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline import run
 from nameparser._pipeline._assemble import assemble
 from nameparser._pipeline._state import ParseState, PendingAmbiguity, WorkToken
-from nameparser._policy import Policy
-from nameparser._types import AmbiguityKind, ParsedName, Role, Span
+from nameparser._policy import FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, Policy
+from nameparser._types import AmbiguityKind, ParsedName, Role, Span, Token
 
-_LEX = Lexicon(
-    titles=frozenset({"dr"}),
-    particles=frozenset({"de", "la", "van"}),
-    particles_ambiguous=frozenset({"van"}),
-    suffix_words=frozenset({"iii"}),
-    maiden_markers=frozenset({"née"}),
-)
+from ..cases import CASES, Case
+
+_LEX = (Lexicon()
+        .add("dr", kind="title")
+        .add("de", "la", "van", kind="particle")
+        .add("van", kind="given")       # an ambiguous particle
+        .add("iii", kind="suffix")
+        .add("née", kind="birth_marker"))
 
 
 def _parse(text: str) -> ParsedName:
@@ -153,7 +159,9 @@ def test_a_connective_or_initial_report_is_withdrawn_where_the_role_is_a_suffix(
     withdrawn = {
         "JOHN QUINCY SMITH I": ["suffix-or-name"],
         "john smith i": ["suffix-or-name"],
-        "SMITH, JOHN I": [],
+        # C9's report on the letter (#877); the conjunction-or-initial
+        # one is still withdrawn
+        "SMITH, JOHN I": ["suffix-or-name"],
         "HENRY SMITH I": ["suffix-or-name"],
     }
     for text, kinds in withdrawn.items():
@@ -254,3 +262,427 @@ def test_a_field_tail_report_names_its_first_referent_s_field() -> None:
         PendingAmbiguity(AmbiguityKind.TITLE_OR_NAME, "read as ", (0, 1),
                          field_tail=""))
     assert [a.detail for a in pn.ambiguities] == ["read as a family name"]
+
+
+# -- Token.reading (3.0, 4a): the reading the parse took --------------
+
+#: (name, policy, word, kind, source): one row per branch assemble
+#: names a reading by, so a branch that stops being reached, or starts
+#: naming another reading, fails here by name.
+_EXPECTED_READINGS = [
+    ("Dr. Juan de la Vega III", None, "Dr.", "title", "vocabulary"),
+    ("Insp. Jane Morse", None, "Insp.", "title", "shape"),
+    ("Esq. Smith", None, "Esq.", "title", "shape"),
+    ("Member of Parliament John Smith", None, "of", "conjunction",
+     "vocabulary"),
+    ("Member of Parliament John Smith", None, "Parliament", "title",
+     "position"),
+    ("Dr. Juan de la Vega III", None, "Juan", "name", "position"),
+    ("Dr. Juan de la Vega III", None, "de", "particle", "vocabulary"),
+    ("Dr. Juan de la Vega III", None, "III", "generation", "vocabulary"),
+    ("John Q. Smith", None, "Q.", "initial", "shape"),
+    ("Juan e Maria Smith", None, "e", "conjunction", "vocabulary"),
+    # a particle with nothing to join is the name word it stands as
+    ("van Gogh", None, "van", "name", "declared"),
+    ("de", None, "de", "name", "position"),
+    ("Abdul Aziz Tariq", None, "Abdul", "name", "vocabulary"),
+    ("John Abdul Smith", None, "Abdul", "name", "vocabulary"),
+    # a bound given name that is also a particle is P5's given name
+    # where P5 joins it, the first word of its segment past the titles,
+    # and a particle where the chain took it, in either part
+    ("Abu Bakar Salim", None, "Abu", "name", "vocabulary"),
+    ("Abu Bakar Smith", None, "Abu", "name", "vocabulary"),
+    ("Smith, Abu Bakar", None, "Abu", "name", "vocabulary"),
+    (", Abu Bakar", None, "Abu", "name", "vocabulary"),
+    ("Dr. Abu Bakar Smith", None, "Abu", "name", "vocabulary"),
+    ("Abu Smith", None, "Abu", "name", "vocabulary"),
+    ("Salim Ali abu Bakar Hassan", Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+     "abu", "particle", "vocabulary"),
+    ("John Abu Smith", None, "Abu", "particle", "vocabulary"),
+    ("Smith, John Abu", None, "Abu", "particle", "vocabulary"),
+    ("김민준", None, "김", "name", "vocabulary"),
+    # spaced, the order places the family and the list decides nothing
+    ("김 민준", None, "김", "name", "position"),
+    ("김 성", None, "성", "name", "position"),
+    ("Chas. Smith", None, "Chas.", "name", "declared"),
+    ("Joao Filho Silva Filho", None, "Silva", "name", "position"),
+    ("Pedro Alves Filho", None, "Filho", "agnomen", "vocabulary"),
+    # a gated credential (#965): the class's tag would name a generation
+    ("John Smith KC", None, "KC", "credential", "vocabulary"),
+    ("Alexandre Dumas fils", None, "fils", "generation", "vocabulary"),
+    ("John Smith VI", None, "VI", "generation", "shape"),
+    ("John Smith PhD", None, "PhD", "credential", "vocabulary"),
+    ("John Smith X.Y.Z.", None, "X.Y.Z.", "credential", "shape"),
+    ("Jean-Luc Picard Esq.", None, "Esq.", "post-nominal", "vocabulary"),
+    ("王小明先生", None, "先生", "honorific", "vocabulary"),
+    # a word the run takes by position, and a credential split across a
+    # space, which is one credential
+    ("John Smith PhD Jones", None, "Jones", "credential", "position"),
+    ("John Smith III Jones", None, "Jones", "credential", "position"),
+    ("John Smith Esq Jones", None, "Jones", "credential", "position"),
+    # a generation word before a name word starts no run (rules/S8)
+    ("John Smith Jr Jones", None, "Jr", "name", "position"),
+    ("John Smith Ph. D.", None, "D.", "credential", "vocabulary"),
+    ("John Smith, Jr., Foo", None, "Foo", "credential", "position"),
+    ("John Smith, PhD and MD", None, "and", "conjunction", "vocabulary"),
+    ("John Smith (M.A)", None, "M.A", "credential", "vocabulary"),
+    ("John (Jack) Smith", None, "Jack", "name", "position"),
+    ('"Van" Smith', None, "Van", "name", "declared"),
+    ('"Abu" Smith', None, "Abu", "name", "vocabulary"),
+    ("Jane Smith née Jones", None, "Jones", "name", "position"),
+    # the role the reading names is the final one, after every fold
+    ("John Paul Smith", Policy(middle_as_family=True), "Paul", "name",
+     "position"),
+    ("de Mesnil Jean", Policy(name_order=FAMILY_FIRST), "de", "particle",
+     "vocabulary"),
+    # a patronymic particle (R9) by the vocabulary, the words its
+    # run takes and the Turkic father's name by position, an ending or
+    # a marker by its shape
+    ("Mahathir bin Mohamad", None, "bin", "patronymic", "vocabulary"),
+    ("Mahathir bin Mohamad", None, "Mohamad", "patronymic", "position"),
+    ("Ahmad bin Abdul Rahman", None, "Abdul", "patronymic", "position"),
+    ("Mohamad, Mahathir bin", None, "Mohamad", "patronymic", "position"),
+    # particles joined by a connective anchor the base (rules/R2, #939),
+    # so each is a name word, read as the name its file declares
+    ("Fritz Freiherr und von Bar", None, "Bar", "name", "declared"),
+    ("Fritz Freiherr und von Bar", None, "und", "conjunction",
+     "vocabulary"),
+    ("bin Mohamad", None, "bin", "name", "declared"),
+    ("Ivan Ivanovich Ivanov", Policy(patronymic_rules={"east-slavic"}),  # type: ignore[arg-type]
+     "Ivanovich", "patronymic", "shape"),
+    ("Ivan Ivanovich Ivanov", None, "Ivanovich", "name", "position"),
+    ("Ali Ahmad oglu", Policy(patronymic_rules={"turkic"}),  # type: ignore[arg-type]
+     "oglu", "patronymic", "shape"),
+    ("Ali Ahmad oglu", Policy(patronymic_rules={"turkic"}),  # type: ignore[arg-type]
+     "Ahmad", "patronymic", "position"),
+]
+
+
+@pytest.mark.parametrize("text,policy,word,kind,source", _EXPECTED_READINGS,
+                         ids=lambda v: v if isinstance(v, str) else None)
+def test_a_token_carries_the_reading_the_parse_took(
+        text: str, policy: Policy | None, word: str, kind: str,
+        source: str) -> None:
+    pn = (Parser(policy=policy) if policy else Parser()).parse(text)
+    (tok,) = [t for t in pn.tokens if t.text == word][:1]
+    assert tok.reading == Reading(kind, tok.role, source)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
+def test_every_parsed_token_has_a_reading_of_its_own_field(case: Case) -> None:
+    parser = (parser_for(locales.get(case.locale)) if case.locale is not None
+              else Parser(policy=case.policy) if case.policy else Parser())
+    pn = parser.parse(case.text)
+    for t in pn.tokens:
+        assert t.reading is not None, t
+        assert t.reading.role is t.role, t
+        # a patronymic is listed only as a particle (R9); the words
+        # its run takes and an ending rule's are not
+        if (t.reading.kind is ReadingKind.PATRONYMIC
+                and t.reading.source is ReadingSource.VOCABULARY):
+            assert "particle" in t.tags, t
+        # no file holds a reading by shape or by position
+        if t.reading.source in (ReadingSource.SHAPE, ReadingSource.POSITION):
+            assert t.reading.languages == (), t
+    # case repair changes case and nothing else, the readings included
+    repaired = parser.capitalized(pn, force=True)
+    assert ([t.reading for t in repaired.tokens]
+            == [t.reading for t in pn.tokens])
+    # languages is not compared, so it is checked on its own
+    assert ([t.reading and t.reading.languages for t in repaired.tokens]
+            == [t.reading and t.reading.languages for t in pn.tokens])
+
+
+def test_a_caller_surname_reads_from_the_vocabulary_only_where_split_off(
+        ) -> None:
+    # spaced, a caller's own Latin surname is placed by position; the
+    # list decides only a division of one written word
+    lex = Lexicon.default() | Lexicon(surnames={"smith"})
+    pn = Parser(lexicon=lex).parse("John Smith")
+    assert pn.tokens[-1].reading == Reading("name", "family", "position")  # type: ignore[arg-type]
+
+
+def test_a_token_reading_names_its_own_field() -> None:
+    with pytest.raises(ValueError, match="names the field 'family' but the "
+                                         "token's role is 'given'"):
+        Token("x", None, Role.GIVEN,
+              reading=Reading("title", "family", "shape"))  # type: ignore[arg-type]
+
+
+def test_a_token_replace_or_revise_builds_has_no_reading() -> None:
+    pn = parse("Dr. Juan de la Vega III")
+    for edited in (pn.replace(family="Smith"),
+                   Parser().revise(pn, family="Smith")):
+        (family,) = edited.tokens_for(Role.FAMILY)
+        assert family.reading is None
+        # the fields it did not touch keep theirs
+        assert [t.reading for t in edited.tokens_for(Role.GIVEN)] == [
+            t.reading for t in pn.tokens_for(Role.GIVEN)]
+
+
+#: A listed suffix word reads as its vocabulary kind (3.0's 4b): `jr`
+#: and `esq` compile into the same set with the same tags, and the
+#: reading index tells them apart; a credential written as a word
+#: (`博士`) is a credential, an honorific (`先生`) an honorific (#326),
+#: and a kind with no reading kind of its own (a courtesy, a status) a
+#: post-nominal word.
+@pytest.mark.parametrize("text,word,kind", [
+    ("John Smith Jr.", "Jr.", "generation"),
+    ("John Smith Sr.", "Sr.", "generation"),
+    ("John Smith III", "III", "generation"),
+    ("Pedro Alves Filho", "Filho", "agnomen"),
+    ("John Smith Esq.", "Esq.", "post-nominal"),
+    ("王小明先生", "先生", "honorific"),
+    ("김민준 씨", "씨", "honorific"),
+    ("王小明 博士", "博士", "credential"),
+    ("John Smith PhD", "PhD", "credential"),
+])
+def test_a_suffix_word_reads_as_its_vocabulary_kind(
+        text: str, word: str, kind: str) -> None:
+    (tok,) = [t for t in parse(text).tokens if t.text == word]
+    assert tok.reading is not None
+    assert tok.reading.kind.value == kind
+
+
+def test_every_suffix_words_reading_alternative_and_index_kind_agree(
+        ) -> None:
+    # One walk over every suffix-set word, not a case per word (826 on
+    # 2026-10-29): behind a name the word takes its suffix reading, a
+    # lone word that reports a fork names that reading as the one not
+    # taken, and both carry the kind the shipped reading index gives
+    # it. One predicate (`_vocab.suffix_kind`) names the two readings
+    # (rules/R8, decisions/R8)
+    from nameparser._reading_index import suffix_kind_of
+    lex = Lexicon.default()
+    kinds = {"generation": "generation", "agnomen": "agnomen",
+             "credential": "credential", "honorific": "honorific",
+             "professional_honorific": "honorific"}
+    sets = lex._sets
+    words = sorted(sets.suffix_words | sets.suffix_acronyms
+                   | sets.suffix_words_ambiguous
+                   | sets.suffix_acronyms_ambiguous)
+    assert len(words) > 800
+    mismatched = []
+    reported = 0
+    for word in words:
+        want = kinds.get(suffix_kind_of(word) or "", "post-nominal")
+        taken = [t.reading.kind.value if t.reading else None
+                 for t in parse(f"John Smith {word}").tokens_for(Role.SUFFIX)]
+        lone = parse(word).ambiguities
+        not_taken = [a.alternative.kind.value for a in lone
+                     if a.alternative is not None
+                     and a.alternative.role is Role.SUFFIX]
+        # a lone word reporting the suffix-or-name fork names the
+        # suffix reading it did not take, so the walk checks that
+        # reading rather than passing on an absent one
+        forked = any(a.kind is AmbiguityKind.SUFFIX_OR_NAME for a in lone)
+        reported += forked
+        if (taken != [want] or (forked and not not_taken)
+                or any(k != want for k in not_taken)):
+            mismatched.append((word, want, taken, not_taken))
+    assert not mismatched, mismatched[:10]
+    assert reported > 0
+
+
+# -- Reading.languages (3.0, 4a's follow-up): the files holding it ------
+
+#: (name, word, languages): the files the reading index holds the
+#: reading the parse took in, one row per way assemble looks a word up.
+_EXPECTED_LANGUAGES = [
+    # a particle, by its particle rows only ('la' is a given name in es
+    # too, a reading the parse did not take)
+    ("Dr. Juan de la Vega III", "de", ("ca", "es", "fil", "fr", "it", "nl", "pt", "si")),
+    ("Dr. Juan de la Vega III", "la", ("ca", "es", "fil", "fr", "it")),
+    ("Dr. Juan de la Vega III", "Dr.", ("mul",)),
+    ("Dr. Juan de la Vega III", "III", ("mul",)),
+    ("John Smith PhD", "PhD", ("mul",)),
+    ("王小明先生", "先生", ("ja", "zh")),
+    ("Juan e Maria Smith", "e", ("it", "pt")),
+    ("Pedro Alves Filho", "Filho", ("pt",)),
+    # a suffix matched by its suffix entry, whatever its finer kind (4b)
+    ("John Smith Jr.", "Jr.", ("mul",)),
+    # a name the vocabulary declares, and a bound given name
+    ("van Gogh", "van", ("nl",)),
+    ("Chas. Smith", "Chas.", ("en",)),
+    # a name reading names the files listing the word as a name of its
+    # own field: `ma` is family in en, given in en and fil
+    ("Long Ma", "Ma", ("en",)),
+    ("Ma Long", "Ma", ("en", "fil")),
+    ("Jane Doe (nee Smith Ma)", "Ma", ("en",)),
+    # a declared name in a field no file lists it in names none: fr
+    # lists `fils` only as a family name
+    ("Alves, Pedro Fils", "Fils", ()),
+    # a bound given name names its files in the family field too
+    ("John Abdul", "Abdul", ("ar",)),
+    ("Abu Bakar Smith", "Abu", ("ar",)),
+    # an acronym by its periods removed, and a credential split across
+    # a space, listed whole, each of its words naming the files
+    ("John Smith (M.A)", "M.A", ("en",)),
+    ("John Smith Ph. D.", "Ph.", ("mul",)),
+    ("John Smith Ph. D.", "D.", ("mul",)),
+    ("Smith, Ph. D. III", "D.", ("mul",)),
+    ("John Smith Pharm D", "Pharm", ("en",)),
+    # a nickname written between a split credential's words is passed
+    # over, and the run reaches its second word
+    ('John Smith Ph. "Bob" D.', "Ph.", ("mul",)),
+    ('John Smith Ph. "Bob" D.', "D.", ("mul",)),
+    # a word joining listed words, by its parts; never divided at a
+    # combining mark
+    ("John Smith, M.D./Ph.D.", "M.D./Ph.D.", ("en", "mul")),
+    ("Lt.Gov. John Smith", "Lt.Gov.", ("en",)),
+    # a word the lexicon lists whole without its periods is read whole,
+    # not by its parts
+    ("Lt.Gen. John Smith", "Lt.Gen.", ("en",)),
+    ("प्रोफे.डॉ. अदा शर्मा", "प्रोफे.डॉ.", ("hi", "mr")),
+    # a union over parts is sorted, as a word's own files are
+    ("John Smith, MS-V", "MS-V", ("mul",)),
+    # no file: position, shape, and a shipped list outside the per-word
+    # files (the Korean surnames)
+    ("Dr. Juan de la Vega III", "Juan", ()),
+    ("John Smith X.Y.Z.", "X.Y.Z.", ()),
+    ("Insp. Jane Morse", "Insp.", ()),
+    ("John Q. Smith", "Q.", ()),
+    ("김민준", "김", ()),
+    ("John Smith Ph. D. Jones", "Jones", ()),
+]
+
+
+@pytest.mark.parametrize("text,word,languages", _EXPECTED_LANGUAGES,
+                         ids=lambda v: v if isinstance(v, str) else None)
+def test_a_reading_names_the_files_holding_it(
+        text: str, word: str, languages: tuple[str, ...]) -> None:
+    (tok,) = [t for t in parse(text).tokens if t.text == word][:1]
+    assert tok.reading is not None
+    assert tok.reading.languages == languages
+
+
+@pytest.mark.parametrize("kind,word,text,written", [
+    ("title", "zzq-dr", "Zzq-Dr John Smith", "Zzq-Dr"),
+    ("particle", "mac-van", "John mac-van Smith", "mac-van"),
+    # listed without the periods it is written with
+    ("title", "drma", "Dr.Ma Smith", "Dr.Ma"),
+])
+def test_a_callers_whole_word_names_no_file_of_its_parts(
+        kind: str, word: str, text: str, written: str) -> None:
+    # the parse read it whole, so the files of `dr` or `van` are not
+    # its reading's; the default's own joined words still name theirs
+    # (`Lt.Gov.` in _EXPECTED_LANGUAGES, and `Dr.Ma` below)
+    assert parse(text).tokens[0].reading is not None
+    lex = Lexicon.default().add(word, kind=kind)
+    (tok,) = [t for t in Parser(lexicon=lex).parse(text).tokens
+              if t.text == written]
+    assert tok.reading is not None
+    assert tok.reading.source is ReadingSource.VOCABULARY
+    assert tok.reading.languages == ()
+
+
+def test_a_reading_from_a_callers_own_vocabulary_names_no_file() -> None:
+    # a word no file holds, and one a file holds only off by default
+    # (`st`, a Czech generation written `default = false`): its kind is
+    # the lexicon's since 4i-b (rules/R8's amendment), the caller's
+    # plain suffix reading a post-nominal where 4b read the file's off
+    # generation, and no file holds either on
+    lex = (Lexicon.default().add("zzq", kind="title")
+           .add("st", kind="suffix"))
+    pn = Parser(lexicon=lex).parse("Zzq John Smith St")
+    readings = {t.text: t.reading for t in pn.tokens}
+    assert readings["Zzq"] == Reading("title", "title", "vocabulary")  # type: ignore[arg-type]
+    assert readings["St"] == Reading("post-nominal", "suffix", "vocabulary")  # type: ignore[arg-type]
+    assert readings["Zzq"] is not None and readings["Zzq"].languages == ()
+    assert readings["St"] is not None and readings["St"].languages == ()
+
+
+def test_a_callers_whole_suffix_and_its_alternative_name_no_file_of_its_parts(
+        ) -> None:
+    # 'md' and 'ma' are in en, and the default reads 'MD-ZZ' by its
+    # parts; listed whole, the token and the report's alternative name
+    # none of their files
+    lex = (Lexicon.default().add("md-zz", "ma-zz", kind="credential")
+           .add("ma-zz", kind="family"))
+    parser = Parser(lexicon=lex)
+    (md,) = [t for t in parser.parse("John Smith MD-ZZ").tokens
+             if t.text == "MD-ZZ"]
+    assert md.reading == Reading("credential", "suffix", "vocabulary")  # type: ignore[arg-type]
+    assert md.reading is not None and md.reading.languages == ()
+    (amb,) = parser.parse("JOHN SMITH MA-ZZ").ambiguities
+    assert amb.alternative == Reading("name", "family", "declared")  # type: ignore[arg-type]
+    assert amb.alternative is not None and amb.alternative.languages == ()
+
+
+def test_the_default_reads_a_joined_word_by_its_parts() -> None:
+    (tok,) = parse("Dr.Ma Smith").tokens[:1]
+    assert tok.reading is not None and tok.reading.languages == ("mul",)
+
+
+@pytest.mark.parametrize("text,word", [
+    ("John Ma Smith", "Ma"), ("Smith, John Ma", "Ma")])
+def test_a_folded_middle_names_the_files_of_the_middle_it_stands_as(
+        text: str, word: str) -> None:
+    # middle_as_family reports the field, and the files stay those
+    # listing the word as the given name it stands as
+    pn = Parser(policy=Policy(middle_as_family=True)).parse(text)
+    (tok,) = [t for t in pn.tokens if t.text == word]
+    assert tok.role is Role.FAMILY and tok.reading is not None
+    assert tok.reading.languages == ("en", "fil")
+    (amb,) = Parser(policy=Policy(middle_as_family=True)).parse(
+        "Doe, John van DO").ambiguities
+    assert amb.alternative is not None
+    assert amb.alternative.role is Role.FAMILY
+    assert amb.alternative.languages == ("en", "nl")
+
+
+def test_an_alternative_names_the_files_holding_it() -> None:
+    (amb,) = parse("JOHN SMITH MA").ambiguities
+    assert amb.alternative is not None
+    # `ma` as a family name: en lists it so, fil only as a given name
+    assert amb.alternative.languages == ("en",)
+    (amb,) = parse("van Gogh").ambiguities
+    assert amb.alternative is not None
+    assert amb.alternative.languages == ("nl",)
+    # over the report's words, sorted ('van' and 'DO' as given names,
+    # nl and en)
+    (amb,) = parse("Doe, John van DO").ambiguities
+    assert amb.alternative is not None
+    assert amb.alternative.languages == ("en", "nl")
+
+
+def test_a_patronymic_particle_names_its_files_and_reports_a_patronymic(
+        ) -> None:
+    # the particle's reading (R9) names the files holding it as a
+    # patronymic, and a leading one read as a given name names the
+    # patronymic as the reading not taken, as the reading taken would
+    (bin_, mohamad) = parse("Mahathir bin Mohamad").tokens_for(Role.FAMILY)
+    assert bin_.reading is not None and bin_.reading.languages == ("ar", "ms")
+    assert mohamad.reading is not None and mohamad.reading.languages == ()
+    (report,) = parse("bin Mohamad").ambiguities
+    assert report.kind is AmbiguityKind.PARTICLE_OR_GIVEN
+    assert report.alternative == Reading("patronymic", "family", "vocabulary")  # type: ignore[arg-type]
+    assert report.alternative.languages == ("ar", "ms")
+    # a particle of another kind still names a particle
+    (other,) = parse("van Gogh").ambiguities
+    assert other.alternative == Reading("particle", "family", "vocabulary")  # type: ignore[arg-type]
+
+
+def test_every_particle_reads_patronymic_exactly_where_the_index_says(
+        ) -> None:
+    # One walk over every particle (R9): behind a given name and
+    # before a parent's name, a word reads `patronymic` iff a shipped
+    # file holds it as a patronymic particle, whatever its default
+    from nameparser._reading_index import holds_kind
+    lex = Lexicon.default()
+    words = sorted(lex._sets.particles)
+    assert len(words) > 100
+    found = set()
+    mismatched = []
+    for word in words:
+        tok = parse(f"Ahmad {word} Hasan").tokens[1]
+        if tok.reading is None or tok.reading.kind.value not in (
+                "particle", "patronymic"):
+            continue
+        is_patronymic = tok.reading.kind.value == "patronymic"
+        if is_patronymic:
+            found.add(word)
+        if is_patronymic is not holds_kind(word, "patronymic"):
+            mismatched.append((word, tok.reading))
+    assert not mismatched, mismatched[:10]
+    assert {"bin", "binti", "ibn", "bar", "بن"} <= found

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.permissions.identity import Identity
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class IdentitySet(ClientValue):
     application: Identity = field(default_factory=Identity)
 

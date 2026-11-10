@@ -60,10 +60,11 @@ def sync_detailed(
 ) -> Response[ResourceApiKeyStatus]:
     """Report API key usage
 
-     Used by the site agent to report a key's usage so far in a month, per component type. Merged into
-    the key's usage for that month; a later month replaces it, and an earlier one is refused. A key
-    whose usage reaches its limit is paused, and a key paused for its limit is resumed once under it
-    again. Accepted for a deleted key too.
+     Used by the site agent to report a key's usage so far in a month, per component type, and its usage
+    per day. A month report is merged into the key's usage for that month; a later month replaces it,
+    and an earlier one is refused. A date reported again replaces its amount, and the month's usage of a
+    component with daily amounts is their sum. A key whose usage reaches a limit is paused, and a key
+    paused for its limit is resumed once under it again. Accepted for a deleted key too.
 
     Args:
         uuid (UUID):
@@ -97,10 +98,11 @@ def sync(
 ) -> ResourceApiKeyStatus:
     """Report API key usage
 
-     Used by the site agent to report a key's usage so far in a month, per component type. Merged into
-    the key's usage for that month; a later month replaces it, and an earlier one is refused. A key
-    whose usage reaches its limit is paused, and a key paused for its limit is resumed once under it
-    again. Accepted for a deleted key too.
+     Used by the site agent to report a key's usage so far in a month, per component type, and its usage
+    per day. A month report is merged into the key's usage for that month; a later month replaces it,
+    and an earlier one is refused. A date reported again replaces its amount, and the month's usage of a
+    component with daily amounts is their sum. A key whose usage reaches a limit is paused, and a key
+    paused for its limit is resumed once under it again. Accepted for a deleted key too.
 
     Args:
         uuid (UUID):
@@ -129,10 +131,11 @@ async def asyncio_detailed(
 ) -> Response[ResourceApiKeyStatus]:
     """Report API key usage
 
-     Used by the site agent to report a key's usage so far in a month, per component type. Merged into
-    the key's usage for that month; a later month replaces it, and an earlier one is refused. A key
-    whose usage reaches its limit is paused, and a key paused for its limit is resumed once under it
-    again. Accepted for a deleted key too.
+     Used by the site agent to report a key's usage so far in a month, per component type, and its usage
+    per day. A month report is merged into the key's usage for that month; a later month replaces it,
+    and an earlier one is refused. A date reported again replaces its amount, and the month's usage of a
+    component with daily amounts is their sum. A key whose usage reaches a limit is paused, and a key
+    paused for its limit is resumed once under it again. Accepted for a deleted key too.
 
     Args:
         uuid (UUID):
@@ -164,10 +167,11 @@ async def asyncio(
 ) -> ResourceApiKeyStatus:
     """Report API key usage
 
-     Used by the site agent to report a key's usage so far in a month, per component type. Merged into
-    the key's usage for that month; a later month replaces it, and an earlier one is refused. A key
-    whose usage reaches its limit is paused, and a key paused for its limit is resumed once under it
-    again. Accepted for a deleted key too.
+     Used by the site agent to report a key's usage so far in a month, per component type, and its usage
+    per day. A month report is merged into the key's usage for that month; a later month replaces it,
+    and an earlier one is refused. A date reported again replaces its amount, and the month's usage of a
+    component with daily amounts is their sum. A key whose usage reaches a limit is paused, and a key
+    paused for its limit is resumed once under it again. Accepted for a deleted key too.
 
     Args:
         uuid (UUID):

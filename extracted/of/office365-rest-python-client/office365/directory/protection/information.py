@@ -7,9 +7,11 @@ from office365.directory.protection.threatassessment.requests.request import (
 )
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.create_entity import CreateEntityQuery
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.directory.protection.bitlocker import Bitlocker
@@ -18,6 +20,7 @@ if TYPE_CHECKING:
 class InformationProtection(Entity):
     """Exposes methods that you can use to get Microsoft Purview Information Protection labels and label policies."""
 
+    @require_permission(delegated=["ThreatAssessment.ReadWrite.All"])
     def create_email_file_assessment(self, recipient_email, content_data, expected_assessment, category):
         """Create an email assessment request
 
@@ -42,6 +45,7 @@ class InformationProtection(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["ThreatAssessment.ReadWrite.All"])
     def create_file_assessment(self, file_name, content_data, expected_assessment, category):
         """Create a new threat assessment request.
 
@@ -66,6 +70,7 @@ class InformationProtection(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["ThreatAssessment.ReadWrite.All"])
     def create_url_assessment(self, url, expected_assessment, category):
         """Create a new threat assessment request."""
         from office365.directory.protection.threatassessment.requests.url import (
@@ -81,6 +86,7 @@ class InformationProtection(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["ThreatAssessment.ReadWrite.All"])
     def create_mail_assessment(self, message, recipient=None, expected_assessment="block", category="spam"):
         """Create a mail assessment request
 
@@ -112,6 +118,7 @@ class InformationProtection(Entity):
         message.ensure_properties(["id", "toRecipients"]).after_execute(lambda _: _create_and_add_query())
         return return_type
 
+    @odata(name="threatAssessmentRequests", navigation=True)
     @property
     def threat_assessment_requests(self) -> EntityCollection[ThreatAssessmentRequest]:
         """"""
@@ -124,6 +131,7 @@ class InformationProtection(Entity):
             ),
         )
 
+    @odata(name="bitlocker", navigation=True)
     @property
     def bitlocker(self) -> Bitlocker:
         """Gets the bitlocker property"""

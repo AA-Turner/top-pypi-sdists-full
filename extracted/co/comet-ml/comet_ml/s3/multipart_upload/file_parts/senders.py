@@ -11,34 +11,17 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 import logging
-from typing import Callable, Optional
+from typing import Optional
 
-import requests
-
-from ....connection import http_session
 from ...multipart_transfer import throttling
+from ...multipart_transfer.transport import S3Transport, get_s3_transport
 from .. import retry_strategy as retry_strategy_module, upload_error
 from . import part_types
 
 LOGGER = logging.getLogger(__name__)
 
-SessionProvider = Callable[[], requests.Session]
 
-
-def default_session_provider() -> requests.Session:
-    """Returns the session used for direct calls to S3.
-
-    The session carries no Comet headers because this goes straight to S3, and it
-    has no transport level retries because retrying is owned by
-    UploadRetryStrategyOp. Sessions are cached per thread, so every worker of a
-    parts pool gets its own connection and keeps reusing it across parts.
-    """
-    return http_session.get_cached_http_session(
-        retry=False, verify_tls=True, tcp_keep_alive=False
-    )
-
-
-class RetryingPartSender(object):
+class RetryingPartSender:
     """Sends one part through the existing upload retry strategy.
 
     Safe to call concurrently from several threads: it keeps no per-part state.
@@ -54,7 +37,7 @@ class RetryingPartSender(object):
         self,
         retry_strategy: retry_strategy_module.UploadRetryStrategyOp,
         file_name: str,
-        session_provider: Optional[SessionProvider] = None,
+        transport: Optional[S3Transport] = None,
         throttle_gate: Optional[throttling.ThrottleGate] = None,
     ):
         self._retry_strategy = retry_strategy
@@ -64,16 +47,16 @@ class RetryingPartSender(object):
         self._throttle_gate = (
             throttle_gate if throttle_gate is not None else throttling.default_gate()
         )
-        self._session_provider = (
-            session_provider
-            if session_provider is not None
-            else default_session_provider
-        )
+        # Without Comet headers or transport-level retries: this goes straight to
+        # S3, and retrying is owned by UploadRetryStrategyOp. Chosen by
+        # comet.s3_multipart.http_client. TLS is always verified on this path, as it
+        # was with the requests session it replaces.
+        self._transport = transport if transport is not None else get_s3_transport()
 
     def transfer_part(self, part: part_types.FilePart) -> part_types.PartMetadata:
         try:
             result = self._retry_strategy.upload_s3_file_part(
-                session=self._session_provider(),
+                transport=self._transport,
                 url=part.url,
                 file_data=part.body,
                 throttle_gate=self._throttle_gate,

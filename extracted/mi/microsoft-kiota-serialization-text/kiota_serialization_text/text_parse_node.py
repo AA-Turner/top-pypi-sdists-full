@@ -42,7 +42,7 @@ class TextParseNode(ParseNode):
         Returns:
             str: The string value of the node
         """
-        if self._text:
+        if self._text is not None:
             return str(self._text)
         return None
 
@@ -187,7 +187,7 @@ class TextParseNode(ParseNode):
             bytes: The bytes value from the node
         """
         base64_string = self.get_str_value()
-        if not base64_string:
+        if base64_string is None:
             return None
         base64_bytes = base64_string.encode("utf-8")
         return base64.b64decode(base64_bytes)

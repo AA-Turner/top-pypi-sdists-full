@@ -53,6 +53,7 @@ class _Tool(StrEnum):
 
 _SUFFIX_TO_TOOL = MappingProxyType(
     {
+        ".astro": _Tool.TEXT,
         ".hcl": _Tool.IAC,
         ".py": _Tool.PYTHON,
         ".pyi": _Tool.PYTHON,
@@ -73,6 +74,11 @@ _SUFFIX_TO_TOOL = MappingProxyType(
         ".yaml": _Tool.IAC,
         ".yml": _Tool.IAC,
     }
+)
+# Package-manager lockfiles are generated dependency graphs, not infrastructure: no sarj-iac-lint rule
+# reads them, and a large pnpm-lock.yaml exceeds its 500,000-byte input limit.
+_LOCKFILE_NAMES = frozenset(
+    {"bun.lock", "bun.lockb", "npm-shrinkwrap.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"}
 )
 _TERRAFORM_TEST_SUFFIXES = (".tftest.hcl", ".tftest.json")
 _TERRAFORM_SOURCE_SUFFIXES = (*_TERRAFORM_TEST_SUFFIXES, ".tf.json", ".tfvars.json")
@@ -576,6 +582,9 @@ def _route_path(grouped: GroupedPaths, path: Path, raw_path: str) -> None:
         if path.name.casefold().endswith(_TERRAFORM_SOURCE_SUFFIXES)
         else _SUFFIX_TO_TOOL.get(path.suffix.lower())
     )
+    if path.name in _LOCKFILE_NAMES and (".github", "workflows") not in pairwise(_path_key(path).parts):
+        # Package managers own lockfiles; retain text and hook metadata below.
+        tool = None
     _append_path(grouped, tool, raw_path)
     shell = textlint.shell_dialect(path)
     if shell == "zsh":

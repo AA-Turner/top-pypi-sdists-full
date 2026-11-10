@@ -25,15 +25,20 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.services.auto_top_up.v1 import auto_top_up_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_auto__top__up_dot_v1_dot_auto__top__up__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nVsentry_protos/billing/v1/services/auto_top_up/v1/endpoint_get_auto_top_up_config.proto\x12\x30sentry_protos.billing.v1.services.auto_top_up.v1\x1aIsentry_protos/billing/v1/services/auto_top_up/v1/auto_top_up_config.proto\"~\n\x19GetAutoTopUpConfigRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12H\n\x06wallet\x18\x02 \x01(\x0e\x32\x38.sentry_protos.billing.v1.services.auto_top_up.v1.Wallet\"\x7f\n\x1aGetAutoTopUpConfigResponse\x12V\n\x06\x63onfig\x18\x01 \x01(\x0b\x32\x41.sentry_protos.billing.v1.services.auto_top_up.v1.AutoTopUpConfigH\x00\x88\x01\x01\x42\t\n\x07_configb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nVsentry_protos/billing/v1/services/auto_top_up/v1/endpoint_get_auto_top_up_config.proto\x12\x30sentry_protos.billing.v1.services.auto_top_up.v1\x1aIsentry_protos/billing/v1/services/auto_top_up/v1/auto_top_up_config.proto\"\x82\x01\n\x19GetAutoTopUpConfigRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12H\n\x06wallet\x18\x02 \x01(\x0e\x32\x38.sentry_protos.billing.v1.services.auto_top_up.v1.Wallet:\x02\x18\x01\"\x83\x01\n\x1aGetAutoTopUpConfigResponse\x12V\n\x06\x63onfig\x18\x01 \x01(\x0b\x32\x41.sentry_protos.billing.v1.services.auto_top_up.v1.AutoTopUpConfigH\x00\x88\x01\x01:\x02\x18\x01\x42\t\n\x07_configB\x03\xb8\x01\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.auto_top_up.v1.endpoint_get_auto_top_up_config_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_GETAUTOTOPUPCONFIGREQUEST']._serialized_start=215
-  _globals['_GETAUTOTOPUPCONFIGREQUEST']._serialized_end=341
-  _globals['_GETAUTOTOPUPCONFIGRESPONSE']._serialized_start=343
-  _globals['_GETAUTOTOPUPCONFIGRESPONSE']._serialized_end=470
+  _globals['DESCRIPTOR']._loaded_options = None
+  _globals['DESCRIPTOR']._serialized_options = b'\270\001\001'
+  _globals['_GETAUTOTOPUPCONFIGREQUEST']._loaded_options = None
+  _globals['_GETAUTOTOPUPCONFIGREQUEST']._serialized_options = b'\030\001'
+  _globals['_GETAUTOTOPUPCONFIGRESPONSE']._loaded_options = None
+  _globals['_GETAUTOTOPUPCONFIGRESPONSE']._serialized_options = b'\030\001'
+  _globals['_GETAUTOTOPUPCONFIGREQUEST']._serialized_start=216
+  _globals['_GETAUTOTOPUPCONFIGREQUEST']._serialized_end=346
+  _globals['_GETAUTOTOPUPCONFIGRESPONSE']._serialized_start=349
+  _globals['_GETAUTOTOPUPCONFIGRESPONSE']._serialized_end=480
 # @@protoc_insertion_point(module_scope)

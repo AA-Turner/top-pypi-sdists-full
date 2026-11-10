@@ -105,21 +105,26 @@ YEAR_FIELDS = (
     YEAR_FIELD,
 )
 
-step_search_re = re.compile(r"^([^-]+)-([^-/]+)(/(\d+))?$")
-only_int_re = re.compile(r"^\d+$")
+step_search_re = re.compile(r"^([^-]+)-([^-/]+)(/(\d+))?$", re.ASCII)
+only_int_re = re.compile(r"^\d+$", re.ASCII)
+# ``str.split()`` also splits on Unicode whitespace (no-break space, ideographic
+# space, ...), which cron does not treat as a field separator.
+field_re = re.compile(r"\S+", re.ASCII)
 
 DAYS = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 WEEKDAYS = "|".join(DOW_ALPHAS.keys())
 MONTHS = "|".join(M_ALPHAS.keys())
-star_or_int_re = re.compile(r"^(\d+|\*)$")
+star_or_int_re = re.compile(r"^(\d+|\*)$", re.ASCII)
 special_dow_re = re.compile(
     rf"^(?P<pre>((?P<he>(({WEEKDAYS})(-({WEEKDAYS}))?)"
-    rf"|(({MONTHS})(-({MONTHS}))?)|\w+)#)|l)(?P<last>\d+)$"
+    rf"|(({MONTHS})(-({MONTHS}))?)|\w+)#)|l)(?P<last>\d+)$",
+    re.ASCII,
 )
-nearest_weekday_re = re.compile(r"^(?:(\d+)w|w(\d+))$")
+nearest_weekday_re = re.compile(r"^(?:(\d+)w|w(\d+))$", re.ASCII)
 re_star = re.compile("[*]")
 hash_expression_re = re.compile(
-    r"^(?P<hash_type>h|r)(\((?P<range_begin>\d+)-(?P<range_end>\d+)\))?(\/(?P<divisor>\d+))?$"
+    r"^(?P<hash_type>h|r)(\((?P<range_begin>\d+)-(?P<range_end>\d+)\))?(\/(?P<divisor>\d+))?$",
+    re.ASCII,
 )
 
 CRON_FIELDS = {
@@ -204,15 +209,20 @@ def _add_tzinfo(
                 break
             return result, False
         except pytz.AmbiguousTimeError:
-            closer = localize(date, is_dst=not is_prev)
-            farther = localize(date, is_dst=is_prev)
-            # TODO: Check negative DST
-            assert (closer.astimezone(UTC_DT) > farther.astimezone(UTC_DT)) == is_prev
-            if _is_successor(closer, previous_date, is_prev):
-                result = closer
-            else:
-                assert _is_successor(farther, previous_date, is_prev)
-                result = farther
+            candidates = [
+                localize(date, is_dst=True),
+                localize(date, is_dst=False),
+            ]
+            # Depending on the sign of the zone's DST offset, either
+            # interpretation can be the earlier instant, so order by the
+            # actual absolute times instead of assuming is_dst ordering.
+            candidates.sort(key=lambda value: value.astimezone(UTC_DT))
+            if is_prev:
+                candidates.reverse()
+            for candidate in candidates:
+                if _is_successor(candidate, previous_date, is_prev):
+                    return candidate, True
+            return candidates[-1], True
         return result, True
 
     result = date.replace(fold=1 if is_prev else 0, tzinfo=previous_date.tzinfo)
@@ -314,7 +324,22 @@ class croniter:
         self._max_years_btw_matches_explicitly_set = max_years_between_matches is not None
         if max_years_between_matches is None:
             max_years_between_matches = 50
-        self._max_years_between_matches = max(int(max_years_between_matches), 1)
+        elif isinstance(max_years_between_matches, bool) or not isinstance(
+            max_years_between_matches, int
+        ):
+            # bool subclasses int. int(True) used to become 1, floats were
+            # truncated, and numeric strings were parsed by int().
+            raise TypeError(
+                "max_years_between_matches must be an int >= 1 or None, "
+                f"not {type(max_years_between_matches).__name__} "
+                f"(got {max_years_between_matches!r})"
+            )
+        elif max_years_between_matches < 1:
+            raise ValueError(
+                "max_years_between_matches must be an int >= 1 or None "
+                f"(got {max_years_between_matches!r})"
+            )
+        self._max_years_between_matches = max_years_between_matches
 
         if start_time is None:
             start_time = time()
@@ -330,6 +355,7 @@ class croniter:
             expr_format,
             hash_id=hash_id,
             from_timestamp=self.dst_start_time if self._expand_from_start_time else None,
+            from_timestamp_tz=self.tzinfo if self._expand_from_start_time else None,
             second_at_beginning=second_at_beginning,
         )
         self.fields = CRON_FIELDS[len(self.expanded)]
@@ -491,13 +517,45 @@ class croniter:
                 # does an intersect instead
                 pass
             else:
+                # Under OR semantics an unsatisfiable side -- the 31st in a month
+                # that has no 31st, say -- contributes no dates rather than ruling
+                # out the expression, so the other side must still be able to
+                # match. Only both sides failing means there is no such date.
+                #
+                # That only holds while each side is a clean operand. '#' and 'W'
+                # are not carried by the DAY/DOW fields but by nth_weekday_of_month
+                # and self.nearest_weekday, so blanking the fields above does not
+                # remove them and each side stays an intersection (the semantics
+                # test_issue_k33 pins down). Swallowing a failure there would drop
+                # the other field from the schedule instead, so let it propagate.
+                clean_split = not nth_weekday_of_month and not self.nearest_weekday
+
                 bak = expanded[DOW_FIELD]
                 expanded[DOW_FIELD] = ["*"]
-                t1 = self._calc(current, expanded, nth_weekday_of_month, is_prev)
+                try:
+                    t1 = self._calc(current, expanded, nth_weekday_of_month, is_prev)
+                except CroniterBadDateError:
+                    if not clean_split:
+                        raise
+                    t1 = None
                 expanded[DOW_FIELD] = bak
                 expanded[DAY_FIELD] = ["*"]
 
-                t2 = self._calc(current, expanded, nth_weekday_of_month, is_prev)
+                try:
+                    t2 = self._calc(current, expanded, nth_weekday_of_month, is_prev)
+                except CroniterBadDateError:
+                    if not clean_split:
+                        raise
+                    t2 = None
+
+                if t1 is None:
+                    if t2 is None:
+                        raise CroniterBadDateError(
+                            "failed to find prev date" if is_prev else "failed to find next date"
+                        )
+                    return t2
+                if t2 is None:
+                    return t1
                 if is_prev:
                     return t1 if t1 > t2 else t2
                 return t1 if t1 < t2 else t2
@@ -776,6 +834,13 @@ class croniter:
             )
             alternative_aware_time, exists = _add_tzinfo(alternative_unaware_time, now, is_prev)
 
+            if not exists:
+                # The alternative crossed a DST gap and was shifted forward to
+                # the next existing wall clock. Such a manufactured time is not
+                # a fire time the expression names, so keep the regular
+                # candidate instead.
+                return aware_time
+
             if not _is_successor(alternative_aware_time, now, is_prev):
                 # The alternative time is an ancestor of now. Thus it is not an alternative.
                 return aware_time
@@ -896,9 +961,12 @@ class croniter:
             # 6fields second repeat form or 7 fields year form
             # but still let conversion happen if day field is shifted
             (field_index in [DAY_FIELD, MONTH_FIELD] and len_expressions == UNIX_CRON_LEN)
-            or (field_index in [MONTH_FIELD, DOW_FIELD] and len_expressions == SECOND_CRON_LEN)
             or (
-                field_index in [DAY_FIELD, MONTH_FIELD, DOW_FIELD]
+                field_index in [DAY_FIELD, MONTH_FIELD]
+                and len_expressions == SECOND_CRON_LEN
+            )
+            or (
+                field_index in [DAY_FIELD, MONTH_FIELD]
                 and len_expressions == YEAR_CRON_LEN
             )
         ):
@@ -909,7 +977,7 @@ class croniter:
     DAYS_IN_MONTH = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
 
     @classmethod
-    def _expand(cls, expr_format, hash_id=None, second_at_beginning=False, from_timestamp=None, strict=False, strict_year=None):
+    def _expand(cls, expr_format, hash_id=None, second_at_beginning=False, from_timestamp=None, from_timestamp_tz=None, strict=False, strict_year=None):
         # Split the expression in components, and normalize L -> l, MON -> mon,
         # etc. Keep expr_format untouched so we can use it in the exception
         # messages.
@@ -930,7 +998,7 @@ class croniter:
         except KeyError:
             pass
 
-        expressions = efl.split()
+        expressions = field_re.findall(efl)
 
         if len(expressions) not in VALID_LEN_EXPRESSION:
             raise CroniterBadCronError(
@@ -983,11 +1051,14 @@ class croniter:
                             e = he
                             try:
                                 nth = int(last)
-                                assert 5 >= nth >= 1
-                            except (KeyError, ValueError, AssertionError):
+                            except ValueError:
+                                nth = None
+                            # A plain check, not an assert: ``python -O`` strips
+                            # asserts, which let ``1#0`` and ``1#7`` through.
+                            if nth is None or not 1 <= nth <= 5:
                                 raise CroniterBadCronError(
                                     f"[{expr_format}] is not acceptable."
-                                    f" Invalid day_of_week value: '{nth}'"
+                                    f" Invalid day_of_week value: '{last}'"
                                 )
                         elif last:
                             e = last
@@ -1022,12 +1093,19 @@ class croniter:
                 )
                 m = step_search_re.search(t)
 
+                # "{start}/{step}" is its own shape, not a range. It is normalized
+                # below to "{start}-{max}/{step}" so that one regex parses both, but
+                # the two must not be conflated afterwards: "Jan-Jan" is an explicit
+                # equal range that croniter deliberately expands to the whole cycle,
+                # whereas "DEC/3" is a start with a step and denotes just [DEC].
+                start_with_step = False
                 if not m:
                     # Before matching step_search_re,
                     # normalize "{start}/{step}" to "{start}-{max}/{step}".
                     # Example: in the minute field, "10/5" normalizes to "10-59/5"
                     t = re.sub(r"^(.+)\/(.+)$", r"\1-%d/\2" % (cls.RANGES[field_index][1]), str(e))
                     m = step_search_re.search(t)
+                    start_with_step = bool(m)
 
                 if m:
                     # early abort if low/high are out of bounds
@@ -1072,14 +1150,71 @@ class croniter:
                     ):
                         raise CroniterBadCronError(f"{expr_format} is out of bands")
 
-                    if from_timestamp:
-                        low = cls._get_low_from_current_date_number(
-                            field_index, int(step), int(from_timestamp)
+                    # "{start}/{step}" normalizes to "{start}-{max}/{step}", so when
+                    # the start IS the field maximum the two bounds collide and the
+                    # token becomes indistinguishable from an explicitly written equal
+                    # range. That is the whole bug: "59/15" was read the way "Jan-Jan"
+                    # is -- the whole cycle -- and so fired at :00/:15/:30/:45 instead
+                    # of :59. Recognising the collision here is what keeps the two
+                    # apart, both in the widening just below and in the range built
+                    # further down.
+                    #
+                    # Deliberately ``low == high`` and not the wider ``low + step >
+                    # high``. Only the collision is a false equal range: a token whose
+                    # step merely overshoots its range -- "50-51/15" -- still describes
+                    # a cycle, and re-basing must stay free to supply its phase.
+                    start_at_field_max = start_with_step and low == high
+
+                    # An equal range that was *written* as one -- "Jan-Jan", "Sun-Sun"
+                    # -- means the whole cycle, so widen it to the field's own bounds
+                    # here rather than in a branch further down. Widening it before
+                    # re-basing is what makes the two spellings of one schedule agree:
+                    # "1-1/3" and "*/3" are the same expression, and both now take the
+                    # phase of their cycle from ``start_time``.
+                    #
+                    # ``start_with_step`` is load-bearing: "{start}/{step}" normalizes
+                    # to "{start}-{max}/{step}", so at the field maximum its bounds
+                    # collide without the user having written an equal range at all.
+                    # That is #246's bug, and widening "59/15" back to the whole field
+                    # here would reintroduce it.
+                    if low == high and not start_with_step:
+                        low, high = cls.RANGES[field_index]
+
+                    # ``from_timestamp`` re-bases the start of a *cycle* on the start
+                    # time. A single point has no cycle to re-base: "59/15" is minute
+                    # 59, not a cycle starting there. (The bounds test below rejects it
+                    # anyway, since the only phase inside ``low == high`` is ``low``
+                    # itself; skipping the work here says so outright.)
+                    if from_timestamp is not None and not start_at_field_max:
+                        # Re-basing supplies the *phase* of the cycle, not its bounds:
+                        # take the first value of that phase lying inside the range the
+                        # expression declares. From a start at minute 7, "10-50/15" is
+                        # 22,37 -- not 7,22,37, which fires below its own lower bound.
+                        # If no value of the phase fits, the expression is honoured as
+                        # written, so an expansion can never come out empty. Note that
+                        # a re-phased range can hold fewer periods than the one it
+                        # replaces -- "10-20/7" is 10,17 by default but 14 alone from
+                        # a start at minute 7 -- which is inherent to re-phasing inside
+                        # a bounded window, not a value being dropped.
+                        phase = cls._get_low_from_current_date_number(
+                            field_index, int(step), int(from_timestamp), from_timestamp_tz
                         )
+                        if phase < low:
+                            phase += -(-(low - phase) // step) * step
+                        # This one test is what keeps re-basing honest, and it covers
+                        # the wrapping ranges (Apr-Jan, Sat-Sun) too: there ``high``
+                        # lies below ``low``, no phase can satisfy it, and the range is
+                        # left as written rather than silently unwrapped. Its lower
+                        # half restates what the advance above already guarantees; it
+                        # is written out so the test reads as the range check it is.
+                        if low <= phase <= high:
+                            low = phase
 
                     # Handle when the second bound of the range is in backtracking order:
                     # eg: X-Sun or X-7 (Sat-Sun) in DOW, or X-Jan (Apr-Jan) in MONTH
-                    if low > high:
+                    if start_at_field_max:
+                        rng = [low]
+                    elif low > high:
                         whole_field_range = list(
                             range(cls.RANGES[field_index][0], cls.RANGES[field_index][1] + 1, 1)
                         )
@@ -1096,12 +1231,6 @@ class croniter:
                             ):
                                 to_skip = step - already_skipped
                         rng += list(range(cls.RANGES[field_index][0] + to_skip, high + 1, step))
-                    # if we include a range type: Jan-Jan, or Sun-Sun,
-                    #  it means the whole cycle (all days of week, # all monthes of year, etc)
-                    elif low == high:
-                        rng = list(
-                            range(cls.RANGES[field_index][0], cls.RANGES[field_index][1] + 1, step)
-                        )
                     else:
                         try:
                             rng = list(range(low, high + 1, step))
@@ -1211,6 +1340,7 @@ class croniter:
         hash_id: Optional[Union[bytes, str]] = None,
         second_at_beginning: bool = False,
         from_timestamp: Optional[float] = None,
+        from_timestamp_tz: Optional[datetime.tzinfo] = None,
         strict: bool = False,
         strict_year: Optional[Union[int, list[int]]] = None,
     ) -> tuple[list[ExpandedExpression], dict[int, set[int]]]:
@@ -1258,6 +1388,7 @@ class croniter:
                 hash_id=hash_id,
                 second_at_beginning=second_at_beginning,
                 from_timestamp=from_timestamp,
+                from_timestamp_tz=from_timestamp_tz,
                 strict=strict,
                 strict_year=strict_year,
             )
@@ -1269,8 +1400,11 @@ class croniter:
             raise CroniterBadCronError(trace)
 
     @classmethod
-    def _get_low_from_current_date_number(cls, field_index, step, from_timestamp):
-        dt = datetime.datetime.fromtimestamp(from_timestamp, tz=UTC_DT)
+    def _get_low_from_current_date_number(cls, field_index, step, from_timestamp, tzinfo=None):
+        # Read the start time back in its own timezone. A naive start_time was
+        # converted to a timestamp as if it were UTC, so UTC round-trips it to the
+        # same wall clock and nothing changes for that case.
+        dt = datetime.datetime.fromtimestamp(from_timestamp, tz=tzinfo or UTC_DT)
         if field_index == MINUTE_FIELD:
             return dt.minute % step
         if field_index == HOUR_FIELD:
@@ -1281,8 +1415,15 @@ class croniter:
             return ((dt.month - 1) % step) + 1
         if field_index == DOW_FIELD:
             return (dt.isoweekday() % 7) % step
+        if field_index == SECOND_FIELD:
+            return dt.second % step
+        if field_index == YEAR_FIELD:
+            # Like day and month, the year field does not start at 0, so the phase is
+            # taken from the field minimum rather than from the value itself.
+            year_start = cls.RANGES[YEAR_FIELD][0]
+            return ((dt.year - year_start) % step) + year_start
 
-        raise ValueError("Can't get current date number for index larger than 4")
+        raise ValueError(f"Can't get current date number for field index {field_index}")
 
     @classmethod
     def is_valid(cls, expression, hash_id=None, encoding="UTF-8", second_at_beginning=False, strict=False, strict_year=None):
@@ -1439,6 +1580,37 @@ class HashExpander:
     def match(self, efl, idx, expr, hash_id=None, **kw):
         return hash_expression_re.match(expr)
 
+    def _expand_divisor(self, idx, m, hash_id, range_begin, range_end, from_timestamp=None):
+        """Hash a start offset into the first period, then step to range_end.
+
+        The offset is drawn from the first period, [range_begin, range_begin +
+        divisor - 1], but never past range_end: a divisor wider than the range has
+        only the range itself to draw from. And when the offset lands on range_end
+        the step cannot reach a second value, so the result is that single value --
+        emitting "{end}-{end}/{divisor}" instead would read as an explicit equal
+        range, which croniter expands to the whole field.
+
+        Under ``expand_from_start_time`` the phase of the cycle comes from the start
+        time, not from the hash, so the declared range is emitted as written and the
+        re-basing in ``_expand`` supplies the phase inside it. Emitting the hashed
+        offset there instead would make re-basing read that offset as a declared
+        lower bound: ``H/15`` with an offset of 6 from a start at minute 2 would fire
+        at 17,32,47 rather than 2,17,32,47, losing one period an hour.
+        """
+        divisor = int(m["divisor"])
+        if from_timestamp is not None:
+            return f"{range_begin}-{range_end}/{divisor}"
+        x = self.do(
+            idx,
+            hash_type=m["hash_type"],
+            hash_id=hash_id,
+            range_begin=range_begin,
+            range_end=min(range_begin + divisor - 1, range_end),
+        )
+        if x == range_end:
+            return str(x)
+        return f"{x}-{range_end}/{divisor}"
+
     def expand(self, efl, idx, expr, hash_id=None, match="", **kw):
         """Expand a hashed/random expression to its normal representation"""
         if match == "":
@@ -1453,20 +1625,27 @@ class HashExpander:
         if m["range_begin"] and m["range_end"]:
             if int(m["range_begin"]) >= int(m["range_end"]):
                 raise CroniterBadCronError("Range end must be greater than range begin")
+            # Check the bounds themselves, not just the value drawn from them: otherwise
+            # "H(0-99)" in the minute field is valid or not depending on the hash id, and
+            # "R(0-99)" depending on the draw.
+            field_min, field_max = self.cron.RANGES[idx]
+            for bound in (int(m["range_begin"]), int(m["range_end"])):
+                if not field_min <= self.cron.value_alias(bound, idx) <= field_max:
+                    raise CroniterBadCronError(f"[{expr}] is not acceptable, out of range")
 
         if m["range_begin"] and m["range_end"] and m["divisor"]:
             # Example: H(30-59)/10 -> 34-59/10 (i.e. 34,44,54)
             if int(m["divisor"]) == 0:
                 raise CroniterBadCronError(f"Bad expression: {expr}")
 
-            x = self.do(
+            return self._expand_divisor(
                 idx,
-                hash_type=m["hash_type"],
-                hash_id=hash_id,
-                range_begin=int(m["range_begin"]),
-                range_end=int(m["divisor"]) - 1 + int(m["range_begin"]),
+                m,
+                hash_id,
+                int(m["range_begin"]),
+                int(m["range_end"]),
+                from_timestamp=kw.get("from_timestamp"),
             )
-            return f"{x}-{int(m['range_end'])}/{int(m['divisor'])}"
         if m["range_begin"] and m["range_end"]:
             # Example: H(0-29) -> 12
             return str(
@@ -1483,14 +1662,14 @@ class HashExpander:
             if int(m["divisor"]) == 0:
                 raise CroniterBadCronError(f"Bad expression: {expr}")
 
-            x = self.do(
+            return self._expand_divisor(
                 idx,
-                hash_type=m["hash_type"],
-                hash_id=hash_id,
-                range_begin=self.cron.RANGES[idx][0],
-                range_end=int(m["divisor"]) - 1 + self.cron.RANGES[idx][0],
+                m,
+                hash_id,
+                self.cron.RANGES[idx][0],
+                self.cron.RANGES[idx][1],
+                from_timestamp=kw.get("from_timestamp"),
             )
-            return f"{x}-{self.cron.RANGES[idx][1]}/{int(m['divisor'])}"
 
         # Example: H -> 32
         return str(self.do(idx, hash_type=m["hash_type"], hash_id=hash_id))

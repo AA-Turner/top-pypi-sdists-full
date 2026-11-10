@@ -86,9 +86,9 @@ QUERYABLE FIELDS
   source.database                                string      Source database name
   source.format                                  enum        bteq, dtsx, fload, hql, mload, plsql, sql, sqlPlus, tpump, tpt, tSql, xml (Supported source body-language or script-format identifier.)
   source.name                                    string      Original object name preserving casing
-  source.objectType                              enum        database, schema, table, externalTable, view, materializedView, dynamicView, function, procedure, macro, stage, udfHelper, sequence, tableType, temporalTable, trigger, index, joinIndex, synonym, type, typeBody, package, packageBody, dbLink, job, constraint, role, grant, pipe, stream, task, workflow, mapping, fileFormat, policy, tag, alert, integration, query, other (Type of database object)
+  source.objectType                              enum        database, schema, table, externalTable, view, materializedView, dynamicView, function, procedure, macro, stage, udfHelper, sequence, tableType, temporalTable, trigger, index, joinIndex, synonym, type, typeBody, package, packageBody, dbLink, job, constraint, role, grant, pipe, stream, task, workflow, mapping, sequenceJob, parallelJob, sharedContainer, fileFormat, policy, tag, alert, integration, query, other (Type of database object)
   source.package                                 string      Source package name
-  source.platform                                enum        ansi, apacheHop, azureSynapse, bigQuery, databricksSql, db2, druid, greenplum, hive, informatica, netezza, oracle, pentaho, postgres, redshift, snowflake, spark, sqlServer, ssis, sybaseIq, teradata, vertica (Supported source platform identifier.)
+  source.platform                                enum        ansi, apacheHop, azureSynapse, bigQuery, databricksSql, dataStage, db2, druid, greenplum, hive, informatica, netezza, oracle, pentaho, postgres, redshift, snowflake, spark, sqlServer, ssis, sybaseIq, teradata, vertica (Supported source platform identifier.)
   source.schema                                  string      Source schema name
   target                                         object      Target database object metadata
   target.canonicalName                           string      Computed canonical identifier. Shape varies by kind. databaseObject uses 'database.schema.name' (or 'database.schema.name(paramTypes)' for procedures/functions). script uses 'snowflake:{format}:{path}' where path is files.converted.path (e.g. 'snowflake:python:converted/etl/daily/load_sales.py'). etl uses the same shape. Source and target canonicalNames are computed independently and may differ.
@@ -96,7 +96,7 @@ QUERYABLE FIELDS
   target.database                                string      Database name
   target.format                                  enum        dbt, java, javascriptInSnowflakeSQL, python, scala, snowflakeSQL, snowflakeScripting (Supported target body-language or output-format identifier.)
   target.name                                    string      Object name preserving casing
-  target.objectType                              enum        database, schema, table, externalTable, view, materializedView, dynamicView, function, procedure, macro, stage, udfHelper, sequence, tableType, temporalTable, trigger, index, joinIndex, synonym, type, typeBody, package, packageBody, dbLink, job, constraint, role, grant, pipe, stream, task, workflow, mapping, fileFormat, policy, tag, alert, integration, query, other (Type of database object)
+  target.objectType                              enum        database, schema, table, externalTable, view, materializedView, dynamicView, function, procedure, macro, stage, udfHelper, sequence, tableType, temporalTable, trigger, index, joinIndex, synonym, type, typeBody, package, packageBody, dbLink, job, constraint, role, grant, pipe, stream, task, workflow, mapping, sequenceJob, parallelJob, sharedContainer, fileFormat, policy, tag, alert, integration, query, other (Type of database object)
   target.schema                                  string      Schema name
 
 EXAMPLES

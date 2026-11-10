@@ -88,6 +88,7 @@ from openccu_loom_client.compat.aiohomematic.model.custom import (
     CustomDpSoundPlayer,
     make_custom_data_point,
 )
+from openccu_loom_client.compat.aiohomematic.model.event import make_generic_event
 from openccu_loom_client.compat.aiohomematic.model.event_group import build_event_groups
 from openccu_loom_client.compat.aiohomematic.model.generic import make_generic_data_point
 from openccu_loom_client.compat.aiohomematic.model.hub import make_program_data_points, make_sysvar_data_point
@@ -234,6 +235,14 @@ def _is_creatable(*, dp: Any) -> bool:
     """Return whether the DP's usage verdict allows an HA entity."""
     usage = getattr(getattr(dp, "summary", None), "usage", None)
     return usage not in _NON_CREATABLE_USAGES
+
+
+@dataclass(slots=True)
+class _SpawnedSchedules:
+    """The schedules one bootstrap pass spawned for one device: their kinds (``True`` = climate) and keys."""
+
+    kinds: set[bool] = dataclasses.field(default_factory=set)
+    unique_ids: set[str] = dataclasses.field(default_factory=set)
 
 
 class _DeviceCoordinator:
@@ -689,6 +698,16 @@ def _to_service_message(*, message: Any) -> ServiceMessageData:
     all along, the loader never read them. ``description`` and
     ``priority`` went the other way — the script never emitted either, so
     both are gone from the wire and the record carries no slot for them.
+
+    ``value`` and ``value_text`` arrived with daemon api 15.7.0: the CCU
+    names the alarm of an enum parameter after parameter and value
+    (``AL-NEQ0632439:1.ERROR-7``), and the daemon reports the value and
+    the value-list entry it resolves to (``SABOTAGE``) beside the
+    ``display_name`` it already translated from them. An older daemon
+    omits both, and the record keeps aiohomematic's empty defaults.
+    ``message_code`` stays empty: aiohomematic derives it from the name
+    itself, and the daemon's ``display_name`` is what every consumer
+    renders.
     """
     return ServiceMessageData(
         msg_id=message.id,
@@ -700,6 +719,8 @@ def _to_service_message(*, message: Any) -> ServiceMessageData:
         msg_type=0,
         msg_type_name=message.type or "",
         display_name=message.display_name or "",
+        value=message.value or "",
+        value_text=message.value_text or "",
         address=message.address or "",
         device_name=message.device_name or "",
         counter=message.counter or 0,
@@ -1211,6 +1232,7 @@ class LoomCentralAdapter:
         client.store.set_data_point_factory(factory=make_generic_data_point)
         client.store.set_calculated_data_point_factory(factory=make_calculated_data_point)
         client.store.set_custom_data_point_factory(factory=make_custom_data_point)
+        client.store.set_generic_event_factory(factory=make_generic_event)
         client.store.set_alarm_panel_factory(factory=make_alarm_panel_data_point)
         # Hub entities follow the same rule: one live object per entity, owned
         # by the store, so a catalogue refresh or a push reaches the instance
@@ -1865,15 +1887,24 @@ class LoomCentralAdapter:
 
         aiohomematic initialises a device's week profile only through a
         custom data point, so devices without a CDP never spawn schedule
-        entities. The schedule channel is the channel whose type ends in
-        ``WEEK_PROFILE``; climate devices carry no such channel — their
-        schedule lives on the climate CDP's channel, probed directly
-        (a 404 means the device has no schedule). Per schedule channel,
-        the daemon's week-profile descriptor spawns one
-        :class:`WeekProfileDp` (entry count loaded from the channel
-        schedule, fetch errors degrade to "unknown") plus — for
-        non-climate devices only, like aiohomematic — one
-        :class:`ScheduleChannelSwitch` per ``schedule_enabled`` key.
+        entities. A device has up to two schedule channels, as in
+        aiohomematic's ``Device``: the channel whose type ends in
+        ``WEEK_PROFILE``, and the climate CDP's own channel, probed directly
+        (a 404 means no schedule there). A thermostat has the second only, a
+        switch actor the first only, an HmIP-WGT/WGTC both (switch schedule on
+        channel 7, heating schedule on channel 8). Per schedule found, the
+        daemon's week-profile descriptor spawns one :class:`WeekProfileDp`
+        (entry count loaded from the channel schedule, fetch errors degrade
+        to "unknown") plus — on the WEEK_PROFILE channel only, like
+        aiohomematic — one :class:`ScheduleChannelSwitch` per
+        ``schedule_enabled`` key.
+
+        The WEEK_PROFILE channel is probed first, so it wins a conflict: a
+        second schedule of a kind the device already has, or one whose
+        ``unique_id`` the first already carries, is not spawned. The second
+        case is a daemon before api 15.6.0, which keyed both schedules of a
+        device ``loom_week_profile_<device>_week_profile``; there the device
+        keeps its switch schedule only, as before.
         """
         store = self._client.store
         for device in list(store.devices):
@@ -1889,27 +1920,23 @@ class LoomCentralAdapter:
                 ),
                 None,
             )
-            # The schedule lives on the WEEK_PROFILE channel when one exists,
-            # otherwise on the climate CDP's own channel (probed directly).
-            schedule_channel_no = week_profile_channel_no
-            if schedule_channel_no is None:
-                if climate_cdp is None:
-                    continue
-                schedule_channel_no = climate_cdp.summary.channel_no
-            # Per-channel schedule switches are bound only to a non-climate
-            # (DefaultWeekProfile) schedule — i.e. one that lives on a
-            # WEEK_PROFILE channel, mirroring the reference, which gates the
-            # switches on the week profile NOT being a ClimateWeekProfile.
-            # A device may carry a climate CDP and still expose its schedule on
-            # a WEEK_PROFILE channel (HmIP-WGTC): the switches follow the
-            # channel, not the mere presence of a climate CDP.
-            await self._spawn_schedule_data_points(
-                device=device,
-                channel_no=schedule_channel_no,
-                with_switches=week_profile_channel_no is not None,
-            )
+            # Per-channel schedule switches are bound only to the schedule on
+            # the WEEK_PROFILE channel, mirroring the reference, which gates
+            # the switches on the week profile NOT being a ClimateWeekProfile.
+            schedule_channels: list[tuple[int, bool]] = []
+            if week_profile_channel_no is not None:
+                schedule_channels.append((week_profile_channel_no, True))
+            if climate_cdp is not None and climate_cdp.summary.channel_no != week_profile_channel_no:
+                schedule_channels.append((climate_cdp.summary.channel_no, False))
+            spawned = _SpawnedSchedules()
+            for channel_no, with_switches in schedule_channels:
+                await self._spawn_schedule_data_points(
+                    device=device, channel_no=channel_no, with_switches=with_switches, spawned=spawned
+                )
 
-    async def _spawn_schedule_data_points(self, *, device: Device, channel_no: int, with_switches: bool) -> None:
+    async def _spawn_schedule_data_points(
+        self, *, device: Device, channel_no: int, with_switches: bool, spawned: _SpawnedSchedules
+    ) -> None:
         """Probe one schedule channel and spawn its week-profile (+switch) DPs."""
         store = self._client.store
         try:
@@ -1924,11 +1951,19 @@ class LoomCentralAdapter:
         # WeekProfileDp — the isinstance split the schedule facade and the HA
         # climate/sensor entities branch on, mirroring the reference's
         # ClimateWeekProfile / DefaultWeekProfile classes.
-        wp_cls = (
-            ClimateWeekProfileDp
-            if str(getattr(week_profile.schedule_type, "value", "")) == "climate"
-            else WeekProfileDp
-        )
+        climate = str(getattr(week_profile.schedule_type, "value", "")) == "climate"
+        if climate in spawned.kinds or week_profile.unique_id in spawned.unique_ids:
+            _LOGGER.debug(
+                "week profile on %s:%s skipped: the device already has a %s schedule or one keyed %s",
+                device.address,
+                channel_no,
+                "climate" if climate else "default",
+                week_profile.unique_id,
+            )
+            return
+        spawned.kinds.add(climate)
+        spawned.unique_ids.add(week_profile.unique_id)
+        wp_cls = ClimateWeekProfileDp if climate else WeekProfileDp
         wp_dp = wp_cls(
             store=store,
             device=device,
@@ -1944,8 +1979,9 @@ class LoomCentralAdapter:
             wp_dp.update_from(schedule=schedule)
         self._extra_data_points.append(wp_dp)
         # Register on the store so the base Device can expose it as
-        # ``week_profile_data_point`` (the HA schedule services reach it there).
-        store.set_week_profile_data_point(address=device.address, data_point=wp_dp)
+        # ``week_profile_data_point`` / ``climate_week_profile_data_point``
+        # (the HA climate entity and schedule services reach it there).
+        store.set_week_profile_data_point(address=device.address, data_point=wp_dp, climate=climate)
         if not with_switches:
             return
         for channel_key in week_profile.schedule_enabled or {}:

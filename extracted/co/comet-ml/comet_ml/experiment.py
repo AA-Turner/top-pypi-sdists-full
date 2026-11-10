@@ -2761,7 +2761,9 @@ class CometExperiment(CommonExperiment):
                 folder path, then the file(s) are uploaded from their current location,
                 which avoids a synchronous copy and the extra disk usage for large
                 models. In this case, the file(s) must not be modified or deleted until
-                `Experiment.flush()` or `Experiment.end()` returns. If the experiment
+                `Experiment.flush()` or `Experiment.end()` returns; with
+                `comet.s3_multipart.http_client` set to `pyreqwest`, truncating a file
+                while it uploads ends the process. If the experiment
                 falls back to offline mode, then the offline archive references the
                 original file(s), which must still exist when the archive is uploaded.
                 Has no effect for file-like objects, which are always copied.
@@ -3453,8 +3455,10 @@ class CometExperiment(CommonExperiment):
                 from their current location, which avoids a synchronous copy and
                 the extra disk usage for large files. In this case, the files must
                 not be modified or deleted until `Experiment.flush()` or
-                `Experiment.end()` returns. If the experiment falls back to offline
-                mode, then the offline archive references the original files, which
+                `Experiment.end()` returns; with `comet.s3_multipart.http_client` set
+                to `pyreqwest`, truncating a file while it uploads ends the process.
+                If the experiment falls back to offline mode, then the offline
+                archive references the original files, which
                 must still exist when the archive is uploaded.
 
         Note:
@@ -3601,8 +3605,10 @@ class CometExperiment(CommonExperiment):
                 is uploaded from its current location, which avoids a synchronous copy
                 and the extra disk usage for large files. In this case, the file must
                 not be modified or deleted until `Experiment.flush()` or
-                `Experiment.end()` returns. If the experiment falls back to offline
-                mode, then the offline archive references the original file, which
+                `Experiment.end()` returns; with `comet.s3_multipart.http_client` set
+                to `pyreqwest`, truncating it while it uploads ends the process. If
+                the experiment falls back to offline mode, then the offline archive
+                references the original file, which
                 must still exist when the archive is uploaded. Has no effect for
                 file-like objects, which are always copied.
             step (int): Used to associate the asset to a specific step.

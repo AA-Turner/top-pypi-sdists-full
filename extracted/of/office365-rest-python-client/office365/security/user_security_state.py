@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -11,7 +10,6 @@ from office365.security.alerts.useraccountsecuritytype import (
 )
 
 
-@dataclass
 class UserSecurityState(ClientValue):
     aadUserId: str | None = None
     accountName: str | None = None

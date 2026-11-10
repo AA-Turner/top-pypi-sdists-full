@@ -1,5 +1,4 @@
 import unittest
-import warnings
 from collections.abc import Callable
 
 from cachetools import Cache, cachedmethod, keys
@@ -45,10 +44,6 @@ class Cached:
     def get_cond(self, value):
         return self.__get(value)
 
-    @cachedmethod(lambda self: self.cache, condition=lambda self: self.cond)
-    def get_cond_error(self, _value):
-        raise ValueError("test error")
-
     @cachedmethod(lambda self: self.cache, condition=lambda self: self.cond, info=True)
     def get_cond_info(self, value):
         return self.__get(value)
@@ -69,6 +64,14 @@ class Cached:
     )
     def get_lock_cond_info(self, value):
         return self.__get(value)
+
+    @cachedmethod(lambda self: self.cache, condition=lambda self: self.cond)
+    def get_cond_error(self, _value):
+        raise ValueError("test error")
+
+    @cachedmethod(lambda self: self.cache, condition=lambda self: self.cond, info=True)
+    def get_cond_error_info(self, _value):
+        raise ValueError("test error")
 
     get_aliased = cachedmethod(lambda self: self.cache)(__get)
 
@@ -362,6 +365,28 @@ class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
         self.assertEqual(cached.cond.wait_count, 0)
         self.assertEqual(cached.cond.notify_count, 2)
 
+    def test_decorator_cond_error_info(self):
+        cache = self.cache(2)
+        cached = Cached(cache)
+        wrapper = cached.get_cond_error_info
+
+        maxsize = cache.maxsize if isinstance(cache, Cache) else None
+
+        with self.assertRaises(ValueError):
+            wrapper(0)
+        self.assertEqual(cached.cond.count, 2)
+        self.assertEqual(cached.cond.wait_count, 0)
+        self.assertEqual(cached.cond.notify_count, 1)
+        self.assertEqual(wrapper.cache_info(), (0, 1, maxsize, 0))  # takes the lock
+
+        # verify pending set is cleaned up, otherwise this might deadlock
+        with self.assertRaises(ValueError):
+            wrapper(0)
+        self.assertEqual(cached.cond.count, 5)
+        self.assertEqual(cached.cond.wait_count, 0)
+        self.assertEqual(cached.cond.notify_count, 2)
+        self.assertEqual(wrapper.cache_info(), (0, 2, maxsize, 0))
+
     def test_decorator_wrapped(self):
         cache = self.cache(2)
         cached = Cached(cache)
@@ -382,26 +407,40 @@ class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
         cached = Cached(cache)
 
         self.assertIs(cached.get.cache, cache)
+        self.assertEqual(cached.get.cache_key(42), keys.methodkey(cached, 42))
         self.assertIs(cached.get.cache_lock, None)
         self.assertIs(cached.get.cache_condition, None)
-        self.assertEqual(cached.get.cache_key(42), keys.methodkey(cached, 42))
+        self.assertFalse(hasattr(cached.get, "cache_info"))
 
         self.assertIs(cached.get_lock.cache, cache)
+        self.assertEqual(cached.get_lock.cache_key(42), keys.methodkey(cached, 42))
         self.assertIs(cached.get_lock.cache_lock, cached.lock)
         self.assertIs(cached.get_lock.cache_condition, None)
-        self.assertEqual(cached.get_lock.cache_key(42), keys.methodkey(cached, 42))
+        self.assertFalse(hasattr(cached.get_lock, "cache_info"))
 
         self.assertIs(cached.get_cond.cache, cache)
+        self.assertEqual(cached.get_cond.cache_key(42), keys.methodkey(cached, 42))
         self.assertIs(cached.get_cond.cache_lock, cached.cond)
         self.assertIs(cached.get_cond.cache_condition, cached.cond)
-        self.assertEqual(cached.get_cond.cache_key(42), keys.methodkey(cached, 42))
+        self.assertFalse(hasattr(cached.get_cond, "cache_info"))
 
         self.assertIs(cached.get_lock_cond_info.cache, cache)
-        self.assertIs(cached.get_lock_cond_info.cache_lock, cached.lock)
-        self.assertIs(cached.get_lock_cond_info.cache_condition, cached.cond)
         self.assertEqual(
             cached.get_lock_cond_info.cache_key(42), keys.methodkey(cached, 42)
         )
+        self.assertIs(cached.get_lock_cond_info.cache_lock, cached.lock)
+        self.assertIs(cached.get_lock_cond_info.cache_condition, cached.cond)
+        self.assertTrue(hasattr(cached.get_lock_cond_info, "cache_info"))
+
+    def test_decorator_repr(self):
+        cached = Cached(self.cache(2))
+        obj = object.__repr__(cached)
+        wrapped = Cached.get.__wrapped__
+        self.assertEqual(repr(cached.get), f"<cachedmethod {wrapped!r} of {obj}>")
+        self.assertEqual(repr(Cached.get), f"<cachedmethod {wrapped!r}>")
+        wrapped = Cached.get_info.__wrapped__
+        self.assertEqual(repr(cached.get_info), f"<cachedmethod {wrapped!r} of {obj}>")
+        self.assertEqual(repr(Cached.get_info), f"<cachedmethod {wrapped!r}>")
 
     def test_decorator_clear(self):
         cache = self.cache(2)
@@ -577,32 +616,21 @@ class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
         cache = self.cache(2)
         cached = Slots(cache)
 
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, "No '__dict__' attribute"):
             cached.get_info(42)
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.assertEqual(cached.get(0), 0)
-            self.assertEqual(cached.get(0), 0)
-        self.assertEqual(len(cache), 1)
-        self.assertEqual(len(w), 2)
-        self.assertIs(w[0].category, DeprecationWarning)
-        self.assertIs(w[1].category, DeprecationWarning)
-        self.assertEqual(w[0].filename, __file__)
+        with self.assertRaisesRegex(TypeError, "No '__dict__' attribute"):
+            cached.get(0)
 
         child = SlotsChild(cache)
 
         with self.assertRaisesRegex(TypeError, "No '__dict__' attribute"):
             child.get_info(42)
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.assertEqual(child.get(0), 0)
-            self.assertEqual(child.get(0), 0)
-        self.assertEqual(len(w), 2)
-        self.assertIs(w[0].category, DeprecationWarning)
-        self.assertIs(w[1].category, DeprecationWarning)
-        self.assertEqual(w[0].filename, __file__)
+        with self.assertRaisesRegex(TypeError, "No '__dict__' attribute"):
+            child.get(0)
+
+        self.assertEqual(len(cache), 0)
 
     def test_decorator_immutable_dict(self):
 
@@ -636,32 +664,21 @@ class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
         cache = self.cache(2)
         cached = Immutable(cache)
 
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, "does not support item assignment"):
             cached.get_info(42)
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.assertEqual(cached.get(0), 0)
-            self.assertEqual(cached.get(0), 0)
-        self.assertEqual(len(cache), 1)
-        self.assertEqual(len(w), 2)
-        self.assertIs(w[0].category, DeprecationWarning)
-        self.assertIs(w[1].category, DeprecationWarning)
-        self.assertEqual(w[0].filename, __file__)
+        with self.assertRaisesRegex(TypeError, "does not support item assignment"):
+            cached.get(0)
 
         child = ImmutableChild(cache)
 
         with self.assertRaisesRegex(TypeError, "does not support item assignment"):
             child.get_info(42)
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.assertEqual(child.get(0), 0)
-            self.assertEqual(child.get(0), 0)
-        self.assertEqual(len(w), 2)
-        self.assertIs(w[0].category, DeprecationWarning)
-        self.assertIs(w[1].category, DeprecationWarning)
-        self.assertEqual(w[0].filename, __file__)
+        with self.assertRaisesRegex(TypeError, "does not support item assignment"):
+            child.get(0)
+
+        self.assertEqual(len(cache), 0)
 
     def test_decorator_wrapper_error(self):
         # a non-callable key makes Wrapper.__init__ raise TypeError
@@ -717,14 +734,16 @@ class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
             def foo(_self):
                 pass
 
-        # __set_name__ currently only asserted with info, since this
-        # may also occur with deprecated @classmethod use
-        Cached.bar = cachedmethod(lambda _: self.cache(2), info=True)(Cached.foo)  # type: ignore
+        Cached.bar = cachedmethod(lambda _: self.cache(2))(Cached.foo)  # type: ignore
+        Cached.baz = cachedmethod(lambda _: self.cache(2), info=True)(Cached.foo)  # type: ignore
 
         cached = Cached()
 
         with self.assertRaises(TypeError):
             cached.bar()  # type: ignore
+
+        with self.assertRaises(TypeError):
+            cached.baz()  # type: ignore
 
 
 class CacheMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
@@ -929,6 +948,20 @@ class CacheMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
                 cached.get_pending.cache_clear()
                 self.assertEqual(cached.get_pending(pending=0), 1)
 
+    def test_self_keyword(self):
+        # https://github.com/tkem/cachetools/issues/451
+        class Keyword(Cached):
+            @cachedmethod(lambda obj: obj.cache)
+            def get_self(this, *, self):
+                return self
+
+        cached = Keyword(self.cache(2))
+        self.assertEqual(cached.get_self(self=1), 1)
+        self.assertEqual(cached.get_self(self=1), 1)
+        self.assertEqual(Keyword.get_self(cached, self=2), 2)
+        self.assertIn(keys.methodkey(cached, self=1), cached.cache)
+        self.assertEqual(len(cached.cache), 2)
+
 
 class DictMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
     def cache(self, minsize, **_kwargs):
@@ -941,7 +974,7 @@ class WeakRefMethodTest(unittest.TestCase):
         import gc
         import weakref
 
-        # FIXME: in Python 3.9, `int` does not support weak references
+        # at least with Python 3.11, `int` does not support weak references
         # even when subclassed, but Fraction apparently does...
         class Int(fractions.Fraction):
             def __add__(self, other):  # type: ignore
@@ -969,11 +1002,8 @@ class WeakRefMethodTest(unittest.TestCase):
 
 
 class NoneMethodTest(unittest.TestCase):
-    def cache(self, _minsize):
-        return None
-
     def test_none_info(self):
-        cached = Cached(self.cache(1))
+        cached = Cached(None)
         wrapper = cached.get_info
 
         with self.assertRaises(TypeError):
@@ -1029,7 +1059,7 @@ class UnboundMethodTest(unittest.TestCase):
         self.assertEqual(Cached.get(self=cached, value=2), 1)  # type: ignore
         self.assertEqual(cached.count, 2)
         with self.assertRaises(TypeError):
-            Cached.get(value=1)
+            Cached.get(value=1)  # type:ignore
 
         class Named:
             def __init__(self, cache):
@@ -1055,13 +1085,30 @@ class UnboundMethodTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             Named.get_posonly(self=named, value=1)  # type: ignore
         with self.assertRaises(TypeError):
-            Named.get_noargs()
+            Named.get_noargs()  # type: ignore
 
     def test_class_access_identity(self):
         self.assertIs(Cached.get, Cached.get)
         self.assertIs(Cached.get_info, Cached.get_info)
         self.assertIs(Unhashable.get, Cached.get)
         self.assertIsNot(Cached.get, Cached.get_info)
+
+    def test_class_call_after_delete(self):
+        class Local:
+            def __init__(self, cache):
+                self.cache = cache
+
+            @cachedmethod(lambda self: self.cache)
+            def get(self, value):
+                return value
+
+        get = Local.get
+        local = Local(Cache(2))
+        del Local.get
+        # the class attribute is gone, so the wrapper is kept as for super()
+        self.assertEqual(get(local, 1), 1)
+        self.assertEqual(get(local, 1), 1)
+        self.assertEqual(len(local.cache), 1)
 
     def test_wrapped_method(self):
         cached = Cached(Cache(2))
@@ -1096,15 +1143,7 @@ class UnboundMethodTest(unittest.TestCase):
         self.assertIs(cached.alias, cached.get)
         self.assertEqual(len(cached.cache), 1)
 
-    def test_autospec_no_warnings(self):
-        import unittest.mock
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            unittest.mock.create_autospec(Cached, instance=True)
-        self.assertEqual(len(w), 0)
-
-    def test_autospec_call(self):
+    def test_autospec(self):
         import unittest.mock
 
         mock = unittest.mock.create_autospec(Cached, instance=True)
@@ -1113,3 +1152,20 @@ class UnboundMethodTest(unittest.TestCase):
         mock.get.assert_called_with(1)
         self.assertEqual(mock.get(value=1), 42)
         mock.get.assert_called_with(value=1)
+
+
+class ClassMethodTest(unittest.TestCase):
+    class Cached(Cached):
+        @classmethod
+        @cachedmethod(lambda cls: {})
+        def get_class(cls, value):
+            return 42
+
+    def test_classmethod(self):
+        cached = self.Cached({})
+
+        with self.assertRaisesRegex(TypeError, "class method"):
+            cached.get_class(42)
+
+        with self.assertRaisesRegex(TypeError, "class method"):
+            self.Cached.get_class(42)  # type: ignore

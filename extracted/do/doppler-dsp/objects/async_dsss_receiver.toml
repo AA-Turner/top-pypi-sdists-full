@@ -9,7 +9,7 @@
 #   searching -> acq hit -> refining -> CarrierAcquisition ready
 #             (or its own give-up cap) -> tracking
 #
-# Composes acq (Acquisition) + carrier_acq (CarrierAcquisition, the
+# Composes the continuous search (correlator) + carrier_acq (CarrierAcquisition, the
 # refine stage's frequency estimator) + dll (code tracking, both stages)
 # + costas (carrier loop, both stages) + RateConverter (both stages) +
 # mpsk_receiver (demod, track stage only) -- the same cross-module
@@ -28,7 +28,6 @@ create_error_message = "AsyncDsssReceiver: invalid parameter (need a code of at 
 serializable = "true"
 depends_on = [
     { name = "ber" }, # dp_sym_test.h delegates here
-    { name = "acq", link = true },
     { name = "carrier_acq", link = true },
     { name = "dll", link = true },
     { name = "costas", link = true },
@@ -44,13 +43,12 @@ depends_on = [
     # carrier_acq's own transitive deps -- carrier_acq.toml's link=true
     # entries don't propagate through its OWN link=true boundary either.
     { name = "psd", link = true },
-    { name = "detector", link = true },
     { name = "detection", link = true },
     { name = "spectral", link = true },
     # the hand-over test's stimulus (dp_dsss_dilated_capture), the test's
     # link only, as `ber` above; resamp is its own dependency, already here.
     { name = "doppler_channel" },
-    { name = "corr", link = true },
+    { name = "correlator", link = true },
     { name = "fft", link = true },
     { name = "acc_trace", link = true },
 ]
@@ -303,6 +301,10 @@ name = "configure_search_raw"
 arg_type = "void"
 return_type = "int"
 status_return = true
+status_errors = [
+  { status = "DP_ERR_INVALID", error = "ValueError", message = "configure_search_raw: doppler_bins must lie in 1..reps, n_noncoh in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks (n_noncoh > 1) need rate_hypotheses 1" },
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "configure_search_raw: rebuilding the engine's grid could not allocate; the engine keeps its prior grid" },
+]
 params = [
     { name = "doppler_bins", type = "size_t" },
     { name = "n_noncoh", type = "size_t" },

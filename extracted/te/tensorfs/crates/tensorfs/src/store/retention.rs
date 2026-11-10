@@ -25,14 +25,14 @@ use super::{fail, invalid, is_digest, platform, Result, Store};
 use crate::format::{Header, ObjectRef, Repo};
 
 /// How long a use keeps what it names.
-pub const TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+pub(crate) const TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 /// How often maintenance expires uses.
 const SWEEP: Duration = Duration::from_secs(10 * 60);
 
 /// Digests kept while a process holds them: never unlocked by hand, so a forked child that
 /// inherited the descriptor keeps holding them until it exits or execs.
 #[derive(Debug)]
-pub(crate) struct Hold {
+pub struct Hold {
     store: Store,
     file: File,
     held: Mutex<BTreeSet<String>>,
@@ -153,13 +153,13 @@ pub(super) struct Use {
 }
 
 impl Store {
-    pub(crate) fn hold(&self, objects: &[ObjectRef]) -> Result<Arc<Hold>> {
+    pub fn hold(&self, objects: &[ObjectRef]) -> Result<Arc<Hold>> {
         Hold::new(self, objects.iter().map(|o| o.sha256.clone()))
     }
 
     /// Records a use of `objects` under `name` (a digest): they and `snapshots/<name>/` stay for
     /// the TTL after the last use. A use only ever adds what it keeps.
-    pub(crate) fn used<'a>(&self, name: &str, objects: impl IntoIterator<Item = &'a ObjectRef>) -> Result<()> {
+    pub fn used<'a>(&self, name: &str, objects: impl IntoIterator<Item = &'a ObjectRef>) -> Result<()> {
         let path = self.root.join("uses").join(name);
         if !is_digest(name) {
             return Err(invalid(&path, "a use is named by a digest"));
@@ -178,7 +178,7 @@ impl Store {
 
     /// Roots `header` while the file at `path` (absolute) holds it: one record per path, so saving
     /// another header there replaces it.
-    pub(crate) fn root_file(&self, path: &Path, header: &ObjectRef) -> Result<()> {
+    pub fn root_file(&self, path: &Path, header: &ObjectRef) -> Result<()> {
         let path = fs::canonicalize(path).map_err(fail("resolve", path))?;
         let id = ObjectRef::of(path.as_os_str().as_encoded_bytes()).sha256;
         let record = self.root.join("files").join(id);

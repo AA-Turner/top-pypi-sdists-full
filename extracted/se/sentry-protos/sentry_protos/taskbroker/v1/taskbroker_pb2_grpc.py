@@ -57,6 +57,11 @@ class ConsumerServiceStub(object):
                 request_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.UpdateHeartbeatRequest.SerializeToString,
                 response_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.UpdateHeartbeatResponse.FromString,
                 _registered_method=True)
+        self.BatchUpdateHeartbeat = channel.unary_unary(
+                '/sentry_protos.taskbroker.v1.ConsumerService/BatchUpdateHeartbeat',
+                request_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.BatchUpdateHeartbeatRequest.SerializeToString,
+                response_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.BatchUpdateHeartbeatResponse.FromString,
+                _registered_method=True)
 
 
 class ConsumerServiceServicer(object):
@@ -94,6 +99,13 @@ class ConsumerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def BatchUpdateHeartbeat(self, request, context):
+        """Signal that multiple activations are still being processed.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ConsumerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -116,6 +128,11 @@ def add_ConsumerServiceServicer_to_server(servicer, server):
                     servicer.UpdateHeartbeat,
                     request_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.UpdateHeartbeatRequest.FromString,
                     response_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.UpdateHeartbeatResponse.SerializeToString,
+            ),
+            'BatchUpdateHeartbeat': grpc.unary_unary_rpc_method_handler(
+                    servicer.BatchUpdateHeartbeat,
+                    request_deserializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.BatchUpdateHeartbeatRequest.FromString,
+                    response_serializer=sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.BatchUpdateHeartbeatResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -229,6 +246,33 @@ class ConsumerService(object):
             '/sentry_protos.taskbroker.v1.ConsumerService/UpdateHeartbeat',
             sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.UpdateHeartbeatRequest.SerializeToString,
             sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.UpdateHeartbeatResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BatchUpdateHeartbeat(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sentry_protos.taskbroker.v1.ConsumerService/BatchUpdateHeartbeat',
+            sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.BatchUpdateHeartbeatRequest.SerializeToString,
+            sentry__protos_dot_taskbroker_dot_v1_dot_taskbroker__pb2.BatchUpdateHeartbeatResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -284,12 +284,12 @@ def test_a_close_up_is_the_same_world_seen_from_nearer():
     assert cu["left"].at[0] - cu["right"].at[0] == pytest.approx(
         k * (two["left"].at[0] - two["right"].at[0])
     )
-    # the close-up's band (the top 35 % of the lamp) fills 90 % of the frame, on
-    # whichever axis binds first (this lamp is wide for a 4:3 frame: its width)
+    # the close-up's band (the top 35 % of the lamp, at the lamp's aspect: an#732)
+    # fills 90 % of the frame, on whichever axis binds first
     top, bottom, fill = SHOT_SIZES["close_up"]
     band_px, width_px = (
         cu["right"].scale * (bottom - top) * 20.0,
-        cu["right"].scale * 10.0,
+        cu["right"].scale * (bottom - top) * 10.0,
     )
     assert max(band_px / (fill * H), width_px / (fill * W)) == pytest.approx(1.0)
     # and its centre sits at the frame centre
@@ -1260,7 +1260,9 @@ def test_a_stream_of_stroked_paths_compiles_with_its_slot_marker(tmp_path):
 
 def test_the_core_override_keys_are_the_owners_constants():
     from an.base import (
+        BESIDE_HOST_OVERRIDE,
         CORE_OVERRIDE_KEYS,
+        GROUND_OVERRIDE,
         PAINT_KEYS_OVERRIDE,
         PLANE_FACTORS_OVERRIDE,
         SWAY_OVERRIDE,
@@ -1275,7 +1277,9 @@ def test_the_core_override_keys_are_the_owners_constants():
         AIM_OVERRIDE,
         PLANE_FACTORS_OVERRIDE,
         PAINT_KEYS_OVERRIDE,
+        BESIDE_HOST_OVERRIDE,
         SWAY_OVERRIDE,
+        GROUND_OVERRIDE,
     }
     assert owners == set(CORE_OVERRIDE_KEYS)
 
@@ -1584,7 +1588,9 @@ def _road(
     return project, scene
 
 
-def _painted(doc, t: float) -> list[str]:
+def _painted(doc, t: float, *, container=None) -> list[str]:
+    """The children of ``container`` (the scene root by default) in the order
+    they are painted at ``t``."""
     from an.base import Z_INDEX_PROPERTY
     from an.stage.timeline import timeline_from_scene
     from an.timing.timeline import evaluate_timeline
@@ -1592,7 +1598,7 @@ def _painted(doc, t: float) -> list[str]:
     pose = evaluate_timeline(timeline_from_scene(doc), t)
     z = {
         n.name: (pose.get((n.name, Z_INDEX_PROPERTY), n.z_index), i)
-        for i, n in enumerate(doc.scene.children)
+        for i, n in enumerate((container or doc.scene).children)
     }
     return sorted(z, key=z.get)
 
@@ -2196,6 +2202,125 @@ def test_an_attachment_keeps_its_built_side_of_its_host(tmp_path, listed_before)
     assert len(_beside(doc, "hat", "right", side=side)) > 1  # `left` did pass the pair
 
 
+def _compiled_two_lamps(tmp_path, members, *, walk: bool = True):
+    """The two-lamp scene with ``members`` (``members(left, right)``), ``left``
+    walking (``at_z`` 1 to 5) when ``walk``; the compiled document."""
+    from an.ir.compose import tween
+    from an.stage.compile import compile_shot
+
+    acts = [tween("left", "at_z", to=5.0, duration=3.0, from_=1.0, easing="linear")]
+    scene = _two_lamps_scene(
+        timeline=[Shot(id="s1", duration=3.0, viewpoint="two", actions=acts * walk)]
+    )
+    scene.world.members = members(*scene.world.members)
+    extents = {**EXTENTS, **{m.id: BOX for m in scene.world.members}}
+    shot = lower_world(scene, extents=extents).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return compile_shot(shot, _project(tmp_path).mall)
+
+
+@pytest.mark.parametrize("walk", [True, False])
+@pytest.mark.parametrize("listed_before", [True, False])
+def test_an_attachment_of_an_after_rider_is_painted_on_its_side(
+    tmp_path, listed_before, walk
+):
+    """an#692: ``right`` is placed after ``left`` (drawn right after it, riding
+    its keys), and ``hat``, attached to ``right``, is drawn beside ``right``
+    wherever the compiler draws it, on its built side, at every frame, ``left``
+    walking or not: listed before ``right`` just behind it (it used to land
+    after the pair), listed after it just in front."""
+    hat = _lamp("hat", attached=Attachment(to="right"))
+
+    def members(left, right):
+        right = right.model_copy(update={"after": "left"})
+        return [left, hat, right] if listed_before else [left, right, hat]
+
+    doc = _compiled_two_lamps(tmp_path, members, walk=walk)
+    side = RIDER_BEHIND if listed_before else RIDER_IN_FRONT
+    _beside(doc, "hat", "right", side=side)
+    expected = ["left", "hat", "right"] if listed_before else ["left", "right", "hat"]
+    assert [n for n in _painted(doc, 1.5) if n in expected] == expected
+
+
+@pytest.mark.parametrize("walk", [True, False])
+@pytest.mark.parametrize("listed_before", [True, False])
+def test_a_host_placed_after_its_own_attachment_compiles(tmp_path, listed_before, walk):
+    """an#692 review: ``right.after: hat`` with ``hat`` attached to ``right``
+    is the author's own order, not a cycle: it compiles, ``hat`` just behind
+    ``right`` at every frame, whichever side the built order gave it."""
+    hat = _lamp("hat", attached=Attachment(to="right"))
+
+    def members(left, right):
+        right = right.model_copy(update={"after": "hat"})
+        return [left, hat, right] if listed_before else [left, right, hat]
+
+    _beside(_compiled_two_lamps(tmp_path, members, walk=walk), "hat", "right", side=-1)
+
+
+@pytest.mark.parametrize("walk", [True, False])
+def test_an_after_chain_through_an_attachment_compiles(tmp_path, walk):
+    """an#692 review: ``x.after: hat`` and ``right.after: x``, ``hat`` attached
+    to ``right``: the author's chain wins, so it compiles and paints ``hat, x,
+    right`` together at every frame (``hat`` as near its host as the chain
+    lets it be)."""
+    hat = _lamp("hat", attached=Attachment(to="right"))
+    x = _lamp("x", at=(0.2, 0.4, 2.0), height=0.8, after="hat")
+
+    def members(left, right):
+        return [left, hat, x, right.model_copy(update={"after": "x"})]
+
+    doc = _compiled_two_lamps(tmp_path, members, walk=walk)
+    _beside(doc, "x", "hat", side=RIDER_IN_FRONT)
+    _beside(doc, "right", "x", side=RIDER_IN_FRONT)
+
+
+@pytest.mark.parametrize(
+    "y_z, expected", [(2.5, ["y", "right"]), (1.5, ["right", "y"])]
+)
+def test_two_after_riders_of_one_anchor_keep_their_depth_order(tmp_path, y_z, expected):
+    """an#692 review: ``right`` (2 deep) and ``y`` both placed after the
+    walking ``left`` are painted farther first at every frame, as they are
+    built, not in the order of their ids: an ``after`` rider's key orders it
+    by its built place."""
+    y = _lamp("y", at=(0.3, 0.4, y_z), height=0.8, after="left")
+
+    def members(left, right):
+        return [left, y, right.model_copy(update={"after": "left"})]
+
+    doc = _compiled_two_lamps(tmp_path, members)
+    _beside(doc, expected[0], "left", side=RIDER_IN_FRONT)
+    _beside(doc, expected[1], expected[0], side=RIDER_IN_FRONT)
+
+
+@pytest.mark.parametrize("listed_before", [True, False])
+def test_an_attachment_of_a_host_after_a_compensated_plane_rides_with_it(
+    tmp_path, listed_before
+):
+    """an#692 review: ``right`` placed after the hill at depth 0.5 rides the
+    hill's wrapper; ``hat``, attached to it, is drawn in the same wrapper,
+    right beside it on its built side at every frame while the poles pass."""
+    from an.stage.compile import compile_shot
+
+    hat = _lamp("hat", attached=Attachment(to="right"))
+    project, scene = _road(tmp_path, right_after="set/hill", hill_depth=0.5)
+    left, right = scene.world.members
+    scene.world.members = [left, hat, right] if listed_before else [left, right, hat]
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        doc = compile_shot(shot, project.mall)
+    (wrapper,) = [n for n in doc.scene.children if n.name == "set__after_0"]
+    side = RIDER_BEHIND if listed_before else RIDER_IN_FRONT
+    places = set()
+    for i in range(60):
+        t = 3.0 * i / 60 + 0.013
+        order = _painted(doc, t, container=wrapper)
+        assert order.index("hat") == order.index("right") + side, (t, order)
+        places.add(order.index("right"))
+    assert len(places) > 1  # the poles did pass `right`
+
+
 def test_two_attachments_on_one_side_keep_their_built_order(tmp_path):
     """an#678 review: ``zeta`` then ``alpha``, both attached to the walking
     ``right`` and listed after it, are painted ``right, zeta, alpha`` at every
@@ -2311,6 +2436,30 @@ def test_a_keyed_pair_out_of_order_is_explained_by_its_keys():
     assert "where it first shows" not in keyed
     ((_, plain),) = depth_order_problems([ref("a"), ref("b")], times, depths, whole)
     assert "the world orders each member by its depth where it first shows" in plain
+
+
+@pytest.mark.parametrize(
+    "width, height", [(1080.0, 1920.0), (1920.0, 1080.0), (1080.0, 1080.0)]
+)
+def test_every_shot_size_has_its_own_distance_in_any_frame(width, height):
+    """an#732: in a portrait frame the subject's whole width bound every size, so
+    a medium and a close-up got one distance (a jump cut). A size frames its
+    band, so each is nearer than the next wider one, whatever the aspect."""
+    from an.ir.world import resolve_viewpoint
+    from an.verify.constraints import jump_cut_between
+
+    world = _two_lamps_scene().world
+
+    def eye(size):
+        vp = Viewpoint(subject="right", size=size, focal=900.0)
+        return resolve_viewpoint(world, vp, extents=EXTENTS, width=width, height=height)
+
+    gaps = {s: 2.0 - eye(s).at[2] for s in ("wide", "full", "medium", "close_up")}
+    assert gaps["wide"] > gaps["full"] > gaps["medium"] > gaps["close_up"]
+    lamp = [
+        world.members[1].at
+    ]  # the subject's footing, as the jump-cut check reads it
+    assert jump_cut_between(eye("medium"), eye("close_up"), lamp) is None
 
 
 def test_a_kind_s_own_shot_size_band_frames_its_close_up():
@@ -2433,3 +2582,23 @@ def test_the_shot_size_hook_is_genre_code_the_shot_cache_digests():
         assert __name__ in hook_modules()
     finally:
         unregister_owner("demo_shot_sizes")
+
+
+@pytest.mark.parametrize("mark", [{"host": "right"}, "right", {"host": "right", "side": "front"}])
+def test_a_malformed_beside_host_mark_is_a_compile_error_naming_it(tmp_path, mark):
+    """an#692 review: a hand-written ``beside_host`` the compiler cannot read
+    is refused by name, never a bare KeyError."""
+    from an.base import BESIDE_HOST_OVERRIDE
+    from an.stage.compile import CutoutCompileError, compile_shot
+
+    scene = _two_lamps_scene(timeline=[Shot(id="s1", duration=1.0, viewpoint="two")])
+    left, right = scene.world.members
+    scene.world.members = [left, right.model_copy(update={"after": "left"}), _lamp("hat", attached=Attachment(to="right"))]
+    shot = lower_world(scene, extents=EXTENTS).scene.timeline[0]
+    entities = [
+        e.model_copy(update={"overrides": {**(e.overrides or {}), BESIDE_HOST_OVERRIDE: mark}})
+        if e.id == "hat" else e
+        for e in shot.entities
+    ]  # fmt: skip
+    with pytest.raises(CutoutCompileError, match="malformed `beside_host`"):
+        compile_shot(shot.model_copy(update={"entities": entities}), _project(tmp_path).mall)

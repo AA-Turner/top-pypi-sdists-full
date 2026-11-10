@@ -21,7 +21,7 @@ from typing import Any, Callable, Tuple
 
 import numpy as np
 
-__all__ = ["qc_modis_summary", "qc_modis_state", "qc_sentinel2_scl"]
+__all__ = ["qc_modis_summary", "qc_modis_state", "qc_sentinel2_scl", "qa_mask", "qa_to_fmask", "QA_RULES"]
 
 # Attributes that describe stored codes, not weights.
 _NOT_FOR_WEIGHTS = ("scale_factor", "add_offset", "_FillValue", "nodata", "missing_value",
@@ -289,3 +289,180 @@ def qc_sentinel2_scl(scl: Any, wmin: float = 0.2, wmid: float = 0.5, wmax: float
     """
     args = _check_weights(wmin, wmid, wmax)
     return _apply(scl, _scl, *args)
+
+
+#: The rules of ``qa_mask``: the codes (or bits of the codes) of a quality band that keep an observation.
+QA_RULES = {
+    "fmask": "Fmask codes: 0 clear land and 1 water are usable; 2 shadow, 3 snow, 4 cloud and 255 fill are not",
+    "landsat_c2": "Landsat Collection 2 QA_PIXEL bits: fill (0), dilated cloud (1), cloud (3), cloud shadow (4) "
+                  "and snow (5) are not usable",
+    "nonzero": "a generic mask: 0 is masked, anything else is usable",
+    "scl": "Sentinel-2 scene classification (SCL): 4 vegetation, 5 bare soil and 6 water are usable",
+    "hls_fmask": "HLS v2.0 Fmask bits: cloud (1), adjacent to cloud or shadow (2), cloud shadow (3) and snow or "
+                 "ice (4) are not usable, nor 255 (fill)",
+}
+
+
+def _usable(c: Any, rule: str) -> Any:
+    """The rule on integer codes ``c`` (numpy or xarray)."""
+    if rule == "fmask":
+        return (c == 0) | (c == 1)
+    if rule == "landsat_c2":
+        return (c & 0x3B) == 0
+    if rule == "nonzero":
+        return c != 0
+    if rule == "scl":
+        return (c >= 4) & (c <= 6)
+    return (c != 255) & ((c & 0x1E) == 0)  # hls_fmask
+
+
+def qa_mask(qa: Any, rule: str) -> Any:
+    """The observations a quality band keeps, as a boolean "usable" mask.
+
+    The rules are the ones Janus applies to a quality band. A code counts when it is a
+    number of 0 or more (fractions are cut to the whole code); NaN, negative values and
+    the raster's NoData are never usable.
+
+    ======================  ================================================================
+    ``rule``                Usable
+    ======================  ================================================================
+    ``"fmask"``             0 (clear land) and 1 (water); 2 shadow, 3 snow, 4 cloud and 255
+                            (fill) are masked
+    ``"landsat_c2"``        QA_PIXEL with the bits 0 (fill), 1 (dilated cloud), 3 (cloud),
+                            4 (cloud shadow) and 5 (snow) clear (``code & 0x3B == 0``)
+    ``"nonzero"``           any code but 0
+    ``"scl"``               Sentinel-2 SCL 4 (vegetation), 5 (bare soil) and 6 (water)
+    ``"hls_fmask"``         HLS v2.0 Fmask with the bits 1 to 4 (cloud, adjacent, shadow, snow
+                            or ice) clear, and not 255 (fill)
+    ======================  ================================================================
+
+    Parameters
+    ----------
+    qa
+        The quality band: a numpy array, a ``DataArray`` (lazy if it was) or the path of a
+        raster (read with ``masked=True``).
+    rule
+        One of the rules above (case and ``-`` / ``_`` do not matter).
+
+    Returns
+    -------
+    A boolean numpy array (numpy input) or a boolean ``DataArray`` with the input's dims,
+    coordinates and georeferencing.
+
+    Examples
+    --------
+    >>> usable = zeit.qa_mask(cube.sel(band="fmask"), "fmask")
+    >>> clear = cube.sel(band="nir").where(usable)
+    """
+    key = str(rule).lower().replace("-", "_")
+    if key not in QA_RULES:
+        raise ValueError(f"unknown QA rule {rule!r}; use one of {', '.join(QA_RULES)}")
+    if isinstance(qa, (str, Path)):
+        from ._load import load_raster
+
+        qa = load_raster(str(qa), masked=True)
+    if hasattr(qa, "dims") and hasattr(qa, "coords"):
+        if qa.dtype.kind not in "iufb":
+            raise TypeError(f"quality codes must be numbers, got {qa.dtype}")
+        nodata = _nodata_of(qa)
+        if nodata is not None and not np.isnan(float(nodata)):
+            qa = qa.where(qa != nodata)
+        valid = qa.notnull() & (qa >= 0)
+        out = valid & _usable(qa.fillna(0).astype("int64"), key)
+        out.attrs = {}
+        out.encoding = {}
+        out.name = "usable"
+        return out
+    values = np.asarray(qa)
+    if values.dtype.kind not in "iufb":
+        raise TypeError(f"quality codes must be numbers, got {values.dtype}")
+    with np.errstate(invalid="ignore"):
+        valid = ~np.isnan(values) & (values >= 0) if values.dtype.kind == "f" else values >= 0
+    codes = np.where(valid, values, 0).astype(np.int64)
+    return valid & _usable(codes, key)
+
+
+def _fmask_codes(values: np.ndarray, rule: str) -> np.ndarray:
+    """The Fmask codes of the quality codes ``values`` (numpy) under ``rule``, as uint8."""
+    values = np.asarray(values)
+    with np.errstate(invalid="ignore"):
+        valid = ~np.isnan(values) & (values >= 0) if values.dtype.kind == "f" else values >= 0
+    c = np.where(valid, values, 0).astype(np.int64)
+    if rule == "fmask":
+        out = np.where((c <= 4) | (c == 255), c, 255)
+    elif rule == "landsat_c2":
+        out = np.select([(c & 1) > 0, (c & 10) > 0, (c & 16) > 0, (c & 32) > 0, (c & 128) > 0], [255, 4, 2, 3, 1], 0)
+    elif rule == "scl":
+        out = np.select([(c == 4) | (c == 5), c == 6, (c == 2) | (c == 3), c == 11, (c >= 7) & (c <= 10)],
+                        [0, 1, 2, 3, 4], 255)
+    elif rule == "nonzero":
+        out = np.where(c != 0, 0, 4)
+    else:  # hls_fmask
+        out = np.select([c == 255, (c & 6) > 0, (c & 8) > 0, (c & 16) > 0, (c & 32) > 0], [255, 4, 2, 3, 1], 0)
+    return np.where(valid, out, 255).astype(np.uint8)
+
+
+def qa_to_fmask(qa: Any, rule: str) -> Any:
+    """The Fmask codes of a quality band: 0 clear, 1 water, 2 shadow, 3 snow, 4 cloud, 255 no data.
+
+    The codes ``qa=`` of ``zeit.ccdc``, ``zeit.sccd`` and the other change-detection functions
+    read, from the quality band of a sensor, by the same ``rule`` names as ``zeit.qa_mask``.
+    A code counts when it is a number of 0 or more (fractions are cut to the whole code); NaN,
+    negative values and the raster's NoData are 255.
+
+    ====================  ======================================================================
+    ``rule``              Codes
+    ====================  ======================================================================
+    ``"fmask"``           as they are (0 to 4 and 255); any other value is 255
+    ``"landsat_c2"``      QA_PIXEL: bit 0 (fill) 255; bits 1 and 3 (dilated cloud, cloud) 4; bit 4
+                          (cloud shadow) 2; bit 5 (snow) 3; bit 7 (water) 1; else 0. The first that
+                          applies, in this order
+    ``"scl"``             Sentinel-2 SCL: 4 and 5 are 0; 6 (water) 1; 2 and 3 (shadows) 2; 11 (snow
+                          or ice) 3; 7 to 10 (unclassified, clouds, cirrus) 4; 0, 1 and above 11 255
+    ``"hls_fmask"``       HLS v2.0 Fmask: 255 255; bits 1 and 2 (cloud, adjacent to cloud) 4; bit 3
+                          (shadow) 2; bit 4 (snow or ice) 3; bit 5 (water) 1; else 0
+    ``"nonzero"``         any code but 0 is 0 (clear); 0 is 4 (cloud)
+    ====================  ======================================================================
+
+    Parameters
+    ----------
+    qa
+        The quality band: a numpy array, a ``DataArray`` (lazy if it was) or the path of a
+        raster (read with ``masked=True``).
+    rule
+        One of the rules above (case and ``-`` / ``_`` do not matter).
+
+    Returns
+    -------
+    A uint8 numpy array (numpy input) or a uint8 ``DataArray`` named ``fmask`` with the
+    input's dims, coordinates and georeferencing.
+
+    Examples
+    --------
+    >>> qa = zeit.load_raster("landsat/", band=7, masked=True, pixel=(896, 186))
+    >>> segments = zeit.ccdc(bands, qa=zeit.qa_to_fmask(qa, "landsat_c2"))
+    """
+    key = str(rule).lower().replace("-", "_")
+    if key not in QA_RULES:
+        raise ValueError(f"unknown QA rule {rule!r}; use one of {', '.join(QA_RULES)}")
+    if isinstance(qa, (str, Path)):
+        from ._load import load_raster
+
+        qa = load_raster(str(qa), masked=True)
+    if hasattr(qa, "dims") and hasattr(qa, "coords"):
+        import xarray as xr
+
+        if qa.dtype.kind not in "iufb":
+            raise TypeError(f"quality codes must be numbers, got {qa.dtype}")
+        nodata = _nodata_of(qa)
+        if nodata is not None and not np.isnan(float(nodata)):
+            qa = qa.where(qa != nodata)
+        out = xr.apply_ufunc(_fmask_codes, qa, kwargs={"rule": key}, dask="parallelized", output_dtypes=[np.uint8])
+        out.attrs = {}
+        out.encoding = {}
+        out.name = "fmask"
+        return out
+    values = np.asarray(qa)
+    if values.dtype.kind not in "iufb":
+        raise TypeError(f"quality codes must be numbers, got {values.dtype}")
+    return _fmask_codes(values, key)

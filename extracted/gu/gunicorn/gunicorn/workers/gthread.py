@@ -30,6 +30,8 @@ from ..http import wsgi
 from ..http.errors import InvalidH2CPreface
 from ..http2 import negotiation
 from ..http2.response import HTTP2Response
+from ..http2.errors import HTTP2ConnectionError, HTTP2ProtocolError, HTTP2StreamError
+from ..http2.stream import StreamState
 
 
 # Sentinel value to indicate connection should be deferred back to poller
@@ -343,13 +345,13 @@ class ThreadWorker(base.Worker):
         # Submit to thread pool for processing
         self.enqueue_req(conn)
 
-    def murder_keepalived(self):
-        """Close expired keepalive connections."""
+    def murder_keepalived(self, force=False):
+        """Close expired keepalive connections (or all if forced)."""
         now = time.monotonic()
         while self.keepalived_conns:
             conn = self.keepalived_conns[0]
             delta = conn.timeout - now
-            if delta > 0:
+            if delta > 0 and not force:
                 break
 
             # Connection has timed out
@@ -430,15 +432,16 @@ class ThreadWorker(base.Worker):
 
         # Wait for in-flight connections within grace period
         graceful_timeout = time.monotonic() + self.cfg.graceful_timeout
-        while self.nr_conns > 0:
-            time_remaining = max(graceful_timeout - time.monotonic(), 0)
-            if time_remaining == 0:
+        while self.nr_conns - len(self.keepalived_conns) > 0:
+            if time.monotonic() > graceful_timeout:
                 break
-            self.wait_for_and_dispatch_events(timeout=time_remaining)
+            self.notify()
+            self.wait_for_and_dispatch_events(timeout=1.0)
             self.murder_keepalived()
             self.murder_pending()
 
         # Cleanup
+        self.murder_keepalived(force=True)
         self.tpool.shutdown(wait=False)
         self.poller.close()
         self.method_queue.close()
@@ -461,6 +464,11 @@ class ThreadWorker(base.Worker):
                 self.poller.register(conn.sock, selectors.EVENT_READ,
                                      partial(self.on_pending_socket_readable, conn))
             elif result and self.alive:
+                if conn.parser.unreader.buf.getvalue():
+                    # A body drain can read ahead into the next request. Those
+                    # bytes no longer make the socket readable to the poller.
+                    self.enqueue_req(conn)
+                    return
                 # Keepalive - put connection back in the poller
                 conn.sock.setblocking(False)
                 conn.set_timeout()
@@ -578,8 +586,29 @@ class ThreadWorker(base.Worker):
         if pending:
             h2_conn.receive_data(pending)
 
-        self.handle_http2_request(upgraded, conn, h2_conn)
+        self._serve_http2_stream(upgraded, conn, h2_conn)
         return self.handle_http2(conn)
+
+    def _serve_http2_stream(self, req, conn, h2_conn):
+        """Serve one stream, answering or resetting it whatever happens."""
+        if req.stream.state is StreamState.CLOSED:
+            # Reset by the peer before it could be served
+            h2_conn.cleanup_stream(req.stream.stream_id)
+            return
+        try:
+            self.handle_http2_request(req, conn, h2_conn)
+        except (HTTP2StreamError, HTTP2ConnectionError) as e:
+            # The peer reset the stream, stalled past the timeout, or
+            # the socket is gone; nothing to answer.
+            self.log.debug("HTTP/2 stream closed: %s", e)
+        except Exception as e:
+            self.log.exception("Error handling HTTP/2 request")
+            try:
+                h2_conn.send_error(req.stream.stream_id, 500, str(e))
+            except Exception as err:
+                self.log.debug("HTTP/2 error response failed: %s", err)
+        finally:
+            h2_conn.cleanup_stream(req.stream.stream_id)
 
     def handle_http2(self, conn):
         """Handle an HTTP/2 connection. Runs in a worker thread.
@@ -591,6 +620,7 @@ class ThreadWorker(base.Worker):
             False (HTTP/2 connections don't use keepalive polling)
         """
         h2_conn = conn.parser  # HTTP2ServerConnection
+        last_served = 0
 
         try:
             while not h2_conn.is_closed and self.alive:
@@ -598,25 +628,25 @@ class ThreadWorker(base.Worker):
                 requests = h2_conn.receive_data()
 
                 for req in requests:
-                    try:
-                        self.handle_http2_request(req, conn, h2_conn)
-                    except Exception as e:
-                        self.log.exception("Error handling HTTP/2 request")
-                        try:
-                            h2_conn.send_error(req.stream.stream_id, 500, str(e))
-                        except Exception:
-                            pass
-                    finally:
-                        # Cleanup stream after processing
-                        h2_conn.cleanup_stream(req.stream.stream_id)
+                    self._serve_http2_stream(req, conn, h2_conn)
+                    last_served = req.stream.stream_id
 
-                # Check if we need to close
                 if not self.alive:
-                    h2_conn.close()
+                    # Requests already queued behind a body read are
+                    # served, then GOAWAY names the last one so the peer
+                    # can retry anything after it.
+                    for req in h2_conn.receive_data(b""):
+                        self._serve_http2_stream(req, conn, h2_conn)
+                        last_served = req.stream.stream_id
+                    h2_conn.close(last_stream_id=last_served)
                     break
 
         except http.errors.NoMoreData:
             self.log.debug("HTTP/2 connection closed by client")
+        except HTTP2ConnectionError as e:
+            self.log.debug("HTTP/2 connection closed: %s", e)
+        except HTTP2ProtocolError as e:
+            self.log.debug("HTTP/2 protocol error from peer: %s", e)
         except ssl.SSLError as e:
             if e.args[0] == ssl.SSL_ERROR_EOF:
                 self.log.debug("HTTP/2 SSL connection closed")
@@ -635,10 +665,10 @@ class ThreadWorker(base.Worker):
         environ = {}
         resp = None
         stream_id = req.stream.stream_id
+        request_start = datetime.now()
 
         try:
             self.cfg.pre_request(self, req)
-            request_start = datetime.now()
 
             # Create WSGI environ. The response frames itself as HTTP/2,
             # so the body streams out instead of being collected first, and
@@ -679,10 +709,10 @@ class ThreadWorker(base.Worker):
                 if hasattr(respiter, "close"):
                     respiter.close()
 
-            request_time = datetime.now() - request_start
-            self.log.access(resp, req, environ, request_time)
-
         finally:
+            if resp is not None:
+                # Logged even when the stream was cut off mid-response
+                self.log.access(resp, req, environ, datetime.now() - request_start)
             try:
                 self.cfg.post_request(self, req, environ, resp)
             except Exception:
@@ -730,10 +760,10 @@ class ThreadWorker(base.Worker):
         except OSError:
             # pass to next try-except level
             util.reraise(*sys.exc_info())
-        except Exception:
+        except (Exception, SystemExit):
             if resp and resp.headers_sent:
-                # If the requests have already been sent, we should close the
-                # connection to indicate the error.
+                # Timeout abort is SystemExit. If we already started the
+                # response, writing a 500 on the same socket corrupts it.
                 self.log.exception("Error handling request")
                 util.close_graceful(conn.sock)
                 raise StopIteration()

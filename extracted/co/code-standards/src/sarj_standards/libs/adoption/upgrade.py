@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import re
 import shutil
+import sys
 import tomllib
 from typing import TYPE_CHECKING, Final
 
@@ -21,18 +22,18 @@ from . import (
     lifecycle,
     manifest,
     packagemanager,
+    repository_baseline,
     retired_suppressions,
     scaffold,
     transaction,
+    typescript_tooling,
     uvtool,
 )
 from .configs import (
     CONFIG_SPECS,
-    ESLINT_DECLARATION_CONFIGS,
     MOBILE_COMPANION_CONFIGS,
     PYTHON_COMPANION_CONFIGS,
-    eslint_preset_name,
-    typescript_companion_configs,
+    TYPESCRIPT_COMPANION_CONFIGS,
 )
 
 
@@ -45,14 +46,18 @@ if TYPE_CHECKING:
 _BUNDLE_LINE = re.compile(r'(?m)^bundle\s*=\s*"[^"]*"\s*$')
 _INSTALL_REMEDIABLE_FINDING_IDS = frozenset(
     {
-        "doctor.eslint.override",
-        "doctor.eslint.peer",
+        "doctor.typescript.oxfmt-config",
+        "doctor.typescript.override",
+        "doctor.typescript.peer",
         "doctor.python.legacy-in-project-tool",
     }
 )
 _MANUAL_POSTFLIGHT_FINDING_IDS = frozenset(
     {
-        "doctor.eslint.shadowed-config",
+        "doctor.typescript.legacy-eslint-config",
+        "doctor.typescript.shadowed-config",
+        "doctor.typescript.tsc",
+        "doctor.typescript.tsconfig",
         "doctor.ci.gate",
         "doctor.precommit.rev",
         "doctor.pyright.deprecated",
@@ -100,6 +105,8 @@ class UpgradePlan:
     preconditions: dict[Path, bytes | None]
     preexisting_drift: frozenset[tuple[str, str]]
     preflight_findings: tuple[doctor.Finding, ...] = ()
+    #: What the TypeScript migration did or left for the repository; printed with the update.
+    notes: list[str] = field(default_factory=list)
 
 
 def build_plan(root: Path) -> UpgradePlan:  # ruff: ignore[too-many-locals] -- one plan resolves every owned site once
@@ -178,6 +185,7 @@ def build_plan(root: Path) -> UpgradePlan:  # ruff: ignore[too-many-locals] -- o
     plan.preexisting_drift = frozenset(
         (finding.id, finding.where) for finding in plan.preflight_findings if finding.level is doctor.Level.DRIFT
     )
+    plan.notes.extend(scaffold_plan.migration_notes)
     return plan
 
 
@@ -204,10 +212,17 @@ def _validate_upgrade_version(adopted: manifest.Manifest) -> None:
 
 
 def _append_upgrade_changes(plan: UpgradePlan, path: Path, pin_updates: Sequence[doctor.VersionPinUpdate]) -> None:
+    migrated = plan.scaffold_plan.migration_paths
     for target, _contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits):
         if target != path:
-            plan.changes.append(Change(target, "repair adoption wiring"))
-    plan.changes.extend(Change(target, "remove retired repository launcher") for target in plan.scaffold_plan.deletes)
+            plan.changes.append(Change(target, "migrate to Oxlint" if target in migrated else "repair adoption wiring"))
+    plan.changes.extend(
+        Change(
+            target,
+            "remove what the Oxlint migration replaced" if target in migrated else "remove retired repository launcher",
+        )
+        for target in plan.scaffold_plan.deletes
+    )
     plan.changes.extend(
         Change(update.path, f"refresh {'/'.join(update.packages)} version pin") for update in pin_updates
     )
@@ -246,7 +261,7 @@ def _upgrade_scaffold(
         kotlin_dest=adopted.kotlin_dest if detected_ecosystems.kotlin else None,
         profile=adopted.profile,
         hook_manager=adopted.hook_manager,
-        allow_existing_nested_eslint=True,
+        allow_existing_nested_oxlint=True,
         resolved_ecosystems=detected_ecosystems,
     )
     if scaffold_plan.errors:
@@ -282,14 +297,6 @@ def _javascript_install_roots(
     )
 
 
-def planned_eslint_declaration_paths(root: Path, adopted: manifest.Manifest) -> tuple[Path, ...]:
-    if "eslint" not in adopted.configs:
-        return ()
-    writes = _upgrade_config_writes(root.resolve(), replace(adopted, configs=("eslint",)), [])
-    declarations = {CONFIGS_DIR / source for source, _target in ESLINT_DECLARATION_CONFIGS.values()}
-    return tuple(target for source, target in writes if source in declarations)
-
-
 def _upgrade_config_writes(root: Path, adopted: manifest.Manifest, changes: list[Change]) -> list[tuple[Path, Path]]:
     destinations: dict[ConfigDestination, Path] = {
         "root": root,
@@ -310,14 +317,14 @@ def _upgrade_config_writes(root: Path, adopted: manifest.Manifest, changes: list
         except ValueError as exc:
             msg = f"manifest destination for {name} escapes repository root"
             raise ValueError(msg) from exc
-        target = destination / (eslint_preset_name(destination) if name == "eslint" else spec.destination_name)
-        source = CONFIGS_DIR / (target.name if name == "eslint" else spec.source_name)
+        target = destination / spec.destination_name
+        source = CONFIGS_DIR / spec.source_name
         _append_preset_writes(root, source, target, changes, config_writes, config_name=name)
         companions: Mapping[str, tuple[str, str]] = {}
         if name == "pyright":
             companions = PYTHON_COMPANION_CONFIGS
-        elif name == "eslint":
-            companions = typescript_companion_configs(target.name)
+        elif name in manifest.TYPESCRIPT_CONFIGS:
+            companions = TYPESCRIPT_COMPANION_CONFIGS
         _append_companion_writes(destination, companions, changes, config_writes)
 
     if not set(adopted.configs).isdisjoint(
@@ -337,18 +344,11 @@ def _append_preset_writes(
     *,
     config_name: str,
 ) -> None:
-    changed = not target.is_file() or target.read_bytes() != source.read_bytes()
-    legacy_eslint = config_name == "eslint" and target.name == "eslint.strict.mjs"
-    if not changed and not legacy_eslint:
+    if target.is_file() and target.read_bytes() == source.read_bytes():
         return
-    mirrors = _identical_config_mirrors(root, target)
-    if changed:
-        for config_target in (target, *mirrors):
-            changes.append(Change(config_target, f"sync {config_name} config"))
-            config_writes.append((source, config_target))
-    if legacy_eslint:
-        for mirror in mirrors:
-            _append_companion_writes(mirror.parent, ESLINT_DECLARATION_CONFIGS, changes, config_writes)
+    for config_target in (target, *_identical_config_mirrors(root, target)):
+        changes.append(Change(config_target, f"sync {config_name} config"))
+        config_writes.append((source, config_target))
 
 
 def _append_companion_writes(
@@ -376,7 +376,7 @@ def _diagnostic_baseline_writes(root: Path, adopted: manifest.Manifest) -> list[
             selectors = {
                 f"sarj-{entry.kind}-lint:{entry.id}"
                 for entry in ledger.load().retired
-                if entry.kind not in {ledger.ESLINT, ledger.CODE}
+                if entry.kind not in {ledger.OXLINT, ledger.CODE}
             }
             removal = baseline.remove_rules(
                 baseline_target,
@@ -408,7 +408,7 @@ def _updated_manifest_text(path: Path, current_text: str, adopted: manifest.Mani
     implicit_disabled = (
         set(manifest.ALL_CAPABILITIES) - set(adopted.enabled_capabilities) - set(adopted.disabled_capabilities)
     )
-    if implicit_disabled:
+    if implicit_disabled or manifest.uses_legacy_typescript_names(current_text):
         # Serialize capability gates before a bundle bump can activate tools outside this plan.
         updated = replace(
             adopted,
@@ -477,11 +477,39 @@ def unmigrated_retired_findings(plan: UpgradePlan, findings: Sequence[doctor.Fin
     return blockers
 
 
+def baseline_and_suppression_changes(plan: UpgradePlan) -> tuple[Path, ...]:
+    protected = {plan.root / repository_baseline.PATH}
+    if plan.adopted.diagnostic_baseline is not None:
+        protected.add(plan.root / plan.adopted.diagnostic_baseline)
+    writes = [*plan.baseline_writes, *plan.suppression_writes]
+    writes.extend(
+        (path, contents)
+        for path, contents in (*plan.scaffold_plan.writes, *plan.scaffold_plan.edits, *plan.pin_writes)
+        if path in protected
+    )
+    diagnostic = None if plan.adopted.diagnostic_baseline is None else plan.root / plan.adopted.diagnostic_baseline
+    changed = {
+        path
+        for path, contents in writes
+        if (before := plan.preconditions.get(path)) != (after := contents.encode("utf-8"))
+        # A bundle bump rewrites only the diagnostic baseline's provenance; its accepted entries stay put.
+        and not (path == diagnostic and before is not None and baseline.provenance_only_change(before, after))
+    }
+    changed.update(
+        target
+        for source, target in plan.config_writes
+        if target in protected and source.read_bytes() != plan.preconditions.get(target)
+    )
+    changed.update(path for path in plan.scaffold_plan.deletes if path in protected)
+    return tuple(sorted(changed))
+
+
 def apply(
     plan: UpgradePlan,
     *,
     install: bool = True,
     allow_retired_debt: bool = False,
+    preserve_baselines: bool = False,
 ) -> int:
     if Version(plan.adopted.version) > Version(manifest.adopted_version()):
         return 2
@@ -489,6 +517,8 @@ def apply(
     if blockers and not allow_retired_debt:
         return 2
     try:
+        if preserve_baselines and baseline_and_suppression_changes(plan):
+            return 2
         transaction.validate_targets(plan.root, tuple(plan.preconditions))
         stale = any(
             (path.read_bytes() if path.is_file() else None) != expected for path, expected in plan.preconditions.items()
@@ -577,7 +607,22 @@ def _apply_and_validate(
             return status
         for path, canonical in policies:
             file_transaction.write_text(path, canonical)
+        _finish_typescript(plan, file_transaction)
     return _validate_applied_upgrade(plan, install=install, allow_retired_debt=allow_retired_debt)
+
+
+def _finish_typescript(plan: UpgradePlan, file_transaction: transaction.FileTransaction) -> None:
+    typescript_root = plan.ecosystems.typescript_root
+    if typescript_root is None:
+        return
+    try:
+        notes = typescript_tooling.finish(
+            plan.root, typescript_root, file_transaction, written={path for path, _ in plan.scaffold_plan.writes}
+        )
+        plan.notes.extend(notes)
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        raise
 
 
 def _validate_applied_upgrade(plan: UpgradePlan, *, install: bool, allow_retired_debt: bool) -> int:
@@ -606,17 +651,14 @@ def _upgrade_install_commands(plan: UpgradePlan) -> list[lifecycle.Command]:
             for lockfile in plan.lockfiles
         ),
         *(
-            lifecycle.Command(
+            lifecycle.package_install(
                 "JavaScript lockfile",
-                packagemanager.install_argv(
-                    (manager := packagemanager.detect(install_root)),
-                    workspace=(
-                        manager is packagemanager.PackageManager.PNPM
-                        or (install_root / "pnpm-workspace.yaml").is_file()
-                    ),
-                    yarn=packagemanager.yarn_variant(install_root),
-                ),
                 install_root,
+                (manager := packagemanager.detect(install_root)),
+                workspace=(
+                    manager is packagemanager.PackageManager.PNPM or (install_root / "pnpm-workspace.yaml").is_file()
+                ),
+                yarn=packagemanager.yarn_variant(install_root),
             )
             for install_root in plan.javascript_install_roots
         ),
@@ -697,5 +739,7 @@ def _mark_installer_writes(file_transaction: transaction.FileTransaction) -> Non
     file_transaction.mark_written(*(path for path in file_transaction.before if path.name in _INSTALL_MUTATED_NAMES))
 
 
-def render(changes: Sequence[Change]) -> str:
-    return "\n".join(f"update: {change.path} -- {change.reason}" for change in changes)
+def render(changes: Sequence[Change], notes: Sequence[str] = ()) -> str:
+    return "\n".join(
+        (*(f"update: {change.path} -- {change.reason}" for change in changes), *(f"note: {note}" for note in notes))
+    )

@@ -8,14 +8,13 @@ import weakref
 from base64 import a85encode
 from copy import deepcopy
 from io import BytesIO
-from typing import Union
 
 import pytest
 
 from pypdf import PdfReader, PdfWriter
 from pypdf._utils import get_stream_data
 from pypdf.constants import CheckboxRadioButtonAttributes, OutlineFontFlag
-from pypdf.errors import STREAM_TRUNCATED_PREMATURELY, DeprecationError, LimitReachedError, PdfReadError, PdfStreamError
+from pypdf.errors import STREAM_TRUNCATED_PREMATURELY, LimitReachedError, PdfReadError, PdfStreamError
 from pypdf.generic import (
     ArrayObject,
     BooleanObject,
@@ -203,15 +202,8 @@ def test_read_string_from_stream_escape_digit2():
 
 def test_name_object(caplog):
     stream = BytesIO(b"x")
-    with pytest.raises(PdfReadError) as exc:
+    with pytest.raises(PdfReadError, match=r"^Name read error$"):
         NameObject.read_from_stream(stream, None)
-    assert exc.value.args[0] == "Name read error"
-
-    with pytest.raises(
-        DeprecationError,
-        match=r"surfix is deprecated and was removed in pypdf 5\.0\.0\. Use prefix instead\.",
-    ):
-        _ = NameObject.surfix
 
     assert (
         NameObject.read_from_stream(
@@ -256,8 +248,8 @@ def test_name_object(caplog):
     caplog.clear()
     b = BytesIO()
     with pytest.raises(
-            expected_exception=DeprecationError,
-            match=r"Incorrect first char in NameObject, should start with '/': \(hello\) is deprecated and was"
+            expected_exception=PdfStreamError,
+            match=r"^Incorrect first char in NameObject, should start with '/': \(hello\)$"
     ):
         NameObject("hello").write_to_stream(b)
 
@@ -1128,10 +1120,8 @@ def test_create_string_object_force():
         ("1.0", "1"),
         ("0.123000", "0.123"),
         ("0.000123000", "0.000123"),
-        ("0.0", "0.0"),
         ("0", "0.0"),
         ("1", "1"),
-        ("1.0", "1"),
         ("1.01", "1.01"),
         ("1.010", "1.01"),
         ("0000.0000", "0.0"),
@@ -1259,7 +1249,7 @@ def test_cloning_null_obj_keeps_hard_reference():
     assert obj_weakref() is not None
 
 
-def _create_direct_objects_container(as_array: bool, size: int) -> Union[ArrayObject, DictionaryObject]:
+def _create_direct_objects_container(as_array: bool, size: int) -> ArrayObject | DictionaryObject:
     elements = [NullObject(), BooleanObject(True), NumberObject(1), FloatObject(1.5), NameObject("/A")]
     elements = elements * (size // len(elements))
     if as_array:
@@ -1267,7 +1257,7 @@ def _create_direct_objects_container(as_array: bool, size: int) -> Union[ArrayOb
     return DictionaryObject({NameObject(f"/K{i}"): element for i, element in enumerate(elements)})
 
 
-def _clone_and_count(container: Union[ArrayObject, DictionaryObject], writer: PdfWriter) -> tuple[int, int]:
+def _clone_and_count(container: ArrayObject | DictionaryObject, writer: PdfWriter) -> tuple[int, int]:
     """Clone the container and return the number of Python function calls and raised exceptions."""
     calls = 0
     exceptions = 0
@@ -1780,3 +1770,30 @@ def test_get_inherited_malformed_parent():
     number_parent = DictionaryObject({NameObject("/Parent"): NumberObject(42)})
     assert number_parent.get_inherited("/Rotate", "dflt") == "dflt"
     assert number_parent.get_inherited("/Rotate") is None
+
+
+def test_content_stream_replicate__parsed_operations():
+    """The replica of a content stream whose operations were parsed has the same operations."""
+    writer = PdfWriter()
+    content = ContentStream(None, None)
+    content.set_data(b"BT /F1 12 Tf (Hello) Tj ET")
+    operations = list(content.operations)
+    assert operations
+
+    replica = content.replicate(writer)
+
+    assert replica is not content
+    assert replica.operations == operations
+    assert replica.get_data() == content.get_data()
+    assert b"Hello" in replica.get_data()
+
+
+def test_content_stream_replicate__raw_data():
+    """The replica of a content stream that was never parsed has the same data."""
+    writer = PdfWriter()
+    content = ContentStream(None, None)
+    content.set_data(b"q 1 0 0 1 10 10 cm Q")
+
+    replica = content.replicate(writer)
+
+    assert replica.get_data() == b"q 1 0 0 1 10 10 cm Q"

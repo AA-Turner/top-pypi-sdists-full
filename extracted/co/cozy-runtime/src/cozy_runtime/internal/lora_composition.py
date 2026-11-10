@@ -1,8 +1,15 @@
 """Bind a prepared LoRA view (TensorD composes it: `adapter.rs`) to a construction.
 
-The view's base weights are `<path>.base_layer.*` and its factors `<path>.lora_{A,B}.<adapter>`;
-its `model_adapters.json` graph names, by stored names, the PEFT layers (linear and 2-D
-convolution) this module builds before the ordinary census, fill and residency own them.
+The view's base weights are `<path>.base_layer.*` and its factors `<path>.lora_{A,B}.<adapter>`
+(a DoRA's magnitude `<path>.lora_magnitude_vector.<adapter>`); its `model_adapters.json` graph
+names, by stored names, the PEFT layers (linear and 2-D convolution) this module builds before the
+ordinary census, fill and residency own them.
+
+A DoRA term is PEFT's, `D = m * V / ||V||` per output channel with `V = W + s * B @ A`
+(s = alpha / r), at strength t: `W' = W + t * (D - W)` (`lora_bake.dora_weight`), the identity at 0
+and PEFT's own weight at 1. The weight plane (`weights._Bakes`) computes it from the stored bytes as
+they fill: baked, or for a per-step forward each row of `W` scaled by `1 + t * (m / ||V|| - 1)` and
+`B` by `t * s * m / ||V||` (scale 1 here).
 """
 
 from __future__ import annotations
@@ -12,13 +19,26 @@ from dataclasses import replace
 
 import msgspec
 
-from cozy_runtime.author import Artifact, CapabilityError, Config as ModelConfig, Model
+from cozy_runtime.author import Config as ModelConfig
+from cozy_runtime.author import Model
+from cozy_runtime.author._errors import CapabilityError
+from cozy_runtime.author._loader import TENSORFS_DTYPES, TORCH_DTYPES, Artifact, canonical_dtype
 from cozy_runtime.internal.lora_contract import (
     CAPABILITY as CAPABILITY,
+)
+from cozy_runtime.internal.lora_contract import (
     FORMAT as FORMAT,
+)
+from cozy_runtime.internal.lora_contract import (
     GRAPH_CONFIG as GRAPH_CONFIG,
+)
+from cozy_runtime.internal.lora_contract import (
     Graph as Graph,
+)
+from cozy_runtime.internal.lora_contract import (
     Layer,
+)
+from cozy_runtime.internal.lora_contract import (
     read as read,
 )
 
@@ -27,23 +47,25 @@ def _refuse(code: str, detail: str) -> CapabilityError:
     return CapabilityError(detail, code="adapter_" + code)
 
 
-def composer(graph: Graph) -> Callable[[object], None]:
+def composer(graph: Graph, magnitudes: Mapping[str, str]) -> Callable[[object], None]:
     """Construct PEFT layers before the ordinary census and fill.
 
     Imports happen before the caller enters its weightless construction substrate.
     PEFT owns the layer, its keys and scales; each update accumulates into the base output
     in place at the activation's precision, never copying the input to the factor dtype
     (#1077). No state is merged into the base, and this transform allocates no weight values.
+    `magnitudes` is each DoRA magnitude's stored dtype, by its key.
     """
     if not graph.layers:
         return lambda _obj: None
     try:
         import torch
         from peft import LoraConfig
-        from peft.tuners.lora.layer import Conv2d as PeftConv2d, Linear as PeftLinear
+        from peft.tuners.lora.layer import Conv2d as PeftConv2d
+        from peft.tuners.lora.layer import Linear as PeftLinear
         from torch import nn
 
-        from cozy_runtime import lora
+        from cozy_runtime.accel import lora
     except ImportError as exc:
         raise _refuse(
             "backend_unavailable",
@@ -54,9 +76,18 @@ def composer(graph: Graph) -> Callable[[object], None]:
     # Private construction recipe only; rank and alpha are set independently for each term.
     config = LoraConfig(init_lora_weights=False, inference_mode=True, lora_dropout=0.0)
 
+    class _Magnitude(nn.Module):
+        """A DoRA layer's magnitude, `m` `[out]`."""
+
+        def __init__(self, out: int, dtype: torch.dtype) -> None:
+            super().__init__()
+            self.weight = nn.Parameter(torch.empty(out, dtype=dtype), requires_grad=False)
+
     class _Linear(PeftLinear):  # type: ignore[misc]
         #: the weight plane baked the update into the base weight's resident bytes
         _cozy_baked = False
+        #: each DoRA adapter's (s, t): its factors' scale alpha / r and its strength
+        _cozy_dora: dict[str, tuple[float, float]]
 
         def forward(self, x: torch.Tensor, *args: object, **kwargs: object) -> torch.Tensor:
             # Base hooks (Turbo's overlay) run inside `base_layer`.
@@ -114,7 +145,12 @@ def composer(graph: Graph) -> Callable[[object], None]:
                 raise _refuse("graph", f"{component}.{path} repeats one adapter term")
             first, *others = rows
             kind = _Linear if isinstance(base, nn.Linear) else _Conv2d
+            if kind is _Conv2d and any(row.dora for row in rows):
+                raise _refuse(
+                    "target_type", f"{component}.{path}: a DoRA adapts a linear, not a convolution"
+                )
             layer = kind(base, first.adapter, config=config, r=first.rank, lora_alpha=first.alpha)
+            layer._cozy_dora = {}
             for row in others:
                 layer.update_layer(row.adapter, row.rank, lora_alpha=row.alpha, config=config)
             for row in rows:
@@ -124,6 +160,12 @@ def composer(graph: Graph) -> Callable[[object], None]:
                 layer.lora_A[row.adapter].to(dtype=dtype)
                 layer.lora_B[row.adapter].to(dtype=dtype)
                 layer.set_scale(row.adapter, row.strength)
+                if row.dora:
+                    key = f"{component}.{path}.lora_magnitude_vector.{row.adapter}.weight"
+                    width = getattr(torch, TORCH_DTYPES[magnitudes[key]])
+                    layer.lora_magnitude_vector[row.adapter] = _Magnitude(base.out_features, width)
+                    layer._cozy_dora[row.adapter] = (row.alpha / row.rank, row.strength)
+                    layer.scaling[row.adapter] = 1.0
             layer.set_adapter([row.adapter for row in rows], inference_mode=True)
             layer.eval()
             parent.set_submodule(name, layer)
@@ -159,6 +201,7 @@ def bind(
         if given is not None
         else {key: spec.dtype for key, spec in artifact.tensor_schema.items()}
     )
+    magnitudes: dict[str, str] = {}
     for row in graph.layers:
         prefix = row.component + "." + row.target
         for role in ("weight", "bias"):
@@ -167,12 +210,18 @@ def bind(
                 dtypes[prefix + "." + role] = dtypes.pop(key)
         for role in ("A", "B"):
             dtypes.pop(prefix + f".lora_{role}.{row.adapter}.weight", None)
+        if row.dora:
+            key = prefix + f".lora_magnitude_vector.{row.adapter}.weight"
+            if key not in dtypes:
+                raise _refuse("graph", f"{key}: a DoRA layer the view stores no magnitude of")
+            stored = str(dtypes.pop(key))
+            magnitudes[key] = canonical_dtype(TENSORFS_DTYPES.get(stored, stored))
     return replace(
         artifact,
         snapshot=prepared_snapshot or artifact.snapshot,
         variant=prepared_snapshot or artifact.variant,
         _selection_snapshot=artifact._selection_snapshot or artifact.snapshot,
         config=ModelConfig(artifact.config.mapping(), tensor_dtypes=dtypes),
-        _prepare=composer(graph),
+        _prepare=composer(graph, magnitudes),
         _adapters=graph.adapters,
     )

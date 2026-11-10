@@ -1,18 +1,18 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+requires = ["maturin>=1.12.1,<2.0"]
 build-backend = "maturin"
 
 [project]
 name = "djust"
-version = "1.2.6"
+version = "1.3.1"
 description = "Phoenix LiveView-style reactive components for Django with Rust-powered performance. Real-time UI updates over WebSocket, no JavaScript build step required."
 authors = [{name = "djust contributors"}]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 keywords = ["django", "rust", "reactive", "server-side-rendering", "websocket"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
@@ -21,11 +21,11 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Programming Language :: Rust",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -41,7 +41,11 @@ classifiers = [
 # reviewed change — not something lockfile refresh should do silently.
 dependencies = [
     "Django>=4.2.29,<6",
-    "channels[daphne]>=4.0.0,<5",
+    # Plain `channels`, not `channels[daphne]`: daphne pulls in twisted[tls],
+    # which apps served by uvicorn/hypercorn never import but still have to
+    # audit. Apps that serve with daphne install `djust[daphne]`.
+    # tests/test_base_dependencies_no_daphne.py keeps it this way.
+    "channels>=4.0.0,<5",
     "msgpack>=1.0.0,<2",
     "markdown>=3.0,<4",
     "nh3>=0.2,<1",
@@ -56,6 +60,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The daphne ASGI server (and, through it, twisted). Only for apps that serve
+# with daphne or list "daphne" in INSTALLED_APPS for its runserver override;
+# djust's own docs and `djust new` projects use uvicorn.
+daphne = [
+    "channels[daphne]>=4.0.0,<5",
+]
 redis = [
     "redis>=5.0.0,<9",
 ]
@@ -71,6 +81,9 @@ performance = [
 # (final v99.0.0 tag, DeprecationWarning on import, re-exports from
 # djust.<name>). Migration guide: docs/website/guides/migration-from-standalone-packages.md
 auth = []  # No extra deps beyond djust core
+auth-allauth = [
+    "django-allauth>=65.0,<66",  # djust.auth.accounts "allauth" backend (ADR-039)
+]
 tenants = []  # No extra deps beyond djust core; use [tenants-redis] / [tenants-postgres] for backend-specific
 tenants-redis = [
     "redis>=5.0.0,<9",
@@ -99,10 +112,11 @@ azure = [
     "azure-storage-blob>=12.19,<13",
 ]
 all = [
-    "djust[redis,compression,performance,admin,deploy,theming,components,s3,gcs,azure]",
+    "djust[daphne,redis,compression,performance,admin,deploy,theming,components,s3,gcs,azure]",
 ]
 dev = [
-    "maturin>=1.0,<2.0",
+    "maturin>=1.12.1,<2.0",
+    "django-allauth>=65.0,<66",
     "pytest>=7.0,<10",
     "pytest-django>=4.5,<6",
     "pytest-asyncio>=0.21,<2",
@@ -112,14 +126,23 @@ dev = [
     "ruff>=0.1,<1",
     "mypy>=1.0,<3",
     "uvicorn[standard]>=0.30.0,<1",
+    # daphne: the C003 ordering checks and the daphne.E001 registry tests put
+    # "daphne" in INSTALLED_APPS, so the dev env needs the `daphne` extra.
+    "channels[daphne]>=4.0.0,<5",
     "redis>=5.0.0,<9",
-    "watchdog>=3.0.0,<7",  # File system monitoring for hot reload
+    "watchdog>=3.0.0,<8",  # File system monitoring for hot reload
     "zstandard>=0.22.0,<1",  # Compression support
     "orjson>=3.11.6,<4",
     "click>=8.0,<9",  # Deploy CLI
     "requests>=2.28,<3",  # Deploy CLI
     "requests-mock>=1.11,<2",  # HTTP mocking for deploy CLI tests
     "mcp[cli]>=1.2.0,<3",  # djust.mcp server tests (test_mcp.py)
+    # pydantic-core (mcp -> pydantic) is a Rust extension with no cp315 wheel
+    # before 2.48.0, which only pydantic 2.14 pins; building the 2.46 series
+    # from source fails on 3.15 (PyO3 0.27 refuses it, #3255). 2.14 is still a
+    # beta, so only the 3.15 cell takes it. Drop this line once pydantic 2.14
+    # is final and the ordinary `mcp` resolution picks it up.
+    "pydantic>=2.14.0b2,<3; python_full_version >= '3.15'",
     "fakeredis>=2.20,<3",  # In-memory Redis for test_security_upload_resumable.py (closes #961)
 ]
 
@@ -144,6 +167,21 @@ include = [
     { path = "LICENSE", format = "sdist" },
     { path = "README.md", format = "sdist" },
 ]
+# A stray editor/dev backup must never ship in the sdist or wheel (#3295).
+# Nor do djust's own tests, or the client's source modules: the shipped
+# client.js / client.min.js are their concatenation (scripts/build-client.sh),
+# and nothing at runtime imports djust.tests or reads static/djust/src/. The
+# leading `**/` matches whichever root maturin resolves the path against.
+# CI builds both artifacts and lists them (scripts/check-package-contents.py).
+exclude = [
+    "**/*.backup",
+    "**/djust/tests/**",
+    "**/djust/static/djust/src/**",
+]
+
+[tool.maturin.sbom]
+rust = true
+include = ["python/djust/djust.cdx.json"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py", "*_test.py"]
@@ -170,6 +208,7 @@ markers = [
     "admin: marks tests for djust.admin_ext module",
     "theming: marks tests for djust.theming module",
     "components: marks tests for djust.components module",
+    "pr_tier: stays in the PR fast tier even when .test_durations records it over 1s (tests/slow_tier.py)",
     "nightly: marks exhaustive differential sweeps for scheduled nightly CI (deselect with '-m \"not nightly\"')",
 ]
 asyncio_mode = "auto"
@@ -177,7 +216,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.mypy]
 # --------------------------------------------------------------------------- #
@@ -192,7 +231,7 @@ target-version = "py310"
 # API (live_view / component / decorators / forms) since py.typed exposes our
 # types to consumers, with `_rust.pyi` typing the PyO3 boundary.
 # --------------------------------------------------------------------------- #
-python_version = "3.10"
+python_version = "3.11"
 warn_unused_configs = true
 # `import-untyped` is raised in the IMPORTING (strict-island) module for a 3rd-party
 # lib that is INSTALLED but ships no stubs (yaml/requests in a full dev env). It is a
@@ -242,6 +281,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "djust.security.*",
+    "djust._exposure",
+    "djust._exposure_sessions",
+    "djust._component_subscriptions",
+    "djust._interactive_snapshots",
+    "djust.components._interactive",
     "djust._rust",
 ]
 ignore_errors = false
@@ -781,6 +825,7 @@ module = [
     "djust.theming._builtin_presets",
     "djust.theming._config",
     "djust.theming._constants",
+    "djust.theming._lazy_html",
     "djust.theming._registry_accessor",
     "djust.theming._types",
     "djust.theming.accessibility",
@@ -981,13 +1026,17 @@ warn_return_any = true
 [[tool.mypy.overrides]]
 module = [
     "djust.management.__init__",
+    "djust.management._exposure_inventory",
     "djust.management._introspect",
     "djust.management.commands.__init__",
     "djust.management.commands.cleanup_liveview_sessions",
     "djust.management.commands.djust_ai_context",
+    "djust.management.commands.djust_ai",
+    "djust.ai_discovery.*",
     "djust.management.commands.djust_audit",
     "djust.management.commands.djust_check",
     "djust.management.commands.djust_doctor",
+    "djust.management.commands.djust_exposure_inventory",
     "djust.management.commands.djust_gen_live",
     "djust.management.commands.djust_mcp",
     "djust.management.commands.djust_new",
@@ -998,6 +1047,7 @@ module = [
     "djust.management.commands.generate_sw",
     "djust.checks.__init__",
     "djust.checks.accessibility",
+    "djust.checks.ai_discovery",
     "djust.checks.components",
     "djust.checks.configuration",
     "djust.checks.integrations",
@@ -1128,7 +1178,6 @@ module = [
     "djust.bug_capture",
     "djust.bug_capture_views",
     "djust.urls",
-    "djust.checks_css_proposal",
     "djust.hooks",
     "djust.hot_view_replacement",
     "djust.state_backend",
@@ -1205,7 +1254,19 @@ constraint-dependencies = [
     "setuptools>=83.0.0",
     "ujson>=5.12.0",
     "pyopenssl>=26.0.0",
-    "pyasn1>=0.6.4",
+    "pyasn1>=0.6.5",
+    # Lock-only workaround for CVE-2026-115877 / GHSA-q7qq-6mhp-9rc4 (HTTP
+    # request smuggling in twisted.web.http.HTTPChannel, which daphne serves
+    # through). Only 26.10.0rc1 is fixed so far. This constrains uv.lock, not
+    # djust's published metadata, so installers of `djust[daphne]` still
+    # resolve daphne's twisted[tls]>=22.4 to 26.4.0 (a base `djust` install
+    # has no daphne or twisted at all). When twisted 26.10.0 final is out, replace
+    # this with ">=26.10.0" (or drop it) and remove GHSA-8pqf-f4m5-798g and the
+    # CVE-2026-1157xx twisted entries from .github/security/pip-audit-ignore.txt.
+    "twisted>=26.10.0rc1",
+    # Lock-only: CVE-2026-116579 in autobahn 26.7.1 (reached through
+    # `djust[daphne]` only); fixed in 26.10.1. Constrains uv.lock, not published metadata.
+    "autobahn>=26.10.1",
 ]
 
 [tool.bandit.per_file_ignores]

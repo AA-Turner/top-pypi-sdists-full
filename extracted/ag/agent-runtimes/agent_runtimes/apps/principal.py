@@ -43,6 +43,14 @@ deployment runs (`read_deployment`), read as the companion gives the proof
 (`read_launched_app`) and again as the agent is made. What the launcher sends,
 with the launch, with the agent or to the start hooks, is not read.
 
+**What it declares comes from its owner's vault.** It runs what they wrote, as
+their application, whoever launched it, so its secrets are read over the proof
+from ai-agents (`read_owner_secrets`), for its companion to give out as any
+runtime's are. ai-agents says which, from the version, and nothing of the visitor
+or the launcher says whose. They are read, passed on and not kept here. On a
+runtime anybody but its owner launched they stay in this process and never reach
+the kernel, where the code the model writes runs (`kernel_holds_owner_secrets`).
+
 **The pod is not its loopback.** Code the model writes runs in the sandbox, and a
 harness's commands in this very container, and both reach this server on
 127.0.0.1. So a runtime launched for a deployment is given a secret with its
@@ -53,6 +61,8 @@ do not share processes, so the sandbox cannot read this process; a harness here
 runs as the same user, so the process is first made undumpable
 (`_keep_from_this_user`): no process of that user reads its memory or its
 `/proc` entries, which holds for the proof and the principal's token as well.
+The sandbox reaches the MCP proxy without it, and only as a tool call of the run
+whose code is running (`enforcement.through_the_code_run`).
 
 **A Preview is held to the same grants** (R-25, decided 2026-10-06):
 though it runs as the person trying it, it reaches only the Spaces its
@@ -85,6 +95,7 @@ __all__ = [
     "ORGANIZATION_OWNER",
     "OWN_ROUTES_ONLY",
     "MembershipsUnread",
+    "OwnerSecretsUnread",
     "REFRESH_MARGIN_SECONDS",
     "PrincipalTokenMissing",
     "a_deployment_is_served",
@@ -104,6 +115,7 @@ __all__ = [
     "holds_principal_token",
     "pod_secret_is",
     "is_held_principal",
+    "kernel_holds_owner_secrets",
     "launched_app",
     "launched_for",
     "owner_of",
@@ -117,6 +129,8 @@ __all__ = [
     "read_deployment",
     "read_deployment_code",
     "read_launched_app",
+    "read_owner_secrets",
+    "ensure_launcher_known",
     "renew_principal_token",
     "use_code_reader",
     "use_memberships_asker",
@@ -142,6 +156,9 @@ RUNTIME_PROOF_WAIT = 15.0
 #: given. Process memory only: never `os.environ`, which a harness or a kernel
 #: could read, and never answered by a route.
 _PROOF: dict[str, str] = {}
+
+#: Whether ai-agents said the deployment's owner launched this runtime: unsaid, no.
+_LAUNCHED_BY_OWNER: dict[str, bool] = {}
 
 #: What the deployment this runtime was launched for runs, as ai-agents said it:
 #: {"spec", "instance"}. Empty when it was not said.
@@ -281,6 +298,7 @@ def forget_runtime_proof() -> None:
     """Forget this runtime's proof and what it read with it (a test)."""
     _PROOF.clear()
     _LAUNCHED_APP.clear()
+    _LAUNCHED_BY_OWNER.clear()
 
 
 def launched_for() -> str:
@@ -292,6 +310,22 @@ def launched_for() -> str:
     person's own runtime's do.
     """
     return _PROOF.get("deployment_uid", "")
+
+
+def kernel_holds_owner_secrets() -> bool:
+    """Whether what this runtime is given may reach its kernel.
+
+    On a runtime launched for no deployment, yes: its secrets are its person's.
+    On one launched for a deployment, only when ai-agents said, over the proof
+    the Operator signed, that its owner launched it (`read_owner_secrets`). Not
+    said, or not yet, no.
+
+    The demo books' key a runtime playing a catalogue Battle holds (B4-01,
+    `battle_books`) never reaches it, whoever launched: taken out of the
+    environment as the runtime starts, held in this process, and no spec may
+    declare it (``DATALAYER_`` is the runtime's own).
+    """
+    return not launched_for() or _LAUNCHED_BY_OWNER.get("said") is True
 
 
 def launched_app() -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
@@ -832,6 +866,77 @@ async def read_launched_app(
     return None
 
 
+class OwnerSecretsUnread(RuntimeError):
+    """The owner's secrets of the deployment this runtime was launched for, not read."""
+
+
+async def read_owner_secrets() -> dict[str, str]:
+    """
+    What the deployment this runtime was launched for declares, of its owner's vault.
+
+    Asked over its proof alone, of the ai-agents it was given with it, whatever
+    the environment says since: nobody's token says whose vault it is.
+
+    Returns
+    -------
+    dict[str, str]
+        The secrets, by name.
+
+    Raises
+    ------
+    OwnerSecretsUnread
+        When ai-agents refused, or could not be asked: nothing is given then,
+        least of all the launcher's in their place.
+    """
+    import httpx
+
+    deployment = launched_for()
+    url = _PROOF.get("ai_agents_url", "")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{url}/api/ai-agents/v1/apps/deployments/{deployment}/owner-secrets",
+                headers=_proved(deployment, url),
+            )
+    except httpx.HTTPError as error:
+        raise OwnerSecretsUnread(
+            f"ai-agents could not be asked for what deployment {deployment} declares "
+            f"({type(error).__name__})."
+        ) from None
+    if response.status_code >= 300:
+        detail = ""
+        try:
+            detail = str((response.json() or {}).get("detail") or "")
+        except ValueError:
+            pass
+        raise OwnerSecretsUnread(
+            f"ai-agents gave deployment {deployment} none of its owner's secrets "
+            f"({response.status_code}){': ' + detail if detail else ''}."
+        )
+    answer = response.json() or {}
+    _LAUNCHED_BY_OWNER["said"] = answer.get("launched_by_owner") is True
+    return dict(answer.get("secrets") or {})
+
+
+async def ensure_launcher_known() -> None:
+    """Whether its owner launched this runtime, asked of ai-agents once when it has
+    not been said yet (7 November 2026).
+
+    The companion reads the owner's secrets in the start hooks, which is when
+    ai-agents says who launched the runtime; the keeper's relaunch of a kept
+    deployment made its agent before that read, so a skill needing an owner's
+    secret in the sandbox was refused on every relaunch, and only the owner's own
+    launch from the Studio got through. Asked here, the answer is the same one
+    the companion gets; not answered, the kernel gets nothing, as before.
+    """
+    if not launched_for() or "said" in _LAUNCHED_BY_OWNER:
+        return
+    try:
+        await read_owner_secrets()
+    except OwnerSecretsUnread:
+        return
+
+
 async def _ensure_held(
     key: str,
     bearer: Optional[str],
@@ -1024,7 +1129,10 @@ async def gateway_toolsets_of_the_run(
 
     instance = app_instance_of(agent_id)
     if not instance or not str(instance.get("app_uid") or "").strip():
-        return toolsets
+        # As the process holds them, but the books only for a Battle's run (B4-01).
+        from agent_runtimes.apps.battle_books import books_left_out
+
+        return books_left_out(toolsets)
     deployment = deployment_of(instance)
     if not deployment:
         # A Preview: its session's run carries the person's token narrowed to

@@ -35,6 +35,7 @@ from datamodel_code_generator.enums import (
     AllOfClassHierarchy,
     AllOfMergeMode,
     ClassNameAffixScope,
+    ClientAsyncAPIPerspective,
     ClientBodyArguments,
     ClientSignatureStyle,
     ClientType,
@@ -72,16 +73,17 @@ else:
     PresetNameValue: TypeAlias = str
 
 
-def _import_paths(field: str, paths: Iterable[object], target: PythonVersion) -> list[str]:
+def _import_paths(field: str, paths: Iterable[object], target: PythonVersion, *, relative: bool = False) -> list[str]:
     """Return the import paths a setting gives as plain strings, raising its error for one that is not identifiers.
 
-    Each path is read by ``validators._validate_python_import_path``: names of the target Python joined by dots.
+    Each path is read by ``validators._validate_python_import_path``: names of the target Python joined by dots, after
+    the dots of a relative import with ``relative``.
     """
     from datamodel_code_generator import Error  # noqa: PLC0415
     from datamodel_code_generator.validators import _validate_python_import_path  # noqa: PLC0415
 
     try:
-        return [_validate_python_import_path(path, target) for path in paths]
+        return [_validate_python_import_path(path, target, relative=relative) for path in paths]
     except ValueError as exc:
         msg = f"{field} {exc}"
         raise Error(msg) from None
@@ -135,11 +137,21 @@ _NAMED_PATHS: Final[dict[str, Callable[[Any], Iterable[str]]]] = {
 }
 """The paths each setting that names Python objects by path names; a value or entry of only whitespace names none."""
 
+_RELATIVE_NAMED_PATHS: Final = frozenset({"base_class", "base_class_map", "type_overrides"})
+"""The settings of ``_NAMED_PATHS`` whose paths the output imports, so a path may be relative (``...base.BaseClass``).
+
+Its module is written after ``from`` as given, as 0.88.0 wrote it; a decorator path is written as an expression, which
+no dots can start.
+"""
+
 
 def _check_named_paths(field: str, value: Any, target: PythonVersion) -> None:
-    """Refuse a value of a setting ``_NAMED_PATHS`` lists that names a path other than target names joined by dots."""
+    """Refuse a value of a setting ``_NAMED_PATHS`` lists that names a path other than target names joined by dots.
+
+    A setting ``_RELATIVE_NAMED_PATHS`` lists may start a path with the dots of a relative import.
+    """
     if value:
-        _import_paths(field, _NAMED_PATHS[field](value), target)
+        _import_paths(field, _NAMED_PATHS[field](value), target, relative=field in _RELATIVE_NAMED_PATHS)
 
 
 def validate_named_paths(value: Any, info: ValidationInfo) -> Any:
@@ -179,6 +191,11 @@ def _schema_validator_base_class_name_error(value: str | None, target: PythonVer
 
 
 _TARGET_REQUIRED: tuple[str, ...] = ("output", "package", "model_package")
+_TARGET_INPUTS: dict[str, tuple[InputFileType, ...]] = {
+    "generate_server": (InputFileType.OpenAPI,),
+    "generate_client": (InputFileType.OpenAPI, InputFileType.AsyncAPI),
+}
+"""The input kinds each target reads operations from, by the field that selects it."""
 
 
 def _selected_target(config: Any) -> tuple[str, str] | None:
@@ -189,8 +206,8 @@ def _selected_target(config: Any) -> tuple[str, str] | None:
 def _target_options_error(config: Any, *, output: bool = True) -> str | None:
     """Return why the target a config selects cannot run with its options, or None when it can.
 
-    A target needs its required options and an input explicitly typed as OpenAPI. Without `output`, the package
-    directory is not required: a run that writes nothing does not use it.
+    A target needs its required options and an input explicitly typed as one it reads: OpenAPI, or AsyncAPI for the
+    client. Without `output`, the package directory is not required: a run that writes nothing does not use it.
     """
     if (selected := _selected_target(config)) is None:
         return None
@@ -198,8 +215,15 @@ def _target_options_error(config: Any, *, output: bool = True) -> str | None:
     required = _TARGET_REQUIRED if output else _TARGET_REQUIRED[1:]
     if missing := [option_flag(field) for name in required if getattr(config, field := f"{prefix}{name}") is None]:
         return f"{option_flag(selector)} requires {english_list(missing, 'and')}"
-    if (input_file_type := InputFileType(config.input_file_type)) is not InputFileType.OpenAPI:
-        return f"{option_flag(selector)} requires --input-file-type openapi, not {input_file_type.value}"
+    readable = _TARGET_INPUTS[selector]
+    if (input_file_type := InputFileType(config.input_file_type)) not in readable:
+        types = english_list([kind.value for kind in readable], "or")
+        return f"{option_flag(selector)} requires --input-file-type {types}, not {input_file_type.value}"
+    asyncapi = input_file_type is InputFileType.AsyncAPI
+    if asyncapi and config.client_protocols is not None:
+        return "--client-protocols cannot be used with --input-file-type asyncapi, whose channels the client opens"
+    if not asyncapi and config.client_asyncapi_perspective is not None:
+        return "--client-asyncapi-perspective requires --input-file-type asyncapi"
     return None
 
 
@@ -208,7 +232,8 @@ def implied_model_settings(config: Any, explicit: AbstractSet[str]) -> dict[str,
 
     A setting is unset unless `explicit` names it. msgspec models use `Annotated` constraints, `use_annotated` writes
     the constraints as field constraints, and an unset `field_constraints` follows `use_annotated`, so the command
-    line and `generate()` keep the same constraints.
+    line and `generate()` keep the same constraints. `intersect_combined_schema_keywords` turns on
+    `intersect_allof_keywords`, also where a preset sets it.
     """
     use_annotated = config.use_annotated
     implied: dict[str, bool] = {}
@@ -216,7 +241,12 @@ def implied_model_settings(config: Any, explicit: AbstractSet[str]) -> dict[str,
         implied["use_annotated"] = use_annotated = True
     if "field_constraints" not in explicit:
         implied["field_constraints"] = use_annotated
-    implied.update(implied_options({"use_annotated": use_annotated}))
+    implied.update(
+        implied_options({
+            "use_annotated": use_annotated,
+            "intersect_combined_schema_keywords": config.intersect_combined_schema_keywords,
+        })
+    )
     return implied
 
 
@@ -224,9 +254,10 @@ def implied_target_settings(config: Any, explicit: AbstractSet[str]) -> dict[str
     """Return the model settings a server or client target needs that a config leaves unset, with the values it implies.
 
     A setting is unset unless `explicit` names it, the fields an option, a configuration key, a `generate()` argument,
-    or a preset set. The target needs the `api` scope, Python 3.11, and its backend's settings: the MISSING sentinel
-    with pydantic 2.14 for Pydantic dataclasses, pydantic 2.14 for any sentinel, and the decodable unions and enums of
-    msgspec. A setting that was set keeps its value, which the target refuses when it cannot use it.
+    or a preset set. The target needs the `api` scope of an input other than AsyncAPI, Python 3.11, and its backend's
+    settings: the MISSING sentinel with pydantic 2.14 for Pydantic dataclasses, pydantic 2.14 for any sentinel, and the
+    decodable unions and enums of msgspec. A setting that was set keeps its value, which the target refuses when it
+    cannot use it.
     """
     from datamodel_code_generator._requirements import REQUIREMENTS, python_target_meets  # noqa: PLC0415
     from datamodel_code_generator.enums import (  # noqa: PLC0415
@@ -238,7 +269,11 @@ def implied_target_settings(config: Any, explicit: AbstractSet[str]) -> dict[str
 
     implied: dict[str, Any] = {}
     scopes = list(config.openapi_scopes or (OpenAPIScope.Schemas,))
-    if "openapi_scopes" not in explicit and OpenAPIScope.Api not in scopes:
+    if (
+        "openapi_scopes" not in explicit
+        and OpenAPIScope.Api not in scopes
+        and InputFileType(config.input_file_type) is not InputFileType.AsyncAPI
+    ):
         implied["openapi_scopes"] = [*scopes, OpenAPIScope.Api]
     if "target_python_version" not in explicit and not python_target_meets(
         "python.strenum", config.target_python_version.version_key
@@ -277,6 +312,8 @@ class BaseGenerateConfig(BaseModel):
     _logical_model_metadata: Path | None = PrivateAttr(default=None)
     _directory_input_filter: DirectoryInputFilter | None = PrivateAttr(default=None)
     _target_document_bases: dict[str, Path] | None = PrivateAttr(default=None)
+    # The pyproject.toml ``load_pyproject_config()`` read: the default lockfile lies beside it, as on the command line.
+    _pyproject_path: Path | None = PrivateAttr(default=None)
 
     input_file_type: InputFileType = InputFileType.Auto
     output: Path | None = None
@@ -322,6 +359,7 @@ class BaseGenerateConfig(BaseModel):
     use_inline_field_description: bool = False
     use_single_line_docstring: bool = False
     use_default_kwarg: bool = False
+    apply_field_options_to_every_field: bool = False
     deserialize_default_values: Sequence[DefaultValueType] = ()
     use_missing_sentinel: bool = False
     reuse_model: bool = False
@@ -333,9 +371,15 @@ class BaseGenerateConfig(BaseModel):
     ignore_enum_constraints: bool = False
     use_one_literal_as_default: bool = False
     use_enum_values_in_discriminator: bool = False
+    merge_shared_variant_tags: bool = False
+    read_schema_version_per_document: bool = False
+    read_escaped_ref_pointers: bool = False
+    read_dynamic_anchors_in_document_order: bool = False
+    ignore_ref_siblings_by_schema_version: bool = False
     use_msgspec_tagged_unions: bool = False
     tag_msgspec_by_payload_name: bool = False
     use_msgspec_nullable_enum_alias: bool = False
+    use_msgspec_forbid_unknown_fields: bool = False
     use_typed_nullable_map_values: bool = False
     use_typed_map_values_beside_other_types: bool = False
     use_single_dict_for_object_maps: bool = False
@@ -344,6 +388,9 @@ class BaseGenerateConfig(BaseModel):
     read_const_beside_enum: bool = False
     filter_literal_values: bool = False
     intersect_allof_keywords: bool = False
+    intersect_combined_schema_keywords: bool = False
+    distribute_allof_over_unions: bool = False
+    read_allof_parents_in_mro_order: bool = False
     read_nullable_beside_type_list: bool = False
     keep_field_defaults_off_branch_roots: bool = False
     keep_enum_member_values: bool = False
@@ -352,9 +399,11 @@ class BaseGenerateConfig(BaseModel):
     use_specialized_enum: bool = True
     strict_nullable: bool = False
     omit_redundant_reference_null: bool = False
+    keep_reference_null_on_merged_models: bool = False
     use_generic_container_types: bool = False
     enable_faux_immutability: bool = False
     disable_appending_item_suffix: bool = False
+    singularize_last_word_of_item_names: bool = False
     empty_enum_field_name: str | None = None
     field_extra_keys: set[str] | None = None
     field_include_all_keys: bool = False
@@ -370,8 +419,10 @@ class BaseGenerateConfig(BaseModel):
     use_title_as_name: bool = False
     infer_union_variant_names: bool = False
     use_tag_as_union_variant_name: bool = False
+    name_allof_union_members_after_branches: bool = False
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
+    use_unique_items_as_set_by_value: bool = False
     use_tuple_for_fixed_items: bool = False
     use_tuple_for_closed_arrays: bool = False
     use_tuple_for_fixed_length_arrays: bool = False
@@ -381,6 +432,7 @@ class BaseGenerateConfig(BaseModel):
     allof_class_hierarchy: AllOfClassHierarchy = AllOfClassHierarchy.IfNoConflict
     allow_remote_refs: bool | None = None
     strict_refs: bool = False
+    untrusted_input: bool = False
     allow_private_network: bool = False
     http_backend: HTTPBackend = HTTPBackend.AUTO
     http_headers: Sequence[tuple[str, str]] | None = None
@@ -410,26 +462,46 @@ class BaseGenerateConfig(BaseModel):
 
     use_annotated: bool = False
     use_serialize_as_any: bool = False
+    use_serialize_as_any_for_every_subclass: bool = False
     use_non_positive_negative_number_constrained_types: bool = False
     use_decimal_for_multiple_of: bool = False
     use_decimal_in_field_forms: bool = False
+    use_encoded_str_for_constrained_base64: bool = False
+    use_strict_str_for_base64: bool = False
+    use_msgspec_meta_for_map_keys: bool = False
     omit_redundant_constraints: bool = False
+    read_length_keywords_by_type: bool = False
+    read_msgspec_union_bounds_exactly: bool = False
+    read_input_model_dataclass_fields_by_alias: bool = False
+    reuse_every_reached_input_model_type: bool = False
     use_site_models_for_constrained_refs: bool = False
+    use_one_model_per_ref_site: bool = False
     original_field_name_delimiter: str | None = None
     use_double_quotes: bool = False
     use_union_operator: bool = True
     collapse_root_models: bool = False
     collapse_root_models_name_strategy: CollapseRootModelsNameStrategy | None = None
     collapse_shared_parent_wrappers: bool = False
+    keep_constrained_root_models_in_every_container: bool = False
+    keep_enum_literal_aliases: bool = False
+    keep_reference_null_on_collapsed_root_models: bool = False
+    keep_shared_members_on_collapsed_root_models: bool = False
+    collapse_constrained_root_models_as_annotated: bool = False
+    remove_unused_models_beside_type_overrides: bool = False
+    keep_self_referencing_array_items: bool = False
+    keep_defaults_of_inherited_required_fields: bool = False
+    omit_incomplete_model_defaults: bool = False
     collapse_reuse_models: bool = False
     skip_root_model: bool = False
     use_root_model_sequence_interface: bool = False
     use_type_alias: bool = False
     use_type_alias_type: bool = False
     use_root_model_type_alias: bool = False
+    use_plain_alias_for_recursive_models: bool = False
     special_field_name_prefix: str | None = None
     remove_special_field_name_prefix: bool = False
     capitalise_enum_members: bool = False
+    capitalise_numbered_enum_members: bool = False
     keep_model_order: bool = False
     order_constructor_fields_by: Sequence[ConstructorFieldOrder] = ()
     custom_file_header: str | None = None
@@ -442,6 +514,7 @@ class BaseGenerateConfig(BaseModel):
     http_query_parameters: Sequence[tuple[str, str]] | None = None
     treat_dot_as_module: bool | None = None
     strict_dotted_module_names: bool = False
+    rename_submodules_hidden_by_classes: bool = False
     use_exact_imports: bool = False
     use_type_checking_imports: bool | None = None
     union_mode: UnionMode | None = None
@@ -458,14 +531,26 @@ class BaseGenerateConfig(BaseModel):
     parent_scoped_naming: bool = False
     naming_strategy: NamingStrategy | None = None
     duplicate_name_suffix: dict[str, str] | None = None
+    use_duplicate_name_suffix_for_every_collision: bool = False
     dataclass_arguments: DataclassArguments | None = None
+    keep_false_dataclass_arguments: bool = False
     disable_future_imports: bool = False
     import_overrides: dict[str, str] | None = None
     type_mappings: list[str] | None = None
     type_overrides: dict[str, str] | None = None
+    type_overrides_replace_whole_type: bool = False
+    use_x_python_type_as_written: bool = False
+    use_bytes_for_content_media_type: bool = False
     read_only_write_only_model_type: ReadOnlyWriteOnlyModelType | None = None
     dedupe_request_response_variants: bool = False
+    dedupe_numbered_request_response_variants: bool = False
     use_status_code_in_response_name: bool = False
+    keep_first_character_of_path_keys: bool = False
+    keep_content_parameter_refs: bool = False
+    skip_path_extension_keys: bool = False
+    use_enum_field_as_literal_in_operations: bool = False
+    name_converted_payloads_by_message: bool = False
+    merge_message_trait_headers: bool = False
     all_exports_scope: AllExportsScope | None = None
     all_exports_collision_strategy: AllExportsCollisionStrategy | None = None
     field_type_collision_strategy: FieldTypeCollisionStrategy | None = None
@@ -497,6 +582,8 @@ class BaseGenerateConfig(BaseModel):
     client_operations: Mapping[str, Mapping[str, Any]] | None = None
     client_default_base_url: str | None = None
     client_server_base_url: str | None = None
+    client_deep_object_brackets: bool | None = None
+    client_asyncapi_perspective: ClientAsyncAPIPerspective | None = None
     client_protocols: Mapping[str, Any] | None = None
 
     @field_validator("additional_imports")

@@ -40,6 +40,7 @@ __all__ = (
     "ListDatabasesPaginatorName",
     "ListNamedQueriesPaginatorName",
     "ListQueryExecutionsPaginatorName",
+    "ListSystemTableStatusesPaginatorName",
     "ListTableMetadataPaginatorName",
     "ListTagsForResourcePaginatorName",
     "NotebookTypeType",
@@ -52,6 +53,8 @@ __all__ = (
     "ServiceName",
     "SessionStateType",
     "StatementTypeType",
+    "SystemTableNameType",
+    "SystemTableTypeType",
     "WorkGroupStateType",
 )
 
@@ -109,6 +112,7 @@ ListDataCatalogsPaginatorName = Literal["list_data_catalogs"]
 ListDatabasesPaginatorName = Literal["list_databases"]
 ListNamedQueriesPaginatorName = Literal["list_named_queries"]
 ListQueryExecutionsPaginatorName = Literal["list_query_executions"]
+ListSystemTableStatusesPaginatorName = Literal["list_system_table_statuses"]
 ListTableMetadataPaginatorName = Literal["list_table_metadata"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 NotebookTypeType = Literal["IPYNB"]
@@ -119,13 +123,19 @@ SessionStateType = Literal[
     "BUSY", "CREATED", "CREATING", "DEGRADED", "FAILED", "IDLE", "TERMINATED", "TERMINATING"
 ]
 StatementTypeType = Literal["DDL", "DML", "UTILITY"]
+SystemTableNameType = Literal["ALL"]
+SystemTableTypeType = Literal["QUERY_EXECUTIONS"]
 WorkGroupStateType = Literal["DISABLED", "ENABLED"]
 AthenaServiceName = Literal["athena"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -198,6 +208,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -225,6 +236,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -270,12 +282,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -300,6 +312,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -314,8 +327,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -342,6 +353,9 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -394,6 +408,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -409,10 +424,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -430,6 +445,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -445,6 +461,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -472,6 +489,8 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -493,7 +512,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -514,6 +532,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -522,7 +541,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -555,6 +573,7 @@ PaginatorName = Literal[
     "list_databases",
     "list_named_queries",
     "list_query_executions",
+    "list_system_table_statuses",
     "list_table_metadata",
     "list_tags_for_resource",
 ]

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import suppress
 from importlib.resources import files as package_files
 from pathlib import Path
@@ -144,7 +144,7 @@ def file_claims_pdfa(filename: Path):
 
 def _cid_font_is_embedded(type0_font: Object) -> bool:
     """Return True if a Type0 font's CID descendant carries embedded glyphs."""
-    for descendant in type0_font.get(Name.DescendantFonts, []):
+    for descendant in type0_font.get_list(Name.DescendantFonts, []):
         # A malformed PDF may store a non-dictionary here; `key in descriptor`
         # raises on those, so get_dict reduces anything that is not a
         # dictionary to None before we probe it.
@@ -187,52 +187,31 @@ def find_nonembedded_cid_fonts(pdf: Pdf) -> set[str]:
     return found
 
 
-def _iter_fonts(pdf: Pdf) -> Iterator[Object]:
-    """Yield the font dictionaries used by pages, forms and annotations."""
+def _iter_fonts(pdf: Pdf) -> Iterator[pikepdf.Dictionary]:
+    """Yield each font dictionary that the pages of a PDF can use, once.
 
-    def fonts_in(container: Object, depth: int = 0) -> Iterator[Object]:
-        if depth > 10:
-            return
-        # A well-formed PDF stores dictionaries under /Resources, /Font and
-        # /XObject, but a malformed one (common in OCR workloads) may store an
-        # array, a name, or another non-dictionary object. get_dict reduces
-        # every one of those to "no fonts" rather than let the scan crash
-        # (issue #1713).
-        for font in (container.get_dict(NamePath.Resources.Font) or {}).values():
-            if isinstance(font, pikepdf.Dictionary):
+    This covers the fonts of pages, form XObjects, annotation appearance
+    streams, tiling patterns, Type 3 glyph procedures and soft masks.
+    """
+    seen = pikepdf.ObjectSet()
+
+    def new_fonts(fonts) -> Iterator[pikepdf.Dictionary]:
+        for font in (fonts or {}).values():
+            if isinstance(font, pikepdf.Dictionary) and seen.add(font):
                 yield font
-        for xobj in (container.get_dict(NamePath.Resources.XObject) or {}).values():
-            if isinstance(xobj, pikepdf.Stream) and xobj.get(Name.Subtype) == Name.Form:
-                yield from fonts_in(xobj, depth + 1)
 
-    def appearance_streams(page: Object) -> Iterator[Object]:
-        annots = page.get(Name.Annots)
-        if not isinstance(annots, pikepdf.Array):
-            return
-        for annot in annots:
-            if not isinstance(annot, pikepdf.Dictionary):
-                continue
-            appearances = annot.get_dict(Name.AP)
-            if appearances is None:
-                continue
-            for appearance in appearances.values():
-                if isinstance(appearance, pikepdf.Stream):
-                    yield appearance
-                elif isinstance(appearance, pikepdf.Dictionary):
-                    # Appearance subdictionary keyed by state, e.g. /On /Off
-                    for state in appearance.as_dict().values():
-                        if isinstance(state, pikepdf.Stream):
-                            yield state
-
-    for page in pdf.pages:
-        yield from fonts_in(page.obj)
-        for appearance in appearance_streams(page.obj):
-            yield from fonts_in(appearance)
+    # Form XObjects commonly share one /Resources that lists all of them, so
+    # the resources form a graph with cycles. content_scopes visits each
+    # content stream once.
+    for scope in pdf.content_scopes():
+        if scope.resources is not None:
+            # A well-formed PDF stores a dictionary under /Font, but a malformed one
+            # may store an array, a name, or another non-dictionary object. get_dict
+            # reduces every one of those to "no fonts" rather than let the scan crash.
+            yield from new_fonts(scope.resources.get_dict(Name.Font))
     # Default resources for form fields, which a viewer may use to regenerate
     # their appearances
-    for font in (pdf.Root.get_dict(NamePath.AcroForm.DR.Font) or {}).values():
-        if isinstance(font, pikepdf.Dictionary):
-            yield font
+    yield from new_fonts(pdf.Root.get_dict(NamePath.AcroForm.DR.Font))
 
 
 def _font_basename(font: Object) -> str:
@@ -242,8 +221,8 @@ def _font_basename(font: Object) -> str:
         basefont = str(name)
     except UnicodeDecodeError:
         # Name objects are byte sequences with no mandated encoding; e.g. CJK
-        # foundry font names are often GBK, which is not valid UTF-8 (issue
-        # #1727). Fall back to the hex-escaped PDF syntax form. Do not skip the
+        # foundry font names are often GBK, which is not valid UTF-8.
+        # Fall back to the hex-escaped PDF syntax form. Do not skip the
         # font: it is still non-embedded and must be reported.
         basefont = name.unparse().decode('ascii', 'replace')
     return basefont.lstrip('/')
@@ -309,10 +288,10 @@ def _simple_font_unicode_map(font: pikepdf.Dictionary) -> dict[int, str]:
     encoding = font.get(Name.Encoding)
     if isinstance(encoding, Name):
         base: Object | None = encoding
-        differences: Object = pikepdf.Array()
+        differences: Iterable[Object] = []
     elif isinstance(encoding, pikepdf.Dictionary):
         base = encoding.get(Name.BaseEncoding)
-        differences = encoding.get(Name.Differences, pikepdf.Array())
+        differences = encoding.get_list(Name.Differences, [])
     else:
         return {}
 
@@ -332,16 +311,15 @@ def _simple_font_unicode_map(font: pikepdf.Dictionary) -> dict[int, str]:
     elif isinstance(base, Name):
         mapping.update(EncodingDB.encodings.get(str(base)[1:], {}))
 
-    if isinstance(differences, pikepdf.Array):
-        code = 0
-        for item in differences:
-            if (number := _as_int(item)) is not None:
-                code = number
-            elif isinstance(item, Name):
-                mapping.pop(code, None)
-                with suppress(KeyError, ValueError, UnicodeDecodeError):
-                    mapping[code] = name2unicode(str(item)[1:])
-                code += 1
+    code = 0
+    for item in differences:
+        if (number := _as_int(item)) is not None:
+            code = number
+        elif isinstance(item, Name):
+            mapping.pop(code, None)
+            with suppress(KeyError, ValueError, UnicodeDecodeError):
+                mapping[code] = name2unicode(str(item)[1:])
+            code += 1
     return {code: text for code, text in mapping.items() if 0 <= code <= 0xFF}
 
 
@@ -393,22 +371,19 @@ def add_simple_font_tounicode(pdf: Pdf) -> int:
         The number of fonts that were given a /ToUnicode.
     """
     count = 0
-    for obj in pdf.objects:
-        if not isinstance(obj, pikepdf.Dictionary):
-            continue
+    for font in _iter_fonts(pdf):
         try:
             if (
-                obj.get(Name.Type) != Name.Font
-                or obj.get(Name.Subtype) not in _SIMPLE_FONT_SUBTYPES
-                or Name.ToUnicode in obj
+                font.get(Name.Subtype) not in _SIMPLE_FONT_SUBTYPES
+                or Name.ToUnicode in font
             ):
                 continue
-            mapping = _simple_font_unicode_map(obj)
+            mapping = _simple_font_unicode_map(font)
         except (AttributeError, TypeError, ValueError):
             continue
         if not mapping:
             continue
-        obj.ToUnicode = pdf.make_stream(_tounicode_cmap(mapping))
+        font.ToUnicode = pdf.make_stream(_tounicode_cmap(mapping))
         count += 1
     return count
 

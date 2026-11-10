@@ -73,6 +73,10 @@ class BasinProxy:
                                              basinmap=self.basinmap,
                                              name=feat,
                                              )
+            elif feat == "trace":
+                feat_obj = BasinProxyTrace(feat_obj=self.ds[feat],
+                                           basinmap=self.basinmap,
+                                           )
             else:
                 feat_obj = BasinProxyFeature(feat_obj=self.ds[feat],
                                              basinmap=self.basinmap,
@@ -128,7 +132,23 @@ class BasinProxyFeature(np.lib.mixins.NDArrayOperatorsMixin):
         self._cache = None
         self._shape = None
         self._size = None
+        self._is_identity_mapping = None
         self.is_scalar = bool(len(self.feat_obj.shape) == 1)
+
+    @property
+    def is_identity_mapping(self):
+        """Whether `basinmap` maps every basin event onto itself
+
+        Only in this case, quantities computed for the entire basin
+        feature (e.g. min/max/mean stored as HDF5 attributes) are valid
+        for the mapped feature.
+        """
+        if self._is_identity_mapping is None:
+            size = len(self.feat_obj)
+            self._is_identity_mapping = bool(
+                self.basinmap.size == size
+                and np.array_equal(self.basinmap, np.arange(size)))
+        return self._is_identity_mapping
 
     @property
     def shape(self):
@@ -220,14 +240,14 @@ class BasinProxyFeature(np.lib.mixins.NDArrayOperatorsMixin):
 
     def max(self, *args, **kwargs):
         if self.is_scalar:
-            if np.all(self.basinmap):
+            if self.is_identity_mapping:
                 # If the original basin dataset has the ufunc specified
                 # as an HDF5 attribute or similar, then this is faster.
                 return self.feat_obj.max()
             else:
                 # Compute the maximum at the cost of potentially having
                 # to download the data.
-                return np.max(self.feat_obj[self.basinmap])
+                return np.nanmax(self.feat_obj[self.basinmap])
         else:
             raise NotImplementedError(
                 f"ufunc 'max' only available for scalar features in "
@@ -235,14 +255,14 @@ class BasinProxyFeature(np.lib.mixins.NDArrayOperatorsMixin):
 
     def mean(self, *args, **kwargs):
         if self.is_scalar:
-            if np.all(self.basinmap):
+            if self.is_identity_mapping:
                 # If the original basin dataset has the ufunc specified
                 # as an HDF5 attribute or similar, then this is faster.
                 return self.feat_obj.mean()
             else:
                 # Compute the mean at the cost of potentially having
                 # to download the data.
-                return np.mean(self.feat_obj[self.basinmap])
+                return np.nanmean(self.feat_obj[self.basinmap])
         else:
             raise NotImplementedError(
                 f"ufunc 'mean' only available for scalar features in "
@@ -250,15 +270,55 @@ class BasinProxyFeature(np.lib.mixins.NDArrayOperatorsMixin):
 
     def min(self, *args, **kwargs):
         if self.is_scalar:
-            if np.all(self.basinmap):
+            if self.is_identity_mapping:
                 # If the original basin dataset has the ufunc specified
                 # as an HDF5 attribute or similar, then this is faster.
                 return self.feat_obj.min()
             else:
                 # Compute the minimum at the cost of potentially having
                 # to download the data.
-                return np.min(self.feat_obj[self.basinmap])
+                return np.nanmin(self.feat_obj[self.basinmap])
         else:
             raise NotImplementedError(
                 f"ufunc 'min' only available for scalar features in "
                 f"'{self.__class__.__name__}'")
+
+
+class BasinProxyTrace:
+    def __init__(self, feat_obj, basinmap):
+        """Wrap around a trace dictionary, mapping every trace upon access
+
+        Every trace (e.g. "fl1_raw") is wrapped in a
+        :class:`BasinProxyFeature` when it is accessed.
+        """
+        self.feat_obj = feat_obj
+        self.basinmap = basinmap
+        self._traces = {}
+
+    def __contains__(self, key):
+        return key in self.feat_obj
+
+    def __getitem__(self, key):
+        if key not in self._traces:
+            self._traces[key] = BasinProxyFeature(feat_obj=self.feat_obj[key],
+                                                  basinmap=self.basinmap,
+                                                  name=key,
+                                                  )
+        return self._traces[key]
+
+    def __iter__(self):
+        yield from sorted(self.keys())
+
+    def __len__(self):
+        return len(self.feat_obj)
+
+    def __repr__(self):
+        return f"<BasinProxyTrace at {hex(id(self))}>"
+
+    def keys(self):
+        return self.feat_obj.keys()
+
+    @property
+    def shape(self):
+        key0 = min(self.keys())
+        return (len(self),) + self[key0].shape

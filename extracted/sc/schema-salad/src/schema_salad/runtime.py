@@ -397,12 +397,19 @@ def save_relative_uri(
 
             basefrag = basesplit.fragment + "/"
             if ref_scope:
-                sp = basefrag.split("/")
+                # Pop the same segments the loader pops when expanding a
+                # scoped reference, so that saving then loading round-trips.
+                sp = basesplit.fragment.split("/")
                 i = 0
-                while i < ref_scope:
+                while i < ref_scope and sp:
                     sp.pop()
                     i += 1
                 basefrag = "/".join(sp)
+                if basefrag:
+                    # Match only on a path-segment boundary, so that a sibling
+                    # id sharing a prefix (e.g. "step_1_input" vs "step_1")
+                    # is not truncated.
+                    basefrag += "/"
 
             if urisplit.fragment.startswith(basefrag):
                 return urisplit.fragment[len(basefrag) :]

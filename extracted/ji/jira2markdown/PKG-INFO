@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jira2markdown
-Version: 0.5.3
+Version: 0.6
 Summary: Convert text from JIRA markup to Markdown using parsing expression grammars
 License-Expression: MIT
 License-File: LICENSE
@@ -9,7 +9,7 @@ Author: Evgeniy Krysanov
 Author-email: evgeniy.krysanov@gmail.com
 Maintainer: Evgeniy Krysanov
 Maintainer-email: evgeniy.krysanov@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Development Status :: 3 - Alpha
@@ -43,7 +43,7 @@ Description-Content-Type: text/markdown
 
 # Prerequisites
 
-- Python 3.9+
+- Python 3.10+
 
 # Command line tool
 

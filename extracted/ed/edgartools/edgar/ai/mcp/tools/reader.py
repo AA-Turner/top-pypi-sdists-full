@@ -9,7 +9,10 @@ tables from 10-K, 10-Q, 8-K, proxy statements, 13D/G, 13F, and other forms.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Optional
+import pandas as pd
+
 from edgar import find
 from edgar.ai.mcp.tools.base import (
     tool,
@@ -17,12 +20,20 @@ from edgar.ai.mcp.tools.base import (
     error,
     resolve_company,
     format_filing_summary,
-    get_error_suggestions,
+    classify_error,
     truncate_text,
     _holding_rows,
 )
 
 logger = logging.getLogger(__name__)
+
+NO_XBRL_NOTE = ("This filing has no XBRL, so there are no structured financial statements. "
+                "Filings from before SEC's 2009-2011 XBRL phase-in have none; the statements are in the text.")
+NO_XBRL_NEXT_STEP = {
+    "10-K": "Read the statements as text with sections=['Item 8']",
+    "10-Q": "Read the statements as text with sections=['Part I, Item 1']",
+    "*": "Read the filing's text with sections=['full_text']",
+}
 
 # Section mapping for different form types.
 # For 10-K: maps MCP section names to the friendly-name keys accepted by TenK.__getitem__
@@ -66,6 +77,16 @@ SECTION_MAP_6K = {
 # Form types that have dedicated extractors (keyed by base form, without /A suffix)
 FORM_EXTRACTORS = {"10-K", "10-Q", "8-K", "DEF 14A", "SC 13D", "SC 13G", "SC 13D/A", "SC 13G/A", "13F-HR"}
 
+# Schedule 13D/G form names: "SC 13D" until December 2024, "SCHEDULE 13D" since
+SCHEDULE_13D_FORMS = ("SC 13D", "SCHEDULE 13D")
+SCHEDULE_13G_FORMS = ("SC 13G", "SCHEDULE 13G")
+
+# Rows of a 13F-HR ``holdings`` section returned when the caller sets no ``limit``.
+DEFAULT_HOLDINGS_LIMIT = 30
+
+# Share of the 6,000-character section cap given to each 8-K earnings statement.
+EARNINGS_STATEMENT_CHARS = 1800
+
 
 @tool(
     name="edgar_read",
@@ -78,13 +99,15 @@ Available sections by form type:
 - 20-F: business, risk_factors, mda, financials, directors, shareholders, controls
 - 8-K: items, press_release, earnings
 - DEF 14A: compensation, pay_performance, governance
-- SC 13D/13G: ownership, purpose
+- SC 13D / SCHEDULE 13D: ownership, purpose
+- SC 13G / SCHEDULE 13G: ownership
 - 13F-HR: holdings, summary
 
 Examples:
 - Read risk factors: identifier="AAPL", form="10-K", sections=["risk_factors"]
 - Read 8-K event: identifier="AAPL", form="8-K", sections=["items"]
-- Read CEO pay: identifier="AAPL", form="DEF 14A", sections=["compensation"]""",
+- Read CEO pay: identifier="AAPL", form="DEF 14A", sections=["compensation"]
+- Read every 13F holding: identifier="1067983", form="13F-HR", sections=["holdings"], limit=0""",
     params={
         "accession_number": {
             "type": "string",
@@ -106,6 +129,14 @@ Examples:
             "description": "Sections to extract. Use 'summary' for metadata only, 'all' for everything. "
                            "Available sections depend on form type.",
             "default": ["summary"]
+        },
+        "limit": {
+            "type": "integer",
+            "description": "Max rows in the 13F-HR 'holdings' section (default 30). 0 returns every row, "
+                           "which for large managers can be thousands of rows and a large payload. "
+                           "Validated for all forms, applied only to 13F holdings.",
+            "default": DEFAULT_HOLDINGS_LIMIT,
+            "minimum": 0
         }
     },
     required=[]
@@ -114,15 +145,36 @@ async def edgar_read(
     accession_number: Optional[str] = None,
     identifier: Optional[str] = None,
     form: Optional[str] = None,
-    sections: Optional[list[str]] = None
+    sections: Optional[list[str]] = None,
+    limit: Optional[int] = DEFAULT_HOLDINGS_LIMIT,
 ) -> Any:
     """
     Read SEC filing content.
 
     Can retrieve by accession number or find the most recent filing
     of a given type for a company.
+
+    ``limit`` caps the rows of a 13F-HR ``holdings`` section; ``0`` returns all
+    of them. It is validated for every form but applied only to 13F holdings,
+    which are also exempt from the 6,000-character cap that every other section
+    gets, so the rows ``limit`` asks for are all returned.
     """
     sections = sections or ["summary"]
+
+    if limit is None:
+        limit = DEFAULT_HOLDINGS_LIMIT
+    # JSON Schema counts 30.0 as an integer, so accept integral floats.
+    if isinstance(limit, float) and limit.is_integer():
+        limit = int(limit)
+    # bool is an int subclass: limit=True would silently mean one row.
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+        return error(
+            f"Invalid limit: {limit!r}",
+            suggestions=[
+                "Use a non-negative integer: 30 (the default), a larger number, or 0 for every row",
+            ],
+            error_code="INVALID_ARGUMENTS"
+        )
 
     try:
         # Get the filing
@@ -133,7 +185,8 @@ async def edgar_read(
                 suggestions=[
                     "Provide accession_number for a specific filing",
                     "Or provide identifier + form for most recent"
-                ]
+                ],
+                error_code="FILING_NOT_FOUND"
             )
 
         # Build response with metadata
@@ -151,20 +204,31 @@ async def edgar_read(
 
         # Extract requested sections
         if not metadata_only:
-            extracted = await _extract_sections(filing, sections)
+            extracted = await _extract_sections(filing, sections, limit=limit)
             result["sections"] = extracted
 
         # Next steps
         next_steps = []
         if metadata_only:
             next_steps.append("Add sections like 'business', 'risk_factors', 'mda' to read content")
+        # A filing with no XBRL has no structured statements. That is an answer,
+        # not a failure, but a bare None does not say so (GH #1582).
+        if "financials" in result.get("sections", {}) and result["sections"]["financials"] is None \
+                and filing.xbrl() is None:
+            result["notes"] = {"financials": NO_XBRL_NOTE}
+            next_steps.append(NO_XBRL_NEXT_STEP.get(filing.form.replace("/A", "").strip(), NO_XBRL_NEXT_STEP["*"]))
         next_steps.append("Use edgar_company for full company analysis")
 
         return success(result, next_steps=next_steps)
 
     except Exception as e:
         logger.exception("Error in edgar_read")
-        return error(str(e), suggestions=get_error_suggestions(e))
+        classified = classify_error(e)
+        return error(
+            classified["message"],
+            suggestions=classified["suggestions"],
+            error_code=classified["error_code"]
+        )
 
 
 async def _get_filing(
@@ -176,10 +240,14 @@ async def _get_filing(
     from edgar import Filing
 
     if accession_number:
-        # Direct lookup by accession number
+        # Direct lookup by accession number. Without identifier + form to fall
+        # back on, let the failure reach the caller: a malformed accession raises
+        # ValidationError, and its message says what the format is (GH #1582).
         try:
             return find(search_id=accession_number)
         except Exception as e:
+            if not (identifier and form):
+                raise
             logger.debug(f"Direct accession lookup failed for '{accession_number}': {e}")
 
     if identifier and form:
@@ -192,18 +260,11 @@ async def _get_filing(
     return None
 
 
-async def _extract_sections(filing, sections: list[str]) -> dict[str, Any]:
+async def _extract_sections(filing, sections: list[str], limit: int = DEFAULT_HOLDINGS_LIMIT) -> dict[str, Any]:
     """Extract requested sections from filing."""
     extracted = {}
 
     try:
-        # Get the typed object (TenK, TenQ, EightK, etc.)
-        obj = filing.obj()
-
-        if obj is None:
-            extracted["error"] = f"Could not parse {filing.form} filing into a structured object"
-            return extracted
-
         if "all" in sections:
             # Extract all available sections
             sections_to_extract = _get_section_list(filing.form)
@@ -211,10 +272,37 @@ async def _extract_sections(filing, sections: list[str]) -> dict[str, Any]:
             available = _get_section_list(filing.form)
             sections_to_extract = [s for s in sections if s != "summary" or "summary" in available]
 
+        # Get the typed object (TenK, TenQ, EightK, etc.). ``full_text`` reads the
+        # filing's own text and needs none, so a form with no typed object still
+        # serves it.
+        obj = None
+        if any(s != "full_text" for s in sections_to_extract):
+            obj = filing.obj()
+            if obj is None:
+                extracted["error"] = f"Could not parse {filing.form} filing into a structured object"
+                sections_to_extract = [s for s in sections_to_extract if s == "full_text"]
+
         for section in sections_to_extract:
-            content = _extract_section(obj, filing.form, section)
+            if section == "full_text":
+                # Typed filing objects do not all support ``obj['full_text']``
+                # (40-F returns None, 6-K and registration statements raise), so
+                # read the filing's own text, and say so when there is none.
+                # A failure here is reported for this section only.
+                try:
+                    content = filing.text() or "Full text is not available for this filing."
+                except Exception as e:
+                    logger.warning(f"Could not read full text: {e}")
+                    content = f"Could not read the filing's full text: {e}"
+            else:
+                content = _extract_section(obj, filing.form, section, limit=limit)
             if content:
-                extracted[section] = truncate_text(str(content), max_chars=6000)
+                text = str(content)
+                if _is_13f_holdings(filing.form, section):
+                    # Bounded by ``limit``, so the 6,000-char cap would only cut
+                    # off rows the caller asked for.
+                    extracted[section] = text
+                else:
+                    extracted[section] = truncate_text(text, max_chars=6000)
             else:
                 extracted[section] = None
 
@@ -232,6 +320,11 @@ async def _extract_sections(filing, sections: list[str]) -> dict[str, Any]:
     return extracted
 
 
+def _is_13f_holdings(form_type: str, section: str) -> bool:
+    """True for the ``holdings`` section of a 13F-HR (or 13F-HR/A) filing."""
+    return form_type.replace("/A", "").strip() == "13F-HR" and section == "holdings"
+
+
 def _get_section_list(form_type: str) -> list[str]:
     """Get list of extractable sections for a form type."""
     base = form_type.replace("/A", "").strip()
@@ -247,19 +340,22 @@ def _get_section_list(form_type: str) -> list[str]:
         return ["items", "press_release", "earnings"]
     elif base == "DEF 14A":
         return ["compensation", "pay_performance", "governance"]
-    elif base in ("SC 13D", "SC 13G"):
+    elif base in SCHEDULE_13D_FORMS:
         return ["ownership", "purpose"]
+    elif base in SCHEDULE_13G_FORMS:
+        return ["ownership"]
     elif base == "13F-HR":
         return ["holdings", "summary"]
     else:
         return ["full_text"]
 
 
-def _extract_section(obj, form_type: str, section: str) -> Optional[str]:
+def _extract_section(obj, form_type: str, section: str, limit: int = DEFAULT_HOLDINGS_LIMIT) -> Optional[str]:
     """Extract a specific section from a filing object.
 
     Routes to form-specific extractors for structured forms, with
-    fallback to __getitem__ for 10-K/10-Q narrative sections.
+    fallback to __getitem__ for 10-K/10-Q narrative sections. ``limit`` only
+    affects the 13F-HR ``holdings`` section.
     """
     base = form_type.replace("/A", "").strip()
 
@@ -272,10 +368,10 @@ def _extract_section(obj, form_type: str, section: str) -> Optional[str]:
         return _extract_8k_section(obj, section)
     elif base == "DEF 14A":
         return _extract_proxy_section(obj, section)
-    elif base in ("SC 13D", "SC 13G"):
+    elif base in SCHEDULE_13D_FORMS or base in SCHEDULE_13G_FORMS:
         return _extract_schedule13_section(obj, section)
     elif base == "13F-HR":
-        return _extract_13f_section(obj, section)
+        return _extract_13f_section(obj, section, limit=limit)
 
     # For 10-K/10-Q narrative sections, look up the canonical key
     if base == "10-K":
@@ -353,8 +449,14 @@ def _extract_8k_section(obj, section: str) -> Optional[str]:
 
     elif section == "press_release":
         try:
-            if hasattr(obj, 'press_releases') and obj.press_releases:
-                return str(obj.press_releases)
+            press_releases = getattr(obj, 'press_releases', None)
+            if press_releases:
+                # ``str(press_releases)`` renders the attachments table, not the release.
+                text = press_releases[0].text()
+                if text:
+                    # The converted text pads tables with runs of blanks that
+                    # would spend the section cap on layout.
+                    return re.sub(r"[ \t]{2,}", " ", text)
             if hasattr(obj, 'has_press_release') and not obj.has_press_release:
                 return "No press release attached to this 8-K."
         except Exception as e:
@@ -365,24 +467,45 @@ def _extract_8k_section(obj, section: str) -> Optional[str]:
         try:
             if hasattr(obj, 'has_earnings') and not obj.has_earnings:
                 return "This 8-K does not contain earnings data."
+            # ``CurrentReport.income_statement`` and friends are properties that
+            # return a FinancialTable, or None when the release has no such table.
             parts = []
-            if hasattr(obj, 'earnings') and obj.earnings:
-                parts.append("Earnings data available")
-            for name, method in [("Income Statement", "income_statement"),
-                                 ("Balance Sheet", "balance_sheet"),
-                                 ("Cash Flow", "cash_flow_statement")]:
-                try:
-                    stmt = getattr(obj, method)()
-                    if stmt is not None:
-                        parts.append(f"\n=== {name} ===\n{stmt}")
-                except Exception:
-                    pass
-            return "\n".join(parts) if parts else None
+            for name, attr in [("Income Statement", "income_statement"),
+                               ("Balance Sheet", "balance_sheet"),
+                               ("Cash Flow", "cash_flow_statement")]:
+                table = getattr(obj, attr, None)
+                if table:
+                    # Each statement gets its own share of the 6,000-character
+                    # section cap, so a long income statement cannot push the
+                    # balance sheet and cash flow out of the response.
+                    body = truncate_text(_format_earnings_table(table), max_chars=EARNINGS_STATEMENT_CHARS)
+                    parts.append(f"=== {name} ===\n{body}")
+                else:
+                    parts.append(f"=== {name} ===\nNot found in this earnings release.")
+            return "\n\n".join(parts)
         except Exception as e:
             logger.debug(f"Could not extract earnings: {e}")
         return None
 
     return None
+
+
+def _format_earnings_table(table) -> str:
+    """Render a ``FinancialTable`` as one compact line per row.
+
+    The markdown export pads every cell to the widest label, which would spend
+    most of the section cap on blanks.
+    """
+    df = table.dataframe
+    lines = []
+    if table.scale.name != "UNITS":
+        lines.append(f"(amounts in {table.scale.name.lower()}; per-share and share counts as filed)")
+    lines.append("Item | " + " | ".join(" ".join(str(c).split()) for c in df.columns))
+    for label, row in df.iterrows():
+        cells = ["" if pd.isna(v) else (format(v, ",.10g") if isinstance(v, (int, float)) else str(v))
+                 for v in row]
+        lines.append(f"{label} | " + " | ".join(cells))
+    return "\n".join(lines)
 
 
 def _extract_proxy_section(obj, section: str) -> Optional[str]:
@@ -461,22 +584,18 @@ def _extract_schedule13_section(obj, section: str) -> Optional[str]:
         return None
 
     elif section == "purpose":
-        # Try to get the purpose of transaction text
-        try:
-            # Schedule 13D Item 4 is "Purpose of Transaction"
-            if hasattr(obj, 'purpose_of_transaction'):
-                return str(obj.purpose_of_transaction)
-            # Fallback: try generic string representation
-            return str(obj)
-        except Exception as e:
-            logger.debug(f"Could not extract 13D/G purpose: {e}")
-        return None
+        # Schedule 13D Item 4 is "Purpose of Transaction"; Schedule 13G has no such item
+        items = getattr(obj, 'items', None)
+        return getattr(items, 'item4_purpose_of_transaction', None)
 
     return None
 
 
-def _extract_13f_section(obj, section: str) -> Optional[str]:
-    """Extract sections from a 13F-HR (ThirteenF) object."""
+def _extract_13f_section(obj, section: str, limit: int = DEFAULT_HOLDINGS_LIMIT) -> Optional[str]:
+    """Extract sections from a 13F-HR (ThirteenF) object.
+
+    ``limit`` is the most holdings rows to list; ``0`` lists every row.
+    """
     if section == "holdings":
         try:
             # ``ThirteenF.holdings`` is a DataFrame: its truth value raises and
@@ -484,16 +603,21 @@ def _extract_13f_section(obj, section: str) -> Optional[str]:
             # ``_get_fund_holdings`` in ownership.py does.
             holdings = getattr(obj, 'holdings', None)
             if holdings is not None and not holdings.empty:
+                total = len(holdings)
+                # ``ThirteenF.holdings`` is sorted by Value descending, so the
+                # first rows are the top holdings. DataFrame.head(0) is empty,
+                # so 0 ("all") must become the row count.
+                wanted = total if limit == 0 else min(limit, total)
                 parts = []
-                for h in _holding_rows(holdings, 30):  # Limit to top 30
+                for h in _holding_rows(holdings, wanted):
                     line = f"  {h.get('company', 'Unknown')}"
                     if "shares" in h:
                         line += f" | {h['shares']:,} shares"
                     if "value" in h:
                         line += f" | ${h['value']:,}"
                     parts.append(line)
-                total = len(holdings)
-                header = f"Top holdings ({min(30, total)} of {total}):"
+                # ``_holding_rows`` skips rows with no usable cell, so count what was listed.
+                header = f"Top holdings ({len(parts)} of {total}):"
                 return header + "\n" + "\n".join(parts)
         except Exception as e:
             logger.warning(f"Could not extract 13F holdings: {e}")

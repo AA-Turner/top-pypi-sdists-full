@@ -9,7 +9,7 @@ def client():
     from fastapi.testclient import TestClient
     from importlinter.ui.server import create_app
 
-    app = create_app(module_name=MODULE_NAME)
+    app = create_app(root_packages=[MODULE_NAME], initial_module=MODULE_NAME)
     return TestClient(app)
 
 
@@ -36,9 +36,12 @@ class TestGetGraph:
             show_module_counts,
             show_lazy_imports,
             show_cycle_breakers,
+            root_packages,
+            overview_modules=None,
         ):
             calls["show_lazy_imports"] = show_lazy_imports
             calls["show_cycle_breakers"] = show_cycle_breakers
+            calls["root_packages"] = root_packages
             return ModuleDot(dot_string="digraph {}", module=module, child_packages=set())
 
         monkeypatch.setattr(server, "generate_dot", fake_generate_dot)
@@ -48,3 +51,37 @@ class TestGetGraph:
         assert response.status_code == 200
         assert calls["show_lazy_imports"] is True
         assert calls["show_cycle_breakers"] is False
+        assert calls["root_packages"] == [MODULE_NAME]
+
+    def test_overview_route_passes_empty_module(self, client, monkeypatch):
+        from importlinter.ui import server
+        from importlinter.ui.explorer import ModuleDot
+
+        calls = {}
+
+        def fake_generate_dot(
+            cache,
+            module,
+            show_import_totals,
+            show_module_counts,
+            show_lazy_imports,
+            show_cycle_breakers,
+            root_packages,
+            overview_modules=None,
+        ):
+            calls["module"] = module
+            return ModuleDot(dot_string="digraph {}", module=module, child_packages=set())
+
+        monkeypatch.setattr(server, "generate_dot", fake_generate_dot)
+
+        response = client.get("/api/graph")
+
+        assert response.status_code == 200
+        assert calls["module"] == ""
+
+
+class TestDeduplicate:
+    def test_removes_duplicates_preserving_order(self):
+        from importlinter.ui.server import _deduplicate
+
+        assert _deduplicate(["foo", "bar", "foo", "baz", "bar"]) == ["foo", "bar", "baz"]

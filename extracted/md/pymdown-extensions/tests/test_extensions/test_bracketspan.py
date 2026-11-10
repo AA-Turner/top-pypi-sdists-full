@@ -47,6 +47,41 @@ class TestBracketSpan(util.MdCase):
             True
         )
 
+    def test_bracketspan_colon_attributes(self):
+        """Test attributes with a leading colon."""
+
+        self.check_markdown(
+            R'''
+            [text]{: .cls}
+
+            [text]{:.cls}
+
+            [a [b]{: .x} c]{: #y}
+            ''',
+            '''
+            <p><span class="cls">text</span></p>
+            <p><span class="cls">text</span></p>
+            <p><span id="y">a <span class="x">b</span> c</span></p>
+            ''',
+            True
+        )
+
+    def test_bracketspan_unpaired_open_before_cached_span(self):
+        """Test that an unpaired opening bracket before a cached span does not corrupt the span's position."""
+
+        self.check_markdown(
+            """
+            [[]{#a}[b[]{#c}
+
+            [[]{.a}[b[]{.c} and [more [text]{#d}
+            """,
+            """
+            <p>[<span id="a"></span>[b<span id="c"></span></p>
+            <p>[<span class="a"></span>[b<span class="c"></span> and [more <span id="d">text</span></p>
+            """,
+            True
+        )
+
 
 class TestBracketSpanNoAttrList(util.MdCase):
     """Test BracketSpan with no `attr_list`."""

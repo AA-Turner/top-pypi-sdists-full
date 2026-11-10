@@ -36,17 +36,19 @@ class OrganizationMarketingQuestions(object):
         'workload': 'str',
         'modalities': 'str',
         'model_types': 'str',
-        'ray_maturity': 'str'
+        'ray_maturity': 'str',
+        'workload_infrastructure': 'str'
     }
 
     attribute_map = {
         'workload': 'workload',
         'modalities': 'modalities',
         'model_types': 'model_types',
-        'ray_maturity': 'ray_maturity'
+        'ray_maturity': 'ray_maturity',
+        'workload_infrastructure': 'workload_infrastructure'
     }
 
-    def __init__(self, workload=None, modalities=None, model_types=None, ray_maturity=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload=None, modalities=None, model_types=None, ray_maturity=None, workload_infrastructure=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationMarketingQuestions - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class OrganizationMarketingQuestions(object):
         self._modalities = None
         self._model_types = None
         self._ray_maturity = None
+        self._workload_infrastructure = None
         self.discriminator = None
 
         if workload is not None:
@@ -66,6 +69,8 @@ class OrganizationMarketingQuestions(object):
             self.model_types = model_types
         if ray_maturity is not None:
             self.ray_maturity = ray_maturity
+        if workload_infrastructure is not None:
+            self.workload_infrastructure = workload_infrastructure
 
     @property
     def workload(self):
@@ -150,6 +155,27 @@ class OrganizationMarketingQuestions(object):
         """
 
         self._ray_maturity = ray_maturity
+
+    @property
+    def workload_infrastructure(self):
+        """Gets the workload_infrastructure of this OrganizationMarketingQuestions.  # noqa: E501
+
+
+        :return: The workload_infrastructure of this OrganizationMarketingQuestions.  # noqa: E501
+        :rtype: str
+        """
+        return self._workload_infrastructure
+
+    @workload_infrastructure.setter
+    def workload_infrastructure(self, workload_infrastructure):
+        """Sets the workload_infrastructure of this OrganizationMarketingQuestions.
+
+
+        :param workload_infrastructure: The workload_infrastructure of this OrganizationMarketingQuestions.  # noqa: E501
+        :type: str
+        """
+
+        self._workload_infrastructure = workload_infrastructure
 
     def to_dict(self):
         """Returns the model properties as a dict"""

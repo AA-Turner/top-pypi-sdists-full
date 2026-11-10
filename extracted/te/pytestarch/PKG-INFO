@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: PyTestArch
-Version: 5.1.0
+Version: 5.1.1
 Summary: Test framework for software architecture based on imports between modules
 Project-URL: issues, https://github.com/zyskarch/pytestarch/issues
 Project-URL: documentation, https://zyskarch.github.io/pytestarch/latest

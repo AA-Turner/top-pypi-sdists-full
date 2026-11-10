@@ -1,4 +1,4 @@
-/* global _bootstrapTooltip, aaSrpSettings, fetchGet, moment, numberFormatter, _removeSearchFromColumnControl, DataTable */
+/* global _bootstrapTooltip, _formatCurrency, _removeSearchFromColumnControl, aaSrpSettings, DataTable, fetchGet, moment */
 
 $(document).ready(() => {
     'use strict';
@@ -15,16 +15,22 @@ $(document).ready(() => {
 
     // Display total SRP cost to user
     const userSrpAmount = element.totalSrpCost.data('total-srp-cost') || 0;
-    element.totalSrpCost.html(
-        numberFormatter({
-            value: userSrpAmount,
-            locales: aaSrpSettings.locale,
-            options: {
-                style: 'currency',
-                currency: 'ISK'
-            }
-        })
-    );
+    element.totalSrpCost.html(_formatCurrency(userSrpAmount));
+
+    // DataTable column indices for easier reference
+    const dtColumn = {
+        requestTime: 0,
+        character: 1,
+        requestDetails: 2,
+        ship: 3,
+        iskLoss: 4,
+        srpPayout: 5,
+        status: 6,
+        srpCode: 7, // Invisible: SRP Code (for internal use, not displayed to users)
+        requestCode: 8, // Invisible: Request Code (for internal use, not displayed to users)
+        requestStatus: 9, // Invisible: Request Status (for internal use, not displayed to users)
+        killboardLink: 10 // Invisible: Killboard Link (for internal use, not displayed to users)
+    };
 
     // Initialize DataTable with server-side processing
     const dt = new DataTable(element.tableUserSrpRequests, {
@@ -45,59 +51,45 @@ $(document).ready(() => {
         columnDefs: [
             // Request time
             {
-                target: 0,
+                target: dtColumn.requestTime,
                 render: (data) => moment(data).utc().format(aaSrpSettings.datetimeFormat),
                 className: 'srp-request-time',
                 columnControl: _removeSearchFromColumnControl(aaSrpSettings.dataTables.columnControl, 1)
             },
             // Character
             {
-                target: 1,
+                target: dtColumn.character,
                 className: 'srp-request-character'
             },
-            // Fleet details
+            // Request details
             {
-                target: 2,
+                target: dtColumn.requestDetails,
                 className: 'srp-request-fleet-details'
             },
             // Ship
             {
-                target: 3,
+                target: dtColumn.ship,
                 className: 'srp-request-ship'
             },
             // ISK lost
             {
-                target: 4,
-                render: (data) => numberFormatter({
-                    value: data,
-                    locales: aaSrpSettings.locale,
-                    options: {
-                        style: 'currency',
-                        currency: 'ISK'
-                    }
-                }),
+                target: dtColumn.iskLoss,
+                render: (data) => _formatCurrency(data),
                 className: 'srp-request-zkb-loss-amount',
                 columnControl: _removeSearchFromColumnControl(aaSrpSettings.dataTables.columnControl, 1),
                 type: 'num'
             },
             // SRP payout
             {
-                target: 5,
-                render: (data) => numberFormatter({
-                    value: data,
-                    locales: aaSrpSettings.locale,
-                    options: {
-                        style: 'currency',
-                        currency: 'ISK'
-                    }
-                }),
+                target: dtColumn.srpPayout,
+                render: (data) => _formatCurrency(data),
                 className: 'srp-request-payout',
                 columnControl: _removeSearchFromColumnControl(aaSrpSettings.dataTables.columnControl, 1),
                 type: 'num'
             },
             // Status
             {
-                target: 6,
+                target: dtColumn.status,
                 render: (data) => data,
                 className: 'srp-request-status text-end',
                 orderable: false,
@@ -109,22 +101,22 @@ $(document).ready(() => {
             },
             // Invisible: SRP Code (for internal use, not displayed to users)
             {
-                target: 7,
+                target: dtColumn.srpCode,
                 visible: false
             },
             // Invisible: Request Code (for internal use, not displayed to users)
             {
-                target: 8,
+                target: dtColumn.requestCode,
                 visible: false
             },
             // Invisible: Request Status (for internal use, not displayed to users)
             {
-                target: 9,
+                target: dtColumn.requestStatus,
                 visible: false
             },
             // Invisible: Killboard Link (for internal use, not displayed to users)
             {
-                target: 10,
+                target: dtColumn.killboardLink,
                 visible: false
             }
         ],

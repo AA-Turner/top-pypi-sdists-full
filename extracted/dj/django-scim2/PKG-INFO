@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-scim2
-Version: 0.23.0
+Version: 0.24.0
 Summary: A partial implementation of the SCIM 2.0 provider specification for use with Django.
 License: MIT
 License-File: LICENSE.txt
@@ -23,9 +23,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: django (>=5.2.8,<6.1)
+Requires-Dist: django (>=5.2.8,<2028)
 Requires-Dist: pygments (>=2.20.0,<3.0.0)
 Requires-Dist: scim2-filter-parser (>=0.5.0)
 Project-URL: Documentation, https://django-scim2.readthedocs.io/en/stable/
@@ -88,6 +89,12 @@ Finally, add settings appropriate for you app to your settings.py file::
     }
 
 Other SCIM settings can be provided but those listed above are required.
+
+Demo App
+--------
+
+The ``demo`` folder has a small Django project that uses django-scim2.
+Use it as a working example, alongside the settings above.
 
 PyPI
 ----

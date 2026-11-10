@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +9,6 @@ from office365.sharepoint.sitedesigns.mobile_settings import MobileSettings
 from office365.sharepoint.sites.home.navconfiguration import HomeSiteNavConfiguration
 
 
-@dataclass
 class ConfigurationData(ClientValue):
     AppSettings: MobileSettings = field(default_factory=MobileSettings)
     BridgeAbsolutePath: ResourcePath = field(default_factory=ResourcePath)

@@ -201,28 +201,32 @@ def storage(name: str | None, prices: dict, *, base_url: str | None = None, echo
     return {"usd_per_gb_month": rate, "weights_gb": round(gb, 3), "usd_per_month": round(month, 2)}
 
 
-
-
-
-MIN_CORES = 0.125
-MIN_GIB = 0.125
-
-
-def compute_per_hour(prices: dict, cpu_cores: float | None, memory_gib: float | None) -> tuple[float, str]:
-    """What a worker's CPU and memory add to its hour, and the words that say how: its cores and GiB (the minimum when
-    it declares none) at the rates a deployment's workers pay - the serving ones when the list has them (a version that
-    serves as a long-running service), else the base ones.
+def compute_per_hour(prices: dict, gpu: str, cpu_cores: float | None = None,
+                     memory_gib: float | None = None) -> tuple[float, str]:
+    """What a worker's CPU and memory add to its hour, and the words that say how: its card's standard machine's cores
+    and GiB, or the `cpu_cores` and `memory_gib` it declares where more (capacity_cli.billed_machine: the platform's
+    list's policy_machines of `gpu`, "L4", "L4:4", "cpu"), wherever it runs, at the rates a deployment's workers pay -
+    the serving ones when the list has them, else the base ones. Nothing added where the list prices no CPU or memory.
+    Raises ValueError where it does and names no standard machine of `gpu`: never a size of the estimate's own
+    guessing.
     WHY: a worker pays its card(s) and, apart, its cores and GiB, and one that declares no GPU pays no card at all - so
     an estimate at the card's price alone left the CPU and memory out, and a CPU policy's read the old per-hour figure
     the list sent for it, the default card's (L4's $0.96). {prod 10-16 GET /V1/PRICING: "COMPUTE_BILLED TRUE |
     CPU_USD_PER_HOUR 0.96", ('L4', 0.96), CPU {"USD_PER_CORE_HOUR": 0.1703, "SERVING_USD_PER_CORE_HOUR": 0.0568}}
-    """
-    cpu, mem = prices.get("cpu") or {}, prices.get("memory") or {}
-    core_h = float(cpu.get("serving_usd_per_core_hour") or cpu.get("usd_per_core_hour") or 0.0)
-    gib_h = float(mem.get("serving_usd_per_gib_hour") or mem.get("usd_per_gib_hour") or 0.0)
-    cores, gib = max(float(cpu_cores or 0.0), MIN_CORES), max(float(memory_gib or 0.0), MIN_GIB)
+    One price
+    a card wherever it runs."""
+    from seq.capacity_cli import billed_machine, serving_rates
+
+    core_h, gib_h = serving_rates(prices)
+    if not core_h and not gib_h:
+        return 0.0, ""
+    got = billed_machine(prices, gpu, cpu_cores, memory_gib)
+    if got is None:
+        raise ValueError(f"the platform's price list names no standard machine of {gpu}; try again shortly")
+    cores, gib = got
     return (cores * core_h + gib * gib_h,
-            f"{cores:g} cores x {money(core_h)}/core-h + {gib:g} GiB x {money(gib_h)}/GiB-h")
+            f"{cores:g} cores x {money(core_h)}/core-h + {gib:g} GiB x {money(gib_h)}/GiB-h, its card's standard "
+            "machine or what it declares where more")
 
 
 
@@ -250,9 +254,10 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     use it (beyond the floor) - priced by the hour where `hours_per_day` is None, the use of it not known: `seq deploy
     --dry-run` takes no guess at it.
  From the platform's public prices; nothing is built. A worker's hour is its card(s) and
-    its `cpu_cores` and `memory_gib` (what it requests; None the minimum) at their own prices (compute_per_hour) - a
-    CPU worker's (`gpu` None or "cpu") is those alone. `measured_per_hour`, when given, is one worker's measured price
-    (its card, and the CPU and memory it was measured using) in place of the list's.
+    its card's standard machine's CPU and memory, or the `cpu_cores` and `memory_gib` it declares where more
+    (compute_per_hour), wherever it runs - a CPU worker's (`gpu` None or "cpu") is those alone. `measured_per_hour`,
+    when given, is one worker's price as the platform has it for its deployment (its card and its CPU and memory) in
+    place of the list's.
     `deployment`, when given, adds what keeping it costs in storage (storage(): `weights`, the policy's weights origin,
     and `weights_others`, its other parts' origins, say whether they are copied for it and so billed).
     `idle_s` (its idle timeout: its deployment's idle_timeout, else the platform's capacity.IDLE_S): a scale-to-zero
@@ -278,17 +283,18 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     prices = prices or _call("GET", "/v1/pricing", base_url)
     card = gpu or "cpu"
     name, count = (card.split(":", 1) + ["1"])[:2] if ":" in card else (card, str(cards))
-    by_card = {g["gpu"].lower(): g["usd_per_hour"] for g in prices.get("gpus") or []}
-    compute_h, how = compute_per_hour(prices, cpu_cores, memory_gib)
+    rows = {g["gpu"].lower(): g for g in prices.get("gpus") or []}
     if name.lower() == "cpu":
         card_h, count = 0.0, 1
-    elif name.lower() in by_card:
-        card_h = float(by_card[name.lower()])
+    elif name.lower() in rows:
+        card_h = float(rows[name.lower()]["usd_per_hour"])
     else:
-        raise ValueError(f"{name} is not an offered card ({', '.join(sorted(by_card))})")
+        raise ValueError(f"{name} is not an offered card ({', '.join(sorted(rows))})")
+    compute_h, how = compute_per_hour(prices, name if name.lower() == "cpu" or int(count) == 1 else f"{name}:{count}",
+                                      cpu_cores, memory_gib)
     per_hour = card_h * int(count) + compute_h
     if measured_per_hour is not None:
-        per_hour, how = float(measured_per_hour), ""
+        per_hour = float(measured_per_hour)
 
     most = max(1, int(max_gpus) // int(count)) if max_gpus and name.lower() != "cpu" else None
     floor = max(0, int(min_workers)) if most is None else min(max(0, int(min_workers)), most)
@@ -318,9 +324,13 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
            **({"start_usd_per_day": round(boot, 2)} if uses and start_s else {}), "usd_per_day": round(day, 2),
            "usd_per_month": round(day * 30, 2), "workers_in_use": in_use, "seats_per_worker": k, "robots": n,
            "robots_waiting": waiting}
-    echo(f"estimate: {out['card']} at {hourly(per_hour)}"
-         + (" a worker, with the CPU and memory it was measured using" if measured_per_hour is not None else "")
-         + (f" a worker: {'its card, and ' if name.lower() != 'cpu' else ''}{how}" if how else ""))
+    if measured_per_hour is not None:
+        said = ", its card and its CPU and memory as the platform prices them now"
+    elif how:
+        said = f": {'its card, and ' if name.lower() != 'cpu' else ''}{how}"
+    else:
+        said = ": its card" if name.lower() != "cpu" else ""
+    echo(f"estimate: {out['card']} at {hourly(per_hour)} a worker{said}")
 
 
 

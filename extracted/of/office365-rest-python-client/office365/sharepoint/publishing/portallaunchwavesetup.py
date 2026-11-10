@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -7,7 +7,6 @@ from office365.runtime.client_value_collection import ClientValueCollection
 from office365.sharepoint.publishing.portallaunch.wave import PortalLaunchWave
 
 
-@dataclass
 class PortalLaunchWaveSetup(ClientValue):
     AlternativeUrlsOfNewSite: Optional[str] = None
     AlternativeUrlsOfOldSite: Optional[str] = None

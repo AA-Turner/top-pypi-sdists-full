@@ -414,7 +414,9 @@ class Color(metaclass=ColorMeta):
                     if reset_convert_cache:  # pragma: no cover
                         cls._get_convert_chain.cache_clear()
                     if not silent:
-                        raise ValueError("'{}' is a reserved name for gamut mapping/reduction and cannot be overridden")
+                        raise ValueError(
+                            f"'{p.NAME}' is a reserved name for gamut mapping/reduction and cannot be overridden"
+                        )
                     continue  # pragma: no cover
             else:
                 if reset_convert_cache:  # pragma: no cover
@@ -857,10 +859,8 @@ class Color(metaclass=ColorMeta):
         if cspace == 'xyz':
             raise ValueError('XYZ is not a luminant-chromaticity color space.')
 
-        # Convert to the requested uv color space if required.
-        return (
-            self.convert_chromaticity('xyz', cspace, coords, white=white) if cspace != 'xy_1931' else coords
-        )
+        # Convert to the requested chromaticity space.
+        return self.convert_chromaticity('xyz', cspace, coords, white=white)
 
     @classmethod
     def chromaticity(
@@ -1191,7 +1191,7 @@ class Color(metaclass=ColorMeta):
         """Create a discrete interpolation."""
 
         # If no steps were provided, use the number of colors provided
-        num = sum((not callable(c) or not isinstance(c, interpolate.stop)) for c in colors) if steps is None else steps
+        num = sum(not callable(c) for c in colors) if steps is None else steps
         i = cls.interpolate(colors, space=space, **interpolate_args)
         # Convert the interpolation into a discretized interpolation with the requested number of steps
         i = i.discretize(num, max_steps, max_delta_e, delta_e, delta_e_args)
@@ -1258,8 +1258,8 @@ class Color(metaclass=ColorMeta):
         out_space: str | None = None,
         method: str | None = None,
         premultiplied: bool = True,
-        carryforward: bool = False,
-        powerless: bool = False,
+        carryforward: bool | None = None,
+        powerless: bool | None = None,
         hue: str = 'shorter',
         **kwargs: Any
     ) -> Self:
@@ -1272,8 +1272,8 @@ class Color(metaclass=ColorMeta):
             weights,
             space,
             premultiplied,
-            carryforward,
-            powerless,
+            carryforward if carryforward is not None else cls.CARRYFORWARD,
+            powerless if powerless is not None else cls.POWERLESS,
             hue,
             **kwargs
         )
@@ -1292,7 +1292,7 @@ class Color(metaclass=ColorMeta):
         space: str | None = None,
         out_space: str | None = None,
         premultiplied: bool = True,
-        carryforward: bool | None = False,
+        carryforward: bool | None = None,
         **kwargs: Any
     ) -> Self:
         """Average the colors."""
@@ -1369,7 +1369,9 @@ class Color(metaclass=ColorMeta):
 
         if isinstance(operator, bool):
             o = 'source-over' if operator else None
-            warn_deprecated("The use of boolean values for 'blend' has been deprecated, please use a specific mode")
+            warn_deprecated(
+                "The use of boolean values for 'operator' has been deprecated, please use a specific operator"
+            )
         else:
             o = operator
 
@@ -1670,7 +1672,7 @@ class Color(metaclass=ColorMeta):
         value = self[-1] if nans else self._space.resolve_channel(-1, self._coords)
         if precision is None:
             return value
-        return alg.round_to(value, precision, self.ROUNDING if rounding is None else rounding) if precision else value
+        return alg.round_to(value, precision, self.ROUNDING if rounding is None else rounding)
 
 
 Color.register(

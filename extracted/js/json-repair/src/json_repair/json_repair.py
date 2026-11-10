@@ -136,6 +136,11 @@ def repair_json(
     if schema is not None and strict:
         raise ValueError("schema and strict cannot be used together.")
 
+    # Repair requires random access; buffer streams that cannot be rewound.
+    if json_fd is not None and not json_fd.seekable():
+        json_str = json_fd.read()
+        json_fd = None
+
     parser: JSONParser | None = None
     repair_log: list[dict[str, str]] = []
     # ``skip_json_loads`` only skips the initial whole-input validation.  Once
@@ -159,6 +164,11 @@ def repair_json(
         if schema_obj is not None
         else None
     )
+    if repairer is not None and isinstance(schema_obj, dict):
+        try:
+            repairer._get_root_validator()
+        except RecursionError as exc:
+            raise ValueError("Input schema nesting exceeds the supported schema recursion depth.") from exc
 
     # Fast path for valid JSON: schema-aware mode still applies repair+validation.
     parsed_json: JSONReturnType = None
@@ -220,8 +230,8 @@ def repair_json(
         return parsed_json, repair_log
     if return_objects:
         return parsed_json
-    # Avoid returning only a pair of quotes if it's an empty string
-    if parsed_json == "":
+    # Preserve the empty result used when repair could not find a value.
+    if parsed_json == "" and not is_valid_json:
         return ""
     return json.dumps(parsed_json, **json_dumps_args)
 

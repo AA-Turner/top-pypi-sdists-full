@@ -405,9 +405,11 @@ _SIZE_RANGE = {"cpu": (0.125, 64.0, 64.0), "memory": (0.125, 336.0, 336.0)}
 def _size(kw: dict[str, Any], name: str) -> tuple[float | None, float | None]:
     """cpu= (cores) / memory= (GiB) as (request, limit): a number is the request, `(request, limit)` adds a hard cap.
 
-    Without a limit the worker may use more than it requested; either way CPU and memory are billed per second on the
-    greater of the request and actual use. Undeclared → (None, None): the platform requests its minimum, 0.125 cores
-    and 0.125 GiB — never a guessed 8 / 32 that every worker would pay for."""
+    Without a limit the worker may use more than it requested. A policy's worker is billed its whole machine's CPU and
+    memory, one that holds at least this; a benchmark's machine the greater of the request and actual use where it
+    shares a machine, its request on one of its own. Undeclared →
+    (None, None): the platform requests its minimum, 0.125 cores and 0.125 GiB — never a guessed 8 / 32 that every
+    worker would pay for."""
     v = kw.get(name)
     if v is None:
         return None, None

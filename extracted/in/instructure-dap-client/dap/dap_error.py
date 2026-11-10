@@ -5,16 +5,39 @@ from typing import Any, Literal, Optional
 from strong_typing.schema import json_schema_type
 
 
+class DAPClientError(RuntimeError):
+    """
+    Raised when the client itself cannot carry out a request, as opposed to the
+    server rejecting one. Covers missing or invalid configuration, malformed
+    arguments, and unparsable responses.
+    """
+
+
+class DownloadError(DAPClientError):
+    """
+    Raised when fetching a resource payload fails, either because the host
+    rejected the request or because the downloaded data cannot be stored.
+    """
+
+    def __init__(self, response_str: str) -> None:
+        super().__init__(f"download error: {response_str}")
+
+
 @json_schema_type
 @dataclass
 class ServerError(Exception):
     """
-    An error returned by the server.
+    An error returned by the server that doesn't match any known error shape.
 
+    :param status_code: The HTTP status code of the response.
     :param body: Unspecified content returned by the server.
     """
 
+    status_code: int
     body: Any
+
+    def __str__(self) -> str:
+        return f"Server responded with HTTP status {self.status_code}: {self.body!r}"
 
 
 @json_schema_type
@@ -40,6 +63,60 @@ class AuthenticationError(OperationError):
     """
     Raised when the client fails to provide valid authentication credentials.
     """
+
+
+@dataclass
+class OAuthTokenError(Exception):
+    """
+    Raised when the OAuth2 token endpoint rejects a token request (e.g. an
+    invalid client ID or secret). Distinct from AuthenticationError: this
+    reports the OAuth2 token issuer's own error shape (RFC 6749 SS5.2), not
+    the DAP API's error shape.
+
+    :param error: The OAuth2 error code (e.g. "invalid_client").
+    :param error_description: Optional human-readable detail from the token issuer.
+    """
+
+    error: str
+    error_description: Optional[str] = None
+
+    def __str__(self) -> str:
+        if self.error_description:
+            return f"{self.error}: {self.error_description}"
+        return self.error
+
+    def describe(self) -> str:
+        """
+        Returns a user-friendly message for the error. For `invalid_client`, it
+        replaces the issuer's report, which the token request logs as a warning.
+        """
+        if self.error == "invalid_client":
+            return "Authentication failed. Check the client ID and secret, and the API base URL."
+        return str(self)
+
+
+@dataclass
+class TableAccessNotGrantedError(Exception):
+    """
+    Raised when the token issuer's granted `authorization_details` does not
+    contain the table access that was requested. Guards against silently
+    trusting a token whose actual grant doesn't match what was asked for.
+
+    :param requested: The requested table access, as `namespace/table`.
+    """
+
+    requested: str
+
+    def __str__(self) -> str:
+        return f"Requested access to '{self.requested}' was not granted by the token issuer."
+
+
+class AuthorizationFailedError(OperationError):
+    """
+    Raised when the client fails to obtain the necessary authorization.
+    """
+
+    type: Literal["AuthorizationFailed"]
 
 
 class AccountNotOnboardedError(OperationError):

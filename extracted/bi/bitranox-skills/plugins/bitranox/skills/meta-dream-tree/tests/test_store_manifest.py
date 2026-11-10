@@ -543,3 +543,228 @@ def test_a_usage_error_without_json_prints_no_envelope():
     proc = _usage_run("backup")
     assert proc.returncode == 2
     assert proc.stdout == "" and "usage:" in proc.stderr
+
+
+# ---- the cost report: per-level block state, backup copy against the live file ----------------
+
+def make_siblings(root: Path) -> tuple[Path, Path]:
+    """An anchor with an empty top block and two sibling levels that each hold a copy of one slug:
+    the shape a dream lift merges into one top copy."""
+    (root / "CLAUDE.md").write_text("anchor\n", encoding="utf-8")
+    (root / ".claude-memory" / "facts").mkdir(parents=True)
+    (root / ".claude-memory" / "facts" / "shared.md").write_text("body\n", encoding="utf-8")
+    (root / ".claude-memory" / "facts" / "own-a.md").write_text("body a\n", encoding="utf-8")
+    (root / "CLAUDE.local.md").write_text("# Memory index\n", encoding="utf-8")
+    sib_a, sib_b = root / "a", root / "b"
+    for sib, extra in ((sib_a, "- [Own](mem:own-a) - When own, do own.\n"), (sib_b, "")):
+        sib.mkdir()
+        (sib / "CLAUDE.local.md").write_text(
+            "# Memory index\n- [Shared](mem:shared) - When shared, do shared.\n" + extra,
+            encoding="utf-8")
+    return sib_a, sib_b
+
+
+def test_backup_copies_a_level_whose_block_holds_no_pointer(tmp_path):
+    """Its bytes before are what the cost report subtracts from when the run adds a pointer."""
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    assert (out / "levels" / "CLAUDE.local.md").is_file()
+    data = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert str(tmp_path) in data["levels"]
+
+
+def test_a_manifest_whose_levels_is_not_a_list_of_strings_is_refused(tmp_path):
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    manifest = out / "manifest.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    data["levels"] = "not a list"
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    r = run_cli(["verify", "--out", str(out)], tmp_path)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "'levels' is not a list of strings" in r.stdout + r.stderr
+
+
+def test_scope_levels_is_the_set_derive_walks(tmp_path):
+    sib_a, sib_b = make_siblings(tmp_path)
+    tree = SM.scope_levels(tmp_path, scope="tree", start=tmp_path)
+    chain = SM.scope_levels(tmp_path, scope="chain", start=sib_a)
+    assert sorted(tree) == sorted([tmp_path, sib_a, sib_b])
+    assert sorted(chain) == sorted([tmp_path, sib_a])
+
+
+def cost_rows(stdout: str) -> dict[str, dict]:
+    return {row["level"]: row for row in json.loads(stdout)["data"]["levels"]}
+
+
+def test_a_merge_lift_arrives_at_the_top_and_leaves_both_siblings(tmp_path):
+    """Two sibling copies of one slug merged into one top copy is an add plus two removes to the
+    diff; the cost report must show it as state: ARRIVED at the top, LEFT at each sibling."""
+    sib_a, sib_b = make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    (tmp_path / "CLAUDE.local.md").write_text(
+        "# Memory index\n- [Shared](mem:shared) - When shared, do shared.\n", encoding="utf-8")
+    sib_a.joinpath("CLAUDE.local.md").write_text(
+        "# Memory index\n- [Own](mem:own-a) - When own, do own.\n", encoding="utf-8")
+    sib_b.joinpath("CLAUDE.local.md").write_text("# Memory index\n", encoding="utf-8")
+    r = run_cli(["verify", "--out", str(out), "--json"], tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    rows = cost_rows(r.stdout)
+    top, a, b = rows[str(tmp_path)], rows[str(sib_a)], rows[str(sib_b)]
+    assert (top["arrived"], top["left"]) == (["shared"], [])
+    assert (top["pointers_before"], top["pointers_after"]) == (0, 1)
+    assert top["bytes_after"] > top["bytes_before"]
+    assert (a["arrived"], a["left"], a["pointers_after"]) == ([], ["shared"], 1)
+    assert (b["arrived"], b["left"], b["pointers_after"]) == ([], ["shared"], 0)
+    assert b["bytes_after"] < b["bytes_before"]
+
+
+def test_the_levels_are_listed_top_first(tmp_path):
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    r = run_cli(["verify", "--out", str(out), "--json"], tmp_path)
+    levels = [row["level"] for row in json.loads(r.stdout)["data"]["levels"]]
+    assert levels[0] == str(tmp_path)
+    assert sorted(levels[1:]) == levels[1:] and len(levels) == 3
+
+
+def test_an_unchanged_level_is_omitted_from_the_text_but_kept_in_the_json(tmp_path):
+    sib_a, sib_b = make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    sib_b.joinpath("CLAUDE.local.md").write_text("# Memory index\n", encoding="utf-8")
+    text = run_cli(["verify", "--out", str(out)], tmp_path).stdout
+    cost_lines = [ln for ln in text.splitlines() if "  bytes " in ln]
+    assert len(cost_lines) == 1 and cost_lines[0].lstrip().startswith(str(sib_b))
+    assert str(sib_a) in cost_rows(run_cli(["verify", "--out", str(out), "--json"],
+                                           tmp_path).stdout)
+
+
+def test_an_untouched_tree_reports_no_changed_level_and_still_exits_0(tmp_path):
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    r = run_cli(["verify", "--out", str(out)], tmp_path)
+    assert r.returncode == 0
+    assert r.stdout.startswith("IDENTICAL") and "pointer blocks: no level changed" in r.stdout
+
+
+def test_a_backup_without_level_copies_reports_skipped_never_zero_bytes(tmp_path):
+    """A backup whose levels/ copies are gone (or that never had them) cannot know the bytes
+    before. A 0 there would read as a block that grew from nothing."""
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    shutil.rmtree(out / "levels")
+    r = run_cli(["verify", "--out", str(out), "--json"], tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr     # the exit code still answers "differs?"
+    env = json.loads(r.stdout)
+    assert all(row["bytes_before"] is None for row in env["data"]["levels"])
+    assert [row["pointers_before"] for row in env["data"]["levels"]] == [0, 2, 1]
+    assert any("block bytes before not known for 3 level(s)" in s for s in env["skipped"])
+    text = run_cli(["verify", "--out", str(out)], tmp_path).stdout
+    assert "block bytes before not known" in text
+
+
+def _as_an_old_manifest(out: Path) -> None:
+    """Reduce a fresh backup to what a manifest from before level copies holds: no `levels/`
+    copies and no recorded `levels` list."""
+    shutil.rmtree(out / "levels")
+    manifest = out / "manifest.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    del data["levels"]
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_an_identical_verify_on_an_old_manifest_lists_no_level_as_changed(tmp_path):
+    """Unknown bytes before are not a change: with no copy to compare against, every level read as
+    changed, and a dream reading the list explained moves that never happened. The skipped line
+    still names the levels whose bytes before are unknown."""
+    sib_a, sib_b = make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    _as_an_old_manifest(out)
+    r = run_cli(["verify", "--out", str(out)], tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.startswith("IDENTICAL"), r.stdout
+    assert "pointer blocks: no level changed" in r.stdout, r.stdout
+    assert not [ln for ln in r.stdout.splitlines() if "  bytes " in ln], r.stdout
+    env = json.loads(run_cli(["verify", "--out", str(out), "--json"], tmp_path).stdout)
+    unknown = [s for s in env["skipped"] if "block bytes before not known" in s]
+    assert len(unknown) == 1
+    for level in (tmp_path, sib_a, sib_b):
+        assert str(level) in unknown[0]
+
+
+def test_an_old_manifest_still_lists_a_level_whose_pointers_changed(tmp_path):
+    """Ignoring unknown bytes must not hide a level whose pointers moved: the pointer counts and
+    slugs come from the manifest entries, which every manifest has."""
+    _sib_a, sib_b = make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    _as_an_old_manifest(out)
+    sib_b.joinpath("CLAUDE.local.md").write_text("# Memory index\n", encoding="utf-8")
+    text = run_cli(["verify", "--out", str(out)], tmp_path).stdout
+    cost_lines = [ln for ln in text.splitlines() if "  bytes " in ln]
+    assert len(cost_lines) == 1 and cost_lines[0].lstrip().startswith(str(sib_b)), text
+    assert "bytes ? -> " in cost_lines[0]
+
+
+def test_the_unknown_bytes_message_names_both_causes(tmp_path):
+    """Two different backups give no bytes before: one whose level copy is missing or unreadable,
+    and one written before level copies existed. The message names both, so a reader does not go
+    looking for a lost copy that never was."""
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    _as_an_old_manifest(out)
+    env = json.loads(run_cli(["verify", "--out", str(out), "--json"], tmp_path).stdout)
+    line = next(s for s in env["skipped"] if "block bytes before not known" in s)
+    assert "holds no readable copy of them" in line
+    assert "the manifest predates level copies" in line
+
+
+def test_a_manifest_without_a_levels_list_cannot_prove_a_new_level_was_absent(tmp_path):
+    """A manifest written before the `levels` list existed knows only the levels it saw pointers
+    at; a level that has pointers now may have existed then with an empty block."""
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    manifest = out / "manifest.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    del data["levels"]
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    new = tmp_path / "c"
+    new.mkdir()
+    (new / "CLAUDE.local.md").write_text("# Memory index\n- [N](mem:n-slug) - When n, do n.\n",
+                                         encoding="utf-8")
+    env = json.loads(run_cli(["verify", "--out", str(out), "--json"], tmp_path).stdout)
+    row = {r["level"]: r for r in env["data"]["levels"]}[str(new)]
+    assert row["bytes_before"] is None and row["arrived"] == ["n-slug"]
+    assert any(str(new) in s for s in env["skipped"])
+
+
+def test_a_level_created_after_a_backup_with_a_levels_list_starts_from_zero(tmp_path):
+    """The recorded `levels` list proves the level did not exist, so 0 bytes before is a fact."""
+    make_siblings(tmp_path)
+    out = outside(tmp_path)
+    assert run_cli(["backup", "--from", str(tmp_path), "--out", str(out)], tmp_path).returncode == 0
+    new = tmp_path / "c"
+    new.mkdir()
+    (new / "CLAUDE.local.md").write_text("# Memory index\n- [N](mem:n-slug) - When n, do n.\n",
+                                         encoding="utf-8")
+    env = json.loads(run_cli(["verify", "--out", str(out), "--json"], tmp_path).stdout)
+    row = {r["level"]: r for r in env["data"]["levels"]}[str(new)]
+    assert row["bytes_before"] == 0 and row["bytes_after"] > 0
+    assert env["skipped"] == []
+
+
+def test_block_bytes_counts_the_managed_block_only():
+    block = ("<!-- BITRANOX-MEMORY-INDEX:BEGIN managed by bitranox self-improve; do not hand-edit."
+             " -->\n# Memory index\n<!-- BITRANOX-MEMORY-INDEX:END -->")
+    assert SM.block_bytes("hand-written prose\n\n" + block + "\n\nmore prose\n") == len(block)
+    assert SM.block_bytes("# Memory index\n") == len("# Memory index\n")   # no fences: whole text

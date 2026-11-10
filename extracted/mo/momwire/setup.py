@@ -731,6 +731,9 @@ _NEAR_HEADERS = [
     "src/momwire/_near_interface_point_core.h",
     # The SIMD lane layer (momwire#1372): the sheet's fixed-width cell sum.
     "src/momwire/_lanes.h",
+    # The crossing table (momwire#1860 L5), which this extension binds.
+    "src/momwire/_crossing_table_core.h",
+    "src/momwire/_crossing_table_inline.h",
 ] + sorted(glob.glob("extern/xsf/include/xsf/**/*.h", recursive=True))
 
 
@@ -840,6 +843,9 @@ for _suffix, _accel_args, _near_args in _VARIANTS:
             [
                 "src/momwire/_near_interface_accel.cpp",
                 "src/momwire/_near_interface_core.cpp",
+                # The crossing table (momwire#1860 L5): its own TU, so the
+                # twin's does not change.
+                "src/momwire/_crossing_table_core.cpp",
             ],
             depends=_NEAR_HEADERS,
             compile_args=_near_args,
@@ -877,6 +883,11 @@ setup(
     packages=[
         "momwire",
         "momwire.deck",
+        "momwire.dropin",
+        "momwire.dropin.nec2c",
+        "momwire.dropin.nec5",
+        # momwire#1831: the old names, kept importable as shims onto
+        # momwire.dropin for antennaknobs and the scripts.
         "momwire.eznec",
         "momwire.networks",
         "momwire.portal",

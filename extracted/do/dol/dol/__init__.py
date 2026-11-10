@@ -95,11 +95,16 @@ from dol.zipfiledol import (
     tar_decompress,
 )
 
+from dol.gitignore import (
+    gitignore_matcher,
+)  # key filter: .gitignore lines by git's rules
+
 from dol.filesys import (
     Files,  # read-write-delete access to files; relative paths, bytes values
     FilesReader,  # read-only version of LocalFiles,
     TextFiles,  # read-write-delete access to text files; relative paths, str values
     ensure_dir,  # function to create a directory, if missing
+    dir_made,  # context manager: make dirs for a write, unmake them if it fails
     mk_dirs_if_missing,  # store deco to create directories on write, when missing
     MakeMissingDirsStoreMixin,  # Mixin to enable auto-dir-making on write
     resolve_path,  # to get a full path (resolve ~ and .),
@@ -119,6 +124,9 @@ from dol.atomic import atomic_write  # crash-safe file write (temp file + os.rep
 from dol.atomic import (
     atomic_delete,
 )  # unlink, retried like atomic_write (dol.atomic.Retry)
+from dol.atomic import (
+    write_content_addressed,
+)  # atomic write named by the content's hash
 from dol.atomic import file_lock, FileLock  # cross-process advisory lock (sidecar file)
 from dol.atomic import LockedAppender  # lock-held appends that follow a replaced file
 from dol.atomic import interrupted_writes  # temps left by killed atomic writes

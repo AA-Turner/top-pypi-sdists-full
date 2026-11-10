@@ -1,7 +1,8 @@
 Metadata-Version: 2.5
 Name: python-backoff
-Version: 3.0.0
-Summary: Function decoration for backoff and retry
+Version: 3.1.0
+Import-Name: backoff
+Summary: Function decoration and context managers for backoff and retry
 Project-URL: Documentation, https://python-backoff.github.io/backoff
 Project-URL: Repository, https://github.com/python-backoff/backoff
 Author-email: Bob Green <rgreen@aquent.com>
@@ -21,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: 3.16
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
@@ -39,9 +41,11 @@ backoff
 .. image:: https://img.shields.io/github/license/python-backoff/backoff
     :target: https://github.com/python-backoff/backoff/blob/main/LICENSE
 
+*Note: this is an actively maintained fork of https://github.com/litl/backoff.*
+
 **Function decoration for backoff and retry**
 
-This module provides function decorators which can be used to wrap a
+This library provides function decorators which can be used to wrap a
 function such that it will be retried until some condition is met. It
 is meant to be of use when accessing unreliable resources with the
 potential for intermittent failures i.e. network resources and external
@@ -51,6 +55,8 @@ polling resources for externally generated content.
 Decorators support both regular functions for synchronous code and
 `asyncio <https://docs.python.org/3/library/asyncio.html>`__'s coroutines
 for asynchronous code.
+
+Context managers are also available to enable retries of arbitrary code blocks.
 
 Examples
 ========
@@ -182,7 +188,7 @@ The ``on_predicate`` decorator is used to retry when a particular
 condition is true of the return value of the target function.  This may
 be useful when polling a resource for externally generated content.
 
-Here's an example which uses a fibonacci sequence backoff when the
+Here's an example which uses a Fibonacci sequence backoff when the
 return value of the target function is the empty list:
 
 .. code-block:: python

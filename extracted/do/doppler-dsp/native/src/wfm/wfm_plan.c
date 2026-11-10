@@ -140,10 +140,11 @@ copy_source_arrays (wfm_source_t *dst, const wfm_source_t *src)
   dst->data_code.bits = NULL;
   if (src->symbols && src->n_symbols)
     {
-      size_t nbytes = src->n_symbols * sizeof *src->symbols;
-      if (!(dst->symbols = malloc (nbytes)))
+      size_t n = src->n_symbols;
+      if (!(dst->symbols = dp_mallocn (n, sizeof *dst->symbols)))
         return -1;
-      memcpy (dst->symbols, src->symbols, nbytes);
+      for (size_t i = 0; i < n; i++)
+        dst->symbols[i] = src->symbols[i];
     }
   if (src->acq_code.bits && src->acq_code.len)
     if (!(dst->acq_code.bits = dup_u8 (src->acq_code.bits, src->acq_code.len)))
@@ -263,7 +264,7 @@ add_noise (dp_wfm_synth_state_t *syn, float _Complex *out, size_t n,
 {
   if (n == 0)
     return;
-  float _Complex *tmp = malloc (n * sizeof *tmp);
+  float _Complex *tmp = dp_mallocn (n, sizeof *tmp);
   if (!tmp)
     return;
   dp_wfm_synth_noise_steps (syn, tmp, n);
@@ -314,7 +315,7 @@ plan_feed (void *ctx, float _Complex *dst, size_t n, int signal)
     {
       if (f->tmp_cap < n)
         {
-          f->tmp     = dp_xrealloc (f->tmp, n * sizeof *f->tmp);
+          f->tmp     = dp_xreallocn (f->tmp, n, sizeof *f->tmp);
           f->tmp_cap = n;
         }
       dp_wfm_synth_noise_steps (f->noise, f->tmp, n);
@@ -348,7 +349,7 @@ render_doppler_source (const wfm_source_t *d, double fs, double doppler,
   float _Complex *y = NULL;
   if (r)
     {
-      y = dp_xmalloc (out_len * sizeof *y);
+      y = dp_xmallocn (out_len, sizeof *y);
       dp_wfm_render_steps (r, y, out_len);
       dp_wfm_render_destroy (r);
     }
@@ -537,7 +538,7 @@ materialize_instance (const mat_ctx_t *m, size_t si, size_t inst, size_t pos,
   if (ps->dop)
     {
       y           = dp_xcalloc (ps->n_sig, sizeof *y);
-      size_t *kks = dp_xmalloc (ps->n_sig * sizeof *kks);
+      size_t *kks = dp_xmallocn (ps->n_sig, sizeof *kks);
       size_t  nk  = 0;
       for (size_t kk = 0; kk < ps->n_sig; kk++)
         if (ps->dop_k[kk] != DOP_NONE
@@ -689,7 +690,7 @@ materialize (const wfm_plan_t *p, const double *gains_db, const double *phases,
       if (ps->dop && !ps->chain && ps->repeats > 1
           && ps->num_samples * ps->repeats >= PLAN_RENDER_PARALLEL_MIN)
         {
-          size_t *starts = dp_xmalloc (ps->repeats * sizeof *starts);
+          size_t *starts = dp_xmallocn (ps->repeats, sizeof *starts);
           size_t  cur    = pos;
           for (size_t inst = 0; inst < ps->repeats; inst++)
             {
@@ -921,7 +922,10 @@ cache_build_one (size_t w, void *ctx)
   /* base_gain is a pure function of the source level — always cheap. */
   cw->p->base_gain[slot] = (float)pow (10.0, src->level / 20.0);
 
-  float _Complex *buf = malloc (cw->g->num_samples * sizeof *buf);
+  /* num_samples comes from the spec, which a restored blob carries: the
+     byte count is a checked product, and an overflow fails the build like
+     an OOM does. */
+  float _Complex *buf = dp_mallocn (cw->g->num_samples, sizeof *buf);
   if (!buf
       || render_source_into (cw->g, cw->ps, src, cw->loaded, slot, buf) != 0)
     {
@@ -1038,9 +1042,9 @@ fold_background (wfm_plan_t *p, const wfm_plan_segment_t *ps,
 
   /* Flatten the background prefix: source indices plus the gain each one
    * contributes at, baked in here because the composite carries no level. */
-  size_t *bg_idx = malloc (n_bg * sizeof *bg_idx);
-  float  *gain   = malloc (n_bg * sizeof *gain);
-  size_t  per    = n * sizeof *acc;
+  size_t *bg_idx = dp_mallocn (n_bg, sizeof *bg_idx);
+  float  *gain   = dp_mallocn (n_bg, sizeof *gain);
+  size_t  per    = dp_size_mul_sat (n, sizeof *acc); /* the budget's unit */
   size_t  grp    = WFM_PLAN_FOLD_BUDGET_BYTES / (per ? per : 1);
   if (grp == 0)
     grp = 1;
@@ -1051,7 +1055,7 @@ fold_background (wfm_plan_t *p, const wfm_plan_segment_t *ps,
   int rc = (bg_idx && gain && tmp) ? 0 : -1;
   for (size_t j = 0; rc == 0 && j < grp; j++)
     {
-      tmp[j] = malloc (per);
+      tmp[j] = dp_mallocn (n, sizeof *acc);
       if (!tmp[j])
         rc = -1;
     }
@@ -1132,8 +1136,8 @@ cache_segment_signals (wfm_plan_t *p, wfm_plan_segment_t *ps,
 {
   /* Flatten the foreground sources to work items with their distinct cache
    * slots (serial, O(n_sources), no DSP) so the heavy build can fan out. */
-  size_t *src_idx = malloc (g->n_sources * sizeof *src_idx);
-  size_t *slot    = malloc (g->n_sources * sizeof *slot);
+  size_t *src_idx = dp_mallocn (g->n_sources, sizeof *src_idx);
+  size_t *slot    = dp_mallocn (g->n_sources, sizeof *slot);
   if (!src_idx || !slot)
     {
       free (src_idx);
@@ -1155,7 +1159,7 @@ cache_segment_signals (wfm_plan_t *p, wfm_plan_segment_t *ps,
           if (!ps->dop)
             {
               ps->dop   = dp_xcalloc (ps->n_sig, sizeof *ps->dop);
-              ps->dop_k = dp_xmalloc (ps->n_sig * sizeof *ps->dop_k);
+              ps->dop_k = dp_xmallocn (ps->n_sig, sizeof *ps->dop_k);
               for (size_t i = 0; i < ps->n_sig; i++)
                 ps->dop_k[i] = DOP_NONE;
             }
@@ -1533,8 +1537,8 @@ dp_wfm_plan_render (const wfm_plan_t *p, const char *overrides_json,
           seed       = (uint64_t)sd->valuedouble;
           seed_given = 1;
         }
-      double *gbuf = malloc (p->n_sig * sizeof *gbuf);
-      double *pbuf = malloc (p->n_sig * sizeof *pbuf);
+      double *gbuf = dp_mallocn (p->n_sig, sizeof *gbuf);
+      double *pbuf = dp_mallocn (p->n_sig, sizeof *pbuf);
       if (gbuf && read_dbl_array (root, "gains", gbuf, p->n_sig))
         gains = gbuf;
       else
@@ -1546,7 +1550,7 @@ dp_wfm_plan_render (const wfm_plan_t *p, const char *overrides_json,
       const cJSON *en = cJSON_GetObjectItemCaseSensitive (root, "enable");
       if (en)
         {
-          int *ebuf = malloc (p->n_sig * sizeof *ebuf);
+          int *ebuf = dp_mallocn (p->n_sig, sizeof *ebuf);
           if (ebuf)
             {
               size_t       i = 0;
@@ -1724,9 +1728,13 @@ dp_wfm_plan_restore (const void *blob, size_t n)
   uint64_t hash, splen64;
   memcpy (&hash, q + 8, 8);
   memcpy (&splen64, q + 16, 8);
-  size_t splen = (size_t)splen64;
-  if (24 + splen + 8 > n)
+  /* The spec and the 8-byte signal count must both fit in the blob. Read
+   * as a subtraction from n (n >= 24 above), never as a sum: a forged
+   * splen64 near 2^64 made `24 + splen + 8` wrap small, pass, and copy
+   * splen bytes out of a blob that does not hold them. */
+  if (splen64 > (uint64_t)(n - 24) || (n - 24) - (size_t)splen64 < 8)
     return NULL;
+  size_t splen = (size_t)splen64;
 
   /* Embedded spec is NUL-terminated into a scratch copy for the parser. */
   char *spec = malloc (splen + 1);
@@ -1750,10 +1758,21 @@ dp_wfm_plan_restore (const void *blob, size_t n)
   const float _Complex **bufs      = NULL;
   int                    fp_ok     = (hash == (uint64_t)WFM_PLAN_DSP_HASH_U64);
   int                    layout_ok = 1;
-  if (n_sig > 0 && n_sig < (SIZE_MAX / sizeof (size_t)))
+  /* The table's two arrays are sized from a count the blob claims. Every
+   * entry takes at least its 8-byte length in the blob, so a count above
+   * what is left of the blob is a truncated or forged table: it is not
+   * trusted, and the Plan is rebuilt from the spec, as the loop below does
+   * for a table that runs out mid-way. That bound also keeps the count in a
+   * size_t, and the arrays are checked products (dp_mallocn), so nothing is
+   * sized from a wrapped value. A table that is not allocated leaves
+   * layout_ok 0: the fast path below never sees NULL arrays (#2962). */
+  const size_t left = n - (size_t)(r - q);
+  if (n_sig > 0 && n_sig > left / 8)
+    layout_ok = 0;
+  else if (n_sig > 0)
     {
-      lens = (size_t *)malloc ((size_t)n_sig * sizeof *lens);
-      bufs = (const float _Complex **)malloc ((size_t)n_sig * sizeof *bufs);
+      lens = dp_mallocn ((size_t)n_sig, sizeof *lens);
+      bufs = dp_mallocn ((size_t)n_sig, sizeof *bufs);
       if (!lens || !bufs)
         {
           free (lens);
@@ -1763,7 +1782,7 @@ dp_wfm_plan_restore (const void *blob, size_t n)
         }
       for (uint64_t k = 0; k < n_sig; k++)
         {
-          if ((size_t)(r - q) + 8 > n)
+          if (n - (size_t)(r - q) < 8)
             {
               layout_ok = 0;
               break;
@@ -1771,8 +1790,12 @@ dp_wfm_plan_restore (const void *blob, size_t n)
           uint64_t len;
           memcpy (&len, r, 8);
           r += 8;
-          size_t nbytes = (size_t)len * sizeof (float _Complex);
-          if ((size_t)(r - q) + nbytes > n)
+          /* A forged length must not wrap the byte count, nor the bound
+           * check: compare against what is left, never r + nbytes. */
+          size_t nbytes;
+          if (len > (uint64_t)(n - (size_t)(r - q))
+              || !dp_size_mul ((size_t)len, sizeof (float _Complex), &nbytes)
+              || nbytes > n - (size_t)(r - q))
             {
               layout_ok = 0;
               break;
@@ -1785,7 +1808,7 @@ dp_wfm_plan_restore (const void *blob, size_t n)
 
   /* Trust the buffers only when the DSP fingerprint AND the payload layout are
    * intact; otherwise rebuild from the (authoritative) embedded spec. */
-  if (fp_ok && layout_ok && n_sig > 0)
+  if (fp_ok && layout_ok && lens)
     {
       loaded.n    = (size_t)n_sig;
       loaded.lens = lens;

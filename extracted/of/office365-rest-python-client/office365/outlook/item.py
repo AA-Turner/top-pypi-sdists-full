@@ -2,24 +2,30 @@ from datetime import datetime
 from typing import Optional
 
 from office365.entity import Entity
+from office365.outlook.quotas import OUTLOOK_MAILBOX_BUDGETS
+from office365.runtime.limits import limit
 from office365.runtime.types.collections import StringCollection
-from office365.runtime.types.odata_property import odata
+from office365.runtime.types.odata_property import Compare, odata
 
 
+@limit(*OUTLOOK_MAILBOX_BUDGETS)
 class OutlookItem(Entity):
+    @odata(name="changeKey", readonly=True)
     @property
     def change_key(self) -> Optional[str]:
         """
         Identifies the version of the item. Every time the item is changed, changeKey changes as well.
         This allows Exchange to apply changes to the correct version of the object.
         """
-        return self.properties.get("ChangeKey", None)
+        return self.properties.get("changeKey", None)
 
+    @odata(name="categories", compare=Compare(unordered=True))
     @property
     def categories(self) -> StringCollection:
         """The categories associated with the item"""
         return self.properties.get("categories", StringCollection())
 
+    @odata(name="createdDateTime", readonly=True)
     @property
     def created_datetime(self) -> datetime:
         """
@@ -28,6 +34,7 @@ class OutlookItem(Entity):
         """
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="lastModifiedDateTime", readonly=True)
     @property
     def last_modified_datetime(self) -> datetime:
         """
@@ -36,13 +43,13 @@ class OutlookItem(Entity):
         """
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
-    @odata(name="createdDateTime")
+    @odata(name="createdDateTime", readonly=True)
     @property
     def created_date_time(self) -> datetime:
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
-    @odata(name="lastModifiedDateTime")
+    @odata(name="lastModifiedDateTime", readonly=True)
     @property
     def last_modified_date_time(self) -> datetime:
         """Gets the lastModifiedDateTime property"""

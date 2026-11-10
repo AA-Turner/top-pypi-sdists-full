@@ -92,7 +92,7 @@ class TestXmliter:
 
         for r in (
             # with bytes
-            XmlResponse(url="http://example.com", body=body.encode("utf-8")),
+            XmlResponse(url="http://example.com", body=body.encode()),
             # Unicode body needs encoding information
             XmlResponse(url="http://example.com", body=body, encoding="utf-8"),
         ):
@@ -423,7 +423,7 @@ class TestUtilsCsv:
         headers, body = sample[0].split(b","), b"\n".join(sample[1:])
 
         response = TextResponse(url="http://example.com/", body=body)
-        csv = csviter(response, headers=[h.decode("utf-8") for h in headers])
+        csv = csviter(response, headers=[h.decode() for h in headers])
 
         assert list(csv) == [
             {"id": "1", "name": "alpha", "value": "foobar"},
@@ -474,10 +474,10 @@ class TestUtilsCsv:
             {"id": "2", "name": "something", "value": "\xf1\xe1\xe9\xf3"},
         ]
 
-        response = TextResponse(url="http://example.com/", body=body2, encoding="cp852")
+        response = TextResponse(url="http://example.com/", body=body2, encoding="cp866")
         csv = csviter(response)
         assert list(csv) == [
-            {"id": "1", "name": "cp852", "value": "test"},
+            {"id": "1", "name": "cp866", "value": "test"},
             {
                 "id": "2",
                 "name": "something",
@@ -488,7 +488,7 @@ class TestUtilsCsv:
 
 class TestBodyOrStr:
     bbody = b"utf8-body"
-    ubody = bbody.decode("utf8")
+    ubody = bbody.decode()
 
     @pytest.mark.parametrize(
         "obj",

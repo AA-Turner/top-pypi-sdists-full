@@ -5,8 +5,10 @@
 
 import abc
 import importlib.metadata
+import os
 import os.path
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -16,10 +18,7 @@ import uuid
 def get_hooks():
     hook_prefix = "pyperf.hook"
     entry_points = importlib.metadata.entry_points()
-    if sys.version_info[:2] < (3, 10):
-        group = entry_points[hook_prefix]
-    else:
-        group = entry_points.select(group=hook_prefix)
+    group = entry_points.select(group=hook_prefix)
     return group
 
 
@@ -27,18 +26,18 @@ def get_hook_names():
     return (x.name for x in get_hooks())
 
 
-def get_selected_hooks(hook_names):
+def get_selected_hooks(hook_names, hooks=None):
     if hook_names is None:
         return
 
-    hook_mapping = {hook.name: hook for hook in get_hooks()}
+    hook_mapping = {hook.name: hook for hook in get_hooks() + tuple(hooks or ())}
     for hook_name in hook_names:
         yield hook_mapping[hook_name]
 
 
-def instantiate_selected_hooks(hook_names):
+def instantiate_selected_hooks(hook_names, hooks=None):
     hook_managers = {}
-    for hook in get_selected_hooks(hook_names):
+    for hook in get_selected_hooks(hook_names, hooks):
         try:
             hook_managers[hook.name] = hook.load()()
         except HookError as e:
@@ -168,3 +167,84 @@ class perf_record(HookBase):
         self.ctl_fd.write(f"{cmd}\n")
         self.ctl_fd.flush()
         self.ack_fd.readline()
+
+
+class tachyon(HookBase):
+    """Profile the benchmark using sampling profiler (Tachyon).
+
+    The value of the `PYPERF_TACHYON_OPTS` environment variable is
+    appended to the `profiling.sampling attach` command line.
+
+    This hook does not generate output filenames. Use -o or --output in
+    `PYPERF_TACHYON_OPTS` to control output. For most formats, -o can
+    point at an existing directory and the profiler will auto-generate a
+    filename inside it.
+
+    Configuration environment variables:
+        PYPERF_TACHYON_OPTS: Extra arguments passed to
+            `python -m profiling.sampling attach`.
+    """
+
+    def __init__(self):
+        if sys.platform == "win32":
+            raise HookError("tachyon hook is not supported on Windows")
+
+        if sys.version_info < (3, 15):
+            raise HookError(
+                "tachyon hook requires Python 3.15+, "
+                "current version: %s.%s"
+                % (sys.version_info.major, sys.version_info.minor)
+            )
+
+        try:
+            import profiling.sampling  # noqa: F401
+        except ImportError:
+            raise HookError("profiling.sampling module not available")
+
+        self.extra_opts = os.environ.get("PYPERF_TACHYON_OPTS", "")
+
+        self._proc = None
+
+    def __enter__(self):
+        if self._proc is not None:
+            self._stop_profiler()
+
+        cmd = [
+            sys.executable,
+            "-m", "profiling.sampling",
+            "attach",
+            str(os.getpid()),
+        ]
+        cmd += shlex.split(self.extra_opts)
+
+        self._proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def __exit__(self, _exc_type, _exc_value, _traceback):
+        self._stop_profiler()
+
+    def _stop_profiler(self):
+        if not self._proc:
+            return
+
+        if self._proc.poll() is None:
+            self._proc.send_signal(signal.SIGINT)
+            try:
+                self._proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                self._proc.terminate()
+                try:
+                    self._proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self._proc.kill()
+                    self._proc.wait()
+
+        self._proc = None
+
+    def teardown(self, metadata):
+        self._stop_profiler()
+        if self.extra_opts:
+            metadata["tachyon_extra_opts"] = self.extra_opts

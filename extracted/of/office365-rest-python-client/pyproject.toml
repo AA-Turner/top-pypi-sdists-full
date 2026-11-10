@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.9,<0.13" ]
 
 [project]
 name = "office365-rest-python-client"
-version = "3.3.0"
+version = "3.3.1"
 description = "Microsoft 365 & Microsoft Graph Library for Python"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -116,9 +116,9 @@ docs = [
 # The package still declares `requires-python >=3.8` (see [project]) so this
 # does not change what consumers may install; it only keeps the universal
 # lockfile from retaining unpatched pins that can no longer be upgraded on
-# EOL interpreters (3.8/3.9). Remove this once requires-python is raised
-# (planned for 4.0).
-environments = [ "python_full_version >= '3.10'" ]
+# EOL interpreters (3.8/3.9, and 3.10 since 2026-10-31). Remove this once
+# requires-python is raised (planned for 4.0).
+environments = [ "python_full_version >= '3.11'" ]
 build-backend.module-name = "office365"
 build-backend.module-root = ""
 
@@ -155,5 +155,9 @@ lint.pylint.max-statements = 60
 
 [tool.pyright]
 pythonVersion = "3.8"
-include = [ "office365" ]
-extraPaths = [ ".venv/lib/python3.11/site-packages" ]
+# Third-party imports resolve from the project venv, so the optional extras have to
+# be installed (`uv sync --all-extras`, see README-dev.md). A hardcoded
+# `.venv/lib/python3.11/site-packages` used to sit here and pointed at nothing.
+venv = ".venv"
+venvPath = "."
+include = [ "generator", "office365" ]

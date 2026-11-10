@@ -11,41 +11,48 @@ The two ``tenant_*`` values select the same storage as their plain forms: the
 tenant scope is in the presence KEY, which ``PresenceMixin`` /
 ``TenantMixin`` prefix with ``tenant:<id>:`` whichever order they are listed
 in (#2973). Before #2973 ``tenant_redis`` silently became the per-process
-memory backend. Any other value still falls back to memory, with a warning
-here and the ``djust.C019`` system check at startup.
+memory backend. Any other value raises ``ImproperlyConfigured`` (and the
+``djust.C019`` system check reports it at startup): a typo must not turn
+cross-process presence into per-process memory without anyone noticing.
 """
-
-import logging
 
 from typing import cast
 
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import PresenceBackend
 from ..utils import BackendRegistry
-
-logger = logging.getLogger(__name__)
 
 #: Every ``PRESENCE_BACKEND`` value the registry understands.
 KNOWN_PRESENCE_BACKENDS = ("memory", "redis", "tenant_memory", "tenant_redis")
 
 
+def check_presence_backend_type(backend_type: object) -> None:
+    """Raise ``ImproperlyConfigured`` for a ``PRESENCE_BACKEND`` value djust does not know."""
+    if backend_type not in KNOWN_PRESENCE_BACKENDS:
+        raise ImproperlyConfigured(
+            "Unknown DJUST_CONFIG['PRESENCE_BACKEND'] value %r. Use one of: %s."
+            % (backend_type, ", ".join(KNOWN_PRESENCE_BACKENDS))
+        )
+
+
 def _create_presence_backend(backend_type: str, config: dict) -> PresenceBackend:
     """Factory that creates the appropriate presence backend from config."""
+    check_presence_backend_type(backend_type)
     if backend_type in ("redis", "tenant_redis"):
-        from .redis import RedisPresenceBackend
+        from .redis import RedisPresenceBackend, presence_cleanup_interval
 
         redis_url = config.get(
             "PRESENCE_REDIS_URL",
             config.get("REDIS_URL", "redis://localhost:6379/0"),
         )
         key_prefix = config.get("PRESENCE_REDIS_PREFIX", "djust:presence")
-        return RedisPresenceBackend(redis_url=redis_url, key_prefix=key_prefix)
+        return RedisPresenceBackend(
+            redis_url=redis_url,
+            key_prefix=key_prefix,
+            cleanup_interval=presence_cleanup_interval(config),
+        )
     else:
-        if backend_type not in KNOWN_PRESENCE_BACKENDS:
-            logger.warning(
-                "Unknown PRESENCE_BACKEND %r; using the in-memory backend (known values: %s).",
-                backend_type,
-                ", ".join(KNOWN_PRESENCE_BACKENDS),
-            )
         from .memory import InMemoryPresenceBackend
 
         return InMemoryPresenceBackend()

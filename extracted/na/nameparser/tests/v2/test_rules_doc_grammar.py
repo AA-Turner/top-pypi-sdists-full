@@ -63,6 +63,12 @@ def test_a_subject_example_parses() -> None:
     assert ex.subject == "bad-name-order" and ex.text == ""
 
 
+def test_a_field_name_may_hold_a_digit() -> None:
+    ex = parse_example_line('"a b c"  two_family_names  →  surname2="c"',
+                            "R10", 1)
+    assert ex is not None and ex.field == "surname2"
+
+
 def test_prose_is_no_example() -> None:
     assert parse_example_line("the thing is read.", "X1", 1) is None
 
@@ -73,6 +79,12 @@ def test_prose_is_no_example() -> None:
                  id="curly-quotes"),
     pytest.param('"a"  →  colour="x"', "not assertable",
                  id="unknown-field"),
+    # a digit in a field name parses since `surname2` (rules/R10), and
+    # an unknown one is still refused by name
+    pytest.param('"a"  →  given2="x"', "not assertable",
+                 id="unknown-field-with-a-digit"),
+    pytest.param('"a"  →  2given="x"', "does not parse",
+                 id="field-opening-with-a-digit"),
     pytest.param('"a"  →  family="x"  deviates: #1 (today: given="y")',
                  "differs from the asserted field", id="deviates-field"),
 ])
@@ -89,6 +101,11 @@ def test_registry_resolves_policies_and_gates() -> None:
     assert kind == "locale" and obj == "ru"
     kind, obj = resolve_annotation("[ja+segmenter]")
     assert kind == "gated_locale" and obj == "ja"
+    # a policy with a lexicon fragment (#959): the pair, the fragment's
+    # list not empty, so an example under it reads the list
+    kind, obj = resolve_annotation("two_family_names+es_given_names")
+    assert kind == "config"
+    assert isinstance(obj, tuple) and obj[1].given_names
     with pytest.raises(KeyError):
         resolve_annotation("no-such-annotation")
 

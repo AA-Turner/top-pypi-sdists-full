@@ -15,15 +15,19 @@ class JobType1RawFlowModulesItemMock:
     Attributes:
         enabled (Union[Unset, bool]): If true, return mock value instead of executing
         return_value (Union[Unset, Any]): Value to return when mocked
+        preview_only (Union[Unset, bool]): If true, the mock applies only to runs started as a flow preview (from the
+            editor, and every job under it, subflows included). Absent or false, it applies to every run.
     """
 
     enabled: Union[Unset, bool] = UNSET
     return_value: Union[Unset, Any] = UNSET
+    preview_only: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         enabled = self.enabled
         return_value = self.return_value
+        preview_only = self.preview_only
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -32,6 +36,8 @@ class JobType1RawFlowModulesItemMock:
             field_dict["enabled"] = enabled
         if return_value is not UNSET:
             field_dict["return_value"] = return_value
+        if preview_only is not UNSET:
+            field_dict["preview_only"] = preview_only
 
         return field_dict
 
@@ -42,9 +48,12 @@ class JobType1RawFlowModulesItemMock:
 
         return_value = d.pop("return_value", UNSET)
 
+        preview_only = d.pop("preview_only", UNSET)
+
         job_type_1_raw_flow_modules_item_mock = cls(
             enabled=enabled,
             return_value=return_value,
+            preview_only=preview_only,
         )
 
         job_type_1_raw_flow_modules_item_mock.additional_properties = d

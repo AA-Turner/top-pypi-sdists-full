@@ -48,6 +48,11 @@ class PresetUnits:
     noun: str = "export"
     # Detect's lines where the base prints its own (default: ``found_lines``).
     describe_found: Callable[[dict], list[str]] | None = None
+    # The checkpoint camera slots a custom robot (`--preset custom --camera key=slot`) names,
+    # both arms kept; empty: the preset's robot only.
+    custom_cameras: tuple[str, ...] = ()
+    # The rows a robot executes per chunk when the export doesn't say (default: the chunk).
+    default_executed: int | None = None
 
     @property
     def trained(self) -> bool:
@@ -63,16 +68,25 @@ class PresetUnits:
             "robot_line": self.robot_line, "shows_rtc": self.trained,
             "set_rtc": self.set_rtc if self.trained else None, "detects_as_base": True,
             "found_lines": self.describe_found or self.found_lines, "create": self.create,
+            **({"create_official": self.create_official} if self.custom_cameras else {}),
         }
 
     # --- rows ---------------------------------------------------------------------------------
+
+    def robot_name(self, spec: dict) -> str:
+        """The preset's label, or a custom robot's cameras (it isn't the preset's robot)."""
+        if self.custom_cameras and spec.get("preset") == "custom":
+            keys = ", ".join(c.get("key", "?") for c in spec.get("cameras") or ())
+            return f"custom robot ({keys})" if keys else "custom robot"
+        return self.preset_label
 
     def robot_line(self, checkpoint: dict) -> str:
         """`<title> · <robot> · 25 of 50 actions at 30 Hz · RTC trained (…)`."""
         spec = checkpoint.get("embodiment") or {}
         executed = spec.get("executed_actions")
-        parts = [self.title or self.label, self.preset_label,
-                 f"{executed or self.action_horizon} of {self.action_horizon} actions at "
+        parts = [self.title or self.label, self.robot_name(spec),
+                 f"{executed or self.default_executed or self.action_horizon} of "
+                 f"{self.action_horizon} actions at "
                  f"{cmd._hz(self.action_hz)} Hz"]
         if self.trained and checkpoint.get("rtc_method") and (
                 checkpoint.get("status") != "building"):
@@ -87,7 +101,7 @@ class PresetUnits:
                    else f"{self.action_dim}-value {self.action_space} actions")
         cameras = ", ".join(feature.replace("_", " ") for _, feature in self.cameras)
         lines = [
-            f"{self.noun.capitalize()}: {checkpoint.get('path')}"
+            f"{self.noun.capitalize()}: {checkpoint.get('path') or 'the repository root'}"
             + (f" (step {step:,})" if isinstance(step, int) else ""),
             f"Robot: {self.preset_label} ({actions}; cameras {cameras}; "
             f"{cmd._hz(self.action_hz)} Hz)",
@@ -103,7 +117,7 @@ class PresetUnits:
     def run_add(self, *, repo: str, revision=None, name=None, hf_token=None, path=None,
                 executed=None, rtc=None, rtc_prefix=None, region="auto", wait=True,
                 keep_warm=None, slug=None, region_fallback=None, client_factory=None,
-                print_fn=print, sleep=time.sleep):
+                print_fn=print, sleep=time.sleep, robot: dict | None = None):
         """Read an export (a Hub repo or a local folder), pin the resolved commit, and deploy
         it on the preset's robot."""
         if client_factory is None:
@@ -140,6 +154,9 @@ class PresetUnits:
             raise cmd._invalid(f"the server did not read {article} {self.label} {self.noun}",
                                "update the SDK and retry")
         for line in (self.describe_found or self.found_lines)(found):
+            if robot and line.startswith("Robot: "):
+                # Detect reads the export; the robot is the create's declaration.
+                line = f"Robot: {self.robot_name(robot)} (declared)"
             print_fn(line)
         if self.trained:
             trained = (found.get("rtc") or {}).get("trained_max_delay") or 0
@@ -151,7 +168,7 @@ class PresetUnits:
                 )
         else:
             method = "off"
-        embodiment: dict = {"preset": self.preset}
+        embodiment: dict = dict(robot) if robot else {"preset": self.preset}
         if executed is not None:
             embodiment["executed_actions"] = executed
         source = found.get("request") or {}
@@ -180,7 +197,11 @@ class PresetUnits:
                region_fallback=None) -> None:
         """`deployments create --base <its name>`: the options its robot leaves open."""
         allowed = ("path", "executed", "rtc") if self.trained else ("path", "executed")
+        allowed += ("arm",) if self.custom_cameras else ()
         unsupported = {key: value for key, value in given.items() if key not in allowed}
+        robot = self._custom_robot(preset, camera, given.get("arm"))
+        if robot is not None:
+            preset, camera = None, None
         if preset not in (None, self.preset) or camera or hz is not None or (
             steps is not None or joint_unit is not None
             or (not self.trained and rtc_prefix is not None)
@@ -198,9 +219,69 @@ class PresetUnits:
             repo=repo, revision=revision, name=name, hf_token=hf_token, path=path,
             executed=executed, rtc=rtc, rtc_prefix=rtc_prefix, region=region or cmd.AUTO_REGION,
             wait=wait, keep_warm=keep_warm, slug=slug, region_fallback=region_fallback,
+            robot=robot,
         )
         if result.get("status") == "failed":
             raise cli.typer.Exit(code=1)
+
+    def _custom_robot(self, preset, camera, arm) -> dict | None:
+        """A custom robot (`--preset custom --camera key=slot`, `--arm right` for one arm), or
+        None for the preset's."""
+        if arm is not None and (preset != "custom" or not self.custom_cameras):
+            raise cli.typer.BadParameter("--arm goes with --preset custom")
+        if arm not in (None, "right", "both"):
+            raise cli.typer.BadParameter(f"--arm is right (one arm) or both, not {arm!r}")
+        if preset != "custom" or not self.custom_cameras:
+            return None
+        return {"preset": "custom", "arms": ["right"] if arm == "right" else ["left", "right"],
+                "cameras": self._custom_cameras(camera)}
+
+    def create_official(self, *, official, preset, camera, given, rtc, name, region, wait,
+                        keep_warm, slug, region_fallback=None) -> None:
+        """`deployments create --base <its name> --official <checkpoint>`: one of its family's
+        own published checkpoints, from the server's copy (no download, no upload). A
+        fine-tune runs the robot it was trained for; the base runs `--preset`, or a custom
+        robot (`--preset custom --camera ... [--arm right]`)."""
+        unsupported = {key: value for key, value in given.items()
+                       if value is not None and key not in ("rtc", "arm")}
+        if unsupported:
+            raise cli.typer.BadParameter(
+                f"an official checkpoint takes only --preset, --camera, --arm, --rtc, --slug, "
+                f"--region and --keep-warm (not --{next(iter(unsupported)).replace('_', '-')})")
+        robot = self._custom_robot(preset, camera, given.get("arm"))
+        if robot is None and preset is not None:
+            if preset not in (self.preset, "custom"):
+                raise cli.typer.BadParameter(f"{self.label} runs the {self.preset_label} or "
+                                             "--preset custom")
+            robot = {"preset": self.preset}
+        if rtc not in (None, "off", "trained"):
+            raise cli.typer.BadParameter(f"{self.label} runs RTC off or trained")
+        result = {}
+        cli._run(
+            lambda **kwargs: result.update(cmd.run_add(**kwargs)),
+            repo=None, model=self.name, official=official, embodiment=robot, name=name,
+            rtc_method=rtc, region=region or cmd.AUTO_REGION, wait=wait, keep_warm=keep_warm,
+            slug=slug, region_fallback=region_fallback, shown=f"the official {official}",
+        )
+        if result.get("status") == "failed":
+            raise cli.typer.Exit(code=1)
+
+    def _custom_cameras(self, camera) -> list[dict]:
+        """`--camera key=slot`, one per camera the robot has (a slot it doesn't send is black)."""
+        slots = ", ".join(self.custom_cameras)
+        pairs = []
+        for item in camera or ():
+            key, sep, slot = str(item).partition("=")
+            if not sep or not key or slot not in self.custom_cameras:
+                raise cli.typer.BadParameter(
+                    f"--camera takes key=slot, the slot one of {slots} (got {item!r})")
+            pairs.append({"key": key, "feature": slot})
+        if not pairs or len({p["key"] for p in pairs}) != len(pairs) or len(
+                {p["feature"] for p in pairs}) != len(pairs):
+            raise cli.typer.BadParameter(
+                f"a custom {self.label} robot names each camera once: --camera key=slot for "
+                f"each of {slots} it has")
+        return pairs
 
     # --- `deployments rtc` --------------------------------------------------------------------
 

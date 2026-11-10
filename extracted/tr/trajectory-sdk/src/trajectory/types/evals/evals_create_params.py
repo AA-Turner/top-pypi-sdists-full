@@ -31,6 +31,8 @@ class EvalsCreateParams(TypedDict, total=False):
   """
   base_model_slug: (
     Literal[
+      "thinkingmachines/Inkling-2-Small",
+      "deepseek-ai/DeepSeek-V4.1-Flash",
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
       "Qwen/Qwen3.5-397B-A17B",
@@ -77,7 +79,7 @@ class EvalsCreateParams(TypedDict, total=False):
   """
   Evaluate the exact hosted checkpoint and pool of a ready deployment.
   """
-  task_split: Literal["test", "all"]
+  task_split: Literal["test", "train", "all"]
   """
-  Evaluate test tasks by default; all includes both test and train tasks.
+  Evaluate test tasks by default; train selects train tasks and all selects both.
   """

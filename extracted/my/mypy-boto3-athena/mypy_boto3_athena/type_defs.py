@@ -85,6 +85,8 @@ __all__ = (
     "CreatePreparedStatementInputTypeDef",
     "CreatePresignedNotebookUrlRequestTypeDef",
     "CreatePresignedNotebookUrlResponseTypeDef",
+    "CreateSystemTableConfigurationInputTypeDef",
+    "CreateSystemTableConfigurationOutputTypeDef",
     "CreateWorkGroupInputTypeDef",
     "CustomerContentEncryptionConfigurationTypeDef",
     "DataCatalogSummaryTypeDef",
@@ -97,6 +99,7 @@ __all__ = (
     "DeleteNamedQueryInputTypeDef",
     "DeleteNotebookInputTypeDef",
     "DeletePreparedStatementInputTypeDef",
+    "DeleteSystemTableConfigurationInputTypeDef",
     "DeleteWorkGroupInputTypeDef",
     "EncryptionConfigurationTypeDef",
     "EngineConfigurationOutputTypeDef",
@@ -142,6 +145,8 @@ __all__ = (
     "GetSessionResponseTypeDef",
     "GetSessionStatusRequestTypeDef",
     "GetSessionStatusResponseTypeDef",
+    "GetSystemTableConfigurationInputTypeDef",
+    "GetSystemTableConfigurationOutputTypeDef",
     "GetTableMetadataInputTypeDef",
     "GetTableMetadataOutputTypeDef",
     "GetWorkGroupInputTypeDef",
@@ -179,6 +184,9 @@ __all__ = (
     "ListQueryExecutionsOutputTypeDef",
     "ListSessionsRequestTypeDef",
     "ListSessionsResponseTypeDef",
+    "ListSystemTableStatusesInputPaginateTypeDef",
+    "ListSystemTableStatusesInputTypeDef",
+    "ListSystemTableStatusesOutputTypeDef",
     "ListTableMetadataInputPaginateTypeDef",
     "ListTableMetadataInputTypeDef",
     "ListTableMetadataOutputTypeDef",
@@ -234,6 +242,7 @@ __all__ = (
     "StopCalculationExecutionRequestTypeDef",
     "StopCalculationExecutionResponseTypeDef",
     "StopQueryExecutionInputTypeDef",
+    "SystemTableStatusTypeDef",
     "TableMetadataTypeDef",
     "TagResourceInputTypeDef",
     "TagTypeDef",
@@ -249,6 +258,8 @@ __all__ = (
     "UpdateNotebookInputTypeDef",
     "UpdateNotebookMetadataInputTypeDef",
     "UpdatePreparedStatementInputTypeDef",
+    "UpdateSystemTableConfigurationInputTypeDef",
+    "UpdateSystemTableConfigurationOutputTypeDef",
     "UpdateWorkGroupInputTypeDef",
     "WorkGroupConfigurationOutputTypeDef",
     "WorkGroupConfigurationTypeDef",
@@ -515,6 +526,10 @@ class DeletePreparedStatementInputTypeDef(TypedDict):
     WorkGroup: str
 
 
+class DeleteSystemTableConfigurationInputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+
+
 class DeleteWorkGroupInputTypeDef(TypedDict):
     WorkGroup: str
     RecursiveDeleteOption: NotRequired[bool]
@@ -654,6 +669,10 @@ class GetSessionStatusRequestTypeDef(TypedDict):
     SessionId: str
 
 
+class GetSystemTableConfigurationInputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+
+
 class GetTableMetadataInputTypeDef(TypedDict):
     CatalogName: str
     DatabaseName: str
@@ -764,6 +783,16 @@ class ListSessionsRequestTypeDef(TypedDict):
     StateFilter: NotRequired[SessionStateType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class ListSystemTableStatusesInputTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
+class SystemTableStatusTypeDef(TypedDict):
+    TableName: Literal["QUERY_EXECUTIONS"]
+    Enabled: bool
 
 
 class ListTableMetadataInputTypeDef(TypedDict):
@@ -909,6 +938,11 @@ class UpdatePreparedStatementInputTypeDef(TypedDict):
     Description: NotRequired[str]
 
 
+class UpdateSystemTableConfigurationInputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+    KmsKeyArn: NotRequired[str]
+
+
 class QueryExecutionStatusTypeDef(TypedDict):
     State: NotRequired[QueryExecutionStateType]
     StateChangeReason: NotRequired[str]
@@ -934,6 +968,14 @@ class CreatePresignedNotebookUrlResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateSystemTableConfigurationOutputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+    KmsKeyArn: str
+    CreatedAt: datetime
+    LastModifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetCalculationExecutionCodeResponseTypeDef(TypedDict):
     CodeBlock: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -953,6 +995,14 @@ class GetSessionEndpointResponseTypeDef(TypedDict):
     EndpointUrl: str
     AuthToken: str
     AuthTokenExpirationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetSystemTableConfigurationOutputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+    KmsKeyArn: str
+    CreatedAt: datetime
+    LastModifiedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1003,6 +1053,14 @@ class StopCalculationExecutionResponseTypeDef(TypedDict):
 
 class TerminateSessionResponseTypeDef(TypedDict):
     State: SessionStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateSystemTableConfigurationOutputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+    KmsKeyArn: str
+    CreatedAt: datetime
+    LastModifiedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1117,6 +1175,13 @@ CreateDataCatalogInputTypeDef = TypedDict(
         "Tags": NotRequired[Sequence[TagTypeDef]],
     },
 )
+
+
+class CreateSystemTableConfigurationInputTypeDef(TypedDict):
+    TableName: Literal["ALL"]
+    ClientRequestToken: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
@@ -1265,6 +1330,10 @@ class ListQueryExecutionsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListSystemTableStatusesInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTableMetadataInputPaginateTypeDef(TypedDict):
     CatalogName: str
     DatabaseName: str
@@ -1300,6 +1369,12 @@ class ListNotebookSessionsResponseTypeDef(TypedDict):
 
 class ListPreparedStatementsOutputTypeDef(TypedDict):
     PreparedStatements: list[PreparedStatementSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListSystemTableStatusesOutputTypeDef(TypedDict):
+    Items: list[SystemTableStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1454,6 +1529,7 @@ class WorkGroupConfigurationOutputTypeDef(TypedDict):
     QueryResultsS3AccessGrantsConfiguration: NotRequired[
         QueryResultsS3AccessGrantsConfigurationTypeDef
     ]
+    SystemTableStatuses: NotRequired[list[SystemTableStatusTypeDef]]
 
 
 class QueryRuntimeStatisticsTypeDef(TypedDict):
@@ -1509,6 +1585,7 @@ class WorkGroupConfigurationTypeDef(TypedDict):
     QueryResultsS3AccessGrantsConfiguration: NotRequired[
         QueryResultsS3AccessGrantsConfigurationTypeDef
     ]
+    SystemTableStatuses: NotRequired[Sequence[SystemTableStatusTypeDef]]
 
 
 class GetQueryResultsOutputTypeDef(TypedDict):

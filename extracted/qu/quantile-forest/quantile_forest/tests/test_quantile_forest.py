@@ -2,37 +2,40 @@
 
 import math
 import pickle
+import random
 import warnings
 from typing import Any
 
+import joblib
 import numpy as np
 import pytest
-import sklearn
+from scipy import sparse
 from scipy.stats import percentileofscore
 from sklearn import datasets
 from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
 from sklearn.ensemble._forest import _generate_sample_indices
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
+from sklearn.utils import get_tags
 from sklearn.utils._testing import (
     assert_allclose,
     assert_almost_equal,
     assert_array_almost_equal,
     assert_array_equal,
 )
-from sklearn.utils.fixes import parse_version
+from sklearn.utils.estimator_checks import check_sample_weights_not_an_array
 from sklearn.utils.validation import check_is_fitted
 
 from quantile_forest import ExtraTreesQuantileRegressor, RandomForestQuantileRegressor
+from quantile_forest._quantile_forest import _hash_X, _nanquantile_rows
 from quantile_forest._quantile_forest_fast import (
     calc_mean,
     calc_quantile,
     calc_quantile_rank,
     calc_weighted_mean,
     calc_weighted_quantile,
+    calc_weighted_quantile_rank,
 )
-
-sklearn_version = parse_version(sklearn.__version__)
 
 np.random.seed(0)
 
@@ -40,6 +43,58 @@ FOREST_REGRESSORS: dict[str, Any] = {
     "ExtraTreesQuantileRegressor": ExtraTreesQuantileRegressor,
     "RandomForestQuantileRegressor": RandomForestQuantileRegressor,
 }
+
+INVERTED_CDF_INTERPOLATIONS = ["inverted_cdf", "averaged_inverted_cdf"]
+INTERPOLATIONS = ["linear", "lower", "higher", "midpoint", "nearest"] + INVERTED_CDF_INTERPOLATIONS
+
+
+def get_unsampled_indices(est, estimator):
+    """Return the training indices left out of the bootstrap sample of a tree."""
+    return np.flatnonzero(est._get_unsampled_mask(estimator))
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, 3, None])
+def test_fit_preserves_python_random_state(name, max_samples_leaf):
+    """Leaf subsampling must not reseed the caller's Python random generator."""
+    original_state = random.getstate()
+    try:
+        random.seed(42)
+        expected_state = random.getstate()
+        X = np.arange(40, dtype=float).reshape(20, 2)
+        y = np.arange(20, dtype=float)
+        FOREST_REGRESSORS[name](
+            n_estimators=3,
+            max_depth=1,
+            max_samples_leaf=max_samples_leaf,
+            random_state=0,
+        ).fit(X, y)
+        assert random.getstate() == expected_state
+    finally:
+        random.setstate(original_state)
+
+
+def test_leaf_subsampling_keeps_seeded_selection():
+    """Use the same seeded shuffle while keeping the caller's state intact."""
+    indices = list(range(10))
+    random.Random(17).shuffle(indices)
+    expected = np.asarray(indices[:3]) + 1
+    original_state = random.getstate()
+    try:
+        leaf_counts, y_train_indices = RandomForestQuantileRegressor._get_y_train_leaves_slice(
+            bootstrap_indices=np.arange(1, 11).reshape(-1, 1),
+            X_leaves_bootstrap=np.ones(10, dtype=np.intp),
+            sample_weight=None,
+            leaf_subsample=True,
+            max_node_count=2,
+            max_samples_leaf=3,
+            random_state=17,
+        )
+        assert_array_equal(leaf_counts, [0, 3])
+        assert_array_equal(y_train_indices[0], expected)
+        assert random.getstate() == original_state
+    finally:
+        random.setstate(original_state)
 
 
 def check_regression_toy(name, weighted_quantile):
@@ -71,11 +126,23 @@ def check_regression_toy(name, weighted_quantile):
     )
     assert_allclose(y_pred, y_true)
 
-    # Check unaggregated quantile predictions.
+    # Check unaggregated quantile predictions. Each tree's leaf for the first
+    # test sample holds the targets 0 and 1, so each tree's quantiles are 0,
+    # 0.5, and 1, or 0.25, 0.5, and 0.75 with linear interpolation.
+    y_true = [[0.0, 0.5, 1.0], [2.0, 2.0, 2.0], [2.0, 2.0, 2.0]]
+    y_pred = est.predict(
+        y_test,
+        quantiles=quantiles,
+        weighted_quantile=weighted_quantile,
+        aggregate_leaves_first=False,
+    )
+    assert_allclose(y_pred, y_true)
+
     y_true = [[0.25, 0.5, 0.75], [2.0, 2.0, 2.0], [2.0, 2.0, 2.0]]
     y_pred = est.predict(
         y_test,
         quantiles=quantiles,
+        interpolation="linear",
         weighted_quantile=weighted_quantile,
         aggregate_leaves_first=False,
     )
@@ -116,6 +183,34 @@ def check_regression_params(name):
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_regression_params(name):
     check_regression_params(name)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("weighted_leaves", [False, True])
+@pytest.mark.parametrize("aggregate_leaves_first", [True, False])
+def test_predict_weighted_rows_independent(name, weighted_leaves, aggregate_leaves_first):
+    """Check that the weighted prediction of a sample doesn't depend on other samples."""
+    X, y = datasets.make_regression(n_samples=200, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, max_samples_leaf=None, bootstrap=True, random_state=0)
+    est.fit(X, y)
+
+    kwargs = {
+        "weighted_quantile": True,
+        "weighted_leaves": weighted_leaves,
+        "aggregate_leaves_first": aggregate_leaves_first,
+    }
+    for quantiles in [[0.25, 0.5, 0.75], "mean"]:
+        y_pred = est.predict(X[:20], quantiles, **kwargs)
+        for i in range(20):
+            assert_array_equal(est.predict(X[[i]], quantiles, **kwargs)[0], y_pred[i])
+        assert_array_equal(est.predict(X[19::-1], quantiles, **kwargs), y_pred[::-1])
+
+    proximities = est.proximity_counts(X[:20])
+    for i in range(20):
+        assert est.proximity_counts(X[[i]]) == proximities[i : i + 1]
 
 
 def check_predict_quantiles_toy(name):
@@ -252,6 +347,111 @@ def check_predict_quantiles_toy(name):
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_predict_quantiles_toy(name):
     check_predict_quantiles_toy(name)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+def test_predict_quantiles_array_like(name, max_samples_leaf):
+    """Check that quantiles can be any array-like of floats, or "mean" in a list."""
+    X, y = datasets.make_regression(n_samples=100, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, max_samples_leaf=max_samples_leaf, random_state=0)
+    est.fit(X, y)
+
+    quantiles = [0.25, 0.5, 0.75]
+    y_pred = est.predict(X, quantiles=quantiles)
+    for quantiles_array_like in [
+        tuple(quantiles),
+        np.array(quantiles),
+        np.array(quantiles, dtype=np.float32),
+    ]:
+        assert_allclose(est.predict(X, quantiles=quantiles_array_like), y_pred)
+
+    for quantile in [np.float32(0.5), np.array(0.5), np.int64(1)]:
+        assert_allclose(est.predict(X, quantiles=quantile), est.predict(X, float(quantile)))
+
+    est.set_params(default_quantiles=np.array(quantiles))
+    assert_allclose(est.predict(X), y_pred)
+
+    assert_allclose(est.predict(X, quantiles=["mean"]), est.predict(X, quantiles="mean"))
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_default_quantiles_invalid(name):
+    """Check that invalid default quantiles raise an error when fitting."""
+    X, y = datasets.make_regression(n_samples=50, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    for default_quantiles in [2.0, -0.5, "median", [0.5, -1], [], [[0.1, 0.5]]]:
+        est = ForestRegressor(n_estimators=2, default_quantiles=default_quantiles)
+        with pytest.raises(ValueError):
+            est.fit(X, y)
+        assert not hasattr(est, "estimators_")  # rejected before fitting the forest
+
+    for default_quantiles in [None, 0.5, [0.1, 0.9], np.array([0.25, 0.75]), "mean"]:
+        ForestRegressor(n_estimators=2, default_quantiles=default_quantiles).fit(X, y)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+@pytest.mark.parametrize("weighted_quantile", [True, False])
+def test_predict_quantiles_invalid(name, max_samples_leaf, weighted_quantile):
+    """Check that invalid quantiles raise an error instead of predicting."""
+    X, y = datasets.make_regression(n_samples=100, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, max_samples_leaf=max_samples_leaf, random_state=0)
+    est.fit(X, y)
+
+    for quantiles in [
+        np.nan,
+        [0.5, np.nan],
+        [],
+        -0.01,
+        1.01,
+        "median",
+        [0.5, "mean"],
+        [[0.5]],
+        [0.1, [0.2, 0.3]],  # ragged
+    ]:
+        with pytest.raises(ValueError, match="Quantiles must"):
+            est.predict(X, quantiles=quantiles, weighted_quantile=weighted_quantile)
+
+    # The Cython predictor checks its inputs too.
+    X_leaves = est.apply(X)
+    for quantiles in [[np.nan], []]:
+        with pytest.raises(ValueError, match="Quantiles must"):
+            est.forest_.predict(quantiles, X_leaves, weighted_quantile=weighted_quantile)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+def test_predict_uses_fitted_trees(name, max_samples_leaf):
+    """Check that predictions use the fitted trees, even if n_estimators changes."""
+    X, y = datasets.make_regression(n_samples=120, n_features=2, random_state=0)
+    X_train, y_train, X_test = X[:100], y[:100], X[100:]
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(
+        n_estimators=10, max_samples_leaf=max_samples_leaf, bootstrap=True, random_state=0
+    )
+    est.fit(X_train, y_train)
+
+    quantiles = [0.1, 0.5, 0.9]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # some samples have no OOB trees
+        y_pred = est.predict(X_test, quantiles=quantiles)
+        y_pred_oob = est.predict(X_train, quantiles=quantiles, oob_score=True)
+
+        for n_estimators in [5, 20]:  # e.g., set before a warm-start refit
+            est.set_params(n_estimators=n_estimators)
+            assert_allclose(est.predict(X_test, quantiles=quantiles), y_pred)
+            assert_allclose(est.predict(X_train, quantiles=quantiles, oob_score=True), y_pred_oob)
 
 
 def check_predict_quantiles(
@@ -573,6 +773,59 @@ def test_predict_quantiles(
     )
 
 
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+@pytest.mark.parametrize("sparse_container", [sparse.csr_matrix, sparse.csc_matrix])
+def test_predict_sparse(name, max_samples_leaf, sparse_container):
+    """Check that sparse inputs give the same predictions as dense inputs."""
+    X, y = datasets.make_regression(n_samples=200, n_features=4, random_state=0)
+    X[X < 0.5] = 0
+    X_sparse = sparse_container(X)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(
+        n_estimators=10, max_samples_leaf=max_samples_leaf, bootstrap=True, random_state=0
+    )
+    est.fit(X_sparse, y)
+
+    for quantiles in [[0.1, 0.5, 0.9], "mean"]:
+        assert_allclose(est.predict(X_sparse, quantiles), est.predict(X, quantiles))
+    assert_allclose(est.score(X_sparse, y), est.score(X, y))
+
+    # OOB predictions on the sparse training data don't warn that the data differ.
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        y_pred_oob = est.predict(X_sparse, quantiles=0.5, oob_score=True)
+    assert not any("not identical" in str(w.message) for w in record)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # dense X is not in the training format
+        assert_allclose(y_pred_oob, est.predict(X, quantiles=0.5, oob_score=True))
+
+
+def test_hash_X_sparse():
+    """Check that sparse inputs hash equally if they hold the same matrix."""
+    X = np.array([[0, 1.5, 0], [2, 0, 0], [0, 0.5, 3]], dtype=np.float32)
+    X_csc = sparse.csc_matrix(X)
+
+    # The same matrix, with unsorted indices in column 1 and a duplicate entry in column 2.
+    data = np.array([2, 0.5, 1.5, 1, 2], dtype=np.float32)
+    indices = np.array([1, 2, 0, 2, 2], dtype=np.int32)
+    indptr = np.array([0, 1, 3, 5], dtype=np.int32)
+    X_noncanonical = sparse.csc_matrix((data, indices, indptr), shape=X.shape)
+    assert not X_noncanonical.has_canonical_format
+    assert_array_equal(X_noncanonical.toarray(), X)
+
+    for X_same in [X_noncanonical, X_csc.tocsr()]:
+        assert _hash_X(X_same) == _hash_X(X_csc)
+    assert _hash_X(sparse.csc_matrix(2 * X)) != _hash_X(X_csc)
+
+    # Hashing does not modify the input.
+    assert_array_equal(X_noncanonical.indices, [1, 2, 0, 2, 2])
+    assert_array_equal(X_noncanonical.data, [2, 0.5, 1.5, 1, 2])
+
+
 def check_quantile_ranks_toy(name):
     """Check quantile ranks on toy data."""
     ForestRegressor = FOREST_REGRESSORS[name]
@@ -695,6 +948,87 @@ def test_quantile_ranks(name):
     check_quantile_ranks(name)
 
 
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_quantile_ranks_keeps_fitted_features(name):
+    """Check that quantile ranks do not reset the fitted feature attributes."""
+    pd = pytest.importorskip("pandas")
+
+    X, y = datasets.make_regression(n_samples=100, n_features=3, random_state=0)
+    X_df = pd.DataFrame(X, columns=["a", "b", "c"])
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, random_state=0).fit(X_df, y)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # X without feature names
+
+        # Scoring a NumPy array keeps the feature names seen during fit.
+        est.quantile_ranks(X, y)
+        assert_array_equal(est.feature_names_in_, ["a", "b", "c"])
+
+        # Scoring the wrong number of features raises without changing the model.
+        with pytest.raises(ValueError):
+            est.quantile_ranks(np.hstack([X, X]), y)
+        assert est.n_features_in_ == 3
+
+    est.predict(X_df)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_quantile_ranks_monotonic_constraints(name):
+    """Check that quantile ranks use the clipped leaf values that predict uses."""
+    rng = np.random.RandomState(0)
+    X = rng.uniform(0, 10, size=(200, 2))
+    y = X[:, 0] + rng.normal(size=200)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    n_estimators = 25
+    est = ForestRegressor(
+        n_estimators=n_estimators,
+        min_samples_leaf=5,
+        monotonic_cst=[1, 0],
+        random_state=0,
+    )
+    est.fit(X, y)
+
+    # With "nearest" interpolation, these quantiles are the clipped leaf values.
+    quantiles = np.linspace(0, 1, n_estimators)
+    leaf_vals = est.predict(X, quantiles=quantiles, interpolation="nearest")
+
+    # Check ranks of scores between and equal to the clipped leaf values.
+    for y_score in [y, leaf_vals[:, 5], leaf_vals[:, 20]]:
+        for kind in ["rank", "weak", "strict", "mean"]:
+            y_ranks = est.quantile_ranks(X, y_score, kind=kind)
+            expected = [
+                percentileofscore(v, s, kind=kind) / 100 for v, s in zip(leaf_vals, y_score)
+            ]
+            assert_allclose(y_ranks, expected)
+
+    # Check ranks calculated for each tree and then averaged.
+    for kind in ["rank", "weak", "strict", "mean"]:
+        y_ranks = est.quantile_ranks(X[:20], y[:20], kind=kind, aggregate_leaves_first=False)
+        expected = [
+            np.mean([percentileofscore([v_i], s, kind=kind) / 100 for v_i in v])
+            for v, s in zip(leaf_vals[:20], y[:20])
+        ]
+        assert_allclose(y_ranks, expected)
+
+    # Check OOB ranks of the smallest and largest OOB predictions.
+    est.set_params(n_estimators=50, bootstrap=True).fit(X, y)  # so all samples are OOB
+    y_min = est.predict(X, quantiles=0, oob_score=True)
+    y_max = est.predict(X, quantiles=1, oob_score=True)
+    assert_array_equal(est.quantile_ranks(X, y_min, kind="strict", oob_score=True), 0)
+    assert_array_equal(est.quantile_ranks(X, y_max, kind="weak", oob_score=True), 1)
+
+    # Check errors for an invalid kind or number of outputs.
+    with pytest.raises(ValueError, match="Invalid kind"):
+        est.quantile_ranks(X, y, kind="invalid")
+    with pytest.raises(ValueError, match="Number of target outputs"):
+        est.quantile_ranks(X, np.stack([y, y], axis=1))
+
+
 def check_proximity_counts(name):
     """Check proximity counts."""
     ForestRegressor = FOREST_REGRESSORS[name]
@@ -769,10 +1103,11 @@ def check_proximity_counts(name):
     n_samples = len(X)
     proximities = est.proximity_counts(X)
     X_leaves = est.apply(X)
-    args = (n_samples, n_samples)
-    args = args if sklearn_version < parse_version("1.9") else args + (None,)
     bootstrap_indices = np.array(
-        [_generate_sample_indices(e.random_state, *args) for e in est.estimators_]
+        [
+            _generate_sample_indices(e.random_state, n_samples, n_samples, None)
+            for e in est.estimators_
+        ]
     )
     for train_idx, train_idx_prox in enumerate(proximities):
         for proximity_idx, proximity_count in train_idx_prox:
@@ -797,6 +1132,29 @@ def test_proximity_counts(name):
     check_proximity_counts(name)
 
 
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_proximity_counts_params(name):
+    """Check the accepted types of `max_proximities` and the returned types."""
+    X, y = datasets.make_regression(n_samples=100, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, max_samples_leaf=None, random_state=0)
+    est.fit(X, y)
+
+    proximities = est.proximity_counts(X[:5], max_proximities=3)
+    assert est.proximity_counts(X[:5], max_proximities=np.int64(3)) == proximities
+
+    for max_proximities in [0, 3.0, "3"]:
+        with pytest.raises(ValueError):
+            est.proximity_counts(X[:5], max_proximities=max_proximities)
+
+    # Unsorted proximities are lists of tuples too.
+    proximities = est.proximity_counts(X[:5], return_sorted=False)
+    assert all(isinstance(p, list) for p in proximities)
+    assert [sorted(p) for p in proximities] == [sorted(p) for p in est.proximity_counts(X[:5])]
+
+
 def check_max_samples_leaf(name):
     """Check that the `max_samples_leaf` parameter correctly samples leaves."""
     X, y = datasets.make_regression(n_samples=500, n_features=8, noise=0.1, random_state=0)
@@ -814,20 +1172,17 @@ def check_max_samples_leaf(name):
         est.fit(X, y)
 
         max_leaf_size = 0
-        y_train_leaves = est._get_y_train_leaves(X, y[:1])
-        for i in range(len(y_train_leaves)):
-            tree_lookup = y_train_leaves[i]
-            for leaf_samples in np.squeeze(tree_lookup, -2):
-                n_leaf_samples = len([x for x in leaf_samples if x != 0])
-                if n_leaf_samples > max_leaf_size:
-                    max_leaf_size = n_leaf_samples
+        _, leaf_offsets, _ = est._get_y_train_leaves(X, y[:1])
+        for n_leaf_samples in np.diff(leaf_offsets, axis=1).ravel():
+            if n_leaf_samples > max_leaf_size:
+                max_leaf_size = n_leaf_samples
 
-                # Check that ints and floats correctly sample leaves.
-                if isinstance(max_samples_leaf, int):
-                    assert n_leaf_samples <= max_samples_leaf
-                elif isinstance(max_samples_leaf, float):
-                    max_int = math.ceil(max_samples_leaf * len(X))
-                    assert n_leaf_samples <= max_int
+            # Check that ints and floats correctly sample leaves.
+            if isinstance(max_samples_leaf, int):
+                assert n_leaf_samples <= max_samples_leaf
+            elif isinstance(max_samples_leaf, float):
+                max_int = math.ceil(max_samples_leaf * len(X))
+                assert n_leaf_samples <= max_int
 
         max_leaf_sizes.append(max_leaf_size)
 
@@ -852,20 +1207,199 @@ def test_max_samples_leaf(name):
     check_max_samples_leaf(name)
 
 
-def check_missing_values(name):
-    X = np.array(
-        [
-            [0, 1, 1, np.nan, np.nan, 0, 0, 0, 0, 0],
-            [2, 2, 0, 1, 0, 0, 0, 0, 2, 2],
-        ]
-    ).T
-    y = [2, 4, 5, 6, 7, 1, 1, 0, 1, 2]
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1.0, 1000])
+def test_max_samples_leaf_above_leaf_sizes(name, max_samples_leaf):
+    """Check that a limit above every leaf size keeps all samples, like None."""
+    X, y = datasets.make_regression(n_samples=300, n_features=3, noise=1.0, random_state=0)
+    params = {"n_estimators": 10, "min_samples_leaf": 10, "random_state": 0}
 
     ForestRegressor = FOREST_REGRESSORS[name]
 
-    est = ForestRegressor(n_estimators=1, max_samples_leaf=None, random_state=0)
+    est = ForestRegressor(max_samples_leaf=max_samples_leaf, **params).fit(X, y)
+    est_none = ForestRegressor(max_samples_leaf=None, **params).fit(X, y)
+
+    # The leaves keep all of their samples, as with None.
+    for attr in ["tree_offsets", "leaf_offsets", "y_train_indices"]:
+        assert_array_equal(
+            np.asarray(getattr(est.forest_, attr)), np.asarray(getattr(est_none.forest_, attr))
+        )
+
+    # A float of 1.0 means all samples, so it must not use the 1-sample path.
+    quantiles = [0.1, 0.5, 0.9]
+    for weighted_quantile in [True, False]:
+        assert_allclose(
+            est.predict(X, quantiles=quantiles, weighted_quantile=weighted_quantile),
+            est_none.predict(X, quantiles=quantiles, weighted_quantile=weighted_quantile),
+        )
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_leaf_samples_memory(name):
+    """Check that the leaf samples take memory in proportion to their number."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(1000, 2))
+    X[:500] = 0  # samples with the same features share a leaf, however deep the tree
+    y = rng.normal(size=len(X))
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, bootstrap=False, max_samples_leaf=None, random_state=0)
+    est.fit(X, y)
+
+    # Each tree stores each training sample once, as 32-bit integers.
+    forest = est.forest_
+    tree_offsets = np.asarray(forest.tree_offsets)
+    leaf_offsets = np.asarray(forest.leaf_offsets)
+    y_train_indices = np.asarray(forest.y_train_indices)
+    assert_array_equal(tree_offsets, np.arange(6) * len(X))
+    assert_array_equal(leaf_offsets[:, -1], len(X))
+    assert y_train_indices.shape == (1, 5 * len(X))
+    assert leaf_offsets.dtype == y_train_indices.dtype == np.int32
+    nbytes = tree_offsets.nbytes + leaf_offsets.nbytes + y_train_indices.nbytes
+
+    # Padding the samples of each node to those of the largest leaf would take
+    # far more memory, and pickles take as little as the forest.
+    assert np.asarray(forest.y_train_leaves).nbytes > 100 * nbytes
+    assert len(pickle.dumps(forest)) < nbytes + np.asarray(forest.y_train).nbytes + 1000
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_max_samples(name, monkeypatch):
+    """Check error if there are too many training samples to store."""
+    X, y = datasets.make_regression(n_samples=50, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    monkeypatch.setattr("quantile_forest._quantile_forest._MAX_SAMPLES", 49)
+    with pytest.raises(ValueError, match="At most 49 training samples, and bootstrap"):
+        ForestRegressor(n_estimators=1).fit(X, y)
+
+
+@pytest.mark.parametrize("max_samples_leaf", [1, 2, None])
+def test_empty_leaf_stays_empty(max_samples_leaf):
+    """Check that a leaf whose samples all have zero weight keeps no samples."""
+    bootstrap_indices = np.arange(1, 5).reshape(-1, 1)  # one-based, for one output
+    X_leaves_bootstrap = np.array([1, 1, 2, 2])
+    sample_weight = np.array([[1.0], [1.0], [0.0], [0.0]])
+
+    leaf_counts, y_train_indices = RandomForestQuantileRegressor._get_y_train_leaves_slice(
+        bootstrap_indices,
+        X_leaves_bootstrap,
+        sample_weight,
+        leaf_subsample=max_samples_leaf is not None,
+        max_node_count=3,
+        max_samples_leaf=2 if max_samples_leaf is None else max_samples_leaf,
+        random_state=0,
+    )
+
+    assert_array_equal(leaf_counts, [0, 1 if max_samples_leaf == 1 else 2, 0])
+    assert set(y_train_indices[0]) <= {1, 2}
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("monotonic", [False, True])
+def test_empty_leaf_has_no_value(name, monotonic):
+    """Check that a tree whose leaf has no samples is left out of predictions."""
+    X, y = datasets.make_regression(n_samples=50, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    kwargs = {"monotonic_cst": [1, 0]} if monotonic else {}
+    est = ForestRegressor(n_estimators=3, random_state=0, **kwargs).fit(X, y)
+
+    # Empty the leaf that the first sample reaches in the first tree.
+    leaves = est.apply(X[:1])[0]
+    forest = est.forest_
+    y_train_leaves = np.asarray(forest.y_train_leaves)
+    y_train_leaves[0, leaves[0]] = 0
+    est.forest_ = type(forest)(
+        np.asarray(forest.y_train), y_train_leaves, np.asarray(forest.y_bound_leaves)
+    )
+
+    # The prediction then comes from the other trees' (clipped) leaf values.
+    y_train = np.asarray(est.forest_.y_train)[0]
+    y_bound_leaves = np.asarray(est.forest_.y_bound_leaves)
+    values = []
+    for tree in [1, 2]:
+        value = y_train[y_train_leaves[tree, leaves[tree], 0, 0] - 1]
+        if monotonic:
+            value = np.clip(value, *y_bound_leaves[tree, leaves[tree]])
+        values.append(value)
+
+    assert_allclose(est.predict(X[:1], quantiles="mean"), np.mean(values))
+    assert_allclose(
+        est.predict(X[:1], quantiles=[0.25, 0.75], interpolation="linear")[0],
+        np.quantile(values, [0.25, 0.75], method="linear"),
+    )
+    for score in [min(values) - 1, np.mean(values), max(values) + 1]:
+        assert_allclose(
+            est.quantile_ranks(X[:1], [score], kind="weak"), np.mean(np.array(values) <= score)
+        )
+
+
+def check_missing_values(name):
+    """Check that missing values are supported where the scikit-learn forest supports them."""
+    ForestRegressor = FOREST_REGRESSORS[name]
+    SklearnForestRegressor = {
+        "ExtraTreesQuantileRegressor": ExtraTreesRegressor,
+        "RandomForestQuantileRegressor": RandomForestRegressor,
+    }[name]
+
+    rng = np.random.default_rng(0)
+    X, y = datasets.make_regression(n_samples=500, n_features=4, noise=10.0, random_state=0)
+    X[rng.random(X.shape) < 0.2] = np.nan
+    X_train, X_test, y_train, y_test = X[:400], X[400:], y[:400], y[400:]
+    X_train_complete = np.nan_to_num(X_train)
+
+    params = {"n_estimators": 10, "bootstrap": True, "random_state": 0}
+    est = ForestRegressor(max_samples_leaf=None, **params)
+    sklearn_est = SklearnForestRegressor(oob_score=True, **params)
+
+    # Check that the estimator tags agree with those of the scikit-learn forest.
+    assert get_tags(est).input_tags.allow_nan
+    assert get_tags(sklearn_est).input_tags.allow_nan
+
+    est.fit(X_train, y_train)
+    sklearn_est.fit(X_train, y_train)
+
+    # Check that the mean predictions match those of the scikit-learn forest, as
+    # they do only if samples with missing values reach the same leaves as when
+    # the trees were fit.
+    kwargs = {"quantiles": "mean", "aggregate_leaves_first": False}
+    assert_allclose(est.predict(X_test, **kwargs), sklearn_est.predict(X_test))
+    y_pred_oob = est.predict(X_train, oob_score=True, **kwargs)
+    has_oob = ~np.isnan(y_pred_oob)  # samples in-bag for every tree have no OOB value
+    assert has_oob.mean() > 0.9
+    assert_allclose(y_pred_oob[has_oob], sklearn_est.oob_prediction_[has_oob])
+
+    # Check the quantiles, quantile ranks, and proximity counts.
+    y_pred = est.predict(X_test, quantiles=[0.1, 0.5, 0.9])
+    assert np.all(np.isfinite(y_pred))
+    assert np.all(np.diff(y_pred, axis=1) >= 0)
+    y_ranks = est.quantile_ranks(X_test, y_test)
+    assert np.all((y_ranks >= 0) & (y_ranks <= 1))
+    assert len(est.proximity_counts(X_test)) == len(X_test)
+
+    # Check that a forest fit without missing values accepts them when predicting.
+    est.fit(X_train_complete, y_train)
+    sklearn_est.fit(X_train_complete, y_train)
+    assert_allclose(est.predict(X_test, **kwargs), sklearn_est.predict(X_test))
+
+    # Check that missing values are supported with absolute errors too.
+    params_criterion = {**params, "n_estimators": 3, "criterion": "absolute_error"}
+    est_criterion = ForestRegressor(**params_criterion)
+    assert get_tags(est_criterion).input_tags.allow_nan
+    assert get_tags(SklearnForestRegressor(**params_criterion)).input_tags.allow_nan
+    est_criterion.fit(X_train, y_train)
+
+    # Check that missing values are rejected in sparse inputs and in the targets.
     with pytest.raises(ValueError):
-        est.fit(X, y)
+        est.fit(sparse.csr_matrix(X_train), y_train)
+    y_train_missing = y_train.copy()
+    y_train_missing[0] = np.nan
+    with pytest.raises(ValueError):
+        est.fit(X_train_complete, y_train_missing)
 
 
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
@@ -929,6 +1463,85 @@ def check_oob_samples_duplicates(name):
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_oob_samples_duplicates(name):
     check_oob_samples_duplicates(name)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("weighted", [False, True])
+def test_oob_samples_unsampled_masks(name, weighted):
+    """Check that OOB samples come from masks of each tree's unsampled indices."""
+    X, y = datasets.make_regression(n_samples=200, n_features=4, random_state=0)
+    sample_weight = None
+    if weighted:  # the bootstrap samples are drawn by weight
+        sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, bootstrap=True, max_samples=0.7, random_state=0)
+    for random_state in [0, 1]:  # check that refitting replaces the masks
+        est.set_params(random_state=random_state).fit(X, y, sample_weight=sample_weight)
+        masks = np.unpackbits(est._unsampled_masks, axis=1, count=len(X)).astype(bool)
+        for mask, sample_indices in zip(masks, est.estimators_samples_):
+            expected = np.setdiff1d(np.arange(len(X)), sample_indices)
+            assert_array_equal(np.flatnonzero(mask), expected)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+
+        # Check that selected rows match the rows of all training samples.
+        _, X_indices = est._oob_samples(X)
+        indices = [5, -1, 17, 5]
+        _, X_indices_selected = est._oob_samples(X[[5, 0, 17, 5]], indices=indices)
+        assert_array_equal(X_indices_selected[[0, 2, 3]], X_indices[[5, 17, 5]])
+        assert np.all(X_indices_selected[1] == 1)  # token index (-1) is always unsampled
+
+        # Check that the masks are recomputed if missing, e.g., in older models.
+        del est._unsampled_masks
+        _, X_indices_recomputed = est._oob_samples(X)
+        assert_array_equal(X_indices_recomputed, X_indices)
+
+    # Check that no samples are out-of-bag without bootstrapping, with a warning.
+    est = ForestRegressor(n_estimators=5, bootstrap=False, random_state=0).fit(X, y)
+    assert est._unsampled_masks is None
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        _, X_indices = est._oob_samples(X)
+    assert any("only exist if bootstrap=True" in str(w.message) for w in record)
+    assert not X_indices.any()
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_oob_samples_older_models(name):
+    """Check that the OOB samples of models fit by earlier versions are redrawn."""
+    X, y = datasets.make_regression(n_samples=200, n_features=4, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, bootstrap=True, max_samples=0.7, random_state=0)
+    est.fit(X, y)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # some samples have no OOB trees
+        _, X_indices = est._oob_samples(X)
+        y_pred = est.predict(X, oob_score=True)
+
+        # Models pickled by version 1.4.1 or earlier store neither the masks nor
+        # the sample weights. Forests fit with scikit-learn before 1.9 store no
+        # weights for their bootstrap samples, and before 1.4, not their number.
+        est_old = pickle.loads(pickle.dumps(est))
+        attrs = ["_unsampled_masks", "sample_weight_", "_sample_weight", "_n_samples_bootstrap"]
+        for attr in attrs:
+            if hasattr(est_old, attr):
+                delattr(est_old, attr)
+            assert_array_equal(est_old._oob_samples(X)[1], X_indices)
+            assert_array_equal(est_old.predict(X, oob_score=True), y_pred)
+
+        # Check that the redrawn samples are those drawn when fit, even if their
+        # number would now be computed differently (e.g., by a later version of
+        # scikit-learn).
+        est_new = pickle.loads(pickle.dumps(est))
+        del est_new._unsampled_masks
+        est_new.max_samples = 0.5
+        assert_array_equal(est_new._oob_samples(X)[1], X_indices)
 
 
 def check_predict_oob(
@@ -1007,7 +1620,7 @@ def check_predict_oob(
     # Check precomputed unsampled indices for OOB scoring.
     unsampled_indices = [None] * est.n_estimators
     for i, estimator in enumerate(est.estimators_):
-        unsampled_indices[i] = est._get_unsampled_indices(estimator)
+        unsampled_indices[i] = get_unsampled_indices(est, estimator)
     est.unsampled_indices_ = unsampled_indices
     y_pred_precomputed_indices = est.predict(
         X,
@@ -1105,9 +1718,8 @@ def check_predict_oob(
             aggregate_leaves_first=aggregate_leaves_first,
             oob_score=True,
         )
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        assert np.all(est._get_unsampled_indices(est.estimators_[0]) == np.array([]))
+    with pytest.warns(UserWarning, match="bootstrap=True"):
+        assert not est._get_unsampled_masks().any()
 
     # Check error if number of scoring and training samples are different.
     est = ForestRegressor(n_estimators=1, bootstrap=True)
@@ -1144,6 +1756,46 @@ def test_predict_oob(
         weighted_quantile,
         aggregate_leaves_first,
     )
+
+
+@pytest.mark.parametrize("method", INTERPOLATIONS + ["hazen"])
+def test_nanquantile_rows(method):
+    """Check that the row quantiles used for OOB predictions match np.nanquantile."""
+    rng = np.random.default_rng(0)
+    a = np.round(rng.normal(size=(300, 12)), 1)  # with ties
+    a[rng.random(a.shape) < 0.5] = np.nan
+    a[:5] = np.nan  # rows without values
+    quantiles = [0.0, 0.1, 0.5, 0.75, 1.0]
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # rows without values
+        expected = np.nanquantile(a, quantiles, method=method, axis=1)
+    assert_array_equal(_nanquantile_rows(a, quantiles, method), expected)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_predict_oob_single_sample_leaves(name):
+    """Check OOB quantiles with max_samples_leaf=1 against each tree's OOB values."""
+    X, y = datasets.make_regression(n_samples=200, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=10, bootstrap=True, random_state=0).fit(X, y)
+
+    # Each tree's value for each sample, or NaN if the sample is in the tree's bootstrap.
+    leaves = est.apply(X)
+    y_train_leaves = np.asarray(est.forest_.y_train_leaves)
+    y_train = np.asarray(est.forest_.y_train)[0]
+    values = np.full(leaves.shape, np.nan)
+    for tree, sample_indices in enumerate(est.estimators_samples_):
+        oob = np.setdiff1d(np.arange(len(X)), sample_indices)
+        values[oob, tree] = y_train[y_train_leaves[tree, leaves[oob, tree], 0, 0] - 1]
+
+    quantiles = [0.1, 0.5, 0.9]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # some samples have no OOB trees
+        expected = np.nanquantile(values, quantiles, axis=1, method="averaged_inverted_cdf").T
+        assert_allclose(est.predict(X, quantiles=quantiles, oob_score=True), expected)
 
 
 def check_quantile_ranks_oob(name):
@@ -1224,10 +1876,11 @@ def check_proximity_counts_oob(name):
     # Check that OOB proximity counts match OOB bootstrap counts.
     X_leaves = est.apply(X)
     n_samples = len(X)
-    args = (n_samples, n_samples)
-    args = args if sklearn_version < parse_version("1.9") else args + (None,)
     bootstrap_indices = np.array(
-        [_generate_sample_indices(e.random_state, *args) for e in est.estimators_]
+        [
+            _generate_sample_indices(e.random_state, n_samples, n_samples, None)
+            for e in est.estimators_
+        ]
     )
     for train_idx, train_idx_prox in enumerate(proximities):
         for proximity_idx, proximity_count in train_idx_prox:
@@ -1285,7 +1938,42 @@ def test_proximity_counts_oob(name):
     check_proximity_counts_oob(name)
 
 
-def check_monotonic_constraints(name, max_samples_leaf):
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_oob_methods_validate_once(name):
+    """Check that OOB methods validate inputs once, not once per tree."""
+    pd = pytest.importorskip("pandas")
+
+    X, y = datasets.make_regression(n_samples=100, n_features=3, random_state=0)
+    X_df = pd.DataFrame(X, columns=["a", "b", "c"])
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, bootstrap=True, random_state=0).fit(X_df, y)
+
+    # A model fitted with feature names doesn't warn about them for each tree.
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        y_pred = est.predict(X_df, oob_score=True)
+        y_ranks = est.quantile_ranks(X_df, y, oob_score=True)
+        est.proximity_counts(X_df, oob_score=True)
+    assert not any("feature names" in str(w.message) for w in record)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # X without feature names, samples without OOB trees
+
+        # Sparse inputs, which quantile_ranks validates as CSC, give the same results.
+        X_sparse = sparse.csr_matrix(X)
+        assert_allclose(est.predict(X_sparse, oob_score=True), y_pred)
+        assert_allclose(est.quantile_ranks(X_sparse, y, oob_score=True), y_ranks)
+
+        # Missing values only change the ranks of the samples that have them.
+        X_nan = X.copy()
+        X_nan[0, 0] = np.nan
+        y_ranks_nan = est.quantile_ranks(X_nan, y, oob_score=True)
+        assert_allclose(y_ranks_nan[1:], y_ranks[1:])
+
+
+def check_monotonic_constraints(name, max_samples_leaf, missing_values):
     """Check monotonic constraints."""
     ForestRegressor = FOREST_REGRESSORS[name]
 
@@ -1299,6 +1987,8 @@ def check_monotonic_constraints(name, max_samples_leaf):
         n_informative=5,
         random_state=0,
     )
+    if missing_values:
+        X[np.random.default_rng(0).random(X.shape) < 0.1] = np.nan
     train = np.arange(n_samples_train)
     test = np.arange(n_samples_train, n_samples)
     X_train = X[train]
@@ -1329,7 +2019,7 @@ def check_monotonic_constraints(name, max_samples_leaf):
         y = est.predict(X_test, oob_score=oob_score)
 
         score = est.score(X_test, y_test, quantiles=0.5)
-        assert score > 0.75
+        assert score > (0.6 if missing_values else 0.75)
 
         # Check the monotonic increase constraint.
         with warnings.catch_warnings():
@@ -1356,11 +2046,55 @@ def check_monotonic_constraints(name, max_samples_leaf):
 
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 @pytest.mark.parametrize("max_samples_leaf", [1])
-def test_monotonic_constraints(name, max_samples_leaf):
-    check_monotonic_constraints(name, max_samples_leaf)
+@pytest.mark.parametrize("missing_values", [False, True])
+def test_monotonic_constraints(name, max_samples_leaf, missing_values):
+    check_monotonic_constraints(name, max_samples_leaf, missing_values)
 
 
-def check_serialization(name, sparse_pickle, monotonic_cst, multi_target):
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_monotonic_bounds(name):
+    """Check the leaf bounds for monotonicity against a node-by-node traversal."""
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(300, 3))
+    y = X[:, 0] - X[:, 1] + rng.normal(size=300)
+    monotonic_cst = [1, -1, 0]
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=3, monotonic_cst=monotonic_cst, random_state=0)
+    est.fit(X, y)
+
+    y_train = np.asarray(est.forest_.y_train)[0]
+    y_train_leaves = np.asarray(est.forest_.y_train_leaves)
+    y_bound_leaves = np.asarray(est.forest_.y_bound_leaves)
+    for i, estimator in enumerate(est.estimators_):
+        tree = estimator.tree_
+        paths = estimator.decision_path(X).toarray().astype(bool)
+        X_leaves = estimator.apply(X)
+
+        def mean_target(node):
+            """Return the mean of the stored targets of the leaves below `node`."""
+            indices = y_train_leaves[i, np.unique(X_leaves[paths[:, node]])].ravel()
+            return y_train[indices[indices != 0] - 1].mean()
+
+        stack = [(0, -np.inf, np.inf)]  # (node, lower bound, upper bound)
+        while stack:
+            node, lower, upper = stack.pop()
+            left, right = tree.children_left[node], tree.children_right[node]
+            if left == right:  # leaf
+                assert_allclose(y_bound_leaves[i, node], [lower, upper])
+                continue
+            cst = monotonic_cst[tree.feature[node]]
+            mid = np.clip((mean_target(left) + mean_target(right)) / 2, lower, upper)
+            if cst == 0:
+                stack += [(left, lower, upper), (right, lower, upper)]
+            elif cst == 1:
+                stack += [(left, lower, mid), (right, mid, upper)]
+            else:
+                stack += [(left, mid, upper), (right, lower, mid)]
+
+
+def check_serialization(name, monotonic_cst, multi_target):
     """Check model serialization/deserialization."""
     X, y = datasets.make_regression(n_samples=500, n_features=8, noise=0.1, random_state=0)
 
@@ -1375,7 +2109,7 @@ def check_serialization(name, sparse_pickle, monotonic_cst, multi_target):
     ForestRegressor = FOREST_REGRESSORS[name]
 
     est = ForestRegressor(n_estimators=10, monotonic_cst=monotonic_cst, random_state=0)
-    est.fit(X, y, sparse_pickle=sparse_pickle)
+    est.fit(X, y)
 
     dumped = pickle.dumps(est)
     est_loaded = pickle.loads(dumped)
@@ -1385,17 +2119,173 @@ def check_serialization(name, sparse_pickle, monotonic_cst, multi_target):
 
 
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
-@pytest.mark.parametrize("sparse_pickle", [False, True])
 @pytest.mark.parametrize("monotonic_cst", [False, True])
 @pytest.mark.parametrize("multi_target", [False, True])
-def test_serialization(name, sparse_pickle, monotonic_cst, multi_target):
-    check_serialization(name, sparse_pickle, monotonic_cst, multi_target)
+def test_serialization(name, monotonic_cst, multi_target):
+    check_serialization(name, monotonic_cst, multi_target)
 
 
-@pytest.mark.skipif(
-    sklearn_version < parse_version("1.9"),
-    reason="sample_weight in bootstrap functions requires scikit-learn >= 1.9",
+class _LegacyForestPickle:
+    """Pickle a forest as earlier versions did, with padded training indices."""
+
+    def __init__(self, forest, sparse_pickle):
+        self.forest = forest
+        self.sparse_pickle = sparse_pickle
+
+    def __reduce__(self):
+        forest = self.forest
+        y_train_leaves = np.asarray(forest.y_train_leaves)
+        y_bound_leaves = np.asarray(forest.y_bound_leaves)
+        state = {}
+        if self.sparse_pickle:
+            shape1, shape2 = y_train_leaves.shape, y_bound_leaves.shape
+            state["shape1"] = shape1
+            state["matrix1"] = sparse.csc_matrix(
+                y_train_leaves.reshape(shape1[3], shape1[0] * shape1[1] * shape1[2])
+            )
+            state["shape2"] = shape2
+            state["matrix2"] = sparse.csc_matrix(
+                y_bound_leaves.reshape(shape2[2], shape2[0] * shape2[1])
+            )
+            y_train_leaves = np.empty(shape=(0, 0, 0, 0), dtype=np.int64)
+            y_bound_leaves = np.empty(shape=(0, 0, 0), dtype=np.float64)
+        args = (np.asarray(forest.y_train), y_train_leaves, y_bound_leaves, self.sparse_pickle)
+        if np.asarray(forest.sample_weight).size > 0:
+            args += (np.asarray(forest.sample_weight),)
+        return (type(forest), args, state)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("sparse_pickle", [False, True])
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"max_samples_leaf": 1},
+        {"max_samples_leaf": None},
+        {"max_samples_leaf": None, "multi_target": True},
+        {"max_samples_leaf": None, "bootstrap": False, "weighted": True},
+        {"max_samples_leaf": 1, "monotonic": True},
+    ],
 )
+def test_serialization_legacy(name, sparse_pickle, params):
+    """Check that a model pickled by an earlier version predicts as before."""
+    params = params.copy()
+    X, y = datasets.make_regression(
+        n_samples=100,
+        n_features=2,
+        n_targets=2 if params.pop("multi_target", False) else 1,
+        random_state=0,
+    )
+    sample_weight = None
+    if params.pop("weighted", False):
+        sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+    if params.pop("monotonic", False):
+        params["monotonic_cst"] = [1, -1]
+    params.setdefault("bootstrap", True)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, random_state=0, **params)
+    est.fit(X, y, sample_weight=sample_weight)
+    assert np.asarray(est.forest_.sample_weight).size == (0 if sample_weight is None else len(y))
+
+    # Earlier versions padded the training indices of each node with 0s.
+    forest = est.forest_
+    forest_loaded = pickle.loads(pickle.dumps(_LegacyForestPickle(forest, sparse_pickle)))
+    assert isinstance(forest_loaded, type(forest))
+    for attr in ["tree_offsets", "leaf_offsets", "y_train_indices", "y_bound_leaves"]:
+        assert_array_equal(getattr(forest_loaded, attr), getattr(forest, attr))
+    assert_array_equal(forest_loaded.sample_weight, forest.sample_weight)
+
+    est_loaded = pickle.loads(pickle.dumps(est))
+    est_loaded.forest_ = forest_loaded
+    quantiles = [0.25, 0.5, 0.75]
+    assert_array_equal(est_loaded.predict(X, quantiles), est.predict(X, quantiles))
+    assert_array_equal(est_loaded.quantile_ranks(X, y), est.quantile_ranks(X, y))
+    assert est_loaded.proximity_counts(X[:5]) == est.proximity_counts(X[:5])
+
+
+def test_quantile_forest_validates_indices():
+    """Check that the forest checks that its training indices match."""
+    X, y = datasets.make_regression(n_samples=50, n_features=2, random_state=0)
+    forest = RandomForestQuantileRegressor(n_estimators=3, random_state=0).fit(X, y).forest_
+
+    QuantileForest = type(forest)
+    y_train = np.asarray(forest.y_train)
+    indices = {
+        "tree_offsets": np.asarray(forest.tree_offsets),
+        "leaf_offsets": np.asarray(forest.leaf_offsets),
+        "y_train_indices": np.asarray(forest.y_train_indices),
+    }
+
+    # The padded indices of earlier versions are converted.
+    forest_padded = QuantileForest(y_train, np.asarray(forest.y_train_leaves))
+    for attr, values in indices.items():
+        assert_array_equal(getattr(forest_padded, attr), values)
+
+    with pytest.raises(ValueError, match="Either y_train_indices or y_train_leaves"):
+        QuantileForest(y_train)
+    with pytest.raises(ValueError, match="must be given with y_train_indices"):
+        QuantileForest(y_train, y_train_indices=indices["y_train_indices"])
+    with pytest.raises(ValueError, match="do not match"):
+        QuantileForest(y_train, **{**indices, "tree_offsets": indices["tree_offsets"][1:]})
+    with pytest.raises(ValueError, match="do not match"):
+        QuantileForest(
+            y_train, **{**indices, "y_train_indices": indices["y_train_indices"][:, 1:]}
+        )
+    with pytest.raises(ValueError, match="do not match"):
+        QuantileForest(np.vstack([y_train, y_train]), **indices)
+    with pytest.raises(ValueError, match="must have 2 outputs"):
+        QuantileForest(np.vstack([y_train, y_train]), np.asarray(forest.y_train_leaves))
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+def test_serialization_memory_mapped(name, max_samples_leaf, tmp_path):
+    """Check that a model loaded with read-only memory mapping works."""
+    X, y = datasets.make_regression(n_samples=100, n_features=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(
+        n_estimators=5, max_samples_leaf=max_samples_leaf, bootstrap=True, random_state=0
+    )
+    est.fit(X, y)
+
+    joblib.dump(est, tmp_path / "model.joblib")
+    est_loaded = joblib.load(tmp_path / "model.joblib", mmap_mode="r")
+
+    # The training indices are used as loaded, without being copied.
+    for attr in ["tree_offsets", "leaf_offsets", "y_train_indices"]:
+        assert not np.asarray(getattr(est_loaded.forest_, attr)).flags.writeable
+
+    quantiles = [0.25, 0.5, 0.75]
+    assert_allclose(est_loaded.predict(X, quantiles), est.predict(X, quantiles))
+    assert_allclose(est_loaded.quantile_ranks(X, y), est.quantile_ranks(X, y))
+    assert est_loaded.proximity_counts(X[:5]) == est.proximity_counts(X[:5])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # some samples have no OOB predictions
+        assert_allclose(
+            est_loaded.predict(X, quantiles, oob_score=True),
+            est.predict(X, quantiles, oob_score=True),
+        )
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_y_train_is_array(name):
+    """Check that the training targets are stored as an array, read without copying."""
+    X, y = datasets.make_regression(n_samples=100, n_features=2, n_targets=2, random_state=0)
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    est = ForestRegressor(n_estimators=5, random_state=0).fit(X, y)
+
+    y_train = np.asarray(est.forest_.y_train)
+    assert y_train.dtype == np.float64
+    assert_array_equal(y_train, np.sort(y, axis=0).T)  # sorted, one row per output
+    assert np.shares_memory(y_train, np.asarray(est.forest_.y_train))  # not a copy
+
+
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_sample_weight_stored_on_fit(name):
     """Check that sample_weight is stored during fit."""
@@ -1414,13 +2304,42 @@ def test_sample_weight_stored_on_fit(name):
     assert est_no_weight.sample_weight_ is None
 
 
-@pytest.mark.skipif(
-    sklearn_version < parse_version("1.9"),
-    reason="sample_weight in bootstrap functions requires scikit-learn >= 1.9",
-)
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("bootstrap", [False, True])
+def test_sample_weight_validation(name, bootstrap):
+    """Check that sample weights are accepted in any form scikit-learn accepts."""
+    X, y = datasets.make_regression(n_samples=100, n_features=4, random_state=0)
+    sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+    params = {"n_estimators": 5, "bootstrap": bootstrap, "random_state": 0}
+    if bootstrap:
+        params["max_samples"] = 0.5  # draws relative to the weights
+    quantiles = [0.25, 0.5, 0.75]
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+
+    # A list of weights gives the same model as an array of weights.
+    est = ForestRegressor(**params).fit(X, y, sample_weight=sample_weight)
+    est_list = ForestRegressor(**params).fit(X, y, sample_weight=sample_weight.tolist())
+    assert isinstance(est_list.sample_weight_, np.ndarray)
+    assert_allclose(est_list.predict(X, quantiles), est.predict(X, quantiles))
+    if bootstrap:
+        kwargs = {"quantiles": quantiles, "oob_score": True}
+        assert_allclose(est_list.predict(X, **kwargs), est.predict(X, **kwargs))
+
+    # A scalar weight is applied to every sample.
+    est = ForestRegressor(**params).fit(X, y, sample_weight=np.full(len(y), 2.0))
+    est_scalar = ForestRegressor(**params).fit(X, y, sample_weight=2.0)
+    assert_array_equal(est_scalar.sample_weight_, np.full(len(y), 2.0))
+    assert_allclose(est_scalar.predict(X, quantiles), est.predict(X, quantiles))
+
+    # Weights that only support conversion to an array work too.
+    est = ForestRegressor(n_estimators=5, bootstrap=bootstrap, random_state=0)
+    check_sample_weights_not_an_array(name, est)
+
+
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_sample_weight_predict(name):
-    """Check that predictions work with sample_weight on sklearn 1.9+."""
+    """Check that predictions work with sample_weight."""
     X, y = datasets.make_regression(n_samples=200, n_features=4, random_state=0)
     sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
 
@@ -1440,13 +2359,9 @@ def test_sample_weight_predict(name):
     assert not np.allclose(y_pred, y_pred_uniform)
 
 
-@pytest.mark.skipif(
-    sklearn_version < parse_version("1.9"),
-    reason="sample_weight in bootstrap functions requires scikit-learn >= 1.9",
-)
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_sample_weight_oob(name):
-    """Check that OOB predictions work with sample_weight on sklearn 1.9+."""
+    """Check that OOB predictions work with sample_weight."""
     X, y = datasets.make_regression(n_samples=500, n_features=8, noise=0.1, random_state=0)
     sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
 
@@ -1459,13 +2374,9 @@ def test_sample_weight_oob(name):
     assert y_pred.shape == (len(X), 3)
 
 
-@pytest.mark.skipif(
-    sklearn_version < parse_version("1.9"),
-    reason="sample_weight in bootstrap functions requires scikit-learn >= 1.9",
-)
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_sample_weight_unsampled_indices(name):
-    """Check that _get_unsampled_indices uses sample_weight on sklearn 1.9+."""
+    """Check that the unsampled indices use sample_weight."""
     X, y = datasets.make_regression(n_samples=200, n_features=4, random_state=0)
     sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
 
@@ -1474,21 +2385,17 @@ def test_sample_weight_unsampled_indices(name):
     est = ForestRegressor(n_estimators=5, bootstrap=True, random_state=0)
     est.fit(X, y, sample_weight=sample_weight)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        unsampled = est._get_unsampled_indices(est.estimators_[0])
+    unsampled = get_unsampled_indices(est, est.estimators_[0])
 
+    # The samples left out of the bootstrap sample that scikit-learn drew by weight.
+    expected = np.setdiff1d(np.arange(len(X)), est.estimators_samples_[0])
     assert len(unsampled) > 0
-    assert all(idx < len(y) for idx in unsampled)
+    assert_array_equal(unsampled, expected)
 
 
-@pytest.mark.skipif(
-    sklearn_version < parse_version("1.9"),
-    reason="sample_weight in bootstrap functions requires scikit-learn >= 1.9",
-)
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
 def test_sample_weight_proximity_counts(name):
-    """Check that proximity_counts works with sample_weight on sklearn 1.9+."""
+    """Check that proximity_counts works with sample_weight."""
     X, y = datasets.make_regression(n_samples=100, n_features=4, random_state=0)
     sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
 
@@ -1499,6 +2406,319 @@ def test_sample_weight_proximity_counts(name):
 
     proximities = est.proximity_counts(X)
     assert len(proximities) == len(X)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("multi_target", [False, True])
+def test_sample_weight_zero_weight_targets(name, bootstrap, multi_target):
+    """Exclude zero-weight samples using their original training indices."""
+    X = np.zeros((4, 1))
+    y = np.array([10, 40, 20, 30])
+    if multi_target:
+        y = np.column_stack((y, -y))
+    sample_weight = np.array([0, 1, 1, 1])
+    quantiles = [0.0, 0.5, 1.0]
+    est = FOREST_REGRESSORS[name](
+        n_estimators=1, bootstrap=bootstrap, max_samples_leaf=None, random_state=0
+    )
+    est.fit(X, y, sample_weight=sample_weight)
+
+    indices = est.estimators_samples_[0]
+    indices = indices[sample_weight[indices] > 0]
+    expected = np.quantile(y[indices], quantiles, axis=0, method="averaged_inverted_cdf").T
+    assert_allclose(est.predict(X[:1], quantiles=quantiles), expected[np.newaxis])
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("multi_target", [False, True])
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+def test_sample_weight_single_sample(name, bootstrap, multi_target, max_samples_leaf):
+    """Keep weight indexing valid for one training sample and any output count."""
+    X = [[0]]
+    y = [[2, -2]] if multi_target else [2]
+    est = FOREST_REGRESSORS[name](
+        n_estimators=1,
+        bootstrap=bootstrap,
+        max_samples_leaf=max_samples_leaf,
+        random_state=0,
+    )
+    est.fit(X, y, sample_weight=[1])
+    assert_allclose(est.predict(X), y)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("multi_target", [False, True])
+def test_sample_weight_bootstrap_more_than_n_samples(name, multi_target):
+    """Collect weighted bootstrap rows when their count exceeds the training size."""
+    X = np.zeros((4, 1))
+    y = np.array([10, 40, 20, 30])
+    if multi_target:
+        y = np.column_stack((y, -y))
+    sample_weight = np.full(len(X), 2.0)
+    quantiles = [0.0, 0.5, 1.0]
+    est = FOREST_REGRESSORS[name](
+        n_estimators=1,
+        bootstrap=True,
+        max_samples=1.0,
+        max_samples_leaf=None,
+        random_state=0,
+    )
+    est.fit(X, y, sample_weight=sample_weight)
+
+    indices = est.estimators_samples_[0]
+    assert len(indices) == 2 * len(X)
+    expected = np.quantile(y[indices], quantiles, axis=0, method="averaged_inverted_cdf").T
+    assert_allclose(est.predict(X[:1], quantiles=quantiles), expected[np.newaxis])
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("bootstrap", [False, True])
+def test_sample_weight_mean_matches_forest(name, bootstrap):
+    """Check that weighted mean predictions match the scikit-learn forest."""
+    X, y = datasets.make_regression(n_samples=300, n_features=4, noise=10, random_state=0)
+    sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+    X_test = np.random.default_rng(1).normal(size=(50, 4))
+    params = {"n_estimators": 10, "bootstrap": bootstrap, "min_samples_leaf": 5, "random_state": 0}
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+    BaseForestRegressor = {
+        "ExtraTreesQuantileRegressor": ExtraTreesRegressor,
+        "RandomForestQuantileRegressor": RandomForestRegressor,
+    }[name]
+
+    est = ForestRegressor(max_samples_leaf=None, **params).fit(X, y, sample_weight=sample_weight)
+    forest = BaseForestRegressor(**params).fit(X, y, sample_weight=sample_weight)
+
+    # The forest averages the trees' leaf values, which are weighted means.
+    for weighted_quantile in [True, False]:
+        y_pred = est.predict(
+            X_test,
+            quantiles="mean",
+            weighted_quantile=weighted_quantile,
+            aggregate_leaves_first=False,
+        )
+        assert_allclose(y_pred, forest.predict(X_test))
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("bootstrap", [False, True])
+def test_sample_weight_median_matches_forest(name, bootstrap):
+    """Check that weighted medians match the scikit-learn absolute error forest."""
+    X, y = datasets.make_regression(n_samples=300, n_features=3, noise=10, random_state=1)
+    sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+    X_test = np.random.default_rng(1).normal(size=(50, 3))
+    params = {
+        "criterion": "absolute_error",
+        "n_estimators": 5,
+        "bootstrap": bootstrap,
+        "min_samples_leaf": 5,
+        "random_state": 0,
+    }
+
+    ForestRegressor = FOREST_REGRESSORS[name]
+    BaseForestRegressor = {
+        "ExtraTreesQuantileRegressor": ExtraTreesRegressor,
+        "RandomForestQuantileRegressor": RandomForestRegressor,
+    }[name]
+
+    est = ForestRegressor(max_samples_leaf=None, **params).fit(X, y, sample_weight=sample_weight)
+    forest = BaseForestRegressor(**params).fit(X, y, sample_weight=sample_weight)
+
+    # Each tree's leaf values are the weighted medians of the leaf samples.
+    kwargs = {"interpolation": "averaged_inverted_cdf", "aggregate_leaves_first": False}
+    assert_allclose(est.predict(X_test, quantiles=0.5, **kwargs), forest.predict(X_test))
+
+
+@pytest.mark.parametrize("aggregate_leaves_first", [True, False])
+def test_sample_weight_repeated_samples(aggregate_leaves_first):
+    """Check that integer weights count like repeated samples."""
+    X, y = datasets.make_regression(n_samples=300, n_features=4, noise=10, random_state=0)
+    sample_weight = np.random.default_rng(0).integers(1, 4, size=len(y))
+    X_repeated = np.repeat(X, sample_weight, axis=0)
+    y_repeated = np.repeat(y, sample_weight)
+    X_test = np.random.default_rng(1).normal(size=(50, 4))
+
+    # Without bootstrapping, shallow trees are the same for both training sets.
+    params = {
+        "n_estimators": 5,
+        "max_samples_leaf": None,
+        "bootstrap": False,
+        "max_depth": 4,
+        "max_features": 2,
+        "random_state": 0,
+    }
+    est = RandomForestQuantileRegressor(**params).fit(X, y, sample_weight=sample_weight)
+    est_repeated = RandomForestQuantileRegressor(**params).fit(X_repeated, y_repeated)
+
+    # Means and ranks depend only on the relative weights, so they are equal.
+    kwargs = {"aggregate_leaves_first": aggregate_leaves_first}
+    for weighted_leaves in [False, True]:
+        kwargs_mean = {"quantiles": "mean", "weighted_leaves": weighted_leaves, **kwargs}
+        assert_allclose(
+            est.predict(X_test, **kwargs_mean), est_repeated.predict(X_test, **kwargs_mean)
+        )
+    y_test = np.random.default_rng(2).choice(y, size=len(X_test))  # scores equal to targets
+    for kind in ["weak", "strict", "mean"]:
+        assert_allclose(
+            est.quantile_ranks(X_test, y_test, kind=kind, **kwargs),
+            est_repeated.quantile_ranks(X_test, y_test, kind=kind, **kwargs),
+        )
+    y_test = y_test + 0.5  # scores between targets
+    assert_allclose(
+        est.quantile_ranks(X_test, y_test, kind="rank", **kwargs),
+        est_repeated.quantile_ranks(X_test, y_test, kind="rank", **kwargs),
+    )
+
+    # Inverted CDF quantiles depend only on the relative weights, so they are
+    # equal too, even at exact fractions of the samples.
+    quantiles = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+    for interpolation in INVERTED_CDF_INTERPOLATIONS:
+        kwargs_quantiles = {"quantiles": quantiles, "interpolation": interpolation, **kwargs}
+        assert_array_equal(
+            est.predict(X_test, **kwargs_quantiles),
+            est_repeated.predict(X_test, **kwargs_quantiles),
+        )
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("multi_target", [False, True])
+@pytest.mark.parametrize("interpolation", ["linear", "averaged_inverted_cdf"])
+def test_sample_weight_leaf_quantiles(name, bootstrap, multi_target, interpolation):
+    """Check that predictions are weighted quantiles of the leaf samples."""
+    X, y = datasets.make_regression(n_samples=200, n_features=2, n_targets=2, random_state=0)
+    y = y if multi_target else y[:, :1]
+    rng = np.random.default_rng(0)
+    sample_weight = rng.uniform(0.1, 2.0, size=len(y))
+    sample_weight[:10] = 0
+    X_test = rng.normal(size=(20, 2))
+
+    est = FOREST_REGRESSORS[name](
+        n_estimators=1,
+        bootstrap=bootstrap,
+        max_samples_leaf=None,
+        min_samples_leaf=10,
+        random_state=0,
+    )
+    est.fit(X, y if multi_target else y[:, 0], sample_weight=sample_weight)
+
+    # Each sample counts once for each time it is drawn for the tree and, if
+    # the tree is fit with the weights (unless the bootstrap samples are drawn
+    # in proportion to them), relative to the average positive weight.
+    leaf_weight = np.ones(len(y))
+    if bootstrap:
+        leaf_weight = np.bincount(est.estimators_samples_[0], minlength=len(y)).astype(float)
+    if not bootstrap:
+        leaf_weight *= sample_weight / sample_weight[sample_weight > 0].mean()
+
+    quantiles = [0.1, 0.5, 0.9]
+    expected = np.empty((len(X_test), y.shape[1], len(quantiles)))
+    X_train_leaves = est.apply(X)[:, 0]
+    for i, leaf in enumerate(est.apply(X_test)[:, 0]):
+        in_leaf = (X_train_leaves == leaf) & (leaf_weight > 0)
+        for j in range(y.shape[1]):
+            inputs, weights = y[in_leaf, j].tolist(), leaf_weight[in_leaf].tolist()
+            expected[i, j] = calc_weighted_quantile(
+                inputs, weights, quantiles, interpolation.encode()
+            )
+    y_pred = est.predict(X_test, quantiles=quantiles, interpolation=interpolation)
+    assert_allclose(y_pred, expected if multi_target else expected[:, 0])
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, 5, None])
+@pytest.mark.parametrize("interpolation", ["linear", "averaged_inverted_cdf"])
+def test_sample_weight_scale(name, max_samples_leaf, interpolation):
+    """Check that only relative weights matter, and that equal weights do nothing."""
+    X, y = datasets.make_regression(n_samples=300, n_features=4, noise=10, random_state=0)
+    sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+    X_test = np.random.default_rng(1).normal(size=(50, 4))
+    y_test = np.random.default_rng(2).choice(y, size=len(X_test))
+
+    # Leaves of at least 5 samples, so that the trees do not depend on the scale.
+    ForestRegressor = FOREST_REGRESSORS[name]
+    params = {
+        "n_estimators": 5,
+        "bootstrap": False,
+        "max_samples_leaf": max_samples_leaf,
+        "min_samples_leaf": 5,
+        "random_state": 0,
+    }
+
+    def get_predictions(sample_weight):
+        est = ForestRegressor(**params).fit(X, y, sample_weight=sample_weight)
+        y_pred = est.predict(X_test, quantiles=[0.1, 0.5, 0.9], interpolation=interpolation)
+        return np.column_stack([y_pred, est.quantile_ranks(X_test, y_test)])
+
+    # Weights multiplied by a constant give the same predictions.
+    expected = get_predictions(sample_weight)
+    for scale in [0.001, 100]:
+        assert_allclose(get_predictions(scale * sample_weight), expected)
+
+    # Equal weights give the same predictions as no weights.
+    assert_allclose(get_predictions(np.full(len(y), 3.0)), get_predictions(None))
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("multi_target", [False, True])
+def test_sample_weight_single_sample_leaves(name, multi_target):
+    """Check that a leaf with one sample keeps it in proportion to its weight."""
+    X = np.zeros((2, 1))  # one leaf
+    y = np.array([[0.0, 0.0], [1.0, -1.0]])
+    y = y if multi_target else y[:, 0]
+    est = FOREST_REGRESSORS[name](n_estimators=400, bootstrap=False, random_state=0)
+    est.fit(X, y, sample_weight=[1, 3])
+
+    # The second sample, with weight 3, is kept by about 3/4 of the trees. Its
+    # targets are second when sorted for the first output, and first for the
+    # second output.
+    y_train_leaves = np.asarray(est.forest_.y_train_leaves)
+    kept_second = y_train_leaves[:, 0, 0, 0] == 2
+    assert abs(kept_second.mean() - 0.75) < 0.05
+    if multi_target:
+        assert_array_equal(y_train_leaves[:, 0, 1, 0] == 1, kept_second)
+
+    # The kept samples are not weighted again in predictions.
+    assert np.asarray(est.forest_.sample_weight).size == 0
+    assert_allclose(est.predict(X[:1], quantiles="mean")[0], np.mean(y[1 * kept_second], axis=0))
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+def test_sample_weight_serialization(name, tmp_path):
+    """Check that the leaf weights are pickled and memory-mapped."""
+    X, y = datasets.make_regression(n_samples=200, n_features=4, random_state=0)
+    sample_weight = np.random.default_rng(0).uniform(0.1, 2.0, size=len(y))
+
+    est = FOREST_REGRESSORS[name](
+        n_estimators=5,
+        bootstrap=False,
+        max_samples_leaf=None,
+        min_samples_leaf=5,
+        random_state=0,
+    )
+    est.fit(X, y, sample_weight=sample_weight)
+    assert np.asarray(est.forest_.sample_weight).shape == (1, len(y))
+
+    path = tmp_path / "est.joblib"
+    joblib.dump(est, path)
+    for est_loaded in [pickle.loads(pickle.dumps(est)), joblib.load(path, mmap_mode="r")]:
+        assert_array_equal(est_loaded.forest_.sample_weight, est.forest_.sample_weight)
+        quantiles = [0.25, 0.5, 0.75]
+        assert_allclose(est_loaded.predict(X, quantiles), est.predict(X, quantiles))
+        assert_allclose(est_loaded.quantile_ranks(X, y), est.quantile_ranks(X, y))
+
+    # Without weights, pickles carry no weights.
+    est.fit(X, y)
+    assert np.asarray(pickle.loads(pickle.dumps(est.forest_)).sample_weight).size == 0
+
+    # Check error if the weights do not have the shape of the targets.
+    QuantileForest = type(est.forest_)
+    y_train = np.asarray(est.forest_.y_train)
+    y_train_leaves = np.asarray(est.forest_.y_train_leaves)
+    with pytest.raises(ValueError, match="sample_weight must have the shape of y_train"):
+        QuantileForest(y_train, y_train_leaves, sample_weight=np.ones((1, len(y) + 1)))
 
 
 def test_calc_quantile():
@@ -1694,6 +2914,105 @@ def test_calc_weighted_quantile():
         calc_weighted_quantile([1, 2], [1, 1], [0.5], interpolation=None)
 
 
+@pytest.mark.parametrize("interpolation", INTERPOLATIONS)
+def test_calc_quantile_matches_numpy(interpolation):
+    """Check that quantiles match NumPy, including weights given as repeats."""
+    rng = np.random.default_rng(0)
+    for _ in range(300):
+        n = int(rng.integers(1, 15))
+        inputs = np.sort(rng.integers(0, 5, size=n).astype(float))  # many ties
+        weights = rng.integers(0, 4, size=n).astype(float)  # some zero weights
+        weights[rng.integers(n)] += 1
+        repeated = np.repeat(inputs, weights.astype(int))
+
+        # Include quantiles that land exactly on a rank of the repeated values,
+        # or on a fraction of the inputs or repeated values (for inverted CDFs).
+        quantiles = list(rng.random(3)) + [0.0, 1.0]
+        if len(repeated) > 1:
+            quantiles += list(rng.integers(0, len(repeated), size=3) / (len(repeated) - 1))
+        quantiles += list(rng.integers(0, n + 1, size=2) / n)
+        quantiles += list(rng.integers(0, len(repeated) + 1, size=2) / len(repeated))
+
+        expected = np.quantile(inputs, quantiles, method=interpolation)
+        actual = calc_quantile(inputs, quantiles, interpolation.encode(), issorted=True)
+        assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+
+        expected = np.quantile(repeated, quantiles, method=interpolation)
+        actual = calc_weighted_quantile(
+            inputs, weights, quantiles, interpolation.encode(), issorted=True
+        )
+        assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("C, method", [(0, "weibull"), (0.5, "hazen"), (1, "linear")])
+@pytest.mark.parametrize("interpolation", ["linear", "lower", "higher", "midpoint", "nearest"])
+def test_calc_quantile_rank_constant(C, method, interpolation):
+    """Check quantiles for each constant C in the rank, including weighted ones."""
+    rng = np.random.default_rng(0)
+    for _ in range(300):
+        n = int(rng.integers(1, 15))
+        inputs = np.sort(rng.integers(0, 5, size=n).astype(float))  # many ties
+        weights = rng.integers(0, 4, size=n).astype(float)  # some zero weights
+        weights[rng.integers(n)] += 1
+        repeated = np.repeat(inputs, weights.astype(int))
+        n_repeated = len(repeated)
+
+        # Include the ends, which C < 1 can index past, and exact ranks.
+        quantiles = list(rng.random(3)) + [0.0, 1.0]
+        if n_repeated + 1 - 2 * C > 0:
+            ranks = rng.integers(0, n_repeated, size=3)
+            quantiles += list((ranks + 1 - C) / (n_repeated + 1 - 2 * C))
+
+        kwargs = {"issorted": True, "C": C}
+        expected = calc_quantile(repeated, quantiles, interpolation.encode(), **kwargs)
+        if interpolation == "linear":
+            # Check against NumPy's method for this constant.
+            assert_allclose(
+                expected, np.quantile(repeated, quantiles, method=method), rtol=1e-12, atol=1e-12
+            )
+
+        # Check that integer weights match the quantiles of the repeated values.
+        actual = calc_weighted_quantile(
+            inputs, weights, quantiles, interpolation.encode(), **kwargs
+        )
+        assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("interpolation", INTERPOLATIONS)
+def test_calc_weighted_quantile_ignores_zero_weights(interpolation):
+    """Check that zero-weight inputs never affect the weighted quantile."""
+    inputs = [-0.7, -0.1, 0.2, 1.1, 1.5]
+    weights = [0, 3, 3, 0, 0]
+
+    # The lowest input has zero weight, so q=0 must return the next input.
+    actual = calc_weighted_quantile(inputs, weights, [0.0, 1.0], interpolation.encode())
+    assert_allclose(actual, [-0.1, 0.2])
+
+    # Fractional weights: q=1 must reach the last input with positive weight.
+    actual = calc_weighted_quantile([0.0, 1.0], [1.0, 0.05], [1.0], interpolation.encode())
+    assert_allclose(actual, [1.0])
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("interpolation", INTERPOLATIONS)
+def test_predict_weighted_matches_unweighted(name, interpolation):
+    """Check that weighted and unweighted quantiles agree with count weights."""
+    X, y = datasets.make_regression(n_samples=400, n_features=4, noise=10, random_state=2)
+    est = FOREST_REGRESSORS[name](
+        n_estimators=5, max_samples_leaf=None, min_samples_leaf=20, random_state=2
+    )
+    est.fit(X, y)
+    X_test = np.random.default_rng(2).normal(size=(200, 4))
+
+    # With leaf weights off, the weights are counts, so both must agree.
+    quantiles = [0.0, 0.25, 0.5, 0.75, 1.0]
+    kwargs = {"quantiles": quantiles, "interpolation": interpolation}
+    assert_allclose(
+        est.predict(X_test, weighted_quantile=True, **kwargs),
+        est.predict(X_test, weighted_quantile=False, **kwargs),
+    )
+
+
 def test_calc_quantile_rank():
     """Check quantile rank calculations."""
     kinds = [b"rank", b"weak", b"strict", b"mean"]
@@ -1744,3 +3063,183 @@ def test_calc_quantile_rank():
         calc_quantile_rank([1, 2], [1])
     with pytest.raises(TypeError):
         calc_quantile_rank([1, 2], float(1), kind=None)
+
+
+def test_calc_weighted_quantile_rank():
+    """Check weighted quantile rank calculations."""
+    kinds = [b"rank", b"weak", b"strict", b"mean"]
+
+    # Check that integer weights give the ranks of repeated inputs.
+    rng = np.random.default_rng(0)
+    for _ in range(200):
+        inputs = rng.integers(0, 5, size=rng.integers(1, 8)).astype(np.float64)
+        weights = rng.integers(0, 4, size=len(inputs)).astype(np.float64)
+        weights[0] = max(weights[0], 1)  # a positive total weight
+        repeated = np.repeat(inputs, weights.astype(int))
+        score = float(rng.integers(-1, 6))
+        for kind in kinds:
+            actual = calc_weighted_quantile_rank(inputs, weights, score, kind=kind)
+            expected = calc_quantile_rank(repeated, score, kind=kind)
+            assert_allclose(actual, expected)
+
+    # Check that matching inputs with a total weight below 1 give the "weak" rank.
+    inputs = [1.0, 2.0, 3.0]
+    weights = [0.2, 0.1, 0.7]
+    expected = {b"rank": 0.3, b"weak": 0.3, b"strict": 0.2, b"mean": 0.25}
+    for kind in kinds:
+        assert_allclose(
+            calc_weighted_quantile_rank(inputs, weights, 2.0, kind=kind), expected[kind]
+        )
+    assert_allclose(calc_weighted_quantile_rank(inputs, weights, 3.0, kind=b"rank"), 1.0)
+
+    # Check that -1 is returned for empty inputs or zero total weight.
+    assert calc_weighted_quantile_rank([], [], 1.0) == -1
+    assert calc_weighted_quantile_rank([1.0, 2.0], [0.0, 0.0], 1.0) == -1
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+@pytest.mark.parametrize("interpolation", INVERTED_CDF_INTERPOLATIONS)
+def test_predict_inverted_cdf_matches_numpy(name, max_samples_leaf, interpolation):
+    """Check that inverted CDF quantiles match NumPy on the leaf samples."""
+    X, y = datasets.make_regression(n_samples=200, n_features=3, noise=10, random_state=0)
+    y = np.round(y / 10)  # ties
+    X_test = np.random.default_rng(0).normal(size=(30, 3))
+    quantiles = [0.0, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+
+    est = FOREST_REGRESSORS[name](
+        n_estimators=7,
+        bootstrap=True,
+        max_samples_leaf=max_samples_leaf,
+        min_samples_leaf=3,
+        random_state=0,
+    )
+    est.fit(X, y)
+
+    # Get each tree's leaf samples for each test sample.
+    y_train_leaves = np.asarray(est.forest_.y_train_leaves)[:, :, 0, :]
+    y_train = np.asarray(est.forest_.y_train)[0]
+
+    def get_leaf_samples(X_leaves, trees):
+        leaf_samples = []
+        for t in trees:
+            indices = y_train_leaves[t, X_leaves[t]]
+            leaf_samples.append(y_train[indices[indices > 0] - 1])
+        return leaf_samples
+
+    trees = range(est.n_estimators)
+    X_test_leaves = est.apply(X_test)
+    kwargs = {"quantiles": quantiles, "interpolation": interpolation}
+    for weighted_quantile in [True, False]:
+        y_pred = est.predict(X_test, weighted_quantile=weighted_quantile, **kwargs)
+        for i in range(len(X_test)):
+            leaf_samples = np.concatenate(get_leaf_samples(X_test_leaves[i], trees))
+            expected = np.quantile(leaf_samples, quantiles, method=interpolation)
+            assert_allclose(y_pred[i], expected, rtol=1e-12, atol=1e-12)
+
+        if max_samples_leaf is None:  # quantiles calculated for each tree and averaged
+            y_pred = est.predict(
+                X_test,
+                weighted_quantile=weighted_quantile,
+                aggregate_leaves_first=False,
+                **kwargs,
+            )
+            for i in range(len(X_test)):
+                leaf_samples = get_leaf_samples(X_test_leaves[i], trees)
+                expected = [np.quantile(v, quantiles, method=interpolation) for v in leaf_samples]
+                assert_allclose(y_pred[i], np.mean(expected, axis=0), rtol=1e-12, atol=1e-12)
+
+    # Check OOB predictions, from the trees that did not draw each sample.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)  # some samples have no OOB trees
+        y_pred = est.predict(X, oob_score=True, **kwargs)
+    X_leaves = est.apply(X)
+    for i in range(0, len(X), 10):
+        oob_trees = [t for t in trees if i not in est.estimators_samples_[t]]
+        if oob_trees:
+            leaf_samples = np.concatenate(get_leaf_samples(X_leaves[i], oob_trees))
+            expected = np.quantile(leaf_samples, quantiles, method=interpolation)
+            assert_allclose(y_pred[i], expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("name", FOREST_REGRESSORS)
+@pytest.mark.parametrize("max_samples_leaf", [1, None])
+def test_predict_default_interpolation(name, max_samples_leaf):
+    """Check that quantiles default to the averaged inverted CDF."""
+    X, y = datasets.make_regression(n_samples=200, n_features=2, noise=10, random_state=0)
+
+    est = FOREST_REGRESSORS[name](
+        n_estimators=10, bootstrap=True, max_samples_leaf=max_samples_leaf, random_state=0
+    )
+    est.fit(X, y)
+
+    quantiles = [0.1, 0.5, 0.9]
+    for kwargs in [
+        {},
+        {"weighted_quantile": False},
+        {"aggregate_leaves_first": False},
+        {"oob_score": True},
+    ]:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # some samples have no OOB trees
+            y_pred = est.predict(X, quantiles=quantiles, **kwargs)
+            expected = est.predict(
+                X, quantiles=quantiles, interpolation="averaged_inverted_cdf", **kwargs
+            )
+            assert_array_equal(y_pred, expected)
+
+            # Without sample weights, the medians are the usual medians, as
+            # with linear interpolation.
+            y_pred_linear = est.predict(X, quantiles=0.5, interpolation="linear", **kwargs)
+            assert_allclose(y_pred[:, 1], y_pred_linear)
+
+
+@pytest.mark.parametrize("interpolation", INVERTED_CDF_INTERPOLATIONS)
+def test_calc_weighted_quantile_inverted_cdf_scale(interpolation):
+    """Check that inverted CDF quantiles depend only on the relative weights."""
+    rng = np.random.default_rng(0)
+    for _ in range(300):
+        n = int(rng.integers(1, 15))
+        inputs = np.sort(rng.integers(0, 5, size=n).astype(float))
+        weights = rng.integers(0, 4, size=n).astype(float)
+        weights[rng.integers(n)] += 1
+        total = int(weights.sum())
+        quantiles = [0.0, 1.0] + list(rng.integers(0, total + 1, size=4) / total)
+
+        # Rescaling the weights by a power of two, which is exact, gives the
+        # same quantiles, even at exact fractions of the total weight.
+        expected = calc_weighted_quantile(inputs, weights, quantiles, interpolation.encode())
+        for scale in [0.25, 4.0]:
+            actual = calc_weighted_quantile(
+                inputs, scale * weights, quantiles, interpolation.encode()
+            )
+            assert_array_equal(actual, expected)
+
+        # Other rescaling gives the same quantiles away from exact fractions,
+        # where rounding the fraction can move it across a sample.
+        quantiles = list(rng.random(4))
+        expected = calc_weighted_quantile(inputs, weights, quantiles, interpolation.encode())
+        actual = calc_weighted_quantile(inputs, 0.3 * weights, quantiles, interpolation.encode())
+        assert_array_equal(actual, expected)
+
+
+@pytest.mark.parametrize("interpolation", INVERTED_CDF_INTERPOLATIONS)
+def test_calc_weighted_quantile_matches_sklearn(interpolation):
+    """Check that inverted CDF quantiles match scikit-learn's weighted percentiles."""
+    from sklearn.utils.stats import _weighted_percentile
+
+    rng = np.random.default_rng(0)
+    for _ in range(300):
+        n = int(rng.integers(1, 15))
+        inputs = rng.normal(size=n).round(1)  # ties
+        weights = rng.uniform(0, 2, size=n)
+        weights[rng.random(n) < 0.2] = 0
+        weights[rng.integers(n)] += 0.5
+        quantiles = [0.0, 1.0] + list(rng.random(4))
+
+        actual = calc_weighted_quantile(inputs, weights, quantiles, interpolation.encode())
+        average = interpolation == "averaged_inverted_cdf"
+        expected = [
+            _weighted_percentile(inputs, weights, 100 * q, average=average) for q in quantiles
+        ]
+        assert_allclose(actual, expected)

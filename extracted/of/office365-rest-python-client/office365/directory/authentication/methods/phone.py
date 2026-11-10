@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional
 
 from office365.directory.authentication.methods.method import AuthenticationMethod
+from office365.directory.authentication.methods.signinstate import AuthenticationMethodSignInState
+from office365.directory.authentication.phonetype import AuthenticationPhoneType
+from office365.permissions import require_permission
 from office365.runtime.queries.service_operation import ServiceOperationQuery
-
-if TYPE_CHECKING:
-    from office365.directory.authentication.methods.signinstate import (
-        AuthenticationMethodSignInState,
-    )
-    from office365.directory.authentication.phonetype import AuthenticationPhoneType
+from office365.runtime.types.odata_property import odata
 
 
 class PhoneAuthenticationMethod(AuthenticationMethod):
@@ -27,6 +25,9 @@ class PhoneAuthenticationMethod(AuthenticationMethod):
     An office phone can only receive voice calls, not SMS messages.
     """
 
+    @require_permission(
+        delegated=["UserAuthenticationMethod.ReadWrite.All"], application=["UserAuthenticationMethod.ReadWrite.All"]
+    )
     def disable_sms_signin(self):
         """
         Disable SMS sign-in for an existing mobile phone number registered to a user.
@@ -36,6 +37,9 @@ class PhoneAuthenticationMethod(AuthenticationMethod):
         self.context.add_query(qry)
         return self
 
+    @require_permission(
+        delegated=["UserAuthenticationMethod.ReadWrite.All"], application=["UserAuthenticationMethod.ReadWrite.All"]
+    )
     def enable_sms_signin(self):
         """
         Enable SMS sign-in for an existing mobile phone number registered to a user. To be successfully enabled:
@@ -48,8 +52,9 @@ class PhoneAuthenticationMethod(AuthenticationMethod):
         self.context.add_query(qry)
         return self
 
+    @odata(name="phoneNumber")
     @property
-    def phone_number(self):
+    def phone_number(self) -> Optional[str]:
         """
         The phone number to text or call for authentication.
         Phone numbers use the format +{country code} {number}x{extension}, with extension optional.
@@ -58,20 +63,16 @@ class PhoneAuthenticationMethod(AuthenticationMethod):
         """
         return self.properties.get("phoneNumber", None)
 
+    @odata(name="phoneType")
     @property
     def phone_type(self) -> AuthenticationPhoneType:
         """Gets the phoneType property"""
-        from office365.directory.authentication.phonetype import AuthenticationPhoneType
-
         return self.properties.get("phoneType", AuthenticationPhoneType.mobile)
 
+    @odata(name="smsSignInState")
     @property
     def sms_sign_in_state(self) -> AuthenticationMethodSignInState:
         """Gets the smsSignInState property"""
-        from office365.directory.authentication.methods.signinstate import (
-            AuthenticationMethodSignInState,
-        )
-
         return self.properties.get("smsSignInState", AuthenticationMethodSignInState.notSupported)
 
     @property

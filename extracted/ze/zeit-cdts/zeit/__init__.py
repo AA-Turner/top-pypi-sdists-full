@@ -18,6 +18,7 @@ from ._lt import landtrendr
 from ._ccdc_api import ccdc
 from ._sccd import sccd
 from ._series_api import bfast_monitor, bfast_lite, bfast, mann_kendall, phenology
+from ._tsa import temporal_metrics, standardize, interpolate, linear_trend, cat, clear_observations, polar_metrics
 from ._parts import ar_trend, parts
 from ._recovery import recovery_metrics
 from ._ewmacd import ewmacd
@@ -38,17 +39,30 @@ from ._texture_api import texture
 from ._som_api import som, clean_samples
 from ._smooth import smooth
 from .masks import extract_water_mask
-from .qc import qc_modis_summary, qc_modis_state, qc_sentinel2_scl
+from .qc import qc_modis_summary, qc_modis_state, qc_sentinel2_scl, qa_mask, qa_to_fmask
 
 from ._tmask_api import tmask
 from ._sma import unmix
 from ._coded import coded
 from ._bandpass import bandpass_adjust
+from ._nbar import nbar
+from ._s2angles import sentinel2_angles
+from ._specadjust import spectral_adjust
+from ._tasseled import tasseled_cap
+from ._improphe import improphe
+from ._resmerge import sentinel2_resmerge
+from ._pansharpen import pansharpen
+from ._parallax import buffer_mask, cloud_displacement_index, parallax_clouds
+from ._level2 import level2
+from ._topocorr import topographic_correction
+from ._coreg import coregister, coregister_local
 
 from .regularize import regularize_time_series
 
-from .indices import compute_indices
+from .indices import compute_indices, nd, normalized_difference
 from .io import load_raster, save_raster, get_georef
+from ._vrt import build_vrt
+from .vector import pixel_area, rasterize, polygonize, zonal_stats, zonal_areas, ZonalTables
 
 try:
     import zeit.xarray_api # This registers the xarray accessor automatically
@@ -99,6 +113,8 @@ __all__ = [
     "landtrendr", "desawtooth", "apply_vertices",
     "ccdc", "sccd",
     "bfast_monitor", "bfast_lite", "bfast", "mann_kendall", "phenology",
+    "temporal_metrics", "standardize", "interpolate", "linear_trend", "cat",
+    "clear_observations", "polar_metrics",
     "ar_trend", "parts", "recovery_metrics", "ewmacd", "beast",
     "twdtw", "smooth", "tmask", "snic", "texture", "som", "clean_samples", "unmix", "coded",
     "extract_events", "agreement", "predict_synthetic_image",
@@ -111,14 +127,29 @@ __all__ = [
     "emerging_hotspots",
     "snic_grid", "snic_to_polygons",
     "extract_water_mask",
-    "qc_modis_summary", "qc_modis_state", "qc_sentinel2_scl",
+    "qc_modis_summary", "qc_modis_state", "qc_sentinel2_scl", "qa_mask", "qa_to_fmask",
     "build_time_series",
+    "nbar",
+    "sentinel2_angles",
     "bandpass_adjust",
+    "spectral_adjust",
+    "tasseled_cap",
+    "improphe",
+    "sentinel2_resmerge",
+    "pansharpen",
+    "cloud_displacement_index",
+    "parallax_clouds",
+    "buffer_mask",
+    "level2",
+    "topographic_correction",
+    "coregister",
+    "coregister_local",
     "build_annual_composites",
     "build_spectral_temporal_metrics",
-    "compute_indices",
+    "compute_indices", "nd", "normalized_difference",
     "regularize_time_series",
-    "load_raster", "save_raster", "plot", "interpret",
+    "load_raster", "save_raster", "build_vrt", "plot", "interpret",
+    "pixel_area", "rasterize", "polygonize", "zonal_stats", "zonal_areas", "ZonalTables",
     "load_embeddings", "similarity", "embedding_change",
     "run_tiles", "run_worker", "invite_helpers", "tile_urls", "stac_tiles", "gee_tiles", "fetch_tiles", "fetch_weights",
     "doctor", "ai"

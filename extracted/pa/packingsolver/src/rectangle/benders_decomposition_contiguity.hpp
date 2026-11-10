@@ -76,6 +76,12 @@
  * position (their §3.1.1 "covering cut") is added and the outer BMP is
  * re-solved.
  *
+ * The description above is along the x-axis. The decomposition can also run
+ * along the y-axis, on the flipped instance (see 'InstanceFlipper'), the
+ * master problem then deciding the y-positions; which direction is faster
+ * depends on the instance. By default, both run in parallel - see
+ * 'BendersDecompositionContiguityParameters::direction'.
+ *
  * Scope of this implementation (deliberately narrower than either paper -
  * see the header comment in 'benders_decomposition.cpp' for the analogous
  * "deliberately scoped" note there):
@@ -158,6 +164,16 @@ struct BendersDecompositionContiguityParameters: packingsolver::Parameters<Insta
     OptimizationMode optimization_mode = OptimizationMode::Anytime;
 
     /**
+     * Direction of the master problem: along 'Direction::X', it decides the
+     * x-positions of the items, and the slave their y-positions; along
+     * 'Direction::Y', the roles of the axes are swapped. With
+     * 'Direction::Any', both directions run in parallel (sequentially in
+     * 'NotAnytimeSequential' mode), and the first one to conclude stops the
+     * other.
+     */
+    Direction direction = Direction::Any;
+
+    /**
      * Whether to solve the BMP relaxation via
      * 'onedimentional_contiguity::tree_search' (the default) or
      * 'onedimentional_contiguity::milp' - see the file-level comment above.
@@ -187,6 +203,15 @@ struct BendersDecompositionContiguityParameters: packingsolver::Parameters<Insta
 
     /** Maximum number of iterations (-1: unlimited). */
     Counter not_anytime_maximum_number_of_iterations = -1;
+
+    /**
+     * Maximum number of operations of the sweep solving the master problem
+     * of the first iteration, for the 'Feasibility' objective (see
+     * 'onedimentional_contiguity/sweep.hpp'); -1 for no limit, 0 to disable
+     * it. If it doesn't prove the master problem infeasible, the master
+     * problem is solved as usual.
+     */
+    Counter first_master_problem_sweep_maximum_number_of_operations = 100000000;
 
     /**
      * Seed for the random unit-removal orderings of the no-good cut

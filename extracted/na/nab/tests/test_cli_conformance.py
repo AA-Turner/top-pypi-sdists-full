@@ -231,7 +231,7 @@ def test_the_implementation_alias_holds_the_tokens_its_parser_offers() -> None:
     assert get_args(ImplementationFlag) == values.IMPLEMENTATIONS
 
 
-# The sixteen rows reached by both a configuration source and a flag.
+# Rows reached by both a configuration source and a flag.
 _SETTABLE = [row for row in ALL if row.key and row.cli_flag]
 
 _BOOL_TOKENS = ("True", "False")
@@ -239,21 +239,31 @@ _BOOL_TOKENS = ("True", "False")
 
 def _tokens(row: Opt) -> tuple[str, ...]:
     """Every token ``row``'s flag accepts, or the one token it documents."""
+    if row.kind is Kind.FLAG:
+        return ("True", "False") if row.negatable else ("True",)
+
     if row.vtype is VType.CHOICE:
         return row.choices
+
     if row.vtype is VType.BOOL:
         return _BOOL_TOKENS
+
     return (row.sample,)
 
 
-def _walked(row: Opt, token: str) -> object:
-    """What the walk stores for ``row`` when its flag is given ``token``."""
-    line = (row.commands[0], row.cli_flag, token)
+def _walked(row: Opt, argument: str) -> object:
+    """What the walk stores for ``row`` when its flag is given ``argument``."""
+    if row.kind is Kind.FLAG:
+        flag = row.cli_flag if argument == "True" else "--no-" + row.name
+        line = (row.commands[0], flag)
+    else:
+        line = (row.commands[0], row.cli_flag, argument)
+
     return parse(line, cli_spec.ROOT, cli_spec.COMMANDS, "nab").values[row.dest]
 
 
 class TestHooksReadWhatTheWalkStores:
-    """The sixteen flagged keys reach their hook in a shape it takes.
+    """The flagged keys reach their hook in a shape it takes.
 
     The token goes through the real walk and the real CLI layer, so a row
     whose flag converts to one type while its hook expects another fails
@@ -268,6 +278,7 @@ class TestHooksReadWhatTheWalkStores:
 
             build_cli_layer({row.name: value})
 
-    def test_the_settable_keys_are_the_eighteen_flagged_rows(self) -> None:
+    def test_the_settable_keys_are_accounted_for(self) -> None:
         """A derivation that emptied would leave the case above with no rows."""
-        assert len(_SETTABLE) == 18
+
+        assert len(_SETTABLE) == 30

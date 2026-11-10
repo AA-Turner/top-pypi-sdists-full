@@ -7,12 +7,18 @@ import json
 import logging
 import socket
 import threading
-from typing import Any, Callable, Dict, List, Optional, Set, Union, cast
+from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Set, Union, cast
+
+if TYPE_CHECKING:
+    from .auth.any_of import PermissionRequired
 
 from django.utils.decorators import classonlymethod
 from django.views import View
 
+from ._class_snapshot import namespace as _class_namespace
 from ._context_provider import ContextProviderMixin  # noqa: F401  # re-exported for back-compat
+from ._deprecation import class_statement_stacklevel, warn_deprecated
 from .change_detection import deep_fingerprint, fingerprints_by_content
 from .serialization import (  # noqa: F401
     DjangoJSONEncoder,
@@ -33,6 +39,7 @@ from .session_utils import (  # noqa: F401
 
 from .mixins import (
     AsyncWorkMixin,
+    ServerPushMixin,
     StreamsMixin,
     StreamingMixin,
     TemplateMixin,
@@ -54,6 +61,7 @@ from .mixins import (
     StickyChildRegistry,
     ActivityMixin,
 )
+from .mixins.request import UNDECLARED_STATUS_MAP
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -75,6 +83,7 @@ except ImportError:
 
 __all__ = [
     "LiveView",
+    "PersistentLiveView",
     "live_view",
     "DjangoJSONEncoder",
     "DEFAULT_SESSION_TTL",
@@ -115,8 +124,30 @@ _FRAMEWORK_INTERNAL_ATTRS: frozenset = frozenset(
         # djust LiveView base config
         "sync_safe",
         "use_actors",
+        "exposure_policy",
+        "_explicit_child_mount_inputs",
+        "_explicit_child_mount_binding",
+        "_explicit_child_schema",
+        "_explicit_child_reuse_identity",
+        "_explicit_child_render_regions",
+        "_explicit_child_render_scope",
+        "_explicit_child_rendered_full",
+        "_explicit_child_state_tracked",
+        # ADR-038 E2-1: the keys registered providers rendered this pass.
+        "_explicit_context_provider_keys",
+        "_djust_child_disposed",
+        "_djust_waiters_closed",
+        "_async_task_handles",
+        "_tracked_tasks",
+        "_async_tasks",
+        "_async_pending",
+        "_async_task_counter",
+        "_async_cancelled",
+        "_async_work_generation",
         "view_is_async",
         "tick_interval",
+        "room_clock",
+        "_room_clock_scope",
         "login_required",
         "login_url",
         "permission_required",
@@ -125,6 +156,16 @@ _FRAMEWORK_INTERNAL_ATTRS: frozenset = frozenset(
         "on_mount_count",
         "static_assigns",
         "static_assigns_count",
+        "static_render",
+        "query_budget",
+        # View options of the page-status / declared-URL-params work (#3688,
+        # #3689). Class attributes like ``query_budget``; an instance that
+        # assigns one (``self.state_attribute = ...``) must not publish it as
+        # reactive state (#3706).
+        "http_status_of_state",
+        "state_attribute",
+        "params_form",
+        "params_form_fallback",
         "template",
         "template_name",
         "base_template",
@@ -143,6 +184,10 @@ _FRAMEWORK_INTERNAL_ATTRS: frozenset = frozenset(
         # mechanism (and made the "setting _changed_keys directly is
         # ineffective" doc claim false).
         "_changed_keys",
+        # The handler's no-render request (#3246): consumed to False by
+        # ``_resolve_skip_render``, so a first ``_skip_render`` left a key the
+        # pre-handler snapshot lacked and read as a state change.
+        "_skip_render",
         # Lazily-assigned framework bookkeeping (#2664). These are written
         # AFTER ``__init__`` (first render / first event / first dirty
         # baseline), so they are NOT in the ``_framework_attrs`` snapshot
@@ -166,12 +211,28 @@ _FRAMEWORK_INTERNAL_ATTRS: frozenset = frozenset(
         "_prev_context_refs",
         "_prev_context_immutables",
         "_prev_context_fingerprints",
+        # The context names that are a form or hold one (#3767): the sidecar answers
+        # for them, and a name not sent this sync keeps this answer.
+        "_form_held_keys",
         "_dirty_baseline",
         "_rust_render_timing",
+        # Adaptive loop-cache bypass bookkeeping (#3071), written after a render.
+        "_loop_cache_miss_streak",
+        "_loop_cache_bypassed",
         "_djust_mount_kwargs",
         "_jit_serialized_keys",
+        # The JIT's template source for a value reached through a container,
+        # read once per render by ``get_context_data`` (#3788).
+        "_nested_template_source",
+        # The raw rows a QuerySet-method read is answered from (#3801).
+        "_all_method_rows",
         "_context_processor_keys",
+        # What the last legacy render built from attributes / as render-only
+        # (``mixins/context.py`` ``legacy_unsaved_keys``).
+        "_djust_state_context_keys",
+        "_djust_render_only_keys",
         "_cached_csrf_token",
+        "_djust_id_counter",  # Render-cycle ID allocation is not reactive state.
         "_sync_done_this_cycle",
         "_force_full_html",
         # Names of start_async tasks currently running (#2969). Written by the
@@ -182,6 +243,27 @@ _FRAMEWORK_INTERNAL_ATTRS: frozenset = frozenset(
         # sticky child was mounted with, and the last set a warning named.
         "_djust_sticky_mount_kwargs",
         "_djust_sticky_kwargs_warned",
+        # Per-connection identity the transports write before ``mount()``
+        # (``runtime.py`` ``dispatch_mount`` / ``on_view_mounted``). Not in the
+        # init-time ``_framework_attrs``, so the legacy private-state save
+        # carried them, and a reconnect's session restore then overwrote the
+        # new connection's values with the previous connection's (#3248).
+        "_websocket_session_id",
+        "_websocket_path",
+        "_websocket_query_string",
+        "_websocket_host",
+        "_websocket_secure",
+        "_django_session_key",
+        "_djust_state_saves_released",
+        "_djust_mount_view_path",
+        # The ``target_id`` of the slot a view mounted beside the page view
+        # (``on_view_instantiated``, #3252); keys its cached Rust view.
+        "_djust_slot_target",
+        # The HTTP fallback's per-render child id counter (``_assign_view_id``).
+        "_render_child_ids",
+        # The SSE transport's stream id (``on_view_mounted``), the twin of
+        # ``_websocket_session_id`` (#3248 review).
+        "_sse_session_id",
     }
 )
 
@@ -222,9 +304,12 @@ def _descriptor_fields(cls: type) -> Dict[str, tuple]:
         return cast(Dict[str, tuple], cached)
     from .components.base import LiveComponent as _DescriptorComponent
 
+    # Built into a new dict from namespace SNAPSHOTS, then published with one
+    # setattr: on a free-threaded build another thread may be writing a
+    # first-use cache to one of these classes right now (#3151).
     fields: Dict[str, tuple] = {}
     for klass in reversed(cls.__mro__):
-        for name, value in vars(klass).items():
+        for name, value in _class_namespace(klass).items():
             # Type checks only: a class attribute may be lazy
             # (``SimpleLazyObject``, whose ``__class__`` is proxied, so not
             # even ``isinstance``) and must not be evaluated here.
@@ -327,6 +412,14 @@ def restore_components_snapshot(view: Any, components_state: Any, *, source: str
             logger.warning("%s: component %r snapshot is not a mapping", source, component_id)
             ok = False
             continue
+        # An interactive component restores through its concrete state
+        # schema, never field-by-field (ADR-038); None keeps the legacy path.
+        from .time_travel import _restore_interactive_state
+
+        restored = _restore_interactive_state(component, component_snap)
+        if restored is not None:
+            ok = restored and ok
+            continue
         for key, value in component_snap.items():
             if not isinstance(key, str) or key in _COMPONENT_INTERNAL_ATTRS:
                 continue
@@ -344,9 +437,20 @@ def restore_components_snapshot(view: Any, components_state: Any, *, source: str
                 continue
             try:
                 applied = safe_setattr(component, key, value, allow_private=False)
-            except Exception:  # noqa: BLE001 — log + degrade, never break a restore
-                logger.exception(
-                    "%s: component restore failed for id=%s key=%s", source, component_id, key
+            except Exception as exc:  # noqa: BLE001 — log + degrade, never break a restore
+                from ._exposure_diagnostics import log_failure_for
+
+                # A setter is application code; its error text can carry
+                # state, so it is value-free for a nonlegacy owner (ADR-038).
+                log_failure_for(
+                    logger,
+                    (view, component),
+                    exc,
+                    "%s: component restore failed for id=%s key=%s",
+                    source,
+                    component_id,
+                    key,
+                    traceback=True,
                 )
                 ok = False
                 continue
@@ -376,6 +480,77 @@ class NonPersistableStateError(TypeError):
     """
 
 
+def _protect_http_entry(cls: type, view: Callable[..., Any]) -> Callable[..., Any]:
+    """ADR-038 D-a: a nonlegacy class's HTTP entry fails with a value-free 500.
+
+    The constructor, ``setup``, ``on_mount`` hooks, ``mount``, ``handle_params``,
+    ``get_context_data`` and render all run under Django's view callable with no
+    protected scope, so under ``DEBUG`` Django's technical 500 page would show
+    the exception and its frames' locals. The class owns the policy before an
+    instance exists. A legacy class keeps Django's callable itself, unchanged;
+    a class that became legacy after ``as_view`` re-raises as before.
+    """
+    from asgiref.sync import iscoroutinefunction, markcoroutinefunction
+
+    from ._exposure import uses_legacy_exposure
+
+    if uses_legacy_exposure(cls):
+        return view
+
+    from ._exposure_diagnostics import (
+        diagnostic_scope,
+        diagnostics_allowed,
+        protected_http_outcome,
+        protected_server_error,
+        restrict_diagnostics,
+    )
+
+    if iscoroutinefunction(view):
+        from asgiref.sync import sync_to_async
+
+        @wraps(view)
+        async def protected_async(request: Any, *args: Any, **kwargs: Any) -> Any:
+            with diagnostic_scope():
+                restrict_diagnostics(cls)
+                try:
+                    return await view(request, *args, **kwargs)
+                except Exception as exc:
+                    outcome = protected_http_outcome(exc)
+                    if diagnostics_allowed() or outcome == "raise":
+                        raise
+                    del exc
+            # Outside the except block: the signal's exception has no context.
+            return await sync_to_async(protected_server_error)(request, logger, outcome)
+
+        markcoroutinefunction(protected_async)
+        return protected_async
+
+    @wraps(view)
+    def protected(request: Any, *args: Any, **kwargs: Any) -> Any:
+        with diagnostic_scope():
+            restrict_diagnostics(cls)
+            try:
+                return view(request, *args, **kwargs)
+            except Exception as exc:
+                outcome = protected_http_outcome(exc)
+                if diagnostics_allowed() or outcome == "raise":
+                    raise
+                del exc
+        return protected_server_error(request, logger, outcome)
+
+    return protected
+
+
+#: The two duck-typed accessibility hooks the socket and the runtime still drain
+#: behind ``hasattr``. Nothing in the framework defines them, and the shipped
+#: client has no ``window.djust.accessibility`` to receive their frames, so they
+#: are deprecated (#3629); the 2.0 line has already deleted the flush (#3539).
+_DEPRECATED_ACCESSIBILITY_HOOKS = {
+    "_drain_announcements": 'a role="status" live region the view renders',
+    "_drain_focus": "JS.focus() through push_commands()",
+}
+
+
 class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(async) intentionally co-define stream_insert/stream_delete; see live_view.pyi overloads
     ContextProviderMixin,
     StreamsMixin,
@@ -396,6 +571,7 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
     LayoutMixin,
     WaiterMixin,
     AsyncWorkMixin,
+    ServerPushMixin,
     NotificationMixin,
     StickyChildRegistry,
     ActivityMixin,
@@ -434,7 +610,8 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
                 self.messages = [msg]  # Only new messages sent to client
 
         IMPORTANT: When using temporary_assigns, use dj-update="append" in your
-        template to tell the client to append new items instead of replacing:
+        template (the container and each item need an ``id``) so the new items
+        are added after the ones already on the page instead of replacing them:
 
             <ul dj-update="append" id="messages">
                 {% for msg in messages %}
@@ -511,12 +688,26 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
 
         Multiple concurrent tasks are supported with named tasks. Phoenix LiveView users
         will find this API familiar.
+
+    .. deprecated:: 1.3
+        Defining ``_drain_announcements`` or ``_drain_focus`` on a subclass is
+        deprecated and the WebSocket/SSE flush that drains them is removed no
+        earlier than djust 2.0.0. Render a ``role="status"`` live region and
+        call ``JS.focus()`` through ``push_commands()`` instead. A hook added
+        after the class exists (``setattr``, a decorator, an instance
+        attribute) is not detected and does not warn.
     """
 
     template_name: Optional[str] = None
     template: Optional[str] = None
     use_actors: bool = False  # Enable Tokio actor-based state management (Phase 5+)
     tick_interval: Optional[int] = None  # Periodic tick in ms (e.g. 2000 for 2s)
+    # Scoped server push (#3004): the scope(s) this session receives
+    # ``push_to_view(..., scope=...)`` for — a str or int (a room, a document
+    # id), a list/tuple/set of them (at most 64), or None (default: only
+    # view-wide pushes). Usually set in mount(); reassigning it in a handler,
+    # push hook, handle_tick or handle_info moves the session.
+    push_scope: Any = None
 
     # Class-level marker for abstract base LiveView classes (#1605).
     # When a subclass sets ``abstract = True`` on its own class body, the djust
@@ -539,9 +730,65 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
     # Pair with dj-update="ignore" on the template element for full optimization.
     static_assigns: List[str] = []
 
+    # Memory optimization for a page that renders once and is not expected to
+    # change (#3626): keep no diff baseline. After every render the rendered
+    # tree and the context copy the renderer holds are dropped, in this process
+    # and in the state backend (whose entry keeps only the template and the
+    # version counter), so any later render (an event, a push, a reconnect)
+    # sends the whole page instead of patches. See the Best Practices guide,
+    # "Large LiveView state".
+    static_render: bool = False
+
+    # The HTTP status a page answers for a state it renders itself (#3688).
+    # ``{"not_found": 404, "gone": 410}``: the default ``get_http_status()``
+    # reads the attribute ``state_attribute`` names (``self.state`` by default)
+    # and answers the status mapped to its value. Set it once, on a base view;
+    # the default is empty, so a view that declares nothing keeps answering 200.
+    # Only the HTTP response has a status. A view that overrides
+    # ``get_http_status()`` keeps its own answer.
+    #
+    # A project-wide default is ``LIVEVIEW_CONFIG["http_status_of_state"]`` (#3706).
+    # The view's own attribute wins, then the config, never merged: the config is
+    # read only while this attribute is still the framework's own
+    # ``UNDECLARED_STATUS_MAP`` (an empty read-only map, equal to ``{}``), so a
+    # view that declares ``{}`` opts out of the project's map.
+    http_status_of_state: Mapping[str, int] = UNDECLARED_STATUS_MAP
+    state_attribute: str = "state"
+
+    # URL parameters a view declares as a Django form (#3689). When set, the
+    # framework binds the URL's query parameters to it and calls
+    # ``handle_params(cleaned_data, uri)``; invalid input calls
+    # ``handle_invalid_params(form, uri)`` instead, and the messages are in the
+    # template as ``params_errors``. The same decision runs for the HTTP GET, the
+    # socket and SSE mount, ``url_change`` and the HTTP fallback POST. ``None``
+    # (the default) keeps ``handle_params`` receiving the raw dict.
+    params_form: Optional[type] = None
+
+    # What the default ``handle_invalid_params`` hands ``handle_params`` when the
+    # form rejects the URL (#3874). ``"initial"`` (the default): the initial value
+    # of every field. ``"fields"``: the fields that validated, with only the ones
+    # in ``form.errors`` replaced by their initial value. Anything else raises
+    # ``ImproperlyConfigured`` (and is a V023 error), on every request of a view
+    # that declares ``params_form``, whatever ``handle_invalid_params`` does. A view
+    # that overrides it without calling ``super()`` never uses the mode. The result
+    # is always a combination the form's ``clean()`` accepts, or the plain initials.
+    # A mixin that sets it must come BEFORE ``LiveView`` in the bases.
+    params_form_fallback: str = "initial"
+
+    # Per-view query budget (#3686, #3701). ``None`` (the default) leaves the
+    # view on the smoke test's class-wide ``max_queries`` and measures nothing
+    # at run time. An int caps mount + first render combined; a dict caps the
+    # phases on their own: ``{"mount": 2, "render": 1, "event": 3,
+    # "events": {"export": 20}}``. ``LiveViewSmokeTest`` enforces it, and with
+    # ``DEBUG`` on a view that declares one is measured per phase while it runs
+    # (``djust._query_budget``). A budget nothing can enforce (any other key, a
+    # bool, a negative number) is an error, not ignored.
+    # ``view_config[View]["max_queries"]`` overrides mount/render per test class.
+    query_budget: Optional[Union[int, Dict[str, Any]]] = None
+
     # Authentication & authorization
     login_required: Optional[bool] = None  # True = must be authenticated
-    permission_required: Optional[Union[str, List[str]]] = None  # Django permission string(s)
+    permission_required: Optional["PermissionRequired"] = None  # str, list (all of) or AnyOf
     login_url: Optional[str] = None  # Override settings.LOGIN_URL
 
     # on_mount hooks — cross-cutting mount logic (Phoenix on_mount parity)
@@ -592,6 +839,10 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
     # or PII — system check ``djust.C304`` warns on common PII naming
     # patterns (``password``, ``token``, ``secret``, ``api_key``, ``pii``).
     enable_state_snapshot: bool = False
+
+    # ADR-038: reserve the policy name now, but never silently claim that
+    # explicit exposure is active before all persistence/export paths use it.
+    exposure_policy: str = "legacy"
 
     # Streaming initial render (v0.6.1 — Phase 1).
     #
@@ -673,7 +924,7 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         Django dispatch with zero overhead and no behavior change.
         """
         if not getattr(cls, "streaming_render", False):
-            return cast(Callable[..., Any], super().as_view(**initkwargs))
+            return _protect_http_entry(cls, cast(Callable[..., Any], super().as_view(**initkwargs)))
 
         from asgiref.sync import markcoroutinefunction, sync_to_async
 
@@ -698,15 +949,80 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         # from dispatch — mirrors Django's stock as_view behavior.
         view.__dict__.update(cls.dispatch.__dict__)
         markcoroutinefunction(view)
-        return view
+        return _protect_http_entry(cls, view)
 
     # ============================================================================
     # INITIALIZATION & SETUP
     # ============================================================================
 
+    def _validate_exposure_configuration(self) -> None:
+        """Refuse exposure configurations that would widen or silently fall back.
+
+        ``"legacy"`` and ``"explicit"`` are the supported policies (ADR-038).
+        Anything else is refused rather than treated as legacy. A legacy view
+        cannot declare exposure grants it would not honor, and actors are
+        excluded from the explicit policy (decision D-o). Only class
+        dictionaries are inspected: no property, factory, ORM query or
+        component descriptor is evaluated.
+        """
+        from ._exposure import ExposureConfigurationError
+
+        policy = self.exposure_policy
+        if type(policy) is not str or policy not in ("legacy", "explicit"):
+            raise ExposureConfigurationError(
+                "Invalid exposure_policy. Supported policies are 'legacy' and 'explicit'; "
+                "unknown policies cannot fall back to legacy exposure."
+            )
+        if policy == "explicit":
+            if getattr(type(self), "use_actors", False) is True:
+                raise ExposureConfigurationError(
+                    "exposure_policy='explicit' does not support actors (use_actors=True). "
+                    "Actor views keep the legacy policy."
+                )
+            return
+        from ._state import StateProperty
+
+        # Inspect class dictionaries only: checking configuration must not
+        # evaluate properties, factories, ORM queries or component descriptors.
+        seen_state_names: set[str] = set()
+        for owner in type(self).__mro__:
+            for name, declaration in _class_namespace(owner).items():  # #3151
+                if name in seen_state_names:
+                    continue
+                seen_state_names.add(name)
+                if issubclass(type(declaration), StateProperty) and (
+                    declaration.exposure.persist is not None or declaration.exposure.client
+                ):
+                    raise ExposureConfigurationError(
+                        "state() exposure grants require exposure_policy='explicit'. "
+                        "Legacy views cannot honor these grants."
+                    )
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        from ._component_subscriptions import compile_subscriptions
+
+        cls._component_subscriptions = compile_subscriptions(cls)
+        for hook in _DEPRECATED_ACCESSIBILITY_HOOKS:
+            # Warn once, on the first LiveView class that has the hook (defined
+            # in its own body or reached through a plain mixin), not again on
+            # every subclass of that class.
+            if hasattr(cls, hook) and not any(
+                issubclass(base, LiveView) and hasattr(base, hook) for base in cls.__bases__
+            ):
+                warn_deprecated(
+                    "Defining %s on a LiveView" % hook,
+                    since="1.3",
+                    removed_in="2.0.0",
+                    instead=_DEPRECATED_ACCESSIBILITY_HOOKS[hook],
+                    stacklevel=class_statement_stacklevel(),
+                )
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+        self._validate_exposure_configuration()
         self._rust_view: Optional[RustLiveView] = None
+        self._rust_view_explicit: bool = False
         self._actor_handle: Optional[SessionActorHandle] = None
         self._session_id: Optional[str] = None
         self._cache_key: Optional[str] = None
@@ -714,9 +1030,17 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
             None  # Cache for decorator metadata
         )
         self._components: Dict[str, Any] = {}  # Registry of child components by ID
+        self._component_bindings: Dict[str, Any] = {}  # Per-owner interactive descriptor cache
         self._temporary_assigns_initialized: bool = False  # Track if temp assigns are set up
         self._streams: Dict[str, Stream] = {}  # Stream collections
         self._stream_operations: list = []  # Pending stream operations for this render
+        # Bumped by StreamsMixin._record_stream_op each time a mutation changed a
+        # stream. ``_streams`` is a framework attribute, so the pre/post-handler
+        # snapshot (``websocket._snapshot_assigns``) cannot see into it; this
+        # counter is how a handler whose only effect is a stream mutation is told
+        # apart from one that changed nothing (#3639). Framework state: set
+        # before the ``_framework_attrs`` snapshot below.
+        self._stream_epoch: int = 0
         # Initialize navigation support (live_patch, live_redirect)
         self._init_navigation()
 
@@ -818,6 +1142,9 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         #   persisted across reconnects). Examples: self._action_state
         #   (PR #1324), self._<user_attr>.
         # Any new framework slot must be assigned BEFORE this line.
+        self._defer_lazy_registration = False
+        self._http_lazy_containers = {}
+        self._http_lazy_validated_html = None
         self._framework_attrs: frozenset = frozenset(self.__dict__.keys())
 
         # v0.8.0 — @action server-action state. Initialized AFTER
@@ -854,8 +1181,20 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
                 continue
             try:
                 value = getattr(self, name)
-            except Exception:  # noqa: BLE001 — a broken descriptor is not "dirty"
-                logger.debug("dirty tracking: could not read %s", name, exc_info=True)
+            except Exception as exc:  # noqa: BLE001 — a broken descriptor is not "dirty"
+                from ._exposure_diagnostics import log_failure_for
+
+                # A descriptor getter or component bind is application code;
+                # its error text can carry state (ADR-038).
+                log_failure_for(
+                    logger,
+                    (self,),
+                    exc,
+                    "dirty tracking: could not read %s",
+                    name,
+                    level="debug",
+                    traceback=True,
+                )
                 continue
             fp[name] = self._dirty_value_fingerprint(value)
         return fp
@@ -972,6 +1311,12 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         but was NOT present after ``__init__`` is a user-defined private attr.
         Later render-cycle attrs won't be included because they haven't been
         set yet.
+
+        A framework attribute first set DURING mount (``start_async()``'s
+        ``_async_tasks``, a lifecycle flag such as ``_djust_waiters_closed``)
+        is not in the init-time ``_framework_attrs``; the
+        ``_FRAMEWORK_INTERNAL_ATTRS`` list every other capture path honours
+        excludes it here too (#3248).
         """
         framework: frozenset[str] = getattr(self, "_framework_attrs", frozenset())
         # Exclude the tracking attrs themselves — they are infrastructure, not
@@ -980,7 +1325,10 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         self._user_private_keys = {
             k
             for k in self.__dict__
-            if k.startswith("_") and k not in framework and k not in meta_attrs
+            if k.startswith("_")
+            and k not in framework
+            and k not in meta_attrs
+            and k not in _FRAMEWORK_INTERNAL_ATTRS
         }
 
     def _framework_storage_slots(self) -> Set[str]:
@@ -1018,14 +1366,20 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         persisted in subsequent save cycles.
 
         Non-serializable values (locks, file handles, etc.) are silently skipped.
+        This is a legacy-only API; explicit persistence uses a bound adapter.
         """
+        from ._exposure import require_legacy_state_api
+
+        require_legacy_state_api(self)
         result: Dict[str, Any] = {}
         user_keys: Set[str] = getattr(self, "_user_private_keys", set())
         # A session written before #2959 may have restored these into
         # ``_user_private_keys``; they are still not re-saved.
         not_private = self._framework_storage_slots()
         for key in user_keys:
-            if key not in self.__dict__:
+            # A framework attribute is never user private state, even when a
+            # session written before #3248 restored it into the tracked set.
+            if key not in self.__dict__ or key in _FRAMEWORK_INTERNAL_ATTRS:
                 continue
             value = self.__dict__[key]
             if key in not_private and not (key != "_reactive_state" and _holds_model(value)):
@@ -1061,8 +1415,49 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
                 continue
         return result
 
+    def _unsaved_private_keys(self, saved: Dict[str, Any]) -> List[str]:
+        """Tracked private attributes that ``saved`` (``_get_private_state()``) lacks.
+
+        Those the session could not hold: a non-JSON value or a stored callable.
+        The slots ``_get_private_state`` leaves to the public state on purpose
+        are not lost, so they are not listed.
+        """
+        user_keys: Set[str] = getattr(self, "_user_private_keys", set())
+        not_private = self._framework_storage_slots()
+        return sorted(
+            key
+            for key in user_keys
+            if key in self.__dict__
+            and key not in saved
+            and key not in _FRAMEWORK_INTERNAL_ATTRS
+            and not (
+                key in not_private
+                and not (key != "_reactive_state" and _holds_model(self.__dict__[key]))
+            )
+        )
+
     def _restore_private_state(self, private_state: Dict[str, Any]) -> None:
-        """Restore previously-saved private attributes onto this instance."""
+        """Restore legacy private attributes; explicit views require a bound adapter.
+
+        A ``"lifecycle"`` step of the ``sync_turn_wrapper`` (#3646): a private model
+        reference is re-fetched here (``decode_private_model_refs``, ``Model.objects.get``)
+        and a private attribute can be a property whose setter is application code. Every
+        caller (the WebSocket state restore, the HTTP POST restore, a lazy container and
+        a sticky child's restore) reaches this method, so the step is entered here.
+
+        A guarded step, like ``_restore_snapshot``: a wrapper whose ``__exit__`` swallows
+        an exception would otherwise turn a failing restore into a silent PARTIAL one
+        (the attributes before the failing key applied, the rest skipped). The failure
+        propagates as ``PermissionDenied`` instead.
+        """
+        from ._exposure import require_legacy_state_api
+        from .sync_turn import run_guarded_step
+
+        require_legacy_state_api(self)
+        run_guarded_step(self, "lifecycle", lambda: self._apply_private_state(private_state))
+
+    def _apply_private_state(self, private_state: Dict[str, Any]) -> None:
+        """The body of :meth:`_restore_private_state`, run inside its step."""
         from .security import DANGEROUS_ATTRIBUTES
 
         framework: frozenset[str] = getattr(self, "_framework_attrs", frozenset())
@@ -1076,7 +1471,14 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
             if key in DANGEROUS_ATTRIBUTES or (key.startswith("__") and key.endswith("__")):
                 logger.warning("Skipping restore of reserved private attribute %r", key)
                 continue
-            if key.startswith("_") and key not in framework and key not in meta_attrs:
+            if (
+                key.startswith("_")
+                and key not in framework
+                and key not in meta_attrs
+                # A framework attribute set during mount is not in the
+                # init-time ``framework`` set; never restore one (#3248).
+                and key not in _FRAMEWORK_INTERNAL_ATTRS
+            ):
                 # #1994: re-hydrate model refs back to model instances (fresh DB
                 # fetch) so a private model attr comes back a MODEL, not a dict.
                 value = decode_private_model_refs(value)
@@ -1161,7 +1563,12 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
     def _capture_snapshot_state(self, *, strict: bool = False) -> Dict[str, Any]:
         """Return a JSON-serializable snapshot of public view state.
 
-        Filters out private (``_``-prefixed) attributes, framework-internal
+        Explicit policy returns only declared ``persist="client"`` values,
+        detached and bounded regardless of ``strict``. It does not infer any
+        component state. The returned dict is not a signed restore capability;
+        explicit restoration must use the bound snapshot adapter.
+
+        Legacy policy filters out private (``_``-prefixed) attributes, framework-internal
         attrs enumerated in ``_FRAMEWORK_INTERNAL_ATTRS``, callables, and any
         value that fails a ``DjangoJSONEncoder`` round-trip. Used by the
         client to post a ``STATE_SNAPSHOT`` message to the service worker
@@ -1181,9 +1588,8 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         ``self._components`` they're captured the same way as legacy-
         instantiated ones.
 
-        The server never calls this directly — it's primarily exposed for
-        testing and observability. Restoration uses
-        :meth:`_restore_snapshot`.
+        Legacy transport snapshot capture and time-travel use this raw helper.
+        Legacy restoration uses :meth:`_restore_snapshot` after transport validation.
 
         Args:
             strict: When True, reject (DEBUG: raise / prod: warn+skip) any
@@ -1195,7 +1601,19 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
                 capture (``time_travel.py``) intentionally leaves this False
                 to preserve its existing lossy-snapshot-by-design behavior.
         """
+        from ._exposure import explicit_state_projection, uses_legacy_exposure
+
+        if not uses_legacy_exposure(self):
+            return explicit_state_projection(self, "snapshot")
+
         from .components.base import Component
+
+        if strict and _declares_interactive_collection(type(self)):
+            # ADR-034 C3 (D5): a keyed collection's membership comes from the
+            # view's current ``sync()``. A client-signed navigation snapshot
+            # would restore the membership it captured, resurrecting members
+            # removed since, so such a view is never signed: Back mounts fresh.
+            return {}
 
         result: Dict[str, Any] = {}
         for key, value in self.__dict__.items():
@@ -1244,6 +1662,16 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         # contributes its own public-state dict under
         # ``__components__`` keyed by ``component_id``.
         components_state = self._capture_components_snapshot()
+        if strict:
+            from ._interactive_snapshots import SNAPSHOT_KEY, capture_bindings
+            from .components._interactive import DropdownMenu
+
+            bindings = capture_bindings(self)
+            if bindings is not None:
+                result[SNAPSHOT_KEY] = bindings
+                for component_id, component in self._components.items():
+                    if isinstance(component, DropdownMenu):
+                        components_state.pop(component_id, None)
         if components_state:
             result["__components__"] = components_state
         return result
@@ -1272,12 +1700,19 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         Failures on individual components are logged and the bad
         component is skipped — degrade gracefully rather than break
         the whole snapshot.
+
+        This legacy reflective helper is unavailable under explicit policy.
+        A component descriptor does not grant permission to export its state.
         """
+        from ._exposure import require_legacy_state_api
+
+        require_legacy_state_api(self)
         registry = getattr(self, "_components", None)
         if not registry:
             return {}
         components_state: Dict[str, Dict[str, Any]] = {}
         from .components.base import BoundComponent
+        from .components._interactive import DropdownMenu
 
         for component_id, component in registry.items():
             try:
@@ -1285,7 +1720,7 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
                 # ADR-031: a bound component's public state IS its State dict.
                 items = (
                     component.state.items()
-                    if isinstance(component, BoundComponent)
+                    if isinstance(component, (BoundComponent, DropdownMenu))
                     else component.__dict__.items()
                 )
                 for key, value in items:
@@ -1323,20 +1758,30 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         as untrusted and never pass it to ``exec``/``eval`` or raw
         ``setattr``.
 
+        Explicit policy rejects this legacy raw-dict hook. Its adapter validates
+        the full signed, identity-bound schema before returning assignable values.
+
         Component state under ``__components__`` is applied to the view's
         registered and class-declared components only
         (:func:`restore_components_snapshot`, shared with time-travel).
         """
-        from .security import safe_setattr
+        from ._exposure import require_legacy_state_api
 
+        require_legacy_state_api(self)
+        from ._interactive_snapshots import SNAPSHOT_KEY, restore_bindings
+
+        if SNAPSHOT_KEY in state:
+            restore_bindings(self, state[SNAPSHOT_KEY])
         # Component state rides under the reserved ``__components__`` key
         # (``_capture_snapshot_state``); the flat loop below would drop it,
         # since ``safe_setattr`` refuses dunder names (#2896).
         components_state = state.get("__components__")
-        for key, value in state.items():
-            if key == "__components__":
-                continue
-            safe_setattr(self, key, value, allow_private=False)
+        from ._state_restore import restore_public_state
+
+        # Never over a method of the class (a context key named like one).
+        restore_public_state(
+            self, {k: v for k, v in state.items() if k not in (SNAPSHOT_KEY, "__components__")}
+        )
         if components_state:
             restore_components_snapshot(self, components_state, source="state_snapshot")
 
@@ -1357,6 +1802,28 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
 
     def handle_tick(self) -> None:
         """Override for periodic server-side updates. Called every tick_interval ms."""
+        pass
+
+    def handle_restore(self, request: Any) -> None:
+        """Called after the view was rebuilt from its saved session state.
+
+        A view rebuilt from the session gets its saved public and private
+        state back, but ``mount()`` either does not run (everything was saved)
+        or runs BEFORE that state is applied (some private attribute could not
+        be saved, so ``mount()`` rebuilds it and the saved state goes back on
+        top). Either way ``mount()`` never sees the restored state, so rows a
+        view keeps out of the session (not JSON, or content that must not be
+        saved) are not read again. Override this to read them from the restored
+        ids and cursors::
+
+            def handle_restore(self, request):
+                self._rows = Chat.objects.filter(pk=self.chat_id)   # chat_id was restored
+
+        It runs on the HTTP page-POST fallback (after the object permission
+        check, before the event handler) and on a WebSocket/SSE mount restored
+        from the session (``enable_state_snapshot``). It does not run after a
+        plain ``mount()``. May be ``async def``.
+        """
         pass
 
     # ============================================================================
@@ -1436,14 +1903,24 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
     def get_state(self) -> Dict[str, Any]:
         """Get serializable state from this LiveView instance.
 
-        Iterates over public (non-underscore) instance attributes and validates
+        Explicit policy exports only declared ``client=True`` fields using the
+        bounded JSON contract. Rendering context and server-only state are not
+        inputs. Returned values are detached; failures never use legacy fallback.
+
+        Legacy policy iterates over public (non-underscore) instance attributes and validates
         that each value can be serialized. In DEBUG mode, raises TypeError with
         a helpful message for non-serializable values. In production, logs an
         error and skips the attribute.
 
         Returns:
-            Dictionary of {attribute_name: value} for all serializable public state.
+            Client-permitted declared values under explicit policy; serializable
+            public state under legacy policy.
         """
+        from ._exposure import explicit_state_projection, uses_legacy_exposure
+
+        if not uses_legacy_exposure(self):
+            return explicit_state_projection(self, "client")
+
         from django.conf import settings
 
         state = {}
@@ -1490,6 +1967,13 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
 
         Called automatically after each render to free memory for large collections.
         """
+        # Returning here, before ``_reset_streams()``, is load-bearing: a view
+        # that uses streams WITHOUT temporary_assigns keeps its stream items so
+        # the next render lists them. The differ turns that list into DOM changes
+        # against the stored tree, so clearing it after every render would
+        # remove every row from the page on the next unrelated event (measured in
+        # ``test_stream_state_weight_3632.py``; the cost is the stream rows held
+        # in the stored state, #3632).
         if not self.temporary_assigns:
             return
 
@@ -1597,6 +2081,49 @@ class LiveView(  # type: ignore[misc]  # StreamsMixin(sync) + StreamingMixin(asy
         reassigned while user was disconnected" case automatically.
         """
         self._object = None
+
+
+class PersistentLiveView(LiveView):
+    """Base class for legacy-exposure views that opt in to state snapshots.
+
+    The only difference from :class:`LiveView` is
+    ``enable_state_snapshot = True``, so every subclass saves its public
+    state through the Django session and restores it on a reconnect or
+    back-navigation instead of running ``mount()`` again (see the scaling
+    guide, "Opt in to state that survives a reconnect").
+
+    * A subclass can set ``enable_state_snapshot = False`` to opt out.
+    * It applies to the ``"legacy"`` exposure policy only. Under
+      ``exposure_policy = "explicit"`` the flag has no effect: such a view
+      persists exactly its ``state(..., persist=...)`` fields, as without
+      this class.
+    * It is a base class, not a routable view (``abstract = True`` is not
+      inherited). Each subclass is still checked on its own: ``djust.C304``
+      warns about PII-like attribute names.
+
+    Security: the flag also drives the signed client snapshot. The view's
+    public state is sent to the browser as a signed but NOT encrypted blob
+    and echoed back on reconnect and back-navigation, so the client can read
+    it. Never use this class (or ``enable_state_snapshot``) for views whose
+    public attributes hold credentials, PII or other users' data, whoever
+    controls the session store. For sensitive fields use explicit exposure
+    with ``state(..., persist="server")``, which stores only the named fields
+    on the server.
+    """
+
+    abstract = True
+    enable_state_snapshot = True
+
+
+def _declares_interactive_collection(view_class: type) -> bool:
+    """Whether a view class declares an ADR-034 keyed interactive collection."""
+    from ._component_subscriptions import DECLARATIONS_ATTR
+
+    declarations = getattr(view_class, DECLARATIONS_ATTR, None) or {}
+    return any(
+        getattr(type(declaration), "_djust_component_collection", False)
+        for declaration in declarations.values()
+    )
 
 
 def live_view(

@@ -150,12 +150,19 @@ class WaiterMixin:
             ... except asyncio.TimeoutError:
             ...     self.user_abandoned = True
         """
+        if self._waiters_refused():
+            raise asyncio.CancelledError
         waiter = _Waiter(event_name=name, predicate=predicate)
         if not hasattr(self, "_waiters") or self._waiters is None:
             self._waiters = {}
         self._waiters.setdefault(name, []).append(waiter)
 
         try:
+            # Teardown may run in a render thread between the entry check and
+            # registration. Do not leave a newly appended waiter behind.
+            if self._waiters_refused():
+                waiter.future.cancel()
+                raise asyncio.CancelledError
             payload: Dict[str, Any]
             if timeout is not None:
                 payload = await asyncio.wait_for(waiter.future, timeout=timeout)
@@ -168,6 +175,15 @@ class WaiterMixin:
             # keeps the registry tidy for long-running views.
             self._remove_waiter(waiter)
             raise
+
+    def _waiters_refused(self) -> bool:
+        """Whether this view takes no new waiters: a disposed explicit child,
+        or a root view discarded by navigation or a closed connection
+        (``_close_waiters``, #3236)."""
+        return bool(
+            getattr(self, "_djust_child_disposed", False)
+            or getattr(self, "_djust_waiters_closed", False)
+        )
 
     def _notify_waiters(self, event_name: str, kwargs: Dict[str, Any]) -> None:
         """
@@ -186,6 +202,16 @@ class WaiterMixin:
         This method is a no-op if no waiters are registered for the
         given name — the common case on every handler call.
         """
+        from .._exposure_diagnostics import diagnostic_scope, restrict_diagnostics
+
+        with diagnostic_scope():
+            restrict_diagnostics(self)
+            self._notify_waiters_inner(event_name, kwargs)
+
+    def _notify_waiters_inner(self, event_name: str, kwargs: Dict[str, Any]) -> None:
+        """Run the notification pass inside its owner's diagnostic scope."""
+        from .._exposure_diagnostics import diagnostics_allowed, restrict_diagnostics
+
         if not getattr(self, "_waiters", None):
             return
         waiters = self._waiters.get(event_name)
@@ -205,12 +231,19 @@ class WaiterMixin:
                 try:
                     matched = bool(waiter.predicate(kwargs))
                 except Exception as exc:
-                    logger.warning(
-                        "wait_for_event predicate for %r raised %r — treating as no-match",
-                        event_name,
-                        exc,
-                    )
+                    restrict_diagnostics(self)
+                    if diagnostics_allowed():
+                        logger.warning(
+                            "wait_for_event predicate for %r raised %r — treating as no-match",
+                            event_name,
+                            exc,
+                        )
+                    else:
+                        logger.warning("Protected waiter predicate failed; treating as no-match")
                     matched = False
+                finally:
+                    restrict_diagnostics(self)
+                    diagnostics_allowed()  # Preserve an observed root restriction for later predicates.
                 if not matched:
                     remaining.append(waiter)
                     continue
@@ -254,8 +287,26 @@ class WaiterMixin:
         """
         if not getattr(self, "_waiters", None):
             return
-        for _, bucket in list(self._waiters.items()):
-            for waiter in bucket:
-                if not waiter.future.done():
-                    waiter.future.cancel()
+        from .async_work import cancel_on_owner_loop
+
+        pending = [waiter for bucket in list(self._waiters.values()) for waiter in list(bucket)]
+        # Detach before scheduling cancellation on another loop: resumed waiters
+        # remove themselves, which otherwise mutates the list we're traversing.
         self._waiters.clear()
+        for waiter in pending:
+            if not waiter.future.done():
+                cancel_on_owner_loop(waiter.future)
+
+    def _close_waiters(self, reason: str = "view_unmount") -> None:
+        """
+        Cancel every pending waiter and refuse later ones.
+
+        For a root view that is being discarded: replaced by navigation, or
+        its connection closed. The cancel alone is a one-time snapshot; the
+        view's background work keeps running and could register a new waiter
+        afterwards, which nothing would ever cancel (#3236 review M2). Once
+        closed, ``wait_for_event`` raises ``CancelledError`` at once, as it
+        does for a disposed explicit child.
+        """
+        self._djust_waiters_closed = True
+        self._cancel_all_waiters(reason=reason)

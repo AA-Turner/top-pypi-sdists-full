@@ -1,6 +1,7 @@
 import importlib.util
 import ipaddress
 import os
+import re
 import shlex
 import sys
 import traceback
@@ -11,7 +12,7 @@ from importlib import metadata
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Callable, cast
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 import idna
@@ -177,10 +178,10 @@ def parse_api_key_spec(spec: str) -> tuple[Provider, str]:
     Raises:
         ValueError: If format is invalid or provider is unknown.
     """
+    # Error messages must not echo the spec or any part of it: it holds the API key.
     if ":" not in spec:
         raise ValueError(
-            f"Invalid --api-key format: '{spec}'. "
-            "Expected format: 'provider:key' (e.g., 'openai:sk-...')"
+            "Invalid --api-key format. Expected format: 'provider:key' (e.g., 'openai:sk-...')"
         )
 
     provider_str, key = spec.split(":", 1)
@@ -188,15 +189,14 @@ def parse_api_key_spec(spec: str) -> tuple[Provider, str]:
     key = key.strip()
 
     if not key:
-        raise ValueError(f"Empty API key for provider '{provider_str}'")
+        raise ValueError("Empty API key in --api-key. Expected format: 'provider:key'")
 
     try:
         provider = Provider(provider_str)
     except ValueError:
         valid_providers = [p.value for p in Provider]
         raise ValueError(
-            f"Invalid provider '{provider_str}' in --api-key. "
-            f"Valid providers: {', '.join(valid_providers)}"
+            f"Invalid provider in --api-key. Valid providers: {', '.join(valid_providers)}"
         )
 
     return provider, key
@@ -371,7 +371,9 @@ def resolve_provider_api_keys(
 
 
 class CLIError(Exception):
-    """Custom exception for CLI errors that preserves error messages for tracking.
+    """Custom exception for CLI errors that have already been reported to the user.
+
+    Usage telemetry records only the exception type, never this message.
 
     Never use this exception directly. Use handle_cli_error utility function instead.
     """
@@ -818,6 +820,27 @@ def get_org_scoped_url(base_url: str, path: str) -> str:
     project_id = config.context.project_id
 
     return f"{base_url}/v1/orgs/{org_id}/projects/{project_id}{path}"
+
+
+# Secret keys are environment variable names: the deploy flow reads them with
+# os.getenv and tools read them from the environment. Anything else, such as "/",
+# "." or "%", could change the API path the key is sent to.
+_SECRET_KEY_PATTERN = re.compile(r"[A-Za-z0-9_]+")
+
+
+def validate_secret_key(key: str) -> str:
+    """Return the key if it is a valid secret key, otherwise raise ValueError."""
+    if not _SECRET_KEY_PATTERN.fullmatch(key):
+        raise ValueError(
+            f"Invalid secret key {key!r}: secret keys may contain only "
+            "letters, digits and underscores."
+        )
+    return key
+
+
+def secret_url_path(key: str) -> str:
+    """Build the "/secrets/<key>" API path for a validated, fully encoded key."""
+    return f"/secrets/{quote(validate_secret_key(key), safe='')}"
 
 
 def build_api_key_scoped_url(base_url: str, path: str) -> str:

@@ -1,14 +1,17 @@
 """Main webvtt package."""
 
-__version__ = '0.7.0'
-__author__ = 'Alejandro Mendez'
-__author_email__ = 'amendez23@gmail.com'
+__version__ = '0.8.0'
 
 from .webvtt import WebVTT
 from . import segmenter
-from .models import Caption, CueSettings, Region, Style  # noqa
+from .models import (  # noqa
+    Caption, CueSettings, ParseIssue, Region, Style, ValidationIssue
+    )
 
-__all__ = ['WebVTT', 'Caption', 'CueSettings', 'Region', 'Style']
+__all__ = [
+    'WebVTT', 'Caption', 'CueSettings', 'ParseIssue', 'Region', 'Style',
+    'ValidationIssue'
+    ]
 
 read = WebVTT.read
 read_buffer = WebVTT.read_buffer

@@ -15,8 +15,8 @@ T = TypeVar("T", bound="ProviderSupportUserRequest")
 class ProviderSupportUserRequest:
     """
     Attributes:
-        user (str):
-        provider_helpdesk (UUID):
+        user (str): User who is the agent. Only staff can change it.
+        provider_helpdesk (UUID): Helpdesk the agent answers for. Only staff can change it.
         role (Union[Unset, ProviderSupportUserRoleEnum]):
         is_active (Union[Unset, bool]):
         skills (Union[Unset, list[str]]): List of skill tags for routing.

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 import os
 from pathlib import Path
 import shutil
 import subprocess  # ruff: ignore[suspicious-subprocess-import] -- latest updates execute a fixed uvx argv.
+from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeGuard
 
 from ._meta import __version__ as __version__
@@ -16,7 +17,7 @@ from .libs.adoption.lifecycle import (
     Inspection,
     execute,
     inspect,
-    selected_eslint_commands,
+    selected_typescript_commands,
     verification_commands,
 )
 from .libs.adoption.manifest import load as load_manifest
@@ -58,7 +59,7 @@ from .libs.filesystem import is_link_like
 from .libs.linting.analysis import analyze as analyze_paths, report_from_tools
 from .libs.linting.complexity_baseline import ComplexityBaselineResolver
 from .libs.linting.execution_plan import analysis_jobs
-from .libs.linting.external import UpstreamESLintRules, analyze_external
+from .libs.linting.external import UpstreamRules, analyze_external
 from .libs.linting.library_policy import (
     ManifestPolicyError,
     accepts_path as library_policy_accepts_path,
@@ -69,19 +70,24 @@ from .libs.linting.policy import Policy
 from .libs.linting.prepared_devops import analyze_prepared
 from .libs.linting.runner import group_paths, run as check
 from .libs.linting.scheduling import analyze_groups
-from .libs.rules import RuleEngine, RuleId, RuleSelection, RuleSelector
+from .libs.rules import RuleEngine, RuleId, RuleSelection, RuleSelector, oxlint_ids
 from .libs.staged_git import staged_environment
 from .libs.typed_containers import is_object_list, is_object_mapping
 
 
 if TYPE_CHECKING:
     from .libs.adoption.manifest import Manifest, Profile
+    from .libs.linting.embedded_sql import EmbeddedSQLPass
     from .libs.linting.runner import GroupedPaths
 
 
 _INVALID_EXIT = 2
 _INTERRUPTED_EXIT = 130
-_NO_UPSTREAM_ESLINT_RULES = UpstreamESLintRules()
+_NO_UPSTREAM_RULES = UpstreamRules()
+#: External capability that runs each selectable external engine.
+_EXTERNAL_ENGINE_CAPABILITIES: Mapping[RuleEngine, str] = MappingProxyType(
+    {RuleEngine.OXLINT: "typescript", RuleEngine.CHECKOV: "checkov", RuleEngine.ZIZMOR: "zizmor"}
+)
 _INVALID_DOCTOR_FINDING_IDS = frozenset(
     {"doctor.manifest.destination", "doctor.config.unknown", "doctor.package-json.invalid"}
 )
@@ -255,8 +261,8 @@ class Standards:
                 for item in policy_findings
             )
             source_status = check(selected, policy=policy, grouped=selected_groups)
-            eslint_status = execute(selected_eslint_commands(self.root, selected))
-            return _operation_result(max(source_status, eslint_status, 1 if findings else 0), findings=findings)
+            typescript_status = execute(selected_typescript_commands(self.root, selected))
+            return _operation_result(max(source_status, typescript_status, 1 if findings else 0), findings=findings)
         return _operation_result(_verify(self.root))
 
     def analyze(
@@ -267,17 +273,17 @@ class Standards:
         trust: TrustMode | str = TrustMode.SAFE,
         mode: AnalysisMode | str = AnalysisMode.POLICY,
         rules: Sequence[str | RuleSelector] | None = None,
-        upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
+        upstream_rules: UpstreamRules = _NO_UPSTREAM_RULES,
         staged: bool = False,
         react_doctor_triggered: bool = False,
         include_react_doctor: bool = True,
-        pass_on_unpruned_eslint_suppressions: bool = False,
+        pass_on_unpruned_suppressions: bool = False,
         jobs: int = 1,
         prepared_devops: Sequence[Path] = (),
         prepared_targets: Sequence[str] = (),
         prepared_only: bool = False,
         python_type_check: bool = True,
-        eslint: bool = True,
+        typescript: bool = True,
     ) -> AnalysisReport:
         try:
             normalized_paths = _path_inputs(paths) if paths is not None else None
@@ -293,13 +299,13 @@ class Standards:
             staged=staged,
             react_doctor_triggered=react_doctor_triggered,
             include_react_doctor=include_react_doctor,
-            pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+            pass_on_unpruned_suppressions=pass_on_unpruned_suppressions,
             jobs=jobs,
             prepared_devops=prepared_devops,
             prepared_targets=prepared_targets,
             prepared_only=prepared_only,
             python_type_check=python_type_check,
-            eslint=eslint,
+            typescript=typescript,
         )
 
     def _analyze(
@@ -310,17 +316,17 @@ class Standards:
         trust: TrustMode | str,
         mode: AnalysisMode | str,
         rules: Sequence[str | RuleSelector] | None,
-        upstream_rules: UpstreamESLintRules,
+        upstream_rules: UpstreamRules,
         staged: bool,
         react_doctor_triggered: bool,
         include_react_doctor: bool,
-        pass_on_unpruned_eslint_suppressions: bool,
+        pass_on_unpruned_suppressions: bool,
         jobs: int,
         prepared_devops: Sequence[Path],
         prepared_targets: Sequence[str],
         prepared_only: bool,
         python_type_check: bool,
-        eslint: bool,
+        typescript: bool,
     ) -> AnalysisReport:
         try:
             analysis_jobs(jobs)
@@ -383,6 +389,10 @@ class Standards:
                 policy=selection_policy,
                 grouped=selected_groups,
                 rule_selection=rule_selection,
+                python_jobs=1 if jobs == 1 else os.process_cpu_count() or 1,
+                staged=staged,
+                use_guard_contracts=normalized_mode in {AnalysisMode.POLICY, AnalysisMode.OBSERVE},
+                module_summaries=adopted is not None and adopted.terraform_module_summaries,
             )
             if rule_selection is None:
                 native = _with_library_policy(
@@ -399,7 +409,9 @@ class Standards:
         coverage.extend(_prepared_coverage(adopted, prepared_devops))
         if not external:
             combined = report_from_tools(self.root, native_analysis())
-            changed_scope = _analysis_changed_scope(self.root, combined, baseline_budget, staged=staged)
+            changed_scope = _analysis_changed_scope(
+                self.root, combined, baseline_budget, staged=staged, trusted=normalized_trust is TrustMode.TRUSTED
+            )
             _native_typescript_coverage(selected_groups, adopted, rule_selection, coverage)
             if normalized_mode in {AnalysisMode.POLICY, AnalysisMode.OBSERVE}:
                 combined = _with_warning_severity(combined, _warning_rule_keys(normalized_mode, rule_selection))
@@ -423,7 +435,7 @@ class Standards:
                 adopted,
                 full=rule_selection is None and not upstream_rules.ids,
                 python_type_check=python_type_check,
-                eslint=eslint,
+                typescript=typescript,
             )
         )
 
@@ -440,23 +452,32 @@ class Standards:
                 react_doctor_triggered=react_doctor_triggered,
                 staged=staged,
                 react_doctor_full_scan=react_doctor_full_scan,
-                pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+                pass_on_unpruned_suppressions=pass_on_unpruned_suppressions,
                 python_type_check=python_type_check,
-                eslint=eslint,
+                typescript=typescript,
                 upstream_rules=upstream_rules,
             )
 
-        combined = report_from_tools(
-            self.root, analyze_groups(self.root, native_analysis, external_analysis, jobs=jobs)
+        combined = _grouped_analysis(
+            self.root,
+            native_analysis,
+            external_analysis,
+            jobs=jobs,
+            sql_pass=_embedded_sql_pass(
+                self.root,
+                files=selected_groups.python,
+                adopted=adopted,
+                enabled=rule_selection is None and not upstream_rules.ids,
+            ),
+            policy=selection_policy,
         )
-        if rule_selection is None and not upstream_rules.ids:
-            from .libs.linting.embedded_sql import with_embedded_sql  # ruff: ignore[import-outside-top-level] -- selected native SQL analysis is an opt-in Python capability.
-
-            combined = with_embedded_sql(
-                combined, files=selected_groups.python, adopted=adopted, policy=selection_policy
-            )
         changed_scope = _analysis_changed_scope(
-            self.root, combined, baseline_budget, staged=staged, shell_format=paths is None and not staged
+            self.root,
+            combined,
+            baseline_budget,
+            staged=staged,
+            shell_format=paths is None and not staged,
+            trusted=normalized_trust is TrustMode.TRUSTED,
         )
         combined = _with_shell_format_severity(combined, paths=paths, staged=staged, changed_scope=changed_scope)
         combined = _with_warning_severity(
@@ -671,7 +692,7 @@ def _source_analyzer_coverage(
     *,
     full: bool,
     python_type_check: bool,
-    eslint: bool,
+    typescript: bool,
 ) -> list[CoverageNotice]:
     coverage: list[CoverageNotice] = []
     if full and selected_groups.python and adopted is not None:
@@ -686,19 +707,19 @@ def _source_analyzer_coverage(
             for tool in requested_python_tools
             if tool not in adopted.enabled_capabilities
         )
-    if selected_groups.typescript and not eslint:
+    if selected_groups.typescript and not typescript:
         coverage.append(
             CoverageNotice(
-                "eslint",
-                "ESLint is left to the repository's own CI",
+                "oxlint",
+                "Oxlint is left to the repository's own CI",
                 len(selected_groups.typescript),
                 CoverageDisposition.NOT_REQUESTED,
             )
         )
-    elif selected_groups.typescript and adopted is not None and "eslint" not in adopted.configs:
+    elif selected_groups.typescript and adopted is not None and "typescript" not in adopted.configs:
         coverage.append(
             CoverageNotice(
-                "eslint",
+                "oxlint",
                 "disabled by repository capabilities",
                 len(selected_groups.typescript),
                 CoverageDisposition.NOT_REQUESTED,
@@ -800,6 +821,7 @@ def _analysis_changed_scope(
     *,
     staged: bool,
     shell_format: bool = False,
+    trusted: bool = False,
 ) -> diagnostic_baseline.ChangedLineScope | None:
     paths = frozenset(
         item.location.path
@@ -807,7 +829,13 @@ def _analysis_changed_scope(
         if (budget.counts and diagnostic_baseline.is_baselineable(item))
         or (shell_format and item.source == "shfmt" and item.rule_id == "format")
     )
-    return diagnostic_baseline.changed_line_scope(root, staged=staged, paths=paths) if paths else None
+    scope = diagnostic_baseline.changed_line_scope(root, staged=staged, paths=paths) if paths else None
+    if trusted and scope is not None and not scope.failed and scope.paths and budget.counts:
+        from .libs.linting import format_only  # ruff: ignore[import-outside-top-level] -- native proof is only needed when changed source intersects an accepted diagnostic budget.
+
+        equivalent = format_only.equivalent_paths(root, scope.paths, staged=staged)
+        scope = replace(scope, paths=scope.paths - equivalent)
+    return scope
 
 
 def _with_shell_format_severity(
@@ -899,11 +927,14 @@ def _analysis_inputs(
 ) -> list[str]:
     if paths is not None:
         selected = _contained_paths(root, paths)
-        return selected if mode is AnalysisMode.RAW else _with_tracked_terraform_tests(root, selected)
-    if mode is AnalysisMode.RAW:
+    elif mode is AnalysisMode.RAW:
         return [str(root)]
-    verify_paths = adopted.verify_paths if adopted is not None else (".",)
-    return _with_tracked_terraform_tests(root, [str(root / path) for path in verify_paths])
+    else:
+        verify_paths = adopted.verify_paths if adopted is not None else (".",)
+        selected = [str(root / path) for path in verify_paths]
+    return (
+        selected if mode in {AnalysisMode.RAW, AnalysisMode.OBSERVE} else _with_tracked_terraform_tests(root, selected)
+    )
 
 
 def _with_tracked_terraform_tests(root: Path, selected: list[str]) -> list[str]:
@@ -922,6 +953,35 @@ def _selection_policy(root: Path, adopted: Manifest | None, normalized_mode: Ana
     )
 
 
+def _grouped_analysis(
+    root: Path,
+    native: Callable[[], tuple[ToolReport, ...]],
+    external: Callable[[], tuple[ToolReport, ...]],
+    *,
+    jobs: int,
+    sql_pass: EmbeddedSQLPass,
+    policy: Policy,
+) -> AnalysisReport:
+    def external_then_sql() -> tuple[ToolReport, ...]:
+        reports = external()
+        # The external group usually finishes first; overlap the SQL pass with native analysis.
+        sql_pass.run()
+        return reports
+
+    return sql_pass.merge(
+        report_from_tools(root, analyze_groups(root, native, external_then_sql, jobs=jobs)), policy=policy
+    )
+
+
+def _embedded_sql_pass(root: Path, *, files: Sequence[str], adopted: Manifest | None, enabled: bool) -> EmbeddedSQLPass:
+    from .libs.linting.embedded_sql import (  # ruff: ignore[import-outside-top-level] -- selected native SQL analysis is an opt-in Python capability.
+        EmbeddedSQLPass,
+        analyze_embedded_sql,
+    )
+
+    return EmbeddedSQLPass(root, files=files, adopted=adopted, enabled=enabled, analyze=analyze_embedded_sql)
+
+
 def _selected_external_analysis(
     active_selected: list[str],
     *,
@@ -935,22 +995,18 @@ def _selected_external_analysis(
     react_doctor_triggered: bool,
     staged: bool,
     react_doctor_full_scan: bool,
-    pass_on_unpruned_eslint_suppressions: bool,
+    pass_on_unpruned_suppressions: bool,
     python_type_check: bool,
-    eslint: bool,
-    upstream_rules: UpstreamESLintRules,
+    typescript: bool,
+    upstream_rules: UpstreamRules,
 ) -> tuple[ToolReport, ...]:
     rule_ids = (
-        frozenset(str(value) for value in rule_selection.ids_for(RuleEngine.ESLINT))
+        frozenset(str(value) for value in rule_selection.ids_for(RuleEngine.OXLINT))
         if rule_selection is not None
         else None
     )
-    external_engines = frozenset({RuleEngine.ESLINT, RuleEngine.CHECKOV, RuleEngine.ZIZMOR})
-    upstream_capabilities = frozenset({"eslint"}) if upstream_rules.ids else frozenset[str]()
     selected_capabilities = (
-        frozenset(engine.value for engine in rule_selection.engines & external_engines) | upstream_capabilities
-        if rule_selection is not None
-        else None
+        _selected_external_capabilities(rule_selection, upstream_rules) if rule_selection is not None else None
     )
     run_external = selected_capabilities is None or bool(selected_capabilities)
     external_reports = (
@@ -971,9 +1027,9 @@ def _selected_external_analysis(
                 force_react_doctor=react_doctor_triggered,
                 react_doctor_staged=staged,
                 react_doctor_full_scan=react_doctor_full_scan,
-                pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+                pass_on_unpruned_suppressions=pass_on_unpruned_suppressions,
                 python_type_check=python_type_check,
-                eslint=eslint,
+                typescript=typescript,
             )
             if adopted is not None
             else analyze_external(
@@ -989,9 +1045,9 @@ def _selected_external_analysis(
                 force_react_doctor=react_doctor_triggered,
                 react_doctor_staged=staged,
                 react_doctor_full_scan=react_doctor_full_scan,
-                pass_on_unpruned_eslint_suppressions=pass_on_unpruned_eslint_suppressions,
+                pass_on_unpruned_suppressions=pass_on_unpruned_suppressions,
                 python_type_check=python_type_check,
-                eslint=eslint,
+                typescript=typescript,
             )
         )
         if run_external
@@ -1003,6 +1059,11 @@ def _selected_external_analysis(
             for report in external_reports
         )
     return external_reports
+
+
+def _selected_external_capabilities(selection: RuleSelection, upstream_rules: UpstreamRules) -> frozenset[str]:
+    engines = selection.engines | frozenset({RuleEngine.OXLINT} if upstream_rules.ids else ())
+    return frozenset(capability for engine, capability in _EXTERNAL_ENGINE_CAPABILITIES.items() if engine in engines)
 
 
 def _with_library_policy(
@@ -1052,7 +1113,7 @@ def _selection_coverage(
     selected_groups: GroupedPaths,
     rule_selection: RuleSelection | None,
     *,
-    upstream_rules: UpstreamESLintRules,
+    upstream_rules: UpstreamRules,
 ) -> list[CoverageNotice]:
     coverage: list[CoverageNotice] = []
     excluded = sum(Path(item).is_file() and item not in active_selected for item in selected)
@@ -1090,18 +1151,18 @@ def _native_typescript_coverage(
     rule_selection: RuleSelection | None,
     coverage: list[CoverageNotice],
 ) -> None:
-    if selected_groups.typescript and (rule_selection is None or RuleEngine.ESLINT in rule_selection.engines):
-        eslint_enabled = adopted is None or "eslint" in adopted.configs
+    if selected_groups.typescript and (rule_selection is None or RuleEngine.OXLINT in rule_selection.engines):
+        typescript_enabled = adopted is None or "typescript" in adopted.configs
         coverage.append(
             CoverageNotice(
-                "eslint",
+                "oxlint",
                 (
                     "native analysis does not run TypeScript; use check or external trusted analysis"
-                    if eslint_enabled
+                    if typescript_enabled
                     else "disabled by repository capabilities"
                 ),
                 len(selected_groups.typescript),
-                CoverageDisposition.FAILED if eslint_enabled else CoverageDisposition.NOT_REQUESTED,
+                CoverageDisposition.FAILED if typescript_enabled else CoverageDisposition.NOT_REQUESTED,
             )
         )
 
@@ -1176,7 +1237,7 @@ def _routed_for_selection(grouped: object, selected: RuleSelection | None) -> se
         routed.update(grouped.iac)
     if RuleEngine.TEXT in engines:
         routed.update(grouped.text)
-    if RuleEngine.ESLINT in engines:
+    if RuleEngine.OXLINT in engines:
         routed.update(grouped.typescript)
     if selected is None:
         routed.update(grouped.kotlin)
@@ -1188,13 +1249,13 @@ def _filter_report_selectors(
     report: ToolReport,
     selected: RuleSelection,
     *,
-    upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
+    upstream_rules: UpstreamRules = _NO_UPSTREAM_RULES,
 ) -> ToolReport:
     if report.policy_failed:
         return report
-    engine = RuleEngine(report.name) if report.name in {"eslint", "zizmor", "checkov"} else None
+    engine = RuleEngine(report.name) if report.name in {oxlint_ids.SOURCE, "zizmor", "checkov"} else None
     allowed: frozenset[str] = frozenset() if engine is None else selected.native_ids_for(engine)
-    if engine is RuleEngine.ESLINT:
+    if engine is RuleEngine.OXLINT:
         allowed |= upstream_rules.ids
     return replace(report, diagnostics=tuple(item for item in report.diagnostics if item.rule_id in allowed))
 
@@ -1215,7 +1276,7 @@ def _with_warning_severity(
     report: AnalysisReport,
     selectors: frozenset[RuleSelector],
     *,
-    upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
+    upstream_rules: UpstreamRules = _NO_UPSTREAM_RULES,
 ) -> AnalysisReport:
     if not selectors and not upstream_rules.warning_only:
         return report
@@ -1227,7 +1288,11 @@ def _with_warning_severity(
                 if "required-source-policy" not in item.tags
                 and (
                     _selector_for_diagnostic(item) in selectors
-                    or (tool.name == "eslint" and upstream_rules.warning_only and item.rule_id in upstream_rules.ids)
+                    or (
+                        tool.name == oxlint_ids.SOURCE
+                        and upstream_rules.warning_only
+                        and item.rule_id in upstream_rules.ids
+                    )
                 )
                 else item
                 for item in tool.diagnostics
@@ -1243,7 +1308,7 @@ def _selector_for_diagnostic(item: Diagnostic) -> RuleSelector | None:
     if engine is None:
         return None
     identity = item.rule_id or item.code
-    if engine is RuleEngine.ESLINT and identity.startswith("@sarj/"):
+    if engine is RuleEngine.OXLINT and identity.startswith("@sarj/"):
         identity = identity.removeprefix("@sarj/")
     try:
         return RuleSelector(engine, RuleId(identity))
@@ -1261,7 +1326,9 @@ def _engine_for_diagnostic(item: Diagnostic) -> RuleEngine | None:
         "sql": RuleEngine.SQL,
         "iac": RuleEngine.IAC,
         "text": RuleEngine.TEXT,
-        "eslint": RuleEngine.ESLINT,
+        oxlint_ids.SOURCE: RuleEngine.OXLINT,
+        # Baselines written before Oxlint carry the `eslint` source.
+        oxlint_ids.LEGACY_SOURCE: RuleEngine.OXLINT,
         "checkov": RuleEngine.CHECKOV,
         "zizmor": RuleEngine.ZIZMOR,
     }.get(item.source)

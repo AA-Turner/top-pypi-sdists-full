@@ -15,6 +15,19 @@ class BadRequestException(RuntimeError):
         super().__init__(message)
 
 
+class RateLimitedException(BadRequestException):
+    """A 429, carrying the `Retry-After` the server asked for.
+
+    `retry_after` is None when the response carried no usable `Retry-After`.
+    """
+
+    def __init__(
+        self, message: str, status_code: int, retry_after: float | None = None
+    ) -> None:
+        self.retry_after = retry_after
+        super().__init__(message, status_code)
+
+
 class Result:
     def __init__(self, *args: Any, response: Response, **kwargs: Any):
         super().__init__(*args, **kwargs)

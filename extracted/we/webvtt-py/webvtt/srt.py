@@ -1,10 +1,18 @@
 """SRT format module."""
 
+import operator
 import typing
 import re
+from collections.abc import Collection, Generator, Iterable, Mapping, Sequence
 
 from .models import (
-    Caption, Style, _caption_from_timings, _iter_cue_text_tokens
+    Caption,
+    CueSettings,
+    ParseIssue,
+    Style,
+    _caption_from_timings,
+    _iter_cue_text_tokens,
+    _skipped_block
     )
 from .errors import MalformedFileError
 from . import utils
@@ -12,10 +20,67 @@ from . import utils
 
 _TIMESTAMP = r'[0-9]+:[0-9]{1,2}:[0-9]{1,2}[,.][0-9]+'
 
-_CUE_CLASS_SELECTOR = re.compile(r'::cue\(\s*\.([\w-]+)\s*\)')
+# a character of a CSS identifier, or an escape, as in ``c\+1`` or ``\31 a``.
+# Each character matches one alternative only, and a hex escape takes all
+# its digits, so that a selector that does not match fails in linear time
+_CSS_IDENTIFIER = (
+    r'(?:[a-zA-Z0-9_-]|[^\x00-\x7f]|'
+    r'\\(?:(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{1,5}(?![0-9a-fA-F]))[ \t\n\r\f]?|'
+    r'[^\n\r\f0-9a-fA-F]))+'
+    )
+
+# a ::cue() selector with a type, classes or both, as in ::cue(c.loud)
+_CUE_SELECTOR = re.compile(
+    rf'::cue\(\s*([a-zA-Z]+)?((?:\.{_CSS_IDENTIFIER})*)\s*\)'
+    )
+
+_CSS_CLASS = re.compile(rf'\.({_CSS_IDENTIFIER})')
+
+_CSS_ESCAPE = re.compile(
+    r'\\(?:([0-9a-fA-F]{1,6})[ \t\n\r\f]?|(.))', re.DOTALL
+    )
+
+# the selectors of a rule, split on the commas that are not escaped
+_CSS_SELECTORS = re.compile(r'(?:\\.|[^,\\])+', re.DOTALL)
+
+
+class _ColourRule(typing.NamedTuple):
+    """The colour of a ``::cue()`` selector of the styles."""
+
+    # the tag name of the selector, or None for any tag
+    name: str | None
+    # the classes that a tag needs to have
+    classes: frozenset[str]
+    # the specificity of the selector and the position of its rule, the
+    # largest of which applies
+    priority: tuple[int, int, int]
+    colour: str
+
 
 # the cue tags that SRT players support
 _SRT_TAGS = {'b', 'i', 'u'}
+
+# the color of a font tag, quoted or not
+_FONT_COLOUR = re.compile(
+    r'''\bcolor\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"']+))''',
+    re.IGNORECASE
+    )
+
+# a colour that can be written in a style, as a name, a hex colour or a
+# function such as rgb(255, 0, 0), with its parentheses balanced so that
+# the rest of the style is read
+_COLOUR_VALUE = re.compile(r'#?[\w-]+(?:\([\w\s,.%/+-]*\))?')
+
+# a {\anN} tag, which places the cue as the keys of a numeric keypad
+_POSITION_TAG = re.compile(r'\{\\an([1-9])\}')
+
+# the line and align cue settings of each {\anN} tag
+_POSITIONS: dict[int, tuple[str | None, str | None]] = {
+    1: (None, 'left'), 2: (None, None), 3: (None, 'right'),
+    4: ('50%,center', 'left'), 5: ('50%,center', None),
+    6: ('50%,center', 'right'),
+    7: ('0', 'left'), 8: ('0', None), 9: ('0', 'right'),
+    }
 
 
 class SRTCueBlock:
@@ -27,10 +92,10 @@ class SRTCueBlock:
 
     def __init__(
             self,
-            index: typing.Optional[str],
+            index: str | None,
             start: str,
             end: str,
-            payload: typing.Sequence[str]
+            payload: Sequence[str]
             ):
         """
         Initialize.
@@ -48,7 +113,7 @@ class SRTCueBlock:
     @classmethod
     def is_valid(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> bool:
         """
         Validate the lines for a match of a cue time block.
@@ -62,13 +127,13 @@ class SRTCueBlock:
         timings = _timings_line(lines)
         return bool(
           len(lines) > timings and
-          re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
+          cls.CUE_TIMINGS_PATTERN.match(lines[timings])
           )
 
     @classmethod
     def from_lines(
             cls,
-            lines: typing.Sequence[str]
+            lines: Sequence[str]
             ) -> 'SRTCueBlock':
         """
         Create a `SRTCueBlock` from lines of text.
@@ -79,7 +144,7 @@ class SRTCueBlock:
         timings = _timings_line(lines)
         index = lines[0] if timings else None
 
-        match = re.match(cls.CUE_TIMINGS_PATTERN, lines[timings])
+        match = cls.CUE_TIMINGS_PATTERN.match(lines[timings])
         assert match is not None
 
         payload = lines[timings + 1:]
@@ -87,11 +152,21 @@ class SRTCueBlock:
         return cls(index, match.group(1), match.group(2), payload)
 
 
-def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
-    """
+def parse(
+        lines: Sequence[str],
+        issues: list[ParseIssue] | None = None,
+        styles: list[Style] | None = None
+        ) -> list[Caption]:
+    r"""
     Parse SRT captions from lines of text.
 
+    The colours of ``font`` tags become cue classes, and ``{\anN}`` tags
+    become cue settings, see `parse_captions`.
+
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
+    :param styles: a list to add the style of the colours of the cue
+        classes to
     :returns: list of `Caption` objects
 
     :raises MalformedFileError: if the content is not in SRT format
@@ -99,10 +174,10 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
     if not is_valid_content(lines):
         raise MalformedFileError('Invalid format')
 
-    return parse_captions(lines)
+    return parse_captions(lines, issues, styles)
 
 
-def is_valid_content(lines: typing.Sequence[str]) -> bool:
+def is_valid_content(lines: Sequence[str]) -> bool:
     """
     Validate lines of text for valid SRT content.
 
@@ -121,7 +196,7 @@ def is_valid_content(lines: typing.Sequence[str]) -> bool:
     )
 
 
-def _is_cue_start(lines: typing.Sequence[str]) -> bool:
+def _is_cue_start(lines: Sequence[str]) -> bool:
     """
     Validate if the lines start with cue timings or a cue index and timings.
 
@@ -142,7 +217,7 @@ def _is_index(line: str) -> bool:
     return line.isascii() and line.isdigit()
 
 
-def _timings_line(lines: typing.Sequence[str]) -> int:
+def _timings_line(lines: Sequence[str]) -> int:
     """Return the position of the cue timings, after the index if any."""
     return 1 if lines and _is_index(lines[0]) else 0
 
@@ -153,8 +228,8 @@ def _is_index_and_timings(line: str, next_line: str) -> bool:
 
 
 def _iter_cue_blocks(
-        lines: typing.Sequence[str]
-        ) -> typing.Generator[typing.List[str], None, None]:
+        lines: Sequence[str]
+        ) -> Generator[utils._NumberedBlock, None, None]:
     """
     Iterate blocks of text, also splitting a block where a cue starts.
 
@@ -164,72 +239,302 @@ def _iter_cue_blocks(
     that cue.
 
     :param lines: lines of text
+    :returns: the line number where each block starts, from 1, and its lines
     """
-    index_block: typing.Optional[typing.List[str]] = None
+    index_block: utils._NumberedBlock | None = None
 
-    for block_lines in _iter_split_blocks(lines):
+    for number, block_lines in _iter_split_blocks(lines):
         if index_block is not None:
             if '-->' in block_lines[0]:
-                block_lines = index_block + block_lines
+                number = index_block[0]
+                block_lines = index_block[1] + block_lines
             else:
                 yield index_block
             index_block = None
 
         if len(block_lines) == 1 and _is_index(block_lines[0]):
-            index_block = block_lines
+            index_block = number, block_lines
         else:
-            yield block_lines
+            yield number, block_lines
 
     if index_block is not None:
         yield index_block
 
 
 def _iter_split_blocks(
-        lines: typing.Sequence[str]
-        ) -> typing.Generator[typing.List[str], None, None]:
+        lines: Sequence[str]
+        ) -> Generator[utils._NumberedBlock, None, None]:
     """
     Iterate blocks of text, splitting a block where a cue index follows.
 
     :param lines: lines of text
+    :returns: the line number where each block starts, from 1, and its lines
     """
-    for block_lines in utils.iter_blocks_of_lines(lines):
+    for number, block_lines in utils._iter_numbered_blocks(lines):
         start = 0
         for i in range(1, len(block_lines) - 1):
             if _is_index_and_timings(block_lines[i], block_lines[i + 1]):
-                yield block_lines[start:i]
+                yield number + start, block_lines[start:i]
                 start = i
-        yield block_lines[start:]
+        yield number + start, block_lines[start:]
 
 
-def parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
-    """
+def parse_captions(
+        lines: Sequence[str],
+        issues: list[ParseIssue] | None = None,
+        styles: list[Style] | None = None
+        ) -> list[Caption]:
+    r"""
     Parse captions from the text.
 
     Blocks of text that do not start a cue are taken as part of the text
     of the previous cue, as some files have empty lines in the caption
-    text.
+    text. They are skipped when there is no such cue, as when the previous
+    cue is not valid.
+
+    A ``font`` tag with a colour becomes a ``c`` tag with a class for the
+    colour, named from it, as in ``<c.color-ff0000>``, with a ``::cue``
+    rule for each class in a style. Other ``font`` tags and attributes
+    are removed, keeping their text. The first ``{\anN}`` tag of a cue
+    becomes its ``line`` and ``align`` cue settings, and all of them are
+    removed from the text, as are the lines that they leave empty.
 
     :param lines: lines of text
+    :param issues: a list to add the blocks that are skipped to
+    :param styles: a list to add the style of the colours of the cue
+        classes to, when there are any
     :returns: list of `Caption` objects
     """
-    captions: typing.List[Caption] = []
-    caption: typing.Optional[Caption] = None
+    skipped: list[ParseIssue] = []
+    cues = _read_cues(lines, skipped)
+    _convert_captions([caption for _, _, caption in cues], styles)
 
-    for block_lines in _iter_cue_blocks(lines):
+    # a cue has no text only after the blocks that can add to it are read
+    skipped.extend(
+        _skipped_block(number, 'Cue without text', block_lines)
+        for number, block_lines, caption in cues if not caption.lines
+        )
+    if issues is not None:
+        issues.extend(sorted(skipped, key=operator.attrgetter('line')))
+
+    return [caption for _, _, caption in cues if caption.lines]
+
+
+def _read_cues(
+        lines: Sequence[str],
+        skipped: list[ParseIssue]
+        ) -> list[tuple[int, list[str], Caption]]:
+    """
+    Read the cues of the text, with the blocks that add to their text.
+
+    :param lines: lines of text
+    :param skipped: a list to add the blocks that are skipped to
+    :returns: the line number, the lines of the block and the caption of
+        each cue
+    """
+    cues: list[tuple[int, list[str], Caption]] = []
+    caption: Caption | None = None
+
+    for number, block_lines in _iter_cue_blocks(lines):
         if _is_cue_start(block_lines):
-            caption = None
-            if SRTCueBlock.is_valid(block_lines):
-                cue_block = SRTCueBlock.from_lines(block_lines)
-                caption = _caption_from_timings(cue_block.start,
-                                                cue_block.end,
-                                                cue_block.payload
-                                                )
-                if caption is not None:
-                    captions.append(caption)
+            caption = _parse_cue(block_lines)
+            if caption is None:
+                skipped.append(_skipped_block(
+                    number, 'Invalid cue block', block_lines
+                    ))
+            else:
+                cues.append((number, block_lines, caption))
         elif caption is not None:
             caption.lines.extend(block_lines)
+        else:
+            skipped.append(_skipped_block(
+                number, 'Invalid block', block_lines
+                ))
+    return cues
 
-    return [caption for caption in captions if caption.lines]
+
+def _parse_cue(lines: Sequence[str]) -> Caption | None:
+    """
+    Parse a cue from the lines of a block that starts a cue.
+
+    :param lines: the lines of the block
+    :returns: a `Caption`, or None if the cue is not valid
+    """
+    if not SRTCueBlock.is_valid(lines):
+        return None
+
+    cue_block = SRTCueBlock.from_lines(lines)
+    return _caption_from_timings(cue_block.start,
+                                 cue_block.end,
+                                 cue_block.payload
+                                 )
+
+
+def _convert_captions(
+        captions: Iterable[Caption],
+        styles: list[Style] | None
+        ) -> None:
+    """
+    Convert the font and position tags of the captions read from SRT.
+
+    :param captions: the captions, changed in place
+    :param styles: a list to add the style of the colours of the cue
+        classes to, when there are any
+    """
+    # the classes of the colours, in order of first use
+    classes: dict[str, str] = {}
+    for caption in captions:
+        _convert_markup(caption, classes)
+    if classes and styles is not None:
+        styles.append(_colour_style(classes))
+
+
+def _convert_markup(caption: Caption, classes: dict[str, str]) -> None:
+    """
+    Convert the font and position tags of a caption read from SRT.
+
+    :param caption: the caption, changed in place
+    :param classes: the classes of the colours, which new colours are
+        added to
+    """
+    position = None
+    lines = []
+    # whether each open font tag became a c tag, as tags stay open across
+    # lines
+    open_fonts: list[bool] = []
+    for line in caption.lines:
+        match = _POSITION_TAG.search(line)
+        if match and position is None:
+            position = int(match.group(1))
+        converted = _convert_fonts(
+            _POSITION_TAG.sub('', line), open_fonts, classes
+            )
+        # a line of only tags that are removed would end the cue
+        if converted.strip() or converted == line:
+            lines.append(converted)
+    caption.lines = lines
+
+    if position is not None:
+        line_setting, align = _POSITIONS[position]
+        caption.settings = CueSettings(line=line_setting, align=align)
+
+
+def _convert_fonts(
+        line: str,
+        open_fonts: list[bool],
+        classes: dict[str, str]
+        ) -> str:
+    """
+    Convert the font tags of a line of text to c tags with a class.
+
+    :param line: the line of text
+    :param open_fonts: whether each open font tag became a c tag, which is
+        updated with the tags of the line
+    :param classes: the classes of the colours, which new colours are
+        added to
+    :returns: the line with the font tags converted or removed
+    """
+    output = []
+    for token, is_tag in _iter_cue_text_tokens(line):
+        if not is_tag:
+            output.append(token)
+            continue
+        name, *attributes = token.split(None, 1) or ['']
+        name = name.lower()
+        if name == 'font':
+            class_name = _colour_class(''.join(attributes), classes)
+            open_fonts.append(class_name is not None)
+            if class_name is not None:
+                output.append(f'<c.{class_name}>')
+        elif name == '/font':
+            if open_fonts and open_fonts.pop():
+                output.append('</c>')
+        else:
+            output.append(f'<{token}>')
+    return ''.join(output)
+
+
+def _colour_class(
+        attributes: str,
+        classes: dict[str, str]
+        ) -> str | None:
+    """
+    Return the class of the colour of a font tag.
+
+    The class is named from the colour, as ``color-ff0000`` for
+    ``#ff0000``, with a number added when another colour has the name.
+
+    :param attributes: the attributes of the font tag
+    :param classes: the classes of the colours, which a new colour is
+        added to
+    :returns: the class, or None when the tag has no colour that can be
+        written in a style
+    """
+    match = _FONT_COLOUR.search(attributes)
+    if match is None:
+        return None
+    colour = next(g for g in match.groups() if g is not None).strip().lower()
+    words = re.findall(r'[^\W_]+', colour)
+    if not words or not _COLOUR_VALUE.fullmatch(colour):
+        return None
+
+    if colour not in classes:
+        name = base = 'color-' + '-'.join(words)
+        taken = set(classes.values())
+        number = 2
+        while name in taken:
+            name = f'{base}-{number}'
+            number += 1
+        classes[colour] = name
+    return classes[colour]
+
+
+def _colour_style(classes: Mapping[str, str]) -> Style:
+    """
+    Return the style with the colour of each class.
+
+    :param classes: the classes of the colours
+    :returns: a `Style` with a ``::cue`` rule for each class
+    """
+    lines = []
+    for colour, name in classes.items():
+        lines.extend([f'::cue(.{name}) {{', f'  color: {colour};', '}'])
+    return Style(lines)
+
+
+def _position_tag(settings: CueSettings) -> str:
+    r"""
+    Return the ``{\anN}`` tag for the line and align cue settings.
+
+    The line is at the top for a line number from the top or a percentage
+    under a third, in the middle for a percentage up to two thirds, and
+    at the bottom otherwise. Only the left and right alignments are
+    written, as the side of start and end depends on the direction of the
+    text, and many files, such as those of YouTube, align every cue to the
+    start.
+
+    :param settings: the cue settings
+    :returns: the tag, or empty for a cue at the bottom center, where SRT
+        players place it, or with vertical text
+    """
+    if settings.vertical:
+        return ''
+    # 0 for the bottom, 1 for the middle and 2 for the top
+    row = 0
+    line = (settings.line or '').partition(',')[0]
+    if line.endswith('%'):
+        percentage = float(line[:-1])
+        if percentage < 100 / 3:
+            row = 2
+        elif percentage <= 200 / 3:
+            row = 1
+    elif line and int(line) >= 0:
+        row = 2
+    column = {'left': 0, 'right': 2}.get(
+        settings.align or '', 1
+        )
+    number = row * 3 + column + 1
+    return '' if number == 2 else f'{{\\an{number}}}'
 
 
 def _strip_css_comments(css: str) -> str:
@@ -259,7 +564,7 @@ def _strip_css_comments(css: str) -> str:
     return ''.join(parts)
 
 
-def _css_colour(declarations: str) -> typing.Optional[str]:
+def _css_colour(declarations: str) -> str | None:
     """
     Return the colour in the declarations of a CSS rule.
 
@@ -279,20 +584,17 @@ def _css_colour(declarations: str) -> typing.Optional[str]:
     return colour
 
 
-def _cue_colours(
-        styles: typing.Iterable[Style]
-        ) -> typing.Dict[str, typing.Tuple[int, str]]:
+def _cue_colours(styles: Iterable[Style]) -> list[_ColourRule]:
     """
-    Return the colours of the cue classes defined in the styles.
+    Return the colours of the ``::cue()`` selectors of the styles.
 
-    Only the ``color`` of ``::cue(.class)`` selectors is read. Each class is
-    mapped to the colour and the position of its rule, as when a cue has
-    more than one class with a colour, the rule that comes last applies.
+    Only the ``color`` of selectors with a tag name, classes or both is
+    read, as in ``::cue(.loud)``, ``::cue(c.loud.red)`` or ``::cue(b)``.
 
     :param styles: Iterable of `Style` objects
-    :returns: a dict of class name to (rule position, colour)
+    :returns: the colour rules, in the order of the styles
     """
-    colours = {}
+    rules = []
     position = 0
     for style in styles:
         # split the rules on braces, as a regex for them is quadratic on
@@ -303,22 +605,90 @@ def _cue_colours(
             if colour is None:
                 continue
             position += 1
-            for selector in selectors.split(','):
-                match = _CUE_CLASS_SELECTOR.fullmatch(selector.strip())
-                if match:
-                    colours[match.group(1)] = (position, colour)
-    return colours
+            for selector in _CSS_SELECTORS.findall(selectors):
+                colour_rule = _colour_rule(selector.strip(), position, colour)
+                if colour_rule is not None:
+                    rules.append(colour_rule)
+    return rules
+
+
+def _colour_rule(
+        selector: str,
+        position: int,
+        colour: str
+        ) -> _ColourRule | None:
+    """
+    Return the colour rule of a ``::cue()`` selector.
+
+    :param selector: the selector
+    :param position: the position of the rule in the styles
+    :param colour: the colour of the rule
+    :returns: the colour rule, or None for a selector that is not read
+    """
+    match = _CUE_SELECTOR.fullmatch(selector)
+    if match is None or not any(match.groups()):
+        return None
+    name, classes = match.group(1), match.group(2)
+    class_names = frozenset(
+        _css_unescape(class_name)
+        for class_name in _CSS_CLASS.findall(classes)
+        )
+    # the specificity of CSS: the classes, then the tag name
+    priority = (len(class_names), int(name is not None), position)
+    return _ColourRule(name and name.lower(), class_names, priority, colour)
+
+
+def _css_unescape(identifier: str) -> str:
+    r"""
+    Return a CSS identifier without its escapes.
+
+    :param identifier: the identifier, as in ``c\+1`` or ``\31 a``
+    :returns: the identifier, as in ``c+1`` or ``1a``
+    """
+    def unescape(match: re.Match[str]) -> str:
+        if match.group(2) is not None:
+            return match.group(2)
+        code = int(match.group(1), 16)
+        if code == 0 or 0xd800 <= code <= 0xdfff or code > 0x10ffff:
+            return '\ufffd'
+        return chr(code)
+
+    return _CSS_ESCAPE.sub(unescape, identifier)
+
+
+def _tag_colour(
+        name: str,
+        classes: Collection[str],
+        colours: Iterable[_ColourRule]
+        ) -> str | None:
+    """
+    Return the colour of a cue tag.
+
+    :param name: the tag name
+    :param classes: the classes of the tag
+    :param colours: the colour rules of the styles
+    :returns: the colour of the matching rule with the largest specificity,
+        the last one of them, or None when no rule matches
+    """
+    tag_classes = set(classes)
+    matches = [
+        rule for rule in colours
+        if rule.name in (None, name) and rule.classes <= tag_classes
+        ]
+    if not matches:
+        return None
+    return max(matches, key=operator.attrgetter('priority')).colour
 
 
 def _srt_tags(
         tag: str,
-        colours: typing.Mapping[str, typing.Tuple[int, str]]
-        ) -> typing.Optional[typing.Tuple[str, str, str]]:
+        colours: Iterable[_ColourRule]
+        ) -> tuple[str, str, str] | None:
     """
     Return the SRT tags for a cue start tag.
 
     :param tag: the content of the cue start tag
-    :param colours: the colours of the cue classes
+    :param colours: the colour rules of the styles
     :returns: the tag name and the SRT start and end tags, which are empty
         when SRT has no tag for it, or None for a timestamp tag
     """
@@ -326,23 +696,24 @@ def _srt_tags(
     # timestamp tags have no name
     if not name.isalpha():
         return None
-    # font tags of captions read from SRT are kept as they are
+    # font tags, as in WebVTT written by versions that kept those of SRT,
+    # are kept as they are
     if name == 'font':
         return name, f'<{tag}>', '</font>'
     start_tags = end_tags = ''
     if name in _SRT_TAGS:
         start_tags, end_tags = f'<{name}>', f'</{name}>'
-    matches = [colours[cls] for cls in classes if cls in colours]
-    if matches:
-        start_tags += f'<font color="{max(matches)[1]}">'
+    colour = _tag_colour(name, classes, colours)
+    if colour is not None:
+        start_tags += f'<font color="{colour}">'
         end_tags = '</font>' + end_tags
     return name, start_tags, end_tags
 
 
 def _close_tags(
-        open_tags: typing.List[typing.Tuple[str, str]],
+        open_tags: list[tuple[str, str]],
         name: str
-        ) -> typing.List[str]:
+        ) -> list[str]:
     """
     Close the last open tag with a name and the tags opened after it.
 
@@ -362,7 +733,7 @@ def _close_tags(
 
 def _format_cue_text(
         text: str,
-        colours: typing.Mapping[str, typing.Tuple[int, str]]
+        colours: Iterable[_ColourRule]
         ) -> str:
     """
     Convert the cue tags of a cue text to SRT tags.
@@ -374,11 +745,11 @@ def _format_cue_text(
     the text, but stay open across lines.
 
     :param text: the cue text
-    :param colours: the colours of the cue classes
+    :param colours: the colour rules of the styles
     :returns: the text with SRT tags
     """
     lines = []
-    open_tags: typing.List[typing.Tuple[str, str]] = []
+    open_tags: list[tuple[str, str]] = []
     for line in text.split('\n'):
         output = []
         for token, is_tag in _iter_cue_text_tokens(line):
@@ -399,15 +770,16 @@ def _format_cue_text(
 
 def write(
         f: typing.IO[str],
-        captions: typing.Iterable[Caption],
-        styles: typing.Optional[typing.Iterable[Style]] = None
-        ):
-    """
+        captions: Iterable[Caption],
+        styles: Iterable[Style] | None = None
+        ) -> None:
+    r"""
     Write captions to an output.
 
     Captions without text, such as text of blank lines or only of cue tags,
     are left out, as a cue without text cannot be read back from SRT, and
-    the others are numbered consecutively.
+    the others are numbered consecutively. The ``line`` and ``align`` cue
+    settings are written as a ``{\anN}`` tag, see `_position_tag`.
 
     :param f: file or file-like object
     :param captions: Iterable of `Caption` objects
@@ -425,6 +797,10 @@ def write(
         text = (caption.text if colours is None
                 else _format_cue_text(caption.raw_text, colours))
         lines = [line for line in text.split('\n') if line.strip()]
+        # a text with a position tag, as written by earlier versions, keeps
+        # it
+        if not _POSITION_TAG.search(text):
+            lines[0] = _position_tag(caption.settings) + lines[0]
         index += 1
         output.extend([
             f'{index}',

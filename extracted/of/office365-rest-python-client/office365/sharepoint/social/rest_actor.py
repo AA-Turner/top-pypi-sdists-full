@@ -4,7 +4,9 @@ from typing import Optional
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.queries.function import FunctionQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.social.actor import SocialActor
 
 
@@ -13,6 +15,7 @@ class SocialRestActor(Entity):
     site, or tag. The SocialRestActor type is available when the protocol client sends an OData request to a protocol
     server using [MS-CSOMREST]. It is not available using [MS-CSOM]."""
 
+    @odata(name="Me")
     @property
     def me(self) -> SocialActor:
         """The Me property provides access to the current user.
@@ -23,11 +26,13 @@ class SocialRestActor(Entity):
     def entity_type_name(self):
         return "SP.Social.SocialRestActor"
 
+    @odata(name="FollowableItem")
     @property
     def followable_item(self) -> Optional[str]:
         """Gets the FollowableItem property"""
         return self.properties.get("FollowableItem", None)
 
+    @odata(name="FollowableItemActor")
     @property
     def followable_item_actor(self) -> SocialActor:
         """Gets the FollowableItemActor property"""
@@ -35,6 +40,7 @@ class SocialRestActor(Entity):
 
         return self.properties.get("FollowableItemActor", SocialActor())
 
+    @site_access(SiteLevel.READ)
     def unread_mention_count(self) -> ClientResult[int]:
         """UnreadMentionCount operation."""
         return_type = ClientResult(self.context, int())

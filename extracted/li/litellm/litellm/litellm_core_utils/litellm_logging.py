@@ -3751,7 +3751,11 @@ class Logging(LiteLLMLoggingBaseClass):
                 if isinstance(callback, CustomLogger):  # custom logger class
                     from litellm.integrations.shadow_eval_logger import ShadowEvalLogger
 
-                    model_call_details: dict = self.model_call_details
+                    model_call_details: dict = (
+                        self._model_call_details_with_request_messages()
+                        if callback.exempt_from_message_redaction()
+                        else self.model_call_details
+                    )
                     ##################################
                     # call redaction hook for custom logger
                     model_call_details = callback.redact_standard_logging_payload_from_model_call_details(
@@ -4289,6 +4293,21 @@ class Logging(LiteLLMLoggingBaseClass):
     ) -> None:
         executor.submit(self.success_handler, result, start_time, end_time, cache_hit)
 
+    def _model_call_details_with_request_messages(self) -> dict[str, object]:  # mutable-ok: loggers take a dict
+        """The success-event payload with the request messages put back where `turn_off_message_logging`
+        redacted them in place, for a callback that routes on the request and never logs it."""
+        request_messages: Final = cast(object, self.messages)  # cast-ok: the request messages are only put back as-is
+        standard_logging_object: Final = self.model_call_details.get("standard_logging_object")
+        return {
+            **self.model_call_details,
+            "messages": request_messages,
+            **(
+                {"standard_logging_object": {**standard_logging_object, "messages": request_messages}}
+                if isinstance(standard_logging_object, dict)
+                else {}
+            ),
+        }
+
     def _should_run_sync_callbacks_for_async_calls(self) -> bool:
         """
         Returns:
@@ -4574,6 +4593,7 @@ class Logging(LiteLLMLoggingBaseClass):
         from litellm.completion_extras.litellm_responses_transformation.transformation import (
             LiteLLMResponsesTransformationHandler,
             responses_provider_metadata,
+            serves_anthropic_messages,
         )
 
         served_id: Final = _provider_response_id(result)
@@ -4588,6 +4608,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 optional_params={},
                 litellm_params={},
                 encoding=litellm.encoding,
+                keeps_every_reasoning_item=serves_anthropic_messages(self),
             )
             translated.id = served_id or translated.id
             return translated

@@ -19,7 +19,7 @@ class ProviderCannedResponse:
         url (str):
         uuid (UUID):
         name (str):
-        provider_helpdesk (UUID):
+        provider_helpdesk (UUID): Helpdesk the response belongs to. Only staff can change it.
         text (str): Template text. Supports Django template syntax.
         usage_count (int):
         created (datetime.datetime):

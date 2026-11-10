@@ -33,6 +33,7 @@ Usage::
         ListAssetTypesPaginator,
         ListBlueprintsPaginator,
         ListConnectionTypesPaginator,
+        ListDataQualityEvaluationConfigsPaginator,
         ListDataQualityResultsV2Paginator,
         ListEntitiesPaginator,
         ListFormTypesPaginator,
@@ -75,6 +76,7 @@ Usage::
     list_asset_types_paginator: ListAssetTypesPaginator = client.get_paginator("list_asset_types")
     list_blueprints_paginator: ListBlueprintsPaginator = client.get_paginator("list_blueprints")
     list_connection_types_paginator: ListConnectionTypesPaginator = client.get_paginator("list_connection_types")
+    list_data_quality_evaluation_configs_paginator: ListDataQualityEvaluationConfigsPaginator = client.get_paginator("list_data_quality_evaluation_configs")
     list_data_quality_results_v2_paginator: ListDataQualityResultsV2Paginator = client.get_paginator("list_data_quality_results_v2")
     list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
     list_form_types_paginator: ListFormTypesPaginator = client.get_paginator("list_form_types")
@@ -144,6 +146,8 @@ from .type_defs import (
     ListBlueprintsResponseTypeDef,
     ListConnectionTypesRequestPaginateTypeDef,
     ListConnectionTypesResponseTypeDef,
+    ListDataQualityEvaluationConfigsRequestPaginateTypeDef,
+    ListDataQualityEvaluationConfigsResponseTypeDef,
     ListDataQualityResultsV2RequestPaginateTypeDef,
     ListDataQualityResultsV2ResponseTypeDef,
     ListEntitiesRequestPaginateTypeDef,
@@ -205,6 +209,7 @@ __all__ = (
     "ListAssetTypesPaginator",
     "ListBlueprintsPaginator",
     "ListConnectionTypesPaginator",
+    "ListDataQualityEvaluationConfigsPaginator",
     "ListDataQualityResultsV2Paginator",
     "ListEntitiesPaginator",
     "ListFormTypesPaginator",
@@ -599,6 +604,26 @@ class ListConnectionTypesPaginator(_ListConnectionTypesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListConnectionTypes.html#Glue.Paginator.ListConnectionTypes.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#listconnectiontypespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDataQualityEvaluationConfigsPaginatorBase = Paginator[
+        ListDataQualityEvaluationConfigsResponseTypeDef
+    ]
+else:
+    _ListDataQualityEvaluationConfigsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDataQualityEvaluationConfigsPaginator(_ListDataQualityEvaluationConfigsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListDataQualityEvaluationConfigs.html#Glue.Paginator.ListDataQualityEvaluationConfigs)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#listdataqualityevaluationconfigspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDataQualityEvaluationConfigsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDataQualityEvaluationConfigsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/ListDataQualityEvaluationConfigs.html#Glue.Paginator.ListDataQualityEvaluationConfigs.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/paginators/#listdataqualityevaluationconfigspaginator)
         """
 
 if TYPE_CHECKING:

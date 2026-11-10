@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zapros
-Version: 0.25.0
+Version: 0.26.0
 Summary: Modern and extensible HTTP client for Python.
 Project-URL: Homepage, https://zapros.dev
 Project-URL: Documentation, https://zapros.dev
@@ -28,7 +28,7 @@ Requires-Dist: typing-extensions>=4.15.0
 Provides-Extra: brotli
 Requires-Dist: brotlicffi>=1.2.0; extra == 'brotli'
 Provides-Extra: caching
-Requires-Dist: hishel>=1.1.9; extra == 'caching'
+Requires-Dist: hishel<3,>=2; extra == 'caching'
 Provides-Extra: http2
 Requires-Dist: anyio>=4.5.0; extra == 'http2'
 Requires-Dist: h2>=4.3.0; extra == 'http2'

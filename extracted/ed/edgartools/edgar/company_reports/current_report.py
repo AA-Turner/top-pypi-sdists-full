@@ -1,8 +1,7 @@
 """Form 8-K and 6-K current report classes."""
 import re
-import warnings
 from datetime import date, datetime
-from functools import cached_property, partial
+from functools import cached_property
 from typing import List, Optional
 
 from rich import box, print
@@ -14,9 +13,8 @@ from edgar._filings import Attachments
 from edgar.company_reports._base import CompanyReport, report_lookup_miss
 from edgar.company_reports._structures import ItemOnlyFilingStructure, extract_items_from_sections
 from edgar.documents import HTMLParser, ParserConfig
-from edgar.files.html import Document
-from edgar.files.htmltools import ChunkedDocument, adjust_for_empty_items, chunks2df, detect_decimal_items
 from edgar.richtools import repr_rich, rich_to_text
+from edgar.sgml.text_extraction import attachment_html_to_text
 
 __all__ = ['CurrentReport', 'EightK']
 
@@ -61,6 +59,11 @@ _ITEM_ANCHOR = r'(?:^[ \t]*|[-=_─–—]{5,}[ \t]*)'
 # "Item: 5.02" and "Item–5.02" alike, so a dash, en dash, em dash or colon is optional. Finding an
 # item, starting it and ending it all use this label, so the three cannot disagree.
 _ITEM_LABEL = r'Item\s*[-–—:]?\s*'
+
+# An 8-K item number: "2.02", "9. 01" (Apple-style spacing) or a legacy bare "1"-"9". The whole
+# number must match, so "ITEM 2024 performance awards" and "Item 401(k)" are not items and do not
+# end the item before them. Every item parser uses this pattern (GH #1772, #1773).
+_ITEM_NUMBER = r'[1-9](?:\s*\.\s*\d{1,2})?(?!\d)'
 
 
 def _extract_items_from_text(text: str) -> List[str]:
@@ -109,7 +112,7 @@ def _extract_items_from_text(text: str) -> List[str]:
     # - "Item 1-Item 4" (Item 4, only one dash — not a rule, not at line start)
     # - Mid-sentence references to items
     pattern = re.compile(
-        _ITEM_ANCHOR + _ITEM_LABEL + r'(\d+\.?\s*\d*)',
+        _ITEM_ANCHOR + _ITEM_LABEL + '(' + _ITEM_NUMBER + ')',
         re.IGNORECASE | re.MULTILINE
     )
     matches = pattern.findall(text)
@@ -188,7 +191,7 @@ def _extract_item_content_from_text(filing_text: str, item_name: str) -> Optiona
 
     This is a fallback extraction method for legacy SGML filings (1999-2001)
     where HTML is unavailable but text content exists. Used by __getitem__ when
-    document parser and chunked_document strategies fail.
+    the document parser finds nothing.
 
     Handles:
     - Input normalization: "Item 9", "9", "item 9" -> "Item 9"
@@ -217,12 +220,15 @@ def _extract_item_content_from_text(filing_text: str, item_name: str) -> Optiona
     # Pattern matches: "Item 9", "Item 9.", "Item 9:", "Item 9.02", etc.
     # Must sit at an item-header anchor (line start, or after a horizontal rule)
     # to avoid matching mid-sentence references
+    # The number found must be the whole item number asked for, so "Item 5" does not start at
+    # "Item 5.02".
     item_pattern = re.compile(
-        rf'{_ITEM_ANCHOR}({_ITEM_LABEL}{re.escape(item_num)}[\s\.:\-]*)',
+        rf'{_ITEM_ANCHOR}({_ITEM_LABEL}({_ITEM_NUMBER})[\s\.:\-]*)',
         re.IGNORECASE | re.MULTILINE
     )
 
-    match = item_pattern.search(filing_text)
+    match = next((m for m in item_pattern.finditer(filing_text)
+                  if _normalize_item_number(m.group(2)) == item_num), None)
     if not match:
         return None
 
@@ -233,7 +239,7 @@ def _extract_item_content_from_text(filing_text: str, item_name: str) -> Optiona
     # Step 3: Find end position
     # Look for next "Item X" pattern
     next_item_pattern = re.compile(
-        _ITEM_ANCHOR + _ITEM_LABEL + r'\d+\.?\s*\d*[\s\.:\-]',
+        _ITEM_ANCHOR + _ITEM_LABEL + _ITEM_NUMBER + r'[\s\.:\-]',
         re.IGNORECASE | re.MULTILINE
     )
     next_match = next_item_pattern.search(filing_text, match.end(1))
@@ -664,51 +670,6 @@ class CurrentReport(CompanyReport):
         if press_release_results:
             return PressReleases(press_release_results)
 
-    @cached_property
-    def _chunked_document(self):
-        # Construction only; the deprecation lives on the public property in
-        # CompanyReport. See the note there.
-        html = self._filing.html()
-        if not html:
-            return None
-        decimal_chunk_fn = partial(chunks2df,
-                                   item_detector=detect_decimal_items,
-                                   item_adjuster=adjust_for_empty_items,
-                                   item_structure=self.structure)
-
-        return ChunkedDocument(html,
-                               chunk_fn=decimal_chunk_fn)
-
-    @property
-    def doc(self):
-        """The legacy chunked document.
-
-        .. deprecated:: 5.56
-            Use :attr:`document` instead. Removed in v6.0 with ``edgar.files``.
-
-        This override is the reason the property carries its own warning rather
-        than inheriting one. ``CompanyReport.doc`` returns ``self.document`` —
-        the *new* parser's document — and every other report class means that by
-        ``.doc``. ``CurrentReport`` alone returns the legacy ``ChunkedDocument``,
-        so the same attribute name hands back two unrelated types depending on
-        the form, and only this one stands on a package 6.0 deletes.
-
-        A plain ``warnings.warn`` rather than the frame-gated
-        ``warn_legacy_html_usage``: nothing inside edgartools reads ``.doc``
-        (measured 2026-09-02 across ``edgar/``), so there is no internal caller
-        to stay quiet for, and this matches the sibling ``chunked_document``
-        property in ``CompanyReport``.
-        """
-        warnings.warn(
-            "CurrentReport.doc returns the legacy ChunkedDocument and is "
-            "deprecated; it will be removed in edgartools 6.0 along with the "
-            "edgar.files package. Use .document for the edgar.documents parser, "
-            "or .items / report[item] for item access.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self._chunked_document
-
     @property
     def items(self) -> List[str]:
         """
@@ -843,8 +804,9 @@ class CurrentReport(CompanyReport):
         else:
             html_content = exhibit.download()
             if html_content:
-                document = Document.parse(html_content)
-                return repr_rich(document, width=200, force_terminal=False)
+                # The same rule Attachment.text() and Filing.text() apply, so an
+                # exhibit reads the same here as it does from the attachment.
+                return attachment_html_to_text(html_content)
 
     def _content_renderables(self):
         """Get the content of the exhibits as renderables"""

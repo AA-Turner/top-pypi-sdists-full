@@ -4,7 +4,7 @@ requires = [ "setuptools>=61" ]
 
 [project]
 name = "supervision"
-version = "0.31.5"
+version = "0.31.6"
 description = "A set of easy-to-use utils that will come in handy in any Computer Vision project"
 readme = "README.md"
 keywords = [
@@ -107,6 +107,7 @@ build = [
 mediapipe-reference = [
   "mediapipe>=0.10.35,<0.11; python_version<'3.13'",
 ]
+torch = [ "torch>=2" ]
 
 [tool.setuptools]
 packages.find.where = [ "src" ]
@@ -278,6 +279,7 @@ overrides = [
     "tests.metrics.test_size_bucket_regressions",
     "tests.metrics.test_sklearn_parity",
     "tests.metrics.utils.*",
+    "tests.test_docstring_examples",
     "tests.test_public_api",
     "tests.test_validate_deprecations",
     "tests.utils.conftest",

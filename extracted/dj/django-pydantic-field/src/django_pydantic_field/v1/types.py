@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import typing as ty
 from collections import ChainMap
@@ -9,7 +10,7 @@ import typing_extensions as te
 
 from django_pydantic_field.types import ST, BaseSchemaAdapter, SchemaAdapterResolver
 from django_pydantic_field.v1 import schema_utils
-from django_pydantic_field.v1.compat import pydantic_v1
+from django_pydantic_field.v1.compat import pydantic_encoder, pydantic_v1
 
 
 class ExportKwargs(te.TypedDict, total=False):
@@ -62,9 +63,13 @@ class SchemaAdapter(BaseSchemaAdapter[ST]):
         if exclude_fields is not None:
             dict_kwargs["exclude"] = {"__root__": dict_kwargs["exclude"]}
 
-        model_instance = self.wrapped_schema.parse_obj(value)
         if mode == "json":
-            return json.loads(model_instance.json(**dict_kwargs))
+            return json.loads(self._dump_raw_json(value, dict_kwargs))
+
+        try:
+            model_instance = self.wrapped_schema.parse_obj(value)
+        except pydantic_v1.ValidationError:
+            return value
 
         return model_instance.dict(**dict_kwargs)["__root__"]
 
@@ -77,8 +82,14 @@ class SchemaAdapter(BaseSchemaAdapter[ST]):
         if "exclude" in json_kwargs and json_kwargs["exclude"] is not None:
             json_kwargs["exclude"] = {"__root__": json_kwargs["exclude"]}
 
-        model_instance = self.wrapped_schema.parse_obj(value)
-        return model_instance.json(**json_kwargs).encode()
+        return self._dump_raw_json(value, json_kwargs).encode()
+
+    def _dump_raw_json(self, value: ty.Any, export_kwargs: ty.Mapping[str, ty.Any]) -> str:
+        try:
+            model_instance = self.wrapped_schema.parse_obj(value)
+        except pydantic_v1.ValidationError:
+            return json.dumps(value, default=pydantic_encoder)
+        return model_instance.json(**export_kwargs)
 
     def json_schema(self) -> dict[str, ty.Any]:
         by_alias = self.export_kwargs.get("by_alias", True)
@@ -95,6 +106,24 @@ class SchemaAdapter(BaseSchemaAdapter[ST]):
             root_schema["definitions"] = definitions
 
         return root_schema
+
+    def raw_openapi_schema(
+        self,
+        ref_template: str = "#/components/schemas/{model}",
+        mode: ty.Literal["validation", "serialization"] = "validation",
+    ) -> tuple[dict[str, ty.Any], dict[str, dict[str, ty.Any]]]:
+        by_alias = self.export_kwargs.get("by_alias", True)
+        schema = copy.deepcopy(
+            self.wrapped_schema.schema(
+                by_alias=by_alias,
+                ref_template=ref_template,
+            )
+        )
+        definitions = schema.pop("definitions", {})
+        root_schema = schema.get("properties", {}).get("__root__", schema)
+        if str(root_schema.get("title", "")).startswith("FieldSchema["):
+            root_schema.pop("title", None)
+        return root_schema, definitions
 
     def get_default_value(self) -> ST | None:
         field = self.wrapped_schema.__fields__["__root__"]

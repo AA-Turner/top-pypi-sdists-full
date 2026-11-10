@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -10,7 +10,6 @@ from office365.sharepoint.search.query_result import QueryResult
 from office365.sharepoint.search.simple_data_row import SimpleDataRow
 
 
-@dataclass
 class SearchResult(ClientValue):
     """
     The SearchResult structure resembles the ResultTableCollection structure
@@ -30,10 +29,10 @@ class SearchResult(ClientValue):
     SpellingSuggestion: str | None = None
     TriggeredRules: StringCollection = field(default_factory=StringCollection)
 
-    def set_property(self, k, v, persist_changes=True):
-        if k == "Properties":
-            v = parse_key_value_collection(v)
-        super().set_property(k, v, persist_changes)
+    def set_property(self, name, value, persist_changes=True):
+        if name == "Properties":
+            value = parse_key_value_collection(value)
+        super().set_property(name, value, persist_changes)
         return self
 
     @property

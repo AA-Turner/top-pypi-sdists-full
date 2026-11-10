@@ -1,6 +1,15 @@
+import sys
 from abc import ABC, abstractmethod
-from enum import StrEnum
 from typing import Any, Dict, Optional
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:  # e.g. in script envs
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        def __str__(self) -> str:
+            return str(self.value)
 
 
 class AccessPattern(StrEnum):

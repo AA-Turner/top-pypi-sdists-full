@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe Research plugin telemetry: the session funnel, observed from hooks.
+"""Probe plugin telemetry: the session funnel, observed from hooks.
 
 One event per funnel step, so drop-off says which fix is needed
 (distribution, prompting, or a bug):
@@ -134,6 +134,8 @@ RESEARCH_SKILLS = {
     "overview-charts",
     "artifact-diagramming",
     "artifact-design",
+    # a pane: the agent's own visual on a project or experiment (run compare + panes T12)
+    "write-pane",
     "probe-research-setup",
     # retired names (kept for resumed transcripts and cached installs);
     # notes-audit and pull-rules were renamed on 2026-09-17

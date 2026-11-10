@@ -9,7 +9,7 @@ int language_init(Language *self, PyObject *args, PyObject *Py_UNUSED(kwargs)) {
     if (PyCapsule_CheckExact(language)) {
         self->language = PyCapsule_GetPointer(language, "tree_sitter.Language");
     } else {
-        Py_uintptr_t language_id = PyLong_AsUnsignedLong(language);
+        Py_uintptr_t language_id = PyLong_AsSize_t(language);
         if (language_id == 0 || (language_id % sizeof(TSLanguage *)) != 0) {
             if (!PyErr_Occurred()) {
                 PyErr_SetString(PyExc_ValueError, "invalid language ID");
@@ -32,7 +32,9 @@ int language_init(Language *self, PyObject *args, PyObject *Py_UNUSED(kwargs)) {
 
 void language_dealloc(Language *self) {
     ts_language_delete(self->language);
-    Py_TYPE(self)->tp_free(self);
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free(self);
+    Py_DECREF(tp);
 }
 
 PyObject *language_repr(Language *self) {

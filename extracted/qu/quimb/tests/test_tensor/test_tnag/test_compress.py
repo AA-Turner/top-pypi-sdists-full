@@ -1,5 +1,15 @@
+import pytest
+
+import quimb as qu
 import quimb.tensor as qtn
 from quimb.tensor.tnag.compress import tensor_network_ag_compress
+
+from .. import (
+    bond_orientations,
+    make_symmetric_2d_tn,
+    requires_symmray,
+    symmetry_cases,
+)
 
 
 def test_compress_projector_bp_canonize():
@@ -25,3 +35,84 @@ def test_compress_projector_bp_canonize():
     assert compressed.num_tensors == len(psi.site_tags)
     assert compressed.max_bond() == 1
     assert psi.max_bond() == 2
+
+
+@requires_symmray
+@pytest.mark.parametrize("symmetry", symmetry_cases)
+@pytest.mark.parametrize("canonize", [False, True, "layered", "bp"])
+@pytest.mark.parametrize("bond_orientation", bond_orientations)
+@pytest.mark.parametrize("direction", ["xmin", "xmax", "ymin", "ymax"])
+def test_compress_projector_symmetric(
+    symmetry, canonize, bond_orientation, direction
+):
+    """Check exact boundary contraction with local projectors.
+
+    Cover each preconditioner, bond orientation, and contraction direction.
+    Use enough bond dimension to prevent truncation.
+    """
+    canonize_opts = None
+    if canonize == "bp":
+        # isolate phase errors with a tightly converged BP gauge
+        canonize_opts = {"max_iterations": 1000, "tol": 5e-13}
+
+    # use distinct random data for each case
+    seed = qu.utils.hash_kwargs_to_int(
+        symmetry=symmetry,
+        canonize=canonize,
+        bond_orientation=bond_orientation,
+        direction=direction,
+    )
+    tn = make_symmetric_2d_tn(symmetry, duals=bond_orientation, seed=seed)
+
+    expected = tn.contract(all, optimize="auto-hq")
+
+    # `contract_boundary` routes this to `tensor_network_ag_compress`
+    value = tn.contract_boundary(
+        # prevent truncation
+        max_bond=8,
+        cutoff=0.0,
+        method="projector",
+        canonize=canonize,
+        canonize_opts=canonize_opts,
+        sequence=(direction,),
+    )
+
+    assert value == pytest.approx(expected, rel=1e-10)
+
+
+@requires_symmray
+@pytest.mark.parametrize("canonize", [False, True, "layered", "bp"])
+@pytest.mark.parametrize("layer_tags", [None, ("KET", "BRA")])
+@pytest.mark.parametrize("cyclic", [False, True])
+def test_compress_projector_fermionic_norm(canonize, layer_tags, cyclic):
+    """Check exact boundary contraction of the norm of an odd parity
+    fermionic PEPS. Its bra tensors carry dual dummy modes, which pair with
+    those of the ket tensors.
+    """
+    import symmray as sr
+
+    psi = sr.PEPS_fermionic_rand(
+        "Z2",
+        3,
+        3,
+        bond_dim=2,
+        phys_dim=2,
+        cyclic=cyclic,
+        site_charge=lambda site: 1,
+        seed=7,
+        dist="uniform",
+        loc=-0.5,
+    )
+    norm = psi.make_norm()
+    expected = norm.contract(all, optimize="auto-hq")
+
+    value = norm.contract_boundary(
+        # prevent truncation
+        max_bond=256,
+        cutoff=0.0,
+        method="projector",
+        canonize=canonize,
+        layer_tags=layer_tags,
+    )
+
+    assert value == pytest.approx(expected, rel=1e-8)

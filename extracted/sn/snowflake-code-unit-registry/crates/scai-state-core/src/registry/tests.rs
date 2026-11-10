@@ -4407,6 +4407,26 @@ fn validate_allows_root_issues_on_etl() {
 }
 
 #[test]
+fn objecttype_schema_includes_datastage_job_types() {
+    let allowed_types = schema_enum_values("ObjectType");
+    for expected in ["sequenceJob", "parallelJob"] {
+        assert!(
+            allowed_types.contains(&expected.to_string()),
+            "ObjectType schema should include '{expected}' for DataStage support"
+        );
+    }
+}
+
+#[test]
+fn objecttype_schema_includes_datastage_shared_container() {
+    let allowed_types = schema_enum_values("ObjectType");
+    assert!(
+        allowed_types.contains(&"sharedContainer".to_string()),
+        "ObjectType schema should include 'sharedContainer' for DataStage shared containers"
+    );
+}
+
+#[test]
 fn objecttype_schema_includes_informatica_types() {
     let allowed_types = schema_enum_values("ObjectType");
     assert!(

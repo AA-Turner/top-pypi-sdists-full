@@ -104,7 +104,7 @@ class ClientRequest(ABC):
             verify: SSL verification — ``True``, ``False``, or a CA bundle path.
                 ``None`` (default) defers to the session/environment default.
             timeout: Request timeout — a number or a ``(connect, read)`` tuple.
-                When ``None`` the bundled default (10 s connect, unbounded read)
+                When ``None`` the bundled default (10 s connect, 300 s read)
                 applies; pass
                 :data:`~office365.runtime.transport.base.NO_TIMEOUT` to disable.
             session: Custom ``requests.Session`` with pre-configured adapters
@@ -313,7 +313,7 @@ class ClientRequest(ABC):
             Configured RequestOptions object"""
 
     @abstractmethod
-    def process_response(self, response: Response, query: ClientQuery) -> None:
+    def handle_response(self, response: Response, query: ClientQuery) -> None:
         """Handle and transform the response
 
         Args:
@@ -325,7 +325,7 @@ class ClientRequest(ABC):
         try:
             request = self.build_request(query)
             response = self.execute_request_direct(request)
-            self.process_response(response, query)
+            self.handle_response(response, query)
             self.afterExecute(response)
         except ClientRequestException as e:
             self._add_permission_hint(e, query)
@@ -354,14 +354,14 @@ class ClientRequest(ABC):
         """Submits a pending request to the server without blocking the loop.
 
         Async counterpart of :meth:`execute_query` with the same semantics:
-        ``beforeExecute`` runs before the request, and ``process_response`` /
+        ``beforeExecute`` runs before the request, and ``handle_response`` /
         ``afterExecute`` run after the awaited response. Errors are dispatched to
         ``onError`` (swallowed) or re-raised, mirroring the sync path.
         """
         try:
             request = self.build_request(query)
             response = await self.execute_request_direct_async(request)
-            self.process_response(response, query)
+            self.handle_response(response, query)
             self.afterExecute(response)
         except ClientRequestException as e:
             self._add_permission_hint(e, query)
@@ -470,13 +470,13 @@ class ClientRequest(ABC):
             Self for method chaining
         """
 
-        def _process_response(response: Response) -> None:
+        def _handle_response(response: Response) -> None:
             if condition is None or condition():
                 if once:
-                    self.afterExecute -= _process_response
+                    self.afterExecute -= _handle_response
                 action(response)
 
-        self.afterExecute += _process_response
+        self.afterExecute += _handle_response
         return self
 
     @staticmethod

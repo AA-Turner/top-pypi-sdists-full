@@ -37,6 +37,7 @@ class TypeScriptStates(JavaScriptBindingsMixin, JavaScriptFunctionsMixin,
         self._condition_kind = None
         self._ternary_depth = 0
         self._expression_body = False  # An open expression-bodied arrow
+        self._arrow_line = None  # Line of `=>` for expression-body start
         self._call_group = False  # Argument commas end expression arrows
         self._open_groups = 0  # "(" of a group read as parameters
 
@@ -84,10 +85,16 @@ class TypeScriptStates(JavaScriptBindingsMixin, JavaScriptFunctionsMixin,
                     self._consume_type_annotation()
                     return
                 if token == 'static':
+                    # Hot path: most `static`/`async` tokens are not inside an
+                    # open field value; avoid the helper call overhead there.
+                    if self._in_prop_value:
+                        self._end_field_before_modifier()
                     self._static_seen = True
                     self._prev_token = token
                     return
                 if token == 'async':
+                    if self._in_prop_value:
+                        self._end_field_before_modifier()
                     self._async_seen = True
                     self._prev_token = token
                     return
@@ -128,6 +135,7 @@ class TypeScriptStates(JavaScriptBindingsMixin, JavaScriptFunctionsMixin,
         elif token in ('else', 'do', 'try', 'final'):
             self.next(self._expecting_statement_or_block)
         elif token in ('=>',):
+            self._arrow_line = self.context.current_line
             if not self._pending_bindings:
                 name = self.last_tokens
                 if name.replace('$', '_').isidentifier():
@@ -190,8 +198,11 @@ class TypeScriptStates(JavaScriptBindingsMixin, JavaScriptFunctionsMixin,
         ) or (
                 # After an argument/declarator/generic comma, keep ending
                 # expression arrows here, at the next line's first token.
-                self.context.newline and (
-                    not self._expression_body or self.last_token == ',')):
+                self.context.newline
+                # An object property value can continue across line breaks.
+                and (not self.as_object or self.as_class
+                     or not self._in_prop_value or self.started_function)
+                and (not self._expression_body or self.last_token == ',')):
             self._end_statement()
 
         if token in _TAIL_TOKENS:

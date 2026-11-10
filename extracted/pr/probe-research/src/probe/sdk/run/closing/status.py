@@ -83,6 +83,12 @@ class StatusMixin:
         only_if_running: bool = False,
     ):
         summary = _one_summary(summary_metrics, summary)
+        if status == "failed" and not only_if_running and not self._finish_called():
+            # A script's own `failed` inside `except` files what it caught (finish() decided for its
+            # own close; a guarded finalizer write is the launcher's, not the script's).
+            from ... import diagnostics
+
+            diagnostics.report_exception_in_flight(self, status)
         if status in _TERMINAL_STATUSES and self._lease is not None:
             # The open's snapshot writes are queued AHEAD of the verdict, never behind it (plan O3).
             self._settle_open_snapshot()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangosaml2
-Version: 1.12.0
+Version: 1.13.0
 Summary: pysaml2 integration for Django
 Home-page: https://github.com/IdentityPython/djangosaml2
 Download-URL: https://pypi.org/project/djangosaml2/
@@ -12,15 +12,13 @@ Keywords: django,pysaml2,sso,saml2,federated authentication,authentication
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -29,12 +27,14 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
 Requires-Dist: defusedxml>=0.4.1
-Requires-Dist: Django>=4.2
-Requires-Dist: pysaml2>=6.5.1
+Requires-Dist: Django!=6.0.0,!=6.0.1,!=6.0.2,!=6.0.3,!=6.0.4,!=6.0.5,!=6.0.6,!=6.0.7,!=6.1.0,>=5.2.17
+Requires-Dist: pysaml2>=7.5.5
+Requires-Dist: cryptography>=50.0.0
+Requires-Dist: pyopenssl>=26.4.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -53,7 +53,7 @@ Dynamic: summary
 djangosaml2
 ===========
 
-![CI build](https://github.com/peppelinux/djangosaml2/workflows/djangosaml2/badge.svg)
+![CI build](https://github.com/IdentityPython/djangosaml2/workflows/djangosaml2/badge.svg)
 ![pypi](https://img.shields.io/pypi/v/djangosaml2.svg)
 [![Downloads](https://pepy.tech/badge/djangosaml2/month)](https://pepy.tech/project/djangosaml2)
 ![Documentation Status](https://readthedocs.org/projects/djangosaml2/badge/?version=latest)
@@ -88,8 +88,7 @@ Please open Issues to start debate regarding the requested
 features, or the patch that you would apply. We do not use
 a strict submission format, please try to be more concise as possible.
 
-The Pull Request MUST be done on the dev branch, please don't
-push code directly on the master branch.
+Open the pull request against the master branch.
 
 
 Special thanks

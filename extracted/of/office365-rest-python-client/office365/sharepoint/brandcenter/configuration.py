@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 from uuid import UUID
 
@@ -10,7 +10,6 @@ from office365.sharepoint.types.resource_path import ResourcePath
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 
 
-@dataclass
 class BrandCenterConfiguration(ClientValue):
     BrandColorsListId: Optional[str] = None
     BrandColorsListUrl: Optional[str] = None

@@ -3,13 +3,19 @@
 
 From landschaft 1.35.0 (``_reproject.py``, by the same author), the raster part. Rasters are
 warped by a port of GDAL's warp kernel (``_core.warp``, from GDAL 3.12's gdalwarpkernel.cpp)
-on source coordinates that do not depend on how the work is split: the source coordinates of
-the destination's cells come from a lattice anchored at its origin, exact (PROJ) every 16
-cells, refined down to every cell where interpolating them would be off by more than the
-tolerance, interpolated bilinearly in between; the kernel scale is GDAL's for the whole
-destination in one chunk. In memory, lazily or from a file, with any number of threads,
-every cell gets the same bits. tolerance=0 transforms every cell exactly: GDAL's values for
-the whole destination at once.
+on source coordinates that do not depend on how the work is split. For the methods that sample at
+cell centres (nearest, bilinear, cubic, cubic spline, Lanczos) they are those of GDAL's
+approximate transformer, which gdalwarp uses by default (``-et 0.125``; ``_approx_coords``): row by
+row of the whole destination, exact at the ends and the middle of a range of cells and on a line
+between them where the line is within the tolerance, splitting the range where it is not. For the
+area methods (average, mode, ...) too, but as GDAL gives them: two lines of corners for every row of
+cells (the upper-left corners and the lower-right ones), each approximated on its own (four values
+a sample in the dense array). The kernel scale is GDAL's for the whole destination in one chunk, and so are the rows
+the approximate transformer sees: gdalwarp splits a destination that needs more than 64 MB of
+working memory, or whose source window is mostly outside the source, and approximates each part
+in rows of its own. In memory, lazily or from a file, with any number of threads, every cell
+gets the same bits. tolerance=0 transforms every cell exactly: GDAL's values for the whole
+destination at once (``gdalwarp -et 0``).
 
 What zeit adds to landschaft's: every plane of a cube (every date, every band) is warped
 with a validity mask of its own (GDAL's unified mask would let a cloud of one date into the
@@ -100,6 +106,199 @@ def _nodata(data: xr.DataArray):
         return nodata, nodata, dtype
     info = np.iinfo(dtype)
     return None, (info.max if info.min == 0 else info.min), dtype
+
+
+class _Plan(NamedTuple):
+    """What a warp does with values and NoData: the NoData of the source for the kernel (None: no validity
+    mask), the kernel's destination NoData, the value of the cells no source cell covers, the type the kernel
+    works in, the type of the result and its NoData (None: none)."""
+    src_nodata: Any
+    kernel_nodata: Optional[float]
+    fill: float
+    work: np.dtype
+    dtype: np.dtype
+    nodata: Any
+
+    @property
+    def sentinel(self) -> bool:
+        """No destination NoData (``nodata="source"`` of a raster without one): the cells outside are 0. The
+        kernel moves a value equal to its destination NoData (GDAL's AvoidNoData), which GDAL does only with
+        one, so it is given a value that no cell of the window it warps can take (see ``_Warp.free``) and the
+        cells that hold it are set to ``fill`` after."""
+        return self.nodata is None
+
+
+def _default_nodata(dtype: np.dtype) -> float:
+    if np.issubdtype(dtype, np.floating):
+        return np.nan
+    info = np.iinfo(dtype)
+    return info.max if info.min == 0 else info.min
+
+
+def _fits(value: float, dtype: np.dtype) -> bool:
+    if np.issubdtype(dtype, np.floating):
+        return True
+    if np.isnan(value) or value != int(value):
+        return False
+    info = np.iinfo(dtype)
+    return info.min <= value <= info.max
+
+
+def _plan(data: xr.DataArray, nodata: Any, dtype: Any) -> _Plan:
+    """The plan of a warp of ``data`` with ``load_raster``'s ``nodata=`` and ``dtype=``.
+
+    ``nodata=None``: the NoData of the source, and for a raster without one NaN (floats) or the type's
+    extreme (integers), written as the NoData of the result. ``"source"``: gdalwarp without ``-dstnodata``:
+    the source's NoData if it has one, else none, the cells outside set to 0. A number: ``-dstnodata``. The
+    kernel works in the union of the source's type and the result's (GDAL's working type)."""
+    src, dst, work = _nodata(data)
+    out = work if dtype is None else np.dtype(dtype).newbyteorder("=")
+    if out == np.bool_:
+        out = np.dtype(np.uint8)
+    if not (np.issubdtype(out, np.integer) or np.issubdtype(out, np.floating)):
+        raise TypeError(f"dtype= takes a number type, got {out}")
+    if nodata is None:
+        if dtype is None:
+            return _Plan(src, dst, dst, work, work, dst)
+        # the type changes: the source's NoData if it has one, else the new type's default
+        raw = data.rio.nodata
+        value = float(raw) if raw is not None and not (np.isnan(raw) and not np.issubdtype(out, np.floating)) \
+            else _default_nodata(out)
+        src_nd = src
+    else:
+        raw = data.rio.nodata
+        src_nd = None if raw is None else float(raw)
+        if isinstance(nodata, str):
+            if nodata != "source":
+                raise ValueError(f"nodata must be None, 'source' or a number, got {nodata!r}")
+            value = src_nd
+        else:
+            value = float(nodata)
+    if value is not None and not _fits(value, out):
+        raise ValueError(f"the NoData {value!r} does not fit the type {out}")
+    kind = work if dtype is None else np.promote_types(work, out)
+    return _Plan(src_nd, value, 0.0 if value is None else value, kind, out, value)
+
+
+def _free_values(values, count: int, banned=()):
+    """``count`` integers the type of ``values`` holds that no value of it is, past its range (None: no room)."""
+    info = np.iinfo(values.dtype)
+    lo, hi = int(values.min()), int(values.max())
+    found = []
+    for v in range(hi + 1, min(hi + 1 + count + len(banned), info.max + 1)):
+        if v not in banned and len(found) < count:
+            found.append(v)
+    for v in range(lo - 1, max(lo - 1 - count - len(banned), info.min - 1), -1):
+        if v not in banned and len(found) < count:
+            found.append(v)
+    return found if len(found) == count else None
+
+
+def _where(inside, out, fill):
+    if hasattr(out, "dask"):
+        import dask.array as dsa
+
+        return dsa.where(inside, out, fill)
+    return np.where(inside, out, fill)
+
+
+def _round_back(values, dtype):
+    """Floats the kernel made of integers, as the kernel rounds an integer result (ClampRoundAndAvoidNoData)."""
+    info = np.iinfo(dtype)
+    return np.clip(np.floor(values + 0.5), info.min, info.max).astype(dtype)
+
+
+def _convert(values, dtype):
+    """``values`` in ``dtype`` as GDAL writes a working type into a band: floats to integers rounded half away
+    from zero and clamped (NaN is 0), integers clamped."""
+    dtype = np.dtype(dtype)
+    if values.dtype == dtype:
+        return values
+    if np.issubdtype(dtype, np.integer):
+        info = np.iinfo(dtype)
+        if np.issubdtype(values.dtype, np.floating):
+            v = values.astype(np.float64)
+            v = np.where(np.isnan(v), 0.0, np.where(v < 0, np.ceil(v - 0.5), np.floor(v + 0.5)))
+            return np.clip(v, info.min, info.max).astype(dtype)
+        return np.clip(values, info.min, info.max).astype(dtype)
+    return values.astype(dtype)
+
+
+def _converted(values, dtype):
+    dtype = np.dtype(dtype)
+    if values.dtype == dtype:
+        return values
+    return values.map_blocks(_convert, dtype, dtype=dtype) if hasattr(values, "dask") else _convert(values, dtype)
+
+
+# --- a cutline ---------------------------------------------------------------------
+
+
+class Cutline(NamedTuple):
+    """The polygons that cut a result (gdalwarp ``-cutline``): shapely geometries and their CRS (None: the
+    destination's)."""
+    geometries: tuple
+    crs: Any
+
+    def in_crs(self, crs: CRS) -> list:
+        """The geometries in ``crs`` (their vertices transformed, as OGR does)."""
+        if self.crs is None or CRS.from_user_input(self.crs.to_wkt()) == crs:
+            return list(self.geometries)
+        import shapely
+        from pyproj import Transformer
+
+        tr = Transformer.from_crs(self.crs.to_wkt(), crs.to_wkt(), always_xy=True)
+        return [shapely.transform(g, lambda xy: np.column_stack(tr.transform(xy[:, 0], xy[:, 1])))
+                for g in self.geometries]
+
+    def bounds(self, crs: CRS) -> Tuple[float, float, float, float]:
+        """(xmin, ymin, xmax, ymax) of the geometries in ``crs``."""
+        boxes = np.array([g.bounds for g in self.in_crs(crs)])
+        return float(boxes[:, 0].min()), float(boxes[:, 1].min()), float(boxes[:, 2].max()), float(boxes[:, 3].max())
+
+    def mask(self, grid: Grid) -> np.ndarray:
+        """True for the cells of ``grid`` whose centre is inside the polygons (GDAL's rasterization)."""
+        from rasterio.features import rasterize
+
+        burned = rasterize([(g, 1) for g in self.in_crs(grid.crs)], out_shape=tuple(grid.shape),
+                           transform=grid.transform, fill=0, all_touched=False, dtype="uint8")
+        return burned.astype(bool)
+
+
+def cutline_of(spec: Any) -> Cutline:
+    """A ``Cutline`` from what ``load_raster(cutline=)`` takes: a vector file (``path``, or ``(path, layer)``), a
+    GeoDataFrame or GeoSeries, a shapely geometry or a list of them, or GeoJSON-like objects."""
+    import os
+
+    layer = None
+    if isinstance(spec, tuple) and len(spec) == 2 and isinstance(spec[0], (str, os.PathLike)):
+        spec, layer = spec
+    crs = None
+    if isinstance(spec, (str, os.PathLike)):
+        import geopandas as gpd
+
+        spec = gpd.read_file(spec, layer=layer)
+    if hasattr(spec, "geometry") and hasattr(spec, "crs"):  # GeoDataFrame, GeoSeries
+        crs = spec.crs
+        geoms = list(spec.geometry)
+    else:
+        from shapely.geometry import shape
+
+        items = list(spec) if isinstance(spec, (list, tuple)) else [spec]
+        geoms = []
+        for item in items:
+            if isinstance(item, dict) and item.get("type") == "FeatureCollection":
+                geoms += [shape(f["geometry"]) for f in item["features"]]
+            elif isinstance(item, dict) and item.get("type") == "Feature":
+                geoms.append(shape(item["geometry"]))
+            elif isinstance(item, dict):
+                geoms.append(shape(item))
+            else:
+                geoms.append(item)
+    geoms = tuple(g for g in geoms if g is not None and not g.is_empty)
+    if not geoms:
+        raise ValueError("cutline=: no geometry in it")
+    return Cutline(geoms, None if crs is None else (crs if hasattr(crs, "to_wkt") else CRS.from_user_input(crs)))
 
 
 # --- source coordinates of destination points -------------------------------------
@@ -300,7 +499,9 @@ def _kernel_scales(points: _Points, src_shape, dst_shape, method: str, translati
     """GDAL's dfXScale, dfYScale for the whole destination in one chunk: the source window of
     GDALWarpOperation::ComputeSourceWindow (points along the edges; a grid when some fail or
     a pole is in the destination, widened by the source points that land in it), then
-    GDALWarpKernel::PerformWarp's rules."""
+    GDALWarpKernel::PerformWarp's rules. Returns (xscale, yscale, window), the window being the source
+    cells (column offset, columns, row offset, rows) of that ComputeSourceWindow (None when it
+    is not known)."""
     h, w = src_shape
     dh, dw = dst_shape
     step = 1.0 / (_STEP_COUNT - 1)
@@ -355,7 +556,7 @@ def _kernel_scales(points: _Points, src_shape, dst_shape, method: str, translati
         x, y, ok = sample(*grid())
     failed = int((~ok).sum())
     if failed > x.size - 5:
-        return 1.0, 1.0
+        return 1.0, 1.0, None
     min_x, max_x, min_y, max_y = x[ok].min(), x[ok].max(), y[ok].min(), y[ok].max()
     if use_grid:  # ComputeSourceWindowStartingFromSource
         sx = np.array([rx * w for _ in ratios(h) for rx in ratios(w)])
@@ -366,7 +567,7 @@ def _kernel_scales(points: _Points, src_shape, dst_shape, method: str, translati
             min_x, max_x = min(min_x, sx[inside].min()), max(max_x, sx[inside].max())
             min_y, max_y = min(min_y, sy[inside].min()), max(max_y, sy[inside].max())
     if min_x > w or max_x < 0 or min_y > h or max_y < 0:
-        return 1.0, 1.0
+        return 1.0, 1.0, None
 
     def snap(v):
         r = float(np.round(v))
@@ -384,7 +585,7 @@ def _kernel_scales(points: _Points, src_shape, dst_shape, method: str, translati
         hi_c = int(min(math.ceil(hi), float(n_src)))
         raw = max(0.0, min(float(n_src - lo_c), hi - lo))
         if hi_c - lo_c > 0.9 * n_src:
-            size = n_src
+            off, size = 0, n_src
         else:
             off = max(0, min(lo_c - radius, n_src))
             size = max(0, min(n_src - off, hi_c - off + radius))
@@ -398,10 +599,10 @@ def _kernel_scales(points: _Points, src_shape, dst_shape, method: str, translati
             whole = int(reciprocal + 0.5)
             if abs(reciprocal - whole) < 0.05:
                 scale = 1.0 / whole
-        return scale
+        return scale, (off, size)
 
-    xscale = side(min_x, max_x, dw, w)
-    yscale = side(min_y, max_y, dh, h)
+    xscale, xwin = side(min_x, max_x, dw, w)
+    yscale, ywin = side(min_y, max_y, dh, h)
     if yscale / xscale > 100:
         # A wide source wrapped around the antimeridian: the mean scale at a few points.
         nx, ny = min(10, dw), min(10, dh)
@@ -425,7 +626,7 @@ def _kernel_scales(points: _Points, src_shape, dst_shape, method: str, translati
             for s in kept:
                 total += s
             xscale = total / len(kept)
-    return float(xscale), float(yscale)
+    return float(xscale), float(yscale), (*xwin, *ywin)
 
 
 class _Lattice:
@@ -517,6 +718,136 @@ def _finite_box(flat):
                          np.nanmax(ys, axis=1)], -1)
 
 
+def _expand(row, start, count):
+    """The (row, column) of every cell of runs of ``count`` cells from column ``start`` in ``row``, and
+    the run each belongs to."""
+    total = int(count.sum())
+    rep = np.repeat(np.arange(row.size), count)
+    first = np.cumsum(count) - count
+    return row[rep], start[rep] + (np.arange(total) - first[rep]), rep
+
+
+def _approx_coords(points: _Points, rows, width: int, c0: int, c1: int, max_error: float, window,
+                   n_threads: int, uoff: float = 0.5, voff: float = 0.5, retry_outside: bool = True):
+    """The source coordinates of the cell centres of destination ``rows``, columns [c0, c1), as GDAL's
+    approximate transformer (``GDALApproxTransform`` and ``GDALApproxTransformInternal``,
+    gdaltransformer.cpp; gdalwarp's ``-et``, 0.125 by default) gives them to the warp kernel. It is
+    called with the ``width`` centres of one row of the destination: it transforms the first, the middle
+    and the last exactly and, when the middle is off the line through the ends by more than
+    ``max_error`` source cells (|dx| + |dy|), splits the row in two (the first ``(width - 1) // 2``
+    cells, and the rest) and goes on with each (ends and middle exact), down to ranges where a line is
+    good enough (each cell then lies on it) or where every cell is exact (ranges of 5 cells or fewer,
+    and where a point fails). The ranges are those of a row of the whole destination, which is one
+    chunk of GDAL's warp operation: a destination that GDAL splits in chunks (its 64 MB of working
+    memory) is approximated by GDAL in rows of the chunk. Returns (len(rows), c1 - c0, 2); failed
+    points are infinite. The rows are done together, level by level. ``uoff``, ``voff``: the point of a
+    cell given to the transformer (its centre, or a corner for the area methods)."""
+    rows = np.asarray(rows, dtype=np.int64)
+    nrows = rows.size
+
+    def exact(r, i):
+        res = np.empty((r.size, 2))
+        if r.size:
+            points.many(i + uoff, rows[r] + voff, n_threads, res)
+            res[~np.isfinite(res).all(1)] = np.inf
+        return res
+
+    out = np.full((nrows, c1 - c0, 2), np.nan)
+    runs = [[], [], []]  # exact cells: row, first column, count
+    leaves = []  # (row, first column, count, start (x, y), step (dx, dy)) of cells on a line
+
+    def exact_run(r, a, count):
+        runs[0].append(r)
+        runs[1].append(a)
+        runs[2].append(count)
+
+    r_all = np.arange(nrows)
+    if width <= 5 or max_error == 0:
+        exact_run(r_all, np.zeros(nrows, dtype=np.int64), np.full(nrows, width, dtype=np.int64))
+    else:
+        mid = (width - 1) // 2
+        p3 = exact(np.repeat(r_all, 3), np.tile(np.array([0, mid, width - 1], dtype=np.int64), nrows)).reshape(-1, 3, 2)
+        good = np.isfinite(p3).all(axis=(1, 2))
+        bad = r_all[~good]
+        exact_run(bad, np.zeros(bad.size, dtype=np.int64), np.full(bad.size, width, dtype=np.int64))
+        qr, qa, qn = r_all[good], np.zeros(good.sum(), dtype=np.int64), np.full(good.sum(), width, dtype=np.int64)
+        qs, qm, qe = p3[good, 0], p3[good, 1], p3[good, 2]
+        while qr.size:
+            half = (qn - 1) // 2
+            x0, xm, xl = qa + 0.5, qa + half + 0.5, qa + qn - 1 + 0.5
+            span = xl - x0
+            dx = (qe[:, 0] - qs[:, 0]) / span
+            dy = (qe[:, 1] - qs[:, 1]) / span
+            err = np.abs((qs[:, 0] + dx * (xm - x0)) - qm[:, 0]) + np.abs((qs[:, 1] + dy * (xm - x0)) - qm[:, 1])
+            line = ~(err > max_error)
+            if line.any():
+                leaves.append((qr[line], qa[line], qn[line], qs[line], np.stack([dx[line], dy[line]], -1)))
+            keep = ~line
+            qr, qa, qn, half = qr[keep], qa[keep], qn[keep], half[keep]
+            qs, qm, qe = qs[keep], qm[keep], qe[keep]
+            if not qr.size:
+                break
+            m0, m1, m2 = (half - 1) // 2, half - 1, half + (qn - half - 1) // 2
+            base1, base2 = half <= 5, qn - half <= 5
+            need1, need2 = ~base1, ~base2
+            p0 = np.full((qr.size, 2), np.nan)
+            p1, p2 = p0.copy(), p0.copy()
+            if need1.any():
+                p0[need1] = exact(qr[need1], qa[need1] + m0[need1])
+                p1[need1] = exact(qr[need1], qa[need1] + m1[need1])
+            if need2.any():
+                p2[need2] = exact(qr[need2], qa[need2] + m2[need2])
+            ok = (base1 | (np.isfinite(p0).all(1) & np.isfinite(p1).all(1))) & (base2 | np.isfinite(p2).all(1)) \
+                & ~(base1 & base2)
+            # nothing to split with, or a point failed: every cell of the range exact
+            miss = ~ok
+            exact_run(qr[miss], qa[miss], qn[miss])
+            nq = []
+            first = ok & need1  # the first half goes on, from the start to the point before the middle
+            if first.any():
+                nq.append((qr[first], qa[first], half[first], qs[first], p0[first], p1[first]))
+            lone = ok & base1
+            exact_run(qr[lone], qa[lone], half[lone])
+            second = ok & need2  # the second, from the middle to the end
+            if second.any():
+                nq.append((qr[second], qa[second] + half[second], qn[second] - half[second], qm[second], p2[second],
+                           qe[second]))
+            lone = ok & base2
+            exact_run(qr[lone], qa[lone] + half[lone], qn[lone] - half[lone])
+            if not nq:
+                break
+            qr, qa, qn, qs, qm, qe = (np.concatenate(c) for c in zip(*nq))
+    for r, a, n, s, d in leaves:
+        lo, hi = np.maximum(a, c0), np.minimum(a + n, c1)
+        sel = hi > lo
+        if not sel.any():
+            continue
+        r, a, lo, hi, s, d = r[sel], a[sel], lo[sel], hi[sel], s[sel], d[sel]
+        row, col, rep = _expand(r, lo, hi - lo)
+        dist = (col + 0.5) - (a[rep] + 0.5)
+        out[row, col - c0] = s[rep] + d[rep] * dist[:, None]
+    if runs[0]:
+        r, a, n = (np.concatenate(c) for c in runs)
+        lo, hi = np.maximum(a, c0), np.minimum(a + n, c1)
+        sel = hi > lo
+        row, col, _ = _expand(r[sel], lo[sel], (hi - lo)[sel])
+        out[row, col - c0] = exact(row, col)
+    if not retry_outside:  # (the area methods do not retry)
+        return out
+    # GWKCheckAndComputeSrcOffsets: a point slightly outside the source window of the warp (by less than a
+    # cell, the first of its tests to fail) is transformed alone, exactly, and that value is the one the
+    # kernel takes
+    xoff, xsize, yoff, ysize = window
+    x, y = out[..., 0], out[..., 1]
+    with np.errstate(invalid="ignore"):
+        t1, t2, t3, t4 = x < xoff, y < yoff, x + 1e-10 > xsize + xoff, y + 1e-10 > ysize + yoff
+        retry = (t1 & (x > xoff - 1)) | (~t1 & t2 & (y > yoff - 1)) | (~t1 & ~t2 & t3 & (x < xsize + xoff + 1))             | (~t1 & ~t2 & ~t3 & t4 & (y < ysize + yoff + 1))
+    row, col = np.nonzero(retry)
+    if row.size:
+        out[row, col] = exact(row, col + c0)
+    return out
+
+
 class _Warp:
     """A warp by the kernel: the whole destination in one call (in memory), or tasks of a
     lazy result reading the source window they see. The source coordinates of every
@@ -524,11 +855,16 @@ class _Warp:
     the same bits. Every plane (date, band) has a validity mask of its own."""
 
     def __init__(self, src_shape, src_t, src_crs, dst_t, dst_shape, dst_crs, method, src_nodata, dst_nodata, dtype,
-                 tolerance, n_threads):
+                 tolerance, n_threads, fill=None, keep=None):
+        """``dst_nodata`` None: no destination NoData, the cells outside are ``fill``. ``keep``: (rows, columns)
+        of the source, True for the cells that take part (a cutline); the others are left out as NoData is."""
         self.src_shape, self.shape = src_shape, dst_shape
         self.src_nodata, self.dst_nodata, self.dtype = src_nodata, dst_nodata, dtype
+        self.fill = dst_nodata if fill is None else fill
+        self.keep = keep
         self.tolerance = tolerance
         self.n_threads = n_threads
+        self.approx = False
         self.points = _Points(src_t, src_crs, src_shape, dst_t, dst_crs, dst_shape)
         translation = _translation(self.points, src_t, dst_t)
         if translation:
@@ -537,18 +873,21 @@ class _Warp:
         self.area = method in _AREA_METHODS
         self.offset = 0.0 if self.area else 0.5
         self.extra = 1 if self.area else 0
-        self.scales = _kernel_scales(self.points, src_shape, dst_shape, method, translation)
+        *self.scales, self.source_window = _kernel_scales(self.points, src_shape, dst_shape, method, translation)
+        self.scales = tuple(self.scales)
         if self.points.same:
             self.kind = _AFFINE
         elif tolerance == 0:
             self.kind = _EXACT if self.points.gdal is not None else _DENSE
         else:
-            self.kind = _LATTICE
+            self.kind = _DENSE  # GDAL's approximate transformer, row by row (_approx_coords)
+            self.approx = True
         radius = _FILTER_RADIUS.get(method, 0)
         xs, ys = self.scales
         rx = math.ceil(radius / xs) if xs < 1.0 else radius
         ry = math.ceil(radius / ys) if ys < 1.0 else radius
-        margin = 2 if self.kind in (_DENSE, _EXACT) else 0  # exact points stray from the lattice's
+        # exact points stray from the lattice's, approximated ones by up to the tolerance
+        margin = (2 + math.ceil(2 * tolerance) if self.approx else 2) if self.kind in (_DENSE, _EXACT) else 0
         self.pad = (ry + 2 + margin, rx + 2 + margin)
 
     def lattice(self, r0, c0, rh, cw, n_threads: int) -> _Lattice:
@@ -593,28 +932,79 @@ class _Warp:
                 dense[2] if dense is not None else 0, address, args)
 
     def _call(self, src, origin, r0, c0, rh, cw, coords, handles, n_threads: int):
+        """The kernel on a window of the source. Cells left out by a cutline, and cells outside when there is no
+        destination NoData, are marked with values the window does not hold (+-inf for floats, for integers
+        values past its range; in a window with no room for them, warped as floats and rounded back)."""
+        h, w = self.src_shape
+        src_nd, dst_nd = self.src_nodata, self.dst_nodata
+        keep = None
+        if self.keep is not None:
+            keep = self.keep[origin[0]:origin[0] + src.shape[1], origin[1]:origin[1] + src.shape[2]]
+            if keep.all():
+                keep = None
+        back = None  # the type to give the result back in, after a warp in floats
+        marker = src_nd
+        needs_marker = keep is not None and src_nd is None
+        if needs_marker or dst_nd is None:
+            if np.issubdtype(src.dtype, np.floating):
+                marker = -np.inf if needs_marker else src_nd
+                dst_nd = np.inf if dst_nd is None else dst_nd
+            else:
+                need = int(needs_marker) + int(dst_nd is None)
+                free = _free_values(src, need, () if src_nd is None else (int(src_nd),))
+                if free is None:
+                    back, src = src.dtype, src.astype(np.float64)
+                    free = [-np.inf, np.inf][2 - need:]
+                values = iter(free)
+                marker = next(values) if needs_marker else src_nd
+                dst_nd = next(values) if dst_nd is None else dst_nd
+        if keep is not None:
+            src = np.where(keep[None], src, np.asarray(marker, dtype=src.dtype))
+            src_nd = marker
         from . import _core
 
-        h, w = self.src_shape
-        has_nodata = self.src_nodata is not None
+        has_nodata = src_nd is not None
         (kind, offset, gt, inv, level, grid0, node_off, nodes, cells, dense, dense_row0, dense_col0, address,
          args) = self._coords_args(coords, handles)
-        return _core.warp.warp(src, _METHODS[self.method], (h, w), origin, self.scales, has_nodata,
-                               float(self.src_nodata) if has_nodata else 0.0, float(self.dst_nodata),
-                               (r0, c0, rh, cw), kind, offset, gt, inv, level, grid0, node_off, nodes, cells, dense,
-                               dense_row0, dense_col0, address, args, per_band=True, n_threads=n_threads)
+        out = _core.warp.warp(src, _METHODS[self.method], (h, w), origin, self.scales, has_nodata,
+                              float(src_nd) if has_nodata else 0.0, float(dst_nd if dst_nd is not None else self.fill),
+                              (r0, c0, rh, cw), kind, offset, gt, inv, level, grid0, node_off, nodes, cells, dense,
+                              dense_row0, dense_col0, address, args, per_band=True, n_threads=n_threads)
+        if self.dst_nodata is None:  # no destination NoData: the cells outside are not the marker but the fill
+            out[out == dst_nd] = self.fill
+        if back is not None:
+            out = _round_back(out, back)
+        return out
 
     def _handles(self, n: int):
         """GDAL's transformer for the kernel (n threads), but for the same CRS (never needed)."""
         return self.points.handles(n) if self.kind != _AFFINE else (0, np.empty(0, dtype=np.uintp))
+
+    def _dense(self, r0, c0, nr, nc, n_threads: int) -> np.ndarray:
+        """The coordinates of samples rows r0.. (nr), columns c0.. (nc), (nr, nc, 2): exact, or GDAL's
+        approximate transformer's (centres of the cells, rows of the whole destination)."""
+        if self.approx and self.area:
+            # GWKAverageOrModeComputeLineCoords: two lines of every row of cells, the upper-left corners
+            # (i, j) and the lower-right (i + 1, j + 1), each approximated on its own; (nr, nc, 4)
+            rows, cols = nr - self.extra, nc - self.extra
+            out = np.full((nr, nc, 4), np.inf)
+            r = np.arange(r0, r0 + rows)
+            out[:rows, :cols, :2] = _approx_coords(self.points, r, self.shape[1], c0, c0 + cols, self.tolerance,
+                                                   None, n_threads, 0.0, 0.0, False)
+            out[:rows, :cols, 2:] = _approx_coords(self.points, r, self.shape[1], c0, c0 + cols, self.tolerance,
+                                                   None, n_threads, 1.0, 1.0, False)
+            return out
+        if self.approx:
+            return _approx_coords(self.points, np.arange(r0, r0 + nr), self.shape[1], c0, c0 + nc, self.tolerance,
+                                  self.source_window or (0, self.src_shape[1], 0, self.src_shape[0]), n_threads)
+        return self.points.grid(np.arange(c0, c0 + nc), np.arange(r0, r0 + nr), self.offset, n_threads)
 
     def sample_coords(self, r0, c0, nr, nc, n_threads: int = 1) -> np.ndarray:
         """The source coordinates the kernel takes for samples rows r0.., columns c0..: (nr, nc, 2)."""
         from . import _core
 
         lat = self.lattice(r0, c0, nr - self.extra, nc - self.extra, n_threads) if self.kind == _LATTICE else None
-        dense = (self.points.grid(np.arange(c0, c0 + nc), np.arange(r0, r0 + nr), self.offset, n_threads), r0, c0) \
-            if self.kind == _DENSE else None
+        dense = (self._dense(r0, c0, nr, nc, n_threads), r0, c0) if self.kind == _DENSE else None
         handles = self._handles(1)
         try:
             return _core.warp.coords(*self._coords_args(lat if lat is not None else dense, handles),
@@ -637,8 +1027,7 @@ class _Warp:
             rows = max(1, _DENSE_POINTS // (cw + self.extra))
             for a in range(r0, r0 + rh, rows):
                 nr = min(rows, r0 + rh - a)
-                g = self.points.grid(np.arange(c0, c0 + cw + self.extra), np.arange(a, a + nr + self.extra),
-                                     self.offset, n_threads)
+                g = self._dense(a, c0, nr + self.extra, cw + self.extra, n_threads)
                 out[:, a - r0:a - r0 + nr] = self._call(src, origin, a, c0, nr, cw, (g, a, c0), handles, n_threads)
             return out
         finally:
@@ -652,7 +1041,7 @@ class _Warp:
         n = src.shape[0]
         win = self.window(0, 0, dh, dw, self.n_threads)
         if win is None:
-            return np.full((n, dh, dw), self.dst_nodata, dtype=self.dtype)
+            return np.full((n, dh, dw), self.fill, dtype=self.dtype)
         a, b, c, d = win
         part = np.asarray(src[:, a:b, c:d]).astype(self.dtype, copy=False)
         return self.region(part, (a, c), 0, 0, dh, dw, self.n_threads)
@@ -684,7 +1073,7 @@ class _Warp:
                 for c0 in range(0, dw, task):
                     rh, cw, win = windows[r0, c0]
                     if win is None:
-                        row.append(dsa.full((size, rh, cw), self.dst_nodata, dtype=self.dtype,
+                        row.append(dsa.full((size, rh, cw), self.fill, dtype=self.dtype,
                                             chunks=(size, rh, cw)))
                         continue
                     a, b, c, d = win
@@ -705,12 +1094,25 @@ def _task_size(data) -> int:
 # --- a grid for a CRS and a resolution ------------------------------------------------
 
 
-def suggested_grid(sources, crs: Any = None, res: Any = None) -> Grid:
+def suggested_grid(sources, crs: Any = None, res: Any = None, extent: Any = None, tap: bool = False,
+                   cutline: Optional[Cutline] = None) -> Grid:
     """The grid gdalwarp makes for ``sources`` (``(transform, (height, width), crs)`` each)
     with ``-t_srs crs -tr res``: the extent that covers all of them in ``crs`` (GDAL's
     suggested output of each), cells of ``res`` (a number or ``(x, y)``) from its top-left
     corner, or GDAL's suggested resolution, the finest of the sources'. Without ``crs`` the
-    sources' own; one source in its own CRS and resolution keeps its grid as it is."""
+    sources' own; one source in its own CRS and resolution keeps its grid as it is.
+
+    The cells of the border that fall entirely outside the (single) source are dropped, as gdalwarp 3.8 and
+    later does when it takes the extent from the data (``-tr`` without ``-te``).
+
+    ``extent`` ``(xmin, ymin, xmax, ymax)`` in ``crs`` (``-te``): that extent instead; without ``res``
+    the cells of the source (the same CRS only), fitted to the extent as gdalwarp does (a whole
+    number of them, a little larger or smaller). ``tap`` (``-tap``, needs ``res``): the extent widened
+    to whole cells from the origin of the coordinates. ``cutline`` (``-cutline -crop_to_cutline``):
+    the extent of the polygons, which gdalwarp takes over ``-te``; without ``res`` in the sources' CRS,
+    their cells entirely inside it."""
+    from math import ceil, floor
+
     from rasterio.transform import Affine, array_bounds
     from rasterio.warp import calculate_default_transform
 
@@ -720,34 +1122,143 @@ def suggested_grid(sources, crs: Any = None, res: Any = None) -> Grid:
         raise ValueError("res=: the data has no CRS; pass crs= as well")
     if any(s[2] is None for s in sources):
         raise ValueError("crs=: the data has no CRS, so it cannot be reprojected")
+    if tap and res is None:
+        raise ValueError("tap=True needs res= (the cells to align to), as gdalwarp -tap needs -tr")
+    if extent is not None and cutline is not None:
+        raise ValueError("give extent= or cutline=, not both: gdalwarp crops to the cutline and ignores -te")
     dst = CRS.from_user_input(crs if crs is not None else sources[0][2])
     if res is not None:
         rx, ry = (res, res) if np.isscalar(res) else tuple(res)
         if not (float(rx) > 0 and float(ry) > 0):
             raise ValueError(f"res must be positive, got {res!r}")
         rx, ry = float(rx), float(ry)
+    if extent is not None:
+        try:
+            left, bottom, right, top = (float(v) for v in extent)
+        except (TypeError, ValueError):
+            raise ValueError(f"extent= takes (xmin, ymin, xmax, ymax), got {extent!r}") from None
+        if not (right > left and top > bottom):
+            raise ValueError(f"extent= is empty: {tuple(extent)!r}")
 
     boxes = []
+    same = True
     for t, (h, w), src_crs in sources:
         if t.b or t.d:
             raise ValueError("crs=/res=: rotated grids are not supported")
         src_crs = CRS.from_user_input(src_crs)
         if src_crs == dst:
-            left, bottom, right, top = array_bounds(h, w, t)
-            boxes.append((left, bottom, right, top, abs(t.a), abs(t.e)))
-            if len(sources) == 1 and res is None:
+            left_, bottom_, right_, top_ = array_bounds(h, w, t)
+            boxes.append((left_, bottom_, right_, top_, abs(t.a), abs(t.e)))
+            if len(sources) == 1 and res is None and extent is None and cutline is None:
                 return _grid(t, (h, w), dst)
         else:
+            same = False
             st, sw, sh = calculate_default_transform(src_crs, dst, w, h, *array_bounds(h, w, t))
             boxes.append((st.c, st.f + st.e * sh, st.c + st.a * sw, st.f, st.a, -st.e))
-    left, bottom = min(b[0] for b in boxes), min(b[1] for b in boxes)
-    right, top = max(b[2] for b in boxes), max(b[3] for b in boxes)
-    if res is None:
-        rx, ry = min(b[4] for b in boxes), min(b[5] for b in boxes)
+    fit = False
+    if cutline is not None or extent is not None:
+        if cutline is not None:
+            left, bottom, right, top = cutline.bounds(dst)
+        if res is None:
+            if not same:
+                raise ValueError("extent=/cutline= with another crs= need res= (gdalwarp's cell size for them "
+                                 "is not reproduced)")
+            rx, ry = min(b[4] for b in boxes), min(b[5] for b in boxes)
+            t0 = sources[0][0]
+            if cutline is not None:
+                # the cells of the source entirely inside the cutline's extent
+                if any(tuple(s[0])[:6] != tuple(t0)[:6] for s in sources):
+                    raise ValueError("cutline= without res= needs the files on one grid")
+                eps = 1e-6
+                c0, c1 = ceil((left - t0.c) / t0.a - eps), floor((right - t0.c) / t0.a + eps)
+                r0, r1 = ceil((top - t0.f) / t0.e - eps), floor((bottom - t0.f) / t0.e + eps)
+                if c1 <= c0 or r1 <= r0:
+                    raise ValueError("the cutline is smaller than a cell")
+                return _grid(Affine(t0.a, 0.0, t0.c + c0 * t0.a, 0.0, t0.e, t0.f + r0 * t0.e), (r1 - r0, c1 - c0), dst)
+            fit = True
+    else:
+        left, bottom = min(b[0] for b in boxes), min(b[1] for b in boxes)
+        right, top = max(b[2] for b in boxes), max(b[3] for b in boxes)
+        # the union of the suggested extents, in whole cells of the finest suggested resolution (dfWrkRes)
+        wx, wy = min(b[4] for b in boxes), min(b[5] for b in boxes)
+        right, bottom = left + wx * _cells(right - left, wx), top - wy * _cells(top - bottom, wy)
+        if res is None:
+            rx, ry = wx, wy
+    if tap and (extent is not None or cutline is not None):  # (-te, -crop_to_cutline: whole cells around it)
+        def near(v):  # GDAL's ROUND_IF_CLOSE
+            r = round(v)
+            return float(r) if abs(v - r) < 1e-6 else v
+
+        left, right = floor(near(left / rx)) * rx, ceil(near(right / rx)) * rx
+        bottom, top = floor(near(bottom / ry)) * ry, ceil(near(top / ry)) * ry
+    elif tap:
+        # gdalwarp_lib.cpp (GDALWarpCreateOutput): the suggested extent, widened to whole cells from the origin
+        # of the coordinates (EPS = 1e-8 of a cell)
+        left, right = floor(left / rx + 1e-8) * rx, ceil(right / rx - 1e-8) * rx
+        bottom, top = floor(bottom / ry + 1e-8) * ry, ceil(top / ry - 1e-8) * ry
     # gdalwarp's count of cells (the extent rounded to whole cells from the top-left corner)
-    nx = max(1, int((right - left + rx / 2) / rx))
-    ny = max(1, int((top - bottom + ry / 2) / ry))
+    nx, ny = _cells(right - left, rx), _cells(top - bottom, ry)
+    if extent is None and cutline is None and res is not None and len(sources) == 1:
+        # Cells of the border that fall outside the source altogether are dropped (-tr, no -te; #7905).
+        left, bottom, right, top, nx, ny = _trim_blank_borders(sources[0], dst, left, bottom, right, top, rx, ry)
+    if fit:  # an extent without cells: gdalwarp fits the cells to it
+        rx, ry = (right - left) / nx, (top - bottom) / ny
     return _grid(Affine(rx, 0.0, left, 0.0, -ry, top), (ny, nx), dst)
+
+
+def _cells(span: float, res: float) -> int:
+    """gdalwarp's count of cells of an extent: std::round(span / res), at least one."""
+    x = span / res
+    r = math.floor(x)
+    return max(1, r + 1 if x - r >= 0.5 else r)
+
+
+def _trim_blank_borders(source, dst: CRS, left, bottom, right, top, rx, ry):
+    """The loop of GDALWarpCreateOutput (gdalwarp_lib.cpp, ``bDetectBlankBorders``; GDAL >= 3.8) for a
+    single source: while a whole border row or column of the destination, taken at the centres of its
+    cells, falls outside the source (only the side facing the source is tested: y >= 0 for the top
+    row, y <= source rows for the bottom, x >= 0 for the left column, x <= source columns for the
+    right), the extent loses a cell on that side. Returns the extent and the count of cells."""
+    from rasterio.transform import Affine
+
+    t, (h, w), src_crs = source
+    src_crs = CRS.from_user_input(src_crs)
+    while True:
+        nx, ny = _cells(right - left, rx), _cells(top - bottom, ry)
+        if not (nx > 1 or ny > 1):
+            break
+        dst_t = Affine(rx, 0.0, left, 0.0, -ry if top > bottom else ry, top)
+        points = _Points(t, src_crs, (h, w), dst_t, dst, (ny, nx))
+
+        def blank(u, v, inside, points=points):
+            x, y = points(np.asarray(u, dtype=np.float64), np.asarray(v, dtype=np.float64))
+            ok = np.isfinite(x) & np.isfinite(y)
+            return not (ok & inside(x, y)).any()
+
+        cols, rows = np.arange(nx) + 0.5, np.arange(ny) + 0.5
+        top_blank = blank(cols, np.full(nx, 0.5), lambda x, y: y >= 0)
+        bottom_blank = blank(cols, np.full(nx, ny - 0.5), lambda x, y: y <= h)
+        left_blank = blank(np.full(ny, 0.5), rows, lambda x, y: x >= 0)
+        right_blank = blank(np.full(ny, nx - 0.5), rows, lambda x, y: x <= w)
+        if not (top_blank or bottom_blank or left_blank or right_blank):
+            break
+        if top_blank:
+            if top - bottom <= 2 * ry:
+                break
+            top -= ry
+        if bottom_blank:
+            if top - bottom <= 2 * ry:
+                break
+            bottom += ry
+        if left_blank:
+            if right - left <= 2 * rx:
+                break
+            left += rx
+        if right_blank:
+            if right - left <= 2 * rx:
+                break
+            right -= rx
+    return left, bottom, right, top, _cells(right - left, rx), _cells(top - bottom, ry)
 
 
 def _grid(t, shape, crs: CRS) -> Grid:
@@ -777,10 +1288,11 @@ def _crop_offsets(da: xr.DataArray, grid: Grid):
     return int(round(row)), int(round(col))
 
 
-def _crop(values, offsets, src_shape, dst_shape, fill, dtype, avoid: bool = False):
+def _crop(values, offsets, src_shape, dst_shape, fill, dtype, avoid: bool = False, src_nodata: Any = None):
     """values ((planes, rows, columns): dask, or anything read by slicing) cut or padded to
     the grid with ``fill``; ``avoid``: the copied cells equal to ``fill`` move one step
-    (GDAL's AvoidNoData, for an integer raster without NoData)."""
+    (GDAL's AvoidNoData, for a raster without NoData of its own); the cells equal to ``src_nodata``
+    become ``fill``."""
     row, col = offsets
     h, w = src_shape
     dh, dw = dst_shape
@@ -795,8 +1307,10 @@ def _crop(values, offsets, src_shape, dst_shape, fill, dtype, avoid: bool = Fals
         return np.full((values.shape[0], dh, dw), fill, dtype=dtype)
     part = values[:, r0:r1, c0:c1]
     part = part.astype(dtype) if lazy else np.asarray(part).astype(dtype, copy=False)  # (_Planes reads it)
-    if avoid:
-        part = part.map_blocks(_avoid_nodata, fill, dtype=dtype) if lazy else _avoid_nodata(part, fill)
+    same_nodata = src_nodata is None or src_nodata == fill or (np.isnan(src_nodata) and np.isnan(fill))
+    if avoid or not same_nodata:
+        part = part.map_blocks(_recode, src_nodata, fill, avoid, dtype=dtype) if lazy \
+            else _recode(part, src_nodata, fill, avoid)
     pad = ((0, 0), (r0 - row, row + dh - r1), (c0 - col, col + dw - c1))
     if not any(p for side in pad for p in side):
         return part
@@ -810,10 +1324,29 @@ def _crop(values, offsets, src_shape, dst_shape, fill, dtype, avoid: bool = Fals
 def _avoid_nodata(values, nodata):
     """GDAL's AvoidNoData on copied cells: a value equal to the destination NoData moves one
     step (an integer raster without NoData gets one)."""
+    if np.issubdtype(values.dtype, np.floating):
+        if np.isnan(nodata) or not (values == nodata).any():
+            return values
+        top = np.finfo(values.dtype).max
+        moved = np.nextafter(values, values.dtype.type(0 if nodata == top else top))
+        return np.where(values == nodata, moved, values)
     info = np.iinfo(values.dtype)
     moved = info.min + 1 if nodata == info.min else nodata - 1
     return values if not (values == nodata).any() else \
         np.where(values == nodata, np.asarray(moved, dtype=values.dtype), values)
+
+
+def _recode(values, src_nodata, nodata, avoid: bool):
+    """The copied cells as GDAL's kernel writes them: those equal to the source's NoData become the
+    destination's, the others equal to it move one step when ``avoid``."""
+    invalid = None
+    if src_nodata is not None:
+        invalid = np.isnan(values) if np.isnan(src_nodata) else values == src_nodata
+    if avoid:
+        values = _avoid_nodata(values, nodata)
+    if invalid is not None and invalid.any():
+        values = np.where(invalid, np.asarray(nodata, dtype=values.dtype), values)
+    return values
 
 
 def _method(da: xr.DataArray, resampling: str) -> str:
@@ -823,11 +1356,14 @@ def _method(da: xr.DataArray, resampling: str) -> str:
 
 
 def to_grid(da: xr.DataArray, grid: Grid, resampling: str = "auto", *, tolerance: float = 0.125,
-            n_threads: Optional[int] = None) -> xr.DataArray:
+            n_threads: Optional[int] = None, nodata: Any = None, dtype: Any = None,
+            cutline: Optional[Cutline] = None) -> xr.DataArray:
     """``da`` (``(..., y, x)``, georeferenced) on ``grid``: its CRS, cells and the grid's x and
     y coordinates. The dims before ``y``/``x`` are kept, every plane warped on its own;
     a lazy cube stays lazy. ``resampling="auto"``: the nearest cell for integers, bilinear
-    for floats, the nearest cell for QA bands (``QA_BANDS``) whatever their type."""
+    for floats, the nearest cell for QA bands (``QA_BANDS``) whatever their type.
+    ``nodata`` (None, ``"source"`` or a number), ``dtype`` and ``cutline`` (a ``Cutline``): see
+    ``load_raster``."""
     if da.rio.crs is None:
         raise ValueError("load_raster(like=): the data has no CRS, so it cannot be put on another grid")
     if "y" not in da.dims or "x" not in da.dims:
@@ -836,28 +1372,30 @@ def to_grid(da: xr.DataArray, grid: Grid, resampling: str = "auto", *, tolerance
         raise ValueError(f"unknown resampling {resampling!r}; use 'auto' or one of {', '.join(RESAMPLING_NAMES)}")
     if not tolerance >= 0:
         raise ValueError(f"tolerance must be >= 0, got {tolerance!r}")
-    if same_grid(da, grid):
+    if same_grid(da, grid) and (nodata is None or nodata == "source") and dtype is None and cutline is None:
         return da.assign_coords(x=grid.x, y=grid.y)
     if resampling == "auto" and "band" in da.dims and da.sizes["band"] > 1:
         names = [str(b).lower() for b in da["band"].values] if "band" in da.coords else []
         qa = [i for i, name in enumerate(names) if name in QA_BANDS]
         if qa and len(qa) < len(names):
             other = [i for i in range(len(names)) if i not in qa]
-            parts = [_to_grid(da.isel(band=qa), grid, "nearest", tolerance, n_threads),
-                     _to_grid(da.isel(band=other), grid, _method(da, "auto"), tolerance, n_threads)]
+            parts = [_to_grid(da.isel(band=qa), grid, "nearest", tolerance, n_threads, nodata, dtype, cutline),
+                     _to_grid(da.isel(band=other), grid, _method(da, "auto"), tolerance, n_threads, nodata, dtype,
+                              cutline)]
             out = xr.concat(parts, dim="band", coords="minimal", compat="override", join="override")
             return out.isel(band=np.argsort(qa + other))
         if qa:
-            return _to_grid(da, grid, "nearest", tolerance, n_threads)
-    return _to_grid(da, grid, _method(da, resampling), tolerance, n_threads)
+            return _to_grid(da, grid, "nearest", tolerance, n_threads, nodata, dtype, cutline)
+    return _to_grid(da, grid, _method(da, resampling), tolerance, n_threads, nodata, dtype, cutline)
 
 
-def _to_grid(da: xr.DataArray, grid: Grid, method: str, tolerance: float, n_threads: Optional[int]) -> xr.DataArray:
+def _to_grid(da: xr.DataArray, grid: Grid, method: str, tolerance: float, n_threads: Optional[int], nodata: Any = None,
+             dtype: Any = None, cutline: Optional[Cutline] = None) -> xr.DataArray:
     src_t = transform_of(da)
     if src_t.b or src_t.d or grid.transform.b or grid.transform.d:
         raise ValueError("load_raster(like=): rotated grids are not supported")
     src_crs = CRS.from_user_input(da.rio.crs)
-    src_nodata, dst_nodata, dtype = _nodata(da)
+    plan = _plan(da, nodata, dtype)
     encoded = da.rio.encoded_nodata
     attrs = {k: v for k, v in da.attrs.items() if k != "_FillValue"}
     lead = [d for d in da.dims if d not in ("y", "x")]
@@ -866,18 +1404,28 @@ def _to_grid(da: xr.DataArray, grid: Grid, method: str, tolerance: float, n_thre
     n = int(np.prod(lead_shape)) if lead else 1
     h, w = data.sizes["y"], data.sizes["x"]
     dh, dw = grid.shape
+    # GDAL applies a cutline to the cells of the source: those outside the polygons take no part in the warp
+    keep = None if cutline is None else cutline.mask(Grid(src_t, (h, w), src_crs, None, None))
     if hasattr(data.data, "dask"):
         values = data.data.reshape((n, h, w))
     else:
         values = _Planes(data, n)  # a file read lazily is read a window at a time
     offsets = _crop_offsets(data, grid)
     if offsets is not None:
-        out = _crop(values, offsets, (h, w), (dh, dw), dst_nodata, dtype,
-                    avoid=src_nodata is None and np.issubdtype(dtype, np.integer))
+        sn = plan.src_nodata  # (valid cells never equal the NoData of the source, which is the result's)
+        shared = sn is not None and (sn == plan.fill or (np.isnan(sn) and np.isnan(plan.fill)))
+        out = _crop(values, offsets, (h, w), (dh, dw), plan.fill, plan.work, avoid=not plan.sentinel and not shared,
+                    src_nodata=sn)
+        if keep is not None:
+            inside = _crop(keep[None], offsets, (h, w), (dh, dw), False, np.dtype(bool))
+            fill = np.asarray(plan.fill, dtype=plan.work)
+            out = _where(inside, out, fill)
     else:
-        warp = _Warp((h, w), src_t, src_crs, grid.transform, (dh, dw), grid.crs, method, src_nodata, dst_nodata,
-                     dtype, float(tolerance), resolve_threads(n_threads))
+        warp = _Warp((h, w), src_t, src_crs, grid.transform, (dh, dw), grid.crs, method, plan.src_nodata,
+                     plan.kernel_nodata, plan.work, float(tolerance), resolve_threads(n_threads), fill=plan.fill,
+                     keep=keep)
         out = warp.lazy(values, _task_size(values)) if hasattr(values, "dask") else warp.in_memory(values)
+    out = _converted(out, plan.dtype)
     out = out.reshape(lead_shape + (dh, dw))
     coords = {name: c for name, c in data.coords.items()
               if "y" not in c.dims and "x" not in c.dims and name not in ("spatial_ref", "x", "y")}
@@ -885,10 +1433,10 @@ def _to_grid(da: xr.DataArray, grid: Grid, method: str, tolerance: float, n_thre
     result = xr.DataArray(out, dims=(*lead, "y", "x"), coords=coords, name=da.name, attrs=attrs)
     result.rio.write_crs(grid.crs, inplace=True)
     result.rio.write_transform(grid.transform, inplace=True)
-    if encoded is not None and np.issubdtype(dtype, np.floating):
+    if encoded is not None and np.issubdtype(plan.dtype, np.floating):
         result.rio.write_nodata(encoded, encoded=True, inplace=True)
-    else:
-        result.rio.write_nodata(dst_nodata, encoded=False, inplace=True)
+    elif plan.nodata is not None:
+        result.rio.write_nodata(plan.nodata, encoded=False, inplace=True)
     return result
 
 

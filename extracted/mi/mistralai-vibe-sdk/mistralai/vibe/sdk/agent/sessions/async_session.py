@@ -56,6 +56,22 @@ from mistralai.vibe.sdk.transports.events import (
 logger = structlog.get_logger()
 
 
+def _isolated_task_config(task_config: AgentTaskConfig) -> AgentTaskConfig:
+    """Copy the top-level containers so later caller edits cannot reach the session.
+
+    Task configs are replaced, never mutated in place, so the entries themselves are shared:
+    deep-copying them would copy every tool schema on each session creation.
+    """
+    return task_config.model_copy(
+        update={
+            "tasks": dict(task_config.tasks),
+            "mcps": dict(task_config.mcps),
+            "callback_implems": dict(task_config.callback_implems),
+            "direct_callbacks": list(task_config.direct_callbacks),
+        }
+    )
+
+
 class AsyncSession:
     """Default async Session implementation backed by an agent task factory.
 
@@ -77,7 +93,7 @@ class AsyncSession:
         conversation_id: str | None = None,
         observability_attributes: ObservabilityAttributes | None = None,
     ) -> None:
-        self._task_config = task_config.model_copy(deep=True)
+        self._task_config = _isolated_task_config(task_config)
         self._agent_task_factory = agent_task_factory
         self._task = self._agent_task_factory(self._task_config)
         self._history: list[HistoryEntry] = list(history) if history else []
@@ -286,7 +302,7 @@ class AsyncSession:
         if self._run_in_progress:
             raise RuntimeError("Cannot update config while a run is in progress")
 
-        task_config = config.to_task_config().model_copy(deep=True)
+        task_config = _isolated_task_config(config.to_task_config())
         task = self._agent_task_factory(task_config)
         client_tool_registry = config.client_tool_registry()
 

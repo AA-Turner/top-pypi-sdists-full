@@ -122,12 +122,20 @@ def print_message(msg_type: MsgType, text: str) -> None:
     Print a message to the console with the appropriate style and prefix.
     """
     if _is_interactive_mode:
-        _console.print(
-            _prefix_texts[msg_type],
-            style=_msg_prefix_styles[_console_theme][msg_type],
-            end=" ",
-        )
-        _console.print(text, style=_msg_text_styles[_console_theme][msg_type], end="\n")
+        _console.print(_build_message(msg_type, text))
+
+
+def _build_message(msg_type: MsgType, text: str) -> Text:
+    """
+    Builds the prefix and text as one Text, so they wrap as a single block.
+    Each part's style is a span over that part only, not a base style that
+    would leak into the other part.
+    """
+    prefix = Text.from_markup(_prefix_texts[msg_type])
+    prefix.stylize(_msg_prefix_styles[_console_theme][msg_type])
+    body = Text.from_markup(text)
+    body.stylize(_msg_text_styles[_console_theme][msg_type])
+    return Text.assemble(prefix, " ", body)
 
 
 def title(text: str) -> None:

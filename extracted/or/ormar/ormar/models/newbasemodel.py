@@ -1,5 +1,6 @@
 import base64
 import builtins
+import copy
 import sys
 import warnings
 from dataclasses import dataclass
@@ -18,12 +19,16 @@ from typing import (
 )
 
 import pydantic
-import sqlalchemy
 import typing_extensions
-from pydantic_core import to_jsonable_python
+from pydantic_core import CoreSchema, to_jsonable_python
 
 import ormar  # noqa I100
-from ormar.exceptions import ModelError, ModelPersistenceError, QueryDefinitionError
+from ormar.exceptions import (
+    ModelError,
+    ModelPersistenceError,
+    QueryDefinitionError,
+    ReadOnlyModelError,
+)
 from ormar.fields.foreign_key import ForeignKeyField
 from ormar.fields.parsers import decode_bytes, encode_json
 from ormar.models.excludable import (
@@ -34,18 +39,29 @@ from ormar.models.excludable import (
     resolve_flatten_map,
     skip_ellipsis,
 )
-from ormar.models.helpers.relations import expand_reverse_relationship
+from ormar.models.helpers.rebuild import (
+    building_schemas_var,
+    rebuild_model,
+    rebuild_pending_models,
+    schema_snapshot,
+)
+from ormar.models.helpers.relations import (
+    expand_reverse_relationship,
+    verify_deferred_related_names,
+)
 from ormar.models.helpers.sqlalchemy import (
     populate_config_sqlalchemy_table_if_required,
+    rebuild_primary_key,
     update_column_definition,
 )
 from ormar.models.metaclass import ModelMetaclass
 from ormar.models.modelproxy import ModelTableProxy
+from ormar.models.relation_graph import RelationGraph
 from ormar.models.utils import Extra
 from ormar.queryset.field_accessor import FieldAccessor
-from ormar.queryset.utils import translate_list_to_dict
 from ormar.relations.relation import Relation
 from ormar.relations.relation_manager import RelationsManager
+from ormar.relations.utils import is_dead_proxy
 from ormar.warnings import OrmarDeprecatedSince020
 
 # pydantic model config keys that make validation change a value the column
@@ -114,24 +130,31 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
     __slots__ = (
         "_orm_id",
         "_orm_saved",
+        "_orm_persisted",
+        "_orm_persisted_key",
         "_orm",
-        "_pk_column",
         "__pk_only__",
         "__ormar_excludable__",
         "__cached_hash__",
         "__pydantic_extra__",
         "__pydantic_fields_set__",
         "__setattr_fields__",
+        "__json_snapshot__",
     )
 
     if TYPE_CHECKING:  # pragma no cover
         pk: Any
         __relation_map__: Optional[list[str]]
+        __relation_tree__: Optional[builtins.dict]
+        __relation_graph_version__: int
         __cached_hash__: Optional[int]
         __setattr_fields__: set[str]
+        __json_snapshot__: Optional[builtins.dict[str, Any]]
         _orm: RelationsManager
         _orm_id: int
         _orm_saved: bool
+        _orm_persisted: bool
+        _orm_persisted_key: Any
         _related_names: Optional[set]
         _through_names: Optional[set]
         _related_names_hash: str
@@ -244,7 +267,13 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
             finally:
                 instance.restore_nested_models_json_fields(decoded=decoded)
         else:
-            fields_set = {instance.ormar_config.pkname}
+            related_names = instance.extract_related_names()
+            fields_set = {
+                name
+                for name in kwargs
+                if name in instance.ormar_config.model_fields
+                and name not in related_names
+            }
             object.__setattr__(instance, "__dict__", new_kwargs)
             object.__setattr__(instance, "__pydantic_fields_set__", fields_set)
 
@@ -432,6 +461,8 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
                 relation_fields[name].expand_relationship(
                     value=model, child=instance, to_register=True
                 )
+        if cls._json_fields and cls.ormar_config.partial_updates:
+            instance._snapshot_json_fields()
         return instance
 
     @classmethod
@@ -464,6 +495,8 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         instance.__dict__.update(loaded_json)
         for field_to_nullify in excluded:
             instance.__dict__[field_to_nullify] = None
+        if cls._json_fields and cls.ormar_config.partial_updates:
+            instance._snapshot_json_fields()
         return instance
 
     def __setattr__(self, name: str, value: Any) -> None:  # noqa CCR001
@@ -478,6 +511,8 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         :rtype: None
         """
         prev_hash = hash(self)
+        if name in self.ormar_config.pk.fields:
+            self.remember_persisted_key()
 
         if hasattr(self, name):
             object.__setattr__(self, name, value)
@@ -485,11 +520,11 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
             # let pydantic handle errors for unknown fields
             super().__setattr__(name, value)
 
-        if self._onupdate_fields and name in self.ormar_config.model_fields:
+        if name in self.ormar_config.model_fields:
             self.__setattr_fields__.add(name)
 
         # In this case, the hash could have changed, so update it
-        if name == self.ormar_config.pkname or self.pk is None:
+        if name in self.ormar_config.pk.fields or self.pk is None:
             object.__setattr__(self, "__cached_hash__", None)
             new_hash = hash(self)
 
@@ -514,6 +549,7 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         state = super().__getstate__()
         self_dict = self.model_dump()
         state["__dict__"].update(**self_dict)
+        state["__ormar_persisted__"] = (self._orm_persisted, self._orm_persisted_key)
         return state
 
     def __setstate__(self, state: dict[Any, Any]) -> None:
@@ -528,8 +564,11 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
             if k not in self.extract_related_names()
         }
         state["__dict__"] = basic_state
+        persisted, persisted_key = state.pop("__ormar_persisted__", (False, None))
         super().__setstate__(state)
         self._initialize_internal_attributes()
+        object.__setattr__(self, "_orm_persisted", persisted)
+        object.__setattr__(self, "_orm_persisted_key", persisted_key)
         for name, value in relations.items():
             setattr(self, name, value)
 
@@ -550,7 +589,8 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
                 # proxy stays un-materialized — there is nothing in an
                 # empty proxy to migrate hashes for.
                 relation_proxy = relation.related_models
-
+                if is_dead_proxy(relation_proxy):
+                    continue
                 if hasattr(relation_proxy, "update_cache"):
                     relation_proxy.update_cache(prev_hash, new_hash)  # type: ignore
                 elif recurse and hasattr(relation_proxy, "_orm"):
@@ -560,6 +600,52 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
                     )
 
         _update_cache(list(self._orm._relations.values()))
+
+    def _snapshot_json_fields(self) -> None:
+        """
+        Remembers a copy of the json field values as they are in the database,
+        so that partial updates can detect values mutated in place
+        (``model.data["key"] = 1``), which do not go through ``__setattr__``.
+
+        Called only for models with ``partial_updates=True`` and json fields;
+        the copy is the price of loading such a row.
+        """
+        object.__setattr__(
+            self,
+            "__json_snapshot__",
+            {
+                name: copy.deepcopy(self.__dict__.get(name))
+                for name in self._json_fields
+            },
+        )
+
+    def _reset_change_tracking(self) -> None:
+        """
+        Marks the model as in sync with its database row: forgets the fields
+        assigned since the last load or save and snapshots json fields again.
+        """
+        self.__setattr_fields__.clear()
+        if self._json_fields and self.ormar_config.partial_updates:
+            self._snapshot_json_fields()
+
+    def _changed_fields(self) -> set[str]:
+        """
+        Returns the fields changed since the model was last loaded or saved:
+        the ones assigned through ``__setattr__`` and json fields whose value
+        differs from the snapshot taken at load.
+
+        :return: names of changed fields
+        :rtype: set[str]
+        """
+        changed = set(self.__setattr_fields__)
+        snapshot = self.__json_snapshot__
+        if snapshot:
+            changed.update(
+                name
+                for name, value in snapshot.items()
+                if self.__dict__.get(name) != value
+            )
+        return changed
 
     def _internal_set(self, name: str, value: Any) -> None:
         """
@@ -617,7 +703,7 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
             kwargs.pop(prop_field, None)
 
         if "pk" in kwargs:
-            kwargs[config.pkname] = kwargs.pop("pk")
+            kwargs = config.pk.expand_pk_kwarg(kwargs=kwargs)
 
         # extract through fields
         through_tmp_dict = {
@@ -686,6 +772,8 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
                     represent_as_string=model_fields[k].represent_as_base64_str,
                 )
             new_kwargs[k] = v
+        if has_relations:
+            cls.fill_shared_plain_fields(kwargs=new_kwargs)
         return new_kwargs, through_tmp_dict
 
     def _initialize_internal_attributes(self) -> None:
@@ -695,9 +783,11 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         """
         # object.__setattr__(self, "_orm_id", uuid.uuid4().hex)
         object.__setattr__(self, "_orm_saved", False)
-        object.__setattr__(self, "_pk_column", None)
+        object.__setattr__(self, "_orm_persisted", False)
+        object.__setattr__(self, "_orm_persisted_key", None)
         object.__setattr__(self, "__cached_hash__", None)
         object.__setattr__(self, "__setattr_fields__", set())
+        object.__setattr__(self, "__json_snapshot__", None)
         object.__setattr__(
             self,
             "_orm",
@@ -787,23 +877,6 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         return cls.__name__
 
     @property
-    def pk_column(self) -> sqlalchemy.Column:
-        """
-        Retrieves primary key sqlalchemy column from models OrmarConfig.table.
-        Each model has to have primary key.
-        Only one primary key column is allowed.
-
-        :return: primary key sqlalchemy column
-        :rtype: sqlalchemy.Column
-        """
-        if object.__getattribute__(self, "_pk_column") is not None:
-            return object.__getattribute__(self, "_pk_column")
-        pk_columns = self.ormar_config.table.primary_key.columns.values()
-        pk_col = pk_columns[0]
-        object.__setattr__(self, "_pk_column", pk_col)
-        return pk_col
-
-    @property
     def saved(self) -> bool:
         """Saved status of the model. Changed by setattr and loading from db"""
         return self._orm_saved
@@ -812,11 +885,6 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
     def signals(self) -> "SignalEmitter":
         """Exposes signals from model OrmarConfig"""
         return self.ormar_config.signals
-
-    @classmethod
-    def pk_type(cls) -> Any:
-        """Shortcut to models primary key field type"""
-        return cls.ormar_config.model_fields[cls.ormar_config.pkname].__type__
 
     @classmethod
     def db_backend_name(cls) -> str:
@@ -829,8 +897,86 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         self._orm.remove_parent(self, parent, name)
 
     def set_save_status(self, status: bool) -> None:
-        """Sets value of the save status"""
+        """
+        Sets value of the save status. A saved model matches its database row,
+        so it is also marked as persisted under its current key.
+
+        :param status: whether the model matches its database row
+        :type status: bool
+        """
         object.__setattr__(self, "_orm_saved", status)
+        if status:
+            self.set_persisted(persisted=self.pk is not None)
+
+    def set_persisted(self, persisted: bool) -> None:
+        """
+        Marks whether a database row exists for the model under its current key.
+
+        :param persisted: whether the row exists
+        :type persisted: bool
+        """
+        object.__setattr__(self, "_orm_persisted", persisted)
+        object.__setattr__(self, "_orm_persisted_key", None)
+
+    def remember_persisted_key(self) -> None:
+        """
+        Called before a key field changes: keeps the key the database row is
+        stored under, so ``update()``, ``delete()`` and ``load()`` still target
+        that row.
+        """
+        if self._orm_persisted and self._orm_persisted_key is None:
+            object.__setattr__(self, "_orm_persisted_key", self.pk)
+
+    @classmethod
+    def verify_writable(cls) -> None:
+        """
+        Refuse writes to read-only models, such as models mapped to database
+        views (``OrmarConfig(view=True)``).
+
+        :raises ReadOnlyModelError: if the model is read-only
+        """
+        if cls.ormar_config.view:
+            raise ReadOnlyModelError(
+                f"{cls.__name__} is mapped to a database view and is read-only."
+            )
+
+    def reference_dict(self) -> dict[str, Any]:
+        """
+        Identify the model by the values it is referenced by, used where a
+        related model cannot be serialized in full (circular references): its
+        primary key fields, or for a model loaded only by a unique non-pk field
+        (``ForeignKey(to_field=...)``) the own fields it holds.
+
+        :return: identifying field values by field name
+        :rtype: dict[str, Any]
+        """
+        if self.pk is not None:
+            return self.ormar_config.pk.to_dict(value=self.pk)
+        own_fields = self.extract_db_own_fields()
+        return {
+            name: value
+            for name, value in self.__dict__.items()
+            if name in own_fields and value is not None
+        }
+
+    @property
+    def persisted(self) -> bool:
+        """
+        :return: whether a database row exists for the model
+        :rtype: bool
+        """
+        return self._orm_persisted
+
+    @property
+    def persisted_key(self) -> Any:
+        """
+        :return: key of the model's database row: the key it was loaded or
+            last saved with, or the current key if it was not changed since
+        :rtype: Any
+        """
+        if self._orm_persisted_key is not None:
+            return self._orm_persisted_key
+        return self.pk
 
     @classmethod
     def update_forward_refs(cls, **localns: Any) -> None:
@@ -863,19 +1009,41 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
                 if field.is_multi and not field.through:
                     field = cast(ormar.ManyToManyField, field)
                     field.create_default_through_model()
+                verify_deferred_related_names(model_field=field)
                 expand_reverse_relationship(model_field=field)
                 update_column_definition(model=cls, field=field)
         populate_config_sqlalchemy_table_if_required(config=cls.ormar_config)
-        # super().update_forward_refs(**localns)
-        cls.model_rebuild(
-            force=True,
-            _types_namespace={
-                field.to.__name__: field.to
-                for field in fields_to_check.values()
-                if field.is_relation
-            },
-        )
+        cls.reset_column_caches()
+        RelationGraph.changed()
+        rebuild_primary_key(model=cls)
+        rebuild_model(model=cast(type["Model"], cls))
         cls.ormar_config.requires_ref_update = False
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source: Any, handler: pydantic.GetCoreSchemaHandler
+    ) -> CoreSchema:
+        """
+        Called by pydantic whenever it generates a schema that contains the
+        model: TypeAdapters (i.e. FastAPI request and response fields), other
+        pydantic models or the model itself.
+
+        Outside of ormar's own model building it first rebuilds pending models
+        connected to this one, so the schema is complete. While ormar builds
+        its models a pending model is embedded as its schema snapshot.
+
+        :param source: type for which the schema is generated
+        :type source: Any
+        :param handler: pydantic schema handler
+        :type handler: pydantic.GetCoreSchemaHandler
+        :return: core schema of the model
+        :rtype: CoreSchema
+        """
+        model = cast(type["Model"], cls)
+        if not building_schemas_var.get():
+            rebuild_pending_models(model=model)
+        snapshot = schema_snapshot(model=model)
+        return snapshot if snapshot is not None else handler(source)
 
     @staticmethod
     def _extract_nested_models_from_list(  # noqa: CFQ002
@@ -979,6 +1147,7 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
     @staticmethod
     def _resolve_field_descent(  # noqa: CFQ002
         field: str,
+        relation_field: ForeignKeyField,
         nested_model: Union["Model", MutableSequence["Model"]],
         flatten_map: Optional[FlattenMap],
         relation_map: builtins.dict,
@@ -997,6 +1166,8 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
 
         :param field: relation field name being processed
         :type field: str
+        :param relation_field: the relation field being processed
+        :type relation_field: ForeignKeyField
         :param nested_model: value of the relation on the current instance,
             null relations are handled by the caller
         :type nested_model: Union[Model, MutableSequence[Model]]
@@ -1021,9 +1192,9 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
             return None
         if flatten_map is not None and flatten_map.is_field_flattened(field):
             value = (
-                [m.pk for m in nested_model]
+                [relation_field.flat_value(related=m) for m in nested_model]
                 if isinstance(nested_model, MutableSequence)
-                else nested_model.pk
+                else relation_field.flat_value(related=nested_model)
             )
             if dump_options["mode"] == "json":
                 value = to_jsonable_python(value)
@@ -1083,6 +1254,9 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
                     continue
                 descent = self._resolve_field_descent(
                     field=field,
+                    relation_field=cast(
+                        ForeignKeyField, self.ormar_config.model_fields[field]
+                    ),
                     nested_model=nested_model,
                     flatten_map=flatten_map,
                     relation_map=relation_map,
@@ -1292,12 +1466,17 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         }
 
         relation_map = (
-            relation_map
-            if relation_map is not None
-            else translate_list_to_dict(self._iterate_related_models())
+            relation_map if relation_map is not None else self._relation_tree()
         )
-        pk_only = getattr(self, "__pk_only__", False)
-        if relation_map and not pk_only:
+        if relation_map and getattr(self, "__pk_only__", False):
+            # a key-only model holds no relations besides the ones in its key
+            key_relations = self.ormar_config.pk.relation_parts
+            relation_map = {
+                name: nested
+                for name, nested in relation_map.items()
+                if name in key_relations
+            }
+        if relation_map:
             dict_instance = self._extract_nested_models(
                 relation_map=relation_map,
                 dict_instance=dict_instance,
@@ -1577,16 +1756,22 @@ class NewBaseModel(pydantic.BaseModel, ModelTableProxy, metaclass=ModelMetaclass
         self_fields = {
             k: v
             for k, v in self_fields.items()
-            if self.get_column_alias(k) in self.ormar_config.table.columns
+            if self.get_column_alias(field_name=k) in self.ormar_config.table.columns
         }
+        relation_values: dict[str, dict[str, Any]] = {}
         for field in self._extract_db_related_names():
-            relation_field = self.ormar_config.model_fields[field]
-            target_pk_name = relation_field.to.ormar_config.pkname
-            target_field = getattr(self, field)
-            self_fields[field] = getattr(target_field, target_pk_name, None)
-            if not relation_field.nullable and not self_fields[field]:
+            relation_field = cast(
+                "ForeignKeyField", self.ormar_config.model_fields[field]
+            )
+            related = getattr(self, field)
+            values = relation_field.link.values_for(related=related)
+            if None in values.values() and (
+                related is not None or not relation_field.nullable
+            ):
                 raise ModelPersistenceError(
                     f"You cannot save {relation_field.to.get_name()} "
-                    f"model without pk set!"
+                    f"model without {', '.join(relation_field.target_fields())} set!"
                 )
+            relation_values[field] = values
+        self.merge_relation_values(target=self_fields, relation_values=relation_values)
         return self_fields

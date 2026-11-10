@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tika
-Version: 3.3.2
+Version: 3.4.0
 Summary: Apache Tika Python library
 Author-email: Chris Mattmann <chris.mattmann@gmail.com>
 License-Expression: Apache-2.0

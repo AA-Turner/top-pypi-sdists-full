@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.authentication.methods.feature import AuthenticationMethodFeature
 from office365.reports.userregistration.feature_count import UserRegistrationFeatureCount
@@ -10,7 +10,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class UserRegistrationFeatureSummary(ClientValue):
     """Represents the summary of users capable of multi-factor authentication, self-service password reset,
     and passwordless authentication in an organization.

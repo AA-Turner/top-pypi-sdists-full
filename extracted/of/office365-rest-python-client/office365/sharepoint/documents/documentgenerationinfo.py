@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -9,7 +9,6 @@ from office365.sharepoint.documents.contentassemblyformanswer import ContentAsse
 from office365.sharepoint.documents.location import DocumentLocation
 
 
-@dataclass
 class DocumentGenerationInfo(ClientValue):
     DocumentLocation: DocumentLocation = field(default_factory=DocumentLocation)
     AllowEncryptedTemplate: bool | None = None

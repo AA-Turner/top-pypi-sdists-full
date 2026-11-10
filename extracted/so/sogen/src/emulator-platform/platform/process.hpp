@@ -1006,6 +1006,8 @@ namespace sogen
 #ifndef OS_WINDOWS
 #define ACL_REVISION            2
 #define ACCESS_ALLOWED_ACE_TYPE 0
+#define ACCESS_DENIED_ACE_TYPE  1
+#define INHERIT_ONLY_ACE        0x8
 
     struct ACL
     {
@@ -1338,6 +1340,31 @@ namespace sogen
         ULONG TimeDateStamp;
         Traits::PVOID DefaultBase;
     };
+
+    template <typename Traits>
+    struct SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX
+    {
+        Traits::PVOID Object;
+        Traits::ULONG_PTR UniqueProcessId;
+        Traits::ULONG_PTR HandleValue;
+        ULONG GrantedAccess;
+        USHORT CreatorBackTraceIndex;
+        USHORT ObjectTypeIndex;
+        ULONG HandleAttributes;
+        ULONG Reserved;
+    };
+
+    static_assert(sizeof(SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX<EmulatorTraits<Emu64>>) == 0x28);
+
+    template <typename Traits>
+    struct SYSTEM_HANDLE_INFORMATION_EX
+    {
+        Traits::ULONG_PTR NumberOfHandles;
+        Traits::ULONG_PTR Reserved;
+        SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX<Traits> Handles[ANYSIZE_ARRAY];
+    };
+
+    static_assert(offsetof(SYSTEM_HANDLE_INFORMATION_EX<EmulatorTraits<Emu64>>, Handles) == 0x10);
 
     template <typename Traits>
     struct SYSTEM_THREAD_INFORMATION

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tinker_cookbook
-Version: 0.6.0
+Version: 0.6.1
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook
@@ -25,7 +25,7 @@ Requires-Dist: safetensors>=0.4.0
 Requires-Dist: termcolor>=2.0.0
 Requires-Dist: tiktoken>=0.12.0
 Requires-Dist: tinker>=0.38.0
-Requires-Dist: tml-renderers>=0.4.0
+Requires-Dist: tml-renderers>=0.4.1
 Requires-Dist: torch>=2.10
 Requires-Dist: tqdm>=4.60.0
 Requires-Dist: transformers!=5.3.0,!=5.4.*,!=5.5.0,!=5.5.1,!=5.5.2,!=5.5.3,!=5.6.*,>=4.57.6

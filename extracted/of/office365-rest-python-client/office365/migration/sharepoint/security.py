@@ -32,10 +32,11 @@ from typing import Any, Optional
 from office365.migration.base import PermissionEntry
 from office365.migration.sharepoint.adapters import (
     _DefaultGroups,
-    _perm_mask,
+    _has_unique_role_assignments,
     _read_role_assignments,
     _TargetPrincipals,
 )
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.permissions.base_permissions import BasePermissions
 
 #: Group properties copied verbatim when they differ on the target group.
@@ -105,6 +106,7 @@ class ListSecurityReport:
         return {"restricted": list(self.restricted), "applied": list(self.applied)}
 
 
+@site_access(SiteLevel.READ)
 def capture_permission_levels(web) -> list[PermissionLevel]:
     """Read a web's permission levels — the grants a role assignment can name.
 
@@ -121,7 +123,7 @@ def capture_permission_levels(web) -> list[PermissionLevel]:
                 name=name,
                 description=role_definition.description,
                 order=role_definition.order,
-                mask=_perm_mask(role_definition) or "0",
+                mask=role_definition.perm_mask or "0",
                 kind=role_definition.role_type_kind,
             )
         )
@@ -150,7 +152,7 @@ def _apply_permission_levels(levels: list[PermissionLevel], target_web, warnings
     for level in levels:
         target = _match_level(level, by_name, by_kind)
         if target is not None:
-            target_mask = _perm_mask(target)
+            target_mask = target.perm_mask
             if target_mask is not None and target_mask != level.mask:
                 warnings.append(
                     f"permission level {level.name!r} exists on the target with a different permission set "
@@ -160,9 +162,8 @@ def _apply_permission_levels(levels: list[PermissionLevel], target_web, warnings
         if not level.is_custom:
             warnings.append(f"permission level {level.name!r} (a built-in level) is missing on the target")
             continue
-        mask = int(level.mask)
         target_web.role_definitions.add(
-            BasePermissions(High=mask >> 32, Low=mask & 0xFFFFFFFF),
+            BasePermissions.from_value(int(level.mask)),
             level.name,
             level.description,
             level.order,
@@ -173,6 +174,7 @@ def _apply_permission_levels(levels: list[PermissionLevel], target_web, warnings
     return created
 
 
+@site_access(SiteLevel.READ)
 def capture_site_groups(web) -> list[SiteGroup]:
     """Read a web's site groups (flags for all; membership for custom groups only)."""
     defaults = _DefaultGroups(web)
@@ -268,6 +270,7 @@ def _apply_group_members(target_group, group: SiteGroup, principals: _TargetPrin
     return added
 
 
+@site_access(SiteLevel.MANAGE)
 def apply_site_security(source_web, target_web, warnings: list[str]) -> None:
     """Re-create the source web's site groups and web-level role assignments on the target.
 
@@ -322,16 +325,14 @@ def _normalize(securable):
     return _DefaultGroups(securable.context.web).normalize
 
 
+@site_access(SiteLevel.READ)
 def capture_list_security(securable) -> Optional[list[PermissionEntry]]:
     """A list's own role assignments, or ``None`` when it simply inherits the web's.
 
-    ``HasUniqueRoleAssignments`` is not part of a plain list read, so it costs one
-    extra GET — issued only inside a ``preserve_permissions`` pass. The same shape
-    works for any securable object, which is what makes the source and target sides
-    of the list diff compare like with like.
+    The same shape works for any securable object, which is what makes the source and
+    target sides of the list diff compare like with like.
     """
-    properties = securable.ensure_properties(["HasUniqueRoleAssignments"]).execute_query().properties
-    if not properties.get("HasUniqueRoleAssignments"):
+    if not _has_unique_role_assignments(securable):
         return None
     return _read_role_assignments(securable, normalize=_normalize(securable))
 
@@ -464,7 +465,7 @@ def _level_gaps(source_web, target_web) -> list[str]:
         if target is None:
             issues.append(f"permission level {level.name!r} was not created on the target")
             continue
-        target_mask = _perm_mask(target)
+        target_mask = target.perm_mask
         if target_mask is not None and target_mask != level.mask:
             issues.append(
                 f"permission level {level.name!r} exists on the target with a different permission set "
@@ -473,6 +474,7 @@ def _level_gaps(source_web, target_web) -> list[str]:
     return issues
 
 
+@site_access(SiteLevel.READ)
 def verify_site_security(source_web, target_web) -> list[str]:
     """Reconcile a migrated web's permission levels, site groups and assignments.
 

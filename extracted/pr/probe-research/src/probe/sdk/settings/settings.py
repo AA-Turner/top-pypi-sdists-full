@@ -696,7 +696,7 @@ def keep_stored_keys_home(settings: Settings, stored: Mapping, context_name: str
     environment's own keys go there: the stored login's that `resolve` may have paired with it are
     dropped. AuthError when no key is left. The one rule for the drain and the box watcher."""
     from .. import errors
-    from ..session_marker import WIZARD_HINT
+    from ..session_marker import SIGN_IN_HINT
 
     stored_base = normalize_endpoint(stored.get("base_url") or DEFAULT_BASE_URL)
     if stored_base == normalize_endpoint(settings.base_url):
@@ -709,7 +709,7 @@ def keep_stored_keys_home(settings: Settings, stored: Mapping, context_name: str
     if not (settings.token or settings.ingest_token):
         raise errors.AuthError(
             f"the login stored for context {context_name or '<default>'} is {stored_base}'s, never sent to "
-            f"{settings.base_url}; set PROBE_TOKEN for that address ({WIZARD_HINT})"
+            f"{settings.base_url}; set PROBE_TOKEN for that address ({SIGN_IN_HINT})"
         )
     return settings
 

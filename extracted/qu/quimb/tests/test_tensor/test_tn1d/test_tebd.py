@@ -216,6 +216,45 @@ class TestTEBD:
         ef_mpo = qtn.expec_TN_1D(tebd.pt.H, H_mpo, tebd.pt)
         assert ef_mpo == pytest.approx(e0, 1e-5)
 
+    @pytest.mark.parametrize("order", [1, 2, 4])
+    def test_step_converges_at_the_expected_order(self, order):
+        L = 6
+        ham = qtn.ham_1d_heis(L)
+        psi0 = qtn.MPS_neel_state(L, dtype=complex)
+        d0 = psi0.to_dense()
+        Hd = qu.ham_heis(L, sparse=False)
+
+        errs = []
+        for dt in (0.1, 0.05):
+            tebd = qtn.TEBD(psi0, ham, dt=dt, progbar=False)
+            tebd.split_opts.update(cutoff=0.0, max_bond=2**L)
+            tebd.step(order=order)
+            errs.append(
+                np.linalg.norm(
+                    tebd.pt.to_dense() - qu.expm(-1j * dt * Hd) @ d0
+                )
+            )
+
+        # halving dt should reduce the error by 2**(order + 1)
+        assert errs[0] / errs[1] == approx(2 ** (order + 1), rel=0.1)
+
+    @pytest.mark.parametrize("cyclic", [False, True])
+    @pytest.mark.parametrize("order", [1, 2])
+    def test_build_mpo_propagator_trotterized_orders(self, cyclic, order):
+        L = 4
+        # an asymmetric term, so a flipped gate shows up in the error
+        H2 = qu.kron(qu.pauli("Z"), qu.pauli("X"))
+        ham = qtn.LocalHam1D(L=L, H2=H2, cyclic=cyclic)
+        dims = [2] * L
+        Hd = sum(qu.pkron(t, dims, w) for w, t in ham.items())
+
+        errs = []
+        for x in (0.02, 0.01):
+            mpo = ham.build_mpo_propagator_trotterized(x, order=order)
+            errs.append(np.linalg.norm(mpo.to_dense() - qu.expm(x * Hd)))
+
+        assert errs[0] / errs[1] == approx(2 ** (order + 1), rel=0.15)
+
     def test_build_mpo_propagator_trotterized(self):
         n = 5
         ham = qtn.ham_1d_mbl(n, dh=1.7, cyclic=False, seed=42)
@@ -227,6 +266,45 @@ class TestTEBD:
         dr = np.linalg.norm(pden - pref)
         di = np.linalg.norm(pden - qu.identity(2**n))
         assert dr < 1e-3 < di
+
+
+class TestTrotterGatesVsTEBD:
+    """The gate sequence from ``LocalHam1D.get_trotter_gates`` should
+    reproduce the schedule ``TEBD`` performs by hand.
+    """
+
+    @pytest.mark.parametrize("fuse_adjacent", [True, False])
+    @pytest.mark.parametrize("imag", [False, True])
+    @pytest.mark.parametrize("L", [5, 6])
+    def test_matches_tebd_order2(self, L, imag, fuse_adjacent):
+        dt, steps = 0.05, 4
+        ham = qtn.ham_1d_heis(L)
+        psi0 = qtn.MPS_neel_state(L, dtype=complex)
+
+        tebd = qtn.TEBD(psi0, ham, dt=dt, imag=imag, progbar=False)
+        tebd.split_opts.update(cutoff=0.0, max_bond=2**L)
+        tebd.update_to(steps * dt, dt=dt, order=2)
+
+        x = -dt if imag else -1j * dt
+        psi = psi0.copy()
+        for g in ham.get_trotter_gates(
+            x, order=2, steps=steps, fuse_adjacent=fuse_adjacent
+        ):
+            psi.gate_split_(g.U, g.where, cutoff=0.0, max_bond=2**L)
+
+        # TEBD renormalizes each sweep during imaginary time evolution
+        psi.normalize()
+        assert abs(qu.expec(tebd.pt.to_dense(), psi.to_dense())) == approx(1)
+
+    def test_canonical_center_only_turns_around_between_layers(self):
+        L = 8
+        ham = qtn.ham_1d_heis(L)
+        gates = ham.get_trotter_gates(-1j * 0.05, order=2, steps=3)
+        for layer in {g.layer for g in gates}:
+            sites = [g.where[0] for g in gates if g.layer == layer]
+            assert (sites == sorted(sites)) or (
+                sites == sorted(sites, reverse=True)
+            )
 
 
 def test_OTOC_local():

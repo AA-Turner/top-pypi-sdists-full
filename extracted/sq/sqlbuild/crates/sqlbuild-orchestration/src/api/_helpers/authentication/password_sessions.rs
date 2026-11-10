@@ -50,6 +50,14 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
     Router::new()
         .route("/api/auth/cli/approve", post(super::cli_login::approve))
         .route(
+            "/api/control/bootstrap",
+            get(crate::api::_helpers::resources::person_bootstrap::read),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/changes",
+            get(crate::api::_helpers::resources::changes::subscribe_person),
+        )
+        .route(
             "/api/control/audit",
             get(crate::api::_helpers::resources::audit::read),
         )
@@ -58,12 +66,29 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
             post(crate::api::_helpers::resources::administrators::change),
         )
         .route(
+            "/api/admin/people",
+            get(crate::api::_helpers::resources::administrators::people),
+        )
+        .route(
+            "/api/admin/locations/{location_id}/targets/{target}/roles",
+            get(crate::api::_helpers::resources::administrators::definitions),
+        )
+        .route(
             "/api/admin/roles",
-            post(crate::api::_helpers::resources::administrators::assign),
+            post(crate::api::_helpers::resources::administrators::assign)
+                .get(crate::api::_helpers::resources::administrators::holdings),
         )
         .route(
             "/api/control/runs",
             post(crate::api::_helpers::resources::person_operations::request_job),
+        )
+        .route(
+            "/api/control/runs/adhoc",
+            post(crate::api::_helpers::resources::person_operations::request_adhoc),
+        )
+        .route(
+            "/api/control/runs/adhoc/check",
+            post(crate::api::_helpers::resources::person_operations::check_adhoc),
         )
         .route(
             "/api/control/runs/cancel",
@@ -90,6 +115,50 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
             get(crate::api::_helpers::resources::person_operations::recent_runs),
         )
         .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/nodes",
+            get(crate::api::_helpers::resources::person_reads::run_nodes),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/nodes",
+            get(crate::api::_helpers::resources::person_reads::nodes),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/jobs",
+            get(crate::api::_helpers::resources::person_reads::jobs),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/jobs/{job_key}",
+            get(crate::api::_helpers::resources::person_reads::job),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/triggers",
+            get(crate::api::_helpers::resources::person_reads::triggers),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/triggers/{trigger_id}/ticks",
+            get(crate::api::_helpers::resources::person_reads::ticks),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/triggers/{trigger_id}/changes",
+            get(crate::api::_helpers::resources::person_reads::trigger_changes),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/snapshots",
+            get(crate::api::_helpers::resources::person_reads::snapshots),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/health",
+            get(crate::api::_helpers::resources::person_reads::health),
+        )
+        .route(
+            "/api/control/platform/problems",
+            get(crate::api::_helpers::resources::person_reads::problems),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/column-lineage",
+            get(crate::api::_helpers::resources::person_operations::column_lineage),
+        )
+        .route(
             "/api/control/locations/{location_id}/targets/{target}/catalog",
             get(crate::api::_helpers::resources::person_operations::catalog),
         )
@@ -106,6 +175,30 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
             get(crate::api::_helpers::resources::person_operations::node_status),
         )
         .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/events",
+            get(crate::api::_helpers::resources::person_reads::run_events),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/statements",
+            get(crate::api::_helpers::resources::person_reads::run_statements),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/statements/sql",
+            get(crate::api::_helpers::resources::person_reads::run_statement_sql),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/output",
+            get(crate::api::_helpers::resources::person_reads::run_output),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/runs/{run_id}/nodes/{node_key}/error",
+            get(crate::api::_helpers::resources::person_reads::run_node_error),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/nodes/{node_key}/runs",
+            get(crate::api::_helpers::resources::person_reads::node_runs),
+        )
+        .route(
             "/api/control/locations/{location_id}/targets/{target}/nodes/{node_key}/sql",
             get(crate::api::_helpers::resources::person_node_sql::read),
         )
@@ -120,6 +213,18 @@ pub(crate) fn person_routes() -> Router<ControlStore> {
         .route(
             "/api/control/locations/{location_id}/targets/{target}/checks/{binding_key}/sql",
             get(crate::api::_helpers::resources::person_checks::sql),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/checks/{binding_key}/results/{event_id}/evidence",
+            get(crate::api::_helpers::resources::person_checks::evidence),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/maintenance",
+            get(crate::api::_helpers::resources::person_maintenance::read),
+        )
+        .route(
+            "/api/control/locations/{location_id}/targets/{target}/microbatches/{model}",
+            get(crate::api::_helpers::resources::person_maintenance::coverage),
         )
         .layer(DefaultBodyLimit::max(PASSWORD_BODY_BYTES))
 }

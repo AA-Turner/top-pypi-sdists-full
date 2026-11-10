@@ -1,1 +1,0 @@
-import{j as e}from"./index-BFTvGJgo.js";function l({status:a,size:o="sm",glow:i=!0,label:r,decorative:t=!1}){const s={on:"运行中",off:"未运行",mixed:"处理中",error:"异常"};return e.jsx("span",{"data-status-light":"true","data-status":a,"data-size":o,"data-glow":i&&a!=="off",role:t?void 0:"img","aria-hidden":t||void 0,"aria-label":t?void 0:r??s[a]})}export{l as S};

@@ -15,14 +15,13 @@ maintainers = [
 readme = "README.rst"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -51,6 +50,10 @@ version = {attr = "uritools.__version__"}
 [tool.pyright]
 typeCheckingMode = "standard"
 reportUnnecessaryTypeIgnoreComment = "error"
+
+[tool.pytest]
+minversion = "9.0"
+addopts = ["--doctest-glob=*.rst"]
 
 [tool.ruff.lint]
 ignore = ["DTZ005", "SIM102", "UP031"]

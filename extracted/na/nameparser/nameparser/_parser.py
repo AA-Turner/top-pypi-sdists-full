@@ -1,7 +1,7 @@
 """Parser and the module-level parse() for the 2.0 API.
 
 Layering: sits on _types/_lexicon/_policy/_locale/_pipeline; never
-imports _render or the v1 facade (enforced by tests/v2/test_layering.py).
+imports _render (enforced by tests/v2/test_layering.py).
 
 _default_parser is THE one sanctioned module-level global: a
 functools.cache'd frozen Parser over default config.
@@ -13,6 +13,7 @@ import functools
 import warnings
 from dataclasses import dataclass, field
 
+from nameparser._lexicon import _rechosen_masks
 from nameparser._lexicon import Lexicon
 from nameparser._locale import Locale
 from nameparser._pipeline import run
@@ -98,7 +99,7 @@ class Parser:
                 script.value
                 for script in self.policy.segment_scripts
                 if not any(_SCRIPT_MATCHERS[script](entry)
-                           for entry in self.lexicon.surnames))
+                           for entry in self.lexicon._sets.surnames))
             if uncovered:
                 names = ", ".join(uncovered)
                 one = len(uncovered) == 1
@@ -137,6 +138,22 @@ class Parser:
                     or type(self.segmenter).__name__)
             seg = f", segmenter={name}"
         return f"Parser({self.lexicon!r}, {self.policy!r}{seg})"
+
+    # -- properties ------------------------------------------------------
+
+    @property
+    def languages(self) -> frozenset[str]:
+        """The languages this parser's vocabulary is chosen under,
+        :attr:`Lexicon.languages` read through: set by
+        :func:`parser_for`, empty where none was chosen. Added in
+        3.0."""
+        return self.lexicon.languages
+
+    @property
+    def strict(self) -> bool:
+        """Whether the choice is strict, :attr:`Lexicon.strict` read
+        through. Added in 3.0."""
+        return self.lexicon.strict
 
     def parse(self, text: str) -> ParsedName:
         """Parse one name string into a :class:`ParsedName`. Never
@@ -286,15 +303,133 @@ def parse(text: str) -> ParsedName:
     return _default_parser().parse(text)
 
 
+def _reading_index_selected(languages: frozenset[str],
+                            strict: bool = False) -> frozenset[str]:
+    # the reading index loads on first lookup, so a caller who chooses
+    # no language never imports it (decisions/vocabulary-model, 3a)
+    from nameparser._reading_index import selected
+    return selected(languages, strict=strict)
+
+
+def _rewrapped(exc: Exception, message: str) -> Exception:
+    """`exc`'s message with `message` before it, as a plain TypeError or
+    ValueError: a subclass may take other constructor arguments
+    (_lexicon._MaskValueError takes three)."""
+    return (TypeError if isinstance(exc, TypeError) else ValueError)(
+        f"{message}: {exc}")
+
+
+def _with_packs(lexicon: Lexicon, locales: tuple[Locale, ...],
+                languages: frozenset[str], strict: bool) -> Lexicon:
+    """`lexicon` with the packs' fragments joined before it, in pack
+    order, so its own readings outrank every pack's and a later pack's
+    an earlier one's, and the choice of `languages` recorded, where the
+    compile and its refusals happen (decisions/vocabulary-model,
+    2026-11-02 #754, items 3 and 4). The case masks follow the same
+    order: the choice moves `lexicon`'s, the packs' are laid over them,
+    and a mask `lexicon` holds as the choice leaves the shipped one is
+    no statement of the caller's, so a pack's mask of the word wins it,
+    as a pack's readings win over the shipped ones."""
+    fragments = Lexicon.empty()
+    for loc in locales:
+        fragments = fragments | loc.lexicon
+    joined = fragments | lexicon
+    if languages:
+        chosen = _reading_index_selected(languages, strict)
+        mine = dict(_rechosen_masks(lexicon, chosen, strict))
+        shipped = dict(_rechosen_masks(Lexicon.default(), chosen, strict))
+    else:
+        mine = dict(lexicon.capitalization_exceptions)
+        shipped = dict(Lexicon.default().capitalization_exceptions)
+    masks = dict(mine)
+    for k, v in fragments.capitalization_exceptions:
+        if k not in mine or mine[k] == shipped.get(k):
+            masks[k] = v
+    cap = tuple(sorted(masks.items()))
+    if not languages and cap == joined.capitalization_exceptions:
+        return joined
+    return dataclasses.replace(
+        joined, capitalization_exceptions=cap, _languages=languages,
+        _strict=strict)
+
+
+def _failed_layer(lexicon: Lexicon, locales: tuple[Locale, ...],
+                  languages: frozenset[str], strict: bool) -> str:
+    """The layer a failed `_with_packs` names (rules/D2): the first pack
+    whose fragment fails the join, or, where base's lexicon fails under
+    the choice alone, the languages and the packs that chose them.
+    Taken on the error path only, by building again pack by pack."""
+    def fails(packs: tuple[Locale, ...]) -> bool:
+        try:
+            _with_packs(lexicon, packs, languages, strict)
+        except (TypeError, ValueError):
+            return True
+        return False
+
+    if not fails(()):
+        for n, loc in enumerate(locales, 1):
+            if fails(locales[:n]):
+                return f"while applying locale {loc.code!r}"
+    # base's lexicon fails alone only under the choice: with no
+    # languages a join fails only on a pack, found above
+    choosers = [repr(loc.code) for loc in locales if loc.languages]
+    if lexicon.languages:
+        choosers.append("base")
+    return (f"while applying the languages chosen, "
+            f"{', '.join(sorted(languages))} (by {', '.join(choosers)})")
+
+
 def parser_for(*locales: Locale, base: Parser | None = None,
-               segmenter: Segmenter | None | _Unset = UNSET) -> Parser:
-    """Lexicon fragments unioned left-to-right onto base's; policy
-    patches applied left-to-right (later wins; set-valued fields union
-    per the patch metadata). Validation errors raised while applying a
+               segmenter: Segmenter | None | _Unset = UNSET,
+               strict: bool | _Unset = UNSET) -> Parser:
+    """The packs' ``languages`` and base's recorded choice unioned into
+    one choice, recorded on the built parser's lexicon
+    (:attr:`Parser.languages`), so the order of the packs, and whether
+    they were chained through ``base``, does not change it:
+    ``parser_for(EN, base=parser_for(PT))`` reads as ``parser_for(PT,
+    EN)``. The packs' lexicon fragments are joined left-to-right and
+    base's lexicon after them, so a caller's own readings outrank every
+    pack's and a later pack's an earlier one's; the choice filters the
+    shipped readings and every lexicon's ``add`` and ``remove`` apply
+    after it, so a choice never drops a caller's word. A caller's
+    reading that cannot stand beside one the choice turns on raises
+    ValueError here, naming the call (decisions/vocabulary-model,
+    2026-11-02 #754, items 3 and 4). Policy patches apply left-to-right
+    (later wins; set-valued fields union per the patch metadata). A
+    pack that chooses no language leaves the base vocabulary exactly
+    as it is.
+
+    ``strict=True`` makes the choice strict: only the chosen languages'
+    vocabulary files are compiled, each tag selecting its own and its
+    ancestors' as a plain choice does, plus mul.toml, the words every
+    language writes alike (``Dr``, ``Prof``, ``PhD``, ``MSc``, the
+    numerals), and a native-script word's readings (one with a letter
+    and no Latin letter), name readings included, as a plain choice of
+    the same languages keeps them; every other file's readings leave,
+    und.toml's among them, and with them the markers they derive. It is
+    for single-origin data (``parser_for(Locale(code="ko",
+    lexicon=Lexicon.empty(), languages=frozenset({"ko"})),
+    strict=True)`` reads ``Kim Do Hyun``
+    with no Portuguese particle ``do``). A caller's own readings and the
+    packs' fragments apply after it, as after a plain choice, and the
+    policy patches unchanged. ``strict`` has three states, as
+    ``segmenter`` does: omitted (:data:`~nameparser.UNSET`) keeps base's
+    recorded strictness, ``False`` on a strict base raises ValueError, a
+    strict choice not being undone by a later call, and ``True`` on a
+    plain one makes the whole choice strict. A strict choice accepts a
+    language whose file holds no reading yet (``hu``), which a plain
+    one refuses as changing nothing, and raises ValueError when the
+    packs choose no language, since it would then keep no language's
+    own words, only mul.toml's and native-script words' readings
+    (decisions/vocabulary-model, 2026-10-30 #753, file-strict, and
+    2026-10-31 #753, phase 3j).
+
+    Validation errors raised while applying a
     pack are wrapped with that pack's identity (rule D2) --
     PolicyPatch validates lazily, so with stacked packs the raw error
     would otherwise point at nothing. Two packs setting the same SCALAR
-    field is a declared conflict: UserWarning, later wins.
+    field to different values is a declared conflict: UserWarning, later
+    wins; two setting it to the same value agree, and nothing is warned.
 
     A ``segmenter`` is passed straight through to the built Parser --
     ``parser_for(locales.JA, segmenter=locales.ja_segmenter())`` is how
@@ -309,6 +444,8 @@ def parser_for(*locales: Locale, base: Parser | None = None,
     lexicon and policy by hand."""
     if base is not None and not isinstance(base, Parser):
         raise TypeError(f"base must be a Parser or None, got {base!r}")
+    if strict is not UNSET and not isinstance(strict, bool):
+        raise TypeError(f"strict must be True or False, got {strict!r}")
     for loc in locales:
         if not isinstance(loc, Locale):
             raise TypeError(f"parser_for() takes Locale packs, got {loc!r}")
@@ -323,36 +460,79 @@ def parser_for(*locales: Locale, base: Parser | None = None,
     # segmenter it was asked to drop.
     if segmenter is UNSET:
         segmenter = base.segmenter if base is not None else None
-    scalar_setters: dict[str, str] = {}
+    # strict's three states, as segmenter's: omitted keeps base's
+    # strictness; an explicit False on a strict base is refused, a
+    # strict choice not being undone by a later call, and an explicit
+    # True makes a plain base's choice strict (decisions/vocabulary-model,
+    # 2026-11-02 #754, sub-phase 4i-c)
+    if isinstance(strict, _Unset):
+        strict = lexicon.strict
+    elif lexicon.strict and not strict:
+        raise ValueError(
+            "base's lexicon was chosen with strict=True, and a chained "
+            "choice keeps it: leave strict out or pass strict=True, or "
+            "choose every language in one call from the default lexicon, "
+            "base's packs included, parser_for(*packs, strict=False)")
+    # one choice for all the packs and the base's, so applying them is
+    # order-free; each pack's tags are checked on their own first, so a
+    # tag no file holds is reported with the pack that named it
+    # (rules/D2)
+    languages = lexicon.languages
     for loc in locales:
-        for f in dataclasses.fields(PolicyPatch):
-            if f.metadata.get("compose") == "union":
-                continue
-            if getattr(loc.policy, f.name) is UNSET:
-                continue
-            if f.name in scalar_setters and scalar_setters[f.name] != loc.code:
-                warnings.warn(
-                    f"locale {loc.code!r} overrides scalar policy field "
-                    f"{f.name!r} already set by locale "
-                    f"{scalar_setters[f.name]!r}; later wins",
-                    UserWarning, stacklevel=2)
-            scalar_setters[f.name] = loc.code
+        if loc.languages:
+            try:
+                _reading_index_selected(loc.languages, strict)
+            except ValueError as exc:
+                raise _rewrapped(
+                    exc, f"while applying locale {loc.code!r}") from exc
+            languages |= loc.languages
+    if strict and not languages:
+        raise ValueError(_no_strict_language(locales))
+    try:
+        lexicon = _with_packs(lexicon, locales, languages, strict)
+    except (TypeError, ValueError) as exc:
+        # rules/D2: "applying a locale pack wraps any such error with
+        # the locale's code, so a stacked configuration names which
+        # layer broke" -- the pack whose fragment broke the join, or,
+        # where base's own lexicon clashes with the choice, the
+        # languages and the packs that chose them (history:
+        # decisions/vocabulary-model, 2026-10-29 3b and 2026-11-02 #754,
+        # sub-phase 4i-c)
+        raise _rewrapped(exc, _failed_layer(
+            lexicon, locales, languages, strict)) from exc
+    # each scalar field's setter so far and the value it left in the
+    # policy: a later pack leaving another value overrides it, which is
+    # warned; one leaving the same value (cs and sk's two_family_names)
+    # agrees. Compared as the applied Policy holds it, canonical, so a
+    # mapping written in another key order (script_orders) is the value
+    # it is, not the spelling it was given in.
+    scalar_setters: dict[str, tuple[str, object]] = {}
+    scalars = [f.name for f in dataclasses.fields(PolicyPatch)
+               if f.metadata.get("compose") != "union"]
+    for loc in locales:
+        # rules/D2: "applying a locale pack wraps any such error with
+        # the locale's code, so a stacked configuration names which layer
+        # broke" (history: decisions/D2)
         try:
-            lexicon = lexicon | loc.lexicon
             policy = apply_patch(policy, loc.policy)
         except (TypeError, ValueError) as exc:
-            # safe: every raise in the apply path (Policy.__post_init__,
-            # Lexicon.__or__, apply_patch) is a PLAIN TypeError/ValueError --
-            # a subclass with extra mandatory args would break this rewrap
-            raise type(exc)(
-                f"while applying locale {loc.code!r}: {exc}") from exc
+            raise _rewrapped(exc, f"while applying locale {loc.code!r}") from exc
+        for name in scalars:
+            if getattr(loc.policy, name) is UNSET:
+                continue
+            value = getattr(policy, name)
+            if name in scalar_setters:
+                code, held = scalar_setters[name]
+                if code != loc.code and held != value:
+                    warnings.warn(
+                        f"locale {loc.code!r} overrides scalar policy field "
+                        f"{name!r} already set by locale {code!r}; later wins",
+                        UserWarning, stacklevel=2)
+            scalar_setters[name] = (loc.code, value)
     # rules/D1: "constructing a parser that activates division for
     # scripts with no covering surnames and no segmenter warns at
     # construction, naming the dead scripts and each way out"
     # (history: decisions/D1)
-    # rules/D2: "applying a locale pack wraps any such error with
-    # the locale's code, so a stacked configuration names which layer
-    # broke" (history: decisions/D2)
     # Construction warnings (the segmenterless-activation check in
     # Parser.__post_init__) re-emit from THIS frame: its stacklevel is
     # sized for direct Parser(...) construction, and through this
@@ -365,3 +545,30 @@ def parser_for(*locales: Locale, base: Parser | None = None,
     for w in caught:
         warnings.warn(w.message, stacklevel=2)
     return built
+
+
+def _no_strict_language(locales: tuple[Locale, ...]) -> str:
+    """The refusal of a strict call that chooses no language, which
+    would keep only mul.toml's and native-script words' readings, dropping
+    every language's own words in silence. The fix it offers is a pack
+    choosing the first pack's code where that is a language a strict
+    choice accepts, else ``en``."""
+    tag = "en"
+    if locales:
+        try:
+            _reading_index_selected(frozenset({locales[0].code}), True)
+        except ValueError:
+            pass
+        else:
+            tag = locales[0].code
+    codes = ", ".join(repr(loc.code) for loc in locales)
+    named = ("no pack was given" if not locales
+             else f"the pack {codes} chooses none" if len(locales) == 1
+             else f"the packs {codes} choose none")
+    return (f"strict=True keeps only the chosen languages' vocabulary, "
+            f"the shared words (mul.toml) and other scripts' words, and "
+            f"{named}, so it would keep the shared and other scripts' "
+            f"words alone; add "
+            f"a pack that chooses a language, e.g. "
+            f"Locale(code={tag!r}, lexicon=Lexicon.empty(), "
+            f"languages=frozenset({{{tag!r}}})), or drop strict=True")

@@ -18,9 +18,10 @@ import ormar  # noqa: I100, I202
 from ormar.exceptions import ModelPersistenceError, NoMatch, QueryDefinitionError
 
 if TYPE_CHECKING:  # pragma no cover
-    from ormar import OrderAction, RelationType
+    from ormar import ManyToManyField, OrderAction, RelationType
     from ormar.models import Model, T
     from ormar.queryset import QuerySet
+    from ormar.queryset.prefetch import Prefetch
     from ormar.relations import Relation
 else:
     T = TypeVar("T", bound="Model")
@@ -121,9 +122,8 @@ class QuerysetProxy(Generic[T]):
         :return: owner column name and child column name
         :rtype: tuple[str, str]
         """
-        owner_column: str = self.related_field.get_relation_name()  # type: ignore
-        child_column: str = self.related_field.get_related_field_name()  # type: ignore
-        return owner_column, child_column
+        field = cast("ManyToManyField", self.related_field)
+        return field.through_target_field_name(), field.through_owner_field_name()
 
     def _get_through_link_kwargs(self, child: "T") -> dict[str, Any]:
         """
@@ -172,7 +172,7 @@ class QuerysetProxy(Generic[T]):
             **self._get_through_link_kwargs(child)
         )
         if kwargs:
-            await through_model.update(**kwargs)
+            await through_model.update(_partial=True, **kwargs)
 
     async def upsert_through_instance(self, child: "T", **kwargs: Any) -> None:
         """
@@ -569,6 +569,7 @@ class QuerysetProxy(Generic[T]):
         :return: created model
         :rtype: Model
         """
+        self.to.verify_writable()
         through_kwargs = kwargs.pop(self.through_model_name, {})
         if self.type_ == ormar.RelationType.REVERSE:
             kwargs[self.related_field_name] = self._owner
@@ -606,7 +607,7 @@ class QuerysetProxy(Generic[T]):
         through_kwargs = kwargs.pop(self.through_model_name, {})
         children = await self.queryset.all()
         for child in children:
-            await child.update(**kwargs)  # type: ignore
+            await child.update(_partial=True, **kwargs)  # type: ignore
             if self.type_ == ormar.RelationType.MULTIPLE and through_kwargs:
                 await self.update_through_instance(
                     child=child,
@@ -670,16 +671,21 @@ class QuerysetProxy(Generic[T]):
         :return: updated or created model
         :rtype: Model
         """
-        pk_name = self.queryset.model_config.pkname
-        if "pk" in kwargs:
-            kwargs[pk_name] = kwargs.pop("pk")
-        if pk_name not in kwargs or kwargs.get(pk_name) is None:
+        key = self.queryset.model_config.pk
+        kwargs = key.expand_pk_kwarg(kwargs=kwargs)
+        if (
+            self.type_ == ormar.RelationType.REVERSE
+            and self.related_field_name in key.fields
+        ):
+            kwargs.setdefault(self.related_field_name, self._owner)
+        lookup = key.lookup(kwargs=kwargs)
+        if lookup is None:
             return await self.create(**kwargs)
         try:
-            model = await self.queryset.get(pk=kwargs[pk_name])
+            model = await self.queryset.get(**lookup)
         except NoMatch:
             return await self.create(**kwargs)
-        return await model.update(**kwargs)
+        return await model.update(_partial=True, **kwargs)
 
     def filter(  # noqa: A003, A001
         self, *args: Any, **kwargs: Any
@@ -794,7 +800,9 @@ class QuerysetProxy(Generic[T]):
             relation=self.relation, type_=self.type_, to=self.to, qryset=queryset
         )
 
-    def prefetch_related(self, related: Union[list, str]) -> "QuerysetProxy[T]":
+    def prefetch_related(
+        self, related: Union[list, str, "Prefetch"]
+    ) -> "QuerysetProxy[T]":
         """
         Allows to prefetch related models during query - but opposite to
         `select_related` each subsequent model is fetched in a separate database query.

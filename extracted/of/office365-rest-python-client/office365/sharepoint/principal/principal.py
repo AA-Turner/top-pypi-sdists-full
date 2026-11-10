@@ -13,13 +13,15 @@ class Principal(Entity):
         return self.title or self.entity_type_name
 
     def __repr__(self) -> str:
-        return self.user_principal_name or self.login_name or str(self.id or "") or self.entity_type_name
+        return self.login_name or str(self.id or "") or self.entity_type_name
 
+    @odata(name="Id", readonly=True)
     @property
     def id(self) -> Optional[int]:
         """Gets a value that specifies the member identifier for the user or group."""
         return self.properties.get("Id", None)
 
+    @odata(name="Title")
     @property
     def title(self) -> Optional[str]:
         """Gets a value that specifies the name of the principal."""
@@ -30,22 +32,27 @@ class Principal(Entity):
         """Sets a value that specifies the name of the principal."""
         self.set_property("Title", value)
 
+    @odata(name="LoginName")
     @property
     def login_name(self) -> Optional[str]:
         """Gets the login name of the principal."""
         return self.properties.get("LoginName", None)
 
+    @odata(name="IsHiddenInUI", readonly=True)
     @property
-    def user_principal_name(self) -> Optional[str]:
-        """Gets the UPN of the principal."""
-        return self.properties.get("UserPrincipalName", None)
+    def is_service_account(self) -> bool:
+        """Whether the login is the service rather than a person: the tenant's app principal
+        (``app@sharepoint``) or the system account (``SHAREPOINT\\system``)."""
+        login = (self.login_name or "").lower()
+        return "app@sharepoint" in login or "sharepoint\\system" in login
 
+    @odata(name="IsHiddenInUI", readonly=True)
     @property
     def is_hidden_in_ui(self) -> Optional[bool]:
         """Gets the login name of the principal."""
         return self.properties.get("IsHiddenInUI", None)
 
-    @odata(name="PrincipalType")
+    @odata(name="PrincipalType", readonly=True)
     @property
     def principal_type(self) -> Optional[PrincipalType]:
         """Gets the type of the principal."""

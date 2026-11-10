@@ -666,7 +666,7 @@ class DatasetSnapshot(TypedDict):
     description: str | None
     xact_id: str
     """
-    Transaction id of the brainstore version at the time of the snapshot
+    Transaction ID of the dataset version at the time of the snapshot
     """
     created: str | None
     """
@@ -723,7 +723,7 @@ class EnvVar(TypedDict):
         Literal['env_var', 'ai_provider', 'sandbox_provider', 'automation_integration']
     ]
     """
-    The category of the secret: env_var for regular environment variables, ai_provider for AI provider API keys
+    The category of the secret: env_var for regular environment variables, ai_provider for AI provider API keys, sandbox_provider for sandbox provider credentials, automation_integration for automation delivery credentials
     """
 
 
@@ -850,7 +850,7 @@ class FunctionOrigin(TypedDict):
     """
     internal: NotRequired[bool | None]
     """
-    The function exists for internal purposes and should not be displayed in the list of functions.
+    If true, the function was created for use by another Braintrust object and is hidden from function lists in the Braintrust UI.
     """
 
 
@@ -1523,7 +1523,7 @@ class InvokeParentInvokeParent(TypedDict):
     """
     row_ids: NotRequired[InvokeParentInvokeParentRowIds | None]
     """
-    Identifiers for the row to to log a subspan under
+    Identifiers for the row to log a subspan under
     """
     propagated_event: NotRequired[Mapping[str, Any] | None]
     """
@@ -1724,16 +1724,37 @@ class Organization(TypedDict):
     Name of the organization
     """
     api_url: NotRequired[str | None]
+    """
+    URL of the organization's data plane API. If unset, the Braintrust-hosted API is used.
+    """
     is_universal_api: NotRequired[bool | None]
+    """
+    Whether the data plane at `api_url` also serves the AI proxy, at `api_url` with `/v1/proxy` appended
+    """
     is_dataplane_private: NotRequired[bool | None]
+    """
+    Whether the organization's data plane is only reachable from a private network
+    """
     proxy_url: NotRequired[str | None]
+    """
+    URL of the organization's AI proxy
+    """
     realtime_url: NotRequired[str | None]
+    """
+    URL of the organization's realtime service
+    """
     created: NotRequired[str | None]
     """
     Date of organization creation
     """
     archived_at: NotRequired[str | None]
+    """
+    Date the organization was archived
+    """
     deleted_at: NotRequired[str | None]
+    """
+    Date the organization was deleted
+    """
     image_rendering_mode: NotRequired[ImageRenderingMode | None]
 
 
@@ -1750,7 +1771,7 @@ Permission: TypeAlias = Literal[
 """
 Each permission permits a certain type of operation on an object in the system
 
-Permissions can be assigned to to objects on an individual basis, or grouped into roles
+Permissions can be assigned to objects on an individual basis, or grouped into roles
 """
 
 
@@ -2239,9 +2260,119 @@ class PromptBlockDataPromptBlockData1(TypedDict):
     content: str
 
 
+class PromptBlockDataPromptBlockData2InputItem(TypedDict):
+    role: Literal['system', 'developer', 'user', 'assistant']
+    content: str | Sequence[ChatCompletionContentPartText]
+
+
+class QuestionQuestion(TypedDict):
+    type: Literal['predicate']
+
+
+class QuestionQuestion1Choice(TypedDict):
+    value: str | bool
+    description: NotRequired[str | None]
+
+
+class QuestionQuestion1(TypedDict):
+    type: Literal['choice']
+    choices: Sequence[QuestionQuestion1Choice]
+
+
+class QuestionQuestion2Level(TypedDict):
+    label: str
+    description: NotRequired[str | None]
+
+
+class QuestionQuestion2(TypedDict):
+    type: Literal['score']
+    levels: Sequence[QuestionQuestion2Level]
+
+
+class QuestionQuestion3(TypedDict):
+    name: NotRequired[str | None]
+    instructions: str
+
+
+class QuestionQuestion4(QuestionQuestion, QuestionQuestion3):
+    pass
+
+
+class QuestionQuestion5(QuestionQuestion1, QuestionQuestion3):
+    pass
+
+
+class QuestionQuestion6(QuestionQuestion2, QuestionQuestion3):
+    pass
+
+
+Question: TypeAlias = QuestionQuestion4 | QuestionQuestion5 | QuestionQuestion6
+
+
+class PromptBlockDataPromptBlockData2(TypedDict):
+    type: Literal['decisions']
+    input: str | Sequence[PromptBlockDataPromptBlockData2InputItem]
+    questions: Sequence[Question]
+
+
 class PromptBlockDataNullishPromptBlockDataNullish1(TypedDict):
     type: Literal['completion']
     content: str
+
+
+class PromptBlockDataNullishPromptBlockDataNullish2InputItem(TypedDict):
+    role: Literal['system', 'developer', 'user', 'assistant']
+    content: str | Sequence[ChatCompletionContentPartText]
+
+
+class Question1Question1(TypedDict):
+    type: Literal['predicate']
+
+
+class Question1Question11Choice(TypedDict):
+    value: str | bool
+    description: NotRequired[str | None]
+
+
+class Question1Question11(TypedDict):
+    type: Literal['choice']
+    choices: Sequence[Question1Question11Choice]
+
+
+class Question1Question12Level(TypedDict):
+    label: str
+    description: NotRequired[str | None]
+
+
+class Question1Question12(TypedDict):
+    type: Literal['score']
+    levels: Sequence[Question1Question12Level]
+
+
+class Question1Question13(TypedDict):
+    name: NotRequired[str | None]
+    instructions: str
+
+
+class Question1Question14(Question1Question1, Question1Question13):
+    pass
+
+
+class Question1Question15(Question1Question11, Question1Question13):
+    pass
+
+
+class Question1Question16(Question1Question12, Question1Question13):
+    pass
+
+
+Question1: TypeAlias = Question1Question14 | Question1Question15 | Question1Question16
+
+
+class PromptBlockDataNullishPromptBlockDataNullish2(TypedDict):
+    type: Literal['decisions']
+    input: str | Sequence[PromptBlockDataNullishPromptBlockDataNullish2InputItem]
+    questions: Sequence[Question1]
 
 
 class PromptDataOrigin(TypedDict):
@@ -2471,6 +2602,9 @@ class RunEvalData(TypedDict):
     The environment tag that resolves to the dataset version to evaluate
     """
     _internal_btql: NotRequired[Mapping[str, Any] | None]
+    """
+    Internal BTQL query overrides in parsed JSON form that select which dataset rows to evaluate. `filter` is a BTQL expression object, `sort` is an array of BTQL sort expressions, and `limit` is an integer.
+    """
 
 
 class RunEvalData1(TypedDict):
@@ -2485,6 +2619,9 @@ class RunEvalData1(TypedDict):
     The environment tag that resolves to the dataset version to evaluate
     """
     _internal_btql: NotRequired[Mapping[str, Any] | None]
+    """
+    Internal BTQL query overrides in parsed JSON form that select which dataset rows to evaluate. `filter` is a BTQL expression object, `sort` is an array of BTQL sort expressions, and `limit` is an integer.
+    """
 
 
 class RunEvalData2(TypedDict):
@@ -2613,7 +2750,7 @@ class ParentParent(TypedDict):
     """
     row_ids: NotRequired[ParentParentRowIds | None]
     """
-    Identifiers for the row to to log a subspan under
+    Identifiers for the row to log a subspan under
     """
     propagated_event: NotRequired[Mapping[str, Any] | None]
     """
@@ -3267,7 +3404,7 @@ class WindowedAutomationConfigWindow(TypedDict):
 
 class WindowedAutomationConfigLoopTarget(TypedDict):
     type: Literal['dashboard']
-    id: str | Literal['overview']
+    id: Literal['overview']
 
 
 class WindowedAutomationConfigLoop(TypedDict):
@@ -3756,6 +3893,9 @@ class FunctionIdFunctionId4(TypedDict):
 
 class InvokeFunctionInvokeFunction7(TypedDict):
     request_source: NotRequired[str | None]
+    """
+    A label identifying the caller, used to attribute usage
+    """
     input: NotRequired[Any | None]
     """
     Argument to the function, which can be any JSON serializable value
@@ -3766,7 +3906,7 @@ class InvokeFunctionInvokeFunction7(TypedDict):
     """
     metadata: NotRequired[Mapping[str, Any] | None]
     """
-    Any relevant metadata. This will be logged and available as the `metadata` argument.
+    Any relevant metadata to log on the span. For prompts, this is available as the `metadata` template variable. For code functions, this is passed through hooks and is not added to `input`.
     """
     tags: NotRequired[Sequence[str] | None]
     """
@@ -4054,7 +4194,9 @@ class PromptBlockDataPromptBlockData(TypedDict):
 
 
 PromptBlockData: TypeAlias = (
-    PromptBlockDataPromptBlockData | PromptBlockDataPromptBlockData1
+    PromptBlockDataPromptBlockData
+    | PromptBlockDataPromptBlockData1
+    | PromptBlockDataPromptBlockData2
 )
 
 
@@ -4067,6 +4209,7 @@ class PromptBlockDataNullishPromptBlockDataNullish(TypedDict):
 PromptBlockDataNullish: TypeAlias = (
     PromptBlockDataNullishPromptBlockDataNullish
     | PromptBlockDataNullishPromptBlockDataNullish1
+    | PromptBlockDataNullishPromptBlockDataNullish2
     | None
 )
 
@@ -4273,7 +4416,7 @@ class ExperimentEvent(TypedDict):
     """
     scores: NotRequired[Mapping[str, Any] | None]
     """
-    A dictionary of numeric values (between 0 and 1) to log. The scores should give you a variety of signals that help you determine how accurate the outputs are compared to what you expect and diagnose failures. For example, a summarization app might have one score that tells you how accurate the summary is, and another that measures the word similarity between the generated and grouth truth summary. The word similarity score could help you determine whether the summarization was covering similar concepts or not. You can use these scores to help you sort, filter, and compare experiments
+    A dictionary of numeric values (between 0 and 1) to log. The scores should give you a variety of signals that help you determine how accurate the outputs are compared to what you expect and diagnose failures. For example, a summarization app might have one score that tells you how accurate the summary is, and another that measures the word similarity between the generated and ground truth summary. The word similarity score could help you determine whether the summarization was covering similar concepts or not. You can use these scores to help you sort, filter, and compare experiments.
     """
     metadata: NotRequired[ExperimentEventMetadata | None]
     """
@@ -4461,7 +4604,7 @@ class ProjectLogsEvent(TypedDict):
     """
     scores: NotRequired[Mapping[str, Any] | None]
     """
-    A dictionary of numeric values (between 0 and 1) to log. The scores should give you a variety of signals that help you determine how accurate the outputs are compared to what you expect and diagnose failures. For example, a summarization app might have one score that tells you how accurate the summary is, and another that measures the word similarity between the generated and grouth truth summary. The word similarity score could help you determine whether the summarization was covering similar concepts or not. You can use these scores to help you sort, filter, and compare logs.
+    A dictionary of numeric values (between 0 and 1) to log. The scores should give you a variety of signals that help you determine how accurate the outputs are compared to what you expect and diagnose failures. For example, a summarization app might have one score that tells you how accurate the summary is, and another that measures the word similarity between the generated and ground truth summary. The word similarity score could help you determine whether the summarization was covering similar concepts or not. You can use these scores to help you sort, filter, and compare logs.
     """
     metadata: NotRequired[ProjectLogsEventMetadata | None]
     """

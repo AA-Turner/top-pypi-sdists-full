@@ -7,7 +7,7 @@ include(cmake/prelude.cmake)
 
 project(
     pytango
-    VERSION 10.3.1
+    VERSION 10.3.2
     DESCRIPTION "Python bindings for the Tango distributed control system"
     HOMEPAGE_URL "https://pytango.readthedocs.io/"
     LANGUAGES CXX
@@ -40,11 +40,10 @@ if (DEFINED ENV{PYTHON_ROOT})
     set(Python_ROOT_DIR "$ENV{PYTHON_ROOT}" CACHE STRING "Python root installation path")
     set(Python_FIND_STRATEGY LOCATION)
 endif()
-find_package (Python 3.10 COMPONENTS Interpreter Development NumPy)
+find_package (Python 3.10 COMPONENTS Interpreter Development.Module NumPy)
 message(STATUS "    Python version:  ${Python_VERSION}")
 message(STATUS "      - intepreter:  ${Python_EXECUTABLE}")
-message(STATUS "       - libraries:  ${Python_LIBRARIES}")
-message(STATUS "       - libraries:  ${Python_LIBRARY_DIRS}")
+message(STATUS "     - include dir:  ${Python_INCLUDE_DIRS}")
 message(STATUS "     NumPy version:  ${Python_NumPy_VERSION}")
 message(STATUS "     - include dir:  ${Python_NumPy_INCLUDE_DIRS}")
 

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 from office365.security.labels.retention.behaviorduringretentionperiod import BehaviorDuringRetentionPeriod
 
 
-@dataclass
 class RetentionLabelSettings(ClientValue):
     """
     Groups all the compliance retention restrictions on the item into a single structure.

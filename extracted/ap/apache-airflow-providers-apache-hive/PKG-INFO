@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-hive
-Version: 9.7.1
+Version: 10.0.0
 Summary: Provider package apache-airflow-providers-apache-hive for Apache Airflow
 Keywords: airflow-provider,apache.hive,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -41,8 +41,8 @@ Requires-Dist: apache-airflow-providers-samba ; extra == "samba"
 Requires-Dist: sqlalchemy>=1.4.54,!=2.1.0 ; extra == "sqlalchemy"
 Requires-Dist: apache-airflow-providers-vertica ; extra == "vertica"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/9.7.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/9.7.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/10.0.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/10.0.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -85,7 +85,7 @@ Import-Namespace: airflow.providers.apache
 
 Package ``apache-airflow-providers-apache-hive``
 
-Release: ``9.7.1``
+Release: ``10.0.0``
 
 
 `Apache Hive <https://hive.apache.org/>`__
@@ -98,7 +98,7 @@ This is a provider package for ``apache.hive`` provider. All classes for this pr
 are in ``airflow.providers.apache.hive`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/9.7.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/10.0.0/>`_.
 
 Installation
 ------------
@@ -167,5 +167,5 @@ Extra                Dependencies
 ===================  =============================================================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/9.7.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-hive/10.0.0/changelog.html>`_.
 

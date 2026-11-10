@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.40                                                                                #
-# Generated on 2026-10-29T20:14:39.534657                                                            #
+# MF version: 2.19.41                                                                                #
+# Generated on 2026-11-06T18:55:47.778764                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.events
-    import metaflow
-    import typing
     import metaflow.plugins.cards.component_serializer
+    import typing
+    import metaflow
+    import metaflow.events
     import metaflow.metaflow_current
 
 
@@ -225,24 +225,6 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
-        """
-        (only in the presence of the @card decorator)
-        
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
-        
-        Returns
-        -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
-        """
-        ...
-    @property
     def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
         (only in the presence of the @parallel decorator)
@@ -272,9 +254,27 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

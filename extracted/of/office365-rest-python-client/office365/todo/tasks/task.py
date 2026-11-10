@@ -3,19 +3,20 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from os import PathLike
-from typing import IO, Optional, Union
+from typing import IO, TYPE_CHECKING, Optional, Union
 
 from office365.directory.extensions.extension import Extension
 from office365.directory.extensions.open_type import OpenTypeExtension
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.outlook.mail.importance import Importance
 from office365.outlook.mail.item_body import ItemBody
 from office365.outlook.mail.patterned_recurrence import PatternedRecurrence
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.create_entity import CreateEntityQuery
+from office365.runtime.transfer import INLINE_ATTACHMENT_MAX, UPLOAD_CHUNK_DEFAULT
 from office365.runtime.types.collections import StringCollection
 from office365.runtime.types.odata_property import odata
 from office365.todo.attachments.collection import AttachmentBaseCollection
@@ -25,8 +26,8 @@ from office365.todo.checklist_item import ChecklistItem
 from office365.todo.linked_resource import LinkedResource
 from office365.todo.tasks.taskstatus import TaskStatus
 
-DEFAULT_ATTACHMENT_CHUNK_SIZE = 4 * 1024 * 1024
-MAX_SIMPLE_ATTACHMENT_BYTES = 3 * 1024 * 1024
+if TYPE_CHECKING:
+    from office365.common.single_value_extended_property import SingleValueExtendedProperty
 
 
 def _stream_size(stream: IO) -> int:
@@ -47,6 +48,7 @@ class TodoTask(Entity):
     def __str__(self) -> str:
         return self.title or self.entity_type_name or ""
 
+    @odata(name="body")
     @property
     def body(self) -> ItemBody:
         """The task body that typically contains information about the task."""
@@ -134,6 +136,7 @@ class TodoTask(Entity):
     def status(self, value: TaskStatus):
         self.set_property("status", value)
 
+    @odata(name="title")
     @property
     def title(self) -> Optional[str]:
         """A brief description of the task."""
@@ -143,6 +146,7 @@ class TodoTask(Entity):
     def title(self, value):
         self.set_property("title", value)
 
+    @odata(name="attachmentSessions", navigation=True)
     @property
     def attachment_sessions(self) -> EntityCollection[AttachmentSession]:
         """A collection of attachment sessions for the task."""
@@ -155,6 +159,7 @@ class TodoTask(Entity):
             ),
         )
 
+    @odata(name="attachments", navigation=True)
     @property
     def attachments(self) -> AttachmentBaseCollection:
         """A collection of file attachments for the task."""
@@ -163,6 +168,7 @@ class TodoTask(Entity):
             AttachmentBaseCollection(self.context, ResourcePath("attachments", self.resource_path)),
         )
 
+    @odata(name="extensions", navigation=True)
     @property
     def extensions(self) -> EntityCollection[Extension]:
         """The collection of open extensions defined for the task."""
@@ -171,7 +177,7 @@ class TodoTask(Entity):
             EntityCollection(self.context, Extension, ResourcePath("extensions", self.resource_path)),
         )
 
-    @odata(name="checklistItems")
+    @odata(name="checklistItems", navigation=True)
     @property
     def checklist_items(self) -> EntityCollection[ChecklistItem]:
         """A collection of checklistItems linked to a task."""
@@ -184,7 +190,7 @@ class TodoTask(Entity):
             ),
         )
 
-    @odata(name="linkedResources")
+    @odata(name="linkedResources", navigation=True)
     @property
     def linked_resources(self) -> EntityCollection[LinkedResource]:
         """A collection of resources linked to the task."""
@@ -203,7 +209,7 @@ class TodoTask(Entity):
         source: Union[str, PathLike, bytes, bytearray, IO],
         name: Optional[str] = None,
         content_type: Optional[str] = None,
-        chunk_size: int = DEFAULT_ATTACHMENT_CHUNK_SIZE,
+        chunk_size: int = UPLOAD_CHUNK_DEFAULT,
         progress=None,
     ) -> TaskFileAttachment:
         """Attach a file to the task, dispatching by size.
@@ -215,7 +221,8 @@ class TodoTask(Entity):
             source: Path, raw bytes, or a binary stream.
             name (str): Display name of the attachment (defaults to the file name).
             content_type (str): MIME type of the attachment.
-            chunk_size (int): Upload-session chunk size (4 MB by default).
+            chunk_size (int): Upload-session chunk size; a multiple of 320 KiB, at most 60 MiB
+                (default 10 MiB).
             progress: Optional per-chunk ``Progress`` hook for session uploads.
         """
         stream: Optional[IO] = None
@@ -234,7 +241,7 @@ class TodoTask(Entity):
             default_name = os.path.basename(getattr(stream, "name", "") or "")
 
         attachment_name = name or default_name or "attachment"
-        if size is not None and size <= MAX_SIMPLE_ATTACHMENT_BYTES:
+        if size is not None and size <= INLINE_ATTACHMENT_MAX:
             if content is None:
                 if stream is None:
                     with open(str(source), "rb") as file_object:
@@ -270,3 +277,18 @@ class TodoTask(Entity):
     @property
     def entity_type_name(self) -> str:
         return None  # type: ignore
+
+    @odata(name="singleValueExtendedProperties", navigation=True)
+    @property
+    def single_value_extended_properties(self) -> EntityCollection[SingleValueExtendedProperty]:
+        """Gets the singleValueExtendedProperties property"""
+        from office365.common.single_value_extended_property import SingleValueExtendedProperty
+
+        return self.properties.get(
+            "singleValueExtendedProperties",
+            EntityCollection[SingleValueExtendedProperty](
+                self.context,
+                SingleValueExtendedProperty,
+                ResourcePath("singleValueExtendedProperties", self.resource_path),
+            ),
+        )

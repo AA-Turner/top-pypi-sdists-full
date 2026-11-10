@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.policies.app_management_policy_actor_exemptions import AppManagementPolicyActorExemptions
@@ -8,7 +8,6 @@ from office365.directory.policies.appmanagementrestrictionstate import AppManage
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class IdentifierUriRestriction(ClientValue):
     excludeActors: AppManagementPolicyActorExemptions = field(default_factory=AppManagementPolicyActorExemptions)
     excludeAppsReceivingV2Tokens: bool | None = None

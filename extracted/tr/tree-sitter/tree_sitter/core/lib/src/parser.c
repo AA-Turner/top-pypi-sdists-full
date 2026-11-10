@@ -795,7 +795,13 @@ static Subtree ts_parser__reuse_node(
       reason = "is_missing";
     } else if (ts_subtree_is_fragile(result)) {
       reason = "is_fragile";
-    } else if (ts_parser__has_included_range_difference(self, byte_offset, end_byte_offset)) {
+    } else if (ts_parser__has_included_range_difference(
+                 self,
+                 byte_offset,
+                 ts_subtree_is_eof(result)
+                   ? end_byte_offset
+                   : end_byte_offset + ts_subtree_lookahead_bytes(result)
+               )) {
       reason = "contains_different_included_range";
     }
 
@@ -1219,10 +1225,17 @@ static bool ts_parser__recover_to_state(
       Subtree error_tree = *array_get(&error_trees, 0);
       uint32_t error_child_count = ts_subtree_child_count(error_tree);
       if (error_child_count > 0) {
-        array_splice(&slice.subtrees, 0, 0, error_child_count, ts_subtree_children(error_tree));
+        SubtreeArray nested = array_new();
+        array_reserve(&nested, error_child_count);
         for (unsigned j = 0; j < error_child_count; j++) {
-          ts_subtree_retain(*array_get(&slice.subtrees, j));
+          Subtree child = ts_subtree_children(error_tree)[j];
+          ts_subtree_retain(child);
+          array_push(&nested, child);
         }
+        Subtree nested_error = ts_subtree_from_mut(ts_subtree_new_node(
+          ts_builtin_sym_error_repeat, &nested, 0, self->language
+        ));
+        array_insert(&slice.subtrees, 0, nested_error);
       }
       ts_subtree_array_delete(&self->tree_pool, &error_trees);
     }
@@ -1739,6 +1752,13 @@ static bool ts_parser__advance(
         lookahead = ts_subtree_from_mut(mutable_lookahead);
         continue;
       }
+    }
+
+    // If the current lookahead token is not valid and the parser is
+    // already in the error state, restart the error recovery process.
+    if (state == ERROR_STATE) {
+      ts_parser__recover(self, version, lookahead);
+      return true;
     }
 
     // If the current lookahead token is not valid and the previous subtree on

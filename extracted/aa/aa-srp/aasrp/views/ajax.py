@@ -33,8 +33,6 @@ from aasrp.form import (
 from aasrp.helper.character import get_formatted_character_name
 from aasrp.helper.eve_images import get_type_render_url_from_type_id
 from aasrp.helper.icons import (
-    copy_to_clipboard_icon,
-    dashboard_action_icons,
     get_srp_request_action_icons,
     get_srp_request_status_icon,
 )
@@ -44,96 +42,17 @@ from aasrp.helper.srp_data import (
     payout_amount_html,
     request_code_html,
 )
-from aasrp.helper.urls import reverse_absolute
 from aasrp.helper.user import (
     get_pending_requests_count_for_user,
     get_ui_token_for_user,
     get_user_settings,
 )
-from aasrp.models import RequestComment, SrpLink, SrpRequest
+from aasrp.models import RequestComment, Setting, SrpLink, SrpRequest
 from aasrp.providers.applogger import AppLogger
 from aasrp.providers.esi import esi
 
 # Initialize a logger with a custom tag for the AA SRP application
 logger = AppLogger(my_logger=get_extension_logger(__name__))
-
-
-@permission_required("aasrp.basic_access")
-def dashboard_srp_links_data(
-    request: WSGIRequest, show_all_links: bool = False
-) -> JsonResponse:
-    """
-    Handle an AJAX request to retrieve all active Ship Replacement Program (SRP) links.
-
-    This view generates a JSON response containing data about SRP links, including
-    their name, creator, fleet details, costs, status, and associated actions. If
-    `show_all_links` is set to `True`, all SRP links are included; otherwise, only
-    active links are returned.
-
-    :param request: The HTTP request object.
-    :type request: WSGIRequest
-    :param show_all_links: A flag indicating whether to include all SRP links or only active ones.
-    :type show_all_links: bool
-    :return: A JSON response containing SRP link data.
-    :rtype: JsonResponse
-    """
-
-    data = []
-
-    # Retrieve all SRP links with related data preloaded for efficiency
-    srp_links = SrpLink.objects.prefetch_related(
-        "fleet_commander",
-        "creator",
-        "creator__profile__main_character",
-        "srp_requests",
-    ).all()
-
-    # Filter to include only active SRP links if `show_all_links` is False
-    if not show_all_links:
-        srp_links = srp_links.filter(srp_status=SrpLink.Status.ACTIVE)
-
-    # Iterate through each SRP link and prepare its data for the response
-    for srp_link in srp_links:
-        # Generate a localized "Link" text and create an AAR link if available
-        l10n_link = _("Link")
-        aar_link = (
-            f'<a href="{srp_link.aar_link}" target="_blank">{l10n_link}</a>'
-            if srp_link.aar_link
-            else ""
-        )
-
-        # Prepare the SRP code with a copy-to-clipboard icon if the link is active
-        srp_code_html = srp_link.srp_code
-        if srp_link.srp_status == SrpLink.Status.ACTIVE:
-            srp_link_href = reverse_absolute(
-                viewname="aasrp:request_srp", args=[srp_link.srp_code]
-            )
-            title = _("Copy SRP link to clipboard")
-            copy_icon = copy_to_clipboard_icon(data=srp_link_href, title=title)
-            srp_code_html += f"<sup>{copy_icon}</sup>"
-
-        # Retrieve the fleet type name if available
-        fleet_type = srp_link.fleet_type.name if srp_link.fleet_type else ""
-
-        # Append the SRP link data to the response list
-        data.append(
-            {
-                "srp_name": srp_link.srp_name,
-                "creator": get_main_character_name_from_user(user=srp_link.creator),
-                "fleet_time": srp_link.fleet_time,
-                "fleet_type": fleet_type,
-                "fleet_doctrine": srp_link.fleet_doctrine,
-                "aar_link": aar_link,
-                "srp_code": {"display": srp_code_html, "sort": srp_link.srp_code},
-                "srp_costs": srp_link.total_cost,
-                "srp_status": srp_link.srp_status,
-                "pending_requests": srp_link.pending_requests_count,
-                "actions": dashboard_action_icons(request=request, srp_link=srp_link),
-            }
-        )
-
-    # Return the prepared data as a JSON response
-    return JsonResponse(data=data, safe=False)
 
 
 @permissions_required(("aasrp.manage_srp", "aasrp.manage_srp_requests"))
@@ -206,6 +125,11 @@ def srp_link_view_requests_data(request: WSGIRequest, srp_code: str) -> JsonResp
         )
 
         # Append the SRP request data to the response list
+        try:
+            request_character = srp_request.character.character_name
+        except AttributeError:
+            request_character = _("Unknown character")
+
         data.append(
             {
                 "request_time": srp_request.post_time,  # Time the request was posted
@@ -218,9 +142,9 @@ def srp_link_view_requests_data(request: WSGIRequest, srp_code: str) -> JsonResp
                         with_portrait=True,
                         with_copy_icon=True,
                     ),  # Formatted character name with portrait and copy icon
-                    "sort": srp_request.character.character_name,  # Character name for sorting
+                    "sort": request_character,  # Character name for sorting
                 },
-                "character": srp_request.character.character_name,  # Character name
+                "character": request_character,  # Character name
                 "request_code_html": {
                     "display": request_code_html(
                         request_code=srp_request.request_code
@@ -914,8 +838,15 @@ def srp_request_open_character_info(  # pylint: disable=too-many-return-statemen
     # Call the operation directly instead of using ESIHandler, since ESIHandler
     # returns None for both success (empty response) and failure
     try:
+        payment_receiver = Setting.objects.get_setting(Setting.Field.PAYOUT_RECEIVER)
+        target_id = (
+            srp_request.character.character_id
+            if payment_receiver == Setting.PayoutReceiver.LOSER
+            else srp_request.creator.profile.main_character.character_id
+        )
+
         esi.client.User_Interface.PostUiOpenwindowInformation(
-            target_id=srp_request.character.character_id, token=token
+            target_id=target_id, token=token
         ).result(use_etag=False, use_cache=False, store_cache=False)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         logger.error(
@@ -947,7 +878,54 @@ def srp_request_open_character_info(  # pylint: disable=too-many-return-statemen
         data={
             "success": True,
             "message": _("Information window for {character} opened in EVE").format(
-                character=srp_request.character.character_name
+                character=(
+                    srp_request.character.character_name
+                    if payment_receiver == Setting.PayoutReceiver.LOSER
+                    else srp_request.creator.profile.main_character.character_name
+                )
             ),
         }
+    )
+
+
+@permissions_required(("aasrp.manage_srp", "aasrp.manage_srp_requests"))
+def srp_link_update_total_cost(request: WSGIRequest, srp_code: str) -> JsonResponse:
+    """
+    Handle an AJAX request to update the total cost of an SRP (Ship Replacement Program) link.
+
+    This view processes a POST request containing the new total cost value for an SRP link identified by its
+    unique SRP code. If the request is valid, the total cost is updated in the database.
+
+    :param request: The HTTP request object containing metadata and POST data.
+    :type request: WSGIRequest
+    :param srp_code: The unique code identifying the SRP link.
+    :type srp_code: str
+    :return: A JSON response indicating whether the operation was successful.
+    :rtype: JsonResponse
+    """
+
+    logger.debug("Received request to update total cost for SRP link: %s", srp_code)
+
+    if request.method == "POST":
+        # Parse the request body to retrieve the list of SRP request codes
+        request_body = json.loads(request.body)
+        total_cost = request_body.get("total_cost")
+
+        try:
+            srp_link = SrpLink.objects.get(srp_code=srp_code)
+            srp_link.total_cost = total_cost
+            srp_link.save()
+
+            return JsonResponse(
+                data={"success": True, "message": _("Total cost updated successfully")},
+                safe=False,
+            )
+        except SrpLink.DoesNotExist:
+            return JsonResponse(
+                data={"success": False, "message": _("SRP link not found")}, safe=False
+            )
+
+    # Return a failure response if the request method is not POST or an error occurs
+    return JsonResponse(
+        data={"success": False, "message": _("Invalid request method")}, safe=False
     )

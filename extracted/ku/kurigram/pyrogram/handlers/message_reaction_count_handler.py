@@ -18,17 +18,23 @@
 
 from __future__ import annotations as _annotations
 
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from pyrogram import types
 
 from .handler import Handler
 
 if TYPE_CHECKING:
     import pyrogram
-    from pyrogram import types
+    from pyrogram.filters import Filter
+
+MessageReactionCountCallbackType = Callable[
+    ["pyrogram.Client", types.MessageReactionCountUpdated], Any
+]
 
 
-class MessageReactionCountHandler(Handler):
+class MessageReactionCountHandler(Handler[MessageReactionCountCallbackType]):
     """The MessageReactionCount handler class.
     Used to handle changes in the anonymous reaction of a message.
 
@@ -56,7 +62,7 @@ class MessageReactionCountHandler(Handler):
 
     def __init__(
         self,
-        callback: Callable[[pyrogram.Client, types.MessageReactionCountUpdated], Any],
-        filters=None,
-    ):
+        callback: MessageReactionCountCallbackType,
+        filters: Filter | None = None,
+    ) -> None:
         super().__init__(callback, filters)

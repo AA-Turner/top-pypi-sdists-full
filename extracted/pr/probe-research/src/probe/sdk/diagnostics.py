@@ -65,6 +65,8 @@ _IS_WINDOWS = os.name == "nt"
 #: Whole-payload ceiling. A span write that 413s or stalls because a diagnostic
 #: was large would be this module causing the class of outage it reports on.
 MAX_REPORT_BYTES = 16_384
+#: What the server's crash-evidence query filters on: `_fit` keeps them through every tier.
+_SERVER_READ_KEYS = ("extra", "write_epoch")
 
 SPAN_TYPE = "diagnostic"
 
@@ -215,20 +217,35 @@ def _message_for(exc: BaseException) -> str:
     return str(exc)[:MAX_MESSAGE_CHARS]
 
 
-def _chain(exc: BaseException | None) -> list[dict]:
-    """The exception and its causes, head first.
-
-    ``__cause__`` (explicit ``raise ... from``) is preferred over ``__context__``
-    (incidental "during handling of the above"), matching how Python itself
-    prints a chain.
-    """
-    chain: list[dict] = []
+def _get_links(exc: BaseException | None, run_id: str | None = None) -> list[BaseException]:
+    """The exception and its causes, head first: ``__cause__`` (explicit ``raise ... from``) before
+    ``__context__`` (incidental "during handling of the above"), even one ``from None`` hid -- a
+    library's wrapper often hides the real cause. An incidental link to an error that was already
+    being handled when run ``run_id`` opened ends it: a retry wrapper's next attempt raises inside
+    the last one's `except`, and that error is not this run's cause. One walk for the report's
+    `exception` AND its `context`, so the two describe the same errors."""
+    links: list[BaseException] = []
     seen: set[int] = set()
     current = exc
-    while current is not None and len(chain) < MAX_CHAIN:
-        if id(current) in seen:  # a self-referential __context__ would spin forever
+    while current is not None and len(links) < MAX_CHAIN and id(current) not in seen:
+        seen.add(id(current))  # a self-referential __context__ would spin forever
+        links.append(current)
+        try:
+            if current.__cause__ is not None:
+                current = current.__cause__
+            elif _is_opened_during(current.__context__, run_id):
+                break
+            else:
+                current = current.__context__
+        except Exception:
             break
-        seen.add(id(current))
+    return links
+
+
+def _chain(links: list[BaseException]) -> list[dict]:
+    """Each link of :func:`_get_links` as a report entry, head first."""
+    chain: list[dict] = []
+    for current in links:
         try:
             frames, elided = _frames(current.__traceback__)
             entry: dict[str, Any] = {
@@ -253,7 +270,6 @@ def _chain(exc: BaseException | None) -> list[dict]:
             chain.append(entry)
         except Exception:
             break
-        current = current.__cause__ or current.__context__
     return chain
 
 
@@ -287,14 +303,13 @@ def build_report(
     already inside :data:`MAX_REPORT_BYTES`.
     """
     report: dict[str, Any] = {"schema": 1}
+    links: list[BaseException] = []
     try:
         report["environment"] = _environment()
         if exc is not None:
-            report["exception"] = _chain(exc)
-            from .run.context.failure import read
-
-            if context := read(exc, run_id):
-                report["context"] = context
+            links = _get_links(exc, run_id)
+            report["exception"] = _chain(links)
+            _set_context(report, links, run_id)
         if client is not None:
             report["client"] = _client_state(client)
         recent = recent_transport(_base_of(client) if client is not None else None)
@@ -306,9 +321,27 @@ def build_report(
             report["extra"] = extra
         # scanning disabled: report = default_scrub(report)
         report = _fit(report)
+        if "context" in report:
+            _set_context(report, links, run_id)  # `_fit` may have dropped tail links
+            if _get_size(report) > MAX_REPORT_BYTES:
+                # The head's own values can be longer than the deeper ones `_fit` measured.
+                report.pop("context")
+                report["truncated"] = ", ".join(filter(None, [report.get("truncated"), "context"]))
     except Exception:
         return {"schema": 1, "degraded": "report construction failed"}
     return report
+
+
+def _set_context(report: dict, links: list[BaseException], run_id: str | None) -> None:
+    """The step and sample that the links this report SHOWS recorded: a link `_chain` could not
+    render, or `_fit` dropped, takes its context with it."""
+    from .run.context.failure import read
+
+    context = read(links[: len(report.get("exception") or [])], run_id)
+    if context:
+        report["context"] = context
+    else:
+        report.pop("context", None)
 
 
 def _base_of(client: Any) -> str | None:
@@ -345,6 +378,11 @@ def _client_state(client: Any) -> dict:
     return state
 
 
+def _get_size(obj: dict) -> int:
+    """A payload's size on the wire, as :data:`MAX_REPORT_BYTES` counts it."""
+    return len(json.dumps(obj, default=str).encode("utf-8", "replace"))
+
+
 def _fit(report: dict) -> dict:
     """Bring the payload inside :data:`MAX_REPORT_BYTES`.
 
@@ -362,9 +400,7 @@ def _fit(report: dict) -> dict:
     """
     import copy
 
-    def size(obj: dict) -> int:
-        return len(json.dumps(obj, default=str).encode("utf-8", "replace"))
-
+    size = _get_size
     if size(report) <= MAX_REPORT_BYTES:
         return report
 
@@ -379,7 +415,11 @@ def _fit(report: dict) -> dict:
         del report["truncated"]
         return False
 
-    if report.pop("extra", None) is not None and fits("extra"):
+    extra = report.pop("extra", None)
+    if isinstance(extra, dict) and "swallowed_at" in extra:
+        # The server's crash-report filter reads it: a shed one made a recovered error a "cause".
+        report["extra"] = {"swallowed_at": extra["swallowed_at"]}
+    if extra is not None and fits("extra"):
         return report
     if report.pop("transport", None) is not None and fits("transport"):
         return report
@@ -405,11 +445,16 @@ def _fit(report: dict) -> dict:
     if popped and fits("chain"):
         return report
 
-    return {
+    degraded = {
         "schema": 1,
         "degraded": "report exceeded size budget",
         "environment": report.get("environment", {}),
     }
+    for key in _SERVER_READ_KEYS:
+        if key in report:
+            degraded[key] = report[key]
+    return degraded
+
 
 
 def emit(run: Any, report: dict, *, name: str | None = None) -> None:
@@ -447,6 +492,84 @@ def report_exception(run: Any, exc: BaseException | None, **kw: Any) -> None:
         client = getattr(run, "_client", None)
         report = build_report(exc, client=client, extra=kw or None, run_id=getattr(run, "id", None))
         emit(run, report, name=type(exc).__name__ if exc is not None else None)
+    except Exception:
+        pass
+
+
+#: Set on a run once its crash report is filed: a run has ONE crash, however many paths see it end.
+_CRASH_REPORTED_ATTR = "_crash_reported"
+#: The mark's check-and-set: a thread's `set_status("failed")` can race `__exit__` or the at-exit hook.
+_CRASH_MARK_LOCK = threading.Lock()
+
+
+def report_run_crash(run: Any, exc: BaseException | None) -> None:
+    """File `exc` as `run`'s crash report, once per run: `Run.__exit__` files the body's
+    exception and then closes the run while it is still in flight, so the close must not file
+    it again (nor the at-exit hook after it). Never raises."""
+    if disabled() or run is None or exc is None:
+        return
+    with _CRASH_MARK_LOCK:
+        if getattr(run, _CRASH_REPORTED_ATTR, False):
+            return
+        try:
+            setattr(run, _CRASH_REPORTED_ATTR, True)
+        except Exception:
+            return
+    report_exception(run, exc)
+
+
+def report_exception_in_flight(run: Any, status: str) -> None:
+    """A run closing `failed` while an Exception is being handled files that exception: the
+    script that catches, prints the traceback and calls ``probe.finish("failed")`` (Anthrogen,
+    2026-11-05) otherwise leaves a failed run with no reason on it. Ctrl-C and SystemExit in
+    flight file nothing (a decision, not a defect). ``sys.exc_info``: the SDK supports 3.10."""
+    if status != "failed":
+        return
+    in_flight = sys.exc_info()[1]
+    if not isinstance(in_flight, Exception):
+        return
+    if _is_opened_during(in_flight, getattr(run, "id", None)):
+        # This run was opened (created, resumed or minted offline) while that exception was being
+        # handled -- a retry wrapper starting the next attempt inside the last one's `except`: an
+        # outer handler's error, not this run's death. Only this close: a process that then dies of
+        # it (uncaught, `sys.exit`, a `with` block) files it, or a run opened lazily in that handler
+        # (Lightning's logger) would lose its real crash.
+        return
+    report_run_crash(run, in_flight)
+
+
+#: Stamped on the exception in flight when this process opens a run (create, resume, offline): the
+#: ids of the runs opened while handling it. On the exception, never the run: a run holding it would keep its traceback's
+#: frames (a retry's GPU tensors) alive, and a kept `id()` is reused by the next exception.
+_OPENED_DURING_ATTR = "_probe_runs_opened_during"
+
+
+def _is_opened_during(exc: BaseException | None, run_id: Any) -> bool:
+    """Whether run ``run_id`` was opened while ``exc`` was being handled (`mark_run_opened_during`)."""
+    if exc is None or not run_id:
+        return False
+    try:
+        opened = getattr(exc, _OPENED_DURING_ATTR, None)
+        return isinstance(opened, set) and str(run_id) in opened
+    except Exception:  # an exception class whose attribute access raises: not marked
+        return False
+
+
+def mark_run_opened_during(run: Any, in_flight: BaseException | None = None) -> None:
+    """Record that `run` was opened while the current exception (or ``in_flight``, from a caller
+    inside its own `except`) was being handled. Never raises: an exception that refuses attributes
+    is simply not marked (its close files as before)."""
+    if in_flight is None:
+        in_flight = sys.exc_info()[1]
+    run_id = getattr(run, "id", None)
+    if in_flight is None or not run_id:
+        return
+    try:
+        opened = getattr(in_flight, _OPENED_DURING_ATTR, None)
+        if not isinstance(opened, set):
+            opened = set()
+            setattr(in_flight, _OPENED_DURING_ATTR, opened)
+        opened.add(str(run_id))
     except Exception:
         pass
 
@@ -640,8 +763,8 @@ def _write_private(path: str, text: str) -> None:
     write_text_atomic(path, text, mode=0o600)
 
 
-def arm(client: Any, run_id: str, *, extra: dict | None = None) -> None:
-    """Drop this run's crash breadcrumb. Never raises."""
+def arm(client: Any, run_id: str, *, extra: dict | None = None, write_epoch: int | None = None) -> None:
+    """Drop this run's crash breadcrumb. Never raises. ``write_epoch``: the attempt it belongs to."""
     if disabled():
         return
     try:
@@ -675,6 +798,8 @@ def arm(client: Any, run_id: str, *, extra: dict | None = None) -> None:
         }
         if extra:
             payload["extra"] = extra
+        if isinstance(write_epoch, int):
+            payload["write_epoch"] = write_epoch
         path = os.path.join(directory, f"{run_id}{_BREADCRUMB_SUFFIX}")
         # write_text_atomic, not a hand-rolled `path + ".tmp"`: its temp sibling
         # is randomly named and opened O_EXCL, so a pre-planted symlink at a
@@ -823,6 +948,10 @@ def sweep(client: Any) -> list[dict]:
                 report["transport"] = crumb["transport"]
             if crumb.get("extra"):
                 report["extra"] = crumb["extra"]
+            if isinstance(crumb.get("write_epoch"), int):
+                # Swept by the NEXT attempt's init, after its reopen: the server keeps the
+                # report only while this is still the run's attempt.
+                report["write_epoch"] = crumb["write_epoch"]
             if _post_orphan(client, run_id, report):
                 filed.append(report)
                 _unlink(path)

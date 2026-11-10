@@ -22,9 +22,7 @@ import email.utils
 import logging
 import math
 import random
-from typing import Optional
-
-from requests import Response
+from typing import Mapping, Optional, Protocol
 
 from ...connection.connection_helpers import calculate_backoff_time
 
@@ -78,7 +76,15 @@ def backoff_with_jitter(backoff_factor: float, attempt: int, jitter: float) -> f
     return backoff_time
 
 
-def retry_after_seconds(response: Optional[Response]) -> Optional[float]:
+class _HasHeaders(Protocol):
+    """A response from S3 or from Comet: both retry loops read its Retry-After."""
+
+    @property
+    def headers(self) -> Mapping[str, str]:
+        """Case-insensitive, as HTTP header names are."""
+
+
+def retry_after_seconds(response: Optional[_HasHeaders]) -> Optional[float]:
     """The server's own instruction on how long to wait, when it sent one.
 
     A server that says how long to back off knows better than any doubling

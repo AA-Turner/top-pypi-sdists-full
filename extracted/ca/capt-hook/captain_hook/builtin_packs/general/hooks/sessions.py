@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import PurePath
 from typing import TYPE_CHECKING
+
+from loguru import logger
 
 from captain_hook import Allow, Block, Warn
 from captain_hook.bindings import Resolved
@@ -14,7 +16,9 @@ from captain_hook.builtin_packs.general.hooks._sessions import (
     GUARDED_PROGRAMS,
     INLINE_BUSY,
     INLINE_COMMANDS,
+    INLINE_LAUNCHER,
     INLINE_OWNER_TERMINAL,
+    INLINE_READER,
     INLINE_SESSION,
     INLINE_STARTED,
     INLINE_TABLE,
@@ -28,7 +32,9 @@ from captain_hook.builtin_packs.general.hooks._sessions import (
     SESSION_HOST_APPS,
     SETTLED_CLOSE,
     TERMINAL_CLOSE,
+    WORKTREE_REMOVE,
     Scan,
+    TimedOut,
     Ungranted,
     Unreadable,
     app_host,
@@ -46,6 +52,9 @@ from captain_hook.builtin_packs.general.hooks._sessions import (
     inline_class_rulings,
     inline_create,
     inline_dispatch,
+    inline_drive,
+    inline_launch,
+    inline_listing,
     inline_ruling,
     inline_run,
     inline_screen,
@@ -62,18 +71,21 @@ from captain_hook.builtin_packs.general.hooks._sessions import (
     own_lane,
     owner_lift,
     pid_verdict,
+    probe,
     process_class,
     quit_targets,
+    refusal,
     runs_once,
     settled_close,
     shell_scripts,
     spell,
     still_settled,
     unresolvable,
+    worktree_terminals,
 )
 from captain_hook.command_schemas import KILL, LAUNCHCTL, ORCA, PMSET, RENICE, SOFTWAREUPDATE, TMUX
 from captain_hook.guard_literal import QUOTING_CHARS
-from captain_hook.tickets import Proposal, Reach, Ticket
+from captain_hook.tickets import Deny, Proposal, Reach, Ticket
 
 if TYPE_CHECKING:
     from cc_transcript.command import Word
@@ -209,7 +221,10 @@ HELP_FLAGS = frozenset({"--help", "-h"})
 ORCA_READ = "Read sessions with `orca terminal list|show|read|wait` and leave ending them to the owner."
 ORCA_STOP_FIX = "End a done lane with `lr gc --done <ctx>`; only its Run's coordinator may worker-stop it."
 ORCA_CLOSE_SCOPES = frozenset({"all", "worktree"})
-CLOSE_FIX = f"Close only an idle orphan this session created, or ask the owner to {LATER_SESSION}."
+CLOSE_FIX = f"Close only an idle terminal this session created, or ask the owner to {LATER_SESSION}."
+CLOSE_ALONE = "Run the close alone on its line, piped at most, for the guard to check who created the terminal."
+REMOVE_FIX = f"Remove only a worktree Orca lists no terminals in, or ask the owner to {LATER_SESSION}."
+ORCA_RETRY = "Retry the same call: the guard keeps waiting on Orca, and the retry reads its answer."
 KEY_ALIASES = {
     "command": "cmd",
     "meta": "cmd",
@@ -240,12 +255,64 @@ LAUNCHCTL_ENDINGS = frozenset(
 )
 LAUNCHD_SERVICE_VERBS = frozenset({"bootout", "kickstart", "disable", "stop", "remove", "kill"})
 LAUNCHD_DOMAINS = frozenset({"gui", "user", "pid", "login"})
+DRIVE_DESK = re.compile(r"com\.long-running\.[\w-]+\.[\w-]+")
+DESK_PROGRAM = "lr"
+SESSION_HOST_DESK = "supervisor"
+LAUNCHD_PROGRAM = re.compile(r"^\tprogram = (.+)$", re.MULTILINE)
+LAUNCHD_ARGUMENTS = re.compile(r"^\targuments = \{\n((?:\t\t.*\n)*)\t\}", re.MULTILINE)
+LAUNCHD_JOB_PID = re.compile(r"^\tpid = (\d+)$", re.MULTILINE)
 DRIVE_DASHBOARD_RESTART = "Run `lr dashboard restart` instead, which restarts the drive dashboard and prints its URL."
+LAUNCHD_ALONE = "Run it alone on its line, piped at most, for an owner lift to apply."
+LAUNCHD_ORDER = "Inspect it with `launchctl print`, or name it in a cc-notes answer quoting the owner verbatim."
 APPLESCRIPT_ENDING = re.compile(r'(?i)\b(quit|log ?out|restart|shut ?down|sleep)\b|keystroke\s+"q"')
 PMSET_ENDINGS = frozenset({"sleepnow", "restart", "halt", "sleep"})
 PMSET_SCHEDULES = frozenset({"shutdown", "restart", "sleep", "poweroff"})
 TMUX_ENDINGS = frozenset({"kill-server", "kill-session", "kill-pane", "kill-window"})
 SERVE_RULING = inline_ruling("Owner: restart com.example.orca-serve once.")
+ORDER_SAID = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=10)
+ORCA_ORDER = (
+    "Also restart the orca server (app server, with the launch daemon, not sipervisor or any sessions or agents)"
+)
+ORCA_PROMPT = f"It seems things aren’t really merging what’s up with that? {ORCA_ORDER}"
+ORCA_RULING_BODY = 'Terminal 5:02 PM Nov 6: "{order}". The Orca app server is launch agent com.yasyf.orca-serve.'
+ORCA_RULING = inline_ruling(ORCA_RULING_BODY.format(order=ORCA_ORDER), written=ORDER_SAID + timedelta(minutes=2))
+ORCA_ALLOWS = {"allow": True, "relied_on": [ORCA_ORDER]}
+DESK_LR = "/Users/dev/.claude/long-running/current/bin/lr"
+BK_DESK = "com.long-running.durable-agents-rebuild.bk"
+SUPERVISOR_DESK = "com.long-running.durable-agents-rebuild.supervisor"
+GRADE_DESK = "com.long-running.durable-agents-rebuild.grade"
+DESK_TABLE = (
+    f"{INLINE_TABLE}"
+    f"89331     1 89331  501 Thu Jan  1 00:00:00 2026 {DESK_LR} bk serve --config lr.json\n"
+    f"40358     1 40358  501 Thu Jan  1 00:00:00 2026 {DESK_LR} supervisor run --config lr.json\n"
+    f"41000     1 41000  501 Thu Jan  1 00:00:00 2026 {DESK_LR} grade pool --config lr.json\n"
+    "41001 41000 41000  501 Thu Jan  1 00:00:00 2026 claude --dangerously-skip-permissions\n"
+    f"42000     1 42000  501 Thu Jan  1 00:00:00 2026 {DESK_LR} relay run --config lr.json\n"
+    "42001     1 42000  501 Thu Jan  1 00:00:00 2026 codex --dangerously-bypass-approvals-and-sandbox\n"
+)
+RELAY_DESK = "com.long-running.durable-agents-rebuild.relay"
+LAUNCHD_JOB = (
+    "gui/501/{label} = {{\n\tstate = running\n\n\tprogram = {lr}\n\targuments = {{\n\t\t{lr}\n\t\t{verb}\n"
+    "\t\t--config\n\t\tlr.json\n\t}}\n\n\tpid = {pid}\n}}\n"
+)
+DESK_JOBS = {
+    **INLINE_COMMANDS,
+    "ps -A -ww -o": DESK_TABLE,
+    **{
+        f"launchctl print gui/501/{label}": LAUNCHD_JOB.format(label=label, lr=DESK_LR, verb=verb, pid=pid)
+        for label, verb, pid in (
+            (BK_DESK, "bk", 89331),
+            (SUPERVISOR_DESK, "supervisor", 40358),
+            (GRADE_DESK, "grade", 41000),
+            (RELAY_DESK, "relay", 42000),
+        )
+    },
+}
+BK_REMOVAL = (
+    f'P=~/Library/LaunchAgents/{BK_DESK}.plist; mkdir -p ~/removed && cp "$P" ~/removed/ && '
+    f'launchctl bootout gui/501/{BK_DESK}; print "bootout rc=$?"; rm "$P"; '
+    'ps -p 89331 >/dev/null && print "89331 still up" || print "89331 gone"'
+)
 DESK_RULING = "Owner: end this drive's own desk-runner.py for a version restart."
 DESK_COMMANDS = {
     **INLINE_COMMANDS,
@@ -283,6 +350,27 @@ ROLLBACK_STOP = (
     "executors idle. Re-read the OWNER OVERRIDE at the end of your brief.' --interrupt 2>&1 | tail -2; "
     "~/.local/bin/cci post --drive release-v3 --lane root --kind hold --to merge-walker-r2,incident-run-backlog-0711 "
     "--text 'OWNER 8:25 AM: NO executor rollback.' 2>&1 | tail -1"
+)
+
+
+def order_transcript(words: str) -> list[dict[str, object]]:
+    started, replied = ORDER_SAID - timedelta(hours=2), ORDER_SAID - timedelta(hours=1)
+    return [
+        {"type": "user", "timestamp": started.isoformat(), "message": {"role": "user", "content": "Ship the release."}},
+        {
+            "type": "assistant",
+            "timestamp": replied.isoformat(),
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "Shipped."}]},
+        },
+        {"type": "user", "timestamp": ORDER_SAID.isoformat(), "message": {"role": "user", "content": words}},
+    ]
+
+
+ordered = partial(
+    guarded,
+    transcript=order_transcript(ORCA_PROMPT),
+    commands={**INLINE_COMMANDS, "ccn answer search com.yasyf.orca-serve": ORCA_RULING},
+    llm=ORCA_ALLOWS,
 )
 
 
@@ -796,6 +884,20 @@ def stopped_dispatch(call: Call, arguments: Arguments) -> str | None:
     return lone_target(call, arguments, ("orchestration", "worker-stop"), "dispatch")
 
 
+def removed_worktree(call: Call, arguments: Arguments) -> tuple[str, str | None] | None:
+    match orca_command(arguments):
+        case ("worktree", str() as verb) if verb in ORCA_ENDINGS["worktree"] and "parameter" not in arguments.values:
+            command = ("worktree", verb)
+        case _:
+            return None
+    if (selector := lone_target(call, arguments, command, "worktree")) is None:
+        return None
+    if "environment" not in arguments.values:
+        return selector, None
+    environment = lone_target(call, arguments, command, "environment")
+    return None if environment is None else (selector, environment)
+
+
 def closes_one_terminal(call: Call) -> bool:
     return call.name == "orca" and closed_terminal(call, ORCA.bind(call)) is not None
 
@@ -808,8 +910,8 @@ def verifiable_close(call: Call, scan: Scan) -> bool:
     return spelled(call, scan) and sum(map(closes_one_terminal, scan.literal_calls)) == 1
 
 
-def terminal_close_denied(spelling: str, handle: str, detail: str) -> str:
-    return f"BLOCKED: `{spelling}` closes terminal `{clip(handle, 48)}`{detail}. {CLOSE_FIX}"
+def terminal_close_denied(spelling: str, handle: str, detail: str, fix: str = CLOSE_FIX) -> str:
+    return f"BLOCKED: `{spelling}` closes terminal `{clip(handle, 48)}`{detail}. {fix}"
 
 
 def whole_tab_verdict(spelling: str, handle: str) -> str | None:
@@ -828,8 +930,15 @@ def terminal_close_verdict(call: Call, handle: str, scan: Scan, evt: ToolRewrite
     tab = "tab" in ORCA.bind(call).values
     if tab and (crowded := whole_tab_verdict(spelling, handle)) is not None:
         return crowded
+    action = Proposal(place={"terminal": handle}, payload={"tab": tab}, summary=f"close terminal {handle}")
+    once = runs_once(call, scan)
+    ruled = TERMINAL_CLOSE.check(evt, action) if once else None
+    if ruled is not None and not isinstance(ruled, Deny):
+        return None
     agent = None
     match scan.facts.terminal_tree(handle):
+        case TimedOut(reason):
+            return terminal_close_denied(spelling, handle, f" ({reason})", ORCA_RETRY)
         case Unreadable(reason):
             detail = f" ({reason})"
         case (root, *below):
@@ -839,12 +948,10 @@ def terminal_close_verdict(call: Call, handle: str, scan: Scan, evt: ToolRewrite
             detail = f", where {describe(agent)} runs"
         case _:
             detail = " (its process tree could not be read)"
-    denied = terminal_close_denied(spelling, handle, detail)
-    if not runs_once(call, scan):
+    denied = terminal_close_denied(spelling, handle, detail, CLOSE_FIX if once else CLOSE_ALONE)
+    if not isinstance(ruled, Deny):
         return denied
-    action = Proposal(place={"terminal": handle}, payload={"tab": tab}, summary=f"close terminal {handle}")
-    if (ungranted := lift(evt, TERMINAL_CLOSE, action, denied, owner=False)) is None:
-        return None
+    ungranted = refusal(denied, TERMINAL_CLOSE.hook, ruled)
     if agent is not None and (settled := settled_close(evt, handle, tab)) is not None:
         if (ungranted := lift(evt, SETTLED_CLOSE, settled, SETTLED_CLOSE.deny, owner=False)) is None:
             if still_settled(settled):
@@ -852,6 +959,28 @@ def terminal_close_verdict(call: Call, handle: str, scan: Scan, evt: ToolRewrite
             changed = "sessions: the terminal's dispatch or idle prompt changed while the judge decided."
             return Ungranted(denied, changed)
     return owner_lift(evt, TERMINAL_CLOSE, action, ungranted)
+
+
+def worktree_remove_denied(spelling: str, selector: str, held: str, fix: str = REMOVE_FIX) -> str:
+    return f"BLOCKED: `{spelling}` removes worktree `{clip(selector, 48)}` and {held}, ending the sessions there. {fix}"
+
+
+def worktree_remove_verdict(call: Call, removal: tuple[str, str | None], evt: ToolRewriteEvent) -> Ungranted | None:
+    selector, environment = removal
+    spelling, fix = clip(call.source.raw, 50), REMOVE_FIX
+    match worktree_terminals(selector, environment):
+        case 0:
+            return None
+        case TimedOut(reason):
+            held, fix = f"every terminal in it, which the guard could not list ({reason})", ORCA_RETRY
+        case Unreadable(reason):
+            held = f"every terminal in it, which the guard could not list ({reason})"
+        case int() as count:
+            held = f"the {count} terminal{'' if count == 1 else 's'} Orca lists in it"
+    action = Proposal(
+        place={"worktree": selector}, payload={"environment": environment}, summary=f"remove worktree {selector}"
+    )
+    return lift(evt, WORKTREE_REMOVE, action, worktree_remove_denied(spelling, selector, held, fix))
 
 
 def orca_ending_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | Ungranted | None:
@@ -864,6 +993,8 @@ def orca_ending_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | 
         return None
     if (handle := closed_terminal(call, arguments)) is not None and verifiable_close(call, scan):
         return terminal_close_verdict(call, handle, scan, evt)
+    if (removal := removed_worktree(call, arguments)) is not None and spelled(call, scan) and runs_once(call, scan):
+        return worktree_remove_verdict(call, removal, evt)
     if (
         (dispatch := stopped_dispatch(call, arguments)) is not None
         and spelled(call, scan)
@@ -989,6 +1120,18 @@ def orca_vm_run_flag(call: Call) -> str | None:
             command="orca terminal close --terminal term_agent --json",
             commands={**INLINE_COMMANDS, "ccn answer search term_agent": inline_ruling("close term_agent, term_idle")},
         ): Allow(),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            commands={
+                **INLINE_COMMANDS,
+                "orca terminal show --terminal term_agent --json": (1, "orca timed out"),
+                "ccn answer search term_agent": inline_ruling("close term_agent"),
+            },
+        ): Allow(),
+        guarded(
+            command="orca terminal close --terminal term_agent --json",
+            commands={**INLINE_COMMANDS, "orca terminal show --terminal term_agent --json": (1, "orca timed out")},
+        ): Block(pattern="(`orca` failed)"),
         guarded(command=f"T={INLINE_OWNER_TERMINAL}; orca terminal close --terminal $T"): Block(
             pattern="leave ending them to the owner"
         ),
@@ -1031,6 +1174,41 @@ def orca_vm_run_flag(call: Call) -> str | None:
             transcript=inline_create("term_agent"),
             commands={**INLINE_COMMANDS, "orca orchestration worker-list": inline_workers("term_agent")},
         ): Block(pattern="where pid 16002"),
+        guarded(command=AGENT_CLOSE, file=INLINE_LAUNCHER, transcript=inline_launch("term_agent")): Allow(),
+        guarded(
+            command=AGENT_CLOSE,
+            file=INLINE_LAUNCHER,
+            transcript=inline_launch("term_agent"),
+            commands={**INLINE_COMMANDS, "orca terminal read": INLINE_BUSY},
+        ): Block(pattern="where pid 16002"),
+        guarded(
+            command=AGENT_CLOSE,
+            file=INLINE_LAUNCHER,
+            transcript=inline_launch("term_agent"),
+            commands={**INLINE_COMMANDS, "orca orchestration worker-list": inline_workers("term_agent")},
+        ): Block(pattern="where pid 16002"),
+        guarded(command=AGENT_CLOSE, file=INLINE_READER, transcript=inline_launch("term_agent")): Block(
+            pattern="where pid 16002"
+        ),
+        guarded(command=AGENT_CLOSE, transcript=inline_launch("term_agent")): Block(pattern="where pid 16002"),
+        guarded(
+            command=AGENT_CLOSE, file=INLINE_LAUNCHER, transcript=inline_launch("term_agent", "/bin/zsh ~/launch.sh")
+        ): Allow(),
+        guarded(
+            command=AGENT_CLOSE, file=INLINE_LAUNCHER, transcript=inline_launch("term_agent", "./launch.sh")
+        ): Block(pattern="where pid 16002"),
+        guarded(command=AGENT_CLOSE, file=INLINE_LAUNCHER, transcript=inline_launch("term_other")): Block(
+            pattern="where pid 16002"
+        ),
+        guarded(
+            command=f"{AGENT_CLOSE}; ps -o pid,command -p 16002",
+            file=INLINE_LAUNCHER,
+            transcript=inline_launch("term_agent"),
+        ): Block(pattern="alone on its line"),
+        guarded(command=AGENT_CLOSE, file=inline_drive("term_agent"), transcript=inline_create("term_agent")): Block(
+            pattern="where pid 16002"
+        ),
+        guarded(command=AGENT_CLOSE, file=inline_drive("term_root"), transcript=inline_create("term_agent")): Allow(),
         guarded(
             command="orca terminal close --terminal term_agent --tab --json",
             transcript=inline_create("term_agent"),
@@ -1183,6 +1361,38 @@ def orca_vm_run_flag(call: Call) -> str | None:
         guarded(command="xargs -n1 orca terminal close --terminal"): Block(),
         guarded(command="orca terminal stop --worktree x"): Block(pattern="stops the active terminal in worktree"),
         guarded(command="orca worktree rm --worktree path:/x"): Block(pattern="removes worktree `path:/x`"),
+        guarded(
+            command="orca worktree rm --environment dagger-spike-dev --worktree id:wt_empty --json",
+            commands={**INLINE_COMMANDS, **inline_listing("id:wt_empty", environment="dagger-spike-dev")},
+        ): Allow(),
+        guarded(
+            command="orca worktree rm --worktree id:wt_busy --json",
+            commands={**INLINE_COMMANDS, **inline_listing("id:wt_busy", "term_agent")},
+        ): Block(pattern="the 1 terminal Orca lists in it"),
+        guarded(
+            command="orca worktree rm --worktree id:wt_busy --json",
+            commands={
+                **INLINE_COMMANDS,
+                **inline_listing("id:wt_busy", "term_agent"),
+                "ccn answer search id:wt_busy": inline_ruling("Owner: remove worktree id:wt_busy."),
+            },
+        ): Allow(),
+        guarded(
+            command="orca worktree rm --worktree id:wt_busy --json",
+            commands={**INLINE_COMMANDS, **inline_listing("id:wt_busy", "term_agent")},
+            transcript=inline_ask("Remove worktree id:wt_busy and its finished Codex lane."),
+            llm=OWNER_KILL,
+        ): Allow(),
+        guarded(
+            command="orca worktree rm --worktree id:wt_busy --json",
+            commands={**INLINE_COMMANDS, **inline_listing("id:wt_busy", "term_agent")},
+            transcript=inline_ask("Remove worktree id:wt_other and its finished Codex lane."),
+            llm=OWNER_KILL,
+        ): Block(pattern="the 1 terminal Orca lists in it"),
+        guarded(
+            command="orca worktree rm --pairing-code x --worktree id:wt_empty",
+            commands={**INLINE_COMMANDS, **inline_listing("id:wt_empty")},
+        ): Block(pattern="removes worktree `id:wt_empty` and every terminal in it"),
         guarded(command="orca orchestration worker-stop --dispatch ctx-1"): Block(
             pattern="worker-stop ends the worker or run `ctx-1`"
         ),
@@ -1530,7 +1740,7 @@ def launchd_label(target: str) -> str | None:
             return None
 
 
-def launchd_service(call: Call, arguments: Arguments, scan: Scan) -> tuple[str, str] | None:
+def literal_service(call: Call, arguments: Arguments, scan: Scan) -> tuple[str, str] | None:
     words = arguments.words.get("targets", ())
     targets = arguments.values.get("targets", ())
     match arguments.values.get("verb", ()):
@@ -1544,14 +1754,50 @@ def launchd_service(call: Call, arguments: Arguments, scan: Scan) -> tuple[str, 
         or not arguments.complete
         or not arguments.operands_complete
         or any(other is call for other in scan.respelled)
-        or not runs_once(call, scan)
         or any(word.value is None or word.expandable for word in words)
         or len(targets) != (2 if verb == "kill" else 1)
         or not isinstance(target := targets[-1], str)
     ):
         return None
+    return verb, target
+
+
+def launchd_service(call: Call, arguments: Arguments, scan: Scan) -> tuple[str, str] | None:
+    if (service := literal_service(call, arguments, scan)) is None:
+        return None
+    verb, target = service
     label = target if verb in ("stop", "remove") and "/" not in target else launchd_label(target)
     return None if label is None else (verb, label)
+
+
+def desk_without_session(call: Call, arguments: Arguments, scan: Scan) -> bool:
+    match literal_service(call, arguments, scan):
+        case ("bootout", target) if (label := launchd_label(target)) and DRIVE_DESK.fullmatch(label):
+            pass
+        case _:
+            return False
+    if any(other is not call and other.name == "launchctl" for other in scan.calls):
+        return False
+    if isinstance(shown := probe(("launchctl", "print", target)), Unreadable):
+        return False
+    program, listed = LAUNCHD_PROGRAM.search(shown), LAUNCHD_ARGUMENTS.search(shown)
+    match [line.strip() for line in listed[1].splitlines()] if listed else []:
+        case [_, verb, *_] if program and PurePath(program[1]).name == DESK_PROGRAM and verb != SESSION_HOST_DESK:
+            pass
+        case _:
+            return False
+    if (pid := LAUNCHD_JOB_PID.search(shown)) is not None:
+        job, ownership = int(pid[1]), scan.facts.ownership
+        if (
+            isinstance(ownership, Unreadable)
+            or job not in ownership.table.rows
+            or any(
+                row.pid in ownership.protected for row in ownership.table.rows.values() if job in (row.pid, row.pgid)
+            )
+        ):
+            return False
+    logger.bind(target=target, pid=pid and pid[1]).info("allowing the bootout of a drive desk that hosts no session")
+    return True
 
 
 def drive_dashboard(arguments: Arguments) -> bool:
@@ -1569,20 +1815,19 @@ def launchctl_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | Un
         return None
     spelling = spell(call)
     arguments = LAUNCHCTL.bind(call)
+    if desk_without_session(call, arguments, scan):
+        return None
     dashboard = drive_dashboard(arguments)
     if (service := launchd_service(call, arguments, scan)) is not None:
         verb, label = service
-        action = Proposal(place={"service": label}, payload={"verb": verb}, summary=f"launchctl {verb} {label}")
-        message = (
+        blocked = (
             f"BLOCKED: `{spelling}` stops, unloads, or restarts launchd service `{clip(label, 40)}`, which may host "
             "sessions. "
-            + (
-                DRIVE_DASHBOARD_RESTART
-                if dashboard
-                else f"Inspect it with `launchctl print`, or ask the owner to {LATER_SESSION}."
-            )
         )
-        return lift(evt, LAUNCHD_STOP, action, message)
+        if not runs_once(call, scan):
+            return blocked + (DRIVE_DASHBOARD_RESTART if dashboard else LAUNCHD_ALONE)
+        action = Proposal(place={"service": label}, payload={"verb": verb}, summary=f"launchctl {verb} {label}")
+        return lift(evt, LAUNCHD_STOP, action, blocked + (DRIVE_DASHBOARD_RESTART if dashboard else LAUNCHD_ORDER))
     match arguments.values.get("verb", ()):
         case (None,):
             return (
@@ -1630,7 +1875,30 @@ def launchctl_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | Un
                     "restart com.example.orca-serve", written=INLINE_STARTED + timedelta(minutes=5)
                 ),
             },
-        ): Block(pattern="ask the owner to name it in a cc-notes answer for a later session"),
+        ): Block(pattern="name it in a cc-notes answer quoting the owner verbatim"),
+        ordered(command="launchctl kickstart -k gui/501/com.yasyf.orca-serve"): Allow(),
+        ordered(
+            command="launchctl kickstart -k gui/501/com.yasyf.orca-serve",
+            transcript=order_transcript("It seems things aren’t really merging what’s up with that?"),
+        ): Block(pattern="stops, unloads, or restarts launchd service `com.yasyf.orca-serve`"),
+        ordered(
+            command="launchctl kickstart -k gui/501/com.yasyf.orca-serve",
+            commands={
+                **INLINE_COMMANDS,
+                "ccn answer search com.yasyf.orca-serve": inline_ruling(
+                    ORCA_RULING_BODY.format(order=ORCA_ORDER.replace("sipervisor", "supervisor")),
+                    written=ORDER_SAID + timedelta(minutes=2),
+                ),
+            },
+        ): Block(),
+        ordered(
+            command="launchctl kickstart -k gui/501/com.yasyf.orca-serve.helper",
+            commands={**INLINE_COMMANDS, "ccn answer search com.yasyf.orca-serve.helper": ORCA_RULING},
+        ): Block(),
+        ordered(command="launchctl kickstart -k gui/501/com.yasyf.orca-serve", agent_id="lane-1"): Block(),
+        ordered(command='launchctl kickstart -k gui/501/com.yasyf.orca-serve; echo "EXIT=$?"'): Block(
+            pattern="alone on its line, piped at most, for an owner lift"
+        ),
         guarded(
             command="launchctl bootout gui/501/com.example.orca-serve",
             commands={**INLINE_COMMANDS, "ccn answer search com.example.orca-serve": inline_ruling("com.example.orca")},
@@ -1683,6 +1951,29 @@ def launchctl_verdict(call: Call, scan: Scan, evt: ToolRewriteEvent) -> str | Un
         ),
         guarded(command="launchctl list"): Allow(),
         guarded(command="launchctl print gui/501"): Allow(),
+        guarded(command=BK_REMOVAL, commands=DESK_JOBS): Allow(),
+        guarded(command=f"launchctl bootout gui/501/{BK_DESK}", commands=DESK_JOBS): Allow(),
+        guarded(command=f"launchctl bootout gui/501/{SUPERVISOR_DESK}", commands=DESK_JOBS): Block(
+            pattern="stops, unloads, or restarts launchd service"
+        ),
+        guarded(command=f"launchctl bootout gui/501/{GRADE_DESK}", commands=DESK_JOBS): Block(
+            pattern="stops, unloads, or restarts launchd service"
+        ),
+        guarded(command=f"launchctl bootout gui/501/{RELAY_DESK}", commands=DESK_JOBS): Block(
+            pattern="stops, unloads, or restarts launchd service"
+        ),
+        guarded(
+            command=f"launchctl bootout gui/501/{BK_DESK} && launchctl bootstrap gui/501 ~/sup.plist && "
+            f"launchctl bootout gui/501/{BK_DESK}",
+            commands=DESK_JOBS,
+        ): Block(),
+        guarded(command=f"launchctl kickstart -k gui/501/{BK_DESK}", commands=DESK_JOBS): Block(
+            pattern="stops, unloads, or restarts launchd service"
+        ),
+        guarded(
+            command=f"launchctl bootout gui/501/{BK_DESK}",
+            commands={**INLINE_COMMANDS, f"launchctl print gui/501/{BK_DESK}": (113, "Could not find service")},
+        ): Block(pattern="stops, unloads, or restarts launchd service"),
     }
 )
 def launchctl_stops_service(evt: ToolRewriteEvent) -> HookResult | None:

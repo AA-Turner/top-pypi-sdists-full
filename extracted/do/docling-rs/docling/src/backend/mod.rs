@@ -23,9 +23,12 @@ macro_rules! cached_regex {
 }
 
 mod abw;
+pub(crate) mod afp;
 mod asciidoc;
+pub(crate) mod boxnote;
 #[cfg(feature = "web-browser")]
 pub(crate) mod browser;
+pub(crate) mod calendar;
 pub(crate) mod cfb;
 pub(crate) mod cgm;
 mod chandra;
@@ -56,6 +59,7 @@ pub mod images;
 mod interchange;
 pub mod ipynb;
 pub(crate) mod iwork;
+mod iwork_cells;
 mod iwork_charts;
 pub(crate) mod jats;
 mod keynote;
@@ -72,6 +76,9 @@ mod md_tree;
 mod metafile;
 mod mhtml;
 pub(crate) mod msg;
+mod numbers;
+mod numbers_iwa;
+mod numbers_xml;
 mod numfmt;
 mod odf;
 mod odf_tree;
@@ -86,6 +93,8 @@ mod palmdoc;
 mod ppt;
 mod pptx;
 mod pptx_chart;
+#[cfg(test)]
+mod pptx_upstream_unit;
 mod print_file;
 mod quattro;
 pub(crate) mod ris;
@@ -114,10 +123,14 @@ mod xbrl_dts;
 mod xls;
 mod xlsx;
 mod xlsx_drawings;
+mod xlsx_richdata;
 pub(crate) mod xml_depth;
 
 pub use abw::AbwBackend;
+pub use afp::AfpBackend;
 pub use asciidoc::AsciiDocBackend;
+pub use boxnote::BoxNoteBackend;
+pub use calendar::CalendarBackend;
 pub use chandra::looks_like_chandra;
 #[cfg(feature = "vlm")]
 pub(crate) use chandra::parse_chandra_pages as chandra_pages;

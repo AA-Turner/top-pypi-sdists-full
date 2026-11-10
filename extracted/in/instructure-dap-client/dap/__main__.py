@@ -3,9 +3,11 @@ import errno
 import logging
 import sys
 
+from rich.markup import escape
+
 from . import ui
 from .commands.command_group import dap
-from .dap_error import OperationError
+from .dap_error import OAuthTokenError, OperationError
 
 
 def _display_stacktrace() -> bool:
@@ -37,19 +39,23 @@ def console_entry() -> None:
     try:
         dap()
     except (OperationError, BaseExceptionGroup) as e:
-        ui.error(e.message)
+        ui.error(escape(e.message))
         logger.error(e.message)
         if _display_stacktrace():
             logger.exception(e)
         _exit_for_exception(e)
     except NotImplementedError as e:
-        ui.error(e.__str__())
+        ui.error(escape(e.__str__()))
         logger.exception(e, exc_info=_display_stacktrace())
         _exit_for_exception(e)
     except (asyncio.exceptions.CancelledError, KeyboardInterrupt) as e:
         _exit_for_exception(e)
+    except OAuthTokenError as e:
+        ui.error(escape(e.describe()))
+        logger.exception(e, exc_info=_display_stacktrace())
+        _exit_for_exception(e)
     except Exception as e:
-        ui.error(e.__str__())
+        ui.error(escape(e.__str__()))
         logger.exception(e, exc_info=_display_stacktrace())
         _exit_for_exception(e)
 

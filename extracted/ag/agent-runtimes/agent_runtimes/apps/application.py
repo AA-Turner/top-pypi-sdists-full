@@ -1013,6 +1013,10 @@ class Application:
         scopes: Sequence[Mapping[str, Any]] = (),
         excluded_tasks: Sequence[Mapping[str, Any]] = (),
         signed_out: bool = True,
+        sign_in_disabled: bool = False,
+        publish_skills: bool = False,
+        web_unscoped: bool = False,
+        web_disabled: bool = False,
         interfaces: Sequence[str] = ("agent",),
         extensions: Sequence[str] = (),
         personal_agents: str = "any",
@@ -1037,8 +1041,24 @@ class Application:
             ``instructions`` and/or ``references``).
         signed_out : bool
             Whether a personal agent may ask before the person signs in.
+        sign_in_disabled : bool
+            Whether it offers personal agents no sign-in (PAP ``auth.disabled``,
+            0.3 as published): they ask only what anybody may ask, in nobody's
+            account; ``signed_out`` must then stay on.
+        publish_skills : bool
+            Whether the application's skills are published to personal agents
+            as a ``skill_index`` (PAP 0.3 §9.4): only the public, secret-free
+            ones, which the platform decides at Ship.
+        web_unscoped : bool
+            Whether a browser signed in for the person on its website has
+            everything the account can do there (PAP ``web.unscoped``, draft
+            0.4 §6); needs the ``web`` interface.
+        web_disabled : bool
+            Whether it asks personal agents to use its agent and APIs rather
+            than its website (PAP ``web.disabled``, draft 0.4 §6); it then
+            offers no ``web`` interface.
         interfaces : sequence of str
-            How personal agents reach it: ``agent``, ``openapi``, ``mcp``.
+            How personal agents reach it: ``agent``, ``openapi``, ``mcp``, ``web``.
         extensions : sequence of str
             Extensions it offers: ``operations``.
         personal_agents : str
@@ -1059,6 +1079,10 @@ class Application:
             {
                 "enabled": True,
                 "signed_out": signed_out,
+                "sign_in_disabled": sign_in_disabled,
+                "publish_skills": publish_skills,
+                "web_unscoped": web_unscoped,
+                "web_disabled": web_disabled,
                 "interfaces": list(interfaces),
                 "scopes": list(scopes),
                 "excluded_tasks": list(excluded_tasks),

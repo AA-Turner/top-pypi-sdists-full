@@ -107,6 +107,22 @@ def _chain_cached_pages(
     return make(0) if pages else Page([], fetch_next=None, total=total)
 
 
+_SEARCH_CONTENT_DEFAULT_SIZE = 10
+_SEARCH_CONTENT_MAX_SIZE = 50
+_SEARCH_CONTENT_MAX_PAGES = 5
+# The registry wraps each matched word of a content snippet in U+0002 / U+0003
+# (STX / ETX), characters that cannot occur in extracted text. Rendered as ``**``
+# so the excerpt reads as plain Markdown-ish text.
+_SNIPPET_START_MARK = "\u0002"
+_SNIPPET_STOP_MARK = "\u0003"
+
+
+def _plain_snippet(snippet: str | None) -> str | None:
+    if snippet is None:
+        return None
+    return snippet.replace(_SNIPPET_START_MARK, "**").replace(_SNIPPET_STOP_MARK, "**")
+
+
 def _content_row(r: Resource, max_chars_per_file: int | None) -> dict:
     """One survey row for a resource: metadata + (bounded) inline text content.
 
@@ -562,6 +578,102 @@ class Branches(_Manager):
                     child_row["extracted_from"] = r.resource_id
                     rows.append(child_row)
         return rows
+
+    def search_content(
+        self, branch: Branch, query: str, *, size: int = _SEARCH_CONTENT_DEFAULT_SIZE
+    ) -> dict:
+        """Find which of a branch's tracked files match ``query`` by their text.
+
+        Server-side search over the registry's content index: the words of
+        ``query`` are matched against each tracked file's extracted body text AND
+        its name, path and description, scoped to the branch's current snapshot.
+        Nothing is downloaded — the registry returns the matching files with a
+        snippet of the text around the match, so the right source is found without
+        reading the branch's files one by one. Use it to locate a fact (an equipment
+        id, a requirement, a term) before reading; use :meth:`contents` only when the
+        task really is to read or summarize the whole branch.
+
+        Returns ``{query, snapshot_id, hits: [{resource_id, name, rank, snippet}],
+        unsearched_count, index_refreshed_at}``, hits ranked best-first, up to
+        ``size`` (1..50) of them, gathered over up to five result pages (a page can be
+        short at permission boundaries). ``snippet`` is the excerpt around the matched words with
+        each match wrapped in ``**``; it is ``None`` when the file matched only by
+        name. ``unsearched_count`` is how many tracked files have no searchable
+        text (binary, too large, pinned to an older revision, or not indexed yet) —
+        such a file can still match by name; when it is ``None`` content search is
+        off and only names were searched. Results reflect the index as of
+        ``index_refreshed_at``: a file uploaded moments ago may not be found yet, so
+        read a just-uploaded file directly rather than searching for it.
+
+        Raises ``InternalServerError`` (``status_code`` 503) when the registry's
+        search is disabled or its index is not ready, ``PermissionDeniedError``
+        when the caller cannot view the system, and ``IstariError`` for a pinned
+        ``Subsystem.branch()`` view: the endpoint searches only the branch's
+        current snapshot, so search the child via ``system().get_branch(name)``.
+
+        Example::
+
+            found = branch.search_content("AUR-D02-AUX2Z-DP-02 distribution panel")
+            if found["hits"]:
+                text = client.resources.get(found["hits"][0]["resource_id"]).read_text()
+
+        Aliases: search find locate where-is which-file contains full-text content
+        grep scan lookup discover source body text
+        """
+        if getattr(branch, "_pinned", False):
+            raise IstariError(
+                "This Branch is a pinned read view from Subsystem.branch(); the search endpoint "
+                "covers only the branch's current snapshot, not the pinned one. "
+                "Search via system().get_branch(name) instead."
+            )
+        return self._search_content(branch._system_id, branch.id, query, size)
+
+    def _search_content(
+        self, system_id: str, branch_id: str | None, query: str, size: int
+    ) -> dict:
+        """Run the system search (``branch_id`` None = baseline), following the
+        cursor until ``size`` resource hits are collected or the pages run out."""
+        if not query or not query.strip():
+            raise ValueError("query must be a non-empty string")
+        if not 1 <= size <= _SEARCH_CONTENT_MAX_SIZE:
+            raise ValueError(f"size must be between 1 and {_SEARCH_CONTENT_MAX_SIZE}")
+        hits: list[dict] = []
+        first: Any = None
+        cursor: str | None = None
+        for _ in range(_SEARCH_CONTENT_MAX_PAGES):
+            page = self._call(
+                self._engine.v3_api.search_system_resources,
+                system_id,
+                q=query,
+                branch_id=branch_id,
+                size=size,
+                cursor=cursor,
+            )
+            if first is None:
+                first = page
+            for item in page.items:
+                if getattr(item.entity_type, "value", item.entity_type) != "resource":
+                    continue
+                hits.append(
+                    {
+                        "resource_id": item.id,
+                        "name": item.display_name,
+                        "rank": item.rank,
+                        "snippet": _plain_snippet(item.content_snippet),
+                    }
+                )
+                if len(hits) == size:
+                    break
+            cursor = page.next_cursor
+            if len(hits) >= size or not cursor:
+                break
+        return {
+            "query": query,
+            "snapshot_id": first.snapshot_id,
+            "hits": hits,
+            "unsearched_count": first.content_unsearched_count,
+            "index_refreshed_at": first.search_index_refreshed_at,
+        }
 
     def search(
         self,

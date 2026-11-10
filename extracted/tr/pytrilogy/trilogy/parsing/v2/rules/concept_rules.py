@@ -257,6 +257,14 @@ def concept_property_declaration(
     return concept_value
 
 
+def _declare_key(concept: Concept) -> None:
+    """A declared key is its own grain, wherever its value comes from; it does
+    not inherit its inputs' grain or keys."""
+    concept.purpose = Purpose.KEY
+    concept.grain = Grain(components={concept.address})
+    concept.keys = None
+
+
 def concept_derivation(
     node: SyntaxNode,
     context: RuleContext,
@@ -315,8 +323,8 @@ def concept_derivation(
             environment=context.environment,
             metadata=metadata,
         )
-        if purpose == Purpose.KEY and concept_value.purpose != Purpose.KEY:
-            concept_value.purpose = Purpose.KEY
+        if purpose == Purpose.KEY:
+            _declare_key(concept_value)
         elif (
             purpose
             and purpose != Purpose.AUTO
@@ -355,6 +363,13 @@ def concept_derivation(
             environment=context.environment,
             metadata=metadata,
         )
+        if purpose == Purpose.KEY:
+            source = context.environment.concepts.get(source_value.address)
+            if source is not None and source.purpose == Purpose.KEY:
+                # a renamed key has its source's rows
+                concept_value.purpose = Purpose.KEY
+            else:
+                _declare_key(concept_value)
     else:
         snippet = ""
         if (
@@ -494,6 +509,18 @@ def data_type(
     return base
 
 
+def _trait_applies(trait_type: Any, base: Any) -> bool:
+    """A trait over `list<any>` (`std.collection.unique`) annotates a list of
+    any element type."""
+    if (
+        isinstance(trait_type, ArrayType)
+        and trait_type.type == DataType.ANY
+        and isinstance(base, ArrayType)
+    ):
+        return True
+    return is_compatible_datatype(trait_type, base)
+
+
 def _apply_traits(
     base: Any,
     traits: list[str],
@@ -517,7 +544,7 @@ def _apply_traits(
             raise TypeError(
                 f"Invalid type (trait) {trait} for {base}, line {line}.{hint}"
             )
-        if not is_compatible_datatype(matched.type, base):
+        if not _trait_applies(matched.type, base):
             raise TypeError(
                 f"Invalid type (trait) {trait} for {base}, line {line}. "
                 f"Trait expects type {matched.type}, has {base}"

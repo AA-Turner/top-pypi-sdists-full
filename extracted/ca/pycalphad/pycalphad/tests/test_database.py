@@ -15,6 +15,7 @@ from pycalphad import Database, Model, calculate, variables as v
 from pycalphad.variables import Species
 from pycalphad.io.tdb import expand_keyword, reflow_text, TCPrinter
 from pycalphad.io.tdb import _apply_new_symbol_names, DatabaseExportError
+from pycalphad.io.database import DiffusionModel
 import pycalphad.tests.databases
 from pycalphad.tests.fixtures import select_database, load_database
 
@@ -790,12 +791,33 @@ def test_reflow_text_raises_on_unbreakable_lines():
         reflow_text(very_long_line, 80)
 
 def test_reflow_text_for_line_breaks():
-    """Should accept line breaks only at `linebreak_chars` or before number addition/subtractions since they are not preceded by 'E' or '(', e.g.: '6.14599E-07', 'T**(-3)', and 'LOG(-3)'."""
+    """Should accept line breaks only at `linebreak_chars` or before binary addition/subtraction, not exponent or unary signs, e.g.: '6.14599E-07', 'T**(-3)', and 'LOG(-3)'."""
     linebreak_chars = [" ", "$"]
     test_string = "FUNCTION SYMBOL 000 -1.111111*2.2222222E-02-LOG(-3.333333)*3.333333*T**(-3.33333)+4.4444444E-04+T**(-5.55555)*LOG(-5.55555)*5.555555; 000 N !"
     lines = reflow_text(test_string, 80).replace("  ", "").split("\n")
     for i in range(1, len(lines)):
         assert lines[i][0] in linebreak_chars or (lines[i][0] in ['+', '-'] and lines[i-1][-1] not in ["E", "("])
+
+@pytest.mark.parametrize("expr", [
+    "{v}0+{v}1*T+{v}2*T**2+{v}3*T**3+{v}4*T*LN(T)",
+    "-{v}0-{v}1*T-{v}2*T**2-{v}3*T**3-{v}4*T*LN(T)",
+])
+@pytest.mark.parametrize("command", [
+    "FUNCTION FN 298.15 {expr}; 6000 N !",
+    "FUNCTION FN 298.15 {expr}; 1000 Y {expr}; 6000 N !",
+    "PARAMETER G(GAS,A;0) 298.15 {expr}; 6000 N !",
+])
+def test_write_tdb_breaks_long_expressions_at_binary_operators(command, expr):
+    "Database: long expressions are broken at binary addition/subtraction to fit the default line width."
+    expr = expr.format(v="V" * 20)
+    tdb_str = f"""
+    ELEMENT A GAS 0 0 0 !
+    {command.format(expr=expr)}
+    """
+    dbf = Database.from_string(tdb_str, fmt='tdb')
+    written = dbf.to_string(fmt='tdb')
+    assert all(len(line) <= 78 for line in written.splitlines())
+    assert Database.from_string(written, fmt='tdb') == dbf
 
 # TODO: when the new database-as-files test fixture is merged, replace with unary 50 proper.
 def test_long_constituent_line_writes_correctly():
@@ -896,17 +918,128 @@ def test_long_constituent_line_writes_correctly():
     assert len(dbf.elements) == len(reloaded_dbf.elements)
     assert len(dbf.phases['LIQUID'].constituents[0]) == len(reloaded_dbf.phases['LIQUID'].constituents[0])
 
-def test_database_passes_with_diffusion_commands():
-    "DIFFUSION and ZEROVOLUME_SPECIES commands do not raise errors while parsing (doesn't test implementation)."
+def test_database_passes_with_zerovolume_species_commands():
+    "ZEROVOLUME_SPECIES commands do not raise errors while parsing (doesn't test implementation)."
     tdb_string = """
      ELEMENT /-   ELECTRON_GAS              0.0000E+00  0.0000E+00  0.0000E+00 !
      ELEMENT VA   VACUUM                    0.0000E+00  0.0000E+00  0.0000E+00 !
 
      ZEROVOLUME_SPECIES VA !
-     DIFFUSION MAGNETIC BCC_A2 ALPHA=0.3 !
     """
 
     dbf = Database.from_string(tdb_string, fmt='tdb')
+
+DIFFUSION_ELEMENTS_TDB = """
+ ELEMENT /-   ELECTRON_GAS              0.0000E+00  0.0000E+00  0.0000E+00 !
+ ELEMENT VA   VACUUM                    0.0000E+00  0.0000E+00  0.0000E+00 !
+ ELEMENT FE   BCC_A2                    5.5847E+01  4.4890E+03  2.7280E+01 !
+ ELEMENT C    GRAPHITE                  1.2011E+01  1.0540E+03  5.7400E+00 !
+ ELEMENT N    1/2_MOLE_N2(G)            1.4007E+01  4.3350E+03  9.5751E+01 !
+"""
+
+DIFFUSION_PHASES_TDB = """
+ PHASE BCC_A2 %  2 1 3 !
+ CONSTITUENT BCC_A2 :FE:C,N,VA: !
+ PHASE FCC_A1 %  2 1 1 !
+ CONSTITUENT FCC_A1 :FE:C,N,VA: !
+ PHASE CEMENTITE %  2 3 1 !
+ CONSTITUENT CEMENTITE :FE:C: !
+ PHASE DIAMOND_A4 %  1 1 !
+ CONSTITUENT DIAMOND_A4 :C: !
+"""
+
+
+def _diffusion_tdb(*commands):
+    "A TDB with the given DIFFUSION commands between the elements and the phases they name."
+    return DIFFUSION_ELEMENTS_TDB + ''.join(f' {command}\n' for command in commands) + DIFFUSION_PHASES_TDB
+
+
+DIFFUSION_COMMANDS_TDB = _diffusion_tdb(
+    'DIFFUSION MAGNETIC BCC_A2 ALPHA=0.3 ALPHA2&C=1.8 ALPHA2&N=0.6 !',
+    'DIFFUSION DILUTE CEMENTITE :FE:C: !',
+    'DIFFUSION NONE DIAMOND_A4 !',
+)
+
+
+def test_diffusion_commands_become_phase_model_hints():
+    "Each DIFFUSION command in a file is put on the phase it names, and a phase without one has no hint."
+    dbf = Database.from_string(DIFFUSION_COMMANDS_TDB, fmt='tdb')
+    assert dbf.phases['BCC_A2'].model_hints['diffusion'].model == 'MAGNETIC'
+    assert dbf.phases['CEMENTITE'].model_hints['diffusion'].model == 'DILUTE'
+    assert dbf.phases['DIAMOND_A4'].model_hints['diffusion'].model == 'NONE'
+    assert 'diffusion' not in dbf.phases['FCC_A1'].model_hints
+    hash(dbf.phases['BCC_A2'])
+
+
+# as written in published mobility databases
+PUBLISHED_DIFFUSION_COMMANDS = [
+    ('DIFFUSION DILUTE CEMENTITE :FE:C: !', 'CEMENTITE',
+     DiffusionModel('DILUTE', dependent_constituents=(Species('FE'), Species('C')))),
+    ('DIFFUSION MAGNETIC BCC_A2 ALPHA=0.3 ALPHA2&C=1.8 ALPHA2&N=0.6 !', 'BCC_A2',
+     DiffusionModel('MAGNETIC', magnetic_alpha=((None, 0.3),), magnetic_alpha_2=((Species('C'), 1.8), (Species('N'), 0.6)))),
+]
+
+
+@pytest.mark.parametrize('command, phase_name, expected', PUBLISHED_DIFFUSION_COMMANDS + [
+    # MAGNETIC needs only one of ALPHA and ALPHA2
+    ('DIFFUSION MAGNETIC BCC_A2 ALPHA2=1.8 !', 'BCC_A2',
+     DiffusionModel('MAGNETIC', magnetic_alpha_2=((None, 1.8),))),
+    ('DIFFUSION SIMPLE CEMENTITE :FE:C: !', 'CEMENTITE',
+     DiffusionModel('SIMPLE', dependent_constituents=(Species('FE'), Species('C')))),
+    ('DIFFUSION DILUTE CEMENTITE : FE : C : !', 'CEMENTITE',
+     DiffusionModel('DILUTE', dependent_constituents=(Species('FE'), Species('C')))),
+])
+def test_diffusion_commands_are_read(command, phase_name, expected):
+    "A DIFFUSION command is read into a DiffusionModel on the phase it names."
+    dbf = Database.from_string(_diffusion_tdb(command), fmt='tdb')
+    assert dbf.phases[phase_name].model_hints['diffusion'] == expected
+
+
+@pytest.mark.parametrize('command', [command for command, _, _ in PUBLISHED_DIFFUSION_COMMANDS])
+def test_published_diffusion_commands_are_written_back_unchanged(command):
+    "A DIFFUSION command from a published database is written back in the same form."
+    dbf = Database.from_string(_diffusion_tdb(command), fmt='tdb')
+    assert command in dbf.to_string(fmt='tdb')
+
+
+def test_diffusion_commands_roundtrip():
+    "DIFFUSION commands survive a write/read cycle."
+    dbf = Database.from_string(DIFFUSION_COMMANDS_TDB, fmt='tdb')
+    reloaded = Database.from_string(dbf.to_string(fmt='tdb'), fmt='tdb')
+    assert reloaded.phases == dbf.phases
+    assert reloaded == dbf
+
+
+def test_second_diffusion_command_for_a_phase_warns_and_replaces_the_first():
+    "When a phase has two DIFFUSION commands, the last one is used."
+    tdb_string = _diffusion_tdb('DIFFUSION NONE CEMENTITE !', 'DIFFUSION DILUTE CEMENTITE :FE:C: !')
+    with pytest.warns(UserWarning, match='more than one DIFFUSION command'):
+        dbf = Database.from_string(tdb_string, fmt='tdb')
+    assert dbf.phases['CEMENTITE'].model_hints['diffusion'].model == 'DILUTE'
+
+
+@pytest.mark.parametrize('command', [
+    'DIFFUSION MAGNETIC !',  # no phase
+    'DIFFUSION FULL BCC_A2 !',  # unknown model
+    'DIFFUSION NONE DIAMOND_A4 ALPHA=0.3 !',  # arguments on NONE
+    'DIFFUSION MAGNETIC BCC_A2 !',  # neither ALPHA nor ALPHA2
+    'DIFFUSION MAGNETIC BCC_A2 :FE:C: !',  # constituent array on MAGNETIC
+    'DIFFUSION MAGNETIC BCC_A2 BETA=0.3 !',  # unknown coefficient
+    'DIFFUSION DILUTE CEMENTITE !',  # no constituent array
+    'DIFFUSION DILUTE CEMENTITE ALPHA=0.3 !',  # coefficients on DILUTE
+    'DIFFUSION SIMPLE BCC_A2 :FE,C:VA: !',  # two dependent species in a sublattice
+    'DIFFUSION NONE LIQUID !',  # undefined phase
+    'DIFFUSION DILUTE CEMENTITE :FE: !',  # one dependent species for two sublattices
+    'DIFFUSION DILUTE CEMENTITE :C:FE: !',  # dependent species outside its sublattice
+    'DIFFUSION MAGNETIC BCC_A2 ALPHA2&B=0.6 !',  # species outside the phase
+    'DIFFUSION MAGNETIC BCC_A2 ALPHA=0.3 ALPHA=0.4 !',  # bare ALPHA twice
+    'DIFFUSION MAGNETIC BCC_A2 ALPHA2&C=1.8 ALPHA2&C=0.6 !',  # species named twice
+])
+def test_invalid_diffusion_command_raises(command):
+    "A DIFFUSION command outside the Thermo-Calc syntax, or inconsistent with the database, is an error."
+    with pytest.raises((ParseException, ValueError)):
+        Database.from_string(_diffusion_tdb(command), fmt='tdb')
+
 
 def test_tc_printer_no_division_symbols():
     "TCPrinter does not produce division symbols in string output of symbolic expressions."
@@ -1022,3 +1155,74 @@ def test_database_ignore_if_then_type_definition():
     """
     with pytest.warns(UserWarning, match='Type definitions using IF/THEN logic is not supported'):
         Database.from_string(tdb_string, fmt='tdb')
+
+
+def test_einstein_parameters_write_and_roundtrip():
+    """LNTHETA/THETAF parameters read/write."""
+    TDB = """
+    ELEMENT VA   VACUUM                      0.0          0.0      0.0    !
+    ELEMENT C    GRAPHITE                   12.011     1054.0      5.7423 !
+    ELEMENT W    BCC_A2                    183.85      4970.0     32.6176 !
+    PHASE MC_SHP % 2 1 1 !
+    CONST MC_SHP : W : C : !
+    PAR  G(MC_SHP,W:C),,                   -60767-8.623395E-4*T**2;,,   N REF0 !
+    PAR  LNTHETA1(MC_SHP,W:C),,            +LN(887);,,                  N REF0 !
+    PAR  THETAF1(MC_SHP,W:C),,             0.535374;,,                  N REF0 !
+    PAR  lntheta2(MC_SHP,W:C),,            +LN(276);,,                  N REF0 !
+    PAR  thetaf2(MC_SHP,W:C),,             0.464626;,,                  N REF0 !
+    PAR  LNTHETA5(MC_SHP,W:C;0) 298.15     +LN(100); 6000                N REF0 !
+    PAR  THETAF5(MC_SHP,W:C;0) 298.15      0.1; 6000                     N REF0 !
+    """
+    dbf = Database.from_string(TDB, fmt='tdb')
+    written = dbf.to_string(fmt='tdb')
+    for expected in ('PARAMETER LNTHETA1(MC_SHP,W:C;0)', 'PARAMETER THETAF1(MC_SHP,W:C;0)',
+                     'PARAMETER LNTHETA2(MC_SHP,W:C;0)', 'PARAMETER THETAF2(MC_SHP,W:C;0)',
+                     'PARAMETER LNTHETA5(MC_SHP,W:C;0)', 'PARAMETER THETAF5(MC_SHP,W:C;0)'):
+        assert expected in written
+    assert 'LNTHETA(' not in written
+    assert 'THETAF(' not in written
+    roundtrip = Database.from_string(written, fmt='tdb')
+    sort_key = lambda p: (p['parameter_type'], str(p['constituent_array']), p['parameter_order'])
+    for orig, new in zip(sorted(dbf._parameters.all(), key=sort_key), sorted(roundtrip._parameters.all(), key=sort_key)):
+        assert float(orig['parameter'].subs({v.T: 500})) == pytest.approx(float(new['parameter'].subs({v.T: 500})))
+
+
+def test_tdb_reader_ignores_composition_set_hints():
+    """PyCalphad TDB reader should ignore composition set hints"""
+    tdb_species_str = """
+    ELEMENT A FCC_A1 0 0 0 !
+    ELEMENT B FCC_A1 0 0 0 !
+    ELEMENT VA VACUUM 0 0 0 !
+
+    PHASE FCC_A1 ABCDE 2 1 1 !
+    CONSTITUENT FCC_A1 : A,B : VA : !
+
+    TYPE-DEF A GES AMEND_PHASE_DESCRIPTION FCC_A1 MAJOR_CONSTITUENT 1 A:VA: !
+    TYPE-DEF B GES AMEND_PHASE_DESCRIPTION FCC_A1 COMPOSITION_SETS 2 A:VA: !
+    TYPE-DEF C GES AMEND_PHASE_DESCRIPTION FCC_A1 C_S 2 A:VA: !
+    TYPE-DEF D GES AMEND_PHASE_DESCRIPTION FCC_A1 MAJ 1 A:VA: !
+    TYPE-DEF E GES AMEND_PHASE_DESCRIPTION FCC_A1 FRACTION_LIMITS A 0 1 B 0 0.5 !
+    """
+    test_dbf = Database.from_string(tdb_species_str, fmt='tdb')
+
+@select_database("MnTi-23Wal-3g.tdb")
+def test_tdb_reader_reads_legacy_never_disorder_status_bits(load_database):
+    """PyCalphad TDB reader should read legacy STATUS_BITS for never disorder phases"""
+    dbf = load_database()
+    assert dbf.phases["CBCC_A12"].model_hints.get("never_disorder") == True
+    assert dbf.phases["CBCC_A12"].model_hints.get("ordered_phase") == "CBCC_A12"
+    assert dbf.phases["CBCC_A12"].model_hints.get("disordered_phase") == "DIS_A12"
+
+
+def test_database_maxlen_can_be_changed():
+    "Database: write_tdb maxlen allows lines that cannot be reflowed to the default width."
+    long_var = "V" * 100
+    tdb_str = f"""
+    ELEMENT A GAS 0 0 0 !
+    PARAMETER G(GAS,A;0) {long_var}; 10000 N !
+    """
+    dbf = Database.from_string(tdb_str, fmt='tdb')
+    with pytest.raises(ValueError):
+        dbf.to_string(fmt='tdb')
+    roundtrip_dbf = Database.from_string(dbf.to_string(fmt='tdb', maxlen=200), fmt='tdb')
+    assert roundtrip_dbf == dbf

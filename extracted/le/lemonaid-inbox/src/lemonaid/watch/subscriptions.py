@@ -7,9 +7,27 @@ import shlex
 from collections import abc
 from pathlib import Path
 
-from ..brief import doc_table, identity, lemon_table, output_doc, pr_table, sections, waiters
+from ..brief import (
+    doc_table,
+    identity,
+    lemon_table,
+    output_doc,
+    pr_mentions,
+    pr_table,
+    sections,
+    waiters,
+)
 from ..messages import mailbox_command
-from . import briefs_cli, doc_cli, file_cli, pr_cli, repo_cli, roles
+from . import (
+    briefs_cli,
+    command_cli,
+    doc_cli,
+    file_cli,
+    pr_cli,
+    repo_cli,
+    reviews_cli,
+    roles,
+)
 
 
 class Problem(ValueError):
@@ -44,10 +62,13 @@ class Subscription:
     labels: tuple[str, ...] = ()
     exclude_authors: tuple[str, ...] = ()
     pushes: bool = False
+    backlog: bool = False
     state_dir: Path | None = None
     lemons: tuple[lemon_table.Row, ...] = ()
     needs: bool = False
     role: str = ""  # a PR's, see watch/roles.py
+    deadline: str = ""  # a file watch's
+    mentioned: bool = False  # the brief links to this PR, so its merge or close asks about that
 
     @property
     def source(self) -> str:
@@ -72,7 +93,7 @@ def _parse(command: str, parent: str, me: str, cwd: Path) -> Subscription | None
 
     parser = _Parser(allow_abbrev=False)
     sub = parser.add_subparsers(dest="kind", required=True)
-    for module in (doc_cli, file_cli, pr_cli, repo_cli, briefs_cli):
+    for module in (doc_cli, file_cli, command_cli, pr_cli, repo_cli, reviews_cli, briefs_cli):
         module.add_parser(sub)
     args = parser.parse_args(words[2:])
     if args.status or not getattr(args, "wait", True):
@@ -87,8 +108,12 @@ def _parse(command: str, parent: str, me: str, cwd: Path) -> Subscription | None
         target = (repo, str(number))
     elif kind == "repo":
         target = (args.wait,)
+    elif kind == "reviews":
+        target = reviews_cli.target(args.scope)
     elif kind == "briefs":
         target = (parent if args.use_self else args.lemon,)
+    elif kind == "command":
+        target = (str(args.wait),)
     else:
         paths = args.wait if kind == "file" else [args.wait]
         target = tuple(str((cwd / path.expanduser()).resolve()) for path in paths)
@@ -106,8 +131,10 @@ def _parse(command: str, parent: str, me: str, cwd: Path) -> Subscription | None
             "skip_outdated",
             "skip_resolved",
             "pushes",
+            "backlog",
             "state_dir",
             "role",
+            "deadline",
         )
         if hasattr(args, name) and getattr(args, name) is not None
     }
@@ -131,8 +158,12 @@ def report(
     owner: str = "",
     vaults: tuple[Path, ...] = (),
     children_prs: abc.Set[tuple[str, ...]] = frozenset(),
+    link_nudge: bool = True,
 ) -> Reading:
-    """*children_prs* are the PRs this lemon's children author, which make it their parent."""
+    """*children_prs* are the PRs this lemon's children author, which make it their parent.
+
+    With *link_nudge*, every other PR the brief links to is watched for its merge or close.
+    """
     problems = []
     try:
         parent = identity.read(text) or owner
@@ -177,6 +208,10 @@ def report(
         specs[key] = dataclasses.replace(
             old, edits=old.edits or row.watch == doc_table.Watch.ALL_EDITS
         )
+    for found in pr_mentions.nudged(text) if link_nudge else ():
+        key = ("pr", found)
+        old = specs.get(key, Subscription("pr", found, me, interval=60, role=roles.MENTION))
+        specs[key] = dataclasses.replace(old, mentioned=True)
     output = output_doc.read(text)
     for key, spec in specs.items():
         if spec.kind == "pr":
@@ -200,6 +235,10 @@ def report(
 
 
 def read(
-    text: str, cwd: Path, owner: str = "", vaults: tuple[Path, ...] = ()
+    text: str,
+    cwd: Path,
+    owner: str = "",
+    vaults: tuple[Path, ...] = (),
+    link_nudge: bool = True,
 ) -> list[Subscription]:
-    return list(report(text, cwd, owner, vaults).specs)
+    return list(report(text, cwd, owner, vaults, link_nudge=link_nudge).specs)

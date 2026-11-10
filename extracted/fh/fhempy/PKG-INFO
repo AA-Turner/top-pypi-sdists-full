@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhempy
-Version: 2.14.6
+Version: 2.17.3
 Summary: Python binding for FHEM to support Python modules
 License-File: LICENSE
 Author: Dominik Karall
@@ -14,14 +14,13 @@ Requires-Dist: aiofiles (==25.1.0)
 Requires-Dist: aiohttp[speedups] (==3.14.5)
 Requires-Dist: async-upnp-client (==0.49.0)
 Requires-Dist: ifaddr (==0.2.0)
-Requires-Dist: importlib_metadata (==7.2.1)
 Requires-Dist: markdown2 (==2.5.5)
 Requires-Dist: orjson (==3.13.0)
 Requires-Dist: packaging (==26.3)
 Requires-Dist: pexpect (==4.9.0)
-Requires-Dist: pycryptodomex (==3.24.1)
+Requires-Dist: pycryptodomex (==3.24.2)
 Requires-Dist: requests (==2.34.2)
-Requires-Dist: websockets (==17.3)
+Requires-Dist: websockets (==17.4)
 Requires-Dist: zeroconf (==0.151.5)
 Project-URL: Bug Tracker, https://github.com/fhempy/fhempy/issues
 Project-URL: Homepage, https://github.com/fhempy/fhempy
@@ -40,7 +39,7 @@ Description-Content-Type: text/markdown
 </p>
 
 <p align="center">
-  <b>69 ready-to-use integrations for <a href="https://fhem.de">FHEM</a>, written in Python. Now with Matter support.</b>
+  <b>70 ready-to-use integrations for <a href="https://fhem.de">FHEM</a>, written in Python. Now with Matter support.</b>
 </p>
 
 <p align="center">
@@ -203,7 +202,8 @@ Alternatively [fhempy-docker](https://github.com/fhem/fhempy-docker) provides a 
 |[bmw](FHEM/bindings/python/fhempy/lib/bmw/README.md)|BMW and MINI (e.g. iX3) via official BMW CarData: battery, range, charging, doors, position, live values|
 |[kia_hyundai](FHEM/bindings/python/fhempy/lib/kia_hyundai/README.md)|Kia/Hyundai/Genesis car, official Pleos API (EU) or app interface|
 |[seatconnect](FHEM/bindings/python/fhempy/lib/seatconnect/README.md)|Control your Seat/Cupra car|
-|[skodaconnect](FHEM/bindings/python/fhempy/lib/skodaconnect/README.md)|Control your Skoda car|
+|[skoda_api](FHEM/bindings/python/fhempy/lib/skoda_api/README.md)|Skoda car via the official MyŠkoda Public API|
+|[skodaconnect](FHEM/bindings/python/fhempy/lib/skodaconnect/README.md)|Control your Skoda car (old, unofficial Skoda Connect login)|
 |[volvo](FHEM/bindings/python/fhempy/lib/volvo/)|Retrieve infos from your Volvo car (only new API)|
 |[volvo_software_update](FHEM/bindings/python/fhempy/lib/volvo_software_update/README.md)|Get notified about Volvo software updates|
 
@@ -238,6 +238,7 @@ Alternatively [fhempy-docker](https://github.com/fhem/fhempy-docker) provides a 
 |[blue_connect](FHEM/bindings/python/fhempy/lib/blue_connect/README.md)|Blue Connect pool sensor|
 |[bt_presence](FHEM/bindings/python/fhempy/lib/bt_presence/README.md)|Presence detection incl. RSSI for Bluetooth|
 |[eq3bt](FHEM/bindings/python/fhempy/lib/eq3bt/README.md)|Control EQ3 Bluetooth thermostats|
+|[esphome_ble_proxy](FHEM/bindings/python/fhempy/lib/esphome_ble_proxy/README.md)|ESPHome Bluetooth proxies as additional Bluetooth adapters for all Bluetooth modules|
 |[gfprobt](FHEM/bindings/python/fhempy/lib/gfprobt/)|Control GF Pro Bluetooth irrigation control|
 |[mantra_ble](FHEM/bindings/python/fhempy/lib/mantra_ble/README.md)|mAntra ceiling fan lamps|
 |[miflora](FHEM/bindings/python/fhempy/lib/miflora/README.md)|Xiaomi BLE plant sensor|
@@ -289,6 +290,9 @@ Alternatively [fhempy-docker](https://github.com/fhem/fhempy-docker) provides a 
 - **Where is the log?** fhempy writes its own log file next to the FHEM log: `log/fhempy-YYYY-MM-DD.log`. Set `attr fhempyserver_15733 verbose 5` for debug output.
 - **`Installing fhempy failed: ...`**: the state of `fhempy_local` names the reason, the fhempy log has the details. If uv can't be downloaded from github.com and the system Python has no venv support, run `sudo apt install python3-venv` and restart fhempy with `set fhempyserver_15733 restart`.
 - **A module doesn't work**: check its README first. Questions are welcome in the [FHEM forum](https://forum.fhem.de/), bugs in the [GitHub issues](https://github.com/fhempy/fhempy/issues).
+
+## ESPHome Bluetooth proxies
+An ESP32 with ESPHome's `bluetooth_proxy` extends the range of all Bluetooth LE modules which use the shared scan or bleak (autodiscovery, ble_presence, ble_monitor, blue_connect, eq3bt, gfprobt, mitemp2, scooter). Define one [esphome_ble_proxy](FHEM/bindings/python/fhempy/lib/esphome_ble_proxy/README.md) device per ESP32, ready-made proxies are found by autodiscovery. fhempy connects each device through the adapter or proxy with the best signal.
 
 ## Bluetooth auto recovery
 Modules using Bluetooth LE via bleak (blue_connect, eq3bt, gfprobt, mitemp2) detect a stuck Bluetooth adapter and try to recover it automatically. After 3 failed connection attempts in a row (connect errors, or scans which don't see any device at all) the adapter gets recovered, each time escalating one stage further:
@@ -353,6 +357,16 @@ In short:
 
 Optionally fhempy can also run on **another computer** (a [fhempy peer](#fhempy-peers-eg-extend-bluetooth-range)), e.g. a Raspberry Pi next to a Bluetooth thermostat. FHEM finds it automatically and creates a `fhempy_peer_...` BindingsIo; set a device's `IODev` to it to run that device there.
 
+### Worker processes
+
+fhempy keeps all modules in one process as long as their Python libraries fit together. Nothing has to be configured:
+
+- **Conflicting libraries:** a module whose libraries can't be installed together with the modules already running (e.g. it needs `paho-mqtt` 2 while another one needs 1.6.1) automatically gets its own **worker process** with its own Python environment. Modules which fit into an existing worker share it.
+- **Blocking modules:** a module which blocked fhempy for more than 1 s three times within an hour is moved to its own worker process, so it doesn't freeze the other devices anymore.
+- **Crashes:** a crashed worker is started again and defines its devices again; the other devices keep running.
+
+The decision is stored in `.fhempy/workers.json` and checked again after an update. The log lines of a worker start with its name, e.g. `[tuya_cloud]`. Set the environment variable `FHEMPY_WORKERS=0` to run all modules in the fhempy process like before.
+
 <details>
 <summary>Details for developers</summary>
 
@@ -371,6 +385,8 @@ Example: `define castdevice fhempy googlecast "Living Room"`
 4. FHEM waits for the answer, the same way as for Perl modules, and fhempy returns the result as JSON via websocket.
 
 At any time a module can call FHEM functions like `readingsSingleUpdate(...)` via the fhem.py module (`fhem.readingsSingleUpdate(...)`).
+
+Worker processes ([core/workers.py](FHEM/bindings/python/fhempy/lib/core/workers.py), [core/worker_groups.py](FHEM/bindings/python/fhempy/lib/core/worker_groups.py)) run the same binding. FHEM only talks to the main fhempy process, which passes the messages of devices in a worker through a local unix socket and keeps FHEM's waiting logic in one place.
 
 </details>
 

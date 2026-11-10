@@ -103,6 +103,7 @@ class NEUSetter:
                             "ean8",
                             "ean14",
                             "qr",
+                            "itf"
                             ]
                     fields=[
                     str(i.name) for i in Entry.__table__.columns
@@ -147,6 +148,8 @@ class NEUSetter:
                         TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean8",data=str(getattr(e,fields[which_fields])))
                     elif toCodes[which_toCode] in ['ean14',]:
                         TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean14",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['itf',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="itf",data=str(getattr(e,fields[which_fields])))
                     elif toCodes[which_toCode] in ['qr',]:
                         TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).qr_img(data=str(getattr(e,fields[which_fields])))
         except Exception as ee:

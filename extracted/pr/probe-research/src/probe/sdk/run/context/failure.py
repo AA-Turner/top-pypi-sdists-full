@@ -77,20 +77,18 @@ def remember(exc: BaseException | None, run_id: str | None, values: dict[str, An
         pass
 
 
-def read(exc: BaseException | None, run_id: str | None) -> dict[str, Any] | None:
-    """Follow wrapped causes too, restricted to the run sending this report."""
+def read(links: list[BaseException], run_id: str | None) -> dict[str, Any] | None:
+    """What these links (the report's own chain, head first) recorded, restricted to the run
+    sending this report: the chain it shows, never errors past it (a retry's earlier attempt)."""
     if not run_id:
         return None
-    seen: set[int] = set()
     result: dict[str, Any] = {}
     try:
-        while exc is not None and id(exc) not in seen and len(seen) < 5:
-            seen.add(id(exc))
+        for exc in links:
             context = getattr(exc, _ATTRIBUTE, None)
             if isinstance(context, dict) and context.get("run_id") == run_id:
                 # A deeper cause's input is more specific than its wrapper's.
                 result.update(_clean(context, run_id))
-            exc = exc.__cause__ or exc.__context__
     except BaseException:  # noqa: BLE001
         pass
     return result or None

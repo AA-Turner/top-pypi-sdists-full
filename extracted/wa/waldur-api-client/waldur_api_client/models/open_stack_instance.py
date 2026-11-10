@@ -78,7 +78,7 @@ class OpenStackInstance:
         flavor_name (Union[Unset, str]): Name of the flavor used by this instance
         volumes (Union[Unset, list['OpenStackNestedVolume']]): List of volumes attached to the instance
         security_groups (Union[Unset, list['OpenStackNestedSecurityGroup']]):
-        server_group (Union[Unset, OpenStackNestedServerGroup]):
+        server_group (Union['OpenStackNestedServerGroup', None, Unset]):
         floating_ips (Union[Unset, list['OpenStackNestedFloatingIP']]):
         ports (Union[Unset, list['OpenStackNestedPort']]):
         availability_zone (Union[None, Unset, str]): Availability zone where this instance is located
@@ -154,7 +154,7 @@ class OpenStackInstance:
     flavor_name: Union[Unset, str] = UNSET
     volumes: Union[Unset, list["OpenStackNestedVolume"]] = UNSET
     security_groups: Union[Unset, list["OpenStackNestedSecurityGroup"]] = UNSET
-    server_group: Union[Unset, "OpenStackNestedServerGroup"] = UNSET
+    server_group: Union["OpenStackNestedServerGroup", None, Unset] = UNSET
     floating_ips: Union[Unset, list["OpenStackNestedFloatingIP"]] = UNSET
     ports: Union[Unset, list["OpenStackNestedPort"]] = UNSET
     availability_zone: Union[None, Unset, str] = UNSET
@@ -189,6 +189,7 @@ class OpenStackInstance:
         from ..models.open_stack_instance_marketplace_offering_plugin_options_type_0 import (
             OpenStackInstanceMarketplaceOfferingPluginOptionsType0,
         )
+        from ..models.open_stack_nested_server_group import OpenStackNestedServerGroup
         from ..models.rancher_cluster_reference import RancherClusterReference
 
         url = self.url
@@ -330,9 +331,13 @@ class OpenStackInstance:
                 security_groups_item = security_groups_item_data.to_dict()
                 security_groups.append(security_groups_item)
 
-        server_group: Union[Unset, dict[str, Any]] = UNSET
-        if not isinstance(self.server_group, Unset):
+        server_group: Union[None, Unset, dict[str, Any]]
+        if isinstance(self.server_group, Unset):
+            server_group = UNSET
+        elif isinstance(self.server_group, OpenStackNestedServerGroup):
             server_group = self.server_group.to_dict()
+        else:
+            server_group = self.server_group
 
         floating_ips: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.floating_ips, Unset):
@@ -813,12 +818,22 @@ class OpenStackInstance:
 
             security_groups.append(security_groups_item)
 
-        _server_group = d.pop("server_group", UNSET)
-        server_group: Union[Unset, OpenStackNestedServerGroup]
-        if isinstance(_server_group, Unset):
-            server_group = UNSET
-        else:
-            server_group = OpenStackNestedServerGroup.from_dict(_server_group)
+        def _parse_server_group(data: object) -> Union["OpenStackNestedServerGroup", None, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                server_group_type_1 = OpenStackNestedServerGroup.from_dict(data)
+
+                return server_group_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union["OpenStackNestedServerGroup", None, Unset], data)
+
+        server_group = _parse_server_group(d.pop("server_group", UNSET))
 
         floating_ips = []
         _floating_ips = d.pop("floating_ips", UNSET)

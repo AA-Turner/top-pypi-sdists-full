@@ -67,6 +67,40 @@ def _csrf_token_value(request: HttpRequest | None) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _kit_card(
+    context: Context,
+    form: Any,
+    step: str,
+    title: str,
+    action: str,
+    submit_label: str,
+    slots: dict[str, Any],
+) -> SafeString:
+    """Render the account kit's card bound to a real form (ADR-039).
+
+    The ``{% theme_*_page %}`` tags use this when given ``form=``, so the page
+    posts the form's real field names (``username``/``login``, ``password1``,
+    ...) to whatever backend view handles it.
+    """
+    from django.template.loader import render_to_string
+
+    request = context.get("request")
+    html = render_to_string(
+        "djust_auth/components/card_only.html",
+        {
+            "form": form,
+            "auth_step": step,
+            "title": title,
+            "action": action,
+            "submit_label": submit_label,
+            "csrf_token": _csrf_token_value(request),
+            **slots,
+        },
+        request=request,
+    )
+    return mark_safe(html)  # noqa: S308 - rendered by the template engine (autoescaped)
+
+
 @register.simple_tag(takes_context=True)
 def theme_login_page(
     context: Context,
@@ -74,6 +108,7 @@ def theme_login_page(
     title: str = "Sign in",
     forgot_password_url: str = "",
     register_url: str = "",
+    form: Any = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -84,17 +119,22 @@ def theme_login_page(
         title: Page heading
         forgot_password_url: URL for "Forgot password?" link
         register_url: URL for "Register" link
+        form: A Django form (e.g. ``AuthenticationForm``). When given, renders the
+            account kit's card bound to the form's real field names (ADR-039);
+            without it, the themed mock-up renders as before.
         **attrs: slot_social, slot_footer, class, id, etc.
 
     Usage:
         {% theme_login_page action="/auth/login/" forgot_password_url="/reset/" register_url="/register/" %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
-    request = context.get("request")
-    tmpl = resolve_page_template(request, "login")
     action = _neutralise_url("action", action)
     forgot_password_url = _neutralise_url("forgot_password_url", forgot_password_url)
     register_url = _neutralise_url("register_url", register_url)
+    if form is not None:
+        return _kit_card(context, form, "login", title, action, "Sign in", slots)
+    request = context.get("request")
+    tmpl = resolve_page_template(request, "login")
     ctx = {
         "title": title,
         "action": action,
@@ -115,6 +155,7 @@ def theme_register_page(
     title: str = "Create account",
     login_url: str = "",
     terms_url: str = "",
+    form: Any = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -125,17 +166,22 @@ def theme_register_page(
         title: Page heading
         login_url: URL for "Sign in" link
         terms_url: URL for terms of service
+        form: A Django form (e.g. ``AuthenticationForm``). When given, renders the
+            account kit's card bound to the form's real field names (ADR-039);
+            without it, the themed mock-up renders as before.
         **attrs: slot_footer, class, id, etc.
 
     Usage:
         {% theme_register_page action="/auth/register/" login_url="/login/" terms_url="/terms/" %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
-    request = context.get("request")
-    tmpl = resolve_page_template(request, "register")
     action = _neutralise_url("action", action)
     login_url = _neutralise_url("login_url", login_url)
     terms_url = _neutralise_url("terms_url", terms_url)
+    if form is not None:
+        return _kit_card(context, form, "signup", title, action, "Create account", slots)
+    request = context.get("request")
+    tmpl = resolve_page_template(request, "register")
     ctx = {
         "title": title,
         "action": action,
@@ -156,6 +202,7 @@ def theme_password_reset_page(
     title: str = "Reset password",
     description: str = "Enter your email address and we'll send you a link to reset your password.",
     login_url: str = "",
+    form: Any = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -166,16 +213,23 @@ def theme_password_reset_page(
         title: Page heading
         description: Help text below the heading
         login_url: URL for "Back to login" link
+        form: A Django form (e.g. ``AuthenticationForm``). When given, renders the
+            account kit's card bound to the form's real field names (ADR-039);
+            without it, the themed mock-up renders as before.
         **attrs: class, id, etc.
 
     Usage:
         {% theme_password_reset_page action="/auth/reset/" login_url="/login/" %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
-    request = context.get("request")
-    tmpl = resolve_page_template(request, "password_reset")
     action = _neutralise_url("action", action)
     login_url = _neutralise_url("login_url", login_url)
+    if form is not None:
+        return _kit_card(
+            context, form, "password_reset", title, action, "Send reset instructions", slots
+        )
+    request = context.get("request")
+    tmpl = resolve_page_template(request, "password_reset")
     ctx = {
         "title": title,
         "action": action,
@@ -195,6 +249,7 @@ def theme_password_confirm_page(
     action: str = "",
     title: str = "Set new password",
     description: str = "Choose a strong password for your account.",
+    form: Any = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -204,15 +259,22 @@ def theme_password_confirm_page(
         action: Form action URL
         title: Page heading
         description: Help text below the heading
+        form: A Django form (e.g. ``AuthenticationForm``). When given, renders the
+            account kit's card bound to the form's real field names (ADR-039);
+            without it, the themed mock-up renders as before.
         **attrs: class, id, etc.
 
     Usage:
         {% theme_password_confirm_page action="/auth/confirm/" %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
+    action = _neutralise_url("action", action)
+    if form is not None:
+        return _kit_card(
+            context, form, "password_reset_confirm", title, action, "Set password", slots
+        )
     request = context.get("request")
     tmpl = resolve_page_template(request, "password_confirm")
-    action = _neutralise_url("action", action)
     ctx = {
         "title": title,
         "action": action,

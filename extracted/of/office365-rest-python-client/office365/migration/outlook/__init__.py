@@ -1,20 +1,91 @@
-"""Outlook (mail) assessment for the migration toolkit.
+"""Outlook migration product: mailbox assessment, mail, calendar and contacts export/import.
 
 Reuses the shared assessment model (containers, scans, reports, export); the
-product-specific part is the mailbox walker (:class:`MailboxAssessor`) and its
-scanners (e.g. the ``MailFolders`` folder inventory).
+product-specific parts are the mailbox walker (:class:`MailboxAssessor`) with its
+scanners (e.g. the ``MailFolders`` folder inventory), and the adapters that move a
+mailbox through a portable EML tree: :class:`MailFolderSource` ->
+:class:`MailExportTarget` on the way out, :class:`EmlTreeSource` ->
+:class:`MailboxTarget` on the way back in. A calendar does the same with an ICS
+sidecar tree: :class:`CalendarSource` -> :class:`IcsExportTarget`, and
+:class:`IcsTreeSource` -> :class:`CalendarTarget`. Contacts do the same with a vCard
+sidecar tree: :class:`ContactSource` -> :class:`VcfExportTarget`, and
+:class:`VcfTreeSource` -> :class:`ContactTarget`.
 """
 
+from office365.migration.outlook.adapters import MANIFEST_NAME, MailExportTarget, MailFolderSource
 from office365.migration.outlook.assessor import MailboxAssessor
+from office365.migration.outlook.calendar_adapters import (
+    CalendarSource,
+    CalendarTarget,
+    IcsExportTarget,
+    IcsTreeSource,
+)
+from office365.migration.outlook.calendar_models import (
+    EVENT_COLUMNS,
+    CalendarExportOptions,
+    CalendarImportOptions,
+    EventRecord,
+)
+from office365.migration.outlook.contacts_adapters import (
+    ContactSource,
+    ContactTarget,
+    VcfExportTarget,
+    VcfTreeSource,
+)
+from office365.migration.outlook.contacts_models import (
+    CONTACT_COLUMNS,
+    ContactExportOptions,
+    ContactImportOptions,
+    ContactRecord,
+)
+from office365.migration.outlook.eml_import import EmlTreeSource, MailboxTarget
+from office365.migration.outlook.models import (
+    MAX_IMPORT_MIME_BYTES,
+    MailExportOptions,
+    MailImportOptions,
+    MessageRecord,
+    mime_digest,
+)
+from office365.migration.outlook.records import SidecarRecord, dest_path, refuse_legacy_sidecar, slug
 from office365.migration.outlook.registry import OUTLOOK_SCANS, outlook_scan_pairs
 from office365.migration.outlook.scanner import MailboxFolderRecord, MailboxFolderScan, MailFolderData, OutlookOptions
 
 __all__ = [
+    "CONTACT_COLUMNS",
+    "EVENT_COLUMNS",
+    "MANIFEST_NAME",
+    "MAX_IMPORT_MIME_BYTES",
     "OUTLOOK_SCANS",
+    "CalendarExportOptions",
+    "CalendarImportOptions",
+    "CalendarSource",
+    "CalendarTarget",
+    "ContactExportOptions",
+    "ContactImportOptions",
+    "ContactRecord",
+    "ContactSource",
+    "ContactTarget",
+    "EmlTreeSource",
+    "EventRecord",
+    "IcsExportTarget",
+    "IcsTreeSource",
+    "MailExportOptions",
+    "MailExportTarget",
     "MailFolderData",
+    "MailFolderSource",
+    "MailImportOptions",
     "MailboxAssessor",
     "MailboxFolderRecord",
     "MailboxFolderScan",
+    "MailboxTarget",
+    "MessageRecord",
     "OutlookOptions",
+    "SidecarRecord",
+    "VcfExportTarget",
+    "VcfTreeSource",
+    "dest_path",
+    "mime_digest",
     "outlook_scan_pairs",
+    "refuse_legacy_sidecar",
+    "slug",
 ]

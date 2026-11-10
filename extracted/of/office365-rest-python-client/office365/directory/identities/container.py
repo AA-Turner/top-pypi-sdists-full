@@ -44,7 +44,7 @@ class IdentityContainer(Entity):
     both Azure Active Directory (Azure AD) and Azure AD B2C tenants.
     """
 
-    @odata(name="apiConnectors")
+    @odata(name="apiConnectors", navigation=True)
     @property
     def api_connectors(self) -> EntityCollection[IdentityApiConnector]:
         """Represents entry point for API connectors."""
@@ -53,7 +53,7 @@ class IdentityContainer(Entity):
             EntityCollection(self.context, IdentityApiConnector, ResourcePath("apiConnectors", self.resource_path)),
         )
 
-    @odata(name="authenticationEventListeners")
+    @odata(name="authenticationEventListeners", navigation=True)
     @property
     def authentication_event_listeners(self) -> EntityCollection[AuthenticationEventListener]:
         """Get the collection of authenticationListener resources supported by the onSignupStart event."""
@@ -66,7 +66,7 @@ class IdentityContainer(Entity):
             ),
         )
 
-    @odata(name="conditionalAccess")
+    @odata(name="conditionalAccess", navigation=True)
     @property
     def conditional_access(self) -> ConditionalAccessRoot:
         """The entry point for the Conditional Access (CA) object model."""
@@ -75,7 +75,7 @@ class IdentityContainer(Entity):
             ConditionalAccessRoot(self.context, ResourcePath("conditionalAccess", self.resource_path)),
         )
 
-    @odata(name="identityProviders")
+    @odata(name="identityProviders", navigation=True)
     @property
     def identity_providers(self) -> IdentityProviderBaseCollection:
         """Represents entry point for identity provider base."""
@@ -84,7 +84,7 @@ class IdentityContainer(Entity):
             IdentityProviderBaseCollection(self.context, ResourcePath("identityProviders", self.resource_path)),
         )
 
-    @odata(name="b2xUserFlows")
+    @odata(name="b2xUserFlows", navigation=True)
     @property
     def b2x_user_flows(self) -> EntityCollection[B2XIdentityUserFlow]:
         """Represents entry point for B2X/self-service sign-up identity userflows."""
@@ -93,7 +93,7 @@ class IdentityContainer(Entity):
             EntityCollection(self.context, B2XIdentityUserFlow, ResourcePath("b2xUserFlows", self.resource_path)),
         )
 
-    @odata(name="userFlowAttributes")
+    @odata(name="userFlowAttributes", navigation=True)
     @property
     def user_flow_attributes(self) -> EntityCollection[IdentityUserFlowAttribute]:
         """Represents entry point for identity userflow attributes."""
@@ -104,6 +104,7 @@ class IdentityContainer(Entity):
             ),
         )
 
+    @odata(name="healthIssues", navigation=True)
     @property
     def health_issues(self) -> EntityCollection[HealthIssue]:
         """Gets the healthIssues property"""
@@ -112,6 +113,7 @@ class IdentityContainer(Entity):
             EntityCollection[HealthIssue](self.context, HealthIssue, ResourcePath("healthIssues", self.resource_path)),
         )
 
+    @odata(name="identityAccounts", navigation=True)
     @property
     def identity_accounts(self) -> EntityCollection[IdentityAccounts]:
         """Gets the identityAccounts property"""
@@ -122,6 +124,7 @@ class IdentityContainer(Entity):
             ),
         )
 
+    @odata(name="sensorCandidateActivationConfiguration", navigation=True)
     @property
     def sensor_candidate_activation_configuration(self) -> SensorCandidateActivationConfiguration:
         """Gets the sensorCandidateActivationConfiguration property"""
@@ -132,6 +135,7 @@ class IdentityContainer(Entity):
             ),
         )
 
+    @odata(name="sensorCandidates", navigation=True)
     @property
     def sensor_candidates(self) -> EntityCollection[SensorCandidate]:
         """Gets the sensorCandidates property"""
@@ -142,6 +146,7 @@ class IdentityContainer(Entity):
             ),
         )
 
+    @odata(name="sensors", navigation=True)
     @property
     def sensors(self) -> EntityCollection[Sensor]:
         """Gets the sensors property"""
@@ -149,6 +154,7 @@ class IdentityContainer(Entity):
             "sensors", EntityCollection[Sensor](self.context, Sensor, ResourcePath("sensors", self.resource_path))
         )
 
+    @odata(name="settings", navigation=True)
     @property
     def settings(self) -> SettingsContainer:
         """Gets the settings property"""
@@ -160,6 +166,7 @@ class IdentityContainer(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.security.IdentityContainer"
 
+    @odata(name="authenticationEventsFlows", navigation=True)
     @property
     def authentication_events_flows(self) -> EntityCollection[AuthenticationEventsFlow]:
         """Gets the authenticationEventsFlows property"""
@@ -174,6 +181,7 @@ class IdentityContainer(Entity):
             ),
         )
 
+    @odata(name="customAuthenticationExtensions", navigation=True)
     @property
     def custom_authentication_extensions(self) -> EntityCollection[CustomAuthenticationExtension]:
         """Gets the customAuthenticationExtensions property"""
@@ -190,6 +198,7 @@ class IdentityContainer(Entity):
             ),
         )
 
+    @odata(name="riskPrevention", navigation=True)
     @property
     def risk_prevention(self) -> RiskPreventionContainer:
         """Gets the riskPrevention property"""
@@ -201,6 +210,7 @@ class IdentityContainer(Entity):
             "riskPrevention", RiskPreventionContainer(self.context, ResourcePath("riskPrevention", self.resource_path))
         )
 
+    @odata(name="verifiedId", navigation=True)
     @property
     def verified_id(self) -> IdentityVerifiedIdRoot:
         """Gets the verifiedId property"""

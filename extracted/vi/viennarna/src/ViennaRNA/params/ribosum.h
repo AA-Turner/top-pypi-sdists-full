@@ -7,6 +7,12 @@
  *  @brief  Parse RiboSum Scoring Matrices for Covariance Scoring of Alignments
  */
 
+
+double **
+vrna_ribosum_mx(double min_identity_pct,
+                double max_identity_pct);
+
+
 #ifndef VRNA_DISABLE_BACKWARD_COMPATIBILITY
 
 /**
@@ -16,7 +22,7 @@
 
 /**
  *  @brief Retrieve a RiboSum Scoring Matrix for a given Alignment
- *  \ingroup consensus_fold
+ *  @ingroup energy_parameters
  *
  */
 float **get_ribosum(const char  **Alseq,
@@ -25,7 +31,7 @@ float **get_ribosum(const char  **Alseq,
 
 
 /**
- *  \brief Read a RiboSum or other user-defined Scoring Matrix and Store into global Memory
+ *  @brief Read a RiboSum or other user-defined Scoring Matrix and Store into global Memory
  *
  */
 float **readribosum(char *name);

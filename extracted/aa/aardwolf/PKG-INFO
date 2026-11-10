@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aardwolf
-Version: 0.2.16
+Version: 0.2.17
 Summary: Asynchronous RDP protocol implementation
 Author-email: Tamas Jos <info@skelsecprojects.com>
 License-Expression: MIT
@@ -16,8 +16,8 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: unicrypto>=0.0.11
-Requires-Dist: asyauth>=0.0.16
-Requires-Dist: asysocks>=0.2.9
+Requires-Dist: asyauth>=0.0.25
+Requires-Dist: asysocks>=0.2.11
 Requires-Dist: tqdm
 Requires-Dist: colorama
 Requires-Dist: asn1crypto

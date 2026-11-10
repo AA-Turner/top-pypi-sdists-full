@@ -61,15 +61,17 @@ calibration. The module is marked `serial` (tests/conftest.py says
 why), and a new clock-timed test elsewhere takes the mark too.
 """
 import gc
+import operator
 import os
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from types import FrameType
+from typing import ClassVar, SupportsIndex, TypeVar, cast, overload
 
 import pytest
 
-from nameparser import ParsedName, Parser, parse
+from nameparser import ParsedName, Parser, locales, parse, parser_for
 from nameparser._policy import Policy
 
 #: The whole module, though only the clock-timed tests need it: a
@@ -133,13 +135,17 @@ pytestmark = pytest.mark.serial
 #: (decisions/parse-cost). The 3.12-3.15 rows read 289/326 from
 #: #614's /simplify on and were corrected in #620, which moved no row
 #: (decisions/parse-cost). Then down by 4 on every row in #624 and up
-#: by 3 in #625, to the figures below (decisions/parse-cost).
+#: by 3 in #625, to the figures below (decisions/parse-cost). The
+#: `facade` rows went with HumanName in 3.0 (decisions/parse-cost).
+#: Lowered 2026-11-05 by 18 on 3.11 and 8 on 3.12-3.15 (#1089), when
+#: post_rules' ten one-role index scans became two walks of all four
+#: roles (decisions/parse-cost).
 _CALL_BASELINE = {
-    (3, 11): {"parse": 307, "facade": 344},
-    (3, 12): {"parse": 288, "facade": 325},
-    (3, 13): {"parse": 288, "facade": 325},
-    (3, 14): {"parse": 288, "facade": 325},
-    (3, 15): {"parse": 288, "facade": 325},
+    (3, 11): {"parse": 289},
+    (3, 12): {"parse": 280},
+    (3, 13): {"parse": 280},
+    (3, 14): {"parse": 280},
+    (3, 15): {"parse": 280},
 }
 _BAND = 0.02
 
@@ -214,20 +220,8 @@ def test_parse_cost_stays_within_its_band() -> None:
     _check_budget("parse", parse)
 
 
-def test_facade_cost_stays_within_its_band() -> None:
-    # the legacy-API path (what all existing users call): snapshot
-    # resolution must stay generation-cached, not rebuilt per instance.
-    # Measured: defeating that cache costs 4826 calls against this
-    # band, while taking only 0.93s per 1000 -- which the 1.0s
-    # wall-clock test this replaced would have PASSED.
-    from nameparser import HumanName
-
-    _check_budget("facade", HumanName)
-
-
 @pytest.mark.parametrize("kind,fn", [
     ("parse", parse),
-    ("facade", lambda name: __import__("nameparser").HumanName(name)),
 ])
 def test_a_thousand_names_still_parse_in_reasonable_time(
         kind: str, fn: Callable[[str], object]) -> None:
@@ -237,10 +231,9 @@ def test_a_thousand_names_still_parse_in_reasonable_time(
     frame: a compiled regex that starts backtracking emits no `call`
     event at all, and neither does a C-level structure turning
     quadratic. (A quadratic inside a comprehension or generator IS
-    visible -- `call` fires once per generator resume.) Both entry
-    points are covered, because both failures that motivated #475 were
-    on the facade and the first draft of this replacement guarded only
-    `parse`.
+    visible -- `call` fires once per generator resume.) Both failures
+    that motivated #475 were on the 2.x HumanName facade, which 3.0
+    removed; `parse` is the one entry point left.
 
     The bound is loose enough that runner variance cannot reach it: the
     failures were at 1.01-1.08s against 1.0, and coverage costs about
@@ -268,7 +261,7 @@ def test_a_thousand_names_still_parse_in_reasonable_time(
 #   SEGMENT count             commas ONLY -- deleting it leaves every
 #                             segment-keyed regression unguarded
 #   intra-piece accumulation  particles (one 799-token piece),
-#                             conjunctions (800) -- the merge_pieces quadratic
+#                             conjunctions (800) -- join_connectives' run loop
 #   masked-span count         delimiter_pairs, quote_pairs (0 pieces:
 #                             everything is consumed as a delimited run)
 #   NON-ASCII input           honorifics ONLY -- every other unit here is
@@ -334,7 +327,7 @@ _SHAPES = {
     "commas": "a, ",                # segment: many comma segments
     "titles": "Dr. ",               # group: one long title chain
     "particles": "van ",            # group: the prefix-chain inner loop
-    "conjunctions": "and ",         # group: merge_pieces accumulating one piece
+    "conjunctions": "and ",         # group: P3's run loop accumulating one piece
     "honorifics": "씨 ",             # script_segment: the peel's site scan
     "bound_given": "abdul ",        # group: the P5 reserve over every piece
     "maiden_clause": "nee MA ",     # group: M2's view over the segment
@@ -343,6 +336,12 @@ _SHAPES = {
     "agnomens": "Neto ",            # pieces: a gated word scans its front (#890)
     "carried_agnomens": "MA ma Neto ",  # pieces: the scan through carried members
     "bracket_members": "(M.A) ",    # post_rules: S13's clause pass (#810)
+    "set_apart": "(PhD, Dr) ",      # post_rules: S1's set-apart pass (#792)
+    "set_apart_initials": "(JP) a ",  # post_rules: S1's name-ahead walk (#792)
+    "slash_chain": "MD/",           # vocab: S3's cut of a joined word (#1103)
+    "hyphen_chain": "MD-",          # vocab: the same cut, hyphens only
+    "member_chain": "MA/PhD/",      # vocab: the cut's member arm (#1138)
+    "bracket_joined_members": "(MA/PhD) ",  # post_rules: joined members
 }
 
 _BASE = 800
@@ -407,6 +406,16 @@ _FACTOR = 4
 # strongest signal on record. The shape reads 4.13-4.21 at every one
 # of the three bases on this tree (py3.11, 2026-09-27), inside the
 # clean column; neither number moved.
+# The last two (slash_chain, hyphen_chain, #1103) are one glued token
+# of joined credentials, which S3 cuts into the fewest listed pieces:
+# 3.81-3.97 at base 800 (py3.11, 2026-11-06), at or below the clean
+# column. Two superlinear cuts were measured against them on the same
+# day: a quadratic, the cut copying its best piece list at every step,
+# 9.16-9.75 at base 800, and a cubic, a run tried to the end of the
+# word from every chunk, uncapped by the longest listed word, 29.4-34.9
+# at base 50, which at base 800 had not finished after six minutes, so
+# that regression shows here as a run that hangs rather than a ratio;
+# neither number moved.
 _MAX_RATIO = 6.0
 
 
@@ -542,7 +551,13 @@ _PREFIXED_SHAPES: dict[
     # the chain is `_pieces.join_connectives`, group's loop, which
     # extends in place. Re-taken on the moved code 2026-10-06, py3.11,
     # this base, three runs of best-of-five: 4.47-4.49 against
-    # 9.95-10.00 with the slice rebuild planted in `merge_pieces`
+    # 9.95-10.00 with the slice rebuild planted in `merge_pieces`.
+    # That clean reading was taken on a tree that still merged
+    # through `merge_pieces` once per join, which CI's runners read
+    # at 7.5-8.3x (decisions/parse-cost, 2026-11-03); the loop builds
+    # its lists in one pass since, `merge_pieces` no longer reaches
+    # this shape, and the shift guard below the link pin holds it on
+    # any machine
     "title_chain": (
         "John Smith, ", "Mr. and ", Parser(),
         lambda text: (parse(text).given == "John"
@@ -559,6 +574,18 @@ _PREFIXED_SHAPES: dict[
     "caps_pairs": (
         "John Smith, ", "XY ", Parser(),
         lambda text: parse(text).given == "John",
+    ),
+    # every particle is in an all-particle family a connective joins
+    # (rules/R2's set-aside, #939): the marking loop asks per word
+    # whether it was set aside, which a list made quadratic. Measured
+    # 2026-11-03, py3.11, on a host at load average ~35, this row's
+    # test three times each: 6.7x, 7.4x and 8.5x with the list, passing
+    # all three with the set
+    "connective_between_particles": (
+        "Juan de ", "y de ", Parser(),
+        lambda text: (parse(text).family_base == text[5:].strip()
+                      and parse(text).initials().count("d.")
+                      == text.count(" de")),
     ),
     # every core is dropped behind the whole name, and the part was
     # filtered against a list of the cores
@@ -626,6 +653,17 @@ _POLICY_SHAPES: dict[str, tuple[str, Parser, Callable[[Parser], bool]]] = {
         # parenthesis pair must route to maiden AND the clause loop
         # must run for this to read "b" rather than "" or "née b"
         lambda p: p.parse("a (née b)").maiden == "b",
+    ),
+    # rules/R9's ending-rule arms, which walk every name word once the
+    # policy turns a rule on (a marker and its father, a middle word's
+    # ending), and only then: the probe reads both
+    "patronymic_rules": (
+        "Ali oglu Petrovich ",
+        Parser(policy=Policy(patronymic_rules=frozenset(
+            {"east-slavic", "turkic"}))),  # type: ignore[arg-type]
+        lambda p: (p.parse("Ali Ahmad oglu").patronymic == "Ahmad oglu"
+                   and p.parse("Ivan Ivanovich Ivanov").patronymic
+                   == "Ivanovich"),
     ),
 }
 
@@ -697,9 +735,12 @@ _RUN_MAX_RATIO = 6.0
 _RUN_HUGE_MAX_RATIO = 5.0
 
 
-def _frames_for(text: str, only: str | None = None) -> int:
-    """Python frame entries for ONE parse of `text` -- of every
-    function, or of the one named `only`.
+def _frames_for(text: str, only: str | None = None,
+                caller: str | None = None,
+                parse: Callable[[str], object] = parse) -> int:
+    """Python frame entries for ONE parse of `text` by `parse` -- of
+    every function, of the one named `only`, or of those the function
+    named `caller` calls directly.
 
     One parse, not a mean: this measures growth between two inputs, and
     the count is deterministic for a given (tree, interpreter) -- see
@@ -712,7 +753,9 @@ def _frames_for(text: str, only: str | None = None) -> int:
     def counter(frame: FrameType, event: str, arg: object) -> None:
         nonlocal calls
         if event == "call" and (only is None
-                                or frame.f_code.co_name == only):
+                                or frame.f_code.co_name == only) and (
+                caller is None or frame.f_back is not None
+                and frame.f_back.f_code.co_name == caller):
             calls += 1
 
     sys.setprofile(counter)
@@ -960,6 +1003,72 @@ def test_a_given_part_with_no_particle_skips_the_chain_bound() -> None:
                        only="trailing_run_start") == 1
 
 
+def test_a_part_ending_in_no_numeral_skips_the_generation_test() -> None:
+    """`_comma._whole_name` asks `ends_in_a_generation` only where the
+    word ending the part's name words matches `ROMAN`, the first test
+    of the `reads_as_generation` it calls, asked at C level (#1089), so
+    a suffix-comma name whose part, two or more words long, ends in no
+    numeral pays no frame for C3's numeral clause. Recorded negative
+    control, #1089 (2026-11-05, py3.11, a second parse of the name):
+    with the match removed no output moves (324,720 parses compared),
+    the predicate is entered once on each name below, and 'John Smith
+    Jr., PhD' costs 246 frames against 244. That the match is a
+    necessary half of the predicate, so the two cannot disagree, is
+    `test_ends_in_a_generation_needs_the_roman_shape`'s."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("John Smith Jr., PhD", "John Smith, PhD"):
+        # REACHABILITY: decide counts the part, so a zero below means the
+        # match declined rather than that nothing ran
+        assert _frames_for(text, only="_whole_name") == 1, text
+        assert _frames_for(text, only="ends_in_a_generation") == 0, text
+    # a part ending in a numeral the shape admits asks it
+    assert _frames_for("Dumas VI, Jr.", only="ends_in_a_generation") == 1
+
+
+def test_post_rules_walks_the_roles_once_per_reader() -> None:
+    """On a name no gated reader reaches, post_rules reads the TITLE,
+    GIVEN, MIDDLE and FAMILY positions in two `_positions` walks, at its
+    head and before O3's fold and R2's marks, which share the second; a
+    core rule that retags (H1, M4, P1's fold, O1, O2, P6) walks again
+    only when it fires, and the gated readers (P10 and W5's pair, each
+    on its tag, and the O6 and O7 switches) walk where their gate opens
+    (#1089, #1157).
+    It made ten one-role scans a parse before, each two frames on 3.11
+    (the call and its comprehension): the reference row read 306.80
+    against 288.80 (2026-11-05, py3.11), outside `_CALL_BASELINE`'s
+    band, which holds the total.
+
+    The band cannot see ONE scan put back (+2 frames on 3.11, +1 on
+    3.12 and later), and a count of `_positions` by name cannot see a
+    scan written any other way, so the calls post_rules makes directly
+    are pinned too: a helper call put back fails it on every
+    interpreter, an inline comprehension only on 3.11, where it is a
+    frame of its own. Recorded negative
+    control (2026-11-05, py3.11 and py3.12): 15 on 21a4fe15, the tree
+    before, and 8 with one `_idx`-style helper call added. A deliberate new
+    call moves this pin with a reason beside it."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for text in ("John Smith", "Smith, John", _REFERENCE.format(i=1)):
+        assert _frames_for(text, only="_positions") == 2, text
+        assert _frames_for(text, caller="post_rules") == 7, text
+    # REACHABILITY: a rule that fires walks again, O1's rotation and
+    # O2's, and a gated reader walks where its gate opens: P10's tag
+    # under the default policy
+    ru, tr = parser_for(locales.RU), parser_for(locales.TR_AZ)
+    for p, text in ((ru, "Sidorov Ivan Petrovich"),
+                    (tr, "Aliyev Ilham Heydar oglu"),
+                    (Parser(), "María del Carmen García")):
+        assert _frames_for(text, only="_positions", parse=p.parse) == 3, text
+    # O3's switch walks no more than the default: its fold and R2 share
+    # the walk taken before the fold, which the fold then updates
+    maf = Parser(policy=Policy(middle_as_family=True))
+    assert _frames_for("Juan Smith", only="_positions", parse=maf.parse) == 2
+    assert ru.parse("Sidorov Ivan Petrovich").family == "Sidorov"
+    assert tr.parse("Aliyev Ilham Heydar oglu").family == "Aliyev"
+
+
 def test_a_segment_with_no_free_connective_skips_the_join() -> None:
     """Group's side of the same gate: a segment with no connective left
     free to join runs neither P3's rootname count, whose only reader is
@@ -1141,12 +1250,19 @@ def test_a_fixed_point_does_not_reread_what_it_has_read(
 # more than this pin's whole band); `join_connectives` adds one.
 # 2,478 from 2026-10-07, one below: the name asks group's chain
 # `is_prefix_piece` once, which had gone through a closure.
+# 2,418 (py3.11) and 2,398 (py3.12-3.15) from 2026-11-03, each
+# measured there, 64 below the tree before the change (2,482 and
+# 2,462: the recorded 2,478 and 2,459 had drifted inside the band):
+# `join_connectives` builds its connective runs in one pass rather
+# than through `merge_pieces`, so the 64-letter run here no longer
+# pays that function's frame per member (decisions/parse-cost,
+# 2026-11-03).
 _LINK_BASELINE = {
-    (3, 11): 2478,
-    (3, 12): 2459,
-    (3, 13): 2459,
-    (3, 14): 2459,
-    (3, 15): 2459,
+    (3, 11): 2418,
+    (3, 12): 2398,
+    (3, 13): 2398,
+    (3, 14): 2398,
+    (3, 15): 2398,
 }
 #: The same +-2% `_CALL_BASELINE` uses, and for the same reason: frame
 #: counts are deterministic for a given tree and interpreter, so the
@@ -1190,6 +1306,204 @@ def test_a_link_costs_what_it_is_pinned_at() -> None:
         f"see it: check whether `_group._between_name_words` still "
         f"answers both sides of a link in one call, then move the "
         f"baseline deliberately (#397)")
+
+
+# A MERGE THAT SHIFTS THE LIST, which neither the frame counter nor a
+# dev machine's clock can see. `merge_pieces`' slice assignment moves
+# every piece behind the merge, C-level work that emits no frame, and a
+# loop merging once per member of a run moves the rest of the list
+# once per member: `join_connectives` did, through both its loops, and
+# group's split-pair merge did too. On CI's runners title_chain and
+# link_run above read 7.5-8.3x and 6.0-6.5x for 4x the input while a
+# dev machine read 4.1-4.4x on the same tree, so the clock rows could
+# be checked nowhere but CI (decisions/parse-cost, 2026-11-03). This
+# counts the moves instead, on a list that adds up what each non-tail
+# slice assignment, `del`, `insert`, `pop(i)` or `remove` shifts, so it
+# fails on any machine and sees an inline slice as readily as one
+# inside `merge_pieces`. It cannot see a TAIL rebuild per merge
+# (`x[k:] = [m] + x[k + 2:]`), which copies the tail in Python rather
+# than shifting it in place: a loop written that way is still a
+# quadratic, and still needs reading. RECORDED NEGATIVE CONTROL, the
+# tree before the change (962301f7), py3.11, at 50 and 200 units:
+_SHIFT_UNITS = (50, 200)
+_UNGUARDED_SHIFTS = {
+    "Mr. and ": (4802, 79202),
+    "i Und ": (9702, 158802),
+    "and ": (2352, 39402),
+}
+
+
+_T = TypeVar("_T")
+
+
+class _ShiftCountingList(list[_T]):
+    """A list that counts the elements its edits shift: everything
+    behind an edit that changes the length anywhere but the end."""
+
+    moved: ClassVar[int] = 0
+
+    @overload
+    def __setitem__(self, index: SupportsIndex, value: _T) -> None: ...
+    @overload
+    def __setitem__(self, index: slice, value: Iterable[_T]) -> None: ...
+
+    def __setitem__(self, index: SupportsIndex | slice,
+                    value: _T | Iterable[_T]) -> None:
+        if isinstance(index, slice):
+            start, stop, _ = index.indices(len(self))
+            values = list(cast("Iterable[_T]", value))
+            if len(values) != stop - start:
+                _ShiftCountingList.moved += len(self) - stop
+            super().__setitem__(index, values)
+        else:
+            super().__setitem__(index, cast("_T", value))
+
+    def _at(self, index: SupportsIndex) -> int:
+        at = operator.index(index)
+        return at + len(self) if at < 0 else at
+
+    def __delitem__(self, index: SupportsIndex | slice) -> None:
+        stop = (index.indices(len(self))[1] if isinstance(index, slice)
+                else self._at(index) + 1)
+        _ShiftCountingList.moved += len(self) - stop
+        super().__delitem__(index)
+
+    def insert(self, index: SupportsIndex, value: _T) -> None:
+        _ShiftCountingList.moved += max(
+            0, len(self) - min(self._at(index), len(self)))
+        super().insert(index, value)
+
+    def pop(self, index: SupportsIndex = -1) -> _T:
+        _ShiftCountingList.moved += len(self) - self._at(index) - 1
+        return super().pop(index)
+
+    def remove(self, value: _T) -> None:
+        _ShiftCountingList.moved += len(self) - self.index(value) - 1
+        super().remove(value)
+
+
+def _join_shifts(unit: str, units: int) -> tuple[int, int]:
+    """The elements `join_connectives` shifts over `units` of `unit`,
+    and the pieces it leaves."""
+    from nameparser._lexicon import Lexicon
+    from nameparser._pipeline import STAGES
+    from nameparser._pipeline._pieces import join_connectives
+    from nameparser._pipeline._state import ParseState
+    state = ParseState(original=(unit * units).strip(),
+                       lexicon=Lexicon.default(), policy=Policy())
+    for stage in STAGES:
+        state = stage(state)
+        if stage.__name__ == "classify":
+            break
+    titles_only = unit == "Mr. and "
+    pieces: _ShiftCountingList[list[int]] = _ShiftCountingList(
+        [i] for i in state.segments[0])
+    ptags: _ShiftCountingList[set[str]] = _ShiftCountingList(
+        set() for _ in pieces)
+    _ShiftCountingList.moved = 0
+    join_connectives(pieces, ptags, list(state.tokens),
+                     letter_stays=titles_only, titles_only=titles_only)
+    return _ShiftCountingList.moved, len(pieces)
+
+
+def test_the_unguarded_shift_control_is_quadratic() -> None:
+    # the control above must show what the guard is for: 16x the
+    # shifts for 4x the units
+    for small, large in _UNGUARDED_SHIFTS.values():
+        assert large / small > 15
+
+
+@pytest.mark.parametrize("unit", list(_UNGUARDED_SHIFTS))
+def test_join_connectives_shifts_nothing_it_has_built(unit: str) -> None:
+    measured = [_join_shifts(unit, n) for n in _SHIFT_UNITS]
+    # REACHABILITY: every unit joins into one piece, so the loops this
+    # counts ran; a loop that stopped joining would shift nothing too
+    assert [left for _, left in measured] == [1, 1], unit
+    assert [moved for moved, _ in measured] == [0, 0], (
+        f"join_connectives shifted list elements for {unit!r}: a loop "
+        f"merging in place moves the rest of the list once per merge, "
+        f"which went quadratic before (recorded control "
+        f"{_UNGUARDED_SHIFTS[unit]}); build the output in one pass")
+
+
+# Group's split-pair merge, one row per arm: the Ph./D. credential, a
+# member read in the trailing run, and a member behind the given name
+# after a family comma (the GIVEN_SLOT arm).
+_SPLIT_PAIR_RUNS = {
+    "credential": ("John Smith ", "Ph. D. "),
+    "trailing_member": ("John Smith ", "Pharm. D. "),
+    "given_slot_member": ("Smith, John ", "Pharm. D. "),
+}
+
+
+@pytest.mark.parametrize("head,unit", _SPLIT_PAIR_RUNS.values(),
+                         ids=list(_SPLIT_PAIR_RUNS))
+def test_a_run_of_split_pairs_merges_in_one_pass(head: str,
+                                                 unit: str) -> None:
+    """Group's split-pair merge, which `_ShiftCountingList` cannot
+    reach (group builds its own pieces), is held by the frame count of
+    `merge_pieces` instead: a call per pair was the quadratic.
+    RECORDED NEGATIVE CONTROL: 50 and 200 calls at 50 and 200 pairs
+    on 962301f7, in each arm. A slice written inline would evade this;
+    the shift guard above is the stronger form wherever it can reach."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for pairs in _SHIFT_UNITS:
+        text = head + unit * pairs
+        # REACHABILITY: every pair merged and read as the suffix
+        assert parse(text).suffix == (unit * pairs).strip(), text
+        assert _frames_for(text, only="merge_pieces") == 0, pairs
+
+
+def test_a_run_of_bound_phrases_joins_in_one_pass() -> None:
+    """rules/P12's join past the start, held as the split-pair merge
+    is, by the frame count of `merge_pieces`: a call per pair, each
+    shifting every piece behind it, was the quadratic.
+    RECORDED NEGATIVE CONTROL: 50 and 200 calls at 50 and 200 pairs
+    with the join merging each pair through it (2026-11-04, #694). A
+    slice written inline would evade this, as it would the split-pair
+    row's; group builds its own pieces, which `_ShiftCountingList`
+    cannot reach."""
+    if sys.getprofile() is not None:
+        pytest.skip("a profile hook is already installed; this test owns it")
+    for pairs in _SHIFT_UNITS:
+        text = "طارق " + "عبد الله " * pairs
+        # REACHABILITY: the join ran, the last pair the family
+        assert parse(text).family == "عبد الله", pairs
+        assert _frames_for(text, only="merge_pieces") == 0, pairs
+
+
+def _phrase_shifts(pairs: int) -> int:
+    """The elements rules/P12's join shifts over a run of `pairs`."""
+    from nameparser._lexicon import Lexicon
+    from nameparser._pipeline import STAGES
+    from nameparser._pipeline._group import _join_bound_phrases
+    from nameparser._pipeline._state import ParseState
+    state = ParseState(original="طارق " + "عبد الله " * pairs,
+                       lexicon=Lexicon.default(), policy=Policy())
+    for stage in STAGES:
+        if stage.__name__ == "group":
+            break
+        state = stage(state)
+    pieces: _ShiftCountingList[list[int]] = _ShiftCountingList(
+        [i] for i in state.segments[0])
+    ptags: _ShiftCountingList[set[str]] = _ShiftCountingList(
+        set() for _ in pieces)
+    _ShiftCountingList.moved = 0
+    heads: set[int] = set()
+    _join_bound_phrases(pieces, ptags, list(state.tokens), heads)
+    # REACHABILITY: every pair joined
+    assert len(heads) == pairs and len(pieces) == pairs + 1, pairs
+    return _ShiftCountingList.moved
+
+
+def test_a_run_of_bound_phrases_shifts_nothing() -> None:
+    """The join called alone on lists that count what their edits
+    shift, which sees a slice or `del` per pair, as the frame count
+    above cannot. RECORDED NEGATIVE CONTROL: 4,900 and 79,600 elements
+    shifted at 50 and 200 pairs with the join deleting each pair's
+    second piece in place (2026-11-04, #694)."""
+    assert [_phrase_shifts(n) for n in _SHIFT_UNITS] == [0, 0]
 
 
 def test_a_member_opening_a_comma_part_asks_no_anchor_pass() -> None:

@@ -4,9 +4,11 @@ Events, funnel semantics, the contract (metadata only, async, gates): DESIGN.md 
 """
 
 from __future__ import annotations
+import contextlib
 import logging
 import os
 import uuid
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from probe.analytics import core as core
@@ -123,6 +125,8 @@ class TelemetryContext:
                 "identity_mode": mode,
             }
             properties.update({k: v for k, v in props.items() if v is not None and k != "surface"})
+            for key, value in tuple(_stamp.items()):  # a snapshot: `hold_stamp` may end on another thread
+                properties.setdefault(key, value)  # the payload's own value wins
             # Same contract as core.build_batch: detected or absent, never a
             # placeholder that reads as Claude Code for a Codex or pi user.
             detected = core.detect_agent_label()
@@ -188,6 +192,28 @@ def null_context() -> TelemetryContext:
     )
 
 
+#: What every event this process sends carries while `hold_stamp` holds it (an agent's install: PR24).
+_stamp: dict[str, object] = {}
+
+
+@contextlib.contextmanager
+def hold_stamp(**props) -> Iterator[None]:
+    """Stamp every event this process sends inside the block with `props` (None values left out); the
+    stamp held before comes back after. Process-wide, as `_current` is: the wizard's own contexts carry it."""
+    previous = dict(_stamp)
+    add_stamp(**props)
+    try:
+        yield
+    finally:
+        _stamp.clear()
+        _stamp.update(previous)
+
+
+def add_stamp(**props) -> None:
+    """Add to the stamp `hold_stamp` holds, for facts known only partway through (None values left out)."""
+    _stamp.update({key: value for key, value in props.items() if value is not None})
+
+
 #: The context this PROCESS started (one per command: a process constant). Its one job:
 #: stamp the approving session onto a durable import record. Why not a parameter: DESIGN.md.
 _current: TelemetryContext | None = None
@@ -196,6 +222,11 @@ _current: TelemetryContext | None = None
 def current() -> TelemetryContext:
     """This process's context, or a disabled one. Never None, never raises."""
     return _current if _current is not None else null_context()
+
+
+def has_context() -> bool:
+    """Did this process start a context (`TelemetryContext.start`)? A new one would take over its events."""
+    return _current is not None
 
 
 def track(event: str, **props) -> None:

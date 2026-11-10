@@ -7,16 +7,18 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.token_quota_usage_response import TokenQuotaUsageResponse
-from ...types import UNSET, Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
-    user_uuid: UUID,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
-    json_user_uuid = str(user_uuid)
+    json_user_uuid: Union[Unset, str] = UNSET
+    if not isinstance(user_uuid, Unset):
+        json_user_uuid = str(user_uuid)
     params["user_uuid"] = json_user_uuid
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -54,7 +56,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    user_uuid: UUID,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[TokenQuotaUsageResponse]:
     """
             Get current token quota and usage for the requesting user.
@@ -70,7 +72,7 @@ def sync_detailed(
 
 
     Args:
-        user_uuid (UUID):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -94,7 +96,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    user_uuid: UUID,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> TokenQuotaUsageResponse:
     """
             Get current token quota and usage for the requesting user.
@@ -110,7 +112,7 @@ def sync(
 
 
     Args:
-        user_uuid (UUID):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -129,7 +131,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    user_uuid: UUID,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[TokenQuotaUsageResponse]:
     """
             Get current token quota and usage for the requesting user.
@@ -145,7 +147,7 @@ async def asyncio_detailed(
 
 
     Args:
-        user_uuid (UUID):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -167,7 +169,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    user_uuid: UUID,
+    user_uuid: Union[Unset, UUID] = UNSET,
 ) -> TokenQuotaUsageResponse:
     """
             Get current token quota and usage for the requesting user.
@@ -183,7 +185,7 @@ async def asyncio(
 
 
     Args:
-        user_uuid (UUID):
+        user_uuid (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

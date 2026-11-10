@@ -84,8 +84,7 @@ def omit_exception(
     @functools.wraps(method)
     def _generator_decorator(self, *args, **kwargs):
         try:
-            for item in method(self, *args, **kwargs):
-                yield item
+            yield from method(self, *args, **kwargs)
         except ConnectionInterrupted as e:
             yield __handle_error(self, e)
 
@@ -197,7 +196,7 @@ class BaseValkeyCache(Generic[Client, Backend]):
 
     def get_client_class(self) -> type[Client] | type:
         options = self._params.get("OPTIONS", {})
-        _client_cls = options.get("CLIENT_CLASS", self.DEFAULT_CLIENT_CLASS)
+        _client_cls = options.get("CLIENT_CLASS", self.DEFAULT_CLIENT_CLASS)  # ty: ignore[unresolved-attribute]
         return import_string(_client_cls)
 
     @property
@@ -210,15 +209,15 @@ class BaseValkeyCache(Generic[Client, Backend]):
         return self._client
 
     def make_key(self, *args, **kwargs) -> bool:
-        return self.client.make_key(*args, **kwargs)
+        return self.client.make_key(*args, **kwargs)  # ty: ignore[unresolved-attribute]
 
     def make_pattern(self, *args, **kwargs) -> bool:
-        return self.client.make_pattern(*args, **kwargs)
+        return self.client.make_pattern(*args, **kwargs)  # ty: ignore[unresolved-attribute]
 
 
 class BackendCommands:
     def __contains__(self, item):
-        return self.has_key(item)
+        return self.has_key(item)  # ty: ignore[invalid-argument-type]
 
     def set(self: BaseValkeyCache, *args, **kwargs) -> bool:
         return self.client.set(*args, **kwargs)
@@ -233,7 +232,7 @@ class BackendCommands:
         return self.client.add(*args, **kwargs)
 
     def get(self, key, default=None, version=None, client=None) -> Any:
-        value = self._get(key, default, version, client)
+        value = self._get(key, default, version, client)  # ty: ignore[invalid-argument-type]
         if value is CONNECTION_INTERRUPTED:
             value = default
         return value
@@ -250,14 +249,14 @@ class BackendCommands:
 
         Return the value of the key stored or retrieved.
         """
-        val = self.get(key, self._missing_key, version=version)
-        if val is self._missing_key:
+        val = self.get(key, self._missing_key, version=version)  # ty: ignore[unresolved-attribute]
+        if val is self._missing_key:  # ty: ignore[unresolved-attribute]
             if callable(default):
                 default = default()
 
             if timeout is DEFAULT_TIMEOUT:
-                timeout = self.default_timeout
-            self.add(key, default, timeout=timeout, version=version)
+                timeout = self.default_timeout  # ty: ignore[unresolved-attribute]
+            self.add(key, default, timeout=timeout, version=version)  # ty: ignore[invalid-argument-type]
             # Fetch the value again to avoid a race condition if another caller
             # added a value between the first get() and the add() above.
             return self.get(key, default, version=version)
@@ -594,8 +593,8 @@ class AsyncBackendCommands:
 
 # temp fix for django's #36047
 # TODO: remove this when it's fixed in django
-from django.core import signals  # noqa: E402
-from django.core.cache import caches, close_caches  # noqa: E402
+from django.core import signals
+from django.core.cache import caches, close_caches
 
 
 async def close_async_caches(**kwargs):

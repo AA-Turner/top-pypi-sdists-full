@@ -316,6 +316,19 @@ pub enum Node {
         runs: Vec<InlineRun>,
         md_text: String,
     },
+    /// A PDF text item whose superscripts and subscripts the opt-in
+    /// script-position stage marked (#1005, docling's `ScriptPositionModel`,
+    /// `script_position_options.enabled`). `inner` is the item — a paragraph
+    /// or a footnote — with its text already the runs' joined text (Markdown-
+    /// escaped, `E = mc2 in 1905.`): every serializer but JSON and DocLang
+    /// renders it as it is. The JSON writes docling's shape — the item with
+    /// an empty `text`, holding an inline group of the runs, each a text item
+    /// with `formatting.script` and the box of its own characters — and
+    /// DocLang writes the runs as an inline group.
+    ScriptText {
+        inner: Box<Node>,
+        runs: Vec<ScriptRun>,
+    },
     /// A node in a non-body content layer — `furniture` (page headers/footers,
     /// the HTML `<title>`, site navigation/chrome) or `notes` (docx comments).
     /// Markdown and JSON omit these layers by default; DocLang renders the wrapped
@@ -472,13 +485,38 @@ pub enum Node {
     /// and charts, which appear in the `.dclx` body but not in its `.md`/`.json`.
     /// DocLang renders the wrapped node in place; Markdown and JSON skip it.
     DoclangOnly(Box<Node>),
-    /// A verbatim plain-text dump — docling's plain-text backend emits the whole
-    /// file as a single text item (used for legacy USPTO APS `.txt` grants, which
-    /// docling routes to plain text rather than its APS parser). The stored string
-    /// is the file body, one record per line. Markdown/JSON render it as one text
-    /// block; the DocLang serializer reproduces minidom's per-line layout, CDATA-
-    /// escaping only the lines that need it (see `emit_text_dump`).
+    /// A verbatim plain-text dump: one text item holding text whose line
+    /// breaks are content (a nested table flattened to its cells' text, an
+    /// ODF text box's raw text). Markdown/JSON render it as one text block,
+    /// DocLang as one `<text>` whose `<content>` keeps the breaks.
     TextDump(String),
+}
+
+/// One run of a [`Node::ScriptText`]: a piece of the item's text at one
+/// script position, with its provenance — one entry per page it is on.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptRun {
+    /// The run's raw text (not Markdown-escaped), its spaces included:
+    /// serializers join runs with nothing.
+    pub text: String,
+    pub script: Script,
+    /// The run's provenance, one per page, in text order.
+    pub prov: Vec<ScriptRunProv>,
+    /// The item's link, on its baseline runs (each linked run exports as a
+    /// link of its own, so a marker stays out of it).
+    pub hyperlink: Option<String>,
+}
+
+/// Where a [`ScriptRun`] sits on one page: docling's `ProvenanceItem` with a
+/// bottom-left-origin box.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScriptRunProv {
+    /// 1-based page number.
+    pub page_no: usize,
+    /// `[l, t, r, b]`, PDF points, bottom-left origin (`t > b`).
+    pub bbox: [f32; 4],
+    /// The run's characters on this page, as a span of its `text`.
+    pub charspan: [usize; 2],
 }
 
 /// Vertical text position of an [`InlineRun`] — docling's `Script`.
@@ -518,6 +556,10 @@ pub enum ContentLayer {
     Notes,
     /// Invisible content (hidden spreadsheet sheets).
     Invisible,
+    /// Background content (watermarks): docling-core 2.99's `background`
+    /// layer, which DocLang has and an `invisible` item is written to
+    /// (docling-core#800) — read back from a DocLang document.
+    Background,
 }
 
 impl ContentLayer {
@@ -527,6 +569,7 @@ impl ContentLayer {
             ContentLayer::Furniture => "furniture",
             ContentLayer::Notes => "notes",
             ContentLayer::Invisible => "invisible",
+            ContentLayer::Background => "background",
         }
     }
 }
@@ -547,6 +590,8 @@ pub struct ContentLayers {
     pub notes: bool,
     /// [`ContentLayer::Invisible`]: hidden content (hidden sheets, …).
     pub invisible: bool,
+    /// [`ContentLayer::Background`]: background content (watermarks).
+    pub background: bool,
 }
 
 impl Default for ContentLayers {
@@ -562,6 +607,7 @@ impl ContentLayers {
         furniture: false,
         notes: false,
         invisible: false,
+        background: false,
     };
     /// Every layer — Python's `set(ContentLayer)`.
     pub const ALL: Self = Self {
@@ -569,6 +615,7 @@ impl ContentLayers {
         furniture: true,
         notes: true,
         invisible: true,
+        background: true,
     };
     /// No layer at all (nothing renders); build a set from it with
     /// [`with`](Self::with) / [`with_body`](Self::with_body).
@@ -577,6 +624,7 @@ impl ContentLayers {
         furniture: false,
         notes: false,
         invisible: false,
+        background: false,
     };
 
     /// The set plus `layer`.
@@ -585,6 +633,7 @@ impl ContentLayers {
             ContentLayer::Furniture => self.furniture = true,
             ContentLayer::Notes => self.notes = true,
             ContentLayer::Invisible => self.invisible = true,
+            ContentLayer::Background => self.background = true,
         }
         self
     }
@@ -602,27 +651,27 @@ impl ContentLayers {
             Some(ContentLayer::Furniture) => self.furniture,
             Some(ContentLayer::Notes) => self.notes,
             Some(ContentLayer::Invisible) => self.invisible,
+            Some(ContentLayer::Background) => self.background,
         }
     }
 
     /// Whether the layer spelled `name` (`body`, `furniture`, `notes`,
-    /// `invisible` — the JSON `content_layer` values) is in the set; an
-    /// unknown name is not.
+    /// `invisible`, `background` — the JSON `content_layer` values) is in
+    /// the set; an unknown name is not.
     pub fn contains_name(&self, name: &str) -> bool {
         match name {
             "body" => self.body,
             "furniture" => self.furniture,
             "notes" => self.notes,
             "invisible" => self.invisible,
+            "background" => self.background,
             _ => false,
         }
     }
 
     /// Parse a comma-separated list of layer names (`body,furniture`;
     /// whitespace around a name is ignored, `all` is every layer). An
-    /// unknown name is the error. docling-core 2.99's `background` layer
-    /// (watermarks) has no items in this model, so the name is accepted and
-    /// adds nothing — a set written for Python keeps parsing.
+    /// unknown name is the error.
     pub fn parse_list(list: &str) -> Result<Self, String> {
         let mut set = Self::NONE;
         for name in list.split(',').map(str::trim).filter(|n| !n.is_empty()) {
@@ -631,11 +680,11 @@ impl ContentLayers {
                 "furniture" => set.furniture = true,
                 "notes" => set.notes = true,
                 "invisible" => set.invisible = true,
-                "background" => {}
+                "background" => set.background = true,
                 "all" => set = Self::ALL,
                 other => {
                     return Err(format!(
-                        "unknown content layer `{other}` (expected body, furniture, notes, invisible or all)"
+                        "unknown content layer `{other}` (expected body, furniture, notes, invisible, background or all)"
                     ))
                 }
             }
@@ -902,6 +951,26 @@ impl PictureDescription {
     pub fn is_alt_text(&self) -> bool {
         self.provenance == Self::ALT_TEXT
     }
+
+    /// The (empty) provenance of a description docling's backend writes
+    /// itself as `PictureMeta.description` — `text` only, no `created_by`
+    /// and no legacy `annotations` entry: the alt text of an XLSX image
+    /// placed in a cell (docling#5015). Unlike [`Self::ALT_TEXT`] it is
+    /// upstream's own output, so every format renders it unconditionally.
+    pub const DOCLING_META: &'static str = "";
+
+    /// A docling-native description, see [`Self::DOCLING_META`].
+    pub fn docling_meta(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            provenance: Self::DOCLING_META.to_string(),
+        }
+    }
+
+    /// Whether this is a docling-native description ([`Self::DOCLING_META`]).
+    pub fn is_docling_meta(&self) -> bool {
+        self.provenance == Self::DOCLING_META
+    }
 }
 
 /// An extracted picture's raw encoded bytes plus its mimetype and pixel size —
@@ -1045,6 +1114,11 @@ pub struct Table {
     /// pipeline's caption layout region, written as the caption item's
     /// `prov` (#609); see [`Node::Picture`]'s field of the same name.
     pub caption_location: Option<[u16; 4]>,
+    /// The table's footnotes (docling's `TableItem.footnotes`, #1009): one
+    /// text each, escaped like [`Self::caption`]. Markdown prints them after
+    /// the grid, one paragraph each; JSON emits `footnote` text items under
+    /// the table that its `footnotes` list references (docling-core#675).
+    pub footnotes: Vec<String>,
     /// Optional per-cell bounding boxes, same shape as [`Self::rows`]: `[l, t,
     /// r, b]` in page points with a **top-left** origin (the PDF pipeline's
     /// native space). Set by the ML pipeline's TableFormer paths — a spanned
@@ -1680,15 +1754,20 @@ impl DoclingDocument {
         })
     }
 
-    /// An opted-in item tree's DocLang ([`crate::tree::ItemTree::doclang`]),
-    /// else — no such tree, or one the port does not cover — the nodes'.
+    /// The item tree's DocLang — docling-core's `DocLangDocSerializer`
+    /// ported over the tree (`doclang_tree.rs`, #884), the structure the
+    /// JSON export writes — else (no tree, or one the port does not cover:
+    /// provenance, picture meta, form fields) the nodes'. The flat nodes
+    /// cannot carry a footnote's label, a caption's or a cell's inline
+    /// formulas, text docling never wrote as Markdown, or the whitespace of
+    /// an inline group's runs, which DocLang 0.9 reads as written.
     fn export_doclang(
         &self,
         pictures: crate::doclang::Pictures,
     ) -> (String, Vec<(String, Vec<u8>)>) {
         self.tree
             .as_ref()
-            .filter(|t| t.doclang)
+            .filter(|t| !t.doclang_nodes)
             .and_then(|t| crate::doclang_tree::export(t, pictures))
             .unwrap_or_else(|| crate::doclang::render(&self.nodes, pictures))
     }

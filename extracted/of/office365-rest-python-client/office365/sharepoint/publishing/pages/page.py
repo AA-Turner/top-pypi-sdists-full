@@ -1,16 +1,22 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 from uuid import UUID
 
 from typing_extensions import Self
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.converters.scalars import parse_enum
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.schema import TypeSchema
+from office365.runtime.types.odata_property import odata
+from office365.sharepoint.contenttypes.builtin_content_type_id import SPBuiltInContentTypeId
 from office365.sharepoint.documents.coauthconfiguration import CoAuthConfiguration
+from office365.sharepoint.listitems.moderation_status import SPModerationStatusType
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.publishing.amplify.clientamplifyanywhereresults import ClientAmplifyAnywhereResults
 from office365.sharepoint.publishing.amplify.clientamplifyresults import ClientAmplifyResults
 from office365.sharepoint.publishing.amplify.history import AmplifyPublishingHistory
@@ -34,24 +40,28 @@ from office365.sharepoint.translation.status_collection import TranslationStatus
 class SitePage(SitePageMetadata):
     """Represents a Site Page."""
 
+    @site_access(SiteLevel.WRITE)
     def checkout_page(self) -> Self:
         """Checks out the current Site Page if it is available to be checked out."""
         qry = ServiceOperationQuery(self, "CheckoutPage", None, None, None, self)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def copy(self) -> Self:
         """Creates a copy of the current Site Page and returns the resulting new SitePage."""
         qry = ServiceOperationQuery(self, "Copy")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def discard_page(self) -> Self:
         """Discards the current checked out version of the Site Page.  Returns the resulting SitePage after discard."""
         qry = ServiceOperationQuery(self, "DiscardPage", return_type=self)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_dependency_metadata(self) -> ClientResult[ClientValueCollection[SitePageDependencyMetadata]]:
         """ """
         return_type = ClientResult(self.context, ClientValueCollection(SitePageDependencyMetadata))
@@ -59,6 +69,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_version(self, version_id: str) -> "SitePage":
         """ """
         return_type = SitePage(self.context, self.resource_path)
@@ -66,6 +77,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def save_page(
         self,
         title: str,
@@ -88,6 +100,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def save_draft(self, title, canvas_content=None, banner_image_url=None, topic_header=None):
         """Updates the Site Page with the provided sitePage metadata and checks in a minor version if the page library
         has minor versions enabled.
@@ -106,6 +119,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def save_page_as_draft(self, title, canvas_content=None, banner_image_url=None, topic_header=None):
         """Updates the Site Page with the provided pageStream content and checks in a minor version if the page library
         has minor versions enabled.
@@ -124,6 +138,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def save_page_as_template(self) -> "SitePage":
         """ """
         return_type = SitePage(self.context)
@@ -131,6 +146,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def save_page_co_auth(self, page_stream):
         """ """
         return_type = ClientResult(self.context, SitePageCoAuthState())
@@ -139,6 +155,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def demote_from_news(self):
         """
         Updates the promoted state of the site page to 0. On success MUST return true.
@@ -152,6 +169,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.WRITE)
     def promote_to_news(self):
         """
         Updates the promoted state of the site page to 1 if the site page has not been published yet.
@@ -166,6 +184,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.WRITE)
     def publish(self) -> ClientResult[bool]:
         """
         Publishes a major version of the current Site Page.  Returns TRUE on success, FALSE otherwise.
@@ -175,6 +194,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def schedule_publish(self, publish_start_date):
         """Schedules the page publication for a certain date
 
@@ -187,6 +207,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.WRITE)
     def share_page_preview_by_email(self, message: str, recipient_emails: list[str]) -> Self:
         """Args:
         message (str):
@@ -197,6 +218,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_co_auth(self):
         """"""
         return_type = SitePage(self.context, self.resource_path)
@@ -204,11 +226,13 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="CanvasContent1", beta=True)
     @property
     def canvas_content(self) -> Optional[str]:
         """Gets the CanvasContent1 for the current Site Page"""
         return self.properties.get("CanvasContent1", None)
 
+    @odata(name="Language", beta=True)
     @property
     def language(self) -> Optional[str]:
         """Gets the Language for the Site Page."""
@@ -219,6 +243,7 @@ class SitePage(SitePageMetadata):
         """Sets the CanvasContent1 for the current Site Page"""
         self.set_property("CanvasContent1", value)
 
+    @odata(name="LayoutWebpartsContent", beta=True)
     @property
     def layout_web_parts_content(self) -> Optional[str]:
         """Gets the LayoutWebPartsContent field for the current Site Page."""
@@ -229,6 +254,7 @@ class SitePage(SitePageMetadata):
         """Sets the LayoutWebPartsContent field for the current Site Page."""
         self.set_property("LayoutWebpartsContent", value)
 
+    @odata(name="Translations", navigation=True, beta=True)
     @property
     def translations(self) -> TranslationStatusCollection:
         return self.properties.get(
@@ -247,36 +273,37 @@ class SitePage(SitePageMetadata):
     def entity_type_name(self) -> str:
         return "SP.Publishing.SitePage"
 
+    @odata(name="AlternativeUrlMap", beta=True)
     @property
     def alternative_url_map(self) -> Optional[str]:
         """Gets the AlternativeUrlMap property"""
         return self.properties.get("AlternativeUrlMap", None)
 
+    @odata(name="AmplifyPublishingHistory", beta=True)
     @property
     def amplify_publishing_history(self) -> AmplifyPublishingHistory:
         """Gets the AmplifyPublishingHistory property"""
         return self.properties.get("AmplifyPublishingHistory", AmplifyPublishingHistory())
 
+    @odata(name="AuthoringMetadata", beta=True)
     @property
     def authoring_metadata(self) -> SitePageAuthoringMetadata:
         """Gets the AuthoringMetadata property"""
         return self.properties.get("AuthoringMetadata", SitePageAuthoringMetadata())
 
+    @odata(name="BoostProperties", beta=True)
     @property
     def boost_properties(self) -> SitePageBoostProperties:
         """Gets the BoostProperties property"""
         return self.properties.get("BoostProperties", SitePageBoostProperties())
 
+    @odata(name="CampaignMetadata")
     @property
     def campaign_metadata(self) -> Optional[str]:
         """Gets the CampaignMetadata property"""
         return self.properties.get("CampaignMetadata", None)
 
-    @property
-    def canvas_content1(self) -> Optional[str]:
-        """Gets the CanvasContent1 property"""
-        return self.properties.get("CanvasContent1", None)
-
+    @odata(name="CanvasJson1", beta=True)
     @property
     def canvas_json1(self) -> Optional[str]:
         """Gets the CanvasJson1 property"""
@@ -285,78 +312,160 @@ class SitePage(SitePageMetadata):
     @property
     def web_part_count(self) -> int:
         """Gets the number of client-side web parts serialized in the page canvas."""
-        return count_web_parts(self.canvas_content1)
+        return count_web_parts(self.canvas_content)
 
+    @property
+    def is_modern(self) -> bool:
+        """Whether this is a modern site page rather than a classic one.
+
+        A page carrying a canvas is modern whatever its content type; a page with an
+        empty canvas is still modern when its content type derives from "Site Page".
+        """
+        return bool(self.canvas_content) or (self.content_type_id or "").startswith(SPBuiltInContentTypeId.SitePage)
+
+    @property
+    def is_classic(self) -> bool:
+        """Whether this is a classic wiki page: a ``WikiField`` body and no canvas of its own."""
+        return bool(self.wiki) and not self.is_modern
+
+    @property
+    def body(self) -> Optional[str]:
+        """The field value that carries this page's body — what a copy writes and verifies.
+
+        A wiki page's body is its ``WikiField``, a modern page's is its canvas; a page
+        with neither answers ``None`` and cannot be copied as it stands.
+        """
+        return self.wiki if self.is_classic else self.canvas_content
+
+    @property
+    def body_field(self) -> str:
+        """The name of the field :attr:`body` reads: ``WikiField`` or ``CanvasContent1``."""
+        schema = TypeSchema.of(self)
+        return schema.name_of("wiki") if self.is_classic else schema.name_of("canvas_content")
+
+    @odata(name="CheckIn", beta=True)
     @property
     def check_in(self) -> Optional[bool]:
         """Gets the CheckIn property"""
         return self.properties.get("CheckIn", None)
 
+    @odata(name="CoAuthState", beta=True)
     @property
     def co_auth_state(self) -> SitePageCoAuthState:
         """Gets the CoAuthState property"""
         return self.properties.get("CoAuthState", SitePageCoAuthState())
 
+    @odata(name="CoAuthTenantConfiguration", beta=True)
     @property
     def co_auth_tenant_configuration(self) -> CoAuthConfiguration:
         """Gets the CoAuthTenantConfiguration property"""
         return self.properties.get("CoAuthTenantConfiguration", CoAuthConfiguration())
 
+    @odata(name="Collaborators", beta=True)
     @property
     def collaborators(self) -> ClientValueCollection[SitePageCollaborator]:
         """Gets the Collaborators property"""
         return self.properties.get("Collaborators", ClientValueCollection[SitePageCollaborator](SitePageCollaborator))
 
+    @odata(name="CreationMode", beta=True)
     @property
     def creation_mode(self) -> Optional[int]:
         """Gets the CreationMode property"""
         return self.properties.get("CreationMode", None)
 
+    @odata(name="IsLikedByCurrentUser", beta=True)
     @property
     def is_liked_by_current_user(self) -> Optional[bool]:
         """Gets the IsLikedByCurrentUser property"""
         return self.properties.get("IsLikedByCurrentUser", None)
 
+    @odata(name="IsTemplate", beta=True)
     @property
     def is_template(self) -> Optional[bool]:
         """Gets the IsTemplate property"""
         return self.properties.get("IsTemplate", None)
 
-    @property
-    def layout_webparts_content(self) -> Optional[str]:
-        """Gets the LayoutWebpartsContent property"""
-        return self.properties.get("LayoutWebpartsContent", None)
-
+    @odata(name="Name", beta=True)
     @property
     def name(self) -> Optional[str]:
         """Gets the Name property"""
         return self.properties.get("Name", None)
 
+    @odata(name="PublicationMetadata", beta=True)
     @property
     def publication_metadata(self) -> Optional[str]:
         """Gets the PublicationMetadata property"""
         return self.properties.get("PublicationMetadata", None)
 
+    @odata(name="PublicationRecipients", beta=True)
     @property
     def publication_recipients(self) -> Optional[str]:
         """Gets the PublicationRecipients property"""
         return self.properties.get("PublicationRecipients", None)
 
+    @odata(name="SitePageFlags", beta=True)
     @property
     def site_page_flags(self) -> Optional[str]:
         """Gets the SitePageFlags property"""
         return self.properties.get("SitePageFlags", None)
 
+    @odata(name="SourceDynamicSectionId", beta=True)
     @property
     def source_dynamic_section_id(self) -> Optional[str]:
         """Gets the SourceDynamicSectionId property"""
         return self.properties.get("SourceDynamicSectionId", None)
 
+    # Probed live: naming it in ``$select`` is answered 400 NotSupported
+    # ("part of an experimental feature that is not supported in the current
+    # environment"), while the same projection without it answers the 11 pages. So the
+    # entity declares the column -- an item row still carries it -- and leaves it out of
+    # the projection.
+    @odata(name="TemplateScope", beta=True, selectable=False)
     @property
     def template_scope(self) -> Optional[int]:
         """Gets the TemplateScope property"""
         return self.properties.get("TemplateScope", None)
 
+    # The three columns below are how the *list item* spells a page. A page is read
+    # through its library's item projection, where ``sitepages/pages`` answers none of
+    # them: the entity spells the file name ``FileName`` (declared on the base class),
+    # and accepts the other two without ever returning a value for them.
+
+    @odata(name="FileLeafRef", system=True)
+    @property
+    def file_leaf_ref(self) -> Optional[str]:
+        """Gets the FileLeafRef property
+
+        The list-item column that stores a page's file name. An item row spells this
+        column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("FileLeafRef", None)
+
+    @odata(name="WikiField", system=True)
+    @property
+    def wiki(self) -> Optional[str]:
+        """Gets the WikiField property
+
+        A classic wiki page's body, which it carries instead of a canvas. An item row
+        spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("WikiField", None)
+
+    @odata(name="OData__ModerationStatus", system=True, readonly=True)
+    @property
+    def moderation_status(self) -> Optional[SPModerationStatusType]:
+        """The page's approval status.
+
+        The column declares its own values (``SPModerationStatusType``) and is read-only;
+        REST spells a field whose internal name starts with ``_`` as ``OData_`` + that
+        name. An item row spells this column; the metadata does not (``system=True``).
+        """
+        value = self.properties.get("OData__ModerationStatus", None)
+        if value is None or isinstance(value, SPModerationStatusType):
+            return value
+        return cast("Optional[SPModerationStatusType]", parse_enum(SPModerationStatusType, value))
+
+    @site_access(SiteLevel.WRITE)
     def amplify(self, request: AmplifyRequestParams) -> ClientResult[ClientAmplifyAnywhereResults]:
         """Amplify operation.
 
@@ -368,6 +477,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def amplify_history(self) -> ClientResult[AmplifyPublishingHistory]:
         """AmplifyHistory operation."""
         return_type = ClientResult(self.context, AmplifyPublishingHistory())
@@ -375,6 +485,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def amplify_send_test_email_message(self, content_stream: bytes) -> ClientResult[ClientAmplifyResults]:
         """AmplifySendTestEmailMessage operation.
 
@@ -388,6 +499,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def amplify_send_test_teams_message(
         self, audience_id: str, group_id: UUID, transpile_content: str, channel_name: str, team_name: str
     ) -> ClientResult[ClientAmplifyResults]:
@@ -418,6 +530,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def boost_news(self, site_page_boost: BoostFieldsData) -> Self:
         """BoostNews operation.
 
@@ -428,6 +541,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def check_out(self) -> ClientResult[bool]:
         """CheckOut operation."""
         return_type = ClientResult(self.context, bool())
@@ -435,6 +549,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def extend_session_co_auth(
         self, authoring_metadata: SitePageAuthoringMetadata, connectivity_update_reason: int
     ) -> ClientResult[SitePageCoAuthState]:
@@ -456,6 +571,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_latest_versions_in_descending_order(
         self, num_versions: int
     ) -> ClientResult[ClientValueCollection[SitePageVersionInfoCollection]]:
@@ -469,6 +585,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def publish_co_auth(self, page_stream: bytes) -> ClientResult[SitePageCoAuthState]:
         """PublishCoAuth operation.
 
@@ -480,6 +597,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def restore_by_label(self, versionlabel: str) -> Self:
         """RestoreByLabel operation.
 
@@ -490,6 +608,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def save_streams(self, content_stream: bytes, shared_lock_id: str, scenario: int) -> Self:
         """SaveStreams operation.
 
@@ -509,6 +628,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def send_test_email(
         self, transpile_content: str, subject: str, sensitivity_label_id: str
     ) -> ClientResult[SendTestEmailResponse]:
@@ -531,6 +651,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def send_test_email_stream(self, content_stream: bytes) -> ClientResult[SendTestEmailResponse]:
         """SendTestEmailStream operation.
 
@@ -544,6 +665,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def send_test_teams_message(
         self, audience_id: str, transpile_content: str
     ) -> ClientResult[SendTestTeamsMessageResponse]:
@@ -565,6 +687,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def start_exclusive_authoring(self) -> ClientResult[bool]:
         """StartExclusiveAuthoring operation."""
         return_type = ClientResult(self.context, bool())
@@ -572,6 +695,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def try_process_source_page_after_page_move_publish(self) -> ClientResult[bool]:
         """TryProcessSourcePageAfterPageMovePublish operation."""
         return_type = ClientResult(self.context, bool())
@@ -579,6 +703,7 @@ class SitePage(SitePageMetadata):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def try_process_source_page_before_page_move_publish(self) -> ClientResult[bool]:
         """TryProcessSourcePageBeforePageMovePublish operation."""
         return_type = ClientResult(self.context, bool())

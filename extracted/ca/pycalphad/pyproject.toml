@@ -28,6 +28,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 requires-python = ">=3.11"
 # NOTE: please try to keep any depedencies in alphabetic order so they
@@ -41,12 +43,12 @@ dependencies = [
     "numpy>=1.13",
     "pint",
     "pyparsing>=3.0",
-    "pytest",
     "pytest-cov",
+    "pytest",
     "runtype",
     "scipy",
     "setuptools_scm[toml]>=6.0",
-    "symengine>=0.9.2,<0.14",
+    "symengine>=0.9.2,!=0.14.*",
     "tinydb>=3.8",
     "typing_extensions",
     "xarray>=0.11.2",
@@ -59,35 +61,49 @@ Homepage = "https://pycalphad.org/"
 [dependency-groups]
 dev = [
     "Cython",
-    "numpy>=2",
-    "scipy",
-    "setuptools",
-    "setuptools_scm[toml]>=6.0",
-    "wheel",
+    "docutils<0.21", # workaround for https://github.com/vidartf/nbsphinx-link/issues/22
     "furo>=2021.11.16",  # docs theme
     "ipykernel",
     "ipython",  # for pygments syntax highlighting
-    "pytest-cov",
-    "sphinx<9",
+    "jupyter>=1.1.1",
+    "nb-clean>=4.0.1",
+    "nbconvert>=7.17.1",
     "nbsphinx-link",
-    "docutils<0.21", # workaround for https://github.com/vidartf/nbsphinx-link/issues/22
+    "numpy>=2",
+    "pytest-cov",
+    "scipy",
+    "setuptools_scm[toml]>=6.0",
+    "setuptools",
+    "sphinx<9",
+    "sphinx-autobuild>=2025.8.25",
+    "sphinx-design",
+    "wheel",
+]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    # ensure we rebuild if our Cython files or build script changes
+    { file = "setup.py" },
+    { file = "pycalphad/**/*.pyx" },
+    { file = "pycalphad/**/*.pxd" },
 ]
 
 [tool.setuptools]
 # Do not include pycalphad._dev here as it should not be distributed
 packages = [
-    "pycalphad",
     "pycalphad.codegen",
     "pycalphad.core",
     "pycalphad.io",
-    "pycalphad.plot",
-    "pycalphad.plot.binary",
-    "pycalphad.property_framework",
-    "pycalphad.tests",
-    "pycalphad.tests.databases",
-    "pycalphad.models",
-    "pycalphad.mapping",
     "pycalphad.mapping.strategy",
+    "pycalphad.mapping",
+    "pycalphad.models",
+    "pycalphad.plot.binary",
+    "pycalphad.plot",
+    "pycalphad.property_framework",
+    "pycalphad.tests.databases",
+    "pycalphad.tests",
+    "pycalphad",
 ]
 
 [tool.setuptools.package-data]
@@ -115,6 +131,7 @@ source = [
 ]
 
 [tool.coverage.run]
+core = "ctrace"  # Python 3.14+ defaults to sysmon, which doesn't support the Cython.Coverage plugin
 plugins = [
     "Cython.Coverage",
 ]

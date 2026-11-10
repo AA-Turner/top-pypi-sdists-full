@@ -480,21 +480,19 @@ def test_image_scanners_tolerate_nondict_resources(resources):
     # /Resources or /Resources /XObject is not a dictionary. (pikepdf
     # normalizes a non-dict /Resources assigned to a page on save, so these
     # cases must be built in memory to reach the scanner unmodified.)
-    from ocrmypdf.pdfinfo._contentstream import ContentsInfo
-    from ocrmypdf.pdfinfo._image import _find_form_xobject_images, _image_xobjects
+    from ocrmypdf.pdfinfo._contentstream import _interpret_contents
+    from ocrmypdf.pdfinfo._image import (
+        _find_form_xobject_images,
+        _find_regular_images,
+    )
 
     container = pikepdf.Dictionary(Type=pikepdf.Name.Page, Resources=resources)
-    empty = ContentsInfo(
-        xobject_settings=[],
-        inline_images=[],
-        found_vector=False,
-        found_text=False,
-        name_index={},
-    )
     pdf = pikepdf.Pdf.new()
+    container.Contents = pdf.make_stream(b'q 10 0 0 10 0 0 cm /Foo Do Q')
+    contentsinfo = _interpret_contents(container)
 
-    assert list(_image_xobjects(container)) == []
-    assert list(_find_form_xobject_images(pdf, container, empty)) == []
+    assert list(_find_regular_images(container, contentsinfo)) == []
+    assert list(_find_form_xobject_images(pdf, container, contentsinfo)) == []
 
 
 def test_imageinfo_ink_inherited_in_form_xobject(outdir):
@@ -528,6 +526,120 @@ def test_imageinfo_ink_inherited_in_form_xobject(outdir):
     image = pdfinfo.PdfInfo(out)[0].images[0]
     assert image.type_ == 'stencil'
     assert image.ink is Ink.gray
+
+
+def _form_xobject(pdf, content: bytes, resources):
+    return pdf.make_stream(
+        content,
+        Type=pikepdf.Name.XObject,
+        Subtype=pikepdf.Name.Form,
+        BBox=[0, 0, 10, 10],
+        Resources=resources,
+    )
+
+
+def test_form_xobject_without_type_key(outdir):
+    """Images in a Form XObject that omits the optional /Type are found.
+
+    Missing them left the page with no image DPI, which crashed the fpdf2
+    renderer (issue #1771).
+    """
+    path = outdir / 'form_no_type.pdf'
+    with pikepdf.new() as pdf:
+        page = pdf.add_blank_page(page_size=(72, 72))
+        image = pdf.make_stream(
+            bytes(8 * 8),
+            Type=pikepdf.Name.XObject,
+            Subtype=pikepdf.Name.Image,
+            Width=8,
+            Height=8,
+            ColorSpace=pikepdf.Name.DeviceGray,
+            BitsPerComponent=8,
+        )
+        form = pdf.make_stream(
+            b'q 36 0 0 36 0 0 cm /Im0 Do Q',
+            Subtype=pikepdf.Name.Form,
+            BBox=[0, 0, 72, 72],
+            Resources=pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im0=image)),
+        )
+        page.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Fm0=form))
+        page.Contents = pdf.make_stream(b'/Fm0 Do')
+        pdf.save(path)
+
+    info = pdfinfo.PdfInfo(path)
+    assert len(info[0].images) == 1
+    assert info[0].dpi.to_scalar() == pytest.approx(16.0)
+
+
+@pytest.mark.parametrize('in_form', [False, True], ids=['page', 'form'])
+def test_xobject_with_non_utf8_name(outdir, in_form):
+    """XObjects whose names are not UTF-8, such as GBK bytes, are found."""
+    path = outdir / 'non_utf8_name.pdf'
+    # PDF names are bytes in no particular encoding; this one is not UTF-8
+    name = pikepdf.Object.parse(b'/Im#c4#e3')
+    with pikepdf.new() as pdf:
+        page = pdf.add_blank_page(page_size=(72, 72))
+        image = pdf.make_stream(
+            bytes(8 * 8),
+            Type=pikepdf.Name.XObject,
+            Subtype=pikepdf.Name.Image,
+            Width=8,
+            Height=8,
+            ColorSpace=pikepdf.Name.DeviceGray,
+            BitsPerComponent=8,
+        )
+        xobjects = pikepdf.Dictionary()
+        xobjects[name] = image
+        content = b'q 36 0 0 36 0 0 cm /Im#c4#e3 Do Q'
+        if in_form:
+            form = _form_xobject(pdf, content, pikepdf.Dictionary(XObject=xobjects))
+            page.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Fm0=form))
+            page.Contents = pdf.make_stream(b'/Fm0 Do')
+        else:
+            page.Resources = pikepdf.Dictionary(XObject=xobjects)
+            page.Contents = pdf.make_stream(content)
+        pdf.save(path)
+
+    info = pdfinfo.PdfInfo(path)
+    assert len(info[0].images) == 1
+    assert info[0].dpi.to_scalar() == pytest.approx(16.0)
+
+
+def test_form_xobject_that_draws_itself(outdir):
+    """A Form XObject that draws itself is interpreted once, not forever."""
+    path = outdir / 'selfdraw.pdf'
+    with pikepdf.new() as pdf:
+        page = pdf.add_blank_page()
+        shared = pdf.make_indirect(pikepdf.Dictionary(XObject=pikepdf.Dictionary()))
+        shared.XObject.Fm0 = _form_xobject(pdf, b'0 0 1 1 re f /Fm1 Do', shared)
+        shared.XObject.Fm1 = _form_xobject(pdf, b'/Fm0 Do', shared)
+        page.Resources = shared
+        page.Contents = pdf.make_stream(b'/Fm0 Do')
+        pdf.save(path)
+
+    info = pdfinfo.PdfInfo(path)
+    assert info[0].has_vector
+
+
+def test_form_xobjects_drawn_exponentially_often(outdir, caplog, monkeypatch):
+    """A chain of forms that each draw the next twice does not hang."""
+    monkeypatch.setattr('ocrmypdf.pdfinfo._image.MAX_FORM_DRAWS', 1000)
+    path = outdir / 'doubling.pdf'
+    with pikepdf.new() as pdf:
+        page = pdf.add_blank_page()
+        shared = pdf.make_indirect(pikepdf.Dictionary(XObject=pikepdf.Dictionary()))
+        depth = 28
+        for n in range(depth):
+            content = f'/Fm{n + 1} Do /Fm{n + 1} Do'.encode()
+            shared.XObject[f'/Fm{n}'] = _form_xobject(pdf, content, shared)
+        shared.XObject[f'/Fm{depth}'] = _form_xobject(pdf, b'0 0 1 1 re f', shared)
+        page.Resources = shared
+        page.Contents = pdf.make_stream(b'/Fm0 Do')
+        pdf.save(path)
+
+    info = pdfinfo.PdfInfo(path)
+    assert len(info) == 1
+    assert 'Form XObjects' in caplog.text
 
 
 def test_malformed_number_token_issue1054():
@@ -574,12 +686,14 @@ def test_do_without_operand():
 
 
 def _text_stream(body: bytes, basefont=None, conversion_mode='implicit'):
-    """Build a content stream whose /F1 font has the given BaseFont.
+    """Build a Form XObject whose /F1 font has the given BaseFont.
 
     Returns the owning Pdf too, which must be kept alive while the stream is used.
     """
     p = pikepdf.Pdf.new(conversion_mode=conversion_mode)
-    stream = pikepdf.Stream(p, body)
+    stream = pikepdf.Stream(
+        p, body, Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Form
+    )
     if basefont is not None:
         if isinstance(basefont, str):
             basefont = pikepdf.Name(basefont)

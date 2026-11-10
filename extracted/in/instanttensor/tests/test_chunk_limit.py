@@ -3,7 +3,7 @@ from unittest import mock
 
 import torch
 
-import instanttensor._impl as impl
+import instanttensor._internal.loader as impl
 
 
 class ChunkLimitTest(unittest.TestCase):
@@ -14,7 +14,7 @@ class ChunkLimitTest(unittest.TestCase):
         loader.process_group = None
         loader.device = torch.device("cuda:0")
 
-        config = impl._resolve_open_config(
+        config = impl.resolve_open_config(
             buffer_size=None,
             chunk_size=impl.MAX_CHUNK_SIZE + 1,
             concurrency=1,
@@ -24,7 +24,7 @@ class ChunkLimitTest(unittest.TestCase):
         )
 
         with mock.patch.object(impl, "file_in_memory", return_value=False), \
-             mock.patch.object(impl, "select_backend", return_value=impl.Backend.URING):
+             mock.patch.object(impl, "select_distributed_backend", return_value=impl.Backend.URING):
             with self.assertRaisesRegex(ValueError, "after page alignment"):
                 loader._determine_io_params(config)
 

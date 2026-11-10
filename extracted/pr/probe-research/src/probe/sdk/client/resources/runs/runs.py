@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import builtins
 import os
+import sys
 import warnings
 from typing import Any
 from ....values import values as _coerce
@@ -28,8 +29,11 @@ from ....delivery.transport.deadlines import pause_patience, without_patience
 
 # Late import to avoid a cycle at module load (Run needs Client, Client returns Run).
 from ....run.run import Run  # noqa: E402
+from probe.sdk.client.ids import _id_ref, is_new_slug, to_kebab_slug
+from probe.sdk.client.resources.runs.logs import LogsResource
 from probe.sdk.client.resources.projects.experiment_locator import _walks_once
 from probe.sdk.client.resources.runs.home import (
+    ProjectFromEnv,
     explain_missing_home,
     find_missing_home,
     mark_home_source,
@@ -110,8 +114,11 @@ class RunsMixin:
         Every create door ends here, so `probe.init()`, `Client.run()`, `probe
         run start`, `probe exec`, children and forks all announce, exactly once.
         Fire-and-forget: no daemon, no session or any error changes nothing."""
+        from ....diagnostics import mark_run_opened_during
         from ....run.launch import daemon_channel
 
+        # Created maybe inside an `except` (a retry wrapper): that error is not this run's death.
+        mark_run_opened_during(run)
         daemon_channel.run_started(getattr(run, "data", None))
         return run
 
@@ -122,7 +129,7 @@ class RunsMixin:
         experiment: str | None = None,
         question: str | None = None,
         name: str | None = None,
-        project: str | None = None,
+        project: str | ProjectFromEnv | None = None,
         experiment_name: str | None = None,
         on_conflict: str | Rewind = "auto",
         hw: bool | None = None,
@@ -162,11 +169,13 @@ class RunsMixin:
         out. A detached run (``heartbeat=False``, ``awaiting_attach``) captures
         nothing: this process is not the work.
 
-        Every run has a home. With NEITHER ``experiment`` NOR ``project`` it opens in
-        ``PROBE_PROJECT``, else this session's project (``probe session home``), else
-        ``probe project use`` (``home.py``); with none set it waits for this session's
-        daemon to pick one, asks the person at a terminal, or raises ``ProjectRequired``
-        before any request. ``intent`` is free
+        Every run has a home, found by slug or id, never by name. A new ``project`` slug
+        creates the project (kind ``general``); an ``experiment`` is created only with
+        ``question=``. ``project=probe.FROM_ENV`` opens it in ``PROBE_PROJECT``, else this
+        session's project (``probe session home``), else ``probe project use``
+        (``home.py``), waiting for this session's daemon to pick one when none is set. With
+        nothing named it asks the person at a terminal, or raises ``ProjectRequired`` with the
+        line to add before any request. ``intent`` is free
         text saying what the run is meant to show; it rides in the run's
         ``metadata.intent`` (the run schema has no field for it), and the daemon
         files and describes the run by it.
@@ -253,7 +262,7 @@ class RunsMixin:
         experiment: str | None = None,
         question: str | None = None,
         name: str | None = None,
-        project: str | None = None,
+        project: str | ProjectFromEnv | None = None,
         experiment_name: str | None = None,
         on_conflict: str | Rewind = "auto",
         snapshot: bool | None = None,
@@ -263,16 +272,19 @@ class RunsMixin:
     ) -> Run:
         """Open a run inside an experiment or straight under a project. Resolution,
         ``question=``, ``on_conflict`` and ``snapshot``: DESIGN.md."""
-        # With NEITHER named: PROBE_PROJECT, this session's project, `probe project use` (home.py).
+        # project=FROM_ENV: PROBE_PROJECT, this session's project, `probe project use` (home.py).
         home = resolve_run_home(project, experiment, self.settings)
         project, experiment = home.project, home.experiment
-        _check_run_arguments(on_conflict, experiment, question, project, experiment_name)
+        _check_run_arguments(on_conflict, experiment, question, project or home.is_from_env, experiment_name)
         if home.source is None:
-            # Still none: the daemon's pick (waited for), the person's (asked), or ProjectRequired.
-            # Waiting on them is not waiting on the server: init's retry budget stands still.
+            # Still none: the person's pick (asked), under FROM_ENV the daemon's (waited for), or
+            # ProjectRequired. Waiting on them is not waiting on the server: init's budget stands still.
             with pause_patience():
-                home = find_missing_home(self)
+                home = find_missing_home(self, home=home)
             project, experiment = home.project, home.experiment
+        if not experiment:
+            # Before a new project is created for it: a project-direct run joins no group.
+            _refuse_group_without_experiment(run_kw, "a project-direct run")
         self.ensure_authenticated()
         mark_home_source(home, run_kw)
         with explain_missing_home(home):
@@ -292,6 +304,7 @@ class RunsMixin:
                 on_conflict,
                 experiment_id=None,
                 project_id=project_id,
+                home_project_id=project_id,
             )
             print_notice(home, (project_row or {}).get("slug"))
             self._maybe_auto_snapshot(handle, snapshot, ignore)
@@ -304,6 +317,7 @@ class RunsMixin:
             on_conflict,
             experiment_id=exp["id"],
             project_id=None,
+            home_project_id=exp.get("project_id"),
         )
         print_notice(home, exp.get("slug"))
         self._maybe_auto_snapshot(handle, snapshot, ignore)
@@ -317,9 +331,11 @@ class RunsMixin:
         workspace: str | None,
         run_kw: dict,
     ) -> dict | None:
-        """The project a run opens under; created only with ``question=`` (DESIGN.md)."""
+        """The project a run opens under. A new slug creates it (R23), unless an existing
+        experiment is named beside it, which a new project cannot hold (DESIGN.md)."""
         # A project named by an id must exist: never created, whatever `question=` says.
         by_id, slug = self._project_named(project) if project else (None, None)
+        known = None
         # Refuse an uncreatable experiment slug BEFORE ensure_project commits a parent,
         # else a refused experiment leaves an orphan project behind.
         if experiment and question is not None:
@@ -330,21 +346,32 @@ class RunsMixin:
                 self.resolve_experiment(experiment, project_id=known["id"] if known else None)
                 is None
             ):
+                if known is None and not _id_ref(experiment) and not is_new_slug(experiment):
+                    # The server would refuse it only after the new project exists (D25).
+                    raise errors.ValidationError(
+                        f"{experiment!r} is not a slug: a new experiment slug is lowercase words "
+                        f"joined by '-', like {to_kebab_slug(experiment) or 'lr-sweep'!r}. Nothing was created."
+                    )
                 self._guard_creatable("experiment", experiment)
         if not project:
             return None
-        # Only a question unlocks creation; `workspace` files a NEW project (DESIGN.md).
-        return (
-            by_id
-            if by_id is not None
-            else self.ensure_project(
-                slug,
-                authored_by=run_kw.get("authored_by"),
-                **({"workspace_id": workspace} if workspace else {}),
-            )
-            if question is not None
-            else self.resolve_or_raise("project", slug)
+        if by_id is not None:
+            return by_id
+        if experiment and question is None:
+            # The experiment must exist, so it is filed elsewhere: say so, create nothing.
+            return self.resolve_or_raise("project", slug)
+        found = known if experiment else self.resolve_project(slug)
+        if found is not None:
+            return found
+        # A new slug is created, kind `general`, near-typos refused; `workspace` files it. Said
+        # aloud: a slug that is a typo but no near miss would otherwise make a project unseen.
+        created = self.ensure_project(
+            slug,
+            authored_by=run_kw.get("authored_by"),
+            **({"workspace_id": workspace} if workspace else {}),
         )
+        _say_created_project(slug)
+        return created
 
     def _resolve_run_experiment(
         self,
@@ -485,6 +512,11 @@ class RunsResource(Resource):
         """`Client.list_writers` as `WriterOut`s."""
         return self._to_models(WriterOut, self._client.list_writers(run_id))
 
+    @property
+    def logs(self) -> LogsResource:
+        """A run's printed output: `client.runs.logs.get(run)` is a `RunLogOut`."""
+        return LogsResource(self._client)
+
 from probe.sdk.client.resources.runs.reopen.conflict import Rewind  # noqa: E402 -- pieces need each other; the front door loads this one first
 
 
@@ -492,10 +524,11 @@ def _check_run_arguments(
     on_conflict: str | Rewind,
     experiment: str | None,
     question: str | None,
-    project: str | None,
+    project: str | bool | None,
     experiment_name: str | None,
 ) -> None:
-    """Refuse argument combinations ``run()`` cannot honour, before any request."""
+    """Refuse argument combinations ``run()`` cannot honour, before any request. ``project``
+    is truthy when one is named or ``FROM_ENV`` will supply it."""
     if not isinstance(on_conflict, Rewind) and on_conflict not in (
         "auto",
         "error",
@@ -523,8 +556,8 @@ def _check_run_arguments(
         )
     if question is not None and not project:
         raise errors.ValidationError(
-            "creating an experiment needs an explicit project slug. Pass "
-            "project= after creating the project first."
+            "creating an experiment needs a project. Pass project=\"<slug>\" (a new slug "
+            "creates the project), or project=probe.FROM_ENV."
         )
     if question is not None and not question.strip():
         # `question=args.question or ""` lands here; an empty string once committed a
@@ -534,6 +567,14 @@ def _check_run_arguments(
             "something: what do you expect this to show? Pass a real "
             "question, or drop the argument to open an existing experiment."
         )
+
+
+def _say_created_project(slug: str) -> None:
+    """One stderr line for a project a run's new slug created (R23); never raises."""
+    try:
+        print(f"probe: created project {slug} for this run (kind general)", file=sys.stderr, flush=True)
+    except (OSError, ValueError):
+        pass
 
 
 def _refuse_group_without_experiment(run_kw: dict, who: str) -> None:

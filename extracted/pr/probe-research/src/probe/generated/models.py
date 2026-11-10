@@ -95,6 +95,7 @@ from .enums import (  # noqa: F401 - re-exported
     LineageRelation,
     LiveError,
     LiveState,
+    LogSourceKind,
     MatchSource,
     MessageState,
     Origin,
@@ -2253,6 +2254,7 @@ class LogGapOut(BaseModel):
 class LogStreamOut(BaseModel):
     chunks: int = Field(..., title='Chunks')
     end_offset: int = Field(..., title='End Offset')
+    source: LogSourceKind
     stream: str = Field(..., title='Stream')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
@@ -4482,26 +4484,32 @@ class RunInputsWriteOut(BaseModel):
 
 class RunLogOut(BaseModel):
     """
-    `GET /v1/runs/{id}/logs`: the tail of one stream of one attempt.
+    `GET /v1/runs/{id}/logs`: a window of one stream of one attempt, from the saved file when it
+    is complete, else the live chunks, else an incomplete saved file (`source`, `complete`).
 
-    With `after_offset=N`: only the output from raw offset N on (a gap marker
-    first when the stream's next chunk starts past N). `start_offset` is then
-    N, unless `truncated`: the new output did not fit `tail_bytes`, the text
-    is its newest part and does NOT continue from N. A text that ends inside
-    a `\\r` redraw keeps one trailing `\\r`: whatever comes next replaces
-    that last line rather than extending it.
+    Offsets: a saved file's are its UTF-8 bytes; live ones are raw offsets, and inside a chunk a
+    byte of its stored text. With `after_offset=N`: only the output from N on (a gap marker first
+    when the stream's next chunk starts past N). `start_offset` is then N, unless `truncated`: the
+    new output did not fit `tail_bytes`, the text is its newest part and does NOT continue from N.
+    With `before_offset=N`: the window ending at N ("Load earlier"). A text that ends inside a
+    `\\r` redraw keeps one trailing `\\r`: whatever comes next replaces that last line.
     """
 
     after_offset: int | None = Field(None, title='After Offset')
+    before_offset: int | None = Field(None, title='Before Offset')
+    complete: bool | None = Field(None, title='Complete')
     current_write_epoch: int = Field(..., title='Current Write Epoch')
     end_offset: int = Field(..., title='End Offset')
     gaps: list[LogGapOut] = Field(..., title='Gaps')
+    omitted_bytes: int | None = Field(None, title='Omitted Bytes')
     run_id: UUID = Field(..., title='Run Id')
     run_status: str = Field(..., title='Run Status')
+    source: LogSourceKind | None = None
     start_offset: int = Field(..., title='Start Offset')
     stream: str | None = Field(..., title='Stream')
     streams: list[LogStreamOut] = Field(..., title='Streams')
     text: str = Field(..., title='Text')
+    total_bytes: int | None = Field(None, title='Total Bytes')
     truncated: bool = Field(..., title='Truncated')
     unreadable_chunks: int = Field(..., title='Unreadable Chunks')
     updated_at: AwareDatetime | None = Field(..., title='Updated At')
@@ -7285,7 +7293,7 @@ class DeviceAuthorizationStart(BaseModel):
     grants: list[Grant] | None = Field(None, min_length=1, title='Grants')
     scopes: Scopes | None = Field(None, title='Scopes')
     token_name: str | None = Field(
-        'Research OS CLI', max_length=120, min_length=1, title='Token Name'
+        'Probe CLI', max_length=120, min_length=1, title='Token Name'
     )
 
 

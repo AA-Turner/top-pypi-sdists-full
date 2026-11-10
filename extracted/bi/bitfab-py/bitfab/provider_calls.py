@@ -14,6 +14,7 @@ import weakref
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 from bitfab import finalizers, subtree
 from bitfab.client_patching import (
@@ -34,6 +35,7 @@ EMBED_CONTENT = "embed_content"
 PATCHED_MARKER = "_bitfab_provider_call_patched"
 CALL_MARKER = "_bitfab_provider_call"
 OPENROUTER_HOSTNAME = "openrouter.ai"
+ANTHROPIC_HOSTNAME = "anthropic.com"
 RESPONSE_DONE_EVENTS = frozenset(
     {"response.completed", "response.incomplete", "response.failed"}
 )
@@ -240,12 +242,25 @@ def _last_with(events: list[Any], key: str) -> Any:
     )
 
 
+def _host_is(host: Any, hostname: str) -> bool:
+    return isinstance(host, str) and (host == hostname or host.endswith(f".{hostname}"))
+
+
+def _url_host_is(url: Any, hostname: str) -> bool:
+    return isinstance(url, str) and _host_is(urlparse(url).hostname, hostname)
+
+
+def is_openrouter_url(url: Any) -> bool:
+    return _url_host_is(url, OPENROUTER_HOSTNAME)
+
+
+def is_anthropic_url(url: Any) -> bool:
+    return _url_host_is(url, ANTHROPIC_HOSTNAME)
+
+
 def _is_openrouter_resource(resource: Any) -> bool:
     base_url = getattr(getattr(resource, "_client", None), "base_url", None)
-    host = getattr(base_url, "host", None)
-    return isinstance(host, str) and (
-        host == OPENROUTER_HOSTNAME or host.endswith(f".{OPENROUTER_HOSTNAME}")
-    )
+    return _host_is(getattr(base_url, "host", None), OPENROUTER_HOSTNAME)
 
 
 def _any_resource(_resource: Any) -> bool:
@@ -770,6 +785,15 @@ def _observe(call: ProviderCall, stream: Any, recording: StreamRecording) -> Any
     return observed
 
 
+def _observe_returned(
+    call: ProviderCall, returned: Any, body: Any, recording: StreamRecording
+) -> Any:
+    if body is returned:
+        return _observe(call, returned, recording)
+    _observe(call, body, recording)
+    return returned
+
+
 def _finish_when_dropped(stream: Any, recording: StreamRecording) -> None:
     with contextlib.suppress(TypeError):
         weakref.finalize(stream, recording.finish, None).atexit = False
@@ -786,22 +810,24 @@ def _streamed_call(
         async def async_run(resource: Any, *args: Any, **kwargs: Any) -> Any:
             recording = _start_recording(call, span_name, kwargs, node_owned)
             try:
-                stream = await original(resource, *args, **kwargs)
+                returned = await original(resource, *args, **kwargs)
             except BaseException as error:
                 recording.finish(error)
                 raise
-            return _observe(call, stream, recording)
+            body = await parsed_body_async(returned, streamed=True)
+            return _observe_returned(call, returned, body, recording)
 
         return async_run
 
     def run(resource: Any, *args: Any, **kwargs: Any) -> Any:
         recording = _start_recording(call, span_name, kwargs, node_owned)
         try:
-            stream = original(resource, *args, **kwargs)
+            returned = original(resource, *args, **kwargs)
         except BaseException as error:
             recording.finish(error)
             raise
-        return _observe(call, stream, recording)
+        body = parsed_body(returned, streamed=True)
+        return _observe_returned(call, returned, body, recording)
 
     return run
 
@@ -915,6 +941,21 @@ for _call in PROVIDER_CALLS:
 _METHODS = frozenset(call.method for call in PROVIDER_CALLS)
 
 
+_ANTHROPIC_CACHE_KEYS = frozenset(
+    {"cache_read_input_tokens", "cache_creation_input_tokens"}
+)
+_CHAT_COMPLETION_USAGE_KEYS = frozenset({"prompt_tokens", "completion_tokens"})
+
+
+def provider_call_for_usage(usage: Any) -> ProviderCall:
+    keys = _plain(usage).keys()
+    if keys & _ANTHROPIC_CACHE_KEYS:
+        return ANTHROPIC
+    if keys & _CHAT_COMPLETION_USAGE_KEYS:
+        return OPENAI_CHAT
+    return OPENAI_RESPONSES
+
+
 def context_from_response(
     call: ProviderCall, request: Mapping[str, Any], response: Any, duration_ms: int
 ) -> dict[str, Any]:
@@ -931,6 +972,37 @@ def request_of(args: tuple[Any, ...], kwargs: Mapping[str, Any]) -> Mapping[str,
     return args[0]
 
 
+def _raw_response_parse(response: Any, streamed: bool) -> Callable[[], Any] | None:
+    parse = getattr(response, "parse", None)
+    http_response = getattr(response, "http_response", None)
+    if not callable(parse) or http_response is None:
+        return None
+    if streamed or getattr(http_response, "is_closed", False) is True:
+        return parse
+    return None
+
+
+def parsed_body(response: Any, *, streamed: bool = False) -> Any:
+    parse = _raw_response_parse(response, streamed)
+    if parse is None or is_async_create(parse):
+        return response
+    try:
+        return parse()
+    except Exception:
+        return response
+
+
+async def parsed_body_async(response: Any, *, streamed: bool = False) -> Any:
+    parse = _raw_response_parse(response, streamed)
+    if parse is None:
+        return response
+    try:
+        body = parse()
+        return await body if inspect.isawaitable(body) else body
+    except Exception:
+        return response
+
+
 def record_completion(
     call: ProviderCall,
     span: Any,
@@ -938,6 +1010,7 @@ def record_completion(
     response: Any,
     duration_ms: int,
 ) -> None:
+    response = parsed_body(response)
     if not call.is_response(response):
         return
     with contextlib.suppress(Exception):

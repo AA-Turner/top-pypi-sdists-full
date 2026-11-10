@@ -34,6 +34,7 @@ def _json_schema_to_ebnf(
         "cohere_xml",
         "kimi_k3_xml",
         "deepseek_v4_1_xml",
+        "gemma",
     ] = "json",
     any_order: bool = False,
 ) -> str:
@@ -49,8 +50,9 @@ def _json_schema_to_ebnf(
 
     separators : Optional[Tuple[str, str]], default: None
         Two separators used in the schema: comma and colon. Examples: (",", ":"), (", ", ": ").
-        If None, the default separators will be used: (",", ": ") when the indent is not None,
-        and (", ", ": ") otherwise.
+        If None, the default separators will be used: (",", ":") when any_whitespace is True,
+        (",", ": ") when the indent is not None, and (", ", ": ") otherwise. With indent, values
+        with an unconstrained schema (e.g. {}) still stay on one line with (", ", ": ").
 
     strict_mode : bool, default: True
         Whether to use strict mode. In strict mode, the generated grammar will not allow
@@ -69,8 +71,9 @@ def _json_schema_to_ebnf(
     json_format : str, default: "json"
         The generated grammar format. One of "json", "qwen_xml", "minimax_xml",
         "minimax_m3_xml", "deepseek_xml", "deepseek_v4_1_xml", "glm_xml", "cohere_xml",
-        or "kimi_k3_xml". MiniMax M3 encodes fixed-name nested objects and arrays
-        recursively; the other XML styles use their existing model-specific encodings.
+        "kimi_k3_xml", or "gemma". MiniMax M3 encodes fixed-name nested objects and arrays
+        recursively; the other XML styles use their existing model-specific encodings. "gemma"
+        uses Gemma 4's unquoted-key, <|"|>-delimited-string spelling at every nesting level.
 
     Returns
     -------

@@ -22,7 +22,7 @@ from tango import (
     DbDevInfos,
     StdStringVector,
 )
-from tango._instrumentation import _trace_client
+from tango._internal.instrumentation import _trace_client
 from tango.utils import (
     DbData_2_dict,
     is_non_str_seq,
@@ -447,7 +447,8 @@ def __Database__get_device_property_list(
     if array is None:
         return self._get_device_property_list(dev_name, wildcard)
     elif isinstance(array, StdStringVector):
-        return self._get_device_property_list(dev_name, wildcard, array)
+        self._get_device_property_list(dev_name, wildcard, array)
+        return array
     elif is_non_str_seq(array):
         res = self._get_device_property_list(dev_name, wildcard)
         for e in res:

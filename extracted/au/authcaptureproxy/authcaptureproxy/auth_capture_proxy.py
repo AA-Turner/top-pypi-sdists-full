@@ -1,12 +1,13 @@
 #  SPDX-License-Identifier: Apache-2.0
 """Python Package for auth capture proxy."""
+
 import asyncio
 import logging
-import posixpath
 import re
 from functools import partial
+from html import escape, unescape
 from json import JSONDecodeError
-from ssl import SSLContext, create_default_context
+from ssl import SSLContext
 from typing import Any, Callable, Dict, List, Optional, Set, Text, Tuple, Union
 
 import httpx
@@ -30,9 +31,6 @@ from authcaptureproxy.helper import (
 )
 from authcaptureproxy.interceptor import BaseInterceptor, InterceptContext
 from authcaptureproxy.stackoverflow import get_open_port
-
-# Pre-configure SSL context
-ssl_context = create_default_context()
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +60,7 @@ class AuthCaptureProxy:
         """
         self._preserve_headers = preserve_headers
         self.session_factory: Callable[[], httpx.AsyncClient] = session_factory or (
-            lambda: httpx.AsyncClient(verify=ssl_context)
+            lambda: httpx.AsyncClient(verify=True)
         )
         self.session: httpx.AsyncClient = session if session else self.session_factory()
         self._proxy_url: URL = proxy_url
@@ -686,7 +684,6 @@ class AuthCaptureProxy:
             # Resolve relative form actions BEFORE modifiers run.
             if text and content_type == "text/html" and resp and resp.url:
                 _resp_url = URL(str(resp.url))
-                _resp_dir = _resp_url.path.rsplit("/", 1)[0] + "/" if "/" in _resp_url.path else "/"
 
                 def _resolve_form_action(form_match):
                     """Resolve relative action URLs only inside <form> tags."""
@@ -698,10 +695,13 @@ class AuthCaptureProxy:
                     if action and not action.startswith(
                         ("http://", "https://", "//", "#", "javascript:", "/")
                     ):
-                        resolved_path = posixpath.normpath(_resp_dir + action)
+                        resolved_url = _resp_url.join(URL(unescape(action)))
                         _proxy_base = self.access_url().path.rstrip("/")
                         abs_url = str(
-                            self.access_url().with_path(_proxy_base + resolved_path).with_query({})
+                            self.access_url()
+                            .with_path(_proxy_base + resolved_url.path)
+                            .with_query(resolved_url.query)
+                            .with_fragment(resolved_url.fragment)
                         )
                         _LOGGER.debug(
                             "Resolved relative form action '%s' -> '%s' (page: %s)",
@@ -709,7 +709,11 @@ class AuthCaptureProxy:
                             abs_url,
                             _resp_url.path,
                         )
-                        return form_tag[: action_m.start(2)] + abs_url + form_tag[action_m.end(2) :]
+                        return (
+                            form_tag[: action_m.start(2)]
+                            + escape(abs_url, quote=True)
+                            + form_tag[action_m.end(2) :]
+                        )
                     return form_tag
 
                 text = re.sub(
@@ -754,9 +758,11 @@ class AuthCaptureProxy:
         # pass through non parsed content
         _LOGGER.debug(
             "Passing through %s as %s",
-            URL(str(request.url)).name
-            if URL(str(request.url)).name
-            else URL(str(request.url)).path,
+            (
+                URL(str(request.url)).name
+                if URL(str(request.url)).name
+                else URL(str(request.url)).path
+            ),
             content_type,
         )
         return await self._build_response(resp, body=resp.content, content_type=content_type)
@@ -893,18 +899,25 @@ class AuthCaptureProxy:
             result["Referer"] = self._swap_proxy_and_host(
                 result.get("Referer", ""), domain_only=True
             )
-        for item in [
-            "Content-Length",
-            "X-Forwarded-For",
-            "X-Forwarded-Host",
-            "X-Forwarded-Port",
-            "X-Forwarded-Proto",
-            "X-Forwarded-Scheme",
-            "X-Forwarded-Server",
-            "X-Real-IP",
-        ]:
-            # remove proxy headers
-            if result.get(item):
+        # Remove hop-by-hop and reverse-proxy/CDN headers that must not be forwarded
+        # upstream. Besides leaking client info, these can carry non-ASCII values (e.g.
+        # Cloudflare's "cf-ipcity: Mérida") that break httpx header encoding. Matching is
+        # case-insensitive because HTTP/2 front-ends (e.g. Cloudflare) lowercase header
+        # names, so exact-case matching would silently miss them.
+        proxy_headers = {
+            "content-length",
+            "x-forwarded-for",
+            "x-forwarded-host",
+            "x-forwarded-port",
+            "x-forwarded-proto",
+            "x-forwarded-scheme",
+            "x-forwarded-server",
+            "x-real-ip",
+            "cdn-loop",
+        }
+        for item in list(result):
+            lowered = item.lower()
+            if lowered in proxy_headers or lowered.startswith("cf-"):
                 result.pop(item)
         result.update(self.headers if self.headers else {})
         _LOGGER.debug("Final headers %s", result)

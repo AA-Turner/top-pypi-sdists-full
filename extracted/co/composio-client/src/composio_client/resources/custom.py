@@ -304,6 +304,7 @@ class CustomResource(SyncAPIResource):
             options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     @overload
     def upsert(
         self,
@@ -635,6 +636,7 @@ class AsyncCustomResource(AsyncAPIResource):
             options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     @overload
     async def upsert(
         self,
@@ -962,6 +964,7 @@ class CustomResourceWithRawResponse:
             options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     @overload
     def upsert(
         self,
@@ -1289,6 +1292,7 @@ class AsyncCustomResourceWithRawResponse:
             options=options_data,
         )
 
+    # Deprecated in the input OpenAPI schema.
     @overload
     async def upsert(
         self,
@@ -1628,6 +1632,7 @@ class CustomResourceWithStreamingResponse:
             )
         )
 
+    # Deprecated in the input OpenAPI schema.
     @overload
     def upsert(
         self,
@@ -1970,6 +1975,7 @@ class AsyncCustomResourceWithStreamingResponse:
             )
         )
 
+    # Deprecated in the input OpenAPI schema.
     @overload
     def upsert(
         self,

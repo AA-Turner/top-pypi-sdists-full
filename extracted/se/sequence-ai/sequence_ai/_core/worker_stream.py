@@ -45,7 +45,7 @@ import sys
 import threading
 import time
 from collections import deque
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 from urllib.parse import urlsplit
 
 import httpx
@@ -142,8 +142,9 @@ def _masked(data: bytes, mask: bytes) -> bytes:
     return bytes(out)
 
 
-def _frame(opcode: int, payload: bytes) -> bytes:
-    """One whole client frame: FIN, `opcode`, masked as a client's must be."""
+def client_frame(opcode: int, payload: bytes) -> bytes:
+    """One whole client frame: FIN, `opcode`, masked as a client's must be - a robot's stream's, a terminal's
+    (seq/terminal.py)."""
     n = len(payload)
     if n < 126:
         head = struct.pack(">BB", 0x80 | opcode, 0x80 | n)
@@ -167,6 +168,20 @@ def open_stream(base_url: str, context: ssl.SSLContext, headers: dict, *, timeou
     raised. `quiet_s`/`on_quiet`: its watch for a line gone silent; `on_push`/`on_end`: what the worker pushes and the
     stream's end (WorkerStream). `trace`: told as its TCP connect and TLS handshake begin and end, by httpcore's names
     (worker_transport._ConnectionTrace)."""
+    sock, answered, rest = open_websocket(base_url, context, headers, timeout_s=timeout_s, path=path, options=options,
+                                          trace=trace)
+    try:
+        return WorkerStream(sock, answered, rest, quiet_s=quiet_s, on_quiet=on_quiet, on_push=on_push, on_end=on_end)
+    except BaseException:
+        sock.close()
+        raise
+
+
+def open_websocket(base_url: str, context: ssl.SSLContext, headers: dict, *, timeout_s: float, path: str,
+                   options: Optional[list] = None, trace: Any = None) -> tuple[ssl.SSLSocket, dict, bytes]:
+    """One TLS connection to the machine at `base_url`, upgraded to a WebSocket at GET `path` (with its query) - a robot's
+    stream (open_stream), a terminal (seq/terminal.py): its socket, the upgrade's answer's headers lowercased, and what
+    came after them. Raised as open_stream says, within `timeout_s` in all."""
     def told(event: str) -> None:
         if trace is not None:
             trace(event, {})
@@ -221,10 +236,36 @@ def open_stream(base_url: str, context: ssl.SSLContext, headers: dict, *, timeou
             raise StreamRefused(int(status) if status.isdigit() else 0, status_line.strip()[:80])
         if answered.get("sec-websocket-accept") != accept:
             raise StreamClosed(f"the worker did not open the stream ({status_line.strip()[:80]})")
-        return WorkerStream(sock, answered, rest, quiet_s=quiet_s, on_quiet=on_quiet, on_push=on_push, on_end=on_end)
+        return sock, answered, rest
     except BaseException:
         sock.close()
         raise
+
+
+def read_frames(buf: bytearray) -> Iterator[tuple[int, int, bytes]]:
+    """Each whole frame at the front of `buf`, taken out of it as it is read: (its FIN bit, its opcode, its payload) - a
+    server's frames come unmasked; one that is masked, unmasked. What is left is a frame not all here yet."""
+    while len(buf) >= 2:
+        first, second = buf[0], buf[1]
+        n, at = second & 0x7F, 2
+        if n == 126:
+            if len(buf) < 4:
+                return
+            n, at = struct.unpack(">H", bytes(buf[2:4]))[0], 4
+        elif n == 127:
+            if len(buf) < 10:
+                return
+            n, at = struct.unpack(">Q", bytes(buf[2:10]))[0], 10
+        mask = b""
+        if second & 0x80:
+            if len(buf) < at + 4:
+                return
+            mask, at = bytes(buf[at:at + 4]), at + 4
+        if len(buf) < at + n:
+            return
+        payload = bytes(buf[at:at + n])
+        del buf[:at + n]
+        yield first & 0x80, first & 0x0F, (_masked(payload, mask) if mask else payload)
 
 
 class _Pending:
@@ -388,13 +429,13 @@ class WorkerStream:
         with self._lock:
             if self._closed is not None or self._frames:
                 return
-            self._frames.append(_frame(0x9, b""))
+            self._frames.append(client_frame(0x9, b""))
         self._wake()
 
     def send_message(self, message: dict) -> None:
         """One whole message to the worker, {"t": ...} - a teleop console's - ahead of everything waiting: a stop never
         waits behind a request. StreamClosed once the stream ended."""
-        frame = _frame(0x2, _msgpack.pack(message))
+        frame = client_frame(0x2, _msgpack.pack(message))
         with self._lock:
             if self._closed is not None:
                 raise StreamClosed(self._closed)
@@ -512,35 +553,13 @@ class WorkerStream:
             self._parse()
 
     def _parse(self) -> None:
-        buf = self._in
-        while len(buf) >= 2:
-            first, second = buf[0], buf[1]
-            n, at = second & 0x7F, 2
-            if n == 126:
-                if len(buf) < 4:
-                    return
-                n, at = struct.unpack(">H", bytes(buf[2:4]))[0], 4
-            elif n == 127:
-                if len(buf) < 10:
-                    return
-                n, at = struct.unpack(">Q", bytes(buf[2:10]))[0], 10
-            mask = b""
-            if second & 0x80:
-                if len(buf) < at + 4:
-                    return
-                mask, at = bytes(buf[at:at + 4]), at + 4
-            if len(buf) < at + n:
-                return
-            payload = bytes(buf[at:at + n])
-            del buf[:at + n]
-            if mask:
-                payload = _masked(payload, mask)
-            self._frame_in(first & 0x80, first & 0x0F, payload)
+        for fin, opcode, payload in read_frames(self._in):
+            self._frame_in(fin, opcode, payload)
 
     def _frame_in(self, fin: int, opcode: int, payload: bytes) -> None:
         if opcode == 0x9:
             with self._lock:
-                self._frames.append(_frame(0xA, payload))
+                self._frames.append(client_frame(0xA, payload))
             return
         if opcode == 0xA:
             return
@@ -641,7 +660,7 @@ class WorkerStream:
                 piece["more"] = True
             bulk = len(part) if queue is self._bulk else 0
             self._out_bytes -= bulk
-            return pending, _frame(0x2, _msgpack.pack(piece)), last, bulk
+            return pending, client_frame(0x2, _msgpack.pack(piece)), last, bulk
         return None
 
     def _fill(self) -> bool:

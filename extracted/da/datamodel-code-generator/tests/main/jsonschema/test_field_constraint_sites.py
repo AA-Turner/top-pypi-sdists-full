@@ -27,6 +27,9 @@ SITES = JSON_SCHEMA_DATA_PATH / "field_constraint_sites"
 PAYLOADS = DATA_PATH / "payloads" / "field_constraint_sites"
 LITERAL_ENUMS = ["--field-constraints", "--enum-field-as-literal", "all"]
 ANYURL_WITHOUT_CONSTRAINTS = pytest.mark.filterwarnings("ignore:fields holding AnyUrl are written without:UserWarning")
+MODELS_WITHOUT_LENGTH = pytest.mark.filterwarnings(
+    r"ignore:Pydantic does not take max_length on TextOrLoop1 \| Loop; Model\.loop is generated without:UserWarning"
+)
 
 
 @pytest.mark.parametrize(
@@ -52,7 +55,11 @@ ANYURL_WITHOUT_CONSTRAINTS = pytest.mark.filterwarnings("ignore:fields holding A
         ("union_root_keywords", ["--field-constraints", "--use-type-alias"]),
         ("union_root_keywords", ["--use-annotated", "--collapse-root-models"]),
         ("union_root_keywords", ["--field-constraints", "--output-model-type", "pydantic_v2.dataclass"]),
-        ("union_root_kept_keywords", ["--field-constraints", "--use-subclass-enum", "--collapse-root-models"]),
+        pytest.param(
+            "union_root_kept_keywords",
+            ["--field-constraints", "--use-subclass-enum", "--collapse-root-models"],
+            marks=MODELS_WITHOUT_LENGTH,
+        ),
         ("union_root_kept_keywords", ["--field-constraints", "--use-subclass-enum", "--use-type-alias"]),
         pytest.param(
             "union_root_kept_keywords",
@@ -63,7 +70,10 @@ ANYURL_WITHOUT_CONSTRAINTS = pytest.mark.filterwarnings("ignore:fields holding A
                 "3.11",
                 "--collapse-root-models",
             ],
-            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="StrEnum needs Python 3.11"),
+            marks=[
+                pytest.mark.skipif(sys.version_info < (3, 11), reason="StrEnum needs Python 3.11"),
+                MODELS_WITHOUT_LENGTH,
+            ],
         ),
         *(
             pytest.param("union_root_url_keywords", ["--field-constraints", *args], marks=ANYURL_WITHOUT_CONSTRAINTS)
@@ -71,6 +81,8 @@ ANYURL_WITHOUT_CONSTRAINTS = pytest.mark.filterwarnings("ignore:fields holding A
         ),
         ("union_array_string_lengths", []),
         ("union_array_string_lengths", ["--collapse-root-models"]),
+        ("union_member_in_place", ["--field-constraints", "--collapse-root-models"]),
+        ("union_member_in_place", ["--use-annotated", "--collapse-root-models"]),
     ],
 )
 def test_field_constraint_sites(output_file: Path, name: str, extra_args: list[str]) -> None:
@@ -78,19 +90,24 @@ def test_field_constraint_sites(output_file: Path, name: str, extra_args: list[s
 
     The root model of an array item reads its keywords whatever the options, takes the item counts its boolean items
     imply and writes no length beside a tuple, as the array of an object property does; the ``Literal`` of an enum
-    property under ``--field-constraints`` writes them as a const does, unless ``--filter-literal-values`` removed
-    the values they reject; a map beside a type list that joins an array keeps its property counts; the item counts
-    of ``contains`` belong to a field typed as an array, so a string or a model that carries them accepts what the
-    schema accepts, and so does a field whose schema declares no array, as a string typed ``datetime.date`` or an
-    object with array values; the pattern of a ``Literal`` that a root model or a const writes selects the
-    ``python-re`` regex engine when Rust refuses it, as the pattern of a string does. A keyword beside a union leaves
-    the field that holds the union when a member cannot take it and every member keeps the check without it in the
-    output (the class or type alias of a branch whose call writes it, a value it does not apply to, None), so a valid
-    value raises no ``TypeError`` (#6022), also where a root model collapses into a union of one member. Where a member
-    would lose the check, as a string, a ``str`` enum or an ``AnyUrl`` that writes no copy of it, the field keeps
-    today's output, whose ``TypeError`` for the other members stays (#6053); the payloads of those fields use the
-    members that keep the check. Without ``--field-constraints``, a string length beside a union of an array and a
-    string limits the string only, at a property and at the items of an array, as 0.88.0 wrote it (#6189).
+    property under ``--field-constraints`` writes them as a const does, and so does the ``Literal`` of the consts of a
+    oneOf or anyOf whose schema declares their type, at a property and at a root model (#6048), unless
+    ``--filter-literal-values`` removed the values they reject; a map beside a type list that joins an array keeps its
+    property counts; the item counts of ``contains`` belong to a field typed as an array, so a string or a model that
+    carries them accepts what the schema accepts, and so does a field whose schema declares no array, as a string typed
+    ``datetime.date`` or an object with array values; the pattern of a ``Literal`` that a root model, an enum property
+    (#6052) or a const writes selects the ``python-re`` regex engine when Rust refuses it, as the pattern of a string
+    does. A keyword beside a union leaves the field that holds the union when a member cannot take it and every member
+    keeps the check without it in the output (the class or type alias of a branch whose call writes it, a value it does
+    not apply to, None), so a valid value raises no ``TypeError`` (#6022), also where a root model collapses into a
+    union of one member. A plain string member that would lose the check, as a root model of a string collapses into
+    one, holds it in place (``O | constr(max_length=3)``), so a model member validates and a long string is rejected
+    (#6053). Where another member would lose the check, as a ``str`` enum or an ``AnyUrl`` that writes no copy of it,
+    the field keeps today's output, whose ``TypeError`` for the other members stays; the payloads of those fields use
+    the members that keep the check. A keyword that no member's value takes, all of them instances
+    of models (the root model of a branch and one that names itself again), is left out with a warning, as each raised
+    ``TypeError`` (#6035). Without ``--field-constraints``, a string length beside a union of an array and a string
+    limits the string only, at a property and at the items of an array, as 0.88.0 wrote it (#6189).
     """
     input_path = SITES / f"{name}.json"
     run_main_and_assert(

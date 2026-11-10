@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from multiprocessing.sharedctypes import Synchronized
 from typing import TYPE_CHECKING, Literal
+import warnings
 
 import h5py
 import hdf5plugin
@@ -16,6 +17,10 @@ from ..import writer
 if TYPE_CHECKING:
     from .basin_proxy import BasinProxy
     from ..core import RTDCBase
+
+
+class NegativeFrameCountWarning(UserWarning):
+    """Used when the "frame" feature is not monotonically increasing"""
 
 
 def check_for_keep(size, shape, dtype):
@@ -190,6 +195,44 @@ def obtain_event_geometry(ds: RTDCBase,
     return geometry
 
 
+def repair_frame(frame: np.ndarray) -> np.ndarray:
+    """Return a version of the "frame" feature that never decreases
+
+    It can happen that a faulty camera returns invalid frame numbers,
+    e.g. all-zero frame numbers from some point on or a frame counter
+    that restarts. Starting with the first event whose frame number is
+    smaller than that of the previous event, all events are assigned
+    consecutive frame numbers. This means that after such an invalid
+    event, there will always only be one event per image in the chopped
+    dataset. No data are lost, only the way they are displayed when
+    reassembling the ROI image changes.
+
+    Parameters
+    ----------
+    frame:
+        the "frame" feature
+
+    Returns
+    -------
+    frame_repaired:
+        64-bit integer copy of `frame` that is monotonically increasing
+    """
+    # int64, not uint, because `np.diff` would wrap around for uint.
+    frame = np.astype(frame, np.int64)
+
+    # Check for negative frame counts
+    frames_invalid = np.diff(frame) < 0
+    if np.any(frames_invalid):
+        warnings.warn("Detected negative frame count",
+                      NegativeFrameCountWarning)
+        # We replace everything after the last valid event with consecutive
+        # frame numbers (instead of adding an offset for each invalid event,
+        # which would be slow and could overflow for many invalid events).
+        ii = np.argmax(frames_invalid)
+        frame[ii+1:] = frame[ii] + 1 + np.arange(frame.size - ii - 1)
+    return frame
+
+
 def write_chopped_images(
         ds: RTDCBase | BasinProxy,
         feat: str,
@@ -300,7 +343,9 @@ def write_chopped_images(
     # For all other features, add references to the sibling events
     # within one frame.
     if feat != "mask":
-        frame = av_feats["frame"]
+        frame = repair_frame(av_feats["frame"][:])
+
+        # Check whether the frames are monotonically increasing
         _, fr_index, fr_counts = np.unique(frame,
                                            return_index=True,
                                            return_counts=True,

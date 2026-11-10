@@ -1,18 +1,19 @@
 [project]
 name = "nameparser"
-description = "A simple Python module for parsing human names into their individual components."
+description = "Parse human names into title, given, middle, family, suffix, nickname and maiden name. Typed, zero-dependency, CJK-aware."
 readme = "README.rst"
 requires-python = ">=3.11"
 license = "LGPL-2.1-or-later"
 license-files = ["LICENSE", "AUTHORS"]
 authors = [{name = "Derek Gulbranson", email = "derek73@gmail.com"}]
 dynamic = ["version"]
-keywords = ["names", "parser"]
+keywords = ["names", "parser", "name parsing", "human names", "nlp", "data cleaning", "record linkage", "cjk", "i18n"]
 classifiers = [
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -20,10 +21,19 @@ classifiers = [
   "Programming Language :: Python :: 3.15",
   "Development Status :: 5 - Production/Stable",
   "Natural Language :: English",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Sociology :: Genealogy",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Text Processing :: Linguistic",
+  "Typing :: Typed",
 ]
 dependencies = []
+
+[project.urls]
+Documentation = "https://nameparser.readthedocs.io/en/latest/"
+Changelog = "https://nameparser.readthedocs.io/en/latest/release_log.html"
+Source = "https://github.com/derek73/python-nameparser"
+Issues = "https://github.com/derek73/python-nameparser/issues"
 
 [project.optional-dependencies]
 # Japanese kanji-name segmentation (#272), wrapped by
@@ -88,10 +98,12 @@ strict_equality = true
 
 # strict_equality for the WHOLE package rather than the core modules
 # above. A comparison between non-overlapping types is always False and
-# is always a bug, and the facade layer -- which the block above does
-# not name -- is exactly where a v1/v2 translation makes one likeliest.
-# Measured 2026-09-18: clean over nameparser/ as it stands, so this
-# costs nothing today and catches the next one. tests/ keep the default,
+# is always a bug, wherever it is written, and the block above does not
+# name the package's __init__, _version, config.*, locales.* or
+# __main__.
+# Measured 2026-09-18: clean over nameparser/ as it then stood (the
+# 2.x facade layer included), so it cost nothing and catches the next
+# one. tests/ keep the default,
 # where the check has real hits (a test comparing an off-contract value
 # to a real one is doing its job).
 [[tool.mypy.overrides]]
@@ -118,28 +130,14 @@ python_classes = ["*Tests", "*TestCase"]
 # Fail if an xfail-marked test unexpectedly passes, so a fixed/regressed
 # expectation surfaces instead of silently turning into an xpass.
 xfail_strict = true
-# Unexpected warnings are failures: warnings are load-bearing API in 2.0
-# (the multi-word-entry UserWarning, the facade deprecation warnings), and
-# without this a warning regression is invisible to the suite -- a real
-# bug (eight spurious warnings on restoring a 1.4 Constants pickle)
-# shipped to review this way. Tests that EXPECT a warning assert it with
+# Unexpected warnings are failures: warnings are load-bearing API (the
+# multi-word-entry UserWarning, the construction warnings), and without
+# this a warning regression is invisible to the suite -- a real bug
+# (eight spurious warnings on restoring a 1.4 Constants pickle) shipped
+# to review this way. Tests that EXPECT a warning assert it with
 # pytest.warns; targeted ignores below need a comment justifying each.
 filterwarnings = [
     "error",
-    # 2.8's 3.0-removal warnings, ignored BY MESSAGE so any other
-    # DeprecationWarning still fails the suite; tests/v2/test_deprecations.py
-    # asserts each one, and the v1 suite exercises the facade on purpose
-    "ignore:HumanName is deprecated and will be removed in 3.0:DeprecationWarning",
-    "ignore:HumanName pickles stop loading in 3.0:DeprecationWarning",
-    "ignore:Constants is deprecated and will be removed in 3.0:DeprecationWarning",
-    "ignore:Constants pickles stop loading in 3.0:DeprecationWarning",
-    "ignore:nameparser.config.(Set|Tuple|RegexTuple)Manager is deprecated:DeprecationWarning",
-    "ignore:nameparser.util.lc is deprecated:DeprecationWarning",
-    # 2.8.1's: the Lexicon set fields (#754) and the constants of the
-    # nameparser.config modules 3.0 deletes (#1007, #1008), which the
-    # suite reads throughout; tests/v2/test_removals_2_8_1.py asserts each
-    "ignore:Lexicon's set fields are deprecated:DeprecationWarning",
-    "ignore:nameparser\\.config\\.\\w+\\.\\w+ is deprecated and will be removed in 3\\.0 \\(#100[78]\\):DeprecationWarning",
 ]
 
 [tool.ruff.lint]

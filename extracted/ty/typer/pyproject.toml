@@ -37,13 +37,14 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
+    "pydantic >=2.5.3",
     "shellingham >=1.3.0",
     "rich >=13.8.0",
     "annotated-doc >=0.0.2",
     "colorama; platform_system == 'Windows'",
 ]
 readme = "README.md"
-version = "0.27.3"
+version = "0.29.0"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"
@@ -89,7 +90,7 @@ tests = [
     "pytest-sugar >=1.0.0",
     "pytest-xdist >=3.6.1",
     "rich >=12.3.0",
-    "ruff >=0.15.0",
+    "ruff >=0.16.0",
     "shellingham >=1.3.0",
 ]
 
@@ -176,6 +177,9 @@ ignore = [
 "typer/rich_utils.py" = [
     "TID251",
 ]
+"typer/_adapters.py" = [
+    "TID253",
+]
 "docs_src/progressbar/tutorial004_py310.py" = [
     "UP028",
     "B007",
@@ -216,6 +220,9 @@ ignore = [
 "docs_src/*" = [
     "TID",
 ]
+"scripts/*" = [
+    "TID253",
+]
 
 [tool.ruff.lint.isort]
 known-third-party = [
@@ -235,6 +242,8 @@ keep-runtime-typing = true
 [tool.ruff.lint.flake8-tidy-imports]
 banned-module-level-imports = [
     "typer.rich_utils",
+    "typer._adapters",
+    "pydantic",
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api.rich]

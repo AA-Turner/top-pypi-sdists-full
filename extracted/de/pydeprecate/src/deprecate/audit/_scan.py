@@ -12,7 +12,8 @@ import inspect
 import pkgutil
 import warnings
 from collections.abc import Iterator, Sequence
-from contextlib import suppress
+from contextlib import contextmanager, suppress
+from contextvars import ContextVar
 from dataclasses import replace
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -20,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 if TYPE_CHECKING:
     pass
 
+from deprecate._frames import _caller_stacklevel
 from deprecate._properties import _DeprecatedProperty
 from deprecate._types import DeprecationConfig, _has_deprecation_meta, get_deprecation_config
 from deprecate.audit._wrappers import (
@@ -31,8 +33,8 @@ from deprecate.audit._wrappers import (
 from deprecate.proxy import _DeprecatedProxy
 
 
-# Note: Proxy objects are discoverable via the generic ``callable(obj)`` +
-# ``_has_deprecation_meta(obj)`` scan in :func:`find_deprecation_wrappers` and
+# Note: Proxy objects are discoverable via the generic ``_has_deprecation_meta(obj)`` gate (no ``callable(obj)``
+# test, so a non-callable ``deprecated_instance`` proxy qualifies too) in :func:`find_deprecation_wrappers` and
 # :func:`~deprecate.audit.validate_deprecation_expiry`. The ``__deprecation_config__`` schema is unified
 # across ``@deprecated`` and :class:`~deprecate.proxy._DeprecatedProxy` via
 # :class:`~deprecate._types.DeprecationConfig` — both always populate the ``name`` field,
@@ -551,14 +553,47 @@ def _is_excluded(modname: str, exclude: Sequence[str]) -> bool:
     return any(fnmatch.fnmatchcase(prefix, pattern) for prefix in prefixes for pattern in exclude)
 
 
+#: Submodules skipped for failing to import (or ``<package>.*`` for a walk that stopped early) -> the reason, while
+#: :func:`_collect_skipped_modules` runs.
+_SKIPPED_MODULES: ContextVar[Optional[dict[str, str]]] = ContextVar("_SKIPPED_MODULES", default=None)
+
+
+@contextmanager
+def _collect_skipped_modules() -> Iterator[dict[str, str]]:
+    """Record every submodule a scan inside the block skips because importing it raised, or never reaches.
+
+    The ``audit: skipped`` warning is no reliable signal for a caller that must report the gap: the audited package
+    runs inside the scan and can silence it with its own filters (``warnings.filterwarnings("ignore")`` in its
+    ``__init__``), as can ``PYTHONWARNINGS=ignore``. This record bypasses :mod:`warnings` entirely, so the CLI can
+    always print it. The warning itself is still emitted for library callers.
+
+    A recursive walk that stops early (an unreadable package directory) is recorded under ``<package>.*``, since the
+    package's own wrappers were audited but the submodules after the stop were not.
+
+    Yields:
+        Mapping of skipped module name (or ``<package>.*`` for a stopped walk) to the reason, filled while the block
+        runs: the ``repr`` of the import error, or ``submodule walk stopped early: <repr>``. The first reason
+        recorded for a name is kept.
+
+    """
+    collected: dict[str, str] = {}
+    token = _SKIPPED_MODULES.set(collected)
+    try:
+        yield collected
+    finally:
+        _SKIPPED_MODULES.reset(token)
+
+
 def _walk_submodules(package: Any, exclude: Sequence[str]) -> Iterator[Any]:  # noqa: ANN401
     """Import and yield every submodule of *package* depth-first, never entering an excluded subtree.
 
     Replaces :func:`pkgutil.walk_packages`, which imports a package before it can be told to skip it; here the walk
     neither imports an excluded package nor descends into it (the package's own imports may still load it). Submodule
     top-level code can raise anything at import time (``RuntimeError``, ``OSError``, ``KeyError`` from env lookups,
-    ...), not just ``ImportError``. One broken submodule must not abort the whole scan — and with it every audit gate
-    built on top — so the failure is kept as a warning and the walk continues with the remaining submodules.
+    ...), not just ``ImportError``, and an unguarded ``__main__.py`` or script module calls ``sys.exit()``. One broken
+    submodule must not abort the whole scan — and with it every audit gate built on top — so the failure is kept as a
+    warning (and recorded for an active :func:`_collect_skipped_modules` block) and the walk continues with the
+    remaining submodules.
 
     """
     for _finder, modname, ispkg in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
@@ -566,8 +601,11 @@ def _walk_submodules(package: Any, exclude: Sequence[str]) -> Iterator[Any]:  # 
             continue
         try:
             submod = importlib.import_module(modname)
-        except Exception as exc:
-            warnings.warn(f"audit: skipped {modname}: {exc!r}", stacklevel=3)
+        except (Exception, SystemExit) as exc:
+            collected = _SKIPPED_MODULES.get()
+            if collected is not None:
+                collected.setdefault(modname, repr(exc))
+            warnings.warn(f"audit: skipped {modname}: {exc!r}", stacklevel=_caller_stacklevel())
             continue
         yield submod
         if ispkg and hasattr(submod, "__path__"):
@@ -634,13 +672,13 @@ def find_deprecation_wrappers(
 
     Example:
         >>> from deprecate import find_deprecation_wrappers
-        >>> from tests import collection_deprecate as my_package
+        >>> from tests.collections.api_deprecated import core as my_package
         >>>
         >>> results = find_deprecation_wrappers(my_package)
         >>> print(len(results) > 0)  # Should find deprecated wrappers
         True
         >>> # Also works with string module paths
-        >>> results = find_deprecation_wrappers("tests.collection_deprecate")
+        >>> results = find_deprecation_wrappers("tests.collections.api_deprecated.core")
         >>> print(len(results) > 0)
         True
 
@@ -653,8 +691,8 @@ def find_deprecation_wrappers(
         - Requires that the module be importable
         - Recursive scans import every submodule of the package, executing their module-level code; packages
           with heavy import-time work (GPU init, network access) make the scan correspondingly expensive
-        - Skips submodules that fail to import — any exception raised by module-level code is reported as a
-          ``UserWarning`` (``audit: skipped <module>: ...``) and the scan continues
+        - Skips submodules that fail to import — any exception raised by module-level code, ``SystemExit``
+          included, is reported as a ``UserWarning`` (``audit: skipped <module>: ...``) and the scan continues
         - Inspects the ``__deprecation_config__`` attribute set by the :func:`~deprecate.deprecated` decorator
         - Skips private/magic attributes and imports from other modules
         - Uses static member inspection to avoid scan-time side effects from dynamic attribute access
@@ -694,7 +732,14 @@ def find_deprecation_wrappers(
         except (OSError, ImportError) as exc:
             # ``_walk_submodules`` already warns per broken submodule import; this catches the walk itself failing
             # (unreadable package dir, a member scan triggering an import) — keep what was found, say why it stopped.
-            warnings.warn(f"audit: submodule walk of {module.__name__} stopped early: {exc!r}", stacklevel=2)
+            # The submodules after the stop were never audited, so record that too — the package's own wrappers were
+            # scanned, hence the ``<package>.*`` key instead of the package name, which would read as unaudited.
+            collected = _SKIPPED_MODULES.get()
+            if collected is not None:
+                collected.setdefault(f"{module.__name__}.*", f"submodule walk stopped early: {exc!r}")
+            warnings.warn(
+                f"audit: submodule walk of {module.__name__} stopped early: {exc!r}", stacklevel=_caller_stacklevel()
+            )
 
     # Belt for the paths the walk does not cover — a ``deprecated_module`` entry, a per-file directory scan,
     # or the top module itself — judged by the module each wrapper is reported under.
@@ -704,6 +749,7 @@ def find_deprecation_wrappers(
 def validate_deprecation_chains(
     module: Union[Any, str],  # noqa: ANN401
     recursive: bool = True,
+    include_members: bool = True,
     *,
     exclude: Optional[Sequence[str]] = None,
 ) -> list[DeprecationWrapperInfo]:
@@ -728,6 +774,9 @@ def validate_deprecation_chains(
             - Imported module object (e.g., ``import my_package; validate_deprecation_chains(my_package)``)
             - String module path (e.g., ``validate_deprecation_chains("my_package.submodule")``)
         recursive: If True (default), recursively scan submodules. If False, only scan the top-level module.
+        include_members: If True (default), also scan deprecated class members (methods, constructors,
+            descriptors), matching :func:`~deprecate.audit.find_deprecation_wrappers`. Pass False to check
+            module-level wrappers only.
         exclude: Glob patterns over full dotted module names to leave out of the scan, as in
             :func:`~deprecate.audit.find_deprecation_wrappers` (e.g. ``["my_package.tests"]``); ``None`` excludes
             nothing.
@@ -738,7 +787,7 @@ def validate_deprecation_chains(
 
     Example:
         >>> from deprecate import validate_deprecation_chains
-        >>> import tests.collection_chains as test_module
+        >>> import tests.collections.chains as test_module
         >>>
         >>> issues = validate_deprecation_chains(test_module, recursive=False)
         >>> len(issues) > 0  # Should find chains
@@ -749,38 +798,41 @@ def validate_deprecation_chains(
         - Uses :func:`~deprecate.audit.find_deprecation_wrappers` and inspects ``chain_type`` to detect chains
 
     """
-    wrappers = find_deprecation_wrappers(module, recursive=recursive, exclude=exclude)
+    wrappers = find_deprecation_wrappers(module, recursive=recursive, include_members=include_members, exclude=exclude)
     return [info for info in wrappers if info.chain_type is not None]
 
 
 def validate_mapping_compatibility(
     module: Union[Any, str],  # noqa: ANN401
     recursive: bool = True,
+    include_members: bool = True,
     *,
     exclude: Optional[Sequence[str]] = None,
 ) -> list[DeprecationWrapperInfo]:
     """Return wrappers whose ``args_mapping`` remaps deprecated names to POSITIONAL_ONLY constructor params.
 
-    A non-empty ``args_mapping_positional_only`` on the returned ``DeprecationWrapperInfo`` means the
-    proxy falls back to ``setattr`` at call time instead of forwarding the remapped kwarg.  Use this
-    validator in CI to detect :func:`~deprecate.proxy.deprecated_class` configurations that silently
-    degrade to attribute assignment and may not behave as expected on all target class types.
+    A non-empty ``args_mapping_positional_only`` on the returned ``DeprecationWrapperInfo`` identifies
+    mappings whose values the proxy forwards positionally to the constructor. Use this validator for
+    advisory visibility into :func:`~deprecate.proxy.deprecated_class` mappings that require positional forwarding.
 
     Args:
         module: A Python module or package to scan.  Accepts an imported module object or a dotted
             module path string.
         recursive: When ``True`` (default) recursively scan submodules.
+        include_members: When ``True`` (default) also scan class members, so a ``deprecated_class`` proxy bound as
+            a class attribute is checked too, matching :func:`~deprecate.audit.find_deprecation_wrappers`. Pass
+            ``False`` to check module-level wrappers only.
         exclude: Glob patterns over full dotted module names to leave out of the scan, as in
             :func:`~deprecate.audit.find_deprecation_wrappers` (e.g. ``["my_package.tests"]``); ``None`` excludes
             nothing.
 
     Returns:
         List of ``DeprecationWrapperInfo`` instances whose ``args_mapping_positional_only`` field is
-        non-empty.  Returns an empty list when no incompatibilities are found.
+        non-empty. Returns an empty list when no such mappings are found.
 
     Examples:
         >>> from deprecate import validate_mapping_compatibility
-        >>> import tests.collection_deprecate as col
+        >>> import tests.collections.api_deprecated.core as col
         >>> results = validate_mapping_compatibility(col, recursive=False)
         >>> len(results) > 0  # DepPositionalOnly remaps to a POSITIONAL_ONLY param
         True
@@ -790,6 +842,8 @@ def validate_mapping_compatibility(
     """
     return [
         info
-        for info in find_deprecation_wrappers(module, recursive=recursive, exclude=exclude)
+        for info in find_deprecation_wrappers(
+            module, recursive=recursive, include_members=include_members, exclude=exclude
+        )
         if info.args_mapping_positional_only
     ]

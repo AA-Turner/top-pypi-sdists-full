@@ -17,6 +17,7 @@ Usage::
         ListDatabasesPaginator,
         ListNamedQueriesPaginator,
         ListQueryExecutionsPaginator,
+        ListSystemTableStatusesPaginator,
         ListTableMetadataPaginator,
         ListTagsForResourcePaginator,
     )
@@ -29,6 +30,7 @@ Usage::
     list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_databases")
     list_named_queries_paginator: ListNamedQueriesPaginator = client.get_paginator("list_named_queries")
     list_query_executions_paginator: ListQueryExecutionsPaginator = client.get_paginator("list_query_executions")
+    list_system_table_statuses_paginator: ListSystemTableStatusesPaginator = client.get_paginator("list_system_table_statuses")
     list_table_metadata_paginator: ListTableMetadataPaginator = client.get_paginator("list_table_metadata")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
     ```
@@ -52,6 +54,8 @@ from .type_defs import (
     ListNamedQueriesOutputTypeDef,
     ListQueryExecutionsInputPaginateTypeDef,
     ListQueryExecutionsOutputTypeDef,
+    ListSystemTableStatusesInputPaginateTypeDef,
+    ListSystemTableStatusesOutputTypeDef,
     ListTableMetadataInputPaginateTypeDef,
     ListTableMetadataOutputTypeDef,
     ListTagsForResourceInputPaginateTypeDef,
@@ -70,6 +74,7 @@ __all__ = (
     "ListDatabasesPaginator",
     "ListNamedQueriesPaginator",
     "ListQueryExecutionsPaginator",
+    "ListSystemTableStatusesPaginator",
     "ListTableMetadataPaginator",
     "ListTagsForResourcePaginator",
 )
@@ -177,6 +182,27 @@ class ListQueryExecutionsPaginator(_ListQueryExecutionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/paginator/ListQueryExecutions.html#Athena.Paginator.ListQueryExecutions.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/paginators/#listqueryexecutionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSystemTableStatusesPaginatorBase = Paginator[ListSystemTableStatusesOutputTypeDef]
+else:
+    _ListSystemTableStatusesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSystemTableStatusesPaginator(_ListSystemTableStatusesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/paginator/ListSystemTableStatuses.html#Athena.Paginator.ListSystemTableStatuses)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/paginators/#listsystemtablestatusespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSystemTableStatusesInputPaginateTypeDef]
+    ) -> PageIterator[ListSystemTableStatusesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/paginator/ListSystemTableStatuses.html#Athena.Paginator.ListSystemTableStatuses.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/paginators/#listsystemtablestatusespaginator)
         """
 
 

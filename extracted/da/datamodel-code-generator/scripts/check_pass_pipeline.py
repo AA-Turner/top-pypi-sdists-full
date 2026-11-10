@@ -9,6 +9,8 @@ through ``parser/_pipeline.py``) against ``scripts/pass_decls.py``, which declar
 * the labels name segments and hooks of the tables, every hook has its body, and the segments enter the boundaries in
   the order ``BOUNDARIES`` gives;
 * the passes of each segment satisfy the order rule (``check_order``);
+* a ``PassSpec`` has a ``trigger`` exactly where its declaration has one, and the trigger reads only facts the pass
+  reads, so that the order rule covers what it reads;
 * the repair passes are those ``REPAIRS`` lists, a set that only shrinks;
 * the decision registry of ``Parser`` and of every parser class that sets one (``_DECISION_PASSES``) holds global
   transforms of ``DECIDE`` with unique names, declared in ``DECISION_DECLS``, that read and write facts only, name
@@ -255,10 +257,26 @@ def table_problems(pipeline: tuple[StepLike[Any, Any], ...] = PIPELINE) -> list[
     )
     if entered != BOUNDARIES:
         problems.append(f"the segments enter {[b.name for b in entered]}, not {[b.name for b in BOUNDARIES]}")
+    problems.extend(trigger_problems(pipeline))
     repairs = {decl.name for decl in PASS_DECLS if decl.kind is PassKind.REPAIR}
     problems.extend(f"repair pass {name} is new: the repair set only shrinks" for name in sorted(repairs - REPAIRS))
     problems.extend(f"REPAIRS lists {name}, which is no repair pass: remove it" for name in sorted(REPAIRS - repairs))
     return problems
+
+
+def trigger_problems(pipeline: tuple[StepLike[Any, Any], ...] = PIPELINE) -> list[str]:
+    """Return the passes whose table entry and declaration disagree on a trigger, and the triggers that read more."""
+    triggered = {step.name for step in _walk(pipeline) if isinstance(step, PassSpec) and step.trigger is not None}
+    declared = {decl.name for decl in PASS_DECLS if decl.trigger is not None}
+    return [
+        *(f"{name} has a trigger in the tables that its declaration does not" for name in sorted(triggered - declared)),
+        *(f"{name} declares a trigger that its table entry does not have" for name in sorted(declared - triggered)),
+        *(
+            f"the trigger of {decl.name} reads {_facts_text(extra)}, which the pass does not declare as reads"
+            for decl in PASS_DECLS
+            if decl.trigger is not None and (extra := decl.trigger.reads - decl.reads)
+        ),
+    ]
 
 
 def provisional_reads(pipeline: tuple[StepLike[Any, Any], ...] = PIPELINE) -> list[str]:
@@ -445,10 +463,38 @@ VIEW_OWNERS: dict[type[Any], str] = {
 """The class whose ``ATTRIBUTE_FACTS`` rows each view reads."""
 VIEW_ACCESSORS = {
     "DataTypeView.admits_none": "rendered nullability, which is final at B1 (model/_decisions/nullability.py)",
+    "DataTypeView._renders_none": (
+        "the type, the name a type override gives it, the reference, the literals and the container kind of the type"
+        " and of its one member, final at B1: the names import binding and forward references give later go to types"
+        " that name a model"
+    ),
+    "DataTypeView._writes_nothing_of_its_own": (
+        "the type, the name a type override gives it, the reference and the container kind, final at B1: the names"
+        " import binding and forward references give later go to types that name a model"
+    ),
+    "FieldView.nullable_without_default": (
+        "the nullability the parse records without the default (NULLABLE_WITHOUT_DEFAULT_KEY), else NULLABLE, final"
+        " at B1"
+    ),
+    "ModelView.effective_fields": (
+        "the fields of the model and of its bases in C3 order (BASES, FIELD_SET), final at B1"
+    ),
+    "ModelView.additional_properties_type": (
+        "the type of the additional properties that the parser stores for the settings of the class (TypedDict"
+        " extra_items), whose nodes are field types, final at B1"
+    ),
     "FieldView.union_sibling_constraints": "the constraints written beside a union (UNION_SIBLING_CONSTRAINTS_KEY)",
     "FieldView.written_constraints": "the CONSTRAINTS its call writes for its field type, final at B1",
     "ModelView.form": "the model kind, final at B1",
+    "ModelView.has_length": (
+        "the sequence interface a root model takes where it is parsed (L1) and the container kind of its root type,"
+        " final at B1"
+    ),
     "ModelView.holds_null": "the model kind, and the nullability of its root type or its enum members, final at B1",
+    "ModelView.set_item_hash": (
+        "the model kind, the dataclass decorator, the struct options of its chain and the class and field types of a"
+        " frozen Pydantic class, final at B1"
+    ),
     "ModelView.value_base": "the model kind and the base classes of an enum, final at B1",
 }
 """The view members that read no row of their own, each with what it reads."""

@@ -3,6 +3,7 @@ import io
 from contextlib import redirect_stderr
 from unittest import TestCase
 
+import av
 from aiortc.codecs import get_decoder, get_encoder
 from aiortc.codecs.vpx import (
     Vp8Decoder,
@@ -45,7 +46,7 @@ class VpxPayloadDescriptorTest(TestCase):
         self.assertEqual(descr.tl0picidx, None)
         self.assertEqual(descr.tid, None)
         self.assertEqual(descr.keyidx, None)
-        self.assertEqual(bytes(descr), b"\x90\x80\x11")
+        self.assertEqual(bytes(descr), b"\x90\x80\x80\x11")
         self.assertEqual(repr(descr), "VpxPayloadDescriptor(S=1, PID=0, pic_id=17)")
 
         self.assertEqual(rest, b"")
@@ -58,7 +59,7 @@ class VpxPayloadDescriptorTest(TestCase):
         self.assertEqual(descr.tl0picidx, None)
         self.assertEqual(descr.tid, None)
         self.assertEqual(descr.keyidx, None)
-        self.assertEqual(bytes(descr), b"\x90\x80\x7f")
+        self.assertEqual(bytes(descr), b"\x90\x80\x80\x7f")
 
         self.assertEqual(rest, b"")
 
@@ -165,9 +166,8 @@ class Vp8Test(CodecTestCase):
         self.assertIsInstance(decoder, Vp8Decoder)
 
         # decode junk
-        with redirect_stderr(io.StringIO()):
-            frames = decoder.decode(JitterFrame(data=b"123", timestamp=0))
-        self.assertEqual(frames, [])
+        with redirect_stderr(io.StringIO()), self.assertRaises(av.InvalidDataError):
+            decoder.decode(JitterFrame(data=b"123", timestamp=0))
 
     def test_encoder(self) -> None:
         encoder = self.ensureIsInstance(get_encoder(VP8_CODEC), Vp8Encoder)
@@ -200,7 +200,7 @@ class Vp8Test(CodecTestCase):
 
         packet = self.create_packet(payload=b"\x00", pts=1)
         payloads, timestamp = encoder.pack(packet)
-        self.assertEqual(payloads, [b"\x90\x80\x00\x00"])
+        self.assertEqual(payloads, [b"\x90\x80\x80\x00\x00"])
         self.assertEqual(timestamp, 90)
 
     def test_encoder_large(self) -> None:

@@ -21,13 +21,20 @@ import logging
 import random
 import re
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Union
 
+from edgar.exceptions import InvalidDateError, TransportError
+
 logger = logging.getLogger(__name__)
 
 EFTS_BASE_URL = "https://efts.sec.gov/LATEST/search-index"
+# EFTS serves 100 hits per request whatever `size` says, and rejects from + 100 > 10,000.
+EFTS_PAGE_SIZE = 100
+EFTS_RESULT_WINDOW = 10_000
+EFTS_LAST_OFFSET = EFTS_RESULT_WINDOW - EFTS_PAGE_SIZE
 
 
 @dataclass
@@ -65,6 +72,27 @@ class EFTSResult:
         """Load the full Filing object for this result."""
         from edgar import get_by_accession_number
         return get_by_accession_number(self.accession_number)
+
+    # A result names its fields after EFTS (accession_number, filed), a Filing
+    # after the filing index (accession_no, filing_date). Code moves between the
+    # two, and in the README agent eval both conditions wrote result.accession_no
+    # and result.filing_date: 6 of the 6 errors on the full-text task. These
+    # read-only aliases make the Filing names work here too.
+    @property
+    def accession_no(self) -> str:
+        """The accession number, named as on ``Filing``. Same as ``accession_number``."""
+        return self.accession_number
+
+    @property
+    def filing_date(self) -> Optional[date]:
+        """The filing date as a ``datetime.date``, as on ``Filing``.
+
+        ``filed`` keeps the ISO string EFTS returns; this parses it. None when the
+        result carries no date.
+        """
+        if not self.filed:
+            return None
+        return date.fromisoformat(self.filed)
 
 
 @dataclass
@@ -297,7 +325,7 @@ class EFTSSearch:
         if not self._params:
             return None
         next_offset = self._offset + len(self.results)
-        if next_offset >= self.total:
+        if next_offset >= self.total or next_offset > EFTS_LAST_OFFSET:
             return None
         results, total, aggregations = _fetch_page(
             self._params, offset=next_offset, limit=min(100, self.total - next_offset)
@@ -314,7 +342,8 @@ class EFTSSearch:
     def fetch_more(self, n: int = 100) -> 'EFTSSearch':
         """Fetch up to n more results, append to current. Returns new EFTSSearch with combined results.
 
-        EFTS caps deep pagination at ~10,000; this method caps at 5,000 additional results.
+        EFTS caps deep pagination at 10,000 (`EFTS_RESULT_WINDOW`); this method caps at 5,000
+        additional results and stops before a page EFTS would refuse.
         """
         if not self._params:
             return self
@@ -324,7 +353,7 @@ class EFTSSearch:
         collected = 0
         current_offset = self._offset + len(self.results)
 
-        while collected < n and current_offset < self.total:
+        while collected < n and current_offset < self.total and current_offset <= EFTS_LAST_OFFSET:
             page_size = min(100, n - collected, self.total - current_offset)
             if page_size <= 0:
                 break
@@ -429,9 +458,9 @@ def _fetch_page(params: dict, offset: int = 0, limit: int = 100):
         request_params["from"] = offset
 
     response = get_with_retry(EFTS_BASE_URL, params=request_params)
-    data = orjson.loads(response.content)
+    data = _efts_payload(orjson.loads(response.content), request_params)
 
-    hits = data.get("hits", {})
+    hits = data["hits"]
     total = hits.get("total", {}).get("value", 0)
     results = []
 
@@ -444,6 +473,22 @@ def _fetch_page(params: dict, offset: int = 0, limit: int = 100):
     aggregations = _parse_aggregations(data.get("aggregations", {}))
 
     return results, total, aggregations
+
+
+def _efts_payload(data: dict, params: dict) -> dict:
+    """Return an EFTS response body, raising when it is an error instead of results.
+
+    EFTS reports a failed query with HTTP 200 and a body like
+    ``{"errorType": "ResponseError", "errorMessage": "..."}`` (an invalid date
+    such as ``2024-13-01``, or ``from`` past 10,000). Read with ``.get("hits", {})``
+    that body is indistinguishable from a search with no matches.
+    """
+    if "hits" in data:
+        return data
+
+    message = data.get("errorMessage") or f"EFTS returned no 'hits' block (keys: {sorted(data)})"
+    raise TransportError(f"EFTS search failed: {message[:300]}", context={"params": params},
+                         url=EFTS_BASE_URL, status_code=200)
 
 
 def _parse_hit(hit: dict) -> EFTSResult:
@@ -501,6 +546,28 @@ def _parse_aggregations(aggs_data: dict) -> EFTSAggregations:
 # Public API
 # ---------------------------------------------------------------------------
 
+def _efts_forms(forms: List[str]) -> List[str]:
+    """Form codes to send to EFTS.
+
+    EFTS returns amendments only as soon as the list holds an amendment code
+    (``S-1/A``), for every form in the list, while a root code (``S-1``) already
+    matches its amendments. So ``X/A`` is dropped when ``X`` is listed too, and
+    a warning is given when an amendment code without its root is mixed with
+    other forms, whose original filings EFTS would then leave out.
+    """
+    listed = set(forms)
+    kept = [form for form in forms if not (form.endswith("/A") and form[:-2] in listed)]
+    amendments = [form for form in kept if form.endswith("/A")]
+    if amendments and len(amendments) < len(kept):
+        warnings.warn(
+            f"EFTS returns only amendments when forms includes {', '.join(amendments)}, so the original "
+            f"filings of the other forms are left out. List the root form instead ({', '.join(a[:-2] for a in amendments)}), "
+            "which also matches its amendments.",
+            stacklevel=3,
+        )
+    return kept
+
+
 def search_filings(
     query: str = "",
     *,
@@ -539,6 +606,9 @@ def search_filings(
 
     Raises:
         ValueError: If neither ``query`` nor ``items`` is provided.
+        InvalidDateError: If ``start_date`` or ``end_date`` is not a YYYY-MM-DD date.
+        TransportError: If EFTS rejects the query (it answers with HTTP 200 and an
+            error body, which used to be read as 0 results).
 
     Examples:
         >>> from edgar import search_filings
@@ -574,6 +644,8 @@ def search_filings(
         )
 
     limit = min(max(limit, 1), 100)
+    start_date = _check_date("start_date", start_date)
+    end_date = _check_date("end_date", end_date)
 
     # Build request parameters. EFTS accepts q="" when other filters are set.
     params: dict = {"q": query}
@@ -582,7 +654,7 @@ def search_filings(
     if forms:
         if isinstance(forms, str):
             forms = [forms]
-        params["forms"] = ",".join(forms)
+        params["forms"] = ",".join(_efts_forms(forms))
 
     # 8-K item filter (server-side)
     if items:
@@ -722,8 +794,9 @@ def resolve_accession(accession_number: str) -> Optional[dict]:
     normalized = accession_number.replace("-", "")
 
     try:
-        response = get_with_retry(EFTS_BASE_URL, params={"q": f'"{accession_number}"'})
-        hits = orjson.loads(response.content).get("hits", {}).get("hits", [])
+        params = {"q": f'"{accession_number}"'}
+        response = get_with_retry(EFTS_BASE_URL, params=params)
+        hits = _efts_payload(orjson.loads(response.content), params)["hits"].get("hits", [])
     except TRANSPORT_ERRORS:
         # Let the caller see the outage (bead edgartools-07lk.10, closing the
         # tg7y follow-up). The `return None` below means "EFTS has no filing at

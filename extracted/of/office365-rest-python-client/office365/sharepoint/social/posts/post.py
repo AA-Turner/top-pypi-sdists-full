@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -12,7 +12,6 @@ from office365.sharepoint.social.link import SocialLink
 from office365.sharepoint.social.posts.actor_info import SocialPostActorInfo
 
 
-@dataclass
 class SocialPost(ClientValue):
     """The SocialPost specifies a post read from the server."""
 

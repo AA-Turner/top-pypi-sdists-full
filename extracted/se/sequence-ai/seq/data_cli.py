@@ -136,6 +136,12 @@ def load(name: str, base_url: str | None = None, *, fetch=None,
         for line in data.splitlines():
             if line.strip():
                 row = json.loads(line)
+                if row.get("kind") == "label":
+
+
+                    labels.setdefault(row.get("episode_id"), {k: row.get(k) for k in
+                                                              ("episode_id", "success", "notes")})
+                    continue
                 episodes[row.get("episode_id") or f"rid-{row.get('rid')}"].append(row)
     for rows in episodes.values():
         rows.sort(key=lambda r: r.get("ts") or 0)

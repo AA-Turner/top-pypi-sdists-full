@@ -8,13 +8,16 @@ of the matched lanelet (e.g. "15 m before the stop line").
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 import lanelet2.core
 import lanelet2.geometry
 
+from ..lanelet_junction import is_junction_lanelet
 from ..utils.stop_line import _collect_stop_lines_from_reg_elems
+from ..value_text import shown
 
 if TYPE_CHECKING:
     from lanelet2.core import ConstLanelet, ConstLineString3d, LaneletMap
@@ -77,6 +80,9 @@ class StopLineOffsetBinding:
 
     target_key: str
     offset: float = 15.0
+
+    def __post_init__(self) -> None:
+        _check_offset("stop_line_offset", self.offset)
 
     @staticmethod
     def _project_stop_line(ls: ConstLineString3d, lanelet: ConstLanelet) -> float:
@@ -272,6 +278,39 @@ class StopLineOffsetBinding:
         )
 
 
+def _check_offset(kind: str, value: Any) -> None:
+    """Refuse a stop-line *offset* that is no finite number of metres >= 0.
+
+    An int or a float, or another real number (numpy's ``int64`` or
+    ``float32``, say); never a bool, which would be 1 m or 0 m (#1951).  An
+    int too large for a float is no finite offset either.
+    """
+    number = math.nan
+    if isinstance(value, bool):
+        pass
+    elif isinstance(value, int) or isinstance(value, float):
+        try:
+            number = float(value)
+        except OverflowError:
+            number = math.inf
+    elif TYPE_CHECKING:
+        pass
+    else:
+        import numbers  # noqa: PLC0415 -- run time only
+
+        # numpy registers its integers and floats as numbers.Real, and its
+        # bool_ as none of them.
+        if isinstance(value, numbers.Real):
+            try:
+                number = float(value)
+            except OverflowError:
+                number = math.inf
+    if not math.isfinite(number) or number < 0.0:
+        raise ValueError(
+            f"{kind} offset: a finite number of metres >= 0, got {shown(value)}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Parsing helpers
 # ---------------------------------------------------------------------------
@@ -321,6 +360,22 @@ class RouteThroughBinding:
     through_junction: bool = False
 
     def __post_init__(self) -> None:
+        # Read by their truth, so the text "off" would turn one on (#1946).
+        if not isinstance(self.last_only, bool):
+            raise ValueError(
+                f"route_through last_only must be true or false, got {self.last_only!r}"
+            )
+        if not isinstance(self.through_junction, bool):
+            raise ValueError(
+                "route_through through_junction must be true or false, "
+                f"got {self.through_junction!r}"
+            )
+        # A whole number: "2" would fail the comparison with a TypeError, and
+        # true would be read as 1 (#1951).
+        if isinstance(self.depth, bool) or not isinstance(self.depth, int):
+            raise ValueError(
+                f"route_through depth must be a whole number >= 1, got {shown(self.depth)}"
+            )
         if self.depth < 1:
             raise ValueError(f"route_through depth must be >= 1, got {self.depth}")
 
@@ -341,7 +396,7 @@ class RouteThroughBinding:
         current: ConstLanelet = lanelet_map.laneletLayer[lanelet_id]
         steps = 0
         while steps < self.depth or (
-            self.through_junction and "turn_direction" in current.attributes
+            self.through_junction and is_junction_lanelet(current)
         ):
             steps += 1
             following = sorted(routing_graph.following(current), key=lambda ll: ll.id)
@@ -458,6 +513,9 @@ class StopLineApproachBinding:
     target_key: str
     offset: float = 15.0
 
+    def __post_init__(self) -> None:
+        _check_offset("stop_line_approach", self.offset)
+
     def resolve(
         self,
         lanelet_id: int,
@@ -498,19 +556,44 @@ def parse_binding(target_key: str, cfg: dict[str, Any]) -> Binding:
         The corresponding binding instance.
 
     Raises:
-        ValueError: If the ``type`` value is not recognised.
+        ValueError: If *cfg* is not a mapping, its ``type`` is not recognised,
+            or it is given a key the binding does not take or a value it
+            refuses (#1951).
     """
+    from collections.abc import Mapping  # noqa: PLC0415 -- run time only
+
+    if not isinstance(cfg, Mapping):
+        raise ValueError(
+            f"Binding {target_key} must be a mapping with a 'type' "
+            f"({{type: ...}}), got {shown(cfg)}"
+        )
     binding_type = cfg.get("type")
     if binding_type is None:
         raise ValueError(f"Binding config is missing 'type': {cfg}")
-    cls = _BINDING_REGISTRY.get(binding_type)
+    cls = _BINDING_REGISTRY.get(binding_type) if isinstance(binding_type, str) else None
     if cls is None:
         raise ValueError(
-            f"Unknown binding type: {binding_type!r}. "
+            f"Unknown binding type: {shown(binding_type)}. "
             f"Available: {list(_BINDING_REGISTRY)}"
         )
     kwargs = {k: v for k, v in cfg.items() if k != "type"}
-    return cls(target_key=target_key, **kwargs)
+    # A key the binding does not take is named here rather than as the
+    # constructor's TypeError (#1951).
+    import dataclasses  # noqa: PLC0415 -- run time only
+
+    names = [
+        f.name for f in dataclasses.fields(cls) if f.init and f.name != "target_key"
+    ]
+    unknown = [k for k in kwargs if k not in names]
+    if unknown:
+        raise ValueError(
+            f"{binding_type} binding {target_key}: unknown key(s) {unknown}; it "
+            f"takes {names if names else 'no keys besides type'}"
+        )
+    try:
+        return cls(target_key=target_key, **kwargs)
+    except TypeError as exc:
+        raise ValueError(f"{binding_type} binding {target_key}: {exc}") from exc
 
 
 def _walk_back_lanelet_key(s_key: str, lanelet_id: int) -> str:

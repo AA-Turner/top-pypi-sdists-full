@@ -14,7 +14,7 @@ from ..history_replay import (
     readable_reasoning,
 )
 from ..json_types import JsonObject
-from ..stream_recovery import RECOVERY_RETENTION_BYTES
+from ..recovery_limits import RECOVERY_RETENTION_BYTES
 from .errors import gemini_error_payload
 from .replay import CallReplay, ReplayBundle, encode_bundle
 
@@ -223,11 +223,11 @@ class GeminiResponseAccumulator:
                 message=str(error.get("message", "Generation failed")),
                 retryable=False,
             )
-        if self.finished:
+        if self.finished and payload.get("candidates"):
             raise conversion_failure("Upstream emitted data after Gemini completion")
-        for key in ("responseId", "modelVersion", "usageMetadata", "promptFeedback"):
-            if key in payload:
-                self.response[key] = deepcopy(payload[key])
+        for key, value in payload.items():
+            if key != "candidates":
+                self.response[key] = deepcopy(value)
         for candidate in payload.get("candidates", []):
             for part in candidate.get("content", {}).get("parts", []):
                 if (

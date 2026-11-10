@@ -51,6 +51,7 @@ class YRoom:
     ydoc: Doc
     ystore: BaseYStore | None
     ready_event: Event
+    _start_room_lock: Lock
     _on_message: Callable[[bytes], Awaitable[bool] | bool] | None
     _on_message_error: Callable[[Exception, bytes, Channel], Awaitable[bool] | bool] | None
     _update_send_stream: MemoryObjectSendStream
@@ -113,6 +114,7 @@ class YRoom:
         self._on_message_error = None
         self.exception_handler = exception_handler
         self._stopped = Event()
+        self._start_room_lock = Lock()
         self._provider_stop_event = Event()
 
     @property
@@ -207,13 +209,8 @@ class YRoom:
                 if self.clients:
                     message = create_update_message(update)
                     for client in self.clients:
-                        try:
-                            self.log.debug(
-                                "Sending Y update to client with endpoint: %s", client.path
-                            )
-                            self._task_group.start_soon(client.send, message)
-                        except Exception as exception:
-                            self._handle_exception(exception)
+                        self.log.debug("Sending Y update to client with endpoint: %s", client.path)
+                        self._task_group.start_soon(self._send_to_client, client, message)
                 if self.ystore:
                     try:
                         self._task_group.start_soon(self.ystore.write, update)
@@ -278,9 +275,6 @@ class YRoom:
         self,
         task_status: TaskStatus[None],
     ):
-        if not self.started.is_set():
-            task_status.started()
-            self.started.set()
         self._update_send_stream, self._update_receive_stream = create_memory_object_stream(
             max_buffer_size=65536
         )
@@ -290,6 +284,11 @@ class YRoom:
         self._task_group.start_soon(self._broadcast_updates)
         await self._task_group.start(self.awareness.start)
         self._task_group.start_soon(self._run_provider)
+
+        # only once the room runs, so that it can be served and stopped right away
+        if not self.started.is_set():
+            task_status.started()
+            self.started.set()
 
     async def _run_provider(self):
         if self.provider_factory is not None:
@@ -382,7 +381,7 @@ class YRoom:
                                     channel.path,
                                     client.path,
                                 )
-                                tg.start_soon(client.send, message)
+                                tg.start_soon(self._send_to_client, client, message)
                             # apply awareness update to the server's awareness
                             self.awareness.apply_awareness_update(read_message(message[1:]), self)
                     except Exception as exc:
@@ -432,4 +431,14 @@ class YRoom:
             self.log.exception(
                 "Error while broadcasting awareness changes to client with endpoint: %s",
                 client.path,
+            )
+
+    async def _send_to_client(self, client: Channel, message: bytes) -> None:
+        # A failed broadcast must not affect the room or the other clients. Sends required
+        # for a client's own sync session propagate errors so that its session can end.
+        try:
+            await client.send(message)
+        except Exception:
+            self.log.exception(
+                "Error while sending message to client with endpoint: %s", client.path
             )

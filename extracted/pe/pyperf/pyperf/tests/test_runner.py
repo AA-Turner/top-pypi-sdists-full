@@ -10,6 +10,7 @@ from unittest import mock
 
 import pyperf
 from pyperf import tests
+from pyperf._hooks import HookBase
 from pyperf._utils import create_pipe, MS_WINDOWS, shell_quote
 
 
@@ -483,6 +484,41 @@ class TestRunner(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             runner.parse_args(args)
 
+    def test_is_worker(self):
+        for args, expected in (([], False), (['--worker', '-l1', '-w0'], True)):
+            for parsed in (False, True):
+                with self.subTest(args=args, parsed=parsed):
+                    pyperf.Runner._created.clear()
+                    runner = pyperf.Runner()
+                    if parsed:
+                        runner.parse_args(args)
+                    with mock.patch.object(sys, 'argv', ['benchmark.py'] + args):
+                        self.assertIs(runner.is_worker(), expected)
+                        namespace = runner.args
+                        self.assertIs(runner.is_worker(), expected)
+                        self.assertIs(runner.args, namespace)
+
+    def test_is_worker_guards_benchmark_suite(self):
+        source = textwrap.dedent('''
+            import pyperf
+
+            def noop():
+                pass
+
+            runner = pyperf.Runner(values=1, processes=1, loops=1, warmups=0)
+            benchmarks = [runner.bench_func('first', noop),
+                          runner.bench_func('second', noop)]
+            if not runner.is_worker():
+                suite = pyperf.BenchmarkSuite(benchmarks)
+                print('suite: ' + ', '.join(suite.get_benchmark_names()))
+        ''')
+        with tests.temporary_file(suffix='.py') as filename:
+            with open(filename, 'w', encoding='utf-8') as script:
+                script.write(source)
+            result = tests.get_output([sys.executable, filename, '--quiet'])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count('suite: first, second'), 1)
+
     def test_duplicated_named(self):
         def time_func(loops):
             return 1.0
@@ -517,6 +553,46 @@ class TestRunner(unittest.TestCase):
                          ' '.join(map(shell_quote, args)))
         self.assertEqual(bench.get_metadata()["hooks"],
                          "_test_hook")
+
+    def test_custom_hook(self):
+        class State:
+            inited = 0
+            entered = 0
+            exited = 0
+
+        s = State()
+
+        class CustomHook(HookBase):
+            name = "custom_hook"
+
+            @staticmethod
+            def load():
+                return lambda: CustomHook(s)
+
+            def __init__(self, state):
+                self.state = state
+                self.state.inited += 1
+
+            def __enter__(self):
+                self.state.entered += 1
+
+            def __exit__(self, _exc_type, _exc_value, _traceback):
+                self.state.exited += 1
+
+            def teardown(self, metadata):
+                metadata[self.name] = "done"
+
+        args = '-l1 -w0 -n1 --worker --verbose --hook custom_hook'.split()
+        runner = self.create_runner(args, hooks=[CustomHook])
+        def time_func(loops):
+            return 1.0
+
+        bench = runner.bench_time_func('bench1', time_func)
+        self.assertEqual(bench.get_metadata()["hooks"], CustomHook.name)
+        self.assertEqual(bench.get_metadata()[CustomHook.name], "done")
+        self.assertEqual(s.inited, 1)
+        self.assertEqual(s.entered, 1)
+        self.assertEqual(s.exited, 1)
 
     def test_single_instance(self):
         runner1 = self.create_runner([])   # noqa

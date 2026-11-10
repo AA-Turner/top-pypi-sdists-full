@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.10.13
+Version: 0.10.16
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -156,9 +156,9 @@ a `BenchmarkOperation`, while server processing continues. Call `operation.resul
 or save `operation.id` and reconnect later with `get_operation(client, operation.id)`.
 It is a regular Python function; it does not require `await`.
 
-`push()` raises `BenchmarkOperationError` on a failed build; inspect its `failures`
-for the affected runtime and build error. Once the runtime is ready, follow the
-SDK spec guide's diagnostic and evaluation steps; uploading does not execute
+`push()` raises `BenchmarkOperationError` when the operation fails, is cancelled or only
+partly succeeds. Its message lists the first few failures; `failures` has all of them with
+full messages. Once the runtime is ready, follow the SDK spec guide's diagnostic and evaluation steps; uploading does not execute
 the tasks. Start evaluation or training with `agent_name` and `benchmark_name`
 to select the latest version, or `bench_id` to select a specific version.
 Run this registration code with your organization's API key.

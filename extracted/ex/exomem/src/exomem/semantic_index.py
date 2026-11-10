@@ -25,7 +25,8 @@ from . import (
 from .vocabulary import instances
 
 # Matching source bytes must not reuse an older parser's interpretation.
-PARSER_VERSION = 6
+# v7 reserves typed validity rows and projects their calendar dates.
+PARSER_VERSION = 7
 _GENERATION_SCHEMA = "exomem.semantic-unit.parent-generation.v5"
 _ACTIVE_PARENT_STATES: ContextVar[Mapping[str, SemanticParentIndexState] | None] = ContextVar(
     "exomem_semantic_parent_states", default=None
@@ -83,6 +84,9 @@ class SemanticUnitSidecarDrift:
     reasons: tuple[str, ...]
     expected_generation: str | None = None
     actual_generations: tuple[str, ...] = ()
+    #: The parent source hashes that an orphan's rows carry. A reconcile compares them with the
+    #: parent's bytes; the report leaves them out.
+    actual_source_hashes: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -434,7 +438,8 @@ class SelectedParent:
 
     `definitions` is None when the page's selected instance is unavailable to
     this operation; `structure` then holds only core-safe units and is marked
-    incomplete. Shared sidecars never store this object.
+    incomplete. No shared sidecar stores this object. The lexical store's unit
+    base keeps only the ranking contribution of a public-instance parent.
     """
 
     path: str
@@ -477,7 +482,9 @@ class Interpretations:
 
     The operation owns this map and discards it with the request: admitted
     snapshots are memoized per selected instance, and each parent summary is
-    interpreted at most once. No caller-independent cache retains a result.
+    interpreted at most once. No result is retained here. The lexical store's
+    unit base keeps what a public-instance parent contributes to ranking, keyed
+    by `public_dependency`; it never keeps a private instance's.
     """
 
     def __init__(self, vault_root: Path) -> None:
@@ -505,6 +512,14 @@ class Interpretations:
     def dependency(self) -> tuple:
         """The selected inputs this operation uses, including extension definitions."""
         return self.selection.dependency()
+
+    def public_dependency(self) -> tuple:
+        """The public instance's share of `dependency`: no private instance's definitions.
+
+        A refused public instance enters by its refusal's class, so a caller refused
+        it never shares this identity with one admitted to it.
+        """
+        return self.selection.dependency(public_only=True)
 
     def admitted_instances(self) -> tuple[tuple[str, Mapping[str, Any]], ...]:
         """Every configured instance this caller may interpret, public first.
@@ -911,6 +926,7 @@ def audit_semantic_unit_sidecars(
                         parent_path,
                         tuple(sorted(orphan_reasons)),
                         actual_generations=tuple(sorted(stamp[0] for stamp in actual.stamps)),
+                        actual_source_hashes=tuple(sorted(stamp[1] for stamp in actual.stamps)),
                     )
                 )
                 continue

@@ -2,7 +2,7 @@
 result (`AskResult`), the model class (`VisionLM`) and the call (`ask`) a package's entrypoint
 returns. Qwen3.5 and Qwen3.6, dense and mixture-of-experts, load through it.
 
-    @app.entrypoint(defaults={"model": "qwen3.6-35b-a3b@0.1.0"}, memoize=True, memo_version="v1")
+    @app.entrypoint(defaults={"model": "qwen3.6-35b-a3b@0.1.0"}, memoize=True)
     def ask(ctx: Context, payload: AskRequest, model: VisionLM, tel: Telemetry) -> AskResult:
         return vlm.ask(ctx, payload, model, tel)
 
@@ -36,24 +36,24 @@ from transformers import (
 from transformers.initialization import no_init_weights
 from transformers.video_utils import VideoMetadata
 
-from cozy_runtime import lm, moe
+from cozy_runtime import lm
+from cozy_runtime.accel import moe
 from cozy_runtime.author import (
     Config,
-    ConformanceError,
     Context,
-    DecodedVideoFrame,
-    FileBound,
-    ImageFile,
     InvalidRequest,
     Loader,
     Model,
     ModelAssets,
+    Serving,
     Telemetry,
     UnsupportedInput,
-    VideoFile,
     uses_components,
 )
+from cozy_runtime.author._errors import ConformanceError
 from cozy_runtime.author._model import WARNINGS
+from cozy_runtime.fields import FileBound
+from cozy_runtime.media import DecodedVideoFrame, ImageFile, VideoFile
 
 COMPONENT = "model"
 DTYPES = {"bf16": torch.bfloat16, "f16": torch.float16, "f32": torch.float32}
@@ -223,13 +223,11 @@ def watch(
     return Watched(shown, seconds)
 
 
-def construct(
-    model_config: Mapping[str, Any], config: Config
-) -> tuple[torch.nn.Module, lm.Draft | None]:
-    """The model and its multi-token-prediction head where the checkpoint keeps it (`mtp.*`,
-    the model's `mtp` and the `lm.Draft` around it), experts split per expert; every parameter in
-    its stored dtype (Qwen3.5 keeps `A_log` and its gated norms in f32, and Runtime fills stored
-    bytes as they are)."""
+def construct(model_config: Mapping[str, Any], config: Config) -> torch.nn.Module:
+    """The model, experts split per expert; every parameter in its stored dtype (Qwen3.5 keeps
+    `A_log` and its gated norms in f32, and Runtime fills stored bytes as they are). Where the
+    checkpoint keeps its multi-token-prediction head (`mtp.*`), that too, as the model's `mtp`:
+    its decode drafts with the `lm.Draft` around it (`lm.HEADS`)."""
     with no_init_weights():
         model = AutoModelForImageTextToText.from_config(
             AutoConfig.for_model(**model_config), dtype=torch.bfloat16
@@ -246,7 +244,9 @@ def construct(
         stored = DTYPES.get(config.tensor_dtype(f"{COMPONENT}.{name}", default="bf16"))
         if stored is not None and parameter.dtype != stored:
             parameter.data = parameter.data.to(stored)
-    return model.eval(), head.eval() if head is not None else None
+    if head is not None:
+        lm.HEADS[model] = head.eval()
+    return model.eval()
 
 
 def _held(config: Config, key: str) -> bool:
@@ -337,19 +337,21 @@ def processor(
 
 class Pipeline:
     def __init__(self, config: Config) -> None:
-        model, self.draft = construct(config.mapping(), config)
+        model = construct(config.mapping(), config)
         self.components: dict[str, torch.nn.Module] = {COMPONENT: model}
 
 
-class VisionLM(Model[Pipeline], encoded_leaves="accept", min_bits=4, phase="decode"):
+class VisionLM(Model[Pipeline]):
     """A Qwen-VL model answering questions about text, images and videos, greedily or sampled
     from a seed. Runtime may serve encoded lanes' linears natively."""
+
+    serving = Serving(min_bits=4, phase="decode")
 
     pipe: Pipeline
     processor: Any
 
     def load(self, loader: Loader) -> None:
-        self.pipe = loader.construct(Pipeline, factory=Pipeline)
+        self.pipe = loader.construct(Pipeline)
         self.processor = processor(loader.assets)
         if "generation_config.json" in loader.assets.names():
             model = self.pipe.components[COMPONENT]
@@ -475,7 +477,6 @@ class VisionLM(Model[Pipeline], encoded_leaves="accept", min_bits=4, phase="deco
             inputs,
             stop=tokens,
             pad=tokenizer.pad_token_id or tokens[0],
-            draft=self.pipe.draft,
             **decoding,
         )
         return [str(reply) for reply in self.processor.batch_decode(out, skip_special_tokens=True)]

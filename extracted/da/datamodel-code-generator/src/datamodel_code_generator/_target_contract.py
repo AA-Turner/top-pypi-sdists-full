@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Final, Literal, NewType, TypeAlias, TypeVar, g
 from datamodel_code_generator._all_or_none import all_or_none
 from datamodel_code_generator._runtime.model_codecs.media import is_token
 from datamodel_code_generator._runtime.model_codecs.parameters import ParameterLocation
+from datamodel_code_generator.enums import OpenAPIVersion
 from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
@@ -61,6 +62,10 @@ class SourceLocation:
     pointer: str
     role: Literal["declaration", "use", "schema"]
 
+    def child(self, token: str) -> SourceLocation:
+        """Return the location of a keyword's value below this one."""
+        return dataclasses.replace(self, pointer=f"{self.pointer}/{token}")
+
 
 @dataclass(frozen=True, slots=True)
 class DeclarationId:
@@ -74,7 +79,7 @@ class OperationId:
     """Identify an operation by its root use site, retaining callback ancestry."""
 
     use_site: SourceLocation
-    kind: Literal["path", "webhook", "callback"]
+    kind: Literal["path", "webhook", "callback", "channel"]
     parent: OperationId | None = None
     callback_expression: SourceLocation | None = None
 
@@ -226,14 +231,17 @@ class GenericType:
     """Preserve ordered container arguments and fixed versus variadic tuple shape.
 
     `slot` is the container slot whose class `base` writes, decided from the container's kind before any import
-    override moves where `base` is imported from; None for a fixed tuple or any other generic type.
+    override moves where `base` is imported from; None for a fixed tuple or any other generic type. `given` is the
+    container class an `x-python-type` gives the container (`DataType.given_container`), which `base` is, written
+    around the slot's arguments: a `variadic` tuple writes `...` after its one item type.
     """
 
     base: TypeView
     arguments: tuple[TypeView, ...]
-    tuple_form: Literal["not_tuple", "fixed"] = "not_tuple"
+    tuple_form: Literal["not_tuple", "fixed", "variadic"] = "not_tuple"
     hint: ModelHint | None = dataclasses.field(default=None, compare=False, repr=False)
     slot: ContainerSlot | None = dataclasses.field(default=None, repr=False)
+    given: str | None = dataclasses.field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -339,7 +347,8 @@ class ModelFieldFacts:
 
     `schema_null` says the None the field's annotation accepts comes from its schema's nullability or its own type,
     rather than from an optional fallback or the model configuration. `annotation_null` says the emitted annotation
-    accepts None at all, whether its type holds None or the field adds it.
+    accepts None at all, whether its type holds None or the field adds it. `explicit_name` says an `--aliases` entry
+    of the field's class scope gave its name, which is never renamed.
     """
 
     required: bool
@@ -352,6 +361,7 @@ class ModelFieldFacts:
     backend: BackendFieldFacts
     schema_null: bool
     annotation_null: bool
+    explicit_name: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -417,24 +427,27 @@ class FieldUseBinding:
 class PartSchema:
     """How the members of a multipart body are sent as parts, by the types the models give them.
 
-    A member holds files when the models hold its values, or its items', as raw octets (BINARY_CONTENT); it repeats as
-    an item container, one part for each item; and its values, or its items', are structured when one of their types
-    is a model, a mapping or an item container. `value` is the type the body's direction gives its values, which a
-    part read on its own is read by.
+    A member holds files when the parser reads its values, or its items', as raw octets (BINARY_CONTENT) and the models
+    type them as bytes or as plain `str` (`text` says a type is `str`, whose text is sent as UTF-8). A binary string
+    the models give any other type is sent as the part of that type. A member repeats as an item container, one part
+    for each item; and its values, or its items', are structured when one of their types is a model, a mapping or an
+    item container. `value` is the type the body's direction gives its values, which a part read on its own is read by.
     """
 
     file: bool
     repeated: bool
     structured: bool
     value: TypeView | None = None
+    text: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class PartFacts:
     """How a multipart body encodes its parts, by the type and members its use binds.
 
-    `object` says its type is one object or takes any value; `members` gives each property's encoding by wire name,
-    and `extra` that of any other property: none when its model allows no others, None when any value.
+    `object` says its type is one object, a union of objects that agree on the parts of each property, or takes any
+    value; `members` gives each property's encoding by wire name, and `extra` that of any other property: none when
+    its model allows no others, None when any value.
     """
 
     object: bool
@@ -460,12 +473,14 @@ class KindAt:
 class MemberShape:
     """One member of an object written as text: its name, its kind, and whether it repeats.
 
-    A member without a kind is any string.
+    A member without a kind is any string. `value` is the shape of a member's values that have no one kind, such as an
+    object or a union of a scalar and an object, which only the bracket form writes.
     """
 
     name: str
     kind: KindAt | None = None
     repeated: bool = False
+    value: TextShape | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -474,7 +489,9 @@ class TextShape:
 
     A scalar or an array has the kind of its value or items; an object has the members of the model it holds, then
     any other property's, none when the model allows no others. `problem` is the location and message of why no
-    builtin encoding writes the values.
+    builtin encoding writes the values. `single` marks an array whose values may also be one item alone. For the
+    bracket form, `items` is the shape of an array's items that have no one kind, and `choices` the shapes of the
+    members of a union laid out unlike each other, such as a scalar and an object, of which a value is one.
     """
 
     shape: Literal["scalar", "array", "object"]
@@ -482,6 +499,9 @@ class TextShape:
     members: tuple[MemberShape, ...] = ()
     additional: MemberShape | None = None
     problem: tuple[SourceLocation, str] | None = None
+    single: bool = False
+    items: TextShape | None = None
+    choices: tuple[TextShape, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -512,10 +532,10 @@ class TypeUseBinding:
     `argument` spells the type a parameter's argument takes: its type with each alias and root model by the type it
     stands for. `binary` is where the first value the models hold as raw octets sits that the use carries as text:
     in a JSON, text or URL-encoded media, an item schema, a parameter or header, or a multipart part that holds no
-    files. `octets` says the models hold every alternative of the whole value of a text or binary media as raw octets,
-    which the media carries as the raw body, and `checked` that the models constrain those bytes, which the targets
-    then validate by the model. `text` says the models type a binary media's value as enums or literals of strings,
-    which the media carries as text read by the model.
+    files. `octets` says the models hold every alternative of the whole value of a JSON, text or binary media as raw
+    octets, which the media carries as the raw body, and `checked` that the models constrain those bytes, which the
+    targets then validate by the model. `text` says the models type a binary media's value as enums or literals of
+    strings, which the media carries as text read by the model.
     """
 
     id: TypeUseId
@@ -604,12 +624,78 @@ class OperationContract:
 
 
 @dataclass(frozen=True, slots=True)
+class MessageContract:
+    """One message of an AsyncAPI channel, which the described application sends or receives.
+
+    `payload` is the location of the schema its payload binds as: the payload's own, or the schema a payload that is
+    only a `$ref` names. `codec` is how the message travels: `json` coded by the payload's models, `utf8` text,
+    `bytes`, or `event`, a server-sent event whose data the payload's models decode as JSON.
+    """
+
+    declaration: SourceLocation
+    action: Literal["send", "receive"]
+    codec: Literal["json", "utf8", "bytes", "event"]
+    payload: SourceLocation | None
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelSkip:
+    """Why a client does not open a channel: the client feature it uses (None for none), and a message."""
+
+    feature: str | None
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelContract:
+    """An AsyncAPI channel, which a client opens through its handshake, a GET operation, as `kind` says.
+
+    A `websocket` channel's handshake upgrades to a WebSocket, and an `sse` channel's answers with a server-sent event
+    stream. `name` is the channel's id (AsyncAPI 3) or address (AsyncAPI 2). `handshake` is None where a skip leaves
+    no address to open. `subprotocols` are those the handshake offers.
+    """
+
+    use_site: SourceLocation
+    name: str
+    handshake: OperationContract | None
+    messages: tuple[MessageContract, ...]
+    skips: tuple[ChannelSkip, ...]
+    subprotocols: tuple[str, ...] = ()
+    kind: Literal["websocket", "sse"] = "websocket"
+
+
+@dataclass(frozen=True, slots=True)
+class OpenAPIVersions:
+    """The OpenAPI version the parser reads each loaded document by.
+
+    `root` is the root document's: `--schema-version`, else the version it declares. `documents` gives the others that
+    --read-schema-version-per-document reads by a version of their own; without the option it is empty, and every
+    document reads as the root.
+    """
+
+    root: OpenAPIVersion = OpenAPIVersion.V31
+    documents: tuple[tuple[SourceDocumentId, OpenAPIVersion], ...] = ()
+
+    def of(self, location: SourceLocation) -> OpenAPIVersion:
+        """Return the version the document of a location is read by."""
+        return next((version for document, version in self.documents if document == location.document), self.root)
+
+    def declared(self, declaration: WireDeclaration) -> OpenAPIVersion:
+        """Return the version the document that declares a parameter, an encoding or a header is read by."""
+        return self.of(declaration.declaration.location)
+
+
+@dataclass(frozen=True, slots=True)
 class GeneratedTypeContractBatch:
     """Own one accepted attempt's immutable contracts, with no parser or source mappings.
 
-    `document_facts` are the OpenAPI version, info, tags and servers the root document declares. `hint_type` is the
-    model generator's configured type class, which composes model types as the models spell them, and `hint_imports`
-    the names its spellings write as they are. `names` names generated API code with the models' naming options.
+    `openapi` is the OpenAPI version the parser reads the root document by: `--schema-version`, else the version it
+    declares; `document_versions` those of the documents --read-schema-version-per-document reads by their own
+    (`OpenAPIVersions`). `document_facts` are the info, tags and servers the root document declares. `hint_type` is
+    the model generator's configured type class, which composes model types as the models spell them, and
+    `hint_imports` the names its spellings write as they are. `names` names generated API code with the models'
+    naming options. `channels` are the channels of an AsyncAPI input, whose handshakes are its operations, and None
+    for an OpenAPI input.
     """
 
     attempt: AttemptId
@@ -622,35 +708,18 @@ class GeneratedTypeContractBatch:
     fields: tuple[FieldUseBinding, ...]
     security_schemes: tuple[WireDeclaration, ...] = ()
     api_scope: bool = False
+    openapi: OpenAPIVersion = OpenAPIVersion.V31
+    document_versions: tuple[tuple[SourceDocumentId, OpenAPIVersion], ...] = ()
     document_facts: tuple[tuple[str, FrozenLiteral], ...] = ()
     hint_type: type[DataType] | None = None
     hint_imports: tuple[Import, ...] = ()
     names: TargetNames | None = None
+    channels: tuple[ChannelContract, ...] | None = None
 
     @property
-    def openapi(self) -> str:
-        """Return the OpenAPI version the root document declares, empty when it declares none."""
-        version = literal_fact(self.document_facts, "openapi")
-        return str(version.value) if isinstance(version, LiteralScalar) else ""
-
-
-ReleaseRow: TypeAlias = Literal["release", "legacy-target-version-text", "legacy-served-version-regex"]
-
-_RELEASES: Final[dict[ReleaseRow, re.Pattern[str]]] = {
-    "release": re.compile(r"(3)\.([0-2])(?:\.|\Z)"),
-    "legacy-target-version-text": re.compile(r"([0-9])\.([0-9])"),
-    "legacy-served-version-regex": re.compile(r"(\d+)\.(\d+)"),
-}
-
-
-def openapi_release(version: str, *, row: ReleaseRow = "release") -> tuple[int, int] | None:
-    """Return the (major, minor) release an OpenAPI version text names by the rule of `row`, or None when it names none.
-
-    `release` reads 3.0, 3.1 or 3.2 before the second dot, as the parser reads a version (3.0.4 is 3.0, 3.01 none).
-    `legacy-target-version-text` reads the first three characters (3.20 is 3.2, 3.01 is 3.0), and
-    `legacy-served-version-regex` the digits around the first dot (3.01 is 3.1, 3.20 is 3.20).
-    """
-    return (int(found[1]), int(found[2])) if (found := _RELEASES[row].match(version)) else None
+    def versions(self) -> OpenAPIVersions:
+        """Return the OpenAPI version each loaded document is read by."""
+        return OpenAPIVersions(self.openapi, self.document_versions)
 
 
 ApiKeyLocation: TypeAlias = Literal["query", "header", "cookie"]
@@ -659,9 +728,11 @@ RequirementEntry: TypeAlias = tuple[object, tuple[str, ...] | None]
 
 _STATUS_KEY: Final = re.compile(r"[1-5][0-9]{2}")
 _SCOPE_TOKEN: Final = re.compile(r"[\x21\x23-\x5b\x5d-\x7e]+")
-_SCOPE_SCHEMES: Final = frozenset({"oauth2", "openIdConnect"})
 _RANGE_KEY: Final = re.compile(r"([1-5])[xX]{2}")
 
+OAUTH_SCHEMES: Final[dict[object, Literal["oauth2", "openid"]]] = {"oauth2": "oauth2", "openIdConnect": "openid"}
+"""The security scheme types of OAuth 2.0, by the kind a target names each: a requirement of one lists scope tokens,
+and its credential is a bearer token."""
 LOCATIONS: Final[dict[object, ParameterLocation]] = {location: location for location in get_args(ParameterLocation)}
 API_KEY_LOCATIONS: Final[dict[object, ApiKeyLocation]] = {location: location for location in get_args(ApiKeyLocation)}
 
@@ -731,6 +802,18 @@ def api_key_place(declaration: WireDeclaration) -> tuple[ApiKeyLocation, str] | 
     return (location, name) if location == "query" or is_token(name) else None
 
 
+def credential_place(declaration: WireDeclaration) -> tuple[ApiKeyLocation, str] | None:
+    """Return where a scheme a client sends places its credential: its location and its name.
+
+    An apiKey scheme places it where it names (`api_key_place`), and an http basic or bearer, an oauth2 or an
+    openIdConnect scheme in the Authorization header. None is any other declaration.
+    """
+    if (place := api_key_place(declaration)) is not None:
+        return place
+    sent = http_scheme(declaration) in {"basic", "bearer"} or fact(declaration, "type") in OAUTH_SCHEMES
+    return ("header", "Authorization") if sent else None
+
+
 def is_required(declaration: WireDeclaration) -> bool:
     """Return whether a parameter, header, or request body declaration is required: its `required` fact is true.
 
@@ -784,19 +867,22 @@ def _named_scopes(entry: RequirementEntry) -> tuple[str, tuple[str, ...]] | None
     return (name, scopes) if isinstance(name, str) and scopes is not None else None
 
 
-def scope_problem(name: str, declaration: WireDeclaration, scopes: tuple[str, ...] | None, openapi: str) -> str | None:
+def scope_problem(
+    name: str, declaration: WireDeclaration, scopes: tuple[str, ...] | None, openapi: OpenAPIVersion
+) -> str | None:
     """Return what a requirement gets wrong in the scopes it lists for a scheme, or None when they are valid.
 
     An oauth2 or openIdConnect scheme lists scope tokens (RFC 6749 section 3.3). Any other scheme lists role names,
     which OpenAPI 3.1 leaves to the API (any text) and OpenAPI 3.0 does not allow (its array must be empty). `scopes` is
-    None when the requirement lists them as anything but an array of strings.
+    None when the requirement lists them as anything but an array of strings; `openapi` is the version of the document
+    that uses the operation, whose schemes the requirement names (`operation_schemes`).
     """
     if scopes is None:
         return f"must list its scopes as an array of strings for scheme {stable_repr(name)}"
-    tokens = fact(declaration, "type") in _SCOPE_SCHEMES
+    tokens = fact(declaration, "type") in OAUTH_SCHEMES
     if tokens and not all(map(_SCOPE_TOKEN.fullmatch, scopes)):
         return f"requires valid scope tokens for scheme {stable_repr(name)}"
-    if scopes and not tokens and openapi_release(openapi, row="legacy-target-version-text") == (3, 0):
+    if scopes and not tokens and openapi == OpenAPIVersion.V30:
         return f"lists scopes for scheme {stable_repr(name)}, whose type takes none in OpenAPI 3.0"
     return None
 
@@ -828,7 +914,9 @@ def unresolved_reference(declaration: WireDeclaration) -> SourceReference | None
 
 
 def label(operation: OperationContract) -> str:
-    """Return the method and path that name an operation in messages."""
+    """Return the method and path that name an operation in messages, and the address of a channel's handshake."""
+    if operation.id.kind == "channel":
+        return f"channel {operation.path}"
     return f"{operation.method.upper()} {operation.path}"
 
 
@@ -873,6 +961,13 @@ def members_by_consumer(batch: GeneratedTypeContractBatch) -> dict[SymbolId, lis
     for member in batch.fields:
         members.setdefault(member.consumer, []).append(member)
     return members
+
+
+def property_members(members: Iterable[FieldUseBinding]) -> Iterator[tuple[str, SourceLocation, FieldUseBinding]]:
+    """Yield each property member of a model, its allOf branches' included, with its wire name and schema."""
+    for member in members:
+        if member.member_kind == "property" and member.wire_name is not None and member.schema is not None:
+            yield member.wire_name, member.schema, member
 
 
 def wrapped_facts(members: Mapping[SymbolId, Sequence[FieldUseBinding]], symbol: SymbolId) -> ModelFieldFacts | None:

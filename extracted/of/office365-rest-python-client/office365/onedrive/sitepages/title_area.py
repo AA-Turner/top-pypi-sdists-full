@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.onedrive.server_processed_content import ServerProcessedContent
 from office365.onedrive.sitepages.titlearealayouttype import TitleAreaLayoutType
@@ -8,7 +8,6 @@ from office365.onedrive.sitepages.titleareatextalignmenttype import TitleAreaTex
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TitleArea(ClientValue):
     """Represents the title area of a given SharePoint page."""
 

@@ -83,9 +83,10 @@ copy_source_arrays (wfm_source_t *dst, const wfm_source_t *src)
   dst->symbols        = NULL;
   if (src->symbols && src->n_symbols)
     {
-      size_t nbytes = src->n_symbols * sizeof *src->symbols;
-      dst->symbols  = dp_xmalloc (nbytes);
-      memcpy (dst->symbols, src->symbols, nbytes);
+      size_t n     = src->n_symbols;
+      dst->symbols = dp_xmallocn (n, sizeof *dst->symbols);
+      for (size_t i = 0; i < n; i++)
+        dst->symbols[i] = src->symbols[i];
     }
   /* The data source's members (#1619). A path is borrowed by a source like
      everything above, so the composer owns a copy of it too: the data
@@ -238,7 +239,7 @@ dp_wfm_compose_build_synth (const wfm_source_t *src, double fs, size_t on_len,
   if (src->pulse && src->sps > 0 && src->rrc_span > 0)
     {
       size_t nt   = wfm_rrc_ntaps (src->sps, src->rrc_span);
-      float *taps = malloc (nt * sizeof (float));
+      float *taps = dp_mallocn (nt, sizeof (float));
       if (taps)
         {
           dp_wfm_rrc_taps (src->rrc_beta, src->sps, src->rrc_span, taps);
@@ -359,8 +360,8 @@ attach_channel (wfm_render_t *r, const wfm_source_t *src, double fs,
   if (!r->ch)
     return -1;
   r->hold_cap = dp_doppler_channel_execute_max_out (r->ch);
-  r->in       = dp_xmalloc (RENDER_FEED * sizeof *r->in);
-  r->hold     = dp_xmalloc (r->hold_cap * sizeof *r->hold);
+  r->in       = dp_xmallocn (RENDER_FEED, sizeof *r->in);
+  r->hold     = dp_xmallocn (r->hold_cap, sizeof *r->hold);
   return 0;
 }
 
@@ -939,9 +940,9 @@ dp_wfm_compose_create_why (const wfm_segment_t *segs, size_t n_segs,
     if (s->segs[i].n_sources > max_src)
       max_src = s->segs[i].n_sources;
   s->rend    = calloc (max_src, sizeof (*s->rend));
-  s->gain    = malloc (max_src * sizeof (*s->gain));
+  s->gain    = dp_mallocn (max_src, sizeof (*s->gain));
   s->stream  = dp_xcalloc (max_src, sizeof (*s->stream));
-  s->scratch = malloc (SCRATCH_CAP * sizeof (*s->scratch));
+  s->scratch = dp_mallocn (SCRATCH_CAP, sizeof (*s->scratch));
   /* PERSIST slots, allocated only when a source actually asks for one: a
      scene with no persisting Doppler carries no extra state at all. The
      offsets are a prefix sum over segments, so slot (seg, k) is one add. */

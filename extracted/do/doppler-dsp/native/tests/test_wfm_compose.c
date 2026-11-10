@@ -2349,6 +2349,77 @@ test_every_data_refusal_names_its_fix (void)
                       && why && strstr (why, "set segments[].fs"),
                   "a top-level fs is refused, naming segments[].fs");
   }
+
+  /* An integer row is range-checked before the double cJSON read is
+     converted: a value it cannot hold is undefined behaviour to convert,
+     and a forged num_samples past a size_t used to size a buffer whose
+     byte count wrapped. Each is refused, naming the key and its place.
+     NaN cannot be spelled in JSON (cJSON refuses the text), and 1e400
+     reads as +inf. */
+  {
+    static const struct
+    {
+      const char *json, *says;
+    } BADNUM[] = {
+      /* size_t: 2^64, negative, non-whole, huge, infinite. */
+      { "{\"segments\":[{\"type\":\"tone\","
+        "\"num_samples\":18446744073709551616}]}",
+        "segments[0]: \"num_samples\" takes a whole, non-negative count" },
+      { "{\"segments\":[{\"type\":\"tone\",\"num_samples\":-1}]}",
+        "segments[0]: \"num_samples\" takes a whole" },
+      { "{\"segments\":[{\"type\":\"tone\",\"num_samples\":1.5}]}",
+        "segments[0]: \"num_samples\" takes a whole" },
+      { "{\"segments\":[{\"type\":\"tone\",\"num_samples\":1e300}]}",
+        "segments[0]: \"num_samples\" takes a whole" },
+      { "{\"segments\":[{\"type\":\"tone\",\"num_samples\":1e400}]}",
+        "segments[0]: \"num_samples\" takes a whole" },
+      /* The hi end of a ranged count is a count too. */
+      { "{\"segments\":[{\"type\":\"tone\",\"num_samples\":100,"
+        "\"off_samples\":[0,1e300]}]}",
+        "segments[0]: \"off_samples\" takes a whole" },
+      /* In a sum, the source's place is named. */
+      { "{\"segments\":[{\"sum\":[{\"type\":\"tone\"},"
+        "{\"type\":\"qpsk\",\"sps\":3e9}]}]}",
+        "segments[0].sum[1]: \"sps\" takes a number that fits an int" },
+      { "{\"segments\":[{\"type\":\"tone\",\"seed\":4294967296}]}",
+        "segments[0]: \"seed\" takes a number from 0 to 4294967295" },
+      { "{\"segments\":[{\"type\":\"tone\",\"seed\":-1}]}",
+        "segments[0]: \"seed\" takes a number from 0 to 4294967295" },
+      /* int: the first value past INT_MAX, 2^31. */
+      { "{\"segments\":[{\"type\":\"tone\",\"rrc_span\":2147483648}]}",
+        "segments[0]: \"rrc_span\" takes a number that fits an int" },
+      /* uint64_t: 2^64 itself, which (double)UINT64_MAX would admit. */
+      { "{\"segments\":[{\"type\":\"tone\","
+        "\"pn_poly\":18446744073709551616}]}",
+        "segments[0]: \"pn_poly\" takes a number from 0 to "
+        "18446744073709551615" },
+    };
+    for (size_t k = 0; k < sizeof BADNUM / sizeof *BADNUM; k++)
+      {
+        why = NULL;
+        dp_wfm_compose_state_t *c
+            = dp_wfm_compose_from_json_why (BADNUM[k].json, &why);
+        DP_CHECK_MSG (c == NULL && why && strstr (why, BADNUM[k].says),
+                      BADNUM[k].says);
+        dp_wfm_compose_destroy (c);
+      }
+    /* The edges that still fit are read, not refused. */
+    why                        = NULL;
+    dp_wfm_compose_state_t *ok = dp_wfm_compose_from_json_why (
+        "{\"segments\":[{\"type\":\"tone\",\"num_samples\":64,"
+        "\"seed\":4294967295}]}",
+        &why);
+    DP_CHECK_MSG (ok != NULL, "in-range counts and seeds are read");
+    dp_wfm_compose_destroy (ok);
+    /* INT_MAX, and the largest double below 2^64 for a uint64_t row. */
+    why = NULL;
+    ok  = dp_wfm_compose_from_json_why (
+        "{\"segments\":[{\"type\":\"tone\",\"num_samples\":64,"
+        "\"rrc_span\":2147483647,\"pn_poly\":18446744073709549568}]}",
+        &why);
+    DP_CHECK_MSG (ok != NULL, "INT_MAX and 2^64 - 2048 are read");
+    dp_wfm_compose_destroy (ok);
+  }
 #undef REFUSED
   return 0;
 }

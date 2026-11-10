@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 here   = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.md')).read()
-VERSION = '1.2.1'
+VERSION = '1.3.0'
 
 setup(
     name                 = 'html-for-docx',
@@ -42,7 +42,8 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
-        'Programming Language :: Python :: 3.14'
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15'
     ],
     install_requires = [
         'python-docx>=1.1.0',

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: music_assistant_client
-Version: 1.7.1
+Version: 1.8.0
 Summary: Music Assistant Client
 Author-email: The Music Assistant Authors <music_assistant@users.noreply.github.com>
 License: Apache-2.0
@@ -15,7 +15,7 @@ Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.8.6
-Requires-Dist: music_assistant_models==1.1.233
+Requires-Dist: music_assistant_models==1.1.236
 Requires-Dist: orjson>=3.9
 Provides-Extra: test
 Requires-Dist: codespell==2.4.3; extra == "test"

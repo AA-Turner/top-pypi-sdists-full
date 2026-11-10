@@ -30,7 +30,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from io import StringIO
 from typing import IO, ClassVar, Generic, Literal, Self, TypeAlias, cast
@@ -58,7 +57,6 @@ from xdsl.dialects.builtin import (
     i64,
 )
 from xdsl.ir import (
-    Attribute,
     Operation,
     OpResult,
     SSAValue,
@@ -73,6 +71,7 @@ from xdsl.irdl import (
     attr_def,
     base,
     irdl_op_definition,
+    irdl_to_attr_constraint,
     operand_def,
     opt_attr_def,
     opt_prop_def,
@@ -83,7 +82,7 @@ from xdsl.irdl import (
     var_operand_def,
     var_result_def,
 )
-from xdsl.parser import Parser, UnresolvedOperand
+from xdsl.parser import Parser
 from xdsl.pattern_rewriter import RewritePattern
 from xdsl.printer import Printer
 from xdsl.traits import (
@@ -165,81 +164,6 @@ class X86HasRegisterConstraints(
         return RegisterConstraints(self.operands, self.results, ())
 
 
-class X86CustomFormatOperation(IRDLOperation, ABC):
-    @classmethod
-    def parse(cls, parser: Parser) -> Self:
-        args = cls.parse_unresolved_operands(parser)
-        custom_attributes = cls.custom_parse_attributes(parser)
-        remaining_attributes = parser.parse_optional_attr_dict()
-        # TODO ensure distinct keys for attributes
-        attributes = custom_attributes | remaining_attributes
-        regions = parser.parse_region_list()
-        pos = parser.pos
-        operand_types, result_types = cls.parse_op_type(parser)
-        operands = parser.resolve_operands(args, operand_types, pos)
-        return cls.build(
-            operands=operands,
-            result_types=result_types,
-            attributes=attributes,
-            regions=regions,
-        )
-
-    @classmethod
-    def parse_unresolved_operands(cls, parser: Parser) -> list[UnresolvedOperand]:
-        """
-        Parse a list of comma separated unresolved operands.
-        Notice that this method will consume trailing comma.
-        """
-        if operand := parser.parse_optional_unresolved_operand():
-            operands = [operand]
-            while parser.parse_optional_punctuation(",") and (
-                operand := parser.parse_optional_unresolved_operand()
-            ):
-                operands.append(operand)
-            return operands
-        return []
-
-    @classmethod
-    def custom_parse_attributes(cls, parser: Parser) -> dict[str, Attribute]:
-        """
-        Parse attributes with custom syntax. Subclasses may override this method.
-        """
-        return parser.parse_optional_attr_dict()
-
-    @classmethod
-    def parse_op_type(
-        cls, parser: Parser
-    ) -> tuple[Sequence[Attribute], Sequence[Attribute]]:
-        parser.parse_punctuation(":")
-        func_type = parser.parse_function_type()
-        return func_type.inputs.data, func_type.outputs.data
-
-    def print(self, printer: Printer) -> None:
-        if self.operands:
-            printer.print_string(" ")
-            printer.print_list(self.operands, printer.print_operand)
-        printed_attributes = self.custom_print_attributes(printer)
-        unprinted_attributes = {
-            name: attr
-            for name, attr in self.attributes.items()
-            if name not in printed_attributes
-        }
-        printer.print_op_attributes(unprinted_attributes)
-        printer.print_regions(self.regions)
-        self.print_op_type(printer)
-
-    def custom_print_attributes(self, printer: Printer) -> AbstractSet[str]:
-        """
-        Print attributes with custom syntax. Return the names of the attributes printed. Subclasses may override this method.
-        """
-        printer.print_op_attributes(self.attributes)
-        return self.attributes.keys()
-
-    def print_op_type(self, printer: Printer) -> None:
-        printer.print_string(" : ")
-        printer.print_operation_type(self)
-
-
 class X86Instruction(X86AsmOperation, X86HasRegisterConstraints):
     """
     Base class for operations that can be a part of x86 assembly printing. Must
@@ -289,8 +213,12 @@ class RS_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     and one source register.
     """
 
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    T: ClassVar = VarConstraint(
+        "T", irdl_to_attr_constraint(R1InvT, allow_type_var=True)
+    )
+
+    register_in = operand_def(T)
+    register_out: OpResult[R1InvT] = result_def(T)
 
     source = operand_def(R2InvT)
 
@@ -407,9 +335,7 @@ class DSK_Operation(X86Instruction, ABC):
         return register_out, reg(self.source)
 
 
-class DK_Operation(
-    X86Instruction, X86CustomFormatOperation, HasRegisterConstraints, ABC
-):
+class DK_Operation(X86Instruction, HasRegisterConstraints, ABC):
     """
     A base class for x86 operations that have one general purpose destination register
     and one writemask source register.
@@ -417,6 +343,8 @@ class DK_Operation(
 
     destination: OpResult[GeneralRegisterType] = result_def(GeneralRegisterType)
     source = operand_def(AVX512MaskRegisterType)
+
+    assembly_format = "$source attr-dict `:` functional-type(operands, results)"
 
     def __init__(
         self,
@@ -443,9 +371,7 @@ class DK_Operation(
         return reg(self.destination), reg(self.source)
 
 
-class KS_Operation(
-    X86Instruction, X86CustomFormatOperation, HasRegisterConstraints, ABC
-):
+class KS_Operation(X86Instruction, HasRegisterConstraints, ABC):
     """
     A base class for x86 operations that have one general purpose destination register
     and one writemask source register.
@@ -453,6 +379,8 @@ class KS_Operation(
 
     destination: OpResult[AVX512MaskRegisterType] = result_def(AVX512MaskRegisterType)
     source = operand_def(GeneralRegisterType)
+
+    assembly_format = "$source attr-dict `:` functional-type(operands, results)"
 
     def __init__(
         self,
@@ -484,8 +412,12 @@ class R_Operation(X86Instruction, ABC, Generic[R1InvT]):
     A base class for x86 operations that have one register that is read and written to.
     """
 
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    T: ClassVar = VarConstraint(
+        "T", irdl_to_attr_constraint(R1InvT, allow_type_var=True)
+    )
+
+    register_in = operand_def(T)
+    register_out: OpResult[R1InvT] = result_def(T)
 
     assembly_format = (
         "$register_in attr-dict `:` `(` type($register_in) `)` `->` type($register_out)"
@@ -523,8 +455,12 @@ class RM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT]):
     memory access with an optional offset.
     """
 
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    T: ClassVar = VarConstraint(
+        "T", irdl_to_attr_constraint(R1InvT, allow_type_var=True)
+    )
+
+    register_in = operand_def(T)
+    register_out: OpResult[R1InvT] = result_def(T)
 
     memory = operand_def(R2InvT)
     memory_offset = attr_def(IntegerAttr[I64], default_value=IntegerAttr(0, i64))
@@ -724,8 +660,12 @@ class RI_Operation(X86Instruction, ABC, Generic[R1InvT]):
     and an immediate value.
     """
 
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    T: ClassVar = VarConstraint(
+        "T", irdl_to_attr_constraint(R1InvT, allow_type_var=True)
+    )
+
+    register_in = operand_def(T)
+    register_out: OpResult[R1InvT] = result_def(T)
 
     # In the future, we should look into the legal bitwidths in the binary
     # representation.
@@ -1108,7 +1048,7 @@ class M_Operation(X86Instruction, ABC, Generic[R1InvT]):
         return (memory_access,)
 
 
-class ConditionalJumpOperation(X86Instruction, X86CustomFormatOperation, ABC):
+class ConditionalJumpOperation(X86Instruction, ABC):
     """
     A base class for Jcc operations.
 
@@ -1242,8 +1182,12 @@ class RSS_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R3InvT]):
     and two source registers.
     """
 
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    T: ClassVar = VarConstraint(
+        "T", irdl_to_attr_constraint(R1InvT, allow_type_var=True)
+    )
+
+    register_in = operand_def(T)
+    register_out: OpResult[R1InvT] = result_def(T)
     source1 = operand_def(R2InvT)
     source2 = operand_def(R3InvT)
 
@@ -1437,65 +1381,6 @@ class DSM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R3InvT]):
         return reg(self.destination), reg(self.source), memory_access
 
 
-class RSM_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R4InvT]):
-    """
-    A base class for x86 operations that have one register that is read and written to,
-    one source register and one memory source operand.
-    """
-
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
-    source1 = operand_def(R2InvT)
-    memory = operand_def(R4InvT)
-    memory_offset = attr_def(IntegerAttr[SI64], default_value=IntegerAttr(0, si64))
-
-    traits = traits_def(MemoryReadEffect())
-
-    assembly_format = (
-        "$register_in `,` $source1 `,` `[` $memory (`+` $memory_offset^)? `]` attr-dict `:` "
-        "`(` type($register_in) `,` type($source1) `,` type($memory) `)` "
-        "`->` type($register_out)"
-    )
-
-    def __init__(
-        self,
-        register_in: SSAValue[R1InvT],
-        source1: Operation | SSAValue,
-        memory: Operation | SSAValue,
-        memory_offset: int | IntegerAttr[SI64],
-        *,
-        comment: str | StringAttr | None = None,
-        register_out: R1InvT | None = None,
-    ):
-        if isinstance(memory_offset, int):
-            memory_offset = IntegerAttr(memory_offset, si64)
-        if isinstance(comment, str):
-            comment = StringAttr(comment)
-
-        if register_out is None:
-            register_out = register_in.type
-
-        super().__init__(
-            operands=[register_in, source1, memory],
-            attributes={
-                "memory_offset": memory_offset,
-                "comment": comment,
-            },
-            result_types=[register_out],
-        )
-
-    def assembly_line_args(self) -> tuple[AssemblyInstructionArg | None, ...]:
-        memory_access = memory_access_str(self.memory, self.memory_offset)
-        src1 = reg(self.source1)
-        destination = reg(self.register_in)
-        return destination, src1, memory_access
-
-    def get_register_constraints(self) -> RegisterConstraints:
-        return RegisterConstraints(
-            (self.source1, self.memory), (), ((self.register_in, self.register_out),)
-        )
-
-
 class RSMB_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R4InvT]):
     """
     A base class for x86 operations that have one register that is read and written to,
@@ -1503,8 +1388,12 @@ class RSMB_Operation(X86Instruction, ABC, Generic[R1InvT, R2InvT, R4InvT]):
     set, the memory operand uses EVEX broadcast encoding.
     """
 
-    register_in = operand_def(R1InvT)
-    register_out: OpResult[R1InvT] = result_def(R1InvT)
+    T: ClassVar = VarConstraint(
+        "T", irdl_to_attr_constraint(R1InvT, allow_type_var=True)
+    )
+
+    register_in = operand_def(T)
+    register_out: OpResult[R1InvT] = result_def(T)
     source1 = operand_def(R2InvT)
     memory = operand_def(R4InvT)
     memory_offset = attr_def(IntegerAttr[SI64], default_value=IntegerAttr(0, si64))
@@ -2735,20 +2624,23 @@ class LabelOp(X86AsmOperation, X86HasRegisterConstraints):
 
 
 @irdl_op_definition
-class DirectiveOp(X86AsmOperation, X86HasRegisterConstraints, X86CustomFormatOperation):
+class DirectiveOp(X86AsmOperation, X86HasRegisterConstraints):
     """
     The directive operation is used to represent a directive in the assembly code. (e.g. .globl; .type etc)
+    Directives without an argument use an empty string value.
     """
 
     name = "x86.directive"
 
     directive = attr_def(StringAttr)
-    value = opt_attr_def(StringAttr)
+    value = attr_def(StringAttr)
+
+    assembly_format = "$directive $value attr-dict"
 
     def __init__(
         self,
         directive: str | StringAttr,
-        value: str | StringAttr | None,
+        value: str | StringAttr = StringAttr(""),
     ):
         if isinstance(directive, str):
             directive = StringAttr(directive)
@@ -2763,8 +2655,8 @@ class DirectiveOp(X86AsmOperation, X86HasRegisterConstraints, X86CustomFormatOpe
         )
 
     def assembly_line(self) -> str | None:
-        if self.value is not None and self.value.data:
-            arg_str = assembly_arg_str(self.value.data)
+        if self.value.data:
+            arg_str = assembly_arg_str(self.value)
         else:
             arg_str = ""
 
@@ -2772,36 +2664,9 @@ class DirectiveOp(X86AsmOperation, X86HasRegisterConstraints, X86CustomFormatOpe
             self.directive.data, arg_str, is_indented=False
         )
 
-    @classmethod
-    def custom_parse_attributes(cls, parser: Parser) -> dict[str, Attribute]:
-        attributes = dict[str, Attribute]()
-        attributes["directive"] = StringAttr(
-            parser.parse_str_literal("Expected directive")
-        )
-        if (value := parser.parse_optional_str_literal()) is not None:
-            attributes["value"] = StringAttr(value)
-        return attributes
-
-    def custom_print_attributes(self, printer: Printer) -> AbstractSet[str]:
-        printer.print_string(" ")
-        printer.print_string_literal(self.directive.data)
-        if self.value is not None:
-            printer.print_string(" ")
-            printer.print_string_literal(self.value.data)
-        return {"directive", "value"}
-
-    def print_op_type(self, printer: Printer) -> None:
-        return
-
-    @classmethod
-    def parse_op_type(
-        cls, parser: Parser
-    ) -> tuple[Sequence[Attribute], Sequence[Attribute]]:
-        return (), ()
-
 
 @irdl_op_definition
-class C_JmpOp(X86Instruction, X86CustomFormatOperation):
+class C_JmpOp(X86Instruction):
     """
     Unconditional jump to the label specified in destination.
 
@@ -2886,9 +2751,7 @@ class C_JmpOp(X86Instruction, X86CustomFormatOperation):
 
 
 @irdl_op_definition
-class FallthroughOp(
-    X86AsmOperation, X86HasRegisterConstraints, X86CustomFormatOperation
-):
+class FallthroughOp(X86AsmOperation, X86HasRegisterConstraints):
     """
     Continue execution into the next block.
     The successor of this operation must be immediately after this operation's parent.
@@ -4051,7 +3914,7 @@ class DK_KMovBOp(DK_Operation):
         if isinstance(dest.index, NoneAttr):
             raise ValueError("Unallocated register in assembly printing")
         dest_32 = Reg32Type.from_index(dest.index.data)
-        return dest_32.register_name.data, reg(self.source)
+        return dest_32.register_name, reg(self.source)
 
 
 @irdl_op_definition
@@ -4072,7 +3935,7 @@ class KS_KMovBOp(KS_Operation):
         if isinstance(source.index, NoneAttr):
             raise ValueError("Unallocated register in assembly printing")
         source_32 = Reg32Type.from_index(source.index.data)
-        return reg(self.destination), source_32.register_name.data
+        return reg(self.destination), source_32.register_name
 
 
 @irdl_op_definition
@@ -4092,7 +3955,7 @@ class DK_KMovWOp(DK_Operation):
         if isinstance(dest.index, NoneAttr):
             raise ValueError("Unallocated register in assembly printing")
         dest_32 = Reg32Type.from_index(dest.index.data)
-        return dest_32.register_name.data, reg(self.source)
+        return dest_32.register_name, reg(self.source)
 
 
 @irdl_op_definition
@@ -4113,7 +3976,7 @@ class KS_KMovWOp(KS_Operation):
         if isinstance(source.index, NoneAttr):
             raise ValueError("Unallocated register in assembly printing")
         source_32 = Reg32Type.from_index(source.index.data)
-        return reg(self.destination), source_32.register_name.data
+        return reg(self.destination), source_32.register_name
 
 
 @irdl_op_definition
@@ -4133,7 +3996,7 @@ class DK_KMovDOp(DK_Operation):
         if isinstance(dest.index, NoneAttr):
             raise ValueError("Unallocated register in assembly printing")
         dest_32 = Reg32Type.from_index(dest.index.data)
-        return dest_32.register_name.data, reg(self.source)
+        return dest_32.register_name, reg(self.source)
 
 
 @irdl_op_definition
@@ -4154,7 +4017,7 @@ class KS_KMovDOp(KS_Operation):
         if isinstance(source.index, NoneAttr):
             raise ValueError("Unallocated register in assembly printing")
         source_32 = Reg32Type.from_index(source.index.data)
-        return reg(self.destination), source_32.register_name.data
+        return reg(self.destination), source_32.register_name
 
 
 @irdl_op_definition

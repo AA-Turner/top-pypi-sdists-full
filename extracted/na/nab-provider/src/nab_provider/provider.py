@@ -81,6 +81,7 @@ from .policy import (
     DistPolicy,
     ExtrasMode,
     LocalSource,
+    MetadataPolicy,
     ResolutionStrategy,
     SourceRequest,
     VcsSource,
@@ -125,6 +126,7 @@ __all__ = [
     "ListingFilterCache",
     "LocalSource",
     "MetadataError",
+    "MetadataPolicy",
     "MissingExtraError",
     "Provider",
     "ProviderStats",
@@ -497,6 +499,11 @@ def _dist_policy_value(override: PackageOverride | IndexOverride) -> object:
     return _unset_if_none(override.dist_policy)
 
 
+def _metadata_policy_value(override: PackageOverride | IndexOverride) -> object:
+    """Metadata policy value, retaining an explicitly selected default."""
+    return _unset_if_none(override.metadata_policy)
+
+
 def _allow_zip_sdists_value(override: PackageOverride | IndexOverride) -> object:
     """ZIP admission value, preserving an explicit refusal."""
     return _unset_if_none(override.allow_zip_sdists)
@@ -507,13 +514,22 @@ def _assume_universal_deps_value(override: PackageOverride | IndexOverride) -> o
     return _unset_if_none(override.assume_universal_deps)
 
 
+def _assume_consistent_metadata_value(
+    override: PackageOverride | IndexOverride,
+) -> object:
+    """Read the release-wide metadata assumption, preserving an explicit refusal."""
+    return _unset_if_none(override.assume_consistent_metadata)
+
+
 # What each field a remedy can name is read with, so the layer lookup and
 # the effective value read the same surfaces the same way.
 _SOURCE_VALUES: dict[str, Callable[[PackageOverride | IndexOverride], object]] = {
     "uploaded-prior-to": _uploaded_prior_to_value,
     "dist-policy": _dist_policy_value,
+    "metadata-policy": _metadata_policy_value,
     "allow-zip-sdists": _allow_zip_sdists_value,
     "assume-universal-deps": _assume_universal_deps_value,
+    "assume-consistent-metadata": _assume_consistent_metadata_value,
     "build-policy": lambda override: _unset_if_none(override.build_policy),
 }
 
@@ -696,6 +712,7 @@ class Provider:
         extras_mode: ExtrasMode = ExtrasMode.ERROR_USER,
         root_extras: set[tuple[str, str]] | None = None,
         dist_policy: DistPolicy = DistPolicy.WHEEL_OR_SDIST,
+        metadata_policy: MetadataPolicy = MetadataPolicy.MATCH_ARTIFACT,
         build_policy: BuildPolicy = BuildPolicy.BUILD_LOCAL,
         package_overrides: Sequence[PackageOverride] = (),
         index_overrides: Mapping[str, IndexOverride] | None = None,
@@ -713,8 +730,9 @@ class Provider:
         constraints: Mapping[str, VersionRange] | None = None,
         trust_unverified_sdist_deps: bool = False,
         assume_universal_deps: bool = False,
+        assume_consistent_metadata: bool = False,
         allow_zip_sdists: bool = False,
-        decision_order: DecisionOrder = DecisionOrder.ARRIVAL,
+        decision_order: DecisionOrder = DecisionOrder.STABLE,
         release_refused_wheels: bool = False,
         defer_yanked: bool = False,
         lookahead_versions: int | None = None,
@@ -745,6 +763,7 @@ class Provider:
 
         # Preferred trials retain their own release-selection context.
         self._preferred_releases: dict[str, Version] | None = None
+        self._unchanged_preferred_model = False
         self._unrestricted_preferred_packages: set[str] = set()
         self._full_listing_filter_cache = listing_filter_cache
 
@@ -754,11 +773,33 @@ class Provider:
         self.extras_mode = extras_mode
         self.root_extras = root_extras or set()
         self.dist_policy = dist_policy
+        self.metadata_policy = metadata_policy
         self.build_policy = build_policy
         # Opt-out: trust a pre-2.2 sdist's PKG-INFO deps as final instead of
         # routing through the dynamic path. Off by default (strict PEP 643).
         self.trust_unverified_sdist_deps = trust_unverified_sdist_deps
         self.assume_universal_deps = assume_universal_deps
+        self.assume_consistent_metadata = assume_consistent_metadata
+
+        # Keep listing-context tracking off the default path.
+        self.consistent_metadata_declared = (
+            assume_consistent_metadata
+            or any(
+                rule.assume_consistent_metadata is not None
+                for rule in package_overrides
+            )
+            or (
+                index_overrides is not None
+                and any(
+                    rule.assume_consistent_metadata is not None
+                    for rule in index_overrides.values()
+                )
+            )
+        )
+        self.consistent_metadata_contexts: dict[str, object | None] | None = (
+            {} if self.consistent_metadata_declared else None
+        )
+
         self.allow_zip_sdists = allow_zip_sdists
         self._resolution_strategy = resolution_strategy
         # The scan asks this once per package, so keep the answer.
@@ -1060,19 +1101,13 @@ class Provider:
         for requirement in metadata.requires_dist:
             if requirement.url is not None:
                 continue
-            kind = _metadata_resolver.requirement_gating(self, requirement)
-            if kind == "base":
-                active.append(_dependency_declaration(parent_name, requirement, ()))
-            elif kind == "extra" and selected:
-                marker = requirement.marker
-                assert marker is not None
-                matched = _metadata_resolver.marker_matched_extras(
-                    self, marker, id(marker), selected
+            matched = _metadata_resolver.classify_requirement(
+                self, requirement, selected
+            )
+            if matched is not None:
+                active.append(
+                    _dependency_declaration(parent_name, requirement, matched)
                 )
-                if matched:
-                    active.append(
-                        _dependency_declaration(parent_name, requirement, matched)
-                    )
         return tuple(active)
 
     def defer_extra_deps(self, cache_key: tuple[str, Version]) -> None:
@@ -1179,6 +1214,27 @@ class Provider:
         assert isinstance(result, DistPolicy)
         return result
 
+    def effective_metadata_policy(
+        self,
+        canonical_name: str,
+        version: Version,
+        index_name: str | None = None,
+    ) -> MetadataPolicy:
+        """Return the metadata source policy for this indexed release."""
+        if not self.has_overrides:
+            return self.metadata_policy
+        result = self._effective_field(
+            canonical_name,
+            version,
+            index_name,
+            field="metadata-policy",
+            value=_metadata_policy_value,
+        )
+        if result is _UNSET:
+            return self.metadata_policy
+        assert isinstance(result, MetadataPolicy)
+        return result
+
     def effective_allow_zip_sdists(
         self,
         canonical_name: str,
@@ -1262,6 +1318,29 @@ class Provider:
         )
         if result is _UNSET:
             return self.assume_universal_deps
+        assert isinstance(result, bool)
+        return result
+
+    def effective_assume_consistent_metadata(
+        self,
+        canonical_name: str,
+        version: Version,
+        index_name: str | None = None,
+    ) -> bool:
+        """Whether this release may reuse another wheel's complete metadata."""
+        if not self._package_overrides and not self._index_overrides:
+            return self.assume_consistent_metadata
+
+        result = self._effective_field(
+            canonical_name,
+            version,
+            index_name,
+            field="assume-consistent-metadata",
+            value=_assume_consistent_metadata_value,
+        )
+        if result is _UNSET:
+            return self.assume_consistent_metadata
+
         assert isinstance(result, bool)
         return result
 
@@ -1458,11 +1537,12 @@ class Provider:
     def invalid_metadata_message(
         self, canonical_name: str, version: Version
     ) -> DiagnosticMessage | None:
-        """Return a cached cause with its suggestions still separate."""
+        """Return the cached diagnostic, including child causes and suggestions."""
         failure = self._invalid_metadata.get((canonical_name, version))
         if failure is None:
             return None
-        return DiagnosticMessage(failure.message, suggestions=failure.suggestions)
+
+        return failure.diagnostic
 
     def materialize_source(
         self,
@@ -1566,8 +1646,13 @@ class Provider:
             else self._lookahead_versions,
         )
 
-    def prepare_preferred_releases(self, preferred: Mapping[str, Version]) -> None:
-        """Restrict a fresh model-proof provider; refusal requires a fresh provider."""
+    def prepare_preferred_releases(
+        self, preferred: Mapping[str, Version], *, unchanged_only: bool = False
+    ) -> None:
+        """Restrict a fresh provider to saved versions for a model check.
+
+        Failed trials require a fresh provider; unchanged-only trials reject changes.
+        """
         # Reject partially prepared providers before narrowing their candidates.
         if (
             self.versions_cache
@@ -1598,11 +1683,21 @@ class Provider:
             releases[normalized] = version
 
         self._preferred_releases = releases
+        self._unchanged_preferred_model = unchanged_only
 
     def filter_distributions(
         self, normalized: str, files: Sequence[WheelFile | SdistFile]
     ) -> list[tuple[Version, DistFile]]:
         """See :func:`nab_provider._provider.listing.filter_distributions`."""
+        # Capture the raw listing context before filtering can publish candidates.
+        if (
+            self.consistent_metadata_contexts is not None
+            and normalized not in self.versions_cache
+        ):
+            self.consistent_metadata_contexts[normalized] = (
+                self.coordinator.index.consistent_metadata_context(normalized, files)
+            )
+
         original_cache = self.listing_filter_cache
         self.prepared_listings.pop(normalized, None)
 
@@ -1618,8 +1713,15 @@ class Provider:
             cache = self._full_listing_filter_cache
             preferred = self._preferred_releases.get(normalized)
 
-            # Withdrawals and forced alternatives still need the full listing.
-            if raw_versions or normalized in self._unrestricted_preferred_packages:
+            withdrawals_matter = raw_versions and (
+                not self._unchanged_preferred_model
+                or (normalized, preferred) in self.yanked_versions
+            )
+            # A withdrawn hinted release or a forced change needs all alternatives.
+            if (
+                withdrawals_matter
+                or normalized in self._unrestricted_preferred_packages
+            ):
                 self.listing_filter_cache = cache
             elif preferred is None:
                 # A complete preferred model cannot introduce an unknown package.
@@ -1627,9 +1729,15 @@ class Provider:
                 self.listing_filter_cache = None
             else:
                 assert cache is not None
-                files, self.listing_filter_cache = cache.selected_release(
+                release, restricted = cache.selected_release(
                     normalized, files, preferred
                 )
+                if self._unchanged_preferred_model and any(
+                    file.yanked for file in release
+                ):
+                    self.listing_filter_cache = cache
+                else:
+                    files, self.listing_filter_cache = release, restricted
 
         try:
             if not self.defer_yanked:
@@ -2411,16 +2519,24 @@ class Provider:
         return allowed
 
     def get_no_versions_reason(
-        self, package: str, failed_range: RangeProtocol[Version] | None = None
+        self,
+        package: str,
+        failed_range: RangeProtocol[Version] | None = None,
+        *,
+        availability_range: RangeProtocol[Version] | None = None,
     ) -> Diagnostic | None:
         """Return the recorded no-versions diagnostic for package.
 
         Specific recorded causes take precedence over permanent bans.
         ``failed_range`` restricts banned versions; None includes every ban.
+        ``availability_range`` scopes listing causes apart from dependency conflicts.
         """
         normalized = self.split_and_normalize(package)[2]
         recorded = self._no_versions_reasons.get(package)
-        if isinstance(failed_range, VersionRange) and (
+        listing_range = (
+            failed_range if availability_range is None else availability_range
+        )
+        if isinstance(listing_range, VersionRange) and (
             recorded is None
             or recorded.kind
             in (
@@ -2433,8 +2549,8 @@ class Provider:
             if versions is not None:
                 # A reporting query must not retain another requirement's domain.
                 recorded = (
-                    self._listing_no_versions_reason(package, failed_range)
-                    if not list(failed_range.filter([v for v, _ in versions]))
+                    self._listing_no_versions_reason(package, listing_range)
+                    if not list(listing_range.filter([v for v, _ in versions]))
                     else None
                 )
         if recorded is not None and not recorded.is_generic:
@@ -3056,15 +3172,27 @@ class Provider:
             self.prefetch_new_deps(self.deps_cache[cache_key])
             return self.deps_cache[cache_key]
 
-        metadata_text, from_sdist = _metadata_resolver.resolve_metadata(
-            self, versions, package, version
+        # Preserve the ordinary path when no consistency policy was declared.
+        read_metadata = (
+            _metadata_resolver.resolve_consistent_metadata
+            if self.consistent_metadata_declared
+            else _metadata_resolver.resolve_metadata
         )
+        metadata_text, from_sdist = read_metadata(self, versions, package, version)
+
         self._parse_and_cache_metadata_guarded(
             cache_key, metadata_text, from_sdist=from_sdist
         )
-        _metadata_resolver.check_sibling_metadata_divergence(
-            self, versions, package, version
-        )
+
+        if (
+            not self.consistent_metadata_declared
+            or not self.effective_assume_consistent_metadata(
+                normalized, version, self.serving_index(normalized)
+            )
+        ):
+            _metadata_resolver.check_sibling_metadata_divergence(
+                self, versions, package, version
+            )
 
         self.stats.metadata_fetched += 1
         self.prefetch_new_deps(self.deps_cache[cache_key])
@@ -3133,9 +3261,12 @@ class Provider:
         from_sdist: bool = False,
     ) -> None:
         """See :func:`._provider.metadata_resolver.parse_and_cache_metadata`."""
-        _metadata_resolver.parse_and_cache_metadata(
-            self, cache_key, metadata_text, from_sdist=from_sdist
+        parse_metadata = (
+            _metadata_resolver.parse_consistent_metadata
+            if self.consistent_metadata_declared
+            else _metadata_resolver.parse_and_cache_metadata
         )
+        parse_metadata(self, cache_key, metadata_text, from_sdist=from_sdist)
 
     def split_and_normalize(self, package: str) -> tuple[str, str | None, str]:
         """Return ``(base, extra, normalized_base)`` for ``package``, cached."""
@@ -3316,7 +3447,7 @@ class Provider:
             self.effective_dist_policy(
                 normalized, version, self.serving_index(normalized)
             )
-            is DistPolicy.SDIST_INSTALL
+            is DistPolicy.SDIST_ONLY
             and not any(isinstance(file, SdistFile) for file in live)
         ):
             raise YankAdmissionRequiredError(normalized, version)

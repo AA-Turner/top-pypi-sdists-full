@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyinfra
-Version: 3.10.0
+Version: 3.11.0
 Summary: pyinfra automates/provisions/manages/deploys infrastructure.
 Project-URL: homepage, https://pyinfra.com
 Project-URL: documentation, https://docs.pyinfra.com
@@ -24,18 +24,21 @@ Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: <4.0,>=3.10
-Requires-Dist: click>2
+Requires-Dist: cyclopts<5,>=4
 Requires-Dist: distro<2,>=1.6
 Requires-Dist: gevent>=1.5
 Requires-Dist: jinja2<4,>3
 Requires-Dist: packaging>=16.1
-Requires-Dist: paramiko<5,>=2.11
+Requires-Dist: paramiko<6,>=3.2
 Requires-Dist: pydantic<3,>=2.11
 Requires-Dist: python-dateutil<3,>2
+Requires-Dist: rich>=13.7.1
 Requires-Dist: typeguard<5,>=4
-Requires-Dist: types-paramiko<5,>=2.7
+Requires-Dist: types-paramiko<6,>=2.7
 Requires-Dist: typing-extensions; python_version < '3.11'
 Description-Content-Type: text/markdown
+
+[English](https://github.com/pyinfra-dev/pyinfra/blob/3.x/README.md) | [简体中文](https://github.com/pyinfra-dev/pyinfra/blob/3.x/README.zh-CN.md)
 
 <p align="center">
     <a href="https://pyinfra.com">

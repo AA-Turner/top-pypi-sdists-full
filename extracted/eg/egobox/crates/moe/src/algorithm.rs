@@ -1,46 +1,31 @@
 use super::gaussian_mixture::GaussianMixture;
+use crate::GpType;
 use crate::clustering::{find_best_number_of_clusters, sort_by_cluster};
 use crate::errors::MoeError;
 use crate::errors::Result;
+use crate::experts::{
+    Expert, allowed_experts, cross_validation_error, gp_expert_params, sgp_expert_params,
+};
 use crate::parameters::{GpMixtureParams, GpMixtureValidParams};
+use crate::persistence::{read_model, write_model};
 use crate::{GpMetrics, IaeAlphaPlotData, types::*};
-use crate::{GpType, expertise_macros::*};
 use crate::{NbClusters, surrogates::*};
 
-use egobox_gp::{GaussianProcess, SparseGaussianProcess, correlation_models::*, mean_models::*};
-use linfa::dataset::Records;
 use linfa::traits::{Fit, Predict, PredictInplace};
 use linfa::{Dataset, DatasetBase, Float, ParamGuard};
 use linfa_clustering::GaussianMixtureModel;
 use log::{debug, info, trace};
-use paste::paste;
 use std::cmp::Ordering;
 use std::ops::Sub;
 
-#[cfg(not(feature = "blas"))]
-use linfa_linalg::norm::*;
 use ndarray::{
     Array1, Array2, Array3, ArrayBase, ArrayView2, Axis, Data, Ix1, Ix2, Zip, concatenate, s,
 };
 
-#[cfg(feature = "blas")]
-use ndarray_linalg::Norm;
 use ndarray_rand::rand::Rng;
 use ndarray_stats::QuantileExt;
 
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::Write;
-
-macro_rules! check_allowed {
-    ($spec:ident, $model_kind:ident, $model:ident, $list:ident) => {
-        paste! {
-            if $spec.contains([< $model_kind Spec>]::[< $model:upper >]) {
-                $list.push(stringify!($model));
-            }
-        }
-    };
-}
 
 impl<D: Data<Elem = f64>> Fit<ArrayBase<D, Ix2>, ArrayBase<D, Ix1>, MoeError>
     for GpMixtureValidParams<f64>
@@ -51,7 +36,8 @@ impl<D: Data<Elem = f64>> Fit<ArrayBase<D, Ix2>, ArrayBase<D, Ix1>, MoeError>
     ///
     /// # Errors
     ///
-    /// * [MoeError::ClusteringError]: if there is not enough points regarding the clusters,
+    /// * [MoeError::ClusteringError]: if a cluster of a multi-cluster mixture has fewer than
+    ///   3 points, or too few points for every allowed regression trend,
     /// * [MoeError::GpError]: if gaussian process fitting fails
     ///
     fn fit(
@@ -160,14 +146,7 @@ impl GpMixtureValidParams<f64> {
 
         // Fit GPs on clustered data
         let mut experts = Vec::new();
-        let nb_clusters = clusters.len();
         for (nc, cluster) in clusters.iter().enumerate() {
-            if nb_clusters > 1 && cluster.nrows() < 3 {
-                return Err(MoeError::ClusteringError(format!(
-                    "Not enough points in cluster, requires at least 3, got {}",
-                    cluster.nrows()
-                )));
-            }
             debug!("nc={} theta_tuning={:?}", nc, self.theta_tunings());
             let expert = self.find_best_expert(nc, nx, cluster)?;
             experts.push(expert);
@@ -212,85 +191,52 @@ impl GpMixtureValidParams<f64> {
         let xtrain = data.slice(s![.., ..nx]).to_owned();
         let ytrain = data.slice(s![.., nx..]).to_owned();
         let mut dataset = Dataset::from((xtrain.clone(), ytrain.clone().remove_axis(Axis(1))));
-        let regression_spec = self.regression_spec();
-        let mut allowed_means = vec![];
-        check_allowed!(regression_spec, Regression, Constant, allowed_means);
-        check_allowed!(regression_spec, Regression, Linear, allowed_means);
-        check_allowed!(regression_spec, Regression, Quadratic, allowed_means);
-        let correlation_spec = self.correlation_spec();
-        let mut allowed_corrs = vec![];
-        check_allowed!(
-            correlation_spec,
-            Correlation,
-            SquaredExponential,
-            allowed_corrs
-        );
-        check_allowed!(
-            correlation_spec,
-            Correlation,
-            AbsoluteExponential,
-            allowed_corrs
-        );
-        check_allowed!(correlation_spec, Correlation, Matern32, allowed_corrs);
-        check_allowed!(correlation_spec, Correlation, Matern52, allowed_corrs);
+        let candidates = allowed_experts(self.regression_spec(), self.correlation_spec());
 
         debug!("Find best expert");
-        let best = if allowed_means.len() == 1 && allowed_corrs.len() == 1 {
-            (format!("{}_{}", allowed_means[0], allowed_corrs[0]), None) // shortcut
-        } else {
-            let mut map_error = Vec::new();
-            compute_errors!(self, allowed_means, allowed_corrs, dataset, map_error);
-            let errs: Vec<f64> = map_error.iter().map(|(_, err)| *err).collect();
-            debug!("Accuracies {map_error:?}");
-            let argmin = errs
-                .iter()
-                .enumerate()
-                .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                .map(|(index, _)| index)
-                .unwrap();
-            (map_error[argmin].0.clone(), Some(map_error[argmin].1))
+        let best = match candidates.as_slice() {
+            [] => {
+                return Err(MoeError::ExpertError(
+                    "No expert allowed by regression and correlation specs".to_string(),
+                ));
+            }
+            [expert] => (*expert, None), // shortcut
+            _ => {
+                let errors: Vec<(Expert, f64)> = candidates
+                    .iter()
+                    .map(|&expert| {
+                        let err = cross_validation_error(
+                            expert,
+                            self.kpls_dim(),
+                            self.noise_ratio(),
+                            &mut dataset,
+                        );
+                        (expert, err)
+                    })
+                    .collect();
+                debug!(
+                    "Accuracies {:?}",
+                    errors
+                        .iter()
+                        .map(|(expert, err)| (expert.to_string(), *err))
+                        .collect::<Vec<_>>()
+                );
+                let (expert, err) = errors
+                    .iter()
+                    .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                    .unwrap();
+                (*expert, Some(*err))
+            }
         };
         debug!("after Find best expert");
 
         let expert = match self.gp_type() {
             GpType::FullGp => {
-                let best_expert_params: std::result::Result<Box<dyn GpSurrogateParams>, MoeError> =
-                    match best.0.as_str() {
-                        "Constant_SquaredExponential" => {
-                            Ok(make_surrogate_params!(Constant, SquaredExponential))
-                        }
-                        "Constant_AbsoluteExponential" => {
-                            Ok(make_surrogate_params!(Constant, AbsoluteExponential))
-                        }
-                        "Constant_Matern32" => Ok(make_surrogate_params!(Constant, Matern32)),
-                        "Constant_Matern52" => Ok(make_surrogate_params!(Constant, Matern52)),
-                        "Linear_SquaredExponential" => {
-                            Ok(make_surrogate_params!(Linear, SquaredExponential))
-                        }
-                        "Linear_AbsoluteExponential" => {
-                            Ok(make_surrogate_params!(Linear, AbsoluteExponential))
-                        }
-                        "Linear_Matern32" => Ok(make_surrogate_params!(Linear, Matern32)),
-                        "Linear_Matern52" => Ok(make_surrogate_params!(Linear, Matern52)),
-                        "Quadratic_SquaredExponential" => {
-                            Ok(make_surrogate_params!(Quadratic, SquaredExponential))
-                        }
-                        "Quadratic_AbsoluteExponential" => {
-                            Ok(make_surrogate_params!(Quadratic, AbsoluteExponential))
-                        }
-                        "Quadratic_Matern32" => Ok(make_surrogate_params!(Quadratic, Matern32)),
-                        "Quadratic_Matern52" => Ok(make_surrogate_params!(Quadratic, Matern52)),
-                        _ => {
-                            return Err(MoeError::ExpertError(format!(
-                                "Unknown expert {}",
-                                best.0
-                            )));
-                        }
-                    };
-                let mut expert_params = best_expert_params?;
+                let mut expert_params = gp_expert_params(best.0);
                 expert_params.n_start(self.n_start());
                 expert_params.max_eval(self.max_eval());
                 expert_params.kpls_dim(self.kpls_dim());
+                expert_params.noise_ratio(self.noise_ratio().clone());
                 if nc > 0 && self.theta_tunings().len() == 1 {
                     expert_params.theta_tuning(self.theta_tunings()[0].clone());
                 } else {
@@ -305,26 +251,10 @@ impl GpMixtureValidParams<f64> {
                 sparse_method,
                 ..
             } => {
-                let inducings = inducings.to_owned();
-                let best_expert_params: std::result::Result<Box<dyn SgpSurrogateParams>, MoeError> =
-                    match best.0.as_str() {
-                        "Constant_SquaredExponential" => {
-                            Ok(make_sgp_surrogate_params!(SquaredExponential, inducings))
-                        }
-                        "Constant_AbsoluteExponential" => {
-                            Ok(make_sgp_surrogate_params!(AbsoluteExponential, inducings))
-                        }
-                        "Constant_Matern32" => Ok(make_sgp_surrogate_params!(Matern32, inducings)),
-                        "Constant_Matern52" => Ok(make_sgp_surrogate_params!(Matern52, inducings)),
-                        _ => {
-                            return Err(MoeError::ExpertError(format!(
-                                "Unknown expert {}",
-                                best.0
-                            )));
-                        }
-                    };
-                let mut expert_params = best_expert_params?;
-                let seed = self.rng().r#gen();
+                let mut expert_params = sgp_expert_params(best.0, inducings.to_owned())
+                    .ok_or_else(|| MoeError::ExpertError(format!("Unknown expert {}", best.0)))?;
+                // a seed has to be drawn: drawing an Option may give None (entropy)
+                let seed = Some(self.rng().r#gen::<u64>());
                 debug!("Theta tuning = {:?}", self.theta_tunings());
                 expert_params.sparse_method(*sparse_method);
                 expert_params.seed(seed);
@@ -375,25 +305,37 @@ impl GpMixtureValidParams<f64> {
     }
 }
 
+/// Minimum number of points in each cluster of a multi-cluster mixture
+pub(crate) const MIN_CLUSTER_POINTS: usize = 3;
+
+/// Number of points needed to fit the least demanding trend allowed by `regr`
+/// in dimension `dim`
+fn min_trend_points(dim: usize, regr: RegressionSpec) -> usize {
+    if regr.contains(RegressionSpec::CONSTANT) {
+        1
+    } else if regr.contains(RegressionSpec::LINEAR) {
+        dim + 1
+    } else if regr.contains(RegressionSpec::QUADRATIC) {
+        (dim + 1) * (dim + 2) / 2
+    } else {
+        1 // no trend allowed: reported when selecting the expert
+    }
+}
+
+/// Check that each cluster (rows of `[x, y]` data) of a multi-cluster mixture
+/// has enough points to train an expert with one of the allowed trends
 fn check_number_of_points<F>(
     clusters: &[ArrayBase<impl Data<Elem = F>, Ix2>],
     dim: usize,
     regr: RegressionSpec,
 ) -> Result<()> {
     if clusters.len() > 1 {
-        let min_number_point = if regr.contains(RegressionSpec::QUADRATIC) {
-            (dim + 1) * (dim + 2) / 2
-        } else if regr.contains(RegressionSpec::LINEAR) {
-            dim + 1
-        } else {
-            1
-        };
-        for cluster in clusters {
-            if cluster.len() < min_number_point {
+        let min_points = MIN_CLUSTER_POINTS.max(min_trend_points(dim, regr));
+        for (i, cluster) in clusters.iter().enumerate() {
+            if cluster.nrows() < min_points {
                 return Err(MoeError::ClusteringError(format!(
-                    "Not enough points in training set. Need {} points, got {}",
-                    min_number_point,
-                    cluster.len()
+                    "Not enough points in cluster {i}: requires at least {min_points}, got {}",
+                    cluster.nrows()
                 )));
             }
         }
@@ -505,18 +447,7 @@ impl GpSurrogate for GpMixture {
 
     /// Save Moe model in given file.
     fn save(&self, path: &str, format: GpFileFormat) -> Result<()> {
-        let mut file = fs::File::create(path)?;
-
-        let bytes = match format {
-            GpFileFormat::Json => serde_json::to_vec(self).map_err(MoeError::SaveJsonError)?,
-            GpFileFormat::Binary => {
-                bincode::serde::encode_to_vec(self, bincode::config::standard())
-                    .map_err(MoeError::SaveBinaryError)?
-            }
-        };
-        file.write_all(&bytes)?;
-
-        Ok(())
+        write_model(path, self, format)
     }
 }
 
@@ -540,6 +471,16 @@ impl GpSurrogateExt for GpMixture {
         match self.recombination {
             Recombination::Hard => self.predict_valvar_gradients_hard(x),
             Recombination::Smooth(_) => self.predict_valvar_gradients_smooth(x),
+        }
+    }
+
+    fn predict_valvar_with_gradients(
+        &self,
+        x: &ArrayView2<f64>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
+        match self.recombination {
+            Recombination::Hard => self.predict_valvar_with_gradients_hard(x),
+            Recombination::Smooth(_) => self.predict_valvar_with_gradients_smooth(x),
         }
     }
 
@@ -756,46 +697,8 @@ impl GpMixture {
         &self,
         x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
     ) -> Result<Array2<f64>> {
-        let probas = self.gmx.predict_probas(x);
-        let probas_drv = self.gmx.predict_probas_derivatives(x);
-
-        let mut drv = Array2::<f64>::zeros((x.nrows(), x.ncols()));
-
-        Zip::from(drv.rows_mut())
-            .and(x.rows())
-            .and(probas.rows())
-            .and(probas_drv.outer_iter())
-            .for_each(|mut y, xi, p, pprime| {
-                let xii = xi.insert_axis(Axis(0));
-                let preds: Array1<f64> = self
-                    .experts
-                    .iter()
-                    .map(|gp| gp.predict_var(&xii).unwrap()[0])
-                    .collect();
-                let drvs: Vec<Array1<f64>> = self
-                    .experts
-                    .iter()
-                    .map(|gp| gp.predict_var_gradients(&xii).unwrap().row(0).to_owned())
-                    .collect();
-
-                let preds = preds.insert_axis(Axis(1));
-                let mut preds_drv = Array2::zeros((self.experts.len(), xi.len()));
-                Zip::indexed(preds_drv.rows_mut()).for_each(|i, mut jc| jc.assign(&drvs[i]));
-
-                let mut term1 = Array2::zeros((self.experts.len(), xi.len()));
-                Zip::from(term1.rows_mut())
-                    .and(&p)
-                    .and(preds_drv.rows())
-                    .for_each(|mut t, p, der| t.assign(&(der.to_owned().mapv(|v| v * p * p))));
-                let term1 = term1.sum_axis(Axis(0));
-
-                let term2 = (p.to_owned() * pprime * preds).mapv(|v| 2. * v);
-                let term2 = term2.sum_axis(Axis(0));
-
-                y.assign(&(term1 + term2));
-            });
-
-        Ok(drv)
+        let (_, _, _, var_drv) = self.predict_valvar_with_gradients_smooth(x)?;
+        Ok(var_drv)
     }
 
     /// Predict outputs and variances at a set of points `x` specified as (n, nx) matrix.
@@ -828,64 +731,45 @@ impl GpMixture {
         &self,
         x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
     ) -> Result<(Array2<f64>, Array2<f64>)> {
+        let (_, _, val_drv, var_drv) = self.predict_valvar_with_gradients_smooth(x)?;
+        Ok((val_drv, var_drv))
+    }
+
+    /// Predict outputs, variances and their derivatives at a set of points `x` specified as (n, nx) matrix.
+    /// The smooth recombination of each cluster expert responsability is used to get the result:
+    /// with p_k the responsability of the kth expert predicting (mu_k, var_k),
+    /// mu = sum_k p_k mu_k and var = sum_k p_k^2 var_k.
+    #[allow(clippy::type_complexity)]
+    fn predict_valvar_with_gradients_smooth(
+        &self,
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
         let probas = self.gmx.predict_probas(x);
+        // (n, n_clusters, nx)
         let probas_drv = self.gmx.predict_probas_derivatives(x);
 
+        let mut vals = Array1::<f64>::zeros(x.nrows());
+        let mut vars = Array1::<f64>::zeros(x.nrows());
         let mut val_drv = Array2::<f64>::zeros((x.nrows(), x.ncols()));
         let mut var_drv = Array2::<f64>::zeros((x.nrows(), x.ncols()));
-
-        Zip::from(val_drv.rows_mut())
-            .and(var_drv.rows_mut())
-            .and(x.rows())
-            .and(probas.rows())
-            .and(probas_drv.outer_iter())
-            .for_each(|mut val_y, mut var_y, xi, p, pprime| {
-                let xii = xi.insert_axis(Axis(0));
-                let (preds, vars): (Vec<f64>, Vec<f64>) = self
-                    .experts
-                    .iter()
-                    .map(|gp| {
-                        let (pred, var) = gp.predict_valvar(&xii).unwrap();
-                        (pred[0], var[0])
-                    })
-                    .unzip();
-                let preds: Array2<f64> = Array1::from(preds).insert_axis(Axis(1));
-                let vars: Array2<f64> = Array1::from(vars).insert_axis(Axis(1));
-                let (drvs, var_drvs): (Vec<Array1<f64>>, Vec<Array1<f64>>) = self
-                    .experts
-                    .iter()
-                    .map(|gp| {
-                        let (predg, varg) = gp.predict_valvar_gradients(&xii).unwrap();
-                        (predg.row(0).to_owned(), varg.row(0).to_owned())
-                    })
-                    .unzip();
-
-                let mut preds_drv = Array2::zeros((self.experts.len(), xi.len()));
-                let mut vars_drv = Array2::zeros((self.experts.len(), xi.len()));
-                Zip::indexed(preds_drv.rows_mut()).for_each(|i, mut jc| jc.assign(&drvs[i]));
-                Zip::indexed(vars_drv.rows_mut()).for_each(|i, mut jc| jc.assign(&var_drvs[i]));
-
-                let mut val_term1 = Array2::zeros((self.experts.len(), xi.len()));
-                Zip::from(val_term1.rows_mut())
-                    .and(&p)
-                    .and(preds_drv.rows())
-                    .for_each(|mut t, p, der| t.assign(&(der.to_owned().mapv(|v| v * p))));
-                let val_term1 = val_term1.sum_axis(Axis(0));
-                let val_term2 = pprime.to_owned() * preds;
-                let val_term2 = val_term2.sum_axis(Axis(0));
-                val_y.assign(&(val_term1 + val_term2));
-
-                let mut var_term1 = Array2::zeros((self.experts.len(), xi.len()));
-                Zip::from(var_term1.rows_mut())
-                    .and(&p)
-                    .and(vars_drv.rows())
-                    .for_each(|mut t, p, der| t.assign(&(der.to_owned().mapv(|v| v * p * p))));
-                let var_term1 = var_term1.sum_axis(Axis(0));
-                let var_term2 = (p.to_owned() * pprime * vars).mapv(|v| 2. * v);
-                let var_term2 = var_term2.sum_axis(Axis(0));
-                var_y.assign(&(var_term1 + var_term2));
-            });
-        Ok((val_drv, var_drv))
+        for (i, xi) in x.rows().into_iter().enumerate() {
+            let xii = xi.insert_axis(Axis(0));
+            for (k, gp) in self.experts.iter().enumerate() {
+                let (val, var, dval, dvar) = gp.predict_valvar_with_gradients(&xii)?;
+                let (val, var) = (val[0], var[0]);
+                let p = probas[[i, k]];
+                let dp = probas_drv.slice(s![i, k, ..]);
+                // dmu = sum_k p_k dmu_k + dp_k mu_k
+                vals[i] += p * val;
+                val_drv.row_mut(i).scaled_add(p, &dval.row(0));
+                val_drv.row_mut(i).scaled_add(val, &dp);
+                // dvar = sum_k p_k^2 dvar_k + 2 p_k dp_k var_k
+                vars[i] += p * p * var;
+                var_drv.row_mut(i).scaled_add(p * p, &dvar.row(0));
+                var_drv.row_mut(i).scaled_add(2. * p * var, &dp);
+            }
+        }
+        Ok((vals, vars, val_drv, var_drv))
     }
 
     /// Predict outputs at a set of points `x` specified as (n, nx) matrix.
@@ -1017,6 +901,30 @@ impl GpMixture {
         Ok((val_drv, var_drv))
     }
 
+    /// Predict outputs, variances and their derivatives at a set of points `x` specified as (n, nx) matrix.
+    /// Gaussian Mixture is used to get the cluster where the point belongs (highest responsability)
+    /// The expert of the cluster is used to predict the values.
+    #[allow(clippy::type_complexity)]
+    pub fn predict_valvar_with_gradients_hard(
+        &self,
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
+        let mut vals = Array1::<f64>::zeros(x.nrows());
+        let mut vars = Array1::<f64>::zeros(x.nrows());
+        let mut val_drv = Array2::<f64>::zeros((x.nrows(), x.ncols()));
+        let mut var_drv = Array2::<f64>::zeros((x.nrows(), x.ncols()));
+        let clustering = self.gmx.predict(x);
+        for (i, (xi, &c)) in x.rows().into_iter().zip(&clustering).enumerate() {
+            let (val, var, dval, dvar) =
+                self.experts[c].predict_valvar_with_gradients(&xi.insert_axis(Axis(0)))?;
+            vals[i] = val[0];
+            vars[i] = var[0];
+            val_drv.row_mut(i).assign(&dval.row(0));
+            var_drv.row_mut(i).assign(&dvar.row(0));
+        }
+        Ok((vals, vars, val_drv, var_drv))
+    }
+
     /// Sample `n_traj` trajectories at a set of points `x` specified as (n, nx) matrix.
     /// using the expert `ith` of the mixture.
     /// Returns the samples as a (n, n_traj) matrix where the ith row
@@ -1069,6 +977,15 @@ impl GpMixture {
         x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
     ) -> Result<(Array2<f64>, Array2<f64>)> {
         <GpMixture as GpSurrogateExt>::predict_valvar_gradients(self, &x.view())
+    }
+
+    /// Predict outputs, variances and their derivatives at a set of points `x` specified as (n, nx) matrix.
+    #[allow(clippy::type_complexity)]
+    pub fn predict_valvar_with_gradients(
+        &self,
+        x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
+        <GpMixture as GpSurrogateExt>::predict_valvar_with_gradients(self, &x.view())
     }
 
     /// Sample `n_traj` trajectories at a set of points `x` specified as (n, nx) matrix.
@@ -1255,17 +1172,7 @@ impl GpMixture {
 
     /// Load Moe from the given file.
     pub fn load(path: &str, format: GpFileFormat) -> Result<Box<GpMixture>> {
-        let data = fs::read(path)?;
-        let moe = match format {
-            GpFileFormat::Json => serde_json::from_slice(&data).map_err(|err| {
-                MoeError::LoadError(format!("Error while loading from {path}: ({err})"))
-            })?,
-            GpFileFormat::Binary => {
-                bincode::serde::decode_from_slice(&data, bincode::config::standard())
-                    .map(|(surrogate, _)| surrogate)?
-            }
-        };
-        Ok(Box::new(moe))
+        read_model(path, format).map(Box::new)
     }
 }
 
@@ -1328,7 +1235,12 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use argmin_testfunctions::rosenbrock;
     use egobox_doe::{Lhs, SamplingMethod};
+    use egobox_gp::ParamTuning;
+    #[cfg(not(feature = "blas"))]
+    use linfa_linalg::norm::*;
     use ndarray::{Array, Array2, Zip, array};
+    #[cfg(feature = "blas")]
+    use ndarray_linalg::Norm;
     use ndarray_npy::write_npy;
     use ndarray_rand::RandomExt;
     use ndarray_rand::rand::SeedableRng;
@@ -1539,6 +1451,178 @@ mod tests {
         let moe = GpMixture::params().with_rng(rng).check_unwrap();
         let best_expert = &moe.find_best_expert(0, 1, &data).unwrap();
         println!("Best expert {best_expert}");
+    }
+
+    fn lhs_data(
+        xlimits: &Array2<f64>,
+        n: usize,
+        f: impl Fn(ndarray::ArrayView1<f64>) -> f64,
+    ) -> (Array2<f64>, Xoshiro256Plus) {
+        let rng = Xoshiro256Plus::seed_from_u64(42);
+        let xt = Lhs::new(xlimits).with_rng(rng.clone()).sample(n);
+        let yt = xt.map_axis(Axis(1), f).insert_axis(Axis(1));
+        // row major layout as for clustered data
+        let data = concatenate(Axis(1), &[xt.view(), yt.view()]).unwrap();
+        (data.as_standard_layout().to_owned(), rng)
+    }
+
+    #[test]
+    fn test_find_best_expert_quadratic_2d() {
+        // Exact quadratic function: the quadratic trend is the best expert
+        let xlimits = array![[-2., 2.], [-2., 2.]];
+        let (data, rng) = lhs_data(&xlimits, 30, |x| {
+            1. + x[0] - 2. * x[1] + 3. * x[0] * x[0] + x[0] * x[1] + 2. * x[1] * x[1]
+        });
+        let moe = GpMixture::params()
+            .regression_spec(RegressionSpec::ALL)
+            .correlation_spec(CorrelationSpec::SQUAREDEXPONENTIAL)
+            .with_rng(rng)
+            .check_unwrap();
+        let best_expert = moe.find_best_expert(0, 2, &data).unwrap();
+        assert!(
+            best_expert.to_string().starts_with("Quadratic"),
+            "Best expert {best_expert}"
+        );
+    }
+
+    #[test]
+    fn test_find_best_expert_quadratic_not_enough_fold_points() {
+        // 4 * dim samples: quadratic trend allowed while cross-validation folds
+        // have less training points than the 21 quadratic terms in 5-D
+        let xlimits = Array2::from_shape_fn((5, 2), |(_, j)| if j == 0 { -1. } else { 1. });
+        let (data, rng) = lhs_data(&xlimits, 20, |x| x.dot(&x));
+        let moe = GpMixture::params()
+            .regression_spec(RegressionSpec::ALL)
+            .correlation_spec(CorrelationSpec::SQUAREDEXPONENTIAL)
+            .with_rng(rng)
+            .check_unwrap();
+        let best_expert = moe.find_best_expert(0, 5, &data).unwrap();
+        assert!(
+            !best_expert.to_string().starts_with("Quadratic"),
+            "Best expert {best_expert}"
+        );
+    }
+
+    #[test]
+    fn test_check_number_of_points_counts_rows() {
+        let clusters = |rows: &[usize], dim: usize| -> Vec<Array2<f64>> {
+            rows.iter().map(|&n| Array2::zeros((n, dim + 1))).collect()
+        };
+        let linear_or_quadratic = RegressionSpec::LINEAR | RegressionSpec::QUADRATIC;
+        for (dim, regr, rows, ok) in [
+            // a linear trend needs dim+1 points
+            (3, RegressionSpec::LINEAR, vec![3, 10], false),
+            (3, RegressionSpec::LINEAR, vec![4, 10], true),
+            // a quadratic trend needs (dim+1)(dim+2)/2 points
+            (2, RegressionSpec::QUADRATIC, vec![5, 10], false),
+            (2, RegressionSpec::QUADRATIC, vec![6, 10], true),
+            // the least demanding allowed trend sets the requirement
+            (6, RegressionSpec::ALL, vec![3, 10], true),
+            (6, linear_or_quadratic, vec![6, 10], false),
+            (6, linear_or_quadratic, vec![7, 10], true),
+            // at least 3 points per cluster
+            (1, RegressionSpec::CONSTANT, vec![2, 10], false),
+            (1, RegressionSpec::CONSTANT, vec![3, 10], true),
+            // a single cluster is not checked
+            (6, RegressionSpec::QUADRATIC, vec![1], true),
+        ] {
+            let res = check_number_of_points(&clusters(&rows, dim), dim, regr);
+            assert_eq!(
+                res.is_ok(),
+                ok,
+                "dim={dim} regr={regr:?} rows={rows:?}: {res:?}"
+            );
+        }
+    }
+
+    /// 6-D data in two well-separated clusters, of `n_small` and 30 points,
+    /// with the Hard clustering separating them
+    fn two_separated_clusters(n_small: usize) -> (Array2<f64>, Array1<f64>, Clustering) {
+        let dim = 6;
+        let mut rng = Xoshiro256Plus::seed_from_u64(42);
+        let small = Array2::random_using((n_small, dim), Uniform::new(0., 1.), &mut rng);
+        let large = Array2::random_using((30, dim), Uniform::new(10., 11.), &mut rng);
+        let xt = concatenate(Axis(0), &[small.view(), large.view()]).unwrap();
+        let yt = xt.sum_axis(Axis(1));
+        let means = Array2::from_shape_fn((2, dim), |(i, _)| if i == 0 { 0.5 } else { 10.5 });
+        let covariances =
+            Array3::from_shape_fn((2, dim, dim), |(_, i, j)| if i == j { 0.1 } else { 0. });
+        let gmx = GaussianMixture::new(array![0.5, 0.5], means, covariances).unwrap();
+        (xt, yt, Clustering::new(gmx, Recombination::Hard))
+    }
+
+    #[test]
+    fn test_train_on_clusters_small_cluster_with_constant_trend() {
+        // 3 points: too few for a linear (7) or quadratic (28) trend in 6-D,
+        // enough for the constant one, which is allowed
+        let (xt, yt, clustering) = two_separated_clusters(3);
+        let moe = GpMixture::params()
+            .regression_spec(RegressionSpec::ALL)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .check_unwrap()
+            .train_on_clusters(&xt, &yt, &clustering)
+            .expect("mixture trained");
+        assert_eq!(moe.n_clusters(), 2);
+    }
+
+    #[test]
+    fn test_train_on_clusters_small_cluster_with_linear_trend() {
+        // 3 points: too few for the only allowed trend, linear (7 points in 6-D)
+        let (xt, yt, clustering) = two_separated_clusters(3);
+        let res = GpMixture::params()
+            .regression_spec(RegressionSpec::LINEAR)
+            .with_rng(Xoshiro256Plus::seed_from_u64(42))
+            .check_unwrap()
+            .train_on_clusters(&xt, &yt, &clustering);
+        assert!(
+            matches!(res, Err(MoeError::ClusteringError(_))),
+            "{:?}",
+            res.map(|moe| moe.to_string())
+        );
+    }
+
+    #[test]
+    fn test_sparse_mixture_seeded_training_is_reproducible() {
+        // seed 42 used to draw no seed for the sparse GP expert (entropy)
+        let xlimits = array![[0., 25.]];
+        let (data, _) = lhs_data(&xlimits, 100, |x| {
+            (x[0] - 3.5) * ((x[0] - 3.5) / std::f64::consts::PI).sin()
+        });
+        let xt = data.slice(s![.., ..1]).to_owned();
+        let yt = data.column(1).to_owned();
+        let xtest = array![[1.], [7.5], [12.3], [20.]];
+        let train = || {
+            GpMixture::params()
+                .gp_type(GpType::SparseGp {
+                    sparse_method: egobox_gp::SparseMethod::Fitc,
+                    inducings: egobox_gp::Inducings::Randomized(10),
+                })
+                .with_rng(Xoshiro256Plus::seed_from_u64(42))
+                .fit(&Dataset::new(xt.clone(), yt.clone()))
+                .unwrap()
+                .predict(&xtest)
+                .unwrap()
+        };
+        assert_eq!(train(), train());
+    }
+
+    #[test]
+    fn test_no_allowed_expert_is_an_error() {
+        let xt = array![[0.], [1.], [2.], [3.], [4.], [5.]];
+        let yt = xt.column(0).mapv(f64::sin);
+        for (regr, corr) in [
+            (RegressionSpec::empty(), CorrelationSpec::ALL),
+            (RegressionSpec::ALL, CorrelationSpec::empty()),
+        ] {
+            let res = GpMixture::params()
+                .regression_spec(regr)
+                .correlation_spec(corr)
+                .fit(&Dataset::new(xt.clone(), yt.clone()));
+            assert!(
+                matches!(res, Err(MoeError::ExpertError(_))),
+                "{regr:?}/{corr:?}"
+            );
+        }
     }
 
     #[test]
@@ -1758,6 +1842,86 @@ mod tests {
         }
     }
 
+    fn sin_mix(x: &Array2<f64>) -> Array1<f64> {
+        let x0 = x.column(0);
+        let x1 = x.column(1);
+        let x2 = x.column(2);
+        &x0 * &x0 + x1.mapv(f64::sin) * x2 + &x0 * &x2
+    }
+
+    /// Check analytic derivatives `deriv` (n, nx) at `x` against central finite differences of `f`
+    fn assert_fdiff_close(
+        f: impl Fn(&Array2<f64>) -> Array1<f64>,
+        x: &Array2<f64>,
+        deriv: &Array2<f64>,
+        scale: f64,
+    ) {
+        let e = 1e-6;
+        for (i, xi) in x.rows().into_iter().enumerate() {
+            for k in 0..x.ncols() {
+                let mut xp = xi.to_owned().insert_axis(Axis(0));
+                let mut xm = xp.clone();
+                xp[[0, k]] += e;
+                xm[[0, k]] -= e;
+                let fdiff = (f(&xp)[0] - f(&xm)[0]) / (2. * e);
+                assert_abs_diff_eq!(
+                    deriv[[i, k]],
+                    fdiff,
+                    epsilon = 1e-2 * fdiff.abs() + 1e-9 * scale
+                );
+            }
+        }
+    }
+
+    /// Recombinations with more input dimensions than clusters
+    #[test]
+    fn test_valvar_with_gradients_3d() {
+        let mut rng = Xoshiro256Plus::seed_from_u64(0);
+        let xt = Lhs::new(&array![[-3., 3.], [-3., 3.], [-3., 3.]])
+            .with_rng(rng.clone())
+            .sample(60);
+        let yt = sin_mix(&xt);
+        let x = Array::random_using((5, 3), Uniform::new(-3., 3.), &mut rng);
+
+        for recomb in [Recombination::Hard, Recombination::Smooth(Some(1.))] {
+            let moe = GpMixture::params()
+                .n_clusters(NbClusters::fixed(2))
+                .recombination(recomb)
+                .with_rng(rng.clone())
+                .fit(&Dataset::new(xt.to_owned(), yt.to_owned()))
+                .expect("MOE fitted");
+
+            let (vals, vars, dvals, dvars) = moe.predict_valvar_with_gradients(&x).unwrap();
+            let val_scale = 1. + vals.mapv(f64::abs).sum();
+            let var_scale = 1. + vars.mapv(f64::abs).sum();
+            assert_abs_diff_eq!(vals, moe.predict(&x).unwrap(), epsilon = 1e-10 * val_scale);
+            assert_abs_diff_eq!(
+                vars,
+                moe.predict_var(&x).unwrap(),
+                epsilon = 1e-10 * var_scale
+            );
+            let (val_grads, var_grads) = moe.predict_valvar_gradients(&x).unwrap();
+            assert_abs_diff_eq!(
+                dvals,
+                moe.predict_gradients(&x).unwrap(),
+                epsilon = 1e-10 * val_scale
+            );
+            assert_abs_diff_eq!(dvals, val_grads, epsilon = 1e-10 * val_scale);
+            assert_abs_diff_eq!(
+                dvars,
+                moe.predict_var_gradients(&x).unwrap(),
+                epsilon = 1e-10 * var_scale
+            );
+            assert_abs_diff_eq!(dvars, var_grads, epsilon = 1e-10 * var_scale);
+
+            if let Recombination::Smooth(_) = recomb {
+                // hard recombination is discontinuous at cluster boundaries
+                assert_fdiff_close(|x| moe.predict(x).unwrap(), &x, &dvals, val_scale);
+                assert_fdiff_close(|x| moe.predict_var(x).unwrap(), &x, &dvars, var_scale);
+            }
+        }
+    }
+
     fn assert_rel_or_abs_error(y_deriv: f64, fdiff: f64) {
         println!("analytic deriv = {y_deriv}, fdiff = {fdiff}");
         if fdiff.abs() < 1e-2 {
@@ -1924,5 +2088,53 @@ mod tests {
             .predict_var_gradients(&x)
             .expect("MOE smooth prediction");
         assert_abs_diff_eq!(preds_hard, preds_smooth, epsilon = 1e-5);
+    }
+
+    /// Noisy observations of sin(x) on [0, 10] with a gaussian noise of std `noise_std`
+    fn noisy_sin(nt: usize, noise_std: f64) -> (Array2<f64>, Array1<f64>) {
+        let mut rng = Xoshiro256Plus::seed_from_u64(42);
+        let xt = Lhs::new(&array![[0., 10.]])
+            .with_rng(rng.clone())
+            .sample(nt);
+        let noise = Array1::random_using(
+            nt,
+            ndarray_rand::rand_distr::Normal::new(0., noise_std).unwrap(),
+            &mut rng,
+        );
+        let yt = xt.column(0).mapv(f64::sin) + noise;
+        (xt, yt)
+    }
+
+    #[test]
+    fn test_moe_noise_ratio() {
+        let noise_std = 0.1;
+        let (xt, yt) = noisy_sin(40, noise_std);
+        let ds = Dataset::new(xt, yt);
+
+        let moe = GpMixture::params()
+            .n_clusters(NbClusters::fixed(1))
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .fit(&ds)
+            .expect("MOE fitted");
+        assert_eq!(moe.experts()[0].noise_variance(), 0.);
+
+        // Noise ratio is also used when selecting the best expert by cross-validation
+        let moe = GpMixture::params()
+            .n_clusters(NbClusters::fixed(1))
+            .correlation_spec(CorrelationSpec::SQUAREDEXPONENTIAL | CorrelationSpec::MATERN52)
+            .noise_ratio(ParamTuning::Optimized {
+                init: 1e-2,
+                bounds: (1e-8, 10.),
+            })
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .fit(&ds)
+            .expect("MOE fitted");
+        let noise_var = noise_std * noise_std;
+        let estimated = moe.experts()[0].noise_variance();
+        println!("{moe}");
+        assert!(
+            estimated > noise_var / 4. && estimated < 4. * noise_var,
+            "noise variance {estimated} should be close to {noise_var}"
+        );
     }
 }

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.portal.sites.status import SiteStatus
 
 
-@dataclass
 class SPSiteCreationResponse(ClientValue):
     SiteId: Optional[str] = None
     SiteStatus: SiteStatus = SiteStatus.Unknown

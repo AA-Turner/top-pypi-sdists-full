@@ -1,6 +1,6 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -87,6 +87,9 @@ class Session(BaseModel):
     id: str
     """Unique identifier for the session"""
 
+    browser_mode: Literal["stealth", "standard", "unknown"] = FieldInfo(alias="browserMode")
+    """Browser mode used for this session."""
+
     created_at: datetime = FieldInfo(alias="createdAt")
     """Timestamp when the session started"""
 
@@ -116,6 +119,22 @@ class Session(BaseModel):
 
     session_viewer_url: str = FieldInfo(alias="sessionViewerUrl")
     """URL to view session details"""
+
+    signals: List[
+        Literal[
+            "captcha_encountered",
+            "proxy_connection_failed",
+            "session_timeout_exceeded",
+            "bot_detection_triggered",
+            "context_restored",
+        ]
+    ]
+    """Signals observed during the session.
+
+    Filled in within a few seconds after the session ends, and empty until then. An
+    empty list does not mean nothing happened: detection is heuristic and coverage
+    is incomplete.
+    """
 
     status: Literal["live", "released", "failed"]
     """Status of the session"""
@@ -150,6 +169,13 @@ class Session(BaseModel):
     is_selenium: Optional[bool] = FieldInfo(alias="isSelenium", default=None)
     """Indicates if Selenium is used in the session"""
 
+    metadata: Optional[Dict[str, str]] = None
+    """Customer-defined flat metadata.
+
+    Values are always strings: numbers and booleans sent on write come back in their
+    string form.
+    """
+
     persist_profile: Optional[bool] = FieldInfo(alias="persistProfile", default=None)
     """This flag will persist the profile for the session."""
 
@@ -159,24 +185,7 @@ class Session(BaseModel):
     project_id: Optional[str] = FieldInfo(alias="projectId", default=None)
     """The project associated with the session"""
 
-    region: Optional[
-        Literal[
-            "lax",
-            "ord",
-            "iad",
-            "scl",
-            "fra",
-            "nrt",
-            "us-east",
-            "us-west",
-            "us-central",
-            "eu-west",
-            "eu-central",
-            "ap-northeast",
-            "ap-southeast",
-            "sa-east",
-        ]
-    ] = None
+    region: Optional[str] = None
     """The region where the session was created."""
 
     release_reason: Optional[

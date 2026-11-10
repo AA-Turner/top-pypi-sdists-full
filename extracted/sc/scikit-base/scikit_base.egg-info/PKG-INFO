@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: scikit-base
-Version: 1.2.0
+Version: 1.2.1
 Summary: Base classes for sklearn-like parametric objects
-Author-email: sktime developers <sktime.toolbox@gmail.com>
+Author-email: sktime developers <info@sktime.net>
 Maintainer: Franz Király
-Maintainer-email: sktime developers <sktime.toolbox@gmail.com>
+Maintainer-email: sktime developers <info@sktime.net>
 License: BSD 3-Clause License
         
         Copyright (c) 2022, skbase Developers
@@ -50,13 +50,12 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Requires-Python: <3.16,>=3.10
+Requires-Python: <3.16,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: all-extras
@@ -116,7 +115,7 @@ Dynamic: license-file
 `skbase` provides base classes for creating scikit-learn-like parametric objects,
 along with tools to make it easier to build your own packages that follow these design patterns.
 
-:rocket: Version 1.2.0 is now available. Check out our
+:rocket: Version 1.2.1 is now available. Check out our
 [release notes](https://skbase.readthedocs.io/en/latest/changelog.html).
 
 | Overview | |

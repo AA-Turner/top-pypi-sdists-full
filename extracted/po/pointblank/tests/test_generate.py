@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from datetime import date, datetime, time, timedelta
 
@@ -17,6 +19,8 @@ from pointblank.field import (
 )
 from pointblank.generate.base import GeneratorConfig
 from pointblank.generate.generators import (
+    _derive_seed,
+    _get_coherence_groups,
     generate_column,
     generate_dataframe,
 )
@@ -250,16 +254,10 @@ class TestGenerateColumnTime:
         values = generate_column(field, config)
 
         assert len(values) == 10
-        assert all(isinstance(v, str) for v in values)
+        assert all(isinstance(v, time) for v in values)
 
-        # Verify time format HH:MM:SS
-        for v in values:
-            parts = v.split(":")
-
-            assert len(parts) == 3
-            assert 0 <= int(parts[0]) <= 23
-            assert 0 <= int(parts[1]) <= 59
-            assert 0 <= int(parts[2]) <= 59
+        # Times are generated at second resolution
+        assert all(v.microsecond == 0 for v in values)
 
     def test_generate_time_with_constraints(self):
         """Test generating a Time column with min/max constraints."""
@@ -271,15 +269,7 @@ class TestGenerateColumnTime:
 
         # Verify all times are within the 9:00-12:00 range
         for v in values:
-            parts = v.split(":")
-            hour = int(parts[0])
-            minute = int(parts[1])
-            second = int(parts[2])
-            time_seconds = hour * 3600 + minute * 60 + second
-            min_seconds = 9 * 3600  # 09:00:00
-            max_seconds = 12 * 3600  # 12:00:00
-
-            assert min_seconds <= time_seconds <= max_seconds
+            assert time(9, 0, 0) <= v <= time(12, 0, 0)
 
     def test_generate_time_different_fields_have_different_values(self):
         """Test that different time fields generate different values (not the same row values)."""
@@ -302,14 +292,10 @@ class TestGenerateColumnTime:
             assert st != et
 
             # Verify start_time is in 9-12 range
-            st_hour = int(st.split(":")[0])
-
-            assert 9 <= st_hour <= 12
+            assert 9 <= st.hour <= 12
 
             # Verify end_time is in 13-17 range
-            et_hour = int(et.split(":")[0])
-
-            assert 13 <= et_hour <= 17
+            assert 13 <= et.hour <= 17
 
     def test_generate_time_with_string_constraints(self):
         """Test generating a Time column with string min/max constraints."""
@@ -320,15 +306,7 @@ class TestGenerateColumnTime:
         assert len(values) == 100
 
         for v in values:
-            parts = v.split(":")
-            hour = int(parts[0])
-            minute = int(parts[1])
-            second = int(parts[2])
-            time_seconds = hour * 3600 + minute * 60 + second
-            min_seconds = 14 * 3600  # 14:00:00
-            max_seconds = 18 * 3600 + 30 * 60  # 18:30:00
-
-            assert min_seconds <= time_seconds <= max_seconds
+            assert time(14, 0, 0) <= v <= time(18, 30, 0)
 
 
 class TestGenerateColumnDuration:
@@ -493,6 +471,62 @@ class TestGenerateCoherentUnique:
         assert generate_dataframe(fields, config) == generate_dataframe(fields, config)
 
 
+class TestCoherenceGroups:
+    """Tests for grouping preset columns by `profile_fields(prefix=)`."""
+
+    def test_groups_by_prefix_in_schema_order(self):
+        from pointblank.field import profile_fields
+
+        fields = {
+            "id": int_field(),
+            "rep": string_field(preset="name"),
+            **profile_fields(set="minimal", prefix="b_"),
+            "note": string_field(),
+            **profile_fields(set="minimal", prefix="a_"),
+        }
+        groups = _get_coherence_groups(fields)
+        assert list(groups) == [None, "b_", "a_"]
+        assert list(groups[None]) == ["rep"]
+        assert list(groups["b_"]) == ["b_first_name", "b_last_name", "b_email", "b_phone_number"]
+        assert list(groups["a_"]) == ["a_first_name", "a_last_name", "a_email", "a_phone_number"]
+
+    def test_hand_written_columns_join_longest_matching_prefix(self):
+        from pointblank.field import profile_fields
+
+        fields = {
+            **profile_fields(set="minimal", prefix="a_"),
+            **profile_fields(set="minimal", prefix="a_b_"),
+            "a_b_city": string_field(preset="city"),
+            "a_city": string_field(preset="city"),
+            "city": string_field(preset="city"),
+        }
+        groups = _get_coherence_groups(fields)
+        assert "a_b_city" in groups["a_b_"]
+        assert "a_city" in groups["a_"]
+        assert list(groups[None]) == ["city"]
+
+    def test_no_profiles_is_one_group(self):
+        fields = {
+            "name": string_field(preset="name"),
+            "customer_email": string_field(preset="email"),
+            "code": string_field(pattern=r"[A-Z]{3}"),
+        }
+        assert _get_coherence_groups(fields) == {
+            None: {"name": fields["name"], "customer_email": fields["customer_email"]}
+        }
+
+    def test_unseeded_profiles_are_different_people(self):
+        from pointblank.field import profile_fields
+
+        fields = {
+            **profile_fields(set="minimal", prefix="a_"),
+            **profile_fields(set="minimal", prefix="b_"),
+        }
+        data = generate_dataframe(fields, GeneratorConfig(n=50, country="US", output="dict"))
+        same = sum(a == b for a, b in zip(data["a_email"], data["b_email"]))
+        assert same <= 2
+
+
 class TestGenerateColumnNullable:
     """Tests for nullable column generation."""
 
@@ -554,6 +588,94 @@ class TestGenerateColumnReproducibility:
         assert values1 != values2
 
 
+class TestSeededColumnIndependence:
+    """With a seed, each column gets its own random sequence (BUGS.md #113, #118, #128)."""
+
+    def test_same_field_twice_gives_different_columns(self):
+        field = int_field(min_val=1, max_val=100, nullable=True, null_probability=0.3)
+        config = GeneratorConfig(n=200, seed=7, output="dict")
+        data = generate_dataframe({"a": field, "b": field}, config)
+
+        assert data["a"] != data["b"]
+        assert sum(a == b for a, b in zip(data["a"], data["b"]) if a is not None) < 20
+
+        # The missing values fall in different rows
+        nulls_a = {i for i, v in enumerate(data["a"]) if v is None}
+        nulls_b = {i for i, v in enumerate(data["b"]) if v is None}
+        assert nulls_a and nulls_b and nulls_a != nulls_b
+
+    def test_different_ranges_are_not_correlated(self):
+        """Two time fields with different windows don't share their minutes and seconds."""
+        fields = {
+            "start": time_field(min_time=time(6, 0), max_time=time(9, 0)),
+            "end": time_field(min_time=time(16, 0), max_time=time(20, 0)),
+        }
+        data = generate_dataframe(fields, GeneratorConfig(n=100, seed=23, output="dict"))
+        same = sum(
+            (s.minute, s.second) == (e.minute, e.second) for s, e in zip(data["start"], data["end"])
+        )
+        assert same < 5
+
+    def test_other_columns_unchanged_by_adding_reordering_or_removing(self):
+        fields = {
+            "id": int_field(min_val=1, max_val=10_000, unique=True),
+            "score": float_field(min_val=0, max_val=1, nullable=True, null_probability=0.2),
+            "code": string_field(pattern=r"[A-Z]{3}-\d{2}"),
+        }
+        config = GeneratorConfig(n=50, seed=23, output="dict")
+        base = generate_dataframe(fields, config)
+
+        more = generate_dataframe({"flag": bool_field(), **fields}, config)
+        assert {col: more[col] for col in fields} == base
+
+        reordered = generate_dataframe(dict(reversed(fields.items())), config)
+        assert {col: reordered[col] for col in fields} == base
+
+        fewer = generate_dataframe({"id": fields["id"], "code": fields["code"]}, config)
+        assert fewer == {"id": base["id"], "code": base["code"]}
+
+    def test_seed_zero_is_reproducible(self):
+        """A seed of `0` seeds the missing values too (they were random with `seed=0`)."""
+        fields = {"x": int_field(nullable=True, null_probability=0.5)}
+        config = GeneratorConfig(n=100, seed=0, output="dict")
+        assert generate_dataframe(fields, config) == generate_dataframe(fields, config)
+        assert generate_column(fields["x"], config) == generate_column(fields["x"], config)
+
+    def test_coherent_unique_nulls_match_non_unique(self):
+        """A coherent column has its nulls in the same rows with or without `unique=True`."""
+        config = GeneratorConfig(n=50, seed=7, country="US", output="dict")
+        city = string_field(preset="city", nullable=True, null_probability=0.3)
+        non_unique = generate_dataframe({"name": string_field(preset="name"), "city": city}, config)
+        unique = generate_dataframe(
+            {"name": string_field(preset="name", unique=True), "city": city}, config
+        )
+        assert unique == non_unique
+        assert None in unique["city"]
+
+    @pytest.mark.parametrize("country", [["US", "FR"], {"DE": 2, "JP": 1}])
+    def test_multi_country_same_in_every_session(self, country):
+        """The per-country seeds don't depend on Python's per-process string hashing."""
+        import subprocess
+        import sys
+
+        code = (
+            "import pointblank as pb; "
+            "s = pb.Schema(name=pb.string_field(preset='name'), x=pb.int_field(max_val=99)); "
+            f"print(pb.generate_dataset(s, n=20, seed=7, country={country!r}, output='dict'))"
+        )
+        outputs = {
+            subprocess.run(
+                [sys.executable, "-c", code],
+                capture_output=True,
+                text=True,
+                check=True,
+                env={**os.environ, "PYTHONHASHSEED": hash_seed},
+            ).stdout
+            for hash_seed in ["1", "2", "3"]
+        }
+        assert len(outputs) == 1
+
+
 class TestGenerateDataframe:
     """Tests for DataFrame generation."""
 
@@ -603,6 +725,228 @@ class TestGenerateDataframe:
         assert list(data.keys()) == ["a", "b"]
         assert len(data["a"]) == 5
         assert len(data["b"]) == 5
+
+
+INT_DTYPES = ["Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64"]
+FLOAT_DTYPES = ["Float32", "Float64"]
+
+
+class TestGenerateDataframeDtypes:
+    """Tests that generated columns have the dtypes of their fields."""
+
+    @pytest.mark.parametrize("dtype", INT_DTYPES + FLOAT_DTYPES)
+    def test_polars_numeric_dtype(self, dtype):
+        pl = pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        field = int_field(dtype=dtype) if dtype in INT_DTYPES else float_field(dtype=dtype)
+        nullable = (
+            int_field(dtype=dtype, nullable=True, null_probability=0.5)
+            if dtype in INT_DTYPES
+            else float_field(dtype=dtype, nullable=True, null_probability=0.5)
+        )
+        df = generate_dataset(Schema(x=field, y=nullable), n=20, seed=23)
+
+        assert df.schema["x"] == getattr(pl, dtype)
+        assert df.schema["y"] == getattr(pl, dtype)
+        assert df["y"].null_count() > 0
+
+    @pytest.mark.parametrize("dtype", INT_DTYPES)
+    def test_pandas_int_dtype(self, dtype):
+        pytest.importorskip("pandas")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(
+            x=int_field(dtype=dtype),
+            y=int_field(dtype=dtype, nullable=True, null_probability=0.5),
+        )
+        df = generate_dataset(schema, n=20, seed=23, output="pandas")
+
+        # A NumPy integer, or pandas' nullable integer (keeping its dtype) when there are nulls
+        assert str(df["x"].dtype) == dtype.lower()
+        assert str(df["y"].dtype) == dtype
+        assert df["y"].isna().sum() > 0
+
+    @pytest.mark.parametrize("dtype", FLOAT_DTYPES)
+    def test_pandas_float_dtype(self, dtype):
+        pytest.importorskip("pandas")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(
+            x=float_field(dtype=dtype),
+            y=float_field(dtype=dtype, nullable=True, null_probability=0.5),
+        )
+        df = generate_dataset(schema, n=20, seed=23, output="pandas")
+
+        assert str(df["x"].dtype) == dtype.lower()
+        assert str(df["y"].dtype) == dtype.lower()
+        assert df["y"].isna().sum() > 0
+
+    def test_dtype_strings_in_schema(self):
+        """A dtype-only schema (e.g., `x="Int16"`) gives the same dtypes."""
+        pl = pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(a="Int16", b="UInt32", c="Float32", d="int8")
+        df = generate_dataset(schema, n=5, seed=23)
+
+        assert df.schema == pl.Schema(
+            {"a": pl.Int16, "b": pl.UInt32, "c": pl.Float32, "d": pl.Int8}
+        )
+
+    def test_full_uint64_range(self):
+        """Values above the Int64 range are kept exactly."""
+        pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        big = 2**64 - 1
+        schema = Schema(x=int_field(dtype="UInt64", allowed=[big]))
+
+        assert generate_dataset(schema, n=3, seed=23)["x"].to_list() == [big] * 3
+        assert generate_dataset(schema, n=3, seed=23, output="pandas")["x"].tolist() == [big] * 3
+
+    def test_zero_rows_keep_dtypes(self):
+        """With no values to infer from, every column still gets its field's dtype."""
+        pl = pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(
+            a=int_field(dtype="Int32"),
+            b=float_field(dtype="Float32"),
+            s=string_field(),
+            o=bool_field(),
+            d=date_field(),
+            dt=datetime_field(),
+            du=duration_field(),
+            t=time_field(),
+        )
+        df = generate_dataset(schema, n=0, seed=23)
+
+        assert df.schema == pl.Schema(
+            {
+                "a": pl.Int32,
+                "b": pl.Float32,
+                "s": pl.String,
+                "o": pl.Boolean,
+                "d": pl.Date,
+                "dt": pl.Datetime("us"),
+                "du": pl.Duration("us"),
+                "t": pl.Time,
+            }
+        )
+
+        # The inferred dtypes of non-empty columns are the same
+        assert generate_dataset(schema, n=3, seed=23).schema == df.schema
+
+    def test_all_null_column_keeps_dtype(self):
+        pl = pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(
+            s=string_field(generator=lambda: None),
+            t=time_field(generator=lambda: None),
+        )
+        df = generate_dataset(schema, n=3, seed=23)
+
+        assert df.schema == pl.Schema({"s": pl.String, "t": pl.Time})
+        assert df.null_count().row(0) == (3, 3)
+
+    @pytest.mark.parametrize("output", ["polars", "pandas"])
+    def test_generated_table_matches_its_schema(self, output):
+        """The generated table passes `col_schema_match()` against the schema it came from."""
+        pytest.importorskip(output)
+        import pointblank as pb
+
+        schema = pb.Schema(
+            a=int_field(dtype="Int8", min_val=0, max_val=100),
+            b=int_field(dtype="UInt16", nullable=True, null_probability=0.3),
+            c=float_field(dtype="Float32", min_val=0.0, max_val=1.0),
+            d=int_field(),
+        )
+        df = pb.generate_dataset(schema, n=30, seed=23, output=output)
+
+        # pandas spells NumPy dtypes in lowercase (`int8`), so compare case-insensitively there
+        validation = (
+            pb.Validate(df)
+            .col_schema_match(schema, case_sensitive_dtypes=output == "polars")
+            .interrogate()
+        )
+
+        assert validation.all_passed()
+
+    def test_time_column_polars(self):
+        pl = pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(t=time_field(min_time="09:00:00", max_time="17:00:00"))
+        df = generate_dataset(schema, n=20, seed=23)
+
+        assert df.schema["t"] == pl.Time
+        assert all(time(9, 0, 0) <= v <= time(17, 0, 0) for v in df["t"].to_list())
+
+    def test_time_column_pandas_and_dict(self):
+        pytest.importorskip("pandas")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(t=time_field(nullable=True, null_probability=0.3))
+
+        df = generate_dataset(schema, n=20, seed=23, output="pandas")
+        assert all(isinstance(v, time) for v in df["t"].dropna())
+
+        data = generate_dataset(schema, n=20, seed=23, output="dict")
+        assert all(v is None or isinstance(v, time) for v in data["t"])
+        assert None in data["t"]
+
+    def test_time_column_unique(self):
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(t=time_field(min_time="09:00:00", max_time="09:01:00", unique=True))
+        data = generate_dataset(schema, n=61, seed=23, output="dict")
+
+        assert len(set(data["t"])) == 61
+
+    def test_dict_output_is_unchanged(self):
+        """The dict output holds the generated Python values, with no casting."""
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(x=int_field(dtype="UInt8"), y=float_field(dtype="Float32"))
+        data = generate_dataset(schema, n=5, seed=23, output="dict")
+
+        assert all(type(v) is int for v in data["x"])
+        assert all(type(v) is float for v in data["y"])
+
+    @pytest.mark.parametrize("output", ["polars", "pandas"])
+    @pytest.mark.parametrize(
+        "field, match",
+        [
+            (int_field(generator=lambda: 1.5), "has the dtype Int64, but it got the value 1.5"),
+            (int_field(generator=lambda: True), "got the value True"),
+            (int_field(dtype="UInt8", generator=lambda: 300), "an integer from 0 to 255"),
+            (int_field(dtype="Int8", generator=lambda: -129), "an integer from -128 to 127"),
+            (float_field(generator=lambda: "1.5"), "got the value '1.5', which isn't a number"),
+        ],
+    )
+    def test_generator_value_that_doesnt_fit_raises(self, output, field, match):
+        pytest.importorskip(output)
+        from pointblank import Schema, generate_dataset
+
+        with pytest.raises(ValueError, match=match):
+            generate_dataset(Schema(x=field), n=3, seed=23, output=output)
+
+    def test_generator_numpy_values_are_accepted(self):
+        np = pytest.importorskip("numpy")
+        pl = pytest.importorskip("polars")
+        from pointblank import Schema, generate_dataset
+
+        schema = Schema(
+            x=int_field(dtype="Int16", generator=lambda: np.int64(7)),
+            y=float_field(dtype="Float32", generator=lambda: np.float64(0.5)),
+            z=float_field(generator=lambda: 3),
+        )
+        df = generate_dataset(schema, n=3, seed=23)
+
+        assert df.schema == pl.Schema({"x": pl.Int16, "y": pl.Float32, "z": pl.Float64})
+        assert df["z"].to_list() == [3.0, 3.0, 3.0]
 
 
 class TestSchemaGenerate:
@@ -1723,6 +2067,69 @@ class TestCountrySupport:
 
                 assert found_city
 
+    @pytest.mark.parametrize("postcode_first", [False, True])
+    def test_address_postcode_coherence_all_countries(self, monkeypatch, postcode_first):
+        """
+        Test that the postcode column matches the postcode within the address of the same row,
+        whichever of the two columns comes first.
+        """
+        from pointblank import Schema, generate_dataset, string_field
+        from pointblank.countries import LocaleGenerator
+
+        address_col = ("address", string_field(preset="address"))
+        postcode_col = ("postcode", string_field(preset="postcode"))
+        city_col = ("city", string_field(preset="city"))
+        columns = [postcode_col, address_col] if postcode_first else [address_col, postcode_col]
+        schema = Schema(columns=[*columns, city_col])
+
+        n_checked = 0
+        for country in COUNTRIES_WITH_FULL_DATA:
+            # Keep only the address formats that include the postcode (the locale data is shared,
+            # so `monkeypatch` restores it after the test)
+            address_data = LocaleGenerator(country=country, seed=1)._data.address
+            formats = [
+                fmt for fmt in address_data.get("address_formats", []) if "{postcode}" in fmt
+            ]
+            if not formats:
+                continue
+            monkeypatch.setitem(address_data, "address_formats", formats)
+
+            data = generate_dataset(schema, n=50, seed=23, country=country, output="dict")
+            for address, postcode in zip(data["address"], data["postcode"]):
+                assert postcode in address, (country, address, postcode)
+            n_checked += 1
+
+        assert n_checked >= 80
+
+    def test_address_postcode_coherence_with_unique_postcode(self):
+        # A duplicate postcode re-draws the row's location, and the address follows the new one
+        from pointblank import Schema, generate_dataset, string_field
+
+        schema = Schema(
+            address=string_field(preset="address"),
+            postcode=string_field(preset="postcode", unique=True),
+        )
+        data = generate_dataset(schema, n=1000, seed=1, country="US", output="dict")
+
+        assert len(set(data["postcode"])) == 1000
+        for address, postcode in zip(data["address"], data["postcode"]):
+            assert address.endswith(f" {postcode}")
+
+    def test_address_postcode_coherence_per_profile(self):
+        # Each prefixed profile has its own row locations, and so its own postcodes
+        from pointblank import Schema, generate_dataset, profile_fields
+
+        schema = Schema(
+            **profile_fields(set="full", prefix="sender_"),
+            **profile_fields(set="full", prefix="recipient_"),
+        )
+        data = generate_dataset(schema, n=100, seed=23, country="US", output="dict")
+
+        for prefix in ["sender_", "recipient_"]:
+            for address, postcode in zip(data[f"{prefix}address"], data[f"{prefix}postcode"]):
+                assert address.endswith(f" {postcode}")
+        assert data["sender_postcode"] != data["recipient_postcode"]
+
 
 class TestGeneratorValidation:
     """Tests that generated data passes pointblank validation."""
@@ -2146,10 +2553,10 @@ class TestLocaleMixing:
         # The first 50 should all be from US data, last 50 from JP.
         # We can verify by generating the batches separately and comparing.
         config_us = GeneratorConfig(
-            n=50, seed=(23 + hash("US")) % (2**31), output="dict", country="US"
+            n=50, seed=_derive_seed(23, "country", "US"), output="dict", country="US"
         )
         config_jp = GeneratorConfig(
-            n=50, seed=(23 + hash("JP")) % (2**31), output="dict", country="JP"
+            n=50, seed=_derive_seed(23, "country", "JP"), output="dict", country="JP"
         )
         us_only = generate_dataframe(fields, config_us)
         jp_only = generate_dataframe(fields, config_jp)

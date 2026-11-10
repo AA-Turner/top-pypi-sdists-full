@@ -12,7 +12,9 @@ from pikepdf import (
     Dictionary,
     Matrix,
     Name,
+    NamePath,
     Object,
+    ObjectSet,
     Pdf,
     PdfImage,
     PdfInlineImage,
@@ -26,6 +28,7 @@ from ocrmypdf.pdfinfo._contentstream import (
     TextMarker,
     VectorMarker,
     VisibleTextMarker,
+    XobjectSettings,
     _get_dpi,
     _interpret_contents,
     _is_unit_square,
@@ -76,7 +79,7 @@ class ImageInfo:
         if inline is not None:
             self._origin = 'inline'
             pim = inline
-        elif pdfimage is not None and isinstance(pdfimage, Stream):
+        elif isinstance(pdfimage, Stream):
             self._origin = 'xobject'
             pim = PdfImage(pdfimage)
         else:
@@ -84,25 +87,21 @@ class ImageInfo:
 
         self._width = pim.width
         self._height = pim.height
-        if (smask := pim.obj.get(Name.SMask, None)) is not None and isinstance(
-            smask, Stream | Dictionary
-        ):
-            # SMask is pretty much an alpha channel, but in PDF it's possible
-            # for channel to have different dimensions than the image
-            # itself. Some PDF writers use this to create a grayscale stencil
-            # mask. For our purposes, the effective size is the size of the
-            # larger component (image or smask).
-            self._width = max(smask.get_int(Name.Width, 0, coerce=True), self._width)
-            self._height = max(smask.get_int(Name.Height, 0, coerce=True), self._height)
-        if (mask := pim.obj.get(Name.Mask, None)) is not None and isinstance(
-            mask, Stream | Dictionary
-        ):
-            # If the image has a /Mask entry, it has an explicit mask.
-            # /Mask can be a Stream or an Array. If it's a Stream,
-            # use its /Width and /Height if they are larger than the main
-            # image's.
-            self._width = max(mask.get_int(Name.Width, 0, coerce=True), self._width)
-            self._height = max(mask.get_int(Name.Height, 0, coerce=True), self._height)
+        # SMask is pretty much an alpha channel, but in PDF it's possible
+        # for channel to have different dimensions than the image
+        # itself. Some PDF writers use this to create a grayscale stencil
+        # mask. For our purposes, the effective size is the size of the
+        # larger component (image, smask or explicit mask). /Mask may also be
+        # an Array (a color key mask), for which the NamePath lookup gives 0.
+        for mask in (Name.SMask, Name.Mask):
+            self._width = max(
+                pim.obj.get_int(NamePath(mask, Name.Width), 0, coerce=True),
+                self._width,
+            )
+            self._height = max(
+                pim.obj.get_int(NamePath(mask, Name.Height), 0, coerce=True),
+                self._height,
+            )
 
         # If /ImageMask is true, then this image is a stencil mask
         # (Images that draw with this stencil mask will have a reference to
@@ -272,24 +271,25 @@ def _find_inline_images(contentsinfo: ContentsInfo) -> Iterator[ImageInfo]:
         )
 
 
-def _image_xobjects(container) -> Iterator[tuple[Object, str]]:
-    """Search for all XObject-based images in the container.
+def _drawn_xobjects(
+    container: Object, contentsinfo: ContentsInfo, subtype: Name
+) -> Iterator[tuple[Stream, list[XobjectSettings]]]:
+    """Find the XObjects of one subtype that the container draws.
 
-    Usually the container is a page, but it could also be a Form XObject
-    that contains images. Filter out the Form XObjects which are dealt with
-    elsewhere.
+    Usually the container is a page, but it could also be a Form XObject.
 
-    Generate a sequence of tuples (image, xobj container), where container,
-    where xobj is the name of the object and image is the object itself,
-    since the object does not know its own name.
-
+    Generates each XObject with every drawing of it, since the object does
+    not know its own name. Each name drawn is looked up as a Name, rather
+    than matching the names of /XObject as text, since PDF names need not
+    be valid UTF-8.
     """
-    for key, candidate in (container.get_dict(RESOURCES_XOBJECT) or {}).items():
-        if candidate is None or Name.Subtype not in candidate:
-            continue
-        if candidate[Name.Subtype] == Name.Image:
-            pdfimage = candidate
-            yield (pdfimage, key)
+    xobjects = container.get(RESOURCES_XOBJECT)
+    if not isinstance(xobjects, Dictionary):
+        return
+    for draws in contentsinfo.name_index.values():
+        candidate = xobjects.get(draws[0].resource_name)
+        if isinstance(candidate, Stream) and candidate.get(Name.Subtype) == subtype:
+            yield candidate, draws
 
 
 def _find_regular_images(
@@ -302,10 +302,8 @@ def _find_regular_images(
 
     Generates images with their DPI at time of drawing.
     """
-    for pdfimage, xobj in _image_xobjects(container):
-        if xobj not in contentsinfo.name_index:
-            continue
-        for draw in contentsinfo.name_index[xobj]:
+    for pdfimage, draws in _drawn_xobjects(container, contentsinfo, Name.Image):
+        for draw in draws:
             if draw.stack_depth == 0 and _is_unit_square(draw.shorthand):
                 # At least one PDF in the wild (and test suite) draws an image
                 # when the graphics stack depth is 0, meaning that the image
@@ -322,21 +320,60 @@ def _find_regular_images(
             )
 
 
-def _find_form_xobject_images(pdf: Pdf, container: Object, contentsinfo: ContentsInfo):
+#: How deeply Form XObjects may be nested before the rest are ignored.
+MAX_FORM_NESTING = 64
+
+#: How many times one page may draw Form XObjects before the rest are ignored.
+MAX_FORM_DRAWS = 100_000
+
+
+class _FormDraws:
+    """Bounds the Form XObjects interpreted while examining one page.
+
+    A Form XObject is interpreted every time it is drawn, because each drawing
+    has its own transformation matrix. Left unchecked, a form that draws itself
+    would never finish, and a chain of forms that each draw the next twice
+    takes exponential time.
+    """
+
+    def __init__(self) -> None:
+        self._active = ObjectSet()
+        self._remaining = MAX_FORM_DRAWS
+
+    def enter(self, form: Object) -> bool:
+        """Return True if the form may be interpreted; pair with leave()."""
+        if self._remaining <= 0:
+            return False
+        if len(self._active) >= MAX_FORM_NESTING or not self._active.add(form):
+            return False  # nested too deeply, or the form is drawing itself
+        self._remaining -= 1
+        if self._remaining == 0:
+            logger.warning(
+                "A page draws Form XObjects more than %d times; the rest are "
+                "ignored when examining the page.",
+                MAX_FORM_DRAWS,
+            )
+        return True
+
+    def leave(self, form: Object) -> None:
+        self._active.discard(form)
+
+
+def _find_form_xobject_images(
+    pdf: Pdf,
+    container: Object,
+    contentsinfo: ContentsInfo,
+    form_draws: _FormDraws | None = None,
+):
     """Find any images that are in Form XObjects in the container.
 
     The container may be a page, or a parent Form XObject.
 
     """
-    for xobj, candidate in (container.get_dict(RESOURCES_XOBJECT) or {}).items():
-        if candidate is None or candidate.get(Name.Subtype) != Name.Form:
-            continue
-
-        form_xobject = candidate
-        for settings in contentsinfo.xobject_settings:
-            if settings.name != xobj:
-                continue
-
+    if form_draws is None:
+        form_draws = _FormDraws()
+    for form_xobject, draws in _drawn_xobjects(container, contentsinfo, Name.Form):
+        for settings in draws:
             # Find images once for each time this Form XObject is drawn.
             # This could be optimized to cache the multiple drawing events
             # but in practice both Form XObjects and multiple drawing of the
@@ -345,14 +382,20 @@ def _find_form_xobject_images(pdf: Pdf, container: Object, contentsinfo: Content
             # A Form XObject inherits the graphics state (including fill color)
             # in effect at the Do that draws it, so a mask painted with an
             # inherited gray/color fill must carry that classification inward.
-            yield from _process_content_streams(
-                pdf=pdf,
-                container=form_xobject,
-                shorthand=ctm_shorthand,
-                initial_fill_ink=settings.fill_ink,
-                initial_text_render_mode=settings.text_render_mode,
-                initial_glyphless_font=settings.glyphless_font,
-            )
+            if not form_draws.enter(form_xobject):
+                continue
+            try:
+                yield from _process_content_streams(
+                    pdf=pdf,
+                    container=form_xobject,
+                    shorthand=ctm_shorthand,
+                    initial_fill_ink=settings.fill_ink,
+                    initial_text_render_mode=settings.text_render_mode,
+                    initial_glyphless_font=settings.glyphless_font,
+                    form_draws=form_draws,
+                )
+            finally:
+                form_draws.leave(form_xobject)
 
 
 def _process_content_streams(
@@ -363,6 +406,7 @@ def _process_content_streams(
     initial_fill_ink=Ink.mono,
     initial_text_render_mode: int = 0,
     initial_glyphless_font: bool = False,
+    form_draws: _FormDraws | None = None,
 ) -> Iterator[VectorMarker | TextMarker | ImageInfo]:
     """Find all individual instances of images drawn in the container.
 
@@ -383,10 +427,8 @@ def _process_content_streams(
     """
     if container.get(Name.Type) == Name.Page and Name.Contents in container:
         initial_shorthand = shorthand or UNIT_SQUARE
-    elif (
-        container.get(Name.Type) == Name.XObject
-        and container[Name.Subtype] == Name.Form
-    ):
+    elif container.get(Name.Subtype) == Name.Form:
+        # /Type is optional for XObjects, so recognize forms by /Subtype
         # Set the CTM to the state it was when the "Do" operator was
         # encountered that is drawing this instance of the Form XObject
         ctm = Matrix(shorthand) if shorthand else Matrix()
@@ -419,4 +461,4 @@ def _process_content_streams(
         yield TextMarker()
     yield from _find_inline_images(contentsinfo)
     yield from _find_regular_images(container, contentsinfo)
-    yield from _find_form_xobject_images(pdf, container, contentsinfo)
+    yield from _find_form_xobject_images(pdf, container, contentsinfo, form_draws)

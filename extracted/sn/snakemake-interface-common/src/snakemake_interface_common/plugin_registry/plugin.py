@@ -335,6 +335,10 @@ class PluginBase(ABC, Generic[TSettingsBase]):
     def _parse_type(self, thefield: Field, value: Any, thetype: Any) -> Any:
         def apply_type(value: Any, thetype: Any) -> Any:
             try:
+                if typing.get_origin(thetype) is list:
+                    thetype = typing.get_args(thetype)[0]
+                if isinstance(value, list) and thetype is not list:
+                    return [thetype(item) for item in value]
                 return thetype(value)
             except Exception as e:
                 raise WorkflowError(

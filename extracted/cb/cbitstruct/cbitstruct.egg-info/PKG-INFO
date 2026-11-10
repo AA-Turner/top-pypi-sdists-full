@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cbitstruct
-Version: 1.2.0
+Version: 1.2.1
 Summary: Faster C implementation of bitstruct
 Home-page: https://github.com/qchateau/cbitstruct
 Author: Quentin CHATEAU
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: C
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Provides-Extra: test

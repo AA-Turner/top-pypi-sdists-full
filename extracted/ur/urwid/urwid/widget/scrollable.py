@@ -31,7 +31,7 @@ import typing
 
 from urwid.util import is_mouse_press
 
-from .constants import BOX_SYMBOLS, SHADE_SYMBOLS, Sizing
+from .constants import BOX_SYMBOLS, SHADE_SYMBOLS, MouseButton, Sizing
 from .widget import AbstractBoxWidget, AbstractWidget
 from .widget_decoration import WidgetDecoration, WidgetError
 
@@ -77,7 +77,14 @@ SCROLLBAR_LEFT: typing.Final = "left"
 SCROLLBAR_RIGHT: typing.Final = "right"
 
 # Mouse wheel buttons, vertical and horizontal: they send no release, so they never start or follow a drag.
-_WHEEL_BUTTONS: typing.Final = frozenset((4, 5, 6, 7))
+_WHEEL_BUTTONS: typing.Final = frozenset(
+    (
+        MouseButton.WHEEL_UP,
+        MouseButton.WHEEL_DOWN,
+        MouseButton.WHEEL_LEFT,
+        MouseButton.WHEEL_RIGHT,
+    )
+)
 
 
 class ScrollbarSymbols(enum.StrEnum):
@@ -664,7 +671,7 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
             Off by default, so a wrapped widget that is not selectable can still be scrolled by keys.
         :param end_markers: characters drawn in the first and the last scrollbar row, or ``None`` for no markers,
             such as ``(ScrollBar.Symbols.ARROW_TRIANGLE_UP, ScrollBar.Symbols.ARROW_TRIANGLE_DOWN)``.
-            They are drawn only when the scrollbar has at least 3 rows,
+            They are drawn only when the scrollbar has at least 4 rows, so the thumb has 2 trough rows to move in,
             and a click on one scrolls one step towards its end, as the mouse wheel does.
         :param attr: display attribute of the trough and the end markers.
         :param focus_attr: display attribute of the trough and the end markers when rendered in focus;
@@ -747,7 +754,7 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
 
         ow_size = (max(0, maxcol - self._scrollbar_width), maxrow)
         sb_width = maxcol - ow_size[0]
-        markers = self._end_markers is not None and maxrow >= 3
+        markers = self._end_markers is not None and maxrow >= 4
         trough_height = maxrow - 2 * markers
         ends_visible: tuple[bool, bool] | None = None  # set where the item counts cannot tell
 
@@ -1051,16 +1058,16 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
                 self._press_on_marker = False
 
         if layout is not None:
-            if on_scrollbar and button == 1:
+            if on_scrollbar and button == MouseButton.LEFT:
                 if not on_marker:
                     return self._move_thumb(layout, row, focus)
                 step = layout.marker_step(row)
                 if not is_mouse_press(event) or not step:
                     return True  # the drag or release of a marker press
                 # A marker press scrolls one step, as the wheel does.
-                button = 4 if step < 0 else 5
+                button = (MouseButton.WHEEL_UP if step < 0 else MouseButton.WHEEL_DOWN).value
 
-            if on_scrollbar and not supports_scroll and button in {4, 5}:
+            if on_scrollbar and not supports_scroll and button in {MouseButton.WHEEL_UP, MouseButton.WHEEL_DOWN}:
                 # A widget without set_scrollpos (such as ListBox) scrolls itself on the wheel.
                 # A column past its right edge reaches no child, so the list scrolls even when the
                 # child on that row would handle the wheel itself.
@@ -1071,12 +1078,17 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
         if not on_scrollbar and hasattr(ow, "mouse_event"):
             handled = ow.mouse_event(ow_size, event, button, ow_col, row, focus)
 
-        if not handled and ow_base is not None and supports_scroll and button in {4, 5}:  # scroll wheel up, down
+        if (
+            not handled
+            and ow_base is not None
+            and supports_scroll
+            and button in {MouseButton.WHEEL_UP, MouseButton.WHEEL_DOWN}
+        ):
             pos = ow_base.get_scrollpos(ow_size)
             posmax = ow_base.rows_max(ow_size) - ow_size[1]
             # Content that fits keeps its position, as with the scroll keys, and the wheel stops at the last row.
             if posmax > 0:
-                newpos = max(pos - 1, 0) if button == 4 else min(pos + 1, posmax)
+                newpos = max(pos - 1, 0) if button == MouseButton.WHEEL_UP else min(pos + 1, posmax)
                 ow_base.set_scrollpos(newpos)  # type: ignore[attr-defined]  # gated
             return True
 

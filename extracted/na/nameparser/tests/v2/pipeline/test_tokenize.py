@@ -1,12 +1,15 @@
 import dataclasses
+import unicodedata
 
 import pytest
 
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline._extract import extract_delimited
 from nameparser._pipeline._state import ParseState
+from nameparser._pipeline import _tokenize
 from nameparser._pipeline._tokenize import tokenize
-from nameparser._policy import Policy
+from nameparser import _policy
+from nameparser._policy import Policy, Script
 from nameparser._types import Role
 
 
@@ -95,12 +98,14 @@ _KEEP_ALL = Policy(strip_emoji=False, strip_bidi=False)
 
 @pytest.mark.parametrize("policy", [Policy(), _KEEP_ALL],
                          ids=["default", "keep-emoji-and-bidi"])
-@pytest.mark.parametrize("ch", ["​", "﻿"],
-                         ids=["zero-width-space", "byte-order-mark"])
-def test_zero_width_space_and_bom_separate_under_every_policy(
+@pytest.mark.parametrize("ch", ["​", "\u2063", "﻿"],
+                         ids=["zero-width-space", "invisible-separator",
+                              "byte-order-mark"])
+def test_the_invisible_separators_separate_under_every_policy(
         ch: str, policy: Policy) -> None:
     # #851: no opt-out reaches them -- neither strip switch covers
-    # them, since neither is an emoji or a direction control
+    # them, since none is an emoji or a direction control; U+2063, the
+    # invisible separator, is the one whose Unicode name says what it is
     for text, words in [(f"John{ch}Smith", ["John", "Smith"]),
                         (f"{ch}Dr. John", ["Dr.", "John"]),
                         (f"John {ch}Smith{ch}", ["John", "Smith"])]:
@@ -111,13 +116,18 @@ def test_zero_width_space_and_bom_separate_under_every_policy(
         assert state.comma_offsets == ()
 
 
-@pytest.mark.parametrize("ch", ["‌", "‍", "⁠", "­"],
-                         ids=["zwnj", "zwj", "word-joiner", "soft-hyphen"])
+@pytest.mark.parametrize("ch", ["‌", "‍", "⁠", "­",
+                                "\u2061", "\u2062", "\u2064", "\u180e"],
+                         ids=["zwnj", "zwj", "word-joiner", "soft-hyphen",
+                              "function-application", "invisible-times",
+                              "invisible-plus", "mongolian-vowel-separator"])
 def test_joiners_and_soft_hyphen_stay_inside_the_word(ch: str) -> None:
     # #851's exclusions: ZWNJ and ZWJ decide how the letters beside
     # them join, the word joiner means no break, and the soft hyphen
     # marks a break inside one word, so splitting at any of them would
-    # cut a real word in two
+    # cut a real word in two. The invisible math operators beside
+    # U+2063 join operands rather than separate words, and the
+    # Mongolian vowel separator shapes the letters beside it
     assert [t.text for t in _tokenized(f"ab{ch}cd ef").tokens] == [
         f"ab{ch}cd", "ef"]
 
@@ -176,6 +186,55 @@ def test_interpunct_between_kana_splits() -> None:
     # sloppy-IME katakana transcription
     state = _tokenized("マイケル·ジャクソン")
     assert [t.text for t in state.tokens] == ["マイケル", "ジャクソン"]
+
+
+# rules/T3 on hangul typed decomposed (#1087): the flank guard reads raw
+# characters, so it sees the conjoining jamo a decomposed syllable is
+# written in. Each row: the text, its tokens composed, and the tokens
+# with the HANGUL range back at the precomposed syllables alone, the
+# table before #1087 (recorded 2026-11-05; the control below re-takes it
+# live).
+_DECOMPOSED_FLANKS = [
+    ("이서연·김민준", ["이서연", "김민준"], ["이서연·김민준"]),
+    ("김·민준", ["김", "민준"], ["김·민준"]),
+    # one row per jamo span, the extended ones archaic and composing to
+    # nothing, so their tokens are their own text
+    ("ꥠᅡ·김민준", ["ꥠᅡ", "김민준"], ["ꥠᅡ·김민준"]),
+    ("김ힰ·김민준", ["김ힰ", "김민준"], ["김ힰ·김민준"]),
+    # half-flanked: a Latin neighbour never qualifies, in either table
+    ("김민준·Smith", ["김민준·Smith"], ["김민준·Smith"]),
+]
+
+
+@pytest.mark.parametrize(("text", "tokens"),
+                         [(text, tokens) for text, tokens, _ in _DECOMPOSED_FLANKS])
+def test_interpunct_beside_decomposed_hangul_reads_as_composed(
+        text: str, tokens: list[str]) -> None:
+    nfd = unicodedata.normalize("NFD", text)
+    assert nfd != text  # sanity: the decomposition ran
+    got = [unicodedata.normalize("NFC", t.text) for t in _tokenized(nfd).tokens]
+    assert got == tokens
+    # the composed twin reads the same
+    assert [t.text for t in _tokenized(text).tokens] == tokens
+
+
+@pytest.mark.parametrize(("text", "unguarded"),
+                         [(text, unguarded) for text, _, unguarded in _DECOMPOSED_FLANKS])
+def test_decomposed_flank_control_without_the_jamo_range(
+        monkeypatch: pytest.MonkeyPatch, text: str, unguarded: list[str]) -> None:
+    # the negative control: the flank classifier rebuilt by the shipped
+    # factory over a table whose HANGUL holds the syllables alone
+    monkeypatch.setitem(_policy._SCRIPT_RANGES, Script.HANGUL,
+                        (_policy._HANGUL_SYLLABLES,))
+    monkeypatch.setattr(_tokenize, "_classified_char", _policy._script_matcher(
+        *_policy._SCRIPT_RANGES, whole=True))
+    nfd = unicodedata.normalize("NFD", text)
+    got = [unicodedata.normalize("NFC", t.text) for t in _tokenized(nfd).tokens]
+    assert got == unguarded
+
+
+def test_the_decomposed_flank_control_moves_a_row() -> None:
+    assert any(row[1] != row[2] for row in _DECOMPOSED_FLANKS)
 
 
 def test_interpunct_at_edges_stays() -> None:

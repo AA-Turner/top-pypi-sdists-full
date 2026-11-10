@@ -1,0 +1,201 @@
+from __future__ import annotations
+
+import numpy as np
+
+from pyfixest.core.crv1 import crv1_meat_loop
+from pyfixest.estimation.internals.literals import (
+    HacVcovTypeOptions,
+    HeteroVcovTypeOptions,
+)
+from pyfixest.estimation.internals.model_state import SandwichComponents
+from pyfixest.estimation.internals.vcov_utils import (
+    _dk_meat_panel,
+    _get_panel_idx,
+    _nw_meat_panel,
+    _nw_meat_time,
+)
+
+
+def vcov_iid_ols(
+    residuals: np.ndarray,
+    bread: np.ndarray,
+    N: int | float,
+    weights: np.ndarray | None = None,
+) -> np.ndarray:
+    """Compute IID OLS covariance from response-scale residuals.
+
+    ``weights=None`` applies no weights. Otherwise, the residual sum of
+    squares is weighted by the observation weights.
+    """
+    squared_residuals = residuals.flatten() ** 2
+    if weights is not None:
+        squared_residuals = weights.flatten() * squared_residuals
+    sigma2 = np.sum(squared_residuals) / (N - 1)
+    return bread * sigma2
+
+
+def vcov_iid_glm(bread: np.ndarray) -> np.ndarray:
+    "IID Variance-Covariance Matrix for GLMs."
+    return bread
+
+
+def meat_hetero(
+    sandwich: SandwichComponents,
+    X: np.ndarray,
+    frequency_weights: np.ndarray | None,
+    normal_equation_weights: np.ndarray | None,
+    vcov_type_detail: HeteroVcovTypeOptions,
+) -> np.ndarray:
+    """Unscaled heteroskedasticity-robust meat (HC1/HC2/HC3), shape (k, k).
+
+    Parameters
+    ----------
+    sandwich : SandwichComponents
+        Scores and bread of the fit. HC2/HC3 leverage reads the bread as
+        ``(X' W X)^-1`` of the supplied ``X``, so the model layer rejects
+        them for IV fits, whose bread belongs to the projected design.
+    X : np.ndarray
+        Within-scale design, shape (N, k), used for the HC2/HC3 leverage.
+    frequency_weights : np.ndarray or None
+        User-scale weights when ``weights_type == "fweights"``, else ``None``.
+        Each row then stands for ``f_i`` repeated observations.
+    normal_equation_weights : np.ndarray or None
+        Row weights ``w_i`` of the normal equations when ``X`` is *not*
+        pre-multiplied by ``sqrt(w)``. ``None`` when the caller passes a
+        square-root-weighted design, as GLMs do in this layer.
+    """
+    # For HC2/HC3, h_i = w_i x_i' (X' W X)^-1 x_i. Frequency-weighted
+    # rows represent repeated observations, so their per-observation leverage
+    # is h_i / f_i and their aggregated score is divided by sqrt(f_i).
+    scores = sandwich.scores
+    if vcov_type_detail in ["hetero", "HC1"]:
+        transformed_scores = scores
+    elif vcov_type_detail in ["HC2", "HC3"]:
+        leverage = np.sum(X * (X @ sandwich.bread), axis=1)
+        if normal_equation_weights is not None:
+            leverage = normal_equation_weights.flatten() * leverage
+        if frequency_weights is not None:
+            leverage = leverage / frequency_weights.flatten()
+        transformed_scores = (
+            scores / np.sqrt(1 - leverage)[:, None]
+            if vcov_type_detail == "HC2"
+            else scores / (1 - leverage)[:, None]
+        )
+    else:
+        raise ValueError(
+            f"vcov_type_detail must be one of {HeteroVcovTypeOptions}, got {vcov_type_detail}."
+        )
+
+    if frequency_weights is not None:
+        transformed_scores = transformed_scores / np.sqrt(frequency_weights)
+
+    return transformed_scores.T @ transformed_scores
+
+
+def meat_hac(
+    scores: np.ndarray,
+    time_arr: np.ndarray,
+    panel_arr: np.ndarray | None,
+    lag: int | None,
+    vcov_type_detail: HacVcovTypeOptions,
+) -> np.ndarray:
+    "Unscaled HAC meat, shape (k, k): Newey-West (time or panel) or Driscoll-Kraay."
+    if vcov_type_detail == "NW":
+        if panel_arr is None:
+            if lag is None:
+                raise ValueError(
+                    "We have not yet implemented the default Newey-West HAC lag. Please provide a lag value via the `vcov_kwargs`."
+                )
+            if len(np.unique(time_arr)) != len(time_arr):
+                raise ValueError(
+                    "There are duplicate time periods in the data. This is not supported for HAC SEs."
+                )
+            hac_meat = _nw_meat_time(scores=scores, time_arr=time_arr, lag=lag)
+        else:
+            order, _, starts, counts, panel_arr_sorted, time_arr_sorted = (
+                _get_panel_idx(panel_arr=panel_arr, time_arr=time_arr)
+            )
+
+            hac_meat = _nw_meat_panel(
+                scores=scores[order],
+                time_arr=time_arr_sorted,
+                panel_arr=panel_arr_sorted,
+                starts=starts,
+                counts=counts,
+                lag=lag,
+            )
+    elif vcov_type_detail == "DK":
+        if panel_arr is None:
+            raise ValueError("Missing required 'panel_id' for DK vcov")
+
+        order, _, starts, _, time_arr_sorted, _ = _get_panel_idx(
+            # hack: sort first by time, than panel
+            # we need the data sorted by time, but sort by
+            # panel too to check for duplicate time periods
+            # per panel
+            panel_arr=time_arr,
+            time_arr=panel_arr,
+        )
+        hac_meat = _dk_meat_panel(
+            scores=scores[order], time_arr=time_arr_sorted, idx=starts, lag=lag
+        )
+    else:
+        raise ValueError("vcov_type_detail must be one of 'NW' or 'DK'.")
+
+    return hac_meat
+
+
+def meat_crv1(
+    scores: np.ndarray,
+    clustid: np.ndarray,
+    cluster_col: np.ndarray,
+) -> np.ndarray:
+    "Unscaled CRV1 cluster-robust meat, shape (k, k)."
+    return crv1_meat_loop(
+        scores=scores.astype(np.float64),
+        clustid=clustid.astype(np.uintp),
+        cluster_col=cluster_col.astype(np.uintp),
+    )
+
+
+def _jackknife_vcov(beta_jack: np.ndarray, beta_center: np.ndarray) -> np.ndarray:
+    "Aggregate leave-one-cluster-out coefficients into a CRV3 vcov."
+    vcov_mat = np.zeros((beta_jack.shape[1], beta_jack.shape[1]))
+    for ixg in range(beta_jack.shape[0]):
+        beta_centered = beta_jack[ixg, :] - beta_center
+        vcov_mat += np.outer(beta_centered, beta_centered)
+
+    return vcov_mat
+
+
+def vcov_crv3_fast(
+    X: np.ndarray,
+    Y: np.ndarray,
+    weights: np.ndarray | None,
+    beta_hat: np.ndarray,
+    clustid: np.ndarray,
+    cluster_col: np.ndarray,
+) -> np.ndarray:
+    """Compute unscaled CRV3 from within-scale arrays without retaining WLS data."""
+    beta_jack = np.zeros((len(clustid), X.shape[1]))
+
+    if weights is None:
+        X_solver = X
+        Y_solver = Y.reshape(-1, 1)
+    else:
+        sqrt_weights = np.sqrt(weights).reshape(-1, 1)
+        X_solver = X * sqrt_weights
+        Y_solver = Y.reshape(-1, 1) * sqrt_weights
+
+    tXX = X_solver.T @ X_solver
+    tXy = X_solver.T @ Y_solver
+
+    for ixg, g in enumerate(clustid):
+        group = np.equal(g, cluster_col)
+        Xg = X_solver[group]
+        Yg = Y_solver[group]
+        tXgXg = Xg.T @ Xg
+        tXgyg = Xg.T @ Yg
+        beta_jack[ixg, :] = (np.linalg.pinv(tXX - tXgXg) @ (tXy - tXgyg)).flatten()
+
+    return _jackknife_vcov(beta_jack=beta_jack, beta_center=beta_hat)

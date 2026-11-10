@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-source-salesforce
-Version: 2.10.5
+Version: 2.11.0
 Summary: Source implementation for Salesforce.
 Home-page: https://airbyte.com
 License: ELv2

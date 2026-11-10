@@ -25,8 +25,9 @@ from ormar.exceptions import (
 )
 from ormar.models.row_registry import RowRegistry
 from ormar.queryset import FieldAccessor, FilterQuery, SelectAction
-from ormar.queryset.actions.order_action import OrderAction
+from ormar.queryset.actions.order_action import OrderAction, expand_pk_orders
 from ormar.queryset.clause import FilterGroup, QueryClause
+from ormar.queryset.prefetch import Prefetch
 from ormar.queryset.queries.prefetch_query import PrefetchQuery
 from ormar.queryset.queries.query import Query
 from ormar.queryset.templates import (
@@ -107,6 +108,7 @@ class QuerySet(Generic[T]):
         limit_raw_sql: bool = False,
         proxy_source_model: Optional[type["Model"]] = None,
         reverse_result: bool = False,
+        prefetch_querysets: Optional[dict[str, "QuerySet"]] = None,
     ) -> None:
         self.proxy_source_model = proxy_source_model
         self.model_cls = model_cls
@@ -120,6 +122,9 @@ class QuerySet(Generic[T]):
         self.order_bys = order_bys or []
         self.limit_sql_raw = limit_raw_sql
         self._reverse_result = reverse_result
+        self._prefetch_querysets: dict[str, "QuerySet"] = (
+            {} if prefetch_querysets is None else prefetch_querysets
+        )
 
     @property
     def model_config(self) -> "OrmarConfig":
@@ -158,6 +163,7 @@ class QuerySet(Generic[T]):
         limit_raw_sql: Optional[bool] = None,
         proxy_source_model: Optional[type["Model"]] = None,
         reverse_result: Optional[bool] = None,
+        prefetch_querysets: Optional[dict[str, "QuerySet"]] = None,
     ) -> "QuerySet":
         """
         Method that returns new instance of queryset based on passed params,
@@ -170,6 +176,7 @@ class QuerySet(Generic[T]):
             "prefetch_related": "_prefetch_related",
             "limit_raw_sql": "limit_sql_raw",
             "reverse_result": "_reverse_result",
+            "prefetch_querysets": "_prefetch_querysets",
         }
         passed_args = locals()
 
@@ -191,6 +198,7 @@ class QuerySet(Generic[T]):
             limit_raw_sql=replace_if_none("limit_raw_sql"),
             proxy_source_model=replace_if_none("proxy_source_model"),
             reverse_result=replace_if_none("reverse_result"),
+            prefetch_querysets=replace_if_none("prefetch_querysets"),
         )
 
     async def _prefetch_related_models(
@@ -212,6 +220,7 @@ class QuerySet(Generic[T]):
             prefetch_related=self._prefetch_related,
             select_related=self._select_related,
             orders_by=self.order_bys,
+            prefetch_querysets=self._prefetch_querysets,
         )
         return await query.prefetch_related(models=models)  # type: ignore
 
@@ -762,7 +771,7 @@ class QuerySet(Generic[T]):
         return self.rebuild_self(select_related=relations)
 
     def prefetch_related(
-        self, related: Union[list, str, FieldAccessor]
+        self, related: Union[list, str, FieldAccessor, Prefetch]
     ) -> "QuerySet[T]":
         """
         Allows to prefetch related models during query - but opposite to
@@ -783,10 +792,22 @@ class QuerySet(Generic[T]):
         """
         if not isinstance(related, list):
             related = [related]
+        querysets = dict(self._prefetch_querysets)
+        for item in related:
+            if isinstance(item, Prefetch):
+                if not isinstance(item.queryset, QuerySet):
+                    raise QueryDefinitionError(
+                        f"Prefetch queryset must be a QuerySet, got {item.queryset!r}."
+                    )
+                (path,) = extract_access_chains([item.relation])
+                querysets[path] = item.queryset
+        related = [
+            item.relation if isinstance(item, Prefetch) else item for item in related
+        ]
         related = cast(list, extract_access_chains(related))
 
         related = list(set(list(self._prefetch_related) + related))
-        return self.rebuild_self(prefetch_related=related)
+        return self.rebuild_self(prefetch_related=related, prefetch_querysets=querysets)
 
     def flatten_fields(
         self,
@@ -990,15 +1011,7 @@ class QuerySet(Generic[T]):
         """
         if not isinstance(columns, list):
             columns = [columns]
-
-        orders_by = [
-            (
-                OrderAction(order_str=x, model_cls=self.model_cls)  # type: ignore
-                if not isinstance(x, OrderAction)
-                else x
-            )
-            for x in columns
-        ]
+        orders_by = expand_pk_orders(model_cls=self.model, columns=columns)
 
         order_bys = self.order_bys + [x for x in orders_by if x not in self.order_bys]
         return self.rebuild_self(order_bys=order_bys)
@@ -1046,14 +1059,14 @@ class QuerySet(Generic[T]):
             rows = await executor.fetch_all(template.statement, template.params)
         if not rows:
             return []
-        column_map = values_column_map(
+        columns = values_column_map(
             model_cls=self.model_cls,  # type: ignore
             select_related=self._select_related,
             excludable=excludable,
             exclude_through=exclude_through,
             column_names=list(rows[0].keys()),  # type: ignore
         )
-        result = extract_values(rows=rows, column_map=column_map, as_dict=_as_dict)
+        result = extract_values(rows=rows, columns=columns, as_dict=_as_dict)
         if _as_dict:
             return result
         if _flatten and self._excludable.include_entry_count() != 1:
@@ -1130,9 +1143,7 @@ class QuerySet(Generic[T]):
         wrap = functools.partial(
             count_statement,
             distinct=distinct,
-            pk_column_name=self.model.get_column_alias(
-                field_name=self.model_config.pkname
-            ),
+            pk_column_names=self.model_config.pk.column_aliases(),
         )
         template = self.build_select_template(variant=("count", distinct), wrap=wrap)
         async with self.model_config.database.get_query_executor() as executor:
@@ -1249,6 +1260,7 @@ class QuerySet(Generic[T]):
         :return: number of updated rows
         :rtype: int
         """
+        self.model.verify_writable()
         if not each and not (self.filter_clauses or self.exclude_clauses):
             raise QueryDefinitionError(
                 "You cannot update without filtering the queryset first. "
@@ -1288,6 +1300,7 @@ class QuerySet(Generic[T]):
         :return: number of deleted rows
         :rtype:int
         """
+        self.model.verify_writable()
         if kwargs or args:
             return await self.filter(*args, **kwargs).delete()
         if not each and not (self.filter_clauses or self.exclude_clauses):
@@ -1372,16 +1385,16 @@ class QuerySet(Generic[T]):
         :return: combined list of OrderAction objects
         :rtype: list[OrderAction]
         """
-        pk_default = OrderAction(
-            order_str=self.model.ormar_config.pkname,
-            model_cls=self.model_cls,  # type: ignore
-        )
+        pk_defaults = [
+            OrderAction(order_str=field, model_cls=self.model_cls)  # type: ignore
+            for field in self.model_config.pk.fields
+        ]
         user_orders = self.order_bys
         if reverse:
-            pk_default = pk_default.flipped()
+            pk_defaults = [order.flipped() for order in pk_defaults]
             user_orders = [ob.flipped() for ob in user_orders]
         has_source_order = any(x.is_source_model_order for x in self.order_bys)
-        prefix: list["OrderAction"] = [] if has_source_order else [pk_default]
+        prefix: list["OrderAction"] = [] if has_source_order else pk_defaults
         return prefix + list(user_orders)
 
     async def _fetch_single(self, order_bys: list["OrderAction"]) -> "T":
@@ -1535,9 +1548,10 @@ class QuerySet(Generic[T]):
                 order_bys=(
                     [
                         OrderAction(
-                            order_str=f"-{self.model.ormar_config.pkname}",
+                            order_str=f"-{field}",
                             model_cls=self.model_cls,  # type: ignore
                         )
+                        for field in self.model_config.pk.fields
                     ]
                     if not any([x.is_source_model_order for x in self.order_bys])
                     else []
@@ -1612,16 +1626,16 @@ class QuerySet(Generic[T]):
         :return: updated or created model
         :rtype: Model
         """
-        pk_name = self.model_config.pkname
-        if "pk" in kwargs:
-            kwargs[pk_name] = kwargs.pop("pk")
-        if pk_name not in kwargs or kwargs.get(pk_name) is None:
+        key = self.model_config.pk
+        kwargs = key.expand_pk_kwarg(kwargs=kwargs)
+        lookup = key.lookup(kwargs=kwargs)
+        if lookup is None:
             return await self.create(**kwargs)
         try:
-            model = await self.get(pk=kwargs[pk_name])
+            model = await self.get(**lookup)
         except NoMatch:
             return await self.create(**kwargs)
-        return await model.update(**kwargs)
+        return await model.update(_partial=True, **kwargs)
 
     async def all(self, *args: Any, **kwargs: Any) -> list["T"]:  # noqa: A003
         """
@@ -1684,7 +1698,9 @@ class QuerySet(Generic[T]):
 
         rows: list = []
         last_primary_key = None
-        pk_alias = self.model.get_column_alias(self.model_config.pkname)
+        read_pk = self.model_config.pk.getter(
+            keys=self.model_config.pk.column_aliases()
+        )
         # Single shared cache across all yielded chunks so 1-row chunks
         # (the common iterate case) still amortize the plan build.
         plan_cache: dict = {}
@@ -1695,7 +1711,7 @@ class QuerySet(Generic[T]):
             transactional=True
         ) as executor:
             async for row in executor.iterate(template.statement, template.params):
-                current_primary_key = row[pk_alias]
+                current_primary_key = read_pk(row)
                 if last_primary_key == current_primary_key or last_primary_key is None:
                     last_primary_key = current_primary_key
                     rows.append(row)
@@ -1741,6 +1757,7 @@ class QuerySet(Generic[T]):
         :param objects: list of ormar models already initialized and ready to save.
         :type objects: list[Model]
         """
+        self.model.verify_writable()
 
         if not objects:
             raise ModelListEmptyError("Bulk create objects are empty!")
@@ -1749,7 +1766,9 @@ class QuerySet(Generic[T]):
         trusted = self.model.flat_row_model()
         for i, obj in enumerate(objects):
             values = dump_for_save(obj=obj) if trusted else obj.model_dump()
-            ready_objects.append(obj.prepare_model_to_save(new_kwargs=values))
+            row = obj.prepare_model_to_save(new_kwargs=values)
+            obj._verify_key_parts_set(row=row)
+            ready_objects.append(row)
             if i % 100 == 99:  # pragma: no cover
                 await asyncio.sleep(0)
 
@@ -1801,11 +1820,13 @@ class QuerySet(Generic[T]):
         :param columns: list of columns to update
         :type columns: list[str]
         """
+        self.model.verify_writable()
         if not objects:
             raise ModelListEmptyError("Bulk update objects are empty!")
 
         ready_objects = []
-        pk_name = self.model_config.pkname
+        persisted_keys: list[Any] = []
+        key = self.model_config.pk
         if not columns:
             columns = list(
                 self.model.extract_db_own_fields().union(
@@ -1813,23 +1834,29 @@ class QuerySet(Generic[T]):
                 )
             )
 
-        if pk_name not in columns:
-            columns.append(pk_name)
+        for field in key.fields:
+            if field not in columns:
+                columns.append(field)
 
         onupdate_fields = self.model._onupdate_fields
         for field_name in onupdate_fields:
             if field_name not in columns:
                 columns.append(field_name)
 
-        columns = [self.model.get_column_alias(k) for k in columns]
+        columns = [
+            alias
+            for field_name in columns
+            for alias in self.model.get_column_aliases(field_name=field_name)
+        ]
 
         for i, obj in enumerate(objects):
             explicit_fields = obj.__setattr_fields__
             new_kwargs = obj.model_dump()
-            if new_kwargs.get(pk_name) is None:
+            if any(new_kwargs.get(field) is None for field in key.fields):
                 raise ModelPersistenceError(
                     "You cannot update unsaved objects. "
-                    f"{self.model.__name__} has to have {pk_name} filled."
+                    f"{self.model.__name__} has to have {', '.join(key.fields)} "
+                    "filled."
                 )
             new_kwargs = obj.populate_onupdate_value(
                 new_kwargs, explicit_fields=explicit_fields
@@ -1844,24 +1871,38 @@ class QuerySet(Generic[T]):
             ready_objects.append(
                 {"new_" + k: v for k, v in new_kwargs.items() if k in columns}
             )
+            persisted_keys.append(obj.persisted_key)
             if i % 100 == 99:  # pragma: no cover
                 await asyncio.sleep(0)
 
-        pk_column: sqlalchemy.Column = self.model_config.table.c[
-            self.model.get_column_alias(pk_name)
-        ]
-        pk_column_name = self.model.get_column_alias(pk_name)
+        pk_column_names = key.column_aliases()
         table_columns = [c.name for c in self.model_config.table.c]
-        updated = tuple(
-            k for k in columns if k != pk_column_name and k in table_columns
+        keys_moved = any(
+            persisted != obj.pk for persisted, obj in zip(persisted_keys, objects)
         )
+        where_prefix = "old_" if keys_moved else "new_"
+        updated = tuple(
+            k
+            for k in columns
+            if (keys_moved or k not in pk_column_names) and k in table_columns
+        )
+        if keys_moved:
+            for row, persisted in zip(ready_objects, persisted_keys):
+                parts = key.flat_parts(value=persisted)
+                row.update(
+                    {
+                        f"old_{alias}": part
+                        for alias, part in zip(pk_column_names, parts)
+                    }
+                )
         expr = cached_statement(
             model_cls=self.model,
-            key=("bulk_update", updated),
+            key=("bulk_update", updated, where_prefix),
             builder=build_bulk_update,
             table=self.table,
-            pk_column=pk_column,
+            primary_key=key,
             columns=updated,
+            where_prefix=where_prefix,
         )
         # Multi-row execute_many: run in an explicit transaction so all rows
         # share a single COMMIT instead of one per row under AUTOCOMMIT.
@@ -1872,7 +1913,7 @@ class QuerySet(Generic[T]):
 
         for obj in objects:
             obj.set_save_status(True)
-            obj.__setattr_fields__.clear()
+            obj._reset_change_tracking()
 
         await cast(
             type["Model"], self.model_cls

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instance-repo
-Version: 1.4.6
+Version: 1.4.7
 Summary: InstanceRepo SDK — 评测 Instance 统一存储客户端（SDK-only；控制面由 apiserver 承载）
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -14,7 +14,7 @@ Requires-Dist: coverage>=7; extra == "dev"
 
 # InstanceRepository Python SDK
 
-Python、Go、Java SDK 源码版本均为 `1.4.6`。Split create 可将初始 `run_type` 交给支持该能力的服务端原子写入，重复创建保留已有标签。具体兼容条件见下文。实际安装版本以获准制品库的发布记录为准。[三语言功能矩阵](../../docs/sdk/parity.md)。
+Python SDK 源码版本为 `1.4.7`（待发布），Go、Java 为 `1.4.6`。Split create 可将初始 `run_type` 交给支持该能力的服务端原子写入，重复创建保留已有标签。具体兼容条件见下文。实际安装版本以获准制品库的发布记录为准。[三语言功能矩阵](../../docs/sdk/parity.md)。
 
 ## 安装与配置
 
@@ -58,11 +58,18 @@ def remove_metadata(repo: Repo, dataset: str, instance_id: str):
 
 旧服务端没有返回该能力标识时，SDK 保留 POST 后 PATCH 的兼容流程。此时重复创建仍可能更新标签。需要严格保持已有标签的调用方，必须先部署支持该契约的服务端。SDK 不通过 legacy 列表或 OSS 扫描判断本次是否新建。
 
-Python 版本升级通过 CR 合入后，可按 `.aoneci/release_pysdk.yaml` 使用 `pysdk/v1.4.6` tag 的现有发布流程。本次源码版本不表示制品已经发布。
+Python 版本升级通过 CR 合入后，可按 `.aoneci/release_pysdk.yaml` 使用 `pysdk/v1.4.7` tag 的现有发布流程。本次源码版本不表示制品已经发布。
 
 `instances.list_objects`返回文件/目录及`truncated`；不完整结果不能当完整目录。`compute_source_hash`与`list_content_hashes`用于变更检测；`push/push_many`的`skip_unchanged`不能替代内容校验或权限判定。
 
 显式`delete_files=True`只处理匹配注册记录的canonical主JSON、专属assets/report；默认仍仅删除元数据。必须停止同实例的上传/ingest；OSS与DB无跨系统原子性，文件删除后DB可能失败。它不是尚在设计的operation_id删除协议，不会删除镜像、历史对象版本或任意manifest引用。
+
+## 实例下载的元数据环境
+
+`repo.instances.pull(dataset, version, instance_id, output_dir, split="test", environment="pre")`
+使用 pre 元数据；`online` 同样覆盖本次读取。参数忽略首尾空白和大小写；空串、`None`（缺省）与 `auto` 沿用 profile 的元数据环境，保持原调用行为。参数只控制元数据查询，包含目录 manifest 的递归资产列举；OSS bucket、prefix、layout 和私网下载要求仍由原 Repo 承载。
+
+显式环境与存储环境不匹配，或无法确认存储环境时，元数据缺失和目录接口失败不会转为 OSS discovery。开发存储映射到 pre，生产存储映射到 online。`fallback_to_oss=False` 只关闭 Registry 报 Dataset/Split 不存在后的 discovery，不改变原有内容格式探测或可选目录读取失败后的降级。未显式指定环境时，即使存储侧未知也保留原行为。现有内容下载和 digest 校验继续由 SDK 执行。
 
 ## canonical user-data 与 shared
 
@@ -83,3 +90,11 @@ python -m pytest tests -m 'not integration'
 ```
 
 真实环境只在具备批准权限与受控资源后执行；单元通过不等于生产双副本、真实STS或跨地域网络通过。日志不得保存API Key、AK/SK、STS、签名URL或含这些值的异常链。
+
+
+## 测试影响评估
+
+| 字段 | 内容 |
+|------|------|
+| 变更影响 | Python pull 新增 environment，统一首次元数据和递归目录查询。未传参数及 auto 保持 profile 默认；显式异侧或未知存储拒绝 discovery。 |
+| 验证 | SDK 测试使用真实 Registry/InstancesClient 与离线HTTP、存储替身，覆盖 Custom资产清单/目录manifest、SWE附属目录、环境覆盖、原profile不变、非法值、旧registry默认签名和缺失元数据回退。端到端复用 Agent-Platform 的 docs/ap-cli-dataset/README.md 中3条下载验收case，不重复新增同目标case。 |

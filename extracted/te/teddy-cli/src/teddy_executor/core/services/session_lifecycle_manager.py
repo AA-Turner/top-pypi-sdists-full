@@ -21,6 +21,11 @@ from teddy_executor.core.utils.markdown import embed_in_fence
 
 logger = logging.getLogger(__name__)
 
+# The prompt shown when a resume injects a present-but-blank `-m` and the run is
+# interactive. Deliberately distinct from the start-boundary opening prompt:
+# the user continues an existing session rather than opening a new one.
+_NEXT_INSTRUCTION_PROMPT = "What would you like to do next?"
+
 if TYPE_CHECKING:
     from teddy_executor.core.domain.models.planning_ports import (
         SessionPorts,
@@ -48,13 +53,14 @@ class SessionLifecycleManager:
         self._plan_parser = ports.plan_parser
         self._time_service = ports.time_service
         self._report_assembler = ports.report_assembler
+        self._system_environment = ports.system_environment
         self.tee_active = False
 
     def resume(  # noqa: PLR0913
         self,
         session_name: str,
         orchestrator: IRunPlanUseCase,
-        interactive: bool = True,
+        require_approval: bool = True,
         project_context: Optional[Any] = None,
         pipeline: bool = False,
         message: Optional[str] = None,
@@ -72,17 +78,31 @@ class SessionLifecycleManager:
         if state == SessionState.PENDING_PLAN:
             turn_meta = self._session_service.load_turn_meta(turn_path)
             plan_path = f"{turn_path}/plan.md"
-            # Parse the pending plan ONCE (WITH its path) and reuse it for
-            # BOTH the communication decision and the reply seed, so
-            # plan.md is never parsed twice on the resume path.
+            # Parse the pending plan WITH its path when a reply is injected and
+            # reuse the result for both the communication decision and the seed.
             plan = self._parse_pending_plan(turn_path, plan_path, message)
+            if not self._should_consume_awaiting_reply(turn_meta, plan):
+                # A present-but-blank `-m` asks the human for the next
+                # instruction when one is reachable; absent and non-blank
+                # messages pass through unchanged. The awaiting-reply
+                # short-circuit above stays first, so flagged turns keep their
+                # own prompt and never reach this resolution.
+                was_blank = message is None or not message.strip()
+                message, terminated = self._resolve_blank_message(message, pipeline)
+                if terminated:
+                    return (session_name, None)
+                if was_blank and message and plan is None:
+                    # The prompt produced a reply: parse once more so a
+                    # MESSAGE-only turn is classified and the seed reaches the
+                    # plan. A non-blank unparseable message is never re-parsed.
+                    plan = self._parse_pending_plan(turn_path, plan_path, message)
             if self._should_consume_awaiting_reply(turn_meta, plan):
                 return self._consume_awaiting_reply(
                     turn_path,
                     turn_meta,
                     session_name,
                     orchestrator,
-                    interactive,
+                    require_approval,
                     project_context=project_context,
                     pipeline=pipeline,
                     message=message,
@@ -93,19 +113,56 @@ class SessionLifecycleManager:
                 report = orchestrator.execute(
                     plan=plan,
                     plan_path=plan_path,
-                    interactive=interactive,
+                    require_approval=require_approval,
                     project_context=project_context,
                     pipeline=pipeline,
                 )
             else:
                 report = orchestrator.execute(
                     plan_path=plan_path,
-                    interactive=interactive,
+                    require_approval=require_approval,
                     project_context=project_context,
                     pipeline=pipeline,
                 )
+                self._record_reply_on_resumed_turn(turn_path, message)
             return (session_name, report)
 
+        if state in (SessionState.EMPTY, SessionState.COMPLETE_TURN):
+            return self._resume_ready_turn(
+                session_name,
+                state,
+                turn_path,
+                orchestrator,
+                require_approval,
+                project_context,
+                pipeline,
+                message,
+            )
+
+        return (session_name, None)
+
+    def _resume_ready_turn(  # noqa: PLR0913  # threads the resume state-machine inputs
+        self,
+        session_name: str,
+        state: SessionState,
+        turn_path: str,
+        orchestrator: IRunPlanUseCase,
+        require_approval: bool,
+        project_context: Optional[Any],
+        pipeline: bool,
+        message: Optional[str],
+    ) -> tuple[str, Optional[ExecutionReport]]:
+        """Drive resume for an EMPTY or COMPLETE_TURN session ready to plan.
+
+        A present-but-blank message is resolved first (prompted when a human is
+        reachable, an empty reply terminates; otherwise it normalizes to
+        absent). An EMPTY turn appends the message to the initial request or the
+        previous report, then plans in place. A COMPLETE_TURN turn appends a
+        ``## User Request`` section, transitions to the next turn, then plans.
+        """
+        message, terminated = self._resolve_blank_message(message, pipeline)
+        if terminated:
+            return (session_name, None)
         if state == SessionState.EMPTY:
             if message:
                 if Path(turn_path).name == "01":
@@ -115,27 +172,61 @@ class SessionLifecycleManager:
             return self._handle_planning_and_execution(
                 turn_path,
                 orchestrator,
-                interactive,
+                require_approval,
                 project_context=project_context,
                 pipeline=pipeline,
                 message=message,
             )
+        if message:
+            self._append_user_request(turn_path, message)
+        next_turn_dir = self._session_service.transition_to_next_turn(
+            plan_path=f"{turn_path}/plan.md"
+        )
+        return self._handle_planning_and_execution(
+            next_turn_dir,
+            orchestrator,
+            require_approval,
+            project_context=project_context,
+            pipeline=pipeline,
+            message=message,
+        )
 
-        if state == SessionState.COMPLETE_TURN:
-            if message:
-                self._append_user_request(turn_path, message)
-            next_turn_dir = self._session_service.transition_to_next_turn(
-                plan_path=f"{turn_path}/plan.md"
-            )
-            return self._handle_planning_and_execution(
-                next_turn_dir,
-                orchestrator,
-                interactive,
-                project_context=project_context,
-                message=message,
-            )
+    def _can_prompt_user(self, pipeline: bool) -> bool:
+        """Reports whether a human is reachable to answer a prompt.
 
-        return (session_name, None)
+        User presence means a terminal is attached to stdin and the run is not
+        a pipeline. It is deliberately NOT the action-approval ``require_approval``
+        flag, which is False whenever ``yolo_default`` is set even though a
+        human is sitting at the terminal. Action approval keeps reading
+        ``require_approval``; only prompt decisions read this. A pipeline run never
+        prompts, so it needs no terminal port at all.
+        """
+        if pipeline:
+            return False
+        assert self._system_environment is not None, (
+            "SessionPorts.system_environment must be injected to prompt the user."
+        )
+        return self._system_environment.isatty()
+
+    def _resolve_blank_message(
+        self, message: Optional[str], pipeline: bool
+    ) -> tuple[Optional[str], bool]:
+        """Resolve a present-but-blank message in the EMPTY/COMPLETE_TURN branches.
+
+        A blank ``-m`` must not seed a turn with no real instruction. When a
+        human is reachable, the user is prompted for the next instruction and
+        an empty reply terminates the session (abort idiom, reported by
+        ``True``). Otherwise there is nobody to ask, so the message normalizes
+        to absent. A present-and-non-blank or absent message passes through.
+        """
+        if message is None or message.strip():
+            return message, False
+        if not self._can_prompt_user(pipeline):
+            return None, False
+        reply = self._user_interactor.ask_question(_NEXT_INSTRUCTION_PROMPT)
+        if not reply or not reply.strip():
+            return None, True
+        return reply, False
 
     def _parse_pending_plan(
         self, turn_path: str, plan_path: str, message: Optional[str]
@@ -179,6 +270,33 @@ class SessionLifecycleManager:
         return bool(turn_meta.get("awaiting_reply")) or (
             plan is not None and plan.is_communication_turn()
         )
+
+    def _record_reply_on_resumed_turn(
+        self, turn_path: str, message: Optional[str]
+    ) -> None:
+        """Records an injected reply on a re-executed pending turn's report.
+
+        The pending plan was unparseable, so the reply reached neither
+        ``plan.metadata["user_request"]`` nor the structural-failure report
+        the replan wrote. That report exists once ``execute`` returns (the
+        replan finalizes the turn synchronously), so append the smart-fenced
+        ``## User Request`` section and re-run preservation to admit the
+        turn to the prune-exempt ``session.context`` -- the pair the
+        ``EMPTY`` branch already uses.
+
+        A bare re-execute (no reply) and a missing report (execution aborted
+        before finalization) are both no-ops, so the bare path stays
+        byte-identical.
+        """
+        if not message:
+            return
+        report_path = self._session_service.to_root_relative(
+            Path(turn_path), "report.md"
+        )
+        if not self._file_system_manager.path_exists(report_path):
+            return
+        self._append_user_request(turn_path, message)
+        self._session_service.preserve_turn_in_session_context(Path(turn_path))
 
     def _append_message_to_previous_turn(self, turn_path: str, message: str) -> None:
         """Appends the injected reply to the previous turn's report if present.
@@ -250,7 +368,7 @@ class SessionLifecycleManager:
         turn_meta: dict[str, Any],
         session_name: str,
         orchestrator: IRunPlanUseCase,
-        interactive: bool,
+        require_approval: bool,
         project_context: Optional[Any] = None,
         pipeline: bool = False,
         message: Optional[str] = None,
@@ -265,7 +383,7 @@ class SessionLifecycleManager:
         cleared on consumption via load-modify-save.
         """
         reply = message
-        if not reply and interactive:
+        if not reply and self._can_prompt_user(pipeline):
             reply = self._user_interactor.ask_question(
                 "The agent is awaiting your reply. How do you want to proceed?"
             )
@@ -314,7 +432,7 @@ class SessionLifecycleManager:
         return self._handle_planning_and_execution(
             next_turn_dir,
             orchestrator,
-            interactive,
+            require_approval,
             project_context=project_context,
             pipeline=pipeline,
             message=reply,
@@ -340,7 +458,7 @@ class SessionLifecycleManager:
             "SessionPorts.plan_parser must be injected to synthesize the "
             "awaiting-reply turn's report."
         )
-        content = str(self._file_system_manager.read_file(f"{turn_path}/plan.md"))
+        content = str(self._file_system_manager.read_raw_file(f"{turn_path}/plan.md"))
         if plan_path is None:
             return self._plan_parser.parse(content)
         return self._plan_parser.parse(content, plan_path=plan_path)
@@ -366,7 +484,7 @@ class SessionLifecycleManager:
         has no prior report).
 
         Canonical `details` semantics: a MESSAGE ActionLog's `details` holds
-        the USER's reply (rendered under `- **User Reply:**`), while the
+        the USER's reply (rendered under `## User Reply`), while the
         agent's own text lives in `params["content"]` (render-ignored). The
         injected `reply` is therefore stored in `details`; the stop-again
         path passes none (no user reply yet, `details` stays empty so the
@@ -410,7 +528,7 @@ class SessionLifecycleManager:
         self,
         turn_dir: str,
         orchestrator: IRunPlanUseCase,
-        interactive: bool,
+        require_approval: bool,
         project_context: Optional[Any] = None,
         pipeline: bool = False,
         message: Optional[str] = None,
@@ -472,7 +590,7 @@ class SessionLifecycleManager:
             _, actual_turn_path = self._session_service.get_session_state(new_name)
             report = orchestrator.execute(
                 plan_path=f"{actual_turn_path}/plan.md",
-                interactive=interactive,
+                require_approval=require_approval,
                 project_context=(
                     gathered_context
                     if gathered_context is not None

@@ -8,13 +8,18 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.415.0"
-description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
+version = "0.510.0"
+description = "Probe: experiment tracking for ML teams and their coding agents (SDK, CLI, read-only MCP)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Probe", email = "team@prbe.ai" }]
-keywords = ["mlops", "experiment-tracking", "reinforcement-learning", "mcp", "probe-research"]
+keywords = [
+    "mlops", "experiment-tracking", "reinforcement-learning", "mcp", "probe-research",
+    "ml-experiment-tracking", "coding-agents", "claude-code", "codex", "cursor",
+    "wandb-alternative", "weights-and-biases", "rl", "trl", "verl", "skyrl",
+    "experiment-lineage", "reproducibility", "agent-swarms", "multi-agent",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -49,7 +54,10 @@ dependencies = [
     # click via BadParameter.__mro__ (see the note there). A major typer that
     # reshapes that internal would fall to the catch-nothing fallback, so a bump
     # past 1.0 must be reviewed against test_usage_errors_exit_cleanly.
-    "typer>=0.12,<1.0",
+    # Below 0.29: typer 0.29.0 (2026-11-09) stopped building on click's Option, so
+    # the CLI spec (`shared/command_rules/cli_spec.py`, the release smoke's help
+    # check) finds no `.type` on a TyperOption. Widen after moving the spec off it.
+    "typer>=0.12,<0.29",
     "pydantic>=2.9",
     # Checkbox menu for the setup wizard. Upper-bounded like typer: it is a thin
     # layer over prompt_toolkit, whose internals a major bump can reshape.
@@ -112,6 +120,8 @@ dev = [
     # event against tap_core/probe-events-1.schema.json (draft 2020-12).
     # Test-only: the tap never validates at runtime.
     "jsonschema>=4.18",
+    # The importer's Codex archives (the `cli` extra's zstandard, below), read in tests too.
+    "zstandard>=0.23",
 ]
 # Extra needed only to RUN the hosted HTTP MCP service (not for stdio/CLI users).
 mcp-http = ["uvicorn>=0.30"]
@@ -130,7 +140,9 @@ mcp-http = ["uvicorn>=0.30"]
 # needs it. It came only through mcp -> pyjwt[crypto] before; a security check
 # never rests on another package's extra. Imported lazily (the service's start
 # path is stdlib-only). 3.4: pyjwt[crypto]'s floor; Ed25519 itself is older.
-cli = ["probe-research-cli==0.415.0", "typer>=0.12,<1.0", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4"]
+# zstandard: the importer reads Codex 0.166+'s compressed rollouts (`.jsonl.zst`,
+# cli/imports/transcripts/archive.py, D82); imported lazily, never by core.
+cli = ["probe-research-cli==0.510.0", "typer>=0.12,<0.29", "questionary>=2.0,<3", "tomlkit>=0.12", "cryptography>=3.4", "zstandard>=0.23"]
 mcp = ["mcp>=1.24,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a
@@ -144,7 +156,7 @@ huggingface = ["transformers[torch]>=4.46"]
 # exactly (R3.4). Installed by the wizard when the researcher turns daemon mode
 # on, into the CLI's own uv tool environment; without
 # it capture keeps running and daemon mode reports itself unavailable.
-daemon = [
+daemon = ["probe-research-cli==0.510.0", 
     "pydantic-ai-slim[openai,mcp]==2.51.0",
     "pydantic-ai-harness[skills]==0.36.0",
     "pydantic-ai-skills==2.0.0",
@@ -152,7 +164,7 @@ daemon = [
     # Only where 6.0.0 ships a wheel (never a compile); elsewhere the Wake's stat pass.
     "watchdog==6.0.0; sys_platform == 'win32' or (sys_platform == 'darwin' and python_version < '3.14')",
 ]
-# Extra for the library-mode instrumented trial runner (connectors.harbor_runner).
+# Extra for the library-mode instrumented trial runner (connectors.harbor.runner).
 # Trial-DIRECTORY parsing/capture needs nothing — this is only for owning the
 # Trial object in-process. Harbor itself requires Python 3.12+, but Probe's
 # ordinary CLI/SDK remains supported on 3.11; the marker keeps the universal
@@ -160,11 +172,13 @@ daemon = [
 # Upper bound = the line verify_harbor_contract() is pinned against. NB:
 # litellm>=1.93 (a harbor dep) ships an sdist needing rustc>=1.86 — add
 # litellm<1.93 if the install fails to build.
-harbor = ["harbor>=0.20,<0.22; python_version >= '3.12'"]
+harbor = ["probe-research-cli==0.510.0", "harbor>=0.20,<0.26; python_version >= '3.12'"]
 
 [project.urls]
-Homepage = "https://github.com/prbe-ai/research-os-agent"
+Homepage = "https://www.useprobe.ai"
+Documentation = "https://docs.prbe.ai"
 Repository = "https://github.com/prbe-ai/research-os-agent"
+Changelog = "https://github.com/prbe-ai/research-os-agent/blob/main/CHANGELOG.md"
 
 [project.scripts]
 # Through probe._entry, which turns a missing optional dependency into a message
@@ -172,6 +186,11 @@ Repository = "https://github.com/prbe-ai/research-os-agent"
 probe = "probe._entry:main"
 probe-research-mcp = "probe._entry:mcp_main"
 probe-research-mcp-http = "probe._entry:mcp_http_main"
+
+# `harbor run --plugin probe` (Harbor reads this group, `harbor/cli/plugin_registry.py:3`): every attempt
+# of a Harbor job as a Probe sample. Loaded only by Harbor; the import needs nothing Harbor lacks.
+[project.entry-points."harbor.plugins"]
+probe = "probe.connectors.harbor.plugin:ProbePlugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/probe"]
@@ -224,6 +243,8 @@ select = ["E4", "E7", "E9", "F"]
 "src/probe/sdk/marker/*.py" = ["F401", "F821"]
 
 [tool.pytest.ini_options]
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 1
 testpaths = ["tests"]
 addopts = "-q"
 markers = [

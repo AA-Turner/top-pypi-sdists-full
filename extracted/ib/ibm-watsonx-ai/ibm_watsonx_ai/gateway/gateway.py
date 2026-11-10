@@ -9,6 +9,10 @@ from typing import Any, Literal, overload
 
 import httpx
 
+# Model Gateway may return 201 and 202 status codes, which come directly from the external API.
+# This isn't reflected in the API docs, but this happened for Red Hat AI provider.
+ACCEPTED_CREATE_STATUS_CODES = frozenset({200, 201, 202})
+
 from ibm_watsonx_ai import APIClient, Credentials
 from ibm_watsonx_ai._wrappers.httpx import RateLimitedRetryDecorator, TokenBucket
 from ibm_watsonx_ai.gateway.models import Models
@@ -31,7 +35,7 @@ def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> It
         json=request_json,
         headers=api_client._get_headers(include_container_id=True),
     ) as resp:
-        if resp.status_code == 200:
+        if resp.status_code in ACCEPTED_CREATE_STATUS_CODES:
             resp_iter = resp.iter_lines()
 
             for chunk in resp_iter:
@@ -62,7 +66,7 @@ async def _streaming_acreate(
         json=request_json,
         headers=await api_client._aget_headers(include_container_id=True),
     ) as resp:
-        if resp.status_code == 200:
+        if resp.status_code in ACCEPTED_CREATE_STATUS_CODES:
             resp_iter = resp.aiter_lines()
 
             async for chunk in resp_iter:
@@ -265,7 +269,11 @@ class Gateway(WMLResource):
                     json=request_json,
                 )
 
-                return self._handle_response(200, "chat completion creation", response)
+                return self._handle_response(
+                    ACCEPTED_CREATE_STATUS_CODES,
+                    "chat completion creation",
+                    response,
+                )
 
             @overload
             async def acreate(
@@ -326,7 +334,11 @@ class Gateway(WMLResource):
                     json=request_json,
                 )
 
-                return self._handle_response(200, "chat completion creation", response)
+                return self._handle_response(
+                    ACCEPTED_CREATE_STATUS_CODES,
+                    "chat completion creation",
+                    response,
+                )
 
         class _Chat:
             def __init__(
@@ -413,7 +425,9 @@ class Gateway(WMLResource):
                     )
 
                     return self._handle_response(
-                        200, "text completion creation", response
+                        ACCEPTED_CREATE_STATUS_CODES,
+                        "text completion creation",
+                        response,
                     )
 
             @overload
@@ -478,7 +492,9 @@ class Gateway(WMLResource):
                     )
 
                     return self._handle_response(
-                        200, "text completion creation", response
+                        ACCEPTED_CREATE_STATUS_CODES,
+                        "text completion creation",
+                        response,
                     )
 
         self.completions = _Completions(
@@ -596,7 +612,9 @@ class Gateway(WMLResource):
                         )
 
                         batch_response = self._handle_response(
-                            200, "embedding creation", response
+                            ACCEPTED_CREATE_STATUS_CODES,
+                            "embedding creation",
+                            response,
                         )
                         responses.append(batch_response)
                     except Exception as e:
@@ -642,7 +660,9 @@ class Gateway(WMLResource):
                         )
 
                         batch_response = self._handle_response(
-                            200, "embedding creation", response
+                            ACCEPTED_CREATE_STATUS_CODES,
+                            "embedding creation",
+                            response,
                         )
                         responses.append(batch_response)
                     except Exception as e:

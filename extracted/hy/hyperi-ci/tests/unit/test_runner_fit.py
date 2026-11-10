@@ -241,11 +241,13 @@ class TestSettings:
         for arch in ("amd64", "arm64"):
             sizes = [p.memory_gib for p in parsed.profiles if p.arch == arch]
             assert sizes and sizes == sorted(sizes), arch
-        # x64 under 32 cores runs on ARC, so ARC sizes come before Namespace.
-        amd64 = [p.label for p in parsed.profiles if p.arch == "amd64"]
-        assert amd64[-1].startswith("namespace-profile-") and all(
-            label.startswith("arc-") for label in amd64[:-1]
-        )
+        # Self-hosted x64 runs on ARC, and arm64 only ever on GitHub's runner.
+        labels = {p.arch: [] for p in parsed.profiles}
+        for p in parsed.profiles:
+            labels[p.arch].append(p.label)
+        assert all(label.startswith("arc-") for label in labels["amd64"])
+        assert labels["arm64"] == ["ubuntu-24.04-arm"]
+        assert not any("namespace" in p.label for p in parsed.profiles)
 
     @pytest.mark.parametrize(
         "raw",
@@ -408,6 +410,7 @@ def _record(
     exit_code: int = 0,
     limit: MemoryLimit | None = LIMIT,
     config: CIConfig | None = None,
+    swap_bytes: int | None = None,
 ) -> dict[str, Any]:
     return runner_fit.build_record(
         config or CIConfig(_raw={}),
@@ -420,6 +423,7 @@ def _record(
         cpus=16,
         cpu_name="AMD EPYC",
         machine="x86_64",
+        swap_bytes=swap_bytes,
     )
 
 
@@ -429,7 +433,7 @@ class TestRecord:
             runner_fit.Phase("pgo-instrument", 300.0, 8 * GIB),
             runner_fit.Phase("release build", 590.0, 12 * GIB),
         ]
-        got = _record(phases)
+        got = _record(phases, swap_bytes=31 * GIB)
         assert got | {"verdict": None, "phases": None} == {
             "schema": 1,
             "repo": "hyperi-io/dfe-loader",
@@ -441,6 +445,7 @@ class TestRecord:
             "cpu_budget": 16,
             "memory_limit_gib": 32.0,
             "memory_limit_source": "cgroup v2 /sys/fs/cgroup/memory.max",
+            "swap_gib": 31.0,
             "cargo_jobs": 2,
             "memory_per_job_gib": 2.0,
             "optimization": "pgo+bolt",
@@ -460,6 +465,18 @@ class TestRecord:
         assert got["verdict"]["recommended"] == "arc-native-8x16"
         assert got["verdict"]["move"] is True
         json.dumps(got)
+
+    @pytest.mark.parametrize(
+        ("mode", "planned"), [("free", 4.0), ("", 2.0)], ids=["free", "not-free"]
+    )
+    def test_the_record_carries_the_plan_cargo_ran_with(
+        self, mode: str, planned: float
+    ) -> None:
+        got = _record(
+            [runner_fit.Phase("release build", 60.0, 8 * GIB)],
+            environ={**ENV, "HYPERCI_RUNNER_MODE": mode},
+        )
+        assert got["memory_per_job_gib"] == planned
 
     def test_a_failed_build_keeps_the_phases_it_reached(self) -> None:
         got = _record(
@@ -488,6 +505,7 @@ class TestRecord:
         got = _record([runner_fit.Phase("release build", 1.0, GIB)], limit=None)
         assert got["memory_limit_gib"] is None
         assert got["memory_limit_source"] is None
+        assert got["swap_gib"] is None
         assert got["verdict"]["status"] == "unknown"
 
     @pytest.mark.parametrize(
@@ -786,10 +804,8 @@ class TestReport:
         )
 
     def test_a_row_that_should_move_prints_its_reason(self) -> None:
-        big = _record(
-            [runner_fit.Phase("release build", 600.0, 26 * GIB)],
-            limit=MemoryLimit(64 * GIB, "cgroup v2 memory.max"),
-        )
+        # 12 GiB over 2 jobs fits the cheaper 8x16 set, so the 16x32 run moves.
+        big = _record([runner_fit.Phase("release build", 600.0, 12 * GIB)])
         text, _rc = runner_report.report(
             ["dfe-loader"],
             api=_api({"hyperi-io/dfe-loader": [4]}, {4}),

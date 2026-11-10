@@ -33,12 +33,16 @@ from .paginator import (
     SearchRelatedItemsPaginator,
 )
 from .type_defs import (
+    BatchCreateRelatedItemRequestTypeDef,
+    BatchCreateRelatedItemResponseTypeDef,
     BatchGetCaseRuleRequestTypeDef,
     BatchGetCaseRuleResponseTypeDef,
     BatchGetFieldRequestTypeDef,
     BatchGetFieldResponseTypeDef,
     BatchPutFieldOptionsRequestTypeDef,
     BatchPutFieldOptionsResponseTypeDef,
+    BatchUpdateCaseRequestTypeDef,
+    BatchUpdateCaseResponseTypeDef,
     CreateCaseRequestTypeDef,
     CreateCaseResponseTypeDef,
     CreateCaseRuleRequestTypeDef,
@@ -159,6 +163,16 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#generate_presigned_url)
         """
 
+    def batch_create_related_item(
+        self, **kwargs: Unpack[BatchCreateRelatedItemRequestTypeDef]
+    ) -> BatchCreateRelatedItemResponseTypeDef:
+        """
+        Creates a comment and associates it with multiple cases in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/batch_create_related_item.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#batch_create_related_item)
+        """
+
     def batch_get_case_rule(
         self, **kwargs: Unpack[BatchGetCaseRuleRequestTypeDef]
     ) -> BatchGetCaseRuleResponseTypeDef:
@@ -190,12 +204,22 @@ class ConnectCasesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#batch_put_field_options)
         """
 
+    def batch_update_case(
+        self, **kwargs: Unpack[BatchUpdateCaseRequestTypeDef]
+    ) -> BatchUpdateCaseResponseTypeDef:
+        """
+        Updates fields on multiple cases in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/batch_update_case.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#batch_update_case)
+        """
+
     def create_case(self, **kwargs: Unpack[CreateCaseRequestTypeDef]) -> CreateCaseResponseTypeDef:
         """
-        <note> <p>If you provide a value for <code>PerformedBy.UserArn</code> you must
-        also have <a
+        <note> <p>If you provide a value for <code>PerformedBy.UserArn</code>, you must
+        also have the <a
         href="https://docs.aws.amazon.com/connect/latest/APIReference/API_DescribeUser.html">connect:DescribeUser</a>
-        permission on the User ARN resource that you provide.
+        permission on the user ARN that you provide.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/create_case.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#create_case)
@@ -290,7 +314,7 @@ class ConnectCasesClient(BaseClient):
 
     def delete_field(self, **kwargs: Unpack[DeleteFieldRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes a field from a cases template.
+        Deletes a field from a Cases template.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/delete_field.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_field)
@@ -298,7 +322,7 @@ class ConnectCasesClient(BaseClient):
 
     def delete_layout(self, **kwargs: Unpack[DeleteLayoutRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes a layout from a cases template.
+        Deletes a layout from a Cases template.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/delete_layout.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_layout)
@@ -316,7 +340,7 @@ class ConnectCasesClient(BaseClient):
 
     def delete_template(self, **kwargs: Unpack[DeleteTemplateRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes a cases template.
+        Deletes a Cases template.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/delete_template.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#delete_template)
@@ -516,10 +540,10 @@ class ConnectCasesClient(BaseClient):
 
     def update_case(self, **kwargs: Unpack[UpdateCaseRequestTypeDef]) -> dict[str, Any]:
         """
-        <note> <p>If you provide a value for <code>PerformedBy.UserArn</code> you must
-        also have <a
+        <note> <p>If you provide a value for <code>PerformedBy.UserArn</code>, you must
+        also have the <a
         href="https://docs.aws.amazon.com/connect/latest/APIReference/API_DescribeUser.html">connect:DescribeUser</a>
-        permission on the User ARN resource that you provide.
+        permission on the user ARN that you provide.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcases/client/update_case.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectcases/client/#update_case)

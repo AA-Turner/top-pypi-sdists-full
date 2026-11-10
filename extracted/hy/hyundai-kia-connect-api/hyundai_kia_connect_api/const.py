@@ -38,6 +38,16 @@ REGIONS = {
 
 LOGIN_TOKEN_LIFETIME = datetime.timedelta(hours=23)
 
+# The CCI server starts rejecting the access token on the auth endpoints
+# (measured on /auth/v1/pin, HTTP 401 code 9030) up to ~6 min before its
+# exp (issue #1446), while the token-test endpoint still passes, so the
+# CCS valid_until is pulled in by this margin to let
+# check_and_refresh_token beat the rejection window.
+CCI_TOKEN_REFRESH_MARGIN_SECONDS = 360
+# Floor for the same rotation: a pathological TTL below the margin must
+# not yield a past valid_until and spin the refresh loop.
+CCI_TOKEN_ROTATION_FLOOR_SECONDS = 300
+
 LENGTH_KILOMETERS = "km"
 LENGTH_MILES = "mi"
 DISTANCE_UNITS = {
@@ -46,6 +56,22 @@ DISTANCE_UNITS = {
     1: LENGTH_KILOMETERS,
     2: LENGTH_MILES,
     3: LENGTH_MILES,
+}
+
+# AverageFuelEconomy.Unit display label (CCS SDK FuelEconomyUnit enum; the
+# app maps one enum for every powertrain, 1/5/8 are per-100km units).
+FUEL_ECONOMY_UNITS = {
+    None: None,
+    0: "km/L",
+    1: "L/100km",
+    2: "MPG",
+    3: "MPG (UK)",
+    4: "km/kWh",
+    5: "kWh/100km",
+    6: "mi/kWh",
+    7: "km/kg",
+    8: "kg/100km",
+    9: "MPGe",
 }
 
 TEMPERATURE_C = "°C"
@@ -167,6 +193,17 @@ class CONNECTOR_FASTENING_STATE(IntEnum):
     # The app SDK maps 0/1/2 (2 = Connected); state 2 has never shown up in
     # a capture, so it stays outside the enum until named from one. An
     # unreported or out-of-range value holds as None.
+
+
+class CHARGING_CONNECTOR_LOCK_STATE(IntEnum):
+    IDLE = 0
+    UNLOCKED = 1
+    LOCKED = 2
+    RELEASING = 3
+    LOCKING = 4
+    RELEASED = 5
+    # PV5 GSPA live semantics (kia_uvo#2069): 0 = idle, no cable;
+    # 1 = unlocked (cable state unknown); 3/4 transitional; 5 = released.
 
 
 class SEAT_LOCATION(str, Enum):

@@ -1,15 +1,48 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from argparse import Namespace
 from ast import literal_eval
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 import pytest
 
 from virtualenv.activation import PythonActivator
 from virtualenv.info import IS_WIN
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from virtualenv.run.session import Session
+
+
+def test_python_activator_clears_pythonhome(activation_python: Session, tmp_path: Path) -> None:
+    activate = activation_python.creator.bin_dir / "activate_this.py"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-E",
+            "-c",
+            (
+                "import runpy, subprocess; "
+                f"runpy.run_path({str(activate)!r}); "
+                f"result = subprocess.run([{str(activation_python.creator.exe)!r}, '-c', 'import sys; print(sys.prefix)'], "
+                "capture_output=True, text=True, check=True); print(result.stdout, end='')"
+            ),
+        ],
+        env={key: value for key, value in os.environ.items() if key != "COVERAGE_PROCESS_START"}
+        | {"PYTHONHOME": str(tmp_path / "missing-pythonhome")},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=60,
+        check=False,
+    )
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, f"{activation_python.creator.dest}\n", "")
 
 
 @pytest.mark.parametrize(
@@ -51,6 +84,32 @@ def test_python_activator_generates_pkg_config_path(tmp_path) -> None:
     assert "PKG_CONFIG_PATH" in content
     assert "pkg_config_path" in content
     assert 'os.path.join(base, "lib", "pkgconfig")' in content
+
+
+@pytest.mark.parametrize(
+    ("path_env", "expected_suffix"),
+    [
+        pytest.param({}, "", id="unset"),
+        pytest.param({"PATH": ""}, "", id="empty"),
+        pytest.param({"PATH": os.pathsep * 2}, "", id="only-separators"),
+        pytest.param({"PATH": f"{os.pathsep}first"}, f"{os.pathsep}first", id="leading"),
+        pytest.param(
+            {"PATH": f"first{os.pathsep}{os.pathsep}second"},
+            f"{os.pathsep}first{os.pathsep}second",
+            id="middle",
+        ),
+        pytest.param({"PATH": f"first{os.pathsep}"}, f"{os.pathsep}first", id="trailing"),
+        pytest.param({"PATH": f"first{os.pathsep}second"}, f"{os.pathsep}first{os.pathsep}second", id="nonempty"),
+    ],
+)
+def test_python_activator_adds_no_empty_path_entry(
+    activation_python: Session, path_env: dict[str, str], expected_suffix: str
+) -> None:
+    script = str(activation_python.creator.bin_dir / "activate_this.py")
+    code = f"import os, runpy; runpy.run_path({script!r}); print(repr(os.environ['PATH']))"
+    env = {key: value for key, value in os.environ.items() if key != "PATH"} | path_env
+    out = subprocess.check_output([sys.executable, "-c", code], env=env, text=True, encoding="utf-8")
+    assert literal_eval(out) == f"{activation_python.creator.bin_dir}{expected_suffix}"
 
 
 def test_python(raise_on_non_source_class, activation_tester) -> None:

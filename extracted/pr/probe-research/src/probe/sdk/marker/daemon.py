@@ -145,6 +145,73 @@ LEASE_VERSION = 1
 DAEMON_LIVE = "live"
 DAEMON_DEGRADED = "degraded"
 
+#: `<sid>.worker`: what the Probe service last did about this chat's daemon worker, by wall clock, so the status
+#: line, `probe statusline show` and pi can tell a worker that is starting from one that never will.
+#: `{"state": "starting" | "gave_up" | "crash_loop", "at": <unix seconds>}`; the Supervisor writes it on spawn and
+#: on give-up (`probe.service.sessions.workers`).
+WORKER_SUFFIX = ".worker"
+WORKER_STARTING = "starting"
+WORKER_GAVE_UP = "gave_up"
+WORKER_CRASH_LOOP = "crash_loop"
+#: Any other exit (a crash before the third, a retry later): the launch it stamped is over, so it is not starting.
+WORKER_EXITED = "exited"
+WORKER_STATES = (WORKER_STARTING, WORKER_GAVE_UP, WORKER_CRASH_LOOP, WORKER_EXITED)
+#: How long a spawned worker may go without its first lease before the line says `daemon not recording`.
+DAEMON_START_GRACE_S = 120.0
+
+
+def get_worker_stamp_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + WORKER_SUFFIX)
+
+
+def write_worker_stamp(session_id: str, state: str, now: "float | None" = None) -> bool:
+    """Record what the service just did about this chat's worker. True when it landed; never raises."""
+    if not valid_session_id(session_id) or state not in WORKER_STATES:
+        return False
+    record = {"state": state, "at": time.time() if now is None else now}
+    try:
+        return _publish_atomically(get_worker_stamp_path(session_id), json.dumps(record) + "\n")
+    except OSError:
+        return False
+
+
+def read_worker_stamp(session_id: str) -> "dict | None":
+    """The worker stamp when well-formed, else None (no stamp: an older service, or no worker asked for yet)."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        data = json.loads(get_worker_stamp_path(session_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("state") not in WORKER_STATES:
+        return None
+    try:
+        at = float(data.get("at"))
+    except (TypeError, ValueError):
+        return None
+    return {"state": data["state"], "at": at} if math.isfinite(at) else None
+
+
+def is_worker_starting(session_id: str, now: "float | None" = None) -> "bool | None":
+    """Whether a chat with no lease yet is still STARTING: True within DAEMON_START_GRACE_S of the service asking for
+    its worker, False after that or once the service gave up, None with no stamp (an older service: keep today's
+    rule, a held key reads as starting)."""
+    stamp = read_worker_stamp(session_id)
+    if stamp is None:
+        return None
+    if stamp["state"] != WORKER_STARTING:
+        return False
+    at = time.time() if now is None else now
+    return 0 <= at - stamp["at"] <= DAEMON_START_GRACE_S
+
+
+def is_daemon_starting(session_id: str, daemon: "tuple | None", config: "dict | None" = None) -> bool:
+    """Is a daemon chat with no lease yet still STARTING (no note)? Its worker has taken no lease (`not-started`), the
+    daemon's key is held (without it no worker ever can) and the service asked for it at most DAEMON_START_GRACE_S
+    ago (no stamp: an older service, today's rule). One rule for the line and `probe statusline show`."""
+    return (daemon is not None and daemon[1] == DAEMON_NOT_STARTED and companion_key_held(config)
+            and is_worker_starting(session_id) is not False)
+
 
 def lease_path(session_id: str) -> Path:
     return sessions_dir() / (session_id + LEASE_SUFFIX)

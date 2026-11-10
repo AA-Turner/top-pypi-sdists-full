@@ -18,11 +18,12 @@
  */
 import { MutationCache, QueryClient } from "@tanstack/react-query";
 
+import { toaster } from "src/system-components";
+
 // Imported for its side effect: configures the generated client's base URL and path
 // encoding. Kept in its own module so the configuration is applied before any module
 // that requests something while the app is initializing. See src/basePath.
 import "src/basePath";
-import { toaster } from "src/components/ui";
 import i18n from "src/i18n/config";
 import { getErrorStatus } from "src/utils";
 
@@ -32,11 +33,9 @@ const retryFunction = (failureCount: number, error: unknown) => {
   const { status } = error as { status?: number };
 
   // Do not retry for client errors (4xx). 429 should be eventually retried though.
-  if (status !== undefined && status >= 400 && status < 500 && status !== 429) {
-    return false;
-  }
-
-  return failureCount < RETRY_COUNT;
+  return (
+    (status === undefined || status < 400 || status >= 500 || status === 429) && failureCount < RETRY_COUNT
+  );
 };
 
 // Track active 403 toast to prevent duplicates when multiple mutations fail

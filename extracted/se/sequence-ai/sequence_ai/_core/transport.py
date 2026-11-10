@@ -144,6 +144,18 @@ def read_again_wait(response: httpx.Response) -> Optional[float]:
     return wait if wait is not None else rate_limited_wait(response)
 
 
+def _no_key(login: bool, robot_of: Optional[str]) -> str:
+    """What a call with no key is told: a robot's (connect(), `robot_of` the policy it connects to), how its robot key is
+    made - a robot never uses your seq login sign-in; any other, where a key is set or made.
+    
+"""
+    if robot_of:
+        return (f"no API key. A robot connects with its policy's robot key, which seq robot add --policy {robot_of} "
+                "makes: set SEQUENCES_API_KEY to it or pass api_key=... (a seq login sign-in is yours, never a robot's)")
+    return ("no API key. Set SEQUENCES_API_KEY or pass api_key=..." + (", or sign in with seq login" if login else "")
+            + ". Create a key at https://app.generalsequences.com/")
+
+
 def send_through(make: Optional[Callable[[], httpx.BaseTransport]]) -> None:
     """Every Transport made from now on in this process sends through `make()`, a transport of its own each; None puts
     httpx's own back. For a command-line process around its command - never a robot's."""
@@ -170,6 +182,7 @@ class Transport:
         require_key: bool = True,
         login: bool = False,
         person: bool = False,
+        robot_of: str | None = None,
     ) -> None:
         self._base = (base_url or os.environ.get("SEQUENCES_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
 
@@ -191,11 +204,7 @@ class Transport:
 
 
         if not key and signed_in is None and require_key:
-            raise AuthError(
-                "no API key. Set SEQUENCES_API_KEY or pass api_key=..."
-                + (", or sign in with seq login" if login else "")
-                + ". Create a key at https://app.generalsequences.com/"
-            )
+            raise AuthError(_no_key(login, robot_of))
 
 
 

@@ -89,8 +89,7 @@ from cognite_toolkit._cdf_tk.resource_ios._base_ios import (
     ResourceType,
     SuccessExtra,
 )
-from cognite_toolkit._cdf_tk.rules import ToolkitGlobalRuleSet
-from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus
+from cognite_toolkit._cdf_tk.rules._base import RuleSetStatus, ToolkitGlobalRuleSet
 from cognite_toolkit._cdf_tk.ui import AuraColor, ToolkitPanel, ToolkitPanelSection, ToolkitTable, hanging_indent
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -104,6 +103,7 @@ from cognite_toolkit._cdf_tk.utils.file import (
     read_yaml_content,
     relative_to_if_possible,
     safe_rmtree,
+    yaml_error_position,
     yaml_positions,
     yaml_safe_dump,
 )
@@ -861,17 +861,40 @@ class BuildV2Command(ToolkitCommand):
                         f"Config YAML file '{relative_to_if_possible(config_path_resolved).as_posix()}' is invalid:\n{'- '.join(errors)}"
                     ) from e
                 selected: set[RelativeDirPath | str] | None = None
+                config_selected: set[RelativeDirPath | str] | None = None
+                if config.environment.selected and not parsed_user_selected:
+                    config_selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
+                    if errors:
+                        raise ToolkitValueError(
+                            f"Invalid module selection in {relative_to_if_possible(config_path_resolved).as_posix()}:\n"
+                            + "\n".join(f"- {error}" for error in errors)
+                        )
+
                 if parsed_user_selected:
                     # CLI args override config YAML selection, so we use the parsed user selection if provided.
                     # This can only happen if there is a single config YAML file, as we check for this above.
                     selected = parsed_user_selected
                 elif Flags.GIT_DIFF_SELECT.is_enabled() and config.environment.selection_type == "git-diff":
+                    if not config_selected:
+                        raise ToolkitValueError(
+                            f"No `selected` modules set in {relative_to_if_possible(config_path_resolved).as_posix()}. "
+                            "When `selection-type` is 'git-diff', `selected` must list the modules (or module "
+                            "directories) that changed modules are allowed to be built from, "
+                            f"for example `selected: ['{MODULES}/']`."
+                        )
                     try:
-                        selected, uncommitted_changes = cls.parse_git_diff_selection(
+                        git_diff_selected, uncommitted_changes = cls.parse_git_diff_selection(
                             organization_dir, Git(), config.environment.deploy_branch
                         )
                     except RuntimeError as e:
                         raise ToolkitValueError(f"Failed to determine git changes: {e}") from e
+                    selected = cls._restrict_git_diff_selection(git_diff_selected, config_selected)
+                    if git_diff_selected and not selected:
+                        raise ToolkitValueError(
+                            "None of the modules changed according to the git diff selection are part of the "
+                            f"selected modules in {relative_to_if_possible(config_path_resolved).as_posix()}.\n"
+                            f"Changed modules: {humanize_collection([Path(m).as_posix() for m in git_diff_selected])}"
+                        )
                     if not selected:
                         suffix = ""
                         if uncommitted_changes:
@@ -887,14 +910,8 @@ class BuildV2Command(ToolkitCommand):
                             "Please ensure you are running this command from within a Git repository and that there are "
                             f"changes in the modules directory compared to the default branch.\n{suffix}"
                         )
-                elif config.environment.selected:
-                    selected, errors = cls.parse_user_selection(config.environment.selected, organization_dir)
-                    if errors:
-                        raise ToolkitValueError(
-                            f"Invalid module selection in {relative_to_if_possible(config_path_resolved).as_posix()}:\n"
-                            + "\n".join(f"- {error}" for error in errors)
-                        )
-
+                elif config_selected:
+                    selected = config_selected
                 else:
                     missing_selected.append(config_path_resolved)
 
@@ -1016,6 +1033,14 @@ class BuildV2Command(ToolkitCommand):
         uncommitted_paths = {Path(file).resolve() for file in uncommitted_changes}
         _, uncommitted_modules = cls._find_modules_from_files(uncommitted_paths, module_absolute_path)
         return selected, list(uncommitted_modules)
+
+    @classmethod
+    def _restrict_git_diff_selection(
+        cls, git_diff_selected: set[RelativeDirPath | str], config_selected: set[RelativeDirPath | str]
+    ) -> set[RelativeDirPath | str]:
+        """Keep only the changed modules that match the selection (by module name, module path, or parent path)."""
+        changed_modules = [Path(module) for module in git_diff_selected]
+        return set(ModuleParser._select_modules(changed_modules, config_selected))
 
     @classmethod
     def _find_modules_from_files(
@@ -1260,11 +1285,14 @@ class BuildV2Command(ToolkitCommand):
             return read_yaml_content(content)
         except yaml.YAMLError as yaml_error:
             error = f"Failed to parse YAML content.\n{yaml_error!s}"
+            position = yaml_error_position(yaml_error)
             return FailedReadYAMLFile(
                 source_path=resource_file,
                 code="INVALID-FILE-CONTENT",
                 error=error,
                 unresolved_variables=unresolved_variables,
+                line=position.line if position else None,
+                column=position.column if position else None,
             )
 
     def _validate_single_resource(

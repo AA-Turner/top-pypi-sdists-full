@@ -1,9 +1,9 @@
 use crate::{
     compiler,
-    evaluation::ChildList,
+    evaluation::{ChildList, InstancePosition},
     keywords::CompilationResult,
     node::SchemaNode,
-    paths::{LazyLocation, Location, RefTracker},
+    paths::{LazyLocation, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
     Json, SerdeJson, ValidationError,
 };
@@ -36,8 +36,8 @@ impl IfThenValidator<SerdeJson> {
 
 impl<F: Json> Validate<F> for IfThenValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
-        if self.schema.is_valid(instance, ctx) {
-            self.then_schema.is_valid(instance, ctx)
+        if self.schema.is_valid_child(instance, ctx) {
+            self.then_schema.is_valid_child(instance, ctx)
         } else {
             true
         }
@@ -78,14 +78,20 @@ impl<F: Json> Validate<F> for IfThenValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -101,8 +107,8 @@ impl<F: Json> Validate<F> for IfThenValidator<F> {
                 ctx,
             );
             let mut children = ChildList::default();
-            children.push(&mut ctx.arena, if_node);
-            children.push(&mut ctx.arena, then_node);
+            children.push(ctx.arena(), if_node);
+            children.push(ctx.arena(), then_node);
             EvaluationResult::from_children(children)
         } else {
             EvaluationResult::valid_empty()
@@ -137,10 +143,10 @@ impl IfElseValidator<SerdeJson> {
 
 impl<F: Json> Validate<F> for IfElseValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
-        if self.schema.is_valid(instance, ctx) {
+        if self.schema.is_valid_child(instance, ctx) {
             true
         } else {
-            self.else_schema.is_valid(instance, ctx)
+            self.else_schema.is_valid_child(instance, ctx)
         }
     }
 
@@ -179,14 +185,20 @@ impl<F: Json> Validate<F> for IfElseValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -194,7 +206,7 @@ impl<F: Json> Validate<F> for IfElseValidator<F> {
             self.schema
                 .evaluate_instance_at(instance, location, instance_location, tracker, ctx);
         if if_node.valid {
-            EvaluationResult::from_children(ChildList::of(&mut ctx.arena, if_node))
+            EvaluationResult::from_children(ChildList::of(ctx.arena(), if_node))
         } else {
             let else_node = self.else_schema.evaluate_instance_at(
                 instance,
@@ -203,7 +215,7 @@ impl<F: Json> Validate<F> for IfElseValidator<F> {
                 tracker,
                 ctx,
             );
-            EvaluationResult::from_children(ChildList::of(&mut ctx.arena, else_node))
+            EvaluationResult::from_children(ChildList::of(ctx.arena(), else_node))
         }
     }
 }
@@ -241,10 +253,10 @@ impl IfThenElseValidator<SerdeJson> {
 
 impl<F: Json> Validate<F> for IfThenElseValidator<F> {
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
-        if self.schema.is_valid(instance, ctx) {
-            self.then_schema.is_valid(instance, ctx)
+        if self.schema.is_valid_child(instance, ctx) {
+            self.then_schema.is_valid_child(instance, ctx)
         } else {
-            self.else_schema.is_valid(instance, ctx)
+            self.else_schema.is_valid_child(instance, ctx)
         }
     }
 
@@ -286,14 +298,20 @@ impl<F: Json> Validate<F> for IfThenElseValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+        self.evaluate_with_location(
+            instance,
+            location,
+            ctx.instance_position(location),
+            tracker,
+            ctx,
+        )
     }
 
     fn evaluate_with_location(
         &self,
         instance: &F::Node<'_>,
         location: &LazyLocation,
-        instance_location: &Location,
+        instance_location: InstancePosition,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
@@ -309,8 +327,8 @@ impl<F: Json> Validate<F> for IfThenElseValidator<F> {
                 ctx,
             );
             let mut children = ChildList::default();
-            children.push(&mut ctx.arena, if_node);
-            children.push(&mut ctx.arena, then_node);
+            children.push(ctx.arena(), if_node);
+            children.push(ctx.arena(), then_node);
             EvaluationResult::from_children(children)
         } else {
             let else_node = self.else_schema.evaluate_instance_at(
@@ -320,7 +338,7 @@ impl<F: Json> Validate<F> for IfThenElseValidator<F> {
                 tracker,
                 ctx,
             );
-            EvaluationResult::from_children(ChildList::of(&mut ctx.arena, else_node))
+            EvaluationResult::from_children(ChildList::of(ctx.arena(), else_node))
         }
     }
 }

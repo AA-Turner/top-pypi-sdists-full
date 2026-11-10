@@ -1540,14 +1540,20 @@ class AlexaAPI:
         )
 
     @staticmethod
-    def _parent_dashboard_subdomain(login: AlexaLogin) -> str:
-        """Return the region subdomain of the Amazon Kids parent dashboard.
+    async def _parent_dashboard_subdomain(login: AlexaLogin) -> str | None:
+        """Return the discovered dashboard subdomain, or None if unavailable."""
+        host = await login.resolve_parent_dashboard_host()
+        return host.split(".", 1)[0] if host is not None else None
 
-        Amazon serves the parental-controls dashboard from a localized
-        subdomain (e.g. ``eltern.amazon.de`` in Germany, ``parents.amazon.com``
-        elsewhere).
+    @staticmethod
+    async def supports_child_profiles(login: AlexaLogin) -> bool:
+        """Return whether the child-profile dashboard hostname resolves in DNS.
+
+        This checks DNS only, not HTTP availability, account eligibility or support
+        for every Amazon Kids operation. Like AlexaLogin, the marketplace is a
+        bare Amazon domain; domain comparisons are case-insensitive.
         """
-        return {"amazon.de": "eltern"}.get(login.url, "parents")
+        return await AlexaAPI._parent_dashboard_subdomain(login) is not None
 
     @staticmethod
     @_catch_all_exceptions
@@ -1561,14 +1567,19 @@ class AlexaAPI:
         login (AlexaLogin): Successfully logged in AlexaLogin
 
         Returns:
-        Optional[list[dict]]: The CHILD household members, or None on error.
+        Optional[list[dict]]: The CHILD household members, [] if the dashboard
+        hostname is unavailable or there are no children, or None on error.
 
         """
+        sub_domain = await AlexaAPI._parent_dashboard_subdomain(login)
+        if sub_domain is None:
+            return []
+
         response = await AlexaAPI._static_request(
             "get",
             login,
             "/ajax/get-household-with-age",
-            sub_domain=AlexaAPI._parent_dashboard_subdomain(login),
+            sub_domain=sub_domain,
         )
         members, valid = await get_json_value(response, "members", list)
         if not valid or not members:
@@ -1588,15 +1599,20 @@ class AlexaAPI:
         device_type (str): The device type
 
         Returns:
-        Optional[str]: The child directedId, or None if unassigned/unknown.
+        Optional[str]: The child directedId, or None if unassigned, unknown,
+        or the dashboard hostname is unavailable.
 
         """
+        sub_domain = await AlexaAPI._parent_dashboard_subdomain(login)
+        if sub_domain is None:
+            return None
+
         response = await AlexaAPI._static_request(
             "get",
             login,
             "/ajax/get-oobe-device-data",
             query={"deviceId": serial, "deviceTypeId": device_type},
-            sub_domain=AlexaAPI._parent_dashboard_subdomain(login),
+            sub_domain=sub_domain,
         )
         value, _valid = await get_json_value(response, "childDirectedId", str)
         return value or None
@@ -1610,7 +1626,8 @@ class AlexaAPI:
 
         The parent dashboard uses its own CSRF token (``ft-panda-csrf-token``),
         which is seeded by loading the device onboarding page first; the token
-        is then echoed back in the ``x-amzn-csrf`` header.
+        is then echoed back in the ``x-amzn-csrf`` header. Unavailable
+        dashboard hostnames return None without making any requests.
 
         Args:
         login (AlexaLogin): Successfully logged in AlexaLogin
@@ -1619,7 +1636,10 @@ class AlexaAPI:
         child_directed_id (str): directedId of the child (see get_child_profiles)
 
         """
-        sub_domain = AlexaAPI._parent_dashboard_subdomain(login)
+        sub_domain = await AlexaAPI._parent_dashboard_subdomain(login)
+        if sub_domain is None:
+            return None
+        host = f"{sub_domain}.{login.url.lower()}"
         # Seed the parent-dashboard CSRF cookie (ft-panda-csrf-token).
         await AlexaAPI._static_request(
             "get",
@@ -1629,16 +1649,16 @@ class AlexaAPI:
         )
         additional_headers = {
             "Referer": (
-                f"https://{sub_domain}.{login.url}"
+                f"https://{host}"
                 f"/oobe/brownie/start/{device_type}/{serial}"
             ),
-            "Origin": f"https://{sub_domain}.{login.url}",
+            "Origin": f"https://{host}",
         }
         try:
             # The ft-panda-csrf-token cookie is scoped to the parent-dashboard
             # host, so it must be read for that host (not the default one).
             additional_headers["x-amzn-csrf"] = login._get_cookies_from_session(
-                f"{sub_domain}.{login.url}"
+                host
             )["ft-panda-csrf-token"].value
         except (KeyError, AttributeError):
             _LOGGER.debug(
@@ -2419,11 +2439,16 @@ class AlexaAPI:
         Returns the response, or None on failure
 
         """
-        response = await AlexaAPI._static_request("get", login, "/api/endpoints")
-        api_url, valid = await get_json_value(response, "alexaApiUrl", str)
-        if not valid:
-            return None
-        url = URL(f"{api_url.rstrip('/')}/v1/alerts/alarms{uri}")
+        api_url = getattr(login, "_alexa_alarms_api_url", None)
+        # Going through _static_request again also refreshes an expired token.
+        if not api_url or (login.expires_in and login.expires_in - time.time() < 0):
+            response = await AlexaAPI._static_request("get", login, "/api/endpoints")
+            api_url, valid = await get_json_value(response, "alexaApiUrl", str)
+            if not valid:
+                return None
+            api_url = api_url.rstrip("/")
+            login._alexa_alarms_api_url = api_url
+        url = URL(f"{api_url}/v1/alerts/alarms{uri}")
         response = await getattr(login.session, method)(
             url,
             json=data,
@@ -2513,6 +2538,41 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
+    async def update_alarm(
+        login: AlexaLogin,
+        notification_index: str,
+        scheduled_time: str,
+        recurrence: dict[str, Any] | None = None,
+        sound_id: str | None = None,
+    ) -> bool:
+        """Change the time of an alarm.
+
+        Amazon replaces the alarm's schedule, so pass the recurrence again to
+        keep a repeating alarm repeating. The alarm is turned on.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        notification_index (str): The alarm's notificationIndex
+        scheduled_time (str): Next ring in the device's time, as YYYY-MM-DDTHH:MM:SS
+        recurrence (dict): Repeat rule, such as {"freq": "DAILY", "byDay": []}
+        sound_id (str): The alarm's tone id
+
+        Returns True if successful
+
+        """
+        trigger: dict[str, Any] = {"scheduledTime": scheduled_time}
+        if recurrence:
+            trigger["recurrence"] = recurrence
+        data: dict[str, Any] = {"trigger": trigger, "extensions": []}
+        if sound_id:
+            data["assets"] = [{"type": "TONE", "assetId": sound_id}]
+        response = await AlexaAPI._alarm_request(
+            "put", login, f"/{notification_index}", data
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
     async def disable_alarm(login: AlexaLogin, notification_index: str) -> bool:
         """Turn an alarm off without deleting it.
 
@@ -2527,6 +2587,23 @@ class AlexaAPI:
             "put", login, f"/{notification_index}/cancel"
         )
         return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def skip_next_alarm(login: AlexaLogin, notification_index: str) -> bool:
+        """Request cancellation of the next occurrence of a recurring alarm.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        notification_index (str): The alarm's notificationIndex
+
+        Returns True if the API accepted the request.
+
+        """
+        response = await AlexaAPI._alarm_request(
+            "put", login, f"/{notification_index}/nextOccurrence/cancel"
+        )
+        return response is not None and 200 <= response.status < 300
 
     @staticmethod
     @_catch_all_exceptions
@@ -2626,6 +2703,78 @@ class AlexaAPI:
             login,
             f"/api/device-notification-state/{device_type}/{software_version}/{serial}",
             data=data,
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def get_equalizer(
+        login: AlexaLogin, serial: str, device_type: str
+    ) -> dict[str, Any] | None:
+        """Get the bass, mid and treble of a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+
+        Returns dict with bass, mid and treble
+
+        """
+        response = await AlexaAPI._static_request(
+            "get", login, f"/api/equalizer/{serial}/{device_type}"
+        )
+        response_json, valid = await get_json_value(response, None, dict)
+        return response_json if valid else None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_equalizer(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        bass: int,
+        mid: int,
+        treble: int,
+    ) -> bool:
+        """Set the bass, mid and treble of a device.
+
+        Amazon sets any band left out to 0, so all three are sent.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        bass (int): Bass from -6 to 6
+        mid (int): Mid from -6 to 6
+        treble (int): Treble from -6 to 6
+
+        Returns True if successful
+
+        Raises:
+        ValueError: A band is not an integer from -6 to 6; nothing is sent.
+
+        """
+        for name, value in (("bass", bass), ("mid", mid), ("treble", treble)):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(
+                    f"{name} must be an integer from -6 to 6, got {value!r}"
+                )
+            if not -6 <= value <= 6:
+                raise ValueError(f"{name} must be from -6 to 6, got {value}")
+        _LOGGER.debug(
+            "%s: Setting equalizer of %s to bass %s, mid %s, treble %s",
+            hide_email(login.email),
+            hide_serial(serial),
+            bass,
+            mid,
+            treble,
+        )
+        response = await AlexaAPI._static_request(
+            "post",
+            login,
+            f"/api/equalizer/{serial}/{device_type}",
+            data={"bass": bass, "mid": mid, "treble": treble},
         )
         return response is not None
 

@@ -18,8 +18,8 @@ import gevent.threadpool
 ThreadSafeEvent = gevent.monkey.get_original("threading", "Event")
 
 # Tango imports
-from tango._instrumentation import _get_non_tango_source_location
-from tango._telemetry import _telemetry_runtime
+from tango._internal.instrumentation import _get_non_tango_source_location
+from tango._internal.telemetry import _telemetry_runtime
 from tango.green import AbstractExecutor, get_ident
 
 __all__ = (
@@ -131,9 +131,9 @@ class ThreadPool(gevent.threadpool.ThreadPool):
 
 class GeventTask:
     def __init__(self, func, *args, **kwargs):
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
+        # Capture server dispatch's device scope at submission time.
+        self.func = _telemetry_runtime.wrap_device_telemetry_scope(func, *args, **kwargs)
+        self.otel_context = _telemetry_runtime.capture_otel_context()
         self.value = None
         self.exception = None
         self.done = ThreadSafeEvent()
@@ -142,7 +142,8 @@ class GeventTask:
     def run(self):
         self.started.set()
         try:
-            self.value = self.func(*self.args, **self.kwargs)
+            with _telemetry_runtime.use_otel_context(self.otel_context):
+                self.value = self.func()
         except Exception:
             self.exception = sys.exc_info()
         finally:
@@ -182,7 +183,7 @@ class GeventExecutor(AbstractExecutor):
             kwargs["trace_location"] = _get_non_tango_source_location()
             kwargs["trace_context"] = _telemetry_runtime.get_current_otel_context()
 
-        callback = functools.partial(fn, *args, **kwargs)
+        callback = _telemetry_runtime.wrap_device_telemetry_scope(fn, *args, **kwargs)
         executor_ref = self
 
         def _callback_with_executor():

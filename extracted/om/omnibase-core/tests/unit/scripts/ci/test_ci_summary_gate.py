@@ -970,6 +970,11 @@ EXPLICIT_EXEMPT_JOBS: dict[tuple[str, str], str] = {
         "audit, structurally cannot be a merge gate (same class as "
         "auto-tag-on-merge)."
     ),
+    ("security-scan.yml", "secret-scan"): (
+        "OMN-22894: TruffleHog secret scan landing as an advisory job "
+        "(advisory-ok), not yet a required status check; promote to a "
+        "required context once its hosted run is read green."
+    ),
 }
 
 
@@ -1892,7 +1897,7 @@ class TestExternalSweepExclusions:
         assert active == frozenset(gate.EXTERNAL_SWEEP_EXCLUSIONS)
         assert expired == ()
         assert not active.intersection(EXPECTED_EXTERNAL_CONTEXTS)
-        for entry in gate.EXTERNAL_SWEEP_EXCLUSIONS.values():
+        for name, entry in gate.EXTERNAL_SWEEP_EXCLUSIONS.items():
             assert entry.reason.strip()
             assert entry.ticket == "OMN-17427"
             assert entry.added in {"2026-10-17", "2026-10-18", "2026-10-19"}

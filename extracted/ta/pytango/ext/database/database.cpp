@@ -14,48 +14,74 @@ const char *param_numb_or_str_numb = "Second parameter must be an int or a strin
 struct PyDatabase {
     static py::str get_device_alias(Tango::Database &self, const std::string &alias) {
         std::string devname;
-        self.get_device_alias(alias, devname);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_device_alias(alias, devname);
+        }
         return py::str(devname);
     }
 
     static py::str get_alias(Tango::Database &self, const std::string &devname) {
         std::string alias;
-        self.get_alias(devname, alias);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_alias(devname, alias);
+        }
         return py::str(alias);
     }
 
     static py::str get_attribute_alias(Tango::Database &self, const std::string &alias) {
         std::string attrname;
-        self.get_attribute_alias(alias, attrname);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_attribute_alias(alias, attrname);
+        }
         return py::str(attrname);
     }
 
     static py::str dev_name(Tango::Database &self) {
         Tango::Connection *conn = static_cast<Tango::Connection *>(&self);
-        return py::str(conn->dev_name());
+        std::string name;
+        {
+            py::gil_scoped_release no_gil{};
+            name = conn->dev_name();
+        }
+        return py::str(name);
     }
 
     static py::str get_device_from_alias(Tango::Database &self, const std::string &input) {
         std::string output;
-        self.get_device_from_alias(input, output);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_device_from_alias(input, output);
+        }
         return py::str(output);
     }
 
     static py::str get_alias_from_device(Tango::Database &self, const std::string &input) {
         std::string output;
-        self.get_alias_from_device(input, output);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_alias_from_device(input, output);
+        }
         return py::str(output);
     }
 
     static py::str get_attribute_from_alias(Tango::Database &self, const std::string &input) {
         std::string output;
-        self.get_attribute_from_alias(input, output);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_attribute_from_alias(input, output);
+        }
         return py::str(output);
     }
 
     static py::str get_alias_from_attribute(Tango::Database &self, const std::string &input) {
         std::string output;
-        self.get_alias_from_attribute(input, output);
+        {
+            py::gil_scoped_release no_gil{};
+            self.get_alias_from_attribute(input, output);
+        }
         return py::str(output);
     }
 };
@@ -89,22 +115,22 @@ void export_database(py::module &m) {
                )doc")
         .def(py::init([]() {
             py::gil_scoped_release no_gil{};
-            return std::make_shared<Tango::Database>();
+            return std::shared_ptr<Tango::Database>(new Tango::Database(), DeleterWithoutGIL());
         }))
         .def(py::init([](const Tango::Database &db) {
                  py::gil_scoped_release no_gil{};
-                 return std::make_shared<Tango::Database>(db);
+                 return std::shared_ptr<Tango::Database>(new Tango::Database(db), DeleterWithoutGIL());
              }),
              py::arg("database"))
         .def(py::init([](std::string &host, int port) {
                  py::gil_scoped_release no_gil{};
-                 return std::make_shared<Tango::Database>(host, port);
+                 return std::shared_ptr<Tango::Database>(new Tango::Database(host, port), DeleterWithoutGIL());
              }),
              py::arg("host"),
              py::arg("port"))
         .def(py::init([](std::string &trl) {
                  py::gil_scoped_release no_gil{};
-                 return std::make_shared<Tango::Database>(trl);
+                 return std::shared_ptr<Tango::Database>(new Tango::Database(trl), DeleterWithoutGIL());
              }),
              py::arg("trl"))
 
@@ -112,7 +138,7 @@ void export_database(py::module &m) {
         .def(py::init([](const std::string &host, const std::string &port_str) {
                  int port = std::stoi(port_str);
                  py::gil_scoped_release no_gil{};
-                 return std::make_shared<Tango::Database>(host, port);
+                 return std::shared_ptr<Tango::Database>(new Tango::Database(host, port), DeleterWithoutGIL());
              }),
              py::arg("host"),
              py::arg("port"))
@@ -130,11 +156,13 @@ void export_database(py::module &m) {
             },
             [](py::tuple py_tuple) { // __setstate__
                 if(py_tuple.size() == 0) {
-                    return Tango::Database();
-                } else if(py_tuple.size() != 2) {
+                    py::gil_scoped_release no_gil{};
+                    return std::shared_ptr<Tango::Database>(new Tango::Database(), DeleterWithoutGIL());
+                } else if(py_tuple.size() == 2) {
                     std::string host = py_tuple[0].cast<std::string>();
                     int port = std::stoi(py_tuple[1].cast<std::string>());
-                    return Tango::Database(host, port);
+                    py::gil_scoped_release no_gil{};
+                    return std::shared_ptr<Tango::Database>(new Tango::Database(host, port), DeleterWithoutGIL());
                 }
                 throw std::runtime_error("Invalid state!");
             }))
@@ -144,6 +172,7 @@ void export_database(py::module &m) {
         .def("dev_name", &PyDatabase::dev_name)
         .def("write_filedatabase",
              &Tango::Database::write_filedatabase,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Force a write to the file if using a file based database.
 
@@ -151,13 +180,15 @@ void export_database(py::module &m) {
              )doc")
         .def("reread_filedatabase",
              &Tango::Database::reread_filedatabase,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Force a complete refresh over the database if using a file based database.
 
                 .. versionadded:: 7.0.0
              )doc")
         .def("build_connection",
-             &Tango::Database::write_filedatabase,
+             &Tango::Database::build_connection,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Tries to build a connection to the Database server.
 
@@ -165,6 +196,7 @@ void export_database(py::module &m) {
              )doc")
         .def("check_tango_host",
              &Tango::Database::check_tango_host,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
 
                 Check the TANGO_HOST environment variable syntax and extract
@@ -177,6 +209,7 @@ void export_database(py::module &m) {
              py::arg("tango_host_env"))
         .def("check_access_control",
              &Tango::Database::check_access_control,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 check_access_control(self, dev_name) -> AccessControlType
 
@@ -238,6 +271,7 @@ void export_database(py::module &m) {
 
         .def("get_info",
              &Tango::Database::get_info,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_info(self) -> str
 
@@ -247,11 +281,13 @@ void export_database(py::module &m) {
              )doc")
         .def("get_host_list",
              py::overload_cast<>(&Tango::Database::get_host_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Returns the list of all host names registered in the database.
              )doc")
         .def("get_host_list",
              py::overload_cast<const std::string &>(&Tango::Database::get_host_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Returns the list of all host names registered in the database.
 
@@ -261,6 +297,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("get_services",
              py::overload_cast<const std::string &, const std::string &>(&Tango::Database::get_services),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_services(self, serv_name, inst_name) -> DbDatum
 
@@ -280,6 +317,7 @@ void export_database(py::module &m) {
              py::arg("inst_name"))
         .def("get_device_service_list",
              py::overload_cast<const std::string &>(&Tango::Database::get_device_service_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_device_service_list(self, dev_name) -> DbDatum
 
@@ -296,6 +334,7 @@ void export_database(py::module &m) {
         .def("register_service",
              py::overload_cast<const std::string &, const std::string &, const std::string &>(
                  &Tango::Database::register_service),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Register the specified service wihtin the database.
 
@@ -315,6 +354,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("unregister_service",
              py::overload_cast<const std::string &, const std::string &>(&Tango::Database::unregister_service),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
 
                 Unregister the specified service from the database.
@@ -336,6 +376,7 @@ void export_database(py::module &m) {
 
         .def("add_device",
              &Tango::Database::add_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
 
                 Add a device to the database. The device name, server and class
@@ -354,6 +395,7 @@ void export_database(py::module &m) {
              py::arg("dev_info"))
         .def("delete_device",
              &Tango::Database::delete_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete the device of the specified name from the database.
 
@@ -363,6 +405,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("import_device",
              py::overload_cast<const std::string &>(&Tango::Database::import_device),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the databse for the export info of the specified device.
 
@@ -379,6 +422,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("export_device",
              &Tango::Database::export_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Update the export info for this device in the database.
 
@@ -397,6 +441,7 @@ void export_database(py::module &m) {
              py::arg("dev_export"))
         .def("unexport_device",
              &Tango::Database::unexport_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Mark the specified device as unexported in the database
 
@@ -409,6 +454,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("get_device_info",
              &Tango::Database::get_device_info,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for the full info of the specified device.
 
@@ -435,6 +481,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("get_device_name",
              py::overload_cast<const std::string &, const std::string &>(&Tango::Database::get_device_name),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of devices served by a server for
                 a given device class
@@ -449,6 +496,7 @@ void export_database(py::module &m) {
              py::arg("class_name"))
         .def("get_device_exported",
              &Tango::Database::get_device_exported,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of exported devices whose names
                 satisfy the supplied filter (* is wildcard for any character(s))
@@ -459,6 +507,7 @@ void export_database(py::module &m) {
              py::arg("filter"))
         .def("get_device_domain",
              &Tango::Database::get_device_domain,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_device_domain(self, wildcard) -> DbDatum
 
@@ -472,6 +521,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("get_device_family",
              &Tango::Database::get_device_family,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of of device family names which
                 match the wildcard provided (* is wildcard for any character(s)).
@@ -483,6 +533,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("get_device_member",
              &Tango::Database::get_device_member,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of of device member names which
                 match the wildcard provided (* is wildcard for any character(s)).
@@ -520,6 +571,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("get_device_alias_list",
              &Tango::Database::get_device_alias_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Get device alias list. The parameter alias is a string to filter
                 the alias list returned. Wildcard (*) is supported.
@@ -532,6 +584,7 @@ void export_database(py::module &m) {
              py::arg("filter"))
         .def("get_class_for_device",
              &Tango::Database::get_class_for_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Return the class of the specified device.
 
@@ -541,6 +594,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("get_class_inheritance_for_device",
              &Tango::Database::get_class_inheritance_for_device,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Return the class inheritance scheme of the specified device.
 
@@ -552,6 +606,7 @@ void export_database(py::module &m) {
              py::arg("dev_name"))
         .def("get_device_exported_for_class",
              &Tango::Database::get_device_exported_for_class,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query database for list of exported devices for the specified class.
 
@@ -563,6 +618,7 @@ void export_database(py::module &m) {
              py::arg("class_name"))
         .def("put_device_alias",
              &Tango::Database::put_device_alias,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query database for list of exported devices for the specified class.
 
@@ -576,6 +632,7 @@ void export_database(py::module &m) {
              py::arg("alias"))
         .def("delete_device_alias",
              &Tango::Database::delete_device_alias,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete a device alias
 
@@ -590,6 +647,7 @@ void export_database(py::module &m) {
 
         .def("_add_server",
              &Tango::Database::add_server,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Add a group of devices to the database.
                 This corresponds to the pure C++ API call.
@@ -604,6 +662,7 @@ void export_database(py::module &m) {
              py::arg("dev_info"))
         .def("delete_server",
              &Tango::Database::delete_server,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete the device server and its associated devices from database.
 
@@ -614,6 +673,7 @@ void export_database(py::module &m) {
              py::arg("server"))
         .def("_export_server",
              &Tango::Database::export_server,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Export a group of devices to the database.
                 This corresponds to the pure C++ API call.
@@ -627,6 +687,7 @@ void export_database(py::module &m) {
              py::arg("dev_info"))
         .def("unexport_server",
              &Tango::Database::unexport_server,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Mark all devices exported for this server as unexported.
 
@@ -640,6 +701,7 @@ void export_database(py::module &m) {
              py::arg("server"))
         .def("rename_server",
              &Tango::Database::rename_server,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Rename a device server process.
 
@@ -658,6 +720,7 @@ void export_database(py::module &m) {
              py::arg("new_ds_name"))
         .def("get_server_info",
              &Tango::Database::get_server_info,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for server information.
 
@@ -672,6 +735,7 @@ void export_database(py::module &m) {
              py::arg("server"))
         .def("put_server_info",
              &Tango::Database::put_server_info,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Add/update server information in the database.
 
@@ -686,6 +750,7 @@ void export_database(py::module &m) {
              py::arg("info"))
         .def("delete_server_info",
              &Tango::Database::delete_server_info,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete server information of the specified server from the database.
 
@@ -701,6 +766,7 @@ void export_database(py::module &m) {
              py::arg("server"))
         .def("get_server_class_list",
              &Tango::Database::get_server_class_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of classes instantiated by the
                 specified server. The DServer class exists in all TANGO servers
@@ -717,6 +783,7 @@ void export_database(py::module &m) {
              py::arg("server"))
         .def("get_server_name_list",
              &Tango::Database::get_server_name_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Return the list of all server names registered in the database.
 
@@ -727,6 +794,7 @@ void export_database(py::module &m) {
              )doc")
         .def("get_instance_name_list",
              &Tango::Database::get_instance_name_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Return the list of all instance names existing in the database for the specifed server.
 
@@ -741,11 +809,13 @@ void export_database(py::module &m) {
              py::arg("serv_name"))
         .def("get_server_list",
              py::overload_cast<>(&Tango::Database::get_server_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Return the list of all servers registered in the database.
              )doc")
         .def("get_server_list",
              py::overload_cast<const std::string &>(&Tango::Database::get_server_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_server_list(self, wildcard) -> DbDatum
 
@@ -758,6 +828,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("get_host_server_list",
              &Tango::Database::get_host_server_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of servers registered on the specified host.
 
@@ -772,6 +843,7 @@ void export_database(py::module &m) {
              py::arg("host_name"))
         .def("get_device_class_list",
              &Tango::Database::get_device_class_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of devices and classes served by
                 the specified server. Return a list with the following structure:
@@ -797,6 +869,7 @@ void export_database(py::module &m) {
 
         .def("_get_property",
              py::overload_cast<std::string, Tango::DbData &>(&Tango::Database::get_property),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of object (i.e non-device)
                 properties. The property names are specified by the
@@ -815,26 +888,34 @@ void export_database(py::module &m) {
              )doc",
              py::arg("obj_name"),
              py::arg("props"))
-        .def("_get_property_forced",
-             &Tango::Database::get_property_forced,
-             R"doc(
-                _get_property_forced(self, obj, db_data, dsc) -> None
+        // The C++ signature takes a trailing DbServerCache pointer, but that class is not
+        // bound (it is only forward declared in the public cppTango headers), so the cache
+        // is always null and the argument is left out of the Python signature.
+        .def(
+            "_get_property_forced",
+            [](Tango::Database &self, const std::string &obj, Tango::DbData &db_data) {
+                py::gil_scoped_release no_gil{};
+                self.get_property_forced(obj, db_data);
+            },
+            R"doc(
+                _get_property_forced(self, obj, db_data) -> None
 
                 :param obj:
                 :type obj: :py:obj:`str`
 
                 :param db_data:
                 :type db_data: DbData
-
-                :param dsc:
-                :type dsc: DbServerCache
              )doc",
-             py::arg("obj"),
-             py::arg("db_data"),
-             py::arg("dsc"))
-        .def("_put_property", &Tango::Database::put_property, R"doc()doc", py::arg("obj_name"), py::arg("value"))
+            py::arg("obj"),
+            py::arg("db_data"))
+        .def("_put_property",
+             &Tango::Database::put_property,
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("obj_name"),
+             py::arg("value"))
         .def("_delete_property",
              &Tango::Database::delete_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete a list of properties for the specified object.
                 This corresponds to the pure C++ API call.
@@ -852,6 +933,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("get_property_history",
              &Tango::Database::get_property_history,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Get the list of the last 10 modifications of the specifed object
                 property. Note that propname can contain a wildcard character
@@ -871,6 +953,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("get_object_list",
              &Tango::Database::get_object_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of object (free properties) for
                 which properties are defined and which match the specified
@@ -887,6 +970,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("get_object_property_list",
              &Tango::Database::get_object_property_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of properties defined for the
                 specified object and which match the specified wildcard.
@@ -906,6 +990,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("_get_device_property",
              py::overload_cast<std::string, Tango::DbData &>(&Tango::Database::get_device_property),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 _get_device_property(self, dev_name, props) -> None
 
@@ -928,6 +1013,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_put_device_property",
              &Tango::Database::put_device_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Insert or update a list of properties for the specified device.
                 This corresponds to the pure C++ API call.
@@ -945,6 +1031,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_delete_device_property",
              &Tango::Database::delete_device_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete a list of properties for the specified device.
                 This corresponds to the pure C++ API call.
@@ -962,6 +1049,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("get_device_property_history",
              &Tango::Database::get_device_property_history,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Get the list of the last 10 modifications of the specified device
                 property. Note that propname can contain a wildcard character
@@ -983,6 +1071,7 @@ void export_database(py::module &m) {
              py::arg("prop_name"))
         .def("_get_device_property_list",
              py::overload_cast<const std::string &, const std::string &>(&Tango::Database::get_device_property_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of properties defined for the
                 specified device and which match the specified wildcard.
@@ -1000,16 +1089,18 @@ void export_database(py::module &m) {
              py::arg("dev_name"),
              py::arg("wildcard"))
 
-        .def("_get_device_property_list",
-             py::overload_cast<std::string &,
-                               const std::string &,
-                               StdStringVector &,
-                               std::shared_ptr<Tango::DbServerCache>>(&Tango::Database::get_device_property_list),
-             py::arg("dev_name"),
-             py::arg("wildcard"),
-             py::arg("container"),
-             py::arg("dsc") = nullptr,
-             R"doc(
+        // As for _get_property_forced, the trailing DbServerCache pointer of the C++
+        // signature is left out because that class is not bound.
+        .def(
+            "_get_device_property_list",
+            [](Tango::Database &self, std::string dev_name, const std::string &wildcard, StdStringVector &container) {
+                self.get_device_property_list(dev_name, wildcard, container);
+            },
+            py::call_guard<py::gil_scoped_release>(),
+            py::arg("dev_name"),
+            py::arg("wildcard"),
+            py::arg("container"),
+            R"doc(
                 Query the database for a list of properties defined for the
                 specified device and which match the specified wildcard.
                 This corresponds to the pure C++ API call.
@@ -1028,6 +1119,7 @@ void export_database(py::module &m) {
              )doc")
         .def("_get_device_attribute_property",
              py::overload_cast<std::string, Tango::DbData &>(&Tango::Database::get_device_attribute_property),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of device attribute properties for
                 the specified device. The attribute names are specified by the
@@ -1048,6 +1140,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_put_device_attribute_property",
              &Tango::Database::put_device_attribute_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Insert or update a list of attribute properties for the specified device.
                 This corresponds to the pure C++ API call.
@@ -1065,6 +1158,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_delete_device_attribute_property",
              &Tango::Database::delete_device_attribute_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 _delete_device_attribute_property(self, dev_name, props) -> None
 
@@ -1093,6 +1187,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("get_device_attribute_property_history",
              &Tango::Database::get_device_attribute_property_history,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_device_attribute_property_history(self, dev_name, attr_name, prop_name) -> DbHistoryList
 
@@ -1119,6 +1214,7 @@ void export_database(py::module &m) {
              py::arg("prop_name"))
         .def("get_device_attribute_list",
              &Tango::Database::get_device_attribute_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Get the list of attribute(s) with some data defined in database
                 for a specified device. Note that this is not the list of all
@@ -1139,6 +1235,7 @@ void export_database(py::module &m) {
              py::arg("att_list"))
         .def("_get_class_property",
              py::overload_cast<std::string, Tango::DbData &>(&Tango::Database::get_class_property),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of class properties. The property
                 names are specified by the DbData (seq<DbDatum>) structures.
@@ -1158,6 +1255,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_put_class_property",
              &Tango::Database::put_class_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Insert or update a list of properties for the specified class.
                 This corresponds to the pure C++ API call.
@@ -1175,6 +1273,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_delete_class_property",
              &Tango::Database::delete_class_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete a list of properties for the specified class.
                 This corresponds to the pure C++ API call.
@@ -1192,6 +1291,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("get_class_property_history",
              &Tango::Database::get_class_property_history,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Get the list of the last 10 modifications of the specified class
                 property. Note that propname can contain a wildcard character
@@ -1215,6 +1315,7 @@ void export_database(py::module &m) {
              py::arg("prop_name"))
         .def("get_class_list",
              &Tango::Database::get_class_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of classes which match the specified wildcard
 
@@ -1229,6 +1330,7 @@ void export_database(py::module &m) {
              py::arg("wildcard"))
         .def("get_class_property_list",
              py::overload_cast<const std::string &>(&Tango::Database::get_class_property_list),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of properties defined for the specified class.
 
@@ -1241,6 +1343,7 @@ void export_database(py::module &m) {
              py::arg("class_name"))
         .def("_get_class_attribute_property",
              py::overload_cast<std::string, Tango::DbData &>(&Tango::Database::get_class_attribute_property),
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of class attribute properties for
                 the specified object. The attribute names are returned with the
@@ -1264,6 +1367,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_put_class_attribute_property",
              &Tango::Database::put_class_attribute_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Insert or update a list of attribute properties for the specified class.
                 This corresponds to the pure C++ API call.
@@ -1281,6 +1385,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("_delete_class_attribute_property",
              &Tango::Database::delete_class_attribute_property,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Delete a list of attribute properties for the specified class.
                 This corresponds to the pure C++ API call.
@@ -1298,6 +1403,7 @@ void export_database(py::module &m) {
              py::arg("props"))
         .def("get_class_attribute_property_history",
              &Tango::Database::get_class_attribute_property_history,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Get the list of the last 10 modifications of the specifed class attribute
                 property. Note that prop_name and attr_name can contain a wildcard character
@@ -1322,6 +1428,7 @@ void export_database(py::module &m) {
              py::arg("prop_name"))
         .def("get_class_attribute_list",
              &Tango::Database::get_class_attribute_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Query the database for a list of attributes defined for the specified
                 class which match the specified wildcard.
@@ -1361,6 +1468,7 @@ void export_database(py::module &m) {
              py::arg("alias"))
         .def("get_attribute_alias_list",
              &Tango::Database::get_attribute_alias_list,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 get_attribute_alias_list(self, filter) -> DbDatum
 
@@ -1380,6 +1488,7 @@ void export_database(py::module &m) {
              py::arg("filter"))
         .def("put_attribute_alias",
              &Tango::Database::put_attribute_alias,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 put_attribute_alias(self, attr_name, alias) -> None
 
@@ -1401,6 +1510,7 @@ void export_database(py::module &m) {
              py::arg("alias"))
         .def("delete_attribute_alias",
              &Tango::Database::delete_attribute_alias,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Remove the alias associated to an attribute name.
 
@@ -1418,6 +1528,7 @@ void export_database(py::module &m) {
 
         .def("export_event",
              &Tango::Database::export_event,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Export an event to the database.
 
@@ -1431,6 +1542,7 @@ void export_database(py::module &m) {
              py::arg("event_data"))
         .def("unexport_event",
              &Tango::Database::unexport_event,
+             py::call_guard<py::gil_scoped_release>(),
              R"doc(
                 Un-export an event from the database.
 

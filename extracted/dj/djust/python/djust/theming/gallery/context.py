@@ -8,6 +8,7 @@ example dicts containing the kwargs that will be passed to its template tag.
 from dataclasses import fields as dataclass_fields
 from typing import Any
 
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from djust.theming.contracts import COMPONENT_CONTRACTS
@@ -159,6 +160,9 @@ def _dropdown_examples() -> list[dict[str, Any]]:
             "id": "gallery-dropdown",
             "label": "Actions",
             "align": "left",
+            # Keep the menu open in the catalogue so its items are visible
+            # without requiring a server event before the example can be read.
+            "is_open": True,
             "slot_menu": items,
         }
     ]
@@ -334,7 +338,7 @@ def _tooltip_examples() -> list[dict[str, Any]]:
             {
                 "text": f"Tooltip ({position})",
                 "position": position,
-                "slot_content": mark_safe(f"<button>Hover ({position})</button>"),
+                "slot_content": format_html("<button>Hover ({})</button>", position),
             }
         )
     return examples

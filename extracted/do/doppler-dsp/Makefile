@@ -193,7 +193,16 @@ endif
 #
 # As the caller, not root: the build tree lands in the checkout, and a
 # root-owned one is a `make clean` away from needing sudo.
-CONTAINER_CHECKOUT = -u $$(id -u):$$(id -g) -v "$(CURDIR)":/w -w /w \
+#
+# CONTAINER_USER is how a container runs as the caller, and the one place that
+# is decided. Under docker, `-u uid:gid`. Under rootless podman (`docker` is
+# often podman's CLI) that uid inside maps to a subordinate uid outside and
+# cannot write the mount at all; `--userns=keep-id` maps it to the caller
+# (#2933). Shell-expanded, so it is decided on the box that runs it.
+CONTAINER_USER = $$(if docker --version 2>/dev/null | grep -qi podman; \
+                   then echo --userns=keep-id; \
+                   else echo -u $$(id -u):$$(id -g); fi)
+CONTAINER_CHECKOUT = $(CONTAINER_USER) -v "$(CURDIR)":/w -w /w \
                      -e UV_PROJECT_ENVIRONMENT=/w/$(1)/.venv
 
 # Extra cmake args passed through to every configure step.
@@ -258,7 +267,7 @@ LOCK_CMD   = $(UV) lock --upgrade-package $(PY_PROJECT)
 # owns the version, so there is no `additional_dependencies` left to drift.
 LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                clang-tidy phase-conversion alloc-helpers stimulus-sources \
-               retired-names repo-links broker-links clone-notes ci-pipefail rust-abi \
+               retired-names retired-symbols repo-links broker-links clone-notes ci-pipefail rust-abi \
                header-example-arity \
                wfm-enum-tables fmod-fold lgamma-reentrant full-scale \
                bench-timer bare-libm gnu-flags workflow-tag-triggers \
@@ -266,8 +275,8 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                why-param header-file-blocks doc-claims public-symbols \
                curl-fail \
                warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
-               ring-internals named-args acq-pfa-split \
-               finding-citations
+               ring-internals size-mul named-args acq-pfa-split \
+               finding-citations test-all-ci changelog-fragments dup-include
 FORMAT_TOOLS = ruff-format ruff mdformat named-args clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
@@ -322,7 +331,22 @@ LINT_ruff-format = $(RUFF) format $(RUFF_PATHS)
 # regenerates it on every apply and does NOT run c_format_command over it, so
 # formatting it here made all 84 STALE in `jm status --check` -- a drift gate
 # red on files nobody edited.
-C_EXCLUDE_RE = (^|/)(native/inc/|vendor/)|(^|/)jm_(bench|test)\.h$$|_ext\.c$$|_symbols\.c$$
+C_EXCLUDE_RE = (^|/)(native/inc/|vendor/)|(^|/)jm_(bench|test)\.h$$|_ext\.c$$|_symbols\.c$$|$(DOWNSTREAM_GEN_C_RE)
+
+# The downstream example's per-object fragments are jm-owned
+# (`fragment = "generated"`), and that project sets no c_style, so jm renders
+# them in its own style -- as it does the module's `_ext.c` aggregator, which
+# the `_ext\.c$` alternative above already leaves alone. Formatting them here
+# would make its drift check report them STALE; that check is their gate.
+#
+# The set is read from jm's own ownership stamp, the `/* jm:generated` banner
+# on a fragment's first line, not from a file-name pattern. A pattern on
+# `_ext_<obj>.c` also caught the HAND-WRITTEN `_ext_<obj>_extra.c` the
+# example's README tells authors to use, which then went unformatted by
+# anyone. An empty set yields `^()$`, which matches no file.
+DOWNSTREAM_GEN_C_RE := ^($(shell git grep -l '^/\* jm:generated ' -- \
+    'examples/downstream-jm/native/src/*.c' 2>/dev/null \
+    | sed 's/\./\\./g' | paste -sd'|'))$$
 
 # ...except the `_ext.c` of a `no_generate` module, which is HAND-WRITTEN: the
 # blanket exclusion left it formatted by nobody until `jm apply`, whose c_style
@@ -411,6 +435,16 @@ RING_INTERNALS_BASE ?= origin/main
 LINT_ring-internals = $(UV) run python scripts/check_ring_internals.py \
     --base $(RING_INTERNALS_BASE)
 
+# A checked size product has one home, dp_size_mul() in clib_common.h (and
+# dp_size_mul_sat() for an upper bound). The `n > SIZE_MAX / k` guard was
+# hand-written at every site, spelled a different way each time, and one
+# file grew three wrapping products in two review rounds. What is left is a
+# ratchet that only shrinks: scripts/.size-mul-ratchet, against the merge
+# base with SIZE_MUL_BASE.
+SIZE_MUL_BASE ?= origin/main
+LINT_size-mul = $(UV) run python scripts/check_size_mul_sites.py \
+    --base $(SIZE_MUL_BASE)
+
 # A wire format's full scale has one home, dp_format_full_scale(). doppler
 # had FOUR private copies of the constant plus the arithmetic around it
 # (wfm_sink, wfm_writer, wfm_reader, pocketfft) and they had already drifted:
@@ -466,8 +500,16 @@ LINT_gnu-flags = $(UV) run python scripts/check_gnu_flags.py
 # bare lgamma in library C is the next race. No allowlist.
 LINT_lgamma-reentrant = $(UV) run python scripts/check_lgamma_sites.py
 
+# A header included twice in one preprocessor branch is invisible to the
+# compiler -- the include guard swallows the copy -- so nothing failed when
+# burst_capture_core.h included correlator_core.h three times and three
+# more headers did the same (gh-2752, step 4c). Scans every tracked .c/.h
+# except vendor/; C_FILES is not the list, because it leaves out the
+# native/inc headers where every one of those repeats was. No allowlist.
+LINT_dup-include = $(UV) run python scripts/check_dup_includes.py
+
 # The acquisition engine prices a gate at three sites, and only the commit
-# site has an exact pin (test_acq_core.c). Each must split pfa over the one
+# site has an exact pin (test_correlator_search.c). Each must split pfa over the one
 # count, acq_band_cells(): a hand count of the native cells re-inlined at
 # the sizer or the non-coherent ascend fired the engine at about twice its
 # pfa and passed every test (doppler#2218).
@@ -496,7 +538,12 @@ LINT_text-encoding = $(UV) run python scripts/check_text_encoding.py
 # line has to satisfy. The helpers landed 2026-07-21 and the rule then lived
 # in a memory file and nowhere else, so nothing extended it and a bare malloc
 # beside a helper call passed every gate the repo had. Ratcheted: the 313
-# sites that predate it may only shrink.
+# sites that predate it may only shrink. Its second rule
+# (scripts/_alloc_products.py): no inline product in ANY size argument of an
+# allocator -- malloc, realloc, calloc and the dp_x/dp_*n helpers -- since
+# `calloc (a * b, size)` has wrapped `a * b` before calloc's own check;
+# dp_mallocn / dp_xmallocn / dp_xreallocn take the factors instead.
+# scripts/.alloc-product-ratchet holds the sites that predate it, shrink-only.
 LINT_alloc-helpers = $(UV) run python scripts/check_alloc_helpers.py
 
 # The list of files exempt from the -Wall -Wextra gate (`warnings-check`, below):
@@ -505,7 +552,7 @@ LINT_alloc-helpers = $(UV) run python scripts/check_alloc_helpers.py
 # CI gate (GATES_DEPS), not a lint.
 LINT_warnings-exempt = $(UV) run python scripts/check_warnings.py --exempt-only
 
-lint-alloc-helpers-baseline: ## Re-record the alloc ratchet after converting some
+lint-alloc-helpers-baseline: ## Re-record both alloc ratchets after converting some
 	@$(UV) run python scripts/check_alloc_helpers.py --update-baseline
 
 # A rename is finished when the old name appears NOWHERE, and that is a
@@ -514,6 +561,11 @@ lint-alloc-helpers-baseline: ## Re-record the alloc ratchet after converting som
 # five of them the NAME a C test prints, which no compiler can notice. The
 # list is data, added by the commit that retires a name.
 LINT_retired-names = $(UV) run python scripts/check_retired_names.py
+
+# ...and nothing REQUIRED the row: #2886 removed every dp_corr_* symbol with
+# none, and a caller it missed broke every Build job (#2905). A public
+# symbol or native/inc/doppler header gone since the merge base needs a row.
+LINT_retired-symbols = $(UV) run python scripts/check_retired_symbols.py
 
 # The docs point at the RELEASE the reader installed, not at main
 # (doppler#2857): no `blob/main` link and no `git clone` without --branch outside
@@ -650,6 +702,17 @@ LINT_stock-images = $(UV) run python scripts/check_stock_images.py \
 # other installer through UV_VERSION.
 # scripts/.bare-uv-allow (rule 4) may only shrink from its state at the merge
 # base with UV_PIN_BASE, read the way STOCK_IMAGES_BASE's list is.
+# `make test-all` runs every test target CI runs, or scripts/.test-all-exempt
+# says why it cannot run locally: a branch green under test-all and red in CI
+# is what #2886 was, twice.
+LINT_test-all-ci = $(UV) run python scripts/check_test_all_covers_ci.py
+
+# A changelog.d/ fragment the release cut would refuse (prose, or a `### `
+# line) is red on the PR that adds it, not at `make release-pr`: two reached
+# main and stopped the v0.80.0 cut halfway (#2896). `--lint` runs the
+# assembler's own rule function, so the two cannot disagree.
+LINT_changelog-fragments = $(UV) run python scripts/changelog-assemble.py --lint
+
 UV_PIN_BASE ?= origin/main
 LINT_uv-pin = $(UV) run python scripts/check_uv_pin.py --base $(UV_PIN_BASE)
 
@@ -748,7 +811,8 @@ LEAK_CHECK    = python3 scripts/check_test_leaks.py
 MEM_GUARD_CMD = scripts/mem-guard.sh
 # CTEST_SELECT narrows the C suite the way PYTEST_SELECT narrows pytest:
 # `make test CTEST_SELECT='-R <re>'` runs only the matching ctests, still
-# under LEAK_CHECK. Empty by default, so the full suite is unchanged.
+# under LEAK_CHECK; `make test-asan` takes it too. Empty by default, so the
+# full suite is unchanged.
 CTEST_SELECT  ?=
 TEST_CMD      = $(LEAK_CHECK) --ctest -- \
                     $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
@@ -837,7 +901,8 @@ TEST_RUST_CMD   = cargo test --manifest-path $(RUST_DIR)/Cargo.toml
 # src/doppler/examples/.examples-skip (reasons mandatory).
 TEST_EXAMPLES_CMD = $(MAKE) --no-print-directory test-examples-c
 
-TEST_ALL_DEPS = test test-examples test-python test-examples-python
+TEST_ALL_DEPS = test test-examples test-python test-examples-python \
+                test-snippets test-stubs test-api-docs test-rust
 
 # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
 # unreachable, so whether they RUN is a property of the environment, not of the
@@ -1682,12 +1747,12 @@ set +e; \
 # written, the numbers collapse and `coverage-gate`'s threshold fails, which
 # is the gate that exists for exactly that.
 # The test executables are objects too, not only the libraries. A `static`
-# function in a header (det_private.h's det_peak_list, dp_state.h's cursors)
-# is instantiated per translation unit and carries that unit's name in the
-# profile, so the copy a C test calls DIRECTLY never merges into the
+# function in a header (correlator_private.h's det_peak_list, dp_state.h's
+# cursors) is instantiated per translation unit and carries that unit's name
+# in the profile, so the copy a C test calls DIRECTLY never merges into the
 # library's copies -- and an export over the libraries alone reports the
 # test's calls as never made. Measured on #1210: two early returns proven
-# by test_acq_core.c showed DA:0 in the export and 89% in the test binary's
+# by test_correlator_search.c showed DA:0 in the export and 89% in the test binary's
 # own report, and the patch gate failed at 88% on lines that had a test. The
 # test SOURCES stay out of the report through COV_IGNORE; only what they
 # exercised in library headers is added.
@@ -1792,7 +1857,16 @@ VERSION_PROBES := $(foreach L,$(VERSION_SITE_LABELS),$(VERSION_PROBE_NEWLINE)$(L
 # `--write` sets every DECLARED site and reads them all back, so a site missing
 # from VERSION_SITE_LABELS above is still written and still verified -- the
 # silent direction of the old two-list arrangement cannot recur.
+#
+# `cargo fetch --locked` runs FIRST, before anything is written (#2722). The
+# `cargo metadata --offline` below cannot resolve on a box whose registry
+# cache is empty, and it used to fail after the version files and uv.lock
+# were already rewritten, leaving a half-done bump to back out by hand.
+# Fetching against the unchanged lock fills the cache, or fails while the
+# tree is still untouched. Measured with an empty CARGO_HOME: metadata exit
+# 101 before the fetch, 0 after it, and no file changed.
 define BUMP_VERSION_CMD
+cd ffi/rust && cargo fetch --locked >/dev/null
 $(VERSION_SITES_CMD) --write $(VERSION)
 $(LOCK_CMD)
 cd ffi/rust && cargo metadata --offline --format-version 1 >/dev/null
@@ -1868,7 +1942,7 @@ LOCAL_TARGETS = specan record-demo pool-record-write acq-surface-record \
                 corr2d-hypotheses-record \
                 gallery blazing \
                 gen-c-api just-build docs-invariants \
-                jm-apply jm-apply-downstream jm-adopt jm-revendor \
+                jm-apply jm-apply-downstream jm-adopt jm-adopt-downstream jm-revendor \
                 jm-migrate-fragments \
                 jm-upgrade changelog-assemble changelog-assembled-check \
                 plot-rx-dynamics \
@@ -2427,7 +2501,7 @@ corr2d-hypotheses-record: build ## Re-time the hypothesis-bank orderings; rewrit
 # entry would become the first script's argv[1]. Loop + derive the destination
 # before adding one — gh-694.
 GALLERY_CHARACTERIZATIONS := \
-    src/doppler/acquire/tests/characterization/burst_acquisition/characterize.py
+    src/doppler/correlation/tests/characterization/burst_search/characterize.py
 # Where `make gallery` tells the characterization to write its plot. Its
 # source cannot name the path (it takes it on argv), so release-freshness-check
 # is handed this too: a changed subject needs THIS file to change (#2609).
@@ -2785,18 +2859,21 @@ test-asan: ## Run the C suite under ASan+LSan; any bad access or leak fails
 	 fi; \
 	 [ "$$bad" = 0 ] || exit 1; \
 	 echo "test-asan: one ASan registration flag in each of $$checked test binaries"
-# An empty result set is not a pass -- the same trap test-tsan guards, and it
-# bites harder here because this target takes no pattern: a configure that
-# registered no tests would run zero of them and exit 0, reporting a clean
-# sanitizer run over nothing at all.
-	@n=$$($(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) -N | sed -n 's/^Total Tests: //p'); \
+# An empty result set is not a pass -- the same trap test-tsan guards: a
+# configure that registered no tests would run zero of them and exit 0,
+# reporting a clean sanitizer run over nothing at all. CTEST_SELECT (the knob
+# `make test` takes) narrows the count and the run alike, so a selection that
+# matches nothing fails here too. The build and the two checks above stay
+# whole-suite: the flag scan is over every test binary either way.
+	@n=$$($(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) $(CTEST_SELECT) -N | sed -n 's/^Total Tests: //p'); \
 	 if [ "$$n" = "0" ] || [ -z "$$n" ]; then \
-	   echo "test-asan: the suite registered no tests — nothing ran,"; \
+	   echo "test-asan: the selection holds no tests — nothing ran,"; \
 	   echo "  so this gate has not passed."; exit 1; \
 	 fi; \
 	 echo "test-asan: $$n test(s) under AddressSanitizer + LeakSanitizer"
 	ASAN_OPTIONS=$(ASAN_OPTS) \
-		$(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) --output-on-failure
+		$(CTEST) --test-dir $(ASAN_DIR) $(SAN_EXCLUDE_SWEEP) $(CTEST_SELECT) \
+		--output-on-failure
 
 # ── ThreadSanitizer ──────────────────────────────────────────────────────────
 # WHOLE-SUITE, like test-asan, and that is a correction rather than a
@@ -2960,8 +3037,8 @@ gen-c-api: ## Regenerate docs/c-api/ from the headers (mkdoxy, CI's doxygen)
 	   echo "gen-c-api: local $${have:-none} != CI's $(DOXYGEN_VERSION) — shimming the CI image"; \
 	   $(DOXYGEN_IMAGE_CHECK); \
 	   shim=$$(mktemp -d); \
-	   printf '#!/bin/sh\nexec docker run --rm -i -u %s:%s -v "%s":"%s" -w "$$PWD" %s doxygen "$$@"\n' \
-	     "$$(id -u)" "$$(id -g)" "$(CURDIR)" "$(CURDIR)" "$(CI_IMAGE)" > $$shim/doxygen; \
+	   printf '#!/bin/sh\nexec docker run --rm -i %s -v "%s":"%s" -w "$$PWD" %s doxygen "$$@"\n' \
+	     "$(CONTAINER_USER)" "$(CURDIR)" "$(CURDIR)" "$(CI_IMAGE)" > $$shim/doxygen; \
 	   chmod +x $$shim/doxygen; \
 	   PATH="$$shim:$$PATH" $(MAKE) -s gen-c-api-run; rc=$$?; \
 	   rm -rf $$shim; exit $$rc; \
@@ -3983,6 +4060,16 @@ jm-revendor: ## Re-vendor every jm_*.h that is behind the pinned jm (both projec
 
 jm-apply-downstream: ## Regenerate the downstream example's jm glue (same pin)
 	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) just-makeit apply
+
+# jm-adopt for the downstream example: same arguments, same pin, run from
+# its directory so `adopt` reads its manifest rather than doppler's.
+jm-adopt-downstream: ## JM_ADOPT_ARGS='<obj>... | --check --all' — jm-adopt for the downstream example
+	@test -n "$(JM_ADOPT_ARGS)" || { \
+	    echo "usage: make jm-adopt-downstream JM_ADOPT_ARGS='--check --all'"; \
+	    exit 2; }
+	$(UV) sync --group dev --no-install-project
+	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) \
+	    just-makeit adopt $(JM_ADOPT_ARGS)
 
 # The jm manifest drift gate. --no-install-project because the gate only reads
 # the manifest, so there is no reason to build the C extension for it.
@@ -5289,17 +5376,14 @@ endif
 # benchmarking.md). BENCH_ARGS narrows the suite as it does for
 # `make bench`. Writes nothing under benchmarks/published/. By hand: nothing
 # in CI runs it (a bench box and minutes).
-# ALIAS pairs a renamed family across the two commits, keyed as bench-ab
-# keys rows, by fullname, whose C family is the bench binary:
-# `ALIAS=bench_corr2d_core=bench_correlator_core` compares A's
-# bench_corr2d_core::<row> with B's bench_correlator_core::<row>, suffix
-# for suffix (#2752 step 3.2). Declared here, per run, and printed with the
-# verdict; there is no default table. An aliased row on one side only
-# fails, and an alias that pairs nothing stops the run after one pass.
-bench-ab: ## A/B two commits, per row min-of-K, band and verdict (A= B= [K>=3] [BUILD=] [ALIAS=old=new])
+# A renamed family is paired through benchmarks/renames.toml (#2900), the
+# table the benchmarks page and the label gate read: A's c:acq::<row> is
+# judged against B's c:correlator::<row>, suffix for suffix. A renamed row
+# on one side only fails.
+bench-ab: ## A/B two commits, per row min-of-K, band and verdict (A= B= [K>=3] [BUILD=])
 ifndef A
 	@echo "usage: make bench-ab A=<ref> B=<ref> [K=5] [BUILD=portable|native]"
-	@echo "       [JSON=out.json] [BENCH_ARGS=...] [ALIAS=old=new,...]"
+	@echo "       [JSON=out.json] [BENCH_ARGS=...]"
 	@exit 2
 endif
 ifndef B
@@ -5307,8 +5391,7 @@ ifndef B
 	@exit 2
 endif
 	$(UV) run python scripts/bench_ab.py $(A) $(B) $(if $(K),-k $(K),) \
-	    $(if $(BUILD),--build $(BUILD),) $(if $(JSON),--json $(JSON),) \
-	    $(if $(ALIAS),--alias '$(ALIAS)',)
+	    $(if $(BUILD),--build $(BUILD),) $(if $(JSON),--json $(JSON),)
 
 bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
 ifndef VERSION

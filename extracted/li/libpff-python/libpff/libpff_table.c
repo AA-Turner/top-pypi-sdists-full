@@ -3449,6 +3449,17 @@ int libpff_table_read_record_entries(
 
 		return( -1 );
 	}
+	if( record_entries_level > LIBPFF_MAXIMUM_TABLE_RECORD_ENTRIES_LEVEL )
+	{
+		libcerror_error_set(
+		 error,
+		 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+		 LIBCERROR_RUNTIME_ERROR_VALUE_OUT_OF_BOUNDS,
+		 "%s: invalid record entries level value out of bounds.",
+		 function );
+
+		return( -1 );
+	}
 #if defined( HAVE_DEBUG_OUTPUT )
 	if( libcnotify_verbose != 0 )
 	{
@@ -5428,7 +5439,7 @@ int libpff_table_read_6c_record_entries(
 				 ( (pff_table_record_entry_6c_t *) record_entries_data )->values_array_number,
 				 values_array_number );
 
-				if( (size_t) ( 16 * values_array_number ) > table_values_array_data_size )
+				if( (size_t) values_array_number >= ( table_values_array_data_size / 16 ) )
 				{
 					libcerror_error_set(
 					 error,
@@ -8253,6 +8264,20 @@ int libpff_table_read_values_array(
 
 		return( -1 );
 	}
+	/* Make sure the values array entries are large enough to contain the
+	 * 4-byte values array entry identifier
+	 */
+	if( values_array_entry_size < 4 )
+	{
+		libcerror_error_set(
+		 error,
+		 LIBCERROR_ERROR_DOMAIN_ARGUMENTS,
+		 LIBCERROR_ARGUMENT_ERROR_VALUE_OUT_OF_BOUNDS,
+		 "%s: invalid values array entry size value out of bounds.",
+		 function );
+
+		return( -1 );
+	}
 	if( column_definitions_array == NULL )
 	{
 		libcerror_error_set(
@@ -8710,7 +8735,7 @@ int libpff_table_read_values_array(
 				/* For some unknown reason when the values array is read
 				 * the data array is padded with zero or remnant values
 				 * therefore the values array entries do not align
-				 * this check is makes sure the aligment is correct
+				 * this check is makes sure the alignment is correct
 				 */
 				if( column_definition_index == 0 )
 				{
@@ -8862,6 +8887,17 @@ int libpff_table_read_values_array(
 					 LIBCERROR_ERROR_DOMAIN_ARGUMENTS,
 					 LIBCERROR_ARGUMENT_ERROR_VALUE_OUT_OF_BOUNDS,
 					 "%s: invalid column definition values array offset value exceeds values array size.",
+					 function );
+
+					goto on_error;
+				}
+				if( column_definition->values_array_size > ( values_array_entry_size - column_definition->values_array_offset ) )
+				{
+					libcerror_error_set(
+					 error,
+					 LIBCERROR_ERROR_DOMAIN_ARGUMENTS,
+					 LIBCERROR_ARGUMENT_ERROR_VALUE_OUT_OF_BOUNDS,
+					 "%s: invalid column definition values array size value exceeds values array size.",
 					 function );
 
 					goto on_error;
@@ -9457,6 +9493,19 @@ int libpff_table_read_entry_value(
 		 */
 		else if( record_entry_value_type == LIBPFF_VALUE_TYPE_INTEGER_16BIT_SIGNED )
 		{
+			if( record_entry_value_size < sizeof( uint16_t ) )
+			{
+				libcerror_error_set(
+				 error,
+				 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+				 LIBCERROR_RUNTIME_ERROR_UNSUPPORTED_VALUE,
+				 "%s: unsupported value type: 0x%08" PRIx32 " with value size: %" PRIu8 ".",
+				 function,
+				 record_entry_value_type,
+				 record_entry_value_size );
+
+				goto on_error;
+			}
 #if defined( HAVE_DEBUG_OUTPUT )
 			if( libcnotify_verbose != 0 )
 			{
@@ -9466,21 +9515,6 @@ int libpff_table_read_entry_value(
 				 set_index,
 				 entry_index,
 				 entry_value );
-
-				if( ( record_entry_value_size != 2 )
-				 && ( record_entry_value_size != 4 ) )
-				{
-					libcerror_error_set(
-					 error,
-					 LIBCERROR_ERROR_DOMAIN_RUNTIME,
-					 LIBCERROR_RUNTIME_ERROR_UNSUPPORTED_VALUE,
-					 "%s: unsupported value type: 0x%08" PRIx32 " with value size: %" PRIu8 ".",
-					 function,
-					 record_entry_value_type,
-					 record_entry_value_size );
-
-					goto on_error;
-				}
 			}
 #endif
 			record_entry_value_data      = record_entry_value;
@@ -9496,6 +9530,19 @@ int libpff_table_read_entry_value(
 		      || ( record_entry_value_type == LIBPFF_VALUE_TYPE_FLOAT_32BIT )
 		      || ( record_entry_value_type == LIBPFF_VALUE_TYPE_ERROR ) )
 		{
+			if( record_entry_value_size < sizeof( uint32_t ) )
+			{
+				libcerror_error_set(
+				 error,
+				 LIBCERROR_ERROR_DOMAIN_RUNTIME,
+				 LIBCERROR_RUNTIME_ERROR_UNSUPPORTED_VALUE,
+				 "%s: unsupported value type: 0x%08" PRIx32 " with value size: %" PRIu8 ".",
+				 function,
+				 record_entry_value_type,
+				 record_entry_value_size );
+
+				goto on_error;
+			}
 #if defined( HAVE_DEBUG_OUTPUT )
 			if( libcnotify_verbose != 0 )
 			{
@@ -9505,20 +9552,6 @@ int libpff_table_read_entry_value(
 				 set_index,
 				 entry_index,
 				 entry_value );
-
-				if( record_entry_value_size != 4 )
-				{
-					libcerror_error_set(
-					 error,
-					 LIBCERROR_ERROR_DOMAIN_RUNTIME,
-					 LIBCERROR_RUNTIME_ERROR_UNSUPPORTED_VALUE,
-					 "%s: unsupported value type: 0x%08" PRIx32 " with value size: %" PRIu8 ".",
-					 function,
-					 record_entry_value_type,
-					 record_entry_value_size );
-
-					goto on_error;
-				}
 			}
 #endif
 			record_entry_value_data      = record_entry_value;

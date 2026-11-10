@@ -587,6 +587,37 @@ def extract_hashtag_v1(data):
     return Hashtag(**data)
 
 
+def extract_story_web(data):
+    story = deepcopy(data)
+    if story.get("pk") is None:
+        raise KeyError("pk")
+    user = story.get("user")
+    if not isinstance(user, dict) or (user.get("pk") is None and user.get("id") is None):
+        raise KeyError("user.pk")
+    for field in (
+        "story_locations",
+        "story_hashtags",
+        "story_cta",
+        "sponsor_tags",
+        "story_feed_media",
+        "story_link_stickers",
+    ):
+        if story.get(field) is None:
+            story[field] = []
+    for feed_media in story["story_feed_media"]:
+        if "media_id" in feed_media:
+            continue
+        if feed_media.get("media_code"):
+            feed_media["media_id"] = InstagramIdCodec.decode(feed_media["media_code"])
+        elif feed_media.get("id") is not None:
+            feed_media["media_id"] = str(feed_media["id"]).split("_")[0]
+    versions = story.get("video_versions") or []
+    if versions and any("height" not in candidate or "width" not in candidate for candidate in versions):
+        story["video_url"] = next((candidate.get("url") for candidate in versions if candidate.get("url")), None)
+        story.pop("video_versions", None)
+    return extract_story_v1(story)
+
+
 def extract_story_v1(data):
     """Extract story from Private API"""
     story = deepcopy(data)

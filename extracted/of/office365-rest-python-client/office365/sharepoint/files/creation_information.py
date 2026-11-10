@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class FileCreationInformation(ClientValue):
     """Represents properties that can be set when creating a file by using the FileCollection.Add method.
 
@@ -22,7 +19,7 @@ class FileCreationInformation(ClientValue):
     Url: str | None = None
     XorHash: str | None = None
 
-    def to_json(self, json_format=None):
+    def to_json(self, profile=None):
         return {"overwrite": self.Overwrite, "url": self.Url}
 
     @property

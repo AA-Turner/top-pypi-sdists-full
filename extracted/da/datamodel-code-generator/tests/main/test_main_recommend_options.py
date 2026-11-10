@@ -149,7 +149,7 @@ def test_recommend_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         pytest.param(
             "service-config.json",
             ["--naming-strategy", "full-path"],
-            id="jsonschema-contested-option-set",
+            id="jsonschema-naming-strategy-set",
         ),
         pytest.param("order.json", [], id="root-name-taken"),
         pytest.param("events.yaml", [], id="asyncapi"),
@@ -193,6 +193,24 @@ def test_recommend_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         pytest.param("deployment.json", [], id="pattern-properties"),
         pytest.param("settings.json", [], id="draft-07-pattern-map"),
         pytest.param("enum_const.yaml", [], id="enums-read-as-their-const"),
+        pytest.param("shared_variant_tags.yaml", [], id="unions-merge-shared-variant-tags"),
+        pytest.param(
+            "shared_variant_tags_remote_mapping.yaml",
+            [],
+            id="unions-merge-shared-variant-tags-remote-mapping-value",
+        ),
+        pytest.param(
+            "shared_variant_tags.yaml",
+            ["--preset", "standard-py314-20261027"],
+            id="unions-merge-shared-variant-tags-older-preset",
+        ),
+        pytest.param(
+            "shared_variant_tags.yaml",
+            ["--output-model-type", "msgspec.Struct"],
+            id="unions-shared-variant-tags-msgspec",
+        ),
+        pytest.param("ref_siblings_oas31.yaml", ["--output-format", "json"], id="ref-siblings-read-as-draft-07"),
+        pytest.param("property_counts_draft07.json", [], id="property-counts-beside-ignored-ref"),
         pytest.param(
             "redundant_constraints.json",
             ["--preset", "standard-py314-20261017"],
@@ -254,6 +272,10 @@ def test_recommend_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         ),
         pytest.param("blank_union_titles.json", [], id="blank-union-titles"),
         pytest.param("multi_format_extension.yaml", [], id="asyncapi-multi-format-extension"),
+        pytest.param("avro_payload.yaml", [], id="asyncapi-avro-payload"),
+        pytest.param("avro_messages.yaml", [], id="asyncapi-avro-messages"),
+        pytest.param("avro_shared_names.yaml", [], id="asyncapi-avro-shared-names"),
+        pytest.param("avro_merged_names.yaml", [], id="asyncapi-avro-merged-names"),
         pytest.param("schema_key_component.yaml", [], id="openapi-schema-key-component"),
     ],
 )
@@ -269,11 +291,16 @@ def test_recommend_options_for_schemas(
     once. A definition under an integer key is named by its text, a schema under one that no selected scope reads is not
     an error, and a blank title is no title of a union variant. An AsyncAPI multi-format schema object counts as its
     schema whatever ``x-`` extensions it has, and an OpenAPI component with a ``schema`` key counts as the schema it is.
+    An AsyncAPI schema in Avro, by its own ``schemaFormat`` or its message's, counts as the JSON Schema generation
+    converts it to: its root as the schema, and the named types it reaches as components, apart from those of another
+    document and from a component of the same name, unless generation merges them into one class: a named type that
+    another converted document defines alike and whose referenced types are alike too counts once.
     A constraint a const decides counts as redundant on the root schema as it does on any other. The api scope reads the
     operations of a path item as its walk does: the ``query`` operation and ``additionalOperations`` from OpenAPI 3.2,
     and no ``x-`` key of ``paths``; the paths scope reads the methods before OpenAPI 3.2 and an ``x-`` key that holds
     an object. The api scope counts only the operations of the paths ``--openapi-include-paths`` selects, so an excluded
-    path whose operations generation never reads is no error.
+    path whose operations generation never reads is no error. A discriminator mapping value that names a schema of
+    another document tags no variant, and the values after it still tag theirs.
     """
     extra = [] if "--preset" in args else ["--target-python-version", "3.14"]
     _recommend(tmp_path, capsys, ["--input", source, *extra, *args], inputs=_inputs(INPUT_PATH / source))
@@ -511,6 +538,11 @@ def test_recommend_options_requires_the_remote_lock(tmp_path: Path, capsys: pyte
             ["--preset", "standard-py314-20261015", "--output-format", "json"],
             id="preset-argument-json",
         ),
+        pytest.param(
+            "project_inexpressible",
+            ["--preset", "practical-py314-20261104"],
+            id="inexpressible-under-preset-argument",
+        ),
     ],
 )
 def test_recommend_options_for_projects(
@@ -518,7 +550,9 @@ def test_recommend_options_for_projects(
 ) -> None:
     """Recommend changes to the pyproject.toml table the command reads, keeping what it already sets.
 
-    An empty profile name selects no profile, so its command and table are those of a run without one.
+    An empty profile name selects no profile, so its command and table are those of a run without one. A value of the
+    table that a preset on the command line leaves alone, the rules change and no option can set, such as
+    infer-union-variant-names = true, is reported with the rule instead of recommended.
     """
     _recommend(
         tmp_path,
@@ -721,7 +755,7 @@ def _rule_problems(data: dict[str, Any], placeholders: set[str], newest_release:
         *(
             f"rule {rule['id']} uses the unknown placeholder {{{name}}}"
             for rule in rules
-            for text in (rule["reason"], rule.get("contested_reason", ""), *rule.get("caveats", ()))
+            for text in (rule["reason"], *rule.get("caveats", ()))
             for _, name, _, _ in Formatter().parse(text)
             if name and name not in placeholders
         ),
@@ -893,7 +927,7 @@ def test_recommend_options_small_schema_default(tmp_path: Path, capsys: pytest.C
             [INPUT_PATH / "service-config.json"],
             ["--input", "service-config.json", "--target-python-version", "3.14"],
             ("full",),
-            id="contested-option",
+            id="left-out-option",
         ),
         pytest.param(
             [INPUT_PATH / "many_options.json"],

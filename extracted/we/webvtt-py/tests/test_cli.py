@@ -417,6 +417,15 @@ class CLITestCase(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
         self.assertEqual(stdout.getvalue(), f'webvtt {webvtt.__version__}\n')
 
+    def test_man_page_version(self):
+        # the man page is shipped as it is, run make man after a new version
+        man_page = pathlib.Path(__file__).parent.parent / 'man' / 'webvtt.1'
+        header = next(
+            line for line in man_page.read_text(encoding='utf-8').splitlines()
+            if line.startswith('.TH')
+            )
+        self.assertIn(f'"{webvtt.__version__}"', header)
+
     def test_cli_as_module(self):
         vtt_file = str(
             pathlib.Path(__file__).resolve().parent
@@ -426,10 +435,8 @@ class CLITestCase(unittest.TestCase):
         with mock.patch.object(sys, 'argv', ['webvtt', 'shift', vtt_file,
                                              '1']), \
                 contextlib.redirect_stdout(io.StringIO()) as stdout:
-            with self.assertRaises(SystemExit) as cm:
-                runpy.run_module('webvtt', run_name='__main__')
+            runpy.run_module('webvtt', run_name='__main__')
 
-        self.assertIsNone(cm.exception.code)
         self.assertIn('00:00:01.500 --> 00:00:08.000', stdout.getvalue())
 
     def test_cli_module_import_does_not_run(self):
@@ -679,11 +686,60 @@ class CLIShiftTestCase(CLICommandTestCase):
                     f'argument OFFSET: invalid offset: {value!r}'
                     )
 
-    def test_shift_invalid_start(self):
-        self.assert_usage_error(
-            ['shift', self.vtt_file, '1', '--start', '1:2'],
-            "argument -s/--start: invalid timestamp: '1:2'"
+    def test_shift_drop_before_zero(self):
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '-2', '--drop-before-zero']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.000 --> 00:00:02.000
+                Caption #1
+
+                00:00:02.000 --> 00:00:05.000
+                Caption #2
+                '''
+                ).lstrip()
             )
+
+    def test_shift_drop_before_zero_from_start(self):
+        self.assertEqual(
+            self.run_cli(['shift', self.vtt_file, '-5', '--start',
+                          '00:00:01.500', '--drop-before-zero']),
+            textwrap.dedent(
+                '''
+                WEBVTT
+
+                00:00:00.500 --> 00:00:01.000
+                Credits
+
+                00:00:00.000 --> 00:00:02.000
+                Caption #2
+                '''
+                ).lstrip()
+            )
+
+    def test_shift_from_start_in_seconds(self):
+        expected = self.run_cli(
+            ['shift', self.vtt_file, '-0.5', '--start', '00:00:01.500']
+            )
+        # rounded to the nearest millisecond
+        for start in ('1.5', '1.5e0', '1.5004'):
+            with self.subTest(start=start):
+                self.assertEqual(
+                    self.run_cli(
+                        ['shift', self.vtt_file, '-0.5', '-s', start]
+                        ),
+                    expected
+                    )
+
+    def test_shift_invalid_start(self):
+        for start in ('1:2', '-5', 'x', 'nan', 'inf', '1e300'):
+            with self.subTest(start=start):
+                self.assert_usage_error(
+                    ['shift', self.vtt_file, '1', '--start', start],
+                    f"argument -s/--start: invalid timestamp: '{start}'"
+                    )
 
     def test_shift_requires_offset(self):
         self.assert_usage_error(
@@ -948,7 +1004,7 @@ class CLISyncTestCase(CLICommandTestCase):
                 (['-p', '1', '2', '-p', 'nan', '3'],
                  "argument -p/--point: invalid timestamp: 'nan'"),
                 (['-p', '1', '2', '-p', '3', '1e300'],
-                 'Time after the largest timestamp 9999999999:59:59.999'),
+                 "argument -p/--point: invalid timestamp: '1e300'"),
                 (['-p', '1'],
                  'argument -p/--point: expected 2 arguments'),
                 (['--fps', '0', '25'],
@@ -980,3 +1036,441 @@ class CLISyncTestCase(CLICommandTestCase):
             stderr.getvalue(),
             f'webvtt: error: {vtt_file}: {os.strerror(errno.ENOENT)}\n'
             )
+
+
+class CLIValidateTestCase(CLICommandTestCase):
+
+    def validate(self, content, path=None):
+        """Return the output and the exit status of validating content."""
+        path = path or os.path.join(self.temp_dir.name, 'validate.vtt')
+        pathlib.Path(path).write_text(content)
+
+        with contextlib.redirect_stdout(io.StringIO()) as stdout:
+            try:
+                main(['validate', path])
+            except SystemExit as error:
+                return stdout.getvalue(), error.code
+
+        return stdout.getvalue(), 0
+
+    def test_validate_valid(self):
+        self.assertEqual(self.validate(self.CAPTIONS), ('', 0))
+
+    def test_validate_errors(self):
+        path = os.path.join(self.temp_dir.name, 'errors.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n'
+            '00:00:05.000 --> 00:00:06.000\na\n\n'
+            '00:00:01.000 --> 00:00:02.000 region:fred\nb\n',
+            path
+            )
+
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            output,
+            f'{path}: caption 2: error: starts at 00:00:01.000, before '
+            'caption 1, which starts at 00:00:05.000\n'
+            f"{path}: caption 2: error: is in the region 'fred', which is "
+            'not defined\n'
+            )
+
+    def test_validate_warnings_only(self):
+        path = os.path.join(self.temp_dir.name, 'warnings.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n'
+            '00:00:01.000 --> 00:00:05.000\na\n\n'
+            '00:00:02.000 --> 00:00:03.000\n<b></b>\n',
+            path
+            )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            output,
+            f'{path}: caption 2: warning: has no text\n'
+            f'{path}: caption 2: warning: starts at 00:00:02.000, before '
+            'caption 1 ends at 00:00:05.000\n'
+            )
+
+    def test_validate_skipped_blocks(self):
+        path = os.path.join(self.temp_dir.name, 'skipped.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\na\n\nnot a cue\n',
+            path
+            )
+
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            output,
+            f"{path}: line 6: error: Invalid block ['not a cue']\n"
+            )
+
+    def test_validate_from_stdin(self):
+        stdin = io.TextIOWrapper(io.BytesIO(
+            b'WEBVTT\n\n00:00:01.000 --> 00:00:01.000\na\n'
+            ))
+        with mock.patch.object(sys, 'stdin', stdin):
+            with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                with self.assertRaises(SystemExit) as cm:
+                    main(['validate', '-'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stdout.getvalue(),
+            'standard input: caption 1: error: ends at 00:00:01.000, not '
+            'after its start at 00:00:01.000\n'
+            )
+
+    def test_validate_invalid_file(self):
+        vtt_file = str(
+            pathlib.Path(__file__).resolve().parent
+            / 'samples' / 'invalid.vtt'
+            )
+
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                main(['validate', vtt_file])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: {vtt_file}: not a valid WebVTT file\n'
+            )
+
+    def test_validate_requires_file(self):
+        self.assert_usage_error(
+            ['validate'],
+            'the following arguments are required: PATH'
+            )
+
+    def test_validate_strict_parsing(self):
+        for content, expected in (
+                ('WEBVTTX\n\n00:00:01.000 --> 00:00:02.000\na\n',
+                 "line 1: error: Invalid header 'WEBVTTX'"),
+                ('WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\na\n',
+                 "line 3: error: Invalid cue setting 'line:abc'"),
+                ('WEBVTT\n\n00:00:01.000 --> 00:00:02.000\na\n'
+                 '00:00:03.000 --> 00:00:04.000\nb\n',
+                 "line 5: error: Invalid cue block ['00:00:01.000 --> "
+                 "00:00:02.000', 'a', '00:00:03.000 --> 00:00:04.000']")):
+            with self.subTest(expected=expected):
+                path = os.path.join(self.temp_dir.name, 'strict.vtt')
+                self.assertEqual(
+                    self.validate(content, path),
+                    (f'{path}: {expected}\n', 1)
+                    )
+
+    def test_validate_strict_parsing_after_warnings(self):
+        path = os.path.join(self.temp_dir.name, 'strict.vtt')
+        self.assertEqual(
+            self.validate(
+                'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\n\n', path
+                ),
+            (f'{path}: caption 1: warning: has no text\n'
+             f"{path}: line 3: error: Invalid cue setting 'line:abc'\n", 1)
+            )
+
+    def test_validate_strict_parsing_only_without_other_errors(self):
+        path = os.path.join(self.temp_dir.name, 'strict.vtt')
+        output, status = self.validate(
+            'WEBVTT\n\n'
+            '00:00:05.000 --> 00:00:06.000 line:abc\na\n\n'
+            '00:00:01.000 --> 00:00:02.000\nb\n',
+            path
+            )
+
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            output,
+            f'{path}: caption 2: error: starts at 00:00:01.000, before '
+            'caption 1, which starts at 00:00:05.000\n'
+            )
+
+    def test_validate_from_stdin_strict_parsing(self):
+        for stdin in (
+                io.TextIOWrapper(io.BytesIO(
+                    b'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\na\n'
+                    )),
+                io.StringIO(
+                    'WEBVTT\n\n00:00:01.000 --> 00:00:02.000 line:abc\na\n'
+                    )):
+            with self.subTest(stdin=type(stdin).__name__):
+                with mock.patch.object(sys, 'stdin', stdin):
+                    with contextlib.redirect_stdout(io.StringIO()) as stdout:
+                        with self.assertRaises(SystemExit) as cm:
+                            main(['validate', '-'])
+
+                self.assertEqual(cm.exception.code, 1)
+                self.assertEqual(
+                    stdout.getvalue(),
+                    "standard input: line 3: error: Invalid cue setting "
+                    "'line:abc'\n"
+                    )
+
+    def test_validate_closed_stdin(self):
+        with mock.patch.object(sys, 'stdin', None):
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as cm:
+                    main(['validate', '-'])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            f'webvtt: error: standard input: {os.strerror(errno.EBADF)}\n'
+            )
+
+
+class CLIFormatsTestCase(CLICommandTestCase):
+
+    SRT = textwrap.dedent('''\
+        1
+        00:00:00,500 --> 00:00:01,000
+        {\\an8}<i>Credits</i>
+
+        2
+        00:00:01,500 --> 00:00:04,000
+        <font color="red">Café</font>
+        ''')
+
+    SBV = textwrap.dedent('''\
+        0:00:00.500,0:00:01.000
+        Credits
+
+        0:00:01.500,0:00:04.000
+        Café
+        ''')
+
+    def path(self, name, content=None, encoding='utf-8'):
+        path = os.path.join(self.temp_dir.name, name)
+        if content is not None:
+            pathlib.Path(path).write_bytes(content.encode(encoding))
+        return path
+
+    def read(self, path, encoding='utf-8'):
+        return pathlib.Path(path).read_bytes().decode(encoding).replace(
+            os.linesep, '\n')
+
+    def run_error(self, argv):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            with self.assertRaises(SystemExit) as cm:
+                self.run_cli(argv)
+        return cm.exception.code, stderr.getvalue()
+
+    def test_shift_srt_keeps_format_and_formatting(self):
+        srt = self.path('captions.srt', self.SRT)
+
+        self.assertEqual(
+            self.run_cli(['shift', srt, '1']),
+            self.SRT.replace('00:00:00,500 --> 00:00:01,000',
+                             '00:00:01,500 --> 00:00:02,000')
+            .replace('00:00:01,500 --> 00:00:04,000',
+                     '00:00:02,500 --> 00:00:05,000')
+            )
+
+    def test_sync_sbv_keeps_format(self):
+        sbv = self.path('captions.sbv', self.SBV)
+
+        self.assertEqual(
+            self.run_cli(['sync', sbv, '-p', '0', '0', '-p', '1', '2']),
+            self.SBV.replace('0:00:00.500,0:00:01.000',
+                             '0:00:01.000,0:00:02.000')
+            .replace('0:00:01.500,0:00:04.000', '0:00:03.000,0:00:08.000')
+            )
+
+    def test_webvtt_with_srt_extension_needs_format(self):
+        srt = self.path('captions.srt', self.CAPTIONS)
+
+        self.assertEqual(
+            self.run_error(['shift', srt, '0']),
+            (1, f'webvtt: error: {srt}: not a valid SRT file\n')
+            )
+        self.assertEqual(self.run_cli(['shift', srt, '0', '-f', 'vtt']),
+                         self.CAPTIONS)
+
+    def test_extension_is_case_insensitive(self):
+        srt = self.path('CAPTIONS.SRT', self.SRT)
+
+        self.assertTrue(self.run_cli(['shift', srt, '0']).startswith('1\n'))
+
+    def test_shift_output_in_format_of_extension(self):
+        srt = self.path('captions.srt', self.SRT)
+        for name, start in (('out.vtt', 'WEBVTT\n'),
+                            ('out.webvtt', 'WEBVTT\n'),
+                            ('out.sbv', '0:00:00.500,'),
+                            ('out.srt', '1\n'),
+                            ('out', '1\n'),
+                            ('out.txt', '1\n')):
+            with self.subTest(name=name):
+                output = self.path(name)
+                self.run_cli(['shift', srt, '0', '-o', output])
+
+                saved = output + ('.srt' if name == 'out' else '')
+                self.assertTrue(self.read(saved).startswith(start))
+
+    def test_shift_srt_in_place_keeps_encoding(self):
+        srt = self.path('captions.srt', self.SRT, 'cp1252')
+        self.run_cli(['shift', srt, '1', '--encoding', 'cp1252', '-o', srt])
+
+        self.assertIn('00:00:01,500 --> 00:00:02,000',
+                      self.read(srt, 'cp1252'))
+        self.assertIn('Café', self.read(srt, 'cp1252'))
+
+    def test_format_option_overrides_extension(self):
+        txt = self.path('captions.txt', self.SRT)
+
+        self.assertTrue(
+            self.run_cli(['shift', txt, '0', '-f', 'srt']).startswith('1\n')
+            )
+        self.assertEqual(
+            self.run_error(['shift', txt, '0']),
+            (1, f'webvtt: error: {txt}: not a valid WebVTT file\n')
+            )
+        srt = self.path('captions.srt', self.SRT)
+        for format, name in (('vtt', 'WebVTT'), ('sbv', 'SBV')):
+            with self.subTest(format=format):
+                self.assertEqual(
+                    self.run_error(['shift', srt, '0', '--format', format]),
+                    (1, f'webvtt: error: {srt}: not a valid {name} file\n')
+                    )
+
+    def test_invalid_format_and_encoding(self):
+        srt = self.path('captions.srt', self.SRT)
+        self.assert_usage_error(['shift', srt, '0', '-f', 'ass'],
+                                "invalid choice: 'ass'")
+        for encoding in ('nope', 'hex', 'rot13'):
+            with self.subTest(encoding=encoding):
+                self.assert_usage_error(
+                    ['shift', srt, '0', '--encoding', encoding],
+                    f"unknown encoding: '{encoding}'"
+                    )
+
+    def test_encoding_of_input(self):
+        srt = self.path('captions.srt', self.SRT, 'cp1252')
+        self.assertEqual(
+            self.run_error(['convert', srt]),
+            (1, f'webvtt: error: {srt}: cannot be decoded as utf-8\n')
+            )
+
+        self.assertIn('Café', self.run_cli(['convert', srt, '--encoding',
+                                            'cp1252']))
+
+    def test_stdin_in_format_and_encoding(self):
+        argv = ['shift', '-', '0', '-f', 'srt', '--encoding', 'cp1252']
+        stdin = io.TextIOWrapper(io.BytesIO(self.SRT.encode('cp1252')),
+                                 encoding='ascii')
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(self.run_cli(argv), self.SRT)
+
+    def test_stdin_is_webvtt_by_default(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SRT.encode()))
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(
+                self.run_error(['shift', '-', '0']),
+                (1, 'webvtt: error: standard input: not a valid WebVTT '
+                    'file\n')
+                )
+
+    def test_segment_srt(self):
+        srt = self.path('captions.srt', self.SRT)
+        output = self.path('segments')
+        main(['segment', srt, '-o', output])
+
+        self.assertIn('<c.color-red>Café</c>',
+                      self.read(os.path.join(output, 'fileSequence0.webvtt')))
+
+    def test_validate_srt_and_sbv(self):
+        srt = self.path('captions.srt', self.SRT +
+                        '\n3\n00:00:03,000 --> 00:00:02,000\nBack\n')
+        sbv = self.path('captions.sbv', self.SBV)
+
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, \
+                self.assertRaises(SystemExit) as cm:
+            main(['validate', srt])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stdout.getvalue(),
+            f'{srt}: caption 3: error: ends at 00:00:02.000, not after its '
+            'start at 00:00:03.000\n'
+            )
+        self.assertEqual(self.run_cli(['validate', sbv]), '')
+
+    def test_validate_srt_skipped_blocks(self):
+        srt = self.path('captions.srt',
+                        self.SRT + '\n3\n00:00:03 --> 00:00:04,000\nx\n')
+        with contextlib.redirect_stdout(io.StringIO()) as stdout, \
+                self.assertRaises(SystemExit) as cm:
+            main(['validate', srt])
+
+        self.assertEqual(cm.exception.code, 1)
+        self.assertEqual(
+            stdout.getvalue(),
+            f'{srt}: line 9: error: Invalid cue block '
+            "['3', '00:00:03 --> 00:00:04,000', 'x']\n"
+            )
+
+    def test_validate_srt_from_stdin(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SRT.encode()))
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(self.run_cli(['validate', '-', '-f', 'srt']),
+                             '')
+
+    def test_convert_to_stdout(self):
+        srt = self.path('captions.srt', self.SRT)
+
+        self.assertEqual(self.run_cli(['convert', srt]), textwrap.dedent('''\
+            WEBVTT
+
+            STYLE
+            ::cue(.color-red) {
+              color: red;
+            }
+
+            00:00:00.500 --> 00:00:01.000 line:0
+            <i>Credits</i>
+
+            00:00:01.500 --> 00:00:04.000
+            <c.color-red>Café</c>
+            '''))
+        self.assertEqual(self.run_cli(['convert', srt, '-t', 'sbv']),
+                         self.SBV)
+        self.assertEqual(self.run_cli(['convert', srt, '--to', 'srt']),
+                         self.SRT.replace('<i>Credits</i>', 'Credits')
+                         .replace('<font color="red">Café</font>', 'Café'))
+        self.assertEqual(
+            self.run_cli(['convert', srt, '-t', 'srt', '--keep-formatting']),
+            self.SRT
+            )
+
+    def test_convert_to_file(self):
+        sbv = self.path('captions.sbv', self.SBV)
+        for name, to, saved, start in (
+                ('out.srt', None, 'out.srt', '1\n'),
+                ('out.vtt', None, 'out.vtt', 'WEBVTT\n'),
+                ('out', None, 'out.vtt', 'WEBVTT\n'),
+                ('out.txt', None, 'out.txt', 'WEBVTT\n'),
+                ('out.txt', 'srt', 'out.txt', '1\n'),
+                ('out.vtt', 'sbv', 'out.vtt', '0:00:00.500,')):
+            with self.subTest(name=name, to=to):
+                argv = ['convert', sbv, '-o', self.path(name)]
+                self.run_cli(argv + (['-t', to] if to else []))
+
+                self.assertTrue(self.read(self.path(saved)).startswith(start))
+
+    def test_convert_from_stdin(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SBV.encode()))
+        with mock.patch.object(sys, 'stdin', stdin):
+            self.assertEqual(
+                self.run_cli(['convert', '-', '-f', 'sbv', '-t', 'sbv']),
+                self.SBV
+                )
+
+    def test_convert_from_stdin_to_folder(self):
+        stdin = io.TextIOWrapper(io.BytesIO(self.SBV.encode()))
+        folder = self.path('folder')
+        os.mkdir(folder)
+        with mock.patch.object(sys, 'stdin', stdin):
+            code, message = self.run_error(['convert', '-', '-f', 'sbv',
+                                            '-o', folder])
+
+        self.assertEqual(code, 1)
+        self.assertIn(f'{folder}: is a directory', message)

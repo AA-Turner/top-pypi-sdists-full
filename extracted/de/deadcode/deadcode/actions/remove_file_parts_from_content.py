@@ -1,12 +1,12 @@
 import re
-from typing import List, Optional, TypeVar
+from typing import TypeVar
 
 from deadcode.data_types import Part
 
 T = TypeVar('T')
 
 
-def list_get(list_: List[T], index: int) -> Optional[T]:
+def list_get(list_: list[T], index: int) -> T | None:
     if len(list_) > index:
         return list_[index]
     return None
@@ -41,20 +41,46 @@ def remove_comma_from_begining(line: bytes) -> bytes:
     return line.lstrip()[1:].lstrip()
 
 
-def remove_file_parts_from_content(content_lines: List[bytes], unused_file_parts: List[Part]) -> List[bytes]:
-    """ """
+def remove_file_parts_from_content(content_lines: list[bytes], unused_file_parts: list[Part]) -> list[bytes]:
+    """Remove the given character ranges from the file content lines.
+
+    Parts on one physical line are applied right to left first, then the remaining
+    parts are removed line by line, keeping blank lines and indentation valid.
+    """
+    # Several parts on one physical line are applied line-locally, right to left,
+    # because the loop below consumes at most one part per line.
+    line_number_to_parts: dict[int, list[Part]] = {}
+    for part in unused_file_parts:
+        if part.line_start == part.line_end:
+            line_number_to_parts.setdefault(part.line_start, []).append(part)
+
+    parts_applied_line_locally: list[Part] = []
+    replaced_lines: dict[int, bytes] = {}
+    for line_number, line_parts in line_number_to_parts.items():
+        if len(line_parts) <= 1:
+            continue
+
+        line = content_lines[line_number - 1]
+        for part in sorted(line_parts, key=lambda part: part.col_start, reverse=True):
+            line = line[: part.col_start] + line[part.col_end :]
+        replaced_lines[line_number] = line
+        parts_applied_line_locally.extend(line_parts)
+
+    if replaced_lines:
+        unused_file_parts = [part for part in unused_file_parts if part not in parts_applied_line_locally]
+        content_lines = [replaced_lines.get(number, line) for number, line in enumerate(content_lines, start=1)]
+
     # How should move through the lines of content?
     updated_content_lines = []
 
-    # TODO: iterate by line and crop that line if needed.
     unused_part_index = 0
 
     previous_non_removed_line = b''
     was_block_removed = False
     next_line_after_removed_block = None
     indentation_of_first_removed_line = b''
-    empty_lines_in_a_row_list: List[bytes] = []
-    empty_lines_before_removed_block_list: List[bytes] = []
+    empty_lines_in_a_row_list: list[bytes] = []
+    empty_lines_before_removed_block_list: list[bytes] = []
 
     for current_lineno, line in enumerate(content_lines, start=1):
         from_line, to_line, from_col, to_col = 0, 0, 0, 0
@@ -105,7 +131,6 @@ def remove_file_parts_from_content(content_lines: List[bytes], unused_file_parts
                 line = line.lstrip()[1:].lstrip()
 
             unused_part_index += 1
-            # TODO: Add tests for case, when comments are added at the start or end of the removed block
             if line.strip() and not line.startswith(b'#'):
                 updated_content_lines.append(line)
 
@@ -120,9 +145,6 @@ def remove_file_parts_from_content(content_lines: List[bytes], unused_file_parts
             if not line.strip():
                 empty_lines_in_a_row_list.append(line)
                 continue
-
-                # if was_block_removed:  # These lines will be added when first non-empty line is found
-                #     continue
             elif not was_block_removed:
                 updated_content_lines.extend(empty_lines_in_a_row_list)
                 empty_lines_in_a_row_list.clear()

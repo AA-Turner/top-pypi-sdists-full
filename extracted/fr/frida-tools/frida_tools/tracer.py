@@ -164,7 +164,7 @@ def main() -> None:
             self._profile_builder = pb
 
         def _usage(self) -> str:
-            return "%(prog)s [options] target"
+            return "%(prog)s [options] target [args...]"
 
         def _initialize(self, parser: argparse.ArgumentParser, options: argparse.Namespace, args: List[str]) -> None:
             self._repo: Optional[FileRepository] = None
@@ -522,6 +522,8 @@ def compute_allowed_ui_origins(
 
     origins = []
     for host in compute_ui_origin_hosts(ui_host):
+        if ":" in host:
+            host = f"[{host}]"
         for port in (ui_port, ui_port + 1):
             origins.append(f"http://{host}:{port}")
 
@@ -532,7 +534,9 @@ def compute_allowed_ui_origins(
 
 
 def compute_ui_origin_hosts(ui_host: str) -> List[str]:
-    if ui_host in ("0.0.0.0", "::", ""):
+    if ui_host == "::":
+        return [ui_host, "localhost", "::1", "127.0.0.1"]
+    if ui_host in ("0.0.0.0", ""):
         return [ui_host, "localhost", "127.0.0.1"]
 
     return [ui_host]
@@ -703,6 +707,9 @@ class Tracer:
         return self._agent.resolve_addresses(addresses)
 
     def _on_message(self, message, data, ui) -> None:
+        if self._script is None:
+            return
+
         handled = False
 
         if message["type"] == "send":
@@ -1131,10 +1138,10 @@ class MemoryRepository(Repository):
         self._handlers = {}
 
     def ensure_handler(self, target: TraceTarget) -> str:
-        handler = self._handlers.get(target)
+        handler = self._handlers.get(target.identifier)
         if handler is None:
             handler = self._create_stub_handler(target, False)
-            self._handlers[target] = handler
+            self._handlers[target.identifier] = handler
             self._notify_create(target, handler, "memory")
         else:
             self._notify_load(target, handler, "memory")

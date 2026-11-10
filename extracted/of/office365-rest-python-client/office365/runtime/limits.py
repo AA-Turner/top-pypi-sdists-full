@@ -4,16 +4,28 @@ A :class:`Limit` describes one service limit — a static threshold *or* a rate
 quota — with its value, kind, unit, scope and docs. Limits are declared on the
 model with the :func:`limit` decorator (mirroring ``@odata`` / ``@require_permission``):
 the declaration is stamped on the callable, appended to its docstring, and
-collected into ``ClientObject._limit_meta``. ``arg=`` also *enforces* a numeric
+collected into the model's ``_schema``. ``arg=`` also *enforces* a numeric
 argument (warn by default, ``raise`` or ``clamp``).
 
 The helpers :func:`exceeds` / :func:`warn_if_exceeds` / :func:`ensure_within`
 apply a limit imperatively at a call site; :func:`limits_of` / :func:`verify_limits`
 inspect what a method/class declares.
 
-Product packages (e.g. ``office365.sharepoint.thresholds``,
-``office365.graph_limits``) declare the concrete values; this module only owns
-the mechanics so the runtime and every product share them.
+``@limit`` stays a decorator of its own rather than becoming keywords on ``@odata``:
+``@odata`` describes a *member* of the resource, so everything it can carry is something the
+member is called, while a limit is a fact about a *call* — of its 19 targets, 9 are a class,
+8 a method and 2 a property that declares no ``@odata`` name. Merging would add a keyword to
+all 4,788 ``@odata`` declarations to spell 19, and would still leave :func:`limit` alive for
+the targets with no member name. They are unified where a reader looks, in ``TypeSchema``:
+one object holds the properties, the class limits and the member limits, and answers for the
+whole type.
+
+Product packages declare the concrete values — ``office365.sharepoint.thresholds``
+for SharePoint/CSOM limits, and the ``quotas`` module of each Graph product
+(``outlook``, ``teams``, ``reports``, ``security``, ``onedrive``, ``onedrive.workbooks``,
+``directory``, ``communications``) for throttling quotas. This module owns the
+mechanics so the runtime and every product share them, plus the single Graph-wide
+row (:data:`GLOBAL_QUOTAS`) that no product can own.
 """
 
 from __future__ import annotations
@@ -50,12 +62,26 @@ class LimitKind(Enum):
     SUPPORTED = "supported"  # tested value
 
 
+def _unit_for(value: int, unit: str) -> str:
+    """The unit as it reads next to the number: ``1 request``, ``4 requests``."""
+    return unit[:-1] if value == 1 and unit.endswith("s") else unit
+
+
 def _human_bytes(value: int) -> str:
     """Format a byte count as ``250 GB`` when it divides evenly, else ``8,000 bytes``."""
     for suffix, step in (("TB", 1024**4), ("GB", 1024**3), ("MB", 1024**2), ("KB", 1024)):
         if value >= step and value % step == 0:
             return f"{value // step} {suffix}"
-    return f"{value:,} bytes"
+    return f"{value:,} {_unit_for(value, 'bytes')}"
+
+
+def _window_for(seconds: int) -> str:
+    """The rate window as it reads next to the value: ``10s``, ``24h``.
+
+    A whole-day allocation printed as ``86,400s`` reads like a per-second rate to anyone
+    skimming, so a window that is a whole number of hours is stated in hours.
+    """
+    return f"{seconds // 3600:,}h" if seconds and seconds % 3600 == 0 else f"{seconds:,}s"
 
 
 @dataclass(frozen=True)
@@ -72,7 +98,7 @@ class Limit:
         doc: Link to the authoritative documentation.
         window_seconds: The rate window in seconds (``None`` for a static
             threshold; ``0`` for a concurrency limit).
-        request_type: ``""`` (n/a) | ``read`` | ``write`` | ``any``.
+        request_type: ``""`` (n/a) | ``read`` | ``write`` | ``delete`` | ``any``.
     """
 
     name: str
@@ -86,12 +112,14 @@ class Limit:
     request_type: str = ""
 
     def __str__(self) -> str:
-        if self.window_seconds is not None:
-            window = f" / {self.window_seconds:,}s" if self.window_seconds else ""
-            return f"{self.value:,} {self.unit}{window}".strip()
         if self.unit == "bytes":
-            return _human_bytes(self.value)
-        return f"{self.value:,} {self.unit}".strip()
+            value = _human_bytes(self.value)
+        else:
+            value = f"{self.value:,} {_unit_for(self.value, self.unit)}"
+        if self.window_seconds is None:
+            return value
+        window = f" / {_window_for(self.window_seconds)}" if self.window_seconds else ""
+        return f"{value}{window}"
 
     def exceeds(self, value: int) -> bool:
         """Whether ``value`` is over this limit."""
@@ -183,13 +211,37 @@ class LimitDecl:
     clamp: bool = False
 
 
-def _append_doc(target: Callable[..., Any], decls: Tuple[LimitDecl, ...]) -> None:
+_LIMITS_DOC = "\n    Limits:\n"
+
+#: What ``@limit`` stamps on a callable or a class: the declarations, in order.
+_Decls = Tuple[LimitDecl, ...]
+
+
+def _counted_against(limit: Limit) -> str:
+    """What the row is counted against, when the catalog states it.
+
+    Two rows of one resource can carry the same number for different reasons -- a chat
+    reads and writes 200 requests a second -- so the declaration line names both the
+    request type and the dimension; a static threshold states neither and gains nothing.
+    """
+    parts = [part for part in (limit.request_type, limit.scope) if part]
+    return f" ({' on '.join(parts)})" if parts else ""
+
+
+def _append_doc(target: Callable[..., Any], decls: _Decls) -> None:
+    """Append the declaration lines to the docstring, extending one ``Limits:`` block.
+
+    ``@limit`` composes, so a second decorator adds its rows to the section the first
+    one opened instead of opening a second section of the same name.
+    """
     lines: list[str] = []
     for decl in decls:
         bound = f" (<= {decl.limit})" if decl.arg else ""
-        lines.append(f"      {decl.limit.name}: {decl.limit}{bound}")
-    if lines:
-        target.__doc__ = (target.__doc__ or "") + "\n    Limits:\n" + "\n".join(lines)
+        lines.append(f"      {decl.limit.name}{_counted_against(decl.limit)}: {decl.limit}{bound}")
+    if not lines:
+        return
+    doc = target.__doc__ or ""
+    target.__doc__ = doc + ("\n" if _LIMITS_DOC in doc else _LIMITS_DOC) + "\n".join(lines)
 
 
 @overload
@@ -220,7 +272,8 @@ def limit(
 
     Metadata-only by default (like ``@odata`` / ``@require_permission``): the
     declared :class:`Limit` values are stamped on the target and appended to its
-    docstring, then collected into ``_limit_meta`` / ``_class_limit_decls``.
+    docstring, then collected into the model's schema. Declarations compose: a second
+    decorator on the same target adds its rows to the first.
     Pass ``arg`` to also enforce that argument against the (single) limit — warn
     by default, ``on_exceed="raise"`` to raise, or ``clamp=True`` to lower it
     (methods only).
@@ -253,10 +306,12 @@ def limit(
         if isinstance(func, type):
             if arg is not None:
                 raise ValueError("arg= cannot be used on a class")
+            from office365.runtime.schema import TypeSchema
+
             _stamp(func, decls)
-            # ``__init_subclass__`` ran before this decorator (members already
-            # collected); merge the class-level declaration so subclasses inherit.
-            func._class_limit_decls = collect_class_limits(func)
+            # ``__init_subclass__`` ran before this decorator: the class-level fact this
+            # just stated is not in the schema yet.
+            TypeSchema.rebuild(func)
             register_catalog(func)
             return func
         if isinstance(func, property):
@@ -292,9 +347,35 @@ def limit(
     return decorator
 
 
-def _stamp(target: Any, decls: Tuple[LimitDecl, ...]) -> None:
-    setattr(target, _LIMIT_MARKER, decls)
-    _append_doc(target, decls)
+def _unique(decls: Iterable[LimitDecl]) -> _Decls:
+    """Keep one declaration per row-and-argument pair, in the order first written.
+
+    Those two fields *are* the declaration's identity: the key includes ``arg`` because
+    one row enforced on two arguments is two declarations, and it compares the row by
+    identity because a catalog publishes each threshold once.
+    """
+    seen: set[Tuple[int, Optional[str]]] = set()
+    unique: list[LimitDecl] = []
+    for decl in decls:
+        key = (id(decl.limit), decl.arg)
+        if key not in seen:
+            seen.add(key)
+            unique.append(decl)
+    return tuple(unique)
+
+
+def _stamp(target: Any, decls: _Decls) -> None:
+    """Record declarations on the target; ``@limit`` composes rather than replaces.
+
+    Two decorators on one method is the natural way to say "these quotas also apply
+    here" — a second ``@limit`` for the budgets a feed shares with the entity it lists.
+    Replacing the marker silently kept the last decorator's rows while the docstring
+    documented both, so ``declared_limits()`` and the doc disagreed.
+    """
+    existing: _Decls = getattr(target, _LIMIT_MARKER, ())
+    merged = _unique((*existing, *decls))
+    setattr(target, _LIMIT_MARKER, merged)
+    _append_doc(target, merged[len(existing) :])
 
 
 _limit = limit  # module alias (the ``bounded`` param name shadows ``limit`` below)
@@ -311,14 +392,17 @@ def bounded(
     return _limit(limit, arg=arg, on_exceed=on_exceed, clamp=clamp)
 
 
-def collect_limit_meta(cls: type) -> dict[str, Tuple[LimitDecl, ...]]:
+def collect_limit_meta(cls: type) -> dict[str, _Decls]:
     """Collect ``@limit`` declarations from a class's methods/properties.
 
-    Called from ``__init_subclass__`` (``ClientObject`` / ``ClientRuntimeContext``)
-    so a class carries its own limits — keyed by attribute/method name, inheriting
-    the base class's entries.
+    Called from :meth:`TypeSchema.build` so a class carries its own limits — keyed by
+    attribute/method name, inheriting the base class's entries.
     """
-    meta: dict[str, Tuple[LimitDecl, ...]] = dict(getattr(cls, "_limit_meta", {}))
+    # The base class's declarations are inherited through its schema. Naming the
+    # attribute rather than importing ``TypeSchema`` keeps this module free of a cycle:
+    # ``schema`` imports the limit types, so the dependency can only run one way.
+    inherited_schema = getattr(cls, "_schema", None)
+    meta: dict[str, _Decls] = dict(getattr(inherited_schema, "member_limits", {}))
     for attr_name, attr in cls.__dict__.items():
         target = attr.fget if isinstance(attr, property) else attr
         decls = getattr(target, _LIMIT_MARKER, None)
@@ -339,21 +423,25 @@ _SOURCES: dict[str, list[Any]] = {}
 
 
 def _limits_from(source: Any) -> list[Limit]:
+    if isinstance(source, (list, tuple)):
+        return list(source)
     catalog_fn = getattr(source, "catalog", None)
     if catalog_fn is not None:
         return list(catalog_fn())
     declared = getattr(source, "declared_limits", None)
     if declared is not None:
         return list(declared())
-    raise TypeError(f"{source!r} is not a Limit catalog (needs catalog() or declared_limits())")
+    raise TypeError(f"{source!r} is not a Limit catalog (needs catalog()/declared_limits() or be a sequence)")
 
 
 def register_catalog(*sources: Any, product: str = "model") -> None:
-    """Register limit sources — catalogs (``catalog()``) or classes (``declared_limits()``).
+    """Register limit sources — catalogs (``catalog()``), classes, or plain sequences.
 
-    Products register their own catalogs at import time (e.g.
-    ``register_catalog(Limits, product="sharepoint")``); ``@limit`` on a class
-    registers that class under ``product="model"``.
+    A product catalog is a tuple of :class:`Limit` rows or an object that answers
+    ``catalog()``; a ``@limit``-decorated class answers ``declared_limits()``. Sources
+    register themselves at import time (e.g. ``register_catalog(OUTLOOK_QUOTAS,
+    product="outlook")``); ``@limit`` on a class registers that class automatically
+    (under ``product="model"``).
     """
     bucket = _SOURCES.setdefault(product, [])
     for source in sources:
@@ -375,29 +463,42 @@ def catalog(product: Optional[str] = None) -> list[Limit]:
     return result
 
 
-def collect_class_limits(cls: type) -> Tuple[LimitDecl, ...]:
+def catalog_products() -> list[str]:
+    """The registered products, in registration order — the keys :func:`catalog` accepts."""
+    return list(_SOURCES)
+
+
+def collect_class_limits(cls: type) -> _Decls:
     """The class-level ``@limit`` declarations of ``cls``.
 
-    Accumulates up the hierarchy: the base class's declarations plus the class's
-    own (a subclass is subject to both).
+    Accumulates up the hierarchy: the base classes' declarations first, then the class's
+    own (a subclass is subject to both). The markers are read off each class in the MRO
+    rather than through ``_schema`` — the schema is a snapshot that already contains them,
+    so reading it back added every row a second time.
     """
-    inherited = getattr(cls, "_class_limit_decls", ())
-    own = cls.__dict__.get(_LIMIT_MARKER)
-    if own is None:
-        return inherited
-    return (*inherited, *own)
+    decls: list[LimitDecl] = []
+    for klass in reversed(cls.__mro__):
+        own: _Decls = klass.__dict__.get(_LIMIT_MARKER) or ()
+        decls.extend(own)
+    return tuple(decls)
 
 
-def limits_of(target: Any) -> Tuple[LimitDecl, ...]:
-    """The limits declared on a method/property, or a class's collected limits.
+def limits_of(target: Any) -> _Decls:
+    """The limits declared on a method/property, or on a class — its own and its members'.
+
+    A class answers the same rows :meth:`TypeSchema.declared_limits` answers, kept as
+    declarations so ``arg`` survives, and de-duplicated the same way: a type that is
+    subject to one ceiling answers it once, wherever the ceiling is written.
 
     Args:
         target: A callable (reads ``__limit_decls__``), a ``property``, or a
-            class (reads ``_limit_meta``).
+            class (reads ``class_limits`` then ``member_limits`` of its schema).
     """
     if isinstance(target, type):
-        meta = getattr(target, "_limit_meta", {})
-        return tuple(decl for decls in meta.values() for decl in decls)
+        schema = getattr(target, "_schema", None)
+        if schema is None:
+            return ()
+        return _unique((*schema.class_limits, *(decl for decls in schema.member_limits.values() for decl in decls)))
     if isinstance(target, property):
         target = target.fget
     return tuple(getattr(target, _LIMIT_MARKER, ()))
@@ -453,3 +554,23 @@ def verify_limits(target: Any, **values: int) -> LimitReport:
         if decl.arg is not None and decl.arg in values and decl.limit.exceeds(values[decl.arg])
     )
     return LimitReport(target=name, decls=decls, violations=violations)
+
+
+#: The one vendor-wide ceiling: every Microsoft Graph request, whatever the product,
+#: counts against the calling app's global budget. It lives here rather than in a
+#: product catalog because no single product owns it — a SharePoint workload and a
+#: Teams workload spend from the same budget once both go through Graph.
+GLOBAL_QUOTAS = (
+    Limit(
+        "any Microsoft Graph request",
+        130_000,
+        LimitKind.SUPPORTED,
+        "requests",
+        "app",
+        note="across all tenants",
+        doc="https://learn.microsoft.com/en-us/graph/throttling-limits",
+        window_seconds=10,
+    ),
+)
+
+register_catalog(GLOBAL_QUOTAS, product="graph")

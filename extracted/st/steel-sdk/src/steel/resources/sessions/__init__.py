@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from .files import (
     FilesResource,
@@ -26,18 +26,18 @@ from .sessions import (
 )
 
 __all__ = [
-    "FilesResource",
-    "AsyncFilesResource",
-    "FilesResourceWithRawResponse",
-    "AsyncFilesResourceWithRawResponse",
-    "FilesResourceWithStreamingResponse",
-    "AsyncFilesResourceWithStreamingResponse",
     "CaptchasResource",
     "AsyncCaptchasResource",
     "CaptchasResourceWithRawResponse",
     "AsyncCaptchasResourceWithRawResponse",
     "CaptchasResourceWithStreamingResponse",
     "AsyncCaptchasResourceWithStreamingResponse",
+    "FilesResource",
+    "AsyncFilesResource",
+    "FilesResourceWithRawResponse",
+    "AsyncFilesResourceWithRawResponse",
+    "FilesResourceWithStreamingResponse",
+    "AsyncFilesResourceWithStreamingResponse",
     "SessionsResource",
     "AsyncSessionsResource",
     "SessionsResourceWithRawResponse",

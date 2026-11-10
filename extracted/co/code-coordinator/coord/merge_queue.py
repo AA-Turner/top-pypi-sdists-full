@@ -54,6 +54,7 @@ from coord.models import (
     Assignment,
     IssueResolution,
     effective_issue_resolution,
+    is_blank_issue_resolution_reason,
     parse_issue_resolution,
     trust_issue_closed_for,
 )
@@ -64,7 +65,9 @@ from coord.state import (
     baseline_red_streak,
     comment_on_issue,
     dismiss_drive_escalation,
+    get_merge_reservation,
     record_uat_verdict,
+    release_merge_reservation,
     upsert_issue_comment,
 )
 from coord.uat_checks import UatCheckResult, evaluate_uat_checks
@@ -2188,6 +2191,41 @@ def is_stale_smoke_reason(reason: str | None) -> bool:
     return any(marker in r for marker in STALE_SMOKE_MARKERS)
 
 
+def stale_smoke_anchor(reason: str | None) -> str | None:
+    """Which side a stale-smoke *reason* names as having moved —
+    ``"base"`` | ``"branch"`` | ``"run"`` | ``None`` (not a stale-smoke
+    reason at all).
+
+    Mirrors :class:`SmokeVerdictStatus`'s own ``anchor`` field, but over the
+    rendered PROSE instead of the structured object — the same string-vs-
+    structured split :func:`is_stale_smoke_reason` already draws, for the
+    same reason: a persisted ``merge_reason``/``entry.error`` is all some
+    callers (``coord drive``) ever see once the verdict that produced it is
+    gone.
+
+    #3861: this is what lets a caller distinguish "the BRANCH moved past
+    the SHA this verdict was recorded against" from "the BASE moved" without
+    re-deriving the distinction from scratch. Only the branch case has a
+    direct, already-on-the-board answer — the work row's own
+    ``test_head_sha`` — that can confirm whether the refusal is itself now
+    outdated (a fresher verdict already landed on the current head).
+
+    Both wordings :func:`is_stale_smoke_reason` matches name the moved side
+    as ``"recorded against {base,branch} ..."`` except the ``anchor="run"``
+    case (an abandoned ``test_state="running"`` marker, #1819), which never
+    says "recorded against" at all — so its absence is what identifies
+    ``"run"`` here, rather than a third substring to keep in sync.
+    """
+    r = (reason or "").lower()
+    if not is_stale_smoke_reason(r):
+        return None
+    if "recorded against branch" in r:
+        return "branch"
+    if "recorded against base" in r:
+        return "base"
+    return "run"
+
+
 # #1738: paths whose content cannot affect a pytest/cargo test result — the
 # allowlist a base-SHA move is checked against before staling an otherwise-
 # fresh verdict. Deliberately small and additive (start conservative, widen
@@ -3116,6 +3154,28 @@ def is_ci_terminal_reason(reason: str | None) -> bool:
         or is_ci_flaky_reason(reason)
         or is_ci_unreadable_reason(reason)
     )
+
+
+# #3886: not a CI reason — the per-repo merge-gate reservation
+# (`coord.state.get_merge_reservation`) a DIFFERENT entry in the same repo
+# holds. Named the same way as its `CI_*_PREFIX` siblings above so
+# `coord.drive._decide_merge` and `_effective_merge_gate_reason` can give it
+# the identical attempt-exempt, self-refreshing treatment: nothing about
+# retrying resolves it faster, only the holder merging/leaving the queue or
+# the reservation's own TTL expiring does, so a live `coord drive` session
+# must re-check it every poll without spending `--max-merge-attempts`.
+MERGE_GATE_RESERVED_PREFIX = "merge gate reserved for "
+
+
+def is_merge_gate_reserved_reason(reason: str | None) -> bool:
+    """True when *reason* names a merge blocked behind another entry's
+    per-repo merge-gate reservation — see :data:`MERGE_GATE_RESERVED_PREFIX`.
+
+    The single implementation of this classification: callers whose input is
+    a persisted `merge_reason`/`entry.error` string use this instead of
+    re-deriving it, the same posture :func:`is_ci_pending_reason` takes.
+    """
+    return (reason or "").startswith(MERGE_GATE_RESERVED_PREFIX)
 
 
 def ci_rollup_all_clear(summary: Any) -> bool:
@@ -5991,6 +6051,60 @@ def refresh_entry_assignment(
     return True
 
 
+def clear_stale_smoke_error_for_assignment(assignment_id: str) -> bool:
+    """Clear a persisted ``"smoke test verdict is stale: …"`` ``error`` on
+    every ``PENDING`` queue entry keyed to *assignment_id* (#3917).
+
+    Mirrors :func:`refresh_entry_assignment`'s "clear a stale 'review
+    required' error now that a fresh approval arrived" step just above, for
+    the smoke gate's own #420 staleness wording — the one case that step
+    never covered. ``entry.error`` is otherwise only refreshed by
+    :func:`process` (a real merge attempt) or ``refresh_entry_assignment``
+    (a review approval); a *test* verdict re-stamped outside either of
+    those (the normal case — a conflict-fix push, then a re-test, with no
+    `coord merge` tick in between) left a stale-smoke refusal standing
+    indefinitely, naming a branch/base pair the fresh verdict had already
+    superseded (quadraui#2173: five re-tests against a correctly-updated
+    head, all aimed at a persisted error nothing had cleared).
+
+    Called from :func:`coord.state._stamp_test_staleness_anchor`
+    immediately after a terminal (passed/skipped) verdict's own fresh
+    anchor SHAs are captured — i.e. only once that caller has a *confirmed*
+    live observation that a new verdict landed, never merely because a
+    verdict of some kind was recorded. This does not assert the smoke gate
+    now passes (only a live :func:`evaluate_smoke_verdict` call, with real
+    ``gh_ops``, can confirm that) — it only retires a diagnostic string that
+    is provably about the SUPERSEDED verdict, so the next reader (a live
+    ``coord merge`` attempt, ``coord drive``, board-doctor) re-derives the
+    current gate state instead of parroting stale text forever.
+
+    Best-effort by design (same posture as its caller): returns ``False``
+    on any lookup failure rather than raising, since a failed cache-clear
+    must never fail the verdict write it rides along with.
+    """
+    if not assignment_id:
+        return False
+    try:
+        items = load_queue()
+    except Exception:  # noqa: BLE001 — best-effort; see docstring.
+        return False
+    changed = False
+    for entry in items:
+        if entry.assignment_id != assignment_id:
+            continue
+        if entry.state != PENDING:
+            continue
+        if entry.error and entry.error.startswith(_STALE_GATE_ERROR_PREFIXES):
+            entry.error = None
+            changed = True
+    if changed:
+        try:
+            save_queue(items)
+        except Exception:  # noqa: BLE001 — best-effort; see docstring.
+            return False
+    return changed
+
+
 # ── Stale-conflict reconciliation (#1477) ───────────────────────────────────
 
 # A HUMAN_REQUIRED entry's `error` is not always the pristine original
@@ -6026,7 +6140,110 @@ def _is_non_mergeability_human_latch(error: str | None) -> bool:
     return any(sig in text for sig in _NON_MERGEABILITY_HUMAN_REQUIRED_SIGNALS)
 
 
-def reconcile_conflict_entries(gh_ops: "GhOps") -> list["MergeEvent"]:
+# #3871: the ONE additional phrase (on top of `_NON_MERGEABILITY_HUMAN_
+# REQUIRED_SIGNALS` above) that means a HUMAN_REQUIRED latch was NOT an
+# automated conflict-fix giving up on a real conflict — a worker completed
+# clean but the branch never actually moved (a missing or rejected push).
+# Deliberately kept OUT of `_NON_MERGEABILITY_HUMAN_REQUIRED_SIGNALS`
+# itself: unlike every signal in that tuple, THIS one still describes a
+# genuine mergeability question (the branch may become mergeable once the
+# already-made fix is actually pushed, or settles on retry), so
+# `reconcile_conflict_entries` must keep re-testing it against live
+# mergeability rather than treating it as permanently parked.
+CONFLICT_FIX_HEAD_UNMOVED_SIGNAL = "branch head did not move"
+
+# #3902: prefix embedded in a head-unmoved HUMAN_REQUIRED entry's own
+# `error` — immediately after CONFLICT_FIX_HEAD_UNMOVED_SIGNAL, by
+# `coord.reconcile.on_conflict_fix_done` — naming the exact just-completed
+# leg (its own `fix_assignment_id`) whose clean-but-unmoved exit produced
+# this park. A LATER caller re-dispatching this row (`coord.
+# board_doctor_permissions.sweep_redispatch_head_unmoved_conflict_fix`)
+# reads this back via `head_unmoved_fix_assignment_id` to exclude exactly
+# that row from the retry-cap walk, rather than guessing "the latest DONE
+# conflict-fix linked to this entry" — a guess a conflict-fix that
+# completes for an unrelated reason AFTER the park (a manual retry, or a
+# different sweep tick) can silently outrank, loosening the cap #3871
+# itself enforces.
+HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX = "head-unmoved-fix-assignment="
+
+_HEAD_UNMOVED_FIX_ASSIGNMENT_RE = re.compile(
+    re.escape(HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX) + r"(\S+)"
+)
+
+
+def head_unmoved_fix_assignment_id(error: str | None) -> str | None:
+    """Parse the #3902 head-unmoved-fix-assignment marker out of *error*.
+
+    ``error`` accumulates a new marker on every head-unmoved park of the
+    same row rather than replacing the previous one, so this takes the
+    LAST match — the one that produced the row's *current* park — not
+    the first. Returns ``None`` when no marker is present at all (a latch
+    parked before this marker existed, or one that was never head-unmoved)
+    and also when the captured id is empty, so a caller reading this
+    always has an honest "not recorded" distinct from a real id, never a
+    fabricated one.
+    """
+    if not error:
+        return None
+    matches = _HEAD_UNMOVED_FIX_ASSIGNMENT_RE.findall(error)
+    if not matches:
+        return None
+    assignment_id = matches[-1].rstrip("].;,")
+    return assignment_id or None
+
+
+# The ONLY phrases that mean a mechanical or semantic conflict-fix worker
+# actually ran and failed to resolve a real conflict. `coord.reconcile`
+# writes each of these verbatim into `entry.error` at the one place that
+# applies:
+#   * "conflict-fix worker did not resolve" — the ordinary/semantic
+#     mechanical attempt's own give-up (`on_conflict_fix_done`'s default
+#     HUMAN_REQUIRED arm).
+#   * "no tier-2 attempt made" — the worker judged the conflict SEMANTIC
+#     (a real conflict) but `pipeline.escalate_semantic_conflicts` is off,
+#     so the escalated attempt never ran — still a genuine give-up, just
+#     without a second tier.
+CONFLICT_FIX_GAVE_UP_SIGNALS = (
+    "conflict-fix worker did not resolve",
+    "no tier-2 attempt made",
+)
+
+
+def conflict_fix_actually_gave_up(error: str | None) -> bool:
+    """True when ``error`` reads as an ACTUAL conflict-fix give-up — a
+    mechanical or semantic worker ran and failed to resolve a real
+    conflict — as opposed to every other cause that can land an entry on
+    HUMAN_REQUIRED (a usage-limit kill, content already upstream, a reword
+    worker's narrow refusal, a declined escalation dispatch, a worker that
+    exited clean without ever pushing (#3871), a permission/branch-
+    protection error surfaced verbatim from GitHub, a ci-fix retry-cap or
+    no-op-streak latch, or simply no reason recorded at all).
+
+    The ONE function :func:`coord.drive`'s HUMAN_REQUIRED exit text (and
+    any other caller describing the latch to a human) must use, so neither
+    invents its own copy of "was this a real give-up" (#2096) — the
+    coordinator's own exit text previously claimed "an automated
+    conflict-fix already gave up" unconditionally, which was simply false
+    for every one of the non-give-up causes above.
+
+    Matches POSITIVELY against :data:`CONFLICT_FIX_GAVE_UP_SIGNALS` rather
+    than matching the absence of known non-give-up phrases: the latter
+    makes "a conflict-fix gave up" the default for ANY unrecognized text —
+    including GitHub's own raw permission/branch-protection error, a
+    ci-fix cap latch, or an empty ``error`` — none of which a conflict-fix
+    worker ever actually produced. Correct by construction instead: this
+    is only ``True`` for the exact wording the one function that writes a
+    genuine give-up (`coord.reconcile.on_conflict_fix_done`) actually uses.
+    """
+    if not error:
+        return False
+    text = error.lower()
+    return any(sig in text for sig in CONFLICT_FIX_GAVE_UP_SIGNALS)
+
+
+def reconcile_conflict_entries(
+    gh_ops: "GhOps", *, only: tuple[str, int] | None = None,
+) -> list["MergeEvent"]:
     """Re-test stale conflict verdicts (``CONFLICT``, and retry-cap-latched
     ``HUMAN_REQUIRED``) against live mergeability and clear them when stale.
 
@@ -6085,11 +6302,24 @@ def reconcile_conflict_entries(gh_ops: "GhOps") -> list["MergeEvent"]:
 
     Returns the list of :class:`MergeEvent` for entries that were cleared, so
     callers can echo them the same way they echo ``process()`` events.
+
+    *only* (#3902), when given, is a single ``(repo_name, issue_number)`` —
+    every entry NOT matching it is skipped before the live GitHub probe
+    (``check_pr_mergeable``/``branch_has_merge_commit``) rather than merely
+    excluded from the returned events, so a caller repairing one row (e.g.
+    ``coord.board_doctor_permissions.sweep_clear_latch``) pays for exactly
+    one probe pass, not one per entry in the whole queue. ``None`` (every
+    other caller: the ordinary ``coord merge`` tick, the daemon reconcile
+    loop) preserves the pre-#3902 whole-queue sweep untouched — the full
+    queue is still loaded and saved either way, since persistence here has
+    always meant "write back everything, changed or not".
     """
     items = load_queue()
     events: list[MergeEvent] = []
     changed = False
     for entry in items:
+        if only is not None and (entry.repo_name, entry.issue_number) != only:
+            continue
         if not entry.pr_number:
             continue
         was_human_required = entry.state == HUMAN_REQUIRED
@@ -6818,6 +7048,30 @@ def _entry_gate_status(
                 PLAN_BLOCKED,
                 f"commit message contains closing keyword for epic {numbers_str} (#1318)",
             )
+    # #3886: the per-repo merge-gate reservation, checked LAST — same
+    # ordering `process()` uses and for the same reason: every gate above
+    # has already had its own chance to report a more specific reason, so
+    # only an otherwise-PLAN_READY sibling renders as reserved instead of
+    # the real block it would have shown without this. Keeps `coord merge
+    # --plan`/the TUI panel byte-for-byte what a live `process()` call
+    # would decide, the one invariant this function's own docstring states.
+    from coord.drive_queue import entry_key  # noqa: PLC0415
+
+    reservation = get_merge_reservation(entry.repo_name)
+    if reservation is not None:
+        holder = reservation.get("holder")
+        if holder is not None and holder != entry_key(
+            entry.repo_name, entry.issue_number,
+        ):
+            expires_at = reservation.get("expires_at")
+            expires_str = (
+                datetime.fromtimestamp(
+                    expires_at, tz=timezone.utc,
+                ).isoformat(timespec="seconds")
+                if isinstance(expires_at, (int, float))
+                else "unknown"
+            )
+            return PLAN_BLOCKED, f"{MERGE_GATE_RESERVED_PREFIX}{holder} until {expires_str}"
     return PLAN_READY, None
 
 
@@ -7471,7 +7725,7 @@ def staging_items(board, config, gh_ops: "GhOps | None" = None) -> list[StagingI
 class MergeEvent:
     # kind is one of: "opened", "sized", "merged", "merged_partial",
     # "merged_close_unconfirmed", "conflict", "skipped", "error",
-    # "reopened", "inert_base_move_merged"
+    # "reopened", "inert_base_move_merged", "merge_gate_reserved"
     entry: QueuedMerge
     kind: str
     message: str = ""
@@ -8452,6 +8706,29 @@ def _maybe_post_verification(
     )
 
 
+def _issue_resolution_remainder_text(issue_resolution: IssueResolution) -> str:
+    """The "What remains:" text for *issue_resolution* (#3502), or "" when
+    it's "resolved" (nothing to report).
+
+    Falls back to a generic sentence when `issue_resolution.reason` is
+    blank (:func:`coord.models.is_blank_issue_resolution_reason`) rather
+    than printing a dangling fragment (#3915). In production every
+    `IssueResolution` reaching this function was built by
+    :func:`coord.models.parse_issue_resolution`, which already normalises
+    a punctuation-only reason down to `""` before this ever runs — so the
+    fallback branch is exercised directly in tests via a hand-built
+    `IssueResolution` (#3928), not indirectly through a marker string.
+    """
+    if issue_resolution.value == "resolved":
+        return ""
+    if not is_blank_issue_resolution_reason(issue_resolution.reason):
+        return issue_resolution.reason
+    return (
+        "the worker/reviewer marked this PR as not fully "
+        "resolving the issue — see the PR for details."
+    )
+
+
 def _finalize_merged_entry(
     entry: QueuedMerge,
     gh_ops: "GhOps",
@@ -8471,13 +8748,39 @@ def _finalize_merged_entry(
     already set `entry.state = MERGED` / `entry.error = None` and merged
     the PR; this only handles what comes after.
 
+    #3886: also releases *entry*'s own per-repo merge-gate reservation (if
+    any) — a cheap, harmless no-op via `release_merge_reservation`'s
+    holder-key check for the common case where *entry* was never the
+    holder. Living HERE, once, is the whole point of this helper: every
+    caller that lands a real merge gets the release for free, with no
+    chance of a future call site forgetting it and holding the reservation
+    for the rest of its TTL after a real landing.
+
     *issue_resolution* / *issue_close_block_reason* are the SAME verdict
     the caller's own gate chain already computed for this entry this tick
     (`process()`'s per-entry loop, or the conflict event it raised) — never
     recomputed here, so the close-or-not decision can never disagree with
     what a PR-body closing-keyword lint already decided elsewhere.
     """
+    # Deferred: `coord.drive_queue` imports this module at load time, so a
+    # module-level import here would be circular.
+    from coord.drive_queue import entry_key  # noqa: PLC0415
+
     events: list[MergeEvent] = []
+    # #3886: release the moment the merge is confirmed landed, before any of
+    # the best-effort hooks below (which may raise/take a while) — a
+    # sibling waiting on this reservation should see it clear as soon as
+    # possible, not only once every bookkeeping step below has run.
+    # Best-effort, same posture as every other call in this function: the
+    # merge already happened, so a reservation-release failure (including a
+    # thin-client read guard) must never be mistaken for the merge itself
+    # failing.
+    try:
+        release_merge_reservation(
+            entry.repo_name, entry_key(entry.repo_name, entry.issue_number),
+        )
+    except Exception:  # noqa: BLE001 — never fail a merge on this
+        pass
     try:
         dismiss_drive_escalation(entry.repo_name, entry.issue_number)
     except Exception:  # noqa: BLE001 — never fail a merge on this
@@ -8571,15 +8874,7 @@ def _finalize_merged_entry(
         # Blocked — never close it, and ALWAYS tell anyone watching the
         # issue (not just the queue DB) why, regardless of which of the
         # three reasons fired.
-        remainder = (
-            (
-                issue_resolution.reason
-                or "the worker/reviewer marked this PR as not fully "
-                "resolving the issue — see the PR for details."
-            )
-            if issue_resolution.value != "resolved"
-            else ""
-        )
+        remainder = _issue_resolution_remainder_text(issue_resolution)
         comment_body = (
             f"Merged PR #{entry.pr_number}, but issue "
             f"#{entry.issue_number} {issue_close_block_reason} "
@@ -8733,6 +9028,10 @@ def process(
 
     Mutates `items` in place; the caller saves the queue after.
     """
+    # Deferred: `coord.drive_queue` imports this module at load time, so a
+    # module-level import here would be circular.
+    from coord.drive_queue import entry_key  # noqa: PLC0415
+
     events: list[MergeEvent] = []
     ci: CiStore = ci_store if ci_store is not None else NoOpCi()
 
@@ -8743,6 +9042,20 @@ def process(
         groups.setdefault((entry.repo_github, entry.target_branch), []).append(entry)
 
     _unset = object()
+    # #3886: a per-repo snapshot of `get_merge_reservation`, taken the FIRST
+    # time this call encounters that repo (tracked via plain `not in`
+    # membership below, so a repo with genuinely no reservation caches
+    # `None` too, rather than re-querying the DB for every one of its
+    # entries in a large group) and reused for every entry after — never
+    # re-read live per entry. A live re-read would let the holder's OWN
+    # successful merge (which releases its reservation immediately below)
+    # un-defer a sibling sequenced right after it in this exact same
+    # `ordered` loop, inside this exact same call — exactly the shape the
+    # acceptance bar for #3886 rules out ("process() skips a mergeable
+    # sibling B … and merges A. After A merges … B merges on the next
+    # pass" — next PASS, i.e. the next call to `process()`, not later in
+    # this one).
+    _reservation_snapshot: dict[str, dict | None] = {}
 
     for group in groups.values():
         # #1479-review: every entry in a group shares the same target_branch
@@ -9215,6 +9528,20 @@ def process(
                             "merge driver while this run was in progress — "
                             "skipping duplicate PR creation (#2143)",
                         ))
+                        # #3886: this entry landed via a DIFFERENT merge
+                        # driver's `process()` call, which already ran its
+                        # own `_finalize_merged_entry` (issue close/comment,
+                        # etc.) — never repeat that here. Only release a
+                        # reservation this exact entry might still hold;
+                        # `release_merge_reservation`'s holder-key check
+                        # makes this a no-op for every other entry.
+                        try:
+                            release_merge_reservation(
+                                entry.repo_name,
+                                entry_key(entry.repo_name, entry.issue_number),
+                            )
+                        except Exception:  # noqa: BLE001 — never fail a merge on this
+                            pass
                         continue
                 try:
                     pr = gh_ops.create_pr(
@@ -10252,6 +10579,49 @@ def process(
                     continue  # #3502: refuse — never merge a branch that will
                     # auto-close an issue marked not-yet-resolved via a commit
                     # message we can't rewrite.
+
+            # #3886: the per-repo merge-gate reservation, honored LAST —
+            # immediately before the actual `gh_ops.merge_pr` call below,
+            # after every other gate (review/smoke/uat/CI/conflict) has had
+            # its own chance to report its own block reason and `continue`.
+            # That ordering keeps a genuinely different block (a missing
+            # review, a real conflict) visible on `entry.error` instead of
+            # being hidden behind the reservation text for the length of
+            # its TTL, and matches the gate's own wording: only a
+            # MERGEABLE sibling defers here, never merely a pending one.
+            #
+            # The holder itself is unaffected (its own key matches `holder`
+            # below, so it falls straight through); only a DIFFERENT entry
+            # in the same repo defers until the holder merges, stops being a
+            # live candidate, or the reservation's own TTL expires. Never
+            # short-circuited by `force_merge`/`skip_review`/`skip_smoke` —
+            # not a new bypass surface.
+            #
+            # `get_merge_reservation` is a local-DB-only read (see its
+            # docstring) — same thin-client limitation the #3859 writers of
+            # this reservation already carry; not newly introduced here.
+            if entry.repo_name not in _reservation_snapshot:
+                _reservation_snapshot[entry.repo_name] = get_merge_reservation(
+                    entry.repo_name
+                )
+            reservation = _reservation_snapshot[entry.repo_name]
+            if reservation is not None:
+                holder = reservation.get("holder")
+                if holder is not None and holder != entry_key(
+                    entry.repo_name, entry.issue_number,
+                ):
+                    expires_at = reservation.get("expires_at")
+                    expires_str = (
+                        datetime.fromtimestamp(
+                            expires_at, tz=timezone.utc,
+                        ).isoformat(timespec="seconds")
+                        if isinstance(expires_at, (int, float))
+                        else "unknown"
+                    )
+                    msg = f"{MERGE_GATE_RESERVED_PREFIX}{holder} until {expires_str}"
+                    entry.error = msg
+                    events.append(MergeEvent(entry, "merge_gate_reserved", msg))
+                    continue  # skip this entry; try the next in the group
 
             # #1467: pre-flight linearity check. GitHub refuses to
             # rebase-merge any branch containing a merge commit ("This

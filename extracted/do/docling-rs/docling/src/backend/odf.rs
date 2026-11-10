@@ -1156,38 +1156,32 @@ fn wrap_last_commented(doc: &mut DoclingDocument, slots: Vec<usize>) {
     }
 }
 
-/// Merge adjacent same-format runs, serialize each (markers), join with spaces —
-/// docling-core's inline-group serialization (un-stripped, so spaces double up).
+/// Merge adjacent same-format runs, trim the paragraph's two ends
+/// (docling's `_normalize_odf_text_runs`, `trim_run_edges` since
+/// docling#3891), serialize each with its edge whitespace hoisted outside
+/// the markers, and concatenate — docling-core 2.106's inline group (#997).
+/// A hyperlink boundary is not special: its space stays in the run that
+/// owns it (`Watch [the example talk](…) for context.`).
 fn runs_to_text(mut runs: Vec<Run>) -> String {
     // merge adjacent same-fmt (and same-link) runs
     let mut merged: Vec<Run> = Vec::new();
-    for mut r in runs.drain(..) {
+    for r in runs.drain(..) {
         if let Some(last) = merged.last_mut() {
             if last.fmt == r.fmt && last.href == r.href {
                 last.text.push_str(&r.text);
                 continue;
             }
-            // docling's `_normalize_odf_text_runs`: a hyperlink boundary is a
-            // hard edge — the whitespace right at it is stripped so it doesn't
-            // double up with the separator the inline serializer inserts
-            // (`Watch [the example talk](…) for context.`).
-            if last.href != r.href {
-                last.text = last.text.trim_end().to_string();
-                r.text = r.text.trim_start().to_string();
-            }
         }
         merged.push(r);
     }
-    merged
+    docling_core::inline::trim_run_edges(merged, |r| r.text.as_str(), |r, t| r.text = t, |_| true)
         .iter()
-        .map(|r| serialize_run(&r.text, r.fmt, r.href.as_deref()))
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
-        // docling's `_normalize_odf_text_runs` strips the paragraph at both ends
-        // (e.g. a leading `<text:line-break/>`), keeping only internal breaks.
-        .trim()
-        .to_string()
+        .map(|r| {
+            docling_core::inline::hoist(&r.text, |core| {
+                serialize_run(core, r.fmt, r.href.as_deref())
+            })
+        })
+        .collect()
 }
 
 /// The structured [`InlineRun`]s for a paragraph — one per format group, the
@@ -2032,6 +2026,14 @@ fn is_plain_number_marker(marker: &str) -> bool {
 // ---------------------------------------------------------------- tables
 
 fn parse_table(table: XmlNode, styles: &Styles) -> Option<Table> {
+    parse_table_as(table, styles, true)
+}
+
+/// [`parse_table`], with `styled_rich` choosing whether a styled run alone
+/// makes a cell rich (docling#4809). A table nested in a rich cell is
+/// flattened to its cells' plain text, as upstream prints it, so it is
+/// parsed without that rule.
+fn parse_table_as(table: XmlNode, styles: &Styles, styled_rich: bool) -> Option<Table> {
     // Only rows of *this* table — `descendants()` would also pull in the rows of
     // any nested table (which a rich cell renders on its own).
     let tr_rows: Vec<XmlNode> = table
@@ -2097,8 +2099,8 @@ fn parse_table(table: XmlNode, styles: &Styles) -> Option<Table> {
                 ci = (ci + reps).min(num_cols);
                 continue;
             }
-            let text = cell_text(tc, styles);
-            let cell_nodes = cell_blocks_of(tc, styles);
+            let text = cell_text(tc, styles, styled_rich);
+            let cell_nodes = cell_blocks_of(tc, styles, styled_rich);
             any_rich |= !cell_nodes.is_empty();
             let cspan = repeat(tc, "number-columns-spanned");
             let rspan = repeat(tc, "number-rows-spanned");
@@ -2152,6 +2154,7 @@ fn parse_table(table: XmlNode, styles: &Styles) -> Option<Table> {
             .collect()
     });
     Some(Table {
+        footnotes: Vec::new(),
         rows,
         location: None,
         structure: Some(TableStructure {
@@ -2188,8 +2191,8 @@ fn data_bounds(grid: &[Vec<String>]) -> Option<(usize, usize, usize, usize)> {
 /// tables or images) renders its full block content — formatting kept — flattened
 /// to a single line; a *plain* cell renders its unformatted text. Mirrors
 /// docling's `_odf_cell_is_rich` / `_odf_cell_text` split.
-fn cell_text(tc: XmlNode, styles: &Styles) -> String {
-    if is_rich_cell(tc, styles) {
+fn cell_text(tc: XmlNode, styles: &Styles, styled_rich: bool) -> String {
+    if is_rich_cell_as(tc, styles, styled_rich) {
         rich_cell_markdown(tc, styles)
     } else {
         plain_cell_text(tc)
@@ -2201,8 +2204,8 @@ fn cell_text(tc: XmlNode, styles: &Styles) -> String {
 /// document body (so lists, headings, paragraphs with inline runs and nested
 /// tables all render through the same code). Empty for a plain cell, whose flat
 /// [`cell_text`] the serializer uses instead. Markdown/JSON never consult this.
-fn cell_blocks_of(tc: XmlNode, styles: &Styles) -> Vec<Node> {
-    if !is_rich_cell(tc, styles) {
+fn cell_blocks_of(tc: XmlNode, styles: &Styles, styled_rich: bool) -> Vec<Node> {
+    if !is_rich_cell_as(tc, styles, styled_rich) {
         return Vec::new();
     }
     let mut sub = DoclingDocument::new("");
@@ -2217,6 +2220,10 @@ fn cell_blocks_of(tc: XmlNode, styles: &Styles) -> Vec<Node> {
 /// value (`office:value-type`) — presentation tables never type their cells, so
 /// their text cells are all rich (docling's `cell.value is None` clause).
 pub(super) fn is_rich_cell(tc: XmlNode, styles: &Styles) -> bool {
+    is_rich_cell_as(tc, styles, true)
+}
+
+fn is_rich_cell_as(tc: XmlNode, styles: &Styles, styled_rich: bool) -> bool {
     if cell_has_image(tc) {
         return true;
     }
@@ -2237,7 +2244,23 @@ pub(super) fn is_rich_cell(tc: XmlNode, styles: &Styles) -> bool {
             _ => {}
         }
     }
-    non_empty_paragraphs > 1 || (attr(tc, "value-type").is_none() && non_empty_paragraphs > 0)
+    non_empty_paragraphs > 1
+        || (attr(tc, "value-type").is_none() && non_empty_paragraphs > 0)
+        || (styled_rich && has_styled_run(tc, styles))
+}
+
+/// docling's `_odf_cell_has_styled_run` (docling#4809): a paragraph of the
+/// cell holds a run with formatting (bold, italic, strike, underline, a
+/// script) or a hyperlink — so a one-paragraph typed cell such as
+/// `H<sub>2</sub>O` keeps its runs as a rich cell instead of flattening to
+/// plain text. A span whose style sets no formatting stays plain.
+fn has_styled_run(tc: XmlNode, styles: &Styles) -> bool {
+    tc.children().filter(|c| c.has_tag_name("p")).any(|p| {
+        let mut runs = Vec::new();
+        collect_runs(p, styles, Fmt::default(), &mut runs);
+        runs.iter()
+            .any(|r| r.fmt != Fmt::default() || r.href.is_some())
+    })
 }
 
 /// A cell/paragraph holding a bitmap image (`<draw:image>`).
@@ -2318,7 +2341,7 @@ fn rich_cell_markdown(tc: XmlNode, styles: &Styles) -> String {
             }
             "table" => {
                 prev_state = None;
-                if let Some(table) = parse_table(child, styles) {
+                if let Some(table) = parse_table_as(child, styles, false) {
                     let text = table
                         .rows
                         .iter()
@@ -2415,8 +2438,9 @@ fn add_ods_sheet(table: XmlNode, styles: &Styles, doc: &mut DoclingDocument) {
             let crep = repeat(cell, "number-columns-repeated");
             let covered = cell.has_tag_name("covered-table-cell");
             // A cell holding a picture is a rich cell: its blocks, picture
-            // included, as in the JSON tree (#758).
-            let text = if cell_has_image(cell) {
+            // included, as in the JSON tree (#758); so is one with a styled
+            // or linked run (docling#4809), which keeps its Markdown markers.
+            let text = if cell_has_image(cell) || has_styled_run(cell, styles) {
                 rich_cell_markdown(cell, styles)
             } else {
                 ods_cell_text(cell)
@@ -2543,6 +2567,7 @@ pub(crate) fn emit_sheet_regions(
                 })
                 .collect();
             doc.push(Node::Table(Table {
+                footnotes: Vec::new(),
                 rows,
                 location: None,
                 structure: None,

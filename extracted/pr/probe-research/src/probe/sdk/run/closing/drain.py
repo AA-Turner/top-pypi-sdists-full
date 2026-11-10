@@ -324,7 +324,7 @@ class CloseDrainMixin:
 
     def _settle_wait(self, result, status, summary, accounting, should_warn, verdict_sent, *, wait_limit=None):
         """The outcomes table: the row, a queued report (stopped waiting), or `DeliveryIncomplete`."""
-        from ...delivery.outbox.waiter import DeliveryIncomplete, WaitOutcome
+        from ...delivery.outbox.waiter import DeliveryIncomplete, WaitOutcome, get_recovery_server
 
         self.stop_heartbeat()  # R6: the beat ends with the wait
         if result.is_delivered:
@@ -340,6 +340,7 @@ class CloseDrainMixin:
             # The key passed in code never reached a service: nothing else can send these (D21).
             result.outcome = WaitOutcome.KEY_NOT_HANDED
             result.outbox = str(self._client.journal.outbox_root)
+            result.server = get_recovery_server(self._client.settings.base_url)
         if result.is_still_sending:
             lost_with = None if verdict_sent else self._preempted_outbox_goes_with_machine()
             if lost_with is not None:

@@ -2,7 +2,7 @@
 name = "pytango"
 channels = ["conda-forge", "conda-forge/label/cpptango_rc", "conda-forge/label/tango-test_rc", "tango-controls/label/dev", "tango-controls/label/tango-test_dev"]
 platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"] # "linux-aarch64"
-requires-pixi = ">=0.68.0"
+requires-pixi = ">=0.82.1"
 
 [feature.base.tasks]
 clean = { cmd = "rm -rf build/$PIXI_ENVIRONMENT_NAME", depends-on = [
@@ -90,7 +90,7 @@ wheel = { cmd = "delvewheel repair dist/$PIXI_ENVIRONMENT_NAME/pytango*.whl; mv 
 [dependencies]
 # These are default dependencies, so not included if `no-default-feature = true`
 # (E.g., when we build cpptango from source, we don't want these conda packages)
-cpptango = { version = ">=10.3.3,<10.4", channel = "conda-forge" }
+cpptango = { version = ">=10.3.4,<10.4", channel = "conda-forge" }
 tango-test = { version = "==3.14", channel = "conda-forge" }
 
 [feature.base.dependencies]
@@ -101,6 +101,9 @@ ninja = ">=1.11"
 cppzmq = ">=4.10.0"
 pybind11 = ">=3.0.1"
 python = ">=3.10"
+# Force certifi due to eMudhra / emSign CA certificate
+# https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576
+certifi = ">=2026.10.19"
 pip = "*"
 docstring_parser = "*"
 scikit-build-core = ">=0.10.0"
@@ -112,13 +115,15 @@ packaging = ">=24.0"
 psutil = ">=5.9"
 typing_extensions = ">=4.5.0"
 # opentelemetry
-opentelemetry-api = "*"
-opentelemetry-sdk = "*"
+opentelemetry-api = ">=1.44"
+opentelemetry-sdk = ">=1.44"
+opentelemetry-proto = ">=1.44"
 opentelemetry-exporter-otlp-proto-grpc = "*"
 opentelemetry-exporter-otlp-proto-http = "*"
 # test dependencies
 gevent = ">=20.0"
-pytest = "*"
+# pytest 9.2 broke pytest-forked, which every DeviceTestContext test relies on
+pytest = "<9.2"
 pytest-asyncio = ">=0.24"
 pytest-cov = ">=7.0.0"
 pytest-env = "*"
@@ -156,6 +161,9 @@ python = "~=3.13.0"
 
 [feature.py314.dependencies]
 python = "~=3.14.0"
+
+[feature.py315.dependencies]
+python = "3.15.*"
 
 # Separate env to build the documentation
 [feature.doc]
@@ -300,5 +308,6 @@ py311 = ["base", "py311"]
 py312 = ["base", "py312"]
 py313 = ["base", "py313"]
 py314 = ["base", "py314"]
+py315 = ["base", "py315"]
 doc = ["base", "doc"]
 cpptango = { features = ["base", "cpptango"], no-default-feature = true }

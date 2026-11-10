@@ -59,6 +59,13 @@ class HubRef:
     kind: str  # "model" | "dataset"
     revision: str | None
 
+    def to_source(self) -> Any:
+        """A `SourceRef` named by its uri (not registered): `run.use_dataset` sends it as is, and the server finds or
+        registers the source in the same request, so a job holding only a run token records it too."""
+        from probe.sdk.catalog import SourceRef
+
+        return SourceRef(uri=self.uri, kind=self.kind, revision=self.revision)
+
 
 def _hub_repo(name: Any) -> str | None:
     if not isinstance(name, str):
@@ -79,6 +86,12 @@ def base_model(model: Any) -> HubRef | None:
         return None
     commit = getattr(config, "_commit_hash", None)
     return HubRef(uri=f"{HUB}/{repo}", kind="model", revision=commit if isinstance(commit, str) and _SHA.match(commit) else None)
+
+
+def get_hub_model(name: Any) -> HubRef | None:
+    """The Hub model a repo id names (ART's ``base_model``), or None for a local path or anything else."""
+    repo = _hub_repo(name)
+    return HubRef(uri=f"{HUB}/{repo}", kind="model", revision=None) if repo is not None else None
 
 
 def _is_datasets_object(target: Any) -> bool:

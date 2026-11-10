@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class CurrencyInformation(ClientValue):
     """Information about a currency necessary for currency identification and display in the UI.
 

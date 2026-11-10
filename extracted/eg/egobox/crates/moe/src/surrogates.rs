@@ -1,8 +1,9 @@
 use crate::errors::Result;
+use crate::persistence::{read_model, write_model};
 use crate::types::GpFileFormat;
 use egobox_gp::{
-    GaussianProcess, GpParams, SgpParams, SparseGaussianProcess, SparseMethod, ThetaTuning,
-    correlation_models::*, mean_models::*,
+    GaussianProcess, GpParams, ParamTuning, SgpParams, SparseGaussianProcess, SparseMethod,
+    ThetaTuning, correlation_models::*, mean_models::*,
 };
 use linfa::prelude::{Dataset, Fit};
 use ndarray::{Array1, Array2, ArrayView2, Axis};
@@ -11,8 +12,6 @@ use paste::paste;
 use serde::{Deserialize, Serialize};
 
 use crate::MoeError;
-use std::fs;
-use std::io::Write;
 /// A trait for Gp surrogate parameters to build surrogate.
 pub trait GpSurrogateParams {
     /// Set theta
@@ -25,6 +24,10 @@ pub trait GpSurrogateParams {
     fn max_eval(&mut self, max_eval: usize);
     /// Set the nugget parameter to improve numerical stability
     fn nugget(&mut self, nugget: f64);
+    /// Set the tuning of the noise-to-signal ratio of a gaussian noise on training outputs
+    /// (see [GpParams::noise_ratio](egobox_gp::GpParams::noise_ratio)).
+    /// Default is a no-op, used by sparse GPs which handle their own noise variance.
+    fn noise_ratio(&mut self, _noise_ratio: ParamTuning<f64>) {}
     /// Train the surrogate
     fn train(&self, x: &ArrayView2<f64>, y: &ArrayView2<f64>) -> Result<Box<dyn FullGpSurrogate>>;
 }
@@ -65,6 +68,16 @@ pub trait GpSurrogateExt {
     /// return ((n, ), (n, xdim)) where first array is the predicted values
     /// and second array is the derivatives of the variance wrt each input dimension
     fn predict_valvar_gradients(&self, x: &ArrayView2<f64>) -> Result<(Array2<f64>, Array2<f64>)>;
+    /// Predict output values, variances and their derivatives at n points
+    /// return ((n, ), (n, ), (n, xdim), (n, xdim)) arrays being respectively the predicted values,
+    /// the variances, the derivatives of the values and the derivatives of the variances
+    /// wrt each input dimension. Cheaper than calling `predict_valvar` and
+    /// `predict_valvar_gradients` separately when computations can be shared.
+    #[allow(clippy::type_complexity)]
+    fn predict_valvar_with_gradients(
+        &self,
+        x: &ArrayView2<f64>,
+    ) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)>;
     /// Sample trajectories
     fn sample(&self, x: &ArrayView2<f64>, n_traj: usize) -> Result<Array2<f64>>;
     /// Predict the posterior covariance matrix between n points given as (n, xdim) matrix:
@@ -85,7 +98,7 @@ pub trait GpParameterized {
     fn theta(&self) -> &Array1<f64>;
     /// Get process variance
     fn variance(&self) -> f64;
-    /// Get noise variance (0 for full GP)
+    /// Get noise variance (0 for full GP without noise ratio)
     fn noise_variance(&self) -> f64;
     /// Get log-likelihood
     fn likelihood(&self) -> f64;
@@ -152,6 +165,10 @@ macro_rules! declare_surrogate {
                     self.0 = self.0.clone().nugget(nugget);
                 }
 
+                fn noise_ratio(&mut self, noise_ratio: ParamTuning<f64>) {
+                    self.0 = self.0.clone().noise_ratio(noise_ratio);
+                }
+
                 fn train(
                     &self,
                     x: &ArrayView2<f64>,
@@ -186,17 +203,7 @@ macro_rules! declare_surrogate {
                 }
 
                 fn save(&self, path: &str, format: GpFileFormat) -> Result<()> {
-                    let mut file = fs::File::create(path).unwrap();
-                    let bytes = match format {
-                        GpFileFormat::Json => serde_json::to_vec(self as &dyn GpSurrogate)
-                            .map_err(MoeError::SaveJsonError)?,
-                        GpFileFormat::Binary => {
-                            bincode::serde::encode_to_vec(self as &dyn GpSurrogate, bincode::config::standard()).map_err(MoeError::SaveBinaryError)?
-                        }
-                    };
-                    file.write_all(&bytes)?;
-
-                    Ok(())
+                    write_model(path, self as &dyn GpSurrogate, format)
                 }
 
             }
@@ -211,6 +218,9 @@ macro_rules! declare_surrogate {
                 }
                 fn predict_valvar_gradients(&self, x: &ArrayView2<f64>) -> Result<(Array2<f64>, Array2<f64>)> {
                     Ok(self.0.predict_valvar_gradients(x))
+                }
+                fn predict_valvar_with_gradients(&self, x: &ArrayView2<f64>) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
+                    Ok(self.0.predict_valvar_with_gradients(x)?)
                 }
                 fn sample(&self, x: &ArrayView2<f64>, n_traj: usize) -> Result<Array2<f64>> {
                     Ok(self.0.sample(x, n_traj))
@@ -231,7 +241,7 @@ macro_rules! declare_surrogate {
                 }
 
                 fn noise_variance(&self) -> f64 {
-                    0.0
+                    self.0.noise_variance()
                 }
 
                 fn likelihood(&self) -> f64 {
@@ -366,16 +376,7 @@ macro_rules! declare_sgp_surrogate {
                 }
 
                 fn save(&self, path: &str, format: GpFileFormat) -> Result<()> {
-                    let mut file = fs::File::create(path).unwrap();
-                    let bytes = match format {
-                        GpFileFormat::Json => serde_json::to_vec(self as &dyn SgpSurrogate)
-                            .map_err(MoeError::SaveJsonError)?,
-                        GpFileFormat::Binary => {
-                            bincode::serde::encode_to_vec(self as &dyn SgpSurrogate, bincode::config::standard()).map_err(MoeError::SaveBinaryError)?
-                        }
-                    };
-                    file.write_all(&bytes)?;
-                    Ok(())
+                    write_model(path, self as &dyn SgpSurrogate, format)
                 }
             }
 
@@ -389,6 +390,14 @@ macro_rules! declare_sgp_surrogate {
                 }
                 fn predict_valvar_gradients(&self, x: &ArrayView2<f64>) -> Result<(Array2<f64>, Array2<f64>)> {
                     Ok((self.0.predict_gradients(x), self.0.predict_var_gradients(x)))
+                }
+                fn predict_valvar_with_gradients(&self, x: &ArrayView2<f64>) -> Result<(Array1<f64>, Array1<f64>, Array2<f64>, Array2<f64>)> {
+                    Ok((
+                        self.0.predict(x)?,
+                        self.0.predict_var(x)?,
+                        self.0.predict_gradients(x),
+                        self.0.predict_var_gradients(x),
+                    ))
                 }
                 fn sample(&self, x: &ArrayView2<f64>, n_traj: usize) -> Result<Array2<f64>> {
                     Ok(self.0.sample(x, n_traj))
@@ -454,20 +463,13 @@ declare_sgp_surrogate!(Matern52);
 
 /// Load GP surrogate from given json file.
 pub fn load(path: &str, format: GpFileFormat) -> Result<Box<dyn GpSurrogate>> {
-    let data = fs::read(path)?;
-    match format {
-        GpFileFormat::Json => {
-            serde_json::from_slice::<Box<dyn GpSurrogate>>(&data).map_err(|err| {
-                MoeError::LoadError(format!("Error while loading from {path}: ({err})"))
-            })
+    read_model(path, format).map_err(|err| match err {
+        // binary errors are load errors too here
+        MoeError::LoadBinaryError(err) => {
+            MoeError::LoadError(format!("Error while loading from {path} ({err})"))
         }
-        GpFileFormat::Binary => bincode::serde::decode_from_slice::<Box<dyn GpSurrogate>, _>(
-            &data,
-            bincode::config::standard(),
-        )
-        .map(|(surrogate, _)| surrogate)
-        .map_err(|err| MoeError::LoadError(format!("Error while loading from {path} ({err})"))),
-    }
+        err => err,
+    })
 }
 
 #[doc(hidden)]
@@ -543,5 +545,24 @@ mod tests {
     fn test_load_fail() {
         let gp = load("notfound.json", GpFileFormat::Json);
         assert!(gp.is_err());
+    }
+
+    #[test]
+    fn test_save_in_missing_dir_is_an_error() {
+        let xt = Lhs::new(&array![[0., 25.]]).sample(20);
+        let yt = xsinx(&xt).insert_axis(Axis(1));
+        let gp = make_surrogate_params!(Constant, SquaredExponential)
+            .train(&xt.view(), &yt.view())
+            .expect("GP fit error");
+        let inducings = egobox_gp::Inducings::Located(xt.slice(ndarray::s![..5, ..]).to_owned());
+        let sgp = make_sgp_surrogate_params!(SquaredExponential, inducings)
+            .train(&xt.view(), &yt.view())
+            .expect("SGP fit error");
+        for surrogate in [gp, sgp] {
+            for format in [GpFileFormat::Json, GpFileFormat::Binary] {
+                let res = surrogate.save("target/tests/missing_dir/gp.json", format);
+                assert!(res.is_err(), "{surrogate}");
+            }
+        }
     }
 }

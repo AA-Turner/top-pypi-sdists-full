@@ -21,6 +21,7 @@ class InvoiceFieldEnum(str, Enum):
     TOTAL = "total"
     URL = "url"
     UUID = "uuid"
+    VOLUME_DISCOUNTS = "volume_discounts"
     YEAR = "year"
 
     def __str__(self) -> str:

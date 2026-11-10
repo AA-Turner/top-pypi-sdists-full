@@ -32,9 +32,9 @@ class Rewards(APIResource):
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> EvalTrajectoryRewardsPage:
     """Rewards of an evaluation run's scored trajectories, the values its mean reward averages:
-    each attempt's test sample reward, with attempts stopped by a step, token or time limit
-    scored 0. Errored and cancelled attempts are omitted. Ordered by ascending task ID, with
-    trajectories without a task first, then by ascending trajectory ID.
+    each ENV_DONE attempt's test sample reward, with TRUNCATION attempts scored 0. All other
+    termination reasons are omitted. Ordered by ascending task ID, with trajectories without
+    a task first, then by ascending trajectory ID.
 
     Args:
       extra_headers: Send extra headers

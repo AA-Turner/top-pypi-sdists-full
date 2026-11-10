@@ -68,8 +68,10 @@ from .routes import (
     health_router,
     history_router,
     identity_router,
+    inference_relay_router,
     loop_router,
     mcp_auth_router,
+    mcp_lent_router,
     mcp_proxy_router,
     mcp_router,
     mcp_ui_router,
@@ -1098,6 +1100,11 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     if config is None:
         config = ServerConfig()
 
+    # No token of a websocket's query string in uvicorn's log.
+    from .access_log import install_access_log_redaction
+
+    install_access_log_redaction()
+
     # Set the API prefix for dynamic agent creation
     set_api_prefix(config.api_prefix)
 
@@ -1109,6 +1116,9 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     _agent_node_stop_event = asyncio.Event()
     _node_enabled = is_node_enabled()
     _durable_lifecycle: Any = None  # DurableLifecycle instance (when enabled)
+    from .agentcore.settings import is_agentcore_target
+
+    _agentcore = is_agentcore_target()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -1128,6 +1138,19 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         from .apps.session_store import active_store
 
         logger.info("Sessions are kept in the %s store", active_store().name)
+
+        # pydantic-ai's GenAI spans for every agent (AC-12), on AgentCore
+        # Runtime also to AgentCore Observability's endpoint (AC-13).
+        from .otel.genai import enable_genai_instrumentation, genai_tracer_provider
+
+        enable_genai_instrumentation(genai_tracer_provider())
+
+        # The demo books' key, taken out of the environment before anything is
+        # started from it: no MCP server, command or sandbox inherits it (B4-01).
+        from .apps.battle_books import take_books_key
+
+        if take_books_key():
+            logger.info("This runtime holds the demo books' key for catalogue Battles.")
 
         # ---- DBOS Durable Execution ----
         from .durable import DurableConfig, DurableLifecycle
@@ -1214,6 +1237,13 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
         harness_id = os.environ.get("AGENT_RUNTIMES_HARNESS")
         if harness_id:
             await _create_harness_agent(app, harness_id, config.api_prefix)
+
+        # Amazon Bedrock AgentCore (AC-01): the agentspec of AGENT_SPEC_ID
+        # configured as a pool pod's is, before the first invocation.
+        if _agentcore and not is_reload_parent:
+            from .agentcore.contract import configure_at_start
+
+            await configure_at_start(app, config.api_prefix)
 
         # Register default agent if specified via CLI (--agent-id flag)
         default_agent_id = os.environ.get("AGENT_RUNTIMES_DEFAULT_AGENT")
@@ -1446,7 +1476,18 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
             else None
         )
 
+        # AgentCore's A2A contract (AC-05): the configured agent as a team
+        # seat, on port 9000 at `/`, through the runtime's A2A transport.
+        _agentcore_seat = None
+        if _agentcore and not is_reload_parent:
+            from .agentcore.a2a import start_seat
+
+            _agentcore_seat = await start_seat()
+
         yield
+
+        if _agentcore_seat is not None:
+            await _agentcore_seat.stop()
 
         # The sessions this runtime holds are paused in their record before
         # it goes (MH-01): a listing from the record then says the truth.
@@ -1611,6 +1652,8 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     app.include_router(mcp_router, prefix=config.api_prefix)
     app.include_router(mcp_auth_router, prefix=config.api_prefix)
     app.include_router(mcp_proxy_router, prefix=config.api_prefix)
+    app.include_router(mcp_lent_router, prefix=config.api_prefix)
+    app.include_router(inference_relay_router, prefix=config.api_prefix)
     app.include_router(sandbox_router, prefix=config.api_prefix)
     app.include_router(tool_approvals_router, prefix=config.api_prefix)
     app.include_router(tool_approvals_legacy_router)
@@ -1625,6 +1668,11 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     app.include_router(a2ui_router, prefix=config.api_prefix)
     if triggers_webhook_router is not None:
         app.include_router(triggers_webhook_router, prefix=config.api_prefix)
+    if _agentcore:
+        # AgentCore Runtime's contract, at the root (AC-02).
+        from .agentcore.contract import router as agentcore_router
+
+        app.include_router(agentcore_router)
 
     # Note: AG-UI mounts and example mounts are added dynamically during lifespan startup
 

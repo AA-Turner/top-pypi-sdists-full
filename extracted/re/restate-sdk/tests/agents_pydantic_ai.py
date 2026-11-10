@@ -14,8 +14,10 @@
 
 import asyncio
 import collections
+import json
 import typing
 import uuid
+from dataclasses import dataclass
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -24,11 +26,14 @@ import pytest
 
 pytest.importorskip("pydantic_ai")
 
+from pydantic_ai import Agent, ModelRetry, RunContext  # noqa: E402
+from pydantic_ai.capabilities import AbstractCapability  # noqa: E402
+from pydantic_ai.exceptions import UnexpectedModelBehavior  # noqa: E402
 from pydantic_ai.messages import (  # noqa: E402
     ModelMessage,
     ModelRequest,
     ModelResponse,
-    RetryPromptPart,
+    SystemPromptPart,
     TextPart,
     ToolCallPart,
     ToolReturnPart,
@@ -37,6 +42,7 @@ from pydantic_ai.messages import (  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
 import restate  # noqa: E402
+from support import RESTATE_IMAGE, Gate  # noqa: E402  # pylint: disable=import-error
 from restate import HarnessEnvironment, sessions  # noqa: E402
 from restate.agents import tool  # noqa: E402
 from restate.agents.internal import CANCELLED  # noqa: E402
@@ -59,6 +65,9 @@ class AuthenticationError(Exception):
 asked: collections.Counter[str] = collections.Counter()
 """How often the model was asked, by the key word that ends each test's first prompt."""
 
+garbled: collections.Counter[str] = collections.Counter()
+"""How often the model was asked for a reply whose first response it could not read, by the prompt."""
+
 
 def _prompts(messages: list[ModelMessage]) -> list[str]:
     return [
@@ -70,30 +79,70 @@ def _prompts(messages: list[ModelMessage]) -> list[str]:
     ]
 
 
+def _unanswered(messages: list[ModelMessage]) -> set[str]:
+    """The ids of the tool calls in ``messages`` that have no result."""
+    calls = {c.tool_call_id for m in messages if isinstance(m, ModelResponse) for c in m.tool_calls}
+    answered = {
+        p.tool_call_id
+        for m in messages
+        if isinstance(m, ModelRequest)
+        for p in m.parts
+        if isinstance(p, ToolReturnPart)
+    }
+    return calls - answered
+
+
 def reply(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
     """The scripted model: it answers the last prompt from the conversation alone, as a retry would ask again."""
+    if unanswered := _unanswered(messages):
+        # As a model provider refuses a history with tool calls that have no results.
+        raise RuntimeError(f"tool calls without results: {sorted(unanswered)}")
     text = _prompts(messages)[-1]
     asked[_prompts(messages)[0].split(" ")[-1]] += 1
     last = messages[-1]
-    results = (
-        [p for p in last.parts if isinstance(p, ToolReturnPart | RetryPromptPart)]
-        if isinstance(last, ModelRequest)
-        else []
-    )
+    results = [p for p in last.parts if isinstance(p, ToolReturnPart)] if isinstance(last, ModelRequest) else []
     word, _, rest = text.partition(" ")
     if word == "system":
         return ModelResponse(parts=[TextPart(f"system: {info.instructions}")])
     if word == "refuse":
         raise AuthenticationError("invalid x-api-key")
+    if word == "garbled":
+        garbled[text] += 1
+        if garbled[text] == 1:
+            # As OpenAI's model reports a response body that is not JSON.
+            raise UnexpectedModelBehavior("Invalid response from openai chat completions endpoint, expected JSON data")
+    if word == "sysweather" and not results:
+        # Ask for the weather first, then report as sysprompt does: a turn of two model requests.
+        return ModelResponse(
+            parts=[ToolCallPart("get_weather", {"city": rest}, tool_call_id=f"call-{rest}-{len(messages)}")]
+        )
+    if word in ("sysprompt", "sysweather"):
+        system = [
+            p.content
+            for m in messages
+            if isinstance(m, ModelRequest)
+            for p in m.parts
+            if isinstance(p, SystemPromptPart)
+        ]
+        prompts = len(_prompts(messages))
+        return ModelResponse(parts=[TextPart(f"system prompt: {', '.join(system)}; prompts: {prompts}")])
+    if word in ("loop", "picky"):
+        # A model that keeps calling a tool, never answering.
+        name = "get_weather" if word == "loop" else "picky"
+        return ModelResponse(parts=[ToolCallPart(name, {"city": rest}, tool_call_id=f"call-{rest}-{len(messages)}")])
+    if word == "ask" and not results:
+        question = {"header": "Color", "question": "Which color?", "options": [{"label": "Blue"}, {"label": "Red"}]}
+        return ModelResponse(
+            parts=[ToolCallPart("ask_user_question", {"questions": [question]}, tool_call_id=f"call-{rest}")]
+        )
     names = {"weather": "get_weather", "crash": "flaky", "wait": "blocking", "wrong": "get_weather"}
-    names |= {"unknown": "nonexistent", "forbidden": "forbidden"}
+    names |= {"unknown": "nonexistent", "forbidden": "forbidden", "deferred": "refund_order"}
     if word in names and not results:
         args: dict[str, Any] = {"town": 3} if word == "wrong" else {"city": rest}
         return ModelResponse(parts=[ToolCallPart(names[word], args, tool_call_id=f"call-{rest}")])
     if results:
         result = results[-1]
-        said = result.model_response() if isinstance(result, RetryPromptPart) else result.model_response_str()
-        return ModelResponse(parts=[TextPart(f"tool said: {said}")])
+        return ModelResponse(parts=[TextPart(f"tool said: {result.model_response_str()}")])
     return ModelResponse(parts=[TextPart(f"echo: {text}")])
 
 
@@ -134,11 +183,16 @@ async def forbidden(city: str) -> str:
     raise restate.TerminalError(f"no access to {city}")
 
 
+async def picky(city: str) -> str:
+    """A Pydantic AI tool function that asks the model to call it again, every time."""
+    raise ModelRetry(f"not like that, for {city}")
+
+
 assistant = pydantic_ai.agent(
     "pai_assistant",
     model=FunctionModel(reply),
     system="Answer briefly.",
-    tools=[get_weather, flaky, blocking, forbidden],
+    tools=[get_weather, flaky, blocking, forbidden, picky],
 )
 
 
@@ -164,11 +218,215 @@ per_user = pydantic_ai.agent(
 
 @assistant.handler
 async def own(ctx: sessions.SessionContext, text: str) -> str:
-    """An Agent of your own, with its instructions and model, and this package's tools beside its own."""
+    """An Agent of your own, with its instructions and model, and this package's tools as a toolset of its own."""
     from pydantic_ai import Agent  # pylint: disable=import-outside-toplevel
 
-    mine: Agent[None, str] = Agent(FunctionModel(reply), instructions="Mine.")
-    return await pydantic_ai.prompt(ctx, text, agent=mine, tools=[get_weather])
+    mine: Agent[None, str] = Agent(
+        FunctionModel(reply), instructions="Mine.", toolsets=[pydantic_ai.toolset([get_weather])]
+    )
+    return await pydantic_ai.prompt(ctx, text, agent=mine)
+
+
+@assistant.handler
+async def own_system(ctx: sessions.SessionContext, text: str) -> str:
+    """An Agent of your own with a system prompt, which Pydantic AI keeps in the message history."""
+    mine: Agent[None, str] = Agent(
+        FunctionModel(reply), system_prompt="Mine.", toolsets=[pydantic_ai.toolset([get_weather])]
+    )
+    return await pydantic_ai.prompt(ctx, text, agent=mine)
+
+
+@assistant.handler
+async def clash(ctx: sessions.SessionContext, text: str) -> str:
+    """An Agent of your own whose tool has the name of one of this package's tools beside it: a setup error."""
+    mine: Agent[None, str] = Agent(
+        FunctionModel(reply), system_prompt="Mine.", toolsets=[pydantic_ai.toolset([get_weather])]
+    )
+
+    @mine.tool_plain(name="get_weather")
+    def weather(city: str) -> str:
+        return f"rainy in {city}"
+
+    return await pydantic_ai.prompt(ctx, text, agent=mine)
+
+
+refunds: collections.Counter[str] = collections.Counter()
+"""How often each refund ran, by its city."""
+
+
+def desk_agent() -> Any:
+    """An Agent of your own with a tool that needs an approval, and the harness's ``AskUser`` with no answerer."""
+    from pydantic_ai_harness.ask_user import AskUser  # pylint: disable=import-outside-toplevel
+
+    mine: Any = Agent(FunctionModel(reply), capabilities=[AskUser(answerer=None)])
+
+    @mine.tool_plain(requires_approval=True)
+    def refund_order(city: str) -> str:
+        refunds[city] += 1
+        return f"refunded in {city}"
+
+    return mine
+
+
+desk = pydantic_ai.agent("pai_desk", agent=desk_agent())
+
+memories = pydantic_ai.memory("pai_memories")
+"""Memory across conversations: one key per user."""
+
+
+def user_of(ctx: sessions.SessionContext) -> str:
+    """The user of a conversation, whose key is ``<user>.<topic>``."""
+    return ctx.key.split(".")[0]
+
+
+crashed_writes: set[str] = set()
+
+
+class CrashAfterWrite(AbstractCapability[Any]):
+    """Crashes the attempt once, after a ``write_memory`` call of content that says so, before its result is stored."""
+
+    async def after_tool_execute(
+        self, ctx: RunContext[Any], *, call: Any, tool_def: Any, args: Any, result: Any
+    ) -> Any:
+        content = str(call.args_as_dict().get("content", ""))
+        if call.tool_name == "write_memory" and "crash" in content and content not in crashed_writes:
+            crashed_writes.add(content)
+            raise RuntimeError("the process crashed after writing")
+        return result
+
+
+def memorizer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """A model that writes what it is told to remember to ``facts.md``, and reads it back when asked to recall."""
+    last = messages[-1]
+    results = [p for p in last.parts if isinstance(p, ToolReturnPart)] if isinstance(last, ModelRequest) else []
+    if results:
+        return ModelResponse(parts=[TextPart(f"tool said: {results[-1].model_response_str()}")])
+    text = _prompts(messages)[-1]
+    word, _, rest = text.partition(" ")
+    if word == "remember":
+        args: dict[str, Any] = {"content": rest, "file": "facts.md"}
+        return ModelResponse(parts=[ToolCallPart("write_memory", args, tool_call_id=f"call-{len(messages)}")])
+    if word == "replace":
+        old, new = rest.split("|")
+        args = {"content": new, "file": "facts.md", "old_text": old}
+        return ModelResponse(parts=[ToolCallPart("write_memory", args, tool_call_id=f"call-{len(messages)}")])
+    return ModelResponse(
+        parts=[ToolCallPart("read_memory", {"file": "facts.md"}, tool_call_id=f"call-{len(messages)}")]
+    )
+
+
+def remembering_agent() -> Any:
+    from pydantic_ai_harness.memory import Memory  # pylint: disable=import-outside-toplevel
+
+    store = pydantic_ai.memory_store(memories, user_of)
+    return Agent(FunctionModel(memorizer), capabilities=[Memory(store=store, inject_memory=False), CrashAfterWrite()])
+
+
+remembering = pydantic_ai.agent("pai_remembering", agent=remembering_agent())
+
+
+@remembering.handler
+async def conflict(ctx: sessions.SessionContext, path: str) -> list[str]:
+    """Two writes of a new file: the second expects it to be new too, and is refused."""
+    from pydantic_ai_harness.memory import MemoryConflictError  # pylint: disable=import-outside-toplevel
+
+    from restate.agents._tools import tools_in  # pylint: disable=import-outside-toplevel
+
+    store = pydantic_ai.memory_store(memories, user_of)
+    outcomes: list[str] = []
+    with tools_in(ctx):
+        for content in ("first", "second"):
+            try:
+                written = await store.write(path, content, expected_version=None)
+                outcomes.append(f"written {written.version}")
+            except MemoryConflictError:
+                outcomes.append("refused")
+        found = await store.read(path, max_chars=100)
+    assert found is not None
+    return [*outcomes, found.content]
+
+
+@remembering.handler
+async def listing(ctx: sessions.SessionContext, _: Any = None) -> list[list[str]]:
+    """The paths under a prefix, at most a limit, and all of them."""
+    from restate.agents._tools import tools_in  # pylint: disable=import-outside-toplevel
+
+    store = pydantic_ai.memory_store(memories, user_of)
+    with tools_in(ctx):
+        for path in ("notes/b.md", "other.md", "notes/a.md", "notes/c.md"):
+            await store.write(path, "x", expected_version=None)
+        return [await store.list_paths("notes/", limit=2), await store.list_paths(limit=10)]
+
+
+@assistant.handler
+async def limited(ctx: sessions.SessionContext, text: str) -> str:
+    """A prompt whose runs have a lower limit than Pydantic AI's default."""
+    from pydantic_ai.usage import UsageLimits  # pylint: disable=import-outside-toplevel
+
+    return await pydantic_ai.prompt(
+        ctx, text, model=FunctionModel(reply), tools=[get_weather], usage_limits=UsageLimits(request_limit=5)
+    )
+
+
+spied: collections.Counter[str] = collections.Counter()
+
+
+class Spy(AbstractCapability[Any]):
+    """A capability of one's own, which counts the model requests it sees, by the prompt."""
+
+    async def before_model_request(self, ctx: RunContext[Any], request_context: Any) -> Any:
+        spied[str(ctx.prompt)] += 1
+        return request_context
+
+
+@assistant.handler
+async def watched(ctx: sessions.SessionContext, text: str) -> str:
+    """An Agent of your own, configured with a capability of its own."""
+    mine: Any = Agent(FunctionModel(reply), capabilities=[Spy()])
+    return await pydantic_ai.prompt(ctx, text, agent=mine)
+
+
+@dataclass
+class Shop:
+    """The dependencies of an Agent of your own: who it serves."""
+
+    customer: str
+
+
+def shop_agent() -> Any:
+    shop: Any = Agent(FunctionModel(reply), deps_type=Shop)
+
+    @shop.instructions
+    def prices(run: RunContext[Shop]) -> str:
+        return f"Prices for {run.deps.customer}."
+
+    return shop
+
+
+shop = pydantic_ai.agent("pai_shop", agent=shop_agent(), deps=lambda ctx: Shop(ctx.key))
+
+
+class NotFoundError(Exception):
+    """As an SDK, or a database's client, names a missing resource: the model's provider refusing, if a model's."""
+
+
+lookups: collections.Counter[str] = collections.Counter()
+
+
+@assistant.handler
+async def profiled(ctx: sessions.SessionContext, text: str) -> str:
+    """An Agent of your own whose instructions look up a profile, which is missing the first time."""
+    mine: Any = Agent(FunctionModel(reply))  # Any: pyright matches no overload of the decorator to a RunContext[None]
+
+    @mine.instructions
+    def profile(run: RunContext[None]) -> str:
+        asked_for = str(run.prompt)
+        lookups[asked_for] += 1
+        if lookups[asked_for] == 1:
+            raise NotFoundError(f"no profile yet for {asked_for}")
+        return "Be kind."
+
+    return await pydantic_ai.prompt(ctx, text, agent=mine)
 
 
 def weather_then_answer(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -190,16 +448,66 @@ def trimmed_agent() -> Any:
     from pydantic_ai import Agent  # pylint: disable=import-outside-toplevel
     from pydantic_ai.capabilities import ProcessHistory  # pylint: disable=import-outside-toplevel
 
-    return Agent(FunctionModel(weather_then_answer), capabilities=[ProcessHistory(keep_last_two)])
+    return Agent(
+        FunctionModel(weather_then_answer),
+        capabilities=[ProcessHistory(keep_last_two)],
+        toolsets=[pydantic_ai.toolset([get_weather])],
+    )
 
 
-trimmed = pydantic_ai.agent("pai_trimmed", trimmed_agent(), tools=[get_weather])
+trimmed = pydantic_ai.agent("pai_trimmed", agent=trimmed_agent())
+
+steer_gate = Gate()
+"""Holds the steered agent's ``hold`` tool, and its model's answer to ``slow``, until a test opens it."""
+
+held: set[str] = set()
+"""The keys whose tool call, or model request, waits on ``steer_gate``."""
+
+steered_requests: collections.defaultdict[str, list[list[ModelMessage]]] = collections.defaultdict(list)
+"""What the steered agent's model was given, request by request, by the key that ends the conversation's first
+prompt."""
+
+crashing: set[str] = set()
+"""The keys whose model crashes once, as it answers a message steered to the turn."""
+
+
+async def steerable(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+    """The scripted model of the steered agent: it answers the latest message of the user, after looking it up
+    (``hold``) for ``look <key>``, and taking its time (``steer_gate``) for ``slow <key>``."""
+    prompts = _prompts(messages)
+    k = prompts[0].split(" ")[-1]
+    steered_requests[k].append(list(messages))
+    latest = prompts[-1]
+    word = latest.split(" ")[0]
+    last = messages[-1]
+    returned = isinstance(last, ModelRequest) and any(isinstance(p, ToolReturnPart) for p in last.parts)
+    if word == "look" and not returned:
+        return ModelResponse(parts=[ToolCallPart("hold", {"key": k}, tool_call_id=f"call-{k}")])
+    if word == "slow":
+        held.add(k)
+        await steer_gate.wait()
+    if k in crashing and word not in ("look", "slow"):
+        crashing.discard(k)
+        raise RuntimeError("the process crashed while the model answered")
+    return ModelResponse(parts=[TextPart(f"answer to: {latest}")])
+
+
+@tool
+async def hold(key: str) -> str:
+    """Looks something up, until the test opens the gate."""
+    held.add(key)
+    await steer_gate.wait()
+    return f"found for {key}"
+
+
+steered = pydantic_ai.agent("pai_steered", model=FunctionModel(steerable), tools=[hold])
 
 
 @pytest.fixture(scope="session")
 async def harness():
     async with restate.create_test_harness(
-        restate.app([assistant, per_user, trimmed]), restate_image="ghcr.io/restatedev/restate:latest"
+        restate.app([assistant, per_user, trimmed, shop, desk, remembering, memories, steered]),
+        restate_image=RESTATE_IMAGE,
     ) as harness:
         yield harness
 
@@ -319,15 +627,53 @@ def test_a_model_whose_provider_cannot_run_is_refused_with_what_to_install(monke
     with pytest.raises(restate.TerminalError, match="OPENAI_API_KEY") as no_key:
         _agent._model("openai/gpt-6-sol")  # pyright: ignore[reportPrivateUsage]
     assert no_key.value.status_code == 424
-    with pytest.raises(restate.TerminalError, match="Unknown provider"):
+    with pytest.raises(restate.TerminalError, match="Unknown model: nope:x") as unknown:
         _agent._model("nope/x")  # pyright: ignore[reportPrivateUsage]
+    assert unknown.value.status_code == 424
 
 
-def test_an_agent_of_your_own_takes_no_system():
+def test_a_model_that_cannot_be_made_is_refused_whatever_its_error(monkeypatch: pytest.MonkeyPatch):
+    """Making a model makes no request: a provider's SDK whose client cannot be made raises its own error, which is
+    refused as Pydantic AI's own (``UserError``) is."""
+    from restate.agents.pydantic_ai import _agent  # pylint: disable=import-outside-toplevel
+
+    class OpenAIError(Exception):
+        """As the OpenAI SDK names the error of a client it cannot make."""
+
+    def missing_key(name: str) -> Any:
+        raise OpenAIError("Missing credentials. Please pass an `api_key`, or set the `OPENAI_API_KEY` variable.")
+
+    monkeypatch.setattr(_agent, "infer_model", missing_key)
+    with pytest.raises(restate.TerminalError, match="OPENAI_API_KEY") as refused:
+        _agent._model("openai/gpt-6-sol")  # pyright: ignore[reportPrivateUsage]
+    assert refused.value.status_code == 424
+
+
+def test_an_agent_of_your_own_takes_none_of_the_built_in_agents_options():
     from pydantic_ai import Agent  # pylint: disable=import-outside-toplevel
 
-    with pytest.raises(TypeError, match="pass no system"):
-        pydantic_ai.agent("mine", Agent(instructions="mine"), system="theirs")
+    # Any: no overload takes both, as the type checker says.
+    make: Any = pydantic_ai.agent
+    with pytest.raises(TypeError, match="your own agent is configured .*: pass no system with it"):
+        make("mine", agent=Agent(instructions="mine"), system="theirs")
+    with pytest.raises(TypeError, match="pass no model, tools with it"):
+        make("mine", agent=Agent(instructions="mine"), model="openai/gpt-6-sol", tools=[get_weather])
+    ask: Any = pydantic_ai.prompt
+    with pytest.raises(TypeError, match="pass no tools with it"):
+        asyncio.run(ask(None, "hi", agent=Agent(instructions="mine"), tools=[get_weather]))
+    # No tools is none of the built-in agent's options.
+    make("mine", agent=Agent(instructions="mine"), tools=[])
+    # The options of a run of your own agent, which the built-in agent would ignore.
+    with pytest.raises(TypeError, match="deps is an option of your own agent: pass it with agent="):
+        make("built_in", system="Hi.", deps=lambda ctx: None)
+    with pytest.raises(TypeError, match="deps is an option of your own agent"):
+        asyncio.run(ask(None, "hi", deps=object()))
+
+
+async def test_a_tool_of_toolset_runs_only_in_a_run_of_agent_or_prompt():
+    mine: Any = Agent(FunctionModel(reply), toolsets=[pydantic_ai.toolset([get_weather])])
+    with pytest.raises(RuntimeError, match=r"agent\(\) or prompt\(\)"):
+        await mine.run("weather Rome")
 
 
 def test_a_providers_http_refusal_is_terminal_and_a_rate_limit_is_retried():
@@ -368,6 +714,250 @@ async def test_options_may_be_functions_of_the_context(harness: HarnessEnvironme
         url = f"{harness.ingress_url}/pai_per_user/{k}/chat"
         assert (await ingress.post(url, content=f"system {k}", headers=TEXT)).json() == f"system: You help {k}."
         assert (await ingress.post(url, content=f"weather {k}", headers=TEXT)).json() == f"tool said: sunny in {k}"
+
+
+async def test_an_agent_of_your_own_keeps_its_system_prompt_in_each_turn(harness: HarnessEnvironment):
+    """Pydantic AI adds it to a conversation's first request only: that request is stored, system prompt included."""
+    k = key()
+    for turn in (1, 2):
+        answered = (await post(harness, f"{k}/own_system", json=f"sysprompt {k}")).json()
+        assert answered == f"system prompt: Mine.; prompts: {turn}"
+    # The conversation reads as before: the system prompt is not a message of its own.
+    assert await messages(harness, k) == [
+        ("user", f"sysprompt {k}"),
+        ("assistant", "system prompt: Mine.; prompts: 1"),
+        ("user", f"sysprompt {k}"),
+        ("assistant", "system prompt: Mine.; prompts: 2"),
+    ]
+
+
+async def test_a_system_prompt_comes_first_after_turns_that_ended_before_any_model_request(
+    harness: HarnessEnvironment,
+):
+    """A setup error, say, ends the first turn before Pydantic AI made its first request: the next turn's is the
+    conversation's first, and the model sees the earlier prompt after the system prompt, as later turns do."""
+    k = key()
+    assert (await post(harness, f"{k}/clash", json=f"weather {k}")).status_code == 500
+    # A turn of two model requests (a tool call, then the answer): the second sees the earlier turn once too.
+    for turn, word in ((2, "sysweather"), (3, "sysprompt")):
+        answered = (await post(harness, f"{k}/own_system", json=f"{word} {k}")).json()
+        assert answered == f"system prompt: Mine.; prompts: {turn}"
+
+
+async def test_an_agent_that_keeps_calling_tools_ends_the_turn_at_its_usage_limit(harness: HarnessEnvironment):
+    """A retry would carry on with a fresh limit (50 model requests): the turn ends for good, after one attempt."""
+    k = key()
+    failed = await chat(harness, k, f"loop {k}")
+    assert failed.status_code == 500 and "usage limit" in failed.text, failed.text
+    assert asked[k] == 50
+    assert (await chat(harness, k, f"hi {k}")).json() == f"echo: hi {k}"
+
+
+async def test_usage_limits_set_a_runs_limit(harness: HarnessEnvironment):
+    k = key()
+    failed = await post(harness, f"{k}/limited", json=f"loop {k}")
+    assert failed.status_code == 500 and "request_limit of 5" in failed.text, failed.text
+    assert asked[k] == 5
+
+
+async def test_a_tool_whose_retries_run_out_ends_the_turn(harness: HarnessEnvironment):
+    k = key()
+    failed = await chat(harness, k, f"picky {k}")
+    assert failed.status_code == 500 and "exceeded max retries" in failed.text, failed.text
+    assert asked[k] == 2  # one attempt: the call, and the call again after its retry
+    assert (await chat(harness, k, f"hi {k}")).json() == f"echo: hi {k}"
+
+
+async def test_a_response_that_the_model_could_not_read_is_retried(harness: HarnessEnvironment):
+    """Not one of the run's own errors (retries that ran out, say): a model request's, which a retry asks again."""
+    k = key()
+    answered = await chat(harness, k, f"garbled {k}")
+    assert answered.status_code == 200, answered.text
+    assert answered.json() == f"echo: garbled {k}"
+    assert garbled[f"garbled {k}"] == 2
+
+
+async def desk_post(harness: HarnessEnvironment, path: str, **kwargs: Any) -> httpx2.Response:
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        return await ingress.post(f"{harness.ingress_url}/pai_desk/{path}", **kwargs)
+
+
+async def desk_chat(harness: HarnessEnvironment, k: str, text: str) -> httpx2.Response:
+    return await desk_post(harness, f"{k}/chat", content=text, headers=TEXT)
+
+
+async def waits(harness: HarnessEnvironment, k: str) -> list[dict[str, Any]]:
+    return typing.cast(list[dict[str, Any]], (await desk_post(harness, f"{k}/pending")).json())
+
+
+async def until_waiting(harness: HarnessEnvironment, k: str) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+
+    async def waiting() -> bool:
+        found[:] = await waits(harness, k)
+        return bool(found)
+
+    await until(waiting)
+    return found
+
+
+async def test_a_tool_that_needs_an_approval_waits_for_its_signal_and_runs_once(harness: HarnessEnvironment):
+    k = key()
+    answering = asyncio.ensure_future(desk_chat(harness, k, f"deferred {k}"))
+    [wait] = await until_waiting(harness, k)
+    assert wait["name"] == "approval" and wait["input"] == {"tool": "refund_order", "args": {"city": k}}
+    status = (await desk_post(harness, f"{k}/status", json=None)).json()
+    assert status["answering"] is not None
+    assert refunds[k] == 0
+    await desk_post(harness, f"{k}/signal", json={"name": "approval", "value": "approved"})
+    assert (await answering).json() == f"tool said: refunded in {k}"
+    assert refunds[k] == 1 and await waits(harness, k) == []
+
+
+async def test_a_denied_approval_reaches_the_model_with_its_reason(harness: HarnessEnvironment):
+    k = key()
+    answering = asyncio.ensure_future(desk_chat(harness, k, f"deferred {k}"))
+    [wait] = await until_waiting(harness, k)
+    await desk_post(harness, f"{k}/signal", json={"id": wait["id"], "value": "no refunds on Sundays"})
+    assert (await answering).json() == "tool said: no refunds on Sundays"
+    assert refunds[k] == 0
+
+
+async def test_a_crash_while_waiting_for_an_approval_joins_the_same_wait(
+    harness: HarnessEnvironment, monkeypatch: pytest.MonkeyPatch
+):
+    from restate.agents.pydantic_ai import _agent  # pylint: disable=import-outside-toplevel
+    from restate.agents.internal import wait_for as real  # pylint: disable=import-outside-toplevel
+
+    k = key()
+    crashed: list[str] = []
+
+    async def open_then_crash(ctx: Any, call_id: str, signal: str, input: Any = None, **options: Any) -> Any:
+        if call_id != f"call-{k}" or crashed:
+            return await real(ctx, call_id, signal, input, **options)
+        crashed.append(call_id)
+        # Open the wait, as the attempt does, then crash while it waits: the wait goes on.
+        opened = asyncio.ensure_future(real(ctx, call_id, signal, input, **options))
+        await until_waiting(harness, k)
+        opened.cancel()
+        raise RuntimeError("the process crashed while waiting")
+
+    monkeypatch.setattr(_agent, "wait_for", open_then_crash)
+    answering = asyncio.ensure_future(desk_chat(harness, k, f"deferred {k}"))
+
+    async def retried() -> bool:
+        return bool(crashed)
+
+    await until(retried)
+    await asyncio.sleep(0.5)  # the retry's attempt waits again
+    [wait] = await until_waiting(harness, k)
+    await desk_post(harness, f"{k}/signal", json={"id": wait["id"], "value": True})
+    assert (await answering).json() == f"tool said: refunded in {k}"
+    assert refunds[k] == 1
+
+
+async def test_stop_forgets_the_wait_and_cancels_the_turn(harness: HarnessEnvironment):
+    k = key()
+    answering = asyncio.ensure_future(desk_chat(harness, k, f"deferred {k}"))
+    await until_waiting(harness, k)
+    await desk_post(harness, f"{k}/stop", json=None)
+    assert (await answering).status_code == 409
+    assert await waits(harness, k) == []
+    assert (await desk_chat(harness, k, f"hi {k}")).json() == f"echo: hi {k}"
+    assert refunds[k] == 0
+
+
+async def test_ask_user_without_an_answerer_waits_for_the_answer(harness: HarnessEnvironment):
+    k = key()
+    answering = asyncio.ensure_future(desk_chat(harness, k, f"ask {k}"))
+    [wait] = await until_waiting(harness, k)
+    assert wait["name"] == "ask_user_question"
+    answer = {"answers": [{"header": "Color", "selected": ["Blue"]}]}
+    await desk_post(harness, f"{k}/signal", json={"name": "ask_user_question", "value": answer})
+    assert (await answering).json() == 'tool said: {"Color":["Blue"]}'
+
+
+class StopBeforeTheNextRequest(AbstractCapability[Any]):
+    """Stops the turn once a call has its result, before the next model request stores it, as ``stop`` may."""
+
+    async def before_model_request(self, ctx: RunContext[Any], request_context: Any) -> Any:
+        if any(isinstance(p, ToolReturnPart) for m in ctx.messages if isinstance(m, ModelRequest) for p in m.parts):
+            raise restate.TerminalError("cancelled", status_code=409)
+        return request_context
+
+
+async def test_a_turn_stopped_after_a_denial_is_stored_does_not_report_the_denied_call_done():
+    """The approval returned, but the call never ran: the model must not be told it did."""
+    from agents_pydantic_ai_snapshots import ANSWERS, Chat  # pylint: disable=import-outside-toplevel,import-error
+    from sessions_object import Host, request  # pylint: disable=import-outside-toplevel,import-error
+
+    from restate.agents._conversation import STEPS  # pylint: disable=import-outside-toplevel
+    from restate.agents.pydantic_ai._agent import ITEMS  # pylint: disable=import-outside-toplevel
+    from restate.sessions.internal import invoke  # pylint: disable=import-outside-toplevel
+
+    mine: Any = Agent(FunctionModel(reply), capabilities=[StopBeforeTheNextRequest()])
+
+    @mine.tool_plain(requires_approval=True)
+    def refund_order(city: str) -> str:
+        refunds[city] += 1
+        return f"refunded in {city}"
+
+    chat = Chat(pydantic_ai.agent("pai_denied_then_stopped", agent=mine))
+
+    @chat.obj.handler(name="results")
+    async def results(ctx: Any, _: Any = None) -> list[str]:
+        """The results of the tool calls, as stored."""
+        stored = [ITEMS.load(str(item)) for [item] in await ctx.db.values(f"SELECT item FROM {STEPS} ORDER BY n")]
+        requests = [m for m in stored if isinstance(m, ModelRequest)]
+        return [p.model_response_str() for m in requests for p in m.parts if isinstance(p, ToolReturnPart)]
+
+    k = key()
+    host = Host(chat.backend, service=chat.name, answers={**ANSWERS, "wait": b'"no refunds today"'})
+    with pytest.raises(restate.TerminalError):
+        await invoke(chat.obj, "chat", host, request(), f"deferred {k}")
+    assert await invoke(chat.obj, "results", chat.host(), request(), None) == [CANCELLED]
+    assert refunds[k] == 0
+
+
+async def test_an_agent_of_your_own_runs_with_its_own_capabilities(harness: HarnessEnvironment):
+    k = key()
+    assert (await post(harness, f"{k}/watched", json=f"hi {k}")).json() == f"echo: hi {k}"
+    assert spied[f"hi {k}"] == 1
+
+
+async def test_an_agent_of_your_own_gets_its_deps(harness: HarnessEnvironment):
+    k = key()
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        url = f"{harness.ingress_url}/pai_shop/{k}/chat"
+        assert (await ingress.post(url, content=f"system {k}", headers=TEXT)).json() == f"system: Prices for {k}."
+
+
+async def test_a_setup_error_of_pydantic_ai_ends_the_turn(harness: HarnessEnvironment):
+    k = key()
+    failed = await post(harness, f"{k}/clash", json=f"weather {k}")
+    assert failed.status_code == 500 and "not set up right" in failed.text, failed.text
+
+
+async def test_an_error_of_the_agents_own_code_is_retried_whatever_its_name(harness: HarnessEnvironment):
+    """Only a model request's error can be its provider refusing: an instructions function's is retried."""
+    k = key()
+    answered = await post(harness, f"{k}/profiled", json=f"hi {k}")
+    assert answered.status_code == 200, answered.text
+    assert answered.json() == f"echo: hi {k}"
+    assert lookups[f"hi {k}"] == 2
+
+
+def test_the_openai_sdks_error_for_a_missing_key_is_a_refusal(monkeypatch: pytest.MonkeyPatch):
+    """As the SDK words it now: an OpenAI client made outside Pydantic AI's check of the key (in an Agent of your
+    own, say) raises it."""
+    openai = pytest.importorskip("openai")
+    from restate.agents.internal import refusal  # pylint: disable=import-outside-toplevel
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(openai.OpenAIError) as missing:
+        openai.AsyncOpenAI()
+    refused = refusal(missing.value)
+    assert refused is not None and refused.status_code == 424
 
 
 async def test_an_answer_stored_before_a_crash_is_not_asked_for_again(monkeypatch: pytest.MonkeyPatch):
@@ -421,3 +1011,259 @@ def test_a_tool_result_of_bytes_is_stored_as_pydantic_ai_stores_it():
     [expected] = ModelMessagesTypeAdapter.validate_json(ModelMessagesTypeAdapter.dump_json([message]))
     assert isinstance(read, ModelRequest) and isinstance(expected, ModelRequest)
     assert read.parts[0].content == expected.parts[0].content  # type: ignore[union-attr]
+
+
+def test_an_approvals_signal_approves_only_what_says_so():
+    from pydantic_ai import ToolApproved, ToolDenied  # pylint: disable=import-outside-toplevel
+
+    from restate.agents.pydantic_ai._agent import approval_of  # pylint: disable=import-outside-toplevel
+
+    for approving in (True, "approved", "Yes", " OK ", {"approved": True}):
+        assert approval_of(approving) == ToolApproved()
+    assert approval_of({"approved": True, "args": {"city": "Oslo"}}) == ToolApproved(override_args={"city": "Oslo"})
+    assert approval_of(False) == ToolDenied()
+    for denying in ("no", "Denied", " rejected ", ""):  # no reason of their own: the model is told it was denied
+        assert approval_of(denying) == ToolDenied()
+    assert approval_of("not today") == ToolDenied("not today")
+    assert approval_of({"approved": False, "reason": "too much"}) == ToolDenied("too much")
+    for anything in (None, 1, ["yes"], {"approved": "yes"}):
+        assert isinstance(approval_of(anything), ToolDenied)
+
+
+async def remember(harness: HarnessEnvironment, k: str, text: str) -> httpx2.Response:
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        return await ingress.post(f"{harness.ingress_url}/pai_remembering/{k}/chat", content=text, headers=TEXT)
+
+
+async def test_two_conversations_of_a_user_share_memory(harness: HarnessEnvironment):
+    user = key()
+    written = await remember(harness, f"{user}.trip", "remember likes tea")
+    assert written.status_code == 200, written.text
+    assert "likes tea" in (await remember(harness, f"{user}.support", "recall")).json()
+    # Another user's memory is their own.
+    assert "likes tea" not in (await remember(harness, f"{key()}.trip", "recall")).json()
+
+
+async def test_a_conflicting_memory_write_is_refused(harness: HarnessEnvironment):
+    user = key()
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        outcomes = await ingress.post(f"{harness.ingress_url}/pai_remembering/{user}.x/conflict", json="notes.md")
+    assert outcomes.json()[1:] == ["refused", "first"]
+
+
+async def test_memory_lists_the_paths_under_a_prefix_in_order_up_to_a_limit(harness: HarnessEnvironment):
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        listed = await ingress.post(f"{harness.ingress_url}/pai_remembering/{key()}.x/listing", json=None)
+    assert listed.json() == [["notes/a.md", "notes/b.md"], ["notes/a.md", "notes/b.md", "notes/c.md", "other.md"]]
+
+
+async def test_a_memory_write_of_a_tool_call_that_runs_again_is_applied_once(harness: HarnessEnvironment):
+    user = key()
+    fact = f"crash {user}"
+    assert (await remember(harness, f"{user}.a", f"remember {fact}")).status_code == 200
+    assert fact in crashed_writes
+    recalled = (await remember(harness, f"{user}.b", "recall")).json()
+    assert recalled.count(fact) == 1, recalled
+
+
+async def test_a_memory_edit_of_a_tool_call_that_runs_again_is_reported_as_made(harness: HarnessEnvironment):
+    """The edit was made, then the process crashed: the call that runs again finds its receipt, rather than look
+    for the text it replaced (which is gone)."""
+    user = key()
+    assert (await remember(harness, f"{user}.a", f"remember likes tea {user}")).status_code == 200
+    edited = await remember(harness, f"{user}.a", f"replace likes tea {user}|crash likes coffee {user}")
+    assert edited.status_code == 200, edited.text
+    assert f"crash likes coffee {user}" in crashed_writes
+    assert '"status":"updated"' in edited.json() and "not found" not in edited.json(), edited.json()
+    recalled = (await remember(harness, f"{user}.b", "recall")).json()
+    assert recalled.count(f"likes coffee {user}") == 1 and f"likes tea {user}" not in recalled, recalled
+
+
+def test_without_pydantic_ai_harness_the_import_names_the_extra(monkeypatch: pytest.MonkeyPatch):
+    import importlib  # pylint: disable=import-outside-toplevel
+    import sys  # pylint: disable=import-outside-toplevel
+
+    for name in [n for n in sys.modules if n.split(".")[:3] == ["restate", "agents", "pydantic_ai"]]:
+        monkeypatch.delitem(sys.modules, name)
+    # As if it were not installed: its modules imported so far, too, which an import would otherwise find.
+    for name in ["pydantic_ai_harness", *(n for n in sys.modules if n.startswith("pydantic_ai_harness."))]:
+        monkeypatch.setitem(sys.modules, name, None)
+    with pytest.raises(ImportError, match=r"Pydantic AI Harness.*restate-sdk\[pydantic_ai\]"):
+        importlib.import_module("restate.agents.pydantic_ai")
+
+
+def test_a_tool_call_asked_for_again_is_read_as_an_error():
+    """Pydantic AI 2.66 answers such a call with its own ToolReturnPart (outcome "retried"), no RetryPromptPart."""
+    from restate.agents.pydantic_ai._agent import ITEMS  # pylint: disable=import-outside-toplevel
+
+    retried = ToolReturnPart("lookup", "not like that", tool_call_id="c1", outcome="retried")
+    returned = ToolReturnPart("lookup", "found", tool_call_id="c2")
+    [again, found] = ITEMS.read(ModelRequest(parts=[retried, returned])).results
+    assert (again.id, again.output, again.failed) == ("c1", '{"error":"not like that"}', True)
+    assert (found.id, found.output, found.failed) == ("c2", "found", False)
+
+
+async def steered_post(harness: HarnessEnvironment, path: str, **kwargs: Any) -> httpx2.Response:
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        return await ingress.post(f"{harness.ingress_url}/pai_steered/{path}", **kwargs)
+
+
+async def steered_send(harness: HarnessEnvironment, k: str, text: str) -> str:
+    sent = await steered_post(harness, f"{k}/chat/send", content=text, headers=TEXT)
+    return typing.cast(str, sent.json()["invocationId"])
+
+
+async def steer(harness: HarnessEnvironment, k: str, text: str) -> dict[str, Any]:
+    # With an idempotency key, as a client sends it: a retried request is the same message.
+    headers = {**TEXT, "idempotency-key": uuid.uuid4().hex}
+    steered_to = await steered_post(harness, f"{k}/steer", content=text, headers=headers)
+    assert steered_to.status_code == 200, steered_to.text
+    return typing.cast(dict[str, Any], steered_to.json())
+
+
+async def attach(harness: HarnessEnvironment, invocation: str) -> httpx2.Response:
+    async with httpx2.AsyncClient(timeout=60) as ingress:
+        return await ingress.get(f"{harness.ingress_url}/restate/invocation/{invocation}/attach")
+
+
+async def steered_thread(harness: HarnessEnvironment, k: str, view: str | None = None) -> list[tuple[str, str]]:
+    """The steered agent's conversation, as the ``messages`` view shows it: whole, or its ``summary``."""
+    wanted = {"view": view} if view is not None else {}
+    page = typing.cast(Messages, (await steered_post(harness, f"{k}/messages", json=wanted)).json())
+    return [
+        (message["role"], " ".join(str(part.get("text", part.get("output", ""))) for part in message["parts"]))
+        for message in page["messages"]
+    ]
+
+
+async def until_held(k: str) -> None:
+    async def holding() -> bool:
+        return k in held
+
+    await until(holding)
+
+
+async def test_a_message_steered_while_a_tool_runs_reaches_the_next_request_after_the_tools_result(
+    harness: HarnessEnvironment,
+):
+    k = key()
+    steer_gate.close()
+    invocation = await steered_send(harness, k, f"look {k}")
+    await until_held(k)
+    assert (await steer(harness, k, "use Celsius"))["turn"] == invocation
+    steer_gate.open()
+    # The turn's answer is the model's reply to it.
+    assert (await attach(harness, invocation)).json() == "answer to: use Celsius"
+    # The very next request had it, after the tool's result, once.
+    [first, following] = steered_requests[k]
+    assert _prompts(first) == [f"look {k}"]
+    assert _prompts(following) == [f"look {k}", "use Celsius"]
+    last = following[-1]
+    assert isinstance(last, ModelRequest) and [type(p) for p in last.parts] == [ToolReturnPart, UserPromptPart]
+    # Stored once, as a step of the turn; its queued turn of its own then did nothing.
+    assert (await steered_post(harness, f"{k}/chat", content=f"thanks {k}", headers=TEXT)).status_code == 200
+    thread = await steered_thread(harness, k)
+    assert [text for role, text in thread if role == "user"] == [f"look {k}", "use Celsius", f"thanks {k}"]
+    assert await steered_thread(harness, k, "summary") == [
+        ("user", f"look {k}"),
+        ("user", "use Celsius"),
+        ("assistant", "answer to: use Celsius"),
+        ("user", f"thanks {k}"),
+        ("assistant", f"answer to: thanks {k}"),
+    ]
+
+
+async def test_a_crash_after_a_steered_message_is_stored_gives_the_retried_request_it_once(
+    harness: HarnessEnvironment,
+):
+    k = key()
+    crashing.add(k)
+    steer_gate.close()
+    invocation = await steered_send(harness, k, f"look {k}")
+    await until_held(k)
+    await steer(harness, k, "use Celsius")
+    steer_gate.open()
+    assert (await attach(harness, invocation)).json() == "answer to: use Celsius"
+    # The attempt crashed as the model answered the stored message: the retried attempt carries on from the
+    # history, which has it, and takes it no more.
+    assert k not in crashing
+    [_, crashed, retried] = steered_requests[k]
+    assert _prompts(crashed) == _prompts(retried) == [f"look {k}", "use Celsius"]
+    thread = await steered_thread(harness, k)
+    assert [text for role, text in thread if role == "user"] == [f"look {k}", "use Celsius"]
+
+
+async def test_a_message_steered_during_the_last_model_request_is_answered_as_the_next_turn(
+    harness: HarnessEnvironment,
+):
+    k = key()
+    steer_gate.close()
+    invocation = await steered_send(harness, k, f"slow {k}")
+    await until_held(k)
+    assert (await steer(harness, k, "use Celsius"))["turn"] == invocation
+    steer_gate.open()
+    # The turn reaches no step after it: the message is answered next, as a turn of its own.
+    assert (await attach(harness, invocation)).json() == f"answer to: slow {k}"
+    done = await steered_post(harness, f"{k}/chat", content=f"done {k}", headers=TEXT)
+    assert done.json() == f"answer to: done {k}"
+    assert await steered_thread(harness, k, "summary") == [
+        ("user", f"slow {k}"),
+        ("assistant", f"answer to: slow {k}"),
+        ("user", "use Celsius"),
+        ("assistant", "answer to: use Celsius"),
+        ("user", f"done {k}"),
+        ("assistant", f"answer to: done {k}"),
+    ]
+
+
+async def test_a_chat_without_snapshots_that_answers_with_prompt_takes_steered_messages_in_order():
+    """A ``chat`` of one's own that takes steered messages and answers with ``prompt``: the turn projection, with no
+    snapshot (nor ``_Snapshots``). Two messages steered during a tool call reach the next request, in order."""
+    from agents_pydantic_ai_snapshots import ANSWERS, Chat  # pylint: disable=import-outside-toplevel,import-error
+    from sessions_object import Host, request  # pylint: disable=import-outside-toplevel,import-error
+
+    from restate.agents import AgentObject  # pylint: disable=import-outside-toplevel
+    from restate.agents.pydantic_ai._agent import ITEMS  # pylint: disable=import-outside-toplevel
+    from restate.sessions.internal import invoke  # pylint: disable=import-outside-toplevel
+
+    answers = {**ANSWERS}
+    requests: list[list[ModelMessage]] = []
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        requests.append(list(messages))
+        latest = _prompts(messages)[-1]
+        last = messages[-1]
+        returned = isinstance(last, ModelRequest) and any(isinstance(p, ToolReturnPart) for p in last.parts)
+        if latest.startswith("look") and not returned:
+            return ModelResponse(parts=[ToolCallPart("lookup", {"about": "weather"}, tool_call_id="call-look")])
+        return ModelResponse(parts=[TextPart(f"answer to: {latest}")])
+
+    def lookup(about: str) -> str:
+        """Look something up; meanwhile, a client steers the turn twice."""
+        steering = [{"id": "s1", "text": "use Celsius"}, {"id": "s2", "text": "and be brief"}]
+        answers["publish"] = json.dumps({"revision": 1, "steering": steering}).encode()
+        return f"found {about}"
+
+    mine: Any = Agent(FunctionModel(model), tools=[lookup])
+    obj = AgentObject("pai_steered_turns", window=0)
+
+    @obj.chat(items=ITEMS, steers=True)
+    async def answer(ctx: sessions.SessionContext, text: str) -> str:
+        return await pydantic_ai.prompt(ctx, text, agent=mine)
+
+    chat = Chat(obj)
+    host = Host(chat.backend, service=chat.name, answers=answers)
+    assert await invoke(obj, "chat", host, request(), "look it up") == "answer to: and be brief"
+    # Both reached the request after the tool's result, in order, each once; one transaction took both.
+    assert _prompts(requests[-1]) == ["look it up", "use Celsius", "and be brief"]
+    assert [send.handler for send in host.sends].count("taken") == 1
+    # The next turn has them between the earlier turn's message and its answer (a window of 0: no trajectory).
+    assert await chat("and then?") == "answer to: and then?"
+    assert _prompts(requests[-1]) == ["look it up", "use Celsius", "and be brief", "and then?"]
+    thread = await chat.messages()
+    assert [text for role, text in thread if role == "user"] == [
+        "look it up",
+        "use Celsius",
+        "and be brief",
+        "and then?",
+    ]

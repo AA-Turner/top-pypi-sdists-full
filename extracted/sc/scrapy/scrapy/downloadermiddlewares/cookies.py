@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from tldextract import TLDExtract
 
@@ -11,15 +11,11 @@ from scrapy.http import Response
 from scrapy.http.cookies import CookieJar
 from scrapy.utils.decorators import _warn_spider_arg
 from scrapy.utils.httpobj import urlparse_cached
-from scrapy.utils.python import to_unicode
 from scrapy.utils.request import _decode_cookie, _to_verbose_cookies
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from http.cookiejar import Cookie
-
-    # typing.Self requires Python 3.11
-    from typing_extensions import Self
 
     from scrapy import Request, Spider
     from scrapy.crawler import Crawler
@@ -36,6 +32,19 @@ _UNSET = object()
 def _is_public_domain(domain: str) -> bool:
     parts = _split_domain(domain)
     return not parts.domain
+
+
+def _has_valid_name_prefix(cookie: Cookie, request: Request) -> bool:
+    """Return ``False`` if *cookie* has a ``__Secure-`` or ``__Host-`` name
+    prefix but does not meet the requirements that prefix imposes."""
+    name = cookie.name.lower()
+    if name.startswith(("__secure-", "__host-")) and (
+        not cookie.secure or urlparse_cached(request).scheme != "https"
+    ):
+        return False
+    return not name.startswith("__host-") or (
+        not cookie.domain_specified and cookie.path_specified and cookie.path == "/"
+    )
 
 
 class CookiesMiddleware:
@@ -102,7 +111,11 @@ class CookiesMiddleware:
         # extract cookies from Set-Cookie and drop invalid/expired cookies
         cookiejarkey = request.meta.get("cookiejar")
         jar = self.jars[cookiejarkey]
-        cookies = jar.make_cookies(response, request)
+        cookies = [
+            cookie
+            for cookie in jar.make_cookies(response, request)
+            if _has_valid_name_prefix(cookie, request)
+        ]
         self._process_cookies(cookies, jar=jar, request=request)
 
         self._debug_set_cookie(response)
@@ -111,10 +124,7 @@ class CookiesMiddleware:
 
     def _debug_cookie(self, request: Request) -> None:
         if self.debug:
-            cl = [
-                to_unicode(c, errors="replace")
-                for c in request.headers.getlist("Cookie")
-            ]
+            cl = [c.decode(errors="replace") for c in request.headers.getlist("Cookie")]
             if cl:
                 cookies = "\n".join(f"Cookie: {c}\n" for c in cl)
                 msg = f"Sending cookies to: {request}\n{cookies}"
@@ -123,7 +133,7 @@ class CookiesMiddleware:
     def _debug_set_cookie(self, response: Response) -> None:
         if self.debug:
             cl = [
-                to_unicode(c, errors="replace")
+                c.decode(errors="replace")
                 for c in response.headers.getlist("Set-Cookie")
             ]
             if cl:

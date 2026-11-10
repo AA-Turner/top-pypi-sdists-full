@@ -27,6 +27,7 @@ if has_mpl:
 
 
 @needs_mpl
+@pytest.mark.thread_unsafe
 def test_viewer():
     # Test viewer
     plt = optional_package('matplotlib.pyplot')[0]
@@ -105,6 +106,7 @@ def test_viewer():
 
 
 @needs_mpl
+@pytest.mark.thread_unsafe
 def test_viewer_nonRAS():
     data1 = np.random.rand(10, 20, 40)
     data1[5, 10, :] = 0
@@ -137,6 +139,7 @@ def test_viewer_nonRAS():
 
 
 @needs_mpl
+@pytest.mark.thread_unsafe
 def test_viewer_nonRAS_on_mouse():
     """
     test on_mouse selection on non RAS matrices
@@ -198,13 +201,13 @@ def test_viewer_nonRAS_on_mouse():
     cor = o1._ims[1].get_array()
     axi = o1._ims[2].get_array()
 
-    assert_array_equal(sag, data1[i_target, :, :])  #
+    assert_array_equal(sag, data1[i_target, :, :])
     assert_array_equal(cor, data1[::-1, :, k_target].T)  # x flipped
     assert_array_equal(axi, data1[::-1, j_target, :].T)  # x flipped
-    return None
 
 
 @needs_mpl
+@pytest.mark.thread_unsafe
 def test_viewer_nonRAS_on_scroll():
     """
     test scrolling on non RAS matrices
@@ -328,4 +331,3 @@ def test_viewer_nonRAS_on_scroll():
     assert_array_equal(sag, data1[i_target, :, :])
     assert_array_equal(cor, data1[::-1, :, k_target].T)
     assert_array_equal(axi, data1[::-1, j_target - 1, :].T)
-    return None

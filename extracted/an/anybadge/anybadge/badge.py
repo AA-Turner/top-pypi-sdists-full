@@ -1,14 +1,14 @@
 import os
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, Type, Optional, Union
+from typing import Dict, List, Type, Optional, Union
 import html
 
-from . import config
+from . import config, logos
 from .colors import Color
 from .exceptions import UnknownBadgeTemplate
 
-from .helpers import _get_approx_string_width
+from .helpers import _get_approx_string_width, emojize_text, wrap_emoji_in_tspan
 
 
 # Try and obtain packaging package to support version comparison.
@@ -46,6 +46,45 @@ class Badge:
         value_format(str, optional) String with formatting to be used to format the value text.
         text_color(str, optional): Text color as a name or as an HTML color code.
         semver(bool, optional): Used to indicate that the value is a semantic version number.
+        escape_label(bool, optional): Escape special characters in the label.
+        escape_value(bool, optional): Escape special characters in the value.
+        emoji_font_size(int, optional): Font size used to render emoji
+            characters in the label and value. Emoji fallback fonts render at
+            a visually smaller size than Latin text at the same font size, so
+            emoji characters are wrapped in ``<tspan>`` elements rendered at
+            this size to restore the balance. Default is the font size plus 3.
+        logo(str, optional): Logo to embed in the badge.  This may be a path
+            to a local image file (`.svg`, `.png`, `.jpg` or `.gif`), an
+            ``http(s)://`` URL, a Simple Icons slug (e.g. ``python``), or a
+            ``data:`` URI.  The image is embedded into the badge as a base64
+            ``data:`` URI, so the output SVG is fully self-contained.
+        logo_color(str, optional): Color used to render Simple Icons logos
+            (e.g. ``#fff``).  This applies only when the logo is downloaded
+            from the Simple Icons CDN, and is ignored for other logo sources.
+        logo_position(str, optional): Position of the logo, ``left`` (next to
+            the label) or ``right`` (after the value).  Default is ``left``.
+            May also be set using the ``LOGO_POSITION_LEFT`` and
+            ``LOGO_POSITION_RIGHT`` attributes on the Badge class.
+        logo_dirs(list, optional): Directories searched for logo files when
+            the logo is not a path, URL or ``data:`` URI.  Names are matched
+            against ``<name>.svg``, ``<name>.png`` etc. within each
+            directory.  If no local file is found, the logo name is resolved
+            by downloading from the Simple Icons CDN.
+
+    Note:
+        A ``logo`` given as a file path never accesses the network, so
+        badges can be generated in network-gated environments by vendoring
+        logos locally (see the ``fetch-logos`` command line mode), or by
+        passing ``data:`` URIs directly.  Downloaded logos are memoized
+        in memory, so logos are fetched at most once per process.
+
+    Note:
+        When the optional ``emoji`` package is installed (``pip install
+        anybadge[emoji]``), ``:emoji:`` shortcodes in the label and value
+        (including prefix and suffix) are converted to emoji characters before
+        the badge is rendered. The original value text is retained for
+        thresholds and numeric/semantic version type detection. Without the
+        package, ``:emoji:`` text is rendered as-is.
 
     Examples:
 
@@ -75,7 +114,7 @@ class Badge:
         'orange'
 
         8 is not <8
-        8 is <4, so 8 yields orange
+        8 is <10, so 8 yields green
         >>> badge = Badge('pylint', 8, thresholds={2: 'red',
         ...                                        4: 'orange',
         ...                                        8: 'yellow',
@@ -104,6 +143,12 @@ class Badge:
     #: Singleton variable to track current max mask_id. This is used by _get_next_mask_str class method.
     mask_id: int
 
+    #: Position of the logo, immediately before the label text.
+    LOGO_POSITION_LEFT: str = "left"
+
+    #: Position of the logo, immediately after the value text.
+    LOGO_POSITION_RIGHT: str = "right"
+
     def __init__(
         self,
         label,
@@ -125,6 +170,11 @@ class Badge:
         semver: Optional[bool] = False,
         escape_label: Optional[bool] = True,
         escape_value: Optional[bool] = True,
+        emoji_font_size: Optional[int] = None,
+        logo: Optional[str] = None,
+        logo_color: Optional[str] = None,
+        logo_position: Optional[str] = None,
+        logo_dirs: Optional[List[Union[str, Path]]] = None,
     ):
         """Constructor for Badge class."""
         # Set defaults if values were not passed
@@ -164,6 +214,8 @@ class Badge:
         if len(str(self.label)) == 0 and len(str(self.value)) == 0:
             raise ValueError("Either a label or a value must be provided for a badge.")
 
+        self.label = emojize_text(self.label)
+
         self.value_is_version = semver
 
         self.value_format = value_format
@@ -185,6 +237,10 @@ class Badge:
 
         if value_suffix:
             self.value_text += value_suffix
+
+        # Convert :emoji: shortcodes in the final value text (including prefix
+        # and suffix). This happens before any width calculations are made.
+        self.value_text = emojize_text(self.value_text)
 
         if font_name not in config.FONT_WIDTHS:
             raise ValueError(
@@ -214,6 +270,35 @@ class Badge:
 
         self.escape_label = escape_label
         self.escape_value = escape_value
+
+        # Emoji fallback fonts render emoji at a visually smaller size than
+        # Latin text at the same font size, so they are wrapped in tspans that
+        # render them at emoji_font_size to restore the balance.
+        self.emoji_font_size = (
+            font_size + 3 if emoji_font_size is None else emoji_font_size
+        )
+
+        # Logo support.  The logo is resolved to a base64 data URI at
+        # construction time, so the output SVG is fully self-contained.
+        if logo_position and not logo:
+            raise ValueError(
+                "A logo must be provided when a logo_position is specified."
+            )
+
+        self.logo = logo
+        self.logo_color = logo_color
+        self.logo_position = None
+        self.logo_data_uri = None
+        if logo:
+            self.logo_position = (logo_position or config.DEFAULT_LOGO_POSITION).lower()
+            if self.logo_position not in config.VALID_LOGO_POSITIONS:
+                raise ValueError(
+                    'Invalid logo position "%s". Valid logo positions are: %s'
+                    % (self.logo_position, ", ".join(config.VALID_LOGO_POSITIONS))
+                )
+            self.logo_data_uri = logos.resolve_logo(
+                source=logo, logo_color=logo_color, search_dirs=logo_dirs
+            )
 
     def __repr__(self) -> str:
         """Return a representation of the Badge object instance.
@@ -288,6 +373,14 @@ class Badge:
             optional_args += ", value_format=%s" % repr(self.value_format)
         if self.text_color != config.DEFAULT_TEXT_COLOR:
             optional_args += ", text_color=%s" % repr(self.text_color)
+        if self.emoji_font_size != self.font_size + 3:
+            optional_args += ", emoji_font_size=%s" % repr(self.emoji_font_size)
+        if self.logo:
+            optional_args += ", logo=%s" % repr(self.logo)
+            if self.logo_position != config.DEFAULT_LOGO_POSITION:
+                optional_args += ", logo_position=%s" % repr(self.logo_position)
+            if self.logo_color:
+                optional_args += ", logo_color=%s" % repr(self.logo_color)
 
         return "%s(%s, %s%s)" % (
             self.__class__.__name__,
@@ -334,7 +427,7 @@ class Badge:
             except UnknownBadgeTemplate:
                 pass
 
-            with open(self.template, mode="r") as file_handle:
+            with open(self.template, mode="r", encoding="utf-8") as file_handle:
                 return file_handle.read()
         else:
             return self.template
@@ -352,6 +445,79 @@ class Badge:
             return html.escape(self.value_text)
         else:
             return self.value_text
+
+    @property
+    def label_markup(self) -> str:
+        """The label text used for rendering, with emoji characters wrapped in tspans.
+
+        Emoji characters are rendered at ``emoji_font_size``, since emoji
+        fallback fonts generally render at a visually smaller size than
+        Latin text at the same font size. The plain (unwrapped) encoded text
+        remains available via ``encoded_label`` and ``aria_label``.
+
+        Returns: str
+        """
+        return wrap_emoji_in_tspan(
+            self.encoded_label, self.font_size, self.emoji_font_size
+        )
+
+    @property
+    def value_markup(self) -> str:
+        """The value text used for rendering, with emoji characters wrapped in tspans.
+
+        Emoji characters are rendered at ``emoji_font_size``, since emoji
+        fallback fonts generally render at a visually smaller size than
+        Latin text at the same font size. The plain (unwrapped) encoded text
+        remains available via ``encoded_value`` and ``aria_label``.
+
+        Returns: str
+        """
+        return wrap_emoji_in_tspan(
+            self.encoded_value, self.font_size, self.emoji_font_size
+        )
+
+    @property
+    def logo_markup(self) -> str:
+        """SVG markup for the logo ``<image>`` element, or an empty string.
+
+        The logo is centered vertically within the 20px badge height, and
+        horizontally offset from the badge edge by ``LOGO_MARGIN`` pixels.
+
+        Returns: str
+        """
+        if not self.logo:
+            return ""
+
+        if self.logo_position == self.LOGO_POSITION_LEFT:
+            x = config.LOGO_MARGIN
+        else:
+            x = self.badge_width - config.LOGO_MARGIN - config.LOGO_SIZE
+
+        return '<image x="%s" y="%s" width="%s" height="%s" xlink:href="%s"/>' % (
+            x,
+            config.LOGO_Y,
+            config.LOGO_SIZE,
+            config.LOGO_SIZE,
+            self.logo_data_uri,
+        )
+
+    @property
+    def aria_label(self) -> str:
+        """Return the text alternative for the badge.
+
+        This is used in the default templates as the value of the ``aria-label``
+        attribute and ``<title>`` element, so the badge is announced as a single
+        image with a readable name. The label and value are joined with ``": "``,
+        omitting either when empty.
+
+        Returns: str
+        """
+        parts = []
+        if self.label:
+            parts.append(self.encoded_label)
+        if self.value_text:
+            parts.append(self.encoded_value)
+        return ": ".join(parts)
 
     @property
     def semver_version(self) -> Version:
@@ -473,6 +639,30 @@ class Badge:
         )
 
     @property
+    def logo_box_width(self) -> int:
+        """The SVG width added to the badge by the logo, including spacing.
+
+        This is the space at the outer badge edge, the logo box itself,
+        and the gap between the logo and the adjacent text, less the
+        single text padding character the logo replaces on that side.
+
+        Returns 0 when the badge has no logo.
+
+        Returns: int
+        """
+        if not self.logo:
+            return 0
+
+        adjacent_pad_chars = (
+            self.num_label_padding_chars
+            if self.logo_position == self.LOGO_POSITION_LEFT
+            else self.num_value_padding_chars
+        )
+        padding = int(adjacent_pad_chars * self.font_width)
+
+        return config.LOGO_MARGIN + config.LOGO_SIZE + config.LOGO_TEXT_GAP - padding
+
+    @property
     def value_box_width(self) -> int:
         """The SVG width of the value text box.
 
@@ -486,7 +676,29 @@ class Badge:
 
         Returns: int
         """
-        return self.value_width - 9
+        return (
+            self.value_width
+            - 9
+            + (
+                self.logo_box_width
+                if self.logo_position == self.LOGO_POSITION_RIGHT
+                else 0
+            )
+        )
+
+    @property
+    def value_color_width(self) -> int:
+        """The SVG width of the colored value area, including any logo.
+
+        This spans from the color split position to the end of the badge,
+        so when the logo is positioned on the right it also covers the
+        logo box.
+
+        Returns: int
+        """
+        return self.value_width + (
+            self.logo_box_width if self.logo_position == self.LOGO_POSITION_RIGHT else 0
+        )
 
     @property
     def font_width(self) -> int:
@@ -518,9 +730,20 @@ class Badge:
         ◀───────────────────────────▶
                color_split_pos
 
+        When a logo is positioned on the right, the split is placed before
+        the logo, so the value text box is not reduced by the logo box.
+
         Returns: int
         """
-        return self.badge_width - self.value_width
+        return (
+            self.badge_width
+            - self.value_width
+            - (
+                self.logo_box_width
+                if self.logo_position == self.LOGO_POSITION_RIGHT
+                else 0
+            )
+        )
 
     @property
     def label_anchor(self) -> float:
@@ -532,15 +755,23 @@ class Badge:
                      ▼
         ┌───────────────────────────┬────────────────────────────────┐
         │                           │                                │
-        │        Label text         │           Value text           │
+        │  [logo]  Label text       │           Value text           │
         │                           │                                │
         └───────────────────────────┴────────────────────────────────┘
-        ◀───────────▶
-         label_anchor
+                      ◀───────────────────▶
+                         label_anchor (+ logo offset when logo is left)
+
+        The label text is centered within the label area to the right of
+        the logo, so with a logo positioned on the left the anchor moves
+        right by half of the logo box width.
 
         Returns: float
         """
-        return self.color_split_position / 2
+        return self.color_split_position / 2 + (
+            self.logo_box_width / 2
+            if self.logo_position == self.LOGO_POSITION_LEFT
+            else 0
+        )
 
     @property
     def value_anchor(self) -> float:
@@ -558,11 +789,17 @@ class Badge:
         ◀──────────────────────────────────────────▶
                                                value_anchor
 
+        ┌───────────────────────────┬──────────────────┬─────────────┐
+        │                           │                  │             │
+        │        Label text         │     Value text   │    [logo]   │
+        │                           │                  │             │
+        └───────────────────────────┴──────────────────┴─────────────┘
+        ◀──────────────────────────────────────────▶
+                                                    value_anchor
+
         Returns: float
         """
-        return self.color_split_position + (
-            (self.badge_width - self.color_split_position) / 2
-        )
+        return self.color_split_position + self.value_width / 2
 
     @property
     def label_anchor_shadow(self) -> float:
@@ -629,7 +866,7 @@ class Badge:
             >>> badge.badge_width
             61
         """
-        return self.label_width + self.value_width
+        return self.label_width + self.value_width + self.logo_box_width
 
     @property
     def arc_start(self) -> int:
@@ -658,8 +895,9 @@ class Badge:
             badge_text.replace("{{ badge width }}", str(self.badge_width))
             .replace("{{ font name }}", self.font_name)
             .replace("{{ font size }}", str(self.font_size))
-            .replace("{{ label }}", self.encoded_label)
-            .replace("{{ value }}", self.encoded_value)
+            .replace("{{ label }}", self.label_markup)
+            .replace("{{ value }}", self.value_markup)
+            .replace("{{ aria label }}", self.aria_label)
             .replace("{{ label anchor }}", str(self.label_anchor))
             .replace("{{ label anchor shadow }}", str(self.label_anchor_shadow))
             .replace("{{ value anchor }}", str(self.value_anchor))
@@ -667,8 +905,11 @@ class Badge:
             .replace("{{ color }}", self.badge_color_code)
             .replace("{{ label text color }}", self.label_text_color)
             .replace("{{ value text color }}", self.value_text_color)
+            .replace("{{ value color width }}", str(self.value_color_width))
             .replace("{{ color split x }}", str(self.color_split_position))
             .replace("{{ value width }}", str(self.value_width))
+            .replace("    {{ logo }}", self.logo_markup)
+            .replace("{{ logo }}", self.logo_markup)
             .replace("{{ mask id }}", self.mask_str)
             .replace("{{ value box width }}", str(self.value_box_width))
             .replace("{{ arc start }}", str(self.arc_start))
@@ -705,7 +946,14 @@ class Badge:
         >>> badge.get_text_width('pylint')
         34
         """
-        return _get_approx_string_width(text, self.font_width)
+        emoji_font_scale = 1.0
+        if self.emoji_font_size > self.font_size:
+            # Emoji are rendered at a larger font size than the surrounding
+            # text, so they take up proportionally more space.
+            emoji_font_scale = self.emoji_font_size / self.font_size
+        return _get_approx_string_width(
+            text, self.font_width, emoji_font_scale=emoji_font_scale
+        )
 
     @property
     def badge_color(self) -> str:
@@ -767,6 +1015,10 @@ class Badge:
         if color[0] == "#":
             return color
 
+        # Remember the original color text so any error message can report
+        # the color exactly as the user passed it in.
+        original_color = color
+
         color = color.upper()
 
         prefixes = ["BRIGHT", "YELLOW", "LIGHT"]
@@ -787,8 +1039,8 @@ class Badge:
                     pass
 
         raise ValueError(
-            'Invalid color code "%s". ' "Valid color codes are: %s",
-            (color, ", ".join(list(Color.__members__.keys()))),
+            'Invalid color code "%s". Valid color codes are: %s'
+            % (original_color, ", ".join(list(Color.__members__.keys())))
         )
 
     def write_badge(self, file_path: Union[str, Path], overwrite=False) -> None:
@@ -814,5 +1066,8 @@ class Badge:
         if not overwrite and file.exists():
             raise RuntimeError('File "{}" already exists.'.format(file))
 
-        with open(file, mode="w") as file_handle:
+        # Write using UTF-8 to match the XML declaration in the badge SVG,
+        # otherwise emoji characters cannot be written with platform default
+        # encodings (e.g. cp1252 on Windows).
+        with open(file, mode="w", encoding="utf-8") as file_handle:
             file_handle.write(self.badge_svg_text)

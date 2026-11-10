@@ -380,14 +380,14 @@ def test_gifti_label_rgba():
     gl1 = GiftiLabel(**kwargs)
     assert_array_equal(rgba, gl1.rgba)
 
-    gl1.red = 2 * gl1.red
+    gl1.red *= 2
     assert not np.allclose(rgba, gl1.rgba)  # don't just store the list!
 
     gl2 = GiftiLabel()
     gl2.rgba = rgba
     assert_array_equal(rgba, gl2.rgba)
 
-    gl2.blue = 2 * gl2.blue
+    gl2.blue *= 2
     assert not np.allclose(rgba, gl2.rgba)  # don't just store the list!
 
     def assign_rgba(gl, val):
@@ -562,6 +562,7 @@ def test_darray_dtype_coercion_failures():
         assert_array_equal(da_copy.data, da.data)
 
 
+@pytest.mark.thread_unsafe
 def test_gifti_file_close(recwarn):
     gii = load(get_test_data('gifti', 'ascii.gii'))
     with InTemporaryDirectory():

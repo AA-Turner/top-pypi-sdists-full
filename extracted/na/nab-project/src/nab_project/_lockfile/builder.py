@@ -10,6 +10,7 @@ be read directly without a second fetch.  This module also owns the
 from __future__ import annotations
 
 __lazy_modules__ = (
+    "nab_index.urls",
     "nab_resolver.diagnostics",
     "collections",
     "datetime",
@@ -37,17 +38,18 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypeVar
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote
 
 import tomli
 
+from nab_index.urls import strip_userinfo
 from nab_provider._vendor.packaging.pylock import Pylock, PylockValidationError
 from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.utils import canonicalize_name
 from nab_provider.digest import is_hex_digest
 from nab_provider.extra_keys import split_extra
 from nab_provider.iso8601 import parse_iso_datetime
-from nab_provider.metadata import validate_specifier_versions
+from nab_provider.metadata import parse_metadata, validate_specifier_versions
 from nab_provider.policy import DistPolicy
 from nab_provider.records import SdistFile, WheelFile
 from nab_resolver.diagnostics import DiagnosticMessage, Suggestion
@@ -106,13 +108,19 @@ class _LockInputIndex(Protocol):
         """Return the configured index name that served ``package``."""
         ...
 
+    def get_metadata_with_origin(
+        self, package: str, version: str, metadata_url: str | None = None
+    ) -> tuple[str | None, bool]:
+        """Return cached metadata text and whether it came from an sdist."""
+        ...
+
 
 class _LockInputCoordinator(Protocol):
     """Protocol for the FetchCoordinator slice the builder reads."""
 
     @property
     def index(self) -> _LockInputIndex:
-        """The underlying index used to look up serving-index labels."""
+        """The index holding serving-index labels and cached metadata."""
         ...
 
 
@@ -138,7 +146,7 @@ class LockInputProvider(Protocol):
 
     @property
     def coordinator(self) -> _LockInputCoordinator:
-        """Coordinator used to look up the index that served a listing."""
+        """Coordinator holding the cached index used for lock construction."""
         ...
 
     def local_source_for(self, canonical_name: str, /) -> LocalSource | None:
@@ -216,9 +224,9 @@ class MissingHashError(ValueError):
 
 
 class MissingSdistError(ValueError):
-    """A ``sdist-install`` package's pinned version has no sdist.
+    """A ``sdist-only`` package's pinned version has no sdist.
 
-    Under :attr:`~nab_provider.provider.DistPolicy.SDIST_INSTALL` the
+    Under :attr:`~nab_provider.provider.DistPolicy.SDIST_ONLY` the
     resolver may read a wheel's metadata but the lock must pin only the
     sdist.  When the pinned version publishes wheels but no sdist, the
     wheels are dropped and nothing is left to pin.  Surface the package
@@ -290,26 +298,6 @@ def read_lockfile_packages(path: Path) -> dict[str, Version] | None:
     }
 
 
-def strip_userinfo(url: str) -> str:
-    """Return ``url`` with credential userinfo removed.
-
-    Lockfiles are committed to version control, so an index or VCS URL
-    carrying an embedded ``user:password`` must not be written verbatim.
-    An SSH login such as ``git@`` is the protocol login, not a secret,
-    and is required to clone, so it is kept (only an embedded password is
-    dropped); host case and port are preserved.  A no-op for URLs without
-    userinfo.
-    """
-    parts = urlsplit(url)
-    userinfo, sep, host = parts.netloc.rpartition("@")
-    if not sep:
-        return url
-    if parts.scheme.endswith("ssh"):
-        login = userinfo.split(":", 1)[0]
-        host = f"{login}@{host}"
-    return urlunsplit(parts._replace(netloc=host))
-
-
 def build_target_lock(
     provider: LockInputProvider,
     target: ResolveTarget,
@@ -342,8 +330,8 @@ def build_target_lock(
     it does not stand in for ``None``: omitting it while passing selector
     roots raises.
 
-    Every wheel the target can install, plus the sdist, is recorded for
-    each pinned version.  ``artifacts`` is the :class:`ArtifactMemo` the
+    Artifacts follow each release's distribution policy.
+    ``artifacts`` is the :class:`ArtifactMemo` the
     run's targets share; a call without one gets a memo of its own.
     """
     from ..lockfile import LocalPin, TargetLock
@@ -400,7 +388,7 @@ def build_target_lock(
             continue
 
         lock_pins[canonical] = _index_pin_from_listing(
-            provider, canonical, version, indexes, artifacts
+            provider, target, canonical, version, indexes, artifacts
         )
 
     dependencies, base_dependencies = _forward_dependency_graph(
@@ -623,46 +611,31 @@ def _forward_dependency_graph(
 
 def _index_pin_from_listing(
     provider: LockInputProvider,
+    target: ResolveTarget,
     canonical: str,
     version: Version,
     indexes: Sequence[IndexConfig],
     artifacts: ArtifactMemo,
 ) -> IndexPin:
-    """Construct an :class:`IndexPin` for an index-served package.
+    """Build a pin with its serving index and effective Python requirement.
 
-    The recorded ``index`` is the URL of the configured index that
-    served the package's listing during the resolve, looked up from
-    the coordinator's :class:`InMemoryIndex` (which records the
-    serving index by name) and resolved against ``indexes`` for the
-    URL.  A pinned package's serving index is always recorded and is
-    one of ``indexes``, so the URL is always known.
-
-    Under :attr:`~nab_provider.provider.DistPolicy.SDIST_INSTALL` the
-    package's wheels stayed in ``versions_cache`` as a possible
-    metadata source for the resolver; only the sdist is emitted
-    into the lock so installers download and build that archive.
-
-    A ``requires-python`` metadata override takes precedence over the
-    Simple-API value so the pin records the specifier the resolver
-    actually admitted against; a conforming :pep:`751` installer would
-    otherwise reject a widened pin whose lock still carried the narrow
-    artefact value.
+    Source-only policy records the sdist even when wheels supplied metadata.
+    A Requires-Python override replaces the index value in admission and output.
     """
     from ..fetch import DEFAULT_INDEX_URL
     from ..lockfile import IndexPin, SdistArtifact, WheelArtifact
 
     files = list(provider.dist_files_for(canonical, version))
     serving = provider.coordinator.index.get_listing_index(canonical)
-    if (
-        provider.effective_dist_policy(canonical, version, serving)
-        is DistPolicy.SDIST_INSTALL
-    ):
+    override_rp = provider.effective_requires_python(canonical, version)
+    dist_policy = provider.effective_dist_policy(canonical, version, serving)
+    if dist_policy is DistPolicy.SDIST_ONLY:
         files = [f for f in files if not isinstance(f, WheelFile)]
         if not any(isinstance(f, SdistFile) for f in files):
             report = DiagnosticMessage(
                 (
                     f"{canonical}=={version} has no sdist, but its dist-policy is "
-                    "'sdist-install'"
+                    "'sdist-only'"
                 ),
                 suggestions=(
                     Suggestion(
@@ -672,6 +645,24 @@ def _index_pin_from_listing(
                 ),
             )
             raise MissingSdistError(report)
+
+    elif dist_policy is DistPolicy.SDIST_IF_NEEDED and target.tags_faithful:
+        compatible_wheels = [f for f in files if isinstance(f, WheelFile)]
+        try:
+            covered = target.covered_by_requires_python(
+                _known_wheel_python_requirements(
+                    provider.coordinator.index,
+                    canonical,
+                    version,
+                    compatible_wheels,
+                    override_rp,
+                )
+            )
+        except (RecursionError, ValueError):
+            # Keep the source archive when Python coverage cannot be established.
+            covered = False
+        if covered:
+            files = list(compatible_wheels)
 
     wheels = tuple(
         _build_artifact(f, WheelArtifact, artifacts.wheels)
@@ -685,7 +676,6 @@ def _index_pin_from_listing(
         else None
     )
 
-    override_rp = provider.effective_requires_python(canonical, version)
     requires_python = (
         override_rp if override_rp is not None else _common_requires_python(files)
     )
@@ -712,6 +702,28 @@ def _index_pin_from_listing(
         wheels=wheels,
         requires_python=requires_python,
     )
+
+
+def _known_wheel_python_requirements(
+    index: _LockInputIndex,
+    canonical: str,
+    version: Version,
+    wheels: Iterable[WheelFile],
+    override: str | None,
+) -> Iterable[SpecifierSet]:
+    """Yield Python ranges that can prove wheel coverage for source omission."""
+    for wheel in wheels:
+        requirement = override if override is not None else wheel.requires_python
+        if requirement is not None:
+            yield SpecifierSet(requirement)
+            continue
+
+        # An absent listing hint proves nothing without this wheel's metadata.
+        text, from_sdist = index.get_metadata_with_origin(
+            canonical, str(version), wheel.metadata_url or wheel.url
+        )
+        if text is not None and not from_sdist:
+            yield parse_metadata(text).requires_python or SpecifierSet()
 
 
 def _build_artifact(

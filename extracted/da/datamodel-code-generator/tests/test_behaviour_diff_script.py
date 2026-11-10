@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 
 from scripts import behaviour_diff
-from scripts._behaviour_classify import Allowlist, Side, classify_cell, diff
+from scripts._behaviour_classify import Allowlist, Side, classify_base_skipped, classify_cell, diff
 from scripts._behaviour_signature import example_value
 from tests.conftest import assert_output
 
@@ -204,6 +204,26 @@ CLASSIFY_CASES = {
         Side(generated=False, message="Error: Cannot import the module 'class' from module 'main'"),
         "tests/data/jsonschema/keyword_file_name_reference",
         [],
+    ),
+    "generation_refused_accepted": (
+        Side(generated=True, signature=KEY_MAP_BEFORE),
+        Side(generated=False, message="Cannot write the class 'Warn' in the root package beside the module 'Warn'"),
+        "tests/data/jsonschema/module_named_like_root_class.json",
+        [
+            {
+                "input": "*module_named_like_*",
+                "aspects": ["generation"],
+                "match": "^\\[generation\\] : now fails: Cannot write the class ",
+                "reason": "the module replaced the class",
+                "decision": "#6067",
+            }
+        ],
+    ),
+    "generation_refused_other_aspect": (
+        Side(generated=True, signature=KEY_MAP_BEFORE),
+        Side(generated=False, message="Cannot write the class 'Warn' in the root package beside the module 'Warn'"),
+        "tests/data/jsonschema/module_named_like_root_class.json",
+        [{"input": "*module_named_like_*", "aspects": ["type"], "reason": "a type change", "decision": "#6067"}],
     ),
     "both_fail": (Side(generated=False), Side(generated=False), "tests/data/jsonschema/broken.json", []),
     "import_fixed": (
@@ -465,6 +485,15 @@ CLASSIFY_CASES = {
         "payload:jsonschema/property_names_root_model_keys.json",
         [],
     ),
+    "listed_input_accepted": (
+        Side(generated=True, signature=KEY_MAP_BEFORE | {"payloads": PAYLOADS}),
+        Side(
+            generated=True,
+            signature=KEY_MAP_AFTER | {"payloads": {**PAYLOADS, "values": {**PAYLOADS["values"], "v1": "c3"}}},
+        ),
+        "payload:jsonschema/property_names_root_model_keys.json",
+        [{**PROPERTY_NAMES_ENTRY, "input": ["tests/data/a.json", "payload:*property_names*"]}],
+    ),
     "parsed_value_accepted": (
         Side(generated=True, signature=KEY_MAP_BEFORE | {"payloads": PAYLOADS}),
         Side(
@@ -525,6 +554,18 @@ REPORT_CASES = {
     "pr_covered_unused": ("pr", [REPORT_ENTRY], "tests/data/a.json", "1/1"),
     "pr_covers_no_cell": ("pr", [REPORT_ENTRY], "tests/data/a.yaml", "1/1"),
     "nightly_covered_unused": ("nightly", [REPORT_ENTRY], "tests/data/a.json", "1/1"),
+    "nightly_listed_unused": (
+        "nightly",
+        [{**REPORT_ENTRY, "input": ["tests/data/b.json", "tests/data/a.json"]}],
+        "tests/data/a.json",
+        "1/1",
+    ),
+    "release_listed_covers_no_cell": (
+        "release",
+        [{**REPORT_ENTRY, "input": ["tests/data/b.json"]}],
+        "tests/data/a.json",
+        "1/1",
+    ),
     "release_covered_unused": ("release", [REPORT_ENTRY], "tests/data/a.json", "1/1"),
     "release_covers_no_cell": ("release", [REPORT_ENTRY], "tests/data/a.yaml", "1/1"),
     "release_shard_covers_no_cell": ("release", [REPORT_ENTRY], "tests/data/a.yaml", "1/2"),
@@ -538,7 +579,9 @@ def test_report_stale_entries_by_tier(case: str) -> None:
     tier, entries, label, shard = REPORT_CASES[case]
     allowlist = Allowlist("0.86.0", entries)
     cell = SimpleNamespace(label=label, backend="pydantic_v2.BaseModel")
-    result = SimpleNamespace(cell=cell, verdict=SimpleNamespace(cls="same", accepted_by=set(), notes=[]))
+    result = SimpleNamespace(
+        cell=cell, verdict=SimpleNamespace(cls="same", accepted_by=set(), notes=[]), base_skip=None
+    )
     gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0))
     index, _, total = shard.partition("/")
     ns = SimpleNamespace(
@@ -555,6 +598,188 @@ def test_report_stale_entries_by_tier(case: str) -> None:
     with redirect_stdout(stdout):
         code = behaviour_diff._report([result], gate, ns)
     assert_output(f"exit={code}\n{stdout.getvalue()}")
+
+
+BASE_SKIP_ENTRY = {
+    "input": "tests/data/*.json",
+    "bases": ["<=0.86.0"],
+    "reason": "0.86.0 loops on the input",
+    "issue": "#5935",
+}
+BASE_SKIP_PROBLEM_CASES = {
+    "valid": BASE_SKIP_ENTRY,
+    "versions": {**BASE_SKIP_ENTRY, "bases": ["0.85.0", "0.86.0"]},
+    "missing_input": {k: v for k, v in BASE_SKIP_ENTRY.items() if k != "input"},
+    "missing_bases": {k: v for k, v in BASE_SKIP_ENTRY.items() if k != "bases"},
+    "missing_reason": {**BASE_SKIP_ENTRY, "reason": ""},
+    "missing_issue": {k: v for k, v in BASE_SKIP_ENTRY.items() if k != "issue"},
+    "private_issue": {**BASE_SKIP_ENTRY, "issue": "owner chat 2026-11-04"},
+    "bases_not_a_list": {**BASE_SKIP_ENTRY, "bases": "<=0.86.0"},
+    "bad_version": {**BASE_SKIP_ENTRY, "bases": ["<0.86.0", "latest"]},
+}
+
+
+@pytest.mark.parametrize("case", sorted(BASE_SKIP_PROBLEM_CASES))
+def test_base_skip_problems(case: str) -> None:
+    """A `[[base_skip]]` entry needs an input, releases, a reason and public issue references."""
+    allowlist = Allowlist("0.86.0", [], [BASE_SKIP_PROBLEM_CASES[case]])
+    assert_output("\n".join(allowlist.problems("0.86.0")) + "\n")
+
+
+BASE_SKIP_VERSIONS = ("0.85.0", "0.86.0", "0.86.1", "0.87.0", "0.100.0")
+BASE_SKIP_CASES = {
+    "maximum": ["<=0.86.0"],
+    "exact": ["0.86.0"],
+    "several": ["0.85.0", "0.87.0"],
+    "two_digit_minor": ["<=0.100.0"],
+    "none": [],
+}
+
+
+@pytest.mark.parametrize("case", sorted(BASE_SKIP_CASES))
+def test_base_skip_for(case: str) -> None:
+    """A release is skipped on an input when one of the entry's `bases` is it or a maximum at or above it."""
+    allowlist = Allowlist("0.86.0", [], [{**BASE_SKIP_ENTRY, "bases": BASE_SKIP_CASES[case]}])
+    skipped = {
+        version: (allowlist.skip_for("tests/data/a.json", version), allowlist.skip_applies(0, version))
+        for version in BASE_SKIP_VERSIONS
+    }
+    other = allowlist.skip_for("tests/data/a.yaml", "0.85.0")
+    assert_output(json.dumps({"versions": skipped, "other_input": other}, indent=2) + "\n")
+
+
+BASE_SKIPPED_CASES = {
+    "generated": Side(generated=True, signature=_module({"Model": _model({})})),
+    "generation_fails": Side(generated=False, message="ValueError: cannot resolve the pointer"),
+    "import_fails": Side(generated=True, signature={"import_error": "ImportError: cannot import name 'X'"}),
+    "module_import_fails": Side(
+        generated=True,
+        signature={"package": {"__init__": _module({}), "a": {"import_error": "NameError: name 'Y' is not defined"}}},
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(BASE_SKIPPED_CASES))
+def test_classify_base_skipped(case: str) -> None:
+    """A cell whose release did not run is skipped when the candidate generated and imported, a violation otherwise."""
+    verdict = classify_base_skipped(BASE_SKIPPED_CASES[case], note="base skipped: loops (#5935)")
+    assert_output(json.dumps(asdict(verdict) | {"accepted_by": []}, indent=2) + "\n")
+
+
+BASE_SKIP_REPORT_CASES = {
+    "nightly_whole_used": ("nightly", "1/1", [], True, "0.86.0"),
+    "nightly_whole_covers_no_cell": ("nightly", "1/1", [], False, "0.86.0"),
+    "release_whole_covers_no_cell": ("release", "1/1", [], False, "0.86.0"),
+    "pr_covers_no_cell": ("pr", "1/1", [], False, "0.86.0"),
+    "nightly_shard_covers_no_cell": ("nightly", "2/3", [], False, "0.86.0"),
+    "nightly_select_covers_no_cell": ("nightly", "1/1", ["tests/data/*.yaml"], False, "0.86.0"),
+    "nightly_base_not_named": ("nightly", "1/1", [], False, "0.87.0"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(BASE_SKIP_REPORT_CASES))
+def test_report_base_skipped_cells_and_stale_entries(case: str) -> None:
+    """The report counts the skipped cells per entry; a whole-tier run fails an entry that covers no cell."""
+    tier, shard, select, used, base = BASE_SKIP_REPORT_CASES[case]
+    allowlist = Allowlist("0.86.0", [], [BASE_SKIP_ENTRY])
+    cell = SimpleNamespace(label="tests/data/a.json", backend="pydantic_v2.BaseModel", option_label="default")
+    verdict = SimpleNamespace(cls="base-skipped" if used else "same", accepted_by=set(), notes=[])
+    result = SimpleNamespace(cell=cell, verdict=verdict, base_skip=0 if used else None)
+    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0))
+    ns = SimpleNamespace(
+        base=base,
+        tier=tier,
+        shard=shard,
+        shard_index=int(shard.partition("/")[0]),
+        shard_total=int(shard.partition("/")[2]),
+        select=select,
+        check=True,
+        json=None,
+    )
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        code = behaviour_diff._report([result, result], gate, ns)
+    assert_output(f"exit={code}\n{stdout.getvalue()}")
+
+
+SHARDED_REPORT_CASES = {
+    "shard_1_holds_the_entries": ("1/2", "tests/data/a.json", ["tests/data/a.json", "tests/data/a.yaml"]),
+    "shard_2_holds_the_entries": ("2/2", "tests/data/a.json", ["tests/data/a.json", "tests/data/a.yaml"]),
+    "shard_1_without_the_entries": ("1/2", "tests/data/a.yaml", ["tests/data/a.json", "tests/data/a.yaml"]),
+    "shard_1_entries_cover_no_cell": ("1/2", "tests/data/a.yaml", ["tests/data/a.yaml"]),
+    "shard_2_entries_cover_no_cell": ("2/2", "tests/data/a.yaml", ["tests/data/a.yaml"]),
+}
+
+
+@pytest.mark.parametrize("case", sorted(SHARDED_REPORT_CASES))
+def test_report_stale_entries_of_a_shard(case: str) -> None:
+    """The shard that runs the cells of an entry judges it; shard 1 also fails the entries that cover no cell."""
+    shard, label, run_labels = SHARDED_REPORT_CASES[case]
+    allowlist = Allowlist("0.86.0", [REPORT_ENTRY], [BASE_SKIP_ENTRY])
+    cell = SimpleNamespace(label=label, backend="pydantic_v2.BaseModel", option_label="default")
+    verdict = SimpleNamespace(cls="same", accepted_by=set(), notes=[])
+    result = SimpleNamespace(cell=cell, verdict=verdict, base_skip=allowlist.skip_for(label, "0.86.0"))
+    run = behaviour_diff.place([(name, cell.backend) for name in run_labels], allowlist, "0.86.0")
+    gate = SimpleNamespace(allowlist=allowlist, loaded_allowlist=allowlist, cache=SimpleNamespace(hits=0))
+    index, _, total = shard.partition("/")
+    ns = SimpleNamespace(
+        base="0.86.0",
+        tier="nightly",
+        shard=shard,
+        shard_index=int(index),
+        shard_total=int(total),
+        select=[],
+        check=True,
+        json=None,
+    )
+    stdout = StringIO()
+    with redirect_stdout(stdout):
+        code = behaviour_diff._report([result], gate, ns, run)
+    assert_output(f"exit={code}\n{stdout.getvalue()}")
+
+
+PLACE_ENTRY = {"reason": "r", "decision": "#1"}
+PLACE_PAIRS = [
+    (f"tests/data/{name}", backend)
+    for name in ("a.json", "b.json", "c.json", "d.json")
+    for backend in ("pydantic_v2.BaseModel", "msgspec.Struct")
+]
+PLACE_CASES = {
+    "no_entries": ([], []),
+    "entry_of_two_inputs": ([{**PLACE_ENTRY, "input": ["tests/data/b.json", "tests/data/d.json"]}], []),
+    "entry_of_one_backend": (
+        [{**PLACE_ENTRY, "input": "tests/data/[bd].json", "backends": ["msgspec.Struct"]}],
+        [],
+    ),
+    "entries_sharing_a_cell": (
+        [
+            {**PLACE_ENTRY, "input": ["tests/data/c.json", "tests/data/d.json"]},
+            {**PLACE_ENTRY, "input": ["tests/data/b.json", "tests/data/c.json"], "backends": ["msgspec.Struct"]},
+            {**PLACE_ENTRY, "input": "tests/data/missing.json"},
+        ],
+        [],
+    ),
+    "base_skip_beside_an_entry": (
+        [{**PLACE_ENTRY, "input": "tests/data/c.json"}],
+        [
+            {**BASE_SKIP_ENTRY, "input": ["tests/data/b.json", "tests/data/c.json"]},
+            {**BASE_SKIP_ENTRY, "input": "tests/data/d.json", "bases": ["0.85.0"]},
+        ],
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(PLACE_CASES))
+def test_place(case: str) -> None:
+    """The cells of entries that share a cell run in the shard of their first input; the others by their own input."""
+    entries, skips = PLACE_CASES[case]
+    run = behaviour_diff.place(PLACE_PAIRS, Allowlist("0.86.0", entries, skips), "0.86.0")
+    shards = {
+        f"{label} | {backend}": run.shard(behaviour_diff.Cell(Path(label), label, "jsonschema", backend), 3)
+        for label, backend in PLACE_PAIRS
+    }
+    data = {"anchors": {" | ".join(pair): anchor for pair, anchor in sorted(run.anchors.items())}, "shards": shards}
+    assert_output(json.dumps({**data, "entries": sorted(run.entries), "skips": sorted(run.skips)}, indent=2) + "\n")
 
 
 OPT_IN_CASES = {
@@ -859,6 +1084,128 @@ def test_gate(tmp_path: Path) -> None:
                 "--check",
                 "-j",
                 "2",
+            ])
+        outputs.append(f"exit={code}\n{stdout.getvalue()}")
+    assert_output("\n".join(outputs))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="behaviour_diff.py forks its workers")
+def test_gate_skips_the_release_on_a_listed_input(tmp_path: Path) -> None:
+    """A release that `[[base_skip]]` names does not run for the input: its cells are `base-skipped`."""
+    allowlist = tmp_path / "allowlist.toml"
+    allowlist.write_text(
+        'base = "0.0.0"\n[[base_skip]]\ninput = "tests/data/jsonschema/person.json"\nbases = ["<=0.0.0"]\n'
+        'reason = "loops"\nissue = "#5935"\n',
+        encoding="utf-8",
+    )
+    stdout = StringIO()
+    with redirect_stdout(stdout), redirect_stderr(StringIO()):
+        code = behaviour_diff.main([
+            "gate",
+            "0.0.0",
+            str(ROOT),
+            "--base-python",
+            sys.executable,
+            "--candidate-python",
+            sys.executable,
+            "--cache-dir",
+            str(tmp_path / "cache"),
+            "--allowlist",
+            str(allowlist),
+            "--select",
+            "tests/data/jsonschema/person.json",
+            "--select",
+            "tests/data/openapi/api.yaml",
+            "--json",
+            str(tmp_path / "cells.jsonl"),
+            "--check",
+            "-j",
+            "2",
+        ])
+    rows = [json.loads(line) for line in (tmp_path / "cells.jsonl").read_text(encoding="utf-8").splitlines()]
+    cells = sorted(f"{row['input']} | {row['options']} | {row['class']} | {row['notes']}" for row in rows)
+    skipped = [line for line in stdout.getvalue().splitlines() if line.startswith(("base-skipped:", "summary:"))]
+    assert_output(f"exit={code}\n" + "\n".join([*skipped, *cells]) + "\n")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="behaviour_diff.py forks its workers")
+def test_gate_shards_judge_the_stale_entries_of_an_unsharded_run(tmp_path: Path) -> None:
+    """The shards of a run report the stale entries the unsharded run reports, each from the shard of its cells."""
+    allowlist = tmp_path / "allowlist.toml"
+    allowlist.write_text(
+        'base = "0.0.0"\n[[accepted]]\ninput = ["tests/data/jsonschema/const.json", '
+        '"tests/data/jsonschema/duration.json"]\nreason = "r"\ndecision = "#1"\n'
+        '[[accepted]]\ninput = "tests/data/jsonschema/boolean_property.json"\nreason = "r"\ndecision = "#2"\n',
+        encoding="utf-8",
+    )
+    outputs, problems = [], {}
+    for shard in ("1/1", "1/3", "2/3", "3/3"):
+        stdout = StringIO()
+        with redirect_stdout(stdout), redirect_stderr(StringIO()):
+            code = behaviour_diff.main([
+                "gate",
+                "0.0.0",
+                str(ROOT),
+                "--tier",
+                "nightly",
+                "--types",
+                "pydantic_v2.BaseModel",
+                "--base-python",
+                sys.executable,
+                "--candidate-python",
+                sys.executable,
+                "--cache-dir",
+                str(tmp_path / "cache"),
+                "--allowlist",
+                str(allowlist),
+                "--select",
+                "tests/data/jsonschema/boolean_property.json",
+                "--select",
+                "tests/data/jsonschema/const.json",
+                "--select",
+                "tests/data/jsonschema/duration.json",
+                "--shard",
+                shard,
+                "-j",
+                "2",
+                "--check",
+            ])
+        lines = stdout.getvalue().splitlines()
+        problems[shard] = [line for line in lines if line.startswith("allowlist:")]
+        cells = [line.partition(", cached")[0] for line in lines if line.startswith("cells:")]
+        outputs += [f"shard {shard}: exit={code}", *problems[shard], *cells]
+    union = sorted(line for name, found in problems.items() if name != "1/1" for line in found)
+    assert_output("\n".join([*outputs, f"shards == unsharded: {union == sorted(problems['1/1'])}"]) + "\n")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="RLIMIT_DATA caps the memory of a run on Linux only")
+def test_gate_memory_cap_fails_the_run_and_is_not_cached(tmp_path: Path) -> None:
+    """A run over its memory cap fails on both sides; like a timeout it is not cached, so the next run tries again."""
+    allowlist = tmp_path / "allowlist.toml"
+    allowlist.write_text('base = "0.0.0"\n', encoding="utf-8")
+    outputs = []
+    for _ in range(2):
+        stdout = StringIO()
+        with redirect_stdout(stdout), redirect_stderr(StringIO()):
+            code = behaviour_diff.main([
+                "gate",
+                "0.0.0",
+                str(ROOT),
+                "--base-python",
+                sys.executable,
+                "--candidate-python",
+                sys.executable,
+                "--cache-dir",
+                str(tmp_path / "cache"),
+                "--allowlist",
+                str(allowlist),
+                "--select",
+                "tests/data/jsonschema/person.json",
+                "--memory-mb",
+                "1",
+                "--check",
+                "-j",
+                "1",
             ])
         outputs.append(f"exit={code}\n{stdout.getvalue()}")
     assert_output("\n".join(outputs))

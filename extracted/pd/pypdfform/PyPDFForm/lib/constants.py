@@ -61,8 +61,11 @@ REMOVED_KWARGS = {
 }
 
 Title = "/Title"
+Root = "/Root"
 Annots = "/Annots"
 Annot = "/Annot"
+P = "/P"
+B = "/B"
 Link = "/Link"
 Dest = "/Dest"
 Contents = "/Contents"
@@ -111,6 +114,9 @@ AA = "/AA"
 Action = "/Action"
 S = "/S"
 GoTo = "/GoTo"
+ResetForm = "/ResetForm"
+SubmitForm = "/SubmitForm"
+Hide = "/Hide"
 JavaScript = "/JavaScript"
 JS = "/JS"
 OpenAction = "/OpenAction"
@@ -163,6 +169,7 @@ XFA = "/XFA"
 READ_ONLY = 1 << 0
 REQUIRED = 1 << 1
 MULTILINE = 1 << 12
+RADIO = 1 << 15
 COMB = 1 << 24
 
 # annotation flag bits

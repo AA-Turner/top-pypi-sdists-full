@@ -1339,10 +1339,13 @@ typedef enum
     dp_##name##_framer_settle (fr);                                           \
     size_t avail = dp_##name##_available (fr->ring);                          \
     size_t room = n;                                                          \
-    if (max_frames <= (SIZE_MAX - fr->frame_n) / fr->hop)                     \
+    size_t span;                                                              \
+    /* max_frames hops past one frame, when that fits: both checked. */       \
+    if (dp_size_mul (max_frames, fr->hop, &span)                              \
+        && dp_size_add (span, fr->frame_n, &span))                            \
       {                                                                       \
         /* Largest buffered total that still yields <= max_frames frames. */  \
-        size_t a_max = fr->frame_n - 1 + max_frames * fr->hop;                \
+        size_t a_max = span - 1;                                              \
         room = a_max > avail ? a_max - avail : 0;                             \
       }                                                                       \
     if (n > room)                                                             \
@@ -1419,9 +1422,10 @@ typedef enum
     if (max_frames == 0)                                                      \
       return 0;                                                               \
     dp_##name##_framer_settle (fr);                                           \
-    if (max_frames - 1 <= (SIZE_MAX - fr->frame_n) / fr->hop)                 \
+    size_t end;                                                               \
+    if (dp_size_mul (max_frames - 1, fr->hop, &end)                           \
+        && dp_size_add (end, fr->frame_n, &end))                              \
       {                                                                       \
-        size_t end = fr->frame_n + (max_frames - 1) * fr->hop;                \
         size_t held = dp_##name##_available (fr->ring);                       \
         size_t room = end > held ? end - held : 0;                            \
         if (n > room)                                                         \
@@ -1681,7 +1685,7 @@ typedef enum
    *                                                                          \
    * With dp_##name##_framer_state_frames(), what lets a composition that     \
    * counts its position as framed samples plus the carry                     \
-   * (dp_acq_position()) check a child's blob against its own before it       \
+   * (dp_correlator_position()) check a child's blob against its own before it       \
    * writes anything. Accepts exactly the blobs                               \
    * dp_##name##_framer_set_state() accepts, through the same check, and      \
    * changes nothing, @p pending included, on a refusal.                      \

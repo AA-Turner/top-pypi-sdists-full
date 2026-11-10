@@ -378,7 +378,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.939"
+__version__ = "0.12.942"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -7663,6 +7663,7 @@ DASHBOARD_HTML = r"""
      every dollar amount and score renders through. Loaded BEFORE app.js so
      window.cmMoney / cmProvBadge exist by the time a tab paints. -->
 <script src="{{ url_for('static', filename='js/provenance.js', v=asset_version|default(version, true)) }}"></script>
+<script src="{{ url_for('static', filename='js/trial-offer.js', v=asset_version|default(version, true)) }}"></script>
 <script src="{{ url_for('static', filename='js/app.js', v=asset_version|default(version, true)) }}"></script>
 <script src="{{ url_for('static', filename='js/guard-checks.js', v=asset_version|default(version, true)) }}"></script>
 <script src="{{ url_for('static', filename='js/activity-live.js', v=asset_version|default(version, true)) }}"></script>

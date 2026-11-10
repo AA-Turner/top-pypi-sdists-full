@@ -103,8 +103,13 @@ class ScenarioQueue:
     #: every attempt (``continue_on_error``).
     _errored: List[int]
     _runner: Optional[ScenarioRunner]
-    #: Whether run_all() left its last scenario's world as it was, unreset.
-    _world_left_as_is: bool
+    #: Whether the world holds what a run left (its actors, weather, traffic
+    #: light and light states), unreset: the next attempt -- the next case's,
+    #: a retry's, or the first of a later run_all() -- resets it first.
+    _world_dirty: bool
+    #: Whether a restart of the owned server began and did not finish: the
+    #: server may be up, but the runner and the map are not yet the new ones.
+    _restart_pending: bool
 
     def __init__(
         self,
@@ -184,7 +189,10 @@ class ScenarioQueue:
             cooldown_max_retries: Maximum number of retries when a scenario run
                 fails (e.g. due to CARLA communication errors).  After each
                 failed attempt a cooldown wait is inserted before the next
-                retry.  0 means no retries.
+                retry.  0 means no retries.  Before every attempt (each case's
+                first and every retry) a server the queue owns that has died
+                is restarted, with its runner and map; a restart that fails is
+                that attempt's failure (:meth:`run_all`).
             traffic_backend: What drives the vehicles the scenarios did not
                 author.  *None* selects CARLA's TrafficManager on *tm_port*.
                 One backend serves every scenario in the queue, the same way
@@ -286,7 +294,8 @@ class ScenarioQueue:
         self._scenario_results = {}
         self._errored = []
         self._runner = None
-        self._world_left_as_is = False
+        self._world_dirty = False
+        self._restart_pending = False
 
     # ------------------------------------------------------------------
     # Scenario registration
@@ -344,6 +353,26 @@ class ScenarioQueue:
         Must be called while the queue is started (inside the context manager
         or after :meth:`start`).
 
+        A CARLA server the queue owns (it was given none) that has died -- a
+        crash mid-batch -- is restarted before the next attempt, whether that
+        is a retry or the next case's first: the server is stopped and started
+        again, a new runner connects to it and the map is loaded again, as in
+        :meth:`start`.  The backends and the Autoware launcher are not prepared
+        again; they do not depend on the server.  A restart that fails is the
+        failure of the attempt it came before, which is retried (or errors)
+        like any other, and the next attempt tries the restart again.  A server
+        the queue was given, or one its manager reused (already running when
+        the queue started), is never restarted: whoever started it owns it.
+
+        The queue resets the world between runs itself (the runner's own
+        reset at the end of a run is never used): right before an attempt
+        that follows a run -- the next case's first, a retry, or the first of
+        a later call -- inside that attempt.  A reset that raises is the
+        failure of the attempt it comes before, retried like any other (or
+        erroring that case, with *continue_on_error*); the case that ran
+        before it keeps its verdict.  The last case's world is left as it is,
+        and reset by the next call, unless the server was restarted since.
+
         Args:
             release: Let go of each scenario once it has run, keeping only its
                 result.  A finished scenario still holds everything its run
@@ -382,17 +411,10 @@ class ScenarioQueue:
                 "ScenarioQueue must be started before run_all(). "
                 "Use the context manager ('with queue:') or call start() first."
             )
-        if self._world_left_as_is:
-            # The last run_all() left its last scenario's world as it was.
-            self._runner.reset_world()
         results: List[ScenarioResult] = []
         self._errored = []
         max_attempts = 1 + self._cooldown_max_retries
         total = len(self._scenarios)
-        # Set before the first scenario runs, not after the last: a run that
-        # raises out of here (without continue_on_error, or on Ctrl-C) leaves
-        # its world as it was too, and the next run_all() resets it first.
-        self._world_left_as_is = total > 0
         # Taken from the end of a reversed copy, so that once the loop has
         # moved on nothing here refers to a scenario that has run.
         pending = list(reversed(self._scenarios))
@@ -426,31 +448,24 @@ class ScenarioQueue:
                 run_stem = file_stem
             last_error: Optional[Exception] = None
             last_message = ""
-            # Whether an attempt got as far as running (or resetting) on the
-            # world: one that then raised skipped the runner's own reset at
-            # its end, so the weather, traffic light and light states it set
-            # are still in the world (the runner's next run reloads only for
-            # another episode, and clears only the actors).  One that failed
-            # before that (in its cooldown) left the world as it found it.
-            world_dirty = False
             for attempt in range(max_attempts):
                 try:
-                    # Cooldown: between consecutive scenarios on the first
-                    # attempt, or as a recovery wait on retry attempts.
-                    # Placed inside try/except so that crashes during the
-                    # cooldown phase (e.g. CARLA communication errors) are
-                    # caught and trigger a retry.
-                    if (i > 0 or attempt > 0) and self._cooldown_seconds > 0:
+                    # Recovery wait before a retry, ahead of its restart and
+                    # reset.  (Between consecutive scenarios the cooldown
+                    # comes after the reset instead, below.)  Inside the try:
+                    # a crash during a cooldown (e.g. a CARLA communication
+                    # error) is this attempt's failure, and is retried.
+                    if attempt > 0 and self._cooldown_seconds > 0:
                         _wait_with_progress(
                             self._cooldown_seconds,
-                            desc="CARLA cooldown"
-                            if attempt == 0
-                            else "CARLA cooldown (retry)",
+                            desc="CARLA cooldown (retry)",
                         )
-                    # The world is reset (reloaded, or soft-reset) for the
-                    # next scenario; after the last there is none, and a
-                    # later run_all() resets it or a new queue loads it first.
-                    reset_world = i < total - 1
+                    # A dead server the queue owns cannot recover by waiting:
+                    # it is restarted, on a freshly loaded world.  Inside the
+                    # try: a restart that raises is this attempt's failure.
+                    if self._server_down():
+                        self._restart_server(i + 1, total)
+                        self._world_dirty = False
                     if attempt == 0 and not run_stem and max_attempts > 1:
                         run_stem = _run_file_stem(
                             self._output_dir, type(scenario).__name__
@@ -468,19 +483,39 @@ class ScenarioQueue:
                         # would refuse to write over ...) makes way for this
                         # one's.
                         remove_run_outputs(self._output_dir, run_stem)
-                    if attempt > 0 and world_dirty:
-                        # The failed attempt's world is reset before the
-                        # retry runs on it.  Inside the try: a reset that
-                        # raises is this attempt's failure, and the next
-                        # attempt resets again.
+                    if self._world_dirty:
+                        # The queue owns every reset between runs (#1941):
+                        # the world a run left -- the case before's, a failed
+                        # attempt's, or the last run_all()'s last case's -- is
+                        # reset (reloaded, or soft-reset) right before the
+                        # next attempt runs on it.  Inside the try: a reset
+                        # that raises is this attempt's failure, retried (or
+                        # erroring this case), and the next attempt resets
+                        # again; the case that ran before keeps its verdict.
+                        # After the last case there is no next attempt, and a
+                        # later run_all() resets it or a new queue loads it.
                         self._runner.reset_world(type(scenario).__name__)
-                    world_dirty = True
+                        self._world_dirty = False
+                    # Cooldown between consecutive scenarios, after the reset
+                    # of the world the one before left: the server finishes
+                    # its cleanup (and settles after the reload) before the
+                    # next scenario connects.
+                    if attempt == 0 and i > 0 and self._cooldown_seconds > 0:
+                        _wait_with_progress(
+                            self._cooldown_seconds, desc="CARLA cooldown"
+                        )
+                    # Set before the run, not after it: a run that raises
+                    # (here, or out of run_all() on Ctrl-C) leaves what it
+                    # spawned and set in the world too.
+                    self._world_dirty = True
+                    # The runner never resets at the end of its run: a reset
+                    # that raised there would turn a verdict into an error.
                     if file_stem is None:
                         result = self._runner.run_scenario(
                             scenario,
                             timeout_seconds=timeout_seconds,
                             case=case,
-                            reset_world=reset_world,
+                            reset_world=False,
                         )
                     else:
                         # Only when given: a runner predating file_stem still
@@ -489,7 +524,7 @@ class ScenarioQueue:
                             scenario,
                             timeout_seconds=timeout_seconds,
                             case=case,
-                            reset_world=reset_world,
+                            reset_world=False,
                             file_stem=file_stem,
                         )
                     if not release:
@@ -555,11 +590,8 @@ class ScenarioQueue:
                     self._scenario_results[key] = result
                 results.append(result)
                 self._errored.append(i)
-                if i < total - 1:
-                    # The last attempt raised (in its run, or in the reset
-                    # before it), so it never reached its own reset: what it
-                    # spawned and set is still in the world.
-                    self._runner.reset_world()
+                # What its attempts left in the world (a dirty world) is reset
+                # by the next case's first attempt, inside its try.
             if on_result is not None:
                 # Outside the attempts' try: what it raises is not a failed
                 # attempt to retry.
@@ -636,8 +668,23 @@ class ScenarioQueue:
             # CARLA to start, and one that cannot run a scenario at all is
             # better refused before anything else starts.
             self._autoware_launcher.prepare(log_dir=self._output_dir)
+        self._start_world()
+        # Here, not in _start_world(): a restart mid-run_all() clears it in
+        # the attempt it comes before.
+        self._world_dirty = False
+
+    def _start_world(self) -> None:
+        """Start the server, connect a new runner to it and load the map.
+
+        The part of :meth:`start` that a restart of a dead server redoes
+        (:meth:`_restart_server`).  The backends and the Autoware launcher are
+        not in it: neither talks to the CARLA server (the launcher's stacks
+        reach the ego's bridge, and a traffic backend is handed the world run
+        by run).  The server keeps its port and arguments (a SLURM task's port
+        slot), and the runner's default TrafficManager is a new one, on the
+        same port, on the new server.
+        """
         self._server.start()
-        self._world_left_as_is = False
         self._runner = ScenarioRunner(
             self._server,
             host=self._host,
@@ -693,6 +740,45 @@ class ScenarioQueue:
                 projector_type=self._projector_type,
             )
 
+    def _server_down(self) -> bool:
+        """Whether the server is the queue's own and needs restarting.
+
+        A server the queue was given is never asked: it is not the queue's to
+        restart, and nor is one its own manager found already running and
+        reused (:attr:`CarlaServerManager.reused`) -- which every server on a
+        remote ``host`` is, so a remote server is never restarted: the
+        manager launches CARLA only for a local host, and a run a remote
+        server drops fails as on any reused one.  One whose restart began
+        and did not finish (:attr:`_restart_pending`) is restarted again.
+        """
+        if not self._owns_server:
+            return False
+        if self._restart_pending:
+            return True
+        if self._server.reused:
+            return False
+        return not self._server.is_alive()
+
+    def _restart_server(self, position: int, total: int) -> None:
+        """Stop the dead server the queue owns and start the world again.
+
+        Raises what the restart raised, with :attr:`_restart_pending` left
+        set, so that the next attempt restarts again.
+        """
+        logger.warning(
+            "[%d/%d] The CARLA server at %s:%d is not alive: restarting it",
+            position,
+            total,
+            self._server.host,
+            self._server.port,
+        )
+        self._restart_pending = True
+        # Its process group may still hold the ports the new one needs.
+        self._server.stop()
+        self._start_world()
+        self._restart_pending = False
+        logger.info("[%d/%d] The CARLA server was restarted", position, total)
+
     def _capture_opendrive(self) -> Optional[Path]:
         """Return the OpenDRIVE for the loaded world, writing it out once.
 
@@ -720,6 +806,7 @@ class ScenarioQueue:
         """Stop any Autoware stack left running, the backends, and the server
         if owned."""
         self._runner = None
+        self._restart_pending = False
         # The map loaded for this queue's runs is not the next queue's: one
         # that loads no lanelet map would read this one's (run_carla_map).
         MapManager.reset()

@@ -17,6 +17,7 @@ class PocketeerSettings(BaseModel):
     """Configure geometric pocket detection.
 
     Attributes:
+        settings_type: pocket-detection settings discriminator, fixed to `pocketeer`
         merge_distance: distance for merging pocket spheres, in Å
     """
 
@@ -30,6 +31,7 @@ class MixMDSettings(ProteinMDSimulationSettings):
     Inherits force fields and simulation controls from `ProteinMDSimulationSettings`.
 
     Attributes:
+        settings_type: pocket-detection settings discriminator, fixed to `mixmd`
         probe: neutral cosolvent species
         probe_volume_fraction: nominal probe fraction by liquid volume
         num_trajectories: number of independently prepared replicas

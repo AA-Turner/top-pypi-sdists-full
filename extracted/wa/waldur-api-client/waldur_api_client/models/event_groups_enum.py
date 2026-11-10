@@ -3,6 +3,7 @@ from enum import Enum
 
 class EventGroupsEnum(str, Enum):
     ACCESS_SUBNETS = "access_subnets"
+    ADMIN = "admin"
     AUTH = "auth"
     CALL = "call"
     CHAT = "chat"
@@ -20,6 +21,7 @@ class EventGroupsEnum(str, Enum):
     OPENSTACK_SECURITY_GROUP = "openstack_security_group"
     OPENSTACK_SUBNET = "openstack_subnet"
     PERMISSIONS = "permissions"
+    POLICIES = "policies"
     PROJECTS = "projects"
     PROPOSAL = "proposal"
     PROVIDERS = "providers"

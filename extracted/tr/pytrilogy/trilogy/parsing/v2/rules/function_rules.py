@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-from datetime import date, datetime
-from decimal import Decimal
 from typing import Any
 
 from trilogy.constants import DEFAULT_NAMESPACE
+from trilogy.core.casts import (
+    text_to_bool,
+    text_to_decimal,
+    text_to_float,
+    text_to_instant,
+    text_to_int,
+)
 from trilogy.core.constants import (
     ALL_ROWS_ADDRESS,
     GRAIN_NULL_SENTINEL,
@@ -51,7 +56,7 @@ from trilogy.core.models.core import (
     NumericType,
     arg_to_datatype,
 )
-from trilogy.parsing.common import arbitrary_to_concept
+from trilogy.parsing.common import arbitrary_to_concept, like_or_equality
 from trilogy.parsing.v2.rules.conditional_rules import negate_two_valued
 from trilogy.parsing.v2.rules_context import (
     HydrateFunction,
@@ -256,7 +261,7 @@ def like_comparison(
         if node.kind == SyntaxNodeKind.ILIKE
         else ComparisonOperator.LIKE
     )
-    return Comparison(left=args[0], right=args[1], operator=operator)
+    return like_or_equality(args[0], args[1], operator)
 
 
 # --- Aggregate handlers ---
@@ -593,6 +598,14 @@ def _resolve_bare_trait_cast_target(
     return TraitDataType(type=base, traits=[name])
 
 
+def _read_literal(node: SyntaxNode, value: str, dtype: Any, read: Any) -> Any:
+    """A literal is read as a column is (`trilogy.core.casts`); one with no
+    reading is refused here, where a column's would be NULL."""
+    if read is None:
+        raise fail(node, f"Cannot cast {value!r} to {dtype}")
+    return read
+
+
 def fcast(
     node: SyntaxNode,
     context: RuleContext,
@@ -606,21 +619,32 @@ def fcast(
     if isinstance(value, str):
         processed: Any
         match dtype:
-            case DataType.DATE:
-                processed = date.fromisoformat(value)
-            case DataType.DATETIME | DataType.TIMESTAMP:
-                processed = datetime.fromisoformat(value)
+            case DataType.DATE | DataType.DATETIME | DataType.TIMESTAMP:
+                read = text_to_instant(value, dtype)
+                processed = _read_literal(node, value, dtype, read)
             case DataType.INTEGER:
-                processed = int(value)
+                processed = _read_literal(node, value, dtype, text_to_int(value))
             case DataType.FLOAT:
-                processed = float(value)
+                processed = _read_literal(node, value, dtype, text_to_float(value))
             case DataType.BOOL:
-                processed = value.capitalize() == "True"
+                try:
+                    processed = text_to_bool(value)
+                except ValueError as e:
+                    raise fail(node, str(e))
             case DataType.STRING:
                 processed = value
             case NumericType():
                 # The one spelling of an exact decimal: a float_lit is a double.
-                processed = Decimal(value)
+                # It stays a CAST, as a Decimal parameter does not bind on SQLite.
+                scaled = _read_literal(
+                    node,
+                    value,
+                    dtype,
+                    text_to_decimal(value, dtype.scale, dtype.precision),
+                )
+                return context.function_factory.create_function(
+                    [scaled, dtype], FunctionType.CAST
+                )
             case _:
                 raise fail(node, f"Invalid cast type {dtype}")
         if isinstance(dtype, TraitDataType):

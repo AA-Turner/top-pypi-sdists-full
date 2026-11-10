@@ -1,9 +1,9 @@
 import pytest
 from scrapy import Request, Spider
-from scrapy.core.downloader.handlers.http11 import HTTP11DownloadHandler
 from scrapy.http.response import Response
 from scrapy.settings import SETTINGS_PRIORITIES, Settings
 from scrapy.settings.default_settings import TWISTED_REACTOR
+from scrapy.utils.misc import load_object
 from scrapy.utils.test import get_crawler
 from twisted.internet.defer import Deferred, succeed
 
@@ -18,13 +18,13 @@ from scrapy_zyte_api.addon import Addon
 from scrapy_zyte_api.handler import ScrapyZyteAPIHTTPDownloadHandler
 from scrapy_zyte_api.utils import (
     _DOWNLOAD_REQUEST_RETURNS_DEFERRED,
-    _POET_ADDON_SUPPORT,
     _REACTORLESS_SUPPORT,
 )
 
 from . import (
-    _HTTPX_HANDLER,
+    _FALLBACK_HANDLER_CLS,
     _REACTORLESS,
+    _REACTORLESS_HANDLERS,
     deferred_f_from_coro_f,
     download_request,
     get_download_handler,
@@ -33,21 +33,10 @@ from . import (
 )
 from . import get_crawler as get_crawler_zyte_api
 
-_EXPECTED_FALLBACK_HANDLER: type
-if _REACTORLESS:
-    from scrapy.core.downloader.handlers._httpx import HttpxDownloadHandler
-
-    _EXPECTED_FALLBACK_HANDLER = HttpxDownloadHandler
-else:
-    _EXPECTED_FALLBACK_HANDLER = HTTP11DownloadHandler
-
-pytest.importorskip("scrapy.addons")
-
 try:
-    from scrapy_poet import InjectionMiddleware
+    import scrapy_poet  # noqa: F401
 except ImportError:
     POET = False
-    InjectionMiddleware = None  # type: ignore[assignment,misc]
     ZyteApiProvider: type | None = None
 else:
     POET = True
@@ -90,7 +79,7 @@ async def test_addon_fallback():
     crawler = await get_crawler_zyte_api(use_addon=True)
     handler = get_download_handler(crawler, "http")
     assert isinstance(handler, ScrapyZyteAPIHTTPDownloadHandler)
-    assert isinstance(handler._fallback_handler, _EXPECTED_FALLBACK_HANDLER)
+    assert load_object(handler._fallback_handler_path) is _FALLBACK_HANDLER_CLS
 
 
 class DummyDownloadHandler:
@@ -118,7 +107,9 @@ async def test_addon_fallback_custom():
     crawler = await get_crawler_zyte_api(settings, use_addon=True)
     handler = get_download_handler(crawler, "http")
     assert isinstance(handler, ScrapyZyteAPIHTTPDownloadHandler)
-    assert isinstance(handler._fallback_handler, DummyDownloadHandler)
+    fallback = handler._get_fallback_handler(Request("http://example.com"))
+    assert isinstance(fallback, DummyDownloadHandler)
+    assert handler._get_fallback_handler(Request("http://example.com")) is fallback
 
 
 @deferred_f_from_coro_f
@@ -129,7 +120,33 @@ async def test_addon_fallback_explicit():
     crawler = await get_crawler_zyte_api(settings, use_addon=True)
     handler = get_download_handler(crawler, "http")
     assert isinstance(handler, ScrapyZyteAPIHTTPDownloadHandler)
-    assert isinstance(handler._fallback_handler, DummyDownloadHandler)
+    fallback = handler._get_fallback_handler(Request("http://example.com"))
+    assert isinstance(fallback, DummyDownloadHandler)
+
+
+def test_addon_fallback_default():
+    """Without user-defined HTTP(S) download handlers, the add-on leaves the
+    fallback settings unset, so that the handlers use the Scrapy defaults,
+    which Scrapy only sets after add-ons run when not using a reactor."""
+    settings = Settings()
+    Addon().update_settings(settings)
+    assert settings.get("ZYTE_API_FALLBACK_HTTP_HANDLER") is None
+    assert settings.get("ZYTE_API_FALLBACK_HTTPS_HANDLER") is None
+
+
+def test_addon_disabled():
+    base = {
+        "DOWNLOAD_HANDLERS": {
+            "http": "scrapy.core.downloader.handlers.http11.HTTP11DownloadHandler",
+            "https": "scrapy.core.downloader.handlers.http11.HTTP11DownloadHandler",
+        },
+    }
+    settings = Settings({**base, "ZYTE_API_ENABLED": False})
+    Addon().update_settings(settings)
+    assert (
+        settings.copy_to_dict()
+        == Settings({**base, "ZYTE_API_ENABLED": False}).copy_to_dict()
+    )
 
 
 @pytest.mark.skipif(
@@ -214,11 +231,6 @@ def _test_setting_changes(initial_settings, expected_settings):
     assert actual_settings == expected_settings
 
 
-FALLBACK_HANDLER = (
-    _HTTPX_HANDLER
-    if _REACTORLESS
-    else "scrapy.core.downloader.handlers.http11.HTTP11DownloadHandler"
-)
 BASE_EXPECTED = {
     "DOWNLOADER_MIDDLEWARES": {
         ScrapyZyteAPISessionResetterDownloaderMiddleware: 565,
@@ -226,10 +238,9 @@ BASE_EXPECTED = {
         ScrapyZyteAPISessionDownloaderMiddleware: 667,
     },
     "DOWNLOAD_HANDLERS": {
-        # Without a reactor scrapy.utils.test.get_crawler() disables the
-        # Twisted-based FTP handler and swaps the HTTP(S) handlers with the
-        # httpx-based one before the add-on overrides the latter.
-        **({"ftp": None} if _REACTORLESS else {}),
+        # Without a reactor scrapy.utils.test.get_crawler() sets the download
+        # handlers for that mode before the add-on overrides HTTP(S) ones.
+        **_REACTORLESS_HANDLERS,
         "http": "scrapy_zyte_api.handler.ScrapyZyteAPIHTTPDownloadHandler",
         "https": "scrapy_zyte_api.handler.ScrapyZyteAPIHTTPSDownloadHandler",
     },
@@ -238,10 +249,12 @@ BASE_EXPECTED = {
         ScrapyZyteAPISpiderMiddleware: 100,
         ScrapyZyteAPIRefererSpiderMiddleware: 1000,
     },
-    "ZYTE_API_FALLBACK_HTTPS_HANDLER": FALLBACK_HANDLER,
-    "ZYTE_API_FALLBACK_HTTP_HANDLER": FALLBACK_HANDLER,
     "ZYTE_API_TRANSPARENT_MODE": True,
 }
+if _REACTORLESS:
+    # The add-on keeps the HTTP(S) download handlers that get_crawler() sets.
+    BASE_EXPECTED["ZYTE_API_FALLBACK_HTTP_HANDLER"] = _REACTORLESS_HANDLERS["http"]
+    BASE_EXPECTED["ZYTE_API_FALLBACK_HTTPS_HANDLER"] = _REACTORLESS_HANDLERS["https"]
 if (
     not _REACTORLESS
     and TWISTED_REACTOR != "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
@@ -318,8 +331,6 @@ EXPECTED_DOWNLOADER_MIDDLEWARES = {
     ScrapyZyteAPIDownloaderMiddleware: 633,
     ScrapyZyteAPISessionDownloaderMiddleware: 667,
 }
-if not _POET_ADDON_SUPPORT:
-    EXPECTED_DOWNLOADER_MIDDLEWARES[InjectionMiddleware] = 543
 
 _SESSIONS_BASE_EXPECTED = dict(BASE_EXPECTED)
 if POET:

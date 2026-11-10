@@ -23420,7 +23420,7 @@ class GetV31ToolkitsQuery(BaseModel):
     sort_by: Optional[GetV31ToolkitsSortBy] = Field(default=None, description="Determines how toolkits should be sorted in the response")
     include_deprecated: Optional[bool] = Field(default=False, description="Include deprecated toolkits in the response")
     search: Optional[str] = Field(default=None, description="Search query to filter toolkits by name, slug, or description (minimum 1 character)")
-    user_id: Optional[Annotated[str, Field(min_length=1, max_length=256)]] = Field(default=None, description='[EXPERIMENTAL] List the custom toolkits this user can use. Without it, only custom toolkits with access "all" are listed.')
+    user_id: Optional[Annotated[str, Field(min_length=1, max_length=256)]] = Field(default=None, description='List the custom toolkits this user can use. Without it, only custom toolkits with access "all" are listed.')
     limit: Optional[Union[int, float]] = Field(default=None, description="Number of items per page, max allowed is 1000")
     cursor: Optional[str] = Field(default=None, description="Cursor for pagination. The cursor is a base64 encoded string of the page and limit. The page is the page number and the limit is the number of items per page. The cursor is used to paginate through the items. The cursor is not required for the first page.")
 
@@ -23430,6 +23430,13 @@ class GetV31ToolkitsItemsType(str, Enum):
 
     NATIVE = "native"
     CUSTOM = "custom"
+
+
+class GetV31ToolkitsItemsToolkitType(str, Enum):
+    """How the toolkit is implemented: "api" for an API integration, "mcp" for an MCP server"""
+
+    API = "api"
+    MCP = "mcp"
 
 
 class GetV31ToolkitsItemsInstantSupported(Enum):
@@ -23444,7 +23451,7 @@ class GetV31ToolkitsItemsInstant(BaseModel):
 
 
 class GetV31ToolkitsItemsAccess(str, Enum):
-    """[EXPERIMENTAL] Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can."""
+    """Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can."""
 
     ALL = "all"
     USER = "user"
@@ -23478,8 +23485,10 @@ class GetV31ToolkitsItems(BaseModel):
     slug: str = Field(..., description="URL-friendly unique identifier for the toolkit")
     name: str = Field(..., description="Human-readable name of the toolkit")
     type: GetV31ToolkitsItemsType = Field(..., description='Toolkit provenance: "native" for Composio-managed toolkits, "custom" for a project-registered custom (MCP) toolkit')
+    app: str = Field(..., description="Name used to group related toolkits. Falls back to the toolkit name.")
+    toolkit_type: GetV31ToolkitsItemsToolkitType = Field(..., description='How the toolkit is implemented: "api" for an API integration, "mcp" for an MCP server')
     instant: Optional[GetV31ToolkitsItemsInstant] = Field(default=None, description="Present when the latest version of this toolkit supports Instant accounts. See the tools endpoint for support on individual tools.")
-    access: Optional[GetV31ToolkitsItemsAccess] = Field(default=None, description='[EXPERIMENTAL] Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
+    access: Optional[GetV31ToolkitsItemsAccess] = Field(default=None, description='Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
     auth_schemes: Optional[list[str]] = Field(default=None, description="List of authentication methods supported by this toolkit")
     composio_managed_auth_schemes: Optional[list[str]] = Field(default=None, description="List of authentication methods that Composio manages for this toolkit")
     is_local_toolkit: bool = Field(..., description="DEPRECATED: This field is no longer meaningful and will always return false. It was previously used to indicate if a toolkit is specific to the current project.", deprecated=True)
@@ -23644,7 +23653,7 @@ class GetV31ToolkitsBySlugType(str, Enum):
 
 
 class GetV31ToolkitsBySlugAccess(str, Enum):
-    """[EXPERIMENTAL] Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can."""
+    """Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can."""
 
     ALL = "all"
     USER = "user"
@@ -23669,6 +23678,26 @@ class GetV31ToolkitsBySlugComposioManagedAuth(BaseModel):
     mode: str = Field(..., description="Authentication mode for the Composio-managed auth config")
     scopes: GetV31ToolkitsBySlugComposioManagedAuthScopes = Field(..., description="OAuth scopes available in the Composio-managed auth config for this auth mode.")
     user_scopes: Optional[GetV31ToolkitsBySlugComposioManagedAuthUserScopes] = Field(default=None, description="OAuth user scopes available in the Composio-managed auth config for this auth mode. Only present for Slack toolkits.")
+
+
+class GetV31ToolkitsBySlugAuthConfigDetailsMode(str, Enum):
+    """The type of authentication mode (e.g., OAUTH2, BASIC, API_KEY)"""
+
+    OAUTH2 = "OAUTH2"
+    OAUTH1 = "OAUTH1"
+    API_KEY = "API_KEY"
+    BASIC = "BASIC"
+    BILLCOM_AUTH = "BILLCOM_AUTH"
+    BEARER_TOKEN = "BEARER_TOKEN"
+    GOOGLE_SERVICE_ACCOUNT = "GOOGLE_SERVICE_ACCOUNT"
+    NO_AUTH = "NO_AUTH"
+    BASIC_WITH_JWT = "BASIC_WITH_JWT"
+    CALCOM_AUTH = "CALCOM_AUTH"
+    SERVICE_ACCOUNT = "SERVICE_ACCOUNT"
+    SAML = "SAML"
+    DCR_OAUTH = "DCR_OAUTH"
+    CIMD_OAUTH = "CIMD_OAUTH"
+    S2S_OAUTH2 = "S2S_OAUTH2"
 
 
 class GetV31ToolkitsBySlugAuthConfigDetailsFieldsAuthConfigCreationRequired(BaseModel):
@@ -23766,7 +23795,7 @@ class GetV31ToolkitsBySlugAuthConfigDetails(BaseModel):
     """Detailed configuration for an authentication method"""
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    mode: str = Field(..., description="The type of authentication mode (e.g., oauth2, basic_auth, api_key)")
+    mode: GetV31ToolkitsBySlugAuthConfigDetailsMode = Field(..., description="The type of authentication mode (e.g., OAUTH2, BASIC, API_KEY)")
     required_scopes: list[str] = Field(..., description="OAuth scopes that are always requested for this authentication method regardless of the tool-specific scopes selected, such as token-refresh (e.g. offline_access) and identity/whoami scopes. Consumers handling authentication themselves should union these with per-tool scopes.")
     fields: GetV31ToolkitsBySlugAuthConfigDetailsFields = Field(..., description="Field groups required for different authentication stages")
     proxy: Optional[GetV31ToolkitsBySlugAuthConfigDetailsProxy] = Field(default=None, description="Configuration for proxying authentication requests to external services")
@@ -23812,7 +23841,7 @@ class GetV31ToolkitsBySlugResponse(BaseModel):
     name: str = Field(..., description="Human-readable name of the toolkit")
     type: GetV31ToolkitsBySlugType = Field(..., description='Toolkit provenance: "native" for Composio-managed toolkits, "custom" for a project-registered custom (MCP) toolkit')
     enabled: bool = Field(..., description="Indicates if this toolkit is currently enabled and available for use")
-    access: Optional[GetV31ToolkitsBySlugAccess] = Field(default=None, description='[EXPERIMENTAL] Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
+    access: Optional[GetV31ToolkitsBySlugAccess] = Field(default=None, description='Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
     composio_managed_auth_schemes: Optional[list[str]] = Field(default=None, description="List of authentication methods that Composio manages for this toolkit")
     composio_managed_auth: list[GetV31ToolkitsBySlugComposioManagedAuth] = Field(..., description="Managed-auth-only metadata, including the supported OAuth scope ceiling.")
     is_local_toolkit: bool = Field(..., description="DEPRECATED: This field is no longer meaningful and will always return false. It was previously used to indicate if a toolkit is specific to the current project.", deprecated=True)
@@ -23859,6 +23888,13 @@ class PostV31ToolkitsMultiItemsType(str, Enum):
     CUSTOM = "custom"
 
 
+class PostV31ToolkitsMultiItemsToolkitType(str, Enum):
+    """How the toolkit is implemented: "api" for an API integration, "mcp" for an MCP server"""
+
+    API = "api"
+    MCP = "mcp"
+
+
 class PostV31ToolkitsMultiItemsInstantSupported(Enum):
     TRUE = True
 
@@ -23871,7 +23907,7 @@ class PostV31ToolkitsMultiItemsInstant(BaseModel):
 
 
 class PostV31ToolkitsMultiItemsAccess(str, Enum):
-    """[EXPERIMENTAL] Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can."""
+    """Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can."""
 
     ALL = "all"
     USER = "user"
@@ -23905,8 +23941,10 @@ class PostV31ToolkitsMultiItems(BaseModel):
     slug: str = Field(..., description="URL-friendly unique identifier for the toolkit")
     name: str = Field(..., description="Human-readable name of the toolkit")
     type: PostV31ToolkitsMultiItemsType = Field(..., description='Toolkit provenance: "native" for Composio-managed toolkits, "custom" for a project-registered custom (MCP) toolkit')
+    app: str = Field(..., description="Name used to group related toolkits. Falls back to the toolkit name.")
+    toolkit_type: PostV31ToolkitsMultiItemsToolkitType = Field(..., description='How the toolkit is implemented: "api" for an API integration, "mcp" for an MCP server')
     instant: Optional[PostV31ToolkitsMultiItemsInstant] = Field(default=None, description="Present when the latest version of this toolkit supports Instant accounts. See the tools endpoint for support on individual tools.")
-    access: Optional[PostV31ToolkitsMultiItemsAccess] = Field(default=None, description='[EXPERIMENTAL] Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
+    access: Optional[PostV31ToolkitsMultiItemsAccess] = Field(default=None, description='Custom toolkits only. "all": every user in the project can use it. "user": only the user it was created for can.')
     auth_schemes: Optional[list[str]] = Field(default=None, description="List of authentication methods supported by this toolkit")
     composio_managed_auth_schemes: Optional[list[str]] = Field(default=None, description="List of authentication methods that Composio manages for this toolkit")
     is_local_toolkit: bool = Field(..., description="DEPRECATED: This field is no longer meaningful and will always return false. It was previously used to indicate if a toolkit is specific to the current project.", deprecated=True)
@@ -25393,7 +25431,7 @@ class PostV31ToolRouterSessionBySessionIdMountsByMountIdDeleteResponse(BaseModel
 
 class GetV31ToolkitsChangelogQuery(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
-    user_id: Optional[Annotated[str, Field(min_length=1, max_length=256)]] = Field(default=None, description='[EXPERIMENTAL] Include the custom toolkits this user can use. Without it, only custom toolkits with access "all" are included.')
+    user_id: Optional[Annotated[str, Field(min_length=1, max_length=256)]] = Field(default=None, description='Include the custom toolkits this user can use. Without it, only custom toolkits with access "all" are included.')
 
 
 class GetV31ToolkitsChangelogItemsVersions(BaseModel):

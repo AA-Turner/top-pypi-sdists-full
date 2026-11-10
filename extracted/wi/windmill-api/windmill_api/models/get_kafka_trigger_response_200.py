@@ -36,6 +36,9 @@ class GetKafkaTriggerResponse200:
         filter_logic (Union[Unset, GetKafkaTriggerResponse200FilterLogic]): Logic to apply when evaluating the top-level
             filters. 'and' requires all of them to match, 'or' requires any of them to match. Nested
             `any_of`/`all_of`/`none_of` groups carry their own logic. Default: GetKafkaTriggerResponse200FilterLogic.AND.
+        run_on_filter_error (Union[Unset, bool]): Whether a message the filters cannot read (not UTF-8, or not JSON)
+            still runs the target, as if the trigger had no filters. A preprocessor then finds the reason in
+            `event.filter_error`. When false, such a message is skipped.
         auto_offset_reset (Union[Unset, GetKafkaTriggerResponse200AutoOffsetReset]): Initial offset behavior when
             consumer group has no committed offset. 'latest' starts from new messages only, 'earliest' starts from the
             beginning. Default: GetKafkaTriggerResponse200AutoOffsetReset.LATEST.
@@ -70,6 +73,7 @@ class GetKafkaTriggerResponse200:
     filters: List[Any]
     is_draft: bool
     filter_logic: Union[Unset, GetKafkaTriggerResponse200FilterLogic] = GetKafkaTriggerResponse200FilterLogic.AND
+    run_on_filter_error: Union[Unset, bool] = False
     auto_offset_reset: Union[
         Unset, GetKafkaTriggerResponse200AutoOffsetReset
     ] = GetKafkaTriggerResponse200AutoOffsetReset.LATEST
@@ -99,6 +103,7 @@ class GetKafkaTriggerResponse200:
         if not isinstance(self.filter_logic, Unset):
             filter_logic = self.filter_logic.value
 
+        run_on_filter_error = self.run_on_filter_error
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
@@ -150,6 +155,8 @@ class GetKafkaTriggerResponse200:
         )
         if filter_logic is not UNSET:
             field_dict["filter_logic"] = filter_logic
+        if run_on_filter_error is not UNSET:
+            field_dict["run_on_filter_error"] = run_on_filter_error
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -207,6 +214,8 @@ class GetKafkaTriggerResponse200:
             filter_logic = UNSET
         else:
             filter_logic = GetKafkaTriggerResponse200FilterLogic(_filter_logic)
+
+        run_on_filter_error = d.pop("run_on_filter_error", UNSET)
 
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, GetKafkaTriggerResponse200AutoOffsetReset]
@@ -278,6 +287,7 @@ class GetKafkaTriggerResponse200:
             filters=filters,
             is_draft=is_draft,
             filter_logic=filter_logic,
+            run_on_filter_error=run_on_filter_error,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             server_id=server_id,

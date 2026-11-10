@@ -18,6 +18,7 @@ from skylos.analysis.implicit_refs import (
 from skylos.visitors.registration_decorators import (
     collect_local_registration_decorators,
 )
+from skylos.visitors.framework_aware import is_registration_decorator
 from typing import Any, Optional, Union
 
 # SQLAlchemy / SQLModel declarative attribute constructors. The ORM reads
@@ -103,6 +104,28 @@ PYTHON_BUILTINS = {
 }
 
 DYNAMIC_PATTERNS = {"getattr", "globals", "eval", "exec"}
+_MODULE_NAME_STRING = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
+_NAMED_MODULE_LOADERS = frozenset({"import_module", "__import__", "run_module"})
+_PATH_MODULE_LOADERS = frozenset(
+    {
+        "run_path",
+        "spec_from_file_location",
+        "load_source",
+        "SourceFileLoader",
+        "module_from_spec",
+    }
+)
+_LITERAL_RECEIVERS = (
+    ast.Constant,
+    ast.JoinedStr,
+    ast.List,
+    ast.Tuple,
+    ast.Dict,
+    ast.Set,
+    ast.ListComp,
+    ast.SetComp,
+    ast.DictComp,
+)
 _FRAME_INTROSPECTION_CALLS = {
     ("sys", "_getframe"),
     ("inspect", "currentframe"),
@@ -409,6 +432,26 @@ def _is_stub_declaration(node: ast.AST) -> bool:
 
 
 _NAME_PATTERN_RE = re.compile(r"[A-Za-z0-9_*]+")
+
+
+def _module_wrapper_names(module: ast.Module) -> set[str]:
+    names = set()
+    for stmt in module.body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names.add(stmt.name)
+    for stmt in module.body:
+        if not isinstance(stmt, ast.Assign):
+            continue
+        value = stmt.value
+        if not (
+            isinstance(value, ast.Lambda)
+            or (isinstance(value, ast.Name) and value.id in names)
+        ):
+            continue
+        for target in stmt.targets:
+            if isinstance(target, ast.Name):
+                names.add(target.id)
+    return names
 
 
 def _module_binds_name(module: ast.Module, target_name: str) -> bool:
@@ -735,6 +778,7 @@ class Definition:
         "confidence",
         "references",
         "is_exported",
+        "go_proven_unused_test_helper",
         "in_init",
         "binding_name",
         "node",
@@ -765,6 +809,10 @@ class Definition:
         "module_shadows_getattr",
         "confidence_factors",
         "unread_type_checking_import",
+        "python_local_owner",
+        "python_class_owner",
+        "rust_reference_facts",
+        "package_namespace_uncertain",
     )
 
     def __init__(
@@ -783,10 +831,15 @@ class Definition:
         self.confidence = 100
         self.references = 0
         self.is_exported = False
+        self.go_proven_unused_test_helper = False
         self.in_init = "__init__.py" in str(filename)
         self.binding_name = self.simple_name
 
         self.node = node
+        self.python_local_owner = None
+        self.python_class_owner = None
+        self.rust_reference_facts = None
+        self.package_namespace_uncertain = False
         self.calls = set()
         self.called_by = set()
         self.closes_over = set()
@@ -879,12 +932,16 @@ class Visitor(ast.NodeVisitor):
         self.mod = mod
         self.file = file
         self._is_type_stub = Path(file).suffix.lower() == ".pyi"
+        self._is_package_initializer = Path(file).name == "__init__.py"
         self._stub_binding_lines: dict[str, int] = {}
         self.defs = []
         self.refs = []
         self.cls = None
         self.alias = {}
         self._alias_binding_lines: dict[str, int] = {}
+        self._binding_scope_owner = None
+        self._binding_class_owner = None
+        self._package_namespace_provider = False
         self.dyn = set()
         self.exports = set()
         self.has_explicit_all = False
@@ -913,6 +970,8 @@ class Visitor(ast.NodeVisitor):
         self._module_callable_bindings: dict[str, str] = {}
         self._in_protocol_class = False
         self.protocol_classes = set()
+        self.protocol_class_decls: set[tuple[str, int]] = set()
+        self._typing_protocol_bases: set[int] = set()
         self._in_overload = False
         self._in_abstractmethod = False
         self.namedtuple_classes = set()
@@ -958,6 +1017,12 @@ class Visitor(ast.NodeVisitor):
         self.version_conditional_lines = set()
         self._used_attr_names = set()
         self._used_attr_names_with_context = set()
+        self._attr_receivers = set()
+        self._module_object_refs = set()
+        self._star_import_sources = set()
+        self._module_name_strings = set()
+        self._dynamic_module_access = False
+        self._nested_class_names = set()
         self._conditional_import_targets = set()
         self.local_registration_decorators = set()
         self._type_checking_function_ids: set[int] = set()
@@ -980,10 +1045,27 @@ class Visitor(ast.NodeVisitor):
         # local names: (function qname, variable) -> class qname.
         self._iterable_return_annotations: dict[str, ast.expr] = {}
         self._receiver_types: dict[tuple[str, str], str] = {}
+        self._module_wrapper_names: set[str] = set()
 
     def add_def(
         self, name: str, t: str, line: int, node: Optional[ast.AST] = None, **extra: Any
     ) -> None:
+        local_owner = None
+        class_owner = None
+        if (
+            t == "variable"
+            and self._binding_class_owner is not None
+            and name.startswith(self._binding_class_owner[0] + ".")
+            and name.rsplit(".", 1)[-1] not in self._nonlocal_names
+        ):
+            class_owner = self._binding_class_owner
+        if (
+            self._is_package_initializer
+            and t == "variable"
+            and self._binding_scope_owner
+            and name == f"{self._binding_scope_owner}.{name.rsplit('.', 1)[-1]}"
+        ):
+            local_owner = self._binding_scope_owner
         # Omit declaration candidates rather than adding synthetic references:
         # .py and .pyi siblings share qualified names in the merged symbol map.
         if (
@@ -999,6 +1081,10 @@ class Visitor(ast.NodeVisitor):
         for d in self.defs:
             if d.name == name:
                 found = True
+                if d.python_local_owner != local_owner:
+                    d.python_local_owner = None
+                if d.python_class_owner != class_owner:
+                    d.python_class_owner = None
                 if (
                     t == "import"
                     and d.type == "import"
@@ -1019,6 +1105,8 @@ class Visitor(ast.NodeVisitor):
                 break
         if not found:
             defn = Definition(name, t, self.file, line, node=node)
+            defn.python_local_owner = local_owner
+            defn.python_class_owner = class_owner
             for k, v in extra.items():
                 if hasattr(defn, k):
                     setattr(defn, k, v)
@@ -1040,13 +1128,29 @@ class Visitor(ast.NodeVisitor):
 
     def visit_Module(self, node: ast.Module) -> None:
         from skylos.rules.quality._protocols import type_checking_function_ids
+        from skylos.visitors.typing_protocols import typing_protocol_bases
 
+        self._typing_protocol_bases = typing_protocol_bases(node, self.file)
+
+        namespace_modules = {"inspect", "sys", "builtins"}
+        self._package_namespace_provider = self._is_package_initializer and any(
+            isinstance(child, ast.Import)
+            and any(
+                alias.name.split(".", 1)[0] in namespace_modules
+                for alias in child.names
+            )
+            or isinstance(child, ast.ImportFrom)
+            and not child.level
+            and (child.module or "").split(".", 1)[0] in namespace_modules
+            for child in ast.walk(node)
+        )
         self.local_registration_decorators.update(
             collect_local_registration_decorators(node)
         )
         self._type_checking_function_ids = type_checking_function_ids(node)
         self._module_shadows_getattr = _module_binds_name(node, "getattr")
         self._alternative_import_names = _module_alternative_import_names(node)
+        self._module_wrapper_names = _module_wrapper_names(node)
         for stmt in node.body:
             if (
                 isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -1056,6 +1160,13 @@ class Visitor(ast.NodeVisitor):
                 self._iterable_return_annotations[qname] = stmt.returns
         for stmt in node.body:
             self.visit(stmt)
+        # Namespace providers can inspect or forward a local frame. Keep the
+        # previous implicit-export protection where that source capability exists.
+        for definition in self.defs:
+            definition.package_namespace_uncertain = (
+                definition.python_local_owner is not None
+                and self._package_namespace_provider
+            )
         self._finalize_dunder_all_exports(node.body)
         self._resolve_deferred_global_loads()
         self._resolve_module_import_loads(self._module_import_bindings)
@@ -1315,6 +1426,9 @@ class Visitor(ast.NodeVisitor):
     def visit_Import(self, node: ast.Import) -> None:
         for a in node.names:
             full = a.name
+            parts = full.split(".")
+            for index in range(1, len(parts) + 1):
+                self._module_object_refs.add(".".join(parts[:index]))
             if a.asname:
                 alias_name = a.asname
                 target = full
@@ -1375,7 +1489,11 @@ class Visitor(ast.NodeVisitor):
                     module.split(".")[0] if module else ""
                 )
                 self.dyn.add(root)
+                if base:
+                    self._star_import_sources.add(base)
                 continue
+            if base:
+                self._module_object_refs.add(f"{base}.{a.name}")
 
             if a.asname:
                 alias_name = a.asname
@@ -1599,6 +1717,23 @@ class Visitor(ast.NodeVisitor):
             return self._get_decorator_name(deco.func)
         return None
 
+    def _registers_decorated_function(self, deco: ast.expr, deco_name: str) -> bool:
+        target = deco
+        if isinstance(deco, ast.Call):
+            target = deco.func
+        project_defined = False
+        if isinstance(target, ast.Name):
+            if target.id in self._module_wrapper_names:
+                project_defined = True
+            elif target.id in self.alias and "." in self.mod:
+                package = self.mod.split(".", 1)[0]
+                project_defined = self.alias[target.id].startswith(package + ".")
+        return is_registration_decorator(
+            deco_name,
+            self._resolve_callee_fqname(target),
+            project_defined=project_defined,
+        )
+
     def _local_binding_shadows_alias(
         self, name: str, current_definition: str | None = None
     ) -> bool:
@@ -1679,6 +1814,16 @@ class Visitor(ast.NodeVisitor):
             ),
         )
         return alias_line > latest_local_line
+
+    def _is_typing_protocol_base(
+        self, base_expr: ast.expr, current_definition: str | None = None
+    ) -> bool:
+        """True only for bases that resolve to typing(.extensions).Protocol.
+
+        The reaching lexical import identifies the provider; the spelling
+        ``Protocol`` alone does not establish a typing contract.
+        """
+        return id(base_expr) in self._typing_protocol_bases
 
     def _is_numba_overload_decorator(
         self, name: str, current_definition: str | None = None
@@ -1775,36 +1920,6 @@ class Visitor(ast.NodeVisitor):
                     self._credit_module_call_imports(decorator)
         self._note_module_import_binding(node.name, None)
 
-        FRAMEWORK_DECORATORS = {
-            "fixture",
-            "pytest",
-            "task",
-            "celery",
-            "register",
-            "subscriber",
-            "listener",
-            "handler",
-            "command",
-            "route",
-            "get",
-            "post",
-            "put",
-            "delete",
-            "patch",
-            "api",
-            "endpoint",
-            "hook",
-            "signal",
-            "tool",
-            "resource",
-            "prompt",
-            "event",
-            "job",
-            "worker",
-            "consumer",
-            "producer",
-        }
-
         is_abstract_or_overload = False
         for deco in node.decorator_list:
             deco_name = self._get_decorator_name(deco)
@@ -1862,9 +1977,7 @@ class Visitor(ast.NodeVisitor):
                         self.property_chains[class_key][prop_name][chain_type] = (
                             qualified_name
                         )
-                elif any(
-                    keyword in deco_name.lower() for keyword in FRAMEWORK_DECORATORS
-                ):
+                elif self._registers_decorated_function(deco, deco_name):
                     self.add_ref(qualified_name)
                     for definition in reversed(self.defs):
                         if (
@@ -1873,7 +1986,7 @@ class Visitor(ast.NodeVisitor):
                         ):
                             definition._framework_decorator_ref_count += 1
                             break
-                elif isinstance(d, ast.Call) and self._is_numba_overload_decorator(
+                elif isinstance(deco, ast.Call) and self._is_numba_overload_decorator(
                     deco_name, current_definition=qualified_name
                 ):
                     self.add_ref(qualified_name)
@@ -1975,8 +2088,14 @@ class Visitor(ast.NodeVisitor):
                         d.return_type = return_type
                         break
 
+        previous_binding_owner = self._binding_scope_owner
+        previous_class_owner = self._binding_class_owner
+        self._binding_scope_owner = qualified_name
+        self._binding_class_owner = None
         for stmt in node.body:
             self.visit(stmt)
+        self._binding_scope_owner = previous_binding_owner
+        self._binding_class_owner = previous_class_owner
 
         complexity = self._complexity_stack.pop()
         for d in self.defs:
@@ -2149,6 +2268,8 @@ class Visitor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         cname = f"{self.mod}.{node.name}"
+        if self.cls is not None or self.current_function_scope:
+            self._nested_class_names.add(cname)
         self.add_def(
             cname,
             "class",
@@ -2161,16 +2282,12 @@ class Visitor(ast.NodeVisitor):
         is_protocol = False
         for base in node.bases:
             base_expr = base.value if isinstance(base, ast.Subscript) else base
-            if isinstance(base_expr, ast.Name) and base_expr.id == "Protocol":
-                is_protocol = True
-            elif (
-                isinstance(base_expr, ast.Attribute)
-                and base_expr.attr == "Protocol"
-            ):
+            if self._is_typing_protocol_base(base_expr, cname):
                 is_protocol = True
 
         if is_protocol:
             self.protocol_classes.add(node.name)
+            self.protocol_class_decls.add((cname, node.lineno))
 
         base_qnames = []
 
@@ -2361,8 +2478,14 @@ class Visitor(ast.NodeVisitor):
                     if isinstance(target, ast.Name) and target.id == "__slots__":
                         self.slotted_classes.add(cname)
 
+        previous_binding_owner = self._binding_scope_owner
+        previous_class_owner = self._binding_class_owner
+        self._binding_scope_owner = None
+        self._binding_class_owner = (cname, node.lineno)
         for b in node.body:
             self.visit(b)
+        self._binding_scope_owner = previous_binding_owner
+        self._binding_class_owner = previous_class_owner
 
         self.cls = prev
         self._dataclass_stack.pop()
@@ -2998,6 +3121,7 @@ class Visitor(ast.NodeVisitor):
         if self._current_function_qname and _reads_locals_dynamically(node):
             self.dynamic_local_functions.add(self._current_function_qname)
         callee = self._resolve_callee_fqname(node.func)
+        self._note_module_loading_call(node, callee)
         if callee and not self.current_function_scope and self.cls is None:
             self.top_level_refs.add(callee)
             self._credit_module_call_imports(callee)
@@ -3940,6 +4064,79 @@ class Visitor(ast.NodeVisitor):
         if node.id in DYNAMIC_PATTERNS:
             self.dyn.add(self.mod.split(".")[0])
 
+    def visit_Constant(self, node: ast.Constant) -> None:
+        value = node.value
+        if not isinstance(value, str) or len(value) > 200:
+            return
+        text = value.strip()
+        if text.endswith(".py"):
+            text = text[:-3].replace("/", ".").replace("\\", ".").strip(".")
+        if _MODULE_NAME_STRING.fullmatch(text):
+            self._module_name_strings.add(text)
+
+    def _note_module_loading_call(self, node: ast.Call, callee) -> None:
+        leaf = ""
+        if isinstance(node.func, ast.Name):
+            leaf = node.func.id
+        elif isinstance(node.func, ast.Attribute):
+            leaf = node.func.attr
+        if leaf in _PATH_MODULE_LOADERS:
+            self._dynamic_module_access = True
+            return
+        if leaf not in _NAMED_MODULE_LOADERS:
+            return
+        if leaf == "import_module" and not str(callee or "").endswith(
+            "importlib.import_module"
+        ) and not isinstance(node.func, ast.Name):
+            return
+        name = None
+        if node.args:
+            name = extract_constant_string(node.args[0])
+        if not name or name.startswith("."):
+            self._dynamic_module_access = True
+            return
+        self._module_object_refs.add(name)
+
+    def _is_local_binding(self, name: str) -> bool:
+        if any(param == name for param, _full in self.current_function_params):
+            return True
+        for outer in self._param_stack:
+            if any(param == name for param, _full in outer):
+                return True
+        if not self.current_function_scope:
+            return False
+        if any(name in scope for scope in self.local_var_maps):
+            return True
+        return any(name in scope for scope in self.local_type_maps)
+
+    def _attribute_receiver(self, value: ast.expr) -> tuple[str, str]:
+        """Classify what an attribute load reads from.
+
+        ``self``/``cls`` name their class; a module-level name (import, class,
+        module variable) keeps its resolved path; literals cannot hold project
+        attributes; parameters, locals, calls and subscripts are unknown.
+        """
+        if isinstance(value, _LITERAL_RECEIVERS):
+            return "literal", ""
+        parts = []
+        current = value
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if not isinstance(current, ast.Name):
+            return "unknown", ""
+        base = current.id
+        if base in {"self", "cls"} and self.cls:
+            if parts:
+                return "unknown", ""
+            if self.mod:
+                return "self", f"{self.mod}.{self.cls}"
+            return "self", self.cls
+        if self._is_local_binding(base) or self._is_active_type_parameter(base):
+            return "unknown", ""
+        parts.append(self.qual(base))
+        return "name", ".".join(reversed(parts))
+
     def visit_Attribute(self, node: ast.Attribute) -> None:
         self.generic_visit(node)
 
@@ -3950,6 +4147,10 @@ class Visitor(ast.NodeVisitor):
         self._used_attr_names_with_context.add(
             (node.attr, self.mod, self.cls or "", node.lineno)
         )
+        receiver_kind, receiver = self._attribute_receiver(node.value)
+        self._attr_receivers.add((node.attr, receiver_kind, receiver))
+        if node.attr == "modules" and receiver_kind == "name" and receiver == "sys":
+            self._dynamic_module_access = True
 
         if isinstance(node.value, ast.Name):
             base = node.value.id
@@ -4014,7 +4215,10 @@ class Visitor(ast.NodeVisitor):
                 self.add_ref(f"{self.local_type_maps[-1][base]}.{node.attr}")
                 return
 
-            self.add_ref(f"{self.qual(base)}.{node.attr}")
+            if receiver_kind == "name":
+                self.add_ref(f"{receiver}.{node.attr}")
+            else:
+                self.add_ref(f"{self.qual(base)}.{node.attr}")
 
         elif isinstance(node.value, ast.Call):
             qualified_class = self._get_call_type(node.value)

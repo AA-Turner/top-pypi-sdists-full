@@ -1,0 +1,261 @@
+"""Turn-local restrictions for automatic exception diagnostics.
+
+A nested operation may restrict diagnostics, never grant them. ContextVars
+carry the restriction across async and sync_to_async work without sharing it
+with another request, connection or sibling mount.
+"""
+
+import weakref
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
+from typing import Any, Awaitable, Callable, Iterator, TypeVar
+
+from ._exposure import ExposureError, uses_legacy_exposure
+
+PROTECTED_FAILURE = "Protected view operation failed"
+
+_T = TypeVar("_T")
+
+_details_allowed: ContextVar[bool] = ContextVar("djust_exception_details_allowed", default=True)
+# Each slot holds a zero-argument callable returning the container: a
+# ``weakref.ref`` where the container supports one, else a strong holder. A
+# copy of the context taken inside a turn (a task created there, or a thread
+# started from it on 3.14+) keeps its slots for as long as the copy lives, so
+# a strong reference would pin a disconnected session (#3116).
+_owner_slots: ContextVar[tuple[tuple[Callable[[], Any], str], ...]] = ContextVar(
+    "djust_diagnostic_owner_slots", default=()
+)
+_scope_depth: ContextVar[int] = ContextVar("djust_diagnostic_scope_depth", default=0)
+
+
+@contextmanager
+def diagnostic_scope() -> Iterator[None]:
+    """Restore caller state, carrying protected failures to an enclosing catch.
+
+    A nested restricted failure must not regain details while unwinding toward
+    its transport boundary. The outermost scope still resets on every exit,
+    including cancellation; successful nested operations retain local cleanup.
+    """
+    token = _details_allowed.set(_details_allowed.get())
+    owners_token = _owner_slots.set(_owner_slots.get())
+    parent_depth = _scope_depth.get()
+    depth_token = _scope_depth.set(parent_depth + 1)
+    protected_failure = False
+    try:
+        yield
+    except BaseException:
+        protected_failure = not diagnostics_allowed()
+        raise
+    finally:
+        _scope_depth.reset(depth_token)
+        _owner_slots.reset(owners_token)
+        _details_allowed.reset(token)
+        if protected_failure and parent_depth:
+            _details_allowed.set(False)
+
+
+def diagnostics_policy_allows(owner: Any) -> bool:
+    """Whether this owner's failures may carry exception details.
+
+    A legacy owner always may. Under ``DEBUG`` every owner may, explicit ones
+    included: errors then read like Django's own DEBUG output, with the
+    exception, traceback and technical error page (decision D-a, revised
+    2026-09-22). In production a nonlegacy owner's failures are value-free.
+    Debug tooling projections (debug panel, time travel, bug capture) and SQL
+    parameter capture are not error destinations and stay redacted.
+    """
+    if uses_legacy_exposure(owner):
+        return True
+    try:
+        from django.conf import settings
+
+        return getattr(settings, "DEBUG", False) is True
+    except Exception:  # noqa: BLE001 — unreadable settings grant nothing
+        return False
+
+
+def restrict_diagnostics(view: Any) -> None:
+    """A nonlegacy owner makes the current diagnostic scope value-free,
+    unless ``DEBUG`` is on (see :func:`diagnostics_policy_allows`)."""
+    if not diagnostics_policy_allows(view):
+        _details_allowed.set(False)
+
+
+def watch_diagnostic_owner(container: Any, attribute: str) -> None:
+    """Track a framework-owned slot so nested catches see owner replacement.
+
+    Call inside an owned diagnostic scope. Slots are inherited by nested calls
+    and worker contexts, but removed when that scope exits. A slot refers to
+    its container weakly, so a context copy that outlives the scope does not
+    keep the container alive (#3116); a collected container restricts. Only
+    trusted framework call sites register slots; this is not an application
+    callback API.
+    """
+    slots = _owner_slots.get()
+    if not any(ref() is container and name == attribute for ref, name in slots):
+        _owner_slots.set((*slots, (_owner_ref(container), attribute)))
+    diagnostics_allowed()
+
+
+def _owner_ref(container: Any) -> Callable[[], Any]:
+    """A weak reference to ``container``, or a strong holder if it has none."""
+    try:
+        return weakref.ref(container)
+    except TypeError:
+        # No ``__weakref__`` slot (every framework container has one today).
+        return lambda: container
+
+
+def diagnostics_allowed() -> bool:
+    """Apply current owner restrictions before allowing exception details."""
+    for ref, attribute in _owner_slots.get():
+        try:
+            container = ref()
+            if container is None:
+                # The owner is gone (a disconnected session seen from a
+                # context copy): nothing can prove the owner allows details.
+                raise LookupError("diagnostic owner no longer exists")
+            restrict_diagnostics(getattr(container, attribute))
+        except Exception:  # noqa: BLE001 — an unreadable owner cannot grant diagnostics
+            _details_allowed.set(False)
+    return _details_allowed.get() is True
+
+
+def log_failure(
+    log: Any,
+    exc: BaseException,
+    msg: str,
+    *args: Any,
+    level: str = "error",
+    traceback: bool = False,
+) -> None:
+    """Log a caught failure, value-free unless diagnostics are allowed here.
+
+    The logging counterpart of ``handle_exception``'s gate: a raw ``logger``
+    call does not consult ``diagnostics_allowed()``, and undeclared state can
+    occur in an exception's message and traceback. ``msg``/``args``/``level`` are
+    what the call site passed to its logger and ``traceback=True`` stands for
+    ``logger.exception``, so output is unchanged wherever details are allowed.
+    """
+    if diagnostics_allowed():
+        getattr(log, level)(msg, *args, exc_info=exc if traceback else None)
+    else:
+        # Value-free, but at the call site's level: a DEBUG-level site on a
+        # hot path (dirty tracking) must not become an ERROR per turn.
+        getattr(log, level)(PROTECTED_FAILURE)
+
+
+def log_failure_for(
+    log: Any,
+    owners: tuple[Any, ...],
+    exc: BaseException,
+    msg: str,
+    *args: Any,
+    level: str = "error",
+    traceback: bool = False,
+) -> None:
+    """:func:`log_failure` for code that runs outside a runtime turn.
+
+    Opens a scope restricted to each owner — any nonlegacy owner restricts, none
+    grants — so background tasks, consumer hooks and SSE flushes that have no
+    turn scope of their own still log value-free for a nonlegacy owner.
+    """
+    with diagnostic_scope():
+        for owner in owners:
+            restrict_diagnostics(owner)
+        log_failure(log, exc, msg, *args, level=level, traceback=traceback)
+
+
+def exception_details_allowed_for(owners: tuple[Any, ...]) -> bool:
+    """Whether exception text may reach a non-log destination for these owners.
+
+    The counterpart of :func:`log_failure_for` for sinks that are not log calls
+    (a client push, a stored error field): any nonlegacy owner, or an enclosing
+    restricted scope, makes the answer False; no owner grants details.
+    """
+    with diagnostic_scope():
+        for owner in owners:
+            restrict_diagnostics(owner)
+        return diagnostics_allowed()
+
+
+def owned_diagnostic_scope(
+    method: Callable[..., Awaitable[_T]],
+) -> Callable[..., Awaitable[_T]]:
+    """Open one protected scope per call, watching ``self.view_instance``.
+
+    For transport entry points that run view code without a runtime turn of
+    their own (the WebSocket ``receive`` verbs outside ``dispatch_message``).
+    Whatever view the owner holds when a catch consults ``diagnostics_allowed``
+    restricts it, and a nested mount scope that fails for a nonlegacy view
+    carries its restriction here.
+    """
+
+    @wraps(method)
+    async def scoped(owner: Any, *args: Any, **kwargs: Any) -> _T:
+        with diagnostic_scope():
+            watch_diagnostic_owner(owner, "view_instance")
+            return await method(owner, *args, **kwargs)
+
+    return scoped
+
+
+def _generic_server_error(request: Any, log: Any) -> Any:
+    from django.http import HttpResponseServerError
+    from django.urls import get_resolver, get_urlconf
+
+    try:
+        return get_resolver(get_urlconf()).resolve_error_handler(500)(request)
+    except Exception:  # noqa: BLE001 — a failing handler500 cannot expose details either
+        log.error("Protected error page could not be rendered")
+        return HttpResponseServerError("<h1>Server Error (500)</h1>", content_type="text/html")
+
+
+def protected_http_outcome(exc: BaseException) -> str:
+    """Classify a nonlegacy owner's escaping HTTP failure (ADR-038 D-a).
+
+    ``"raise"``: ``Http404`` and ``PermissionDenied`` keep Django's 404/403
+    handling, which renders no frames or locals. ``"bad_request"``: the
+    exceptions Django answers with 400 (under ``DEBUG`` through the technical
+    page). ``"server_error"``: everything else.
+    """
+    from django.core.exceptions import BadRequest, PermissionDenied, SuspiciousOperation
+    from django.http import Http404
+    from django.http.multipartparser import MultiPartParserError
+
+    from ._exposure import ExposureConfigurationError
+
+    # The guard's configuration errors are framework-authored and value-free;
+    # the developer needs them, like Django's own ImproperlyConfigured.
+    if isinstance(exc, (Http404, PermissionDenied, ExposureConfigurationError)):
+        return "raise"
+    if isinstance(exc, (BadRequest, SuspiciousOperation, MultiPartParserError)):
+        return "bad_request"
+    return "server_error"
+
+
+def protected_server_error(request: Any, log: Any, outcome: str = "server_error") -> Any:
+    """ADR-038 D-a: the HTTP/SSE response for a nonlegacy owner's failure.
+
+    Call it after the failing ``except`` block has exited. It logs a static
+    line, sends ``got_request_exception`` while a fresh value-free
+    :class:`ExposureError` is being handled (receivers such as error trackers
+    read ``sys.exc_info()``; it has no cause, context or application frames),
+    and returns the project's generic 500 page. Django's DEBUG technical page,
+    which shows the exception and its frames' locals, is never rendered. An
+    ``outcome`` of ``"bad_request"`` (see :func:`protected_http_outcome`)
+    returns a plain 400 instead, without the signal, as Django does.
+    """
+    from django.core.signals import got_request_exception
+    from django.http import HttpResponseBadRequest
+
+    log.error(PROTECTED_FAILURE)
+    if outcome == "bad_request":
+        # Django sends no signal for a 400 either.
+        return HttpResponseBadRequest("<h1>Bad Request (400)</h1>", content_type="text/html")
+    try:
+        raise ExposureError(PROTECTED_FAILURE) from None
+    except ExposureError:
+        got_request_exception.send(sender=None, request=request)
+    return _generic_server_error(request, log)

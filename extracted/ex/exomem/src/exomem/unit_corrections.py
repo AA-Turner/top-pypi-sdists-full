@@ -8,13 +8,17 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from . import epistemic_graph, find, freshness, memory_refs, relation_registry, request_budget
-from .governance import egress
-
-# nosemgrep: ep-word-set -- closed relation-schema families whose authored facts inform a claim.
-CORRECTIVE_FAMILIES = frozenset(
-    {"contradiction", "refinement", "support", "supersession", "resolution", "answer"}
+from . import (
+    epistemic_graph,
+    find,
+    freshness,
+    memory_refs,
+    relation_registry,
+    request_budget,
 )
+from .governance import egress
+from .published_admission import admission_of
+
 MAX_COUNTERPARTS = 4
 
 
@@ -22,6 +26,7 @@ def reader_view(root: Path, purpose: str | None = None) -> Callable[[str], bool]
     return egress.reader_view(root, purpose=purpose)
 
 
+@egress.proven_withheld_scope(reuse=True)
 def discover(
     root: Path,
     unit_refs: Sequence[str],
@@ -60,19 +65,42 @@ def discover(
     conn = None
     try:
         check_deadline()
-        checkpoint = freshness.live_recall_checkpoint(root, "vault")
-        if checkpoint is None:
-            return result("unavailable")
-        resolver = find.recall_resolver_snapshot_at_checkpoint(root, checkpoint)
-        if resolver is None:
-            return result("unavailable")
-        conn = epistemic_graph.EpistemicGraphIndex(root)._open_read_snapshot(live_only=True)
-        if conn is None:
-            return result("unavailable")
+        index = epistemic_graph.EpistemicGraphIndex(root)
+        publication = None
+        authority = None
+        current_reader = keep.fresh(withheld=frozenset()) if isinstance(keep, egress.ReaderView) else None
+        if current_reader is not None and (admission := admission_of(current_reader)) is not None:
+            authority = admission.identity()
+            if authority is not None:
+                retained = index._open_published_read(current_reader, deadline=deadline)
+                check_deadline()
+                if retained is not None:
+                    conn, publication = retained
+        if publication is not None:
+            resolver = publication.resolver
+            # Admission pinned deleted sources; a predicate created earlier captured the old set.
+            current_reader = current_reader.fresh()
+            current_admission = admission_of(current_reader)
+            if current_reader is None or current_admission is None or current_admission.identity() != authority:
+                return result("unavailable")
+        else:
+            checkpoint = freshness.live_recall_checkpoint(root, "vault")
+            if checkpoint is None:
+                return result("unavailable")
+            resolver = find.recall_resolver_snapshot_at_checkpoint(root, checkpoint)
+            if resolver is None:
+                return result("unavailable")
+            conn = index._open_read_snapshot(live_only=True)
+            if conn is None:
+                return result("unavailable")
+            instance = conn.execute("SELECT value FROM main.graph_meta WHERE key = 'instance'").fetchone()
+            snapshot_instance = instance[0] if instance is not None else None
         # The shared SQL row cap bounds volume; the progress handler bounds work.
         conn.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
         check_deadline()
-        view = epistemic_graph.GraphView(root, conn, keep=keep, resolver=resolver)
+        view = epistemic_graph.GraphView(
+            root, conn, keep=current_reader if publication is not None else keep, resolver=resolver,
+        )
         seeds: dict[str, str] = {}
         outgoing_seeds: dict[str, tuple[str, str, frozenset[str]]] = {}
         partial = False
@@ -168,9 +196,9 @@ def discover(
             nonlocal partial
             check_deadline()
             target = seeds.get(edge.get("dst_key"))
-            family = (edge.get("metadata") or {}).get("relation_family")
-            if (target is None or family not in CORRECTIVE_FAMILIES
-                    or not relation_registry.traversable_resolution_status(edge.get("registry_status"))):
+            if (target is None
+                    or not relation_registry.traversable_resolution_status(edge.get("registry_status"))
+                    or not view.has(edge, "corrects")):
                 return False
             candidate = counterpart(str(edge.get("src_key") or ""))
             if candidate is None:
@@ -178,7 +206,10 @@ def discover(
             reference = candidate["unit_ref"]
             if reference == target or reference in admitted:
                 return False
-            candidate.update(corrects=target, relation=edge["relation_type"], family=family)
+            candidate.update(
+                corrects=target, relation=edge["relation_type"],
+                family=(edge.get("metadata") or {}).get("relation_family"),
+            )
             if not accept(candidate):
                 return False
             check_deadline()
@@ -193,8 +224,25 @@ def discover(
             set(seeds), limit=MAX_COUNTERPARTS * len(references), accept=inspect,
         )
         check_deadline()
-        if freshness.external_pending(root) or not freshness.recall_checkpoint_is_current(root, "vault", checkpoint):
+        if publication is not None:
+            final_reader = keep.fresh(withheld=frozenset())
+            final_admission = admission_of(final_reader)
+            proof_current = (
+                final_reader is not None and final_admission is not None
+                and final_admission.identity() == authority
+                and index._published_read_is_current(publication, final_reader, deadline=deadline, conn=conn)
+            )
+            check_deadline()
+            if not proof_current:
+                return result("unavailable")
+        elif (
+            freshness.external_pending(root)
+            or not freshness.recall_checkpoint_is_current(root, "vault", checkpoint)
+            or not index._snapshot_instance_is_current(snapshot_instance, deadline=deadline)
+        ):
+            check_deadline()
             return result("unavailable")
+        check_deadline()
         return result("partial" if partial or overflow or view.unavailable else "available",
                       admitted.values(), outgoing.values())
     except TimeoutError:

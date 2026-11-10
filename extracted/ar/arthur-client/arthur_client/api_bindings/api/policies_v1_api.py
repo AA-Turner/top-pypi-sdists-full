@@ -3552,6 +3552,7 @@ class PoliciesV1Api:
     def delete_policy_assignments(
         self,
         policy_id: StrictStr,
+        workspace_id: Annotated[Optional[StrictStr], Field(description="Restrict the removal to applications in this workspace.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3567,10 +3568,12 @@ class PoliciesV1Api:
     ) -> PolicyAssignmentsBulkRemoveResponse:
         """Remove Policy Assignments In View
 
-        Removes every assignment of the policy whose application the caller can remove policies from, leaving assignments outside the caller's view untouched and reporting how many remain. Requires policy_assignment_delete permission.
+        Removes every assignment of the policy whose application the caller can remove policies from, leaving assignments outside the caller's view untouched and reporting how many remain. With workspace_id, only assignments on that workspace's applications are removed. Requires policy_assignment_delete permission.
 
         :param policy_id: (required)
         :type policy_id: str
+        :param workspace_id: Restrict the removal to applications in this workspace.
+        :type workspace_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3595,6 +3598,7 @@ class PoliciesV1Api:
 
         _param = self._delete_policy_assignments_serialize(
             policy_id=policy_id,
+            workspace_id=workspace_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3622,6 +3626,7 @@ class PoliciesV1Api:
     def delete_policy_assignments_with_http_info(
         self,
         policy_id: StrictStr,
+        workspace_id: Annotated[Optional[StrictStr], Field(description="Restrict the removal to applications in this workspace.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3637,10 +3642,12 @@ class PoliciesV1Api:
     ) -> ApiResponse[PolicyAssignmentsBulkRemoveResponse]:
         """Remove Policy Assignments In View
 
-        Removes every assignment of the policy whose application the caller can remove policies from, leaving assignments outside the caller's view untouched and reporting how many remain. Requires policy_assignment_delete permission.
+        Removes every assignment of the policy whose application the caller can remove policies from, leaving assignments outside the caller's view untouched and reporting how many remain. With workspace_id, only assignments on that workspace's applications are removed. Requires policy_assignment_delete permission.
 
         :param policy_id: (required)
         :type policy_id: str
+        :param workspace_id: Restrict the removal to applications in this workspace.
+        :type workspace_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3665,6 +3672,7 @@ class PoliciesV1Api:
 
         _param = self._delete_policy_assignments_serialize(
             policy_id=policy_id,
+            workspace_id=workspace_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3692,6 +3700,7 @@ class PoliciesV1Api:
     def delete_policy_assignments_without_preload_content(
         self,
         policy_id: StrictStr,
+        workspace_id: Annotated[Optional[StrictStr], Field(description="Restrict the removal to applications in this workspace.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3707,10 +3716,12 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Remove Policy Assignments In View
 
-        Removes every assignment of the policy whose application the caller can remove policies from, leaving assignments outside the caller's view untouched and reporting how many remain. Requires policy_assignment_delete permission.
+        Removes every assignment of the policy whose application the caller can remove policies from, leaving assignments outside the caller's view untouched and reporting how many remain. With workspace_id, only assignments on that workspace's applications are removed. Requires policy_assignment_delete permission.
 
         :param policy_id: (required)
         :type policy_id: str
+        :param workspace_id: Restrict the removal to applications in this workspace.
+        :type workspace_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3735,6 +3746,7 @@ class PoliciesV1Api:
 
         _param = self._delete_policy_assignments_serialize(
             policy_id=policy_id,
+            workspace_id=workspace_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3757,6 +3769,7 @@ class PoliciesV1Api:
     def _delete_policy_assignments_serialize(
         self,
         policy_id,
+        workspace_id,
         _request_auth,
         _content_type,
         _headers,
@@ -3781,6 +3794,10 @@ class PoliciesV1Api:
         if policy_id is not None:
             _path_params['policy_id'] = policy_id
         # process the query parameters
+        if workspace_id is not None:
+            
+            _query_params.append(('workspace_id', workspace_id))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

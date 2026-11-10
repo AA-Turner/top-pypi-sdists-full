@@ -204,7 +204,7 @@ def test_help():
         assert_re_in(f'.*{cmd}', stdout)
         assert_re_in('.*[uU]sage', stdout)
         # Some third party modules might like to announce some Deprecation
-        # etc warnings, see e.g. https://travis-ci.org/nipy/nibabel/jobs/370353602
+        # etc warnings
         if 'warning' not in stderr.lower():
             assert stderr == ''
 
@@ -272,6 +272,7 @@ def check_conversion(cmd, pr_data, out_fname):
 
 
 @script_test
+@pytest.mark.thread_unsafe
 def test_parrec2nii():
     # Test parrec2nii script
     cmd = ['parrec2nii', '--help']
@@ -281,7 +282,8 @@ def test_parrec2nii():
         for eg_dict in PARREC_EXAMPLES:
             fname = eg_dict['fname']
             run_command(['parrec2nii', fname])
-            out_froot = splitext(basename(fname))[0] + '.nii'
+            froot, _ = splitext(basename(fname))
+            out_froot = f'{froot}.nii'
             img = load(out_froot)
             assert img.shape == eg_dict['shape']
             assert_dt_equal(img.get_data_dtype(), eg_dict['dtype'])
@@ -318,6 +320,7 @@ def test_parrec2nii():
 
 @script_test
 @needs_nibabel_data('nitest-balls1')
+@pytest.mark.thread_unsafe
 def test_parrec2nii_with_data():
     # Use nibabel-data to test conversion
     # Premultiplier to relate our affines to Philips conversion
@@ -331,13 +334,13 @@ def test_parrec2nii_with_data():
                 continue
             # Do conversion
             run_command(['parrec2nii', par])
-            conved_img = load(par_root + '.nii')
+            conved_img = load(f'{par_root}.nii')
             # Confirm parrec2nii conversions are LAS
             assert aff2axcodes(conved_img.affine) == tuple('LAS')
             # Shape same whether LPS or LAS
             assert conved_img.shape[:3] == (80, 80, 10)
             # Test against original converted NIfTI
-            nifti_fname = pjoin(BALLS, 'NIFTI', par_root + '.nii.gz')
+            nifti_fname = pjoin(BALLS, 'NIFTI', f'{par_root}.nii.gz')
             if exists(nifti_fname):
                 philips_img = load(nifti_fname)
                 # Confirm Philips converted image always LPS
@@ -435,6 +438,7 @@ def test_parrec2nii_with_data():
 
 
 @script_test
+@pytest.mark.thread_unsafe
 def test_nib_trk2tck():
     simple_trk = pjoin(DATA_PATH, 'simple.trk')
     standard_trk = pjoin(DATA_PATH, 'standard.trk')
@@ -478,6 +482,7 @@ def test_nib_trk2tck():
 
 
 @script_test
+@pytest.mark.thread_unsafe
 def test_nib_tck2trk():
     anat = pjoin(DATA_PATH, 'standard.nii.gz')
     standard_tck = pjoin(DATA_PATH, 'standard.tck')

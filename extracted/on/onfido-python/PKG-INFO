@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onfido-python
-Version: 6.2.0
+Version: 6.3.0
 Summary: Python library for the Onfido API
 Home-page: 
 Author: OpenAPI Generator community
@@ -8,14 +8,13 @@ Author-email: OpenAPI Generator Community <team@openapitools.org>
 License: MIT
 Project-URL: Repository, https://github.com/onfido/onfido-python
 Keywords: OpenAPI,OpenAPI-Generator,onfido,identity
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: urllib3<3.0.0,>=2.5.0
+Requires-Dist: urllib3<3.0.0,>=2.8.0
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: pydantic>=2
 Requires-Dist: typing-extensions>=4.7.1
-Requires-Dist: virtualenv>=20.36.1
 Dynamic: author
 Dynamic: license-file
 

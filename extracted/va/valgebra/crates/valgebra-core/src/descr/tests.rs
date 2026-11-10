@@ -9,6 +9,68 @@ use core::mem::size_of;
 use proptest::prelude::*;
 use std::sync::{Arc, LazyLock};
 
+/// A guard holding no value is empty and one holding a value is not.
+///
+/// A product of two automata drops an edge on this answer, and a walk skips one,
+/// where the edge would only cost a step, so no language shows it.
+#[test]
+fn a_guard_is_empty_exactly_where_it_holds_no_value() {
+    assert!(Guard::is_empty(&Arc::new(Descr::nothing())));
+    assert!(!Guard::is_empty(&Arc::new(Descr::anything())));
+}
+
+/// Every value leaves nothing, and a set missing any part of the universe leaves
+/// a value there, whichever part it is: a kind or the values of no kind.
+#[test]
+fn a_set_leaves_a_value_unless_it_holds_every_value() {
+    let leaves = |set: Descr| Guard::leaves(&Arc::new(set));
+    assert_eq!(leaves(Descr::anything()), Verdict::Empty);
+    assert_eq!(leaves(Descr::nothing()), Verdict::Inhabited);
+    for kind in Kind::ALL {
+        assert_eq!(leaves(Descr::of_kind(kind)), Verdict::Inhabited, "{kind:?}");
+        let the_rest = Descr::of_kind(kind).complement();
+        assert_eq!(leaves(the_rest), Verdict::Inhabited, "all but {kind:?}");
+    }
+    let no_kindless = Kind::ALL
+        .into_iter()
+        .map(Descr::of_kind)
+        .try_fold(Descr::nothing(), |whole, kind| whole.union(&kind))
+        .expect("the kinds join");
+    assert_eq!(leaves(no_kindless), Verdict::Inhabited, "the kindless part");
+}
+
+/// The reading that answers before a complement is built, asked directly: it moves
+/// no answer, so no question about one can see it read the wrong way.
+#[test]
+fn a_set_misses_a_part_where_it_holds_no_line_of_it() {
+    assert!(Descr::nothing().misses_a_part());
+    assert!(Descr::of_kind(Kind::Int).misses_a_part());
+    assert!(!Descr::anything().misses_a_part());
+    assert!(Lines::bottom().is_bottom());
+    let every = Descr::anything();
+    assert!(!every.other.is_bottom(), "the kindless part holds a line");
+    assert!(every.kinds.iter().all(|lines| !lines.is_bottom()));
+}
+
+/// A kind the subject holds no line of is no kind of the difference, whatever the
+/// other set holds there, and a subject the other set misses is what is left.
+#[test]
+fn a_difference_reads_only_the_kinds_its_subject_holds() {
+    let ints = Descr::of_kind(Kind::Int);
+    let strs = Descr::of_kind(Kind::Str);
+    assert_eq!(ints.minus(&Descr::anything()), Some(Descr::nothing()));
+    assert_eq!(ints.minus(&ints), ints.intersect(&ints.complement()));
+    assert_eq!(ints.minus(&strs), ints.intersect(&strs.complement()));
+    assert_eq!(Descr::nothing().minus(&strs), Some(Descr::nothing()));
+    let left = Descr::anything().minus(&ints).expect("a difference");
+    assert_eq!(
+        left,
+        Descr::anything()
+            .intersect(&ints.complement())
+            .expect("a meet")
+    );
+}
+
 /// A guard met or joined with itself is that guard, and the handle settles
 /// it without a walk or a third allocation.
 ///
@@ -1210,6 +1272,7 @@ fn descr_with_sets() -> impl Strategy<Value = Descr> {
                         .into_iter()
                         .map(|(name, ty, optional)| (Label::str(name), ty, optional)),
                     opened.map(|(kind, ty)| (Some(kind), ty)),
+                    [],
                 )
                 .unwrap_or_else(Descr::nothing)
             }),
@@ -1260,11 +1323,13 @@ proptest! {
         a in descr(),
         b in descr(),
         i in 0..Kind::ALL.len(),
-        j in 0..Kind::ALL.len(),
+        apart in 1..Kind::ALL.len(),
     ) {
-        prop_assume!(i != j);
         let kind_a = Kind::ALL.get(i).copied().unwrap_or(Kind::Int);
-        let kind_b = Kind::ALL.get(j).copied().unwrap_or(Kind::Str);
+        let kind_b = Kind::ALL
+            .get((i + apart) % Kind::ALL.len())
+            .copied()
+            .unwrap_or(Kind::Str);
         let (Some(x), Some(y)) = (
             a.intersect(&Descr::of_kind(kind_a)),
             b.intersect(&Descr::of_kind(kind_b)),
@@ -1867,4 +1932,25 @@ fn a_negated_union_of_lines_the_allowance_cannot_expand_declines() {
     // Without one, the same union declines rather than guessing either way.
     let starved = budget::under(0, || negated.emptiness(whole));
     assert_eq!(starved, Verdict::Unknown, "starved gave {starved:?}");
+}
+
+/// A descriptor is equal to itself at its own address as it is to a copy, and two
+/// that differ are ordered alike either way round.
+#[test]
+fn the_order_reads_a_descriptor_at_its_address_as_its_fields_do() {
+    let read = [
+        Descr::of_kind(Kind::Int),
+        Descr::of_kind(Kind::Str),
+        Descr::nothing(),
+        Descr::of_kind(Kind::Int).complement(),
+    ];
+    for one in &read {
+        assert_eq!(one.cmp(one), core::cmp::Ordering::Equal);
+        assert_eq!(one.cmp(&one.clone()), core::cmp::Ordering::Equal);
+        for other in &read {
+            assert_eq!(one.cmp(other), other.cmp(one).reverse());
+            assert_eq!(one.partial_cmp(other), Some(one.cmp(other)));
+            assert_eq!(one.cmp(other).is_eq(), one == other);
+        }
+    }
 }

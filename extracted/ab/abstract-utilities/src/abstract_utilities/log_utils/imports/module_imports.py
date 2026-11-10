@@ -10,3 +10,13 @@ from abstract_essentials.log_utils.log_utils import (
     is_logger_level_enabled,
     _level_filters,
 )
+
+# Caller-aware logging helpers also live in abstract_essentials (single source).
+from abstract_essentials import (
+    FrameLite,
+    light_stack,
+    get_logger_callable,
+    get_caller_info,
+    print_or_log,
+    initialize_call_log,
+)

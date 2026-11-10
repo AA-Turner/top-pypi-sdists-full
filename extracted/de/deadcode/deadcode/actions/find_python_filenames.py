@@ -1,5 +1,4 @@
 from logging import getLogger
-from typing import List
 from pathlib import Path
 
 from deadcode.data_types import Args
@@ -8,9 +7,9 @@ from deadcode.visitor.ignore import _match
 logger = getLogger()
 
 
-def find_python_filenames(args: Args) -> List[str]:
+def find_python_filenames(args: Args) -> list[str]:
     filenames = []
-    paths: List[str] = list(args.paths)
+    paths: list[str] = list(args.paths)
     while paths:
         path = Path(paths.pop())
 
@@ -32,18 +31,3 @@ def find_python_filenames(args: Args) -> List[str]:
         sep = '\n  - '
         logger.info(f'Files to be checked for dead code: {sep.join(filenames)}')
     return filenames
-
-
-# Should show errors, if files do not exist.
-# Could mock directories: os.path.isfile os.walk -> replace this one with rglob
-
-# Should use list dir myself.
-
-# TODO: Whats the solution for mocking the file system checking?
-# Every single provided file is assumed to exist.
-
-
-# # TODO: investigate what can be reused from this module
-#     Loop over all given paths, abort if any ends with .pyc, add the other given
-#     files (even those not ending with .py) and collect all .py files under the
-#     given directories.

@@ -693,15 +693,26 @@ def raise_on_upload_from_backend_error_response(
         raise BackendCustomError(custom_error_msg)
 
     # check if file upload limits reached
+    if not response.content:
+        # nothing to parse, e.g., a throttled (429) response has an empty body
+        LOGGER.debug(
+            "Failed to get sdk_error_code from server response because response "
+            "is empty, status code: %d",
+            response.status_code,
+        )
+        return
+
     try:
         data = response.json()
         code = data.get("sdk_error_code", None)
         if code is None:
             return
-    except Exception:
+    except Exception as ex:
         LOGGER.debug(
-            msg="Failed to get sdk_error_code from server response after file upload operation",
-            exc_info=True,
+            "Failed to get sdk_error_code from server response after file upload operation, "
+            "status code: %d, reason: %r",
+            response.status_code,
+            ex,
         )
         return
 

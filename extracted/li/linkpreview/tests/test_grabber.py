@@ -197,6 +197,25 @@ def test_allow_private(httpserver: HTTPServer):
             grabber.get_content(url)
 
 
+def test_allow_private_parser_mismatch(httpserver: HTTPServer):
+    httpserver.expect_request(r"/\@8.8.8.8/").respond_with_data(
+        "<title>secret</title>", content_type="text/html"
+    )
+    grabber = LinkGrabber(allow_private=False)
+    # with a backslash, urlsplit sees the host after "@" (public, passes the
+    # guard) but urllib3 (used by requests) connects to the host before it;
+    # the last one is an invalid port that only urllib3 rejects
+    for url in (
+        "http://127.0.0.1:%d\\@8.8.8.8/" % httpserver.port,
+        "http://169.254.169.254\\@8.8.8.8/",
+        "http://8.8.8.8\\@127.0.0.1/",
+        "http://example.com:99999999/",
+    ):
+        with pytest.raises(exceptions.BlockedAddressError):
+            grabber.get_content(url)
+    assert not httpserver.log
+
+
 def test_max_redirects(httpserver: HTTPServer):
     httpserver.expect_request("/loop").respond_with_data(
         "", status=302, headers={"location": "/loop"}

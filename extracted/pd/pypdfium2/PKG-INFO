@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypdfium2
-Version: 5.14.0
+Version: 5.15.2
 Summary: Python bindings to PDFium
 Home-page: https://github.com/pypdfium2-team/pypdfium2
 Author: pypdfium2-team
@@ -25,6 +25,9 @@ License-File: LICENSES/Apache-2.0.txt
 License-File: LICENSES/BSD-3-Clause.txt
 License-File: LICENSES/CC-BY-4.0.txt
 License-File: REUSE.toml
+License-File: LICENSES/LGPL-3.0-or-later.txt
+License-File: LICENSES/MIT.txt
+License-File: LICENSES/MPL-2.0.txt
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-python
@@ -97,7 +100,7 @@ cd pypdfium2/
 #### Setup Dependencies
 
 *Python*
-+ [`ctypesgen` (pypdfium2-team fork)](https://github.com/pypdfium2-team/ctypesgen). To be cloned into pypdfium2's source tree, [as shown above](#get-the-code). Not managed as a classical package. As a matter of convenience (and compatibility), setup will automatically clone ctypesgen if you don't.
++ [`ctypesgen` (pypdfium2-team fork)](https://github.com/pypdfium2-team/ctypesgen). This is a source-level dependency [as shown above](#get-the-code), as opposed to a package dependency. Setup will automatically clone ctypesgen at the latest revision if you don't.
 + `setuptools`
 + `wheel`, if setuptools is `< v70.1.0`
 
@@ -111,7 +114,7 @@ Python dependencies should be automatically installed, unless `--no-build-isolat
 > [!NOTE]
 > pypdfium2 and its ctypesgen fork are developed in sync, i.e. each pypdfium2 commit ought to be coupled with the then `HEAD` of pypdfium2-ctypesgen.<br>
 > Our release sdists, and latest pypdfium2 from git, will automatically use matching ctypesgen.<br>
-> However, when using a non-latest commit, you'll have to set up the right ctypesgen version on your own.
+> However, when using a non-latest commit, you'll have to set up the right ctypesgen version on your own (for release commits, the ctypesgen revision is captured in [`autorelease/record.json`](autorelease/record.json)).
 
 #### Default setup
 
@@ -862,8 +865,7 @@ To the author's knowledge, pypdfium2 is one of the rare Python libraries capable
 Note that the exact licensing situation depends on the build config/environment used.<br>
 In particular, a subset of pypdfium2 builds may link with the `libgcc` runtime library. Check the builds you use and, if affected, libgcc's license [to evaluate if that's OK for your use](https://wiki.osdev.org/Libgcc#What_is_the_libgcc_license?).
 
-[^liberal_pdf_renderlibs]: Other mature, liberal-licensed PDF rendering libraries known to the author are [`pdf.js`](https://github.com/mozilla/pdf.js/) (JavaScript) and [`Apache PDFBox`](https://github.com/apache/pdfbox) (Java). While they can be accessed from Python in principle, as shown in the author's gists ([pdfbox](https://gist.github.com/mara004/51c3216a9eabd3dcbc78a86d877a61dc), [pdfjs](https://gist.github.com/mara004/87276da4f8be31c80c38036c6ab667d7)), there don't seem to be proper python bindings projects to these libraries yet. These days, novel options have surfaced, including `docling-parse` and `pdf_oxide`, but the author is not familiar with them yet.
-
+[^liberal_pdf_renderlibs]: Other mature, liberal-licensed PDF rendering libraries include [`pdf.js`](https://github.com/mozilla/pdf.js/) (JavaScript) and [`Apache PDFBox`](https://github.com/apache/pdfbox) (Java). They can be accessed from Python in principle, as demonstrated in gists ([pdfbox](https://gist.github.com/mara004/51c3216a9eabd3dcbc78a86d877a61dc), [pdfjs](https://gist.github.com/mara004/87276da4f8be31c80c38036c6ab667d7)), but there don't seem to be through, pythonic bindings beyond that. Lately, some new options have surfaced, e.g. `docling-parse`. Also, there is a flood of AI/vibe-coded "projects" (for want of a better term), but we strongly recommend against their use. Don't fall for AI crap. You really wanna stick with mature, high-quality codebases that have been around well before the AI boom and are genuinely human authored and understood.
 
 ## Issues / Contributions
 
@@ -994,18 +996,15 @@ find . -name '*.pdf' -exec bash -c "echo \"{}\" && pypdfium2 toc \"{}\"" \;
 <!-- TODO document release workflow -->
 
 
-## Popular dependents
+## Dependents & supply chain considerations
 
-pypdfium2 is used by popular packages such as
-[langchain](https://github.com/langchain-ai/langchain),
-[dify](https://github.com/langgenius/dify),
-[docling](https://github.com/DS4SD/docling),
-[nougat](https://github.com/facebookresearch/nougat),
-[pdfplumber](https://github.com/jsvine/pdfplumber),
-[doctr](https://github.com/mindee/doctr/),
-and [nv-ingest](https://github.com/NVIDIA/nv-ingest).
+As of 2026, pypdfium2 is being relied on by some fairly popular dependents, including ocrmypdf.
 
-This results in pypdfium2 being part of a large dependency tree.
+This results in pypdfium2 being part of a large dependency tree and having rather high monthly download count.
+
+This causes us to prioritize stability and take some caution with new releases. This translates to a slowed-down release schedule and more interest in consolidation & code quality improvement than new features which add maintenance burden.
+
+We also highly recommend the use of lockfiles and dependency cooldowns, since the main thing to be concerned about is an actual supply chain attack (in the sense of a project being compromised). Edge-case memory inaccuracies might get assigned CVEs with absurdly high scores, but a memory bug isn't an exploit of its own – it still takes malicious input to that. Since there is no way to ever be sure to be free of memory bugs in a large C(++) codebase, this is just something you have to calculate with. Conversely, malicious input might well be able to abuse a yet-unknown issue ("zero-day exploit"), so touching a malicious source is always an extremely high risk of its own accord. Therefore, make sure you don't work with untrusted, potentially malicious data, and/or use a sandboxed environment.
 
 
 ## Thanks to[^thanks_to]

@@ -1,0 +1,911 @@
+[correlator]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+# One class for the seven flavors (#2752 step 4, docs/design/
+# correlator-python.md): the knobs are its arguments, and the one C
+# dispatcher, dp_correlator_create, picks the flavor from them and calls its
+# constructor. A C caller names a flavor and calls that constructor itself.
+class_name = "Correlator"
+create_fn = "dp_correlator_create"
+# The dispatcher's trailing `const char **why` names the refused knob, and
+# the binding raises create_error with that sentence (just-makeit#2552).
+create_why = true
+# The search flavors (#2752 3.4b) bring acq's links: detection_core sizes the
+# gate (det_threshold, det_pd), dp_tlm_core is the probe registration
+# set_telemetry makes, and cvt the NRZ mapper the C test's PN preambles are
+# built with (bare: the test needs it, the .so does not).
+depends_on = [
+    # Linked onto doppler.correlation's .so: in doppler.spectral the FFT
+    # objects were module siblings and came in with the module.
+    { name = "fft2d", link = true },
+    { name = "fft", link = true },
+    { name = "detection", link = true },
+    { name = "dp_tlm", link = true },
+    { name = "cvt" },
+]
+serializable = "true"
+# A search flavor's set_state can rebuild the delay-Doppler map for a blob
+# at another carrier (#2831), so it can fail to allocate. No other flavor
+# returns DP_ERR_MEMORY from set_state.
+set_state_status_errors = [
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "set_state: the blob's carrier needs the delay-Doppler map rebuilt, and the rebuild could not allocate; the engine is unchanged" },
+]
+fragment = "generated"
+# dp_parallel.h's persistent pool is pthreads: the per-row correlations and
+# the delay-Doppler map fan each of their stages out over `nthreads` workers.
+extra_link_libs = ["Threads::Threads"]
+# A NULL create means a knob was refused (or memory ran out), never only OOM
+# (gh-482). The dispatcher's `why` names the knob; this message is for a
+# NULL with no sentence, which only an allocation failure leaves.
+create_error = "ValueError"
+create_error_message = "Correlator: refused, or out of memory (docs/design/correlator-python.md section 17: a value the flavor would not honor is refused)"
+# One warning for both searches, on `underpowered`, whose meaning is each
+# search's own (section 18).
+warnings = [
+  { after = "__init__", condition = "self->handle->search && self->handle->search->underpowered", category = "UserWarning", message = "Correlator: the search cannot meet pd at this cn0_dbhz and geometry (pd_predicted < pd, or pd_burst < pd for a burst). It still builds a best-effort grid. Raise cn0_dbhz, narrow doppler_uncertainty, lower pd, or give a burst more repetitions." },
+]
+
+# ── The knobs (section 3; defaults as section 17 rules them) ────────────────
+# Positional order is the C dispatcher's. The reference is 1-D or 2-D
+# (just-makeit#2537): a 1-D array arrives as one row, and one row is the
+# 1-D flavor.
+[[correlator.init_params]]
+name = "ref"
+type = "float _Complex[][]"
+rank = [1, 2]
+derived = ["ny", "nx"]
+
+[[correlator.init_params]]
+name = "framing"
+# The choice index is the C enum's value: NONE 0, CONTINUOUS 1, BURST 2.
+type = "string_enum:none,continuous,burst"
+c_type = "dp_correlator_framing_t"
+default = "none"
+doc = "'none' for maps or detections from whole frames; 'continuous' or 'burst' for a search over a stream."
+
+[[correlator.init_params]]
+name = "doppler_rows"
+type = "size_t"
+default = "0"
+doc = "Doppler rows of a delay-Doppler map: the code periods one frame holds. 0 for no map."
+
+[[correlator.init_params]]
+name = "detect"
+type = "int"
+default = "0"
+doc = "1 for detections from push() (framing='none'); a search always detects."
+
+[[correlator.init_params]]
+name = "dwell"
+type = "size_t"
+default = "1"
+
+[[correlator.init_params]]
+name = "ny_out"
+type = "size_t"
+default = "0"
+
+[[correlator.init_params]]
+name = "nx_out"
+type = "size_t"
+default = "0"
+
+[[correlator.init_params]]
+name = "col_out"
+type = "int"
+default = "-1"
+
+[[correlator.init_params]]
+name = "threshold"
+type = "float"
+default = "0.0f"
+
+[[correlator.init_params]]
+name = "noise_lo"
+type = "size_t"
+default = "0"
+
+# No `default`: the SIZE_MAX sentinel in `default_raw`, which the C clamps to
+# the last bin. An expression such as "ny*nx-1" is valid in none of C, the
+# .pyi and an app's flags.
+[[correlator.init_params]]
+name = "noise_hi"
+type = "size_t"
+default_raw = "(unsigned long long)-1ULL"
+
+[[correlator.init_params]]
+name = "noise_mode"
+type = "string_enum:mean,median,min,max"
+default = "mean"
+doc = "How the noise bins are aggregated into the floor the test statistic divides by (a detector), or the CFAR reference's statistic (a search)."
+
+[[correlator.init_params]]
+name = "sample_rate"
+type = "double"
+default = "0.0"
+doc = "Samples a second; a search needs it (0 is not given). 1.0 for normalized units."
+
+[[correlator.init_params]]
+name = "chip_rate"
+type = "double"
+default = "0.0"
+doc = "Chips a second; the continuous search needs it (0 is not given)."
+
+[[correlator.init_params]]
+name = "symbol_rate"
+type = "double"
+default = "0.0"
+doc = "Data symbols a second, for the continuous search's diagnostic; 0 is no known data clock."
+
+[[correlator.init_params]]
+name = "reps"
+type = "size_t"
+default = "1"
+doc = "Preamble repetitions a burst holds (the burst search)."
+
+# NaN = no design point (doppler#1484): any finite C/N0 is a real one.
+[[correlator.init_params]]
+name = "cn0_dbhz"
+type = "double"
+default_raw = "DP_CORRELATOR_CN0_NONE"
+
+[[correlator.init_params]]
+name = "doppler_uncertainty"
+type = "double"
+default = "0.0"
+
+[[correlator.init_params]]
+name = "pfa"
+type = "double"
+default = "1e-3"
+
+[[correlator.init_params]]
+name = "pd"
+type = "double"
+default = "0.9"
+
+[[correlator.init_params]]
+name = "doppler_rate"
+type = "double"
+default = "0.0"
+
+[[correlator.init_params]]
+name = "rate_hypotheses"
+type = "size_t"
+default = "1"
+
+[[correlator.init_params]]
+name = "code_only_epochs"
+type = "size_t"
+default = "1"
+
+[[correlator.init_params]]
+name = "nthreads"
+type = "int"
+default = "1"
+
+[[correlator.methods]]
+name = "execute"
+why = true
+arg_type = "float _Complex"
+return_type = "float _Complex"
+variable_output = true
+# Kernel is told its write limit (jm gh-138): an under-reporting
+# max_out truncates the emission instead of overrunning `out`.
+pass_capacity = true
+# A dump is exactly n_out values, so max_out(state) is exact and an out= of
+# that is enough; without this the binding also asked for as many elements as
+# the input frame has (ny * nx), which a col_out object (n_out = ny) never
+# needs (#2818).
+exact_max_out = true
+none_on_empty = true
+# n_in must equal the frame length; the C kernel REFUSES any other
+# with SIZE_MAX (nothing read, written or counted) and jm raises (#1925).
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "execute: only a map (framing='none', detect=False) executes; Correlator.flavor says which this is"
+
+# Batches (#2683): H frames back to back in one call, every map or one
+# reduction of them, on the C fold loop dp_correlator_execute_fold. One typed
+# method per reduction, because the return shapes differ. Each refuses an
+# empty batch, a length that is not a whole number of frames, or a short
+# out= with SIZE_MAX, which jm raises as ValueError. The GIL is released
+# across the kernel; every map flavor serves them (section 18).
+[[correlator.methods]]
+name = "execute_all"
+why = true
+arg_type = "float _Complex"
+return_type = "float _Complex"
+variable_output = true
+pass_capacity = true
+# n_out is 0 on a search (its constructor never sets it): one column then,
+# so the binding sizes nothing and the C refuses with the declared error
+# (section 18) rather than the binding failing first on a zero shape.
+out_cols = "(state->n_out ? state->n_out : 1)"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "execute_all: only a map (framing='none', detect=False) runs a batch; Correlator.flavor says which this is"
+nogil = true
+
+[[correlator.methods]]
+name = "execute_coherent"
+why = true
+arg_type = "float _Complex"
+return_type = "float _Complex"
+variable_output = true
+pass_capacity = true
+# One map whatever the batch: max_out(state) is the exact size, not a bound the
+# input could exceed, so an out= of exactly that is enough (#2818). Without
+# this the binding also asked for as many elements as the input has.
+exact_max_out = true
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "execute_coherent: only a map (framing='none', detect=False) runs a batch; Correlator.flavor says which this is"
+nogil = true
+
+[[correlator.methods]]
+name = "execute_power_sum"
+why = true
+arg_type = "float _Complex"
+return_type = "float"
+variable_output = true
+pass_capacity = true
+# One map whatever the batch: max_out(state) is the exact size, not a bound the
+# input could exceed, so an out= of exactly that is enough (#2818). Without
+# this the binding also asked for as many elements as the input has.
+exact_max_out = true
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "execute_power_sum: only a map (framing='none', detect=False) runs a batch; Correlator.flavor says which this is"
+nogil = true
+
+[[correlator.methods]]
+name = "execute_power_max"
+why = true
+arg_type = "float _Complex"
+return_type = "float"
+variable_output = true
+pass_capacity = true
+multi_output = ["uint32_t"]
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "execute_power_max: only a map (framing='none', detect=False) runs a batch; Correlator.flavor says which this is"
+nogil = true
+
+[[correlator.methods]]
+name = "execute_peaks"
+why = true
+arg_type = "float _Complex"
+return_type = "float"
+variable_output = true
+pass_capacity = true
+multi_output = ["uint32_t", "uint32_t", "float"]
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "execute_peaks: only a map (framing='none', detect=False) runs a batch; Correlator.flavor says which this is"
+nogil = true
+
+[[correlator.methods]]
+name = "bank_power_max"
+why = true
+status_out = true
+status_errors = [
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "bank_power_max: out of memory" },
+]
+arg_type = "void"
+return_type = "float"
+variable_output = true
+pass_capacity = true
+multi_output = ["uint32_t"]
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "bank_power_max: only a map (framing='none', detect=False) has a bank; Correlator.flavor says which this is"
+nogil = true
+params = [{name = "x", type = "float _Complex[]"}, {name = "L", type = "size_t"}, {name = "g_min", type = "int"}, {name = "g_max", type = "int"}, {name = "rates", type = "float _Complex[]"}]
+
+[[correlator.methods]]
+name = "bank_detect"
+why = true
+status_out = true
+status_errors = [
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "bank_detect: out of memory" },
+]
+arg_type = "void"
+return_type = "float"
+variable_output = true
+pass_capacity = true
+multi_output = ["int32_t", "uint32_t", "uint32_t", "uint32_t"]
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "bank_detect: only a map (framing='none', detect=False) has a bank; Correlator.flavor says which this is"
+nogil = true
+params = [{name = "x", type = "float _Complex[]"}, {name = "L_d", type = "size_t"}, {name = "L_r", type = "size_t"}, {name = "g_min", type = "int"}, {name = "g_max", type = "int"}, {name = "t_candidate", type = "float"}, {name = "t_confirm", type = "float"}, {name = "rates", type = "float _Complex[]"}]
+
+[[correlator.methods]]
+name = "configure_search_raw"
+why = true
+fn = "dp_correlator_configure_search_raw"
+arg_type = "void"
+return_type = "int"
+status_return = true
+status_errors = [
+  { status = "DP_ERR_UNSUPPORTED", error = "ValueError", message = "configure_search_raw: only a search (framing='continuous' or 'burst') has a grid to pin; Correlator.flavor says which this is" },
+  { status = "DP_ERR_INVALID", error = "ValueError", message = "configure_search_raw: doppler_bins must lie in 1..reps and n_noncoh in 1..DP_CORRELATOR_N_NONCOH_SAFETY_CEILING, and non-coherent looks need rate_hypotheses 1" },
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "configure_search_raw: rebuilding the grid could not allocate; the engine keeps its prior grid" },
+]
+params = [
+  { name = "doppler_bins", type = "size_t" },
+  { name = "n_noncoh", type = "size_t" },
+]
+
+[[correlator.methods]]
+name = "set_max_peaks"
+why = true
+fn = "dp_correlator_set_max_peaks"
+arg_type = "void"
+return_type = "int"
+status_return = true
+status_errors = [
+  { status = "DP_ERR_UNSUPPORTED", error = "ValueError", message = "set_max_peaks: only a search (framing='continuous' or 'burst') lists peaks; Correlator.flavor says which this is" },
+  { status = "DP_ERR_INVALID", error = "ValueError", message = "set_max_peaks: n must lie in 1..DP_CORRELATOR_MAX_PEAKS" },
+]
+params = [
+  { name = "n", type = "size_t" },
+]
+
+[[correlator.methods]]
+name = "set_carrier_freq_hz"
+fn = "dp_correlator_set_carrier_freq_hz"
+arg_type = "void"
+return_type = "int"
+status_return = true
+status_errors = [
+  { status = "DP_ERR_UNSUPPORTED", error = "ValueError", message = "set_carrier_freq_hz: only the continuous search (framing='continuous') takes a carrier; Correlator.flavor says which this is" },
+  { status = "DP_ERR_INVALID", error = "ValueError", message = "set_carrier_freq_hz: must be 0 (no carrier) or finite and above sample_rate / 2" },
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "set_carrier_freq_hz: rebuilding the delay-Doppler map for the new carrier could not allocate; the engine is unchanged" },
+]
+params = [
+  { name = "carrier_freq_hz", type = "double" },
+]
+
+[[correlator.methods]]
+name = "set_threads"
+fn = "dp_correlator_set_threads"
+arg_type = "void"
+return_type = "int"
+status_return = true
+status_errors = [
+  { status = "DP_ERR_UNSUPPORTED", error = "ValueError", message = "set_threads: only a search (framing='continuous' or 'burst') sizes its pool after create; a map or detector takes nthreads at create" },
+]
+params = [
+  { name = "n", type = "int" },
+]
+
+[[correlator.methods]]
+name = "set_telemetry"
+why = true
+fn = "dp_correlator_set_telemetry"
+arg_type = "void"
+return_type = "int"
+status_return = true
+status_errors = [
+  { status = "DP_ERR_UNSUPPORTED", error = "ValueError", message = "set_telemetry: only the continuous search (framing='continuous') is instrumented; Correlator.flavor says which this is" },
+  { status = "DP_ERR_INVALID", error = "ValueError", message = "set_telemetry: refused, nothing attached: the prefix joined to each probe name must fit DP_TLM_NAME_MAX, decim must be at least 1, and the context must have room for all ten probes" },
+  { status = "DP_ERR_MEMORY", error = "MemoryError", message = "set_telemetry: the attach's scratch context could not be allocated; nothing is attached" },
+]
+params = [
+  { name = "tlm", type = "dp_tlm_t *", capsule = "doppler.telemetry.dp_tlm", retain = true, header = "doppler/dp_tlm/dp_tlm_core.h" },
+  { name = "prefix", type = "const char *" },
+  { name = "decim", type = "uint32_t", default = "1" },
+]
+
+[[correlator.methods]]
+name = "surface"
+fn = "dp_correlator_surface"
+arg_type = "void"
+return_type = "size_t"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "surface: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+params = [
+  { name = "out", type = "float[]", out = true },
+]
+
+[[correlator.methods]]
+name = "surface_doppler_hz"
+fn = "dp_correlator_surface_doppler_hz"
+arg_type = "void"
+return_type = "size_t"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "surface_doppler_hz: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+params = [
+  { name = "out", type = "double[]", out = true },
+]
+
+[[correlator.methods]]
+name = "surface_chip_phase"
+fn = "dp_correlator_surface_chip_phase"
+arg_type = "void"
+return_type = "size_t"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "surface_chip_phase: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+params = [
+  { name = "out", type = "double[]", out = true },
+]
+
+[[correlator.methods]]
+name = "surface_complex"
+fn = "dp_correlator_surface_complex"
+arg_type = "void"
+return_type = "size_t"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "surface_complex: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+params = [
+  { name = "out", type = "float _Complex[]", out = true },
+]
+
+[[correlator.methods]]
+name = "block_prompt"
+fn = "dp_correlator_block_prompt"
+arg_type = "void"
+return_type = "size_t"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "block_prompt: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+params = [
+  { name = "tile", type = "size_t" },
+  { name = "col", type = "size_t" },
+  { name = "out", type = "float _Complex[]", out = true },
+]
+
+[[correlator.methods]]
+name = "block_raw"
+fn = "dp_correlator_block_raw"
+arg_type = "void"
+return_type = "size_t"
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "block_raw: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+params = [
+  { name = "out", type = "float _Complex[]", out = true },
+]
+
+# ── push: detections from a detector or a search (section 5) ────────────────
+# One record for every flavor, dp_correlator_hit_t, as a NumPy structured
+# array sized by push_max_out (a bound; the binding trims), so a push never
+# loses input to a full list (#1992, just-makeit#2184). A map refuses it.
+[[correlator.methods]]
+name = "push"
+fn = "dp_correlator_push"
+arg_type = "float _Complex"
+return_type = "dp_correlator_hit_t"
+variable_output = true
+record_dtype = "dp_correlator_hit_t"
+pass_capacity = true
+nogil = true
+error_sentinel = "SIZE_MAX"
+error = "ValueError"
+error_message = "push: only a detector or a search pushes; a map does not detect (build one with detect=True, or framing='continuous' or 'burst')"
+result_fields = [
+  { name = "row", type = "size_t" },
+  { name = "col", type = "size_t" },
+  { name = "peak_mag", type = "float" },
+  { name = "noise_est", type = "float" },
+  { name = "test_stat", type = "float" },
+  { name = "cn0_dbhz_est", type = "float" },
+  { name = "samples_consumed", type = "uint64_t" },
+  { name = "chip_phase", type = "double" },
+  { name = "doppler_rate_hz_s", type = "double" },
+  { name = "test_stat_peak", type = "float" },
+]
+
+# ── Properties every flavor or a few hold that need no getter ───────────────
+[[correlator.properties]]
+name = "flavor"
+type = "int"
+enum = "correlator_flavor"
+expr = "dp_correlator_flavor (self->handle)"
+doc = "Which flavor the knobs built: '1d', '2d' or 'delay_doppler' (maps), 'detector_1d' or 'detector_2d', 'continuous' or 'burst' (searches). Ask it before reading a member only some flavors serve."
+
+# A detector's last correlation vector. dp_correlator_last_corr_status
+# refuses the read off a detector (just-makeit#2543); on one, it reads None
+# until the first dump.
+[[correlator.properties]]
+name = "last_corr"
+type = "float _Complex[]"
+buf_field = "det_out"
+len_field = "n"
+valid_field = "_last_corr_valid"
+getter_status = true
+error = "AttributeError"
+error_message = "last_corr: only a detector (framing='none', detect=True) has it; Correlator.flavor says which this is"
+doc = "A detector's correlation vector from the most recent push() that produced a result (None before that, and after reset() or set_state()); AttributeError on any flavor but a detector. A zero-copy view into a buffer the detector reuses every push(): copy it before the next push() to keep it."
+
+# Writable: `error` names the setter's refusal and `getter_error` the
+# read's (just-makeit#2543); both refuse off the continuous search.
+[[correlator.properties]]
+name = "keep_surface"
+type = "int"
+writable = true
+getter_status = true
+error = "AttributeError"
+error_message = "keep_surface: only the continuous search (framing='continuous') keeps a surface"
+getter_error = "AttributeError"
+getter_error_message = "keep_surface: only the continuous search (framing='continuous') keeps a surface"
+doc = "1 keeps every decided dwell's surface for surface() (normalized into the gate's units); 0 (the default) costs nothing. The continuous search only: elsewhere a read or a write raises AttributeError."
+
+# Section 18's table: each property is a C getter that refuses off the
+# flavors that serve it (getter_status), raising AttributeError.
+[[correlator.properties]]
+name = "ny"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "ny: only a map or a detector (framing='none') has it; Correlator.flavor says which this is"
+doc = "Rows of the reference: 1 for a 1-D one; the delay-Doppler map's Doppler rows (doppler_rows)."
+
+[[correlator.properties]]
+name = "nx"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "nx: only a map or a detector (framing='none') has it; Correlator.flavor says which this is"
+doc = "Samples a reference row: the correlation's native lag count."
+
+[[correlator.properties]]
+name = "ny_out"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "ny_out: only a map (framing='none', detect=False) has it; Correlator.flavor says which this is"
+doc = "Rows a dump writes: ny unless padded (ny_out), which interpolates the Doppler or row axis."
+
+[[correlator.properties]]
+name = "nx_out"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "nx_out: only the 1-D or 2-D map (framing='none', detect=False, doppler_rows=0) has it; Correlator.flavor says which this is"
+doc = "Lags a dump writes per row: nx unless padded (nx_out), which interpolates the lag axis. The one padding name at any row count."
+
+[[correlator.properties]]
+name = "col_out"
+type = "int"
+getter_status = true
+error = "AttributeError"
+error_message = "col_out: only the 1-D or 2-D map (framing='none', detect=False, doppler_rows=0) has it; Correlator.flavor says which this is"
+doc = "The one lag a dump emits per row, or -1 for every lag."
+
+[[correlator.properties]]
+name = "doppler_step"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "doppler_step: only the delay-Doppler map (doppler_rows > 0) has it; Correlator.flavor says which this is"
+doc = "Doppler bin width of the delay-Doppler map, cycles per sample."
+
+[[correlator.properties]]
+name = "n"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "n: only the 1-D map or a detector (detect=True) has it; Correlator.flavor says which this is"
+doc = "Frame length in samples: the reference's length, ny * nx."
+
+[[correlator.properties]]
+name = "dwell"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "dwell: only a map or a detector (framing='none') has it; Correlator.flavor says which this is"
+doc = "Integration depth: a dump every `dwell` frames."
+
+[[correlator.properties]]
+name = "count"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "count: only a map or a detector (framing='none') has it; Correlator.flavor says which this is"
+doc = "Frames accumulated toward the next dump (0 ... dwell - 1)."
+
+[[correlator.properties]]
+name = "ring_cap"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "ring_cap: only a detector (detect=True) or a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Input ring capacity in complex samples."
+
+[[correlator.properties]]
+name = "noise_lo"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "noise_lo: only a detector (detect=True) or a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "First noise (CFAR reference) bin, inclusive."
+
+[[correlator.properties]]
+name = "noise_hi"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "noise_hi: only a detector (detect=True) or a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Last noise (CFAR reference) bin, inclusive."
+
+[[correlator.properties]]
+name = "threshold"
+type = "float"
+getter_status = true
+error = "AttributeError"
+error_message = "threshold: only a detector (detect=True) or a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "The gate on the test statistic: a detector's as given (0 fires on every dump); a search's derived from pfa (the coherent path's gate)."
+
+[[correlator.properties]]
+name = "max_peaks"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "max_peaks: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "The peak list's capacity per dwell (1 = the classic gated maximum); set with set_max_peaks()."
+
+[[correlator.properties]]
+name = "code_bins"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "code_bins: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "One period of the reference in samples: the length of every forward transform and of a raw epoch."
+
+[[correlator.properties]]
+name = "doppler_bins"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "doppler_bins: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Doppler hypotheses searched, window tiles times the coherent depth: the count to fold a hit's row over (bin_to_signed(row, doppler_bins) * doppler_res_hz is the signed Doppler)."
+
+[[correlator.properties]]
+name = "n_noncoh"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "n_noncoh: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Non-coherent looks per detection (1 = pure coherent)."
+
+[[correlator.properties]]
+name = "eta"
+type = "float"
+getter_status = true
+error = "AttributeError"
+error_message = "eta: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Raw per-cell Rayleigh amplitude threshold."
+
+[[correlator.properties]]
+name = "eta_nc"
+type = "float"
+getter_status = true
+error = "AttributeError"
+error_message = "eta_nc: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Non-coherent CFAR threshold (order-N_nc Marcum)."
+
+[[correlator.properties]]
+name = "pfa_cell"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "pfa_cell: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Sidak per-cell false-alarm probability over the searched cells."
+
+[[correlator.properties]]
+name = "pd_predicted"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "pd_predicted: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Predicted Pd at cn0_dbhz and the chosen grid, averaged over the straddle priors (slow-time scalloping, intra-segment rotation, code-phase sample offset): what the Monte-Carlo characterization measures, not the on-grid best case."
+
+[[correlator.properties]]
+name = "straddle_loss"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "straddle_loss: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Mean amplitude derating of the correlation peak from grid straddle, a diagnostic; 20*log10(straddle_loss) is the loss in dB."
+
+[[correlator.properties]]
+name = "sample_rate"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "sample_rate: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Sample rate the search runs at, Hz: the constructor's sample_rate."
+
+[[correlator.properties]]
+name = "cn0_dbhz"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "cn0_dbhz: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Carrier-to-noise density the search was sized for, dB-Hz; NaN for no design point (the burst search only)."
+
+[[correlator.properties]]
+name = "doppler_span_hz"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "doppler_span_hz: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Native unambiguous Doppler half-range, Hz: sample_rate / (2 * code_bins)."
+
+[[correlator.properties]]
+name = "doppler_res_hz"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "doppler_res_hz: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Doppler bin width, Hz."
+
+[[correlator.properties]]
+name = "pd"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "pd: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Target detection probability."
+
+[[correlator.properties]]
+name = "underpowered"
+type = "bool"
+getter_status = true
+error = "AttributeError"
+error_message = "underpowered: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "True when the search cannot meet pd at cn0_dbhz and its geometry: pd_predicted < pd for the continuous search, pd_burst < pd for the burst search. It still builds a best-effort grid, and construction warns (UserWarning)."
+
+[[correlator.properties]]
+name = "threads"
+type = "int"
+getter_status = true
+error = "AttributeError"
+error_message = "threads: only a search (framing='continuous' or 'burst') has it; Correlator.flavor says which this is"
+doc = "Workers the search fans its tiles across, the calling thread included; 1 = serial. Set with set_threads()."
+
+[[correlator.properties]]
+name = "lag_bins"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "lag_bins: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Code-phase columns of the surface: code_bins unless code_bins is not 7-smooth, then the next power of two (an exact interpolation). surface_chip_phase() gives each column in chips."
+
+[[correlator.properties]]
+name = "coherent_bins"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "coherent_bins: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "The block-coherent depth D inside every window tile: epochs per block and Doppler rows per tile. 1 without a code-only window."
+
+[[correlator.properties]]
+name = "sf"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "sf: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Chips per code period: len(ref)."
+
+[[correlator.properties]]
+name = "chip_rate"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "chip_rate: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Chip rate, Hz."
+
+[[correlator.properties]]
+name = "symbol_rate"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "symbol_rate: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Data-symbol rate the search was built with, Hz (0 = no known data clock): a diagnostic, never sizing."
+
+[[correlator.properties]]
+name = "epochs_per_symbol"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "epochs_per_symbol: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "(chip_rate / sf) / symbol_rate: code epochs per data symbol; 0 when symbol_rate is 0."
+
+[[correlator.properties]]
+name = "n_peaks"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "n_peaks: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Picks in the last decided dwell, held twins included."
+
+[[correlator.properties]]
+name = "n_held"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "n_held: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Picks of the last decided dwell held as same-code-phase twins rather than listed (docs/design/async-dsss-receiver.md section 7.1)."
+
+[[correlator.properties]]
+name = "peak_conc"
+type = "float"
+getter_status = true
+error = "AttributeError"
+error_message = "peak_conc: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Concentration of the last dwell's strongest peak: its main lobe's power over its code-phase column's, across every Doppler row and tile. Near 1 for a clean single emitter; about 0.5 when a data transition splits it into twins (docs/design/async-dsss-receiver.md section 2.4)."
+
+[[correlator.properties]]
+name = "carrier_freq_hz"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "carrier_freq_hz: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "RF carrier the Doppler is coupled to, Hz (0.0 = uncoupled); set with set_carrier_freq_hz()."
+
+[[correlator.properties]]
+name = "surface_rows"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "surface_rows: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "Rows of the surface surface() returns: the Doppler axis in surface units; its columns are lag_bins."
+
+[[correlator.properties]]
+name = "surface_at"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "surface_at: only the continuous search (framing='continuous') has it; Correlator.flavor says which this is"
+doc = "samples_consumed of the dwell whose surface surface() returns (0 until one has been captured)."
+
+[[correlator.properties]]
+name = "reps"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "reps: only the burst search (framing='burst') has it; Correlator.flavor says which this is"
+doc = "Preamble repetitions a burst holds: the coherence ceiling."
+
+[[correlator.properties]]
+name = "pd_burst"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "pd_burst: only the burst search (framing='burst') has it; Correlator.flavor says which this is"
+doc = "Predicted Pd of one burst of reps repetitions at cn0_dbhz: the number the sizer meets pd with. NaN with no design cn0_dbhz or with n_noncoh > 1."
+
+[[correlator.properties]]
+name = "psl_db"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "psl_db: only the burst search (framing='burst') has it; Correlator.flavor says which this is"
+doc = "The preamble's peak sidelobe level, dB: its periodic autocorrelation's largest lag outside the mainlobe, relative to the peak (-inf for a perfect sequence such as Zadoff-Chu)."
+
+[[correlator.properties]]
+name = "doppler_rate"
+type = "double"
+getter_status = true
+error = "AttributeError"
+error_message = "doppler_rate: only the burst search (framing='burst') has it; Correlator.flavor says which this is"
+doc = "Doppler rate the coherent depth is bounded against, Hz/s (0 = no bound); with rate_hypotheses > 1, the span of the hypotheses."
+
+[[correlator.properties]]
+name = "rate_hypotheses"
+type = "size_t"
+getter_status = true
+error = "AttributeError"
+error_message = "rate_hypotheses: only the burst search (framing='burst') has it; Correlator.flavor says which this is"
+doc = "Doppler-rate hypotheses searched: as given, or the engine's choice when built with 0; 1 is none."

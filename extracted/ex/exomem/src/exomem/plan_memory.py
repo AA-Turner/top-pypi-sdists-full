@@ -90,7 +90,7 @@ def plan_memory(
 
     Args:
         collection: Vault-relative manifest path, collection UUID or memory reference. Omit to list.
-        plan_id: row plan_id.
+        plan_id: row plan_id; on query, that item and its body.
         expected_container_hash: Returned snapshot.
         expected_item_version: row item_version.
         changes: Update.
@@ -101,6 +101,9 @@ def plan_memory(
     values.pop("action")
     _validate_arguments(action, values)
     try:
+        # nosemgrep: ep-word-membership -- plan_memory's closed write actions (see ACTIONS).
+        if action in {"add", "update", "triage"}:
+            return _write(vault_root, action, values)
         if action == "inspect" and collection is None:
             from .record_governance import inventory_collections
 
@@ -131,17 +134,6 @@ def plan_memory(
                 why=why,
                 scaffold=True if scaffold is None else scaffold,
             )
-        if action == "add":
-            assert collection is not None and item is not None and why is not None
-            return planning.add(
-                vault_root,
-                collection,
-                item=item,
-                plan_id=plan_id,
-                expected_container_hash=expected_container_hash,
-                body="" if body is None else body,
-                why=why,
-            )
         if action == "history":
             assert collection is not None and plan_id is not None
             from . import record_history
@@ -153,6 +145,16 @@ def plan_memory(
                 semantic_profile="planning",
                 limit=limit,
                 continuation=continuation,
+            )
+        if action == "query" and plan_id is not None:
+            from . import record_governance
+
+            # Resolved under the caller's authority first, so the refusal never confirms a withheld collection.
+            assert collection is not None
+            planning.require_planning_profile(record_governance.resolve_collection(vault_root, collection))
+            raise CollectionError(
+                "QUERY_UNAVAILABLE", "a query with plan_id reads a store-routed collection; this one keeps "
+                "each body in its item file, so read that file with read_memory"
             )
         if action == "query":
             assert collection is not None
@@ -178,39 +180,6 @@ def plan_memory(
                 include_agent_history=(
                     False if include_agent_history is None else include_agent_history
                 ),
-            )
-        if action == "update":
-            assert collection is not None and plan_id is not None
-            assert (
-                expected_container_hash is not None
-                and expected_item_version is not None
-                and why is not None
-            )
-            return planning.update(
-                vault_root,
-                collection,
-                plan_id=plan_id,
-                changes={} if changes is None else changes,
-                body=body,
-                expected_container_hash=expected_container_hash,
-                expected_item_version=expected_item_version,
-                why=why,
-            )
-        if action == "triage":
-            assert collection is not None and plan_id is not None and transition is not None
-            assert (
-                expected_container_hash is not None
-                and expected_item_version is not None
-                and why is not None
-            )
-            return planning.triage(
-                vault_root,
-                collection,
-                plan_id=plan_id,
-                transition=transition,
-                expected_container_hash=expected_container_hash,
-                expected_item_version=expected_item_version,
-                why=why,
             )
         if action == "revise":
             assert collection is not None and manifest_text is not None
@@ -259,6 +228,31 @@ def validate_arguments(action: object, arguments: Mapping[str, Any]) -> None:
     _validate_arguments(action, values)
 
 
+def _write(vault_root: Path, action: str, values: Mapping[str, Any], *, _prepare=None, request_id=None, history_binding=None, _validate_inputs=None) -> dict[str, Any]:
+    """The shared native Planning write facade; private preparation stays off the public schema."""
+    from .collection_store import preview
+
+    args = {key: value for key, value in values.items() if value is not None}
+    _validate_arguments(action, {**dict.fromkeys(set().union(*_ACTION_FIELDS.values())), **args})
+    internal = {"_prepare": _prepare, "hold": False} if _prepare is not None else {}
+    if _validate_inputs is not None:
+        internal["_validate_inputs"] = _validate_inputs
+    if request_id is not None:
+        internal["request_id"] = request_id
+    selected, result = preview.dispatch(vault_root, "planning", action, {**args, **internal})
+    if selected:
+        return result
+    args.pop("request_id", None)
+    if action == "add":
+        return planning.add(vault_root, **args, _prepare=_prepare, _validate_inputs=_validate_inputs)
+    if action == "update":
+        args.setdefault("changes", {})
+        return planning.update(vault_root, **args, _prepare=_prepare, _history_binding=history_binding, _validate_inputs=_validate_inputs)
+    if action == "triage":
+        return planning.triage(vault_root, **args, _prepare=_prepare, _history_binding=history_binding, _validate_inputs=_validate_inputs)
+    raise ValueError("native Planning write action is invalid")
+
+
 def _validate_arguments(action: object, values: dict[str, Any]) -> None:
     if not isinstance(action, str) or action not in ACTIONS:
         _invalid_arguments()
@@ -286,6 +280,9 @@ def _validate_arguments(action: object, values: dict[str, Any]) -> None:
         _invalid_arguments("validate requires exactly one of: collection, manifest_path")
     if action == "update" and values["changes"] is None and values["body"] is None:
         _invalid_arguments("update requires at least one of: changes, body")
+    if action == "query" and values["plan_id"] is not None and supplied - {"collection", "plan_id"}:
+        _invalid_arguments("a query with plan_id reads that one item and its body, so it takes only collection; "
+                           "remove " + ", ".join(sorted(supplied - {"collection", "plan_id"})))
 
 
 def refuse_arguments(detail: str) -> Never:

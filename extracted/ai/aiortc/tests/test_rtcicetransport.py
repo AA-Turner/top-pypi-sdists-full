@@ -5,7 +5,7 @@ import aioice.ice
 import aioice.stun
 from aioice import ConnectionClosed
 from aiortc.exceptions import InvalidStateError
-from aiortc.rtcconfiguration import RTCIceServer
+from aiortc.rtcconfiguration import RTCIceServer, RTCIceTransportPolicy
 from aiortc.rtcicetransport import (
     RTCIceCandidate,
     RTCIceGatherer,
@@ -252,6 +252,18 @@ class RTCIceGathererTest(TestCase):
         # close
         await gatherer._connection.close()
 
+    @asynctest
+    async def test_gather_relay(self) -> None:
+        # The default STUN server must not yield server-reflexive candidates, and
+        # without a TURN server nothing is left (RFC 9429 section 3.5.3).
+        gatherer = RTCIceGatherer(iceTransportPolicy=RTCIceTransportPolicy.RELAY)
+        await gatherer.gather()
+        self.assertEqual(gatherer.state, "completed")
+        self.assertEqual(gatherer.getLocalCandidates(), [])
+
+        # close
+        await gatherer._connection.close()
+
     def test_default_ice_servers(self) -> None:
         self.assertEqual(
             RTCIceGatherer.getDefaultIceServers(),
@@ -347,8 +359,10 @@ class RTCIceTransportTest(TestCase):
         await asyncio.gather(gatherer_1.gather(), gatherer_2.gather())
         for candidate in gatherer_2.getLocalCandidates():
             await transport_1.addRemoteCandidate(candidate)
+        await transport_1.addRemoteCandidate(None)
         for candidate in gatherer_1.getLocalCandidates():
             await transport_2.addRemoteCandidate(candidate)
+        await transport_2.addRemoteCandidate(None)
         self.assertEqual(transport_1.state, "new")
         self.assertEqual(transport_2.state, "new")
 

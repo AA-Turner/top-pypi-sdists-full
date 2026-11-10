@@ -127,8 +127,63 @@ def test_score_carries_the_listed_fields(tmp_path):
     s = _score(tmp_path, _result(), TWO_PEERS)
     assert set(s) == {"arm", "cost_usd", "per_model", "main_new_tokens", "first_cache_read", "floor_passed",
                       "bundle_commits", "void", "wall_s", "floor_error", "floor_steps", "warmth_checked",
-                      "result_subtype", "store_changes", "store_guard", "sandbox", "task_file", "task_sha256"}
+                      "result_subtype", "store_changes", "store_guard", "sandbox", "task_file", "task_sha256",
+                      "subagents", "idea_markers", "floor_suite", "floor_gate", "last_text", "ended_with_question"}
     assert (s["arm"], s["main_new_tokens"], s["bundle_commits"], s["wall_s"]) == ("r1-C", 20010, 1, 1.2)
+
+
+def test_score_reads_subagents_ideas_and_the_suite_from_the_arm_dir(tmp_path):
+    """The three readings come from the arm's own kept files, never from result.json."""
+    arm = tmp_path / "arms" / "r1-C"
+    sub = arm / "transcripts" / "-ws" / "s1" / "subagents"
+    sub.mkdir(parents=True)
+    for name, start, end in (("a", "10:00", "10:09"), ("b", "10:01", "10:02"), ("c", "10:01", "10:05")):
+        lines = [json.dumps({"timestamp": f"2026-11-08T{t}:00Z"}) for t in (start, end)]
+        (sub / f"agent-{name}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write = {"type": "tool_use", "id": "t1", "name": "Write",
+             "input": {"file_path": ".bitranox/sdd/progress.md", "content": "[abx] idea=2 split the plan\n"}}
+    (arm / "stream.jsonl").write_text(json.dumps({"type": "assistant", "message": {"id": "m", "content": [write]}})
+                                      + "\n", encoding="utf-8")
+    (arm / S.SUITE_LOG).write_text((FIXTURES / "cargo-compile-error.log").read_text(encoding="utf-8"), encoding="utf-8")
+    floor = {"passed": False, "steps": [{"name": "gate", "rc": 0, "error": None},
+                                        {"name": "suite", "rc": 101, "error": None}]}
+    (arm / "result.json").write_text(json.dumps(_result(floor=floor)), encoding="utf-8")
+    s = S.score_arm(arm, _pure_profile(tmp_path), peers=TWO_PEERS)
+    assert s["subagents"] == {"transcripts": 3, "max_concurrent": 3, "untimed": 0}
+    assert s["idea_markers"] == {"writes": 1, "ideas": {"2": {"count": 1, "first": "[abx] idea=2 split the plan"}}}
+    assert s["floor_suite"]["outcome"] == "does_not_compile" and "run_sandboxed" in s["floor_suite"]["missing"]
+    assert s["floor_steps"] == [{"name": "gate", "rc": 0}, {"name": "suite", "rc": 101}], "existing keys unchanged"
+
+
+def test_an_arm_with_no_kept_files_scores_none_for_all_three(tmp_path):
+    s = _score(tmp_path, _result(), TWO_PEERS)
+    assert (s["subagents"], s["idea_markers"], s["floor_suite"], s["floor_gate"]) == (None, None, None, None)
+    assert s["ended_with_question"] is None, "no stream, no last words"
+
+
+def test_a_gate_that_cannot_find_protoc_reads_as_a_missing_prerequisite(tmp_path):
+    """The gate step is classified from floor-gate.log like the suite; a failed gate runs no suite."""
+    arm = tmp_path / "arms" / "r1-C"
+    arm.mkdir(parents=True)
+    (arm / "floor-gate.log").write_text((FIXTURES / "cargo-protoc-missing.log").read_text(encoding="utf-8"),
+                                        encoding="utf-8")
+    floor = {"passed": False, "steps": [{"name": "gate", "rc": 101, "error": None}]}
+    (arm / "result.json").write_text(json.dumps(_result(floor=floor)), encoding="utf-8")
+    s = S.score_arm(arm, _pure_profile(tmp_path), peers=TWO_PEERS)
+    assert (s["floor_gate"]["outcome"], s["floor_gate"]["prerequisite"]) == ("build_prerequisite_missing", "protoc")
+    assert s["floor_suite"] is None and s["floor_passed"] is False and s["void"] == []
+    assert s["floor_steps"] == [{"name": "gate", "rc": 101}], "existing keys unchanged"
+
+
+def test_the_suite_log_run_floor_writes_is_the_one_the_score_reads(tmp_path):
+    prof = _pure_profile(tmp_path, gate=[sys.executable, "-c", "pass"])
+    suite = [sys.executable, "-c", "print('test result: FAILED. 1 passed; 3 failed; 0 ignored'); raise SystemExit(101)"]
+    prof = dataclasses.replace(prof, floor=dataclasses.replace(prof.floor, suite="s.py", suite_cmd=tuple(suite)))
+    arm = tmp_path / "arms" / "r1-C"
+    floor = S.run_floor(tmp_path, prof, arm)
+    (arm / "result.json").write_text(json.dumps(_result(floor=floor)), encoding="utf-8")
+    out = S.score_arm(arm, prof, peers=TWO_PEERS)["floor_suite"]
+    assert (out["outcome"], out["rc"], out["tests_failed"], out["tests_total"]) == ("tests_failed", 101, 3, 4)
 
 
 def test_the_real_stream_summary_of_the_fixture_scores_clean(tmp_path):
@@ -538,3 +593,38 @@ def test_a_suite_that_cannot_be_placed_as_sealed_fails_without_running(tmp_path,
     suite = res["steps"][1]
     assert res["passed"] is False and suite["rc"] == S.RC_NOT_STARTED and suite["error"].startswith(error)
     assert outside is None or list(outside.iterdir()) == [], "nothing was written outside the tree"
+
+
+# --- ended_with_question: an arm whose session stopped to ask the absent human ---------------------
+
+def _text_record(mid, *blocks):
+    content = [{"type": "text", "text": b} if isinstance(b, str) else b for b in blocks]
+    return {"type": "assistant", "message": {"id": mid, "model": "claude-opus-5-5", "content": content}}
+
+
+_TOOL = {"type": "tool_use", "id": "t", "name": "Bash", "input": {"command": "ls"}}
+
+
+@pytest.mark.parametrize(("records", "expected"), [
+    ([_text_record("m1", "Done. Shall I open the PR?  ")], True),
+    ([_text_record("m1", "Which file?"), _text_record("m2", "Done, all tests pass.")], False),
+    ([_text_record("m1", "Should I keep going?"), _text_record("m1", _TOOL)], True),
+    ([_text_record("m1", _TOOL)], None),
+], ids=["question", "statement", "question-then-tool-use", "no-text"])
+def test_score_flags_an_arm_whose_last_words_are_a_question(tmp_path, records, expected):
+    arm = tmp_path / "arms" / "r1-C"
+    arm.mkdir(parents=True)
+    (arm / "stream.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+    (arm / "result.json").write_text(json.dumps(_result()), encoding="utf-8")
+    s = S.score_arm(arm, _pure_profile(tmp_path), peers=TWO_PEERS)
+    assert s["ended_with_question"] is expected
+    assert s["void"] == [], "a question flags the arm, it never voids it"
+
+
+def test_a_bad_byte_in_the_stream_costs_its_line_not_the_last_words(tmp_path):
+    arm = tmp_path / "arms" / "r1-C"
+    arm.mkdir(parents=True)
+    (arm / "stream.jsonl").write_bytes(b'{"type": "assistant", "message": {"content": "ok?"}}\n\xff\xfe\n')
+    (arm / "result.json").write_text(json.dumps(_result()), encoding="utf-8")
+    s = S.score_arm(arm, _pure_profile(tmp_path), peers=TWO_PEERS)
+    assert (s["last_text"], s["ended_with_question"]) == ("ok?", True)

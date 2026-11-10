@@ -1,8 +1,7 @@
 [project]
 name = "bleak"
-version = "3.0.2"
+version = "3.1.0"
 description = "Bluetooth Low Energy platform Agnostic Klient"
-authors = [{ name = "Henrik Blidh", email = "henrik.blidh@nedomkull.com" }]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.rst"
@@ -29,8 +28,12 @@ dependencies = [
     "winrt-Windows.Foundation>=3.1; platform_system=='Windows'",
     "winrt-Windows.Foundation.Collections>=3.1; platform_system=='Windows'",
     "winrt-Windows.Storage.Streams>=3.1; platform_system=='Windows'",
-    "dbus-fast>=1.83.0; platform_system=='Linux'",
+    "dbus-fast>=4.0.0; platform_system=='Linux'",
 ]
+
+[[project.authors]]
+name = "Henrik Blidh"
+email = "henrik.blidh@nedomkull.com"
 
 [project.urls]
 Homepage = "https://github.com/hbldh/bleak"
@@ -57,16 +60,35 @@ test = [
     "pytest-asyncio>=1.2.0,<2.0.0",
     "pytest-cov>=7.0.0,<8.0.0",
     "bumble==0.0.226",
+    "winvhci @ git+https://github.com/dlech/windows-vhci-driver@v1.3.0#subdirectory=python ; platform_system=='Windows'",
+    "pytest-rerunfailures>=16.7",
+]
+test-android = [
+    "briefcase>=0.4.5; python_version >= '3.11'",
+    "chaquopy-stubs-android~=36.0",
+    "toga-core>=0.5.4",
+    "uiautomator2>=3.5.0",
 ]
 dev = [
+    "poethepoet>=0.45.0",
     { include-group = "docs" },
     { include-group = "lint" },
     { include-group = "test" },
+    { include-group = "test-android" },
 ]
 
 [build-system]
-requires = ["uv_build>=0.10.9,<0.11.0"]
+requires = ["uv_build>=0.10.9,<0.12.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+override-dependencies = [
+    "grpcio>=1.62.1 ; sys_platform != 'win32'",
+    "libusb-package==1.0.26.1 ; sys_platform != 'win32'",
+    "libusb1>=2.0.1 ; sys_platform != 'win32'",
+    "pyusb>=1.2 ; sys_platform != 'win32'",
+]
+constraint-dependencies = ["cryptography==46.0.3 ; sys_platform == 'win32'"]
 
 [tool.uv.build-backend]
 module-name = "bleak"
@@ -74,19 +96,37 @@ module-root = ""
 
 [tool.isort]
 profile = "black"
-py_version=310
-src_paths = ["bleak", "examples", "tests"]
-extend_skip = [".buildozer", "docs"]
+py_version = 310
+src_paths = [
+    "bleak",
+    "examples",
+    "tests",
+]
+extend_skip = [
+    ".buildozer",
+    "docs",
+]
 
 [tool.mypy]
 python_version = "3.10"
 disable_error_code = ["import-not-found"]
-exclude = "(.venv|kivy|recipes)/"
+exclude = "(.venv|kivy|recipes|testbed)/"
 mypy_path = "typings"
+packages = [
+    "bleak",
+    "tests",
+    "examples",
+]
 
 [tool.pyright]
 typeCheckingMode = "strict"
-exclude = ["**/.venv/**", "**/kivy/**", "**/recipes/**"]
+exclude = [
+    "**/.venv/**",
+    "**/kivy/**",
+    "**/recipes/**",
+    "**/testbed/**",
+    "**/typings/**",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -94,13 +134,184 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "error",
-    # There is an issue with coverage binary extensions on Python 3.10 on Linux.
-    # Not a big deal, just reduces performance a bit.
-    '''ignore:Couldn't import C tracer:coverage.exceptions.CoverageWarning''',
+    "ignore:Couldn't import C tracer:coverage.exceptions.CoverageWarning",
 ]
-
 addopts = """
+--import-mode=importlib
 --cov=bleak
 --cov-branch
 --cov-report html
 """
+
+[tool.poe.executor]
+type = "uv"
+isolated = true
+
+[tool.poe.tasks.test-py310]
+help = "Run tests using Python 3.10"
+cmd = "pytest tests -v $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-py310.executor]
+python = "3.10"
+no-group = "dev"
+group = "test"
+
+[tool.poe.tasks.test-py311]
+help = "Run tests using Python 3.11"
+cmd = "pytest tests -v $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-py311.executor]
+python = "3.11"
+no-group = "dev"
+group = "test"
+
+[tool.poe.tasks.test-py312]
+help = "Run tests using Python 3.12"
+cmd = "pytest tests -v $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-py312.executor]
+python = "3.12"
+no-group = "dev"
+group = "test"
+
+[tool.poe.tasks.test-py313]
+help = "Run tests using Python 3.13"
+cmd = "pytest tests -v $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-py313.executor]
+python = "3.13"
+no-group = "dev"
+group = "test"
+
+[tool.poe.tasks.test-py314]
+help = "Run tests using Python 3.14"
+cmd = "pytest tests -v $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-py314.executor]
+python = "3.14"
+no-group = "dev"
+group = "test"
+
+[tool.poe.tasks.test-all]
+help = "Run tests using all supported Python versions"
+sequence = [
+    "test-py310",
+    "test-py311",
+    "test-py312",
+    "test-py313",
+    "test-py314",
+]
+
+[tool.poe.tasks.test-android-emulator]
+help = "Run integration tests in the Android emulator (see tests/integration/README.rst)"
+cmd = "python testbed/run_android_tests_emulator.py $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-android-emulator.executor]
+python = "3.13"
+no-group = "dev"
+group = [
+    "test",
+    "test-android",
+]
+
+[tool.poe.tasks.test-android-device]
+help = "Run integration tests on a real Android device (see tests/integration/README.rst)"
+cmd = "python testbed/run_android_tests_real_device.py $POE_EXTRA_ARGS"
+
+[tool.poe.tasks.test-android-device.executor]
+python = "3.13"
+no-group = "dev"
+group = [
+    "test",
+    "test-android",
+]
+
+[tool.poe.tasks.typecheck]
+help = "Run type checkers (mypy, pyright)"
+
+[[tool.poe.tasks.typecheck.sequence]]
+cmd = "mypy"
+
+[tool.poe.tasks.typecheck.sequence.executor]
+no-group = "dev"
+group = "test"
+with = "mypy"
+
+[[tool.poe.tasks.typecheck.sequence]]
+cmd = "pyright"
+
+[tool.poe.tasks.typecheck.sequence.executor]
+no-group = "dev"
+group = "test"
+with = "pyright"
+
+[tool.poe.tasks.typecheck-android]
+help = "Run type checkers (mypy, pyright) for the Android backend"
+
+[[tool.poe.tasks.typecheck-android.sequence]]
+cmd = "mypy --config-file=mypy-android.ini"
+
+[tool.poe.tasks.typecheck-android.sequence.executor]
+python = "3.13"
+no-group = "dev"
+group = [
+    "test",
+    "test-android",
+]
+with = "mypy"
+
+[[tool.poe.tasks.typecheck-android.sequence]]
+cmd = "pyright --project pyrightconfig-android.json"
+
+[tool.poe.tasks.typecheck-android.sequence.executor]
+python = "3.13"
+no-group = "dev"
+group = [
+    "test",
+    "test-android",
+]
+with = "pyright"
+
+[tool.poe.tasks.lint]
+help = "Run code linters (isort, black, flake8)"
+
+[[tool.poe.tasks.lint.sequence]]
+cmd = "isort . ${checkonly:+--check --diff}"
+
+[tool.poe.tasks.lint.sequence.executor]
+no-group = "dev"
+group = "lint"
+
+[[tool.poe.tasks.lint.sequence]]
+cmd = "isort docs ${checkonly:+--check --diff}"
+
+[tool.poe.tasks.lint.sequence.executor]
+no-group = "dev"
+group = "lint"
+
+[[tool.poe.tasks.lint.sequence]]
+cmd = "black . ${checkonly:+--check --diff}"
+
+[tool.poe.tasks.lint.sequence.executor]
+no-group = "dev"
+group = "lint"
+
+[[tool.poe.tasks.lint.sequence]]
+cmd = "flake8 . --count --show-source --statistics"
+
+[tool.poe.tasks.lint.sequence.executor]
+no-group = "dev"
+group = "lint"
+
+[[tool.poe.tasks.lint.args]]
+name = "checkonly"
+type = "boolean"
+
+[tool.poe.tasks.docs]
+help = "Build the documentation"
+cmd = "sphinx-build -b html -W -d docs/_build/doctrees docs docs/_build/html"
+
+[tool.poe.tasks.docs.executor]
+python = "3.11"
+no-group = "dev"
+group = "docs"

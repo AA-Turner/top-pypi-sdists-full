@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
+import os
 from pathlib import Path
+import subprocess  # ruff: ignore[suspicious-subprocess-import] -- report bounded immutable Git provenance failures.
 import time
 from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
 
@@ -31,15 +33,34 @@ from sarj_standards.libs.diagnostics import (
 )
 from sarj_standards.libs.rules import RuleEngine, RuleSelection
 
-from . import textlint
+from . import shell_ast, textlint
 from .process import raise_if_cancelled
+from .read_tracking import tracked_reads
+from .result_cache import (
+    KEEP_PER_UNIT,
+    CachedResult,
+    ResultCache,
+    TrackedResult,
+    UnknownInputsError,
+    cached_python_analysis,
+    cached_tracked_analysis,
+    executable_identity,
+    file_identity,
+    notice_outcomes,
+)
 from .runner import GroupedPaths, group_paths
 
 
+# Native Python reaches its 512-entry module-resolution quota only on large
+# selections; workers then check the files after that quota is spent.
+_PARALLEL_PYTHON_FILES = 512
+
+
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from typing import Self
 
+    from sarj_iac_lint.guard_contracts import GuardContracts
     from sarj_python_lint.rule_base import Fix as PythonFix
 
     from .policy import Policy
@@ -88,6 +109,12 @@ class _SeverityDiagnostic(Protocol):
 
 
 @runtime_checkable
+class _BaselineDiagnostic(Protocol):
+    @property
+    def baselineable(self) -> bool: ...
+
+
+@runtime_checkable
 class _FixDiagnostic(Protocol):
     @property
     def fixes(self) -> tuple[PythonFix, ...]: ...
@@ -128,6 +155,10 @@ def analyze(
     policy: Policy | None = None,
     grouped: GroupedPaths | None = None,
     rule_selection: RuleSelection | None = None,
+    python_jobs: int = 1,
+    staged: bool = False,
+    use_guard_contracts: bool = True,
+    module_summaries: bool = False,
 ) -> AnalysisReport:
     root = root.resolve()
     try:
@@ -139,9 +170,11 @@ def analyze(
         return AnalysisReport(root, Completion.FAILED, Conclusion.INCONCLUSIVE, (tool,))
 
     sources = SourceCatalog()
+    iac_contracts = _iac_contracts(root, staged=staged) if use_guard_contracts else _PreparedIAC()
     reports = tuple(
         report
         for report in (
+            iac_contracts.report,
             _native_report(
                 "sarj-python-lint",
                 "sarj_python_lint",
@@ -150,6 +183,7 @@ def analyze(
                 sources=sources,
                 python_baseline=python_baseline,
                 rule_ids=_selected_ids(rule_selection, RuleEngine.PYTHON),
+                python_jobs=python_jobs,
             ),
             _native_report(
                 "sarj-sql-lint",
@@ -166,6 +200,8 @@ def analyze(
                 root,
                 sources=sources,
                 rule_ids=_selected_ids(rule_selection, RuleEngine.IAC),
+                guard_contracts=iac_contracts.contracts,
+                module_summaries=module_summaries,
             ),
             _text_report(
                 routed,
@@ -269,17 +305,46 @@ def _native_report(
     sources: SourceCatalog,
     python_baseline: Path | None = None,
     rule_ids: frozenset[str] | None = None,
+    python_jobs: int = 1,
+    guard_contracts: GuardContracts | None = None,
+    module_summaries: bool = False,
 ) -> ToolReport | None:
     if not files or rule_ids == frozenset():
         return None
     raise_if_cancelled(None)
-    try:
+
+    def run() -> ToolReport:
         return _run_native(
-            name, package, files, root, sources=sources, python_baseline=python_baseline, rule_ids=rule_ids
+            name,
+            package,
+            files,
+            root,
+            sources=sources,
+            python_baseline=python_baseline,
+            rule_ids=rule_ids,
+            python_jobs=python_jobs,
+            guard_contracts=guard_contracts,
+            module_summaries=module_summaries,
+        )
+
+    try:
+        if package != "sarj_python_lint":
+            return run()
+        cached = cached_python_analysis(
+            name,
+            root,
+            selected=files,
+            parameters=(
+                f"rules={','.join(sorted(rule_ids)) if rule_ids is not None else '*'}",
+                f"baseline={python_baseline.read_text(encoding='utf-8') if python_baseline is not None else ''}",
+            ),
+            compute=lambda: CachedResult((run(),)),
         )
     except Exception as exc:  # ruff: ignore[blind-except] -- one analyzer failure must not erase other tool results.
         issue = ExecutionIssue(name, "analyzer-failure", f"{type(exc).__name__}: {exc}")
         return ToolReport(name, Completion.FAILED, issues=(issue,))
+    [report] = cached.reports
+    return report
 
 
 def _run_native(
@@ -291,6 +356,9 @@ def _run_native(
     sources: SourceCatalog,
     python_baseline: Path | None,
     rule_ids: frozenset[str] | None,
+    python_jobs: int = 1,
+    guard_contracts: GuardContracts | None = None,
+    module_summaries: bool = False,
 ) -> ToolReport:
     started = time.monotonic()
     analyzer, registry = _load_native(package)
@@ -316,7 +384,15 @@ def _run_native(
             paths,
             baseline=python_baseline,
             root=root,
+            # Smaller selections keep the established serial path and its startup cost.
+            jobs=python_jobs if len(paths) >= _PARALLEL_PYTHON_FILES else 1,
             sources=sources,
+        )
+    elif package == "sarj_iac_lint":
+        from sarj_iac_lint.__main__ import analyze as analyze_iac  # ruff: ignore[import-outside-top-level] -- selected IaC engine only.
+
+        native_result = analyze_iac(
+            selected_rules, paths, sources=sources, guard_contracts=guard_contracts, module_summaries=module_summaries
         )
     else:
         native_result = analyzer(selected_rules, paths, sources=sources)
@@ -465,6 +541,8 @@ def normalize_native(
 
         if item.code in PROTECTED_SUPPRESSION_CODES:
             tags = ("non-baselineable", "required-source-policy")
+    if source == "sarj-iac-lint" and isinstance(item, _BaselineDiagnostic) and not item.baselineable:
+        tags = ("non-baselineable", "required-source-policy")
     relative_path = _relative_path(resolved, root)
     return Diagnostic(
         code=item.code,
@@ -574,16 +652,91 @@ def _run_text(
     if unknown:
         msg = f"unknown text rule(s): {', '.join(unknown)}"
         raise ValueError(msg)
-    raw = tuple(
-        finding
-        for finding in textlint.check_paths(files, root=root, rule_ids=rule_ids, sources=sources)
-        if any(meta.code == finding.code and rule_id in selected for rule_id, meta in textlint.REGISTRY.items())
-    )
-    raise_if_cancelled(None)
     by_code = {meta.code: (rule_id, meta.description, meta.blocking) for rule_id, meta in textlint.REGISTRY.items()}
     documents: dict[Path, SourceDocument] = {}
-    diagnostics = tuple(_normalize_text(item, root, by_code, documents, sources=sources) for item in raw)
+
+    def normalized(findings: Iterable[textlint.Finding]) -> tuple[Diagnostic, ...]:
+        raw = tuple(
+            finding
+            for finding in findings
+            if any(meta.code == finding.code and rule_id in selected for rule_id, meta in textlint.REGISTRY.items())
+        )
+        raise_if_cancelled(None)
+        return tuple(_normalize_text(item, root, by_code, documents, sources=sources) for item in raw)
+
+    if ResultCache.from_environment() is None:
+        diagnostics = normalized(textlint.check_paths(files, root=root, rule_ids=rule_ids, sources=sources))
+    else:
+        diagnostics = _cached_text_diagnostics(files, root, rule_ids=rule_ids, sources=sources, normalized=normalized)
     return ToolReport("sarj-text-lint", Completion.COMPLETE, diagnostics=diagnostics)
+
+
+def _cached_text_diagnostics(
+    files: Sequence[str],
+    root: Path,
+    *,
+    rule_ids: frozenset[str] | None,
+    sources: SourceCatalog,
+    normalized: Callable[[Iterable[textlint.Finding]], tuple[Diagnostic, ...]],
+) -> tuple[Diagnostic, ...]:
+    # Each file's findings depend on its bytes, the manifest's text policy, the
+    # selected rules, the shell parser, and any file a rule reads by reference.
+    resolved = root.resolve()
+    checker = textlint.TextChecker(root=root, rule_ids=rule_ids, sources=sources)
+    shared: list[str] = []
+    outcomes: list[bool] = []
+
+    def shared_inputs() -> list[str]:
+        if not shared:
+            try:
+                parser = executable_identity(shell_ast.checked_executable())
+            except shell_ast.ShellParseError as error:
+                raise UnknownInputsError(str(error)) from error
+            shared.extend(
+                (
+                    f"manifest={file_identity(resolved / '.sarj-standards.toml')}",
+                    f"rules={','.join(sorted(rule_ids)) if rule_ids is not None else '*'}",
+                    f"shell-parser={parser}",
+                )
+            )
+        return shared
+
+    def identity(relative: str) -> str:
+        path = Path(os.path.normpath(resolved / relative))
+        target = path.resolve()
+        if not target.is_relative_to(resolved):
+            return "outside"
+        return f"{target.relative_to(resolved).as_posix()}:{file_identity(path)}"
+
+    def analyze(raw: str) -> TrackedResult:
+        with tracked_reads() as reads:
+            diagnostics = normalized(checker.check(raw))
+        return TrackedResult(
+            CachedResult((ToolReport("sarj-text-lint", Completion.COMPLETE, diagnostics=diagnostics),)),
+            tuple(os.path.relpath(path, resolved) for path in reads),
+        )
+
+    def inputs(raw: str) -> list[str]:
+        path = Path(raw)
+        return [
+            *shared_inputs(),
+            f"path={path.resolve().relative_to(resolved).as_posix()}",
+            f"source={file_identity(path)}",
+        ]
+
+    diagnostics: list[Diagnostic] = []
+    for raw in files:
+        result = cached_tracked_analysis(
+            "text-lint",
+            inputs=lambda raw=raw: inputs(raw),
+            compute=lambda raw=raw: analyze(raw),
+            identity=identity,
+            keep=KEEP_PER_UNIT,
+            outcomes=outcomes,
+        )
+        diagnostics.extend(diagnostic for report in result.reports for diagnostic in report.diagnostics)
+    notice_outcomes("text-lint", outcomes)
+    return tuple(diagnostics)
 
 
 def _normalize_text(
@@ -632,3 +785,19 @@ def _relative_path(path: Path, root: Path) -> str:
     except ValueError as exc:
         msg = "analyzer reported a path outside the repository root"
         raise ValueError(msg) from exc
+
+
+@dataclass(frozen=True)
+class _PreparedIAC:
+    contracts: "GuardContracts | None" = None
+    report: ToolReport | None = None
+
+
+def _iac_contracts(root: Path, *, staged: bool) -> _PreparedIAC:
+    from .iac_guard_contracts import CoreIAC  # ruff: ignore[import-outside-top-level] -- load the IaC contract adapter only during native analysis.
+
+    try:
+        return _PreparedIAC(contracts=CoreIAC(root, staged=staged).prepare())
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError) as exc:
+        issue = ExecutionIssue("sarj-iac-lint", "guard-contract-failure", f"{type(exc).__name__}: {exc}")
+        return _PreparedIAC(report=ToolReport("sarj-iac-lint", Completion.FAILED, issues=(issue,)))

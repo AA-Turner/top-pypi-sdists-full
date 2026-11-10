@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.certificates.x509.affinitylevel import X509CertificateAffinityLevel
 from office365.directory.certificates.x509.authenticationmode import X509CertificateAuthenticationMode
 from office365.directory.certificates.x509.ruletype import X509CertificateRuleType
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class X509CertificateRule(ClientValue):
     identifier: str | None = None
     issuerSubjectIdentifier: str | None = None

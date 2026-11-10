@@ -55,6 +55,7 @@ class Session:
     routed_region: str | None = None
     region_notice: bool = False
     region_mode: str | None = None
+    region_fallback: bool | None = None
     region_probe_status: str | None = None
     region_probe_confident_winner: str | None = None
     resolved_profile_id: str | None = None
@@ -73,6 +74,9 @@ class Session:
     # Modal sessions: the control plane allows upgrading the WebSocket tunnel to
     # punched QUIC (dreamscale_transport.punch) and names the upload mode.
     modal_quic: str | None = None
+    # Transport v2 (DSL-411): the QUIC profile the control plane names for this session,
+    # {"name": ..., "levers_off": [...]}; absent means today's upload rules.
+    transport_profile: dict[str, Any] | None = None
     # Shared models: this session's place in its pool's queue (1 = next).
     queue_position: int | None = None
     queue_eta_s: int | None = None
@@ -112,6 +116,7 @@ class Session:
             routed_region=data.get("routed_region"),
             region_notice=bool(data.get("region_notice", False)),
             region_mode=data.get("region_mode"),
+            region_fallback=data.get("region_fallback"),
             region_probe_status=data.get("region_probe_status"),
             region_probe_confident_winner=data.get(
                 "region_probe_confident_winner"
@@ -131,6 +136,7 @@ class Session:
             modal_quic=(
                 data["modal_quic"] if data.get("modal_quic") in ("standard", "steady") else None
             ),
+            transport_profile=_transport_profile(data.get("transport_profile")),
             queue_position=data.get("queue_position"),
             queue_eta_s=data.get("queue_eta_s"),
             starting_region=(
@@ -307,6 +313,7 @@ class ControlPlaneClient:
         preferred_region: str | None = None,
         *,
         region_pin: bool = False,
+        region_fallback: bool | None = None,
         region_order: list[str] | None = None,
         region_order_source: str | None = None,
         region_mode: str | None = None,
@@ -356,6 +363,10 @@ class ControlPlaneClient:
             body["preferred_region"] = preferred_region
         if region_pin:
             body["region_pin"] = True
+        if region_fallback is not None:
+            if type(region_fallback) is not bool:
+                raise ValueError("region_fallback must be a boolean")
+            body["region_fallback"] = region_fallback
         if region_order:
             body["region_order"] = region_order
         if region_order_source:
@@ -570,8 +581,11 @@ class ControlPlaneClient:
         upload_id: str | None = None,
         source_format: str | None = None,
         region_fallback: bool | None = None,
+        official: str | None = None,
     ) -> dict[str, Any]:
         """Create a deployment (your weights + the embodiment they serve, in a region).
+        ``official``: one of the base family's own published checkpoints by name (Verne V0.5:
+        base, robotwin, libero) instead of a repo or an upload.
 
         π0.5 deployments also name the checkpoint inside the repo (``source_path``) and
         their RTC method (``rtc_method``: off, test_time or trained, + ``rtc_max_delay``);
@@ -581,7 +595,8 @@ class ControlPlaneClient:
         """
         body: dict[str, Any] = {"model": model}
         for key, value in (
-            ("repo", repo), ("upload_id", upload_id), ("source_format", source_format),
+            ("repo", repo), ("upload_id", upload_id), ("official", official),
+            ("source_format", source_format),
             ("revision", revision), ("name", name), ("hf_token", hf_token),
             ("embodiment", embodiment), ("region", region), ("source_path", source_path),
             ("rtc_method", rtc_method), ("rtc_max_delay", rtc_max_delay),
@@ -1179,3 +1194,15 @@ def _unprocessable(
         # A control plane from before the RTC kinds rejects the value itself.
         return errors.catalog("rtc_kind_unavailable", kind=kind)
     return errors.from_payload(payload)
+
+
+def _transport_profile(raw: object) -> dict[str, Any] | None:
+    """The session's transport v2 profile, or None for anything malformed."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("name"), str):
+        return None
+    levers_off = raw.get("levers_off")
+    return {
+        "name": raw["name"],
+        "levers_off": [x for x in levers_off if isinstance(x, str)]
+        if isinstance(levers_off, list) else [],
+    }

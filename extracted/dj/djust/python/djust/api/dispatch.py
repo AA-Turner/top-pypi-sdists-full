@@ -36,12 +36,13 @@ from djust.api.auth import resolve_auth_classes
 from djust.api.errors import api_error
 from djust.api.registry import resolve_api_view
 from djust.auth.core import check_handler_permission, check_view_auth
+from djust.decorators import is_push_only
 from djust.rate_limit import (
     caller_key_for_request,
     http_handler_rate_check,
     reset_handler_buckets,
 )
-from djust.validation import validate_handler_params
+from djust.validation import validate_handler_params, validated_call_arguments
 from djust.websocket import _compute_changed_keys, _snapshot_assigns
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,24 @@ def _call_possibly_async(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> A
 
 async def _await(coro: Any) -> Any:
     return await coro
+
+
+def _client_projection(view_instance: Any) -> Optional[Dict[str, Any]]:
+    """Declared ``client=True`` values for a nonlegacy view; ``None`` for legacy.
+
+    ADR-038: an HTTP API response's automatic ``assigns`` may carry only fields
+    explicitly permitted for client use — the projection ``get_state`` returns.
+    An unavailable projection (unknown policy, failing factory) yields no
+    fields rather than falling back to public attributes.
+    """
+    from .._exposure import ExposureError, explicit_state_projection, uses_legacy_exposure
+
+    if uses_legacy_exposure(view_instance):
+        return None
+    try:
+        return explicit_state_projection(view_instance, "client")
+    except ExposureError:
+        return {}
 
 
 def _public_assigns_snapshot_diff(
@@ -280,6 +299,43 @@ def dispatch_api(request: HttpRequest, view_slug: str, handler_name: str) -> Htt
         if csrf_resp is not None:
             return csrf_resp
 
+    # Everything after authentication is one ``event``/``api`` turn (ADR-044):
+    # turn middleware sees the API-authenticated ``request.user``.
+    return _api_turn(
+        request,
+        view_cls,
+        handler_name,
+        "api",
+        lambda: _dispatch_api_authenticated(request, view_slug, handler_name, view_cls),
+    )
+
+
+def _api_turn(
+    request: HttpRequest, view_cls: type, name: str, source: str, body: Any
+) -> HttpResponseBase:
+    """Run an authenticated API call as one turn when app middleware is configured."""
+    from ..turns import app_chain_configured
+
+    if not app_chain_configured():
+        return body()
+    from .._turn_ports import run_http_turn
+
+    return run_http_turn(
+        request,
+        body,
+        kind="event",
+        source=source,
+        transport="api",
+        view_class=view_cls,
+        event=name if isinstance(name, str) else None,
+        json_body=True,
+    )
+
+
+def _dispatch_api_authenticated(
+    request: HttpRequest, view_slug: str, handler_name: str, view_cls: type
+) -> HttpResponseBase:
+    """``dispatch_api`` after authentication and CSRF (the body of its turn)."""
     # 4. Parse JSON body.
     body: Dict[str, Any]
     if not request.body:
@@ -303,8 +359,17 @@ def dispatch_api(request: HttpRequest, view_slug: str, handler_name: str) -> Htt
         view = _instantiate_view(view_cls, request)
     except PermissionDenied as exc:
         return api_error(403, "permission_denied", str(exc) or "Permission denied")
-    except Exception:
-        logger.exception("djust API: view instantiation failed for %s", sanitize_for_log(view_slug))
+    except Exception as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view_cls,),
+            exc,
+            "djust API: view instantiation failed for %s",
+            sanitize_for_log(view_slug),
+            traceback=True,
+        )
         return api_error(500, "mount_failed", "View initialization failed")
 
     # 6. View-level auth (login_required + @permission_required on the class).
@@ -332,7 +397,9 @@ def dispatch_api(request: HttpRequest, view_slug: str, handler_name: str) -> Htt
 
     # 7. Look up handler + verify opt-in.
     handler = getattr(view, handler_name, None)
-    if handler is None or not callable(handler):
+    # A @push_handler method is server-push only (#3002): it must not answer
+    # differently from a method that does not exist.
+    if handler is None or not callable(handler) or is_push_only(view, handler_name, handler):
         return api_error(404, "unknown_handler", f"No handler named {handler_name!r}")
     if not _is_exposed(handler):
         return api_error(
@@ -362,21 +429,29 @@ def dispatch_api(request: HttpRequest, view_slug: str, handler_name: str) -> Htt
                 "type_errors": validation.get("type_errors") or [],
             },
         )
-    coerced = validation["coerced_params"]
+    call_args, call_kwargs = validated_call_arguments(validation)
 
-    # 11. Snapshot pre-state.
+    # 11. Snapshot pre-state. A nonlegacy view's assigns come from its
+    # declared client projection, not from public attributes (ADR-038).
     pre = _snapshot_assigns(view)
+    pre_client = _client_projection(view)
 
     # 12. Invoke the handler.
     try:
-        return_value = _call_possibly_async(handler, **coerced)
+        return_value = _call_possibly_async(handler, *call_args, **call_kwargs)
     except PermissionDenied as exc:
         return api_error(403, "permission_denied", str(exc) or "Permission denied")
-    except Exception:
-        logger.exception(
+    except Exception as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view,),
+            exc,
             "djust API handler raised: slug=%s handler=%s",
             sanitize_for_log(view_slug),
             sanitize_for_log(handler_name),
+            traceback=True,
         )
         return api_error(500, "handler_error", "Handler raised an unexpected error")
 
@@ -389,29 +464,49 @@ def dispatch_api(request: HttpRequest, view_slug: str, handler_name: str) -> Htt
         # Mirror the handler-invocation block: a PermissionDenied raised from
         # api_response() / serialize= must surface as 403, not 500.
         return api_error(403, "permission_denied", str(exc) or "Permission denied")
-    except TypeError:
-        logger.exception(
+    except TypeError as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view,),
+            exc,
             "djust API serialize= misconfigured: slug=%s handler=%s",
             sanitize_for_log(view_slug),
             sanitize_for_log(handler_name),
+            traceback=True,
         )
         return api_error(
             500,
             "serialize_error",
             "Response transform raised an unexpected error",
         )
-    except Exception:
-        logger.exception(
+    except Exception as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view,),
+            exc,
             "djust API response transform raised: slug=%s handler=%s",
             sanitize_for_log(view_slug),
             sanitize_for_log(handler_name),
+            traceback=True,
         )
         return api_error(500, "serialize_error", "Response transform raised an unexpected error")
 
     # 13. Snapshot post-state and compute diff.
-    post = _snapshot_assigns(view)
-    changed = _compute_changed_keys(pre, post)
-    assigns_diff = _public_assigns_snapshot_diff(view, changed)
+    if pre_client is not None:
+        post_client = _client_projection(view) or {}
+        assigns_diff = {
+            key: value
+            for key, value in post_client.items()
+            if key not in pre_client or pre_client[key] != value
+        }
+    else:
+        post = _snapshot_assigns(view)
+        changed = _compute_changed_keys(pre, post)
+        assigns_diff = _public_assigns_snapshot_diff(view, changed)
 
     return JsonResponse(
         {"result": return_value, "assigns": assigns_diff},
@@ -483,6 +578,20 @@ def dispatch_server_function(
     if csrf_resp is not None:
         return csrf_resp
 
+    # Everything after CSRF is one ``event``/``server_function`` turn (ADR-044).
+    return _api_turn(
+        request,
+        view_cls,
+        function_name,
+        "server_function",
+        lambda: _dispatch_server_function_checked(request, view_slug, function_name, view_cls),
+    )
+
+
+def _dispatch_server_function_checked(
+    request: HttpRequest, view_slug: str, function_name: str, view_cls: type
+) -> HttpResponseBase:
+    """``dispatch_server_function`` after CSRF (the body of its turn)."""
     # 3. Parse JSON body. Only the wrapped shape ``{"params": {...}}`` is
     # accepted — the JS client helper at
     # ``static/djust/src/48-server-functions.js`` always sends this form.
@@ -518,9 +627,16 @@ def dispatch_server_function(
         view = _instantiate_view(view_cls, request)
     except PermissionDenied as exc:
         return api_error(403, "permission_denied", str(exc) or "Permission denied")
-    except Exception:
-        logger.exception(
-            "djust server_function: view init failed for %s", sanitize_for_log(view_slug)
+    except Exception as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view_cls,),
+            exc,
+            "djust server_function: view init failed for %s",
+            sanitize_for_log(view_slug),
+            traceback=True,
         )
         return api_error(500, "mount_failed", "View initialization failed")
 
@@ -574,18 +690,24 @@ def dispatch_server_function(
                 "type_errors": validation.get("type_errors") or [],
             },
         )
-    coerced = validation["coerced_params"]
+    call_args, call_kwargs = validated_call_arguments(validation)
 
     # 9. Invoke (supports sync + async def via _call_possibly_async).
     try:
-        result = _call_possibly_async(fn, **coerced)
+        result = _call_possibly_async(fn, *call_args, **call_kwargs)
     except PermissionDenied as exc:
         return api_error(403, "permission_denied", str(exc) or "Permission denied")
-    except Exception:
-        logger.exception(
+    except Exception as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view,),
+            exc,
             "djust server_function raised: slug=%s fn=%s",
             sanitize_for_log(view_slug),
             sanitize_for_log(function_name),
+            traceback=True,
         )
         return api_error(500, "function_error", "Function raised an unexpected error")
 
@@ -595,11 +717,17 @@ def dispatch_server_function(
     # ``http_error`` from Django's default exception handler.
     try:
         body = json.dumps({"result": result}, cls=DjangoJSONEncoder)
-    except (TypeError, ValueError):
-        logger.exception(
+    except (TypeError, ValueError) as exc:
+        from .._exposure_diagnostics import log_failure_for
+
+        log_failure_for(
+            logger,
+            (view,),
+            exc,
             "djust server_function return value not JSON-serializable: slug=%s fn=%s",
             sanitize_for_log(view_slug),
             sanitize_for_log(function_name),
+            traceback=True,
         )
         return api_error(500, "function_error", "Return value is not JSON-serializable")
 

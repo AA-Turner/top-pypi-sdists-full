@@ -21,13 +21,13 @@ class CookbookExample:
 
   def prompt(self) -> str:
     if self.can_train:
-      finish = f"""After a diagnostic with recorded grades and a completed baseline, help me train a small run.
-Discover supported training models and bounds using training options --bench-id BENCH_ID --json.
+      finish = f"""Use the confirmed smoke-run plan from the setup workflow for this trainable example.
+Recheck supported training models and bounds using training options --bench-id BENCH_ID --json.
 Prepare training.json and validate it with training create --config training.json --dry-run --json.
-Review the model, task split, steps, batch/group sizes, concurrency, token/time limits, and budget with me before launching training.
+Keep the confirmed model, task split, steps, batch/group sizes, concurrency, token/time limits, and budget; ask again only if the scope or budget changes before launching training.
 Training scripts may also submit evaluations; inspect all their side effects and defaults before proposing a command.
-After my confirmation, submit the agreed run, retain its ID, and use training watch and training details to inspect progress, rewards, and checkpoints.
-Compare a checkpoint against the baseline on the same held-out tasks and evaluation settings. Do not promise improvement from a smoke run.
+Submit the agreed run, retain its ID, and use training watch and training details to inspect progress, rewards, and checkpoints.
+Compare the final checkpoint against the baselines on the same held-out tasks and evaluation settings. Do not promise improvement from a smoke run.
 Training and checkpoint guide: {DOCS_URL}/guides/training"""
     else:
       finish = """This cookbook example is evaluation-only and has no official training split.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio-anthropic
-Version: 0.31.0
+Version: 0.32.0
 Summary: Use Composio to get an array of tools with your Anthropic LLMs.
 Home-page: https://github.com/ComposioHQ/composio
 Author: Composio
@@ -51,7 +51,7 @@ messages = [
 ]
 
 response = client.messages.create(
-    model="claude-opus-4-6",
+    model="claude-opus-5-5",
     max_tokens=4096,
     tools=tools,
     messages=messages,
@@ -70,7 +70,7 @@ while response.stop_reason == "tool_use":
         ]
     })
     response = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-opus-5-5",
         max_tokens=4096,
         tools=tools,
         messages=messages,

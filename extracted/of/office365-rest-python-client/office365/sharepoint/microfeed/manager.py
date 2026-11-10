@@ -6,10 +6,12 @@ from typing_extensions import Self
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.v3.static import StaticPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.microfeed.entity import MicroBlogEntity
 from office365.sharepoint.microfeed.posts.options import MicrofeedPostOptions
 from office365.sharepoint.microfeed.retrievaloptions import MicrofeedRetrievalOptions
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.social.microfeed.thread import MicrofeedThread
 from office365.sharepoint.social.microfeed.thread_collection import MicrofeedThreadCollection
 
@@ -21,16 +23,19 @@ class MicrofeedManager(Entity):
             self._resource_path = StaticPath("SP.Microfeed.MicrofeedManager")
         return self._resource_path
 
+    @odata(name="CurrentUser")
     @property
     def current_user(self) -> MicroBlogEntity:
         """Gets the CurrentUser property"""
         return self.properties.get("CurrentUser", MicroBlogEntity())
 
+    @odata(name="IsFeedActivityPublic")
     @property
     def is_feed_activity_public(self) -> Optional[bool]:
         """Gets the IsFeedActivityPublic property"""
         return self.properties.get("IsFeedActivityPublic", None)
 
+    @odata(name="StaticThreadLink")
     @property
     def static_thread_link(self) -> Optional[str]:
         """Gets the StaticThreadLink property"""
@@ -40,6 +45,7 @@ class MicrofeedManager(Entity):
     def entity_type_name(self):
         return "SP.Microfeed.MicrofeedManager"
 
+    @site_access(SiteLevel.WRITE)
     def add_user_to_post_people_list(self, post_identifier: str, user_login_name: str) -> ClientResult[int]:
         """AddUserToPostPeopleList operation.
 
@@ -59,6 +65,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def clear_unread_mentions_count(self) -> ClientResult[int]:
         """ClearUnreadMentionsCount operation."""
         return_type = ClientResult(self.context, int())
@@ -66,6 +73,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def delete_by_id(self, post_identifier: str) -> ClientResult[MicrofeedThread]:
         """DeleteById operation.
 
@@ -77,6 +85,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def delete_user_from_post_people_list(self, post_identifier: str, user_login_name: str) -> ClientResult[int]:
         """DeleteUserFromPostPeopleList operation.
 
@@ -96,6 +105,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_my_categorical_feed(
         self, feed_options: MicrofeedRetrievalOptions
     ) -> ClientResult[MicrofeedThreadCollection]:
@@ -109,6 +119,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_my_consolidated_feed(
         self, feed_options: MicrofeedRetrievalOptions
     ) -> ClientResult[MicrofeedThreadCollection]:
@@ -124,6 +135,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_my_published_feed(
         self, feed_options: MicrofeedRetrievalOptions, type_of_pub_feed: int, show_public_view: bool
     ) -> ClientResult[MicrofeedThreadCollection]:
@@ -146,6 +158,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_published_feed(
         self, feed_owner: str, feed_options: MicrofeedRetrievalOptions, type_of_pub_feed: int
     ) -> ClientResult[MicrofeedThreadCollection]:
@@ -168,6 +181,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_thread(self, post_identifier: str) -> ClientResult[MicrofeedThread]:
         """GetThread operation.
 
@@ -179,6 +193,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_unread_mentions_count(self) -> ClientResult[int]:
         """GetUnreadMentionsCount operation."""
         return_type = ClientResult(self.context, int())
@@ -186,6 +201,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def like(self, post_identifier: str) -> ClientResult[MicrofeedThread]:
         """Like operation.
 
@@ -197,6 +213,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def lock_thread_by_id(self, thread_identifier: str) -> ClientResult[MicrofeedThread]:
         """LockThreadById operation.
 
@@ -210,6 +227,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def post(self, post_options: MicrofeedPostOptions) -> ClientResult[MicrofeedThread]:
         """Post operation.
 
@@ -221,6 +239,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def post_reply(
         self, post_identifier: str, post_reply_options: MicrofeedPostOptions
     ) -> ClientResult[MicrofeedThread]:
@@ -242,6 +261,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def repopulate_lmt(self, time_stamp: datetime, secure_hash: str) -> ClientResult[int]:
         """RepopulateLMT operation.
 
@@ -256,6 +276,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def un_like(self, post_identifier: str) -> ClientResult[MicrofeedThread]:
         """UnLike operation.
 
@@ -267,6 +288,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def un_lock_thread_by_id(self, thread_identifier: str) -> ClientResult[MicrofeedThread]:
         """UnLockThreadById operation.
 
@@ -280,6 +302,7 @@ class MicrofeedManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def unsubscribe_from_e_mail(self, post_identifier: str) -> Self:
         """UnsubscribeFromEMail operation.
 

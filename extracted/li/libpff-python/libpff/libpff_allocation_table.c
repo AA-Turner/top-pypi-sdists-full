@@ -49,7 +49,7 @@ int libpff_allocation_table_read_data(
 	size_t allocation_block_size       = 0;
 	size_t allocation_table_data_size  = 0;
 	size_t unallocated_size            = 0;
-	off64_t back_pointer_offset        = 0;
+	uint64_t back_pointer_offset       = 0;
 	off64_t unallocated_offset         = 0;
 	uint32_t calculated_checksum       = 0;
 	uint32_t stored_checksum           = 0;
@@ -294,7 +294,7 @@ int libpff_allocation_table_read_data(
 		 stored_checksum,
 		 calculated_checksum );
 
-/* TODO implement error tollerance */
+/* TODO implement error tolerance */
 		goto on_error;
 	}
 	if( allocation_table_type != allocation_table_type_copy )
@@ -308,7 +308,7 @@ int libpff_allocation_table_read_data(
 		 allocation_table_type,
 		 allocation_table_type_copy );
 
-/* TODO implement error tollerance */
+/* TODO implement error tolerance */
 		goto on_error;
 	}
 	if( ( allocation_table_type != LIBPFF_ALLOCATION_TABLE_TYPE_DATA )
@@ -322,7 +322,7 @@ int libpff_allocation_table_read_data(
 		 function,
 		 allocation_table_type );
 
-/* TODO implement error tollerance */
+/* TODO implement error tolerance */
 		goto on_error;
 	}
 	if( allocation_table_type == LIBPFF_ALLOCATION_TABLE_TYPE_PAGE )
@@ -360,7 +360,7 @@ int libpff_allocation_table_read_data(
 			{
 				if( unallocated_size == 0 )
 				{
-					unallocated_offset = back_pointer_offset;
+					unallocated_offset = (off64_t) back_pointer_offset;
 				}
 				unallocated_size += allocation_block_size;
 			}
@@ -516,7 +516,7 @@ int libpff_allocation_table_read_file_io_handle(
 		 error,
 		 LIBCERROR_ERROR_DOMAIN_MEMORY,
 		 LIBCERROR_MEMORY_ERROR_INSUFFICIENT,
-		 "%s: unable to create alloction table data.",
+		 "%s: unable to create allocation table data.",
 		 function );
 
 		goto on_error;

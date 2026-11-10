@@ -6,6 +6,7 @@ a person at a terminal is asked, and anything else is refused saying what fits (
 from __future__ import annotations
 
 import contextlib
+import enum
 import os
 import sys
 import time
@@ -19,6 +20,8 @@ from ....settings.settings import ProjectSource, Settings
 
 #: The run metadata key that says which unnamed home a run opened in (D4).
 HOME_SOURCE_KEY = "home_source"
+#: The run metadata key set (true) when the caller passed `project=FROM_ENV` (D76).
+HOME_FROM_ENV_KEY = "home_from_env"
 #: The run metadata key for how long the run waited for the daemon's pick, in seconds.
 HOME_WAIT_KEY = "home_wait_s"
 #: How long a run waits for the daemon to pick its session's project, in seconds. A writer
@@ -31,6 +34,21 @@ HOME_REQUEST_TEXT = "A run is starting and needs this session's project: set it 
 ID_PREFIX = "id:"
 
 
+class ProjectFromEnv(enum.Enum):
+    """The type of `FROM_ENV`, a value of `project=` (D26): a sentinel, so no slug can spell it."""
+
+    FROM_ENV = "from_env"
+
+    def __repr__(self) -> str:
+        return "probe.FROM_ENV"
+
+
+#: `project=probe.FROM_ENV`: take the run's project from `PROBE_PROJECT`, else this session's
+#: project, else `probe project use` (CLI: `--project-from-env`). Nothing named and no
+#: `FROM_ENV` reads none of them (R22).
+FROM_ENV = ProjectFromEnv.FROM_ENV
+
+
 class HomeSource(StrEnum):
     """Which rule named a run's home (`resolve_run_home`), first match wins."""
 
@@ -41,7 +59,9 @@ class HomeSource(StrEnum):
     PICKED = "picked"  # typed by the person at this terminal when nothing named one (`ProjectPicker`)
 
 
-#: Homes nobody typed for this run: said aloud on stderr and kept in its metadata.
+#: Homes nobody typed for this run: kept in its metadata (D76: `env` too, to measure T4 = A).
+RECORDED_SOURCES = frozenset({HomeSource.ENV, HomeSource.SESSION, HomeSource.CONTEXT, HomeSource.PICKED})
+#: The ones also said aloud on stderr (`make_notice`): a job's own PROBE_PROJECT is not news.
 NOTICED_SOURCES = frozenset({HomeSource.SESSION, HomeSource.CONTEXT, HomeSource.PICKED})
 
 _NOTICE_REASONS = {
@@ -60,6 +80,7 @@ class MissingHome(StrEnum):
     DAEMON_SLOW = "daemon_slow"  # the daemon did not pick one within HOME_WAIT_S
     DAEMON_ITSELF = "daemon_itself"  # the daemon's own `probe` command (`PROBE_DAEMON_SESSION`)
     ELSEWHERE = "elsewhere"  # the session's project is set, but on another server or team
+    NOT_ASKED = "not_asked"  # nothing named, and no `project=FROM_ENV` to read the defaults
 
 
 #: Every way to name a project, for the agent cases.
@@ -85,19 +106,25 @@ MISSING_HOME_FIXES = {
     MissingHome.DAEMON_SLOW: (
         f"probe: this run needs a project. The Probe daemon did not set this session's project within "
         f"{int(HOME_WAIT_S)} s (`probe session home show` prints it once set). " + _NAME_ONE),
+    MissingHome.NOT_ASKED: (
+        'probe: this run needs a project. Name the project: probe.init(project="<slug>"), or '
+        "probe.init(project=probe.FROM_ENV) to use PROBE_PROJECT, this chat's project or probe "
+        "project use (CLI: --project <slug> or --project-from-env)."),
 }
 
 
 class RunHome(NamedTuple):
     """`(project, experiment, source)` as refs the create path takes; `source` is None when
     nothing names a home. `name`: the session home's slugs, for the notice and its errors.
-    `waited_s`: how long the run waited for the daemon to pick it (`wait_for_session_home`)."""
+    `waited_s`: how long the run waited for the daemon to pick it (`wait_for_session_home`).
+    `is_from_env`: the caller passed `project=FROM_ENV`, so the defaults may be read."""
 
     project: str | None
     experiment: str | None
     source: HomeSource | None
     name: str | None = None
     waited_s: float | None = None
+    is_from_env: bool = False
 
 
 def get_session_id(env: Mapping[str, str] | None = None) -> str | None:
@@ -138,35 +165,65 @@ def load_session_home(settings: Settings, env: Mapping[str, str] | None = None) 
     return record
 
 
+def load_session_workspace(settings: Settings, env: Mapping[str, str] | None = None) -> str | None:
+    """The workspace this session's new projects go in (`probe example start`, D68), when it was
+    set on this credential's server and team; else None. The same checks as `load_session_home`."""
+    session_id = get_session_id(env)
+    record = session_marker.read_session_workspace(session_id) if session_id else None
+    if record is None or record["base_url"].rstrip("/") != settings.base_url.rstrip("/"):
+        return None
+    team = record.get("customer_id")
+    if team and load_customer_id(settings) not in (None, team):
+        return None
+    return str(record["workspace_id"])
+
+
 def resolve_run_home(
-    project: str | None,
+    project: str | ProjectFromEnv | None,
     experiment: str | None,
     settings: Settings,
     env: Mapping[str, str] | None = None,
 ) -> RunHome:
-    """The run's home: what the caller named, else `PROBE_PROJECT`, else this session's
-    project, else `probe project use`, else none. Only when NEITHER is named: beside an
-    experiment an ambient project would scope its tenant-wide lookup (DESIGN.md)."""
+    """The run's home: what the caller named; under `project=FROM_ENV`, `PROBE_PROJECT`, else
+    this session's project, else `probe project use` (beside a named experiment, only their
+    project); else none. `resolve(project=)` in code is named too. An ambient project never
+    scopes a named experiment's tenant-wide lookup without `FROM_ENV` (DESIGN.md)."""
+    if project is FROM_ENV:
+        return _load_default_home(settings, env, experiment)
     if project or experiment:
         return RunHome(project, experiment, HomeSource.EXPLICIT)
-    source = settings.project_source
-    if settings.project and source is not ProjectSource.CONTEXT:
-        return RunHome(settings.project, None, HomeSource.ENV if source is ProjectSource.ENV else HomeSource.EXPLICIT)
-    record = load_session_home(settings, env)
-    if record is not None:
-        return _home_from_record(record)
-    if settings.project:
-        return RunHome(settings.project, None, HomeSource.CONTEXT)
+    if settings.project and settings.project_source in (ProjectSource.EXPLICIT, None):
+        # Named in code (`resolve(project=)`, `Settings(project=)`), not found in the environment.
+        return RunHome(settings.project, None, HomeSource.EXPLICIT)
     return RunHome(None, None, None)
 
 
-def _home_from_record(record: dict, waited_s: float | None = None) -> RunHome:
-    """A session home record as the run's home: by id, so a renamed one is still found."""
+def _load_default_home(settings: Settings, env: Mapping[str, str] | None, experiment: str | None) -> RunHome:
+    """`FROM_ENV`'s home: the first default set, in the one order (D3); `source` None when none is."""
+    source = settings.project_source
+    if settings.project and source is not ProjectSource.CONTEXT:
+        found = HomeSource.ENV if source is ProjectSource.ENV else HomeSource.EXPLICIT
+        return RunHome(settings.project, experiment, found, is_from_env=True)
+    record = load_session_home(settings, env)
+    if record is not None:
+        return _home_from_record(record, experiment=experiment)
+    if settings.project:
+        return RunHome(settings.project, experiment, HomeSource.CONTEXT, is_from_env=True)
+    return RunHome(None, experiment, None, is_from_env=True)
+
+
+def _home_from_record(record: dict, waited_s: float | None = None, *, experiment: str | None = None) -> RunHome:
+    """A session home record as a `FROM_ENV` run's home: by id, so a renamed one is still found.
+    Beside a named `experiment`, only the record's project."""
+    if experiment:
+        project = ID_PREFIX + record["project_id"]
+        return RunHome(project, experiment, HomeSource.SESSION, record["project"], waited_s, is_from_env=True)
     if record.get("experiment_id"):
         # The experiment alone, by id: it is found wherever it is filed now (Codex O1).
         name = f"{record['project']}/{record['experiment']}"
-        return RunHome(None, ID_PREFIX + record["experiment_id"], HomeSource.SESSION, name, waited_s)
-    return RunHome(ID_PREFIX + record["project_id"], None, HomeSource.SESSION, record["project"], waited_s)
+        return RunHome(None, ID_PREFIX + record["experiment_id"], HomeSource.SESSION, name, waited_s, is_from_env=True)
+    return RunHome(ID_PREFIX + record["project_id"], None, HomeSource.SESSION, record["project"], waited_s,
+                   is_from_env=True)
 
 
 def get_missing_home_case(env: Mapping[str, str] | None = None) -> MissingHome | None:
@@ -189,22 +246,35 @@ def get_missing_home_case(env: Mapping[str, str] | None = None) -> MissingHome |
     return None
 
 
-def build_missing_home_error(env: Mapping[str, str] | None = None) -> errors.ProjectRequired:
-    """`ProjectRequired` with the fix that fits why nothing named a home."""
-    case = get_missing_home_case(env)
+def build_missing_home_error(
+    env: Mapping[str, str] | None = None, *, is_from_env: bool = False
+) -> errors.ProjectRequired:
+    """`ProjectRequired` with the fix that fits why nothing named a home: without `FROM_ENV`,
+    the line to add (T4 = A); with it, why no default was set."""
+    case = _get_unasked_case(env) if not is_from_env else get_missing_home_case(env)
     return errors.ProjectRequired(MISSING_HOME_FIXES[case] if case is not None else "")
+
+
+def _get_unasked_case(env: Mapping[str, str] | None) -> MissingHome:
+    """A run naming nothing and not asking for the defaults: refused with the line to add, except
+    the daemon's own command, which has its own fix."""
+    if get_missing_home_case(env) is MissingHome.DAEMON_ITSELF:
+        return MissingHome.DAEMON_ITSELF
+    return MissingHome.NOT_ASKED
 
 
 def wait_for_session_home(
     settings: Settings,
     env: Mapping[str, str] | None = None,
     *,
+    experiment: str | None = None,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> RunHome:
     """Ask this session's daemon writer to pick the session's project and wait for it, at most
     HOME_WAIT_S, saying so on stderr; a daemon that stops meanwhile ends the wait early.
-    Raises `ProjectRequired` (the fix for that case) when no project came."""
+    Beside a named `experiment`, only its project is taken. Raises `ProjectRequired` (the fix
+    for that case) when no project came."""
     session_id = get_session_id(env)
     if _is_home_elsewhere(settings, env):
         raise errors.ProjectRequired(MISSING_HOME_FIXES[MissingHome.ELSEWHERE])
@@ -217,7 +287,7 @@ def wait_for_session_home(
     while True:
         record = load_session_home(settings, env)
         if record is not None:
-            return _home_from_record(record, waited_s=round(clock() - started, 1))
+            return _home_from_record(record, waited_s=round(clock() - started, 1), experiment=experiment)
         if _is_home_elsewhere(settings, env):
             raise errors.ProjectRequired(MISSING_HOME_FIXES[MissingHome.ELSEWHERE])
         case = get_missing_home_case(env)
@@ -236,13 +306,16 @@ def _is_home_elsewhere(settings: Settings, env: Mapping[str, str] | None) -> boo
     return load_session_home(settings, env) is None
 
 
-def find_missing_home(client: Any, env: Mapping[str, str] | None = None) -> RunHome:
-    """Nothing named the run's home: wait for this session's daemon to pick it, or ask the
-    person at this terminal (no agent session); otherwise raise `ProjectRequired` with the fix
-    that fits the case."""
+def find_missing_home(
+    client: Any, env: Mapping[str, str] | None = None, *, home: RunHome | None = None
+) -> RunHome:
+    """Nothing named the run's home (`home`, from `resolve_run_home`): ask the person at this
+    terminal (no agent session), or, under `FROM_ENV`, wait for this session's daemon to pick
+    it; otherwise raise `ProjectRequired` with the fix that fits the case."""
+    home = home or RunHome(None, None, None)
     case = get_missing_home_case(env)
-    if case is None:
-        return wait_for_session_home(client.settings, env)
+    if case is None and home.is_from_env:
+        return wait_for_session_home(client.settings, env, experiment=home.experiment)
     if case is MissingHome.HAND_RUN:
         from ..projects.picker import ProjectPicker
 
@@ -251,16 +324,22 @@ def find_missing_home(client: Any, env: Mapping[str, str] | None = None) -> RunH
             client.ensure_authenticated()  # a person signs in first, not mid-prompt
             picked = picker.pick()
             if picked is not None:
-                return RunHome(ID_PREFIX + picked["id"], None, HomeSource.PICKED, picked.get("slug"))
-    raise errors.ProjectRequired(MISSING_HOME_FIXES[case])
+                return RunHome(ID_PREFIX + picked["id"], home.experiment, HomeSource.PICKED,
+                               picked.get("slug"), is_from_env=home.is_from_env)
+    raise build_missing_home_error(env, is_from_env=home.is_from_env)
 
 
 def mark_home_source(home: RunHome, run_kw: dict) -> None:
-    """Record an unnamed home's source in the run's `metadata` (D4), and how long it waited."""
-    if home.source in NOTICED_SOURCES:
-        marks = {HOME_SOURCE_KEY: home.source.value}
+    """Record an unnamed home's source in the run's `metadata` (D4, D76), how long it waited,
+    and whether the caller asked for the defaults (`FROM_ENV`)."""
+    marks: dict[str, Any] = {}
+    if home.source in RECORDED_SOURCES:
+        marks[HOME_SOURCE_KEY] = home.source.value
         if home.waited_s is not None:
             marks[HOME_WAIT_KEY] = home.waited_s
+    if home.is_from_env:
+        marks[HOME_FROM_ENV_KEY] = True
+    if marks:
         run_kw["metadata"] = {**(run_kw.get("metadata") or {}), **marks}
 
 

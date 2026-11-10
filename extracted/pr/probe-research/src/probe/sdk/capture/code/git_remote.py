@@ -48,6 +48,18 @@ def _remote_url(cwd: str, remote: str) -> str | None:
     return _scrub_remote(_git(cwd, "remote", "get-url", remote, check=False) or None)
 
 
+def load_origin_url(cwd: str) -> str | None:
+    """The remote a snapshot here would record (`origin`, else the first), credentials
+    scrubbed; None outside a repo, with no remote, or with no git. Local: no network."""
+    try:
+        remotes = [r for r in _git(cwd, "remote", check=False).splitlines() if r.strip()]
+        if not remotes:
+            return None
+        return _remote_url(cwd, "origin" if "origin" in remotes else remotes[0])
+    except OSError:
+        return None
+
+
 def _ls_remote_env() -> dict:
     """Fail fast and write nothing: BatchMode refuses an unknown host key instead of
     `accept-new` adding it to known_hosts on a training box. A caller's own

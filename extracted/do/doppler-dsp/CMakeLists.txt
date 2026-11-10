@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(doppler VERSION 0.80.0 LANGUAGES C)
+project(doppler VERSION 0.82.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -155,7 +155,7 @@ endif()
 # into compiler-rt -- __muldc3, __divdc3, __mulsc3 -- to get C99 Annex G's
 # inf/NaN corner cases right. On POSIX libgcc or compiler-rt answers those
 # calls silently. The MSVC link has neither, so lld-link stops on
-# `undefined symbol: __muldc3` (acq_core.c's `ph *= step`), after every
+# `undefined symbol: __muldc3` (correlator_core.c's `ph *= step`), after every
 # object has compiled. Measured with clang-cl 22 on x86_64 and i686: either
 # flag below removes all three helpers; no flag leaves all three.
 #
@@ -585,12 +585,6 @@ add_subdirectory(native/src/spectrogram)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:spectrogram_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:spectrogram_core>)
 add_subdirectory(native/src/psd)
-add_subdirectory(native/src/detector2d)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:detector2d_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:detector2d_core>)
-add_subdirectory(native/src/detector)
-add_subdirectory(native/src/corr2d)
-add_subdirectory(native/src/corr)
 add_subdirectory(native/src/fft2d)
 add_subdirectory(native/src/fft)
 add_subdirectory(native/src/awgn)
@@ -725,6 +719,7 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:f32_to_i16_core>)
 add_subdirectory(native/src/f32_to_i8)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:f32_to_i8_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:f32_to_i8_core>)
+add_subdirectory(native/src/correlator)
 add_subdirectory(native/src/interleaver)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:interleaver_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:interleaver_core>)
@@ -782,35 +777,23 @@ target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:resample_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:specan_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:specan_core>)
 add_subdirectory(native/src/burst_capture)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:pn_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:pn_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:burst_capture_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:burst_capture_core>)
-add_subdirectory(native/src/burst_acq)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:burst_acq_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:burst_acq_core>)
-add_subdirectory(native/src/acq)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:corr2d_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:corr2d_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:fft2d_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:fft2d_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dp_tlm_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dp_tlm_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:pn_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:pn_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:cvt_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:cvt_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:acq_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:acq_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:burst_capture_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:burst_capture_core>)
 add_subdirectory(native/src/carrier_acq)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:psd_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:psd_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:detector_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:detector_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:detection_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:detection_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:spectral_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:spectral_core>)
-target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:corr_core>)
-target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:corr_core>)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:correlator_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:correlator_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:fft_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:fft_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:carrier_acq_core>)
@@ -888,6 +871,9 @@ target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:delay_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:delay_core>)
 add_subdirectory(native/src/ddc)
 add_subdirectory(native/src/cvt)
+add_subdirectory(native/src/correlation)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:correlation_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:correlation_core>)
 add_subdirectory(native/src/coding)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:coding_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:coding_core>)
@@ -905,6 +891,8 @@ add_subdirectory(native/src/analyzer)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:analyzer_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:analyzer_core>)
 add_subdirectory(native/src/agc)
+target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:dp_tlm_core>)
+target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:dp_tlm_core>)
 target_sources(doppler_lib PRIVATE $<TARGET_OBJECTS:agc_core>)
 target_sources(doppler_lib_static PRIVATE $<TARGET_OBJECTS:agc_core>)
 add_subdirectory(native/src/acquire)
@@ -1295,6 +1283,25 @@ target_include_directories(test_fp_policy
 target_link_libraries(test_fp_policy PRIVATE ${DP_MATH_LIBRARY})
 dp_gnu_compile_options(test_fp_policy PRIVATE -O2)
 add_test(NAME test_fp_policy COMMAND test_fp_policy)
+
+# clib_common.h's checked size product, dp_size_mul / dp_size_mul_sat: the
+# one home of the `SIZE_MAX /` overflow guard (scripts/check_size_mul_sites.py
+# keeps it so). Header-only and owned by no object, so it is registered
+# here, and it links nothing but libm.
+add_executable(test_clib_common native/tests/test_clib_common.c)
+target_include_directories(test_clib_common
+                           PRIVATE ${CMAKE_SOURCE_DIR}/native/inc
+                                   ${CMAKE_SOURCE_DIR}/native/tests)
+target_link_libraries(test_clib_common PRIVATE ${DP_MATH_LIBRARY})
+add_test(NAME test_clib_common COMMAND test_clib_common)
+# The aborting array allocators abort on an overflowing count: each run
+# passes only by catching SIGABRT and exiting 0 from the handler.
+add_test(NAME test_clib_common_xmallocn_aborts
+         COMMAND test_clib_common --abort xmallocn)
+add_test(NAME test_clib_common_xreallocn_aborts
+         COMMAND test_clib_common --abort xreallocn)
+add_test(NAME test_clib_common_xcallocn_aborts
+         COMMAND test_clib_common --abort xcallocn)
 
 # native/tests/dp_tx_test.h is the harness STIMULUS SSOT, and docs/design/
 # rx-test.md section 5.4 records it as the ONE place the stimulus rule cannot

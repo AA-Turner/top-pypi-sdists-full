@@ -58,13 +58,14 @@ from collections.abc import (
 from typing import NamedTuple
 
 from nameparser._pipeline._state import (
-    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG,
-    GIVEN_ABBREVIATION_TAG, NAME_ROLES, SHAPE_ACRONYM_TAG, SUFFIX_OR_UNREAD, AmbiguityKind, PendingAmbiguity,
-    PendingReading,
+    AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG,
+    GENERATION_WORD_TAG, TITLE_CASE_NAME_TAG, GIVEN_ABBREVIATION_TAG, NAME_ROLES, SHAPE_ACRONYM_TAG, SUFFIX_OR_UNREAD, AmbiguityKind, PendingAmbiguity,
+    JOINED_TITLE_TAG, PendingReading, TRAILING_TITLE_TAG,
     WorkToken,
 )
 from nameparser._pipeline._vocab import (
-    _PERIOD_ABBREV, _ROMAN, Lean, ambiguous_lean, in_initialless_script,
+    _PERIOD_ABBREV, _ROMAN, _TRAILING_TITLE_SHAPE, Lean, ambiguous_lean,
+    in_initialless_script,
     is_listed_numeral, is_single_letter_numeral, numeral_leans_to_the_name,
     numeral_settled_by_case, reads_as_generation, tag_marker_runs,
 )
@@ -195,9 +196,10 @@ def is_prefix_piece(piece: Sequence[int], ptags: Set[str],
 
 # rules/P3: "a recognized connective joins its neighbors into one
 # name part, connective runs included — except a single-letter
-# connective in a three-word name, which stays a name word, and a
-# single-letter connective that reads as an initial instead (P8),
-# which never joins" (history: decisions/P3)
+# connective in a three-word name, which stays a name word where P13
+# has not joined it first, and a single-letter connective that reads
+# as an initial instead (P8), which never joins" (history:
+# decisions/P3)
 def is_conj_piece(piece: Sequence[int], ptags: Set[str],
                   tokens: Sequence[WorkToken]) -> bool:
     if "conjunction" in ptags:
@@ -231,14 +233,14 @@ def merge_pieces(pieces: list[list[int]], ptags: list[set[str]],
     # -- re-flattens everything accumulated so far on every call, so
     # a chain that merges into the same piece n times copies
     # 1+2+...+n and the stage goes quadratic in the length of the
-    # chain. A conjunction run ("and " * n) does exactly that: it
-    # measured 2.4x-2.9x per doubling against the 2.0x every other
-    # shape holds. No piece list is aliased outside this function
-    # (each caller builds every piece as a fresh list -- group's
-    # [i], _comma's _pieces -- and reads pieces[k] only before a
-    # merge), so mutating is safe; verified
+    # chain. A conjunction run ("and " * n) did exactly that while
+    # `join_connectives` merged through here: it measured 2.4x-2.9x
+    # per doubling against the 2.0x every other shape holds. No piece
+    # list is aliased outside this function (each caller builds every
+    # piece as a fresh list -- group's [i] -- and reads pieces[k] only
+    # before a merge), so mutating is safe; verified
     # identical token/role/tag/span/ambiguity output over 54,877
-    # names. tests/v2/test_benchmark.py's "and " shape is the guard.
+    # names.
     #
     # Every call site passes lo < hi, and this REQUIRES it: with
     # lo >= hi the slice assignment would insert rather than
@@ -246,6 +248,16 @@ def merge_pieces(pieces: list[list[int]], ptags: list[set[str]],
     # array, and the next merge to touch either index would extend
     # the same list twice. The old rebuild-a-fresh-list spelling
     # was harmless there. Keep the bound if you add a caller.
+    #
+    # The slice assignment itself still shifts every piece behind
+    # `hi`, C-level work no frame guard counts, so a caller that
+    # merges once per member of a run whose length grows with the
+    # input goes quadratic all the same. `join_connectives` and
+    # group's split-pair merge did, and build their lists in one pass
+    # instead (decisions/parse-cost, 2026-11-03); the callers left
+    # merge once per run (the particle chain, the bound join). A
+    # caller that would merge per member builds its output that way,
+    # with a row in tests/v2/test_benchmark.py's shift guards.
     combined = pieces[lo]
     for piece in pieces[lo + 1:hi]:
         combined.extend(piece)
@@ -282,8 +294,9 @@ def join_connectives(pieces: list[list[int]], ptags: list[set[str]],
     neighbour's join may still take one in."""
     # contiguous conjunction runs merge first
     #
-    # `pieces[k][0] in frozen` and not `frozen.isdisjoint(...)`:
-    # the piece this loop extends GROWS with every merge, so a
+    # The first token (`run_pieces[-1][0] in frozen`) and not
+    # `frozen.isdisjoint(...)`: the piece this loop extends GROWS
+    # with every merge, so a
     # test over its tokens costs 1+2+...+n and the stage goes
     # quadratic in the length of a connective run -- measured,
     # 'and ' x3200 took 41.8ms against 21.7ms, 6.2x per 4x input
@@ -294,52 +307,103 @@ def join_connectives(pieces: list[list[int]], ptags: list[set[str]],
     # loop finishes before the join below can take one into a
     # neighbour's piece, so a piece holding a frozen token here IS
     # that token.
-    k = 0
-    while k < len(pieces) - 1:
-        if (is_conj_piece(pieces[k], ptags[k], tokens)
-                and is_conj_piece(pieces[k + 1], ptags[k + 1], tokens)
-                and pieces[k][0] not in frozen
-                and pieces[k + 1][0] not in frozen):
-            merge_pieces(pieces, ptags, k, k + 2, add={"conjunction"})
+    #
+    # Built in one pass, not through `merge_pieces`, whose slice
+    # assignment would shift the rest of the list once per member
+    # (its comment). The run being built is `run_pieces[-1]`.
+    run_pieces: list[list[int]] = []
+    run_tags: list[set[str]] = []
+    for piece, tags in zip(pieces, ptags):
+        if (run_pieces
+                and is_conj_piece(run_pieces[-1], run_tags[-1], tokens)
+                and is_conj_piece(piece, tags, tokens)
+                and run_pieces[-1][0] not in frozen
+                and piece[0] not in frozen):
+            run_pieces[-1].extend(piece)
+            run_tags[-1] = joined_tags((run_tags[-1], tags), 0, 2,
+                                       add={"conjunction"})
         else:
-            k += 1
+            run_pieces.append(piece)
+            run_tags.append(tags)
+    pieces[:] = run_pieces
+    ptags[:] = run_tags
     # each conjunction joins its neighbors, rules/P3: "except a
     # single-letter connective in a three-word name, which stays a
     # name word" (v1's Google Code issue 11 carve-out, the
     # "john e smith" bug).
+    #
+    # The joins are written into fresh lists in one pass, for the
+    # same reason: a run of joins ('Mr. and ' x n) through
+    # `merge_pieces` would shift the rest of the list once per join.
+    # A join takes the piece behind it off `out`, so the piece it
+    # produces is `out[-1]`, the left neighbour of the next piece
+    # read, and `len(out)` is always the index `pieces[k]` would
+    # stand at had every join so far been made in the list itself.
+    out: list[list[int]] = []
+    out_tags: list[set[str]] = []
+    n = len(pieces)
     k = 0
-    while k < len(pieces):
-        # first token again, and here it is exact for the second
-        # reason as well: the piece a join produces is left BEHIND
-        # `k`, so no merged piece is ever tested twice.
-        if (not is_conj_piece(pieces[k], ptags[k], tokens)
-                or pieces[k][0] in frozen):
+    while k < n:
+        piece, tags = pieces[k], ptags[k]
+        # first token again, exact for the run loop's reason (a
+        # frozen piece is one token) and for a second: the piece a
+        # join produces is left on `out`, BEHIND `k`, so no joined
+        # piece is ever tested here.
+        if (not is_conj_piece(piece, tags, tokens)
+                or piece[0] in frozen):
+            out.append(piece)
+            out_tags.append(tags)
             k += 1
             continue
-        if letter_stays and len(pieces[k]) == 1:
-            text = tokens[pieces[k][0]].text
+        if letter_stays and len(piece) == 1:
+            text = tokens[piece[0]].text
             if not text.isascii():
                 # a decomposed 'й' is one letter in two code points
                 # (#665); compose it, as the lookup does
                 text = unicodedata.normalize("NFC", text)
             if len(text) == 1 and text.isalpha():
+                out.append(piece)
+                out_tags.append(tags)
                 k += 1
                 continue
-        start = max(0, k - 1)
-        end = min(len(pieces), k + 2)
-        neighbor = start if start < k else end - 1
+        has_left = bool(out)
+        has_right = k + 1 < n
+        if has_left:
+            neighbor, neighbor_tags = out[-1], out_tags[-1]
+        elif has_right:
+            neighbor, neighbor_tags = pieces[k + 1], ptags[k + 1]
+        else:
+            # a connective alone in its part is its own neighbour,
+            # so it takes its own kinds
+            neighbor, neighbor_tags = piece, tags
         derived = set()
-        if is_title_piece(pieces[neighbor], ptags[neighbor], tokens):
+        if is_title_piece(neighbor, neighbor_tags, tokens):
             derived.add("title")
         elif titles_only:
+            out.append(piece)
+            out_tags.append(tags)
             k += 1
             continue
         if (not titles_only
-                and is_prefix_piece(pieces[neighbor], ptags[neighbor],
-                                    tokens)):
+                and is_prefix_piece(neighbor, neighbor_tags, tokens)):
             derived.add("prefix")
-        merge_pieces(pieces, ptags, start, end, add=derived)
-        k = start + 1
+        parts = [piece]
+        part_tags = [tags]
+        if has_left:
+            parts.insert(0, out.pop())
+            part_tags.insert(0, out_tags.pop())
+        if has_right:
+            parts.append(pieces[k + 1])
+            part_tags.append(ptags[k + 1])
+        combined = parts[0]
+        for part in parts[1:]:
+            combined.extend(part)
+        out.append(combined)
+        out_tags.append(joined_tags(part_tags, 0, len(part_tags),
+                                    add=derived))
+        k += 2 if has_right else 1
+    pieces[:] = out
+    ptags[:] = out_tags
 
 
 # _PERIOD_ABBREV: imported from _vocab, not redefined here (#289/#516,
@@ -347,8 +411,8 @@ def join_connectives(pieces: list[list[int]], ptags: list[set[str]],
 # shape test is_leading_title asks (_vocab.is_title_shaped), and
 # layering only allows the move in that direction (_pieces may import
 # _vocab; _vocab may not import _pieces). tests/v2/test_regex_sync.py
-# still reaches it as `_pieces._PERIOD_ABBREV` -- an import binds the
-# same name here, so the sync test's target did not move. Out of
+# declares `_pieces._PERIOD_ABBREV` as an import of _vocab's, which an
+# import binds here under the same name. Out of
 # assign since #424 and in the piece layer since #439: the test is
 # assign's, and the chain's leading position (`chain_lead`) and the
 # trailing-run walk must start where assign starts.
@@ -570,6 +634,23 @@ def is_lone_never_given_particle(piece: Sequence[int],
     return (len(piece) == 1
             and "particle" in tokens[piece[0]].tags
             and "vocab:particle-ambiguous" not in tokens[piece[0]].tags)
+
+
+# rules/P11: "an ambiguous particle written in lower case, in a name of
+# mixed case, opens the name as a never-given one does" -- the site
+# test, asked by the fold in post_rules and by assign's report, which
+# the fold settles (decisions/P11, #670)
+def is_lowercase_ambiguous_particle(piece: Sequence[int],
+                                    tokens: Sequence[WorkToken],
+                                    one_case: bool | None) -> bool:
+    """A piece that is one ambiguous particle written in lower case in
+    a name of mixed case: rules/P1's fold site under a family-first
+    order, where the writing settles the particle's fork as a
+    never-given particle's vocabulary does (#670). `one_case` is
+    ParseState.one_case; None (nobody asked) settles nothing."""
+    return (len(piece) == 1
+            and "vocab:particle-ambiguous" in tokens[piece[0]].tags
+            and one_case is False and tokens[piece[0]].text.islower())
 
 
 def _numeral_behind_the_initial_veto(piece: Sequence[int],
@@ -1087,12 +1168,14 @@ def listed_lean(token: WorkToken, one_case: bool | None) -> Lean | None:
     if (one_case is None or AMBIGUOUS_ACRONYM_TAG not in token.tags
             or SHAPE_ACRONYM_TAG in token.tags):
         return None
-    # rules/S11: "An agnomen, the Portuguese `Filho`, `Neto`, `Sobrinho`
-    # and their feminines, is written in the case of the name around it,
-    # so its writing never speaks" -- the cue is what the member is
+    # rules/S11: "Any other's writing never speaks, and the count decides
+    # alone" -- only a word written `title_case_is_name` (`fils`, `kc`)
+    # takes the suffix word's cue; an agnomen and `junior` take none
+    # (decisions/S11, #1039)
     if AMBIGUOUS_WORD_TAG in token.tags:
         return ambiguous_lean(token.text, one_case,
-                              "none" if AGNOMEN_TAG in token.tags else "word")
+                              "word" if TITLE_CASE_NAME_TAG in token.tags
+                              else "none")
     return ambiguous_lean(token.text, one_case)
 
 
@@ -1460,15 +1543,17 @@ def behind_the_merged_credential(rest: Sequence[int], p: int,
 def _name_word_behind(piece: Sequence[int], ptags: Set[str],
                       tokens: Sequence[WorkToken],
                       one_case: bool | None) -> bool:
-    """Whether the piece behind a member its capitals settle reads as a
-    word of the name rather than a further credential, asked of its
+    """Whether the piece behind a member its capitals settle, or behind
+    a credential acronym written in Title case, reads as a word of the
+    name rather than a further credential, asked of its
     first word, since group has merged particle runs and connective
     joins by then ('de la Vega', 'Ortega y Gasset'): a particle, a word
     of a script with no case, or a cased word not written in lower case
     (Title case or capitals, title vocabulary included), that is no
     suffix word and no member its own capitals settle. A credential
     merged across a space ('Pharm D', 'Ph. D.') is no name word. Only
-    `run_start` asks it, of a settled member."""
+    `run_start` asks it, of a settled member or a credential acronym
+    written in Title case (`acronym_in_title_case`)."""
     if "suffix" in ptags or "split" in ptags:
         return False
     tok = tokens[piece[0]]
@@ -1481,6 +1566,73 @@ def _name_word_behind(piece: Sequence[int], ptags: Set[str],
             and SHAPE_ACRONYM_TAG not in tok.tags
             and not (AMBIGUOUS_ACRONYM_TAG in tok.tags
                      and settled_by_case(tok, one_case)))
+
+
+# rules/S8: "nor does a credential acronym written in Title case" --
+# the clause this implements (decisions/S8, #1019)
+def acronym_in_title_case(token: WorkToken) -> bool:
+    """Whether an unambiguous credential ACRONYM is written as a name
+    word is: one run of letters, a trailing period allowed, its first
+    letter a capital and every later one lower case ('Md', 'Phd',
+    'Md.'), where a credential's writing has capitals after the first
+    letter ('MD', 'PhD') or periods or joiners inside it ('M.D.',
+    'M.d.', 'Pa-c'). The case mask is not consulted, so 'Bt', 'Kt' and
+    'Knt', whose own masks are Title case, read as names here too. A
+    suffix WORD (a generation, honorific or other word written out:
+    'Jr', 'Esq', 'III', 'Старший') has no capitals of its own for Title
+    case to drop, so its case says nothing and it is not asked. Not
+    `_vocab.written_as_a_name`, #564's wider case contrast, which
+    admits 'McDonald'. Only `run_start` asks it, where a name word
+    stands behind the acronym."""
+    if "vocab:suffix" not in token.tags or "vocab:suffix-word" in token.tags:
+        return False
+    stem = token.text.rstrip(".")
+    return (len(stem) >= 2 and stem.isalpha() and stem[0].isupper()
+            and stem[1:].islower())
+
+
+# rules/S8: "nor does a generation word written out" -- the clause
+# this implements (decisions/S8)
+def generation_word_before_a_name(token: WorkToken,
+                                  piece: Sequence[int], ptags: Set[str],
+                                  tokens: Sequence[WorkToken],
+                                  one_case: bool | None) -> bool:
+    """Whether a generation WORD ('Junior', 'Jr', 'Snr', 'mlađi') has
+    behind it, in `piece`, a word of the name, asked of the piece's
+    first word as `_name_word_behind` asks it: a word that is no suffix
+    word, no numeral S10 reads as the generation, no initial, no connective, no title word
+    (the run reads that as a title: 'Eric H. Holder Jr. Attorney
+    General') and no maiden marker, so no particle that is also title
+    or suffix vocabulary ('St.', 'Mc'), and is a particle or is written
+    in a name of one case or,
+    in a name of mixed case, in Title case or a script with no case --
+    capitals there are a credential's writing as likely as a name's
+    ('de Planta jr. CF'), and lower case is no name word's. A credential
+    merged across a space is no name word. The numerals are S10's, read
+    by their own predicate, and stay out. Only `run_start` asks it."""
+    if (GENERATION_WORD_TAG not in token.tags
+            or _ROMAN.match(token.text.rstrip(".")) is not None
+            or "suffix" in ptags or "split" in ptags):
+        return False
+    tags = tokens[piece[0]].tags
+    text = tokens[piece[0]].text
+    if (not tags.isdisjoint(_NOT_A_NAME_BEHIND)
+            # a numeral S10 reads by its shape carries no suffix tag
+            # ('JOHN SMITH JUNIOR VI JONES'); asked of S10's predicate,
+            # so a Title-case 'Vi' leaning to the name stays one
+            or (_ROMAN.match(text.rstrip(".")) is not None
+                and reads_as_generation(text, tags, token.text,
+                                        one_case))):
+        return False
+    if "particle" in tags:
+        return True
+    return bool(one_case) or not (text.islower() or text.isupper())
+
+
+#: what a word behind a generation word is that is no word of the name
+_NOT_A_NAME_BEHIND = frozenset({"vocab:suffix", SHAPE_ACRONYM_TAG,
+                                "initial", "conjunction", "vocab:title",
+                                "vocab:maiden-marker"})
 
 
 # rules/S8: "A credential after the name core starts a run to the
@@ -1550,12 +1702,25 @@ def run_start(rest: Sequence[int], names: int,
                              # the walk leaves out (#827)
                              and not behind_the_merged_credential(
                                  rest, p + 1, ptags)
-                             and AMBIGUOUS_ACRONYM_TAG in tags
-                             and settled_by_case(tokens[pieces[q][0]],
-                                                 one_case)
-                             and _name_word_behind(pieces[rest[p + 1]],
-                                                   ptags[rest[p + 1]],
-                                                   tokens, one_case))):
+                             and ((AMBIGUOUS_ACRONYM_TAG in tags
+                                   and settled_by_case(tokens[pieces[q][0]],
+                                                       one_case)
+                                   # rules/S8: "nor does a credential
+                                   # acronym written in Title case" --
+                                   # the writing of a name word
+                                   or acronym_in_title_case(
+                                       tokens[pieces[q][0]]))
+                                  and _name_word_behind(pieces[rest[p + 1]],
+                                                        ptags[rest[p + 1]],
+                                                        tokens, one_case)
+                                  # rules/S8: "nor does a generation word
+                                  # written out" -- a filer's middle-name
+                                  # box, the family name behind it
+                                  or generation_word_before_a_name(
+                                      tokens[pieces[q][0]],
+                                      pieces[rest[p + 1]],
+                                      ptags[rest[p + 1]], tokens,
+                                      one_case)))):
                 return p
         # a lone particle is not yet a name: 'de Mesnil' is one surname
         # -- unless it opens a chain run, which is then the surname
@@ -1695,7 +1860,9 @@ def credential_run(rest: Sequence[int], peel: Peel, p: int,
 # with it 'John Smith Xyz.' would lose its family name to a title
 # (decisions/H5). The vocabulary read is is_title_piece's, shared
 # with the leading run so the two cannot disagree about what a title
-# WORD is while disagreeing, deliberately, about what a title SHAPE is.
+# WORD is while disagreeing, deliberately, about what a title SHAPE is
+# -- save the word H5's written-short clause adds, classify's
+# TRAILING_TITLE_TAG, which no leading read admits (#999).
 def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
                      ptags: Sequence[Set[str]],
                      tokens: Sequence[WorkToken],
@@ -1703,8 +1870,9 @@ def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
                      salutations: bool = False) -> int:
     """How many pieces of `rest` the trailing title chain LEAVES
     standing: `rest[:kept]` are the name pieces and `rest[kept:]` the
-    title words the chain took (period-marked, or under `salutations`
-    a bare salutation), in piece order. Counted
+    title words the chain took (wearing the abbreviation shape, a title
+    listed whole with a period inside it, or under `salutations` a bare
+    salutation), in piece order. Counted
     the way `peel_trailing` counts, so the two answers compose without
     arithmetic at the call site. `rest` is the caller's NAME pieces:
     on the no-comma path what the S2 peel left, after a family comma
@@ -1726,16 +1894,17 @@ def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
     Every parse with a name word to place enters this frame -- assign
     asks the question here rather than answering a cheaper version of
     it inline (mechanisms.md#ONE-PREDICATE-PER-QUESTION) -- so what it
-    costs an ordinary name is one frame and one regex match. The
+    costs an ordinary name is one frame, one tag test and one regex
+    match. The
     exceptions return before it: a segment that is all title, and a
     comma part read wholly as a credential run, have no name piece to
     hand this (52 of the 1289 corpus parses, measured 2026-09-09 --
     'Coach', 'Lord of the Universe', 'Smith, Jr.', 'MD, PHD').
-    The shape test
-    runs BEFORE the vocabulary one to keep it at that: _PERIOD_ABBREV
-    is a compiled regex (a C call, no Python frame) where
-    is_title_piece is a call, and almost no name ends in a
-    period-marked word, so the ordinary parse pays the one match and
+    The tag and shape tests run BEFORE the vocabulary call to keep it
+    at that: classify's JOINED_TITLE_TAG is a set membership test and
+    _TRAILING_TITLE_SHAPE a compiled regex (C calls, no Python frame)
+    where is_title_piece is a call, and almost no name ends in a
+    period-marked word, so the ordinary parse pays the two tests and
     stops (decisions/parse-cost).
     """
     k = len(rest) if end is None else end
@@ -1743,12 +1912,20 @@ def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
         idx = rest[k - 1]
         piece = pieces[idx]
         # no #323 veto on the shape here, unlike is_leading_title's:
-        # the shape is ANDed with is_title_piece, so the word is listed
-        # vocabulary, and a listed CJK title wearing a stop should read
-        # as a title.
+        # the shape is ANDed with a vocabulary read, so the word is
+        # listed, and a listed CJK title wearing a stop should read as
+        # a title. rules/H5: "a title that may be a given name is
+        # title vocabulary there where its title reading is written
+        # short" -- classify's TRAILING_TITLE_TAG, tested ahead of
+        # is_title_piece, a C-level read (decisions/H5, #999)
         if len(piece) == 1 and (
-                (_PERIOD_ABBREV.match(tokens[piece[0]].text)
-                 and is_title_piece(piece, ptags[idx], tokens))
+                # rules/H5: "a title the vocabulary lists whole with a
+                # period inside it chains without a final one" --
+                # classify's tag, a C-level read (decisions/H5, #1104)
+                JOINED_TITLE_TAG in tokens[piece[0]].tags
+                or (_TRAILING_TITLE_SHAPE.match(tokens[piece[0]].text)
+                 and (TRAILING_TITLE_TAG in tokens[piece[0]].tags
+                      or is_title_piece(piece, ptags[idx], tokens)))
                 # rules/H8: "the given part after it ends in a word whose
                 # title reading is a salutation" -- the salutation chains
                 # as a period-marked title does ("It reads as the
@@ -1763,21 +1940,29 @@ def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
 
 
 # rules/H5: "successive single words that wear the abbreviation
-# shape and are title vocabulary chain into the title from the end"
-# -- one word's half of that, for a caller asking it of a piece the
-# chain did not walk to: the maiden take, choosing the words the
-# clause-free view is read over (#601). `trailing_titles` asks the same three tests
-# INLINE, in the same order, for the frame budget its docstring
-# states; keep the two in step.
+# shape and are title vocabulary chain into the title from the end",
+# and "a title the vocabulary lists whole with a period inside it
+# chains without a final one" -- one word's half of that, for a caller
+# asking it of a piece the chain did not walk to: the maiden take,
+# choosing the words the clause-free view is read over (#601).
+# `trailing_titles` asks the same five tests INLINE, in the same order,
+# for the frame budget its docstring states, and adds its `salutations`
+# arm, which no caller of this one asks; keep the two in step.
 def is_trailing_title_word(piece: Sequence[int], ptags: Set[str],
                            tokens: Sequence[WorkToken]) -> bool:
     """Whether one piece is a word H5's trailing chain takes: a lone
     token wearing the abbreviation shape that the title vocabulary
-    lists. Position is the caller's question -- this answers only
-    what the word is."""
+    lists, or that classify marks as a title written short that may
+    be a given name (TRAILING_TITLE_TAG), or a title the vocabulary
+    lists whole with a period inside it, which classify marks
+    (JOINED_TITLE_TAG) and which needs no final period. Position is
+    the caller's question -- this answers only what the word is."""
     return (len(piece) == 1
-            and _PERIOD_ABBREV.match(tokens[piece[0]].text) is not None
-            and is_title_piece(piece, ptags, tokens))
+            and (JOINED_TITLE_TAG in tokens[piece[0]].tags
+                 or _TRAILING_TITLE_SHAPE.match(tokens[piece[0]].text)
+                 is not None
+                 and (TRAILING_TITLE_TAG in tokens[piece[0]].tags
+                      or is_title_piece(piece, ptags, tokens))))
 
 
 #: lone-word tags `trailing_candidates` admits on: the ambiguous class,
@@ -1801,7 +1986,8 @@ def trailing_candidates(lo: int, pieces: Sequence[Sequence[int]],
 
     Back from the end over every piece the peel or the chain admits on
     its own terms -- a suffix piece, a member of the ambiguous class,
-    an initial-shaped suffix word, a period-marked title word -- and
+    an initial-shaped suffix word, a period-marked title word or a
+    title listed whole with a period inside it -- and
     over a roman numeral the numeral's predicate admits, asked with no
     case so it stays a superset: one of two or more letters wherever it
     stands, the peel reading it anywhere in the run (#752), and one of
@@ -2196,20 +2382,26 @@ def _weighed(piece: Sequence[int], tokens: Sequence[WorkToken]) -> bool:
     period-marked title word. A word the chain joins and the reading
     weighs is a word the reading may yet take ('Freiherr von Berg MA
     X.Y.Z.' keeps suffix 'MA X.Y.Z.'), so it ends the plain run the
-    count folds into the particle (#620's review). A
-    connective join is one name word, P3's own count. The tests inline:
-    this asks once per word behind a particle run."""
+    count folds into the particle (#620's review); a title written
+    short that may be a given name is one too, H5's chain taking it
+    as it takes a listed title (#999), and so is a title listed whole
+    with a period inside it, which the chain takes without a final one
+    (#1104). A connective join is one name word, P3's own count. The
+    tests are inline: this asks once per word behind a particle run."""
     if len(piece) > 1:
         return False
     tok = tokens[piece[0]]
     return (not tok.tags.isdisjoint(_WEIGHED_TAGS)
             or _ROMAN.match(stem := tok.text.rstrip(".")) is not None
             and stem != ""
-            or "vocab:title" in tok.tags
-            and _PERIOD_ABBREV.match(tok.text) is not None)
+            or ("vocab:title" in tok.tags or TRAILING_TITLE_TAG in tok.tags)
+            and _TRAILING_TITLE_SHAPE.match(tok.text) is not None)
 
 
-_WEIGHED_TAGS = _TRAILING_WORD_TAGS | {"initial"}
+#: the tags any one of which makes `_weighed` True for a one-word
+#: piece: the trailing reading's lone-word tags, an initial, and a
+#: title listed whole with a period inside it (#1104)
+_WEIGHED_TAGS = _TRAILING_WORD_TAGS | {"initial", JOINED_TITLE_TAG}
 
 
 def read_trailing_run(pieces: Sequence[Sequence[int]],

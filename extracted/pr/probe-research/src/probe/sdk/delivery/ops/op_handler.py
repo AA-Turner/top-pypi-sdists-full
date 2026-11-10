@@ -166,9 +166,10 @@ def _send_http(client, op: dict, run_ids: dict[str, str]) -> dict | None:
     placed = _placed(client, op)
     if placed is not None:
         return placed["response"]
-    # A queued metrics POST may be acked once durable in the server's queue (I15d).
-    is_metrics = routes.classify(op["method"], op["path"]).op is routes.WriteOp.METRICS
-    ack = build_async_ack_kwargs(client) if is_metrics and op["method"].upper() == "POST" else {}
+    # A queued metrics or samples POST may be acked once durable in the server's queue (I15d).
+    queued_kind = routes.classify(op["method"], op["path"]).op
+    is_queued = queued_kind in (routes.WriteOp.METRICS, routes.WriteOp.SAMPLES)
+    ack = build_async_ack_kwargs(client) if is_queued and op["method"].upper() == "POST" else {}
     try:
         return client.transport.request(op["method"], op["path"], json_body=op.get("body"), **ack)
     except errors.ValidationError:

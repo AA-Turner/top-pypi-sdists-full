@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: repo-standards
-Version: 6.19.4
+Version: 6.22.3
 Summary: Deterministic pull-request sizing and reviewed repository policy
 Keywords: architecture,github-actions,lint,openapi,repository
 Author: sarj-ai
@@ -216,7 +216,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: sarj-ai/repo-standards@5415204c2a83b8998f7b5454653e94dc13f048e8 # v6.19.4
+      - uses: sarj-ai/repo-standards@9ec36427f34bab43589129d85d571dd476061c8e # v6.22.3
 ```
 
 The Action emits counted, excluded, and total line counts plus canonical JSON. Tests are

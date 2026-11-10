@@ -3,12 +3,12 @@
 //! sha2 only, so it builds without the `store` feature.
 
 mod cbor;
-pub mod compose;
 pub mod decode;
 mod doc;
 mod dtype;
 pub mod encode;
 mod json;
+pub use json::config_json;
 pub mod layout;
 mod repo;
 mod value;
@@ -19,27 +19,26 @@ pub use doc::{
     Span, Tensor,
 };
 pub use repo::{label, newest_by, Release, Repo, Tree, CHUNKS_DIR, ROOT_ORG};
-#[cfg(feature = "store")]
-pub(crate) use doc::{is_digest, segment};
-#[cfg(feature = "store")]
-pub(crate) use repo::{check_file, repo_name};
+pub use doc::{is_digest, segment};
+pub use repo::{check_file, repo_name};
 pub use dtype::Dtype;
 pub use encode::{GlobalScale, NibbleOrder};
 pub use doc::{Pipeline, CONFIG_FILE};
 pub use value::{Config, ConfigValue, Value};
 
-pub const HEADER_FORMAT: &str = "cozytensors/1";
-pub const REPO_FORMAT: &str = "cozytensors.repo/1";
+pub(crate) const HEADER_FORMAT: &str = "cozytensors/1";
+pub(crate) const REPO_FORMAT: &str = "cozytensors.repo/1";
 /// The path a writer gives a commit's header.
 pub const HEADER_PATH: &str = "model.cozytensors";
 /// A commit: `{format, lane, files: {path: object}}`.
-pub const TREE_FORMAT: &str = "cozytensors.tree/1";
+pub(crate) const TREE_FORMAT: &str = "cozytensors.tree/1";
 
 /// Whether a tree's file at `path` is a header (spec §3): a `.cozytensors` file, at any depth.
 pub fn is_header(path: &str) -> bool {
     path.rsplit('/').next().is_some_and(|name| name.ends_with(".cozytensors"))
 }
 
+/// Why a document or tensor cannot be read, decoded or encoded.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     /// The bytes are not a valid document of the expected kind.
@@ -63,20 +62,13 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn code(&self) -> &'static str {
-        match self {
-            Error::Invalid(_) => "invalid",
-            Error::Format { .. } => "format",
-            Error::UnknownScheme(_) => "unknown_scheme",
-            Error::Decode(_) => "decode",
-            Error::Encode(_) => "encode",
-        }
-    }
 }
 
+/// A result that fails with a format `Error`.
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub(crate) fn invalid<T>(detail: impl Into<String>) -> Result<T> {
+/// Returns `Err(Error::Invalid)` with this detail.
+pub fn invalid<T>(detail: impl Into<String>) -> Result<T> {
     Err(Error::Invalid(detail.into()))
 }
 

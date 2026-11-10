@@ -11,11 +11,13 @@ from office365.directory.policies.authentication_combination_configuration impor
 from office365.directory.policies.update_allowed_combinations_result import UpdateAllowedCombinationsResult
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 
 
 class AuthenticationStrengthPolicy(Entity):
@@ -26,6 +28,7 @@ class AuthenticationStrengthPolicy(Entity):
     may be built-in or custom (defined by the tenant) and may or may not fulfill the requirements to grant an MFA claim.
     """
 
+    @require_permission(delegated=["Policy.Read.All"], application=["Policy.Read.All"])
     def usage(self) -> ClientResult[AuthenticationStrengthUsage]:
         """
         Allows the caller to see which Conditional Access policies reference a specified authentication strength policy.
@@ -39,6 +42,9 @@ class AuthenticationStrengthPolicy(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=["Policy.ReadWrite.AuthenticationMethod"], application=["Policy.ReadWrite.AuthenticationMethod"]
+    )
     def update_allowed_combinations(
         self, allowed_combinations: List[str] | None = None
     ) -> ClientResult[UpdateAllowedCombinationsResult]:
@@ -56,6 +62,7 @@ class AuthenticationStrengthPolicy(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="allowedCombinations")
     @property
     def allowed_combinations(self) -> ClientValueCollection[AuthenticationMethodModes]:
         """Gets the allowedCombinations property"""
@@ -63,36 +70,43 @@ class AuthenticationStrengthPolicy(Entity):
             "allowedCombinations", ClientValueCollection[AuthenticationMethodModes](AuthenticationMethodModes)
         )
 
+    @odata(name="createdDateTime")
     @property
     def created_date_time(self) -> Optional[datetime]:
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description property"""
         return self.properties.get("description", None)
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """Gets the displayName property"""
         return self.properties.get("displayName", None)
 
+    @odata(name="modifiedDateTime")
     @property
     def modified_date_time(self) -> Optional[datetime]:
         """Gets the modifiedDateTime property"""
         return self.properties.get("modifiedDateTime", datetime.min)
 
+    @odata(name="policyType")
     @property
     def policy_type(self) -> AuthenticationStrengthPolicyType:
         """Gets the policyType property"""
         return self.properties.get("policyType", AuthenticationStrengthPolicyType.builtIn)
 
+    @odata(name="requirementsSatisfied")
     @property
     def requirements_satisfied(self) -> AuthenticationStrengthRequirements:
         """Gets the requirementsSatisfied property"""
         return self.properties.get("requirementsSatisfied", AuthenticationStrengthRequirements.none)
 
+    @odata(name="combinationConfigurations", navigation=True)
     @property
     def combination_configurations(self) -> EntityCollection[AuthenticationCombinationConfiguration]:
         """Gets the combinationConfigurations property"""

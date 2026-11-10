@@ -55,16 +55,23 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
-from coord.drive_queue import QueueEntry
+from coord.drive_queue import QueueEntry, is_unreachable_wait_shape
+
+if TYPE_CHECKING:
+    from coord.gates import GateReport
 
 _log = logging.getLogger(__name__)
 
 __all__ = [
+    "CAUSE_INTEGRATION_RED",
+    "CAUSE_NEVER_DISPATCHED",
     "CAUSE_PROSE",
+    "CAUSE_REVIEW_STALE",
+    "CAUSE_TEST_STALE",
     "CAUSE_UNKNOWN",
     "CONFIDENCE_HIGH",
     "CONFIDENCE_LOW",
@@ -78,11 +85,26 @@ __all__ = [
     "LiveProbe",
     "LiveState",
     "diagnose",
+    "is_foreign_launch",
     "needs_diagnosis",
     "run_pass",
     "stalled_keys",
     "stated_family",
     "trigger_conditions",
+    # #3883: escalation-diagnosis enrichment.
+    "ENV_DIAGNOSIS_BASE_RED",
+    "ENV_DIAGNOSIS_CREDENTIAL",
+    "ENV_DIAGNOSIS_INCONCLUSIVE",
+    "ENV_DIAGNOSIS_MISSING_TOOL",
+    "DiagnosisOption",
+    "EnvDiagnosis",
+    "EnvProbeResult",
+    "LostWorkCandidate",
+    "classify_env_probe_output",
+    "diagnose_baseline_red_env",
+    "extract_failing_file_paths",
+    "find_lost_work_touching",
+    "is_sealed_confined_failure",
 ]
 
 
@@ -99,11 +121,77 @@ CAUSE_MERGE_CONFLICT = "merge-conflict"
 CAUSE_DEAD_LEG = "dead-leg"
 CAUSE_NO_PR = "no-pr"
 CAUSE_CI_RED = "ci-red"
+#: A `ci-red` row whose live checks are failing while the LATEST branch
+#: Test-gate DECISION (`coord.gates`'s own "test" `GateDecision` — its
+#: required/ok answer, not the raw `test_state` column, which can disagree
+#: with it on a #1479-stale verdict) already reads green (`passed`) on this
+#: branch alone. CI builds the PR's merge ref (branch + current base); the
+#: Test stage builds the branch. When the two disagree the failure is a
+#: property of the COMBINATION, not of this branch's own diff — a sibling
+#: PR landing on the base while this one is in flight is the shape that
+#: produces it, and a fix leg that never builds the merged tree stays green
+#: on the branch forever. Never confused with plain `ci-red`: that cause
+#: covers everything else, including a branch whose own Test verdict is
+#: ALSO red (the regression is real and local, not an integration gap), or
+#: merely `skipped` (a structural claim about the diff's shape, never a
+#: claim the code behaved correctly at this SHA — see `_rule_integration_red`).
+CAUSE_INTEGRATION_RED = "integration-red"
 CAUSE_CI_PENDING = "ci-pending"
 CAUSE_GATE_BLOCKED = "gate-blocked"
 CAUSE_NOTHING_BLOCKING = "nothing-blocking"
 CAUSE_CI_GREEN = "ci-green"
 CAUSE_AGENT_UNREACHABLE = "agent-unreachable"
+#: A `blocked`/`parked` row that has never been dispatched at all — no
+#: branch, no PR, no merge-queue row — and so has structurally nothing for a
+#: live probe to ever read, no matter how many times this diagnoses it. See
+#: :func:`coord.drive_queue.is_unreachable_wait_shape`, the one predicate
+#: this reuses rather than re-deriving (#2096: one question, one answer) —
+#: the SAME shape `coord.drive_queue._reconcile_blocked_unreachable` resets
+#: to `waiting` from the tick's own reconcile loop, surfaced here so a row
+#: whose tick-side reset is itself bounded (`MAX_BLOCKED_RESUMES`) does not
+#: also fall off `coord drive-queue sweep`'s own radar.
+#:
+#: Two coverage gaps this does NOT close, by design rather than oversight:
+#: `is_unreachable_wait_shape` unconditionally excludes a row whose
+#: `last_reason` still names an unsatisfiable `after=` verdict — that shape
+#: is `_reconcile_blocked_after`'s alone to resolve (#2978), so if that
+#: function ever declines for an unrelated reason (a stale board cache, a
+#: missing `live_prereq_terminal`), the row is blocked with no surface here
+#: either. And an episode that already spent its `MAX_DIAGNOSES_PER_EPISODE`
+#: budget recorded as `unknown` stays `unknown` — `needs_diagnosis` refuses
+#: to re-probe it — so only new or unspent episodes reach this cause.
+CAUSE_NEVER_DISPATCHED = "never-dispatched"
+#: #3929 (#3918 gap 3): a live :class:`~coord.entry_truth.EntryTruth`
+#: (#3936) confirms an approve verdict exists for this branch's work chain
+#: but no longer covers it, via one of two routes, never `coord gates`'s
+#: own cached decision: (1) :attr:`~coord.entry_truth.EntryTruth.
+#: review_stale` — the gate itself still reads APPROVED, but the #3948
+#: patch-id check confirms the base moved under an unchanged branch head
+#: (quadraui#2173: `coord gates` read "every required gate reads clear"
+#: while the approving review's own `review_patch_id` no longer matched the
+#: branch — a cause that reached :data:`CAUSE_UNKNOWN` and dispatched a
+#: blind fix-it work leg instead of a fresh review); or (2) the gate reads
+#: NOT approved and :func:`coord.merge_queue.find_scoped_review_candidate`
+#: — built on the same :func:`~coord.merge_queue.scan_approved_reviews`
+#: ``has_approved_review`` relies on — finds a genuinely voided PRIOR
+#: approval, with none of the rebase-equivalence escape hatches (#1475
+#: content-identical patch-id, #3707 ancillary-only, #3749 context-only)
+#: applying. The fix either way is a review, never a worker leg — see
+#: :mod:`coord.board_doctor_policy`'s ``restage`` wiring for this cause.
+CAUSE_REVIEW_STALE = "review-stale"
+#: #3929 (#3918 gap 3), the Test-gate twin of :data:`CAUSE_REVIEW_STALE`: a
+#: live :class:`~coord.entry_truth.EntryTruth` (#3936) whose ``test``
+#: decision's ``anchor`` is populated — set ONLY for a ``passed``/
+#: ``skipped`` verdict recorded against a branch/base SHA pair that has
+#: since moved (:func:`coord.merge_queue.evaluate_smoke_verdict`'s own
+#: ``kind`` reading :data:`coord.merge_queue.SMOKE_STALE`, which
+#: :func:`coord.gates.build_gate_report` already calls to build the
+#: decision — never a second, independent call here). Never
+#: ``SMOKE_MISSING`` (nothing was ever recorded — that is a plain gate
+#: refusal, not staleness) or ``SMOKE_UNKNOWN`` (the live SHA needed to
+#: judge staleness could not even be read — abstain, don't guess). The fix
+#: is a fresh test, never a worker leg.
+CAUSE_TEST_STALE = "test-stale"
 CAUSE_UNKNOWN = "unknown"
 
 CAUSE_PROSE: dict[str, str] = {
@@ -113,11 +201,21 @@ CAUSE_PROSE: dict[str, str] = {
     CAUSE_DEAD_LEG: "the entry names a session the machine that launched it no longer has — the leg is dead, not slow",
     CAUSE_NO_PR: "no PR exists for this entry, so no CI-shaped or merge-shaped reason can be the real blocker",
     CAUSE_CI_RED: "a required check is failing right now",
+    CAUSE_INTEGRATION_RED: (
+        "GitHub Actions CI is failing on the PR's merge ref, but this "
+        "branch's own latest Test-gate verdict read green — the failure "
+        "lives in the combination with the current base, not in this "
+        "branch's own diff; a fix leg must build the merged tree, not "
+        "just the branch, to reproduce it"
+    ),
     CAUSE_CI_PENDING: "checks are still running; nothing has actually failed yet",
     CAUSE_GATE_BLOCKED: "a merge gate is genuinely refusing right now",
     CAUSE_NOTHING_BLOCKING: "no live blocker exists — the gates read clear, checks are green and the PR is mergeable; the queue is stalled on a reading that has since gone stale",
     CAUSE_CI_GREEN: "every check has reported success; the CI-shaped reason no longer describes anything live",
     CAUSE_AGENT_UNREACHABLE: "the machine that owns this entry is not answering /health",
+    CAUSE_NEVER_DISPATCHED: "this row has no branch, no PR and no merge-queue row behind it — it was never dispatched, so no amount of re-probing a merge gate can ever learn anything new; resetting it to waiting re-runs nothing that already ran",
+    CAUSE_REVIEW_STALE: "the merge gate's own freshness check confirms an approval exists but no longer covers this branch's current head/patch-id — needs a fresh review, not a fix-it leg",
+    CAUSE_TEST_STALE: "the merge gate's own freshness check confirms a recorded test verdict is stale against the current branch/base — needs a fresh test, not a fix-it leg",
     CAUSE_UNKNOWN: "evidence was too thin to name a cause, and a guess here would poison the corpus Phase 2 is scoped from",
 }
 
@@ -193,6 +291,63 @@ class LiveState:
     #: Probes that raised.  Non-empty means the picture is partial, and every
     #: verdict below high confidence is downgraded accordingly.
     probe_errors: tuple[str, ...] = ()
+    #: The LATEST Test-gate DECISION for this issue's own branch — read off
+    #: ``coord gates``'s own "test" :class:`~coord.gates.GateDecision`
+    #: (:func:`coord.gates.build_gate_report`), never off the raw
+    #: ``test_state`` column directly. ``"passed"`` | ``"skipped"`` only
+    #: when the decision itself reads ``ok`` (genuinely satisfied, or not
+    #: required at all); ``"failed"`` whenever the decision is ``required``
+    #: and NOT ``ok`` — including a #1479-STALE refusal, where the raw
+    #: ``test_state`` column can still read ``"passed"`` even though
+    #: ``coord merge`` is actively refusing this exact branch right now.
+    #: Trusting the raw column there would misreport a refusing gate as
+    #: green. ``None`` covers every case that is NOT a confirmed decision
+    #: either way: the read failed, no Test gate applies to this issue at
+    #: all, or no smoke verdict has ever been recorded — never collapsed
+    #: into either verdict, same posture as every other optional field on
+    #: this class.
+    branch_test_state: str | None = None
+    #: ``True`` only when ``coord gates``'s own board read
+    #: (:func:`coord.gates.build_gate_report`) completed WITHOUT raising and
+    #: came back having found zero assignments at all for this issue — a
+    #: positive, board-derived observation, not an absence of one.  ``None``
+    #: means that read did not happen or raised (so this says nothing);
+    #: ``False`` means it ran and found at least one assignment, even if
+    #: that assignment has no branch recorded yet (dispatched, just not
+    #: pushed). Only a confirmed ``True`` may ever upgrade a verdict.
+    no_assignment_ever: bool | None = None
+    #: #3929/#3936: ``True`` only when a live :class:`~coord.entry_truth.
+    #: EntryTruth` (:func:`coord.entry_truth.reconcile_entry`) confirms a
+    #: prior approve verdict exists for this branch but no longer covers
+    #: its current head/patch-id — either :attr:`~coord.entry_truth.
+    #: EntryTruth.review_stale` (the gate itself still reads APPROVED, the
+    #: #3948 patch-id-drift case) or, when the gate reads NOT approved, a
+    #: direct :func:`coord.merge_queue.find_scoped_review_candidate` call
+    #: (:meth:`GhLiveProbe._review_stale_fallback` — additive work
+    #: `EntryTruth` does not yet do on its own, see its own module
+    #: docstring rule 2). ``False`` when review isn't required at all, or
+    #: the requirement reads fresh (approved-and-current, or never
+    #: approved in the first place — there is nothing stale to report
+    #: either way). ``None`` — "could not tell" — when the live
+    #: reconciliation was never attempted (no board/config, no work-like
+    #: assignment to anchor it to) or raised, or when the live branch head
+    #: itself could not be confirmed. Never derived from ``coord gates``'s
+    #: own cached decision (see :data:`CAUSE_REVIEW_STALE`): a live read,
+    #: every time, is the whole point.
+    review_stale: bool | None = None
+    #: #3929/#3936, the Test-gate twin of `review_stale`: ``True`` only
+    #: when the live :class:`~coord.entry_truth.EntryTruth`'s ``test``
+    #: decision carries a populated ``anchor`` — set ONLY for a STALE
+    #: verdict (:func:`coord.merge_queue.evaluate_smoke_verdict`'s own
+    #: ``kind`` reading :data:`coord.merge_queue.SMOKE_STALE`, folded into
+    #: that decision by :func:`coord.gates.build_gate_report`, never a
+    #: second independent call here). ``False`` when Test isn't required,
+    #: or the verdict reads fresh/missing — a verdict that was simply
+    #: never recorded is a plain gate refusal, not staleness. ``None``
+    #: when the check was never attempted, raised, or the live SHA needed
+    #: to judge staleness could not be read — "could not tell", not
+    #: "confirmed not stale".
+    test_stale: bool | None = None
 
     @property
     def read_anything(self) -> bool:
@@ -257,6 +412,43 @@ def _gate_line(live: LiveState) -> str:
     return f"coord gates: blocked — {blockers}"
 
 
+def _branch_test_line(live: LiveState) -> str:
+    """Rendered unconditionally (never only inside `_rule_integration_red`'s
+    own decisive string) so an operator reading a `ci-red` diagnosis can see
+    what the branch's own Test-gate decision read — the one piece of
+    evidence that answers "why didn't this fire as `integration-red`"."""
+    if live.branch_test_state is None:
+        return "coord gates (test decision): not read, or no Test gate on this issue"
+    return f"coord gates (test decision): branch Test verdict reads {live.branch_test_state!r}"
+
+
+def _staleness_line(live: LiveState) -> str:
+    """Rendered unconditionally, same posture as :func:`_branch_test_line` —
+    the one place an operator reading ANY cause can see what the merge
+    gate's own direct freshness re-check found, independent of what
+    ``coord gates``'s cached decision said (#3929)."""
+
+    def _bit(label: str, value: bool | None, stale_word: str) -> str:
+        if value is None:
+            return f"{label}: not read"
+        if value:
+            return f"{label}: {stale_word}"
+        # `False` deliberately collapses three materially different
+        # readings the live recheck does not distinguish further: fresh
+        # (approved/passed and current), not required at all, or never
+        # approved/recorded in the first place. None of the three is
+        # actionable the way a confirmed-stale reading is, so this module
+        # does not split them — but say so plainly rather than implying
+        # "fresh" is the confirmed answer.
+        return f"{label}: not confirmed stale (fresh, not required, or never recorded)"
+
+    return (
+        "merge-gate freshness recheck — "
+        f"{_bit('review', live.review_stale, 'APPROVED BUT STALE')}; "
+        f"{_bit('test', live.test_stale, 'RECORDED BUT STALE')}"
+    )
+
+
 def _health_line(entry: QueueEntry, live: LiveState) -> str:
     machine = entry.machine or entry.launch_host or "unassigned"
     if live.agent_reachable is None:
@@ -282,7 +474,14 @@ def _evidence(entry: QueueEntry, live: LiveState) -> list[str]:
     probes that came back empty makes "we did not look" indistinguishable
     from "we looked and there was nothing".
     """
-    lines = [_pr_line(live), _checks_line(live), _gate_line(live), _health_line(entry, live)]
+    lines = [
+        _pr_line(live),
+        _checks_line(live),
+        _gate_line(live),
+        _branch_test_line(live),
+        _staleness_line(live),
+        _health_line(entry, live),
+    ]
     lines.extend(f"probe failed: {err}" for err in live.probe_errors)
     return lines
 
@@ -406,6 +605,23 @@ def _rule_conflict(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] |
     return None
 
 
+def _probe_confirms_never_dispatched(live: LiveState) -> bool:
+    """Did the probe positively confirm, via a successful board read, that
+    this issue has no assignment at all — as opposed to a probe that merely
+    failed to find a branch for an unrelated reason (an exception, or an
+    assignment that exists but has no branch recorded yet)?
+
+    Reads `live.no_assignment_ever` rather than scanning `probe_errors` for
+    text: `GhLiveProbe._gates` catches EVERY exception `build_gate_report`
+    raises and still appends a distinct `coord gates: ...` error, after
+    which `GhLiveProbe._github` — handed the now-empty branch — appends its
+    own `gh: no branch known for ...` line too. Both strings land in
+    `probe_errors` on a plain timeout/rate-limit, so a string match alone
+    cannot tell that apart from a genuine "never dispatched" reading.
+    """
+    return live.no_assignment_ever is True
+
+
 def _rule_dead_leg(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | None:
     # Diagnosing this shape is in scope; FIXING it is not (#2276 explicitly
     # leaves the deterministic liveness check to its own issue — mechanism
@@ -421,6 +637,66 @@ def _rule_no_pr(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | No
     if live.pr_number is None and live.pr_state == "none":
         return CAUSE_NO_PR, CONFIDENCE_MEDIUM, _pr_line(live)
     return None
+
+
+def _rule_review_stale(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | None:
+    """#3929: fires straight off the merge gate's own direct freshness
+    re-check (:attr:`LiveState.review_stale`) — never off ``coord
+    gates``'s cached decision, which can read "every required gate reads
+    clear" for the exact row this is meant to catch (quadraui#2173, see
+    :data:`CAUSE_REVIEW_STALE`). Checked ahead of :func:`_rule_gate_
+    blocked`: a confirmed-stale approval is a sharper, more actionable
+    answer than the generic "a merge gate is genuinely refusing right
+    now" read, and must win the race against :data:`CAUSE_UNKNOWN` long
+    before this module gives up. Checked AFTER :func:`_rule_integration_
+    red`/:func:`_rule_ci_red`/:func:`_rule_ci_pending` on purpose — the
+    issue this closes is staleness outranking a CLEAR gate reading, not a
+    genuinely red or pending required check, which is the row's more
+    actionable, more local problem regardless of what the prior approval
+    says.
+    """
+    if live.review_stale is True:
+        return CAUSE_REVIEW_STALE, CONFIDENCE_HIGH, _staleness_line(live)
+    return None
+
+
+def _rule_test_stale(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | None:
+    """#3929, the Test-gate twin of :func:`_rule_review_stale` — see that
+    rule's docstring."""
+    if live.test_stale is True:
+        return CAUSE_TEST_STALE, CONFIDENCE_HIGH, _staleness_line(live)
+    return None
+
+
+def _rule_integration_red(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | None:
+    """A live-failing check whose branch Test verdict is already green is a
+    property of the MERGE, not the branch — see
+    :data:`CAUSE_INTEGRATION_RED`'s docstring. Checked strictly BEFORE
+    :func:`_rule_ci_red` in :data:`_RULES` so the more specific cause wins
+    whenever both would otherwise match; a branch whose own Test verdict
+    also read red falls through to plain ``ci-red`` unchanged.
+
+    Restricted to ``"passed"`` alone — deliberately excludes ``"skipped"``.
+    A skipped Test is a structural claim about the SHAPE of the diff
+    ("contract/fixture-only, nothing to smoke-test"), never a claim that
+    code behaved correctly at this SHA (see
+    ``coord.merge_queue.evaluate_smoke_verdict``'s own docstring), so there
+    is no confirmed green half to split the CI failure away from. Worse, a
+    ``baseline_red``-confirmed skip means the BASE is what's broken —
+    relabeling that ``integration-red`` would steer it away from
+    ``coord.board_doctor.CAUSE_BASELINE_RED``, the cause that actually
+    names it.
+    """
+    failing = live.failing_checks()
+    if not failing or live.branch_test_state != "passed":
+        return None
+    names = ", ".join(sorted(c.name for c in failing)[:3])
+    return (
+        CAUSE_INTEGRATION_RED,
+        CONFIDENCE_HIGH,
+        f"gh pr checks: failing — {names} — but this branch's own latest "
+        f"Test-gate verdict is {live.branch_test_state!r}",
+    )
 
 
 def _rule_ci_red(entry: QueueEntry, live: LiveState) -> tuple[str, str, str] | None:
@@ -481,8 +757,25 @@ _RULES = (
     _rule_conflict,
     _rule_dead_leg,
     _rule_no_pr,
+    # #3882: integration-red must be tried before the generic ci-red rule
+    # below, or a branch whose own Test verdict is clean would always be
+    # misclassified as a plain (local) regression.
+    _rule_integration_red,
     _rule_ci_red,
     _rule_ci_pending,
+    # #3929: a confirmed-stale review/test, straight off a direct re-check
+    # of the merge gate's own freshness functions, outranks the generic
+    # `gate-blocked` read that a STALE `coord gates` cache can otherwise
+    # hide behind (quadraui#2173) — a named staleness is a sharper, more
+    # actionable answer than "a merge gate is genuinely refusing right
+    # now". Deliberately tried AFTER the CI rules above rather than ahead
+    # of them: the issue this closes is staleness outranking a CLEAR gate
+    # reading, not a genuinely red required check — a row that is both
+    # failing CI right now AND carries a superseded prior approval is a CI
+    # problem first; the stale approval cannot matter again until the CI
+    # failure is fixed and a fresh review is needed anyway.
+    _rule_review_stale,
+    _rule_test_stale,
     _rule_gate_blocked,
     # #2276 review: this sits ABOVE `nothing-blocking` deliberately.  Every
     # rule above it names a positive blocker (a conflict, a red check, a
@@ -566,6 +859,40 @@ def diagnose(
         # be reading its own assumptions back out; abstain instead.
         cause, confidence = CAUSE_UNKNOWN, CONFIDENCE_NONE
 
+    # A cause still sitting at CAUSE_UNKNOWN here — whether from the
+    # abstention just above, or because no `_RULES` entry matched a readable
+    # picture — gets one more chance to be upgraded to a NAMED,
+    # high-confidence cause, never downgraded from one. Deliberately not
+    # narrowed to the abstention branch alone: "readable, but nothing in
+    # `_RULES` matched" is exactly what a never-dispatched row looks like —
+    # there is no PR state, no mergeable verdict and no checks for any rule
+    # to key off, yet `agent_reachable` can still be read (that probe does
+    # not depend on this issue having a branch at all), which would make
+    # `read_anything` true despite nothing being dispatched.
+    #
+    # `_probe_confirms_never_dispatched` is gated on `live.no_assignment_ever`
+    # — a POSITIVE board-derived observation (coord gates' own read ran
+    # without raising and found zero assignments), never an absence of one.
+    # It cannot fire on a `coord gates` exception, a timeout, or any other
+    # reason the picture could be thin, which is exactly what tells this
+    # apart from a probe that merely failed.
+    #
+    # Paired with `is_unreachable_wait_shape` (the SAME predicate
+    # `coord.drive_queue._reconcile_blocked_unreachable` already trusts for
+    # "nothing here will ever answer a live probe" — #2096, one question,
+    # one answer) rather than `entry.attempts == 0` alone, because attempts
+    # alone is not sufficient: a successful dispatch never increments it
+    # either, so a row with a real, in-flight branch could misreport.  A row
+    # already excluded there — a permanent block, or `_resolve_prereqs`'s
+    # own unsatisfiable `after=` verdict, which `_reconcile_blocked_after`
+    # alone resolves — is excluded here too.
+    if (
+        cause == CAUSE_UNKNOWN
+        and is_unreachable_wait_shape(entry)
+        and _probe_confirms_never_dispatched(live)
+    ):
+        cause, confidence = CAUSE_NEVER_DISPATCHED, CONFIDENCE_HIGH
+
     family = stated_family(entry.last_reason)
     supported = _stated_still_supported(family, live)
     return Diagnosis(
@@ -621,6 +948,37 @@ def _row_reachable(row: Mapping[str, Any]) -> bool | None:
     return state == network.ONLINE
 
 
+def is_foreign_launch(entry: QueueEntry, local_host: str | None) -> bool:
+    """Was *entry* launched by a host whose tmux *local_host* cannot read?
+
+    #1870: a ``tmux list-sessions`` read is always LOCAL.  For an entry
+    launched on a DIFFERENT machine, "not in that set" means *"not mine to
+    see"*, not *"dead"* — treating it as dead would manufacture a
+    confidently-wrong verdict for a perfectly healthy remote session.
+    ``False`` (never foreign) whenever either side of the comparison is
+    unknown: *local_host* unset (the check disabled, same posture as
+    ``now=None`` disabling a grace window), or *entry* predates the
+    ``launch_host`` column / was hand-edited (degrades to the pre-#1870
+    behaviour exactly).
+
+    One answer, shared by every caller that needs this guard
+    (:meth:`GhLiveProbe._foreign`, :func:`coord.board_doctor._no_progress_
+    shape`) rather than each re-deriving it (#2096) — the #3888 review
+    finding that the board-doctor no-progress pass had grown a THIRD,
+    guardless copy of this exact question.
+    """
+    if not local_host or not entry.launch_host:
+        return False
+
+    # Short hostname, lowercased, domain suffix dropped — so a machine
+    # addressed as `dellserver` in the queue row and `dellserver.local` by
+    # DNS still compares equal to itself and does NOT read as foreign.
+    def short(name: str) -> str:
+        return name.split(".")[0].strip().lower()
+
+    return short(entry.launch_host) != short(local_host)
+
+
 class LiveProbe(Protocol):
     """Gathers :class:`LiveState` for one entry.  Read-only, by contract."""
 
@@ -662,7 +1020,10 @@ class GhLiveProbe:
 
     def probe(self, entry: QueueEntry) -> LiveState:
         errors: list[str] = []
-        branch, gate_ready, gate_blockers = self._gates(entry, errors)
+        (
+            branch, gate_ready, gate_blockers, no_assignment_ever, branch_test_state,
+            review_stale, test_stale,
+        ) = self._gates(entry, errors)
         pr_number, pr_state, mergeable, checks = self._github(entry, branch, errors)
         reachable, has_session, crits = self._health(entry)
         return LiveState(
@@ -676,14 +1037,29 @@ class GhLiveProbe:
             agent_has_session=has_session,
             machine_crits=tuple(crits),
             probe_errors=tuple(errors),
+            no_assignment_ever=no_assignment_ever,
+            branch_test_state=branch_test_state,
+            review_stale=review_stale,
+            test_stale=test_stale,
         )
 
     # -- `coord gates`, verbatim ------------------------------------------
     def _gates(
         self, entry: QueueEntry, errors: list[str]
-    ) -> tuple[str, bool | None, list[str]]:
+    ) -> tuple[str, bool | None, list[str], bool | None, str | None, bool | None, bool | None]:
+        # #3936 review: `_staleness` now reads off the SAME `GateReport`
+        # this builds (via `reconcile_entry`'s own `report=` passthrough)
+        # rather than paying for — and risking disagreeing with — a SECOND
+        # live `build_gate_report` call for the identical `(repo, issue)` a
+        # moment later. `self.board`/`self.config` being absent is handled
+        # entirely inside `_staleness` (its own short-circuit), never by
+        # attempting a build here first and letting it fail. A build that
+        # DOES raise is recorded ONCE, right here — `_staleness` is never
+        # asked to retry the identical call and log the identical failure a
+        # second time; it simply has no report to read a verdict from.
         if self.board is None or self.config is None:
-            return "", None, []
+            review_stale, test_stale = self._staleness(entry, errors, report=None)
+            return "", None, [], None, None, review_stale, test_stale
         try:
             from coord import github_ops  # noqa: PLC0415
             from coord.gates import build_gate_report  # noqa: PLC0415
@@ -693,14 +1069,242 @@ class GhLiveProbe:
             )
         except Exception as exc:  # noqa: BLE001 — a probe, never a decision
             errors.append(f"coord gates: {type(exc).__name__}: {exc}")
-            return "", None, []
+            return "", None, [], None, None, None, None
+        review_stale, test_stale = self._staleness(entry, errors, report=report)
+        # `build_gate_report` returns early, with `report.rows` empty, ONLY
+        # when `assignments_for_issue` found nothing on the board for this
+        # issue at all (coord/gates.py) — never for an assignment that
+        # exists but merely lacks a branch yet (that leaves `rows`
+        # populated and `report.branch` empty instead). This is why
+        # `no_assignment_ever` is read off `report.rows`, not off
+        # `report.branch` or an error string: it is true only on the one
+        # code path that is a genuine, successful "nothing was ever
+        # dispatched" reading.
+        no_assignment_ever = not report.rows
+        # The branch's own Test-gate DECISION — read off `coord gates`'s
+        # UNFILTERED decisions (not the `required`-only list just below) so
+        # a repo with no Test gate configured at all leaves this `None`
+        # rather than reading as either "passed" or "failed". Keyed off
+        # `GateDecision.assignment_id` -> the matching `AssignmentGateRow`
+        # (coord/gates.py: `test_decision.assignment_id` is set on BOTH the
+        # pass and the refusal path), never re-derived from a second board
+        # read — one question, one answer (#2096).
+        #
+        # The decision's own `required`/`ok` is read FIRST and is
+        # authoritative: `coord/gates.py` can refuse a verdict as
+        # #1479-STALE (the recorded SHA moved) while the raw `test_state`
+        # column still reads "passed" — exactly the shape a branch lands in
+        # right after its own push. Trusting the raw column in that case
+        # would read a refusing gate as green. The raw column is consulted
+        # only once the decision itself already says "ok", to tell
+        # "passed" apart from "skipped".
+        branch_test_state: str | None = None
+        test_decision = next(
+            (d for d in report.decisions if d.gate == "test"), None
+        )
+        if test_decision is not None and test_decision.assignment_id:
+            if test_decision.required and not test_decision.ok:
+                # Actively refusing right now (stale, missing, or a
+                # genuinely failing verdict) — never read as green no
+                # matter what the raw column says.
+                branch_test_state = "failed"
+            else:
+                row = next(
+                    (
+                        r
+                        for r in report.rows
+                        if r.assignment_id == test_decision.assignment_id
+                    ),
+                    None,
+                )
+                if row is not None:
+                    branch_test_state = row.test_state
         decisions = [d for d in report.decisions if getattr(d, "required", False)]
         if not decisions:
-            return str(report.branch or ""), None, []
+            return (
+                str(report.branch or ""), None, [], no_assignment_ever, branch_test_state,
+                review_stale, test_stale,
+            )
         blockers = [
             f"{d.gate}: {d.reason or 'refused'}" for d in decisions if not d.ok
         ]
-        return str(report.branch or ""), not blockers, blockers
+        return (
+            str(report.branch or ""), not blockers, blockers, no_assignment_ever,
+            branch_test_state, review_stale, test_stale,
+        )
+
+    # -- #3936: review/test staleness decided from a live EntryTruth -------
+    def _staleness(
+        self, entry: QueueEntry, errors: list[str], *, report: "GateReport | None" = None,
+    ) -> tuple[bool | None, bool | None]:
+        """Review/test staleness for *entry*, read off a live
+        :class:`~coord.entry_truth.EntryTruth` (:func:`coord.entry_truth.
+        reconcile_entry`) rather than this module re-deriving the freshness
+        math a second time (#3929's original sin, #2096).
+
+        **Test side** is fully answered by :attr:`EntryTruth.test` — the
+        SAME ``coord.merge_queue.evaluate_smoke_verdict`` call
+        :func:`coord.gates.build_gate_report` already makes to build it.
+        Its ``anchor`` is populated ONLY for a STALE (never a MISSING)
+        verdict (see :class:`~coord.gates.GateDecision`'s own field
+        docstring) — exactly the stale-vs-missing split this needs, with no
+        second ``evaluate_smoke_verdict`` call anywhere in this method.
+
+        **Review side**: once the gate itself reports APPROVED
+        (``truth.review.ok``), :attr:`EntryTruth.review_stale` is the
+        #3948 patch-id-drift check this module used to have no way to see
+        at all — the OLD code read ``scan.approved`` alone as unconditionally
+        fresh, which is quadraui#2173's exact shape: ``coord gates`` read
+        "every required gate reads clear" while the approving review's own
+        ``review_patch_id`` no longer matched the branch. When the gate
+        reports NOT approved (and the branch head was confirmable),
+        :class:`EntryTruth` has nothing further to say — distinguishing
+        "genuinely never reviewed" from "a prior approval voided by a real
+        content change" is additive work it does not yet do (see its own
+        module docstring, rule 2) — so :meth:`_review_stale_fallback` asks
+        :func:`coord.merge_queue.find_scoped_review_candidate` directly,
+        gated behind the gate's own "not approved" reading exactly as
+        #3929's blocking review required (that function disagrees with
+        ``scan_approved_reviews`` on its own, on a branch carrying two
+        approvals at different SHAs — see its own docstring).
+
+        *report* (#3936 review) is the caller's already-built
+        :class:`~coord.gates.GateReport` for this SAME ``(repo, issue)``,
+        threaded straight into :func:`~coord.entry_truth.reconcile_entry`'s
+        own ``report=`` parameter so this never pays for — or risks
+        disagreeing with — a second live ``build_gate_report`` call.
+        ``None`` (the default) leaves the build to ``reconcile_entry``
+        itself, exactly as if no report had ever been threaded through —
+        the right default for a caller (or a direct test) that has no
+        report of its own to hand over.
+
+        ``self.board``/``self.config`` are checked FIRST, before anything
+        live is attempted: :func:`_gates` already special-cases both
+        "absent" (nothing to probe — never reaches here with a real
+        attempt either) and "the one live build it tried already raised"
+        (that failure is recorded by `_gates` itself; retrying the
+        identical call here would only log the identical failure a second
+        time) by short-circuiting to ``(None, None)`` before calling this
+        at all. This guard exists for every OTHER caller of ``_staleness``
+        (this module's own tests included) that does not go through
+        `_gates` first.
+
+        ``(None, None)`` whenever there is nothing to anchor the check to —
+        :func:`~coord.entry_truth.reconcile_entry`'s own ``None``/"unknown"
+        fail-closed posture (#2704): a live probe that was never asked, or
+        one that was asked and failed, both read "could not tell", never
+        "confirmed fresh".
+        """
+        if self.board is None or self.config is None:
+            return None, None
+
+        from coord import github_ops  # noqa: PLC0415
+        from coord.entry_truth import reconcile_entry  # noqa: PLC0415
+        from coord.merge_queue import UNKNOWN_BRANCH_HEAD_REASON  # noqa: PLC0415
+
+        try:
+            truth = reconcile_entry(
+                self.board, self.config, entry.repo, entry.issue, gh_ops=github_ops,
+                report=report,
+            )
+        except Exception as exc:  # noqa: BLE001 — a probe, never a decision
+            errors.append(f"merge-gate freshness recheck: {type(exc).__name__}: {exc}")
+            return None, None
+
+        review_stale: bool | None
+        if truth.review is None:
+            review_stale = None
+        elif not truth.review.required:
+            review_stale = False
+        elif truth.review.ok:
+            review_stale = truth.review_stale
+        elif (truth.review.reason or "").startswith(UNKNOWN_BRANCH_HEAD_REASON):
+            # Refused purely because the live branch head could not be
+            # confirmed right now — "could not tell", not "confirmed fresh"
+            # and not "confirmed stale" either.
+            review_stale = None
+        else:
+            review_stale = self._review_stale_fallback(entry, truth, errors)
+
+        test_stale: bool | None
+        if truth.test is None:
+            test_stale = None
+        elif not truth.test.required:
+            test_stale = False
+        elif truth.test.ok:
+            test_stale = False
+        elif (truth.test.reason or "").startswith(UNKNOWN_BRANCH_HEAD_REASON):
+            # The live SHA needed to judge staleness could not even be
+            # read — "could not tell", never "confirmed fresh".
+            test_stale = None
+        else:
+            test_stale = truth.test.anchor is not None
+
+        return review_stale, test_stale
+
+    def _review_stale_fallback(
+        self, entry: QueueEntry, truth: Any, errors: list[str],
+    ) -> bool | None:
+        """#3929's remaining gap :class:`~coord.entry_truth.EntryTruth`
+        does not cover: the review gate reads NOT approved (not merely
+        "branch head unconfirmed"), and the open question is whether that
+        is a genuinely voided PRIOR approval (needs a fresh review,
+        :data:`CAUSE_REVIEW_STALE`) or a branch that was simply never
+        reviewed at all (an ordinary pending review).
+
+        :attr:`EntryTruth.review_stale` is scoped to the OPPOSITE case — an
+        approval that still reads ``ok`` (see its own docstring) — so this
+        asking :func:`coord.merge_queue.find_scoped_review_candidate` is
+        additive, never a second implementation of what `EntryTruth`
+        already decides for the approved case.
+
+        ``None`` ("could not tell") when there is nothing to anchor the
+        check to (no work-like assignment, no branch, no repo config) or a
+        live call raises — never "confirmed not stale".
+        """
+        try:
+            from coord import github_ops  # noqa: PLC0415
+            from coord import merge_queue as mq  # noqa: PLC0415
+            from coord.gates import _select_winning_work_assignment, assignments_for_issue  # noqa: PLC0415
+            from coord.models import WORK_LIKE_TYPES  # noqa: PLC0415
+
+            if self.board is None or self.config is None or not truth.branch:
+                return None
+            repo_cfg = self.config.repo(entry.repo)
+            if repo_cfg is None:
+                return None
+            work_like = [
+                a
+                for a in assignments_for_issue(self.board, entry.repo, entry.issue)
+                if a.type in WORK_LIKE_TYPES
+            ]
+            if not work_like:
+                return None
+            winner = _select_winning_work_assignment(work_like)
+            if not winner.branch:
+                return None
+            # #3936 review: `mq.live_gate_entry` is the ONE place this
+            # construction happens (its own docstring, #2096) — never a
+            # second hand-rolled `QueuedMerge`, which would silently drift
+            # the moment that one grows a field this copy forgets (#2085's
+            # exact shape). `gh_ops=None` skips its OWN live lookup since
+            # the SAME head/patch-id `reconcile_entry` already probed LIVE
+            # a moment ago is carried straight through instead — never
+            # paying for (or risking a second, independently-timed
+            # disagreement with) another `gh_ops` round trip for the
+            # identical branch.
+            mq_entry = mq.live_gate_entry(
+                winner, repo_cfg.github, truth.target_branch or repo_cfg.default_branch, None,
+            )
+            mq_entry.branch_head_sha = truth.head_sha
+            mq_entry.branch_patch_id = truth.patch_id
+            candidate = mq.find_scoped_review_candidate(
+                mq_entry, self.board, github_ops, config=self.config,
+            )
+            return candidate is not None
+        except Exception as exc:  # noqa: BLE001 — a probe, never a decision
+            errors.append(f"merge-gate freshness recheck: {type(exc).__name__}: {exc}")
+            return None
 
     # -- `gh pr view` / `gh pr checks` ------------------------------------
     def _github(
@@ -784,17 +1388,11 @@ class GhLiveProbe:
         ``_rule_dead_leg`` would manufacture a high-confidence ``dead-leg``
         for a perfectly healthy remote session.  Leave ``agent_has_session``
         at ``None`` instead, which disables the rule.
-        """
-        if not self.local_host or not entry.launch_host:
-            return False
-        # Same normalisation `_local_host_id()` documents: short hostname,
-        # lowercased, domain suffix dropped — so a machine addressed as
-        # `dellserver` in the queue row and `dellserver.local` by DNS still
-        # compares equal to itself and does NOT read as foreign.
-        def short(name: str) -> str:
-            return name.split(".")[0].strip().lower()
 
-        return short(entry.launch_host) != short(self.local_host)
+        Delegates to :func:`is_foreign_launch`, the one place this question
+        is answered (#2096/#3888).
+        """
+        return is_foreign_launch(entry, self.local_host)
 
     def _health(
         self, entry: QueueEntry
@@ -954,3 +1552,331 @@ def run_pass(
             live = LiveState(probe_errors=(f"probe raised {type(exc).__name__}: {exc}",))
         out.append(diagnose(entry, live, trigger=triggers.get(key, "")))
     return out
+
+
+# ── #3883: escalation-diagnosis enrichment ──────────────────────────────────
+#
+# `coord.board_doctor_policy.escalation_alert_dispatcher` is the one place a
+# `StuckRow` turns into a human-facing page — these three pieces each answer
+# one of #3883's three re-investigation questions that cost an operator a
+# whole session apiece on 2026-11-05/06 (coord#3870, quadraui#2028,
+# coord#3793): is the live failure confined to a sealed oracle path (never
+# fixable by a retry), is the repo's red base an environment problem rather
+# than a real regression, and does a branch already sitting unmerged on the
+# board happen to be the fix. Every function here is pure or takes its I/O
+# as an injected callable — `coord.board_doctor_policy` supplies the live
+# board/config/subprocess the production path needs; the tests below drive
+# the same functions with fakes, exactly like `LiveProbe` does for
+# :func:`diagnose` above.
+
+
+@dataclass(frozen=True)
+class DiagnosisOption:
+    """One concrete, ready-to-run next step offered to the operator.
+
+    *command* is a literal, copy-pasteable shell command whenever the fleet
+    has one (a `coord` verb, a `git`/`gh` invocation) — the whole point of
+    #3883 is that the operator should not have to re-derive it. A handful of
+    causes (renewing an out-of-band credential, choosing a design direction)
+    have no such command; for those *command* is the concrete instruction
+    itself, worded as an imperative action rather than left blank, since
+    "there is no command" must never collapse into "there is no option".
+    """
+
+    label: str
+    command: str
+    recommended: bool = False
+
+
+def is_sealed_confined_failure(
+    failing_paths: Sequence[str], sealed_paths: Sequence[str]
+) -> bool:
+    """True only when *failing_paths* is non-empty, *sealed_paths* is
+    non-empty, and EVERY entry in *failing_paths* names a path falling
+    under one of *sealed_paths*.
+
+    *failing_paths* is the set of file paths a failing CI job's own log
+    excerpt named as failing (`extract_failing_file_paths`), never a bare
+    CI check/job NAME — a job name is an operator-chosen label ("Test
+    (ubuntu-latest)") that essentially never mentions a path, so matching
+    on it alone could never fire. An empty *failing_paths* (no log excerpt
+    available, or none of its lines named a file) is the conservative
+    direction: this must never manufacture a design-decision page out of
+    an ordinary CI failure just because the repo happens to have a sealed
+    suite. It fires only for the shape quadraui#2028 actually hit — a
+    merge-ref-only failure whose only failing file(s) are themselves
+    inside the sealed tree.
+    """
+    if not failing_paths or not sealed_paths:
+        return False
+    for path in failing_paths:
+        if not any(_path_under_sealed(path, prefix) for prefix in sealed_paths):
+            return False
+    return True
+
+
+def _path_under_sealed(name: str, sealed_path: str) -> bool:
+    """True when *name* (a failing check name, or a failing file path
+    pulled from a CI log excerpt) falls under *sealed_path*.
+
+    A trailing ``/`` means *sealed_path* is a directory: any name
+    containing that prefix anywhere counts. No trailing slash means
+    *sealed_path* is itself one exact file (an `entrypoint:` route like
+    ``tui/tests/acceptance.rs``) — that must match *name* exactly, or as
+    a path suffix (*name* ending in ``/<sealed_path>``), never a bare
+    substring check, which would also match an unrelated file that
+    merely shares a substring with the sealed file's own name.
+    """
+    sealed_path = sealed_path.strip()
+    if not sealed_path:
+        return False
+    if sealed_path.endswith("/"):
+        return sealed_path in name
+    return name == sealed_path or name.endswith("/" + sealed_path)
+
+
+#: :func:`diagnose_baseline_red_env`'s verdict vocabulary — mirrors the
+#: `CAUSE_*`/`CONFIDENCE_*` convention above: short, stable slugs a report
+#: can bucket on, not prose.
+ENV_DIAGNOSIS_CREDENTIAL = "credential"
+ENV_DIAGNOSIS_MISSING_TOOL = "missing_tool"
+ENV_DIAGNOSIS_BASE_RED = "base_red"
+#: The probe could not be run at all, or ran and passed — neither answers
+#: "why is the base red", so neither may claim one of the three categories
+#: above. Never rendered as a finding; callers fall back to the pre-#3883
+#: generic wording when they see this.
+ENV_DIAGNOSIS_INCONCLUSIVE = "inconclusive"
+
+#: Substrings of a failing re-run's combined stdout/stderr that mean "the
+#: credential this ran with is no good", lowercase. Deliberately broad
+#: (not anchored to a provider's exact wording) since the whole point
+#: (coord#3870) is catching a NEW provider's auth failure without having
+#: seen its exact error text before — a false positive here only produces
+#: an extra, harmless "renew credential" option; a false negative silently
+#: drops back to the generic "base is red" wording, which is the pre-#3883
+#: status quo, never a worse outcome than today.
+#:
+#: A bare ``"401"``/``"403"`` is deliberately NOT one of these: pytest's own
+#: failure output routinely contains both as line numbers
+#: (``tests/test_foo.py:403: AssertionError``) and as pass/fail counts
+#: (``5 failed, 1401 passed``), so an ordinary red base would misclassify
+#: as a credential failure far more often than not. The status-code
+#: entries below require the code to appear WITH its usual HTTP wording —
+#: enough context that a line number or a count can never match, while
+#: still catching a provider's error text this list has never seen before.
+_CREDENTIAL_ERROR_PATTERNS: tuple[str, ...] = (
+    "unauthorized", "forbidden", "invalid api key",
+    "invalid_api_key", "authentication failed", "authentication error",
+    "api key expired", "token expired", "invalid_request_error: incorrect api key",
+    "permission denied: invalid credential",
+    "http 401", "401 unauthorized", "unauthorized (401", "status 401",
+    "status: 401", "error 401",
+    "http 403", "403 forbidden", "forbidden (403", "status 403",
+    "status: 403", "error 403",
+)
+
+#: Provider/credential names worth naming in the option text when they turn
+#: up near a credential-shaped error — cosmetic only (`EnvDiagnosis.
+#: credential_name` is never required to be non-``None``), so this list may
+#: safely miss a provider without breaking the classification itself.
+#: Every entry is matched as a plain substring of the whole lowercased
+#: output, so each must be long and distinctive enough that it cannot turn
+#: up inside an unrelated English word — a short abbreviation like `gh`
+#: would match "through"/"highlighted" and name the wrong credential, so
+#: the forge is listed only under its full name.
+_KNOWN_CREDENTIAL_NAMES: tuple[str, ...] = (
+    "opencode", "anthropic", "claude", "openai", "github",
+)
+
+#: Matches the shell's own "command not found" / "no such file" wording —
+#: covers bash, zsh and PowerShell's `CommandNotFoundException` message
+#: closely enough to extract the missing tool's name as the capture group.
+_MISSING_TOOL_RE = re.compile(
+    r"(?:^|[:\s])([\w.\-]+): (?:command not found|not found)"
+    r"|no such file or directory: ['\"]?([\w.\-/]+)",
+    re.IGNORECASE,
+)
+
+
+def classify_env_probe_output(output: str) -> tuple[str, str | None]:
+    """``(category, name)`` for one failing re-run's combined output.
+
+    *category* is one of :data:`ENV_DIAGNOSIS_CREDENTIAL`,
+    :data:`ENV_DIAGNOSIS_MISSING_TOOL` or :data:`ENV_DIAGNOSIS_BASE_RED` —
+    never :data:`ENV_DIAGNOSIS_INCONCLUSIVE`, which is
+    :func:`diagnose_baseline_red_env`'s own verdict for "never got output to
+    classify at all", not something this text classifier can conclude.
+    Credential is checked before missing-tool: an expired-token message
+    sometimes also echoes a "command not found" from the *wrapper* script
+    the credential failure aborted, and the credential reading is the more
+    actionable one of the two.
+    """
+    lowered = output.lower()
+    for pattern in _CREDENTIAL_ERROR_PATTERNS:
+        if pattern in lowered:
+            name = next((n for n in _KNOWN_CREDENTIAL_NAMES if n in lowered), None)
+            return ENV_DIAGNOSIS_CREDENTIAL, name
+    match = _MISSING_TOOL_RE.search(output)
+    if match:
+        tool = match.group(1) or match.group(2)
+        return ENV_DIAGNOSIS_MISSING_TOOL, tool
+    return ENV_DIAGNOSIS_BASE_RED, None
+
+
+#: pytest's own short-summary line ("FAILED tests/test_foo.py::test_bar -
+#: AssertionError ..."), which `diagnose_baseline_red_env`'s re-run output
+#: carries whenever the failure is a genuine local test and not a
+#: credential/missing-tool error aborting before any test ran at all.
+_FAILING_FILE_RE = re.compile(r"^FAILED\s+([^\s:]+)", re.MULTILINE)
+
+
+def extract_failing_file_paths(output: str) -> tuple[str, ...]:
+    """The source file(s) named by a failing re-run's own output (#3883
+    point 3) — read off the SAME output :func:`diagnose_baseline_red_env`
+    already classified, never a second probe, so the lost-work cross-check
+    costs no extra re-run. Dedupes, preserving first-seen order; ``()``
+    when the output names no file at all (a credential/missing-tool error
+    aborted before any test ran, or the output is empty).
+    """
+    return tuple(dict.fromkeys(_FAILING_FILE_RE.findall(output)))
+
+
+@dataclass(frozen=True)
+class EnvProbeResult:
+    """One re-run of a repo's test command, on one host.
+
+    *error* is set only when the probe itself could not be carried out at
+    all (no remote-exec path to *host* from here, the checkout is missing,
+    the runner raised) — a case :func:`diagnose_baseline_red_env` must read
+    as "cannot tell", never as "the tests failed", since *exit_code*/*output*
+    are meaningless when *error* is set.
+    """
+
+    exit_code: int = 0
+    output: str = ""
+    error: str | None = None
+
+
+#: Re-runs *command* on *host*, returning what actually happened. The
+#: production default (`coord.board_doctor_policy._default_env_probe_runner`)
+#: is a real subprocess re-run under this process's own environment when
+#: *host* is the machine this process is itself running on — the fleet has
+#: no agent-HTTP exec primitive yet to reach a DIFFERENT host's env from
+#: here (tracked as a gap, not silently pretended away: see that function's
+#: own docstring). Tests inject a fake.
+EnvProbeRunner = Callable[[str, str], EnvProbeResult]
+
+
+@dataclass(frozen=True)
+class EnvDiagnosis:
+    """#3883 point 2: what re-running the base under *host*'s own
+    environment actually showed.
+
+    *raw_output* is the probe's own combined stdout/stderr, carried through
+    verbatim (never re-derived) so a caller doing the point-3 lost-work
+    cross-check (:func:`extract_failing_file_paths`) reads the SAME output
+    this already classified, rather than re-running the probe a second
+    time. Empty whenever the probe itself could not run at all.
+    """
+
+    category: str
+    detail: str
+    host: str
+    credential_name: str | None = None
+    tool_name: str | None = None
+    raw_output: str = ""
+
+
+def diagnose_baseline_red_env(
+    repo_name: str,
+    command: str,
+    *,
+    host: str,
+    run: EnvProbeRunner,
+) -> EnvDiagnosis:
+    """Re-run *command* for *repo_name* on *host* and classify the result
+    (#3883 point 2).
+
+    Never raises: *run* itself raising is caught and reported the same as
+    an explicit :attr:`EnvProbeResult.error` — a diagnosis probe failing is
+    evidence of nothing and must degrade to
+    :data:`ENV_DIAGNOSIS_INCONCLUSIVE`, not take the sweep down. A re-run
+    that PASSES is just as inconclusive as one that could not be run at
+    all: it means the failure did not reproduce right now, which is real
+    information (the board-doctor's own alert text says so) but answers a
+    different question than "why is it red", so it is never reported as one
+    of the three positive categories.
+    """
+    try:
+        result = run(host, command)
+    except Exception as exc:  # noqa: BLE001 — a probe failing is not a verdict
+        return EnvDiagnosis(
+            ENV_DIAGNOSIS_INCONCLUSIVE,
+            f"could not re-run on {host}: {type(exc).__name__}: {exc}",
+            host,
+        )
+    if result.error:
+        return EnvDiagnosis(
+            ENV_DIAGNOSIS_INCONCLUSIVE, f"could not re-run on {host}: {result.error}", host,
+        )
+    if result.exit_code == 0:
+        return EnvDiagnosis(
+            ENV_DIAGNOSIS_INCONCLUSIVE,
+            f"re-ran clean on {host} just now — the failure did not reproduce",
+            host,
+        )
+    category, name = classify_env_probe_output(result.output)
+    if category == ENV_DIAGNOSIS_CREDENTIAL:
+        named = f" ({name})" if name else ""
+        return EnvDiagnosis(
+            category, f"renew credential{named} on {host}", host,
+            credential_name=name, raw_output=result.output,
+        )
+    if category == ENV_DIAGNOSIS_MISSING_TOOL:
+        return EnvDiagnosis(
+            category, f"install {name or 'the missing tool'} on {host}", host,
+            tool_name=name, raw_output=result.output,
+        )
+    return EnvDiagnosis(
+        category, f"base is red on {host}: {command}", host, raw_output=result.output,
+    )
+
+
+@dataclass(frozen=True)
+class LostWorkCandidate:
+    """One unmerged branch the board still knows about — a merged-status
+    row GitHub never actually shows a matching merged PR for, or a
+    closed-issue branch with commits that never reached the base — together
+    with what it actually changed (#3883 point 3).
+
+    *changed_files* is the branch's diff against the base, already resolved
+    by the caller (`coord.github_ops.get_compare_files`, the same primitive
+    `coord.reconcile`'s own false-merge audit uses) — this dataclass and
+    :func:`find_lost_work_touching` do not fetch anything themselves, so the
+    search stays unit-testable without a live repo.
+    """
+
+    assignment_id: str
+    repo_name: str
+    issue_number: int
+    branch: str
+    changed_files: tuple[str, ...] = ()
+
+
+def find_lost_work_touching(
+    failing_files: Sequence[str],
+    candidates: Sequence[LostWorkCandidate],
+) -> list[LostWorkCandidate]:
+    """Which *candidates* touched any of *failing_files* (#3883 point 3).
+
+    Pure set-intersection — the I/O (which branches exist, what they
+    changed) is entirely the caller's job
+    (`coord.board_doctor_policy._lost_work_candidates`), so this is the one
+    piece that can be driven with plain fixtures. Returns ``[]`` when
+    *failing_files* is empty: an unknown failing-file set must never match
+    every candidate by vacuous intersection.
+    """
+    wanted = set(failing_files)
+    if not wanted:
+        return []
+    return [c for c in candidates if wanted.intersection(c.changed_files)]

@@ -13,8 +13,7 @@ from pycalphad.property_framework.units import Q_, ureg, to_display_units
 
 from pycalphad.mapping.primitives import _get_phase_specific_variable
 from pycalphad.mapping.strategy.step_strategy import StepStrategy
-from pycalphad.mapping.strategy.binary_strategy import BinaryStrategy
-from pycalphad.mapping.strategy.ternary_strategy import TernaryStrategy
+from pycalphad.mapping.strategy.tieline_strategy import TielineStrategy
 from pycalphad.mapping.strategy.isopleth_strategy import IsoplethStrategy
 import pycalphad.mapping.utils as map_utils
 
@@ -34,12 +33,12 @@ def get_label(var: v.StateVariable):
         else:
             return f'Phase Fraction ({var.phase_name})'
     elif isinstance(var, v.X):
-        if var.phase_name is None:
+        if var.phase_name is None or var.phase_name == "*":
             return f'X({var.species.name.capitalize()})'
         else:
             return f'X({var.phase_name}, {var.species.name.capitalize()})'
     elif isinstance(var, v.W):
-        if var.phase_name is None:
+        if var.phase_name is None or var.phase_name == "*":
             return f'W({var.species.name.capitalize()})'
         else:
             return f'W({var.phase_name}, {var.species.name.capitalize()})'
@@ -104,21 +103,21 @@ def plot_step(strategy: StepStrategy, x: v.StateVariable = None, y: v.StateVaria
     # Add legend if more than 1 item in list
     if len(step_data.data) > 1:
         ax.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
-    plot_title = '-'.join([component.title() for component in sorted(strategy.components) if component != 'VA'])
+    plot_title = '-'.join([str(component).title() for component in sorted(strategy.components) if str(component) != 'VA'])
     ax.set_title(plot_title)
     ax.set_xlabel(get_label(x))
     ax.set_ylabel(get_label(y))
 
     return ax
 
-def plot_invariants(ax, strategy: Union[BinaryStrategy, TernaryStrategy], x: v.StateVariable, y: v.StateVariable, phase_colors, label_end_points: bool = False, tie_triangle_color = (1, 0, 0, 1)):
+def plot_invariants(ax, strategy: TielineStrategy, x: v.StateVariable, y: v.StateVariable, phase_colors, label_end_points: bool = False, tie_triangle_color = (1, 0, 0, 1)):
     """
-    Plots node data from BinaryStrategy or TernaryStrategy onto matplotlib axis
+    Plots node data from TielineStrategy onto matplotlib axis
 
     Parameters
     ----------
     ax : matplotlib axis
-    strategy : BinaryStrategy or TernaryStrategy
+    strategy : TielineStrategy
     x : v.StateVariable
     y : v.StateVariable
     phase_colors : dict[str, color]
@@ -138,14 +137,14 @@ def plot_invariants(ax, strategy: Union[BinaryStrategy, TernaryStrategy], x: v.S
             for xp, yp, p in zip(single_invariant.x, single_invariant.y, single_invariant.phases):
                 ax.scatter([xp], [yp], color=phase_colors[p], s=8, zorder=3)
 
-def plot_tielines(ax, strategy: Union[BinaryStrategy, TernaryStrategy], x: v.StateVariable, y: v.StateVariable, phase_colors, tielines = 1, tieline_color=(0, 1, 0, 1)):
+def plot_tielines(ax, strategy: TielineStrategy, x: v.StateVariable, y: v.StateVariable, phase_colors, tielines = 1, tieline_color=(0, 1, 0, 1)):
     """
-    Plots tieline data from BinaryStrategy or TernaryStrategy onto matplotlib axis
+    Plots tieline data from TielineStrategy onto matplotlib axis
 
     Parameters
     ----------
     ax : matplotlib axis
-    strategy : BinaryStrategy or TernaryStrategy
+    strategy : TielineStrategy
     x : v.StateVariable
     y : v.StateVariable
     phase_colors : dict[str, color]
@@ -156,6 +155,8 @@ def plot_tielines(ax, strategy: Union[BinaryStrategy, TernaryStrategy], x: v.Sta
     tieline_color : color
     """
     tieline_data = strategy.get_tieline_data(x, y)
+    if len(tieline_data) == 0:
+        return
     x_all = np.concatenate([st.x for st in tieline_data], axis=1)
     y_all = np.concatenate([st.y for st in tieline_data], axis=1)
     min_x_range = PLOT_TIELINE_AS_NODE_THRESHOLD * np.ptp(x_all)
@@ -178,13 +179,13 @@ def plot_tielines(ax, strategy: Union[BinaryStrategy, TernaryStrategy], x: v.Sta
             tieline_collection = LineCollection(lines[::tielines,...], zorder=1, linewidths=0.5, capstyle="butt", colors=[tieline_color for _ in range(len(x[0]))])
             ax.add_collection(tieline_collection)
 
-def plot_binary(strategy: BinaryStrategy, x: v.StateVariable = None, y: v.StateVariable = None, ax = None, tielines = 1, label_nodes = False, legend_generator = phase_legend, tieline_color=(0, 1, 0, 1), tie_triangle_color=(1, 0, 0, 1), *args, **kwargs):
+def plot_binary(strategy: TielineStrategy, x: v.StateVariable = None, y: v.StateVariable = None, ax = None, tielines = 1, label_nodes = False, legend_generator = phase_legend, tieline_color=(0, 1, 0, 1), tie_triangle_color=(1, 0, 0, 1), *args, **kwargs):
     """
     Plots binary map using matplotlib
 
     Parameters
     ----------
-    strategy : BinaryStrategy or TernaryStrategy
+    strategy : TielineStrategy
     x : v.StateVariable
     y : v.StateVariable
     ax : matplotlib axes (optional)
@@ -241,14 +242,14 @@ def plot_binary(strategy: BinaryStrategy, x: v.StateVariable = None, y: v.StateV
         ax.set_ylim(ylim)
 
     ax.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
-    plot_title = '-'.join([component.title() for component in sorted(strategy.components) if component != 'VA'])
+    plot_title = '-'.join([str(component).title() for component in sorted(strategy.components) if str(component) != 'VA'])
     ax.set_title(plot_title)
     ax.set_xlabel(get_label(x))
     ax.set_ylabel(get_label(y))
 
     return ax
 
-def plot_ternary(strategy: TernaryStrategy, x: v.StateVariable = None, y: v.StateVariable = None, ax = None, tielines = 1, label_nodes = False, legend_generator = phase_legend, tieline_color=(0, 1, 0, 1), tie_triangle_color=(1, 0, 0, 1), *args, **kwargs):
+def plot_ternary(strategy: TielineStrategy, x: v.StateVariable = None, y: v.StateVariable = None, ax = None, tielines = 1, label_nodes = False, legend_generator = phase_legend, tieline_color=(0, 1, 0, 1), tie_triangle_color=(1, 0, 0, 1), *args, **kwargs):
     """
     Plots ternary map using matplotlib
 
@@ -352,7 +353,7 @@ def plot_isopleth(strategy: IsoplethStrategy, x: v.StateVariable = None, y: v.St
     ax.set_xlim(*xlim)
     ax.set_ylim(*ylim)
     ax.legend(handles=handles, loc='center left', bbox_to_anchor=(1, 0.5))
-    plot_title = '-'.join([component.title() for component in sorted(strategy.components) if component != 'VA'])
+    plot_title = '-'.join([str(component).title() for component in sorted(strategy.components) if str(component) != 'VA'])
     ax.set_title(plot_title)
     ax.set_xlabel(get_label(x))
     ax.set_ylabel(get_label(y))

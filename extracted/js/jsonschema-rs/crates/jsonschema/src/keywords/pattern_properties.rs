@@ -9,7 +9,7 @@ use crate::{
     node::SchemaNode,
     options::PatternEngineOptions,
     paths::{LazyEvaluationPath, LazyLocation, Location, RefTracker},
-    regex::{analyze_pattern, LiteralMatcher, PatternOptimization, RegexEngine},
+    regex::{analyze_pattern, LiteralMatcher, RegexEngine},
     types::JsonType,
     unfinished_matches::MatchSite,
     validator::{EvaluationResult, Validate, ValidationContext},
@@ -28,7 +28,7 @@ impl<F: Json, R: RegexEngine> Validate<F> for PatternPropertiesValidator<R, F> {
             for (re, node) in &self.patterns {
                 for (key, value) in object.members() {
                     if ctx.is_match(&**re, key.as_ref(), || MatchSite::schema(node.location()))
-                        && !node.is_valid(&value, ctx)
+                        && !node.is_valid_child(&value, ctx)
                     {
                         return false;
                     }
@@ -105,7 +105,7 @@ impl<F: Json, R: RegexEngine> Validate<F> for PatternPropertiesValidator<R, F> {
                             tracker,
                             ctx,
                         );
-                        children.push(&mut ctx.arena, child);
+                        children.push(ctx.arena(), child);
                     }
                 }
             }
@@ -129,7 +129,7 @@ impl<F: Json, R: RegexEngine> Validate<F> for SingleValuePatternPropertiesValida
             for (key, value) in object.members() {
                 if ctx.is_match(&*self.regex, key.as_ref(), || {
                     MatchSite::schema(self.node.location())
-                }) && !self.node.is_valid(&value, ctx)
+                }) && !self.node.is_valid_child(&value, ctx)
                 {
                     return false;
                 }
@@ -207,7 +207,7 @@ impl<F: Json, R: RegexEngine> Validate<F> for SingleValuePatternPropertiesValida
                         tracker,
                         ctx,
                     );
-                    children.push(&mut ctx.arena, child);
+                    children.push(ctx.arena(), child);
                 }
             }
             let mut result = EvaluationResult::from_children(children);
@@ -251,6 +251,10 @@ pub(crate) fn compile<'a, F: Json>(
         return Some(validator);
     }
 
+    if let Some(validator) = try_compile_as_sequences(&ctx, map) {
+        return Some(validator);
+    }
+
     // Fall back to regex compilation
     let result = match ctx.config().pattern_options() {
         PatternEngineOptions::FancyRegex { .. } => {
@@ -290,19 +294,35 @@ fn try_compile_as_literals<'a, F: Json>(
     let mut entries = Vec::with_capacity(map.len());
     for (pattern, subschema) in map {
         let pctx = ctx.new_at_location(pattern.as_str());
-        let matcher = match analyze_pattern(pattern)? {
-            PatternOptimization::Prefix(literal) => LiteralMatcher::Prefix { literal },
-            PatternOptimization::Exact(exact) => LiteralMatcher::Exact { exact },
-            PatternOptimization::Alternation(alternatives) => {
-                LiteralMatcher::Alternation { alternatives }
-            }
-            PatternOptimization::NoWhitespace => LiteralMatcher::NoWhitespace,
-        };
+        let matcher = LiteralMatcher::from(analyze_pattern(pattern)?);
         let node = match compiler::compile(&pctx, pctx.as_resource_ref(subschema)) {
             Ok(node) => node,
             Err(e) => return Some(Err(e)),
         };
         entries.push((Arc::new(matcher), node));
+    }
+    Some(Ok(build_validator_from_entries(entries, |regex, node| {
+        Box::new(SingleValuePatternPropertiesValidator { regex, node }) as Box<dyn Validate<F>>
+    })))
+}
+
+/// Compile the patterns as sequences when every one of them is.
+fn try_compile_as_sequences<'a, F: Json>(
+    ctx: &compiler::Context<F>,
+    map: &'a Map<String, Value>,
+) -> Option<CompilationResult<'a, F>> {
+    let sequences = map
+        .keys()
+        .map(|pattern| ctx.sequence_without_limits(pattern))
+        .collect::<Option<Vec<_>>>()?;
+    let mut entries = Vec::with_capacity(map.len());
+    for (sequence, (pattern, subschema)) in sequences.into_iter().zip(map) {
+        let pctx = ctx.new_at_location(pattern.as_str());
+        let node = match compiler::compile(&pctx, pctx.as_resource_ref(subschema)) {
+            Ok(node) => node,
+            Err(e) => return Some(Err(e)),
+        };
+        entries.push((sequence, node));
     }
     Some(Ok(build_validator_from_entries(entries, |regex, node| {
         Box::new(SingleValuePatternPropertiesValidator { regex, node }) as Box<dyn Validate<F>>
@@ -448,6 +468,42 @@ mod tests {
         );
     }
 
+    const HUGE_COUNT: &str = r"^[^\p{C}]{1,204800}$";
+
+    // The engine would unroll the count past the default size limit; every site that takes a
+    // pattern counts characters instead, and tells a matching key from a control character.
+    #[test_case(&json!({"patternProperties": {HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "plain")]
+    #[test_case(&json!({"patternProperties": {"^x": {}, HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "plain many")]
+    #[test_case(&json!({"patternProperties": {"a+": {}, HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "plain beside a regex")]
+    #[test_case(&json!({"additionalProperties": true, "patternProperties": {"a+": {}, HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "additional true beside a regex")]
+    #[test_case(&json!({"unevaluatedProperties": false, "patternProperties": {"a+": {}, HUGE_COUNT: {}}}), &json!({"ab": 1}), &json!({"\u{1}": 1}); "unevaluated beside a regex")]
+    #[test_case(&json!({"additionalProperties": true, "patternProperties": {HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "additional true")]
+    #[test_case(&json!({"additionalProperties": false, "patternProperties": {HUGE_COUNT: {}}}), &json!({"ab": 1}), &json!({"\u{1}": 1}); "additional false")]
+    #[test_case(&json!({"additionalProperties": {"type": "integer"}, "patternProperties": {HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "additional schema")]
+    #[test_case(&json!({"properties": {"foo": {}}, "additionalProperties": false, "patternProperties": {HUGE_COUNT: {}}}), &json!({"ab": 1}), &json!({"\u{1}": 1}); "properties additional false")]
+    #[test_case(&json!({"properties": {"foo": {}}, "additionalProperties": {"type": "integer"}, "patternProperties": {HUGE_COUNT: {"type": "string"}}}), &json!({"\u{1}": 1}), &json!({"ab": 1}); "properties additional schema")]
+    #[test_case(&with_many_properties(json!({"additionalProperties": false, "patternProperties": {HUGE_COUNT: {}}})), &json!({"ab": 1}), &json!({"\u{1}": 1}); "many properties additional false")]
+    #[test_case(&with_many_properties(json!({"additionalProperties": {"type": "integer"}, "patternProperties": {HUGE_COUNT: {"type": "string"}}})), &json!({"\u{1}": 1}), &json!({"ab": 1}); "many properties additional schema")]
+    #[test_case(&json!({"unevaluatedProperties": false, "patternProperties": {HUGE_COUNT: {}}}), &json!({"ab": 1}), &json!({"\u{1}": 1}); "unevaluated")]
+    #[test_case(&json!({"propertyNames": {"pattern": HUGE_COUNT}}), &json!({"ab": 1}), &json!({"\u{1}": 1}); "property names")]
+    #[test_case(&json!({"pattern": HUGE_COUNT}), &json!("ab"), &json!("\u{1}"); "pattern")]
+    fn huge_count_at_default_limits(schema: &Value, valid: &Value, invalid: &Value) {
+        let fancy = crate::options()
+            .with_pattern_options(PatternOptions::fancy_regex())
+            .build(schema)
+            .expect("builds within the default size limit");
+        let regex = crate::options()
+            .with_pattern_options(PatternOptions::regex())
+            .build(schema)
+            .expect("builds within the default size limit");
+        for validator in [&fancy, &regex] {
+            assert!(validator.is_valid(valid));
+            assert!(validator.validate(valid).is_ok());
+            assert!(!validator.is_valid(invalid));
+            assert!(validator.validate(invalid).is_err());
+        }
+    }
+
     #[test]
     fn test_analyze_pattern() {
         use PatternOptimization::{Exact, Prefix};
@@ -474,6 +530,9 @@ mod tests {
     #[test_case("^x-", "custom", false)]
     #[test_case("^eo_", "eo_bands", true)]
     #[test_case("^eo_", "proj_epsg", false)]
+    #[test_case(r"^\S*$", "x-custom", true)]
+    #[test_case(r"^\S*$", "x custom", false)]
+    #[test_case(r"^\S*$", "x\u{2028}custom", false)]
     fn test_prefix_pattern_validation(pattern: &str, key: &str, should_match: bool) {
         let schema = json!({
             "patternProperties": {

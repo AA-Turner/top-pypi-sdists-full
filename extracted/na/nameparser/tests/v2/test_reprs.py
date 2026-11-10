@@ -9,7 +9,8 @@ from nameparser._locale import Locale
 from nameparser._parser import Parser, parse
 from nameparser._policy import FAMILY_FIRST, PatronymicRule, Policy, PolicyPatch
 from nameparser._types import (
-    Ambiguity, AmbiguityKind, ParsedName, Role, Segmentation, Span, Token,
+    Ambiguity, AmbiguityKind, ParsedName, Reading, Role, Segmentation, Span,
+    Token,
 )
 
 
@@ -31,7 +32,10 @@ def test_ambiguity_repr_shows_kind_and_token_texts() -> None:
 
 def test_reading_repr_shows_kind_field_and_source() -> None:
     alt = parse("JOHN SMITH MA").ambiguities[0].alternative
-    assert repr(alt) == "Reading('name' as 'family', 'declared')"
+    assert repr(alt) == "Reading('name' as 'family', 'declared', in en)"
+    # the files are left out where none holds the reading
+    assert repr(Reading("name", "family", "position")) == (  # type: ignore[arg-type]
+        "Reading('name' as 'family', 'position')")
 
 
 def test_parsedname_repr_lists_nonempty_fields_in_canonical_order() -> None:
@@ -78,8 +82,8 @@ def test_policy_repr_shows_only_nondefault_fields() -> None:
 
 def test_lexicon_repr_is_bounded() -> None:
     assert repr(Lexicon.default()) == "Lexicon(default)"
-    lex = Lexicon.default().add(titles={"zqx", "zqy"})
-    assert repr(lex) == "Lexicon(default + titles: +2)"
+    lex = Lexicon.default().add("zqx", "zqy", kind="title")
+    assert repr(lex) == "Lexicon(default + title: +2)"
     assert "zqx" not in repr(lex)  # never dump contents
 
 
@@ -89,14 +93,22 @@ def test_locale_repr_shows_code_and_patched_fields() -> None:
                     {PatronymicRule.EAST_SLAVIC})))
     assert repr(ru) == "Locale('ru': patronymic_rules)"
     assert repr(Locale("xx", Lexicon.empty())) == "Locale('xx')"
+    # a choice is a few tags, so it is shown, sorted, ahead of the patch
+    both = Locale("pt", Lexicon.empty(), PolicyPatch(middle_as_family=True),
+                  languages=frozenset({"pt-BR", "en"}))
+    assert repr(both) == "Locale('pt': languages en+pt-BR, middle_as_family)"
+    # bounded: past three tags a choice is shown by its size
+    many = Locale("xx", Lexicon.empty(),
+                  languages=frozenset({"pt", "es", "ca", "gl"}))
+    assert repr(many) == "Locale('xx': languages: 4)"
 
 
 def test_lexicon_repr_diffs_against_nearer_baseline() -> None:
     # An empty()-built Lexicon must not render as default() minus ~700
     # entries -- diff against whichever named constructor is nearer.
     assert repr(Lexicon.empty()) == "Lexicon(empty)"
-    lex = Lexicon.empty().add(titles={"zqx"})
-    assert repr(lex) == "Lexicon(empty + titles: +1)"
+    lex = Lexicon.empty().add("zqx", kind="title")
+    assert repr(lex) == "Lexicon(empty + title: +1)"
 
 
 def test_policy_patch_repr_shows_only_set_fields() -> None:
@@ -114,6 +126,7 @@ def test_policy_patch_repr_shows_only_set_fields() -> None:
     PolicyPatch(strip_emoji=False),
     Locale("xx", Lexicon.empty()),
     Locale("xx", Lexicon.empty(), PolicyPatch(middle_as_family=True)),
+    Locale("xx", Lexicon.empty(), languages=frozenset({"pt", "es", "ca", "gl"})),
     Lexicon.default(),
     Lexicon.empty(),
     Parser(),

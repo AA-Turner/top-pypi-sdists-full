@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class HashTag(ClientValue):
     """The HashTag type specifies a string that is being used as a hash tag and a count of the tags use.
 

@@ -125,7 +125,7 @@ test = [
   { include-group = "coverage" },
 ]
 type = [
-  "ty>=0.0.89",
+  "ty==0.0.89",
   "types-jinja2",
   "types-pyyaml",
   "types-setuptools>=67.6.0.5,<84",
@@ -308,8 +308,11 @@ ini_options.filterwarnings = [
   "ignore:^.*Default formatters will change to builtin.*:FutureWarning",
   "ignore:^.*Field name `name` is duplicated on Pet.*",
   "ignore:^.* has a required field after a field with a default.*:UserWarning",
+  "ignore:^.*additionalProperties is false beside patternProperties.*:UserWarning",
   "ignore:^.*one dict type cannot express this object, since it .*:UserWarning",
   "ignore:^.*no value satisfies every part of this schema .*:UserWarning",
+  "ignore:^.*the positions of prefixItems are not checked.*:UserWarning",
+  "ignore:^a Literal of the output model cannot hold the values? .*:UserWarning",
   "ignore:^.*format of 'unknown-type' not understood for 'string' - using default.*",
   "ignore:^.*is empty or not a dict. Skipping this file.*:UserWarning",
   """\

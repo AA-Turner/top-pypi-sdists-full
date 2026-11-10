@@ -5,6 +5,7 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.webparts.definitions.collection import WebPartDefinitionCollection
 from office365.sharepoint.webparts.definitions.definition import WebPartDefinition
 
@@ -13,6 +14,7 @@ class LimitedWebPartManager(Entity):
     """Provides operations to access and modify the existing Web Parts on a Web Part Page, and add new ones
     to the Web Part Page."""
 
+    @site_access(SiteLevel.READ)
     def export_web_part(self, web_part: Union[str, WebPartDefinition]) -> ClientResult[str]:
         """Exports the specified Web Part, given its ID.
 
@@ -36,6 +38,7 @@ class LimitedWebPartManager(Entity):
             _export_web_part(web_part)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def import_web_part(self, web_part_xml: str) -> WebPartDefinition:
         """Imports a Web Part from a string in the .dwp format as specified in [MS-WPPS] section 2.2.4.2,
         or the .webpart format as specified in [MS-WPPS] section 2.2.3.1.
@@ -56,7 +59,7 @@ class LimitedWebPartManager(Entity):
         self.context.add_query(qry)
         return return_type
 
-    @odata(name="WebParts")
+    @odata(name="WebParts", navigation=True)
     @property
     def web_parts(self) -> WebPartDefinitionCollection:
         """A collection of the Web Parts on the Web Part Page available to the current user based
@@ -69,21 +72,25 @@ class LimitedWebPartManager(Entity):
     def entity_type_name(self):
         return "SP.WebParts.LimitedWebPartManager"
 
+    @odata(name="HasPersonalizedParts")
     @property
     def has_personalized_parts(self) -> Optional[bool]:
         """Gets the HasPersonalizedParts property"""
         return self.properties.get("HasPersonalizedParts", None)
 
+    @odata(name="HasWebPartConnections")
     @property
     def has_web_part_connections(self) -> Optional[bool]:
         """Gets the HasWebPartConnections property"""
         return self.properties.get("HasWebPartConnections", None)
 
+    @odata(name="Scope")
     @property
     def scope(self) -> Optional[int]:
         """Gets the Scope property"""
         return self.properties.get("Scope", None)
 
+    @site_access(SiteLevel.READ)
     def export_web_part_ex(self, web_part_id: str) -> ClientResult[str]:
         """ExportWebPartEx operation.
 

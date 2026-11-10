@@ -14,9 +14,12 @@
 use std::ops::ControlFlow;
 
 use jiter::JsonValue;
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyBaseException;
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyBytes, PyDict, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple};
+use pyo3::types::{
+    PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyList, PySet, PyString, PyTuple,
+};
 use valgebra_core::{
     CollKind, ConstIx, Constraint, OperandIx, PredIx, Schema, SeqKind, Violation, quoted,
 };
@@ -122,6 +125,20 @@ pub(super) fn scalar_member(
 ) -> Option<bool> {
     let kind = scalar_of(schema)?;
     room.then(|| !ctx.state.signals.fatal_seen.get() && scalar_admits(kind, value))
+}
+
+/// What [`member`] answers at the root of a walk for a schema that is one scalar
+/// kind, or `None` for any other schema.
+///
+/// A walk that has not begun holds no signal and every level, so nothing the walk
+/// reads around the type test can refuse, and a type test runs no Python and
+/// reads no state: a validator of a scalar builds neither the walk's state nor
+/// its context, and enters no frame of the walk. `is_valid` on an `int`, the
+/// interpreter's own call included, reads 22% fewer instructions on the profiled
+/// 3.15 wheel, and every other schema a load and a comparison more.
+#[inline]
+pub(crate) fn root_scalar(schema: &Schema, value: &Bound<'_, PyAny>) -> Option<bool> {
+    Some(scalar_admits(scalar_of(schema)?, &Value::Py(value)))
 }
 
 /// The scalar kind every position of a sequence takes, with the schema it is
@@ -314,7 +331,10 @@ pub(crate) fn literal_matches(
     if is_the_constant(value, literal) {
         return Ok(true);
     }
-    Ok(value.get_type().is(literal.get_type()) && value.eq(literal)?)
+    // The two types' addresses, read where each value lies: asked through
+    // `get_type`, each is a handle made and dropped, a reference count written
+    // twice on a type every thread sharing the validator reads.
+    Ok(std::ptr::eq(value.get_type_ptr(), literal.get_type_ptr()) && value.eq(literal)?)
 }
 
 /// Whether `value` is the pooled `literal` object itself, of a builtin type
@@ -409,6 +429,25 @@ pub(super) fn check_refine(
             ControlFlow::Break(answer) => return answer,
         },
     };
+    constraints_hold(constraints, obj, frame)
+}
+
+/// Whether `obj`, a member of a refinement's base, satisfies every one of its
+/// constraints, each recorded as it fails where the walk explains.
+///
+/// The one caller of [`check_constraint`], which keeps it inlined here, and
+/// inlined into each caller: a call per element costs a list of strings under a
+/// pattern 2.3% of its instructions (`--binding-pattern`).
+#[expect(
+    clippy::inline_always,
+    reason = "measured: a call per element read +2.3% on the pattern walk"
+)]
+#[inline(always)]
+pub(super) fn constraints_hold(
+    constraints: &[Constraint],
+    obj: &Bound<'_, PyAny>,
+    frame: &mut Frame<'_, '_>,
+) -> bool {
     let mut ok = true;
     for constraint in constraints {
         if !check_constraint(constraint, obj, frame) {
@@ -419,6 +458,52 @@ pub(super) fn check_refine(
         }
     }
     ok
+}
+
+/// The machine integers every one of `constraints` admits, as an inclusive range,
+/// where each is an order bound whose operand is an exact `int` that fits a
+/// machine word, and `None` elsewhere: a bound the rich comparison must read.
+///
+/// An exact `int` compared with an exact `int` is the two numbers compared, runs
+/// no Python and reads nothing else, so for a value that fits a word the range
+/// answers what the comparisons answer. Read once for a list
+/// ([`refined_list_matches`](super::sequence)): the operand costs its read once,
+/// where a read per comparison costs more than the comparison it replaces.
+pub(super) fn machine_range(
+    constraints: &[Constraint],
+    ctx: Ctx<'_>,
+    py: Python<'_>,
+) -> Option<(i64, i64)> {
+    let word = |index: OperandIx| {
+        let operand = operand_at(ctx, index, py)?;
+        operand
+            .is_exact_instance_of::<PyInt>()
+            .then(|| operand.extract::<i64>().map_err(set_aside).ok())?
+    };
+    let (mut least, mut most) = (i64::MIN, i64::MAX);
+    for constraint in constraints {
+        match constraint {
+            Constraint::Ge(i) => least = least.max(word(*i)?),
+            Constraint::Gt(i) => least = least.max(word(*i)?.checked_add(1)?),
+            Constraint::Le(i) => most = most.min(word(*i)?),
+            Constraint::Lt(i) => most = most.min(word(*i)?.checked_sub(1)?),
+            _ => return None,
+        }
+    }
+    Some((least, most))
+}
+
+/// `value` as a machine word, where it is an exact `int` that fits one.
+///
+/// `Ok(None)` for a value that is no exact `int`, and `Err` for one past the
+/// word, whose read raises and is dropped here: a caller reading a list stops
+/// asking, so a list of such values pays that once.
+#[inline]
+pub(super) fn machine_word(value: &Bound<'_, PyAny>) -> Result<Option<i64>, ()> {
+    if !value.is_exact_instance_of::<PyInt>() {
+        return Ok(None);
+    }
+    value.extract::<i64>().map(Some).map_err(set_aside)
 }
 
 /// The object a refinement's constraints read off a parsed JSON value -- the
@@ -690,24 +775,81 @@ impl Expected<'_> {
 /// constant and run the rich comparison at the boundary, folding an ordinary
 /// error to a non-match. A pool constant that is unavailable is a non-member,
 /// recorded as nothing.
+///
+/// The operator is the comparison's own argument, so the four bounds are one
+/// reading, and what a failure names is read off it where one is recorded.
+///
+/// An exact `float` under an operand the index holds as a float
+/// ([`float_operand`](crate::check::index::float_operand)) is the two floats
+/// compared where they lie, which is all the rich comparison reads of them: a
+/// thousand floats under one bound read 69% fewer instructions on the profiled
+/// 3.15 wheel, and `--binding-refined-float` 52% on the build without a profile.
+/// Any other value pays a load and a comparison for the question.
 fn order_bound(
     value: &Bound<'_, PyAny>,
     index: OperandIx,
-    compare: impl Fn(&Bound<'_, PyAny>, &Bound<'_, PyAny>) -> PyResult<bool>,
-    code: Code,
-    symbol: &'static str,
+    op: CompareOp,
     frame: &mut Frame<'_, '_>,
 ) -> bool {
     let py = value.py();
     let Some(bound) = operand_at(frame.ctx, index, py) else {
         return false;
     };
-    let ok = decided(compare(value, bound), py, &frame.ctx);
+    let ok = match floats_compared(value, index, op, &frame.ctx) {
+        Some(ok) => ok,
+        None => decided(
+            value
+                .rich_compare(bound, op)
+                .and_then(|answer| answer.is_truthy()),
+            py,
+            &frame.ctx,
+        ),
+    };
     // Borrowed from the pool for as long as the walk's context lives, so a
     // passing check -- every check, in fast mode -- takes no reference to the
     // bound; a free-threaded interpreter would make that an atomic on one
     // counter every thread sharing the validator touches.
-    explained(ok, code, || Expected::Order(symbol, bound), value, frame)
+    if !ok && frame.ctx.mode.explains() {
+        order_refused(op, bound, value, frame);
+    }
+    ok
+}
+
+/// What the order bound `op` makes of `value` as two floats compared, where
+/// `value` is an exact `float` and the index holds the operand as one.
+#[inline]
+pub(super) fn floats_compared(
+    value: &Bound<'_, PyAny>,
+    index: OperandIx,
+    op: CompareOp,
+    ctx: &Ctx<'_>,
+) -> Option<bool> {
+    let number = value.cast_exact::<PyFloat>().ok()?.value();
+    let operand = ctx.index.float_operand(index.get())?;
+    Some(match op {
+        CompareOp::Ge => number >= operand,
+        CompareOp::Gt => number > operand,
+        CompareOp::Le => number <= operand,
+        _ => number < operand,
+    })
+}
+
+/// Record that `value` fails the order bound `op` makes with `bound`.
+#[cold]
+#[inline(never)]
+fn order_refused(
+    op: CompareOp,
+    bound: &Bound<'_, PyAny>,
+    value: &Bound<'_, PyAny>,
+    frame: &mut Frame<'_, '_>,
+) {
+    let (code, symbol) = match op {
+        CompareOp::Ge => (GREATER_THAN_EQUAL, ">="),
+        CompareOp::Gt => (GREATER_THAN, ">"),
+        CompareOp::Le => (LESS_THAN_EQUAL, "<="),
+        _ => (LESS_THAN, "<"),
+    };
+    explained(false, code, || Expected::Order(symbol, bound), value, frame);
 }
 
 /// Whether `value` (already a base member, materialized once) satisfies one
@@ -726,12 +868,10 @@ fn check_constraint(
 ) -> bool {
     let py = value.py();
     match constraint {
-        Constraint::Ge(i) => {
-            order_bound(value, *i, |v, b| v.ge(b), GREATER_THAN_EQUAL, ">=", frame)
-        }
-        Constraint::Gt(i) => order_bound(value, *i, |v, b| v.gt(b), GREATER_THAN, ">", frame),
-        Constraint::Le(i) => order_bound(value, *i, |v, b| v.le(b), LESS_THAN_EQUAL, "<=", frame),
-        Constraint::Lt(i) => order_bound(value, *i, |v, b| v.lt(b), LESS_THAN, "<", frame),
+        Constraint::Ge(i) => order_bound(value, *i, CompareOp::Ge, frame),
+        Constraint::Gt(i) => order_bound(value, *i, CompareOp::Gt, frame),
+        Constraint::Le(i) => order_bound(value, *i, CompareOp::Le, frame),
+        Constraint::Lt(i) => order_bound(value, *i, CompareOp::Lt, frame),
         Constraint::MinLen(n) => {
             let len = stored_len(value, &frame.ctx);
             let ok = decided(len.map(|len| len >= *n), py, &frame.ctx);
@@ -788,6 +928,24 @@ fn check_constraint(
             )
         }
     }
+}
+
+/// What one constraint asks, as its own failure names it, for a label naming the
+/// refinement it stands in: `>= 10`, `length <= 2`.
+pub(super) fn constraint_label(constraint: &Constraint, ctx: Ctx<'_>, py: Python<'_>) -> String {
+    let operand = |index: OperandIx| operand_at(ctx, index, py);
+    let expected = match constraint {
+        Constraint::Ge(i) => operand(*i).map(|bound| Expected::Order(">=", bound)),
+        Constraint::Gt(i) => operand(*i).map(|bound| Expected::Order(">", bound)),
+        Constraint::Le(i) => operand(*i).map(|bound| Expected::Order("<=", bound)),
+        Constraint::Lt(i) => operand(*i).map(|bound| Expected::Order("<", bound)),
+        Constraint::MultipleOf(i) => operand(*i).map(Expected::Multiple),
+        Constraint::MinLen(n) => Some(Expected::Length(">=", *n)),
+        Constraint::MaxLen(n) => Some(Expected::Length("<=", *n)),
+        Constraint::Regex(pattern) => Some(Expected::Pattern(pattern)),
+        Constraint::Predicate(_) => None,
+    };
+    expected.map_or_else(|| "a predicate".to_owned(), |expected| expected.render(ctx))
 }
 
 /// `ok`, with the failure it is recorded where the walk explains one. What

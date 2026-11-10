@@ -2,17 +2,25 @@
 dependencies and GPUs; at run open, the same capture with its network off the caller's thread."""
 
 from __future__ import annotations
+import logging
 import os
 import time
 import warnings
 from types import SimpleNamespace
 
-from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
 from ..launch import launch as _launch
 from ...capture import code as _snapshot
 from ....models import ExecutionRecordCreate
 from probe.sdk.routes import WriteOp, path_for
+
+logger = logging.getLogger(__name__)
+
+#: A queued env_ref PATCH skips the persistence probe; `probe run check` verifies it later.
+ENV_REF_QUEUED = (
+    "probe: env_ref was queued, not confirmed: the backend-capability check is unavailable "
+    "for this write. `probe run check` after the outbox drains verifies it."
+)
 #: The snapshot row's newline-joined path list is what /v1/search matches a
 #: captured tree on; it also rides every list response that carries the row,
 #: so it is bounded. 512 KB covers the largest tree seen so far (7,942 paths).
@@ -255,20 +263,16 @@ class SnapshotMixin:
         #
         # The cost is that the env_ref persistence probe below -- which catches a
         # backend that accepts the field, ignores it and answers 200 -- only runs
-        # when a row comes back. That is now SAID rather than silently skipped:
-        # a guard nobody knows was skipped is worse than no guard.
+        # when a row comes back. A queued write is the normal path, so it is logged,
+        # not warned (a warning on every run); `probe run check` verifies it.
         data = self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), patch_body, strict=strict)
         if data is None and content_hash is not None:
-            _diagnostics.warn(
-                "probe: env_ref was queued, not confirmed — the backend-capability "
-                "check is unavailable for this write. `probe run check` after the "
-                "outbox drains verifies it."
-            )
+            logger.debug(ENV_REF_QUEUED)
         if data:
             self._data = data
             if content_hash is not None and data.get("env_ref") != content_hash:
                 message = (
-                    "Probe Research API did not persist run.env_ref after snapshot "
+                    "Probe API did not persist run.env_ref after snapshot "
                     f"(expected {content_hash}, got {data.get('env_ref')!r})"
                 )
                 if strict is True or (strict is None and not self._client.fail_open):
@@ -432,18 +436,15 @@ class SnapshotMixin:
                 except OSError:
                     pass
 
-        def pin(content_hash: str | None) -> str | None:
+        def pin(content_hash: str | None) -> None:
             if content_hash is None:
                 return None
             # Before the write, so no reader sees the PATCH queued and the pin missing.
             self._pinned_env_ref = content_hash
-            if self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"env_ref": content_hash}):
-                return None
-            return (
-                "probe: env_ref was queued, not confirmed — the backend-capability check is "
-                "unavailable for this write. `probe run check` after the outbox drains "
-                "verifies it."
-            )
+            # Queued is the normal path, and nothing is said of it: this runs under the gate's lock,
+            # where even a log line could hold the close (`probe run check` verifies the field).
+            self._client.write("PATCH", path_for(WriteOp.RUN_PATCH, self.id), {"env_ref": content_hash})
+            return None
 
         def rewrite_row(content_hash: str | None, base: str | None, remote: str | None) -> None:
             row = self._snapshot_row(

@@ -76,8 +76,8 @@ struct SeparatorParameters
      *
      * At each iteration of a separation, each worker moves the colliding
      * items from the current layout, in its own random order, in its own
-     * thread; the layout of the worker with the smallest weighted loss is
-     * kept.
+     * thread (the first worker in the calling thread); the layout of the
+     * worker with the smallest weighted loss is kept.
      */
     Counter number_of_workers = 3;
 
@@ -116,6 +116,20 @@ public:
 
         /** Bounding box of the inflated polygons. */
         AxisAlignedBoundingBox aabb_inflated;
+
+        /**
+         * True iff the item is a circle. Its collisions are then detected
+         * with 'circle' and 'circle_inflated', and its polygons, which
+         * contain the circle, are only used for the disruptions; its bounding
+         * boxes and its pole are the ones of the circle.
+         */
+        bool is_circle = false;
+
+        /** If 'is_circle', the circle. */
+        Pole circle;
+
+        /** If 'is_circle', the circle inflated by the item spacing. */
+        Pole circle_inflated;
     };
 
     struct SeparatorItemType
@@ -424,9 +438,6 @@ private:
 
         /** Fixed hazards. */
         std::vector<Hazard> hazards;
-
-        /** Fixed items. */
-        std::vector<SolutionItem> fixed_items;
     };
 
     /*
@@ -534,6 +545,12 @@ private:
             const ItemState& item_state,
             const Evaluation& bound,
             bool insertion);
+
+    /**
+     * Build the index of the bounding boxes of the items of a bin (see
+     * 'bins_index_').
+     */
+    void build_index(BinPos bin_pos);
 
     /** Search a placement for an item. */
     Candidate search_placement(
@@ -649,6 +666,44 @@ private:
     /** Position of each item in the item list of its bin. */
     std::vector<ItemPos> items_bin_item_pos_;
 
+    /** Entry of the index of the bounding boxes of the items of a bin. */
+    struct IndexEntry
+    {
+        /** Bounding box of the item. */
+        AxisAlignedBoundingBox aabb;
+
+        /** Item. */
+        ItemPos item_pos;
+    };
+
+    /**
+     * For each bin, the bounding boxes of its items, sorted by 'x_min'.
+     *
+     * An evaluation only goes through the entries whose 'x_min' is smaller
+     * than the 'x_max' of the evaluated placement, skipping the chunks of
+     * entries whose largest 'x_max' is smaller than its 'x_min'.
+     *
+     * The index of a bin is built at the first evaluation of a placement in
+     * it during a search (see 'search_placement'): during a search, only the
+     * searched item moves, and it is skipped.
+     */
+    std::vector<std::vector<IndexEntry>> bins_index_;
+
+    /** Number of searches of placements ('search_placement'). */
+    Counter number_of_searches_ = 0;
+
+    /** For each bin, the search for which its index has been built. */
+    std::vector<Counter> bins_index_search_;
+
+    /** For each bin, the largest 'x_max' of each chunk of 'bins_index_'. */
+    std::vector<std::vector<LengthDbl>> bins_index_chunks_x_max_;
+
+    /**
+     * Items whose bounding box intersects the one of the evaluated placement
+     * (see 'evaluate').
+     */
+    std::vector<ItemPos> intersecting_items_;
+
     /** Collision entries of the pairs of items (triangular matrix). */
     std::vector<Entry> pair_entries_;
 
@@ -706,6 +761,16 @@ private:
      * separation with several workers.
      */
     std::vector<std::shared_ptr<Separator>> workers_;
+
+    /** Threads running the workers; see 'move_items_workers'. */
+    struct WorkerThreads;
+
+    /**
+     * Threads running the workers, created with them. Declared after
+     * 'workers_', so that the threads are joined before the workers are
+     * destroyed.
+     */
+    std::shared_ptr<WorkerThreads> worker_threads_;
 
 };
 

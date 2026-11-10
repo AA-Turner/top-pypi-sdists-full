@@ -1478,6 +1478,97 @@ class TestResetWedgedTestAuthorReview:
         reset_wedged_test_author_review("")  # must not raise
 
 
+class TestRepointReviewOfAssignmentId:
+    """#3891: re-parents a ``type='review'`` row's ``review_of_assignment_id``
+    onto a different work round — used by
+    ``coord.auto_loop.propagate_review_verdict`` when a SCOPED re-review's
+    recorded parent is a superseded round rather than the one it actually
+    reviewed."""
+
+    def _insert_review(self, *, assignment_id: str, review_of: str) -> None:
+        from coord.models import Assignment
+        from coord.state import record_dispatched_assignment
+
+        assignment = Assignment(
+            machine_name="laptop",
+            repo_name="myrepo",
+            issue_number=1,
+            issue_title="[review] t",
+            assignment_id=assignment_id,
+            status="done",
+            branch="issue-1-fix",
+            type="review",
+            review_of_assignment_id=review_of,
+            dispatched_at=0.0,
+        )
+        record_dispatched_assignment(assignment=assignment, repo_github="acme/myrepo")
+
+    def test_repoints_a_review_row(self, coord_db) -> None:
+        from coord.db import get_connection
+        from coord.state import repoint_review_of_assignment_id
+
+        self._insert_review(assignment_id="r-1", review_of="w-1")
+        repoint_review_of_assignment_id("r-1", "fix-1")
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT review_of_assignment_id FROM assignments WHERE assignment_id=?",
+            ("r-1",),
+        ).fetchone()
+        assert row[0] == "fix-1"
+
+    def test_ignores_non_review_type(self, coord_db) -> None:
+        """Only ``type='review'`` rows may be re-parented — a work row's own
+        ``review_of_assignment_id`` (which fix rounds use to point BACK at
+        the work they fix) is a different field semantically and must never
+        be touched by this helper."""
+        from coord.db import get_connection
+        from coord.models import Assignment
+        from coord.state import record_dispatched_assignment, repoint_review_of_assignment_id
+
+        assignment = Assignment(
+            machine_name="laptop",
+            repo_name="myrepo",
+            issue_number=1,
+            issue_title="[fix-1] t",
+            assignment_id="fix-1",
+            status="done",
+            branch="issue-1-fix",
+            type="work",
+            review_of_assignment_id="w-1",
+            dispatched_at=0.0,
+        )
+        record_dispatched_assignment(assignment=assignment, repo_github="acme/myrepo")
+        repoint_review_of_assignment_id("fix-1", "something-else")
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT review_of_assignment_id FROM assignments WHERE assignment_id=?",
+            ("fix-1",),
+        ).fetchone()
+        assert row[0] == "w-1"
+
+    def test_noop_on_missing_row(self, coord_db) -> None:
+        from coord.state import repoint_review_of_assignment_id
+
+        repoint_review_of_assignment_id("no-such-id", "fix-1")  # must not raise
+
+    def test_noop_on_empty_ids(self, coord_db) -> None:
+        from coord.state import repoint_review_of_assignment_id
+
+        self._insert_review(assignment_id="r-2", review_of="w-1")
+        repoint_review_of_assignment_id("", "fix-1")
+        repoint_review_of_assignment_id("r-2", "")
+
+        from coord.db import get_connection
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT review_of_assignment_id FROM assignments WHERE assignment_id=?",
+            ("r-2",),
+        ).fetchone()
+        assert row[0] == "w-1"
+
+
 class TestRecordDispatchedBranch:
     """#706: _record_dispatched_local must persist the branch column so
     completed work rows are never branch=NULL in the TUI."""
@@ -2975,6 +3066,76 @@ class TestTestVerdictStalenessAnchor:
         ).fetchone()
         assert row["test_base_sha"] == "sha-for-feature/ms-7"
         assert "feature/ms-7" in seen_bases
+
+    def test_fresh_verdict_clears_persisted_stale_smoke_merge_error(
+        self, coord_db, monkeypatch
+    ) -> None:
+        """#3917: a merge-queue entry parked on "smoke test verdict is
+        stale" against the OLD branch head must not keep showing that error
+        once a fresh terminal verdict's anchors are actually confirmed live
+        — nothing but a real `coord merge` attempt used to clear it (#420),
+        which is exactly what let quadraui#2173 re-test the same stale
+        reading five times."""
+        from coord import merge_queue as mq
+        from coord.models import Assignment
+
+        self._seed_assignment(coord_db)
+        self._config(monkeypatch)
+        monkeypatch.setattr(
+            "coord.github_ops.get_branch_sha",
+            lambda repo, branch: {"worker/aid-1": "4fb8bea", "main": "main-sha"}[branch],
+        )
+        monkeypatch.setattr(
+            "coord.github_ops.get_branch_patch_id",
+            lambda repo, base, branch: "fdfcd8d",
+        )
+
+        work = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="aid-1", type="work", status="done", branch="worker/aid-1",
+        )
+        mq.enqueue(work, repo_github="acme/api", target_branch="main")
+        items = mq.load_queue()
+        items[0].error = (
+            "smoke test verdict is stale: recorded against branch "
+            "c6ef8e6, branch is now 4fb8bea — re-verify against the "
+            "current base, then `coord test aid-1 --passed`"
+        )
+        mq.save_queue(items)
+
+        record_test_verdict(assignment_id="aid-1", test_state="passed")
+
+        assert mq.load_queue()[0].error is None
+
+    def test_failed_anchor_probe_does_not_clear_stale_smoke_merge_error(
+        self, coord_db, monkeypatch
+    ) -> None:
+        """Only a CONFIRMED live observation (both anchor probes resolved)
+        clears the stale-smoke error — a probe failure proves nothing
+        moved, so the stale text must stand rather than being cleared on
+        unconfirmed evidence."""
+        from coord import merge_queue as mq
+        from coord.models import Assignment
+
+        self._seed_assignment(coord_db)
+        self._config(monkeypatch)
+        monkeypatch.setattr(
+            "coord.github_ops.get_branch_sha",
+            lambda repo, branch: (_ for _ in ()).throw(RuntimeError("gh unavailable")),
+        )
+
+        work = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="aid-1", type="work", status="done", branch="worker/aid-1",
+        )
+        mq.enqueue(work, repo_github="acme/api", target_branch="main")
+        items = mq.load_queue()
+        items[0].error = "smoke test verdict is stale: recorded against branch a, branch is now b"
+        mq.save_queue(items)
+
+        record_test_verdict(assignment_id="aid-1", test_state="passed")
+
+        assert mq.load_queue()[0].error is not None
 
 
 class TestRecordTestVerdictToolchain:
@@ -6120,12 +6281,17 @@ class TestReleaseSmokeClaimIfRowIsSmokeLeg:
 
         assert state.claim_smoke_dispatch("w1", "macos") is True  # released, reclaimable
 
-    def test_noop_for_an_untagged_single_leg_smoke_row(self, coord_db) -> None:
-        """An ordinary pre-#3182 single-partition smoke row carries no
-        `[smoke:...]` tag on its issue_title — never claimed, so releasing
-        it must be a pure no-op, never mistakenly release an unrelated
-        partition's claim."""
+    def test_releases_the_fixed_tag_for_an_untagged_single_leg_smoke_row(
+        self, coord_db,
+    ) -> None:
+        """#3920: an ordinary single-partition smoke row carries no
+        `[smoke:...]` tag on its issue_title — it is claimed (if at all)
+        under the fixed `SINGLE_LEG_SMOKE_PARTITION_TAG`, not a derived
+        capability set, so releasing it must release THAT tag — and must
+        never mistakenly touch an unrelated, genuinely-tagged partition's
+        claim on the same work row."""
         from coord.models import Assignment
+        from coord.smoke import SINGLE_LEG_SMOKE_PARTITION_TAG
 
         state.record_dispatched_assignment(
             assignment=Assignment(
@@ -6135,12 +6301,15 @@ class TestReleaseSmokeClaimIfRowIsSmokeLeg:
             ),
             repo_github="acme/api",
         )
+        assert state.claim_smoke_dispatch("w1", SINGLE_LEG_SMOKE_PARTITION_TAG) is True
         assert state.claim_smoke_dispatch("w1", "macos") is True
 
         state.release_smoke_claim_if_row_is_smoke_leg("leg1")
 
-        # Still held — "leg1" carries no capability tag to derive a
-        # partition key from.
+        # The single-leg tag released — reclaimable.
+        assert state.claim_smoke_dispatch("w1", SINGLE_LEG_SMOKE_PARTITION_TAG) is True
+        # An unrelated, genuinely-tagged partition on the SAME work row is
+        # untouched — still held.
         assert state.claim_smoke_dispatch("w1", "macos") is False
 
     def test_noop_for_a_non_smoke_row(self, coord_db) -> None:
@@ -6294,6 +6463,35 @@ class TestResetWorkTestStateReleasesSmokeClaims:
 
         assert updated == 1
         assert state.claim_smoke_dispatch("w1", "macos") is True
+
+    def test_reset_also_releases_the_single_leg_claim(self, coord_db) -> None:
+        """#3920: a single-leg row carries no `[[smoke-fanout:...]]` manifest
+        for the loop above to parse at all, so the identical "phantom leg
+        died without self-reporting" stranding needs its own unconditional
+        release of the fixed `SINGLE_LEG_SMOKE_PARTITION_TAG`."""
+        from coord.models import Assignment
+        from coord.smoke import SINGLE_LEG_SMOKE_PARTITION_TAG
+
+        state.record_dispatched_assignment(
+            assignment=Assignment(
+                machine_name="laptop", repo_name="api", issue_number=9,
+                issue_title="Some other work", assignment_id="w2",
+                type="work", status="done",
+            ),
+            repo_github="acme/api",
+        )
+        state.record_test_verdict(
+            assignment_id="w2", test_state="running",
+            test_reason="dispatched: Test stage running (#1426)",
+        )
+        assert state.claim_smoke_dispatch("w2", SINGLE_LEG_SMOKE_PARTITION_TAG) is True
+
+        updated = state.reset_work_test_state("api", 9, assignment_id="w2")
+
+        assert updated == 1
+        assert state.claim_smoke_dispatch(
+            "w2", SINGLE_LEG_SMOKE_PARTITION_TAG,
+        ) is True
 
 
 # ── #3333 review: merge_smoke_fanout_manifest's atomic read-merge-write ─────
@@ -6931,3 +7129,66 @@ class TestMergeReservation:
         assert get_merge_reservation("acme/repo-0") is not None
         assert get_merge_reservation("acme/repo-1") is None
         assert get_merge_reservation("acme/repo-new") is not None
+
+
+class TestRegradableBoardDoctorOutcomes:
+    """#3907: :func:`coord.state.regradable_board_doctor_outcomes` —
+    `pending_board_doctor_outcomes`'s already-graded counterpart, so a
+    decision that read `unchanged`/`regressed` can still be revisited by a
+    later sweep rather than staying wrong forever."""
+
+    def _decision(self, **overrides) -> dict:
+        base = {
+            "sweep_id": "sweep-1",
+            "queue": "drive-queue",
+            "key": "acme/widgets#900",
+            "cause": "ci_red",
+            "tier": "auto",
+            "action": "auto-dispatch",
+            "count": 1,
+            "escalated": False,
+            "confidence": "high",
+            "evidence": [],
+            "recorded_at": "2030-01-01T00:00:00+00:00",
+        }
+        base.update(overrides)
+        return base
+
+    def test_only_unchanged_and_regressed_entries_are_returned(self, coord_db) -> None:
+        state.record_board_doctor_decision(self._decision(key="acme/widgets#901"))
+        state.record_board_doctor_outcome(
+            "sweep-1", "drive-queue", "acme/widgets#901", "unchanged",
+        )
+        state.record_board_doctor_decision(self._decision(key="acme/widgets#902"))
+        state.record_board_doctor_outcome(
+            "sweep-1", "drive-queue", "acme/widgets#902", "regressed",
+        )
+        state.record_board_doctor_decision(self._decision(key="acme/widgets#903"))
+        state.record_board_doctor_outcome(
+            "sweep-1", "drive-queue", "acme/widgets#903", "progressed",
+        )
+        state.record_board_doctor_decision(self._decision(key="acme/widgets#904"))
+        # Still outcome=None — `pending_board_doctor_outcomes`'s territory,
+        # not this function's.
+
+        keys = {d["key"] for d in state.regradable_board_doctor_outcomes()}
+        assert keys == {"acme/widgets#901", "acme/widgets#902"}
+
+    def test_empty_when_nothing_has_been_graded_yet(self, coord_db) -> None:
+        state.record_board_doctor_decision(self._decision())
+        assert state.regradable_board_doctor_outcomes() == []
+
+    def test_board_doctor_decisions_outcomes_filter_matches_regradable(
+        self, coord_db,
+    ) -> None:
+        state.record_board_doctor_decision(self._decision(key="acme/widgets#905"))
+        state.record_board_doctor_outcome(
+            "sweep-1", "drive-queue", "acme/widgets#905", "unchanged",
+        )
+        state.record_board_doctor_decision(self._decision(key="acme/widgets#906"))
+        state.record_board_doctor_outcome(
+            "sweep-1", "drive-queue", "acme/widgets#906", "progressed",
+        )
+
+        matched = state.board_doctor_decisions(outcomes=["unchanged", "regressed"])
+        assert {d["key"] for d in matched} == {"acme/widgets#905"}

@@ -8,7 +8,7 @@ consume them instead of talking to SQL or ``Queries`` directly.
 from __future__ import annotations
 
 import dataclasses
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from pgqueuer.domain import models, types
 from pgqueuer.ports.repository import InsightsRepositoryPort, QueueRepositoryPort
@@ -16,6 +16,7 @@ from pgqueuer.ports.repository import InsightsRepositoryPort, QueueRepositoryPor
 DEFAULT_WINDOW = timedelta(hours=1)
 MAX_WINDOW = timedelta(hours=24)
 DEFAULT_STALE_THRESHOLD = timedelta(minutes=5)
+DEFAULT_BUCKET = timedelta(minutes=1)
 
 
 def clamp_window(last: timedelta | None) -> timedelta:
@@ -23,6 +24,19 @@ def clamp_window(last: timedelta | None) -> timedelta:
     if last is None:
         return DEFAULT_WINDOW
     return max(min(last, MAX_WINDOW), timedelta(seconds=1))
+
+
+def check_bucket(bucket: timedelta | None) -> timedelta:
+    """A timeseries bucket; None means DEFAULT_BUCKET.
+
+    Statistics rows are per second, so a bucket must be a whole number of seconds,
+    or a second's count would be split between two buckets.
+    """
+    if bucket is None:
+        return DEFAULT_BUCKET
+    if bucket < timedelta(seconds=1) or bucket % timedelta(seconds=1):
+        raise ValueError(f"bucket must be a whole number of seconds, at least one: {bucket!r}")
+    return bucket
 
 
 @dataclasses.dataclass
@@ -52,8 +66,13 @@ class InsightsService:
     async def throughput_timeseries(
         self,
         last: timedelta | None = None,
+        bucket: timedelta | None = None,
     ) -> list[models.ThroughputBucket]:
-        return await self.repository.throughput_timeseries(clamp_window(last))
+        """Processed-job counts per *bucket* (a minute by default) within the *last* window."""
+        if bucket is None:
+            # A repository written before *bucket* existed still serves the default.
+            return await self.repository.throughput_timeseries(clamp_window(last))
+        return await self.repository.throughput_timeseries(clamp_window(last), check_bucket(bucket))
 
     async def active_workers(self) -> list[models.ActiveWorker]:
         return await self.repository.active_workers()
@@ -128,6 +147,8 @@ class InsightsService:
         }
         throughput = await self.repository.throughput_summary(window)
         timeseries = await self.repository.throughput_timeseries(window)
+        # One end for every row, so all sparklines share a time axis.
+        now = models.utc_now()
 
         entrypoints = sorted(
             {s.entrypoint for s in sizes}
@@ -164,7 +185,7 @@ class InsightsService:
                     p99_seconds=duration.p99_seconds if duration else None,
                     completed=duration.completed if duration else 0,
                     failure_rate=(exceptions / processed) if processed else None,
-                    sparkline=sparkline_buckets(timeseries, ep, window),
+                    sparkline=sparkline_buckets(timeseries, ep, window, end=now),
                 )
             )
         return stats
@@ -175,19 +196,24 @@ def sparkline_buckets(
     entrypoint: str,
     window: timedelta,
     slots: int = 30,
+    end: datetime | None = None,
 ) -> list[int]:
-    """Terminal-status counts folded into *slots* equal time slices of *window*."""
+    """Terminal-status counts folded into *slots* equal time slices of *window*.
+
+    The window ends at *end*, now by default, so the last slot is the current one.
+    *timeseries* holds that window's rows, as ``throughput_timeseries(window)`` returns.
+    """
     terminal = {"successful", "exception", "canceled", "failed"}
     relevant = [t for t in timeseries if t.entrypoint == entrypoint and t.status in terminal]
     counts = [0] * slots
     if not relevant:
         return counts
-    end = max(t.bucket for t in relevant)
-    start = end - window
-    span = (end - start).total_seconds() or 1.0
+    start = (models.utc_now() if end is None else end) - window
+    span = window.total_seconds() or 1.0
     for t in relevant:
         offset = (t.bucket - start).total_seconds() / span
-        slot = min(int(offset * slots), slots - 1)
+        # A minute bucket can start just before the window, or after *end* on clock skew.
+        slot = min(max(int(offset * slots), 0), slots - 1)
         counts[slot] += t.count
     return counts
 

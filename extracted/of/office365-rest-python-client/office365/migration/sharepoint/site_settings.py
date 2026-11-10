@@ -38,6 +38,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional
 
+from office365.sharepoint.permissions import SiteLevel, site_access
+
 if TYPE_CHECKING:
     from office365.sharepoint.webs.web import Web
 
@@ -94,6 +96,7 @@ class WebSettings:
     description: Optional[str] = None
 
     @classmethod
+    @site_access(SiteLevel.READ)
     def capture(cls, web: "Web") -> "WebSettings":
         """Read a web's carried settings (one GET projecting ``Title``/``Description``)."""
         properties = web.select(list(_CARRIED)).get().execute_query().properties
@@ -139,19 +142,16 @@ class WebSettingsReport:
 
 
 def _web_url(web: "Web") -> str:
-    """A web's absolute URL, falling back to the site URL of its context.
+    """A web's URL, falling back to the site URL of its context.
 
-    A projected read (``select(["Title", "Description"]).get()``) replaces the
-    loaded properties with the ones it asked for, so ``Url`` may be gone by the
-    time a note needs it — the context still knows which site the web belongs to.
+    A projected read (``select(["Title", "Description"]).get()``) replaces the loaded
+    properties with the ones it asked for, so the web may no longer know its own URL by the
+    time a note needs it — the context still knows which site it belongs to.
     """
-    for name in ("Url", "ServerRelativeUrl"):
-        value = web.get_property(name)
-        if value:
-            return str(value)
-    return str(getattr(getattr(web, "context", None), "base_url", "") or "")
+    return web.absolute_url or str(web.context.base_url or "")
 
 
+@site_access(SiteLevel.WRITE)
 def apply_web_settings(source_web: "Web", target_web: "Web", *, preserve: bool = True) -> WebSettingsReport:
     """Copy the carried web settings from ``source_web`` onto ``target_web``.
 

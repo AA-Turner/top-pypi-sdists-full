@@ -32,6 +32,9 @@ SKELETON = '''# meta-skill-ab-test profile. Fill every <...>; `abtest.py seal` v
 repo = "<absolute path of the real repository>"
 base = "<40-char sha every arm starts from>"
 task_file = "task.md"
+# Gitignored paths of the workpiece a fresh worktree lacks (a vendored protoc, a downloaded
+# toolchain), symlinked into every arm's worktree; ignore each without a trailing slash.
+# link = [".packages"]
 
 [control]
 skills_ref = "<bitranox-skills sha that carries BITRANOX_MEMORY_WRITES>"
@@ -64,6 +67,9 @@ warmth_tolerance = 0.25
 # repo's .git; the real home is hidden. "none" runs it unconfined, and the journal and score say so.
 # In an LXC container (lxcfs refuses a private /proc) use "bwrap-host-proc": host /proc read-only.
 sandbox = "bwrap"
+# Appended to every arm's prompt alike, after a blank line; its sha256 is in each journal row and
+# result.json. It must not name the skill under test (a bare arm gets it too).
+# unattended_note = "No human reads this session. Never stop to ask; decide, note why, and finish."
 '''
 
 
@@ -73,9 +79,20 @@ class ProfileError(ValueError):
 
 @dataclass(frozen=True)
 class Workpiece:
+    """The real repository every arm works in.
+
+    Attributes:
+        repo: the checkout, absolute and resolved.
+        base: the commit every arm starts from.
+        task_file: the prompt file relative to the run dir.
+        link: gitignored paths of the checkout (a vendored protoc, a downloaded toolchain) that a
+            fresh worktree lacks; each is symlinked into every arm's worktree before its session.
+    """
+
     repo: Path
     base: str
     task_file: str
+    link: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -135,6 +152,9 @@ class Run:
     # One of SANDBOX_VALUES, or None when the key is missing: a dry run may go ahead, while a
     # live run and a seal refuse it (SANDBOX_MISSING).
     sandbox: str | None = None
+    # Text appended to EVERY arm's prompt alike (the bare arm's too), e.g. that no human will
+    # answer a question; None appends nothing.
+    unattended_note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -304,7 +324,32 @@ def _workpiece(c: _Check, wp: dict[str, Any]) -> Workpiece:
     elif repo_text and not (repo / ".git").exists():
         c.problems.append(f"workpiece.repo: {repo} is not a git repository")
     return Workpiece(repo=repo.resolve(), base=c.sha(wp, "base", "workpiece"),
-                     task_file=c.text(wp, "task_file", "workpiece", default="task.md"))
+                     task_file=c.text(wp, "task_file", "workpiece", default="task.md"),
+                     link=_links(c, wp, repo.resolve()))
+
+
+def _links(c: _Check, wp: dict[str, Any], repo: Path) -> tuple[str, ...]:
+    """workpiece.link: relative paths inside the checkout, outside .git, each named once."""
+    entries = c.str_list(wp, "link", "workpiece", required=False)
+    for entry in entries:
+        problem = _link_problem(entry, repo)
+        shown = entry if entry else '""'
+        if problem:
+            c.problems.append(f"workpiece.link: {shown} {problem}")
+    if len(set(entries)) != len(entries):
+        c.problems.append("workpiece.link: names an entry twice")
+    return entries
+
+
+def _link_problem(entry: str, repo: Path) -> str | None:
+    if not _is_inside_relative(entry):
+        return "must be a non-empty relative path inside the workpiece"
+    if ".git" in PurePosixPath(entry.replace("\\", "/")).parts:
+        return "must not point into .git"
+    # A symlinked parent can still lead out of the checkout; resolve() follows it.
+    if not (repo / entry).resolve().is_relative_to(repo):
+        return "resolves outside the workpiece"
+    return None
 
 
 def _control(c: _Check, ct: dict[str, Any]) -> Control:
@@ -373,13 +418,24 @@ def _sandbox(c: _Check, rn: dict[str, Any]) -> str | None:
     return str(v)
 
 
+def _unattended_note(c: _Check, rn: dict[str, Any]) -> str | None:
+    """run.unattended_note: optional; when present a non-blank string that is no <placeholder>."""
+    if "unattended_note" not in rn:
+        return None
+    note = rn["unattended_note"]
+    if not isinstance(note, str) or not note.strip() or note.strip().startswith("<"):
+        c.problems.append("run.unattended_note: must be non-blank text (leave the key out for no note)")
+        return None
+    return note.strip()
+
+
 def _run(c: _Check, rn: dict[str, Any]) -> Run:
     run = Run(model=c.text(rn, "model", "run", default="opus"),
               n=c.integer(rn, "n", "run", minimum=1), deadline_s=c.integer(rn, "deadline_s", "run", minimum=60),
               max_tokens=c.integer(rn, "max_tokens", "run", minimum=1000), warmth_tolerance=_warmth_tolerance(c, rn),
               env_keep=c.str_list(rn, "env_keep", "run", required=False, default=DEFAULT_ENV_KEEP),
               home_links=c.str_list(rn, "home_links", "run", required=False, default=DEFAULT_HOME_LINKS),
-              sandbox=_sandbox(c, rn))
+              sandbox=_sandbox(c, rn), unattended_note=_unattended_note(c, rn))
     if run.model != "opus":
         c.problems.append("run.model: only 'opus' is allowed (user directive: every arm runs on opus)")
     return run

@@ -41,9 +41,11 @@ from nab_project.lockfile import (
     DisjointnessError,
     IndexPin,
     LockInput,
+    LockValidationError,
     MissingHashError,
     TargetLock,
     build_pylock,
+    write_lock,
     write_requirements_with_hashes,
     write_requirements_without_hashes,
 )
@@ -71,6 +73,7 @@ from nab_provider.errors import ConfigError
 from nab_provider.marker_holds import DependencyMarkerEvaluator, dependency_marker_holds
 from nab_provider.metadata import WheelMetadata
 from nab_provider.overrides import IndexOverride, PackageOverride
+from nab_provider.policy import MetadataPolicy
 from nab_provider.provider import (
     ArchiveSource,
     BuildPolicy,
@@ -90,7 +93,7 @@ from nab_provider.requirements_file import expand_extra_requirements
 from nab_provider.resolver_inputs import ProxyConstraints
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, ResolveTarget
-from nab_provider.testing import make_sdist, make_wheel
+from nab_provider.testing import make_metadata, make_sdist, make_wheel
 from nab_resolver.errors import ResolutionError
 
 if TYPE_CHECKING:
@@ -1624,7 +1627,7 @@ class TestResolveOneTarget:
         with pytest.raises(MissingHashError, match="no acceptable hash"):
             write_requirements_with_hashes(lock_input)
 
-    def test_sdist_install_wheel_only_version_not_a_candidate(self) -> None:
+    def test_source_install_wheel_only_version_not_a_candidate(self) -> None:
         """A wheel-only version under sdist-install is never a candidate.
 
         pkg 1.0 publishes only a wheel, so under sdist-install it has no
@@ -1636,14 +1639,18 @@ class TestResolveOneTarget:
             listings={"pkg": [_make_wheel("1.0", package="pkg")]}, auto_metadata=True
         )
         settings = _settings(
-            coordinator, _no_build(dist_policy=DistPolicy.SDIST_INSTALL)
+            coordinator,
+            _no_build(
+                dist_policy=DistPolicy.SDIST_ONLY,
+                metadata_policy=MetadataPolicy.PREFER_WHEEL,
+            ),
         )
         tr = _resolve_one_target(_linux_311(), _reqs("pkg"), (), settings, {})
         assert not tr.success
         assert isinstance(tr.error, ResolutionError)
         assert tr.pins == {}
 
-    def test_sdist_install_yields_to_older_sdist_version(self) -> None:
+    def test_source_install_yields_to_older_sdist_version(self) -> None:
         """A wheel-only newest version yields to an older sdist release.
 
         foo 2.0 publishes only a wheel, so under sdist-install it has no
@@ -1662,7 +1669,11 @@ class TestResolveOneTarget:
             auto_metadata=True,
         )
         settings = _settings(
-            coordinator, _no_build(dist_policy=DistPolicy.SDIST_INSTALL)
+            coordinator,
+            _no_build(
+                dist_policy=DistPolicy.SDIST_ONLY,
+                metadata_policy=MetadataPolicy.PREFER_WHEEL,
+            ),
         )
         tr = _resolve_one_target(_linux_311(), _reqs("foo"), (), settings, {})
         assert tr.success
@@ -3629,3 +3640,83 @@ class TestMicroSliceAlignmentDirection:
             "py312-linux_x86_64-pf3120-group-b": "1.0",
             "py312-linux_x86_64-pf3123-group-b": "1.0",
         }
+
+
+class TestLibcLockSelections:
+    @staticmethod
+    def _coordinator(*, shared_dependency: bool) -> FakeFetchPort:
+        """Serve libc-specific wheels with either shared or distinct dependencies."""
+        listings: dict[str, list[WheelFile]] = {}
+        metadata: dict[str, str] = {}
+        for libc, platform in (
+            ("glibc", "manylinux_2_17_x86_64"),
+            ("musl", "musllinux_1_2_x86_64"),
+        ):
+            dependency = "common" if shared_dependency else f"{libc}dep"
+            for name, requires in (("demo", (dependency,)), (dependency, ())):
+                wheel = make_wheel(
+                    package=name,
+                    tag=f"cp314-cp314-{platform}",
+                    hashes=(("sha256", "a" * 64),),
+                )
+                listings.setdefault(name, []).append(wheel)
+                assert wheel.metadata_url is not None
+                metadata[wheel.metadata_url] = make_metadata(name, "1.0", *requires)
+
+        return make_coordinator(listings=listings, metadata_by_url=metadata)
+
+    @pytest.mark.parametrize("shared_dependency", [False, True])
+    def test_native_dependencies_across_libc_targets(
+        self, tmp_path: Path, shared_dependency: bool
+    ) -> None:
+        targets = tuple(
+            ResolveTarget.for_declared(python_version="3.14", spec=spec)
+            for spec in (
+                PlatformSpec("linux_x86_64"),
+                PlatformSpec("linux_x86_64", libc="musl"),
+            )
+        )
+        for target, libc in zip(targets, ("glibc", "musl"), strict=True):
+            result = resolve_with_coordinator(
+                self._coordinator(shared_dependency=shared_dependency),
+                [target],
+                _reqs("demo"),
+                inputs=_no_build(),
+            )
+            assert result.success
+
+            lock = build_pylock(build_lock_input(result, inputs=_no_build()))
+            dependency = "common" if shared_dependency else f"{libc}dep"
+            assert {
+                package.name
+                for package, _wheel in lock.select(
+                    environment=dict(target.marker_env), tags=target.tags.ordered
+                )
+            } == {"demo", dependency}
+
+        result = resolve_with_coordinator(
+            self._coordinator(shared_dependency=shared_dependency),
+            targets,
+            _reqs("demo"),
+            inputs=_no_build(),
+        )
+        assert result.success
+
+        lock_input = build_lock_input(result, inputs=_no_build())
+        if not shared_dependency:
+            output = tmp_path / "pylock.toml"
+            output.write_text("previous lock\n")
+            with pytest.raises(LockValidationError, match="package selections"):
+                write_lock(lock_input, output_path=output)
+
+            assert output.read_text() == "previous lock\n"
+            return
+
+        lock = build_pylock(lock_input)
+        for target in targets:
+            assert {
+                package.name
+                for package, _wheel in lock.select(
+                    environment=dict(target.marker_env), tags=target.tags.ordered
+                )
+            } == {"demo", "common"}

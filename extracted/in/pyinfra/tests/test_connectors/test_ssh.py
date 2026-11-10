@@ -1,5 +1,7 @@
 import importlib
+from pathlib import Path
 from socket import error as socket_error, gaierror
+from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
 
 from paramiko import AuthenticationException, PasswordRequiredException, SSHException
@@ -173,6 +175,11 @@ class TestSSHConnector(TestCase):
     def setUp(self):
         self.fake_connect_patch = mock.patch("pyinfra.connectors.ssh.SSHClient.connect")
         self.fake_connect_mock = self.fake_connect_patch.start()
+        # The memoized get_file_transfer_connection keys its cache on
+        # str(connector), which includes the memory address: a recycled address
+        # leaks a dead mock from a previous test
+        # (https://github.com/pyinfra-dev/pyinfra/issues/1387).
+        ssh.SSHConnector.get_file_transfer_connection.cache.clear()
 
     def tearDown(self):
         self.fake_connect_patch.stop()
@@ -863,11 +870,10 @@ class TestSSHConnector(TestCase):
 
         assert status is True
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().putfo.assert_called_with(
-        #     fake_open(),
-        #     "not-another-file",
-        # )
+        fake_sftp_client.from_transport().putfo.assert_called_with(
+            fake_open(),
+            "not-another-file",
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -920,11 +926,82 @@ class TestSSHConnector(TestCase):
             ],
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().putfo.assert_called_with(
-        #     fake_open(),
-        #     "/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24",
-        # )
+        fake_sftp_client.from_transport().putfo.assert_called_with(
+            fake_open(),
+            "/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24",
+        )
+
+    @mock.patch("pyinfra.connectors.ssh.SSHClient")
+    @mock.patch("pyinfra.connectors.ssh.SFTPClient")
+    def test_put_file_sudo_retries_freebsd_nfsv4_acl(self, fake_sftp_client, fake_ssh_client):
+        inventory = make_inventory(hosts=("anotherhost",))
+        state = State(inventory, Config())
+        host = inventory.get_host("anotherhost")
+        host.connect()
+
+        def make_command_result(return_code, stderr_lines=None):
+            stdout_mock = mock.MagicMock()
+            stdout_mock.channel.recv_exit_status.return_value = return_code
+            stdout_mock.__iter__.return_value = iter([])
+            stderr_mock = mock.MagicMock()
+            stderr_mock.__iter__.return_value = iter(stderr_lines or [])
+            return mock.MagicMock(), stdout_mock, stderr_mock
+
+        fake_ssh_client().exec_command.side_effect = [
+            make_command_result(
+                1,
+                [
+                    "setfacl: /tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24: "
+                    "branding mismatch; existing ACL is NFSv4, entry to be merged is POSIX.1e",
+                ],
+            ),
+            make_command_result(0),
+            make_command_result(0),
+            make_command_result(0),
+        ]
+
+        fake_open = mock.mock_open(read_data="test!")
+        with mock.patch("pyinfra.api.util.open", fake_open, create=True):
+            with ctx_state.use(state):
+                status = host.put_file(
+                    "not-a-file",
+                    "not another file",
+                    remote_temp_filename="/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24",
+                    print_output=True,
+                    _sudo=True,
+                    _sudo_user="root",
+                )
+
+        assert status is True
+
+        fake_ssh_client().exec_command.assert_has_calls(
+            [
+                mock.call(
+                    (
+                        "sh -c 'setfacl -m u:root:r "
+                        "/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24'"
+                    ),
+                    get_pty=False,
+                ),
+                mock.call(
+                    (
+                        "sh -c 'setfacl -m u:root:r::allow "
+                        "/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24'"
+                    ),
+                    get_pty=False,
+                ),
+                mock.call(
+                    (
+                        "sudo -H -n -u root sh -c 'cp /tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24 '\"'\"'not another file'\"'\"''"  # noqa: E501
+                    ),
+                    get_pty=False,
+                ),
+                mock.call(
+                    ("sh -c 'rm -f /tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24'"),
+                    get_pty=False,
+                ),
+            ],
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -977,11 +1054,10 @@ class TestSSHConnector(TestCase):
             ],
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().putfo.assert_called_with(
-        #     fake_open(),
-        #     "/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24",
-        # )
+        fake_sftp_client.from_transport().putfo.assert_called_with(
+            fake_open(),
+            "/tmp/pyinfra-de01e82cb691e8a31369da3c7c8f17341c44ac24",
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1016,11 +1092,10 @@ class TestSSHConnector(TestCase):
             get_pty=False,
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().putfo.assert_called_with(
-        #     fake_open(),
-        #     "/tmp/pyinfra-43db9984686317089fefcf2e38de527e4cb44487",
-        # )
+        fake_sftp_client.from_transport().putfo.assert_called_with(
+            fake_open(),
+            "/tmp/pyinfra-43db9984686317089fefcf2e38de527e4cb44487",
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1067,11 +1142,10 @@ class TestSSHConnector(TestCase):
             get_pty=False,
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().putfo.assert_called_with(
-        #     fake_open(),
-        #     "/tmp/pyinfra-43db9984686317089fefcf2e38de527e4cb44487",
-        # )
+        fake_sftp_client.from_transport().putfo.assert_called_with(
+            fake_open(),
+            "/tmp/pyinfra-43db9984686317089fefcf2e38de527e4cb44487",
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1108,11 +1182,10 @@ class TestSSHConnector(TestCase):
             get_pty=False,
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().putfo.assert_called_with(
-        #     fake_open(),
-        #     "/a-different-tempfile",
-        # )
+        fake_sftp_client.from_transport().putfo.assert_called_with(
+            fake_open(),
+            "/a-different-tempfile",
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1133,11 +1206,33 @@ class TestSSHConnector(TestCase):
 
         assert status is True
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().getfo.assert_called_with(
-        #     "not-a-file",
-        #     fake_open(),
-        # )
+        fake_sftp_client.from_transport().getfo.assert_called_with(
+            "not-a-file",
+            mock.ANY,
+        )
+
+    @mock.patch("pyinfra.connectors.ssh.SSHClient")
+    @mock.patch("pyinfra.connectors.ssh.SFTPClient")
+    def test_get_file_failure_leaves_local_file_alone(self, fake_sftp_client, fake_ssh_client):
+        inventory = make_inventory(hosts=("somehost",))
+        state = State(inventory, Config())
+        host = inventory.get_host("somehost")
+        host.connect()
+
+        fake_sftp_client.from_transport().getfo.side_effect = PermissionError(
+            13,
+            "Permission denied",
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            local_file = Path(temp_dir) / "existing-file"
+            local_file.write_bytes(b"do not truncate me")
+
+            with ctx_state.use(state):
+                with self.assertRaises(PermissionError):
+                    host.get_file("not-a-file", str(local_file))
+
+            assert local_file.read_bytes() == b"do not truncate me"
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1187,11 +1282,10 @@ class TestSSHConnector(TestCase):
             ],
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().getfo.assert_called_with(
-        #     "/tmp/pyinfra-e9c0d3c8ffca943daa0e75511b0a09c84b59c508",
-        #     fake_open(),
-        # )
+        fake_sftp_client.from_transport().getfo.assert_called_with(
+            "/tmp/pyinfra-e9c0d3c8ffca943daa0e75511b0a09c84b59c508",
+            mock.ANY,
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     def test_get_file_sudo_copy_fail(self, fake_ssh_client):
@@ -1279,11 +1373,10 @@ class TestSSHConnector(TestCase):
             ],
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().getfo.assert_called_with(
-        #     "/tmp/pyinfra-e9c0d3c8ffca943daa0e75511b0a09c84b59c508",
-        #     fake_open(),
-        # )
+        fake_sftp_client.from_transport().getfo.assert_called_with(
+            "/tmp/pyinfra-e9c0d3c8ffca943daa0e75511b0a09c84b59c508",
+            mock.ANY,
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1333,11 +1426,10 @@ class TestSSHConnector(TestCase):
             ],
         )
 
-        # Disabled due to unexplained flakiness: https://github.com/pyinfra-dev/pyinfra/issues/1387
-        # fake_sftp_client.from_transport().getfo.assert_called_with(
-        #     "/tmp/pyinfra-e9c0d3c8ffca943daa0e75511b0a09c84b59c508",
-        #     fake_open(),
-        # )
+        fake_sftp_client.from_transport().getfo.assert_called_with(
+            "/tmp/pyinfra-e9c0d3c8ffca943daa0e75511b0a09c84b59c508",
+            mock.ANY,
+        )
 
     @mock.patch("pyinfra.connectors.ssh.SSHClient")
     @mock.patch("pyinfra.connectors.ssh.SFTPClient")
@@ -1346,9 +1438,6 @@ class TestSSHConnector(TestCase):
         state = State(inventory, Config())
         host = inventory.get_host("anotherhost")
         host.connect()
-
-        # Clear the memoization cache to ensure the exception gets raised
-        host.connector.get_file_transfer_connection.cache.clear()
 
         fake_sftp_client.from_transport.side_effect = make_raise_exception_function(SSHException)
 

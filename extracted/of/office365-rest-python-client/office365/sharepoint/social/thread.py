@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -9,7 +9,6 @@ from office365.sharepoint.social.posts.post import SocialPost
 from office365.sharepoint.social.posts.reference import SocialPostReference
 
 
-@dataclass
 class SocialThread(ClientValue):
     """The SocialThread property provides the object that contains the thread.
     For details on the SocialThread type, see section 3.1.5.42."""

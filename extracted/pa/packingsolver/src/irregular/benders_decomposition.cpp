@@ -559,10 +559,16 @@ void add_cut_as_resource(
  */
 onedimensional::Instance build_master_instance(
         const Instance& instance,
-        const std::vector<std::vector<ResourceCut>>& cuts_by_bin_type)
+        const std::vector<std::vector<ResourceCut>>& cuts_by_bin_type,
+        BinPos bin_packing_goal,
+        Profit knapsack_goal,
+        Profit variable_sized_bin_packing_goal)
 {
     onedimensional::InstanceBuilder master_instance_builder;
     master_instance_builder.set_objective(instance.objective());
+    master_instance_builder.set_bin_packing_goal(bin_packing_goal);
+    master_instance_builder.set_knapsack_goal(knapsack_goal);
+    master_instance_builder.set_variable_sized_bin_packing_goal(variable_sized_bin_packing_goal);
 
     for (BinTypeId bin_type_id = 0;
             bin_type_id < instance.number_of_bin_types();
@@ -707,6 +713,14 @@ BendersDecompositionOutput packingsolver::irregular::benders_decomposition(
 
     SubproblemCache subproblem_cache;
 
+    // Goals of the master problems: the cuts are only ever added, so the
+    // bound of a master problem is a bound for the next ones, even if it
+    // isn't proven optimal. The best bound of the master problems solved so
+    // far is their goal: a solution reaching it is optimal.
+    BinPos master_bin_packing_goal = 0;
+    Profit master_knapsack_goal = std::numeric_limits<Profit>::infinity();
+    Profit master_variable_sized_bin_packing_goal = 0;
+
     // 'true' iff every cut added so far is proven. Otherwise, the bound of
     // the master problem is not a bound of the instance.
     bool all_cuts_proven = true;
@@ -827,7 +841,10 @@ BendersDecompositionOutput packingsolver::irregular::benders_decomposition(
         auto master_begin = std::chrono::steady_clock::now();
         onedimensional::Instance master_instance = build_master_instance(
                 instance,
-                cuts_by_bin_type);
+                cuts_by_bin_type,
+                master_bin_packing_goal,
+                master_knapsack_goal,
+                master_variable_sized_bin_packing_goal);
         onedimensional::OptimizeParameters master_parameters;
         master_parameters.verbosity_level = 0;
         master_parameters.timer = parameters.timer;
@@ -866,6 +883,19 @@ BendersDecompositionOutput packingsolver::irregular::benders_decomposition(
             break;
 
         const onedimensional::Solution& master_solution = master_output.solution_pool.best();
+        if (instance.objective() == Objective::BinPacking) {
+            master_bin_packing_goal = (std::max)(
+                    master_bin_packing_goal,
+                    master_output.bin_packing_bound);
+        } else if (instance.objective() == Objective::Knapsack) {
+            master_knapsack_goal = (std::min)(
+                    master_knapsack_goal,
+                    master_output.knapsack_bound);
+        } else if (instance.objective() == Objective::VariableSizedBinPacking) {
+            master_variable_sized_bin_packing_goal = (std::max)(
+                    master_variable_sized_bin_packing_goal,
+                    master_output.variable_sized_bin_packing_bound);
+        }
         if (master_solution.number_of_bins() == 0
                 && instance.number_of_items() > 0
                 && instance.objective() != Objective::Knapsack) {

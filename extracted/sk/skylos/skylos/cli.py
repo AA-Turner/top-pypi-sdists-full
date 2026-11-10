@@ -1484,7 +1484,7 @@ def _render_upload_failure(console: Console, upload_resp: dict[str, object]) -> 
         return
 
     if err and err != (
-        "No token found. Run 'skylos login' or 'skylos project use', or set SKYLOS_TOKEN."
+        "No token found. Run 'skylos login', or set SKYLOS_TOKEN."
     ):
         # Server wording is plain text; never let it act as Rich markup.
         from rich.markup import escape as _escape_markup
@@ -2255,6 +2255,12 @@ def _run_clean_command(argv):
     return run_clean_command(argv)
 
 
+def _run_cleanup_command(argv):
+    from skylos.commands.cleanup_cmd import run_cleanup_command
+
+    return run_cleanup_command(argv)
+
+
 def _run_lint_command(argv):
     from skylos.commands.lint_cmd import run_lint_command
 
@@ -2545,6 +2551,24 @@ def _run_done_command(argv):
     return run_done_command(argv)
 
 
+def _run_graph_command(argv):
+    from skylos.commands.graph_cmd import run_graph_command
+
+    return run_graph_command(argv)
+
+
+def _run_setup_command(argv):
+    from skylos.commands.setup_cmd import run_setup_command
+
+    return run_setup_command(argv)
+
+
+def _run_open_command(argv):
+    from skylos.commands.open_cmd import run_open_command
+
+    return run_open_command(argv)
+
+
 def _run_mcp_command(argv):
     from skylos.commands.mcp_cmd import run_mcp_command
 
@@ -2719,6 +2743,8 @@ def _build_main_scan_context(args):
         args.secrets = True
         args.quality = True
         args.ai_defects = True
+        args.sca = True
+    if getattr(args, "review_upgrades", False):
         args.sca = True
 
     _apply_selected_rule_analysis_flags(args)
@@ -3726,7 +3752,8 @@ def _run_pre_analysis_steps(args, project_root, console):
                 # A worktree diff runs the repository's clean filters: route it
                 # through the filter-neutralizing builder, or refuse.
                 diff_cmd = worktree_safe_git_command(
-                    ["diff", "--name-only", merge_base], diff_root
+                    ["diff", "--name-only", "--no-relative", "-z", merge_base],
+                    diff_root,
                 )
                 if diff_cmd is None:
                     _exit_diff_unavailable(
@@ -3738,7 +3765,6 @@ def _run_pre_analysis_steps(args, project_root, console):
                     diff_cmd,
                     cwd=diff_root,
                     capture_output=True,
-                    text=True,
                     env=read_only_git_environment(),
                 )
             else:
@@ -3747,10 +3773,11 @@ def _run_pre_analysis_steps(args, project_root, console):
                 from skylos.cicd.review import get_untracked_files
 
                 changed_files = set()
-                for line in diff_result.stdout.strip().splitlines():
-                    changed_files.add(str((diff_root / line).resolve()))
+                for line in os.fsdecode(diff_result.stdout).split("\0"):
+                    if line:
+                        changed_files.add(str(diff_root / line))
                 for line in get_untracked_files(diff_root):
-                    changed_files.add(str((diff_root / line).resolve()))
+                    changed_files.add(str(diff_root / line))
                 if not quiet_output:
                     console.print(
                         f"[brand]--diff-base:[/brand] {len(changed_files)} changed files "
@@ -4365,6 +4392,10 @@ def _build_agent_parser():
 
     add_install_hooks_parser(agent_sub)
 
+    from skylos.commands.agent_harden_cmd import add_agent_harden_parser
+
+    add_agent_harden_parser(agent_sub)
+
     from skylos.commands.install_standards_cmd import add_install_standards_parser
 
     add_install_standards_parser(agent_sub)
@@ -4609,6 +4640,11 @@ def main() -> None:
             from skylos.commands.install_hooks_cmd import run_install_hooks_command
 
             sys.exit(run_install_hooks_command(agent_args))
+
+        if cmd == "harden":
+            from skylos.commands.agent_harden_cmd import run_agent_harden_command
+
+            sys.exit(run_agent_harden_command(agent_args))
 
         if cmd == "install-standards":
             from skylos.commands.install_standards_cmd import (

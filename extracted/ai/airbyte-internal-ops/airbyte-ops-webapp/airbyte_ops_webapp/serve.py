@@ -29,9 +29,11 @@ from starlette.routing import Route
 from airbyte_ops_webapp.auth.oauth import (
     OAUTH_CALLBACK_PATH,
     OAUTH_JS_ACTIONS,
+    OAUTH_LOGIN_PATH,
     OAUTH_SESSION_PATH,
     OAUTH_TOKEN_PATH,
     oauth_callback_response,
+    oauth_login_response,
     oauth_session_response,
     oauth_token_response,
     request_has_valid_session,
@@ -126,7 +128,9 @@ async def _serve() -> None:
         if not ready:
             raise RuntimeError(f"User server did not start on port {mcp_port}")
 
-        app = _make_dev_app(mcp_url, app_bridge_js, import_map_tag, _NullMessageLog())
+        app = _make_dev_app(
+            mcp_url, app_bridge_js, import_map_tag, _NullMessageLog(), log_panel=False
+        )
         remove_generic_app_routes(app)
         add_home_routes(app, import_map_tag)
         add_login_routes(app, import_map_tag)
@@ -163,6 +167,7 @@ def _configure_backend_env() -> None:
 
 
 def add_oauth_routes(app: Starlette) -> None:
+    app.routes.append(Route(OAUTH_LOGIN_PATH, oauth_login_response, methods=["GET"]))
     add_oauth_callback_route(app)
     app.routes.append(Route(OAUTH_TOKEN_PATH, oauth_token_response, methods=["POST"]))
     app.routes.append(

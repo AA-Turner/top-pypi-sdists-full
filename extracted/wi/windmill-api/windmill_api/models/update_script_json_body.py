@@ -5,6 +5,7 @@ from attrs import field as _attrs_field
 
 from ..models.update_script_json_body_kind import UpdateScriptJsonBodyKind
 from ..models.update_script_json_body_language import UpdateScriptJsonBodyLanguage
+from ..models.update_script_json_body_on_concurrency_limit import UpdateScriptJsonBodyOnConcurrencyLimit
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -44,6 +45,9 @@ class UpdateScriptJsonBody:
         envs (Union[Unset, List[str]]):
         concurrent_limit (Union[Unset, int]):
         concurrency_time_window_s (Union[Unset, int]):
+        on_concurrency_limit (Union[Unset, UpdateScriptJsonBodyOnConcurrencyLimit]): What a run does when its
+            concurrency limit is reached when a worker picks it up. `queue` (default) re-queues it to a later slot, `fail`
+            ends it immediately as failed.
         cache_ttl (Union[Unset, float]):
         cache_ignore_s3_path (Union[Unset, bool]):
         dedicated_worker (Union[Unset, bool]):
@@ -98,6 +102,7 @@ class UpdateScriptJsonBody:
     envs: Union[Unset, List[str]] = UNSET
     concurrent_limit: Union[Unset, int] = UNSET
     concurrency_time_window_s: Union[Unset, int] = UNSET
+    on_concurrency_limit: Union[Unset, UpdateScriptJsonBodyOnConcurrencyLimit] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
     dedicated_worker: Union[Unset, bool] = UNSET
@@ -153,6 +158,10 @@ class UpdateScriptJsonBody:
 
         concurrent_limit = self.concurrent_limit
         concurrency_time_window_s = self.concurrency_time_window_s
+        on_concurrency_limit: Union[Unset, str] = UNSET
+        if not isinstance(self.on_concurrency_limit, Unset):
+            on_concurrency_limit = self.on_concurrency_limit.value
+
         cache_ttl = self.cache_ttl
         cache_ignore_s3_path = self.cache_ignore_s3_path
         dedicated_worker = self.dedicated_worker
@@ -235,6 +244,8 @@ class UpdateScriptJsonBody:
             field_dict["concurrent_limit"] = concurrent_limit
         if concurrency_time_window_s is not UNSET:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
+        if on_concurrency_limit is not UNSET:
+            field_dict["on_concurrency_limit"] = on_concurrency_limit
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
         if cache_ignore_s3_path is not UNSET:
@@ -339,6 +350,13 @@ class UpdateScriptJsonBody:
 
         concurrency_time_window_s = d.pop("concurrency_time_window_s", UNSET)
 
+        _on_concurrency_limit = d.pop("on_concurrency_limit", UNSET)
+        on_concurrency_limit: Union[Unset, UpdateScriptJsonBodyOnConcurrencyLimit]
+        if isinstance(_on_concurrency_limit, Unset):
+            on_concurrency_limit = UNSET
+        else:
+            on_concurrency_limit = UpdateScriptJsonBodyOnConcurrencyLimit(_on_concurrency_limit)
+
         cache_ttl = d.pop("cache_ttl", UNSET)
 
         cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
@@ -421,6 +439,7 @@ class UpdateScriptJsonBody:
             envs=envs,
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,
+            on_concurrency_limit=on_concurrency_limit,
             cache_ttl=cache_ttl,
             cache_ignore_s3_path=cache_ignore_s3_path,
             dedicated_worker=dedicated_worker,

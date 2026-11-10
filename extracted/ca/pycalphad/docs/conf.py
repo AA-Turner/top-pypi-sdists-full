@@ -2,7 +2,7 @@ import sys
 import os
 import re
 
-# pycalphad must be importable to build API documentation and for version retreival
+# pycalphad must be importable to build API documentation and for version retrieval
 sys.path.insert(0, os.path.abspath('../pycalphad'))
 from pycalphad import __version__ as pycalphad_version
 pycalphad_version = re.sub(r'\.d[0-9]{8}', '', pycalphad_version)  # remove .d<date>
@@ -26,6 +26,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'IPython.sphinxext.ipython_console_highlighting', # Fix per https://github.com/dynamicslab/pysindy/pull/266#issuecomment-1336220315
     'nbsphinx_link',
+    'sphinx_design',
 ]
 autosummary_generate = True
 numpydoc_class_members_toctree = True
@@ -47,8 +48,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'pycalphad'
-copyright = '2015-2022, pycalphad Development Team'
-author = 'pycalphad Developers'
+copyright = 'PyCalphad Development Team'
+author = 'PyCalphad Developers'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

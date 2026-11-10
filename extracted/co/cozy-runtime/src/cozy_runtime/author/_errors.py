@@ -55,10 +55,27 @@ class UnsupportedInput(InvalidRequest):
     default_code = "unsupported_input"
 
 
+class DoesNotFit(UnsupportedInput):
+    """The call cannot fit this card with every evictable byte gone: refused before the pass that
+    would run out of memory, never partway through it."""
+
+    default_code = "does_not_fit"
+
+
+DOES_NOT_FIT = DoesNotFit.default_code
+
+
 class DefaultResolutionError(InvalidRequest):
     """The ModelDefault overlay could not be resolved: a package's model slots, not a recipe."""
 
     default_code = "default_resolution"
+
+
+class ContractViolation(AuthorError):
+    """The package reached what the package contract gives the Runtime alone (a torch room
+    reader, the allocator): the message names the contract's API for it."""
+
+    default_code = "contract_violation"
 
 
 class PreflightViolation(AuthorError):
@@ -201,6 +218,8 @@ class Fault(Enum):
 
 #: cudaErrorMemoryAllocation
 _CUDA_OOM = 2
+#: cudaError_t stream-capture codes: an operation the graph being recorded cannot hold.
+CAPTURE_ERRORS = range(900, 909)
 #: CUDA's sticky errors (cudaError_t): ECC uncorrectable, NVLink uncorrectable, illegal
 #: address, launch timeout, context destroyed, device assert, hardware stack, illegal
 #: instruction, misaligned address, invalid address space, invalid PC, launch failure.

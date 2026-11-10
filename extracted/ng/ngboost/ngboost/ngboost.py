@@ -5,6 +5,8 @@
 # pylint: disable=unused-variable,invalid-unary-operand-type,attribute-defined-outside-init
 # pylint: disable=redundant-keyword-arg,protected-access,unnecessary-lambda-assignment
 import numpy as np
+from joblib import Parallel, delayed
+from scipy.sparse import issparse
 from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
@@ -14,6 +16,28 @@ from ngboost.distns import MultivariateNormal, Normal, k_categorical
 from ngboost.learners import default_tree_learner
 from ngboost.manifold import manifold
 from ngboost.scores import LogScore
+
+
+def _validate_sample_weight(sample_weight, X, input_name="sample_weight"):
+    """Return sample_weight as a 1-D float array with one entry per row of X.
+
+    Weights are matched to rows by position, so a pandas index is ignored.
+    """
+    if sample_weight is None:
+        return None
+    sample_weight = check_array(
+        sample_weight, ensure_2d=False, dtype=np.float64, input_name=input_name
+    )
+    if sample_weight.ndim != 1:
+        raise ValueError(
+            f"{input_name} must be 1-D, got an array of shape {sample_weight.shape}"
+        )
+    if sample_weight.shape[0] != X.shape[0]:
+        raise ValueError(
+            f"{input_name} must have one entry per row: got {sample_weight.shape[0]} "
+            f"entries for {X.shape[0]} rows"
+        )
+    return sample_weight
 
 
 class NGBoost:
@@ -53,6 +77,18 @@ class NGBoost:
                                     loss has to increase before the algorithm stops early.
                                     Set to None to disable early stopping and validation.
                                     None enables running over the full data set.
+        n_jobs            : number of joblib threads used to fit the per parameter
+                            base learners in parallel on each boosting round. None
+                            or 1 (the default) fits them serially. A value above 1,
+                            or ``-1`` for all cores, speeds up fitting when the
+                            distribution has many parameters, such as a high
+                            dimensional MultivariateNormal or classification with
+                            many classes; on small problems the thread overhead can
+                            make it slower instead. Threads are used so the shared
+                            data is not copied per worker; when nesting inside an
+                            outer parallel job keep the product of the thread counts
+                            near the core count. The fitted model does not depend on
+                            n_jobs.
 
 
     Output:
@@ -76,6 +112,7 @@ class NGBoost:
         random_state=None,
         validation_fraction=0.1,
         early_stopping_rounds=None,
+        n_jobs=None,
     ):
         self.Dist = Dist
         self.Score = Score
@@ -94,10 +131,11 @@ class NGBoost:
         self.scalings = []
         self.col_idxs = []
         self.tol = tol
-        self.random_state = check_random_state(random_state)
+        self.random_state = random_state
         self.best_val_loss_itr = None
         self.validation_fraction = validation_fraction
         self.early_stopping_rounds = early_stopping_rounds
+        self.n_jobs = n_jobs
 
         if hasattr(self.Dist, "multi_output"):
             self.multi_output = self.Dist.multi_output
@@ -127,6 +165,11 @@ class NGBoost:
         state_dict["Manifold"] = manifold(state_dict["Score"], state_dict["Dist"])
         self.__dict__ = state_dict
 
+    def __sklearn_is_fitted__(self):
+        # check_is_fitted (used by Pipeline.predict) otherwise looks for
+        # attributes that end in "_", and a fitted model has none of those
+        return bool(getattr(self, "base_models", None))
+
     def fit_init_params_to_marginal(self, Y, sample_weight=None, iters=1000):
         self.init_params = self.Manifold.fit(
             Y
@@ -150,18 +193,14 @@ class NGBoost:
 
         if self.minibatch_frac != 1.0:
             sample_size = int(self.minibatch_frac * len(Y))
-            idxs = self.random_state.choice(
-                np.arange(len(Y)), sample_size, replace=False
-            )
+            idxs = self._rng.choice(np.arange(len(Y)), sample_size, replace=False)
 
         if self.col_sample != 1.0:
             if self.col_sample > 0.0:
                 col_size = max(1, int(self.col_sample * X.shape[1]))
             else:
                 col_size = 0
-            col_idx = self.random_state.choice(
-                np.arange(X.shape[1]), col_size, replace=False
-            )
+            col_idx = self._rng.choice(np.arange(X.shape[1]), col_size, replace=False)
 
         weight_batch = None if sample_weight is None else sample_weight[idxs]
 
@@ -189,13 +228,43 @@ class NGBoost:
 
     def fit_base(self, X, grads, sample_weight=None):
         base_learners = self._base_learners()
-        if sample_weight is None:
-            models = [clone(base).fit(X, g) for base, g in zip(base_learners, grads.T)]
-        else:
+        # Seed only the base learners that have no random_state of their own,
+        # drawing from self._rng in this single thread so serial and
+        # parallel fits agree. Learners that already fix their own randomness are
+        # left untouched, so their RNG stream is not perturbed (this mirrors how
+        # scikit learn's forests seed their sub estimators).
+        seeds = [
+            (
+                int(self._rng.randint(np.iinfo(np.int32).max))
+                if base.get_params().get("random_state", "set") is None
+                else None
+            )
+            for base in base_learners
+        ]
+
+        def _fit_one(base, g, seed):
+            learner = clone(base)
+            if seed is not None:
+                learner.set_params(random_state=seed)
+            if sample_weight is None:
+                return learner.fit(X, g)
+            return learner.fit(X, g, sample_weight=sample_weight)
+
+        if self.n_jobs in (None, 1):
             models = [
-                clone(base).fit(X, g, sample_weight=sample_weight)
-                for base, g in zip(base_learners, grads.T)
+                _fit_one(base, g, seed)
+                for base, g, seed in zip(base_learners, grads.T, seeds)
             ]
+        else:
+            if issparse(X) and X.format in ("csr", "csc", "bsr"):
+                # Canonicalize once so the threaded fits do not race on an in
+                # place sort_indices of this shared matrix. Only the compressed
+                # formats have sortable indices; sklearn copies the rest.
+                X.sort_indices()
+            models = Parallel(n_jobs=self.n_jobs, backend="threading")(
+                delayed(_fit_one)(base, g, seed)
+                for base, g, seed in zip(base_learners, grads.T, seeds)
+            )
         fitted = np.array([m.predict(X) for m in models]).T
         self.base_models.append(models)
         return fitted
@@ -257,9 +326,12 @@ class NGBoost:
             Y_val                 : DataFrame object or List or
                                     numpy array of validation-set outcomes in numeric format
             sample_weight         : how much to weigh each example in the training set.
-                                    numpy array of size (n) (defaults to None)
+                                    List, pandas Series or numpy array of size (n)
+                                    (defaults to None). Weights are matched to rows by
+                                    position, so the index of a Series is ignored.
             val_sample_weight     : how much to weigh each example in the validation set.
-                                    (defaults to None)
+                                    List, pandas Series or numpy array of size (n_val),
+                                    matched to rows by position (defaults to None)
             train_loss_monitor    : a custom score or set of scores to track on the training set
                                     during training. Defaults to the score defined in the NGBoost
                                     constructor
@@ -276,6 +348,11 @@ class NGBoost:
         self.base_models = []
         self.scalings = []
         self.col_idxs = []
+        # Start a fresh random stream on every fit so that refitting with an
+        # integer random_state gives the same model
+        self._rng = check_random_state(self.random_state)
+
+        self.best_val_loss_itr = None
 
         return self.partial_fit(
             X,
@@ -320,9 +397,12 @@ class NGBoost:
             Y_val                 : DataFrame object or List or
                                     numpy array of validation-set outcomes in numeric format
             sample_weight         : how much to weigh each example in the training set.
-                                    numpy array of size (n) (defaults to None)
+                                    List, pandas Series or numpy array of size (n)
+                                    (defaults to None). Weights are matched to rows by
+                                    position, so the index of a Series is ignored.
             val_sample_weight     : how much to weigh each example in the validation set.
-                                    (defaults to None)
+                                    List, pandas Series or numpy array of size (n_val),
+                                    matched to rows by position (defaults to None)
             train_loss_monitor    : a custom score or set of scores to track on the training set
                                     during training. Defaults to the score defined in the NGBoost
                                     constructor
@@ -342,6 +422,8 @@ class NGBoost:
             raise RuntimeError(
                 "Base models, scalings, and col_idxs are not the same length"
             )
+        if getattr(self, "_rng", None) is None:
+            self._rng = check_random_state(self.random_state)
         self._base_learners()
 
         # if early stopping is specified, split X,Y and sample weights (if given) into training and validation sets
@@ -360,7 +442,7 @@ class NGBoost:
                         X,
                         Y,
                         test_size=self.validation_fraction,
-                        random_state=self.random_state,
+                        random_state=self._rng,
                     )
 
                 else:
@@ -379,7 +461,7 @@ class NGBoost:
                         Y,
                         sample_weight,
                         test_size=self.validation_fraction,
-                        random_state=self.random_state,
+                        random_state=self._rng,
                     )
             elif X_val is not None and Y_val is not None:
                 if sample_weight is not None and val_sample_weight is None:
@@ -412,6 +494,7 @@ class NGBoost:
             multi_output=self.multi_output,
             y_numeric=True,
         )
+        sample_weight = _validate_sample_weight(sample_weight, X)
 
         self.n_features = X.shape[1]
 
@@ -428,6 +511,9 @@ class NGBoost:
                 ensure_all_finite="allow-nan",
                 multi_output=self.multi_output,
                 y_numeric=True,
+            )
+            val_sample_weight = _validate_sample_weight(
+                val_sample_weight, X_val, input_name="val_sample_weight"
             )
             val_params = self.pred_param(X_val)
             val_loss_list = []
@@ -592,6 +678,7 @@ class NGBoost:
             "random_state": self.random_state,
             "validation_fraction": self.validation_fraction,
             "early_stopping_rounds": self.early_stopping_rounds,
+            "n_jobs": self.n_jobs,
         }
 
         if not deep:
@@ -610,7 +697,21 @@ class NGBoost:
         return params
 
     def score(self, X, Y):  # for sklearn
-        return self.Manifold(self.pred_dist(X)._params).total_score(Y)
+        """
+        Score the predicted distributions at the points X=x against the outcomes Y.
+        Higher is better, as scikit-learn expects, so this is the negative of the
+        average scoring rule: the mean log-likelihood for LogScore and the negative
+        mean CRPS for CRPScore.
+
+        Parameters:
+            X         : DataFrame object or List or
+                        numpy array of predictors (n x p) in numeric format.
+            Y         : numpy array of outcomes (n)
+
+        Output:
+            A float, the negative of the average score
+        """
+        return -self.Manifold(self.pred_dist(X)._params).total_score(Y)
 
     def pred_dist(self, X, max_iter=None):
         """

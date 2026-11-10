@@ -329,6 +329,7 @@ async def default_transport_connect(
     session_id: str,
     session_token: str,
     upload: str = "standard",
+    profile: Any = None,
 ) -> Any:
     from dreamscale_transport import QuicClient
 
@@ -339,13 +340,27 @@ async def default_transport_connect(
         session_id=session_id,
         session_token=session_token,
         upload=upload,
+        profile=profile,
     )
+
+
+def session_transport_profile(session: Session) -> Any:
+    """The transport v2 profile the control plane named for this session, or None."""
+    raw = getattr(session, "transport_profile", None)
+    if not raw:
+        return None
+    from dreamscale_transport.profiles import resolve
+
+    return resolve(raw.get("name"), raw.get("levers_off") or ())
 
 
 async def pin_connect(transport_connect: TransportConnect, session: Session) -> Any:
     # Only a Steady Upload session passes `upload`, so injected connectors
     # without that keyword keep working for standard sessions.
-    upload = {"upload": "steady"} if session.upload == "steady" else {}
+    upload: dict[str, Any] = {"upload": "steady"} if session.upload == "steady" else {}
+    profile = session_transport_profile(session)
+    if profile is not None:  # likewise only when the control plane names one
+        upload["profile"] = profile
     try:
         return await transport_connect(
             session.worker_addr,
@@ -459,6 +474,7 @@ async def open_policy_connection(
     *,
     model: str,
     region: RegionPreference = "auto",
+    region_fallback: bool | None = None,
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -510,6 +526,7 @@ async def open_policy_connection(
                 client,
                 model,
                 region=region,
+                **({"region_fallback": region_fallback} if region_fallback is not None else {}),
                 **({"provider": provider} if provider is not None else {}),
                 **({"speed": speed} if speed == "fast" else {}),
                 idle_timeout=idle_timeout,
@@ -543,7 +560,7 @@ async def open_policy_connection(
                 await moving.wait(error)
         if provider is not None and (
             session.requested_provider != provider or session.provider != provider
-            or not pins_region(region, session.region)
+            or (region_fallback is not True and not pins_region(region, session.region))
         ):
             raise RuntimeError("ready session violates the requested provider or region")
         if speed == "fast" and session.speed != "fast":
@@ -809,7 +826,11 @@ async def _upgrade_modal_quic(
     if not session.modal_quic or not callable(upgrade):
         return None
     try:
-        await upgrade(upload=session.modal_quic)
+        profile = session_transport_profile(session)
+        if profile is None:
+            await upgrade(upload=session.modal_quic)
+        else:
+            await upgrade(upload=session.modal_quic, profile=profile)
     except PunchNotOffered:
         return None  # this session does not use punched QUIC: not a fallback
     except Exception as exc:  # noqa: BLE001 - never fail a session over QUIC

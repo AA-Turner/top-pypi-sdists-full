@@ -31,6 +31,7 @@ import httpx2
 import pytest
 
 import restate
+from support import RESTATE_IMAGE  # pylint: disable=import-error
 from restate.harness import RestateContainer, find_free_port
 
 
@@ -39,7 +40,7 @@ def anyio_backend():
     return "asyncio"
 
 
-pytestmark = [pytest.mark.anyio]
+pytestmark = [pytest.mark.anyio, pytest.mark.server]
 
 EXAMPLES = pathlib.Path(__file__).parent.parent / "examples-agents"
 SERVABLE = (restate.Service, restate.VirtualObject, restate.Workflow)
@@ -75,9 +76,7 @@ async def serving(path: str, setup: Callable[[ModuleType], None] | None = None) 
     if setup is not None:
         setup(module)
     objects = [value for value in vars(module).values() if isinstance(value, SERVABLE)]
-    async with restate.create_test_harness(
-        restate.app(objects), restate_image="ghcr.io/restatedev/restate:latest"
-    ) as harness:
+    async with restate.create_test_harness(restate.app(objects), restate_image=RESTATE_IMAGE) as harness:
         yield Ingress(harness.ingress_url)
 
 
@@ -158,16 +157,47 @@ async def test_basic_langgraph_agent():
     """The agent serves, with its companion; a message needs a model's provider, and is left to a real run."""
     pytest.importorskip("langgraph")
     async with serving("basic/langgraph_agent.py") as ingress:
-        assert (await ingress.post("assistant/alice/messages", {})).json()["messages"] == []
-        assert (await ingress.post("assistant/alice/status")).json() == {"answering": None, "waiting": []}
+        assert (await ingress.post("langgraph_assistant/alice/messages", {})).json()["messages"] == []
+        assert (await ingress.post("langgraph_assistant/alice/status")).json() == {"answering": None, "waiting": []}
+
+
+async def test_basic_create_agent(monkeypatch: pytest.MonkeyPatch):
+    """create_agent's model (scripted here) calls the shipping service through the Restate tool, and answers."""
+    pytest.importorskip("langchain.agents")
+    import langchain.agents.factory  # pylint: disable=import-outside-toplevel
+    from langchain_core.language_models import BaseChatModel  # pylint: disable=import-outside-toplevel
+    from langchain_core.messages import AIMessage, BaseMessage, ToolMessage  # pylint: disable=import-outside-toplevel
+    from langchain_core.outputs import ChatGeneration, ChatResult  # pylint: disable=import-outside-toplevel
+
+    class Scripted(BaseChatModel):
+        @property
+        def _llm_type(self) -> str:
+            return "scripted"
+
+        def bind_tools(self, tools: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+            return self
+
+        def _generate(self, messages: list[BaseMessage], *args: Any, **kwargs: Any) -> ChatResult:
+            last = messages[-1]
+            if isinstance(last, ToolMessage):
+                reply = AIMessage(str(last.text))
+            else:
+                reply = AIMessage("", tool_calls=[{"id": "c1", "name": "shipping_status", "args": {"input": "103"}}])
+            return ChatResult(generations=[ChatGeneration(message=reply)])
+
+    # The example names an OpenAI model; the scripted one stands in for it, with no API key.
+    monkeypatch.setattr(langchain.agents.factory, "init_chat_model", lambda *args, **kwargs: Scripted())
+    async with serving("basic/create_agent.py") as ingress:
+        answer = await ingress.post("desk/alice/chat", "Where is my order 103?")
+        assert answer.json() == "Order 103 was delivered yesterday."
 
 
 async def test_basic_pydantic_ai_agent():
     """The agent serves, with its companion; a message needs a model's provider, and is left to a real run."""
     pytest.importorskip("pydantic_ai")
     async with serving("basic/pydantic_ai_agent.py") as ingress:
-        assert (await ingress.post("assistant/alice/messages", {})).json()["messages"] == []
-        assert (await ingress.post("assistant/alice/status")).json() == {"answering": None, "waiting": []}
+        assert (await ingress.post("pydantic_ai_assistant/alice/messages", {})).json()["messages"] == []
+        assert (await ingress.post("pydantic_ai_assistant/alice/status")).json() == {"answering": None, "waiting": []}
 
 
 async def test_basic_adk_agent(monkeypatch: pytest.MonkeyPatch):
@@ -175,16 +205,16 @@ async def test_basic_adk_agent(monkeypatch: pytest.MonkeyPatch):
     pytest.importorskip("google.adk")
     monkeypatch.setenv("RESTATE_AGENT_MODEL", "google/gemini-x")  # an ADK agent needs a model
     async with serving("basic/adk_agent.py") as ingress:
-        assert (await ingress.post("assistant/alice/messages", {})).json()["messages"] == []
-        assert (await ingress.post("assistant/alice/status")).json() == {"answering": None, "waiting": []}
+        assert (await ingress.post("adk_assistant/alice/messages", {})).json()["messages"] == []
+        assert (await ingress.post("adk_assistant/alice/status")).json() == {"answering": None, "waiting": []}
 
 
 async def test_basic_openai_agent():
     """The agent serves, with its companion; a message needs a model's provider, and is left to a real run."""
     pytest.importorskip("agents")
     async with serving("basic/openai_agent.py") as ingress:
-        assert (await ingress.post("assistant/alice/messages", {})).json()["messages"] == []
-        assert (await ingress.post("assistant/alice/status")).json() == {"answering": None, "waiting": []}
+        assert (await ingress.post("openai_assistant/alice/messages", {})).json()["messages"] == []
+        assert (await ingress.post("openai_assistant/alice/status")).json() == {"answering": None, "waiting": []}
 
 
 async def test_intermediate_support():
@@ -233,12 +263,50 @@ async def test_intermediate_triage():
             assert (await ingress.post(f"{agent}/messages", {})).json()["messages"] == []
 
 
+async def test_intermediate_refund_graph():
+    """Chat runs the graph: it reads the request and asks about the policy (both agents scripted here), waits for the
+    approval, and pays; a rejection is answered without paying."""
+    pytest.importorskip("langgraph")
+
+    def setup(module: ModuleType) -> None:
+        # In place of the example's agents, which need a model: virtual objects of the same names.
+        clerk, policy = restate.VirtualObject("clerk"), restate.VirtualObject("policy")
+
+        @clerk.handler(name="chat")
+        async def read(_ctx: restate.ObjectContext, message: str) -> dict[str, Any]:
+            return {"order": message.split()[1], "amount": 30}
+
+        @policy.handler(name="chat")
+        async def check(_ctx: restate.ObjectContext, message: str) -> str:
+            return f"Fits the policy: {message}"
+
+        setattr(module, "clerk", clerk)
+        setattr(module, "policy", policy)
+
+    async with serving("intermediate/refund_graph.py", setup) as ingress:
+        cases = (("103", "approved", "Refunded $30 for order 103."), ("104", "no", None))
+        for order, approval, receipt in cases:
+            chat = asyncio.create_task(ingress.post("refunds/alice/chat", f"Order {order} arrived broken"))
+            waiting: list[dict[str, Any]] = []
+            for _ in range(100):
+                if waiting := (await ingress.post("refunds/alice/pending")).json():
+                    break
+                await asyncio.sleep(0.1)
+            about = f"A refund of $30 for order {order}."
+            refund = {"order": order, "amount": 30}
+            assert [(w["name"], w["input"]) for w in waiting] == [
+                ("approval", {"refund": refund, "policy": f"Fits the policy: {about}"})
+            ]
+            await ingress.post("refunds/alice/signal", {"name": "approval", "value": approval})
+            assert (await chat).json() == (receipt or f"The refund was not approved: {about}")
+
+
 async def test_intermediate_loop(monkeypatch: pytest.MonkeyPatch):
     """The loop, on a scripted model: it looks two orders up at once, waits for approval, and refunds; a crash
     after the refund ran retries the turn, which asks the model again without refunding again; and a crash after
     the final reply was stored retries the turn, which answers with it, without asking the model again."""
     pytest.importorskip("pydantic")
-    from restate.agents._conversation import Conversation  # pylint: disable=import-outside-toplevel
+    from restate.agents._conversation import Status, Turn  # pylint: disable=import-outside-toplevel
 
     asked: list[str] = []
     looked_up: list[str] = []
@@ -269,16 +337,16 @@ async def test_intermediate_loop(monkeypatch: pytest.MonkeyPatch):
         text = {"type": "output_text", "text": f"Done: {last['output']}", "annotations": []}
         return [{"type": "message", "role": "assistant", "content": [text]}]
 
-    answered = Conversation.answered
+    answered = Turn.answered
     unanswered: list[bool] = []
 
-    async def answered_once_crashing(conversation: Conversation, prompt_id: str, answer: str) -> None:
+    async def answered_once_crashing(turn: Turn, answer: str, status: Status = "answered") -> None:
         if not unanswered:
             unanswered.append(True)
             raise ConnectionError("lost before the answer was stored")  # after the final reply was
-        await answered(conversation, prompt_id, answer)
+        await answered(turn, answer, status)
 
-    monkeypatch.setattr(Conversation, "answered", answered_once_crashing)
+    monkeypatch.setattr(Turn, "answered", answered_once_crashing)
 
     def setup(module: ModuleType) -> None:
         async def at_once(order: str) -> str:
@@ -300,20 +368,20 @@ async def test_intermediate_loop(monkeypatch: pytest.MonkeyPatch):
         module.TOOLS["refund"] = module.tool(counted, name="refund", description="Refund an order.")
 
     async with serving("intermediate/loop.py", setup) as ingress:
-        chat = asyncio.create_task(ingress.post("refunds/alice/chat", "Order 103 arrived broken"))
+        chat = asyncio.create_task(ingress.post("refund_loop/alice/chat", "Order 103 arrived broken"))
         waiting: list[dict[str, Any]] = []
         for _ in range(100):
-            if waiting := (await ingress.post("refunds/alice/pending")).json():
+            if waiting := (await ingress.post("refund_loop/alice/pending")).json():
                 break
             await asyncio.sleep(0.1)
         assert [w["name"] for w in waiting] == ["approval"] and not refunded  # it waits, and has not refunded
-        await ingress.post("refunds/alice/signal", {"name": "approval", "value": "approved"})
+        await ingress.post("refund_loop/alice/signal", {"name": "approval", "value": "approved"})
         assert (await chat).json() == "Done: Refunded $30 for order 103."
         assert refunded == ["103"] and crashed == [True] and unanswered == [True]
         # The model was asked once for each step (and again after the crash that cut its connection), not after the
         # crash that came once its final reply was stored.
         assert asked == ["user", asked[1], "c2", "c3", "c3"] and asked[1] in ("c1", "c1b")
-        shown = (await ingress.post("refunds/alice/messages", {})).json()["messages"]
+        shown = (await ingress.post("refund_loop/alice/messages", {})).json()["messages"]
         tools = [(p["name"], p["output"]) for p in shown[1]["parts"]]
         assert tools == [
             ("order_status", "Order 103 was delivered yesterday."),
@@ -355,7 +423,7 @@ def serves_http2() -> bool:
 async def test_an_example_as_a_program(tmp_path: pathlib.Path):
     """``uv run`` an example: it serves on PORT, Restate calls it over HTTP/2, and it stops on SIGTERM."""
     # Restate first: Docker maps its ports to free host ports, which could otherwise take the program's.
-    container = RestateContainer("ghcr.io/restatedev/restate:latest", always_replay=False, disable_retries=False)
+    container = RestateContainer(RESTATE_IMAGE, always_replay=False, disable_retries=False)
     container.start()
     port = find_free_port()
     output = tmp_path / "program.log"

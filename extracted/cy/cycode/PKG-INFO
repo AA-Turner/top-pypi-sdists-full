@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.27.0
+Version: 3.27.1
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
@@ -34,7 +34,7 @@ Requires-Dist: pywin32 (>=312,<313) ; sys_platform == "win32"
 Requires-Dist: pyyaml (>=6.0,<7.0)
 Requires-Dist: requests (>=2.33.0,<3.0)
 Requires-Dist: rich (>=15.0.0,<16.0.0)
-Requires-Dist: tenacity (>=9.1.2,<9.2.0)
+Requires-Dist: tenacity (>=9.2.1,<9.3.0)
 Requires-Dist: tomli (>=2.0.0,<3.0.0) ; python_version < "3.11"
 Requires-Dist: tomli-w (>=1.0.0,<2.0.0)
 Requires-Dist: truststore (>=0.10.4,<0.11.0)

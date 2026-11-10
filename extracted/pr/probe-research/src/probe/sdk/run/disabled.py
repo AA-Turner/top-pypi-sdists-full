@@ -104,6 +104,27 @@ def _noop_like(name: str):
     return _noop
 
 
+class DisabledSamples:
+    """``run.samples`` of a disabled run: every call takes its arguments and records nothing."""
+
+    producer = "disabled"
+    failures = 0
+
+    def as_producer(self, producer: str) -> DisabledSamples:
+        return self
+
+    def log(self, samples: Any = None, **_kw: Any) -> int:
+        return 0
+
+    def wait_for_producers(self, **_kw: Any) -> bool:
+        return True
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return _noop
+
+
 class DisabledRun:
     """A run handle that records nothing. See the module docstring."""
 
@@ -137,6 +158,7 @@ class DisabledRun:
         self.write_epoch = 1
         self.session_id = str(uuid.uuid4())
         self.attached = False
+        self.samples = DisabledSamples()
 
     @property
     def data(self) -> dict:
@@ -160,6 +182,24 @@ class DisabledRun:
 
     def refresh(self) -> "DisabledRun":
         return self
+
+    @property
+    def resume_checkpoint(self) -> str | None:
+        """A disabled run was never resumed by Probe: None."""
+        return None
+
+    @property
+    def resume_overrides(self) -> dict:
+        return {}
+
+    def confirm_resume_overrides(self, applied: dict | None = None) -> dict:
+        return dict(applied or {})
+
+    def on(self, kind: Any, handler: Any) -> None:
+        """Checked like a live run's (an enum member, never a string); nothing is ever asked of a disabled run."""
+        from probe.sdk.run.commands.commands import check_kind
+
+        check_kind(kind)
 
     def update_config(self, values: Any, **_kw: Any) -> None:
         self.config.update(values)

@@ -65,12 +65,67 @@ Several design decisions here work around known djust serialization constraints:
 
 import logging
 import math
+from collections.abc import Mapping
 from typing import Any, ClassVar, Dict
 
+from . import _form_data_bounds
+from ._exposure import ProviderContract
+from ._exposure_providers import provide_context_items
 from .decorators import event_handler
 from .forms import initial_field_value
 
 logger = logging.getLogger(__name__)
+
+
+def _submittable(field: Any, value: Any) -> Any:
+    """``value`` as the text its widget shows, unless it is already JSON-plain.
+
+    ``wizard_step_data`` holds what the browser would submit and is public,
+    JSON-serialised state, so a drawn ``datetime`` is stored as the widget's
+    text (which the field parses back), never as the object. A multi-value
+    widget (``SelectMultiple``, ``CheckboxSelectMultiple``) shows a list, and
+    the browser submits one value per item, so a list stays a list.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    shown = field.widget.format_value(value)
+    if isinstance(shown, (list, tuple)):
+        return [str(item) for item in shown]
+    return str(value) if shown is None else str(shown)
+
+
+#: ADR-038 E2-1: the wizard's render-only context keys. The flat
+#: ``<field>_choices`` aliases depend on each step's runtime form fields, so
+#: they cannot be declared; explicit views render ``form_choices`` only.
+WIZARD_PROVIDER = ProviderContract(
+    "djust.wizard",
+    rendered=frozenset(
+        {
+            "current_step",
+            "total_steps",
+            "progress_percent",
+            "steps",
+            "can_go_back",
+            "can_go_forward",
+            "is_first_step",
+            "is_last_step",
+            "form_data",
+            "form_choices",
+            "form_required",
+            "field_html",
+            "step_data",
+            "step_errors",
+        }
+    ),
+    tracked=frozenset(
+        {
+            "wizard_step_index",
+            "wizard_step_data",
+            "wizard_step_errors",
+            "wizard_completed_steps",
+        }
+    ),
+)
 
 
 class WizardMixin:
@@ -85,6 +140,7 @@ class WizardMixin:
     """
 
     wizard_steps: list = []  # Subclasses override with a list of step dicts
+    _djust_context_providers = (WIZARD_PROVIDER,)
 
     #: DOM event that triggers `validate_field` on **text-stream widgets**
     #: (``TextInput``, ``Textarea``, ``NumberInput``, ``EmailInput``,
@@ -140,6 +196,46 @@ class WizardMixin:
         self.wizard_step_data: dict[str, dict[str, Any]] = {}
         self.wizard_step_errors: dict[str, dict[str, list]] = {}
         self.wizard_completed_steps: list[int] = []
+
+    # ------------------------------------------------------------------
+    # Callable initials (#3063)
+    # ------------------------------------------------------------------
+
+    def _pin_callable_initials(self) -> None:
+        """Draw the current step's callable field initials once and keep them.
+
+        A field such as ``UUIDField(initial=uuid.uuid4)`` would otherwise be
+        called again by every render (and separately for ``form_data`` and
+        ``field_html``), so the page showed a new value each time and the step
+        submitted none. The drawn value goes into ``wizard_step_data`` the
+        first time the step renders, as the text the widget shows, so the
+        value on the page is the value the step submits. A value already in
+        the step's data (typed by the user, or pinned earlier) is kept; plain
+        initials are not stored.
+        """
+        steps = self._steps
+        index = getattr(self, "wizard_step_index", 0)
+        step_data = getattr(self, "wizard_step_data", None)
+        if not steps or not isinstance(step_data, dict) or index >= len(steps):
+            return
+        step = steps[index]
+        form_class = step.get("form_class")
+        if not form_class:
+            return
+        step_name = step.get("name", "")
+        current = step_data.get(step_name) or {}
+        form_instance = form_class()
+        pinned: Dict[str, Any] = {}
+        for name, field in form_instance.fields.items():
+            if name in current or not callable(field.initial):
+                continue
+            # Only a field-level callable counts: a form-level ``initial``
+            # for this name wins in Django and is not re-evaluated.
+            if name in form_instance.initial:
+                continue
+            pinned[name] = _submittable(field, initial_field_value(form_instance, name, field))
+        if pinned:
+            step_data[step_name] = {**current, **pinned}
 
     # ------------------------------------------------------------------
     # Field rendering
@@ -242,6 +338,7 @@ class WizardMixin:
         if not form_class:
             return ""
         step_name = step.get("name", "")
+        self._pin_callable_initials()
         step_data = getattr(self, "wizard_step_data", {}).get(step_name, {})
         step_errors = getattr(self, "wizard_step_errors", {}).get(step_name, {})
 
@@ -250,7 +347,12 @@ class WizardMixin:
         if not field:
             return ""
 
-        value = step_data.get(field_name, initial_field_value(form_instance, field_name, field))
+        # Membership, not ``.get(name, default)``: the default would call a
+        # callable initial even when the step already holds the value.
+        if field_name in step_data:
+            value = step_data[field_name]
+        else:
+            value = initial_field_value(form_instance, field_name, field)
         errors = step_errors.get(field_name, [])
 
         adapter = get_adapter(kwargs.pop("framework", None))
@@ -276,6 +378,7 @@ class WizardMixin:
         # Guard: the Rust bridge may call get_context_data() before mount()
         # initialises instance attributes.  Use getattr() with safe defaults.
         total = len(self._steps)
+        self._pin_callable_initials()
         current_index = getattr(self, "wizard_step_index", 0)
         completed_steps = getattr(self, "wizard_completed_steps", [])
         step_data = getattr(self, "wizard_step_data", {})
@@ -314,7 +417,10 @@ class WizardMixin:
             # over the class-level default. None = render all (legacy behavior).
             rendered_filter = current_step.get("rendered_fields", self.wizard_rendered_fields)
             for fname, field in form_instance.fields.items():
-                val = current_step_data.get(fname, initial_field_value(form_instance, fname, field))
+                if fname in current_step_data:
+                    val = current_step_data[fname]
+                else:
+                    val = initial_field_value(form_instance, fname, field)
                 form_data[fname] = val if val is not None else ""
                 form_required[fname] = bool(field.required)
                 if hasattr(field, "choices"):
@@ -326,9 +432,18 @@ class WizardMixin:
 
         # Expose choices as flat top-level vars too (e.g. borough_choices)
         # so templates can use either form_choices.borough or borough_choices.
-        flat_choices = {f"{k}_choices": v for k, v in form_choices.items()}
+        from ._exposure import uses_legacy_exposure
 
-        context.update(
+        flat_choices = (
+            {f"{k}_choices": v for k, v in form_choices.items()}
+            if uses_legacy_exposure(self)
+            else {}
+        )
+
+        provide_context_items(
+            self,
+            context,
+            WIZARD_PROVIDER.name,
             {
                 "current_step": {
                     "name": current_name,
@@ -349,7 +464,7 @@ class WizardMixin:
                 "step_data": dict(step_data),
                 "step_errors": step_errors.get(current_name, {}),
                 **flat_choices,
-            }
+            },
         )
         return context
 
@@ -423,6 +538,33 @@ class WizardMixin:
         if step_index in self.wizard_completed_steps or step_index == self.wizard_step_index:
             self.wizard_step_index = step_index
 
+    def _store_step_field(self, name: str, value: Any) -> None:
+        """Keep one client-named field of the current step, unless that takes the step's data past
+        ``max_form_fields`` / ``max_form_data_size`` / ``max_form_members`` (#3834): ``wizard_step_data``
+        outlives the frame that filled it and is bound to the step's form on every event. The field limit
+        is the step's (a step is a form); the characters and members are the wizard's TOTAL, every step's
+        data together (#3858). A refusal stores nothing and says so in the step's errors (``__all__``, Django's key for errors of no field); the next
+        accepted field clears that message."""
+        step = self._steps[self.wizard_step_index]
+        step_name = step["name"]
+        data = self.wizard_step_data.setdefault(step_name, {})
+        declared = getattr(step.get("form_class"), "base_fields", None) or ()
+        beside = [
+            held
+            for held_name, held in self.wizard_step_data.items()
+            if held_name != step_name and isinstance(held, Mapping)
+        ]
+        message = _form_data_bounds.refusal(data, {name: value}, declared, beside)
+        earlier = self.__dict__.pop("_form_data_refusal", None)
+        if message is not None:
+            _form_data_bounds.warn(self, message)
+            self._form_data_refusal = message
+            self.wizard_step_errors[step_name] = {"__all__": [message]}
+            return
+        if earlier is not None and self.wizard_step_errors.get(step_name) == {"__all__": [earlier]}:
+            del self.wizard_step_errors[step_name]
+        data[name] = value
+
     @event_handler()
     def update_step_field(self, field: str = "", value: Any = "", **kwargs: Any) -> None:
         """Store a single field value for the current step.
@@ -435,10 +577,7 @@ class WizardMixin:
         """
         if not field or not self._steps:
             return
-        step_name = self._steps[self.wizard_step_index]["name"]
-        if step_name not in self.wizard_step_data:
-            self.wizard_step_data[step_name] = {}
-        self.wizard_step_data[step_name][field] = value
+        self._store_step_field(field, value)
 
     @event_handler()
     def validate_field(
@@ -459,10 +598,7 @@ class WizardMixin:
         name = field or field_name
         if not name or not self._steps:
             return
-        step_name = self._steps[self.wizard_step_index]["name"]
-        if step_name not in self.wizard_step_data:
-            self.wizard_step_data[step_name] = {}
-        self.wizard_step_data[step_name][name] = value
+        self._store_step_field(name, value)
 
     @event_handler()
     def submit_wizard(self, **kwargs: Any) -> None:

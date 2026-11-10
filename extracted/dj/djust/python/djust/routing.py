@@ -6,6 +6,7 @@ DjustMiddlewareStack for apps without django.contrib.auth,
 and emitting a client-side route map for live_redirect navigation.
 """
 
+import logging
 import re
 from typing import Any, Dict, List, Optional
 
@@ -14,10 +15,39 @@ from django.urls.resolvers import RegexPattern, RoutePattern, URLResolver
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
+from .auth.any_of import AnyOf, user_has_permission_spec
+from .security.json_script import escape_json_for_script
+from .security.log_sanitizer import sanitize_for_log
+
+logger = logging.getLogger(__name__)
+
 # Django ``<int:id>`` / ``<slug:x>`` → JS-friendly ``:id`` / ``:x``. Shared by
 # ``live_session`` and ``build_route_map_from_urlconf`` so both engines emit the
 # identical client-side route shape.
 _PARAM_RE = re.compile(r"<(?:\w+:)?(\w+)>")
+# A named group that matches within one path segment: a character class with
+# no ``/`` (or ``[^/]``), or ``\d`` / ``\w``, repeated: ``(?P<slug>[-\w]+)``.
+_SEGMENT_GROUP_RE = re.compile(r"\(\?P<(\w+)>(?:\[\^/\]|\[[^\]/^]*\]|\\[dw])[+*]\)")
+_REGEX_META = re.compile(r"[.*+?\[\](){}|\\^$]")
+
+
+def _regex_route_path(regex: str) -> Optional[str]:
+    """The client route of a ``re_path()`` leaf, or ``None`` when it has none.
+
+    Named groups that match within one segment become ``:name``. A pattern
+    with any other regex syntax (``.*``, which crosses ``/``, alternation, a
+    bare ``^``) matches paths a client route cannot express; such a route is
+    left out of the map instead of entering it as garbage or, for ``^``, as
+    ``"/"`` (a catch-all 404 route there displaced the real home page).
+    """
+    body = regex.lstrip("^").rstrip("$")
+    converted = _SEGMENT_GROUP_RE.sub(lambda m: "<%s>" % m.group(1), body)
+    if _REGEX_META.search(converted.replace("<", "").replace(">", "")):
+        return None
+    if not body and regex.strip() not in ("^$", ""):
+        return None  # ``^`` alone matches every path
+    return converted
+
 
 # Module-level cache for the URLconf-derived route map. The URLconf is static at
 # runtime, so we derive once and reuse. ``_reset_route_map_cache()`` clears it
@@ -45,6 +75,35 @@ def _reset_route_map_cache() -> None:
     _route_gating_cache.clear()
 
 
+class DjustOriginValidator:
+    """ASGI middleware: deny a WebSocket handshake whose Origin is not allowed.
+
+    Applies :mod:`djust.security.origin` — the same policy as
+    ``LiveViewConsumer.connect()``: the Origin must be the server's own origin
+    (scheme, host and port) or listed in ``DJUST_ALLOWED_ORIGINS`` (default
+    ``CSRF_TRUSTED_ORIGINS``), and a missing Origin is denied unless
+    ``DJUST_ALLOW_MISSING_ORIGIN = True``. Settings are read per handshake.
+
+    channels' ``AllowedHostsOriginValidator`` compares the host alone, so a
+    page on another port or scheme of an allowed host passes it.
+    """
+
+    def __init__(self, application: Any) -> None:
+        self.application = application
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> Any:
+        if scope.get("type") == "websocket":
+            from channels.security.websocket import WebsocketDenier
+
+            from .security.origin import websocket_origin_rejection
+
+            rejection = websocket_origin_rejection(scope)
+            if rejection is not None:
+                logger.warning("WebSocket handshake denied: %s", sanitize_for_log(rejection))
+                return await WebsocketDenier()(scope, receive, send)
+        return await self.application(scope, receive, send)
+
+
 def DjustMiddlewareStack(inner: Any, *, validate_origin: bool = True) -> Any:
     """
     ASGI middleware stack for djust that doesn't require django.contrib.auth.
@@ -52,38 +111,30 @@ def DjustMiddlewareStack(inner: Any, *, validate_origin: bool = True) -> Any:
     Use this instead of ``channels.auth.AuthMiddlewareStack`` when your app
     doesn't need authentication. It wraps the inner application with session
     middleware (so ``request.session`` works, but ``request.user`` is not
-    populated) and, by default, with
-    ``channels.security.websocket.AllowedHostsOriginValidator`` to prevent
+    populated) and, by default, with :class:`DjustOriginValidator` to prevent
     Cross-Site WebSocket Hijacking (CSWSH, #653).
 
     Args:
         inner: The ASGI application to wrap (typically a ``URLRouter``).
-        validate_origin: When True (the default), the returned stack will
-            also wrap ``inner`` in ``AllowedHostsOriginValidator``, which
-            rejects WebSocket handshakes whose ``Origin`` header is not in
-            ``settings.ALLOWED_HOSTS``. Set to False to opt out — NOT
-            recommended; only use this for non-browser clients that you
-            control end-to-end, or when an upstream proxy already strips
-            hostile Origin headers.
-
-    Note:
-        ``channels.security.websocket.AllowedHostsOriginValidator`` snapshots
-        ``settings.ALLOWED_HOSTS`` at the moment this function runs (i.e. at
-        ASGI-application construction time). If you change ``ALLOWED_HOSTS``
-        at runtime (e.g. via ``django.test.override_settings`` in tests),
-        only the consumer-level ``_is_allowed_origin`` check in
-        ``LiveViewConsumer.connect()`` will see the new value; the
-        middleware-level validator will keep using the value it captured
-        when the stack was built. This matters for tests — prefer the
-        consumer-level check over asserting on the middleware in
-        override-settings tests.
+        validate_origin: When True (the default), the returned stack denies
+            WebSocket handshakes whose ``Origin`` is not this server's own
+            origin or a trusted one (see :class:`DjustOriginValidator`). Set to
+            False to opt out — NOT recommended. To accept non-browser clients
+            that send no Origin, set ``DJUST_ALLOW_MISSING_ORIGIN = True``
+            instead; to accept another origin, list it in
+            ``DJUST_ALLOWED_ORIGINS``.
 
     Example::
 
+        from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
         from djust.routing import DjustMiddlewareStack
 
+        django_asgi_app = get_asgi_application()  # before importing consumers
+
         application = ProtocolTypeRouter({
-            "http": get_asgi_application(),
+            # ASGIStaticFilesHandler serves /static/ (client.js included)
+            # under uvicorn or daphne in development, as runserver would.
+            "http": ASGIStaticFilesHandler(django_asgi_app),
             "websocket": DjustMiddlewareStack(
                 URLRouter(websocket_urlpatterns)
             ),
@@ -93,12 +144,7 @@ def DjustMiddlewareStack(inner: Any, *, validate_origin: bool = True) -> Any:
 
     stack = SessionMiddlewareStack(inner)
     if validate_origin:
-        # Lazy import keeps the top-level import surface of djust.routing
-        # stable (channels.security is importable whenever channels itself
-        # is, so the import cost is only paid when the stack is built).
-        from channels.security.websocket import AllowedHostsOriginValidator
-
-        stack = AllowedHostsOriginValidator(stack)
+        stack = DjustOriginValidator(stack)
     return stack
 
 
@@ -234,7 +280,8 @@ def _view_auth_requirement(pattern: URLPattern, view_cls: type) -> Optional[dict
     """
     login = getattr(view_cls, "login_required", None) is True
     perms_attr = getattr(view_cls, "permission_required", None)
-    if isinstance(perms_attr, str):
+    if isinstance(perms_attr, (str, AnyOf)):
+        # A whole AnyOf is one group; tuple() of it would read as all of.
         perms: tuple = (perms_attr,)
     elif perms_attr:
         perms = tuple(perms_attr)
@@ -274,14 +321,14 @@ def _user_satisfies(request: Any, requirement: dict) -> bool:
 
     Fails closed (#1758): a missing request, missing user, or unauthenticated
     user never satisfies a gated route, so gated routes are omitted from the
-    client map for anonymous/unknown callers. Permission checks use
-    ``user.has_perms`` (all required perms).
+    client map for anonymous/unknown callers. Permission checks follow the
+    view's ``permission_required`` (all of, with AnyOf groups).
     """
     user = getattr(request, "user", None) if request is not None else None
     if user is None or not getattr(user, "is_authenticated", False):
         return False
     perms = requirement.get("perms") or ()
-    if perms and not user.has_perms(perms):
+    if perms and not user_has_permission_spec(user, perms):
         return False
     return True
 
@@ -324,6 +371,11 @@ def _walk_liveview_routes(
         if isinstance(pattern, URLResolver):
             _walk_liveview_routes(pattern.url_patterns, full, route_map, gating)
             continue
+        if isinstance(pattern.pattern, RegexPattern):
+            regex_path = _regex_route_path(str(pattern.pattern._regex))
+            if regex_path is None:
+                continue
+            full = (prefix + regex_path).replace("//", "/")
         view_cls = _resolve_view_class(pattern)
         if view_cls is None:
             continue
@@ -337,6 +389,8 @@ def _walk_liveview_routes(
         js_path = full if full.startswith("/") else "/" + full
         js_path = _PARAM_RE.sub(r":\1", js_path)
         view_path = f"{view_cls.__module__}.{view_cls.__qualname__}"
+        if js_path in route_map:
+            continue  # Django resolves the first matching pattern; so does the map
         route_map[js_path] = view_path
         if gating is not None:
             requirement = _view_auth_requirement(pattern, view_cls)
@@ -467,30 +521,30 @@ def get_route_map_script(request: Any = None) -> str:
     if not all_routes:
         return ""
 
-    route_json = json.dumps(all_routes)
     # CSP nonce support (#655)
     from .utils import get_csp_nonce
 
-    # Safety note: json.dumps escapes ", \, and control chars — it does NOT
-    # escape angle brackets, so a literal "</script>" / "<!--" would pass
-    # through verbatim. That is safe HERE only because the route data is
-    # developer-defined URL config (view module paths + URL patterns), which
-    # structurally cannot contain those script-breakout sequences. The
-    # route_json is therefore mark_safe()'d for interpolation inside the
-    # <script> body; the nonce is escaped by format_html. (Do NOT mark_safe
-    # user-derived data into a <script> body — that WOULD be an XSS surface.)
+    # ``json.dumps`` escapes ", \ and control characters but NOT ``<``, ``>`` or ``&``, so a
+    # literal "</script>" or "<!--" in a key or value would pass through verbatim and end the
+    # script element. The data is developer-defined URL config, which Django's ``path()``
+    # already keeps those sequences out of, but that was an assumption about where the data
+    # comes from, not something this function enforced (#3819). ``escape_json_for_script``
+    # turns ``<``, ``>``, ``&``, U+2028 and U+2029 into ``\uXXXX``, so the JSON is inert inside
+    # the script body whatever it holds; the result is identical for every route that has none
+    # of those characters. The nonce is escaped by format_html.
+    route_json = escape_json_for_script(json.dumps(all_routes))
     nonce = get_csp_nonce(request)
     if nonce:
         return str(
             format_html(
                 '<script nonce="{}">window.djust=window.djust||{{}};window.djust._routeMap={};</script>',
                 nonce,
-                mark_safe(route_json),  # developer-defined URL config; see safety note above
+                mark_safe(route_json),  # script-escaped JSON; see the note above
             )
         )
     return str(
         format_html(
             "<script>window.djust=window.djust||{{}};window.djust._routeMap={};</script>",
-            mark_safe(route_json),  # developer-defined URL config; see safety note above
+            mark_safe(route_json),  # script-escaped JSON; see the note above
         )
     )

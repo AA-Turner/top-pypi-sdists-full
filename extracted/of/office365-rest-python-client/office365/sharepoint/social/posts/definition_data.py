@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.sharepoint.social.posts.definition_data_item import (
 )
 
 
-@dataclass
 class SocialPostDefinitionData(ClientValue):
     """The SocialPostDefinitionData type provides additional information about server-generated posts.
     This type can only be specified in a server-to-server call."""

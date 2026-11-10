@@ -1,4 +1,4 @@
-"""Typed Probe Research SDK.
+"""Typed Probe SDK.
 
 The SDK is the single implementation surface. The CLI, MCP read adapter, future
 hooks, Python experiments, and passive platform integrations all build on it.
@@ -27,9 +27,18 @@ _LAZY: dict[str, str] = {
     "Comparison": "reads.compare",
     "Client": "client.client",
     "DatasetRef": "catalog",
+    "FROM_ENV": "client",
+    # The views a coding agent pins, and the pin it gets back (pinned views T10).
+    "ChartView": "client",
+    "KeyMetricsView": "client",
+    "PaneView": "client",
+    "ParallelView": "client",
+    "Pin": "client",
     "SourceRef": "catalog",
     "source": "catalog",
     "Rewind": "client.resources.runs.reopen.conflict",
+    "Edit": "client",
+    "CommandKind": "run.commands.commands",
     "Reader": "reads.reads",
     "Reference": "reads.reads",
     "Settings": "settings.settings",
@@ -77,6 +86,9 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
         stable_span_id,
     )
     from .client.client import Authorship, Client
+    from .client import Edit
+    from .run.commands.commands import CommandKind
+    from .client import FROM_ENV, ChartView, KeyMetricsView, PaneView, ParallelView, Pin
     from .settings.settings import Settings, resolve
     from .reads.events import EventsReadClient
     from .reads.reads import Reader, Reference
@@ -100,6 +112,7 @@ if TYPE_CHECKING:  # eager names for type checkers / IDEs; never executed at run
 __all__ = [
     "Aligned",
     "Authorship",
+    "ChartView",
     "DeliveryIncomplete",
     "CaptureLedger",
     "CaptureState",
@@ -107,10 +120,17 @@ __all__ = [
     "Comparison",
     "DatasetRef",
     "EventsReadClient",
+    "FROM_ENV",
     "FailureContext",
+    "KeyMetricsView",
+    "PaneView",
+    "ParallelView",
+    "Pin",
     "Reader",
     "Reference",
     "Rewind",
+    "Edit",
+    "CommandKind",
     "Run",
     "Settings",
     "SourceRef",

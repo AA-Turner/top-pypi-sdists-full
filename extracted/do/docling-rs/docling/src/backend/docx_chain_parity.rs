@@ -83,6 +83,8 @@ fn node_words(node: &Node, into: &mut Words) {
         | Node::PageFurniture { text, .. }
         | Node::FurnitureText { text, .. }
         | Node::TextDump(text) => words_of(text, into),
+        // A marked PDF item (#1005) carries its text in its item.
+        Node::ScriptText { inner, .. } => node_words(inner, into),
         // A list marker is metadata on both sides — the tree's `ListMeta`,
         // the flat node's `marker` — and the flat text of a multilevel or
         // lettered item carries it as a prefix (`iv. text`); the DocLang
@@ -470,9 +472,10 @@ fn inline_custom_xml_is_in_both_chains() {
 }
 
 /// A table without `w:tblGrid`, and one whose grid declares fewer columns
-/// than its rows hold: upstream drops the first and cuts the second at the
-/// grid (python-docx reads the column count from the grid, docling#5006); both chains
-/// keep every cell — nothing the document holds is lost.
+/// than its rows hold: upstream dropped the first and cut the second at the
+/// grid until docling#5179 (python-docx reads the column count from the
+/// grid, docling#5006); both chains keep every cell, as upstream does now —
+/// nothing the document holds is lost.
 #[test]
 fn tables_outside_their_grid_are_in_both_chains() {
     let row = |a: &str, b: &str, c: &str| {
@@ -511,6 +514,53 @@ fn tables_outside_their_grid_are_in_both_chains() {
             "{name}"
         );
     }
+}
+
+/// A `w:num` whose `w:lvlOverride` replaces the abstract level and sets a
+/// `w:startOverride` (docling#5123, #1017): `parse_numbering` feeds both
+/// walks, so both carry the same words — and the same `c)` start.
+#[test]
+fn numbering_level_overrides_are_in_both_chains() {
+    let numbering = format!(
+        r#"<w:numbering xmlns:w="{W}"><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="3"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%1)"/></w:lvl></w:lvlOverride></w:num></w:numbering>"#
+    );
+    let item = |t: &str| {
+        format!(
+            r#"<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>{}</w:p>"#,
+            run(t)
+        )
+    };
+    let body = format!(
+        "{}{}",
+        item("override item kiwi"),
+        item("override item lime")
+    );
+    let bytes = package(&[
+        (
+            "word/document.xml",
+            format!(r#"<w:document xmlns:w="{W}"><w:body>{body}<w:sectPr/></w:body></w:document>"#),
+        ),
+        ("word/numbering.xml", numbering),
+    ]);
+    let (flat_only, tree_only) = chain_divergence(bytes.clone(), "lvlOverride");
+    assert!(
+        flat_only.is_empty() && tree_only.is_empty(),
+        "{flat_only:?} / {tree_only:?}"
+    );
+    let src = SourceDocument::from_bytes("lvlOverride", InputFormat::Docx, bytes);
+    let doc = super::DocxBackend::default().convert(&src).unwrap();
+    assert_eq!(
+        doc.export_to_markdown().trim_end(),
+        "- c) override item kiwi\n- d) override item lime"
+    );
+    let json = doc.export_to_json_value();
+    let markers: Vec<_> = json["texts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|t| t["marker"].as_str())
+        .collect();
+    assert_eq!(markers, ["c)", "d)"]);
 }
 
 // ---------------------------------------------------------------------------

@@ -5,13 +5,31 @@ These decorators make LiveView code more elegant and explicit by marking
 event handlers, reactive state, and computed properties.
 """
 
-import asyncio
 import functools
 import logging
 import threading
-from typing import Callable, Any, TypeVar, Union, cast, List, Optional, overload
+import types
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Any,
+    TypeVar,
+    Union,
+    cast,
+    List,
+    Optional,
+    Literal,
+    overload,
+)
+
+if TYPE_CHECKING:
+    from .auth.any_of import PermissionRequired
+
+from asgiref.sync import iscoroutinefunction
 
 from ._deprecation import warn_deprecated
+from ._state import StateProperty as StateProperty
+from ._state import state as state
 from .change_detection import deep_fingerprint, fingerprints_by_content
 from ._template_guards import alters_data  # noqa: F401 — re-export
 
@@ -19,6 +37,30 @@ from ._template_guards import alters_data  # noqa: F401 — re-export
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+#: Decorators whose effect is browser-side or per-browser-event. Server push
+#: enforces none of them, so on a ``@push_handler`` method they would be inert
+#: and read as protection that is not there.
+_PUSH_INERT_DECORATORS = frozenset(
+    {
+        "permission_required",
+        "rate_limit",
+        "debounce",
+        "throttle",
+        "cache",
+        "optimistic",
+        "client_state",
+    }
+)
+
+
+def _inert_on_push_message(key: str, name: str) -> str:
+    return (
+        f"@{key} cannot be combined with @push_handler on {name!r}: server push "
+        f"enforces no permission, rate limit or client-side behaviour, so it "
+        f"would have no effect. Check authorization inside the handler instead."
+    )
 
 
 def _add_decorator_metadata(func: Callable, key: str, value: Any) -> None:
@@ -33,9 +75,35 @@ def _add_decorator_metadata(func: Callable, key: str, value: Any) -> None:
         key: Decorator name (e.g., 'debounce', 'cache')
         value: Decorator configuration (dict, bool, etc.)
     """
+    if key in _PUSH_INERT_DECORATORS and getattr(func, "_djust_decorators", {}).get("push_handler"):
+        raise TypeError(_inert_on_push_message(key, getattr(func, "__name__", repr(func))))
     if not hasattr(func, "_djust_decorators"):
         func._djust_decorators = {}  # type: ignore
     func._djust_decorators[key] = value  # type: ignore
+
+
+def _passthrough(func: Callable[..., Any]) -> Callable[..., Any]:
+    """A wrapper that only calls ``func``, of the same kind as ``func``.
+
+    A metadata decorator must not change how djust calls the handler. A plain
+    ``def`` wrapper around an ``async def`` handler hid the coroutine function:
+    djust then ran the wrapper as sync code, got an un-awaited coroutine back,
+    and the handler body never ran, with no error (``@permission_required`` on
+    an async handler silently did nothing).
+    """
+    if iscoroutinefunction(func):
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            return await func(*args, **kwargs)
+
+        return async_wrapper
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 def _make_metadata_decorator(key: str, value: Any) -> Callable[[F], F]:
@@ -54,10 +122,7 @@ def _make_metadata_decorator(key: str, value: Any) -> Callable[[F], F]:
     """
 
     def decorator(func: F) -> F:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            return func(*args, **kwargs)
-
+        wrapper = _passthrough(func)
         _add_decorator_metadata(wrapper, key, value)
         return cast(F, wrapper)
 
@@ -75,6 +140,7 @@ def event_handler(
     coerce_types: bool = ...,
     expose_api: bool = ...,
     serialize: Optional[Union[Callable[..., Any], str]] = ...,
+    parameter_policy: Optional[Literal["legacy", "strict"]] = ...,
 ) -> Callable[[F], F]: ...
 
 
@@ -84,6 +150,7 @@ def event_handler(
     coerce_types: bool = True,
     expose_api: bool = False,
     serialize: Optional[Union[Callable[..., Any], str]] = None,
+    parameter_policy: Optional[Literal["legacy", "strict"]] = None,
 ) -> Any:
     """
     Mark method as event handler with automatic signature introspection.
@@ -99,6 +166,10 @@ def event_handler(
         params: Optional explicit parameter list (overrides auto-extraction)
         description: Human-readable description (overrides docstring)
         coerce_types: Whether to coerce string params to expected types (default: True)
+        parameter_policy: Override the server parameter policy with "strict" or
+            "legacy"; None inherits LIVEVIEW_CONFIG['event_parameter_policy']
+            (default "legacy"). Strict binds the Python signature exactly: see
+            "Typed event parameters" in docs/website/core-concepts/events.md.
         expose_api: Expose this handler as an HTTP API endpoint at
             ``POST /djust/api/<view_slug>/<handler_name>/`` with OpenAPI 3.1 schema.
             Default is False (WebSocket-only). When True, the same handler runs with
@@ -154,6 +225,9 @@ def event_handler(
     Note: The @event alias is deprecated. Use @event_handler directly.
     """
 
+    if parameter_policy not in (None, "legacy", "strict"):
+        raise ValueError("parameter_policy must be 'legacy', 'strict', or None")
+
     def decorator(func: F) -> F:
         # Import here to avoid circular dependency
         from djust.validation import get_handler_signature_info
@@ -164,6 +238,11 @@ def event_handler(
                 "The serializer only runs on the HTTP transport; setting it "
                 "without exposing the handler over HTTP is almost certainly a bug."
             )
+
+        from ._component_subscriptions import is_component_subscription
+
+        if is_component_subscription(func):
+            raise TypeError("A component subscription cannot also be an event handler")
 
         # Mutual-exclusion guard with @server_function — a single handler
         # cannot be both a WebSocket/re-render event and an RPC/no-re-render
@@ -177,8 +256,19 @@ def event_handler(
                 f"@server_function (RPC/no-re-render). Pick one."
             )
 
+        # A push handler is callable by server push and NEVER by a browser
+        # event; @event_handler is what makes a method a browser event target.
+        if getattr(func, "_djust_decorators", {}).get("push_handler"):
+            raise TypeError(
+                f"@event_handler cannot be combined with @push_handler on "
+                f"{getattr(func, '__name__', repr(func))!r}. A push handler is "
+                f"never callable from a browser event. Pick one."
+            )
+
         # Extract comprehensive signature information
-        sig_info = get_handler_signature_info(func)
+        sig_info = get_handler_signature_info(
+            func, parameter_policy=parameter_policy, for_declaration=True
+        )
 
         # Use explicit params if provided, otherwise use extracted
         if params is not None:
@@ -203,6 +293,7 @@ def event_handler(
                 "coerce_types": coerce_types,  # Whether to coerce string params
                 "expose_api": expose_api,  # ADR-008: expose as HTTP API endpoint
                 "serialize": serialize,  # ADR-008 follow-up: per-handler HTTP response override
+                "parameter_policy": parameter_policy,
             },
         )
 
@@ -227,13 +318,13 @@ def event(func: F) -> F:
     Deprecated alias for @event_handler. Use @event_handler instead.
 
     .. deprecated:: 0.3
-        ``@event`` is deprecated and will be removed no earlier than
-        djust 1.1.0. Use ``@event_handler`` instead.
+        ``@event`` is deprecated and is removed in
+        djust 2.0.0. Use ``@event_handler`` instead.
     """
     warn_deprecated(
         "@event",
         since="0.3",
-        removed_in="1.1.0",
+        removed_in="2.0.0",
         instead="@event_handler",
         # stacklevel=3: warnings.warn -> warn_deprecated -> event -> user.
         # Empirically verified (scratch sweep): 3 points the warning at the
@@ -254,6 +345,27 @@ def is_event_handler(func: Any) -> bool:
         True if the function has event_handler metadata.
     """
     return bool(getattr(func, "_djust_decorators", {}).get("event_handler"))
+
+
+_GENERIC_ACTION_ERROR = "Action failed"
+
+
+class ActionError(Exception):
+    """A failure whose message is meant for the user of an ``@action``.
+
+    ``@action`` records a failed handler's error for the template as
+    ``{{ <name>.error }}``. Under ``exposure_policy="explicit"`` (ADR-038) an
+    ordinary exception is recorded as the generic ``"Action failed"``, because
+    its text can carry view state or query values. Raise ``ActionError`` to
+    show a message you wrote for the user, under every policy::
+
+        @action
+        def create_todo(self, title: str = "", **kwargs):
+            if not title:
+                raise ActionError("Title is required")
+
+    Only the message you pass is recorded; nothing is added to it.
+    """
 
 
 def action(
@@ -292,6 +404,11 @@ def action(
             "error":   "<str(exc)>",
             "result":  None,
         }
+
+    Under ``exposure_policy="explicit"`` (ADR-038) the recorded ``error`` is
+    the generic ``"Action failed"`` unless the handler raised
+    :class:`ActionError`, whose message is recorded as written. Legacy views
+    record ``str(exc)`` as above.
 
     The exception is **logged** at ERROR level (via ``logger.exception``)
     so diagnostics aren't lost, but is **not** re-raised. Re-raising
@@ -412,15 +529,30 @@ def action(
                 # ``BaseException`` subclasses (KeyboardInterrupt, SystemExit,
                 # GeneratorExit) propagate via the bare ``except Exception``
                 # — by Python convention those should never be caught.
-                logger.exception(
+                from ._exposure_diagnostics import (
+                    exception_details_allowed_for,
+                    log_failure_for,
+                )
+
+                log_failure_for(
+                    logger,
+                    (self,),
+                    exc,
                     "@action %s raised %s; recorded in _action_state[%r]",
                     action_name,
                     type(exc).__name__,
                     action_name,
+                    traceback=True,
                 )
+                # ADR-038 D-f: the error is rendered to the client. Nonlegacy
+                # views show exception text only for a declared ActionError.
+                if isinstance(exc, ActionError) or exception_details_allowed_for((self,)):
+                    error = str(exc) or exc.__class__.__name__
+                else:
+                    error = _GENERIC_ACTION_ERROR
                 self._action_state[action_name] = {
                     "pending": False,
-                    "error": str(exc) or exc.__class__.__name__,
+                    "error": error,
                     "result": None,
                 }
                 return None
@@ -448,6 +580,7 @@ def is_action(func: Any) -> bool:
 def server_function(
     description: Any = "",
     coerce_types: bool = True,
+    parameter_policy: Optional[Literal["legacy", "strict"]] = None,
 ) -> Any:
     """Mark a method as a same-origin browser RPC target (v0.7.0).
 
@@ -471,6 +604,8 @@ def server_function(
         description: Optional human-readable description (overrides docstring).
         coerce_types: Coerce string params to the method's typed signature.
             Default True.
+        parameter_policy: Server parameter policy override ("strict" or "legacy").
+            None inherits the project's event_parameter_policy, default "legacy".
 
     Usage::
 
@@ -491,8 +626,16 @@ def server_function(
     inner wrapper and the dispatcher cannot see it.
     """
 
+    if parameter_policy not in (None, "legacy", "strict"):
+        raise ValueError("parameter_policy must be 'legacy', 'strict', or None")
+
     def decorator(func: F) -> F:
         from djust.validation import get_handler_signature_info
+
+        from ._component_subscriptions import is_component_subscription
+
+        if is_component_subscription(func):
+            raise TypeError("A component subscription cannot also be a server function")
 
         if getattr(func, "_djust_decorators", {}).get("event_handler"):
             raise TypeError(
@@ -502,7 +645,16 @@ def server_function(
                 f"@server_function (RPC/no-re-render). Pick one."
             )
 
-        sig_info = get_handler_signature_info(func)
+        if getattr(func, "_djust_decorators", {}).get("push_handler"):
+            raise TypeError(
+                f"@server_function cannot be combined with @push_handler on "
+                f"{getattr(func, '__name__', repr(func))!r}. A push handler is "
+                f"never callable from a browser. Pick one."
+            )
+
+        sig_info = get_handler_signature_info(
+            func, parameter_policy=parameter_policy, for_declaration=True
+        )
         _desc = description if isinstance(description, str) else ""
         _add_decorator_metadata(
             func,
@@ -515,6 +667,7 @@ def server_function(
                 "required": [p["name"] for p in sig_info["params"] if p["required"]],
                 "optional": [p["name"] for p in sig_info["params"] if not p["required"]],
                 "coerce_types": coerce_types,
+                "parameter_policy": parameter_policy,
             },
         )
         return func
@@ -537,6 +690,141 @@ def is_server_function(func: Any) -> bool:
         True if the function has server_function metadata.
     """
     return bool(getattr(func, "_djust_decorators", {}).get("server_function"))
+
+
+@overload
+def push_handler(func: F) -> F: ...
+
+
+@overload
+def push_handler() -> Callable[[F], F]: ...
+
+
+def push_handler(func: Optional[F] = None) -> Any:
+    """
+    Mark a method as callable by server push only, never by a browser event.
+
+    ``push_to_view(..., handler="name")`` / ``server_push`` call a method when
+    it is ``handle_*``-prefixed or an ``@event_handler``. Neither fits a
+    handler that only the server may trigger: ``@event_handler`` makes it a
+    browser event target, and an undecorated ``handle_*`` method is refused to
+    browsers only under ``event_security = "strict"`` (``"warn"`` and
+    ``"open"`` let a browser call it). ``@push_handler`` is the explicit
+    marker. A marked method:
+
+    * is a valid server-push target under ANY name (``handle_*`` prefix not
+      required);
+    * is refused to a browser event in every ``event_security`` mode, on every
+      transport (WebSocket, SSE, HTTP POST fallback, HTTP API), exactly as if
+      the method did not exist;
+    * is not an event handler: it is not listed in the view schema, audit or
+      API, and ``djust.V004`` does not suggest decorating it.
+
+    **The marker is inherited by overrides.** The guarantee belongs to the
+    method NAME: if any class in the view's MRO defines the name with
+    ``@push_handler``, an override that forgets the marker (or a mixin's
+    marked method shadowed by an unmarked one) is still push-only. This fails
+    closed. ``djust.V021`` reports such an override so it is not a surprise;
+    re-apply ``@push_handler`` on the override to silence it. An override
+    that adds ``@event_handler`` does NOT make the name browser-callable; V021
+    reports that as a conflict.
+
+    It cannot be combined with ``@event_handler`` or ``@server_function``
+    (``TypeError`` at decoration time). It also cannot be combined with
+    ``@permission_required``, ``@rate_limit``, ``@debounce``, ``@throttle``,
+    ``@cache``, ``@optimistic`` or ``@client_state`` (``TypeError``): server
+    push enforces none of them, so on a push handler they would be inert and
+    would read as protection that is not there. ``@background`` is allowed.
+
+    Placement: it may sit above or below ``@staticmethod`` / ``@classmethod``
+    (it marks the underlying function). Put it topmost among ordinary
+    decorators: one that wraps the method without ``functools.wraps`` and sits
+    above it hides the marker on the wrapper, and only the name-level rule
+    above (a marked definition elsewhere in the MRO) would still cover it.
+
+    Usage:
+        from djust.decorators import push_handler
+
+        class RoomView(LiveView):
+            @push_handler
+            def refresh_room(self, room: str = "", **kwargs):
+                self.rooms = load_rooms(room)
+
+        # elsewhere (a Celery task, a signal, a management command):
+        push_to_view("games.views.RoomView", handler="refresh_room",
+                     payload={"room": "a"})
+    """
+
+    def decorator(target: F) -> F:
+        # ``@push_handler`` above ``@staticmethod`` / ``@classmethod`` receives
+        # the descriptor; ``getattr(view, name)`` returns the function inside
+        # it, so that is what carries the marker.
+        function = target.__func__ if isinstance(target, (staticmethod, classmethod)) else target
+        decorators = getattr(function, "_djust_decorators", {})
+        name = getattr(function, "__name__", repr(function))
+        for conflicting in ("event_handler", "server_function"):
+            if decorators.get(conflicting):
+                raise TypeError(
+                    f"@push_handler cannot be combined with @{conflicting} on "
+                    f"{name!r}. A push handler is never callable from a browser. "
+                    f"Pick one."
+                )
+        for inert in sorted(_PUSH_INERT_DECORATORS & set(decorators)):
+            raise TypeError(_inert_on_push_message(inert, name))
+        _add_decorator_metadata(function, "push_handler", True)
+        return target
+
+    # Support both @push_handler and @push_handler().
+    if func is not None:
+        return decorator(func)
+    return decorator
+
+
+def _unwrap_method(member: Any) -> Any:
+    """The function inside a staticmethod, classmethod or bound method."""
+    if isinstance(member, (staticmethod, classmethod, types.MethodType)):
+        return member.__func__
+    return member
+
+
+def is_push_handler(func: Any) -> bool:
+    """
+    Check if a function has been decorated with @push_handler.
+
+    This looks at ONE function. To decide whether a method NAME on a view is
+    push-only (the rule dispatch applies, which also covers an unmarked
+    override of a marked method) use :func:`is_push_only`.
+
+    Args:
+        func: The function (or bound method, staticmethod, classmethod) to check.
+
+    Returns:
+        True if the function has push_handler metadata.
+    """
+    # Strict on purpose: this gate refuses browser events, so a test double
+    # whose every attribute is truthy (a MagicMock) must not read as marked.
+    decorators = getattr(_unwrap_method(func), "_djust_decorators", None)
+    return isinstance(decorators, dict) and decorators.get("push_handler") is True
+
+
+def is_push_only(owner: Any, name: str, handler: Any = None) -> bool:
+    """
+    Whether the method ``name`` of ``owner`` (an instance or a class) is push-only.
+
+    True when the resolved ``handler`` is marked with ``@push_handler`` OR any
+    class in the owner's MRO defines ``name`` with the marker, so an unmarked
+    override of a marked method stays push-only (fail closed). Every gate that
+    keeps browsers away from a push handler calls this one function.
+    """
+    if handler is not None and is_push_handler(handler):
+        return True
+    cls = owner if isinstance(owner, type) else type(owner)
+    for klass in getattr(cls, "__mro__", ()):
+        # A single lookup: atomic on a class namespace (no iteration, #3151).
+        member = klass.__dict__.get(name)
+        if member is not None and is_push_handler(member):
+            return True
+    return False
 
 
 class _ReactiveProperty:
@@ -594,10 +882,26 @@ def reactive(func: Callable[..., Any]) -> "_ReactiveProperty":
             def count(self, value):
                 self._count = value
 
-    The host class must have an ``update()`` method (inherited from
-    ``LiveView``).  A ``TypeError`` is raised at class-definition time if
-    it doesn't, rather than silently no-opping at runtime.
+    The host class must have an ``update()`` method.  A ``TypeError`` is
+    raised at class-definition time if it doesn't, rather than silently
+    no-opping at runtime.
+
+    .. deprecated:: 1.3
+        Removed in djust 2.0. ``LiveView`` has no ``update()`` method, so
+        ``@reactive`` on a view raises ``TypeError``; on a ``LiveComponent``
+        the decorated function's body is never called and the setter's
+        ``update()`` call re-renders nothing. Use a plain attribute (djust
+        re-renders after every event handler) or ``@computed``.
     """
+    warn_deprecated(
+        "@reactive",
+        since="1.3",
+        removed_in="2.0.0",
+        instead="a plain attribute (djust re-renders after every handler) or @computed",
+        # stacklevel=3: warnings.warn -> warn_deprecated -> reactive -> the
+        # class body applying the decorator.
+        stacklevel=3,
+    )
     internal_name = f"_{func.__name__}_reactive"
 
     def _getter(self: Any) -> Any:
@@ -609,63 +913,6 @@ def reactive(func: Callable[..., Any]) -> "_ReactiveProperty":
     prop = _ReactiveProperty(_getter, _setter)
     prop.__doc__ = func.__doc__
     return prop
-
-
-def state(default: Any = None) -> Any:
-    """
-    Decorator to mark a property as reactive state.
-
-    This provides a cleaner syntax than manually setting attributes in mount().
-    The state is automatically included in the view's context and triggers
-    re-renders when changed.
-
-    Usage:
-        class MyView(LiveView):
-            count = state(default=0)
-            message = state(default="Hello")
-
-            @event_handler
-            def increment(self):
-                self.count += 1
-
-    Args:
-        default: Default value for the state property
-
-    Returns:
-        Property descriptor for the state attribute
-    """
-
-    class StateProperty:
-        # Marker: dirty tracking and the private-session save recognise the
-        # ``_state_<name>`` slot as this field's storage (#2956, #2959).
-        _djust_state_field = True
-
-        def __init__(self) -> None:
-            self.default = default
-            self.attr_name: Optional[str] = None
-            self.public_name: Optional[str] = None
-
-        def __set_name__(self, owner: type, name: str) -> None:
-            self.attr_name = f"_state_{name}"
-            self.public_name = name
-
-        def __get__(self, obj: Any, objtype: Optional[type] = None) -> Any:
-            if obj is None:
-                return self
-            # __set_name__ guarantees attr_name is set before any access.
-            assert self.attr_name is not None
-            return getattr(obj, self.attr_name, self.default)
-
-        def __set__(self, obj: Any, value: Any) -> None:
-            # __set_name__ guarantees attr_name is set before any access.
-            assert self.attr_name is not None
-            setattr(obj, self.attr_name, value)
-            # Mark this as reactive state
-            if not hasattr(obj, "_reactive_state"):
-                obj._reactive_state = set()
-            obj._reactive_state.add(self.public_name)
-
-    return StateProperty()
 
 
 def computed(*deps: Any) -> Any:
@@ -924,9 +1171,7 @@ def optimistic(func: F) -> F:
         Decorated function with optimistic metadata (no runtime effect)
     """
 
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        return func(*args, **kwargs)
+    wrapper = _passthrough(func)
 
     # Add standardized metadata using helper
     _add_decorator_metadata(wrapper, "optimistic", True)
@@ -1019,7 +1264,12 @@ def client_state(keys: List[str]) -> Callable[[F], F]:
     return _make_metadata_decorator("client_state", {"keys": keys})
 
 
-def rate_limit(rate: float = 10, burst: int = 5) -> Callable[[F], F]:
+RATE_LIMIT_ON_EXCEED = ("disconnect", "drop")
+
+
+def rate_limit(
+    rate: float = 10, burst: int = 5, on_exceed: Literal["disconnect", "drop"] = "disconnect"
+) -> Callable[[F], F]:
     """
     Rate-limit a WebSocket event handler (server-side).
 
@@ -1027,23 +1277,30 @@ def rate_limit(rate: float = 10, burst: int = 5) -> Callable[[F], F]:
     is dropped and the client is warned ("Rate limit exceeded, event
     dropped").
 
-    **Rejections count toward the abuse disconnect.** Each rejected event
-    adds one warning to the connection's rate-limit counter, which never
-    goes down. When it reaches ``DJUST_CONFIG["rate_limit"]["max_warnings"]``
-    (default 3) djust closes the WebSocket with code 4429 and puts the client
-    IP on a reconnect cooldown (``reconnect_cooldown``, default 5 s). The
-    bucket is shared per caller (user, anonymous session or IP), not per tab,
-    so several tabs — or users behind one NAT without a session — share it.
+    **By default, rejections count toward the abuse disconnect**
+    (``on_exceed="disconnect"``). Each rejected event adds one warning to the
+    connection's rate-limit counter, which never goes down. When it reaches
+    ``DJUST_CONFIG["rate_limit"]["max_warnings"]`` (default 3) djust closes
+    the WebSocket with code 4429 and puts the client IP on a reconnect
+    cooldown (``reconnect_cooldown``, default 5 s). The bucket is shared per
+    caller (user, anonymous session or IP), not per tab, so several tabs — or
+    users behind one NAT without a session — share it. Use this for abuse
+    controls: OTP or email sends, expensive or brute-forceable actions.
 
-    This is deliberate: ``@rate_limit`` is an abuse control. Don't use it to
-    throttle a button an honest user may tap quickly (an emote, a "like");
-    an honest burst can disconnect them. Debounce or throttle on the client
-    instead (``@debounce`` / ``@throttle``, or ``dj-debounce`` /
-    ``dj-throttle``). A drop-only mode is planned for 1.3 (#3003).
+    ``on_exceed="drop"`` only drops the extra event and warns the client; it
+    never adds a warning, so it cannot disconnect anyone. Use it to cap a
+    button an honest user may tap quickly (an emote, a "like") (#3003). The
+    connection's global per-message limit still disconnects a flood either
+    way. For pure UI spam, client-side ``@debounce`` / ``@throttle`` (or
+    ``dj-debounce`` / ``dj-throttle``) also avoid the round trip.
 
     Args:
         rate: Tokens per second (sustained rate).
         burst: Maximum burst capacity.
+        on_exceed: ``"disconnect"`` (default) or ``"drop"``.
+
+    Raises:
+        ValueError: If ``on_exceed`` is not one of those values.
 
     Usage:
         class MyView(LiveView):
@@ -1051,11 +1308,26 @@ def rate_limit(rate: float = 10, burst: int = 5) -> Callable[[F], F]:
             @event_handler
             def expensive_operation(self, **kwargs):
                 ...
+
+            @rate_limit(rate=2, burst=4, on_exceed="drop")
+            @event_handler
+            def emote(self, **kwargs):
+                ...
     """
-    return _make_metadata_decorator("rate_limit", {"rate": rate, "burst": burst})
+    if on_exceed not in RATE_LIMIT_ON_EXCEED:
+        raise ValueError(
+            "@rate_limit(on_exceed=...) must be one of %s, got %r"
+            % (", ".join(repr(v) for v in RATE_LIMIT_ON_EXCEED), on_exceed)
+        )
+    settings: dict[str, Any] = {"rate": rate, "burst": burst}
+    if on_exceed != "disconnect":
+        # Only the non-default mode is recorded, so existing metadata (and
+        # the audit output built from it) is unchanged.
+        settings["on_exceed"] = on_exceed
+    return _make_metadata_decorator("rate_limit", settings)
 
 
-def permission_required(perm: Union[str, List[str]]) -> Callable[[F], F]:
+def permission_required(perm: "PermissionRequired") -> Callable[[F], F]:
     """
     Require Django permission(s) to call this event handler.
 
@@ -1063,13 +1335,20 @@ def permission_required(perm: Union[str, List[str]]) -> Callable[[F], F]:
     the permission, the event is rejected with "Permission denied".
 
     Args:
-        perm: Django permission string or list of strings.
+        perm: Django permission string, list of strings (all of them), or
+            ``djust.auth.AnyOf(...)`` (any one of them). A list may mix
+            strings and AnyOf groups.
 
     Usage:
         class MyView(LiveView):
             @permission_required("myapp.delete_item")
             @event_handler()
             def delete_item(self, item_id: int, **kwargs):
+                ...
+
+            @permission_required(AnyOf("myapp.review_item", "myapp.approve_item"))
+            @event_handler()
+            def decide(self, item_id: int, **kwargs):
                 ...
     """
     return _make_metadata_decorator("permission_required", perm)
@@ -1148,7 +1427,7 @@ def background(func: F) -> F:
     failures.
     """
 
-    if asyncio.iscoroutinefunction(func):
+    if iscoroutinefunction(func):
         # Async handler: closure is itself async so _run_async_work can
         # detect it via iscoroutinefunction and await it directly.
         @functools.wraps(func)
@@ -1182,12 +1461,17 @@ __all__ = [
     "event_handler",
     "event",
     "is_event_handler",
+    "action",
+    "is_action",
     "server_function",
     "is_server_function",
+    "push_handler",
+    "is_push_handler",
     "permission_required",
     "rate_limit",
     "reactive",
     "state",
+    "StateProperty",
     "computed",
     "debounce",
     "throttle",

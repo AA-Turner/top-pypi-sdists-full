@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvesync
-Version: 3.5.0
+Version: 3.5.1
 Summary: pyvesync is a library to manage Etekcity Devices, Cosori Air Fryers, and Levoit Air Purifiers run on the VeSync app.
 Author: Mark Perdue
 Author-email: Joe Trabulsy <webdjoe@gmail.com>

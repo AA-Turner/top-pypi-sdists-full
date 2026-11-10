@@ -12,9 +12,8 @@ Three properties are structural rather than reviewed:
   or hostile length prefix, before any body byte is read. Every wire byte in both directions
   is counted. Output bytes never cross this seam — they land in the attempt spool the worker
   brokered, which keeps the executor's writable storage to exactly that spool (§3.1).
-* **Machine credentials stay outside it.** `send` refuses keys from `SECRET_KEYS`; Load,
-  Invoke and `capability` may carry a signer's run capability at `tensorfs.token`, never an
-  account's sign-in.
+* **Machine credentials stay outside it.** `send` refuses keys from `SECRET_KEYS`; Load and
+  Invoke may carry a signer's run capability at `tensorfs.token`, never an account's sign-in.
 * **A torn frame is typed.** EOF or a peer reset exactly at a frame boundary is the
   disposable executor's normal end (`None`); EOF inside a header or body is
   `seam_eof_mid_frame`, never a silent short read.
@@ -83,7 +82,7 @@ class SeamError(Exception):
 
 
 #: The commands that may carry a signer's run capability, at `tensorfs.token` only.
-SUPPLYING = frozenset({"load", "invoke", "capability"})
+SUPPLYING = frozenset({"load", "invoke"})
 
 
 def _scan(value: Any, path: str = "", *, supplied: bool = False) -> None:
@@ -421,8 +420,7 @@ class Mux:
     """One seam shared by every thread of the process. Whoever needs a frame reads the next
     one and routes it: an answer to the request waiting on its `seq`, a `cancel` to its call's
     mark and to `cancelled`, a frame that may carry a capability (`SUPPLYING`) to `bearer` as it
-    is read (a `capability` frame goes nowhere else), a `room` to `room` as it is read (a running
-    call takes it at once), anything else to the commands, in order. No
+    is read, anything else to the commands, in order. No
     reader thread exists, so a process that has served no call stays single-threaded and
     forkable (`zygote`)."""
 
@@ -431,10 +429,9 @@ class Mux:
         channel: Channel,
         bearer: Callable[[Frame], None] = _nothing,
         cancelled: Callable[[str], None] = _nothing,
-        room: Callable[[Frame], None] = _nothing,
     ) -> None:
         self.channel = channel
-        self._bearer, self._cancelled, self._room = bearer, cancelled, room
+        self._bearer, self._cancelled = bearer, cancelled
         self._seq = 0
         self._asked: dict[int, _Asked] = {}
         self._commands: deque[Frame] = deque()
@@ -560,10 +557,6 @@ class Mux:
         elif frame.get("cmd") == "cancel":
             self.cancel(str(frame.get("request_id", "")))
             self._cancelled(str(frame.get("request_id", "")))
-        elif frame.get("cmd") == "capability":
-            self._bearer(frame)
-        elif frame.get("cmd") == "room":
-            self._room(frame)
         else:
             if frame.get("cmd") in SUPPLYING:
                 self._bearer(frame)

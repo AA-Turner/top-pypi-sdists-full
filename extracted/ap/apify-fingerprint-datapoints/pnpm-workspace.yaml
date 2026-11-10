@@ -1,7 +1,7 @@
 packages:
     - packages/*
 
-minimumReleaseAge: 1440
+minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
     - '@apify/*'
     - '@crawlee/*'
@@ -22,3 +22,6 @@ linkWorkspacePackages: true
 preferWorkspacePackages: true
 publicHoistPattern:
     - "*"
+
+overrides:
+    js-yaml: ^4.3.1

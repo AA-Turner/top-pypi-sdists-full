@@ -118,6 +118,15 @@ def _parsed_marker(root, _kb_dirname, raw):
     return marker
 
 
+def store_layout(strategy):
+    """The store's region layout for a manifest's storage strategy.
+
+    A sqlite collection's source is the folder of its summary pages, the folder region that
+    markdown-items records, so the store schema and the marker format keep their two layouts.
+    """
+    return "markdown-items" if strategy == collections.SQLITE_STORAGE else strategy
+
+
 def marker_entry(collection_id, manifest_path, store_id, semantic_profile, source_path=None, layout=None):
     """One marker entry routing a collection to the store, with the profile it was created with.
 
@@ -126,7 +135,7 @@ def marker_entry(collection_id, manifest_path, store_id, semantic_profile, sourc
     """
     return {"collection_id": collection_id, "manifest_path": manifest_path, "authority": "store",
             "store_id": store_id, "semantic_profile": semantic_profile,
-            **({"source_path": source_path, "layout": layout} if source_path is not None else {})}
+            **({"source_path": source_path, "layout": store_layout(layout)} if source_path is not None else {})}
 
 
 def _owned_regions(entry):
@@ -148,7 +157,7 @@ def _overlap(entry, other):
 def file_ownership(manifest):
     """The namespace a file collection owns, in the shape a marker entry records it."""
     return {"manifest_path": manifest.path, "source_path": manifest.storage.source,
-            "layout": manifest.storage.strategy}
+            "layout": store_layout(manifest.storage.strategy)}
 
 
 def require_new_file_ownership(root, marker, entry):
@@ -203,15 +212,29 @@ def _owns_key(regions, key):
     return False
 
 
-def owned_entry(root, marker, path):
-    """None means an ordinary file only when the marker completely names C ownership."""
+def _require_current_marker(marker):
     if marker["version"] != 2:
         # Legacy markers cannot distinguish arbitrary source paths; repair needs canonical custody, not editable views.
         raise CollectionStoreError("COLLECTION_STORE_MARKER_UPGRADE_REQUIRED", "canonical marker ownership needs an upgrade")
-    path = collections._reference_key(Path(root), path)
-    if path is None:
+
+
+def owned_entry(root, marker, path):
+    """None means an ordinary file only when the marker completely names C ownership."""
+    reference = collections._reference_key(Path(root), path)
+    if reference is None:
+        # A legacy marker is refused for its version before the path.
+        _require_current_marker(marker)
         raise CollectionStoreError("COLLECTION_STORE_MARKER_CONFLICT", "invalid canonical projection path")
-    key = collections._portable_path_key(path)
+    return _owned_entry_for_key(marker, reference)
+
+
+def _owned_entry_for_key(marker, reference):
+    """`owned_entry` for a path that `collections._reference_key` already normalized.
+
+    That normalization is idempotent, so a caller that holds its result skips folding it again.
+    """
+    _require_current_marker(marker)
+    key = collections._portable_path_key(reference)
     return next((entry for entry in marker["collections"] if _owns_key(_entry_regions(entry), key)), None)
 
 
@@ -308,7 +331,7 @@ def require_selected(conn, marker, entry, *, root):
     if sid is None or sid[0] != marker["store_id"] or row is None or row[0] != entry["manifest_path"]:
         raise CollectionStoreError("COLLECTION_STORE_MARKER_CONFLICT", "store differs from authority marker")
     manifest = collections.parse_manifest_bytes(root, row[0], row[1].encode())
-    if (row[2:] != (manifest.storage.source, manifest.storage.strategy) or
+    if (row[2:] != (manifest.storage.source, store_layout(manifest.storage.strategy)) or
             marker["version"] == 2 and row[2:] != (entry["source_path"], entry["layout"])):
         raise CollectionStoreError("COLLECTION_STORE_MARKER_CONFLICT", "marker ownership differs from canonical storage")
     if entry.get("semantic_profile") is not None:

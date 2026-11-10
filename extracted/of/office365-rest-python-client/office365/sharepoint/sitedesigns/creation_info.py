@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 from uuid import UUID
 
@@ -12,7 +12,6 @@ from office365.sharepoint.sitedesigns.image import SiteDesignImage
 from office365.sharepoint.webs.teamappinfo import TeamAppInfo
 
 
-@dataclass
 class SiteDesignCreationInfo(ClientValue):
     """Args:
     Id (str or None): The ID of the site design to apply.

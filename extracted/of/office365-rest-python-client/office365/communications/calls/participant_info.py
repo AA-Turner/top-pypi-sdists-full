@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.communications.endpointtype import EndpointType
 from office365.directory.permissions.identity_set import IdentitySet
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ParticipantInfo(ClientValue):
     """Contains additional properties about the participant identity
 

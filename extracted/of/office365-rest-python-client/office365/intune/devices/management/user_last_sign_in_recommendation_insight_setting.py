@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from office365.directory.audit.usersigninrecommendationscope import (
@@ -12,7 +11,6 @@ if TYPE_CHECKING:
     from office365.runtime.types.duration import timedelta
 
 
-@dataclass
 class UserLastSignInRecommendationInsightSetting(ClientValue):
     recommendationLookBackDuration: timedelta | None = None
     signInScope: UserSignInRecommendationScope = UserSignInRecommendationScope.tenant

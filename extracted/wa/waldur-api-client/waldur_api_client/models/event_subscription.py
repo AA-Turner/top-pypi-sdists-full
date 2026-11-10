@@ -28,7 +28,7 @@ class EventSubscription:
         user_full_name (str):
         created (datetime.datetime):
         modified (datetime.datetime):
-        source_ip (Union[None, str]): An IPv4 or IPv6 address.
+        source_ip (Union[None, str]):
         description (Union[Unset, str]):
         observable_objects (Union[Unset, list['EventSubscriptionObservableObject']]): List of objects to observe. Each
             item must have 'object_type' (one of: order, user_role, resource, offering_user, importable_resources,

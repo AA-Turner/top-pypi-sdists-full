@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from . import request_meter
 from .operator_errors import run_with_operator_error_handling
 from .command_help import HELP_FLAGS, content_command_help, wants_help
 from .accession import (
@@ -35,7 +36,7 @@ from .analysis_commands import (
 from .batch_commands import register_catalog_batches, run_post_ingestion_enrichment_batches
 from .analysis_profiles import analysis_profiles, validate_analysis_profiles
 from .assignments import apply_assignment_action
-from .story_commands import stories_link_reference, stories_next, stories_note, stories_save_version, stories_show, stories_versions
+from .story_commands import stories_link_reference, stories_link_story, stories_next, stories_note, stories_save_version, stories_show, stories_versions
 from .assignments_commands import (
     assignments_apply_reporting_packet,
     assignments_apply_research_packet,
@@ -130,6 +131,7 @@ from .model_defaults import (
     DEFAULT_REFERENCE_SUMMARY_MODEL,
 )
 from .relations_commands import relations_backfill, relations_import_types
+from .reference_reads import attachments_for_references, reference_by_token, targeted_scope
 from .references_commands import (
     references_attach_extracted_text,
     references_backfill_corpus_storage_paths,
@@ -257,6 +259,10 @@ PORTED_COMMANDS = frozenset(
         "content:copy-backend",
         "content:upload-preview",
         "content:project",
+        "content:refresh",
+        "content:rerender",
+        "content:update-live",
+        "content:inspect-page",
         *(f"knowledge:{name}" for name in (*KNOWLEDGE_COMMANDS, *WIKI_COMMANDS)),
         "content:renditions",
         "corpora:status",
@@ -275,7 +281,12 @@ PORTED_COMMANDS = frozenset(
         "references:reject",
         "references:request-delegation",
         "references:link",
+        "references:link-concept",
+        "references:check-links",
+        "stories:link-concept",
+        "stories:check-links",
         "references:set-stars",
+        "references:set-section",
         "references:list-predictions",
         "references:audit",
         "references:auto-accept",
@@ -327,6 +338,7 @@ PORTED_COMMANDS = frozenset(
         "references:backfill-word-index",
         "references:backfill-public-fields",
         "references:queue-predictions",
+        "references:queue-enrichment",
         "references:retire-citation-stubs",
         "references:backfill-corpus-storage-paths",
         "assignments:list",
@@ -352,11 +364,19 @@ PORTED_COMMANDS = frozenset(
         "stories:save-version",
         "stories:versions",
         "stories:link-reference",
+        "stories:link-story",
+        "stories:suggest-links",
+        "stories:suggest-associations",
+        "relations:related",
+        "relations:search",
         "stories:note",
         "stories:agent-note",
         "stories:show",
         "stories:list",
         "stories:next",
+        "stories:step",
+        "stories:checklist-backfill",
+        "stories:lens-check",
         "stories:outline",
         "stories:draft",
         "stories:create",
@@ -364,8 +384,11 @@ PORTED_COMMANDS = frozenset(
         "stories:fire-triggers",
         "stories:assign-research",
         "stories:repair-versions",
+        "stories:head-index",
         "stories:repair-image-paths",
         "stories:set-slug",
+        "stories:set-type",
+        "stories:set-stars",
         "assignments:backfill-content-items",
         "assignments:demote-undrafted-content-items",
         "assignments:cleanup-automatic",
@@ -429,6 +452,7 @@ PORTED_COMMANDS = frozenset(
         "newsroom:purge-planning",
         "relations:import-types",
         "relations:backfill",
+        "relations:migrate-concept-tags",
         "ontology:preflight",
         "ontology:rank",
         "ontology:status",
@@ -529,6 +553,7 @@ def main(argv: list[str] | None = None) -> int:
         print_usage()
         return 1
     group, command, *rest = args
+    rest, budget_override = request_meter.split_budget_flag(rest)   # `--budget N` raises this command's request budget (logged)
     def run_dispatch() -> int:
         dispatch(group, command, rest)
         return 0
@@ -536,7 +561,10 @@ def main(argv: list[str] | None = None) -> int:
     install_site_selection()
     install_cli_body_features()
     try:
-        return run_with_operator_error_handling(run_dispatch)
+        # One metered run for the command: its AppSync requests are counted by caller and summarised on stderr when it ends (docs/request-meter.md).
+        with request_meter.run(f"cli:{group} {command}", units=request_meter.cli_units(rest), emit="stderr", budget=budget_override,
+                               sweep=request_meter.is_sweep_command(group, command)):
+            return run_with_operator_error_handling(run_dispatch)
     finally:
         uninstall_cli_body_features()
         uninstall_site_selection()
@@ -588,6 +616,18 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         content_upload_preview(flags)
     elif route == "content:project":
         content_project(flags)
+    elif route == "content:refresh":
+        from .page_refresh.cli import content_refresh
+        content_refresh(flags)
+    elif route == "content:update-live":
+        from .page_refresh.cli import content_update_live
+        content_update_live(flags)
+    elif route == "content:inspect-page":
+        from .page_refresh.cli import content_inspect_page
+        content_inspect_page(flags)
+    elif route == "content:rerender":
+        from .page_refresh.cli import content_rerender
+        content_rerender(flags)
     elif group == "knowledge":
         {**KNOWLEDGE_COMMANDS, **WIKI_COMMANDS}[command](flags)
     elif route == "content:renditions":
@@ -629,6 +669,9 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
     elif route == "references:set-stars":
         from .references_commands import references_set_stars_on_behalf_of
         references_set_stars_on_behalf_of(flags)
+    elif route == "references:set-section":
+        from .references_commands import references_set_section
+        references_set_section(flags)
     elif route == "references:review-curation":
         references_review_curation(flags)
     elif route == "references:list-predictions":
@@ -765,6 +808,9 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
     elif route == "references:queue-predictions":
         from .references_commands import references_queue_predictions
         references_queue_predictions(flags)
+    elif route == "references:queue-enrichment":
+        from .references_commands import references_queue_enrichment
+        references_queue_enrichment(flags)
     elif route == "references:retire-citation-stubs":
         from .references_commands import references_retire_citation_stubs
         references_retire_citation_stubs(flags)
@@ -824,6 +870,17 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         stories_versions(flags)
     elif route == "stories:link-reference":
         stories_link_reference(flags)
+    elif route in ("stories:link-concept", "stories:check-links", "references:link-concept", "references:check-links"):
+        from . import concept_tags_commands
+
+        getattr(concept_tags_commands, route.replace(":", "_").replace("-", "_"))(flags)
+    elif route == "stories:link-story":
+        stories_link_story(flags)
+    elif route in ("stories:suggest-links", "stories:suggest-associations", "relations:related", "relations:search"):
+        from . import link_suggestions_commands
+
+        {"stories:suggest-links": link_suggestions_commands.stories_suggest_links, "stories:suggest-associations": link_suggestions_commands.stories_suggest_associations, "relations:related": link_suggestions_commands.relations_related,
+         "relations:search": link_suggestions_commands.relations_search}[route](flags)
     elif route == "stories:note":
         stories_note(flags)
     elif route == "stories:agent-note":
@@ -838,6 +895,18 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         stories_list(flags)
     elif route == "stories:next":
         stories_next(flags)
+    elif route == "stories:step":
+        from .story_commands import stories_step
+
+        stories_step(flags)
+    elif route == "stories:checklist-backfill":
+        from .story_commands import stories_checklist_backfill
+
+        stories_checklist_backfill(flags)
+    elif route == "stories:lens-check":
+        from .story_commands import stories_lens_check
+
+        stories_lens_check(flags)
     elif route == "stories:outline":
         from .story_writing import stories_outline
 
@@ -846,6 +915,10 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         from .story_writing import stories_draft
 
         stories_draft(flags)
+    elif route == "stories:set-stars":
+        from .story_commands import stories_set_stars
+
+        stories_set_stars(flags)
     elif route == "stories:set-slug":
         from .story_commands import stories_set_slug
 
@@ -858,6 +931,10 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         from .story_commands import stories_repair_versions
 
         stories_repair_versions(flags)
+    elif route == "stories:head-index":
+        from .story_commands import stories_head_index
+
+        stories_head_index(flags)
     elif route == "stories:move":
         from .story_commands import stories_move
 
@@ -870,6 +947,10 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         from .story_commands import stories_assign_research
 
         stories_assign_research(flags)
+    elif route == "stories:set-type":
+        from .story_commands import stories_set_type
+
+        stories_set_type(flags)
     elif route == "stories:create":
         from .story_commands import stories_create
 
@@ -978,6 +1059,10 @@ def dispatch(group: str, command: str, flags: list[str]) -> None:
         relations_import_types(flags)
     elif route == "relations:backfill":
         relations_backfill(flags)
+    elif route == "relations:migrate-concept-tags":
+        from .relations_commands import relations_migrate_concept_tags
+
+        relations_migrate_concept_tags(flags)
     elif route.startswith("ontology:"):
         from .ontology_enrichment import (
             ontology_associate,
@@ -1255,6 +1340,16 @@ def references_prepare_catalog(flags: list[str]) -> None:
     )
 
 
+def attach_previews_for_created(client, changes: list[dict]) -> int:
+    """Give each Reference a plan just created its link-preview attachment, as the signed-in intake and the router do. Newly created ones only; one
+    that fails (a page that will not answer) is logged by ``attach_preview`` and never fails the command. Returns how many were tried."""
+    from .reference_images import attach_preview
+    created = [change["expected"] for change in changes if change.get("modelName") == "Reference" and change.get("action") == "create"]
+    for reference in created:
+        attach_preview(client, reference)
+    return len(created)
+
+
 def references_register_catalog(flags: list[str]) -> None:
     options = parse_options(flags)
     apply = resolve_mutation_apply(options, "references create-from-catalog")
@@ -1274,7 +1369,8 @@ def references_register_catalog(flags: list[str]) -> None:
     apply_record_changes(client, result["changes"])
     update_newsroom_summary_after_reference_registration(client, result["changes"], result["plan"])
     from .reference_prediction_queue import request_for_created
-    request_for_created(client, result["changes"], "references\tcreate-from-catalog")   # one Cyclotron prediction per new Reference, requested once, here
+    request_for_created(client, result["changes"], "references\tcreate-from-catalog")   # one Cyclotron prediction (and the enrichment that precedes it) per new Reference, requested once, here
+    attach_previews_for_created(client, result["changes"])   # as the signed-in intake does; a video's own thumbnail still needs `capture-thumbnails`
 
 
 def references_register_catalog_split(flags: list[str]) -> None:
@@ -1324,6 +1420,7 @@ def references_register_catalog_split(flags: list[str]) -> None:
             update_newsroom_summary_after_reference_registration(client, result["changes"], result["plan"])
             from .reference_prediction_queue import request_for_created
             request_for_created(client, result["changes"], f"references\tcreate-from-catalog-split\t{bucket_name}")
+            attach_previews_for_created(client, result["changes"])
 
 
 def references_source_status(flags: list[str]) -> None:
@@ -1446,8 +1543,7 @@ def references_accession_now(flags: list[str]) -> None:
     if not options.get("reference"):
         raise ValueError("references process-accession-now requires --reference <reference-id>.")
     client, auth = create_authoring_client()
-    references = client.list_records("Reference")
-    reference = find_reference_for_source_accession(references, options["reference"])
+    reference = find_reference_for_source_accession(reference_by_token(client, options["reference"]), options["reference"])
     if not reference:
         raise ValueError(f"Reference {options['reference']} was not found.")
     steering_config = load_steering_config(options.get("config")) or require_steering_config()
@@ -1457,7 +1553,7 @@ def references_accession_now(flags: list[str]) -> None:
         options.get("corpus-key"),
     )
     corpus_id = knowledge_corpus_id(corpus_config)
-    attachments = client.list_records("ReferenceAttachment")
+    attachments = attachments_for_references(client, [reference])
     assignments = client.list_records("Assignment")
     readiness = reference_source_readiness(reference, attachments, None)
     if readiness["state"] != SOURCE_READINESS_STATES["URL_ONLY"]:
@@ -1527,8 +1623,9 @@ def plan_reference_catalog_registration(client, options: dict[str, Any]) -> dict
         persist=bool(options.get("__apply") and catalog_path),
     )
     catalog = {**catalog, "items": catalog_items_with_external_ids(catalog)}
+    existing = None
     if options.get("skip-existing", True) is not False and str(options.get("skip-existing", "true")).lower() != "false":
-        existing = client.list_records("Reference")
+        existing = client.list_records("Reference")   # read once: the identity gate below uses this same listing
         corpus_id = knowledge_corpus_id(corpus_config)
         existing_ids = {
             ref["externalItemId"]
@@ -1551,7 +1648,7 @@ def plan_reference_catalog_registration(client, options: dict[str, Any]) -> dict
     registration_status = normalize_reference_curation_status(options.get("status"), "pending")
     skipping_existing = options.get("skip-existing", True) is not False and str(options.get("skip-existing", "true")).lower() != "false"
     fresh_items, identity_rows = split_by_identity(
-        IdentityIndex(client.list_records("Reference")), catalog_items(catalog), corpus_id=registration_corpus_id, status=registration_status,
+        IdentityIndex(existing if existing is not None else client.list_records("Reference")), catalog_items(catalog), corpus_id=registration_corpus_id, status=registration_status,
         reimport_lineage_of=None if skipping_existing else lambda item: reference_lineage_id_for(
             registration_corpus_id, str(item.get("item_id") or item.get("externalItemId") or item.get("id") or "")))
     if identity_rows:
@@ -1663,9 +1760,9 @@ def fetch_reference_url_text_after_registration(
     )
     if not reference_ids:
         return {"lines": ["references\tprocess-fetch-url-text\tskipped\tno GraphQL Reference changes"]}
-    references = client.list_records("Reference")
-    attachments = client.list_records("ReferenceAttachment")
-    semantic_relations = client.list_records("SemanticRelation")
+    # The References this registration just wrote, and nothing else; the whole tables are read only if a citation graph needs them.
+    scope = targeted_scope(client, reference_ids=reference_ids)
+    references, attachments, semantic_relations = scope["references"], scope["attachments"], scope["relations"]
     corpus_config = result.get("corpusConfig") or {}
     corpus_id = result.get("plan", {}).get("corpusId")
     max_count = normalize_non_negative_integer(options.get("url-text-max-count"), "--url-text-max-count")
@@ -1674,6 +1771,7 @@ def fetch_reference_url_text_after_registration(
     extraction = run_reference_url_text_extraction(
         client=client,
         references=references,
+        all_references=scope["all_references"],
         attachments=attachments,
         semantic_relations=semantic_relations,
         corpus_key_by_id={str(corpus_id or ""): str(corpus_config.get("key") or "")},
@@ -1740,8 +1838,8 @@ def generate_reference_metadata_after_registration(
     )
     if not reference_ids:
         return {"lines": ["references\tprocess-generate-metadata\tskipped\tno GraphQL Reference changes"]}
-    references = client.list_records("Reference")
-    attachments = client.list_records("ReferenceAttachment")
+    scope = targeted_scope(client, reference_ids=reference_ids)
+    references, attachments = scope["references"], scope["attachments"]
     corpus_id = result.get("plan", {}).get("corpusId")
     max_count = normalize_non_negative_integer(options.get("metadata-max-count"), "--metadata-max-count")
     generation = run_reference_metadata_generation_from_extracted_text(
@@ -1902,7 +2000,7 @@ def print_usage() -> None:
     print("  content adopt-tenant-data --tenant ID [--apply] [--json]  (dry run unless --apply; adopts pre-tenant rows),")
     print("  content import-markus --content-dir DIR [--article-dirs a,b] [--draft-dirs drafts=articles] [--aliases-file F] [--image-source-dir D] [--bucket B] [--tenant ID] [--no-publish] [--force] [--dry-run] [--rebuild-app-id ID] [--json],")
     print("  content publish-gate show | set --approval required|not_required [--dry-run] [--json]  (the site's publish approval setting; default not_required),")
-    print("  content publish|unpublish (--id <item-id> | --slug <slug> [--section <s>]) [--dry-run] [--no-trigger] [--rebuild-app-id ID] [--rebuild-branch B] [--json]  (s3-projection sites also project the pages; the kind and the content-actions function come from amplify_outputs.json, PAPYRUS_PUBLICATION_KIND and PAPYRUS_CONTENT_ACTIONS_FUNCTION override; with no function it runs locally; signed in with `papyrus login` it asks the newsroom's publishItem/unpublishItem mutation instead; a failed projection exits 1 with the data published and the page not, and the retry command; publish refuses a placeholder draft-<section>-<hash> slug: run `stories set-slug` first),")
+    print("  content publish|unpublish (--id <item-id> | --slug <slug> [--section <s>]) [--dry-run] [--no-trigger] [--rebuild-app-id ID] [--rebuild-branch B] [--json]  (s3-projection sites also project the pages; the kind and the content-actions function come from amplify_outputs.json, PAPYRUS_PUBLICATION_KIND and PAPYRUS_CONTENT_ACTIONS_FUNCTION override; with no function it runs locally; signed in with `papyrus login` it asks the newsroom's publishItem/unpublishItem mutation instead; each stage (saved, projected, cache invalidated, publicly verified) is reported on its own, --verify [--verify-seconds N] waits for the public page, and the exit code names the failed stage: 1 save, 3 checklist open (--json lists openSteps), 4 page not built, 5 page still building, 6 cache not purged, 7 public page stale (docs/site-hosting.md); publish refuses a placeholder draft-<section>-<hash> slug: run `stories set-slug` first),")
     print("  content rebuild (--reader | --staging) [--app-id ID] [--branch B],")
     print("  cyclotron export-priming --publication ID --corpus-key KEY [--include-unlabeled] [--out FILE]  (read-only: a publication's editor labels as JSON Lines for a Cyclotron's priming import),")
     print("  cyclotron export-examples --classifier reference-link-fit|idea-pack-fit --corpus-id ID [--split train|held-out|all] [--held-out-share 0.3] [--out FILE]  (read-only: decisions people made as labeled examples, with their reasons, for the site Cyclotron's retraining round),")

@@ -5,19 +5,27 @@
  */
 
 #include "common_header.h"
+#include "pyutils.h"
 #include "convertors/type_casters.h"
 
 void export_attribute_proxy(py::module_ &m) {
     py::class_<Tango::AttributeProxy, std::shared_ptr<Tango::AttributeProxy>>(m, "__AttributeProxy")
-        .def(py::init<const Tango::AttributeProxy &>(), py::arg("attribute_proxy")) // Copy constructor
+        .def(py::init([](const Tango::AttributeProxy &attribute_proxy) {
+                 py::gil_scoped_release no_gil{};
+                 return std::shared_ptr<Tango::AttributeProxy>(
+                     new Tango::AttributeProxy(attribute_proxy), DeleterWithoutGIL());
+             }),
+             py::arg("attribute_proxy"))
         .def(py::init([](const std::string &name) {
-                 py::gil_scoped_release no_gil;
-                 return new Tango::AttributeProxy(name.c_str());
+                 py::gil_scoped_release no_gil{};
+                 return std::shared_ptr<Tango::AttributeProxy>(
+                     new Tango::AttributeProxy(name.c_str()), DeleterWithoutGIL());
              }),
              py::arg("name"))
-        .def(py::init([](const Tango::DeviceProxy *dev, const std::string &name) {
-                 py::gil_scoped_release no_gil;
-                 return new Tango::AttributeProxy(dev, name.c_str());
+        .def(py::init([](const Tango::DeviceProxy *device_proxy, const std::string &name) {
+                 py::gil_scoped_release no_gil{};
+                 return std::shared_ptr<Tango::AttributeProxy>(
+                     new Tango::AttributeProxy(device_proxy, name.c_str()), DeleterWithoutGIL());
              }),
              py::arg("device_proxy"),
              py::arg("name"))
@@ -38,7 +46,9 @@ void export_attribute_proxy(py::module_ &m) {
                     throw std::runtime_error("Invalid state!");
                 }
                 std::string trl = py_tuple[0].cast<std::string>();
-                return Tango::AttributeProxy(trl.c_str());
+                py::gil_scoped_release no_gil{};
+                return std::shared_ptr<Tango::AttributeProxy>(
+                    new Tango::AttributeProxy(trl.c_str()), DeleterWithoutGIL());
             }))
 
         //
@@ -63,21 +73,28 @@ void export_attribute_proxy(py::module_ &m) {
         //
         .def("_get_property",
              py::overload_cast<const std::string &, Tango::DbData &>(&Tango::AttributeProxy::get_property),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("propname"),
              py::arg("propdata"))
 
         .def("_get_property",
              py::overload_cast<const std::vector<std::string> &, Tango::DbData &>(&Tango::AttributeProxy::get_property),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("propnames"),
              py::arg("propdata"))
 
         .def("_get_property",
              py::overload_cast<Tango::DbData &>(&Tango::AttributeProxy::get_property),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("propdata"))
 
-        .def("_put_property", &Tango::AttributeProxy::put_property, py::arg("propdata"))
+        .def("_put_property",
+             &Tango::AttributeProxy::put_property,
+             py::call_guard<py::gil_scoped_release>(),
+             py::arg("propdata"))
 
         .def("_delete_property",
              py::overload_cast<const Tango::DbData &>(&Tango::AttributeProxy::delete_property),
+             py::call_guard<py::gil_scoped_release>(),
              py::arg("propdata"));
 }

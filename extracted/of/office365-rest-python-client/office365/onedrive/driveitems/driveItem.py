@@ -6,7 +6,7 @@ from functools import partial
 from io import IOBase
 from os import PathLike
 from os.path import isfile, join
-from typing import IO, TYPE_CHECKING, AnyStr, AsyncIterator, Callable, Optional
+from typing import IO, AnyStr, AsyncIterator, Callable, Optional
 
 import requests
 from requests import Response
@@ -14,17 +14,19 @@ from typing_extensions import Self
 
 from office365.delta_collection import DeltaCollection
 from office365.delta_path import DeltaPath
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity_collection import EntityCollection
 from office365.onedrive.analytics.item_activity_stat import ItemActivityStat
 from office365.onedrive.analytics.item_analytics import ItemAnalytics
 from office365.onedrive.base_item import BaseItem
 from office365.onedrive.driveitems.audio import Audio
+from office365.onedrive.driveitems.bundle import Bundle
 from office365.onedrive.driveitems.conflict_behavior import ConflictBehavior
 from office365.onedrive.driveitems.copy_result import DriveItemCopyResult
 from office365.onedrive.driveitems.geo_coordinates import GeoCoordinates
 from office365.onedrive.driveitems.image import Image
 from office365.onedrive.driveitems.item_preview_info import ItemPreviewInfo
+from office365.onedrive.driveitems.malware import Malware
+from office365.onedrive.driveitems.package import Package
 from office365.onedrive.driveitems.photo import Photo
 from office365.onedrive.driveitems.publication_facet import PublicationFacet
 from office365.onedrive.driveitems.remote_item import RemoteItem
@@ -34,6 +36,7 @@ from office365.onedrive.driveitems.thumbnail_set import ThumbnailSet
 from office365.onedrive.driveitems.uploadable_properties import (
     DriveItemUploadableProperties,
 )
+from office365.onedrive.driveitems.video import Video
 from office365.onedrive.drives.recipient import DriveRecipient
 from office365.onedrive.files.file import File
 from office365.onedrive.files.system_info import FileSystemInfo
@@ -45,6 +48,7 @@ from office365.onedrive.listitems.list_item import ListItem
 from office365.onedrive.operations.pending import PendingOperations
 from office365.onedrive.permissions.collection import PermissionCollection
 from office365.onedrive.permissions.permission import Permission
+from office365.onedrive.root import Root
 from office365.onedrive.sensitivitylabels.assignment_method import (
     SensitivityLabelAssignmentMethod,
 )
@@ -54,6 +58,7 @@ from office365.onedrive.sensitivitylabels.extract_result import (
 from office365.onedrive.shares.shared import Shared
 from office365.onedrive.versions.drive_item import DriveItemVersion
 from office365.onedrive.workbooks.workbook import Workbook
+from office365.permissions import require_permission
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -67,18 +72,12 @@ from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.queries.upload_session import UploadSessionQuery
+from office365.runtime.transfer import UPLOAD_CHUNK_DEFAULT, check_chunk_size
 from office365.runtime.transport.base import HeadersCallback
 from office365.runtime.transport.offload import get_offload_executor, run_offloaded
 from office365.runtime.types.odata_property import odata
+from office365.search.search_result import SearchResult
 from office365.subscriptions.collection import SubscriptionCollection
-
-if TYPE_CHECKING:
-    from office365.onedrive.driveitems.bundle import Bundle
-    from office365.onedrive.driveitems.malware import Malware
-    from office365.onedrive.driveitems.package import Package
-    from office365.onedrive.driveitems.video import Video
-    from office365.onedrive.root import Root
-    from office365.search.search_result import SearchResult
 
 
 class DriveItem(BaseItem):
@@ -101,6 +100,10 @@ class DriveItem(BaseItem):
         """Retrieve drive item metadata"""
         return super().get()
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     def assign_sensitivity_label(
         self,
         sensitivity_label_id: str,
@@ -134,6 +137,17 @@ class DriveItem(BaseItem):
         self.retention_label.update()
         return self
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def get_files(
         self,
         recursive: bool = False,
@@ -181,6 +195,17 @@ class DriveItem(BaseItem):
         self.context.add_query(placeholder).after_execute(lambda _: _get_files(self))
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def get_folders(
         self,
         recursive: bool = False,
@@ -462,6 +487,10 @@ class DriveItem(BaseItem):
             self.context.before_execute(prefer_bypass_shared_lock, once=True)
         return self
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     def extract_sensitivity_labels(
         self,
     ) -> ClientResult[ExtractSensitivityLabelsResult]:
@@ -530,10 +559,14 @@ class DriveItem(BaseItem):
         self.context.add_query(qry)
         return self
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     def resumable_upload(
         self,
         source_path: str,
-        chunk_size: int = 2000000,
+        chunk_size: int = UPLOAD_CHUNK_DEFAULT,
         chunk_uploaded: Callable[[int], None] | None = None,
     ) -> DriveItem:
         """Create an upload session to allow your app to upload files up to the maximum file size.
@@ -547,8 +580,12 @@ class DriveItem(BaseItem):
         Args:
             chunk_uploaded:
             source_path (str): File path
-            chunk_size (int): chunk size
+            chunk_size (int): bytes per chunk; positive multiple of 320 KiB, at most 60 MiB (default 10 MiB)
+
+        Raises:
+            ValueError: If ``chunk_size`` is not a positive multiple of 320 KiB or exceeds 60 MiB.
         """
+        check_chunk_size(chunk_size)
 
         def _start_upload(result: Response) -> None:
             with open(source_path, "rb") as local_file:
@@ -562,10 +599,14 @@ class DriveItem(BaseItem):
         self.context.add_query(qry).after_execute(_start_upload)
         return return_type
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     async def resumable_upload_async(
         self,
         source_path: str,
-        chunk_size: int = 2000000,
+        chunk_size: int = UPLOAD_CHUNK_DEFAULT,
         chunk_uploaded: Callable[[int], None] | None = None,
         progress: ProgressCallback | None = None,
     ) -> DriveItem:
@@ -583,7 +624,7 @@ class DriveItem(BaseItem):
         Args:
             source_path (str): Local file path to upload.
             chunk_size (int): Number of bytes per chunk. Graph requires a
-                multiple of 320 KiB, which the default (2 MB) satisfies.
+                positive multiple of 320 KiB, at most 60 MiB; the default is 10 MiB.
             chunk_uploaded: Optional ``(bytes_uploaded) -> None`` callback invoked
                 after each accepted chunk.
             progress: Optional ``ProgressCallback`` invoked per chunk with a
@@ -592,7 +633,11 @@ class DriveItem(BaseItem):
 
         Returns:
             DriveItem: The uploaded item.
+
+        Raises:
+            ValueError: If ``chunk_size`` is not a positive multiple of 320 KiB or exceeds 60 MiB.
         """
+        check_chunk_size(chunk_size)
         file_name = os.path.basename(source_path)
         return_type = DriveItem(self.context, UrlPath(file_name, self.resource_path))
 
@@ -699,6 +744,10 @@ class DriveItem(BaseItem):
         _upload_folder(path, self)
         return self
 
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+    )
     def get_content(self, format_name: str | None = None) -> ClientResult[AnyStr]:
         """Download the contents of the primary stream (file) of a DriveItem.
         Only driveItems with the file property can be downloaded.
@@ -848,7 +897,7 @@ class DriveItem(BaseItem):
         def _construct_request(request: RequestOptions) -> None:
             request.stream = True
 
-        def _process_response(response: requests.Response) -> None:
+        def _handle_response(response: requests.Response) -> None:
             bytes_read = 0
             for chunk in response.iter_content(chunk_size=chunk_size):
                 bytes_read += len(chunk)
@@ -856,7 +905,7 @@ class DriveItem(BaseItem):
                     chunk_downloaded(bytes_read)
                 file_object.write(chunk)
 
-        self.get_content().before_execute(_construct_request).after_execute(_process_response, include_response=True)
+        self.get_content().before_execute(_construct_request).after_execute(_handle_response, include_response=True)
         return self
 
     async def download_session_async(
@@ -1011,7 +1060,7 @@ class DriveItem(BaseItem):
             def _create_request(request: RequestOptions) -> None:
                 request.url += f"?@microsoft.graph.conflictBehavior={conflict_behavior.value}"
 
-            def _process_response(resp: requests.Response) -> None:
+            def _handle_response(resp: requests.Response) -> None:
                 location = resp.headers.get("Location", None)
                 if location is None:
                     return
@@ -1020,7 +1069,7 @@ class DriveItem(BaseItem):
             payload = {"name": name, "parentReference": parent_reference}
             qry = ServiceOperationQuery(self, "copy", None, payload, None, return_type)
             self.context.add_query(qry).before_execute(_create_request).after_execute(
-                _process_response, include_response=True
+                _handle_response, include_response=True
             )
 
         if isinstance(parent, DriveItem):
@@ -1158,6 +1207,17 @@ class DriveItem(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def get_activities_by_interval(
         self,
         start_dt: datetime | None = None,
@@ -1221,6 +1281,17 @@ class DriveItem(BaseItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+    )
     def preview(self, page: str | int, zoom: int | None = None) -> ClientResult[ItemPreviewInfo]:
         """This action allows you to obtain a short-lived embeddable URL for an item in order
         to render a temporary preview.
@@ -1258,11 +1329,13 @@ class DriveItem(BaseItem):
         self.context.add_query(qry)
         return self
 
+    @odata(name="audio")
     @property
     def audio(self) -> Audio:
         """Audio metadata, if the item is an audio file. Read-only."""
         return self.properties.get("audio", Audio())
 
+    @odata(name="image")
     @property
     def image(self) -> Image:
         """
@@ -1270,11 +1343,13 @@ class DriveItem(BaseItem):
         """
         return self.properties.get("image", Image())
 
+    @odata(name="photo")
     @property
     def photo(self) -> Photo:
         """Photo metadata, if the item is a photo. Read-only."""
         return self.properties.get("photo", Photo())
 
+    @odata(name="location")
     @property
     def location(self) -> GeoCoordinates:
         """Location metadata, if the item has location data"""
@@ -1286,11 +1361,13 @@ class DriveItem(BaseItem):
         """File system information on client."""
         return self.properties.get("fileSystemInfo", FileSystemInfo())
 
+    @odata(name="folder")
     @property
     def folder(self) -> Folder:
         """Folder metadata, if the item is a folder."""
         return self.properties.get("folder", Folder())
 
+    @odata(name="file")
     @property
     def file(self) -> File:
         """File metadata, if the item is a file."""
@@ -1306,22 +1383,26 @@ class DriveItem(BaseItem):
         """Determines whether the provided drive item is file facet"""
         return self.is_property_available("file")
 
+    @odata(name="size")
     @property
     def size(self) -> int | None:
         """File metadata, if the item is a file."""
         return self.properties.get("size", None)
 
+    @odata(name="shared")
     @property
     def shared(self) -> Shared:
         """Indicates that the item has been shared with others and provides information about the shared state
         of the item. Read-only."""
         return self.properties.get("shared", Shared())
 
+    @odata(name="webDavUrl")
     @property
     def web_dav_url(self) -> str | None:
         """WebDAV compatible URL for the item."""
         return self.properties.get("webDavUrl", None)
 
+    @odata(name="children", navigation=True)
     @property
     @require_permission(
         delegated=[
@@ -1346,6 +1427,7 @@ class DriveItem(BaseItem):
             DriveItemCollection(self.context, ChildrenPath(self.resource_path)),
         )
 
+    @odata(name="listItem", navigation=True)
     @property
     def listItem(self) -> ListItem:
         """For drives in SharePoint, the associated document library list item."""
@@ -1354,6 +1436,7 @@ class DriveItem(BaseItem):
             ListItem(self.context, ResourcePath("listItem", self.resource_path)),
         )
 
+    @odata(name="workbook", navigation=True)
     @property
     def workbook(self) -> Workbook:
         """For files that are Excel spreadsheets, accesses the workbook API to work with the spreadsheet's contents."""
@@ -1362,12 +1445,14 @@ class DriveItem(BaseItem):
             Workbook(self.context, ResourcePath("workbook", self.resource_path)),
         )
 
+    @odata(name="pendingOperations")
     @property
     def pending_operations(self) -> PendingOperations:
         """If present, indicates that one or more operations that might affect the state of the driveItem are pending
         completion. Read-only."""
         return self.properties.get("pendingOperations", PendingOperations())
 
+    @odata(name="permissions", navigation=True)
     @property
     def permissions(self) -> PermissionCollection:
         """The set of permissions for the item. Read-only. Nullable."""
@@ -1376,6 +1461,7 @@ class DriveItem(BaseItem):
             PermissionCollection(self.context, ResourcePath("permissions", self.resource_path)),
         )
 
+    @odata(name="retentionLabel", navigation=True)
     @property
     def retention_label(self) -> ItemRetentionLabel:
         """Information about retention label and settings enforced on the driveItem."""
@@ -1384,6 +1470,7 @@ class DriveItem(BaseItem):
             ItemRetentionLabel(self.context, ResourcePath("retentionLabel", self.resource_path)),
         )
 
+    @odata(name="publication")
     @property
     def publication(self) -> PublicationFacet:
         """Provides information about the published or checked-out state of an item,
@@ -1403,6 +1490,7 @@ class DriveItem(BaseItem):
         """If the current item is also available as a special folder, this facet is returned. Read-only."""
         return self.properties.get("specialFolder", SpecialFolder())
 
+    @odata(name="versions", navigation=True)
     @property
     def versions(self) -> EntityCollection[DriveItemVersion]:
         """The list of previous versions of the item. For more info, see getting previous versions.
@@ -1416,6 +1504,7 @@ class DriveItem(BaseItem):
             ),
         )
 
+    @odata(name="thumbnails", navigation=True)
     @property
     def thumbnails(self) -> EntityCollection[ThumbnailSet]:
         """Collection containing ThumbnailSet objects associated with the item. For more info, see getting thumbnails.
@@ -1429,6 +1518,7 @@ class DriveItem(BaseItem):
             ),
         )
 
+    @odata(name="analytics", navigation=True)
     @property
     def analytics(self) -> ItemAnalytics:
         """Analytics about the view activities that took place on this item."""
@@ -1457,6 +1547,7 @@ class DriveItem(BaseItem):
             DeltaCollection(self.context, DriveItem, DeltaPath(self.resource_path)),
         )
 
+    @odata(name="subscriptions", navigation=True)
     @property
     def subscriptions(self) -> SubscriptionCollection:
         """The set of subscriptions on the driveItem."""
@@ -1469,58 +1560,55 @@ class DriveItem(BaseItem):
     def property_ref_name(self) -> str:
         return "id"
 
+    @odata(name="bundle")
     @property
     def bundle(self) -> Bundle:
         """Gets the bundle property"""
-        from office365.onedrive.driveitems.bundle import Bundle
-
         return self.properties.get("bundle", Bundle())
 
+    @odata(name="content")
     @property
     def content(self) -> Optional[bytes]:
         """Gets the content property"""
         return self.properties.get("content", None)
 
+    @odata(name="cTag")
     @property
     def ctag(self) -> Optional[str]:
         """Gets the cTag property"""
         return self.properties.get("cTag", None)
 
+    @odata(name="malware")
     @property
     def malware(self) -> Malware:
         """Gets the malware property"""
-        from office365.onedrive.driveitems.malware import Malware
-
         return self.properties.get("malware", Malware())
 
+    @odata(name="package")
     @property
     def package(self) -> Package:
         """Gets the package property"""
-        from office365.onedrive.driveitems.package import Package
-
         return self.properties.get("package", Package())
 
+    @odata(name="root")
     @property
     def root(self) -> Root:
         """Gets the root property"""
-        from office365.onedrive.root import Root
-
         return self.properties.get("root", Root())
 
+    @odata(name="searchResult")
     @property
     def search_result(self) -> SearchResult:
         """Gets the searchResult property"""
-        from office365.search.search_result import SearchResult
-
         return self.properties.get("searchResult", SearchResult())
 
+    @odata(name="video")
     @property
     def video(self) -> Video:
         """Gets the video property"""
-        from office365.onedrive.driveitems.video import Video
-
         return self.properties.get("video", Video())
 
+    @odata(name="listItem", navigation=True)
     @property
     def list_item(self) -> ListItem:
         """Gets the listItem property"""

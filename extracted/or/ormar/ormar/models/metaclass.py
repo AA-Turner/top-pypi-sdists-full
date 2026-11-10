@@ -1,5 +1,4 @@
 import copy
-import dataclasses
 import sys
 import warnings
 from pathlib import Path
@@ -29,10 +28,12 @@ from ormar.models.descriptors import (
 )
 from ormar.models.descriptors.descriptors import BytesDescriptor
 from ormar.models.helpers import (
+    building_schemas,
     check_required_config_parameters,
     config_field_not_set,
     expand_reverse_relationships,
     extract_annotations_and_default_vals,
+    get_namespace_annotations,
     get_potential_fields,
     merge_or_generate_pydantic_config,
     modify_schema_example,
@@ -44,6 +45,7 @@ from ormar.models.helpers import (
 from ormar.models.ormar_config import OrmarConfig
 from ormar.models.quick_access_views import quick_access_set
 from ormar.queryset import FieldAccessor, QuerySet
+from ormar.queryset.field_accessor import key_accessor
 from ormar.signals import Signal
 
 if TYPE_CHECKING:  # pragma no cover
@@ -178,8 +180,8 @@ def get_constraint_copy(
     Copy the constraint and unpacking it's values
 
     :raises ValueError: if non subclass of ColumnCollectionConstraint
-    :param value: an instance of the ColumnCollectionConstraint class
-    :type value: Instance of ColumnCollectionConstraint child
+    :param constraint: an instance of the ColumnCollectionConstraint class
+    :type constraint: Instance of ColumnCollectionConstraint child
     :return: copy ColumnCollectionConstraint ormar constraints
     :rtype: Union[UniqueColumns, IndexColumns, CheckColumns]
     """
@@ -214,7 +216,13 @@ def update_attrs_from_base_config(  # noqa: CCR001
     :type model_fields: dict[str, BaseField]
     """
 
-    params_to_update = ["metadata", "database", "constraints", "property_fields"]
+    params_to_update = [
+        "metadata",
+        "database",
+        "constraints",
+        "property_fields",
+        "view",
+    ]
     for param in params_to_update:
         current_value = attrs.get("ormar_config", {}).__dict__.get(
             param, ormar.Undefined
@@ -274,6 +282,16 @@ def copy_and_replace_m2m_through_model(  # noqa: CFQ002
     :param ormar_config: metaclass of currently created model
     :type ormar_config: OrmarConfig
     """
+    if field.through and any(
+        through_field.is_relation and not through_field.virtual
+        for through_field in field.through.ormar_config.model_fields.values()
+    ):
+        raise ModelDefinitionError(
+            f"Many to many relation {field_name} uses the link table "
+            f"{field.through.get_name(lower=False)} that declares its own relations, "
+            "it cannot be inherited from an abstract model yet; declare it on the "
+            "concrete model."
+        )
     Field: type[BaseField] = type(  # type: ignore
         field.__class__.__name__, (ManyToManyField, BaseField), {}
     )
@@ -295,9 +313,11 @@ def copy_and_replace_m2m_through_model(  # noqa: CFQ002
         extra=through_class.ormar_config.extra,
         constraints=through_class.ormar_config.constraints,
         order_by=through_class.ormar_config.orders_by,
+        view=through_class.ormar_config.view,
+        partial_updates=through_class.ormar_config.partial_updates,
     )
-    new_config.table = through_class.ormar_config.pkname  # type: ignore
-    new_config.pkname = through_class.ormar_config.pkname
+    # a set table keeps the copy from registering one in metadata on creation
+    new_config.table = through_class.ormar_config.table
     new_config.signals = through_class.ormar_config.signals
     new_config.requires_ref_update = through_class.ormar_config.requires_ref_update
     new_config.model_fields = copy.deepcopy(through_class.ormar_config.model_fields)
@@ -419,9 +439,7 @@ def copy_data_from_parent_model(  # noqa: CCR001
                     base_class=base_class,  # type: ignore
                 )
 
-            elif field.is_relation and (
-                field.related_name or cast(ForeignKeyField, field).foreign_key_name
-            ):
+            elif field.is_relation:
                 fk_field = cast(ForeignKeyField, field)
                 Field = type(  # type: ignore
                     field.__class__.__name__, (ForeignKeyField, BaseField), {}
@@ -433,10 +451,6 @@ def copy_data_from_parent_model(  # noqa: CCR001
                 if fk_field.foreign_key_name:
                     new_fk_name = f"{fk_field.foreign_key_name}_{table_name}"
                     copy_field.foreign_key_name = new_fk_name  # type: ignore
-                    copy_field.constraints = [
-                        dataclasses.replace(constraint, name=new_fk_name)
-                        for constraint in fk_field.constraints
-                    ]
                 parent_fields[field_name] = copy_field
             else:
                 parent_fields[field_name] = field
@@ -504,7 +518,9 @@ def extract_from_parents_definition(  # noqa: CCR001
     potential_fields = get_potential_fields(base_class.__dict__)
     if potential_fields:
         # parent model has ormar fields defined and was not parsed before
-        new_attrs = {key: {k: v for k, v in base_class.__dict__.get(key, {}).items()}}
+        new_attrs = {
+            key: dict(get_namespace_annotations(namespace=base_class.__dict__))
+        }
         new_attrs.update(potential_fields)
 
         new_fields = set(potential_fields.keys())
@@ -588,12 +604,13 @@ def wire_proxy_from_parent(new_model: type["Model"]) -> None:
     cfg = new_model.ormar_config
     cfg.table = parent_cfg.table
     cfg.tablename = parent_cfg.tablename
-    cfg.pkname = parent_cfg.pkname
+    cfg.pk = parent_cfg.pk.rebind(owner=new_model)
+    cfg.view = parent_cfg.view
     cfg.columns = parent_cfg.columns
     cfg.model_fields = parent_cfg.model_fields
     cfg.metadata = parent_cfg.metadata
     cfg.database = parent_cfg.database
-    new_model.pk = PkDescriptor(name=parent_cfg.pkname)
+    new_model.pk = PkDescriptor(key=cfg.pk)
 
 
 def add_field_descriptor(
@@ -648,7 +665,7 @@ def get_serializer() -> Callable:
                 # 2.11 floor pinned in CI.
                 if value is None or not hasattr(value, "ormar_config"):
                     return None  # pragma: no cover
-                return {value.ormar_config.pkname: value.pk}
+                return value.reference_dict()
         except ReferenceError:
             return None
 
@@ -683,7 +700,7 @@ class ModelMetaclass(pydantic._internal._model_construction.ModelMetaclass):
 
         If class has ormar_config declared (so actual ormar Models) it also:
 
-        * populate sqlalchemy columns, pkname and tables from model_fields
+        * populate sqlalchemy columns, primary key and tables from model_fields
         * register reverse relationships on related models
         * exposes alias manager on each Model
         * creates QuerySet for each model and exposes it on a class
@@ -716,16 +733,17 @@ class ModelMetaclass(pydantic._internal._model_construction.ModelMetaclass):
                     )(get_serializer())
                     attrs[f"serialize_{field_name}"] = decorator
 
-        new_model = super().__new__(
-            mcs,  # type: ignore
-            name,
-            bases,
-            attrs,
-            __pydantic_generic_metadata__=__pydantic_generic_metadata__,
-            __pydantic_reset_parent_namespace__=__pydantic_reset_parent_namespace__,
-            _create_model_module=_create_model_module,
-            **kwargs,
-        )
+        with building_schemas():
+            new_model = super().__new__(
+                mcs,  # type: ignore
+                name,
+                bases,
+                attrs,
+                __pydantic_generic_metadata__=__pydantic_generic_metadata__,
+                __pydantic_reset_parent_namespace__=__pydantic_reset_parent_namespace__,
+                _create_model_module=_create_model_module,
+                **kwargs,
+            )
 
         add_cached_properties(new_model)
 
@@ -747,19 +765,18 @@ class ModelMetaclass(pydantic._internal._model_construction.ModelMetaclass):
                         name=field_name, field=field, new_model=new_model
                     )
 
-                if (
-                    new_model.ormar_config.pkname
-                    and new_model.ormar_config.pkname not in attrs["__annotations__"]
-                    and new_model.ormar_config.pkname not in new_model.model_fields
-                ):
-                    field_name = new_model.ormar_config.pkname
-                    new_model.model_fields[field_name] = (
-                        FieldInfo.from_annotated_attribute(
-                            Optional[int],  # type: ignore
-                            None,
+                for field_name in new_model.ormar_config.pk.fields:
+                    if (
+                        field_name not in attrs["__annotations__"]
+                        and field_name not in new_model.model_fields
+                    ):
+                        new_model.model_fields[field_name] = (
+                            FieldInfo.from_annotated_attribute(
+                                Optional[int],  # type: ignore
+                                None,
+                            )
                         )
-                    )
-                new_model.pk = PkDescriptor(name=new_model.ormar_config.pkname)
+                new_model.pk = PkDescriptor(key=new_model.ormar_config.pk)
 
             if not (
                 new_model.ormar_config.abstract
@@ -809,7 +826,11 @@ class ModelMetaclass(pydantic._internal._model_construction.ModelMetaclass):
         ):
             raise AttributeError()
         if item == "pk":
-            item = self.ormar_config.pkname
+            return key_accessor(
+                source_model=cast(type["Model"], self),
+                model=cast(type["Model"], self),
+                prefix="",
+            )
         if item in object.__getattribute__(self, "ormar_config").model_fields:
             field = self.ormar_config.model_fields.get(item)
             if field.is_relation:

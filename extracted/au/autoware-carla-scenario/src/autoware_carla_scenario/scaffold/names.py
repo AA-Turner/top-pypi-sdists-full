@@ -58,6 +58,25 @@ def _normalise_distribution(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+#: The scenarios the framework registers itself (``examples.run`` does, at
+#: import), which a generated package may not take (#1802).  A plugin that
+#: registers one of these names replaces the built-in builder, while Hydra
+#: still finds the built-in's configs first: ``scenario=lane_change/left``
+#: then hands ``LaneChangeConfig``'s keys to the plugin's scenario.  A plain
+#: constant, so ``scenario-new`` need not import the runner (and CARLA) to
+#: read it; ``test_scaffold.py`` checks it against the registry the runner
+#: fills, so it cannot go stale.
+BUILTIN_SCENARIO_NAMES = (
+    "adversity",
+    "cut_in",
+    "intersection_passing",
+    "lane_change",
+    "pedestrian_dart_out",
+    "temporary_stop",
+    "traffic_light_compliance",
+)
+
+
 #: The framework's distribution name, which a generated package depends on.
 _FRAMEWORK_DISTRIBUTION = "autoware-carla-scenario"
 
@@ -82,6 +101,47 @@ def _validate_identifier(name: str, *, kind: str) -> str:
         raise ValueError(msg)
     if not name.isidentifier() or keyword.iskeyword(name):
         msg = f"{kind} {name!r} is not a valid Python identifier."
+        raise ValueError(msg)
+    return name
+
+
+#: The scenario names ``scenario-new`` accepts, and the ids the Scenario
+#: Editor gives a scenario and its objects (:mod:`authoring.models`, #1858):
+#: a lower-case ASCII letter, then lower-case ASCII letters, digits and
+#: ``_``.  Hydra's override grammar allows only ASCII letters in an id, so
+#: ``scenario=café/default`` fails to parse; a Python identifier
+#: (``str.isidentifier``) may be any Unicode word.  :func:`_is_scenario_name`
+#: is the same rule without :mod:`re`.
+SCENARIO_NAME_PATTERN = r"^[a-z][a-z0-9_]*$"
+
+
+def _is_scenario_name(name: str) -> bool:
+    """Return whether *name* matches :data:`SCENARIO_NAME_PATTERN`.
+
+    A character loop rather than :mod:`re`, so a trailing newline, which
+    ``$`` would let through, is refused too.
+    """
+    if not name or not "a" <= name[0] <= "z":
+        return False
+    for char in name:
+        if not ("a" <= char <= "z" or "0" <= char <= "9" or char == "_"):
+            return False
+    return True
+
+
+def _validate_scenario_name(name: str) -> str:
+    """Return *name* if Hydra's override grammar can select it, else raise.
+
+    *name* is a scenario name after :func:`_to_snake` (and
+    :func:`_validate_identifier`); see :data:`SCENARIO_NAME_PATTERN`.
+    """
+    if not _is_scenario_name(name):
+        msg = (
+            f"scenario name {name!r} must match {SCENARIO_NAME_PATTERN} (a "
+            f"lower-case ASCII letter, then lower-case ASCII letters, digits "
+            f"and '_'): Hydra's override grammar could not select it as "
+            f"scenario={name}/default. Pass a different --scenario."
+        )
         raise ValueError(msg)
     return name
 

@@ -20,15 +20,16 @@ from typing import TYPE_CHECKING, Annotated, Final, NoReturn
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, JsonValue, ValidationError
 from repo_standards.core.commit_message import check_local_commit_message_file
+from repo_standards.core.subject import subject_advisories
 import typer
 
 from sarj_standards import __version__
 from sarj_standards._meta import CONFIGS_DIR
 from sarj_standards.libs.adoption import manifest
-from sarj_standards.libs.adoption.configs import CONFIG_NAMES
+from sarj_standards.libs.adoption.configs import CONFIG_NAMES, TYPESCRIPT_SOURCE_SUFFIXES
 from sarj_standards.libs.filesystem import is_link_like
 from sarj_standards.libs.linting.policy import Policy
-from sarj_standards.libs.rules import RuleSelector
+from sarj_standards.libs.rules import RuleEngine, RuleSelector, oxlint_ids
 from sarj_standards.libs.staged_git import isolated_environment, staged_environment
 
 
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from sarj_standards.libs.adoption import doctor, lifecycle, service, upgrade
     from sarj_standards.libs.diagnostics import AnalysisReport, Diagnostic, ExecutionIssue
     from sarj_standards.libs.linting import autofix
-    from sarj_standards.libs.linting.external import UpstreamESLintRules
+    from sarj_standards.libs.linting.external import UpstreamRules
     from sarj_standards.libs.repository import rule_catalog_artifact
 
 
@@ -72,23 +73,6 @@ _HOOK_INSTALL_IDS: Final = frozenset(
         "doctor.hooks.commit-message-install",
     }
 )
-_REACT_DOCTOR_METADATA = frozenset(
-    {
-        "doctor.config.json",
-        "eslint.config.js",
-        "eslint.config.mjs",
-        "eslint.config.cjs",
-        "eslint.config.ts",
-        "eslint.config.mts",
-        "eslint.config.cts",
-        "package-lock.json",
-        "package.json",
-        "pnpm-lock.yaml",
-        "tsconfig.json",
-        "yarn.lock",
-    }
-)
-_REACT_DOCTOR_TYPESCRIPT_SUFFIXES = frozenset({".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"})
 _RULE_SOURCE_ALIASES: Final[Mapping[str, str]] = MappingProxyType(
     {
         "sarj-iac-lint": "iac",
@@ -161,7 +145,7 @@ class _Args:
     external: bool = False
     jobs: int = 1
     python_type_check: bool = True
-    eslint: bool = True
+    typescript: bool = True
     trust: str = "safe"
     trust_repository_code: bool = False
     before: str = ""
@@ -205,6 +189,7 @@ class _Args:
     prepared_targets: list[str] = field(default_factory=list)
     prepared_only: bool = False
     web_policy: Path | None = None
+    preserve_baselines: bool = False
 
 
 def cmd_sync(args: _Args, *, next_steps: bool = True) -> int:
@@ -255,6 +240,17 @@ def _parse_rule_selector(value: str) -> RuleSelector:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _canonical_baseline_rules(values: Sequence[str]) -> list[str]:
+    canonical: list[str] = []
+    for value in values:
+        selectors = oxlint_ids.canonical_selectors(value)
+        if not selectors:
+            msg = f"{value} names an ESLint rule that Oxlint does not run; it has no findings to re-baseline"
+            raise typer.BadParameter(msg, param_hint="--rule")
+        canonical.extend(selectors)
+    return list(dict.fromkeys(canonical))
+
+
 def _render_sync(result: service.SyncResult) -> None:
     from sarj_standards.libs.adoption import service  # ruff: ignore[import-outside-top-level] -- typed lazy route
 
@@ -300,7 +296,7 @@ def cmd_path(args: _Args) -> int:
 def cmd_peers(args: _Args) -> int:
     from sarj_standards.libs.adoption import packagemanager, scaffold  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.adoption only when this selected operation executes.
 
-    peers = manifest.eslint_peers()
+    peers = manifest.typescript_peers()
     for name, pin in sorted(peers.items()):
         print(f"{name:50s} {pin}")
     root = _resolve_dest(args.dest)
@@ -519,7 +515,7 @@ def _repair_legacy_manifest(root: Path, *, install: bool) -> manifest.Manifest:
         # A schema-three manifest already made an explicit TypeScript authority
         # choice. Preserve unrelated nested projects during its one-way schema
         # migration; the subsequent upgrade diagnoses the selected authority.
-        allow_existing_nested_eslint=True,
+        allow_existing_nested_oxlint=True,
     )
     if migration.scaffold.errors or migration.sync is None:
         detail = "; ".join(migration.scaffold.errors) or "setup plan is not applicable"
@@ -575,7 +571,7 @@ def cmd_update(args: _Args) -> int:
     if args.offline:
         args.no_install = True
     root = _resolve_dest(args.dest)
-    migrated_legacy = _prepare_update_manifest(root, check=args.check)
+    migrated_legacy = _prepare_update_manifest(root, check=args.check or args.preserve_baselines)
     if migrated_legacy is None:
         return 2
     try:
@@ -584,9 +580,9 @@ def cmd_update(args: _Args) -> int:
         print(f"error: cannot plan upgrade: {exc}", file=sys.stderr)
         return 2
     preflight_findings = list(plan.preflight_findings)
-    if not _update_preflight(plan, preflight_findings):
+    if not _update_preflight(plan, preflight_findings, preserve_baselines=args.preserve_baselines):
         return 2
-    preview = upgrade.render(plan.changes)
+    preview = upgrade.render(plan.changes, plan.notes)
     if args.check:
         return _preview_update(root, plan, preflight_findings, preview)
     return _apply_update(args, root, plan, preflight_findings, preview, migrated_legacy=migrated_legacy)
@@ -617,6 +613,8 @@ def _bootstrap_update(args: _Args, target_version: str | None) -> int:
         command.append("--check")
     if args.no_install:
         command.append("--no-install")
+    if args.preserve_baselines:
+        command.append("--preserve-baselines")
     environment = dict(os.environ)  # ruff: ignore[banned-api] -- preserve the caller environment for uvx
     environment["SARJ_STANDARDS_BOOTSTRAPPED"] = "1"
     environment.setdefault("UV_PYTHON_DOWNLOADS_JSON_URL", launcher.PYTHON_DOWNLOADS)
@@ -661,9 +659,20 @@ def _prepare_update_manifest(root: Path, *, check: bool) -> bool | None:
     return migrated_legacy
 
 
-def _update_preflight(plan: upgrade.UpgradePlan, preflight_findings: list[doctor.Finding]) -> bool:
+def _update_preflight(
+    plan: upgrade.UpgradePlan, preflight_findings: list[doctor.Finding], *, preserve_baselines: bool = False
+) -> bool:
     from sarj_standards.libs.adoption import upgrade  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.adoption only when this selected operation executes.
 
+    try:
+        protected = upgrade.baseline_and_suppression_changes(plan) if preserve_baselines else ()
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"error: cannot preserve baseline state: {exc}", file=sys.stderr)
+        return False
+    if protected:
+        paths = ", ".join(str(path.relative_to(plan.root)) for path in protected)
+        print(f"error: baseline preservation requires a separate migration for: {paths}", file=sys.stderr)
+        return False
     invalid = [finding for finding in preflight_findings if finding.id in _INVALID_DOCTOR_IDS]
     if invalid:
         for finding in invalid:
@@ -720,13 +729,16 @@ def _apply_update(
         if args.no_install
         else []
     )
-    if not preview and not current_drift and not missing_hooks and not skipped_commands and not migrated_legacy:
+    if not plan.changes and not current_drift and not missing_hooks and not skipped_commands and not migrated_legacy:
         print(f"current: {root} already matches standards {__version__}")
         return 0
     print(preview or f"current: {root} already matches standards {__version__}")
-    status = upgrade.apply(plan, install=not args.no_install)
+    previewed_notes = len(plan.notes)
+    status = upgrade.apply(plan, install=not args.no_install, preserve_baselines=args.preserve_baselines)
     if status:
         return _report_failed_update(root, status)
+    for note in plan.notes[previewed_notes:]:
+        print(f"note: {note}")
     return _update_postflight(root, skipped_commands, no_install=args.no_install)
 
 
@@ -967,6 +979,8 @@ def _apply_setup(args: _Args, root: Path, init_plan: service.InitPlan) -> int:
         return result.status
     if result.sync is not None:
         _render_sync(result.sync)
+    for note in result.notes:
+        print(f"note: {note}")
     if not args.no_install:
         unresolved_hooks = [finding for finding in doctor.diagnose(root) if finding.id in _HOOK_INSTALL_IDS]
         if unresolved_hooks:
@@ -1064,7 +1078,7 @@ def cmd_verify(args: _Args) -> int:
         jobs=args.jobs,
         trusted=args.trust_repository_code,
         python_type_check=args.python_type_check,
-        eslint=args.eslint,
+        typescript=args.typescript,
     )
 
 
@@ -1180,7 +1194,7 @@ def _check_selected_rules(args: _Args, root: Path, scope: _CheckScope) -> int:
         paths,
         jobs=args.jobs,
         rules=args.selected_rules,
-        external=any(selector.engine.value == "eslint" for selector in args.selected_rules),
+        external=any(selector.engine is RuleEngine.OXLINT for selector in args.selected_rules),
         trust=TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE,
         staged=args.staged,
     )
@@ -1193,7 +1207,12 @@ def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
         if scope.react_doctor_triggered:
             check_options["react_doctor_triggered"] = True
         return _run_canonical_check(
-            root, (), jobs=args.jobs, python_type_check=args.python_type_check, eslint=args.eslint, **check_options
+            root,
+            (),
+            jobs=args.jobs,
+            python_type_check=args.python_type_check,
+            typescript=args.typescript,
+            **check_options,
         )
     if scope.pull_request_scoped:
         adoption_report = _machine_adoption_gate(root)
@@ -1208,7 +1227,7 @@ def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
                     react_doctor_triggered=True,
                     jobs=args.jobs,
                     python_type_check=args.python_type_check,
-                    eslint=args.eslint,
+                    typescript=args.typescript,
                 )
             return _run_canonical_check(
                 root,
@@ -1216,7 +1235,7 @@ def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
                 trusted=args.trust_repository_code,
                 jobs=args.jobs,
                 python_type_check=args.python_type_check,
-                eslint=args.eslint,
+                typescript=args.typescript,
             )
     if not args.files:
         return cmd_verify(args)
@@ -1231,7 +1250,7 @@ def _check_text_output(args: _Args, root: Path, scope: _CheckScope) -> int:
         list(args.files),
         jobs=args.jobs,
         python_type_check=args.python_type_check,
-        eslint=args.eslint,
+        typescript=args.typescript,
         **check_options,
     )
 
@@ -1372,7 +1391,7 @@ def _check_machine_output(args: _Args, root: Path, scope: _CheckScope) -> int:
             staged=args.staged,
             react_doctor_triggered=scope.react_doctor_triggered,
             python_type_check=args.python_type_check,
-            eslint=args.eslint,
+            typescript=args.typescript,
         )
         return _emit_analysis_report(args, root, report)
     args.react_doctor_triggered = scope.react_doctor_triggered
@@ -1451,7 +1470,7 @@ def _run_canonical_check(
     react_doctor_triggered: bool = False,
     jobs: int = 1,
     python_type_check: bool = True,
-    eslint: bool = True,
+    typescript: bool = True,
 ) -> int:
     from sarj_standards.api import AnalysisMode, Standards, TrustMode  # ruff: ignore[import-outside-top-level] -- load sarj_standards.api only when this selected operation executes.
     from sarj_standards.libs.diagnostics import to_text  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.diagnostics only when this selected operation executes.
@@ -1465,7 +1484,7 @@ def _run_canonical_check(
         staged=staged,
         react_doctor_triggered=react_doctor_triggered,
         python_type_check=python_type_check,
-        eslint=eslint,
+        typescript=typescript,
     )
     rendered = to_text(report, max_diagnostics=_TEXT_DIAGNOSTIC_LIMIT)
     if rendered:
@@ -1500,7 +1519,7 @@ def cmd_analyze(args: _Args) -> int:
         prepared_targets=args.prepared_targets,
         prepared_only=args.prepared_only,
         python_type_check=args.python_type_check,
-        eslint=args.eslint,
+        typescript=args.typescript,
     )
     return _emit_analysis_report(args, root, report)
 
@@ -1519,7 +1538,7 @@ def cmd_rule_evaluate(args: _Args) -> int:
     report = Standards(root).analyze(
         args.files or None,
         jobs=args.jobs,
-        external=any(selector.engine.value == "eslint" for selector in args.selected_rules),
+        external=any(selector.engine is RuleEngine.OXLINT for selector in args.selected_rules),
         trust=TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE,
         mode=(AnalysisMode.CORPUS if args.evaluation_scope is _EvaluationScope.CORPUS else AnalysisMode.POLICY),
         rules=args.selected_rules,
@@ -1678,8 +1697,8 @@ def _corpus_diagnostic(
 
 def cmd_observe(args: _Args) -> int:
     from sarj_standards.api import AnalysisMode, Standards, TrustMode  # ruff: ignore[import-outside-top-level] -- load sarj_standards.api only when this selected operation executes.
-    from sarj_standards.libs.linting.external import UpstreamESLintRules  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.external only when this selected operation executes.
-    from sarj_standards.libs.linting.test_value import ESLINT_RULES  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.test_value only when this selected operation executes.
+    from sarj_standards.libs.linting.external import UpstreamRules  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.external only when this selected operation executes.
+    from sarj_standards.libs.linting.test_value import UPSTREAM_RULES  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.test_value only when this selected operation executes.
 
     root = _resolve_dest(args.dest)
     if _validate_analysis_output(args, root):
@@ -1701,13 +1720,11 @@ def cmd_observe(args: _Args) -> int:
     report = Standards(root).analyze(
         files,
         jobs=args.jobs,
-        external=args.test_value or any(selector.engine.value == "eslint" for selector in selected_rules),
+        external=args.test_value or any(selector.engine is RuleEngine.OXLINT for selector in selected_rules),
         trust=TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE,
         mode=AnalysisMode.OBSERVE,
         rules=selected_rules,
-        upstream_rules=UpstreamESLintRules(ESLINT_RULES, warning_only=True)
-        if args.test_value
-        else UpstreamESLintRules(),
+        upstream_rules=UpstreamRules(UPSTREAM_RULES, warning_only=True) if args.test_value else UpstreamRules(),
     )
     return _emit_analysis_report(args, root, report)
 
@@ -1757,7 +1774,7 @@ def _rule_evaluation_summary(report: object, selectors: Sequence[RuleSelector]) 
     counts: dict[str, dict[str, int]] = {}
     for selector in selectors:
         counts.setdefault(selector.engine.value, {})[selector.native_rule_id] = 0
-    for source, engine in _RULE_SOURCE_ALIASES.items():
+    for source, engine in (*_RULE_SOURCE_ALIASES.items(), (oxlint_ids.LEGACY_SOURCE, oxlint_ids.SOURCE)):
         if engine in counts:
             counts[source] = counts[engine]
     for item in report.iter_diagnostics():
@@ -2204,10 +2221,12 @@ def _changed_file_names(root: Path, base: str) -> list[str]:
 
 
 def _react_doctor_triggered_by(paths: Iterable[str], *, policy: Policy) -> bool:
+    from sarj_standards.libs.linting import external  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting only when this selected operation executes.
+
     return any(
-        Path(value).name in _REACT_DOCTOR_METADATA
+        external.is_react_doctor_metadata(Path(value))
         or (
-            Path(value).suffix.lower() in _REACT_DOCTOR_TYPESCRIPT_SUFFIXES
+            Path(value).suffix.lower() in TYPESCRIPT_SOURCE_SUFFIXES
             and (source := _safe_scope_path(policy.root, value)) is not None
             and policy.allows_path(source)
         )
@@ -2454,13 +2473,19 @@ def _apply_safe_fixes(
 
     requested = files if files or scoped else [str(root)]
     try:
+        format_only_paths: frozenset[str] = frozenset()
+        if args.staged and args.trust_repository_code:
+            from sarj_standards.libs.linting import format_only  # ruff: ignore[import-outside-top-level] -- the staged formatter proof needs the provisioned native runtime only for a trusted fix.
+
+            format_only_paths = format_only.equivalent_paths(root, files, staged=True)
         return autofix.run(
             root,
             requested,
             trusted=trusted or args.trust_repository_code,
-            eslint=args.eslint,
+            typescript=args.typescript,
             machine_output=args.output_format != "text",
             default_scope=not files and not scoped,
+            format_only_paths=format_only_paths,
         )
     except (OSError, SyntaxError, UnicodeError, ValueError) as exc:
         print(f"error: cannot apply safe fixes: {exc}", file=sys.stderr)
@@ -2715,7 +2740,7 @@ def _baseline_analysis_reports(args: _Args, root: Path, selected: list[str] | No
     trust = TrustMode.TRUSTED if args.trust_repository_code else TrustMode.SAFE
     operations: list[Callable[[], AnalysisReport]] = []
     selection = _baseline_scan_rules(args)
-    scoped_rules, upstream_eslint = selection.rules, selection.upstream_eslint
+    scoped_rules, upstream_typescript = selection.rules, selection.upstream_typescript
     if scoped_rules is None or scoped_rules:
         operations.append(
             partial(
@@ -2726,18 +2751,18 @@ def _baseline_analysis_reports(args: _Args, root: Path, selected: list[str] | No
                 mode=AnalysisMode.CORPUS,
                 rules=scoped_rules,
                 include_react_doctor=False,
-                pass_on_unpruned_eslint_suppressions=args.baseline_cmd == "update" and bool(args.baseline_rules),
+                pass_on_unpruned_suppressions=args.baseline_cmd == "update" and bool(args.baseline_rules),
                 jobs=args.jobs
                 if not (
-                    upstream_eslint
+                    upstream_typescript
                     or _react_doctor_rules_for_baseline(args.baseline_rules)
                     or _shellcheck_rules_for_baseline(args.baseline_rules)
                 )
                 else 1,
             )
         )
-    if upstream_eslint:
-        operations.append(partial(_baseline_eslint_report, args, root, selected, trust))
+    if upstream_typescript:
+        operations.append(partial(_baseline_upstream_typescript_report, args, root, selected, trust))
     if _react_doctor_rules_for_baseline(args.baseline_rules):
         operations.append(partial(_react_doctor_baseline_report, root, selected, trust, _baseline_corpus_policy(root)))
     if _shellcheck_rules_for_baseline(args.baseline_rules):
@@ -2753,39 +2778,42 @@ def _baseline_analysis_reports(args: _Args, root: Path, selected: list[str] | No
 @dataclass(frozen=True, slots=True)
 class _BaselineScanRules:
     rules: list[str] | None
-    upstream_eslint: bool
+    upstream_typescript: bool
 
 
 def _baseline_scan_rules(args: _Args) -> _BaselineScanRules:
     scoped_rules = _analysis_rules_for_baseline(args.baseline_rules) if args.baseline_cmd == "update" else None
-    upstream_eslint = bool(_upstream_eslint_rules_for_baseline(args.baseline_rules))
-    if upstream_eslint and scoped_rules is not None:
+    upstream_typescript = bool(_upstream_typescript_rules_for_baseline(args.baseline_rules))
+    if upstream_typescript and scoped_rules is not None:
         # Validate selectors before combining their upstream and custom scans.
         for selector in scoped_rules:
             if (
-                selector.startswith("eslint:")
+                selector.startswith("oxlint:")
                 and str(RuleSelector.parse(selector)) not in _baseline_catalog_selectors()
             ):
                 msg = f"unknown or invalid rule selector: {selector}"
                 raise ValueError(msg)
-        scoped_rules = [selector for selector in scoped_rules if not selector.startswith("eslint:")]
-    return _BaselineScanRules(scoped_rules, upstream_eslint)
+        scoped_rules = [selector for selector in scoped_rules if not selector.startswith("oxlint:")]
+    return _BaselineScanRules(scoped_rules, upstream_typescript)
 
 
-def _baseline_eslint_report(args: _Args, root: Path, selected: list[str] | None, trust: str) -> AnalysisReport:
-    from sarj_standards.libs.linting.external import UpstreamESLintRules  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.external only when this selected operation executes.
+def _baseline_upstream_typescript_report(
+    args: _Args, root: Path, selected: list[str] | None, trust: str
+) -> AnalysisReport:
+    from sarj_standards.libs.linting.external import UpstreamRules  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.external only when this selected operation executes.
 
     custom = frozenset(
-        selector.removeprefix("eslint:")
+        selector.removeprefix("oxlint:")
         for selector in (_analysis_rules_for_baseline(args.baseline_rules) or [])
-        if selector.startswith("eslint:")
+        if selector.startswith("oxlint:")
     )
-    upstream = UpstreamESLintRules(
+    upstream = UpstreamRules(
         frozenset(
-            selector.removeprefix("eslint:") for selector in _upstream_eslint_rules_for_baseline(args.baseline_rules)
+            selector.removeprefix("oxlint:")
+            for selector in _upstream_typescript_rules_for_baseline(args.baseline_rules)
         )
     )
-    return _baseline_external_report(root, selected, trust, "eslint", rule_ids=custom, upstream_rules=upstream)
+    return _baseline_external_report(root, selected, trust, "typescript", rule_ids=custom, upstream_rules=upstream)
 
 
 def _baseline_external_report(
@@ -2795,10 +2823,10 @@ def _baseline_external_report(
     capability: str,
     *,
     rule_ids: frozenset[str] | None = None,
-    upstream_rules: UpstreamESLintRules | None = None,
+    upstream_rules: UpstreamRules | None = None,
 ) -> AnalysisReport:
     from sarj_standards.libs.linting.analysis import report_from_tools  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.analysis only when this selected operation executes.
-    from sarj_standards.libs.linting.external import UpstreamESLintRules, analyze_external  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.external only when this selected operation executes.
+    from sarj_standards.libs.linting.external import UpstreamRules, analyze_external  # ruff: ignore[import-outside-top-level] -- load sarj_standards.libs.linting.external only when this selected operation executes.
 
     return report_from_tools(
         root,
@@ -2809,9 +2837,9 @@ def _baseline_external_report(
             policy=_baseline_corpus_policy(root),
             capabilities=frozenset({capability}),
             include_react_doctor=False,
-            pass_on_unpruned_eslint_suppressions=capability == "eslint",
+            pass_on_unpruned_suppressions=capability in manifest.TYPESCRIPT_CONFIGS,
             rule_ids=rule_ids,
-            upstream_rules=upstream_rules or UpstreamESLintRules(),
+            upstream_rules=upstream_rules or UpstreamRules(),
         ),
     )
 
@@ -2884,9 +2912,9 @@ def _analysis_rules_for_baseline(selectors: Sequence[str]) -> list[str] | None:
             continue
         if separator and source in _RULE_SOURCE_ALIASES:
             normalized.append(f"{_RULE_SOURCE_ALIASES[source]}:{rule_id}")
-        elif selector.startswith("eslint:@sarj/"):
-            normalized.append("eslint:" + selector.removeprefix("eslint:@sarj/"))
-        elif selector.startswith("eslint:"):
+        elif selector.startswith("oxlint:@sarj/"):
+            normalized.append("oxlint:" + selector.removeprefix("oxlint:@sarj/"))
+        elif selector.startswith("oxlint:"):
             if selector in _baseline_catalog_selectors():
                 normalized.append(selector)
         else:
@@ -2894,14 +2922,14 @@ def _analysis_rules_for_baseline(selectors: Sequence[str]) -> list[str] | None:
     return normalized
 
 
-def _upstream_eslint_rules_for_baseline(selectors: Sequence[str]) -> frozenset[str]:
+def _upstream_typescript_rules_for_baseline(selectors: Sequence[str]) -> frozenset[str]:
     return frozenset(
         selector
         for selector in selectors
-        if selector.startswith("eslint:")
-        and not selector.startswith("eslint:@sarj/")
+        if selector.startswith("oxlint:")
+        and not selector.startswith("oxlint:@sarj/")
         and selector not in _baseline_catalog_selectors()
-        and not _is_react_doctor_rule_id(selector.removeprefix("eslint:"))
+        and not _is_react_doctor_rule_id(selector.removeprefix("oxlint:"))
     )
 
 
@@ -2910,7 +2938,7 @@ def _react_doctor_rules_for_baseline(selectors: Sequence[str]) -> frozenset[str]
         selector
         for selector in selectors
         if (source := selector.partition(":")[0]) in _REACT_DOCTOR_RULE_SOURCES
-        or (source == "eslint" and _is_react_doctor_rule_id(selector.partition(":")[2]))
+        or (source == "oxlint" and _is_react_doctor_rule_id(selector.partition(":")[2]))
     )
 
 
@@ -2924,7 +2952,7 @@ def _shellcheck_rules_for_baseline(selectors: Sequence[str]) -> frozenset[str]:
 
 def _is_react_doctor_selector(*, source: str, rule_id: str, separator: bool) -> bool:
     return separator and (
-        source in _REACT_DOCTOR_RULE_SOURCES or (source == "eslint" and _is_react_doctor_rule_id(rule_id))
+        source in _REACT_DOCTOR_RULE_SOURCES or (source == "oxlint" and _is_react_doctor_rule_id(rule_id))
     )
 
 
@@ -2933,27 +2961,35 @@ def _is_react_doctor_rule_id(rule_id: str) -> bool:
 
 
 def _baseline_merge_selectors(selectors: Sequence[str]) -> tuple[str, ...]:
-    resolved: list[str] = []
     catalog = _baseline_catalog()
-    for requested in selectors:
-        for selector in catalog.equivalents(requested):
-            source, separator, rule_id = selector.partition(":")
-            resolved.append(selector)
-            native_source = _BASELINE_RULE_ENGINE_SOURCES.get(source)
-            if selector == "react-doctor:*":
-                continue
-            if separator and source == "eslint" and _is_react_doctor_rule_id(rule_id):
-                plugin, _, plugin_rule_id = rule_id.partition("/")
-                resolved.extend((f"react-doctor:{rule_id}", f"{plugin}:{plugin_rule_id}"))
-            elif separator and source == "react-hooks-js":
-                resolved.append(f"react-doctor:react-hooks-js/{rule_id}")
-            elif separator and source == "react-doctor" and not _is_react_doctor_rule_id(rule_id):
-                resolved.append(f"react-doctor:react-doctor/{rule_id}")
-            elif separator and native_source is not None:
-                resolved.append(f"{native_source}:{rule_id}")
-            elif separator and source == "eslint" and selector in catalog.canonical:
-                resolved.append(f"eslint:@sarj/{rule_id}")
-    return tuple(dict.fromkeys(resolved))
+    resolved = [
+        spelling
+        for requested in selectors
+        for selector in catalog.equivalents(requested)
+        for spelling in _baseline_selector_spellings(selector, catalog)
+    ]
+    # Baselines recorded before Oxlint name the same findings with ESLint sources and IDs.
+    legacy = (spelling for selector in resolved for spelling in oxlint_ids.legacy_selectors(selector))
+    return tuple(dict.fromkeys((*resolved, *legacy)))
+
+
+def _baseline_selector_spellings(selector: str, catalog: rule_catalog_artifact.SelectorIndex) -> tuple[str, ...]:
+    source, separator, rule_id = selector.partition(":")
+    native_source = _BASELINE_RULE_ENGINE_SOURCES.get(source)
+    if selector == "react-doctor:*" or not separator:
+        return (selector,)
+    if source == "oxlint" and _is_react_doctor_rule_id(rule_id):
+        plugin, _, plugin_rule_id = rule_id.partition("/")
+        return (selector, f"react-doctor:{rule_id}", f"{plugin}:{plugin_rule_id}")
+    if source == "react-hooks-js":
+        return (selector, f"react-doctor:react-hooks-js/{rule_id}")
+    if source == "react-doctor" and not _is_react_doctor_rule_id(rule_id):
+        return (selector, f"react-doctor:react-doctor/{rule_id}")
+    if native_source is not None:
+        return (selector, f"{native_source}:{rule_id}")
+    if source == "oxlint" and selector in catalog.canonical:
+        return (selector, f"oxlint:@sarj/{rule_id}")
+    return (selector,)
 
 
 @lru_cache(maxsize=1)
@@ -2985,8 +3021,9 @@ def cmd_commit_message(args: _Args) -> int:
     )
     if result.fix_applied:
         print("Commit message: safely normalized; validation passed.")
-        return 0
     if result.satisfied:
+        for advice in subject_advisories(result.header):
+            print(f"Advisory: {advice.code}\n{advice.message}\n{advice.remediation}")
         return 0
     finding = result.findings[0]
     print(f"Commit message: {finding.code}", file=sys.stderr)
@@ -3121,7 +3158,6 @@ class _ProfileChoice(StrEnum):
 class _ConfigChoice(StrEnum):
     CHECKOV = "checkov"
     DETEKT = "detekt"
-    ESLINT = "eslint"
     KTLINT = "ktlint"
     MARKDOWNLINT = "markdownlint"
     MOBILE_SECURITY = "mobile-security"
@@ -3131,6 +3167,7 @@ class _ConfigChoice(StrEnum):
     SWIFTFORMAT = "swiftformat"
     SWIFTLINT = "swiftlint"
     TAPLO = "taplo"
+    TYPESCRIPT = "typescript"
     YAMLLINT = "yamllint"
     ZIZMOR = "zizmor"
 
@@ -3302,7 +3339,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             str | None,
             typer.Option(
                 "--typescript-dest",
-                help="the directory that owns the npm lockfile (default: detected); new ESLint entrypoints use TypeScript",
+                help="the directory that owns the npm lockfile (default: detected); it receives oxlint.config.mts",
             ),
         ] = None,
         swift_dest: Annotated[
@@ -3421,7 +3458,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             bool,
             typer.Option(
                 "--trust-repository-code",
-                help="allow executable repository ESLint configuration (generated hooks and CI set this explicitly)",
+                help="allow executable repository Oxlint, oxfmt and Doctor configuration (generated hooks and CI set this explicitly)",
             ),
         ] = False,
         jobs: Annotated[
@@ -3437,13 +3474,17 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 help="leave BasedPyright to the repository's own required CI; configs stay managed",
             ),
         ] = False,
-        skip_eslint: Annotated[
+        skip_typescript: Annotated[
             bool,
             typer.Option(
-                "--skip-eslint",
-                help="leave ESLint to the repository's own required CI; configs stay managed and React Doctor still runs",
+                "--skip-typescript",
+                help=(
+                    "leave Oxlint, oxfmt and the tsrs type check to the repository's own required CI; "
+                    "configs stay managed and React Doctor still runs"
+                ),
             ),
         ] = False,
+        skip_eslint: Annotated[bool, typer.Option("--skip-eslint", hidden=True)] = False,
         staged: Annotated[
             bool,
             typer.Option(
@@ -3474,7 +3515,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 cmd="check",
                 jobs=jobs,
                 python_type_check=not skip_python_type_check,
-                eslint=not skip_eslint,
+                typescript=not (skip_typescript or skip_eslint),
                 trust_repository_code=trust_repository_code,
                 staged=staged,
                 fix=fix,
@@ -3529,7 +3570,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
         output: Annotated[Path | None, typer.Option("--output")] = None,
         trust_repository_code: Annotated[
             bool,
-            typer.Option("--trust-repository-code", help="allow repository ESLint configuration to execute"),
+            typer.Option("--trust-repository-code", help="allow repository Oxlint and oxfmt configuration to execute"),
         ] = False,
         max_annotations_per_level: Annotated[int, typer.Option("--max-annotations-per-level")] = 10,
         files: Annotated[
@@ -3590,6 +3631,9 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             ),
         ] = None,
         no_install: Annotated[bool, typer.Option("--no-install", help="do not install dependencies or hooks")] = False,
+        preserve_baselines: Annotated[
+            bool, typer.Option("--preserve-baselines", help="refuse baseline and suppression migrations before writing")
+        ] = False,
     ) -> int:
         return handler(
             _Args(
@@ -3599,6 +3643,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 offline=offline,
                 target_version=target_version if target_version is not None else None,
                 no_install=no_install,
+                preserve_baselines=preserve_baselines,
             )
         )
 
@@ -3661,7 +3706,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
                 jobs=jobs,
                 output=output if output is not None else None,
                 trust_repository_code=trust_repository_code,
-                baseline_rules=baseline_rules if baseline_rules is not None else [],
+                baseline_rules=_canonical_baseline_rules(baseline_rules or []),
                 files=files if files is not None else [],
             )
         )
@@ -3861,7 +3906,7 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
             )
         )
 
-    @group_show.command("peers", help="show tested ESLint peer dependencies and install command")
+    @group_show.command("peers", help="show tested TypeScript toolchain peer dependencies and install command")
     def command_show_peers(
         ctx: typer.Context,
     ) -> int:
@@ -4463,7 +4508,9 @@ def build_app(handler: Callable[[_Args], int] = _dispatch) -> typer.Typer:
         output: Annotated[Path | None, typer.Option("--output")] = None,
         trust_repository_code: Annotated[
             bool,
-            typer.Option("--trust-repository-code", help="allow executable repository ESLint configuration"),
+            typer.Option(
+                "--trust-repository-code", help="allow executable repository Oxlint, oxfmt and Doctor configuration"
+            ),
         ] = False,
         files: Annotated[list[str] | None, typer.Argument()] = None,
     ) -> int:

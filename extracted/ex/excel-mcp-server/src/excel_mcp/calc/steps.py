@@ -22,6 +22,7 @@ from excel_mcp.calc.parser import (
     TableRef,
     Unary,
     children,
+    left_chain,
     parse,
 )
 from excel_mcp.calc.registry import FUNCTIONS
@@ -94,6 +95,9 @@ class _Walk:
         """Record the steps inside the node, then the node. The whole formula is always kept."""
         if isinstance(node, Literal | ErrorLiteral) and not final:
             return
+        if isinstance(node, Binary):
+            self._visit_run(node, written, array, final)
+            return
         mark = len(self.shown), self.skipped
         try:
             self._descend(node, written, array)
@@ -106,6 +110,45 @@ class _Walk:
             self.shown.append((render(written), value))
         else:
             self.skipped += 1
+
+    def _visit_run(self, node: Binary, written: Node, array: bool, final: bool) -> None:
+        """`visit` for a run of operators such as ``A1+A2+...``, looping from the innermost
+        operator out as the recursion would unwind."""
+        base, steps = left_chain(node)
+        assert isinstance(written, Binary)
+        shown_base, shown_steps = left_chain(written)
+        mark = len(self.shown), self.skipped
+        failure: UncalculableError | None = None  # every operator after it fails the same way
+        running: Value | None = None  # the value of the run so far, so each step adds one operator
+        try:
+            self.visit(base, shown_base, array)
+        except UncalculableError as error:
+            failure = error
+        for index, (step, shown_step) in enumerate(zip(steps, shown_steps, strict=True)):
+            try:
+                if failure is None:
+                    self.visit(step.right, shown_step.right, array)
+            except UncalculableError as error:
+                failure = error
+            if failure is not None:
+                del self.shown[mark[0] :]
+                self.skipped = mark[1]
+                continue
+            try:
+                self.engine.work = 0
+                if running is None:
+                    running = self.engine.operand(base, array)
+                left = running if array else self.engine.intersect(running)
+                running = self.engine.binary(step.op, left, self.engine.operand(step.right, array))
+            except UncalculableError as error:
+                failure = error
+                continue
+            if len(self.shown) < self.limit - 1 or (final and index == len(steps) - 1):
+                self.shown.append((render(shown_step), running))
+            else:
+                self.skipped += 1
+        if failure is not None:
+            raise failure
 
     def _descend(self, node: Node, written: Node, array: bool) -> None:
         pairs = list(zip(children(node), children(written), strict=True))
@@ -165,9 +208,14 @@ def render(node: Node) -> str:
             return op + _wrapped(operand, 6)
         case Percent(operand):
             return _wrapped(operand, 6) + "%"
-        case Binary(op, left, right):
-            level = _PRECEDENCE[op]
-            return f"{_wrapped(left, level)}{op}{_wrapped(right, level + 1)}"
+        case Binary():
+            base, chain = left_chain(node)
+            text, inner = render(base), base
+            for step in chain:
+                level = _PRECEDENCE[step.op]
+                left = f"({text})" if _binds_looser(inner, level) else text
+                text, inner = f"{left}{step.op}{_wrapped(step.right, level + 1)}", step
+            return text
         case Call("ANCHORARRAY", (Ref() as anchor,), _):
             return render(anchor) + "#"
         case Call(name, args, _):
@@ -179,11 +227,13 @@ def render(node: Node) -> str:
 
 def _wrapped(node: Node, level: int) -> str:
     inner = render(node)
-    if isinstance(node, Binary) and _PRECEDENCE[node.op] < level:
-        return f"({inner})"
-    if isinstance(node, Unary) and level > 6:
+    if _binds_looser(node, level) or (isinstance(node, Unary) and level > 6):
         return f"({inner})"
     return inner
+
+
+def _binds_looser(node: Node, level: int) -> bool:
+    return isinstance(node, Binary) and _PRECEDENCE[node.op] < level
 
 
 def _literal(value: float | str | bool | None) -> str:

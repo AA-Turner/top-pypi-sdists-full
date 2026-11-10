@@ -118,7 +118,8 @@ PUBLIC vrna_sc_mod_param_t
 vrna_sc_mod_read_from_json(const char *json,
                            vrna_md_t  *md_p)
 {
-  char                *ptr, bases[8] = "_ACGUTM";
+  char                bases[8] = "_ACGUTM";
+  const char          *ptr;
   vrna_md_t           *md, md_default;
   vrna_sc_mod_param_t parameters = NULL;
 
@@ -166,7 +167,7 @@ vrna_sc_mod_read_from_json(const char *json,
           (e = json_find_member(mod_data, "unmodified")) &&
           (e->tag == JSON_STRING) &&
           (strlen(e->string_) == 1) &&
-          (ptr = strchr(bases, e->string_[0]))) {
+          (ptr = strchr(&bases[0], e->string_[0]))) {
         parameters->unmodified = toupper(e->string_[0]);
         size_t enc = ptr - &(bases[0]);
         if (enc > 4)
@@ -179,7 +180,7 @@ vrna_sc_mod_read_from_json(const char *json,
           (e = json_find_member(mod_data, "fallback")) &&
           (e->tag == JSON_STRING) &&
           (strlen(e->string_) == 1) &&
-          (ptr = strchr(bases, e->string_[0]))) {
+          (ptr = strchr(&bases[0], e->string_[0]))) {
         parameters->fallback = toupper(e->string_[0]);
         size_t enc = ptr - &(bases[0]);
         if (enc > 4)
@@ -196,7 +197,7 @@ vrna_sc_mod_read_from_json(const char *json,
         json_foreach(entry, e) {
           if ((entry->tag == JSON_STRING) &&
               (strlen(entry->string_) == 1) &&
-              (ptr = strchr(bases, entry->string_[0]))) {
+              (ptr = strchr(&bases[0], entry->string_[0]))) {
             size_t enc = ptr - &(bases[0]);
             if (enc > 4)
               enc--;
@@ -282,7 +283,7 @@ parse_stacks(JsonNode   *dom,
              int        (*storage)[MAX_PAIRS][MAX_ALPHABET][MAX_ALPHABET])
 {
   unsigned char num_params = 0;
-  char          *enc_ptr;
+  const char    *enc_ptr;
   size_t        i;
   unsigned int  enc[5] = {
     0, 0, 0, 0, 0
@@ -345,7 +346,7 @@ parse_mismatch(JsonNode   *dom,
                int        (*storage)[MAX_PAIRS][MAX_ALPHABET][MAX_ALPHABET])
 {
   unsigned char num_params = 0;
-  char          *enc_ptr;
+  const char    *enc_ptr;
   size_t        i;
   unsigned int  enc[5] = {
     0, 0, 0, 0, 0
@@ -381,14 +382,19 @@ parse_mismatch(JsonNode   *dom,
             enc[i]--;
         }
 
+        /*
+         *  Data is parsed as dangles 'inside' of base pair, but stored as outside,
+         *  to conform to how ViennaRNA treats dangles and mismatches internally.
+         *  So, we need to turn the base pair around for storage
+         */
         if (i == 4) {
           num_params++;
 
           if ((enc[0] == 5) || (enc[2] == 5))
             (*storage)[NBPAIRS +
-                       (*ptypes)[enc[0]][enc[2]]][enc[1]][enc[3]] = (int)(entry->number_ * 100.);
+                       (*ptypes)[enc[2]][enc[0]]][enc[3]][enc[1]] = (int)(entry->number_ * 100.);
           else if ((enc[1] == 5) || (enc[3] == 5))
-            (*storage)[md->pair[enc[0]][enc[2]]][enc[1]][enc[3]] = (int)(entry->number_ * 100.);
+            (*storage)[md->pair[enc[2]][enc[0]]][enc[3]][enc[1]] = (int)(entry->number_ * 100.);
           else
             num_params--;
         }
@@ -409,7 +415,7 @@ parse_dangles(JsonNode    *dom,
               int         (*storage)[MAX_PAIRS][MAX_ALPHABET])
 {
   unsigned char num_params = 0;
-  char          *enc_ptr;
+  const char    *enc_ptr;
   size_t        i;
   unsigned int  enc[5] = {
     0, 0, 0, 0, 0
@@ -444,12 +450,17 @@ parse_dangles(JsonNode    *dom,
             enc[i]--;
         }
 
+        /*
+         *  Data is parsed as dangles 'inside' of base pair, but stored as outside,
+         *  to conform to how ViennaRNA treats dangles and mismatches internally.
+         *  So, we need to turn the base pair around for storage
+         */
         if (i == 3) {
           num_params++;
           if ((enc[0] == 5) || (enc[1] == 5))
-            (*storage)[NBPAIRS + (*ptypes)[enc[0]][enc[1]]][enc[2]] = (int)(entry->number_ * 100.);
+            (*storage)[NBPAIRS + (*ptypes)[enc[1]][enc[0]]][enc[2]] = (int)(entry->number_ * 100.);
           else if (enc[2] == 5)
-            (*storage)[md->pair[enc[0]][enc[1]]][enc[2]] = (int)(entry->number_ * 100.);
+            (*storage)[md->pair[enc[1]][enc[0]]][enc[2]] = (int)(entry->number_ * 100.);
           else
             num_params--;
         }
@@ -469,7 +480,7 @@ parse_terminal(JsonNode   *dom,
                int        (*storage)[MAX_PAIRS])
 {
   unsigned char num_params = 0;
-  char          *enc_ptr;
+  const char    *enc_ptr;
   size_t        i;
   unsigned int  enc[5] = {
     0, 0, 0, 0, 0

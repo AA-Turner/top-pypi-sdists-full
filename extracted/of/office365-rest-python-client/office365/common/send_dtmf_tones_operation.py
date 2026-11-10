@@ -1,24 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
+from office365.communications.operations.senddtmfcompletionreason import SendDtmfCompletionReason
 from office365.entity import Entity
 from office365.runtime.pollable import PollableOperation
-
-if TYPE_CHECKING:
-    from office365.communications.operations.senddtmfcompletionreason import (
-        SendDtmfCompletionReason,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class SendDtmfTonesOperation(PollableOperation, Entity):
+    @odata(name="completionReason")
     @property
     def completion_reason(self) -> SendDtmfCompletionReason:
         """Gets the completionReason property"""
-        from office365.communications.operations.senddtmfcompletionreason import (
-            SendDtmfCompletionReason,
-        )
-
         return self.properties.get("completionReason", SendDtmfCompletionReason.unknown)
 
     @property

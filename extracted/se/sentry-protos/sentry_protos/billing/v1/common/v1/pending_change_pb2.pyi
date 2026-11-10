@@ -8,12 +8,67 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.empty_pb2
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.soft_cap_type_pb2
 import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
+import sys
 import typing
 
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
+
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _PendingBillingType:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _PendingBillingTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_PendingBillingType.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    PENDING_BILLING_TYPE_UNSPECIFIED: _PendingBillingType.ValueType  # 0
+    PENDING_BILLING_TYPE_CREDIT_CARD: _PendingBillingType.ValueType  # 1
+    """Billed directly by us, on a card the customer manages."""
+    PENDING_BILLING_TYPE_INVOICED: _PendingBillingType.ValueType  # 2
+    """Invoiced by us, under a sales-negotiated agreement."""
+
+class PendingBillingType(_PendingBillingType, metaclass=_PendingBillingTypeEnumTypeWrapper):
+    """The billing type a pending change moves the next contract onto."""
+
+PENDING_BILLING_TYPE_UNSPECIFIED: PendingBillingType.ValueType  # 0
+PENDING_BILLING_TYPE_CREDIT_CARD: PendingBillingType.ValueType  # 1
+"""Billed directly by us, on a card the customer manages."""
+PENDING_BILLING_TYPE_INVOICED: PendingBillingType.ValueType  # 2
+"""Invoiced by us, under a sales-negotiated agreement."""
+global___PendingBillingType = PendingBillingType
+
+class _PendingPaygMode:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _PendingPaygModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_PendingPaygMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    PENDING_PAYG_MODE_UNSPECIFIED: _PendingPaygMode.ValueType  # 0
+    PENDING_PAYG_MODE_NONE: _PendingPaygMode.ValueType  # 1
+    """The org may not incur payg at all."""
+    PENDING_PAYG_MODE_MANUAL: _PendingPaygMode.ValueType  # 2
+    """The org incurs payg, but it is billed outside the platform."""
+    PENDING_PAYG_MODE_CHARGED: _PendingPaygMode.ValueType  # 3
+    """We charge payg spend ourselves."""
+
+class PendingPaygMode(_PendingPaygMode, metaclass=_PendingPaygModeEnumTypeWrapper):
+    """Whether an invoiced contract may incur payg, and who bills it."""
+
+PENDING_PAYG_MODE_UNSPECIFIED: PendingPaygMode.ValueType  # 0
+PENDING_PAYG_MODE_NONE: PendingPaygMode.ValueType  # 1
+"""The org may not incur payg at all."""
+PENDING_PAYG_MODE_MANUAL: PendingPaygMode.ValueType  # 2
+"""The org incurs payg, but it is billed outside the platform."""
+PENDING_PAYG_MODE_CHARGED: PendingPaygMode.ValueType  # 3
+"""We charge payg spend ourselves."""
+global___PendingPaygMode = PendingPaygMode
 
 @typing.final
 class PendingChange(google.protobuf.message.Message):
@@ -29,6 +84,8 @@ class PendingChange(google.protobuf.message.Message):
     USER_CONFIGS_FIELD_NUMBER: builtins.int
     MONTH_INTERVAL_FIELD_NUMBER: builtins.int
     SPONSORED_TYPE_FIELD_NUMBER: builtins.int
+    BILLING_TYPE_FIELD_NUMBER: builtins.int
+    PAYG_MODE_FIELD_NUMBER: builtins.int
     package_id: builtins.str
     """The package the subscription will switch to. Unset means the package is
     not changing.
@@ -38,6 +95,12 @@ class PendingChange(google.protobuf.message.Message):
     sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType
     """Next contract's sponsored_type. SPONSORED_TYPE_UNSPECIFIED clears the
     sponsorship; an unset field leaves it unchanged.
+    """
+    billing_type: global___PendingBillingType.ValueType
+    """The next contract's billing type. Unset leaves it unchanged."""
+    payg_mode: global___PendingPaygMode.ValueType
+    """The next contract's payg mode. Set only with PENDING_BILLING_TYPE_INVOICED,
+    since a card-billed contract always charges payg.
     """
     @property
     def user_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PendingUserConfig]:
@@ -57,13 +120,19 @@ class PendingChange(google.protobuf.message.Message):
         user_configs: collections.abc.Iterable[global___PendingUserConfig] | None = ...,
         month_interval: builtins.int | None = ...,
         sponsored_type: sentry_protos.billing.v1.common.v1.sponsored_type_pb2.SponsoredType.ValueType | None = ...,
+        billing_type: global___PendingBillingType.ValueType | None = ...,
+        payg_mode: global___PendingPaygMode.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_id", b"_package_id", "_sponsored_type", b"_sponsored_type", "month_interval", b"month_interval", "package_id", b"package_id", "sponsored_type", b"sponsored_type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_month_interval", b"_month_interval", "_package_id", b"_package_id", "_sponsored_type", b"_sponsored_type", "month_interval", b"month_interval", "package_id", b"package_id", "sponsored_type", b"sponsored_type", "user_configs", b"user_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_billing_type", b"_billing_type", "_month_interval", b"_month_interval", "_package_id", b"_package_id", "_payg_mode", b"_payg_mode", "_sponsored_type", b"_sponsored_type", "billing_type", b"billing_type", "month_interval", b"month_interval", "package_id", b"package_id", "payg_mode", b"payg_mode", "sponsored_type", b"sponsored_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_billing_type", b"_billing_type", "_month_interval", b"_month_interval", "_package_id", b"_package_id", "_payg_mode", b"_payg_mode", "_sponsored_type", b"_sponsored_type", "billing_type", b"billing_type", "month_interval", b"month_interval", "package_id", b"package_id", "payg_mode", b"payg_mode", "sponsored_type", b"sponsored_type", "user_configs", b"user_configs"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_billing_type", b"_billing_type"]) -> typing.Literal["billing_type"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_month_interval", b"_month_interval"]) -> typing.Literal["month_interval"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_package_id", b"_package_id"]) -> typing.Literal["package_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_payg_mode", b"_payg_mode"]) -> typing.Literal["payg_mode"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_sponsored_type", b"_sponsored_type"]) -> typing.Literal["sponsored_type"] | None: ...
 

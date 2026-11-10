@@ -45,7 +45,7 @@ class KeywordColor(basic_parts.BaseSpanGroup):
     return CSSStyleRule(html_escaping.without_repeated_whitespace("""
       .color_keyword
       {
-        color: #0000ff;
+        color: var(--treescope-keyword-color);
       }
     """))
 
@@ -60,7 +60,7 @@ class NumberColor(basic_parts.BaseSpanGroup):
     return CSSStyleRule(html_escaping.without_repeated_whitespace("""
       .color_number
       {
-        color: #098156;
+        color: var(--treescope-number-color);
       }
     """))
 
@@ -75,7 +75,7 @@ class StringLiteralColor(basic_parts.BaseSpanGroup):
     return CSSStyleRule(html_escaping.without_repeated_whitespace("""
       .color_string
       {
-        color: #a31515;
+        color: var(--treescope-string-color);
       }
     """))
 
@@ -181,7 +181,9 @@ def render_enum(
   """Renders an enum (roundtrippably, unlike the normal enum `repr`)."""
   del subtree_renderer
   cls = type(node)
-  if node is getattr(cls, node.name):
+  # Only canonical members can be rendered as `Cls.NAME`. Other values, such
+  # as combinations of `enum.Flag` members, fall back to the default repr.
+  if isinstance(node.name, str) and getattr(cls, node.name, None) is node:
     return rendering_parts.build_one_line_tree_node(
         rendering_parts.siblings_with_annotations(
             rendering_parts.maybe_qualified_type_name(cls),
@@ -421,7 +423,6 @@ BUILTINS_REGISTRY = {
     type(None): render_keyword,
     type(NotImplemented): render_keyword,
     type(Ellipsis): render_keyword,
-    enum.Enum: render_enum,
     # Builtin basic structures.
     dict: render_dict,
     tuple: render_sequence_or_set,
@@ -444,6 +445,11 @@ def handle_basic_types(
     | type(NotImplemented)
 ):
   """Renders basic builtin Python types."""
+  # Check for enums first, since enums with mixin types (e.g. `enum.IntEnum`)
+  # are also subclasses of builtin types like `int` or `str`.
+  if isinstance(node, enum.Enum):
+    return render_enum(node, path, subtree_renderer)
+
   candidate_type = type(node)
   for supertype in candidate_type.__mro__:
     if supertype in BUILTINS_REGISTRY:

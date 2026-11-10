@@ -1,38 +1,32 @@
-#!/usr/bin/env python
-"""
-convert -- Convert a PROV document between PROV-JSON, PROV-N, PROV-XML, PROV-O, PROV-JSONLD and graphical formats
+"""Convert a PROV document between PROV-JSON, PROV-N, PROV-XML, PROV-O, PROV-JSONLD
+and Graphviz output formats."""
 
-@author:     Trung Dong Huynh
-
-@copyright:  2026 Trung Dong Huynh
-
-@license:    MIT License
-
-@contact:    trungdong@donggiang.com
-@deffield    updated: 2026-09-12
-"""
-
-import logging
+import contextlib
+import importlib
+import io
 import os
 import sys
-import traceback
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from typing import BinaryIO, cast
+from collections.abc import Mapping, Sequence
+from typing import IO, Any, cast
 
+import prov
 from prov import serializers
 from prov.model import ProvDocument
-from prov.scripts import _open_binary
+from prov.scripts import (
+    _add_option_flag,
+    _format_names,
+    _input_format,
+    _open_binary,
+    _options,
+    _read,
+    _reader_names,
+    _reader_options,
+    _run,
+)
+from prov.serializers import _is_text_stream
 
-logger = logging.getLogger(__name__)
-
-__all__: list[str] = []
-__version__ = 0.1
-__date__ = "2014-03-14"
-__updated__ = "2026-09-12"
-
-DEBUG = 0
-TESTRUN = 0
-PROFILE = 0
+_PROG = "prov-convert"
 
 GRAPHVIZ_SUPPORTED_FORMATS = {
     "bmp",
@@ -73,32 +67,57 @@ GRAPHVIZ_SUPPORTED_FORMATS = {
 to the formats registered in :class:`~prov.serializers.Registry`."""
 
 
+_GRAPHVIZ_OPTIONS = frozenset(
+    {
+        "show_nary",
+        "use_labels",
+        "direction",
+        "show_element_attributes",
+        "show_relation_attributes",
+    }
+)
+"""The keywords of :func:`~prov.dot.prov_to_dot` that a Graphviz output format takes."""
+
+_LEXERS = {
+    "provn": "provn",
+    "json": "json",
+    "jsonld": "jsonld",
+    "xml": "xml",
+    "dot": "graphviz",
+}
+"""The Pygments lexer name for each output format that has one, except ``rdf``."""
+
+_RDF_LEXERS: Mapping[Any, str] = {"turtle": "turtle", "xml": "xml", "json-ld": "jsonld"}
+"""The Pygments lexer name for each ``rdf_format`` that has one."""
+
+
 class CLIError(Exception):
-    """Generic exception to raise and log different fatal errors."""
+    """A fatal error that :func:`main` reports as one ``prov-convert: error:`` line."""
 
     def __init__(self, msg: str):
-        super().__init__(type(self))
-        self.msg = f"E: {msg}"
-
-    def __str__(self) -> str:
-        return self.msg
+        super().__init__(msg)
+        self.msg = msg
 
 
 def convert_file(
-    infile: BinaryIO,
-    outfile: BinaryIO,
+    infile: IO[Any],
+    outfile: IO[Any],
     output_format: str,
     input_format: str = "json",
+    *,
+    reader_options: Mapping[str, Any] | None = None,
+    writer_options: Mapping[str, Any] | None = None,
+    color: bool = False,
 ) -> None:
     """Read a PROV document from ``infile`` and write it to ``outfile`` in ``output_format``.
 
-    ``infile`` is read in ``input_format`` (default PROV-JSON) through
-    :meth:`~prov.model.ProvDocument.deserialize`. For ``output_format``,
-    ``"provn"`` is written directly via
-    :meth:`~prov.model.ProvDocument.get_provn`, a name in
+    ``infile`` is read in ``input_format`` (default PROV-JSON; ``"auto"``
+    detects the format from the content). A name in
     :data:`GRAPHVIZ_SUPPORTED_FORMATS` is rendered through
-    :func:`~prov.dot.prov_to_dot` and Graphviz, and any other format is
-    delegated to :meth:`~prov.model.ProvDocument.serialize`.
+    :func:`~prov.dot.prov_to_dot` (with ``writer_options``) and Graphviz, and any other
+    ``output_format`` is written by
+    :meth:`~prov.model.ProvDocument.serialize`. With ``color`` the output is
+    highlighted with ANSI escape sequences.
 
     Args:
         infile: File-like object (opened in binary mode) to read the source
@@ -108,159 +127,321 @@ def convert_file(
         output_format: Target format name (e.g. ``"json"``, ``"xml"``,
             ``"rdf"``, ``"jsonld"``, ``"provn"``, or a Graphviz output format such as
             ``"svg"``/``"pdf"``/``"png"``).
-        input_format: Source format name, any registered serializer format.
+        input_format: Source format name, any registered serializer format, or
+            ``"auto"`` to detect it from the content.
+        reader_options: Keyword options for the input format's reader.
+        writer_options: Keyword options for the output format's writer, or for
+            :func:`~prov.dot.prov_to_dot` with a Graphviz format.
+        color: Colour the output with Pygments when the format has a lexer
+            (see ``--color``). A format without a lexer, and output that holds a
+            carriage return, is written plain.
 
     Raises:
         CLIError: If ``input_format`` is not a registered serializer format,
-            or if ``output_format`` is not ``"provn"``, not a Graphviz
-            format, and not a registered serializer format.
+            or if ``output_format`` is not a Graphviz format and not a
+            registered serializer format. The message is the serializer
+            registry's, which names the extra a missing format needs.
+        ImportError: If ``color`` is true and Pygments is not installed.
+        TypeError: If ``writer_options`` names a keyword that
+            :func:`~prov.dot.prov_to_dot` does not accept.
+
+    A writer's own error for a value it rejects (such as the ``ValueError``
+    for an unknown ``context``) and a reader's error propagate unchanged.
+    """
+    prov_doc = _read_input(infile, input_format, reader_options or {})
+    _write_output(prov_doc, outfile, output_format, writer_options or {}, color)
+
+
+def _read_input(
+    infile: IO[Any], input_format: str, reader_options: Mapping[str, Any]
+) -> ProvDocument:
+    """Read the document from ``infile`` in ``input_format``.
+
+    An unregistered ``input_format`` is a :class:`CLIError`.
     """
     try:
-        prov_doc = ProvDocument.deserialize(infile, format=input_format)
+        return _read(infile, input_format, reader_options)
     except serializers.DoNotExist as e:
-        raise CLIError(f'Input format "{input_format}" is not supported.') from e
+        raise CLIError(str(e)) from e
 
-    # Formats not supported by prov.serializers
-    if output_format == "provn":
-        outfile.write(prov_doc.get_provn().encode())
-    elif output_format in GRAPHVIZ_SUPPORTED_FORMATS:
+
+def _write_output(
+    prov_doc: ProvDocument,
+    outfile: IO[Any],
+    output_format: str,
+    writer_options: Mapping[str, Any],
+    color: bool,
+) -> None:
+    """Write ``prov_doc`` to ``outfile`` in ``output_format``, highlighted when ``color`` is true."""
+    lexer = _lexer_name(output_format, writer_options) if color else None
+    if lexer is None:
+        _write_document(prov_doc, outfile, output_format, writer_options)
+    else:
+        _write_colored(prov_doc, outfile, output_format, writer_options, lexer)
+
+
+def _write_colored(
+    prov_doc: ProvDocument,
+    outfile: IO[Any],
+    output_format: str,
+    options: Mapping[str, Any],
+    lexer: str,
+) -> None:
+    """Write ``prov_doc`` to ``outfile`` highlighted with the ``lexer`` lexer.
+
+    The plain bytes are decoded, highlighted and written as ``str`` to a text
+    stream and as UTF-8 bytes to any other.
+    """
+    buffer = io.BytesIO()
+    _write_document(prov_doc, buffer, output_format, options)
+    text = _highlight(buffer.getvalue().decode("utf-8"), lexer)
+    is_text = _is_text_stream(cast(io.IOBase, outfile))
+    outfile.write(text if is_text else text.encode("utf-8"))
+
+
+def _write_document(
+    prov_doc: ProvDocument,
+    stream: IO[Any],
+    output_format: str,
+    options: Mapping[str, Any],
+) -> None:
+    """Write ``prov_doc`` to ``stream`` in ``output_format`` with the writer ``options``."""
+    if output_format in GRAPHVIZ_SUPPORTED_FORMATS:
         from prov.dot import prov_to_dot
 
-        dot = prov_to_dot(prov_doc)
+        dot = prov_to_dot(prov_doc, **options)
         # pydot's stub says create() returns `str`, but its own docstring
         # says (and it actually does, for binary Graphviz formats) return
         # `bytes`; this is an inaccuracy in pydot's stub, not a bug here.
-        content = cast(bytes, dot.create(format=output_format))
-        outfile.write(content)
-    else:
-        # Try supported serializers:
-        try:
-            prov_doc.serialize(outfile, format=output_format)
-        except serializers.DoNotExist as e:
-            raise CLIError(f'Output format "{output_format}" is not supported.') from e
+        stream.write(cast(bytes, dot.create(format=output_format)))
+        return
+    try:
+        prov_doc.serialize(stream, format=output_format, **options)
+    except serializers.DoNotExist as e:
+        raise CLIError(str(e)) from e
 
 
-def main(argv: list[str] | None = None) -> int:  # IGNORE:C0111
-    """Run the ``prov-convert`` command-line tool.
+def _lexer_name(fmt: str, writer_options: Mapping[str, Any]) -> str | None:
+    """Return the Pygments lexer name for the ``fmt`` output, or ``None`` if it has none.
 
-    Parses ``-f/--format``, ``-i/--input-format``, an optional input file
-    (default stdin), and an optional output file (default stdout), then
-    converts between them via :func:`convert_file`. Files are opened after
-    parsing; the standard streams are used for ``-`` and are not closed.
-
-    Args:
-        argv: Extra command-line arguments. If not ``None``, they are
-            appended to ``sys.argv`` (which is *not* replaced) before
-            argument parsing, so ``sys.argv[0]`` is still used as the
-            program name.
-
-    Returns:
-        ``0`` on success or on ``KeyboardInterrupt``; ``2`` if an exception
-        was raised while parsing arguments or converting the file (unless
-        ``DEBUG``/``TESTRUN`` is set, in which case the exception
-        propagates instead).
+    ``rdf`` keys on the ``rdf_format`` writer option, and its default has no lexer.
+    The other Graphviz formats have no lexer in the map.
     """
+    if fmt == "rdf":
+        return _RDF_LEXERS.get(writer_options.get("rdf_format"))
+    return _LEXERS.get(fmt)
 
-    if argv is None:
-        argv = sys.argv
-    else:
-        sys.argv.extend(argv)
 
-    program_name = os.path.basename(sys.argv[0])
-    program_version = f"v{__version__}"
-    program_build_date = str(__updated__)
-    program_version_message = f"%(prog)s {program_version} ({program_build_date})"
-    program_shortdesc = __doc__.split("\n")[1]
-    program_license = f"""{program_shortdesc}
+def _highlight(text: str, lexer_name: str) -> str:
+    """Colour ``text`` with the ``lexer_name`` lexer and Pygments' 16-colour formatter.
 
-  Copyright 2026 Trung Dong Huynh.
-
-  Licensed under the MIT License
-  https://github.com/trungdong/prov/blob/main/LICENSE
-
-  Distributed on an "AS IS" basis without warranties
-  or conditions of any kind, either express or implied.
-
-USAGE
-"""
+    Text that holds a carriage return stays plain, because Pygments turns it
+    into a line feed. So does text for a lexer that cannot be fetched (unknown,
+    or its plugin fails to import). Otherwise removing the escape sequences
+    gives ``text`` back.
+    """
+    if "\r" in text:
+        return text
+    from pygments import highlight
+    from pygments.formatters import TerminalFormatter
+    from pygments.lexers import get_lexer_by_name
+    from pygments.util import ClassNotFound
 
     try:
-        # Setup argument parser
-        parser = ArgumentParser(
-            description=program_license, formatter_class=RawDescriptionHelpFormatter
-        )
-        parser.add_argument(
-            "-i",
-            "--input-format",
-            dest="input_format",
-            action="store",
-            default="json",
-            help="input format: json, xml, rdf, jsonld or provn",
-        )
-        parser.add_argument(
-            "-f",
-            "--format",
-            dest="format",
-            action="store",
-            default="json",
-            help="output format: json, xml, rdf, jsonld, provn, or a Graphviz output format (e.g. svg, pdf, png)",
-        )
-        parser.add_argument(
-            "infile", nargs="?", default="-", help="input file (default: stdin)"
-        )
-        parser.add_argument(
-            "outfile", nargs="?", default="-", help="output file (default: stdout)"
-        )
-        parser.add_argument(
-            "-V", "--version", action="version", version=program_version_message
-        )
+        lexer = get_lexer_by_name(lexer_name, stripnl=False, ensurenl=False)
+    except (ClassNotFound, ImportError):
+        return text
+    return highlight(text, lexer, TerminalFormatter())
 
-        args = parser.parse_args()
-        owned: list[BinaryIO] = []
-        try:
-            infile, owns_infile = _open_binary(parser, args.infile, "rb", "stdin")
-            if owns_infile:
-                owned.append(infile)
-            outfile, owns_outfile = _open_binary(parser, args.outfile, "wb", "stdout")
-            if owns_outfile:
-                owned.append(outfile)
-            convert_file(
-                infile, outfile, args.format.lower(), args.input_format.lower()
-            )
-            outfile.flush()
-        finally:
-            for stream in owned:
-                stream.close()
 
-        return 0
-    except KeyboardInterrupt:
-        # handle keyboard interrupt
-        return 0
-    except Exception as e:
-        if DEBUG or TESTRUN:
-            traceback.print_exc()
-            raise e
-        indent = len(program_name) * " "
-        sys.stderr.write(program_name + ": " + str(e) + "\n")
-        sys.stderr.write(indent + "  for help use --help")
-        return 2
+def _use_color(choice: str, outfile: str) -> bool:
+    """Decide whether the output is coloured, from ``--color``, ``outfile`` and the environment.
+
+    ``auto`` colours standard output on a terminal that supports it, when
+    Pygments imports. ``always`` without Pygments is a :class:`CLIError`.
+    """
+    if choice == "never":
+        return False
+    if choice == "auto" and not _on_color_terminal(outfile):
+        return False
+    try:
+        importlib.import_module("pygments")
+    except ImportError:
+        if choice == "always":
+            raise CLIError(
+                '--color=always needs the optional "pygments" extra; '
+                'install "prov[pygments]"'
+            ) from None
+        return False
+    return True
+
+
+def _on_color_terminal(outfile: str) -> bool:
+    """Return whether ``auto`` may colour.
+
+    It may when the output is standard output on a terminal, ``NO_COLOR`` is
+    unset or empty and ``TERM`` is not ``dumb``.
+    """
+    isatty = getattr(sys.stdout, "isatty", None)
+    return (
+        outfile == "-"
+        and callable(isatty)
+        and bool(isatty())
+        and not os.environ.get("NO_COLOR")
+        and os.environ.get("TERM") != "dumb"
+    )
+
+
+def _output_format(path: str, flag: str) -> tuple[str, dict[str, str]]:
+    """Resolve the output format and writer options for ``path`` and the ``-f`` ``flag``.
+
+    An explicit flag is used as given, with no options. ``auto`` takes the
+    extension's row, else a Graphviz format named by the extension, else
+    PROV-JSON, which is also the format for standard output.
+    """
+    fmt, options = _input_format(path, flag)
+    if fmt != "auto":
+        return fmt, options
+    graphviz = os.path.splitext(path)[1][1:].lower()
+    return (graphviz if graphviz in GRAPHVIZ_SUPPORTED_FORMATS else "json"), {}
+
+
+def _writer_names(fmt: str) -> frozenset[str]:
+    """Return the options the ``fmt`` writer declares.
+
+    An unregistered or unavailable format raises the library's ``DoNotExist``.
+    """
+    if fmt in GRAPHVIZ_SUPPORTED_FORMATS:
+        return _GRAPHVIZ_OPTIONS
+    return serializers.get(fmt).serialize_options
+
+
+def _writer_options(
+    path: str, flag: str, pairs: Sequence[tuple[str, str]] | None
+) -> tuple[str, dict[str, Any]]:
+    """Resolve the output format of ``path`` and the ``-f`` ``flag`` with its writer options.
+
+    ``pairs`` are the ``NAME=VALUE`` pairs of the ``-w`` flag, ``None`` when it
+    is absent. They are checked against the format's writer, over the
+    extension's row.
+    """
+    fmt, table = _output_format(path, flag)
+    return fmt, _options(pairs or [], "writer", fmt, _writer_names(fmt), table)
+
+
+def _build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
+        prog=_PROG,
+        description="Convert a PROV document between formats.",
+        epilog="""examples:
+  prov-convert doc.json doc.provn
+  prov-convert doc.provn doc.xml
+  prov-convert doc.json doc.svg
+  prov-convert -f jsonld < doc.json > doc.jsonld
+  prov-convert -f provn -w width=none doc.json doc.provn
+  prov-convert -i provn -r profile=lenient doc.provn doc.json
+  prov-convert --color always -f provn doc.json | less -R
+""",
+        formatter_class=RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-i",
+        "--input-format",
+        default="auto",
+        help=(
+            f"input format: {_format_names()}, or auto to use the file "
+            "extension, else the content; default: %(default)s"
+        ),
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        default="auto",
+        help=(
+            f"output format: {_format_names()}, a Graphviz output format "
+            "(e.g. svg, pdf, png), or auto to use the file extension, else "
+            "json; default: %(default)s"
+        ),
+    )
+    _add_option_flag(
+        parser,
+        ("-w", "--writer-option"),
+        "the writer",
+        _writer_names,
+        extra=f"; Graphviz formats: {', '.join(sorted(_GRAPHVIZ_OPTIONS))}",
+    )
+    _add_option_flag(
+        parser,
+        ("-r", "--reader-option"),
+        "the reader",
+        _reader_names,
+        typing=", typed like -w",
+    )
+    parser.add_argument(
+        "--color",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help=(
+            "colour the output with Pygments; auto does so for standard output on "
+            "a terminal, unless NO_COLOR is set to a value or TERM is dumb, and "
+            "always colours a file or pipe too; default: %(default)s"
+        ),
+    )
+    parser.add_argument(
+        "infile", nargs="?", default="-", help="input file (default: stdin)"
+    )
+    parser.add_argument(
+        "outfile", nargs="?", default="-", help="output file (default: stdout)"
+    )
+    parser.add_argument(
+        "-V", "--version", action="version", version=f"%(prog)s {prov.__version__}"
+    )
+    return parser
+
+
+def _convert(argv: list[str] | None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    input_format, reader_options = _reader_options(
+        args.infile, args.input_format, args.reader_option
+    )
+    output_format, writer_options = _writer_options(
+        args.outfile, args.format, args.writer_option
+    )
+    color = _use_color(args.color, args.outfile)
+    with contextlib.ExitStack() as streams:
+        infile = streams.enter_context(_open_binary(parser, args.infile, "rb", "stdin"))
+        prov_doc = _read_input(infile, input_format, reader_options)
+        outfile = streams.enter_context(
+            _open_binary(parser, args.outfile, "wb", "stdout")
+        )
+        _write_output(prov_doc, outfile, output_format, writer_options, color)
+        outfile.flush()
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the ``prov-convert`` command-line tool.
+
+    Parses ``-f/--format``, ``-i/--input-format``, the repeatable
+    ``-w/--writer-option`` and ``-r/--reader-option`` (``NAME=VALUE``), ``--color``, an
+    optional input file (default stdin), and an optional output file (default
+    stdout), then converts between them. The input is read before the output file
+    opens, so an input that fails to parse leaves an existing output file as it was.
+    The standard streams are used for ``-`` and are not closed.
+
+    Args:
+        argv: The command-line arguments, without the program name. ``None``
+            means ``sys.argv[1:]``. ``sys.argv`` is never modified.
+
+    Returns:
+        ``0`` on success, ``2`` after printing ``prov-convert: error: ...``
+        to stderr when reading or converting fails, or ``130`` on
+        ``KeyboardInterrupt``. A usage error exits through argparse with
+        status 2.
+    """
+    return _run(_PROG, lambda: _convert(argv))
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=(logging.DEBUG if DEBUG else logging.INFO))
-    if TESTRUN:
-        import doctest
-
-        doctest.testmod()
-    if PROFILE:
-        import cProfile
-        import pstats
-
-        profile_filename = "converter_profile.txt"
-        cProfile.run("main()", profile_filename)
-        with open("profile_stats.txt", "wb") as statsfile:
-            p = pstats.Stats(profile_filename, stream=statsfile)
-            stats = p.strip_dirs().sort_stats("cumulative")
-            stats.print_stats()
-        sys.exit(0)
     sys.exit(main())

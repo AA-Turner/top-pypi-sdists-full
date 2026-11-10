@@ -6,17 +6,27 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.user_invitation_accept_request import UserInvitationAcceptRequest
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
+    *,
+    body: UserInvitationAcceptRequest,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": f"/api/user-invitations/{uuid}/accept/",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -41,14 +51,17 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    body: UserInvitationAcceptRequest,
 ) -> Response[Any]:
     """Accept an invitation
 
      Accepts an invitation for the currently authenticated user. This grants the user the specified role
-    in the invitation's scope.
+    in the invitation's scope. Staff may pass `user` to accept it for that user instead, for example
+    from a service account that registers users elsewhere; the user's email must match the invitation.
 
     Args:
         uuid (UUID):
+        body (UserInvitationAcceptRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -60,6 +73,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -73,14 +87,17 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    body: UserInvitationAcceptRequest,
 ) -> Response[Any]:
     """Accept an invitation
 
      Accepts an invitation for the currently authenticated user. This grants the user the specified role
-    in the invitation's scope.
+    in the invitation's scope. Staff may pass `user` to accept it for that user instead, for example
+    from a service account that registers users elsewhere; the user's email must match the invitation.
 
     Args:
         uuid (UUID):
+        body (UserInvitationAcceptRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -92,6 +109,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

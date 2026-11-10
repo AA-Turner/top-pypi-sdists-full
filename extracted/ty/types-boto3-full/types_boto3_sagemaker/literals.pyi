@@ -144,6 +144,7 @@ __all__ = (
     "ExecutionRoleIdentityConfigType",
     "ExecutionRoleSessionNameModeType",
     "ExecutionStatusType",
+    "ExtensionStatusType",
     "FailureHandlingPolicyType",
     "FairShareType",
     "FeatureGroupSortByType",
@@ -224,6 +225,7 @@ __all__ = (
     "ListAutoMLJobsPaginatorName",
     "ListCandidatesForAutoMLJobPaginatorName",
     "ListClusterEventsPaginatorName",
+    "ListClusterExtensionsPaginatorName",
     "ListClusterNodesPaginatorName",
     "ListClusterSchedulerConfigsPaginatorName",
     "ListClustersPaginatorName",
@@ -373,6 +375,7 @@ __all__ = (
     "PartnerAppTypeType",
     "PeftType",
     "PipelineExecutionStatusType",
+    "PipelineManagedByType",
     "PipelineStatusType",
     "PreemptTeamTasksType",
     "ProblemTypeType",
@@ -1272,6 +1275,16 @@ ExecutionRoleSessionNameModeType = Literal["STATIC", "USER_IDENTITY"]
 ExecutionStatusType = Literal[
     "Completed", "CompletedWithViolations", "Failed", "InProgress", "Pending", "Stopped", "Stopping"
 ]
+ExtensionStatusType = Literal[
+    "Active",
+    "CreateFailed",
+    "Creating",
+    "Degraded",
+    "DeleteFailed",
+    "Deleting",
+    "UpdateFailed",
+    "Updating",
+]
 FailureHandlingPolicyType = Literal["DO_NOTHING", "ROLLBACK_ON_FAILURE"]
 FairShareType = Literal["Disabled", "Enabled"]
 FeatureGroupSortByType = Literal["CreationTime", "FeatureGroupStatus", "Name", "OfflineStoreStatus"]
@@ -1593,6 +1606,7 @@ ListAssociationsPaginatorName = Literal["list_associations"]
 ListAutoMLJobsPaginatorName = Literal["list_auto_ml_jobs"]
 ListCandidatesForAutoMLJobPaginatorName = Literal["list_candidates_for_auto_ml_job"]
 ListClusterEventsPaginatorName = Literal["list_cluster_events"]
+ListClusterExtensionsPaginatorName = Literal["list_cluster_extensions"]
 ListClusterNodesPaginatorName = Literal["list_cluster_nodes"]
 ListClusterSchedulerConfigsPaginatorName = Literal["list_cluster_scheduler_configs"]
 ListClustersPaginatorName = Literal["list_clusters"]
@@ -1917,6 +1931,7 @@ PeftType = Literal["LORA"]
 PipelineExecutionStatusType = Literal[
     "CompletedWithFailures", "Executing", "Failed", "Stopped", "Stopping", "Succeeded"
 ]
+PipelineManagedByType = Literal["AWS", "CUSTOMER"]
 PipelineStatusType = Literal["Active", "Deleting"]
 PreemptTeamTasksType = Literal["LowerPriority", "Never"]
 ProblemTypeType = Literal["BinaryClassification", "MulticlassClassification", "Regression"]
@@ -3516,6 +3531,7 @@ PaginatorName = Literal[
     "list_auto_ml_jobs",
     "list_candidates_for_auto_ml_job",
     "list_cluster_events",
+    "list_cluster_extensions",
     "list_cluster_nodes",
     "list_cluster_scheduler_configs",
     "list_clusters",

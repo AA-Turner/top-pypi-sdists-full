@@ -1,10 +1,15 @@
 """Tests for skill-edit-guard.py: deny a SKILL.md edit (exit 2), allow else, env opt-out, fail-open."""
 
+import io
 import json
+import shlex
+import subprocess
 import sys
+import types
 
 import pytest
 
+import skill_decisions as SD
 import skill_edit_guard as G
 
 
@@ -391,3 +396,384 @@ def test_end_to_end_with_the_real_receipt_store(tmp_path, monkeypatch, capsys, h
         results.append(G.main())
     assert results == [0, 2]
     assert "SKILL-EDIT GUARD" in capsys.readouterr().err
+
+
+# --- the decisions brief: a skill's declined decisions, handed over once before its first edit ----
+#
+# Runs only AFTER the receipt and load checks pass. The session-state flag lives under the
+# autouse `home` fixture's HOME, so a real ~/.claude never decides a test.
+
+
+def _skill_with_rejection(tmp_path, name="foo"):
+    skill = tmp_path / "repo" / "skills" / name
+    (skill / ".skillwriter").mkdir(parents=True)
+    (skill / "SKILL.md").write_text("text\n", encoding="utf-8")
+    entry = {"v": 1, "date": "2026-11-05", "kind": "rejected", "topic": "per-project-env",
+             "decision": "Install per project.", "why": "Two projects cannot share it.",
+             "evidence": {"tier": "measured", "text": "x"}, "reopen_if": "bmk changes.",
+             "anchors": [], "supersedes": [], "refs": [], "origin": "authored"}
+    entry["id"] = SD.entry_id(entry)
+    SD.ledger_path(skill).write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    return skill / "SKILL.md"
+
+
+def _brief_edit(transcript, path):
+    return {"session_id": "S", "transcript_path": str(transcript), "tool_name": "Edit",
+            "tool_input": {"file_path": str(path)}}
+
+
+def _show_record(skill):
+    return {"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": "toolu_s", "name": "Bash",
+         "input": {"command": "python3 /p/hooks/skill_decisions.py show %s --kind rejected,removed --full"
+                   % skill}}]}}
+
+
+def test_the_first_edit_is_refused_once_with_the_declined_decisions(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    reason = G.decide(_brief_edit(main, path), {})
+    assert reason is not None and "Two projects cannot share it." in reason
+    assert "re-send" in reason
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+def _twin_layout(tmp_path):
+    """A `public/` tree: the marketplace copy coding-python-gitignore holds a rejection, its
+    tool-repo twin python-gitignore (as `mirrored_skills` names it) holds no ledger."""
+    public = tmp_path / "public"
+    market = public / "KI" / "bitranox-skills" / "plugins" / "bitranox"
+    _skill_with_rejection(tmp_path, "coding-python-gitignore")
+    market.mkdir(parents=True)
+    (tmp_path / "repo" / "skills").rename(market / "skills")
+    twin = public / "libs" / "igittigitt" / "skills" / "python-gitignore" / "SKILL.md"
+    twin.parent.mkdir(parents=True)
+    twin.write_text("text\n", encoding="utf-8")
+    return market / "skills" / "coding-python-gitignore", twin
+
+
+def test_an_edit_of_a_tool_repo_twin_gets_the_marketplace_copys_brief(tmp_path, armed):
+    """[95]: the twin has no ledger, so its edit used to pass with nobody shown the rejection."""
+    market, twin = _twin_layout(tmp_path)
+    assert not SD.ledger_path(twin.parent).exists()
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    reason = G.decide(_brief_edit(main, twin), {})
+    assert reason is not None and "Two projects cannot share it." in reason
+    assert "python-gitignore (a tool-repo twin" in reason and "coding-python-gitignore" in reason
+    assert G.show_command(market) in reason           # the show command reads the right ledger
+    assert G.decide(_brief_edit(main, twin), {}) is None
+
+
+def test_a_twin_edit_after_show_of_the_marketplace_skill_is_not_refused(tmp_path, armed):
+    _market, twin = _twin_layout(tmp_path)
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer"),
+                               _show_record("coding-python-gitignore")])
+    assert G.decide(_brief_edit(main, twin), {}) is None
+
+
+def test_a_skill_dir_named_like_a_twin_in_another_repo_gets_no_brief(tmp_path, armed):
+    """Control: the twin's NAME alone is not enough, its path must be the one the table names."""
+    _skill_with_rejection(tmp_path, "unused")
+    _twin_layout(tmp_path)
+    other = tmp_path / "public" / "libs" / "elsewhere" / "skills" / "python-gitignore" / "SKILL.md"
+    other.parent.mkdir(parents=True)
+    other.write_text("text\n", encoding="utf-8")
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    assert G.decide(_brief_edit(main, other), {}) is None
+
+
+def test_a_twin_holding_its_own_ledger_keeps_it(tmp_path):
+    market, twin = _twin_layout(tmp_path)
+    SD.ledger_path(twin.parent).parent.mkdir(parents=True)
+    SD.ledger_path(twin.parent).write_text("", encoding="utf-8")
+    assert G.ledger_dir(twin.parent, SD.ledger_path) == twin.parent
+    SD.ledger_path(twin.parent).unlink()
+    assert G.ledger_dir(twin.parent, SD.ledger_path) == market
+
+
+def test_the_last_ledger_root_is_this_installs_own_skills_dir():
+    """Off this machine (no `public/` tree) the plugin's own copy still holds every ledger."""
+    root = G._marketplace_skill_roots("/opt/elsewhere/skills/x")[-1]
+    assert (root / "meta-skill-writer" / "SKILL.md").is_file()
+
+
+def test_an_agent_that_ran_show_is_not_refused(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer"), _show_record("foo")])
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+def test_show_for_another_skill_does_not_count(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer"), _show_record("foo-bar")])
+    assert G.decide(_brief_edit(main, path), {}) is not None
+
+
+def test_a_skill_with_no_declined_decision_is_never_refused(tmp_path, armed):
+    path = tmp_path / "repo" / "skills" / "plain" / "SKILL.md"
+    path.parent.mkdir(parents=True)
+    path.write_text("text\n", encoding="utf-8")
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+def test_an_unreadable_ledger_lets_the_edit_through(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path)
+    SD.ledger_path(path.parent).write_text("{broken\n", encoding="utf-8")
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+def test_an_unstorable_refuse_once_flag_lets_the_edit_through(tmp_path, armed, home):
+    """The flag lives in the audit dir; a FILE where that dir should be makes it unstorable, and
+    an edit the guard could never let through on a re-send must not be refused at all."""
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    audit = home / ".claude" / "self-improve-audit"
+    audit.parent.mkdir(parents=True, exist_ok=True)
+    audit.write_text("not a dir\n", encoding="utf-8")
+    assert G.decide(_brief_edit(main, path), {}) is None
+    # The control: with the dir storable again, the same first edit is refused.
+    audit.unlink()
+    assert G.decide(_brief_edit(main, path), {}) is not None
+
+
+def test_a_missing_skill_decisions_module_lets_the_edit_through(tmp_path, armed, monkeypatch):
+    """A None entry in sys.modules makes `import skill_decisions` raise ImportError, as a missing
+    file would; the guard's import is the seam, nothing inside either module is replaced."""
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    monkeypatch.setitem(sys.modules, "skill_decisions", None)
+    assert G.decide(_brief_edit(main, path), {}) is None
+    monkeypatch.setitem(sys.modules, "skill_decisions", SD)   # the control: importable, it refuses
+    assert G.decide(_brief_edit(main, path), {}) is not None
+
+
+def test_each_agent_is_refused_once_for_itself(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [], agent="a1", agent_records=[_load_record(_CACHE + "meta-skill-writer")])
+    event = dict(_brief_edit(main, path), agent_id="a1", agent_type="general-purpose")
+    assert G.decide(event, {}) is not None and G.decide(event, {}) is None
+
+
+# --- review fixes: the refuse-once key, whose transcript is read, a command the reader can run ---
+
+_LOAD = _load_record(_CACHE + "meta-skill-writer")
+
+
+def _sub_edit(transcript, path, agent="a1"):
+    return dict(_brief_edit(transcript, path), agent_id=agent, agent_type="general-purpose")
+
+
+def _bash_record(command):
+    return {"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": "toolu_b", "name": "Bash", "input": {"command": command}}]}}
+
+
+def _rejection(why, topic="per-project-env"):
+    entry = {"v": 1, "date": "2026-11-05", "kind": "rejected", "topic": topic,
+             "decision": "Install per project.", "why": why,
+             "evidence": {"tier": "measured", "text": "x"}, "reopen_if": "bmk changes.",
+             "anchors": [], "supersedes": [], "refs": [], "origin": "authored"}
+    entry["id"] = SD.entry_id(entry)
+    return entry
+
+
+def test_the_main_agent_and_a_subagent_are_each_refused_on_the_same_skill(tmp_path, armed):
+    """The flag is keyed by agent: the main agent's refusal must not spend the subagent's."""
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_LOAD], agent="a1", agent_records=[_LOAD])
+    assert G.decide(_brief_edit(main, path), {}) is not None
+    assert G.decide(_sub_edit(main, path), {}) is not None
+
+
+def test_one_agent_is_refused_once_for_each_skill(tmp_path, armed):
+    """The flag is keyed by skill: a refusal on foo must not spend the one owed on bar."""
+    foo = _skill_with_rejection(tmp_path, "foo")
+    bar = _skill_with_rejection(tmp_path, "bar")
+    main = _session(tmp_path, [_LOAD])
+    assert G.decide(_brief_edit(main, foo), {}) is not None
+    assert G.decide(_brief_edit(main, bar), {}) is not None
+
+
+def test_a_show_in_the_main_transcript_does_not_count_for_a_subagent(tmp_path, armed):
+    """The editing agent's own transcript decides, not the main one every event carries."""
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_LOAD, _show_record("foo")], agent="a1", agent_records=[_LOAD])
+    assert G.decide(_sub_edit(main, path), {}) is not None
+
+
+def test_the_refusal_names_a_show_command_that_runs_from_any_directory(tmp_path, armed):
+    """`show <name>` alone resolves the name in the cwd's repo; the emitted command must not."""
+    path = _skill_with_rejection(tmp_path / "a repo")              # a space, so quoting matters
+    main = _session(tmp_path, [_LOAD])
+    reason = G.decide(_brief_edit(main, path), {})
+    command = G.show_command(path.parent)
+    assert reason is not None and reason.count(command) == 1
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    done = subprocess.run(shlex.split(command), cwd=str(elsewhere), capture_output=True,
+                          encoding="utf-8", errors="replace", timeout=120)
+    assert done.returncode == 0, done.stderr
+    assert "Two projects cannot share it." in done.stdout
+
+
+def test_a_brief_with_hidden_entries_names_the_command_once(tmp_path, armed):
+    """The brief's own trailer carries the command when entries are hidden; no second copy."""
+    path = _skill_with_rejection(tmp_path)
+    with SD.ledger_path(path.parent).open("a", encoding="utf-8") as fh:
+        for n in range(40):
+            fh.write(json.dumps(_rejection("reason %d " % n + "x" * 300, topic="t%d" % n)) + "\n")
+    main = _session(tmp_path, [_LOAD])
+    reason = G.decide(_brief_edit(main, path), {})
+    command = G.show_command(path.parent)
+    assert reason is not None and "more not shown: " + command in reason
+    assert reason.count(command) == 1
+
+
+@pytest.mark.parametrize("name", ["foo", "odd name"])
+def test_running_the_emitted_command_counts_as_having_read_the_decisions(tmp_path, armed, name):
+    path = _skill_with_rejection(tmp_path / "a repo", name)
+    main = _session(tmp_path, [_LOAD, _bash_record(G.show_command(path.parent))])
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+def test_show_counts_whatever_case_the_edited_path_spells_the_name_in(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path, "Foo")
+    main = _session(tmp_path, [_LOAD, _show_record("foo")])
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+def test_show_counts_across_a_line_break_in_one_command(tmp_path, armed):
+    path = _skill_with_rejection(tmp_path)
+    command = "python3 /p/hooks/skill_decisions.py \\\n  show foo --kind rejected,removed --full"
+    main = _session(tmp_path, [_LOAD, _bash_record(command)])
+    assert G.decide(_brief_edit(main, path), {}) is None
+
+
+# A line the decoder cannot finish because of its nesting depth. How deep that is depends on the
+# host: from Python 3.14 the limit is the thread's real stack, and on the GitHub Linux runners
+# json.loads decoded 100000 levels even on a 4 MiB thread. So these tests hand the guard a decoder
+# that raises RecursionError for the marked line, which reaches its except clause on every host.
+_PAST_THE_DECODER = "__nested_past_the_decoder__"
+
+
+@pytest.fixture
+def depth_limited_json(monkeypatch):
+    """Replace the guard's json module: RecursionError for a marked line, the real decoder else."""
+    def loads(text, *args, **kwargs):
+        if _PAST_THE_DECODER in text:
+            raise RecursionError("maximum recursion depth exceeded while decoding a JSON array")
+        return json.loads(text, *args, **kwargs)
+
+    monkeypatch.setattr(G, "json", types.SimpleNamespace(loads=loads, load=json.load))
+
+
+@pytest.mark.parametrize("line", [
+    json.dumps({"type": "assistant", "message": "x", "note": "skill_decisions"}),
+    json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": "t", "name": "Bash", "input": "skill_decisions.py show foo"}]}}),
+    json.dumps({"note": "skill_decisions", _PAST_THE_DECODER: 1}),
+], ids=["message-is-a-string", "input-is-a-string", "nested-past-the-decoder"])
+def test_an_odd_transcript_line_is_skipped_by_the_show_check(tmp_path, armed, depth_limited_json,
+                                                             line):
+    """Data, not a crash: each shape raised out of decide before (AttributeError, RecursionError)."""
+    path = _skill_with_rejection(tmp_path)
+    main = _session(tmp_path, [_LOAD])
+    with main.open("a", encoding="utf-8") as fh:
+        fh.write(line + "\n")
+    assert G.decide(_brief_edit(main, path), {}) is not None
+
+
+@pytest.mark.parametrize("line", [
+    json.dumps({"type": "user", "isMeta": True,
+                "message": "Base directory for this skill: /c/skills/meta-skill-writer"}),
+    json.dumps({"note": "Base directory for this skill: /c/skills/meta-skill-writer",
+                _PAST_THE_DECODER: 1}),
+], ids=["message-is-a-string", "nested-past-the-decoder"])
+def test_an_odd_line_in_the_load_check_still_denies(tmp_path, armed, depth_limited_json, line):
+    """An exception escaping the load check reached main's catch-all, which ALLOWS the edit."""
+    main = _session(tmp_path, [])
+    with main.open("a", encoding="utf-8") as fh:
+        fh.write(line + "\n")
+    reason = G.decide(_edit(main), {})
+    assert reason is not None and "never loaded" in reason
+
+
+# ---- a Bash call that writes a SKILL.md is held to the same rule --------------------------------
+
+_SKILL = "plugins/bitranox/skills/foo/SKILL.md"
+
+
+@pytest.mark.parametrize("command", [
+    f"sed -i 's/a/b/' {_SKILL}",
+    f"echo x >> {_SKILL}",
+    f"cat new.md > '{_SKILL}'",
+    f"printf x | tee -a {_SKILL}",
+    f"cp /tmp/new.md {_SKILL}",
+    f"mv /tmp/new.md {_SKILL}",
+])
+def test_a_bash_write_to_a_skill_md_is_blocked(command):
+    event = {"tool_name": "Bash", "tool_input": {"command": command}, "session_id": "s"}
+    reason = G.decide(event, {})
+    assert reason is not None and "through Bash" in reason
+
+
+@pytest.mark.parametrize("command", [
+    f"grep -n TODO {_SKILL}",
+    f"cat {_SKILL}",
+    f"sed -n '1,5p' {_SKILL}",
+    f"wc -l {_SKILL} > /tmp/out",
+    f"git add {_SKILL}",
+    f"cp {_SKILL} /tmp/copy.md",
+    f"python3 - <<'PY'\nprint(open('{_SKILL}').read())\nPY\n",
+    "python3 - <<'PY'\nPath('x.txt').write_text('see SKILL.md for more')\nPY\n",
+    f"cat > note.txt <<'EOF'\nfor {_SKILL}\nEOF\n",
+    f"echo 'sed -i s/a/b/ {_SKILL}'",
+])
+def test_a_bash_call_that_only_reads_or_mentions_a_skill_md_passes(command):
+    event = {"tool_name": "Bash", "tool_input": {"command": command}, "session_id": "s"}
+    assert G.decide(event, {}) is None
+
+
+def test_a_bash_write_with_the_env_bypass_passes():
+    event = {"tool_name": "Bash", "tool_input": {"command": f"echo x > {_SKILL}"}}
+    assert G.decide(event, {G._BYPASS_ENV: "1"}) is None
+
+
+def test_a_bash_write_inside_the_skill_writer_process_passes(monkeypatch, tmp_path):
+    monkeypatch.setitem(sys.modules, "skill_receipt", _ReceiptStub(True))
+    main = _session(tmp_path, [_load_record(_CACHE + "meta-skill-writer")])
+    event = {"tool_name": "Bash", "tool_input": {"command": f"sed -i 's/a/b/' {_SKILL}"},
+             "session_id": "s", "transcript_path": str(main)}
+    assert G.decide(event, {}) is None
+
+
+def test_a_bash_write_with_a_receipt_the_agent_never_loaded_is_blocked(monkeypatch, tmp_path):
+    monkeypatch.setitem(sys.modules, "skill_receipt", _ReceiptStub(True))
+    main = _session(tmp_path, [])
+    event = {"tool_name": "Bash", "tool_input": {"command": f"sed -i 's/a/b/' {_SKILL}"},
+             "session_id": "s", "transcript_path": str(main)}
+    assert "through Bash" in G.decide(event, {})
+
+
+@pytest.mark.parametrize("command", [
+    f"python3 - <<'PY'\np = Path('{_SKILL}')\np.write_text('x')\nPY\n",
+    f"python3 - <<'PY'\nwith open('{_SKILL}', 'w') as fh:\n    fh.write('x')\nPY\n",
+])
+def test_a_python_program_writing_a_skill_md_is_nudged_not_refused(command, capsys, monkeypatch):
+    event = {"tool_name": "Bash", "tool_input": {"command": command}, "session_id": "s"}
+    assert G.decide(event, {}) is None
+    assert "meta-skill-writer" in G.python_nudge(event, {})
+
+
+def test_a_python_program_only_reading_a_skill_md_gets_no_nudge():
+    event = {"tool_name": "Bash", "tool_input": {"command": f"python3 - <<'PY'\nprint(open('{_SKILL}').read())\nPY\n"}}
+    assert G.python_nudge(event, {}) is None
+
+
+def test_main_prints_the_python_nudge_and_exits_zero(monkeypatch, capsys):
+    event = {"tool_name": "Bash", "tool_input": {"command": f"python3 - <<'PY'\np = Path('{_SKILL}')\np.write_text('x')\nPY\n"}}
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(event)))
+    assert G.main() == 0
+    assert "additionalContext" in capsys.readouterr().out

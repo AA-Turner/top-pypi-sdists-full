@@ -1,11 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.publishing.ruleerrordetails import RuleErrorDetails
 
 
-@dataclass
 class RuleResult(ClientValue):
     ActionToTake: Optional[str] = None
     Details: RuleErrorDetails = field(default_factory=RuleErrorDetails)

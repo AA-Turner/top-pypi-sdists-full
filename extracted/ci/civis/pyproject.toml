@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "civis"
-version = "2.10.1"
+version = "2.11.0"
 description = "Civis API Python Client"
 readme = "README.rst"
 requires-python = ">= 3.11"
@@ -35,6 +35,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 
 [project.urls]
@@ -75,8 +76,7 @@ dev-civisml = [
 docs = [
     # docs/requirements.txt pins all transitive dependencies for a reproducible doc build.
     "numpydoc",
-    # Sphinx v9 would break custom code in docs/conf.py.
-    "Sphinx < 9",
+    "Sphinx",
     "sphinx-rtd-theme",
 ]
 

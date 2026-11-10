@@ -15,7 +15,7 @@ from pathlib import Path
 from .. import paths as P
 from ..concurrency import ItemError, map_concurrent, map_with_executor
 from ..content import pack
-from ..errors import ImageMissing, SchemaError, TransportError
+from ..errors import DigestMismatch, ImageMissing, SchemaError, TransportError
 from ..image import dockerfile_from, rewrite_dockerfile
 from ..layout import Layout
 from ..models import (
@@ -25,7 +25,7 @@ from ..models import (
 from ..validate import (check_layout, check_swe_json, check_custom,
                         detect_format, validate_instance_id,
                         CUSTOM_SCHEMA_VERSION)
-from .config import business_metadata_model
+from .config import business_metadata_model, dataset_environment_for
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,13 @@ class InstancesClient:
             q += f"&version={quote(version, safe='')}&version_scope=exact"
         else:
             q += "&version_scope=unversioned"
+        profile = getattr(self, "_p", None)
+        mm = business_metadata_model(
+            getattr(profile, "metadata_model", None) if profile is not None else None)
+        env = (getattr(profile, "dataset_environment", "") or "").strip()
+        q += f"&metadata_model={quote(mm, safe='')}"
+        if env:
+            q += f"&environment={quote(env, safe='')}"
         # A published split on a later page must also fence overwrite. Keep a
         # finite request budget and fail closed on malformed/unbounded listings.
         for page in range(1, 1001):
@@ -821,7 +828,7 @@ class InstancesClient:
             return self._push_custom(local_path, dataset, version, split=split,
                                      push_image=push_image,
                                      overwrite=overwrite, register=register,
-                                     verify=verify)
+                                     verify=verify, content_hash=content_hash)
         # ── harbor 路径 ──
         report = check_layout(local_path)          # ① 本地校验（缺文件即抛）
         instance_id = report.instance_id
@@ -1012,8 +1019,9 @@ class InstancesClient:
     def _push_custom(self, local_path: Path, dataset: str, version: str, *,
                      split: str = "default", push_image: bool = True,
                      overwrite: bool = False, register: bool = True,
-                     verify: bool = True) -> PushResult:
-        """推一个 custom 格式实例：validate → 上传元数据 JSON → (目录输入时) 上传资产。
+                     verify: bool = True,
+                     content_hash: str | None = None) -> PushResult:
+        """推一个 custom 格式实例：validate → (目录输入时) 上传资产 → 上传元数据 JSON。
 
         custom 格式的两种输入：
 
@@ -1066,17 +1074,22 @@ class InstancesClient:
                 "updated_at": now_iso,
                 "assets": asset_rels,
             }
+            if content_hash:
+                meta_doc["extend_meta"] = {"source_hash": content_hash}
             raw_bytes = json.dumps(meta_doc, ensure_ascii=False).encode("utf-8")
             meta_digest = "sha256:" + hashlib.sha256(raw_bytes).hexdigest()
-            put = self._content.put_object(
-                idx_key, raw_bytes, overwrite=overwrite,
-                sts_prefix=sts_prefix, dataset=dataset)
-            skipped = bool(put.get("skipped"))
 
             # 原样上传目录内所有文件到资产目录（与 content.tgz 同层、同版本规则）
             asset_prefix = lay.assets_dir(dataset, instance_id,
                                           version=version, split=split)
+            # 只有确实要发布新 source_hash（传了哈希且元数据将新写）时，才需要
+            # 回读校验被跳过的资产；普通重复上传（无新哈希或元数据已存在）
+            # 保持存在即跳过的行为，不引入额外下载。
+            publish_new_hash = bool(content_hash) and (
+                overwrite or not self._content.object_exists(
+                    idx_key, sts_prefix=sts_prefix, dataset=dataset))
             asset_digests = {}
+            assets_skipped = False
             for rel in asset_rels:
                 child = local_path / rel
                 key = asset_prefix + rel
@@ -1086,8 +1099,34 @@ class InstancesClient:
                 aput = self._content.put_object(
                     key, data, overwrite=overwrite,
                     sts_prefix=sts_prefix, dataset=dataset)
-                if not skipped and bool(aput.get("skipped")):
-                    skipped = True  # 任一被 skip 即整体视为 skip
+                if bool(aput.get("skipped")):
+                    assets_skipped = True  # 任一被 skip 即整体视为 skip
+                    if not publish_new_hash:
+                        continue
+                    # skipped 只表示对象已存在，不代表内容一致（例如上次资产
+                    # 上传失败留下的旧资产）。若与本地不一致却仍发布新
+                    # source_hash，后续 skip_unchanged 会把旧资产误判为最新
+                    # 内容，因此先回读校验，不一致即中止、不发布元数据。
+                    with tempfile.TemporaryDirectory() as tmp:
+                        try:
+                            self._content.get_object(
+                                key, Path(tmp) / "asset",
+                                expected_digest=digest,
+                                sts_prefix=sts_prefix, dataset=dataset)
+                        except DigestMismatch as exc:
+                            raise SchemaError(
+                                f"{instance_id}: 资产 {rel} 远端内容与本地不一致，"
+                                "overwrite=False 不能发布新的 source_hash；"
+                                "请用 overwrite=True 重写整组内容"
+                            ) from exc
+
+            # 资产完整写入后才发布元数据：若先写带 source_hash 的 JSON 再传资产，
+            # 资产失败会留下新哈希，ingest 收录后 skip_unchanged 会把缺资产的
+            # 实例误判为未变化，跳过修复上传。
+            put = self._content.put_object(
+                idx_key, raw_bytes, overwrite=overwrite,
+                sts_prefix=sts_prefix, dataset=dataset)
+            skipped = bool(put.get("skipped")) or assets_skipped
 
         # ③ 回读校验（防静默成功）
         if verify and not skipped:
@@ -1328,16 +1367,19 @@ class InstancesClient:
         # ── skip_unchanged：哈希比对 + 过滤 ──
         hashes_map: dict[str, str] = dict(content_hashes) if content_hashes else {}
         actual_ids: dict[str, str] = {}
-        if skip_unchanged and dirs:
-            from ..content import compute_source_hash as _default_hash
-            _hash_fn = hash_func or _default_hash
+        if dirs and (skip_unchanged or hashes_map):
             # ID 必须来自与push相同的validate路径；Path.name对JSON输入会多出扩展名，
             # 对目录内容声明的ID也不具权威性。校验失败项留给push按原错误语义处理。
+            # 显式 content_hashes 时即使 skip_unchanged=False 也要解析 ID，
+            # 否则 _one 的 content_hash 会退化为 None。
             for d in dirs:
                 try:
                     actual_ids[str(Path(d))] = self.validate(d).instance_id
                 except Exception:  # noqa: BLE001
                     continue
+        if skip_unchanged and dirs:
+            from ..content import compute_source_hash as _default_hash
+            _hash_fn = hash_func or _default_hash
             # 1. 按实际ID计算本地哈希（未提供的）
             for d in dirs:
                 iid = actual_ids.get(str(Path(d)))
@@ -1440,7 +1482,8 @@ class InstancesClient:
     def pull(self, dataset: str, version: str, instance_id: str, dest_dir,
              split: str = "default", *, verify: bool = True,
              fallback_to_oss: bool = True,
-             path: str | None = None) -> Path:
+             path: str | None = None,
+             environment: str | None = None) -> Path:
         """下载实例内容。自动检测格式：harbor 下载 content.tgz，swe 下载 {id}.json，
         custom 下载 {id}.json + assets 目录。
 
@@ -1453,11 +1496,50 @@ class InstancesClient:
         4. dataset 未注册（92001）→ OSS 回退：list-only 枚举文件树 + 逐文件下载
            （仍走 DOWNLOAD 意图：仅私网，公网下载照旧禁止）
 
+        ``environment`` selects metadata for this call: online/pre override the
+        profile; None/auto retain it. Storage settings never change. OSS discovery
+        fallback is disabled when an explicit online/pre environment does not
+        match a known storage profile. None/auto (including an empty string)
+        preserve the existing profile and fallback behavior. fallback_to_oss only
+        controls registry-error discovery, not legacy content-format probing.
+
         ``path`` 参数用于部分下载（仅 custom 和 OSS 回退格式生效）：
         为空时下载全部内容；非空时只下载该路径前缀下的文件。
         harbor（content.tgz）和 swe（单 JSON）格式不支持部分下载，
         ``path`` 会被忽略。
         """
+        # None/auto retain the profile's metadata environment and storage binding.
+        # Explicit environments affect metadata reads only, including directory APIs.
+        if environment is not None:
+            if not isinstance(environment, str):
+                raise SchemaError("environment must be online, pre or auto")
+            environment = environment.strip().lower()
+            if environment in ("", "auto"):
+                environment = None
+            elif environment not in ("online", "pre"):
+                raise SchemaError("environment must be online, pre or auto")
+        env = environment or getattr(self._p, "dataset_environment", None)
+        bound_env = dataset_environment_for(getattr(self._p, "storage_env", None))
+        # Explicit metadata selection may not silently discover bytes in another
+        # (or unknown) store. The older registry-discovery switch is independent.
+        scoped_storage_unavailable = environment is not None and environment != bound_env
+        allow_fallback = fallback_to_oss and not scoped_storage_unavailable
+        overrides = {"environment": environment} if environment is not None else {}
+
+        def _ensure_oss_discovery_allowed() -> None:
+            """Reject every unlocated OSS probe/LIST under the same environment gate."""
+            if not scoped_storage_unavailable:
+                return
+            storage_env = getattr(self._p, "storage_env", None)
+            storage_description = (
+                f"{bound_env!r} (storage_env={storage_env!r})" if bound_env
+                else f"unknown (storage_env={storage_env!r})")
+            raise TransportError(
+                f"OSS discovery is disabled for pull: requested metadata environment "
+                f"{environment!r} does not match storage environment "
+                f"{storage_description}; refusing format probing or object listing "
+                f"without target-environment metadata")
+
         validate_instance_id(instance_id, source="pull()")
         expected = None
         fmt = None  # None = 未确定，需要探测
@@ -1468,9 +1550,9 @@ class InstancesClient:
 
         if verify:
             try:
-                meta = self._reg.get(dataset, version, instance_id, split)
+                meta = self._reg.get(dataset, version, instance_id, split, **overrides)
             except TransportError as e:
-                if (e.biz_code in (92001, 92023) and fallback_to_oss
+                if (e.biz_code in (92001, 92023) and allow_fallback
                         and self._content is not None):
                     # 92001: dataset 未注册
                     # 92023: dataset 已注册但 split 在当前 environment 不存在
@@ -1480,6 +1562,8 @@ class InstancesClient:
                         dataset, version, instance_id, dest_dir, split,
                         path=path)
                 raise
+            if meta is None:
+                _ensure_oss_discovery_allowed()
             if meta is not None and meta.manifest:
                 has_tgz = False
                 has_dir = False
@@ -1531,6 +1615,8 @@ class InstancesClient:
                 tmp_dest.unlink(missing_ok=True)
 
         if fmt is None:
+            # No target-environment locator: HEAD/GET format probing is discovery too.
+            _ensure_oss_discovery_allowed()
             download_probe = getattr(self._content, "_download_probe", None)
             if download_probe is not None:
                 exists = download_probe(
@@ -1595,7 +1681,6 @@ class InstancesClient:
             # 用控制面 list_objects API 递归枚举目录下的全部文件作为 asset_rels。
             if asset_rels is None and dir_manifest is not None:
                 try:
-                    env = getattr(self._p, "dataset_environment", None)
                     mm = getattr(self._p, "metadata_model", None)
                     # 递归列举：从根开始，遇到子目录继续深入
                     asset_rels = []
@@ -1604,7 +1689,7 @@ class InstancesClient:
                     # 实例资产前缀，才是相对于实例目录的下载路径。
                     split_str = (split or "default").strip()
                     assets_root = self._instance_assets_object_root(
-                        dataset, instance_id, version, split_str) + "/"
+                        dataset, instance_id, version, split_str, environment=env) + "/"
                     while stack:
                         cur_path = stack.pop()
                         objs = self.list_objects(
@@ -1623,7 +1708,12 @@ class InstancesClient:
                                 d_path = d_path[len(assets_root):]
                             stack.append(d_path)
                 except Exception:  # noqa: BLE001
+                    if scoped_storage_unavailable:
+                        raise
                     asset_rels = None  # 枚举失败回退到 OSS LIST
+            if asset_rels is None:
+                # Legacy JSON without assets has no target-environment asset locator.
+                _ensure_oss_discovery_allowed()
             self._download_custom_assets(
                 dataset, instance_id, version, split, dest_dir, lay, sts_prefix,
                 asset_rels=asset_rels, path=path)
@@ -1646,7 +1736,7 @@ class InstancesClient:
                 objs = self.list_objects(
                     dataset, instance_id, split=split,
                     version=version,
-                    environment=getattr(self._p, "dataset_environment", None),
+                    environment=env,
                     metadata_model=getattr(self._p, "metadata_model", None))
                 if objs.files or objs.directories:
                     # 有 assets 内容 → 递归枚举并下载
@@ -1654,13 +1744,13 @@ class InstancesClient:
                     stack: list[str | None] = [None]
                     split_str = (split or "default").strip()
                     assets_root = self._instance_assets_object_root(
-                        dataset, instance_id, version, split_str) + "/"
+                        dataset, instance_id, version, split_str, environment=env) + "/"
                     while stack:
                         cur = stack.pop()
                         page = self.list_objects(
                             dataset, instance_id, split=split,
                             version=version, path=cur,
-                            environment=getattr(self._p, "dataset_environment", None),
+                            environment=env,
                             metadata_model=getattr(self._p, "metadata_model", None))
                         for f in page.files:
                             rel = f.path
@@ -1678,6 +1768,8 @@ class InstancesClient:
                             dest_dir, lay, sts_prefix,
                             asset_rels=asset_rels, path=path)
             except Exception:  # noqa: BLE001
+                if scoped_storage_unavailable:
+                    raise
                 pass  # assets 目录不存在或枚举失败 → 仅保留 JSON
             return dest
 

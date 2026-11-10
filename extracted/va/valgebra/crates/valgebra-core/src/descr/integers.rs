@@ -28,7 +28,9 @@
 //! cannot: see [`IntSet`] for the split and what it costs.
 
 use std::borrow::Cow;
+use std::sync::Arc;
 
+use super::budget;
 use super::interval::IntervalSet;
 
 /// A set of integers, held as an interval set per residue class.
@@ -64,9 +66,10 @@ pub(crate) struct IntSet {
     /// The period. At least one; a modulus of one is a set with no step, whose
     /// single class is the integers themselves.
     modulus: i64,
-    /// One interval set per residue, indexed by the residue. `classes[r]` holds
+    /// One interval set per residue, indexed by the residue, shared by every
+    /// descriptor holding the set, since no operation edits a table. `classes[r]` holds
     /// `k` exactly when this set holds `r + modulus * k`.
-    classes: Vec<IntervalSet>,
+    classes: Arc<[IntervalSet]>,
 }
 
 /// The largest period this representation materializes.
@@ -120,6 +123,7 @@ impl IntSet {
     /// turn a composition a caller is entitled to write into a panic on the
     /// debug builds every contributor runs.
     fn from_table(modulus: i64, classes: Vec<IntervalSet>) -> Option<IntSet> {
+        let classes: Arc<[IntervalSet]> = classes.into();
         ((1..=MAX_PERIOD).contains(&modulus) && i64::try_from(classes.len()).ok() == Some(modulus))
             .then_some(IntSet { modulus, classes })
     }
@@ -200,7 +204,7 @@ impl IntSet {
     /// where there are more.
     pub(crate) fn values_up_to(&self, cap: usize) -> Option<Vec<i128>> {
         let mut values = Vec::new();
-        for (residue, class) in (0_i128..).zip(&self.classes) {
+        for (residue, class) in (0_i128..).zip(self.classes.iter()) {
             for k in class.values_up_to(cap)? {
                 if values.len() == cap {
                     return None;
@@ -275,7 +279,13 @@ impl IntSet {
                 .map(|(a, b)| op(a, b))
                 .collect(),
         )?;
-        Some(combined.without_a_step())
+        budget::spend_on_a_table(combined.entries()).then(|| combined.without_a_step())
+    }
+
+    /// The residues and spans this set's table holds, which is what an operation
+    /// over it reads ([`budget::TABLE_ENTRIES`]).
+    fn entries(&self) -> usize {
+        self.classes.len() + self.classes.iter().map(IntervalSet::spans).sum::<usize>()
     }
 
     /// This set written with no step where its classes do not need one.
@@ -329,6 +339,9 @@ impl IntSet {
     /// every pair.
     #[must_use]
     pub(crate) fn complement(&self) -> IntSet {
+        // The answer is not read here: an allowance this exhausts refuses the
+        // next charge, which is the one that can refuse.
+        let _ = budget::spend_on_a_table(self.entries());
         IntSet {
             modulus: self.modulus,
             classes: self.classes.iter().map(IntervalSet::complement).collect(),

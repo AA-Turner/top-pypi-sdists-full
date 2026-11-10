@@ -25,6 +25,8 @@ else:
 
 __all__ = (
     "AccessTokenTypeDef",
+    "CreateBearerTokenRequestTypeDef",
+    "CreateBearerTokenResponseTypeDef",
     "CreateOAuth2TokenRequestBodyTypeDef",
     "CreateOAuth2TokenRequestTypeDef",
     "CreateOAuth2TokenResponseBodyTypeDef",
@@ -61,13 +63,10 @@ class AccessTokenTypeDef(TypedDict):
     secretAccessKey: str
     sessionToken: str
 
-class CreateOAuth2TokenRequestBodyTypeDef(TypedDict):
-    clientId: str
+class CreateBearerTokenRequestTypeDef(TypedDict):
     grantType: str
-    code: NotRequired[str]
-    redirectUri: NotRequired[str]
-    codeVerifier: NotRequired[str]
-    refreshToken: NotRequired[str]
+    resource: str
+    durationSeconds: NotRequired[int]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -75,6 +74,14 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class CreateOAuth2TokenRequestBodyTypeDef(TypedDict):
+    clientId: str
+    grantType: str
+    code: NotRequired[str]
+    redirectUri: NotRequired[str]
+    codeVerifier: NotRequired[str]
+    refreshToken: NotRequired[str]
 
 class CreateOAuth2TokenWithIAMRequestTypeDef(TypedDict):
     grantType: str
@@ -144,8 +151,11 @@ class CreateOAuth2TokenResponseBodyTypeDef(TypedDict):
     refreshToken: str
     idToken: NotRequired[str]
 
-class CreateOAuth2TokenRequestTypeDef(TypedDict):
-    tokenInput: CreateOAuth2TokenRequestBodyTypeDef
+class CreateBearerTokenResponseTypeDef(TypedDict):
+    accessToken: str
+    tokenType: str
+    expiresIn: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateOAuth2TokenWithIAMResponseTypeDef(TypedDict):
     accessToken: str
@@ -198,6 +208,9 @@ class PutConsoleAuthorizationConfigurationOutputTypeDef(TypedDict):
 class PutResourcePermissionStatementOutputTypeDef(TypedDict):
     statementId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateOAuth2TokenRequestTypeDef(TypedDict):
+    tokenInput: CreateOAuth2TokenRequestBodyTypeDef
 
 class ListResourcePermissionStatementsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]

@@ -155,11 +155,14 @@ def run_xarm7(
     hud_job=None,
     recorder=None,
     steady_send=None,
+    connect=None,
     input_fn=input,
     print_fn=print,
     rig_factory=XArm7Rig,
     hud_platform=None,
 ):
+    if connect is None:
+        connect = aconnect
     print_fn = safe_printer(print_fn)
     instruction = task_instructions(instruction)
     if not _runs_on_xarm7(model, checkpoint):
@@ -192,8 +195,8 @@ def run_xarm7(
         return XArm7TaskRunner(
             rig,
             lifecycle=lifecycle,
-            **({"connect": partial(aconnect, steady_send=steady_send)}
-               if steady_send is not None else {}),
+            connect=partial(connect, steady_send=steady_send)
+            if steady_send is not None else connect,
             model=model,
             mode=mode,
             keep_warm=keep_warm,

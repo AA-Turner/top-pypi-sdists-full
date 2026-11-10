@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.directory.identitygovernance.activation_task_scope_type import ActivationTaskScopeType
 from office365.directory.identitygovernance.activation_user_scope_type import ActivationUserScopeType
 from office365.directory.identitygovernance.run import Run
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ActivateRunScope(ClientValue):
     taskScope: ActivationTaskScopeType = ActivationTaskScopeType.allTasks
     userScope: ActivationUserScopeType = ActivationUserScopeType.allUsers

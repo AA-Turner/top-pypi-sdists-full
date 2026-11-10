@@ -15,6 +15,8 @@ from pointblank._utils_ai import (
     _PromptBuilder,
     _ValidationResponseParser,
     _AIValidationEngine,
+    _ANTHROPIC_MAX_TOKENS,
+    _chat_reply,
     _create_chat_instance,
 )
 
@@ -227,6 +229,22 @@ def test_data_batcher_invalid_columns(sample_pd_data):
     """Test DataBatcher with invalid columns."""
     with pytest.raises(ValueError, match="Columns not found in data"):
         _DataBatcher(sample_pd_data, columns=["nonexistent"])
+
+
+def test_create_batches_polars_column_null_in_first_unique_rows():
+    """A column that is null in the first 100 unique rows must still be batched."""
+    df = pl.DataFrame(
+        {
+            "id": list(range(150)) + [150],
+            "note": [None] * 150 + ["late text"],
+        }
+    )
+
+    batches, _ = _DataBatcher(df).create_batches()
+
+    notes = [row["note"] for batch in batches for row in batch["data"]["rows"]]
+    assert len(notes) == 151
+    assert notes[-1] == "late text"
 
 
 def test_create_row_signature(sample_pd_data):
@@ -452,6 +470,47 @@ def test_parse_response_with_extra_text():
     assert results[1]["result"] is False
 
 
+@pytest.mark.parametrize(
+    "response",
+    [
+        'Results for rows [0-1]:\n[{"index": 0, "result": true}, {"index": 1, "result": false}]',
+        'Note [1]\n```json\n[{"index": 0, "result": true}, {"index": 1, "result": false}]\n```',
+        'Answer:\n[{"index": 0, "result": true, "tags": [1, 2]}, {"index": 1, "result": false}]',
+        '{"results": [{"index": 0, "result": true}, {"index": 1, "result": false}]}',
+        'Here:\n{"results": [{"index": 0, "result": true}, {"index": 1, "result": false}]}',
+        'Input: [{"_pb_row_index": 0, "x": 1}]\n'
+        'Answer: [{"index": 0, "result": true}, {"index": 1, "result": false}]',
+    ],
+    ids=["prose", "fence", "nested-list", "wrapped", "wrapped-prose", "echoed-input"],
+)
+def test_parse_response_with_brackets_before_json(response):
+    """Square brackets or other JSON around the result array do not hide the array."""
+    parser = _ValidationResponseParser(total_rows=100)
+    batch_info = {"batch_id": 0, "start_row": 0, "end_row": 2}
+
+    results = parser.parse_response(response, batch_info)
+
+    assert [r["result"] for r in results] == [True, False]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        '{"index": 0, "result": true}',
+        'Results: [{"row": 0, "ok": true}, {"row": 1, "ok": false}]',
+    ],
+    ids=["object", "wrong-keys"],
+)
+def test_parse_response_without_result_array_returns_defaults(response):
+    """Replies with no array of result objects give the all-False defaults."""
+    parser = _ValidationResponseParser(total_rows=100)
+    batch_info = {"batch_id": 0, "start_row": 0, "end_row": 2}
+
+    results = parser.parse_response(response, batch_info)
+
+    assert results == [{"index": 0, "result": False}, {"index": 1, "result": False}]
+
+
 def test_parse_response_invalid_json():
     """Test parsing invalid JSON response returns defaults."""
     response = "This is not JSON"
@@ -658,7 +717,8 @@ def test_validate_batches(mock_create_chat, llm_config, mock_chat_response):
 
     assert len(results) == 2  # Two batches
     assert len(results[0]) == 2  # First batch has 2 results
-    assert len(results[1]) == 2  # Second batch also returns 2 results (from mock)
+    # The mock's reply is for rows 0 and 1, so the second batch (row 2) gets the default result
+    assert results[1] == [{"index": 2, "result": False}]
 
     # Verify chat was called for each batch
     assert mock_chat.chat.call_count == 2
@@ -902,10 +962,12 @@ def test_create_chat_instance_anthropic():
     pytest.importorskip("anthropic")
     chatlas = pytest.importorskip("chatlas")
 
-    chat = _create_chat_instance("anthropic", "claude-sonnet-4-5", api_key="test-key")
+    chat = _create_chat_instance("anthropic", "claude-sonnet-5-5", api_key="test-key")
 
     assert isinstance(chat, chatlas.Chat)
     assert chat.provider.name == "Anthropic"
+    # Thinking tokens count toward the limit, so chatlas's default of 4096 is too small
+    assert chat.provider._max_tokens == _ANTHROPIC_MAX_TOKENS
 
 
 def test_create_chat_instance_bedrock(monkeypatch):
@@ -917,20 +979,147 @@ def test_create_chat_instance_bedrock(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
 
-    chat = _create_chat_instance("bedrock", "us.anthropic.claude-sonnet-4-5-v1:0")
+    chat = _create_chat_instance("bedrock", "anthropic.claude-sonnet-5-5")
 
     assert isinstance(chat, chatlas.Chat)
     assert chat.provider.name == "AWS/Bedrock"
+    assert chat.provider._max_tokens == _ANTHROPIC_MAX_TOKENS
 
 
 def test_create_chat_instance_openai():
     pytest.importorskip("openai")
     chatlas = pytest.importorskip("chatlas")
 
-    chat = _create_chat_instance("openai", "gpt-4o", api_key="test-key")
+    chat = _create_chat_instance("openai", "gpt-6-luna", api_key="test-key")
 
     assert isinstance(chat, chatlas.Chat)
     assert chat.provider.name == "OpenAI"
+
+
+def _anthropic_reply(stop_reason):
+    return {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5-5",
+        "content": [{"type": "text", "text": "```python\nimport pointblank as pb\n"}],
+        "stop_reason": stop_reason,
+        "stop_sequence": None,
+        "usage": {"input_tokens": 10, "output_tokens": 16000},
+    }
+
+
+def _openai_reply(path, cut_off):
+    # Older chatlas versions use the Chat Completions API, and newer ones the Responses API
+    if path.endswith("/responses"):
+        return {
+            "id": "resp_1",
+            "object": "response",
+            "created_at": 0,
+            "model": "gpt-6-luna",
+            "status": "incomplete" if cut_off else "completed",
+            "incomplete_details": {"reason": "max_output_tokens"} if cut_off else None,
+            "output": [
+                {
+                    "type": "message",
+                    "id": "msg_1",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "[", "annotations": []}],
+                }
+            ],
+            "parallel_tool_calls": False,
+            "tool_choice": "auto",
+            "tools": [],
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 2,
+                "input_tokens_details": {"cached_tokens": 0},
+                "output_tokens_details": {"reasoning_tokens": 0},
+            },
+        }
+    return {
+        "id": "chatcmpl_1",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-6-luna",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "["},
+                "finish_reason": "length" if cut_off else "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+
+
+def _chat_over_mock_transport(provider, cut_off):
+    """A real chatlas chat whose requests get a canned reply instead of reaching the API."""
+    import importlib
+
+    from pointblank._utils_ai import _http_library
+
+    chatlas = pytest.importorskip("chatlas")
+    pytest.importorskip(provider)
+    httpx = importlib.import_module(_http_library(provider))
+
+    def handler(request):
+        if provider == "anthropic":
+            body = _anthropic_reply("max_tokens" if cut_off else "end_turn")
+        else:
+            body = _openai_reply(request.url.path, cut_off)
+        return httpx.Response(200, json=body)
+
+    chat_class = chatlas.ChatAnthropic if provider == "anthropic" else chatlas.ChatOpenAI
+    model = "claude-sonnet-5-5" if provider == "anthropic" else "gpt-6-luna"
+    return chat_class(
+        model=model,
+        api_key="test-key",
+        kwargs={"http_client": httpx.Client(transport=httpx.MockTransport(handler))},
+    )
+
+
+@pytest.mark.filterwarnings("ignore:Response was truncated")
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_chat_reply_raises_when_the_reply_is_cut_off(provider):
+    chat = _chat_over_mock_transport(provider, cut_off=True)
+
+    with pytest.raises(RuntimeError, match="cut off at its output-token limit"):
+        _chat_reply(chat, "Draft a validation plan")
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_chat_reply_returns_a_complete_reply(provider):
+    chat = _chat_over_mock_transport(provider, cut_off=False)
+
+    assert _chat_reply(chat, "Draft a validation plan") in (
+        "```python\nimport pointblank as pb\n",
+        "[",
+    )
+
+
+def test_chat_reply_without_turn_information():
+    """Chats that can't report a finish reason (e.g., test doubles) still give their reply."""
+    chat = Mock(spec=["chat"])
+    chat.chat.return_value = "[]"
+
+    assert _chat_reply(chat, "prompt") == "[]"
+
+
+@patch("pointblank._utils_ai._create_chat_instance")
+def test_validate_batches_raises_when_every_reply_is_cut_off(mock_create_chat, llm_config):
+    from pointblank._interrogation import StepEvaluationError
+
+    mock_chat = Mock()
+    mock_chat.chat.return_value = '[{"index": 0, "result": tr'
+    mock_chat.get_last_turn.return_value.finish_reason = "max_tokens"
+    mock_create_chat.return_value = mock_chat
+    engine = _AIValidationEngine(llm_config)
+
+    with pytest.raises(StepEvaluationError, match="cut off at its output-token limit"):
+        engine.validate_batches(_two_batches(), _PromptBuilder("Check if age > 18"))
 
 
 @pytest.mark.parametrize(
@@ -960,3 +1149,251 @@ def test_async_http_client_uses_the_sdk_library(library):
         client = _async_http_client("anthropic", verify_ssl=False)
 
     assert isinstance(client, module.AsyncClient)
+
+
+def _two_batches():
+    def batch(batch_id, start):
+        return {
+            "batch_id": batch_id,
+            "start_row": start,
+            "end_row": start + 2,
+            "data": {
+                "columns": ["name", "age"],
+                "rows": [
+                    {"name": "Alice", "age": 25, "_pb_row_index": start},
+                    {"name": "Bob", "age": 17, "_pb_row_index": start + 1},
+                ],
+            },
+        }
+
+    return [batch(0, 0), batch(1, 2)]
+
+
+@patch("pointblank._utils_ai._create_chat_instance")
+@pytest.mark.parametrize(
+    "unparseable_reply",
+    [
+        "I'm sorry, but I can't help with that request.",
+        '[{"index": 0, "result": tr',
+    ],
+    ids=["refusal", "truncated-json"],
+)
+def test_validate_batches_raises_when_no_reply_can_be_parsed(
+    mock_create_chat, llm_config, unparseable_reply
+):
+    """Every row would be reported as failing, so the step could not be evaluated."""
+    from pointblank._interrogation import StepEvaluationError
+
+    mock_chat = Mock()
+    mock_chat.chat.return_value = unparseable_reply
+    mock_create_chat.return_value = mock_chat
+    engine = _AIValidationEngine(llm_config)
+
+    with pytest.raises(StepEvaluationError, match="None of the 2 requests"):
+        engine.validate_batches(_two_batches(), _PromptBuilder("Check if age > 18"))
+
+
+@patch("pointblank._utils_ai._create_chat_instance")
+def test_validate_batches_keeps_good_batches_when_one_reply_is_unparseable(
+    mock_create_chat, llm_config
+):
+    mock_chat = Mock()
+    mock_chat.chat.side_effect = [
+        '[{"index": 0, "result": true}, {"index": 1, "result": false}]',
+        "I'm sorry, but I can't help with that request.",
+    ]
+    mock_create_chat.return_value = mock_chat
+    engine = _AIValidationEngine(llm_config)
+
+    results = engine.validate_batches(_two_batches(), _PromptBuilder("Check if age > 18"))
+
+    assert results[0] == [{"index": 0, "result": True}, {"index": 1, "result": False}]
+    assert results[1] == [{"index": 2, "result": False}, {"index": 3, "result": False}]
+
+
+def test_parse_response_records_the_error_of_an_unparseable_reply():
+    parser = _ValidationResponseParser(total_rows=2)
+    batch_info = {"start_row": 0, "end_row": 2, "batch_id": 0}
+
+    parser.parse_response("no json here", batch_info)
+    assert parser.last_parse_error is not None
+
+    parser.parse_response(
+        '[{"index": 0, "result": true}, {"index": 1, "result": false}]', batch_info
+    )
+    assert parser.last_parse_error is None
+
+
+def test_parse_response_error_quotes_the_reply():
+    parser = _ValidationResponseParser(total_rows=2)
+    batch_info = {"start_row": 0, "end_row": 2, "batch_id": 0}
+
+    parser.parse_response("I'm sorry,\n  but I can't help with that request.", batch_info)
+    assert str(parser.last_parse_error) == (
+        "\"I'm sorry, but I can't help with that request.\" "
+        "(JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    )
+
+    # A long reply is cut short
+    parser.parse_response("x" * 500, batch_info)
+    snippet = str(parser.last_parse_error).split(" (")[0]
+    assert len(snippet) == 82 and snippet.endswith('..."')
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        "[]",
+        "No rows: []",
+        # Another batch's rows
+        '[{"index": 2, "result": true}, {"index": 3, "result": true}]',
+        # Not row numbers
+        '[{"index": "0", "result": true}, {"index": true, "result": true}]',
+    ],
+    ids=["empty", "empty-in-prose", "other-rows", "not-integers"],
+)
+def test_parse_response_without_results_for_the_batch_is_unusable(response):
+    parser = _ValidationResponseParser(total_rows=4)
+    batch_info = {"start_row": 0, "end_row": 2, "batch_id": 0}
+
+    results = parser.parse_response(response, batch_info)
+
+    assert parser.last_parse_error is not None
+    assert results == [{"index": 0, "result": False}, {"index": 1, "result": False}]
+
+
+def test_parse_response_drops_results_for_other_rows(caplog):
+    parser = _ValidationResponseParser(total_rows=4)
+    batch_info = {"start_row": 2, "end_row": 4, "batch_id": 1}
+
+    with caplog.at_level("WARNING", logger="pointblank._utils_ai"):
+        results = parser.parse_response(
+            '[{"index": 0, "result": true}, {"index": 2, "result": true}, '
+            '{"index": 3, "result": false}, {"index": 4, "result": true}]',
+            batch_info,
+        )
+
+    assert parser.last_parse_error is None
+    assert results == [{"index": 2, "result": True}, {"index": 3, "result": False}]
+    assert "Dropped 2 results for rows outside 2 to 3" in caplog.text
+
+
+@patch("pointblank._utils_ai._create_chat_instance")
+def test_validate_batches_reply_for_other_rows_does_not_overwrite_them(
+    mock_create_chat, llm_config
+):
+    # The second batch's reply uses the first batch's row numbers
+    mock_chat = Mock()
+    mock_chat.chat.side_effect = [
+        '[{"index": 0, "result": true}, {"index": 1, "result": true}]',
+        '[{"index": 0, "result": false}, {"index": 1, "result": false}]',
+    ]
+    mock_create_chat.return_value = mock_chat
+    engine = _AIValidationEngine(llm_config)
+
+    batch_results = engine.validate_batches(_two_batches(), _PromptBuilder("Check if age > 18"))
+    combined = _ValidationResponseParser(total_rows=4).combine_batch_results(batch_results)
+
+    assert combined == {0: True, 1: True, 2: False, 3: False}
+
+
+@patch("pointblank._utils_ai._create_chat_instance")
+@pytest.mark.parametrize(
+    "reply, expected",
+    [
+        (
+            "I'm sorry, but I can't help with that request.",
+            "the first reply couldn't be used: \"I'm sorry, but I can't help with that request.\" "
+            "(JSONDecodeError: Expecting value: line 1 column 1 (char 0))",
+        ),
+        ("[]", 'the first reply couldn\'t be used: "[]" (ValueError: the reply has no results'),
+    ],
+    ids=["refusal", "empty"],
+)
+def test_validate_batches_error_quotes_the_first_reply(
+    mock_create_chat, llm_config, reply, expected
+):
+    from pointblank._interrogation import StepEvaluationError
+
+    mock_chat = Mock()
+    mock_chat.chat.return_value = reply
+    mock_create_chat.return_value = mock_chat
+    engine = _AIValidationEngine(llm_config)
+
+    with pytest.raises(StepEvaluationError) as exc_info:
+        engine.validate_batches(_two_batches(), _PromptBuilder("Check if age > 18"))
+
+    assert str(exc_info.value).startswith(
+        "None of the 2 requests to the model gave a usable response"
+    )
+    assert expected in str(exc_info.value)
+
+
+class _HistoryKeepingChat:
+    """
+    Stands in for a chatlas `Chat`, which sends its whole history with every request.
+
+    The system prompt is the first turn, as in chatlas. With `keeps_system_prompt=False`,
+    `set_turns()` drops it too, as chatlas did before 0.9.0.
+    """
+
+    def __init__(self, keeps_system_prompt=True):
+        self.keeps_system_prompt = keeps_system_prompt
+        self.turns = [("system", "Reply with a JSON array")]
+        self.roles_sent = []
+
+    @property
+    def system_prompt(self):
+        return self.turns[0][1] if self.turns and self.turns[0][0] == "system" else None
+
+    @system_prompt.setter
+    def system_prompt(self, value):
+        if self.system_prompt is not None:
+            self.turns.pop(0)
+        if value is not None:
+            self.turns.insert(0, ("system", value))
+
+    def set_turns(self, turns):
+        system = self.turns[:1] if self.keeps_system_prompt and self.system_prompt else []
+        self.turns = system + list(turns)
+
+    def chat(self, prompt, *args, **kwargs):
+        self.turns.append(("user", prompt))
+        self.roles_sent.append([role for role, _ in self.turns])
+        reply = '[{"index": 0, "result": true}]'
+        self.turns.append(("assistant", reply))
+        return reply
+
+
+def _one_row_batch(batch_id):
+    return {
+        "batch_id": batch_id,
+        "start_row": 0,
+        "end_row": 1,
+        "data": {"columns": ["name"], "rows": [{"name": "Alice", "_pb_row_index": 0}]},
+    }
+
+
+@pytest.mark.parametrize("keeps_system_prompt", [True, False])
+def test_validate_batches_does_not_resend_earlier_batches(llm_config, keeps_system_prompt):
+    """Each batch is its own conversation, not a continuation of the previous batches."""
+    chat = _HistoryKeepingChat(keeps_system_prompt=keeps_system_prompt)
+    with patch("pointblank._utils_ai._create_chat_instance", return_value=chat):
+        engine = _AIValidationEngine(llm_config)
+
+    engine.validate_batches([_one_row_batch(i) for i in range(3)], _PromptBuilder("Is it a name?"))
+
+    assert chat.roles_sent == [["system", "user"]] * 3
+    assert chat.system_prompt == "Reply with a JSON array"
+
+
+@pytest.mark.parametrize("keeps_system_prompt", [True, False])
+def test_validate_single_batch_does_not_resend_earlier_batches(llm_config, keeps_system_prompt):
+    chat = _HistoryKeepingChat(keeps_system_prompt=keeps_system_prompt)
+    with patch("pointblank._utils_ai._create_chat_instance", return_value=chat):
+        engine = _AIValidationEngine(llm_config)
+
+    for i in range(2):
+        engine.validate_single_batch(_one_row_batch(i), _PromptBuilder("Is it a name?"))
+
+    assert chat.roles_sent == [["system", "user"]] * 2

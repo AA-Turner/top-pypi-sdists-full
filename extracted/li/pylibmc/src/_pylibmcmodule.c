@@ -523,6 +523,15 @@ static PyObject *_PylibMC_parse_memcached_value(PylibMC_Client *self,
         char *value, Py_ssize_t size, uint32_t flags) {
     PyObject *retval = NULL;
 
+    /* libmemcached may hand back a NULL pointer for a zero-length value (it
+       does not allocate for an empty payload). Downstream code requires a
+       valid pointer: deserialize_native asserts on it, and Py_BuildValue("y#")
+       turns NULL into None for a user-defined deserialize(). */
+    if (value == NULL) {
+        value = "";
+        size = 0;
+    }
+
 #if USE_ZLIB
     PyObject *inflated = NULL;
 
@@ -598,7 +607,9 @@ static PyObject *_PyLong_FromStringAndSize(char *value, Py_ssize_t size, char **
     if ((tmp = malloc(size+1)) == NULL) {
         return PyErr_NoMemory();
     }
-    strncpy(tmp, value, size);
+    if (size > 0) {
+        memcpy(tmp, value, size);
+    }
     tmp[size] = '\0';
     retval = PyLong_FromString(tmp, pend, base);
     free(tmp);
@@ -624,6 +635,14 @@ static PyObject *_PylibMC_deserialize_native(PylibMC_Client *self, PyObject *val
         case PYLIBMC_FLAG_INTEGER:
         case PYLIBMC_FLAG_LONG:
             if (value) {
+                /* deserialize() is callable from Python with any object, and
+                   PyBytes_AS_STRING does no type checking. */
+                if (!PyBytes_Check(value)) {
+                    PyErr_Format(PyExc_TypeError,
+                                 "integer value must be bytes, not %.200s",
+                                 Py_TYPE(value)->tp_name);
+                    break;
+                }
                 retval = PyLong_FromString(PyBytes_AS_STRING(value), NULL, 10);
             } else {
                 retval = _PyLong_FromStringAndSize(value_str, value_size, NULL, 10);;
@@ -699,6 +718,7 @@ static PyObject *PylibMC_Client_get(PylibMC_Client *self, PyObject *args) {
     if (!_key_normalized_obj(&key)) {
         return NULL;
     } else if (!PySequence_Length(key)) {
+        Py_DECREF(key);
         Py_INCREF(default_value);
         return default_value;
     }
@@ -709,9 +729,8 @@ static PyObject *PylibMC_Client_get(PylibMC_Client *self, PyObject *args) {
             &val_size, &flags, &error);
     Py_END_ALLOW_THREADS;
 
-    Py_DECREF(key);
-
     if (error == MEMCACHED_SUCCESS) {
+        Py_DECREF(key);
         /* note that mc_val can and is NULL for zero-length values. */
         PyObject *r = _PylibMC_parse_memcached_value(self, mc_val, val_size, flags);
 
@@ -728,13 +747,17 @@ static PyObject *PylibMC_Client_get(PylibMC_Client *self, PyObject *args) {
     }
 
     if (error == MEMCACHED_NOTFOUND) {
+        Py_DECREF(key);
         Py_INCREF(default_value);
         return default_value;
     }
 
-    return PylibMC_ErrFromMemcachedWithKey(self, "memcached_get", error,
-                                           PyBytes_AS_STRING(key),
-                                           PyBytes_GET_SIZE(key));
+    /* The key is still needed for the message, so release it afterwards. */
+    PylibMC_ErrFromMemcachedWithKey(self, "memcached_get", error,
+                                    PyBytes_AS_STRING(key),
+                                    PyBytes_GET_SIZE(key));
+    Py_DECREF(key);
+    return NULL;
 }
 
 static PyObject *PylibMC_Client_gets(PylibMC_Client *self, PyObject *arg) {
@@ -747,8 +770,10 @@ static PyObject *PylibMC_Client_gets(PylibMC_Client *self, PyObject *arg) {
     if (!_key_normalized_obj(&arg)) {
         return NULL;
     } else if (!PySequence_Length(arg)) {
+        Py_DECREF(arg);
         return Py_BuildValue("(OO)", Py_None, Py_None);
     } else if (!memcached_behavior_get(self->mc, MEMCACHED_BEHAVIOR_SUPPORT_CAS)) {
+        Py_DECREF(arg);
         PyErr_SetString(PyExc_ValueError, "gets without cas behavior");
         return NULL;
     }
@@ -759,8 +784,6 @@ static PyObject *PylibMC_Client_gets(PylibMC_Client *self, PyObject *arg) {
     *keys = PyBytes_AS_STRING(arg);
     *keylengths = (size_t)PyBytes_GET_SIZE(arg);
 
-    Py_DECREF(arg);
-
     Py_BEGIN_ALLOW_THREADS;
 
     rc = memcached_mget(self->mc, keys, keylengths, 1);
@@ -768,6 +791,8 @@ static PyObject *PylibMC_Client_gets(PylibMC_Client *self, PyObject *arg) {
         res = memcached_fetch_result(self->mc, res, &rc);
 
     Py_END_ALLOW_THREADS;
+
+    Py_DECREF(arg);
 
     int miss = 0;
     int fail = 0;
@@ -951,6 +976,7 @@ static PyObject *_PylibMC_RunSetCommandMulti(PylibMC_Client *self,
 
     serialized = PyMem_New(pylibmc_mset, nkeys);
     if (serialized == NULL) {
+        PyErr_NoMemory();
         goto cleanup;
     }
 
@@ -978,7 +1004,7 @@ static PyObject *_PylibMC_RunSetCommandMulti(PylibMC_Client *self,
     }
 
     if ((failed = PyList_New(0)) == NULL)
-        return PyErr_NoMemory();
+        goto cleanup;
 
     for (idx = 0; !allsuccess && idx < nkeys; idx++) {
         PyObject *key_obj;
@@ -1055,6 +1081,7 @@ static PyObject *_PylibMC_RunCasCommand(PylibMC_Client *self,
 
     switch(rc) {
         case MEMCACHED_SUCCESS:
+        case MEMCACHED_BUFFERED:
             Py_INCREF(Py_True);
             ret = Py_True;
             break;
@@ -1313,8 +1340,11 @@ static bool _PylibMC_RunSetCommand(PylibMC_Client* self,
 
         switch (rc) {
 
-            /* Successful case */
+            /* Successful case. MEMCACHED_BUFFERED is what buffer_requests
+             * returns for a command that was queued but not yet sent; it is
+             * a status, not an error. */
             case MEMCACHED_SUCCESS:
+            case MEMCACHED_BUFFERED:
                 mset->success = true;
                 break;
 
@@ -1396,6 +1426,7 @@ static PyObject *PylibMC_Client_delete(PylibMC_Client *self, PyObject *args) {
         Py_END_ALLOW_THREADS;
         switch (rc) {
             case MEMCACHED_SUCCESS:
+            case MEMCACHED_BUFFERED:
                 Py_RETURN_TRUE;
             case MEMCACHED_FAILURE:
             case MEMCACHED_NOTFOUND:
@@ -1426,6 +1457,7 @@ static PyObject *PylibMC_Client_touch(PylibMC_Client *self, PyObject *args) {
         switch (rc){
             case MEMCACHED_SUCCESS:
             case MEMCACHED_STORED:
+            case MEMCACHED_BUFFERED:
                 Py_RETURN_TRUE;
             case MEMCACHED_FAILURE:
             case MEMCACHED_NOTFOUND:
@@ -1513,18 +1545,26 @@ static PyObject *_PylibMC_IncrMulti(PylibMC_Client *self,
 
     if (key_prefix_raw != NULL) {
         key_prefix = PyBytes_FromStringAndSize(key_prefix_raw, key_prefix_len);
+        if (key_prefix == NULL)
+            return NULL;
 
-        if (key_prefix != NULL && PyBytes_Size(key_prefix) == 0)
+        if (PyBytes_Size(key_prefix) == 0) {
+            Py_DECREF(key_prefix);
             key_prefix = NULL;
+        }
     }
 
     keys_tmp = PyList_New(nkeys);
-    if (keys_tmp == NULL)
+    if (keys_tmp == NULL) {
+        Py_XDECREF(key_prefix);
         return NULL;
+    }
 
     incrs = PyMem_New(pylibmc_incr, nkeys);
-    if (incrs == NULL)
+    if (incrs == NULL) {
+        PyErr_NoMemory();
         goto cleanup;
+    }
 
     iterator = PyObject_GetIter(keys);
     if (iterator == NULL)
@@ -1666,7 +1706,10 @@ static pylibmc_mget_res _fetch_multi(memcached_st *mc,
         result = memcached_fetch_result(mc, result, &res.rc);
 
         if (result == NULL || res.rc == MEMCACHED_END) {
-            /* This is how libmecached signals EOF. */
+            /* memcached_fetch_result returns NULL once all servers are
+             * exhausted.  res.rc distinguishes normal completion
+             * (MEMCACHED_END, MEMCACHED_NOTFOUND) from errors
+             * (e.g. MEMCACHED_CONNECTION_FAILURE). */
             break;
         } else if (res.rc == MEMCACHED_BAD_KEY_PROVIDED
                 || res.rc == MEMCACHED_NO_KEY_PROVIDED) {
@@ -1675,10 +1718,14 @@ static pylibmc_mget_res _fetch_multi(memcached_st *mc,
             memcached_quit(mc);  /* Reset fetch state */
             res.err_func = "memcached_fetch";
             _free_multi_result(res);
+            /* The caller frees res.results too, and reports res.rc. Don't
+             * keep looping into the array we just freed. */
+            res.results = NULL;
+            res.nresults = 0;
+            return res;
         }
     }
 
-    res.rc = MEMCACHED_SUCCESS;
     return res;
 }
 
@@ -1797,7 +1844,12 @@ static PyObject *PylibMC_Client_get_multi(
     res = _fetch_multi(self->mc, req);
     Py_END_ALLOW_THREADS;
 
-    if (res.rc != MEMCACHED_SUCCESS) {
+    /* _fetch_multi returns the rc from the final memcached_fetch_result
+     * call.  Per the libmemcached docs, that function sets rc to END on
+     * successful conclusion, or NOTFOUND if no keys matched — both are
+     * normal outcomes for get_multi.  Any other code (e.g.
+     * CONNECTION_FAILURE) is an actual error. */
+    if (res.rc != MEMCACHED_END && res.rc != MEMCACHED_NOTFOUND) {
         PylibMC_ErrFromMemcached(self, res.err_func, res.rc);
         goto earlybird;
     }
@@ -2013,11 +2065,16 @@ static PyObject *PylibMC_Client_delete_multi(PylibMC_Client *self,
         return NULL;
     }
 
-    if (prefix_raw != NULL)
+    if (prefix_raw != NULL) {
         prefix = PyBytes_FromStringAndSize(prefix_raw, prefix_len);
+        if (prefix == NULL)
+            return NULL;
+    }
 
-    if ((delete = PyObject_GetAttrString((PyObject *)self, "delete")) == NULL)
+    if ((delete = PyObject_GetAttrString((PyObject *)self, "delete")) == NULL) {
+        Py_XDECREF(prefix);
         return NULL;
+    }
 
     retval = _PylibMC_DoMulti(keys, delete, prefix, NULL);
 
@@ -2039,6 +2096,12 @@ static PyObject *PylibMC_Client_delete_multi(PylibMC_Client *self,
     return retval;
 }
 
+/* libmemcached <= 1.0.x: remove_failed=N sets the failure limit to N.
+ * libmemcached 1.1.x: remove_failed is an on/off alias of auto_eject.
+ * Detected at import by _probe_remove_failed(). When set, pylibmc emulates
+ * the 1.0.x meaning on top of failure_limit. */
+static int PylibMC_remove_failed_is_alias = 0;
+
 static PyObject *PylibMC_Client_get_behaviors(PylibMC_Client *self) {
     PyObject *retval = PyDict_New();
     PylibMC_Behavior *b;
@@ -2054,6 +2117,12 @@ static PyObject *PylibMC_Client_get_behaviors(PylibMC_Client *self) {
         case PYLIBMC_BEHAVIOR_PICKLE_PROTOCOL:
             bval = self->pickle_protocol;
             break;
+#if LIBMEMCACHED_VERSION_HEX >= 0x00049000
+        case MEMCACHED_BEHAVIOR_REMOVE_FAILED_SERVERS:
+            bval = memcached_behavior_get(self->mc, PylibMC_remove_failed_is_alias
+                    ? MEMCACHED_BEHAVIOR_SERVER_FAILURE_LIMIT : b->flag);
+            break;
+#endif
         default:
             bval = memcached_behavior_get(self->mc, b->flag);
         }
@@ -2082,7 +2151,7 @@ static PyObject *PylibMC_Client_set_behaviors(PylibMC_Client *self,
     char *key;
 
     for (b = PylibMC_behaviors; b->name != NULL; b++) {
-        if (!PyMapping_HasKeyString(behaviors, b->name)) {
+        if (behaviors == Py_None || !PyMapping_HasKeyString(behaviors, b->name)) {
             continue;
         } else if ((py_v = PyMapping_GetItemString(behaviors, b->name)) == NULL) {
             goto error;
@@ -2099,6 +2168,27 @@ static PyObject *PylibMC_Client_set_behaviors(PylibMC_Client *self,
         case PYLIBMC_BEHAVIOR_PICKLE_PROTOCOL:
             self->pickle_protocol = v;
             break;
+#if LIBMEMCACHED_VERSION_HEX >= 0x00049000
+        case MEMCACHED_BEHAVIOR_REMOVE_FAILED_SERVERS:
+            if (PylibMC_remove_failed_is_alias) {
+                /* N > 0: failure limit N, and turn removal on; 0: turn off */
+                r = MEMCACHED_SUCCESS;
+                if (v > 0)
+                    r = memcached_behavior_set(self->mc,
+                            MEMCACHED_BEHAVIOR_SERVER_FAILURE_LIMIT, (uint64_t)v);
+                if (r == MEMCACHED_SUCCESS)
+                    r = memcached_behavior_set(self->mc, b->flag, v > 0);
+            } else {
+                r = memcached_behavior_set(self->mc, b->flag, (uint64_t)v);
+            }
+            if (r != MEMCACHED_SUCCESS) {
+                PyErr_Format(PylibMCExc_Error,
+                             "memcached_behavior_set returned %d for "
+                             "behavior '%.32s' = %ld", r, b->name, v);
+                goto error;
+            }
+            break;
+#endif
         default:
             r = memcached_behavior_set(self->mc, b->flag, (uint64_t)v);
             if (r != MEMCACHED_SUCCESS) {
@@ -2112,7 +2202,7 @@ static PyObject *PylibMC_Client_set_behaviors(PylibMC_Client *self,
     }
 
     for (b = PylibMC_callbacks; b->name != NULL; b++) {
-        if (!PyMapping_HasKeyString(behaviors, b->name)) {
+        if (behaviors == Py_None || !PyMapping_HasKeyString(behaviors, b->name)) {
             continue;
         } else if ((py_v = PyMapping_GetItemString(behaviors, b->name)) == NULL) {
             goto error;
@@ -2162,8 +2252,10 @@ _PylibMC_AddServerCallback(memcached_st *mc,
         return MEMCACHED_FAILURE;
 
     stat_keys = memcached_stat_get_keys(mc, stat, &rc);
-    if (rc != MEMCACHED_SUCCESS)
+    if (rc != MEMCACHED_SUCCESS) {
+        Py_DECREF(val);
         return rc;
+    }
 
     for (curr_key = stat_keys; *curr_key; curr_key++) {
         PyObject *curr_value;
@@ -2355,15 +2447,25 @@ static void _set_error(memcached_st *mc, memcached_return error, char *lead) {
 #endif
     } else {
         PyObject *exc = _exc_by_rc(error);
+        const char *text = memcached_strerror(mc, error);
+        const char *detail = NULL;
+        if (text == NULL)
+            text = "unknown error";
 #if LIBMEMCACHED_VERSION_HEX >= 0x00049000
-        if (memcached_last_error(mc) != MEMCACHED_SUCCESS) {
-            PyErr_Format(exc, "%s: %.200s", lead, memcached_last_error_message(mc));
-        } else {
-            PyErr_SetString(exc, lead);
-        }
-#else
-        PyErr_Format(exc, "%s: %.200s", lead, memcached_strerror(mc, error));
+        if (memcached_last_error(mc) != MEMCACHED_SUCCESS)
+            detail = memcached_last_error_message(mc);
 #endif
+        /* libmemcached's own detail message (when it has one) names the host
+         * and normally includes the generic text; make sure the generic text
+         * is always there so that the number is never the only clue. */
+        if (detail != NULL && detail[0] != '\0') {
+            if (strstr(detail, text) != NULL)
+                PyErr_Format(exc, "%s: %.200s", lead, detail);
+            else
+                PyErr_Format(exc, "%s: %.100s (%.200s)", lead, text, detail);
+        } else {
+            PyErr_Format(exc, "%s: %.200s", lead, text);
+        }
     }
 }
 
@@ -2463,14 +2565,6 @@ static int _key_normalized_obj(PyObject **key) {
     key_str = PyBytes_AS_STRING(retval);
     key_sz = PyBytes_GET_SIZE(retval);
     rc = _key_normalized_str(&key_str, &key_sz);
-    if (rc == 2) {
-        retval = PyBytes_FromStringAndSize(key_str, key_sz);
-        if (retval != NULL) {
-            rc = 1;
-        } else {
-            rc = 0;
-        }
-    }
 
 END:
     if (retval != orig_key) {
@@ -2488,9 +2582,7 @@ END:
 }
 
 /**
- * Normalize memcached key.
- *
- * Returns 0 if invalid, 1 if already normalized, and 2 if mutated.
+ * Validate a memcached key.  Returns 0 if invalid, 1 if valid.
  */
 static int _key_normalized_str(char **str, Py_ssize_t *size) {
     /* libmemcached pads max_key_size with one byte for null termination */
@@ -2544,6 +2636,43 @@ static int _init_sasl(void) {
     return true;
 }
 
+/* Record the version of the libmemcached actually loaded, and warn if its
+ * major.minor differs from the headers we were compiled against (that happens
+ * when the linker picked up a different libmemcached than the headers). */
+static int _check_libmemcached_runtime(PyObject *module) {
+    const char *rt = memcached_lib_version();
+    const char *hdr = LIBMEMCACHED_VERSION_STRING;
+    size_t n = 0;
+    int dots = 0;
+
+    if (rt == NULL)
+        return true;
+    PyModule_AddStringConstant(module, "libmemcached_runtime_version", rt);
+    while (hdr[n] != '\0' && (hdr[n] != '.' || ++dots < 2))
+        n++;
+    if (strncmp(rt, hdr, n) != 0 || (rt[n] != '.' && rt[n] != '\0')) {
+        if (PyErr_WarnFormat(PyExc_RuntimeWarning, 1,
+                "pylibmc was compiled against libmemcached %s headers but "
+                "loaded libmemcached %s", hdr, rt) < 0)
+            return false;
+    }
+    return true;
+}
+
+static void _probe_remove_failed(void) {
+#if LIBMEMCACHED_VERSION_HEX >= 0x00049000
+    memcached_st *mc = memcached_create(NULL);
+    if (mc == NULL)
+        return;
+    /* Where it is the failure limit, a value of 3 reads back as 3. */
+    PylibMC_remove_failed_is_alias =
+        memcached_behavior_set(mc, MEMCACHED_BEHAVIOR_REMOVE_FAILED_SERVERS, 3)
+            == MEMCACHED_SUCCESS &&
+        memcached_behavior_get(mc, MEMCACHED_BEHAVIOR_REMOVE_FAILED_SERVERS) != 3;
+    memcached_free(mc);
+#endif
+}
+
 static int _check_libmemcached_version(void) {
     uint8_t maj, min;
     char *ver, *dot, *tmp;
@@ -2567,6 +2696,16 @@ static int _check_libmemcached_version(void) {
     }
 }
 
+/* Append the tuple (name, obj) to list. PyList_Append does not steal, so the
+ * temporary tuple has to be released here. */
+static void _append_name_obj(PyObject *list, const char *name, PyObject *obj) {
+    PyObject *item = Py_BuildValue("sO", name, obj);
+    if (item == NULL)
+        return;
+    PyList_Append(list, item);
+    Py_DECREF(item);
+}
+
 static void _make_excs(PyObject *module) {
     PyObject *exc_objs;
     PylibMC_McErr *err;
@@ -2578,19 +2717,21 @@ static void _make_excs(PyObject *module) {
             "pylibmc.CacheMiss", PylibMCExc_Error, NULL);
 
     exc_objs = PyList_New(0);
-    PyList_Append(exc_objs,
-                  Py_BuildValue("sO", "Error", (PyObject *)PylibMCExc_Error));
-    PyList_Append(exc_objs,
-                  Py_BuildValue("sO", "CacheMiss", (PyObject *)PylibMCExc_CacheMiss));
+    _append_name_obj(exc_objs, "Error", (PyObject *)PylibMCExc_Error);
+    _append_name_obj(exc_objs, "CacheMiss", (PyObject *)PylibMCExc_CacheMiss);
 
     for (err = PylibMCExc_mc_errs; err->name != NULL; err++) {
         char excnam[64];
+        PyObject *retcode;
         snprintf(excnam, 64, "pylibmc.%s", err->name);
         err->exc = PyErr_NewException(excnam, PylibMCExc_Error, NULL);
-        PyObject_SetAttrString(err->exc, "retcode", PyLong_FromLong(err->rc));
+        retcode = PyLong_FromLong(err->rc);
+        if (retcode != NULL) {
+            PyObject_SetAttrString(err->exc, "retcode", retcode);
+            Py_DECREF(retcode);
+        }
         PyModule_AddObject(module, err->name, (PyObject *)err->exc);
-        PyList_Append(exc_objs,
-                      Py_BuildValue("sO", err->name, (PyObject *)err->exc));
+        _append_name_obj(exc_objs, err->name, (PyObject *)err->exc);
     }
 
     PyModule_AddObject(module, "Error",
@@ -2611,6 +2752,15 @@ static void _make_excs(PyObject *module) {
                        (PyObject *)PylibMCExc_Error);
 
     PyModule_AddObject(module, "exceptions", exc_objs);
+}
+
+/* Append the str for name to list, releasing the temporary. */
+static void _append_str(PyObject *list, const char *name) {
+    PyObject *s = PyUnicode_FromString(name);
+    if (s == NULL)
+        return;
+    PyList_Append(list, s);
+    Py_DECREF(s);
 }
 
 static void _make_behavior_consts(PyObject *mod) {
@@ -2634,7 +2784,7 @@ static void _make_behavior_consts(PyObject *mod) {
     for (b = PylibMC_callbacks; b->name != NULL; b++) {
         sprintf(name, "callback_%s", b->name);
         PyModule_AddIntConstant(mod, name, b->flag);
-        PyList_Append(names, PyUnicode_FromString(b->name));
+        _append_str(names, b->name);
     }
 
     PyModule_AddObject(mod, "all_callbacks", names);
@@ -2642,7 +2792,7 @@ static void _make_behavior_consts(PyObject *mod) {
     names = PyList_New(0);
 
     for (b = PylibMC_behaviors; b->name != NULL; b++) {
-        PyList_Append(names, PyUnicode_FromString(b->name));
+        _append_str(names, b->name);
     }
 
     PyModule_AddObject(mod, "all_behaviors", names);
@@ -2700,6 +2850,9 @@ by using comma-separation. Good luck with that.\n", PylibMC_functions);
             "libmemcached_version", LIBMEMCACHED_VERSION_STRING);
     PyModule_AddIntConstant(module,
             "libmemcached_version_hex", LIBMEMCACHED_VERSION_HEX);
+    if (!_check_libmemcached_runtime(module))
+        return MOD_ERROR_VAL;
+    _probe_remove_failed();
 
 #if LIBMEMCACHED_WITH_SASL_SUPPORT
     PyModule_ADD_REF(module, "support_sasl", Py_True);

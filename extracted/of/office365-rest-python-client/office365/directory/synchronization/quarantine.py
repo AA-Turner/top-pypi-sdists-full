@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.directory.synchronization.error import SynchronizationError
@@ -8,7 +8,6 @@ from office365.directory.synchronization.quarantinereason import QuarantineReaso
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SynchronizationQuarantine(ClientValue):
     """Provides information about the quarantine state of a synchronizationJob.
 

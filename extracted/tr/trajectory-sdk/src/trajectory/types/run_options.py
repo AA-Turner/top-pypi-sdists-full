@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from trajectory._models import BaseModel
-from trajectory.types.training_algorithm import TrainingAlgorithm
+from trajectory.types.priority_aggregation import PriorityAggregation
+from trajectory.types.priority_trait import PriorityTrait
+
+TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "stable_reinforce"]
 
 
 class RunOptions(BaseModel):
@@ -154,6 +157,12 @@ class RunOptions(BaseModel):
   group_size: int | None = None
   """Trajectories generated for each training instance; GSPO and GRPO require at least 2."""
 
+  priority_trait: PriorityTrait | None = None
+  """Trait used to prioritize completed training groups."""
+
+  priority_aggregation: PriorityAggregation | None = None
+  """Aggregation used to score a group for batch-selection priority."""
+
   min_trajectories_per_group: int | None = None
   """
     Minimum eligible trajectories per training group. null uses half of group_size, rounded
@@ -191,9 +200,9 @@ class RunOptions(BaseModel):
 
   batch_timeout_seconds: int | None = None
   """
-    Maximum wall-clock time to assemble one training batch. The clock starts when collection
-    begins and does not reset as groups or in-flight trajectories arrive. Must cover
-    trajectory execution and is not adjusted automatically.
+    Wall-clock threshold for logging and reporting slow training batch collection.
+    Collection continues after the threshold and reports again after each additional
+    interval.
     """
 
   max_output_tokens_per_turn: int | None = None

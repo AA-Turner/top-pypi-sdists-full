@@ -10,6 +10,24 @@ pub(crate) fn set_active_x(xcoop: &mut [f64], active: &[usize], values: &[f64]) 
     std::iter::zip(&active[..values.len()], values).for_each(|(&i, &xi)| xcoop[i] = xi)
 }
 
+/// Components of `grad`, a gradient wrt all x components, for the active components
+/// in the order of `active`, which is the order of the optimized variables.
+/// active may contain out of range indices meaning it should be ignored
+pub(crate) fn get_active_grad(grad: &[f64], active: &[usize]) -> Vec<f64> {
+    active
+        .iter()
+        .filter(|&&i| i < grad.len())
+        .map(|&i| grad[i])
+        .collect()
+}
+
+/// Remove out of range indices from an activity row: the last row of the activity
+/// matrix may be incomplete as n_coop might not divide nx, in which case it is padded
+/// with nx, an index meaning to discard the information while keeping rows of the same length.
+pub(crate) fn strip(active: &[usize], dim: usize) -> Vec<usize> {
+    active.iter().filter(|&&i| i < dim).cloned().collect()
+}
+
 /// Get active components from given ndarray following given axis
 /// active may contain out of range indices meaning it should be ignore
 pub(crate) fn get_active_x<A, D>(axis: Axis, xcoop: &Array<A, D>, active: &[usize]) -> Array<A, D>
@@ -37,8 +55,9 @@ where
     /// may contain indices with an 'nx value' used as a marker
     /// meaning to discard the indice information while keeping
     /// rows of the same length.
+    #[deprecated(since = "0.43.0", note = "internal to the EGO solver")]
     pub fn strip(active: &[usize], dim: usize) -> Vec<usize> {
-        active.iter().filter(|&&i| i < dim).cloned().collect()
+        strip(active, dim)
     }
 }
 

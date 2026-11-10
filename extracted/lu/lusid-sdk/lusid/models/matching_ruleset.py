@@ -41,7 +41,7 @@ class MatchingRuleset(BaseModel):
     """
     id: ResourceId
     display_name:  StrictStr = Field(...,alias="displayName", description="The name of the matching ruleset.") 
-    rec_type:  StrictStr = Field(...,alias="recType", description="The type of reconciliation to perform. External reconciles non-native data on both sides, described by the datasetSchemas and the externalRecType. Available values: Holding, CashHolding, Valuation, InputTransaction, OutputTransaction, SettlementActivity, External, Instrument, LegalEntity.") 
+    rec_type:  StrictStr = Field(...,alias="recType", description="The type of reconciliation to perform. External reconciles non-native data on both sides, described by the datasetSchemas and the externalRecType. Available values: Holding, CashHolding, Valuation, InputTransaction, OutputTransaction, SettlementActivity, External, Instrument, LegalEntity, Portfolio.") 
     external_rec_type: Optional[ExternalRecType] = Field(default=None, alias="externalRecType")
     dataset_schemas: RecDatasetSchemas = Field(alias="datasetSchemas")
     filters: Optional[GroupReconciliationFilters] = None
@@ -50,7 +50,7 @@ class MatchingRuleset(BaseModel):
     core_tolerances: Optional[List[ToleranceBase]] = Field(default=None, description="Tolerance configurations applied to core rule matching, in the specified order.", alias="coreTolerances")
     aggregate_tolerances: Optional[List[ToleranceBase]] = Field(default=None, description="Tolerance configurations applied to aggregate rule matching.", alias="aggregateTolerances")
     allow_partial_matching: Optional[StrictBool] = Field(default=None, description="Whether to permit partial matches when applying rules. Optional, defaults to true if a value is not provided.", alias="allowPartialMatching")
-    supplemental_attributes: Optional[List[SupplementalAttribute]] = Field(default=None, description="Supplemental attributes that decorate reconciliation results with additional values without participating in the reconciliation itself.", alias="supplementalAttributes")
+    supplemental_attributes: Optional[List[SupplementalAttribute]] = Field(default=None, description="Supplemental attributes that decorate reconciliation results with additional values without participating in the reconciliation itself. Each attribute's formulas are compiled and evaluated as a rule's are, so both must return the same value type.", alias="supplementalAttributes")
     writeback_configurations: Optional[List[WritebackConfiguration]] = Field(default=None, description="The writeback suggestions generated against this ruleset's results. Suggestions are made at item level on target-side items only, and are suggestions only: a user is expected to review them before acting. Optional, and may be empty.", alias="writebackConfigurations")
     populate_result_properties: Optional[List[PopulateResultProperty]] = Field(default=None, description="The RecResult properties to populate on this ruleset's results, each from a formula over the result. Optional, and may be empty; at most 20.", alias="populateResultProperties")
     href:  Optional[StrictStr] = Field(None,alias="href", description="The specific Uniform Resource Identifier (URI) for this resource at the requested effective and asAt datetime.") 

@@ -21,28 +21,33 @@ say which, none of them knowing the others:
   the value is written unchanged, so ``scale``, ``offset``, ``integer`` and
   ``values`` are refused (:func:`controls_from_mapping`);
 
-* the weather and the sun are set for every scenario through the
-  ``environment`` config, which the built-in probes :func:`~.probes.rain`,
-  :func:`~.probes.fog` and :func:`~.probes.illumination` have knobs on
-  (:data:`DEFAULT_KNOBS`).
+* the conditions -- the rainfall rate, the visibility through the fog, the
+  time of day -- are set for every scenario through the ``environment``
+  config, which the built-in probes :func:`~.probes.rainfall_rate_mm_h`,
+  :func:`~.probes.fog_visibility_range_m` and :func:`~.probes.time_of_day`
+  have knobs on (:data:`DEFAULT_KNOBS`); CARLA's weather fields follow from
+  them by the weather rules, drawn with each case as effects at a quantile of
+  their own (:func:`~.backend.weather_effects`).
 
 A sweep's ``knobs``, keyed by the ODD's attributes, replace them attribute by
 attribute. Attributes nothing sets are left open. See openodd's
 :mod:`openodd.sampler` for how cases are drawn.
 
 The road's grip is no attribute of an ODD but follows one: the water the
-weather drawn leaves on the road bounds it
+conditions drawn leave on the road bounds it
 (:func:`~autoware_carla_scenario.actions.environment.tire_friction_range`).
 Each case is given where in that range its grip is,
-``environment.tire_friction_quantile`` (:func:`with_tire_friction`), drawn
-from the sweep's seed and the case, so the same sweep draws the same grip;
-``tire_friction: false`` in the sweep leaves it at the middle.
+``environment.tire_friction_quantile``, a parameter of the case
+(``quantile(tire_friction_quantile)``, :data:`QUANTILE_DRAWS`): a root node
+of the rules, uniform on [0, 1], written by an effect as the weather fields
+are, so the same sweep draws the same grip and the flaky search moves it
+(#1995); ``tire_friction: false`` in the sweep leaves it at the middle.
+(:func:`with_tire_friction` draws one for cases no sampler drew.)
 
-How far drivers see follows the weather the same way
-(:func:`~autoware_carla_scenario.visibility.visibility_range`): night, rain
-and fog shorten it.  Each case is given where in that range its visibility
-is, ``environment.visibility_quantile`` (:func:`with_visibility`), drawn the
-same way; ``visibility: false`` in the sweep leaves it at the middle.  A
+How far drivers see follows the conditions the same way (the weather rules'
+``visibility``): night, rain and fog shorten it.  Each case is given where in that range its visibility
+is, ``environment.visibility_quantile`` (``quantile(visibility_quantile)``),
+drawn the same way; ``visibility: false`` in the sweep leaves it at the middle.  A
 traffic backend that models drivers' sight (``sumo``) holds its traffic to
 it.  An ODD that names the visibility itself (the ``visibility`` probe) sets
 it through its knob, ``environment.visibility_m``, whatever the weather.
@@ -65,7 +70,7 @@ import base64
 import dataclasses
 import json
 import random
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -77,7 +82,9 @@ from openodd.sampler import OddSampler as _OddSampler
 from ..config_flags import check_flag
 from ..route.model import _whole_number
 from ..seed import DEFAULT_SEED, check_seed
-from .backend import CARLA_BACKEND, DEFAULT_KNOBS
+from openodd import Rules, RulesError
+
+from .backend import CARLA_BACKEND, DEFAULT_KNOBS, CarlaBackend, weather_effects
 from .control_fields import (
     CONTROL_TARGETS,
     FLAKY_FIELDS,
@@ -104,10 +111,13 @@ __all__ = [
     "controls_from_mapping",
     "knobs_from_mapping",
     "check_sample_settings",
+    "case_settings",
+    "QUANTILE_DRAWS",
     "sample_count",
     "sample_draws",
     "sample_seed",
     "sampler_from_config",
+    "scenario_backend",
     "seed_setting",
     "search_from_config",
     "TIRE_FRICTION_KEY",
@@ -127,7 +137,9 @@ _MAPPING_FIELDS = MAPPING_FIELDS
 
 
 class OddSampler(_OddSampler):
-    """openodd's sampler, with the CARLA backend's knobs by default.
+    """openodd's sampler, with the CARLA backend's knobs by default, and the
+    CARLA weather fields that follow from the conditions the ODD names as
+    effects drawn with each case (:func:`~.backend.weather_effects`).
 
     The ``coverage`` it aims past is read as the scenario measures' current
     definitions read it: the items of a measure past its first version only
@@ -144,9 +156,46 @@ class OddSampler(_OddSampler):
         from ..coverage.collector import current_measure_coverage  # noqa: PLC0415
 
         kw.setdefault("backend", CARLA_BACKEND)
+        if "effects" not in kw:
+            kw["effects"] = weather_effects(odd, kw["backend"].active_rules)
         if kw.get("coverage") is not None:
             kw["coverage"] = current_measure_coverage(kw["coverage"], odd)
         super().__init__(odd, knobs, **kw)
+
+
+def scenario_backend(
+    rules: Optional[Mapping[str, Any]], environment_rules: Any = None
+) -> CarlaBackend:
+    """The CARLA backend a scenario's cases are drawn with: the shared
+    network (:mod:`~autoware_carla_scenario.weather_rules`) -- the default
+    rules, with *environment_rules*, the config's ``environment.rules`` (a
+    file, or ``{default, vehicles}``), followed over them as a run follows
+    them (:func:`~autoware_carla_scenario.weather_rules.use_weather_rules`:
+    its ``default``; the ``vehicles`` entries give a vehicle's grip alone,
+    which no case draws) -- and, with *rules* -- the scenario's
+    ``scenario_rules``, a rule document -- the nodes the scenario adds to it
+    (openodd's ``Backend.add_rules``): what it sets up, such as the gap to a
+    vehicle about to cut in, which its ``controls`` write by ``quantity``.
+    A backend of its own, never the process's
+    :data:`~.backend.CARLA_BACKEND`, so the CARLA weather a case is given
+    follows the rules its run follows, not those an earlier run left, and
+    one scenario's nodes never reach another's draws.
+
+    Raises:
+        openodd.RulesError: When *rules* is not a rule document, or defines a
+            node the shared network defines, or *environment_rules* is not of
+            the form a run reads or its file cannot be read
+            (:func:`~autoware_carla_scenario.weather_rules.check_weather_rules`).
+    """
+    from ..weather_rules import check_weather_rules  # noqa: PLC0415
+
+    default, _vehicles = check_weather_rules(environment_rules)
+    backend = CarlaBackend()
+    if default is not None:
+        backend.use_rules(str(default))
+    if rules:
+        backend.add_rules(Rules.from_text(yaml.safe_dump(dict(rules), sort_keys=False)))
+    return backend
 
 
 def controls_from_mapping(raw: Optional[Mapping[str, Any]]) -> dict[str, OddKnob]:
@@ -246,6 +295,8 @@ def sampler_from_config(
     controls: Optional[Mapping[str, Any]] = None,
     base_dir: Optional[Path] = None,
     drawn: Optional[OddDraws] = None,
+    rules: Optional[Mapping[str, Any]] = None,
+    environment_rules: Any = None,
 ) -> tuple[OddSampler, Optional[int]]:
     """An :class:`OddSampler` and the case count, from a ``sweep.odd_sample``
     mapping without ``flaky`` (see :func:`search_from_config`).
@@ -260,7 +311,13 @@ def sampler_from_config(
     if flaky is not None and flaky is not False:
         raise ValueError("sweep.odd_sample.flaky needs search_from_config()")
     sampler, _, count = search_from_config(
-        raw, odd=odd, controls=controls, base_dir=base_dir, drawn=drawn
+        raw,
+        odd=odd,
+        controls=controls,
+        base_dir=base_dir,
+        drawn=drawn,
+        rules=rules,
+        environment_rules=environment_rules,
     )
     return sampler, count
 
@@ -398,6 +455,8 @@ def search_from_config(
     controls: Optional[Mapping[str, Any]] = None,
     base_dir: Optional[Path] = None,
     drawn: Optional[OddDraws] = None,
+    rules: Optional[Mapping[str, Any]] = None,
+    environment_rules: Any = None,
 ) -> tuple[OddSampler, Optional[FlakySearch], Optional[int]]:
     """An :class:`OddSampler`, the flaky search over it (``None`` without
     ``flaky``), and the case count (``None`` when not given), from a
@@ -416,6 +475,10 @@ def search_from_config(
     the scenario measures its parameters set. *drawn*, in a batch, holds the
     cases the earlier scenarios drew; the sampler goes on from those drawn
     from its ODD. The caller records its own cases in it once drawn.
+    *rules* (the config's ``scenario_rules``) and *environment_rules* (its
+    ``environment.rules``) are the rules the cases are drawn by
+    (:func:`scenario_backend`): the CARLA weather a case is given follows
+    the rules its run follows.
 
     Raises:
         ValueError: On an unknown field, a ``seed`` or ``count`` that is
@@ -452,15 +515,45 @@ def search_from_config(
     if resolved:
         coverage = load_and_merge(resolved)
     strategy = raw.get("strategy")
+    knobs = controls_from_mapping(raw.get("knobs"))
+    scenario_controls = controls_from_mapping(controls)
+    backend = scenario_backend(rules, environment_rules)
+    # The grip's and the visibility's quantiles, drawn with each case as
+    # parameters of it (effects of root nodes, uniform on [0, 1]), so the
+    # flaky search sees and moves them as it moves the weather effects'
+    # (#1995) -- unless a knob already sets them, or what they place.  Not
+    # for a sampler that sets nothing else: openodd refuses one that draws
+    # nothing of the ODD, and the quantiles alone would hide that.
+    written = case_settings(definition, knobs, scenario_controls, backend)
+    nodes = [
+        quantity
+        for name, key, quantity, fixed in QUANTILE_DRAWS
+        if written and sample_draws(raw, name) and not set(written) & {key, *fixed}
+    ]
+    if nodes:
+        backend.add_rules(
+            Rules.from_text(
+                yaml.safe_dump(_rules_with_quantiles(rules, nodes), sort_keys=False)
+            )
+        )
+        scenario_controls = {
+            **scenario_controls,
+            **{
+                f"sweep.odd_sample.{name}": OddKnob(key, quantity=quantity)
+                for name, key, quantity, _fixed in QUANTILE_DRAWS
+                if quantity in nodes
+            },
+        }
     sampler = OddSampler(
         definition,
-        controls_from_mapping(raw.get("knobs")),
-        controls=controls_from_mapping(controls),
+        knobs,
+        controls=scenario_controls,
         seed=seed,
         strategy=None if strategy is None else str(strategy),
         coverage=coverage,
         weights=weights_from_config(raw.get("weights"), base_dir),
         drawn=drawn.of(definition) if drawn is not None else (),
+        backend=backend,
     )
     search = None
     if flaky is not None and flaky is not False:
@@ -470,6 +563,89 @@ def search_from_config(
         if coverage is not None:
             search.observe_report(coverage, None if scenario is None else str(scenario))
     return sampler, search, count
+
+
+#: The draws of each case's place in a range its weather leaves: the
+#: ``sweep.odd_sample`` switch (:data:`SAMPLE_DRAWS`), the setting it is drawn
+#: into, the node of the rules that draws it (a root, uniform on [0, 1], so
+#: the value written is the case's quantile, ``quantile(<node>)`` among its
+#: values), and the settings that fix what it places, which a case that sets
+#: draws no quantile for.
+QUANTILE_DRAWS = (
+    (
+        "tire_friction",
+        TIRE_FRICTION_KEY,
+        "tire_friction_quantile",
+        ("environment.tire_friction",),
+    ),
+    (
+        "visibility",
+        VISIBILITY_KEY,
+        "visibility_quantile",
+        ("environment.visibility_m",),
+    ),
+)
+
+
+def case_settings(
+    definition: OddDefinition,
+    knobs: Mapping[str, OddKnob],
+    controls: Mapping[str, OddKnob],
+    backend: CarlaBackend,
+) -> dict[str, tuple[str, str]]:
+    """The settings a case drawn from *definition* is given by a knob or an
+    effect, each with what draws it, ``(kind, name)``: ``("attribute",
+    <attribute>)`` for an attribute's knob (one of *knobs*, a sweep's, else
+    the backend's for it, which *controls*, the scenario's, may give),
+    ``("control", <name>)`` for a control that writes a node of the rules,
+    and ``("weather", <quantity>)`` for a CARLA weather field that follows
+    from the conditions the ODD names (:func:`~.backend.weather_effects`)."""
+    settings: dict[str, tuple[str, str]] = {}
+    for attribute in definition.attributes:
+        knob = knobs.get(attribute.name) or backend.knob(attribute, controls)
+        if knob is not None:
+            settings.setdefault(knob.key, ("attribute", attribute.name))
+    for name, control in controls.items():
+        if control.quantity is not None:
+            settings.setdefault(control.key, ("control", name))
+    for effect in weather_effects(definition, backend.active_rules):
+        settings.setdefault(effect.key, ("weather", str(effect.quantity)))
+    return settings
+
+
+def _rules_with_quantiles(
+    rules: Optional[Mapping[str, Any]], nodes: Sequence[str]
+) -> dict[str, Any]:
+    """The scenario's rule document (*rules*, its ``scenario_rules``; a bare
+    one without), with *nodes* added: roots, uniform on [0, 1].
+
+    Raises:
+        openodd.RulesError: When *rules* defines one of *nodes* already.
+    """
+    doc: dict[str, Any] = (
+        {str(k): v for k, v in rules.items()}
+        if rules
+        else {"version": 3, "taxonomy": {"bundled": "default"}}
+    )
+    quantities = dict(doc.get("quantities") or {})
+    for node in nodes:
+        if node in quantities:
+            raise RulesError(
+                f"scenario_rules: {node} is the node sweep.odd_sample draws "
+                "each case's quantile of it from; name the scenario's own "
+                "node otherwise"
+            )
+        quantities[node] = {
+            "basis": {
+                "kind": "expert",
+                "by": "autoware_carla_scenario",
+                "text": "Where in the range its weather leaves a case is: "
+                "any quantile alike.",
+            },
+            "parts": {"case": {"uniform": {"low": 0.0, "high": 1.0}}},
+        }
+    doc["quantities"] = quantities
+    return doc
 
 
 def with_tire_friction(samples: Iterable[OddSample], seed: int = 0) -> list[OddSample]:
@@ -495,9 +671,9 @@ def with_visibility(samples: Iterable[OddSample], seed: int = 0) -> list[OddSamp
     Each case gets ``environment.visibility_quantile=<q>``, *q* uniform in
     [0, 1] and drawn from *seed* and the case itself, as
     :func:`with_tire_friction` draws the grip.  The range is the run's: the
-    ``EnvironmentAction`` reads it off the weather it leaves
-    (:func:`~autoware_carla_scenario.visibility.visibility_range`), a clear
-    day's 250-400 m, a night's 50-150 m, heavy fog's 15-40 m.  A case that
+    runner works it out from the conditions the case names
+    (:func:`~autoware_carla_scenario.weather_rules.resolve_environment`), a
+    clear day's 250-400 m, a night's 50-150 m, thick fog's 12-18 m.  A case that
     names its quantile, or a visibility (``environment.visibility_m``),
     already keeps it.
     """

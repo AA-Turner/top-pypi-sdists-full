@@ -303,6 +303,7 @@ def test_checker_uses_generation_store_api_surface() -> None:
     assert sorted(checker.GENERATION_STORE_MUTATION_METHODS) == snapshot(
         [
             "add_model_import",
+            "adopt_base_options",
             "append_field",
             "apply_const",
             "apply_literal_default",
@@ -321,19 +322,25 @@ def test_checker_uses_generation_store_api_surface() -> None:
             "inline_shared",
             "insert_field",
             "mark_forward_references",
+            "mark_serialized_as_any",
             "mark_target_null",
             "name_enum_member",
             "name_enum_member_literal_class",
             "name_reference",
             "note_changed_models",
+            "omit_field_default",
             "override_type_import",
             "record_dropped_multiple_of",
+            "record_nullable_without_default",
+            "record_site_constraints",
             "record_values_as_written",
+            "record_widened_values",
             "redirect_model_reference_users",
             "redirect_reference_users",
             "register_model",
             "rename_field",
             "rename_model",
+            "replace_additional_properties_type",
             "replace_data_type_ref",
             "replace_field_type",
             "replace_model",
@@ -356,6 +363,7 @@ def test_checker_uses_generation_store_api_surface() -> None:
             "update_model_reference",
             "use_assignment_for_forward_references",
             "use_typing_generics",
+            "write_field_call_in_annotated",
             "write_rendered_null",
         ],
     )
@@ -421,7 +429,7 @@ def test_fact_vocabulary_and_table_shape() -> None:
         "Access": ("ATTRIBUTE", "CONTAINER", "ITEM", "DICT_KEY", "CACHED_PROPERTY"),
     })
     assert Counter(row.kind for row in checker.ATTRIBUTE_FACTS) == snapshot(
-        Counter({"FACT": 68, "PRESENTATION": 59, "BOOKKEEPING": 22, "CACHE": 11})
+        Counter({"FACT": 75, "PRESENTATION": 59, "BOOKKEEPING": 30, "CACHE": 11})
     )
     assert sorted({row.owner for row in checker.ATTRIBUTE_FACTS}) == snapshot([
         "AnnotatedConstraintDataType",
@@ -439,6 +447,7 @@ def test_fact_vocabulary_and_table_shape() -> None:
         "TemplateBase",
         "TypedDict",
         "_MetaAnnotatedType",
+        "_MetaType",
         "_RenderedDataModelField",
     ])
 
@@ -568,7 +577,7 @@ def concern_function(parser: Host) -> None:
             17,
             "Parser.method",
             "nullable",
-            "use GenerationStore.apply_literal_default() instead of writing nullable",
+            "use GenerationStore.apply_literal_default() or omit_field_default() instead of writing nullable",
         ),
     ])
 

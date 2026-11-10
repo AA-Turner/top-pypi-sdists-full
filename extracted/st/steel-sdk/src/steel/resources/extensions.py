@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -13,10 +13,18 @@ from .._utils import extract_files, path_template, maybe_transform, async_maybe_
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
+    BinaryAPIResponse,
+    AsyncBinaryAPIResponse,
+    StreamedBinaryAPIResponse,
+    AsyncStreamedBinaryAPIResponse,
     to_raw_response_wrapper,
     to_streamed_response_wrapper,
     async_to_raw_response_wrapper,
+    to_custom_raw_response_wrapper,
     async_to_streamed_response_wrapper,
+    to_custom_streamed_response_wrapper,
+    async_to_custom_raw_response_wrapper,
+    async_to_custom_streamed_response_wrapper,
 )
 from .._base_client import make_request_options
 from ..types.extension_list_response import ExtensionListResponse
@@ -35,7 +43,7 @@ class ExtensionsResource(SyncAPIResource):
         This property can be used as a prefix for any HTTP method call to return
         the raw response object instead of the parsed content.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#accessing-raw-response-data-eg-headers
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#accessing-raw-response-data-eg-headers
         """
         return ExtensionsResourceWithRawResponse(self)
 
@@ -44,7 +52,7 @@ class ExtensionsResource(SyncAPIResource):
         """
         An alternative to `.with_raw_response` that doesn't eagerly read the response body.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#with_streaming_response
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#with_streaming_response
         """
         return ExtensionsResourceWithStreamingResponse(self)
 
@@ -81,10 +89,13 @@ class ExtensionsResource(SyncAPIResource):
         if not extension_id:
             raise ValueError(f"Expected a non-empty value for `extension_id` but received {extension_id!r}")
         body = deepcopy_with_paths(
-            {
-                "file": file,
-                "url": url,
-            },
+            maybe_transform(
+                {
+                    "file": file,
+                    "url": url,
+                },
+                extension_update_params.ExtensionUpdateParams,
+            ),
             [["file"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
@@ -94,7 +105,7 @@ class ExtensionsResource(SyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._put(
             path_template("/v1/extensions/{extension_id}", extension_id=extension_id),
-            body=maybe_transform(body, extension_update_params.ExtensionUpdateParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -183,7 +194,7 @@ class ExtensionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> str:
+    ) -> BinaryAPIResponse:
         """
         Download an extension file by extension ID
 
@@ -198,12 +209,13 @@ class ExtensionsResource(SyncAPIResource):
         """
         if not extension_id:
             raise ValueError(f"Expected a non-empty value for `extension_id` but received {extension_id!r}")
+        extra_headers = {"Accept": "application/zip", **(extra_headers or {})}
         return self._get(
             path_template("/v1/extensions/{extension_id}", extension_id=extension_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=str,
+            cast_to=BinaryAPIResponse,
         )
 
     def upload(
@@ -236,10 +248,13 @@ class ExtensionsResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         body = deepcopy_with_paths(
-            {
-                "file": file,
-                "url": url,
-            },
+            maybe_transform(
+                {
+                    "file": file,
+                    "url": url,
+                },
+                extension_upload_params.ExtensionUploadParams,
+            ),
             [["file"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
@@ -249,7 +264,7 @@ class ExtensionsResource(SyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
             "/v1/extensions",
-            body=maybe_transform(body, extension_upload_params.ExtensionUploadParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -265,7 +280,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
         This property can be used as a prefix for any HTTP method call to return
         the raw response object instead of the parsed content.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#accessing-raw-response-data-eg-headers
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#accessing-raw-response-data-eg-headers
         """
         return AsyncExtensionsResourceWithRawResponse(self)
 
@@ -274,7 +289,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
         """
         An alternative to `.with_raw_response` that doesn't eagerly read the response body.
 
-        For more information, see https://www.github.com/steel-dev/steel-python#with_streaming_response
+        For more information, see https://github.com/steel-dev/sdk/tree/main/python#with_streaming_response
         """
         return AsyncExtensionsResourceWithStreamingResponse(self)
 
@@ -311,10 +326,13 @@ class AsyncExtensionsResource(AsyncAPIResource):
         if not extension_id:
             raise ValueError(f"Expected a non-empty value for `extension_id` but received {extension_id!r}")
         body = deepcopy_with_paths(
-            {
-                "file": file,
-                "url": url,
-            },
+            await async_maybe_transform(
+                {
+                    "file": file,
+                    "url": url,
+                },
+                extension_update_params.ExtensionUpdateParams,
+            ),
             [["file"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
@@ -324,7 +342,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._put(
             path_template("/v1/extensions/{extension_id}", extension_id=extension_id),
-            body=await async_maybe_transform(body, extension_update_params.ExtensionUpdateParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -413,7 +431,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> str:
+    ) -> AsyncBinaryAPIResponse:
         """
         Download an extension file by extension ID
 
@@ -428,12 +446,13 @@ class AsyncExtensionsResource(AsyncAPIResource):
         """
         if not extension_id:
             raise ValueError(f"Expected a non-empty value for `extension_id` but received {extension_id!r}")
+        extra_headers = {"Accept": "application/zip", **(extra_headers or {})}
         return await self._get(
             path_template("/v1/extensions/{extension_id}", extension_id=extension_id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=str,
+            cast_to=AsyncBinaryAPIResponse,
         )
 
     async def upload(
@@ -466,10 +485,13 @@ class AsyncExtensionsResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         body = deepcopy_with_paths(
-            {
-                "file": file,
-                "url": url,
-            },
+            await async_maybe_transform(
+                {
+                    "file": file,
+                    "url": url,
+                },
+                extension_upload_params.ExtensionUploadParams,
+            ),
             [["file"]],
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
@@ -479,7 +501,7 @@ class AsyncExtensionsResource(AsyncAPIResource):
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
             "/v1/extensions",
-            body=await async_maybe_transform(body, extension_upload_params.ExtensionUploadParams),
+            body=body,
             files=files,
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -504,8 +526,9 @@ class ExtensionsResourceWithRawResponse:
         self.delete_all = to_raw_response_wrapper(
             extensions.delete_all,
         )
-        self.download = to_raw_response_wrapper(
+        self.download = to_custom_raw_response_wrapper(
             extensions.download,
+            BinaryAPIResponse,
         )
         self.upload = to_raw_response_wrapper(
             extensions.upload,
@@ -528,8 +551,9 @@ class AsyncExtensionsResourceWithRawResponse:
         self.delete_all = async_to_raw_response_wrapper(
             extensions.delete_all,
         )
-        self.download = async_to_raw_response_wrapper(
+        self.download = async_to_custom_raw_response_wrapper(
             extensions.download,
+            AsyncBinaryAPIResponse,
         )
         self.upload = async_to_raw_response_wrapper(
             extensions.upload,
@@ -552,8 +576,9 @@ class ExtensionsResourceWithStreamingResponse:
         self.delete_all = to_streamed_response_wrapper(
             extensions.delete_all,
         )
-        self.download = to_streamed_response_wrapper(
+        self.download = to_custom_streamed_response_wrapper(
             extensions.download,
+            StreamedBinaryAPIResponse,
         )
         self.upload = to_streamed_response_wrapper(
             extensions.upload,
@@ -576,8 +601,9 @@ class AsyncExtensionsResourceWithStreamingResponse:
         self.delete_all = async_to_streamed_response_wrapper(
             extensions.delete_all,
         )
-        self.download = async_to_streamed_response_wrapper(
+        self.download = async_to_custom_streamed_response_wrapper(
             extensions.download,
+            AsyncStreamedBinaryAPIResponse,
         )
         self.upload = async_to_streamed_response_wrapper(
             extensions.upload,

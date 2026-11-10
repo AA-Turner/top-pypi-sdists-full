@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.viva.syntexcustommodeldeploymentproperties import SyntexCustomModelDeploymentProperties
 
 
-@dataclass
 class SyntexCustomModelSetting(ClientValue):
     AnalyzerId: str | None = None
     AzureResourceId: str | None = None

@@ -35,12 +35,25 @@
  */
 
 PRIVATE FLT_OR_DBL
+exp_eval_stack(vrna_fold_compound_t *fc,
+               unsigned int         i,
+               unsigned int         j,
+               unsigned int         options);
+
+
+PRIVATE FLT_OR_DBL
 exp_eval_internal(vrna_fold_compound_t  *fc,
                   unsigned int          i,
                   unsigned int          j,
                   unsigned int          k,
                   unsigned int          l,
                   unsigned int          options);
+
+
+PRIVATE INLINE FLT_OR_DBL
+exp_en_stack(unsigned int     type,
+             unsigned int     type_2,
+             vrna_exp_param_t *P);
 
 
 /*
@@ -200,6 +213,41 @@ vrna_exp_eval_internal(vrna_fold_compound_t *fc,
 }
 
 
+PUBLIC FLT_OR_DBL
+vrna_exp_eval_stack(vrna_fold_compound_t *fc,
+                    unsigned int i,
+                    unsigned int j,
+                    unsigned int options)
+{
+  if ((fc) &&
+      (i > 0) &&
+      (i + 2 < j)) {
+    /* is this base pair allowed to close a hairpin (like) loop ? */
+    if ((options & VRNA_EVAL_LOOP_NO_HC) ||
+        (fc->hc == NULL) ||
+        (fc->hc->eval_int(i, j, i + 1, j - 1, fc->hc)))
+      return exp_eval_stack(fc, i, j, options);
+  }
+
+  return 0.;
+}
+
+
+/*
+ #####################################
+ # BEGIN OF STATIC HELPER FUNCTIONS  #
+ #####################################
+ */
+PRIVATE INLINE FLT_OR_DBL
+exp_en_stack(unsigned int     type,
+             unsigned int     type2,
+             vrna_exp_param_t *P)
+{
+  return  (FLT_OR_DBL)P->expstack[type][type2] *
+          P->expSaltStack;
+}
+
+
 PRIVATE FLT_OR_DBL
 exp_eval_internal(vrna_fold_compound_t  *fc,
                   unsigned int          i,
@@ -335,6 +383,76 @@ exp_eval_internal(vrna_fold_compound_t  *fc,
 
     qbt1 += q_temp *
             scale[u1 + u2 + 2];
+  }
+
+  return qbt1;
+}
+
+
+PRIVATE FLT_OR_DBL
+exp_eval_stack(vrna_fold_compound_t *fc,
+               unsigned int         i,
+               unsigned int         j,
+               unsigned int         options)
+{
+  unsigned char         type, type2;
+  short                 *S, **SS;
+  unsigned int          k, l, *sn, n_seq, s;
+  FLT_OR_DBL            qbt1, q_temp, *scale;
+  vrna_exp_param_t      *pf_params;
+  vrna_md_t             *md;
+  struct sc_int_exp_dat sc_wrapper;
+
+  n_seq           = (fc->type == VRNA_FC_TYPE_SINGLE) ? 1 : fc->n_seq;
+  SS          = (fc->type == VRNA_FC_TYPE_SINGLE) ? NULL : fc->S;
+  S           = (fc->type == VRNA_FC_TYPE_SINGLE) ? fc->sequence_encoding2 : NULL;
+  pf_params   = fc->exp_params;
+  sn          = fc->strand_number;
+  md          = &(pf_params->model_details);
+  scale       = fc->exp_matrices->scale;
+  qbt1        = 0.;
+  k           = i + 1;
+  l           = j - 1;
+
+  if ((sn[k] != sn[i]) ||
+      (sn[j] != sn[l]))
+    return qbt1;
+
+  /* discard this configuration if (k,l) is not allowed to be enclosed pair of an internal loop */
+  q_temp = 0;
+  switch (fc->type) {
+    case VRNA_FC_TYPE_SINGLE:
+      type    = vrna_get_ptype_md(S[i], S[j], md);
+      type2   = vrna_get_ptype_md(S[l], S[k], md);
+      q_temp  = exp_en_stack(type, type2, pf_params);
+
+      break;
+
+    case VRNA_FC_TYPE_COMPARATIVE:
+      q_temp = 1.;
+
+      for (s = 0; s < n_seq; s++) {
+        type    = vrna_get_ptype_md(SS[s][i], SS[s][j], md);
+        type2   = vrna_get_ptype_md(SS[s][l], SS[s][k], md);
+        q_temp  *= exp_en_stack(type, type2, pf_params);
+      }
+
+      break;
+  }
+
+  if (q_temp > 0.) {
+    if (!(options & VRNA_EVAL_LOOP_NO_SC)) {
+      init_sc_int_exp(fc, &sc_wrapper);
+
+      /* soft constraints */
+      if (sc_wrapper.pair)
+        q_temp *= sc_wrapper.pair(i, j, k, l, &sc_wrapper);
+
+      free_sc_int_exp(&sc_wrapper);
+    }
+
+    qbt1 += q_temp *
+            scale[2];
   }
 
   return qbt1;

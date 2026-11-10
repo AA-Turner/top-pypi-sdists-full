@@ -221,8 +221,67 @@ ALLOWED_HTML_ATTRIBUTES = getattr(
         "width",
     ],
 )
+
+# CSS properties kept in inline `style` attributes, everything else is removed.
+# Default: the list bleach's `CSSSanitizer` allowed, so styles render as before.
+ALLOWED_CSS_PROPERTIES = getattr(
+    settings,
+    "ALLOWED_CSS_PROPERTIES",
+    [
+        "azimuth",
+        "background-color",
+        "border-bottom-color",
+        "border-collapse",
+        "border-color",
+        "border-left-color",
+        "border-right-color",
+        "border-top-color",
+        "clear",
+        "color",
+        "cursor",
+        "direction",
+        "display",
+        "elevation",
+        "float",
+        "font",
+        "font-family",
+        "font-size",
+        "font-style",
+        "font-variant",
+        "font-weight",
+        "height",
+        "letter-spacing",
+        "line-height",
+        "overflow",
+        "pause",
+        "pause-after",
+        "pause-before",
+        "pitch",
+        "pitch-range",
+        "richness",
+        "speak",
+        "speak-header",
+        "speak-numeral",
+        "speak-punctuation",
+        "speech-rate",
+        "stress",
+        "text-align",
+        "text-decoration",
+        "text-indent",
+        "unicode-bidi",
+        "vertical-align",
+        "voice-family",
+        "volume",
+        "white-space",
+        "width",
+    ],
+)
 # Disable admin style when using custom admin interface e.g django-grappelli
 MARTOR_ENABLE_ADMIN_CSS = getattr(settings, "MARTOR_ENABLE_ADMIN_CSS", True)
 
 # Follow django's `CSRF_COOKIE_NAME` unless overridden.
 MARTOR_CSRF_COOKIE_NAME = getattr(settings, "MARTOR_CSRF_COOKIE_NAME", settings.CSRF_COOKIE_NAME)
+
+# Text shown in the preview tab when there is nothing to preview.
+# `None` keeps the default (translated) "Nothing to preview".
+MARTOR_PREVIEW_PLACEHOLDER = getattr(settings, "MARTOR_PREVIEW_PLACEHOLDER", None)

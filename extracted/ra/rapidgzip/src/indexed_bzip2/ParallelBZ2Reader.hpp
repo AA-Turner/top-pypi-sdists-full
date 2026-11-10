@@ -24,6 +24,7 @@
 
 #include "BZ2BlockFetcher.hpp"
 #include "BZ2ReaderInterface.hpp"
+#include "StreamCRCVerifier.hpp"
 #include "bzip2.hpp"
 
 #ifdef WITH_PYTHON_SUPPORT
@@ -192,15 +193,23 @@ public:
                 const auto dataBlockIndex = m_blockMap->dataBlockCount();
                 const auto encodedOffsetInBits = blockFinder().get( dataBlockIndex );
                 if ( !encodedOffsetInBits ) {
+                    /* The block finder only looks for data-block magic, so a file with a valid header and
+                     * only an EOS block has no blocks. Validate that case instead of reporting any input
+                     * without blocks, including a truncated header, as a successfully decoded empty stream. */
+                    if ( m_blockMap->dataBlockCount() == 0 ) {
+                        validateStreamWithoutBlocks();
+                    }
                     m_blockMap->finalize();
                     m_atEndOfFile = true;
                     break;
                 }
 
                 blockData = blockFetcher().get( *encodedOffsetInBits, dataBlockIndex );
-                m_blockMap->push( blockData->encodedOffsetInBits,
-                                  blockData->encodedSizeInBits,
-                                  blockData->data.size() );
+                const auto decodedOffsetInBytes = m_blockMap->push( blockData->encodedOffsetInBits,
+                                                                    blockData->encodedSizeInBits,
+                                                                    blockData->data.size() );
+                m_streamCRCVerifier.appendBlock( decodedOffsetInBytes, blockData->data.size(),
+                                                 blockData->calculatedCRC );
 
                 /* Check whether the next block is an EOS block, which has a different magic byte string
                  * and therefore will not be found by the block finder! Such a block will span 48 + 32 + (0..7) bits.
@@ -209,9 +218,17 @@ public:
                     const auto nextBlockHeaderData = blockFetcher().readBlockHeader( blockData->encodedOffsetInBits +
                                                                                      blockData->encodedSizeInBits );
                     if ( nextBlockHeaderData.isEndOfStreamBlock ) {
-                        m_blockMap->push( nextBlockHeaderData.encodedOffsetInBits,
-                                          nextBlockHeaderData.encodedSizeInBits,
-                                          0 );
+                        const auto existingEOS =
+                            m_blockMap->getEncodedOffset( nextBlockHeaderData.encodedOffsetInBits );
+                        const auto eosDecodedOffsetInBytes =
+                            existingEOS
+                            ? existingEOS->decodedOffsetInBytes
+                            : m_blockMap->push( nextBlockHeaderData.encodedOffsetInBits,
+                                                nextBlockHeaderData.encodedSizeInBits,
+                                                0 );
+                        m_streamCRCVerifier.finishStream( nextBlockHeaderData.encodedOffsetInBits,
+                                                          eosDecodedOffsetInBytes,
+                                                          nextBlockHeaderData.expectedCRC );
 
                         const auto nextStreamOffsetInBits = nextBlockHeaderData.encodedOffsetInBits +
                                                             nextBlockHeaderData.encodedSizeInBits;
@@ -243,6 +260,21 @@ public:
                 }
             } else {
                 blockData = blockFetcher().get( blockInfo.encodedOffsetInBits );
+                m_streamCRCVerifier.appendBlock( blockInfo.decodedOffsetInBytes, blockInfo.decodedSizeInBytes,
+                                                 blockData->calculatedCRC );
+
+                /* Imported block offsets already contain the EOS blocks, which findDataOffset does not visit.
+                 * Verify an EOS directly following this block, including intermediate concatenated streams. */
+                const auto nextBlockOffsetInBits = blockInfo.encodedOffsetInBits + blockInfo.encodedSizeInBits;
+                const auto nextBlock = m_blockMap->getEncodedOffset( nextBlockOffsetInBits );
+                if ( nextBlock && ( nextBlock->decodedSizeInBytes == 0 ) ) {
+                    const auto eosHeader = blockFetcher().readBlockHeader( nextBlockOffsetInBits );
+                    if ( eosHeader.isEndOfStreamBlock ) {
+                        m_streamCRCVerifier.finishStream( nextBlockOffsetInBits,
+                                                          nextBlock->decodedOffsetInBytes,
+                                                          eosHeader.expectedCRC );
+                    }
+                }
             }
 
             /* Copy data from fetched block to output. */
@@ -368,11 +400,11 @@ public:
             throw std::invalid_argument( "May not clear offsets. Construct a new ParallelBZ2Reader instead!" );
         }
 
-        setBlockFinderOffsets( offsets );
-
         if ( offsets.size() < 2 ) {
             throw std::invalid_argument( "Block offset map must contain at least one valid block and one EOS block!" );
         }
+
+        setBlockFinderOffsets( offsets );
         m_blockMap->setBlockOffsets( offsets );
     }
 
@@ -384,6 +416,9 @@ public:
     [[nodiscard]] size_t
     tellCompressed() const override
     {
+        if ( m_blockMap->empty() ) {
+            return 0;
+        }
         const auto blockInfo = m_blockMap->findDataOffset( m_currentPosition );
         if ( blockInfo.contains( m_currentPosition ) ) {
             return blockInfo.encodedOffsetInBits;
@@ -403,8 +438,12 @@ public:
     void
     joinThreads()
     {
-        m_blockFetcher = {};
-        m_blockFinder = {};
+        if ( m_blockFetcher ) {
+            m_blockFetcher->joinThreads();
+        }
+        if ( m_blockFinder ) {
+            m_blockFinder->stopThreads();
+        }
     }
 
 private:
@@ -452,6 +491,35 @@ private:
         return *m_blockFetcher;
     }
 
+    /**
+     * Called when the block finder found no data blocks. An empty input is an empty archive, but any other
+     * input must at least consist of a valid stream header followed by an EOS block. Otherwise a truncated
+     * header would be reported as a successfully decoded empty stream.
+     */
+    void
+    validateStreamWithoutBlocks()
+    {
+        const auto fileSize = m_bitReader.size();
+        if ( !fileSize ) {
+            throw std::logic_error( "The size of a seekable input must be known!" );
+        }
+        if ( *fileSize == 0 ) {
+            return;
+        }
+
+        BitReader bitReader( m_bitReader );
+        bitReader.seekTo( 0 );
+        bzip2::readBzip2Header( bitReader );
+        const auto eosOffsetInBits = static_cast<size_t>( bitReader.tell() );
+        const auto magicBytes = bitReader.read( bzip2::MAGIC_BITS_SIZE );
+        if ( magicBytes != bzip2::MAGIC_BITS_EOS ) {
+            throw std::domain_error( "Truncated bzip2 stream: input ended before the EOS block." );
+        }
+        /* A stream without data blocks has the initial stream CRC of zero. */
+        const auto expectedCRC = static_cast<uint32_t>( bitReader.read( 32 ) );
+        m_streamCRCVerifier.finishStream( eosOffsetInBits, 0, expectedCRC );
+    }
+
     void
     setBlockFinderOffsets( const std::map<size_t, size_t>& offsets )
     {
@@ -480,6 +548,8 @@ private:
 
     size_t m_currentPosition = 0;  /**< the current position as can only be modified with read or seek calls. */
     bool m_atEndOfFile = false;
+
+    StreamCRCVerifier m_streamCRCVerifier;
 
 private:
     size_t const m_fetcherParallelization;

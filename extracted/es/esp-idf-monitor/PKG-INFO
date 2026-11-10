@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: esp-idf-monitor
-Version: 1.10.0
+Version: 1.11.0
 Summary: Serial monitor for esp-idf
 Author: Espressif Systems
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/espressif/esp-idf-monitor
 Keywords: espressif,embedded,monitor,serial
 Classifier: Development Status :: 5 - Production/Stable
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -49,9 +50,9 @@ Requires-Dist: idf_build_apps; extra == "target-test"
 Requires-Dist: idf-component-manager; extra == "target-test"
 Provides-Extra: host-test
 Requires-Dist: pytest; extra == "host-test"
-Requires-Dist: pytest-rerunfailures; extra == "host-test"
 Requires-Dist: esptool; extra == "host-test"
 Dynamic: license-file
+Dynamic: license-expression
 
 # Espressif IDF Monitor
 
@@ -68,7 +69,7 @@ Other advanced topics like configuration file will be described in the following
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Non-Interactive (Scripting) Mode](#non-interactive-scripting-mode)
+- [Command-Stream Mode](#command-stream-mode)
 - [Configuration File](#configuration-file)
   - [File Location](#file-location)
   - [Configuration Options](#configuration-options)
@@ -76,6 +77,7 @@ Other advanced topics like configuration file will be described in the following
       - [Share Configuration Across Tools](#share-configuration-across-tools)
   - [Syntax](#syntax)
 - [Embedded Command Execution](#embedded-command-execution)
+- [IDE Integration](#ide-integration)
 
 ## Installation
 
@@ -112,9 +114,9 @@ python -m esp_idf_monitor
 
 For all parameters and their function please see `idf-monitor --help`.
 
-## Non-Interactive (Scripting) Mode
+## Command-Stream Mode
 
-The interactive key bindings require a terminal (TTY) on standard input. When standard input is **not** a TTY — for example a pipe, a file, or when the monitor runs in a CI job or a Docker container — the monitor automatically switches to a **non-interactive command mode** instead of exiting with an error. In this mode it reads line-based commands from standard input, so the monitor can be driven by a shell script, a CI job, or another program, while keeping all of its added value (log decoding, coloring, logging to a file).
+The interactive key bindings require a terminal (TTY) on standard input. When standard input is **not** a TTY — for example a pipe, a file, or when the monitor runs in a CI job or a Docker container — the monitor automatically switches to **Command-Stream Mode** instead of exiting with an error. In this mode it reads line-based commands from standard input, so the monitor can be driven by a shell script, a CI job, or another program, while keeping all of its added value (log decoding, coloring, logging to a file).
 
 There are no extra command-line options: the mode is selected automatically based on whether standard input is a TTY.
 
@@ -141,6 +143,8 @@ printf 'reset\nexpect ALL TESTS PASSED\n' | idf-monitor /dev/ttyUSB0
 | `exit` | Quit the monitor; pending serial output is drained first |
 
 Empty lines and lines starting with `#` are ignored. Every processed command is echoed to **standard error**, so the progress of the script stays visible even when standard output is redirected to a file.
+
+If the monitor receives `SIGTERM` while a `flash`, `flash-all`, or `app-flash` command is running, it waits for the build to finish and then quits, so the build does not keep using the serial port after the monitor exits.
 
 The line ending is stripped before an `expect` match, so a `$` anchor works regardless of whether the device terminates lines with `LF` or `CRLF`.
 
@@ -185,7 +189,7 @@ idf-monitor --save-log /dev/ttyUSB0 < /dev/null
 ```
 
 > [!NOTE]
-> Because there is no terminal, an interactive GDB session cannot be started from the chip-side GDB stub while running in non-interactive mode.
+> Because there is no terminal, an interactive GDB session cannot be started from the chip-side GDB stub while running in Command-Stream Mode.
 
 ## Configuration File
 
@@ -353,32 +357,39 @@ For your security and to ensure predictable behavior, IDF Monitor:
 
 This intentional limitation ensures that only specific, safe espefuse operations are available. Any future extensions would require careful review for security implications.
 
-## Contributing
+## IDE Integration
 
-### Code Style & Static Analysis
+When an IDE launches the monitor with `--ws <url>` (or the `ESP_IDF_MONITOR_WS` environment variable), the monitor connects to that WebSocket URL and sends events so the IDE can debug the chip, decode a core dump, or flash the chip.
 
-Please follow these coding standards when writing code for `esp-idf-monitor`:
+### Events
 
-#### Pre-commit Checks
+| Monitor sends | IDE replies | Purpose |
+|---------------|-------------|---------|
+| `{"event": "gdb_stub", "port": "...", "prog": "..."}` | `{"event": "debug_finished"}` | Hand the serial port to the IDE for a GDB session. The monitor releases the port before waiting. |
+| `{"event": "coredump", "file": "...", "prog": "..."}` | `{"event": "debug_finished"}` | Ask the IDE to decode a core dump from the named file. The serial port stays open so the reboot log is not lost. |
+| `{"event": "flash", "port": "...", "target": "<name>", "full": false}` | `{"event": "flash_finished", "success": true}` | Delegate a flash command to the IDE. Sent only when the IDE has opted in (see below). The serial port stays released until the IDE replies. |
 
-[pre-commit](https://pre-commit.com/) is a framework for managing pre-commit hooks. These hooks help to identify simple issues before committing code for review.
+`port` identifies the serial port used by this monitor session. `target` is one of `flash`, `app-flash`, `encrypted-flash`, or `encrypted-app-flash`. An encrypted full flash is sent as `encrypted-flash` with `"full": false`, because esptool forces a full flash for encrypted images. The `success` field in `flash_finished` is optional; a missing value is treated as success.
 
-To use the tool, first install `pre-commit`. Then enable the `pre-commit` and `commit-msg` git hooks:
+After a `gdb_stub` or `flash` event, the IDE must release the serial port before it replies. The monitor reopens the port as soon as the reply arrives. If the port is still busy, the monitor retries until it can open it again.
+
+`Ctrl+C` does not stop an IDE GDB session or an IDE flash. The monitor keeps the serial port released until `debug_finished` or `flash_finished`. Pressing `Ctrl+C` again while still waiting quits the monitor without reopening the port. In Command-Stream Mode, `SIGTERM` quits immediately without reopening the port.
+
+### Optional WebSocket Features
+
+Setting `--ws` does not send flash commands to the IDE. An older IDE ignores the `flash` event and never replies, so the monitor would wait forever. To turn this on, set:
 
 ```sh
-python -m pip install pre-commit
-pre-commit install -t pre-commit -t commit-msg
+export ESP_IDF_MONITOR_WS_FEATURES=flash
 ```
 
-On the first commit `pre-commit` will install the hooks, subsequent checks will be significantly faster. If an error is found an appropriate error message will be displayed.
+The value is a comma-separated, case-insensitive list. Unknown names are ignored, so a newer IDE can advertise features an older monitor does not yet implement. The opt-in is an environment variable rather than a CLI option so that an older monitor still starts when a newer IDE sets it.
 
-##### Codespell Check
+Without `flash` in `ESP_IDF_MONITOR_WS_FEATURES`, flash menu commands (`Ctrl+T` `Ctrl+F` and related) keep running `idf.py` / `make` locally, even when `--ws` is set.
 
-This repository utilizes an automatic [spell checker](https://github.com/codespell-project/codespell) integrated into the pre-commit process. If any spelling issues are detected, the recommended corrections will be applied automatically to the file, ready for commit. In the event of false positives, you can adjust the configuration in the `pyproject.toml` file under the `[tool.codespell]` section. To exclude files from the spell check, utilize the `skip` keyword followed by comma-separated paths to the files (wildcards are supported). Additionally, to exclude specific words from the spell check, employ the `ignore-words-list` keyword followed by comma-separated words to be skipped.
+## Contributing
 
-#### Conventional Commits
-
-`esp-idf-monitor` complies with the [Conventional Commits standard](https://www.conventionalcommits.org/en/v1.0.0/#specification). Every commit message is checked with [Conventional Precommit Linter](https://github.com/espressif/conventional-precommit-linter), ensuring it adheres to the standard.
+Open an [issue](https://github.com/espressif/esp-idf-monitor/issues) to discuss a change before you open a pull request. The [contribution guide](https://github.com/espressif/esp-idf-monitor/blob/master/CONTRIBUTING.md) lists the checks that must pass and explains how to write and check commit messages.
 
 ## License
 

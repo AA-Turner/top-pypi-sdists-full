@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cache
-from typing import Annotated, Any, ClassVar, TypeVar, cast, get_args, get_type_hints
+from typing import Annotated, Any, ClassVar, Protocol, TypeVar, cast, get_args, get_type_hints
 from warnings import warn
 
 import cv2
@@ -346,6 +346,18 @@ def _metadata_sequence_item_to_numpy(value: Any, target: str | None) -> Any:
     return value
 
 
+class _RuntimeParamMaterializer(Protocol):
+    """Prepare shared runtime parameters from a sampled record. None skips the target kernels."""
+
+    def __call__(
+        self,
+        params: Mapping[str, Any],
+        targets: TargetSet,
+        transform: "BasicTransform",
+        /,
+    ) -> Mapping[str, Any] | None: ...
+
+
 class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
     """Base class for all transforms in Albumentations. Provides core functionality for application,
     serialization, and params.
@@ -398,6 +410,7 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
     _valid_applied_config_keys_cache: ClassVar[frozenset[str] | None] = None
     _applied_replay_class: ClassVar[type["BasicTransform"] | None] = None
     _sampling_spatial_rank: ClassVar[int | None] = None
+    _runtime_param_materializer: ClassVar[_RuntimeParamMaterializer | None] = None
     _runtime_generated_params: ClassVar[frozenset[str]] = frozenset()
     _runtime_binding_params: ClassVar[Mapping[str, None]] = {}
     _preserves_input_image_range: ClassVar[bool] = True  # image targets retain the input dtype's normalized range
@@ -418,6 +431,8 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
                 f"{cls.__name__} defines removed sampling hook(s): {names}. "
                 "Implement sample_parameters(params, data, targets, sampling) instead.",
             )
+        if "apply_with_params" in cls.__dict__:
+            raise TypeError(f"{cls.__name__} overrides apply_with_params. Use sample_parameters and target handlers.")
 
     def _tensor_fallback_route(self, data: Mapping[str, Any]) -> _TensorFallbackRoute:
         """Collect visible Tensor targets and declared Tensor metadata for one leaf."""
@@ -698,12 +713,12 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
             Any: Transformed data (dict of transformed inputs).
 
         Raises:
-            KeyError: If positional arguments are provided.
+            TypeError: If positional arguments are provided.
 
         """
         if args:
             msg = "You have to pass data to augmentations as named arguments, for example: aug(image=image)"
-            raise KeyError(msg)
+            raise TypeError(msg)
         invocation = get_current_invocation()
         if invocation is None:
             if self.can_apply_without_invocation(force_apply=force_apply):
@@ -760,19 +775,18 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
         """
         if args:
             msg = "You have to pass data to augmentations as named arguments, for example: aug(image=image)"
-            raise KeyError(msg)
+            raise TypeError(msg)
         if getattr(self, "_is_tensor_terminal", False):
             self._tensor_fallback_route(kwargs)
+        state = invocation.get_transform_state(self) if invocation.collect_applied else None
+        if state is not None:
+            state.params = None
+            state.applied_config = None
         if not self.replay_mode and not force_apply and self.p <= 0.0:
             return kwargs
         if self.replay_mode:
             state = invocation.transform_state(self) if invocation.collect_applied else None
             return self._apply_replay(state, invocation=invocation, **kwargs)
-
-        state = invocation.get_transform_state(self) if invocation.collect_applied else None
-        if state is not None:
-            state.params = None
-            state.applied_config = None
 
         if not self._should_apply_in_invocation(invocation, force_apply=force_apply):
             return kwargs
@@ -833,14 +847,9 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
                 msg = f"{self.__class__.__name__} requires {self.targets_as_params} missing keys: {missing_keys}"
                 raise ValueError(msg)
 
-        if (
-            targets is None
-            and state is None
-            and not self.deterministic
-            and type(self).apply_with_params in {BasicTransform.apply_with_params, DualTransform.apply_with_params}
-        ):
+        if targets is None and state is None and not self.deterministic:
             if invocation is not None and invocation.frame_state is not None:
-                return self.apply_with_params(SampledParams(params=params), **kwargs)
+                return self._apply_with_params(SampledParams(params=params), targets, **kwargs)
             return self.apply_with_uniform_params(params, **kwargs)
 
         applied_overrides, sampled_params = self._sample_parameters(
@@ -863,6 +872,9 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
             self._build_applied_config(state=state, overrides=applied_overrides)
 
         if self.deterministic:
+            if invocation is not None and invocation.replay_params is not None:
+                invocation.replay_params[self.invocation_key] = deepcopy(effective_params.to_dict())
+                return self._apply_with_params(effective_params, targets, **kwargs)
             saved_params = kwargs[self.save_key]
             transform_id = id(self)
             existing = saved_params.get(transform_id)
@@ -872,7 +884,7 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
                 existing.append(deepcopy(effective_params.to_dict()))
             else:
                 saved_params[transform_id] = [existing, deepcopy(effective_params.to_dict())]
-        return self.apply_with_params(effective_params, **kwargs)
+        return self._apply_with_params(effective_params, targets, **kwargs)
 
     def _sample_parameters(
         self,
@@ -966,35 +978,58 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
         """Applies recorded replay parameters without new sampling, preserving the optional caller-local observation
         behavior of sampled leaves.
         """
-        if not self.applied_in_replay:
+        plan = (
+            None
+            if invocation is None or invocation.replay_plans is None
+            else invocation.replay_plans.get(self.invocation_key)
+        )
+        applied = self.applied_in_replay if plan is None else plan["applied"]
+        replay_params = self._replay_params if plan is None else plan["params"]
+        if not applied:
             return kwargs
+        if invocation is not None and invocation.replay_params is not None:
+            invocation.replay_params[self.invocation_key] = deepcopy(replay_params)
         if type(self) is NoOp and invocation is not None and invocation.has_tensor_inputs is False:
-            return self._apply_replay_in_route(state, **kwargs)
+            return self._apply_replay_in_route(state, replay_params, **kwargs)
         single_target = kwargs.get("image") if len(kwargs) == 1 else None
         if single_target is None and len(kwargs) == 1:
             single_target = next(iter(kwargs.values()))
         if isinstance(single_target, np.ndarray) and single_target.dtype.isnative:
-            return self._apply_replay_in_route(state, **kwargs)
+            return self._apply_replay_in_route(state, replay_params, **kwargs)
         if not isinstance(single_target, torch.Tensor):
             native_data, byte_orders, passthrough = _prepare_foreign_float_inputs(self, kwargs)
             if byte_orders:
                 result = self._apply_replay(state, invocation=invocation, **native_data)
                 return _restore_foreign_float_outputs(result, kwargs, byte_orders, passthrough)
         if self._can_bypass_tensor_route(kwargs, invocation):
-            return self._apply_replay_in_route(state, **kwargs)
-        return self._apply_replay_with_tensor_route(state, **kwargs)
+            return self._apply_replay_in_route(state, replay_params, **kwargs)
+        return self._apply_replay_with_tensor_route(state, replay_params, **kwargs)
 
-    def _apply_replay_with_tensor_route(self, state: TransformInvocationState | None, **kwargs: Any) -> Any:
+    def _apply_replay_with_tensor_route(
+        self, state: TransformInvocationState | None, replay_params: dict[str, Any], /, **kwargs: Any
+    ) -> Any:
         route = self._tensor_fallback_route(kwargs)
         if self._uses_tensor_fallback(route):
-            result = self._apply_replay_in_route(state, **self._enter_tensor_fallback(kwargs, route))
+            result = self._apply_replay_in_route(state, replay_params, **self._enter_tensor_fallback(kwargs, route))
             return self._restore_tensor_fallback(result, route)
-        return self._apply_replay_in_route(state, **kwargs)
+        return self._apply_replay_in_route(state, replay_params, **kwargs)
 
-    def _apply_replay_in_route(self, state: TransformInvocationState | None, **kwargs: Any) -> Any:
-        sampled_params = SampledParams.from_dict(deepcopy(self._replay_params))
+    def _apply_replay_in_route(
+        self, state: TransformInvocationState | None, replay_params: dict[str, Any], /, **kwargs: Any
+    ) -> Any:
+        sampled_params = SampledParams.from_dict(deepcopy(replay_params))
         targets = self._build_target_set(kwargs)
         self._validate_spatial_targets(targets)
+        if (
+            "bbox_type" not in sampled_params.params
+            and not sampled_params.target_params
+            and targets.by_canonical_type("bboxes")
+            and self.get_processor("bboxes") is None
+        ):
+            sampled_params = SampledParams(
+                {**sampled_params.params, "bbox_type": "hbb"},
+                target_schema=sampled_params.target_schema,
+            )
         sampled_params.validate(
             targets,
             {
@@ -1006,7 +1041,7 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
         )
         if state is not None:
             state.params = sampled_params.to_dict()
-        return self.apply_with_params(sampled_params, **kwargs)
+        return self._apply_with_params(sampled_params, targets, **kwargs)
 
     def get_applied_params(self) -> dict[str, Any]:
         """Returns the parameters that were used in the last transform application; returns empty
@@ -1118,13 +1153,22 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
             for key, arg in kwargs.items()
         }
 
-    def apply_with_params(
+    def _apply_with_params(
         self,
         sampled_params: SampledParams,
-        *args: Any,
+        targets: TargetSet | None,
+        /,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Dispatch sampled parameters to target handlers and retain explicitly returned binding IDs."""
+        materialize = self._runtime_param_materializer
+        if materialize is not None and targets is not None:
+            params = materialize(sampled_params.params, targets, self)
+            if params is None:
+                return kwargs
+            if params is not sampled_params.params:
+                sampled_params = SampledParams(params, sampled_params.target_params, sampled_params.target_schema)
+
         invocation = get_current_invocation()
         binding = None if invocation is None else invocation.frame_state
         functions = self._key2func if binding is None else binding.functions(self.invocation_key, self._key2func)
@@ -1160,8 +1204,8 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
         replay (e.g. TTA). Returns self for chaining.
         """
         if save_key == "params":
-            msg = "params save_key is reserved"
-            raise KeyError(msg)
+            msg = "save_key='params' is reserved. Choose another name, for example 'replay'."
+            raise ValueError(msg)
 
         self.deterministic = flag
         if self.deterministic and self.targets_as_params:
@@ -1397,6 +1441,17 @@ class BasicTransform(InvocationRngOwner, Serializable, metaclass=CombinedMeta):
         bbox_processor = None if invocation is None else invocation.get_processor("bboxes")
         if isinstance(bbox_processor, BboxProcessor):
             params["bbox_type"] = bbox_processor.params.bbox_type
+        elif "bboxes" in self._key2func and (
+            data.get("bboxes") is not None
+            or (
+                self._additional_targets
+                and any(
+                    target == "bboxes" and data.get(name) is not None
+                    for name, target in self._additional_targets.items()
+                )
+            )
+        ):
+            params["bbox_type"] = "hbb"
 
         # Add transform-specific params
         self._add_transform_specific_params(params)
@@ -2050,11 +2105,17 @@ class DualTransform(BasicTransform):
 
         return keypoints
 
-    def apply_with_params(self, sampled_params: SampledParams, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def _apply_with_params(
+        self,
+        sampled_params: SampledParams,
+        targets: TargetSet | None,
+        /,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """Apply a dual transform with its parameters, including configured keypoint and transform-aware
         semantic-mask label mappings.
         """
-        res = super().apply_with_params(sampled_params, *args, **kwargs)
+        res = super()._apply_with_params(sampled_params, targets, **kwargs)
 
         if "keypoints" in res and res["keypoints"] is not None:
             res["keypoints"] = self._apply_label_mapping_to_keypoints(
@@ -2096,7 +2157,7 @@ class NoOp(DualTransform):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
     Supported bboxes:
         hbb, obb

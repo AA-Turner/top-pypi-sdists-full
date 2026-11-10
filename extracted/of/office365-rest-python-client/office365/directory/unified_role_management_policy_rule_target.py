@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TYPE_CHECKING
 
 from office365.directory.policies.unifiedrolemanagement.policyruletargetoperations import (
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from office365.directory.objects.object import DirectoryObject
 
 
-@dataclass
 class UnifiedRoleManagementPolicyRuleTarget(ClientValue):
     caller: str | None = None
     enforcedSettings: StringCollection = field(default_factory=StringCollection)

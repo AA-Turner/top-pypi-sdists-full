@@ -74,7 +74,9 @@ EnvironmentStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "DELETED"
 HostStateType = Literal[
     "CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-InstanceTypeType = Literal["i4i.metal", "i7i.metal-24xl", "i7i.metal-48xl"]
+InstanceTypeType = Literal[
+    "i4i.metal", "i7i.metal-24xl", "i7i.metal-48xl", "r7i.metal-24xl", "r7i.metal-48xl"
+]
 ListEnvironmentConnectorsPaginatorName = Literal["list_environment_connectors"]
 ListEnvironmentHostsPaginatorName = Literal["list_environment_hosts"]
 ListEnvironmentVlansPaginatorName = Literal["list_environment_vlans"]
@@ -87,6 +89,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -163,6 +166,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -190,6 +194,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -235,12 +240,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -308,6 +313,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -360,6 +366,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -441,6 +448,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -491,7 +499,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -4,15 +4,18 @@ from django import VERSION
 from django.template import Context, TemplateDoesNotExist
 from django.template.backends.django import copy_exception
 from django.template.context import make_context
+from django.template import defaultfilters
 from django.template.base import (
-    DebugLexer,
+    FilterExpression,
     Node,
     NodeList,
     Origin,
     Parser,
     Template,
     TextNode,
+    TokenType,
     VariableNode,
+    filter_re,
 )
 from django.template.loader_tags import BlockNode, ExtendsNode, IncludeNode
 from django.template.defaulttags import CommentNode, ForNode, IfNode, LoadNode, URLNode
@@ -20,7 +23,55 @@ from django.template.library import InclusionNode, SimpleNode
 
 from . import _django_get_template
 from .django_rusty_templates import Template as NativeTemplate
+from .diagnostics import allows_multiline_tags, make_lexer
 from .inheritance import NativeExtendsNode
+
+
+# Django's own filter functions, whose arguments Rust checks as Django does.
+STOCK_FILTERS = dict(defaultfilters.register.filters)
+
+
+def version_specific(contents):
+    """Expressions only the version's own Django parser understands."""
+    return (VERSION >= (6, 1) and ".." in contents) or (
+        VERSION >= (6, 0)
+        and any(exponent in contents for exponent in ("e+", "E+", "e-", "E-"))
+    )
+
+
+class LazyFilterExpression(FilterExpression):
+    """A variable's FilterExpression, parsed on first use.
+
+    Rust compiles the variables in native code from their source, so most
+    never need Django's parsed form. Inspection and Django rendering still get
+    a real FilterExpression: the first read of its parsed attributes runs
+    Django's parser with the filters available where the variable appeared.
+    """
+
+    __slots__ = ("_filters",)
+
+    def __init__(self, token, filters):
+        self.token = token
+        self._filters = filters
+
+    def __getattr__(self, name):
+        if name not in ("filters", "var", "is_var"):
+            raise AttributeError(name)
+        self.parse()
+        return getattr(self, name)
+
+    def parse(self):
+        lookup = Parser.__new__(Parser)
+        lookup.filters = self._filters
+        FilterExpression.__init__(self, self.token, lookup)
+
+
+class CulpritNode:
+    """The node Django's debug hook reports: a token in the full template."""
+
+    def __init__(self, token, origin):
+        self.token = token
+        self.origin = origin
 
 
 class NativeVariableNode(VariableNode):
@@ -33,17 +84,28 @@ class NativeVariableNode(VariableNode):
     @property
     def native(self):
         if self._native is None:
-            self._native = self.engine.from_string(self.source)
+            self._native = self.engine._from_string_fragment(self.source)
         return self._native
+
+    def debug_token(self, error):
+        return self.token
 
     def render(self, context):
         try:
             return self.native._render_fragment(context)
         except Exception as error:
-            # The fragment has its own source offsets. Let Django's node hook
-            # annotate this exception against the complete inherited template.
-            if hasattr(error, "template_debug"):
-                del error.template_debug
+            # The fragment has its own source offsets. Name the node that
+            # failed in the complete template, and let Django's node hook
+            # annotate the exception once it reaches that template. Inner
+            # Django nodes and other templates have already done so.
+            if (
+                self.engine.debug
+                and not hasattr(error, "template_debug")
+                and not hasattr(error, "_culprit_node")
+            ):
+                token = self.debug_token(error)
+                if token is not None and token.position is not None:
+                    error._culprit_node = CulpritNode(token, self.origin)
             raise
 
 
@@ -61,7 +123,7 @@ class NativeRegionNode(Node):
             )
         return self._native
 
-    def __init__(self, nodes, engine, source, callbacks=()):
+    def __init__(self, nodes, engine, source, callbacks=(), template_source=""):
         self.nodelist = NodeList(nodes)
         self.engine = engine
         self.source = source
@@ -71,11 +133,37 @@ class NativeRegionNode(Node):
         self.origin = nodes[0].origin
         self.load_prefix = nodes[0].load_prefix
         self._native_end = nodes[-1]._native_end
+        self.template_source = template_source
+
+    def debug_token(self, error):
+        """The full template's token at the fragment span Rust recorded."""
+        span = getattr(error, "_rusty_token_span", None)
+        if span is None:
+            return None
+        start = span[0] - len(self.load_prefix.encode())
+        region_start = self.token._native_position[0]
+        region = self.template_source[region_start : self._native_end].encode()
+        if not 0 <= start <= len(region):
+            return None
+        position = region_start + len(region[:start].decode(errors="ignore"))
+        return next(
+            (
+                token
+                for token in make_lexer(
+                    self.template_source,
+                    allow_multiline_tags=allows_multiline_tags(self.engine),
+                ).tokenize()
+                if token.position[0] <= position < token.position[1]
+            ),
+            None,
+        )
 
 
 class NativeParser(Parser):
-    def __init__(self, source, engine, origin):
-        tokens = DebugLexer(source).tokenize()
+    def __init__(self, source, engine, origin, lazy=False):
+        tokens = make_lexer(
+            source, allow_multiline_tags=allows_multiline_tags(engine)
+        ).tokenize()
         for token in tokens:
             token._native_position = token.position
             if not engine.debug:
@@ -91,11 +179,56 @@ class NativeParser(Parser):
         self.load_prefix = ""
         self.parse_depth = 0
         self.native_leaf_cache = {}
+        self.lazy = lazy
+        self.lazy_expressions = []
+        self.lazy_support = {}
+        self.variable_token = None
 
     def next_token(self):
         token = super().next_token()
         self.last_token = token
+        self.variable_token = token if token.token_type is TokenType.VAR else None
         return token
+
+    def add_library(self, lib):
+        # Lazy expressions keep the filters in effect where they appeared, so
+        # a later {% load %} replaces the mapping instead of changing it.
+        self.tags.update(lib.tags)
+        self.filters = {**self.filters, **lib.filters}
+        self.lazy_support = {}
+
+    def compile_filter(self, token):
+        variable = self.variable_token
+        self.variable_token = None
+        if (
+            self.lazy
+            and variable is not None
+            and variable.contents is token
+            and self.lazy_supported(token)
+        ):
+            expression = LazyFilterExpression(token, self.filters)
+            self.lazy_expressions.append(expression)
+            return expression
+        return super().compile_filter(token)
+
+    def lazy_supported(self, token):
+        """Whether Rust checks this variable as Django's parser would.
+
+        Cached per token until the next {% load %} changes the filters."""
+        supported = self.lazy_support.get(token)
+        if supported is None:
+            supported = not version_specific(token) and all(
+                name is None
+                or (
+                    name in STOCK_FILTERS
+                    and self.filters.get(name) is STOCK_FILTERS[name]
+                )
+                for name in (
+                    match["filter_name"] for match in filter_re.finditer(token)
+                )
+            )
+            self.lazy_support[token] = supported
+        return supported
 
     @staticmethod
     def native_node(node):
@@ -123,7 +256,7 @@ class NativeParser(Parser):
             nodes = super().parse(parse_until)
         finally:
             self.parse_depth -= 1
-        if self.native_engine.debug or self.parse_depth:
+        if self.parse_depth:
             return nodes
         self.inspection_nodes = nodes
         return self.group_nodes(nodes)
@@ -146,9 +279,13 @@ class NativeParser(Parser):
                 source = region[0].load_prefix + self.source[start:end]
                 callbacks = []
                 prefix_bytes = len(region[0].load_prefix.encode())
-                offsets = [prefix_bytes]
-                for character in self.source[start:end]:
-                    offsets.append(offsets[-1] + len(character.encode()))
+                # Callbacks use UTF-8 byte offsets into the region source.
+                ascii_region = self.source[start:end].isascii()
+
+                def byte_offset(position):
+                    if ascii_region:
+                        return prefix_bytes + position - start
+                    return prefix_bytes + len(self.source[start:position].encode())
 
                 def collect(node):
                     if (
@@ -178,32 +315,38 @@ class NativeParser(Parser):
                         if children is not None:
                             children[:] = self.group_nodes(children)
                     callbacks.append(
-                        (offsets[node_start - start], offsets[node_end - start], node)
+                        (byte_offset(node_start), byte_offset(node_end), node)
                     )
 
                 for node in region:
                     collect(node)
                 grouped.append(
-                    NativeRegionNode(region[:], self.native_engine, source, callbacks)
+                    NativeRegionNode(
+                        region[:], self.native_engine, source, callbacks, self.source
+                    )
                 )
             else:
                 grouped.extend(region)
             region.clear()
 
         for node in nodes:
-            span = self.source[node.token._native_position[0] : node._native_end]
-            eligible = (
-                getattr(node.token, "_native_position", None) is not None
-                and self.native_node(node)
-                # A parent loop may be owned by Django outside this region.
-                and "forloop.parentloop" not in span
-                # These expressions require the version-specific Django parser.
-                and not (VERSION >= (6, 1) and ".." in span)
-                and not (
-                    VERSION >= (6, 0)
-                    and any(exponent in span for exponent in ("e+", "E+", "e-", "E-"))
+            eligible = getattr(
+                node.token, "_native_position", None
+            ) is not None and self.native_node(node)
+            if eligible and type(node) is not TextNode:
+                span = self.source[node.token._native_position[0] : node._native_end]
+                eligible = (
+                    # A parent loop may be owned by Django outside this region.
+                    "forloop.parentloop" not in span
+                    # These expressions require the version-specific Django parser.
+                    and not (VERSION >= (6, 1) and ".." in span)
+                    and not (
+                        VERSION >= (6, 0)
+                        and any(
+                            exponent in span for exponent in ("e+", "E+", "e-", "E-")
+                        )
+                    )
                 )
-            )
             if not eligible:
                 flush()
                 for name in node.child_nodelists:
@@ -246,20 +389,7 @@ class NativeParser(Parser):
         if type(node) is ExtendsNode:
             node.__class__ = NativeExtendsNode
             node.parent_name = ParentExpression(node.parent_name)
-        if (
-            not self.native_engine.debug
-            and type(node) is VariableNode
-            and not (
-                (VERSION >= (6, 1) and ".." in token.contents)
-                or (
-                    VERSION >= (6, 0)
-                    and any(
-                        exponent in token.contents
-                        for exponent in ("e+", "E+", "e-", "E-")
-                    )
-                )
-            )
-        ):
+        if type(node) is VariableNode and not version_specific(token.contents):
             fragment = self.load_prefix + "{{ " + token.contents + " }}"
             node = NativeVariableNode(node, self.native_engine, fragment)
         node.load_prefix = self.load_prefix
@@ -281,47 +411,83 @@ class InspectionNodeList(NodeList):
 
 class InteropTemplate(Template):
     @staticmethod
-    def compile_native_nodes(nodes):
+    def compile_native_nodes(nodes, compiled=None):
+        """Compile native nodes, adding the ids of the variables Rust parsed
+        to ``compiled``."""
         for node in nodes:
             if isinstance(node, (NativeVariableNode, NativeRegionNode)):
                 # Compile only the maximal regions, not their inspection nodes.
                 node.native
+                if compiled is not None:
+                    InteropTemplate.mark_compiled(node, compiled)
                 if isinstance(node, NativeRegionNode):
                     for _, _, callback in node.callbacks:
                         for name in callback.child_nodelists:
                             InteropTemplate.compile_native_nodes(
-                                getattr(callback, name, ())
+                                getattr(callback, name, ()), compiled
                             )
             else:
                 for name in node.child_nodelists:
-                    InteropTemplate.compile_native_nodes(getattr(node, name, ()))
+                    InteropTemplate.compile_native_nodes(
+                        getattr(node, name, ()), compiled
+                    )
+
+    @staticmethod
+    def mark_compiled(node, compiled):
+        # A region's source covers its loops and conditions, but not the
+        # bodies of opaque callback nodes, which compile on their own.
+        pending = [node]
+        while pending:
+            node = pending.pop()
+            kind = type(node)
+            if kind is TextNode:
+                continue
+            if kind is NativeVariableNode:
+                compiled.add(id(node.filter_expression))
+            elif kind in (NativeRegionNode, ForNode, IfNode):
+                for name in node.child_nodelists:
+                    pending.extend(getattr(node, name, ()))
 
     def compile_nodelist(self):
+        parser = NativeParser(self.source, self.engine, self.origin, lazy=True)
+        try:
+            return self.compile_with(parser)
+        except Exception as error:
+            if not parser.lazy_expressions:
+                self.compile_error(error)
+        # A deferred variable may hold the first error Django reports, so
+        # compile again with every variable parsed in order.
         parser = NativeParser(self.source, self.engine, self.origin)
         try:
-            nodes = parser.parse()
-            self.extra_data = parser.extra_data
-            if self.engine.debug:
-                # This compatibility tree already has Django control flow and
-                # debug tokens. Avoid compiling one native fragment per value.
-                nodes.rendering_nodes = nodes
-                return nodes
-            self.compile_native_nodes(nodes)
-            for partial in self.extra_data.get("partials", {}).values():
-                self.compile_native_nodes(partial.nodelist)
-            return InspectionNodeList(getattr(parser, "inspection_nodes", nodes), nodes)
+            return self.compile_with(parser)
         except Exception as error:
-            diagnostic = self.engine._syntax_diagnostic(
-                self.source,
-                None if self.origin.name == "<unknown source>" else self.origin.name,
-                self.origin.template_name,
-            )
-            if diagnostic:
-                error.rusty_diagnostic = diagnostic
-                error.add_note(diagnostic)
-            if self.engine.debug and hasattr(error, "token"):
-                error.template_debug = self.get_exception_info(error, error.token)
-            raise
+            self.compile_error(error)
+
+    def compile_with(self, parser):
+        nodes = parser.parse()
+        self.extra_data = parser.extra_data
+        compiled = set() if parser.lazy_expressions else None
+        self.compile_native_nodes(nodes, compiled)
+        for partial in self.extra_data.get("partials", {}).values():
+            self.compile_native_nodes(partial.nodelist, compiled)
+        for expression in parser.lazy_expressions:
+            # Variables Rust didn't compile are checked by Django now.
+            if id(expression) not in compiled:
+                expression.parse()
+        return InspectionNodeList(getattr(parser, "inspection_nodes", nodes), nodes)
+
+    def compile_error(self, error):
+        diagnostic = self.engine._syntax_diagnostic(
+            self.source,
+            None if self.origin.name == "<unknown source>" else self.origin.name,
+            self.origin.template_name,
+        )
+        if diagnostic:
+            error.rusty_diagnostic = diagnostic
+            error.add_note(diagnostic)
+        if self.engine.debug and hasattr(error, "token"):
+            error.template_debug = self.get_exception_info(error, error.token)
+        raise error
 
     def bind_origin(self, origin):
         old_origin = self.origin

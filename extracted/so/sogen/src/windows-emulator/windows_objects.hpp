@@ -60,6 +60,8 @@ namespace sogen
         bool synchronization{};
         bool signaled{};
         std::optional<std::chrono::steady_clock::time_point> due_time{};
+        // The due time was an absolute system time; a periodic timer's later expirations are intervals.
+        bool absolute{};
         int64_t period_nanoseconds{};
 
         bool is_signaled(utils::clock& clock)
@@ -74,6 +76,7 @@ namespace sogen
                 this->signaled = true;
                 if (this->period_nanoseconds > 0)
                 {
+                    this->absolute = false;
                     const auto period = std::chrono::nanoseconds(this->period_nanoseconds);
                     const auto elapsed = now - *this->due_time;
                     const auto remaining = period - elapsed % period;
@@ -110,6 +113,7 @@ namespace sogen
             buffer.write(this->synchronization);
             buffer.write(this->signaled);
             buffer.write_optional(this->due_time);
+            buffer.write(this->absolute);
             buffer.write(this->period_nanoseconds);
         }
 
@@ -120,6 +124,7 @@ namespace sogen
             buffer.read(this->synchronization);
             buffer.read(this->signaled);
             buffer.read_optional(this->due_time);
+            buffer.read(this->absolute);
             buffer.read(this->period_nanoseconds);
         }
     };
@@ -256,6 +261,61 @@ namespace sogen
         {
             user_object::deserialize_object(buffer);
             buffer.read_vector(this->entries);
+        }
+    };
+
+    struct cursor_icon : user_object<USER_CURSOR>
+    {
+        std::u16string module_name{};
+        std::u16string resource_name{};
+        uint16_t resource_id{};
+        uint16_t type{};
+        uint32_t flags{};
+        int16_t hotspot_x{};
+        int16_t hotspot_y{};
+        hbitmap mask{};
+        hbitmap color{};
+        uint32_t bpp{};
+        uint32_t width{};
+        uint32_t height{};
+
+        cursor_icon(memory_interface& memory)
+            : user_object(memory)
+        {
+        }
+
+        void serialize_object(utils::buffer_serializer& buffer) const override
+        {
+            user_object::serialize_object(buffer);
+            buffer.write(this->module_name);
+            buffer.write(this->resource_name);
+            buffer.write(this->resource_id);
+            buffer.write(this->type);
+            buffer.write(this->flags);
+            buffer.write(this->hotspot_x);
+            buffer.write(this->hotspot_y);
+            buffer.write(this->mask);
+            buffer.write(this->color);
+            buffer.write(this->bpp);
+            buffer.write(this->width);
+            buffer.write(this->height);
+        }
+
+        void deserialize_object(utils::buffer_deserializer& buffer) override
+        {
+            user_object::deserialize_object(buffer);
+            buffer.read(this->module_name);
+            buffer.read(this->resource_name);
+            buffer.read(this->resource_id);
+            buffer.read(this->type);
+            buffer.read(this->flags);
+            buffer.read(this->hotspot_x);
+            buffer.read(this->hotspot_y);
+            buffer.read(this->mask);
+            buffer.read(this->color);
+            buffer.read(this->bpp);
+            buffer.read(this->width);
+            buffer.read(this->height);
         }
     };
 
@@ -404,14 +464,21 @@ namespace sogen
             return client_bottom - client_top;
         }
 
-        void sync_guest_rects()
+        // The guest's WND.rcWindow and rcClient are in screen coordinates, while x and y are relative to the parent's client
+        // area, so the caller supplies where the window's top-left corner is on the screen.
+        void sync_guest_rects(const POINT screen_origin)
         {
-            const RECT window_rect{.left = this->x, .top = this->y, .right = this->x + this->width, .bottom = this->y + this->height};
+            const RECT window_rect{.left = screen_origin.x,
+                                   .top = screen_origin.y,
+                                   .right = screen_origin.x + this->width,
+                                   .bottom = screen_origin.y + this->height};
+            const auto client_left = screen_origin.x + this->client_x_offset();
+            const auto client_top = screen_origin.y + this->client_y_offset();
             const RECT client_rect{
-                .left = this->client_x(),
-                .top = this->client_y(),
-                .right = this->client_x() + this->client_width(),
-                .bottom = this->client_y() + this->client_height(),
+                .left = client_left,
+                .top = client_top,
+                .right = client_left + this->client_width(),
+                .bottom = client_top + this->client_height(),
             };
 
             this->guest.access([&](USER_WINDOW& guest_win) {
@@ -716,12 +783,16 @@ namespace sogen
         uint64_t mapped_object{};
         // Desktop names are scoped to a window station, so the same name in two stations is two desktops.
         uint64_t window_station{};
+        // Set on a further handle to an existing desktop, such as the one NtUserOpenInputDesktop returns. Windows gives each
+        // its own handle value and inherit flag, while the desktop and its state stay shared.
+        handle opened_desktop{};
 
         void serialize_object(utils::buffer_serializer& buffer) const override
         {
             buffer.write(this->name);
             buffer.write(this->mapped_object);
             buffer.write(this->window_station);
+            buffer.write(this->opened_desktop);
         }
 
         void deserialize_object(utils::buffer_deserializer& buffer) override
@@ -729,6 +800,7 @@ namespace sogen
             buffer.read(this->name);
             buffer.read(this->mapped_object);
             buffer.read(this->window_station);
+            buffer.read(this->opened_desktop);
         }
     };
 
@@ -1096,6 +1168,9 @@ namespace sogen
         std::u16string name{};
         uint32_t number_of_concurrent_threads{};
         std::vector<io_completion_message> queue{};
+        // Ids of the threads waiting for a packet, the latest last. KeRemoveQueueEx puts a new waiter at the head of the
+        // queue's wait list and KeInsertQueue gives a packet to the head, so the latest waiter gets the next packet.
+        std::vector<uint32_t> waiters{};
 
         void enqueue(const io_completion_message& message)
         {
@@ -1134,6 +1209,7 @@ namespace sogen
             buffer.write(this->name);
             buffer.write(this->number_of_concurrent_threads);
             buffer.write_vector(this->queue);
+            buffer.write_vector(this->waiters);
         }
 
         void deserialize_object(utils::buffer_deserializer& buffer) override
@@ -1141,6 +1217,7 @@ namespace sogen
             buffer.read(this->name);
             buffer.read(this->number_of_concurrent_threads);
             buffer.read_vector(this->queue);
+            buffer.read_vector(this->waiters);
         }
     };
 
@@ -1149,6 +1226,10 @@ namespace sogen
         std::u16string name{};
         handle io_completion_handle{};
         handle target_object_handle{};
+        // The target's object as last looked up, valid while its store's generation is still target_generation. Not
+        // serialized; a restored packet looks it up again.
+        ref_counted_object* target_object{};
+        uint64_t target_generation{};
         uint64_t key_context{};
         uint64_t apc_context{};
         IO_STATUS_BLOCK<EmulatorTraits<Emu64>> io_status_block{};
@@ -1213,6 +1294,7 @@ namespace sogen
         uint32_t pending_release_count{};
         bool release_pending{};
         std::vector<handle> worker_threads{};
+        uint32_t pending_worker_count{};
 
         void serialize_object(utils::buffer_serializer& buffer) const override
         {
@@ -1242,6 +1324,7 @@ namespace sogen
             buffer.write(this->pending_release_count);
             buffer.write(this->release_pending);
             buffer.write_vector(this->worker_threads);
+            buffer.write(this->pending_worker_count);
         }
 
         void deserialize_object(utils::buffer_deserializer& buffer) override
@@ -1272,6 +1355,7 @@ namespace sogen
             buffer.read(this->pending_release_count);
             buffer.read(this->release_pending);
             buffer.read_vector(this->worker_threads);
+            buffer.read(this->pending_worker_count);
         }
     };
 

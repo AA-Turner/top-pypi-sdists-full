@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -10,7 +10,6 @@ from office365.sharepoint.search.relevant_results import RelevantResults
 from office365.sharepoint.search.special_term_results import SpecialTermResults
 
 
-@dataclass
 class QueryResult(ClientValue):
     """
     The QueryResult type is a grouping of result tables, where each contained result table is a ResultTable

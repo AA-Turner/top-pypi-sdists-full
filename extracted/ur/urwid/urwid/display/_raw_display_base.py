@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import abc
+import base64
 import contextlib
 import dataclasses
 import errno
@@ -237,6 +238,17 @@ def _is_linux_console(term: str) -> bool:
     A multiplexer that names its outer terminal, such as ``screen.linux``, is not the console.
     """
     return _LINUX_CONSOLE_TERM.match(term) is not None
+
+
+def _rejects_osc(term: str) -> bool:
+    """Tell whether the terminal a TERM value names cannot take a window title or clipboard sequence.
+
+    The Linux virtual console reads only its own palette sequences and prints the others as text.
+    fbterm has neither a window title nor a clipboard.
+    A ``dumb`` terminal reads no escape sequences.
+    On Windows, TERM does not describe the console, so only the Linux console names count there.
+    """
+    return _is_linux_console(term) or (term.lower() in {"dumb", "fbterm"} and not IS_WINDOWS)
 
 
 def _parse_force_color(value: str) -> _ColorCount:
@@ -511,6 +523,10 @@ def detect_terminal_properties(
 # single and double byte encodings, where bytes 0x80-0x9f are glyphs of the IBM PC character set or parts of characters
 _RAW_SEQUENCE_UTF8 = re.compile(rb"\x1b|\xc2[\x80-\x9f]")
 _RAW_SEQUENCE_BYTES = re.compile(rb"\x1b")
+# C0 and C1 control characters and DEL: in a window title, BEL, ESC or ST would end the title and start a sequence
+_TITLE_CONTROLS = re.compile("[\x00-\x1f\x7f-\x9f]")
+# bytes a terminal reading 8-bit controls takes as C1 controls, such as 0x9c (ST) and 0x9b (CSI)
+_C1_BYTES = re.compile(rb"[\x80-\x9f]")
 
 
 @typing.runtime_checkable
@@ -567,6 +583,8 @@ class Screen(BaseScreen, RealTerminal):
         self.extended_keys = extended_keys
         # the keyboard protocol queries were sent and the Primary DA reply that ends their answers has not arrived
         self._keyboard_query_pending = False
+        # the private modes queried by the last start and not answered yet
+        self._mode_queries_pending: set[str] = set()
         # the modifyOtherKeys value the terminal reported, written back when the screen stops
         self._modify_other_keys_reported: int | None = None
         self._keyboard_protocol_enabled: Literal["kitty", "modify other keys"] | None = None
@@ -585,6 +603,10 @@ class Screen(BaseScreen, RealTerminal):
         self.back_color_erase = properties.back_color_erase
         # OSC 8 hyperlinks are drawn only when the application turns them on: no query exists
         self.hyperlinks = False
+        # the window title set_title() asked for, shown while the screen runs
+        self._title: str | None = None
+        # the title the terminal had before is saved, and is given back when the screen stops
+        self._title_saved = False
         self.prev_input_resize = 0
         self.set_input_timeouts()
         self.screen_buf: list[list[tuple[Hashable, Literal["0", "U"] | None, bytes]]] | None = None
@@ -744,6 +766,8 @@ class Screen(BaseScreen, RealTerminal):
         if self.modes.focus_reporting is None:
             modes.append(escape.PrivateMode.FOCUS_REPORTING)
 
+        # a late reply to a query of an earlier start describes the same terminal, so it may answer the new query
+        self._mode_queries_pending = set(modes)
         queries = "".join(mode.query for mode in modes)
         if self.extended_keys and self.modes.kitty_keyboard is None and not self._keyboard_query_pending:
             # A terminal ignores a query it does not know, and answers Primary DA in the order it reads the queries,
@@ -759,16 +783,23 @@ class Screen(BaseScreen, RealTerminal):
     ) -> _DecodedInput:
         """Apply the query replies among *decoded_codes* to `self.modes` and strip them out.
 
-        A keyboard protocol reply counts only between the keyboard protocol queries and the Primary DA reply sent
-        after them: outside that window it is not an answer to urwid's query, and is dropped without effect.
+        A reply counts only as the answer to a query urwid sent and has no answer for yet.
+        Any other reply is dropped without effect, so input that only looks like a reply cannot change the modes.
+
+        - A private mode report counts once for each mode queried.
+        - A keyboard protocol reply counts between the keyboard protocol queries and the Primary DA reply sent
+          after them.
         """
         logger = self.logger.getChild("terminal_reports")
         filtered: _DecodedInput = []
         reports: list[tuple[str, int]] = []
         for item in decoded_codes:
             match item:
-                case ("private mode report", str() as mode, int() as value):
+                case ("private mode report", str() as mode, int() as value) if mode in self._mode_queries_pending:
+                    self._mode_queries_pending.discard(mode)
                     reports.append((mode, value))
+                case ("private mode report", *_):
+                    logger.debug(f"Dropped a reply to a query urwid has no answer pending for: {item!r}")
                 case ("keyboard protocol report" | "modify keys report" | "device attributes", *_) if (
                     not self._keyboard_query_pending
                 ):
@@ -920,6 +951,102 @@ class Screen(BaseScreen, RealTerminal):
         self.flush()
         self._modified_palette_entries.clear()
 
+    def set_title(self, title: str | None) -> None:
+        """Set the window title of the terminal.
+
+        The title is shown while the screen runs.
+        One set before :meth:`start` is shown when the screen starts.
+        Each start saves the title the terminal had, and stopping the screen gives it back,
+        so the shell's title is back while :meth:`MainLoop.paused` runs another program.
+
+        Control characters are removed from *title*: a title built from data could otherwise end the title
+        and send the rest of the text as terminal commands.
+        Characters the terminal encoding cannot represent are replaced with ``?``.
+        So are characters a single-byte encoding writes with a byte from 0x80 to 0x9f,
+        which a terminal can read as C1 controls.
+
+        The previous title is saved on the terminal's title stack (xterm ``XTWINOPS`` 22 and 23).
+        A terminal without the stack ignores it, and keeps the application's title after the screen stops.
+        On a Windows console the title is set and saved through the console API instead.
+        Nothing is sent to the Linux virtual console or fbterm, which have no window title.
+        Nothing is sent to a ``dumb`` terminal outside Windows either, which would print the title as text.
+
+        :param title: the new window title, or None to give the terminal back the title it had before.
+        """
+        self._title = None if title is None else _TITLE_CONTROLS.sub("", title)
+        if self._started:
+            self._show_title()
+
+    def _show_title(self) -> None:
+        """Show the title :meth:`set_title` asked for, saving the terminal's own title first."""
+        if self._title is None:
+            self._restore_title()
+            return
+        if _rejects_osc(self.term):
+            return
+        if not self._title_saved:
+            self._save_title()
+            self._title_saved = True
+        self._write_title(self._title)
+        self.flush()
+
+    def _restore_title(self) -> None:
+        """Give the terminal back the title it had before :meth:`_show_title` saved it."""
+        if not self._title_saved:
+            return
+        self._title_saved = False
+        self._restore_saved_title()
+        self.flush()
+
+    def _save_title(self) -> None:
+        """Save the terminal's current window title; :meth:`_restore_saved_title` gives it back."""
+        self.write(escape.TITLE_PUSH)
+
+    def _restore_saved_title(self) -> None:
+        """Give the terminal back the window title :meth:`_save_title` saved."""
+        self.write(escape.TITLE_POP)
+
+    def _write_title(self, title: str) -> None:
+        """Write *title*, which has no control characters, as the terminal's window title."""
+        encoding = util.get_encoding()
+        if util.get_encoding_mode() == "narrow":
+            title = "".join("?" if _C1_BYTES.search(char.encode(encoding, "replace")) else char for char in title)
+        self.write(f"{escape.SET_TITLE}{title.encode(encoding, 'replace').decode(encoding)}{escape.BEL}")
+
+    def copy_to_clipboard(self, text: str) -> None:
+        """Copy text to the system clipboard through the terminal.
+
+        The text is sent as UTF-8 in base64 inside OSC 52,
+        so no character of it can reach the terminal as a command.
+        A lone surrogate, as in a file name that did not decode, is sent as ``?``.
+        The sequence travels with the screen output, so it also reaches the user's terminal over SSH.
+        What happens next is up to the terminal:
+
+        - many terminal emulators copy the text;
+        - some ask the user first, or copy only after the feature is turned on in their settings;
+        - tmux passes the text on with its ``set-clipboard`` option on;
+        - a terminal without OSC 52 ignores the sequence.
+
+        No reply tells the application which case it was.
+        Terminals and multiplexers also drop a sequence longer than their own limit, so a long text may not arrive.
+        The whole text is written at once, and a long one holds up the main loop until the terminal has read it.
+
+        Nothing is sent to the Linux virtual console or fbterm, which have no clipboard.
+        Nothing is sent to a ``dumb`` terminal outside Windows either, which would print the sequence as text.
+
+        :param text: the text to copy.
+        :raises RuntimeError: the screen is not running.
+            A console that reads escape sequences only while the screen runs, such as the Windows console,
+            would print the sequence as text.
+        """
+        if not self._started:
+            raise RuntimeError("Start the screen before copying to the clipboard")
+        if _rejects_osc(self.term):
+            return
+        data = base64.b64encode(text.encode("utf-8", "replace")).decode("ascii")
+        self.write(f"{escape.SET_CLIPBOARD}{data}{escape.BEL}")
+        self.flush()
+
     @abc.abstractmethod
     def _stop(self) -> None:
         """Restore the screen."""
@@ -951,6 +1078,7 @@ class Screen(BaseScreen, RealTerminal):
 
         :param raw_keys: return raw keycodes as well as translated versions
         :raises RuntimeError: the screen has not been started.
+        :raises InputClosedError: the input reached end of file.
 
         This function will immediately return all the input since the
         last time it was called.  If there is no input pending it will
@@ -982,6 +1110,8 @@ class Screen(BaseScreen, RealTerminal):
                       ('ctrl mouse drag', 1, 18, 13)
         * Mouse button release: ('mouse release', 0, 18, 13),
                                 ('ctrl mouse release', 0, 17, 23)
+
+        The button number is a :class:`~urwid.MouseButton` value.
         """
         logger = self.logger.getChild("get_input")
         if not self._started:
@@ -1096,6 +1226,8 @@ class Screen(BaseScreen, RealTerminal):
 
         This method is only used by the default `hook_event_loop`
         implementation; you can safely ignore it if you implement your own.
+
+        :raises InputClosedError: the input reached end of file.
         """
         logger = self.logger.getChild("get_available_raw_input")
         codes = [*self._partial_codes, *self._get_input_codes()]

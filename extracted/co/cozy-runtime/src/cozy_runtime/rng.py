@@ -1,11 +1,17 @@
-"""Seed to noise, one way for every model: drawn on the CPU, so a seed makes the same image on any
-device, the CPU degraded mode included."""
+"""Seed to noise, one way for every model, the same on any device, the CPU degraded mode included.
+
+`noise` draws a request's noise on the CPU and moves it. `counter_noise` and `counter_uniform`
+compute a step's noise where it is used, from (seed, step, stream) alone (`internal.philox`): no
+generator state, no table and no host read, so a loop's step `i` draws the same noise on any device
+and inside a captured graph."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
 import torch
+
+from cozy_runtime.internal import philox
 
 
 def generator(seed: int) -> torch.Generator:
@@ -25,3 +31,43 @@ def noise(
     `generator` made), then moved to `device`."""
     source = generator(seed) if isinstance(seed, int) else seed
     return torch.randn(tuple(shape), generator=source, dtype=dtype).to(device)
+
+
+def counter_noise(
+    shape: Sequence[int],
+    seed: int | torch.Tensor,
+    step: int | torch.Tensor,
+    *,
+    stream: int = 0,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str | None = None,
+) -> torch.Tensor:
+    """Standard normal noise of `shape`: a function of (`seed`, `step`, `stream`), computed in
+    float32 on `device` and cast to `dtype`.
+
+    In a loop, `step` is the step's index `i` and `seed` the request's seed. Either may be a host
+    int or a one-element int64 tensor (a value a captured graph reads on each replay); the values
+    are the same. `stream`, 32 bits, keeps one step's draws apart.
+    `device` defaults to a tensor argument's device, else the CPU.
+
+    Element n of the flattened result depends on (seed, step, stream, n) alone, bit for bit, in
+    any shape holding it, eager or recorded, at any CPU thread count, and on CPU and CUDA alike
+    by construction: Philox words in integer ops, then Box-Muller in float32 operations that are
+    exact or correctly rounded (frexp, add, multiply, sqrt; log, sine and cosine are Cephes
+    polynomials). On CUDA one kernel writes the result and holds nothing else; elsewhere torch
+    ops hold about 30 bytes per element at their peak."""
+    return philox.draw(shape, seed, step, stream, 0, dtype, device)
+
+
+def counter_uniform(
+    shape: Sequence[int],
+    seed: int | torch.Tensor,
+    step: int | torch.Tensor,
+    *,
+    stream: int = 0,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str | None = None,
+) -> torch.Tensor:
+    """Uniform noise in [0, 1) of `shape`, as `counter_noise` draws (24 bits per float32, cast to
+    `dtype`, where rounding can reach 1). It never shares values with `counter_noise`."""
+    return philox.draw(shape, seed, step, stream, 1, dtype, device)

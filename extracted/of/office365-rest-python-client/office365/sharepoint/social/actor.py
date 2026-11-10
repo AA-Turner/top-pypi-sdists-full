@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SocialActor(ClientValue):
     """The SocialActor type contains information about an actor retrieved from server. An actor is a user, document,
     site, or tag."""

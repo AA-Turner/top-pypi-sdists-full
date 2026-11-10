@@ -28,6 +28,8 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import ListResourcePermissionStatementsPaginator
 from .type_defs import (
+    CreateBearerTokenRequestTypeDef,
+    CreateBearerTokenResponseTypeDef,
     CreateOAuth2TokenRequestTypeDef,
     CreateOAuth2TokenResponseTypeDef,
     CreateOAuth2TokenWithIAMRequestTypeDef,
@@ -107,6 +109,17 @@ class SignInServiceClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/generate_presigned_url.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#generate_presigned_url)
+        """
+
+    def create_bearer_token(
+        self, **kwargs: Unpack[CreateBearerTokenRequestTypeDef]
+    ) -> CreateBearerTokenResponseTypeDef:
+        """
+        Creates a bearer token that represents your IAM credentials and can be used to
+        access a supported AWS service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_bearer_token.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_bearer_token)
         """
 
     def create_oauth2_token(

@@ -115,8 +115,15 @@ async def own_addresses(google: GoogleAccounts, account: GoogleAccount) -> set[s
 
 
 async def fetch_inbox(
-    google: GoogleAccounts, account: GoogleAccount, day_start: datetime
+    google: GoogleAccounts,
+    account: GoogleAccount,
+    day_start: datetime,
+    known: dict[str, tuple[str, dict[str, Any] | None]] | None = None,
 ) -> dict[str, Any]:
+    """The inbox's numbers and its newest unread conversations. `known` keeps each
+    conversation's newest unread email by its Gmail history id: one that has not changed since
+    is not read again, as reading all of them on every refresh went over Gmail's rate limit."""
+    known = {} if known is None else known
     own, inbox, today, unread, invites = await asyncio.gather(
         own_addresses(google, account),
         google.get_json(account, f"{API}/labels/INBOX", API_NAME),
@@ -143,7 +150,9 @@ async def fetch_inbox(
     invitations = {m.get("threadId") for m in invites.get("messages", []) if m.get("threadId")}
     limit = asyncio.Semaphore(PARALLEL)
 
-    async def newest_unread(thread_id: str) -> dict[str, Any] | None:
+    async def newest_unread(thread_id: str, history: str) -> dict[str, Any] | None:
+        if history and known.get(thread_id, ("", None))[0] == history:
+            return known[thread_id][1]
         async with limit:
             thread = await google.get_json(
                 account,
@@ -164,9 +173,15 @@ async def fetch_inbox(
                 newest["item_link"] = item_link(full)
             except google_oauth.GoogleError:
                 pass
+        if history:
+            known[thread_id] = (history, newest)
         return newest
 
-    found = await asyncio.gather(*(newest_unread(t["id"]) for t in unread.get("threads", [])))
+    threads = unread.get("threads", [])
+    found = await asyncio.gather(*(newest_unread(t["id"], t.get("historyId", "")) for t in threads))
+    # Only the conversations still unread are kept.
+    for thread_id in set(known) - {t["id"] for t in threads}:
+        del known[thread_id]
     messages = [message for message in found if message]
     for message in messages:
         message["invitation"] = message.get("threadId") in invitations
@@ -204,6 +219,8 @@ class GmailPlugin(Plugin):
         # Conversations marked as read from myOrb, by (address, thread) and when. Gmail's search
         # finds them as unread for a while longer; until then the lists leave them out.
         self._marked_read: dict[tuple[str, str], float] = {}
+        # Each account's unread conversations as last read (see fetch_inbox).
+        self._known: dict[int, dict[str, tuple[str, dict[str, Any] | None]]] = {}
 
     def marked_read(self, email: str, thread_id: str) -> None:
         self._marked_read[(email, thread_id)] = time.monotonic()
@@ -241,7 +258,8 @@ class GmailPlugin(Plugin):
         day_start = context.now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         async def fetch(account: GoogleAccount) -> dict[str, Any]:
-            return await fetch_inbox(context.google, account, day_start)
+            known = self._known.setdefault(account.id, {})
+            return await fetch_inbox(context.google, account, day_start, known)
 
         result = await load_accounts(
             context, SCOPE, f"gmail:{day_start.date()}", fetch, fresh=60, max_age=30 * 60

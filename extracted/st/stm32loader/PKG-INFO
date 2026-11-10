@@ -1,44 +1,48 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stm32loader
-Version: 0.7.1
+Version: 1.0.0
 Summary: Flash firmware to STM32 microcontrollers using Python.
-Author: jsnyder
+Author: jsnyder, Floris Lambrechts
 Author-email: Floris Lambrechts <florisla@gmail.com>
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+License-Expression: GPL-3.0-or-later
+License-File: LICENSE
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Requires-Dist: pyserial
 Requires-Dist: progress
-Requires-Dist: wheel ; extra == "dev"
-Requires-Dist: twine ; extra == "dev"
-Requires-Dist: pylint ; extra == "dev"
-Requires-Dist: flake8 ; extra == "dev"
-Requires-Dist: flake8-isort ; extra == "dev"
-Requires-Dist: black ; extra == "dev"
-Requires-Dist: bump-my-version ; extra == "dev"
-Requires-Dist: nox ; extra == "dev"
-Requires-Dist: cogapp ; extra == "dev"
-Requires-Dist: intelhex ; extra == "hex"
-Project-URL: BugTracker, https://github.com/florisla/stm32loader/issues
+Requires-Dist: intelhex ; extra == 'dev'
+Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: nox>=2026.2.9 ; extra == 'dev'
+Requires-Dist: nox-uv>=0.7.1 ; extra == 'dev'
+Requires-Dist: ruff ; extra == 'dev'
+Requires-Dist: pylint ; extra == 'dev'
+Requires-Dist: bump-my-version ; extra == 'dev'
+Requires-Dist: cogapp ; extra == 'dev'
+Requires-Dist: intelhex ; extra == 'hex'
+Requires-Python: >=3.9
 Project-URL: Home, https://github.com/florisla/stm32loader
+Project-URL: BugTracker, https://github.com/florisla/stm32loader/issues
 Project-URL: SourceCode, https://github.com/florisla/stm32loader
 Provides-Extra: dev
 Provides-Extra: hex
+Description-Content-Type: text/markdown
 
 # STM32Loader
 
 [![PyPI package](https://badge.fury.io/py/stm32loader.svg)](https://badge.fury.io/py/stm32loader)
-[![GitHub Actions](https://img.shields.io/github/workflow/status/florisla/stm32loader/Test?label=tests)](https://github.com/florisla/stm32loader/actions/workflows/test.yaml)
-[![GitHub Actions](https://img.shields.io/github/workflow/status/florisla/stm32loader/Lint?label=lint)](https://github.com/florisla/stm32loader/actions/workflows/lint.yaml)
+[![Test](https://github.com/florisla/stm32loader/actions/workflows/test.yaml/badge.svg)](https://github.com/florisla/stm32loader/actions/workflows/test.yaml)
+[![Lint](https://github.com/florisla/stm32loader/actions/workflows/lint.yaml/badge.svg)](https://github.com/florisla/stm32loader/actions/workflows/lint.yaml)
 [![License](https://img.shields.io/pypi/l/stm32loader.svg)](https://pypi.org/project/stm32loader/)
 [![Downloads](https://pepy.tech/badge/stm32loader)](https://pepy.tech/project/stm32loader)
 
@@ -48,12 +52,21 @@ ST Microelectronics STM32 microcontrollers over UART.
 Also supports ST BlueNRG devices, and the SweetPeas bootloader
 for Wiznet W7500.
 
-Compatible with Python version 3.9 to 3.11 and PyPy 3.9.
+Compatible with Python version 3.9-3.15 and PyPy 3.10-3.11.
 
 
-## Installation
+## Run using `uvx`
+
+    uvx stm32loader
+
+
+## Installation with pip
 
     pip install stm32loader
+
+To also support loading `.hex` files:
+
+    pip install stm32loader[hex]
 
 To install the latest development version:
 
@@ -78,7 +91,9 @@ sys.stdout.close()
 sys.stdout = sys.__stdout__
 ]]] -->
 ```
-usage: stm32loader [-h] [-e] [-u] [-x] [-w] [-v] [-r] [-l LENGTH] -p PORT [-b BAUD] [-a ADDRESS] [-g ADDRESS] [-f FAMILY]
+usage: stm32loader [-h] [-e] [-E] [-u] [-x] [--write-unprotect]
+                   [--write-protect] [-w] [-v] [-r] [-l LENGTH] -p PORT
+                   [-b BAUD] [-a ADDRESS | -o OFFSET] [-g ADDRESS] [-f FAMILY]
                    [-V] [-q] [-s] [-R] [-B] [-n] [-P {even,none}] [--version]
                    [FILE.BIN]
 
@@ -89,23 +104,35 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -e, --erase           Erase (note: this is required on previously written memory).
+  -e, --erase           Erase the full flash memory or a specific region
+                        (support --address and --length). Note: this is
+                        required on previously written memory.
+  -E, --auto-erase      Before writing, erase only the flash pages that the
+                        written data covers.
   -u, --unprotect       Unprotect flash from readout.
   -x, --protect         Protect flash against readout.
+  --write-unprotect     Disable write protection before flashing
+  --write-protect       Enable write protection after flashing
   -w, --write           Write file content to flash.
   -v, --verify          Verify flash content versus local file (recommended).
   -r, --read            Read from flash and store in local file.
-  -l LENGTH, --length LENGTH
-                        Length of read or erase.
-  -p PORT, --port PORT  Serial port (default: $STM32LOADER_SERIAL_PORT).
-  -b BAUD, --baud BAUD  Baudrate. (default: 115200)
-  -a ADDRESS, --address ADDRESS
-                        Target address for read, write or erase. (default: 134217728)
-  -g ADDRESS, --go-address ADDRESS
+  -l, --length LENGTH   Length of read or erase. For write and verify, use
+                        only this many bytes of the file.
+  -p, --port PORT       Serial port (default: $STM32LOADER_SERIAL_PORT).
+  -b, --baud BAUD       Baudrate. (default: 115200)
+  -a, --address ADDRESS
+                        Target address for read or write. For erase, this is
+                        used when you supply --length. Default: the start of
+                        flash memory.
+  -o, --offset OFFSET   Alternative to --address: an offset from the start of
+                        flash memory.
+  -g, --go-address ADDRESS
                         Start executing from address (0x08000000, usually).
-  -f FAMILY, --family FAMILY
-                        Device family to read out device UID and flash size; e.g F1 for STM32F1xx. Possible values: F0,
-                        F1, F3, F4, F7, H7, L4, L0, G0, NRG. (default: $STM32LOADER_FAMILY).
+  -f, --family FAMILY   Device family to read out device UID and flash size;
+                        e.g F1 for STM32F1xx. Possible values: C0, F0, F1, F2,
+                        F3, F4, F7, G0, G4, H5, H7, L0, L1, L4, L5, WBA, WB0,
+                        WB, WL, U5, W, NRG, WIZ, GD32VW55X (default:
+                        $STM32LOADER_FAMILY).
   -V, --verbose         Verbose mode.
   -q, --quiet           Quiet mode.
   -s, --swap-rts-dtr    Swap RTS and DTR: use RTS for reset and DTR for boot0.
@@ -114,8 +141,9 @@ options:
   -B, --boot0-active-low
                         Make BOOT0 active low.
   -n, --no-progress     Don't show progress bar.
-  -P {even,none}, --parity {even,none}
-                        Parity: "even" for STM32, "none" for BlueNRG. (default: even)
+  -P, --parity {even,none}
+                        Parity: "even" for STM32, "none" for BlueNRG.
+                        (default: even)
   --version             show program's version number and exit
 
 examples:
@@ -132,6 +160,16 @@ stm32loader --port /dev/tty.usbserial-ftCYPMYJ --erase --write --verify somefile
 
 This will pre-erase flash, write `somefile.bin` to the flash on the device, and then
 perform a verification after writing is finished.
+
+To erase only the flash pages that the new data will occupy, use `--auto-erase`
+instead of `--erase`:
+
+```
+stm32loader --port /dev/tty.usbserial-ftCYPMYJ --auto-erase --write --verify somefile.bin
+```
+
+The erased range is rounded out to whole pages (sectors), following the device's
+flash layout. This also works on devices with mixed sector sizes.
 
 You can skip the `--port` option by configuring environment variable
 `STM32LOADER_SERIAL_PORT`.
@@ -167,29 +205,8 @@ stm32loader --erase --address 0x08000000 --length 0x2000 --port /dev/cu.usbseria
 
 ## Acknowledgement
 
-Original Version by Ivan A-R (tuxotronic.org).
-Contributions by Domen Puncer, James Snyder, Floris Lambrechts,
-Atokulus, sam-bristow, NINI1988, Omer Kilic, Szymon Szantula, rdaforno,
-Mikolaj Stawiski, Tyler Coy, Alex Klimaj, Ondrej Mikle, denniszollo,
-emilzay, michsens, blueskull, Mattia Maldini, etrommer, jadeaffenjaeger,
-tosmaz.
-
-Inspiration for features from:
-
-* Configurable RTS/DTR and polarity, extended erase with pages:
-  https://github.com/pazzarpj/stm32loader
-  
-* Memory unprotect
-  https://github.com/3drobotics/stm32loader
-
-* Correct checksum calculation for paged erase:
-  https://github.com/jsnyder/stm32loader/pull/4
-
-* ST BlueNRG chip support
-  https://github.com/lchish/stm32loader
-
-* Wiznet W7500 chip / SweetPeas custom bootloader support
-  https://github.com/Sweet-Peas/WiznetLoader
+Original version by Ivan A-R (tuxotronic.org).
+See `CONTRIBUTORS.md` for all contributors and sources of inspiration.
 
 
 ## Alternatives
@@ -223,13 +240,6 @@ adapter (it needs to toggle, whereas `BOOT0` does not).
 
 ## Not currently supported
 
-* Command-line argument for write protection/unprotection.
+* Command-line argument for write protection for some devices (e.g. those with dual-bank flash).
 * STM8 devices (ST `UM0560`).
 * Other bootloader protocols (e.g. I2C, HEX -> implemented in `stm32flash`).
-
-
-## Future work
-
-* Use f-strings.
-* Use proper logging instead of print statements.
-

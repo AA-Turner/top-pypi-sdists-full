@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PasswordProfile(ClientValue):
     """
         Contains the password profile associated with a user. The passwordProfile property of the user entity is a

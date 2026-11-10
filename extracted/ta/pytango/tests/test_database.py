@@ -111,3 +111,13 @@ def test_put_get_attribute_properties_string_conversion(test_database):
         test_database.get_device_attribute_property(device_name, "attr"),
         expected_string_properties,
     )
+
+
+def test_get_property_forced(test_database):
+    properties = {"value1": ["1"], "value2": ["2", "3"]}
+    test_database.put_property("object/test", properties)
+
+    assert_close(
+        test_database.get_property_forced("object/test", list(properties)),
+        properties,
+    )

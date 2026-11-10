@@ -10,15 +10,19 @@ from h2.errors import ErrorCodes
 from h2.exceptions import H2Error, ProtocolError, StreamClosedError
 from twisted.internet.defer import Deferred
 from twisted.internet.error import ConnectionClosed
-from twisted.python.failure import Failure
 from twisted.web.client import ResponseFailed
 
 from scrapy import signals
-from scrapy.exceptions import DownloadCancelledError, StopDownload
+from scrapy.exceptions import (
+    DownloadCancelledError,
+    ResponseDataLossError,
+    StopDownload,
+)
 from scrapy.http.headers import Headers
 from scrapy.utils._download_handlers import (
     check_stop_download,
     get_maxsize_msg,
+    get_warnsize,
     get_warnsize_msg,
     make_response,
 )
@@ -126,8 +130,10 @@ class Stream:
         self._download_maxsize = self._request.meta.get(
             "download_maxsize", download_maxsize
         )
-        self._download_warnsize = self._request.meta.get(
-            "download_warnsize", download_warnsize
+        self._download_warnsize = get_warnsize(self._request.meta, download_warnsize)
+        self._fail_on_dataloss: bool = self._request.meta.get(
+            "download_fail_on_dataloss",
+            crawler.settings.getbool("DOWNLOAD_FAIL_ON_DATALOSS"),
         )
 
         # Metadata of an HTTP/2 connection stream
@@ -178,6 +184,12 @@ class Stream:
             self.close(StreamCloseReason.CANCELLED)
 
     @property
+    def _cancel_keeps_body(self) -> bool:
+        """Whether cancelling the stream, e.g. on download timeout, returns
+        the response received so far as a partial response."""
+        return not self._fail_on_dataloss and self._response["status"] is not None
+
+    @property
     def _log_warnsize(self) -> bool:
         """Checks if we have received data which exceeds the download warnsize
         and whether we have not already logged about it.
@@ -190,7 +202,7 @@ class Stream:
             self._response["headers"].get(b"Content-Length", -1)
         )
         return (
-            self._download_warnsize
+            bool(self._download_warnsize)
             and (
                 self._response["flow_controlled_size"] > self._download_warnsize
                 or content_length_header > self._download_warnsize
@@ -214,7 +226,7 @@ class Stream:
             == f"{self._protocol.metadata['ip_address']}:{self._protocol.metadata['uri'].port}"
         )
 
-    def _get_request_headers(self) -> list[tuple[str, str]]:
+    def _get_request_headers(self) -> list[tuple[bytes, bytes]]:
         url = urlparse_cached(self._request)
 
         path = url.path
@@ -230,38 +242,27 @@ class Stream:
         if not path:
             path = "*" if self._request.method == "OPTIONS" else "/"
 
-        # Make sure pseudo-headers comes before all the other headers
-        headers = [
-            (":method", self._request.method),
-            (":authority", url.netloc),
+        # Make sure pseudo-headers come before all the other headers. All
+        # names and values are bytes because h2 < 4.2.0 compares :authority
+        # and Host without converting them to the same type first.
+        headers: list[tuple[bytes, bytes]] = [
+            (b":method", self._request.method.encode()),
+            (b":authority", url.netloc.encode()),
         ]
 
         # The ":scheme" and ":path" pseudo-header fields MUST
         # be omitted for CONNECT method (refer RFC 7540 - Section 8.3)
         if self._request.method != "CONNECT":
             headers += [
-                (":scheme", self._protocol.metadata["uri"].scheme),
-                (":path", path),
+                (b":scheme", self._protocol.metadata["uri"].scheme),
+                (b":path", path.encode()),
             ]
 
-        content_length = str(len(self._request.body))
-        headers.append(("Content-Length", content_length))
+        if b"Content-Length" not in self._request.headers:
+            headers.append((b"Content-Length", str(len(self._request.body)).encode()))
 
-        content_length_name = self._request.headers.normkey(b"Content-Length")
         for name, values in self._request.headers.items():
-            for value_bytes in values:
-                value = str(value_bytes, "utf-8")
-                if name == content_length_name:
-                    if value != content_length:
-                        logger.warning(
-                            "Ignoring bad Content-Length header %r of request %r, "
-                            "sending %r instead",
-                            value,
-                            self._request,
-                            content_length,
-                        )
-                    continue
-                headers.append((str(name, "utf-8"), value))
+            headers.extend((name, value) for value in values)
 
         return headers
 
@@ -369,9 +370,9 @@ class Stream:
             self._response["flow_controlled_size"], self.stream_id
         )
 
-    def receive_headers(self, headers: list[tuple[str, str]]) -> None:
+    def receive_headers(self, headers: list[tuple[bytes, bytes]]) -> None:
         for name, value in headers:
-            if name == ":status":
+            if name == b":status":
                 # it's a pseudo-header
                 self._response["status"] = int(value)
             else:
@@ -405,9 +406,11 @@ class Stream:
     def reset_stream(self, reason: StreamCloseReason = StreamCloseReason.RESET) -> None:
         """Close this stream by sending a RST_FRAME to the remote peer"""
         # The data received so far is the body of the response built for a
-        # stopped download, otherwise the buffer is cleared early to avoid
-        # keeping data in memory for a long time
-        if reason is not StreamCloseReason.STOP_DOWNLOAD:
+        # stopped download or a partial response, otherwise the buffer is
+        # cleared early to avoid keeping data in memory for a long time
+        if reason is not StreamCloseReason.STOP_DOWNLOAD and not (
+            reason is StreamCloseReason.CANCELLED and self._cancel_keeps_body
+        ):
             self._response["body"].truncate(0)
 
         self.metadata["stream_closed_local"] = True
@@ -463,6 +466,9 @@ class Stream:
         elif reason in {StreamCloseReason.ENDED, StreamCloseReason.STOP_DOWNLOAD}:
             self._fire_response_deferred()
 
+        elif reason is StreamCloseReason.CANCELLED and self._cancel_keeps_body:
+            self._fire_response_deferred(flags=["dataloss"])
+
         # Stream was abruptly ended here
         elif reason is StreamCloseReason.CANCELLED:
             # Client has cancelled the request. Remove all the data
@@ -481,16 +487,15 @@ class Stream:
             self._deferred_response.errback(
                 ResponseFailed(
                     [
-                        Failure(
-                            f"Remote peer {self._protocol.metadata['ip_address']} sent RST_STREAM",
-                            ProtocolError,
+                        ProtocolError(
+                            f"Remote peer {self._protocol.metadata['ip_address']} sent RST_STREAM"
                         )
                     ]
                 )
             )
 
         elif reason is StreamCloseReason.CONNECTION_LOST:
-            self._deferred_response.errback(ResponseFailed(errors))
+            self._handle_connection_lost(errors)
 
         elif reason is StreamCloseReason.INACTIVE:
             errors = (InactiveStreamClosed(self._request), *errors)
@@ -506,7 +511,17 @@ class Stream:
                 )
             )
 
-    def _fire_response_deferred(self) -> None:
+    def _handle_connection_lost(self, errors: Sequence[BaseException]) -> None:
+        # A response body is only complete once the stream ends, so having
+        # received the response headers means that the body was cut short.
+        if self._response["status"] is None:
+            self._deferred_response.errback(ResponseFailed(errors))
+        elif self._fail_on_dataloss:
+            self._deferred_response.errback(ResponseDataLossError(str(list(errors))))
+        else:
+            self._fire_response_deferred(flags=["dataloss"])
+
+    def _fire_response_deferred(self, flags: list[str] | None = None) -> None:
         """Builds response from the self._response dict
         and fires the response deferred callback with the
         generated response instance"""
@@ -517,6 +532,7 @@ class Stream:
                 status=self._response["status"],
                 headers=self._response["headers"],
                 body=self._response["body"].getvalue(),
+                flags=flags,
                 certificate=self._protocol.metadata["certificate"],
                 ip_address=self._protocol.metadata["ip_address"],
                 protocol="h2",

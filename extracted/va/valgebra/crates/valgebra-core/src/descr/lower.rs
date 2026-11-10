@@ -18,11 +18,13 @@ use super::budget;
 use super::classes::Class;
 use super::floats::FloatSet;
 use super::maps::{KEY_KINDS, Label};
+use super::regular::{Alphabet, RegularSet};
 use super::{BoolSet, Descr, EVERY_PART, Parts, integers::IntSet, part};
 use crate::ir::{
     ClassIx, CollKind, ConstIx, Constraint, Field, MapClause, OperandIx, Polarity, Schema, SeqKind,
     SeqShape,
 };
+use crate::joined_in_rounds;
 use crate::kind::Kind;
 use std::cell::Cell;
 
@@ -42,14 +44,19 @@ pub enum Operand {
     /// An instance of a pure class.
     Instance(Class),
     /// A bound's `Fraction` or finite `Decimal`, as the integers at its floor
-    /// and at its ceiling, one integer where it is whole. Python compares an
-    /// `int` with either exactly, so a bound over the integers reads no more
-    /// of it, and nothing else reads it.
+    /// and at its ceiling, one integer where it is whole, and the floats beside
+    /// it, one float where it is one. Python compares an `int` and a `float`
+    /// with either exactly, so a bound over the integers reads the first two,
+    /// one over the floats the last two, and nothing else reads it.
     Rational {
         /// The greatest integer at or below the value.
         floor: i64,
         /// The least integer at or above the value.
         ceil: i64,
+        /// The greatest float at or below the value.
+        below: f64,
+        /// The least float at or above the value.
+        above: f64,
     },
 }
 
@@ -107,21 +114,35 @@ pub trait Constants {
 /// through that nesting: past roughly a hundred the stack goes rather than the
 /// clock.
 ///
-/// **This is the bound an ordinary annotation reaches first**, and it reaches
-/// it by width. A record whose fields each take two types, against the union of
-/// the records that fix every field, reads 22 nodes at two fields, 45 at three
-/// and 96 at four -- so three fields decide and four are refused before they
-/// are answered. `tests/test_completeness_ledger.py` carries all three as rows,
-/// which is what makes these figures re-derivable: the row fails on the commit
-/// that moves the number either way.
+/// **The figure is a meet of ranges.** A JSON integer range, an `int` that is no
+/// `bool` or a float that is a multiple of one, reads about nine nodes, so a cell
+/// of a model checker, one range with others taken out of it, is read up to 112 of
+/// them and declined at 120. Each one taken out adds a span to a component, which
+/// is linear in them: 112 take 2.5 ms. `tests/test_universe.py` holds both widths,
+/// so a commit moving the figure either way fails there.
 ///
-/// **This bound is debt.** It counts work rather than limiting what the
-/// representation can hold, and it is here for the reason the decision's own
-/// budget is: a lowering repeats itself over structurally equal subtrees.
-/// Construction shares those subtrees where they are built alike
-/// (`ir/intern.rs`), which is what gives the memo that would replace this
-/// ceiling a cheap key; the memo is the half not written.
-pub(crate) const BUDGET: u32 = 64;
+/// **It is not what stops a product.** A record whose fields each take two types,
+/// against the union of the records that fix every field, reads 22 nodes at two
+/// fields, 45 at three and 96 at four, and it is [`WORK`] that refuses the fourth.
+/// A tree that doubles a level reads alike under any figure here, past [`WORK`] or
+/// [`DEPTH`] first.
+///
+/// **It is what stops a wide union**, at what reading that union costs. Records told
+/// apart by a tag read three nodes each, so this stops a union of them at 341, past
+/// the 256 atoms a map lattice holds. [`descend`] joins a union's members in rounds
+/// ([`joined_in_rounds`]), so a relation between two such unions declines in 37 ms
+/// on a release build, where folding the members takes 5.9 s: a fold's every join
+/// admits what it holds again, and a member past the lattice's bound retries the full
+/// line. `--decision-unions` in `scripts/perf_gate.py` counts the refusal.
+///
+/// **It is a cost, and no memo retires it.** A lowering ends without it: a schema
+/// is a finite tree, and a reference is unfolded once before the cut. A memo keyed by
+/// the handle construction shares (`ir/intern.rs`) reads as what would replace the
+/// figure, and it has nothing to hit: over 149,741 lowerings of two drawn families,
+/// 0.9% of the nodes read were a subtree with parts the same lowering had read at
+/// the same depth, and the members of a wide union are distinct. What repeats a
+/// lowering is a query asking for it again, which is the query's to answer.
+pub(crate) const BUDGET: u32 = 1024;
 
 /// The set a schema denotes, or `None` where the descriptor cannot yet hold it.
 ///
@@ -143,7 +164,7 @@ pub fn lower(schema: &Schema, pool: &dyn Constants) -> Option<Descr> {
 /// recursive schema admits -- a meet with a disjoint kind, an inclusion in a
 /// wider union -- and that is the whole of what the structural rules cannot
 /// read. Each further unfolding multiplies the schema this must build against
-/// [`BUDGET`]'s 64 nodes, for relations nobody has asked for.
+/// [`BUDGET`]'s nodes, for relations nobody has asked for.
 ///
 /// A bound like the three in [`Bounds`], and unlike them in one way worth
 /// stating: those three say what a build may spend, and this says what it is
@@ -668,11 +689,9 @@ impl Bounds {
 /// refuses an ordinary question. The blow-ups the number exists to stop are
 /// further out still, so the margin is real rather than nominal.
 ///
-/// The field after the third is outside on both counts: four fields against
-/// sixteen corners spend 10,132 units and read 96 nodes against a `BUDGET` of
-/// 64, so raising either bound alone leaves the refusal where it is. That is
-/// the width of the decided fragment, and `docs/15-decidability.md` states it
-/// as one.
+/// The field after the third is outside: four fields against sixteen corners
+/// spend 10,132 units, though they read 96 nodes of `BUDGET`'s. That is the width
+/// of the decided fragment, and `docs/15-decidability.md` states it as one.
 ///
 /// `tests/test_completeness_ledger.py` carries the record shapes and the dict
 /// shapes as rows, which is what makes this figure re-derivable: the row fails
@@ -815,19 +834,32 @@ fn descend(schema: &Schema, pool: &dyn Constants, budget: &Room, depth: u32) -> 
         // so a member the lowering refuses refuses no such union. The
         // constructors fold one; a term built raw carries it, and is read on a
         // refusal alone, so a union that lowers pays nothing for the look.
-        Schema::Union(members) => members
-            .iter()
-            .try_fold(Descr::nothing(), |whole, member| {
-                whole.union(&descend(member, pool, budget, depth)?)
-            })
-            .or_else(|| holds_the_top(members).then(Descr::anything)),
+        Schema::Union(members) => joined_in_rounds(
+            members,
+            |member| descend(member, pool, budget, depth),
+            Descr::nothing,
+            |a, b| a.union(&b),
+        )
+        .or_else(|| holds_the_top(members).then(Descr::anything)),
+        // A meet starts from its first member: met with every value it is itself,
+        // and the top of every kind is what building that value costs.
         Schema::Intersection(members) => {
-            members.iter().try_fold(Descr::anything(), |whole, member| {
-                whole.intersect(&descend(member, pool, budget, depth)?)
-            })
+            let mut rest = members.iter();
+            let Some(first) = rest.next() else {
+                return Some(Descr::anything());
+            };
+            descend(first, pool, budget, depth)
+                .and_then(|first| {
+                    rest.try_fold(first, |whole, member| {
+                        whole.intersect(&descend(member, pool, budget, depth)?)
+                    })
+                })
+                .or_else(|| refinements_within_the_rest(members, pool, budget, depth))
         }
         Schema::Complement(inner) => Some(descend(inner, pool, budget, depth)?.complement()),
-        Schema::Refine { base, constraints } => refine(base, constraints, pool, budget, depth),
+        Schema::Refine { base, constraints } => {
+            refine(base, constraints, None, pool, budget, depth)
+        }
         // Every attribute narrows the same value, so the record is their meet.
         // Each attribute's type is a descriptor in its own right, which is what
         // makes the attribute half recursive, and each is required: the value
@@ -871,15 +903,20 @@ fn map(
     }
     // Every clause first -- what it names, what it opens, what it maps to --
     // because a named key's type is read off all of them.
-    let mut clauses: Vec<(Vec<Label>, Vec<Option<Kind>>, Descr)> =
-        Vec::with_capacity(defaults.len());
+    let mut clauses: Vec<ReadClause> = Vec::with_capacity(defaults.len());
     for clause in defaults {
         let value = descend(&clause.value, pool, budget, depth)?;
-        let (named, parts) = key_cover(&clause.key, pool)?;
-        clauses.push((named, parts, value));
+        let (named, parts, words) = if let Some((named, parts)) = key_cover(&clause.key, pool) {
+            (named, parts, None)
+        } else {
+            let (parts, words) = narrowed_cover(&clause.key)?;
+            (Vec::new(), parts, Some(words))
+        };
+        clauses.push((named, parts, words, value));
     }
     let mut opened: Vec<(Option<Kind>, Descr)> = Vec::new();
-    for (index, (named, parts, value)) in clauses.iter().enumerate() {
+    let mut narrowed: Vec<(RegularSet, Descr)> = Vec::new();
+    for (index, (named, parts, words, value)) in clauses.iter().enumerate() {
         for label in named {
             // A field of this name is read instead of the clause.
             if fields.iter().any(|field| Label::str(&field.name) == *label) {
@@ -889,10 +926,16 @@ fn map(
             // admits the dict that carries no `a` at all. And the key is read
             // by every clause that covers it, so its type is the join.
             let mut ty = value.clone();
-            for (other, (other_named, other_parts, other_value)) in clauses.iter().enumerate() {
+            for (other, (other_named, other_parts, other_words, other_value)) in
+                clauses.iter().enumerate()
+            {
+                let holds_it = other_words.as_ref().is_some_and(
+                    |keys| matches!(label, Label::Word(word, Kind::Str) if keys.holds(word)),
+                );
                 let covers = other != index
                     && (other_named.contains(label)
-                        || other_parts.iter().any(|part| *part == Some(label.kind())));
+                        || other_parts.iter().any(|part| *part == Some(label.kind()))
+                        || holds_it);
                 if covers {
                     ty = ty.union(other_value)?;
                 }
@@ -902,21 +945,174 @@ fn map(
         for part in parts {
             opened.push((*part, value.clone()));
         }
+        if let Some(words) = words {
+            narrowed.push((words.clone(), value.clone()));
+        }
     }
-    Descr::keyed_map(labels, opened)
+    Descr::keyed_map(labels, opened, narrowed)
+}
+
+/// A clause as a map reads it: the constants it names, the parts it opens, the
+/// words it holds, and what it maps them to.
+type ReadClause = (Vec<Label>, Vec<Option<Kind>>, Option<RegularSet>, Descr);
+
+/// What a clause's key reads as where it narrows the `str` keys: the whole parts
+/// it holds, and a regular language of `str` keys, a part of a partition finer than
+/// the kinds [Cas23, Def. 4.6].
+///
+/// Only the connectives and a refinement by what a language can read: a pattern and
+/// a length bound. A refinement over a base holding more than `str` holds some of
+/// each other kind, which no language reads, and a meet reads that part away where
+/// another member holds none of the kind: `intersection(str, Annotated[object,
+/// MinLen(2)])` is the words of two symbols or more. A literal keeps `key_cover`'s
+/// reading, which is its value and not its type, so a union holding one beside a
+/// narrowing is left to the rules, and the walk answers its values exactly.
+fn narrowed_cover(key: &Schema) -> Option<(Vec<Option<Kind>>, RegularSet)> {
+    if !narrows(key) {
+        return None;
+    }
+    let (held, words) = narrowed_parts(key)?;
+    let mut whole = Vec::new();
+    for (part, held) in KEY_KINDS.iter().copied().map(Some).chain([None]).zip(held) {
+        if held? {
+            whole.push(part);
+        }
+    }
+    Some((whole, words))
+}
+
+/// Whether a map reads `key` as words.
+///
+/// Words are the parts of the key partition the key holds whole and a regular
+/// language of `str` keys, which a map splits its `str` part by. The frontend's
+/// key guard asks it of a meet it would refuse member by member, so a key the
+/// decision reads is a key that builds.
+#[must_use]
+pub fn reads_as_words(key: &Schema) -> bool {
+    narrowed_cover(key).is_some()
+}
+
+/// Whether a key holds a refinement under its connectives. A meet of whole kinds, as
+/// `int & ~bool`, stays out of a split: no language is asked for, and a clause over one
+/// is the rules' to read, as it is where a key holds any other part of a kind.
+fn narrows(key: &Schema) -> bool {
+    match key {
+        Schema::Refine { .. } => true,
+        Schema::Union(members) | Schema::Intersection(members) => members.iter().any(narrows),
+        Schema::Complement(inner) => narrows(inner),
+        _ => false,
+    }
+}
+
+/// How much of one part of the key partition a key holds: all of it, none of it,
+/// or `None`, some of it, which no language reads.
+type Held = Option<bool>;
+
+/// [`narrowed_cover`] as one [`Held`] per part beside the language, the shape the
+/// connectives are pointwise over [FCB08, Def. 4.1]. The `str` part is held by
+/// none: the language says what it holds.
+fn narrowed_parts(key: &Schema) -> Option<(Vec<Held>, RegularSet)> {
+    let of_parts = |held: fn(Kind) -> bool, others: bool| {
+        KEY_KINDS
+            .iter()
+            .map(|kind| Some(held(*kind)))
+            .chain([Some(others)])
+            .collect::<Vec<Held>>()
+    };
+    let none = RegularSet::empty;
+    let every = || RegularSet::all(Alphabet::Text);
+    let but_str = |kind: Kind| kind != Kind::Str;
+    let fold = |members: &[Schema],
+                unit: (Vec<Held>, RegularSet),
+                held: fn(Held, Held) -> Held,
+                words: fn(&RegularSet, &RegularSet) -> Option<RegularSet>| {
+        members
+            .iter()
+            .try_fold(unit, |(parts, words_so_far), member| {
+                let (their_parts, theirs) = narrowed_parts(member)?;
+                let parts = parts
+                    .iter()
+                    .zip(&their_parts)
+                    .map(|(a, b)| held(*a, *b))
+                    .collect();
+                Some((parts, words(&words_so_far, &theirs)?))
+            })
+    };
+    match key {
+        Schema::Nothing => Some((of_parts(|_| false, false), none())),
+        Schema::Anything(_) => Some((of_parts(but_str, true), every())),
+        Schema::Str => Some((of_parts(|_| false, false), every())),
+        Schema::NoneType => Some((of_parts(|kind| kind == Kind::NoneType, false), none())),
+        Schema::Bool => Some((of_parts(|kind| kind == Kind::Bool, false), none())),
+        // A `bool` key is an `int` key, as [`key_cover`] reads it.
+        Schema::Int => Some((
+            of_parts(|kind| matches!(kind, Kind::Int | Kind::Bool), false),
+            none(),
+        )),
+        Schema::Float => Some((of_parts(|kind| kind == Kind::Float, false), none())),
+        Schema::Bytes => Some((of_parts(|kind| kind == Kind::Bytes, false), none())),
+        Schema::Refine { base, constraints } => {
+            let (parts, mut words) = narrowed_parts(base)?;
+            for constraint in constraints.iter() {
+                let keys = match constraint {
+                    Constraint::Regex(pattern) => RegularSet::pattern(pattern, Alphabet::Text)?,
+                    Constraint::MinLen(least) => RegularSet::at_least(*least, Alphabet::Text)?,
+                    Constraint::MaxLen(most) => RegularSet::at_most(*most, Alphabet::Text)?,
+                    _ => return None,
+                };
+                words = words.intersect(&keys)?;
+            }
+            // Of every part but `str` the base holds any of, the constraints keep
+            // some: a length of a tuple, a pattern no value of the kind has.
+            let parts = parts
+                .into_iter()
+                .map(|held| (held == Some(false)).then_some(false))
+                .collect();
+            Some((parts, words))
+        }
+        Schema::Union(members) => fold(
+            members,
+            (of_parts(|_| false, false), none()),
+            |a, b| match (a, b) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            },
+            RegularSet::union,
+        ),
+        Schema::Intersection(members) => fold(
+            members,
+            (of_parts(but_str, true), every()),
+            |a, b| match (a, b) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            },
+            RegularSet::intersect,
+        ),
+        Schema::Complement(inner) => {
+            let (parts, words) = narrowed_parts(inner)?;
+            let held = KEY_KINDS.iter().map(|kind| but_str(*kind)).chain([true]);
+            let parts = parts
+                .iter()
+                .zip(held)
+                .map(|(a, b)| a.map(|a| !a && b))
+                .collect();
+            Some((parts, words.complement()))
+        }
+        _ => None,
+    }
 }
 
 /// The keys a clause governs: the constants it names, and the parts of the key
 /// partition it covers whole.
 ///
-/// `None` where it is neither -- a key schema covering *part* of a kind, such as
-/// a regex over strings, would need the default to hold a set of keys rather
-/// than a part of the partition, and that is the theory of overlapping domains
-/// the paper sets aside [Cas23, §4.5], "it is possible to define a theory for
-/// maps with overlapping domains, but in that case, there would not be any
-/// difference between record types and an intersection of function types whose
-/// codomain may contain an undefined value". Refusing is what keeps the default
-/// a function.
+/// `None` where it is neither. A key schema covering *part* of a kind holds a set
+/// of keys rather than a part of the partition, which [`narrowed_cover`] reads where
+/// a regular language of `str` keys spells it and a map splits its `str` part by
+/// that language. Any other part of a kind has no split to land in, so the default
+/// stays a function, as the paper keeps it by refusing overlapping domains
+/// [Cas23, §4.5].
 ///
 /// A complement of whole parts is the other parts. The parts are a partition of
 /// the keys, so a key outside every part `inner` opens is in one of the rest,
@@ -1190,6 +1386,66 @@ fn sequence(
     Descr::sequence(&prefix?, tail.as_ref(), kind)
 }
 
+/// A meet whose members do not lower one at a time, read with each refinement
+/// met with the members that do, and `None` where a member that is no
+/// refinement does not lower.
+///
+/// A refinement is its base met with its constraints' set [JV20, §3.2], and a
+/// meet is associative and commutative [FCB08, Def. 4.1]. For `R` the meet of
+/// the members that lower, `R ∩ (B ∩ C)` is `R ∩ ((B ∩ R) ∩ C)`, and
+/// `R ∩ ¬(B ∩ C)` is `R ∩ ¬((B ∩ R) ∩ C)`, since a value of `R` lies in `R`
+/// either way. So a length over `object` met with `str` reads as a length over
+/// `str`, which [`lengths`] counts, where over `object` it refuses for the sets
+/// and dicts the base also holds. The reading is exact: it gives no value and
+/// takes none away, so a meet it lowers is the set the meet denotes, and a meet
+/// whose members together still reach those kinds refuses as before.
+///
+/// Out of line, asked only after the meet failed to lower member by member, so
+/// a meet that lowers carries none of it.
+#[inline(never)]
+fn refinements_within_the_rest(
+    members: &[Schema],
+    pool: &dyn Constants,
+    budget: &Room,
+    depth: u32,
+) -> Option<Descr> {
+    if !members.iter().any(|member| a_refinement(member).is_some()) {
+        return None;
+    }
+    let mut rest: Option<Descr> = None;
+    let mut within = Vec::new();
+    for member in members {
+        match descend(member, pool, budget, depth) {
+            Some(set) => {
+                rest = Some(match rest {
+                    Some(whole) => whole.intersect(&set)?,
+                    None => set,
+                });
+            }
+            None => within.push(a_refinement(member)?),
+        }
+    }
+    let mut whole = rest?;
+    for (base, constraints, negated) in within {
+        let set = refine(base, constraints, Some(&whole), pool, budget, depth)?;
+        whole = whole.intersect(&if negated { set.complement() } else { set })?;
+    }
+    Some(whole)
+}
+
+/// A meet member [`refinements_within_the_rest`] reads within the others: a
+/// refinement's base and constraints, and whether the member is its complement.
+fn a_refinement(member: &Schema) -> Option<(&Schema, &[Constraint], bool)> {
+    let (inner, negated) = match member {
+        Schema::Complement(inner) => (&**inner, true),
+        member => (member, false),
+    };
+    match inner {
+        Schema::Refine { base, constraints } => Some((base, constraints, negated)),
+        _ => None,
+    }
+}
+
 /// The base narrowed by every constraint, which is a meet, as a refined base
 /// type is its base cut down by its refinement [JV20, §3.2].
 ///
@@ -1206,16 +1462,21 @@ fn sequence(
 /// no builtin value, has no length, takes no remainder and matches no pattern,
 /// and no class derives from `NoneType` to answer otherwise, so `None` under
 /// any constraint but a predicate is the empty set.
+///
+/// `within` is a set the base is met with before a constraint is read, where a
+/// meet reads the refinement within its other members
+/// ([`refinements_within_the_rest`]).
 fn refine(
     base: &Schema,
     constraints: &[Constraint],
+    within: Option<&Descr>,
     pool: &dyn Constants,
     budget: &Room,
     depth: u32,
 ) -> Option<Descr> {
     if let Schema::Union(branches) = base {
         return branches.iter().try_fold(Descr::nothing(), |whole, branch| {
-            whole.union(&refine(branch, constraints, pool, budget, depth)?)
+            whole.union(&refine(branch, constraints, within, pool, budget, depth)?)
         });
     }
     if matches!(base, Schema::NoneType)
@@ -1226,6 +1487,9 @@ fn refine(
         return Some(Descr::nothing());
     }
     let mut narrowed = descend(base, pool, budget, depth)?;
+    if let Some(within) = within {
+        narrowed = narrowed.intersect(within)?;
+    }
     for constraint in constraints {
         let Some(set) = constrained(constraint, &narrowed, pool) else {
             if matches!(constraint, Constraint::Predicate(_)) {
@@ -1352,13 +1616,17 @@ fn constrained(constraint: &Constraint, base: &Descr, pool: &dyn Constants) -> O
         | Constraint::Lt(index) => integers(integer_bound(constraint, &pool.operand(*index)?)?),
         Constraint::MultipleOf(index) => {
             let step = match pool.operand(*index)? {
-                Operand::Integer(step) => step,
-                // `True` is the integer it is to `%`, as to a comparison; a zero
-                // step is refused before it is read.
-                Operand::Boolean(step) => i64::from(step),
-                _ => return None,
+                // A float reads a whole float step as the integer it equals. An
+                // integer does not: it is rounded to a float first, so `2.0`
+                // over an `int` base is left to the rules.
+                Operand::Float(_) if !base_is_floats => return None,
+                operand => step_over_floats(&operand)?,
             };
-            integers(IntSet::multiple_of(step)?)
+            if base_is_floats {
+                floats(FloatSet::multiples_of(step)?)
+            } else {
+                integers(IntSet::multiple_of(step)?)
+            }
         }
         Constraint::MinLen(least) => {
             lengths(base, &|kind| Descr::words_at_least(*least, kind), &|kind| {
@@ -1375,6 +1643,27 @@ fn constrained(constraint: &Constraint, base: &Descr, pool: &dyn Constants) -> O
         // opaque to the procedure beside this one too.
         Constraint::Predicate(_) => None,
     }
+}
+
+/// The integer a step over a base of floats is read as: an integer, a boolean, which
+/// is the integer it is to `%` as to a comparison, or a whole float. A zero step is
+/// refused before it is read.
+fn step_over_floats(operand: &Operand) -> Option<i64> {
+    match *operand {
+        Operand::Integer(step) => Some(step),
+        Operand::Boolean(step) => Some(i64::from(step)),
+        Operand::Float(step) => whole_step(step),
+        _ => None,
+    }
+}
+
+/// The integer a whole float step equals, inside the `i64` range.
+fn whole_step(step: f64) -> Option<i64> {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "an integral float inside the i64 range converts exactly"
+    )]
+    (step.fract() == 0.0 && (-I64_EDGE..I64_EDGE).contains(&step)).then_some(step as i64)
 }
 
 /// Where an integer bound falls among the floats.
@@ -1459,7 +1748,7 @@ fn integer_bound(constraint: &Constraint, operand: &Operand) -> Option<IntSet> {
             let near = near as i64;
             near
         }
-        Operand::Rational { floor, ceil } => {
+        Operand::Rational { floor, ceil, .. } => {
             if lower == strict {
                 floor
             } else {
@@ -1488,17 +1777,13 @@ const I64_EDGE: f64 = 9_223_372_036_854_775_808.0;
 /// against its neighbors instead: a float is `>= n` exactly when it is at or
 /// above the smallest float above `n`, and `<= n` exactly when it is at or below
 /// the largest float below `n`. Strictness costs nothing there, since no float
-/// equals the bound for `>` or `<` to exclude. Python compares an `int` with a
-/// `float` exactly, and so does this.
+/// equals the bound for `>` or `<` to exclude. A `Fraction` or a `Decimal` no
+/// float equals is the same case, and the pool hands over its two neighbors.
+/// Python compares each with a `float` exactly, and so does this.
 fn float_bound(constraint: &Constraint, operand: &Operand) -> Option<FloatSet> {
     let lower = matches!(constraint, Constraint::Ge(_) | Constraint::Gt(_));
     let strict = matches!(constraint, Constraint::Gt(_) | Constraint::Lt(_));
-    let value = match *operand {
-        Operand::Float(value) => Straddle::Exact(value),
-        Operand::Integer(value) => straddle(value, lower),
-        Operand::Boolean(value) => straddle(i64::from(value), lower),
-        _ => return None,
-    };
+    let value = float_edge(lower, operand)?;
     // No float equals an inexact bound, so `>` and `>=` admit the same ones and
     // the neighbor carries what the strictness would have.
     Some(match value {
@@ -1517,6 +1802,92 @@ fn float_bound(constraint: &Constraint, operand: &Operand) -> Option<FloatSet> {
             }
         }
     })
+}
+
+/// Where a bound's operand falls among the floats, on the side `lower` keeps.
+fn float_edge(lower: bool, operand: &Operand) -> Option<Straddle> {
+    Some(match *operand {
+        Operand::Float(value) => Straddle::Exact(value),
+        Operand::Integer(value) => straddle(value, lower),
+        Operand::Boolean(value) => straddle(i64::from(value), lower),
+        #[expect(
+            clippy::float_cmp,
+            reason = "one float handed over twice is the value, with no arithmetic between"
+        )]
+        Operand::Rational { below, above, .. } if below == above => Straddle::Exact(below),
+        Operand::Rational { below, above, .. } => {
+            Straddle::Beside(if lower { above } else { below })
+        }
+        _ => return None,
+    })
+}
+
+/// Whether a float meets every constraint, each read as the lowering reads it over a
+/// base of floats: `None` where one is neither an order bound nor a step
+/// [`step_over_floats`] reads, or its operand is one the floats do not order.
+///
+/// The bounds are read at their two edges, a strict one at the float beside it, with
+/// no set built. Zero is a multiple of every step, `0.0 % k` being `0.0`, so an
+/// interval holding it holds a value whatever the steps; only steps beside an
+/// interval clear of zero are read as the sets the lowering builds.
+pub(crate) fn floats_meet(constraints: &[Constraint], pool: &dyn Constants) -> Option<bool> {
+    let (mut least, mut most) = (f64::NEG_INFINITY, f64::INFINITY);
+    let mut stepped = false;
+    for constraint in constraints {
+        let (Constraint::Ge(index)
+        | Constraint::Gt(index)
+        | Constraint::Le(index)
+        | Constraint::Lt(index)) = constraint
+        else {
+            let Constraint::MultipleOf(index) = constraint else {
+                return None;
+            };
+            step_over_floats(&pool.operand(*index)?)?;
+            stepped = true;
+            continue;
+        };
+        let lower = matches!(constraint, Constraint::Ge(_) | Constraint::Gt(_));
+        let edge = match float_edge(lower, &pool.operand(*index)?)? {
+            Straddle::Exact(bound) if bound.is_nan() => return None,
+            // No float lies past an infinity, so a strict bound on one holds none.
+            Straddle::Exact(bound) if matches!(constraint, Constraint::Gt(_)) => {
+                if bound == f64::INFINITY {
+                    return Some(false);
+                }
+                bound.next_up()
+            }
+            Straddle::Exact(bound) if matches!(constraint, Constraint::Lt(_)) => {
+                if bound == f64::NEG_INFINITY {
+                    return Some(false);
+                }
+                bound.next_down()
+            }
+            Straddle::Exact(bound) | Straddle::Beside(bound) => bound,
+        };
+        if lower {
+            least = least.max(edge);
+        } else {
+            most = most.min(edge);
+        }
+    }
+    if !stepped || (least <= 0.0 && 0.0 <= most) {
+        return Some(least <= most);
+    }
+    let mut floats = FloatSet::all();
+    for constraint in constraints {
+        let set = match constraint {
+            Constraint::MultipleOf(index) => {
+                FloatSet::multiples_of(step_over_floats(&pool.operand(*index)?)?)?
+            }
+            Constraint::Ge(index)
+            | Constraint::Gt(index)
+            | Constraint::Le(index)
+            | Constraint::Lt(index) => float_bound(constraint, &pool.operand(*index)?)?,
+            _ => return None,
+        };
+        floats = floats.intersect(&set)?;
+    }
+    Some(!floats.is_empty())
 }
 
 /// The values of the base's kinds whose length the bound admits.

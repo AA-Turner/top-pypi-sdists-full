@@ -14,39 +14,10 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
-from . import relation_registry
+from . import relation_registry, semantic_kinds
 
-BLOCK_TYPES: frozenset[str] = frozenset(
-    {
-        "claim",
-        "finding",
-        "evidence",
-        "decision",
-        "assumption",
-        "inference",
-        "constraint",
-        "risk",
-        "open_question",
-        "hypothesis",
-        "prediction",
-        "result",
-        "metric",
-        "failure",
-        "pattern",
-        "record",
-        "case",
-        "timeline_event",
-        "requirement",
-        "action",
-        "definition",
-        "procedure",
-        "source",
-        "experiment",
-        "entity",
-        "project",
-        "media_segment",
-    }
-)
+#: The kinds a `##` heading can name, from the shipped `kinds.yaml` pack.
+BLOCK_TYPES: frozenset[str] = semantic_kinds.block_kinds()
 
 #: Headings at this level or shallower are page titles rather than blocks. Every
 #: page-type template in `references/page-types.md` opens `# <Title>`, and every
@@ -54,46 +25,8 @@ BLOCK_TYPES: frozenset[str] = frozenset(
 #: only component reading a level-1 heading as content.
 _TITLE_HEADING_LEVEL = 1
 
-_BLOCK_TYPE_ALIASES: dict[str, str] = {
-    "claims": "claim",
-    "findings": "finding",
-    "proof": "evidence",
-    "proofs": "evidence",
-    "evidences": "evidence",
-    "decisions": "decision",
-    "assumptions": "assumption",
-    "inferences": "inference",
-    "constraints": "constraint",
-    "risks": "risk",
-    "open_questions": "open_question",
-    "questions": "open_question",
-    "hypotheses": "hypothesis",
-    "predictions": "prediction",
-    "results": "result",
-    "outcome": "result",
-    "outcomes": "result",
-    "metrics": "metric",
-    "failures": "failure",
-    "patterns": "pattern",
-    "records": "record",
-    "cases": "case",
-    "timeline": "timeline_event",
-    "timelines": "timeline_event",
-    "timeline_events": "timeline_event",
-    "events": "timeline_event",
-    "requirements": "requirement",
-    "actions": "action",
-    "todo": "action",
-    "todos": "action",
-    "definitions": "definition",
-    "procedures": "procedure",
-    "sources": "source",
-    "experiments": "experiment",
-    "entities": "entity",
-    "projects": "project",
-    "media_segments": "media_segment",
-    "segments": "media_segment",
-}
+#: Each heading spelling other than a kind's own key, mapped to its kind, from the same pack.
+_BLOCK_TYPE_ALIASES: dict[str, str] = semantic_kinds.heading_aliases()
 
 RELATION_TYPES: frozenset[str] = relation_registry.core_registry().keys
 
@@ -106,8 +39,10 @@ _NORMALIZE_RE = re.compile(r"[\s-]+")
 # here for the same reason `category` does: they are governed metadata, so a
 # `## Prediction` carrying only a verdict must still report `empty_rich_unit`
 # rather than pass as authored.
+# Closed metadata keys of the semantic-unit language, shared with the writer.
+GOVERNED_UNIT_METADATA_KEYS = ("verdict", "check_by", "as_of", "until")
 _RESERVED_METADATA_KEYS = frozenset(
-    {"category", "id", "tags", "context", "relations", "verdict", "check_by"}
+    {"category", "id", "tags", "context", "relations", *GOVERNED_UNIT_METADATA_KEYS}
 )
 
 
@@ -294,7 +229,7 @@ def _resolve_block_type(
         findings = ()
     if candidate is not None and not isinstance(candidate, str):
         candidate = None
-    if candidate is not None and normalize_label(candidate) == "observation":
+    if candidate is not None and normalize_label(candidate) in semantic_kinds.compact_kinds():
         candidate = None
     return candidate, findings
 

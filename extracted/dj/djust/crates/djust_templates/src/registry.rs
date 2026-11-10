@@ -24,10 +24,10 @@
 //! - Built-in tags: Zero overhead (native Rust match)
 //! - Custom tags: ~15-50µs per call (GIL acquisition + Python callback)
 
+use crate::registry_scope::RegistryLock;
 use once_cell::sync::Lazy;
 use pyo3::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
 
 use djust_core::DjangoRustError;
 
@@ -52,7 +52,10 @@ pub(crate) fn bump_registry_generation() {
 /// completed, on every return path including errors. Bumping BEFORE the write
 /// let a concurrent `compile_template` read the new generation, parse against
 /// the still-old registry, and store that stale parse as current
-/// (#2668 review). An extra bump on an error path only costs a re-parse.
+/// (#2668 review). Mutation paths that removed Python objects explicitly
+/// drop this guard after unlocking but BEFORE those objects: finalizers may
+/// re-enter compilation and must observe the new generation (#3088).
+/// An extra bump on an error path only costs a re-parse.
 pub(crate) struct BumpOnReturn;
 
 impl Drop for BumpOnReturn {
@@ -269,10 +272,21 @@ fn as_var_name_str<'py>(py: Python<'py>, text: &str) -> PyResult<Bound<'py, PyAn
 
 /// Global registry mapping tag names to Python handler objects.
 ///
-/// Thread-safe via `RwLock`. Registration is one-time bootstrap; lookup is
+/// Thread-safe via `RegistryLock`. Registration is one-time bootstrap; lookup is
 /// read-only and happens on every render, so concurrent renders share the
 /// read lock. Handlers must implement a `render(args, context)` method
 /// that returns a string.
+///
+/// # Lock order (#3074)
+///
+/// `RustLiveView.render_with_diff` renders with its thread DETACHED from the
+/// interpreter, and re-attaches (`Python::attach`) only to call into Python.
+/// RegistryLock coordinates contended acquisitions with Python (#3088),
+/// detaching while waiting so GIL builds and free-threaded stop-the-world
+/// pauses can make progress. Lookups that clone Python references attach
+/// around the lookup and clone, then release the guard before calling Python.
+/// Replaced/removed entries are always dropped after releasing the guard:
+/// their finalizers may call back into the same registry.
 static TAG_HANDLERS: Lazy<crate::registry_scope::ScopedMap<TagHandlerEntry>> =
     Lazy::new(crate::registry_scope::ScopedMap::new);
 
@@ -295,6 +309,10 @@ struct BlockHandlerEntry {
     wants_autoescape: bool,
     /// See [`read_lazy_body`] (#2658).
     lazy_body: bool,
+    /// See [`read_wants_typed_args`] (#3768).
+    wants_typed_args: bool,
+    /// See [`read_typed_standins_only`] (#3768).
+    typed_standins_only: bool,
 }
 
 /// Global registry for block tag handlers (tags with children).
@@ -408,6 +426,44 @@ fn read_wants_autoescape(handler: &Bound<'_, PyAny>) -> PyResult<bool> {
     handler.getattr("WANTS_AUTOESCAPE")?.is_truthy()
 }
 
+/// The handler's opt-in "hand me my operands as TYPED values" declaration (#3756).
+///
+/// The inline-handler contract resolves every operand to TEXT (scalars) or JSON (lists, dicts)
+/// before `render(args, context)` runs, so a handler that branches on a value's TYPE
+/// (`json_viewer`: `isinstance`) sees `str(datetime)` where Django's tag sees the `datetime`.
+/// A handler that sets `TYPED_ARGS = True` is additionally handed, in the `context` dict under
+/// [`crate::renderer`]'s reserved key, each `key=<expression>` operand as the typed Python value
+/// the engine resolved through the SAME floored walk `{{ }}` uses (`value_into_handler_pyobject`).
+/// It is the engine, not the handler, that resolves the expression, which is the point: a handler
+/// resolving it itself, as the `{% load %}` bridge does, walks raw objects with no floor.
+///
+/// Opt-IN, like [`read_wants_autoescape`], and read once at registration so a handler without it
+/// pays nothing per call. Both registries read it here (#3768): the inline one, and the block one
+/// (a plain block handler; a `LAZY_BODY` one is called through `before_body` / `after_body` and is
+/// not handed the operands).
+fn read_wants_typed_args(handler: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if !handler.hasattr("TYPED_ARGS")? {
+        return Ok(false);
+    }
+    handler.getattr("TYPED_ARGS")?.is_truthy()
+}
+
+/// A `TYPED_ARGS` handler's narrower ask: only the operands the engine stands in for (#3768).
+///
+/// `TYPED_ARGS = True` alone hands over EVERY `key=<expression>` operand as a typed Python value,
+/// which materialises a large list or dict a second time (the handler already got it as JSON).
+/// A handler that also sets `TYPED_ARGS_STANDINS_ONLY = True` is handed only the operands whose
+/// string form loses their type, the ones `djust.components.rust_handlers._parse_args` takes back:
+/// a tuple, a namedtuple (#3849) and an object (`UUID`, `Path`, ...). Every other operand is left
+/// out, so the handler reads it from its string argument exactly as it did before the channel
+/// existed. Has no effect without `TYPED_ARGS`.
+fn read_typed_standins_only(handler: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if !handler.hasattr("TYPED_ARGS_STANDINS_ONLY")? {
+        return Ok(false);
+    }
+    handler.getattr("TYPED_ARGS_STANDINS_ONLY")?.is_truthy()
+}
+
 /// The handler's opt-in "let ME decide whether the body renders at all"
 /// declaration (#2658).
 ///
@@ -471,6 +527,9 @@ fn read_lazy_body(handler: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// has resolved them, and only the un-resolved path can tell them apart.
 struct TagHandlerEntry {
     validator: Option<Py<PyAny>>,
+    /// The optional `rewrite_args_at_parse` hook (#3664): see
+    /// [`rewrite_tag_arguments`].
+    arg_rewriter: Option<Py<PyAny>>,
     handler: Py<PyAny>,
     resolve_positions: Option<HashSet<usize>>,
     /// See [`read_returns_bindings`] (#2547).
@@ -479,6 +538,10 @@ struct TagHandlerEntry {
     accepts_as_var: bool,
     /// See [`read_wants_autoescape`] (#2556).
     wants_autoescape: bool,
+    /// See [`read_wants_typed_args`] (#3756).
+    wants_typed_args: bool,
+    /// See [`read_typed_standins_only`] (#3768).
+    typed_standins_only: bool,
     /// `Some(message)` when the parser must REFUSE this tag with Django's
     /// `TemplateSyntaxError` the moment a template uses it (#2547): a raw
     /// `@register.tag` that consumes a body cannot be bridged, and the
@@ -512,23 +575,26 @@ fn read_named_parse_validator(
 /// Validate original argument tokens, outside the registry lock: a Django
 /// compile function may itself load/register another library.
 pub fn validate_tag_arguments(name: &str, args: &[String], block: bool) -> djust_core::Result<()> {
-    let validator = if block {
-        let registry = BLOCK_TAG_HANDLERS
-            .read()
-            .map_err(|e| DjangoRustError::TemplateError(e.to_string()))?;
-        registry
-            .get(name)
-            .and_then(|entry| entry.validator.as_ref())
-            .map(|method| Python::attach(|py| method.clone_ref(py)))
-    } else {
-        let registry = TAG_HANDLERS
-            .read()
-            .map_err(|e| DjangoRustError::TemplateError(e.to_string()))?;
-        registry
-            .get(name)
-            .and_then(|entry| entry.validator.as_ref())
-            .map(|method| Python::attach(|py| method.clone_ref(py)))
-    };
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let validator = Python::attach(|py| -> djust_core::Result<Option<Py<PyAny>>> {
+        Ok(if block {
+            let registry = BLOCK_TAG_HANDLERS
+                .read()
+                .map_err(|e| DjangoRustError::TemplateError(e.to_string()))?;
+            registry
+                .get(name)
+                .and_then(|entry| entry.validator.as_ref())
+                .map(|method| method.clone_ref(py))
+        } else {
+            let registry = TAG_HANDLERS
+                .read()
+                .map_err(|e| DjangoRustError::TemplateError(e.to_string()))?;
+            registry
+                .get(name)
+                .and_then(|entry| entry.validator.as_ref())
+                .map(|method| method.clone_ref(py))
+        })
+    })?;
     if let Some(validator) = validator {
         Python::attach(|py| validator.call1(py, (args.to_vec(),)))
             .map_err(DjangoRustError::PythonException)?;
@@ -536,17 +602,57 @@ pub fn validate_tag_arguments(name: &str, args: &[String], block: bool) -> djust
     Ok(())
 }
 
+/// Let an inline handler REWRITE the original argument tokens once, at
+/// template compilation (#3664).
+///
+/// A handler that defines `rewrite_args_at_parse(args) -> list[str]` gets the
+/// tokens exactly as the template wrote them and returns the list the node
+/// keeps. It exists for the one thing a handler cannot do after the engine has
+/// resolved the operands: tell a POSITIONAL operand from a KEYWORD one. A
+/// resolved `{% dj_tag name %}` with `name = "variant=primary"` arrives as the
+/// text `variant=primary`, indistinguishable from `{% dj_tag variant=primary
+/// %}`, so a handler that reads `key=value` strings both dropped every
+/// positional argument and let a positional VALUE inject a keyword. Decided
+/// here, from the tokens, the handler can name each positional operand
+/// (`label="Python"`) before anything is resolved, and the engine then treats
+/// it exactly like the keyword it stands for.
+///
+/// Runs outside the registry lock (a handler may itself touch the registry),
+/// like [`validate_tag_arguments`]. A handler without the hook gets its tokens
+/// back unchanged. Raising from the hook refuses the template at compile time,
+/// with the handler's own exception.
+pub fn rewrite_tag_arguments(name: &str, args: &[String]) -> djust_core::Result<Vec<String>> {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let rewriter = Python::attach(|py| -> djust_core::Result<Option<Py<PyAny>>> {
+        let registry = TAG_HANDLERS
+            .read()
+            .map_err(|e| DjangoRustError::TemplateError(e.to_string()))?;
+        Ok(registry
+            .get(name)
+            .and_then(|entry| entry.arg_rewriter.as_ref())
+            .map(|method| method.clone_ref(py)))
+    })?;
+    match rewriter {
+        None => Ok(args.to_vec()),
+        Some(rewriter) => Python::attach(|py| -> PyResult<Vec<String>> {
+            rewriter.call1(py, (args.to_vec(),))?.extract(py)
+        })
+        .map_err(DjangoRustError::PythonException),
+    }
+}
+
 /// Run the optional second stage only after the block body parsed successfully.
 pub fn validate_block_after_body(name: &str, args: &[String]) -> djust_core::Result<()> {
-    let validator = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let validator = Python::attach(|py| -> djust_core::Result<Option<Py<PyAny>>> {
         let registry = BLOCK_TAG_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(e.to_string()))?;
-        registry
+        Ok(registry
             .get(name)
             .and_then(|entry| entry.body_validator.as_ref())
-            .map(|method| Python::attach(|py| method.clone_ref(py)))
-    };
+            .map(|method| method.clone_ref(py)))
+    })?;
     if let Some(validator) = validator {
         Python::attach(|py| validator.call1(py, (args.to_vec(),)))
             .map_err(DjangoRustError::PythonException)?;
@@ -633,6 +739,8 @@ pub fn register_tag_handler(py: Python<'_>, name: String, handler: Py<PyAny>) ->
     let returns_bindings = read_returns_bindings(handler_ref)?;
     let accepts_as_var = read_accepts_as_var(handler_ref)?;
     let wants_autoescape = read_wants_autoescape(handler_ref)?;
+    let wants_typed_args = read_wants_typed_args(handler_ref)?;
+    let typed_standins_only = read_typed_standins_only(handler_ref)?;
     if accepts_as_var && !returns_bindings {
         return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
             "Handler '{name}' declares ACCEPTS_AS_VAR but not RETURNS_BINDINGS — \
@@ -642,23 +750,30 @@ pub fn register_tag_handler(py: Python<'_>, name: String, handler: Py<PyAny>) ->
     let parse_refusal = read_parse_refusal(handler_ref)?;
 
     let validator = read_parse_validator(handler_ref)?;
+    let arg_rewriter = read_named_parse_validator(handler_ref, "rewrite_args_at_parse")?;
 
     let mut registry = TAG_HANDLERS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    registry.insert(
+    let removed = registry.insert(
         name,
         TagHandlerEntry {
             handler,
             validator,
+            arg_rewriter,
             resolve_positions,
             returns_bindings,
             accepts_as_var,
             wants_autoescape,
+            wants_typed_args,
+            typed_standins_only,
             parse_refusal,
         },
     );
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -672,7 +787,10 @@ pub fn unregister_tag_handler(name: &str) -> PyResult<bool> {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    Ok(registry.remove(name).is_some())
+    let removed = registry.remove(name);
+    drop(registry);
+    drop(_bump);
+    Ok(removed.is_some())
 }
 
 /// Check if a handler is registered for a tag name.
@@ -703,7 +821,10 @@ pub fn clear_tag_handlers() -> PyResult<()> {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    registry.clear();
+    let removed = registry.clear();
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -772,6 +893,8 @@ pub fn register_block_tag_handler(
     let returns_bindings = read_returns_bindings(handler_ref)?;
     let wants_autoescape = read_wants_autoescape(handler_ref)?;
     let lazy_body = read_lazy_body(handler_ref)?;
+    let wants_typed_args = read_wants_typed_args(handler_ref)?;
+    let typed_standins_only = read_typed_standins_only(handler_ref)?;
 
     // The two-phase contract is TOTAL or it is not a contract (#2658): a
     // handler that declares it must carry both halves, and the combinations
@@ -808,7 +931,7 @@ pub fn register_block_tag_handler(
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    registry.insert(
+    let removed = registry.insert(
         name,
         BlockHandlerEntry {
             end_tag,
@@ -819,8 +942,13 @@ pub fn register_block_tag_handler(
             returns_bindings,
             wants_autoescape,
             lazy_body,
+            wants_typed_args,
+            typed_standins_only,
         },
     );
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -832,7 +960,10 @@ pub fn unregister_block_tag_handler(name: &str) -> PyResult<bool> {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    Ok(registry.remove(name).is_some())
+    let removed = registry.remove(name);
+    drop(registry);
+    drop(_bump);
+    Ok(removed.is_some())
 }
 
 /// Check if a block tag handler is registered.
@@ -853,7 +984,10 @@ pub fn clear_block_tag_handlers() -> PyResult<()> {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    registry.clear();
+    let removed = registry.clear();
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -910,7 +1044,8 @@ pub fn call_block_handler_with_py_sidecar(
     raw_py_objects: Option<&HashMap<String, pyo3::Py<PyAny>>>,
     autoescape: bool,
 ) -> Result<String, DjangoRustError> {
-    let handler = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let handler = Python::attach(|py| -> Result<_, DjangoRustError> {
         let registry = BLOCK_TAG_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
@@ -919,8 +1054,8 @@ pub fn call_block_handler_with_py_sidecar(
             DjangoRustError::TemplateError(format!("No block handler registered for tag: {name}"))
         })?;
 
-        Python::attach(|py| entry.handler.clone_ref(py))
-    };
+        Ok(entry.handler.clone_ref(py))
+    })?;
 
     Python::attach(|py| {
         let py_args = build_py_args(py, args).map_err(DjangoRustError::TemplateError)?;
@@ -1041,7 +1176,8 @@ pub fn call_handler_with_py_sidecar(
     autoescape: bool,
 ) -> Result<String, DjangoRustError> {
     // Get handler from registry
-    let handler = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let handler = Python::attach(|py| -> Result<_, DjangoRustError> {
         let registry = TAG_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
@@ -1051,8 +1187,8 @@ pub fn call_handler_with_py_sidecar(
             DjangoRustError::TemplateError(format!("No handler registered for tag: {name}"))
         })?;
 
-        Python::attach(|py| entry.handler.clone_ref(py))
-    };
+        Ok(entry.handler.clone_ref(py))
+    })?;
 
     // Acquire GIL and call Python handler
     Python::attach(|py| {
@@ -1122,13 +1258,16 @@ pub fn register_assign_tag_handler(
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
 
-    registry.insert(
+    let removed = registry.insert(
         name,
         AssignHandlerEntry {
             handler,
             resolve_positions,
         },
     );
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -1139,7 +1278,10 @@ pub fn unregister_assign_tag_handler(name: &str) -> PyResult<bool> {
     let mut registry = ASSIGN_TAG_HANDLERS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    Ok(registry.remove(name).is_some())
+    let removed = registry.remove(name);
+    drop(registry);
+    drop(_bump);
+    Ok(removed.is_some())
 }
 
 /// Check if an assign tag handler is registered.
@@ -1158,7 +1300,10 @@ pub fn clear_assign_tag_handlers() -> PyResult<()> {
     let mut registry = ASSIGN_TAG_HANDLERS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    registry.clear();
+    let removed = registry.clear();
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -1239,6 +1384,46 @@ pub fn tag_handler_returns_bindings(name: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Internal Rust API — did the inline handler for `name` declare `TYPED_ARGS` (#3756)?
+/// `false` for an unregistered name.
+pub fn tag_handler_wants_typed_args(name: &str) -> bool {
+    TAG_HANDLERS
+        .read()
+        .ok()
+        .and_then(|registry| registry.get(name).map(|entry| entry.wants_typed_args))
+        .unwrap_or(false)
+}
+
+/// Internal Rust API — did the inline handler for `name` declare `TYPED_ARGS_STANDINS_ONLY`
+/// (#3768)? `false` for an unregistered name.
+pub fn tag_handler_typed_standins_only(name: &str) -> bool {
+    TAG_HANDLERS
+        .read()
+        .ok()
+        .and_then(|registry| registry.get(name).map(|entry| entry.typed_standins_only))
+        .unwrap_or(false)
+}
+
+/// Internal Rust API — did the block handler for `name` declare `TYPED_ARGS_STANDINS_ONLY`
+/// (#3768)? `false` for an unregistered name.
+pub fn block_handler_typed_standins_only(name: &str) -> bool {
+    BLOCK_TAG_HANDLERS
+        .read()
+        .ok()
+        .and_then(|registry| registry.get(name).map(|entry| entry.typed_standins_only))
+        .unwrap_or(false)
+}
+
+/// Internal Rust API — did the block handler for `name` declare `TYPED_ARGS` (#3768)?
+/// `false` for an unregistered name.
+pub fn block_handler_wants_typed_args(name: &str) -> bool {
+    BLOCK_TAG_HANDLERS
+        .read()
+        .ok()
+        .and_then(|registry| registry.get(name).map(|entry| entry.wants_typed_args))
+        .unwrap_or(false)
+}
+
 /// Internal Rust API — did the inline handler for `name` declare
 /// `ACCEPTS_AS_VAR` (#2563)? `false` for an unregistered name.
 pub fn tag_handler_accepts_as_var(name: &str) -> bool {
@@ -1282,10 +1467,11 @@ pub struct PendingBlockBody {
 /// Phase one of the lazy-body contract (#2658): ask the handler whether it can
 /// answer WITHOUT the body.
 ///
-/// The first element of the returned pair is `Some(html)` for a finished
+/// The first element of the returned tuple is `Some(html)` for a finished
 /// answer — the renderer returns it and never renders the children — and
 /// `None` for "render the body and call [`call_block_handler_after_body`]".
 /// The second is the handler's opaque phase-two state, carried either way.
+/// The third carries cached literal-only bytes; missing metadata fails closed.
 ///
 /// The output is escaped by the same [`escape_handler_return`] the
 /// single-phase path uses, so a `SafeString` (which is what a stored
@@ -1297,7 +1483,14 @@ pub fn call_block_handler_before_body(
     context: &HashMap<String, djust_core::Value>,
     raw_py_objects: Option<&HashMap<String, pyo3::Py<PyAny>>>,
     autoescape: bool,
-) -> Result<(Option<String>, PendingBlockBody), DjangoRustError> {
+) -> Result<
+    (
+        Option<String>,
+        PendingBlockBody,
+        djust_core::context::LiteralOutput,
+    ),
+    DjangoRustError,
+> {
     let handler = clone_block_handler(name)?;
     Python::attach(|py| {
         let py_args = build_py_args(py, args).map_err(DjangoRustError::TemplateError)?;
@@ -1305,7 +1498,7 @@ pub fn call_block_handler_before_body(
             .map_err(DjangoRustError::TemplateError)?;
         let result = handler
             .bind(py)
-            .call_method1("before_body", (py_args, py_context))
+            .call_method1("before_body", (py_args, &py_context))
             .map_err(handler_exception)?;
         let (output, state) = result.extract::<(Py<PyAny>, Py<PyAny>)>().map_err(|_| {
             DjangoRustError::TemplateError(format!(
@@ -1315,11 +1508,57 @@ pub fn call_block_handler_before_body(
         })?;
         let output = output.bind(py);
         if output.is_none() {
-            return Ok((None, PendingBlockBody { handler, state }));
+            return Ok((
+                None,
+                PendingBlockBody { handler, state },
+                djust_core::context::LiteralOutput {
+                    html: Some(String::new()),
+                    blank_html: Some(String::new()),
+                    blocked: false,
+                    openings: Vec::new(),
+                    blank_openings: Vec::new(),
+                },
+            ));
         }
         let html = escape_handler_return(output, "Block handler", name, autoescape)
             .map_err(DjangoRustError::TemplateError)?;
-        Ok((Some(html), PendingBlockBody { handler, state }))
+        let literal_blocked = py_context
+            .get_item("_djust_cached_literal_blocked")
+            .ok()
+            .flatten()
+            .and_then(|value| value.extract::<bool>().ok())
+            .unwrap_or(false);
+        let literal_only = match py_context.get_item("_djust_cached_literal_only") {
+            Ok(Some(value)) => value.extract::<String>().ok(),
+            // Non-cache handlers return ordinary opaque values: empty context.
+            Ok(None) => Some(String::new()),
+            Err(_) => None,
+        };
+        let blank_only = match py_context.get_item("_djust_cached_blank_only") {
+            Ok(Some(value)) => value.extract::<String>().ok(),
+            Ok(None) => {
+                if py_context
+                    .contains("_djust_cached_literal_only")
+                    .unwrap_or(true)
+                {
+                    None
+                } else {
+                    Some(String::new())
+                }
+            }
+            Err(_) => None,
+        };
+        Ok((
+            Some(html),
+            PendingBlockBody { handler, state },
+            djust_core::context::LiteralOutput {
+                html: literal_only,
+                blank_html: blank_only,
+                blocked: literal_blocked,
+                openings: Vec::new(),
+                blank_openings: Vec::new(),
+            },
+        ))
     })
 }
 
@@ -1367,13 +1606,16 @@ pub fn call_block_handler_after_body(
 /// `call_block_handler_with_bindings` additionally reads `wants_autoescape`
 /// under the same lock, so they are not all one helper today.
 fn clone_block_handler(name: &str) -> Result<Py<PyAny>, DjangoRustError> {
-    let registry = BLOCK_TAG_HANDLERS
-        .read()
-        .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
-    let entry = registry.get(name).ok_or_else(|| {
-        DjangoRustError::TemplateError(format!("No block handler registered for tag: {name}"))
-    })?;
-    Ok(Python::attach(|py| entry.handler.clone_ref(py)))
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    Python::attach(|py| {
+        let registry = BLOCK_TAG_HANDLERS
+            .read()
+            .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
+        let entry = registry.get(name).ok_or_else(|| {
+            DjangoRustError::TemplateError(format!("No block handler registered for tag: {name}"))
+        })?;
+        Ok(entry.handler.clone_ref(py))
+    })
 }
 
 // ============================================================================
@@ -1432,6 +1674,10 @@ pub(crate) fn build_py_context<'py>(
     }
     if let Some(raw) = raw_py_objects {
         for (key, obj) in raw {
+            // #3773: the typed-operand channel is the engine's, never the application's.
+            if key == crate::renderer::TYPED_ARGS_KEY {
+                continue;
+            }
             py_context
                 .set_item(key, obj.bind(py))
                 .map_err(|e| format!("Failed to set raw context key '{key}': {e}"))?;
@@ -1461,8 +1707,22 @@ pub(crate) fn build_py_context_memo<'py>(
     raw_py_objects: Option<&HashMap<String, pyo3::Py<PyAny>>>,
 ) -> Result<Bound<'py, pyo3::types::PyDict>, String> {
     let py_context = context.bridged_py_dict(py)?;
+    // #3773: a live-frame key of the engine's reserved name never reaches a handler. The dict is
+    // this call's own (`bridged_py_dict` builds a fresh one); the per-frame memo is untouched.
+    if py_context
+        .contains(crate::renderer::TYPED_ARGS_KEY)
+        .unwrap_or(false)
+    {
+        py_context
+            .del_item(crate::renderer::TYPED_ARGS_KEY)
+            .map_err(|e| format!("Failed to drop the reserved typed-args key: {e}"))?;
+    }
     if let Some(raw) = raw_py_objects {
         for (key, obj) in raw {
+            // #3773: as in `build_py_context`, the sidecar cannot carry the engine's key.
+            if key == crate::renderer::TYPED_ARGS_KEY {
+                continue;
+            }
             py_context
                 .set_item(key, obj.bind(py))
                 .map_err(|e| format!("Failed to set raw context key '{key}': {e}"))?;
@@ -1632,18 +1892,16 @@ pub fn call_handler_with_bindings(
     safe_paths: &[String],
     autoescape: bool,
 ) -> Result<(String, Vec<HandlerBinding>), DjangoRustError> {
-    let (handler, wants) = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let (handler, wants) = Python::attach(|py| -> Result<_, DjangoRustError> {
         let registry = TAG_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
         let entry = registry.get(name).ok_or_else(|| {
             DjangoRustError::TemplateError(format!("No handler registered for tag: {name}"))
         })?;
-        (
-            Python::attach(|py| entry.handler.clone_ref(py)),
-            entry.wants_autoescape,
-        )
-    };
+        Ok((entry.handler.clone_ref(py), entry.wants_autoescape))
+    })?;
     Python::attach(|py| {
         let py_args = build_py_args(py, args).map_err(DjangoRustError::TemplateError)?;
         let py_context = match source {
@@ -1676,18 +1934,16 @@ pub fn call_block_handler_with_bindings(
     safe_paths: &[String],
     autoescape: bool,
 ) -> Result<(String, Vec<HandlerBinding>), DjangoRustError> {
-    let (handler, wants) = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let (handler, wants) = Python::attach(|py| -> Result<_, DjangoRustError> {
         let registry = BLOCK_TAG_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
         let entry = registry.get(name).ok_or_else(|| {
             DjangoRustError::TemplateError(format!("No block handler registered for tag: {name}"))
         })?;
-        (
-            Python::attach(|py| entry.handler.clone_ref(py)),
-            entry.wants_autoescape,
-        )
-    };
+        Ok((entry.handler.clone_ref(py), entry.wants_autoescape))
+    })?;
     Python::attach(|py| {
         let py_args = build_py_args(py, args).map_err(DjangoRustError::TemplateError)?;
         let py_content = mark_safe_str(py, content).map_err(|e| {
@@ -1716,7 +1972,8 @@ pub fn call_block_handler_with_bindings(
 /// every `{% load %}` in every parse, primary or `{% include %}`d or inside a
 /// `{% block %}` — and the loader imports the Django library and registers
 /// its tags and filters before the parser reaches them.
-static LIBRARY_LOADER: Lazy<RwLock<Option<Py<PyAny>>>> = Lazy::new(|| RwLock::new(None));
+static LIBRARY_LOADER: Lazy<RegistryLock<Option<Py<PyAny>>>> =
+    Lazy::new(|| RegistryLock::new(None));
 
 /// Install the `{% load %}` library loader (#2547).
 ///
@@ -1730,7 +1987,10 @@ pub fn register_library_loader(callable: Py<PyAny>) -> PyResult<()> {
     let mut slot = LIBRARY_LOADER.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    *slot = Some(callable);
+    let removed = slot.replace(callable);
+    drop(slot);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -1741,7 +2001,10 @@ pub fn clear_library_loader() -> PyResult<()> {
     let mut slot = LIBRARY_LOADER.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    *slot = None;
+    let removed = slot.take();
+    drop(slot);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -1764,14 +2027,24 @@ pub fn has_library_loader() -> PyResult<bool> {
 /// loader runs, so its own `register_*` write-locks cannot deadlock against
 /// the parser's read-locks.
 pub fn call_library_loader(args: &[String]) -> Result<(), DjangoRustError> {
-    let loader = {
+    // No loader installed (Rust-only callers, tests): nothing to attach for.
+    // The guard is dropped before any attach.
+    if LIBRARY_LOADER
+        .read()
+        .map(|slot| slot.is_none())
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let loader = Python::attach(|py| -> Result<Option<Py<PyAny>>, DjangoRustError> {
         let slot = LIBRARY_LOADER
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
-        match slot.as_ref() {
-            None => return Ok(()),
-            Some(callable) => Python::attach(|py| callable.clone_ref(py)),
-        }
+        Ok(slot.as_ref().map(|callable| callable.clone_ref(py)))
+    })?;
+    let Some(loader) = loader else {
+        return Ok(());
     };
     Python::attach(|py| {
         let py_args = pyo3::types::PyList::new(py, args.iter().map(|s| s.as_str()))
@@ -1837,15 +2110,16 @@ pub fn call_assign_handler_with_py_sidecar(
     context: &HashMap<String, djust_core::Value>,
     raw_py_objects: Option<&HashMap<String, pyo3::Py<PyAny>>>,
 ) -> Result<HashMap<String, djust_core::Value>, DjangoRustError> {
-    let handler = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let handler = Python::attach(|py| -> Result<_, DjangoRustError> {
         let registry = ASSIGN_TAG_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
         let entry = registry.get(name).ok_or_else(|| {
             DjangoRustError::TemplateError(format!("No assign handler registered for tag: {name}"))
         })?;
-        Python::attach(|py| entry.handler.clone_ref(py))
-    };
+        Ok(entry.handler.clone_ref(py))
+    })?;
 
     Python::attach(|py| {
         let py_args = build_py_args(py, args).map_err(DjangoRustError::TemplateError)?;
@@ -1968,7 +2242,7 @@ pub fn register_raw_block_tag_handler(
     let mut registry = RAW_BLOCK_HANDLERS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    registry.insert(
+    let removed = registry.insert(
         name,
         RawBlockHandlerEntry {
             end_tag,
@@ -1977,6 +2251,9 @@ pub fn register_raw_block_tag_handler(
             wants_autoescape,
         },
     );
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -1987,7 +2264,10 @@ pub fn unregister_raw_block_tag_handler(name: &str) -> PyResult<bool> {
     let mut registry = RAW_BLOCK_HANDLERS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    Ok(registry.remove(name).is_some())
+    let removed = registry.remove(name);
+    drop(registry);
+    drop(_bump);
+    Ok(removed.is_some())
 }
 
 /// Check if a raw-block tag handler is registered (#2558).
@@ -2006,7 +2286,10 @@ pub fn clear_raw_block_tag_handlers() -> PyResult<()> {
     let mut registry = RAW_BLOCK_HANDLERS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    registry.clear();
+    let removed = registry.clear();
+    drop(registry);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -2059,7 +2342,8 @@ pub fn call_raw_block_handler_with_bindings(
     // node's own `Context` sees the policy — is NOT done here; see #2619.
     autoescape: bool,
 ) -> Result<(String, Vec<HandlerBinding>), DjangoRustError> {
-    let (handler, wants_autoescape) = {
+    // Attach BEFORE taking the read lock (see "Lock order" above).
+    let (handler, wants_autoescape) = Python::attach(|py| -> Result<_, DjangoRustError> {
         let registry = RAW_BLOCK_HANDLERS
             .read()
             .map_err(|e| DjangoRustError::TemplateError(format!("Registry lock error: {e}")))?;
@@ -2068,11 +2352,8 @@ pub fn call_raw_block_handler_with_bindings(
                 "No raw-block handler registered for tag: {name}"
             ))
         })?;
-        (
-            Python::attach(|py| entry.handler.clone_ref(py)),
-            entry.wants_autoescape,
-        )
-    };
+        Ok((entry.handler.clone_ref(py), entry.wants_autoescape))
+    })?;
     Python::attach(|py| {
         let py_args = build_py_args(py, args).map_err(DjangoRustError::TemplateError)?;
         let py_body = pyo3::types::PyString::new(py, body);
@@ -2104,7 +2385,7 @@ struct LocaleHooks {
     format_resolver: Option<Py<PyAny>>,
     default_timezone_resolver: Option<Py<PyAny>>,
 }
-static TRANSLATOR: Lazy<RwLock<Option<LocaleHooks>>> = Lazy::new(|| RwLock::new(None));
+static TRANSLATOR: Lazy<RegistryLock<Option<LocaleHooks>>> = Lazy::new(|| RegistryLock::new(None));
 
 /// Install the `_("…")` translator: `callable(%-doubled_msgid) -> str`.
 /// The optional resolver returns format strings for `(name)` and translated
@@ -2120,11 +2401,14 @@ pub fn register_translator(
     let mut slot = TRANSLATOR.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    *slot = Some(LocaleHooks {
+    let removed = slot.replace(LocaleHooks {
         translator: callable,
         format_resolver,
         default_timezone_resolver,
     });
+    drop(slot);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -2135,7 +2419,10 @@ pub fn clear_translator() -> PyResult<()> {
     let mut slot = TRANSLATOR.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    *slot = None;
+    let removed = slot.take();
+    drop(slot);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -2224,8 +2511,8 @@ pub fn resolve_date_part(part: &str, index: u32) -> Option<String> {
 /// names when it bridges the owning library, so an UNLOADED `{% language %}`
 /// still falls through to the `UnsupportedTag` arm exactly as before this
 /// row, and a loaded one parses natively.
-static ARMED_SCOPE_TAGS: Lazy<RwLock<std::collections::HashSet<String>>> =
-    Lazy::new(|| RwLock::new(std::collections::HashSet::new()));
+static ARMED_SCOPE_TAGS: Lazy<RegistryLock<std::collections::HashSet<String>>> =
+    Lazy::new(|| RegistryLock::new(std::collections::HashSet::new()));
 
 /// Arm the native scope tags named here (#2558). Called by the library
 /// loader when it bridges `i18n` / `l10n` / `tz`.
@@ -2276,7 +2563,7 @@ type ScopeHooks = Option<(Py<PyAny>, Py<PyAny>)>;
 /// would be the #1646 parallel path. The exit half runs on the error path
 /// too (the renderer calls it before propagating a child's exception): a
 /// raising child must not leak `de` into the thread's next render.
-static LANGUAGE_SCOPE_HOOKS: Lazy<RwLock<ScopeHooks>> = Lazy::new(|| RwLock::new(None));
+static LANGUAGE_SCOPE_HOOKS: Lazy<RegistryLock<ScopeHooks>> = Lazy::new(|| RegistryLock::new(None));
 
 /// Install the `{% language %}` hooks (#2558): `enter(lang) -> token`,
 /// `exit(token)`.
@@ -2286,7 +2573,10 @@ pub fn register_language_scope_hooks(enter: Py<PyAny>, exit: Py<PyAny>) -> PyRes
     let mut slot = LANGUAGE_SCOPE_HOOKS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    *slot = Some((enter, exit));
+    let removed = slot.replace((enter, exit));
+    drop(slot);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 
@@ -2347,7 +2637,7 @@ pub fn language_scope_exit(token: Option<&Py<PyAny>>) -> Result<(), DjangoRustEr
 /// The `{% timezone %}` enter/exit hook pair (#2558) — the same shape as the
 /// language hooks: the override lives in Python's `timezone._active`, and
 /// the exit re-pushes the render env so the Rust zone follows.
-static TIMEZONE_SCOPE_HOOKS: Lazy<RwLock<ScopeHooks>> = Lazy::new(|| RwLock::new(None));
+static TIMEZONE_SCOPE_HOOKS: Lazy<RegistryLock<ScopeHooks>> = Lazy::new(|| RegistryLock::new(None));
 
 /// Install the `{% timezone %}` hooks (#2558): `enter(zone_name) -> token`,
 /// `exit(token)`.
@@ -2357,7 +2647,10 @@ pub fn register_timezone_scope_hooks(enter: Py<PyAny>, exit: Py<PyAny>) -> PyRes
     let mut slot = TIMEZONE_SCOPE_HOOKS.write().map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Registry lock error: {e}"))
     })?;
-    *slot = Some((enter, exit));
+    let removed = slot.replace((enter, exit));
+    drop(slot);
+    drop(_bump); // Publish the mutation before Python finalizers can re-enter.
+    drop(removed);
     Ok(())
 }
 

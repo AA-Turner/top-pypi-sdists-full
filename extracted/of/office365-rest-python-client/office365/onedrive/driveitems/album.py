@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class Album(ClientValue):
     """
     A photo album is a way to virtually group driveItems with photo facets together in a bundle.

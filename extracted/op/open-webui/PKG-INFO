@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-webui
-Version: 0.13.0
+Version: 0.13.3
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -225,9 +225,11 @@ Description-Content-Type: text/markdown
 
 #### Python
 
-Requires Python 3.12.
-
 ```bash
+# With uv installed (macOS/Linux)
+DATA_DIR=~/.open-webui uvx --python 3.12 open-webui@latest serve
+
+# Or install and run with pip (Python 3.12)
 pip install open-webui
 open-webui serve
 ```

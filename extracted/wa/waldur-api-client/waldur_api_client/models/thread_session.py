@@ -32,6 +32,14 @@ class ThreadSession:
         total_tokens (Union[None, Unset, int]):
         title_gen_input_tokens (Union[None, Unset, int]):
         title_gen_output_tokens (Union[None, Unset, int]):
+        cache_read_tokens (Union[None, Unset, int]): Part of input_tokens served from the provider's prompt cache, title
+            generation included. Null when the provider never reported it.
+        cache_write_tokens (Union[None, Unset, int]): Part of input_tokens written to the provider's prompt cache, title
+            generation included. Null when the provider never reported it.
+        title_gen_cache_read_tokens (Union[None, Unset, int]):
+        title_gen_cache_write_tokens (Union[None, Unset, int]):
+        cache_ratio (Union[None, Unset, float]): cache_read_tokens / input_tokens, counting only turns whose provider
+            reported a cache figure. Null when none did.
         models_used (Union[Unset, str]): Comma-separated distinct LLM models across the thread's messages. More than one
             when an admin switched AI_ASSISTANT_MODEL mid-thread; blank for threads written before model tracking existed.
         is_flagged (Union[Unset, bool]):
@@ -54,6 +62,11 @@ class ThreadSession:
     total_tokens: Union[None, Unset, int] = UNSET
     title_gen_input_tokens: Union[None, Unset, int] = UNSET
     title_gen_output_tokens: Union[None, Unset, int] = UNSET
+    cache_read_tokens: Union[None, Unset, int] = UNSET
+    cache_write_tokens: Union[None, Unset, int] = UNSET
+    title_gen_cache_read_tokens: Union[None, Unset, int] = UNSET
+    title_gen_cache_write_tokens: Union[None, Unset, int] = UNSET
+    cache_ratio: Union[None, Unset, float] = UNSET
     models_used: Union[Unset, str] = UNSET
     is_flagged: Union[Unset, bool] = UNSET
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET
@@ -113,6 +126,36 @@ class ThreadSession:
         else:
             title_gen_output_tokens = self.title_gen_output_tokens
 
+        cache_read_tokens: Union[None, Unset, int]
+        if isinstance(self.cache_read_tokens, Unset):
+            cache_read_tokens = UNSET
+        else:
+            cache_read_tokens = self.cache_read_tokens
+
+        cache_write_tokens: Union[None, Unset, int]
+        if isinstance(self.cache_write_tokens, Unset):
+            cache_write_tokens = UNSET
+        else:
+            cache_write_tokens = self.cache_write_tokens
+
+        title_gen_cache_read_tokens: Union[None, Unset, int]
+        if isinstance(self.title_gen_cache_read_tokens, Unset):
+            title_gen_cache_read_tokens = UNSET
+        else:
+            title_gen_cache_read_tokens = self.title_gen_cache_read_tokens
+
+        title_gen_cache_write_tokens: Union[None, Unset, int]
+        if isinstance(self.title_gen_cache_write_tokens, Unset):
+            title_gen_cache_write_tokens = UNSET
+        else:
+            title_gen_cache_write_tokens = self.title_gen_cache_write_tokens
+
+        cache_ratio: Union[None, Unset, float]
+        if isinstance(self.cache_ratio, Unset):
+            cache_ratio = UNSET
+        else:
+            cache_ratio = self.cache_ratio
+
         models_used = self.models_used
 
         is_flagged = self.is_flagged
@@ -160,6 +203,16 @@ class ThreadSession:
             field_dict["title_gen_input_tokens"] = title_gen_input_tokens
         if title_gen_output_tokens is not UNSET:
             field_dict["title_gen_output_tokens"] = title_gen_output_tokens
+        if cache_read_tokens is not UNSET:
+            field_dict["cache_read_tokens"] = cache_read_tokens
+        if cache_write_tokens is not UNSET:
+            field_dict["cache_write_tokens"] = cache_write_tokens
+        if title_gen_cache_read_tokens is not UNSET:
+            field_dict["title_gen_cache_read_tokens"] = title_gen_cache_read_tokens
+        if title_gen_cache_write_tokens is not UNSET:
+            field_dict["title_gen_cache_write_tokens"] = title_gen_cache_write_tokens
+        if cache_ratio is not UNSET:
+            field_dict["cache_ratio"] = cache_ratio
         if models_used is not UNSET:
             field_dict["models_used"] = models_used
         if is_flagged is not UNSET:
@@ -256,6 +309,51 @@ class ThreadSession:
 
         title_gen_output_tokens = _parse_title_gen_output_tokens(d.pop("title_gen_output_tokens", UNSET))
 
+        def _parse_cache_read_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        cache_read_tokens = _parse_cache_read_tokens(d.pop("cache_read_tokens", UNSET))
+
+        def _parse_cache_write_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        cache_write_tokens = _parse_cache_write_tokens(d.pop("cache_write_tokens", UNSET))
+
+        def _parse_title_gen_cache_read_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        title_gen_cache_read_tokens = _parse_title_gen_cache_read_tokens(d.pop("title_gen_cache_read_tokens", UNSET))
+
+        def _parse_title_gen_cache_write_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        title_gen_cache_write_tokens = _parse_title_gen_cache_write_tokens(d.pop("title_gen_cache_write_tokens", UNSET))
+
+        def _parse_cache_ratio(data: object) -> Union[None, Unset, float]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, float], data)
+
+        cache_ratio = _parse_cache_ratio(d.pop("cache_ratio", UNSET))
+
         models_used = d.pop("models_used", UNSET)
 
         is_flagged = d.pop("is_flagged", UNSET)
@@ -299,6 +397,11 @@ class ThreadSession:
             total_tokens=total_tokens,
             title_gen_input_tokens=title_gen_input_tokens,
             title_gen_output_tokens=title_gen_output_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
+            title_gen_cache_read_tokens=title_gen_cache_read_tokens,
+            title_gen_cache_write_tokens=title_gen_cache_write_tokens,
+            cache_ratio=cache_ratio,
             models_used=models_used,
             is_flagged=is_flagged,
             max_severity=max_severity,

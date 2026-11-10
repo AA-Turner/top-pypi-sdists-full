@@ -22,7 +22,9 @@ use std::sync::Arc;
 use rustc_hash::FxHashMap;
 
 use crate::descr::classes::Reach;
-use crate::descr::lower::{Constants, an_empty_reading_stands, read_widened};
+use crate::descr::lower::{
+    Constants, Operand, an_empty_reading_stands, floats_meet, lower, read_widened,
+};
 use crate::ir::{
     Attribute, ClassIx, ConstIx, Constraint, Constraints, Field, MapClause, REACHED, Schema,
 };
@@ -38,10 +40,17 @@ use super::records::{
     empty_without_the_maps_unread, keyed_map_meet_verdict, keyed_map_minus_keyed_maps,
 };
 use super::{
-    Budget, Cx, DECISION_BUDGET, LeafRelations, NARROWING, NoLeafRelations, READINGS_HELD,
-    asked_again, asks_again, bounds_met, descending, has_complementary_pair, has_disjoint_pair,
-    pushed_complement_is_placed, respelling, spend, spend_at_once,
+    Budget, Cx, DECISION_BUDGET, LEAF_READING, LeafRelations, NARROWING, NoLeafRelations,
+    READINGS_HELD, a_bound_is_met, asked_again, asks_again, bounds_met, descending,
+    has_complementary_pair, has_disjoint_pair, pushed_complement_is_placed, respelling, spend,
+    spend_at_once,
 };
+
+/// The nodes of a refinement the sets read for a value that one step of the query
+/// pays for. A two-node refinement, a bound over a kind, is one step; a wide one is
+/// read for what it holds. At [`LEAF_READING`] apiece the asking lost 44 answers in
+/// 1,119 gained to its own small refinements, and at this figure 3 in 1,127.
+pub(super) const NODES_A_STEP: usize = 8;
 
 impl Schema {
     /// Whether this schema is provably empty — denotes no value. Complete on the
@@ -109,11 +118,30 @@ impl Schema {
                 if (matches!(self, Schema::Intersection(_))
                     && self.below_the_set_it_complements(cx).holds())
                     || (matches!(self, Schema::Complement(_))
-                        && self.complement_of_the_universe(cx).holds()) =>
+                        && self.complement_of_the_universe(cx).holds())
+                    || (matches!(self, Schema::Union(_)) && self.read_as_a_relation_empty(cx)) =>
             {
                 Verdict::Empty
             }
             verdict => verdict,
+        }
+    }
+
+    /// Whether a set the emptiness readings left open is empty as a relation
+    /// reads it: a meet holding a complement below the set it complements, a
+    /// complement of the universe, and a union whose every member is one of
+    /// these or read empty, as the relation below `nothing` reads a union a
+    /// member at a time. Out of line behind the discriminant test its callers
+    /// ask, so a question about any other schema pays the one test.
+    #[inline(never)]
+    pub(super) fn read_as_a_relation_empty(&self, cx: &mut Cx<'_>) -> bool {
+        match self {
+            Schema::Intersection(_) => self.below_the_set_it_complements(cx).holds(),
+            Schema::Complement(_) => self.complement_of_the_universe(cx).holds(),
+            Schema::Union(members) => members.iter().all(|member| {
+                member.emptiness_under(cx) == Verdict::Empty || member.read_as_a_relation_empty(cx)
+            }),
+            _ => false,
         }
     }
 
@@ -146,9 +174,11 @@ impl Schema {
     /// The steps are an allowance of its own, charged to nothing, so they
     /// starve no reading after it; the rules it asks never ask it again, so a
     /// query asks it a fixed number of times and spends at most that multiple
-    /// of its budget. The relation's set readings are not asked here: they
-    /// reach this reading again through the respellings, each time under steps
-    /// of its own and at no depth, and drawn questions overflowed the stack.
+    /// of its budget. The relation's readings past the sets are not asked here:
+    /// they reach this reading again through the respellings, each time under
+    /// steps of its own and at no depth, and drawn questions overflowed the
+    /// stack. The sets themselves are, of the branches of `I` the rest meets
+    /// ([`Schema::below_the_branches_it_meets`]), which reach nothing.
     /// Out of line behind the discriminant test its callers ask, so a question
     /// about any schema but a meet pays the one test.
     #[inline(never)]
@@ -175,6 +205,58 @@ impl Schema {
         );
         let allowance = Budget::new(cx.budget.left());
         rest.is_subtype_rec(inner, &mut cx.within_this_query(&allowance))
+            .or_else(|| rest.decided_by_its_leaves(inner, cx, false))
+            .or_else(|| {
+                rest.below_the_branches_it_meets(inner, &mut cx.within_this_query(&allowance))
+            })
+    }
+
+    /// What the rules read of this refinement, and where they read nothing and the
+    /// query reads its leaves, what the sets do.
+    fn refinement_read(
+        &self,
+        base: &Schema,
+        constraints: &Constraints,
+        cx: &mut Cx<'_>,
+    ) -> Verdict {
+        let verdict = refinement_verdict(base, constraints, cx);
+        if verdict == Verdict::Unknown
+            && cx.reads_leaves
+            && let Some(record) = super::records::the_record_a_count_requires(self, cx)
+        {
+            return record.verdict_rec(cx);
+        }
+        if verdict == Verdict::Unknown && cx.reads_leaves {
+            return self.a_value_the_sets_read(cx);
+        }
+        verdict
+    }
+
+    /// `Inhabited` where the set representation reads a value of a refinement with
+    /// no reference, in the asking that reads a pair's leaves. With no cut a set read
+    /// inhabited holds a value, the one a relation refutes on when it reads this
+    /// schema against nothing. Only that half is read: a set read empty rests on the
+    /// label check, and the rules' answer stands on it.
+    ///
+    /// Charged a step for [`NODES_A_STEP`] nodes, since no step counts a lowering,
+    /// and at most [`LEAF_READING`]. Charged that apiece, as a goal is, one asking's
+    /// many small refinements spent its steps, and it lost answers it holds at this
+    /// figure.
+    #[inline(never)]
+    pub(super) fn a_value_the_sets_read(&self, cx: &Cx<'_>) -> Verdict {
+        if self.has_reference() {
+            return Verdict::Unknown;
+        }
+        let steps = u32::try_from(self.node_count() / NODES_A_STEP + 1).unwrap_or(u32::MAX);
+        if !spend_at_once(cx.budget, steps.min(LEAF_READING)) {
+            a_bound_is_met();
+            return Verdict::Unknown;
+        }
+        if lower(self, cx.oracle).is_some_and(|set| set.emptiness() == Verdict::Inhabited) {
+            Verdict::Inhabited
+        } else {
+            Verdict::Unknown
+        }
     }
 
     /// A complement read as the relation it is, at the root of a question every
@@ -433,9 +515,10 @@ impl Schema {
             Schema::Refine { base, constraints } if constraints.is_empty() => {
                 base.empty_and_region(cx)
             }
-            Schema::Refine { base, constraints } => {
-                (refinement_verdict(base, constraints, cx), Regions::Unknown)
-            }
+            Schema::Refine { base, constraints } => (
+                self.refinement_read(base, constraints, cx),
+                Regions::Unknown,
+            ),
             Schema::Intersection(members) => intersection_verdict(self, members, cx),
             // A set or frozenset admits the empty collection whatever its
             // element schema is, so it is *proven* inhabited -- which two values
@@ -474,13 +557,7 @@ impl Schema {
                     let (member, member_region) = m.empty_and_region(cx);
                     verdict = Verdict::any([verdict, member].into_iter());
                     region = region.union(member_region);
-                    // A member that is not proven empty and an opaque region are
-                    // both absorbing: no later member can make the union empty,
-                    // and none can make the region known. The stop is on "not
-                    // proven empty" rather than "proven inhabited": reading
-                    // further to strengthen an `Unknown` into an `Inhabited`
-                    // would spend budget on a question the caller does not ask.
-                    if verdict != Verdict::Empty && region.is_absorbing() {
+                    if a_union_reads_no_further(verdict, region, cx.reads_leaves) {
                         break;
                     }
                 }
@@ -769,7 +846,10 @@ fn intersection_verdict(meet: &Schema, members: &[Schema], cx: &mut Cx<'_>) -> (
         // steps: the narrowing has spent its share already, and a distribution
         // that declines on all the rest leaves the readings after it none to
         // decide with.
-        Verdict::Unknown => the_empty_container_in_every_member(members)
+        Verdict::Unknown => one_refinement_of_its_members(members, cx)
+            .or_else(|| the_rest_of_a_meet_within_a_kind(members, cx))
+            .or_else(|| the_empty_container_in_every_member(members))
+            .or_else(|| sequences_meeting_in_nothing(members, cx))
             .or_else(|| a_meet_read_by_its_constants(members, cx.oracle, cx.defs))
             .or_else(|| {
                 if members
@@ -1391,7 +1471,7 @@ pub(super) struct OpenMeet;
 
 impl OpenMeet {
     /// Whether the query `budget` belongs to holds a meet open.
-    fn any_open(budget: &Budget) -> bool {
+    pub(super) fn any_open(budget: &Budget) -> bool {
         let query = std::ptr::from_ref(budget) as usize;
         OPEN_MEETS.with_borrow(|open| open.iter().any(|(owner, _)| *owner == query))
     }
@@ -1520,8 +1600,12 @@ pub(super) fn class_with_attributes(members: &[Schema]) -> Option<(ClassIx, &[At
 /// A refinement of a union is the union of its branches refined
 /// [FCB08, Def. 4.1], each cut down a value at a time [JV20, §3.2]. So it
 /// holds a value where a branch under the constraints does, and none where
-/// none does.
+/// none does. A branch that is a refinement itself is one refinement with what
+/// narrows it, `⟦b⟧ ∩ ⟦c1⟧ ∩ ⟦c2⟧`, as [`Schema::refine`] folds one written so.
 fn refinement_verdict(base: &Schema, constraints: &Constraints, cx: &mut Cx<'_>) -> Verdict {
+    if matches!(base, Schema::Refine { .. }) {
+        return Schema::refine(base.clone(), constraints.to_vec()).verdict_rec(cx);
+    }
     let density = density_of([base]);
     if base.is_empty_rec(cx)
         || bounds_unsatisfiable(constraints.iter(), cx.oracle, density)
@@ -1545,6 +1629,13 @@ fn refinement_verdict(base: &Schema, constraints: &Constraints, cx: &mut Cx<'_>)
     // different question about a different base.
     if matches!(base, Schema::Int) {
         return bounded_integer_verdict(constraints, cx.oracle);
+    }
+    // The floats are read as the sets read them, the bounds at their edges.
+    if matches!(base, Schema::Float) {
+        return match floats_meet(constraints, cx.oracle) {
+            Some(true) => Verdict::Inhabited,
+            _ => Verdict::Unknown,
+        };
     }
     let lengths_only = constraints
         .iter()
@@ -1573,9 +1664,17 @@ fn refinement_verdict(base: &Schema, constraints: &Constraints, cx: &mut Cx<'_>)
             let _crossing = super::goal_tests::goals::crossing();
             element.verdict_rec(cx)
         }
-        Some(element) => distinct_members(element, least, cx.oracle),
+        Some(element) => distinct_members(element, least, cx.oracle).or_else(|| {
+            if least == 1 && a_value_of_it_can_hash(element) {
+                #[cfg(test)]
+                let _crossing = super::goal_tests::goals::crossing();
+                element.verdict_rec(cx)
+            } else {
+                Verdict::Unknown
+            }
+        }),
         None if base.every_length_from(cx).is_some() => Verdict::Inhabited,
-        None => Verdict::Unknown,
+        None => a_mapping_of_its_required_fields(base, constraints, cx),
     };
     // A value of the least length is the witness, and one longer than every
     // interpreter builds is none: `Annotated[list[int], MinLen(2**60 + 1)]`
@@ -1586,6 +1685,22 @@ fn refinement_verdict(base: &Schema, constraints: &Constraints, cx: &mut Cx<'_>)
         return Verdict::Unknown;
     }
     verdict
+}
+
+/// Whether a union's fold stops after the members read so far, whose verdict and
+/// region it holds.
+///
+/// A member that is not proven empty and an opaque region are both absorbing: no
+/// later member can make the union empty, and none can make the region known. The
+/// stop is on "not proven empty" rather than "proven inhabited", since reading
+/// further to strengthen an `Unknown` into an `Inhabited` spends steps on members
+/// dearer than the question. The last asking reads on to a member holding a value,
+/// which is what a refutation of the union stands on: the members' order is their
+/// pooled constants', not their reading's.
+#[inline]
+fn a_union_reads_no_further(verdict: Verdict, region: Regions, last_asking: bool) -> bool {
+    region.is_absorbing()
+        && (verdict == Verdict::Inhabited || (verdict != Verdict::Empty && !last_asking))
 }
 
 /// Whether an order bound over `int` is met by an integer, asked of the oracle.
@@ -1617,6 +1732,18 @@ fn bounded_integer_verdict(constraints: &Constraints, oracle: &dyn LeafRelations
         } else {
             Verdict::Inhabited
         };
+    }
+    // Zero is a multiple of every float step a build admits, `0 % 0.5` being `0.0`,
+    // and of an exact `Fraction` or `Decimal`, which the pool hands over as one
+    // (`Operand::Rational`), `0 % q` being an exact zero. An operand of no exact
+    // type declines here: a subclass's `__rmod__` answers the remainder of an
+    // integer, and may refuse zero.
+    if constraints.iter().all(|c| {
+        matches!(c, Constraint::MultipleOf(step)
+            if oracle.operand_kind(*step) == Some(Kind::Float)
+                || matches!(oracle.operand(*step), Some(Operand::Rational { .. })))
+    }) {
+        return Verdict::Inhabited;
     }
     // A constraint that is not an order bound narrows the set by something this
     // cannot read, so it names no value.
@@ -1653,6 +1780,131 @@ fn bounded_integer_verdict(constraints: &Constraints, oracle: &dyn LeafRelations
 /// rather than about the container.
 fn repeats_a_member(base: &Schema) -> bool {
     matches!(base, Schema::Seq { .. })
+}
+
+/// What a meet of refinements of one base is as one refinement of it,
+/// `⟦b⟧ ∩ ⟦c1⟧ ∩ ⟦c2⟧` [JV20, §3.2], whose bounds a reading of a refinement reads
+/// together: `Annotated[int, Ge(5)]` met with `Annotated[int, Le(5)]` holds 5.
+///
+/// A reading rather than a fold: a meet keeps its members, which a rule reads one
+/// at a time, as `A <= (A & ~B) | (A & B)` reads the `A` in each branch.
+fn one_refinement_of_its_members(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
+    let [first @ Schema::Refine { base, .. }, others @ ..] = members else {
+        return Verdict::Unknown;
+    };
+    let mut constraints = Vec::new();
+    for member in others {
+        match member {
+            Schema::Refine {
+                base: theirs,
+                constraints: more,
+            } if theirs == base => constraints.extend(more.iter().cloned()),
+            _ => return Verdict::Unknown,
+        }
+    }
+    Schema::refine(first.clone(), constraints).verdict_rec(cx)
+}
+
+/// `Empty` where two sequences of a meet meet in nothing at a position each of their
+/// values has: a value of both holds an item of both there. A value holds the items
+/// its prefix names and the least its bound asks of it, so the positions read are those
+/// of the longest of them, a shorter prefix's tail reading the rest, and past every
+/// prefix one reading of the two tails stands for all of them, since a bound may ask
+/// for more items than a value holds. A position past a fixed shape's end is the
+/// arity's, which `disjoint_with` reads. So a list of an `int` and a `None`, and a list
+/// of at least one `int`, are outside `μt. list[t]`, whose every item is a list.
+pub(super) fn sequences_meeting_in_nothing(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
+    let mut sequences = members.iter().filter_map(|member| match member {
+        Schema::Seq { container, shape } => Some((container, shape, 0)),
+        Schema::Refine { base, constraints } => match &**base {
+            Schema::Seq { container, shape } => {
+                Some((container, shape, shortest(constraints.iter())))
+            }
+            _ => None,
+        },
+        _ => None,
+    });
+    let (Some((mine, a, my_least)), Some((theirs, b, their_least))) =
+        (sequences.next(), sequences.next())
+    else {
+        return Verdict::Unknown;
+    };
+    if mine != theirs {
+        return Verdict::Unknown;
+    }
+    let at = |shape: &crate::ir::SeqShape, position: usize| {
+        shape
+            .prefix
+            .get(position)
+            .or(shape.tail.as_deref())
+            .cloned()
+    };
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
+    let named = a.prefix.len().max(b.prefix.len());
+    let reached = named.max(my_least).max(their_least);
+    for position in 0..reached.min(named + 1) {
+        let (Some(x), Some(y)) = (at(a, position), at(b, position)) else {
+            continue;
+        };
+        if Schema::meet_within([x, y], cx.defs).is_empty_rec(cx) {
+            return Verdict::Empty;
+        }
+    }
+    Verdict::Unknown
+}
+
+/// Whether a value of this schema, where it holds one, is one a set can hold.
+///
+/// A kind's values hash or have a subclass that does: `class L(list): __hash__ =
+/// object.__hash__` is a list. A class need not: `slice` hashes on no interpreter
+/// before 3.12 and takes no subclass, so `set[slice]` under `MinLen(1)` holds
+/// nothing there. A meet is what every member says, and a union where every branch
+/// does, since the value its verdict reads may be any branch's.
+fn a_value_of_it_can_hash(schema: &Schema) -> bool {
+    match schema {
+        Schema::Anything(_)
+        | Schema::Bool
+        | Schema::Int
+        | Schema::Float
+        | Schema::Str
+        | Schema::Bytes
+        | Schema::NoneType
+        | Schema::Seq { .. }
+        | Schema::Coll { .. }
+        | Schema::KeyedMap { .. } => true,
+        Schema::Refine { base, .. } => a_value_of_it_can_hash(base),
+        Schema::Union(members) | Schema::Intersection(members) => {
+            members.iter().all(a_value_of_it_can_hash)
+        }
+        _ => false,
+    }
+}
+
+/// `Inhabited` where a mapping's value holding its required fields and nothing else
+/// has a length the bounds admit and each of those fields holds a value.
+fn a_mapping_of_its_required_fields(
+    base: &Schema,
+    constraints: &Constraints,
+    cx: &mut Cx<'_>,
+) -> Verdict {
+    let Schema::KeyedMap { fields, .. } = base else {
+        return Verdict::Unknown;
+    };
+    let mut required = fields.iter().filter(|field| field.required);
+    let count = required.clone().count();
+    if count < shortest(constraints.iter())
+        || longest(constraints.iter()).is_some_and(|most| most < count)
+    {
+        return Verdict::Unknown;
+    }
+    #[cfg(test)]
+    let _crossing = super::goal_tests::goals::crossing();
+    if required.all(|field| field.schema.verdict_rec(cx) == Verdict::Inhabited) {
+        Verdict::Inhabited
+    } else {
+        Verdict::Unknown
+    }
 }
 
 /// Whether a set of `wanted` members of this schema exists.
@@ -1814,7 +2066,7 @@ pub(super) fn value_count_bounds(schema: &Schema, oracle: &dyn LeafRelations) ->
 /// [`read_empty`], and a sequence's tail by `tail_holds_none`, which the
 /// caller names: the rules, for a refinement's own emptiness, or `read_empty`
 /// for a reading that spends no step.
-fn lengths_miss_the_shape(
+pub(super) fn lengths_miss_the_shape(
     base: &Schema,
     constraints: &Constraints,
     cx: &mut Cx<'_>,
@@ -1897,7 +2149,10 @@ fn repeated_element(base: &Schema) -> Option<&Schema> {
 /// inside a member (say under a union arm) is not collected here; the decision
 /// stays sound, since missing a contradiction only forgoes reporting emptiness,
 /// never reports a non-empty intersection empty.
-fn intersection_bounds_unsatisfiable(members: &[Schema], oracle: &dyn LeafRelations) -> bool {
+pub(super) fn intersection_bounds_unsatisfiable(
+    members: &[Schema],
+    oracle: &dyn LeafRelations,
+) -> bool {
     // Gather the top-level refine members' constraints by reference — no clone, so
     // a `Regex` constraint's pattern string is not copied per intersection node.
     let merged: Vec<&Constraint> = members
@@ -1910,4 +2165,39 @@ fn intersection_bounds_unsatisfiable(members: &[Schema], oracle: &dyn LeafRelati
         .collect();
     let density = density_of(members);
     !merged.is_empty() && bounds_unsatisfiable(merged.iter().copied(), oracle, density)
+}
+
+/// A meet holding a whole kind beside members of that kind alone is the meet of those
+/// members, `k ∩ r` being `r` where `r ⊆ k` [FCB08, Def. 4.1]. So `int` met with
+/// `Annotated[int, MultipleOf(0.5)]` holds what the refinement holds.
+///
+/// A member is of the kind where the kind walk reads no other in it
+/// ([`Schema::holds_no_kind_beyond`]), which spends no step, and `int` spans `bool`.
+/// Read where the readings before it leave the meet undecided, and of the meet without
+/// the kind, which holds one member fewer, so a meet of kinds ends.
+#[inline(never)]
+fn the_rest_of_a_meet_within_a_kind(members: &[Schema], cx: &mut Cx<'_>) -> Verdict {
+    let Some((at, kind)) = members.iter().enumerate().find_map(|(at, member)| {
+        if matches!(
+            member,
+            Schema::Int | Schema::Float | Schema::Str | Schema::Bytes
+        ) {
+            member.type_tag().map(|kind| (at, kind))
+        } else {
+            None
+        }
+    }) else {
+        return Verdict::Unknown;
+    };
+    let rest = || {
+        members
+            .iter()
+            .enumerate()
+            .filter(move |(other, _)| *other != at)
+            .map(|(_, member)| member)
+    };
+    if !rest().all(|member| member.holds_no_kind_beyond(kind, cx.oracle, cx.defs)) {
+        return Verdict::Unknown;
+    }
+    Schema::meet_within(rest().cloned(), cx.defs).verdict_rec(cx)
 }

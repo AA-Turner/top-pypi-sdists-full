@@ -1,3 +1,21 @@
+# SPDX-License-Identifier: ISC
+#
+# ISC License
+#
+# Copyright (c) 2020, Timothée Mazzucotelli and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 """Tests for the CLI."""
 
 # IMPORTANT: Do not call `git_changelog.main()`
@@ -7,9 +25,8 @@
 
 from __future__ import annotations
 
-import os
 import re
-import sys
+from contextlib import chdir
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any
 
@@ -21,26 +38,9 @@ from git_changelog._internal import debug
 from git_changelog._internal.cli import _DEFAULT_DEBIAN_VERSION_REGEX, _DEFAULT_RPMBUILD_VERSION_REGEX
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
     from tests.helpers import GitRepo
-
-
-# YORE: EOL 3.10: Replace block with line 2.
-if sys.version_info >= (3, 11):
-    from contextlib import chdir
-else:
-    from contextlib import contextmanager
-
-    @contextmanager
-    def chdir(path: str) -> Iterator[None]:
-        old_wd = os.getcwd()  # noqa: PTH109
-        os.chdir(path)
-        try:
-            yield
-        finally:
-            os.chdir(old_wd)
 
 
 # IMPORTANT: See top module comment.
@@ -320,6 +320,62 @@ def test_bumped_version_option(repo: GitRepo, capsys: pytest.CaptureFixture) -> 
     )
     captured = capsys.readouterr()
     assert captured.out.strip() == "1.2.3"
+
+
+@pytest.mark.parametrize("versioning", ["semver", "pep440"])
+@pytest.mark.parametrize("bump", ["auto", "patch", "2.0.0"])
+def test_bumped_version_without_required_bump(
+    repo: GitRepo,
+    capsys: pytest.CaptureFixture,
+    versioning: str,
+    bump: str,
+) -> None:
+    """A tagged HEAD has no planned version and reports that no bump is required."""
+    # There are no unreleased commits after this tag, even with an explicit bump.
+    repo.tag("1.2.3")
+
+    result = main(
+        [
+            str(repo.path),
+            "--config-file",
+            str(repo.path / "conf.toml"),
+            "--versioning",
+            versioning,
+            "--bump",
+            bump,
+            "--bumped-version",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert captured.out == ""
+    assert captured.err == "git-changelog: No version bump required.\n"
+
+
+@pytest.mark.parametrize("versioning", ["semver", "pep440"])
+def test_bumped_version_with_unreleased_commits(repo: GitRepo, capsys: pytest.CaptureFixture, versioning: str) -> None:
+    """Unreleased commits still produce a version on stdout and a successful exit."""
+    repo.tag("1.2.3")
+    repo.commit("fix: Correct a bug")
+
+    result = main(
+        [
+            str(repo.path),
+            "--config-file",
+            str(repo.path / "conf.toml"),
+            "--convention",
+            "conventional",
+            "--versioning",
+            versioning,
+            "--bumped-version",
+        ],
+    )
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert captured.out == "1.2.4\n"
+    assert captured.err == ""
 
 
 def test_latest_version_option(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:

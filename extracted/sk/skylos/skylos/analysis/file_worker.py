@@ -177,7 +177,12 @@ def _masked_tree(tree: ast.AST, file, cfg) -> tuple[ast.AST, int]:
 
 
 def _quality_findings(
-    file, prepared: _PreparedPython, cfg, options: _WorkerOptions, *, annotation_coverage=None
+    file,
+    prepared: _PreparedPython,
+    cfg,
+    options: _WorkerOptions,
+    *,
+    annotation_coverage=None,
 ) -> tuple[list, dict | None]:
     if not options.full_scan or not options.enable_quality_rules:
         return [], None
@@ -227,10 +232,15 @@ def _danger_findings(
     danger_linter.visit(prepared.tree)
     findings = danger_linter.findings
 
-    from skylos.rules.danger.danger import dedupe_findings, scan_file_with_tree
+    from skylos.rules.danger.danger import (
+        dedupe_findings,
+        scan_file_with_tree,
+        scan_trojan_source_text,
+    )
 
     taint_findings = []
     analysis_error = None
+    scan_trojan_source_text(prepared.source, Path(file), taint_findings)
     try:
         scan_file_with_tree(
             prepared.tree,
@@ -307,6 +317,7 @@ def _copy_framework_metadata(framework_visitor, visitor) -> None:
         ("dataclass_fields", set()),
         ("first_read_lineno", {}),
         ("protocol_classes", set()),
+        ("protocol_class_decls", set()),
         ("namedtuple_classes", set()),
         ("enum_classes", set()),
         ("attrs_classes", set()),
@@ -335,6 +346,7 @@ def _run_visitors(
     test_visitor.visit(prepared.tree)
     test_visitor.ignore_lines = prepared.ignore_lines
     test_visitor.noqa_codes_by_line = prepared.noqa_codes_by_line
+    test_visitor.ignore_rules_by_line = prepared.ignore_rules_by_line
 
     # The already parsed tree supplies all framework import evidence. Avoid a
     # second path-based read after the worker's bounded no-follow read.
@@ -454,6 +466,14 @@ def _success_result(
         prepared.ignore_rules_by_line,
         bool(getattr(visitor, "has_explicit_all", False)),
         annotation_coverage or {},
+        {
+            "receivers": getattr(visitor, "_attr_receivers", set()),
+            "module_objects": getattr(visitor, "_module_object_refs", set()),
+            "star_sources": getattr(visitor, "_star_import_sources", set()),
+            "module_strings": getattr(visitor, "_module_name_strings", set()),
+            "dynamic": bool(getattr(visitor, "_dynamic_module_access", False)),
+            "nested_classes": getattr(visitor, "_nested_class_names", set()),
+        },
     )
 
 
@@ -499,6 +519,7 @@ def _error_result(file, cfg, error, options: _WorkerOptions) -> tuple:
         ),
         {},
         False,
+        {},
         {},
     )
 
@@ -608,6 +629,7 @@ def process_file(
     *,
     project_root: str | Path | None = None,
     credential_source_locations: tuple | list = (),
+    go_scan_scope: tuple | None = None,
     visitor_class: type = Visitor,
     test_aware_visitor_class: type = TestAwareVisitor,
     framework_aware_visitor_class: type = FrameworkAwareVisitor,
@@ -637,4 +659,6 @@ def process_file(
         cfg,
         enable_quality_rules=enable_quality_rules,
         enable_danger_rules=enable_danger_rules,
+        project_root=project_root,
+        go_scan_scope=go_scan_scope,
     )

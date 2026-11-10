@@ -29,7 +29,9 @@ from datamodel_code_generator import (
     SchemaParseError,
     snooper_to_methods,
 )
+from datamodel_code_generator._document_reader import as_mapping as _as_mapping
 from datamodel_code_generator._document_reader import discriminator_mapping_ref, string_key, string_keys
+from datamodel_code_generator._openapi_objects import OBJECT_MEMBERS as _OBJECT_MEMBERS
 from datamodel_code_generator._openapi_paths import (
     OPERATION_METHODS,
     PATHS_PARAMETERS,
@@ -37,18 +39,23 @@ from datamodel_code_generator._openapi_paths import (
     effective_parameters,
     holds_path_item,
     operation_responses,
+    path_key_row,
     path_selected,
     rooted_path,
 )
 from datamodel_code_generator._records import record
 from datamodel_code_generator._runtime.model_codecs.parameters import parameter_key
 from datamodel_code_generator._source import YamlValue
+from datamodel_code_generator._user_keys import ClassScope, class_key
 from datamodel_code_generator.deprecations import warn_deprecated
 from datamodel_code_generator.enums import OpenAPIAsDefinitions, OpenAPIVersion, VersionMode
-from datamodel_code_generator.parser import _union_tags
-from datamodel_code_generator.parser._origins import with_type_origin
+from datamodel_code_generator.parser import _schema_documents, _schema_refs, _union_tags
+from datamodel_code_generator.parser._api_reference import pointer_fragment as _pointer_fragment
+from datamodel_code_generator.parser._naming import composed_name
+from datamodel_code_generator.parser._origins import with_subtype_ref, with_type_origin
+from datamodel_code_generator.parser._rw_split import update_field_refs_for_variant
 from datamodel_code_generator.parser._schema_dispatch import Default, DispatchTable, Row, SchemaSite
-from datamodel_code_generator.parser._schema_graph import keep_resolved_ref
+from datamodel_code_generator.parser._schema_graph import keep_resolved_ref, validate_resolved_ref
 from datamodel_code_generator.parser._schema_object import _has_map_key_keywords, _located_model_schema
 from datamodel_code_generator.parser._schema_refs import ref_file_document
 from datamodel_code_generator.parser.base import Result, get_special_path
@@ -56,6 +63,7 @@ from datamodel_code_generator.parser.jsonschema import (
     JsonSchemaObject,
     JsonSchemaParser,
     _all_of_applies,
+    _all_of_beside_one_of_applies,
     _array_applies,
     _get_ref_data_type_site,
     _locate,
@@ -64,16 +72,16 @@ from datamodel_code_generator.parser.jsonschema import (
     _one_of_any_of_applies,
     _parse_all_of_site,
     _parse_combined_root,
+    _parse_root_type_site,
     _ref_applies,
-    _VersionSource,
     get_model_by_path,
 )
-from datamodel_code_generator.parser.schema_version import OpenAPISchemaFeatures, detect_openapi_version
 from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import (
     FIELD_ORIGIN_KEY,
     SCHEMA_LOCATION_KEY,
     FieldNameResolver,
+    _source_path,
     is_url,
     snake_to_upper_camel,
 )
@@ -97,6 +105,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.config import OpenAPIParserConfig
     from datamodel_code_generator.model import DataModel, DataModelFieldBase
     from datamodel_code_generator.parser._null_facts import NullMode
+    from datamodel_code_generator.parser.schema_version import OpenAPISchemaFeatures, SchemaKind
     from datamodel_code_generator.reference import SchemaLocation
 
 
@@ -128,7 +137,7 @@ class ReferenceObject(BaseModel):
     @classmethod
     def _keep_resolved_ref(cls, value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
         """Keep the edge of a reference of a loaded document."""
-        return keep_resolved_ref(value, handler(value))
+        return validate_resolved_ref(value, handler)
 
 
 def _reference_first(value: Any, handler: ValidatorFunctionWrapHandler) -> Any:
@@ -283,41 +292,83 @@ class ComponentsObject(BaseModel):
     headers: dict[str, OrReference[HeaderObject]] = Field(default_factory=dict)
 
 
-_HELD_OBJECTS: dict[type[BaseModel], tuple[tuple[str, type[BaseModel], bool], ...]] = {
-    Operation: (
-        ("parameters", ParameterObject, True),
-        ("requestBody", RequestBodyObject, False),
-        ("responses", ResponseObject, True),
-    ),
-    ParameterObject: (("schema", JsonSchemaObject, False), ("content", MediaObject, True)),
-    RequestBodyObject: (("content", MediaObject, True),),
-    ResponseObject: (("headers", ParameterObject, True), ("content", MediaObject, True)),
-    MediaObject: (("schema", JsonSchemaObject, False), ("itemSchema", JsonSchemaObject, False)),
+_MODEL_ROLES: dict[type[BaseModel], str] = {
+    Operation: "operation",
+    ParameterObject: "parameter",
+    RequestBodyObject: "requestBody",
+    ResponseObject: "response",
+    MediaObject: "mediaType",
 }
-"""The fields of OpenAPI object models that hold schemas or such objects: name, model, and whether it holds many."""
+"""The role (``OBJECT_MEMBERS``) of the objects each OpenAPI object model validates whose members hold schemas."""
+_ROLE_MODELS: dict[str, type[BaseModel]] = {
+    **{role: model for model, role in _MODEL_ROLES.items()},
+    "header": ParameterObject,
+}
+"""The model that validates an object of each such role; a response's headers validate as parameter objects."""
+
+
+def _held_members(role: str, model: type[BaseModel]) -> tuple[tuple[str, str, str], ...]:
+    """Return the members of an object of ``role`` that ``model`` validates and that hold schemas or such objects.
+
+    Each is its name, how it holds them (``OBJECT_MEMBERS``) and their role, in the order of the model's fields.
+    """
+    members = _OBJECT_MEMBERS[role]
+    names = (field.alias or field_name for field_name, field in model.model_fields.items())
+    return tuple(
+        (name, *members[name]) for name in names if name in members and members[name][1] in {"schema", *_ROLE_MODELS}
+    )
+
+
+_HELD_MEMBERS: dict[str, tuple[tuple[str, str, str], ...]] = {
+    role: _held_members(role, model) for role, model in _ROLE_MODELS.items()
+}
+"""The held members (``_held_members``) of an object of each role."""
 
 
 def _held_schemas(
-    raw: object, kind: type[BaseModel], tokens: tuple[str, ...] = ()
+    raw: object, role: str, tokens: tuple[str, ...] = ()
 ) -> Iterator[tuple[dict[str, YamlValue], str, tuple[str, ...]]]:
-    """Yield the holder, key and tokens below ``raw`` of each schema that ``raw``, an OpenAPI ``kind``, holds.
+    """Yield the holder, key and tokens below ``raw`` of each schema that ``raw``, an OpenAPI object of ``role``, holds.
 
     A reference object holds none, and a field set to null holds nothing, as the models read it.
     """
     if not isinstance(raw, dict) or "$ref" in raw:
         return
-    for field, member, many in _HELD_OBJECTS.get(kind, ()):
+    for field, form, member in _HELD_MEMBERS.get(role, ()):
         if (value := raw.get(field)) is None:
             continue
         at = (*tokens, field)
-        if member is JsonSchemaObject:
+        if member == "schema":
             yield raw, field, at
-        elif not many:
+        elif form == "one":
             yield from _held_schemas(value, member, at)
         else:
             entries = value.items() if isinstance(value, dict) else enumerate(value) if isinstance(value, list) else ()
             for key, entry in entries:
                 yield from _held_schemas(entry, member, (*at, str(key)))
+
+
+@record
+class _DiscriminatorScan:
+    """How a parser reads a document and its component schemas for their discriminators.
+
+    ``canonical_keys`` (the api scope) keys the document by its canonical path (``ModelResolver.join_path``), requires
+    each component name to be a string, names a component schema by its escaped pointer and locates an invalid one
+    under the document key; otherwise the key is the current document with an empty fragment, a schema is named
+    ``#/components/schemas/<name>`` as written and an invalid one is located under the current root path components.
+    ``string_refs`` (the api scope) takes each string ``$ref`` of an ``allOf`` for a parent, the empty one too, instead
+    of each truthy one. ``components_only`` (AsyncAPI) reads the component schemas as ``_iter_asyncapi_schemas`` does,
+    where a value that is no object holds no schema, and reads no discriminator at the root.
+    ``string_discriminators`` (AsyncAPI) reads a string ``discriminator``, the AsyncAPI Schema Object's form, as the
+    Discriminator Object that names the same property, ``{"propertyName": <name>}``; OpenAPI requires the object. Only
+    such a discriminator takes the component schemas whose ``allOf`` references it for its subtypes, as OpenAPI's does;
+    an object one, which AsyncAPI does not define, keeps none.
+    """
+
+    canonical_keys: bool = False
+    string_refs: bool = False
+    components_only: bool = False
+    string_discriminators: bool = False
 
 
 def is_inline_object_body(obj: JsonSchemaObject) -> bool:
@@ -408,9 +459,7 @@ class OpenAPIParser(JsonSchemaParser):
     _component_schemas_are_resources: ClassVar[bool] = True
     config: OpenAPIParserConfig
 
-    _version_source: ClassVar[_VersionSource] = _VersionSource(
-        "openapi_version", OpenAPIVersion.Auto, detect_openapi_version, OpenAPISchemaFeatures.from_openapi_version
-    )
+    _schema_kind: ClassVar[SchemaKind] = "openapi"
 
     @cached_property
     def schema_features(self) -> OpenAPISchemaFeatures:
@@ -427,7 +476,12 @@ class OpenAPIParser(JsonSchemaParser):
         OpenAPI 3.1 and later write a binary string so in place of 3.0's ``format: binary``, and 3.0 is read so too
         (its multipart members stay files); an AsyncAPI document reads its strings as JSON Schema does.
         """
-        return self._document_version(self.raw_obj, self._version_source) in _CONTENT_MEDIA_TYPE_OCTETS_VERSIONS
+        return self._read_dialect(self.raw_obj).version in _CONTENT_MEDIA_TYPE_OCTETS_VERSIONS
+
+    @override
+    def _features_at(self, at: JsonSchemaObject | SchemaLocation | None) -> OpenAPISchemaFeatures:
+        """Return the OpenAPI schema features that read a schema object, or the document being parsed for None."""
+        return cast("OpenAPISchemaFeatures", super()._features_at(at))
 
     @property
     @override
@@ -451,6 +505,7 @@ class OpenAPIParser(JsonSchemaParser):
     _supports_api_scope: ClassVar[bool] = False
     _api_scope_error: ClassVar[str] = "OpenAPIScope.Api requires ApiOpenAPIParser"
     _named_entry_maps: ClassVar[frozenset[str]] = JsonSchemaParser._named_entry_maps | {"headers"}  # ruff: ignore[private-member-access]
+    _discriminator_scan: ClassVar[_DiscriminatorScan] = _DiscriminatorScan()
 
     def __init__(
         self,
@@ -468,6 +523,10 @@ class OpenAPIParser(JsonSchemaParser):
             raise Error(self._api_scope_error)
         self.include_path_parameters: bool = self.config.include_path_parameters
         self.use_status_code_in_response_name: bool = self.config.use_status_code_in_response_name
+        self.keep_first_character_of_path_keys: bool = self.config.keep_first_character_of_path_keys
+        self.keep_content_parameter_refs: bool = self.config.keep_content_parameter_refs
+        self.skip_path_extension_keys: bool = self.config.skip_path_extension_keys
+        self.use_enum_field_as_literal_in_operations: bool = self.config.use_enum_field_as_literal_in_operations
         self.openapi_include_paths: list[str] | None = self.config.openapi_include_paths
         self.openapi_include_info_version: bool = self.config.openapi_include_info_version
         self.openapi_info_version: str | None = None
@@ -484,6 +543,7 @@ class OpenAPIParser(JsonSchemaParser):
         self._discriminator_documents: set[str] = set()
         self._discriminator_schemas: dict[str, dict[str, Any]] = {}
         self._discriminator_subtypes: dict[str, list[str]] = defaultdict(list)
+        self._string_discriminators: set[str] = set()
         self._parameter_models: list[tuple[DataModel, tuple[str, ...]]] = []
         self._specification_documents: set[str] = set()
 
@@ -499,7 +559,7 @@ class OpenAPIParser(JsonSchemaParser):
     @contextmanager
     def openapi_self_context(self, specification: dict[str, Any]) -> Generator[None, None, None]:
         """Temporarily use OpenAPI 3.2 $self as the document root identifier."""
-        if not isinstance(openapi_self := specification.get("$self"), str) or not self.schema_features.openapi_self:
+        if not isinstance(openapi_self := specification.get("$self"), str) or not self._features_at(None).openapi_self:
             yield
             return
 
@@ -519,8 +579,12 @@ class OpenAPIParser(JsonSchemaParser):
         """
         if document in self._specification_documents:
             return self.openapi_self_context(raw)
-        if "openapi" in raw and isinstance(openapi_self := raw.get("$self"), str) and self.schema_features.openapi_self:
-            scope = "/".join(self.model_resolver.current_root)
+        if (
+            "openapi" in raw
+            and isinstance(openapi_self := raw.get("$self"), str)
+            and self._features_at(None).openapi_self
+        ):
+            scope = self.model_resolver.current_document
             self.model_resolver.ids[scope].setdefault(openapi_self, f"{scope}#")
         return nullcontext()
 
@@ -684,11 +748,11 @@ class OpenAPIParser(JsonSchemaParser):
         """Get data type from JSON schema object, warning on ``nullable`` where the OpenAPI version deprecates it.
 
         OpenAPI 3.0 writes ``nullable: true``; 3.1 and later write ``type: [..., "null"]`` and still read ``nullable``,
-        with a warning in Strict mode (``schema_features.nullable_keyword``).
+        with a warning in Strict mode (``nullable_keyword`` of its schema features).
         """
         if (
             obj.nullable
-            and not self.schema_features.nullable_keyword
+            and not self._features_at(obj).nullable_keyword
             and (self.config.schema_version_mode == VersionMode.Strict)
         ):
             warn_deprecated("schema.openapi-nullable", stacklevel=2)
@@ -711,12 +775,12 @@ class OpenAPIParser(JsonSchemaParser):
     def _discriminator_mapping_ref(self, name: str, value: str, mapping: SchemaLocation | None) -> str:
         """Return a discriminator mapping value as a reference, with the edge of the mapping located at ``mapping``."""
         normalized = discriminator_mapping_ref(value)
-        return self._derived_ref(normalized, mapping, name, normalized)
+        return _schema_refs.derived_ref(self, normalized, mapping, name, normalized)
 
     def _get_discriminator_subtype_data_type(self, ref: str) -> DataType:
-        """Resolve one subtype without recursively expanding its discriminator."""
+        """Resolve one subtype without recursively expanding its discriminator, recording the `$ref` it stands for."""
         self.resolve_ref(ref)
-        return super().get_ref_data_type(ref)
+        return with_subtype_ref(super().get_ref_data_type(ref), ref)
 
     def _get_discriminator_union_type(self, ref: str) -> DataType | None:
         """Create a union type for discriminator subtypes if available.
@@ -725,8 +789,12 @@ class OpenAPIParser(JsonSchemaParser):
         the discriminator mapping to create the union type. This handles cases
         where schemas don't use allOf inheritance but have explicit discriminator mappings.
         """
-        current_document = "/".join(self.model_resolver.current_root)
-        subtypes = self._discriminator_subtypes.get(ref, [])
+        current_document = self.model_resolver.current_document
+        subtypes = (
+            self._discriminator_subtypes.get(ref, [])
+            if not self._discriminator_scan.string_discriminators or ref in self._string_discriminators
+            else []
+        )
         if not subtypes:
             discriminator = self._discriminator_schemas[ref]
             mapping = discriminator.get("mapping", {})
@@ -771,9 +839,11 @@ class OpenAPIParser(JsonSchemaParser):
         path: list[str],
         module_name: Optional[str] = None,  # noqa: UP045
         class_name: Optional[str] = None,  # noqa: UP045
+        *,
+        output_names: tuple[str, ...] = (),
     ) -> list[DataModelFieldBase]:
         """Parse object fields, adding discriminator info for allOf polymorphism."""
-        fields = super().parse_object_fields(obj, path, module_name, class_name=class_name)
+        fields = super().parse_object_fields(obj, path, module_name, class_name=class_name, output_names=output_names)
         properties = obj.properties or {}
 
         result_fields: list[DataModelFieldBase] = []
@@ -830,7 +900,7 @@ class OpenAPIParser(JsonSchemaParser):
         try:
             return object_type.model_validate(raw, context=self._schema_validation_context)
         except ValidationError as error:
-            for holder, key, tokens in _held_schemas(raw, object_type):
+            for holder, key, tokens in _held_schemas(raw, _MODEL_ROLES.get(object_type, "")):
                 self._validate_member(holder[key], [*path, *tokens], self._member_location(holder, key))
             message = f"{type(error).__name__}: {error}"
             raise SchemaParseError(message, _named_path(location, path), error) from error
@@ -860,15 +930,19 @@ class OpenAPIParser(JsonSchemaParser):
             raw_item_schema = cast("dict[str, YamlValue]", item_schema.model_dump(by_alias=True, exclude_none=True))
         return JsonSchemaObject.model_validate(_item_schema_array(raw_item_schema))
 
-    def _pick_media_schema(self, schema: _SchemaT | None, item_schema: _SchemaT | None) -> tuple[_SchemaT, bool] | None:
+    def _pick_media_schema(
+        self, schema: _SchemaT | None, item_schema: _SchemaT | None, location: SchemaLocation | None
+    ) -> tuple[_SchemaT, bool] | None:
         """Return the schema of a media type object, and whether it is its ``itemSchema``, from the two keys' values.
 
-        The schema is ``schema``, else the ``itemSchema`` of OpenAPI 3.2. A key set to null holds nothing, as the models
-        read it, so the ``itemSchema`` beside ``schema: null`` is read. A media type object with neither has none.
+        The schema is ``schema``, else the ``itemSchema`` of OpenAPI 3.2, as the version of the document at
+        ``location``, the media type object's, reads it (``_features_at``). A key set to null holds nothing, as the
+        models read it, so the ``itemSchema`` beside ``schema: null`` is read. A media type object with neither has
+        none.
         """
         if schema is not None:
             return schema, False
-        if item_schema is not None and self.schema_features.media_item_schema:
+        if item_schema is not None and self._features_at(location).media_item_schema:
             return item_schema, True
         return None
 
@@ -877,10 +951,10 @@ class OpenAPIParser(JsonSchemaParser):
 
         The array that represents an ``itemSchema`` stands for the media type object that holds it.
         """
-        if (picked := self._pick_media_schema(media_obj.schema_, media_obj.itemSchema)) is None:
+        location = media_obj.schema_location
+        if (picked := self._pick_media_schema(media_obj.schema_, media_obj.itemSchema, location)) is None:
             return None
         schema, from_item_schema = picked
-        location = media_obj.schema_location
         if from_item_schema:
             return MediaSchemaSource(
                 _locate(self._array_schema_from_media_item_schema(schema), location), from_item_schema=True
@@ -895,13 +969,14 @@ class OpenAPIParser(JsonSchemaParser):
             return None
 
         raw_media_obj = cast("dict[str, RawSchema | None]", media_obj)
-        if (picked := self._pick_media_schema(raw_media_obj.get("schema"), raw_media_obj.get("itemSchema"))) is None:
+        location = self._raw_location(media_obj)
+        if (
+            picked := self._pick_media_schema(raw_media_obj.get("schema"), raw_media_obj.get("itemSchema"), location)
+        ) is None:
             return None
         schema, from_item_schema = picked
         if from_item_schema:
-            return RawMediaSchemaSource(
-                _located(_item_schema_array(schema), self._raw_location(media_obj)), from_item_schema=True
-            )
+            return RawMediaSchemaSource(_located(_item_schema_array(schema), location), from_item_schema=True)
         return RawMediaSchemaSource(schema)
 
     def _media_schema_path(self, path: list[str], *, from_item_schema: bool) -> list[str]:  # noqa: PLR6301
@@ -933,12 +1008,21 @@ class OpenAPIParser(JsonSchemaParser):
         strip_leading_slash: bool = True,
         apply_path_filter: bool = True,
     ) -> None:
-        """Process path or webhook items with operations."""
+        """Process path or webhook items with operations.
+
+        A webhook name loses only a leading slash; a paths key loses its first character whatever it is (row
+        ``legacy-first-character-of-path-key``: ``pets`` names ``Ets...``), or only a leading slash under
+        ``--keep-first-character-of-path-keys``. A key of ``paths`` that holds no path item is skipped; an ``x-`` key
+        that holds an object is read as a path (row ``legacy-object-extension-paths``) unless
+        ``--skip-path-extension-keys`` skips it, as the api scope does.
+        """
         scope_path = [*base_path, f"#/{scope_name}"]
         kind = "path" if scope_name == "paths" else "webhook name"
         for item_name, methods_ in items.items():
             self._key_name(items, item_name, scope_path, kind)
-            if scope_name == "paths" and not holds_path_item(item_name, methods_, "legacy-object-extension-paths"):
+            if scope_name == "paths" and not holds_path_item(
+                item_name, methods_, path_key_row(skip_extension_keys=self.skip_path_extension_keys)
+            ):
                 continue
             if apply_path_filter and not self._matches_path_pattern(item_name):
                 continue
@@ -958,7 +1042,11 @@ class OpenAPIParser(JsonSchemaParser):
             if "parameters" in methods:
                 item_parameters.extend(_parameter_array(methods["parameters"], [*item_path, "parameters"]))
 
-            relative_name = item_name[1:] if strip_leading_slash else item_name.removeprefix("/")
+            relative_name = (
+                item_name[1:]
+                if strip_leading_slash and not self.keep_first_character_of_path_keys
+                else item_name.removeprefix("/")
+            )
             path = [*scope_path, relative_name] if relative_name else get_special_path("root", scope_path)
 
             base_path_context = (
@@ -1013,6 +1101,15 @@ class OpenAPIParser(JsonSchemaParser):
     def _build_operation_array(self, site: SchemaSite[JsonSchemaObject]) -> DataType:
         return self.parse_array(site.name, site.obj, [*site.path, site.name])
 
+    def _operation_all_of_beside_one_of_applies(self, site: SchemaSite[JsonSchemaObject]) -> bool:
+        """Return whether a body is the union of the anyOf or oneOf beside its allOf, as a definition of it is.
+
+        Not under ``legacy-operation-all-of-before-union``, where the allOf row parses it and the union is dropped.
+        """
+        return "legacy-operation-all-of-before-union" not in self._legacy_intersection and (
+            _all_of_beside_one_of_applies(self, site)
+        )
+
     def _operation_object_applies(self, site: SchemaSite[JsonSchemaObject]) -> bool:  # noqa: PLR6301
         return site.obj.is_object
 
@@ -1041,16 +1138,33 @@ class OpenAPIParser(JsonSchemaParser):
     def _operation_enum_applies(self, site: SchemaSite[JsonSchemaObject]) -> bool:
         return bool(site.obj.enum and not self.ignore_enum_constraints and not self._reads_enum_as_const(site.obj))
 
+    def _operation_literal_enum_applies(self, site: SchemaSite[JsonSchemaObject]) -> bool:
+        """Return whether a body or response enum is a root model of a Literal, as a definition's enum would be.
+
+        Only under ``--use-enum-field-as-literal-in-operations``, which reads ``x-enum-field-as-literal``,
+        ``--enum-field-as-literal-map`` and ``--enum-field-as-literal`` as ``_definition_enum_applies`` does.
+        """
+        return (
+            self.use_enum_field_as_literal_in_operations
+            and self._operation_enum_applies(site)
+            and self.should_parse_enum_as_literal(site.obj, property_name=site.name)
+        )
+
     def _build_operation_enum(self, site: SchemaSite[JsonSchemaObject]) -> DataType:
+        """Parse a body or response enum into an Enum class, as a definition's under the option, else as in 0.90.0."""
+        if self.use_enum_field_as_literal_in_operations:
+            return self._parse_enum_class(site.name, self._definition_enum(site.obj), site.path)
         return self.parse_enum(site.name, self._definition_enum(site.obj), site.path)
 
     _OPENAPI_OPERATION_TABLE: ClassVar[DispatchTable[OpenAPIParser, JsonSchemaObject, DataType]] = DispatchTable(
         (
             Row("array", _array_applies, _build_operation_array),
+            Row("all-of-beside-one-of", _operation_all_of_beside_one_of_applies, _parse_combined_root),
             Row("all-of", _all_of_applies, _parse_all_of_site),
             Row("one-of-any-of", _one_of_any_of_applies, _parse_combined_root),
             Row("object", _operation_object_applies, _build_operation_object),
             Row("inline-object-body", _operation_inline_object_body_applies, _build_operation_inline_object_body),
+            Row("literal-enum", _operation_literal_enum_applies, _parse_root_type_site),
             Row("enum", _operation_enum_applies, _build_operation_enum),
             Row("ref", _ref_applies, _get_ref_data_type_site),
         ),
@@ -1093,7 +1207,9 @@ class OpenAPIParser(JsonSchemaParser):
         """Parse response objects into data types by status code and content type."""
         data_types: defaultdict[str | int, dict[str, DataType]] = defaultdict(dict)
         for status_code, detail in responses.items():
-            response_name = f"{name}{str(status_code).capitalize()}" if self.use_status_code_in_response_name else name
+            response_name = (
+                composed_name(name, "status", word=str(status_code)) if self.use_status_code_in_response_name else name
+            )
 
             if isinstance(detail, ReferenceObject):
                 if not detail.ref:  # pragma: no cover
@@ -1129,7 +1245,21 @@ class OpenAPIParser(JsonSchemaParser):
         camel_path_name = snake_to_upper_camel(normalized, target_python_version=target)
         return f"{camel_path_name}{method.capitalize()}{suffix}"
 
-    def parse_all_parameters(  # noqa: PLR0912, PLR0915
+    def _content_parameter_schema(self, source: MediaSchemaSource, path: list[str]) -> JsonSchemaObject:
+        """Return the schema a parameter reads from the media schema of its content, at ``path``.
+
+        Row ``legacy-content-parameter-copy``: a media schema that is a Reference Object reads as a copy of the schema
+        it names, which gets a model of its own or, for a scalar, the inline type, default and description of the
+        target; under --keep-content-parameter-refs it stays the ``$ref``, as a parameter's own schema does.
+        """
+        schema = source.schema
+        if isinstance(schema, bool):
+            return self._site_schema(_locate(self._validate_schema_object(schema, path), source.location))
+        if isinstance(schema, ReferenceObject) and self.keep_content_parameter_refs:
+            return _locate(JsonSchemaObject.model_validate({"$ref": schema.ref}), source.location)
+        return self._site_schema(self.resolve_object(schema, JsonSchemaObject))
+
+    def parse_all_parameters(  # noqa: PLR0912, PLR0914, PLR0915
         self,
         name: str,
         parameters: list[ReferenceObject | ParameterObject],
@@ -1140,17 +1270,19 @@ class OpenAPIParser(JsonSchemaParser):
         """Parse all operation parameters into a data model located at the operation object.
 
         A parameter whose content lists several media types is the union of their types, without the schema's
-        constraints.
+        constraints. Under ``--read-only-write-only-model-type request-response`` the model names the Request variants
+        of the models its parameters use, as a request sends them.
         """
         fields: list[DataModelFieldBase] = []
         field_schemas: list[tuple[JsonSchemaObject, list[str]]] = []
         exclude_field_names: set[str] = set()
         seen_parameter_names: set[str] = set()
         reference = self.model_resolver.add(path, name, class_name=True, unique=True)
+        output_names = self.model_resolver.output_names(reference.path)
         for parameter_ in parameters:
             parameter = self.resolve_object(parameter_, ParameterObject, "parameter")
             match parameter.in_:
-                case ParameterLocation.querystring if self.schema_features.querystring_parameter:
+                case ParameterLocation.querystring if self._features_at(None).querystring_parameter:
                     parameter_name = parameter.name or "querystring"
                 case ParameterLocation.query | ParameterLocation.path:
                     if not (parameter_name := parameter.name):
@@ -1170,7 +1302,8 @@ class OpenAPIParser(JsonSchemaParser):
                 field_name=parameter_name,
                 excludes=exclude_field_names,
                 model_type=self.field_name_model_type,
-                class_name=name,
+                class_name=class_key("predicted", name),
+                output_names=output_names,
             )
             if parameter.schema_:
                 field_schema = self._site_schema(parameter.schema_, merge_ref_siblings=True)
@@ -1185,11 +1318,7 @@ class OpenAPIParser(JsonSchemaParser):
                     schema_path = self._media_schema_path(
                         [*path, name, parameter_name, media_type], from_item_schema=schema_result.from_item_schema
                     )
-                    field_schema = self._site_schema(
-                        _locate(self._validate_schema_object(schema_result.schema, schema_path), schema_result.location)
-                        if isinstance(schema_result.schema, bool)
-                        else self.resolve_object(schema_result.schema, JsonSchemaObject)
-                    )
+                    field_schema = self._content_parameter_schema(schema_result, schema_path)
                     data_types.append(self.parse_item(field_name, field_schema, schema_path))
                     field_schemas.append((field_schema, schema_path))
                 if not data_types:
@@ -1203,7 +1332,7 @@ class OpenAPIParser(JsonSchemaParser):
                 field_schema.default if field_schema else None,
                 has_default=field_schema.has_default if field_schema else False,
                 required=parameter.required,
-                class_name=reference.name,
+                scope=ClassScope(class_key("reference-name", reference), output_names),
             )
             fields.append(
                 self.get_object_field(
@@ -1216,7 +1345,8 @@ class OpenAPIParser(JsonSchemaParser):
                     effective_default=effective_default,
                     effective_has_default=effective_has_default,
                     use_default_with_required=use_default_with_required,
-                    class_name=reference.name,
+                    class_name=class_key("reference-name", reference),
+                    output_names=output_names,
                 )
             )
 
@@ -1224,12 +1354,13 @@ class OpenAPIParser(JsonSchemaParser):
             if self._types_nullable_map_values:
                 for field_schema, schema_path in field_schemas:
                     self.parse_ref(field_schema, schema_path)
+            update_field_refs_for_variant(self, fields, "Request")
             # Using _create_data_model from parent class JsonSchemaParser
             # This method automatically adds frozen=True for DataClass types
             model = self._create_data_model(
                 fields=fields,
                 reference=reference,
-                custom_base_class=self._resolve_base_class(name),
+                custom_base_class=self._resolve_base_class(ClassScope(class_key("predicted", name), output_names)),
                 custom_template_dir=self.custom_template_dir,
                 extra_template_data=self.extra_template_data,
                 keyword_only=self.keyword_only,
@@ -1303,10 +1434,17 @@ class OpenAPIParser(JsonSchemaParser):
         self._discriminator_documents.clear()
         self._discriminator_schemas.clear()
         self._discriminator_subtypes.clear()
+        self._string_discriminators.clear()
         self._parameter_models.clear()
         with self._parsing_session(self._resolve_specification_targets):
-            for source, path_parts in self._get_context_source_path_parts():
+            for source, path_parts in _schema_documents.get_context_source_path_parts(self):
                 if self.validation:
+                    if self.untrusted_input:
+                        msg = (
+                            "--validation is refused under --untrusted-input: its validator resolves the $ref of the "
+                            "document by itself, reading files and URLs that --untrusted-input does not read."
+                        )
+                        raise Error(msg)
                     warn_deprecated("cli.validation", stacklevel=2)
 
                     if source.raw_data is not None and not source.text:
@@ -1336,9 +1474,11 @@ class OpenAPIParser(JsonSchemaParser):
                             )
 
                 specification = self._load_source_dict(source)
-                self._cache_source_ref_body(source, specification)
+                _schema_documents.cache_source_ref_body(self, source, specification)
                 self.raw_obj = specification
-                self.raw_obj = specification = self._prepare_schema_resources(specification, path_parts)
+                self.raw_obj = specification = _schema_documents.prepare_schema_resources(
+                    self, specification, path_parts
+                )
                 self._specification_documents.add(self._schema_resource_document(path_parts))
                 with self.openapi_self_context(specification):
                     self._parse_specification(specification, path_parts)
@@ -1357,7 +1497,8 @@ class OpenAPIParser(JsonSchemaParser):
         """Load the models parameter models use that nothing else loaded, following only the references types use.
 
         Without --use-typed-nullable-map-values, parameter schemas load no references, as in 0.83.0, which failed
-        when a parameter used a model nothing else loaded.
+        when a parameter used a model nothing else loaded. A read/write variant is loaded with the schema it is a
+        variant of.
         """
         roots = {"/".join(root): root for _, root in self._parameter_models}
         attempted: set[str] = set()
@@ -1366,7 +1507,7 @@ class OpenAPIParser(JsonSchemaParser):
             self._loads_only_used_references = True
             try:
                 with self.model_resolver.current_base_path_context(Path()):
-                    for path in sorted(missing):
+                    for path in sorted({_source_path(path) for path in missing}):
                         if (root := roots.get(path.split("#", 1)[0])) is None:
                             self.resolve_ref(path)
                         else:
@@ -1403,36 +1544,59 @@ class OpenAPIParser(JsonSchemaParser):
         self._collect_discriminator_document(self.raw_obj)
 
     def _collect_discriminator_document(self, raw: dict[str, Any]) -> None:
-        """Collect discriminator definitions once per document, preserving subtype order."""
-        document = f"{'/'.join(self.model_resolver.current_root)}#"
+        """Collect discriminator definitions once per document, preserving subtype order.
+
+        The class's ``_discriminator_scan`` says how the document and its component schemas are read.
+        """
+        scan, resolver = self._discriminator_scan, self.model_resolver
+        document = (
+            resolver.join_path(tuple(resolver.current_root)) if scan.canonical_keys else f"{resolver.current_document}#"
+        )
         if document in self._discriminator_documents:
             return
         self._discriminator_documents.add(document)
-        self._register_discriminator_schema("#", raw)
-        components = _mapping(raw.get("components", {}), [document, "components"])
-        schemas = _mapping(components.get("schemas", {}), [document, "components", "schemas"])
+        self._note_scanned_document(document, raw)
+        if scan.components_only:
+            schemas = cast("dict[str, Any]", _as_mapping(_as_mapping(raw.get("components")).get("schemas")))
+        else:
+            self._register_discriminator_schema("#", raw)
+            components = _mapping(raw.get("components", {}), [document, "components"])
+            schemas = _mapping(components.get("schemas", {}), [document, "components", "schemas"])
+        if scan.canonical_keys:
+            self._named_components(schemas, [document, "components", "schemas"])
+        kept: Callable[[object], bool] = (lambda ref: isinstance(ref, str)) if scan.string_refs else bool
         potential_subtypes: list[tuple[str, dict[str, Any], list[str]]] = []
-
         for schema_name, schema in schemas.items():
             match schema:
                 case bool():
                     continue
                 case dict():
                     pass
+                case _ if scan.components_only:
+                    continue
                 case _:
                     self._validate_member(
                         schema,
-                        [*self.model_resolver.current_root, "#/components", "schemas", schema_name],
+                        [document, "components", "schemas", schema_name]
+                        if scan.canonical_keys
+                        else [*resolver.current_root, "#/components", "schemas", schema_name],
                         self._member_location(schemas, schema_name),
                     )
                     continue  # pragma: no cover - validation always raises for non-schema values
-            self._register_discriminator_schema(local_ref := f"#/components/schemas/{schema_name}", schema)
-
+            local_ref = (
+                "#" + _pointer_fragment(("components", "schemas", schema_name))
+                if scan.canonical_keys
+                else f"#/components/schemas/{schema_name}"
+            )
+            self._register_discriminator_schema(local_ref, schema)
             if isinstance(all_of := schema.get("allOf"), list):
-                refs = [ref for item in all_of if isinstance(item, dict) and (ref := item.get("$ref"))]
+                refs = [ref for item in all_of if isinstance(item, dict) and kept(ref := item.get("$ref"))]
                 if refs:
                     potential_subtypes.append((local_ref, schema, refs))
         self._link_discriminator_subtypes(document, potential_subtypes)
+
+    def _note_scanned_document(self, document: str, raw: dict[str, Any]) -> None:
+        """Note ``raw``, the document keyed ``document``, before its discriminators are collected; nothing here."""
 
     def _link_discriminator_subtypes(
         self, document: str, children: list[tuple[str, dict[str, Any], list[str]]]
@@ -1456,7 +1620,11 @@ class OpenAPIParser(JsonSchemaParser):
         """
         discriminator = schema.get("discriminator")
         if discriminator and not schema.get("oneOf") and not schema.get("anyOf"):
-            self._discriminator_schemas[self._schema_key(schema, ref, "discriminator")] = discriminator
+            key = self._schema_key(schema, ref, "discriminator")
+            if self._discriminator_scan.string_discriminators and isinstance(discriminator, str):
+                discriminator = {"propertyName": discriminator}
+                self._string_discriminators.add(key)
+            self._discriminator_schemas[key] = discriminator
 
     def _schema_key(self, schema: object, ref: str, keyword: str) -> str:
         """Return the key of a schema of a loaded document, with the edge of ``ref``, which names it from its document.
@@ -1465,5 +1633,5 @@ class OpenAPIParser(JsonSchemaParser):
         location, root `$id` and `$self`), the key the references to the schema get; a value the schema graph does
         not locate resolves ``ref`` in the current context.
         """
-        derived = self._derived_ref(ref, self._raw_location(schema), keyword, ref)
+        derived = _schema_refs.derived_ref(self, ref, self._raw_location(schema), keyword, ref)
         return keep_resolved_ref(derived, self._ref_path(derived))

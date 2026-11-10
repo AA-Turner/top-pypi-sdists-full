@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from importlib.util import source_from_cache
 from pathlib import Path
 from stat import S_ISDIR
@@ -20,7 +20,14 @@ from datamodel_code_generator._config_fields import (
     names_file,
 )
 from datamodel_code_generator._context_scope import context_values
-from datamodel_code_generator._paths import concrete, existing_ancestor, lexical, names_directory, same_file
+from datamodel_code_generator._paths import (
+    concrete,
+    existing_ancestor,
+    lexical,
+    names_directory,
+    resolved,
+    same_file,
+)
 from datamodel_code_generator.util import _find_pyproject_toml as _nearest_pyproject_toml
 
 if TYPE_CHECKING:
@@ -88,7 +95,7 @@ def _path_variants(path: Path) -> frozenset[Path]:
     lexical_path = lexical(path)
     try:
         parent_resolved_path = concrete(lexical_path)
-        resolved_path = lexical_path.resolve(strict=False)
+        resolved_path = resolved(lexical_path)
     except (OSError, ValueError):
         return frozenset({lexical_path})
     return frozenset({lexical_path, parent_resolved_path, resolved_path})
@@ -112,7 +119,7 @@ def _symlink_event_paths(path: Path) -> frozenset[Path]:
 
 
 def _resolved_path(path: Path) -> Path:
-    return lexical(path).resolve(strict=False)
+    return resolved(lexical(path))
 
 
 def _path_fingerprint(path: Path) -> tuple[int, int, int]:
@@ -145,17 +152,35 @@ def _nearest_existing_directory(path: Path) -> Path:
     return existing_ancestor(path)
 
 
+def _holds_output(directory: Path, outputs: Iterable[Path]) -> bool:
+    """Return whether writing an output can change a dependency directory's own fingerprint."""
+    return any(
+        output.is_relative_to(variant) or variant.is_relative_to(output)
+        for variant in _path_variants(directory)
+        for output in outputs
+    )
+
+
 def _watch_roots(
-    files: frozenset[Path], directories: frozenset[Path], event_paths: frozenset[Path]
+    files: frozenset[Path], directories: frozenset[Path], event_paths: frozenset[Path], *, polling: bool
 ) -> tuple[Path, ...]:
-    """Return minimal existing roots covering every dependency and recovery event."""
-    roots = {_nearest_existing_directory(path.parent) for path in files}
-    # Keep configured directory roots stable when the directory itself is
-    # removed and recreated. Its parent still receives the relevant event.
-    roots.update(_nearest_existing_directory(path.parent) for path in directories)
-    roots.update(_nearest_existing_directory(path) for path in event_paths)
+    """Return minimal existing roots covering every dependency and recovery event.
+
+    A polling watcher rescans each root by its path, so its roots are the existing dependencies themselves: it keeps
+    scanning a root that vanished, and the dependency fingerprints notice a missing one appearing. Native events stop at
+    a vanished root, so they watch the parents, where creation, removal and recreation are reported.
+    """
+    if polling:
+        roots = {resolved(path) for path in files | directories if path.exists()}
+    else:
+        roots = {_nearest_existing_directory(path.parent) for path in files}
+        # Keep configured directory roots stable when the directory itself is
+        # removed and recreated. Its parent still receives the relevant event.
+        roots.update(_nearest_existing_directory(path.parent) for path in directories)
+        roots.update(_nearest_existing_directory(path) for path in event_paths)
+        roots = {path for path in roots if path.is_dir()}
     watch_roots: list[Path] = []
-    for root in sorted((path for path in roots if path.is_dir()), key=lambda path: (len(path.parts), path.as_posix())):
+    for root in sorted(roots, key=lambda path: (len(path.parts), path.as_posix())):
         if not any(root.is_relative_to(ancestor) for ancestor in watch_roots):
             watch_roots.append(root)
     return tuple(watch_roots)
@@ -199,7 +224,7 @@ class WatchDependencies(_Weakrefable):
         event_paths = frozenset(
             files | static_symlink_events | self._generation_symlink_events | failed_generation_symlink_events
         )
-        watch_roots = _watch_roots(files, directories, event_paths)
+        watch_roots = _watch_roots(files, directories, event_paths, polling=self._polling_fingerprints_enabled)
         outputs = self._outputs.copy()
         if candidate is not None:
             outputs.update(candidate.outputs)
@@ -368,7 +393,11 @@ class WatchDependencies(_Weakrefable):
         collected = _CollectedGeneration(self)
         # A completed generation must acknowledge the inputs it observed, not later edits.
         if self._polling_fingerprints_enabled:
-            collected.polling_fingerprints = {path: _path_fingerprint(path) for path in self._snapshot.files}
+            snapshot = self._snapshot
+            observed = snapshot.files | {
+                directory for directory in snapshot.directories if not _holds_output(directory, snapshot.outputs)
+            }
+            collected.polling_fingerprints = {path: _path_fingerprint(path) for path in observed}
         with context_values({_current_collector: collected}):
             try:
                 yield collected
@@ -478,6 +507,20 @@ class WatchDependencies(_Weakrefable):
         """Return existing roots cached when the dependency graph was published."""
         return self._snapshot.watch_roots
 
+    def refresh_watch_roots(self) -> None:
+        """Recompute the cached roots after one vanished before a watcher could start on it."""
+        with self._lock:
+            snapshot = self._snapshot
+            self._snapshot = replace(
+                snapshot,
+                watch_roots=_watch_roots(
+                    snapshot.files,
+                    snapshot.directories,
+                    snapshot.event_paths,
+                    polling=self._polling_fingerprints_enabled,
+                ),
+            )
+
     @staticmethod
     def _includes_snapshot(snapshot: _DependencySnapshot, path_variants: frozenset[Path]) -> bool:
         if path_variants & snapshot.event_paths:
@@ -510,7 +553,7 @@ class WatchDependencies(_Weakrefable):
         """Accept recovery candidates before output exclusions and optional directory events."""
         snapshot = self._snapshot
         try:
-            resolved_path = path.resolve(strict=False)
+            resolved_path = resolved(path)
         except (OSError, ValueError):
             resolved_path = path
         path_variants = _path_variants(path)

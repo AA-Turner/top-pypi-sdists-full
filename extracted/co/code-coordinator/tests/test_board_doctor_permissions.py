@@ -42,6 +42,7 @@ from coord.board_doctor_policy import (
     _register_auto_action,
     policy_tier_of,
 )
+import coord.commands._common as common
 from coord.commands.drive_queue import drive_queue_add, drive_queue_remove
 from coord.config import Config
 from coord.models import Assignment, Board, Machine, Repo
@@ -155,17 +156,21 @@ class TestOutOfAllowlistActionsAreRejected:
         with pytest.raises(SweepPermissionError, match="bogus_action"):
             authorize_sweep_action("bogus_action")
 
-    def test_merge_approved_green_is_allowlisted_but_has_no_handler_yet(self) -> None:
+    def test_merge_is_allowlisted_but_has_no_dispatch_sweep_action_handler_yet(
+        self,
+    ) -> None:
         # Fixed in shape by the issue's hard constraints ahead of any cause
         # being wired to it (#3745's C3) — authorize_sweep_action clears it,
-        # but dispatch_sweep_action still refuses because no handler exists.
-        # The more specific exception type distinguishes this from "not
-        # allowed at all".
-        authorize_sweep_action("merge_approved_green")  # does not raise
-        assert "merge_approved_green" in SAFE_TIER_ACTIONS
+        # but dispatch_sweep_action still refuses because `_HANDLERS` has no
+        # entry for it (CAUSE_MERGE_PENDING_STUCK reaches a working handler
+        # a different way — through the #3881 investigator path, not this
+        # one). The more specific exception type distinguishes this from
+        # "not allowed at all".
+        authorize_sweep_action("merge")  # does not raise
+        assert "merge" in SAFE_TIER_ACTIONS
 
-        with pytest.raises(SweepHandlerNotRegisteredError, match="merge_approved_green"):
-            dispatch_sweep_action("merge_approved_green", "acme/widgets", 1)
+        with pytest.raises(SweepHandlerNotRegisteredError, match=r"'merge'"):
+            dispatch_sweep_action("merge", "acme/widgets", 1)
 
         assert state.list_drive_queue("acme/widgets") == []
 
@@ -641,13 +646,49 @@ class TestThe3760AutoActionsEndToEnd:
         assert _policy_of(dict(twice)) == _policy_of(dict(once))
         assert twice["state"] == "waiting"
 
-    def test_pr_merged_row_is_cleared(self, monkeypatch) -> None:
+    @staticmethod
+    def _pr_merged_config() -> Config:
+        # `reconcile_board_merges` resolves the row's assignment through
+        # `config.repo(a.repo_name)` — this class's existing rows all use
+        # "acme/widgets" as the bare `repo_name`, so the fixture config's
+        # one repo is named (and keyed to GitHub as) exactly that string.
+        repo = Repo(
+            name="acme/widgets", github="acme/widgets",
+            default_branch="main", test_command="pytest",
+        )
+        return Config(
+            repos=[repo],
+            machines=[
+                Machine(
+                    name="laptop", host="laptop.tail",
+                    repos=["acme/widgets"], repo_paths={"acme/widgets": "/work"},
+                ),
+            ],
+        )
+
+    @staticmethod
+    def _seed_done_work_assignment(coord_db, *, issue: int, aid: str) -> None:
+        coord_db.execute(
+            "INSERT INTO assignments (assignment_id, machine_name, repo_name, "
+            "issue_number, issue_title, branch, type, status) "
+            "VALUES (?, 'laptop', 'acme/widgets', ?, 't', ?, 'work', 'done')",
+            (aid, issue, f"issue-{issue}-x"),
+        )
+        coord_db.commit()
+
+    def test_pr_merged_row_is_marked_done(self, monkeypatch, coord_db) -> None:
         monkeypatch.setattr(drive_queue_add, "callback", _must_not_be_called)
         monkeypatch.setattr(drive_queue_remove, "callback", _must_not_be_called)
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda *a, **k: self._pr_merged_config())
+        monkeypatch.setattr("coord.github_ops.work_is_terminal", lambda *a, **k: True)
 
-        # No hold_after gate on this row: there is nothing a removal could
-        # prematurely satisfy, so the clear goes through cleanly.
+        # quadraui#2038: the row sits `running`/`blocked`/`waiting` in the
+        # drive queue while its PR already merged by hand — `mark_done`
+        # reconciles the STALE assignment to `status="merged"`, freeing its
+        # machine slot, without touching the drive-queue row's own
+        # declaration (unlike the pre-#3887 `drive_queue_remove` action).
         state.enqueue_drive_queue("acme/widgets", 3763)
+        self._seed_done_work_assignment(coord_db, issue=3763, aid="w3763")
         row = StuckRow(
             queue="drive-queue",
             key="acme/widgets#3763",
@@ -668,22 +709,23 @@ class TestThe3760AutoActionsEndToEnd:
         decision = report.decisions[0]
         assert decision.tier == TIER_AUTO
         assert decision.action == "auto-dispatch"
-        assert state.get_drive_queue_entry("acme/widgets", 3763) is None
+        # The drive-queue row's own declaration survives — `mark_done`
+        # reconciles the assignment, it never removes the queue row.
+        assert state.get_drive_queue_entry("acme/widgets", 3763) is not None
+        reconciled = state.build_board().find_by_id("w3763")
+        assert reconciled is not None
+        assert reconciled.status == "merged"
 
-    def test_pr_merged_row_with_an_unresolved_deploy_gate_is_not_cleared(
+    def test_pr_merged_row_with_no_candidate_assignment_is_a_noop(
         self, monkeypatch
     ) -> None:
-        # #1757: `_after_satisfied` treats an absent row as satisfied, so
-        # clearing a merged row whose deploy gate is still armed/fired would
-        # silently release every `after=`-dependent row as if a human had
-        # already deployed. The sweep must refuse to remove it — and #3805:
-        # that refusal must be absorbed as a no-op for THIS row rather than
-        # propagate out of `sweep()` and abort every row ordered after it.
+        # No work assignment at all for this row — `mark_done` has nothing
+        # to reconcile and must refuse cleanly, not raise.
         monkeypatch.setattr(drive_queue_add, "callback", _must_not_be_called)
         monkeypatch.setattr(drive_queue_remove, "callback", _must_not_be_called)
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda *a, **k: self._pr_merged_config())
 
         before = _seed_declared_row("acme/widgets", 3765)
-        assert before["hold_state"] == "armed"
         row = StuckRow(
             queue="drive-queue",
             key="acme/widgets#3765",
@@ -698,7 +740,7 @@ class TestThe3760AutoActionsEndToEnd:
             tier_of=policy_tier_of,
             auto_dispatchers=AUTO_DISPATCHERS,
             alert_dispatcher=_must_not_alert,
-            sweep_id="sweep-3765-merged-gated",
+            sweep_id="sweep-3765-merged-no-candidate",
         )
 
         decision = report.decisions[0]
@@ -710,20 +752,23 @@ class TestThe3760AutoActionsEndToEnd:
         assert after == before
 
     def test_refused_merged_row_does_not_abort_the_rest_of_the_sweep(
-        self, monkeypatch
+        self, monkeypatch, coord_db
     ) -> None:
-        # #3805: a gated row ordered first must not starve every row ordered
-        # after it — the sweep has no `try` around its dispatch call site,
-        # so the refusal has to be caught (and recorded as a decision)
-        # inside the C3 handler itself, not left to propagate.
+        # A row `mark_done` cannot reconcile (no candidate assignment),
+        # ordered first, must not starve every row ordered after it — the
+        # sweep has no `try` around its dispatch call site, so the refusal
+        # has to be absorbed (and recorded as a decision) inside the C3
+        # handler itself.
         monkeypatch.setattr(drive_queue_add, "callback", _must_not_be_called)
         monkeypatch.setattr(drive_queue_remove, "callback", _must_not_be_called)
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda *a, **k: self._pr_merged_config())
+        monkeypatch.setattr("coord.github_ops.work_is_terminal", lambda *a, **k: True)
 
-        gated_before = _seed_declared_row("acme/widgets", 3767)
-        assert gated_before["hold_state"] == "armed"
+        state.enqueue_drive_queue("acme/widgets", 3767)
         state.enqueue_drive_queue("acme/widgets", 3768)
+        self._seed_done_work_assignment(coord_db, issue=3768, aid="w3768")
 
-        gated_row = StuckRow(
+        no_candidate_row = StuckRow(
             queue="drive-queue",
             key="acme/widgets#3767",
             state="stuck",
@@ -741,67 +786,38 @@ class TestThe3760AutoActionsEndToEnd:
         )
 
         report = sweep(
-            [gated_row, clean_row],
+            [no_candidate_row, clean_row],
             tier_of=policy_tier_of,
             auto_dispatchers=AUTO_DISPATCHERS,
             alert_dispatcher=_must_not_alert,
-            sweep_id="sweep-3805-gated-then-clean",
+            sweep_id="sweep-3805-noop-then-clean",
         )
 
         assert len(report.decisions) == 2
-        gated_decision, clean_decision = report.decisions
-        assert gated_decision.key == "acme/widgets#3767"
-        assert gated_decision.action == "auto-dispatch-noop"
+        noop_decision, clean_decision = report.decisions
+        assert noop_decision.key == "acme/widgets#3767"
+        assert noop_decision.action == "auto-dispatch-noop"
         assert clean_decision.key == "acme/widgets#3768"
         assert clean_decision.action == "auto-dispatch"
 
-        # The gated row survives untouched; the clean one ordered after it
-        # still got processed and removed.
+        # The no-candidate row's own queue entry survives untouched; the
+        # clean one ordered after it still got processed and reconciled.
         assert state.get_drive_queue_entry("acme/widgets", 3767) is not None
-        assert state.get_drive_queue_entry("acme/widgets", 3768) is None
+        reconciled = state.build_board().find_by_id("w3768")
+        assert reconciled is not None
+        assert reconciled.status == "merged"
 
-    def test_pr_merged_row_with_a_released_deploy_gate_is_cleared(
-        self, monkeypatch
-    ) -> None:
-        # `hold_state == "released"` is the one gated state removal is safe
-        # in: a human already resolved the gate by hand.
+    def test_pr_merged_row_mark_done_is_idempotent(self, monkeypatch, coord_db) -> None:
+        # A row already reconciled (by an earlier sweep) must not make a
+        # second sweep pass over the same cause raise or re-mutate an
+        # assignment that is no longer `status="done"`.
         monkeypatch.setattr(drive_queue_add, "callback", _must_not_be_called)
         monkeypatch.setattr(drive_queue_remove, "callback", _must_not_be_called)
-
-        _seed_declared_row("acme/widgets", 3766)
-        assert state.update_drive_queue_entry(
-            "acme/widgets", 3766, hold_state="released"
-        )
-        row = StuckRow(
-            queue="drive-queue",
-            key="acme/widgets#3766",
-            state="stuck",
-            cause=queue_diagnose.CAUSE_PR_MERGED,
-            confidence="high",
-            evidence=(f"cause={queue_diagnose.CAUSE_PR_MERGED}",),
-        )
-
-        report = sweep(
-            [row],
-            tier_of=policy_tier_of,
-            auto_dispatchers=AUTO_DISPATCHERS,
-            alert_dispatcher=_must_not_alert,
-            sweep_id="sweep-3766-merged-released",
-        )
-
-        decision = report.decisions[0]
-        assert decision.tier == TIER_AUTO
-        assert decision.action == "auto-dispatch"
-        assert state.get_drive_queue_entry("acme/widgets", 3766) is None
-
-    def test_pr_merged_row_clear_is_idempotent(self, monkeypatch) -> None:
-        # A row already removed (by an earlier sweep, or by hand) must not
-        # make a second sweep pass over the same cause raise or re-mutate
-        # anything that no longer exists.
-        monkeypatch.setattr(drive_queue_add, "callback", _must_not_be_called)
-        monkeypatch.setattr(drive_queue_remove, "callback", _must_not_be_called)
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda *a, **k: self._pr_merged_config())
+        monkeypatch.setattr("coord.github_ops.work_is_terminal", lambda *a, **k: True)
 
         state.enqueue_drive_queue("acme/widgets", 3764)
+        self._seed_done_work_assignment(coord_db, issue=3764, aid="w3764")
         row = StuckRow(
             queue="drive-queue",
             key="acme/widgets#3764",
@@ -811,23 +827,29 @@ class TestThe3760AutoActionsEndToEnd:
             evidence=(f"cause={queue_diagnose.CAUSE_PR_MERGED}",),
         )
 
-        sweep(
+        first = sweep(
             [row],
             tier_of=policy_tier_of,
             auto_dispatchers=AUTO_DISPATCHERS,
             alert_dispatcher=_must_not_alert,
             sweep_id="sweep-3764-merged-first",
         )
-        assert state.get_drive_queue_entry("acme/widgets", 3764) is None
+        assert first.decisions[0].action == "auto-dispatch"
+        once = state.build_board().find_by_id("w3764")
+        assert once is not None
+        assert once.status == "merged"
 
-        sweep(
+        second = sweep(
             [row],
             tier_of=policy_tier_of,
             auto_dispatchers=AUTO_DISPATCHERS,
             alert_dispatcher=_must_not_alert,
             sweep_id="sweep-3764-merged-second",
         )
-        assert state.get_drive_queue_entry("acme/widgets", 3764) is None
+        assert second.decisions[0].action == "auto-dispatch-noop"
+        twice = state.build_board().find_by_id("w3764")
+        assert twice is not None
+        assert twice.status == "merged"
 
 
 class TestSmokeNoVerdictRequeue:
@@ -1766,3 +1788,1256 @@ class TestFinisherSelfBless:
             event_type="finisher_self_bless_advance_unconfirmed", repo="api", issue=1
         )
         assert len(unconfirmed["entries"]) == 1
+
+
+# ── #3881: the daemon-host investigator wrapper ──────────────────────────
+
+
+class TestAuthorizeInvestigatorAction:
+    """The investigator's closed action set and its forbidden names —
+    checked ahead of, and independently of, the mechanical handlers below,
+    so a bad verb never reaches a handler at all."""
+
+    def test_every_investigator_action_is_authorized(self) -> None:
+        from coord.board_doctor_permissions import (
+            INVESTIGATOR_ACTIONS,
+            authorize_investigator_action,
+        )
+
+        for action in INVESTIGATOR_ACTIONS:
+            authorize_investigator_action(action)  # must not raise
+
+    def test_force_merge_and_override_human_required_are_refused(self) -> None:
+        from coord.board_doctor_permissions import (
+            SweepPermissionError,
+            authorize_investigator_action,
+        )
+
+        with pytest.raises(SweepPermissionError, match="force_merge"):
+            authorize_investigator_action("force_merge")
+        with pytest.raises(SweepPermissionError, match="override_human_required"):
+            authorize_investigator_action("override_human_required")
+
+    @pytest.mark.parametrize(
+        "forbidden",
+        [
+            "edit_sealed_suite",
+            "close_issue",
+            "reopen_issue",
+            "retitle_issue",
+            "rescope_issue",
+            "edit_credentials",
+            "edit_coordinator_yml",
+            "gh_write",
+        ],
+    )
+    def test_the_3881_forbidden_extras_are_each_refused(self, forbidden: str) -> None:
+        from coord.board_doctor_permissions import (
+            SweepPermissionError,
+            authorize_investigator_action,
+        )
+
+        with pytest.raises(SweepPermissionError, match=forbidden):
+            authorize_investigator_action(forbidden)
+
+    def test_an_unknown_verb_names_the_closed_set(self) -> None:
+        from coord.board_doctor_permissions import (
+            SweepPermissionError,
+            authorize_investigator_action,
+        )
+
+        with pytest.raises(SweepPermissionError, match="bogus_verb"):
+            authorize_investigator_action("bogus_verb")
+
+    def test_aliases_reach_the_same_gate_as_the_sweep(self) -> None:
+        # requeue/integration_fix are a rename, not a second grant —
+        # disabling the underlying safe-tier name must disable the alias.
+        # merge (#3902) needs no alias at all: the investigator verb and
+        # the safe-tier name are the identical string.
+        from coord.board_doctor_permissions import (
+            SAFE_TIER_ACTIONS,
+            authorize_investigator_action,
+        )
+
+        assert "drive_queue_requeue" in SAFE_TIER_ACTIONS
+        assert "merge" in SAFE_TIER_ACTIONS
+        assert "dispatch_fixit_leg" in SAFE_TIER_ACTIONS
+        authorize_investigator_action("requeue")
+        authorize_investigator_action("merge")
+        authorize_investigator_action("integration_fix")
+
+
+class TestInvestigatorRequeue:
+    def test_acts_and_audits_when_nothing_is_in_flight(self) -> None:
+        from coord.board_doctor_permissions import investigator_requeue
+
+        state.enqueue_drive_queue("acme/widgets", 2035, machine="precision")
+        board = Board()
+
+        result = investigator_requeue(
+            "acme/widgets", 2035, board, reason="frozen blocked row, nothing live against it",
+        )
+
+        assert result["acted"] is True
+        assert state.get_drive_queue_entry("acme/widgets", 2035) is not None
+        log = query_audit_log(event_type="investigator_requeue", repo="acme/widgets", issue=2035)
+        assert len(log["entries"]) == 1
+        assert log["entries"][0]["details"]["reason"] == (
+            "frozen blocked row, nothing live against it"
+        )
+
+    def test_refuses_without_a_write_when_a_leg_is_already_in_flight(self) -> None:
+        from coord.board_doctor_permissions import investigator_requeue
+
+        state.enqueue_drive_queue("acme/widgets", 2036)
+        before = state.get_drive_queue_entry("acme/widgets", 2036)
+        board = Board()
+        board.active.append(Assignment(
+            machine_name="laptop", repo_name="acme/widgets", issue_number=2036,
+            issue_title="x", assignment_id="w1", status="running", type="work",
+        ))
+
+        result = investigator_requeue("acme/widgets", 2036, board, reason="should not act")
+
+        assert result["acted"] is False
+        assert "already" in result["detail"]
+        after = state.get_drive_queue_entry("acme/widgets", 2036)
+        assert dict(after) == dict(before)
+        log = query_audit_log(
+            event_type="investigator_requeue_refused", repo="acme/widgets", issue=2036,
+        )
+        assert len(log["entries"]) == 1
+
+    def test_already_fixed_by_the_time_we_act_refuses_cleanly(self) -> None:
+        # The row was removed from the queue (e.g. by a human) between
+        # diagnosis and the investigator's own action — not an error.
+        from coord.board_doctor_permissions import investigator_requeue
+
+        board = Board()
+
+        result = investigator_requeue("acme/widgets", 9999, board, reason="already handled")
+
+        assert result["acted"] is False
+        assert "not in the drive queue" in result["detail"]
+
+
+class TestInvestigatorRaiseBudget:
+    """Eligibility is re-derived live from the board/CI backend THIS call
+    reads (:func:`_live_review_red_with_findings` /
+    :func:`_live_ci_red_only`) — never trusted from a caller-supplied
+    boolean (#3881 review: the precondition must be an observation, not
+    the gated agent's own assertion)."""
+
+    def test_acts_once_on_a_request_changes_verdict_with_findings(
+        self, monkeypatch,
+    ) -> None:
+        from coord.board_doctor_permissions import investigator_raise_budget
+        from coord.state import board_doctor_fixit_rebudget_spent
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        state.enqueue_drive_queue("api", 1)
+        board = Board()
+        board.completed.append(_fixit_work_assignment())
+        board.completed.append(
+            _finisher_review_assignment(review_of="w1", review_verdict="request-changes")
+        )
+        monkeypatch.setattr(
+            "coord.auto_loop._load_review_findings",
+            lambda *a, **k: ReviewFindings(
+                verdict="request-changes",
+                body=(
+                    "<!-- coord:review verdict=request-changes blocking=1 "
+                    "assignment=r1 -->\n## Blocking findings\n- a real bug\n"
+                ),
+            ),
+        )
+
+        result = investigator_raise_budget(
+            "api", 1, board, config, gh_ops=object(),
+            review_assignment_id="r1",
+            reason="request-changes with concrete findings",
+        )
+
+        assert result["acted"] is True
+        assert board_doctor_fixit_rebudget_spent("api", 1) is True
+        row = state.get_drive_queue_entry("api", 1)
+        assert row is not None and row["max_fix_rounds"] is not None
+
+    def test_acts_on_ci_red_on_the_merge_ref_only(self, monkeypatch) -> None:
+        from coord import merge_queue as mq
+        from coord import ci_store as ci_store_mod
+        from coord.board_doctor_permissions import investigator_raise_budget
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        state.enqueue_drive_queue("api", 2)
+        board = Board()
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w2", repo_name="api", repo_github="acme/api",
+                branch="issue-2-fix", target_branch="main", issue_number=2,
+                issue_title="Fix the thing", state=mq.PENDING, pr_number=9,
+            )
+        ])
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+
+        class _FailingCiStore:
+            is_available = True
+
+            def list_checks_for_pr(self, repo_github, pr_number):
+                return [
+                    ci_store_mod.CheckRun(
+                        name="ci", status="completed", conclusion="failure",
+                        url="", run_id="1", started_at=None, completed_at=None,
+                    )
+                ]
+
+        monkeypatch.setattr(
+            ci_store_mod, "build_ci_store", lambda *a, **k: _FailingCiStore(),
+        )
+
+        result = investigator_raise_budget(
+            "api", 2, board, config, gh_ops=object(),
+            review_assignment_id=None,
+            reason="CI red, review already approved",
+        )
+
+        assert result["acted"] is True
+
+    def test_refuses_when_neither_condition_holds(self) -> None:
+        from coord.board_doctor_permissions import investigator_raise_budget
+        from coord.state import board_doctor_fixit_rebudget_spent
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        state.enqueue_drive_queue("api", 3)
+        board = Board()
+
+        result = investigator_raise_budget(
+            "api", 3, board, config, gh_ops=object(),
+            review_assignment_id=None,
+            reason="flailing, not environmental",
+        )
+
+        assert result["acted"] is False
+        assert board_doctor_fixit_rebudget_spent("api", 3) is False
+
+    def test_refuses_a_caller_supplied_claim_unbacked_by_live_state(
+        self, monkeypatch,
+    ) -> None:
+        """A session that merely ASSERTS eligibility — a real review id
+        whose actual body carries no confirmed blocking findings — must
+        not be granted the raise just because it named a plausible-looking
+        review. This is the exact #3881 review finding: the precondition
+        must be observed here, not trusted from the caller."""
+        from coord.board_doctor_permissions import investigator_raise_budget
+        from coord.state import board_doctor_fixit_rebudget_spent
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        state.enqueue_drive_queue("api", 5)
+        board = Board()
+        board.completed.append(_fixit_work_assignment())
+        board.completed.append(
+            _finisher_review_assignment(review_of="w1", review_verdict="request-changes")
+        )
+        monkeypatch.setattr(
+            "coord.auto_loop._load_review_findings",
+            lambda *a, **k: ReviewFindings(
+                verdict="request-changes",
+                body="<!-- coord:review verdict=request-changes blocking=0 assignment=r1 -->\n",
+            ),
+        )
+
+        result = investigator_raise_budget(
+            "api", 5, board, config, gh_ops=object(),
+            review_assignment_id="r1",
+            reason="claims eligibility",
+        )
+
+        assert result["acted"] is False
+        assert board_doctor_fixit_rebudget_spent("api", 5) is False
+
+    def test_the_lifetime_cap_is_spent_at_most_once_ever(self, monkeypatch) -> None:
+        from coord.board_doctor_permissions import investigator_raise_budget
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        state.enqueue_drive_queue("api", 4)
+        board = Board()
+        board.completed.append(_fixit_work_assignment())
+        board.completed.append(
+            _finisher_review_assignment(review_of="w1", review_verdict="request-changes")
+        )
+        monkeypatch.setattr(
+            "coord.auto_loop._load_review_findings",
+            lambda *a, **k: ReviewFindings(
+                verdict="request-changes",
+                body=(
+                    "<!-- coord:review verdict=request-changes blocking=1 "
+                    "assignment=r1 -->\n## Blocking findings\n- a real bug\n"
+                ),
+            ),
+        )
+
+        first = investigator_raise_budget(
+            "api", 4, board, config, gh_ops=object(),
+            review_assignment_id="r1",
+            reason="first raise",
+        )
+        assert first["acted"] is True
+
+        second = investigator_raise_budget(
+            "api", 4, board, config, gh_ops=object(),
+            review_assignment_id="r1",
+            reason="second raise attempt",
+        )
+        assert second["acted"] is False
+        assert "already spent" in second["detail"]
+
+
+class TestInvestigatorBounce:
+    def test_refuses_without_a_prior_raise_budget(self) -> None:
+        from coord.board_doctor_permissions import investigator_bounce
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        review = _finisher_review_assignment(review_of="w1", review_verdict="request-changes")
+        board.completed.extend([work, review])
+
+        result = investigator_bounce(
+            "api", 1, "r1", board, config, reason="should not act",
+        )
+
+        assert result["acted"] is False
+        assert "raise-budget" in result["detail"]
+
+    def test_acts_after_a_raise_budget_on_a_request_changes_review(self, monkeypatch) -> None:
+        from coord.board_doctor_permissions import investigator_bounce
+        from coord.state import record_board_doctor_fixit_rebudget_spent
+
+        record_board_doctor_fixit_rebudget_spent("api", 1)
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        review = _finisher_review_assignment(review_of="w1", review_verdict="request-changes")
+        board.completed.extend([work, review])
+
+        class _FixDispatched:
+            kind = "fix_dispatched"
+
+        monkeypatch.setattr(
+            "coord.auto_loop.process_review_completion",
+            lambda *a, **k: [_FixDispatched()],
+        )
+
+        result = investigator_bounce("api", 1, "r1", board, config, reason="bounce it")
+
+        assert result["acted"] is True
+        # #3881 review: `process_review_completion`'s own board mutations
+        # (`review_verdict`/`review_state`) are lost unless the caller
+        # persists — confirm `sweep_bounce` actually wrote the board back,
+        # not just mutated the in-memory copy this call happened to hold.
+        from coord.board_service import read_board
+
+        persisted = read_board()
+        assert {a.assignment_id for a in persisted.completed} == {"w1", "r1"}
+
+
+class TestInvestigatorRestage:
+    def test_test_stage_reuses_smoke_requeue(self, coord_db) -> None:
+        from coord.board_doctor_permissions import investigator_restage
+        from coord.smoke import TEST_STATE_BLOCKED, mute_smoke_tally
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        coord_db.execute(
+            "INSERT INTO assignments (assignment_id, machine_name, repo_name, "
+            "issue_number, issue_title, branch, type, status) "
+            "VALUES ('w5', 'm1', 'api', 5, 't', 'issue-5-x', 'work', 'done')",
+        )
+        coord_db.commit()
+        state.record_test_verdict(
+            assignment_id="w5",
+            test_state=TEST_STATE_BLOCKED,
+            test_reason=mute_smoke_tally(MUTE_SMOKE_LEG_BUDGET),
+        )
+
+        result = investigator_restage("api", 5, board, config, stage="test", reason="no verdict")
+
+        assert result["acted"] is True
+
+    def test_an_invalid_stage_raises_rather_than_silently_falling_through(self) -> None:
+        from coord.board_doctor_permissions import investigator_restage
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+
+        with pytest.raises(ValueError):
+            investigator_restage("api", 1, board, config, stage="bogus", reason="x")
+
+    def test_review_stage_refuses_with_no_completed_work_to_restage(self) -> None:
+        from coord.board_doctor_permissions import investigator_restage
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+
+        result = investigator_restage("api", 1, board, config, stage="review", reason="x")
+
+        assert result["acted"] is False
+        assert "no completed work assignment" in result["detail"]
+
+    def test_review_stage_persists_the_board_after_a_successful_dispatch(
+        self, monkeypatch,
+    ) -> None:
+        """`coord.review.dispatch_review`'s own contract: "the caller is
+        responsible for persisting the board" — confirm the restage
+        handler actually discharges it rather than leaving the mutation
+        in-memory only."""
+        from coord.board_doctor_permissions import investigator_restage
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        board.completed.append(work)
+
+        class _Dispatched:
+            assignment_id = "review-fresh"
+
+        def _fake_dispatch_review(w, b, c):
+            w.review_state = "dispatched"
+            return _Dispatched()
+
+        monkeypatch.setattr("coord.review.dispatch_review", _fake_dispatch_review)
+
+        result = investigator_restage("api", 1, board, config, stage="review", reason="x")
+
+        assert result["acted"] is True
+        from coord.board_service import read_board
+
+        persisted = read_board()
+        persisted_work = next(a for a in persisted.completed if a.assignment_id == "w1")
+        assert persisted_work.review_state == "dispatched"
+
+
+class TestSweepRestageRoutesStaleApprovalsToScopedReview:
+    """#3929 review (blocking): a work assignment that already carries a
+    terminal review verdict makes :func:`coord.review.dispatch_review` hard
+    -refuse under #3670 — "ONE review per leg" — so `sweep_restage(stage=
+    "review")` must route through the #1476 scoped-review primitive
+    (:func:`coord.review.dispatch_scoped_reviews_for_queue`) instead of
+    guaranteeing a confirmed no-op for exactly the shape
+    :data:`coord.queue_diagnose.CAUSE_REVIEW_STALE` is minted for."""
+
+    def test_restages_via_the_scoped_review_primitive_when_a_verdict_is_already_recorded(
+        self, monkeypatch,
+    ) -> None:
+        from coord.board_doctor_permissions import sweep_restage
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        work.review_verdict = "approve"
+        board.completed.append(work)
+
+        scoped_review = Assignment(
+            machine_name="laptop", repo_name="api", issue_number=1,
+            issue_title="[scoped-review] t", assignment_id="scoped-r1",
+            type="review", status="running", branch=work.branch,
+        )
+
+        def _fake_dispatch_scoped_reviews_for_queue(b, c):
+            assert b is board
+            assert c is config
+            return [scoped_review]
+
+        monkeypatch.setattr(
+            "coord.review.dispatch_scoped_reviews_for_queue",
+            _fake_dispatch_scoped_reviews_for_queue,
+        )
+
+        result = sweep_restage("api", 1, board, config, stage="review")
+
+        assert result["restaged"] is True
+        assert "scoped-r1" in result["detail"]
+
+    def test_reports_a_confirmed_no_op_when_no_scoped_candidate_is_found(
+        self, monkeypatch,
+    ) -> None:
+        from coord.board_doctor_permissions import sweep_restage
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        work.review_verdict = "approve"
+        board.completed.append(work)
+
+        monkeypatch.setattr(
+            "coord.review.dispatch_scoped_reviews_for_queue", lambda b, c: [],
+        )
+
+        result = sweep_restage("api", 1, board, config, stage="review")
+
+        assert result["restaged"] is False
+        assert "#3670" in result["detail"]
+
+    def test_a_never_reviewed_work_assignment_still_uses_the_plain_dispatch_review(
+        self, monkeypatch,
+    ) -> None:
+        """No terminal verdict recorded yet — today's existing path (plain
+        `dispatch_review`) must still run; routing this shape through the
+        scoped-review primitive instead would find nothing (there is no
+        prior approval to scope a delta against) and silently no-op."""
+        from coord.board_doctor_permissions import sweep_restage
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        board.completed.append(work)
+
+        class _Dispatched:
+            assignment_id = "review-fresh"
+
+        monkeypatch.setattr(
+            "coord.review.dispatch_review", lambda w, b, c: _Dispatched(),
+        )
+
+        def _must_not_be_called(*a, **k):
+            raise AssertionError("must not call the scoped-review primitive")
+
+        monkeypatch.setattr(
+            "coord.review.dispatch_scoped_reviews_for_queue", _must_not_be_called,
+        )
+
+        result = sweep_restage("api", 1, board, config, stage="review")
+
+        assert result["restaged"] is True
+        assert "review-fresh" in result["detail"]
+
+
+class TestInvestigatorIntegrationFix:
+    def test_dispatches_against_the_sibling_issue_never_the_original(self) -> None:
+        from coord.board_doctor_permissions import investigator_integration_fix
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        board.completed.append(_fixit_work_assignment(aid="w-sibling"))
+        board.completed[-1].issue_number = 2
+        client = _FakeHTTPClient({"id": "sibling-fix"})
+
+        result = investigator_integration_fix(
+            "api", 1, board, config,
+            sibling_repo="api", sibling_issue=2, cause="baseline_red_streak",
+            evidence=("base red for 3 days",), reason="base broke this row's PR",
+        )
+
+        assert "api#1" in result["detail"] or "api#2" in result["detail"]
+        # dispatched (or not) is driven by sweep_dispatch_fixit_leg against
+        # issue 2, never issue 1 — confirmed via the board, not the result
+        # string alone.
+        if result["acted"]:
+            dispatched_for_2 = [
+                a for a in board.active if a.issue_number == 2 and a.type == "work"
+            ]
+            assert dispatched_for_2
+
+    def test_refuses_when_the_sibling_already_gave_up_on_the_fix_round_ceiling(
+        self, monkeypatch,
+    ) -> None:
+        """#3756: the ONE lookup every independent dispatcher must consult
+        before relaunching a fix leg — this verb targets a SIBLING issue,
+        so it must check the sibling's own ceiling, not the original row's."""
+        import coord.drive_queue as dq
+        from coord.board_doctor_permissions import investigator_integration_fix
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        monkeypatch.setattr(
+            dq, "fix_round_ceiling_blocked_for_issue",
+            lambda r, i: r == "api" and i == 2,
+        )
+
+        result = investigator_integration_fix(
+            "api", 1, board, config,
+            sibling_repo="api", sibling_issue=2, cause="baseline_red_streak",
+            evidence=(), reason="base broke this row's PR",
+        )
+
+        assert result["acted"] is False
+        assert "fix-round ceiling" in result["detail"]
+        assert not board.active
+
+
+class TestInvestigatorMarkDone:
+    def test_refuses_cleanly_with_no_candidate_row(self) -> None:
+        from coord.board_doctor_permissions import investigator_mark_done
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+
+        result = investigator_mark_done("api", 1, board, config, reason="nothing to reconcile")
+
+        assert result["acted"] is False
+
+    def test_acts_when_the_pr_merged_out_of_band(self, monkeypatch) -> None:
+        from coord.board_doctor_permissions import investigator_mark_done
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        work = _fixit_work_assignment()
+        board.completed.append(work)
+
+        monkeypatch.setattr(
+            "coord.github_ops.work_is_terminal", lambda *a, **k: True,
+        )
+
+        result = investigator_mark_done("api", 1, board, config, reason="merged by hand")
+
+        assert result["acted"] is True
+        assert work.status == "merged"
+
+
+class TestInvestigatorClearLatchAndMerge:
+    def test_clear_latch_refuses_with_no_merge_queue_entry(self) -> None:
+        from coord.board_doctor_permissions import investigator_clear_latch
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+
+        result = investigator_clear_latch(
+            "api", 1, board, config, gh_ops=object(), reason="x",
+        )
+
+        assert result["acted"] is False
+        assert "no merge-queue entry" in result["detail"]
+
+    def test_merge_refuses_with_no_merge_queue_entry(self) -> None:
+        from coord.board_doctor_permissions import investigator_merge
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+
+        result = investigator_merge(
+            "api", 1, board, config, gh_ops=object(), reason="x",
+        )
+
+        assert result["acted"] is False
+        assert "no merge-queue entry" in result["detail"]
+
+    def test_merge_refuses_a_pending_entry_with_no_bound_approval(self) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import investigator_merge
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w1", repo_name="api", repo_github="acme/api",
+                branch="issue-1-fix", target_branch="main", issue_number=1,
+                issue_title="Fix the thing", state=mq.PENDING,
+            )
+        ])
+
+        result = investigator_merge(
+            "api", 1, board, config, gh_ops=object(), reason="x",
+        )
+
+        assert result["acted"] is False
+        assert "no approval bound" in result["detail"]
+
+    def test_clear_latch_acts_once_approval_and_live_mergeability_both_confirm(
+        self, monkeypatch,
+    ) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import investigator_clear_latch
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.HUMAN_REQUIRED, pr_number=7,
+        )
+        mq.save_queue([entry])
+
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+        captured: dict = {}
+
+        def _fake_reconcile(gh_ops, **kwargs):
+            captured.update(kwargs)
+            return [mq.MergeEvent(entry, "reopened", "cleared for real")]
+
+        monkeypatch.setattr(mq, "reconcile_conflict_entries", _fake_reconcile)
+
+        result = investigator_clear_latch(
+            "api", 1, board, config, gh_ops=object(), reason="rebase landed clean",
+        )
+
+        assert result["acted"] is True
+        assert result["detail"] == "cleared for real"
+        # #3902 review: pin the `only=` SCOPE itself, not merely that the
+        # kwarg was passed somehow — a caller that dropped it (or passed
+        # the wrong row) would pass this test as written before.
+        assert captured.get("only") == ("api", 1)
+
+    def test_merge_acts_once_approval_confirms_and_process_reports_merged(
+        self, monkeypatch,
+    ) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import investigator_merge
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.PENDING,
+        )
+        mq.save_queue([entry])
+
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+        monkeypatch.setattr(
+            mq, "process",
+            lambda items, gh_ops, **kwargs: [mq.MergeEvent(entry, "merged", "merged cleanly")],
+        )
+
+        result = investigator_merge(
+            "api", 1, board, config, gh_ops=object(), reason="approved and green",
+        )
+
+        assert result["acted"] is True
+        assert result["detail"] == "merged cleanly"
+
+    def test_merge_passes_a_real_ci_store_and_preserves_a_concurrent_queue_row(
+        self, monkeypatch,
+    ) -> None:
+        """#3881 review: `process()` must be handed a real
+        `build_ci_store(...)`-constructed backend, never the implicit
+        `NoOpCi` fallback that makes the CI gate unreachable — and the
+        post-`process()` save must merge back over the CURRENT on-disk
+        queue, never clobber a row a concurrent writer added while
+        `process()` was running (minutes-long PR/CI polling)."""
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import investigator_merge
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.PENDING,
+        )
+        mq.save_queue([entry])
+
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+
+        captured: dict = {}
+
+        def _fake_process(items, gh_ops, **kwargs):
+            captured.update(kwargs)
+            # A concurrent writer enqueues a second row while this call is
+            # "running" — must survive the save below.
+            sibling = mq.QueuedMerge(
+                assignment_id="w9", repo_name="api", repo_github="acme/api",
+                branch="issue-9-fix", target_branch="main", issue_number=9,
+                issue_title="other", state=mq.PENDING,
+            )
+            mq.save_queue([entry, sibling])
+            return [mq.MergeEvent(entry, "merged_partial", "merged partially")]
+
+        monkeypatch.setattr(mq, "process", _fake_process)
+
+        result = investigator_merge(
+            "api", 1, board, config, gh_ops=object(), reason="approved and green",
+        )
+
+        assert result["acted"] is True
+        assert captured.get("ci_store") is not None
+        queue_after = mq.load_queue()
+        assert {e.assignment_id for e in queue_after} == {"w1", "w9"}
+
+
+class TestSweepClearLatchScope:
+    """#3902 item 4: `sweep_clear_latch` must probe ONLY the row it is
+    repairing — a periodic sweep with N latched rows must not pay for N
+    full-queue GitHub probe passes."""
+
+    def test_probes_only_its_own_row_not_every_latched_row(self, monkeypatch) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import sweep_clear_latch
+        from tests.test_merge_queue import FakeGh
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        target = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.CONFLICT, pr_number=11,
+        )
+        sibling = mq.QueuedMerge(
+            assignment_id="w2", repo_name="api", repo_github="acme/api",
+            branch="issue-2-fix", target_branch="main", issue_number=2,
+            issue_title="Other latched row", state=mq.CONFLICT, pr_number=22,
+        )
+        mq.save_queue([target, sibling])
+
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+        gh = FakeGh(mergeable_results={11: True, 22: True})
+
+        result = sweep_clear_latch("api", 1, board, config, gh)
+
+        assert result["cleared"] is True
+        assert gh.mergeable_calls == [("acme/api", 11)]
+
+
+class TestInvestigatorMergeAllowFixDispatch:
+    """#3902 item 3: `allow_fix_dispatch=False` must actually stop the
+    post-``process()`` fan-out — a fresh conflict/CI-failure event must
+    start no new worker leg when the unattended mechanical-tier caller
+    (`_merge_pending_stuck_row`) passes it, since that cause is never
+    routed through `InvestigateCapacityGate` or `fixit_leg_budget`."""
+
+    def test_allow_fix_dispatch_false_skips_conflict_and_ci_fix_dispatch(
+        self, monkeypatch,
+    ) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import investigator_merge
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.PENDING,
+        )
+        mq.save_queue([entry])
+
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+        monkeypatch.setattr(
+            mq, "process",
+            lambda items, gh_ops, **kwargs: [
+                mq.MergeEvent(entry, "conflict", "GitHub reports CONFLICTING"),
+            ],
+        )
+
+        def _must_not_be_called(*a, **k):
+            raise AssertionError("fix dispatch must not run when allow_fix_dispatch=False")
+
+        monkeypatch.setattr(
+            "coord.commands.merge._dispatch_conflict_fixes", _must_not_be_called,
+        )
+        monkeypatch.setattr(
+            "coord.commands.merge._dispatch_ci_fixes", _must_not_be_called,
+        )
+        monkeypatch.setattr(
+            "coord.commands.merge._sweep_sibling_conflicts", _must_not_be_called,
+        )
+
+        result = investigator_merge(
+            "api", 1, board, config, gh_ops=object(), reason="x",
+            allow_fix_dispatch=False,
+        )
+
+        assert result["acted"] is False
+
+    def test_allow_fix_dispatch_true_still_runs_the_fan_out(self, monkeypatch) -> None:
+        """The human-attended default (`allow_fix_dispatch=True`) is
+        unchanged — the fan-out must still run so this gate actually
+        distinguishes the two callers rather than always skipping it."""
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import investigator_merge
+
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+        board = Board()
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.PENDING,
+        )
+        mq.save_queue([entry])
+
+        monkeypatch.setattr(mq, "has_approved_review", lambda *a, **k: True)
+        monkeypatch.setattr(
+            mq, "process",
+            lambda items, gh_ops, **kwargs: [
+                mq.MergeEvent(entry, "conflict", "GitHub reports CONFLICTING"),
+            ],
+        )
+
+        calls: dict = {"conflict": 0, "ci": 0, "sibling": 0}
+
+        monkeypatch.setattr(
+            "coord.commands.merge._dispatch_conflict_fixes",
+            lambda *a, **k: calls.__setitem__("conflict", calls["conflict"] + 1),
+        )
+        monkeypatch.setattr(
+            "coord.commands.merge._dispatch_ci_fixes",
+            lambda *a, **k: calls.__setitem__("ci", calls["ci"] + 1),
+        )
+        monkeypatch.setattr(
+            "coord.commands.merge._sweep_sibling_conflicts",
+            lambda *a, **k: calls.__setitem__("sibling", calls["sibling"] + 1),
+        )
+
+        investigator_merge(
+            "api", 1, board, config, gh_ops=object(), reason="x",
+        )
+
+        assert calls == {"conflict": 1, "ci": 1, "sibling": 1}
+
+
+class TestLatestDoneConflictFixAssignmentId:
+    """#3902 item 1: the head-unmoved redispatch's retry-cap exclusion must
+    name the EXACT leg that produced the park, never a guess a later,
+    unrelated `done` conflict-fix for the same entry can outrank."""
+
+    def test_prefers_the_recorded_marker_over_a_newer_unrelated_done(self) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import (
+            _latest_done_conflict_fix_assignment_id,
+        )
+
+        entry = mq.QueuedMerge(
+            assignment_id="w1", repo_name="api", repo_github="acme/api",
+            branch="issue-1-fix", target_branch="main", issue_number=1,
+            issue_title="Fix the thing", state=mq.HUMAN_REQUIRED,
+            error=(
+                f"conflict-fix failed; the {mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} "
+                "(still deadbeef) — push the fix by hand, or re-run `coord "
+                "merge` once a machine is free. "
+                f"[{mq.HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX}old-leg]"
+            ),
+        )
+        board = Board(completed=[
+            Assignment(
+                machine_name="laptop", repo_name="api", issue_number=1,
+                issue_title="t", assignment_id="old-leg", type="conflict-fix",
+                status="done", review_of_assignment_id="w1", finished_at=100.0,
+            ),
+            # Finished for this SAME entry AFTER the park (a manual retry,
+            # or a different sweep tick) — must not outrank the recorded
+            # marker just because it is newer.
+            Assignment(
+                machine_name="server", repo_name="api", issue_number=1,
+                issue_title="t", assignment_id="new-leg", type="conflict-fix",
+                status="done", review_of_assignment_id="w1", finished_at=200.0,
+            ),
+        ])
+
+        assert _latest_done_conflict_fix_assignment_id(board, entry) == "old-leg"
+
+    def test_fallback_without_a_marker_skips_stale_rebase_titled_rows(self) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import (
+            _latest_done_conflict_fix_assignment_id,
+        )
+        from coord.conflict_fix import STALE_REBASE_FIX_TITLE_PREFIX
+
+        entry = mq.QueuedMerge(
+            assignment_id="w2", repo_name="api", repo_github="acme/api",
+            branch="issue-2-fix", target_branch="main", issue_number=2,
+            issue_title="Fix the thing", state=mq.HUMAN_REQUIRED,
+            # No #3902 marker — a latch parked before this fix existed.
+            error=(
+                f"conflict-fix failed; the {mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} "
+                "(still deadbeef)"
+            ),
+        )
+        board = Board(completed=[
+            Assignment(
+                machine_name="laptop", repo_name="api", issue_number=2,
+                issue_title="t", assignment_id="ordinary-leg", type="conflict-fix",
+                status="done", review_of_assignment_id="w2", finished_at=100.0,
+            ),
+            Assignment(
+                machine_name="server", repo_name="api",
+                issue_title=f"{STALE_REBASE_FIX_TITLE_PREFIX} Fix the thing",
+                issue_number=2, assignment_id="stale-rebase-leg", type="conflict-fix",
+                status="done", review_of_assignment_id="w2", finished_at=200.0,
+            ),
+        ])
+
+        assert _latest_done_conflict_fix_assignment_id(board, entry) == "ordinary-leg"
+
+
+class TestSweepRedispatchHeadUnmovedConflictFixMachineChoice:
+    """#3902 item 2: the periodic redispatch must get the SAME machine-
+    selection inputs #3871's own synchronous redispatch
+    (`coord.reconcile._try_ordinary_escalation_after_head_unmoved`) does —
+    never the busy-only fallback that can pick an offline machine."""
+
+    def test_passes_status_fetcher_and_prefer_machine_through(self, monkeypatch) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import (
+            sweep_redispatch_head_unmoved_conflict_fix,
+        )
+        from coord.network import fetch_status
+
+        entry = mq.QueuedMerge(
+            assignment_id="w3", repo_name="api", repo_github="acme/api",
+            branch="issue-3-fix", target_branch="main", issue_number=3,
+            issue_title="Fix the thing", state=mq.HUMAN_REQUIRED,
+            error=(
+                f"conflict-fix failed; the {mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} "
+                "(still deadbeef) — push the fix by hand. "
+                f"[{mq.HEAD_UNMOVED_FIX_ASSIGNMENT_MARKER_PREFIX}old-leg]"
+            ),
+        )
+        mq.save_queue([entry])
+        board = Board(completed=[
+            Assignment(
+                machine_name="laptop", repo_name="api", issue_number=3,
+                issue_title="t", assignment_id="old-leg", type="conflict-fix",
+                status="done", review_of_assignment_id="w3", finished_at=100.0,
+            ),
+        ])
+        repo = _fixit_repo()
+        config = _fixit_config(repo)
+
+        captured: dict = {}
+
+        def _fake_dispatch(entry_, board_, config_, **kwargs):
+            captured.update(kwargs)
+            return None
+
+        monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", _fake_dispatch)
+
+        sweep_redispatch_head_unmoved_conflict_fix("api", 3, board, config)
+
+        assert captured.get("status_fetcher") is fetch_status
+        assert captured.get("prefer_machine") == "laptop"
+        assert captured.get("after_head_unmoved_fix_assignment_id") == "old-leg"
+
+
+class TestSweepRedispatchHeadUnmovedConflictFixRefused:
+    """#3902 item 5: the ``conflict_fix_redispatch_refused`` path, driven
+    end to end (no mocked `dispatch_conflict_fix`) through a genuinely
+    uncapable config — the audit event the code already writes, but no
+    test previously drove."""
+
+    def test_refused_with_no_capable_machine_audits_the_refusal(self) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import (
+            sweep_redispatch_head_unmoved_conflict_fix,
+        )
+
+        entry = mq.QueuedMerge(
+            assignment_id="w4", repo_name="api", repo_github="acme/api",
+            branch="issue-4-fix", target_branch="main", issue_number=4,
+            issue_title="Fix the thing", state=mq.HUMAN_REQUIRED,
+            error=(
+                f"conflict-fix failed; the {mq.CONFLICT_FIX_HEAD_UNMOVED_SIGNAL} "
+                "(still deadbeef) — push the fix by hand."
+            ),
+        )
+        mq.save_queue([entry])
+        board = Board()
+        config = Config(repos=[_fixit_repo()], machines=[])  # no capable machine
+
+        result = sweep_redispatch_head_unmoved_conflict_fix("api", 4, board, config)
+
+        assert result["redispatched"] is False
+
+        log = query_audit_log(
+            event_type="conflict_fix_redispatch_refused", repo="api", issue=4,
+        )
+        assert len(log["entries"]) == 1
+        assert log["entries"][0]["actor"] == "sweep"
+
+
+class TestSweepDispatchConflictFix:
+    """#3918: a merge-queue entry GitHub already reports ``CONFLICT`` on,
+    standing (no in-pass `merge_queue.process()` tick raised it just now),
+    gets the SAME mechanical ``type="conflict-fix"`` leg the reactive
+    auto-drain tick sends — the shape that tick never revisits, because it
+    only ever dispatches for a conflict it raised itself in that pass.
+    """
+
+    @staticmethod
+    def _queue_one(entry_state: str, issue: int) -> None:
+        from coord import merge_queue as mq
+
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id=f"w{issue}", repo_name="api", repo_github="acme/api",
+                branch=f"issue-{issue}-fix", target_branch="main",
+                issue_number=issue, issue_title="Fix the thing", state=entry_state,
+            )
+        ])
+
+    @staticmethod
+    def _must_not_dispatch(monkeypatch) -> None:
+        def _boom(*a, **k):
+            raise AssertionError("dispatch_conflict_fix must not be reached")
+
+        monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", _boom)
+
+    def test_dispatches_for_a_standing_conflict_row(self, monkeypatch) -> None:
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import sweep_dispatch_conflict_fix
+
+        self._queue_one(mq.CONFLICT, 7)
+        board = Board()
+        config = _fixit_config(_fixit_repo())
+
+        def _fake_dispatch(entry_, board_, config_, **kwargs):
+            leg = Assignment(
+                machine_name="laptop", repo_name="api", issue_number=7,
+                issue_title="Fix the thing", assignment_id="cf-7",
+                type="conflict-fix", status="pending",
+            )
+            board_.active.append(leg)
+            return leg
+
+        monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", _fake_dispatch)
+
+        result = sweep_dispatch_conflict_fix("api", 7, board, config)
+
+        assert result["dispatched"] is True
+        assert "cf-7" in result["detail"]
+        assert "laptop" in result["detail"]
+        # The board write is read BACK off the board rather than inferred
+        # from `write_board` not raising.
+        assert [a.assignment_id for a in state.build_board().active] == ["cf-7"]
+        log = query_audit_log(event_type="conflict_fix_dispatched", repo="api", issue=7)
+        assert len(log["entries"]) == 1
+        assert log["entries"][0]["actor"] == "sweep"
+
+    def test_retry_cap_already_spent_latches_human_required(self, monkeypatch) -> None:
+        # #3918 review: a prior FAILED conflict-fix for this same entry
+        # means `dispatch_conflict_fix` itself would decline before ever
+        # selecting a machine — the sweep must recognize that cap-spent
+        # shape itself and latch HUMAN_REQUIRED, the same outcome
+        # `coord.commands.merge`'s reactive call site reaches, rather than
+        # reporting the same ambiguous "could not be dispatched" a bare
+        # no-machine refusal gets.
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import sweep_dispatch_conflict_fix
+
+        self._queue_one(mq.CONFLICT, 11)
+        self._must_not_dispatch(monkeypatch)
+        board = Board()
+        board.completed.append(Assignment(
+            machine_name="laptop", repo_name="api", issue_number=11,
+            issue_title="[conflict-fix] Fix the thing",
+            assignment_id="cf-11-prior", type="conflict-fix",
+            review_of_assignment_id="w11", status="failed",
+        ))
+
+        result = sweep_dispatch_conflict_fix("api", 11, board, _fixit_config(_fixit_repo()))
+
+        assert result["dispatched"] is False
+        assert "retry cap" in result["detail"]
+        assert "HUMAN_REQUIRED" in result["detail"]
+        entries = [e for e in mq.load_queue() if e.issue_number == 11]
+        assert len(entries) == 1
+        assert entries[0].state == mq.HUMAN_REQUIRED
+        log = query_audit_log(
+            event_type="conflict_fix_dispatch_refused", repo="api", issue=11,
+        )
+        assert len(log["entries"]) == 1
+        assert log["entries"][0]["actor"] == "sweep"
+
+    def test_a_row_with_no_merge_queue_entry_is_a_refused_noop(self, monkeypatch) -> None:
+        from coord.board_doctor_permissions import sweep_dispatch_conflict_fix
+
+        self._must_not_dispatch(monkeypatch)
+
+        result = sweep_dispatch_conflict_fix("api", 8, Board(), _fixit_config(_fixit_repo()))
+
+        assert result["dispatched"] is False
+        assert "no merge-queue entry" in result["detail"]
+        log = query_audit_log(
+            event_type="conflict_fix_dispatch_refused", repo="api", issue=8,
+        )
+        assert len(log["entries"]) == 1
+        assert log["entries"][0]["actor"] == "sweep"
+
+    def test_an_entry_that_no_longer_reads_conflict_is_refused(self, monkeypatch) -> None:
+        # The live queue state is re-read at action time, so a row whose
+        # conflict has since cleared (or never was one) cannot spend a
+        # mechanical conflict-fix on a rebase nothing is asking for.
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import sweep_dispatch_conflict_fix
+
+        self._queue_one(mq.PENDING, 9)
+        self._must_not_dispatch(monkeypatch)
+
+        result = sweep_dispatch_conflict_fix("api", 9, Board(), _fixit_config(_fixit_repo()))
+
+        assert result["dispatched"] is False
+        assert "no longer reads CONFLICT" in result["detail"]
+        assert f"state={mq.PENDING}" in result["detail"]
+        log = query_audit_log(
+            event_type="conflict_fix_dispatch_refused", repo="api", issue=9,
+        )
+        assert len(log["entries"]) == 1
+
+    def test_refused_with_no_capable_machine_audits_the_refusal(self) -> None:
+        # End to end through the REAL `dispatch_conflict_fix` against a
+        # config with no machine that can take the leg: the action reports
+        # a refusal rather than a dispatch it never made.
+        from coord import merge_queue as mq
+        from coord.board_doctor_permissions import sweep_dispatch_conflict_fix
+
+        self._queue_one(mq.CONFLICT, 10)
+        config = Config(repos=[_fixit_repo()], machines=[])
+
+        result = sweep_dispatch_conflict_fix("api", 10, Board(), config)
+
+        assert result["dispatched"] is False
+        assert "could not be dispatched" in result["detail"]
+        assert state.build_board().active == []
+        log = query_audit_log(
+            event_type="conflict_fix_dispatch_refused", repo="api", issue=10,
+        )
+        assert len(log["entries"]) == 1
+        assert log["entries"][0]["actor"] == "sweep"
+
+
+class TestDispatchInvestigatorActionThinClientGuard:
+    """#3881 acceptance: runs only on the daemon host — a thin client
+    refuses via `coord.state._thin_client_local_board_guard`, mirroring
+    `tests/test_state.py`'s own pattern for the same guard."""
+
+    def _set_thin_client(self, monkeypatch) -> None:
+        import coord.client as cc
+
+        monkeypatch.setattr(
+            cc, "resolve_board_service",
+            lambda *a, **k: cc.ServiceConfig("http://daemon:7435"),
+        )
+
+    def test_raises_in_strict_mode_on_a_thin_client(self, monkeypatch) -> None:
+        from coord.board_doctor_permissions import dispatch_investigator_action
+
+        self._set_thin_client(monkeypatch)
+        monkeypatch.setenv("COORD_STRICT_LOCAL_BOARD", "1")
+        board = Board()
+
+        with pytest.raises(RuntimeError, match="#615"):
+            dispatch_investigator_action("requeue", "api", 1, board, reason="x")

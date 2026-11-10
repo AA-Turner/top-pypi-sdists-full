@@ -31,6 +31,7 @@ from graphql.type import (
     GraphQLSchema,
     GraphQLString,
 )
+from graphql.utilities import build_schema
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -990,6 +991,72 @@ def describe_execute_defer_directive():
 
         assert result == {"data": {"hero": {"name": "Luke"}}}
 
+    async def can_defer_same_fragment_with_different_labels():
+        """Can defer same fragment with different labels"""
+        document = parse(
+            """
+            query HeroNameQuery {
+              hero {
+                ...TopFragment @defer(label: "DeferTop1")
+                ...TopFragment @defer(label: "DeferTop2")
+              }
+            }
+            fragment TopFragment on Hero {
+              name
+            }
+            """
+        )
+        result = await complete(document)
+
+        assert result == [
+            {
+                "data": {"hero": {}},
+                "pending": [
+                    {"id": "0", "path": ["hero"], "label": "DeferTop1"},
+                    {"id": "1", "path": ["hero"], "label": "DeferTop2"},
+                ],
+                "hasNext": True,
+            },
+            {
+                "incremental": [{"data": {"name": "Luke"}, "id": "0"}],
+                "completed": [{"id": "0"}, {"id": "1"}],
+                "hasNext": False,
+            },
+        ]
+
+    async def can_defer_same_fragment_with_unlabeled_sibling_defers():
+        """Can defer same fragment with unlabeled sibling defers"""
+        document = parse(
+            """
+            query HeroNameQuery {
+              hero {
+                ...TopFragment @defer
+                ...TopFragment @defer
+              }
+            }
+            fragment TopFragment on Hero {
+              name
+            }
+            """
+        )
+        result = await complete(document)
+
+        assert result == [
+            {
+                "data": {"hero": {}},
+                "pending": [
+                    {"id": "0", "path": ["hero"]},
+                    {"id": "1", "path": ["hero"]},
+                ],
+                "hasNext": True,
+            },
+            {
+                "incremental": [{"data": {"name": "Luke"}, "id": "0"}],
+                "completed": [{"id": "0"}, {"id": "1"}],
+                "hasNext": False,
+            },
+        ]
+
     async def can_defer_an_inline_fragment():
         """Can defer an inline fragment"""
         document = parse(
@@ -1250,6 +1317,31 @@ def describe_execute_defer_directive():
                 "hasNext": False,
             },
         ]
+
+    async def does_not_skip_non_deferred_fragments_when_deferred_by_parent_defer():
+        """Does not skip non-deferred fragments when deferred by parent defer
+
+        Does not skip non-deferred fragments when a fragment is deferred by parent
+        defer.
+        """
+        document = parse(
+            """
+            query HeroNameQuery {
+              hero {
+                ... @defer(label: "DeferID") {
+                  ...F
+                }
+                ...F
+              }
+            }
+            fragment F on Hero {
+              name
+            }
+            """
+        )
+        result = await complete(document)
+
+        assert result == {"data": {"hero": {"name": "Luke"}}}
 
     async def separately_emits_nested_defer_frags_var_subfields_same_prio_diff_level():
         """Separately emits nested defer frags, var subfields, same prio, diff level
@@ -2284,6 +2376,949 @@ def describe_execute_defer_directive():
                 "hasNext": False,
             },
         ]
+
+    async def announces_a_nested_fragment_before_completing_its_shared_failure():
+        """Announces a nested fragment before completing its shared failure"""
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "R") {
+                  nonNullName
+                }
+                ... @defer(label: "P") {
+                  name
+                  ... @defer(label: "C") {
+                    nonNullName
+                  }
+                }
+              }
+            }
+            """
+        )
+        result = await complete(
+            document, {"hero": {"name": "Luke", "nonNullName": None}}
+        )
+
+        assert result == [
+            {
+                "data": {"hero": {}},
+                "pending": [
+                    {"id": "0", "path": ["hero"], "label": "R"},
+                    {"id": "1", "path": ["hero"], "label": "P"},
+                ],
+                "hasNext": True,
+            },
+            {
+                "pending": [{"id": "2", "path": ["hero"], "label": "C"}],
+                "incremental": [{"data": {"name": "Luke"}, "id": "1"}],
+                "completed": [
+                    {
+                        "id": "0",
+                        "errors": [
+                            {
+                                "message": "Cannot return null"
+                                " for non-nullable field Hero.nonNullName.",
+                                "locations": [
+                                    {"line": 5, "column": 19},
+                                    {"line": 10, "column": 21},
+                                ],
+                                "path": ["hero", "nonNullName"],
+                            },
+                        ],
+                    },
+                    {"id": "1"},
+                    {
+                        "id": "2",
+                        "errors": [
+                            {
+                                "message": "Cannot return null"
+                                " for non-nullable field Hero.nonNullName.",
+                                "locations": [
+                                    {"line": 5, "column": 19},
+                                    {"line": 10, "column": 21},
+                                ],
+                                "path": ["hero", "nonNullName"],
+                            },
+                        ],
+                    },
+                ],
+                "hasNext": False,
+            },
+        ]
+
+    async def reports_one_cached_shared_failure_when_a_nested_fragment_is_announced():
+        """Reports one cached shared failure when a nested fragment is announced"""
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "R1") {
+                  first: nonNullName
+                }
+                ... @defer(label: "R2") {
+                  second: nonNullName
+                }
+                ... @defer(label: "P") {
+                  name
+                  ... @defer(label: "C") {
+                    first: nonNullName
+                    second: nonNullName
+                  }
+                }
+              }
+            }
+            """
+        )
+        result = await complete(
+            document, {"hero": {"name": "Luke", "nonNullName": None}}
+        )
+
+        assert result == [
+            {
+                "data": {"hero": {}},
+                "pending": [
+                    {"id": "0", "path": ["hero"], "label": "R1"},
+                    {"id": "1", "path": ["hero"], "label": "R2"},
+                    {"id": "2", "path": ["hero"], "label": "P"},
+                ],
+                "hasNext": True,
+            },
+            {
+                "pending": [{"id": "3", "path": ["hero"], "label": "C"}],
+                "incremental": [{"data": {"name": "Luke"}, "id": "2"}],
+                "completed": [
+                    {
+                        "id": "0",
+                        "errors": [
+                            {
+                                "message": "Cannot return null"
+                                " for non-nullable field Hero.nonNullName.",
+                                "locations": [
+                                    {"line": 5, "column": 19},
+                                    {"line": 13, "column": 21},
+                                ],
+                                "path": ["hero", "first"],
+                            },
+                        ],
+                    },
+                    {
+                        "id": "1",
+                        "errors": [
+                            {
+                                "message": "Cannot return null"
+                                " for non-nullable field Hero.nonNullName.",
+                                "locations": [
+                                    {"line": 8, "column": 19},
+                                    {"line": 14, "column": 21},
+                                ],
+                                "path": ["hero", "second"],
+                            },
+                        ],
+                    },
+                    {"id": "2"},
+                    {
+                        "id": "3",
+                        "errors": [
+                            {
+                                "message": "Cannot return null"
+                                " for non-nullable field Hero.nonNullName.",
+                                "locations": [
+                                    {"line": 5, "column": 19},
+                                    {"line": 13, "column": 21},
+                                ],
+                                "path": ["hero", "first"],
+                            },
+                        ],
+                    },
+                ],
+                "hasNext": False,
+            },
+        ]
+
+    async def replays_cached_failures_in_field_order_after_child_work_succeeds():
+        """Replays cached failures in field order after child work succeeds
+
+        Replays cached failures in field order after independent child work succeeds.
+        """
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "P") {
+                  name
+                  ... @defer(label: "C") {
+                    id
+                    first: nonNullName
+                    second: nonNullName
+                  }
+                }
+                ... @defer(label: "R1") {
+                  first: nonNullName
+                }
+                ... @defer(label: "R2") {
+                  second: nonNullName
+                }
+              }
+            }
+            """
+        )
+        first_future: Future[None] = Future()
+        name_future: Future[str] = Future()
+        id_calls = non_null_name_calls = 0
+
+        def id_(_info):
+            nonlocal id_calls
+            id_calls += 1
+            return 1
+
+        def non_null_name(info):
+            nonlocal non_null_name_calls
+            non_null_name_calls += 1
+            return first_future if info.path.key == "first" else None
+
+        result = experimental_execute_incrementally(
+            schema,
+            document,
+            {"hero": {"id": id_, "name": name_future, "nonNullName": non_null_name}},
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {"hero": {}},
+            "pending": [
+                {"id": "0", "path": ["hero"], "label": "P"},
+                {"id": "1", "path": ["hero"], "label": "R1"},
+                {"id": "2", "path": ["hero"], "label": "R2"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "2",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Hero.nonNullName.",
+                            "locations": [
+                                {"line": 9, "column": 21},
+                                {"line": 16, "column": 19},
+                            ],
+                            "path": ["hero", "second"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        first_future.set_result(None)
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "1",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Hero.nonNullName.",
+                            "locations": [
+                                {"line": 8, "column": 21},
+                                {"line": 13, "column": 19},
+                            ],
+                            "path": ["hero", "first"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        name_future.set_result("Luke")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "3", "path": ["hero"], "label": "C"}],
+            "incremental": [{"data": {"name": "Luke"}, "id": "0"}],
+            "completed": [
+                {"id": "0"},
+                {
+                    "id": "3",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Hero.nonNullName.",
+                            "locations": [
+                                {"line": 8, "column": 21},
+                                {"line": 13, "column": 19},
+                            ],
+                            "path": ["hero", "first"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+        assert id_calls == 1
+        assert non_null_name_calls == 2
+
+    async def discards_deferred_descendants_discovered_after_their_parent_fails():
+        """Discards deferred descendants discovered after their parent fails
+
+        Discards deferred descendants discovered after their parent fails while
+        retaining a live owner.
+        """
+        test_schema = build_schema(
+            """
+            type Query {
+              bad: String!
+              parent: String
+              user: User
+            }
+            type User {
+              bad: String!
+            }
+            """
+        )
+        document = parse(
+            """
+            {
+              ... @defer(label: "P") {
+                bad
+                user {
+                  ... @defer(label: "Empty") {
+                    ... @defer(label: "Discarded") {
+                      x: bad
+                    }
+                  }
+                }
+              }
+              ... @defer(label: "Q") {
+                parent
+                user {
+                  ... @defer(label: "D") {
+                    x: bad
+                  }
+                }
+              }
+              ... @defer(label: "R") {
+                user {
+                  x: bad
+                }
+              }
+            }
+            """
+        )
+        user_future: Future[dict[str, None]] = Future()
+        parent_future: Future[str] = Future()
+
+        result = experimental_execute_incrementally(
+            test_schema,
+            document,
+            {"bad": None, "parent": parent_future, "user": user_future},
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {},
+            "pending": [
+                {"id": "0", "path": [], "label": "P"},
+                {"id": "1", "path": [], "label": "Q"},
+                {"id": "2", "path": [], "label": "R"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "0",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Query.bad.",
+                            "locations": [{"line": 4, "column": 17}],
+                            "path": ["bad"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        user_future.set_result({"bad": None})
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "2",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field User.bad.",
+                            "locations": [
+                                {"line": 8, "column": 23},
+                                {"line": 17, "column": 21},
+                                {"line": 23, "column": 19},
+                            ],
+                            "path": ["user", "x"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        parent_future.set_result("parent")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "3", "path": ["user"], "label": "D"}],
+            "incremental": [
+                {"data": {"user": {}}, "id": "1"},
+                {"data": {"parent": "parent"}, "id": "1"},
+            ],
+            "completed": [
+                {"id": "1"},
+                {
+                    "id": "3",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field User.bad.",
+                            "locations": [
+                                {"line": 8, "column": 23},
+                                {"line": 17, "column": 21},
+                                {"line": 23, "column": 19},
+                            ],
+                            "path": ["user", "x"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+    @pytest.mark.parametrize("reject_late", [False, True])
+    async def ignores_late_shared_outcomes_after_a_fragment_and_descendants_fail(
+        reject_late,
+    ):
+        """Ignores late shared outcomes after a fragment and its descendants fail"""
+        test_schema = build_schema(
+            """
+            type Query {
+              bad: String!
+              parent: String
+              keep: String
+              value: String
+              lateBad: String!
+            }
+            """
+        )
+        document = parse(
+            """
+            {
+              ... @defer(label: "R") {
+                bad
+                root: value
+                descendant: value
+                lateBad
+              }
+              ... @defer(label: "P") {
+                parent
+                ... @defer(label: "C") {
+                  bad
+                  ... @defer(label: "D") {
+                    descendant: value
+                    lateBad
+                  }
+                }
+              }
+              ... @defer(label: "K") {
+                keep
+              }
+            }
+            """
+        )
+        parent_future: Future[str] = Future()
+        keep_future: Future[str] = Future()
+        value_future: Future[str] = Future()
+        late_future: Future[str] = Future()
+        value_calls = 0
+
+        def value(_info):
+            nonlocal value_calls
+            value_calls += 1
+            return value_future
+
+        result = experimental_execute_incrementally(
+            test_schema,
+            document,
+            {
+                "bad": None,
+                "parent": parent_future,
+                "keep": keep_future,
+                "value": value,
+                "lateBad": late_future,
+            },
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {},
+            "pending": [
+                {"id": "0", "path": [], "label": "R"},
+                {"id": "1", "path": [], "label": "P"},
+                {"id": "2", "path": [], "label": "K"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "0",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Query.bad.",
+                            "locations": [
+                                {"line": 4, "column": 17},
+                                {"line": 12, "column": 19},
+                            ],
+                            "path": ["bad"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        parent_future.set_result("parent")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "3", "path": [], "label": "C"}],
+            "incremental": [{"data": {"parent": "parent"}, "id": "1"}],
+            "completed": [
+                {"id": "1"},
+                {
+                    "id": "3",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Query.bad.",
+                            "locations": [
+                                {"line": 4, "column": 17},
+                                {"line": 12, "column": 19},
+                            ],
+                            "path": ["bad"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        # Keep K pending while work owned by the failed fragments settles.
+        value_future.set_result("late")
+        if reject_late:
+            late_future.set_exception(RuntimeError("late failure"))
+        else:
+            late_future.set_result("late")
+        await sleep(0)
+        keep_future.set_result("kept")
+
+        assert (await anext(iterator)).formatted == {
+            "incremental": [{"data": {"keep": "kept"}, "id": "2"}],
+            "completed": [{"id": "2"}],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+        assert value_calls == 2
+
+    @pytest.mark.parametrize("early_execution", [False, True])
+    async def delivers_a_buffered_shared_value_after_its_other_fragment_fails(
+        early_execution,
+    ):
+        """Delivers a buffered shared value after its other fragment fails"""
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "R") {
+                  nonNullName
+                  id
+                }
+                ... @defer(label: "P") {
+                  name
+                  ... @defer(label: "C") {
+                    id
+                  }
+                }
+              }
+            }
+            """
+        )
+        name_future: Future[str] = Future()
+
+        result = experimental_execute_incrementally(
+            schema,
+            document,
+            {"hero": {"id": 1, "name": name_future, "nonNullName": None}},
+            enable_early_execution=early_execution,
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {"hero": {}},
+            "pending": [
+                {"id": "0", "path": ["hero"], "label": "R"},
+                {"id": "1", "path": ["hero"], "label": "P"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "0",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Hero.nonNullName.",
+                            "locations": [{"line": 5, "column": 19}],
+                            "path": ["hero", "nonNullName"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        # The shared id has settled, but C still waits for P's name.
+        name_future.set_result("Luke")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "2", "path": ["hero"], "label": "C"}],
+            "incremental": [
+                {"data": {"name": "Luke"}, "id": "1"},
+                {"data": {"id": "1"}, "id": "2"},
+            ],
+            "completed": [{"id": "1"}, {"id": "2"}],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+    async def delivers_a_shared_value_before_another_fragment_finishes_its_field():
+        """Delivers a shared value before another fragment finishes its field
+
+        Delivers a shared value before another fragment finishes its separate field.
+        """
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "R") {
+                  nonNullName
+                  id
+                }
+                ... @defer(label: "P") {
+                  name
+                  ... @defer(label: "C") {
+                    id
+                  }
+                }
+              }
+            }
+            """
+        )
+        name_future: Future[str] = Future()
+        non_null_name_future: Future[str] = Future()
+
+        result = experimental_execute_incrementally(
+            schema,
+            document,
+            {
+                "hero": {
+                    "id": 1,
+                    "name": name_future,
+                    "nonNullName": non_null_name_future,
+                }
+            },
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {"hero": {}},
+            "pending": [
+                {"id": "0", "path": ["hero"], "label": "R"},
+                {"id": "1", "path": ["hero"], "label": "P"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        name_future.set_result("Luke")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "2", "path": ["hero"], "label": "C"}],
+            "incremental": [
+                {"data": {"name": "Luke"}, "id": "1"},
+                {"data": {"id": "1"}, "id": "2"},
+            ],
+            "completed": [{"id": "1"}, {"id": "2"}],
+            "hasNext": True,
+        }
+
+        non_null_name_future.set_result("Luke")
+
+        assert (await anext(iterator)).formatted == {
+            "incremental": [{"data": {"nonNullName": "Luke"}, "id": "0"}],
+            "completed": [{"id": "0"}],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+    async def delivers_shared_child_data_when_second_parent_finishes_first():
+        """Delivers shared child data when second parent finishes before first child
+
+        Delivers shared child data when the second parent finishes before the first
+        child.
+        """
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "P1") {
+                  name
+                  ... @defer(label: "C1") {
+                    id
+                    friends { name }
+                  }
+                }
+                ... @defer(label: "P2") {
+                  nonNullName
+                  ... @defer(label: "C2") {
+                    id
+                  }
+                }
+              }
+            }
+            """
+        )
+        name_future: Future[str] = Future()
+        friends_future: Future[list[Friend]] = Future()
+
+        result = experimental_execute_incrementally(
+            schema,
+            document,
+            {
+                "hero": {
+                    "id": 1,
+                    "name": "Luke",
+                    "nonNullName": name_future,
+                    "friends": friends_future,
+                }
+            },
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {"hero": {}},
+            "pending": [
+                {"id": "0", "path": ["hero"], "label": "P1"},
+                {"id": "1", "path": ["hero"], "label": "P2"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "2", "path": ["hero"], "label": "C1"}],
+            "incremental": [{"data": {"name": "Luke"}, "id": "0"}],
+            "completed": [{"id": "0"}],
+            "hasNext": True,
+        }
+
+        name_future.set_result("Luke")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "3", "path": ["hero"], "label": "C2"}],
+            "incremental": [
+                {"data": {"nonNullName": "Luke"}, "id": "1"},
+                {"data": {"id": "1"}, "id": "3"},
+            ],
+            "completed": [{"id": "1"}, {"id": "3"}],
+            "hasNext": True,
+        }
+
+        friends_future.set_result(friends)
+
+        assert (await anext(iterator)).formatted == {
+            "incremental": [
+                {
+                    "data": {
+                        "friends": [
+                            {"name": "Han"},
+                            {"name": "Leia"},
+                            {"name": "C-3PO"},
+                        ]
+                    },
+                    "id": "2",
+                },
+            ],
+            "completed": [{"id": "2"}],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+    async def finishes_a_later_shared_owner_without_repeating_delivered_data():
+        """Finishes a later shared owner without repeating data
+
+        Finishes a later shared owner without repeating data delivered after
+        another owner failed.
+        """
+        document = parse(
+            """
+            {
+              hero {
+                ... @defer(label: "R") {
+                  nonNullName
+                  id
+                }
+                ... @defer(label: "P1") {
+                  name
+                  ... @defer(label: "C1") {
+                    id
+                  }
+                }
+                ... @defer(label: "P2") {
+                  nestedObject { name }
+                  ... @defer(label: "C2") {
+                    id
+                    friends { name }
+                  }
+                }
+              }
+            }
+            """
+        )
+        name_future: Future[str] = Future()
+        object_future: Future[dict[str, str]] = Future()
+        id_calls = 0
+
+        def id_(_info):
+            nonlocal id_calls
+            id_calls += 1
+            return 1
+
+        result = experimental_execute_incrementally(
+            schema,
+            document,
+            {
+                "hero": {
+                    "id": id_,
+                    "name": name_future,
+                    "nonNullName": None,
+                    "nestedObject": object_future,
+                    "friends": friends,
+                }
+            },
+        )
+        assert isinstance(result, ExperimentalIncrementalExecutionResults)
+
+        assert result.initial_result.formatted == {
+            "data": {"hero": {}},
+            "pending": [
+                {"id": "0", "path": ["hero"], "label": "R"},
+                {"id": "1", "path": ["hero"], "label": "P1"},
+                {"id": "2", "path": ["hero"], "label": "P2"},
+            ],
+            "hasNext": True,
+        }
+
+        iterator = result.subsequent_results
+
+        assert (await anext(iterator)).formatted == {
+            "completed": [
+                {
+                    "id": "0",
+                    "errors": [
+                        {
+                            "message": "Cannot return null"
+                            " for non-nullable field Hero.nonNullName.",
+                            "locations": [{"line": 5, "column": 19}],
+                            "path": ["hero", "nonNullName"],
+                        },
+                    ],
+                },
+            ],
+            "hasNext": True,
+        }
+
+        name_future.set_result("Luke")
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "3", "path": ["hero"], "label": "C1"}],
+            "incremental": [
+                {"data": {"name": "Luke"}, "id": "1"},
+                {"data": {"id": "1"}, "id": "3"},
+            ],
+            "completed": [{"id": "1"}, {"id": "3"}],
+            "hasNext": True,
+        }
+
+        object_future.set_result({"name": "parent"})
+
+        assert (await anext(iterator)).formatted == {
+            "pending": [{"id": "4", "path": ["hero"], "label": "C2"}],
+            "incremental": [
+                {"data": {"nestedObject": {"name": "parent"}}, "id": "2"},
+                {
+                    "data": {
+                        "friends": [
+                            {"name": "Han"},
+                            {"name": "Leia"},
+                            {"name": "C-3PO"},
+                        ]
+                    },
+                    "id": "4",
+                },
+            ],
+            "completed": [{"id": "2"}, {"id": "4"}],
+            "hasNext": False,
+        }
+
+        with pytest.raises(StopAsyncIteration):
+            await anext(iterator)
+
+        assert id_calls == 1
 
     async def handles_cancelling_child_deferred_fragments_if_parent_fragment_fails():
         """Handles cancelling child deferred fragments if parent fragment fails"""

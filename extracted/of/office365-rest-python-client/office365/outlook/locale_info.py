@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class LocaleInfo(ClientValue):
     """Information about the locale, including the preferred language and country/region, of the signed-in user.
 

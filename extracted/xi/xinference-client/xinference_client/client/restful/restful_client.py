@@ -18,8 +18,11 @@ from urllib.parse import quote
 import requests
 
 from ..common import (
+    IMAGE_DOWNLOAD_TIMEOUT,
     convert_float_to_int_or_str,
     encode_world_reference,
+    is_http_url,
+    normalize_endpoint,
     streaming_response_iterator,
 )
 
@@ -48,6 +51,20 @@ def _get_error_string(response: requests.Response) -> str:
     except requests.HTTPError as e:
         return str(e)
     return "Unknown error"
+
+
+def _streaming_response(response: requests.Response) -> Iterator[Any]:
+    def iterate():
+        try:
+            # Enter the cleanup scope before returning an unconsumed stream.
+            yield None
+            yield from streaming_response_iterator(response.iter_lines())
+        finally:
+            response.close()
+
+    stream = iterate()
+    next(stream)
+    return stream
 
 
 class RESTfulModelHandle:
@@ -216,7 +233,7 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
         response = self.session.post(url, json=request_body, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to rerank documents, detail: {response.json()['detail']}"
+                f"Failed to rerank documents, detail: {_get_error_string(response)}"
             )
         response_data = response.json()
         return response_data
@@ -348,6 +365,20 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def _download_if_url(self, image: Any) -> Any:
+        """Download an http(s) URL; paths, bytes and file objects pass through."""
+        if not (isinstance(image, str) and is_http_url(image)):
+            return image
+        # No auth headers: the Xinference credentials must not reach the image host.
+        try:
+            response = self.session.get(image, timeout=IMAGE_DOWNLOAD_TIMEOUT)
+            response.raise_for_status()
+            return response.content
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"Failed to download an image for editing, detail: {error}"
+            ) from error
+
     def image_edit(
         self,
         images: Union[Union[str, bytes], List[Union[str, bytes]]],
@@ -408,6 +439,12 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         )
         """
         url = f"{self._base_url}/v1/images/edits"
+        # The route takes uploaded files only, so URLs are downloaded here.
+        if isinstance(images, list):
+            images = [self._download_if_url(image) for image in images]
+        else:
+            images = self._download_if_url(images)
+        mask = self._download_if_url(mask)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -817,7 +854,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return _streaming_response(response)
 
         response_data = response.json()
         return response_data
@@ -898,7 +935,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return _streaming_response(response)
 
         response_data = response.json()
         return response_data
@@ -1170,7 +1207,7 @@ class RESTfulFlexibleModelHandle(RESTfulModelHandle):
 
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
-        self.base_url = base_url
+        self.base_url = normalize_endpoint(base_url)
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self.session = requests.Session()
@@ -1221,7 +1258,7 @@ class Client:
         response = self.session.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to fetch VLLM models. detail: {response.json()['detail']}"
+                f"Failed to fetch VLLM models. detail: {_get_error_string(response)}"
             )
 
         try:
@@ -1238,7 +1275,9 @@ class Client:
 
         response = self.session.post(url, json=payload)
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to login, detail: {response.json()['detail']}")
+            raise RuntimeError(
+                f"Failed to login, detail: {_get_error_string(response)}"
+            )
 
         response_data = response.json()
         # Only bearer token for now
@@ -1455,7 +1494,8 @@ class Client:
     ) -> Dict[str, Any]:
         """Start an asynchronous parameter reload with the same model UID.
 
-        Engine changes require launch-time ``enable_weight_cache=True``;
+        Engine changes require weight retention enabled at launch (automatic
+        on supported configurations, or ``enable_weight_cache=True``);
         a standalone ``reasoning_content`` update does not. Use
         ``get_model_reload_status`` to wait for ready/error after HTTP 202.
         """
@@ -1471,6 +1511,16 @@ class Client:
         if response.status_code != 202:
             raise RuntimeError(
                 f"Failed to reload model, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_model_runtime_info(self, model_uid: str) -> Dict[str, Any]:
+        """Return runtime_context_length (tokens, or None) and per-replica limits."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/runtime"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get model runtime info, detail: {_get_error_string(response)}"
             )
         return response.json()
 
@@ -2082,15 +2132,42 @@ class Client:
         response_data = response.json()
         return response_data
 
+    def check_component_update(
+        self, component: str, worker_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Check the package source on the selected component's machine."""
+        if component not in {"api", "supervisor", "worker"}:
+            raise ValueError("Unknown component")
+        if component == "worker":
+            if not worker_address:
+                raise ValueError("worker_address is required")
+            path = f"workers/{quote(worker_address, safe='')}"
+        else:
+            path = component
+        response = self.session.get(
+            f"{self.base_url}/v1/{path}/updates", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to check updates: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def relaunch_api(
         self,
         python_executable: Optional[str] = None,
         request_id: Optional[str] = None,
+        *,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Replace the distributed API process while existing requests drain."""
         response = self.session.post(
             f"{self.base_url}/v1/api/relaunch",
-            json={"python_executable": python_executable, "request_id": request_id},
+            json={
+                "python_executable": python_executable,
+                "request_id": request_id,
+                **({"version": version} if version is not None else {}),
+            },
             headers=self._headers,
         )
         if response.status_code != 202:
@@ -2122,11 +2199,17 @@ class Client:
         self,
         python_executable: Optional[str] = None,
         request_id: Optional[str] = None,
+        *,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Replace the distributed Supervisor process while models remain running."""
         response = self.session.post(
             f"{self.base_url}/v1/supervisor/relaunch",
-            json={"python_executable": python_executable, "request_id": request_id},
+            json={
+                "python_executable": python_executable,
+                "request_id": request_id,
+                **({"version": version} if version is not None else {}),
+            },
             headers=self._headers,
         )
         if response.status_code != 202:
@@ -2161,11 +2244,17 @@ class Client:
         worker_address: str,
         python_executable: Optional[str] = None,
         request_id: Optional[str] = None,
+        *,
+        version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Relaunch a Worker and return its asynchronous operation status."""
         response = self.session.post(
             f"{self.base_url}/v1/workers/{quote(worker_address, safe='')}/relaunch",
-            json={"python_executable": python_executable, "request_id": request_id},
+            json={
+                "python_executable": python_executable,
+                "request_id": request_id,
+                **({"version": version} if version is not None else {}),
+            },
             headers=self._headers,
         )
         if response.status_code != 202:

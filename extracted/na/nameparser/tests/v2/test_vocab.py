@@ -11,9 +11,12 @@ refuse more keeps a row for every case its narrower form refused:
 #737's review widened check 6 from "the same kind" to "the same set"
 and the new check quietly stopped refusing the excluded kind itself
 with `acronym` flipped, a case nothing listed because the old check had
-made it impossible. compile_pool's final
-acronym-and-word check is a backstop check 5 always reaches first, so
-its mutation is refused by check 5.
+made it impossible. The compiler's final
+acronym-and-word check (nameparser/_reading_index.py) is a backstop
+check 5 always reaches first, so its mutation is refused by check 5.
+The reading index the build writes beside _compiled.py, and the
+invariant that _compiled.py is that index compiled, are
+tests/v2/test_reading_index.py's.
 """
 from __future__ import annotations
 
@@ -27,22 +30,21 @@ from typing import Any
 
 import pytest
 
+from tests.checkout import require_checkout
+
 from nameparser._lexicon import Lexicon
+
+from ._differential_fixtures import load_by_path
 
 _BUILD = Path(__file__).resolve().parents[2] / "tools" / "vocab" / "build.py"
 
 
 def _load_build() -> ModuleType:
-    # tools/ is outside testpaths (see _differential_fixtures.load_tool)
-    spec = importlib.util.spec_from_file_location("vocab_build", _BUILD)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    # registered before it runs: its dataclasses look their module up
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    return load_by_path("vocab_build", _BUILD)
 
 
+# the build reads the TOML and writes the generated modules in the tree
+require_checkout()
 build = _load_build()
 
 
@@ -67,6 +69,14 @@ def test_the_committed_module_is_what_the_toml_compiles_to(shipped: dict[str, st
         f"run: {build.REFRESH}")
 
 
+def test_the_committed_rules_are_what_the_toml_compiles_to(shipped: dict[str, str]) -> None:
+    fresh = build.render_rules(build.load(shipped).rules)
+    committed = build.rules_output().read_text(encoding="utf-8")
+    assert committed == fresh, (
+        f"nameparser/config/_rules.py is stale against nameparser/vocab/; "
+        f"run: {build.REFRESH}")
+
+
 def test_the_shipped_files_pass_every_check_with_warnings_as_errors(
         shipped: dict[str, str]) -> None:
     assert shipped, "no vocabulary files found; the roster is empty"
@@ -74,29 +84,12 @@ def test_the_shipped_files_pass_every_check_with_warnings_as_errors(
 
 
 def test_the_compiled_sets_are_the_default_lexicon(shipped: dict[str, str]) -> None:
+    from nameparser._lexicon import _fields_of, _vocab_fields
     c = _compile(shipped)
     lex = Lexicon.default()
-    rebuilt = Lexicon(
-        titles=c["TITLES"], given_name_titles=c["GIVEN_NAME_TITLES"],
-        suffix_acronyms=c["SUFFIX_ACRONYMS"], suffix_words=c["SUFFIX_WORDS"],
-        suffix_acronyms_ambiguous=c["SUFFIX_ACRONYMS_AMBIGUOUS"],
-        particles=c["PARTICLES"],
-        particles_ambiguous=c["PARTICLES"] - c["NON_GIVEN_NAME_PARTICLES"],
-        conjunctions=c["CONJUNCTIONS"],
-        conjunctions_ambiguous=c["CONJUNCTIONS_AMBIGUOUS"],
-        bound_given_names=c["BOUND_GIVEN_NAMES"],
-        given_name_abbreviations=c["GIVEN_NAME_ABBREVIATIONS"],
-        maiden_markers=c["MAIDEN_MARKERS"], surnames=lex.surnames,
-        honorific_tails=c["GLUED_HONORIFICS"],
-        after_given_titles=c["AFTER_GIVEN_TITLES"],
-        suffix_words_ambiguous=c["SUFFIX_WORDS_AMBIGUOUS"],
-        agnomens=c["AGNOMENS"],
-        titles_ambiguous=c["TITLES_AMBIGUOUS"],
-        title_modifiers=c["TITLE_MODIFIERS"], title_styles=c["TITLE_STYLES"],
-        title_phrases=c["TITLE_PHRASES"],
-        capitalization_exceptions=tuple(c["CAPITALIZATION_EXCEPTIONS"].items()),
-    )
-    assert rebuilt == lex
+    assert _vocab_fields(c) == _fields_of(lex._sets)
+    assert lex.capitalization_exceptions == tuple(
+        sorted(c["CAPITALIZATION_EXCEPTIONS"].items()))
 
 
 def test_the_toml_ships_as_package_data() -> None:
@@ -137,7 +130,7 @@ def test_dropping_a_name_reading_changes_the_compiled_module(shipped: dict[str, 
 
 
 def test_moving_a_word_between_files_changes_nothing(shipped: dict[str, str]) -> None:
-    entry = '[[word]]\ntext = "jr"\ngeneration = {}\n'
+    entry = '[[word]]\ntext = "sr"\ngeneration = {}\n'
     files = _edit(shipped, "en.toml", entry, "")
     files["und.toml"] += "\n" + entry
     assert build.render(_compile(files)) == build.render(_compile(shipped))
@@ -148,8 +141,8 @@ def test_an_exclusion_in_one_file_refuses_the_reading_in_another(
     files = dict(shipped)
     # appended to an ordered file, out of place: the reason still comes
     # first, check 10 running last
-    files["en.toml"] += '\n[[word]]\ntext = "père"\ngeneration = {}\n'
-    with pytest.raises(build.VocabError, match="collides outside French"):
+    files["fr.toml"] += '\n[[word]]\ntext = "duke"\nnobility = {}\n'
+    with pytest.raises(build.VocabError, match="Duke Kahanamoku"):
         _compile(files)
 
 
@@ -159,16 +152,44 @@ def test_a_reading_off_by_default_compiles_to_nothing() -> None:
     # the word's live readings in another file (checks 4 and 5) or be
     # refused by an exclusion, which keeps a reading out of the default
     # where this one already is (check 6)
-    off = build.compile_files({"es.toml": _w('[[word]]\ntext = "zzq"\ngeneration = { default = false }\nfamily = { note = "x" }')})
+    off = build.compile_files({"it.toml": _w('[[word]]\ntext = "zzq"\ngeneration = { default = false }\nfamily = { note = "x" }')})
     assert not any("zzq" in v for v in off.values())
     both = build.compile_files({
-        "mul.toml": _w('[[word]]\ntext = "zzq"\ngeneration = {}'),
+        "en.toml": _w('[[word]]\ntext = "zzq"\ngeneration = {}'),
         "de.toml": _w('[[word]]\ntext = "zzq"\ncredential = { default = false }'),
         "hr.toml": _w('[[word]]\ntext = "zzr"\nexcluded = { generation = "x" }'),
-        "cs.toml": _w('[[word]]\ntext = "zzr"\ngeneration = { default = false }'),
+        "pl.toml": _w('[[word]]\ntext = "zzr"\ngeneration = { default = false }'),
     })
     assert "zzq" in both["SUFFIX_WORDS"] and "zzq" not in both["SUFFIX_ACRONYMS"]
     assert not any("zzr" in v for v in both.values())
+
+
+@pytest.mark.parametrize(("clash", "name", "marker"), [
+    ("credential = {}", "family", "SUFFIX_ACRONYMS_AMBIGUOUS"),
+    ("generation = {}", "given", "SUFFIX_WORDS_AMBIGUOUS"),
+    ("office = {}", "given", "TITLES_AMBIGUOUS"),
+])
+def test_a_name_reading_off_by_default_marks_nothing_until_it_is_on(
+        clash: str, name: str, marker: str) -> None:
+    # 3a: a name reading written default = false compiles to nothing, as
+    # any off reading does, so the reading it clashes with compiles as
+    # if it were absent; written on, the same reading derives its
+    # marker -- the turn-on a pack makes (3b), in miniature. A particle
+    # beside an off given reading is refused instead (the mutation table)
+    def compiled(default: str) -> dict[str, Any]:
+        return _compile({"en.toml": _w(f'[[word]]\ntext = "zzq"\n{clash}\n'
+                                       f'{name} = {{ note = "x"{default} }}')})
+
+    assert "zzq" in compiled("")[marker]
+    off = compiled(", default = false")
+    assert "zzq" not in off[marker]
+    assert off == _compile({"en.toml": _w(f'[[word]]\ntext = "zzq"\n{clash}')})
+
+
+def test_a_given_name_written_short_off_by_default_compiles_to_nothing() -> None:
+    c = _compile({"tl.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x", same_as = "maria", default = false }\n'
+                                'excluded = { title = "x" }')})
+    assert not any("zzq" in v for v in c.values())
 
 
 def test_a_suffix_word_beside_a_name_reading_is_gated_and_an_agnomen_by_the_count() -> None:
@@ -178,10 +199,17 @@ def test_a_suffix_word_beside_a_name_reading_is_gated_and_an_agnomen_by_the_coun
     c = build.compile_files({"fr.toml": _w(
         '[[word]]\ntext = "zzq"\ngeneration = {}\nfamily = { note = "x" }\n\n'
         '[[word]]\ntext = "zzr"\ngeneration = {}'),
-        "pt.toml": _w('[[word]]\ntext = "zzs"\nagnomen = {}\ngiven = { note = "x" }')})
-    assert {"zzq", "zzr", "zzs"} <= c["SUFFIX_WORDS"]
-    assert c["SUFFIX_WORDS_AMBIGUOUS"] == {"zzq", "zzs"}
+        "pt.toml": _w('[[word]]\ntext = "zzs"\nagnomen = {}\ngiven = { note = "x" }'),
+        # a credential written as a word is gated as a generation is
+        # (#965's `kc`); one written as an acronym stays the second
+        # marker's, an ambiguous acronym
+        "en.toml": _w('[[word]]\ntext = "zzu"\ncredential = { acronym = false }\n'
+                      'family = { note = "x" }\n\n'
+                      '[[word]]\ntext = "zzv"\ncredential = {}\nfamily = { note = "x" }')})
+    assert {"zzq", "zzr", "zzs", "zzu"} <= c["SUFFIX_WORDS"]
+    assert c["SUFFIX_WORDS_AMBIGUOUS"] == {"zzq", "zzs", "zzu"}
     assert c["AGNOMENS"] == {"zzs"}
+    assert "zzv" in c["SUFFIX_ACRONYMS_AMBIGUOUS"] and "zzv" not in c["SUFFIX_WORDS"]
     # only the kinds a gate reads; another word kind beside a name
     # reading is refused (check 11), never left ungated
 
@@ -195,15 +223,46 @@ def _w(body: str) -> str:
 
 
 MUTATIONS = [
+    # 13: a mul.toml word holds no name reading and no reading in
+    # another file, save MUL_SHARED's (#1005)
+    ("mul-word-with-a-name-reading-elsewhere", {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}'), "en.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x" }')}, "en.toml: 'zzq' given: .* a strict choice reads where it drops"),
+    # MUL_SHARED exempts the other-file vocabulary reading, never the
+    # name reading
+    ("mul-shared-word-with-a-name-reading-elsewhere", {"mul.toml": _w('[[word]]\ntext = "i"\ngeneration = {}'), "en.toml": _w('[[word]]\ntext = "i"\ngiven = { note = "x" }')}, "en.toml: 'i' given: .* a strict choice reads where it drops"),
+    ("mul-word-with-a-reading-elsewhere", {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}'), "fr.toml": _w('[[word]]\ntext = "zzq"\nacademic = {}')}, "fr.toml: 'zzq' academic: .* no choice of 'fr' can prefer"),
+    # 12: [rules], only where a pack reads it, each key a rule with a
+    # value of its shape, never a scalar's default (#754, 4f)
+    ("rules-in-a-file-no-pack-reads", {"en.toml": _w('[rules]\ntwo_family_names = true')}, "en.toml: .* no pack reads this file's"),
+    ("rules-not-a-table", {"ru.toml": "schema = 1\nrules = true\n"}, "`rules` must be a table"),
+    ("rules-empty", {"ru.toml": _w("[rules]")}, "an empty table turns nothing on"),
+    ("rules-unknown-key", {"ru.toml": _w('[rules]\npatronymic = ["east-slavic"]')}, "unknown key 'patronymic'"),
+    ("rules-unknown-rule", {"ru.toml": _w('[rules]\npatronymic_rules = ["east_slavic"]')}, "has no value 'east_slavic'"),
+    ("rules-unknown-order", {"ru.toml": _w('[rules]\nname_order = "family_first"')}, "has no value 'family_first'"),
+    ("rules-set-not-an-array", {"ru.toml": _w('[rules]\npatronymic_rules = "east-slavic"')}, "must be an array of names"),
+    ("rules-set-of-a-non-string", {"ru.toml": _w('[rules]\npatronymic_rules = [1]')}, "must be an array of names"),
+    ("rules-set-empty", {"ru.toml": _w('[rules]\npatronymic_rules = []')}, "an empty patronymic_rules"),
+    ("rules-set-twice", {"tr.toml": _w('[rules]\npatronymic_rules = ["turkic", "turkic"]')}, "lists a value twice"),
+    ("rules-choice-not-a-string", {"ru.toml": _w('[rules]\nname_order = ["family-first"]')}, "must be a name"),
+    ("rules-flag-not-true", {"ru.toml": _w('[rules]\ntwo_family_names = "yes"')}, "must be `true`"),
+    ("rules-flag-an-integer", {"ru.toml": _w('[rules]\ntwo_family_names = 1')}, "must be `true`"),
+    ("rules-flag-default", {"ru.toml": _w('[rules]\ntwo_family_names = false')}, "is the default"),
+    # 4g's flag (#704), refused as its default like O6's
+    ("rules-two-given-names-default", {"ru.toml": _w('[rules]\ntwo_given_names = false')}, "is the default"),
+    ("rules-order-default", {"ru.toml": _w('[rules]\nname_order = "given-first"')}, "is the default"),
+    ("pack-file-without-rules", {"ru.toml": OK}, "locales.RU reads its policy patch"),
     # 1: schema, unknown keys, file names
     ("no-schema", {"und.toml": '[[word]]\ntext = "jr"\ngeneration = {}\n'}, "needs `schema = 1`"),
     ("newer-schema", {"und.toml": OK.replace("schema = 1", "schema = 2")}, "newer than this compiler"),
     ("unknown-top-level-key", {"und.toml": "language = 'en'\n" + OK}, "unknown key 'language'"),
-    ("reserved-top-level-key", {"und.toml": "prefer = ['pt']\n" + OK}, "reserved for phase 3"),
+    ("reserved-top-level-key", {"und.toml": "separators = []\n" + OK}, "reserved, unbuilt, for 3.x"),
+    # phase 3 gave the strengths to the caller, so they stay refused as
+    # data, the message naming the call (3j)
+    ("prefer-is-not-data", {"und.toml": "prefer = ['pt']\n" + OK}, "'prefer' is not data; a choice"),
+    ("strict-is-not-data", {"und.toml": _w('[[word]]\ntext = "mba"\ncredential = { strict = true }')}, "'strict' is not data; strictness is the caller's: parser_for"),
     ("file-name-not-a-tag", {"english.toml": OK}, "BCP 47 tag"),
     ("file-name-not-canonical-case", {"pt-br.toml": OK}, "BCP 47 tag"),
     ("file-with-no-entries", {"en.toml": OK, "und.toml": "schema = 1\n"}, "no \\[\\[word\\]\\] entries"),
-    ("reserved-reading-property", {"und.toml": _w('[[word]]\ntext = "mba"\ncredential = { bare_only = true }')}, "reserved for phase 4"),
+    ("reserved-reading-property", {"und.toml": _w('[[word]]\ntext = "mba"\ncredential = { bare_only = true }')}, "reserved, unbuilt, for 3.x"),
     ("unknown-reading-property", {"und.toml": _w('[[word]]\ntext = "mba"\ncredential = { acronymm = true }')}, "unknown key 'acronymm'"),
     ("unknown-word-key", {"und.toml": _w('[[word]]\ntext = "jr"\ngeneration = {}\nlang = "en"')}, "unknown key 'lang'"),
     ("descriptive-key-on-the-word", {"und.toml": _w('[[word]]\ntext = "jr"\ngeneration = {}\nnote = "x"')}, "belongs on a reading"),
@@ -254,6 +313,9 @@ MUTATIONS = [
     ("may-be-initial-caseless", {"ar.toml": _w('[[word]]\ntext = "و"\nconjunction = { may_be_initial = true }')}, "CASED single letter"),
     ("after-given-on-an-office", {"en.toml": _w('[[word]]\ntext = "king"\nnobility = { after_given = true }')}, "after_given is allowed on a salutation reading only"),
     ("after-given-on-a-generic-title", {"und.toml": _w('[[word]]\ntext = "zzq"\ntitle = { after_given = true }')}, "after_given is allowed on a salutation reading only"),
+    ("title-case-is-name-on-an-agnomen", {"und.toml": _w('[[word]]\ntext = "zzq"\nagnomen = { title_case_is_name = true }\nfamily = {}')}, "title_case_is_name is allowed on a generation or a credential written as a word"),
+    ("title-case-is-name-on-an-acronym", {"und.toml": _w('[[word]]\ntext = "zzq"\ncredential = { title_case_is_name = true }')}, "title_case_is_name is allowed on a generation or a credential written as a word"),
+    ("title-case-is-name-on-an-honorific", {"und.toml": _w('[[word]]\ntext = "zzq"\nhonorific = { title_case_is_name = true }')}, "title_case_is_name is allowed on a generation or a credential written as a word"),
     # herr's shape: refused in de.toml, flagged in da.toml
     ("excluded-after-given-in-another-file", {"de.toml": _w('[[word]]\ntext = "herr"\nsalutation = { excluded = { after_given = "a surname" } }'), "da.toml": _w('[[word]]\ntext = "herr"\nsalutation = { after_given = true }')}, "after_given = true is excluded.*a surname"),
     ("after-given-not-a-flag", {"en.toml": _w('[[word]]\ntext = "mr"\nsalutation = { after_given = "yes" }')}, "after_given must be true or false"),
@@ -278,9 +340,15 @@ MUTATIONS = [
     ("flag-not-a-bool", {"und.toml": _w('[[word]]\ntext = "van"\nparticle = { may_be_given = "yes" }')}, "true or false"),
     ("issue-not-a-number", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { issue = "661" }')}, "issue number"),
     # `default`: a reading is on unwritten, so only false is worth
-    # writing; and the four names phase 2 left reserved say which phase
+    # writing; and the four names phase 2 left reserved say they are
+    # unbuilt, for 3.x
     ("default-true", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { default = true }')}, "write default = false"),
     ("default-not-a-bool", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { default = "no" }')}, "write default = false"),
+    ("completed_by-not-a-list", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completed_by = "zzr" }')}, "completed_by must be a non-empty list"),
+    ("completed_by-empty", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completed_by = [] }')}, "completed_by must be a non-empty list"),
+    ("completed_by-two-words", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completed_by = ["zzr zzs"] }')}, "completed_by must be a non-empty list"),
+    ("completed_by-twice", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completed_by = ["zzr", "zzr"] }')}, "completed_by must be a non-empty list"),
+    ("completed_by-not-folded", {"ar.toml": _w('[[word]]\ntext = "zzq"\nbound_given = { completed_by = ["Zzr"] }')}, "completed_by must be a non-empty list"),
     ("attaches-not-a-list", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = "military" }')}, "attaches must be a non-empty list of title kinds"),
     ("attaches-empty", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = [] }')}, "attaches must be a non-empty list of title kinds"),
     ("attaches-twice", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["military", "military"] }')}, "attaches must be a non-empty list of title kinds"),
@@ -289,14 +357,33 @@ MUTATIONS = [
     ("attaches-a-word-with-no-title-reading", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["zzq"] }')}, "attaches names 'zzq', which is no title kind and no title word"),
     ("attaches-on-a-suffix", {"en.toml": _w('[[word]]\ntext = "phd"\ncredential = { attaches = ["office"] }')}, "unknown key 'attaches'"),
     ("attaches-differs-between-files", {"en.toml": _w('[[word]]\ntext = "chief"\noffice = { attaches = ["military"] }'), "fr.toml": _w('[[word]]\ntext = "chief"\noffice = {}')}, "attaches"),
-    ("reserved-separators", {"th.toml": _w('[[word]]\ntext = "นาย"\nsalutation = { separators = [] }')}, "reserved for phase 4"),
+    ("reserved-separators", {"th.toml": _w('[[word]]\ntext = "นาย"\nsalutation = { separators = [] }')}, "reserved, unbuilt, for 3.x"),
     # 11, the agnomen's half: an agnomen is gated by its name reading,
     # so one without would take the family name from two-word names
     ("name-reading-beside-an-honorific", {"ja.toml": _w('[[word]]\ntext = "zzt"\nhonorific = {}\nfamily = { note = "x" }')}, "gates nothing"),
     ("name-reading-beside-a-generic-suffix-word", {"en.toml": _w('[[word]]\ntext = "zzt"\nsuffix = {}\ngiven = { note = "x" }')}, "gates nothing"),
+    # every other word kind check 11 refuses, kept refused when #965
+    # widened GATED_WORDS to a credential written as a word
+    ("name-reading-beside-a-status", {"en.toml": _w('[[word]]\ntext = "zzt"\nstatus = {}\nfamily = { note = "x" }')}, "gates nothing"),
+    ("name-reading-beside-a-courtesy", {"en.toml": _w('[[word]]\ntext = "zzt"\ncourtesy = {}\nfamily = { note = "x" }')}, "gates nothing"),
+    ("name-reading-beside-a-professional-honorific", {"en.toml": _w('[[word]]\ntext = "zzt"\nprofessional_honorific = {}\nfamily = { note = "x" }')}, "gates nothing"),
     ("agnomen-as-an-acronym", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = { acronym = true }\nfamily = { note = "x" }')}, "an agnomen is a word"),
     ("agnomen-without-a-name-reading", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}')}, "an agnomen needs a `given` or `family` reading"),
     ("agnomen-whose-name-reading-is-elsewhere-only-as-an-exclusion", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}\nexcluded = { family = "x" }')}, "an agnomen needs a `given` or `family` reading"),
+    # a name reading written default = false (3a) is held to the same
+    # value check as any reading's `default`, gates nothing in the
+    # default, and so is no name reading for the checks that guard the
+    # default's compile: an agnomen it alone would gate reads ungated,
+    # and a particle whose word's only given reading it is waits for a
+    # pack to decide which side of check 11 it takes
+    ("name-default-true", {"pt.toml": _w('[[word]]\ntext = "zzq"\nfamily = { note = "x", default = true }\ncredential = {}')}, "write default = false"),
+    ("name-default-not-a-bool", {"pt.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x", default = 0 }\ncredential = {}')}, "write default = false"),
+    ("agnomen-whose-only-name-reading-is-off", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}\nfamily = { note = "x", default = false }')}, "an agnomen needs a `given` or `family` reading"),
+    ("agnomen-whose-only-name-reading-is-off-elsewhere", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}'), "it.toml": _w('[[word]]\ntext = "filho"\nfamily = { note = "x", default = false }\nexcluded = { title = "x" }')}, "an agnomen needs a `given` or `family` reading"),
+    ("off-name-reading-beside-an-honorific", {"ja.toml": _w('[[word]]\ntext = "zzt"\nhonorific = {}\nfamily = { note = "x", default = false }')}, "gates nothing"),
+    ("particle-whose-only-given-reading-is-off", {"nl.toml": _w('[[word]]\ntext = "in"\ngiven = { note = "x", default = false }\npreposition = {}')}, "only given readings are written default = false"),
+    ("particle-stating-never-given-beside-an-off-given-reading", {"nl.toml": _w('[[word]]\ntext = "in"\ngiven = { note = "x", default = false }\npreposition = { may_be_given = false }')}, "only given readings are written default = false"),
+    ("bound-given-particle-whose-only-given-reading-is-off", {"und.toml": _w('[[word]]\ntext = "abu"\ngiven = { note = "x", default = false }\nparticle = {}\nbound_given = {}')}, "only given readings are written default = false"),
     ("decided-not-a-date", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { decided = "2026-10-18" }')}, "TOML date"),
     # tomllib reads a date-time as a datetime, which isinstance calls a date
     ("decided-a-date-time", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { decided = 2026-10-18T09:00:00 }')}, "not a string or a date-time"),
@@ -345,13 +432,13 @@ MUTATIONS = [
     # a title kind's exclusion refuses every other title kind, and the
     # title category every kind: one title kind made both impossible
     # before #750
-    ("excluded-title-kind-sidestepped-by-a-sibling-kind", {"cs.toml": _w('[[word]]\ntext = "pan"\nexcluded = { salutation = "the Chinese surname Pan" }'), "en.toml": _w('[[word]]\ntext = "pan"\noffice = {}')}, "the Chinese surname Pan"),
-    ("excluded-title-kind-sidestepped-by-the-generic-kind", {"cs.toml": _w('[[word]]\ntext = "pan"\nexcluded = { salutation = "the Chinese surname Pan" }'), "und.toml": _w('[[word]]\ntext = "pan"\ntitle = {}')}, "the Chinese surname Pan"),
+    ("excluded-title-kind-sidestepped-by-a-sibling-kind", {"pl.toml": _w('[[word]]\ntext = "pan"\nexcluded = { salutation = "the Chinese surname Pan" }'), "en.toml": _w('[[word]]\ntext = "pan"\noffice = {}')}, "the Chinese surname Pan"),
+    ("excluded-title-kind-sidestepped-by-the-generic-kind", {"pl.toml": _w('[[word]]\ntext = "pan"\nexcluded = { salutation = "the Chinese surname Pan" }'), "und.toml": _w('[[word]]\ntext = "pan"\ntitle = {}')}, "the Chinese surname Pan"),
     # a refused property is refused on every kind of its category, with
     # the recorded reason: keyed on the kind, check 5 would still refuse
     # this, but with its own message instead of the reason
     ("excluded-addresses-reason-shown-across-title-kinds", {"ar.toml": _w('[[word]]\ntext = "sheikh"\nsalutation = { excluded = { addresses = "RECORDED REASON" } }'), "en.toml": _w('[[word]]\ntext = "sheikh"\nnobility = { addresses = "given" }')}, "RECORDED REASON"),
-    ("excluded-title-category-refuses-a-kind", {"vi.toml": _w('[[word]]\ntext = "ông"\nexcluded = { title = "a surname that leads" }\nsalutation = {}')}, "a surname that leads"),
+    ("excluded-title-category-refuses-a-kind", {"hu.toml": _w('[[word]]\ntext = "ông"\nexcluded = { title = "a surname that leads" }\nsalutation = {}')}, "a surname that leads"),
     ("excluded-category-in-another-file", {"und.toml": _w('[[word]]\ntext = "rai"\nexcluded = { suffix = "a surname" }'), "en.toml": _w('[[word]]\ntext = "rai"\ncredential = {}')}, "a surname"),
     # a reason written as a table reaches the refusal too
     ("excluded-kind-with-a-table-reason", {"fr.toml": _w('[[word]]\ntext = "fils"\nexcluded = { generation = { reason = "TABLE REASON", issue = 684 } }'), "en.toml": _w('[[word]]\ntext = "fils"\ngeneration = {}')}, "TABLE REASON"),
@@ -424,6 +511,12 @@ MUTATIONS = [
     ("same-as-on-a-family-reading", {"en.toml": _w('[[word]]\ntext = "smyth"\nfamily = { note = "x", same_as = "smith" }')}, "only a `given` reading takes one"),
     ("same-as-on-a-given-reading-unnormalized", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = "Charles" }')}, "not in normalized form; write 'charles'"),
     ("same-as-on-a-given-reading-names-itself", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = "chas" }')}, "names the word itself"),
+    # 3, the two name-reading properties the two-name switches read
+    # (#704): each is true or unwritten, and after_particle names a
+    # given name, so only a given reading takes it
+    ("shared-not-true", {"pa.toml": _w('[[word]]\ntext = "kaur"\nfamily = { note = "x", shared = false }')}, "shared must be true, or left unwritten"),
+    ("after-particle-not-true", {"es.toml": _w('[[word]]\ntext = "carmen"\ngiven = { note = "x", after_particle = 1 }')}, "after_particle must be true, or left unwritten"),
+    ("after-particle-on-a-family-reading", {"es.toml": _w('[[word]]\ntext = "carmen"\nfamily = { note = "x", after_particle = true }')}, "only a `given` reading takes one"),
 ]
 
 
@@ -439,11 +532,37 @@ def test_every_mutation_starts_from_a_pool_the_checks_accept() -> None:
     # when written correctly, so each refusal is the mutation's
     for files in (
         {"en.toml": OK},
+        # every [rules] key and shape, in a file a pack reads, alone or
+        # beside words
+        {"ru.toml": _w('[rules]\npatronymic_rules = ["east-slavic", "turkic"]\n'
+                       'name_order = "family-first-given-last"\ntwo_family_names = true\n'
+                       'two_given_names = true')},
+        {"tr.toml": _w('[rules]\nname_order = "family-first"\n\n' + OK.removeprefix("schema = 1\n\n"))},
         {"ja.toml": _w('[[word]]\ntext = "博士"\ncredential = { acronym = false }'),
          "zh.toml": _w('[[word]]\ntext = "博士"\ncredential = { acronym = false }')},
         {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = {}\n\n'
                        '[[word]]\ntext = "jnr"\ngeneration = { same_as = "jr" }')},
         {"und.toml": _w('[[word]]\ntext = "abu"\ngiven = { note = "x" }\nparticle = {}\nbound_given = {}')},
+        # check 13 met: a mul.toml word's name reading in mul.toml itself,
+        # as `ing`'s, and MUL_SHARED's `i` read by another file too
+        {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}\ngiven = { note = "x" }')},
+        {"mul.toml": _w('[[word]]\ntext = "i"\ngeneration = {}'),
+         "ca.toml": _w('[[word]]\ntext = "i"\nconjunction = {}')},
+        # a word whose only mul.toml reading is a name holds no
+        # vocabulary reading there to guard, and an off name reading in
+        # another file is off under plain and strict alike
+        {"mul.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x" }'),
+         "en.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}')},
+        {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}'),
+         "en.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x", default = false }')},
+        # an off name reading beside a reading it would gate compiles,
+        # and so does an off agnomen beside an off name reading; an off
+        # given reading beside a particle is fine once another given
+        # reading of the word is on
+        {"en.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}\nfamily = { note = "x", default = false }')},
+        {"pt-BR.toml": _w('[[word]]\ntext = "zzq"\nagnomen = { default = false }\nfamily = { note = "x", default = false }')},
+        {"nl.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x", default = false }\npreposition = {}'),
+         "en.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x" }\nexcluded = { title = "x" }')},
         # check 11 met: a particle beside a given reading states nothing,
         # in its own file or another, and a count-less one carries a note
         {"nl.toml": _w('[[word]]\ntext = "van"\ngiven = { note = "x" }\npreposition = {}'),
@@ -458,7 +577,7 @@ def test_every_mutation_starts_from_a_pool_the_checks_accept() -> None:
          "de.toml": _w('[[word]]\ntext = "mister"\noffice = { same_as = "mr" }')},
         # a title kind's exclusion refuses the title set, not the word:
         # its particle reading stays free
-        {"cs.toml": _w('[[word]]\ntext = "pan"\nexcluded = { salutation = "the Chinese surname Pan" }'),
+        {"pl.toml": _w('[[word]]\ntext = "pan"\nexcluded = { salutation = "the Chinese surname Pan" }'),
          "und.toml": _w('[[word]]\ntext = "pan"\nparticle = { may_be_given = false }')},
         # one title in a different kind per file, agreeing on addresses
         {"en.toml": _w('[[word]]\ntext = "sir"\nnobility = { addresses = "given" }'),
@@ -666,6 +785,17 @@ def test_a_given_name_written_short_compiles_and_is_not_inert() -> None:
     assert _sets_fed("given") == set()
 
 
+def test_a_surnames_case_mask_compiles_and_is_not_inert() -> None:
+    # #1014: case repair title-cases Mac, so a Mac surname its bearers
+    # write with the inner capital carries a mask on its family reading;
+    # the entry, holding only that reading, compiles (`_compile` turns
+    # the inert warning into an error) and feeds no set but the masks
+    c = _compile({"en.toml": _w('[[word]]\ntext = "macgregor"\nfamily = { note = "x", cased = "MacGregor" }')})
+    assert c["CAPITALIZATION_EXCEPTIONS"] == {"macgregor": "MacGregor"}
+    assert _sets_fed("family", '{ note = "x", cased = "MacGregor" }', "macgregor") == {
+        "CAPITALIZATION_EXCEPTIONS"}
+
+
 def test_a_check_failure_names_the_refresh_command_in_main(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     out = tmp_path / "_compiled.py"
@@ -829,7 +959,17 @@ def test_no_error_exits_1_the_code_for_stale(tmp_path: Path, monkeypatch: pytest
     assert build.main(["--check"]) == 1
     assert "unreadable" in capsys.readouterr().out
     assert build.main([]) == 0
+    # the index and the rules are written beside a repointed OUTPUT,
+    # never into the package
+    assert (tmp_path / "_index.py").exists()
+    assert (tmp_path / "_rules.py").exists()
     assert build.main(["--check"]) == 0
+    # a stale rules module is stale like the other two (#754, 4f)
+    (tmp_path / "_rules.py").write_text("RULES = ()\n", encoding="utf-8")
+    capsys.readouterr()
+    assert build.main(["--check"]) == 1
+    assert "_rules.py is stale" in capsys.readouterr().out
+    assert build.main([]) == 0
     # a module that cannot be written is an internal error, exit 3
     build.OUTPUT.unlink()
     build.OUTPUT.mkdir()
@@ -860,6 +1000,21 @@ def test_a_broken_lexicon_module_exits_3(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(build, "_LEXICON", [])
     monkeypatch.setattr(build, "_load_lexicon_module", broken)
     assert build.main(["--check"]) == 3
+
+
+@pytest.mark.parametrize(("raised", "code"), [
+    (ValueError("unpacking a bug"), 3),   # a bug in the compiler is internal
+    (KeyError("a bug"), 3),
+    (None, 2),                            # the backstop: the data's fault
+])
+def test_only_the_compilers_backstop_is_a_vocabulary_error(
+        monkeypatch: pytest.MonkeyPatch, raised: Exception | None, code: int) -> None:
+    # compile_pool turns the compiler's CompileError into a VocabError;
+    # catching ValueError instead made any bug a ValueError raises exit 2
+    def broken(readings: object) -> None:
+        raise raised if raised is not None else build._ri.CompileError("['esq']: both")
+    monkeypatch.setattr(build._ri, "compile_readings", broken)
+    assert build.main(["--check"]) == code
 
 
 def test_a_query_error_exits_3_not_1(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -945,12 +1100,19 @@ def _sets_fed(kind: str, props: str = "{}", text: str = "zzq",
 #: sets, against the same kind written bare, is the property's effect.
 _PROPERTY_PROBES = {
     "addresses": ("title", '{ addresses = "given" }', "zzq"),
-    "acronym": ("generation", "{ acronym = true }", "zzq"),
+    # a credential written as a word, the one acronym change that moves
+    # the kind set the credentials view reads (CREDENTIAL_WORDS, 4i-b)
+    "acronym": ("credential", "{ acronym = false }", "zzq"),
     "attached": ("honorific", '{ attached = { side = "after" } }', "zzq"),
     "may_be_initial": ("conjunction", "{ may_be_initial = true }", "q"),
     "cased": ("title", '{ cased = "ZzQ" }', "zzq"),
     "after_given": ("salutation", "{ after_given = true }", "zzq"),
+    "abbreviation": ("military", "{ abbreviation = true }", "zzq"),
     "default": ("generation", "{ default = false }", "zzq"),
+    "title_case_is_name": ("generation", "{ title_case_is_name = true }", "zzq"),
+    "shared": ("family", '{ shared = true, note = "probe" }', "zzq"),
+    "after_particle": ("given", '{ after_particle = true, note = "probe" }', "zzq"),
+    "completed_by": ("bound_given", '{ completed_by = ["zzr"] }', "zzq"),
     # a phrase needs the head it attaches to: a second title word
     "attaches": ("office", '{ attaches = ["occupation"] }', "zzq",
                  '\n\n[[word]]\ntext = "zzr"\noccupation = {}'),
@@ -1007,7 +1169,7 @@ def test_the_readme_states_each_behavioral_propertys_effect() -> None:
         moved = (_sets_fed(kind, props, text, *extra)
                  ^ _sets_fed(kind, "{}", text, *extra))
         assert moved, prop  # a probe that moves nothing tests nothing
-        assert set(_code(rows[prop])) & {n for n, _ in build.CONSTANTS} == moved, prop
+        assert set(_code(rows[prop])) & set(build.CONSTANTS) == moved, prop
 
 
 def test_the_readme_states_each_behavioral_propertys_unwritten_value() -> None:
@@ -1048,16 +1210,16 @@ def test_the_readme_states_each_derived_markers_effect() -> None:
         files = {"en.toml": _w(f'[[word]]\ntext = "zzq"\n{kind} = {without}')}
         named = {"en.toml": _w(f'[[word]]\ntext = "zzq"\ngiven = {{ note = "x" }}\n{kind} = {with_}')}
         a, b = build.compile_files(files), build.compile_files(named)
-        moved = {n for n, _ in build.CONSTANTS if ("zzq" in a[n]) != ("zzq" in b[n])}
+        moved = {n for n in build.CONSTANTS if ("zzq" in a[n]) != ("zzq" in b[n])}
         assert moved, marker
-        assert set(_code(rows[marker])) & {n for n, _ in build.CONSTANTS} == moved, marker
+        assert set(_code(rows[marker])) & set(build.CONSTANTS) == moved, marker
 
 
 def test_the_readme_names_every_compiled_constant() -> None:
     # each constant is reached by a kind, a property or a derived marker
     named = {name for heading in ("## Kinds", "## Properties", "### Derived markers")
              for row in _readme_table(heading) for cell in row[1:] for name in _code(cell)}
-    assert {name for name, _ in build.CONSTANTS} <= named
+    assert set(build.CONSTANTS) <= named
 
 
 def test_the_readme_lists_the_name_reading_keys() -> None:
@@ -1066,9 +1228,9 @@ def test_the_readme_lists_the_name_reading_keys() -> None:
     assert len(rows) == len(build.NAME_KEYS)
 
 
-def test_the_readme_lists_the_reserved_names_with_their_phases() -> None:
-    rows = _readme_table("## Names reserved for later phases")
-    assert {_code(r[0])[0]: int(r[1]) for r in rows} == build.RESERVED
+def test_the_readme_lists_the_reserved_names_with_their_releases() -> None:
+    rows = _readme_table("## Names reserved for later releases")
+    assert {_code(r[0])[0]: r[1] for r in rows} == build.RESERVED
     assert len(rows) == len(build.RESERVED)
 
 
@@ -1120,11 +1282,11 @@ def test_attaches_compiles_to_a_phrase_with_each_title_of_its_kinds() -> None:
 def test_a_shipped_phrase_names_two_titles() -> None:
     # every phrase the build writes is two words, each a title or a
     # title that may be a given name, so the phrase test can reach it
-    lex = Lexicon.default()
-    for phrase in lex.title_phrases:
+    sets = Lexicon.default()._sets
+    for phrase in sets.title_phrases:
         words = phrase.split(" ")
         assert len(words) == 2, phrase
-        assert all(w in lex.titles or w in lex.titles_ambiguous
+        assert all(w in sets.titles or w in sets.titles_ambiguous
                    for w in words), phrase
 
 
@@ -1136,3 +1298,115 @@ def test_attaches_may_name_one_title_word() -> None:
         '[[word]]\ntext = "zzr"\nmilitary = {}\n\n'
         '[[word]]\ntext = "zzs"\nmilitary = {}')})
     assert c["TITLE_PHRASES"] == frozenset({"zzq zzr"})
+
+
+def test_attaches_may_name_a_title_word_that_is_also_another_kind() -> None:
+    # 'pope' attaches to the word 'saint', which names a particle kind
+    # too: the pool check accepts it as the word, and the compile reads
+    # it only as the word (#913)
+    c = _compile({"en.toml": _w(
+        '[[word]]\ntext = "saint"\nreligious = {}\n\n'
+        '[[word]]\ntext = "zzq"\nreligious = { attaches = ["saint"] }')})
+    assert c["TITLE_PHRASES"] == frozenset({"zzq saint"})
+
+
+@pytest.mark.parametrize("saint", [
+    "", '[[word]]\ntext = "saint"\nreligious = { default = false }\n\n'],
+    ids=["no-title-word", "title-reading-off"])
+def test_attaches_refuses_another_kind_that_is_no_live_title_word(
+        saint: str) -> None:
+    # the half of the check the per-reading form refused before #913
+    # widened it: a kind of another category with no live title word
+    # of that name
+    with pytest.raises(build.VocabError,
+                       match="attaches names 'saint', which is not a title "
+                             "kind or a title word"):
+        _compile({"en.toml": _w(
+            saint + '[[word]]\ntext = "zzq"\nreligious = '
+            '{ attaches = ["saint"] }')})
+
+
+# ------------------------------------------------- [rules] (#754, 4f)
+def test_a_rules_table_compiles_to_sorted_pairs_a_module_holds() -> None:
+    pool = build.load({"ru.toml": _w('[rules]\ntwo_family_names = true\n'
+                                     'patronymic_rules = ["turkic", "east-slavic"]')})
+    assert pool.rules == {"ru": {"patronymic_rules": ("east-slavic", "turkic"),
+                                 "two_family_names": True}}
+    namespace: dict[str, Any] = {}
+    exec(build.render_rules(pool.rules), namespace)
+    assert namespace["RULES"] == (
+        ("ru", (("patronymic_rules", ("east-slavic", "turkic")),
+                ("two_family_names", True))),)
+
+
+def test_the_rule_tables_agree_with_policy() -> None:
+    # build.py's RULE_KEYS, checked at build time, and _locale's
+    # converters, read at a pack's import, are two halves of one schema
+    # (they cannot share a module: the build never imports the
+    # package); each key is the PolicyPatch field of its name, and its
+    # names are the enum's values and the order constants', the default
+    # a scalar's Policy() value
+    import dataclasses
+
+    from nameparser import _locale
+    from nameparser._policy import PatronymicRule, Policy, PolicyPatch, apply_patch
+
+    assert set(build.RULE_KEYS) == set(_locale._RULE_VALUES)
+    assert set(build.RULE_KEYS) <= {f.name for f in dataclasses.fields(PolicyPatch)}
+    assert build.RULE_KEYS["patronymic_rules"][1] == {r.value for r in PatronymicRule}
+    assert build.RULE_KEYS["name_order"][1] | {build.RULE_DEFAULTS["name_order"]} == set(
+        _locale._ORDERS)
+    default = Policy()
+    # every scalar key names its default, which converts to Policy()'s
+    # value and is refused at build time, so a new choice or flag key
+    # cannot let a pack restate it; a set key has no scalar default
+    scalars = {k for k, (shape, _) in build.RULE_KEYS.items() if shape != "set"}
+    assert set(build.RULE_DEFAULTS) == scalars
+    for key in scalars:
+        restated = _locale._RULE_VALUES[key](build.RULE_DEFAULTS[key])
+        assert restated == getattr(default, key), key
+        assert build.RULE_DEFAULTS[key] not in build.RULE_KEYS[key][1], key
+    for key, (shape, names) in build.RULE_KEYS.items():
+        if shape == "flag":
+            values: list[object] = [True]
+        elif shape == "choice":
+            values = sorted(names)
+        else:
+            values = [(name,) for name in sorted(names)]
+        for value in values:
+            # every name the build accepts converts to a value Policy
+            # takes, and turns the field away from its default
+            patch = PolicyPatch(**{key: _locale._RULE_VALUES[key](value)})  # type: ignore[arg-type]
+            policy = apply_patch(default, patch)
+            assert getattr(policy, key) != getattr(default, key), (key, value)
+
+
+def test_a_two_given_names_table_reaches_the_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 4g (#704): no shipped pack turns rules/O7 on, so the table is
+    # compiled from a fixture and read through rules_patch as a pack's
+    # would be, the compiled module patched for the call
+    import nameparser.config._rules as compiled
+    from nameparser import Parser, Policy, PolicyPatch
+    from nameparser._locale import rules_patch
+
+    pool = build.load({"ru.toml": _w('[rules]\ntwo_given_names = true')})
+    namespace: dict[str, Any] = {}
+    exec(build.render_rules(pool.rules), namespace)
+    monkeypatch.setattr(compiled, "RULES", namespace["RULES"])
+    patch = rules_patch("ru")
+    assert patch == PolicyPatch(two_given_names=True)
+    parser = Parser(policy=Policy().patched(patch))
+    assert parser.parse("Juan Carlos Pérez").given == "Juan Carlos"
+    # and the default reading it moved, for the control
+    assert Parser().parse("Juan Carlos Pérez").given == "Juan"
+
+
+def test_the_pack_roster_names_shipped_packs_their_files_compile_into() -> None:
+    from nameparser import locales
+    from nameparser._locale import rules_patch
+
+    assert set(build.PACK_RULES.values()) <= set(locales._REGISTRY)
+    for tag, attr in build.PACK_RULES.items():
+        assert getattr(locales, attr).policy == rules_patch(tag), attr
+    with pytest.raises(KeyError, match="no vocabulary file 'en' holds a \\[rules\\] table; the files that do: cs, es, ru, sk, tr"):
+        rules_patch("en")

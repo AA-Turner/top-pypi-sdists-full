@@ -35,6 +35,7 @@ __all__ = (
     "FormatType",
     "GeneratedManifestFormatType",
     "GranteeTypeType",
+    "InstanceScopeType",
     "JobManifestFieldNameType",
     "JobManifestFormatType",
     "JobReportFormatType",
@@ -127,6 +128,7 @@ ExpirationStatusType = Literal["Disabled", "Enabled"]
 FormatType = Literal["CSV", "Parquet"]
 GeneratedManifestFormatType = Literal["S3InventoryReport_CSV_20211130"]
 GranteeTypeType = Literal["DIRECTORY_GROUP", "DIRECTORY_USER", "IAM"]
+InstanceScopeType = Literal["ALL", "SELF"]
 JobManifestFieldNameType = Literal["Bucket", "Ignore", "Key", "VersionId"]
 JobManifestFormatType = Literal["S3BatchOperations_CSV_20180820", "S3InventoryReport_CSV_20161130"]
 JobReportFormatType = Literal["Report_CSV_20180820"]

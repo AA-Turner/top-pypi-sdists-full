@@ -869,6 +869,72 @@ class TestSettle:
         with pytest.raises(VerificationFailedError, match="nothing to settle"):
             await settlement.settle(life.raw, life.channel_id, account=PAYEE, rpc_url=RPC)
 
+    @pytest.mark.parametrize(
+        "policy", [{"max_fee_per_gas": 0}, {"max_total_fee": 0}, {"max_gas": 0}]
+    )
+    async def test_fee_refusal_releases_credit_floor(
+        self, life: Lifecycle, policy: dict[str, int]
+    ) -> None:
+        await self._ready(life, settled=None)
+        broadcasts = len(life.rpc.methods("eth_sendRawTransaction"))
+        with pytest.raises(chain.FeePolicyError):
+            await settlement.settle(
+                life.store,
+                life.channel_id,
+                account=PAYEE,
+                rpc_url=RPC,
+                http_client=life.rpc.client,
+                fee_payer_policy=policy,
+            )
+        assert len(life.rpc.methods("eth_sendRawTransaction")) == broadcasts
+        assert (await life.channel()).pending_settlement is None
+        result = await credit(life.raw, life.channel_id, 100, idempotency_key="after-refusal")
+        assert result.status == "credited"
+
+    async def test_overlapping_settle_preserves_inflight_credit_floor(
+        self, life: Lifecycle, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        await self._ready(life)
+        waiting, resume = asyncio.Event(), asyncio.Event()
+        original = chain.wait_for_successful_receipt
+
+        async def paused(*args: Any, **kwargs: Any) -> Any:
+            waiting.set()
+            await resume.wait()
+            return await original(*args, **kwargs)
+
+        monkeypatch.setattr(chain, "wait_for_successful_receipt", paused)
+        first = asyncio.create_task(
+            settlement.settle(
+                life.store,
+                life.channel_id,
+                account=PAYEE,
+                rpc_url=RPC,
+                http_client=life.rpc.client,
+            )
+        )
+        await waiting.wait()
+        try:
+            reserved = (await life.channel()).pending_settlement
+            broadcasts = len(life.rpc.methods("eth_sendRawTransaction"))
+            with pytest.raises(settlement.SettlementLeaseError):
+                await settlement.settle(
+                    life.store,
+                    life.channel_id,
+                    account=PAYEE,
+                    rpc_url=RPC,
+                    http_client=life.rpc.client,
+                    fee_payer_policy={"max_fee_per_gas": 0},
+                )
+            assert (await life.channel()).pending_settlement == reserved
+            assert len(life.rpc.methods("eth_sendRawTransaction")) == broadcasts
+            result = await credit(life.raw, life.channel_id, 100, idempotency_key="while-inflight")
+            assert result.status == "declined"
+        finally:
+            resume.set()
+            await first
+        assert (await life.channel()).settled_on_chain == 300
+
     async def test_settle_batch(self, life: Lifecycle) -> None:
         await self._ready(life)
         hashes = await settlement.settle_batch(
@@ -1103,6 +1169,7 @@ class TestSettle:
                 for status in (503, 429, 400)
             ),
             (TimeoutError(), True),
+            (chain.FeePolicyError("budget"), True),
             (RuntimeError("RPC error: {'code': -32603, 'message': 'internal'}"), True),
             (RuntimeError("RPC error: {'code': -32000, 'message': 'nonce too low'}"), False),
             (RuntimeError("RPC error: no code"), False),
@@ -1451,6 +1518,24 @@ class TestSessionMethod:
         assert isinstance(result, PaymentVerified), result
         assert result.receipt.to_payment_receipt()
         assert (await life.channel()).spent == 100
+
+    @pytest.mark.parametrize(
+        "policy", [{"max_fee_per_gas": 0}, {"max_total_fee": 0}, {"max_gas": 0}]
+    )
+    async def test_scheduled_fee_refusal_keeps_charged_request_served(
+        self, life: Lifecycle, policy: dict[str, int]
+    ) -> None:
+        await life.open(100)
+        broadcasts = len(life.rpc.methods("eth_sendRawTransaction"))
+        handler = handler_for(
+            life, settlement_schedule=SettlementSchedule(units=1), fee_payer_policy=policy
+        )
+        result = await pay(handler, life.voucher_payload(200))
+        assert isinstance(result, PaymentVerified), result
+        channel = await life.channel()
+        assert channel.spent == 100
+        assert channel.pending_settlement is None
+        assert len(life.rpc.methods("eth_sendRawTransaction")) == broadcasts
 
     async def test_needs_a_recipient(self) -> None:
         method = tempo_server.session(chain_id=CHAIN_ID, rpc_url=RPC, store=MemoryStore())
@@ -1901,21 +1986,51 @@ async def test_invalid_top_up_does_not_consume_sponsorship(life: Lifecycle, monk
     assert not budget_store._data
 
 
-@pytest.mark.parametrize("params", [None, [], [None], ["other"], ["raw"]])
-@pytest.mark.parametrize("cancelled", [False, True])
-async def test_rejected_send_reservation_preserves_unrelated_daily_attempts(params, cancelled):
-    async def reject():
-        if cancelled:
-            raise asyncio.CancelledError()
-        raise VerificationFailedError("allowance exhausted")
+@pytest.mark.parametrize("failure", ["rpc_error", "transport_error"])
+async def test_sponsored_simulation_reserves_before_exposure(life: Lifecycle, failure):
+    from mpp.methods.tempo.session.server import SessionSponsorshipLimit
+    from tests.test_session_chain import RpcError
 
-    tracker = verification._SendTracker(None, before_send=reject)
-    sends = ["prior", "raw"]
-    token = chain.sponsored_sends.set(sends)
-    try:
-        with pytest.raises(asyncio.CancelledError if cancelled else VerificationFailedError):
-            await tracker.post(RPC, json={"method": "eth_sendRawTransaction", "params": params})
-    finally:
-        chain.sponsored_sends.reset(token)
-    assert not tracker.attempted
-    assert sends == (["prior"] if params == ["raw"] else ["prior", "raw"])
+    await life.open(100)
+    budget = MemoryStore()
+    limit = SessionSponsorshipLimit(per_payer=1, store=budget)
+    exposed = []
+
+    def simulate(params):
+        if params[0].get("feePayerSignature"):
+            assert budget._data
+            exposed.append(params[0])
+            if failure == "transport_error":
+                raise httpx.ReadError("response lost")
+            raise RpcError("execution reverted")
+        return life.rpc._call(params)
+
+    life.rpc.overrides["eth_call"] = simulate
+    for additional in [500, 501]:
+        payload = await life.top_up_payload(additional)
+        transaction = await chain.build_top_up_transaction(
+            PAYER,
+            life.descriptor,
+            additional,
+            rpc_url=RPC,
+            fee_payer=True,
+            client=life.rpc.client,
+        )
+        payload = payload.model_copy(update={"transaction": transaction})
+        context = life.context(
+            payload,
+            fee_payer=SPONSOR,
+            top_up_sponsorship_limit=limit,
+            fee_payer_policy={"max_gas": 145_000},
+        )
+        sends = []
+        token = chain.sponsored_sends.set(sends)
+        try:
+            with pytest.raises((VerificationFailedError, httpx.ReadError)):
+                await verification.broadcast_credential_payload(context)
+        finally:
+            chain.sponsored_sends.reset(token)
+        assert bool(sends) is (additional == 500)
+        assert len(exposed) == 1
+        assert not life.rpc.sent[1:]
+    assert int(exposed[0]["gas"], 16) == 145_000

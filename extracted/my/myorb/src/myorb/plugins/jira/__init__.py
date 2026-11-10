@@ -1,4 +1,6 @@
 import asyncio
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -43,6 +45,9 @@ URGENT_PRIORITIES = {"Highest", "Blocker", "Critical"}
 WAITING_STATUSES = {"waiting for customer"}
 # Statuses of work put off: below even the backlog.
 POSTPONED_STATUSES = {"postponed"}
+# Whether a project plans in sprints (has a scrum board) is asked again after this many
+# seconds: it hardly ever changes, and asking every project on each refresh was wasted calls.
+SCRUM_RECHECK = 6 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -92,6 +97,11 @@ class Jira(Provider):
         Field("token", "API token", "password"),
     ]
     choices_label = "Projects"
+
+    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+        self._clock = clock
+        # (site, project) -> whether it has a scrum board, and when that was asked.
+        self._scrum: dict[tuple[str, str], tuple[bool, float]] = {}
 
     def hosts(self, credentials: dict[str, Any]) -> set[str]:
         return {urlsplit(credentials["site"]).hostname or ""}
@@ -169,6 +179,10 @@ class Jira(Provider):
             return set(), set()
 
         async def scrum(project: str) -> str | None:
+            key = (credentials["site"], project)
+            known = self._scrum.get(key)
+            if known and self._clock() - known[1] < SCRUM_RECHECK:
+                return project if known[0] else None
             try:
                 boards = await request_json(
                     http,
@@ -180,6 +194,7 @@ class Jira(Provider):
                 )
             except ProviderError:
                 return None
+            self._scrum[key] = (bool(boards.get("values")), self._clock())
             return project if boards.get("values") else None
 
         found = await asyncio.gather(*(scrum(p) for p in sorted(projects)))

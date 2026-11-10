@@ -23,6 +23,7 @@ from probe.mcp.tools.reads.listings.notes import NoteRowsMixin
 from probe.mcp.tools.reads.listings.runs import RunRowsMixin
 from probe.mcp.tools.reads.listings.workspaces import WorkspaceRowsMixin
 from probe.mcp.tools.reads.literature import LiteratureMixin
+from probe.mcp.tools.reads.samples import SamplesToolMixin
 from probe.mcp.tools.reads.metrics import MetricsMixin
 from probe.mcp.tools.reads.search import SearchMixin
 from probe.mcp.tools.reads.sql import SqlMixin
@@ -109,6 +110,7 @@ class ResearchReadService(
     ContextMixin,
     SqlMixin,
     CompareMixin,
+    SamplesToolMixin,
 ):
     """Compact, provenance-bearing read model exposed through MCP."""
 

@@ -6,12 +6,16 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 import threading
-from dataclasses import dataclass, field
+import time
+from concurrent import futures
+from contextlib import nullcontext
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from functools import cached_property, partial, reduce
 from itertools import product
-from math import prod
+from math import ceil, prod
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any, ClassVar
 from weakref import WeakValueDictionary
@@ -19,14 +23,24 @@ from weakref import WeakValueDictionary
 from cc_transcript.activity import ToolUse
 from cc_transcript.tools import BashCall
 from loguru import logger
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
-from captain_hook import Event, Input, LambdaCondition, WorkflowState, on, orca_socket, workflow_state
+from captain_hook import (
+    Event,
+    FileFixture,
+    Input,
+    LambdaCondition,
+    WorkflowState,
+    on,
+    orca_socket,
+    workflow_state,
+)
 from captain_hook.bindings import Resolved, Unknown, Unresolved, references
 from captain_hook.cmd import Cmd
 from captain_hook.command_schemas import ORCA, OSASCRIPT
 from captain_hook.conditions import UserSaid
 from captain_hook.guard_literal import names_guarded
+from captain_hook.session import SessionStore
 from captain_hook.tickets import (
     Allow,
     Context,
@@ -43,11 +57,13 @@ from captain_hook.tickets import (
     UserRuled,
     store,
 )
+from captain_hook.tickets import context as ticket_context
 from captain_hook.tickets.conditions import GO, HOLD
-from captain_hook.tickets.context import names
+from captain_hook.tickets.context import TranscriptSources, holds, names, written_at
 from captain_hook.tickets.decide import Undecided
+from captain_hook.transcripts import tree_calls_naming
 from captain_hook.util import proc, reqenv
-from captain_hook.util.paths import resolve_claude_config_dir
+from captain_hook.util.paths import resolve_claude_config_dir, resolve_long_running_state, resolve_target
 from captain_hook.util.payload import command_texts
 from captain_hook.util.shell import safe_parse_command_line
 
@@ -177,6 +193,11 @@ LANE_VAR = "CLAUDE_LONG_RUNNING_LANE"
 LANE_SUCCESSOR = re.compile(r"-\d+$")
 LAUNCHD_PID = 1
 PROBE_TIMEOUT = 2.0
+ORCA_PROBE_TIMEOUT = 60.0
+ORCA_VERDICT_RESERVE = 5.0
+GUARD_RETRY = "Retry the same call: the guard keeps the answers it already has for the retry."
+TERMINAL_LOOKUPS: dict[tuple[str | None, str], TerminalLookup] = {}
+TERMINAL_LOOKUPS_GUARD = threading.Lock()
 PROBE_FALLBACK_DIRS = ("/opt/homebrew/bin", "/usr/local/bin", os.path.expanduser("~/.local/bin"))
 IDLE_WAIT_MS = 1000
 SCREEN_LINES = 40
@@ -189,6 +210,8 @@ CODEX_PROMPT = "› Ask Codex to do anything"
 DONE_MARKER = re.compile(r"^✻ .* · done ")
 LANE_NAME = re.compile(r"[\w.-]+")
 LAUNCH_RECEIPTS = ".claude/scratch/orca-launch"
+ORCA_PROFILE_LOCK = PurePath("Library", "Application Support", "orca", "SingletonLock")
+ORCA_SERVER_ORDER = "When the owner ordered its restart, name this pid in a cc-notes answer quoting the owner verbatim."
 RECEIPT_SLACK = timedelta(seconds=1)
 RETRY_WINDOW = timedelta(minutes=2)
 BACKGROUNDED = re.compile(r"(?<![&>|])&(?![&>])|\b(?:nohup|setsid|disown)\b")
@@ -201,28 +224,35 @@ SCRIPT_RUNNERS = frozenset(
     {"yarn", "npm", "npx", "pnpm", "pnpx", "bunx", "tsx", "ts-node", "uv", "uvx", "sh", "bash", "zsh"}
 )
 RUNNER_VERBS = frozenset({"exec", "run", "x", "dlx"})
+SCRIPT_SHELLS = frozenset({"sh", "bash", "zsh"})
 SCRIPT_SUFFIXES = frozenset({".py", ".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".rb", ".pl", ".sh"})
 SETTLED = frozenset({"completed", "failed"})
 CLASS_RULINGS = ("c9b27c1", "6190a4a")
 SETTLED_CLOSE_RULES = (
     "The owner's standing rulings in the evidence cover a class of Orca terminal closes rather than one named "
-    "terminal: c9b27c1 lets the root close a settled dispatch's idle terminal, as orca-reclaim.py does, and 6190a4a lets it "
-    "close an orphan terminal its own failed launch created. The proposed action's payload is Orca's record for the "
-    "terminal: the dispatch holding it, its Run, and that dispatch's status. The guard has already proven the status "
-    "is completed or failed, the terminal's agent idles at a prompt, and the caller is the root session coordinating "
-    "that Run. Allow only when a ruling's words cover closing "
-    "a terminal with this record, and cite that ruling. Deny when the rulings exclude this record, or limit the class "
-    "to terminals it is not."
+    "terminal: c9b27c1 lets the root close a settled dispatch's idle terminal, as orca-reclaim.py does, and 6190a4a "
+    "lets it close an orphan terminal its own failed launch created. The proposed action's payload is Orca's record "
+    "for the terminal: the dispatch holding it, its Run, and that dispatch's status. The guard has already proven "
+    "the status is completed or failed, the terminal's agent idles at a prompt, and the caller is the root session "
+    "coordinating that Run. Allow only when a ruling's words cover closing a terminal with this record, and cite that "
+    "ruling. Deny when the rulings exclude this record, or limit the class to terminals it is not."
 )
 OWNER_NAMED_RULES = (
-    "The pending action ends something that may host a session: it closes an Orca terminal, stops, restarts, or "
-    "unloads a launchd service, or signals a process. The scope names the exact terminal handle, service label, or "
-    "pid. Allow only when the owner's own words, a prompt, a message they queued, or an AskUserQuestion answer, name "
-    "this exact target, by its handle, label, or pid, and ask for it to be closed, stopped, restarted, kicked, or "
-    "killed, or pick an option that does. Words about another target, a general instruction to clean up, and words "
-    "that only describe the target permit nothing. One owner instruction permits one such action."
+    "The pending action ends something that may host a session: it closes an Orca terminal, removes an Orca worktree "
+    "and the terminals in it, stops, restarts, or unloads a launchd service, or signals a process. The scope names the "
+    "exact terminal handle, worktree selector, service label, or pid. Allow only when the owner's own words, a prompt, "
+    "a message they queued, or an AskUserQuestion answer, name this exact target, by its handle, selector, label, or "
+    "pid, and ask for it to be closed, removed, stopped, restarted, kicked, or killed, or pick an option that does. "
+    "An item whose detail carries a cc-notes ruling recorded after the owner's words may instead name the target in "
+    "plain words: allow it only when those words plainly describe the one target "
+    "the ruling maps them to and ask for this action on it; deny when they fit another target as well, exclude this "
+    "one, or the mapping is a guess. Words about another target, a general instruction to clean up, and words that "
+    "only describe the target permit nothing. One owner instruction permits one such action."
 )
 OWNER_NAMED_TTL = timedelta(hours=1)
+QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
+QUOTED_WORDS = 3
+TYPED = frozenset({"prompt", "queued"})
 TAP_WINDOW = OWNER_NAMED_TTL - RETRY_WINDOW
 TAP_READ_SECONDS = 5.0
 ANSWER_ROW = "board-answer"
@@ -289,6 +319,12 @@ INLINE_SESSION = "c0ffee00-0000-4000-8000-000000000000"
 INLINE_OWNER_TERMINAL = "term_c59a87bf-0000-4000-8000-000000000000"
 INLINE_TRANSCRIPT = [{"type": "user", "message": {"role": "user", "content": "Ship the release."}}]
 INLINE_STARTED = datetime(2026, 1, 1, tzinfo=UTC)
+INLINE_LAUNCHER = FileFixture(
+    home=True,
+    name="launch.sh",
+    content="orca terminal create --worktree active --command claude --json > ~/create.json\ncat ~/create.json\n",
+)
+INLINE_READER = FileFixture(home=True, name="launch.sh", content="cat ~/create.json\n")
 
 
 def inline_ruling(
@@ -343,6 +379,18 @@ def inline_create(
     return inline_call("Bash", {"command": command}, created)
 
 
+def inline_launch(handle: str, command: str = "~/launch.sh") -> list[dict[str, Any]]:
+    created = json.dumps({"ok": True, "result": {"terminal": {"handle": handle}}}, indent=2)
+    return inline_call("Bash", {"command": command}, f"swapped to old\n{created}\nclaude pid=16002\nrestored")
+
+
+def inline_drive(handle: str) -> FileFixture:
+    roles = {"coordinator": {"session": INLINE_SESSION, "terminal": handle}}
+    return FileFixture(
+        home=True, name=".local/state/long-running/drive-a/drive.json", content=json.dumps({"roles": roles})
+    )
+
+
 def inline_spawn(task: str, *, tool: str = "Agent", status: str = "teammate_spawned") -> list[dict[str, Any]]:
     name, _, team = task.partition("@")
     result = {"status": status, "teammate_id": task, "agent_id": task, "name": name, "team_name": team}
@@ -386,7 +434,11 @@ def inline_class_rulings(*, written: datetime = INLINE_STARTED - timedelta(days=
 
 def inline_run(coordinator: str) -> dict[str, str]:
     shown = {"ok": True, "result": {"run": {"id": "run_inline", "coordinator_handle": coordinator}}}
-    return {"orca orchestration run-show --id run_inline": json.dumps(shown)}
+    checked = {"ok": True, "result": {"runId": "run_inline", "count": 0, "messages": []}}
+    return {
+        "orca orchestration run-show --id run_inline": json.dumps(shown),
+        f"orca orchestration check --terminal {coordinator} --peek --json": json.dumps(checked),
+    }
 
 
 def inline_dispatch(dispatch: str, run: str = "run_inline") -> dict[str, str]:
@@ -410,6 +462,12 @@ def inline_tab(handle: str, *panes: str) -> dict[str, str]:
     }
 
 
+def inline_listing(selector: str, *handles: str, environment: str | None = None) -> dict[str, str]:
+    scope = f"--environment {environment} " if environment is not None else ""
+    terminals = [{"handle": handle} for handle in handles]
+    return {f"orca terminal list {scope}--worktree {selector} --json": json.dumps({"result": {"terminals": terminals}})}
+
+
 INLINE_IDLE = inline_screen("✻ Worked for 2m · done ", "", "─" * 20, CLAUDE_PROMPT, "─" * 20)
 INLINE_BUSY = inline_screen("✶ Thinking… (esc to interrupt)", "─" * 20, CLAUDE_PROMPT, "─" * 20)
 INLINE_COMMANDS = {
@@ -426,6 +484,7 @@ INLINE_COMMANDS = {
         f"CLAUDE_CODE_SESSION_ID={INLINE_SESSION}\n"
     ),
     "orca terminal show": "{}",
+    "orca terminal list": (1, "selector_not_found"),
     **{
         f"orca terminal show --terminal {handle} --json": json.dumps(
             {"result": {"terminal": {"ptyId": f"pty-{handle}"}}}
@@ -610,23 +669,84 @@ def probe(
     return done.stdout if done.returncode == 0 else Unreadable(f"`{argv[0]}` failed")
 
 
-def terminal_pid(handle: str) -> int | Unreadable:
-    shown = probe(("orca", "terminal", "show", "--terminal", handle, "--json"))
-    if isinstance(shown, Unreadable):
+@dataclass(frozen=True, slots=True)
+class TerminalLookup:
+    started: float
+    shown: futures.Future[Any]
+    sweep: futures.Future[Any]
+
+    def expired(self, now: float) -> bool:
+        return now - self.started >= RETRY_WINDOW.total_seconds()
+
+
+class TerminalPid(BaseModel):
+    pid: int
+    resolved: datetime
+
+
+class TerminalPids(BaseModel):
+    pids: dict[str, TerminalPid] = Field(default_factory=dict[str, TerminalPid])
+
+
+def orca_in_background(argv: tuple[str, ...]) -> futures.Future[Any]:
+    answer: futures.Future[Any] = futures.Future()
+    unbounded = None if (ov := reqenv.current()) is None else replace(ov, deadline_unix_ms=0)
+
+    def read() -> None:
+        try:
+            with nullcontext() if unbounded is None else reqenv.use_request(unbounded):
+                answer.set_result(orca_document(argv, (), ORCA_PROBE_TIMEOUT))
+        finally:
+            if (raised := sys.exception()) is not None:
+                answer.set_exception(raised)
+
+    threading.Thread(target=read, name="capt-hook-orca-terminal", daemon=True).start()
+    return answer
+
+
+def terminal_lookup(session: str | None, handle: str) -> TerminalLookup:
+    now = time.monotonic()
+    with TERMINAL_LOOKUPS_GUARD:
+        for key in [key for key, lookup in TERMINAL_LOOKUPS.items() if lookup.expired(now)]:
+            del TERMINAL_LOOKUPS[key]
+        if (lookup := TERMINAL_LOOKUPS.get((session, handle))) is None:
+            shown = orca_in_background(("orca", "terminal", "show", "--terminal", handle, "--json"))
+            sweep = orca_in_background(("orca", "diagnostics", "memory", "--json"))
+            lookup = TERMINAL_LOOKUPS[session, handle] = TerminalLookup(now, shown, sweep)
+    return lookup
+
+
+def terminal_pid(store: SessionStore, session: str | None, handle: str) -> int | Unreadable:
+    slot = store[TerminalPids]
+    now = utc_now()
+    known = {key: pid for key, pid in slot.get(TerminalPids()).pids.items() if now - pid.resolved < RETRY_WINDOW}
+    if handle in known:
+        return known[handle].pid
+    lookup = terminal_lookup(session, handle)
+    left = reqenv.seconds_left()
+    budget = ORCA_PROBE_TIMEOUT if left is None else max(0.0, min(ORCA_PROBE_TIMEOUT, left - ORCA_VERDICT_RESERVE))
+    if futures.wait((lookup.shown, lookup.sweep), timeout=budget).not_done:
+        waited = time.monotonic() - lookup.started
+        return TimedOut(f"Orca did not answer in {ceil(waited)}s", waited)
+    with TERMINAL_LOOKUPS_GUARD:
+        if TERMINAL_LOOKUPS.get((session, handle)) is lookup:
+            del TERMINAL_LOOKUPS[session, handle]
+    if isinstance(shown := lookup.shown.result(), Unreadable):
         return shown
-    sweep = probe(("orca", "diagnostics", "memory", "--json"))
-    if isinstance(sweep, Unreadable):
+    if isinstance(sweep := lookup.sweep.result(), Unreadable):
         return sweep
     try:
-        pty = json.loads(shown)["result"]["terminal"]["ptyId"]
+        pty = shown["result"]["terminal"]["ptyId"]
         pids = {
-            session["sessionId"]: int(session["pid"])
-            for worktree in json.loads(sweep)["result"]["worktrees"]
-            for session in worktree.get("sessions", ())
+            pane["sessionId"]: int(pane["pid"])
+            for worktree in sweep["result"]["worktrees"]
+            for pane in worktree.get("sessions", ())
         }
-        return pids[pty]
+        pid = pids[pty]
     except (ValueError, TypeError, KeyError):
         return Unreadable("Orca reports no process for the terminal")
+    slot.set(TerminalPids(pids={**known, handle: TerminalPid(pid=pid, resolved=now)}))
+    return pid
 
 
 class SpawnRecord(BaseModel):
@@ -764,12 +884,16 @@ class Drive:
 
 
 class Facts:
-    def __init__(self, session: str | None = None, spawns: Iterable[SpawnRecord] = ()) -> None:
+    def __init__(
+        self, session: str | None = None, spawns: Iterable[SpawnRecord] = (), store: SessionStore | None = None
+    ) -> None:
         self.session = session
+        self.store = SessionStore(None) if store is None else store
         self.spawns = tuple(spawns)
         self._guard = threading.Lock()
         self._ownership: Ownership | Unreadable | None = None
         self._environments: dict[ProcessRow, str | None] = {}
+        self._trees: dict[str, tuple[ProcessRow, ...] | Unreadable] = {}
 
     def environment(self, row: ProcessRow) -> str | None:
         if row in self._environments:
@@ -815,9 +939,14 @@ class Facts:
             return self._ownership
 
     def terminal_tree(self, handle: str) -> tuple[ProcessRow, ...] | Unreadable:
+        if handle not in self._trees:
+            self._trees[handle] = self.read_tree(handle)
+        return self._trees[handle]
+
+    def read_tree(self, handle: str) -> tuple[ProcessRow, ...] | Unreadable:
         if isinstance(ownership := self.ownership, Unreadable):
             return ownership
-        if isinstance(pid := terminal_pid(handle), Unreadable):
+        if isinstance(pid := terminal_pid(self.store, self.session, handle), Unreadable):
             return pid
         if (root := ownership.table.rows.get(pid)) is None:
             return Unreadable(f"the terminal's process {pid} is not in the process table")
@@ -829,6 +958,14 @@ def read_ownership() -> Ownership | Unreadable:
         return timeout
     table = proc.process_table(timeout=timeout)
     return Unreadable("the process table could not be read") if table is None else Ownership.resolve(table)
+
+
+def orca_server_pid() -> int | None:
+    """The pid holding Orca's profile lock, read when asked: the app server, never a PTY daemon or a session."""
+    if not (lock := Path.home() / ORCA_PROFILE_LOCK).is_symlink():
+        return None
+    held = lock.readlink().name.rpartition("-")[2]
+    return int(held) if held.isdecimal() else None
 
 
 def unresolvable(spelling: str, reason: str, fix: str) -> str:
@@ -879,11 +1016,17 @@ def pid_verdict(
             f"unrelated process. {fix}"
         )
     if pid in ownership.protected:
+        server = lifted is not None and pid == orca_server_pid()
         message = (
             f"BLOCKED: {describe(row)} is {process_class(row) or 'an ancestor of a protected process'}, which no "
-            "session may signal, stop, reprioritize, or restart. Ask the owner to end it."
+            "session may signal, stop, reprioritize, or restart. "
+            + (ORCA_SERVER_ORDER if server else "Ask the owner to end it.")
         )
-        return message if lifted is None or not lone_codex_session(row, ownership.table) else lifted(row, message)
+        return (
+            lifted(row, message)
+            if lifted is not None and (server or lone_codex_session(row, ownership.table))
+            else message
+        )
     if facts.started_here(row):
         return None
     agent = ownership.table.nearest(row.ppid, is_agent)
@@ -1055,7 +1198,7 @@ class Scan:
         with cls.LOCK:
             scan = cls.CACHE.get(id(evt._raw))
             if scan is None or scan.raw is not evt._raw:
-                facts = Facts(evt._raw.get("session_id"), Spawns.load(evt).records.values())
+                facts = Facts(evt._raw.get("session_id"), Spawns.load(evt).records.values(), evt.ctx.session)
                 scan = cls.CACHE[id(evt._raw)] = cls(evt._raw, facts)
             evt._resources[cls, id(evt._raw)] = scan
         with scan.guard:
@@ -1104,9 +1247,9 @@ def orca_json(argv: tuple[str, ...], *path: str, unset: tuple[str, ...] = ()) ->
         return Unreadable(f"`{' '.join(argv[:3])}` printed no {path[-1]}")
 
 
-def orca_document(argv: tuple[str, ...], unset: tuple[str, ...]) -> Any:
+def orca_document(argv: tuple[str, ...], unset: tuple[str, ...], ceiling: float = PROBE_TIMEOUT) -> Any:
     if (read := orca_socket.read_call(argv)) is not None:
-        if isinstance(timeout := probe_timeout("ask Orca"), Unreadable):
+        if isinstance(timeout := probe_timeout("ask Orca", ceiling), Unreadable):
             return timeout
         try:
             return {"result": orca_socket.call(*read, timeout=timeout)}
@@ -1115,7 +1258,7 @@ def orca_document(argv: tuple[str, ...], unset: tuple[str, ...]) -> Any:
         except orca_socket.OrcaUnavailable:
             logger.opt(exception=True).debug("Orca's socket did not answer; asking its CLI")
     record = (*argv, "--full") if argv[1] == "orchestration" else argv
-    if isinstance(shown := probe(record, unset=unset), Unreadable):
+    if isinstance(shown := probe(record, ceiling, unset=unset), Unreadable):
         return shown
     try:
         return json.loads(shown)
@@ -1123,11 +1266,21 @@ def orca_document(argv: tuple[str, ...], unset: tuple[str, ...]) -> Any:
         return Unreadable(f"`{' '.join(argv[:3])}` printed no JSON")
 
 
-def created_handle(text: str) -> str | None:
-    try:
-        return json.loads(text)["result"]["terminal"]["handle"]
-    except (ValueError, TypeError, KeyError):
-        return None
+def printed_terminals(text: str) -> set[str]:
+    decoder, handles, at = json.JSONDecoder(), set[str](), text.find("{")
+    while at != -1:
+        try:
+            document, at = decoder.raw_decode(text, at)
+        except ValueError:
+            at += 1
+        else:
+            match document:
+                case {"result": {"terminal": {"handle": str() as handle}}}:
+                    handles.add(handle)
+                case _:
+                    pass
+        at = text.find("{", at)
+    return handles
 
 
 def receipt_names(lane: str, handle: str, start: datetime, end: datetime) -> bool:
@@ -1135,7 +1288,7 @@ def receipt_names(lane: str, handle: str, start: datetime, end: datetime) -> boo
         return False
     return any(
         start <= datetime.fromtimestamp(receipt.stat().st_mtime, UTC) <= end
-        and created_handle(receipt.read_text()) == handle
+        and printed_terminals(receipt.read_text()) == {handle}
         for receipt in (Path.home() / LAUNCH_RECEIPTS).glob(f"*/{lane}.terminal.json")
     )
 
@@ -1145,15 +1298,39 @@ def bare_orca(call: Call) -> bool:
     return head is not None and head.value == "orca" and not call.source.env and not call.substituted
 
 
+def creates_terminal(call: Call) -> bool:
+    if not bare_orca(call):
+        return False
+    values = ORCA.bind(call).values
+    return (values.get("group"), values.get("verb")) == (("terminal",), ("create",))
+
+
+def script_text(call: Call) -> str | None:
+    match [word.value for word in call.command.words]:
+        case [str() as shell, str() as script, *_] if PurePath(shell).name in SCRIPT_SHELLS:
+            target = script
+        case [str() as target, *_] if "/" in target:
+            pass
+        case _:
+            return None
+    path = resolve_target(target, None)
+    return path.read_text(errors="replace") if path is not None and path.is_file() else None
+
+
+def script_creates_terminal(call: Call) -> bool:
+    if (text := script_text(call)) is None or (line := safe_parse_command_line(text)) is None:
+        return False
+    return any(map(creates_terminal, Cmd(line, raw=text, cwd=None).calls()))
+
+
 def created_by(use: Any, handle: str, cwd: Path | None) -> BashCall | None:
-    if not isinstance(bash := use.call, BashCall) or use.result is None:
+    if not isinstance(bash := use.call, BashCall) or use.result is None or handle not in use.result.content:
         return None
     line = safe_parse_command_line(bash.command)
     calls = () if line is None else Cmd(line, raw=bash.command, cwd=cwd).calls()
-    if len(calls) == 1 and bare_orca(calls[0]):
-        values = ORCA.bind(calls[0]).values
-        if (values.get("group"), values.get("verb")) == (("terminal",), ("create",)):
-            return bash if created_handle(use.result.content) == handle else None
+    if len(calls) == 1 and printed_terminals(use.result.content) == {handle}:
+        if creates_terminal(calls[0]) or script_creates_terminal(calls[0]):
+            return bash
     start, end = use.ts - RECEIPT_SLACK, (use.result_ts or use.ts) + RECEIPT_SLACK
     launched = f"terminal={handle}" in use.result.content and any(
         receipt_names(call.args[0], handle, start, end) for call in calls if call.name == "orca-launch.sh" and call.args
@@ -1171,14 +1348,15 @@ def runs_once(call: Call, scan: Scan) -> bool:
     )
 
 
-def worker_of(handle: str) -> dict[str, Any] | Unreadable | None:
+def worker_of(handle: str, *, run: str | None = None) -> dict[str, Any] | Unreadable | None:
     cursor: tuple[str, ...] = ()
+    scope = () if run is None else ("--run", run)
     while True:
-        argv = ("orca", "orchestration", "worker-list", "--limit", str(WORKER_PAGE), *cursor, "--json")
+        argv = ("orca", "orchestration", "worker-list", *scope, "--limit", str(WORKER_PAGE), *cursor, "--json")
         if isinstance(page := orca_json(argv, "result", unset=("ORCA_TERMINAL_HANDLE",)), Unreadable):
             return page
         try:
-            if page.get("scope", {}).get("source", "all") != "all":
+            if run is None and page.get("scope", {}).get("source", "all") != "all":
                 return Unreadable("Orca scoped its worker list to one Run")
             holder = next(
                 (
@@ -1253,26 +1431,37 @@ def lone_pane(handle: str) -> bool | Unreadable:
     return panes.get("type") == "terminal" and panes.get("handle") == handle
 
 
+def worktree_terminals(selector: str, environment: str | None) -> int | Unreadable:
+    if environment is None and any(map(reqenv.getenv, orca_socket.REMOTE_SELECTORS)):
+        return Unreadable("a paired runtime is selected from the environment")
+    scope = ("--environment", environment) if environment is not None else ()
+    listing = ("orca", "terminal", "list", *scope, "--worktree", selector, "--json")
+    if isinstance(
+        terminals := orca_json(listing, "result", "terminals", unset=orca_socket.REMOTE_SELECTORS), Unreadable
+    ):
+        return terminals
+    return len(terminals)
+
+
 @dataclass(frozen=True, slots=True)
 class CreatedHere(CustomTicketCondition):
     """This session created the terminal, no dispatch names it, and its agent idles at a prompt."""
 
     def evidence(self, ctx: Context) -> list[Evidence] | None:
         handle = ctx.place["terminal"]
-        if (evt := ctx.evt) is None:
+        if (evt := ctx.evt) is None or drive_terminal(handle):
             return None
         found = next(
             (
-                (use, bash)
-                for turn in evt.ctx.t.turns
-                for use in turn.tool_uses
+                (where, use, bash)
+                for where, use in session_calls(evt, handle)
                 if (bash := created_by(use, handle, evt.cwd)) is not None
             ),
             None,
         )
         if found is None:
             return None
-        use, bash = found
+        where, use, bash = found
         holder = worker_of(handle)
         ready = idle(handle) if holder is None else False
         if holder is not None or ready is not True:
@@ -1285,28 +1474,51 @@ class CreatedHere(CustomTicketCondition):
                 source="created",
                 quote=clip(bash.command, 200),
                 said_at=use.result_ts or use.ts,
-                detail=f"this session created {handle}; no dispatch names it and its agent idles at a prompt",
+                detail=f"this session created {handle}, as {where or 'its own transcript'} records; no dispatch names "
+                "it and its agent idles at a prompt",
             )
         ]
 
 
-def settled_worker(handle: str) -> dict[str, Any] | None:
-    worker = worker_of(handle)
+def drive_terminal(handle: str) -> bool:
+    return any(
+        handle.encode() in (raw := path.read_bytes())
+        and any(role.get("terminal") == handle for role in json.loads(raw).get("roles", {}).values())
+        for path in resolve_long_running_state().glob("*/drive.json")
+    )
+
+
+def session_calls(evt: BaseHookEvent, handle: str) -> Iterator[tuple[Path | None, ToolUse]]:
+    yield from ((None, use) for turn in evt.ctx.t.turns for use in turn.tool_uses)
+    if not isinstance(tree := Scan.of(evt).facts.terminal_tree(handle), Unreadable):
+        yield from tree_calls_naming(evt, handle, since=tree[0].started.replace(tzinfo=UTC))
+
+
+def settled_worker(handle: str, run: str) -> dict[str, Any] | None:
+    worker = worker_of(handle, run=run)
     if not isinstance(worker, dict) or worker.get("dispatchStatus") not in SETTLED or idle(handle) is not True:
         return None
     return worker
 
 
+def caller_handle(evt: BaseHookEvent) -> str | None:
+    return None if evt.agent_id is not None else reqenv.getenv("ORCA_TERMINAL_HANDLE") or None
+
+
 def coordinates(evt: BaseHookEvent, run: str | None) -> bool:
-    caller = reqenv.getenv("ORCA_TERMINAL_HANDLE")
-    if evt.agent_id is not None or not caller or not run:
+    if (caller := caller_handle(evt)) is None or not run:
         return False
     shown = ("orca", "orchestration", "run-show", "--id", run, "--json")
     return orca_json(shown, "result", "run", "coordinator_handle") == caller
 
 
 def settled_close(evt: BaseHookEvent, handle: str, tab: bool) -> Proposal | None:
-    if (worker := settled_worker(handle)) is None or not coordinates(evt, run := worker.get("runId")):
+    if (caller := caller_handle(evt)) is None:
+        return None
+    checked = ("orca", "orchestration", "check", "--terminal", caller, "--peek", "--json")
+    if not isinstance(run := orca_json(checked, "result", "runId"), str):
+        return None
+    if (worker := settled_worker(handle, run)) is None or not coordinates(evt, run):
         return None
     dispatch, status = worker["dispatchId"], worker["dispatchStatus"]
     stage = ((worker.get("projection") or {}).get("stage") or {}).get("detail")
@@ -1330,7 +1542,7 @@ def own_lane(evt: BaseHookEvent, handle: str) -> bool:
 
 
 def still_settled(action: Proposal) -> bool:
-    worker = settled_worker(action.payload["terminal"])
+    worker = settled_worker(action.payload["terminal"], action.payload["run"])
     return worker is not None and worker["dispatchId"] == action.payload["dispatch"]
 
 
@@ -1477,6 +1689,46 @@ def record_child(evt: PostToolUseEvent) -> None:
     )
 
 
+def quoted(body: str) -> list[str]:
+    return [quote for pair in QUOTED.findall(body) if len((quote := pair[0] or pair[1]).split()) >= QUOTED_WORDS]
+
+
+@dataclass(frozen=True, slots=True)
+class OrderRecorded(CustomTicketCondition):
+    """The owner's prompts, said within the hour, that a cc-notes answer naming the place quotes verbatim.
+
+    Plain words such as ``restart the orca server`` name no label, so the session they reach records an answer that
+    names the place's value and quotes them, typos kept. Only the owner's own prompts in the session tree count, said
+    before the answer, so an answer quoting words the owner never typed finds nothing.
+    """
+
+    key: str
+
+    def evidence(self, ctx: Context) -> list[Evidence] | None:
+        assert ctx.evt is not None
+        term = ctx.place[self.key]
+        answers = [answer for answer in ticket_context.ccn_answers(ctx.evt, term) if names(answer["body"], term)]
+        quotes = {answer["id"]: quoted(answer["body"]) for answer in answers}
+        if not (needles := tuple(dict.fromkeys(quote for found in quotes.values() for quote in found))):
+            return None
+        since, said = store.now() - OWNER_NAMED_TTL, TranscriptSources(ctx.evt, needles).said()
+        return [
+            item.model_copy(
+                update={
+                    "id": f"order:{answer['id'][:7]}:{item.id.partition(':')[2]}",
+                    "detail": f"cc-notes ruling {answer['id'][:7]}, recorded {store.stamp(written_at(answer))} after "
+                    f"these words, maps them to {term}: {clip(answer['body'], 400)}",
+                }
+            )
+            for answer in answers
+            for item in said
+            if item.source in TYPED
+            and item.said_at is not None
+            and since <= item.said_at <= written_at(answer)
+            and any(holds(item.quote, quote) for quote in quotes[answer["id"]])
+        ] or None
+
+
 def user_named(key: str) -> Decide:
     return Decide(OWNER_NAMED_RULES, over=(UserSaid(Names(key)), UserAnswered(Names(key), approved=False)))
 
@@ -1488,6 +1740,15 @@ TERMINAL_CLOSE = Tickets(
     rules=(Rule("ruling", UserRuled("terminal")), Rule("created-here", CreatedHere())),
     deny="Close an idle terminal this session created, or have the owner name the terminal id in a "
     "cc-notes answer before the closing session starts.",
+    ttl=RETRY_WINDOW,
+    hook="sessions",
+)
+WORKTREE_REMOVE = Tickets(
+    "sessions.worktree-rm",
+    ("worktree",),
+    Reach.ONCE,
+    rules=(Rule("ruling", UserRuled("worktree")),),
+    deny="Have the owner name the worktree selector in a cc-notes answer before the removing session starts.",
     ttl=RETRY_WINDOW,
     hook="sessions",
 )
@@ -1537,7 +1798,10 @@ def owner_named(kind: str, key: str, target: str) -> Tickets:
         f"{kind}.owner",
         (key,),
         Reach.ONCE,
-        rules=(Rule("user-named", user_named(key)),),
+        rules=(
+            Rule("user-named", user_named(key)),
+            Rule("order-recorded", Decide(OWNER_NAMED_RULES, over=(OrderRecorded(key),))),
+        ),
         deny=f"Ask the owner to name the {target} and say to end it; their answer lifts this block once.",
         ttl=OWNER_NAMED_TTL,
         hook=f"{kind}.owner",
@@ -1545,6 +1809,7 @@ def owner_named(kind: str, key: str, target: str) -> Tickets:
 
 
 TERMINAL_CLOSE_NAMED = owner_named("sessions.close", "terminal", "terminal")
+WORKTREE_REMOVE_NAMED = owner_named("sessions.worktree-rm", "worktree", "worktree")
 LAUNCHD_STOP_NAMED = owner_named("sessions.launchctl", "service", "service")
 KILL_NAMED = owner_named("sessions.kill", "pid", "pid")
 KILL_TAPPED = Tickets(
@@ -1558,6 +1823,7 @@ KILL_TAPPED = Tickets(
 )
 OWNER_NAMED = {
     TERMINAL_CLOSE.kind: TERMINAL_CLOSE_NAMED,
+    WORKTREE_REMOVE.kind: WORKTREE_REMOVE_NAMED,
     LAUNCHD_STOP.kind: LAUNCHD_STOP_NAMED,
     KILL_PROCESS.kind: KILL_NAMED,
     KILL_SESSION.kind: KILL_NAMED,
@@ -1667,4 +1933,5 @@ guard = partial(
     respect_gitignore=False,
     skip_planning_agents=False,
     mandatory=True,
+    on_incomplete=GUARD_RETRY,
 )

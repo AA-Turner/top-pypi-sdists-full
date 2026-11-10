@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cosmic_ray
-Version: 8.7.0
+Version: 8.8.0
 Summary: Mutation testing
 Project-URL: repository, https://github.com/sixty-north/cosmic-ray
 Author-email: Sixty North AS <austin@sixty-north.com>

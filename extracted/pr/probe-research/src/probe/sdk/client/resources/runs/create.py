@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 from ....values import values as _coerce
 
-from .... import errors
+from .... import agent_session, errors
 from ....errors import CapabilityUnavailable
 from ....delivery.transport.failures import outcome_unknown
 from ....delivery.transport.deadlines import wait_out_retry_after
@@ -51,13 +51,18 @@ class RunCreateMixin:
         body: dict[str, Any] = {"source": source, "creation_key": uuid.uuid4().hex}
         # Stamped even when `name` is omitted: `authored_by` also governs
         # `description_customized`, and a run created with a description and no
-        # name still has an authored field on it.
-        _put_authorship(body, authored_by)
+        # name still has an authored field on it. A caller's name is the run's
+        # identifier and goes undeclared, so the server keeps it, and any
+        # description sent beside it (agent_session.default_authorship). A name
+        # Probe composed declares `agent`, unless a description rides along:
+        # those are someone's words, and `agent` would hand them to generation.
+        if authored_by is None and isinstance(name, agent_session.ComposedName) and not description:
+            authored_by = agent_session.AUTHORSHIP_AGENT
+        _put_authorship(body, authored_by, is_new_run_name=bool(name))
         # OMITTED, not null: `name` is optional server-side since 0080, and leaving
-        # it out is the only way to say "the server picks it". Sending it -- with
-        # any value -- stamps `name_customized` and takes the run out of generated
-        # titles permanently. `min_length=1` on the server field also means an
-        # explicit null and an empty string are not interchangeable here.
+        # it out is the only way to say "the server picks it". `min_length=1` on
+        # the server field also means an explicit null and an empty string are not
+        # interchangeable here.
         if name is not None:
             body["name"] = name
         # The run's own slug (server 0.110.0.0), stored in the `slug` column.

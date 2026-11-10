@@ -30,7 +30,12 @@ thiserror.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 tracing = { workspace = true }
-pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+# 0.13.6 is the floor, not just what Cargo.lock happens to hold: RUSTSEC-2026-0414
+# (fixed in 0.13.5) and RUSTSEC-2026-0433 (fixed in 0.13.6) are both in the
+# 0.13.0-0.13.5 range, so a lock regeneration must not be able to resolve below it.
+# djust never sets `Options::ENABLE_WIKILINKS` (the option both advisories need);
+# see `markdown.rs::to_pulldown` and `wikilink_syntax_is_never_a_link`.
+pulldown-cmark = { version = "0.13.6", default-features = false, features = ["html"] }
 # `markup5ever::data::NAMED_ENTITIES` is byte-identical to CPython's
 # `html.entities.html5` (2231 entries, equality asserted in the parity suite),
 # which is what `html.unescape` resolves against — and `html.unescape` is what
@@ -38,7 +43,7 @@ pulldown-cmark = { version = "0.13", default-features = false, features = ["html
 # truncators cannot match Django without it. NOT a new dependency: html5ever
 # already pulls markup5ever into this workspace for djust_vdom, so this only
 # adds an edge, not a crate.
-markup5ever = "0.39"
+markup5ever = "0.40"
 # `Truncator.chars`'s NFC and `slugify`'s NFKD fold (#2319) — see the
 # workspace Cargo.toml for why a Unicode table is safe here when the
 # `isprintable` one (#2292) was not.
@@ -48,6 +53,8 @@ djust_vdom = { path = "../djust_vdom", optional = true }
 djust_components = { path = "../djust_components", optional = true }
 
 [dev-dependencies]
+html5ever.workspace = true
+markup5ever_rcdom.workspace = true
 criterion = "0.8"
 tempfile = "3.27"
 # Lexes this crate's own source for the `value_to_json` structural pin (#2249).

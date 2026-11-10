@@ -64,6 +64,14 @@ class VoiceCloningConfigureConnectionData(UniversalBaseModel):
     form before synthesis. Defaults to the server-side setting.
     """
 
+    remove_background_noise: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Remove background noise from the uploaded reference audio before synthesis.
+    Only applies when `ref_audio` is provided; ignored for `voice_id`.
+    Adds processing latency before the first audio chunk -- roughly 1 second
+    for a typical reference clip.
+    """
+
     output_audio_codec: typing.Optional[VoiceCloningConfigureConnectionDataOutputAudioCodec] = pydantic.Field(
         default=None
     )

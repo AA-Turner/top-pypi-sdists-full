@@ -7,9 +7,12 @@ import matplotlib.dates as mdates
 
 import mplcursors
 
-from jhora.panchanga import drik
 from jhora import utils, const
-
+""" 
+    drik here is generic model name can be surya_sidhantha or drik depending on value 
+    of const.astrology_model_default value
+"""
+drik = utils.hora_engine_proxy
 
 # ------------------------ Helpers ------------------------
 def _unwrap_deg(deg_series: np.ndarray) -> np.ndarray:

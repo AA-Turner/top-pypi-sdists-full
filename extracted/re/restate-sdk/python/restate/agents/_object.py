@@ -16,6 +16,7 @@ into an agent that answers messages.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import typing
 from collections.abc import Awaitable, Callable, Sequence
@@ -30,13 +31,27 @@ from restate.agents._api import (
     Resolved,
     Signal,
     Status,
+    Steer,
+    Steered,
     Stopped,
+    View,
     Waiting,
     Watch,
 )
-from restate.agents._common import MessageSerde, refusal_of
-from restate.agents._conversation import SCHEMA, Items, next_start, restart
-from restate.agents._turn import AGENT, AgentInfo, chat_turn, cleared
+from restate.agents._common import (
+    BUDGET,
+    WINDOW,
+    CompactHistory,
+    MessageSerde,
+    Summarize,
+    Window,
+    check_window,
+    refusal_of,
+)
+from restate.agents._conversation import SCHEMA, Items, next_start, restart, steer_stored
+from restate.agents._conversation import compact as compact_turns
+from restate.agents._conversation import settle as settle_turn
+from restate.agents._turn import AGENT, AgentInfo, chat_turn, cleared, publish
 from restate.object import VirtualObject
 from restate.retry_policy import InvocationRetryPolicy
 from restate.sessions import Migration, SessionContext, SessionObject, ViewContext
@@ -78,6 +93,11 @@ class AgentOptions(TypedDict, total=False):
         ingress_private: Whether only other services may call it.
         invocation_retry_policy: How Restate retries a failed turn. Defaults
             to ``RETRIES``.
+        window: How many of the latest answered turns the model sees whole,
+            with their tool calls and results, or ``"all"``. Defaults to 1.
+        budget: How many tokens of the turns before the window the model
+            sees, as their messages and answers: the latest that fit.
+            Defaults to ``BUDGET``.
     """
 
     description: str | None
@@ -90,6 +110,8 @@ class AgentOptions(TypedDict, total=False):
     idempotency_retention: timedelta | None
     ingress_private: bool | None
     invocation_retry_policy: InvocationRetryPolicy | None
+    window: Window
+    budget: int
 
 
 WAITS = timedelta(seconds=15)
@@ -115,6 +137,8 @@ class SyncRequest(TypedDict, total=False):
     revision: int
     timeoutSeconds: float
     limit: int
+    view: View
+    """How much of each turn the messages show: ``"full"`` (the default) or ``"summary"``."""
 
 
 class Synced(Messages):
@@ -135,7 +159,23 @@ optional input takes those requests and requests without a body alike.
 
 
 BUILT_IN = frozenset(
-    {"signal", "pending", "status", "stop", "notifications", "watch", "chat", "messages", "clear", "sync", "erase"}
+    {
+        "signal",
+        "pending",
+        "status",
+        "stop",
+        "notifications",
+        "watch",
+        "chat",
+        "messages",
+        "clear",
+        "sync",
+        "erase",
+        "settle",
+        "compact",
+        "steer",
+        "steered",
+    }
 )
 """The names of the built-in handlers and views of every agent, which are reserved."""
 
@@ -160,13 +200,19 @@ class AgentObject(SessionObject):
     ``chat()`` turns the object into an agent, and adds:
 
     - ``chat``: a handler that takes a message and returns the answer.
+    - ``steer``: send a message while a turn is answered: the turn takes it
+      at its next step, or else it is answered as a turn of its own, in the
+      order it was sent.
     - ``messages``: read the conversation, one page at a time.
     - ``clear``: stop the message being answered and forget the
       conversation, emptying the key's database.
     - ``sync``: read what changed since a cursor, together with the status
       and the revision, for clients that follow the conversation.
 
-    These names, and ``erase`` (which ``clear`` uses), are reserved:
+    These names, ``erase`` (which ``clear`` uses), ``settle`` (which closes
+    a turn whose invocation is gone), ``compact`` (which summarizes the
+    earliest turns) and ``steered`` (which answers a steered message that no
+    turn took), are reserved:
     registering a handler or view of your own under one of them raises
     ``ValueError``. You rarely create an ``AgentObject`` yourself: a
     framework's ``agent()`` creates one and calls ``chat()`` for you.
@@ -188,6 +234,11 @@ class AgentObject(SessionObject):
         ingress_private: Whether only other services may call it.
         invocation_retry_policy: How Restate retries a failed handler.
             Defaults to ``RETRIES``.
+        window: How many of the latest answered turns the model sees whole,
+            with their tool calls and results, or ``"all"``: earlier turns
+            are their messages and answers. Defaults to 1.
+        budget: How many tokens of the turns before the window the model
+            sees: the latest that fit. Defaults to ``BUDGET``.
     """
 
     def __init__(
@@ -204,6 +255,8 @@ class AgentObject(SessionObject):
         idempotency_retention: timedelta | None = None,
         ingress_private: bool | None = None,
         invocation_retry_policy: InvocationRetryPolicy | None = RETRIES,
+        window: Window = WINDOW,
+        budget: int = BUDGET,
     ) -> None:
         super().__init__(
             name,
@@ -219,7 +272,11 @@ class AgentObject(SessionObject):
         )
         self.background: bool = background
         self._clear: Callable[[SessionContext], Awaitable[None]] | None = None
-        AGENT.on(self, AgentInfo(background=background))
+        given = typing.cast(object, budget)
+        if isinstance(given, bool) or not isinstance(given, int) or given < 0:
+            raise ValueError(f"budget must be a number of tokens (0 or more), not {budget!r}")
+        self._settings = AgentInfo(background=background, window=check_window(window), budget=budget)
+        AGENT.on(self, self._settings)
         _signals.with_companion(self)
         self._building = True
         try:
@@ -302,6 +359,11 @@ class AgentObject(SessionObject):
         *,
         items: Items,
         clear: Callable[[SessionContext], Awaitable[None]] | None = None,
+        output: type[Any] | None = None,
+        summarize: Summarize | None = None,
+        snapshots: bool = False,
+        compact_history: CompactHistory | None = None,
+        steers: bool = False,
     ) -> A: ...
 
     @typing.overload
@@ -311,6 +373,11 @@ class AgentObject(SessionObject):
         *,
         items: Items,
         clear: Callable[[SessionContext], Awaitable[None]] | None = None,
+        output: type[Any] | None = None,
+        summarize: Summarize | None = None,
+        snapshots: bool = False,
+        compact_history: CompactHistory | None = None,
+        steers: bool = False,
     ) -> Callable[[A], A]: ...
 
     def chat(
@@ -320,6 +387,11 @@ class AgentObject(SessionObject):
         *,
         items: Items,
         clear: Callable[[SessionContext], Awaitable[None]] | None = None,
+        output: type[Any] | None = None,
+        summarize: Summarize | None = None,
+        snapshots: bool = False,
+        compact_history: CompactHistory | None = None,
+        steers: bool = False,
     ) -> Any:
         """Turn this object into an agent that answers each message with ``answer``.
 
@@ -344,6 +416,30 @@ class AgentObject(SessionObject):
                 reads the conversation.
             clear: Clears whatever the agent keeps outside its database; the
                 ``clear`` view calls it after emptying the database.
+            output: The type of ``answer``'s answers, if not text (see the
+                frameworks' ``output``). It is the ``chat`` handler's output,
+                as Restate's discovery and serde see it.
+            summarize: Summarizes the turns before the window once they
+                outgrow the agent's ``budget``, from the request (``SUMMARIZE``
+                and the turns, as text) to the summary, which then stands for
+                them. It runs in an invocation of its own (the private
+                ``compact`` handler), after the answer. Without it, the
+                earliest turns are only left out.
+            snapshots: Whether the agent takes its history from snapshots
+                that its framework's own compaction stores
+                (``Turn.snapshot``): each turn gives the model the latest
+                snapshot, then every item stored after it, whole. The
+                agent's ``window`` and ``budget``, and ``summarize``, then do
+                not apply.
+            compact_history: With ``snapshots``, compacts the history between
+                turns, from the history to the compacted history (or
+                ``None``), which is stored as a snapshot. It runs in the
+                private ``compact`` handler, after a turn that asked for it
+                (``Conversation.compact_after``).
+            steers: Whether ``answer`` takes steered messages at the turn's
+                steps (``take_steers``), which a framework's integration
+                says. Without, every message sent to ``steer`` is answered as
+                a turn of its own, after the turn being answered.
 
         Returns:
             ``answer`` itself.
@@ -353,18 +449,51 @@ class AgentObject(SessionObject):
             def decorate(
                 fn: Callable[[SessionContext, str], Awaitable[Any]],
             ) -> Callable[[SessionContext, str], Awaitable[Any]]:
-                return self.chat(fn, items=items, clear=clear)
+                return self.chat(
+                    fn,
+                    items=items,
+                    clear=clear,
+                    output=output,
+                    summarize=summarize,
+                    snapshots=snapshots,
+                    compact_history=compact_history,
+                    steers=steers,
+                )
 
             return decorate
-        AGENT.on(self, AgentInfo(background=self.background, clear=clear))
+        if compact_history is not None and not snapshots:
+            raise ValueError("compact_history compacts snapshots: pass snapshots=True with it")
+        self._settings = dataclasses.replace(
+            self._settings,
+            background=self.background,
+            clear=clear,
+            summarize=summarize,
+            snapshots=snapshots,
+            compact_history=compact_history,
+            steers=steers,
+        )
+        AGENT.on(self, self._settings)
         answering = answer
 
         async def chat(ctx: SessionContext, text: str) -> Any:
             return await chat_turn(ctx, text, answering)
 
+        chat.__annotations__["return"] = output if output is not None else str
+
+        async def steered(ctx: SessionContext, message: Steer) -> None:
+            """Answer a message sent to ``steer`` as a turn of its own, unless the turn it was sent to took it.
+
+            The companion sends it as the message is sent, so that it keeps its
+            place in the key's queue: it runs once the turns before it ended.
+            """
+            if await steer_stored(ctx.db, message["id"]):
+                return
+            await chat_turn(ctx, message["text"], answering)
+
         self._building = True
         try:
             self.handler(name="chat", accept="*/*", input_serde=MessageSerde(), explicit_cancellation=True)(chat)
+            self.handler(name="steered", ingress_private=True, explicit_cancellation=True)(steered)
             _followed(self, items)
         finally:
             self._building = False
@@ -402,7 +531,8 @@ async def _stopped(ctx: ViewContext, step: str) -> Stopped:
 
 
 def _followed(agent: AgentObject, items: Items) -> None:
-    """Register the views that ``chat()`` adds (``messages``, ``clear``, ``sync``), and the private ``erase``."""
+    """Register the views that ``chat()`` adds (``messages``, ``steer``, ``clear``, ``sync``), and the private
+    handlers."""
 
     async def messages(ctx: ViewContext, request: MessagesRequest | None = None) -> Messages:
         """Read the conversation: a page of it, or what changed since a cursor.
@@ -412,6 +542,20 @@ def _followed(agent: AgentObject, items: Items) -> None:
         is being answered, it returns what has been stored so far.
         """
         return await _messages.page(ctx.db, items, request)
+
+    async def steer(ctx: ViewContext, text: str) -> Steered:
+        """Send a message to the agent while it answers another: the turn takes it at its next step.
+
+        The message is the request's body, as plain text or as a JSON string,
+        as for ``chat``. The turn being answered gives it to the model at its
+        next step (once the model's tool calls have their results), if its
+        framework takes steered messages and it reaches one; otherwise the
+        message is answered as a turn of its own, after the turns before it,
+        in the order it was sent. With no turn being answered, it starts one.
+        Either way it is answered once: send it with an idempotency key, so
+        that a retried request is the same message.
+        """
+        return await _companion(ctx, _signals.steer, "steer")({"id": ctx.request.id, "text": text})
 
     async def erase(ctx: SessionContext) -> None:
         """Empty the key's database and its signals, once the handlers queued before it are done."""
@@ -423,6 +567,23 @@ def _followed(agent: AgentObject, items: Items) -> None:
             await restart(tx, start)
         await cleared(ctx)
         await ctx.call(_signals.reset, key=_signals.signals_of(ctx), idempotency_key=f"{ctx.request.id}:reset")
+
+    async def settle(ctx: SessionContext, invocation_id: str) -> bool:
+        """Close the latest turn, unanswered, if invocation ``invocation_id`` ran it and is gone.
+
+        The companion sends this once it finds the turn's invocation ended
+        without answering (killed, say), so that the conversation shows the
+        turn closed before the next message. Return whether it closed it.
+        """
+        if not await settle_turn(ctx, items, invocation_id):
+            return False
+        # The companion published as it closed the turn, before this stored how it ended: publish that too.
+        await publish(ctx)
+        return True
+
+    async def compact(ctx: SessionContext, _: Nothing = None) -> bool:
+        """Compact the history: summarize the turns past the budget, or compact a snapshot. Return whether it did."""
+        return await compact_turns(ctx, items)
 
     async def clear(ctx: ViewContext, _: Nothing = None) -> Stopped:
         """Forget the conversation, and empty the key's database.
@@ -456,11 +617,16 @@ def _followed(agent: AgentObject, items: Items) -> None:
         now = await _companion(ctx, _signals.notifications)()
         status = await _companion(ctx, _signals.status)()
         wanted: MessagesRequest = {"cursor": request.get("cursor", 0), "limit": request.get("limit", 100)}
+        if "view" in request:
+            wanted["view"] = request["view"]
         page = await ctx.call(messages, wanted, key=ctx.key)
         synced: Synced = {**page, "revision": now["revision"], "status": status}
         return synced
 
     agent.view(messages)
+    agent.view(accept="*/*", input_serde=MessageSerde())(steer)
     agent.handler(ingress_private=True)(erase)
+    agent.handler(ingress_private=True)(settle)
+    agent.handler(ingress_private=True)(compact)
     agent.view(inactivity_timeout=WAITS)(clear)
     agent.view(inactivity_timeout=WAITS, journal_retention=timedelta(0))(sync)

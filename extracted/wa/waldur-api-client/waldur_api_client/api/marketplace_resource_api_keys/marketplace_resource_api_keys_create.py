@@ -58,7 +58,8 @@ def sync_detailed(
     """Request an API key
 
      Asks the site agent to create a key for the resource. Waldur generates nothing: the key appears as
-    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning.
+    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning,
+    and refused with 409 until the agent has created the resource (it has no backend_id yet).
 
     Args:
         body (ResourceApiKeyCreateRequest):
@@ -90,7 +91,8 @@ def sync(
     """Request an API key
 
      Asks the site agent to create a key for the resource. Waldur generates nothing: the key appears as
-    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning.
+    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning,
+    and refused with 409 until the agent has created the resource (it has no backend_id yet).
 
     Args:
         body (ResourceApiKeyCreateRequest):
@@ -117,7 +119,8 @@ async def asyncio_detailed(
     """Request an API key
 
      Asks the site agent to create a key for the resource. Waldur generates nothing: the key appears as
-    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning.
+    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning,
+    and refused with 409 until the agent has created the resource (it has no backend_id yet).
 
     Args:
         body (ResourceApiKeyCreateRequest):
@@ -147,7 +150,8 @@ async def asyncio(
     """Request an API key
 
      Asks the site agent to create a key for the resource. Waldur generates nothing: the key appears as
-    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning.
+    Creating and turns OK once the agent reports it. Only on offerings with enable_api_key_provisioning,
+    and refused with 409 until the agent has created the resource (it has no backend_id yet).
 
     Args:
         body (ResourceApiKeyCreateRequest):

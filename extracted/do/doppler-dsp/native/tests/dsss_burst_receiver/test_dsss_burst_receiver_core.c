@@ -22,6 +22,7 @@
 #include "dp_rng_test.h"
 #include "dp_test.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -485,7 +486,7 @@ test_decodes_under_residual_doppler (void)
 {
   dp_dsss_burst_receiver_state_t *probe = make_rx ();
   DP_REQUIRE (probe != NULL);
-  double res_hz = probe->cap->acq->engine->doppler_res_hz;
+  double res_hz = probe->cap->acq->search->doppler_res_hz;
   double fs     = 1.0e6 * (double)SPC;
   dp_dsss_burst_receiver_destroy (probe);
 
@@ -790,7 +791,7 @@ test_one_burst_many_detections_is_claimed_once (void)
   DP_REQUIRE (dp_dsss_burst_receiver_configure_search_raw (s, 1, 1) == 0);
   /* The frame really is one code period now -- otherwise the preamble would
      not span several frames and this test would prove nothing. */
-  DP_REQUIRE (s->cap->acq->engine->n == s->cap->code_period);
+  DP_REQUIRE (s->cap->acq->search->n == s->cap->code_period);
 
   const size_t AT = 5000;
   static float _Complex cap[40000];
@@ -974,10 +975,10 @@ test_every_burst_survives_any_block_size (void)
   return 0;
 }
 
-/* dp_acq_push() takes no more than its result array has room for, and the
- * caller offers it the rest again. push() slices at chunk_max, so a chunk
+/* dp_correlator_push() takes no more than its result array has room for, and
+ * the caller offers it the rest again. push() slices at chunk_max, so a chunk
  * can easily carry more than BURST_CAPTURE_HITS dumps -- so it keeps looping
- * until acq has absorbed the whole chunk. A single dp_burst_acq_push() per
+ * until acq has absorbed the whole chunk. A single dp_correlator_push() per
  * chunk would leave acq un-fed over samples this object is holding, losing
  * detections rather than samples.
  *
@@ -1041,7 +1042,7 @@ test_acq_saturation_does_not_lose_bursts (void)
                    (size_t)c->hist->capacity, (size_t)c->retain_span,
                    (size_t)c->chunk_max, (size_t)c->code_period,
                    (size_t)s->burst_len, (size_t)c->det_len, n_ev,
-                   (size_t)c->pending, (double)c->acq->engine->threshold);
+                   (size_t)c->pending, (double)c->acq->threshold);
     }
 
   free (evs);
@@ -1583,6 +1584,82 @@ test_one_frame_two_spellings_of_its_description (void)
   return same_receivers (cap, 50000);
 }
 
+/* Build with every argument valid except an extreme spc (and, for the
+ * power-of-two cases, a 1024-chip acquisition code); return 1 iff the
+ * receiver is refused with a `why` containing `want`. */
+static int
+refused_for_spc (const uint8_t *acq, size_t acq_len, size_t reps, size_t spc,
+                 const char *want)
+{
+  wfm_frame_desc_t d;
+  frame_desc (&d);
+  const char                     *why = NULL;
+  dp_dsss_burst_receiver_state_t *r   = dp_dsss_burst_receiver_create_desc (
+      acq, acq_len, data_code (), DATA_SF, &d, reps, spc, 1.0e6, 55.0, 0.0,
+      1e-3, 0.9, 0.0, 0.0, 10, &why);
+  const int ok = r == NULL && why && strstr (why, want);
+  if (!ok)
+    DP_TEST_ERR ("spc %zu: why = %s\n", spc, why ? why : "(null)");
+  dp_dsss_burst_receiver_destroy (r);
+  return ok;
+}
+
+/* The positive control for refused_for_spc: the same acquisition code and
+ * reps at a sane spc build a receiver, so a refusal at an extreme spc is the
+ * size check's and not some other argument's. Returns 1 iff it builds. */
+static int
+builds_at_spc (const uint8_t *acq, size_t acq_len, size_t reps, size_t spc)
+{
+  wfm_frame_desc_t d;
+  frame_desc (&d);
+  const char                     *why = NULL;
+  dp_dsss_burst_receiver_state_t *r   = dp_dsss_burst_receiver_create_desc (
+      acq, acq_len, data_code (), DATA_SF, &d, reps, spc, 1.0e6, 55.0, 0.0,
+      1e-3, 0.9, 0.0, 0.0, 10, &why);
+  if (!r)
+    DP_TEST_ERR ("spc %zu: refused: %s\n", spc, why ? why : "(null)");
+  const int ok = r != NULL;
+  dp_dsss_burst_receiver_destroy (r);
+  return ok;
+}
+
+/* An spc whose sample counts cannot be held is refused, never built short.
+ * The counts are products of the caller's arguments, so each one that can
+ * wrap is checked before it sizes anything:
+ *
+ *  - one code period, acq_code_len * spc: past SIZE_MAX it used to wrap to
+ *    a small count -- to exactly 0 when acq_code_len is a power of two --
+ *    and the preamble and code_period were built that short;
+ *  - one burst, (reps * acq_code_len + frame_syms * data_code_len) * spc,
+ *    which wraps for an spc whose code period still fits;
+ *  - the preamble's BYTE size, which overflows while its sample count fits:
+ *    a 1024-chip code held once, so the burst fits too. */
+static int
+test_refuses_an_spc_too_large_to_hold (void)
+{
+  static uint8_t long_code[1024];
+  for (size_t i = 0; i < sizeof long_code; i++)
+    long_code[i] = acq_code ()[i % ACQ_SF];
+  const size_t lc = sizeof long_code;
+
+  /* The premise: each argument set below builds at the suite's spc, so the
+     only thing wrong with it there is the spc. */
+  DP_REQUIRE (builds_at_spc (acq_code (), ACQ_SF, REPS, SPC));
+  DP_REQUIRE (builds_at_spc (long_code, lc, REPS, SPC));
+  DP_REQUIRE (builds_at_spc (long_code, lc, 1u, SPC));
+
+  DP_CHECK (refused_for_spc (acq_code (), ACQ_SF, REPS, SIZE_MAX / ACQ_SF + 1u,
+                             "one code period"));
+  DP_CHECK (refused_for_spc (long_code, lc, REPS, SIZE_MAX / lc + 1u,
+                             "one code period"));
+  DP_CHECK (refused_for_spc (acq_code (), ACQ_SF, REPS, SIZE_MAX / ACQ_SF,
+                             "one burst"));
+  DP_CHECK (refused_for_spc (long_code, lc, 1u,
+                             SIZE_MAX / sizeof (float _Complex) / lc + 1u,
+                             "does not fit in memory"));
+  return 0;
+}
+
 /* A refused description is a NULL receiver whose `why` names the fix, and
  * the bad-parameter refusal speaks through the same channel.
  *
@@ -1708,6 +1785,8 @@ main (void)
   if (test_one_frame_two_spellings_of_its_description ())
     return 1;
   if (test_a_refused_description_names_its_fix ())
+    return 1;
+  if (test_refuses_an_spc_too_large_to_hold ())
     return 1;
   if (test_silence_yields_no_burst ())
     return 1;

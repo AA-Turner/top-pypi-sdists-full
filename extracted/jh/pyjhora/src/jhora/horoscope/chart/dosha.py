@@ -21,7 +21,11 @@
 import json
 from jhora.horoscope.chart import charts, house
 from jhora import utils, const
-from jhora.panchanga import drik
+""" 
+    drik here is generic model name can be surya_sidhantha or drik depending on value 
+    of const.astrology_model_default value
+"""
+drik = utils.hora_engine_proxy
 _lang_path = const._LANGUAGE_PATH
 
 def get_dosha_resources(language='en'):
@@ -33,6 +37,7 @@ def get_dosha_resources(language='en'):
     json_file = _lang_path + const._DEFAULT_DOSHA_JSON_FILE_PREFIX+language+'.json'
     f = open(json_file,"r",encoding="utf-8")
     msgs = json.load(f)
+    f.close()
     return msgs
 def kala_sarpa(house_to_planet_list):
     """ Returns kala Sarpa Dosha True or False 

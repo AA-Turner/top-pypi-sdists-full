@@ -10,12 +10,14 @@ satisfies structurally. Constructor ordering also runs early, in the module body
 from __future__ import annotations
 
 import dataclasses
-from itertools import chain
+from itertools import chain, takewhile
 from typing import TYPE_CHECKING, Any, Final, cast
 
 from typing_extensions import Protocol
 
 from datamodel_code_generator._container_kinds import GENERIC_CONTAINERS, SETS
+from datamodel_code_generator._graph import reach, reaching
+from datamodel_code_generator._message_text import english_list, for_count
 from datamodel_code_generator._model_keys import model_key_of
 from datamodel_code_generator._records import record
 from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, walk_graph
@@ -62,13 +64,18 @@ from datamodel_code_generator.parser._passes._shared import (
     has_import_override,
     module_members,
     normalize_default_value_constraints,
+    required_fields_a_default_lacks,
     resolve_default_value_descriptor,
     run_unused_models,
     takes_positional_place,
-    unused_model_lists,
 )
 from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base
-from datamodel_code_generator.python_literal import PythonCode, PythonRuntimeExpression, _text_constructor_expression
+from datamodel_code_generator.python_literal import (
+    PythonCode,
+    PythonRuntimeExpression,
+    _text_constructor_expression,
+    represent_python_value,
+)
 from datamodel_code_generator.types import DataType, _copy_data_type
 
 if TYPE_CHECKING:
@@ -87,7 +94,11 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator.model.base import DataModelFieldBase
     from datamodel_code_generator.parser._field_rows import FieldCopyFacts, FieldIdentity
-    from datamodel_code_generator.parser._passes._shared import _ConstructorFieldAdjustment, _InheritedConstructorInfo
+    from datamodel_code_generator.parser._passes._shared import (
+        UnusedModelsHolder,
+        _ConstructorFieldAdjustment,
+        _InheritedConstructorInfo,
+    )
     from datamodel_code_generator.parser._passes._state import (
         ModuleContextView,
         ModulePath,
@@ -116,6 +127,7 @@ __all__ = [
     "order_constructor_fields_by_decided_nested_factories",
     "prepare_type_alias_fields",
     "set_validate_default_on_fields",
+    "settle_module_unused_models",
     "unbind_hidden_type_fields",
     "update_module_type_aliases",
     "validates_structured_default",
@@ -373,16 +385,33 @@ def _iter_cycle_containers(
 
 
 def collect_set_item_references(models: list[DataModel]) -> list[Reference]:
-    """Collect the references of all types used as set/frozenset items."""
-    return [
-        nested.reference
+    """Collect the references of all types used as set/frozenset items.
+
+    A type alias among them is read as its value too, once, whose models are the set's items.
+    """
+    read_aliases: set[int] = set()
+
+    def value_types(data_type: DataType) -> Iterable[DataType]:
+        if (
+            (reference := data_type.reference) is None
+            or not isinstance(alias := reference.source, TypeAliasBase)
+            or id(alias) in read_aliases
+        ):
+            return ()
+        read_aliases.add(id(alias))
+        return (nested for field in alias.fields for nested in field.data_type.all_data_types)
+
+    item_types = (
+        nested
         for model in models
         for field in model.fields
         for data_type in field.data_type.all_data_types
         if data_type in SETS
         for item_type in data_type.data_types
         for nested in item_type.all_data_types
-        if nested.reference
+    )
+    return [
+        reference for data_type in reach(item_types, value_types, id) if (reference := data_type.reference) is not None
     ]
 
 
@@ -410,14 +439,24 @@ def set_validate_default_on_fields(
     parser: RenderPrepHost,
     models: list[DataModel],
 ) -> None:
-    """Set validate_default=True on fields with structured defaults needing validation."""
+    """Set validate_default=True on fields with structured defaults needing validation.
+
+    The fields whose output validates an object default that lacks required fields of its model
+    (``required_fields_a_default_lacks``) are named in one warning; --omit-incomplete-model-defaults wrote them without
+    the default before (``parser/_incomplete_defaults.py``).
+    """
     deserialized_default = False
+    incomplete: list[str] = []
     for model in models:
         if isinstance(model, Enum):
             continue
         for model_field in model.fields:
             if not _applies_default(model_field):
                 continue
+            if model_field.VALIDATES_STRUCTURED_DEFAULTS and (
+                lacks := required_fields_a_default_lacks(model_field, _model_named)
+            ):
+                incomplete.append(_incomplete_model_default(model, model_field, *lacks))
             deserialized_default = (
                 deserialize_default_value(
                     parser,
@@ -435,6 +474,31 @@ def set_validate_default_on_fields(
             data_type_manager=parser.data_type_manager,
             import_overrides=parser._import_overrides,  # noqa: SLF001
         )
+    if incomplete:
+        warn_as_parser_base(_incomplete_model_defaults_message(incomplete), UserWarning, stacklevel=2)
+
+
+def _incomplete_model_default(model: DataModel, field: DataModelFieldBase, target: DataModel, lacked: list[str]) -> str:
+    """Describe a field whose default lacks required fields of its model: ``Spec.template ({} lacks 'a' of Pod)``."""
+    default, names = represent_python_value(field.default), english_list(map(repr, lacked), "and")
+    return f"{model.class_name}.{field.name} ({default} lacks {names} of {target.class_name})"
+
+
+def _incomplete_model_defaults_message(fields: list[str]) -> str:
+    """Return the warning naming the fields whose object default their model rejects, as it lacks required fields."""
+    count = len(fields)
+    return (
+        f"The {for_count(count, 'default')} of {english_list(fields, 'and')} {for_count(count, 'lacks', 'lack')} "
+        f"required fields of {for_count(count, 'its model', 'their models')}, which the generated "
+        f"{for_count(count, 'model validates', 'models validate')}, so valid input that leaves "
+        f"{for_count(count, 'the property', 'such a property')} out fails (JSON Schema does not validate a default). "
+        "--omit-incomplete-model-defaults writes such a property without its default."
+    )
+
+
+def _model_named(reference: Any) -> DataModel | None:
+    """Return the model a reference names, or None for a reference that names none."""
+    return source if isinstance(source := reference.source, DataModel) else None
 
 
 def deserialize_default_value(
@@ -852,20 +916,51 @@ def deferrable_alias_cycles(models: Sequence[DataModel], model_index: Mapping[st
     """Find the container cycles among aliases that quoted containers resolve for mypy and pyright alike.
 
     mypy cannot resolve a cycle of aliases that only reference each other as container items, unless
-    the containers holding the forward references are strings. pyright cannot resolve an alias declared
-    earlier on the cycle from inside such a string, so a cycle with a container that references it both
-    forward and backward keeps its names quoted one by one.
+    the containers holding the forward references are strings. pyright cannot resolve, from inside such a string,
+    an alias of the cycle that it is still resolving through another string. The head of a cycle, its first alias
+    in the module, is resolved at its own statement when no model before it reaches the cycle, so a container that
+    references the cycle both forward and backward is a string too when every backward reference names that head;
+    any other such container keeps the names of its cycle quoted one by one.
     """
     cycles = _alias_reference_cycles(models)
+    heads: dict[int, DataModel] = {}
+    for model in models:
+        if (cycle := cycles.get(id(model))) is not None:
+            heads.setdefault(cycle, model)
     unresolvable: set[int] = set()
+    reached_before_head: dict[int, bool] = {}
     for index, model in enumerate(models):
-        if (cycle := cycles.get(id(model))) is None:
+        if (cycle := cycles.get(id(model))) is None or cycle in unresolvable:
             continue
         for field in model.fields:
             forward = {id(data_type) for data_type, _ in field_forward_references(field, model, model_index, index)}
-            if any(len(kinds) > 1 for *_, kinds in _iter_cycle_containers(field.data_type, cycle, cycles, forward)):
-                unresolvable.add(cycle)
+            for container, _, kinds in _iter_cycle_containers(field.data_type, cycle, cycles, forward):
+                if len(kinds) <= 1:
+                    continue
+                if cycle not in reached_before_head:
+                    reached_before_head[cycle] = _reached_before_head(models, heads[cycle], cycles, cycle)
+                if reached_before_head[cycle] or any(
+                    nested.reference.source is not heads[cycle]
+                    for nested in container.all_data_types
+                    if nested.reference
+                    and cycles.get(id(nested.reference.source)) == cycle
+                    and id(nested) not in forward
+                ):
+                    unresolvable.add(cycle)
     return {alias: cycle for alias, cycle in cycles.items() if cycle not in unresolvable}
+
+
+def _reached_before_head(models: Sequence[DataModel], head: DataModel, cycles: Mapping[int, int], cycle: int) -> bool:
+    """Return whether a model the module defines before ``head`` reaches an alias of the cycle, through any field."""
+    reached = reaching(
+        (alias for alias, member in cycles.items() if member == cycle),
+        (
+            (id(model), (id(nested.reference.source) for nested in field.data_type.all_data_types if nested.reference))
+            for model in models
+            for field in model.fields
+        ),
+    )
+    return any(id(model) in reached for model in takewhile(lambda model: model is not head, models))
 
 
 def defer_recursive_containers(  # noqa: PLR0913
@@ -1078,6 +1173,19 @@ def update_module_type_aliases(parser: RenderPrepHost, state: _PreparedModule[An
     )
 
 
+def settle_module_unused_models(
+    parser: RenderPrepHost, prepared_modules: Iterable[_PreparedModule[Any]], run: UnusedModelsHolder
+) -> None:
+    """Keep, of the unused models each module added, the ones that unused-model removal takes out of a written list.
+
+    One that removal leaves written in a merged module (``run_unused_models``) stays live there (#5905).
+    """
+    leaving = run_unused_models(parser, run)
+    for prepared in prepared_modules:
+        if prepared.current_unused_models:
+            prepared.current_unused_models = [model for model in prepared.current_unused_models if model in leaving]
+
+
 def collect_live_models(state: _PreparedModule[Any]) -> None:
     """Take the models of the module that are not unused."""
     if not (unused_models := state.current_unused_models):
@@ -1096,7 +1204,7 @@ def prepare_type_alias_fields(parser: RenderPrepHost, state: _FinalizeState[Any]
     if (prepare_field := parser.data_model_field_type.PREPARE_TYPE_ALIAS_FIELD) is None:
         return
     prepared_patterns: dict[str, PythonRuntimeExpression] = {}
-    unused = run_unused_models(state)
+    unused = run_unused_models(parser, state)
     replace_field_type = parser._graph_builder.replace_field_type  # noqa: SLF001
     for ctx in state.contexts:
         for model in ctx.models:
@@ -1142,9 +1250,7 @@ def finalize_sequence_interface(state: _FinalizeState[Any]) -> None:
 
 def decide_nested_model_default_factories(parser: RenderPrepHost, state: _FinalizeState[Any]) -> None:
     """Decide the nested models' default factories over the model lists the modules write, unused models gone."""
-    leaving = UnusedModels(
-        model for model, _, models, written in unused_model_lists(parser, state) if written and model in models
-    )
+    leaving = run_unused_models(parser, state)
     cast("RenderReady", RENDER_READY.get()).nested_factories = parser._nested_model_default_factory_decision(  # noqa: SLF001
         [leaving.written(ctx.models) for ctx in state.contexts],
         parser._recursion_facts["require_update"],  # noqa: SLF001

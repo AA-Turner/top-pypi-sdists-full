@@ -17,7 +17,7 @@ class ProviderAccountOptionsRequest:
     """
     Attributes:
         account_scope (Union[AccountScope, BlankEnum, Unset]): Where accounts are held: 'offering' keeps one account per
-            offering (the historical behaviour); 'provider' shares one account per user across the provider's offerings.
+            offering (the historical behavior); 'provider' shares one account per user across the provider's offerings.
         username_generation_policy (Union[BlankEnum, Unset, UsernameGenerationPolicyEnum]): How the usernames of
             offering users are generated.
         username_anonymized_prefix (Union[Unset, str]): Prefix for anonymized usernames; the name is the prefix followed

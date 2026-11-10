@@ -29,6 +29,7 @@ from ...utils import (
     print_multi_line,
 )
 from .. import array_ops as ops
+from ..environments import find_1d_block, gen_exact_environments
 from ..tensor_core import (
     Tensor,
     bonds,
@@ -43,6 +44,9 @@ from ..tnag.core import (
     TensorNetworkGen,
     TensorNetworkGenOperator,
     TensorNetworkGenVector,
+    expectations_from_rhos,
+    partial_traces_from_environment,
+    rho_expectation,
     tensor_network_ag_sum,
     tensor_network_align,
 )
@@ -423,6 +427,19 @@ class TensorNetwork1D(TensorNetworkGen):
         """The number of sites."""
         return self._L
 
+    def is_cyclic(self):
+        """Check whether sites zero and ``L - 1`` share a bond. For two or
+        fewer sites, return ``False`` because the extra periodic connectivity
+        is a bit ambiguous.
+
+        Note for structured MPS or MPO objects, ``cyclic`` still retains their
+        construction metadata in this case. Methods that infer geometry from
+        ``is_cyclic()`` accept an explicit ``cyclic=`` override where needed.
+        """
+        if self.L <= 2:
+            return False
+        return bool(bonds(self.select(0), self.select(self.L - 1)))
+
     def gen_site_coos(self):
         """Generate the coordinates of all possible sites."""
         return range(self._L)
@@ -606,6 +623,103 @@ class TensorNetwork1D(TensorNetworkGen):
 
         return right_envs
 
+    def gen_block_environments(
+        self,
+        blocks,
+        *,
+        cyclic=None,
+        schedule="auto",
+        **contract_opts,
+    ):
+        """Yield exact environments for blocks of sites as they are ready.
+        Keep cached environments only until their last use.
+
+        Parameters
+        ----------
+        blocks : sequence of tuple[int, int]
+            The ``(start, size)`` blocks, which can have different sizes, all
+            computed together in one sweep. Use
+            :func:`~quimb.tensor.environments.all_blocks` to get every block
+            of one size.
+        cyclic : bool, optional
+            Whether the network is periodic. By default infer this from the
+            network structure.
+        schedule : {'auto', 'cut', 'cutpair', 'tree'}, optional
+            Environment construction schedule, only relevant if ``cyclic``.
+            By default use 'cut', which uses linear work by permitting
+            exact environment-environment contractions, but keeps O(L)
+            environments in memory. The 'cutpair' schedule keeps the two
+            environments either side of the cut separate. The 'tree'
+            schedule uses O(L log L) work but keeps only O(log L)
+            environments in memory.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`, always
+            with ``preserve_tensor=True``.
+
+        Yields
+        ------
+        block : tuple[int, int]
+            The ``(start, size)`` block.
+        environment : TensorNetwork
+            The environment of ``block``, which also carries the original
+            network's ``.exponent``.
+        """
+        if cyclic is None:
+            cyclic = self.is_cyclic()
+
+        for block, environment in gen_exact_environments(
+            self,
+            tuple(map(self.site_tag, range(self.L))),
+            blocks,
+            cyclic=cyclic,
+            schedule=schedule,
+            contract_opts=contract_opts,
+        ):
+            environment.exponent += self.exponent
+            yield block, environment
+
+    def compute_block_environments(
+        self,
+        blocks,
+        *,
+        cyclic=None,
+        schedule="auto",
+        **contract_opts,
+    ):
+        """Compute exact environments for the requested blocks of sites. See
+        :meth:`gen_block_environments` to process them one at a time.
+
+        Parameters
+        ----------
+        blocks : sequence of tuple[int, int]
+            The ``(start, size)`` blocks, which can have different sizes, all
+            computed together in one sweep. Use
+            :func:`~quimb.tensor.environments.all_blocks` to get every block
+            of one size.
+        cyclic : bool, optional
+            Whether the network is periodic. By default infer this from the
+            network structure.
+        schedule : {'auto', 'cut', 'cutpair', 'tree'}, optional
+            Environment construction schedule, only relevant if ``cyclic``,
+            see :meth:`gen_block_environments`.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`, always
+            with ``preserve_tensor=True``.
+
+        Returns
+        -------
+        dict[tuple[int, int], TensorNetwork]
+            The environment for each ``(start, size)`` block, including the
+            original network's ``exponent``.
+        """
+        return dict(
+            self.gen_block_environments(
+                blocks, cyclic=cyclic, schedule=schedule, **contract_opts
+            )
+        )
+
     def flatten(
         self,
         fuse_multibonds=True,
@@ -672,8 +786,6 @@ class TensorNetwork1DVector(TensorNetwork1D, TensorNetworkGenVector):
             where = self.gen_sites_present()
         elif isinstance(where, slice):
             where = self.slice2sites(where)
-        else:
-            where = where
 
         return super().reindex_sites(new_id, where, inplace=inplace)
 
@@ -684,6 +796,9 @@ class TensorNetwork1DVector(TensorNetwork1D, TensorNetworkGenVector):
         if not isinstance(i, str):
             i = i % self.L
         return self.site_ind_id.format(i)
+
+    def _site_phys_inds(self, i):
+        return (self.site_ind(i),)
 
     @functools.wraps(gate_TN_1D)
     def gate(self, *args, inplace=False, **kwargs):
@@ -748,6 +863,9 @@ class TensorNetwork1DOperator(TensorNetwork1D, TensorNetworkGenOperator):
         "_L",
     )
 
+    def _site_phys_inds(self, i):
+        return (self.upper_ind(i), self.lower_ind(i))
+
     def reindex_lower_sites(self, new_id, where=None, inplace=False):
         """Update the lower site index labels to a new string specifier.
 
@@ -809,7 +927,8 @@ class TensorNetwork1DOperator(TensorNetwork1D, TensorNetworkGenOperator):
 
 
 def set_default_compress_mode(opts, cyclic=False):
-    opts.setdefault("cutoff_mode", "rel" if cyclic else "rsum2")
+    relative = cyclic or opts.get("method") == "svd:rand"
+    opts.setdefault("cutoff_mode", "rel" if relative else "rsum2")
 
 
 class TensorNetwork1DFlat(TensorNetwork1D):
@@ -1057,8 +1176,8 @@ class TensorNetwork1DFlat(TensorNetwork1D):
         self.insert_gauge(y, stop, stop - 1, tol=inv_tol)
 
         if bra is not None:
-            for i in (start - 1, start, stop, stop - 1):
-                bra[i].modify(data=self[i].data.conj())
+            for j in (start - 1, start, stop, stop - 1):
+                bra[j].modify(data=self[j].data.conj())
 
     def shift_orthogonality_center(
         self,
@@ -1620,6 +1739,118 @@ class TensorNetwork1DFlat(TensorNetwork1D):
         lo, ro = self.count_canonized()
         return lo, self.L - ro - 1
 
+    @convert_cur_orthog
+    def swap_sites_with_compress(
+        self, i, j, info=None, inplace=False, **compress_opts
+    ):
+        """Swap the physical spaces of sites ``i`` and ``j``, compressing the
+        bond between them. If the sites are not adjacent, this happens through
+        a sequence of adjacent swaps.
+
+        Parameters
+        ----------
+        i : int
+            The first site to swap.
+        j : int
+            The second site to swap.
+        cur_orthog : int, sequence of int, or 'calc'
+            If known, the current orthogonality center.
+        info : dict, optional
+            If supplied, use and update the ``"cur_orthog"`` entry.
+        inplace : bool, optional
+            Perform the swap in place.
+        compress_opts
+            Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`.
+        """
+        tn = self if inplace else self.copy()
+
+        i, j = sorted((i, j))
+        if i + 1 != j:
+            tn.swap_site_to_(j, i, info=info, **compress_opts)
+            tn.swap_site_to_(i + 1, j, info=info, **compress_opts)
+            return tn
+
+        tn.canonicalize_((i, j), info=info)
+
+        phys_inds_i = tn._site_phys_inds(i)
+        phys_inds_j = tn._site_phys_inds(j)
+        Ti, Tj = tn[i], tn[j]
+        _, unshared = Ti.filter_bonds(Tj)
+
+        Tij = Ti @ Tj
+        left_inds = [ix for ix in unshared if ix not in phys_inds_i]
+        left_inds.extend(phys_inds_j)
+        set_default_compress_mode(compress_opts, tn.cyclic)
+        sTi, sTj = Tij.split(left_inds, get="tensors", **compress_opts)
+
+        sTi.reindex_(dict(zip(phys_inds_j, phys_inds_i))).transpose_like_(Ti)
+        Ti.modify(data=sTi.data)
+        sTj.reindex_(dict(zip(phys_inds_i, phys_inds_j))).transpose_like_(Tj)
+        Tj.modify(data=sTj.data)
+
+        absorb = compress_opts.get("absorb", None)
+        if absorb == "left":
+            info["cur_orthog"] = (i, i)
+        elif absorb == "right":
+            info["cur_orthog"] = (j, j)
+
+        return tn
+
+    swap_sites_with_compress_ = functools.partialmethod(
+        swap_sites_with_compress,
+        inplace=True,
+    )
+
+    @convert_cur_orthog
+    def swap_site_to(
+        self,
+        i,
+        f,
+        info=None,
+        inplace=False,
+        **compress_opts,
+    ):
+        r"""Move the physical space at site ``i`` to site ``f`` using
+        compressed adjacent swaps::
+
+                  i       f
+            0 1 2 3 4 5 6 7 8 9      0 1 2 4 5 6 7 3 8 9
+            o-o-o-x-o-o-o-o-o-o      >->->->->->->-x-<-<
+            | | | | | | | | | |  ->  | | | | | | | | | |
+
+        Parameters
+        ----------
+        i : int
+            The initial site.
+        f : int
+            The final site.
+        cur_orthog : int, sequence of int, or 'calc'
+            If known, the current orthogonality center.
+        info : dict, optional
+            If supplied, use and update the ``"cur_orthog"`` entry.
+        inplace : bool, optional
+            Perform the swaps in place.
+        compress_opts
+            Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`.
+        """
+        tn = self if inplace else self.copy()
+
+        if i == f:
+            return tn
+        if i < f:
+            compress_opts.setdefault("absorb", "right")
+            js = range(i, f)
+        else:
+            compress_opts.setdefault("absorb", "left")
+            js = range(i - 1, f - 1, -1)
+
+        for j in js:
+            tn.swap_sites_with_compress_(j, j + 1, info=info, **compress_opts)
+
+        return tn
+
+    swap_site_to_ = functools.partialmethod(swap_site_to, inplace=True)
+
     def as_cyclic(self, inplace=False):
         """Convert this flat, 1D, TN into cyclic form by adding a dummy bond
         between the first and last sites.
@@ -1845,7 +2076,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         MatrixProductState
         """
         if set(shape) - set("lrp"):
-            raise ValueError("Invalid shape string: {}".format(shape))
+            raise ValueError(f"Invalid shape string: {shape}")
 
         # check for site varying physical dimensions
         if isinstance(phys_dim, Integral):
@@ -1988,6 +2219,57 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
 
         return mps
 
+    @classmethod
+    def from_product(cls, arrays, cyclic=False, **mps_opts):
+        """Create a ``MatrixProductState`` of bond dimension 1 from a sequence
+        of single site vectors, i.e. a product state.
+
+        Parameters
+        ----------
+        arrays : sequence of 1D array_like
+            The single-site vectors.
+        cyclic : bool, optional
+            Generate a MPS with periodic boundary conditions or not, default
+            open boundary conditions.
+        mps_opts
+            Supplied to :class:`~quimb.tensor.tn1d.core.MatrixProductState`.
+
+        Returns
+        -------
+        MatrixProductState
+
+        Examples
+        --------
+
+            >>> mps = MatrixProductState.from_product(
+            ...     [qu.up(), qu.down(), qu.up()]
+            ... )
+            >>> mps.show()
+             1 1
+            o-o-o
+            | | |
+        """
+        arrays = tuple(arrays)
+        L = len(arrays)
+        arrays_expanded = []
+
+        for i, array in enumerate(arrays):
+            x = ops.asarray(array)
+            has_l = (i > 0) or cyclic
+            has_r = (i < L - 1) or cyclic
+            if ops.isblocksparse(x):
+                # need explicit duals so they match up in pairs
+                if has_r:
+                    x = x.expand_dims(0, dual=True)
+                if has_l:
+                    x = x.expand_dims(0, dual=False)
+            else:
+                shape = (1,) * (has_l + has_r) + (-1,)
+                x = reshape(x, shape)
+            arrays_expanded.append(x)
+
+        return cls(tuple(arrays_expanded), shape="lrp", **mps_opts)
+
     def add_MPS(self, other, inplace=False, **kwargs):
         """Add another MatrixProductState to this one."""
         return tensor_network_ag_sum(self, other, inplace=inplace, **kwargs)
@@ -2082,129 +2364,6 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         )
 
     gate_split_ = functools.partialmethod(gate_split, inplace=True)
-
-    @convert_cur_orthog
-    def swap_sites_with_compress(
-        self, i, j, info=None, inplace=False, **compress_opts
-    ):
-        """Swap sites ``i`` and ``j`` by contracting, then splitting with the
-        physical indices swapped. If the sites are not adjacent, this will
-        happen multiple times.
-
-        Parameters
-        ----------
-        i : int
-            The first site to swap.
-        j : int
-            The second site to swap.
-        cur_orthog : int, sequence of int, or 'calc'
-            If known, the current orthogonality center.
-        info : dict, optional
-            If supplied, will be used to infer and store various extra
-            information. Currently, the key "cur_orthog" is used to store the
-            current orthogonality center. Its input value can be ``"calc"``, a
-            single site, or a pair of sites representing the min/max range,
-            inclusive. It will be updated to the actual range after.
-        inplace : bond, optional
-            Perform the swaps inplace.
-        compress_opts
-            Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`.
-        """
-        mps = self if inplace else self.copy()
-
-        i, j = sorted((i, j))
-        if i + 1 != j:
-            mps.swap_site_to_(j, i, info=info)
-            # first site is now at j + 1, move back up
-            mps.swap_site_to_(i + 1, j, info=info)
-            return mps
-
-        mps.canonicalize_((i, j), info=info)
-
-        # get site tensors and indices
-        ix_i, ix_j = map(mps.site_ind, (i, j))
-        Ti, Tj = mps[i], mps[j]
-        _, unshared = Ti.filter_bonds(Tj)
-
-        # split the contracted tensor, swapping the site indices
-        Tij = Ti @ Tj
-        lix = [i for i in unshared if i != ix_i] + [ix_j]
-        set_default_compress_mode(compress_opts, self.cyclic)
-        sTi, sTj = Tij.split(lix, get="tensors", **compress_opts)
-
-        # reindex and transpose the tensors to directly update original tensors
-        sTi.reindex_({ix_j: ix_i}).transpose_like_(Ti)
-        Ti.modify(data=sTi.data)
-        sTj.reindex_({ix_i: ix_j}).transpose_like_(Tj)
-        Tj.modify(data=sTj.data)
-
-        absorb = compress_opts.get("absorb", None)
-        if absorb == "left":
-            info["cur_orthog"] = (i, i)
-        elif absorb == "right":
-            info["cur_orthog"] = (j, j)
-
-        return mps
-
-    swap_sites_with_compress_ = functools.partialmethod(
-        swap_sites_with_compress,
-        inplace=True,
-    )
-
-    @convert_cur_orthog
-    def swap_site_to(
-        self,
-        i,
-        f,
-        info=None,
-        inplace=False,
-        **compress_opts,
-    ):
-        r"""Swap site ``i`` to site ``f``, compressing the bond after each
-        swap::
-
-                  i       f
-            0 1 2 3 4 5 6 7 8 9      0 1 2 4 5 6 7 3 8 9
-            o-o-o-x-o-o-o-o-o-o      >->->->->->->-x-<-<
-            | | | | | | | | | |  ->  | | | | | | | | | |
-
-
-        Parameters
-        ----------
-        i : int
-            The site to move.
-        f : int
-            The new location for site ``i``.
-        info : dict, optional
-            If supplied, will be used to infer and store various extra
-            information. Currently, the key "cur_orthog" is used to store the
-            current orthogonality center. Its input value can be ``"calc"``, a
-            single site, or a pair of sites representing the min/max range,
-            inclusive. It will be updated to the actual range after.
-        inplace : bond, optional
-            Perform the swaps inplace.
-        compress_opts
-            Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`.
-        """
-        mps = self if inplace else self.copy()
-
-        if i == f:
-            return mps
-        if i < f:
-            compress_opts.setdefault("absorb", "right")
-            js = range(i, f)
-        if f < i:
-            compress_opts.setdefault("absorb", "left")
-            js = range(i - 1, f - 1, -1)
-
-        for j in js:
-            mps.swap_sites_with_compress(
-                j, j + 1, info=info, inplace=True, **compress_opts
-            )
-
-        return mps
-
-    swap_site_to_ = functools.partialmethod(swap_site_to, inplace=True)
 
     @convert_cur_orthog
     def gate_with_auto_swap(
@@ -2473,6 +2632,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         where,
         dims=None,
         method="direct",
+        transpose=False,
         info=None,
         inplace=False,
         **compress_opts,
@@ -2502,6 +2662,9 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             is passed to
             :func:`~quimb.tensor.tn1d.compress.tensor_network_1d_compress`
             and controls how the compression of the subsection is performed.
+        transpose : bool, optional
+            Whether to apply the transpose of the gate instead, i.e.
+            ``G^T @ x``.
         info : dict, optional
             If supplied, will be used to infer and store various extra
             information. Currently, the key "cur_orthog" is used to store the
@@ -2530,6 +2693,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             mpo,
             where=where,
             method=method,
+            transpose=transpose,
             info=info,
             inplace=inplace,
             inplace_mpo=True,
@@ -2762,45 +2926,42 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         rho.fuse_multibonds_()
         return rho
 
-    def partial_trace(self, *_, **__):
-        raise AttributeError(
-            "`mps.partial_trace` has been renamed to "
-            "`mps.partial_trace_to_mpo`. Soon `mps.partial_trace` "
-            "will produce (dense) local reduced density matrices to match "
-            "methods elsewhere in quimb."
-        )
-
     def ptr(self, *_, **__):
         raise AttributeError(
             "`mps.ptr` has been renamed to `mps.partial_trace_to_mpo`."
         )
 
-    def partial_trace_to_dense_canonical(
-        self, where, normalized=True, info=None, **contract_opts
+    def partial_trace_canonical(
+        self, where, normalized=True, info=None, get="matrix", **contract_opts
     ):
-        """Compute the dense local reduced density matrix by canonicalizing
-        around the target sites and then contracting the local tensors. Note
-        this moves the orthogonality around inplace, and records it in `info`.
+        """Compute a local reduced density matrix for an open MPS.
+        Canonicalize around the target sites inplace, then contract the local
+        tensors with :meth:`partial_trace_exact`. Record the center in
+        ``info``.
 
         Parameters
         ----------
         where : int or tuple[int]
             The site or sites to compute the reduced density matrix for.
-        normalized : bool, optional
-            Explicitly normalize the local reduced density matrix.
+        normalized : bool or "return", optional
+            Normalize the reduced density matrix to unit trace. If "return",
+            give ``(rho, trace)`` without dividing by the trace. Ignored if
+            ``get="tn"``, which returns the unnormalized network without a
+            separate trace.
         info : dict, optional
-            If supplied, will be used to infer and store various extra
-            information. Currently the key "cur_orthog" is used to store the
-            current orthogonality center. Its input value can be ``"calc"``, a
-            single site, or a pair of sites representing the min/max range,
-            inclusive. It will be updated to the actual range after.
+            Read and update the canonical center in ``info["cur_orthog"]``.
+            Supply ``"calc"`` to find it, a single site, or an inclusive
+            ``(min, max)`` range.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return the reduced density matrix, see
+            :meth:`compute_partial_traces`.
         contract_opts
-            Passed to `tensor_contract` when computing the reduced local
-            density matrix.
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
 
         Returns
         -------
-        array_like
+        array or Tensor or TensorNetwork or (array, float) or (Tensor, float)
         """
         if self.cyclic:
             raise NotImplementedError("Only supports OBC.")
@@ -2811,28 +2972,313 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         # canonicalize around our sites
         self.canonicalize_(where, info=info)
 
-        # form the local reduced density matrix tn
-        kix = [self.site_ind(i) for i in where]
-        bix = [f"__b{i}__" for i in where]
+        # the rest of the chain is now the identity
         k = self[min(where) : max(where) + 1]
-        b = k.reindex(dict(zip(kix, bix))).conj_()
-        rho_tn = k | b
+        return k.partial_trace_exact(
+            where, normalized=normalized, get=get, **contract_opts
+        )
 
-        # contract down to a matrix
-        rho = rho_tn.to_dense(kix, bix, **contract_opts)
+    partial_trace_to_dense_canonical = deprecated(
+        partial_trace_canonical,
+        "partial_trace_to_dense_canonical",
+        "partial_trace_canonical",
+    )
 
-        if normalized:
-            # locally normalize, usually unnecessary for an MPS but cheap
-            rho = rho / do("trace", rho)
+    def compute_partial_traces_canonical(
+        self,
+        wheres,
+        *,
+        normalized=True,
+        get="matrix",
+        info=None,
+        inplace=False,
+        **contract_opts,
+    ):
+        """Compute local reduced density matrices for an open MPS. Use
+        :meth:`partial_trace_canonical` for each set of sites. If ``info``
+        contains a center range, visit sites nearest its start first.
+        Otherwise visit them from left to right.
 
-        return rho
+        Parameters
+        ----------
+        wheres : sequence of int or tuple[int]
+            The site or sites to keep for each reduced density matrix.
+        normalized : bool or "return", optional
+            Normalize each reduced density matrix to unit trace. If "return",
+            give each as ``(rho, trace)`` without dividing by the trace.
+            Ignored if ``get="tn"``, which returns the unnormalized network
+            without a separate trace.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return each reduced density matrix, see
+            :meth:`compute_partial_traces`.
+        info : dict, optional
+            Used to infer and store the current orthogonality center under
+            the key ``"cur_orthog"``.
+        inplace : bool, optional
+            Whether to canonicalize this state inplace rather than a copy.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        dict[int or tuple[int], array or Tensor or TensorNetwork]
+            The reduced density matrix for each ``where``, with sites in the
+            order of ``where``.
+        """
+        if info is None:
+            # this is used to keep track of canonical center
+            info = {}
+        if inplace:
+            mps = self
+        else:
+            mps = self.copy()
+            info = info.copy()
+
+        def first_site(where):
+            return where if isinstance(where, Integral) else min(where)
+
+        cur_orthog = info.get("cur_orthog", "calc")
+        if isinstance(cur_orthog, tuple):
+            # start near the known canonical center
+            order = sorted(
+                wheres,
+                key=lambda where: abs(first_site(where) - cur_orthog[0]),
+            )
+        else:
+            # sort by the smallest site so we sweep in one direction
+            order = sorted(wheres, key=first_site)
+
+        return {
+            where: mps.partial_trace_canonical(
+                where,
+                normalized=normalized,
+                info=info,
+                get=get,
+                **contract_opts,
+            )
+            for where in order
+        }
+
+    def compute_partial_traces_via_envs(
+        self,
+        wheres,
+        *,
+        normalized=True,
+        get="matrix",
+        schedule="auto",
+        **contract_opts,
+    ):
+        """Compute dense reduced density matrices using exact environments
+        from :meth:`compute_block_environments`, for open or periodic
+        chains. The environments for every ``where`` come from one sweep.
+
+        Parameters
+        ----------
+        wheres : sequence of int or tuple[int]
+            The site or sites to keep for each reduced density matrix. Sites
+            can cross the periodic boundary of a cyclic chain.
+        normalized : bool or "return", optional
+            Normalize each reduced density matrix to unit trace. If "return",
+            give each as ``(rho, trace)`` without dividing by the trace.
+            Ignored if ``get="tn"``, which returns the unnormalized network
+            without a separate trace.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return each reduced density matrix, see
+            :meth:`compute_partial_traces`.
+        schedule : {'auto', 'cut', 'cutpair', 'tree'}, optional
+            Environment construction schedule if cyclic, see
+            :meth:`gen_block_environments`. Use 'tree' to keep only O(log L)
+            environments in memory.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        dict[int or tuple[int], array or Tensor]
+            The reduced density matrix for each ``where``, with sites in the
+            order of ``where``.
+        """
+        cyclic = self.is_cyclic()
+        norm, ket, bra = self.make_norm(return_all=True)
+        wheres_by_interval = {}
+        for where in wheres:
+            sites = (where,) if isinstance(where, Integral) else tuple(where)
+            block = find_1d_block(sites, self.L, cyclic)
+            wheres_by_interval.setdefault(block, []).append(where)
+
+        # share one sweep across block sizes and use each environment as ready
+        environments = norm.gen_block_environments(
+            tuple(wheres_by_interval),
+            cyclic=cyclic,
+            schedule=schedule,
+            **contract_opts,
+        )
+
+        rhos = {}
+        for (start, bsz), environment in environments:
+            tags = [ket.site_tag((start + d) % self.L) for d in range(bsz)]
+            ket_local = ket.select_any(tags, virtual=False)
+            bra_local = bra.select_any(tags, virtual=False)
+            rhos.update(
+                partial_traces_from_environment(
+                    self,
+                    wheres_by_interval[start, bsz],
+                    ket_local,
+                    bra_local,
+                    environment,
+                    normalized=normalized,
+                    get=get,
+                    **contract_opts,
+                )
+            )
+
+        return rhos
+
+    def compute_partial_traces(
+        self,
+        wheres,
+        *,
+        normalized=True,
+        get="matrix",
+        route=None,
+        info=None,
+        inplace=False,
+        **contract_opts,
+    ):
+        """Compute many dense local reduced density matrices at once.
+
+        Parameters
+        ----------
+        wheres : sequence of int or tuple[int]
+            The site or sites to keep for each reduced density matrix.
+        normalized : bool or "return", optional
+            Normalize each reduced density matrix to unit trace. If "return",
+            give each as ``(rho, trace)`` without dividing by the trace.
+            Ignored if ``get="tn"``, which returns the unnormalized network
+            without a separate trace.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return each reduced density matrix:
+
+            - 'matrix': a dense matrix, with the ket sites fused into rows
+              and the bra sites fused into columns.
+            - 'array': the raw array, with one axis per ket site then one
+              axis per bra site.
+            - 'tensor': a :class:`~quimb.tensor.tensor_core.Tensor` with the
+              ket and bra indices.
+            - 'tn': the uncontracted tensor network.
+
+        route : {None, 'canonical', 'envs'}, optional
+            How to compute the reduced density matrices. By default use
+            ``'envs'`` for a cyclic MPS and ``'canonical'`` otherwise.
+
+            - 'canonical': canonicalize around each set of sites, moving the
+              canonical center as needed, see
+              :meth:`compute_partial_traces_canonical`. Only for open
+              boundaries.
+            - 'envs': contract with exact environments, see
+              :meth:`compute_partial_traces_via_envs`.
+
+        info : dict, optional
+            If ``route='canonical'``, used to infer and store the current
+            orthogonality center under the key ``"cur_orthog"``.
+        inplace : bool, optional
+            If ``route='canonical'``, whether to canonicalize this state
+            inplace rather than a copy.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        dict[int or tuple[int], array or Tensor]
+            The reduced density matrix for each ``where``, with sites in the
+            order of ``where``.
+        """
+        if route is None:
+            route = "envs" if self.is_cyclic() else "canonical"
+        if route == "canonical":
+            return self.compute_partial_traces_canonical(
+                wheres,
+                normalized=normalized,
+                get=get,
+                info=info,
+                inplace=inplace,
+                **contract_opts,
+            )
+        if route == "envs":
+            return self.compute_partial_traces_via_envs(
+                wheres, normalized=normalized, get=get, **contract_opts
+            )
+        raise ValueError(
+            f"Unrecognized route: {route}, should be one of: "
+            "'canonical', 'envs'."
+        )
+
+    def partial_trace(
+        self,
+        keep,
+        *,
+        normalized=True,
+        get="matrix",
+        route=None,
+        info=None,
+        inplace=False,
+        **contract_opts,
+    ):
+        """Compute the dense reduced density matrix of the sites ``keep``.
+        See :meth:`compute_partial_traces` for many sets of sites at once, and
+        :meth:`partial_trace_to_mpo` for an MPO over a larger range of sites.
+
+        Parameters
+        ----------
+        keep : int or sequence of int
+            The site or sites to keep.
+        normalized : bool or "return", optional
+            Normalize the reduced density matrix to unit trace. If "return",
+            give ``(rho, trace)`` without dividing by the trace. Ignored if
+            ``get="tn"``, which returns the unnormalized network without a
+            separate trace.
+        get : {'matrix', 'array', 'tensor', 'tn'}, optional
+            How to return the reduced density matrix, see
+            :meth:`compute_partial_traces`.
+        route : {None, 'canonical', 'envs'}, optional
+            How to compute the reduced density matrix, see
+            :meth:`compute_partial_traces`. By default use ``'envs'`` for a
+            cyclic MPS and ``'canonical'`` otherwise.
+        info : dict, optional
+            If ``route='canonical'``, used to infer and store the current
+            orthogonality center under the key ``"cur_orthog"``.
+        inplace : bool, optional
+            If ``route='canonical'``, whether to canonicalize this state
+            inplace rather than a copy.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        array or Tensor or TensorNetwork or (array, float) or (Tensor, float)
+        """
+        if not isinstance(keep, Integral):
+            keep = tuple(keep)
+        return self.compute_partial_traces(
+            (keep,),
+            normalized=normalized,
+            route=route,
+            info=info,
+            inplace=inplace,
+            get=get,
+            **contract_opts,
+        )[keep]
 
     def local_expectation_canonical(
         self, G, where, normalized=True, info=None, **contract_opts
     ):
-        """Compute a local expectation value (via forming the reduced density
-        matrix). Note this moves the orthogonality around inplace, and records
-        it in `info`.
+        """Compute a local expectation from its reduced density matrix.
+        Canonicalize around the target sites inplace and record the center
+        in ``info``. Only for open boundaries.
 
         Parameters
         ----------
@@ -2840,26 +3286,32 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
             The local operator to compute the expectation of.
         where : int or tuple[int]
             The site or sites to compute the expectation at.
-        normalized : bool, optional
-            Explicitly normalize the local reduced density matrix.
+        normalized : bool or "return", optional
+            Normalize the reduced density matrix to unit trace. If "return",
+            give ``(expec, trace)`` without dividing by the trace.
         info : dict, optional
-            If supplied, will be used to infer and store various extra
-            information. Currently the key "cur_orthog" is used to store the
-            current orthogonality center. Its input value can be ``"calc"``, a
-            single site, or a pair of sites representing the min/max range,
-            inclusive. It will be updated to the actual range after.
+            Read and update the canonical center in ``info["cur_orthog"]``.
+            Supply ``"calc"`` to find it, a single site, or an inclusive
+            ``(min, max)`` range.
         contract_opts
             Passed to `tensor_contract` when computing the reduced local
             density matrix.
 
         Returns
         -------
-        float
+        float or (float, float)
         """
-        rho = self.partial_trace_to_dense_canonical(
-            where, normalized=normalized, info=info, **contract_opts
+        rho = self.partial_trace_canonical(
+            where,
+            normalized=normalized,
+            info=info,
+            get="array",
+            **contract_opts,
         )
-        return do("trace", G @ rho)
+        if normalized == "return":
+            rho, nfactor = rho
+            return rho_expectation(rho, G), nfactor
+        return rho_expectation(rho, G)
 
     def compute_local_expectation_canonical(
         self,
@@ -2870,25 +3322,25 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         inplace=False,
         **contract_opts,
     ):
-        """Compute many local expectations at once, via forming the relevant
-        reduced density matrices via canonicalization. This moves the
-        orthogonality around inplace, and records it in `info`.
+        """Compute local expectations from reduced density matrices of an
+        open MPS. Canonicalize around each set of sites, on a copy unless
+        ``inplace=True``.
 
         Parameters
         ----------
         terms : dict[int or tuple[int], array_like]
             The local terms to compute values for.
-        normalized : bool, optional
-            Explicitly normalize each local reduced density matrix.
+        normalized : bool or "return", optional
+            Normalize each local reduced density matrix to unit trace. If
+            "return" and ``return_all=True``, give each term as
+            ``(expec, trace)`` without dividing by the trace.
         return_all : bool, optional
             Whether to return each expectation in `terms` separately
             or sum them all together (the default).
         info : dict, optional
-            If supplied, will be used to infer and store various extra
-            information. Currently, the key "cur_orthog" is used to store the
-            current orthogonality center. Its input value can be ``"calc"``, a
-            single site, or a pair of sites representing the min/max range,
-            inclusive. It will be updated to the actual range after.
+            Read and update the canonical center in ``info["cur_orthog"]``.
+            Supply ``"calc"`` to find it, a single site, or an inclusive
+            ``(min, max)`` range. Updated only if ``inplace=True``.
         inplace : bool, optional
             Whether to perform the required canonicalizations inplace.
         contract_opts
@@ -2898,151 +3350,81 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
 
         Returns
         -------
-        float or dict[in or tuple[int], float]
-            The expecetation value(s), either summed or for each term if
-            `return_all=True`.
+        float or dict[int or tuple[int], float]
+            The sum, or each term's expectation if ``return_all=True``.
 
         See Also
         --------
         compute_local_expectation_via_envs, local_expectation_canonical
-        partial_trace_to_dense_canonical
+        partial_trace_canonical
         """
-        if self.cyclic:
-            raise NotImplementedError("Only supports OBC.")
-
-        if info is None:
-            # this is used to keep track of canonical center
-            info = {}
-
-        if inplace:
-            mps = self
-        else:
-            mps = self.copy()
-            info = info.copy()
-
-        cur_orthog = info.get("cur_orthog", "calc")
-        if isinstance(cur_orthog, tuple):
-            # have a canonical center already -> start close to it
-            terms = sorted(
-                terms.items(), key=lambda kv: abs(min(kv[0]) - cur_orthog[0])
-            )
-        else:
-            # sort by the smallest site so we sweep in one direction
-            terms = sorted(terms.items(), key=lambda kv: min(kv[0]))
-
-        expecs = {
-            where: mps.local_expectation_canonical(
-                G,
-                where,
-                normalized=normalized,
-                info=info,
-                **contract_opts,
-            )
-            for where, G in terms
-        }
-
-        if return_all:
-            return expecs
-
-        return functools.reduce(operator.add, expecs.values())
+        return self.compute_local_expectation(
+            terms,
+            normalized=normalized,
+            return_all=return_all,
+            route="canonical",
+            info=info,
+            inplace=inplace,
+            **contract_opts,
+        )
 
     def compute_local_expectation_via_envs(
         self,
         terms,
         normalized=True,
         return_all=False,
+        schedule="auto",
         **contract_opts,
     ):
-        """Compute many local expectations at once, via forming the relevant
-        local overlaps using left and right environments formed via
-        contraction. This does not require any canonicalization and can be
-        quicker if the canonical center is not already aligned.
+        """Compute many local expectations at once, as ``tr(rho G)`` with each
+        reduced density matrix ``rho`` from
+        :meth:`compute_partial_traces_via_envs`. This needs no canonical form
+        and works for open and periodic chains.
 
         Parameters
         ----------
         terms : dict[int or tuple[int], array_like]
-            The local terms to compute values for.
-        normalized : bool, optional
-            Explicitly normalize each local reduced density matrix.
+            The local terms to compute values for. Sites can cross the periodic
+            boundary of a cyclic chain.
+        normalized : bool or "return", optional
+            Normalize each local reduced density matrix to unit trace. If
+            "return" and ``return_all=True``, give each term as
+            ``(expec, trace)`` without dividing by the trace.
         return_all : bool, optional
             Whether to return each expectation in `terms` separately
             or sum them all together (the default).
+        schedule : {'auto', 'cut', 'cutpair', 'tree'}, optional
+            Environment construction schedule if cyclic, see
+            :meth:`gen_block_environments`.
         contract_opts
             Supplied to
-            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`
-            when contracting the local overlaps.
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
 
         Returns
         -------
         float or dict[int or tuple[int], float]
-            The expecetation value(s), either summed or for each term if
+            The expectation value(s), either summed or for each term if
             `return_all=True`.
 
         See Also
         --------
-        compute_local_expectation_canonical, compute_left_environments,
-        compute_right_environments
+        compute_local_expectation_canonical, compute_partial_traces_via_envs
         """
-        norm, ket, bra = self.make_norm(return_all=True)
-
-        left_envs = norm.compute_left_environments(**contract_opts)
-        right_envs = norm.compute_right_environments(**contract_opts)
-
-        expecs = {}
-
-        if normalized:
-            nfactor = (norm.select(0) | right_envs[0]).contract(
-                all, **contract_opts
-            )
-        else:
-            nfactor = None
-
-        for where, G in terms.items():
-            sitemin = min(where)
-            sitemax = max(where)
-            tags = [ket.site_tag(i) for i in range(sitemin, sitemax + 1)]
-            # form:
-            #     sitemin sitemax
-            #          :   :
-            #         ┌─┐ ┌─┐
-            #      ┌──┤k├─┤k├──┐
-            #      │  └┬┘ └┬┘  │
-            #      │   │   │   │
-            #     ┌┴┐ ┌┴───┴┐ ┌┴┐
-            #     │l│ │  G  │ │r│
-            #     └┬┘ └┬───┬┘ └┬┘
-            #      │   │   │   │
-            #      │  ┌┴┐ ┌┴┐  │
-            #      └──┤b├─┤b├──┘
-            #         └─┘ └─┘
-            # (n.b. might be non-gated sites in between as well)
-            k = ket.select_any(tags, virtual=False)
-            b = bra.select_any(tags, virtual=False)
-            k.gate_(G, where, contract=False)
-
-            tn_local_overlap = k | b
-            if sitemin in left_envs:
-                tn_local_overlap |= left_envs[sitemin]
-            if sitemax in right_envs:
-                tn_local_overlap |= right_envs[sitemax]
-
-            x = tn_local_overlap.contract(all, **contract_opts)
-            if normalized:
-                x = x / nfactor
-
-            expecs[where] = x
-
-        if return_all:
-            return expecs
-
-        return functools.reduce(operator.add, expecs.values())
+        return self.compute_local_expectation(
+            terms,
+            normalized=normalized,
+            return_all=return_all,
+            route="envs",
+            schedule=schedule,
+            **contract_opts,
+        )
 
     def compute_local_expectation(
         self,
         terms,
         normalized=True,
         return_all=False,
-        method="canonical",
+        route=None,
         info=None,
         inplace=False,
         **contract_opts,
@@ -3053,30 +3435,34 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         ----------
         terms : dict[int or tuple[int], array_like]
             The local terms to compute values for.
-        normalized : bool, optional
-            Explicitly normalize each local term.
+        normalized : bool or "return", optional
+            Normalize each local reduced density matrix to unit trace. If
+            "return" and ``return_all=True``, give each term as
+            ``(expec, trace)`` without dividing by the trace.
         return_all : bool, optional
             Whether to return each expectation in `terms` separately
             or sum them all together (the default).
-        method : {'canonical', 'envs'}, optional
-            The method to use to compute the local expectations.
+        route : {None, 'canonical', 'envs'}, optional
+            How to form the reduced density matrices, see
+            :meth:`compute_partial_traces`. By default use ``'envs'`` for a
+            cyclic MPS and ``'canonical'`` otherwise. Each expectation is then
+            ``tr(rho G)``.
 
             - 'canonical': canonicalize around the sites of interest and
               contract the local reduced density matrices, moving the canonical
-              center around as needed.
-            - 'envs': form the local overlaps using left and right environments
-              and contract these directly. This can be quicker if the canonical
-              center is not already aligned.
+              center around as needed. Only for open boundaries.
+            - 'envs': contract with exact environments from
+              :meth:`compute_block_environments`. This needs no
+              canonicalization, works for periodic chains, and can be quicker
+              if the canonical center is not already aligned.
 
         info : dict, optional
-            If supplied, and `method=="canonical"`, will be used to infer and
-            store various extra information. Currently the key "cur_orthog" is
-            used to store the current orthogonality center. Its input value can
-            be ``"calc"``, a single site, or a pair of sites representing the
-            min/max range, inclusive. It will be updated to the actual range
-            after.
+            For ``route='canonical'``, read the center from
+            ``info["cur_orthog"]``. Supply ``"calc"`` to find it, a single
+            site, or an inclusive ``(min, max)`` range. Update the stored
+            center if ``inplace=True``.
         inplace : bool, optional
-            If `method=="canonical"`, whether to perform the required
+            If ``route='canonical'``, whether to perform the required
             canonicalizations inplace or on a copy of the state.
         contract_opts
             Supplied to
@@ -3086,34 +3472,91 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
         Returns
         -------
         float or dict[int or tuple[int], float]
-            The expecetation value(s), either summed or for each term if
-            `return_all=True`.
+            The sum, or each term's expectation if ``return_all=True``.
 
         See Also
         --------
         compute_local_expectation_canonical, compute_local_expectation_via_envs
         """
-        if method == "canonical":
-            return self.compute_local_expectation_canonical(
-                terms,
-                normalized=normalized,
-                return_all=return_all,
-                info=info,
-                inplace=inplace,
-                **contract_opts,
+        if "method" in contract_opts:
+            import warnings
+
+            warnings.warn(
+                "`method` is deprecated, use `route` instead.",
+                FutureWarning,
+                stacklevel=2,
             )
-        elif method == "envs":
-            return self.compute_local_expectation_via_envs(
-                terms,
-                normalized=normalized,
-                return_all=return_all,
-                **contract_opts,
-            )
-        else:
-            raise ValueError(
-                f"Unrecognized method: {method}, should be one of: "
-                "'canonical', 'envs'."
-            )
+            route = contract_opts.pop("method")
+
+        rhos = self.compute_partial_traces(
+            tuple(terms),
+            normalized=normalized,
+            route=route,
+            info=info,
+            inplace=inplace,
+            get="array",
+            **contract_opts,
+        )
+        return expectations_from_rhos(
+            terms, rhos, normalized=normalized, return_all=return_all
+        )
+
+    def local_expectation(
+        self,
+        G,
+        where,
+        *,
+        normalized=True,
+        route=None,
+        info=None,
+        inplace=False,
+        **contract_opts,
+    ):
+        """Compute the local expectation ``tr(rho G)`` of operator ``G`` at
+        sites ``where``, with ``rho`` from :meth:`partial_trace`. See
+        :meth:`compute_local_expectation` for many terms at once.
+
+        Parameters
+        ----------
+        G : array_like
+            The local operator, as a matrix or with one axis per ket site
+            then one axis per bra site.
+        where : int or sequence of int
+            The site or sites to compute the expectation at.
+        normalized : bool or "return", optional
+            Normalize the reduced density matrix to unit trace. If "return",
+            give ``(expec, trace)`` without dividing by the trace.
+        route : {None, 'canonical', 'envs'}, optional
+            How to compute the reduced density matrix, see
+            :meth:`compute_partial_traces`. By default use ``'envs'`` for a
+            cyclic MPS and ``'canonical'`` otherwise.
+        info : dict, optional
+            If ``route='canonical'``, used to infer and store the current
+            orthogonality center under the key ``"cur_orthog"``.
+        inplace : bool, optional
+            If ``route='canonical'``, whether to canonicalize this state
+            inplace rather than a copy.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        float or (float, float)
+        """
+        rho = self.partial_trace(
+            where,
+            normalized=normalized,
+            route=route,
+            info=info,
+            inplace=inplace,
+            get="array",
+            **contract_opts,
+        )
+        if normalized == "return":
+            rho, nfactor = rho
+            return rho_expectation(rho, G), nfactor
+        return rho_expectation(rho, G)
 
     @convert_cur_orthog
     def bipartite_schmidt_state(self, sz_a, get="ket", info=None):
@@ -3421,7 +3864,7 @@ class MatrixProductState(TensorNetwork1DVector, TensorNetwork1DFlat):
 
         # the sequence of sites in each of the 'environment' sections
         envm = range(max(sysa) + 1, min(sysb))
-        envl = range(0, min(sysa))
+        envl = range(min(sysa))
         envr = range(max(sysb) + 1, N)
 
         # spread norm, and if not cyclic put in mixed canonical form, taking
@@ -4294,6 +4737,109 @@ class MatrixProductOperator(TensorNetwork1DOperator, TensorNetwork1DFlat):
             mpo.add_tag(tags)
 
         return mpo
+
+    @convert_cur_orthog
+    def gate_sandwich_with_auto_swap(
+        self,
+        G,
+        where,
+        dagger=False,
+        info=None,
+        swap_back=True,
+        strip_exponent=False,
+        contract="split",
+        inplace=False,
+        **compress_opts,
+    ):
+        """Apply a two-site gate sandwich while maintaining the canonical
+        form, automatically swapping non-adjacent sites together first.
+
+        Parameters
+        ----------
+        G : array
+            The gate, with shape ``(d**2, d**2)`` for physical dimension
+            ``d`` or the equivalent rank-4 tensor shape.
+        where : (int, int)
+            The sites to apply the gate to. Their order specifies the order of
+            the gate's physical dimensions.
+        dagger : bool, optional
+            Apply ``Gdag @ O @ G`` rather than ``G @ O @ Gdag``. Use this for
+            Heisenberg picture evolution.
+        cur_orthog : int, sequence of int, or 'calc'
+            If known, the current orthogonality center.
+        info : dict, optional
+            If supplied, use and update the ``"cur_orthog"`` entry.
+        swap_back : bool, optional
+            Whether to restore the original site ordering after applying the
+            gate.
+        strip_exponent : bool, optional
+            Normalize the final orthogonality-center tensor and accumulate its
+            scale in the tensor-network exponent.
+        contract : {'split', 'reduce-split'}, optional
+            How to contract and split the gated pair.
+        inplace : bool, optional
+            Perform the operation in place.
+        compress_opts
+            Supplied to :func:`~quimb.tensor.tensor_core.tensor_split`.
+
+        Returns
+        -------
+        MatrixProductOperator
+            The gated MPO.
+        """
+        if contract not in ("split", "reduce-split"):
+            raise ValueError("`contract` must be 'split' or 'reduce-split'.")
+
+        mpo = self if inplace else self.copy()
+        i, j = where
+        if i == j:
+            raise ValueError("`where` must contain two distinct sites.")
+
+        if i > j:
+            i, j = j, i
+            gate_where = (i + 1, i)
+            compress_opts.setdefault("absorb", "left")
+        else:
+            gate_where = (i, i + 1)
+            compress_opts.setdefault("absorb", "right")
+
+        absorb = compress_opts["absorb"]
+        if absorb not in ("left", "right"):
+            raise ValueError("`absorb` must be 'left' or 'right'.")
+
+        need_to_swap = i + 1 != j
+        if need_to_swap:
+            mpo.swap_site_to_(j, i + 1, info=info, **compress_opts)
+
+        mpo.canonicalize_((i, i + 1), info=info)
+        mpo.gate_sandwich_(
+            G,
+            where=gate_where,
+            contract=contract,
+            dagger=dagger,
+            info=info,
+            **compress_opts,
+        )
+
+        if absorb == "left":
+            center = gate_where[0]
+        else:
+            center = gate_where[1]
+        info["cur_orthog"] = (center, center)
+
+        if need_to_swap and swap_back:
+            mpo.swap_site_to_(i + 1, j, info=info, **compress_opts)
+
+        if strip_exponent:
+            center = info["cur_orthog"][0]
+            mpo.strip_exponent(mpo[center])
+
+        return mpo
+
+    gate_sandwich_with_auto_swap_ = functools.partialmethod(
+        gate_sandwich_with_auto_swap,
+        inplace=True,
+    )
 
     def fill_empty_sites(
         self, mode="full", phys_dim=None, fill_array=None, inplace=False

@@ -152,7 +152,7 @@ def _map_references(command: str, flags: list[str]) -> int:
     if command == "capture-thumbnails":
         from papyrus_content.references_thumbnails import command as thumbnails_command
         return thumbnails_command(flags)
-    if command in {"list", "show", "register"}:
+    if command in {"list", "show", "text", "register"}:
         return dispatch_operator_command("references", command, flags)
     newsroom_reference_commands = {
         "curate-recent",
@@ -302,9 +302,22 @@ def main(argv: list[str] | None = None) -> int:
 
     site_selection.install()
     try:
-        return run_with_operator_error_handling(lambda: _run_with_arguments(argv))
+        return run_with_operator_error_handling(lambda: _run_printing_usage_on_error(argv))
     finally:
         site_selection.uninstall()
+
+
+def _run_printing_usage_on_error(argv: list[str] | None) -> int:
+    """Run the command; when it fails for missing or wrong arguments, print its usage ahead of the error (a bare command shows its usage)."""
+    from papyrus.operator.help_dispatch import _USAGE_SHOWN, print_usage_for_error
+
+    _USAGE_SHOWN.clear()
+    args = list(argv if argv is not None else sys.argv[1:])
+    try:
+        return _run_with_arguments(args)
+    except ValueError as error:
+        print_usage_for_error(args, error)
+        raise
 
 
 def _run_with_arguments(argv: list[str] | None) -> int:
@@ -320,15 +333,29 @@ def _run_with_arguments(argv: list[str] | None) -> int:
     help_status = answer_help(args)
     if help_status is not None:
         return help_status
+    from papyrus.operator.help_dispatch import bare_invocation_error, print_usage_for_error
+
+    if bare_invocation_error(args):
+        # A command that cannot work without arguments, run with none: show how to use it, then let it report its own specific error.
+        print_usage_for_error(args, ValueError("requires arguments"), force=True)
     if args[0] == "--version":
         from papyrus import __version__
 
         print(__version__)
         return 0
 
+    if args[0] == "guide":
+        from papyrus_content.agent_guide import guide_command
+        guide_command(args[1:])
+        return 0
+
     if args[0] == "doctor":
         from papyrus_content.cli_doctor import run as doctor_run
         return doctor_run(args[1:])
+
+    if args[0] == "links":
+        from papyrus_content.console_links import links_command
+        return links_command(args[1:])
 
     if args[0] in {"login", "logout", "whoami", "auth"}:
         from papyrus_content.cli_user_auth import command as auth_command
@@ -340,6 +367,12 @@ def _run_with_arguments(argv: list[str] | None) -> int:
     if group == "monitors":
         from papyrus_content.monitoring_commands import command as monitor_command
         return monitor_command(args[1:])
+    if group == "images":
+        if len(args) == 1:
+            print_group_help(group)
+            return 0
+        from papyrus_content.images.cli import command as images_command
+        return images_command(args[1:])
     command = args[1] if len(args) > 1 else None
     flags = [*global_flags, *(args[2:] if len(args) > 2 else [])]
 

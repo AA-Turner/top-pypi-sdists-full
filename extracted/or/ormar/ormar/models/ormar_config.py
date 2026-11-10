@@ -7,6 +7,7 @@ from sqlalchemy.sql.schema import ColumnCollectionConstraint
 
 from ormar.databases.connection import DatabaseConnection
 from ormar.fields import BaseField, ForeignKeyField, ManyToManyField
+from ormar.models.primary_key import PrimaryKey
 from ormar.models.utils import Extra
 from ormar.queryset.queryset import QuerySet
 from ormar.signals import SignalEmitter
@@ -14,7 +15,7 @@ from ormar.signals import SignalEmitter
 
 class OrmarConfig:
     if TYPE_CHECKING:  # pragma: no cover
-        pkname: str
+        pk: PrimaryKey
         metadata: sqlalchemy.MetaData
         database: DatabaseConnection
         engine: AsyncEngine
@@ -23,10 +24,12 @@ class OrmarConfig:
         comment: Optional[str]
         order_by: list[str]
         abstract: bool
+        view: bool
         proxy: bool
         emit_parent_signals: bool
         exclude_parent_fields: list[str]
         constraints: list[ColumnCollectionConstraint]
+        partial_updates: Optional[bool]
 
     def __init__(
         self,
@@ -43,8 +46,10 @@ class OrmarConfig:
         queryset_class: type[QuerySet] = QuerySet,
         extra: Extra = Extra.forbid,
         constraints: Optional[list[ColumnCollectionConstraint]] = None,
+        view: bool = False,
+        partial_updates: Optional[bool] = None,
     ) -> None:
-        self.pkname = None  # type: ignore
+        self.pk = None  # type: ignore
         self.metadata = metadata  # type: ignore
         self.database = database  # type: ignore
         self.engine = engine  # type: ignore
@@ -60,12 +65,14 @@ class OrmarConfig:
         self.property_fields: set = set()
         self.signals: SignalEmitter = SignalEmitter()
         self.abstract = abstract
+        self.view = view
         self.proxy = proxy
         self.emit_parent_signals = emit_parent_signals
         self.requires_ref_update: bool = False
         self.extra = extra
         self.queryset_class = queryset_class
         self.table: sqlalchemy.Table = None  # type: ignore
+        self.partial_updates = partial_updates
 
     def copy(
         self,
@@ -82,6 +89,8 @@ class OrmarConfig:
         queryset_class: Optional[type[QuerySet]] = None,
         extra: Optional[Extra] = None,
         constraints: Optional[list[ColumnCollectionConstraint]] = None,
+        view: Optional[bool] = None,
+        partial_updates: Union[bool, None, PydanticUndefinedType] = PydanticUndefined,
     ) -> "OrmarConfig":
         # PydanticUndefined distinguishes "omitted" (inherit parent schema)
         # from an explicit ``schema=None`` (clear schema).
@@ -109,4 +118,10 @@ class OrmarConfig:
             queryset_class=queryset_class or self.queryset_class,
             extra=extra or self.extra,
             constraints=constraints,
+            view=view if view is not None else self.view,
+            partial_updates=(
+                self.partial_updates
+                if isinstance(partial_updates, PydanticUndefinedType)
+                else partial_updates
+            ),
         )

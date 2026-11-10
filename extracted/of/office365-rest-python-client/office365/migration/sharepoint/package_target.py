@@ -16,10 +16,12 @@ from typing import TYPE_CHECKING
 from office365.migration.base import MigrationItem, PermissionEntry, Principal, is_puid
 from office365.migration.package.builder import PackageBuilder
 from office365.migration.package.staging import create_staging
-from office365.migration.server_job import MigrationServerJob
+from office365.migration.server_job import MigrationJobWait, MigrationServerJob
+from office365.migration.sharepoint.structure import ListStructure, provision_list_structure
 
 if TYPE_CHECKING:
     from office365.migration.package.builder import Package
+    from office365.sharepoint.lists.list import List as SPList
 
 __all__ = ["SharePointPackageTarget"]
 
@@ -41,6 +43,12 @@ def _resolve_site_url(site, site_url: str | None) -> str:
     return resolved
 
 
+#: The only item shapes ``Manifest.xml`` can express: an ``SPFile`` and a
+#: ``SPFolder`` (a document's ``SPListItem`` rides alongside its file). A list
+#: record — a row of a plain list — has no object type here at all.
+_PACKAGE_ITEM_TYPES = frozenset({"file", "folder"})
+
+
 class SharePointPackageTarget:
     """A ``DataTarget`` that builds a package and submits a server-side ingestion job.
 
@@ -50,8 +58,22 @@ class SharePointPackageTarget:
     ``Author``/``ModifiedBy`` become ``UserGroup.xml`` principals (matched by the
     integer id), and — with ``preserve_permissions`` — each item's role
     assignments become ``DeploymentRoles``/``DeploymentRoleAssignments`` grants for
-    resolved users (best-effort, same-tenant; groups/unresolved principals are
-    skipped with a warning).
+    resolved users (by PUID) and SharePoint groups (by title). Unresolved
+    principals are skipped with a warning.
+
+    A package carries **files and folders only** (a document's ``SPListItem`` rides
+    alongside its file). A row of a plain list has no object type in
+    ``Manifest.xml``, so :meth:`write` refuses one rather than writing the record's
+    repr into an ``SPFile`` — records have no version history either, so the REST
+    :class:`~office365.migration.sharepoint.adapters.SharePointListTarget` loses
+    nothing a package could have carried.
+
+    The manifest carries a file's list item — its field values — not the library's
+    own shape: ``DeploymentManifest`` has objects for content types, fields and
+    views, and this target does not emit them. A snapshot handed in as ``structure``
+    is therefore **replayed over REST before the job is submitted**
+    (:meth:`apply_structure`), which is what the task resolver does for a
+    same-tenant run and what a bundle produced elsewhere needs instead.
     """
 
     # Marks this target as able to restore version history (see DataTarget).
@@ -77,6 +99,8 @@ class SharePointPackageTarget:
         azure_queue_report_uri: str | None = None,
         encryption_key: bytes | None = None,
         staging=None,
+        sp_list: "SPList | None" = None,
+        structure: "ListStructure | None" = None,
     ) -> None:
         self._site = site
         self._web_id = web_id
@@ -101,9 +125,15 @@ class SharePointPackageTarget:
             source_type=source_type,
         )
         self.job_id: str | None = None
+        self._sp_list = sp_list
+        self._structure = structure
+        self._structure_applied = False
+        if structure is not None and sp_list is None:
+            raise ValueError("a structure snapshot needs the target list (sp_list) to be applied to")
         self._package: "Package | None" = None
         self._web_url = web_url
         self._users: dict[str, int] = {}
+        self._groups: dict[str, int] = {}
         self._unresolved: set[str] = set()
         self._roles: dict[str, str] = {}
         self._role_seq = 0
@@ -116,13 +146,40 @@ class SharePointPackageTarget:
     # ── DataTarget ───────────────────────────────────────────────
 
     def configure(self, options) -> None:
-        """Derive per-run policy from the options before writes start.
+        """Derive per-run policy from the options and provision the target before writes.
 
         A requested ``preserve_permissions`` switches ``ExportSettings`` to
-        ``IncludeSecurity="All"`` so the service consumes the emitted ACLs.
+        ``IncludeSecurity="All"`` so the service consumes the emitted ACLs, and a
+        captured ``structure`` is replayed onto the library (:meth:`apply_structure`)
+        so the columns the manifest's field values name already exist when the
+        ingestion job runs.
         """
         if getattr(options, "preserve_permissions", False):
             self._builder.set_include_security("All")
+        self.apply_structure()
+
+    def apply_structure(self) -> list[str]:
+        """Replay the captured list structure onto the target library (once, idempotent).
+
+        The manifest carries files, folders and their list items — not the library's
+        columns, content types, views or container settings — so those must exist
+        **before** the ingestion job, both for the item values to land and for the
+        target to look like the source. ``provision_list_structure`` is
+        ``on_conflict="skip"``, so a re-run writes nothing; whatever it could not
+        reproduce comes back as warnings on :attr:`warnings`.
+
+        Returns:
+            The warnings from this call (empty when there is no snapshot, or when it
+            has already been applied).
+        """
+        if self._structure is None or self._structure_applied:
+            return []
+        if self._sp_list is None:  # pragma: no cover - guarded in __init__
+            raise ValueError("a structure snapshot needs the target list (sp_list) to be applied to")
+        self._structure_applied = True
+        warnings = provision_list_structure(self._sp_list, self._structure)
+        self.warnings.extend(warnings)
+        return warnings
 
     def exists(self, item: MigrationItem) -> bool:
         # The server-side API handles overwrite/merge; nothing is checked client-side.
@@ -131,6 +188,12 @@ class SharePointPackageTarget:
     def write(self, item: MigrationItem, payload: object) -> None:
         author = self._ensure_user(item.author)
         editor = self._ensure_user(item.editor)
+        if item.item_type not in _PACKAGE_ITEM_TYPES:
+            raise ValueError(
+                f"the server-side package target writes files and folders, not {item.item_type!r} "
+                f"({item.dest_path}): a list record has no <List> object in Manifest.xml — "
+                "migrate records with SharePointListTarget (REST) instead"
+            )
         if item.item_type == "folder":
             self._builder.add_folder(
                 item.dest_path,
@@ -158,22 +221,29 @@ class SharePointPackageTarget:
     def apply_permissions(self, item: MigrationItem, permissions: list[PermissionEntry]) -> None:
         """Emit a ``DeploymentRoleAssignments`` grant for a written file/folder.
 
-        Only a **resolved user** (a PUID ``system_id``) can be granted server-side;
-        groups and unresolved principals are skipped with a warning rather than
-        failing the job. A role without a decimal mask is skipped likewise.
+        A **resolved user** is granted by PUID and a **SharePoint group** by name
+        (``UserGroup.xml`` ``<Group>``); anything else — a distribution list, a
+        security group, an unresolved principal — is skipped with a warning rather
+        than failing the job, as is a role without a decimal mask. A role is matched
+        on the target by title, so an existing permission level is reused.
+
+        A group the target does not have is created by the service, empty: its
+        membership is a site-security concern (``apply_site_security``), not
+        something an item ACL can carry. A group also needs an **owner** — the
+        schema rejects a ``<Group>`` without one *and that fails the whole job* — so
+        the owner chain read from the source is emitted too (a user by PUID, a
+        group as another ``<Group>``), and a group whose owner cannot be read at all
+        is written **self-owned** (``OwnerIsUser="false"``), which SharePoint
+        permits: a tenant's default ``Owners`` group owns itself.
         """
         object_id = self._builder.object_id(item.dest_path)
         if object_id is None:
             return
         assignments: list[tuple[str, int]] = []
         for entry in permissions:
-            if not is_puid(entry.system_id):
-                self.warnings.append(
-                    f"permission for {entry.principal_name!r} skipped: no usable PUID "
-                    "(only resolved users carry ACLs on the server-side path)"
-                )
+            principal_id = self._ensure_principal(entry)
+            if principal_id is None:
                 continue
-            principal_id = self._register_user(entry.principal_name, entry.system_id, entry.display_name, entry.email)
             for role in entry.roles:
                 role_id = self._ensure_role(role, entry.role_masks.get(role))
                 if role_id is not None:
@@ -188,6 +258,82 @@ class SharePointPackageTarget:
             role_def_web_url=self._web_url,
             assignments=assignments,
         )
+
+    def _ensure_principal(self, entry: PermissionEntry) -> int | None:
+        """The ``UserGroup.xml`` id for a permission entry (user, group, or ``None``)."""
+        if entry.principal_type == "group":
+            name = entry.display_name or entry.principal_name
+            if name in self._groups:
+                return self._groups[name]
+            # An owner group must exist earlier in UserGroup.xml than the group it owns,
+            # so the owner chain is registered first.
+            owner_id, owner_is_user, known = self._group_owner(entry, name)
+            group_id = self._builder.add_group(name)
+            self._groups[name] = group_id
+            if owner_id is None:
+                owner_id, owner_is_user = group_id, False
+                if not known:
+                    self.warnings.append(
+                        f"group {name!r} is written self-owned: no owner was read from the source, and a "
+                        "<Group> must name one"
+                    )
+            self._builder.set_group_owner(group_id, owner_id, owner_is_user=owner_is_user)
+            return group_id
+        if not is_puid(entry.system_id):
+            self.warnings.append(
+                f"permission for {entry.principal_name!r} skipped: no usable PUID "
+                "(a user needs one; only a SharePoint group resolves without it)"
+            )
+            return None
+        return self._register_user(entry.principal_name, entry.system_id, entry.display_name, entry.email)
+
+    def _group_owner(self, entry: PermissionEntry, name: str) -> tuple[int | None, bool, bool]:
+        """The ``Owner`` id for a group entry, whether it names a user, and whether it is known.
+
+        A user owner is registered by PUID; a group owner is registered as a
+        ``<Group>`` of its own (with its own chain), which is how a site's
+        ``Visitors`` group is owned by its ``Owners`` group on the source. A chain
+        that closes through the group itself means the group is **self-owned** —
+        read from the source, not an assumption (a tenant's ``Owners`` group is).
+        """
+        owner = entry.owner
+        if owner is not None and is_puid(owner.system_id):
+            return self._register_user(owner.login_name, owner.system_id, owner.display_name, owner.email), True, True
+        chain = entry.owner_groups
+        if any(title.casefold() == name.casefold() for title in chain):
+            return None, False, True
+        if chain:
+            return self._register_group_chain(chain, owner), False, True
+        return None, False, False
+
+    def _register_group_chain(self, titles: list[str], top: "Principal | None") -> int:
+        """Register an owner chain (nearest first); returns the nearest group's id.
+
+        The furthest group is owned by ``top`` — a user with a PUID, or itself when
+        the source chain closed on itself or left the tenant.
+        """
+        owner_id: int | None = None
+        owner_is_user = False
+        for title in reversed(titles):
+            if title in self._groups:
+                owner_id, owner_is_user = self._groups[title], False
+                continue
+            group_id = self._builder.add_group(title)
+            self._groups[title] = group_id
+            if owner_id is not None:
+                self._builder.set_group_owner(group_id, owner_id, owner_is_user=owner_is_user)
+            elif top is not None and is_puid(top.system_id):
+                self._builder.set_group_owner(
+                    group_id,
+                    self._register_user(top.login_name, top.system_id, top.display_name, top.email),
+                    owner_is_user=True,
+                )
+            else:
+                self._builder.set_group_owner(group_id, group_id, owner_is_user=False)
+            owner_id, owner_is_user = group_id, False
+        if owner_id is None:  # pragma: no cover - titles is non-empty on this path
+            raise ValueError("a group owner chain must name at least one group")
+        return owner_id
 
     def _ensure_user(self, principal: "Principal | None") -> str | None:
         """Register a principal in ``UserGroup.xml`` (by login + PUID); returns its id string."""
@@ -254,10 +400,27 @@ class SharePointPackageTarget:
         self._staging.stage(package)
         return package
 
-    def commit(self, options=None) -> None:
-        """Stage the package and submit the ingestion job (called by the runner)."""
+    def commit(self, options=None, resubmit: bool = False) -> None:
+        """Stage the package and submit the ingestion job (called by the runner).
+
+        Submitting twice for one package would ingest the same content twice, and the
+        two jobs' outcomes are then indistinguishable. So a run that finds the job a
+        previous run submitted — recorded by the staging strategy, which is what
+        outlives the process — **re-attaches** to it instead of submitting again.
+        ``resubmit=True`` is the deliberate opt-out: it submits a new job anyway, for
+        the case where the recorded job has already failed and the package changed.
+        """
         if not (self._content_uri and self._manifest_uri):
             raise ValueError("content_uri and manifest_uri are required to submit an ingestion job")
+        # A caller that never ran ``configure`` (a hand-built job) still needs the
+        # structure in place before the first item is ingested.
+        self.apply_structure()
+        scope = f"{self._web_id}/{self._list_title}"
+        if not resubmit:
+            recorded = self._staging.recorded_job(scope)
+            if recorded is not None:
+                self.job_id = recorded
+                return
         self.stage()
         server = MigrationServerJob(self._site)
         if self._encryption_key is not None:
@@ -275,12 +438,21 @@ class SharePointPackageTarget:
                 self._manifest_uri,
                 self._azure_queue_report_uri,
             )
+        # Recorded after the submit, before anything else can fail: the id is the only
+        # handle on a job the service keeps running when this process does not.
+        self._staging.record_job(self.job_id, scope)
+
+    def job_wait(self, interval: float = 5, timeout: float = 1800, progress=None) -> MigrationJobWait:
+        """The wait on the submitted job, without running it (stream it, or cancel it)."""
+        if self.job_id is None:
+            raise ValueError("no job submitted yet — call commit() first")
+        return MigrationServerJob(self._site).job_wait(
+            self.job_id, interval=interval, timeout=timeout, progress=progress
+        )
 
     def monitor(self, interval: float = 5, timeout: float = 1800, progress=None) -> str:
         """Poll the submitted job to completion (``GetMigrationJobProgress``)."""
-        if self.job_id is None:
-            raise ValueError("no job submitted yet — call commit() first")
-        return MigrationServerJob(self._site).monitor(self.job_id, interval=interval, timeout=timeout, progress=progress)
+        return self.job_wait(interval=interval, timeout=timeout, progress=progress).wait(raise_on_failure=False)
 
     @property
     def staging(self):

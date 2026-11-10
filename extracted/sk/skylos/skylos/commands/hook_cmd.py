@@ -115,6 +115,11 @@ _BYPASS_HINT_RE = re.compile(
     r"|git_config|alias\.|hooks|\bpre-commit\b|commit-msg|pre-push"
 )
 # "git commit -n" / "-anm": two linear searches, never one backtracking one.
+_AGENT_CONFIG_HINT_RE = re.compile(
+    r"(?i)mcp|install-hooks|plugin|extensions|settings(?:\.local)?\.json|tasks\.json|hooks\.json"
+    r"|config\.toml|\.claude|\.cursor|\.vscode|\.gemini|\.codex|agents/|\btar\b|unzip|\b7za?\b"
+    r"|\bpatch\b|\bgit\b"
+)
 _GIT_WORD_RE = re.compile(r"\bgit\b")
 _SHORT_N_RE = re.compile(r"(?i)\s-[a-z]*n")
 _WS_RE = re.compile(r"\s+")
@@ -130,6 +135,7 @@ class HookDeps:
     install_checker: InstallChecker | None = None
     env: dict[str, str] = field(default_factory=lambda: dict(os.environ))
     standards_policy: AgentStandardsPolicy | None = None
+    supply_chain_sources: Any = None
     # cwd -> the directory git runs hooks from (None: unknown). Tests stub it.
     hooks_dir: Callable[[Path], Path | None] | None = None
 
@@ -643,8 +649,133 @@ def _fail_open_message(event: str, reason: str) -> str:
 
 
 def _handle_session_start(payload, root, client, deps, record):
+    from skylos.commands.hook_agent_guard import session_agent_check
+
     record["outcome"] = "captured" if record.get("done_configured") else "skip"
-    return _allow_output("session-start", client)
+    output = _allow_output("session-start", client)
+    try:
+        notice = session_agent_check(payload, root, deps, record)
+    except Exception as exc:  # noqa: BLE001
+        record["agent_config_error"] = type(exc).__name__
+        notice = "Skylos could not check agent configs and MCP servers this time."
+    if notice:
+        record["agent_config_report"] = True
+        if client == "cursor":
+            record["_stderr_notes"] = [notice]
+        else:
+            output = dict(output or {})
+            output["systemMessage"] = notice
+            if client == "claude":
+                output["hookSpecificOutput"] = {
+                    "hookEventName": "UserPromptSubmit",
+                    "additionalContext": notice,
+                }
+
+    if client != "claude":
+        return output
+    session_id = _session_id(payload)
+    state_root = _state_root(root)
+    session = _load_session_state(state_root).get("sessions", {}).get(session_id)
+    if isinstance(session, dict) and session.get("told_checks"):
+        return output
+    try:
+        text = _session_rules_text(root, bool(record.get("done_configured")))
+    except Exception as exc:
+        record["told_error"] = type(exc).__name__
+        return output
+    _mutate_session(state_root, session_id, _mark_told)
+    record["outcome"] = "told"
+    merged = dict(output or {})
+    merged["hookSpecificOutput"] = {
+        "hookEventName": "UserPromptSubmit",
+        "additionalContext": f"{text}\n{notice}" if notice else text,
+    }
+    return merged
+
+
+def _mark_told(session: dict[str, Any]) -> None:
+    session["told_checks"] = int(time.time())
+
+
+def _session_rules_text(root: Path, configured: bool) -> str:
+    """What blocks in this repository, told to the agent once per session."""
+    if configured:
+        from skylos.done.base import open_comparison
+        from skylos.done.config import CHECK_IDS, base_config_text, parse_done_config
+        from skylos.done.receipt import LABELS
+
+        config = parse_done_config(base_config_text(open_comparison(root)))
+        names = [LABELS[check] for check in CHECK_IDS if config.mode(check) == "block"]
+        if names:
+            first = "Skylos Done runs at Stop and blocks on: " + "; ".join(names) + "."
+        else:
+            first = "Skylos Done runs at Stop; no check is set to block in [tool.skylos.done]."
+    else:
+        first = (
+            "Skylos Done tests are not configured here (no committed "
+            "[tool.skylos.done] table); Stop only rechecks issues your edits introduced."
+        )
+    return "\n".join(
+        [
+            first,
+            "Edit hooks block secrets, dangerous sinks fed by untrusted input and "
+            "hallucinated packages.",
+            "The pull request gate fails on critical security issues, secrets and "
+            "critical AI-code defects.",
+            f"Before you finish, run: skylos done --base {_done_base_hint(root)}",
+        ]
+    )
+
+
+def _done_base_hint(root: Path) -> str:
+    """The base ``skylos open`` would compare with: origin/HEAD, else main/master."""
+    from skylos.commands.setup_cmd import current_branch, default_base
+
+    base = default_base(root)
+    if not base or base == current_branch(root):
+        return "HEAD"
+    return base
+
+
+def _handle_pre_edit(payload, root, client, deps, record):
+    from skylos.commands.hook_agent_guard import check_agent_edit
+
+    verdict = check_agent_edit(payload, root, deps, record)
+    if verdict is None:
+        record["outcome"] = "skip"
+        return _allow_output("pre-edit", client)
+    return _agent_config_output("pre-edit", client, verdict, record)
+
+
+def _handle_post_bash(payload, root, client, deps, record):
+    _accept_agent_action(payload, root, deps, record, edit=False)
+    return _allow_output("post-bash", client)
+
+
+def _accept_agent_action(payload, root, deps, record, *, edit: bool) -> None:
+    from skylos.commands.hook_agent_guard import accept_agent_action
+
+    try:
+        accept_agent_action(payload, root, deps, edit=edit)
+    except Exception as exc:  # noqa: BLE001
+        record["agent_config_error"] = type(exc).__name__
+
+
+def _agent_config_output(event, client, verdict, record):
+    decision, text = verdict
+    if decision == "ask" and client == "codex":
+        decision = "deny"
+        text += " (Codex hooks cannot ask the user, so Skylos blocks instead.)"
+    if decision == "deny":
+        record["outcome"] = "block"
+        return _deny_output(client, text)
+    if decision == "ask":
+        record["outcome"] = "ask"
+        return _ask_output(client, text)
+    record["outcome"] = "note"
+    if client == "cursor":
+        record["_stderr_notes"] = [text]
+    return _with_notice(event, client, _allow_output(event, client), text)
 
 
 # --------------------------------------------------------------------------
@@ -653,6 +784,7 @@ def _handle_session_start(payload, root, client, deps, record):
 
 
 def _handle_post_edit(payload, root, client, deps, record):
+    _accept_agent_action(payload, root, deps, record, edit=True)
     edited = _edited_files(payload, root, client)
     record["files"] = len(edited)
     if not edited:
@@ -1039,10 +1171,21 @@ def _verify_parse_incomplete(result: dict[str, Any]) -> bool:
 
 
 def _secret_scannable(path: Path) -> bool:
-    from skylos.rules.secrets import ALLOWED_FILE_SUFFIXES
+    from skylos.rules.secrets import (
+        ALLOWED_FILE_SUFFIXES,
+        file_starts_like_shell_script,
+        is_secret_scan_name,
+        may_be_shell_script,
+    )
 
     name = path.name.lower()
-    return name.endswith(ALLOWED_FILE_SUFFIXES) or name.startswith(".env")
+    if (
+        name.endswith(ALLOWED_FILE_SUFFIXES)
+        or name.startswith(".env")
+        or is_secret_scan_name(str(path))
+    ):
+        return True
+    return may_be_shell_script(path.name) and file_starts_like_shell_script(path)
 
 
 def _scan_relpath(path: Path, root: Path) -> str:
@@ -1061,12 +1204,13 @@ def _scan_relpath(path: Path, root: Path) -> str:
 def _secret_findings(
     path: Path, root: Path, text: str, *, ignore_tests: bool = True
 ) -> list[dict[str, Any]]:
-    from skylos.rules.secrets import scan_ctx
+    from skylos.rules.secrets import is_aws_credential_path, scan_ctx
 
     ctx = {
         "relpath": _scan_relpath(path, root),
         "lines": text.splitlines(True),
         "tree": None,
+        "aws_credential_file": is_aws_credential_path(str(path)),
     }
     findings = []
     for raw in scan_ctx(ctx, ignore_tests=ignore_tests):
@@ -1187,6 +1331,42 @@ def _handle_pre_bash(payload, root, client, deps, record):
         record["outcome"] = "block"
         return _deny_output(client, reason)
 
+    verdict = None
+    if _AGENT_CONFIG_HINT_RE.search(command):
+        from skylos.commands.hook_agent_guard import check_agent_bash
+
+        verdict = check_agent_bash(command, cwd, root, deps, payload, record)
+    output = _pre_bash_checks(command, cwd, root, client, deps, record)
+    if verdict is None:
+        return output
+    decision, text = verdict
+    if decision == "note":
+        if record.get("outcome") in ("skip", "pass"):
+            record["outcome"] = "note"
+        if client == "cursor":
+            record["_stderr_notes"] = [*record.get("_stderr_notes", []), text]
+        return _with_notice("pre-bash", client, output, text)
+    other, reason = _output_decision(output, client)
+    if _DECISION_RANK.get(other, 0) > _DECISION_RANK[decision]:
+        decision = other
+    combined = "\n".join(part for part in (reason, text) if part)
+    return _agent_config_output("pre-bash", client, (decision, combined), record)
+
+
+def _output_decision(output, client) -> tuple[str, str]:
+    """The decision and reason an already built pre-bash output carries."""
+    if not isinstance(output, dict):
+        return "allow", ""
+    if client == "cursor":
+        return str(output.get("permission") or "allow"), str(
+            output.get("user_message") or ""
+        )
+    specific = output.get("hookSpecificOutput") or {}
+    return (str(specific.get("permissionDecision") or "allow"),
+            str(specific.get("permissionDecisionReason") or ""))  # fmt: skip
+
+
+def _pre_bash_checks(command, cwd, root, client, deps, record):
     install_hint = bool(_INSTALL_HINT_RE.search(command))
     bypass_hint = bool(_BYPASS_HINT_RE.search(command)) or bool(
         _GIT_WORD_RE.search(command) and _SHORT_N_RE.search(command)
@@ -1228,10 +1408,18 @@ def _handle_pre_bash(payload, root, client, deps, record):
     checker = deps.install_checker
     if checker is not None:
         return _install_output(checker(command, root), policy, client, record)
-    from skylos.commands.hook_install_parse import install_targets, split_targets
+    from skylos.commands.hook_install_parse import (
+        MANIFEST,
+        install_targets,
+        split_targets,
+    )
+    from skylos.commands.hook_supply_chain import INSTALL_CHECK_SECONDS
 
-    targets = install_targets(command, cwd, root=root)
+    deadline = time.monotonic() + INSTALL_CHECK_SECONDS
+    targets = install_targets(command, cwd, root=root, lockfiles=True)
     registry_targets, result = split_targets(targets)
+    chain, chain_problem = _supply_chain_policy(root)
+    trusted = _declared_registries(policy, chain)
     if registry_targets:
         # Only registry lookups need the (heavier) checker module.
         from skylos.rules.ai_defect.install_command import check_install_command
@@ -1242,11 +1430,58 @@ def _handle_pre_bash(payload, root, client, deps, record):
             cache_root=_state_root(root),
             cwd=cwd,
             env=deps.env,
-            trusted_registries=policy.trusted_registries,
+            trusted_registries=trusted,
             home=deps.env.get("HOME") or None,
             targets=targets,
+            deadline=deadline,
+        )
+    routed = {u.get("outcome") for u in result.get("unverified") or []}
+    if (
+        result.get("checked")
+        or routed & {"allowlisted", "registry_override"}
+        or any(t.kind == MANIFEST for t in targets)
+    ):
+        from skylos.commands.hook_supply_chain import check_supply_chain
+
+        try:
+            check_supply_chain(result, targets, root=root, sources=deps.supply_chain_sources,
+                               record=record, deadline=deadline, policy=chain,
+                               trusted=trusted)  # fmt: skip
+        except Exception:  # noqa: BLE001
+            result.setdefault("unverified", []).append(
+                {"tool": "install", "name": "packages", "outcome": "unchecked",
+                 "reason": "the malware and release-age check failed"}
+            )  # fmt: skip
+    if chain_problem and (registry_targets or any(t.kind == MANIFEST for t in targets)):
+        result.setdefault("unverified", []).append(
+            {
+                "tool": "install",
+                "name": "policy",
+                "outcome": "unchecked",
+                "reason": chain_problem,
+            }
         )
     return _install_output(result, policy, client, record)
+
+
+def _supply_chain_policy(root):
+    """The supply-chain policy, and a problem when Cloud's could not be read."""
+    from skylos.config import ConfigError
+    from skylos.supply_chain.policy import SupplyChainPolicy, load_supply_chain_policy
+
+    try:
+        return load_supply_chain_policy(root), ""
+    except ConfigError:
+        return SupplyChainPolicy(), "the synced Skylos Cloud policy could not be read"
+
+
+def _declared_registries(policy, chain) -> tuple[str, ...]:
+    """Registries the hook trusts. Cloud's lists, when Cloud sets them,
+    replace the repository's ``trusted_registries``."""
+    cloud = (*chain.trusted_registries, *chain.private_registries)
+    if chain.registries_from_cloud:
+        return tuple(dict.fromkeys(cloud))
+    return tuple(dict.fromkeys((*policy.trusted_registries, *cloud)))
 
 
 def _hook_bypass_reason(command, cwd, deps, record) -> str | None:
@@ -1292,11 +1527,16 @@ def _install_output(result, policy, client, record):
     ]
     record["packages"] = len(result.get("packages") or [])
     record["findings"] = len(findings)
+    if findings:
+        record["finding_kinds"] = sorted({_finding_kind(f) for f in findings})
     if direct or overrides:
         record["direct"] = len(direct) + len(overrides)
     if unknown:
         record["unverified"] = len(unknown)
 
+    notes = [str(n) for n in result.get("notes") or [] if n]
+    if notes:
+        record["notes"] = len(notes)
     decision = None
     if direct or overrides:
         decision = policy.direct_source
@@ -1305,23 +1545,22 @@ def _install_output(result, policy, client, record):
     if findings:
         decision = "deny"
     if decision is None:
+        if notes:
+            record["outcome"] = "note"
+            text = "Skylos checked this install, with gaps:\n" + "\n".join(
+                f"- {_clean_message(n, MAX_MESSAGE_CHARS)}" for n in notes[:MAX_ITEMS]
+            )
+            if client == "cursor":
+                record["_stderr_notes"] = [text]
+            return _with_notice(
+                "pre-bash", client, _allow_output("pre-bash", client), text
+            )
         record["outcome"] = "pass"
         return _allow_output("pre-bash", client)
     if decision == "ask" and client == "codex":
         decision = "deny"  # Codex runs the command on "ask"; never let it through
 
-    sections = []
-    if findings:
-        items = [f"- {f.get('message')}" for f in findings[:MAX_ITEMS]]
-        sections.append(
-            (
-                "1 package looks"
-                if len(findings) == 1
-                else f"{len(findings)} packages look"
-            )
-            + " hallucinated or typosquatted.\n"
-            + "\n".join(items)
-        )
+    sections = _finding_sections(findings)
     if direct or overrides:
         items = [_direct_item(d) for d in direct[:MAX_ITEMS]]
         items += [_override_item(o) for o in overrides[: MAX_ITEMS - len(items)]]
@@ -1332,10 +1571,17 @@ def _install_output(result, policy, client, record):
     if unknown:
         items = [_unverified_item(u) for u in unknown[:MAX_ITEMS]]
         sections.append("Packages Skylos could not verify:\n" + "\n".join(items))
+    if notes:
+        items = [f"- {_clean_message(n, MAX_MESSAGE_CHARS)}" for n in notes[:MAX_ITEMS]]
+        sections.append("Not fully checked:\n" + "\n".join(items))
     body = "\n".join(sections)
     if policy.problems:
         body += "\nSkylos hook policy problem, using the default: " + "; ".join(
             policy.problems
+        )
+    if result.get("supply_chain_problems"):
+        body += "\nSkylos supply-chain policy problem, using the default: " + "; ".join(
+            result["supply_chain_problems"]
         )
 
     if decision == "allow":
@@ -1356,13 +1602,7 @@ def _install_output(result, policy, client, record):
         return _ask_output(client, text)
     record["outcome"] = "block"
     if findings:
-        guidance = (
-            "\nCheck the real package name (docs, registry search) and retry. "
-            "If the package is internal, install it with your private index/registry "
-            "flag and ask the user to list that registry in trusted_registries under "
-            "[tool.skylos.hooks]. If this package is correct, add it to [tool.skylos] "
-            "hooks_allow_packages in pyproject.toml."
-        )
+        guidance = _finding_guidance(findings, result.get("release_age_hours"))
         head = "Skylos blocked this install: "
     else:
         steps = []
@@ -1389,6 +1629,71 @@ def _install_output(result, policy, client, record):
             guidance += " (Codex hooks cannot ask the user, so Skylos blocks instead.)"
         head = "Skylos blocked this install because it could not verify it.\n"
     return _deny_output(client, head + body + guidance)
+
+
+_FINDING_HEADS = {
+    "malware": ("1 package version is known malware.",
+                "{n} package versions are known malware."),
+    "hallucinated": ("1 package looks hallucinated or typosquatted.",
+                     "{n} packages look hallucinated or typosquatted."),
+    "too_new": ("1 package version is newer than the release cooldown.",
+                "{n} package versions are newer than the release cooldown."),
+    "provenance": ("1 package version lost the provenance its earlier versions had.",
+                   "{n} package versions lost the provenance their earlier versions had."),
+}  # fmt: skip
+
+
+def _finding_kind(finding: dict[str, Any]) -> str:
+    kind = finding.get("kind")
+    if kind in _FINDING_HEADS:
+        return kind
+    return "hallucinated"
+
+
+def _finding_sections(findings: list[dict[str, Any]]) -> list[str]:
+    sections = []
+    for kind, (one, many) in _FINDING_HEADS.items():
+        group = [f for f in findings if _finding_kind(f) == kind]
+        if not group:
+            continue
+        head = one
+        if len(group) > 1:
+            head = many.format(n=len(group))
+        items = [f"- {f.get('message')}" for f in group[:MAX_ITEMS]]
+        sections.append(head + "\n" + "\n".join(items))
+    return sections
+
+
+def _finding_guidance(findings: list[dict[str, Any]], age_hours: Any) -> str:
+    kinds = {_finding_kind(f) for f in findings}
+    lines = []
+    if "malware" in kinds:
+        lines.append(
+            "Do not install a version reported as malware. If one is already "
+            "installed, remove it and rotate any credentials it could read."
+        )
+    if "hallucinated" in kinds:
+        lines.append(
+            "Check the real package name (docs, registry search) and retry. "
+            "If the package is internal, install it with your private index/registry "
+            "flag and ask the user to list that registry in trusted_registries under "
+            "[tool.skylos.hooks]. If this package is correct, add it to [tool.skylos] "
+            "hooks_allow_packages in pyproject.toml."
+        )
+    if "too_new" in kinds:
+        lines.append(
+            f"Install the older version named above, or wait until the release is "
+            f"{age_hours} hours old. The user can change the wait with "
+            "min_release_age_hours under [tool.skylos.supply_chain] in pyproject.toml "
+            "(0 turns it off)."
+        )
+    if "provenance" in kinds:
+        lines.append(
+            "Install an earlier version, or ask the user to confirm this release with "
+            "the maintainer (check_provenance = false under [tool.skylos.supply_chain] "
+            "turns this check off)."
+        )
+    return "\n" + "\n".join(lines)
 
 
 def _stricter(current: str | None, new: str) -> str:
@@ -1710,6 +2015,7 @@ def _done_stop_count(root: Path, session_id: str, digest: str | None, maximum: i
             return
         if session.get("done_problem_digest") != digest:
             prior = 0
+        session.pop("done_pass", None)
         should_block = prior < maximum
         count = prior + 1 if should_block else prior
         session["done_problem_digest"] = digest
@@ -1823,6 +2129,16 @@ def _handle_done_stop(payload, root, client, deps, record):
     session = (
         _load_session_state(_state_root(root)).get("sessions", {}).get(session_id, {})
     )
+    reused = _reusable_done_pass(
+        root, session, session_id, comparison, config, workspace_digest
+    )
+    if reused is not None:
+        assert_session_unchanged(comparison)
+        record["done_verdict"] = "pass"
+        record["done_reused"] = True
+        record["findings"] = 0
+        record["outcome"] = "pass"
+        return _done_pass_output(client, reused)
     prior = session.get("done_stop_blocks", 0)
     if (
         session.get("done_problem_digest") == workspace_digest
@@ -1885,7 +2201,8 @@ def _handle_done_stop(payload, root, client, deps, record):
     record["findings"] = len(problems)
     if result.verdict == "pass":
         record["outcome"] = "pass"
-        return _allow_output("stop", client)
+        _remember_done_pass(root, session_id, workspace_digest, receipt)
+        return _done_pass_output(client, receipt)
 
     if not should_block:
         return _done_exhausted_output(
@@ -1915,6 +2232,7 @@ def _handle_done_stop(payload, root, client, deps, record):
         )
     else:
         lines.append(f"Fix these problems, then recheck: {_done_recheck(session_id)}.")
+    lines.append(f"Receipt: {_done_receipt_display()}")
     return _stop_block_output(client, "\n".join(lines))
 
 
@@ -1923,7 +2241,7 @@ def _done_exhausted_output(
 ):
     warning = (
         f"Skylos Done remains {verdict} after {count} stop blocks. "
-        "The agent may stop; the receipt is not passing. "
+        f"The agent may stop; the receipt is not passing ({_done_receipt_display()}). "
         f"Recheck: {_done_recheck(session_id)}."
     )
     if open_findings and root is not None:
@@ -1933,6 +2251,86 @@ def _done_exhausted_output(
     record["outcome"] = "gave-up"
     record["warning"] = warning
     return _done_warning_output("stop", client, warning)
+
+
+def _done_receipt_display() -> str:
+    from skylos.done.receipt import LATEST_NAME, RECEIPTS_DIR
+
+    return (RECEIPTS_DIR / LATEST_NAME).as_posix()
+
+
+def _done_tests_run(receipt: dict[str, Any]) -> int:
+    for check in receipt.get("checks") or []:
+        if isinstance(check, dict) and check.get("id") == "tests_pass":
+            run = (check.get("evidence") or {}).get("run")
+            if isinstance(run, int) and not isinstance(run, bool):
+                return run
+    return 0
+
+
+def _done_pass_output(client: str, receipt: dict[str, Any]) -> dict[str, Any]:
+    output = _allow_output("stop", client) or {}
+    if client != "claude":
+        return output
+    run = _done_tests_run(receipt)
+    unit = "tests"
+    if run == 1:
+        unit = "test"
+    output["systemMessage"] = (
+        f"Skylos Done passed: {run} {unit} run; receipt {_done_receipt_display()}"
+    )
+    return output
+
+
+def _done_pass_identity(receipt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "session_id": (receipt.get("agent") or {}).get("session_id"),
+        "head_sha": (receipt.get("head") or {}).get("sha"),
+        "base_sha": (receipt.get("base") or {}).get("sha"),
+        "base_source": (receipt.get("base") or {}).get("source"),
+        "config_digest": receipt.get("config_digest"),
+        "skylos_version": receipt.get("skylos_version"),
+    }
+
+
+def _remember_done_pass(root: Path, session_id: str, digest: str, receipt) -> None:
+    """A later Stop on the same tree, policy and receipt skips the engine."""
+
+    def mutate(session):
+        session["done_pass"] = {"digest": digest, **_done_pass_identity(receipt)}
+
+    _mutate_session(_state_root(root), session_id, mutate)
+
+
+def _reusable_done_pass(root, session, session_id, comparison, config, digest):
+    """The latest receipt, when it is this session's pass for exactly this tree."""
+    from skylos.done.receipt import (
+        LATEST_NAME,
+        RECEIPTS_DIR,
+        _version,
+        read_receipt,
+        validate_receipt,
+    )
+
+    stored = session.get("done_pass")
+    if not isinstance(stored, dict) or stored.get("digest") != digest:
+        return None
+    receipt = read_receipt(root / RECEIPTS_DIR / LATEST_NAME)
+    if receipt is None or validate_receipt(receipt) or receipt.get("verdict") != "pass":
+        return None
+    current = {
+        "session_id": session_id,
+        "head_sha": comparison.head_sha,
+        "base_sha": comparison.base_sha,
+        "base_source": comparison.base_source,
+        "config_digest": config.digest(),
+        "skylos_version": _version(),
+    }
+    recorded = _done_pass_identity(receipt)
+    for key, value in current.items():
+        if stored.get(key) != value or recorded[key] != value:
+            return None
+    return receipt
 
 
 def _publish_done_error_receipt(root: Path, session_id: str, client: str) -> None:
@@ -2519,7 +2917,10 @@ def _clean_message(value: Any, limit: int) -> str:
 def _cwd(payload: dict[str, Any], root: Path) -> Path:
     cwd = payload.get("cwd")
     if isinstance(cwd, str) and cwd and Path(cwd).is_dir():
-        return Path(cwd)
+        try:
+            return Path(cwd).resolve()
+        except (OSError, RuntimeError):
+            return Path(cwd)
     return root
 
 
@@ -2646,15 +3047,11 @@ def _log(root: Path | None, record: dict[str, Any]) -> None:
 
 _HANDLERS = {
     "session-start": _handle_session_start,
-    "pre-edit": lambda payload, root, client, deps, record: _allow_output(
-        "pre-edit", client
-    ),
+    "pre-edit": _handle_pre_edit,
     "post-edit": _handle_post_edit,
     "pre-read": _handle_pre_read,
     "pre-bash": _handle_pre_bash,
-    "post-bash": lambda payload, root, client, deps, record: _allow_output(
-        "post-bash", client
-    ),
+    "post-bash": _handle_post_bash,
     "post-failure": lambda payload, root, client, deps, record: _allow_output(
         "post-failure", client
     ),

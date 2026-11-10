@@ -353,7 +353,7 @@ def test_inline_unknown_named_colorspace_errors():
     iimage = _first_inline_image(pdf)
     assert iimage is not None
     with pytest.raises(NotImplementedError):
-        iimage.colorspace  # noqa: B018
+        iimage.colorspace
 
 
 def test_bits_per_component_missing(congress):
@@ -505,14 +505,14 @@ def pack_2bit_row(row: Sequence[int]) -> bytes:
     im54 = [s << 4 for s in row[1::4]]
     im32 = [s << 2 for s in row[2::4]]
     im10 = [s << 0 for s in row[3::4]]
-    return bytes(sum(s) for s in zip(im76, im54, im32, im10))
+    return bytes(sum(s) for s in zip(im76, im54, im32, im10, strict=True))
 
 
 def pack_4bit_row(row: Sequence[int]) -> bytes:
     assert len(row) % 2 == 0
     upper = [s << 4 for s in row[0::2]]
     lower = row[1::2]
-    return bytes(sum(s) for s in zip(upper, lower))
+    return bytes(sum(s) for s in zip(upper, lower, strict=True))
 
 
 @st.composite
@@ -717,9 +717,9 @@ def test_image_metadata_wrong_type_raises_type_error(mode, width):
         )
         pim = PdfImage(obj)
         with pytest.raises(TypeError, match='/Width'):
-            pim.width  # noqa: B018
+            pim.width
         with pytest.raises(NotImplementedError):
-            pim.width  # noqa: B018
+            pim.width
 
 
 @pytest.mark.parametrize('mode', ['implicit', 'explicit'])
@@ -1286,7 +1286,7 @@ def _make_dct_rgb_xobject(pdf, pil_img, decode=None):
 
 
 def _approx(actual, expected, tol=12):
-    return all(abs(a - e) <= tol for a, e in zip(actual, expected))
+    return all(abs(a - e) <= tol for a, e in zip(actual, expected, strict=True))
 
 
 def test_decode_array_not_applied_to_dct():
@@ -1439,6 +1439,55 @@ def test_iccbased_cmyk_explicit_decode_array():
     pdf = Pdf.new()
     pim = PdfImage(_make_iccbased_xobject(pdf, n=4, decode=[1, 0, 1, 0, 1, 0, 1, 0]))
     assert pim._decode_array == (1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0)
+
+
+def _image_with_icc_profile_without_n(icc_bytes, components):
+    pdf = Pdf.new()
+    icc_stream = pdf.make_stream(icc_bytes)
+    return pdf, Stream(
+        pdf,
+        bytes(range(4 * components)),
+        BitsPerComponent=8,
+        ColorSpace=Array([Name.ICCBased, icc_stream]),
+        Width=2,
+        Height=2,
+        Type=Name.XObject,
+        Subtype=Name.Image,
+    )
+
+
+def _srgb_profile_bytes():
+    return ImageCms.ImageCmsProfile(ImageCms.createProfile('sRGB')).tobytes()
+
+
+@pytest.mark.parametrize(
+    'kind, components, expected_mode',
+    [('gray', 1, 'L'), ('rgb', 3, 'RGB')],
+)
+def test_iccbased_profile_without_n(resources, kind, components, expected_mode):
+    # /N is required on an ICC profile stream, but some files omit it: the
+    # profile itself records its colour space, so the image still decodes.
+    if kind == 'gray':
+        icc_bytes = (resources / 'Gray.icc').read_bytes()
+    else:
+        icc_bytes = _srgb_profile_bytes()
+    _pdf, imobj = _image_with_icc_profile_without_n(icc_bytes, components)
+    pim = PdfImage(imobj)
+    assert pim.mode == expected_mode
+    assert pim._decode_array == (0.0, 1.0) * components
+    assert pim.as_pil_image().mode == expected_mode
+
+
+def test_iccbased_profile_without_n_unreadable():
+    # Without /N and without a readable profile, the mode is unknown; that is
+    # reported the same way as any other unsupported image.
+    _pdf, imobj = _image_with_icc_profile_without_n(b'not a profile', 3)
+    pim = PdfImage(imobj)
+    with pytest.raises(NotImplementedError):
+        pim.mode
+    with pytest.raises(NotImplementedError):
+        pim._decode_array
+    repr(pim)
 
 
 @pytest.mark.skipif(
@@ -2395,6 +2444,20 @@ def test_cal_missing_whitepoint_falls_back():
     pim = _cal_image(cal, bpc=8, width=2, height=2, imbytes=bytes(range(12)))
     im = pim.as_pil_image()
     assert im.mode == 'RGB'
+    assert 'icc_profile' not in im.info
+
+
+@pytest.mark.parametrize(
+    'name, mode, nbytes', [('/CalGray', 'L', 4), ('/CalRGB', 'RGB', 12)]
+)
+def test_cal_missing_dictionary_falls_back(name, mode, nbytes):
+    # Malformed Cal* array without its parameter dictionary: like a missing
+    # WhitePoint, extract as a plain device space without an ICC profile.
+    pim = _cal_image(
+        Array([Name(name)]), bpc=8, width=2, height=2, imbytes=bytes(nbytes)
+    )
+    im = pim.as_pil_image()
+    assert im.mode == mode
     assert 'icc_profile' not in im.info
 
 

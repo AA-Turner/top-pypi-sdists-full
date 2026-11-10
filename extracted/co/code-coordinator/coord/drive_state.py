@@ -49,15 +49,16 @@ from coord.models import WORK_LIKE_TYPES, test_mode_from_labels
 # exactly a hardcoded copy of this set going stale).
 WORK_LIKE: frozenset[str] = WORK_LIKE_TYPES
 
-# #2234/#3164: "refused_policy"/"refused_premise" join "advisory" here for
-# the same reason — `active_count` (below) must not count any of them as
-# still running, or `decide()`'s `active_count > 0` guard would wait on a row
-# that already reaped and never actually change state (see
-# `coord.agent.REFUSED_POLICY`/`REFUSED_PREMISE`).
+# #2234/#3164/#3931: "refused_policy"/"refused_premise"/
+# "needs_decomposition" join "advisory" here for the same reason —
+# `active_count` (below) must not count any of them as still running, or
+# `decide()`'s `active_count > 0` guard would wait on a row that already
+# reaped and never actually change state (see `coord.agent.REFUSED_POLICY`/
+# `REFUSED_PREMISE`/`NEEDS_DECOMPOSITION`).
 TERMINAL_STATUSES = frozenset(
     {
         "done", "failed", "cancelled", "merged", "advisory",
-        "refused_policy", "refused_premise",
+        "refused_policy", "refused_premise", "needs_decomposition",
     }
 )
 
@@ -97,6 +98,14 @@ class IssueState:
     work_provider: str = ""
     work_test_state: str = ""
     work_test_reason: str = ""
+    # #3861: the SHA the work row's LATEST Test-gate verdict was recorded
+    # against (`Assignment.test_head_sha`, the #1479 staleness anchor) —
+    # ``None`` for a row with no verdict yet or predating that column.
+    # `_decide_merge`'s stale-smoke re-test arm reads this against a live
+    # `verifier.branch_head_sha` probe to tell a genuinely stale verdict
+    # apart from a merge refusal that only LOOKS stale because it quotes a
+    # snapshot `merge_reason` from before a fresher pass landed.
+    work_test_head_sha: str | None = None
     # #3367: worker-reported turn count / cost for the work row — the
     # `review_num_turns`/`review_cost_usd` siblings below explain why these
     # exist; `coord.machine_fault.classify_machine_fault` needs both to
@@ -544,6 +553,7 @@ def project(payload: dict, repo: str, issue: int, config: Any) -> IssueState:
         work_provider=g(work, "provider_name"),
         work_test_state=g(work, "test_state"),
         work_test_reason=g(work, "test_reason"),
+        work_test_head_sha=g(work, "test_head_sha", None),
         work_num_turns=g(work, "num_turns", None),
         work_cost_usd=g(work, "cost_usd", None),
         work_uat_state=g(work, "uat_state"),

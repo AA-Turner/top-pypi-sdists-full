@@ -6,9 +6,10 @@ use common::*;
 
 #[test]
 fn checks_that_change_settings() {
-    let checks: [fn(); 8] = [
-        language_examples, mathish_arithmetic, boxed_display_and_function_trees, expression_dissection, threads_give_the_same_results,
-        hanzi_spellings_and_language, leading_prefs_set_how_their_code_reads, highlight_after_a_prefs_header,
+    let checks: [fn(); 11] = [
+        mathish_arithmetic, boxed_display_and_function_trees, expression_dissection, threads_give_the_same_results, hanzi_spellings_and_language,
+        leading_prefs_set_how_their_code_reads, highlight_after_a_prefs_header, retained_selection_parameters_survive_data_reads,
+        retained_programs_rebind_block_geometry, recorded_agreements_keep_source_maps, operator_bodies_reuse_consecutive_signatures,
     ];
     for check in checks {
         basedpl::settings::reset();
@@ -21,58 +22,22 @@ fn mathish_arithmetic() {
     equiv_in!(&s; "0ₓ÷0ₓ" => "0ₓ", "0÷ₓ0" => "0ₓ", "÷/1 0 0" => "∞");
     equiv_in(&s, r#"•prefs ["mathish":$f] ⋄ [≠⍨0÷0;≠⍨1⍟1;0.3=0.1+0.2]"#, "[$t;$t;$f]");
     equiv_in(&s, r#"•prefs ["mathish":$t] ⋄ [0÷0;1⍟1;0.3=0.1+0.2]"#, "[0;0;$t]");
-    equiv_in(&s, "[0ₚ÷0ₚ;≠⍨0ₓ₄÷0ₓ₄;≠⍨0ₓ₈÷0ₓ₈]", "[0;$t;$t]");
-    equiv_in(&s, "n←[0ₛ÷0ₛ;0ₓ₂÷0ₓ₂] ⋄ [≠⍨¨n;{(•storage ⍵).kind}¨n]", r#"[$t $t;"float32" "float32"]"#);
+    equiv_in(&s, "[0ₚ÷0ₚ;0ₓ₄÷0ₓ₄;0ₓ₈÷0ₓ₈]", "[0;0ₓ₄;0ₓ₈]");
+    equiv_in(&s, "n←[0ₛ÷0ₛ;0ₓ₂÷0ₓ₂] ⋄ [≠⍨n₀;0=n₁;{(•storage ⍵).kind}¨n]", r#"[$t;$t;"float32" "int16"]"#);
     equiv_in(&s, "[÷¯0÷0;÷¯0 ¯0÷0 0;÷¯0÷¨0 0]", "[¯∞;¯∞ ¯∞;¯∞ ¯∞]");
-    equiv_in(&s, r#"•prefs ["kinds":"static"] ⋄ n←[0÷0;0ₓ÷0ₓ;0j0ₚ÷0j0ₚ;1j0ₚ⍟1j0ₚ] ⋄ [≠⍨¨n;0.7=0.1+0.6]"#, "[$t $t $t $t;$f]");
-    equiv_in(&s, r#"•prefs ["float":32] ⋄ [≠⍨0ₓ÷0ₓ;≠⍨[0 0]ₓ÷[0 0]ₓ;≠⍨0ₓ÷¨[0 0]ₓ]"#, "[$t;$t $t;$t $t]");
+    equiv_in(&s, r#"•prefs ["kinds":"static"] ⋄ n←[0÷0;0j0ₚ÷0j0ₚ;1j0ₚ⍟1j0ₚ] ⋄ [≠⍨¨n;0=0ₓ÷0ₓ;0.7=0.1+0.6]"#, "[$t $t $t;$t;$f]");
+    equiv_in(&s, r#"•prefs ["float":32] ⋄ [0=0ₓ÷0ₓ;0=[0 0]ₓ÷[0 0]ₓ;0=0ₓ÷¨[0 0]ₓ]"#, "[$t;$t $t;$t $t]");
     equiv_in(
         &s,
         r#"•prefs ["kinds":"dynamic"] ⋄ n←1ₓ⍟1ₓ ⋄ p←1ₚ⍟1ₚ ⋄ [≠⍨n;(•storage n).kind;p;(•storage p).kind;0.3ₚ=0.1ₚ+0.2ₚ]"#,
         r#"[$t;"float32";0ₚ;"float64";$t]"#);
 }
 
-fn language_examples() {
-    let mut failures = Vec::new();
-    let page = std::env::var("BASEDPL_PAGE").ok();
-    let prefs = std::fs::read_to_string("nbs/gallery/prefs.bpl").unwrap();
-    for dir in ["nbs", "nbs/glyphs", "nbs/system", "nbs/gallery"] {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            let Some(ext) = path.extension().filter(|ext| *ext == "qmd" || *ext == "bpl") else { continue; };
-            if page.as_deref().is_some_and(|p| !path.to_string_lossy().contains(p)) { continue; }
-            let text = std::fs::read_to_string(&path).unwrap();
-            // A gallery demo is a whole program, run after the gallery's settings, as the gallery runs it. A demo that defines `frame` also draws its first frame.
-            if ext == "bpl" {
-                let session = Session::new();
-                let error = [prefs.as_str(), &text, r#"{3=•nc "frame"?frame 0;0}0"#].into_iter().find_map(|code| session.eval(code).error);
-                if let Some(error) = error { failures.push(format!("{}: {error}", path.display())); }
-                continue;
-            }
-            let mut fenced = false;
-            for line in text.lines() {
-                if line.starts_with("```") { fenced = !fenced; continue; }
-                if fenced { continue; }
-                for link in line.split("](").skip(1) {
-                    let target = link.split(')').next().unwrap().split('#').next().unwrap();
-                    if !target.is_empty() && !target.contains("://") {
-                        assert!(path.parent().unwrap().join(target).exists(), "{}: missing {target}", path.display());
-                    }
-                }
-            }
-            for f in basedpl::reference::page(&text, None, &Default::default()) {
-                failures.push(format!("{}:{}: {}\n{}", path.display(), f["line"], f["code"].as_str().unwrap(), f["message"].as_str().unwrap()));
-            }
-        }
-    }
-    assert!(failures.is_empty(), "{}", failures.join("\n"));
-}
-
 fn boxed_display_and_function_trees() {
     let s = Session::new();
     assert!(s.eval(r#"•prefs ["box":$t "trees":$t "fns":$t]"#).error.is_none());
     assert_eq!(s.eval("⊂4ₓ ⋄ ⊂⊂4ₓ ⋄ ⊂¨[0 1]ₓ").output_text(), ["⊂4ₓ", "⊂⊂4ₓ", "┌→────────┐\n│ ⊂0ₓ ⊂1ₓ │\n└∊────────┘"]);
-    let r = s.eval(r#"A←2 3 4⍴"DUCKSWANBIRDWORMCAKESEED" ⋄ ⊂⍠2 A"#);
+    let r = s.eval(r#"A←2 3 4⍴"DUCKSWANBIRDWORMCAKESEED" ⋄ ⊂₂A"#);
     assert!(r.error.is_none(), "{:?}", r.error);
     assert_eq!(r.output_text(), ["┌→─────────────────────┐\n↓ \"DUCK\" \"SWAN\" \"BIRD\" │\n│ \"WORM\" \"CAKE\" \"SEED\" │\n└∊─────────────────────┘"]);
     assert_eq!(s.eval(r#"⍬ ⋄ "" ⋄ "a""bc" ⋄ ["i":2]⍴1 2"#).output_text(), ["⍬", r#""""#, r#""a""bc""#, r#"["i":2]⍴[1 2]"#]);
@@ -82,7 +47,7 @@ fn boxed_display_and_function_trees() {
     let f = s.eval("avg←+/÷≢ ⋄ avg");
     assert!(f.error.is_none() && f.value.is_none());
     assert_eq!(f.output_text(), ["fork\n├─ /\n│  └─ +\n├─ ÷\n└─ ≢"]);
-    equiv_in(&s, "avg [1 2 4]ₓ", "7r3");
+    equiv_in(&s, "avg [1 2 4]ₓ", "2ₓ");
     let r = s.eval("{⎕←⍵ ⋄ ⍵}1 2");
     assert_eq!(r.output_text().len(), 2);
     assert_eq!(r.output_text()[0], r.output_text()[1]);
@@ -152,11 +117,14 @@ fn expression_dissection() {
     assert_eq!(r.output_text()[0], "2");
     assert_eq!(r.output_text()[2], "3");
     assert_same(r.value, &float(3.));
-    assert_eq!(s.eval("f").output_text().len(), 1);
-    let r = s.eval("↑[+]");
+    let r = s.eval("f");
     assert!(r.function.is_some());
+    assert_eq!(r.output_text().len(), 1);
+    let r = s.eval("↑[+]");
+    assert!(r.function.is_none() && r.value.is_some());
     assert_eq!(r.output_text().len(), 2);
-    for code in ["1+⍳3", "(1+⍳3)ᵀ", "(+/⍳3) (≢⍳4)"] {
+    s.eval("k←3");
+    for code in ["1+⍳3", "(1+⍳3)ᵀ", "(+/⍳3) (≢⍳4)", "(k+⊢) ⍳4"] {
         let r = s.eval(code);
         assert_eq!(r.output_text().len(), 2, "{code}: {:?}", r.error);
         assert!(r.output_text()[0].contains('⍳'));
@@ -210,7 +178,7 @@ fn hanzi_spellings_and_language() {
     );
     assert_eq!(s.name_class("系time"), 3);
     assert_eq!(s.inspect("系time").unwrap().source, "•time");
-    assert!(s.set("乙", number(1)).is_err() && !s.erase("乙"));
+    assert!(s.set("乙", number(basedpl::Number::from_integer(1))).is_err() && !s.erase("乙"));
     equiv_in(&s, "{系nc \"乙\"}0", "2ₓ");
     equiv("かな←2 ⋄ 한글←3 ⋄ かな+한글", "5");
     let code = "加总 1 2句辞";
@@ -234,4 +202,72 @@ fn leading_prefs_set_how_their_code_reads() {
 fn highlight_after_a_prefs_header() {
     let code = "•prefs [\"hanzi_aliases\":$t]\n加1 注 comment";
     assert_eq!(basedpl::highlight(code, false).last().map(|(range, class)| (&code[range.clone()], *class)), Some(("注 comment", "comment")));
+}
+
+fn retained_selection_parameters_survive_data_reads() {
+    for mode in ["dynamic", "static"] {
+        let s = Session::new();
+        s.eval(&format!(r#"•prefs ["kinds":"{mode}"]"#));
+        let check = |code: &str, expected: &str| {
+            let result = s.eval(code);
+            assert!(result.error.is_none(), "{code}: {:?}", result.error);
+            assert_eq!(result.output_text(), [expected], "{code}");
+        };
+        for (code, expected) in [
+            ("(2×)@(0⌷)1 2 3", "2 2 3"), ("(2×)@([[0 2]]⌷)1 2 3", "2 2 6"), ("-@[0 2]1 2 3", "¯1 2 ¯3"), ("x←3 8 2 ⋄ 10+@[5>]x", "13 8 12"),
+            ("f←{(2×)@(⍺⌷)⍵} ⋄ 0 f 1 2 3", "2 2 3"), ("2 f 4 5 6", "4 5 12"), (r#"[[1 0]]⌷["b":4 "a":5]"#, r#"["a":5 "b":4]"#),
+            (r#"k←["a":1] ⋄ -@[k⍨]["b":4 "a":5]"#, r#"["b":4 "a":¯5]"#),
+        ] { check(code, expected); }
+        if mode == "static" {
+            check(r#"9⌷["b":4 "a":5]"#, "0");
+            check(r#"x←["b":4 "a":5] ⋄ x.[[0 9]]←7 ⋄ x"#, r#"["b":7 "a":5]"#);
+        }
+        check(r#""q"⌷["b":4 "a":5]"#, "0");
+    }
+}
+
+fn recorded_agreements_keep_source_maps() {
+    let s = Session::new();
+    assert!(s.eval(r#"•prefs ["mathish":$f "kinds":"static" "float":32]"#).error.is_none());
+    equiv_in(&s, "f←{(-⊗)⍨⍵} ⋄ (f⍣2)2.0 4.0", "2 2 2 2⍴0 2 ¯2 0 ¯2 0 ¯4 ¯2 2 4 0 2 0 2 ¯2 0");
+    for (body, expected) in [("{1.0 3.0+⊗⍵}", "2 2 2⍴4 6 6 8 6 8 8 10"), ("{1.0 3.0⊣⊗⍵}", "2 2 2⍴1 1 1 1 3 3 3 3")] {
+        equiv_in(&s, &format!("f←{body} ⋄ (f⍣2)2.0 4.0"), expected);
+    }
+    equiv_in(&s, "g←{+/,1.0 3.0+⊗⍵} ⋄ g∂2.0 4.0", "2.0 2.0");
+}
+
+fn operator_bodies_reuse_consecutive_signatures() {
+    let s = Session::new();
+    assert!(s.eval(r#"•prefs ["kinds":"static" "mathish":$f "float":32] ⋄ f←{⍵+1.0}"#).error.is_none());
+    basedpl::settings::set_sizes(basedpl::settings::Sizes { min_items: 1, ..basedpl::settings::Sizes::DEFAULT });
+    equiv_in(&s, r#"e←•explain "f⍣2⁝1.0 2.0" ⋄ [e.value;≢e.programs.event]"#, "[3 4;0ₓ]");
+    equiv_in(&s, r#"e←•explain "f⍣4⁝1.0 2.0" ⋄ [e.value;e.programs.event]"#, r#"[5 6;["built";"replayed"]]"#);
+    equiv_in(&s, r#"e←•explain "f⍣2⁝1.0 2.0" ⋄ [e.value;e.programs.event]"#, r#"[3 4;["replayed"]]"#);
+    equiv_in(&s, r#"g←{0.0 1.0+⊗⍵} ⋄ e←•explain "g⍣6⁝,0.0" ⋄ [e.value≡g g g g g g ,0.0;≢e.programs.event]"#, "[$t;0ₓ]");
+    equiv_in(&s, "blend←{(0.5×⍺)+(0.25×⍵)} ⋄ cells←[2.0 4.0;6.0 8.0;10.0 12.0] ⋄ seed←1.0 3.0 ⋄ seed(blend/)cells", "2.078125 3.421875");
+    equiv_in(&s, "seed(blend\\)cells", "[1 2.5;2 3.25;3.5 4.625]");
+}
+
+fn retained_programs_rebind_block_geometry() {
+    let s = Session::new();
+    assert!(s.eval(r#"•prefs ["kinds":"static" "mathish":$f] ⋄ v←1 2 3 ⋄ x←0.25×⍳17 ⋄ f←{+/,⊼⍵+⊗v}"#).error.is_none());
+    for block in [7, 64, 5] {
+        basedpl::settings::set_sizes(basedpl::settings::Sizes { block, min_items: 1, ..basedpl::settings::Sizes::DEFAULT });
+        // Block geometry is construction context; the next call at that geometry reuses the recording.
+        equiv_in(&s, r#"e←•explain "f∂x" ⋄ e.value"#, "12+6×0.25×⍳17");
+        equiv_in(&s, "e.programs.event", r#"["built"]"#);
+        equiv_in(&s, r#"e←•explain "f∂x" ⋄ e.value"#, "12+6×0.25×⍳17");
+        equiv_in(&s, "e.programs.event", r#"["replayed"]"#);
+    }
+    // Power warms ordinary calls first at length 2; derivatives warm first at length 4.
+    equiv_in(&s, "a←2 2 ⋄ f←{a×⍵+1} ⋄ f⍣2⁝1 2", "10 14");
+    equiv_in(&s, "f∂1 2", "[2 0⋄0 2]");
+    equiv_in(&s, "f⍣2⁝1 2", "10 14");
+    equiv_in(&s, "a←3 3 ⋄ f⍣2⁝1 2", "21 30");
+    equiv_in(&s, "f∂1 2", "[3 0⋄0 3]");
+    equiv_in(&s, "a←3 3 3 3 ⋄ f∂1 2 3 4", "[3 0 0 0⋄0 3 0 0⋄0 0 3 0⋄0 0 0 3]");
+    equiv_in(&s, "f⍣2⁝1 2 3 4", "21 30 39 48");
+    equiv_in(&s, "a←4 4 4 4 ⋄ [f∂1 2 3 4 ; f⍣2⁝1 2 3 4]", "[[4 0 0 0⋄0 4 0 0⋄0 0 4 0⋄0 0 0 4];36 52 68 84]");
+    equiv_in(&s, "h←{⊂2×⍵} ⋄ h⍣2⁝1 2", "⊂⊂4 8");
+    equiv_in(&s, "h⍣2⁝3 4", "⊂⊂12 16");
 }

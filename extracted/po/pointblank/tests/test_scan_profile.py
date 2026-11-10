@@ -30,13 +30,62 @@ from pointblank.scan_profile_stats import (
 # ──────────────────────────────────────────────────────────────────────
 
 
-def test_typemap_is_illegal_struct():
-    assert _TypeMap.is_illegal("Struct{'a': Int64}") is True
+@pytest.mark.parametrize(
+    "dtype, expected",
+    [
+        (nw.Int64(), _TypeMap.NUMERIC),
+        (nw.UInt8(), _TypeMap.NUMERIC),
+        (nw.Float32(), _TypeMap.NUMERIC),
+        (nw.Decimal(), _TypeMap.NUMERIC),
+        (nw.String(), _TypeMap.STRING),
+        (nw.Categorical(), _TypeMap.STRING),
+        (nw.Enum(["a"]), _TypeMap.STRING),
+        (nw.Date(), _TypeMap.DATE),
+        (nw.Datetime("us"), _TypeMap.DATE),
+        (nw.Time(), _TypeMap.DATE),
+        (nw.Boolean(), _TypeMap.BOOL),
+        # Nested and other types have no profile
+        (nw.List(nw.Int64), None),
+        (nw.List(nw.String), None),
+        (nw.Array(nw.Float64, 2), None),
+        (nw.Struct({"a": nw.Int64}), None),
+        (nw.Duration(), None),
+        (nw.Binary(), None),
+        (nw.Object(), None),
+        (nw.Unknown(), None),
+    ],
+    ids=str,
+)
+def test_typemap_from_dtype(dtype, expected):
+    # The string form (the `coltype` of a profile, as saved in the JSON) gives the same result
+    assert _TypeMap.from_dtype(dtype) is expected
+    assert _TypeMap.from_dtype(str(dtype)) is expected
 
 
-def test_typemap_is_illegal_non_struct():
-    assert _TypeMap.is_illegal("Int64") is False
-    assert _TypeMap.is_illegal("String") is False
+# The category names of an Enum, and the inner type of a List, used to pick the profile
+@pytest.mark.parametrize(
+    "categories, expected",
+    [
+        (["print", "floating"], _TypeMap.STRING),
+        (["update", "boolean"], _TypeMap.STRING),
+        (["playlist", "struct"], _TypeMap.STRING),
+    ],
+)
+def test_typemap_from_dtype_ignores_enum_categories(categories, expected):
+    dtype = nw.Enum(categories)
+
+    assert _TypeMap.from_dtype(dtype) is expected
+    assert _TypeMap.from_dtype(str(dtype)) is expected
+
+
+@pytest.mark.parametrize("coltype", ["", "Int64x", "not a type", "Field"])
+def test_typemap_from_dtype_unknown_string(coltype):
+    assert _TypeMap.from_dtype(coltype) is None
+
+
+def test_typemap_fetch_profile_raises_for_unsupported_type():
+    with pytest.raises(NotImplementedError, match="List"):
+        _TypeMap.fetch_profile(nw.List(nw.Int64))
 
 
 def test_typemap_fetch_prof_map_returns_dict():
@@ -223,6 +272,51 @@ def test_string_profile_calc_stats():
     assert "iqr" in names
 
 
+@pytest.mark.parametrize(
+    "make_tbl",
+    [
+        pytest.param(lambda v: pl.DataFrame({"s": v}), id="polars"),
+        pytest.param(
+            lambda v: pl.DataFrame({"s": v}, schema={"s": pl.Categorical}), id="polars_cat"
+        ),
+        pytest.param(
+            lambda v: pl.DataFrame({"s": v}, schema={"s": pl.Enum(["x", "abc"])}), id="polars_enum"
+        ),
+        pytest.param(lambda v: pl.DataFrame({"s": v}).to_pandas(), id="pandas_object"),
+        pytest.param(
+            lambda v: pl.DataFrame({"s": v}).to_pandas().astype({"s": "category"}),
+            id="pandas_category",
+        ),
+        pytest.param(lambda v: pl.DataFrame({"s": v}).to_arrow(), id="pyarrow"),
+    ],
+)
+def test_string_profile_calc_stats_skips_missing(make_tbl):
+    # A missing value has no length; with pandas and Narwhals < 2.27, casting to a string used to
+    # turn it into "None" (object) or "nan" (category), counted as 4 or 3 characters
+    df = nw.from_native(make_tbl(["x", None, "abc"]))
+    sp = _StringProfile(colname="s", coltype=str(df.schema["s"]))
+    sp.sample_data = ["x"]
+    sp.calc_stats(df)
+    stats = {s.name: s.val for s in sp.statistics}
+    assert (stats["mean"], stats["min"], stats["max"]) == (2, 1, 3)
+    assert stats["std"] == pytest.approx(2**0.5)
+
+
+def test_string_profile_calc_stats_all_missing_pandas_object():
+    # With Narwhals < 2.27, the lengths of an all-missing `object` column are left as `object`,
+    # which `median` rejects; there are no lengths, so the stats are missing
+    import math
+
+    import pandas as pd
+
+    df = nw.from_native(pd.DataFrame({"s": pd.Series([None, None, None], dtype=object)}))
+    sp = _StringProfile(colname="s", coltype=str(df.schema["s"]))
+    sp.sample_data = []
+    sp.calc_stats(df)
+    stats = {s.name: s.val for s in sp.statistics}
+    assert all(math.isnan(stats[name]) for name in ("mean", "median", "min", "max"))
+
+
 def test_string_profile_type():
     assert _StringProfile._type is _TypeMap.STRING
 
@@ -317,6 +411,25 @@ def test_data_profile_as_dataframe_multiple_profiles():
 
     result = dp.as_dataframe(strict=False)
     assert len(result) == 2
+
+
+def test_data_profile_as_dataframe_keeps_missing_stats_null():
+    # The `std` of a single string is missing; it mustn't turn the column into text
+    df = nw.from_native(pl.DataFrame({"a": [1.0, 2.0], "b": ["x", None]}))
+    dp = _DataProfile(table_name="t", columns=["a", "b"], implementation=nw.Implementation.POLARS)
+    dp.set_row_count(df)
+    for prof in (
+        _NumericProfile(colname="a", coltype="Float64"),
+        _StringProfile(colname="b", coltype="String"),
+    ):
+        prof.sample_data = []
+        prof.calc_stats(df.select(prof.colname))
+        dp.column_profiles.append(prof)
+
+    result = dp.as_dataframe(strict=False)
+
+    assert result.schema["std"] == nw.Float64()
+    assert result["std"].to_list() == [pytest.approx(0.7071, abs=1e-4), None]
 
 
 # ──────────────────────────────────────────────────────────────────────

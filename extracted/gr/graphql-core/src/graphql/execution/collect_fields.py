@@ -14,6 +14,7 @@ from ..language import (
     OperationDefinitionNode,
     SelectionSetNode,
 )
+from ..pyutils import RefSet
 from ..type import (
     GraphQLDeferDirective,
     GraphQLIncludeDirective,
@@ -27,11 +28,12 @@ from .values import (
     FragmentVariableValues,
     VariableValues,
     get_argument_values,
-    get_directive_values,
     get_fragment_variable_values,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .get_variable_signature import GraphQLVariableSignature
 
 __all__ = [
@@ -44,12 +46,14 @@ __all__ = [
     "GroupedFieldSet",
     "collect_fields",
     "collect_subfields",
+    "visit_selection_sets",
 ]
 
 
 class DeferUsage(NamedTuple):
     """An optionally labelled linked list of defer usages."""
 
+    directive_node: DirectiveNode
     label: str | None
     parent_defer_usage: DeferUsage | None
 
@@ -72,6 +76,8 @@ class FragmentDetails(NamedTuple):
 FieldDetailsList: TypeAlias = list[FieldDetails]
 GroupedFieldSet: TypeAlias = dict[str, FieldDetailsList]
 
+VisitedFragmentNames: TypeAlias = dict[str, RefSet[DirectiveNode | None]]
+
 
 class CollectFieldsContext(NamedTuple):
     """Context for collecting fields."""
@@ -81,10 +87,11 @@ class CollectFieldsContext(NamedTuple):
     variable_values: VariableValues
     operation: OperationDefinitionNode
     runtime_type: GraphQLObjectType
-    visited_fragment_names: dict[str, bool]
+    visited_fragment_names: VisitedFragmentNames
     hide_suggestions: bool
     forbidden_directive_instances: list[DirectiveNode]
     forbid_skip_and_include: bool
+    on_selection_set: Callable[[SelectionSetNode], None] | None = None
 
 
 class CollectedFields(NamedTuple):
@@ -103,6 +110,7 @@ def collect_fields(
     operation: OperationDefinitionNode,
     hide_suggestions: bool = False,
     forbid_skip_and_include: bool = False,
+    on_selection_set: Callable[[SelectionSetNode], None] | None = None,
 ) -> CollectedFields:
     """Collect fields.
 
@@ -126,9 +134,10 @@ def collect_fields(
         hide_suggestions,
         [],
         forbid_skip_and_include,
+        on_selection_set,
     )
 
-    collect_fields_impl(
+    visit_selection_sets(
         context, operation.selection_set, grouped_field_set, new_defer_usages
     )
     return CollectedFields(
@@ -173,7 +182,7 @@ def collect_subfields(
     for field_detail in field_details_list:
         node = field_detail.node
         if node.selection_set:
-            collect_fields_impl(
+            visit_selection_sets(
                 context,
                 node.selection_set,
                 sub_grouped_field_set,
@@ -187,7 +196,7 @@ def collect_subfields(
     )
 
 
-def collect_fields_impl(
+def visit_selection_sets(
     context: CollectFieldsContext,
     selection_set: SelectionSetNode,
     grouped_field_set: dict[str, list[FieldDetails]],
@@ -195,7 +204,10 @@ def collect_fields_impl(
     defer_usage: DeferUsage | None = None,
     fragment_variable_values: FragmentVariableValues | None = None,
 ) -> None:
-    """Collect fields (internal implementation)."""
+    """Collect the fields of a selection set and the selection sets it contains.
+
+    For internal use only.
+    """
     (
         schema,
         fragments,
@@ -206,7 +218,11 @@ def collect_fields_impl(
         hide_suggestions,
         _forbidden_directive_instances,
         _forbid_skip_and_include,
+        on_selection_set,
     ) = context
+
+    if on_selection_set:
+        on_selection_set(selection_set)
 
     for selection in selection_set.selections:
         if isinstance(selection, FieldNode):
@@ -232,7 +248,7 @@ def collect_fields_impl(
             )
 
             if new_defer_usage is None:
-                collect_fields_impl(
+                visit_selection_sets(
                     context,
                     selection.selection_set,
                     grouped_field_set,
@@ -242,7 +258,7 @@ def collect_fields_impl(
                 )
             else:
                 new_defer_usages.append(new_defer_usage)
-                collect_fields_impl(
+                visit_selection_sets(
                     context,
                     selection.selection_set,
                     grouped_field_set,
@@ -271,24 +287,27 @@ def collect_fields_impl(
                 defer_usage,
             )
 
-            visited_as_deferred = visited_fragment_names.get(frag_name)
+            maybe_new_defer_usage = (
+                defer_usage if new_defer_usage is None else new_defer_usage
+            )
+            visited_defer_set = visited_fragment_names.get(frag_name)
+            if visited_defer_set is None:
+                visited_defer_set = visited_fragment_names[frag_name] = RefSet()
 
-            if new_defer_usage is None:
-                # If this spread is not deferred, it may be skipped when already
-                # visited as a non-deferred spread. If it was previously visited as
-                # a deferred spread, it must be revisited.
-                if visited_as_deferred is False:
-                    continue
-                visited_fragment_names[frag_name] = False
-                maybe_new_defer_usage = defer_usage
-            else:
-                # If this spread is deferred, it can be skipped if it has already
-                # been visited.
-                if visited_as_deferred is not None:
-                    continue
-                visited_fragment_names[frag_name] = True
+            if None in visited_defer_set or (
+                maybe_new_defer_usage is not None
+                and maybe_new_defer_usage.directive_node in visited_defer_set
+            ):
+                continue
+
+            if new_defer_usage is not None:
                 new_defer_usages.append(new_defer_usage)
-                maybe_new_defer_usage = new_defer_usage
+
+            visited_defer_set.add(
+                None
+                if maybe_new_defer_usage is None
+                else maybe_new_defer_usage.directive_node
+            )
 
             fragment_variable_signatures = fragment.variable_signatures
             new_fragment_variable_values: FragmentVariableValues | None = None
@@ -301,7 +320,7 @@ def collect_fields_impl(
                     hide_suggestions,
                 )
 
-            collect_fields_impl(
+            visit_selection_sets(
                 context,
                 fragment.definition.selection_set,
                 grouped_field_set,
@@ -323,14 +342,30 @@ def get_defer_usage(
     deferred based on the experimental flag, defer directive present and
     not disabled by the "if" argument.
     """
-    defer = get_directive_values(
-        GraphQLDeferDirective, node, variable_values, fragment_variable_values
+    defer_name = GraphQLDeferDirective.name
+    directive_node = next(
+        (
+            directive
+            for directive in node.directives or ()
+            if directive.name.value == defer_name
+        ),
+        None,
     )
 
-    if not defer or defer.get("if") is False:
+    if directive_node is None:
         return None
 
-    return DeferUsage(defer.get("label"), parent_defer_usage)
+    defer = get_argument_values(
+        GraphQLDeferDirective,
+        directive_node,
+        variable_values,
+        fragment_variable_values,
+    )
+
+    if defer.get("if") is False:
+        return None
+
+    return DeferUsage(directive_node, defer.get("label"), parent_defer_usage)
 
 
 def should_include_node(

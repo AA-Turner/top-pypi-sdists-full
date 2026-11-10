@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.sharepoint.multigeo.service.crossgeosyncuserproperty import (
 )
 
 
-@dataclass
 class CrossGeoSyncUserDataBatch(ClientValue):
     LastEventId: Optional[int] = None
     LastRecordId: Optional[int] = None

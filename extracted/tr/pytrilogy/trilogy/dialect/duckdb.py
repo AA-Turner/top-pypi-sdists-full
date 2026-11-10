@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 
 from trilogy.constants import logger
+from trilogy.core.casts import INSTANT_READ_TARGETS, ZONED
 from trilogy.core.enums import (
     AddressType,
     ComparisonOperator,
@@ -36,7 +37,12 @@ from trilogy.core.enums import (
     UnnestMode,
 )
 from trilogy.core.exceptions import ConfigurationException
-from trilogy.core.models.core import CONCRETE_TYPES, DataType, arg_to_datatype
+from trilogy.core.models.core import (
+    CONCRETE_TYPES,
+    DataType,
+    NumericType,
+    arg_to_datatype,
+)
 from trilogy.core.models.datasource import Address
 from trilogy.core.models.execute import (
     CTE,
@@ -51,6 +57,15 @@ from trilogy.dialect.base import (
     offset_keeps_date,
 )
 from trilogy.dialect.cancel import duckdb_side_cursor
+from trilogy.dialect.common import (
+    bool_from_text,
+    cast_kind,
+    guarded_read,
+    read_pattern,
+    reads_text,
+    utc_text,
+    written_kind,
+)
 from trilogy.utility import safe_open
 
 SENTINAL_AUTO_CAPTURE_GROUP_VALUE = "-1"
@@ -108,7 +123,52 @@ def date_trunc(args, types):
     return rendered
 
 
+def read_instant(text: str, target: DataType) -> str:
+    """A zone is read as an offset to UTC, and no zone as UTC: a TIMESTAMP
+    drops the zone and a TIMESTAMPTZ reads none as the session's."""
+    zoned = f"TRY_CAST({text} AS TIMESTAMPTZ)"
+    plain = f"TRY_CAST({text} AS TIMESTAMP)"
+    if target == DataType.DATETIME:
+        zoned = f"{zoned} AT TIME ZONE 'UTC'"
+    else:
+        plain = f"{plain} AT TIME ZONE 'UTC'"
+    return f"CASE WHEN regexp_matches({text}, '{ZONED}') THEN {zoned} ELSE {plain} END"
+
+
+def write_text(value: str, source: Any) -> str:
+    """VARCHAR writes a float as `repr` does; the cast to the declared type
+    first keeps a DECIMAL literal (`1.50`) or an engine-side scale from
+    showing, and a TIMESTAMPTZ is written in the session's zone."""
+    if isinstance(source, NumericType):
+        precision = min(source.precision, 38)
+        typed = f"CAST({value} AS DECIMAL({precision}, {source.scale}))"
+    elif source == DataType.TIMESTAMP:
+        typed = f"CAST({value} AT TIME ZONE 'UTC' AS TIMESTAMP)"
+        return utc_text(f"CAST({typed} AS VARCHAR)")
+    elif source == DataType.DATETIME:
+        typed = value
+    else:
+        typed = f"CAST({value} AS DOUBLE)"
+    return f"CAST({typed} AS VARCHAR)"
+
+
 def handle_cast(args, types):
+    source, target = cast_kind(types)
+    # a string with no reading is NULL here too; CAST raises on it. The text
+    # is cast again, as a string concept can be bound to a typed column.
+    text = f"CAST({args[0]} AS VARCHAR)"
+    if source == DataType.STRING and target == DataType.BOOL:
+        return bool_from_text(text)
+    if reads_text(types):
+        # a tab or newline after a time of day fails TRY_CAST
+        trimmed = f"trim({text}, ' ' || chr(9) || chr(10) || chr(13))"
+        read = f"TRY_CAST({trimmed} AS {args[1]})"
+        if target in INSTANT_READ_TARGETS:
+            read = read_instant(trimmed, target)
+        return guarded_read(f"regexp_full_match({text}, '{read_pattern(types)}')", read)
+    written = written_kind(types)
+    if written is not None:
+        return write_text(args[0], written)
     if types[0] == DataType.TIMESTAMP and types[1] == DataType.DATE:
         return f"cast({args[0]}  AT TIME ZONE 'UTC' as date)"
     if types[0] == DataType.TIMESTAMP and types[1] == DataType.DATETIME:
@@ -211,9 +271,15 @@ FUNCTION_MAP = {
     FunctionType.DAY_OF_WEEK: lambda x, types: f"dayofweek({x[0]})+1",
     # string
     FunctionType.CONTAINS: lambda x, types: contains(x, types),
+    # native: the reference semantics (formal/Trilogy/Strings.lean, `substr`)
+    FunctionType.SUBSTRING: lambda x, types: f"SUBSTRING({x[0]},{x[1]},{x[2]})",
     # regexp
     FunctionType.REGEXP_CONTAINS: lambda x, types: f"REGEXP_MATCHES({x[0]},{x[1]})",
     FunctionType.REGEXP_EXTRACT: lambda x, types: generate_regex_extract(x),
+    # every match is replaced, as on the other dialects; DuckDB's default is the first
+    FunctionType.REGEXP_REPLACE: lambda x, types: (
+        f"REGEXP_REPLACE({x[0]},{x[1]}, {x[2]}, 'g')"
+    ),
     FunctionType.SIMPLE_CASE: lambda x, types: generate_simple_case(x),
     FunctionType.GEO_POINT: lambda x, types: f"ST_Point({x[0]}, {x[1]})",
     FunctionType.GEO_DISTANCE: lambda x, types: f"ST_Distance({x[0]}, {x[1]})",

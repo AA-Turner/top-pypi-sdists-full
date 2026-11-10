@@ -16,14 +16,12 @@ class RancherCatalogUpdateRequest:
         name (str):
         catalog_url (str):
         branch (str):
-        scope (str):
         description (Union[Unset, str]):
     """
 
     name: str
     catalog_url: str
     branch: str
-    scope: str
     description: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -34,8 +32,6 @@ class RancherCatalogUpdateRequest:
 
         branch = self.branch
 
-        scope = self.scope
-
         description = self.description
 
         field_dict: dict[str, Any] = {}
@@ -45,7 +41,6 @@ class RancherCatalogUpdateRequest:
                 "name": name,
                 "catalog_url": catalog_url,
                 "branch": branch,
-                "scope": scope,
             }
         )
         if description is not UNSET:
@@ -62,15 +57,12 @@ class RancherCatalogUpdateRequest:
 
         branch = d.pop("branch")
 
-        scope = d.pop("scope")
-
         description = d.pop("description", UNSET)
 
         rancher_catalog_update_request = cls(
             name=name,
             catalog_url=catalog_url,
             branch=branch,
-            scope=scope,
             description=description,
         )
 

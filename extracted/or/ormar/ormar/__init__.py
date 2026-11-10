@@ -40,6 +40,7 @@ from ormar.exceptions import (  # noqa: I100
     ModelDefinitionError,
     MultipleMatches,
     NoMatch,
+    ReadOnlyModelError,
 )
 from ormar.fields import (
     DECODERS_MAP,
@@ -58,6 +59,7 @@ from ormar.fields import (
     Enum,
     Float,
     ForeignKey,
+    OneToOne,
     ForeignKeyField,
     IndexColumns,
     Integer,
@@ -75,7 +77,7 @@ from ormar.fields import (
 # noqa: I100
 from ormar.databases.connection import DatabaseConnection
 from ormar.models import ExcludableItems, Extra, Model, OrmarConfig
-from ormar.queryset import NullsOrdering, OrderAction, QuerySet, and_, or_
+from ormar.queryset import NullsOrdering, OrderAction, Prefetch, QuerySet, and_, or_
 from ormar.relations import RelationType
 from ormar.signals import Signal
 
@@ -105,10 +107,13 @@ __all__ = [
     "ManyToMany",
     "Model",
     "ModelDefinitionError",
+    "ReadOnlyModelError",
     "MultipleMatches",
     "NoMatch",
     "ForeignKey",
+    "OneToOne",
     "QuerySet",
+    "Prefetch",
     "RelationType",
     "Undefined",
     "UUID",

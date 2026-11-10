@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +8,6 @@ from office365.security.mailbox_configuration_type import (
 )
 
 
-@dataclass
 class MailboxConfigurationEvidence(ClientValue):
     configurationId: str | None = None
     displayName: str | None = None

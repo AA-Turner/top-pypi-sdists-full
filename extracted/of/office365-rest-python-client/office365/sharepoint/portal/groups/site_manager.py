@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Optional, Union
 from uuid import UUID
 
 from typing_extensions import Self
 
+from office365.permissions import DirectoryRole
 from office365.runtime.client_object import ClientObject
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.lro import OperationTimeoutError
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import StringCollection
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.portal.channels.info_collection import ChannelInfoCollection
 from office365.sharepoint.portal.ensureteamforgroupexresponse import (
     EnsureTeamForGroupExResponse,
@@ -31,12 +35,20 @@ from office365.sharepoint.portal.orglabels.context_list import OrgLabelsContextL
 from office365.sharepoint.portal.parentgroup import ParentGroup
 from office365.sharepoint.portal.pintoteamparams import PinToTeamParams
 from office365.sharepoint.portal.pintoteamresponse import PinToTeamResponse
+from office365.sharepoint.portal.sites.status import SiteStatus
 from office365.sharepoint.portal.teams.recent_and_joined_response import (
     RecentAndJoinedTeamsResponse,
 )
 
 if TYPE_CHECKING:
     from office365.sharepoint.sites.site import Site
+
+
+#: Seconds between ``GetSiteStatus`` polls while a group site finishes provisioning.
+SITE_POLL_INTERVAL = 5.0
+
+#: How long a group-site creation waits for its site before giving up, in seconds.
+SITE_PROVISIONING_TIMEOUT = 300.0
 
 
 class GroupSiteManager(ClientObject):
@@ -49,6 +61,7 @@ class GroupSiteManager(ClientObject):
             resource_path = ResourcePath("GroupSiteManager")
         super().__init__(context, resource_path)
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def can_user_create_group(self) -> ClientResult[bool]:
         """Determines if the current user can create group site"""
         return_type = ClientResult(self.context, bool())
@@ -56,6 +69,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_group_for_site(
         self,
         display_name: str,
@@ -77,6 +91,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_group_ex(
         self, display_name: str, alias: str, is_public: bool, optional_params: Optional[GroupCreationParams] = None
     ):
@@ -89,6 +104,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete(self, site_url: str) -> Self:
         """Deletes a SharePoint Team site
 
@@ -100,6 +116,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def ensure_team_for_group(self):
         """ """
         return_type = ClientResult(self.context)
@@ -107,6 +124,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_group_creation_context(self):
         """ """
         return_type = ClientResult(self.context, GroupCreationContext())
@@ -114,6 +132,41 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
+    def await_site(self, info: GroupSiteInfo) -> GroupSiteInfo:
+        """Follow a group-site creation to a ready site, or raise.
+
+        ``CreateGroupEx`` returns as soon as the group exists - ``Provisioning``, with no url
+        at all - and the site answers nothing until the tenant finishes provisioning it. The
+        group id is the only handle available in the meantime, so ``GetSiteStatus`` is polled
+        by id, on whatever web this manager is bound to (the caller's, which exists).
+
+        Args:
+            info (GroupSiteInfo): the ``CreateGroupEx`` answer to follow.
+
+        Raises:
+            ValueError: the service reported ``Error``, or answered ready with no url.
+            OperationTimeoutError: provisioning did not finish within
+                :data:`SITE_PROVISIONING_TIMEOUT` seconds.
+        """
+        if info.SiteStatus == SiteStatus.Error:
+            raise ValueError(info.ErrorMessage or "Site creation failed")
+        group_id = info.GroupId
+        if group_id is None:
+            raise ValueError("Site creation returned no group id")
+        deadline = time.monotonic() + SITE_PROVISIONING_TIMEOUT
+        while info.SiteStatus != SiteStatus.Ready:
+            if time.monotonic() > deadline:
+                raise OperationTimeoutError(SITE_PROVISIONING_TIMEOUT)
+            time.sleep(SITE_POLL_INTERVAL)
+            info = self.get_status(group_id).execute_query().value
+            if info.SiteStatus == SiteStatus.Error:
+                raise ValueError(info.ErrorMessage or "Site creation failed")
+        if not info.SiteUrl:
+            raise ValueError("Site creation reported ready without a site url")
+        return info
+
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_status(self, group: Union[str, Site]) -> ClientResult[GroupSiteInfo]:
         """Get the status of a SharePoint site"""
         from office365.sharepoint.sites.site import Site
@@ -136,6 +189,7 @@ class GroupSiteManager(ClientObject):
             _get_status(group)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_current_user_joined_teams(
         self, get_logo_data: bool = False, force_cache_update: bool = False
     ) -> ClientResult[str]:
@@ -151,6 +205,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_current_user_shared_channel_member_groups(self) -> ClientResult[str]:
         """ """
         return_type = ClientResult[str](self.context)
@@ -158,6 +213,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_team_channels(self, team_id: str, use_staging_endpoint: bool = False) -> ClientResult[bytes]:
         """Retrieves the channels associated with a specific Microsoft 365 Group (or Team)
 
@@ -171,6 +227,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_team_channels_direct(self, team_id: str) -> ClientResult[str]:
         """Args:
         team_id (str):
@@ -181,6 +238,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_team_channels_with_site_url(self, site_url: str) -> ClientResult[ChannelInfoCollection]:
         """Returns a list of team channels associated with a Microsoft 365 Group.
 
@@ -193,6 +251,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def notebook(self, group_id: str) -> ClientResult[str]:
         """Args:
         group_id (str):
@@ -203,6 +262,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def recent_and_joined_teams(
         self,
         include_recent: Optional[bool] = None,
@@ -233,6 +293,7 @@ class GroupSiteManager(ClientObject):
     def entity_type_name(self):
         return "Microsoft.SharePoint.Portal.GroupSiteManager"
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def cache_current_user_joined_teams_result(self, joined_teams: str) -> ClientResult[str]:
         """CacheCurrentUserJoinedTeamsResult operation.
 
@@ -246,12 +307,14 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def clear_current_user_teams_cache(self) -> Self:
         """ClearCurrentUserTeamsCache operation."""
         qry = ServiceOperationQuery(self, "ClearCurrentUserTeamsCache", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create(self, group_id: UUID) -> ClientResult[GroupSiteInfo]:
         """Create operation.
 
@@ -263,6 +326,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_group(
         self,
         display_name: str,
@@ -301,6 +365,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_teams_for_group(self, group_id: str, team_template: str) -> ClientResult[str]:
         """CreateTeamsForGroup operation.
 
@@ -315,6 +380,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_teams_nav_link(self, teams_link_url: str, site_url: str) -> Self:
         """CreateTeamsNavLink operation.
 
@@ -328,6 +394,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def ensure_team_for_group_ex(self, site_url: str, team_template: str) -> ClientResult[EnsureTeamForGroupExResponse]:
         """EnsureTeamForGroupEx operation.
 
@@ -342,6 +409,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_all_org_labels(self, page_number: int) -> ClientResult[OrgLabelsContextList]:
         """GetAllOrgLabels operation.
 
@@ -353,6 +421,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_current_user_team_connected_member_groups(self) -> ClientResult[str]:
         """GetCurrentUserTeamConnectedMemberGroups operation."""
         return_type = ClientResult(self.context, str())
@@ -360,6 +429,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_group_site_conversion_data(self) -> ClientResult[GroupSiteConversionInfo]:
         """GetGroupSiteConversionData operation."""
         return_type = ClientResult(self.context, GroupSiteConversionInfo())
@@ -367,6 +437,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_parent_group_for_channel(self, site_url: str) -> ClientResult[ClientValueCollection[ParentGroup]]:
         """GetParentGroupForChannel operation.
 
@@ -378,6 +449,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_shared_channel_share_point_url(self, tenant_id: str, group_id: UUID) -> ClientResult[str]:
         """GetSharedChannelSharePointUrl operation.
 
@@ -392,6 +464,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_status(self, group_id: UUID) -> ClientResult[GroupSiteInfo]:
         """GetSiteStatus operation.
 
@@ -403,6 +476,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_team_channel_files_url(self, team_id: str, channel_id: str) -> ClientResult[bytes]:
         """GetTeamChannelFilesUrl operation.
 
@@ -417,6 +491,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_team_channels_ex(self, team_id: str) -> ClientResult[ChannelInfoCollection]:
         """GetTeamChannelsEx operation.
 
@@ -428,6 +503,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_user_shared_channel_member_groups(self, user_name: str) -> ClientResult[str]:
         """GetUserSharedChannelMemberGroups operation.
 
@@ -441,6 +517,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_user_team_connected_member_groups(self, user_name: str) -> ClientResult[str]:
         """GetUserTeamConnectedMemberGroups operation.
 
@@ -454,6 +531,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_valid_site_url_from_alias(self, alias: str, managed_path: str, is_team_site: bool) -> ClientResult[str]:
         """GetValidSiteUrlFromAlias operation.
 
@@ -467,6 +545,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def hide_teamify_prompt(self, site_url: str) -> Self:
         """HideTeamifyPrompt operation.
 
@@ -477,6 +556,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def is_teamify_prompt_hidden(self, site_url: str) -> ClientResult[bool]:
         """IsTeamifyPromptHidden operation.
 
@@ -488,6 +568,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def pin_to_team(self, request_params: PinToTeamParams) -> ClientResult[PinToTeamResponse]:
         """PinToTeam operation.
 
@@ -499,6 +580,7 @@ class GroupSiteManager(ClientObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_shared_channel_sharepoint_url(self, tenant_id: str, group_id: UUID) -> ClientResult[str]:
         """GetSharedChannelSharePointUrl operation.
 

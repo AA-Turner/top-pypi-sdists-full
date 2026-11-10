@@ -73,6 +73,19 @@ dp_dsss_burst_receiver_create_desc (
   /* cn0_dbhz: the acquisition engine's rule, checked there (doppler#1484;
      see dp_burst_capture_create). */
 
+  /* One code period, acq_code_len * spc samples, is the preamble's length
+     and the modulus of every epoch below. Both factors are the caller's, so
+     a product that wraps is refused here, before anything is built: wrapped,
+     it would size a short (or empty) preamble and a wrong code_period. */
+  size_t code_period;
+  if (!dp_size_mul (acq_code_len, spc, &code_period))
+    {
+      if (why)
+        *why = "DsssBurstReceiver: spc is too large: one code period "
+               "(acq_code_len * spc samples) overflows size_t";
+      return NULL;
+    }
+
   dp_dsss_burst_receiver_state_t *s = calloc (1, sizeof *s);
   if (!s)
     return NULL;
@@ -119,8 +132,24 @@ dp_dsss_burst_receiver_create_desc (
    * acq's code_phase is exactly `burst_start mod code_period` (§3.1).
    * burst_len: preamble + the spread frame, whatever the frame is. */
   s->frame_syms  = s->demod->frame_syms; /* the row stride of push()/llrs() */
-  s->code_period = acq_code_len * spc;
-  s->burst_len   = (reps * acq_code_len + s->frame_syms * data_code_len) * spc;
+  s->code_period = code_period;
+  /* The burst's length needs the frame, so it is checked once the demod has
+     said how long the frame is -- still before the capture is built. Every
+     factor is the caller's; a burst that wraps would be a short capture. */
+  {
+    size_t pre_chips, data_chips, chips;
+    if (!dp_size_mul (reps, acq_code_len, &pre_chips)
+        || !dp_size_mul (s->frame_syms, data_code_len, &data_chips)
+        || !dp_size_add (pre_chips, data_chips, &chips)
+        || !dp_size_mul (chips, spc, &s->burst_len))
+      {
+        if (why)
+          *why = "DsssBurstReceiver: spc is too large: one burst ((reps * "
+                 "acq_code_len + frame_syms * data_code_len) * spc samples) "
+                 "overflows size_t";
+        goto fail;
+      }
+  }
 
   /* ── The composed children ──────────────────────────────────────────
    * Certified individually; this object owns only the seam between them.
@@ -128,7 +157,7 @@ dp_dsss_burst_receiver_create_desc (
    * The capture takes `burst_len` because that is the one thing acquisition
    * has no notion of -- and this object is where the frame is known, so it
    * is where the burst length comes from. noise_mode 0 = mean, matching
-   * burst_acq's own default. */
+   * the burst search's own default. */
   /* max_rate is the ONE statement of the Doppler rate this receiver
    * expects: the demod searches +/- max_rate for it, and the acquisition
    * bounds its coherent depth by it (doppler#1490). It is a frequency slope
@@ -138,10 +167,20 @@ dp_dsss_burst_receiver_create_desc (
    * The capture takes its preamble as SAMPLES; this receiver is DSSS end to
    * end and takes a PN code, so it maps the chips with dp_bin_to_nrz() (the
    * library's one chip -> +-1 rule) and holds each `spc` samples. */
-  const double    fs  = chip_rate * (double)spc;
-  const size_t    n   = acq_code_len * spc;
-  float          *nrz = dp_xmalloc (acq_code_len * sizeof *nrz);
-  float _Complex *pre = dp_xmalloc (n * sizeof *pre);
+  const double fs  = chip_rate * (double)spc;
+  const size_t n   = code_period; /* checked above: it does not wrap */
+  float       *nrz = dp_xmallocn (acq_code_len, sizeof *nrz);
+  /* n's BYTE size can still overflow (or the memory run out): a preamble too
+     long to hold is refused, never a short buffer the loop below overruns. */
+  float _Complex *pre = dp_mallocn (n, sizeof *pre);
+  if (!pre)
+    {
+      free (nrz);
+      if (why)
+        *why = "DsssBurstReceiver: the preamble (acq_code_len * spc "
+               "samples) does not fit in memory";
+      goto fail;
+    }
   (void)dp_bin_to_nrz (s->acq_code, acq_code_len, nrz, acq_code_len);
   for (size_t i = 0; i < n; i++)
     pre[i] = nrz[i / spc];
@@ -294,7 +333,7 @@ dsss_br_demod_one (dp_dsss_burst_receiver_state_t *s, size_t i, uint8_t *out,
         size_t cap = s->llr_cap ? s->llr_cap * 2u : (s->frame_syms * 4u);
         while (cap < want)
           cap *= 2u;
-        s->llr     = dp_xrealloc (s->llr, cap * sizeof *s->llr);
+        s->llr     = dp_xreallocn (s->llr, cap, sizeof *s->llr);
         s->llr_cap = cap;
       }
     if (s->llr_len + s->frame_syms <= s->llr_cap)
@@ -307,7 +346,7 @@ dsss_br_demod_one (dp_dsss_burst_receiver_state_t *s, size_t i, uint8_t *out,
   if (s->ev_len == s->ev_cap)
     {
       size_t cap = s->ev_cap ? s->ev_cap * 2u : 8u;
-      s->ev      = dp_xrealloc (s->ev, cap * sizeof *s->ev);
+      s->ev      = dp_xreallocn (s->ev, cap, sizeof *s->ev);
       s->ev_cap  = cap;
     }
   {

@@ -4,7 +4,7 @@
 In one sentence: the gateway's GET /v1/account/usage sums your machines' windows into GPU card-hours (seconds x cards /
 3600) per hour or day, every bucket of the window (empty ones as zero) with what its machines cost - GPU, CPU and memory,
 what the balance was charged for them - optionally split by deployment, card type (a machine with no card reads CPU) or
-kind of machine (policy workers, evals, build checks, weight copies, builds, benchmark shells) → over this billing
+kind of machine (policy workers, evals, build checks, weight copies, builds, shells) → over this billing
 period (the UTC month so far) unless --since / --until name another window, in UTC days and hours, the bill's own →
 printed as a table with a bar per bucket, or as CSV, or returned. `--policy` keeps one policy's rows, and adds what its
 robots did over the window: their acts, errors and round trips, and how many of their action chunks came on time. A
@@ -23,6 +23,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
@@ -30,11 +31,12 @@ from sequence_ai._core.money import money
 from urllib.parse import urlencode
 
 BAR = 28
+WHO_MOST = 40
 
 
 
 _KIND = {"serving": "policy workers", "eval": "evals", "check": "build checks", "weights": "weight copies",
-         "build": "builds", "shell": "benchmark shells"}
+         "build": "builds", "shell": "shells"}
 
 CSV_COLUMNS = ("start", "group", "card_hours", "cost_usd")
 
@@ -102,11 +104,29 @@ def _read(*, since: Any, until: Any, by: str | None, group: str, policy: str | N
         return _by_day(own, policy, start, to), own
     if policy:
 
-        rows = [r for r in out.get("buckets") or [] if r.get("group") == policy]
-        out = {**out, "group": "none", "policy": policy, "buckets": rows,
+        buckets = out.get("buckets") or []
+        rows = [r for r in buckets if r.get("group") == policy]
+        said, split = policy, "none"
+        if not any(r.get("card_hours") or r.get("cost_usd") for r in rows):
+
+
+
+
+
+            gone = [r for r in buckets if _DELETED.fullmatch(str(r.get("group") or ""))
+                    and str(r.get("group")).startswith(policy + " (")]
+            names = sorted({str(r.get("group")) for r in gone if r.get("card_hours") or r.get("cost_usd")})
+            if names:
+                rows = [r for r in gone if r.get("group") in names]
+                said, split = (names[0], "none") if len(names) == 1 else (policy, "deployment")
+        out = {**out, "group": split, "policy": said, "buckets": rows,
                "total_card_hours": round(sum(float(r.get("card_hours") or 0) for r in rows), 6),
                "total_usd": round(sum(float(r.get("cost_usd") or 0) for r in rows), 6)}
     return out, None
+
+
+
+_DELETED = re.compile(r".+ \(deleted \d{2}-\d{2}\)")
 
 
 def _own_path(policy: str, start: datetime) -> str:
@@ -157,7 +177,10 @@ def usage_cli(*, since: Any = None, until: Any = None, by: str | None = None, gr
         return out
     step = out.get("by") or "hour"
     shown_group = out.get("group") or "none"
-    echo(f"{'Use of ' + policy if policy else 'Use'} {_when(out.get('from'), 'minute')} → {_when(out.get('to'), 'minute')} "
+
+    said = out.get("policy") or policy
+    whose = (f"the deleted policies named {policy}" if policy and shown_group == "deployment" else said)
+    echo(f"{'Use of ' + whose if policy else 'Use'} {_when(out.get('from'), 'minute')} → {_when(out.get('to'), 'minute')} "
          f"UTC, by {step}: {float(out.get('total_card_hours') or 0):.3f} card-hours, "
          f"{money(out.get('total_usd'))} (GPU, CPU and memory)")
     if own is not None:
@@ -166,12 +189,17 @@ def usage_cli(*, since: Any = None, until: Any = None, by: str | None = None, gr
     shown = rows if shown_group == "none" else [r for r in rows if r.get("card_hours") or r.get("cost_usd")]
     top = max([float(r.get("card_hours") or 0) for r in shown] + [0.0])
     label = {"deployment": "deployment", "gpu": "card", "kind": "machines"}.get(shown_group)
-    echo(f"{'when':<16} " + (f"{label:<20} " if label else "") + f"{'card-hours':>10} {'cost':>9}")
-    for r in shown:
+    whos = [_KIND.get(r.get("group"), r.get("group") or "—") if shown_group == "kind" else (r.get("group") or "—")
+            for r in shown]
+
+
+    width = min(max([20] + [len(w) for w in whos]), WHO_MOST)
+    echo(f"{'when':<16} " + (f"{label:<{width}} " if label else "") + f"{'card-hours':>10} {'cost':>9}")
+    for r, who in zip(shown, whos):
         ch = float(r.get("card_hours") or 0)
         bar = "█" * (round(BAR * ch / top) if top else 0)
-        who = _KIND.get(r.get("group"), r.get("group") or "—") if shown_group == "kind" else (r.get("group") or "—")
-        echo(f"{_when(r.get('start'), step):<16} " + (f"{who[:20]:<20} " if label else "")
+        who = who if len(who) <= width else who[:width - 1] + "…"
+        echo(f"{_when(r.get('start'), step):<16} " + (f"{who:<{width}} " if label else "")
              + f"{ch:>10.3f} {money(r.get('cost_usd')):>9}  {bar}")
     if label:
         per: dict[str, list[float]] = {}
@@ -184,9 +212,41 @@ def usage_cli(*, since: Any = None, until: Any = None, by: str | None = None, gr
         if per:
             echo("by " + label + ": " + " · ".join(f"{k} {ch:.3f} ({money(usd)})" for k, (ch, usd)
                                                    in sorted(per.items(), key=lambda kv: (-kv[1][0], -kv[1][1]))))
-    if policy and until in (None, ""):
+    if policy and until in (None, "") and said == policy and shown_group == "none":
+
         robots_said(policy, out, base_url, echo, own)
+    elif policy and until in (None, "") and rows:
+
+        gone_spend([said] if shown_group == "none" else sorted({str(r.get("group")) for r in rows}), out, base_url,
+                   echo)
     return out
+
+
+def gone_spend(names: list[str], out: dict, base_url: str | None, echo: Callable[[str], None]) -> None:
+    """A deleted policy's spend over the window's days, as the account's bill keeps it (GET /v1/account/billing, the
+    rows billing() reads, under "<name> (deleted MM-DD)"): every resource summed, its storage and its image saves named
+    in it, as a live policy's own page says them (robots_said) - the table above counts its machines alone. Its robots
+    went with it. Nothing said when the bill cannot be read.
+"""
+    from seq.deployments_cli import _call
+
+    try:
+        start, to = (datetime.fromisoformat(str(out.get(k)).replace("Z", "+00:00")) for k in ("from", "to"))
+        rows = _call("GET", "/v1/account/billing?" + urlencode({"from": start.date().isoformat(),
+                                                                "to": to.date().isoformat()}), base_url)["rows"]
+    except Exception:
+        return
+    for name in names:
+        mine = [r for r in rows if isinstance(r, dict) and r.get("deployment") == name]
+        if not mine:
+            continue
+
+        def usd(resource: str | None = None) -> float:
+            return sum(float(r.get("usd") or 0) for r in mine if resource is None or r.get("resource") == resource)
+
+        saves = f" and its image saves ({money(usd('network'))})" if usd("network") > 0 else ""
+        echo(f"{'its spend' if len(names) == 1 else 'the spend of ' + name}: {money(usd())} with its storage "
+             f"({money(usd('storage'))}){saves} - what the account's bill counts for it")
 
 
 def robots_said(policy: str, out: dict, base_url: str | None, echo: Callable[[str], None],
@@ -210,8 +270,12 @@ def robots_said(policy: str, out: dict, base_url: str | None, echo: Callable[[st
     spend = got.get("total") or {}
     if isinstance(spend.get("total_usd"), (int, float)):
 
-        echo(f"its spend: {money(spend['total_usd'])} with its storage ({money(spend.get('storage_usd'))}) - what its "
-             "page and its monthly budget count")
+
+
+        saves = (f" and its image saves ({money(spend.get('network_usd'))})"
+                 if float(spend.get("network_usd") or 0) > 0 else "")
+        echo(f"its spend: {money(spend['total_usd'])} with its storage ({money(spend.get('storage_usd'))}){saves} - what "
+             "its page and its monthly budget count")
     lat = got.get("latency") or {}
 
     acts = int(lat["calls"]) if isinstance(lat.get("calls"), (int, float)) else \
@@ -233,10 +297,10 @@ def robots_said(policy: str, out: dict, base_url: str | None, echo: Callable[[st
         echo(f"on-time {math.floor(otr * 1000 + 0.5) / 10:.1f}% · stalls {stalls:,}{lost} · over {int(cont['runs']):,} "
              f"run(s){since}: of the action chunks they ran, the share that acted within its time budget; a stall is one "
              "that came too late")
-    each_robot(got.get("robots"), echo)
+    each_robot(got.get("robots"), echo, unlisted=lat.get("unlisted_acts"))
 
 
-def each_robot(robots: Any, echo: Callable[[str], None]) -> None:
+def each_robot(robots: Any, echo: Callable[[str], None], unlisted: Any = None) -> None:
     """Each robot of the policy, by the key it connects with, the busiest first as the platform lists them
 : its acts and errors, its round trip p50 / p95 as its own SDK measured it, and its on-time share over
     its own runs - a dash where it reported none, never a false 100 %. Robots that share a key are one line.
@@ -244,6 +308,12 @@ def each_robot(robots: Any, echo: Callable[[str], None]) -> None:
 """
     rows = [r for r in robots or [] if isinstance(r, dict)]
     if not rows:
+
+
+        if isinstance(unlisted, (int, float)) and unlisted > 0:
+            n = int(unlisted)
+            echo(f"  no robot reported {'these' if n != 1 else 'this'} {n:,} act{'s' if n != 1 else ''}: an eval's, or "
+                 "ones whose robot's reports never reached the platform")
         return
     echo("each robot, by the key it connects with:")
     for r in rows:
@@ -263,6 +333,12 @@ def each_robot(robots: Any, echo: Callable[[str], None]) -> None:
         else:
             said.append("on-time — (no run reported)")
         echo(f"  {who}" + (f" {r['name']}" if r.get("name") else "") + ": " + " · ".join(said))
+
+
+    if isinstance(unlisted, (int, float)) and unlisted > 0:
+        n = int(unlisted)
+        echo(f"  {n:,} more act{'s' if n != 1 else ''} that no robot above reported: an eval's, a robot's past the "
+             "busiest 50, or acts whose reports never reached the platform")
 
 
 def _trip(lat: dict, q: str) -> str:

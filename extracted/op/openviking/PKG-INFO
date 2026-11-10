@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.5.3
+Version: 0.5.4
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -28,6 +28,7 @@ Requires-Dist: openviking-sdk>=0.1.17
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: pyyaml>=6.0
+Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: pdfplumber>=0.10.0
 Requires-Dist: scrapy>=2.11.0
@@ -53,7 +54,7 @@ Requires-Dist: urllib3>=2.7.0
 Requires-Dist: protobuf>=6.33.5
 Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: typer>=0.12.0
-Requires-Dist: litellm<1.91.2,>=1.83.7
+Requires-Dist: litellm<1.102.5,>=1.102.4
 Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: tree-sitter==0.25.2
 Requires-Dist: tree-sitter-python==0.25.0
@@ -80,6 +81,8 @@ Requires-Dist: mcp<2,>=1.27
 Requires-Dist: pathspec>=1.1.1
 Requires-Dist: grep-ast==0.9.0
 Requires-Dist: tree-sitter-language-pack==1.13.3
+Provides-Extra: reporting
+Requires-Dist: kafka-python<4,>=3.0.12; extra == "reporting"
 Provides-Extra: expiry
 Requires-Dist: redis<7,>=5.3.1; extra == "expiry"
 Provides-Extra: gateway-fast
@@ -381,7 +384,7 @@ Connect your coding agent to OpenViking for cross-session memory. The memory plu
 <summary><strong>Let your agent install it</strong></summary>
 
 ```text
-Install the OpenViking memory plugin and help me start using it. OpenViking is the open-source context database for AI agents from Volcengine (https://github.com/volcengine/OpenViking, AGPL-3.0); the command and link below are from its official docs.
+Install the OpenViking memory plugin and help me start using it. OpenViking is a context database for AI agents (https://github.com/volcengine/OpenViking); the command and link below are from its official docs.
 
 1. Run the official installer. It needs network access and writes to my home directory; if your sandbox blocks that, ask me for approval:
    curl -fsSL https://openviking.ai/install | bash -s -- --yes --lang en --url <SERVER_URL> --api-key <API_KEY>

@@ -179,11 +179,42 @@ def test_compound_flatten():
     )
 
 
+@pytest.mark.parametrize("combine", [AND, OR])
+@pytest.mark.parametrize("nested", [False, True])
+def test_compound_flatten_reused_subexpressions(combine, nested):
+    a = EQ(F.Field("Status"), "Active")
+    b = EQ(F.Field("Region"), "BR")
+    shared = combine(a, b)
+    first = combine(shared, a) if nested else shared
+    formula = combine(first, shared)
+    expected = combine(a, b, a, a, b) if nested else combine(a, b, a, b)
+
+    assert formula.flatten() == expected
+    assert shared.components == [a, b]
+    assert formula.components == [first, shared]
+
+
 def test_compound_flatten_circular_dependency():
     circular = NOT(F.Formula("x"))
     circular.components = [circular]
     with pytest.raises(pyairtable.exceptions.CircularFormulaError):
         circular.flatten()
+
+
+def test_compound_flatten_circular_dependency_across_operators():
+    circular = NOT(F.Formula("x"))
+    wrapper = AND(circular)
+    circular.components = [wrapper]
+    with pytest.raises(pyairtable.exceptions.CircularFormulaError):
+        wrapper.flatten()
+
+
+def test_compound_flatten_reused_subexpression_across_operators():
+    a = EQ(F.Field("Status"), "Active")
+    shared = NOT(a)
+    formula = AND(shared, shared)
+    assert formula.flatten() == AND(NOT(a), NOT(a))
+    assert shared.components == [a]
 
 
 @pytest.mark.parametrize(

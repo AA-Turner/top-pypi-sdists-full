@@ -3,6 +3,8 @@ The flat public API, typed: every name re-exported from the module that defines 
 
 from . import errors as errors
 from . import expr as expr
+from .sdk import events as events
+from .sdk.run import commands as commands
 from .sdk.capture.capture import CaptureLedger as CaptureLedger
 from .sdk.capture.capture import CaptureState as CaptureState
 from .sdk.capture.capture import stable_external_key as stable_external_key
@@ -12,6 +14,13 @@ from .sdk.catalog.refs import DatasetRef as DatasetRef
 from .sdk.catalog.refs import SourceRef as SourceRef
 from .sdk.client.client import Authorship as Authorship
 from .sdk.client.client import Client as Client
+from .sdk.client.resources.projects.pins import ChartView as ChartView
+from .sdk.client.resources.projects.pins import KeyMetricsView as KeyMetricsView
+from .sdk.client.resources.projects.pins import PaneView as PaneView
+from .sdk.client.resources.projects.pins import ParallelView as ParallelView
+from .sdk.client.resources.projects.pins import Pin as Pin
+from .sdk.client.resources.runs.edits import Edit as Edit
+from .sdk.client.resources.runs.home import FROM_ENV as FROM_ENV
 from .sdk.client.resources.runs.reopen.conflict import Rewind as Rewind
 from .sdk.delivery.outbox.waiter.incomplete import DeliveryIncomplete as DeliveryIncomplete
 from .sdk.fluent.fluent import active_run as active_run
@@ -26,6 +35,7 @@ from .sdk.fluent.fluent import span as span
 from .sdk.fluent.fluent import update_config as update_config
 from .sdk.reads.reads import Reader as Reader
 from .sdk.reads.reads import Reference as Reference
+from .sdk.run.commands.commands import CommandKind as CommandKind
 from .sdk.run.metrics.spans import SpanHandle as SpanHandle
 from .sdk.run.run import Run as Run
 from .sdk.settings.settings import Settings as Settings
@@ -35,11 +45,19 @@ __version__: str
 
 __all__ = [
     "Authorship",
+    "ChartView",
     "DeliveryIncomplete",
     "CaptureLedger",
     "CaptureState",
     "Client",
     "DatasetRef",
+    "Edit",
+    "CommandKind",
+    "FROM_ENV",
+    "KeyMetricsView",
+    "PaneView",
+    "ParallelView",
+    "Pin",
     "Reader",
     "Reference",
     "Run",
@@ -62,5 +80,7 @@ __all__ = [
     "stable_span_id",
     "update_config",
     "errors",
+    "events",
+    "commands",
     "__version__",
 ]

@@ -45,6 +45,7 @@ def _get_kwargs(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -155,6 +156,8 @@ def _get_kwargs(
 
     params["slug"] = slug
 
+    params["user_role"] = user_role
+
     json_user_uuid_with_active_role: Union[Unset, str] = UNSET
     if not isinstance(user_uuid_with_active_role, Unset):
         json_user_uuid_with_active_role = str(user_uuid_with_active_role)
@@ -229,6 +232,7 @@ def sync_detailed(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Project"]]:
     """List projects of a service provider
@@ -266,6 +270,7 @@ def sync_detailed(
         science_domain_uuid (Union[Unset, UUID]):
         science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
+        user_role (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
@@ -306,6 +311,7 @@ def sync_detailed(
         science_domain_uuid=science_domain_uuid,
         science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
+        user_role=user_role,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
@@ -348,6 +354,7 @@ def sync(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """List projects of a service provider
@@ -385,6 +392,7 @@ def sync(
         science_domain_uuid (Union[Unset, UUID]):
         science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
+        user_role (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
@@ -426,6 +434,7 @@ def sync(
         science_domain_uuid=science_domain_uuid,
         science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
+        user_role=user_role,
         user_uuid_with_active_role=user_uuid_with_active_role,
     ).parsed
 
@@ -462,6 +471,7 @@ async def asyncio_detailed(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Project"]]:
     """List projects of a service provider
@@ -499,6 +509,7 @@ async def asyncio_detailed(
         science_domain_uuid (Union[Unset, UUID]):
         science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
+        user_role (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
@@ -539,6 +550,7 @@ async def asyncio_detailed(
         science_domain_uuid=science_domain_uuid,
         science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
+        user_role=user_role,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
@@ -579,6 +591,7 @@ async def asyncio(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """List projects of a service provider
@@ -616,6 +629,7 @@ async def asyncio(
         science_domain_uuid (Union[Unset, UUID]):
         science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
+        user_role (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
@@ -658,6 +672,7 @@ async def asyncio(
             science_domain_uuid=science_domain_uuid,
             science_sub_domain_uuid=science_sub_domain_uuid,
             slug=slug,
+            user_role=user_role,
             user_uuid_with_active_role=user_uuid_with_active_role,
         )
     ).parsed
@@ -693,6 +708,7 @@ def sync_all(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """Get All Pages
@@ -730,6 +746,7 @@ def sync_all(
         science_domain_uuid (Union[Unset, UUID]):
         science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
+        user_role (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
@@ -772,6 +789,7 @@ def sync_all(
         science_domain_uuid=science_domain_uuid,
         science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
+        user_role=user_role,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
@@ -847,6 +865,7 @@ async def asyncio_all(
     science_domain_uuid: Union[Unset, UUID] = UNSET,
     science_sub_domain_uuid: Union[Unset, UUID] = UNSET,
     slug: Union[Unset, str] = UNSET,
+    user_role: Union[Unset, str] = UNSET,
     user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """Get All Pages (Async)
@@ -884,6 +903,7 @@ async def asyncio_all(
         science_domain_uuid (Union[Unset, UUID]):
         science_sub_domain_uuid (Union[Unset, UUID]):
         slug (Union[Unset, str]):
+        user_role (Union[Unset, str]):
         user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
@@ -926,6 +946,7 @@ async def asyncio_all(
         science_domain_uuid=science_domain_uuid,
         science_sub_domain_uuid=science_sub_domain_uuid,
         slug=slug,
+        user_role=user_role,
         user_uuid_with_active_role=user_uuid_with_active_role,
     )
 

@@ -1,8 +1,10 @@
 from typing import Optional
 
 from office365.entity import Entity
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 
 
 class GroupLifecyclePolicy(Entity):
@@ -16,6 +18,7 @@ class GroupLifecyclePolicy(Entity):
     The group can be restored within a period of 30 days from deletion.
     """
 
+    @require_permission(delegated=["Directory.ReadWrite.All"], application=["Directory.ReadWrite.All"])
     def add_group(self, group_id: str) -> ClientResult[bool]:
         """Adds specific groups to a lifecycle policy. This action limits the group lifecycle policy to a set of groups
         only if the managedGroupTypes property of groupLifecyclePolicy is set to Selected.
@@ -29,6 +32,7 @@ class GroupLifecyclePolicy(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["Directory.ReadWrite.All"], application=["Directory.ReadWrite.All"])
     def remove_group(self, group_id: str) -> ClientResult[bool]:
         """Removes a group from a lifecycle policy.
 
@@ -41,6 +45,7 @@ class GroupLifecyclePolicy(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="alternateNotificationEmails")
     @property
     def alternate_notification_emails(self) -> Optional[str]:
         """
@@ -49,6 +54,7 @@ class GroupLifecyclePolicy(Entity):
         """
         return self.properties.get("alternateNotificationEmails", None)
 
+    @odata(name="groupLifetimeInDays")
     @property
     def group_lifetime_in_days(self) -> Optional[int]:
         """
@@ -57,6 +63,7 @@ class GroupLifecyclePolicy(Entity):
         """
         return self.properties.get("groupLifetimeInDays", None)
 
+    @odata(name="managedGroupTypes")
     @property
     def managed_group_types(self) -> Optional[str]:
         """The group type for which the expiration policy applies. Possible values are All, Selected or None."""

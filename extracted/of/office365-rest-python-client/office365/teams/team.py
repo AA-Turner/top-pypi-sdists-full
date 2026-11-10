@@ -10,6 +10,8 @@ from office365.directory.permissions.grants.resource_specific import ResourceSpe
 from office365.directory.profile_photo import ProfilePhoto
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
+from office365.runtime.limits import limit
 from office365.runtime.paths.builder import ODataPathBuilder
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
@@ -24,6 +26,7 @@ from office365.teams.members.conversation_collection import ConversationMemberCo
 from office365.teams.members.settings import TeamMemberSettings
 from office365.teams.messaging_settings import TeamMessagingSettings
 from office365.teams.operations.async_operation import TeamsAsyncOperation, wait_for_operation
+from office365.teams.quotas import TEAM_CHANNELS, TEAM_READ
 from office365.teams.schedule.schedule import Schedule
 from office365.teams.specialization import TeamSpecialization
 from office365.teams.summary import TeamSummary
@@ -34,6 +37,7 @@ from office365.teams.template import TeamsTemplate
 from office365.teams.visibility_type import TeamVisibilityType
 
 
+@limit(*TEAM_READ)
 class Team(Entity):
     """A team in Microsoft Teams is a collection of channel objects. A channel represents a topic, and therefore a
     logical isolation of discussion, within a team."""
@@ -69,26 +73,31 @@ class Team(Entity):
         create channels and add bots, in the team."""
         return self.properties.get("memberSettings", TeamMemberSettings())
 
+    @odata(name="guestSettings")
     @property
     def guest_settings(self) -> TeamGuestSettings:
         """Settings to configure whether guests can create, update, or delete channels in the team."""
         return self.properties.get("guestSettings", TeamGuestSettings())
 
+    @odata(name="messagingSettings")
     @property
     def messaging_settings(self) -> TeamMessagingSettings:
         """Settings to configure messaging and mentions in the team."""
-        return self.properties.get("guestSettings", TeamMessagingSettings())
+        return self.properties.get("messagingSettings", TeamMessagingSettings())
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> str | None:
         """The name of the team."""
         return self.properties.get("displayName")
 
+    @odata(name="description")
     @property
     def description(self) -> str | None:
         """An optional description for the team."""
         return self.properties.get("description")
 
+    @odata(name="classification")
     @property
     def classification(self) -> str | None:
         """An optional label. Typically describes the data or business sensitivity of the team.
@@ -96,16 +105,19 @@ class Team(Entity):
         """
         return self.properties.get("classification")
 
+    @odata(name="isArchived")
     @property
     def is_archived(self) -> bool | None:
         """Whether this team is in read-only mode."""
         return self.properties.get("isArchived")
 
+    @odata(name="visibility")
     @property
     def visibility(self) -> TeamVisibilityType:
         """The visibility of the group and team. Defaults to Public."""
         return self.properties.get("visibility", TeamVisibilityType.unknown)
 
+    @odata(name="webUrl")
     @property
     def web_url(self) -> str | None:
         """A hyperlink that will go to the team in the Microsoft Teams client. This is the URL that you get when
@@ -119,7 +131,7 @@ class Team(Entity):
         """Timestamp at which the team was created."""
         return self.properties.get("createdDateTime")
 
-    @odata(name="allChannels")
+    @odata(name="allChannels", navigation=True)
     @property
     def all_channels(self) -> ChannelCollection:
         """
@@ -129,7 +141,7 @@ class Team(Entity):
             "allChannels", ChannelCollection(self.context, ResourcePath("allChannels", self.resource_path))
         )
 
-    @odata(name="incomingChannels")
+    @odata(name="incomingChannels", navigation=True)
     @property
     def incoming_channels(self) -> ChannelCollection:
         """List of channels shared with the team."""
@@ -137,13 +149,16 @@ class Team(Entity):
             "incomingChannels", ChannelCollection(self.context, ResourcePath("incomingChannels", self.resource_path))
         )
 
+    @odata(name="channels", navigation=True)
     @property
+    @limit(*TEAM_CHANNELS)
     def channels(self) -> ChannelCollection:
         """The collection of channels & messages associated with the team."""
         return self.properties.get(
             "channels", ChannelCollection(self.context, ResourcePath("channels", self.resource_path))
         )
 
+    @odata(name="group", navigation=True)
     @property
     def group(self):
         """"""
@@ -151,7 +166,7 @@ class Team(Entity):
 
         return self.properties.get("group", Group(self.context, ResourcePath("group", self.resource_path)))
 
-    @odata(name="primaryChannel")
+    @odata(name="primaryChannel", navigation=True)
     @property
     def primary_channel(self) -> Channel:
         """The general channel for the team."""
@@ -159,12 +174,13 @@ class Team(Entity):
             "primaryChannel", Channel(self.context, ResourcePath("primaryChannel", self.resource_path))
         )
 
+    @odata(name="schedule", navigation=True)
     @property
     def schedule(self) -> Schedule:
         """The schedule of shifts for this team."""
         return self.properties.get("schedule", Schedule(self.context, ResourcePath("schedule", self.resource_path)))
 
-    @odata(name="installedApps")
+    @odata(name="installedApps", navigation=True)
     @property
     def installed_apps(self) -> EntityCollection[TeamsAppInstallation]:
         """The apps installed in this team."""
@@ -173,6 +189,7 @@ class Team(Entity):
             EntityCollection(self.context, TeamsAppInstallation, ResourcePath("installedApps", self.resource_path)),
         )
 
+    @odata(name="operations", navigation=True)
     @property
     def operations(self) -> EntityCollection[TeamsAsyncOperation]:
         """The async operations that ran or are running on this team."""
@@ -181,7 +198,7 @@ class Team(Entity):
             EntityCollection(self.context, TeamsAsyncOperation, ResourcePath("operations", self.resource_path)),
         )
 
-    @odata(name="permissionGrants")
+    @odata(name="permissionGrants", navigation=True)
     @property
     def permission_grants(self) -> EntityCollection[ResourceSpecificPermissionGrant]:
         """
@@ -192,16 +209,19 @@ class Team(Entity):
             EntityCollection(self.context, ResourceSpecificPermissionGrant, ResourcePath("permissionGrants")),
         )
 
+    @odata(name="summary")
     @property
     def summary(self) -> TeamSummary:
         """Contains summary information about the team, including number of owners, members, and guests."""
         return self.properties.get("summary", TeamSummary())
 
+    @odata(name="tenantId")
     @property
     def tenant_id(self) -> str | None:
         """The ID of the Azure Active Directory tenant."""
         return self.properties.get("tenantId")
 
+    @odata(name="tags", navigation=True)
     @property
     def tags(self) -> EntityCollection[TeamworkTag]:
         """The tags associated with the team."""
@@ -209,6 +229,7 @@ class Team(Entity):
             "tags", EntityCollection(self.context, TeamworkTag, ResourcePath("tags", self.resource_path))
         )
 
+    @odata(name="template", navigation=True)
     @property
     def template(self) -> TeamsTemplate:
         """The template this team was created from"""
@@ -220,21 +241,25 @@ class Team(Entity):
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="firstChannelName")
     @property
     def first_channel_name(self) -> str | None:
         """Gets the firstChannelName property"""
         return self.properties.get("firstChannelName")
 
+    @odata(name="internalId")
     @property
     def internal_id(self) -> str | None:
         """Gets the internalId property"""
         return self.properties.get("internalId")
 
+    @odata(name="specialization")
     @property
     def specialization(self) -> TeamSpecialization:
         """Gets the specialization property"""
         return self.properties.get("specialization", TeamSpecialization.none)
 
+    @odata(name="members", navigation=True)
     @property
     def members(self) -> ConversationMemberCollection:
         """Gets the members property"""
@@ -243,11 +268,17 @@ class Team(Entity):
             ConversationMemberCollection(self.context, ResourcePath("members", self.resource_path)),
         )
 
+    @odata(name="photo", navigation=True)
     @property
     def photo(self) -> ProfilePhoto:
         """Gets the photo property"""
         return self.properties.get("photo", ProfilePhoto(self.context, ResourcePath("photo", self.resource_path)))
 
+    @require_permission(
+        delegated=["TeamSettings.ReadWrite.All", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        application=["TeamSettings.ReadWrite.All", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        notes="Archive a team",
+    )
     def archive(self) -> Self:
         """Archive the specified team. When a team is archived, users can no longer send or like messages on any
         channel in the team, edit the team's name, description, or other settings, or in general make most changes to
@@ -256,6 +287,11 @@ class Team(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(
+        delegated=["TeamSettings.ReadWrite.All", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        application=["TeamSettings.ReadWrite.All", "Directory.ReadWrite.All", "Group.ReadWrite.All"],
+        notes="Restore an archived team",
+    )
     def unarchive(self) -> Self:
         """Restore an archived team. This restores users' ability to send messages and edit the team, abiding by
         tenant and team settings."""
@@ -263,6 +299,11 @@ class Team(Entity):
         self.context.add_query(qry)
         return self
 
+    @require_permission(
+        delegated=["Team.Create", "Group.ReadWrite.All", "Directory.ReadWrite.All"],
+        application=["Team.Create", "Group.ReadWrite.All", "Directory.ReadWrite.All"],
+        notes="Clone a team; the copy is provisioned asynchronously",
+    )
     def clone(
         self,
         mail_nickname: str,
@@ -290,7 +331,7 @@ class Team(Entity):
         """
         return_type = TeamsAsyncOperation(self.context)
 
-        def _process_response(resp: requests.Response) -> None:
+        def _handle_response(resp: requests.Response) -> None:
             loc = resp.headers.get("Location")
             if loc is not None:
                 return_type._resource_path = ODataPathBuilder.parse_url(loc)
@@ -307,9 +348,14 @@ class Team(Entity):
         if classification is not None:
             payload["classification"] = classification
         qry = ServiceOperationQuery(self, "clone", None, payload, None, None)
-        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        self.context.add_query(qry).after_execute(_handle_response, include_response=True)
         return return_type
 
+    @require_permission(
+        delegated=["Team.Create", "Group.ReadWrite.All", "Directory.ReadWrite.All"],
+        application=["Team.Create", "Group.ReadWrite.All", "Directory.ReadWrite.All"],
+        notes="Clone a team, poll the operation and read the clone",
+    )
     def clone_and_wait(
         self,
         mail_nickname: str,
@@ -319,12 +365,12 @@ class Team(Entity):
         description: str | None = None,
         classification: str | None = None,
     ) -> Team:
-        """Clone a team and wait for provisioning (deferred).
+        """Clone a team and wait for provisioning, in one ``execute_query()``.
 
-        Chains the async clone, the ``teamsAsyncOperation`` poll, and a full
-        ``GET`` of the cloned team through ``after_execute`` hooks — one
-        ``execute_query()`` returns the provisioned cloned :class:`Team` with its
-        properties loaded.
+        Chains the async clone, the ``teamsAsyncOperation`` poll (which blocks
+        inside the hook until the operation settles), and a full ``GET`` of the
+        cloned team through ``after_execute`` hooks — one ``execute_query()``
+        returns the provisioned cloned :class:`Team` with its properties loaded.
 
         Args:
             mail_nickname: The mail nickname for the cloned team.
@@ -337,7 +383,7 @@ class Team(Entity):
         return_type = Team(self.context)
         self.context.teams.add_child(return_type)
 
-        def _process_response(resp: requests.Response) -> None:
+        def _handle_response(resp: requests.Response) -> None:
             loc = resp.headers.get("Location")
             assert loc is not None
             operation = TeamsAsyncOperation(self.context, ODataPathBuilder.parse_url(loc))
@@ -361,9 +407,14 @@ class Team(Entity):
         if classification is not None:
             payload["classification"] = classification
         qry = ServiceOperationQuery(self, "clone", None, payload, None, None)
-        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        self.context.add_query(qry).after_execute(_handle_response, include_response=True)
         return return_type
 
+    @require_permission(
+        delegated=["TeamsActivity.Send"],
+        application=["TeamsActivity.Send"],
+        notes="Send an activity feed notification in the scope of a team",
+    )
     def send_activity_notification(
         self,
         topic: TeamworkActivityTopic,

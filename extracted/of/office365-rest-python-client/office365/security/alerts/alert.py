@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.entity import Entity
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -9,44 +9,32 @@ from office365.runtime.types.collections import StringCollection
 from office365.runtime.types.odata_property import odata
 from office365.security.alerts.classification import AlertClassification
 from office365.security.alerts.comment import AlertComment
+from office365.security.alerts.detection import AlertDetection
 from office365.security.alerts.detectionsource import DetectionSource
 from office365.security.alerts.determination import AlertDetermination
 from office365.security.alerts.evidence import AlertEvidence
+from office365.security.alerts.feedback import AlertFeedback
+from office365.security.alerts.file_security_state import FileSecurityState
 from office365.security.alerts.history_state import AlertHistoryState
 from office365.security.alerts.severity import AlertSeverity
 from office365.security.alerts.status import AlertStatus
-
-if TYPE_CHECKING:
-    from office365.security.alerts.detection import AlertDetection
-    from office365.security.alerts.feedback import AlertFeedback
-    from office365.security.alerts.file_security_state import (
-        FileSecurityState,
-    )
-    from office365.security.alerts.trigger import AlertTrigger
-    from office365.security.cloud_app_security_state import (
-        CloudAppSecurityState,
-    )
-    from office365.security.dictionary import Dictionary
-    from office365.security.host_security_state import HostSecurityState
-    from office365.security.investigation_security_state import (
-        InvestigationSecurityState,
-    )
-    from office365.security.investigation_state import InvestigationState
-    from office365.security.malware_state import MalwareState
-    from office365.security.message_security_state import MessageSecurityState
-    from office365.security.network_connection import NetworkConnection
-    from office365.security.process import Process
-    from office365.security.registry_key_state import RegistryKeyState
-    from office365.security.security_resource import SecurityResource
-    from office365.security.security_vendor_information import (
-        SecurityVendorInformation,
-    )
-    from office365.security.service_source import ServiceSource
-    from office365.security.uri_click_security_state import (
-        UriClickSecurityState,
-    )
-    from office365.security.user_security_state import UserSecurityState
-    from office365.security.vulnerability_state import VulnerabilityState
+from office365.security.alerts.trigger import AlertTrigger
+from office365.security.cloud_app_security_state import CloudAppSecurityState
+from office365.security.dictionary import Dictionary
+from office365.security.host_security_state import HostSecurityState
+from office365.security.investigation_security_state import InvestigationSecurityState
+from office365.security.investigation_state import InvestigationState
+from office365.security.malware_state import MalwareState
+from office365.security.message_security_state import MessageSecurityState
+from office365.security.network_connection import NetworkConnection
+from office365.security.process import Process
+from office365.security.registry_key_state import RegistryKeyState
+from office365.security.security_resource import SecurityResource
+from office365.security.security_vendor_information import SecurityVendorInformation
+from office365.security.service_source import ServiceSource
+from office365.security.uri_click_security_state import UriClickSecurityState
+from office365.security.user_security_state import UserSecurityState
+from office365.security.vulnerability_state import VulnerabilityState
 
 
 class Alert(Entity):
@@ -63,56 +51,66 @@ class Alert(Entity):
             f"title={self.title!r}, severity={self.severity.name}, status={self.status.name})"
         )
 
+    @odata(name="activityGroupName")
     @property
     def activity_group_name(self) -> Optional[str]:
         """"""
         return self.properties.get("activityGroupName", None)
 
+    @odata(name="actorDisplayName")
     @property
     def actor_display_name(self) -> Optional[str]:
         """The adversary or activity group that is associated with this alert."""
         return self.properties.get("actorDisplayName", None)
 
+    @odata(name="alertPolicyId")
     @property
     def alert_policy_id(self) -> Optional[str]:
         return self.properties.get("alertPolicyId", None)
 
+    @odata(name="evidence")
     @property
-    def evidence(self):
+    def evidence(self) -> ClientValueCollection[AlertEvidence]:
         """Collection of evidence related to the alert."""
         return self.properties.get("evidence", ClientValueCollection(AlertEvidence))
 
     @odata(name="historyStates")
     @property
-    def history_states(self):
+    def history_states(self) -> ClientValueCollection[AlertHistoryState]:
         """Collection of changes for the alert."""
         return self.properties.get("historyStates", ClientValueCollection(AlertHistoryState))
 
+    @odata(name="alertWebUrl")
     @property
     def alert_web_url(self) -> Optional[str]:
         """Gets the alertWebUrl property"""
         return self.properties.get("alertWebUrl", None)
 
+    @odata(name="assignedTo")
     @property
     def assigned_to(self) -> Optional[str]:
         """Gets the assignedTo property"""
         return self.properties.get("assignedTo", None)
 
+    @odata(name="categories")
     @property
     def categories(self) -> StringCollection:
         """Gets the categories property"""
         return self.properties.get("categories", StringCollection(None))
 
+    @odata(name="category")
     @property
     def category(self) -> Optional[str]:
         """Gets the category property"""
         return self.properties.get("category", None)
 
+    @odata(name="classification")
     @property
     def classification(self) -> AlertClassification:
         """Gets the classification property"""
         return self.properties.get("classification", AlertClassification.unknown)
 
+    @odata(name="comments")
     @property
     def comments(self) -> ClientValueCollection[AlertComment]:
         """Gets the comments property"""
@@ -124,6 +122,7 @@ class Alert(Entity):
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description property"""
@@ -135,11 +134,13 @@ class Alert(Entity):
         """Gets the detectionSource property"""
         return self.properties.get("detectionSource", DetectionSource.unknown)
 
+    @odata(name="detectorId")
     @property
     def detector_id(self) -> Optional[str]:
         """Gets the detectorId property"""
         return self.properties.get("detectorId", None)
 
+    @odata(name="determination")
     @property
     def determination(self) -> AlertDetermination:
         """Gets the determination property"""
@@ -151,11 +152,13 @@ class Alert(Entity):
         """Gets the firstActivityDateTime property"""
         return self.properties.get("firstActivityDateTime", datetime.min)
 
+    @odata(name="incidentId")
     @property
     def incident_id(self) -> Optional[str]:
         """Gets the incidentId property"""
         return self.properties.get("incidentId", None)
 
+    @odata(name="incidentWebUrl")
     @property
     def incident_web_url(self) -> Optional[str]:
         """Gets the incidentWebUrl property"""
@@ -167,6 +170,7 @@ class Alert(Entity):
         """Gets the lastActivityDateTime property"""
         return self.properties.get("lastActivityDateTime", datetime.min)
 
+    @odata(name="lastUpdateDateTime")
     @property
     def last_update_date_time(self) -> Optional[datetime]:
         """Gets the lastUpdateDateTime property"""
@@ -178,16 +182,19 @@ class Alert(Entity):
         """Gets the mitreTechniques property"""
         return self.properties.get("mitreTechniques", StringCollection(None))
 
+    @odata(name="productName")
     @property
     def product_name(self) -> Optional[str]:
         """Gets the productName property"""
         return self.properties.get("productName", None)
 
+    @odata(name="providerAlertId")
     @property
     def provider_alert_id(self) -> Optional[str]:
         """Gets the providerAlertId property"""
         return self.properties.get("providerAlertId", None)
 
+    @odata(name="recommendedActions")
     @property
     def recommended_actions(self) -> Optional[str]:
         """Gets the recommendedActions property"""
@@ -199,36 +206,43 @@ class Alert(Entity):
         """Gets the resolvedDateTime property"""
         return self.properties.get("resolvedDateTime", datetime.min)
 
+    @odata(name="severity")
     @property
     def severity(self) -> AlertSeverity:
         """Gets the severity property"""
         return self.properties.get("severity", AlertSeverity.unknown)
 
+    @odata(name="status")
     @property
     def status(self) -> AlertStatus:
         """Gets the status property"""
         return self.properties.get("status", AlertStatus.unknown)
 
+    @odata(name="systemTags")
     @property
     def system_tags(self) -> StringCollection:
         """Gets the systemTags property"""
         return self.properties.get("systemTags", StringCollection())
 
+    @odata(name="tenantId")
     @property
     def tenant_id(self) -> Optional[str]:
         """Gets the tenantId property"""
         return self.properties.get("tenantId", None)
 
+    @odata(name="threatDisplayName")
     @property
     def threat_display_name(self) -> Optional[str]:
         """Gets the threatDisplayName property"""
         return self.properties.get("threatDisplayName", None)
 
+    @odata(name="threatFamilyName")
     @property
     def threat_family_name(self) -> Optional[str]:
         """Gets the threatFamilyName property"""
         return self.properties.get("threatFamilyName", None)
 
+    @odata(name="title")
     @property
     def title(self) -> Optional[str]:
         """Gets the title property"""
@@ -238,222 +252,200 @@ class Alert(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.security.Alert"
 
+    @odata(name="additionalData")
     @property
     def additional_data(self) -> Dictionary:
         """Gets the additionalData property"""
-        from office365.security.dictionary import Dictionary
-
         return self.properties.get("additionalData", Dictionary())
 
+    @odata(name="customDetails")
     @property
     def custom_details(self) -> Dictionary:
         """Gets the customDetails property"""
-        from office365.security.dictionary import Dictionary
-
         return self.properties.get("customDetails", Dictionary())
 
+    @odata(name="investigationState")
     @property
     def investigation_state(self) -> InvestigationState:
         """Gets the investigationState property"""
-        from office365.security.investigation_state import InvestigationState
-
         return self.properties.get("investigationState", InvestigationState.unknown)
 
+    @odata(name="serviceSource")
     @property
     def service_source(self) -> ServiceSource:
         """Gets the serviceSource property"""
-        from office365.security.service_source import ServiceSource
-
         return self.properties.get("serviceSource", ServiceSource.unknown)
 
+    @odata(name="alertDetections")
     @property
     def alert_detections(self) -> ClientValueCollection[AlertDetection]:
         """Gets the alertDetections property"""
-        from office365.security.alerts.detection import AlertDetection
-
         return self.properties.get("alertDetections", ClientValueCollection[AlertDetection](AlertDetection))
 
+    @odata(name="azureSubscriptionId")
     @property
     def azure_subscription_id(self) -> Optional[str]:
         """Gets the azureSubscriptionId property"""
         return self.properties.get("azureSubscriptionId", None)
 
+    @odata(name="azureTenantId")
     @property
     def azure_tenant_id(self) -> Optional[str]:
         """Gets the azureTenantId property"""
         return self.properties.get("azureTenantId", None)
 
+    @odata(name="closedDateTime")
     @property
     def closed_date_time(self) -> Optional[datetime]:
         """Gets the closedDateTime property"""
         return self.properties.get("closedDateTime", datetime.min)
 
+    @odata(name="cloudAppStates")
     @property
     def cloud_app_states(self) -> ClientValueCollection[CloudAppSecurityState]:
         """Gets the cloudAppStates property"""
-        from office365.security.cloud_app_security_state import (
-            CloudAppSecurityState,
-        )
-
         return self.properties.get("cloudAppStates", ClientValueCollection[CloudAppSecurityState](CloudAppSecurityState))
 
+    @odata(name="confidence")
     @property
     def confidence(self) -> Optional[int]:
         """Gets the confidence property"""
         return self.properties.get("confidence", None)
 
+    @odata(name="detectionIds")
     @property
     def detection_ids(self) -> StringCollection:
         """Gets the detectionIds property"""
         return self.properties.get("detectionIds", StringCollection())
 
+    @odata(name="eventDateTime")
     @property
     def event_date_time(self) -> Optional[datetime]:
         """Gets the eventDateTime property"""
         return self.properties.get("eventDateTime", datetime.min)
 
+    @odata(name="feedback")
     @property
     def feedback(self) -> AlertFeedback:
         """Gets the feedback property"""
-        from office365.security.alerts.feedback import AlertFeedback
-
         return self.properties.get("feedback", AlertFeedback.unknown)
 
+    @odata(name="fileStates")
     @property
     def file_states(self) -> ClientValueCollection[FileSecurityState]:
         """Gets the fileStates property"""
-        from office365.security.alerts.file_security_state import (
-            FileSecurityState,
-        )
-
         return self.properties.get("fileStates", ClientValueCollection[FileSecurityState](FileSecurityState))
 
+    @odata(name="hostStates")
     @property
     def host_states(self) -> ClientValueCollection[HostSecurityState]:
         """Gets the hostStates property"""
-        from office365.security.host_security_state import HostSecurityState
-
         return self.properties.get("hostStates", ClientValueCollection[HostSecurityState](HostSecurityState))
 
+    @odata(name="incidentIds")
     @property
     def incident_ids(self) -> StringCollection:
         """Gets the incidentIds property"""
         return self.properties.get("incidentIds", StringCollection())
 
+    @odata(name="investigationSecurityStates")
     @property
     def investigation_security_states(self) -> ClientValueCollection[InvestigationSecurityState]:
         """Gets the investigationSecurityStates property"""
-        from office365.security.investigation_security_state import (
-            InvestigationSecurityState,
-        )
-
         return self.properties.get(
             "investigationSecurityStates", ClientValueCollection[InvestigationSecurityState](InvestigationSecurityState)
         )
 
+    @odata(name="lastEventDateTime")
     @property
     def last_event_date_time(self) -> Optional[datetime]:
         """Gets the lastEventDateTime property"""
         return self.properties.get("lastEventDateTime", datetime.min)
 
+    @odata(name="lastModifiedDateTime")
     @property
     def last_modified_date_time(self) -> Optional[datetime]:
         """Gets the lastModifiedDateTime property"""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
+    @odata(name="malwareStates")
     @property
     def malware_states(self) -> ClientValueCollection[MalwareState]:
         """Gets the malwareStates property"""
-        from office365.security.malware_state import MalwareState
-
         return self.properties.get("malwareStates", ClientValueCollection[MalwareState](MalwareState))
 
+    @odata(name="messageSecurityStates")
     @property
     def message_security_states(self) -> ClientValueCollection[MessageSecurityState]:
         """Gets the messageSecurityStates property"""
-        from office365.security.message_security_state import (
-            MessageSecurityState,
-        )
-
         return self.properties.get(
             "messageSecurityStates", ClientValueCollection[MessageSecurityState](MessageSecurityState)
         )
 
+    @odata(name="networkConnections")
     @property
     def network_connections(self) -> ClientValueCollection[NetworkConnection]:
         """Gets the networkConnections property"""
-        from office365.security.network_connection import NetworkConnection
-
         return self.properties.get("networkConnections", ClientValueCollection[NetworkConnection](NetworkConnection))
 
+    @odata(name="processes")
     @property
     def processes(self) -> ClientValueCollection[Process]:
         """Gets the processes property"""
-        from office365.security.process import Process
-
         return self.properties.get("processes", ClientValueCollection[Process](Process))
 
+    @odata(name="registryKeyStates")
     @property
     def registry_key_states(self) -> ClientValueCollection[RegistryKeyState]:
         """Gets the registryKeyStates property"""
-        from office365.security.registry_key_state import RegistryKeyState
-
         return self.properties.get("registryKeyStates", ClientValueCollection[RegistryKeyState](RegistryKeyState))
 
+    @odata(name="securityResources")
     @property
     def security_resources(self) -> ClientValueCollection[SecurityResource]:
         """Gets the securityResources property"""
-        from office365.security.security_resource import SecurityResource
-
         return self.properties.get("securityResources", ClientValueCollection[SecurityResource](SecurityResource))
 
+    @odata(name="sourceMaterials")
     @property
     def source_materials(self) -> StringCollection:
         """Gets the sourceMaterials property"""
         return self.properties.get("sourceMaterials", StringCollection())
 
+    @odata(name="tags")
     @property
     def tags(self) -> StringCollection:
         """Gets the tags property"""
         return self.properties.get("tags", StringCollection())
 
+    @odata(name="triggers")
     @property
     def triggers(self) -> ClientValueCollection[AlertTrigger]:
         """Gets the triggers property"""
-        from office365.security.alerts.trigger import AlertTrigger
-
         return self.properties.get("triggers", ClientValueCollection[AlertTrigger](AlertTrigger))
 
+    @odata(name="uriClickSecurityStates")
     @property
     def uri_click_security_states(self) -> ClientValueCollection[UriClickSecurityState]:
         """Gets the uriClickSecurityStates property"""
-        from office365.security.uri_click_security_state import (
-            UriClickSecurityState,
-        )
-
         return self.properties.get(
             "uriClickSecurityStates", ClientValueCollection[UriClickSecurityState](UriClickSecurityState)
         )
 
+    @odata(name="userStates")
     @property
     def user_states(self) -> ClientValueCollection[UserSecurityState]:
         """Gets the userStates property"""
-        from office365.security.user_security_state import UserSecurityState
-
         return self.properties.get("userStates", ClientValueCollection[UserSecurityState](UserSecurityState))
 
+    @odata(name="vendorInformation")
     @property
     def vendor_information(self) -> SecurityVendorInformation:
         """Gets the vendorInformation property"""
-        from office365.security.security_vendor_information import (
-            SecurityVendorInformation,
-        )
-
         return self.properties.get("vendorInformation", SecurityVendorInformation())
 
+    @odata(name="vulnerabilityStates")
     @property
     def vulnerability_states(self) -> ClientValueCollection[VulnerabilityState]:
         """Gets the vulnerabilityStates property"""
-        from office365.security.vulnerability_state import VulnerabilityState
-
         return self.properties.get("vulnerabilityStates", ClientValueCollection[VulnerabilityState](VulnerabilityState))

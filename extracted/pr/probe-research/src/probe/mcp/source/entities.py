@@ -24,8 +24,8 @@ _RETIRED_REF_DETAIL = (
     "Per-entity notes "
     'live on the entity itself: get_entity(ref="project:<id>", view="notes"). '
     "If your instructions still tell you to start there, they are "
-    "out of date -- upgrade the plugin (`probe update`) and "
-    "re-run `probe wizard` to refresh them."
+    "out of date -- update Probe (`npx -y probe-research update --json`) to "
+    "refresh them."
 )
 _INDEX_SLUG = "contents"
 

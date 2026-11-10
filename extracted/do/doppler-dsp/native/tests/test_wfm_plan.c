@@ -809,6 +809,128 @@ test_every_source_kind_renders_as_it_composes (void)
   return bad;
 }
 
+/* A forged table in a saved blob is never trusted, and never crashes the
+ * restore (#2962). The blob keeps its DSP fingerprint, so the fast path is
+ * what a forged count or length reaches. Before the fix, a signal count
+ * whose table could not be allocated left the arrays NULL with the layout
+ * still marked intact, and the build dereferenced NULL; a length near 2^61
+ * wrapped the bound check. Each forged count and length now rebuilds from
+ * the embedded spec, bit-exact, as a table that runs out mid-way always
+ * did; a forged spec length is a malformed blob and refused. */
+static int
+test_restore_forged_table (const wfm_plan_t *p, const float _Complex *base)
+{
+  const size_t    bytes = L * sizeof (float _Complex);
+  float _Complex *got   = malloc (bytes);
+  const size_t    blen  = dp_wfm_plan_save_bytes (p);
+  uint8_t        *blob  = malloc (blen);
+  DP_REQUIRE_MSG (got && blob, "alloc forged-table buffers");
+  DP_REQUIRE_MSG (dp_wfm_plan_save (p, blob) == blen, "save forged blob");
+
+  uint64_t splen;
+  memcpy (&splen, blob + 16, 8);
+  const size_t at_n = 24 + (size_t)splen; /* the signal count */
+  const size_t at_l = at_n + 8;           /* the first entry's length */
+  DP_REQUIRE_MSG (at_l + 8 <= blen, "the blob holds a first entry");
+  uint64_t n_sig, len0;
+  memcpy (&n_sig, blob + at_n, 8);
+  memcpy (&len0, blob + at_l, 8);
+  DP_REQUIRE_MSG (n_sig == 2, "two cached signals");
+
+  /* The old guard's boundary and one above it -- the strict `<` refused
+   * both, so both left NULL tables and crashed -- the largest count, and the
+   * first count the blob cannot hold entries for. */
+  const uint64_t counts[] = { (uint64_t)(SIZE_MAX / sizeof (size_t)),
+                              (uint64_t)(SIZE_MAX / sizeof (size_t)) + 1u,
+                              UINT64_MAX, (uint64_t)((blen - at_l) / 8) + 1u };
+  /* A length whose byte count is just under 2^64 (wraps the old bound
+   * check), and the largest. */
+  const uint64_t lens[]
+      = { (uint64_t)(SIZE_MAX / sizeof (float _Complex)), UINT64_MAX };
+
+  for (size_t i = 0; i < sizeof counts / sizeof counts[0]; i++)
+    {
+      memcpy (blob + at_n, &counts[i], 8);
+      wfm_plan_t *r = dp_wfm_plan_restore (blob, blen);
+      DP_REQUIRE_MSG (r, "a forged signal count rebuilds from the spec");
+      DP_REQUIRE (dp_wfm_plan_render (r, "{}", got) == L
+                  && memcmp (base, got, bytes) == 0);
+      dp_wfm_plan_destroy (r);
+    }
+  memcpy (blob + at_n, &n_sig, 8);
+
+  for (size_t i = 0; i < sizeof lens / sizeof lens[0]; i++)
+    {
+      memcpy (blob + at_l, &lens[i], 8);
+      wfm_plan_t *r = dp_wfm_plan_restore (blob, blen);
+      DP_REQUIRE_MSG (r, "a forged signal length rebuilds from the spec");
+      DP_REQUIRE (dp_wfm_plan_render (r, "{}", got) == L
+                  && memcmp (base, got, bytes) == 0);
+      dp_wfm_plan_destroy (r);
+    }
+  memcpy (blob + at_l, &len0, 8);
+
+  /* A spec length that would wrap `24 + splen + 8` is a malformed blob. */
+  const uint64_t big = UINT64_MAX;
+  memcpy (blob + 16, &big, 8);
+  DP_REQUIRE_MSG (dp_wfm_plan_restore (blob, blen) == NULL,
+                  "a forged spec length is refused");
+  memcpy (blob + 16, &splen, 8);
+
+  /* And the untouched blob still restores, bit-exact. (Which path it took
+   * is not observable from here; what is checked is the result.) */
+  wfm_plan_t *ok = dp_wfm_plan_restore (blob, blen);
+  DP_REQUIRE_MSG (ok, "the untouched blob restores");
+  DP_REQUIRE (dp_wfm_plan_render (ok, "{}", got) == L
+              && memcmp (base, got, bytes) == 0);
+  dp_wfm_plan_destroy (ok);
+
+  /* A forged SPEC inside the blob: "num_samples":1024 rewritten in place,
+   * same length, to 9e18 -- a whole count a size_t holds, whose buffer of
+   * 9e18 complex samples does not fit a size_t of bytes. The cache buffer
+   * used to be sized by an unchecked num_samples * 8, which wrapped, and the
+   * render wrote past it. It is now dp_mallocn, which refuses the product,
+   * and the restore fails cleanly rather than crashing. Restore has no
+   * `why`, so this checks the NULL and the absence of a crash; it cannot
+   * name which check refused. */
+  char *at_ns = NULL;
+  for (size_t i = 24; !at_ns && i + 14 <= 24 + (size_t)splen; i++)
+    if (memcmp (blob + i, "\"num_samples\":", 14) == 0)
+      {
+        /* the value follows the colon, after any whitespace the writer
+           put there */
+        size_t v = i + 14;
+        while (v < 24 + (size_t)splen && (blob[v] == ' ' || blob[v] == '\t'))
+          v++;
+        if (v + 4 <= 24 + (size_t)splen && memcmp (blob + v, "1024", 4) == 0)
+          at_ns = (char *)blob + v;
+      }
+  DP_REQUIRE_MSG (at_ns, "the embedded spec names num_samples 1024");
+  memcpy (at_ns, "9e18", 4);
+  DP_REQUIRE_MSG (dp_wfm_plan_restore (blob, blen) == NULL,
+                  "a forged spec count too large to buffer is refused");
+  memcpy (at_ns, "1024", 4);
+
+  free (blob);
+  free (got);
+  return dp_test_fails_ != 0;
+}
+
+/* The same count through prepare(): 2^61 samples is a count a size_t holds
+ * (a stream may be that long), so the parser reads it; the cache cannot
+ * buffer 2^64 bytes of it, so prepare refuses. prepare() has no `why`
+ * either: the NULL is what is checked, not which check produced it. */
+static int
+test_prepare_refuses_an_unbufferable_count (void)
+{
+  DP_REQUIRE_MSG (
+      dp_wfm_plan_prepare ("{\"segments\":[{\"type\":\"tone\","
+                           "\"num_samples\":2305843009213693952}]}")
+          == NULL,
+      "prepare refuses a count whose buffer overflows a size_t");
+  return 0;
+}
+
 int
 main (void)
 {
@@ -819,6 +941,8 @@ main (void)
       || test_framed_scene_matches_compose () || test_data_source_scene ())
     return 1;
   if (test_parallel_build_bit_exact ())
+    return 1;
+  if (test_prepare_refuses_an_unbufferable_count ())
     return 1;
 
   size_t          bytes = L * sizeof (float _Complex);
@@ -1372,6 +1496,8 @@ main (void)
     blob[0] = m0;
     DP_REQUIRE_MSG (dp_wfm_plan_restore (blob, 10) == NULL,
                     "reject truncated blob");
+    DP_REQUIRE_MSG (!test_restore_forged_table (p, base),
+                    "a forged table never crashes the restore (#2962)");
 
     free (blob);
 

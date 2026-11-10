@@ -29,6 +29,12 @@ class AnonymousChatConversation:
         input_tokens (int): Prompt tokens summed over the conversation; 0 for turns predating token tracking.
         output_tokens (int): Completion tokens summed over the conversation.
         total_tokens (int): input_tokens + output_tokens. Excludes LLM judge spend, which runs on its own budget.
+        cache_read_tokens (Union[None, int]): Part of input_tokens served from the provider's prompt cache; null when no
+            turn in the conversation reported it.
+        cache_write_tokens (Union[None, int]): Part of input_tokens written to the provider's prompt cache; null when no
+            turn in the conversation reported it.
+        cache_ratio (Union[None, float]): cache_read_tokens over the input of turns whose provider reported a cache
+            figure; null when none did.
         started (Union[None, datetime.datetime]):
         last_active (Union[None, datetime.datetime]):
     """
@@ -47,6 +53,9 @@ class AnonymousChatConversation:
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    cache_read_tokens: Union[None, int]
+    cache_write_tokens: Union[None, int]
+    cache_ratio: Union[None, float]
     started: Union[None, datetime.datetime]
     last_active: Union[None, datetime.datetime]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -80,6 +89,15 @@ class AnonymousChatConversation:
 
         total_tokens = self.total_tokens
 
+        cache_read_tokens: Union[None, int]
+        cache_read_tokens = self.cache_read_tokens
+
+        cache_write_tokens: Union[None, int]
+        cache_write_tokens = self.cache_write_tokens
+
+        cache_ratio: Union[None, float]
+        cache_ratio = self.cache_ratio
+
         started: Union[None, str]
         if isinstance(self.started, datetime.datetime):
             started = self.started.isoformat()
@@ -110,6 +128,9 @@ class AnonymousChatConversation:
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "total_tokens": total_tokens,
+                "cache_read_tokens": cache_read_tokens,
+                "cache_write_tokens": cache_write_tokens,
+                "cache_ratio": cache_ratio,
                 "started": started,
                 "last_active": last_active,
             }
@@ -147,6 +168,27 @@ class AnonymousChatConversation:
         output_tokens = d.pop("output_tokens")
 
         total_tokens = d.pop("total_tokens")
+
+        def _parse_cache_read_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_read_tokens = _parse_cache_read_tokens(d.pop("cache_read_tokens"))
+
+        def _parse_cache_write_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        cache_write_tokens = _parse_cache_write_tokens(d.pop("cache_write_tokens"))
+
+        def _parse_cache_ratio(data: object) -> Union[None, float]:
+            if data is None:
+                return data
+            return cast(Union[None, float], data)
+
+        cache_ratio = _parse_cache_ratio(d.pop("cache_ratio"))
 
         def _parse_started(data: object) -> Union[None, datetime.datetime]:
             if data is None:
@@ -193,6 +235,9 @@ class AnonymousChatConversation:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             total_tokens=total_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_write_tokens=cache_write_tokens,
+            cache_ratio=cache_ratio,
             started=started,
             last_active=last_active,
         )

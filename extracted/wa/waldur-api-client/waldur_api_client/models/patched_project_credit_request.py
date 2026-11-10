@@ -6,6 +6,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.compensate_in_enum import CompensateInEnum
 from ..models.minimal_consumption_logic_enum import MinimalConsumptionLogicEnum
 from ..types import UNSET, Unset
 
@@ -24,6 +25,13 @@ class PatchedProjectCreditRequest:
         grace_coefficient (Union[Unset, str]):
         apply_as_minimal_consumption (Union[Unset, bool]):
         mark_unused_credit_as_spent_on_project_termination (Union[Unset, bool]):
+        pay_earlier_invoices (Union[Unset, bool]): Also pay the cost of earlier, closed invoices of the project that no
+            credit covered. Staff only.
+        earlier_invoices_from (Union[None, Unset, datetime.date]): First month of earlier invoices to pay, as its first
+            day. Empty: from the first invoice.
+        earlier_invoices_until (Union[None, Unset, datetime.date]): Last month of earlier invoices to pay, as its first
+            day. Empty: up to the last closed invoice.
+        earlier_invoices_compensate_in (Union[Unset, CompensateInEnum]):
     """
 
     value: Union[Unset, str] = UNSET
@@ -34,6 +42,10 @@ class PatchedProjectCreditRequest:
     grace_coefficient: Union[Unset, str] = UNSET
     apply_as_minimal_consumption: Union[Unset, bool] = UNSET
     mark_unused_credit_as_spent_on_project_termination: Union[Unset, bool] = UNSET
+    pay_earlier_invoices: Union[Unset, bool] = UNSET
+    earlier_invoices_from: Union[None, Unset, datetime.date] = UNSET
+    earlier_invoices_until: Union[None, Unset, datetime.date] = UNSET
+    earlier_invoices_compensate_in: Union[Unset, CompensateInEnum] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -61,6 +73,28 @@ class PatchedProjectCreditRequest:
 
         mark_unused_credit_as_spent_on_project_termination = self.mark_unused_credit_as_spent_on_project_termination
 
+        pay_earlier_invoices = self.pay_earlier_invoices
+
+        earlier_invoices_from: Union[None, Unset, str]
+        if isinstance(self.earlier_invoices_from, Unset):
+            earlier_invoices_from = UNSET
+        elif isinstance(self.earlier_invoices_from, datetime.date):
+            earlier_invoices_from = self.earlier_invoices_from.isoformat()
+        else:
+            earlier_invoices_from = self.earlier_invoices_from
+
+        earlier_invoices_until: Union[None, Unset, str]
+        if isinstance(self.earlier_invoices_until, Unset):
+            earlier_invoices_until = UNSET
+        elif isinstance(self.earlier_invoices_until, datetime.date):
+            earlier_invoices_until = self.earlier_invoices_until.isoformat()
+        else:
+            earlier_invoices_until = self.earlier_invoices_until
+
+        earlier_invoices_compensate_in: Union[Unset, str] = UNSET
+        if not isinstance(self.earlier_invoices_compensate_in, Unset):
+            earlier_invoices_compensate_in = self.earlier_invoices_compensate_in.value
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -82,6 +116,14 @@ class PatchedProjectCreditRequest:
             field_dict["mark_unused_credit_as_spent_on_project_termination"] = (
                 mark_unused_credit_as_spent_on_project_termination
             )
+        if pay_earlier_invoices is not UNSET:
+            field_dict["pay_earlier_invoices"] = pay_earlier_invoices
+        if earlier_invoices_from is not UNSET:
+            field_dict["earlier_invoices_from"] = earlier_invoices_from
+        if earlier_invoices_until is not UNSET:
+            field_dict["earlier_invoices_until"] = earlier_invoices_until
+        if earlier_invoices_compensate_in is not UNSET:
+            field_dict["earlier_invoices_compensate_in"] = earlier_invoices_compensate_in
 
         return field_dict
 
@@ -126,6 +168,49 @@ class PatchedProjectCreditRequest:
             "mark_unused_credit_as_spent_on_project_termination", UNSET
         )
 
+        pay_earlier_invoices = d.pop("pay_earlier_invoices", UNSET)
+
+        def _parse_earlier_invoices_from(data: object) -> Union[None, Unset, datetime.date]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                earlier_invoices_from_type_0 = isoparse(data).date()
+
+                return earlier_invoices_from_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.date], data)
+
+        earlier_invoices_from = _parse_earlier_invoices_from(d.pop("earlier_invoices_from", UNSET))
+
+        def _parse_earlier_invoices_until(data: object) -> Union[None, Unset, datetime.date]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                earlier_invoices_until_type_0 = isoparse(data).date()
+
+                return earlier_invoices_until_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.date], data)
+
+        earlier_invoices_until = _parse_earlier_invoices_until(d.pop("earlier_invoices_until", UNSET))
+
+        _earlier_invoices_compensate_in = d.pop("earlier_invoices_compensate_in", UNSET)
+        earlier_invoices_compensate_in: Union[Unset, CompensateInEnum]
+        if isinstance(_earlier_invoices_compensate_in, Unset):
+            earlier_invoices_compensate_in = UNSET
+        else:
+            earlier_invoices_compensate_in = CompensateInEnum(_earlier_invoices_compensate_in)
+
         patched_project_credit_request = cls(
             value=value,
             project=project,
@@ -135,6 +220,10 @@ class PatchedProjectCreditRequest:
             grace_coefficient=grace_coefficient,
             apply_as_minimal_consumption=apply_as_minimal_consumption,
             mark_unused_credit_as_spent_on_project_termination=mark_unused_credit_as_spent_on_project_termination,
+            pay_earlier_invoices=pay_earlier_invoices,
+            earlier_invoices_from=earlier_invoices_from,
+            earlier_invoices_until=earlier_invoices_until,
+            earlier_invoices_compensate_in=earlier_invoices_compensate_in,
         )
 
         patched_project_credit_request.additional_properties = d

@@ -13,7 +13,9 @@ draws at random takes it unless it is given a seed of its own:
 * the scenario's actions and conditions that draw: the adversarial actions,
   :class:`~autoware_carla_scenario.actions.adversarial_traffic.AdversarialTrafficAction`,
   :class:`~autoware_carla_scenario.actions.background_traffic.TrafficSourceAction`
-  (and the config's ``background_traffic``);
+  (and the config's ``background_traffic``), and
+  :class:`~autoware_carla_scenario.actions.smart_pedestrian.SmartPedestrianControllerAction`'s
+  motion generator;
 * the driver policy's ``start_session`` seed and its LiDARs' weather noise.
 
 Every seed is a whole number from 0 to :data:`MAX_SEED` (``2**31 - 1``):
@@ -22,9 +24,12 @@ CARLA's pedestrian seed is a 32-bit unsigned integer and SUMO's ``--seed`` a
 case, after CARLA had started.  :func:`check_seed` refuses it up front.
 
 A component given ``seed=None`` (the default) takes the run's seed when it is
-built (:func:`resolve_seed`); one given a number keeps it.  The runner sets the
-run's seed before it builds the scenario and again before ``setup()``
-(:func:`set_run_seed`), so an action built in either place follows it.
+built (:func:`resolve_seed`); one given a number keeps it.  The run's seed is
+set (:func:`set_run_seed`) before the scenario is built, by the
+``scenario`` command (``examples/run.py``'s ``build_scenario``), and
+again before ``setup()``, by
+:meth:`~autoware_carla_scenario.ScenarioRunner.run_scenario` (to the
+scenario's ``random_seed``), so an action built in either place follows it.
 
 This module imports nothing but the standard library.
 """
@@ -32,7 +37,7 @@ This module imports nothing but the standard library.
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 __all__ = [
     "DEFAULT_SEED",
@@ -93,6 +98,16 @@ def check_whole_number(key: str, value: int) -> int:
         raise ValueError(f"{key} must be a whole number, got {value!r}")
     if isinstance(value, int):
         return int(value)
+    if TYPE_CHECKING:
+        pass
+    elif getattr(getattr(value, "dtype", None), "kind", None) == "b" or (
+        # numpy's ndim is an int; a stand-in's (a mock's) is not (#1906).
+        isinstance(getattr(value, "ndim", 0), int) and getattr(value, "ndim", 0) != 0
+    ):
+        # numpy's bool_ (or a 0-d bool array), which float() takes as 0 or
+        # 1 (#1900); and an array of one element, which the numpy on Python
+        # 3.10 (2.2) still converts (#1904).
+        raise ValueError(f"{key} must be a whole number, got {value!r}")
     # A float, or a number that is no int (numpy's integers): float() takes
     # anything with __float__ or __index__, and refuses the rest (None, a
     # list) with a TypeError.
@@ -100,6 +115,13 @@ def check_whole_number(key: str, value: int) -> int:
         number = float(value)
     except TypeError:
         raise ValueError(f"{key} must be a whole number, got {value!r}")
+    except OverflowError:
+        # A number too big for a float, but no int (Fraction(10**400)), as
+        # route.model's whole numbers refuse it (#1902).
+        # Its repr may hold more digits than str() writes, so it is not shown.
+        raise ValueError(
+            f"{key} must be a whole number, got one too big for a float"
+        ) from None
     if not math.isfinite(number):
         raise ValueError(f"{key} must be finite, got {value!r}")
     if math.floor(number) != number:

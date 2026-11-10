@@ -725,9 +725,20 @@ JOINT_TYPES: tuple[str, ...] = (
     "rod",
     "slide",
     "contact",
+    "support",
 )
 #: The types that join a point to a segment (``b`` is its start, ``end`` its end).
 SEGMENT_JOINT_TYPES: frozenset[str] = frozenset({"slide", "contact"})
+#: The types whose ``b`` is a SURFACE reference (an#519): ``ground`` (the
+#: shot's floor line), ``<body>@surface`` or ``<body>@surface@f`` (a body's
+#: supporting segment, the hold layer's grammar), or ``world@x,y`` with
+#: ``end`` (a stage segment). ``support`` only in v1: a ``contact`` is lowered
+#: by the solve, which resolves bodies and stage points only.
+SURFACE_REFS: frozenset[str] = frozenset({"support"})
+#: The surface a support names by a word: the shot's floor line.
+GROUND_SURFACE: str = "ground"
+#: The point name that makes ``<body>@surface`` a body's supporting segment.
+SURFACE_POINT: str = "surface"
 #: The types that may name only ``a``: a rig part's own joint to its parent.
 PART_JOINT_TYPES: frozenset[str] = frozenset({"hinge", "weld"})
 #: How a distance holds its length; ``string`` and ``rod`` imply one.
@@ -836,6 +847,18 @@ class JointSpec(_IRModel):
       ``mode``; ``string`` is a distance held at most, ``rod`` exactly.
     - ``slide`` keeps ``a`` on the segment ``b`` to ``end``; ``contact`` keeps
       it on the segment's free side (above a left-to-right segment).
+    - ``support`` (an#519) says ``a`` rests on the surface ``b``: no contact
+      point of ``a`` below it, and at least one on it. ``b`` is ``ground``,
+      ``<body>@surface[@f]``, or ``world@x,y`` with ``end``
+      (:data:`SURFACE_REFS`); ``a`` with no ``@`` is every contact of the body
+      (:func:`an.stage.support.contacts_of`: a character's feet, a prop's
+      ``metadata.contacts``, its rig's ``origin``, else its lowest ink), and
+      ``@name`` may name one. A lint only (the ``support`` check), never solved.
+
+    >>> JointSpec(type="support", a="cup@base", b="table@surface").id
+    'cup@base'
+    >>> JointSpec(type="support", a="cup", b="world@-50,0", end="world@50,0").end
+    'world@50,0'
 
     ``give`` is the joint's softness (compliance, px per unit of pull; 0 is
     rigid). ``name`` is what ``join`` and ``unjoin`` call it (default: ``a``).
@@ -844,7 +867,15 @@ class JointSpec(_IRModel):
     """
 
     type: Literal[
-        "pin", "hinge", "weld", "distance", "string", "rod", "slide", "contact"
+        "pin",
+        "hinge",
+        "weld",
+        "distance",
+        "string",
+        "rod",
+        "slide",
+        "contact",
+        "support",
     ]
     a: str
     b: str | None = None
@@ -872,7 +903,9 @@ class JointSpec(_IRModel):
             raise ValueError(
                 f"{where} needs `b`: the body (or `world@x,y`) it joins `a` to."
             )
-        if (self.end is not None) != (self.type in SEGMENT_JOINT_TYPES):
+        if self.type in SURFACE_REFS:
+            self._surface_well_formed(where)
+        elif (self.end is not None) != (self.type in SEGMENT_JOINT_TYPES):
             raise ValueError(
                 f"{where}: `end` (the segment's far end, with `b` its start) is for "
                 "slide and contact joints, and they need it."
@@ -901,6 +934,27 @@ class JointSpec(_IRModel):
                 "use `type: distance` for another mode."
             )
         return self
+
+    def _surface_well_formed(self, where: str) -> None:
+        """``b`` reads as a surface, and ``end`` is given iff ``b`` is a stage point."""
+        b = self.b or ""
+        head, _, at = b.partition("@")
+        on_stage = head == "world"
+        if not (
+            b == GROUND_SURFACE
+            or on_stage
+            or (head and at.partition("@")[0] == SURFACE_POINT)
+        ):
+            raise ValueError(
+                f"{where}: `b` {b!r} is not a surface: say `{GROUND_SURFACE}` (the "
+                f"floor line), `<body>@{SURFACE_POINT}` (a body's top), or "
+                "`world@x,y` with `end: world@x2,y2` (a stage segment)."
+            )
+        if (self.end is not None) != on_stage:
+            raise ValueError(
+                f"{where}: `end` (the segment's far end) goes with a `world@x,y` `b`, "
+                "and only with one."
+            )
 
     @model_serializer(mode="wrap")
     def _omit_unset(self, handler):
@@ -1388,6 +1442,19 @@ class World(_IRModel):
     #: The frames of reference, ``{name: Frame}``; ``world`` is the implicit
     #: root and a travel with a ``speed`` adds ``vehicle``.
     frames: dict[str, Frame] = Field(default_factory=dict)
+    #: The floor: the world ``y`` (down positive, in the ``world`` frame) of a
+    #: horizontal plane the members stand on (an#519). Lowering projects it
+    #: under each positioned member, at that member's depth, as the floor line
+    #: the ``support`` and ``skate`` checks measure ``b: ground`` against
+    #: (``overrides.ground``, :data:`an.base.GROUND_OVERRIDE`): each frame's
+    #: floor as lowered, under where the member stands then, with its place
+    #: along the floor in the frame it stands in, so a passenger standing
+    #: still over the world's floor (its car moving) does not skate. The line
+    #: is level on the stage (members do not roll with the camera); a member
+    #: whose hand ``stage.at`` wins gets none. Unset: no floor in the world,
+    #: and ``ground`` is the shot's ``solve.ground`` or where the member
+    #: stands as the shot opens.
+    ground: float | None = None
 
     def all_frames(self) -> dict[str, Frame]:
         """The declared frames plus the one a ``travel`` with a ``speed`` is
@@ -1511,7 +1578,7 @@ class World(_IRModel):
                 data.pop("viewpoints", None)
             if not self.frames:
                 data.pop("frames", None)
-        return _omit_none(data, "travel")
+        return _omit_none(data, "travel", "ground")
 
 
 # -----------------------------------------------------------------------------

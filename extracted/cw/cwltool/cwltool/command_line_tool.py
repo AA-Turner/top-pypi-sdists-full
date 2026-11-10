@@ -71,6 +71,7 @@ from .utils import (
     adjustFileObjs,
     aslist,
     get_listing,
+    is_dirent,
     normalizeFilesDirs,
     random_outdir,
     shared_file_lock,
@@ -420,9 +421,15 @@ def default_make_path_mapper(
 
 @mypyc_attr(allow_interpreted_subclasses=True)
 class CommandLineTool(Process):
-    def __init__(self, toolpath_object: CommentedMap, loadingContext: LoadingContext) -> None:
+    def __init__(
+        self,
+        toolpath_object: CommentedMap,
+        loadingContext: LoadingContext,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         """Initialize this CommandLineTool."""
-        super().__init__(toolpath_object, loadingContext)
+        super().__init__(toolpath_object, loadingContext, *args, **kwargs)
         base_command = self.tool.get("baseCommand")
         if isinstance(base_command, str) and len(base_command.split()) > 1:
             _logger.warning(
@@ -549,7 +556,17 @@ class CommandLineTool(Process):
             fail: Any = False
             fail_suffix: str = ""
             if not isinstance(ls_evaluated, MutableSequence):
-                fail = ls_evaluated
+                if classic_dirent:
+                    fail = ls_evaluated
+                elif (
+                    ls_evaluated is None
+                    or is_file_or_directory(ls_evaluated)
+                    or is_dirent(ls_evaluated)
+                ):
+                    # CWL v1.2 permits an expression to return a single item
+                    ls_evaluated = [ls_evaluated] if ls_evaluated is not None else []
+                else:
+                    fail = ls_evaluated
             else:
                 entry1: None | MutableSequence[CWLObjectType] | CWLObjectType
                 for entry1 in cast(

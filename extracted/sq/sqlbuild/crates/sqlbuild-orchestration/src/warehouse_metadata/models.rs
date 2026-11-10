@@ -74,81 +74,6 @@ pub struct WarehouseAuditRecord {
     pub audit_meta_json: Option<String>,
 }
 
-/// One stored check result. Its SQL, error texts and evidence rows need their own permissions.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct CheckResult {
-    pub event_id: Uuid,
-    /// Identity of the check; a renamed model or changed severity or thresholds starts a new one.
-    pub binding_key: String,
-    pub audit_name: String,
-    pub audit_definition_name: String,
-    pub audit_description: Option<String>,
-    pub attachment_kind: String,
-    pub attached_target_kind: Option<String>,
-    pub attached_target_name: Option<String>,
-    pub attached_column_name: Option<String>,
-    pub severity: String,
-    pub evaluation_mode: String,
-    pub run_scope_phase: String,
-    pub thresholds_json: Option<String>,
-    pub occurred_at: DateTime<Utc>,
-    pub run_id: String,
-    pub invocation_id: String,
-    pub outcome: String,
-    pub violation_count: Option<i64>,
-    pub measured_value: Option<String>,
-    pub sample_count: Option<i64>,
-    pub sample_unit: Option<String>,
-    pub minimum_samples: Option<i64>,
-    pub evidence_count: Option<i64>,
-    pub evidence_truncated: Option<String>,
-    pub reused: String,
-}
-
-impl CheckResult {
-    pub(crate) fn new(event_id: Uuid, record: WarehouseAuditRecord) -> Self {
-        Self {
-            event_id,
-            binding_key: record.binding_key,
-            audit_name: record.audit_name,
-            audit_definition_name: record.audit_definition_name,
-            audit_description: record.audit_description,
-            attachment_kind: record.attachment_kind,
-            attached_target_kind: record.attached_target_kind,
-            attached_target_name: record.attached_target_name,
-            attached_column_name: record.attached_column_name,
-            severity: record.severity,
-            evaluation_mode: record.evaluation_mode,
-            run_scope_phase: record.run_scope_phase,
-            thresholds_json: record.thresholds_json,
-            occurred_at: record.occurred_at,
-            run_id: record.run_id,
-            invocation_id: record.invocation_id,
-            outcome: record.outcome,
-            violation_count: record.violation_count,
-            measured_value: record.measured_value,
-            sample_count: record.sample_count,
-            sample_unit: record.sample_unit,
-            minimum_samples: record.minimum_samples,
-            evidence_count: record.evidence_count,
-            evidence_truncated: record.evidence_truncated,
-            reused: record.reused,
-        }
-    }
-}
-
-/// A check's latest SQL and error texts, which quote SQL; `view.sql` reads them, audited.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-pub struct CheckSql {
-    pub event_id: Uuid,
-    pub binding_key: String,
-    pub executed_sql: Option<String>,
-    pub measurement_sql: Option<String>,
-    pub evidence_sql: Option<String>,
-    pub execution_error: Option<String>,
-    pub evidence_error: Option<String>,
-}
-
 /// Warehouse cleanup facts do not authorize control-plane deletion or worker recovery.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -683,4 +608,72 @@ impl Default for StatisticsRetention {
             days: DEFAULT_STATISTICS_RETENTION_DAYS,
         }
     }
+}
+
+/// A current snapshot node's declared metadata and latest build, without SQL, source or config.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct CatalogNodeRecord {
+    pub node_key: String,
+    /// The snapshot node kind, such as `model`, `seed`, `source` or `audit`.
+    pub kind: String,
+    pub name: String,
+    pub path: Option<String>,
+    pub materialization: Option<String>,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+    /// Keys of the nodes this node reads.
+    pub dependencies: Vec<String>,
+    /// The warehouse relation the node builds or reads.
+    pub relation: Option<CatalogRelation>,
+    pub column_count: Option<usize>,
+    /// The newest fingerprint recorded for the node at its current relation, from any build.
+    pub last_build: Option<CatalogNodeBuild>,
+    pub snapshot_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct CatalogRelation {
+    pub database: Option<String>,
+    pub schema: String,
+    pub name: String,
+}
+
+/// A fingerprint row's build identity; the `sqb` run that wrote it, not a scheduler run.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct CatalogNodeBuild {
+    pub observed_at: DateTime<Utc>,
+    pub run_id: String,
+    pub version_hash: String,
+}
+
+/// A node's columns as its compiled definition infers them; `data_type` is absent when inference could not tell.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct LineageNodeColumns {
+    pub node_key: String,
+    pub kind: String,
+    pub columns: Vec<LineageColumn>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct LineageColumn {
+    pub name: String,
+    pub data_type: Option<String>,
+}
+
+/// One published column lineage edge; `transform` is the compiler's transform kind, such as `direct` or `cast`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ColumnLineageEdge {
+    pub source_key: String,
+    pub source_column: String,
+    pub target_key: String,
+    pub target_column: String,
+    pub transform: String,
+}
+
+/// The column lineage reaching or leaving one node, from the current snapshot; empty before one publishes lineage.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ColumnLineageRead {
+    pub snapshot_id: Option<Uuid>,
+    pub nodes: Vec<LineageNodeColumns>,
+    pub edges: Vec<ColumnLineageEdge>,
 }

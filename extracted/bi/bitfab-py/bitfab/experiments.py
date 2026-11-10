@@ -43,6 +43,8 @@ class Experiment(TypedDict):
     codeChangeTotals: ExperimentCodeChangeTotals | None
     experimentGroupId: str | None
     experimentGroupName: str | None
+    baselineExperimentId: str | None
+    baselineExperimentName: str | None
     datasetId: str | None
     datasetName: str | None
     datasetIds: list[str]
@@ -144,9 +146,9 @@ class ExperimentSummaryChange(TypedDict):
 
 
 class ExperimentSummaryBaseline(TypedDict):
-    """What the run was compared against: the first finished run in the same experiment group for the same traced function (``group_experiment``), or the run's original traces (``original_traces``)."""
+    """What the run was compared against: the experiment set as its baseline (``chosen_experiment``), else the first finished run in the same experiment group for the same traced function (``group_experiment``), else the run's original traces (``original_traces``)."""
 
-    kind: Literal["group_experiment", "original_traces"]
+    kind: Literal["chosen_experiment", "group_experiment", "original_traces"]
     experimentId: str | None
     name: str | None
 

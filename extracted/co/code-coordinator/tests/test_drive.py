@@ -76,9 +76,12 @@ from coord.drive import (
 )
 from coord.drive_state import IssueState
 from coord.drive_queue import entry_key
+from coord.entry_truth import EntryTruth
 from coord.failure_class import environmental_backoff_secs
+from coord.gates import GateDecision
 from coord.models import (
     EPIC_DECOMPOSE_TYPE,
+    NEEDS_DECOMPOSITION_MARKER,
     POLICY_REFUSAL_MARKER,
     PREMISE_REFUSAL_MARKER,
     Machine,
@@ -138,17 +141,28 @@ class FakeVerifier:
         # touched this, so leaving it off preserves their assertions
         # byte-for-byte; the #3479 tests below override it explicitly.
         github_backoff: bool = False,
+        # #3933: the live `EntryTruth` `GitMergeVerifier.entry_truth` would
+        # return. `None` (the default) is "no live truth available" — every
+        # pre-#3933 test never touched this, so `_decide_merge`'s truth-
+        # driven override never fires and every existing assertion is
+        # preserved byte-for-byte; the #3933 tests below pass a real
+        # `EntryTruth` to exercise it.
+        entry_truth: "EntryTruth | None" = None,
     ) -> None:
         self._has_commits = has_commits
         self._merged = merged
         self._head_sha = head_sha
         self._epic_snapshot = epic_snapshot
         self._github_backoff = github_backoff
+        self._entry_truth = entry_truth
         self.commits_calls = 0
         self.merged_calls = 0
         self.head_sha_calls = 0
         self.epic_snapshot_calls = 0
         self.github_backoff_calls = 0
+        self.entry_truth_calls = 0
+        self.config = None
+        self.set_config_calls = 0
 
     def branch_has_commits(self, s: IssueState) -> bool | None:
         self.commits_calls += 1
@@ -169,6 +183,14 @@ class FakeVerifier:
     def github_backoff_active(self) -> bool:
         self.github_backoff_calls += 1
         return self._github_backoff
+
+    def entry_truth(self, s: IssueState) -> "EntryTruth | None":
+        self.entry_truth_calls += 1
+        return self._entry_truth
+
+    def set_config(self, config) -> None:
+        self.set_config_calls += 1
+        self.config = config
 
 
 def step(s: IssueState, opts: DriveOptions | None = None, **kw) -> Action:
@@ -2278,6 +2300,55 @@ def test_refused_premise_is_not_bypassed_without_an_explicit_recheck():
     assert action.audit_event is None
 
 
+# ── needs_decomposition: #3931's distinct terminal shape ────────────────────
+
+
+def test_needs_decomposition_work_is_terminal_and_carries_the_3931_marker():
+    """`coord.agent.NEEDS_DECOMPOSITION` reaches here as `work_status ==
+    "needs_decomposition"` and must exit — never wait, never relaunch. The
+    message embeds `NEEDS_DECOMPOSITION_MARKER` so `coord/drive_queue.py`'s
+    `_reconcile_running` can recognise it out of this run's own
+    `drive_exited` audit summary and park the queue entry (STATE_PARKED)
+    without spending an attempt, instead of relaunching into the identical
+    split proposal (#3922's incident)."""
+    action = step(state(work_aid="w1", work_status="needs_decomposition"))
+    assert action.is_exit
+    assert action.exit_code == EXIT_TERMINAL_FAILURE
+    assert NEEDS_DECOMPOSITION_MARKER in action.message
+    assert "needs the coordinator" in action.message.lower()
+
+
+def test_needs_decomposition_still_blocking_names_the_assignment_and_age():
+    """Mirrors refused_premise's naming guarantee: the message names the
+    pre-dispatch assignment it refused on and the row's age."""
+    action = step(
+        state(
+            work_aid="w1",
+            work_status="needs_decomposition",
+            work_finished_at=1000.0,
+        )
+    )
+    assert action.is_exit
+    assert "pre-dispatch refusal on assignment w1" in action.message
+    assert "needs_decomposition" in action.message
+    assert NEEDS_DECOMPOSITION_MARKER in action.message
+
+
+def test_needs_decomposition_remedy_names_decomposition_not_retarget_or_recheck():
+    """Unlike refused_policy, the remedy must never suggest a title
+    retarget. Unlike refused_premise, it must never suggest `clear-refusal`
+    — there is no "the prerequisite has since landed" escape hatch for an
+    issue that still needs decomposing; the only remedy is to decompose it."""
+    action = step(
+        state(work_aid="w1", work_status="needs_decomposition", work_finished_at=1000.0)
+    )
+    assert action.is_exit
+    message_lower = action.message.lower()
+    assert "retarget" not in message_lower
+    assert "clear-refusal" not in message_lower
+    assert "decompose" in message_lower
+
+
 def test_an_unknown_terminal_status_refuses_to_guess():
     """No terminal status may fall through to a bare wait (PR #1386)."""
     action = step(state(work_aid="w1", work_status="wat"))
@@ -3434,10 +3505,147 @@ def test_no_review_row_yet_waits_for_coords_auto_dispatch():
     assert action.command == ()
 
 
+# ───────────────────────────────────────────────────────────────────────────
+# A SCOPED re-review's review_of_assignment_id can anchor to an OLDER round
+# of the same chain (see coord.auto_loop.propagate_review_verdict's
+# docstring) — `drive_state.project`'s review match, keyed on the exact
+# current work id, finds nothing even though an approval genuinely landed.
+# The merge queue's OWN gate (`merge_queue.has_approved_review`, tolerant of
+# the same chain via branch/parent matching — #292) can still see it and
+# report READY. `active_count == 0` is guaranteed by the time decide()
+# reaches this arm (the active_count > 0 guard at the top of decide() would
+# already have returned otherwise).
+# ───────────────────────────────────────────────────────────────────────────
+
+
+def test_missing_review_with_ready_gate_falls_through_to_merge():
+    action = step(work_tested(merge_status="READY", merge_aid="w1"))
+    assert action.command == ("merge", "--only", "w1", "--method", "rebase")
+
+
+def test_missing_review_waits_when_gate_is_only_pending():
+    """The override is narrow: a merge_status of PENDING (not READY yet)
+    must still wait on the review, exactly as before."""
+    action = step(work_tested(merge_status="PENDING"))
+    assert action.kind == WAIT
+    assert action.command == ()
+
+
+def test_request_changes_verdict_is_not_overridden_by_a_ready_gate():
+    """The override only ever short-circuits a bare WAIT with no review row
+    at all — a genuine request-changes verdict (a RUN fix dispatch) must
+    never be swallowed just because some OTHER queue entry happens to read
+    READY."""
+    action = step(
+        work_tested(
+            review_aid="r1", review_verdict="request-changes",
+            merge_status="READY",
+        )
+    )
+    assert action.kind == RUN
+    assert action.command == ("fix", "r1")
+
+
+def test_fix_already_dispatched_latch_is_not_overridden_by_a_ready_gate():
+    """A WAIT that already has a review row to explain itself — the "fix
+    already dispatched, waiting for the fix row" latch — must keep waiting
+    even when some OTHER queue entry happens to read READY; the override is
+    for the "no verdict AND no review row at all" shape only."""
+    counters = DriveCounters()
+    counters.review_fix_dispatched_for = "r1"
+    action = step(
+        work_tested(
+            review_aid="r1", review_verdict="request-changes",
+            merge_status="READY",
+        ),
+        counters=counters,
+    )
+    assert action.kind == WAIT
+    assert action.command == ()
+
+
 def test_a_review_that_finished_with_no_verdict_is_terminal():
     action = step(work_tested(review_aid="r1", work_review_state="done"))
     assert action.is_exit
     assert "NO verdict" in action.message
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# #3938: quadraui#2226 held a queue slot for 6+ hours with an approving
+# review, a passing test and a mergeable PR, because the #3891 override
+# above only fired on `merge_status == "READY"`. The merge queue had
+# already ATTEMPTED the merge and recorded `PENDING` with a CI-failure
+# reason — which, per `merge_queue._entry_gate_status`'s fixed gate order
+# (review -> smoke -> uat -> CI -> merge mechanics), could only have been
+# recorded after the review gate itself already passed. The override must
+# fire on that shape too, not just on a bare READY.
+# ───────────────────────────────────────────────────────────────────────────
+
+
+def test_missing_review_falls_through_to_merge_on_a_confirmed_ci_failure():
+    """A PENDING entry whose recorded reason is a confirmed CI failure could
+    only have been written AFTER the review gate passed (#3938) — the
+    override must fire, routing to the merge arm (which runs the #2252
+    flake re-check / `_dispatch_ci_fixes`), not wait forever."""
+    action = step(
+        work_tested(
+            merge_status="PENDING",
+            merge_reason="checks failed: gtk (build, test, clippy) (failure)",
+            merge_aid="w1",
+        )
+    )
+    assert action.command == ("merge", "--only", "w1", "--method", "rebase")
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "CI running: gtk (build, test, clippy)",
+        "CI infra: gtk (build, test, clippy) — no verdict about the code",
+        "CI re-checking: gtk (build, test, clippy) — failing checks shifted",
+        "merge gate reserved for coord-drive-quadraui-9999 until 2026-11-10",
+    ],
+)
+def test_missing_review_falls_through_to_merge_on_other_ci_stage_reasons(reason):
+    """Flake re-checks, CI-infra reasons and the #3886 per-repo merge-gate
+    reservation are all evaluated strictly after the review gate — same
+    override, same reasoning as the confirmed-failure case above."""
+    action = step(
+        work_tested(merge_status="PENDING", merge_reason=reason, merge_aid="w1")
+    )
+    assert action.command == ("merge", "--only", "w1", "--method", "rebase")
+
+
+def test_missing_review_still_waits_when_the_queues_own_reason_names_review():
+    """The queue's own PENDING reason names the review gate itself ("review
+    not approved") — the queue has NOT confirmed an approval here, so the
+    override must not fire even though `merge_status` is nominally
+    retryable."""
+    action = step(
+        work_tested(
+            merge_status="PENDING", merge_reason="review not approved",
+            merge_aid="w1",
+        )
+    )
+    assert action.kind == WAIT
+    assert action.command == ()
+
+
+def test_missing_review_still_waits_on_an_unknown_branch_head():
+    """`unknown_head` is ambiguous — review's own scan, or a later gate's,
+    can equally produce it (see `_merge_gate_kind`'s docstring) — so it must
+    not be read as "review confirmed" either."""
+    from coord.merge_queue import UNKNOWN_BRANCH_HEAD_REASON
+
+    action = step(
+        work_tested(
+            merge_status="PENDING",
+            merge_reason=UNKNOWN_BRANCH_HEAD_REASON,
+            merge_aid="w1",
+        )
+    )
+    assert action.kind == WAIT
+    assert action.command == ()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3957,6 +4165,22 @@ def test_no_merge_stops_after_the_review_approves():
     assert action.is_exit
     assert action.exit_code == EXIT_OK
     assert "coord merge --only w1" in action.message
+    assert "review approved" in action.message
+
+
+def test_no_merge_stops_on_a_ready_gate_with_no_review_row():
+    """No review was actually observed here — the message must say the
+    merge queue's own gate already passed review, not claim a review
+    approval this driver never read."""
+    action = step(
+        work_tested(merge_status="READY", merge_aid="w1"),
+        DriveOptions(machine="precision", do_merge=False),
+    )
+    assert action.is_exit
+    assert action.exit_code == EXIT_OK
+    assert "coord merge --only w1" in action.message
+    assert "merge queue's own review gate already passed" in action.message
+    assert "review approved" not in action.message
 
 
 def test_an_approved_review_merges_through_the_cli_under_the_merge_lock():
@@ -4352,6 +4576,41 @@ def test_human_required_merge_is_terminal_with_the_override_recipe():
 @pytest.mark.parametrize("status", ["HUMAN_REQUIRED", "human_required"])
 def test_human_required_is_matched_case_insensitively(status):
     assert step(approved_work(merge_status=status)).is_exit
+
+
+def test_human_required_message_claims_a_give_up_for_an_ordinary_conflict():
+    """#3871: the generic exit text only claims "an automated conflict-fix
+    already gave up" when `conflict_fix_actually_gave_up` confirms one
+    actually did — an ordinary mechanical give-up message qualifies."""
+    action = step(approved_work(
+        merge_status="HUMAN_REQUIRED",
+        merge_reason=(
+            "Pull request #1 is not mergeable; conflict-fix worker did "
+            "not resolve. Manual rebase required."
+        ),
+    ))
+    assert action.is_exit
+    assert "An automated conflict-fix already gave up." in action.message
+
+
+def test_human_required_message_does_not_claim_a_give_up_when_head_unmoved():
+    """#3871: a "branch head did not move" latch means the leg never
+    actually pushed — no real conflict defeated it, so the exit text must
+    not say one did."""
+    action = step(approved_work(
+        merge_status="HUMAN_REQUIRED",
+        merge_reason=(
+            "Pull request #1 is not mergeable; the conflict-fix worker "
+            "completed but the branch head did not move (still abc123) "
+            "— the push appears to be missing or was rejected, and a "
+            "fresh automated conflict-fix could not be dispatched (no "
+            "capable machine, or one already active) — push the fix by "
+            "hand, or re-run `coord merge` once a machine is free."
+        ),
+    ))
+    assert action.is_exit
+    assert "An automated conflict-fix already gave up." not in action.message
+    assert "No conflict-fix worker was defeated by a real conflict" in action.message
 
 
 def test_a_conflict_runs_coord_merge_rather_than_waiting_forever():
@@ -5389,6 +5648,88 @@ def test_a_confirmed_failure_after_the_recheck_walks_the_bounded_retry_path():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# #3886: a sibling entry deferred behind another row's per-repo merge-gate
+# reservation (`coord.merge_queue.is_merge_gate_reserved_reason`) is NOT a
+# CI reason, but is self-refreshing the identical way: nothing about
+# retrying resolves it faster, only the holder merging/leaving the queue or
+# the reservation's own TTL expiring does. Before this, `merge_status`
+# stayed PENDING/READY (a `_RETRYABLE_MERGE_STATUSES` member) while this
+# text sat on `merge_reason`, so a live `coord drive` session walked the
+# GENERIC bounded retry instead — spending `counters.merge_attempts` on
+# every poll and dying at `--max-merge-attempts` (default 3) while the
+# reservation's own TTL (2h) still had most of its life left: a deferral
+# that read, to the operator, as a terminal drive failure.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize("status", ["", "PENDING", "READY", "BLOCKED"])
+def test_merge_gate_reserved_retries_for_real_regardless_of_which_status_the_board_shows(
+    status,
+):
+    action = step(
+        approved_work(
+            merge_status=status,
+            merge_reason="merge gate reserved for api#1 until 2026-01-01T00:00:00+00:00",
+        )
+    )
+    assert action.kind == RUN
+    assert action.command == ("merge", "--only", "w1", "--method", "rebase")
+    assert action.serialize_merge is True
+    assert "merge gate reserved for api#1" in action.label
+    assert "not spending an attempt" in action.label
+
+
+def test_merge_gate_reserved_never_spends_a_merge_attempt():
+    """Acceptance (#3886): the exact failure mode this closes — without the
+    attempt-exempt arm, three polls would hit `--max-merge-attempts` and
+    the drive would `_die()` while the reservation still had ~2h left."""
+    counters = DriveCounters()
+    opts = DriveOptions(machine="precision", max_merge_attempts=2)
+    s = approved_work(
+        merge_status="",
+        merge_reason="merge gate reserved for api#1 until 2026-01-01T00:00:00+00:00",
+    )
+
+    for _ in range(5):
+        action = step(s, opts, counters=counters)
+        assert action.kind == RUN
+        assert action.command == ("merge", "--only", "w1", "--method", "rebase")
+        assert counters.merge_attempts == 0
+
+
+def test_merge_gate_reserved_reason_is_recognised_via_the_shared_predicate():
+    from coord.merge_queue import (
+        MERGE_GATE_RESERVED_PREFIX,
+        is_merge_gate_reserved_reason,
+    )
+
+    assert is_merge_gate_reserved_reason(f"{MERGE_GATE_RESERVED_PREFIX}api#1 until x")
+    assert not is_merge_gate_reserved_reason("checks failed: build (failure)")
+    assert not is_merge_gate_reserved_reason("CI running: build")
+    assert not is_merge_gate_reserved_reason("")
+    assert not is_merge_gate_reserved_reason(None)
+
+
+def test_merge_gate_reserved_reason_wins_over_a_stale_diagnostic_fallback():
+    """#2229's fallback (`_extract_gate_refusal_reason` over a captured
+    diagnostic) must never outrank this live board reason — mirrors the
+    identical contract the four CI-outcome reasons already have in
+    `_effective_merge_gate_reason`."""
+    from coord.drive import _effective_merge_gate_reason
+
+    counters = DriveCounters()
+    counters.last_merge_diagnostic = "  gate review: review required but not approved — will block this merge"
+    s = approved_work(
+        merge_status="READY",
+        merge_reason="merge gate reserved for api#1 until 2026-01-01T00:00:00+00:00",
+    )
+
+    reason, from_diagnostic = _effective_merge_gate_reason(s, counters)
+    assert reason == s.merge_reason
+    assert from_diagnostic is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # #3254: the FIFTH CI-outcome case — #1904's `checks_absent`
 # (`is_ci_absent_reason`): this repo declares CI but reported ZERO checks for
 # the PR. Unlike #1891/#1892/#2252/#2347 above, this is NOT self-refreshing —
@@ -5631,10 +5972,175 @@ def test_stale_smoke_divergence_also_matches_the_plan_wording():
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# #3933: live EntryTruth overrides a stale "smoke" classification — the
+# quadraui#2173 replay (part of epic #3924, following #3922's EntryTruth).
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_entry_truth_review_unmet_overrides_a_stale_smoke_classification():
+    """quadraui#2173: the board's persisted `merge_reason` named the SMOKE
+    gate (a stale conclusion from an earlier attempt) while `work_test_state`
+    read "passed" — the classic #1526 divergence. A live `EntryTruth`
+    confirms test is genuinely fine and the gate ACTUALLY still unmet is
+    review (voided by a patch-id change after `merge_reason` was captured).
+
+    Expected: escalate naming the REVIEW gate, not the smoke re-test arm —
+    never a direct `coord review` dispatch, which `dispatch_review` would
+    hard-refuse outright (#3670, one review per leg) for exactly this
+    voided-approval shape (`approved_work()` already carries a recorded
+    `review_verdict="approve"`), so a bare command-argv assertion here would
+    prove the request was issued without proving it could ever succeed.
+    """
+    counters = DriveCounters()
+    truth = EntryTruth(
+        repo_name=REPO,
+        issue_number=ISSUE,
+        test=GateDecision(gate="test", required=True, ok=True),
+        review=GateDecision(
+            gate="review", required=True, ok=False,
+            reason="review voided by patch-id change",
+        ),
+        next_action="dispatch_review",
+        next_action_reason="review voided by patch-id change",
+    )
+    verifier = FakeVerifier(entry_truth=truth)
+    action = step(
+        approved_work(
+            merge_status="READY",
+            merge_reason="smoke test required but no verdict recorded",
+        ),
+        counters=counters,
+        verifier=verifier,
+    )
+    assert action.is_exit
+    assert action.exit_code == EXIT_ESCALATED
+    assert "review voided by patch-id change" in action.message
+    assert "review-reaffirm" in action.message
+    assert counters.merge_attempts == 0
+    assert counters.fix_rounds == 0  # no Test re-run was ever dispatched
+    assert verifier.entry_truth_calls == 1
+
+
+def test_entry_truth_review_unmet_overrides_the_stale_smoke_redispatch_arm_too():
+    """Same override, against the OTHER smoke-divergence arm (#1738's
+    already-stale, not merely missing, verdict wording) — the live truth
+    must win regardless of which of the two smoke sub-cases classified the
+    persisted reason."""
+    truth = EntryTruth(
+        repo_name=REPO,
+        issue_number=ISSUE,
+        test=GateDecision(gate="test", required=True, ok=True),
+        review=GateDecision(gate="review", required=True, ok=False),
+        next_action="dispatch_review",
+        next_action_reason="review required but not approved",
+    )
+    action = step(
+        approved_work(
+            merge_status="READY",
+            merge_reason=(
+                "smoke test verdict is stale: recorded against base "
+                "23acfbb, base is now b263929 — re-verify against the "
+                "current base, then `coord test w1 --passed`"
+            ),
+        ),
+        verifier=FakeVerifier(entry_truth=truth),
+    )
+    assert action.is_exit
+    assert action.exit_code == EXIT_ESCALATED
+    assert "review" in action.message.lower()
+
+
+def test_entry_truth_unavailable_preserves_the_pre_3933_escalate_behaviour():
+    """When `entry_truth()` returns `None` (no config, a board/gh read
+    failure) the override never fires — every pre-#3933 assertion about this
+    exact board shape (see `test_smoke_required_with_a_passed_test_state_
+    escalates_instead_of_retrying` above) must still hold byte-for-byte."""
+    action = step(
+        approved_work(
+            merge_status="READY",
+            merge_reason="smoke test required but no verdict recorded",
+        ),
+    )
+    assert action.is_exit
+    assert action.exit_code == EXIT_ESCALATED
+    assert "coord test w1 --passed" in " ".join(action.command)
+
+
+def test_entry_truth_not_consulted_when_there_is_no_smoke_divergence():
+    """The live truth read is not free (`reconcile_entry` fetches the branch
+    head, patch-id, issue state, PR lifecycle and CI summary) — it must only
+    be consulted once a smoke divergence is already suspected, never on
+    every merge-stage poll."""
+    verifier = FakeVerifier()
+    step(approved_work())  # no divergence at all: plain merge retry
+    step(approved_work(), verifier=verifier)
+    assert verifier.entry_truth_calls == 0
+
+
+def test_entry_truth_not_consulted_during_a_github_backoff_window():
+    """#2809/#3479: no probe (real or otherwise) is issued while a GitHub
+    backoff window is in force — `entry_truth()` issues several of its own
+    live `gh` reads, so it must respect the SAME guard every other live
+    read in this function already does, rather than hammering GitHub while
+    it's backing off."""
+    verifier = FakeVerifier(
+        github_backoff=True,
+        entry_truth=EntryTruth(
+            repo_name=REPO, issue_number=ISSUE, next_action="dispatch_review",
+        ),
+    )
+    action = step(
+        approved_work(
+            merge_status="READY",
+            merge_reason="smoke test required but no verdict recorded",
+        ),
+        verifier=verifier,
+    )
+    assert verifier.entry_truth_calls == 0
+    # Unaffected: falls through to the pre-#3933 escalate behaviour.
+    assert action.is_exit
+    assert action.exit_code == EXIT_ESCALATED
+
+
+def test_entry_truth_review_ok_does_not_override_a_genuine_smoke_divergence():
+    """A live truth that AGREES the test gate is fine but has nothing to say
+    against review (review satisfied or not required) must change nothing —
+    the override is specific to "review is the gate that's really unmet",
+    not "any truth is available"."""
+    truth = EntryTruth(
+        repo_name=REPO,
+        issue_number=ISSUE,
+        test=GateDecision(gate="test", required=True, ok=True),
+        review=GateDecision(gate="review", required=True, ok=True),
+        next_action="merge",
+    )
+    action = step(
+        approved_work(
+            merge_status="READY",
+            merge_reason="smoke test required but no verdict recorded",
+        ),
+        verifier=FakeVerifier(entry_truth=truth),
+    )
+    assert action.is_exit
+    assert action.exit_code == EXIT_ESCALATED
+
+
 def test_stale_smoke_redispatch_is_bounded_by_max_fix_rounds():
     """The re-test arm shares the SAME `fix_rounds` budget as the test-failed
     and review-fix arms (#1738) — it must converge to an escalation, not spin
-    forever, if the verdict keeps going stale."""
+    forever, if the verdict keeps going stale.
+
+    #3917: a board-sourced stale-smoke `merge_reason` is now latched exactly
+    like a diagnostic-sourced one — `coord.merge_queue.process()` only ever
+    rewrites the persisted `error` this reason is read from on a REAL merge
+    attempt (#420), so re-testing it twice in a row with no such attempt in
+    between would spend two `fix_rounds` on byte-identical evidence. Each
+    re-test is now followed by a real `coord merge --only` attempt (which
+    releases the latch and spends no `fix_rounds`) before the NEXT re-test
+    is allowed to fire — so with `max_fix_rounds=2` the sequence is
+    re-test / merge-attempt / re-test / merge-attempt / escalate, not the
+    pre-#3917 back-to-back re-test / re-test / escalate."""
     counters = DriveCounters()
     opts = DriveOptions(machine="precision", max_fix_rounds=2)
     s = approved_work(
@@ -5644,8 +6150,30 @@ def test_stale_smoke_redispatch_is_bounded_by_max_fix_rounds():
 
     first = step(s, opts, counters=counters)
     assert first.kind == RUN
+    assert first.command[0] == "diagnose"
+    assert counters.fix_rounds == 1
+
+    # Latched: no real merge attempt has re-validated the first re-test yet,
+    # so this poll re-attempts the merge for real instead of re-testing
+    # again — and spends no `fix_rounds` unit doing so.
     second = step(s, opts, counters=counters)
     assert second.kind == RUN
+    assert second.command[0] == "merge"
+    assert counters.fix_rounds == 1
+    assert counters.merge_attempts == 1
+
+    # The real attempt above released the latch — a second re-test may fire.
+    third = step(s, opts, counters=counters)
+    assert third.kind == RUN
+    assert third.command[0] == "diagnose"
+    assert counters.fix_rounds == 2
+
+    fourth = step(s, opts, counters=counters)
+    assert fourth.kind == RUN
+    assert fourth.command[0] == "merge"
+    assert counters.fix_rounds == 2
+    assert counters.merge_attempts == 2
+
     exhausted = step(s, opts, counters=counters)
     assert exhausted.is_exit
     assert exhausted.exit_code == EXIT_ESCALATED
@@ -5665,6 +6193,91 @@ def test_stale_smoke_redispatch_respects_max_fix_rounds_zero():
     )
     assert action.is_exit
     assert action.exit_code == EXIT_ESCALATED
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# #3861: the latched stale-smoke `merge_reason` — `merge_queue.process()`
+# only rewrites `entry.error`/`merge_reason` on a REAL merge attempt, never
+# on the #1738 re-test arm above, so the SAME "recorded against branch
+# <old>" text can keep reproducing on every poll even after a fresher Test
+# pass already lands against the live head. quadraui#1975/PR#2008 passed
+# Test on its current head TWICE and still never merged, because each poll
+# re-read that stale text and burned a `fix_rounds` unit re-testing evidence
+# that was not actually stale.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_stale_smoke_refusal_superseded_by_a_fresher_pass_reattempts_merge():
+    """The work row's own `test_head_sha` already matches a LIVE probe of
+    the branch head — confirmed via `verifier.branch_head_sha`, not merely
+    inferred from the refusal's own embedded (possibly equally stale) SHA
+    text — so the refusal is itself outdated. The drive must re-attempt
+    `coord merge` to refresh the gate, never re-test, and must not spend a
+    `fix_rounds` unit on it."""
+    counters = DriveCounters()
+    live_head = "e8c8948" + "0" * 33
+    action = step(
+        approved_work(
+            merge_status="PENDING",
+            merge_reason=(
+                "smoke test verdict is stale: recorded against branch "
+                "3d2a8c8, branch is now e8c8948 — re-verify against the "
+                "current base, then `coord test w1 --passed`"
+            ),
+            work_test_head_sha=live_head,
+        ),
+        verifier=FakeVerifier(head_sha=live_head),
+        counters=counters,
+    )
+    assert action.kind == RUN
+    assert not action.is_exit
+    assert action.command == ("merge", "--only", "w1", "--method", "rebase")
+    assert counters.fix_rounds == 0
+    assert "re-attempting merge" in action.label.lower()
+
+
+def test_stale_smoke_refusal_still_retests_when_the_verdict_is_genuinely_stale():
+    """Sibling negative case: `test_head_sha` does NOT match the live branch
+    head (nothing has re-tested the current commit yet) — the verdict really
+    is stale, so the existing bounded re-test arm still fires, unchanged."""
+    counters = DriveCounters()
+    action = step(
+        approved_work(
+            merge_status="PENDING",
+            merge_reason=(
+                "smoke test verdict is stale: recorded against branch "
+                "3d2a8c8, branch is now e8c8948 — re-verify against the "
+                "current base, then `coord test w1 --passed`"
+            ),
+            work_test_head_sha="3d2a8c8" + "0" * 33,
+        ),
+        verifier=FakeVerifier(head_sha="e8c8948" + "0" * 33),
+        counters=counters,
+    )
+    assert action.kind == RUN
+    assert action.command == (
+        "diagnose", REPO, str(ISSUE), "--stage", "test", "--reset",
+    )
+    assert counters.fix_rounds == 1
+
+
+def test_stale_smoke_anchor_distinguishes_branch_base_and_run():
+    from coord.drive import _stale_smoke_anchor
+
+    assert _stale_smoke_anchor(
+        "smoke test verdict is stale: recorded against branch X, branch is "
+        "now Y"
+    ) == "branch"
+    assert _stale_smoke_anchor(
+        "test verdict stale (recorded against base X, base now Y)"
+    ) == "base"
+    assert _stale_smoke_anchor(
+        "test verdict stale (Test stage stuck at 'running' with no live "
+        "worker)"
+    ) == "run"
+    assert _stale_smoke_anchor("smoke test required but no verdict recorded") is None
+    assert _stale_smoke_anchor("") is None
+    assert _stale_smoke_anchor(None) is None
 
 
 def test_missing_smoke_verdict_divergence_still_escalates_immediately():
@@ -5893,6 +6506,38 @@ def test_diagnostic_derived_retest_fires_once_per_captured_snapshot():
     assert counters.fix_rounds == 1
 
     # Same frozen diagnostic, same board — must NOT spend a second fix round.
+    second = step(s, opts, counters=counters)
+    assert second.kind == RUN
+    assert second.command == ("merge", "--only", "w1", "--method", "rebase")
+    assert counters.fix_rounds == 1
+    assert counters.merge_attempts == 1
+
+
+def test_board_sourced_retest_fires_once_per_reason_too():
+    """#3917 (quadraui#2173): the SAME one-re-test-per-snapshot latch the
+    previous test proves for a diagnostic-sourced reason must ALSO cover a
+    reason read straight off the board's own `merge_reason` — the incident
+    this closes re-tested a board-sourced "smoke test verdict is stale"
+    reason five times across two drive runs, all passing, because nothing
+    had ever cleared the persisted `QueuedMerge.error` it was read from
+    (#420) and the pre-#3917 latch only armed for the diagnostic source."""
+    counters = DriveCounters()
+    opts = DriveOptions(machine="precision", max_fix_rounds=3)
+    s = approved_work(
+        merge_status="READY",
+        merge_reason=(
+            "smoke test verdict is stale: recorded against branch "
+            "c6ef8e6, branch is now 4fb8bea — re-verify against the "
+            "current base, then `coord test w1 --passed`"
+        ),
+    )
+
+    first = step(s, opts, counters=counters)
+    assert first.command[0] == "diagnose"
+    assert counters.fix_rounds == 1
+
+    # Same board reason, no real merge attempt in between — must NOT spend
+    # a second fix round re-testing evidence that cannot have changed.
     second = step(s, opts, counters=counters)
     assert second.kind == RUN
     assert second.command == ("merge", "--only", "w1", "--method", "rebase")
@@ -6438,6 +7083,72 @@ def test_github_backoff_active_clears_once_the_window_expires():
     # `now=1000.0` + 1s window this recorded — same "fails open once
     # expired" contract `coord.github_throttle.current()` documents.
     assert GitMergeVerifier().github_backoff_active() is False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GitMergeVerifier.entry_truth — #3933's live-truth seam
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_entry_truth_returns_none_without_a_config():
+    """No `config` was ever threaded through (an older construction site, or
+    a test double that never set it) — fail closed to "no truth available",
+    never attempt the live reads at all."""
+    assert GitMergeVerifier(config=None).entry_truth(state()) is None
+
+
+def test_entry_truth_calls_reconcile_entry_with_the_live_seams(monkeypatch):
+    """The happy path: `build_board()` and `reconcile_entry()` are called
+    with exactly the arguments the one existing production call site
+    (`coord.commands.gates.gates`) uses — same `gh_ops` module, same
+    `GitHubCi` — so this driver's truth can never silently diverge from what
+    `coord gates` would print for the identical issue."""
+    import coord.drive as drive_mod
+
+    sentinel_board = object()
+    sentinel_truth = object()
+    captured: dict = {}
+
+    def fake_build_board():
+        return sentinel_board
+
+    def fake_reconcile_entry(board, config, repo, issue, *, gh_ops=None, ci_store=None):
+        captured["board"] = board
+        captured["config"] = config
+        captured["repo"] = repo
+        captured["issue"] = issue
+        captured["gh_ops"] = gh_ops
+        captured["ci_store"] = ci_store
+        return sentinel_truth
+
+    monkeypatch.setattr("coord.state.build_board", fake_build_board)
+    monkeypatch.setattr("coord.entry_truth.reconcile_entry", fake_reconcile_entry)
+
+    cfg = make_config()
+    verifier = GitMergeVerifier(config=cfg)
+    result = verifier.entry_truth(state())
+
+    assert result is sentinel_truth
+    assert captured["board"] is sentinel_board
+    assert captured["config"] is cfg
+    assert captured["repo"] == REPO
+    assert captured["issue"] == ISSUE
+    import coord.github_ops as github_ops_mod
+
+    assert captured["gh_ops"] is github_ops_mod
+    assert captured["ci_store"] is not None
+
+
+def test_entry_truth_fails_closed_to_none_on_any_live_read_exception(monkeypatch):
+    """A board read that raises (daemon unreachable, DB locked, ...) must
+    never propagate out of `_decide_merge`'s own poll loop — same fail-
+    closed contract every other live read in this module already has."""
+    def boom():
+        raise RuntimeError("daemon unreachable")
+
+    monkeypatch.setattr("coord.state.build_board", boom)
+    verifier = GitMergeVerifier(config=make_config())
+    assert verifier.entry_truth(state()) is None
 
 
 @pytest.mark.parametrize(
@@ -7943,6 +8654,41 @@ def test_smaller_stall_never_produces_fewer_nudges(driver_factory):
     small = nudge_count(1.0 / 60.0)
     large = nudge_count(5.0 / 60.0)
     assert small >= large > 0, (small, large)
+
+
+def test_stale_dispatched_review_relies_on_notify_not_a_separate_repair(
+    driver_factory,
+):
+    """``review_state="dispatched"`` with NOTHING active and no review
+    assignment on the board at all (a scoped re-review's verdict landed on
+    a superseded round, leaving this one wedged) is repaired by
+    ``coord.review.heal_unreviewed_newest_work_legs`` — which
+    ``dispatch_pending_reviews`` calls before its eligibility filter runs,
+    and which ``coord notify`` routes through. The stall path must keep
+    relying on the existing ``coord notify`` nudge for this shape rather
+    than firing a second, separate repair command: ``coord diagnose
+    --stage review --reset`` answers a different question (an existing
+    review ASSIGNMENT's own stale state) and does nothing for a plain
+    ``type="work"`` row with no review assignment at all — see
+    ``coord.diagnose.STAGE_ASSIGNMENT_TYPES``."""
+    driver = driver_factory(
+        [board(status="done", test_state="passed", review_state="dispatched")],
+        opts=DriveOptions(
+            machine="precision",
+            poll=1.0,
+            stall_mins=1.0 / 60.0,
+            deadline_mins=5.0 / 60.0,
+            notify=True,
+        ),
+        # #2649: see `test_stalled_stage_gets_re_nudged_on_every_stall_window`.
+        config=make_config_no_stall_overrides(),
+    )
+    seen: list[tuple] = []
+    driver.run_coord = lambda args, **kw: seen.append(args) or 0  # type: ignore[assignment]
+
+    assert driver.run() == EXIT_DEADLINE
+    assert not any(a and a[0] == "diagnose" for a in seen), seen
+    assert seen.count(("notify",)) > 1, seen
 
 
 def test_fingerprint_change_clears_the_published_stall_nudge(driver_factory, monkeypatch):

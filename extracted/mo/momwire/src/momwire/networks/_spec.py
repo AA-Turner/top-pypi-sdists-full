@@ -72,7 +72,7 @@ class PortOnWire:
     supplies the other side of the gap, `tests/test_contact_nec5_lane.py`
     drives its base-fed monopoles at ``feed_arclength=0.0`` and certifies them
     against NEC-5 over five grounds and five densities, and
-    ``momwire.eznec.serve`` places a deck's contact feed there. A FREE wire
+    ``momwire.dropin.nec5.serve`` places a deck's contact feed there. A FREE wire
     end still has nothing to interrupt — the current is zero there — and this
     type cannot tell the two apart, because ground is not in its vocabulary.
     So the endpoints are ADMITTED here and the physics is gated where the
@@ -305,6 +305,25 @@ class TL:
     `TL.from_cable()` for real cables. A lossy line's characteristic
     impedance is complex, z0·(1 − jα/β), as EZNEC's is (momwire#1706); z0
     names the lossless one.
+
+    k0: a constant term, matched loss [dB per 100 ft] = k0 + k1·√f + k2·f,
+        the conductors' DC resistance. Default 0.0, which leaves every line
+        as it was.
+
+    skin: solve the line as AC6LA's "Johnson" transmission-line model, the
+    one TLDetails, Zplots, AutoEZ and SimNEC use for their K0K1K2 cables.
+    Each coefficient gives a per-length element: R_dc = 2·z0·α₀ from k0,
+    R_hf = 2·z0·α₁ from k1, G = 2·α₂/z0 from k2, with L and C from z0 and
+    vf. The conductor's internal impedance Z_int = √(R_dc² + [R_hf·(1 + j)]²)
+    carries the skin effect's reactance (ωLᵢ = R at high frequency, none at
+    DC), and γ = √((Z_int + jωL)(G + jωC)), Zc = √((Z_int + jωL)/(G + jωC))
+    exactly. The internal inductance lengthens the line as 1/√f, which no
+    constant `vf` can say: 12 m of RG-58 at 3.55 MHz is 2.73 % longer than vf
+    alone puts it. The α's are the table's, so the matched loss sits slightly
+    below the table, as it does in those programs. With it, antennaknobs
+    reproduces a SimNEC station's own trace to 3e-15 (antennaknobs#2200).
+    Off by default, and off is the line exactly as before, which is EZNEC's
+    lossy line (momwire#1706).
     """
 
     a: str  # port name
@@ -314,8 +333,10 @@ class TL:
     length: float
     transposed: bool = False
     vf: float = 1.0
+    k0: float = 0.0
     k1: float = 0.0
     k2: float = 0.0
+    skin: bool = False
 
     def __post_init__(self):
         # A number here is always a slot slip (momwire#1792): a non-zero float
@@ -326,6 +347,11 @@ class TL:
                 f"got {self.transposed!r} ({type(self.transposed).__name__}); "
                 "a number here is usually a cable value in the wrong slot — "
                 "pass z0=, length=, vf=, k1=, k2= by keyword"
+            )
+        if not isinstance(self.skin, (bool, np.bool_)):
+            raise TypeError(
+                f"TL {self.a!r}->{self.b!r}: skin must be True or False, "
+                f"got {self.skin!r} ({type(self.skin).__name__})"
             )
 
     @classmethod

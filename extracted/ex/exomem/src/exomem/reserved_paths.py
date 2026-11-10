@@ -19,7 +19,7 @@ import time
 import unicodedata
 from collections import ChainMap
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass
 from dataclasses import replace as dataclass_replace
@@ -46,7 +46,7 @@ _EMBEDDINGS_SPACE_RE = re.compile(
 )
 _REVIEW_TEMP_RE = re.compile(r"^\.\.review-state\.json\.[a-z0-9_]{8}\.tmp$", re.ASCII)
 _DUE_TEMP_RE = re.compile(
-    r"^\.\.due-state(?:-emission)?\.json\.[a-z0-9_]{8}\.tmp$", re.ASCII
+    r"^\.\.due-state(?:-emission|-candidates)?\.json\.[a-z0-9_]{8}\.tmp$", re.ASCII
 )
 _LEXICAL_REBUILD_RE = re.compile(
     r"^\.lexical\.sqlite\.rebuild-[0-9a-f]{32}\.tmp(?:-(?:wal|shm|journal))?$",
@@ -138,9 +138,14 @@ class InternalStateDescriptor:
     owning_command: str | None = None
     authority_enabled: bool = True
     #: Whether the family once lived inside the vault. Only such a family has legacy state for the
-    #: one-time migration to move, so only its id joins the migration manifest's descriptor set. A
-    #: family born external adds no migration: an upgrade stays seamless and an older reader accepts it.
-    migrates_from_vault: bool = True
+    #: one-time migration to move, so only its id joins the migration manifest's descriptor set.
+    #: A new family is born external, so the default is False: it adds no migration, an upgrade
+    #: stays seamless and an older reader accepts it. Set True only for a family that once lived
+    #: inside the vault or that a restore writes back inside it, and ship that with its migration.
+    migrates_from_vault: bool = False
+    #: Whether store mode owns the files of this family as pages (`vault_store.ownership`). Every other
+    #: reserved family stays outside the store: governance and replica state have their own owners.
+    vault_store: bool = False
     exact: tuple[str, ...] = ()
     trees: tuple[str, ...] = ()
     patterns: tuple[re.Pattern[str], ...] = ()
@@ -198,8 +203,11 @@ class GenericFileSnapshot:
     """Bytes and metadata read from the exact retained generic leaf."""
 
     data: bytes
-    identity: held_fs.StableIdentity
+    #: The file's device, inode and link count; None for a page that the vault's store holds.
+    identity: held_fs.StableIdentity | None
     mtime: float
+    #: (size, mtime_ns, ctime_ns) from the same handle after the read, or None when the producer has no handle.
+    generation: tuple[int, int, int] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,11 +432,16 @@ def _sqlite_family(name: str) -> tuple[str, ...]:
 
 _REGISTRY = (
     InternalStateDescriptor(
+        "served-context", "served_context", StatePlacement.EXTERNAL_STATE,
+        exact=_sqlite_family(".served-context.sqlite"),
+    ),
+    InternalStateDescriptor(
         "source-corrections", "source_corrections", StatePlacement.VAULT_CANONICAL,
         trees=("_sources/corrections",),
     ),
     InternalStateDescriptor(
         "compiled-history", "compiled_history", StatePlacement.VAULT_CANONICAL,
+        vault_store=True,
         trees=("_compiled",),
     ),
     InternalStateDescriptor(
@@ -456,6 +469,7 @@ _REGISTRY = (
         "governance.store",
         StatePlacement.EXTERNAL_STATE,
         exact=_sqlite_family(".governance.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "embeddings-store",
@@ -463,30 +477,35 @@ _REGISTRY = (
         StatePlacement.EXTERNAL_STATE,
         exact=(*_sqlite_family(".embeddings.sqlite"), ".embeddings.active"),
         patterns=(_EMBEDDINGS_SPACE_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "clip-store",
         "clip_index",
         StatePlacement.EXTERNAL_STATE,
         exact=_sqlite_family(".clip.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "lexical-store",
         "lexstore",
         StatePlacement.EXTERNAL_STATE,
         exact=_sqlite_family(".lexical.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "graph-store",
         "epistemic_graph",
         StatePlacement.EXTERNAL_STATE,
         exact=_sqlite_family(".graph.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "claims-store",
         "claims",
         StatePlacement.EXTERNAL_STATE,
         exact=_sqlite_family(".claims.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "references-store",
@@ -494,12 +513,14 @@ _REGISTRY = (
         StatePlacement.EXTERNAL_STATE,
         authority_enabled=False,
         exact=_sqlite_family(".references.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "refs-store",
         "memory_refs",
         StatePlacement.EXTERNAL_STATE,
         exact=_sqlite_family(".refs.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "freshness-store",
@@ -507,6 +528,7 @@ _REGISTRY = (
         StatePlacement.EXTERNAL_STATE,
         authority_enabled=False,
         exact=_sqlite_family(".freshness.sqlite"),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "deferred-index-store",
@@ -517,6 +539,7 @@ _REGISTRY = (
             *_sqlite_family(".deferred_index.sqlite"),
             ".deferred-index.json",
         ),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "media-jobs-store",
@@ -528,12 +551,12 @@ _REGISTRY = (
             ".media-jobs.json",
             ".media-worker.lock",
         ),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "maintenance-jobs-store",
         "maintenance_jobs",
         StatePlacement.EXTERNAL_STATE,
-        migrates_from_vault=False,
         exact=_sqlite_family(".maintenance-jobs.sqlite"),
     ),
     InternalStateDescriptor(
@@ -545,12 +568,14 @@ _REGISTRY = (
             ".idempotency.json",
             ".idempotency.jsonl",
         ),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "voice-profile-store",
         "voice_profiles",
         StatePlacement.EXTERNAL_STATE,
         exact=(".voice_profiles.json",),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "graph-handoff",
@@ -565,12 +590,14 @@ _REGISTRY = (
             # rather than written in place.
             ".graph-sync-recovery.json",
         ),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "graph-receipts",
         "graph_sync",
         StatePlacement.EXTERNAL_STATE,
         trees=(".graph-commit-receipts",),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "review-state",
@@ -578,49 +605,61 @@ _REGISTRY = (
         StatePlacement.EXTERNAL_STATE,
         exact=(".review-state.json",),
         patterns=(_REVIEW_TEMP_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "due-state",
         "due_state",
         StatePlacement.EXTERNAL_STATE,
-        exact=(".due-state.json", ".due-state-emission.json"),
+        exact=(
+            ".due-state.json",
+            ".due-state-emission.json",
+            ".due-state-candidates.json",
+        ),
         patterns=(_DUE_TEMP_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "lexical-rebuild",
         "lexstore",
         StatePlacement.EXTERNAL_STATE,
         patterns=(_LEXICAL_REBUILD_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "lexical-quarantine",
         "lexstore",
         StatePlacement.EXTERNAL_STATE,
         patterns=(_LEXICAL_QUARANTINE_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "graph-rebuild",
         "epistemic_graph",
         StatePlacement.EXTERNAL_STATE,
         patterns=(_GRAPH_REBUILD_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "graph-reset",
         "graph_sync",
         StatePlacement.EXTERNAL_STATE,
         tree_patterns=(_GRAPH_RESET_RE,),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "graph-coordination",
         "graph_sync",
         StatePlacement.EXTERNAL_STATE,
         trees=(".graph-coordination",),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "authorization-projections",
         "governance.projections",
         StatePlacement.EXTERNAL_STATE,
         trees=(".authorization-projections",),
+        migrates_from_vault=True,
     ),
     InternalStateDescriptor(
         "collection-store",
@@ -635,10 +674,37 @@ _REGISTRY = (
         patterns=(_COLLECTION_EXPORTED_RE,),
     ),
     InternalStateDescriptor(
+        "collection-archive",
+        "collection_store.conversion",
+        StatePlacement.EXTERNAL_CANONICAL,
+        # The item files that a summary conversion retired from the vault, each copy verified,
+        # beside the store that now holds their rows, and the collections cutover's run records
+        # under ``cutover/``. Canonical evidence: no reset touches it.
+        trees=(".collection-archive",),
+    ),
+    InternalStateDescriptor(
         "collection-replica",
         "collection_store.replica",
         StatePlacement.VAULT_CANONICAL,
         trees=("_collections",),
+    ),
+    InternalStateDescriptor(
+        "procedure-approvals",
+        "procedure_approval.ledger",
+        StatePlacement.VAULT_CANONICAL,
+        # Only the owner-only `approve_procedure` operation writes this tree, so no
+        # generic, import, capture, move or recovery route can mint an approval.
+        "approve_procedure",
+        trees=("_approvals",),
+    ),
+    InternalStateDescriptor(
+        "procedure-approval-key",
+        "procedure_approval.key",
+        StatePlacement.EXTERNAL_CANONICAL,
+        # The per-owner HMAC key that makes ledger entries authentic. Canonical and
+        # outside the vault, so a copied vault carries entries that fail their MAC
+        # and nothing that resets, wipes or migrates machine-local state may touch it.
+        exact=("procedure-approval.key",),
     ),
     InternalStateDescriptor(
         "batch-workspace",
@@ -822,7 +888,10 @@ _COMMAND_PATH_ROLES = MappingProxyType(
             ("restore_path", "recovery-destination", "path"),
         ),
         "query_dataset": _roles(("path", "dataset", "path")),
-        "read_media": _roles(("path", "media-source", "path")),
+        "read_media": _roles(
+            ("path", "media-source", "path"),
+            ("paths", "media-source", "path-list"),
+        ),
     }
 )
 
@@ -836,9 +905,10 @@ def internal_state_registry() -> tuple[InternalStateDescriptor, ...]:
 def external_state_descriptors() -> tuple[InternalStateDescriptor, ...]:
     """The families whose canonical home is the external per-vault state root.
 
-    This classification — not a hand-copied name list — is what the one-time
-    migration moves and what the doctor leftover scan walks, so a new family
-    is placed correctly (or flagged) the moment it is registered.
+    This classification, not a hand-copied name list, places a new family under
+    the state root the moment it is registered. The one-time migration and the
+    doctor leftover scan cover only the families that set ``migrates_from_vault``,
+    because only those families ever lived inside the vault.
     """
 
     return tuple(
@@ -1176,6 +1246,8 @@ def mutation_remediation(descriptor_id: str | None) -> str:
         return "Use govern_memory's reviewed governance lifecycle."
     if descriptor is not None and descriptor.owning_command == "consolidate_memory":
         return "No public command owns consolidation state until consolidate_memory ships."
+    if descriptor is not None and descriptor.owning_command == "approve_procedure":
+        return "Only the owner approves a procedure, through approve_procedure. No file route writes approvals."
     return "Use the owning subsystem's bounded control operation."
 
 
@@ -1384,14 +1456,39 @@ def read_generic_bytes(
     macOS-origin NFD name and its NFKC form are different names, and only the
     walked one exists. Classification is unchanged -- it still reads the NFKC,
     case-folded form -- so a reserved name is refused under any spelling.
+
+    A page that the vault's store owns is read from the store, with no identity and no generation.
+    A reserved or unsafe spelling is refused first, on either path.
     """
 
+    stored = _read_stored_generic(vault_root, value, physical=physical)
+    if stored is not None:
+        return stored
     with _generic_identity_catalogue_scope(
         vault_root, value, identities=identities
     ) as current:
         return _read_generic_bytes_held(
             vault_root, value, identities=current, physical=physical
         )
+
+
+def _read_stored_generic(
+    vault_root: Path, value: object, *, physical: bool
+) -> GenericFileSnapshot | None:
+    """The stored page as a snapshot when the store serves ``value``, else None: read the file.
+
+    A page that the store serves but lacks fails as a missing file does.
+    """
+    from .vault_store import read
+
+    parent, leaf = _leaf_spelling(value, physical=physical)
+    try:
+        page = read.owned_page(Path(vault_root), leaf if parent == "." else f"{parent}/{leaf}")
+    except FileNotFoundError as error:
+        raise ReservedPathLeafError("MISSING") from error
+    if page is None:
+        return None
+    return GenericFileSnapshot(page.body, None, page.meta.mtime_ns / 1e9)
 
 
 def _read_generic_bytes_held(
@@ -1430,11 +1527,14 @@ def _read_generic_bytes_held(
                 if not isinstance(descriptor, int):
                     raise ReservedPathLeafError("IO_REFUSED")
                 try:
-                    mtime = os.fstat(descriptor).st_mtime
+                    info = os.fstat(descriptor)
                 except OSError as error:
                     raise ReservedPathLeafError("IO_REFUSED") from error
                 _require_current_generic_directory(filesystem, parent)
-                return GenericFileSnapshot(read_result.require(), file.identity, mtime)
+                return GenericFileSnapshot(
+                    read_result.require(), file.identity, info.st_mtime,
+                    (info.st_size, info.st_mtime_ns, info.st_ctime_ns),
+                )
 
 
 
@@ -2280,14 +2380,21 @@ def _list_candidate_records(
     identities: IdentityCatalogue | None,
     require_complete: bool = False,
     recursive: bool = True,
+    checkpoint: request_budget.ReadCheckpoint | None = None,
 ) -> tuple[held_fs.SagaRecord, ...]:
     """Walk safe ordinary children without following or exposing aliases."""
 
     records: list[held_fs.SagaRecord] = []
 
     def walk(directory: held_fs.HeldDirectory, prefix: str) -> None:
+        if checkpoint is not None:
+            checkpoint()
         _require_current_generic_directory(filesystem, directory)
         def admit_name(name: str) -> bool:
+            if checkpoint is not None:
+                checkpoint()
+            if not require_complete:
+                return True
             relative = f"{prefix}/{name}" if prefix else name
             child = relative if source_relative == "." else f"{source_relative.rstrip('/')}/{relative}"
             classification = classify_logical(child)
@@ -2299,7 +2406,8 @@ def _list_candidate_records(
         names = None
         if require_complete:
             names = {name for name in filesystem.iter_names(directory) if admit_name(name)}
-        children = filesystem.children(directory, name_filter=admit_name) if require_complete else filesystem.children(directory)
+        children = (filesystem.children(directory, name_filter=admit_name)
+                    if require_complete or checkpoint is not None else filesystem.children(directory))
         if not children.ok:
             code = children.error.code if children.error is not None else "IO_REFUSED"
             raise ReservedPathLeafError(code)
@@ -2307,6 +2415,8 @@ def _list_candidate_records(
         if names is not None and names != {record.relative_path for record in observed}:
             raise ReservedPathLeafError("UNSAFE_PATH")
         for record in observed:
+            if checkpoint is not None:
+                checkpoint()
             relative = (
                 f"{prefix}/{record.relative_path}"
                 if prefix
@@ -2357,6 +2467,7 @@ def list_generic_tree(
     identities: IdentityCatalogue | None = None,
     select: Callable[[list[tuple[str, str]]], Iterable[str]] | None = None,
     require_complete: bool = False,
+    checkpoint: request_budget.ReadCheckpoint | None = None,
 ) -> tuple[GenericTreeEntry, ...]:
     """Enumerate an ordinary tree while structurally removing private state.
 
@@ -2367,7 +2478,7 @@ def list_generic_tree(
 
     with open_generic_tree(
         vault_root, value, recursive=recursive, identities=identities,
-        select=select, require_complete=require_complete,
+        select=select, require_complete=require_complete, checkpoint=checkpoint,
     ) as entries:
         return tuple(entries)
 
@@ -2382,13 +2493,22 @@ def open_generic_tree(
     select: Callable[[list[tuple[str, str]]], Iterable[str]] | None = None,
     require_complete: bool = False,
     markdown_header_limit: int | None = None,
+    markdown_header_failed: Callable[[str, Exception], None] | None = None,
+    checkpoint: request_budget.ReadCheckpoint | None = None,
 ):
-    """Yield entries under one held walk; exhaust it before publishing a census."""
-    with _generic_identity_catalogue_scope(vault_root, value, identities=identities) as current:
+    """Yield entries under one held walk; exhaust it before publishing a census.
+
+    A Markdown header that cannot be read, decoded or prepared within its own budget ends the walk,
+    unless the caller passes `markdown_header_failed`: then the walk reports that entry's relative
+    path and error to it, yields no entry for it and goes on. The completeness check still covers it.
+    """
+    with (request_budget.checking(checkpoint) if checkpoint is not None else nullcontext()), \
+            _generic_identity_catalogue_scope(vault_root, value, identities=identities) as current:
         entries = _iter_generic_tree_held(
             vault_root, value, recursive=recursive, identities=current,
             select=select, require_complete=require_complete,
-            markdown_header_limit=markdown_header_limit,
+            markdown_header_limit=markdown_header_limit, markdown_header_failed=markdown_header_failed,
+            checkpoint=checkpoint,
         )
         try:
             yield entries
@@ -2422,8 +2542,12 @@ def _iter_generic_tree_held(
     select: Callable[[list[tuple[str, str]]], Iterable[str]] | None = None,
     require_complete: bool = False,
     markdown_header_limit: int | None = None,
+    markdown_header_failed: Callable[[str, Exception], None] | None = None,
+    checkpoint: request_budget.ReadCheckpoint | None = None,
 ) -> Iterator[GenericTreeEntry]:
 
+    if checkpoint is not None:
+        checkpoint()
     if value == ".":
         relative = "."
     else:
@@ -2446,14 +2570,14 @@ def _iter_generic_tree_held(
         with source_result.require() as source_directory:
             _refuse_private_identity(source_directory.identity, identities)
             _require_current_generic_directory(filesystem, source_directory)
-            if recursive or require_complete:
+            if recursive or require_complete or checkpoint is not None:
                 records = _list_candidate_records(
                     filesystem,
                     source_directory,
                     relative,
                     identities=identities,
                     require_complete=require_complete,
-                    recursive=recursive,
+                    recursive=recursive, checkpoint=checkpoint,
                 )
             else:
                 enumerated = filesystem.children(source_directory)
@@ -2467,6 +2591,8 @@ def _iter_generic_tree_held(
                 records = enumerated.require()
             candidates: list[tuple[held_fs.SagaRecord, str]] = []
             for record in records:
+                if checkpoint is not None:
+                    checkpoint()
                 if any(
                     record.relative_path == prefix
                     or record.relative_path.startswith(f"{prefix}/")
@@ -2492,6 +2618,8 @@ def _iter_generic_tree_held(
             )
             selected_versions: dict[str, held_fs.FileVersion] = {}
             for record, child in candidates:
+                if checkpoint is not None:
+                    checkpoint()
                 if chosen is not None and record.relative_path not in chosen:
                     continue
                 parent_path, leaf = _leaf_spelling(child)
@@ -2569,15 +2697,24 @@ def _iter_generic_tree_held(
                             with runtime_resources.parser_preparation(info.st_size) as preparation:
                                 preparation.reserve_source(0)
                                 preparation.reserve(preparation.reserved + io.DEFAULT_BUFFER_SIZE)
-                                with os.fdopen(os.dup(descriptor), "rb", buffering=io.DEFAULT_BUFFER_SIZE) as stream:
-                                    markdown = vault.read_frontmatter_header(
-                                        stream, markdown_header_limit, reserve=preparation.reserve_source,
+                                try:
+                                    with os.fdopen(os.dup(descriptor), "rb", buffering=io.DEFAULT_BUFFER_SIZE) as stream:
+                                        markdown = vault.read_frontmatter_header(
+                                            stream, markdown_header_limit, reserve=preparation.reserve_source,
+                                        )
+                                    text = markdown.decode("utf-8")
+                                    frontmatter = vault._FM_PATTERN.match(text)
+                                    preparation.reserve_parser(
+                                        text, yaml_text=frontmatter.group(1) if frontmatter else None,
                                     )
-                                text = markdown.decode("utf-8")
-                                frontmatter = vault._FM_PATTERN.match(text)
-                                preparation.reserve_parser(
-                                    text, yaml_text=frontmatter.group(1) if frontmatter else None,
-                                )
+                                # This file's own header: unterminated, undecodable, or above this one parent's budget.
+                                # A busy shared capacity is no fact about the file, so it still ends the walk.
+                                except (ValueError, runtime_resources.PreparationBudgetExceeded) as error:
+                                    if markdown_header_failed is None:
+                                        raise
+                                    require_current()  # A header that changed while it was read is the walk's failure.
+                                    markdown_header_failed(record.relative_path, error)
+                                    continue
                                 require_current()
                                 yield GenericTreeEntry(
                                     record.relative_path, record.identity, info.st_size,
@@ -2607,11 +2744,13 @@ def _iter_generic_tree_held(
             if require_complete:
                 current_records = _list_candidate_records(
                     filesystem, source_directory, relative, identities=identities,
-                    require_complete=True, recursive=recursive,
+                    require_complete=True, recursive=recursive, checkpoint=checkpoint,
                 )
                 if current_records != records:
                     raise ReservedPathLeafError("IDENTITY_CHANGED")
                 for child, version in selected_versions.items():
+                    if checkpoint is not None:
+                        checkpoint()
                     parent_path, leaf = _leaf_spelling(child)
                     with filesystem.parent(parent_path).require() as parent:
                         _refuse_private_identity(parent.identity, identities)

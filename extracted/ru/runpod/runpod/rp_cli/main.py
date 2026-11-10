@@ -21,6 +21,12 @@ _UPDATE_CHECK_EXCLUDED = frozenset({"completion", "flash", "update"})
 _FLASH_UPDATE_CHECK_EXCLUDED = frozenset({"dev"})
 
 
+def _default_profile() -> str:
+    from runpod import _selected_profile
+
+    return _selected_profile()
+
+
 @click.group()
 @click.pass_context
 def cli(ctx):
@@ -287,14 +293,17 @@ def deploy(target, env, python_version, exclude, build_only):
             f"[bold white]{result.app_name}/{env or found.env}[/bold white] "
             f"is live [dim]{t.elapsed:.1f}s[/dim]"
         )
-        if result.endpoints:
+        if result.resources:
             ui.console.print()
-            w = max(len(n) for n in result.endpoints)
-            for name, endpoint_id in sorted(result.endpoints.items()):
-                ui.console.print(
-                    f"  [white]{name:<{w}}[/white]  "
-                    f"{ui.endpoint_link(endpoint_id)}"
+            ui.resources_table(
+                (
+                    name,
+                    handle.spec.kind.value,
+                    ",".join(handle.spec.cpu or handle.spec.gpu or ["any"]),
+                    result.endpoints.get(name, "registered"),
                 )
+                for name, handle in sorted(found.resources.items())
+            )
     ui.console.print()
 
 
@@ -628,7 +637,10 @@ def logs(pod_id, follow, log_type, tail):
     help="Store this API key directly (skips the browser flow).",
 )
 @click.option(
-    "--profile", default="default", show_default=True, help="Credential profile."
+    "--profile",
+    default=_default_profile,
+    show_default="RUNPOD_PROFILE, else default",
+    help="Credential profile.",
 )
 @click.option(
     "--agent",

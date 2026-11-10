@@ -6,6 +6,7 @@ import ast
 import importlib.util
 import inspect
 import json
+import os
 import platform
 import re
 import shutil
@@ -15,9 +16,10 @@ import warnings
 from argparse import ArgumentTypeError, BooleanOptionalAction, Namespace
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, cast
 
 import black
@@ -90,9 +92,11 @@ from tests.conftest import (
     validate_generated_code,
 )
 from tests.main.conftest import (
+    AVRO_DATA_PATH,
     DATA_PATH,
     DEFAULT_VALUES_DATA_PATH,
     EXPECTED_MAIN_PATH,
+    GRAPHQL_DATA_PATH,
     JSON_SCHEMA_DATA_PATH,
     OPEN_API_DATA_PATH,
     PROTOBUF_DATA_PATH,
@@ -111,6 +115,7 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
     from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from tests.main.conftest import InputFileTypeLiteral
 
 assert_file_content = create_assert_file_content(EXPECTED_MAIN_PATH)
 BLACK_VERSION = version.parse(black.__version__)
@@ -1999,21 +2004,105 @@ def test_boolean_optional_option_sets_are_pinned() -> None:
 
     assert boolean_optional_dests == snapshot([
         "allow_remote_refs",
+        "untrusted_input",
         "allow_private_network",
+        "read_input_model_dataclass_fields_by_alias",
+        "reuse_every_reached_input_model_type",
         "allow_population_by_field_name",
         "collapse_root_models",
+        "collapse_shared_parent_wrappers",
+        "keep_constrained_root_models_in_every_container",
+        "keep_enum_literal_aliases",
+        "keep_reference_null_on_collapsed_root_models",
+        "keep_shared_members_on_collapsed_root_models",
+        "collapse_constrained_root_models_as_annotated",
+        "remove_unused_models_beside_type_overrides",
+        "keep_self_referencing_array_items",
+        "collapse_reuse_models",
+        "singularize_last_word_of_item_names",
+        "disable_timestamp",
+        "keep_false_dataclass_arguments",
+        "tag_msgspec_by_payload_name",
+        "use_msgspec_meta_for_map_keys",
+        "use_msgspec_forbid_unknown_fields",
+        "reuse_model",
+        "pin_aliases_with_alias_generator",
         "treat_dot_as_module",
         "strict_dotted_module_names",
+        "rename_submodules_hidden_by_classes",
+        "use_schema_description",
+        "use_title_as_name",
+        "name_allof_union_members_after_branches",
         "use_standard_primitive_types",
+        "use_duplicate_name_suffix_for_every_collision",
+        "name_converted_payloads_by_message",
+        "merge_message_trait_headers",
+        "use_single_value_enum_as_const",
+        "read_const_beside_enum",
+        "filter_literal_values",
+        "intersect_allof_keywords",
+        "intersect_combined_schema_keywords",
+        "distribute_allof_over_unions",
+        "read_allof_parents_in_mro_order",
+        "omit_redundant_constraints",
+        "read_length_keywords_by_type",
+        "read_msgspec_union_bounds_exactly",
+        "use_site_models_for_constrained_refs",
+        "use_one_model_per_ref_site",
         "use_annotated",
+        "use_serialize_as_any_for_every_subclass",
+        "use_decimal_in_field_forms",
+        "use_encoded_str_for_constrained_base64",
+        "use_strict_str_for_base64",
+        "merge_shared_variant_tags",
         "use_standard_collections",
+        "use_object_type",
+        "use_typed_nullable_map_values",
+        "use_typed_map_values_beside_other_types",
+        "read_unevaluated_properties",
+        "use_single_dict_for_object_maps",
+        "use_subclass_enum",
         "use_specialized_enum",
+        "keep_enum_member_values",
         "use_union_operator",
+        "use_unique_items_as_set",
+        "use_unique_items_as_set_by_value",
+        "use_tuple_for_fixed_items",
+        "use_tuple_for_closed_arrays",
         "use_closed_typed_dict",
+        "use_plain_alias_for_recursive_models",
+        "type_overrides_replace_whole_type",
+        "use_x_python_type_as_written",
+        "use_bytes_for_content_media_type",
+        "capitalise_numbered_enum_members",
         "snake_case_field",
+        "strict_nullable",
+        "omit_redundant_reference_null",
+        "keep_reference_null_on_merged_models",
+        "keep_defaults_of_inherited_required_fields",
+        "omit_incomplete_model_defaults",
+        "use_default_kwarg",
+        "apply_field_options_to_every_field",
+        "read_nullable_beside_type_list",
+        "keep_field_defaults_off_branch_roots",
+        "use_field_description",
+        "use_field_description_example",
+        "use_single_line_docstring",
         "use_frozen_field",
+        "check_pattern_maps_strictly",
         "use_type_checking_imports",
+        "dedupe_request_response_variants",
+        "dedupe_numbered_request_response_variants",
+        "keep_first_character_of_path_keys",
+        "keep_content_parameter_refs",
+        "skip_path_extension_keys",
+        "use_enum_field_as_literal_in_operations",
+        "read_schema_version_per_document",
+        "read_escaped_ref_pointers",
+        "read_dynamic_anchors_in_document_order",
+        "ignore_ref_siblings_by_schema_version",
         "server_include_request",
+        "client_deep_object_brackets",
     ])
 
 
@@ -2094,6 +2183,105 @@ def test_space_and_special_characters_dict_stdin(monkeypatch: pytest.MonkeyPatch
         input_file_type="dict",
         assert_func=assert_file_content,
     )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="named pipes need os.mkfifo")
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize(
+    ("source", "input_file_type"),
+    [
+        pytest.param(JSON_SCHEMA_DATA_PATH / "simple_string.json", None, id="auto-jsonschema"),
+        pytest.param(JSON_SCHEMA_DATA_PATH / "simple_string.json", "jsonschema", id="jsonschema"),
+        pytest.param(DATA_PATH / "json" / "pet.json", None, id="auto-json"),
+        pytest.param(DATA_PATH / "csv" / "simple.csv", "csv", id="csv"),
+        pytest.param(DATA_PATH / "mcp_tools" / "tools_list.json", "mcp-tools", id="mcp-tools"),
+        pytest.param(DATA_PATH / "xmlschema" / "allof_root_type.xsd", "xmlschema", id="xmlschema"),
+        pytest.param(DATA_PATH / "protobuf" / "common.proto", "protobuf", id="protobuf"),
+    ],
+)
+def test_main_named_pipe_input_is_read_once(
+    source: Path,
+    input_file_type: InputFileTypeLiteral | None,
+    tmp_path: Path,
+    output_file: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A named pipe input is read once, by type detection, conversion and parsing alike, and generates as its file.
+
+    The pipe yields its bytes once, so the second generation of the formatter parity check is left out.
+    """
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_CHECK_BUILTIN_FORMATTER_PARITY", raising=False)
+    pipe = tmp_path / source.name
+    os.mkfifo(pipe)
+    writer = Thread(target=pipe.write_bytes, args=(source.read_bytes(),), daemon=True)
+    writer.start()
+    run_main_and_assert(
+        input_path=pipe,
+        output_path=output_file,
+        input_file_type=input_file_type,
+        extra_args=["--disable-timestamp"],
+        assert_func=assert_file_content,
+    )
+    writer.join()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="named pipes need os.mkfifo")
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("input_file_type", [None, "jsonschema"], ids=["auto", "jsonschema"])
+def test_main_named_pipe_input_resolves_references_beside_it(
+    input_file_type: InputFileTypeLiteral | None,
+    tmp_path: Path,
+    output_file: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A named pipe input resolves its relative references beside the pipe, whether its type is detected or given."""
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_CHECK_BUILTIN_FORMATTER_PARITY", raising=False)
+    schemas = tmp_path / "schemas"
+    schemas.mkdir()
+    shutil.copy(JSON_SCHEMA_DATA_PATH / "external_definitions.json", schemas)
+    pipe = schemas / "external_definitions_root.json"
+    os.mkfifo(pipe)
+    writer = Thread(target=pipe.write_bytes, args=((JSON_SCHEMA_DATA_PATH / pipe.name).read_bytes(),), daemon=True)
+    writer.start()
+    monkeypatch.chdir(tmp_path)
+    run_main_and_assert(
+        input_path=pipe,
+        output_path=output_file,
+        input_file_type=input_file_type,
+        extra_args=["--disable-timestamp"],
+        assert_func=assert_file_content,
+    )
+    writer.join()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="named pipes need os.mkfifo")
+@pytest.mark.timeout(30)
+def test_main_named_pipe_csv_input_is_read_up_to_its_first_row(
+    tmp_path: Path, output_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A CSV named pipe is read up to its first row, so generation ends while its writer still holds the pipe open."""
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_CHECK_BUILTIN_FORMATTER_PARITY", raising=False)
+    pipe = tmp_path / "simple.csv"
+    os.mkfifo(pipe)
+    generated = Event()
+
+    def write_and_hold() -> None:
+        with pipe.open("wb") as stream:
+            stream.write((DATA_PATH / "csv" / "simple.csv").read_bytes())
+            stream.flush()
+            generated.wait(30)
+
+    writer = Thread(target=write_and_hold, daemon=True)
+    writer.start()
+    run_main_and_assert(
+        input_path=pipe,
+        output_path=output_file,
+        input_file_type="csv",
+        extra_args=["--disable-timestamp"],
+        assert_func=assert_file_content,
+    )
+    generated.set()
+    writer.join()
 
 
 @freeze_time("2024-12-14")
@@ -2842,6 +3030,24 @@ def test_filename_with_various_control_characters(tmp_path: Path) -> None:
         compile(generated_content, str(output_path), "exec")
 
 
+@pytest.mark.parametrize("enable_command_header", [False, True], ids=["filename", "command"])
+def test_header_replaces_lone_surrogate_of_file_name(tmp_path: Path, *, enable_command_header: bool) -> None:
+    r"""Write a file name that is no valid UTF-8 in the header with U+FFFD for the bad byte (#6307).
+
+    The name of such a file holds a surrogate escape (``\udcff`` for the byte ``0xff``), which a UTF-8 file cannot
+    hold, so writing the output failed; the command header holds the name too.
+    """
+    run_generate_and_assert(
+        input_='{"type": "object", "properties": {"a": {"type": "string"}}}',
+        input_filename="bad\udcff.json",
+        input_file_type=InputFileType.JsonSchema,
+        output=tmp_path / "output.py",
+        disable_timestamp=True,
+        enable_command_header=enable_command_header,
+        command_line="datamodel-codegen --input 'bad\udcff.json'",
+    )
+
+
 def test_generate_with_nonexistent_file(tmp_path: Path) -> None:
     """Test that generating from a nonexistent file raises an error."""
     nonexistent_file = tmp_path / "nonexistent.json"
@@ -2968,7 +3174,7 @@ def test_generate_cli_command_with_false_boolean(tmp_path: Path, capsys: pytest.
     pyproject_toml = """
 [tool.datamodel-codegen]
 input = "schema.yaml"
-reuse-model = false
+use-exact-imports = false
 """
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
 
@@ -3467,6 +3673,24 @@ def test_render_memos_record_the_stale_values_legacy_rows_keep(
     assert_output(report_path.read_text(encoding="utf-8"), name="report")
 
 
+def test_render_memo_report_of_issue_6490_records_the_stale_plan_of_a_cyclic_type(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Issue 6490: a memoized msgspec field plan of a cyclic model differs in ``is_optional`` when computed again.
+
+    The report records the finding and never raises; it changes when 6490 is fixed.
+    """
+    report_path = tmp_path / "checks.jsonl"
+    monkeypatch.setenv(CHECK_RENDER_MEMOS_ENV, f"report:{report_path}")
+    generate(
+        JSON_SCHEMA_DATA_PATH / "type_union_constraints" / "modeled_root.json",
+        output=tmp_path / "model.py",
+        output_model_type=DataModelType.MsgspecStruct,
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(report_path.read_text(encoding="utf-8"), name="report")
+
+
 _FIELD_TYPE_SCHEMA = (
     '{"title": "M", "type": "object", "required": ["a"], "properties": {"a": {"type": "integer"},'
     ' "b": {"type": "string", "default": "x"}, "c": {"type": "integer"}}}'
@@ -3781,6 +4005,42 @@ def test_main_rejects_additional_import_injection_in_extra_template_data(
             "class_decorators must be a Python import path composed of identifiers: '@\\nmypkg.deco'",
             id="class-decorators-line-break-before-path",
         ),
+        pytest.param(
+            "--base-class",
+            ".Base",
+            "base_class must be a Python import path composed of identifiers: '.Base'",
+            id="base-class-relative-without-module",
+        ),
+        pytest.param(
+            "--base-class",
+            "...",
+            "base_class must be a Python import path composed of identifiers: '...'",
+            id="base-class-only-dots",
+        ),
+        pytest.param(
+            "--base-class-map",
+            '{"Person": ".mypkg..Base"}',
+            "base_class_map must be a Python import path composed of identifiers: '.mypkg..Base'",
+            id="base-class-map-relative-empty-part",
+        ),
+        pytest.param(
+            "--type-overrides",
+            '{"Person.firstName": "..mypkg.1x"}',
+            "type_overrides must be a Python import path composed of identifiers: '..mypkg.1x'",
+            id="type-overrides-relative-non-identifier",
+        ),
+        pytest.param(
+            "--class-decorators",
+            "@..mypkg.deco",
+            "class_decorators must be a Python import path composed of identifiers: '..mypkg.deco'",
+            id="class-decorators-relative",
+        ),
+        pytest.param(
+            "--additional-imports",
+            "..mypkg.thing",
+            "additional_imports must be a Python import path composed of identifiers: '..mypkg.thing'",
+            id="additional-imports-relative",
+        ),
     ],
 )
 def test_main_refuses_named_path_with_non_identifier_part(
@@ -3790,7 +4050,9 @@ def test_main_refuses_named_path_with_non_identifier_part(
 
     ``mypkg.1x`` wrote ``from mypkg import 1x`` or ``@mypkg.1x``, which does not parse. A decorator's path is its tokens
     before the arguments of its call, without comments and the whitespace around a dot; a decorator that does not
-    tokenize there, or that a line break outside its parentheses splits, is refused as a whole.
+    tokenize there, or that a line break outside its parentheses splits, is refused as a whole. A relative path names a
+    module after its dots (#6224): ``.Base`` wrote ``import Base``, and a decorator or an additional import cannot be
+    relative.
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "person.json",
@@ -3801,6 +4063,33 @@ def test_main_refuses_named_path_with_non_identifier_part(
         capsys=capsys,
         expected_stderr_contains=message,
         output_should_not_exist=True,
+    )
+
+
+@pytest.mark.parametrize("output_model_type", ["msgspec.Struct", "pydantic_v2.BaseModel"])
+def test_main_relative_base_class_and_type_override_paths(output_dir: Path, output_model_type: str) -> None:
+    """Import a relative ``--base-class``, ``--base-class-map`` and ``--type-overrides`` path as given (#6224).
+
+    Each module writes the relative module after ``from`` as 0.88.0 did, so models generated into a subpackage can
+    inherit a base class of a package above it; spaces around a relative type override are no part of its path.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "dot_notation_inheritance.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            "--base-class",
+            "...base.BaseClass",
+            "--base-class-map",
+            '{"v0.Properties": ["...base.BaseClass", "..mixins.Hooks"]}',
+            "--type-overrides",
+            '{"Animal.species": " ..types.Species "}',
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
     )
 
 
@@ -3886,6 +4175,248 @@ def test_type_overrides_model_level(output_file: Path) -> None:
             "--type-overrides",
             '{"CustomType": "my_app.types.CustomType"}',
         ],
+    )
+
+
+@pytest.mark.parametrize(
+    "output_model_type",
+    ["pydantic_v2.BaseModel", "msgspec.Struct", "dataclasses.dataclass", "typing.TypedDict"],
+)
+def test_type_overrides_model_level_collapse_root_models(output_file: Path, output_model_type: str) -> None:
+    """Replace a root model a model-level override names wherever it is used, also when root models collapse."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_overrides_collapsed_root.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            output_model_type,
+            "--type-overrides",
+            '{"Code": "mypkg.Code"}',
+            "--collapse-root-models",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_type_overrides_model_level_dotted_schema_name(output_dir: Path) -> None:
+    """Replace a schema with a dotted name by its class name, in its module and in the modules that use it."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "type_overrides_dotted_schema_name.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--type-overrides",
+            '{"Pet": "decimal.Decimal"}',
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+        runtime_validation_module="b",
+        runtime_validation_model_name="Owner",
+        runtime_validation_data={"pet": "1.5"},
+    )
+
+
+def _class_keyed_options(*class_names: str) -> list[str]:
+    """Return the options read while models are built, each keyed by every class of ``class_names`` and its ``name``."""
+    return [
+        "--base-class-map",
+        json.dumps(dict.fromkeys(class_names, "base.Base")),
+        "--extra-template-data",
+        json.dumps({class_name: {"config": {"frozen": True}} for class_name in class_names}),
+        "--validators",
+        json.dumps({
+            class_name: {"validators": [{"field": "name", "function": "base.check"}]} for class_name in class_names
+        }),
+        "--aliases",
+        json.dumps({f"{class_name}.name": "label" for class_name in class_names}),
+        "--serialization-aliases",
+        json.dumps({f"{class_name}.name": "wire_name" for class_name in class_names}),
+        "--default-values",
+        json.dumps({f"{class_name}.name": "x" for class_name in class_names}),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("input_path", "input_file_type", "extra_args"),
+    [
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "field_type_collision_class_keys_builders.json",
+            "jsonschema",
+            [
+                "--field-type-collision-strategy",
+                "rename-type",
+                *_class_keyed_options("Pet", "Dog", "Name", "Pets", "Kind"),
+            ],
+            id="builders-keyed-by-schema-names",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "field_type_collision_class_keys_builders.json",
+            "jsonschema",
+            [
+                "--field-type-collision-strategy",
+                "rename-type",
+                *_class_keyed_options("Pet_1", "Dog_1", "Name_1", "Pets_1", "Kind_1"),
+            ],
+            id="builders-keyed-by-output-names",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "field_type_collision_class_keys.json",
+            "jsonschema",
+            [
+                "--field-type-collision-strategy",
+                "rename-type",
+                *_class_keyed_options("Pet_1"),
+                "--base-class-map",
+                json.dumps({"Pet_1": "base.Output", "Pet": "base.Schema"}),
+                "--aliases",
+                json.dumps({"Pet_1.name": "output_label", "Pet.name": "schema_label"}),
+            ],
+            id="schema-name-key-before-output-name-key",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "field_type_collision_model_name_map.json",
+            "jsonschema",
+            [
+                "--field-type-collision-strategy",
+                "rename-type",
+                "--model-name-map",
+                json.dumps({"Pet": "Cat"}),
+                *_class_keyed_options("Cat_1"),
+            ],
+            id="model-name-map-value-renamed",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "collapse_root_models_parent_class_keys.json",
+            "jsonschema",
+            [
+                "--collapse-root-models",
+                "--collapse-root-models-name-strategy",
+                "parent",
+                "--base-class-map",
+                json.dumps({"Wrap": "base.Base"}),
+                "--aliases",
+                json.dumps({"Wrap.name": "label"}),
+            ],
+            id="inner-model-named-after-collapsed-root",
+        ),
+        pytest.param(
+            OPEN_API_DATA_PATH / "field_type_collision_read_write_variant.yaml",
+            "openapi",
+            [
+                "--field-type-collision-strategy",
+                "rename-type",
+                "--read-only-write-only-model-type",
+                "request-response",
+                *_class_keyed_options("PetRequest_1"),
+            ],
+            id="read-write-variant",
+        ),
+        pytest.param(
+            OPEN_API_DATA_PATH / "model_name_map_same_name_documents" / "openapi.yaml",
+            "openapi",
+            _class_keyed_options("PetModel"),
+            id="same-name-documents",
+        ),
+        pytest.param(
+            GRAPHQL_DATA_PATH / "field_type_collision.graphql",
+            "graphql",
+            ["--field-type-collision-strategy", "rename-type", *_class_keyed_options("Pet_1")],
+            id="graphql-type",
+        ),
+        pytest.param(
+            AVRO_DATA_PATH / "field_type_collision.avsc",
+            "avro",
+            ["--field-type-collision-strategy", "rename-type", *_class_keyed_options("Pet_1")],
+            id="avro-record",
+        ),
+    ],
+)
+def test_class_keyed_options_name_renamed_classes(
+    output_file: Path, input_path: Path, input_file_type: str, extra_args: list[str]
+) -> None:
+    """Apply an option keyed by a class name to the class that has the name in the output after a late rename.
+
+    A key of the name a model was built under applies before a key of the name it ends with (#5418).
+    """
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type=input_file_type,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            *extra_args,
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_class_keyed_options_name_renamed_class_in_module(output_dir: Path) -> None:
+    """Apply a dotted class key to the class a field-type collision renames in its module (#5418)."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "field_type_collision_dotted_module.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--field-type-collision-strategy",
+            "rename-type",
+            *_class_keyed_options("a.Pet_1"),
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_class_keyed_options_name_renamed_class_payload(output_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Validate payloads with the class a field-type collision renames, configured by keys of its output name.
+
+    The type override names the field by the name the alias gives it (#5418).
+    """
+    monkeypatch.syspath_prepend(str(PYTHON_DATA_PATH))
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "field_type_collision_class_keys.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--field-type-collision-strategy",
+            "rename-type",
+            "--base-class-map",
+            json.dumps({"Pet_1": "explicit_alias_base.NamespaceBase"}),
+            "--extra-template-data",
+            json.dumps({"Pet_1": {"config": {"frozen": True}}}),
+            "--aliases",
+            json.dumps({"Pet_1.name": "nm"}),
+            "--type-overrides",
+            json.dumps({"Pet_1.nm": "decimal.Decimal"}),
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="generated_class_keyed_options_renamed_class",
+        model_name="Model",
+        valid_json='{"Pet": {"name": "1.5"}}',
+        invalid_json='{"Pet": {"name": "x"}}',
+        expected_error_type="decimal_parsing",
+        expected_attribute_path=("Pet", "nm"),
+        expected_attribute_value=Decimal("1.5"),
     )
 
 
@@ -5987,6 +6518,45 @@ def test_generate_serializes_cwd_dependent_extensions(tmp_path: Path) -> None:
     assert_file_content(second_output, "generate_with_empty_formatters.py")
 
 
+def test_generate_in_overlapping_threads_keeps_the_warning_hook(recwarn: pytest.WarningsRecorder) -> None:
+    """Show the warning of a later generation after two generations overlap in threads, each inside its parse.
+
+    The parse that ends first leaves the hook its warnings are shown through to the other, and the one that ends last
+    puts back the hook it replaced, so no hook of an ended parse stays to drop the warning a later generation shows.
+    """
+    warnings.simplefilter("always")
+    hook = warnings.showwarning
+    options = {
+        "input_": JSON_SCHEMA_DATA_PATH / "closed_pattern_properties.json",
+        "input_file_type": InputFileType.JsonSchema,
+        "formatters": [],
+    }
+
+    def generate_held(entered: Event, release: Event) -> str | GeneratedModules | None:
+        def hold(name: str) -> str:
+            entered.set()
+            release.wait(timeout=5)
+            return name
+
+        return generate(**options, custom_class_name_generator=hold)
+
+    first_entered, first_release, second_entered, second_release = Event(), Event(), Event(), Event()
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(generate_held, first_entered, first_release)
+        observations = [f"first_inside={first_entered.wait(timeout=5)}"]
+        second = executor.submit(generate_held, second_entered, second_release)
+        observations.append(f"second_inside={second_entered.wait(timeout=5)}")
+        first_release.set()
+        first.result(timeout=5)
+        second_release.set()
+        second.result(timeout=5)
+    observations.append(f"hook_kept={warnings.showwarning is hook}")
+    shown_before = len(recwarn)
+    generate(**options)
+    observations.extend(str(warning.message) for warning in list(recwarn)[shown_before:])
+    assert_output("\n".join((*observations, "")))
+
+
 @pytest.mark.allow_direct_assert
 def test_generate_does_not_capture_legacy_output_cwd(tmp_path: Path) -> None:
     """Resolve a normal request after a cwd-dependent request restores the caller context."""
@@ -6666,6 +7236,20 @@ def test_generate_returns_string_with_custom_file_header_prepend() -> None:
         custom_file_header_mode=CustomFileHeaderMode.Prepend,
         disable_timestamp=True,
         expected_file=EXPECTED_MAIN_PATH / "generate_returns_string_with_custom_file_header_prepend.py",
+    )
+
+
+@pytest.mark.parametrize(
+    "mode", [CustomFileHeaderMode.Replace, CustomFileHeaderMode.Prepend], ids=["replace", "prepend"]
+)
+def test_generate_custom_file_header_line_breaks_end_as_file_lines(mode: CustomFileHeaderMode) -> None:
+    """A CR or CRLF in a custom header is written as the file's newline, like the header's other line breaks."""
+    run_generate_and_assert(
+        input_=JSON_SCHEMA_DATA_PATH / "simple_string.json",
+        input_file_type=InputFileType.JsonSchema,
+        custom_file_header="# a\r# b\r\n# c\r\n",
+        custom_file_header_mode=mode,
+        disable_timestamp=True,
     )
 
 
@@ -7789,6 +8373,8 @@ def test_all_exports_includes_generate_config() -> None:
             ("20261015", ("310", "311", "312", "313", "314", "315")),
             ("20261017", ("310", "311", "312", "313", "314", "315")),
             ("20261027", ("310", "311", "312", "313", "314", "315")),
+            ("20261104", ("310", "311", "312", "313", "314", "315")),
+            ("20261106", ("310", "311", "312", "313", "314", "315")),
         )
         for family in ("standard", "practical")
         for target in targets

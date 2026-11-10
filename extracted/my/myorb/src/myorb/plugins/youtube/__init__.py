@@ -55,7 +55,14 @@ async def subscriptions(google: GoogleAccounts, account: GoogleAccount) -> list[
             snippet = item.get("snippet", {})
             channel_id = snippet.get("resourceId", {}).get("channelId")
             if channel_id:
-                channels.append({"id": channel_id, "title": snippet.get("title", "")})
+                logo = (snippet.get("thumbnails") or {}).get("default") or {}
+                channels.append(
+                    {
+                        "id": channel_id,
+                        "title": snippet.get("title", ""),
+                        "image": logo.get("url", ""),
+                    }
+                )
         page_token = data.get("nextPageToken")
         if not page_token:
             break
@@ -93,7 +100,8 @@ async def latest_videos(http: httpx2.AsyncClient, channels: list[dict[str, str]]
                 response = await http.get(FEED, params={"channel_id": channel["id"]})
                 if response.status_code != 200:
                     return []
-                return parse_feed(response.content, channel["title"])
+                videos = parse_feed(response.content, channel["title"])
+                return [{**v, "channel_image": channel.get("image", "")} for v in videos]
             except (httpx2.HTTPError, ET.ParseError):
                 # One unavailable channel feed leaves the others unaffected.
                 return []
@@ -141,7 +149,7 @@ class YouTubePlugin(Plugin):
     async def _widget(self, context: WidgetContext) -> WidgetData:
         async def fetch(account: GoogleAccount) -> dict[str, Any]:
             channels = await context.cache.get(
-                f"google:{account.id}:youtube-subscriptions",
+                f"google:{account.id}:youtube-channels",
                 lambda: subscriptions(context.google, account),
                 fresh=12 * 60 * 60,
                 max_age=3 * 24 * 60 * 60,
@@ -209,6 +217,7 @@ class YouTubePlugin(Plugin):
             ],
             list_title="This week from your subscriptions",
             group_label="channels",
+            group_images={v["channel"]: v["channel_image"] for v in week if v.get("channel_image")},
             rows=rows,
             actions=[
                 Action(

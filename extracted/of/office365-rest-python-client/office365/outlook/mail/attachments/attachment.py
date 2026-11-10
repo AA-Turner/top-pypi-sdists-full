@@ -5,8 +5,8 @@ from typing import IO, AnyStr, Optional
 
 from typing_extensions import Self
 
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.types.odata_property import odata
@@ -35,6 +35,7 @@ class Attachment(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="name")
     @property
     def name(self) -> Optional[str]:
         """The attachment's file name."""
@@ -45,6 +46,7 @@ class Attachment(Entity):
         """Sets the attachment's file name."""
         self.set_property("name", value)
 
+    @odata(name="contentType")
     @property
     def content_type(self) -> Optional[str]:
         return self.properties.get("contentType", None)
@@ -53,6 +55,7 @@ class Attachment(Entity):
     def content_type(self, value: str) -> None:
         self.set_property("contentType", value)
 
+    @odata(name="size")
     @property
     def size(self) -> Optional[int]:
         return self.properties.get("size", None)
@@ -63,6 +66,7 @@ class Attachment(Entity):
         """The Timestamp type represents date and time information using ISO 8601 format and is always in UTC time."""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
+    @odata(name="isInline")
     @property
     def is_inline(self) -> Optional[bool]:
         """Gets the isInline property"""

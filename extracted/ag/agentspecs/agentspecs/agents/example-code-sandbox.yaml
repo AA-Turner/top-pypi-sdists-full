@@ -22,6 +22,7 @@ tags:
 enabled: false
 model: "bedrock:us.anthropic.claude-sonnet-4-6"
 harness: pydantic-ai
+identity: datalayer-acting-agent
 
 # The Local target starts a Jupyter sandbox; the example can switch it to
 # eval and back while the agent runs.
@@ -78,3 +79,8 @@ welcome_notebook: null
 welcome_document: null
 
 trigger: null
+
+policy:
+  shield:
+    # Any public address: the MCP servers and tools it runs call out (agent-shield's firewall).
+    egress: ["*"]

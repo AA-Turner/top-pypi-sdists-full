@@ -21,6 +21,7 @@ from excel_mcp.calc.parser import (
     Percent,
     Ref,
     Unary,
+    left_chain,
     parse,
 )
 from excel_mcp.calc.values import FormulaError, Scalar, UncalculableError
@@ -166,14 +167,16 @@ class Scheduler:
                 scope = engine.sheets.get((node.sheet or "").casefold(), home)
                 try:
                     inner = parse(engine.lookup_name(scope, node.name))
-                except UncalculableError:
+                except (UncalculableError, FormulaError):
                     return
                 yield from self.rectangles(inner, home, depth + 1, dynamic)
             case Unary(_, operand) | Percent(operand):
                 yield from self.rectangles(operand, home, depth, dynamic)
-            case Binary(_, left, right):
-                yield from self.rectangles(left, home, depth, dynamic)
-                yield from self.rectangles(right, home, depth, dynamic)
+            case Binary():
+                base, chain = left_chain(node)
+                yield from self.rectangles(base, home, depth, dynamic)
+                for step in chain:
+                    yield from self.rectangles(step.right, home, depth, dynamic)
             case Call() if dynamic is not None and node.name in _TARGETS:
                 arguments = node.args
                 try:

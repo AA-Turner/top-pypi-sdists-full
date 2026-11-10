@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -12,7 +12,6 @@ from office365.sharepoint.tenant.administration.unlicensed_onedrives_summary_met
 )
 
 
-@dataclass
 class OneDrivesSummaryMetrics(ClientValue):
     calculatedOn: datetime | None = None
     licensed: LicensedOneDrivesSummaryMetrics = field(default_factory=LicensedOneDrivesSummaryMetrics)

@@ -5,7 +5,9 @@ use pyo3::exceptions::{PyException, PyMemoryError, PyRecursionError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
-use pyo3::types::{PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple};
+use pyo3::types::{
+    PyCode, PyCodeInput, PyCodeMethods, PyDict, PyFrozenSet, PyList, PySet, PyString, PyTuple,
+};
 use valgebra_core::{PathSegment, Violation};
 
 use crate::codes::{JSON_INVALID, VALIDATION_ERROR};
@@ -22,6 +24,37 @@ pub(crate) fn class_label(class: &Bound<'_, PyAny>) -> PyResult<String> {
     match name.and_then(|name| name.extract::<String>().ok()) {
         Some(text) => Ok(text),
         None => summarize(class),
+    }
+}
+
+/// A call's answer where Python's allocator refused an object the call built:
+/// `MemoryError`, which is what the interpreter raises for a refusal of its own.
+///
+/// `PyO3`'s constructors whose signature cannot fail panic on the null a refused
+/// allocation returns, having written the interpreter's `MemoryError` as
+/// unraisable, and the panic reaches the caller as `PanicException`, a
+/// `BaseException` that neither `except MemoryError` nor `except Exception`
+/// reads. Caught here at the entry point and raised as `MemoryError`; any other
+/// panic goes on as it would. The panic is told by its message, which a `PyO3`
+/// release could reword, and `tests/test_fatal_signals.py` refuses allocations
+/// at each place a call reaches and reads `MemoryError` back.
+pub(crate) fn refused_memory_is_memory_error<T>(call: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(call)) {
+        Ok(answer) => answer,
+        Err(payload) => {
+            let says = |text: &str| text.contains("pointer is null");
+            if payload
+                .downcast_ref::<&str>()
+                .is_some_and(|text| says(text))
+                || payload
+                    .downcast_ref::<String>()
+                    .is_some_and(|text| says(text))
+            {
+                Err(pyo3::exceptions::PyMemoryError::new_err(()))
+            } else {
+                std::panic::resume_unwind(payload)
+            }
+        }
     }
 }
 
@@ -43,14 +76,55 @@ static BOUNDED_REPR: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 /// small enough to print renders exactly as `repr` would and only a value that
 /// was going to be cut anyway takes a different path.
 ///
+/// A subclass of `reprlib.Repr`, through the method its documentation names for
+/// one. The base class reads any `Exception` an element's `__repr__` raises as
+/// an element that cannot render, `MemoryError` and `RecursionError` among
+/// them, which the error model raises out of the call. The element's `repr`
+/// runs once, in the subclass: the two signals raise, another exception reads
+/// as [`UNREPRESENTABLE`], as it does for a value outside a container, and a
+/// text past `maxother` goes back through the base class, which cuts it. One
+/// within it is the text, as the base class leaves it, since through the base
+/// class it would cost two Python calls an element: a summary of 32 floats in
+/// 17 µs where it takes 11. Compiled into a namespace, as the error hooks are,
+/// so no module stands in `sys.modules` without a file behind it.
+///
 /// An error building it is the caller's, a signal among them: the cell stays
 /// empty, and the next summary builds it again.
 fn bounded_repr(py: Python<'_>) -> PyResult<&Py<PyAny>> {
     BOUNDED_REPR.get_or_try_init(py, || {
-        let repr = py
-            .import("reprlib")?
-            .getattr(intern!(py, "Repr"))?
-            .call0()?;
+        let namespace = PyDict::new(py);
+        namespace.set_item(intern!(py, "__name__"), "valgebra._summary")?;
+        namespace.set_item(intern!(py, "UNREPRESENTABLE"), UNREPRESENTABLE)?;
+        PyCode::compile(
+            py,
+            c"import builtins, reprlib
+
+class Rendered:
+    __slots__ = ('text',)
+
+    def __init__(self, text):
+        self.text = text
+
+    def __repr__(self):
+        return self.text
+
+class BoundedRepr(reprlib.Repr):
+    def repr_instance(self, x, level):
+        try:
+            text = builtins.repr(x)
+        except (MemoryError, RecursionError):
+            raise
+        except Exception:
+            return UNREPRESENTABLE
+        if len(text) <= self.maxother:
+            return text
+        return super().repr_instance(Rendered(text), level)
+",
+            c"<valgebra summary>",
+            PyCodeInput::File,
+        )?
+        .run(Some(&namespace), None)?;
+        let repr = namespace.as_any().get_item("BoundedRepr")?.call0()?;
         for (limit, value) in [
             ("maxlevel", 12_usize),
             ("maxtuple", 32),
@@ -255,43 +329,45 @@ pub(crate) fn validation_error_getattr<'py>(
     instance: &Bound<'py, PyAny>,
     name: &str,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let py = instance.py();
-    if !LAZY_ATTRIBUTES.contains(&name) {
-        return Err(pyo3::exceptions::PyAttributeError::new_err(format!(
-            "'{}' object has no attribute '{name}'",
-            instance.get_type().name()?
-        )));
-    }
-    // An error built by hand reports no failures, and the model describes
-    // *failures*: the empty answer is the honest one, and an `AttributeError`
-    // here would describe the object rather than the model.
-    let Ok(carried) = instance.getattr(intern!(py, "_failures")) else {
-        return empty_attribute(py, name);
-    };
-    let Ok(failures) = carried.cast::<Failures>() else {
-        return empty_attribute(py, name);
-    };
-    let failures = failures.get();
-    let first = failures.first();
-    let keys = Keys::get(py);
-    let built = match name {
-        "code" => first.code.into_pyobject(py)?.into_any(),
-        "expected" => first.expected.as_str().into_pyobject(py)?.into_any(),
-        "value" => first.value_summary.as_str().into_pyobject(py)?.into_any(),
-        "message" => first.to_string().into_pyobject(py)?.into_any(),
-        "path" => build_path(py, &first.path)?.into_any(),
-        _ => {
-            let (first_violation, rest) =
-                failures.violations.split_first().unwrap_or((&GENERIC, &[]));
-            let message = first_violation.to_string();
-            let path = build_path(py, &first_violation.path)?;
-            error_items(py, &keys, &message, &path, first_violation, rest)?.into_any()
+    refused_memory_is_memory_error(|| {
+        let py = instance.py();
+        if !LAZY_ATTRIBUTES.contains(&name) {
+            return Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+                "'{}' object has no attribute '{name}'",
+                instance.get_type().name()?
+            )));
         }
-    };
-    // Cached on the instance, so this runs once per attribute per error and the
-    // next lookup never reaches here.
-    instance.setattr(name, &built)?;
-    Ok(built)
+        // An error built by hand reports no failures, and the model describes
+        // *failures*: the empty answer is the honest one, and an `AttributeError`
+        // here would describe the object rather than the model.
+        let Ok(carried) = instance.getattr(intern!(py, "_failures")) else {
+            return empty_attribute(py, name);
+        };
+        let Ok(failures) = carried.cast::<Failures>() else {
+            return empty_attribute(py, name);
+        };
+        let failures = failures.get();
+        let first = failures.first();
+        let keys = Keys::get(py);
+        let built = match name {
+            "code" => first.code.into_pyobject(py)?.into_any(),
+            "expected" => first.expected.as_str().into_pyobject(py)?.into_any(),
+            "value" => first.value_summary.as_str().into_pyobject(py)?.into_any(),
+            "message" => first.to_string().into_pyobject(py)?.into_any(),
+            "path" => build_path(py, &first.path)?.into_any(),
+            _ => {
+                let (first_violation, rest) =
+                    failures.violations.split_first().unwrap_or((&GENERIC, &[]));
+                let message = first_violation.to_string();
+                let path = build_path(py, &first_violation.path)?;
+                error_items(py, &keys, &message, &path, first_violation, rest)?.into_any()
+            }
+        };
+        // Cached on the instance, so this runs once per attribute per error and the
+        // next lookup never reaches here.
+        instance.setattr(name, &built)?;
+        Ok(built)
+    })
 }
 
 /// What each attribute is for an error carrying no failures.
@@ -314,7 +390,14 @@ fn empty_attribute<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py, PyAn
 /// `self` and the hook is called one argument short. The lines below are the
 /// smallest thing that binds; the work stays in Rust.
 pub(crate) fn install_lazy_attributes(py: Python<'_>) -> PyResult<()> {
-    let shim = PyModule::from_code(
+    // A namespace rather than a module. `PyModule::from_code` goes through
+    // `PyImport_ExecCodeModuleEx`, which on PyPy loads `importlib` and `warnings`
+    // for every `import valgebra`, and leaves a module in `sys.modules` that no
+    // file stands behind and no import could find again. `__name__` is what the
+    // two hooks report as their `__module__`.
+    let namespace = PyDict::new(py);
+    namespace.set_item(intern!(py, "__name__"), "valgebra._error_hooks")?;
+    PyCode::compile(
         py,
         c"def make(read, reduce):
     def __getattr__(self, name):
@@ -325,17 +408,17 @@ pub(crate) fn install_lazy_attributes(py: Python<'_>) -> PyResult<()> {
 
     return __getattr__, __reduce__
 ",
-        // The name a traceback through one of these hooks prints, and a name
-        // that says what it is: there is no such file, and a reader who goes
-        // looking for `valgebra/_error_hooks.py` finds nothing. Angle brackets
+        // The name a traceback through one of these hooks prints. Angle brackets
         // are Python's own convention for a code object with no file behind it
         // -- `<string>`, `<stdin>` -- so a frame from here reads as compiled
         // rather than as a module somebody deleted.
         c"<valgebra error hooks>",
-        c"valgebra._error_hooks",
-    )?;
-    let hooks = shim
-        .getattr("make")?
+        PyCodeInput::File,
+    )?
+    .run(Some(&namespace), None)?;
+    let hooks = namespace
+        .as_any()
+        .get_item("make")?
         .call1((
             wrap_pyfunction!(validation_error_getattr, py)?,
             wrap_pyfunction!(validation_error_reduce, py)?,
@@ -367,28 +450,30 @@ pub(crate) fn install_lazy_attributes(py: Python<'_>) -> PyResult<()> {
 pub(crate) fn validation_error_reduce<'py>(
     instance: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let py = instance.py();
-    for name in LAZY_ATTRIBUTES {
-        let _ = instance.getattr(name)?;
-    }
-    let base = py.get_type::<pyo3::exceptions::PyException>();
-    let reduced = base
-        .getattr(intern!(py, "__reduce__"))?
-        .call1((instance,))?
-        .cast_into::<PyTuple>()?;
-    // `(type, args)`, and the dictionary third where it holds anything.
-    let Ok(state) = reduced.get_item(2) else {
-        return Ok(reduced.into_any());
-    };
-    let state = state.cast_into::<PyDict>()?.copy()?;
-    if state.contains(intern!(py, "_failures"))? {
-        state.del_item(intern!(py, "_failures"))?;
-    }
-    Ok(PyTuple::new(
-        py,
-        [reduced.get_item(0)?, reduced.get_item(1)?, state.into_any()],
-    )?
-    .into_any())
+    refused_memory_is_memory_error(|| {
+        let py = instance.py();
+        for name in LAZY_ATTRIBUTES {
+            let _ = instance.getattr(name)?;
+        }
+        let base = py.get_type::<pyo3::exceptions::PyException>();
+        let reduced = base
+            .getattr(intern!(py, "__reduce__"))?
+            .call1((instance,))?
+            .cast_into::<PyTuple>()?;
+        // `(type, args)`, and the dictionary third where it holds anything.
+        let Ok(state) = reduced.get_item(2) else {
+            return Ok(reduced.into_any());
+        };
+        let state = state.cast_into::<PyDict>()?.copy()?;
+        if state.contains(intern!(py, "_failures"))? {
+            state.del_item(intern!(py, "_failures"))?;
+        }
+        Ok(PyTuple::new(
+            py,
+            [reduced.get_item(0)?, reduced.get_item(1)?, state.into_any()],
+        )?
+        .into_any())
+    })
 }
 
 /// Build the Python [`ValidationError`] for one or more violations.
@@ -515,14 +600,23 @@ fn build_path<'py>(py: Python<'py>, path: &[PathSegment]) -> PyResult<Bound<'py,
         let item = match segment {
             PathSegment::Key(key) => (&**key).into_pyobject(py)?.into_any(),
             PathSegment::IntKey(key) => (*key).into_pyobject(py)?.into_any(),
+            // Past the digit limit the digits are hexadecimal, and they stay
+            // text: an `int` there is one the standard library's JSON encoder,
+            // which writes decimal, and `repr` both refuse, and every item is
+            // JSON-serializable. No JSON document holds such a key.
+            PathSegment::BigIntKey(key) if key.contains('x') => {
+                key.as_str().into_pyobject(py)?.into_any()
+            }
             // Back to the `int` it came from: a caller indexes with the key, not
-            // with its digits. Base 0 reads the literal as Python does, so a key
-            // carried in hexadecimal past the digit limit reads back too.
+            // with its digits.
             PathSegment::BigIntKey(key) => py
                 .get_type::<pyo3::types::PyInt>()
-                .call1((key.as_str(), 0))?
+                .call1((key.as_str(),))?
                 .into_any(),
             PathSegment::Index(index) => (*index).into_pyobject(py)?.into_any(),
+            // The path ends at a key a failure is inside: no subscript reaches
+            // into a key, and the message names the place in it.
+            PathSegment::Entered => break,
         };
         items.push(item);
     }

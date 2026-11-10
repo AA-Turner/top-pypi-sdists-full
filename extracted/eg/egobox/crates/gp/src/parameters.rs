@@ -87,6 +87,30 @@ impl<F: Float> ThetaTuning<F> {
     }
 }
 
+/// Tuning of a scalar hyperparameter: either fixed or optimized within bounds
+/// (e.g. the noise variance of a sparse GP or the noise ratio of a GP)
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serializable", derive(Serialize, Deserialize))]
+pub enum ParamTuning<F: Float> {
+    /// Constant parameter (ie given not estimated)
+    Fixed(F),
+    /// Parameter is optimized between given bounds (lower, upper) starting from the inital guess
+    Optimized {
+        /// Initial guess parameter value
+        init: F,
+        /// Bounds of the optimized parameter (lower, upper)
+        bounds: (F, F),
+    },
+}
+impl<F: Float> Default for ParamTuning<F> {
+    fn default() -> ParamTuning<F> {
+        Self::Optimized {
+            init: F::cast(1e-2),
+            bounds: (F::cast(100.0) * F::epsilon(), F::cast(1e10)),
+        }
+    }
+}
+
 /// A set of validated GP parameters.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(
@@ -112,6 +136,15 @@ pub struct GpValidParams<F: Float, Mean: RegressionModel<F>, Corr: CorrelationMo
     pub(crate) max_eval: usize,
     /// Parameter to improve numerical stability
     pub(crate) nugget: F,
+    /// Tuning of the noise-to-signal ratio `tau^2 / sigma^2` of a homoscedastic
+    /// gaussian noise on training outputs (no noise by default, i.e. interpolation)
+    #[cfg_attr(feature = "serializable", serde(default = "no_noise_ratio"))]
+    pub(crate) noise_ratio: ParamTuning<F>,
+}
+
+/// Default noise ratio tuning: no noise, the GP interpolates training outputs
+pub(crate) fn no_noise_ratio<F: Float>() -> ParamTuning<F> {
+    ParamTuning::Fixed(F::zero())
 }
 
 impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> Default
@@ -126,6 +159,7 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> Default
             n_start: GP_OPTIM_N_START,
             max_eval: GP_COBYLA_MAX_EVAL,
             nugget: F::cast(100.0) * F::epsilon(),
+            noise_ratio: no_noise_ratio(),
         }
     }
 }
@@ -164,6 +198,11 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GpValidParam
     /// Get number of components used by PLS
     pub fn nugget(&self) -> F {
         self.nugget
+    }
+
+    /// Get the noise-to-signal ratio tuning
+    pub fn noise_ratio(&self) -> &ParamTuning<F> {
+        &self.noise_ratio
     }
 }
 
@@ -280,6 +319,19 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GpParams<F, 
         self.0.nugget = nugget;
         self
     }
+
+    /// Set the tuning of the noise-to-signal ratio `tau^2 / sigma^2`, where `tau^2` is the
+    /// variance of a homoscedastic gaussian noise on training outputs and `sigma^2` the
+    /// process variance.
+    ///
+    /// By default the ratio is fixed to 0 (no noise): the GP interpolates training outputs.
+    /// With a positive ratio the GP smoothes noisy outputs; when optimized, the ratio is
+    /// estimated along with theta by maximizing the likelihood.
+    /// The fitted noise variance is available with [`crate::GaussianProcess::noise_variance`].
+    pub fn noise_ratio(mut self, noise_ratio: ParamTuning<F>) -> Self {
+        self.0.noise_ratio = noise_ratio;
+        self
+    }
 }
 
 impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>>
@@ -312,6 +364,31 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> ParamGuard
                     theta.len()
                 )));
             };
+        }
+        match self.0.noise_ratio {
+            ParamTuning::Fixed(ratio) => {
+                if ratio.is_nan() || ratio < F::zero() {
+                    return Err(GpError::InvalidValueError(format!(
+                        "Fixed noise ratio should be positive or zero, got {ratio}"
+                    )));
+                }
+            }
+            ParamTuning::Optimized {
+                init,
+                bounds: (lo, up),
+            } => {
+                // Optimization is done in log10 space, bounds should be positive
+                if !(F::zero() < lo && lo < up) {
+                    return Err(GpError::InvalidValueError(format!(
+                        "Noise ratio bounds should be (lower, upper) with 0 < lower < upper, got ({lo}, {up})"
+                    )));
+                }
+                if !(lo <= init && init <= up) {
+                    return Err(GpError::InvalidValueError(format!(
+                        "Noise ratio initial guess {init} should be within bounds ({lo}, {up})"
+                    )));
+                }
+            }
         }
         Ok(&self.0)
     }

@@ -1,6 +1,7 @@
 mod completion_edit;
 mod completion_hint;
 mod completion_kind;
+mod completion_name_target;
 
 use std::path::Path;
 
@@ -9,6 +10,7 @@ pub use completion_edit::{
 };
 pub use completion_hint::{AddLeadingComma, AddTrailingComma, CommaHint, CompletionHint};
 pub use completion_kind::CompletionKind;
+pub use completion_name_target::CompletionNameTarget;
 use tombi_document_tree::{Node as _, ValueNode as _, dig_accessors};
 use tombi_schema_store::{Accessor, SchemaUri};
 
@@ -96,6 +98,12 @@ impl CompletionContent {
             preselect: None,
             in_comment: false,
         }
+    }
+
+    /// Sets the icon shown before the label, such as the language of the file the candidate belongs to.
+    pub fn with_emoji_icon(mut self, emoji_icon: char) -> Self {
+        self.emoji_icon = Some(emoji_icon);
+        self
     }
 
     pub fn new_enum_value(

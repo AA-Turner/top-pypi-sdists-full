@@ -6,6 +6,7 @@ Split from the former monolithic ``checks.py`` (#1822). No behavior change.
 import ast
 import os
 import re
+import sys
 from collections.abc import Iterable, Iterator
 from typing import Any, Optional
 
@@ -27,6 +28,7 @@ __all__ = [
     "DjustInfo",
     # discovery / parsing helpers
     "_is_check_suppressed",
+    "_is_production",
     "_get_project_app_dirs",
     "_get_template_dirs",
     "_iter_python_files",
@@ -36,6 +38,7 @@ __all__ = [
     "_has_noqa",
     "_walk_subclasses",
     "_strip_verbatim_blocks",
+    "_blank_template_comments",
     # shared scanner regexes
     "_LIVE_RENDER_TAG_RE",
     "_LIVE_RENDER_STICKY_TRUTHY_RE",
@@ -77,6 +80,22 @@ class DjustInfo(_DjustCheckMixin, Info):
     """Info with fix_hint metadata."""
 
     pass
+
+
+def _is_production() -> bool:
+    """True when ``DEBUG`` is off and this is not ``manage.py test`` (#3293).
+
+    Django's test runner forces ``DEBUG = False`` before it runs the system
+    checks, so a check gated on ``not settings.DEBUG`` alone reads a development
+    project's test run as production and, at error level, aborts it. Django
+    dispatches the subcommand from ``argv[1]``, which makes that the exact
+    signal. ``check --deploy`` and real servers are unaffected.
+    """
+    from django.conf import settings
+
+    if getattr(settings, "DEBUG", False):
+        return False
+    return not (len(sys.argv) > 1 and sys.argv[1] == "test")
 
 
 def _is_check_suppressed(check_id: str) -> bool:
@@ -166,14 +185,27 @@ def _get_project_app_dirs() -> list[str]:
 
 
 def _get_template_dirs() -> list[str]:
-    """Return all configured template directories."""
+    """Return all configured template directories, each once.
+
+    A directory reachable twice (listed by two backends, by ``DIRS`` and
+    ``APP_DIRS``, or through a symlink) is kept at its first spelling, so
+    template-scanning checks don't report every hit in it twice (#3143).
+    """
     from django.conf import settings
 
-    dirs = []
+    dirs: list[Any] = []  # str, or whatever path-like DIRS holds
+    seen: set[str] = set()
+
+    def _add(d: Any) -> None:
+        real = os.path.realpath(d)
+        if real not in seen:
+            seen.add(real)
+            dirs.append(d)
+
     for backend in getattr(settings, "TEMPLATES", []):
         for d in backend.get("DIRS", []):
             if os.path.isdir(d):
-                dirs.append(d)
+                _add(d)
         # Also check APP_DIRS templates
         if backend.get("APP_DIRS"):
             # ``_root`` is ``djust.checks``, whose symbols are re-exported
@@ -184,7 +216,7 @@ def _get_template_dirs() -> list[str]:
             for app_dir in _root._get_project_app_dirs():  # type: ignore[attr-defined]
                 tpl_dir = os.path.join(app_dir, "templates")
                 if os.path.isdir(tpl_dir):
-                    dirs.append(tpl_dir)
+                    _add(tpl_dir)
     return dirs
 
 
@@ -202,12 +234,19 @@ def _iter_python_files(directories: Iterable[str]) -> Iterator[str]:
 
 
 def _iter_template_files(directories: Iterable[str]) -> Iterator[str]:
-    """Yield .html template file paths from directories."""
+    """Yield .html template file paths from directories, each file once
+    (a directory nested inside another listed one would otherwise yield its
+    files twice, #3143)."""
+    seen: set[str] = set()
     for directory in directories:
         for root, _dirs, files in os.walk(directory):
             for fname in files:
                 if fname.endswith(".html"):
-                    yield os.path.join(root, fname)
+                    path = os.path.join(root, fname)
+                    real = os.path.realpath(path)
+                    if real not in seen:
+                        seen.add(real)
+                        yield path
 
 
 def _iter_js_files(directories: Iterable[str]) -> Iterator[str]:
@@ -274,6 +313,17 @@ def _has_noqa(source_lines: list[str], lineno: int, check_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _is_framework_internal_class(cls: type) -> bool:
+    """True for djust's own production classes, which per-class checks skip.
+
+    djust's test and example modules are still checked (dogfooding).
+    """
+    module = getattr(cls, "__module__", "") or ""
+    if not (module.startswith("djust.") or module.startswith("djust_")):
+        return False
+    return "test" not in module and "example" not in module
+
+
 def _walk_subclasses(cls: type) -> Iterator[type]:
     """Recursively yield all subclasses of cls."""
     for sub in cls.__subclasses__():
@@ -323,6 +373,117 @@ _VERBATIM_BLOCK_RE = re.compile(
     r"\{%\s*verbatim\b[^%]*%\}.*?\{%\s*endverbatim\b[^%]*%\}",
     re.DOTALL,
 )
+
+
+# Django's two comment forms, found the way its lexer finds them: a tag is
+# ``{% ... %}`` / ``{# ... #}`` on ONE line (a multi-line ``{# #}`` renders as
+# literal text, and a ``{% comment "100% sure" %}`` note may contain ``%``);
+# ``{% comment %}`` then runs to the first ``{% endcomment %}``.
+_COMMENT_OPENER = re.compile(r"\{#|\{%\s*comment\b")
+_ENDCOMMENT = re.compile(r"\{%\s*endcomment\s*%\}")
+# Every character ``str.splitlines`` breaks on survives blanking, so a scan that
+# splits the blanked text sees the same lines as one that splits the original.
+_LINE_BREAKS = frozenset("\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029")
+
+
+def _count_newlines(text: str, start: int, end: int) -> int:
+    """Newlines in ``text[start:end]`` -- the ONLY place :class:`LineCounter` reads ``text``.
+
+    A module-level function so a test can tally how many characters a scan reads
+    (``end - start``) without a clock (#3705)."""
+    return text.count("\n", start, end)
+
+
+class LineCounter:
+    """The 1-based line of a character offset, for a scan that reports one per match.
+
+    ``text[:offset].count("\n") + 1`` re-reads the text from the start for every
+    match, so a template with many matches costs O(template x matches) (#3705).
+    This reads only the characters between the previous query and this one: a scan
+    that visits matches in order (every ``finditer`` loop) reads the text once in
+    total. An out-of-order query is still correct, at the cost of the distance moved.
+
+    One counter per text. The text the counter reads must be the text the offsets
+    index into (or one that keeps every newline in place, as the ``_blank_*`` /
+    ``_strip_*`` helpers do).
+    """
+
+    __slots__ = ("_text", "_offset", "_line")
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+        self._offset = 0
+        self._line = 1
+
+    def line_at(self, offset: int) -> int:
+        """The line ``offset`` falls on; the same as ``text[:offset].count("\\n") + 1``."""
+        if offset >= self._offset:
+            self._line += _count_newlines(self._text, self._offset, offset)
+        else:
+            self._line -= _count_newlines(self._text, offset, self._offset)
+        self._offset = offset
+        return self._line
+
+
+def _blank_template_comments(content: str) -> str:
+    """Replace every ``{# #}`` and ``{% comment %}...{% endcomment %}`` region
+    with whitespace, keeping line breaks so line numbers stay aligned (#3283).
+
+    A comment renders nothing, so markup it mentions (an ``<input>``, ``dj-root``,
+    ``<script src>``) is not part of the page. Scan with this, but read pragmas
+    that live in comments (``{# noqa: T011 #}``, ``{# djust:partial #}``) from
+    the original source.
+
+    Linear in the template: a search that fails once cannot succeed later, so an
+    unterminated opener is remembered rather than re-searched for each repeat, and
+    the end of the opener's line is found by a cursor that only moves forward
+    rather than by a search to the end of the template for every opener (#3723).
+    """
+    if "{#" not in content and "{%" not in content:
+        return content
+    pieces: list[str] = []
+    done = 0
+    position = 0
+    no_endcomment = False
+    # Per opener kind: no closer exists on the current line before this offset.
+    dead_until = {True: -1, False: -1}
+    # The first "\n" at or after the last place it was searched from: -2 before the
+    # first search, -1 when there is none. ``position`` never moves back, so a hit at
+    # or past it is still the first newline after it, and a miss stays a miss.
+    newline = -2
+    while True:
+        opener = _COMMENT_OPENER.search(content, position)
+        if opener is None:
+            break
+        position = opener.end()
+        inline = opener.group(0) == "{#"
+        if position <= dead_until[inline]:
+            continue
+        if newline != -1 and newline < position:
+            newline = content.find("\n", position)
+        line_end = len(content) if newline == -1 else newline
+        closer = content.find("#}" if inline else "%}", position, line_end)
+        if closer == -1:
+            dead_until[inline] = line_end
+            continue
+        end = closer + 2
+        if not inline:
+            if no_endcomment:
+                continue
+            endcomment = _ENDCOMMENT.search(content, end)
+            if endcomment is None:
+                no_endcomment = True
+                continue
+            end = endcomment.end()
+        pieces.append(content[done : opener.start()])
+        pieces.append(
+            "".join(ch if ch in _LINE_BREAKS else " " for ch in content[opener.start() : end])
+        )
+        done = position = end
+    if not pieces:
+        return content
+    pieces.append(content[done:])
+    return "".join(pieces)
 
 
 def _strip_verbatim_blocks(content: str) -> str:

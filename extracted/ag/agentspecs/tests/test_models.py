@@ -188,6 +188,27 @@ def test_every_model_names_a_provider_the_catalogue_has_and_its_page():
     assert get_model_provider("ollama").hosting == "local"
 
 
+def test_every_provider_says_how_a_call_reaches_it():
+    """Through ai-inference, which holds the account, or directly from the agent with the
+    person's key (the user, 7 November 2026): OpenRouter direct, Cloudflare through."""
+    from agentspecs.model_providers import (
+        MODEL_PROVIDER_CATALOGUE,
+        PROVIDER_VIA,
+        get_model_provider,
+    )
+
+    for provider in MODEL_PROVIDER_CATALOGUE:
+        assert provider.via in PROVIDER_VIA, provider.id
+    assert get_model_provider("openrouter").via == "direct"
+    assert get_model_provider("cloudflare").via == "ai-inference"
+    assert get_model_provider("bedrock").via == "ai-inference"
+    # A direct provider's models name the key the agent calls with.
+    for model in AI_MODEL_CATALOGUE:
+        provider = get_model_provider(model.provider)
+        if provider.via == "direct" and provider.hosting != "local":
+            assert model.required_env_vars, model.id
+
+
 def test_a_model_naming_an_unknown_provider_is_refused():
     from agentspecs.models import _check_providers
 
@@ -198,13 +219,20 @@ def test_a_model_naming_an_unknown_provider_is_refused():
 def test_a_provider_file_is_named_for_its_id(tmp_path):
     from agentspecs.model_providers import _load_provider_specs
 
-    (tmp_path / "acme.yaml").write_text('id: "acme"\nname: Acme\nhosting: cloud\n')
+    (tmp_path / "acme.yaml").write_text('id: "acme"\nname: Acme\nhosting: cloud\nvia: direct\n')
     assert [p.id for p in _load_provider_specs(tmp_path)] == ["acme"]
-    (tmp_path / "other.yaml").write_text('id: "acme"\nname: Acme\n')
+    (tmp_path / "other.yaml").write_text('id: "acme"\nname: Acme\nvia: direct\n')
     with pytest.raises(ValueError, match="named for id"):
         _load_provider_specs(tmp_path)
-    (tmp_path / "other.yaml").write_text('id: "other"\nname: Other\nhosting: orbit\n')
+    (tmp_path / "other.yaml").write_text('id: "other"\nname: Other\nhosting: orbit\nvia: direct\n')
     with pytest.raises(ValueError, match="orbit"):
+        _load_provider_specs(tmp_path)
+    # A provider that does not say how a call reaches it, or says something else, is refused.
+    (tmp_path / "other.yaml").write_text('id: "other"\nname: Other\nhosting: cloud\n')
+    with pytest.raises(Exception, match="via"):
+        _load_provider_specs(tmp_path)
+    (tmp_path / "other.yaml").write_text('id: "other"\nname: Other\nhosting: cloud\nvia: carrier-pigeon\n')
+    with pytest.raises(ValueError, match="carrier-pigeon"):
         _load_provider_specs(tmp_path)
 
 
@@ -216,3 +244,22 @@ def test_every_bedrock_openai_azure_anthropic_and_workers_ai_model_has_a_price()
     routed = ("bedrock:", "anthropic:", "openai:", "azure-openai:", "cloudflare:wrk/")
     unpriced = [m.id for m in AI_MODEL_CATALOGUE if m.id.startswith(routed) and m.pricing is None]
     assert unpriced == []
+
+
+def test_the_titan_embedding_models_are_priced_and_embed_only():
+    """What ai-inference's `/embeddings` serves and meters: both Titan models are in the
+    catalogue by the ids it meters them under, priced per million input tokens (an
+    embedding has no output), and named embedding models, so no chat picker offers them."""
+    prices = {
+        "bedrock:amazon.titan-embed-text-v1": 0.1,
+        "bedrock:amazon.titan-embed-text-v2:0": 0.02,
+    }
+    for model_id, input_price in prices.items():
+        model = get_model(model_id)
+        assert model is not None, model_id
+        assert model.capabilities == ["embeddings"], model_id
+        assert model.pricing is not None, model_id
+        assert model.pricing.input_usd_per_million == input_price, model_id
+        assert model.pricing.output_usd_per_million == 0.0, model_id
+        assert model.required_env_vars == [], model_id
+    assert "embeddings" in MODEL_CAPABILITIES

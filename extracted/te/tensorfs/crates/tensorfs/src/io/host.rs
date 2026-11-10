@@ -1,6 +1,5 @@
 //! Host destinations: positioned reads on a few threads, each copy cut on the request grid.
 
-use std::alloc::{self, Layout};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
@@ -41,12 +40,14 @@ struct Tally {
     bounced: AtomicU64,
 }
 
-/// `cancel` stops it between pieces and counts each finished piece as issued.
+/// `cold[i]`: copy `i` reads past the page cache (`super::cold`). `cancel` stops it between pieces
+/// and counts each finished piece as issued.
 ///
 /// # Safety
 /// As [`super::read`], for host destinations only.
 pub(super) unsafe fn fill(
     copies: &[Copy],
+    cold: &[bool],
     opts: &ReadOpts,
     cancel: Option<&ReadControl>,
 ) -> Result<ReadStats, Error> {
@@ -87,7 +88,8 @@ pub(super) unsafe fn fill(
                 && pieces.last().is_some_and(|p| {
                     let (first, last) = (&segs[p.segs.start], &segs[p.segs.end - 1]);
                     let last_end = last.offset + last.len as u64;
-                    p.file == file && at >= last_end && at - last_end <= MERGE_GAP && next - first.offset <= grid
+                    p.file == file && cold[first.copy] == cold[i] && at >= last_end && at - last_end <= MERGE_GAP
+                        && next - first.offset <= grid
                 });
             segs.push(Seg { copy: i, offset: at, len: (next - at) as usize, dst: ptr as usize + (at - offset) as usize });
             match joins {
@@ -121,8 +123,7 @@ pub(super) unsafe fn fill(
             };
             let (file, last) = (files[i], &segs[segs.len() - 1]);
             let (from, to) = (segs[0].offset, last.offset + last.len as u64);
-            let cold = opts.direct && segs.iter().any(|s| !durable::cached(file, s.offset, s.len as u64).unwrap_or(false));
-            let d = cold.then(|| direct[i].get_or_init(|| durable::open_direct(file).ok().flatten()).as_ref());
+            let d = cold[segs[0].copy].then(|| direct[i].get_or_init(|| durable::open_direct(file).ok().flatten()).as_ref());
             let r = match (d.flatten(), segs) {
                 (Some(d), [s]) => direct_piece(d, s.offset, dst(s), &mut bounce, &tally),
                 (Some(d), _) => bounce.fill(d, from, (to - from) as usize).map(|cover| {
@@ -238,10 +239,11 @@ pub(super) fn read_at(f: &File, buf: &mut [u8], at: u64) -> io::Result<usize> {
     std::os::windows::fs::FileExt::seek_read(f, buf, at)
 }
 
-/// One thread's aligned buffer for O_DIRECT reads its destination cannot take.
+/// One thread's aligned buffer for O_DIRECT reads its destination cannot take: zeroed, and one
+/// alignment longer than asked, so an aligned start always fits.
 #[derive(Default)]
 pub(super) struct Bounce {
-    buf: Option<(*mut u8, Layout)>,
+    buf: Vec<u8>,
 }
 
 impl Bounce {
@@ -263,31 +265,11 @@ impl Bounce {
     }
 
     pub(super) fn get(&mut self, len: usize) -> &mut [u8] {
-        if self.buf.is_none_or(|(_, l)| l.size() < len) {
-            self.free();
-            let layout = Layout::from_size_align(len, A as usize).expect("a bounce buffer layout");
-            // SAFETY: a non-zero size; freed in `free`.
-            let ptr = unsafe { alloc::alloc_zeroed(layout) };
-            if ptr.is_null() {
-                alloc::handle_alloc_error(layout);
-            }
-            self.buf = Some((ptr, layout));
+        let a = A as usize;
+        if self.buf.len() < len + a {
+            self.buf = vec![0; len + a];
         }
-        let (ptr, _) = self.buf.unwrap();
-        // SAFETY: ours, initialized, `layout.size() >= len`.
-        unsafe { std::slice::from_raw_parts_mut(ptr, len) }
-    }
-
-    fn free(&mut self) {
-        if let Some((ptr, layout)) = self.buf.take() {
-            // SAFETY: allocated in `get` with this layout.
-            unsafe { alloc::dealloc(ptr, layout) };
-        }
-    }
-}
-
-impl Drop for Bounce {
-    fn drop(&mut self) {
-        self.free();
+        let at = self.buf.as_ptr().align_offset(a);
+        &mut self.buf[at..at + len]
     }
 }

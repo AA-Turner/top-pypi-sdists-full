@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: martor
-Version: 1.8.5
+Version: 1.9.2
 Summary: Django Markdown Editor
 Project-URL: Homepage, https://github.com/agusmakmun/django-markdown-editor
 Project-URL: Documentation, https://github.com/agusmakmun/django-markdown-editor?tab=readme-ov-file#installation
@@ -37,9 +37,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
-Requires-Dist: bleach[css]
 Requires-Dist: django>=3.2
 Requires-Dist: markdown>=3.0
+Requires-Dist: nh3>=0.3.0
 Requires-Dist: requests>=2.12.4
 Requires-Dist: tzdata
 Requires-Dist: urllib3
@@ -75,7 +75,7 @@ Description-Content-Type: text/markdown
 * Direct Mention users `@[username]` - _(requires user to logged in)_.
 * Supports embed/iframe video from (Youtube, Vimeo, Dailymotion, Yahoo, Veoh, & Metacafe)
 * Spellchecking (only supports US English at this time)
-* Emoji `:emoji_name:` + Cheat sheets
+* Emoji `:emoji_name:` with a searchable emoji picker + Cheat sheets
 * Martor Commands Reference
 * Supports Django Admin
 * Toolbar Buttons
@@ -95,7 +95,7 @@ Description-Content-Type: text/markdown
 * `Django>=3.2`
 * `Markdown>=3.0`
 * `requests>=2.12.4`
-* `bleach`
+* `nh3>=0.3.0`
 
 
 ### Installation
@@ -192,6 +192,9 @@ MARTOR_MARKDOWNIFY_TIMEOUT = 0 # update the preview instantly
 # or:
 MARTOR_MARKDOWNIFY_TIMEOUT = 1000 # default
 
+# Text shown when the preview is empty (default None: "Nothing to preview").
+MARTOR_PREVIEW_PLACEHOLDER = None
+
 # Markdown extensions (default)
 MARTOR_MARKDOWN_EXTENSIONS = [
     'markdown.extensions.extra',
@@ -255,6 +258,11 @@ ALLOWED_HTML_ATTRIBUTES = [
     "alt", "class", "color", "colspan", "datetime",  # "data",
     "height", "href", "id", "name", "reversed", "rowspan",
     "scope", "src", "style", "title", "type", "width"
+]
+
+# CSS properties kept in inline `style` attributes (default: the list bleach allowed)
+ALLOWED_CSS_PROPERTIES = [
+    "background-color", "color", "font-size", "font-weight", "text-align", ...
 ]
 ```
 
@@ -526,8 +534,8 @@ The demo (`martor_demo/app/static/demo/`) has a complete light/dark/auto toggle.
 
 ### Custom Uploader
 
-If you want to save the images uploaded to your storage,
-**Martor** also provides a way to handle this. Please checkout this [WIKI][13]
+To save uploaded images to your own storage (`MEDIA_ROOT`, S3, ...) instead of imgur, point
+`MARTOR_UPLOAD_URL` to your own view. See the [custom uploader guide][13] for a complete, secure view.
 
 Images pasted into the editor from the clipboard are uploaded through the same `MARTOR_UPLOAD_URL`
 (form field `markdown-image-upload`).
@@ -645,7 +653,7 @@ The documentation is built with [Sphinx](https://www.sphinx-doc.org/) and uses r
 [11]: https://img.shields.io/github/actions/workflow/status/agusmakmun/django-markdown-editor/run-tests.yml?branch=master
 [12]: https://github.com/agusmakmun/django-markdown-editor/actions/workflows/run-tests.yml
 
-[13]: https://github.com/agusmakmun/django-markdown-editor/wiki
+[13]: https://django-markdown-editor.readthedocs.io/en/latest/examples/custom-uploader.html
 [14]: https://github.com/agusmakmun/django-markdown-editor/tree/master/martor_demo/app/templates/demo
 [15]: https://github.com/adi-/django-markdownx
 [16]: https://github.com/waylan/Python-Markdown

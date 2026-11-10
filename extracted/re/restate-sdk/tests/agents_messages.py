@@ -23,7 +23,7 @@ from sessions_object import Host, run  # pylint: disable=import-error
 from restate import sessions
 from restate.agents import _messages
 from restate.agents._api import Messages, MessagesRequest
-from restate.agents._conversation import TABLE, Conversation, Entry, next_start, restart
+from restate.agents._conversation import STEPS, TURNS, Conversation, Entry, next_start, restart
 
 
 @pytest.fixture
@@ -37,25 +37,34 @@ chat = sessions.SessionObject("rendered")
 @chat.handler
 async def ask(ctx: sessions.SessionContext, text: str) -> None:
     conversation = await Conversation.load(ctx.db, ITEMS)
-    await conversation.ask(f"{ctx.request.id}:{len(conversation.entries)}", text)
+    # Turns never overlap: the one before is answered first, with its last reply.
+    if (running := conversation.running()) is not None:
+        await running.answered(running.final_reply() or "")
+    await conversation.ask(f"{ctx.request.id}:{len(conversation.transcript)}", text)
+
+
+@chat.handler
+async def answer(ctx: sessions.SessionContext, text: str) -> None:
+    conversation = await Conversation.load(ctx.db, ITEMS)
+    await conversation.turn.answered(text)
 
 
 @chat.handler
 async def reply(ctx: sessions.SessionContext, items: list[Any]) -> int:
     conversation = await Conversation.load(ctx.db, ITEMS)
-    return await conversation.append_reply(*items)
+    return await conversation.turn.append_reply(*items)
 
 
 @chat.handler
 async def append(ctx: sessions.SessionContext, items: list[Any]) -> None:
     conversation = await Conversation.load(ctx.db, ITEMS)
-    await conversation.append(*items)
+    await conversation.turn.append(*items)
 
 
 @chat.handler
 async def drop(ctx: sessions.SessionContext, reply_id: int) -> None:
     conversation = await Conversation.load(ctx.db, ITEMS)
-    await conversation.drop(reply_id)
+    await conversation.turn.drop(reply_id)
 
 
 @chat.handler
@@ -63,13 +72,36 @@ async def clear(ctx: sessions.SessionContext) -> None:
     await Conversation.load(ctx.db, ITEMS)
     start = await next_start(ctx.db)
     async with ctx.db.transaction() as tx:
-        await tx.execute(f"DELETE FROM {TABLE}")
+        await tx.execute(f"DELETE FROM {TURNS}")
+        await tx.execute(f"DELETE FROM {STEPS}")
         await restart(tx, start)
 
 
 @chat.view
 async def read(ctx: sessions.ViewContext, request: MessagesRequest) -> Messages:
     return await _messages.page(ctx.db, ITEMS, request)
+
+
+@chat.view
+async def counted(ctx: sessions.ViewContext, request: MessagesRequest) -> dict[str, Any]:
+    """``read``, with how many rows its queries gave."""
+    db = ctx.db
+    rows = 0
+
+    class Counting:
+        """The view's database, counting the rows of each read."""
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(db, name)
+
+        async def values(self, sql: str, params: Any = None) -> Any:
+            nonlocal rows
+            found = await db.values(sql, params)
+            rows += len(found)
+            return found
+
+    page = await _messages.page(typing.cast(Any, Counting()), ITEMS, request)
+    return {"page": page, "rows": rows}
 
 
 def texts(page: Messages) -> list[tuple[int, str]]:
@@ -115,6 +147,28 @@ async def test_a_page_reads_back_only_as_many_prompts_as_it_shows():
     assert texts(first) == [(0, "question 0"), (1, "answer 0")] and not first["more"]
 
 
+async def test_a_page_of_no_messages_has_the_cursor_and_whether_there_are_any():
+    host = Host(Backend(), service="rendered")
+    for n in range(2):
+        await run(chat, "ask", host, f"question {n}")
+        await run(chat, "reply", host, [{"role": "assistant", "text": f"answer {n}"}])
+    every = await run(chat, "read", host.view(), {})
+    for view in ("full", "summary"):
+        none = await run(chat, "read", host.view(), {"limit": 0, "view": view})
+        assert (view, none["messages"], none["more"], none["cursor"]) == (view, [], True, every["cursor"])
+
+
+async def test_a_page_back_reads_its_own_turns_not_every_turn_after_it():
+    host = Host(Backend(), service="rendered")
+    for n in range(30):
+        await run(chat, "ask", host, f"question {n}")
+        await run(chat, "reply", host, [{"role": "assistant", "text": f"answer {n}"}])
+    read = await run(chat, "counted", host.view(), {"limit": 2, "before": 4})
+    assert texts(read["page"]) == [(2, "question 1"), (3, "answer 1")]
+    # The rows of its two turns, and a row of each lookup: not the 60 rows of the conversation.
+    assert read["rows"] < 15
+
+
 async def test_an_error_output_is_marked_and_is_a_calls_result_only_if_it_is_its_own_error():
     host = Host(Backend(), service="rendered")
     await run(chat, "ask", host, "Charge me")
@@ -124,10 +178,14 @@ async def test_an_error_output_is_marked_and_is_a_calls_result_only_if_it_is_its
     [_, message] = (await run(chat, "read", host.view(), {}))["messages"]
     assert message["parts"][0].get("error") is True
 
-    conversation = Conversation(typing.cast(Any, None), ITEMS, [Entry(0, {"result": "call-1", "output": "Error: no"})])
+    entries = [
+        Entry(0, {"role": "user", "text": "go"}, prompt="p0"),
+        Entry(1, {"result": "call-1", "output": "Error: no"}),
+    ]
+    turn = Conversation(typing.cast(Any, None), ITEMS, entries).turn
     # An error is the call's result only if the call answered with it (see the calls' bookkeeping).
-    assert not conversation.stored("call-1")
-    assert conversation.stored("call-1", failed="Error: no")
+    assert not turn.stored("call-1")
+    assert turn.stored("call-1", failed="Error: no")
 
 
 async def test_a_dropped_reply_is_replaced_under_its_ids_and_a_cursor_sees_the_replacement():
@@ -154,3 +212,30 @@ async def test_a_cleared_conversation_goes_on_from_its_ids_and_cursors():
     page = await run(chat, "read", host.view(), {})
     assert texts(page) == [(2, "after")] and page["first"] == 2 and page["cursor"] == cursor + 1
     assert texts(await run(chat, "read", host.view(), {"cursor": cursor})) == [(2, "after")]
+
+
+async def test_the_summary_is_each_turns_message_and_answer_under_their_ids():
+    host = Host(Backend(), service="rendered")
+    await run(chat, "ask", host, "What is the weather in Lisbon?")
+    await run(chat, "reply", host, [{"role": "assistant", "text": "", "calls": [WEATHER]}])
+    await run(chat, "append", host, [{"result": "call-1", "output": "Sunny"}])
+    await run(chat, "reply", host, [{"role": "assistant", "text": "It is sunny in Lisbon."}])
+    # The turn has no answer yet: the summary is its message alone, while the full view shows its steps.
+    before = await run(chat, "read", host.view(), {"view": "summary"})
+    assert texts(before) == [(0, "What is the weather in Lisbon?")]
+    await run(chat, "answer", host, "Sunny, 24 degrees.")
+    await run(chat, "ask", host, "Thanks")
+    summary = await run(chat, "read", host.view(), {"view": "summary"})
+    # The answer has the id of the turn's last message of the assistant, as the full view shows it.
+    assert texts(summary) == [(0, "What is the weather in Lisbon?"), (3, "Sunny, 24 degrees."), (4, "Thanks")]
+    full = await run(chat, "read", host.view(), {})
+    assert [m["id"] for m in full["messages"]] == [0, 1, 3, 4]
+    # A follower of the summary gets the answer once it is stored, then the next message, in that order.
+    changed = await run(chat, "read", host.view(), {"view": "summary", "cursor": before["cursor"]})
+    assert texts(changed) == [(3, "Sunny, 24 degrees."), (4, "Thanks")]
+    assert (await run(chat, "read", host.view(), {"view": "summary", "cursor": changed["cursor"]}))["messages"] == []
+    # Paging back by turns, as the full view pages.
+    page = await run(chat, "read", host.view(), {"view": "summary", "limit": 2})
+    assert texts(page) == [(3, "Sunny, 24 degrees."), (4, "Thanks")] and page["more"]
+    earlier = await run(chat, "read", host.view(), {"view": "summary", "limit": 2, "before": 3})
+    assert texts(earlier) == [(0, "What is the weather in Lisbon?")] and not earlier["more"]

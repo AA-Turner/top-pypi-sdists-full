@@ -28,7 +28,8 @@ POLL_SECONDS = 0.5
 PROGRESS_EVERY_SECONDS = 5.0
 #: Worker deaths with nothing delivered before the wait gives up.
 CRASH_RESTARTS = 3
-#: Kicks with no worker ever taking the lease before "nothing here can send them".
+#: Kicks with no worker ever taking the lease, and no service promising one, before "nothing here can send
+#: them".
 NO_SENDER_KICKS = 3
 _KICK_EVERY_SECONDS = 2.0
 #: The full count runs at most this often (only once the records say nothing is left).
@@ -129,7 +130,8 @@ class DeliveryWaiter:
                 full = self._count()
                 if full.pending + full.best_effort == 0:
                     return self._settle(full)
-                return self._result(ended, view)
+                # No worker ever wrote a record (no sender at all): only the folders count them.
+                return self._result(ended, view if view.updated_at is not None else full)
             if now - self.started >= PROGRESS_EVERY_SECONDS and now - said_at >= PROGRESS_EVERY_SECONDS:
                 said_at = now
                 self.on_progress(self.line.render(view, is_server_storing=self._is_server_storing(view)))
@@ -196,6 +198,7 @@ class DeliveryWaiter:
 
     # -- keeping a worker on each queue that holds the run ----------------------------------
     def _tend_workers(self, view: RunView, now: float, moved_at: float) -> WaitOutcome | None:
+        from probe.sdk.delivery.outbox.drainers.detached import is_drain_promised
         from probe.sdk.delivery.outbox.lease import (
             PROGRESS_FEATURE,
             _lease_is_free,
@@ -230,7 +233,8 @@ class DeliveryWaiter:
                 self._kicked_at[key] = now
                 self._kick(queue)
                 self._kicks[key] = self._kicks.get(key, 0) + 1
-                if self._kicks[key] > NO_SENDER_KICKS and not any(self._seen_alive.values()) and not view.workers:
+                if (self._kicks[key] > NO_SENDER_KICKS and not any(self._seen_alive.values()) and not view.workers
+                        and not is_drain_promised(queue.dir)):
                     return WaitOutcome.NO_SENDER
         return None
 

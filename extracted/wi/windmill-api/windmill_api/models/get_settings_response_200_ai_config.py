@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ..models.get_settings_response_200_ai_config_metadata_model import GetSettingsResponse200AiConfigMetadataModel
     from ..models.get_settings_response_200_ai_config_model_pricing import GetSettingsResponse200AiConfigModelPricing
     from ..models.get_settings_response_200_ai_config_providers import GetSettingsResponse200AiConfigProviders
+    from ..models.get_settings_response_200_ai_config_web_search import GetSettingsResponse200AiConfigWebSearch
 
 
 T = TypeVar("T", bound="GetSettingsResponse200AiConfig")
@@ -50,6 +51,9 @@ class GetSettingsResponse200AiConfig:
         sessions_retention_days (Union[Unset, int]): The server deletes the backup of a session no push has reached for
             this many days. Unset keeps backups until the user deletes the session. Read from the workspace's own settings
             like `copilot_disabled`.
+        web_search (Union[Unset, GetSettingsResponse200AiConfigWebSearch]): The search API the AI chat searches the web
+            and reads pages through when the model's provider has no built-in web search. Read from the workspace's own
+            settings like `copilot_disabled`.
     """
 
     providers: Union[Unset, "GetSettingsResponse200AiConfigProviders"] = UNSET
@@ -64,6 +68,7 @@ class GetSettingsResponse200AiConfig:
     copilot_disabled: Union[Unset, bool] = UNSET
     sessions_storage_disabled: Union[Unset, bool] = UNSET
     sessions_retention_days: Union[Unset, int] = UNSET
+    web_search: Union[Unset, "GetSettingsResponse200AiConfigWebSearch"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -106,6 +111,9 @@ class GetSettingsResponse200AiConfig:
         copilot_disabled = self.copilot_disabled
         sessions_storage_disabled = self.sessions_storage_disabled
         sessions_retention_days = self.sessions_retention_days
+        web_search: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.web_search, Unset):
+            web_search = self.web_search.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -134,6 +142,8 @@ class GetSettingsResponse200AiConfig:
             field_dict["sessions_storage_disabled"] = sessions_storage_disabled
         if sessions_retention_days is not UNSET:
             field_dict["sessions_retention_days"] = sessions_retention_days
+        if web_search is not UNSET:
+            field_dict["web_search"] = web_search
 
         return field_dict
 
@@ -162,6 +172,7 @@ class GetSettingsResponse200AiConfig:
             GetSettingsResponse200AiConfigModelPricing,
         )
         from ..models.get_settings_response_200_ai_config_providers import GetSettingsResponse200AiConfigProviders
+        from ..models.get_settings_response_200_ai_config_web_search import GetSettingsResponse200AiConfigWebSearch
 
         d = src_dict.copy()
         _providers = d.pop("providers", UNSET)
@@ -235,6 +246,13 @@ class GetSettingsResponse200AiConfig:
 
         sessions_retention_days = d.pop("sessions_retention_days", UNSET)
 
+        _web_search = d.pop("web_search", UNSET)
+        web_search: Union[Unset, GetSettingsResponse200AiConfigWebSearch]
+        if isinstance(_web_search, Unset):
+            web_search = UNSET
+        else:
+            web_search = GetSettingsResponse200AiConfigWebSearch.from_dict(_web_search)
+
         get_settings_response_200_ai_config = cls(
             providers=providers,
             default_model=default_model,
@@ -248,6 +266,7 @@ class GetSettingsResponse200AiConfig:
             copilot_disabled=copilot_disabled,
             sessions_storage_disabled=sessions_storage_disabled,
             sessions_retention_days=sessions_retention_days,
+            web_search=web_search,
         )
 
         get_settings_response_200_ai_config.additional_properties = d

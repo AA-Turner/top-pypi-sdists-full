@@ -16,23 +16,27 @@ template <int tangoTypeConst>
 static inline void scalar_value_from_cpp_into_python(Tango::DeviceAttribute &self,
                                                      py::object &py_value,
                                                      [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
-
-    if(self.get_written_dim_x() > 0) {
-        std::vector<TangoScalarType> value;
-        self.extract_read(value);
-        // In the following lines, the cast is absolutely necessary because
-        // vector<TangoScalarType> may not be a vector<TangoScalarType> at
-        // compile time. For example, for vector<DevBoolean>, the compiler
-        // may create a std::_Bit_reference type.
-        py_value.attr(value_attr_name) = cpp_to_python_scalar<tangoTypeConst>::convert(value[0]);
-        self.extract_set(value);
-        py_value.attr(w_value_attr_name) = cpp_to_python_scalar<tangoTypeConst>::convert(value[0]);
+    if constexpr(tangoTypeConst == Tango::DEV_PIPE_BLOB) {
+        assert(false);
     } else {
-        TangoScalarType value;
-        EXTRACT_VALUE(self, value)
-        py_value.attr(value_attr_name) = cpp_to_python_scalar<tangoTypeConst>::convert(value);
-        py_value.attr(w_value_attr_name) = py::none();
+        using TangoScalarType = typename TANGO_const2type(tangoTypeConst);
+
+        if(self.get_written_dim_x() > 0) {
+            std::vector<TangoScalarType> value;
+            self.extract_read(value);
+            // In the following lines, the cast is absolutely necessary because
+            // vector<TangoScalarType> may not be a vector<TangoScalarType> at
+            // compile time. For example, for vector<DevBoolean>, the compiler
+            // may create a std::_Bit_reference type.
+            py_value.attr(value_attr_name) = cpp_to_python_scalar<tangoTypeConst>::convert(value[0]);
+            self.extract_set(value);
+            py_value.attr(w_value_attr_name) = cpp_to_python_scalar<tangoTypeConst>::convert(value[0]);
+        } else {
+            TangoScalarType value;
+            extract_value(self, value);
+            py_value.attr(value_attr_name) = cpp_to_python_scalar<tangoTypeConst>::convert(value);
+            py_value.attr(w_value_attr_name) = py::none();
+        }
     }
 }
 
@@ -48,7 +52,7 @@ inline void scalar_value_from_cpp_into_python<Tango::DEV_STRING>(Tango::DeviceAt
         py_value.attr(w_value_attr_name) = from_cpp_str_to_pybind11_str(w_val[0]);
     } else {
         std::string rvalue;
-        EXTRACT_VALUE(self, rvalue)
+        extract_value(self, rvalue);
         py_value.attr(value_attr_name) = from_cpp_str_to_pybind11_str(rvalue);
         py_value.attr(w_value_attr_name) = py::none();
     }
@@ -59,7 +63,7 @@ inline void scalar_value_from_cpp_into_python<Tango::DEV_ENCODED>(Tango::DeviceA
                                                                   py::object &py_value,
                                                                   PyTango::ExtractAs extract_as) {
     Tango::DevVarEncodedArray *value_ptr;
-    EXTRACT_VALUE(self, value_ptr)
+    extract_value(self, value_ptr);
     std::unique_ptr<Tango::DevVarEncodedArray> guard(value_ptr);
 
     Tango::DevEncoded *buffer = value_ptr->get_buffer();
@@ -79,13 +83,6 @@ inline void scalar_value_from_cpp_into_python<Tango::DEV_ENCODED>(Tango::DeviceA
     } else {
         py_value.attr(w_value_attr_name) = py::none();
     }
-}
-
-template <>
-inline void scalar_value_from_cpp_into_python<Tango::DEV_PIPE_BLOB>([[maybe_unused]] Tango::DeviceAttribute &self,
-                                                                    [[maybe_unused]] py::object &py_value,
-                                                                    [[maybe_unused]] PyTango::ExtractAs extract_as) {
-    assert(false);
 }
 } // namespace PyDeviceAttribute
 

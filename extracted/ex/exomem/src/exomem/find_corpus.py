@@ -12,11 +12,12 @@ import threading
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 import yaml
 
-from . import freshness, privacy_log
+from . import freshness, privacy_log, request_budget
 from .find_types import ParsedPage
 from .vault import _FM_PATTERN as FRONTMATTER_PATTERN
 from .vault import relative_posix
@@ -347,6 +348,43 @@ def walk_freshness_key(paths) -> tuple[int, int, str]:
     return freshness.triple_from_entries(entries)
 
 
+class EntryKind(StrEnum):
+    """What a walk makes of one directory entry, judged from its own ``lstat``."""
+
+    SYMLINK = "symlink"
+    JUNCTION = "junction"
+    DIRECTORY = "directory"
+    #: A regular file with no other hard link: the only kind that a walk reads as a file.
+    REGULAR = "regular"
+    HARD_LINKED = "hard-linked"
+    #: A named pipe, a socket or a device.
+    OTHER = "other"
+
+
+def entry_kind(path: Path | str, info: os.stat_result) -> EntryKind:
+    """The entry rule that every Knowledge Base walk shares; ``info`` is ``lstat(path)``.
+
+    ``os.path.isjunction`` exists from Python 3.12, so older interpreters see no junctions.
+    """
+    if stat.S_ISLNK(info.st_mode):
+        return EntryKind.SYMLINK
+    if getattr(os.path, "isjunction", lambda _path: False)(path):
+        return EntryKind.JUNCTION
+    if stat.S_ISDIR(info.st_mode):
+        return EntryKind.DIRECTORY
+    if not stat.S_ISREG(info.st_mode):
+        return EntryKind.OTHER
+    return EntryKind.REGULAR if info.st_nlink == 1 else EntryKind.HARD_LINKED
+
+
+def is_sync_conflict_copy(name: str) -> bool:
+    """Whether a file name is a Syncthing conflict copy, a transient duplicate that no walk keeps.
+
+    The token is the marker that Syncthing documents for its conflict copies: a protocol token, not a vocabulary.
+    """
+    return ".sync-conflict-" in name
+
+
 def _walk_md_entry(
     anchor: Path,
     child: Path,
@@ -381,22 +419,23 @@ def _classify_walk_entry(
         if on_error is not None:
             on_error(error)
         return None, None
-    if stat.S_ISLNK(info.st_mode) or bool(
-        getattr(os.path, "isjunction", lambda _path: False)(child)
-    ):
-        return None, info
-    if stat.S_ISDIR(info.st_mode):
-        if child.name in EXCLUDED_DIR_NAMES or child.name.startswith(EXCLUDED_DIR_PREFIXES):
-            return None, info
-        return "dir", info
-    if (
-        stat.S_ISREG(info.st_mode)
-        and info.st_nlink == 1
-        and child.suffix.lower() == ".md"
-        and ".sync-conflict-" not in child.name
-    ):
+    kind = entry_kind(child, info)
+    if kind is EntryKind.DIRECTORY:
+        return ("dir" if walk_name_admits(child.name, directory=True) else None), info
+    if kind is EntryKind.REGULAR and walk_name_admits(child.name, directory=False):
         return "md", info
     return None, info
+
+
+def walk_name_admits(name: str, *, directory: bool) -> bool:
+    """The walk's rule that reads an entry's name alone, for a folder to enter or a file to yield.
+
+    A folder is entered unless it is excluded by name; a file is yielded when it is Markdown and
+    not a sync conflict copy. The entry's kind and the reserved registry are the caller's to add.
+    """
+    if directory:
+        return name not in EXCLUDED_DIR_NAMES and not name.startswith(EXCLUDED_DIR_PREFIXES)
+    return Path(name).suffix.lower() == ".md" and not is_sync_conflict_copy(name)
 
 
 def walk_md(root: Path, *, on_error: Callable[[OSError], None] | None = None):
@@ -551,6 +590,7 @@ def parse_page(
 ) -> ParsedPage | None:
     from .foreground_activity import checkpoint
 
+    request_budget.checkpoint()
     checkpoint(vault_root)
     return _parse_page_after_checkpoint(
         path, mtime, vault_root, content=content, resolved_relative=resolved_relative

@@ -4,6 +4,7 @@ Per-dtype value generators for synthetic data generation.
 
 from __future__ import annotations
 
+import numbers
 import random
 import re
 import string
@@ -41,6 +42,20 @@ def _get_locale_generator(
 ) -> LocaleGenerator:
     """Get a LocaleGenerator instance with the specified country."""
     return LocaleGenerator(country=country, seed=seed, weighted=weighted)
+
+
+def _derive_seed(seed: int | None, *parts: str) -> int | None:
+    """
+    Derive the seed for one part of the generated data (a column, its nulls, a country, ...).
+
+    Each part gets its own random sequence, so that, e.g., two columns with the same field don't
+    get the same values. `random.Random` turns a string seed into an integer with SHA-512, so the
+    derived seed is the same in every Python session (unlike `hash()` of a string). Without a seed
+    there's nothing to derive, and every part is random.
+    """
+    if seed is None:
+        return None
+    return random.Random(":".join([str(seed), *parts])).getrandbits(32)
 
 
 def _generate_integer(field: Field, rng: random.Random, generator: Any | None = None) -> int:
@@ -292,8 +307,8 @@ def _generate_duration(field: Field, rng: random.Random, generator: Any | None =
     return timedelta(seconds=random_seconds)
 
 
-def _generate_time(field: Field, rng: random.Random, generator: Any | None = None) -> str:
-    """Generate a random time value as string, respecting field constraints."""
+def _generate_time(field: Field, rng: random.Random, generator: Any | None = None) -> time:
+    """Generate a random time value (at second resolution), respecting field constraints."""
     min_time = getattr(field, "min_time", None)
     max_time = getattr(field, "max_time", None)
 
@@ -325,7 +340,7 @@ def _generate_time(field: Field, rng: random.Random, generator: Any | None = Non
     minute = (random_seconds % 3600) // 60
     second = random_seconds % 60
 
-    return f"{hour:02d}:{minute:02d}:{second:02d}"
+    return time(hour, minute, second)
 
 
 # Mapping from dtype to generator function
@@ -428,7 +443,8 @@ def generate_column(
     field
         The Field specification for the column.
     config
-        Generation configuration.
+        Generation configuration. Its `seed` is the column's own seed (`generate_dataframe()`
+        derives one for each column from the dataset's seed and the column name).
 
     Returns
     -------
@@ -455,7 +471,7 @@ def generate_column(
 
     # Apply null probability
     if field.nullable and field.null_probability > 0:
-        null_rng = random.Random(config.seed + 1 if config.seed else None)
+        null_rng = random.Random(_derive_seed(config.seed, "nulls"))
         values = [None if null_rng.random() < field.null_probability else v for v in values]
 
     return values
@@ -538,7 +554,8 @@ def _generate_column_with_row_context(
     """
     Generate column values with per-row context (location and/or person).
 
-    This is used when columns need to share coherent data per row.
+    This is used when columns need to share coherent data per row. As in `generate_column()`,
+    `config.seed` is the column's own seed.
     """
     rng = random.Random(config.seed)
 
@@ -550,7 +567,7 @@ def _generate_column_with_row_context(
 
     # Apply null probability
     if field.nullable and field.null_probability > 0:
-        null_rng = random.Random(config.seed + 1 if config.seed else None)
+        null_rng = random.Random(_derive_seed(config.seed, "nulls"))
         values = [None if null_rng.random() < field.null_probability else v for v in values]
 
     return values
@@ -570,10 +587,12 @@ def _generate_unique_columns_with_row_context(
     unique column, the row's context is re-drawn and every coherent column is regenerated for
     that row, keeping the row internally consistent.
 
-    Each column uses its own RNG seeded as in `_generate_column_with_row_context()`, so rows
-    generated before any collision are identical to those produced without `unique=True`.
+    Each column uses its own RNG seeded as in `_generate_column_with_row_context()` (with the
+    column seed derived from `config.seed`, the dataset's seed), so rows generated before any
+    collision are identical to those produced without `unique=True`.
     """
-    rngs = {col_name: random.Random(config.seed) for col_name in fields}
+    col_seeds = {col_name: _derive_seed(config.seed, "column", col_name) for col_name in fields}
+    rngs = {col_name: random.Random(col_seeds[col_name]) for col_name in fields}
     unique_cols = [col_name for col_name, field in fields.items() if field.unique]
     seen: dict[str, set[Any]] = {col_name: set() for col_name in unique_cols}
     data: dict[str, list[Any]] = {col_name: [] for col_name in fields}
@@ -607,7 +626,7 @@ def _generate_unique_columns_with_row_context(
     # Apply null probability
     for col_name, field in fields.items():
         if field.nullable and field.null_probability > 0:
-            null_rng = random.Random(config.seed + 1 if config.seed else None)
+            null_rng = random.Random(_derive_seed(col_seeds[col_name], "nulls"))
             data[col_name] = [
                 None if null_rng.random() < field.null_probability else v for v in data[col_name]
             ]
@@ -655,35 +674,70 @@ def generate_dataframe(
         )
 
     # Convert to requested output format
-    return _to_output_format(data, config.output)
+    return _to_output_format(data, config.output, fields)
 
 
-def _generate_single_country(
+def _get_coherence_groups(fields: dict[str, Field]) -> dict[str | None, dict[str, Field]]:
+    """
+    Split the preset fields into groups that each share one row context.
+
+    Fields from a `profile_fields(prefix=)` call form a group keyed by the prefix, and other
+    preset fields whose column names start with one of those prefixes join that group (e.g., a
+    hand-written `customer_city` column joins the `"customer_"` profile). All remaining preset
+    fields form the `None` group. Groups are ordered by their first column in the schema.
+    """
+    prefixes = sorted(
+        {
+            group
+            for field in fields.values()
+            if (group := getattr(field, "_coherence_group", None)) is not None
+        },
+        key=len,
+        reverse=True,
+    )
+
+    groups: dict[str | None, dict[str, Field]] = {}
+    for col_name, field in fields.items():
+        if getattr(field, "preset", None) is None:
+            continue
+        group = getattr(field, "_coherence_group", None)
+        if group is None:
+            group = next((prefix for prefix in prefixes if col_name.startswith(prefix)), None)
+        groups.setdefault(group, {})[col_name] = field
+
+    return groups
+
+
+def _generate_coherent_group(
     fields: dict[str, Field],
     config: GeneratorConfig,
     country: str,
+    seed: int | None,
 ) -> dict[str, list[Any]]:
-    """Generate data for a single country (original code path)."""
-    # Check what coherence is needed
-    needs_address, needs_person, needs_business, needs_credit_card = _get_coherence_needs(fields)
-    needs_coherence = needs_address or needs_person or needs_business or needs_credit_card
+    """
+    Generate the coherent columns of one coherence group, sharing one row context.
 
-    # Set up shared locale generator if any coherence is needed
-    shared_locale_gen = None
-    if needs_coherence:
-        shared_locale_gen = _get_locale_generator(country, config.seed, config.weighted)
-        if needs_address:
+    Returns only the columns that take part in coherence; the other preset columns of the group
+    are left to `generate_column()`.
+    """
+    needs_address, needs_person, needs_business, needs_credit_card = _get_coherence_needs(fields)
+    if not (needs_address or needs_person or needs_business or needs_credit_card):
+        return {}
+
+    # Set up the shared locale generator for this group
+    shared_locale_gen = _get_locale_generator(country, seed, config.weighted)
+    if needs_address:
+        shared_locale_gen.init_row_locations(config.n)
+    if needs_person:
+        shared_locale_gen.init_row_persons(config.n)
+    if needs_business:
+        # Business coherence also needs location context for templates like
+        # "{city} General Hospital", so init locations if not already done
+        if not needs_address:
             shared_locale_gen.init_row_locations(config.n)
-        if needs_person:
-            shared_locale_gen.init_row_persons(config.n)
-        if needs_business:
-            # Business coherence also needs location context for templates like
-            # "{city} General Hospital", so init locations if not already done
-            if not needs_address:
-                shared_locale_gen.init_row_locations(config.n)
-            shared_locale_gen.init_row_employers(config.n)
-        if needs_credit_card:
-            shared_locale_gen.init_row_card_prefixes(config.n)
+        shared_locale_gen.init_row_employers(config.n)
+    if needs_credit_card:
+        shared_locale_gen.init_row_card_prefixes(config.n)
 
     # Determine which presets need row context
     coherent_presets = set()
@@ -696,10 +750,51 @@ def _generate_single_country(
     if needs_credit_card:
         coherent_presets.update(CREDIT_CARD_RELATED_PRESETS)
 
+    coherent_fields = {
+        col_name: field
+        for col_name, field in fields.items()
+        if getattr(field, "preset", None) in coherent_presets
+    }
+
+    # Coherent columns with `unique=True` must be generated together, row by row, so that a
+    # duplicate can be resolved by re-drawing the row's shared context
+    if any(field.unique for field in coherent_fields.values()):
+        data = _generate_unique_columns_with_row_context(coherent_fields, config, shared_locale_gen)
+    else:
+        data = {
+            col_name: _generate_column_with_row_context(
+                field,
+                dc_replace(config, seed=_derive_seed(config.seed, "column", col_name)),
+                shared_locale_gen,
+            )
+            for col_name, field in coherent_fields.items()
+        }
+
+    # Clean up
+    if needs_address or needs_business:
+        shared_locale_gen.clear_row_locations()
+    if needs_person:
+        shared_locale_gen.clear_row_persons()
+    if needs_business:
+        shared_locale_gen.clear_row_employers()
+    if needs_credit_card:
+        shared_locale_gen.clear_row_card_prefixes()
+
+    return data
+
+
+def _generate_single_country(
+    fields: dict[str, Field],
+    config: GeneratorConfig,
+    country: str,
+) -> dict[str, list[Any]]:
+    """Generate data for a single country (original code path)."""
+    groups = _get_coherence_groups(fields)
+
     # When business coherence is active, constrain age-like integer columns to
     # working-age range so generated data doesn't have 15-year-old professionals
     # or 85-year-old active employees with fictitious employers.
-    if needs_business:
+    if any(_get_coherence_needs(group_fields)[2] for group_fields in groups.values()):
         fields = dict(fields)  # shallow copy so we don't mutate the caller's dict
         for col_name, col_field in list(fields.items()):
             if col_field.is_integer() and _AGE_COLUMN_RE.search(col_name):
@@ -715,40 +810,27 @@ def _generate_single_country(
                 if new_min != cur_min or new_max != cur_max:
                     fields[col_name] = dc_replace(col_field, min_val=new_min, max_val=new_max)
 
-    # Coherent columns with `unique=True` must be generated together, row by row, so that a
-    # duplicate can be resolved by re-drawing the row's shared context
-    coherent_fields = {
-        col_name: field
-        for col_name, field in fields.items()
-        if needs_coherence and getattr(field, "preset", None) in coherent_presets
-    }
-    unique_coherent_data: dict[str, list[Any]] = {}
-    if any(field.unique for field in coherent_fields.values()):
-        unique_coherent_data = _generate_unique_columns_with_row_context(
-            coherent_fields, config, shared_locale_gen
-        )
+    # Each coherence group (e.g., the `customer_` and `seller_` profiles) gets its own row
+    # context. The first group uses the base seed, so a schema with a single group generates the
+    # same data as with one shared context; later groups get a seed derived from their prefix.
+    coherent_data: dict[str, list[Any]] = {}
+    for group, group_fields in groups.items():
+        if not coherent_data:
+            group_seed = config.seed
+        else:
+            group_seed = _derive_seed(config.seed, group or "")
+        coherent_data.update(_generate_coherent_group(group_fields, config, country, group_seed))
 
-    # Generate data for each column
+    # Generate data for each column; every column gets its own seed, derived from its name, so
+    # columns don't share random sequences, and adding, removing or reordering columns doesn't
+    # change the others
     data: dict[str, list[Any]] = {}
     for col_name, field in fields.items():
-        if col_name in unique_coherent_data:
-            data[col_name] = unique_coherent_data[col_name]
-        elif col_name in coherent_fields:
-            # Use shared locale generator for coherent presets
-            data[col_name] = _generate_column_with_row_context(field, config, shared_locale_gen)
+        if col_name in coherent_data:
+            data[col_name] = coherent_data[col_name]
         else:
-            data[col_name] = generate_column(field, config)
-
-    # Clean up
-    if shared_locale_gen is not None:
-        if needs_address or needs_business:
-            shared_locale_gen.clear_row_locations()
-        if needs_person:
-            shared_locale_gen.clear_row_persons()
-        if needs_business:
-            shared_locale_gen.clear_row_employers()
-        if needs_credit_card:
-            shared_locale_gen.clear_row_card_prefixes()
+            column_config = dc_replace(config, seed=_derive_seed(config.seed, "column", col_name))
+            data[col_name] = generate_column(field, column_config)
 
     return data
 
@@ -796,8 +878,8 @@ def _generate_multi_country(
         return {col_name: [] for col_name in fields}
 
     # Generate per-country data batches.  Each batch gets a deterministic seed
-    # derived from the base seed + country code so results are reproducible and
-    # independent across countries.
+    # derived from the base seed and the country code so results are reproducible
+    # (in any Python session) and independent across countries.
     country_batches: dict[str, dict[str, list[Any]]] = {}
     country_order = list(allocations.keys())
 
@@ -808,10 +890,7 @@ def _generate_multi_country(
 
         # Derive a per-country seed so that adding/removing a country doesn't
         # change the data for the other countries.
-        if config.seed is not None:
-            country_seed = (config.seed + hash(country_code)) % (2**31)
-        else:
-            country_seed = None
+        country_seed = _derive_seed(config.seed, "country", country_code)
 
         from dataclasses import replace as _dc_replace
 
@@ -843,10 +922,54 @@ def _generate_multi_country(
     return data
 
 
-def _to_output_format(data: dict[str, list[Any]], output: str) -> Any:
-    """Convert a dict-of-lists to the requested output format."""
+def _check_numeric_values(col_name: str, field: Field, values: list[Any]) -> None:
+    """Check that a numeric column's values fit its field's dtype before the column is cast."""
+    if field.is_integer():
+        min_val, max_val = INTEGER_BOUNDS[field.dtype]
+        for value in values:
+            if value is None:
+                continue
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, numbers.Integral)
+                or not min_val <= value <= max_val
+            ):
+                raise ValueError(
+                    f"Column '{col_name}' has the dtype {field.dtype}, but it got the value "
+                    f"{value!r}, which isn't an integer from {min_val} to {max_val}."
+                )
+    elif field.is_float():
+        for value in values:
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, numbers.Real):
+                raise ValueError(
+                    f"Column '{col_name}' has the dtype {field.dtype}, but it got the value "
+                    f"{value!r}, which isn't a number."
+                )
+
+
+def _to_output_format(
+    data: dict[str, list[Any]], output: str, fields: dict[str, Field] | None = None
+) -> Any:
+    """Convert a dict-of-lists to the requested output format.
+
+    Numeric columns get the dtype of their field (e.g., `Int32` or `Float32`) rather than the
+    `Int64`/`Float64` that would be inferred from Python values. In Polars, a column with no values
+    gets its field's dtype too.
+    """
     if output == "dict":
         return data
+
+    # The numeric fields whose dtype is set explicitly (other dtypes are inferred correctly)
+    numeric_fields = {
+        col_name: field
+        for col_name, field in (fields or {}).items()
+        if field.is_numeric() and col_name in data
+    }
+    if output in ("polars", "pandas"):
+        for col_name, field in numeric_fields.items():
+            _check_numeric_values(col_name, field, data[col_name])
 
     if output == "polars":
         if not _is_lib_present("polars"):
@@ -856,7 +979,29 @@ def _to_output_format(data: dict[str, list[Any]], output: str) -> Any:
             )
         import polars as pl
 
-        return pl.DataFrame(data)
+        schema_overrides = {
+            col_name: getattr(pl, field.dtype) for col_name, field in numeric_fields.items()
+        }
+
+        # A column with no values (no rows, or only nulls) would otherwise get the `Null` dtype;
+        # it can be given its field's dtype as there's no value that could conflict with it
+        empty_dtypes = {
+            "String": pl.String,
+            "Boolean": pl.Boolean,
+            "Date": pl.Date,
+            "Datetime": pl.Datetime("us"),
+            "Duration": pl.Duration("us"),
+            "Time": pl.Time,
+        }
+        for col_name, field in (fields or {}).items():
+            if (
+                field.dtype in empty_dtypes
+                and col_name in data
+                and all(value is None for value in data[col_name])
+            ):
+                schema_overrides[col_name] = empty_dtypes[field.dtype]
+
+        return pl.DataFrame(data, schema_overrides=schema_overrides)
 
     if output == "pandas":
         if not _is_lib_present("pandas"):
@@ -866,6 +1011,20 @@ def _to_output_format(data: dict[str, list[Any]], output: str) -> Any:
             )
         import pandas as pd
 
-        return pd.DataFrame(data)
+        columns: dict[str, Any] = dict(data)
+        for col_name, field in numeric_fields.items():
+            values = data[col_name]
+            if field.is_float():
+                # NumPy floats hold missing values as NaN
+                dtype = field.dtype.lower()
+            elif field.nullable or any(value is None for value in values):
+                # A nullable integer column uses pandas' nullable dtype (e.g., `Int32`), since a
+                # NumPy integer can't be missing (and would otherwise become `float64`)
+                dtype = field.dtype
+            else:
+                dtype = field.dtype.lower()
+            columns[col_name] = pd.Series(values, dtype=dtype)
+
+        return pd.DataFrame(columns)
 
     raise ValueError(f"Unknown output format: {output}")

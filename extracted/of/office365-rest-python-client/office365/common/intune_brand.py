@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.common.mime_content import MimeContent
 from office365.intune.devices.configurations.rgb_color import RgbColor
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class IntuneBrand(ClientValue):
     contactITEmailAddress: str | None = None
     contactITName: str | None = None

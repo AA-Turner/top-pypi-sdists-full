@@ -10,6 +10,7 @@
 #include "irregular/milp_raster.hpp"
 #include "irregular/benders_decomposition.hpp"
 #include "irregular/tree_search_relative_positions.hpp"
+#include "irregular/global_nonlinear_programming.hpp"
 #include "irregular/local_search.hpp"
 #include "algorithms/dichotomic_search.hpp"
 #include "algorithms/sequential_value_correction.hpp"
@@ -966,6 +967,25 @@ void optimize_tree_search_relative_positions(
     tree_search_relative_positions(instance, tsrp_parameters);
 }
 
+void optimize_global_nonlinear_programming(
+        const Instance& instance,
+        const OptimizeParameters& parameters,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    GlobalNonlinearProgrammingParameters gnlp_parameters;
+    gnlp_parameters.verbosity_level = 0;
+    gnlp_parameters.timer = parameters.timer;
+    gnlp_parameters.timer.add_end_boolean(&algorithm_formatter.end_boolean());
+    gnlp_parameters.new_solution_callback = [&algorithm_formatter](
+            const irregular::Output& output) {
+        algorithm_formatter.update_solution(
+                output.solution_pool.best(),
+                "GNLP");
+        algorithm_formatter.update_bounds(output);
+    };
+    global_nonlinear_programming(instance, gnlp_parameters);
+}
+
 /**
  * Area of the bin of a single-bin instance which is left for the items to
  * place: its area minus the areas of its fixed items and of its defects
@@ -1024,6 +1044,44 @@ ItemPos max_number_of_items_in_bin(const Instance& instance)
         }
     }
     return number_of_items;
+}
+
+/**
+ * Compute the mean number of items in an x (resp. y) section of the (single)
+ * bin of the instance: a full-height (resp. full-width) strip as wide (resp.
+ * as tall) as the mean item, that is, the height (resp. width) of the bin
+ * divided by the mean height (resp. width) of the bounding boxes of the
+ * items. Only the copies which are not fixed are counted.
+ */
+void compute_mean_numbers_of_items_in_sections(
+        const Instance& instance,
+        double& mean_number_of_items_in_x_section,
+        double& mean_number_of_items_in_y_section)
+{
+    double total_item_width = 0.0;
+    double total_item_height = 0.0;
+    ItemPos number_of_items = 0;
+    for (ItemTypeId item_type_id = 0;
+            item_type_id < instance.number_of_item_types();
+            ++item_type_id) {
+        const ItemType& item_type = instance.item_type(item_type_id);
+        ItemPos copies = item_type.copies - item_type.copies_fixed;
+        if (copies <= 0)
+            continue;
+        AxisAlignedBoundingBox aabb = item_type.compute_min_max();
+        total_item_width += copies * (aabb.x_max - aabb.x_min);
+        total_item_height += copies * (aabb.y_max - aabb.y_min);
+        number_of_items += copies;
+    }
+    mean_number_of_items_in_x_section = 0.0;
+    mean_number_of_items_in_y_section = 0.0;
+    if (number_of_items == 0)
+        return;
+    const AxisAlignedBoundingBox& bin_aabb = instance.bin_type(0).aabb_orig;
+    mean_number_of_items_in_x_section = (bin_aabb.y_max - bin_aabb.y_min)
+        / (total_item_height / number_of_items);
+    mean_number_of_items_in_y_section = (bin_aabb.x_max - bin_aabb.x_min)
+        / (total_item_width / number_of_items);
 }
 
 /**
@@ -1173,6 +1231,11 @@ packingsolver::irregular::Output packingsolver::irregular::optimize(
     bool use_milp_raster = parameters.use_milp_raster;
     bool use_benders_decomposition = parameters.use_benders_decomposition;
     bool use_tree_search_relative_positions = parameters.use_tree_search_relative_positions;
+    bool use_global_nonlinear_programming = parameters.use_global_nonlinear_programming;
+    if (instance.objective() != Objective::Feasibility
+            || instance.number_of_bins() != 1) {
+        use_global_nonlinear_programming = false;
+    }
     // Benders decomposition only supports these objectives.
     if (instance.objective() != Objective::Knapsack
             && instance.objective() != Objective::BinPacking
@@ -1202,6 +1265,7 @@ packingsolver::irregular::Output packingsolver::irregular::optimize(
         if (!use_tree_search
                 && !use_benders_decomposition
                 && !use_tree_search_relative_positions
+                && !use_global_nonlinear_programming
                 && !use_tree_search_periodic_packing
                 && !use_tree_search_maximal_spaces
                 && !use_local_search_linear_programming
@@ -1238,6 +1302,25 @@ packingsolver::irregular::Output packingsolver::irregular::optimize(
                 = !periodic_packing_runnable
                 || max_number_of_items_in_bin(instance)
                     < parameters.periodic_packing_max_items_threshold;
+            // When many items fit in both an x section and a y section of
+            // the bin, the number of insertions of a node of
+            // 'tree_search' may be large, and its search may then stay
+            // shallow: run 'tree_search_maximal_spaces' instead.
+            if (use_tree_search
+                    && (instance.objective() == Objective::Knapsack
+                        || instance.objective() == Objective::Feasibility)) {
+                double mean_number_of_items_in_x_section = 0;
+                double mean_number_of_items_in_y_section = 0;
+                compute_mean_numbers_of_items_in_sections(
+                        instance,
+                        mean_number_of_items_in_x_section,
+                        mean_number_of_items_in_y_section);
+                if (mean_number_of_items_in_x_section > parameters.many_items_in_section_threshold
+                        && mean_number_of_items_in_y_section > parameters.many_items_in_section_threshold) {
+                    use_tree_search = false;
+                    use_tree_search_maximal_spaces = true;
+                }
+            }
             if (instance.objective() != Objective::Knapsack)
                 use_local_search_direct_trigonometry = true;
             // In 'Exact' mode, also run the algorithms which can prove
@@ -1250,6 +1333,19 @@ packingsolver::irregular::Output packingsolver::irregular::optimize(
                         || instance.objective() == Objective::OpenDimensionX
                         || instance.objective() == Objective::OpenDimensionY) {
                     use_tree_search_relative_positions = true;
+                }
+                // The tree search on relative positions proves nothing with
+                // continuous rotations.
+                bool continuous_rotations = false;
+                for (ItemTypeId item_type_id = 0;
+                        item_type_id < instance.number_of_item_types();
+                        ++item_type_id) {
+                    if (!instance.item_type(item_type_id).has_only_discrete_rotations())
+                        continuous_rotations = true;
+                }
+                if (continuous_rotations
+                        && global_nonlinear_programming_supports(instance)) {
+                    use_global_nonlinear_programming = true;
                 }
             }
         }
@@ -1666,6 +1762,19 @@ packingsolver::irregular::Output packingsolver::irregular::optimize(
         auto context = task_context();
         tasks.push_back([&exception_ptr, &instance, context]() {
             wrapper<decltype(&optimize_tree_search_relative_positions), optimize_tree_search_relative_positions>(
+                    exception_ptr,
+                    instance,
+                    *context.first,
+                    *context.second);
+        });
+    }
+    // Global nonlinear programming.
+    if (use_global_nonlinear_programming) {
+        exception_ptr_list.push_front(std::exception_ptr());
+        std::exception_ptr& exception_ptr = exception_ptr_list.front();
+        auto context = task_context();
+        tasks.push_back([&exception_ptr, &instance, context]() {
+            wrapper<decltype(&optimize_global_nonlinear_programming), optimize_global_nonlinear_programming>(
                     exception_ptr,
                     instance,
                     *context.first,

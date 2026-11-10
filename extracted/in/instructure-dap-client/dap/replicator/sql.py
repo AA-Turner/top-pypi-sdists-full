@@ -1,6 +1,7 @@
 import logging
 
 from pysqlsync.base import BaseContext
+from rich.markup import escape
 
 from .. import ui
 from ..api import DAPSession
@@ -171,7 +172,7 @@ class SQLDrop:
                     )
                 except Exception as e:
                     ui.error(
-                        f"Could not delete table [bold]{table_name}[/bold]{tables_idx_progress_str}. Reason: {e}"
+                        f"Could not delete table [bold]{table_name}[/bold]{tables_idx_progress_str}. Reason: {escape(str(e))}"
                     )
                     logger.error(
                         f"Could not delete table '{table_name}'{tables_idx_progress_str}. Reason: {e}"

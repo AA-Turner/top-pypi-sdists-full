@@ -28,7 +28,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="cbitstruct",
-    version="1.2.0",
+    version="1.2.1",
     author="Quentin CHATEAU",
     author_email="quentin.chateau@gmail.com",
     license="MPL-2.0",
@@ -36,7 +36,7 @@ setup(
     description="Faster C implementation of bitstruct",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: C",

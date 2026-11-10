@@ -1,9 +1,12 @@
-"""Immutable vocabulary configuration for the 2.0 API.
+"""Immutable vocabulary configuration: a Lexicon holds readings, what
+each word may be read as, and compiles the sets a parse reads from them
+(3.0's 4i-b; decisions/vocabulary-model, 2026-11-02 #754).
 
-Layering: may import nameparser.config DATA modules (the imports in
-_default_lexicon() are the authoritative list) as the single source of
-vocabulary during 2.x -- never nameparser.config itself, never
-nameparser.parser. Enforced by tests/v2/test_layering.py.
+Layering: may import nameparser.config DATA modules as the single
+source of vocabulary -- never the nameparser.config package itself --
+and nameparser._reading_index, the shared compiler and the index's
+reader, at call time only: tools/vocab/build.py loads this module by
+path. Enforced by tests/v2/test_layering.py.
 """
 from __future__ import annotations
 
@@ -12,10 +15,10 @@ import functools
 import sys
 import unicodedata
 import warnings
-from collections.abc import Iterable, Iterator, Mapping, Set
+from collections.abc import Iterable, Mapping, Set
 from dataclasses import dataclass, field
-from types import FrameType, MappingProxyType
-from typing import cast
+from types import FrameType, MappingProxyType, ModuleType
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 #: Vocabulary set fields, in declaration order. add()/remove() operate
 #: on exactly these and reject capitalization_exceptions (its entries
@@ -28,68 +31,16 @@ _VOCAB_FIELDS = (
     "given_name_abbreviations",
     "maiden_markers", "surnames", "honorific_tails", "after_given_titles",
     "suffix_words_ambiguous", "agnomens", "titles_ambiguous",
-    "title_modifiers", "title_styles", "title_phrases",
+    "title_modifiers", "title_styles", "title_phrases", "given_names",
 )
 
-#: (marker, base, why) triples. Each marker QUALIFIES how entries of
-#: its base vocabulary are read and carries no vocabulary of its own,
-#: so an entry outside the base is a configuration mistake -- but the
-#: mistake differs per pair, and the reason is recorded here rather
-#: than generalized, because an orphan is NOT simply inert. Nor is the
-#: qualification one-directional: the first two NARROW their base (an
-#: entry is read as vocabulary in fewer places), while honorific_tails
-#: WIDENS it, granting a suffix word the glued position on top of the
-#: whole-token match every suffix word already gets.
-#:
-#: * particles_ambiguous: _assign keys on the tag alone, so an orphan
-#:   makes the parse emit a spurious particle-or-given ambiguity.
-#: * suffix_acronyms_ambiguous: _vocab returns True on the ambiguous
-#:   set before testing suffix_acronyms, so an orphan silently turns a
-#:   word into a period-gated suffix.
-#: * honorific_tails: script_segment peels the tail into its own token
-#:   before classify ever runs, so an orphan splits the name and leaves
-#:   the fragment stranded inside it -- worse than not peeling at all.
-#:   Its base is deliberately NARROWER than what actually claims the
-#:   peeled piece: suffix_as_written ORs suffix_words with the
-#:   non-ambiguous suffix_acronyms, so a tail listed only as an acronym
-#:   would classify fine yet is rejected here. Accepted, and a decision
-#:   rather than an oversight -- the three-term predicate is easy to
-#:   get wrong in the dangerous direction (an ambiguous acronym admitted
-#:   as a tail would peel a period-gated word off a real name), and
-#:   nothing needs the acronym half: the shipped tails are CJK
-#:   honorifics, which are words.
-#:   The shipped vocabulary holds the relation by construction: its
-#:   build puts a word in GLUED_HONORIFICS only through an `attached`
-#:   property on a word reading (tools/vocab/build.py). The check here
-#:   is the only thing that holds a caller's own.
-#:
-#: Three fields are deliberately NOT here and have no check of their own.
-#: given_name_titles -- see the note in __post_init__ for why every
-#: attempt at one rejected working configurations. conjunctions_ambiguous
-#: -- an orphan is never consulted because both the classify fork and
-#: its ambiguity emitter require the base entry as well, so an orphan
-#: decides nothing, and AGENTS.md's invariants rule guards harm, not
-#: no-ops. after_given_titles -- the same: classify tags a word from it
-#: only where the word is in titles too, so an orphan is never read.
-#: agnomens -- the same: classify reads it only for a word already in
-#: suffix_words_ambiguous, so an orphan decides nothing.
-#: title_modifiers, title_styles and title_phrases -- the same: the
-#: title phrase test (rules/H9) reads them only for words that are
-#: titles, so an orphan decides nothing. titles_ambiguous is no subset
-#: at all: its words are titles only inside a phrase, so a caller lists
-#: one there without listing it in titles, and one in both is a title
-#: everywhere.
-_SUBSET_FIELDS = (
-    ("particles_ambiguous", "particles",
-     "an orphan emits a spurious particle-or-given ambiguity"),
-    ("suffix_acronyms_ambiguous", "suffix_acronyms",
-     "an orphan silently becomes a period-gated suffix"),
-    ("honorific_tails", "suffix_words",
-     "an orphan splits the name and leaves the tail inside it"),
-    ("suffix_words_ambiguous", "suffix_words",
-     "an orphan silently becomes a suffix gated by the count"),
-)
-
+#: The metadata key a Lexicon field added after `Lexicon` first shipped
+#: carries, naming the release that added it, with a default: a pickle
+#: written before that release lacks the field and loads with the
+#: default. The same string as `_types.ADDED_IN`, the key the other
+#: frozen types' shared guard reads; layering keeps this module from
+#: importing `_types`, so tests/v2/test_lexicon.py holds the two equal.
+_ADDED_IN = "nameparser.added_in"
 
 #: The fields whose entries may be PHRASES: stored space-joined and
 #: folded per word (_title_key), and exempt from the dead-entry warning
@@ -195,10 +146,10 @@ def _spells_an_initial(n: str, text: str) -> bool:
 
     Every particle test asks this AFTER its membership hit, so a word
     no particle set holds never pays the frame. It lives here rather
-    than in _pipeline._vocab because the two views that re-read the
-    particle vocabulary over a parsed name -- _render's case repair and
-    the facade's initials and last-name split -- must ask it too, and
-    neither may import the pipeline.
+    than in _pipeline._vocab because _render's case repair, which
+    re-reads the particle vocabulary over a parsed name, must ask it
+    too and may not import the pipeline (the 2.x facade's initials and
+    last-name split were a second such reader).
 
     The ASCII period only, as `_vocab.is_initial` takes it: a CJK full
     stop marks no initial ('Ó。' is the particle). The other half of
@@ -246,8 +197,8 @@ def _title_key(words: Iterable[str]) -> str:
 
     Defined once because it is built at match time
     (_run_addresses_by_given, which is how post_rules' H1 and group's
-    P5 licence both reach it) and at translation time (_config_shim's
-    first_name_titles), and a divergence between them fails silently:
+    P5 licence both reach it) and at construction (_normset's
+    given_name_titles), and a divergence between them fails silently:
     the entry simply stops matching."""
     return " ".join(_fold_words(words))
 
@@ -308,8 +259,8 @@ def _reject_buffer(value: object, label: str, plural: str) -> None:
     """Binary sequences iterate to INTS, so every downstream entry check
     reports a byte value -- "must be strings, got 100" for b'dr', where
     100 is 'd'. That names neither the cause nor the fix. v1 shipped a
-    decode hint for this (#238), and parse() and the facade both carry
-    one, so no config entry point should be the odd one out.
+    decode hint for this (#238), and parse() carries one, so no config
+    entry point should be the odd one out.
     """
     if isinstance(value, (bytes, bytearray, memoryview)):
         raise TypeError(
@@ -319,117 +270,19 @@ def _reject_buffer(value: object, label: str, plural: str) -> None:
         )
 
 
-def _warn_dead_entry(message: str) -> None:
+def _warn_at_caller(
+    message: str, category: type[Warning] = UserWarning,
+) -> None:
     # A fixed stacklevel always lands on library internals: the call
     # depth differs per entry point (Lexicon(), add(), unpickle,
-    # dataclasses.replace, and the v1 shim's lazy snapshot -- built on
-    # the first parse after a Constants mutation, several facade frames
-    # below the user's own add()). Walk out of this module (and
-    # dataclasses' replace frames, and the facade layer that builds
-    # lexicons on the caller's behalf) so the warning points at the
-    # caller's own line.
+    # dataclasses.replace). Walk out of this module (and dataclasses'
+    # replace frames) so the warning points at the caller's own line.
     level = 2
     frame: FrameType | None = sys._getframe(1)
     while frame is not None and frame.f_globals.get("__name__") in (
-            __name__, "dataclasses",
-            "nameparser._config_shim", "nameparser._facade"):
+            __name__, "dataclasses"):
         frame, level = frame.f_back, level + 1
-    warnings.warn(message, UserWarning, stacklevel=level)
-
-
-#: 2.8.1 (#754): the 3.0 migration guide's table of what each set field
-#: becomes. 3.0 configures a lexicon by reading -- what a word is -- and
-#: refuses these fields with a TypeError naming the readings for the
-#: words given, a translation this release does not attempt: it depends
-#: on the word's other readings, so the guide's row and 3.0's error are
-#: the sources.
-_FIELDS_GUIDE = ("https://nameparser.readthedocs.io/en/latest/migrate.html"
-                 "#lexicon-fields-readings")
-
-#: modules whose frames sit between a caller and a Lexicon's
-#: construction: this one (add, remove, __or__, __init__),
-#: dataclasses.replace and copy.replace
-_CONSTRUCTION_MODULES = (__name__, "dataclasses", "copy")
-
-
-def _outside_caller(
-        construction: bool,
-) -> tuple[int, Mapping[str, object] | None, str] | None:
-    """Where a set-field warning belongs: the stacklevel, counted from
-    the function that calls warnings.warn (itself called from the
-    method this asks for), of the first frame outside this module,
-    dataclasses and copy, with the locals of a dataclasses.replace
-    frame passed on the way and the replace the caller called
-    (``copy.replace()`` where a copy frame was passed, else
-    ``dataclasses.replace()``); or None where the library itself made the
-    call -- that frame inside nameparser (Lexicon.default(), the locale
-    packs, parser_for, the v1 facade), or, for a construction, a method
-    of this module building the lexicon: add() and remove() warn for
-    themselves, and __or__ is 3.0's own spelling.
-    """
-    level = 3
-    frame: FrameType | None = sys._getframe(2)
-    replacing: Mapping[str, object] | None = None
-    replace_call = "dataclasses.replace()"
-    while frame is not None:
-        module = frame.f_globals.get("__name__")
-        if module not in _CONSTRUCTION_MODULES:
-            break
-        if module == "copy":
-            replace_call = "copy.replace()"
-        code = frame.f_code.co_name
-        if (construction and module == __name__
-                and code not in ("__init__", "__post_init__")):
-            return None
-        if module == "dataclasses" and code in ("replace", "_replace"):
-            replacing = frame.f_locals
-        frame, level = frame.f_back, level + 1
-    caller = "" if frame is None else frame.f_globals.get("__name__", "")
-    if caller == "nameparser" or caller.startswith("nameparser."):
-        return None
-    return level, replacing, replace_call
-
-
-def _surnames_code(op: str, words: frozenset[str]) -> str:
-    """Code doing add() or remove()'s surnames edit the 3.0 way, which
-    runs quietly on 2.8.1 too; prose for a long list, whose code would
-    swamp the message."""
-    if len(words) > 5:
-        return (f"join a Lexicon holding those {len(words)} surnames to it "
-                f"with |" if op == "add" else
-                f"subtract those {len(words)} surnames from lexicon.surnames "
-                f"in dataclasses.replace()")
-    listed = "{" + ", ".join(map(repr, sorted(words))) + "}"
-    return (f"write lexicon | Lexicon(surnames=frozenset({listed}))"
-            if op == "add" else
-            f"write dataclasses.replace(lexicon, "
-            f"surnames=lexicon.surnames - {listed})")
-
-
-def _warn_set_fields(level: int, spelling: str, fields: Iterable[str],
-                     surnames: str = "") -> None:
-    """Warn at `level` (from _outside_caller) that `spelling`, a call,
-    writes `fields`, naming each and the guide row that replaces it.
-    surnames gets a sentence of its own, ending on `surnames`, the code
-    for the edit (_surnames_code): 3.0 keeps the field, and only add()
-    and remove() stop taking it."""
-    fields = list(fields)
-    internal = [name for name in fields if name != "surnames"]
-    parts = []
-    if internal:
-        parts.append(
-            f"{spelling} writes {', '.join(internal)}, which 3.0 makes "
-            f"internal and refuses with a TypeError naming the readings "
-            f"that replace it for the words given; the guide's \"Lexicon "
-            f"fields → readings\" table has a row for each field")
-    if "surnames" in fields:
-        parts.append(
-            f"3.0 keeps surnames a field, but {spelling} no longer takes "
-            f"it: {surnames}, which runs on 2.8.1 too")
-    warnings.warn(
-        f"Lexicon's set fields are deprecated (#754): {'; and '.join(parts)}. "
-        f"See {_FIELDS_GUIDE}",
-        DeprecationWarning, stacklevel=level)
+    warnings.warn(message, category, stacklevel=level)
 
 
 def _normset(
@@ -499,7 +352,7 @@ def _normset(
                 # interior whitespace test; split() covers all Unicode
                 # whitespace
                 and n != "".join(n.split())):
-            _warn_dead_entry(
+            _warn_at_caller(
                 f"Lexicon.{field_name} entries are matched one word at "
                 f"a time; multi-word entry {w!r} can never match. "
                 f"Split it into separate entries")
@@ -512,8 +365,7 @@ def _alnum(text: str) -> str:
 
 
 def _offered_mask(normalized_key: str) -> str:
-    """The working value a mismatched-mask error offers (carried to the
-    v1 shim's re-raise on _MaskValueError, so both name one fix): the
+    """The working value a mismatched-mask error offers: the
     key upper-cased, or the key unchanged -- an identity mask, always
     legal -- where .upper() changes the letter count ('straße' ->
     'STRASSE') and would fail the check if pasted back in."""
@@ -526,8 +378,8 @@ class _MaskValueError(ValueError):
     """_normpairs' error for a value that does not spell its key.
     Built in the UnicodeDecodeError idiom -- structure in, message
     out: `key`, `normalized_key` and `value` are the offending inputs;
-    `offered` (the v1 shim's re-spelled fix, and the v2 one quoted in
-    the message below) is computed from them, not carried separately.
+    `offered` (the fix quoted in the message below) is computed from
+    them, not carried separately.
 
     __reduce__ is explicit because the inherited one re-calls
     __init__ with self.args, which holds the message alone, not the
@@ -637,7 +489,7 @@ def _normpairs(
         # config that was always going to be a no-op.
         # interior whitespace test; split() covers all Unicode whitespace
         if normalized_key != "".join(normalized_key.split()):
-            _warn_dead_entry(
+            _warn_at_caller(
                 f"capitalization_exceptions keys are matched one word "
                 f"at a time; multi-word key {k!r} can never match. "
                 f"Split it into per-word entries")
@@ -652,148 +504,1414 @@ def _normpairs(
         # changes case and nothing else", so there is no reading of
         # one that repair can honor.
         if _alnum(_normalize(v)) != _alnum(normalized_key):
-            # key is the RAW key, not normalized_key: the v1 shim's
-            # hint must overwrite the offending dict entry, which is
-            # stored under the raw spelling -- writing the normalized
-            # spelling would add a second entry and still raise
-            # (measured with {"PHD": "Junior"}: the shim's suggested
-            # constants.capitalization_exceptions['PHD'] = ... has to
-            # match the key already there, not 'phd'). `written`, not
-            # `v`: the caller's own spelling, not the NFC-composed one.
+            # key is the RAW key, not normalized_key, and `written`,
+            # not `v`: the message names the entry as the caller wrote
+            # it, not as the fold or NFC composed it.
             raise _MaskValueError(k, normalized_key, written)
         deduped[normalized_key] = v
     return tuple(sorted(deduped.items()))
 
 
+#: The two lists outside the per-word model (decisions/vocabulary-model's
+#: Standing line on name readings): `Lexicon` fields, changed through
+#: ``|`` with a fragment or ``dataclasses.replace``, and copied into
+#: `_LexiconSets` beside the compiled sets.
+_LIST_FIELDS = ("surnames", "given_names")
+
+#: The 20 sets a compile of readings gives, under the names the 2.x
+#: `Lexicon` fields had: internal since 3.0 (#754, 4i-b), read through
+#: `Lexicon._sets`, and the names an old spelling is refused by.
+_SET_FIELDS = tuple(f for f in _VOCAB_FIELDS if f not in _LIST_FIELDS)
+
+#: What those sets do not record: the kinds the views read (rules/R8,
+#: rules/R9), and the titles written short that rules/H5's trailing
+#: chain and rules/H9's article partner read where one may also be a
+#: given name (#999), which is no
+#: kind; the name is the tuple's first use.
+#: `_LexiconSets` attributes after the `_VOCAB_FIELDS` ones, each a
+#: compiled constant of its own.
+_KIND_FIELDS = ("generation_words", "credential_words", "honorific_words",
+                "patronymic_particles", "title_abbreviations",
+                "title_case_name_words", "shared_names",
+                "particle_given_names", "saint_particles",
+                "capitalized_particles", "bound_phrases")
+
+@dataclass(frozen=True, slots=True, eq=False, repr=False)
+class _LexiconSets:
+    """The vocabulary sets a parse reads: the pipeline, `_render`,
+    `_parser` and the tools read `lexicon._sets.titles` (#754, 4i-a;
+    tests/v2/test_layering.py holds it), the 2.x public fields having
+    become internal in 4i-b. One attribute per `_VOCAB_FIELDS` entry, in
+    that order, then one per `_KIND_FIELDS` entry, each a frozenset, so
+    a membership test stays a C-level attribute read and costs no frame.
+
+    Built once per `Lexicon`, at construction: the compiled sets from
+    its readings by `compile_readings`, or for `Lexicon.default()` from
+    nameparser/config/_compiled.py, so the reading index stays unloaded
+    on `parse("John Smith")`; the two lists from its fields. Never
+    compared, hashed or pickled: a `Lexicon`'s equality and pickle are
+    its fields', and a load or a `dataclasses.replace` builds this
+    again.
+
+    Not a mapping and no repr of its own: it holds whole word lists,
+    and a repr of them would be unbounded."""
+
+    titles: frozenset[str]
+    given_name_titles: frozenset[str]
+    suffix_acronyms: frozenset[str]
+    suffix_words: frozenset[str]
+    suffix_acronyms_ambiguous: frozenset[str]
+    particles: frozenset[str]
+    particles_ambiguous: frozenset[str]
+    conjunctions: frozenset[str]
+    conjunctions_ambiguous: frozenset[str]
+    bound_given_names: frozenset[str]
+    given_name_abbreviations: frozenset[str]
+    maiden_markers: frozenset[str]
+    surnames: frozenset[str]
+    honorific_tails: frozenset[str]
+    after_given_titles: frozenset[str]
+    suffix_words_ambiguous: frozenset[str]
+    agnomens: frozenset[str]
+    titles_ambiguous: frozenset[str]
+    title_modifiers: frozenset[str]
+    title_styles: frozenset[str]
+    title_phrases: frozenset[str]
+    given_names: frozenset[str]
+    #: the suffix words whose suffix reading is a generation (`jr`,
+    #: `iii`), a credential written as a word (`kc`), or an honorific
+    #: (`さん`, `先生`), and the particles read as patronymics (`bin`):
+    #: the kinds rules/R8's and rules/R9's views read, which the sets
+    #: above do not record
+    generation_words: frozenset[str]
+    credential_words: frozenset[str]
+    honorific_words: frozenset[str]
+    patronymic_particles: frozenset[str]
+    #: the words whose title reading is written `abbreviation=True`
+    #: (`maj`); rules/H5's trailing chain reads one only beside
+    #: `titles_ambiguous`, through classify's TRAILING_TITLE_TAG (#999)
+    title_abbreviations: frozenset[str]
+    #: the suffix words written `title_case_is_name=True` (`fils`,
+    #: `kc`), whose writing leans where a name reading gates them:
+    #: lower case is the suffix, Title case the name (rules/S6, #1039)
+    title_case_name_words: frozenset[str]
+    #: the names written `shared=True` (Sikh `kaur`, `singh`), which a
+    #: community gives every member: rules/O6 and O7 neither take nor
+    #: complete one, and P10 completes none (#704)
+    shared_names: frozenset[str]
+    #: the given names written `after_particle=True` (`carmen`), the
+    #: second of a compound given name written behind a particle
+    #: (`María del Carmen`): rules/P10 reads one as a middle name behind
+    #: a one-word given name, and O6 leaves it there (#704)
+    particle_given_names: frozenset[str]
+    #: the particles of the `saint` kind (`san`, `santa`, `st`, `ste`): no given
+    #: name phrase opens with one, `Santa María` being a surname (#704)
+    saint_particles: frozenset[str]
+    #: the particles of the kinds written with a capital, `saint` and
+    #: `rank` (`st`, `san`, `freiherr`, `graf`): rules/R4's case repair
+    #: writes one as a name word, not in lowercase (#1069)
+    capitalized_particles: frozenset[str]
+    #: the two-word given names a bound word's `completed_by` lists
+    #: ('عبد الله'), which rules/P12 joins past the first name word (#694)
+    bound_phrases: frozenset[str]
+
+
+#: Lexicon field -> the compiled constant it is read from, for every
+#: set the vocabulary compiles (nameparser/_reading_index.py's
+#: Compiled); `particles_ambiguous` is derived (_vocab_fields below).
+#: tests/v2/test_parser.py holds that these, read from the compile of
+#: no choice, are Lexicon.default()'s.
+_COMPILED_FIELDS = {
+    "titles": "TITLES",
+    "given_name_titles": "GIVEN_NAME_TITLES",
+    "suffix_acronyms": "SUFFIX_ACRONYMS",
+    "suffix_words": "SUFFIX_WORDS",
+    "suffix_acronyms_ambiguous": "SUFFIX_ACRONYMS_AMBIGUOUS",
+    "particles": "PARTICLES",
+    "conjunctions": "CONJUNCTIONS",
+    "conjunctions_ambiguous": "CONJUNCTIONS_AMBIGUOUS",
+    "bound_given_names": "BOUND_GIVEN_NAMES",
+    "given_name_abbreviations": "GIVEN_NAME_ABBREVIATIONS",
+    "maiden_markers": "MAIDEN_MARKERS",
+    "honorific_tails": "GLUED_HONORIFICS",
+    "after_given_titles": "AFTER_GIVEN_TITLES",
+    "suffix_words_ambiguous": "SUFFIX_WORDS_AMBIGUOUS",
+    "agnomens": "AGNOMENS",
+    "titles_ambiguous": "TITLES_AMBIGUOUS",
+    "title_modifiers": "TITLE_MODIFIERS",
+    "title_styles": "TITLE_STYLES",
+    "title_phrases": "TITLE_PHRASES",
+    "generation_words": "GENERATION_WORDS",
+    "credential_words": "CREDENTIAL_WORDS",
+    "honorific_words": "HONORIFIC_WORDS",
+    "patronymic_particles": "PATRONYMIC_PARTICLES",
+    "title_abbreviations": "TITLE_ABBREVIATIONS",
+    "title_case_name_words": "TITLE_CASE_NAME_WORDS",
+    "shared_names": "SHARED_NAMES",
+    "particle_given_names": "PARTICLE_GIVEN_NAMES",
+    "saint_particles": "SAINT_PARTICLES",
+    "capitalized_particles": "CAPITALIZED_PARTICLES",
+    "bound_phrases": "BOUND_PHRASES",
+}
+
+
+def _vocab_fields(compiled: Mapping[str, Any]) -> dict[str, frozenset[str]]:
+    """The sets a compile of the vocabulary gives, by `_LexiconSets`
+    name (the constants of nameparser/config/_compiled.py, or a compile
+    of readings), the two lists aside."""
+    out = {name: compiled[key] for name, key in _COMPILED_FIELDS.items()}
+    # FLIPPED from v1: v1 marked the never-given subset; the sets mark
+    # the may-be-given one
+    out["particles_ambiguous"] = (compiled["PARTICLES"]
+                                  - compiled["NON_GIVEN_NAME_PARTICLES"])
+    return out
+
+
+@functools.cache
+def _default_compiled() -> Mapping[str, frozenset[str]]:
+    # the compiled data module is the default's one source, so the
+    # default never loads the reading index (decisions/vocabulary-
+    # model, 2026-10-29 3a; its 2026-11-02 #754 entry, item 4)
+    import nameparser.config._compiled as compiled
+    return MappingProxyType(_vocab_fields(vars(compiled)))
+
+
+_NO_SETS: Mapping[str, frozenset[str]] = MappingProxyType(
+    {name: frozenset() for name in _COMPILED_FIELDS} | {
+        "particles_ambiguous": frozenset()})
+
+
+# -- readings ------------------------------------------------------------
+
+#: A reading's properties as the log and the repr compare them: sorted
+#: (key, value) pairs, a list value a sorted tuple.
+_Props = tuple[tuple[str, Any], ...]
+
+
+class _Edit(NamedTuple):
+    """One `add` or `remove`, stored frozen as written (decisions/
+    vocabulary-model, 2026-11-02 #754, item 3): its words normalized,
+    its kind (None on a `remove` of every reading), its properties
+    sorted pairs, a property given its unwritten value held as None,
+    which removes it. Compared and hashed as a tuple."""
+
+    op: str
+    words: tuple[str, ...]
+    kind: str | None
+    props: _Props
+
+
+def _index_module() -> ModuleType:
+    # the reading index's reader, imported at call time: tools/vocab/
+    # build.py loads this module by path, before the index it rewrites
+    # can be trusted to import (root AGENTS.md's layering bullet)
+    import nameparser._reading_index as ri
+    return ri
+
+
+def _clean(props: Mapping[str, Any]) -> _Props:
+    """A reading's properties as a caller states them: `default` (a
+    caller's reading is on) and `cased` (a case mask, configured through
+    `capitalization_exceptions`) left out."""
+    return tuple(sorted((k, v) for k, v in props.items()
+                        if k not in ("default", "cased")))
+
+
+def _unwritten(kind: str, prop: str) -> object:
+    """The value `prop` takes on a `kind` reading that does not write
+    it, read through _reading_index.ReadingProperties: `acronym` is
+    true on a credential, `addresses` the family name."""
+    bare = _index_module().IndexReading("", "", kind, MappingProxyType({}))
+    if prop == "acronym":
+        return bare.acronym
+    if prop == "addresses":
+        return bare.addresses
+    return bare.flag(prop)
+
+
+def _prop_value(kind: str, prop: str, value: object) -> object:
+    """`value` canonical for the log, None where it is the unwritten
+    one (which removes the property)."""
+    if value is None or (isinstance(value, (bool, str))
+                         and value == _unwritten(kind, prop)):
+        return None
+    if prop in ("abbreviation", "acronym", "after_given", "may_be_initial",
+                "title_case_is_name", "shared", "after_particle"):
+        if not isinstance(value, bool):
+            raise TypeError(f"{prop} must be True or False, got {value!r}")
+        return value
+    if prop == "addresses":
+        if value != "given":
+            raise ValueError(f"addresses must be 'given' or 'family', "
+                             f"got {value!r}")
+        return value
+    if prop == "attached":
+        if value != "after":
+            raise ValueError(f"attached must be 'after' (a tail peeled "
+                             f"off the end of a name token) or None, "
+                             f"got {value!r}")
+        return value
+    if prop in ("attaches", "completed_by"):
+        what = ("title kinds or title words, e.g. attaches=['military']"
+                if prop == "attaches" else
+                "single words, e.g. completed_by=['الله']")
+        if isinstance(value, (str, bytes)) or isinstance(value, Mapping):
+            raise TypeError(f"{prop} must be an iterable of {what}, "
+                            f"got {value!r}")
+        try:
+            items: tuple[object, ...] = tuple(cast("Iterable[object]", value))
+        except TypeError:
+            raise TypeError(f"{prop} must be an iterable of {what}, "
+                            f"got {value!r}") from None
+        words = [x for x in items if isinstance(x, str)]
+        if len(words) != len(items):
+            raise TypeError(f"{prop} entries must be strings, got "
+                            f"{value!r}")
+        folded = tuple(sorted({_normalize(x) for x in words} - {""}))
+        if prop == "completed_by" and any(" " in w for w in folded):
+            # rules/P12 joins a bound word to the ONE word after it
+            raise ValueError(f"completed_by entries must be single words, "
+                             f"got {value!r}; list each completing word "
+                             f"on its own")
+        return folded or None
+    # same_as, a given name written short's full name (#789)
+    if not isinstance(value, str) or not value.strip():
+        raise TypeError(f"same_as must be the full given name, a "
+                        f"non-empty string, got {value!r}")
+    return value
+
+
+def _check_kind(kind: object, op: str) -> str | None:
+    """`kind` checked for `op`: a kind, or on `remove` and `words` a
+    category too; None (every reading) only on `remove`."""
+    ri = _index_module()
+    if kind is None and op == "remove":
+        return None
+    if not isinstance(kind, str):
+        raise TypeError(f"{op}() takes kind as a string, a vocabulary "
+                        f"kind such as 'title' or 'credential', got "
+                        f"{kind!r}")
+    if kind in ri.CATEGORY:
+        return kind
+    categories = set(ri.CATEGORY.values())
+    if kind in categories:
+        if op in ("remove", "words"):
+            return kind
+        raise ValueError(
+            f"{kind!r} is a category with no kind of its name; add() "
+            f"takes one of its kinds: " + ", ".join(
+                k for k, c in ri.CATEGORY.items() if c == kind))
+    raise ValueError(
+        f"unknown reading kind {kind!r}; the kinds are "
+        + ", ".join(ri.CATEGORY)
+        + (f" (or a category, on {op}: "
+           + ", ".join(sorted(categories)) + ")"
+           if op in ("remove", "words") else ""))
+
+
+def _edit_words(words: tuple[object, ...], op: str,
+                kind: str | None) -> tuple[str, ...]:
+    if not words:
+        if op == "remove" and kind is not None:
+            # every word's readings of `kind`: a remove of a whole kind,
+            # which `remove` writes only with every=True, so that an
+            # empty `remove(*words, kind=...)` never reaches it
+            return ()
+        raise TypeError(
+            f"{op}() takes at least one word, e.g. {op}('dean', kind="
+            f"'title')" + (", or every=True with a kind to take out every "
+                           "word's readings of it, e.g. remove(kind="
+                           "'title', every=True)" if op == "remove" else ""))
+    out = []
+    for w in words:
+        _reject_buffer(w, f"{op}() words", "strings")
+        if not isinstance(w, str):
+            raise TypeError(
+                f"{op}() takes each word as its own argument, a string, "
+                f"got {w!r}; unpack a collection: {op}(*words, kind=...)")
+        n = _title_key(w.split())
+        if not n:
+            raise ValueError(f"{op}() word {w!r} normalizes to empty "
+                             f"(lowercase + strip full stops/whitespace "
+                             f"leaves nothing)")
+        out.append(n)
+    return tuple(out)
+
+
+def _edit_props(kind: str, props: Mapping[str, object]) -> _Props:
+    ri = _index_module()
+    allowed = ri.indexed(kind) - {"default", "cased"}
+    if kind == "family":
+        # a name category's property that only a given name takes: the
+        # raise below names it, so the generic message leaves it out
+        allowed -= {"after_particle"}
+    out: dict[str, object] = {}
+    for prop, value in props.items():
+        if prop == "default":
+            raise ValueError(
+                "add() takes no default: a caller's reading is on, which "
+                "is the caller's choice; take one out with remove(word, "
+                "kind=...)")
+        if prop == "cased":
+            raise ValueError(
+                "add() takes no cased: a case mask is configured through "
+                "capitalization_exceptions, e.g. dataclasses.replace("
+                "lexicon, capitalization_exceptions=(*lexicon."
+                "capitalization_exceptions, ('phd', 'PhD')))")
+        if prop == "after_particle" and kind == "family":
+            raise ValueError(
+                "after_particle names a given name written behind a "
+                "particle (rules/O7), so only a given reading takes it: "
+                "write add(word, kind='given', after_particle=True)")
+        if prop not in allowed:
+            raise ValueError(
+                f"a {kind} reading takes "
+                + (", ".join(sorted(allowed)) or "no properties")
+                + f"; got {prop!r}")
+        out[prop] = _prop_value(kind, prop, value)
+    return tuple(sorted(out.items()))
+
+
+def _make_edit(op: object, words: object, kind: object,
+               props: object) -> _Edit:
+    """An edit checked and canonical: what `add` and `remove` store and
+    what a constructor's `_edits` must already be."""
+    if op not in ("add", "remove"):
+        raise ValueError(f"an edit is 'add' or 'remove', got {op!r}")
+    if not isinstance(words, tuple):
+        raise TypeError(f"an edit's words are a tuple, got {words!r}")
+    k = _check_kind(kind, op)
+    ws = _edit_words(words, op, k)
+    if op == "remove":
+        if props:
+            raise ValueError(f"remove() takes no properties, got {props!r}")
+        return _Edit(op, ws, k, ())
+    assert k is not None
+    if not isinstance(props, (tuple, Mapping)):
+        raise TypeError(f"an edit's properties are pairs, got {props!r}")
+    p = _edit_props(k, dict(props))
+    ri = _index_module()
+    category = ri.CATEGORY[k]
+    for w in ws:
+        # the build's check 8: a phrase is matched whole only as a birth
+        # marker or a run of titles addressing the given name
+        if " " in w and not (k == "birth_marker" or (
+                category == "title" and ("addresses", "given") in p)):
+            raise ValueError(
+                f"{w!r} is a phrase, which can never match as a {k}: only "
+                f"a birth_marker and a title with addresses='given' are "
+                f"matched as a whole run; add its words one by one")
+        # the build refuses may_be_initial on anything but a cased single
+        # letter: no other word reads as an initial (rules/P8)
+        if ("may_be_initial", True) in p and not (
+                len(w) == 1 and w.upper() != w.lower()):
+            raise ValueError(
+                f"may_be_initial marks a single cased letter that may read "
+                f"as an initial; {w!r} is not one")
+    return _Edit(op, ws, k, p)
+
+
+def _apply_edit(pool: dict[str, tuple[Any, ...]],
+                edit: _Edit) -> tuple[str, ...]:
+    """Apply `edit` to `pool` (word -> its readings) in place, returning
+    the words it touched. An add of a kind the word holds updates that
+    reading's properties in every file holding it, and turns a reading
+    written `default = false` on; otherwise it adds the caller's own
+    reading, which names no file. A remove with no words is one of a
+    whole kind, reaching every word in the pool that holds a reading of
+    it, whatever turned the reading on."""
+    ri = _index_module()
+    words = edit.words or tuple(
+        w for w, rs in pool.items()
+        if any(r.kind == edit.kind or r.category == edit.kind for r in rs))
+    for w in words:
+        rs = pool.get(w, ())
+        if edit.op == "remove":
+            kept = tuple(r for r in rs if edit.kind is not None
+                         and r.kind != edit.kind and r.category != edit.kind)
+        elif any(r.kind == edit.kind for r in rs):
+            kept = tuple(
+                ri.IndexReading(w, r.tag, r.kind, MappingProxyType(
+                    _merged(r.props, edit.props)))
+                if r.kind == edit.kind else r for r in rs)
+        else:
+            kept = rs + (ri.IndexReading(w, "", edit.kind, MappingProxyType(
+                {k: v for k, v in edit.props if v is not None})),)
+        if kept:
+            pool[w] = kept
+        else:
+            pool.pop(w, None)
+    return words
+
+
+def _merged(props: Mapping[str, Any], update: _Props) -> dict[str, Any]:
+    out = {k: v for k, v in props.items() if k != "default"}
+    for k, v in update:
+        if v is None:
+            out.pop(k, None)
+        else:
+            out[k] = v
+    return out
+
+
+Pool = Mapping[str, tuple[Any, ...]]
+
+
+@functools.lru_cache(maxsize=8)
+def _base_pool(base: object) -> Pool:
+    """A base's readings by word, on by default or not: the shipped
+    index for `"default"`, none for `"empty"`, a snapshot's own rows."""
+    if base == "empty":
+        return MappingProxyType({})
+    ri = _index_module()
+    rows = ri._by_text().items() if base == "default" else base
+    return MappingProxyType({
+        text: tuple(ri.from_row(text, row) for row in rs)
+        for text, rs in rows})  # type: ignore[union-attr]
+
+
+def _check_pool(pool: Pool, words: Iterable[str]) -> None:
+    """The build's checks a caller's edits can reach, over the words
+    they touch (checks 3 and 8 run per edit, in _make_edit): one suffix
+    kind per word (check 4), an agnomen has a name reading (check 11's
+    agnomen clause), and a bound given name that is also a particle has
+    a given reading (check 9)."""
+    for w in dict.fromkeys(words):
+        on = [r for r in pool.get(w, ()) if r.on_by_default]
+        suffix = {r.kind: r for r in on if r.category == "suffix"}
+        if len(suffix) > 1:
+            held = sorted(k for k, r in suffix.items() if r.tag)
+            drop = held[0] if held else sorted(suffix)[0]
+            raise ValueError(
+                f"{w!r} would hold two suffix kinds, "
+                f"{' and '.join(sorted(suffix))}, and a word holds one; "
+                f"remove the one it holds first: .remove({w!r}, "
+                f"kind={drop!r})")
+        kinds = {r.category for r in on} | {r.kind for r in on}
+        # check 11's agnomen clause: an agnomen is written in the case of
+        # the name around it, so only the count gates it, and the gate is
+        # a name reading beside it (rules/S11)
+        if "agnomen" in kinds and "name" not in kinds:
+            raise ValueError(
+                f"{w!r} is an agnomen with no name reading, and an agnomen "
+                f"is read as the suffix only where a name reading gates "
+                f"it by the count: write .add({w!r}, kind='family') "
+                f"first, then the agnomen")
+        if {"bound_given", "particle"} <= kinds and "given" not in kinds:
+            raise ValueError(
+                f"{w!r} is a bound given name and a particle with no given "
+                f"reading, and a particle that never starts a given name "
+                f"cannot bind one: .add({w!r}, kind='given'), or "
+                f".remove({w!r}, kind='bound_given')")
+
+
+@functools.lru_cache(maxsize=32)
+def _chosen_pool(base: object, chosen: frozenset[str], strict: bool) -> Pool:
+    """A base's readings under the choice of the file tags `chosen`,
+    before the caller's edits (decisions/vocabulary-model, 2026-11-02
+    #754, item 4): `choose` over the base's readings, under `strict`
+    only the chosen files', mul.toml's and native-script ones; a
+    reading an
+    unchosen file leaves off stays in the pool off, so a caller's add
+    of its kind still turns it on, as it does with no choice."""
+    pool = _base_pool(base)
+    if not chosen:
+        return pool
+    ri = _index_module()
+    readings = [r for rs in pool.values() for r in rs]
+    if strict:
+        readings = ri.strict_kept(readings, chosen)
+    out: dict[str, list[Any]] = {}
+    for r in ri.choose(readings, chosen):
+        out.setdefault(r.text, []).append(r)
+    for r in readings:
+        if not r.on_by_default and r.tag not in chosen:
+            out.setdefault(r.text, []).append(r)
+    return MappingProxyType({t: tuple(rs) for t, rs in out.items()})
+
+
+@functools.lru_cache(maxsize=128)
+def _built(base: object, edits: tuple[_Edit, ...], chosen: frozenset[str],
+           strict: bool) -> tuple[Pool, Mapping[str, frozenset[str]]]:
+    """A lexicon's readings by word and the sets they compile to, kept
+    per base, log and choice: a compile costs milliseconds, paid once
+    per configuration (decisions/vocabulary-model, 2026-11-01 #754).
+    The choice filters the base's readings and the log applies after
+    it, so a caller's reading survives any choice; one that clashes
+    with a reading the choice turns on is refused, naming the edit
+    (2026-11-02 #754, item 3)."""
+    pool = dict(_chosen_pool(base, chosen, strict))
+    touched = [(edit, _apply_edit(pool, edit)) for edit in edits]
+    for w in dict.fromkeys(w for _, ws in touched for w in ws):
+        try:
+            _check_pool(pool, (w,))
+        except ValueError as exc:
+            if not chosen or _clashes_unchosen(base, edits):
+                raise
+            mine = " and ".join(_rendered(e for e, ws in touched if w in ws))
+            raise ValueError(
+                f"the lexicon's {mine} clashes with a reading the choice "
+                f"turns on: {exc}") from None
+    ri = _index_module()
+    try:
+        compiled = ri.compile_readings(
+            r for rs in pool.values() for r in rs)
+    except ri.CompileError as exc:
+        raise ValueError(str(exc)) from None
+    return MappingProxyType(pool), MappingProxyType(_vocab_fields(compiled))
+
+
+def _clashes_unchosen(base: object, edits: tuple[_Edit, ...]) -> bool:
+    """Whether `edits` clash on `base` with no choice, so that a clash
+    under one is the log's own rather than the choice's."""
+    try:
+        _built(base, edits, frozenset(), False)
+    except ValueError:
+        return True
+    return False
+
+
+def _compiled_for(base: object, edits: tuple[_Edit, ...],
+                  chosen: frozenset[str] = frozenset(),
+                  strict: bool = False) -> Mapping[str, frozenset[str]]:
+    if not edits and base == "default":
+        # under a choice, the shipped index compiled once per choice by
+        # the reader every pack shares
+        return (_choice_compiled(chosen, strict) if chosen
+                else _default_compiled())
+    if not edits and not chosen and base == "empty":
+        return _NO_SETS
+    return _built(base, edits, chosen, strict)[1]
+
+
+@functools.lru_cache(maxsize=32)
+def _choice_compiled(chosen: frozenset[str],
+                     strict: bool) -> Mapping[str, frozenset[str]]:
+    ri = _index_module()
+    return MappingProxyType(_vocab_fields(ri.compile_choice(chosen, strict)))
+
+
+class _ReadingFiles:
+    """The files whose readings are on in one lexicon, by word: what
+    ``Reading.languages`` names (decisions/vocabulary-model, 2026-11-02
+    #754, sub-phase 4i-d). One per base, log and choice
+    (`_reading_files`), held by each `Lexicon` it describes and never
+    pickled; it hashes by identity, in C, so assemble's memo keyed by
+    it costs no frame on a hit.
+
+    The default answers from the reading index's rows
+    (`_reading_index.languages_of`), and a choice with no log from the
+    word's own rows under `choose`, which is exact because a choice's
+    preference is per word; neither builds the lexicon's whole pool,
+    which a log or a snapshot base has built already, at construction."""
+
+    __slots__ = ("_base", "_edits", "_chosen", "_strict")
+
+    def __init__(self, base: object, edits: tuple[_Edit, ...],
+                 chosen: frozenset[str], strict: bool) -> None:
+        self._base, self._edits = base, edits
+        self._chosen, self._strict = chosen, strict
+
+    def pool(self) -> Pool:
+        """The lexicon's readings by word (`Lexicon._pool`)."""
+        if not self._edits:
+            return _chosen_pool(self._base, self._chosen, self._strict)
+        return _built(self._base, self._edits, self._chosen,
+                      self._strict)[0]
+
+    def languages(self, text: str, kinds: frozenset[str]) -> tuple[str, ...]:
+        """The tags of the files holding a reading of `text` (as the
+        vocabulary stores it) of one of `kinds`, on in this lexicon,
+        sorted; a caller's own reading names none."""
+        ri = _index_module()
+        readings: Iterable[Any]
+        if self._edits or self._base not in ("default", "empty"):
+            readings = self.pool().get(text, ())
+        elif self._base == "empty":
+            return ()
+        elif not self._chosen:
+            return cast("tuple[str, ...]", ri.languages_of(text, kinds))
+        else:
+            readings = ri.chosen_readings(ri.readings_of(text), self._chosen,
+                                          self._strict)
+        return tuple(sorted({r.tag for r in readings
+                             if r.tag and r.kind in kinds
+                             and r.on_by_default}))
+
+
+@functools.lru_cache(maxsize=128)
+def _reading_files(base: object, edits: tuple[_Edit, ...],
+                   chosen: frozenset[str], strict: bool) -> _ReadingFiles:
+    # one per configuration, so equal lexicons share assemble's memo
+    return _ReadingFiles(base, edits, chosen, strict)
+
+
+def _check_choice(languages: object, strict: object) -> tuple[
+        frozenset[str], frozenset[str]]:
+    """A recorded choice validated as `parser_for` validates one: its
+    languages in canonical case and the file tags they select, the
+    selection raising for a tag no file serves (decisions/
+    vocabulary-model, 2026-11-02 #754, item 3)."""
+    if not isinstance(strict, bool):
+        raise TypeError(f"_strict must be True or False, got {strict!r}")
+    if (isinstance(languages, (str, bytes, bytearray, Mapping))
+            or not isinstance(languages, Iterable)):
+        raise TypeError(f"_languages must be a set of BCP 47 tags, e.g. "
+                        f"frozenset({{'pt'}}), got {languages!r}")
+    tags = frozenset(cast("Iterable[object]", languages))
+    for tag in tags:
+        if not isinstance(tag, str):
+            raise TypeError(f"_languages entries must be str BCP 47 tags, "
+                            f"got {tag!r}")
+    if not tags:
+        if strict:
+            raise ValueError(
+                "a strict choice keeps only the chosen languages' "
+                "vocabulary and the shared words (mul.toml), and "
+                "_languages chooses none; choose through "
+                "parser_for(..., strict=True) with a pack that chooses one")
+        return frozenset(), frozenset()
+    canon = frozenset(_canonical(cast(str, t)) for t in tags)
+    return canon, _index_module().selected(canon, strict=strict)
+
+
+def _canonical(tag: str) -> str:
+    """`tag` in BCP 47's canonical case: the language subtag lowercase,
+    a four-letter script subtag title case, a two-letter region
+    uppercase, every other subtag lowercase (RFC 5646, 2.1.1). Equal
+    choices then compare and hash equal, whatever case they were
+    written in."""
+    first, *rest = tag.split("-")
+    out = [first.lower()]
+    for sub in rest:
+        if len(sub) == 4 and sub.isalpha():
+            out.append(sub.title())
+        elif len(sub) == 2 and sub.isalpha():
+            out.append(sub.upper())
+        else:
+            out.append(sub.lower())
+    return "-".join(out)
+
+
+#: The most tags a repr lists (a `Lexicon`'s choice, a `Locale`'s); a
+#: longer choice is shown by its size, so the repr stays bounded however
+#: many languages are chosen.
+_REPR_TAGS = 3
+
+
+def _shown_choice(languages: frozenset[str]) -> str:
+    if len(languages) > _REPR_TAGS:
+        return f"languages: {len(languages)}"
+    return "languages " + "+".join(sorted(languages))
+
+
+def _check_base(base: object) -> object:
+    """`"default"`, `"empty"`, or a snapshot of index rows from a pickle
+    (decisions/vocabulary-model, 2026-11-02 #754, items 3 and 5), which
+    becomes `"default"` where it is the running release's index."""
+    if base in ("default", "empty"):
+        return base
+    if not isinstance(base, tuple):
+        raise TypeError(f"a Lexicon's base is 'default', 'empty' or a "
+                        f"snapshot of index rows, got {base!r}")
+    ri = _index_module()
+    from nameparser.config._index import READINGS
+    if base == READINGS:
+        return "default"
+    shape = ("a Lexicon snapshot is (word, rows) pairs, each row (tag, "
+             "kind, properties), the properties (name, value) pairs")
+    for entry in base:
+        if not (isinstance(entry, tuple) and len(entry) == 2
+                and isinstance(entry[0], str)
+                and isinstance(entry[1], tuple)):
+            raise TypeError(f"{shape}; got {entry!r}")
+        word, rows = entry
+        for row in rows:
+            if not (isinstance(row, tuple) and len(row) == 3):
+                raise TypeError(f"{shape}; {word!r} has the row {row!r}")
+            tag, kind, pairs = row
+            if not isinstance(tag, str) or not isinstance(kind, str):
+                raise TypeError(f"{shape}, the tag and the kind strings; "
+                                f"{word!r} has the row {row!r}")
+            if kind not in ri.CATEGORY:
+                raise ValueError(
+                    f"a Lexicon snapshot holds the reading kind {kind!r}, "
+                    f"which this release does not know")
+            if not isinstance(pairs, tuple) or not all(
+                    isinstance(p, tuple) and len(p) == 2
+                    and isinstance(p[0], str) for p in pairs):
+                raise TypeError(f"{shape}; {word!r} has the row {row!r}")
+            for name, value in pairs:
+                if name not in ri.indexed(kind):
+                    raise ValueError(
+                        f"a Lexicon snapshot gives {word!r}'s {kind} reading "
+                        f"the property {name!r}, which a {kind} reading "
+                        f"does not take in this release")
+                try:
+                    hash(value)
+                except TypeError:
+                    raise TypeError(
+                        f"a Lexicon snapshot gives {word!r}'s {kind} reading "
+                        f"{name}={value!r}; a value is a string, a bool or "
+                        f"a tuple") from None
+    return base
+
+
+@functools.cache
+def _choice_masks(chosen: frozenset[str], strict: bool = False) -> tuple[
+        frozenset[str], tuple[tuple[str, str], ...]]:
+    """The case masks the choice of the file tags `chosen` moves against
+    the default's compile: the ones that leave and the ones set. A mask
+    is no reading (a `Lexicon` keeps its masks in a field of their own),
+    so `parser_for` moves them in that field, as 3b's delta did."""
+    ri = _index_module()
+    old = ri.compile_choice(frozenset())["CAPITALIZATION_EXCEPTIONS"]
+    new = ri.compile_choice(chosen, strict)["CAPITALIZATION_EXCEPTIONS"]
+    return (frozenset(old.keys() - new.keys()),
+            tuple(sorted((k, v) for k, v in new.items() if old.get(k) != v)))
+
+
+def _rechosen_masks(lexicon: Lexicon, chosen: frozenset[str],
+                    strict: bool) -> tuple[tuple[str, str], ...]:
+    """`lexicon`'s masks moved from its own choice's to `chosen`'s: the
+    base's choice's moves undone, then the new choice's applied, so a
+    chained choice moves them as the union does."""
+    cap = dict(lexicon.capitalization_exceptions)
+    if lexicon.languages:
+        default = _index_module().compile_choice(
+            frozenset())["CAPITALIZATION_EXCEPTIONS"]
+        gone, joined = _choice_masks(lexicon._chosen, lexicon.strict)
+        for k in gone:
+            cap.setdefault(k, default[k])
+        for k, v in joined:
+            if cap.get(k) == v:
+                if k in default:
+                    cap[k] = default[k]
+                else:
+                    del cap[k]
+    gone, joined = _choice_masks(chosen, strict)
+    for k in gone:
+        cap.pop(k, None)
+    cap.update(joined)
+    return tuple(sorted(cap.items()))
+
+
+# -- the 2.x set fields, translated --------------------------------------
+
+#: The fields whose membership puts a word in a category. A marker set
+#: implies its base here; a 2.x orphan, a marker entry its base does not
+#: hold, never reaches this, `_inert_dropped` having taken it out.
+_TITLE_FIELDS = frozenset({
+    "titles", "titles_ambiguous", "given_name_titles", "after_given_titles",
+    "title_modifiers", "title_styles"})
+_ACRONYM_FIELDS = frozenset({"suffix_acronyms", "suffix_acronyms_ambiguous"})
+_WORD_FIELDS = frozenset({
+    "suffix_words", "suffix_words_ambiguous", "agnomens", "honorific_tails",
+    "generation_words", "credential_words", "honorific_words"})
+_PARTICLE_FIELDS = frozenset({
+    "particles", "particles_ambiguous", "patronymic_particles",
+    "saint_particles", "capitalized_particles"})
+
+
+def _props_by_kind(readings: Iterable[Any]) -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r in readings:
+        out.setdefault(r.kind, []).append(dict(_clean(r.props)))
+    return out
+
+
+def _by_kind(readings: Iterable[Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for r in readings:
+        out.setdefault(r.kind, dict(_clean(r.props)))
+    return out
+
+
+def _target_readings(word: str, member: frozenset[str],
+                     heads: frozenset[str] | None,
+                     on: dict[str, dict[str, Any]],
+                     hints: dict[str, dict[str, Any]],
+                     written_for: str | None = None,
+                     ) -> dict[str, dict[str, Any]]:
+    """The readings, kind -> properties, that compile `word` into the
+    sets `member` names, keeping each reading `word` holds (`on`) where
+    it fits and taking a kind it lacks from `hints`, then from the
+    category's own kind. `heads` are the title words a phrase starting
+    with `word` must reach, None where they do not change. A best
+    effort: the caller compiles the result and compares."""
+    ri = _index_module()
+
+    def kinds(category: str) -> list[str]:
+        return ([k for k in on if ri.CATEGORY[k] == category]
+                or [k for k in hints if ri.CATEGORY[k] == category])
+
+    def props(kind: str) -> dict[str, Any]:
+        return dict(on[kind] if kind in on else hints.get(kind, {}))
+
+    out: dict[str, dict[str, Any]] = {}
+    if member & _TITLE_FIELDS or heads:
+        ks = kinds("title") or ["title"]
+        if "title_modifiers" in member:
+            ks = ["modifier"]
+        else:
+            ks = [k for k in ks if k != "modifier"] or ["title"]
+            if "title_styles" in member and "style" not in ks:
+                ks = [k for k in ks if k != "title"] + ["style"]
+            elif "title_styles" not in member:
+                ks = [k for k in ks if k != "style"] or ["title"]
+        for k in ks:
+            p = props(k)
+            p.pop("addresses", None)
+            p.pop("after_given", None)
+            if "given_name_titles" in member:
+                p["addresses"] = "given"
+            if "after_given_titles" in member:
+                p["after_given"] = True
+            if heads is not None or k not in on:
+                p.pop("attaches", None)
+                if heads:
+                    p["attaches"] = tuple(sorted(heads))
+            out[k] = p
+    particled = bool(member & _PARTICLE_FIELDS)
+    if particled:
+        ks = kinds("particle") or ["particle"]
+        for k in ks:
+            out[k] = props(k)
+    if member & {"conjunctions", "conjunctions_ambiguous"}:
+        p = props("conjunction")
+        p.pop("may_be_initial", None)
+        if "conjunctions_ambiguous" in member:
+            p["may_be_initial"] = True
+        out["conjunction"] = p
+    if "bound_given_names" in member:
+        out["bound_given"] = props("bound_given")
+    if "maiden_markers" in member:
+        out["birth_marker"] = props("birth_marker")
+    acronym, worded = member & _ACRONYM_FIELDS, member & _WORD_FIELDS
+    held: str | None = next(iter(kinds("suffix")), None)
+    titled = "titles" in member
+    given_needed = (("titles_ambiguous" in member and not titled)
+                    or "particles_ambiguous" in member
+                    or "given_name_abbreviations" in member)
+    suffix: str | None = None
+    if acronym and not worded:
+        suffix = held or "credential"
+    elif worded:
+        if "agnomens" in member:
+            suffix = "agnomen"
+        elif "suffix_words_ambiguous" in member:
+            # an agnomen is its own kind, so a word that stops being one
+            # is the generation the gated class otherwise holds
+            suffix = (held if held in ri.GATED_WORDS and held != "agnomen"
+                      else "generation")
+        else:
+            suffix = held or "suffix"
+            if suffix == "agnomen" or (
+                    suffix in ri.GATED_WORDS and given_needed):
+                suffix = "suffix"
+    # the name readings, which gate the vocabulary readings beside them:
+    # a word's own kept where they gate nothing they must not
+    names = {k: dict(p) for k, p in on.items() if ri.CATEGORY[k] == "name"}
+    given_ok = (not (titled and not particled)
+                and not (particled and "particles_ambiguous" not in member))
+    named_ok = not ((acronym and "suffix_acronyms_ambiguous" not in member)
+                    or (worded and suffix in ri.GATED_WORDS
+                        and "suffix_words_ambiguous" not in member))
+    if not given_ok or not named_ok:
+        names.pop("given", None)
+    if not named_ok:
+        names.pop("family", None)
+    if given_needed and "given" not in names:
+        names["given"] = props("given")
+    if "given" in names:
+        if "given_name_abbreviations" in member:
+            names["given"].setdefault("same_as", written_for or word)
+        else:
+            names["given"].pop("same_as", None)
+    if (member & {"suffix_acronyms_ambiguous", "suffix_words_ambiguous"}
+            and not names):
+        names["family"] = {}
+    if suffix is not None:
+        p = props(suffix)
+        p.pop("acronym", None)
+        p.pop("attached", None)
+        if acronym and not worded:
+            if suffix != "credential":
+                p["acronym"] = True
+        else:
+            if suffix == "credential":
+                p["acronym"] = False
+            if "honorific_tails" in member:
+                p["attached"] = "after"
+            # 2.x leaned every gated suffix word but an agnomen by its
+            # case (rules/S6), which 3.0 reads off `title_case_is_name`
+            # (#1039): a 2.x word in the gated class keeps that lean
+            if (suffix != "agnomen" and suffix in ri.GATED_WORDS
+                    and "suffix_words_ambiguous" in member):
+                p["title_case_is_name"] = True
+        out[suffix] = p
+    out.update(names)
+    return out
+
+
+#: (marker, the sets one of which holds a word its marker qualifies): no
+#: reading compiles a marker without its base, a property needing its
+#: reading, so `_inert_dropped` takes a 2.x entry outside them out of
+#: both sides of every compare, and a 2.x spelling or pickle that left
+#: one behind -- `remove(titles={"air"})` keeping `air` a modifier --
+#: reads as though the marker went with its word. 2.x did read such an
+#: orphan in two places, which move, an accepted difference
+#: (decisions/vocabulary-model, 2026-11-02 #754, a marker left behind):
+#: an orphan given-name title still made rules/H2's period-shape title
+#: address the given name (`Sir. Smith` read given `Smith`), and any
+#: orphan counted as a listed word in the capitals shape (`John Smith,
+#: AIR` read given `AIR`).
+_MARKER_READ_WITH = (
+    ("given_name_titles", ("titles", "titles_ambiguous")),
+    ("after_given_titles", ("titles",)),
+    ("title_modifiers", ("titles", "titles_ambiguous")),
+    ("title_styles", ("titles", "titles_ambiguous")),
+    ("conjunctions_ambiguous", ("conjunctions",)),
+    ("particles_ambiguous", ("particles",)),
+    ("patronymic_particles", ("particles",)),
+    ("saint_particles", ("particles",)),
+    ("capitalized_particles", ("particles",)),
+    ("suffix_acronyms_ambiguous", ("suffix_acronyms",)),
+    ("suffix_words_ambiguous", ("suffix_words",)),
+    ("honorific_tails", ("suffix_words",)),
+    ("generation_words", ("suffix_words",)),
+    ("credential_words", ("suffix_words",)),
+    ("honorific_words", ("suffix_words",)),
+    ("agnomens", ("suffix_words_ambiguous",)),
+)
+
+
+def _inert_dropped(sets: Mapping[str, frozenset[str]],
+                   ) -> dict[str, frozenset[str]]:
+    """`sets` without the entries no reading compiles: a marker's word
+    its base sets do not hold, and a title phrase or a given-name title
+    run holding a word that is no title. In the order of
+    `_MARKER_READ_WITH`, so an agnomen whose ambiguous suffix word went
+    goes too."""
+    out = dict(sets)
+    for marker, bases in _MARKER_READ_WITH:
+        if marker in out:
+            read = frozenset().union(*(out[b] for b in bases))
+            out[marker] = frozenset(
+                w for w in out[marker]
+                if w in read or (marker == "given_name_titles" and " " in w
+                                 and all(x in read for x in w.split())))
+    titles = out["titles"] | out["titles_ambiguous"]
+    out["title_phrases"] = frozenset(
+        p for p in out["title_phrases"]
+        if " " in p and all(w in titles for w in p.split(" ")))
+    return out
+
+
+def _edits_toward(pool: Pool, current: Mapping[str, frozenset[str]],
+                  target: Mapping[str, frozenset[str]], *,
+                  keep_held: bool = False) -> tuple[_Edit, ...]:
+    """The edits that take the readings of `pool`, which compile to the
+    sets `current`, toward the sets `target` (by `_LexiconSets` name;
+    a set it leaves out stays as `current` has it), word by word: for
+    each word whose memberships differ, a `remove` of each kind it no
+    longer holds, then an `add` of each kind it lacks or whose
+    properties change. The one translation from sets to readings, which
+    the refusals of a 2.x spelling and the load of a 2.x pickle share; a
+    best effort, so each caller compiles the result where it must be
+    exact. A new kind is taken from a reading the word holds off where
+    it holds one. With `keep_held`, a kind one of whose readings already
+    holds the properties wanted is left alone, so a call need not
+    rewrite another file's reading of it (`ma`'s Filipino `same_as`);
+    the set a property marks holds the word if any reading carries it,
+    so this is right wherever the result compiles exact."""
+    ri = _index_module()
+    fields = _SET_FIELDS
+    full = _inert_dropped({f: target.get(f, current[f]) for f in fields})
+    current = _inert_dropped({f: current[f] for f in fields})
+    changed: set[str] = set()
+    for f in fields:
+        if f == "title_phrases":
+            changed |= {p.split(" ", 1)[0]
+                        for p in full[f] ^ current[f]}
+        else:
+            changed |= full[f] ^ current[f]
+
+    def heads(phrases: frozenset[str], word: str) -> frozenset[str]:
+        # a 2.x entry of one word is no phrase, and no head
+        return frozenset(p.partition(" ")[2] for p in phrases
+                         if p.partition(" ")[0] == word and " " in p)
+
+    out: list[_Edit] = []
+    for w in sorted(changed):
+        held = pool.get(w, ())
+        on = _by_kind(r for r in held if r.on_by_default)
+        every = _by_kind(held)
+        member = frozenset(f for f in fields
+                           if f != "title_phrases" and w in full[f])
+        new_heads = heads(full["title_phrases"], w)
+        moved = new_heads != heads(current["title_phrases"], w)
+        # the full name a given name written short stands for, which no
+        # set records: kept from the reading that holds it (`ma`'s
+        # Filipino `maría`), the word itself where none does
+        written_for = next((p["same_as"] for p in _props_by_kind(held)
+                            .get("given", ()) if "same_as" in p), w)
+        want = _target_readings(w, member, new_heads if moved else None,
+                                on, every, written_for)
+        dropped = [k for k in on if k not in want]
+        gone_categories = {k for k in dropped if ri.CATEGORY[k] == k}
+        for k in dropped:
+            out.append(_Edit("remove", (w,), k, ()))
+        # every reading of a kind the add reaches, files disagreeing (a
+        # given name written short in one file, `ma`, and plain in
+        # another), so the delta takes each of them to `p`
+        after = {k: ps for k, ps in _props_by_kind(held).items()
+                 if k not in dropped and ri.CATEGORY[k] not in gone_categories}
+        # a word's name readings first: an agnomen added before the name
+        # reading that gates it is refused by `add` (check 11's agnomen
+        # clause), so the calls a refusal offers must run in this order
+        for k, p in sorted(want.items(),
+                           key=lambda kp: ri.CATEGORY[kp[0]] != "name"):
+            if k in after:
+                if k in on and (any if keep_held else all)(
+                        q == p for q in after[k]):
+                    continue
+                delta = {x: v for x, v in p.items()
+                         if any(q.get(x) != v for q in after[k])}
+                delta |= {x: None for q in after[k] for x in q if x not in p}
+            else:
+                delta = p
+            out.append(_make_edit("add", (w,), k, delta))
+    return tuple(out)
+
+
+def _fields_of(sets: _LexiconSets | Mapping[str, frozenset[str]],
+               ) -> dict[str, frozenset[str]]:
+    get = (sets.__getitem__ if isinstance(sets, Mapping)
+           else functools.partial(getattr, sets))
+    return {f: get(f) for f in _SET_FIELDS + _KIND_FIELDS}
+
+
+def _rendered(edits: Iterable[_Edit]) -> list[str]:
+    """Edits as the calls that make them, consecutive ones of one kind
+    and properties joined into one call."""
+    calls: list[tuple[str, list[str], str | None, _Props]] = []
+    for e in edits:
+        # a remove of a whole kind (no words) joins no call of words
+        if (calls and e.words and calls[-1][1]
+                and calls[-1][0] == e.op
+                and calls[-1][2:] == (e.kind, e.props)):
+            calls[-1][1].extend(e.words)
+        else:
+            calls.append((e.op, list(e.words), e.kind, e.props))
+    out = []
+    for op, words, kind, props in calls:
+        args = [repr(w) for w in words]
+        if kind is not None:
+            args.append(f"kind={kind!r}")
+        args += [f"{k}={_shown_value(kind, k, v)}" for k, v in props]
+        if op == "remove" and not words:
+            args.append("every=True")
+        out.append(f".{op}({', '.join(args)})")
+    return out
+
+
+def _shown_value(kind: str | None, prop: str, value: object) -> str:
+    """A logged property value as a caller writes it: a removed one as
+    its unwritten value where it has one (`may_be_initial=False`)."""
+    if value is None and kind is not None and prop in (
+            "abbreviation", "acronym", "addresses", "after_given",
+            "may_be_initial", "title_case_is_name", "shared",
+            "after_particle"):
+        value = _unwritten(kind, prop)
+    if isinstance(value, tuple) and len(value) > _SHOWN_WORDS:
+        # bounded: a phrase taken out of a kind's reach lists every
+        # other title word the kind reached (`chief justice`)
+        return (repr(list(value[:_SHOWN_WORDS]))[:-1]
+                + f", ... {len(value) - _SHOWN_WORDS} more]")
+    return repr(list(value) if isinstance(value, tuple) else value)
+
+
+#: The most words a refusal shows of one property's list.
+_SHOWN_WORDS = 6
+
+
+#: The most calls a refusal spells out before it counts the rest.
+_SHOWN_CALLS = 8
+
+
+def _translation(lexicon: Lexicon, changes: Mapping[str, frozenset[str]],
+                 prefix: str = "lexicon") -> str:
+    """What a 2.x set spelling asks of `lexicon`, as 3.0 calls: the
+    sets it would leave, translated word by word (_edits_toward, the
+    translation the 2.x pickle load uses)."""
+    target = {f: v for f, v in changes.items() if f in _SET_FIELDS}
+    current = _fields_of(lexicon._sets)
+    # every set compared, so a reading that also moves a set the call did
+    # not name (a given reading gating a credential) is no exact match;
+    # a word in both titles and titles_ambiguous compared as in titles
+    # alone, as a 2.x pickle is (the two spellings parse alike)
+    wanted = {f: target.get(f, current[f]) for f in _SET_FIELDS}
+    wanted["titles_ambiguous"] = wanted["titles_ambiguous"] - wanted["titles"]
+    wanted = _inert_dropped(wanted)
+    def attempt(keep_held: bool) -> tuple[tuple[_Edit, ...], bool]:
+        try:
+            edits = _edits_toward(lexicon._pool(), current, target,
+                                  keep_held=keep_held)
+            result = _inert_dropped(
+                _built(lexicon._base, lexicon._edits + edits,
+                       lexicon._chosen, lexicon._strict)[1])
+        except (TypeError, ValueError):
+            return (), False
+        return edits, all(result[f] == wanted[f] for f in _SET_FIELDS)
+
+    # the fewer calls first, keeping a reading another file holds of a
+    # kind; every reading of the kind rewritten where that is not exact
+    edits, exact = attempt(True)
+    if not exact:
+        edits, exact = attempt(False)
+    if not edits and exact:
+        return ("the lexicon already reads those words so, an entry it "
+                "would add or remove being a marker without its word's "
+                "reading, which goes with that reading in 3.0; no call is "
+                "needed")
+    if not edits:
+        return ("no readings give those words exactly those sets (a word "
+                "holds one suffix kind, an acronym or a word, and a "
+                "property is read only beside its reading); "
+                "docs/migrate.rst's Lexicon table has every field")
+    calls = _rendered(edits)
+    shown = "".join(calls[:_SHOWN_CALLS]) + (
+        f" ... ({len(calls) - _SHOWN_CALLS} calls more)"
+        if len(calls) > _SHOWN_CALLS else "")
+    if not exact:
+        return ("no readings compile to exactly that set; the nearest is "
+                f"{prefix}{shown}, and docs/migrate.rst's Lexicon table "
+                "has every field")
+    return f"write {prefix}{shown}"
+
+
+def _refusal(where: str, lexicon: Lexicon,
+             removed: Mapping[str, object]) -> TypeError:
+    """The TypeError for a 2.x spelling, translated for the words it
+    names (decisions/vocabulary-model, 2026-11-02 #754, item 6)."""
+    unknown = [k for k in removed
+               if k not in _SET_FIELDS + _LIST_FIELDS
+               and k != "capitalization_exceptions"]
+    if unknown:
+        return TypeError(f"{where} got an unexpected keyword argument "
+                         f"{unknown[0]!r}")
+    if "capitalization_exceptions" in removed:
+        return TypeError(
+            "capitalization_exceptions holds key->value pairs; use "
+            "dataclasses.replace(lexicon, capitalization_exceptions=(*lexicon."
+            "capitalization_exceptions, ('key', 'KEY'))) instead of "
+            f"{where}")
+    lists = [k for k in removed if k in _LIST_FIELDS]
+    if lists:
+        name = lists[0]
+        given = removed[name]
+        words = (sorted(given) if isinstance(given, Iterable)
+                 and not isinstance(given, (str, bytes, Mapping))
+                 and all(isinstance(w, str) for w in given) and given
+                 else ["word"])
+        shown = "{" + ", ".join(map(repr, words)) + "}"
+        code = (f"dataclasses.replace(lexicon, {name}=lexicon.{name} - "
+                f"{shown})" if where.startswith("remove")
+                else f"lexicon | Lexicon({name}={shown})")
+        return TypeError(
+            f"{name} is a list, changed with a fragment since 3.0, not "
+            f"{where}: write {code}")
+    return TypeError(
+        f"{where} takes no {', '.join(removed)} since 3.0: a Lexicon is "
+        f"configured by reading, add(*words, kind=..., **properties) and "
+        f"remove(*words, kind=...); for these words, "
+        + _translation(lexicon, {
+            f: cast("frozenset[str]", v) for f, v in removed.items()},
+            _receiver(where, lexicon)))
+
+
+def _receiver(where: str, lexicon: Lexicon) -> str:
+    """What an offered call is made on: a bare constructor call names
+    the lexicon it built, which the caller holds in no variable, and
+    any other spelling the `lexicon` it was called on."""
+    if (not where.startswith("Lexicon()") or lexicon._base != "empty"
+            or lexicon._edits or lexicon._languages):
+        return "lexicon"
+    lists = [f"{name}={{{', '.join(map(repr, sorted(getattr(lexicon, name))))}}}"
+             for name in _LIST_FIELDS if getattr(lexicon, name)]
+    if lexicon.capitalization_exceptions:
+        lists.append("capitalization_exceptions="
+                     f"{lexicon.capitalization_exceptions!r}")
+    return f"Lexicon({', '.join(lists)})" if lists else "Lexicon.empty()"
+
+
+_PICKLE_2X_DEPRECATION = (
+    "this Lexicon pickle was written by nameparser 2.x; 3.0 translates "
+    "it onto readings, and nameparser 3.1 will refuse it. Re-pickle "
+    "the object you loaded under 3.0 (pickle.dumps(obj)) and load that "
+    "pickle instead")
+
+
+def _translated_2x(state: Mapping[str, object]) -> dict[str, object]:
+    """A 2.x `Lexicon` pickle's state as 3.0 constructor arguments: the
+    sets translated onto the nearer of the two named bases, as the
+    repr counts it (the fewest entries differing), and a log replacing
+    each word whose memberships differ from that base's compile
+    (decisions/vocabulary-model, 2026-11-02 #754, item 5). Raises
+    ValueError where no readings compile the pickled sets back, naming
+    the fields; a word in both `titles` and `titles_ambiguous` is
+    compared as in `titles` alone, the two spellings parsing alike."""
+    expected = set(_VOCAB_FIELDS) | {"capitalization_exceptions"}
+    missing_set = expected - set(state) - {"given_names"}
+    if missing_set or not set(state) <= expected:
+        missing = ", ".join(sorted(missing_set)) or "none"
+        unexpected = ", ".join(sorted(set(state) - expected)) or "none"
+        raise ValueError(
+            f"incompatible Lexicon pickle: missing fields: {missing}; "
+            f"unexpected fields: {unexpected}")
+    sets: dict[str, frozenset[str]] = {}
+    drifted = []
+    for name in _VOCAB_FIELDS:
+        given = state.get(name, frozenset())
+        try:
+            folded = _normset(cast("Iterable[str]", given), name, warn=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"incompatible Lexicon pickle: {exc}") from None
+        lost = frozenset(cast("Iterable[str]", given)) - folded
+        if lost:
+            drifted.append(f"{name}: {', '.join(sorted(lost))}")
+        sets[name] = folded
+    if drifted:
+        raise ValueError(
+            "incompatible Lexicon pickle: entries are not normalized "
+            f"({'; '.join(drifted)}); this state was not written by "
+            "this version of nameparser")
+    sets["titles_ambiguous"] -= sets["titles"]
+    # an entry 2.x never read (an orphan marker) is no part of what the
+    # pickle parsed as, and no reading compiles one
+    wanted = _inert_dropped({f: sets[f] for f in _SET_FIELDS})
+
+    def distance(compiled: Mapping[str, frozenset[str]]) -> int:
+        compiled = _inert_dropped(compiled)
+        return sum(len(wanted[f] ^ compiled[f]) for f in _SET_FIELDS)
+
+    base = min(("default", "empty"),
+               key=lambda b: distance(_compiled_for(b, ())))
+    try:
+        edits = _edits_toward(_base_pool(base), _compiled_for(base, ()),
+                              wanted)
+        got = _inert_dropped(_compiled_for(base, edits))
+    except ValueError as exc:
+        raise ValueError(f"a 2.x Lexicon pickle that 3.0 readings cannot "
+                         f"express: {exc}") from None
+    differ = [f for f in _SET_FIELDS if got[f] != wanted[f]]
+    if differ:
+        raise ValueError(
+            f"a 2.x Lexicon pickle that 3.0 readings cannot express: no "
+            f"readings compile its {', '.join(differ)} back; rebuild the "
+            f"lexicon in 3.0 (docs/migrate.rst's Lexicon table)")
+    return {"surnames": sets["surnames"],
+            "given_names": sets["given_names"],
+            "capitalization_exceptions": state["capitalization_exceptions"],
+            "_base": base, "_edits": edits,
+            "_languages": frozenset(), "_strict": False}
+
+
+# -- the public types ----------------------------------------------------
+
 @dataclass(frozen=True, slots=True)
+class LexiconReading:
+    """One reading a :class:`Lexicon` holds for a word, as
+    :meth:`Lexicon.readings_of` returns it: what the word may be read
+    as, in the vocabulary files' terms (decisions/vocabulary-model,
+    2026-11-02 #754, item 2).
+
+    ``kind`` is a vocabulary kind as the language files write it
+    (``"office"``, ``"credential"``, ``"preposition"``, ``"given"``),
+    finer than :class:`ReadingKind`, which is the parse's; ``category``
+    its category (``"title"``, ``"suffix"``, ``"particle"``,
+    ``"conjunction"``, ``"bound_given"``, ``"relation"``, ``"name"``);
+    ``properties`` its behavioral properties as sorted ``(name, value)``
+    pairs, spelled as the files spell them (``("addresses", "given")``),
+    a list value a sorted tuple; ``languages`` the BCP 47 tags of the
+    shipped files holding it, sorted, empty for a reading a caller
+    added. Whether the parse READ a word this way is the parse's
+    question, :attr:`Token.reading`: a title reading beside a ``given``
+    one is a title only inside a title phrase (rules/H9). Added in
+    3.0."""
+
+    text: str
+    kind: str
+    category: str
+    properties: tuple[tuple[str, Any], ...] = ()
+    languages: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        ri = _index_module()
+        for name in ("text", "kind", "category"):
+            if not isinstance(getattr(self, name), str):
+                raise TypeError(f"LexiconReading.{name} must be a string, "
+                                f"got {getattr(self, name)!r}")
+        if self.kind not in ri.CATEGORY:
+            raise ValueError(f"unknown reading kind {self.kind!r}; the "
+                             f"kinds are {', '.join(ri.CATEGORY)}")
+        if self.category != ri.CATEGORY[self.kind]:
+            raise ValueError(
+                f"a {self.kind} reading's category is "
+                f"{ri.CATEGORY[self.kind]!r}, got {self.category!r}")
+        for name in ("properties", "languages"):
+            if not isinstance(getattr(self, name), tuple):
+                raise TypeError(f"LexiconReading.{name} must be a tuple, "
+                                f"got {getattr(self, name)!r}")
+
+    def __getstate__(self) -> dict[str, object]:
+        return {f.name: getattr(self, f.name)
+                for f in dataclasses.fields(self)}
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        # the layout check the other frozen types share
+        # (_types._guarded_setstate), held here by layering
+        expected = {f.name for f in dataclasses.fields(LexiconReading)}
+        if set(state) != expected:
+            missing = ", ".join(sorted(expected - set(state))) or "none"
+            unexpected = ", ".join(sorted(set(state) - expected)) or "none"
+            raise ValueError(
+                f"incompatible LexiconReading pickle: missing fields: "
+                f"{missing}; unexpected fields: {unexpected}")
+        for name, value in state.items():
+            object.__setattr__(self, name, value)
+
+
+@dataclass(frozen=True, slots=True, init=False, repr=False)
 class Lexicon:
-    """The vocabulary a parser matches against: which words are
-    titles, particles, suffixes, and so on. Immutable and hashable.
+    """The vocabulary a parser matches against: which words may be read
+    as titles, particles, suffixes, and so on. Immutable and hashable.
     Start from :meth:`default` (the shipped vocabulary) or
-    :meth:`empty`, derive variants with :meth:`add` / :meth:`remove` /
-    ``|`` (union), and pass the result to ``Parser(lexicon=...)``.
-    Entries are normalized at construction -- lowercased, NFC-composed,
+    :meth:`empty`, configure it by READING -- :meth:`add` and
+    :meth:`remove` take words and a vocabulary kind as the language
+    files write it, ``add("leed", "ap", kind="credential")`` -- join
+    fragments with ``|``, and pass the result to ``Parser(lexicon=...)``.
+    Ask what a word may be read as with :meth:`readings_of`.
+
+    Words are normalized as they are stored -- lowercased, NFC-composed,
     edge full stops stripped -- so matching is case-insensitive.
-    Vocabulary entries are single words -- a multi-word entry warns at
-    construction and can never match. Three fields are exempt, and they
-    differ in HOW they match: ``given_name_titles`` is looked up
-    against the run of words the parse has ALREADY read as titles --
-    the whole run space-joined, or that run's last word --
-    ``maiden_markers`` is matched by lookahead, longest first, over
-    words that need not be markers on their own (``"z domu"``), and
-    ``title_phrases`` holds two-word phrases, stored space-joined and
-    matched against two adjacent title words (``"chief justice"``).
-    Field docs below show examples, not full
-    contents; inspect any field's shipped vocabulary directly, e.g.
-    ``Lexicon.default().conjunctions``.
 
-    Deprecated since 2.8.1: 3.0 makes the set fields internal and
-    configures vocabulary by reading, so writing one here, through
-    ``add``, ``remove`` or ``dataclasses.replace`` warns. ``surnames``
-    and ``capitalization_exceptions`` stay fields in 3.0, so passing them
-    here or to ``dataclasses.replace`` is quiet, but ``add`` and
-    ``remove`` with ``surnames`` warn, since 3.0's take readings only;
-    see the migration guide's "Deprecated in 2.8.1"."""
+    Since 3.0 the sets a parse reads are compiled from the readings and
+    are internal; the 2.x set fields (``titles``, ``suffix_acronyms``,
+    ...) are refused wherever they were written, each refusal naming
+    the calls that configure the same words (docs/migrate.rst has the
+    table). Three fields stay, being outside the per-word model:
+    ``surnames``, ``given_names`` and ``capitalization_exceptions``.
 
-    #: Pre-nominal titles ("dr", "sir", "capt", ...). Full default
-    #: list: :data:`~nameparser.config.titles.TITLES`.
-    titles: frozenset[str] = frozenset()
-    #: Titles whose single name word, before or after them, reads as a
-    #: GIVEN name ("sir", "sister", ...) rather than a family name. Full
-    #: default list: :data:`~nameparser.config.titles.GIVEN_NAME_TITLES`.
-    given_name_titles: frozenset[str] = frozenset()
-    #: Post-nominal acronym suffixes, matched with or without periods
-    #: ("phd" matches "PhD" and "Ph.D."). Full default list:
-    #: :data:`~nameparser.config.suffixes.SUFFIX_ACRONYMS`.
-    suffix_acronyms: frozenset[str] = frozenset()
-    #: Post-nominal word suffixes ("jr", "esquire", "iii", ...). Full
-    #: default list:
-    #: :data:`~nameparser.config.suffixes.SUFFIX_WORDS`.
-    suffix_words: frozenset[str] = frozenset()
-    #: Subset of suffix_acronyms whose bare forms are also common
-    #: surnames ("ma", "do"). Written with periods one is a suffix
-    #: outright; written bare, capitals decide in a mixed-case name
-    #: ("Jack MA" is the credential, "Jack Ma" keeps his family name)
-    #: and otherwise the word counts as a suffix only where a name
-    #: word is left beside it ("John Smith ma"), rules/S6 and rules/S4. Full
-    #: default list:
-    #: :data:`~nameparser.config.suffixes.SUFFIX_ACRONYMS_AMBIGUOUS`.
-    suffix_acronyms_ambiguous: frozenset[str] = frozenset()
-    #: Family-name particles that chain onto the following piece
-    #: ("van", "de", "bin", ...). Full default list:
-    #: :data:`~nameparser.config.particles.PARTICLES`.
-    particles: frozenset[str] = frozenset()
-    #: Subset of particles that can also BE a given name ("Van
-    #: Johnson", but also "Van Buren"). Membership decides nothing
-    #: about chaining: the prefix chain skips the name's first piece
-    #: and never consults this set, so it leaves a leading particle a
-    #: piece of its own whether listed or not -- "de Mesnil" groups
-    #: into two pieces exactly as "van Gogh" does, and since #367 the
-    #: NAME in "Dr. de Mesnil" and "Dr. Van Johnson" groups into those
-    #: same two pieces behind the title piece, a title not being
-    #: part of the name it precedes. What membership
-    #: decides is what becomes of that piece afterwards. Under ANY
-    #: ``name_order`` a member records a particle-or-given ambiguity
-    #: and a non-member records none, and a non-member is additionally
-    #: folded back into the family name once roles exist WHERE IT OPENS
-    #: THE NAME, so the whole name is the surname ("de Mesnil" -- a bare "de", with nothing to
-    #: fold into, is left alone). That fold is order-independent too
-    #: (#359) -- not because the word could not be a given name, which
-    #: it can where position forces it (``parse("de")`` reports given
-    #: "de"), but because a particle OPENING the name has the rest of
-    #: the name to join forward to, and that evidence is positional
-    #: rather than vocabulary, so no declared order contradicts it. Which field a MEMBER's piece
-    #: lands in is ``name_order``'s question, not this set's.
-    #: No constant of its own -- the default derives
-    #: as particles minus
-    #: :data:`~nameparser.config.particles.NON_GIVEN_NAME_PARTICLES`
-    #: (which marks the opposite, never-given subset).
-    particles_ambiguous: frozenset[str] = frozenset()
-    #: Words or characters that join surrounding pieces into one
-    #: ("and", "&", "y", "и", ...). Full default list:
-    #: :data:`~nameparser.config.conjunctions.CONJUNCTIONS`.
-    conjunctions: frozenset[str] = frozenset()
-    #: Subset of conjunctions that read as an INITIAL rather than a
-    #: connective in a name written wholly in one case ("e": "jose e
-    #: maria santos" reads middle "e maria", where "juan garcia y
-    #: lopez" joins because "y" is not a member). Mixed-case input is
-    #: decided by the writing instead and never consults this set, and
-    #: neither does a caseless letter (Arabic و), which has no case to
-    #: read. A member additionally reports
-    #: :attr:`~nameparser.AmbiguityKind.CONJUNCTION_OR_INITIAL` where a
-    #: name word of its part follows it (with none, it connects
-    #: nothing); a non-member reports nothing, its reading not being in
-    #: doubt.
-    #: Full default list:
-    #: :data:`~nameparser.config.conjunctions.CONJUNCTIONS_AMBIGUOUS`.
-    #: Entries need not also be in ``conjunctions``; one that is not is
-    #: simply never consulted, so it is inert rather than an error.
-    conjunctions_ambiguous: frozenset[str] = frozenset()
-    #: Given-name prefixes that bind to the following word to form one
-    #: given name ("abdul" -> "Abdul Salam"); never standalone names.
-    #: Full default list:
-    #: :data:`~nameparser.config.bound_given_names.BOUND_GIVEN_NAMES`.
-    bound_given_names: frozenset[str] = frozenset()
-    #: Given names written short ("chas" for Charles, "wm" for William,
-    #: Filipino "ma" for María). Period-marked and opening the part of
-    #: the name that carries the given name, an entry reads as that
-    #: given name, where an unlisted abbreviation there reads as a
-    #: title by its shape (rules/H2): "Chas. Smith" reads given
-    #: "Chas.", "Xyz. Smith" title "Xyz.". An entry also in ``titles``
-    #: is a title there, which is what listing it as one asks; anywhere
-    #: else an entry is read as it would be unlisted. Full default
-    #: list:
-    #: :data:`~nameparser.config.given_names.GIVEN_NAME_ABBREVIATIONS`.
-    given_name_abbreviations: frozenset[str] = frozenset()
-    #: Marker words introducing a birth surname, routed to the maiden
-    #: field ("née", "geb.", "rozená", ...). An entry may be a PHRASE
-    #: ("z domu"): entries are matched by lookahead, longest first, so
-    #: a phrase wins where it matches and a word entry that starts one
-    #: still matches on its own everywhere else. A phrase matches only
-    #: where its words stand together -- a bracketed clause or a comma
-    #: between them ends the run. Full default list:
-    #: :data:`~nameparser.config.maiden_markers.MAIDEN_MARKERS`.
-    maiden_markers: frozenset[str] = frozenset()
+    State is a base (the shipped vocabulary, none, or a pickled
+    release's), the choice of languages :func:`~nameparser.parser_for`
+    records (:attr:`languages`, :attr:`strict`), the ordered log of
+    :meth:`add` and :meth:`remove` calls applied after the choice, and
+    the three fields; two lexicons are equal when all of them are, the log compared call by call as written, so two
+    logs that read alike can still differ (decisions/vocabulary-model,
+    2026-11-02 #754, item 3)."""
+
     #: Family names for the unspaced-name segmentation stage (#271),
     #: matched longest-first against the start of the FIRST token
     #: written wholly in a script :attr:`Policy.segment_scripts
@@ -801,91 +1919,21 @@ class Lexicon:
     #: carries the Korean census list
     #: (``nameparser/config/_ko_surnames.py``); Chinese
     #: surnames ship in locales.ZH because Han segmentation is opt-in.
+    #: A list, outside the per-word model: add to it with a fragment,
+    #: ``lexicon | Lexicon(surnames={...})``.
     surnames: frozenset[str] = frozenset()
-    #: Honorifics, and credential, office and generational words, that
-    #: may be peeled off the END of a name token (#308, #707), matched longest-first: 田中さん splits into 田中 and さん
-    #: before the tokens are classified. Every entry must also be a
-    #: :attr:`suffix_words` entry -- the peeled tail is claimed by
-    #: suffix classification like any other post-nominal. Deliberately
-    #: NOT gated on :attr:`Policy.segment_scripts
-    #: <nameparser.Policy.segment_scripts>` (unlike :attr:`surnames`
-    #: above): 田中さん peels under the default policy, where HAN is in
-    #: no activation set, because a tail entry carries its own license
-    #: to fire. Entries are matched against the RAW token text, and
-    #: only within a name containing a non-ASCII character, so an ASCII
-    #: or mixed-case entry is at best conditionally active -- a ``"Jr"``
-    #: entry is stored ``"jr"`` and matches only lowercase text. The
-    #: field is effectively CJK-scoped in 2.1, which is what the shipped
-    #: vocabulary is. Full default list:
-    #: :data:`~nameparser.config.suffixes.GLUED_HONORIFICS`.
-    honorific_tails: frozenset[str] = frozenset()
-    #: Salutations that read as a title where one ENDS the given part
-    #: after a family comma, written bare: "Doe, Jane Mrs" reads title
-    #: "Mrs" where an office or rank word there stays a middle name
-    #: ("Doe, John Pope"), rules/H8. A period-marked title word reads as
-    #: a title there whether listed here or not (rules/H5). Entries need
-    #: not also be in ``titles``; one that is not is never consulted.
-    #: Full default list:
-    #: :data:`~nameparser.config.titles.AFTER_GIVEN_TITLES`.
-    after_given_titles: frozenset[str] = frozenset()
-    #: Subset of suffix_words that are also borne as names ("fils",
-    #: "neto"). Read as a suffix only where the name has words to
-    #: spare, as an ambiguous acronym is: "Pedro Alves Neto" ends in a
-    #: suffix, "Ana Neto" keeps her family name, and either reading is
-    #: reported (rules/S11). Written in Title case in a name of mixed
-    #: case it leans to the name even with words to spare, and in lower
-    #: case it is the suffix after a comma that names the family,
-    #: unless it is also in ``agnomens``. Full default list:
-    #: :data:`~nameparser.config.suffixes.SUFFIX_WORDS_AMBIGUOUS`.
-    suffix_words_ambiguous: frozenset[str] = frozenset()
-    #: Subset of suffix_words_ambiguous whose writing says nothing:
-    #: an agnomen ("filho", "neto") is written in the case of the name
-    #: around it, so only the words to spare decide (rules/S11). An
-    #: entry outside suffix_words_ambiguous is never consulted. Full
-    #: default list: :data:`~nameparser.config.suffixes.AGNOMENS`.
-    agnomens: frozenset[str] = frozenset()
-    #: Titles that may also be a given name ("dean", "justice",
-    #: "major"), each read as a title only inside a title phrase: after a
-    #: modifier, a style, or a title it stands in ``title_phrases``
-    #: behind; or before "of" or a title it stands in ``title_phrases``
-    #: in front of. Elsewhere it is a name word, and where it opens the
-    #: name the parse reports ``title-or-name`` if a phrase of
-    #: ``title_phrases`` the parse can read holds it (rules/H9), so "Grace Smith", which no
-    #: phrase holds, reports nothing, and emptying ``title_phrases``
-    #: silences the report: "Dean Smith"
-    #: and "Mr Major Smith" read given "Dean" and "Major", "Dean of
-    #: Students Smith" and "Major General Smith" a title. An entry also
-    #: in ``titles`` is a title wherever it stands, which is what listing
-    #: it there asks, so the default lists these words here alone. Full
-    #: default list:
-    #: :data:`~nameparser.config.titles.TITLES_AMBIGUOUS`.
-    titles_ambiguous: frozenset[str] = frozenset()
-    #: Titles that only qualify a head title ("vice", "wing", "grand").
-    #: At the head of the name one is a title only with a head title
-    #: behind it in its run of titles, so "Wing Commander Lau" keeps the
-    #: title where "Wing Lau" reads "Wing" as the given name; after a
-    #: comma it is read as any title is (rules/H9), save one also in
-    #: ``titles_ambiguous``, which is read everywhere as at the head. One
-    #: standing before a word of ``titles_ambiguous`` puts that word in
-    #: a title phrase. Entries in neither ``titles`` nor
-    #: ``titles_ambiguous`` are never consulted. Full default
-    #: list: :data:`~nameparser.config.titles.TITLE_MODIFIERS`.
-    title_modifiers: frozenset[str] = frozenset()
-    #: Honorific styles ("hon", "excellency", "highness"): one standing
-    #: before a word of ``titles_ambiguous`` puts that word in a title
-    #: phrase, as in "The Hon. Justice Smith" (rules/H9). Entries in
-    #: neither ``titles`` nor ``titles_ambiguous`` are never consulted.
-    #: Full default list:
-    #: :data:`~nameparser.config.titles.TITLE_STYLES`.
-    title_styles: frozenset[str] = frozenset()
-    #: Two-word title phrases, a title and the title it qualifies
-    #: ("chief justice", "major general"), stored space-joined: a word
-    #: of ``titles_ambiguous`` on either side of one is in a title
-    #: phrase (rules/H9). A phrase is consulted only if it is two
-    #: words, each in ``titles`` or ``titles_ambiguous``. Full default
-    #: list:
-    #: :data:`~nameparser.config.titles.TITLE_PHRASES`.
-    title_phrases: frozenset[str] = frozenset()
+    #: Given names read by two-family-name handling alone
+    #: (:attr:`Policy.two_family_names
+    #: <nameparser.Policy.two_family_names>`, rules/O6): the word that
+    #: rule would take into the family stays where it is when listed, so
+    #: "José Luis Pérez" keeps family "Pérez". A word matches as
+    #: written or with its acute and grave accents and diaeresis
+    #: dropped (the tilde on n and the cedilla on c kept), so an entry
+    #: written "jose" matches "José" too. No other rule reads it. Empty
+    #: by default, so the switch reads as without it; a caller passes
+    #: a list of its own, and ``locales.ES`` carries a Spanish list, with
+    #: the switch on. Added in 3.0.
+    given_names: frozenset[str] = frozenset()
     #: Lowercase word -> case mask used by capitalized(): the word's
     #: own letters and digits, each in the case it takes ("phd" ->
     #: "PhD"), laid over the word as written, so the one entry
@@ -894,239 +1942,266 @@ class Lexicon:
     #: and is never written into the word -- repair keeps the writer's
     #: own punctuation. A value that does not spell the key's letters
     #: and digits raises ValueError. Pair-valued: change it with
-    #: dataclasses.replace(), not add()/remove(); read it as a mapping
-    #: via capitalization_exceptions_map. Full default mapping:
-    #: :data:`~nameparser.config.capitalization.CAPITALIZATION_EXCEPTIONS`.
+    #: dataclasses.replace(); read it as a mapping via
+    #: capitalization_exceptions_map; the default's are
+    #: ``Lexicon.default().capitalization_exceptions``.
     # Canonical storage: sorted tuple of (key, value) pairs. The
     # constructor tolerates any Mapping (or pair iterable) at runtime and
     # canonicalizes here; this closes the caller-aliasing hole and keeps
     # Lexicon hashable. Read via capitalization_exceptions_map.
     capitalization_exceptions: tuple[tuple[str, str], ...] = ()
+    # The base, the log and the choice: constructor parameters under
+    # underscore names, so that dataclasses.replace and copy.replace
+    # carry them, and no public API (decisions/vocabulary-model,
+    # 2026-11-02 #754, item 3); a choice is set publicly by parser_for
+    # alone, and read through `languages` and `strict`.
+    _base: Any = "empty"
+    _edits: tuple[_Edit, ...] = ()
+    # marked added: a 4i-b pickle, from no release, holds no choice and
+    # loads choosing nothing, its log already holding what a choice of
+    # 3b's delta had written into it
+    _languages: frozenset[str] = field(
+        default=frozenset(), metadata={_ADDED_IN: "3.0.0"})
+    _strict: bool = field(default=False, metadata={_ADDED_IN: "3.0.0"})
+    # the file tags the choice selects, derived from it
+    _chosen: frozenset[str] = field(
+        init=False, repr=False, compare=False, hash=False)
     _cap_map: Mapping[str, str] = field(
-        init=False, repr=False, compare=False, hash=False,
-        default_factory=lambda: MappingProxyType({}))
+        init=False, repr=False, compare=False, hash=False)
+    _sets: _LexiconSets = field(
+        init=False, repr=False, compare=False, hash=False)
+    # what assemble keys Reading.languages by: one per base, log and
+    # choice (_ReadingFiles)
+    _files: _ReadingFiles = field(
+        init=False, repr=False, compare=False, hash=False)
 
-    def __post_init__(self) -> None:
-        self._validate()
-        # 2.8.1 (#754): a caller's construction or dataclasses.replace()
-        # with a set field 3.0 refuses. Not from __setstate__, which runs
-        # _validate alone: loading a pickle writes no field.
-        where = _outside_caller(construction=True)
-        if where is not None:
-            self._warn_constructed(*where)
-
-    def _warn_constructed(self, level: int,
-                          replacing: Mapping[str, object] | None,
-                          replace_call: str) -> None:
-        # surnames is never named here: 3.0 accepts it in Lexicon() and
-        # dataclasses.replace(), as it does capitalization_exceptions
-        internal = [name for name in _VOCAB_FIELDS if name != "surnames"]
-        if replacing is None:
-            # a field left at its default is empty, so a non-empty one
-            # was passed
-            written = [name for name in internal if getattr(self, name)]
-            spelling = "Lexicon()"
-        else:
-            # dataclasses.replace() names the instance `obj`, and 3.13's
-            # dataclasses._replace (behind copy.replace) `self`; a field
-            # not passed is filled in with the instance's own value
-            old = replacing.get("obj", replacing.get("self"))
-            changes = replacing.get("changes")
-            if not isinstance(old, Lexicon) or not isinstance(changes, Mapping):
-                return
-            written = [name for name in internal if name in changes
-                       and changes[name] is not getattr(old, name)]
-            spelling = replace_call
-        if written:
-            # one more frame than __post_init__ itself
-            _warn_set_fields(level + 1, spelling, written)
-
-    def _validate(self) -> None:
-        for name in _VOCAB_FIELDS:
-            object.__setattr__(self, name, _normset(getattr(self, name), name))
-        canonical = _normpairs(self.capitalization_exceptions)
-        object.__setattr__(self, "capitalization_exceptions", canonical)
-        object.__setattr__(self, "_cap_map", MappingProxyType(dict(canonical)))
-        for marker, base, why in _SUBSET_FIELDS:
-            orphans = getattr(self, marker) - getattr(self, base)
-            if orphans:
-                raise ValueError(
-                    f"{marker} marks a subset of {base}; "
-                    f"not in {base}: {', '.join(sorted(orphans))} "
-                    f"({why}). Add them to {base}, or drop them from "
-                    f"{marker}"
-                )
-        # NOT validated: given_name_titles against titles. The lookup
-        # key is the space-joined run of Role.TITLE tokens, built by the
-        # parse rather than drawn from this vocabulary, and a
-        # conjunction inside a run is itself tagged Role.TITLE -- so
-        # "sir and dame" is a matchable key whose middle word is in
-        # conjunctions, not titles. A whole-entry check rejected
-        # multi-word entries; a per-word check rejected that one. An
-        # unreachable entry here is inert: nothing consults it, nothing
-        # misparses. That is the cheap failure, and guarding it proved
-        # the expensive one -- three working configurations broken
-        # across two attempts. Do not add a third.
-        #
-        # The v2 form of the vocabulary build's check that a bound given
-        # name which is also a particle may be given (tools/vocab/build.py,
-        # check 9). The build guards the shipped data; this guards
-        # vocabulary a caller supplies.
-        contradictory = (
-            self.bound_given_names & self.particles) - self.particles_ambiguous
-        if contradictory:
+    def __init__(
+        self, *,
+        surnames: Iterable[str] = frozenset(),
+        given_names: Iterable[str] = frozenset(),
+        capitalization_exceptions: (Mapping[str, str]
+                                    | Iterable[tuple[str, str]]) = (),
+        _base: object = "empty",
+        _edits: Iterable[_Edit] = (),
+        _languages: Iterable[str] = frozenset(),
+        _strict: bool = False,
+        **removed: object,
+    ) -> None:
+        put = functools.partial(object.__setattr__, self)
+        put("surnames", _normset(surnames, "surnames"))
+        put("given_names", _normset(given_names, "given_names"))
+        canonical = _normpairs(capitalization_exceptions)
+        put("capitalization_exceptions", canonical)
+        put("_cap_map", MappingProxyType(dict(canonical)))
+        put("_base", _check_base(_base))
+        if isinstance(_edits, (str, bytes)) or not isinstance(
+                _edits, Iterable):
+            raise TypeError(f"_edits must be a tuple of edits, got "
+                            f"{_edits!r}")
+        edits = tuple(_edits)
+        for e in edits:
+            if not isinstance(e, tuple) or len(e) != 4:
+                raise TypeError(f"an edit is (op, words, kind, props), "
+                                f"got {e!r}")
+        canon = tuple(_make_edit(*e) for e in edits)
+        if canon != edits:
             raise ValueError(
-                f"bound_given_names entries that are also particles must be "
-                f"in particles_ambiguous; not in particles_ambiguous: "
-                f"{', '.join(sorted(contradictory))}. A particle that never "
-                f"starts a given name cannot also bind one — add them to "
-                f"particles_ambiguous, or drop them from bound_given_names"
-            )
-        # suffix_as_written ORs the acronym and word branches, so a word
-        # membership bypasses the period gate the ambiguous set exists
-        # to impose: listing 'ma' in suffix_words would make "Jack Ma"
-        # read as a suffix and lose the family name.
-        gate_bypassed = self.suffix_acronyms_ambiguous & self.suffix_words
-        if gate_bypassed:
-            raise ValueError(
-                f"an ambiguous suffix acronym must not also be a suffix "
-                f"word; in both: {', '.join(sorted(gate_bypassed))}. The "
-                f"word branch matches without periods, which bypasses the "
-                f"period gate suffix_acronyms_ambiguous exists to impose"
-            )
-
-        # the mirror of the check above: suffix_as_written ORs the
-        # unambiguous acronym branch too, so a gated suffix word listed
-        # there is claimed as a suffix with no count ('Ana Neto' would
-        # lose her family name, rules/S11)
-        word_gate_bypassed = self.suffix_words_ambiguous & (
-            self.suffix_acronyms - self.suffix_acronyms_ambiguous)
-        if word_gate_bypassed:
-            raise ValueError(
-                f"an ambiguous suffix word must not also be an unambiguous "
-                f"suffix acronym; in both: "
-                f"{', '.join(sorted(word_gate_bypassed))}. The acronym "
-                f"branch matches it outright, which bypasses the count "
-                f"suffix_words_ambiguous exists to impose; drop it from "
-                f"suffix_acronyms or from suffix_words_ambiguous"
-            )
+                "_edits holds an edit not in canonical form; build a "
+                "Lexicon's log with add() and remove()")
+        put("_edits", canon)
+        languages, chosen = _check_choice(_languages, _strict)
+        put("_languages", languages)
+        put("_strict", _strict)
+        put("_chosen", chosen)
+        compiled = _compiled_for(self._base, canon, chosen, _strict)
+        put("_files", _reading_files(self._base, canon, chosen, _strict))
+        put("_sets", _LexiconSets(
+            **compiled, surnames=self.surnames, given_names=self.given_names))
+        if removed:
+            raise _refusal("Lexicon() (and dataclasses.replace)", self,
+                           self._changed("set", removed))
 
     # -- constructors ----------------------------------------------------
 
     @classmethod
     def empty(cls) -> Lexicon:
+        """A lexicon holding no readings, no surnames, no given names
+        and no case masks, equal to ``Lexicon()``: the start for a
+        fragment to join onto another with ``|``, or for a vocabulary
+        built from nothing. A parser over it still reads by shape and
+        position (``Dr. John Smith`` keeps title ``Dr.``, a period-marked
+        word opening a name), and, the default :class:`Policy
+        <nameparser.Policy>` dividing unspaced Hangul, warns at
+        construction that no surnames cover it."""
         return cls()
 
     @classmethod
     def default(cls) -> Lexicon:
+        """The shipped vocabulary, the lexicon ``Parser()`` uses when
+        given none: every reading the language files turn on by
+        default, the Korean census surnames and the case masks, with no
+        :attr:`given_names` and no choice of languages. Cached, so
+        every call returns the same object, which being immutable is
+        safe to share; configure a copy with :meth:`add`,
+        :meth:`remove` or ``|``."""
         return _default_lexicon()
 
     # -- dunders ----------------------------------------------------------
 
-    def _deltas_from(self, baseline: Lexicon) -> list[tuple[str, int, int]]:
-        deltas = []
-        for name in _VOCAB_FIELDS + ("capitalization_exceptions",):
-            mine = set(getattr(self, name))
-            theirs = set(getattr(baseline, name))
-            added, removed = len(mine - theirs), len(theirs - mine)
-            if added or removed:
-                deltas.append((name, added, removed))
-        return deltas
+    # hidden from a type checker, which would otherwise read any
+    # attribute as defined and stop flagging `lexicon.titles` itself
+    if not TYPE_CHECKING:
+        def __getattr__(self, name: str) -> object:
+            if name in _SET_FIELDS:
+                raise AttributeError(
+                    f"Lexicon.{name} is internal since 3.0, compiled from "
+                    f"the lexicon's readings: ask lexicon.readings_of(word) "
+                    f"what a word may be read as, and a parse's "
+                    f"Token.reading what it was read as")
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}")
 
     def __repr__(self) -> str:
-        # Bounded: renders only which fields deviate from the nearer of
-        # the two named constructors and by how many entries -- never the
-        # entries themselves (design rule, see nameparser._types module
-        # docstring). Diffing empty()-built lexicons against default()
-        # would tell the wrong story ("default minus the entire
-        # default vocabulary").
-        if self == Lexicon.default():
-            return "Lexicon(default)"
-        if self == Lexicon.empty():
-            return "Lexicon(empty)"
-        candidates = [(label, self._deltas_from(baseline))
-                      for label, baseline in (("default", Lexicon.default()),
-                                              ("empty", Lexicon.empty()))]
-        label, deltas = min(
-            candidates, key=lambda c: sum(a + r for _, a, r in c[1]))
-        rendered = ", ".join(
-            name + ": " + "".join(
-                part for part, n in ((f"+{a}", a), (f"-{r}", r)) if n)
-            for name, a, r in deltas)
-        return f"Lexicon({label} + {rendered})"
+        # Bounded: counts readings by kind against the nearer of the two
+        # named lexicons, never naming a word (the design rule in
+        # nameparser._types' module docstring)
+        # A choice is shown by its tags, and the readings counted against
+        # the named lexicon under the same choice
+        choice = ""
+        named = [("default", Lexicon.default()), ("empty", Lexicon.empty())]
+        if self._languages:
+            choice = ", " + _shown_choice(self._languages) + (
+                ", strict" if self._strict else "")
+            named = [(label, dataclasses.replace(
+                other, _languages=self._languages, _strict=self._strict,
+                capitalization_exceptions=_rechosen_masks(
+                    other, self._chosen, self._strict)))
+                for label, other in named]
+        for label, other in named:
+            if self == other:
+                return f"Lexicon({label}{choice})"
+        candidates = [(label, self._deltas_from(other))
+                      for label, other in named]
+        label, (kinds, lists) = min(
+            candidates,
+            key=lambda c: sum(a + r for _, a, r in c[1][0] + c[1][1]))
+
+        def counts(deltas: list[tuple[str, int, int]]) -> str:
+            return ", ".join(
+                name + ": " + "".join(
+                    part for part, n in ((f"+{a}", a), (f"-{r}", r)) if n)
+                for name, a, r in deltas)
+
+        rendered = "; ".join(filter(None, (counts(kinds), counts(lists))))
+        return (f"Lexicon({label} + {rendered or f'edits: {len(self._edits)}'}"
+                f"{choice})")
 
     def __getstate__(self) -> dict[str, object]:
-        # _cap_map is a MappingProxyType, which pickle rejects; ship every
-        # other slot and rebuild the proxy from the canonical tuple on load.
-        return {f.name: getattr(self, f.name)
-                for f in dataclasses.fields(self) if f.name != "_cap_map"}
+        # the base as a snapshot of its rows, so a pickle parses as it
+        # did where it was written (decisions/vocabulary-model,
+        # 2026-11-02 #754, item 5)
+        base = self._base
+        if base == "default":
+            from nameparser.config._index import READINGS
+            base = READINGS
+        return {"surnames": self.surnames, "given_names": self.given_names,
+                "capitalization_exceptions": self.capitalization_exceptions,
+                "_base": base, "_edits": tuple(tuple(e) for e in self._edits),
+                "_languages": self._languages, "_strict": self._strict}
 
     def __setstate__(self, state: dict[str, object]) -> None:
-        # Fail at the unpickle site if the state comes from a different
-        # Lexicon field layout (version skew) -- silently loading it
-        # would defer the failure to some distant attribute read.
-        # Message kept in sync with _types._guarded_setstate by design
-        # (layering keeps this module import-free of _types). Unlike
-        # that guard it admits no field added later (`ADDED_IN`, 2.7):
-        # every Lexicon field is still required, so a release adding one
-        # breaks older Lexicon pickles until this learns the marker.
-        expected = {f.name for f in dataclasses.fields(Lexicon)} - {"_cap_map"}
-        if set(state) != expected:
-            missing = ", ".join(sorted(expected - set(state))) or "none"
+        # A 2.x state holds the compiled sets, translated onto a base
+        # and a log; a 3.0 one is checked for its layout as
+        # _types._guarded_setstate checks the other frozen types', the
+        # one skew admitted a field marked `_ADDED_IN` with a default
+        # (`_languages`, `_strict`), and then built through the
+        # constructor, which validates every value as for a caller's.
+        written_by_2x = "titles" in state
+        if written_by_2x:
+            state = _translated_2x(state)
+        fields = [f for f in dataclasses.fields(Lexicon) if f.init]
+        expected = {f.name for f in fields}
+        added = {f.name: f.default for f in fields
+                 if _ADDED_IN in f.metadata
+                 and f.default is not dataclasses.MISSING}
+        missing_set = expected - set(state) - set(added)
+        if missing_set or not set(state) <= expected:
+            missing = ", ".join(sorted(missing_set)) or "none"
             unexpected = ", ".join(sorted(set(state) - expected)) or "none"
             raise ValueError(
                 f"incompatible Lexicon pickle: missing fields: {missing}; "
-                f"unexpected fields: {unexpected}"
-            )
-        for name, value in state.items():
-            object.__setattr__(self, name, value)
-        # Re-run construction validation rather than trusting the blob.
-        # The layout check above catches SHAPE skew; this catches
-        # CONTENT skew, which is likelier -- particles_ambiguous flipped
-        # meaning between v1's never-given set and v2's may-be-given set
-        # without changing its name, so an old pickle would otherwise
-        # load a semantically inverted lexicon in silence. Rebuilds
-        # _cap_map for free, which this used to do by hand.
-        self._validate()
-        # __post_init__ also normalizes, and quietly accepting a
-        # rewritten value would make this a place where caller data
-        # changes without a word. A pickle this library wrote is always
+                f"unexpected fields: {unexpected}")
+        defaulted = {name for name in added if name not in state}
+        state = {**{name: added[name] for name in defaulted}, **state}
+        Lexicon.__init__(self, **state)  # type: ignore[misc, arg-type]
+        # The constructor normalizes, and quietly accepting a rewritten
+        # value would make this a place where caller data changes
+        # without a word. A pickle this library wrote is always
         # normalized already (_normalize converges), so a difference
         # here means the state came from somewhere else -- say so while
         # the offending entries can still be named.
-        # One pass per field, in _VOCAB_FIELDS declaration order. cast is
-        # safe: __post_init__ just ran _normset over each of these and
-        # raised for anything that was not an iterable of str.
         drifted = []
-        for name in _VOCAB_FIELDS:
+        for name in _LIST_FIELDS:
             lost = frozenset(
                 cast("Iterable[str]", state[name])) - getattr(self, name)
             if lost:
                 drifted.append(f"{name}: {', '.join(sorted(lost))}")
-        # the pair field too, or ten fields raise and the eleventh is
-        # quietly re-canonicalized (keys normalized, sorted, deduped)
-        given_pairs = cast("Iterable[tuple[str, str]]",
-                          state["capitalization_exceptions"])
-        if tuple(given_pairs) != self.capitalization_exceptions:
+        given_pairs = state["capitalization_exceptions"]
+        if (isinstance(given_pairs, tuple)
+                and given_pairs != self.capitalization_exceptions):
             drifted.append("capitalization_exceptions")
+        faulty = [d for d in drifted if d.split(":")[0] in defaulted]
+        if faulty:
+            raise ValueError(
+                "Lexicon field default is not normalized "
+                f"({'; '.join(faulty)}): a field marked _ADDED_IN loads "
+                "its default into every pickle written before it, so "
+                "the default must be normalized entries; this is a "
+                "defect in nameparser, not in the pickle")
         if drifted:
             raise ValueError(
                 "incompatible Lexicon pickle: entries are not normalized "
                 f"({'; '.join(drifted)}); this state was not written by "
-                "this version of nameparser"
-            )
+                "this version of nameparser")
+        if written_by_2x:
+            # Migration scaffolding, deleted in 3.1: warned once per
+            # Lexicon loaded, after the load succeeds. pickle.loads is
+            # C, so _warn_at_caller's walk reaches the caller's own
+            # line. decisions/vocabulary-model (#754)
+            _warn_at_caller(_PICKLE_2X_DEPRECATION, DeprecationWarning)
 
     def __or__(self, other: Lexicon) -> Lexicon:
+        """The union of two lexicons: the lists unioned, the masks taken
+        right-biased, and the logs concatenated, this one's first, so a
+        later lexicon's edits apply after an earlier one's (decisions/
+        vocabulary-model, 2026-11-02 #754, item 3); the base is the one
+        that is not empty and the choice the one that is made, and two
+        different bases, or two different choices, raise."""
         if not isinstance(other, Lexicon):
             return NotImplemented
-        updates: dict[str, object] = {
-            name: getattr(self, name) | getattr(other, name)
-            for name in _VOCAB_FIELDS
-        }
-        # right-biased on key conflicts, mirroring later-wins for scalars
+        if (self._languages and other._languages
+                and (self._languages, self._strict)
+                != (other._languages, other._strict)):
+            raise ValueError(
+                "cannot join two lexicons compiled under different choices "
+                "of languages or of strictness; combine choices with "
+                "parser_for, which unions them: parser_for(*packs, "
+                "base=parser)")
+        mine = self if self._languages else other
+        if "empty" in (self._base, other._base) or self._base == other._base:
+            base = other._base if self._base == "empty" else self._base
+        else:
+            raise ValueError(
+                "cannot join two lexicons built on different bases (the "
+                "shipped vocabulary of two releases); rebuild one from "
+                "Lexicon.default() or Lexicon.empty()")
         merged = dict(self._cap_map) | dict(other._cap_map)
-        updates["capitalization_exceptions"] = tuple(sorted(merged.items()))
-        return dataclasses.replace(self, **updates)  # type: ignore[arg-type]
+        return Lexicon(
+            surnames=self.surnames | other.surnames,
+            given_names=self.given_names | other.given_names,
+            capitalization_exceptions=tuple(sorted(merged.items())),
+            _base=base, _edits=self._edits + other._edits,
+            _languages=mine._languages, _strict=mine._strict)
 
     # -- properties -------------------------------------------------------
 
@@ -1134,134 +2209,266 @@ class Lexicon:
     def capitalization_exceptions_map(self) -> Mapping[str, str]:
         return self._cap_map
 
+    @property
+    def languages(self) -> frozenset[str]:
+        """The languages this lexicon's readings are chosen under, as
+        BCP 47 tags; empty where none was chosen. Set by
+        :func:`~nameparser.parser_for`, which unions a base's choice
+        with its packs' (decisions/vocabulary-model, 2026-11-02 #754,
+        item 4): the shipped readings are filtered by the choice, and
+        the lexicon's own :meth:`add` and :meth:`remove` calls apply
+        after it. Added in 3.0."""
+        return self._languages
+
+    @property
+    def strict(self) -> bool:
+        """Whether the choice is strict: only the chosen languages'
+        vocabulary files, mul.toml and native-script words' readings (as a
+        plain choice of the same languages keeps them) are read. Added in 3.0."""
+        return self._strict
+
+    # -- access -----------------------------------------------------------
+
+    def readings_of(self, word: str) -> tuple[LexiconReading, ...]:
+        """The readings this lexicon holds for `word`: one per kind and
+        properties, each with the shipped files that hold it, a reading
+        a caller added naming none; empty for a word it holds no reading
+        of. `word` is normalized as the lexicon stores it, a phrase
+        (``"z domu"``) whole. "Is X a title here?" is ``any(r.category
+        == "title" for r in lexicon.readings_of(x))``; whether a parse
+        read it as one is :attr:`Token.reading`'s. Added in 3.0."""
+        _reject_buffer(word, "readings_of()", "characters")
+        if not isinstance(word, str):
+            raise TypeError(f"readings_of() takes a word, a string, got "
+                            f"{word!r}")
+        text = _title_key(word.split())
+        ri = _index_module()
+        grouped: dict[tuple[str, _Props], list[str]] = {}
+        for r in self._pool().get(text, ()):
+            if r.on_by_default:
+                grouped.setdefault((r.kind, _clean(r.props)), []).append(
+                    r.tag)
+        order = list(ri.CATEGORY)
+        return tuple(
+            LexiconReading(text, kind, ri.CATEGORY[kind], props,
+                           tuple(sorted(t for t in set(tags) if t)))
+            for (kind, props), tags in sorted(
+                grouped.items(),
+                key=lambda item: (order.index(item[0][0]), repr(item[0][1]))))
+
+    def words(self, *, kind: str, **properties: object) -> tuple[str, ...]:
+        """The words holding a reading of `kind` on in this lexicon,
+        sorted: a kind or a category, as :meth:`remove` takes it
+        (``words(kind="title")`` lists every title word, ``dean``
+        among them, whichever set its readings compile to), and
+        `properties`, which a kind takes (``title``, ``suffix`` and
+        ``particle`` are kinds as well as categories, and take their
+        own kind's properties), narrowing to the readings that carry
+        them as :meth:`add` spells them, each compared in its own
+        reading's kind (so through a category an unwritten value means
+        each kind's own: ``acronym=None`` under ``suffix`` lists the
+        credentials, unwritten-true, and the suffix words, unwritten-
+        false, alike)
+        (``words(kind="title", addresses="given")``, the titles that
+        address a person by the given name). A phrase the lexicon holds
+        whole (``"z domu"``) is one entry. Added in 3.0."""
+        k = _check_kind(kind, "words")
+        assert k is not None
+        ri = _index_module()
+        if properties:
+            if k not in ri.CATEGORY:
+                raise ValueError(
+                    f"words() takes properties with a kind, not the "
+                    f"category {k!r}; name one of its kinds: " + ", ".join(
+                        x for x, c in ri.CATEGORY.items() if c == k))
+            # checked against the kind named; compared below against
+            # each reading's own kind, since a kind that is also a
+            # category reaches kinds whose unwritten value differs
+            # (`acronym` is unwritten-true on a credential, false on a
+            # suffix word)
+            _edit_props(k, properties)
+
+        return tuple(sorted(
+            w for w, rs in self._pool().items()
+            if any(r.on_by_default and (r.kind == k or r.category == k)
+                   # a reading holds its properties canonical, as the
+                   # build and add write them, the unwritten value never
+                   and all(r.props.get(p) == _prop_value(r.kind, p, v)
+                           for p, v in properties.items())
+                   for r in rs)))
+
     # -- editing ----------------------------------------------------------
 
-    def _edit(self, op: str, entries: Mapping[str, Iterable[str]]) -> Lexicon:
-        updates: dict[str, frozenset[str]] = {}
+    # `kind` is required, and a type checker reads it so: the runtime
+    # default exists only to catch a 2.x call, which names no kind, and
+    # refuse it with its translation rather than with Python's own
+    # missing-argument error
+    if TYPE_CHECKING:
+        def add(self, *words: str, kind: str,
+                **properties: object) -> Lexicon: ...
+    else:
+        def add(self, *words: str, kind: str | None = None,
+                **properties: object) -> Lexicon:
+            """This lexicon with a reading of `kind` added to each word.
+            `kind` is required; the signature's default exists only so
+            that a 2.x call, which names no kind, is refused with its
+            translation. It is a vocabulary kind as the language files
+            write it, a key
+            of ``nameparser._reading_index.CATEGORY`` (``"title"``,
+            ``"office"``, ``"credential"``, ``"generation"``,
+            ``"preposition"``, ``"conjunction"``, ``"bound_given"``,
+            ``"birth_marker"``, ``"given"``, ``"family"``, ...), and
+            `properties` that kind's behavioral properties as the files
+            spell them (``addresses="given"``, ``after_given=True``,
+            ``abbreviation=True``, ``attaches=[...]``, ``acronym=...``, ``attached="after"``,
+            ``may_be_initial=True``, ``completed_by=[...]`` on a
+            ``bound_given`` reading, ``same_as=...`` and
+            ``after_particle=True`` on a ``given`` reading, ``shared=True``
+            on a name reading); a property given its unwritten value (``None``,
+            ``False``) is removed. Where the word holds a reading of `kind`
+            already, the add updates its properties in every file holding
+            it; otherwise it adds the caller's own reading, which names no
+            file. Warns where it makes a title reading that a ``given``
+            reading keeps a title only inside a title phrase (rules/H9),
+            naming the ``remove`` that makes it a title everywhere."""
+            old = {k: properties.pop(k) for k in list(properties)
+                   if k in _SET_FIELDS + _LIST_FIELDS
+                   or k == "capitalization_exceptions"}
+            if old:
+                raise _refusal("add()", self, self._changed("add", old))
+            if kind is None:
+                raise TypeError("add() missing required keyword argument "
+                                "'kind', e.g. add('leed', kind='credential')")
+            edit = _make_edit("add", words, kind, properties)
+            added = dataclasses.replace(self, _edits=self._edits + (edit,))
+            ri = _index_module()
+            if ri.CATEGORY[edit.kind] == "title":  # type: ignore[index]
+                before = self._pool()
+                for w in edit.words:
+                    if (w in added._sets.titles_ambiguous
+                            and not _updates(before.get(w, ()), edit)):
+                        _warn_at_caller(
+                            f"{w!r} holds a given reading, so it reads as a "
+                            f"title only inside a title phrase (rules/H9) and "
+                            f"this add reads no name differently elsewhere; to "
+                            f"read it as a title everywhere, write "
+                            f".remove({w!r}, kind='given')")
+            return added
+
+    def remove(self, *words: str, kind: str | None = None,
+               every: bool = False, **removed: object) -> Lexicon:
+        """This lexicon without each word's readings of `kind`: a kind,
+        or a category, matching every kind of it (``kind="title"`` takes
+        out ``dean``'s ``office`` reading, ``kind="name"`` its ``given``
+        and ``family`` ones), or None, taking out every reading, so the
+        word leaves the vocabulary. With ``every=True``, no words and a
+        `kind`, every word's readings of it go (``remove(kind="title",
+        every=True)``), those a later choice of languages turns on
+        included; a call with no words and no `every` raises, so an
+        empty ``remove(*words, kind=...)`` never takes out a whole kind.
+        Removing a reading the word does not hold changes nothing now,
+        and is kept: a later choice of languages may turn that reading
+        on."""
+        if removed:
+            raise _refusal("remove()", self, self._changed("remove", removed))
+        if not isinstance(every, bool):
+            raise TypeError(f"remove() takes every as True or False, got "
+                            f"{every!r}")
+        if every and words:
+            raise TypeError(
+                f"remove() takes words or every=True, not both: every=True "
+                f"takes out every word's readings of the kind; got "
+                f"{len(words)} word(s)")
+        if every and kind is None:
+            raise TypeError(
+                "remove(every=True) takes a kind, e.g. remove(kind='title', "
+                "every=True); to remove everything, start from "
+                "Lexicon.empty()")
+        if not every and not words:
+            raise TypeError(
+                "remove() takes at least one word, e.g. remove('dean', "
+                "kind='title'), or every=True with a kind to take out every "
+                "word's readings of it, e.g. remove(kind='title', "
+                "every=True)")
+        edit = _make_edit("remove", words, kind, ())
+        return dataclasses.replace(self, _edits=self._edits + (edit,))
+
+    # -- private helpers --------------------------------------------------
+
+    def _pool(self) -> Pool:
+        return self._files.pool()
+
+    def _changed(self, op: str,
+                 entries: Mapping[str, object]) -> dict[str, object]:
+        """A 2.x call's set fields as the sets it would leave, `op`
+        being "add", "remove" or "set" (a constructor's or
+        `dataclasses.replace`'s), for its refusal to translate; a list
+        or the masks pass through, refused by name."""
+        out: dict[str, object] = {}
         for name, words in entries.items():
-            if name == "capitalization_exceptions":
-                raise TypeError(
-                    "capitalization_exceptions holds key->value pairs; "
-                    "use dataclasses.replace(lexicon, "
-                    "capitalization_exceptions=(*lexicon."
-                    "capitalization_exceptions, ('key', 'KEY'))) "
-                    "instead of "
-                    f"{op}()"
-                )
-            if name not in _VOCAB_FIELDS:
-                raise TypeError(
-                    f"unknown Lexicon field {name!r}; valid fields: "
-                    f"{', '.join(_VOCAB_FIELDS)}"
-                )
-            current: frozenset[str] = getattr(self, name)
-            # warn=False: this pass only computes the new set membership,
-            # never stores it directly. add() still warns exactly once,
-            # from the replaced instance's own __post_init__ -> _normset;
-            # remove() never reaches __post_init__ with the dead entry
-            # (it is subtracted out here), so it stays silent -- correct,
-            # since a removal stores nothing a warning could be about.
-            # That silence covers the entry BEING REMOVED only: a
-            # different multi-word entry still stored re-warns from the
-            # derived instance's __post_init__, since the warning is
-            # per-construction by design.
-            normalized = _normset(words, name, warn=False)
-            updates[name] = (current | normalized if op == "add"
-                             else current - normalized)
-        # mypy's dataclasses.replace() typing checks a **dict's single
-        # value type against every field's type (it can't see which keys
-        # are actually present behind the unpack), so a homogeneous
-        # frozenset[str] dict is flagged against the tuple/Mapping-typed
-        # capitalization_exceptions/_cap_map fields even though this dict
-        # never contains those keys (guarded above).
-        return dataclasses.replace(self, **updates)  # type: ignore[arg-type]
+            if name not in _SET_FIELDS:
+                out[name] = words
+                continue
+            try:
+                given = _normset(cast("Iterable[str]", words), name,
+                                 warn=False)
+            except (TypeError, ValueError):
+                given = frozenset()
+            current = getattr(self._sets, name)
+            out[name] = (given if op == "set" else current | given
+                         if op == "add" else current - given)
+        return out
 
-    def add(self, **entries: Iterable[str]) -> Lexicon:
-        """A copy with each named field's words added. Deprecated since
-        2.8.1: 3.0's ``add`` takes readings, not fields."""
-        return self._edit_warning("add", entries)
+    def _deltas_from(self, other: Lexicon) -> tuple[
+            list[tuple[str, int, int]], list[tuple[str, int, int]]]:
+        ri = _index_module()
+        mine, theirs = _keyed(self._pool()), _keyed(other._pool())
+        kinds = []
+        for kind in ri.CATEGORY:
+            a = sum(1 for key in mine - theirs if key[1] == kind)
+            r = sum(1 for key in theirs - mine if key[1] == kind)
+            if a or r:
+                kinds.append((kind, a, r))
+        lists = []
+        for name in _LIST_FIELDS + ("capitalization_exceptions",):
+            m, t = set(getattr(self, name)), set(getattr(other, name))
+            if m != t:
+                lists.append((name, len(m - t), len(t - m)))
+        return kinds, lists
 
-    def remove(self, **entries: Iterable[str]) -> Lexicon:
-        """A copy with each named field's words removed. Deprecated
-        since 2.8.1: 3.0's ``remove`` takes readings, not fields."""
-        return self._edit_warning("remove", entries)
 
-    def _edit_warning(self, op: str,
-                      entries: Mapping[str, Iterable[str]]) -> Lexicon:
-        # 2.8.1 (#754): 3.0's add() and remove() take readings, and
-        # refuse every field keyword, surnames included. The warning
-        # follows a successful edit, so a bad value raises its own
-        # error first. An iterator of surnames is read once here, so the
-        # warning can spell the edit and _edit still sees the words.
-        named = entries.get("surnames")
-        if isinstance(named, Iterator):
-            entries = {**entries, "surnames": tuple(named)}
-        edited = self._edit(op, entries)
-        if entries:
-            where = _outside_caller(construction=False)
-            if where is not None:
-                code = ("" if "surnames" not in entries else _surnames_code(
-                    op, _normset(entries["surnames"], "surnames", warn=False)))
-                _warn_set_fields(where[0], f"{op}()", entries, code)
-        return edited
+def _keyed(pool: Pool) -> set[tuple[str, str, _Props]]:
+    """The readings on in `pool`, each once, as the repr counts them:
+    by word, kind and properties, whatever file holds them."""
+    return {(r.text, r.kind, _clean(r.props))
+            for rs in pool.values() for r in rs if r.on_by_default}
+
+
+def _updates(held: Iterable[Any], edit: _Edit) -> bool:
+    """Whether `edit` only updates the properties of a reading of its
+    kind the word holds: the title warning's exemption (decisions/
+    vocabulary-model, 2026-11-01 #754, the title warning)."""
+    return any(r.kind == edit.kind
+               and _clean(_merged(r.props, edit.props)) != _clean(r.props)
+               for r in held)
 
 
 @functools.cache
 def _default_lexicon() -> Lexicon:
-    # The compiled vocabulary, read from _compiled rather than the public
-    # nameparser.config modules, whose constants warn at a caller's read
-    # since 2.8.1 (#1007), and surnames.py's since 2.8.2.
-    from nameparser.config._compiled import BOUND_GIVEN_NAMES
-    from nameparser.config._compiled import GIVEN_NAME_ABBREVIATIONS
+    # nameparser/config/_compiled.py, compiled from nameparser/vocab/, is
+    # the single source of the default vocabulary: its sets are read from
+    # it, never compiled from the index here (_compiled_for), so
+    # Lexicon.default() loads no index.
     from nameparser.config._compiled import CAPITALIZATION_EXCEPTIONS
-    from nameparser.config._compiled import (
-        CONJUNCTIONS, CONJUNCTIONS_AMBIGUOUS)
-    from nameparser.config._compiled import MAIDEN_MARKERS
-    from nameparser.config._compiled import NON_GIVEN_NAME_PARTICLES, PARTICLES
-    from nameparser.config._compiled import (
-        AGNOMENS, GLUED_HONORIFICS, SUFFIX_ACRONYMS, SUFFIX_ACRONYMS_AMBIGUOUS,
-        SUFFIX_WORDS, SUFFIX_WORDS_AMBIGUOUS,
-    )
     from nameparser.config._ko_surnames import KOREAN_SURNAMES
-    from nameparser.config._compiled import (
-        AFTER_GIVEN_TITLES, GIVEN_NAME_TITLES, TITLE_MODIFIERS, TITLE_PHRASES,
-        TITLE_STYLES, TITLES, TITLES_AMBIGUOUS)
 
-    # every vocabulary constant is a frozenset since #293, so each one
-    # feeds its strictly-typed frozenset[str] field as it stands -- and
-    # this cache reading them ONCE is the reason they are frozen. A
-    # mutated module set always reached a freshly built Constants, and
-    # reached this Lexicon only when the edit landed before the first
-    # call; after it, the cache was already built and the same edit was
-    # invisible here. Which of the two a program got was not something
-    # the code doing the mutating could see.
-    # keep in sync with _config_shim.Constants._snapshot() (pinned by the
-    # default-Constants equality test in tests/v2/test_config_shim.py)
+    # every vocabulary constant is a frozenset since #293, and this
+    # cache reading them ONCE is the reason they are frozen.
     return Lexicon(
-        titles=TITLES,
-        given_name_titles=GIVEN_NAME_TITLES,
-        suffix_acronyms=SUFFIX_ACRONYMS,
-        suffix_words=SUFFIX_WORDS,
-        suffix_acronyms_ambiguous=SUFFIX_ACRONYMS_AMBIGUOUS,
-        particles=PARTICLES,
-        # FLIPPED from v1: v1 marks the never-given subset; v2 marks the
-        # may-be-given subset (migration: complement translation).
-        particles_ambiguous=PARTICLES - NON_GIVEN_NAME_PARTICLES,
-        conjunctions=CONJUNCTIONS,
-        conjunctions_ambiguous=CONJUNCTIONS_AMBIGUOUS,
-        bound_given_names=BOUND_GIVEN_NAMES,
-        given_name_abbreviations=GIVEN_NAME_ABBREVIATIONS,
-        maiden_markers=MAIDEN_MARKERS,
         surnames=KOREAN_SURNAMES,
-        honorific_tails=GLUED_HONORIFICS,
-        after_given_titles=AFTER_GIVEN_TITLES,
-        suffix_words_ambiguous=SUFFIX_WORDS_AMBIGUOUS,
-        agnomens=AGNOMENS,
-        titles_ambiguous=TITLES_AMBIGUOUS,
-        title_modifiers=TITLE_MODIFIERS,
-        title_styles=TITLE_STYLES,
-        title_phrases=TITLE_PHRASES,
         # pass canonical pair-tuples so this strictly-typed call site never
-        # feeds a Mapping to the tuple-annotated field; __post_init__
-        # still tolerates a Mapping at runtime for interactive use
+        # feeds a Mapping to the tuple-annotated field; __init__ still
+        # tolerates a Mapping at runtime for interactive use
         capitalization_exceptions=tuple(sorted(CAPITALIZATION_EXCEPTIONS.items())),
+        _base="default",
     )

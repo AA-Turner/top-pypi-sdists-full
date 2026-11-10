@@ -68,16 +68,20 @@ sharp_edges:
     detection_pattern: '\.iloc\[.*\]\.get|statement\(\)\[|balance_sheet\(\)\['
 
   - id: include-dimensions-vs-view
-    summary: Use view= instead of include_dimensions= for dimensional control
-    severity: low
+    summary: include_dimensions= was removed in 6.0 (TypeError); use view= for dimensional control
+    severity: medium
     solution: |
-      # PREFERRED: view parameter (works on single and stitched statements)
+      # RIGHT: view parameter (works on single and stitched statements)
       income = financials.income_statement(view="detailed")
       income = multi_financials.income_statement(view="detailed")
+      df = statement.to_dataframe(view="standard")
 
-      # LEGACY: include_dimensions boolean (still works but less expressive)
+      # WRONG: removed in 6.0, raises TypeError on Financials, xbrl.statements,
+      # Statement.render() and Statement.to_dataframe()
+      # include_dimensions=True  -> view="detailed"
+      # include_dimensions=False -> view="standard"
       income = financials.income_statement(include_dimensions=True)
-    detection_pattern: 'include_dimensions\s*=\s*True'
+    detection_pattern: 'include_dimensions\s*=\s*(True|False)'
 
   - id: value-scale-assumptions
     summary: Financial values are in actual dollars, not thousands/millions
@@ -85,3 +89,12 @@ sharp_edges:
     solution: |
       revenue = financials.get_revenue()  # Already in dollars
       print(f"${revenue/1e9:.1f}B")       # Format for display
+
+  - id: ticker-moved-to-successor
+    summary: A ticker that moved to a new registrant (holding company, redomicile) leaves 10-Ks on the old CIK
+    severity: high
+    solution: |
+      xom = Company("XOM")                 # ExxonMobil Holdings Corp (CIK 2115436) since 2026-07-01
+      xom.get_facts().income_statement()   # already includes predecessor history (FY2016-)
+      xom.get_financials()                 # None + PredecessorHistoryWarning: no 10-K filed yet
+      financials = xom.predecessor.get_financials()   # Exxon Mobil Corp (CIK 34088) latest 10-K

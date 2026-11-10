@@ -16,8 +16,9 @@ from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.client_query import ClientQuery
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.schema import TypeSchema
 from office365.runtime.types.collections import StringCollection
-from office365.runtime.types.odata_property import odata
+from office365.runtime.types.odata_property import ABSOLUTE_URL, SERVER_RELATIVE_URL, odata
 from office365.sharepoint.activities.entity import SPActivityEntity
 from office365.sharepoint.activities.logger import ActivityLogger
 from office365.sharepoint.alerts.collection import AlertCollection
@@ -27,6 +28,7 @@ from office365.sharepoint.authentication.acs_service_principal_info import (
 from office365.sharepoint.businessdata.app_bdc_catalog import AppBdcCatalog
 from office365.sharepoint.changes.collection import ChangeCollection
 from office365.sharepoint.changes.query import ChangeQuery
+from office365.sharepoint.changes.token import ChangeToken
 from office365.sharepoint.clientsidecomponent.hostedapps.manager import (
     HostedAppsManager,
 )
@@ -39,6 +41,7 @@ from office365.sharepoint.clientsidecomponent.query_result import (
 from office365.sharepoint.clientsidecomponent.storage_entity import StorageEntity
 from office365.sharepoint.contenttypes.collection import ContentTypeCollection
 from office365.sharepoint.contenttypes.content_type import ContentType
+from office365.sharepoint.documents.fontoption import FontOption
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.eventreceivers.definition_collection import (
     EventReceiverDefinitionCollection,
@@ -52,7 +55,6 @@ from office365.sharepoint.files.file import File
 from office365.sharepoint.flows.synchronization_result import FlowSynchronizationResult
 from office365.sharepoint.folders.collection import FolderCollection
 from office365.sharepoint.folders.folder import Folder
-from office365.sharepoint.internal.paths.web import WebPath
 from office365.sharepoint.largeoperation.operation import SPLargeOperation
 from office365.sharepoint.listitems.listitem import ListItem
 from office365.sharepoint.lists.collection import ListCollection
@@ -77,6 +79,7 @@ from office365.sharepoint.marketplace.tenant.appcatalog.accessor import (
     TenantCorporateCatalogAccessor,
 )
 from office365.sharepoint.navigation.navigation import Navigation
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.permissions.base_permissions import BasePermissions
 from office365.sharepoint.permissions.roles.definitions.collection import (
     RoleDefinitionCollection,
@@ -124,17 +127,16 @@ from office365.sharepoint.webs.information_collection import WebInformationColle
 from office365.sharepoint.webs.modernize_homepage_result import ModernizeHomepageResult
 from office365.sharepoint.webs.multilingual_settings import MultilingualSettings
 from office365.sharepoint.webs.regional_settings import RegionalSettings
+from office365.sharepoint.webs.sp_focal_point import SPFocalPoint
 from office365.sharepoint.webs.subweb_query import SubwebQuery
 from office365.sharepoint.webs.templates.collection import WebTemplateCollection
 from office365.sharepoint.webs.theme_info import ThemeInfo
 
 if TYPE_CHECKING:
-    from office365.sharepoint.changes.token import ChangeToken
     from office365.sharepoint.client_context import ClientContext
     from office365.sharepoint.clientsidecomponent.spteamsappcomponent import (
         SPTeamsAppComponent,
     )
-    from office365.sharepoint.documents.fontoption import FontOption
     from office365.sharepoint.folders.coloring import FolderColoring
     from office365.sharepoint.marketplace.corporatecuratedgallery.addins.permission_request import (
         SPAddinPermissionRequest,
@@ -156,7 +158,6 @@ if TYPE_CHECKING:
     )
     from office365.sharepoint.publishing.pages.page import SitePage
     from office365.sharepoint.webs.apptile import AppTile
-    from office365.sharepoint.webs.sp_focal_point import SPFocalPoint
     from office365.sharepoint.webs.spimageitem import SPImageItem
     from office365.sharepoint.workflow.associations.association import (
         WorkflowAssociation,
@@ -176,13 +177,16 @@ class Web(SecurableObject):
     def __init__(self, context: ClientContext, resource_path: Optional[ResourcePath] = None):
         """ """
         if resource_path is None:
-            resource_path = WebPath("Web")
+            # A web's OData segment is ``Web`` wherever it was reached from; a subweb
+            # addresses itself by ``Url`` (see ``set_property``), not by its parent path.
+            resource_path = ResourcePath("Web")
         super().__init__(context, resource_path)
         self._web_url = None
 
     def __str__(self):
         return self.title or self.entity_type_name
 
+    @site_access(SiteLevel.READ)
     def available_addins(self, server_relative_urls: Optional[list[str]] = None):
         """Args:
         server_relative_urls (list[str]):
@@ -193,6 +197,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def add_cross_farm_message(self, message: str) -> ClientResult[bool]:
         """Args:
         message (str):
@@ -203,6 +208,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_access_request_list(self) -> List:
         """ """
         return_type = List(self.context)
@@ -214,6 +220,7 @@ class Web(SecurableObject):
         self.ensure_properties(["AccessRequestListUrl"]).after_execute(lambda _: _get_access_request_list())
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_adaptive_card_extensions(self, include_errors: Optional[bool] = None, project=None):
         payload = {
             "includeErrors": include_errors,
@@ -224,6 +231,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_document_by_doc_id(self, doc_id: str) -> ClientResult[str]:
         """ """
         return_type = ClientResult(self.context, str())
@@ -266,6 +274,7 @@ class Web(SecurableObject):
         self.ensure_property("Url").after_execute(lambda _: _get_site_script(self.url))
         return result
 
+    @site_access(SiteLevel.MANAGE)
     def consent_to_power_platform(self) -> FlowSynchronizationResult:
         """"""
         return_type = FlowSynchronizationResult(self.context)
@@ -306,6 +315,7 @@ class Web(SecurableObject):
             view_xml.ViewXml = "<View><Query></Query></View>"
         return List.get_onedrive_list_data_as_stream(self.context, view_xml)  # type: ignore[arg-type]
 
+    @site_access(SiteLevel.READ)
     def get_list_operation(self, list_id: str, operation_id: str) -> SPLargeOperation:
         """ """
         return_type = SPLargeOperation(self.context)
@@ -320,6 +330,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_push_notification_subscriber(self, device_app_instance_id: str) -> PushNotificationSubscriber:
         """Specifies the push notification subscriber over the site for the specified device app instance identifier.
 
@@ -338,6 +349,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_client_side_components(
         self, components: ClientValueCollection[SPClientSideComponentIdentifier]
     ) -> ClientResult[ClientValueCollection[SPClientSideComponentIdentifier]]:
@@ -353,6 +365,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_client_side_components_by_component_type(self, component_types):
         """Args:
         component_types (str):
@@ -370,6 +383,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_push_notification_subscribers_by_user(self, user: Union[str, User]) -> PushNotificationSubscriberCollection:
         """Queries for the push notification subscribers for the site  for the specified user.
 
@@ -397,6 +411,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def create_organization_sharing_link(
         context: ClientContext, url: str, is_edit_link: bool = False
     ) -> ClientResult[str]:
@@ -424,6 +439,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def destroy_organization_sharing_link(
         context: ClientContext,
         url: str,
@@ -451,6 +467,7 @@ class Web(SecurableObject):
         return context.web
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_context_web_information(
         context: ClientContext,
     ) -> ClientResult[ContextWebInformation]:
@@ -465,6 +482,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_web_url_from_page_url(context, page_full_url) -> ClientResult[str]:
         """Returns the URL of the root folder for the site containing the specified URL
 
@@ -479,6 +497,7 @@ class Web(SecurableObject):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def create_default_associated_groups(self, user_login: str, user_login2: str, group_name_seed: str):
         """Creates the default Owners, Members and Visitors SPGroups on the web.
 
@@ -500,18 +519,21 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def create_group_based_environment(self) -> FlowSynchronizationResult:
         return_type = FlowSynchronizationResult(self.context)
         qry = ServiceOperationQuery(self, "CreateGroupBasedEnvironment", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_group_based_environment(self) -> FlowSynchronizationResult:
         return_type = FlowSynchronizationResult(self.context)
         qry = ServiceOperationQuery(self, "GetGroupBasedEnvironment", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_acs_service_principals(self, app_ids=None):
         """List service principals
 
@@ -524,6 +546,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def sync_flow_instances(self, target_web_url: str) -> FlowSynchronizationResult:
         """Args:
         target_web_url (str):
@@ -534,6 +557,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def sync_flow_templates(self, category: str) -> FlowSynchronizationResult:
         """Args:
         category (str):
@@ -544,6 +568,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_all_client_side_components(self) -> ClientResult[str]:
         """"""
         return_type = ClientResult(self.context, str())
@@ -551,6 +576,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_addin_principals_having_permissions_in_sites(
         self, server_relative_urls: Optional[list[str]] = None, urls: Optional[list[str]] = None
     ) -> ClientResult[SPGetAddinPrincipalsResponse]:
@@ -571,6 +597,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_app_bdc_catalog(self) -> AppBdcCatalog:
         """
         Returns the Business Data Connectivity (BDC) MetadataCatalog for an application that gives access to the
@@ -583,6 +610,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_client_side_web_parts(self, project=None, include_errors=False):
         """It MUST return an array of 3rd party webpart components installed on this site
 
@@ -597,6 +625,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def add_supported_ui_language(self, lcid: int) -> Self:
         """Adds a supported UI language by its language identifier.
 
@@ -607,6 +636,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_lists(self, row_limit: int = 100) -> ListCollection:
         """Args:
         row_limit (int): Specifies a limit for the number of lists in the query that are returned per page
@@ -617,6 +647,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_sub_webs_filtered_for_current_user(self, query: SubwebQuery) -> WebInformationCollection:
         """Returns a collection of objects that contain metadata about subsites of the current site (2) in which the
         current user is a member.
@@ -639,6 +670,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_recycle_bin_items(
         self,
         paging_info: Optional[str] = None,
@@ -669,6 +701,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_recycle_bin_items_by_query_info(
         self,
         is_ascending: bool = True,
@@ -702,6 +735,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_all_webs(self, progress: Optional[Callable[[Progress[Web]], None]] = None) -> WebCollection:
         """Returns a collection containing a flat list of all Web objects in the Web.
 
@@ -733,6 +767,7 @@ class Web(SecurableObject):
 
             cur_web.ensure_property("Webs").after_execute(lambda _, w=cur_web: _webs_loaded(w))
 
+    @site_access(SiteLevel.READ)
     def get_list_using_path(self, decoded_url: str):
         """Returns the list that is associated with the specified server-relative path.
 
@@ -746,6 +781,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_news_list(self, allow_create: bool = False) -> List:
         """Returns the News List on this web, if it exists. If the list does not exist, the list will be created and
         then returned if allowCreate is set to true. The News List is a hidden SP.List in which News Posts are stored.
@@ -782,6 +818,7 @@ class Web(SecurableObject):
             ServiceOperationPath("GetViewFromPath", [decoded_url], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_regional_datetime_schema(self) -> ClientResult[str]:
         """Get DateTime Schema based on regional settings"""
         return_type = ClientResult(self.context, str())
@@ -789,6 +826,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_sharing_link_data(self, link_url: str) -> ClientResult[SharingLinkData]:
         """This method determines basic information about the supplied link URL, including limited data about the object
         the link URL refers to and any additional sharing link data if the link URL is a tokenized sharing link
@@ -803,6 +841,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_context_web_theme_data(context: ClientContext) -> ClientResult[str]:
         """
         Get ThemeData for the context web.
@@ -813,6 +852,7 @@ class Web(SecurableObject):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def create_site_page(self, page_metadata: str) -> ClientResult[str]:
         """Create a site page
 
@@ -857,6 +897,7 @@ class Web(SecurableObject):
         return SitePage(self.context, ResourcePath(f"sitepages/pages({page_id})"))
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def create_anonymous_link(
         context: ClientContext,
         url: str,
@@ -883,6 +924,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def create_anonymous_link_with_expiration(
         context: ClientContext,
         url: str,
@@ -924,6 +966,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_object_sharing_settings(
         context: ClientContext,
         object_url: str,
@@ -959,6 +1002,7 @@ class Web(SecurableObject):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_client_side_components_by_id(self, component_ids: Optional[list[str]] = None):
         """Returns the client side components for the requested component identifiers.
         Client components include data necessary to render Client Side Web Parts and Client Side Applications.
@@ -1031,6 +1075,7 @@ class Web(SecurableObject):
             self.folders,
         )
 
+    @site_access(SiteLevel.READ)
     def get_site_page_copy_to_status(self, work_item_id):
         """Args:
         work_item_id (str):
@@ -1041,6 +1086,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_site_page_move_status(self, work_item_id):
         """Args:
         work_item_id (str):
@@ -1051,6 +1097,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def ensure_folder_path(self, path) -> Folder:
         """Ensures a nested folder hierarchy exist
 
@@ -1089,6 +1136,7 @@ class Web(SecurableObject):
         """
         return self.lists.ensure_list(title, description, template_type)
 
+    @site_access(SiteLevel.MANAGE)
     def ensure_edu_class_setup(self, bypass_for_automation):
         """Args:
         bypass_for_automation (bool):
@@ -1099,6 +1147,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def ensure_user(self, login_name: str) -> User:
         """Checks whether the specified logon name belongs to a valid user of the website, and if the logon name does
         not already exist, adds it to the website.
@@ -1112,6 +1161,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def ensure_tenant_app_catalog(self, caller_id):
         """Args:
         caller_id (str):
@@ -1133,6 +1183,7 @@ class Web(SecurableObject):
             ServiceOperationPath("GetListByTitle", [title], self.resource_path),
         )
 
+    @site_access(SiteLevel.MANAGE)
     def does_user_have_permissions(self, permission_mask: BasePermissions) -> ClientResult[bool]:
         """Returns whether the current user has the given set of permissions.
 
@@ -1144,6 +1195,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def does_push_notification_subscriber_exist(self, device_app_instance_id: str):
         """Specifies whether the push notification subscriber exists for the current user
         with the given device  app instance identifier.
@@ -1168,6 +1220,7 @@ class Web(SecurableObject):
             ServiceOperationPath("GetFolderById", [unique_id], self.resource_path),
         )
 
+    @site_access(SiteLevel.MANAGE)
     def get_user_by_id(self, user_id: int) -> User:
         """Returns the user corresponding to the specified member identifier for the current site.
 
@@ -1186,6 +1239,7 @@ class Web(SecurableObject):
             ServiceOperationPath("defaultDocumentLibrary", None, self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_list(self, path: str) -> List:
         """Get list by path
 
@@ -1198,6 +1252,7 @@ class Web(SecurableObject):
             ServiceOperationPath("getList", [str(safe_path)], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_changes(self, query: Optional[ChangeQuery] = None) -> ChangeCollection:
         """Returns the collection of all changes from the change log that have occurred within the scope of the web,
         based on the specified query.
@@ -1213,6 +1268,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_available_web_templates(self, lcid=1033, do_include_cross_language=False):
         """Returns a collection of site templates available for the site.
 
@@ -1230,6 +1286,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def hub_site_data(self, force_refresh: bool = False) -> ClientResult[str]:
         """Retrieves data describing a SharePoint hub site.
 
@@ -1244,12 +1301,14 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def increment_site_client_tag(self) -> Self:
         """Increments the client cache control number for this site collection."""
         qry = ServiceOperationQuery(self, "IncrementSiteClientTag")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def apply_web_template(self, web_template: str) -> Self:
         """Applies the specified site definition or site template to the website that has no template applied to it.
 
@@ -1260,6 +1319,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_custom_list_templates(self) -> ListTemplateCollection:
         """Specifies the collection of custom list templates for a given site."""
         return_type = ListTemplateCollection(self.context)
@@ -1267,6 +1327,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_file_by_guest_url(self, guest_url: str) -> File:
         """Returns the file object from the guest access URL.
 
@@ -1279,6 +1340,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_file_by_guest_url_extended(
         self, guest_url: str, ensure_access: bool | None = None, password: str | None = None
     ) -> File:
@@ -1305,6 +1367,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_file_by_guest_url_ensure_access(self, guest_url, ensure_access):
         """Returns the file object from the tokenized sharing link URL.
 
@@ -1320,6 +1383,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_file_by_linking_url(self, linking_url):
         """Returns the file object from the linking URL.
 
@@ -1333,6 +1397,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_file_by_url(self, file_url):
         """Returns the file object from the given URL.
 
@@ -1345,6 +1410,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_file_by_wopi_frame_url(self, wopi_frame_url: str) -> File:
         """Returns the file object from the WOPI frame URL.
 
@@ -1356,6 +1422,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_folder_by_guest_url(self, guest_url: str) -> Folder:
         """Returns the folder object from the tokenized sharing link URL.
 
@@ -1368,6 +1435,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_folder_by_guest_url_extended(self, guest_url, ensure_access=None, password=None):
         """Returns the folder object from the tokenized sharing link URL.
 
@@ -1392,6 +1460,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def parse_datetime(
         self,
         value: str,
@@ -1487,6 +1556,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_document_libraries(
         context: "ClientContext",
         web_full_url: str,
@@ -1541,6 +1611,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def default_document_library_url(context, web_url, return_type=None):
         """Returns the default document library URL.
 
@@ -1567,6 +1638,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def delete_all_anonymous_links_for_object(context: ClientContext, url: str):
         """Removes all existing anonymous links for an object.
 
@@ -1582,6 +1654,7 @@ class Web(SecurableObject):
         return context.web
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def delete_anonymous_link_for_object(context, url, is_edit_link, remove_associated_sharing_link_group):
         """Removes an existing anonymous link for an object..
 
@@ -1605,6 +1678,7 @@ class Web(SecurableObject):
         return context.web
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_document_and_media_libraries(context, web_full_url, include_page_libraries):
         """Returns the document libraries of a SharePoint site, including picture, asset, and site assets libraries.
         Document libraries that are private, catalog library, application list, form template, or libraries that user
@@ -1633,6 +1707,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_sharing_link_kind(
         context: ClientContext,
         file_url: str,
@@ -1660,6 +1735,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def forward_object_link(context, url, people_picker_input, email_subject=None, email_body=None):
         """Shares an object in SharePoint, such as a list item or a site with no Acl changes, by sending the link.
         This is used when the user has no permission to share and cannot send access request.
@@ -1687,6 +1763,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def share_object(
         context: ClientContext,
         url: str,
@@ -1740,6 +1817,7 @@ class Web(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.MANAGE)
     def unshare_object(context, url, return_type=None):
         """Removes Sharing permissions on an object.
 
@@ -1766,6 +1844,7 @@ class Web(SecurableObject):
             ServiceOperationPath("GetFileById", [unique_id], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_list_item(self, str_url: str) -> ListItem:
         """Returns the list item that is associated with the specified server-relative URL.
 
@@ -1778,6 +1857,7 @@ class Web(SecurableObject):
             ServiceOperationPath("GetListItem", [str_url], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_list_item_using_path(self, decoded_url: str) -> ListItem:
         """Returns the list item that is associated with the specified server-relative path.
 
@@ -1847,6 +1927,7 @@ class Web(SecurableObject):
             return self.get_file_by_server_relative_path(url).listItemAllFields
         raise ValueError(f"Unsupported scope: {scope!r}")
 
+    @site_access(SiteLevel.READ)
     def get_catalog(self, type_catalog: Union[int, ListTemplateType]) -> List:
         """Gets the list template gallery, site template gallery, or Web Part gallery for the Web site.
 
@@ -1858,6 +1939,7 @@ class Web(SecurableObject):
             ServiceOperationPath("getCatalog", [int(type_catalog)], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def page_context_info(self, include_odb_settings: bool, emit_navigation_info: bool) -> ClientResult[bytes]:
         """Return Page context info for the current list being rendered.
 
@@ -1874,6 +1956,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_storage_entity(self, key: str) -> StorageEntity:
         """This will return the storage entity identified by the given key
 
@@ -1888,6 +1971,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_storage_entity(
         self, key: str, value: str, description: Optional[str] = None, comments: Optional[str] = None
     ):
@@ -1909,6 +1993,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def remove_storage_entity(self, key: str) -> Self:
         """This will remove the storage entity identified by the given key
 
@@ -1922,6 +2007,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def register_push_notification_subscriber(self, device_app_instance_id: str, service_token: str):
         """Registers the push notification subscriber for the site. If the registration already exists,
         the service token is updated with the new value.
@@ -1939,6 +2025,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def unregister_push_notification_subscriber(self, device_app_instance_id: str) -> Self:
         """Unregisters the push notification subscriber from the site
 
@@ -1952,6 +2039,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def remove_supported_ui_language(self, lcid: str) -> Self:
         """Removes a supported UI language by its language identifier.
 
@@ -1963,6 +2051,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_access_request_site_description_and_update(self, description: Optional[str] = None) -> Self:
         """Args:
         description (str):
@@ -1972,6 +2061,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_global_nav_settings(self, title: str, source: str) -> Self:
         """Args:
         title (str):
@@ -1982,6 +2072,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def sync_hub_site_theme(self) -> Self:
         """"""
         qry = ServiceOperationQuery(self, "SyncHubSiteTheme")
@@ -2006,6 +2097,7 @@ class Web(SecurableObject):
         }
         return self.set_property("AllProperties", props).update()
 
+    @odata(name="Activities", navigation=True, beta=True)
     @property
     def activities(self) -> EntityCollection[SPActivityEntity]:
         return self.properties.get(
@@ -2017,7 +2109,7 @@ class Web(SecurableObject):
             ),
         )
 
-    @odata(name="ActivityLogger")
+    @odata(name="ActivityLogger", navigation=True)
     @property
     def activity_logger(self) -> ActivityLogger:
         """"""
@@ -2026,6 +2118,7 @@ class Web(SecurableObject):
             ActivityLogger(self.context, ResourcePath("ActivityLogger", self.resource_path)),
         )
 
+    @odata(name="AllowRssFeeds", readonly=True)
     @property
     def allow_rss_feeds(self) -> Optional[bool]:
         """
@@ -2033,11 +2126,13 @@ class Web(SecurableObject):
         """
         return self.properties.get("AllowRssFeeds", None)
 
+    @odata(name="AlternateCssUrl")
     @property
     def alternate_css_url(self) -> Optional[str]:
         """Gets the URL for an alternate cascading style sheet (CSS) to use in the website."""
         return self.properties.get("AlternateCssUrl", None)
 
+    @odata(name="AppInstanceId", readonly=True)
     @property
     def app_instance_id(self) -> Optional[str]:
         """
@@ -2046,6 +2141,7 @@ class Web(SecurableObject):
         """
         return self.properties.get("AppInstanceId", None)
 
+    @odata(name="Author", navigation=True)
     @property
     def author(self) -> User:
         """
@@ -2053,26 +2149,30 @@ class Web(SecurableObject):
         """
         return self.properties.get("Author", User(self.context, ResourcePath("Author", self.resource_path)))
 
+    @odata(name="Created", readonly=True)
     @property
     def created(self) -> datetime:
         """Specifies when the site was created"""
         return self.properties.get("Created", datetime.min)
 
+    @odata(name="CustomMasterUrl")
     @property
     def custom_master_url(self) -> Optional[str]:
         """Gets the URL for a custom master page to apply to the Web site"""
         return self.properties.get("CustomMasterUrl", None)
 
+    @odata(name="CustomSiteActionsDisabled", beta=True)
     @property
     def custom_site_actions_disabled(self) -> Optional[bool]:
         return self.properties.get("CustomSiteActionsDisabled", None)
 
-    @odata(name="DescriptionTranslations")
+    @odata(name="DescriptionTranslations", selectable=False)
     @property
-    def description_translations(self):
-        """"""
-        return self.properties.get("DescriptionTranslations", ClientValueCollection(SPResourceEntry))
+    def description_translations(self) -> ClientValueCollection[SPResourceEntry]:
+        """Gets the DescriptionTranslations property"""
+        return self.properties.get("DescriptionTranslations", ClientValueCollection[SPResourceEntry](SPResourceEntry))
 
+    @odata(name="DesignPackageId", readonly=True, beta=True)
     @property
     def design_package_id(self) -> Optional[str]:
         """Gets or sets the ID of the Design Package used in this SP.Web.
@@ -2081,39 +2181,37 @@ class Web(SecurableObject):
         The default is determined by the SP.WebTemplate of this SP.Web."""
         return self.properties.get("DesignPackageId", None)
 
+    @odata(name="DisableAppViews")
     @property
     def disable_app_views(self) -> Optional[bool]:
         """"""
         return self.properties.get("DisableAppViews", None)
 
+    @odata(name="DisableFlows")
     @property
     def disable_flows(self) -> Optional[bool]:
         """"""
         return self.properties.get("DisableFlows", None)
 
+    @odata(name="Id", readonly=True)
     @property
     def id(self) -> Optional[str]:
         """Specifies the site identifier for the site"""
         return self.properties.get("Id", None)
 
-    @odata(name="SiteId")
-    @property
-    def site_id(self) -> Optional[str]:
-        """Specifies the site collection identifier for the site collection that contains the site"""
-        return self.properties.get("SiteId", None)
-
+    @odata(name="Language", readonly=True)
     @property
     def language(self) -> Optional[int]:
         """Specifies the language code identifier (LCID) for the language that is used on the site"""
         return self.properties.get("Language", None)
 
-    @odata(name="LastItemModifiedDate")
+    @odata(name="LastItemModifiedDate", readonly=True)
     @property
     def last_item_modified_date(self) -> Optional[datetime]:
         """Specifies when an item was last modified in the site"""
         return self.properties.get("LastItemModifiedDate", None)
 
-    @odata(name="AccessRequestsList")
+    @odata(name="AccessRequestsList", navigation=True)
     @property
     def access_requests_list(self) -> List:
         """"""
@@ -2122,11 +2220,13 @@ class Web(SecurableObject):
             List(self.context, ResourcePath("AccessRequestsList", self.resource_path)),
         )
 
+    @odata(name="AccessRequestListUrl", readonly=True, beta=True)
     @property
     def access_request_list_url(self) -> Optional[str]:
         """Gets the URL of the access request list to the current site"""
         return self.properties.get("AccessRequestListUrl", None)
 
+    @odata(name="AllowDesignerForCurrentUser", readonly=True)
     @property
     def allow_designer_for_current_user(self) -> Optional[bool]:
         """
@@ -2134,6 +2234,7 @@ class Web(SecurableObject):
         """
         return self.properties.get("AllowDesignerForCurrentUser", None)
 
+    @odata(name="AllowMasterPageEditingForCurrentUser", readonly=True)
     @property
     def allow_master_page_editing_for_current_user(self) -> Optional[bool]:
         """
@@ -2141,6 +2242,7 @@ class Web(SecurableObject):
         """
         return self.properties.get("AllowMasterPageEditingForCurrentUser", None)
 
+    @odata(name="AllowRevertFromTemplateForCurrentUser", readonly=True)
     @property
     def allow_revert_from_template_for_current_user(self) -> Optional[bool]:
         """
@@ -2148,12 +2250,13 @@ class Web(SecurableObject):
         """
         return self.properties.get("AllowRevertFromTemplateForCurrentUser", None)
 
-    @odata(name="EffectiveBasePermissions")
+    @odata(name="EffectiveBasePermissions", readonly=True)
     @property
     def effective_base_permissions(self) -> BasePermissions:
         """Specifies the effective permissions that are assigned to the current user"""
         return self.properties.get("EffectiveBasePermissions", BasePermissions())
 
+    @odata(name="EnableMinimalDownload", readonly=True)
     @property
     def enable_minimal_download(self) -> Optional[bool]:
         """
@@ -2166,6 +2269,7 @@ class Web(SecurableObject):
         """
         return self.properties.get("EnableMinimalDownload", None)
 
+    @odata(name="Webs", navigation=True)
     @property
     def webs(self) -> WebCollection:
         """Specifies the collection of all child sites for the site"""
@@ -2175,6 +2279,7 @@ class Web(SecurableObject):
             WebCollection(self.context, ResourcePath("webs", self.resource_path), self),
         )
 
+    @odata(name="Folders", navigation=True)
     @property
     def folders(self) -> FolderCollection:
         """Specifies the collection of all first-level folders in the site"""
@@ -2183,7 +2288,7 @@ class Web(SecurableObject):
             FolderCollection(self.context, ResourcePath("folders", self.resource_path), self),
         )
 
-    @odata(name="HostedApps")
+    @odata(name="HostedApps", navigation=True, beta=True)
     @property
     def hosted_apps(self) -> HostedAppsManager:
         """"""
@@ -2192,6 +2297,7 @@ class Web(SecurableObject):
             HostedAppsManager(self.context, ResourcePath("HostedApps", self.resource_path)),
         )
 
+    @odata(name="Lists", navigation=True)
     @property
     def lists(self) -> ListCollection:
         """Specifies the collection of lists that are contained in the site available to the current user based on the
@@ -2201,7 +2307,7 @@ class Web(SecurableObject):
             ListCollection(self.context, ResourcePath("lists", self.resource_path)),
         )
 
-    @odata(name="OneDriveSharedItems")
+    @odata(name="OneDriveSharedItems", navigation=True, beta=True)
     @property
     def onedrive_shared_items(self) -> EntityCollection[SharedDocumentInfo]:
         """"""
@@ -2214,7 +2320,7 @@ class Web(SecurableObject):
             ),
         )
 
-    @odata(name="SiteUsers")
+    @odata(name="SiteUsers", navigation=True)
     @property
     def site_users(self) -> UserCollection:
         """Specifies the collection of users in the site collection that contains the site"""
@@ -2223,7 +2329,7 @@ class Web(SecurableObject):
             UserCollection(self.context, ResourcePath("siteUsers", self.resource_path)),
         )
 
-    @odata(name="SiteGroups")
+    @odata(name="SiteGroups", navigation=True)
     @property
     def site_groups(self) -> GroupCollection:
         """Gets the collection of groups for the site collection."""
@@ -2232,7 +2338,7 @@ class Web(SecurableObject):
             GroupCollection(self.context, ResourcePath("siteGroups", self.resource_path)),
         )
 
-    @odata(name="CurrentUser")
+    @odata(name="CurrentUser", navigation=True)
     @property
     def current_user(self) -> User:
         """Gets the current user."""
@@ -2241,7 +2347,7 @@ class Web(SecurableObject):
             User(self.context, ResourcePath("CurrentUser", self.resource_path)),
         )
 
-    @odata(name="ParentWeb")
+    @odata(name="ParentWeb", navigation=True)
     @property
     def parent_web(self) -> Web:
         """Gets the parent website of the specified website."""
@@ -2250,7 +2356,7 @@ class Web(SecurableObject):
             Web(self.context, ResourcePath("ParentWeb", self.resource_path)),
         )
 
-    @odata(name="AssociatedVisitorGroup")
+    @odata(name="AssociatedVisitorGroup", navigation=True)
     @property
     def associated_visitor_group(self) -> Group:
         """Gets or sets the associated visitor group of the Web site."""
@@ -2259,7 +2365,7 @@ class Web(SecurableObject):
             Group(self.context, ResourcePath("AssociatedVisitorGroup", self.resource_path)),
         )
 
-    @odata(name="AssociatedOwnerGroup")
+    @odata(name="AssociatedOwnerGroup", navigation=True)
     @property
     def associated_owner_group(self) -> Group:
         """Gets or sets the associated owner group of the Web site."""
@@ -2268,7 +2374,7 @@ class Web(SecurableObject):
             Group(self.context, ResourcePath("AssociatedOwnerGroup", self.resource_path)),
         )
 
-    @odata(name="AssociatedMemberGroup")
+    @odata(name="AssociatedMemberGroup", navigation=True)
     @property
     def associated_member_group(self) -> Group:
         """Gets or sets the group of users who have been given contribute permissions to the Web site."""
@@ -2277,6 +2383,7 @@ class Web(SecurableObject):
             Group(self.context, ResourcePath("AssociatedMemberGroup", self.resource_path)),
         )
 
+    @odata(name="CanModernizeHomepage", navigation=True, beta=True)
     @property
     def can_modernize_homepage(self) -> ModernizeHomepageResult:
         """Specifies the site theme associated with the site"""
@@ -2285,6 +2392,7 @@ class Web(SecurableObject):
             ModernizeHomepageResult(self.context, ResourcePath("CanModernizeHomepage", self.resource_path)),
         )
 
+    @odata(name="Fields", navigation=True)
     @property
     def fields(self) -> FieldCollection:
         """Specifies the collection of all the fields (2) in the site (2)."""
@@ -2293,7 +2401,7 @@ class Web(SecurableObject):
             FieldCollection(self.context, ResourcePath("Fields", self.resource_path), self),
         )
 
-    @odata(name="ContentTypes")
+    @odata(name="ContentTypes", navigation=True)
     @property
     def content_types(self) -> ContentTypeCollection:
         """Gets the collection of content types for the Web site."""
@@ -2302,8 +2410,9 @@ class Web(SecurableObject):
             ContentTypeCollection(self.context, ResourcePath("ContentTypes", self.resource_path), self),
         )
 
+    @odata(name="Configuration", readonly=True)
     @property
-    def configuration(self):
+    def configuration(self) -> Optional[int]:
         """
         Specifies the identifier (ID) of the site definition that was used to create the site (2). If the site (2)
         was created with a custom site template this specifies the identifier (ID) of the site definition from which
@@ -2311,7 +2420,7 @@ class Web(SecurableObject):
         """
         return self.properties.get("Configuration", None)
 
-    @odata(name="DataLeakagePreventionStatusInfo")
+    @odata(name="DataLeakagePreventionStatusInfo", navigation=True)
     @property
     def data_leakage_prevention_status_info(self) -> SPDataLeakagePreventionStatusInfo:
         return self.properties.get(
@@ -2322,7 +2431,7 @@ class Web(SecurableObject):
             ),
         )
 
-    @odata(name="DescriptionResource")
+    @odata(name="DescriptionResource", navigation=True)
     @property
     def description_resource(self) -> UserResource:
         """A UserResource object that represents the description of this web."""
@@ -2331,7 +2440,7 @@ class Web(SecurableObject):
             UserResource(self.context, ResourcePath("DescriptionResource", self.resource_path)),
         )
 
-    @odata(name="RoleDefinitions")
+    @odata(name="RoleDefinitions", navigation=True)
     @property
     def role_definitions(self) -> RoleDefinitionCollection:
         """Gets the collection of role definitions for the Web site."""
@@ -2340,7 +2449,7 @@ class Web(SecurableObject):
             RoleDefinitionCollection(self.context, ResourcePath("RoleDefinitions", self.resource_path)),
         )
 
-    @odata(name="EventReceivers")
+    @odata(name="EventReceivers", navigation=True)
     @property
     def event_receivers(self) -> EventReceiverDefinitionCollection:
         """Specifies the collection of event receiver definitions that are currently available on the Web site"""
@@ -2349,7 +2458,7 @@ class Web(SecurableObject):
             EventReceiverDefinitionCollection(self.context, ResourcePath("EventReceivers", self.resource_path), self),
         )
 
-    @odata(name="ClientWebParts")
+    @odata(name="ClientWebParts", navigation=True)
     @property
     def client_web_parts(self) -> ClientWebPartCollection:
         """
@@ -2361,6 +2470,7 @@ class Web(SecurableObject):
             ClientWebPartCollection(self.context, ResourcePath("ClientWebParts", self.resource_path)),
         )
 
+    @odata(name="Features", navigation=True)
     @property
     def features(self) -> FeatureCollection:
         """Get web features"""
@@ -2369,7 +2479,7 @@ class Web(SecurableObject):
             FeatureCollection(self.context, ResourcePath("Features", self.resource_path), self),
         )
 
-    @odata(name="TenantAppCatalog")
+    @odata(name="TenantAppCatalog", navigation=True, beta=True)
     @property
     def tenant_app_catalog(self) -> TenantCorporateCatalogAccessor:
         """Returns the tenant app catalog for the given tenant if it exists."""
@@ -2378,7 +2488,7 @@ class Web(SecurableObject):
             TenantCorporateCatalogAccessor(self.context, ResourcePath("TenantAppCatalog", self.resource_path)),
         )
 
-    @odata(name="SiteCollectionAppCatalog")
+    @odata(name="SiteCollectionAppCatalog", navigation=True, beta=True)
     @property
     def site_collection_app_catalog(self) -> SiteCollectionCorporateCatalogAccessor:
         """Returns the site collection app catalog for the given web if it exists."""
@@ -2390,7 +2500,7 @@ class Web(SecurableObject):
             ),
         )
 
-    @odata(name="WebInfos")
+    @odata(name="WebInfos", navigation=True)
     @property
     def web_infos(self) -> WebInformationCollection:
         """Specifies the collection of all child sites for the site"""
@@ -2399,7 +2509,7 @@ class Web(SecurableObject):
             WebInformationCollection(self.context, ResourcePath("WebInfos", self.resource_path)),
         )
 
-    @odata(name="ThemeInfo")
+    @odata(name="ThemeInfo", navigation=True)
     @property
     def theme_info(self) -> ThemeInfo:
         """Specifies the site theme associated with the site"""
@@ -2408,16 +2518,19 @@ class Web(SecurableObject):
             ThemeInfo(self.context, ResourcePath("ThemeInfo", self.resource_path)),
         )
 
+    @odata(name="Url", readonly=True, identity=ABSOLUTE_URL)
     @property
     def url(self) -> Optional[str]:
         """Gets the absolute URL for the website."""
         return self.properties.get("Url", None)
 
+    @odata(name="QuickLaunchEnabled")
     @property
     def quick_launch_enabled(self) -> Optional[bool]:
         """Gets a value that specifies whether the Quick Launch area is enabled on the site."""
         return self.properties.get("QuickLaunchEnabled", None)
 
+    @odata(name="MegaMenuEnabled")
     @property
     def mega_menu_enabled(self) -> Optional[bool]:
         """Gets a value that specifies whether the Mega menu is enabled on the site."""
@@ -2428,12 +2541,13 @@ class Web(SecurableObject):
         """Sets a value that specifies whether the Quick Launch area is enabled on the site."""
         self.set_property("QuickLaunchEnabled", value)
 
+    @odata(name="SiteLogoUrl")
     @property
     def site_logo_url(self) -> Optional[str]:
         """Gets a value that specifies Site logo url."""
         return self.properties.get("SiteLogoUrl", None)
 
-    @odata(name="ListTemplates")
+    @odata(name="ListTemplates", navigation=True)
     @property
     def list_templates(self) -> ListTemplateCollection:
         """Gets a value that specifies the collection of list definitions and list templates available for creating
@@ -2443,6 +2557,7 @@ class Web(SecurableObject):
             ListTemplateCollection(self.context, ResourcePath("ListTemplates", self.resource_path)),
         )
 
+    @odata(name="IsMultilingual")
     @property
     def is_multilingual(self) -> Optional[bool]:
         """Gets whether Multilingual UI is turned on for this web or not."""
@@ -2455,7 +2570,7 @@ class Web(SecurableObject):
         """
         self.set_property("IsMultilingual", val)
 
-    @odata(name="MultilingualSettings")
+    @odata(name="MultilingualSettings", navigation=True, beta=True)
     @property
     def multilingual_settings(self) -> MultilingualSettings:
         """Gets a value that specifies the collection of list definitions and list templates available for creating
@@ -2465,12 +2580,13 @@ class Web(SecurableObject):
             MultilingualSettings(self.context, ResourcePath("MultilingualSettings", self.resource_path)),
         )
 
+    @odata(name="WebTemplate", readonly=True)
     @property
     def web_template(self) -> Optional[str]:
         """Gets the name of the site definition or site template that was used to create the site."""
         return self.properties.get("WebTemplate", None)
 
-    @odata(name="RegionalSettings")
+    @odata(name="RegionalSettings", navigation=True)
     @property
     def regional_settings(self) -> RegionalSettings:
         """Gets the regional settings that are currently implemented on the website."""
@@ -2479,7 +2595,7 @@ class Web(SecurableObject):
             RegionalSettings(self.context, ResourcePath("RegionalSettings", self.resource_path)),
         )
 
-    @odata(name="RecycleBin")
+    @odata(name="RecycleBin", navigation=True)
     @property
     def recycle_bin(self) -> RecycleBinItemCollection:
         """Specifies the collection of Recycle Bin items of the Recycle Bin of the site"""
@@ -2488,21 +2604,25 @@ class Web(SecurableObject):
             RecycleBinItemCollection(self.context, ResourcePath("RecycleBin", self.resource_path)),
         )
 
+    @odata(name="RecycleBinEnabled", readonly=True)
     @property
     def recycle_bin_enabled(self) -> Optional[bool]:
         """Specifies whether the Recycle Bin is enabled."""
         return self.properties.get("RecycleBinEnabled", None)
 
+    @odata(name="RelatedHubSiteIds", readonly=True, beta=True)
     @property
     def related_hub_site_ids(self) -> Optional[str]:
         """ """
         return self.properties.get("RelatedHubSiteIds", None)
 
+    @odata(name="RequestAccessEmail", beta=True)
     @property
     def request_access_email(self) -> Optional[str]:
         """Gets the e-mail address to which requests for access are sent."""
         return self.properties.get("RequestAccessEmail", None)
 
+    @odata(name="SaveSiteAsTemplateEnabled")
     @property
     def save_site_as_template_enabled(self) -> Optional[bool]:
         """Specifies if the site (2) can be saved as a site template.
@@ -2517,16 +2637,19 @@ class Web(SecurableObject):
         """
         return self.properties.get("SaveSiteAsTemplateEnabled", None)
 
+    @odata(name="SearchBoxInNavBar", beta=True)
     @property
     def search_box_in_navbar(self) -> Optional[int]:
         """Gets the e-mail address to which requests for access are sent."""
         return self.properties.get("SearchBoxInNavBar", None)
 
+    @odata(name="SearchBoxPlaceholderText", beta=True)
     @property
     def search_box_placeholder_text(self) -> Optional[str]:
         """Gets the placeholder text in SharePoint online search box for a given (sub) site."""
         return self.properties.get("SearchBoxPlaceholderText", None)
 
+    @odata(name="Navigation", navigation=True)
     @property
     def navigation(self) -> Navigation:
         """Specifies the navigation structure on the site (2), including the Quick Launch area and the link bar."""
@@ -2535,7 +2658,7 @@ class Web(SecurableObject):
             Navigation(self.context, ResourcePath("Navigation", self.resource_path)),
         )
 
-    @odata(name="PushNotificationSubscribers")
+    @odata(name="PushNotificationSubscribers", navigation=True)
     @property
     def push_notification_subscribers(self) -> PushNotificationSubscriberCollection:
         """Specifies the collection of push notification subscribers for the site"""
@@ -2547,7 +2670,7 @@ class Web(SecurableObject):
             ),
         )
 
-    @odata(name="RootFolder")
+    @odata(name="RootFolder", navigation=True)
     @property
     def root_folder(self) -> Folder:
         """Get a root folder"""
@@ -2556,6 +2679,7 @@ class Web(SecurableObject):
             Folder(self.context, ResourcePath("RootFolder", self.resource_path)),
         )
 
+    @odata(name="Alerts", navigation=True)
     @property
     def alerts(self) -> AlertCollection:
         """Gets the collection of alerts for the site or subsite."""
@@ -2564,7 +2688,7 @@ class Web(SecurableObject):
             AlertCollection(self.context, ResourcePath("Alerts", self.resource_path)),
         )
 
-    @odata(name="AvailableFields")
+    @odata(name="AvailableFields", navigation=True)
     @property
     def available_fields(self) -> FieldCollection:
         """
@@ -2576,7 +2700,7 @@ class Web(SecurableObject):
             FieldCollection(self.context, ResourcePath("AvailableFields", self.resource_path)),
         )
 
-    @odata(name="AvailableContentTypes")
+    @odata(name="AvailableContentTypes", navigation=True)
     @property
     def available_content_types(self) -> ContentTypeCollection:
         """
@@ -2588,7 +2712,7 @@ class Web(SecurableObject):
             ContentTypeCollection(self.context, ResourcePath("AvailableContentTypes", self.resource_path)),
         )
 
-    @odata(name="SiteUserInfoList")
+    @odata(name="SiteUserInfoList", navigation=True)
     @property
     def site_user_info_list(self) -> List:
         """
@@ -2599,11 +2723,13 @@ class Web(SecurableObject):
             List(self.context, ResourcePath("SiteUserInfoList", self.resource_path)),
         )
 
+    @odata(name="Title")
     @property
     def title(self) -> Optional[str]:
         """Gets the title of the web."""
         return self.properties.get("Title", None)
 
+    @odata(name="WelcomePage", readonly=True)
     @property
     def welcome_page(self) -> Optional[str]:
         """Specifies the URL of the Welcome page for the site"""
@@ -2615,12 +2741,13 @@ class Web(SecurableObject):
         """Specifies the language code identifiers (LCIDs) of the languages that are enabled for the site."""
         return self.properties.get("SupportedUILanguageIds", ClientValueCollection(int))
 
+    @odata(name="UIVersion", readonly=True)
     @property
     def ui_version(self) -> Optional[int]:
         """Gets or sets the user interface (UI) version of the Web site."""
         return self.properties.get("UIVersion", None)
 
-    @odata(name="UserCustomActions")
+    @odata(name="UserCustomActions", navigation=True)
     @property
     def user_custom_actions(self) -> UserCustomActionCollection:
         """Specifies the collection of user custom actions for the site"""
@@ -2629,17 +2756,19 @@ class Web(SecurableObject):
             UserCustomActionCollection(self.context, ResourcePath("UserCustomActions", self.resource_path)),
         )
 
+    @odata(name="ServerRelativePath", readonly=True, beta=True)
     @property
     def server_relative_path(self) -> SPResPath:
         """Gets the server-relative Path of the Web."""
         return self.properties.get("ServerRelativePath", SPResPath())
 
+    @odata(name="SyndicationEnabled")
     @property
     def syndication_enabled(self) -> Optional[bool]:
         """Specifies whether the [RSS2.0] feeds are enabled on the site"""
         return self.properties.get("SyndicationEnabled", None)
 
-    @odata(name="TitleResource")
+    @odata(name="TitleResource", navigation=True)
     @property
     def title_resource(self) -> UserResource:
         """A UserResource object that represents the title of this web."""
@@ -2648,7 +2777,7 @@ class Web(SecurableObject):
             UserResource(self.context, ResourcePath("TitleResource", self.resource_path)),
         )
 
-    @odata(name="AllProperties")
+    @odata(name="AllProperties", navigation=True)
     @property
     def all_properties(self) -> PropertyValues:
         """A UserResource object that represents the title of this web."""
@@ -2657,6 +2786,7 @@ class Web(SecurableObject):
             PropertyValues(self.context, ResourcePath("AllProperties", self.resource_path)),
         )
 
+    @odata(name="TreeViewEnabled")
     @property
     def treeview_enabled(self) -> Optional[bool]:
         """Specifies whether the tree view is enabled on the site"""
@@ -2683,398 +2813,481 @@ class Web(SecurableObject):
             orig_resource_url = orig_resource_url.replace(self.context.service_root_url, self._web_url + "/_api")
         return orig_resource_url
 
+    @odata(name="AccessRequestSiteDescription", readonly=True, beta=True)
     @property
     def access_request_site_description(self) -> Optional[str]:
         """Gets the AccessRequestSiteDescription property"""
         return self.properties.get("AccessRequestSiteDescription", None)
 
+    @odata(name="Acronym", readonly=True, beta=True)
     @property
     def acronym(self) -> Optional[str]:
         """Gets the Acronym property"""
         return self.properties.get("Acronym", None)
 
+    @odata(name="AllowAutomaticASPXPageIndexing")
     @property
     def allow_automatic_aspx_page_indexing(self) -> Optional[bool]:
         """Gets the AllowAutomaticASPXPageIndexing property"""
         return self.properties.get("AllowAutomaticASPXPageIndexing", None)
 
+    @odata(name="AllowCreateDeclarativeWorkflowForCurrentUser", readonly=True)
     @property
     def allow_create_declarative_workflow_for_current_user(self) -> Optional[bool]:
         """Gets the AllowCreateDeclarativeWorkflowForCurrentUser property"""
         return self.properties.get("AllowCreateDeclarativeWorkflowForCurrentUser", None)
 
+    @odata(name="AllowSaveDeclarativeWorkflowAsTemplateForCurrentUser", readonly=True)
     @property
     def allow_save_declarative_workflow_as_template_for_current_user(self) -> Optional[bool]:
         """Gets the AllowSaveDeclarativeWorkflowAsTemplateForCurrentUser property"""
         return self.properties.get("AllowSaveDeclarativeWorkflowAsTemplateForCurrentUser", None)
 
+    @odata(name="AllowSavePublishDeclarativeWorkflowForCurrentUser", readonly=True)
     @property
     def allow_save_publish_declarative_workflow_for_current_user(self) -> Optional[bool]:
         """Gets the AllowSavePublishDeclarativeWorkflowForCurrentUser property"""
         return self.properties.get("AllowSavePublishDeclarativeWorkflowForCurrentUser", None)
 
+    @odata(name="ClassicWelcomePage")
     @property
     def classic_welcome_page(self) -> Optional[str]:
         """Gets the ClassicWelcomePage property"""
         return self.properties.get("ClassicWelcomePage", None)
 
+    @odata(name="CommentsOnSitePagesDisabled", beta=True)
     @property
     def comments_on_site_pages_disabled(self) -> Optional[bool]:
         """Gets the CommentsOnSitePagesDisabled property"""
         return self.properties.get("CommentsOnSitePagesDisabled", None)
 
+    @odata(name="ContainsConfidentialInfo", readonly=True)
     @property
     def contains_confidential_info(self) -> Optional[bool]:
         """Gets the ContainsConfidentialInfo property"""
         return self.properties.get("ContainsConfidentialInfo", None)
 
+    @odata(name="CurrentChangeToken", readonly=True)
     @property
     def current_change_token(self) -> ChangeToken:
         """Gets the CurrentChangeToken property"""
-        from office365.sharepoint.changes.token import ChangeToken
-
         return self.properties.get("CurrentChangeToken", ChangeToken())
 
+    @odata(name="DefaultNewPageTemplateId", beta=True)
     @property
     def default_new_page_template_id(self) -> Optional[UUID]:
         """Gets the DefaultNewPageTemplateId property"""
         return self.properties.get("DefaultNewPageTemplateId", None)
 
+    @odata(name="Description")
     @property
     def description(self) -> Optional[str]:
         """Gets the Description property"""
         return self.properties.get("Description", None)
 
+    @odata(name="DescriptionForExistingLanguage", beta=True)
     @property
     def description_for_existing_language(self) -> Optional[str]:
         """Gets the DescriptionForExistingLanguage property"""
         return self.properties.get("DescriptionForExistingLanguage", None)
 
+    @odata(name="DesignerDownloadUrlForCurrentUser", readonly=True)
     @property
     def designer_download_url_for_current_user(self) -> Optional[str]:
         """Gets the DesignerDownloadUrlForCurrentUser property"""
         return self.properties.get("DesignerDownloadUrlForCurrentUser", None)
 
+    @odata(name="DisableRecommendedItems", beta=True)
     @property
     def disable_recommended_items(self) -> Optional[bool]:
         """Gets the DisableRecommendedItems property"""
         return self.properties.get("DisableRecommendedItems", None)
 
+    @odata(name="DocumentLibraryCalloutOfficeWebAppPreviewersDisabled", readonly=True)
     @property
     def document_library_callout_office_web_app_previewers_disabled(self) -> Optional[bool]:
         """Gets the DocumentLibraryCalloutOfficeWebAppPreviewersDisabled property"""
         return self.properties.get("DocumentLibraryCalloutOfficeWebAppPreviewersDisabled", None)
 
+    @odata(name="ExcludeFromOfflineClient")
     @property
     def exclude_from_offline_client(self) -> Optional[bool]:
         """Gets the ExcludeFromOfflineClient property"""
         return self.properties.get("ExcludeFromOfflineClient", None)
 
+    @odata(name="FontOptionForSiteFooterNav", beta=True)
     @property
     def font_option_for_site_footer_nav(self) -> FontOption:
         """Gets the FontOptionForSiteFooterNav property"""
-        from office365.sharepoint.documents.fontoption import FontOption
-
         return self.properties.get("FontOptionForSiteFooterNav", FontOption())
 
+    @odata(name="FontOptionForSiteFooterTitle", beta=True)
     @property
     def font_option_for_site_footer_title(self) -> FontOption:
         """Gets the FontOptionForSiteFooterTitle property"""
-        from office365.sharepoint.documents.fontoption import FontOption
-
         return self.properties.get("FontOptionForSiteFooterTitle", FontOption())
 
+    @odata(name="FontOptionForSiteNav", beta=True)
     @property
     def font_option_for_site_nav(self) -> FontOption:
         """Gets the FontOptionForSiteNav property"""
-        from office365.sharepoint.documents.fontoption import FontOption
-
         return self.properties.get("FontOptionForSiteNav", FontOption())
 
+    @odata(name="FontOptionForSiteTitle", beta=True)
     @property
     def font_option_for_site_title(self) -> FontOption:
         """Gets the FontOptionForSiteTitle property"""
-        from office365.sharepoint.documents.fontoption import FontOption
-
         return self.properties.get("FontOptionForSiteTitle", FontOption())
 
+    @odata(name="FooterAlignment", readonly=True, beta=True)
     @property
     def footer_alignment(self) -> Optional[int]:
         """Gets the FooterAlignment property"""
         return self.properties.get("FooterAlignment", None)
 
+    @odata(name="FooterBackgroundFocalPoint", beta=True)
     @property
     def footer_background_focal_point(self) -> SPFocalPoint:
         """Gets the FooterBackgroundFocalPoint property"""
-        from office365.sharepoint.webs.sp_focal_point import SPFocalPoint
-
         return self.properties.get("FooterBackgroundFocalPoint", SPFocalPoint())
 
+    @odata(name="FooterBlur", readonly=True, beta=True)
     @property
     def footer_blur(self) -> Optional[int]:
         """Gets the FooterBlur property"""
         return self.properties.get("FooterBlur", None)
 
+    @odata(name="FooterColorIndexInDarkMode", readonly=True, beta=True)
     @property
     def footer_color_index_in_dark_mode(self) -> Optional[int]:
         """Gets the FooterColorIndexInDarkMode property"""
         return self.properties.get("FooterColorIndexInDarkMode", None)
 
+    @odata(name="FooterColorIndexInLightMode", readonly=True, beta=True)
     @property
     def footer_color_index_in_light_mode(self) -> Optional[int]:
         """Gets the FooterColorIndexInLightMode property"""
         return self.properties.get("FooterColorIndexInLightMode", None)
 
+    @odata(name="FooterEmphasis", beta=True)
     @property
     def footer_emphasis(self) -> Optional[int]:
         """Gets the FooterEmphasis property"""
         return self.properties.get("FooterEmphasis", None)
 
+    @odata(name="FooterEnabled")
     @property
     def footer_enabled(self) -> Optional[bool]:
         """Gets the FooterEnabled property"""
         return self.properties.get("FooterEnabled", None)
 
+    @odata(name="FooterLayout", beta=True)
     @property
     def footer_layout(self) -> Optional[int]:
         """Gets the FooterLayout property"""
         return self.properties.get("FooterLayout", None)
 
+    @odata(name="FooterOverlayColor", readonly=True, beta=True)
     @property
     def footer_overlay_color(self) -> Optional[int]:
         """Gets the FooterOverlayColor property"""
         return self.properties.get("FooterOverlayColor", None)
 
+    @odata(name="FooterOverlayGradientDirection", readonly=True, beta=True)
     @property
     def footer_overlay_gradient_direction(self) -> Optional[int]:
         """Gets the FooterOverlayGradientDirection property"""
         return self.properties.get("FooterOverlayGradientDirection", None)
 
+    @odata(name="FooterOverlayOpacity", readonly=True, beta=True)
     @property
     def footer_overlay_opacity(self) -> Optional[int]:
         """Gets the FooterOverlayOpacity property"""
         return self.properties.get("FooterOverlayOpacity", None)
 
+    @odata(name="HasFooterBackgroundImage", readonly=True, beta=True)
     @property
     def has_footer_background_image(self) -> Optional[bool]:
         """Gets the HasFooterBackgroundImage property"""
         return self.properties.get("HasFooterBackgroundImage", None)
 
+    @odata(name="HasHeaderBackgroundImage", readonly=True, beta=True)
     @property
     def has_header_background_image(self) -> Optional[bool]:
         """Gets the HasHeaderBackgroundImage property"""
         return self.properties.get("HasHeaderBackgroundImage", None)
 
+    @odata(name="HasWebTemplateExtension", beta=True)
     @property
     def has_web_template_extension(self) -> Optional[bool]:
         """Gets the HasWebTemplateExtension property"""
         return self.properties.get("HasWebTemplateExtension", None)
 
+    @odata(name="HeaderColorIndexInDarkMode", readonly=True, beta=True)
     @property
     def header_color_index_in_dark_mode(self) -> Optional[int]:
         """Gets the HeaderColorIndexInDarkMode property"""
         return self.properties.get("HeaderColorIndexInDarkMode", None)
 
+    @odata(name="HeaderColorIndexInLightMode", readonly=True, beta=True)
     @property
     def header_color_index_in_light_mode(self) -> Optional[int]:
         """Gets the HeaderColorIndexInLightMode property"""
         return self.properties.get("HeaderColorIndexInLightMode", None)
 
+    @odata(name="HeaderEmphasis", beta=True)
     @property
     def header_emphasis(self) -> Optional[int]:
         """Gets the HeaderEmphasis property"""
         return self.properties.get("HeaderEmphasis", None)
 
+    @odata(name="HeaderLayout", beta=True)
     @property
     def header_layout(self) -> Optional[int]:
         """Gets the HeaderLayout property"""
         return self.properties.get("HeaderLayout", None)
 
+    @odata(name="HeaderOverlayColor", readonly=True, beta=True)
     @property
     def header_overlay_color(self) -> Optional[int]:
         """Gets the HeaderOverlayColor property"""
         return self.properties.get("HeaderOverlayColor", None)
 
+    @odata(name="HeaderOverlayGradientDirection", readonly=True, beta=True)
     @property
     def header_overlay_gradient_direction(self) -> Optional[int]:
         """Gets the HeaderOverlayGradientDirection property"""
         return self.properties.get("HeaderOverlayGradientDirection", None)
 
+    @odata(name="HeaderOverlayOpacity", readonly=True, beta=True)
     @property
     def header_overlay_opacity(self) -> Optional[int]:
         """Gets the HeaderOverlayOpacity property"""
         return self.properties.get("HeaderOverlayOpacity", None)
 
+    @odata(name="HideTitleInHeader")
     @property
     def hide_title_in_header(self) -> Optional[bool]:
         """Gets the HideTitleInHeader property"""
         return self.properties.get("HideTitleInHeader", None)
 
+    @odata(name="HorizontalQuickLaunch")
     @property
     def horizontal_quick_launch(self) -> Optional[bool]:
         """Gets the HorizontalQuickLaunch property"""
         return self.properties.get("HorizontalQuickLaunch", None)
 
+    @odata(name="IsEduClass", readonly=True, beta=True)
     @property
     def is_edu_class(self) -> Optional[bool]:
         """Gets the IsEduClass property"""
         return self.properties.get("IsEduClass", None)
 
+    @odata(name="IsEduClassProvisionChecked", readonly=True, beta=True)
     @property
     def is_edu_class_provision_checked(self) -> Optional[bool]:
         """Gets the IsEduClassProvisionChecked property"""
         return self.properties.get("IsEduClassProvisionChecked", None)
 
+    @odata(name="IsEduClassProvisionPending", readonly=True, beta=True)
     @property
     def is_edu_class_provision_pending(self) -> Optional[bool]:
         """Gets the IsEduClassProvisionPending property"""
         return self.properties.get("IsEduClassProvisionPending", None)
 
+    @odata(name="IsHomepageModernized", readonly=True)
     @property
     def is_homepage_modernized(self) -> Optional[bool]:
         """Gets the IsHomepageModernized property"""
         return self.properties.get("IsHomepageModernized", None)
 
+    @odata(name="IsProvisioningComplete", readonly=True)
     @property
     def is_provisioning_complete(self) -> Optional[bool]:
         """Gets the IsProvisioningComplete property"""
         return self.properties.get("IsProvisioningComplete", None)
 
+    @odata(name="IsRevertHomepageLinkHidden")
     @property
     def is_revert_homepage_link_hidden(self) -> Optional[bool]:
         """Gets the IsRevertHomepageLinkHidden property"""
         return self.properties.get("IsRevertHomepageLinkHidden", None)
 
+    @odata(name="LastItemUserModifiedDate", readonly=True)
     @property
     def last_item_user_modified_date(self) -> Optional[datetime]:
         """Gets the LastItemUserModifiedDate property"""
         return self.properties.get("LastItemUserModifiedDate", datetime.min)
 
+    @odata(name="LogoAlignment", beta=True)
     @property
     def logo_alignment(self) -> Optional[int]:
         """Gets the LogoAlignment property"""
         return self.properties.get("LogoAlignment", None)
 
+    @odata(name="MasterUrl")
     @property
     def master_url(self) -> Optional[str]:
         """Gets the MasterUrl property"""
         return self.properties.get("MasterUrl", None)
 
+    @odata(name="MembersCanShare", readonly=True)
     @property
     def members_can_share(self) -> Optional[bool]:
         """Gets the MembersCanShare property"""
         return self.properties.get("MembersCanShare", None)
 
+    @odata(name="NavAudienceTargetingEnabled")
     @property
     def nav_audience_targeting_enabled(self) -> Optional[bool]:
         """Gets the NavAudienceTargetingEnabled property"""
         return self.properties.get("NavAudienceTargetingEnabled", None)
 
+    @odata(name="NextStepsFirstRunEnabled", beta=True)
     @property
     def next_steps_first_run_enabled(self) -> Optional[bool]:
         """Gets the NextStepsFirstRunEnabled property"""
         return self.properties.get("NextStepsFirstRunEnabled", None)
 
+    @odata(name="NoCrawl")
     @property
     def no_crawl(self) -> Optional[bool]:
         """Gets the NoCrawl property"""
         return self.properties.get("NoCrawl", None)
 
+    @odata(name="NotificationsInOneDriveForBusinessEnabled", readonly=True)
     @property
     def notifications_in_onedrive_for_business_enabled(self) -> Optional[bool]:
         """Gets the NotificationsInOneDriveForBusinessEnabled property"""
         return self.properties.get("NotificationsInOneDriveForBusinessEnabled", None)
 
+    @odata(name="NotificationsInSharePointEnabled", readonly=True)
     @property
     def notifications_in_sharepoint_enabled(self) -> Optional[bool]:
         """Gets the NotificationsInSharePointEnabled property"""
         return self.properties.get("NotificationsInSharePointEnabled", None)
 
+    @odata(name="ObjectCacheEnabled", readonly=True)
     @property
     def object_cache_enabled(self) -> Optional[bool]:
         """Gets the ObjectCacheEnabled property"""
         return self.properties.get("ObjectCacheEnabled", None)
 
+    @odata(name="OverwriteTranslationsOnChange", readonly=True)
     @property
     def overwrite_translations_on_change(self) -> Optional[bool]:
         """Gets the OverwriteTranslationsOnChange property"""
         return self.properties.get("OverwriteTranslationsOnChange", None)
 
+    @odata(name="PreviewFeaturesEnabled", readonly=True, beta=True)
     @property
     def preview_features_enabled(self) -> Optional[bool]:
         """Gets the PreviewFeaturesEnabled property"""
         return self.properties.get("PreviewFeaturesEnabled", None)
 
+    @odata(name="PrimaryColor", beta=True)
     @property
     def primary_color(self) -> Optional[str]:
         """Gets the PrimaryColor property"""
         return self.properties.get("PrimaryColor", None)
 
+    @odata(name="SearchBoxInNavBar", beta=True)
     @property
     def search_box_in_nav_bar(self) -> Optional[int]:
         """Gets the SearchBoxInNavBar property"""
         return self.properties.get("SearchBoxInNavBar", None)
 
+    @odata(name="SearchScope", beta=True)
     @property
     def search_scope(self) -> Optional[int]:
         """Gets the SearchScope property"""
         return self.properties.get("SearchScope", None)
 
+    @odata(name="ServerRelativeUrl", readonly=True, identity=SERVER_RELATIVE_URL)
     @property
     def server_relative_url(self) -> Optional[str]:
         """Gets the ServerRelativeUrl property"""
         return self.properties.get("ServerRelativeUrl", None)
 
     @property
+    def absolute_url(self) -> Optional[str]:
+        """The web's own URL, in whichever spelling the read happened to ask for.
+
+        A projected read replaces the loaded properties with the ones it asked for, so
+        ``Url`` may be gone while ``ServerRelativeUrl`` is there -- both name the same
+        web, and :attr:`TypeSchema.identities` ranks them the way a reader wants them.
+        Answers ``None`` when neither was read: a web does not infer its location from
+        the context it was reached through, which may be bound to another site.
+        """
+        for name in TypeSchema.of(self).identities:
+            value = self.get_property(name)
+            if value:
+                return str(value)
+        return None
+
+    @odata(name="ShouldExtendHeaderBgImageToNav", readonly=True, beta=True)
+    @property
     def should_extend_header_bg_image_to_nav(self) -> Optional[str]:
         """Gets the ShouldExtendHeaderBgImageToNav property"""
         return self.properties.get("ShouldExtendHeaderBgImageToNav", None)
 
+    @odata(name="ShowUrlStructureForCurrentUser", readonly=True)
     @property
     def show_url_structure_for_current_user(self) -> Optional[bool]:
         """Gets the ShowUrlStructureForCurrentUser property"""
         return self.properties.get("ShowUrlStructureForCurrentUser", None)
 
+    @odata(name="SiteLogoDescription")
     @property
     def site_logo_description(self) -> Optional[str]:
         """Gets the SiteLogoDescription property"""
         return self.properties.get("SiteLogoDescription", None)
 
+    @odata(name="TenantAdminMembersCanShare", readonly=True, beta=True)
     @property
     def tenant_admin_members_can_share(self) -> Optional[int]:
         """Gets the TenantAdminMembersCanShare property"""
         return self.properties.get("TenantAdminMembersCanShare", None)
 
+    @odata(name="TenantTagPolicyEnabled", readonly=True)
     @property
     def tenant_tag_policy_enabled(self) -> Optional[bool]:
         """Gets the TenantTagPolicyEnabled property"""
         return self.properties.get("TenantTagPolicyEnabled", None)
 
+    @odata(name="ThemeApplicationActionHistory", readonly=True, beta=True)
     @property
     def theme_application_action_history(self) -> Optional[str]:
         """Gets the ThemeApplicationActionHistory property"""
         return self.properties.get("ThemeApplicationActionHistory", None)
 
+    @odata(name="ThemeData", readonly=True)
     @property
     def theme_data(self) -> Optional[str]:
         """Gets the ThemeData property"""
         return self.properties.get("ThemeData", None)
 
+    @odata(name="ThemedCssFolderUrl")
     @property
     def themed_css_folder_url(self) -> Optional[str]:
         """Gets the ThemedCssFolderUrl property"""
         return self.properties.get("ThemedCssFolderUrl", None)
 
+    @odata(name="ThirdPartyMdmEnabled", readonly=True)
     @property
     def third_party_mdm_enabled(self) -> Optional[bool]:
         """Gets the ThirdPartyMdmEnabled property"""
         return self.properties.get("ThirdPartyMdmEnabled", None)
 
+    @odata(name="TitleForExistingLanguage", beta=True)
     @property
     def title_for_existing_language(self) -> Optional[str]:
         """Gets the TitleForExistingLanguage property"""
         return self.properties.get("TitleForExistingLanguage", None)
 
+    # Probed live: both translated-resource collections answer 400 "Specified method is
+    # not supported" to ``$select``.
+    @odata(name="TitleTranslations", selectable=False)
     @property
     def title_translations(self) -> ClientValueCollection[SPResourceEntry]:
         """Gets the TitleTranslations property"""
@@ -3082,31 +3295,37 @@ class Web(SecurableObject):
 
         return self.properties.get("TitleTranslations", ClientValueCollection[SPResourceEntry](SPResourceEntry))
 
+    @odata(name="TreeViewEnabled")
     @property
     def tree_view_enabled(self) -> Optional[bool]:
         """Gets the TreeViewEnabled property"""
         return self.properties.get("TreeViewEnabled", None)
 
+    @odata(name="UIVersionConfigurationEnabled", readonly=True)
     @property
     def ui_version_configuration_enabled(self) -> Optional[bool]:
         """Gets the UIVersionConfigurationEnabled property"""
         return self.properties.get("UIVersionConfigurationEnabled", None)
 
+    @odata(name="UseAccessRequestDefault", readonly=True, beta=True)
     @property
     def use_access_request_default(self) -> Optional[bool]:
         """Gets the UseAccessRequestDefault property"""
         return self.properties.get("UseAccessRequestDefault", None)
 
+    @odata(name="WebTemplateConfiguration", readonly=True, beta=True)
     @property
     def web_template_configuration(self) -> Optional[str]:
         """Gets the WebTemplateConfiguration property"""
         return self.properties.get("WebTemplateConfiguration", None)
 
+    @odata(name="WebTemplatesGalleryFirstRunEnabled", beta=True)
     @property
     def web_templates_gallery_first_run_enabled(self) -> Optional[bool]:
         """Gets the WebTemplatesGalleryFirstRunEnabled property"""
         return self.properties.get("WebTemplatesGalleryFirstRunEnabled", None)
 
+    @odata(name="AppTiles", navigation=True)
     @property
     def app_tiles(self) -> EntityCollection[AppTile]:
         """Gets the AppTiles property"""
@@ -3116,6 +3335,7 @@ class Web(SecurableObject):
             "AppTiles", EntityCollection[AppTile](self.context, AppTile, ResourcePath("AppTiles", self.resource_path))
         )
 
+    @odata(name="CardDesigns", navigation=True, beta=True)
     @property
     def card_designs(self) -> CardDesigns:
         """Gets the CardDesigns property"""
@@ -3127,6 +3347,7 @@ class Web(SecurableObject):
             "CardDesigns", CardDesigns(self.context, ResourcePath("CardDesigns", self.resource_path))
         )
 
+    @odata(name="FolderColoring", navigation=True)
     @property
     def folder_coloring(self) -> FolderColoring:
         """Gets the FolderColoring property"""
@@ -3136,6 +3357,7 @@ class Web(SecurableObject):
             "FolderColoring", FolderColoring(self.context, ResourcePath("FolderColoring", self.resource_path))
         )
 
+    @odata(name="WorkflowAssociations", navigation=True)
     @property
     def workflow_associations(self) -> EntityCollection[WorkflowAssociation]:
         """Gets the WorkflowAssociations property"""
@@ -3150,6 +3372,7 @@ class Web(SecurableObject):
             ),
         )
 
+    @odata(name="WorkflowTemplates", navigation=True)
     @property
     def workflow_templates(self) -> EntityCollection[WorkflowTemplate]:
         """Gets the WorkflowTemplates property"""
@@ -3162,6 +3385,7 @@ class Web(SecurableObject):
             ),
         )
 
+    @site_access(SiteLevel.MANAGE)
     def addin_permissions(
         self, addins: ClientValueCollection[SPAddinPermissionRequest]
     ) -> ClientResult[SPAddinPermissionResponse]:
@@ -3180,6 +3404,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def add_placeholder_user(self, list_id: str, placeholder_text: str) -> ClientResult[UUID]:
         """AddPlaceholderUser operation.
 
@@ -3196,6 +3421,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def apply_theme(
         self, color_palette_url: str, font_scheme_url: str, background_image_url: str, share_generated: bool
     ) -> Self:
@@ -3227,6 +3453,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def content_by_query_replay(
         self, webs: str, lists: str, caml_query: str, view_fields: str, row_limit: int
     ) -> ClientResult[str]:
@@ -3249,6 +3476,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def convert_html_to_email_safe_html(
         self, html_body: str, remove_embedded_images: bool, feedback_source_url: str
     ) -> ClientResult[str]:
@@ -3278,6 +3506,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def execute_remote_lob(self, input_stream: bytes) -> ClientResult[bytes]:
         """ExecuteRemoteLOB operation.
 
@@ -3290,6 +3519,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_addin_uninstall_job_detail(
         self, job_id: UUID, server_relative_url: str, url: str
     ) -> ClientResult[SPUninstallAddinJobDetail]:
@@ -3319,6 +3549,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_sp_app_context_as_stream(self) -> ClientResult[bytes]:
         """GetSPAppContextAsStream operation."""
         return_type = ClientResult(self.context, bytes())
@@ -3326,6 +3557,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def hub_site_data_as_stream(self, force_refresh: bool) -> ClientResult[bytes]:
         """HubSiteDataAsStream operation.
 
@@ -3338,6 +3570,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def map_to_icon(self, file_name: str, prog_id: str, size: int) -> ClientResult[str]:
         """MapToIcon operation.
 
@@ -3354,12 +3587,14 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def mark_reply_uris_updated(self) -> Self:
         """MarkReplyUrisUpdated operation."""
         qry = ServiceOperationQuery(self, "MarkReplyUrisUpdated", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def page_context_core(self) -> ClientResult[bytes]:
         """PageContextCore operation."""
         return_type = ClientResult(self.context, bytes())
@@ -3367,6 +3602,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def process_external_notification(self, stream: bytes) -> ClientResult[str]:
         """ProcessExternalNotification operation.
 
@@ -3379,12 +3615,14 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def recycle(self) -> Self:
         """Recycle operation."""
         qry = ServiceOperationQuery(self, "Recycle", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def send_notification_tool(
         self,
         recipients: list[str],
@@ -3433,6 +3671,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_chrome_options(
         self,
         header_layout: int,
@@ -3557,6 +3796,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_default_new_page_template_id(self, default_new_page_template_id: UUID) -> Self:
         """SetDefaultNewPageTemplateId operation.
 
@@ -3575,6 +3815,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_theme_application_action_history(self, theme_application_action_history: str) -> Self:
         """SetThemeApplicationActionHistory operation.
 
@@ -3593,6 +3834,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_use_access_request_default_and_update(self, use_access_request_default: bool) -> Self:
         """SetUseAccessRequestDefaultAndUpdate operation.
 
@@ -3611,6 +3853,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def sync_teams_component(
         self, teams_component: SPTeamsAppComponent
     ) -> ClientResult[SPClientSideComponentQueryResult]:
@@ -3631,6 +3874,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def uninstall_addins(
         self, uninstall_addins: ClientValueCollection[SPUninstallAddinRequest]
     ) -> ClientResult[SPUninstallAddinResponse]:
@@ -3651,12 +3895,14 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def unset_is_edu_class_provision_pending(self) -> Self:
         """UnsetIsEduClassProvisionPending operation."""
         qry = ServiceOperationQuery(self, "UnsetIsEduClassProvisionPending", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def upgrade_prefab_app_instance(
         self, prefab_item_id: int, has_custom_upgrade_configuration: bool
     ) -> ClientResult[bool]:
@@ -3680,6 +3926,7 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def upload_image(
         self,
         list_title: str,

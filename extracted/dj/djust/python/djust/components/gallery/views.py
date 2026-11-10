@@ -14,6 +14,7 @@ from django.template.backends.base import BaseEngine
 from django.templatetags.static import static
 from django.utils.html import escape
 
+from djust._include_guard import include_guard_scope
 from djust._log_utils import sanitize_for_log
 
 from .registry import get_gallery_data
@@ -660,7 +661,7 @@ def _gallery_template_backend() -> BaseEngine:
     The gallery used ``django.template.base.Template``, which compiles through
     ``Engine.get_default()`` and therefore REQUIRES a ``DjangoTemplates`` entry
     in ``TEMPLATES``. A project scaffolded by ``djust new`` — and djust's own
-    demo — configures only ``djust.template_backend.DjustTemplateBackend``, so
+    demo — configures only ``djust.template.backend.DjustTemplateBackend``, so
     every snippet raised ``ImproperlyConfigured: No DjangoTemplates backend is
     configured`` and every component in the gallery rendered as the red
     "Render error" placeholder rather than the component.
@@ -730,7 +731,9 @@ def _render_component_cards(
                     ctx = dict(variant.get("context", {}))
                     if extra_context:
                         ctx.update(extra_context)
-                    rendered = t.render(ctx)
+                    # `ctx` carries the gallery LiveView's mixin state (#3880).
+                    with include_guard_scope():
+                        rendered = t.render(ctx)
                 except Exception:
                     logger.exception(
                         "gallery template render failed for variant %s",

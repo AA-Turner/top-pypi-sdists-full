@@ -190,9 +190,11 @@ class HyundaiCciApiEU(MqttServiceHubMixin, GspaApiEU):
 
         Response structure:
           {"breakdown": [{"ecuName": "...", "ecuIdx": 0, "dtcList": [...]}]}
+        An emptied list is a known result (zero active breakdowns), not
+        unknown; a response without the list leaves the fields unknown.
         """
-        breakdown = data.get("breakdown", [])
-        if not breakdown:
+        breakdown = data.get("breakdown")
+        if breakdown is None:
             return
         vehicle.dtc_count = len(breakdown)
         descriptions = {}
@@ -203,8 +205,7 @@ class HyundaiCciApiEU(MqttServiceHubMixin, GspaApiEU):
             dtc_list = item.get("dtcList", [])
             if dtc_list:
                 descriptions[str(ecu_name)] = dtc_list
-        if descriptions:
-            vehicle.dtc_descriptions = descriptions
+        vehicle.dtc_descriptions = descriptions
 
     # ------------------------------------------------------------------
     # CCS2 vehicle property mapping
@@ -260,27 +261,11 @@ class HyundaiCciApiEU(MqttServiceHubMixin, GspaApiEU):
         self._update_vehicle_gspa_data(token, vehicle)
 
     def _update_vehicle_gspa_data(self, token: Token, vehicle: Vehicle) -> None:
-        """Populate Vehicle GSPA query fields from server-side cached data.
-
-        These are GET endpoints that read cached data from the GSPA server.
-        They do NOT wake the telematics unit or drain the 12V battery.
-        """
+        # Breakdowns are Hyundai CCI-specific; Kia has no live fixture yet.
+        super()._update_vehicle_gspa_data(token, vehicle)
         try:
-            sw = self.get_software_version(token, vehicle)
-            if sw and isinstance(sw, dict):
-                vehicle.software_version = sw.get("softwareVersion")
+            bd = self.get_breakdowns(token, vehicle)
+            if bd and isinstance(bd, dict):
+                self._parse_breakdowns(vehicle, bd)
         except Exception:
-            _LOGGER.debug(f"{DOMAIN} - GSPA software_version update failed")
-
-        try:
-            if not vehicle._ota_checked:
-                vehicle._ota_checked = True  # set before call — concurrent workers skip
-                ota = self.get_ota_updates(token, vehicle)
-                if ota and isinstance(ota, dict):
-                    updates = ota.get("otaUpdateList", [])
-                    vehicle.ota_update_available = (
-                        len(updates) > 0 if updates else False
-                    )
-        except Exception:
-            vehicle.ota_update_available = None  # HA convention: unavailable = unknown
-            _LOGGER.debug(f"{DOMAIN} - GSPA ota_updates update failed")
+            _LOGGER.debug(f"{DOMAIN} - GSPA breakdowns update failed")

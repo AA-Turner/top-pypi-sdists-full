@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.search.bucket import SearchBucket
 
 
-@dataclass
 class SearchAggregation(ClientValue):
     """Provides the details of the search aggregation in the search response."""
 

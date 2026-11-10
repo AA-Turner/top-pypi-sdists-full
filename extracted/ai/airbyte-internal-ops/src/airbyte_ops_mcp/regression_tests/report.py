@@ -41,9 +41,11 @@ from __future__ import annotations
 import datetime
 import difflib
 import json
+import logging
 import os
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from itertools import zip_longest
@@ -445,9 +447,8 @@ class RunSide:
 class RegressionReportModel:
     """The single model both report surfaces render from.
 
-    `passed` is the authoritative verdict and is derived from the same helpers
-    the markdown report and the CLI's GitHub outputs use, so no surface can
-    state a different one.
+    Builders derive the authoritative verdict; markdown, HTML, CLI outputs and
+    EU metadata project it without deciding it again.
     """
 
     mode: str
@@ -468,6 +469,11 @@ class RegressionReportModel:
     not_exercised: bool = False
     setup_error: bool = False
     could_not_test: bool = False
+    incomplete: bool = False
+    regression_detected: bool = False
+    both_failed: bool = False
+    strict_failed: bool = False
+    comparison_errored: bool = False
     # Extension seam for diffs that belong to the run rather than to one stream
     # -- a spec diff, for instance. Rendered above the per-stream sections.
     diff_blocks: tuple[DiffBlock, ...] = ()
@@ -480,6 +486,34 @@ class RegressionReportModel:
     def is_comparison(self) -> bool:
         """Whether this report compares two versions."""
         return self.mode == "comparison"
+
+    def verdict_flags(self, *, github: bool = False) -> dict[str, bool]:
+        """Project the verdict onto the mode's existing output keys."""
+        flags = {
+            "success": self.passed,
+            "incomplete": self.incomplete,
+            "not_exercised": self.not_exercised,
+            "setup_error": self.setup_error,
+            "could_not_test": self.could_not_test,
+        }
+        if self.is_comparison:
+            flags.update(
+                regression_detected=self.regression_detected,
+                both_failed=self.both_failed,
+            )
+        if not github:
+            flags.update(
+                strict_failed=self.strict_failed,
+                comparison_errored=self.comparison_errored,
+            )
+        return flags
+
+    def check_results(self) -> list[dict[str, str | bool]]:
+        """Return every model check as metadata only, including command execution."""
+        return [
+            {"name": check.name, "passed": check.passed, "severity": check.severity}
+            for check in self.checks
+        ]
 
 
 def _split_image(image: str) -> tuple[str, str]:
@@ -638,7 +672,9 @@ def _build_context(
         not_exercised_note=not_exercised_note,
         output_mode=output_mode,
         masking=describe_masking(output_mode, readable_fields),
-        readable_fields=readable_field_rows(readable_fields),
+        readable_fields=(
+            readable_field_rows(readable_fields) if readable_fields is not None else ()
+        ),
         readable_summary=(
             describe_readable_cursors(readable_fields)
             if output_mode == "masked" and readable_fields is not None
@@ -2514,6 +2550,7 @@ def build_comparison_report_model(
     connection_objects: tuple[DiffBlock, ...] = (),
     reproduction: ReproductionVerdict | None = None,
     target_only_streams: tuple[str, ...] = (),
+    include_report_sections: bool = True,
 ) -> RegressionReportModel:
     """Build the report model for a target-versus-control run.
 
@@ -2539,6 +2576,9 @@ def build_comparison_report_model(
         extra_checks: Comparison checks to fold into the verdict and show on both
             surfaces. Supply them here rather than appending to the returned
             model, which would leave `passed` stale.
+        include_report_sections: Whether to enrich the core with display-only
+            sections. Disable this to write verdict outputs before calling
+            `enrich_report_model`.
         extra_diff_blocks: What a failing check found, shown above the failure
             output. A check row has one line to say "this stream's schema
             changed"; the reviewer's next question is always which field.
@@ -2581,22 +2621,8 @@ def build_comparison_report_model(
     setup_error_detail = target_result.get("setup_error_detail", "")
     could_not_test_detail = target_result.get("could_not_test_detail", "")
 
-    control_counts = _with_configured_streams(
-        control_result.get("record_counts_per_stream", {}), configured_streams
-    )
-    target_counts = _with_configured_streams(
-        target_result.get("record_counts_per_stream", {}), configured_streams
-    )
-    failing_streams, warning_streams = _comparison_flagged_streams(record_comparison)
-    stream_sections, omitted = _build_stream_sections(
-        control_counts,
-        target_counts,
-        configured_streams,
-        failing_streams=failing_streams,
-        warning_streams=warning_streams,
-    )
-    if record_comparison is not None:
-        stream_sections = _apply_record_comparison(stream_sections, record_comparison)
+    control_counts = control_result.get("record_counts_per_stream", {})
+    target_counts = target_result.get("record_counts_per_stream", {})
     coverage = _stream_coverage_check(configured_streams, control_counts, target_counts)
     comparison_checks = (
         build_record_comparison_checks(record_comparison)
@@ -2643,27 +2669,6 @@ def build_comparison_report_model(
     )
     replay_coverage = _replay_coverage_check(target_result, control_result)
     connector_cache = _connector_cache_check(control_result, target_result)
-
-    metric_tables = tuple(
-        table
-        for table in (
-            _comparison_metric_table(
-                MESSAGE_TYPES_TABLE,
-                "Type",
-                control_result.get("message_counts", {}),
-                target_result.get("message_counts", {}),
-            ),
-            _comparison_metric_table(
-                RECORD_COUNTS_TABLE,
-                "Stream",
-                control_counts,
-                target_counts,
-                with_total=True,
-            ),
-            _http_metrics_table(control_result, target_result),
-        )
-        if table is not None
-    )
 
     checks = (
         CheckResult(
@@ -2777,7 +2782,7 @@ def build_comparison_report_model(
         if other_reasons:
             verdict_detail += "; " + "; ".join(other_reasons)
 
-    return RegressionReportModel(
+    model = RegressionReportModel(
         mode="comparison",
         command=command,
         passed=passed,
@@ -2789,19 +2794,53 @@ def build_comparison_report_model(
             control_image,
             stopped_early_notes(stopped),
             run_output_mode(target_result, control_result),
-            run_readable_fields(target_result, control_result),
-            not_exercised_note(not_exercised) if stopped else None,
+            not_exercised_note=(not_exercised_note(not_exercised) if stopped else None),
         ),
         sides=sides,
         checks=checks,
-        metric_tables=metric_tables,
-        stream_sections=stream_sections,
-        omitted_stream_count=omitted,
+        metric_tables=(),
         outcome=outcome,
+        incomplete=bool(stopped),
+        regression_detected=bool(
+            (
+                (
+                    reproduction.regression_detected
+                    if reproduction
+                    else outcome.regression_detected
+                )
+                and not setup_error_clears_regression
+                and not could_not_test
+            )
+            or (
+                record_comparison is not None
+                and not record_comparison.passed
+                and not record_comparison_errored
+            )
+            or effective_record_checks_regression
+            or failed_checks(
+                tuple(
+                    check
+                    for check in extra_checks
+                    if check.name not in _NEW_STREAM_CHECK_NAMES
+                )
+            )
+        ),
+        both_failed=outcome.both_failed and reproduction is None,
+        strict_failed=strict_failed,
+        comparison_errored=comparison_errored_for_label,
         not_exercised=bool(not_exercised),
         setup_error=setup_error,
         could_not_test=could_not_test,
-        diff_blocks=(*extra_diff_blocks, *build_failure_output_blocks(sides)),
+    )
+    if not include_report_sections:
+        return model
+    return enrich_report_model(
+        model,
+        target_result=target_result,
+        control_result=control_result,
+        configured_streams=configured_streams,
+        record_comparison=record_comparison,
+        extra_diff_blocks=extra_diff_blocks,
         connection_objects=connection_objects,
     )
 
@@ -2935,6 +2974,71 @@ def _comparison_verdict_detail(
     return f"{both} — inconclusive, nothing to compare the target against"
 
 
+def build_markdown_comparison_model(
+    *,
+    target_image: str,
+    control_image: str,
+    command: str,
+    target_result: dict[str, Any],
+    control_result: dict[str, Any],
+    record_comparison: dict[str, Any] | None,
+    comparison_findings: Sequence[tuple[str, str]],
+    inconclusive_findings: Sequence[str],
+    reproduction: ReproductionVerdict | None,
+    target_only_streams: Sequence[str],
+) -> RegressionReportModel:
+    """Adapt the standalone markdown API's serialized inputs to the model."""
+    result = dict(target_result)
+    result.pop("record_checks_regression", None)
+    checks = tuple(
+        CheckResult(
+            name=text.partition(": ")[0],
+            summary=text,
+            passed=False,
+            severity=(
+                "diagnostic"
+                if status == "warn" or text in inconclusive_findings
+                else "strict"
+            ),
+        )
+        for status, text in comparison_findings
+        if status in {"warn", "fail"}
+    )
+    comparison = None
+    if record_comparison is not None:
+        comparison = RecordComparisonSummary(
+            passed=record_comparison.get("passed", True),
+            errored=bool(record_comparison.get("errored")),
+            count_comparison=ComparisonResult(
+                passed=record_comparison.get("passed", True),
+                message="Record comparison",
+            ),
+        )
+    if any(
+        status == "fail" and text in inconclusive_findings
+        for status, text in comparison_findings
+    ) and (comparison is None or comparison.passed):
+        comparison = RecordComparisonSummary(
+            passed=False,
+            errored=True,
+            count_comparison=ComparisonResult(
+                passed=False,
+                message="Comparison errored",
+            ),
+        )
+    return build_comparison_report_model(
+        target_image=target_image,
+        control_image=control_image,
+        command=command,
+        target_result=result,
+        control_result=control_result,
+        record_comparison=comparison,
+        extra_checks=checks,
+        reproduction=reproduction,
+        target_only_streams=tuple(target_only_streams),
+    )
+
+
 def build_single_version_report_model(
     *,
     connector_image: str,
@@ -2943,6 +3047,7 @@ def build_single_version_report_model(
     extra_checks: tuple[CheckResult, ...] = (),
     configured_streams: tuple[str, ...] = (),
     connection_objects: tuple[DiffBlock, ...] = (),
+    include_report_sections: bool = True,
 ) -> RegressionReportModel:
     """Build the report model for a single-version (`--skip-compare`) run.
 
@@ -2956,6 +3061,9 @@ def build_single_version_report_model(
         extra_checks: Validation checks to fold into the verdict and show on both
             surfaces. Supply them here rather than appending to the returned
             model, which would leave `passed` stale.
+        include_report_sections: Whether to enrich the core with display-only
+            sections. Disable this to write verdict outputs before calling
+            `enrich_report_model`.
 
     Returns:
         The model to render as `report.html` and as the inline summary.
@@ -2964,24 +3072,8 @@ def build_single_version_report_model(
     verdict_detail = f"{connector_image} {side.description}"
     stopped = stopped_early_sides(("single", result))
 
-    counts = _with_configured_streams(
-        result.get("record_counts_per_stream", {}), configured_streams
-    )
-    stream_sections, omitted = _build_stream_sections(None, counts, configured_streams)
+    counts = result.get("record_counts_per_stream", {})
     coverage = _stream_coverage_check(configured_streams, counts)
-
-    metric_tables = tuple(
-        table
-        for table in (
-            _single_metric_table(
-                MESSAGE_TYPES_TABLE, "Type", result.get("message_counts", {})
-            ),
-            _single_metric_table(
-                RECORD_COUNTS_TABLE, "Stream", counts, with_total=True
-            ),
-        )
-        if table is not None
-    )
 
     checks = (
         CheckResult(
@@ -3004,8 +3096,9 @@ def build_single_version_report_model(
             regression=False,
         )
 
-    return RegressionReportModel(
+    model = RegressionReportModel(
         mode="single_version",
+        incomplete=bool(stopped),
         command=command,
         passed=passed,
         verdict_label=verdict_label,
@@ -3016,16 +3109,143 @@ def build_single_version_report_model(
             None,
             stopped_early_notes(stopped),
             run_output_mode(result),
-            run_readable_fields(result),
         ),
         sides=(side,),
         checks=checks,
-        metric_tables=metric_tables,
-        stream_sections=stream_sections,
-        omitted_stream_count=omitted,
-        diff_blocks=build_failure_output_blocks((side,)),
+        metric_tables=(),
+    )
+    if not include_report_sections:
+        return model
+    return enrich_report_model(
+        model,
+        target_result=result,
+        configured_streams=configured_streams,
         connection_objects=connection_objects,
     )
+
+
+@contextmanager
+def report_section(name: str) -> Iterator[None]:
+    """Omit a failed display-only section without interrupting verdict outputs."""
+    try:
+        yield
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            f"Could not generate {name} ({type(exc).__name__}); "
+            "skipping this report section. Verdict outputs are unchanged."
+        )
+
+
+def enrich_report_model(
+    model: RegressionReportModel,
+    *,
+    target_result: dict[str, Any],
+    control_result: dict[str, Any] | None = None,
+    configured_streams: tuple[str, ...] = (),
+    record_comparison: RecordComparisonSummary | None = None,
+    extra_diff_blocks: tuple[DiffBlock, ...] = (),
+    connection_objects: tuple[DiffBlock, ...] = (),
+) -> RegressionReportModel:
+    """Attach best-effort display sections, preserving every verdict and check.
+
+    CLI callers build with `include_report_sections=False`, write their verdict
+    outputs, then call this function. Coverage, replay and cache checks belong to
+    the core builders, not this enrichment, even though they are diagnostic.
+    """
+    model = replace(
+        model, diff_blocks=extra_diff_blocks, connection_objects=connection_objects
+    )
+    with report_section("report context"):
+        readable_fields = (
+            run_readable_fields(target_result, control_result)
+            if control_result is not None
+            else run_readable_fields(target_result)
+        )
+        output_mode = model.context.output_mode
+        model = replace(
+            model,
+            context=replace(
+                model.context,
+                masking=describe_masking(output_mode, readable_fields),
+                readable_fields=readable_field_rows(readable_fields),
+                readable_summary=(
+                    describe_readable_cursors(readable_fields)
+                    if output_mode == "masked" and readable_fields is not None
+                    else None
+                ),
+            ),
+        )
+
+    control_counts = (
+        control_result.get("record_counts_per_stream", {})
+        if control_result is not None
+        else None
+    )
+    target_counts = target_result.get("record_counts_per_stream", {})
+    with report_section("configured stream counts"):
+        if control_counts is not None:
+            control_counts = _with_configured_streams(
+                control_counts, configured_streams
+            )
+        target_counts = _with_configured_streams(target_counts, configured_streams)
+
+    with report_section("stream sections"):
+        failing_streams, warning_streams = _comparison_flagged_streams(
+            record_comparison
+        )
+        sections, omitted = _build_stream_sections(
+            control_counts,
+            target_counts,
+            configured_streams,
+            failing_streams=failing_streams,
+            warning_streams=warning_streams,
+        )
+        model = replace(model, stream_sections=sections, omitted_stream_count=omitted)
+    if record_comparison is not None:
+        with report_section("record comparison details"):
+            model = replace(
+                model,
+                stream_sections=_apply_record_comparison(
+                    model.stream_sections, record_comparison
+                ),
+            )
+
+    for title, label, key, counts in (
+        (MESSAGE_TYPES_TABLE, "Type", "message_counts", None),
+        (RECORD_COUNTS_TABLE, "Stream", "record_counts_per_stream", target_counts),
+    ):
+        with report_section(title):
+            target_values = counts if counts is not None else target_result.get(key, {})
+            if control_result is None:
+                table = _single_metric_table(
+                    title, label, target_values, with_total=counts is not None
+                )
+            else:
+                assert control_counts is not None
+                table = _comparison_metric_table(
+                    title,
+                    label,
+                    (
+                        control_counts
+                        if counts is not None
+                        else control_result.get(key, {})
+                    ),
+                    target_values,
+                    with_total=counts is not None,
+                )
+            if table is not None:
+                model = replace(model, metric_tables=(*model.metric_tables, table))
+    if control_result is not None:
+        with report_section("HTTP metrics"):
+            table = _http_metrics_table(control_result, target_result)
+            if table is not None:
+                model = replace(model, metric_tables=(*model.metric_tables, table))
+    with report_section("failure output blocks"):
+        model = replace(
+            model,
+            diff_blocks=(*model.diff_blocks, *build_failure_output_blocks(model.sides)),
+        )
+    return model
 
 
 def _jinja_environment() -> Environment:

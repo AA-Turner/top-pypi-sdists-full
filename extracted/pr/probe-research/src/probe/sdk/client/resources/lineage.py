@@ -232,7 +232,7 @@ class LineageMixin:
     ) -> dict | None:
         """POST /v1/projects/{P}/experiments/{E}/versions - mint an immutable
         launch-time manifest (a snapshot of the experiment's runs). This replaces
-        the removed run-level `promote`; Probe Research rejected promotion tiers."""
+        the removed run-level `promote`; Probe rejected promotion tiers."""
         model = ExperimentVersionMint(
             label=label, as_of=as_of, exclude_run_ids=exclude_run_ids or []
         )

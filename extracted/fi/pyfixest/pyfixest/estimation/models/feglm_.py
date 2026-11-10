@@ -1,495 +1,337 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from typing import Any, Literal
+from dataclasses import replace
+from typing import Any, ClassVar, cast
 
 import numpy as np
 import pandas as pd
+from within import Effect
 
-from pyfixest.demeaners import AnyDemeaner
-from pyfixest.errors import (
-    NonConvergenceError,
-)
+from pyfixest.core.demean import Preconditioner
+from pyfixest.estimation.formula.model_matrix import ModelMatrix
 from pyfixest.estimation.formula.parse import Formula as FixestFormula
-from pyfixest.estimation.internals.demean_ import (
-    _override_demeaner_tol,
-    dispatch_demean,
+from pyfixest.estimation.internals.demean_ import DemeanedData
+from pyfixest.estimation.internals.families import GlmFamily
+from pyfixest.estimation.internals.fit_glm_ import fit_glm_irls
+from pyfixest.estimation.internals.fit_statistics import FitStatistics
+from pyfixest.estimation.internals.literals import HeteroVcovTypeOptions
+from pyfixest.estimation.internals.model_state import (
+    Capabilities,
+    FittedValues,
+    GlmEstimationOptions,
+    ModelDescription,
+    SampleSplit,
 )
-from pyfixest.estimation.internals.solvers import solve_ols
+from pyfixest.estimation.internals.retention import require_retained
+from pyfixest.estimation.internals.separation import check_for_separation
+from pyfixest.estimation.internals.vcov_ import meat_hetero, vcov_iid_glm
+from pyfixest.estimation.internals.vcov_utils import VcovTerm
 from pyfixest.estimation.models.feols_ import (
     Feols,
     PredictionErrorOptions,
     PredictionType,
-    _drop_multicollinear_variables,
 )
-from pyfixest.estimation.models.fepois_ import _check_for_separation
 from pyfixest.utils.dev_utils import DataFrameType
+from pyfixest.utils.utils import DegreesOfFreedomCounts
 
 
-class Feglm(Feols, ABC):
-    "Abstract base class for the estimation of a fixed-effects GLM model."
+class Feglm(Feols):
+    """
+    Base class for the estimation of a fixed-effects GLM model.
+
+    Returned by [feglm()](/reference/estimation.api.feglm.feglm.qmd). Fixed
+    effects are handled via iteratively reweighted least squares with demeaning,
+    following Stammann (2018),
+    [arXiv:1707.01815](https://arxiv.org/pdf/1707.01815). The `family` argument
+    selects a subclass that declares its `GlmFamily`. `poisson` dispatches to
+    [Fepois](/reference/estimation.models.fepois_.Fepois.qmd).
+
+    Examples
+    --------
+    ```{python}
+    import numpy as np
+    import pyfixest as pf
+
+    data = pf.get_data()
+    data["Y_bin"] = np.where(data["Y"] > 0, 1, 0)
+
+    fit = pf.feglm("Y_bin ~ X1 + X2 | f1", data, family="logit")
+    fit.tidy()
+    ```
+    """
+
+    options: GlmEstimationOptions
+    _n_fe_after_separation: int | None = None
+    # Iterative IRLS fit: no single least-squares solve to shortcut.
+    _closed_form_ols = False
+    # Link, variance, deviance, and method name; each subclass declares one.
+    _family: ClassVar[GlmFamily]
+
+    # No CRV3: the inherited slow jackknife refits with the linear/Poisson
+    # APIs and cannot yet preserve a generic GLM family's estimation contract.
+    _declared_capabilities: ClassVar[Capabilities] = Capabilities(
+        covariance_update=True,
+        crv3_inference=False,
+        hac_inference=True,
+        multiway_clustering=True,
+        wildboottest=False,
+        cluster_causal_variance=False,
+        decomposition=False,
+        prediction=True,
+        prediction_inference=False,
+        fixed_effect_recovery=True,
+        randomization_inference=False,
+        sherman_morrison_update=False,
+        anytime_valid_inference=False,
+    )
 
     def __init__(
         self,
         FixestFormula: FixestFormula,
         data: pd.DataFrame,
-        ssc_dict: dict[str, str | bool],
-        drop_singletons: bool,
-        drop_intercept: bool,
-        weights: str | None,
-        weights_type: str | None,
-        collin_tol: float,
-        lookup_demeaned_data: dict[frozenset[int], pd.DataFrame],
-        tol: float,
-        maxiter: int,
-        solver: Literal[
-            "np.linalg.lstsq",
-            "np.linalg.solve",
-            "scipy.linalg.solve",
-            "scipy.sparse.linalg.lsqr",
-            "jax",
-        ],
-        demeaner: AnyDemeaner | None = None,
-        store_data: bool = True,
-        copy_data: bool = True,
-        lean: bool = False,
-        sample_split_var: str | None = None,
-        sample_split_value: str | int | None = None,
-        separation_check: list[str] | None = None,
-        context: int | Mapping[str, Any] = 0,
-        accelerate: bool = True,
-    ):
+        *,
+        options: GlmEstimationOptions,
+        lookup_demeaned_data: dict[frozenset[int], DemeanedData],
+        lookup_preconditioner: dict[frozenset[int], Preconditioner] | None = None,
+        sample_split: SampleSplit | None = None,
+    ) -> None:
         super().__init__(
             FixestFormula=FixestFormula,
             data=data,
-            ssc_dict=ssc_dict,
-            drop_singletons=drop_singletons,
-            drop_intercept=drop_intercept,
-            weights=weights,
-            weights_type=weights_type,
-            collin_tol=collin_tol,
+            options=options,
             lookup_demeaned_data=lookup_demeaned_data,
-            solver=solver,
-            store_data=store_data,
-            copy_data=copy_data,
-            lean=lean,
-            sample_split_var=sample_split_var,
-            sample_split_value=sample_split_value,
-            context=context,
-            demeaner=demeaner,
+            lookup_preconditioner=lookup_preconditioner,
+            sample_split=sample_split,
         )
 
         _glm_input_checks(
-            drop_singletons=drop_singletons,
-            tol=tol,
-            maxiter=maxiter,
+            drop_singletons=options.drop_singletons,
+            tol=options.tol,
+            maxiter=options.maxiter,
         )
 
-        self.maxiter = maxiter
-        self.tol = tol
-        self.convergence = False
-        self.separation_check = separation_check
-        self._accelerate = accelerate
+    def _describe_model(self, **kwargs: Any) -> ModelDescription:
+        """Describe a GLM fit by its family's method and inference distribution."""
+        return replace(
+            super()._describe_model(**kwargs),
+            method=self._family.method,
+            inference_dist=self._family.inference_dist,
+        )
 
-        self._support_crv3_inference = True
-        self._support_iid_inference = True
-        self._support_hac_inference = True
-        self._supports_cluster_causal_variance = False
-        self._support_decomposition = False
-
-        self._Y_hat_response = np.empty(0)
-        self.deviance = None
-        self._Xbeta = np.empty(0)
-
-        self._method = "feglm"
-
-    def prepare_model_matrix(self):
+    def prepare_model_matrix(self) -> ModelMatrix:
         "Prepare model inputs for estimation."
-        super().prepare_model_matrix()
+        model_matrix = super().prepare_model_matrix()
 
         # check for separation
         na_separation: list[int] = []
         if (
-            self._fe is not None
-            and self.separation_check is not None
-            and self.separation_check  # not an empty list
+            # Families without outcome bounds, such as Gaussian, cannot separate.
+            self._family.outcome_bounds
+            and model_matrix.fixed_effects is not None
+            and self.options.separation_check is not None
+            and self.options.separation_check  # not an empty list
         ):
-            na_separation = _check_for_separation(
-                Y=self._Y,
-                X=self._X,
-                fe=self._fe,
-                fml=self._fml,
-                data=self._data,
-                methods=self.separation_check,
+            na_separation = check_for_separation(
+                Y=model_matrix.dependent,
+                X=model_matrix.independent,
+                fe=model_matrix.fixed_effects.loc[
+                    :,
+                    [
+                        spec.intercept
+                        for spec in model_matrix.fixed_effect_specifications
+                    ],
+                ],
+                effects=self._fixed_effects_for_demeaning(),
+                outcome_bounds=self._family.outcome_bounds,
+                demeaner=self.options.demeaner,
+                collin_tol=self.options.collin_tol,
+                methods=self.options.separation_check,
             )
 
         if na_separation:
-            self._Y.drop(na_separation, axis=0, inplace=True)
-            self._X.drop(na_separation, axis=0, inplace=True)
-            self._fe.drop(na_separation, axis=0, inplace=True)
             self._data.drop(na_separation, axis=0, inplace=True)
-            self._N = self._Y.shape[0]
+            model_matrix = model_matrix.without_rows(na_separation, stage="separation")
+            self._publish_model_matrix(model_matrix)
 
-            self.na_index = np.concatenate([self.na_index, np.array(na_separation)])
-            self.n_separation_na = len(na_separation)
-
-    def to_array(self):
-        "Turn estimation DataFrames to np arrays."
-        self._Y, self._X, self._Z = (
-            self._Y.to_numpy(),
-            self._X.to_numpy(),
-            self._X.to_numpy(),
-        )
-        if self._fe is not None:
-            self._fe = self._fe.to_numpy()
-            if self._fe.ndim == 1:
-                self._fe = self._fe.reshape((self._N, 1))
-
-    def get_fit(self):
-        """
-        Fit the GLM model via iterated weighted least squares.
-
-        The implementation follows ideas developed in
-        - Bergé (2018): https://ideas.repec.org/p/luc/wpaper/18-13.html
-        - Correia, Guimaraes, Zylkin (2019): https://journals.sagepub.com/doi/pdf/10.1177/1536867X20909691
-        - Stamann (2018): https://arxiv.org/pdf/1707.01815
-        """
-        self.to_array()
-
-        _mean = np.mean(self._Y)
-        if self._method in ("feglm-logit", "feglm-probit"):
-            mu = np.full_like(self._Y.flatten(), 0.5, dtype=float)
-        else:
-            mu = np.full_like(self._Y.flatten(), _mean, dtype=float)
-
-        eta = self._get_link(mu)
-        deviance = self._get_deviance(self._Y.flatten(), mu)
-        deviance_old = deviance + 1.0
-
-        # Warm-start (for ppmlhdfe accelerations)
-        z_prev = None
-        z_tilde_prev = None
-        X_tilde_prev = None
-        accelerate = self._accelerate and self._fe is not None
-        inner_tol = self._fixef_tol
-
-        for r in range(self.maxiter):
-            if r > 0:
-                rel_deviance_change = self._get_relative_deviance_change(
-                    deviance, deviance_old
+            # possible to have dropped fixed effects level due to separation
+            counts = self.fixef_counts
+            self._n_fe_after_separation = sum(
+                n_levels > 1 and has_intercept
+                for n_levels, has_intercept in zip(
+                    counts.n_levels_by_fe, counts.has_intercept_by_fe, strict=True
                 )
-                converged = self._check_convergence(
-                    rel_deviance_change=rel_deviance_change,
-                    tol=self.tol,
-                    r=r,
-                    maxiter=self.maxiter,
-                    model=self._method,
-                )
-                if converged:
-                    self.convergence = True
-                    break
-
-                # Adaptive tolerance as in ppmlhdfe
-                if accelerate and rel_deviance_change < 10 * inner_tol:
-                    inner_tol = inner_tol / 10
-
-            gprime = self._get_gprime(mu=mu)
-            W = self._update_W(mu=mu)
-            sqrt_W = np.sqrt(W)
-
-            z = eta + (self._Y.flatten() - mu) * gprime
-
-            if accelerate and r > 0:
-                z_input = z_tilde_prev + (z - z_prev)
-                X_input = X_tilde_prev
-            else:
-                z_input = z
-                X_input = self._X
-
-            z_tilde, X_tilde = self.residualize(
-                v=z_input,
-                X=X_input,
-                flist=self._fe,
-                weights=W.flatten(),
-                tol=inner_tol,
             )
 
-            if r == 0:
-                # Check multicollinearity
-                # We do this here after the first demeaning to also catch collinearity with fixed effects
-                X_tilde, self._coefnames, self._collin_vars, self._collin_index = (
-                    _drop_multicollinear_variables(
-                        X_tilde,
-                        self._coefnames,
-                        self._collin_tol,
-                    )
-                )
-                if self._collin_index:
-                    # Drop covariates collinear with fixed effects
-                    self._X = self._X[:, ~np.array(self._collin_index)]
-                    # Update the number of coefficients
-                self._X_is_empty = self._X.shape[1] == 0
-                self._k = self._X.shape[1]
+        return model_matrix
 
-            WX = sqrt_W.flatten()[:, None] * X_tilde
-            WZ = sqrt_W.flatten() * z_tilde
+    def _dof_counts(self, **kwargs: Any) -> DegreesOfFreedomCounts:
+        "Count only fixed effects with several levels once separation dropped rows."
+        counts = super()._dof_counts(**kwargs)
+        if self._n_fe_after_separation is None:
+            return counts
+        return replace(counts, n_fe=self._n_fe_after_separation)
 
-            tXX = WX.T @ WX
-            tXz = WX.T @ WZ
-            beta_new = solve_ols(tXX, tXz, self._solver)
+    def get_fit(self) -> None:
+        "Fit the GLM via IRLS and write results onto self.* attributes."
+        model_matrix = self.model_matrix
+        response = model_matrix.dependent.to_numpy()
+        design = model_matrix.independent.to_numpy()
+        fixed_effect_frame = model_matrix.fixed_effects
+        offset_frame = model_matrix.offset
+        fixed_effects = (
+            None if fixed_effect_frame is None else self._fixed_effects_for_demeaning()
+        )
+        offset = (
+            None if offset_frame is None else offset_frame.to_numpy().reshape((-1, 1))
+        )
 
-            # Residual from demeaned regression (not weighted)
-            e_new = z_tilde - X_tilde @ beta_new
-            eta_new = z - e_new
-
-            mu_new = self._get_mu(eta=eta_new)
-            deviance_new = self._get_deviance(self._Y.flatten(), mu_new)
-
-            # Step-halving if deviance did not decrease
-            eta_new, mu_new, deviance_new = self._step_halving(
-                eta, eta_new, mu_new, deviance, deviance_new
+        def _demean(
+            v: np.ndarray, X: np.ndarray, weights: np.ndarray, tol: float
+        ) -> tuple[np.ndarray, np.ndarray]:
+            return self.residualize(
+                v=v,
+                X=X,
+                flist=fixed_effects,
+                weights=weights,
+                tol=tol,
             )
 
-            z_prev = z
-            z_tilde_prev = z_tilde
-            X_tilde_prev = X_tilde
-
-            deviance_old = deviance
-            eta = eta_new
-            mu = mu_new
-            deviance = deviance_new
-
-            z_tilde_final = z_tilde
-            X_tilde_final = X_tilde
-            sqrt_W_final = sqrt_W
-            beta_final = beta_new
-
-        self._beta_hat = beta_final
-        self._Y_hat_response = mu.flatten()
-        self._Y_hat_link = eta.flatten()
-
-        # Update weights for inference
-        self._weights = W
-        self._irls_weights = W
-        if self._weights.ndim == 1:
-            self._weights = self._weights.reshape((self._N, 1))
-
-        self._u_hat_response = (self._Y.flatten() - mu).flatten()
-        e_final = z_tilde_final - X_tilde_final @ self._beta_hat
-        self._u_hat_working = (
-            self._u_hat_response
-            if self._method == "feglm-gaussian"
-            else e_final.flatten()
+        fit = fit_glm_irls(
+            X=design,
+            Y=response,
+            family=self._family,
+            demean=_demean,
+            coefnames=self._coefnames,
+            collin_tol=self.options.collin_tol,
+            accelerate=self.options.accelerate and fixed_effects is not None,
+            offset=offset,
+            weights=self.observation_weights.values,
+            solver=self.options.solver,
+            maxiter=self.options.maxiter,
+            tol=self.options.tol,
+            fixef_tol=self.options.fixef_tol,
         )
 
-        self._scores_response = self._u_hat_response[:, None] * self._X
-        self._scores_working = self._u_hat_working[:, None] * self._X
-
-        sqrt_W_vec = sqrt_W_final.flatten()
-        X_wls = sqrt_W_vec[:, None] * X_tilde_final
-        z_wls = sqrt_W_vec * z_tilde_final
-
-        self._u_hat = (z_wls - X_wls @ self._beta_hat).flatten()
-        self._Y = z_wls
-        self._X = X_wls
-        self._Z = self._X
-
-        self._scores = self._u_hat[:, None] * self._X
-
-        self._tZX = self._Z.T @ self._X
-        self._tZXinv = np.linalg.inv(self._tZX)
-        self._Xbeta = eta
-
-        self._hessian = X_wls.T @ X_wls
-        self.deviance = deviance
-
-        if self.convergence:
-            self._convergence = True
-
-    def _vcov_iid(self):
-        return self._bread
-
-    def _update_v(
-        self, y: np.ndarray, mu: np.ndarray, gprime: np.ndarray
-    ) -> np.ndarray:
-        "Get (running) dependent variable v for the GLM family."
-        return (y - mu) * gprime
-
-    def _update_W(self, mu: np.ndarray) -> np.ndarray:
-        "Compute IRLS weights: w = 1 / (g'(μ)² · V(μ))."
-        return 1 / (self._get_gprime(mu=mu) ** 2 * self._get_V(mu=mu))
-
-    def _update_v_tilde(
-        self, y: np.ndarray, mu: np.ndarray, sqrt_W: np.ndarray, gprime: np.ndarray
-    ) -> np.ndarray:
-        "Get sqrt(W) * v for weighted least squares transformation."
-        return sqrt_W * ((y - mu) * gprime)
-
-    def _update_X_tilde(self, sqrt_W: np.ndarray, X: np.ndarray) -> np.ndarray:
-        "Get sqrt(W) * X for weighted least squares transformation."
-        return sqrt_W.reshape(-1, 1) * X
-
-    def _update_beta_diff(
-        self, X_dotdot: np.ndarray, v_dotdot: np.ndarray
-    ) -> np.ndarray:
-        "Get the beta _update difference (formula 3.5) via WLS fit."
-        beta_diff = np.linalg.lstsq(X_dotdot, v_dotdot.reshape(-1, 1), rcond=None)[
-            0
-        ].flatten()
-        return beta_diff
-
-    def _update_eta(
-        self,
-        sqrt_W: np.ndarray,
-        z: np.ndarray,
-        z_tilde: np.ndarray,
-        X_tilde: np.ndarray,
-        beta_diff: np.ndarray,
-        eta: np.ndarray,
-    ) -> np.ndarray:
-        e = z_tilde - X_tilde @ beta_diff
-        e_unweighted = e / sqrt_W
-        return z - e_unweighted
-
-    def _get_gradient(self, Z: np.ndarray, W: np.ndarray, v: np.ndarray) -> np.ndarray:
-        return Z.T @ W @ v
-
-    def _get_relative_deviance_change(
-        self, deviance: np.ndarray, deviance_old: np.ndarray
-    ) -> np.ndarray:
-        "Compute relative change in deviance for convergence check."
-        return np.abs(deviance - deviance_old) / (0.1 + np.abs(deviance_old))
-
-    def _step_halving(
-        self,
-        eta: np.ndarray,
-        eta_new: np.ndarray,
-        mu_new: np.ndarray,
-        deviance: np.ndarray,
-        deviance_new: np.ndarray,
-        step_halving_tol: float = 1e-12,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Apply step-halving if deviance did not decrease.
-
-        Returns updated (eta_new, mu_new, deviance_new).
-        """
-        if deviance_new < deviance:
-            return eta_new, mu_new, deviance_new
-
-        alpha = 1.0
-        while alpha > step_halving_tol:
-            alpha /= 2.0
-            eta_try = eta + alpha * (eta_new - eta)
-            mu_try = self._get_mu(eta=eta_try)
-            deviance_try = self._get_deviance(self._Y.flatten(), mu_try)
-            if deviance_try < deviance:
-                return eta_try, mu_try, deviance_try
-
-        # Step-halving exhausted - check if change is within tolerance
-        if self._get_relative_deviance_change(deviance_new, deviance) < self.tol:
-            return eta_new, mu_new, deviance_new
-
-        raise RuntimeError(
-            f"Step-halving failed. Deviance: {deviance_new:.6f} vs {deviance:.6f}"
+        self.collinearity = fit.collinearity
+        self._coefnames = list(fit.collinearity.coefnames)
+        working_state = fit.working_state
+        self.working_state = working_state
+        # The prediction view of the same arrays: eta is the linear predictor
+        # (fixed effects and offset included), mu its inverse-link mean.
+        self.fitted_values = FittedValues(
+            link=working_state.eta, response=working_state.mu
         )
+        design_within = working_state.design_within
+        self._X_is_empty = design_within.shape[1] == 0
+        self._k = design_within.shape[1]
+
+        self._beta_hat = fit.beta
+        self.sandwich = fit.sandwich
+        self.convergence = fit.converged
+
+    def _fit_statistics(self) -> FitStatistics:
+        """Compute the deviance of the final IRLS iteration.
+
+        Families with further measures extend this in their subclass.
+        """
+        deviance = self._family.deviance(
+            self.model_matrix.dependent.to_numpy().flatten(),
+            self.working_state.mu,
+            self.observation_weights.values,
+        )
+        return FitStatistics(deviance=deviance)
+
+    def _prediction_design(self) -> np.ndarray:
+        """Supply the final IRLS design to the inherited predict() method.
+
+        Unlike linear models, GLMs store this coefficient-ordered design in
+        working_state. It is not multiplied by square-root working weights.
+        """
+        require_retained(self, "predict", "working_state")
+        return self.working_state.design_within
+
+    def _fixef_dependent(self) -> np.ndarray:
+        """Return the linear predictor net of the offset for `fixef()`.
+
+        The fixed effects are recovered from the estimated linear predictor,
+        equation (5.2) in Stammann (2018), http://arxiv.org/abs/1707.01815;
+        the observed response is not used. The linear predictor includes
+        the offset; subtracting it makes `sumFE` the pure fixed-effect
+        contribution, so predict() can add the offset back from newdata
+        without double-counting.
+        """
+        eta = self.fitted_values.link
+        if self.options.offset is not None:
+            offset = self.model_matrix.offset
+            assert offset is not None
+            eta = eta - offset.to_numpy().flatten()
+        return eta
+
+    def _vcov_iid(self) -> VcovTerm:
+        return VcovTerm(vcov=vcov_iid_glm(bread=self.sandwich.bread), meat=None)
+
+    def _vcov_hetero(self, *, vcov_type_detail: str) -> VcovTerm:
+        # The IRLS design is unpremultiplied, so the HC2/HC3 leverage takes the
+        # final IRLS weights, which already contain the observation weights.
+        observation_weights = self.observation_weights.values
+        meat = meat_hetero(
+            sandwich=self.sandwich,
+            X=self.working_state.design_within,
+            frequency_weights=(
+                observation_weights.reshape((-1, 1))
+                if observation_weights is not None
+                and self.options.weights_type == "fweights"
+                else None
+            ),
+            normal_equation_weights=self.working_state.working_weights,
+            vcov_type_detail=cast(HeteroVcovTypeOptions, vcov_type_detail),
+        )
+        bread = self.sandwich.bread
+        return VcovTerm(vcov=bread @ meat @ bread, meat=meat)
+
+    def resid(self, type: str = "response") -> np.ndarray:
+        """
+        Return residuals from a fitted GLM.
+
+        Parameters
+        ----------
+        type : str, optional
+            The type of residuals to return. Either "response" (default) or
+            "working".
+
+        Returns
+        -------
+        np.ndarray
+            A flat array with the requested residuals.
+        """
+        if type not in {"response", "working"}:
+            raise ValueError("type must be one of 'response' or 'working'.")
+        require_retained(self, "resid", "working_state")
+        if type == "response":
+            return self.working_state.response_residuals.flatten()
+        return self.working_state.working_residuals.flatten()
 
     def residualize(
         self,
         v: np.ndarray,
         X: np.ndarray,
-        flist: np.ndarray,
+        flist: np.ndarray | list[Effect] | None,
         weights: np.ndarray,
         tol: float,
     ) -> tuple[np.ndarray, np.ndarray]:
-        "Residualize v and X by flist using weights."
+        """Residualize v and X with current working weights and a reused preconditioner."""
         if flist is None:
             return v, X
 
-        effective_demeaner = _override_demeaner_tol(self._demeaner, tol=tol)
-        vX_tilde, success, used_pre = dispatch_demean(
+        effective_demeaner = self.options.demeaner.with_tol(tol)
+        vX_tilde = self._demean_cache.demean_array(
             x=np.c_[v, X],
             flist=flist,
             weights=weights.flatten(),
+            na_index=self.sample_info.dropped_row_index,
             demeaner=effective_demeaner,
-            cached_preconditioner=self._preconditioner,
         )
-        self._seed_preconditioner(used_pre)
-
-        if success is False:
-            raise ValueError(
-                f"Demeaning failed after {effective_demeaner.fixef_maxiter} iterations."
-            )
         return vX_tilde[:, 0], vX_tilde[:, 1:]
-
-    def _check_convergence(
-        self,
-        rel_deviance_change: float,
-        tol: float,
-        r: int,
-        maxiter: int,
-        model: str,
-    ) -> bool:
-        if model == "feglm-gaussian":
-            converged = True
-        else:
-            converged = rel_deviance_change < tol
-            if r == maxiter:
-                raise NonConvergenceError(
-                    f"""
-                    The IRLS algorithm did not converge with {maxiter}
-                    iterations. Try to increase the maximum number of iterations.
-                    """
-                )
-
-        return converged
-
-    def _update_eta_step_halfing(
-        self,
-        Y: np.ndarray,
-        beta: np.ndarray,
-        eta: np.ndarray,
-        mu: np.ndarray,
-        deviance: np.ndarray,
-        beta_update_diff: np.ndarray,
-        sqrt_W: np.ndarray,
-        z: np.ndarray,
-        z_tilde: np.ndarray,
-        X_tilde: np.ndarray,
-        deviance_old: np.ndarray,
-        step_halfing_tolerance: float,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        "Update parameters, potentially using step halfing."
-        alpha = 1.0
-        step_accepted = False
-
-        while alpha > step_halfing_tolerance:
-            beta_try = beta + alpha * beta_update_diff
-            eta_try = self._update_eta(
-                sqrt_W=sqrt_W.flatten(),
-                z=z,
-                z_tilde=z_tilde,
-                X_tilde=X_tilde,
-                beta_diff=alpha * beta_update_diff,
-                eta=eta,
-            )
-            mu_try = self._get_mu(eta=eta_try)
-            deviance_try = self._get_deviance(Y.flatten(), mu_try)
-            if deviance_try < deviance_old:
-                beta = beta_try
-                eta = eta_try
-                mu = mu_try
-                deviance = deviance_try
-                step_accepted = True
-                break
-            else:
-                alpha /= 2.0
-
-        if not step_accepted:
-            raise RuntimeError("Step-halving failed to find improvement.")
-
-        return beta, eta, mu, deviance
 
     def predict(
         self,
@@ -536,86 +378,45 @@ class Feglm(Feols, ABC):
             Another stopping tolerance for scipy.sparse.linalg.lsqr().
             See https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.lsqr.html
         se_fit: Optional[bool], optional
-            If True, the standard error of the prediction is computed. Only feasible
-            for models without fixed effects. GLMs are not supported. Defaults to False.
+            Prediction standard errors are not supported for GLMs. Passing True
+            raises NotImplementedError. Defaults to False.
         interval: str, optional
-            The type of interval to compute. Can be either 'prediction' or None.
+            Prediction intervals are not supported for GLMs. Passing 'prediction'
+            raises NotImplementedError. Defaults to None.
         alpha: float, optional
             The alpha level for the confidence interval. Defaults to 0.05. Only
             used if interval = "prediction" is not None.
 
         Returns
         -------
-        Union[np.ndarray, pd.DataFrame]
-            Returns a pd.Dataframe with columns "fit", "se_fit" and CIs if argument "interval=prediction".
-            Otherwise, returns a np.ndarray with the predicted values of the model or the prediction
-            standard errors if argument "se_fit=True".
+        np.ndarray
+            Predicted values on the requested scale.
         """
-        if se_fit:
-            raise NotImplementedError(
-                "Prediction with standard errors is not implemented for GLMs."
-            )
-
-        yhat = super().predict(newdata=newdata, type="link", atol=atol, btol=btol)
+        yhat = super().predict(
+            newdata=newdata,
+            type="link",
+            atol=atol,
+            btol=btol,
+            se_fit=se_fit,
+            interval=interval,
+            alpha=alpha,
+        )
         if type == "response":
-            return self._get_mu(
-                eta=yhat.to_numpy() if isinstance(yhat, pd.DataFrame) else yhat
+            return self._family.inv_link(
+                yhat.to_numpy() if isinstance(yhat, pd.DataFrame) else yhat
             )
         else:
             return yhat
 
-    @abstractmethod
-    def _check_dependent_variable(self):
-        pass
+    def _validate_response(self) -> None:
+        """Validate the prepared response against the family's constraints."""
+        self._family.check_y(self.model_matrix.dependent.to_numpy())
 
-    @abstractmethod
-    def _get_score(
-        self, y: np.ndarray, X: np.ndarray, mu: np.ndarray, eta: np.ndarray
-    ) -> np.ndarray:
-        pass
-
-    @abstractmethod
-    def _get_deviance(self, y: np.ndarray, mu: np.ndarray) -> np.ndarray:
-        "Compute the deviance for the GLM family."
-        pass
-
-    @abstractmethod
-    def _get_dispersion_phi(self, theta: np.ndarray) -> float:
-        "Get the dispersion parameter phi for the GLM family."
-        pass
-
-    @abstractmethod
-    def _get_b(self, theta: np.ndarray) -> np.ndarray:
-        "Get the cumulant function b(theta) for the GLM family."
-        pass
-
-    @abstractmethod
-    def _get_mu(self, eta: np.ndarray) -> np.ndarray:
-        "Apply inverse link function: μ = g⁻¹(η)."
-        pass
-
-    @abstractmethod
-    def _get_link(self, mu: np.ndarray) -> np.ndarray:
-        "Apply link function: η = g(μ)."
-        pass
-
-    @abstractmethod
-    def _get_gprime(self, mu: np.ndarray) -> np.ndarray:
-        "Get the derivative of the link function g'(μ) = dη/dμ."
-        pass
-
-    @abstractmethod
-    def _get_theta(self, mu: np.ndarray) -> np.ndarray:
-        "Get the mechanical link theta(mu) for the GLM family."
-        pass
-
-    @abstractmethod
-    def _get_V(self, mu: np.ndarray) -> np.ndarray:
-        "Get the variance function V(mu) for the GLM family."
-        pass
+    def _finalize_fit(self) -> None:
+        """Skip the OLS Wald test; GLMs run no Wald test at fit time."""
 
 
-def _glm_input_checks(drop_singletons: bool, tol: float, maxiter: int):
+def _glm_input_checks(drop_singletons: bool, tol: float, maxiter: int) -> None:
     if not isinstance(drop_singletons, bool):
         raise TypeError("drop_singletons must be logical.")
     if not isinstance(tol, (int, float)):

@@ -26,7 +26,7 @@ from antsibull_docutils.html_utils import html_argument_escape, html_escape
         ),
     ],
 )
-def test_html_escape(text, escaped):
+def test_html_escape(text: str, escaped: str) -> None:
     result = html_escape(text)
     assert result == escaped
 
@@ -42,6 +42,6 @@ def test_html_escape(text, escaped):
         ),
     ],
 )
-def test_html_argument_escape(text, escaped):
+def test_html_argument_escape(text: str, escaped: str) -> None:
     result = html_argument_escape(text)
     assert result == escaped

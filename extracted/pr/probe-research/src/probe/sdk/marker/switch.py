@@ -88,49 +88,6 @@ def set_tracking(session_id: str, on: bool) -> bool:
     )
 
 
-def set_tracking_if_absent(session_id: str, on: bool) -> bool:
-    """Record the session's STARTING value, ONLY when nobody has decided yet.
-    True when THIS call decided.
-
-    The seed half of the toggle. A session starts at the effective default for
-    its INITIAL cwd (`resolve_tracking_default(initial_cwd)`) and the file exists
-    from SessionStart onward, so "undecided" is not a state any reader has to
-    resolve for itself: one setting, one file, always present.
-
-    THE VALUE IS A PARAMETER, never a literal `on`. Seeding `on` on a machine
-    whose initial-cwd default is `off` would let automation author a declaration the
-    researcher did not make -- the default IS the researcher saying which value
-    a new session starts at, and it is the same setting the toggle flips, not a
-    weaker kind of preference. A DECISION is never touched either: an existing
-    file in either direction, and the legacy `<sid>.off` spelling, all block
-    the seed.
-
-    Exclusive by construction, not by check-then-write. The content is written
-    to a UNIQUE temp file and PUBLISHED with os.link, which fails with EEXIST
-    rather than replacing. A researcher typing the toggle to `off` while the
-    first write is in flight keeps their `off`, and a crash between create and
-    publish cannot strand a half-written signal: the target either does not
-    exist or carries complete content.
-
-    The temp name carries pid AND a nanosecond stamp, and is created O_EXCL.
-    Naming it by pid alone lets two THREADS of one process share it, and the
-    loser then truncates a file the winner has already published — a reader
-    sees an empty marker. `tempfile.mkstemp` would say this in one call and
-    costs ~17ms of import (it pulls in shutil/lzma); this module is imported on
-    every status-line render, where that is the whole budget. Hence os.open.
-
-    THE LEGACY SPELLING IS RE-CHECKED AFTER PUBLISHING. `os.link` arbitrates
-    `<sid>.tracking` only, so an old client writing `<sid>.off` between the read
-    and the publish would leave both files on disk with `on` winning the read —
-    automation silently overriding an explicit opt-out, which is the one thing
-    this must never do. Losing that race is repaired by removing what we just
-    published, not by keeping it.
-    """
-    return set_session_state_if_absent(
-        session_id, STATE_FULL if on else STATE_READ_ONLY
-    )
-
-
 def is_tracking(signal: str | None, *, default: bool | None = None) -> bool:
     """The one boolean the whole surface renders. TWO STATES, never three.
 
@@ -256,32 +213,35 @@ STATE_WORDS = tuple(STATE_LABELS[state] for state in SWITCH_STATES)
 
 #: What a TYPED `daemon` gets back instead of a state change.
 DAEMON_SWITCH_REFUSAL = (
-    "Whether the Probe daemon records is set in `probe wizard` (Defaults › Who records), "
-    "not by this switch, which is on / read / off. Nothing changed."
+    "Whether the Probe daemon records is the Who records setting, not this switch, which is "
+    f"on / read / off: {DAEMON_HINT}. Nothing changed."
 )
 
-#: WHAT A PERSON READS for each state when the daemon is the one recording and
-#: reading (Richard 2026-09-29). Display only: JSON keeps `state_label`'s words
-#: (`daemon` included), because pi's `parseState` and older hooks read them.
+#: WHAT A PERSON READS: five states, no others (Richard 2026-11-06: "on
+#: (inline/daemon), off, read (inline/daemon)"). Who reads and records is part of
+#: the name: the daemon where it does (`is_daemon_mode`), else the agent itself.
+#: Display only: JSON keeps `state_label`'s words (`daemon` included), because
+#: pi's `parseState` and older hooks read them.
 DAEMON_STATE_DISPLAY = {
     STATE_DAEMON: "on (daemon)",
     STATE_READ_ONLY: "read only (daemon)",
     STATE_OFF: "off",
 }
+INLINE_STATE_DISPLAY = {
+    STATE_FULL: "on (inline)",
+    STATE_READ_ONLY: "read only (inline)",
+    STATE_OFF: "off",
+}
 
 
 def state_display(state: "str | None", daemon: bool = False, inline: bool = False) -> str:
-    """The state as a person reads it: `on` / `read` / `off`, and in a session the
-    daemon records for (`daemon`, see `daemon_session`) `on (daemon)` /
-    `read only (daemon)` / `off`. A stored `daemon` always reads `on (daemon)`;
-    an inline session (`is_inline`) reads `on (inline)`."""
-    if inline and state == STATE_FULL:
-        return INLINE_DISPLAY
-    if inline and state == STATE_READ_ONLY:
-        return "read only (inline)"
-    if state == STATE_DAEMON or (daemon and state in DAEMON_STATE_DISPLAY):
+    """The state as a person reads it (one of the five above). `daemon`: the daemon
+    reads for this chat now (`is_daemon_mode`); a stored `daemon` always reads
+    `on (daemon)` and a `full` always `on (inline)`, since no daemon runs for it.
+    `inline` (`is_inline`) wins over `daemon`."""
+    if state == STATE_DAEMON or (daemon and not inline and state in DAEMON_STATE_DISPLAY):
         return DAEMON_STATE_DISPLAY[state]
-    return state_label(state)
+    return INLINE_STATE_DISPLAY.get(state, state_label(state))
 
 
 def state_label(state: "str | None") -> str:

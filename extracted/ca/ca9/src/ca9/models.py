@@ -106,6 +106,18 @@ class Evidence:
     coverage_scope: str = "unavailable"
     coverage_measured_files: tuple[str, ...] = ()
     coverage_unmeasured_targets: tuple[str, ...] = ()
+    # "metadata" or "curated" mappings can prove an import is absent; "guessed" cannot.
+    import_names: tuple[str, ...] = ()
+    import_name_source: str = ""
+    package_installed: bool | None = None  # none = not checked
+    # Ways the package may run without an import: CLI, plugin, config string.
+    indirect_use_signals: tuple[str, ...] = ()
+    # Packages whose absence of imports rests on a guessed import name.
+    unproven_import_mappings: tuple[str, ...] = ()
+    submodule_evidence: str = ""
+    # Imported modules no installed distribution provides; they leave the
+    # environment dependency graph incomplete.
+    dependency_graph_unresolved: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -130,8 +142,66 @@ class ExploitPath:
 class ThreatIntelData:
     epss_score: float | None = None  # 0.0-1.0
     epss_percentile: float | None = None  # 0.0-1.0
-    in_kev: bool = False
+    in_kev: bool | None = False
     kev_due_date: str | None = None
+    epss_status: str = "unknown"
+    epss_score_date: str | None = None
+    epss_retrieved_at: str | None = None
+    kev_status: str = "unknown"
+    kev_date_added: str | None = None
+    kev_catalog_date: str | None = None
+    kev_retrieved_at: str | None = None
+
+    def to_dict(self) -> dict:
+        from dataclasses import asdict
+
+        return asdict(self)
+
+    @property
+    def current_high_epss(self) -> bool:
+        from ca9 import risk_context as risk
+
+        now = risk.dt.datetime.now(risk.dt.timezone.utc)
+        record = risk._epss_record(
+            {
+                "score": self.epss_score,
+                "percentile": self.epss_percentile,
+                "score_date": self.epss_score_date,
+                "retrieved_at": self.epss_retrieved_at,
+            },
+            now,
+        )
+        return bool(
+            self.epss_status == "current"
+            and record
+            and record["score"] >= 0.5
+            and risk._fresh(record, now, "score_date")
+        )
+
+    @property
+    def current_kev(self) -> bool:
+        from ca9 import risk_context as risk
+
+        now = risk.dt.datetime.now(risk.dt.timezone.utc)
+        catalog = risk._date(self.kev_catalog_date, now.date())
+        added = risk._date(self.kev_date_added, now.date())
+        due = risk._date(self.kev_due_date, now.date(), future=True)
+        retrieved = risk._instant(self.kev_retrieved_at, now)
+        return bool(
+            self.kev_status == "current"
+            and self.in_kev is True
+            and catalog
+            and added
+            and due
+            and retrieved
+            and added <= catalog <= retrieved.astimezone(risk.dt.timezone.utc).date().isoformat()
+            and added <= due
+            and risk._fresh(
+                {"catalog_date": catalog, "retrieved_at": self.kev_retrieved_at},
+                now,
+                "catalog_date",
+            )
+        )
 
 
 @dataclass

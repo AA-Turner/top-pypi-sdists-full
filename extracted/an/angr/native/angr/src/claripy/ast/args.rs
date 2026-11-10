@@ -2,6 +2,40 @@ use ast::fp::{PyFSort, PyRM};
 
 use crate::claripy::prelude::*;
 
+/// Typed access to the `args` list a wrapper's `__new__` receives when it
+/// reconstructs a node from `(op, args, annotations)`, e.g. when unpickling.
+pub trait AstArgs {
+    /// The AST wrapped by the `index`-th argument, which must be an instance
+    /// of the wrapper class `T`.
+    fn ast<T: AstWrapper>(
+        &self,
+        py: Python<'_>,
+        index: usize,
+    ) -> Result<AstRef<'static>, ClaripyError>;
+
+    /// The ASTs wrapped by every argument, each an instance of `T`.
+    fn asts<T: AstWrapper>(&self, py: Python<'_>) -> Result<Vec<AstRef<'static>>, ClaripyError>;
+}
+
+impl AstArgs for [Py<PyAny>] {
+    fn ast<T: AstWrapper>(
+        &self,
+        py: Python<'_>,
+        index: usize,
+    ) -> Result<AstRef<'static>, ClaripyError> {
+        let arg = self
+            .get(index)
+            .ok_or(ClaripyError::MissingArgIndex(index))?;
+        Ok(arg.cast_bound::<T>(py)?.get().inner().clone())
+    }
+
+    fn asts<T: AstWrapper>(&self, py: Python<'_>) -> Result<Vec<AstRef<'static>>, ClaripyError> {
+        (0..self.len())
+            .map(|index| self.ast::<T>(py, index))
+            .collect()
+    }
+}
+
 pub trait ExtractPyArgs {
     fn extract_py_args<'py>(&self, py: Python<'py>)
     -> Result<Vec<Bound<'py, PyAny>>, ClaripyError>;
@@ -49,7 +83,8 @@ impl ExtractPyArgs for AstRef<'static> {
             | AstOp::Mul(args)
             | AstOp::Concat(args)
             | AstOp::Union(args)
-            | AstOp::Intersection(args) => args
+            | AstOp::Intersection(args)
+            | AstOp::StrConcat(args) => args
                 .iter()
                 .map(|a| wrap_child(py, a))
                 .collect::<Result<Vec<_>, _>>()?,
@@ -85,6 +120,7 @@ impl ExtractPyArgs for AstRef<'static> {
             | AstOp::SLE(a, b)
             | AstOp::SGT(a, b)
             | AstOp::SGE(a, b)
+            | AstOp::FpEq(a, b)
             | AstOp::FpLt(a, b)
             | AstOp::FpLeq(a, b)
             | AstOp::FpGt(a, b)
@@ -92,7 +128,6 @@ impl ExtractPyArgs for AstRef<'static> {
             | AstOp::StrContains(a, b)
             | AstOp::StrPrefixOf(a, b)
             | AstOp::StrSuffixOf(a, b)
-            | AstOp::StrConcat(a, b)
             | AstOp::Sub(a, b)
             | AstOp::UDiv(a, b)
             | AstOp::SDiv(a, b)
@@ -131,8 +166,17 @@ impl ExtractPyArgs for AstRef<'static> {
                 wrap_child(py, b)?,
                 Bound::new(py, PyRM::from(rm))?.into_any(),
             ],
-            AstOp::FpSqrt(a, rm) => vec![
+            AstOp::FpSqrt(a, rm) | AstOp::FpRoundToIntegral(a, rm) => vec![
                 wrap_child(py, a)?,
+                Bound::new(py, PyRM::from(rm))?.into_any(),
+            ],
+            AstOp::FpMin(a, b) | AstOp::FpMax(a, b) => {
+                vec![wrap_child(py, a)?, wrap_child(py, b)?]
+            }
+            AstOp::FpFma(a, b, c, rm) => vec![
+                wrap_child(py, a)?,
+                wrap_child(py, b)?,
+                wrap_child(py, c)?,
                 Bound::new(py, PyRM::from(rm))?.into_any(),
             ],
         })

@@ -59,6 +59,10 @@ pub(super) fn start(dir: &Path, spec: &ServiceSpec) -> Result<()> {
     record(dir, &spec.name, &Birth::of(child.pid())?)
 }
 
+pub(super) fn clear(_: &Path, _: &ServiceSpec) -> Result<()> {
+    Ok(())
+}
+
 pub(super) fn announce(dir: &Path, name: &str) -> Result<()> {
     // A console with no other process on it was opened for this service (a logon start): leave it
     // so its window closes. A terminal's console has the shell on it too, and stays.
@@ -69,20 +73,6 @@ pub(super) fn announce(dir: &Path, name: &str) -> Result<()> {
         unsafe { FreeConsole() };
     }
     record(dir, name, &Birth::own()?)
-}
-
-pub(super) fn stop(dir: &Path, name: &str) -> Result<()> {
-    if let Some(exact) = running(dir, name)? {
-        exact.kill()?;
-        exact.wait()?;
-    }
-    let path = birth_path(dir, name);
-    if let Err(error) = fs::remove_file(&path)
-        && error.kind() != io::ErrorKind::NotFound
-    {
-        return Err(Error::io("remove", path)(error));
-    }
-    Ok(())
 }
 
 /// A detached process leaves its starter's console and job: nothing more is needed.

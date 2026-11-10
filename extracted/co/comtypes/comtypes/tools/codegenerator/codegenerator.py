@@ -7,15 +7,14 @@ import logging
 import os
 import textwrap
 import warnings
-from collections.abc import Iterator, Sequence
-from typing import Any, Literal, Optional
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Optional
 from typing import Union as _UnionT
 
 import comtypes
 from comtypes import typeinfo
 from comtypes.tools import tlbparser, typedesc
 from comtypes.tools.codegenerator import heads, namespaces, packing
-from comtypes.tools.codegenerator.comments import ComInterfaceBodyImplCommentWriter
 from comtypes.tools.codegenerator.helpers import (
     ASSUME_STRINGS,
     ComMethodGenerator,
@@ -25,6 +24,10 @@ from comtypes.tools.codegenerator.helpers import (
     get_real_type,
 )
 from comtypes.tools.codegenerator.modulenamer import name_wrapper_module
+
+if TYPE_CHECKING:
+    from comtypes import hints  # type: ignore
+
 
 version = comtypes.__version__
 
@@ -51,8 +54,8 @@ class CodeGenerator:
         self.enums = namespaces.EnumerationNamespaces()
         self.unnamed_enum_members: list[tuple[str, int]] = []
         self._to_type_name = TypeNamer()
-        self.known_symbols = known_symbols or {}
-        self.known_interfaces = known_interfaces or {}
+        self.known_symbols: Mapping[str, str] = known_symbols or {}
+        self.known_interfaces: Mapping[str, str] = known_interfaces or {}
 
         self.done = set()  # type descriptions that have been generated
         self.names = set()  # names that have been generated
@@ -82,30 +85,99 @@ class CodeGenerator:
         yield self.stream
         self.last_item = item
 
-    def generate(self, item):
+    def generate(
+        self,
+        item: _UnionT[
+            tlbparser.ParsedType,
+            tlbparser.SpecType,
+            typedesc.EnumValue,
+            typedesc.StructureHead,
+            typedesc.StructureBody,
+            typedesc.ComInterfaceHead,
+            typedesc.DispInterfaceHead,
+            typedesc.ComInterfaceBody,
+            typedesc.DispInterfaceBody,
+        ],
+    ) -> None:
         if item in self.done:
             return
         if self._is_interface_typedesc(item):
             self._define_interface(item)
             return
         if isinstance(item, typedesc.StructureHead):
-            name = getattr(item.struct, "name", None)
+            name = item.struct.name
+        elif isinstance(
+            item,
+            (
+                typedesc.External,
+                typedesc.PointerType,
+                typedesc.ArrayType,
+                typedesc.SAFEARRAYType,
+                typedesc.StructureBody,
+            ),
+        ):
+            name = None
         else:
-            name = getattr(item, "name", None)
-        if name in self.known_symbols:
+            name = item.name
+        if name is not None and name in self.known_symbols:
             self.imports.add(name, symbols=self.known_symbols)
             self.done.add(item)
             if isinstance(item, typedesc.Structure):
                 self.done.add(item.get_head())
                 self.done.add(item.get_body())
             return
-        mth = getattr(self, type(item).__name__)
         # to avoid infinite recursion, we have to mark it as done
         # before actually generating the code.
         self.done.add(item)
-        mth(item)
+        self._dispatch_by(item)
 
-    def generate_all(self, items):
+    def _dispatch_by(self, item: Any) -> None:
+        if isinstance(item, typedesc.ArrayType):
+            self.ArrayType(item)
+        elif isinstance(item, typedesc.EnumValue):
+            self.EnumValue(item)
+        elif isinstance(item, typedesc.Enumeration):
+            self.Enumeration(item)
+        elif isinstance(item, typedesc.Typedef):
+            self.Typedef(item)
+        elif isinstance(item, typedesc.FundamentalType):
+            self.FundamentalType(item)
+        elif isinstance(item, typedesc.StructureHead):
+            self.StructureHead(item)
+        elif isinstance(item, typedesc.Structure):
+            self.Structure(item)
+        elif isinstance(item, typedesc.Union):
+            self.Union(item)
+        elif isinstance(item, typedesc.StructureBody):
+            self.StructureBody(item)
+        elif isinstance(item, typedesc.TypeLib):
+            self.TypeLib(item)
+        elif isinstance(item, typedesc.External):
+            self.External(item)
+        elif isinstance(item, typedesc.Constant):
+            self.Constant(item)
+        elif isinstance(item, typedesc.SAFEARRAYType):
+            self.SAFEARRAYType(item)
+        elif isinstance(item, typedesc.PointerType):
+            self.PointerType(item)
+        elif isinstance(item, typedesc.CoClass):
+            self.CoClass(item)
+        elif isinstance(item, typedesc.ComInterface):
+            self.ComInterface(item)
+        elif isinstance(item, typedesc.ComInterfaceHead):
+            self.ComInterfaceHead(item)
+        elif isinstance(item, typedesc.ComInterfaceBody):
+            self.ComInterfaceBody(item)
+        elif isinstance(item, typedesc.DispInterface):
+            self.DispInterface(item)
+        elif isinstance(item, typedesc.DispInterfaceHead):
+            self.DispInterfaceHead(item)
+        elif isinstance(item, typedesc.DispInterfaceBody):
+            self.DispInterfaceBody(item)
+        else:
+            raise TypeError(f"Unsupported: {type(item).__name__!r}")
+
+    def generate_all(self, items: Iterable[tlbparser.ParsedType]) -> None:
         for item in items:
             self.generate(item)
 
@@ -161,7 +233,7 @@ class CodeGenerator:
             self.names.add("typelib_path")
 
     def generate_wrapper_code(
-        self, tdescs: Sequence[Any], filename: Optional[str]
+        self, tdescs: Sequence[tlbparser.ParsedType], filename: Optional[str]
     ) -> str:
         """Returns the code for the COM type library wrapper module.
 
@@ -253,14 +325,16 @@ class CodeGenerator:
         Such as "comtypes.gen.stdole" and "comtypes.gen.Excel".
         """
         output = io.StringIO()
-        print("from enum import IntFlag", file=output)
+        enumcode, enumbases = self.enums.to_enums()
+        if enumbases:
+            print(f"from enum import {', '.join(sorted(list(enumbases)))}", file=output)
         print(file=output)
         print(f"import {modname} as __wrapper_module__", file=output)
         print(self._make_friendly_module_import_part(modname), file=output)
         print(file=output)
         print(file=output)
         if self.enums:
-            print(self.enums.to_intflags(), file=output)
+            print(enumcode, file=output)
             print(file=output)
             print(file=output)
         if self.enum_aliases:
@@ -354,15 +428,8 @@ class CodeGenerator:
         pass  # we should check if this is known somewhere
 
     def StructureHead(self, head: typedesc.StructureHead) -> None:
-        for struct in head.struct.bases:
-            self.generate(struct.get_head())
-            self.more.add(struct)
-        basenames = [self._to_type_name(b) for b in head.struct.bases]
-        if basenames:
-            self.imports.add("comtypes", "GUID")
-
         with self.adjust_blank("class") as ofi:
-            heads.StructureHeadWriter(ofi).write(head, basenames)
+            heads.StructureHeadWriter(ofi).write(head)
         self.names.add(head.struct.name)
 
     def Structure(self, struct: typedesc.Structure) -> None:
@@ -375,38 +442,27 @@ class CodeGenerator:
 
     def StructureBody(self, body: typedesc.StructureBody) -> None:
         fields: list[typedesc.Field] = []
-        methods: list[typedesc.Method] = []
         for m in body.struct.members:
-            if type(m) is typedesc.Field:
+            if isinstance(m, typedesc.Field):
                 fields.append(m)
-                if type(m.typ) is typedesc.Typedef:
+                if isinstance(m.typ, typedesc.Typedef):
                     self.generate(get_real_type(m.typ))
                 self.generate(m.typ)
-            elif type(m) is typedesc.Method:
-                methods.append(m)
-                self.generate(m.returns)
-                self.generate_all(m.iterArgTypes())
-            elif type(m) is typedesc.Constructor:
-                pass
 
         # we don't need _pack_ on Unions (I hope, at least), and not
         # on COM interfaces:
-        if not methods:
-            try:
-                pack = packing.calc_packing(body.struct, fields)
-                if pack is not None:
-                    with self.adjust_blank("attribute") as ofi:
-                        print(f"{body.struct.name}._pack_ = {pack}", file=ofi)
-            except packing.PackingError as details:
-                # if packing fails, write a warning comment to the output.
-                message = f"Structure {body.struct.name}: {details}"
-                warnings.warn(message, UserWarning)
-                with self.adjust_blank("comment") as ofi:
-                    print(f"# WARNING: {details}", file=ofi)
+        try:
+            pack = packing.calc_packing(body.struct, fields)
+            if pack is not None:
+                with self.adjust_blank("attribute") as ofi:
+                    print(f"{body.struct.name}._pack_ = {pack}", file=ofi)
+        except packing.PackingError as details:
+            # if packing fails, write a warning comment to the output.
+            message = f"Structure {body.struct.name}: {details}"
+            warnings.warn(message, UserWarning)
+            with self.adjust_blank("comment") as ofi:
+                print(f"# WARNING: {details}", file=ofi)
         if fields:
-            if body.struct.bases:
-                assert len(body.struct.bases) == 1
-                self.generate(body.struct.bases[0].get_body())
             with self.adjust_blank("attribute") as ofi:
                 self._write_structbody_fields(body, fields, ofi)
             if body.struct.size is None:
@@ -415,10 +471,6 @@ class CodeGenerator:
             elif body.struct.name not in packing.dont_assert_size:
                 with self.adjust_blank("assert") as ofi:
                     self._write_structbody_size_assertion(body, ofi)
-        if methods:
-            self.imports.add("comtypes", "COMMETHOD")
-            with self.adjust_blank("attribute") as ofi:
-                self._write_structbody_commethods(body, methods, ofi)
 
     def _write_structbody_fields(
         self,
@@ -463,32 +515,6 @@ class CodeGenerator:
         align = body.struct.align // 8
         print(f"assert alignment({name}) == {align}, alignment({name})", file=ofi)
 
-    def _write_structbody_commethods(
-        self,
-        body: typedesc.StructureBody,
-        methods: list[typedesc.Method],
-        ofi: io.StringIO,
-    ) -> None:
-        print(f"{body.struct.name}._methods_ = [", file=ofi)
-        if body.struct.location:
-            print(f"# {body.struct.location}", file=ofi)
-        for m in methods:
-            if m.location:
-                print(f"    # {m.location}", file=ofi)
-            print(
-                (
-                    "    COMMETHOD(\n"
-                    "        [],\n"
-                    f"        {self._to_type_name(m.returns)},\n"
-                    f"        '{m.name}',\n"
-                ),
-                file=ofi,
-            )
-            for a in m.iterArgTypes():
-                print(f"        ([], {self._to_type_name(a)}),\n", file=ofi)
-                print("    ),", file=ofi)
-        print("]", file=ofi)
-
     ################################################################
     # top-level typedesc generators
     #
@@ -523,17 +549,17 @@ class CodeGenerator:
         self.imports.add("comtypes.automation", "_midlSAFEARRAY")
 
     def PointerType(self, tp: typedesc.PointerType) -> None:
-        if type(tp.typ) is typedesc.ComInterface:
+        if isinstance(tp.typ, typedesc.ComInterface):
             # this defines the class
             self.generate(tp.typ.get_head())
             # this defines the _methods_
             self.more.add(tp.typ)
-        elif type(tp.typ) is typedesc.PointerType:
+        elif isinstance(tp.typ, typedesc.PointerType):
             self.generate(tp.typ)
-        elif type(tp.typ) in (typedesc.Union, typedesc.Structure):
+        elif isinstance(tp.typ, (typedesc.Union, typedesc.Structure)):
             self.generate(tp.typ.get_head())
             self.more.add(tp.typ)
-        elif type(tp.typ) is typedesc.Typedef:
+        elif isinstance(tp.typ, typedesc.Typedef):
             self.generate(tp.typ)
         else:
             self.generate(tp.typ)
@@ -568,9 +594,7 @@ class CodeGenerator:
 
         self.names.add(coclass.name)
 
-    def _is_interface_typedesc(
-        self, item: Any
-    ) -> "comtypes.hints.TypeGuard[_InterfaceTypeDesc]":
+    def _is_interface_typedesc(self, item: Any) -> "hints.TypeIs[_InterfaceTypeDesc]":
         return isinstance(
             item,
             (
@@ -607,8 +631,7 @@ class CodeGenerator:
         else:
             raise TypeError
         self.done.add(item)  # to avoid infinite recursion.
-        mth = getattr(self, type(item).__name__)
-        mth(item)
+        self._dispatch_by(item)
 
     def ComInterface(self, itf: typedesc.ComInterface) -> None:
         self.generate(itf.get_head())
@@ -660,8 +683,6 @@ class CodeGenerator:
                     raise TypeError("what's this?")
 
             print("]", file=ofi)
-        print(file=self.stream)
-        ComInterfaceBodyImplCommentWriter(self.stream).write(body)
 
     def DispInterface(self, itf: typedesc.DispInterface) -> None:
         self.generate(itf.get_head())

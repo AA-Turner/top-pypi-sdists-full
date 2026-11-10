@@ -10,7 +10,7 @@ import pysam
 from varcode import ContigResolver, Variant
 from varcode.reference import infer_genome
 
-from .contig_resolution import variant_source_contig, variant_reference_name
+from .contig_resolution import resolve_reference_contig, variant_source_contig, variant_reference_name
 from .audit_bundle import software_identity
 from .genomic_intervals import GenomicIntervalIndex
 from .normal_evidence import (
@@ -159,7 +159,7 @@ def _assess_source_allele(reader: pysam.VariantFile, source: NormalSource, sampl
                           resolver: ContigResolver, acquired: GenomicIntervalIndex | None,
                           variant: Variant, background_flank: int) -> NormalSourceAssessment:
     """Assess one focal query without changing independent background selection."""
-    resolution = resolver.resolve(variant_source_contig(variant))
+    resolution = resolve_reference_contig(resolver, variant_source_contig(variant))
     interval = normal_query_interval(variant)
     row: NormalSourceAssessment = dict(source_id=source.source_id, state="unavailable", interval=list(interval),
                                         contig_resolution=asdict(resolution))
@@ -324,7 +324,9 @@ def run_normal_evidence_manifest(manifest_path: str | Path, output_path: str | P
     manifest_path, output_path = Path(manifest_path).resolve(), Path(output_path).resolve()
     manifest = read_json(manifest_path)
     if manifest.get("schema") != "isovar.normal_manifest.v1":
-        raise ValueError("Unsupported normal evidence manifest schema")
+        raise ValueError(f"Unsupported normal evidence manifest schema {manifest.get('schema')!r}; "
+                         "expected 'isovar.normal_manifest.v1' (the input of `isovar normal-evidence`, "
+                         "not its receipt or an inventory)")
     root = manifest_path.parent
     nomination_file = (root / manifest["variants"]["path"]).resolve()
     if file_sha256(nomination_file) != manifest["variants"]["sha256"]:

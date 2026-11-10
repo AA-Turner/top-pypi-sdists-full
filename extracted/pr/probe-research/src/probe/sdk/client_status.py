@@ -22,7 +22,7 @@ import threading
 from collections.abc import Mapping
 
 from ..foundation.request_identity.request_identity import CLIENT_VERSION_HEADER
-from .session_marker import WIZARD_HINT
+from .session_marker import UPDATE_HINT
 
 CLIENT_STATUS_HEADER = "X-Probe-Client-Status"
 MIN_VERSION_HEADER = "X-Probe-Min-Version"
@@ -31,10 +31,10 @@ UNSUPPORTED = "unsupported"
 #: How to upgrade depends on how this process was installed, which the
 #: transport's surface says. `import probe` in a training script lives in the
 #: script's own environment, so pip; the CLI (and the local MCP server it runs)
-#: is a `uv tool` install that the wizard updates -- the same pointer the
+#: is a `uv tool` install the in-chat update updates -- the same pointer the
 #: SessionStart hook hands out.
 _UPGRADE_BY_SURFACE = {"sdk": "upgrade with `pip install -U probe-research`"}
-_CLI_UPGRADE = f"to upgrade, {WIZARD_HINT}"
+_CLI_UPGRADE = f"to upgrade, {UPDATE_HINT}"
 
 _lock = threading.Lock()
 _noticed = False

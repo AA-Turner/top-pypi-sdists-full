@@ -1,5 +1,6 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
+import sqlalchemy
 from sqlalchemy import TextClause
 
 import ormar  # noqa: I100, I202
@@ -8,7 +9,7 @@ from ormar.queryset.actions.query_action import QueryAction
 from ormar.relations.aliases import prefixed_table
 
 if TYPE_CHECKING:  # pragma: nocover
-    from ormar import Model
+    from ormar import ForeignKeyField, Model
     from ormar.queryset.templates import SlotBinder
 
 FILTER_OPERATORS = {
@@ -128,7 +129,8 @@ class FilterAction(QueryAction):
     def bound_value(self) -> Any:
         """
         Return the value bound to the query: an ormar Model is replaced by its
-        primary key, so ``filter(author=author)`` binds ``author.pk``.
+        value it is referenced by (its primary key or the foreign key's
+        ``to_field``), so ``filter(author=author)`` binds ``author.pk``.
 
         ``filter_value`` itself is left untouched, so the action can be read
         again on every call to collect the value for a cached template.
@@ -137,6 +139,15 @@ class FilterAction(QueryAction):
         :rtype: Any
         """
         if isinstance(self.filter_value, ormar.Model):
+            field = self.target_model.ormar_config.model_fields.get(self.field_name)
+            if (
+                field is not None
+                and field.is_relation
+                and not field.virtual
+                and not field.is_multi
+            ):
+                relation_field = cast("ForeignKeyField", field)
+                return relation_field.target_value_of(related=self.filter_value)
             return self.filter_value.pk
         return self.filter_value
 
@@ -184,7 +195,9 @@ class FilterAction(QueryAction):
             if binder is not None and self.binds_slot():
                 filter_value = binder.bind(action=self, value=value)
         if self.table_prefix:
-            aliased_table = prefixed_table(self.table_prefix, self.column.table)
+            aliased_table = prefixed_table(
+                alias=self.table_prefix, table=self.column.table
+            )
             aliased_column = getattr(aliased_table.c, self.column.name)
         else:
             aliased_column = self.column
@@ -192,3 +205,128 @@ class FilterAction(QueryAction):
         if self.has_escaped_character:
             clause.modifiers["escape"] = "\\"
         return clause
+
+
+class KeyInFilterAction(FilterAction):
+    """
+    ``pk__in`` filter on a composite primary key, compiled to one row-value
+    ``IN`` over the key columns::
+
+        filter(pk__in=[(1, 7), (2, 8)])
+        # -> WHERE (orders.tenant_id, orders.number) IN ((1, 7), (2, 8))
+
+    The values are bound as one expanding parameter, so every list length
+    shares one statement. With ``columns`` the action compares other columns
+    of the table, e.g. the columns of a foreign key stored in several columns
+    (``anchor`` names the field the columns belong to)::
+
+        filter(order__in=[(1, 7)])
+        # -> WHERE (lines.ord_tenant, lines.ord_no) IN ((1, 7))
+    """
+
+    def __init__(
+        self,
+        *,
+        prefix: str,
+        values: list[tuple[Any, ...]],
+        model_cls: type["Model"],
+        anchor: Optional[str] = None,
+        columns: Optional[tuple[str, ...]] = None,
+    ) -> None:
+        """
+        :param prefix: relation path to the filtered model, ``""`` or ending in
+            ``__``
+        :type prefix: str
+        :param values: key values as tuples of parts in key order
+        :type values: list[tuple[Any, ...]]
+        :param model_cls: queried model
+        :type model_cls: type[Model]
+        """
+        self.columns = columns
+        if anchor is None:
+            target_key = model_cls.ormar_config.pk
+            for part in prefix.split("__")[:-1]:
+                target_key = target_key.owner.ormar_config.model_fields[
+                    part
+                ].to.ormar_config.pk
+            anchor = target_key.fields[0]
+        super().__init__(
+            filter_str=f"{prefix}{anchor}__{self.key_operator()}",
+            value=values,
+            model_cls=model_cls,
+        )
+        key_name = "pk" if columns is None else "__".join(columns)
+        self.query_str = f"{prefix}{key_name}__{self.key_operator()}"
+
+    @staticmethod
+    def key_operator() -> str:
+        """
+        :return: lookup operator of the action
+        :rtype: str
+        """
+        return "in"
+
+    def key_columns(self) -> list[sqlalchemy.Column]:
+        """
+        :return: columns of the key, aliased to the table prefix of the filter
+        :rtype: list[sqlalchemy.Column]
+        """
+        names = self.columns or tuple(
+            column.name for column in self.target_model.ormar_config.pk.columns()
+        )
+        table: Any = self.table
+        if self.table_prefix:
+            table = prefixed_table(alias=self.table_prefix, table=table)
+        return [table.c[name] for name in names]
+
+    def get_text_clause(self, binder: Optional["SlotBinder"] = None) -> TextClause:
+        """
+        :param binder: names the bound values for statement templates, if given
+        :type binder: Optional[SlotBinder]
+        :return: row-value ``IN`` over the key columns
+        :rtype: TextClause
+        """
+        columns = self.key_columns()
+        value: Any = self.filter_value
+        if binder is not None:
+            value = binder.bind_key_in(
+                action=self,
+                value=value,
+                column_types=[column.type for column in columns],
+            )
+        return cast(TextClause, sqlalchemy.tuple_(*columns).in_(value))
+
+
+class KeyNullFilterAction(KeyInFilterAction):
+    """
+    ``isnull`` filter on a foreign key stored in several columns: a relation
+    with any column null references no row, so it counts as missing::
+
+        filter(order__isnull=True)
+        # -> WHERE lines.ord_tenant IS NULL OR lines.ord_no IS NULL
+    """
+
+    @staticmethod
+    def key_operator() -> str:
+        """
+        :return: lookup operator of the action
+        :rtype: str
+        """
+        return "isnull"
+
+    def get_text_clause(self, binder: Optional["SlotBinder"] = None) -> TextClause:
+        """
+        :param binder: slot binder of a statement template (unused, nothing is
+            bound)
+        :type binder: Optional[SlotBinder]
+        :return: the null checks of the key columns
+        :rtype: TextClause
+        """
+        columns = self.key_columns()
+        if self.filter_value:
+            return cast(
+                TextClause, sqlalchemy.or_(*(column.is_(None) for column in columns))
+            )
+        return cast(
+            TextClause, sqlalchemy.and_(*(column.isnot(None) for column in columns))
+        )

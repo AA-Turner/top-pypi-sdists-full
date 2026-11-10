@@ -4,30 +4,29 @@ from typing import TYPE_CHECKING
 
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.intune.devices.management.userexperienceanalytics.user_experience_analytics_insight import (  # noqa: E501
+    UserExperienceAnalyticsInsight,
+)
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
-    from office365.intune.devices.management.userexperienceanalytics.user_experience_analytics_insight import (
-        UserExperienceAnalyticsInsight,
-    )
     from office365.intune.devices.management.userexperienceanalytics.user_experience_analytics_metric import (
         UserExperienceAnalyticsMetric,
     )
 
 
 class UserExperienceAnalyticsCategory(Entity):
+    @odata(name="insights")
     @property
     def insights(self) -> ClientValueCollection[UserExperienceAnalyticsInsight]:
         """Gets the insights property"""
-        from office365.intune.devices.management.userexperienceanalytics.user_experience_analytics_insight import (
-            UserExperienceAnalyticsInsight,
-        )
-
         return self.properties.get(
             "insights", ClientValueCollection[UserExperienceAnalyticsInsight](UserExperienceAnalyticsInsight)
         )
 
+    @odata(name="metricValues", navigation=True)
     @property
     def metric_values(self) -> EntityCollection[UserExperienceAnalyticsMetric]:
         """Gets the metricValues property"""

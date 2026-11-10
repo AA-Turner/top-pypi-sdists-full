@@ -1,5 +1,6 @@
-"""Codegen: render every client view of the records, the event and surface catalogs, the
-client-message and transcript-switch and settings vocabularies, then write it or check it is current.
+"""Codegen: render every client view of the records, the event and surface catalogs, the client-message,
+transcript-switch, settings, pane API and pin vocabularies, the sample and live-event contracts, then write it or check
+it is current.
 
     python -m probe_contracts.codegen           # write every target
     python -m probe_contracts.codegen --check   # exit 1 naming each stale target
@@ -22,7 +23,13 @@ from .events import (
     render_server_events,
     render_server_surfaces,
 )
+from .live import DESTINATION as LIVE_DESTINATION
+from .live import list_live_files, make_live_copy_render
+from .pane_api import render_pane_api_python, render_pane_api_typescript
+from .pins import render_pins_agent, render_pins_server, render_pins_typescript
 from .python import render_python
+from .samples import DESTINATION as SAMPLES_DESTINATION
+from .samples import list_sample_files, make_sample_copy_render, render_record_copy
 from .settings import (
     GOLDEN_NAMES,
     make_copy_render,
@@ -65,6 +72,18 @@ TARGETS = (
     # The Mac app's Rust writer reads these through the vendored @probe/core (plan app-never-waits S11).
     Target("packages/core/src/settings/settings.schema.json", make_copy_render("settings.schema.json")),
     *(Target(f"packages/core/src/settings/golden/{name}", make_copy_render(f"golden/{name}")) for name in GOLDEN_NAMES),
+    # What a pane's code may call (pane_api/): the server's lint and data caps, the dashboard's frame.
+    Target("app/projects/panes/generated/pane_api.py", render_pane_api_python),
+    Target("dashboard/src/shared/generated/pane-api.generated.ts", render_pane_api_typescript),
+    # What a project's Pinned area can hold (pins/): the server's routes, the CLI's and the dashboard's views.
+    Target("app/projects/pins/generated/pins.py", render_pins_server),
+    Target("agent/src/probe/generated/pins.py", render_pins_agent),
+    Target("dashboard/src/shared/generated/pins.generated.ts", render_pins_typescript),
+    # The sample store's contract for the SDK (rl-data PR5): the same files, no TypeScript until the dashboard PR.
+    *(Target(f"{SAMPLES_DESTINATION}/{name}", make_sample_copy_render(name)) for name in list_sample_files()),
+    Target(f"{SAMPLES_DESTINATION}/record.py", render_record_copy),
+    # The live events contract for the SDK and CLI (rl-next W52): the same files, no TypeScript until the dashboard.
+    *(Target(f"{LIVE_DESTINATION}/{name}", make_live_copy_render(name)) for name in list_live_files()),
 )
 
 

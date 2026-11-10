@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.intune.devices.platformtype import DevicePlatformType
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AnswerVariant(ClientValue):
     description: str | None = None
     displayName: str | None = None

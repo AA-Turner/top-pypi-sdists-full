@@ -20,17 +20,23 @@ CASES = {
         "_fl_flash_p_kernel": ("n_rows", "split0", "stride_k"),
         "_fl_flash_u_kernel": ("n_rows", "stride_k"),
     },
-    "merged_rollout_exact.py": {"_exact_merge_kernel": ("mode",)},
+    # mode is a constexpr by design (three small per-pass variants); the per-call offsets and counts stay runtime.
+    "merged_rollout_exact.py": {"_exact_merge_kernel": ("tile0", "slot"), "_escape_kernel": ("n",)},
     "temporary_patches/gdn_causal_conv1d.py": {
         "_causal_conv1d_fwd_kernel": ("T",),
         "_causal_conv1d_bwd_g_kernel": ("T",),
         "_causal_conv1d_bwd_dxdw_kernel": ("T", "NT"),
     },
     "temporary_patches/moe_fused_swiglu.py": {"_swiglu_fwd_kernel": ("M",), "_swiglu_bwd_kernel": ("M",)},
+    "temporary_patches/moe_nf4_grouped.py": {"_nf4_grouped_kernel": ("M", "M_HINT")},
+    "gpt_oss_decode_fused.py": {"_sink_scale_kernel": ("Q", "sl_b", "sl_h")},
 }
 
 # Sizes that must keep Triton's % 16 hint: they mask a contiguous axis, so dropping it loses vectorised loads.
-KEEP_SPECIALIZED = {"fused_losses/fused_linear.py": {"_fl_scale_kernel": ("n",)}}
+KEEP_SPECIALIZED = {
+    "fused_losses/fused_linear.py": {"_fl_scale_kernel": ("n",)},
+    "gpt_oss_decode_fused.py": {"_sink_scale_kernel": ("D", "sl_q", "sa_b", "sa_h", "sa_q", "so_b", "so_q", "so_h")},
+}
 
 
 def _defs(path):
@@ -68,3 +74,9 @@ def test_vectorised_sizes_keep_their_hint(rel):
         dns = _do_not_specialize(defs[name])
         for arg in args:
             assert arg not in dns, (name, arg)
+
+
+def test_sink_scale_buckets_decode():
+    fn = _defs(ZOO / "gpt_oss_decode_fused.py")["_sink_scale_kernel"]
+    ann = {a.arg: a.annotation for a in fn.args.args}["ONE_Q"]
+    assert ann is not None and "constexpr" in ast.unparse(ann)

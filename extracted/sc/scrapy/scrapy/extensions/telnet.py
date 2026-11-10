@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import pprint
 from secrets import token_hex
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from twisted.conch import telnet
 from twisted.conch.insults import insults
@@ -23,10 +23,11 @@ from scrapy.utils.reactor import listen_tcp
 from scrapy.utils.trackref import print_live_refs
 
 if TYPE_CHECKING:
-    from twisted.internet.tcp import Port
+    from collections.abc import Callable
 
-    # typing.Self requires Python 3.11
-    from typing_extensions import Self
+    from twisted.cred.credentials import UsernamePassword
+    from twisted.internet.defer import Deferred
+    from twisted.internet.tcp import Port
 
     from scrapy.crawler import Crawler
 
@@ -36,6 +37,30 @@ logger = logging.getLogger(__name__)
 # signal to update telnet variables
 # args: telnet_vars
 update_telnet_vars = object()
+
+
+def _get_manhole_class() -> type[Any]:
+    # Imported here, not at module level, because twisted.conch.manhole
+    # indirectly imports twisted.internet.reactor.
+    from twisted.conch import manhole
+
+    class _ManholeInterpreter(manhole.ManholeInterpreter):
+        def runcode(self, *args: Any, **kwargs: Any) -> None:
+            try:
+                super().runcode(*args, **kwargs)  # type: ignore[no-untyped-call]
+            except SystemExit:
+                # exit()/quit() would otherwise raise into the reactor and
+                # be logged as an unhandled error.
+                self.handler.terminal.loseConnection()
+
+    class _Manhole(manhole.Manhole):
+        def connectionMade(self) -> None:
+            super().connectionMade()  # type: ignore[no-untyped-call]
+            self.interpreter = _ManholeInterpreter(  # type: ignore[no-untyped-call]
+                self, self.namespace
+            )
+
+    return _Manhole
 
 
 class TelnetConsole(protocol.ServerFactory):
@@ -89,17 +114,22 @@ class TelnetConsole(protocol.ServerFactory):
         class Portal:
             """An implementation of IPortal"""
 
-            def login(self_, credentials, mind, *interfaces):  # type: ignore[no-untyped-def]  # pylint: disable=no-self-argument
+            def login(  # pylint: disable=no-self-argument
+                self_,
+                credentials: UsernamePassword,
+                mind: object,
+                *interfaces: object,
+            ) -> Deferred[tuple[object, object, Callable[[], None]]]:
                 if not (
-                    credentials.username == self.username.encode("utf8")
-                    and credentials.checkPassword(self.password.encode("utf8"))
+                    credentials.username == self.username.encode()
+                    and credentials.checkPassword(self.password.encode())
                 ):
                     return fail(ValueError("Invalid credentials"))
 
-                from twisted.conch import manhole
-
                 protocol = telnet.TelnetBootstrapProtocol(
-                    insults.ServerProtocol, manhole.Manhole, self._get_telnet_vars()
+                    insults.ServerProtocol,
+                    _get_manhole_class(),
+                    self._get_telnet_vars(),
                 )
                 return succeed((interfaces[0], protocol, lambda: None))
 

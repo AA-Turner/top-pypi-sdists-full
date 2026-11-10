@@ -1,1 +1,0 @@
-networkit_add_test(correlation AssortativityGTest)

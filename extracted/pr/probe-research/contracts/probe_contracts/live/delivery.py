@@ -1,0 +1,53 @@
+"""How events reach a client: the SSE frames, the long-poll answer, and the limits both routes keep."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, Field
+
+from .live import LiveEvent
+
+#: A silent stream sends a keepalive this often, so proxies and clients never read it as dead.
+KEEPALIVE_SECONDS = 15
+#: The SSE `retry:` a stream opens with: how long a client waits before reconnecting.
+RETRY_MILLISECONDS = 3000
+#: A cursor with an event after it published longer ago than this gets `resync`, not a replay.
+RESUME_WINDOW_SECONDS = 24 * 60 * 60
+#: Replays read the table in pages of this many events.
+REPLAY_PAGE_EVENTS = 500
+#: A live queue this far behind drops back to replay (`lagged`).
+MAX_BEHIND_EVENTS = 1000
+#: An open stream re-checks its credential this often: a revoked token or a removed member closes it.
+CREDENTIAL_RECHECK_SECONDS = 60
+#: People's open streams and in-flight polls per principal; producer streams (`writer=`) are admitted apart.
+MAX_STREAMS_PER_PRINCIPAL = 10
+SSE_MEDIA_TYPE = "text/event-stream"
+LAST_EVENT_ID_HEADER = "Last-Event-ID"
+
+
+class LivePoll(BaseModel):
+    """`GET /v1/live/events/poll`: the events after `since`, in seq order, and where to poll from next."""
+
+    events: list[LiveEvent] = Field(default_factory=list)
+    #: The next `since`: the last seq this answer scanned, which may be past the last event it holds.
+    cursor: int = Field(ge=0)
+    #: `limit` cut the page: poll again at once.
+    has_more: bool = False
+
+
+def to_sse_frame(event: LiveEvent) -> str:
+    """One event as an SSE frame: `id` is its seq (the browser's `Last-Event-ID`), `event` its kind."""
+    return f"id: {event.seq}\nevent: {event.kind}\ndata: {event.model_dump_json()}\n\n"
+
+
+def make_position_frame(seq: int, note: str = "keepalive") -> str:
+    """A frame that moves the client's cursor to `seq` and fires no event (an `id` with no data).
+
+    A stream opens with one (`retry` + the head) and every keepalive is one, so a client that drops before
+    its first event still resumes without a gap.
+    """
+    return f"id: {seq}\n: {note}\n\n"
+
+
+def make_open_frame(seq: int) -> str:
+    """The first frame of a stream: the reconnect delay and the position it starts from."""
+    return f"retry: {RETRY_MILLISECONDS}\n" + make_position_frame(seq, "open")

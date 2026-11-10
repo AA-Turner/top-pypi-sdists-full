@@ -1,10 +1,10 @@
 Metadata-Version: 2.3
 Name: steel-sdk
-Version: 0.19.0
+Version: 0.22.0
 Summary: The official Python library for the steel API
-Project-URL: Homepage, https://github.com/steel-dev/steel-python
-Project-URL: Repository, https://github.com/steel-dev/steel-python
-Author-email: Steel <team@steel.dev>
+Project-URL: Homepage, https://github.com/steel-dev/sdk/tree/main/python
+Project-URL: Repository, https://github.com/steel-dev/sdk
+Author-email: Steel <support@steel.dev>
 License: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -42,11 +42,9 @@ The Steel Python library provides convenient access to the Steel REST API from a
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
-It is generated with [Stainless](https://www.stainless.com/).
-
 ## Documentation
 
-The REST API documentation can be found on [docs.steel.dev](https://docs.steel.dev). The full API of this library can be found in [api.md](https://github.com/steel-dev/steel-python/tree/main/api.md).
+The REST API documentation can be found on [docs.steel.dev](https://docs.steel.dev). The full API of this library can be found in [api.md](https://github.com/steel-dev/sdk/tree/main/python/api.md).
 
 ## Installation
 
@@ -57,12 +55,15 @@ pip install steel-sdk
 
 ## Usage
 
-The full API of this library can be found in [api.md](https://github.com/steel-dev/steel-python/tree/main/api.md).
+The full API of this library can be found in [api.md](https://github.com/steel-dev/sdk/tree/main/python/api.md). Runnable examples are in [examples](https://github.com/steel-dev/sdk/tree/main/python/examples).
 
 ```python
+import os
 from steel import Steel
 
-client = Steel()
+client = Steel(
+    steel_api_key=os.environ.get("STEEL_API_KEY"),  # This is the default and can be omitted
+)
 
 session = client.sessions.create(
     api_timeout=20000,
@@ -81,10 +82,13 @@ so that your Steel API Key is not stored in source control.
 Simply import `AsyncSteel` instead of `Steel` and use `await` with each API call:
 
 ```python
+import os
 import asyncio
 from steel import AsyncSteel
 
-client = AsyncSteel()
+client = AsyncSteel(
+    steel_api_key=os.environ.get("STEEL_API_KEY"),  # This is the default and can be omitted
+)
 
 
 async def main() -> None:
@@ -114,6 +118,7 @@ pip install steel-sdk[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
+import os
 import asyncio
 from steel import DefaultAioHttpClient
 from steel import AsyncSteel
@@ -121,6 +126,7 @@ from steel import AsyncSteel
 
 async def main() -> None:
     async with AsyncSteel(
+        steel_api_key=os.environ.get("STEEL_API_KEY"),  # This is the default and can be omitted
         http_client=DefaultAioHttpClient(),
     ) as client:
         session = await client.sessions.create(
@@ -238,7 +244,8 @@ from steel import Steel
 
 client = Steel()
 
-client.files.upload(
+client.extensions.update(
+    extension_id="extensionId",
     file=Path("/path/to/file"),
 )
 ```
@@ -332,7 +339,7 @@ client.with_options(timeout=5.0).sessions.create()
 
 On timeout, an `APITimeoutError` is thrown.
 
-Note that requests that time out are [retried twice by default](https://github.com/steel-dev/steel-python/tree/main/#retries).
+Note that requests that time out are [retried twice by default](https://github.com/steel-dev/sdk/tree/main/python/#retries).
 
 ## Advanced
 
@@ -375,9 +382,9 @@ session = response.parse()  # get the object that `sessions.create()` would have
 print(session.id)
 ```
 
-These methods return an [`APIResponse`](https://github.com/steel-dev/steel-python/tree/main/src/steel/_response.py) object.
+These methods return an [`APIResponse`](https://github.com/steel-dev/sdk/tree/main/python/src/steel/_response.py) object.
 
-The async client returns an [`AsyncAPIResponse`](https://github.com/steel-dev/steel-python/tree/main/src/steel/_response.py) with the same structure, the only difference being `await`able methods for reading the response content.
+The async client returns an [`AsyncAPIResponse`](https://github.com/steel-dev/sdk/tree/main/python/src/steel/_response.py) with the same structure, the only difference being `await`able methods for reading the response content.
 
 #### `.with_streaming_response`
 
@@ -481,7 +488,7 @@ This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) con
 
 We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.
 
-We are keen for your feedback; please open an [issue](https://www.github.com/steel-dev/steel-python/issues) with questions, bugs, or suggestions.
+We are keen for your feedback; please open an [issue](https://www.github.com/steel-dev/sdk/issues) with questions, bugs, or suggestions.
 
 ### Determining the installed version
 
@@ -500,4 +507,4 @@ Python 3.9 or higher.
 
 ## Contributing
 
-See [the contributing documentation](https://github.com/steel-dev/steel-python/tree/main/./CONTRIBUTING.md).
+See [the contributing documentation](https://github.com/steel-dev/sdk/tree/main/python/CONTRIBUTING.md).

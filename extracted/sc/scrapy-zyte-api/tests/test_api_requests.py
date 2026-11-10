@@ -23,11 +23,15 @@ from zyte_api import RequestError
 
 import scrapy_zyte_api._params as params_module
 from scrapy_zyte_api._cookies import _get_cookie_jar
-from scrapy_zyte_api._params import ANY_VALUE, _load_mw_skip_headers, _ParamParser
+from scrapy_zyte_api._params import (
+    ANY_VALUE,
+    _iter_ban_sensitive_headers_in_params,
+    _load_mw_skip_headers,
+    _ParamParser,
+)
 from scrapy_zyte_api.handler import _ScrapyZyteAPIBaseDownloadHandler
 from scrapy_zyte_api.responses import _process_response
 from scrapy_zyte_api.utils import (
-    _ADDON_SUPPORT,
     _DOWNLOAD_REQUEST_RETURNS_DEFERRED,
     maybe_deferred_to_future,
 )
@@ -148,7 +152,7 @@ async def request_to_params(
         param_sets.append(params)
 
     crawler = await get_crawler(
-        settings, spider_cls=TestSpider, setup_engine=False, use_addon=_ADDON_SUPPORT
+        settings, spider_cls=TestSpider, setup_engine=False, use_addon=True
     )
     crawler.signals.connect(track_params, signal=params_signal)
     await maybe_deferred_to_future(crawler.crawl())
@@ -233,7 +237,10 @@ async def test_response_html(meta: dict[str, dict[str, Any]], mockserver):
     assert resp.css("h1 ::text").get() == "World!"
     assert resp.xpath("//body/text()").getall() == ["Hello"]
     if meta.get("httpResponseHeaders", False) is True:
-        assert resp.headers == {b"Test_Header": [b"test_value"]}
+        # lowercase manually as Scrapy <= 2.19 capitalizes header names
+        assert {k.lower(): v for k, v in resp.headers.items()} == {
+            b"test_header": [b"test_value"]
+        }
     else:
         assert not resp.headers
 
@@ -294,7 +301,7 @@ async def test_coro_handling(zyte_api: bool, mockserver):
             TypeError,
             (
                 "Got an error when processing Zyte API request "
-                "(http://example.com): Object of type Request is not JSON "
+                "(http://example.com/): Object of type Request is not JSON "
                 "serializable"
             ),
         ),
@@ -304,7 +311,7 @@ async def test_coro_handling(zyte_api: bool, mockserver):
             (
                 "Got Zyte API error (status=422, type='/request/unprocessable'"
                 ", request_id='abcd1234') while processing URL "
-                "(http://example.com): Incompatible parameters were found in "
+                "(http://example.com/): Incompatible parameters were found in "
                 "the request."
             ),
         ),
@@ -319,7 +326,7 @@ async def test_exceptions(
 ):
     caplog.set_level("DEBUG")
     async with mockserver.make_handler() as handler:
-        req = Request("http://example.com", method="POST", meta=meta)
+        req = Request("http://example.com/", method="POST", meta=meta)
         with pytest.raises(exception_type):
             await download_request(handler, req)
         assert exception_text in caplog.text
@@ -571,7 +578,7 @@ async def test_transparent_mode_toggling(setting, meta, expected):
     param_parser = handler._param_parser
     func = partial(param_parser.parse, request)
     if isclass(expected):
-        with pytest.raises(expected):
+        with pytest.raises(expected):  # type: ignore[type-var]
             func()
     else:
         api_params = func()
@@ -2394,6 +2401,20 @@ async def test_automap_header_settings(
     )
 
 
+def test_iter_ban_sensitive_headers_in_params():
+    """Headers without a name are ignored, and a header defined both as a
+    custom HTTP request header and as a request header is only reported once."""
+    params = {
+        "customHttpRequestHeaders": [
+            {"value": "es"},
+            {"name": "Accept-Language", "value": "es"},
+            {"name": "Referer", "value": "https://example.com"},
+        ],
+        "requestHeaders": {"acceptLanguage": "es", "referer": "https://example.com"},
+    }
+    assert list(_iter_ban_sensitive_headers_in_params(params)) == [b"accept-language"]
+
+
 @deferred_f_from_coro_f
 async def test_ban_sensitive_header_warning_user_agent_setting(caplog):
     await _test_param_processing(
@@ -3680,6 +3701,23 @@ async def test_automap_custom_cookie_middleware():
     assert api_params["experimental"]["requestCookies"] == [
         {"name": "z", "value": "y", "domain": "example.com"}
     ]
+    await handler._close()
+
+
+@deferred_f_from_coro_f
+async def test_automap_missing_cookie_middleware():
+    """The cookie middleware that ZYTE_API_COOKIE_MIDDLEWARE points at must be
+    enabled."""
+    mw_cls = CustomCookieMiddleware
+    settings = {
+        "ZYTE_API_COOKIE_MIDDLEWARE": f"{mw_cls.__module__}.{mw_cls.__qualname__}",
+        "ZYTE_API_EXPERIMENTAL_COOKIES_ENABLED": True,
+        "ZYTE_API_TRANSPARENT_MODE": True,
+    }
+    crawler = await get_crawler(settings)
+    handler = get_download_handler(crawler, "https")
+    with pytest.raises(RuntimeError, match=mw_cls.__qualname__):
+        await handler.engine_started()
     await handler._close()
 
 

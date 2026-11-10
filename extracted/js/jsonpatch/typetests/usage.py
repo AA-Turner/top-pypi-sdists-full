@@ -9,6 +9,7 @@ unused ignores), so they test that wrong usage is rejected.
 
 import json
 from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any
 
 import jsonpointer
@@ -32,6 +33,11 @@ assert_type(jsonpatch.apply_patch(doc, json.dumps(ops)), Any)
 assert_type(jsonpatch.apply_patch(doc, json.dumps(ops).encode()), Any)
 assert_type(jsonpatch.make_patch(doc, {}), JsonPatch)
 assert_type(jsonpatch.make_patch(doc, {}, generate_test_ops=True), JsonPatch)
+assert_type(jsonpatch.path_split('/foo/0'), tuple[str, ...])
+assert_type(jsonpatch.path_split('/foo', pointer_cls=JsonPointer), tuple[str, ...])
+assert_type(jsonpatch.path_join(['foo', 0]), str)
+assert_type(jsonpatch.path_join(jsonpatch.path_split('/foo')), str)
+jsonpatch.path_join([1.5])  # type: ignore[list-item]
 
 # values of dicts with narrow types are accepted (Mapping is covariant)
 str_ops: list[dict[str, str]] = [{'op': 'remove', 'path': '/foo'}]
@@ -45,12 +51,19 @@ assert_type(patch.apply(doc, in_place=True, atomic=True), Any)
 assert_type(patch.to_string(), str)
 assert_type(patch.to_string(dumps=json.dumps), str)
 assert_type(bool(patch), bool)
-assert_type(list(patch), list[Mapping[str, Any]])
+assert_type(patch.patch, list[dict[str, Any]])
+assert_type(list(patch), list[dict[str, Any]])
+assert_type(next(iter(patch)), dict[str, Any])
+assert_type(jsonpatch.make_patch(doc, {}).patch, list[dict[str, Any]])
+abstract_op: Mapping[str, str] = MappingProxyType({'op': 'remove', 'path': '/foo'})
+JsonPatch(iter((abstract_op,)))
+assert_type(PatchOperation(abstract_op).operation, dict[str, Any])
 assert_type(JsonPatch.from_string('[]'), JsonPatch)
 assert_type(JsonPatch.from_string(b'[]', loads=json.loads), JsonPatch)
 assert_type(JsonPatch.from_string(bytearray(b'[]')), JsonPatch)
 assert_type(JsonPatch.from_diff(doc, {}, optimization=False), JsonPatch)
 assert_type(JsonPatch.operations['add'], type[PatchOperation])
+assert_type(JsonPatch.operations, MappingProxyType[str, type[PatchOperation]])
 
 
 class MyPatch(JsonPatch):
@@ -61,6 +74,24 @@ class MyPatch(JsonPatch):
 assert_type(MyPatch.from_string('[]'), MyPatch)
 assert_type(MyPatch.from_diff(doc, {}), MyPatch)
 
+# Inherited APIs and factory return types for the append extension
+append_patch = jsonpatch.JsonPatchWithAppend([
+    {'op': 'append', 'path': '/foo', 'value': '!'},
+])
+assert_type(append_patch.apply(doc, in_place=True, atomic=True), Any)
+assert_type(append_patch.to_string(), str)
+assert_type(jsonpatch.JsonPatchWithAppend.from_diff(doc, {}), jsonpatch.JsonPatchWithAppend)
+assert_type(jsonpatch.JsonPatchWithAppend.from_string('[]'), jsonpatch.JsonPatchWithAppend)
+assert_type(jsonpatch.AppendOperation({'op': 'append', 'path': '/foo', 'value': '!'}).apply(doc), Any)
+
+
+class MyAppendPatch(jsonpatch.JsonPatchWithAppend):
+    pass
+
+
+assert_type(MyAppendPatch.from_diff(doc, {}), MyAppendPatch)
+assert_type(MyAppendPatch.from_string('[]'), MyAppendPatch)
+
 # operations
 operation = jsonpatch.AddOperation({'op': 'add', 'path': '/a/0', 'value': 1})
 assert_type(operation.apply({'a': []}), Any)
@@ -69,6 +100,7 @@ assert_type(operation.path, str)
 assert_type(operation.key, int | str)
 operation.key = 1
 assert_type(operation.pointer, JsonPointer)
+assert_type(operation.operation, dict[str, Any])
 move = jsonpatch.MoveOperation({'op': 'move', 'from': '/a', 'path': '/b'})
 assert_type(move.from_key, int | str)
 

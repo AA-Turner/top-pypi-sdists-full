@@ -21,7 +21,7 @@ import logging
 import os
 import stat
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import IO
@@ -30,7 +30,9 @@ from . import (
     call_spans,
     cli_ops,
     corpus_aware,
+    duplicates,
     indexes,
+    lexstore,
     memory_refs,
     project_keys,
     schema,
@@ -47,10 +49,12 @@ from .vault import (
     MISSING_CONTENT_HASH,
     ContentHashMismatchError,
     CreateOnlyConflict,
+    DefiniteNoEffect,
     InvalidSlugError,
     PathGuardError,
     PlannedWrite,
     PreparedBinaryContent,
+    _NativePrepared,
     batch_atomic_write,
     content_hash,
     kb_root,
@@ -119,12 +123,21 @@ class AddResult:
     artifact_path: str | None = None
     artifact_hash: str | None = None
     artifact_size: int | None = None
+    document_container: dict | None = None
     adoption: dict[str, object] | None = None
     # The shared domain identity record, present only when a domain was given.
     vocabulary_resolution: dict[str, str] | None = None
     # One line per source kind or domain this capture registered on first use.
     vocabulary_receipt: list[str] = field(default_factory=list)
     capture_outcome: source_capture.CaptureOutcome | None = None
+    # A capture whose text an earlier Source already holds returns that Source: its path, ref, title, kind and URL.
+    duplicate_of: dict[str, object] | None = None
+    # Each caller-provided field that differs from the reused Source's, with the provided and the kept value.
+    fields_not_applied: list[dict[str, object]] | None = None
+    # Earlier Sources that share this capture's canonical URL: the newest few and the total.
+    same_url: dict[str, object] | None = None
+    # True when the duplicate index could not answer, so the capture was stored without a duplicate check.
+    duplicate_check_unavailable: bool = False
 
     def as_dict(self) -> dict:
         out = {"path": self.path, "ref": self.ref, "warnings": self.warnings}
@@ -137,6 +150,8 @@ class AddResult:
             out["hash"] = self.artifact_hash
             out["hash_algorithm"] = "sha256"
             out["size"] = self.artifact_size
+        if self.document_container is not None:
+            out["document_container"] = self.document_container
         if self.adoption is not None:
             out["adoption"] = self.adoption
         if self.vocabulary_resolution is not None:
@@ -145,6 +160,13 @@ class AddResult:
             out["vocabulary_receipt"] = list(self.vocabulary_receipt)
         if self.capture_outcome is not None:
             out["capture_outcome"] = self.capture_outcome
+        if self.duplicate_of is not None:
+            out["duplicate_of"] = self.duplicate_of
+            out["fields_not_applied"] = self.fields_not_applied or []
+        if self.same_url is not None:
+            out["same_url"] = self.same_url
+        if self.duplicate_check_unavailable:
+            out["duplicate_check_unavailable"] = True
         return out
 
 
@@ -168,7 +190,7 @@ class SourceArtifact:
     instead of two that drift.
     """
 
-    staged_path: Path
+    staged_path: Path | IO[bytes]
     filename: str
     content_type: str | None = None
 
@@ -198,7 +220,7 @@ def stored_artifact_suffix(suffix: str) -> str:
     return ".md.txt" if suffix.lower() == ".md" else suffix
 
 
-def _artifact_pair(
+def artifact_pair(
     folder: Path, stem: str, suffix: str, *, vault_root: Path, protected: bool = False
 ) -> tuple[Path, Path]:
     """A free artifact and its canonical companion under `folder`.
@@ -425,6 +447,10 @@ def add(
     capture_input_digest: str | None = None,
     expected_sha256: str | None = None,
     correction: source_corrections.SourceCorrection | None = None,
+    reuse_payload: bool = False,
+    _allocation: Mapping[str, str | None] | None = None,
+    _prepare: Callable[[dict], None] | None = None,
+    _validate_inputs: Callable[[], None] | None = None,
 ) -> AddResult:
     """Capture a raw source into the KB and update indexes/log atomically.
 
@@ -443,10 +469,17 @@ def add(
     all and a Source body is never rewritten. A revision whose text no longer
     matches the caller's hash fails the whole call with
     `ContentHashMismatchError`; one that is already superseded is left alone.
+    The episode recorder no longer passes `supersede`: it rewrites its one page in
+    place (`episode_memory.revise_page`), so this serves only the earlier layout.
 
     `defer_fanout_to_terminal` is the episode recorder's opt-in: its caller
     keeps planning and canonical writes under the wide guard, while derived
     refresh waits for the committed mutation's terminal.
+
+    `reuse_payload` is the capture door's opt-in, and its caller holds the mutation guard across this
+    call: a text capture without identity, correction, adoption or episode fields that repeats the text
+    of a Source the caller can read returns that Source (`capture_outcome` "reused") and writes nothing.
+    A new capture with a URL also names earlier Sources that share the canonical URL.
 
     `today` is dependency-injectable for tests; defaults to dt.date.today().
     """
@@ -514,7 +547,7 @@ def add(
     contradiction_candidates: list[corpus_aware.DupCandidate] = []
     # A recap revision near-duplicates the revision it supersedes by
     # construction, so the embedding pass could only ever report that.
-    if not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS") and episode_lines is None:
+    if _prepare is None and _allocation is None and not os.environ.get("EXOMEM_DISABLE_EMBEDDINGS") and episode_lines is None:
         try:
             # One embedding pass: dups (vs other sources) + contradictions (vs
             # active compiled conclusions). Restricting contradiction candidates
@@ -537,6 +570,11 @@ def add(
     now = today or temporal.now()
     date_iso = temporal.render_date(now)
     stamp_iso = temporal.stamp(now)
+    if _allocation is not None:
+        captured = temporal.parse(_allocation["captured"])
+        if captured is None:
+            raise ValueError("native capture timestamp is invalid")
+        date_iso, stamp_iso = captured.day.isoformat(), str(_allocation["captured"])
 
     # The location is a projection of the canonical semantic keys, not the
     # ontology. `folder_name` stays the *top-level* segment because that is what
@@ -554,6 +592,28 @@ def add(
             if original_digest != capture_input_digest:
                 raise source_capture.SourceCaptureError("SOURCE_IDENTITY_CONFLICT: identity already binds different capture inputs")
             return AddResult(path=path, ref=reference, warnings=identity_warnings, capture_outcome="reused")
+    # Identity decides an identity-bearing capture alone; an artifact, a correction, an adoption, an
+    # episode revision and a protected capture each have a lane of their own.
+    checks_duplicates = (
+        reuse_payload and artifact is None and source_identity is None and correction is None
+        and adoption_seed is None and not supersede and extra_frontmatter is None
+        and not raw_protection and _prepare is None and _allocation is None
+    )
+    duplicate_unavailable = False
+    same_url: dict[str, object] | None = None
+    if checks_duplicates:
+        lookup = duplicates.find_duplicate(
+            vault_root, sha256=duplicates.text_payload_sha256(content), lane=duplicates.SOURCES, protected=False
+        )
+        if lookup.hit is not None:
+            return _reused_capture(
+                lookup.hit, title=title, kind=kind.key, url=url, tags=_clean_tags(tags), why_captured=why_captured,
+                domain=domain_resolution.key if domain_resolution else None,
+                projects=list(dict.fromkeys(projects or ())),
+            )
+        duplicate_unavailable = not lookup.available
+        if url and url.strip():
+            same_url = _same_url_advisory(duplicates.same_url_sources(vault_root, url))
     if adoption_seed is not None:
         actual_destination = folder_path.relative_to(vault_root).as_posix()
         if adoption_seed.get("destination") != actual_destination:
@@ -599,10 +659,35 @@ def add(
         artifact_path: Path | None = None
         source_path = unique_path(folder_path, stem, vault_root=vault_root)
     else:
-        artifact_path, source_path = _artifact_pair(
+        artifact_path, source_path = artifact_pair(
             folder_path, stem, artifact_suffix, vault_root=vault_root, protected=raw_protection
         )
 
+    if _prepare is not None and artifact_digest is not None:
+        from . import artifact_recovery, preserve
+        from .governance.principal import effective_principal
+
+        nominal = preserve._sidecar_path(folder_path / f"{stem}{artifact_suffix}", protected=raw_protection)  # noqa: SLF001
+        who = replace(effective_principal(), administrative_ingress=False)
+        prior = False
+        try:
+            with artifact_recovery.stage(vault_root, nominal.relative_to(vault_root).as_posix(), who, expected_sha256=artifact_digest) as (held, _descriptor):
+                prior = held.size == artifact_size
+        except artifact_recovery.RecoveryUnavailable:
+            pass
+        if prior:
+            raise AddError("SOURCE_ALREADY_PRESERVED", [], "Original already preserved in this source destination")
+    if _allocation is not None:
+        source_path = vault_root / str(_allocation["destination"])
+        artifact_path = vault_root / str(_allocation["artifact"]) if _allocation.get("artifact") else None
+        if source_path.parent != folder_path or (artifact_path is not None and artifact_path.parent != folder_path):
+            raise ValueError("native capture destination changed")
+        if os.path.lexists(source_path) or artifact_path is not None and os.path.lexists(artifact_path):
+            raise DefiniteNoEffect.destination_exists(_allocation["destination"])
+    allocation = {
+        "captured": stamp_iso, "destination": source_path.relative_to(vault_root).as_posix(),
+        "artifact": artifact_path.relative_to(vault_root).as_posix() if artifact_path else None,
+    }
     adoption_receipt: dict[str, object] | None = None
     if adoption_seed is not None:
         if artifact is None or artifact_path is None or artifact_digest is None or artifact_size is None:
@@ -784,14 +869,42 @@ def add(
     )
     if correction_plan is not None:
         required_guards = (*required_guards, correction_plan.guards[0])
+    from . import document_containers
+
+    container_stack = contextlib.ExitStack()
+    container_metadata = None
+    core_paths = {source_path, artifact_path} - {None}
     try:
+        if artifact_stream is not None and document_containers.is_container(artifact_path):
+            container_plan = container_stack.enter_context(document_containers.plan(
+                vault_root, parent=artifact_path.relative_to(vault_root).as_posix(),
+                parent_page=source_path.relative_to(vault_root).as_posix(), digest=artifact_digest,
+                size=artifact_size, stream=artifact_stream, date_iso=stamp_iso,
+            ))
+            container_metadata = container_plan.metadata()
+            writes[0].content = document_containers.annotate(source_md, "document_container", container_metadata)
+            writes.extend(container_plan.writes)
+            core_paths.update(write.path for write in container_plan.writes)
         def validate_bindings() -> None:
+            if _validate_inputs is not None:
+                _validate_inputs()
             taxonomy_plan.recheck_bindings(vault_root)
             if source_identity is not None:
                 source_capture.require_authority(vault_root)
             if correction_plan is not None:
                 correction_plan.require_authority(vault_root)
 
+        def prepare_final(planned: list[PlannedWrite]) -> None:
+            _prepare({"allocation": allocation, "ref": memory_refs.memory_ref(exomem_id),
+                      "normalized_native_args": {"content": content, "title": title, "source_type": kind.key,
+                          "slug": filename_slug, "url": url, "tags": tags_clean, "why_captured": why_captured,
+                          "domain": domain_resolution.key if domain_resolution else None,
+                          "projects": project_keys_clean, "raw_protection": raw_protection},
+                      "writes": [write for write in planned if write.path in core_paths]})
+
+        from . import curation_witness
+
+        curation_witness.bind_native_core(vault_root, [write for write in writes if write.path in core_paths])
         if defer_fanout_to_terminal:
             publication_intents: list[object] = []
             created_paths = [write.path for write in writes if not os.path.lexists(write.path)]
@@ -802,10 +915,14 @@ def add(
                 post_commit_fanout=False,
                 publication_intents_out=publication_intents,
                 _validate_prepared_bindings=validate_bindings,
+                _prepare=prepare_final if _prepare is not None else None,
             )
         else:
             batch_atomic_write(writes, vault_root=vault_root, required_guards=required_guards,
-                               _validate_prepared_bindings=validate_bindings)
+                               _validate_prepared_bindings=validate_bindings,
+                               _prepare=prepare_final if _prepare is not None else None)
+    except _NativePrepared:
+        raise
     except source_capture.SourceCaptureError:
         raise
     except (ContentHashMismatchError, CreateOnlyConflict, PathGuardError):
@@ -817,89 +934,22 @@ def add(
         warnings.append(f"partial write — reconcile on desktop: {e}")
         raise
     finally:
+        container_stack.close()
         if artifact_stream is not None:
             artifact_stream.close()
 
     if defer_fanout_to_terminal:
-        from . import deferred_index, file_watcher, writer_lease
-        from . import vault as vault_module
-
         assert isinstance(committed, list)
-        replaced = list(dict.fromkeys(committed))
+        deferred_fanout(
+            vault_root, committed, created_paths=created_paths, publication_intents=publication_intents
+        )
 
-        def abort_intents() -> None:
-            try:
-                file_watcher.abort_publication_intents(
-                    publication_intents, force_paths=replaced
-                )
-            except Exception as error:  # noqa: BLE001 - the Source already committed
-                log.warning("episode publication cleanup failed: %s", type(error).__name__)
-
-        if writer_lease.active_derived_batch_custody(vault_root):
-            # The fast-ack receipt already carries this batch's derived work.
-            abort_intents()
-        else:
-            fanout_succeeded = [False]
-
-            def run_fanout() -> list[object]:
-                from . import index_sync
-
-                reports: list[object] = []
-                try:
-                    completed = vault_module.post_commit_batch_fanout(
-                        vault_root,
-                        replaced,
-                        reports,
-                        None,
-                        created_paths=created_paths,
-                        publication_intents=publication_intents,
-                    )
-                    fanout_succeeded[0] = completed is True
-                    if completed is not True:
-                        abort_intents()
-                except Exception as error:  # noqa: BLE001 - the Source already committed
-                    abort_intents()
-                    log.warning("episode derived fanout failed after commit: %s", type(error).__name__)
-                if not reports:
-                    reports.append(
-                        index_sync.unverified_upsert_report(vault_root, replaced)
-                        if fanout_succeeded[0]
-                        else index_sync.failed_upsert_report(vault_root, replaced)
-                    )
-                return reports
-
-            try:
-                # Keep this receipt after a successful inline drain too: a
-                # same-path ABA write may have replaced its queued revision.
-                # The background drain owns exact-revision retirement.
-                receipts = deferred_index.add_full_receipts(
-                    vault_root,
-                    [path.relative_to(vault_root).as_posix() for path in replaced],
-                )
-            except Exception as error:  # noqa: BLE001 - a committed Source cannot be retried safely
-                log.warning("episode durable derived demand failed after commit: %s", type(error).__name__)
-                run_fanout()
-                if not fanout_succeeded[0]:
-                    raise writer_lease._PostCommitOutcomeUncertain() from None
-            else:
-                def run_terminal_fanout() -> list[object]:
-                    from . import epistemic_graph
-
-                    # This callback has a durable parent and a terminal that
-                    # can report pending. A direct caller below must still
-                    # converge, even though it also retained full receipts.
-                    coordinator = writer_lease.active_manager()._mutation_coordinator_for(
-                        vault_root
-                    )
-                    with epistemic_graph.parent_receipted_graph_handoff(
-                        vault_root,
-                        state_root=coordinator.state_root,
-                        receipts=tuple(receipts),
-                    ):
-                        return run_fanout()
-
-                if not writer_lease.defer_until_terminal_persisted(run_terminal_fanout):
-                    run_fanout()
+    if checks_duplicates or artifact is not None:
+        # The next acquisition of the mutation boundary finds this payload, whatever other indexes have caught up.
+        recorded = lexstore.record_payload_commit(vault_root, [source_path.relative_to(vault_root).as_posix()])
+        duplicate_unavailable = duplicate_unavailable or (checks_duplicates and not recorded)
+    if duplicate_unavailable:
+        warnings.append(duplicates.unavailable_warning("this text"))
 
     from . import due_state
 
@@ -939,6 +989,7 @@ def add(
         ),
         artifact_hash=artifact_digest,
         artifact_size=artifact_size,
+        document_container=container_metadata,
         slug=filename_slug,
         structure_suggestion=_classification_suggestion(
             vault_root, taxonomy, post_counts
@@ -947,7 +998,71 @@ def add(
         vocabulary_resolution=domain_binding.as_dict() if domain_binding is not None else None,
         vocabulary_receipt=taxonomy_plan.receipt(),
         capture_outcome="created" if source_identity is not None else None,
+        same_url=same_url,
+        duplicate_check_unavailable=duplicate_unavailable,
     )
+
+
+def _stored_why(page_text: str) -> str | None:
+    """The reason a Source page records in its leading blockquote, in the shape `_render_source` writes it."""
+    _, body, _ = parse_frontmatter(page_text)
+    lines = body.split(f"\n{CAPTURE_HEADING}\n", 1)[0].splitlines()[1:]
+    quoted = [line[2:] for line in lines if line.startswith("> ")]
+    return "\n".join(quoted) or None
+
+
+def _reused_capture(
+    hit: duplicates.Duplicate, *, title: str, kind: str, url: str | None, tags: list[str],
+    why_captured: str | None, domain: str | None, projects: list[str],
+) -> AddResult:
+    """The result of a capture whose text `hit` already holds: nothing is written or merged.
+
+    A caller-provided field whose value differs from the earlier Source's is named in `fields_not_applied`
+    with both values, so the caller can see what the earlier Source did not take.
+    """
+    kept = hit.payload.frontmatter
+    why = "\n".join(why_captured.strip().splitlines()) if why_captured and why_captured.strip() else None
+    provided_url = url.strip() if url and url.strip() else None
+    differences = [
+        {"field": field_name, "provided": provided, "kept": stored}
+        for field_name, provided, stored in (
+            ("title", title.strip(), kept.get("title")),
+            ("source_kind", kind, kept.get("source_type")),
+            ("url", provided_url, kept.get("url")),
+            ("tags", tags or None, kept.get("tags") or None),
+            ("why_captured", why, _stored_why(hit.payload.text)),
+            ("domain", domain, kept.get("domain")),
+            ("projects", projects or None, kept.get("projects")),
+        )
+        # A field the caller omitted, or that equals the kept value, is not listed. Lists compare as sets.
+        if provided is not None and (
+            sorted(provided) != sorted(map(str, stored or [])) if isinstance(provided, list) else provided != stored
+        )
+    ]
+    return AddResult(
+        path=hit.path, ref=hit.ref, warnings=[], capture_outcome="reused",
+        duplicate_of={
+            "path": hit.path, "ref": hit.ref, "title": kept.get("title"),
+            "source_kind": kept.get("source_type"), "url": kept.get("url"),
+        },
+        fields_not_applied=differences,
+    )
+
+
+def _same_url_advisory(found: duplicates.SameUrl | None) -> dict[str, object] | None:
+    """The `same_url` advisory for earlier Sources that share a capture's URL: up to five of them and the total."""
+    if found is None:
+        return None
+    return {
+        "count": found.count,
+        "sources": [
+            {
+                "ref": source.ref, "path": source.path, "title": source.payload.frontmatter.get("title"),
+                "captured": str(source.payload.frontmatter.get("captured")),
+            }
+            for source in found.sources
+        ],
+    }
 
 
 _SUGGESTION_KIND = "source_classification_debt"
@@ -1083,6 +1198,7 @@ def kind_required(vault_root: Path, *, supplied: str | None) -> cli_ops.OpError:
         message,
         f"{source_taxonomy.CAPTURE_KIND_RULE} {source_taxonomy.CAPTURE_KIND_MIGRATION}",
         details={
+            "candidates": [row["kind"] for row in known[:5]],
             "known_source_kinds": known[:KNOWN_KINDS_SHOWN],
             "known_source_kinds_total": len(known),
             "known_source_kinds_counted": KNOWN_KINDS_COUNTED,
@@ -1155,6 +1271,99 @@ def known_kind_counts(
     return [{"kind": key, "sources": count} for count, key in rows]
 
 
+def deferred_fanout(
+    vault_root: Path,
+    committed: list[Path],
+    *,
+    created_paths: list[Path],
+    publication_intents: list[object],
+) -> None:
+    """Run the derived fanout of a batch committed with `post_commit_fanout=False`.
+
+    The Source already committed, so nothing here fails the caller except an
+    uncertain outcome the terminal must report. Shared by the Source writer and
+    the episode recorder's in-place revision.
+    """
+    from . import deferred_index, file_watcher, writer_lease
+    from . import vault as vault_module
+
+    replaced = list(dict.fromkeys(committed))
+
+    def abort_intents() -> None:
+        try:
+            file_watcher.abort_publication_intents(
+                publication_intents, force_paths=replaced
+            )
+        except Exception as error:  # noqa: BLE001 - the Source already committed
+            log.warning("episode publication cleanup failed: %s", type(error).__name__)
+
+    if writer_lease.active_derived_batch_custody(vault_root):
+        # The fast-ack receipt already carries this batch's derived work.
+        abort_intents()
+    else:
+        fanout_succeeded = [False]
+
+        def run_fanout() -> list[object]:
+            from . import index_sync
+
+            reports: list[object] = []
+            try:
+                completed = vault_module.post_commit_batch_fanout(
+                    vault_root,
+                    replaced,
+                    reports,
+                    None,
+                    created_paths=created_paths,
+                    publication_intents=publication_intents,
+                )
+                fanout_succeeded[0] = completed is True
+                if completed is not True:
+                    abort_intents()
+            except Exception as error:  # noqa: BLE001 - the Source already committed
+                abort_intents()
+                log.warning("episode derived fanout failed after commit: %s", type(error).__name__)
+            if not reports:
+                reports.append(
+                    index_sync.unverified_upsert_report(vault_root, replaced)
+                    if fanout_succeeded[0]
+                    else index_sync.failed_upsert_report(vault_root, replaced)
+                )
+            return reports
+
+        try:
+            # Keep this receipt after a successful inline drain too: a
+            # same-path ABA write may have replaced its queued revision.
+            # The background drain owns exact-revision retirement.
+            receipts = deferred_index.add_full_receipts(
+                vault_root,
+                [path.relative_to(vault_root).as_posix() for path in replaced],
+            )
+        except Exception as error:  # noqa: BLE001 - a committed Source cannot be retried safely
+            log.warning("episode durable derived demand failed after commit: %s", type(error).__name__)
+            run_fanout()
+            if not fanout_succeeded[0]:
+                raise writer_lease._PostCommitOutcomeUncertain() from None
+        else:
+            def run_terminal_fanout() -> list[object]:
+                from . import epistemic_graph
+
+                # This callback has a durable parent and a terminal that
+                # can report pending. A direct caller below must still
+                # converge, even though it also retained full receipts.
+                coordinator = writer_lease.active_manager()._mutation_coordinator_for(
+                    vault_root
+                )
+                with epistemic_graph.parent_receipted_graph_handoff(
+                    vault_root,
+                    state_root=coordinator.state_root,
+                    receipts=tuple(receipts),
+                ):
+                    return run_fanout()
+
+            if not writer_lease.defer_until_terminal_persisted(run_terminal_fanout):
+                run_fanout()
+
+
 def _episode_frontmatter_lines(
     kind_key: str,
     fields: Mapping[str, object] | None,
@@ -1181,7 +1390,7 @@ def _episode_frontmatter_lines(
             missing=["extra_frontmatter"],
             reason=(
                 f"the {source_taxonomy.EPISODE_KIND!r} kind is reserved for "
-                "conversation recaps; record one with episode_memory"
+                "conversation recaps; record one with record_episode"
             ),
         )
     allowed = {name for name, _required in EPISODE_FRONTMATTER_FIELDS}
@@ -1409,6 +1618,48 @@ def _activity_summary(
     excerpt = f"\"{title.strip()}\""
     tags_part = f"; tags: {tags}" if tags else ""
     return f"{base} — {excerpt}{tags_part}"
+
+
+def revision_activity_writes(
+    vault_root: Path, *, path: str, title: str, source_type: str, now: dt.datetime
+) -> list[PlannedWrite]:
+    """The index and log writes that a revision of the Source at `path` makes.
+
+    They are the writes `add` makes for a new Source, so a revision shows up in
+    the recent-activity lists and the log as a new page did. A revision adds no
+    page, so the folder counts stay the ones on disk.
+    """
+    from .governance import connector_boundary
+
+    page = Path(path)
+    folder = page.parent.name
+    rel_no_ext = page.with_suffix("").as_posix()
+    update = indexes.compute_updates(
+        vault_root,
+        source_type=folder.lower(),
+        folder_title=folder,
+        folder_description=source_taxonomy.load_taxonomy(vault_root).category_description(folder),
+        rel_source_path=rel_no_ext,
+        date_iso=temporal.render_date(now),
+        stamp_iso=temporal.stamp(now),
+        activity_summary=_activity_summary(
+            rel_source_no_ext=rel_no_ext, title=title, source_type=source_type, tags=[]
+        ),
+        log_entry_body=_log_entry_body(
+            title=title, source_type=source_type, url=None, tags=[], why_captured=None
+        ),
+    )
+    kb = kb_root(vault_root)
+    effect_admitted = connector_boundary.effect_admission(vault_root)
+    return [
+        write
+        for write in (
+            PlannedWrite(path=indexes.sources_index_path(vault_root), content=update.sources_index_content),
+            PlannedWrite(path=kb / "index.md", content=update.top_index_content),
+            PlannedWrite(path=kb / "log.md", content=update.log_content),
+        )
+        if effect_admitted(write.path)
+    ]
 
 
 def _log_entry_body(

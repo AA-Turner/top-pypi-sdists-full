@@ -3,8 +3,10 @@ use tempfile::TempDir;
 
 use crate::constants::NATIVE_BUILD_IDENTITY;
 use crate::engine::_helpers::evaluation::evaluate_json;
+use crate::engine::main::build_models::build_models;
 use crate::engine::tests::helpers;
 use crate::engine::tests::test_types;
+use crate::models::{Model, ModelRow, ModelRowsContext};
 use crate::query_facts::main::model_shape::model_shape;
 use crate::query_facts::models::ModelSource;
 
@@ -27,11 +29,13 @@ fn given_dependency_tokens_when_classifying_imports_then_preserves_dialect_and_o
             expected_messages: &[],
         },
         test_types::DependencyTokenTestCase {
-            description: "backtick quoting and comment-separated source arguments",
+            description: "backtick quoting and comment-separated source arguments, reported unavailable until SQLBuild parses the dialect",
             expected_columns: &[],
             dialect: "bigquery",
             query_sql: "WITH imported AS (SELECT * FROM __source /* ignored */ (`Orders`)) SELECT order_id FROM imported",
-            expected_messages: &[],
+            expected_messages: &[
+                "SQLBuild cannot parse bigquery SQL for built-in rules yet, so these rules were not evaluated: SQBRMODEL101",
+            ],
         },
         test_types::DependencyTokenTestCase {
             description: "dollar strings do not contribute spurious calls",
@@ -506,19 +510,38 @@ fn given_scoped_and_global_declarations_when_evaluating_domain_rule_then_only_gl
 fn given_snowflake_expression_when_evaluating_rules_then_uses_project_dialect() -> Result<(), String>
 {
     let project_dir = TempDir::new().map_err(|error| error.to_string())?;
-    let test_cases = [test_types::DialectEvaluationTestCase {
-        description: "Snowflake compiler expressions use the resolved project dialect",
-        dialect: "snowflake",
-        query_sql: concat!(
-            "SELECT * EXCLUDE (ignored), ",
-            "TRANSFORM(values, leg INT -> leg + 1) AS adjusted, ",
-            "payload:product_id::STRING AS product_id, ",
-            "CAST(amounts AS ARRAY(NUMBER(38, 10))) AS amounts, ",
-            "OBJECT_CONSTRUCT_KEEP_NULL('group_id', group_id) AS details, ",
-            "FROM __table_fn(\"inventory_items\")(42)"
-        ),
-        expected_code: "SQBRCONTRACT101",
-    }];
+    let test_cases = [
+        test_types::DialectEvaluationTestCase {
+            description: "Snowflake compiler expressions use the resolved project dialect",
+            dialect: "snowflake",
+            query_sql: concat!(
+                "SELECT * EXCLUDE (ignored), ",
+                "TRANSFORM(values, leg INT -> leg + 1) AS adjusted, ",
+                "payload:product_id::STRING AS product_id, ",
+                "CAST(amounts AS ARRAY(NUMBER(38, 10))) AS amounts, ",
+                "OBJECT_CONSTRUCT_KEEP_NULL('group_id', group_id) AS details, ",
+                "FROM __table_fn(\"inventory_items\")(42)"
+            )
+            .to_owned(),
+            expected_code: "SQBRCONTRACT101",
+        },
+        test_types::DialectEvaluationTestCase {
+            description: "a Snowflake table function in an aliased CTE source parses as SQLBuild renders it",
+            dialect: "snowflake",
+            query_sql: concat!(
+                "WITH lines AS (SELECT * FROM __table_fn(\"lines_for\")('B-1', __ref(\"orders\").k) AS l)\n",
+                "SELECT l.item_id FROM lines AS l"
+            )
+            .to_owned(),
+            expected_code: "SQBRCONTRACT101",
+        },
+        test_types::DialectEvaluationTestCase {
+            description: "a Snowflake table function already written inside TABLE( ) is not wrapped twice",
+            dialect: "snowflake",
+            query_sql: "SELECT item_id FROM table ( __table_fn(\"inventory_items\")(42) )".to_owned(),
+            expected_code: "SQBRCONTRACT101",
+        },
+    ];
 
     for test_case in test_cases {
         let config = json!({"select": ["SQBRCONTRACT101"], "cache": {"enabled": false}});
@@ -531,6 +554,11 @@ fn given_snowflake_expression_when_evaluating_rules_then_uses_project_dialect() 
         assert_eq!(
             result["faults"][0]["code"], test_case.expected_code,
             "{}",
+            test_case.description
+        );
+        assert_ne!(
+            result["faults"][0]["unevaluated"], true,
+            "{}: {result}",
             test_case.description
         );
     }
@@ -548,26 +576,29 @@ fn given_dialect_quoting_around_table_functions_when_evaluating_rules_then_model
             query_sql: concat!(
                 "SELECT 'it\\'s (' AS label, item_id ",
                 "FROM __table_fn(\"inventory_items\")(42)"
-            ),
+            )
+            .to_owned(),
             expected_code: "SQBRCONTRACT101",
         },
         test_types::DialectEvaluationTestCase {
-            description: "BigQuery backslash-escaped quote inside table function arguments",
+            description: "BigQuery backslash-escaped quote inside table function arguments, reported unavailable until SQLBuild parses the dialect",
             dialect: "bigquery",
             query_sql: concat!(
                 "SELECT item_id ",
                 "FROM __table_fn(\"inventory_items\", 'a\\')')(42)"
-            ),
-            expected_code: "SQBRCONTRACT101",
+            )
+            .to_owned(),
+            expected_code: "L007",
         },
         test_types::DialectEvaluationTestCase {
-            description: "BigQuery backtick identifier containing a parenthesis in arguments",
+            description: "BigQuery backtick identifier containing a parenthesis in arguments, reported unavailable until SQLBuild parses the dialect",
             dialect: "bigquery",
             query_sql: concat!(
                 "SELECT item_id ",
                 "FROM __table_fn(\"inventory_items\", `batch)size`)(42)"
-            ),
-            expected_code: "SQBRCONTRACT101",
+            )
+            .to_owned(),
+            expected_code: "L007",
         },
     ];
 
@@ -591,12 +622,27 @@ fn given_dialect_quoting_around_table_functions_when_evaluating_rules_then_model
 #[test]
 fn given_unparseable_model_when_evaluating_then_retains_named_rule_fault() -> Result<(), String> {
     let project_dir = TempDir::new().map_err(|error| error.to_string())?;
-    let test_cases = [test_types::DialectEvaluationTestCase {
-        description: "invalid query is missing evidence rather than a passing contract",
-        dialect: "duckdb",
-        query_sql: "SELECT (",
-        expected_code: "SQBRCONTRACT101",
-    }];
+    let deep_sql = format!("SELECT {}1 AS order_id FROM orders", "1 + ".repeat(50_000));
+    let test_cases = [
+        test_types::DialectEvaluationTestCase {
+            description: "invalid query is missing evidence rather than a passing contract",
+            dialect: "duckdb",
+            query_sql: "SELECT (".to_owned(),
+            expected_code: "SQBRCONTRACT101",
+        },
+        test_types::DialectEvaluationTestCase {
+            description: "a DuckDB expression deeper than the AST limit is refused, not a crash",
+            dialect: "duckdb",
+            query_sql: deep_sql.clone(),
+            expected_code: "SQBRCONTRACT101",
+        },
+        test_types::DialectEvaluationTestCase {
+            description: "a Snowflake expression deeper than the AST limit is refused, not a crash",
+            dialect: "snowflake",
+            query_sql: deep_sql,
+            expected_code: "SQBRCONTRACT101",
+        },
+    ];
     for test_case in test_cases {
         let config = json!({"select": ["SQBRCONTRACT101"], "cache": {"enabled": false}});
         let mut request: Value = serde_json::from_str(&helpers::request(&project_dir, &config))
@@ -639,19 +685,19 @@ fn given_comment_apostrophes_when_generic_fallback_normalizes_rules_sql_then_mod
         test_types::DialectEvaluationTestCase {
             description: "line comment apostrophe before a colon path",
             dialect: "postgres",
-            query_sql: "-- don't drop the customer path\nSELECT payload:customer_id AS customer_id FROM orders",
+            query_sql: "-- don't drop the customer path\nSELECT payload:customer_id AS customer_id FROM orders".to_owned(),
             expected_code: "SQBRCONTRACT101",
         },
         test_types::DialectEvaluationTestCase {
             description: "block comment apostrophe before a colon path",
             dialect: "postgres",
-            query_sql: "/* customer's path */ SELECT payload:customer_id AS customer_id FROM orders",
+            query_sql: "/* customer's path */ SELECT payload:customer_id AS customer_id FROM orders".to_owned(),
             expected_code: "SQBRCONTRACT101",
         },
         test_types::DialectEvaluationTestCase {
             description: "colon inside a line comment stays commented",
             dialect: "postgres",
-            query_sql: "SELECT payload:customer_id AS customer_id -- note: it's nested\nFROM orders",
+            query_sql: "SELECT payload:customer_id AS customer_id -- note: it's nested\nFROM orders".to_owned(),
             expected_code: "SQBRCONTRACT101",
         },
     ];
@@ -1486,4 +1532,62 @@ fn given_workspace_checkout_when_deriving_build_identity_then_workspace_files_ar
             test_case.description
         );
     }
+}
+
+#[test]
+fn given_a_model_whose_analysis_was_skipped_when_building_rules_rows_then_its_rules_are_off()
+-> Result<(), String> {
+    let test_cases = [
+        test_types::AnalysisSkipTestCase {
+            description: "an analysed model keeps its rules",
+            sql_analysis_skipped: false,
+            config: &[],
+            expected_disabled: false,
+        },
+        test_types::AnalysisSkipTestCase {
+            description: "a model its dialect's native parser cannot read gets no rules",
+            sql_analysis_skipped: true,
+            config: &[],
+            expected_disabled: true,
+        },
+        test_types::AnalysisSkipTestCase {
+            description: "a model that opts out with sql_analysis false gets no rules",
+            sql_analysis_skipped: false,
+            config: &[("sql_analysis", false)],
+            expected_disabled: true,
+        },
+    ];
+    for test_case in test_cases {
+        let mut row: ModelRow = ModelRow {
+            name: "orders".to_owned(),
+            relative_path: "models/orders.sql".to_owned(),
+            query_sql: "SELECT 1 AS id".to_owned(),
+            sql_analysis_skipped: test_case.sql_analysis_skipped,
+            ..ModelRow::default()
+        };
+        row.config.extend(
+            test_case
+                .config
+                .iter()
+                .map(|(key, enabled)| ((*key).to_owned(), Value::Bool(*enabled))),
+        );
+        let context: ModelRowsContext<'_> = ModelRowsContext {
+            sql_analysis_enabled: true,
+            include_type_proof: false,
+            dialect: "duckdb",
+            attached_audit_targets: &[],
+            sql_tests: &[],
+        };
+        let models: Vec<Model> = build_models(vec![row], context, |_, _| Ok(false))?;
+        assert_eq!(
+            models
+                .iter()
+                .map(|model| model.sql_analysis_disabled)
+                .collect::<Vec<bool>>(),
+            vec![test_case.expected_disabled],
+            "{}",
+            test_case.description
+        );
+    }
+    Ok(())
 }

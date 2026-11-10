@@ -17,6 +17,9 @@ from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
+    from office365.directory.rolemanagement.roles.management_deleted_item_container import (
+        DirectoryRoleManagementDeletedItemContainer,
+    )
     from office365.directory.unified_rbac_resource_namespace import (
         UnifiedRbacResourceNamespace,
     )
@@ -43,7 +46,7 @@ class RbacApplication(Entity):
     Currently directory and entitlementManagement are the two RBAC providers supported.
     """
 
-    @odata(name="roleAssignments")
+    @odata(name="roleAssignments", navigation=True)
     @property
     def role_assignments(self) -> EntityCollection[UnifiedRoleAssignment]:
         """Resource to grant access to users or groups."""
@@ -56,7 +59,7 @@ class RbacApplication(Entity):
             ),
         )
 
-    @odata(name="roleDefinitions")
+    @odata(name="roleDefinitions", navigation=True)
     @property
     def role_definitions(self) -> EntityCollection[UnifiedRoleDefinition]:
         """Resource representing the roles allowed by RBAC providers and the permissions assigned to the roles."""
@@ -69,7 +72,7 @@ class RbacApplication(Entity):
             ),
         )
 
-    @odata(name="roleAssignmentScheduleRequests")
+    @odata(name="roleAssignmentScheduleRequests", navigation=True)
     @property
     def role_assignment_schedule_requests(
         self,
@@ -84,6 +87,7 @@ class RbacApplication(Entity):
             ),
         )
 
+    @odata(name="resourceNamespaces", navigation=True)
     @property
     def resource_namespaces(self) -> EntityCollection[UnifiedRbacResourceNamespace]:
         """Gets the resourceNamespaces property"""
@@ -98,6 +102,7 @@ class RbacApplication(Entity):
             ),
         )
 
+    @odata(name="roleAssignmentScheduleInstances", navigation=True)
     @property
     def role_assignment_schedule_instances(self) -> EntityCollection[UnifiedRoleAssignmentScheduleInstance]:
         """Gets the roleAssignmentScheduleInstances property"""
@@ -114,6 +119,7 @@ class RbacApplication(Entity):
             ),
         )
 
+    @odata(name="roleAssignmentSchedules", navigation=True)
     @property
     def role_assignment_schedules(self) -> EntityCollection[UnifiedRoleAssignmentSchedule]:
         """Gets the roleAssignmentSchedules property"""
@@ -128,6 +134,7 @@ class RbacApplication(Entity):
             ),
         )
 
+    @odata(name="roleEligibilityScheduleInstances", navigation=True)
     @property
     def role_eligibility_schedule_instances(self) -> EntityCollection[UnifiedRoleEligibilityScheduleInstance]:
         """Gets the roleEligibilityScheduleInstances property"""
@@ -144,6 +151,7 @@ class RbacApplication(Entity):
             ),
         )
 
+    @odata(name="roleEligibilityScheduleRequests", navigation=True)
     @property
     def role_eligibility_schedule_requests(self) -> EntityCollection[UnifiedRoleEligibilityScheduleRequest]:
         """Gets the roleEligibilityScheduleRequests property"""
@@ -160,6 +168,7 @@ class RbacApplication(Entity):
             ),
         )
 
+    @odata(name="roleEligibilitySchedules", navigation=True)
     @property
     def role_eligibility_schedules(self) -> EntityCollection[UnifiedRoleEligibilitySchedule]:
         """Gets the roleEligibilitySchedules property"""
@@ -179,3 +188,16 @@ class RbacApplication(Entity):
     @property
     def entity_type_name(self) -> str:
         return "microsoft.graph.RbacApplication"
+
+    @odata(name="deletedItems", navigation=True)
+    @property
+    def deleted_items(self) -> DirectoryRoleManagementDeletedItemContainer:
+        """Gets the deletedItems property"""
+        from office365.directory.rolemanagement.roles.management_deleted_item_container import (
+            DirectoryRoleManagementDeletedItemContainer,
+        )
+
+        return self.properties.get(
+            "deletedItems",
+            DirectoryRoleManagementDeletedItemContainer(self.context, ResourcePath("deletedItems", self.resource_path)),
+        )

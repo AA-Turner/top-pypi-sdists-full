@@ -20,7 +20,7 @@ scheduling cares which way the bytes go.
 import threading
 from typing import Iterator, Optional
 
-import requests
+from ..multipart_transfer.transport import TransportResponse
 
 
 class DownloadPart:
@@ -40,7 +40,7 @@ class DownloadPart:
         part_number: int,
         start: int,
         length: int,
-        response: Optional[requests.Response] = None,
+        response: Optional[TransportResponse] = None,
     ):
         self.part_number = part_number
         self.start = start
@@ -53,7 +53,7 @@ class DownloadPart:
         """The last byte of the range, inclusive, as a Range header wants it."""
         return self.start + self.length - 1
 
-    def take_response(self) -> Optional[requests.Response]:
+    def take_response(self) -> Optional[TransportResponse]:
         with self._lock:
             response, self._response = self._response, None
         return response
@@ -91,7 +91,7 @@ class RangePartsSource:
         self,
         total_size: int,
         part_size: int,
-        first_response: Optional[requests.Response] = None,
+        first_response: Optional[TransportResponse] = None,
     ):
         self.total_size = total_size
         self.part_size = part_size

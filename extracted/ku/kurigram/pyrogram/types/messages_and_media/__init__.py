@@ -1,20 +1,22 @@
-#  Pyrogram - Telegram MTProto API Client Library for Python
+#  Kurigram - Telegram MTProto API Client Library for Python
+#
 #  Copyright (C) 2017-present Dan <https://github.com/delivrance>
+#  Copyright (C) 2024-present KurimuzonAkuma <https://github.com/KurimuzonAkuma>
 #
-#  This file is part of Pyrogram.
+#  This file is part of Kurigram.
 #
-#  Pyrogram is free software: you can redistribute it and/or modify
+#  Kurigram is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU Lesser General Public License as published
 #  by the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
 #
-#  Pyrogram is distributed in the hope that it will be useful,
+#  Kurigram is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #  GNU Lesser General Public License for more details.
 #
 #  You should have received a copy of the GNU Lesser General Public License
-#  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
+#  along with Kurigram. If not, see <https://www.gnu.org/licenses/>.
 
 from .animation import Animation
 from .auction_bid import AuctionBid
@@ -49,6 +51,7 @@ from .document import Document
 from .ephemeral_message_parameters import EphemeralMessageParameters
 from .external_reply_info import ExternalReplyInfo
 from .fact_check import FactCheck
+from .file import File
 from .formatted_text import FormattedText
 from .forum_topic import ForumTopic
 from .forum_topic_closed import ForumTopicClosed
@@ -173,6 +176,7 @@ from .rich_text import (
     RichTextSubscript,
     RichTextSuperscript,
     RichTextTextMention,
+    RichTextTonAddress,
     RichTextUnderline,
     RichTextUrl,
 )
@@ -180,6 +184,7 @@ from .saved_credentials import SavedCredentials
 from .screenshot_taken import ScreenshotTaken
 from .star_amount import StarAmount
 from .sticker import Sticker
+from .sticker_set import StickerSet
 from .story import Story
 from .story_view import StoryView
 from .stripped_thumbnail import StrippedThumbnail
@@ -194,6 +199,15 @@ from .suggested_post_price import SuggestedPostPrice, SuggestedPostPriceStar, Su
 from .suggested_post_refunded import SuggestedPostRefunded
 from .text_quote import TextQuote
 from .thumbnail import Thumbnail
+from .ton_connect_request import TonConnectRequest
+from .ton_connect_request_state import (
+    TonConnectRequestState,
+    TonConnectRequestStateAccepted,
+    TonConnectRequestStatePending,
+    TonConnectRequestStateRejected,
+)
+from .ton_wallet_transfer import TonWalletTransfer
+from .unpaid_messages_allowed_by_link import UnpaidMessagesAllowedByLink
 from .upgraded_gift_attribute_id import UpgradedGiftAttributeId
 from .upgraded_gift_attribute_id_backdrop import UpgradedGiftAttributeIdBackdrop
 from .upgraded_gift_attribute_id_model import UpgradedGiftAttributeIdModel
@@ -221,6 +235,10 @@ from .web_page import WebPage
 from .write_access_allowed import WriteAccessAllowed
 
 __all__ = [
+    "TonConnectRequestState",
+    "TonConnectRequestStatePending",
+    "TonConnectRequestStateAccepted",
+    "TonConnectRequestStateRejected",
     "Animation",
     "AuctionBid",
     "AuctionRound",
@@ -246,7 +264,11 @@ __all__ = [
     "CommunityChatAdded",
     "CommunityChatJoined",
     "CommunityChatRemoved",
+    "TonWalletTransfer",
+    "UnpaidMessagesAllowedByLink",
+    "TonConnectRequest",
     "Contact",
+    "StickerSet",
     "ContactRegistered",
     "CraftGiftResult",
     "CraftGiftResultFail",
@@ -258,6 +280,7 @@ __all__ = [
     "EphemeralMessageParameters",
     "ExternalReplyInfo",
     "FactCheck",
+    "File",
     "FormattedText",
     "ForumTopic",
     "ForumTopicClosed",
@@ -361,6 +384,7 @@ __all__ = [
     "RichTextAnchorLink",
     "RichTextBankCardNumber",
     "RichTextBold",
+    "RichTextTonAddress",
     "RichTextBotCommand",
     "RichTextButton",
     "RichTextCashtag",

@@ -15,7 +15,13 @@ from arcade_cli import deploy_mcp
 from arcade_cli.context import DeploymentsRunner
 from arcade_cli.deploy import DeployRefusedError
 from arcade_cli.deploy_checks import ProjectCheckError
-from arcade_cli.deploy_mcp import deploy_mcp_server, deploys_mcp_server
+from arcade_cli.deploy_mcp import (
+    deploy_mcp_server,
+    deploys_mcp_server,
+    engine_toolkit_name,
+    framework_warning,
+)
+from arcade_cli.deploy_wheels import WheelCheckResult
 
 FAKES = Path(__file__).parent / "start_command_servers" / "fakes"
 SECRET_VALUE = "sk-very-secret-value-1234"
@@ -36,9 +42,13 @@ class FakeEngine:
         self.watched: list[str] = []
         runners = [DeploymentsRunner(language="python", version="3.12", platform="musllinux_1_2")]
         monkeypatch.setattr(deploy_mcp, "check_mcp_deployments", lambda url: runners)
+        self.wheel_result = WheelCheckResult()
+        monkeypatch.setattr(deploy_mcp, "check_wheels", lambda *a, **k: self.wheel_result)
         monkeypatch.setattr(deploy_mcp, "server_already_exists", lambda url, name: exists)
         monkeypatch.setattr(
-            deploy_mcp, "deploy_server_to_engine", lambda url, body, debug: self.created.append(body)
+            deploy_mcp,
+            "deploy_server_to_engine",
+            lambda url, body, debug: self.created.append(body),
         )
         monkeypatch.setattr(
             deploy_mcp,
@@ -46,8 +56,18 @@ class FakeEngine:
             lambda url, name, body, debug: self.updated.append(body),
         )
         monkeypatch.setattr(
-            deploy_mcp, "watch_rollout", lambda url, name, debug, is_update: self.watched.append(name)
+            deploy_mcp,
+            "watch_rollout",
+            lambda url, name, debug, is_update: self.watched.append(name),
         )
+        self.callback_url: str | None = None
+        self.callback_lookups: list[str] = []
+
+        def fetch_callback(url: str, name: str) -> str | None:
+            self.callback_lookups.append(name)
+            return self.callback_url
+
+        monkeypatch.setattr(deploy_mcp, "fetch_oauth_callback_url", fetch_callback)
 
     @property
     def uploaded(self) -> bool:
@@ -65,8 +85,10 @@ def project_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VIRTUAL_ENV", sys.prefix)
 
 
-def stand_in(tmp_path: Path, *, arcade_toml: str = "", server_args: str = "") -> Path:
-    """A project whose `command` starts the stand-in MCP server."""
+def stand_in(
+    tmp_path: Path, *, arcade_toml: str = "", server_args: str = "", script: str = "fake_mcp.py"
+) -> Path:
+    """A project whose `command` starts the stand-in MCP server, run by ``script``."""
     project = tmp_path / "srv"
     project.mkdir()
     for fake in FAKES.glob("*.py"):
@@ -74,7 +96,7 @@ def stand_in(tmp_path: Path, *, arcade_toml: str = "", server_args: str = "") ->
     (project / "requirements.txt").write_text("fastmcp==4.1.3\n")
     # The port goes last so the command never ends in a quote, which older TOML parsers
     # reject next to the closing delimiter.
-    command = " ".join(filter(None, ["python fake_mcp.py", server_args, f"--port {free_port()}"]))
+    command = " ".join(filter(None, [f"python {script}", server_args, f"--port {free_port()}"]))
     # A literal string, so a command holding JSON or quotes needs no escaping.
     literal = "'''"
     (project / "arcade.toml").write_text(
@@ -83,16 +105,23 @@ def stand_in(tmp_path: Path, *, arcade_toml: str = "", server_args: str = "") ->
     return project
 
 
-def deploy(project: Path, *, secrets: str = "auto") -> None:
+def deploy(
+    project: Path,
+    *,
+    secrets: str = "auto",
+    env_file: Path | None = None,
+    skip_validate: bool = False,
+) -> None:
     deploy_mcp_server(
         project,
         "http://engine.test",
-        skip_validate=False,
-        server_name=None,
-        server_version=None,
+        skip_validate=skip_validate,
+        server_name="srv" if skip_validate else None,
+        server_version="1.0.0" if skip_validate else None,
         secrets=secrets,
         debug=False,
         provider=None,
+        env_file=env_file,
     )
 
 
@@ -141,7 +170,7 @@ class TestDeploy:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         engine = FakeEngine(monkeypatch, exists=True)
-        project = stand_in(tmp_path, arcade_toml="[deploy.environment]\nREGION = \"us-east\"\n")
+        project = stand_in(tmp_path, arcade_toml='[deploy.environment]\nREGION = "us-east"\n')
 
         deploy(project)
 
@@ -153,7 +182,9 @@ class TestDeploy:
     def test_the_runner_settings_ship_in_the_bundle(
         self, tmp_path: Path, engine: FakeEngine
     ) -> None:
-        project = stand_in(tmp_path, arcade_toml='path = "/api/mcp"\n', server_args="--path /api/mcp")
+        project = stand_in(
+            tmp_path, arcade_toml='path = "/api/mcp"\n', server_args="--path /api/mcp"
+        )
         (project / "uv.lock").write_text("version = 1\n")
 
         deploy(project)
@@ -172,21 +203,404 @@ class TestDeploy:
         assert engine.created
         assert "needs a token to list its tools" in capsys.readouterr().out
 
-class TestSecretsMode:
-    def test_a_mode_other_than_auto_is_noted_and_the_declared_secrets_are_sent(
+    def test_packages_without_wheels_are_a_warning_not_a_refusal(
+        self, tmp_path: Path, engine: FakeEngine, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        engine.wheel_result = WheelCheckResult(
+            warnings=["These packages have no prebuilt wheel for the runner: mysqlclient 2.3.0."],
+            notes=["The wheel check for the runner (musllinux_1_2, Python 3.12, aarch64) didn't"],
+        )
+        project = stand_in(tmp_path)
+
+        deploy(project)
+
+        assert engine.created
+        output = capsys.readouterr().out
+        assert "[!] These packages have no prebuilt wheel for the runner: mysqlclient" in output
+        assert "[!] The wheel check for the runner" in output
+
+
+OAUTH_CLIENT_TOML = 'oauth_client = { client_id = "abc", client_secret_env = "ENTRA_SECRET" }\n'
+CALLBACK_URL = "https://cloud.arcade.dev/api/v1/oauth/callback/fake-mcp"
+
+
+class TestOAuthCallbackUrl:
+    @pytest.mark.parametrize("exists", [False, True], ids=["first deploy", "redeploy"])
+    def test_the_callback_url_is_printed_after_an_oauth_client_deploy(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        exists: bool,
+    ) -> None:
+        engine = FakeEngine(monkeypatch, exists=exists)
+        engine.callback_url = CALLBACK_URL
+        monkeypatch.setenv("ENTRA_SECRET", SECRET_VALUE)
+        project = stand_in(tmp_path, arcade_toml=OAUTH_CLIENT_TOML)
+
+        deploy(project)
+
+        [body] = engine.updated if exists else engine.created
+        assert body["oauth_client"] == {"client_id": "abc", "client_secret": SECRET_VALUE}
+        assert engine.callback_lookups == ["fake-mcp"]
+        output = capsys.readouterr().out
+        assert "OAuth callback URL" in output
+        assert CALLBACK_URL in output
+        assert SECRET_VALUE not in output
+
+    def test_the_lookup_happens_after_the_rollout(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        engine.callback_url = CALLBACK_URL
+        monkeypatch.setenv("ENTRA_SECRET", SECRET_VALUE)
+        order: list[str] = []
+        monkeypatch.setattr(
+            deploy_mcp, "watch_rollout", lambda url, name, debug, is_update: order.append("rollout")
+        )
+        monkeypatch.setattr(
+            deploy_mcp,
+            "fetch_oauth_callback_url",
+            lambda url, name: order.append("lookup") or CALLBACK_URL,
+        )
+        project = stand_in(tmp_path, arcade_toml=OAUTH_CLIENT_TOML)
+
+        deploy(project)
+
+        assert order == ["rollout", "lookup"]
+
+    def test_an_engine_with_no_callback_url_is_a_warning_not_a_failure(
         self,
         tmp_path: Path,
         engine: FakeEngine,
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
+        monkeypatch.setenv("ENTRA_SECRET", SECRET_VALUE)
+        project = stand_in(tmp_path, arcade_toml=OAUTH_CLIENT_TOML)
+
+        deploy(project)
+
+        assert engine.created
+        assert engine.callback_lookups == ["fake-mcp"]
+        output = capsys.readouterr().out
+        assert "[!] The Engine didn't return an OAuth callback URL" in output
+
+    def test_a_deploy_without_an_oauth_client_prints_no_callback_url(
+        self, tmp_path: Path, engine: FakeEngine, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        engine.callback_url = CALLBACK_URL
+        project = stand_in(tmp_path)
+
+        deploy(project)
+
+        assert engine.callback_lookups == []
+        assert "callback URL" not in capsys.readouterr().out
+
+
+class TestSecretsMode:
+    def test_all_sends_every_env_file_entry_and_the_declared_secrets(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SNOWFLAKE_TOKEN", SECRET_VALUE)
+        project = stand_in(
+            tmp_path,
+            arcade_toml='secrets = ["SNOWFLAKE_TOKEN"]\n[deploy.environment]\nREGION = "us-east"\n',
+        )
+        env_file = project / ".env"
+        env_file.write_text("EXTRA_TOKEN=extra-value\nREGION=eu-west\n")
+
+        deploy(project, secrets="all", env_file=env_file)
+
+        [body] = engine.created
+        assert body["secrets"] == {"SNOWFLAKE_TOKEN": SECRET_VALUE, "EXTRA_TOKEN": "extra-value"}
+        # A name declared as an environment value stays one.
+        assert body["environment"] == {"REGION": "us-east"}
+
+    def test_all_refuses_a_reserved_name_in_env_file(
+        self, tmp_path: Path, engine: FakeEngine
+    ) -> None:
+        project = stand_in(tmp_path)
+        env_file = project / ".env"
+        env_file.write_text("EXTRA_TOKEN=x\nARCADE_WORKER_SECRET=y\n")
+
+        with pytest.raises(DeployRefusedError, match=r"ARCADE_WORKER_SECRET.*reserves"):
+            deploy(project, secrets="all", env_file=env_file)
+        assert not engine.uploaded
+
+    def test_skip_with_declared_secrets_is_refused(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("SNOWFLAKE_TOKEN", SECRET_VALUE)
         project = stand_in(tmp_path, arcade_toml='secrets = ["SNOWFLAKE_TOKEN"]\n')
 
+        with pytest.raises(DeployRefusedError, match=r"--secrets skip.*SNOWFLAKE_TOKEN"):
+            deploy(project, secrets="skip")
+        assert not engine.uploaded
+
+    def test_skip_without_declared_secrets_deploys(
+        self, tmp_path: Path, engine: FakeEngine
+    ) -> None:
+        project = stand_in(tmp_path)
+
         deploy(project, secrets="skip")
 
+        assert engine.created[0]["secrets"] == {}
+
+    def test_skip_validate_keeps_auto_sending_the_declared_secrets(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SNOWFLAKE_TOKEN", SECRET_VALUE)
+        project = stand_in(tmp_path, arcade_toml='secrets = ["SNOWFLAKE_TOKEN"]\n')
+
+        deploy(project, skip_validate=True)
+
         assert engine.created[0]["secrets"] == {"SNOWFLAKE_TOKEN": SECRET_VALUE}
-        assert "--secrets skip doesn't apply to MCP servers yet" in capsys.readouterr().out
+
+
+class TestApiKey:
+    def test_a_key_declared_as_a_secret_reaches_the_server_in_its_header(
+        self,
+        tmp_path: Path,
+        engine: FakeEngine,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setenv("SERVER_KEY", SECRET_VALUE)
+        project = stand_in(
+            tmp_path,
+            arcade_toml=(
+                'secrets = ["SERVER_KEY"]\n'
+                '[deploy.api_key]\nenv = "SERVER_KEY"\nheader = "X-API-Key"\n'
+            ),
+            # The server checks the header against a fixed key, not its environment.
+            server_args=f"--key-header X-API-Key --key {SECRET_VALUE}",
+        )
+
+        deploy(project)
+
+        assert engine.created[0]["secrets"] == {"SERVER_KEY": SECRET_VALUE}
+        assert "Found 1 tool(s)" in capsys.readouterr().out
+
+    def test_the_key_is_sent_after_its_scheme(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SERVER_KEY", SECRET_VALUE)
+        project = stand_in(
+            tmp_path,
+            arcade_toml=(
+                'secrets = ["SERVER_KEY"]\n[deploy.api_key]\nenv = "SERVER_KEY"\n'
+                'header = "Authorization"\nscheme = "Bearer"\n'
+            ),
+            server_args="--key-header Authorization --key-env SERVER_KEY --key-scheme Bearer",
+        )
+
+        deploy(project)
+
+        assert engine.created
+
+    def test_an_undeclared_key_is_generated_and_put_in_the_servers_environment(
+        self, tmp_path: Path, engine: FakeEngine, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        project = stand_in(
+            tmp_path,
+            arcade_toml='[deploy.api_key]\nenv = "SERVER_KEY"\nheader = "X-API-Key"\n',
+            server_args="--key-header X-API-Key --key-env SERVER_KEY",
+        )
+
+        deploy(project)
+
+        assert engine.created[0]["secrets"] == {}
+        assert "Found 1 tool(s)" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("oauth", ["--bearer user-token", "--bearer-for-tools user-token"])
+    def test_a_server_that_takes_the_key_and_wants_a_user_token_still_deploys(
+        self,
+        tmp_path: Path,
+        engine: FakeEngine,
+        capsys: pytest.CaptureFixture[str],
+        oauth: str,
+    ) -> None:
+        project = stand_in(
+            tmp_path,
+            arcade_toml='[deploy.api_key]\nenv = "SERVER_KEY"\nheader = "X-API-Key"\n',
+            server_args=f"--key-header X-API-Key --key-env SERVER_KEY {oauth}",
+        )
+
+        deploy(project)
+
+        assert engine.created
+        assert "needs a token to list its tools" in capsys.readouterr().out
+
+    def test_a_bearer_challenge_to_a_key_in_authorization_is_a_refused_key(
+        self, tmp_path: Path, engine: FakeEngine
+    ) -> None:
+        project = stand_in(
+            tmp_path,
+            arcade_toml=(
+                '[deploy.api_key]\nenv = "SERVER_KEY"\n'
+                'header = "Authorization"\nscheme = "Bearer"\n'
+            ),
+            server_args="--bearer the-fixed-key",
+        )
+
+        with pytest.raises(DeployRefusedError, match=r"declare SERVER_KEY under `secrets`"):
+            deploy(project)
+        assert not engine.uploaded
+
+    def test_a_refused_declared_key_is_refused_before_upload(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SERVER_KEY", "not-the-key")
+        project = stand_in(
+            tmp_path,
+            arcade_toml=(
+                'secrets = ["SERVER_KEY"]\n'
+                '[deploy.api_key]\nenv = "SERVER_KEY"\nheader = "X-API-Key"\n'
+            ),
+            server_args="--key-header X-API-Key --key the-fixed-key",
+        )
+
+        with pytest.raises(DeployRefusedError, match=r"refused the API key from the secret SERVER_KEY"):
+            deploy(project)
+        assert not engine.uploaded
+
+    def test_a_fixed_key_the_server_wont_take_suggests_declaring_it(
+        self, tmp_path: Path, engine: FakeEngine
+    ) -> None:
+        project = stand_in(
+            tmp_path,
+            arcade_toml='[deploy.api_key]\nenv = "SERVER_KEY"\nheader = "X-API-Key"\n',
+            server_args="--key-header X-API-Key --key the-fixed-key",
+        )
+
+        with pytest.raises(DeployRefusedError, match=r"declare SERVER_KEY under `secrets`"):
+            deploy(project)
+        assert not engine.uploaded
+
+
+def move_settings_to_pyproject(project: Path) -> None:
+    """Turn a stand-in's arcade.toml into [tool.arcade.deploy] in a pyproject.toml."""
+    settings = (project / "arcade.toml").read_text().replace("[deploy", "[tool.arcade.deploy")
+    (project / "arcade.toml").unlink()
+    (project / "requirements.txt").unlink()
+    (project / "pyproject.toml").write_text(
+        '[project]\nname = "srv"\nversion = "1.0.0"\ndependencies = ["fastmcp==4.1.3"]\n\n'
+        + settings
+    )
+
+
+class TestApiKeyScenarios:
+    """DEP-398: servers that check a static key deploy unchanged; the key is never shown."""
+
+    HARDCODED_KEY = "dev-key-123"
+
+    def hardcoded_key_server(self, tmp_path: Path, arcade_toml: str) -> Path:
+        """A server whose source holds the only key it accepts."""
+        project = stand_in(
+            tmp_path,
+            arcade_toml=arcade_toml,
+            server_args="--key-header Authorization --key-scheme Bearer",
+            script="server.py",
+        )
+        (project / "server.py").write_text(
+            "import runpy, sys\n"
+            f"sys.argv = ['fake_mcp.py', '--key', {self.HARDCODED_KEY!r}, *sys.argv[1:]]\n"
+            "runpy.run_path('fake_mcp.py', run_name='__main__')\n"
+        )
+        return project
+
+    def assert_key_not_shown(self, key: str, body: dict[str, Any], output: str) -> None:
+        """Not in the output, nor in anything the Engine shows or the runner reads."""
+        assert key not in output
+        assert key not in json.dumps(body["environment"])
+        assert key not in body["toolkits"]["bundles"][0]["command"]
+        assert key.encode() not in bundle_files(body)["srv/.arcade/deploy.json"]
+
+    def test_a_key_read_from_the_environment_needs_nothing_from_the_author(
+        self, tmp_path: Path, engine: FakeEngine, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        project = stand_in(
+            tmp_path,
+            arcade_toml='[deploy.api_key]\nenv = "API_KEY"\nheader = "Authorization"\nscheme = "Bearer"\n',
+            server_args="--key-header Authorization --key-scheme Bearer --key-env API_KEY",
+        )
+
+        deploy(project)
+
+        [body] = engine.created
+        assert body["secrets"] == {}
+        assert body["environment"] == {}
+        # The runner gets where the key goes, never a value: it generates its own.
+        assert json.loads(bundle_files(body)["srv/.arcade/deploy.json"]) == {
+            "api_key": {"env": "API_KEY", "header": "Authorization", "scheme": "Bearer"}
+        }
+        assert "Found 1 tool(s)" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("settings_file", ["arcade.toml", "pyproject.toml"])
+    def test_a_hardcoded_key_works_when_supplied_as_a_secret(
+        self,
+        tmp_path: Path,
+        engine: FakeEngine,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        settings_file: str,
+    ) -> None:
+        monkeypatch.setenv("EXPENSE_API_KEY", self.HARDCODED_KEY)
+        project = self.hardcoded_key_server(
+            tmp_path,
+            'secrets = ["EXPENSE_API_KEY"]\n[deploy.api_key]\nenv = "EXPENSE_API_KEY"\n'
+            'header = "Authorization"\nscheme = "Bearer"\n',
+        )
+        if settings_file == "pyproject.toml":
+            move_settings_to_pyproject(project)
+
+        deploy(project)
+
+        [body] = engine.created
+        # The key travels only as the secret the author declared.
+        assert body["secrets"] == {"EXPENSE_API_KEY": self.HARDCODED_KEY}
+        output = capsys.readouterr().out
+        assert f"Deploy settings from {settings_file}" in output
+        assert "Found 1 tool(s)" in output
+        self.assert_key_not_shown(self.HARDCODED_KEY, body, output)
+
+    def test_a_supplied_key_the_server_refuses_uploads_nothing(
+        self,
+        tmp_path: Path,
+        engine: FakeEngine,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setenv("EXPENSE_API_KEY", "some-other-key")
+        project = self.hardcoded_key_server(
+            tmp_path,
+            'secrets = ["EXPENSE_API_KEY"]\n[deploy.api_key]\nenv = "EXPENSE_API_KEY"\n'
+            'header = "Authorization"\nscheme = "Bearer"\n',
+        )
+
+        with pytest.raises(DeployRefusedError, match="refused the API key") as refused:
+            deploy(project)
+
+        assert not engine.uploaded
+        shown = capsys.readouterr().out + str(refused.value)
+        assert "some-other-key" not in shown
+        assert self.HARDCODED_KEY not in shown
+
+    def test_a_declared_key_secret_with_no_value_uploads_nothing(
+        self, tmp_path: Path, engine: FakeEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("EXPENSE_API_KEY", raising=False)
+        project = stand_in(
+            tmp_path,
+            arcade_toml=(
+                'secrets = ["EXPENSE_API_KEY"]\n'
+                '[deploy.api_key]\nenv = "EXPENSE_API_KEY"\nheader = "X-API-Key"\n'
+            ),
+        )
+
+        with pytest.raises(ValueError, match=r"EXPENSE_API_KEY \(api_key\.env\)"):
+            deploy(project)
+        assert not engine.uploaded
 
 
 class TestRefusedBeforeUpload:
@@ -201,7 +615,9 @@ class TestRefusedBeforeUpload:
         self.refused(project, engine, r"\bSNOWFLAKE_TOKEN\b")
 
     @pytest.mark.parametrize("name", ["PATH", "ARCADE_RUNNER_REGION", "FASTMCP_HOME"])
-    def test_a_reserved_environment_name(self, tmp_path: Path, engine: FakeEngine, name: str) -> None:
+    def test_a_reserved_environment_name(
+        self, tmp_path: Path, engine: FakeEngine, name: str
+    ) -> None:
         project = stand_in(tmp_path, arcade_toml=f'[deploy.environment]\n{name} = "x"\n')
 
         self.refused(project, engine, rf"\b{name}\b.*reserved")
@@ -214,7 +630,9 @@ class TestRefusedBeforeUpload:
             tmp_path,
             server_args=f"--bearer secret --well-known 'oauth-authorization-server={document}'",
         )
-        (project / "auth.py").write_text("from fastmcp.server.auth.providers.github import GitHubProvider\n")
+        (project / "auth.py").write_text(
+            "from fastmcp.server.auth.providers.github import GitHubProvider\n"
+        )
 
         self.refused(project, engine, r"authorization server \(GitHubProvider\)")
 
@@ -237,10 +655,19 @@ class TestRefusedBeforeUpload:
             )
         assert not engine.uploaded
 
+    def test_an_arcade_server_missing_its_arcade_mcp_dependency(
+        self, tmp_path: Path, engine: FakeEngine
+    ) -> None:
+        project = stand_in(tmp_path, server_args="--worker-health")
+
+        self.refused(project, engine, r"/worker/health.*arcade-mcp")
+
     def test_no_supported_framework(self, tmp_path: Path, engine: FakeEngine) -> None:
         project = tmp_path / "plain"
         project.mkdir()
-        (project / "pyproject.toml").write_text('[project]\nname = "plain-tools"\nversion = "0.1.0"\n')
+        (project / "pyproject.toml").write_text(
+            '[project]\nname = "plain-tools"\nversion = "0.1.0"\n'
+        )
         (project / "server.py").write_text("print('hi')\n")
 
         self.refused(project, engine, "`command`")
@@ -288,7 +715,93 @@ class TestRouting:
         with pytest.raises(ProjectCheckError, match=match):
             deploys_mcp_server(tmp_path)
 
+class TestToolkitName:
+    @pytest.mark.parametrize(
+        ("server_name", "toolkit"),
+        [
+            ("Expense Tools", "ExpenseTools"),
+            ("echo-server", "Echo"),
+            ("fake-mcp", "Fake"),
+            ("my_MCP_Server", "My"),
+            ("snowflake analytics 2", "SnowflakeAnalytics2"),
+            ("mcp-server", "Tools"),
+            ("", "Tools"),
+        ],
+    )
+    def test_mirrors_the_engine(self, server_name: str, toolkit: str) -> None:
+        assert engine_toolkit_name(server_name) == toolkit
 
+    def test_the_deploy_prints_it(
+        self, tmp_path: Path, engine: FakeEngine, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        deploy(stand_in(tmp_path))
+
+        assert "listed under the toolkit Fake" in capsys.readouterr().out
+
+
+class TestFrameworkWarning:
+    @pytest.mark.parametrize(
+        "versions",
+        [
+            {"fastmcp": "4.1.3", "mcp": "1.30.0"},
+            {"fastmcp": "2.14.0", "mcp": "1.9.0"},
+            {"fastmcp": None, "mcp": "2.0.1"},
+        ],
+    )
+    def test_tested_versions_have_no_warning(self, versions: dict[str, str | None]) -> None:
+        assert framework_warning(versions) is None
+
+    @pytest.mark.parametrize(
+        ("versions", "named"),
+        [
+            ({"fastmcp": "5.0.0", "mcp": "1.30.0"}, "fastmcp 5.0.0"),
+            ({"fastmcp": None, "mcp": "3.0.0"}, "the MCP SDK (mcp) 3.0.0"),
+        ],
+    )
+    def test_a_newer_major_is_warned(self, versions: dict[str, str | None], named: str) -> None:
+        warning = framework_warning(versions)
+        assert warning is not None
+        assert named in warning
+
+    def test_neither_framework_is_warned(self) -> None:
+        warning = framework_warning({"fastmcp": None, "mcp": None})
+        assert warning is not None
+        assert "Neither fastmcp nor the MCP SDK" in warning
+
+    def test_the_warning_never_refuses_the_deploy(
+        self,
+        tmp_path: Path,
+        engine: FakeEngine,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(
+            deploy_mcp, "_framework_versions", lambda python: {"fastmcp": "5.0.0", "mcp": None}
+        )
+
+        deploy(stand_in(tmp_path))
+
+        assert engine.created
+        assert "hasn't been tested with fastmcp 5.0.0" in capsys.readouterr().out
+
+    def test_an_interpreter_that_cant_be_asked_gives_no_warning(
+        self,
+        tmp_path: Path,
+        engine: FakeEngine,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(deploy_mcp, "_framework_versions", lambda python: {})
+
+        deploy(stand_in(tmp_path))
+
+        assert "Neither fastmcp" not in capsys.readouterr().out
+
+    def test_versions_are_read_with_the_projects_interpreter(self) -> None:
+        versions = deploy_mcp._framework_versions(Path(sys.executable))
+
+        assert versions["mcp"]  # the test environment has the MCP SDK
+        assert set(versions) == {"fastmcp", "mcp"}
 
 def test_refusals_are_value_errors() -> None:
     assert issubclass(DeployRefusedError, ValueError)

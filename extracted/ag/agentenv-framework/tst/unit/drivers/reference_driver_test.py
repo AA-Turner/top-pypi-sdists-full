@@ -176,6 +176,7 @@ def x11(monkeypatch):
     module("Xlib", X=X, XK=XK, display=display)
     module("mss", MSS=FakeMSS)
     module("av", open=FakeGrab.open)
+    monkeypatch.delitem(sys.modules, "agentenv_protocol.computer._x11", raising=False)
     monkeypatch.setattr("agentenv_protocol.computer.driver.detect", lambda: LINUX)
     monkeypatch.delenv("ENVIRONMENT_NAME", raising=False)
     monkeypatch.delenv("AGENTENV_COMPUTER_SETTINGS", raising=False)
@@ -274,6 +275,20 @@ async def test_keys_held_by_keyboard_down_stay_down_through_other_input(x11):
     assert typed == [("key-down", a), ("key-up", a)] and chord == [("key-down", a), ("key-up", a)]
     assert clicked == [("move", (1, 1)), ("button-down", 1), ("button-up", 1)]
     assert released == [("key-up", shift)] and not fake.down
+
+
+@pytest.mark.asyncio
+async def test_a_key_held_by_one_another_holds_already_is_not_released_with_it(x11):
+    driver, fake, code = x11
+    shift, a = code("Shift_L"), ord("a") + 8
+    async with mcp_session(driver) as session:
+        await session.call_tool("computer_screenshot", {})
+        held = await _events(fake, session, "computer_keyboard_down", {"keys": ["A"]})
+        again = await _events(fake, session, "computer_keyboard_down", {"keys": ["Shift"]})
+        kept = await _events(fake, session, "computer_keyboard_up", {"keys": ["Shift"]})
+        released = await _events(fake, session, "computer_keyboard_up", {"keys": ["A"]})
+    assert held == [("key-down", shift), ("key-down", a)] and again == kept == []
+    assert released == [("key-up", a), ("key-up", shift)] and not fake.down
 
 
 @pytest.mark.asyncio

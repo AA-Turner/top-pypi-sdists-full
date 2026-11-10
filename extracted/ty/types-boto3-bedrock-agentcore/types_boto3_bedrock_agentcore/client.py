@@ -119,6 +119,8 @@ from .type_defs import (
     InvokeCodeInterpreterResponseTypeDef,
     InvokeHarnessRequestTypeDef,
     InvokeHarnessResponseTypeDef,
+    InvokeWebSearchInputTypeDef,
+    InvokeWebSearchOutputTypeDef,
     ListABTestsRequestTypeDef,
     ListABTestsResponseTypeDef,
     ListActorsInputTypeDef,
@@ -196,6 +198,7 @@ class Exceptions(BaseClientExceptions):
     RuntimeClientError: type[BotocoreClientError]
     ServiceException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
     SubscriptionRequiredException: type[BotocoreClientError]
     ThrottledException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
@@ -643,6 +646,16 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_harness.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#invoke_harness)
+        """
+
+    def invoke_web_search(
+        self, **kwargs: Unpack[InvokeWebSearchInputTypeDef]
+    ) -> InvokeWebSearchOutputTypeDef:
+        """
+        Searches the web and returns a ranked list of results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_web_search.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#invoke_web_search)
         """
 
     def list_ab_tests(

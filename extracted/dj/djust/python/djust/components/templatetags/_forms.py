@@ -10,16 +10,16 @@ All tags register on the shared ``register`` from ``_registry``.
 from typing import Any
 
 from django import template
+from django.utils.html import conditional_escape
 from django.utils.safestring import SafeString
 
+from djust.components.utils import safe_url  # from where it is DEFINED, not ``._registry`` (#3820)
+from djust.components.utils import attr_text
 from ._registry import (
     register,
     _resolve,
     _parse_kv_args,
-    conditional_escape,
-    safe_url,
     mark_safe,
-    uuid,
     CURRENCY_SYMBOLS,
 )
 
@@ -414,13 +414,15 @@ def autocomplete(
     suggestion_items = []
     for sug in suggestions:
         if isinstance(sug, dict):
-            sv = conditional_escape(str(sug.get("value", "")))
-            sl = conditional_escape(str(sug.get("label", sv)))
+            raw_value = sug.get("value", "")
+            sv = attr_text(raw_value)  # only in data-value= (#3904)
+            sl = conditional_escape(str(sug.get("label", raw_value)))
         elif isinstance(sug, (list, tuple)) and len(sug) >= 2:
-            sv = conditional_escape(str(sug[0]))
+            sv = attr_text(sug[0])  # only in data-value= (#3904)
             sl = conditional_escape(str(sug[1]))
         else:
-            sv = sl = conditional_escape(str(sug))
+            sv = attr_text(sug)  # only in data-value= (#3904)
+            sl = conditional_escape(str(sug))
         suggestion_items.append(
             f'<li class="dj-autocomplete__item" role="option" data-value="{sv}">{sl}</li>'
         )
@@ -461,64 +463,81 @@ def autocomplete(
 # ---------------------------------------------------------------------------
 
 
+def render_confirm_dialog(kw: Any, body: Any = "") -> SafeString:
+    """Markup for an open confirmation dialog.
+
+    Shared by ``{% confirm_dialog %}``, ``{% confirm_dialog_block %}`` and
+    their Rust handlers. ``kw`` holds the resolved tag arguments; ``body`` is
+    the already-rendered block content (a note field, a pending line, an
+    error), placed in the dialog body after the message. The title and
+    message ids derive from ``id`` (default ``dj-confirm``), so renders are
+    stable and diff cleanly over the socket.
+    """
+    message = kw.get("message", "" if body else "Are you sure?")
+    confirm_event = kw.get("confirm_event", "confirm")
+    cancel_event = kw.get("cancel_event", "cancel")
+    title = kw.get("title", "Confirm")
+    variant = kw.get("variant", "default")  # default or danger
+    confirm_label = kw.get("confirm_label", "Confirm")
+    cancel_label = kw.get("cancel_label", "Cancel")
+    custom_class = kw.get("custom_class", "")
+
+    dialog_id = conditional_escape(kw.get("id", "") or "dj-confirm")
+    title_id = f"{dialog_id}-title"
+    msg_id = f"{dialog_id}-msg"
+
+    e_confirm_event = conditional_escape(confirm_event)
+    e_cancel_event = conditional_escape(cancel_event)
+    e_title = conditional_escape(title)
+    e_variant = conditional_escape(variant)
+    e_confirm_label = conditional_escape(confirm_label)
+    e_cancel_label = conditional_escape(cancel_label)
+    e_custom_class = conditional_escape(custom_class)
+
+    variant_cls = f" dj-confirm-dialog--{e_variant}" if variant != "default" else ""
+    extra_cls = f" {e_custom_class}" if custom_class else ""
+    message_html = (
+        f'<p class="dj-confirm-dialog__message">{conditional_escape(message)}</p>'
+        if message
+        else ""
+    )
+
+    return mark_safe(
+        f'<div class="dj-confirm-dialog-backdrop">'
+        f'<div class="dj-scrim" dj-click="{e_cancel_event}"></div>'
+        f'<div class="dj-confirm-dialog{variant_cls}{extra_cls}" id="{dialog_id}" '
+        f'role="alertdialog" aria-modal="true" aria-labelledby="{title_id}" '
+        f'aria-describedby="{msg_id}">'
+        f'<div class="dj-confirm-dialog__header">'
+        f'<h3 class="dj-confirm-dialog__title" id="{title_id}">{e_title}</h3>'
+        f'<button type="button" class="dj-confirm-dialog__close" dj-click="{e_cancel_event}" '
+        f'aria-label="Close">&times;</button>'
+        f"</div>"
+        f'<div class="dj-confirm-dialog__body" id="{msg_id}">'
+        f"{message_html}{body}"
+        f"</div>"
+        f'<div class="dj-confirm-dialog__footer">'
+        f'<button type="button" class="dj-confirm-dialog__btn dj-confirm-dialog__btn--cancel" '
+        f'dj-click="{e_cancel_event}">{e_cancel_label}</button>'
+        f'<button type="button" class="dj-confirm-dialog__btn dj-confirm-dialog__btn--confirm" '
+        f'dj-click="{e_confirm_event}">{e_confirm_label}</button>'
+        f"</div>"
+        f"</div>"
+        f"</div>"
+    )
+
+
 class ConfirmDialogNode(template.Node):
-    def __init__(self, kwargs: Any) -> None:
+    def __init__(self, kwargs: Any, nodelist: Any = None) -> None:
         self.kwargs = kwargs
+        self.nodelist = nodelist
 
     def render(self, context: Any) -> SafeString:
         kw = {k: _resolve(v, context) for k, v in self.kwargs.items()}
-        message = kw.get("message", "Are you sure?")
-        confirm_event = kw.get("confirm_event", "confirm")
-        cancel_event = kw.get("cancel_event", "cancel")
-        title = kw.get("title", "Confirm")
-        is_open = kw.get("is_open", kw.get("open", False))
-        variant = kw.get("variant", "default")  # default or danger
-        confirm_label = kw.get("confirm_label", "Confirm")
-        cancel_label = kw.get("cancel_label", "Cancel")
-        custom_class = kw.get("custom_class", "")
-
-        if not is_open:
+        if not kw.get("is_open", kw.get("open", False)):
             return ""
-
-        uid = uuid.uuid4().hex[:8]
-        title_id = f"dj-confirm-title-{uid}"
-        msg_id = f"dj-confirm-msg-{uid}"
-
-        e_confirm_event = conditional_escape(confirm_event)
-        e_cancel_event = conditional_escape(cancel_event)
-        e_title = conditional_escape(title)
-        e_message = conditional_escape(message)
-        e_variant = conditional_escape(variant)
-        e_confirm_label = conditional_escape(confirm_label)
-        e_cancel_label = conditional_escape(cancel_label)
-        e_custom_class = conditional_escape(custom_class)
-
-        variant_cls = f" dj-confirm-dialog--{e_variant}" if variant != "default" else ""
-        extra_cls = f" {e_custom_class}" if custom_class else ""
-
-        return mark_safe(
-            f'<div class="dj-confirm-dialog-backdrop">'
-            f'<div class="dj-scrim" dj-click="{e_cancel_event}"></div>'
-            f'<div class="dj-confirm-dialog{variant_cls}{extra_cls}" '
-            f'role="alertdialog" aria-modal="true" aria-labelledby="{title_id}" '
-            f'aria-describedby="{msg_id}">'
-            f'<div class="dj-confirm-dialog__header">'
-            f'<h3 class="dj-confirm-dialog__title" id="{title_id}">{e_title}</h3>'
-            f'<button class="dj-confirm-dialog__close" dj-click="{e_cancel_event}" '
-            f'aria-label="Close">&times;</button>'
-            f"</div>"
-            f'<div class="dj-confirm-dialog__body" id="{msg_id}">'
-            f'<p class="dj-confirm-dialog__message">{e_message}</p>'
-            f"</div>"
-            f'<div class="dj-confirm-dialog__footer">'
-            f'<button class="dj-confirm-dialog__btn dj-confirm-dialog__btn--cancel" '
-            f'dj-click="{e_cancel_event}">{e_cancel_label}</button>'
-            f'<button class="dj-confirm-dialog__btn dj-confirm-dialog__btn--confirm" '
-            f'dj-click="{e_confirm_event}">{e_confirm_label}</button>'
-            f"</div>"
-            f"</div>"
-            f"</div>"
-        )
+        body = self.nodelist.render(context) if self.nodelist is not None else ""
+        return render_confirm_dialog(kw, body)
 
 
 @register.tag("confirm_dialog")
@@ -528,9 +547,65 @@ def do_confirm_dialog(parser: Any, token: Any) -> template.Node:
     return ConfirmDialogNode(kwargs)
 
 
+@register.tag("confirm_dialog_block")
+def do_confirm_dialog_block(parser: Any, token: Any) -> template.Node:
+    """``{% confirm_dialog_block ... %}body{% endconfirm_dialog_block %}``.
+
+    The block form of ``{% confirm_dialog %}``: same arguments, plus a body
+    slot rendered under the message (``message`` is optional here).
+    """
+    bits = token.split_contents()[1:]
+    kwargs = _parse_kv_args(bits, parser)
+    nodelist = parser.parse(("endconfirm_dialog_block",))
+    parser.delete_first_token()
+    return ConfirmDialogNode(kwargs, nodelist)
+
+
 # ---------------------------------------------------------------------------
 # Popconfirm
 # ---------------------------------------------------------------------------
+
+
+def render_popconfirm(kw: Any, content: Any) -> SafeString:
+    """Markup for ``{% popconfirm %}``, shared by the Django tag and the Rust handler.
+
+    The trigger opens the confirmation (``data-open`` on the wrapper); either
+    button or a click outside closes it. That is the client bundle's delegated
+    ``.dj-popconfirm-wrapper`` behaviour, so the markup has no inline handler.
+    """
+    message = kw.get("message", "Are you sure?")
+    confirm_event = kw.get("confirm_event", "confirm")
+    cancel_event = kw.get("cancel_event", "cancel")
+    confirm_label = kw.get("confirm_label", "Yes")
+    cancel_label = kw.get("cancel_label", "No")
+    placement = kw.get("placement", "top")
+    variant = kw.get("variant", "default")  # default or danger
+    custom_class = kw.get("custom_class", "")
+    uid = kw.get("id", "")
+
+    e_cancel_event = conditional_escape(cancel_event)
+    e_confirm_event = conditional_escape(confirm_event)
+    variant_cls = f" dj-popconfirm--{conditional_escape(variant)}" if variant != "default" else ""
+    extra_cls = f" {conditional_escape(custom_class)}" if custom_class else ""
+    id_attr = f' id="{conditional_escape(uid)}"' if uid else ""
+
+    return mark_safe(
+        f'<div class="dj-popconfirm-wrapper{variant_cls}{extra_cls}"{id_attr}>'
+        f'<div class="dj-popconfirm-trigger" aria-expanded="false" aria-haspopup="dialog">'
+        f"{content}"
+        f"</div>"
+        f'<div class="dj-popconfirm dj-popconfirm-{conditional_escape(placement)}" '
+        f'role="alertdialog" aria-label="{conditional_escape(message)}">'
+        f'<p class="dj-popconfirm__message">{conditional_escape(message)}</p>'
+        f'<div class="dj-popconfirm__actions">'
+        f'<button type="button" class="dj-popconfirm__btn dj-popconfirm__btn--cancel" '
+        f'dj-click="{e_cancel_event}">{conditional_escape(cancel_label)}</button>'
+        f'<button type="button" class="dj-popconfirm__btn dj-popconfirm__btn--confirm" '
+        f'dj-click="{e_confirm_event}">{conditional_escape(confirm_label)}</button>'
+        f"</div>"
+        f"</div>"
+        f"</div>"
+    )
 
 
 class PopconfirmNode(template.Node):
@@ -540,66 +615,7 @@ class PopconfirmNode(template.Node):
 
     def render(self, context: Any) -> SafeString:
         kw = {k: _resolve(v, context) for k, v in self.kwargs.items()}
-        message = kw.get("message", "Are you sure?")
-        confirm_event = kw.get("confirm_event", "confirm")
-        cancel_event = kw.get("cancel_event", "cancel")
-        confirm_label = kw.get("confirm_label", "Yes")
-        cancel_label = kw.get("cancel_label", "No")
-        placement = kw.get("placement", "top")
-        variant = kw.get("variant", "default")  # default or danger
-        custom_class = kw.get("custom_class", "")
-        uid = kw.get("id", f"popconfirm-{uuid.uuid4().hex[:6]}")
-
-        content = self.nodelist.render(context)
-
-        e_message = conditional_escape(message)
-        e_confirm_event = conditional_escape(confirm_event)
-        e_cancel_event = conditional_escape(cancel_event)
-        e_confirm_label = conditional_escape(confirm_label)
-        e_cancel_label = conditional_escape(cancel_label)
-        e_placement = conditional_escape(placement)
-        e_variant = conditional_escape(variant)
-        e_custom_class = conditional_escape(custom_class)
-        e_uid = conditional_escape(uid)
-
-        variant_cls = f" dj-popconfirm--{e_variant}" if variant != "default" else ""
-        extra_cls = f" {e_custom_class}" if custom_class else ""
-
-        js_toggle = (
-            "(function(el){"
-            "var w=el.closest('.dj-popconfirm-wrapper');"
-            "if(w.hasAttribute('data-open')){w.removeAttribute('data-open');}else{w.setAttribute('data-open','');"
-            "document.addEventListener('click',function h(e){"
-            "if(!w.contains(e.target)){"
-            "w.removeAttribute('data-open');"
-            "document.removeEventListener('click',h);"
-            "}},true);"
-            "}})(this)"
-        )
-
-        js_close = (
-            "(function(el){"
-            "el.closest('.dj-popconfirm-wrapper').removeAttribute('data-open');"
-            "})(this)"
-        )
-
-        return mark_safe(
-            f'<div class="dj-popconfirm-wrapper{variant_cls}{extra_cls}" id="{e_uid}">'
-            f'<div class="dj-popconfirm-trigger" onclick="{js_toggle}" '
-            f'aria-expanded="false" aria-haspopup="true">'
-            f"{content}"
-            f"</div>"
-            f'<div class="dj-popconfirm dj-popconfirm-{e_placement}" role="tooltip">'
-            f'<p class="dj-popconfirm__message">{e_message}</p>'
-            f'<div class="dj-popconfirm__actions">'
-            f'<button class="dj-popconfirm__btn dj-popconfirm__btn--cancel" '
-            f'onclick="{js_close}" dj-click="{e_cancel_event}">{e_cancel_label}</button>'
-            f'<button class="dj-popconfirm__btn dj-popconfirm__btn--confirm" '
-            f'onclick="{js_close}" dj-click="{e_confirm_event}">{e_confirm_label}</button>'
-            f"</div>"
-            f"</div>"
-            f"</div>"
-        )
+        return render_popconfirm(kw, self.nodelist.render(context))
 
 
 @register.tag("popconfirm")
@@ -690,11 +706,13 @@ def dependent_select(
         if isinstance(opt, dict):
             ov = conditional_escape(str(opt.get("value", "")))
             ol = conditional_escape(str(opt.get("label", ov)))
+            av = attr_text(opt.get("value", ""))  # the value= attribute (#3904)
         else:
             ov = conditional_escape(str(opt))
             ol = ov
+            av = attr_text(opt)
         selected = " selected" if ov == e_value else ""
-        opt_parts.append(f'<option value="{ov}"{selected}>{ol}</option>')
+        opt_parts.append(f'<option value="{av}"{selected}>{ol}</option>')
 
     spinner_html = (
         '<span class="dj-dependent-select__spinner" aria-hidden="true"></span>' if loading else ""
@@ -922,6 +940,36 @@ _FIELD_TYPE_MAP = {
 }
 
 
+def _bound_field_value(bound_field: Any) -> Any:
+    """``bound_field.value()``, held to the serialization floor (#3790, #3797).
+
+    The one reader every component that fills a control from a ``BoundField`` calls
+    (``_render_field``, the hidden-field loop of ``dj_form``, ``_from_bound_field``), so they cannot
+    disagree with each other or with a template's own ``{{ form.field }}``. A floor field of a
+    ``ModelForm`` reads as ``None`` when it is ``disabled`` (Django ignores what is posted for it) or
+    its widget is a password input (#3798). An EDITABLE floor field keeps its value, because the browser
+    posts the control back and a blank one clears the column (an unchecked checkbox demotes the user),
+    and the reader says so once; except a SECRET-LIKE one (``password``, ``api_token``, ...), which is
+    drawn empty as a template's ``{{ form.field }}`` draws it
+    (:func:`djust.serialization._floor_blank_bound_field`) and is protected by
+    ``disabled=True`` (``FormMixin.get_form()``).
+    """
+    from djust.serialization import (
+        floor_field_is_secret,
+        form_field_floor_state,
+        warn_editable_floor_field,
+    )
+
+    state = form_field_floor_state(bound_field)
+    if state in ("disabled", "password"):
+        return None
+    if state == "editable":
+        warn_editable_floor_field(bound_field)
+        if floor_field_is_secret(bound_field):
+            return None
+    return bound_field.value()
+
+
 def _get_field_type(bound_field: Any) -> Any:
     """Determine the djust component type for a Django BoundField."""
     field = bound_field.field
@@ -986,7 +1034,7 @@ def _render_field(bound_field: Any, event_prefix: Any = "") -> Any:
     # Get current value
     value = ""
     if hasattr(bound_field, "value"):
-        v = bound_field.value()
+        v = _bound_field_value(bound_field)
         if v is not None:
             value = str(v)
 
@@ -1055,8 +1103,7 @@ def _render_field(bound_field: Any, event_prefix: Any = "") -> Any:
         for ov, ol in choices:
             selected_attr = " selected" if str(ov) == str(value) else ""
             options_html += (
-                f'<option value="{conditional_escape(ov)}"{selected_attr}>'
-                f"{conditional_escape(ol)}</option>"
+                f'<option value="{attr_text(ov)}"{selected_attr}>{conditional_escape(ol)}</option>'
             )
         return (
             f'<div class="form-group">'
@@ -1078,7 +1125,7 @@ def _render_field(bound_field: Any, event_prefix: Any = "") -> Any:
             radios += (
                 f'<div class="form-radio-wrapper">'
                 f'<input class="form-radio" type="radio" '
-                f'name="{e_name}" id="{radio_id}" value="{conditional_escape(ov)}" '
+                f'name="{e_name}" id="{radio_id}" value="{attr_text(ov)}" '
                 f'dj-change="{dj_event}"{checked_attr}{disabled_attr}>'
                 f'<label class="form-radio-label" for="{radio_id}">{conditional_escape(ol)}</label>'
                 f"</div>"
@@ -1102,7 +1149,7 @@ def _render_field(bound_field: Any, event_prefix: Any = "") -> Any:
             checks += (
                 f'<div class="form-checkbox-wrapper">'
                 f'<input class="form-checkbox" type="checkbox" '
-                f'name="{e_name}" id="{cb_id}" value="{conditional_escape(ov)}" '
+                f'name="{e_name}" id="{cb_id}" value="{attr_text(ov)}" '
                 f'dj-change="{dj_event}"{checked_attr}{disabled_attr}>'
                 f'<label class="form-checkbox-label" for="{cb_id}">{conditional_escape(ol)}</label>'
                 f"</div>"
@@ -1232,7 +1279,7 @@ def dj_form(
         h_name = bf.html_name if hasattr(bf, "html_name") else bf.name
         h_value = ""
         if hasattr(bf, "value"):
-            v = bf.value()
+            v = _bound_field_value(bf)
             if v is not None:
                 h_value = str(v)
         hidden_html += (
@@ -1552,7 +1599,7 @@ def model_table(
             '<th class="data-table__th data-table__th--select"><input type="checkbox"></th>'
         )
     for col in columns:
-        col_key = conditional_escape(col["key"])
+        col_key = attr_text(col["key"])  # only in dj-value-column= (#3904)
         col_label = conditional_escape(col["label"])
         sort_cls = ""
         sort_attr = ""
@@ -1579,13 +1626,13 @@ def model_table(
             filter_cells += '<td class="data-table__filter-cell"></td>'
         for col in columns:
             if col.get("filterable"):
-                col_key = conditional_escape(col["key"])
-                fval = conditional_escape(str(filters.get(col["key"], "")))
+                col_key = attr_text(col["key"])  # only in dj-value-column= (#3904)
+                fval = attr_text(filters.get(col["key"], ""))  # only in value= / the compare
                 ft = col.get("filter_type", "text")
                 if ft == "select" and col.get("filter_options"):
                     opts = '<option value="">All</option>'
                     for fo in col["filter_options"]:
-                        fov = conditional_escape(str(fo.get("value", "")))
+                        fov = attr_text(fo.get("value", ""))  # value= and the compare (#3904)
                         fol = conditional_escape(str(fo.get("label", "")))
                         sel = " selected" if fov == fval else ""
                         opts += f'<option value="{fov}"{sel}>{fol}</option>'
@@ -1626,8 +1673,11 @@ def model_table(
             f"</td></tr>"
         )
     else:
-        for row in safe_rows:
+        for row, raw_row in zip(safe_rows, rows):
             row_id = row.get(row_key, "")
+            # the id as the row HELD it: ``safe_rows`` kept a marked-safe value raw, and the id is
+            # written into an attribute below (a TEXT cell keeps its markup, an attribute never)
+            row_id_attr = attr_text(raw_row.get(row_key, ""))
             row_selected = str(row_id) in [str(s) for s in selected_rows]
             selected_cls = " data-table__tr--selected" if row_selected else ""
             cells = ""
@@ -1636,7 +1686,7 @@ def model_table(
                 cells += (
                     f'<td class="data-table__td data-table__td--select">'
                     f'<input type="checkbox" dj-change="{e_select_event}" '
-                    f'dj-value-row="{conditional_escape(str(row_id))}"{chk}></td>'
+                    f'dj-value-row="{row_id_attr}"{chk}></td>'
                 )
             for col in columns:
                 cell_val = row.get(col["key"], "")

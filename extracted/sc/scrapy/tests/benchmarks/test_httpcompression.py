@@ -5,11 +5,12 @@ from gzip import GzipFile
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
+import brotli
 import pytest
 
 from scrapy import Request, Spider
 from scrapy.http import Response
-from scrapy.utils.gz import gunzip
+from scrapy.utils._compression import gunzip
 from tests import get_testdata
 from tests.benchmarks import crawl
 
@@ -21,11 +22,6 @@ if TYPE_CHECKING:
     from scrapy.crawler import Crawler
 
 pytest.importorskip("pytest_codspeed", reason="Benchmarks require pytest-codspeed")
-
-try:
-    import brotli
-except ImportError:
-    import brotlicffi as brotli
 
 if sys.version_info >= (3, 14):
     from compression import zstd

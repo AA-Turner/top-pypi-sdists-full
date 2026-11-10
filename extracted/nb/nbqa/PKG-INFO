@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nbqa
-Version: 1.9.1
+Version: 1.10.0
 Summary: Run any standard Python code quality tool on a Jupyter Notebook
 Home-page: https://github.com/nbQA-dev/nbQA
 Author: Marco Gorelli, Girish Pasupathy, Sebastian Weigand
@@ -13,13 +13,12 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Framework :: Jupyter
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: autopep8>=1.5
@@ -36,6 +35,7 @@ Requires-Dist: mypy; extra == "toolchain"
 Requires-Dist: pylint; extra == "toolchain"
 Requires-Dist: pyupgrade; extra == "toolchain"
 Requires-Dist: ruff; extra == "toolchain"
+Dynamic: license-file
 
 <h1 align="center">
 	<img
@@ -174,7 +174,7 @@ Here's an example of how to set up some pre-commit hooks: put this in your `.pre
 
 ```yaml
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.9.1
+  rev: 1.10.0
   hooks:
     - id: nbqa-black
       additional_dependencies: [jupytext]  # optional, only if you're using Jupytext
@@ -235,6 +235,7 @@ add them to [`additional_dependencies`](http://pre-commit.com/#pre-commit-config
 - https://github.com/mayou36/raredecay
 - https://github.com/neomatrix369/nlp_profiler
 - https://github.com/openforcefield/openff-system
+- https://github.com/oxsecurity/megalinter
 - https://github.com/pandas-profiling/pandas-profiling
 - https://github.com/paw-lu/dotfiles
 - https://github.com/pawamoy/wps-light

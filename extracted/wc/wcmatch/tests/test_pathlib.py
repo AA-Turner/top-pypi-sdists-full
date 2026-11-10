@@ -3,6 +3,7 @@ import contextlib
 import pytest
 import unittest
 import os
+import tempfile
 from wcmatch import pathlib, glob, _wcparse
 import pathlib as pypathlib
 import pickle
@@ -138,6 +139,26 @@ class TestGlob(unittest.TestCase):
         results = list(p.rglob('markdown/*.md'))
         self.assertTrue(len(results))
         self.assertTrue(all(file.suffix == '.md' for file in results))
+
+    def test_default_globstar_disabled(self):
+        """`glob` and `rglob` do not enable `GLOBSTAR` by default, so `**` stays within one directory."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base = pathlib.Path(tmp)
+            (base / 'nested').mkdir()
+            (base / 'nested' / 'file.txt').touch()
+
+            self.assertEqual(list(base.glob('**')), [base / 'nested'])
+            self.assertEqual(list(base.glob('**/file.txt')), [base / 'nested' / 'file.txt'])
+            self.assertEqual(
+                list(base.glob('**', flags=pathlib.GLOBSTAR)), [base / 'nested', base / 'nested' / 'file.txt']
+            )
+            self.assertEqual(list(base.glob('**/file.txt', flags=pathlib.GLOBSTAR)), [base / 'nested' / 'file.txt'])
+
+            self.assertEqual(list(base.rglob('**')), [base / 'nested', base / 'nested' / 'file.txt'])
+            self.assertEqual(
+                list(base.rglob('**', flags=pathlib.GLOBSTAR)), [base / 'nested', base / 'nested' / 'file.txt']
+            )
 
     def test_integrity(self):
         """Test glob integrity, or better put, test the path structure comes out sane."""
@@ -308,6 +329,16 @@ class TestPathlibMatch(TestPathlibGlobmatch):
         """Run the command."""
 
         assert path.match(pattern, flags=flags) == goal, "Expression did not evaluate as %s" % goal
+
+    @pytest.mark.parametrize('path_type', [pathlib.PurePosixPath, pathlib.PureWindowsPath])
+    @pytest.mark.parametrize('pattern', ['?(a)', '*(a)'])
+    def test_optional_filename(self, path_type, pattern):
+        """The implicit globstar must leave the final filename for the optional group."""
+
+        for name in ['a', 'sub/a', 'sub/deep/a']:
+            assert path_type(name).match(pattern, flags=pathlib.EXTMATCH)
+        for name in ['b', 'sub/b', 'sub/deep/b']:
+            assert not path_type(name).match(pattern, flags=pathlib.EXTMATCH)
 
 
 class TestRealpath(unittest.TestCase):

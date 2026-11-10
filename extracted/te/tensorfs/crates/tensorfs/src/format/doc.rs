@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::layout::ALIGN;
-use super::{cbor, decode, invalid, Config, Dtype, Error, PartBytes, Result, Value};
+use super::{cbor, invalid, Config, Dtype, Error, Result, Value};
 
 /// Free-form metadata, and a scheme's params.
 pub type Metadata = BTreeMap<String, Value>;
@@ -163,6 +163,7 @@ pub struct Pipeline {
     pub config: Config,
 }
 
+/// One model component, named by its folder: its class, config, tensors and assets.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Component {
     pub name: String,
@@ -195,6 +196,7 @@ pub struct Tensor {
     pub body: Body,
 }
 
+/// Where a tensor's bytes are: one plain range, or an encoding's parts.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Body {
     /// Plain: the bytes at `data` are the tensor, little-endian, row-major.
@@ -208,7 +210,7 @@ pub enum Body {
 
 impl Tensor {
     /// An encoded tensor's part by role.
-    pub fn part(&self, role: &str) -> Option<&Part> {
+    pub(crate) fn part(&self, role: &str) -> Option<&Part> {
         match &self.body {
             Body::Encoded { parts, .. } => parts.iter().find(|p| p.role == role),
             Body::Data(_) => None,
@@ -381,11 +383,6 @@ impl Header {
         cbor::write(self)
     }
 
-    /// The recipe that wrote this lane, when one did.
-    pub fn provenance(&self) -> Option<&Provenance> {
-        self.provenance.as_ref()
-    }
-
     /// What `model_index.json` held; `None` for a checkpoint of one model.
     pub fn pipeline(&self) -> Option<&Pipeline> {
         self.pipeline.as_ref()
@@ -409,7 +406,7 @@ impl Header {
     }
 
     /// The distinct encodings, in order of first citation by the tensors (the header's table).
-    pub fn encodings(&self) -> Vec<&Encoding> {
+    pub(crate) fn encodings(&self) -> Vec<&Encoding> {
         let mut out: Vec<&Encoding> = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for (_, t) in self.tensors() {
@@ -432,7 +429,7 @@ impl Header {
     }
 
     /// Where a tensor is in construction order: (its component's index, its index there).
-    pub fn position(&self, component: &str, key: &str) -> Option<(usize, usize)> {
+    pub(crate) fn position(&self, component: &str, key: &str) -> Option<(usize, usize)> {
         let (ci, keys) = self.index.get(component)?;
         Some((*ci, *keys.get(key)?))
     }
@@ -458,65 +455,6 @@ impl Header {
             (chunk, start, left) = (chunk + 1, 0, left - length);
         }
         out
-    }
-
-    /// A location's bytes, gathered from whole chunks that `chunk` supplies by index.
-    pub fn bytes<B: AsRef<[u8]>>(
-        &self,
-        at: &Location,
-        mut chunk: impl FnMut(usize) -> Result<B>,
-    ) -> Result<Vec<u8>> {
-        let mut out = Vec::with_capacity(at.length as usize);
-        for s in self.spans(at) {
-            let bytes = chunk(s.chunk)?;
-            let bytes = bytes.as_ref();
-            if bytes.len() as u64 != self.chunks[s.chunk].length {
-                return invalid(format!(
-                    "chunk {} is {} bytes, its ref says {}",
-                    s.chunk,
-                    bytes.len(),
-                    self.chunks[s.chunk].length
-                ));
-            }
-            out.extend_from_slice(&bytes[s.start as usize..(s.start + s.length) as usize]);
-        }
-        Ok(out)
-    }
-
-    /// A tensor's logical bytes: a plain tensor's data, or its parts through the reference decode.
-    pub fn read<B: AsRef<[u8]>>(
-        &self,
-        component: &str,
-        key: &str,
-        mut chunk: impl FnMut(usize) -> Result<B>,
-    ) -> Result<Vec<u8>> {
-        let Some(t) = self.tensor(component, key) else {
-            return invalid(format!("no tensor {component}/{key}"));
-        };
-        match &t.body {
-            Body::Data(at) => self.bytes(at, &mut chunk),
-            Body::Encoded { encoding, parts } => {
-                let bytes = parts
-                    .iter()
-                    .map(|p| self.bytes(&p.at(), &mut chunk))
-                    .collect::<Result<Vec<_>>>()?;
-                let views = parts
-                    .iter()
-                    .zip(&bytes)
-                    .map(|(p, b)| {
-                        (
-                            p.role.as_str(),
-                            PartBytes {
-                                dtype: &p.dtype,
-                                shape: &p.shape,
-                                bytes: b,
-                            },
-                        )
-                    })
-                    .collect();
-                decode(&t.dtype, &t.shape, encoding, &views)
-            }
-        }
     }
 
     /// Sizes known dtypes; an unknown dtype's `length` stands as written. `rooms[i]` is the
@@ -574,12 +512,12 @@ impl Header {
 }
 
 /// 64 lowercase hex digits: a sha256 as objects are named.
-pub(crate) fn is_digest(s: &str) -> bool {
+pub fn is_digest(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// A path segment: not empty, `.` or `..`, and no separator or NUL.
-pub(crate) fn segment(s: &str) -> bool {
+pub fn segment(s: &str) -> bool {
     !s.is_empty() && s != "." && s != ".." && !s.contains(['/', '\\', '\0'])
 }
 

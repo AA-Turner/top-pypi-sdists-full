@@ -3033,7 +3033,7 @@ def dot(x1, x2):
 
 class Dstack(Operation):
     def call(self, xs):
-        return backend.ops.numpy.dstack(xs)
+        return _dstack(xs)
 
     def compute_output_spec(self, xs):
         dtypes_to_resolve = []
@@ -3102,7 +3102,30 @@ def dstack(xs):
     """
     if any_symbolic_tensors((xs,)):
         return Dstack().symbolic_call(xs)
-    return backend.ops.numpy.dstack(xs)
+    return _dstack(xs)
+
+
+def _dstack(xs):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "dstack"
+    ):
+        return backend.ops.numpy.dstack(xs)
+    xs = [
+        x if isinstance(x, (int, float)) else backend.ops.convert_to_tensor(x)
+        for x in xs
+    ]
+    dtype = dtypes.result_type(*[getattr(x, "dtype", type(x)) for x in xs])
+    xs_reshaped = []
+    for x in xs:
+        x = backend.ops.cast(x, dtype)
+        if len(x.shape) == 0:
+            x = backend.ops.numpy.expand_dims(x, axis=(0, 1, 2))
+        elif len(x.shape) == 1:
+            x = backend.ops.numpy.expand_dims(x, axis=(0, 2))
+        elif len(x.shape) == 2:
+            x = backend.ops.numpy.expand_dims(x, axis=2)
+        xs_reshaped.append(x)
+    return backend.ops.numpy.concatenate(xs_reshaped, axis=2)
 
 
 class Einsum(Operation):
@@ -3393,7 +3416,7 @@ class EmptyLike(Operation):
         self.dtype = dtype
 
     def call(self, x):
-        return backend.ops.numpy.empty_like(x, dtype=self.dtype)
+        return _empty_like(x, dtype=self.dtype)
 
     def compute_output_spec(self, x):
         dtype = standardize_dtype(x.dtype) if self.dtype is None else self.dtype
@@ -3423,7 +3446,15 @@ def empty_like(x, dtype=None):
     dtype = None if dtype is None else standardize_dtype(dtype)
     if any_symbolic_tensors((x,)):
         return EmptyLike(dtype=dtype).symbolic_call(x)
-    return backend.ops.numpy.empty_like(x, dtype=dtype)
+    return _empty_like(x, dtype=dtype)
+
+
+def _empty_like(x, dtype=None):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "empty_like"
+    ):
+        return backend.ops.numpy.empty_like(x, dtype=dtype)
+    return backend.ops.numpy.zeros_like(x, dtype=dtype)
 
 
 class Equal(Operation):
@@ -3481,7 +3512,7 @@ def exp(x):
 
 class Exp2(Operation):
     def call(self, x):
-        return backend.ops.numpy.exp2(x)
+        return _exp2(x)
 
     def compute_output_spec(self, x):
         dtype = standardize_dtype(x.dtype)
@@ -3502,7 +3533,19 @@ def exp2(x):
     """
     if any_symbolic_tensors((x,)):
         return Exp2().symbolic_call(x)
-    return backend.ops.numpy.exp2(x)
+    return _exp2(x)
+
+
+def _exp2(x):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "exp2"
+    ):
+        return backend.ops.numpy.exp2(x)
+    x = backend.ops.convert_to_tensor(x)
+    dtype = standardize_dtype(x.dtype)
+    if "int" in dtype or dtype == "bool":
+        x = backend.ops.cast(x, config.floatx())
+    return backend.ops.numpy.power(2.0, x)
 
 
 class ExpandDims(Operation):
@@ -9182,7 +9225,7 @@ def divide(x1, x2):
 
 class DivideNoNan(Operation):
     def call(self, x1, x2):
-        return backend.ops.numpy.divide_no_nan(x1, x2)
+        return _divide_no_nan(x1, x2)
 
     def compute_output_spec(self, x1, x2):
         x1_shape = getattr(x1, "shape", [])
@@ -9214,7 +9257,30 @@ def divide_no_nan(x1, x2):
     """
     if any_symbolic_tensors((x1, x2)):
         return DivideNoNan().symbolic_call(x1, x2)
-    return backend.ops.numpy.divide_no_nan(x1, x2)
+    return _divide_no_nan(x1, x2)
+
+
+def _divide_no_nan(x1, x2):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.ops.numpy, "divide_no_nan"
+    ):
+        return backend.ops.numpy.divide_no_nan(x1, x2)
+    if not isinstance(x1, (int, float)):
+        x1 = backend.ops.convert_to_tensor(x1)
+    if not isinstance(x2, (int, float)):
+        x2 = backend.ops.convert_to_tensor(x2)
+    dtype = dtypes.result_type(
+        getattr(x1, "dtype", type(x1)),
+        getattr(x2, "dtype", type(x2)),
+        float,
+    )
+    x1 = backend.ops.cast(x1, dtype)
+    x2 = backend.ops.cast(x2, dtype)
+    x2_is_zero = backend.ops.numpy.equal(x2, 0)
+    safe_x2 = backend.ops.numpy.where(x2_is_zero, 1, x2)
+    return backend.ops.numpy.where(
+        x2_is_zero, 0, backend.ops.numpy.divide(x1, safe_x2)
+    )
 
 
 class TrueDivide(Operation):

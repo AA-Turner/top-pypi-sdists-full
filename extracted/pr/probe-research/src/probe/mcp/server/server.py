@@ -1,4 +1,4 @@
-"""FastMCP registration for the read-only Probe Research MCP server.
+"""FastMCP registration for the read-only Probe MCP server.
 
 Runs two ways from one module:
 
@@ -7,19 +7,20 @@ Runs two ways from one module:
 - **streamable HTTP** (`main_http`, hosted): a stateless multi-tenant service. Each
   request carries the caller's read-scoped ``probe_pat`` as ``Authorization: Bearer …``;
   the server builds a client from that header **per request**, holds no tenant
-  credential of its own, and relies on the Probe Research API's RLS for isolation.
+  credential of its own, and relies on the Probe API's RLS for isolation.
 """
 
 from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import CallToolResult
 from pydantic import BeforeValidator, Field
 from ...sdk import errors
 from ..delivery import delivery as continuation
-from ..generated.sql import QUERY_SQL_DESCRIPTION, SQL_ARG_DOC, TABLES_ARG_DOC
+from ..generated.sql import QUERY_SQL_DESCRIPTION, SOURCE_ARG_DOC, SQL_ARG_DOC, TABLES_ARG_DOC
 from ...shared.reads.search_contract import (
     BrowseMode,
     CheckpointStored,
@@ -33,6 +34,8 @@ from ...shared.reads.search_contract import (
     SourceProvider,
     ToolCorpus)
 from ..generated.views import View
+from ..events import follow_events
+from ..tools.reads.samples import SampleQuery, SampleView
 from ..tools.tools import ResearchReadService
 from probe.mcp.server.browse_args import _browse_args_for_mode
 from probe.mcp.server.limits import _WEB_MAX_LIMIT, _WEB_QUERY_CHARS
@@ -42,7 +45,9 @@ from probe.mcp.server.pool import _leased_service
 from probe.mcp.server.retired import _RetiringMCP
 from probe.mcp.server.tool_runner import _tool
 from probe.mcp.server.tool_text import (
+    EVENTS_DESCRIPTION,
     MCP_INSTRUCTIONS,
+    SAMPLES_DESCRIPTION,
     _BR_ACTIVE_DOC,
     _BR_BEST_DOC,
     _BR_BRANCH_DOC,
@@ -65,6 +70,13 @@ from probe.mcp.server.tool_text import (
     _BR_TAGS_DOC,
     _BR_WORKSPACE_DOC,
     _CURSOR_DOC,
+    _EV_EXPERIMENT_DOC,
+    _EV_KINDS_DOC,
+    _EV_LIMIT_DOC,
+    _EV_PROJECT_DOC,
+    _EV_RUN_DOC,
+    _EV_SINCE_DOC,
+    _EV_WAIT_DOC,
     _FP_AUTHORS_DOC,
     _FP_CATEGORIES_DOC,
     _FP_EXPAND_DOC,
@@ -77,7 +89,12 @@ from probe.mcp.server.tool_text import (
     _MT_KEYS_DOC,
     _MT_MAX_POINTS_DOC,
     _MT_RUN_IDS_DOC,
+    _MT_DIMENSIONS_DOC,
+    _MT_SAMPLE_EVERY_DOC,
     _MT_SMOOTHING_DOC,
+    _MT_SMOOTHING_FACTOR_DOC,
+    _MT_SMOOTHING_WINDOW_DOC,
+    _MT_X_AXIS_DOC,
     _REF_DOC,
     _RESP_BUDGET_DOC,
     _RESP_CURSOR_DOC,
@@ -90,6 +107,24 @@ from probe.mcp.server.tool_text import (
     _SK_SEMANTIC_DOC,
     _SK_TOP_K_DOC,
     _SK_WORKSPACE_DOC,
+    _SM_AFTER_DOC,
+    _SM_AT_DOC,
+    _SM_BY_DOC,
+    _SM_FILTER_DOC,
+    _SM_GREP_DOC,
+    _SM_HUNG_AFTER_DOC,
+    _SM_INCLUDE_DOC,
+    _SM_LIMIT_DOC,
+    _SM_MEASURE_DOC,
+    _SM_METRIC_DOC,
+    _SM_PASS_DOC,
+    _SM_RUN_DOC,
+    _SM_SAMPLE_DOC,
+    _SM_SPLIT_DOC,
+    _SM_STATE_DOC,
+    _SM_TASK_DOC,
+    _SM_VIEW_DOC,
+    _SM_WHERE_DOC,
     _TOKEN_BUDGET_DOC,
     _VERBOSE_DOC,
     _VIEW_DOC,
@@ -130,6 +165,8 @@ def create_server(
     _register_browse_and_search(mcp, svc)
     _register_entity_and_metrics(mcp, svc)
     _register_sql_and_papers(mcp, svc)
+    _register_events(mcp, svc)
+    _register_samples(mcp, svc)
 
     # The three deprecation stubs (`get_metrics_grouped`,
     # `get_run_coordinates`, `export_metric_points`) are GONE. They were
@@ -220,7 +257,7 @@ def _register_browse_and_search(mcp, svc):
 
         FYI:
         `completeness.missing` tells what the returned response doesn't cover (absent: nothing) - make sure to read it to be knowledgeable of whats missing.
-        One page is not the whole tree: on `next_cursor`, page on or search before concluding absence. An absent key means "nothing here", never "unknown". `available_views` appears once on the response, keyed by kind.
+        One page is not the whole tree: on `next_cursor`, page on or search before concluding absence. An absent key means "nothing here", never "unknown". `available_views` appears once on the response, keyed by kind. mode=runs: `totals` counts the whole listing.
         """
         _browse_args_for_mode(
             BrowseMode(mode),
@@ -527,6 +564,21 @@ def _register_entity_and_metrics(mcp, svc):
             list[str] | None, Field(min_length=1, max_length=200, description=_MT_KEYS_DOC)
         ] = None,
         smoothing: Annotated[SeriesSmoothing | None, Field(description=_MT_SMOOTHING_DOC)] = None,
+        smoothing_factor: Annotated[
+            float | None, Field(ge=0, lt=1, description=_MT_SMOOTHING_FACTOR_DOC)
+        ] = None,
+        smoothing_window: Annotated[
+            int | None, Field(ge=1, le=5_000, description=_MT_SMOOTHING_WINDOW_DOC)
+        ] = None,
+        sample_every: Annotated[
+            int | None, Field(ge=2, le=10_000, description=_MT_SAMPLE_EVERY_DOC)
+        ] = None,
+        x_axis: Annotated[
+            str | None, Field(min_length=1, max_length=300, description=_MT_X_AXIS_DOC)
+        ] = None,
+        dimensions: Annotated[
+            dict[str, dict[str, Any]] | None, Field(description=_MT_DIMENSIONS_DOC)
+        ] = None,
         max_points: Annotated[
             int | None, Field(ge=2, le=100_000, description=_MT_MAX_POINTS_DOC)
         ] = None,
@@ -547,7 +599,7 @@ def _register_entity_and_metrics(mcp, svc):
         `coordinates` - run_id only
         `grouped` - run_id, key (both required), kind, agg, by, where, step_bucket, step_from, step_to, max_rows
         `points` - run_id (required), key, kind, step_from, step_to, after_id, limit
-        `series` - run_ids, keys (both required), step_from, step_to, smoothing, max_points
+        `series` - run_ids, keys (both required), step_from, step_to, x_axis, dimensions, smoothing, smoothing_factor, smoothing_window, sample_every, max_points
 
         ### TRAPS:
 
@@ -600,8 +652,17 @@ def _register_entity_and_metrics(mcp, svc):
             run_ids=run_ids,
             keys=keys,
             smoothing=smoothing,
+            smoothing_factor=smoothing_factor,
+            smoothing_window=smoothing_window,
+            sample_every=sample_every,
+            x_axis=x_axis,
+            dimensions=dimensions,
             max_points=max_points,
         )
+
+
+#: `query_sql`'s `source` (research-os `SQLSource`, generated as `SQL_SOURCES`; a test pins the two equal).
+SqlSource = Literal["postgres", "samples"]
 
 
 def _register_sql_and_papers(mcp, svc):
@@ -623,9 +684,10 @@ def _register_sql_and_papers(mcp, svc):
             Field(min_length=1, max_length=64, description=TABLES_ARG_DOC),
         ] = None,
         token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        source: Annotated[SqlSource | None, Field(description=SOURCE_ARG_DOC)] = None,
     ) -> dict:
         with svc() as s:
-            return s.query_sql(sql=sql, tables=tables, token_budget=token_budget)
+            return s.query_sql(sql=sql, tables=tables, token_budget=token_budget, source=source)
 
     # Literature is the MCP's only external search surface. General web search
     # and page fetching belong to the caller's browsing tools.
@@ -684,6 +746,90 @@ def _register_sql_and_papers(mcp, svc):
                 published_to=published_to,
                 expand=expand,
             )
+
+
+def _register_events(mcp, svc):
+    """Register `events`. Async on purpose, so NOT `_tool`: a wait holds no worker thread and none of the
+    threaded slots, only one of its own (`mcp/events`), so 20 idle waits never stall a `browse`."""
+
+    @mcp.tool(description=EVENTS_DESCRIPTION)
+    async def events(
+        # Plain `str` with "" for absent, as browse's `query`: a slug like `1` must arrive as text.
+        run: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=256, description=_EV_RUN_DOC)
+        ] = "",
+        experiment: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=256, description=_EV_EXPERIMENT_DOC)
+        ] = "",
+        project: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=256, description=_EV_PROJECT_DOC)
+        ] = "",
+        kinds: Annotated[
+            list[Annotated[str, Field(min_length=1, max_length=128)]] | None,
+            Field(max_length=32, description=_EV_KINDS_DOC),
+        ] = None,
+        since: Annotated[int | None, Field(ge=0, description=_EV_SINCE_DOC)] = None,
+        wait: Annotated[float, Field(ge=0, le=25, description=_EV_WAIT_DOC)] = 25,
+        limit: Annotated[int, Field(ge=1, le=500, description=_EV_LIMIT_DOC)] = 100,
+        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+    ) -> CallToolResult:
+        with svc() as service:
+            return await follow_events(
+                service.source.client.transport,
+                run=run,
+                project=project,
+                experiment=experiment,
+                kinds=kinds,
+                since=since,
+                wait=wait,
+                limit=limit,
+                token_budget=token_budget,
+            )
+
+
+#: The `samples` tool's text and list arguments: plain `str` with "" for absent (a slug like `1` stays text).
+_SampleText = Annotated[str, BeforeValidator(_none_as_empty), Field(max_length=256)]
+_SampleTexts = Annotated[list[Annotated[str, Field(min_length=1, max_length=256)]] | None, Field(max_length=32)]
+
+
+def _register_samples(mcp, svc):
+    """Register `samples`: the RL sample store's reads, read-only (rl-next W34, D49, D61)."""
+
+    @mcp.tool(description=SAMPLES_DESCRIPTION)
+    @_tool
+    def samples(
+        view: Annotated[SampleView, Field(description=_SM_VIEW_DOC)],
+        run: Annotated[_SampleText, Field(description=_SM_RUN_DOC)] = "",
+        sample: Annotated[_SampleText, Field(description=_SM_SAMPLE_DOC)] = "",
+        task: Annotated[_SampleText, Field(description=_SM_TASK_DOC)] = "",
+        step: Annotated[int | None, Field(ge=0, description=_SM_FILTER_DOC)] = None,
+        result: Annotated[_SampleText, Field(description=_SM_FILTER_DOC)] = "",
+        reward: Annotated[float | None, Field(description=_SM_FILTER_DOC)] = None,
+        split: Annotated[_SampleText, Field(description=_SM_SPLIT_DOC)] = "",
+        where: Annotated[_SampleTexts, Field(description=_SM_WHERE_DOC)] = None,
+        include: Annotated[_SampleTexts, Field(description=_SM_INCLUDE_DOC)] = None,
+        grep: Annotated[_SampleText, Field(description=_SM_GREP_DOC)] = "",
+        by: Annotated[_SampleTexts, Field(description=_SM_BY_DOC)] = None,
+        measure: Annotated[_SampleTexts, Field(description=_SM_MEASURE_DOC)] = None,
+        pass_rule: Annotated[_SampleText, Field(description=_SM_PASS_DOC)] = "",
+        at: Annotated[_SampleTexts, Field(description=_SM_AT_DOC)] = None,
+        metric: Annotated[_SampleText, Field(description=_SM_METRIC_DOC)] = "",
+        mode: Annotated[_SampleText, Field(description=_SM_METRIC_DOC)] = "",
+        state: Annotated[_SampleTexts, Field(description=_SM_STATE_DOC)] = None,
+        hung_after: Annotated[_SampleText, Field(description=_SM_HUNG_AFTER_DOC)] = "",
+        after: Annotated[int | None, Field(ge=0, description=_SM_AFTER_DOC)] = None,
+        limit: Annotated[int | None, Field(ge=1, le=1000, description=_SM_LIMIT_DOC)] = None,
+        token_budget: Annotated[int, Field(ge=512, le=8000, description=_RESP_BUDGET_DOC)] = 2000,
+        cursor: Annotated[str | None, Field(description=_RESP_CURSOR_DOC)] = None,
+    ) -> dict:
+        query = SampleQuery(
+            run=run, sample=sample, task=task, step=step, result=result, reward=reward, split=split,
+            where=list(where or ()), include=list(include or ()), grep=grep, by=list(by or ()),
+            measure=list(measure or ()), pass_rule=pass_rule, at=list(at or ()), metric=metric, mode=mode,
+            state=list(state or ()), hung_after=hung_after, after=after, cursor=cursor, limit=limit,
+        )  # fmt: skip
+        with svc() as service:
+            return service.read_samples(view, query)
 
 
 def main() -> None:

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from office365.directory.protection.threatassessment.requests.maildestinationroutingreason import (  # noqa: E501
+    MailDestinationRoutingReason,
+)
 from office365.directory.protection.threatassessment.requests.request import (
     ThreatAssessmentRequest,
 )
-
-if TYPE_CHECKING:
-    from office365.directory.protection.threatassessment.requests.maildestinationroutingreason import (
-        MailDestinationRoutingReason,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class MailAssessmentRequest(ThreatAssessmentRequest):
@@ -21,20 +20,19 @@ class MailAssessmentRequest(ThreatAssessmentRequest):
     received by the user or shared by someone else.
     """
 
+    @odata(name="destinationRoutingReason")
     @property
     def destination_routing_reason(self) -> MailDestinationRoutingReason:
         """Gets the destinationRoutingReason property"""
-        from office365.directory.protection.threatassessment.requests.maildestinationroutingreason import (
-            MailDestinationRoutingReason,
-        )
-
         return self.properties.get("destinationRoutingReason", MailDestinationRoutingReason.none)
 
+    @odata(name="messageUri")
     @property
     def message_uri(self) -> Optional[str]:
         """Gets the messageUri property"""
         return self.properties.get("messageUri", None)
 
+    @odata(name="recipientEmail")
     @property
     def recipient_email(self) -> Optional[str]:
         """Gets the recipientEmail property"""

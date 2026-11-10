@@ -6,10 +6,8 @@ import datetime
 import decimal
 import io
 import logging
-import math
 import os
 import re
-import reprlib
 import typing
 import uuid
 from collections import defaultdict
@@ -17,31 +15,30 @@ from collections.abc import (
     Callable,
     Iterable,
     Iterator,
+    KeysView,
+    Mapping,
     MutableSet,
     Sequence,
     Set as AbstractSet,
 )
-from contextlib import contextmanager
-from contextvars import ContextVar
 from typing import (
     IO,
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Final,
-    ParamSpec,
     Protocol,
+    Self,
     TypeVar,
     Union,
     cast,
 )
 
 from prov import Error
-from prov._warnings import (
-    ProvFutureRejectionWarning,
-    future_rejection_message,
-    warn,
-)
+from prov._warnings import warn
 from prov.constants import (
+    _PROV_N_BARE_RELATIONS,
+    PROV,
     PROV_ACTIVITY,
     PROV_AGENT,
     PROV_ALTERNATE,
@@ -98,7 +95,6 @@ from prov.constants import (
     XSD,
     XSD_ANYURI,
     XSD_BOOLEAN,
-    XSD_DATE,
     XSD_DATETIME,
     XSD_DECIMAL,
     XSD_DOUBLE,
@@ -107,14 +103,31 @@ from prov.constants import (
     XSD_LONG,
     XSD_QNAME,
     XSD_STRING,
-    XSD_TIME,
 )
 from prov.identifier import (
     Identifier,
     Namespace,
     QualifiedName,
     _provn_string_literal,
+    _refuse_delattr,
+    _refuse_setattr,
+    _set,
     _slot_state,
+)
+from prov.model._values import (
+    _LANGTAG,
+    _XML_WHITESPACE,
+    XSD_DATETIME_PATTERN,
+    _offset_beyond_xsd_bound,
+    _xsd_datetime_text,
+    canonical_xsd_datatype as canonical_xsd_datatype,  # re-exported through prov.model
+    int_datatype,
+    key_slot,
+    no_prov_form_detail,
+    python_value_form,
+    resolve_name,
+    time_offset_detail,
+    xsd_value,
 )
 
 if TYPE_CHECKING:
@@ -137,15 +150,16 @@ UsageRef: typing.TypeAlias = Union["ProvUsage", QualifiedNameCandidate]
 NameValuePair: typing.TypeAlias = tuple[QualifiedName, Any]
 AttributePair: typing.TypeAlias = tuple[QualifiedNameCandidate, Any]
 DatetimeOrStr: typing.TypeAlias = datetime.datetime | str
-NSCollection: typing.TypeAlias = dict[str, str] | Iterable[Namespace]
+NSCollection: typing.TypeAlias = Mapping[str, str] | Iterable[Namespace]
 PathLike: typing.TypeAlias = str | bytes | os.PathLike[str]
 StreamOrPath: typing.TypeAlias = io.IOBase | IO[Any] | PathLike
 
 
 # Data Types
+_XSD_DATETIME_RE = re.compile(XSD_DATETIME_PATTERN)
 _XSD_HOUR24_RE = re.compile(r"T24:00:00(\.0+)?(?=$|[Z+-])")
-_XSD_ZULU_RE = re.compile(r"Z$")
-_XSD_FRACTION_RE = re.compile(r"\.(\d+)")
+# A datetime holds microseconds; a longer fraction has no value here (#514).
+_XSD_LONG_FRACTION_RE = re.compile(r"\.[0-9]{7,}")
 
 
 def _ensure_datetime(value: DatetimeOrStr | None) -> datetime.datetime | None:
@@ -168,10 +182,14 @@ def _ensure_datetime(value: DatetimeOrStr | None) -> datetime.datetime | None:
 def parse_xsd_datetime(value: str) -> datetime.datetime | None:
     """Parse an ``xsd:dateTime`` string into a :class:`datetime.datetime`.
 
-    Accepts the ``xsd:dateTime`` lexical space: ISO 8601 date-time with
-    optional fractional seconds and timezone, ``Z`` for UTC, and the
-    hour-24 end-of-day form (which maps to 00:00:00 of the following day,
-    per the XSD value space).
+    Accepts the ``xsd:dateTime`` lexical space, as `XSD 1.1 defines it
+    <https://www.w3.org/TR/xmlschema11-2/#dateTime>`_, and nothing else. That
+    is a date, ``T``, a time with up to six fractional digits, and ``Z`` or an
+    ``hh:mm`` offset. The hour-24 end-of-day form maps to
+    00:00:00 of the following day, per the XSD value space. Text in another
+    ISO 8601 form, such as ``2012-12-03T21:08Z`` or a week date, a bare
+    ``xsd:date``, and a fraction of more than six digits, which a
+    :class:`datetime.datetime` cannot hold, are not accepted.
 
     Args:
         value: The date/time string to parse.
@@ -181,21 +199,11 @@ def parse_xsd_datetime(value: str) -> datetime.datetime | None:
         could not be parsed.
     """
     text = value.strip()
-    if "T" not in text:
-        # xsd:dateTime requires a literal "T" date/time separator; bare
-        # xsd:date strings (e.g. "2011-11-16") are a distinct, narrower
-        # datatype and are intentionally not accepted here (3.0 narrowing).
+    if not _XSD_DATETIME_RE.fullmatch(text) or _XSD_LONG_FRACTION_RE.search(text):
         return None
     end_of_day = _XSD_HOUR24_RE.search(text) is not None
     if end_of_day:
         text = _XSD_HOUR24_RE.sub("T00:00:00", text)
-    # datetime.fromisoformat on Python 3.10 accepts neither the "Z" suffix
-    # nor fractional seconds that are not exactly 3 or 6 digits long;
-    # normalize both before parsing.
-    text = _XSD_ZULU_RE.sub("+00:00", text)
-    text = _XSD_FRACTION_RE.sub(
-        lambda m: "." + m.group(1)[:6].ljust(6, "0"), text, count=1
-    )
     try:
         parsed = datetime.datetime.fromisoformat(text)
         if end_of_day:
@@ -229,9 +237,17 @@ DATATYPE_PARSERS = {
 }
 
 
+def _datetime_value(text: str) -> datetime.datetime | None:
+    """The ``datetime`` ``text`` denotes, or ``None`` when it has none. No
+    xsd:dateTime has an offset beyond ±14:00, so such a text has no value and
+    stays as written (#513)."""
+    value = parse_xsd_datetime(text)
+    return None if value is None or _offset_beyond_xsd_bound(value) else value
+
+
 # Mappings for XSD datatypes to Python standard types
 SupportedXSDParsedTypes: typing.TypeAlias = (
-    str | datetime.datetime | float | int | bool | Identifier | None
+    str | datetime.datetime | float | int | bool | None
 )
 XSD_DATATYPE_PARSERS: dict[QualifiedName, Callable[[str], SupportedXSDParsedTypes]] = {
     XSD_STRING: str,
@@ -241,36 +257,7 @@ XSD_DATATYPE_PARSERS: dict[QualifiedName, Callable[[str], SupportedXSDParsedType
     XSD_INTEGER: int,
     XSD_BOOLEAN: parse_boolean,
     XSD_DATETIME: parse_xsd_datetime,
-    XSD_ANYURI: Identifier,
 }
-
-
-_INT32_MAX = 2**31 - 1
-_INT64_MAX = 2**63 - 1
-
-
-def canonical_xsd_datatype(value: object) -> QualifiedName | None:
-    """Return the XSD datatype `prov` asserts for a plain Python value.
-
-    This is the single source of truth for the serializers' reverse maps:
-    a typed ``Literal`` may be collapsed to a plain Python value only when
-    the value's canonical datatype equals the asserted one (a lossless
-    collapse), and serializers emit exactly this datatype for plain values.
-
-    Returns ``None`` for values that serialize natively (str, bool,
-    datetime — each format handles those itself).
-    """
-    if isinstance(value, bool):  # before int: bool is an int subtype
-        return None
-    if isinstance(value, int):
-        if -_INT32_MAX - 1 <= value <= _INT32_MAX:
-            return XSD_INT
-        if -_INT64_MAX - 1 <= value <= _INT64_MAX:
-            return XSD_LONG
-        return XSD_INTEGER
-    if isinstance(value, float):
-        return XSD_DOUBLE
-    return None
 
 
 def parse_xsd_types(value: str, datatype: QualifiedName) -> SupportedXSDParsedTypes:
@@ -307,58 +294,57 @@ def first(a_set: Iterable[Any]) -> Any | None:
 
 
 class TypedValueSet(MutableSet[Any]):
-    """A set-like container that deduplicates by ``(type(value), value)``.
+    """A set-like container that keeps one value per :func:`_value_key`.
 
-    Backs each attribute's value collection on :class:`ProvRecord` (#34), as
-    an internal storage detail -- it is not part of the public API and is
-    not exported from :mod:`prov.model`. A plain :class:`set` cannot retain
-    both ``2`` and ``2.0``, or both ``1`` and ``True``, because its
-    membership test is value-based: ``2.0 in {2}`` is ``True`` (equal hash,
-    equal value), so ``{2}.add(2.0)`` silently does nothing -- whichever
-    value was inserted first wins and the other is lost. Keying on
-    ``(type(value), value)`` instead keeps values distinct across Python
-    types while leaving same-type dedup semantics (including
-    :class:`Literal`'s ``xsd:decimal`` value-space equality, #77) unchanged,
-    since two values of the same type still collide on the same key.
+    Backs each attribute's value collection on :class:`ProvRecord`; internal,
+    not exported from :mod:`prov.model`. A plain :class:`set` keys on Python
+    equality, so it cannot hold both ``2`` and ``2.0`` or both ``1`` and
+    ``True`` (#34). This container keys on the value key, the datatype's URI
+    and the value in that datatype's value space: ``2`` and ``2.0`` are two
+    values, while ``5`` and ``Literal("05", XSD_INT)``, two ``xsd:decimal``
+    literals spelled differently (#77) and two tagged strings whose tags
+    differ in case (#259) are one each. The first value added for a key is
+    kept, as :meth:`ProvRecord.add_attributes`'s cardinality guard keeps the
+    first value it sees.
 
     The retained values are observable through :attr:`ProvRecord.attributes`
-    / :attr:`ProvRecord.extra_attributes` (plain ``(name, value)`` tuples,
-    one per retained value), record equality/hashing, and serialization.
+    and :attr:`ProvRecord.extra_attributes` (plain ``(name, value)`` tuples),
+    record equality and hashing, and serialization.
     :meth:`ProvRecord.get_attribute`, :meth:`ProvRecord.get_asserted_types`
-    and :attr:`ProvRecord.value` deliberately keep their 2.x return type
-    (a plain ``set``, built fresh from this container) instead of exposing
-    this class, so those three accessors re-collapse a Python-equal-but-
-    differently-typed pair in their *returned copy* even though the record's
-    own storage does not -- see ``docs/upgrading-3.0.md``. Compares equal to
-    a plain ``set``/``frozenset`` holding the same elements (via the
-    ``collections.abc.Set`` mixin), remains unhashable like a plain ``set``,
-    and iterates in insertion order.
+    and :attr:`ProvRecord.value` return a fresh plain ``set`` (their 2.x
+    type), so a pair this container keeps apart may collapse in that copy;
+    see ``docs/upgrading-3.0.md``. Compares equal to a plain ``set`` or
+    ``frozenset`` holding the same elements (the :class:`collections.abc.Set`
+    mixin), is unhashable like a plain ``set``, and iterates in insertion
+    order.
     """
 
     __slots__ = ("_index",)
 
     def __init__(self, iterable: Iterable[Any] = ()) -> None:
-        self._index: dict[tuple[type, Any], Any] = {}
+        self._index: dict[ValueKey, Any] = {}
         for value in iterable:
             self.add(value)
 
     def add(self, value: Any) -> None:
-        # setdefault, not assignment: matches plain set.add's first-wins
-        # semantics when an equal-typed, equal-valued item is re-added --
-        # the incumbent object is retained, the new one discarded. This
-        # matters for values that are __eq__-equal but not identical, such
-        # as two xsd:decimal Literals with different lexical forms (#77) or
-        # two langtag Literals differing only in tag case (#259); it also
-        # keeps this container's semantics consistent with
-        # ProvRecord.add_attributes()'s own cardinality guard, which keeps
-        # the first value seen and ignores a later "same value" one.
-        self._index.setdefault((type(value), value), value)
+        # setdefault keeps the incumbent for a key already held.
+        self._index.setdefault(_value_key(value), value)
 
     def discard(self, value: Any) -> None:
-        self._index.pop((type(value), value), None)
+        self._index.pop(_value_key(value), None)
 
     def __contains__(self, value: object) -> bool:
-        return (type(value), value) in self._index
+        return _value_key(value) in self._index
+
+    def value_keys(self) -> KeysView[ValueKey]:
+        """The value keys held, one per retained value."""
+        return self._index.keys()
+
+    def __setstate__(self, state: Any) -> None:
+        # A 3.2.x pickle keys the index by (type, value); rebuild by value key.
+        self._index = {}
+        for value in _slot_state(state)["_index"].values():
+            self.add(value)
 
     def __iter__(self) -> Iterator[Any]:
         return iter(self._index.values())
@@ -370,80 +356,72 @@ class TypedValueSet(MutableSet[Any]):
         return f"{type(self).__name__}({list(self._index.values())!r})"
 
 
-def _xsd_double_text(value: float) -> str:
-    """The xsd:double lexical form of a float: INF, -INF and NaN for the
-    non-finite values (XSD 1.1 Part 2, numericalSpecialRep), float's repr()
-    otherwise."""
-    if math.isnan(value):
-        return "NaN"
-    if math.isinf(value):
-        return "INF" if value > 0 else "-INF"
-    return float.__repr__(value)
+def _literal_text(value: Any, datatype: QualifiedName | None) -> str:
+    """The text a ``Literal`` stores for ``value``: ``prov``'s spelling through
+    ``python_value_form``, except that a ``float`` under ``xsd:decimal`` spells
+    as the decimal text and a bytes-like value under ``xsd:hexBinary`` in hex,
+    uppercase. A type or value with no form keeps ``str()``. The datatype is
+    the caller's and is never changed (#656)."""
+    if isinstance(value, float) and datatype == XSD_DECIMAL:
+        value = decimal.Decimal(float.__repr__(value))
+    elif (
+        isinstance(value, (bytes, bytearray, memoryview))
+        and datatype == XSD["hexBinary"]
+    ):
+        return bytes(value).hex().upper()
+    form = python_value_form(value)
+    if form is not None and (text := form[0]) is not None:
+        return text
+    return str(value)
 
 
-def _xsd_datetime_text(value: datetime.datetime) -> str:
-    """ISO 8601 text with an xsd:dateTime-legal zone: an offset that is not a
-    whole number of minutes (historical LMT offsets) is normalised to UTC."""
-    offset = value.utcoffset()
-    if offset is not None and (offset.total_seconds() % 60 or offset.microseconds):
-        value = value.astimezone(datetime.timezone.utc)
-    return value.isoformat()
-
-
-_XSD_MAX_OFFSET = datetime.timedelta(hours=14)
-
-
-def _offset_beyond_xsd_bound(value: datetime.datetime) -> bool:
-    """Whether ``value``'s timezone offset lies outside xsd:dateTime's ±14:00."""
-    offset = value.utcoffset()
-    return offset is not None and abs(offset) > _XSD_MAX_OFFSET
-
-
-def encoding_provn_value(
-    value: str | datetime.datetime | float | bool | int | QualifiedName,
-) -> str:
+def encoding_provn_value(value: object) -> str:
     """Return the PROV-N literal representation of a Python value.
 
-    Strings are quoted (triple-quoted when they span multiple lines); dates
-    are rendered with their XSD datatype suffix and booleans as ``"true"``/``"false"``
-    with theirs. Floats are rendered as full-precision ``xsd:double`` (#251). Plain ints are typed by
-    magnitude: within +/-(2**31-1) they render as a bare ``INT_LITERAL`` (PROV-N
-    [60] sugar for ``xsd:int``); beyond that they carry an explicit
-    ``xsd:long``/``xsd:integer`` suffix (#249). Any other value is rendered
-    via :func:`str`.
+    A ``str`` is quoted (triple-quoted when it spans multiple lines). Any other
+    value that has a PROV form (a ``bool``, ``int``, ``float`` or
+    ``datetime``, or a ``Decimal``, ``date``, ``time``, ``timedelta``, ``UUID``
+    or bytes-like value) is written as ``"text" %% datatype``, except an
+    ``xsd:int``, which is a bare ``INT_LITERAL``. Booleans render as
+    ``"true"``/``"false"``, and floats as full-precision ``xsd:double`` (#251). Plain ints are typed by magnitude: within +/-(2**31-1) they render
+    as a bare ``INT_LITERAL`` (PROV-N [60] sugar for ``xsd:int``); beyond that
+    they carry an explicit ``xsd:long``/``xsd:integer`` suffix (#249). A
+    qualified name, and any value with no PROV form or no lexical form, is
+    rendered via :func:`str`.
     """
     if isinstance(value, str):
         return _provn_string_literal(value)
-    elif isinstance(value, datetime.datetime):
-        return f'"{_xsd_datetime_text(value)}" %% xsd:dateTime'
-    elif isinstance(value, float):
-        return f'"{_xsd_double_text(value)}" %% xsd:double'
-    elif isinstance(value, bool):
-        # Before the int branch: bool is an int subtype. "true"/"false" is
-        # the lexical form every other PROV-N producer writes.
-        return f'"{"true" if value else "false"}" %% xsd:boolean'
-    elif isinstance(value, int):
-        datatype = canonical_xsd_datatype(value)
-        if datatype == XSD_INT:
-            return str(value)  # bare INT_LITERAL is xsd:int sugar (PROV-N [60])
-        return f'"{value}" %% {datatype}'
-    else:
-        # TODO: QName export
-        return str(value)
+    form = python_value_form(value)
+    if form is None or (text := form[0]) is None:
+        return str(value)  # a qualified name, or a value with no form
+    datatype = form[1]
+    if datatype == XSD_INT:
+        return text  # bare INT_LITERAL is xsd:int sugar (PROV-N [60])
+    return f'"{text}" %% {datatype}'
 
 
-# PROV-N's LANGTAG ([63]) without the "@"; every BCP 47 tag matches it.
-_LANGTAG = re.compile(r"[a-zA-Z]+(-[a-zA-Z0-9]+)*")
+def _check_langtag(value: Any, langtag: Any) -> None:
+    """Raise for a language tag that is empty or not shaped like a BCP 47 tag (#472).
+
+    ``Literal.__init__`` and ``Literal.__setstate__`` both check.
+    """
+    if langtag is not None and not _LANGTAG.fullmatch(str(langtag)):
+        raise ProvValueError(
+            f"the language tag {langtag!r} of {value!r} is not a BCP 47 tag"
+            if langtag
+            else f"the language tag of {value!r} is empty"
+        )
 
 
-def _warn_language_tag(langtag: str, value: str) -> None:
-    """Warn that 3.3.0 rejects ``langtag``, which does not match ``_LANGTAG``."""
-    detail = (
-        f"the language tag {langtag!r} of {value!r} is not a BCP 47 tag"
-        if langtag
-        else f"the language tag of {value!r} is empty"
-    )
-    warn(future_rejection_message(detail, issue=472), ProvFutureRejectionWarning)
+def _check_datatype(value: Any, datatype: Any) -> None:
+    """Raise for a datatype that is neither a QualifiedName nor None (#705).
+
+    ``Literal.__init__`` and ``Literal.__setstate__`` both check.
+    """
+    if datatype is not None and not isinstance(datatype, QualifiedName):
+        raise ProvValueError(
+            f"the datatype {datatype!r} of {value!r} is not a QualifiedName"
+        )
 
 
 class Literal:
@@ -451,19 +429,32 @@ class Literal:
 
     A literal pairs a string value with an optional datatype and an optional
     language tag. Supplying a language tag forces the datatype to
-    ``prov:InternationalizedString``: if no datatype was given one is assumed,
-    and any other datatype is overridden (with a warning) to comply with the
-    PROV-JSON/PROV-XML rules for language-tagged strings.
+    ``prov:InternationalizedString``, to comply with the PROV-JSON/PROV-XML
+    rules for language-tagged strings. If no datatype was given, that one is
+    assumed. Any other datatype is overridden, and the constructor logs a
+    warning.
+
+    Its fields are read-only after construction. Assigning or deleting one
+    raises :class:`AttributeError`, while a subclass may still set attributes
+    of its own.
     """
 
     __slots__ = ("__weakref__", "_datatype", "_langtag", "_value")
 
-    # These fields are assign-once. They take part in equality and hashing,
-    # so reassigning one after the object has been used as a set member or
-    # dict key corrupts that container. #444 tracks the runtime guard.
-    _value: Final[str]
-    _datatype: Final[QualifiedName | None]
-    _langtag: Final[str | None]
+    _READ_ONLY: ClassVar[frozenset[str]] = frozenset(__slots__) - {"__weakref__"}
+
+    # Bound at runtime only, because a visible __setattr__ makes mypy accept
+    # any attribute name.
+    if not TYPE_CHECKING:
+        __setattr__ = _refuse_setattr
+        __delattr__ = _refuse_delattr
+
+    # _value, _datatype and _langtag take part in equality and hashing, so
+    # reassigning one would corrupt any set or dict holding the literal, and
+    # __setattr__ refuses it.
+    _value: Final[str]  # type: ignore[misc]
+    _datatype: Final[QualifiedName | None]  # type: ignore[misc]
+    _langtag: Final[str | None]  # type: ignore[misc]
 
     def __init__(
         self,
@@ -474,18 +465,22 @@ class Literal:
         """Initialise the literal.
 
         Args:
-            value: The literal's value; it is stored as its string form.
+            value: The literal's value, stored in the form that
+                :ref:`Python values <python-values>` gives, so
+                ``Literal(Decimal("NaN"), XSD_DECIMAL)`` is the ill-formed text
+                ``NaN``, which compares as text.
             datatype: The qualified name of the value's datatype (default:
-                ``None``).
+                ``None``). Any other object, a plain
+                :class:`~prov.model.Identifier` or a ``str`` included, raises
+                :class:`~prov.model.ProvValueError`.
             langtag: An optional language tag. When given, ``datatype`` is
                 coerced to ``prov:InternationalizedString`` (default: ``None``).
-                An empty tag, or a tag such as ``"en_US"`` that is not shaped like a
-                BCP 47 tag, emits a
-                :class:`~prov.model.ProvFutureRejectionWarning`.
+                An empty tag, or a tag such as ``"en_US"`` that is not shaped
+                like a BCP 47 tag, raises :class:`~prov.model.ProvValueError`.
         """
-        self._value = str(value)  # value is always a string
-        if langtag is not None and not _LANGTAG.fullmatch(str(langtag)):
-            _warn_language_tag(str(langtag), self._value)
+        _check_datatype(value, datatype)
+        text = _literal_text(value, datatype)
+        _check_langtag(text, langtag)
         if langtag:
             if datatype is None:
                 logger.debug(
@@ -502,9 +497,10 @@ class Literal:
                     "prov:InternationalizedString."
                 )
                 datatype = PROV_INTERNATIONALIZEDSTRING
-        self._datatype = datatype
-        # langtag is always a string
-        self._langtag = str(langtag) if langtag is not None else None
+        _set(self, "_value", text)
+        _set(self, "_datatype", datatype)
+        # a langtag that is given is stored as text
+        _set(self, "_langtag", str(langtag) if langtag is not None else None)
 
     def __str__(self) -> str:
         return self.provn_representation()
@@ -523,56 +519,34 @@ class Literal:
         # Also accepts the __dict__ state of 3.1.1 pickles and the
         # (dict_state, slot_state) tuple of 3.2.0 pickles.
         state = _slot_state(state)
-        object.__setattr__(self, "_value", state["_value"])
-        object.__setattr__(self, "_datatype", state["_datatype"])
-        object.__setattr__(self, "_langtag", state["_langtag"])
+        _set(self, "_value", state["_value"])
+        _set(self, "_datatype", state["_datatype"])
+        _set(self, "_langtag", state["_langtag"])
+        _check_datatype(self._value, self._datatype)
+        _check_langtag(self._value, self._langtag)
 
     def __eq__(self, other: Any) -> bool:
-        return (
-            (
-                self._comparison_value() == other._comparison_value()
-                and self._datatype == other.datatype
-                and self._comparison_langtag() == other._comparison_langtag()
-            )
-            if isinstance(other, Literal)
-            else False
-        )
+        return isinstance(other, Literal) and self._key() == other._key()
 
     def __ne__(self, other: Any) -> bool:
         return not (self == other)
 
     def __hash__(self) -> int:
-        return hash(
-            (self._comparison_value(), self._datatype, self._comparison_langtag())
+        return hash(self._key())
+
+    def _key(self) -> ValueKey:
+        """The value key (#527): the datatype's URI; the value in its value
+        space when the datatype has one here and the text is in its lexical
+        space, otherwise the text; and the case-folded language tag (#259, RDF
+        1.1 tags are case-insensitive; the stored tag keeps its case)."""
+        datatype = self._datatype
+        value = xsd_value(datatype, self._value)
+        langtag = self._langtag.casefold() if self._langtag is not None else None
+        return (
+            datatype.uri if datatype is not None else None,
+            self._value if value is None else key_slot(value),
+            langtag,
         )
-
-    def _comparison_value(self) -> str | decimal.Decimal:
-        """The value to use for equality/hash: value-space for xsd:decimal (#77).
-
-        ``xsd:decimal`` denotes an arbitrary-precision decimal number, so
-        ``10``, ``10.0`` and ``"10.00"`` are the same value; falls back to
-        the stored lexical string (unaffected) if it is not a valid decimal.
-
-        Safe even though this only checks ``self``: ``__eq__``/``__hash__``
-        separately require ``self._datatype == other.datatype``, so a
-        ``Decimal`` from here is only ever compared against another
-        ``Decimal`` from an ``XSD_DECIMAL`` literal, never against a
-        lexical-string value from a different datatype.
-        """
-        if self._datatype == XSD_DECIMAL:
-            try:
-                return decimal.Decimal(self._value)
-            except decimal.InvalidOperation:
-                pass
-        return self._value
-
-    def _comparison_langtag(self) -> str | None:
-        """The language tag to use for equality/hash: case-folded (#259).
-
-        RDF 1.1 language tags are case-insensitive; the stored tag itself is
-        left untouched so serialized output preserves its original case.
-        """
-        return self._langtag.casefold() if self._langtag is not None else None
 
     @property
     def value(self) -> str:
@@ -594,26 +568,15 @@ class Literal:
         return self._langtag is None
 
     def provn_representation(self) -> str:
-        """Return the PROV-N representation of the literal.
-
-        An empty language tag has no PROV-N spelling, so it is written as a
-        plain string, the same as a literal built with no language tag at all;
-        this is a writer-only choice and leaves the model's own ``langtag``
-        value (``""``, not ``None``) untouched.
-        """
+        """Return the PROV-N representation of the literal, the datatype spelled
+        as at an identifier position, so a ``:`` in its local part is escaped."""
         quoted_value = _provn_string_literal(self._value)
         if self._langtag:
             # a language tag can only go with prov:InternationalizedString.
-            # PROV-N's LANGTAG ([63]) only allows hyphens between subtags, so
-            # an underscore-separated tag (e.g. "en_US") is written with a
-            # hyphen, as BCP 47 itself uses.
-            langtag = self._langtag.replace("_", "-")
-            return f"{quoted_value}@{langtag}"
-        if self._langtag == "" and (
-            self._datatype is None or self._datatype == PROV_INTERNATIONALIZEDSTRING
-        ):
-            return quoted_value
-        return f"{quoted_value} %% {self._datatype!s}"
+            return f"{quoted_value}@{self._langtag}"
+        datatype = self._datatype
+        spelled = datatype.provn_bare_representation() if datatype else None
+        return f"{quoted_value} %% {spelled}"
 
 
 # Depends on `Literal` and `SupportedXSDParsedTypes` above, so it cannot join
@@ -621,6 +584,49 @@ class Literal:
 CoercedAttributeValue: typing.TypeAlias = (
     QualifiedName | datetime.datetime | Literal | SupportedXSDParsedTypes
 )
+
+# The key two attribute values share when they are the same value: the URI of
+# the datatype (or the Python type of a value with no XSD form), the value in
+# its value space or the text when it has none, and the case-folded language
+# tag.
+ValueKey: typing.TypeAlias = tuple[str | type | None, object, str | None]
+
+# The datatype URIs of the plain types, read once.
+_XSD_STRING_URI = XSD_STRING.uri
+_XSD_BOOLEAN_URI = XSD_BOOLEAN.uri
+_XSD_DOUBLE_URI = XSD_DOUBLE.uri
+_XSD_DATETIME_URI = XSD_DATETIME.uri
+
+
+def _value_key(value: Any) -> ValueKey:
+    """The key of an attribute value for equality, hashing and the
+    per-attribute value set (#527, #34).
+
+    A plain Python value takes the datatype the writers give it, so ``5`` and
+    ``Literal("05", XSD_INT)`` share a key, ``5`` and ``Literal("5",
+    XSD_LONG)`` do not (#235), and ``2`` and ``2.0`` do not (#34). A
+    ``datetime`` takes ``xsd:dateTime``, so a subclass shares the key of the
+    plain ``datetime`` it reads back as (#663). It does not share the key of
+    an ``xsd:dateTime`` ``Literal``, whose key holds its text.
+    """
+    # Identifiers are the commonest attribute value and subclass none of the
+    # types below, so testing them first changes no key.
+    if isinstance(value, Identifier):
+        return (type(value), value, None)
+    if isinstance(value, Literal):
+        return value._key()
+    if isinstance(value, str):
+        return (_XSD_STRING_URI, value, None)
+    if isinstance(value, bool):
+        return (_XSD_BOOLEAN_URI, value, None)
+    if isinstance(value, int):
+        return (int_datatype(value).uri, value, None)
+    if isinstance(value, float):
+        return (_XSD_DOUBLE_URI, key_slot(value), None)
+    if isinstance(value, datetime.datetime):
+        return (_XSD_DATETIME_URI, value, None)
+    return (type(value), value, None)
+
 
 _K_co = TypeVar("_K_co", covariant=True)
 _V_co = TypeVar("_V_co", covariant=True)
@@ -635,9 +641,21 @@ class _SupportsItems(Protocol[_K_co, _V_co]):
 
 
 AttributeValue: typing.TypeAlias = Union[
-    "ProvRecord", QualifiedName, datetime.datetime, Literal, SupportedXSDParsedTypes
+    "ProvRecord",
+    QualifiedName,
+    Identifier,
+    datetime.datetime,
+    Literal,
+    SupportedXSDParsedTypes,
+    decimal.Decimal,
+    datetime.date,
+    datetime.time,
+    datetime.timedelta,
+    uuid.UUID,
+    bytes,
+    bytearray,
+    memoryview,
 ]
-"""A value accepted for a record attribute, before coercion."""
 
 # `Iterable` is absent on purpose. A dict is itself an iterable, so an `Iterable`
 # member makes a dict literal's target ambiguous to mypy and breaks its
@@ -667,29 +685,48 @@ class ProvException(Error):
     """Base class for PROV model exceptions."""
 
 
+class ProvValueError(ProvException, ValueError):
+    """A value a :class:`Literal` or an attribute cannot hold, or a namespace
+    prefix or IRI the model refuses.
+
+    Raised at assertion for a time whose offset is beyond ±14:00, and when a
+    :class:`Literal` is built with a language tag that is empty or not shaped
+    like a BCP 47 tag.
+    A subclass of both :class:`ProvException` and :class:`ValueError`, so a
+    caller can catch either.
+    """
+
+
 class ProvExceptionInvalidQualifiedName(ProvException):
     """Exception for an invalid qualified identifier name."""
 
     qname = None
     """The invalid qualified name that triggered the exception."""
+    detail: str | None = None
+    """What is wrong with it, when the name itself does not say."""
 
-    def __init__(self, qname: Any):
+    def __init__(self, qname: Any, detail: str | None = None):
         """Initialise the exception.
 
         Args:
             qname: The invalid qualified name.
+            detail: What is wrong with it, such as a local part PROV-N
+                cannot write.
         """
         self.qname = qname
+        self.detail = detail
 
     def __str__(self) -> str:
-        return f"Invalid Qualified Name: {self.qname}"
+        message = f"Invalid Qualified Name: {self.qname}"
+        return message if self.detail is None else f"{message}, {self.detail}"
 
 
 class ProvUnificationError(ProvException):
-    """Raised by :meth:`ProvBundle.unified` when records sharing an
+    """Raised by :meth:`ProvDocument.unified` when records sharing an
     identifier cannot be merged under PROV-CONSTRAINTS term unification
-    (two different concrete values for the same formal attribute, or
-    records of incompatible types).
+    (two different concrete values for the same formal attribute, an absent
+    value in a non-expandable position against a present one, or records of
+    incompatible types).
     """
 
 
@@ -700,141 +737,18 @@ class ProvElementIdentifierRequired(ProvException):
         return "An identifier is missing. All PROV elements require a valid identifier."
 
 
-#  Attribute value warnings and the rebuild guard
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
+class ProvMissingFormalAttribute(ProvException):
+    """Exception for a relation missing a party it requires.
 
-# True while a record is rebuilt from one already asserted, so the 3.3.0
-# warnings about its values fire once, when they are first asserted.
-_rebuilding: ContextVar[bool] = ContextVar("prov_rebuilding", default=False)
-
-
-def _rebuild(make: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
-    """Return ``make(*args, **kwargs)``, which rebuilds records already asserted."""
-    token = _rebuilding.set(True)
-    try:
-        return make(*args, **kwargs)
-    finally:
-        _rebuilding.reset(token)
-
-
-# True while a reader that warns about unresolvable qualified-name values
-# itself builds records, so the model does not warn about them again.
-_reader_checks_names: ContextVar[bool] = ContextVar(
-    "prov_reader_checks_names", default=False
-)
-
-
-@contextmanager
-def _reader_checking_names() -> Iterator[None]:
-    """Build records inside a reader that checks its qualified-name values."""
-    token = _reader_checks_names.set(True)
-    try:
-        yield
-    finally:
-        _reader_checks_names.reset(token)
+    ``hadMember``, ``alternateOf``, ``specializationOf`` and ``mentionOf``
+    refuse a record that lacks an entity or a collection. ``mentionOf`` may
+    omit its bundle.
+    """
 
 
 # The types of a converted non-formal attribute value that need no check.
-# bool is an int and QualifiedName an Identifier, so isinstance() needs only
-# the tuple.
-_PLAIN_VALUE_TYPES = frozenset(
-    {str, int, bool, float, Identifier, QualifiedName, Literal}
-)
-_PLAIN_VALUE_BASES = (str, int, float, Identifier, Literal)
-
-# The values prov 3.3.0 converts to a typed Literal (#482), in lookup order.
-# datetime.datetime is a date, so it must be excluded before this table.
-_PROV_FORMS: tuple[tuple[type | tuple[type, ...], QualifiedName], ...] = (
-    (decimal.Decimal, XSD_DECIMAL),
-    (datetime.date, XSD_DATE),
-    (datetime.time, XSD_TIME),
-    (datetime.timedelta, XSD["duration"]),
-    (uuid.UUID, XSD_ANYURI),
-    ((bytes, bytearray, memoryview), XSD["base64Binary"]),
-)
-
-
-# Bounds a warning's copy of a value, which may be a large bytes object.
-_value_repr = reprlib.Repr()
-_value_repr.maxother = _value_repr.maxstring = 80
-
-
-def _warn_offset_beyond_bound(detail: str, outcome: str = "reject this") -> None:
-    """Warn that the time in ``detail`` has an offset beyond ±14:00 (#513)."""
-    if not _rebuilding.get():
-        warn(
-            future_rejection_message(
-                f"{detail} has a timezone offset beyond ±14:00", outcome, issue=513
-            ),
-            ProvFutureRejectionWarning,
-        )
-
-
-def _warn_about_value(
-    attr: QualifiedName, original_value: object, value: object
-) -> None:
-    """Warn about a converted non-formal attribute value 3.3.0 treats differently."""
-    if isinstance(value, datetime.datetime):
-        if isinstance(original_value, Literal) and _offset_beyond_xsd_bound(value):
-            _warn_offset_beyond_bound(
-                f"{attr} {original_value}", "keep it as a Literal"
-            )
-    elif value is not None and not isinstance(value, _PLAIN_VALUE_BASES):
-        _warn_no_prov_form(attr, value)
-
-
-def _warn_no_prov_form(attr: QualifiedName, value: object) -> None:
-    """Warn that 3.3.0 converts or rejects ``value``, which has no PROV form."""
-    if _rebuilding.get():
-        return
-    cls = type(value)
-    name = (
-        cls.__qualname__
-        if cls.__module__ == "builtins"
-        else f"{cls.__module__}.{cls.__qualname__}"
-    )
-    detail = f"the value {_value_repr.repr(value)} of {attr} has type {name}"
-    for types, datatype in _PROV_FORMS:
-        if isinstance(value, types):
-            message = future_rejection_message(
-                detail, f"store it as a Literal of type {datatype}", issue=482
-            )
-            break
-    else:
-        message = future_rejection_message(
-            f"{detail}, which has no PROV form", issue=482
-        )
-    warn(message, ProvFutureRejectionWarning)
-
-
-def _warn_unresolved_name(
-    bundle: ProvBundle, attr: QualifiedName, literal: Literal, value: object
-) -> None:
-    """Warn that ``literal``, typed as a qualified name, does not resolve by its
-    prefix (#516, #553); ``value`` is what it converted to."""
-    if (
-        _reader_checks_names.get()
-        or _rebuilding.get()
-        or literal.datatype not in (PROV_QUALIFIEDNAME, XSD_QNAME)
-    ):
-        return
-    reason = bundle._unresolved_reason(literal.value)
-    if reason is not None:
-        today = (
-            f"it reads as {value}"
-            if isinstance(value, QualifiedName)
-            else "it is kept as a Literal"
-        )
-        issue = 553 if isinstance(value, QualifiedName) else 516
-        warn(
-            future_rejection_message(
-                f"the qualified name {literal.value!r} of {attr} does not resolve,"
-                f" because {reason}; {today}",
-                issue=issue,
-            ),
-            ProvFutureRejectionWarning,
-        )
+# bool is an int, so it needs no entry of its own.
+_PLAIN_VALUE_BASES = (str, int, float, datetime.datetime, QualifiedName, Literal)
 
 
 #  PROV records
@@ -843,6 +757,9 @@ class ProvRecord:
 
     FORMAL_ATTRIBUTES: tuple[QualifiedName, ...] = ()
     """Formal attributes names of this record type, in the expected order."""
+
+    _REQUIRED_ATTRIBUTES: tuple[QualifiedName, ...] = ()
+    """Formal attributes that must hold a value, checked at construction."""
 
     _prov_type: QualifiedName | None = None
     """PROV type of record."""
@@ -868,20 +785,24 @@ class ProvRecord:
         )
         if attributes:
             self.add_attributes(attributes)
+        for name in self._REQUIRED_ATTRIBUTES:
+            if not self._attributes.get(name):
+                raise ProvMissingFormalAttribute(
+                    f"{PROV_N_MAP[self.get_type()]} requires a value for {name}"
+                )
 
-    def _typed_attributes(self) -> frozenset[tuple[QualifiedName, type, Any]]:
-        """``(name, type(value), value)`` triples, for equality and hashing.
+    def _typed_attributes(self) -> frozenset[tuple[QualifiedName, ValueKey]]:
+        """``(name, value key)`` pairs for equality and hashing (#527, #34).
 
-        :attr:`attributes` yields plain ``(name, value)`` tuples, and a
-        ``frozenset``/``set`` of *those* would re-collapse a Python-equal-
-        but-differently-typed pair like ``(attr, 2)`` and ``(attr, 2.0)`` --
-        tuple equality and hashing both fall through to their elements', and
-        ``2 == 2.0`` with equal hashes. Including each value's type in the
-        key keeps the distinction :class:`TypedValueSet` retains in storage
-        (#34) intact through comparison and hashing too.
+        Two records hold the same attributes when every name carries the same
+        values under :func:`_value_key`'s rule: the same datatype and the same
+        value in that datatype's value space, so ``5`` and ``Literal("05",
+        XSD_INT)`` match and ``2`` and ``2.0`` do not.
         """
         return frozenset(
-            (attr_name, type(value), value) for attr_name, value in self.attributes
+            (attr_name, key)
+            for attr_name, values in self._attributes.items()
+            for key in values.value_keys()
         )
 
     def __hash__(self) -> int:
@@ -889,11 +810,8 @@ class ProvRecord:
 
     def copy(self) -> ProvRecord:
         """Return an exact copy of this record."""
-        return _rebuild(
-            PROV_REC_CLS[self.get_type()],
-            self._bundle,
-            self.identifier,
-            self.attributes,
+        return PROV_REC_CLS[self.get_type()](
+            self._bundle, self.identifier, self.attributes
         )
 
     def get_type(self) -> QualifiedName:
@@ -911,13 +829,14 @@ class ProvRecord:
     def get_asserted_types(self) -> set[QualifiedName]:
         """Return the set of all asserted PROV types of this record.
 
-        Returns a fresh, plain ``set`` copy (2.x-compatible: mutating it does
-        not affect the record). Since ``prov:type`` values are always
-        :class:`~prov.identifier.QualifiedName`\\ s -- which never collapse
-        under Python equality -- this copy never loses information: unlike
-        :meth:`get_attribute`/:attr:`value`, there is no lossy case here.
+        Returns a fresh, plain ``set`` copy, so mutating it does not affect the
+        record. The set holds the ``prov:type`` values as asserted, whether
+        :class:`~prov.identifier.QualifiedName`\\ s, strings, numbers or other
+        attribute values, although the annotation says ``QualifiedName``
+        (`#748 <https://github.com/trungdong/prov/issues/748>`_). Values that
+        Python holds equal collapse in it, as :meth:`get_attribute` describes.
         """
-        return set(self._attributes[PROV_TYPE])
+        return set(self._attributes.get(PROV_TYPE, ()))
 
     def add_asserted_type(self, type_identifier: QualifiedName) -> None:
         """Add a PROV type assertion to the record.
@@ -935,20 +854,19 @@ class ProvRecord:
 
         Returns:
             A fresh, plain ``set`` copy of the values held for the attribute
-            (empty if none); mutating it does not affect the record. This
-            keeps the 2.x return type: a Python-equal-but-differently-typed
-            pair retained on the record (e.g. ``2`` and ``2.0``, #34) still
-            collapses to whichever was asserted first in *this copy*, even
-            though the record's own storage, :attr:`attributes`/
-            :attr:`extra_attributes`, equality/hashing and serialization all
-            retain both -- see ``docs/upgrading-3.0.md``.
+            (empty if none); mutating it does not affect the record. Values
+            that Python holds equal but that differ in type, such as ``2`` and
+            ``2.0``, collapse in this copy to whichever was asserted first.
+            The record keeps both, and :attr:`attributes`,
+            :attr:`extra_attributes`, equality, hashing and serialisation all
+            see both.
 
         Raises:
             ProvExceptionInvalidQualifiedName: If ``attr_name`` cannot be
                 resolved to a valid qualified name.
         """
         attr_name_qn = self._bundle.mandatory_valid_qname(attr_name)
-        return set(self._attributes[attr_name_qn])
+        return set(self._attributes.get(attr_name_qn, ()))
 
     @property
     def identifier(self) -> QualifiedName | None:
@@ -975,7 +893,8 @@ class ProvRecord:
         Missing formal attributes are represented by ``None``.
         """
         return tuple(
-            first(self._attributes[attr_name]) for attr_name in self.FORMAL_ATTRIBUTES
+            first(self._attributes.get(attr_name, ()))
+            for attr_name in self.FORMAL_ATTRIBUTES
         )
 
     @property
@@ -985,10 +904,7 @@ class ProvRecord:
         Pairs are in declaration order; a missing attribute has a value of
         ``None``.
         """
-        return tuple(
-            (attr_name, first(self._attributes[attr_name]))
-            for attr_name in self.FORMAL_ATTRIBUTES
-        )
+        return tuple(zip(self.FORMAL_ATTRIBUTES, self.args, strict=True))
 
     @property
     def extra_attributes(self) -> tuple[tuple[QualifiedName, Any], ...]:
@@ -1001,7 +917,22 @@ class ProvRecord:
 
     @property
     def bundle(self) -> ProvBundle:
-        """The bundle that owns this record."""
+        """The bundle that owns this record.
+
+        .. deprecated:: 3.3.0
+            4.0 removes this property. Keep the document or bundle that made
+            the record beside it. With only the document, test the record with
+            ``is`` against the document's own :attr:`ProvBundle.records` and
+            against the :attr:`ProvBundle.records` of each bundle in
+            :attr:`ProvDocument.bundles`. A record found in none of them
+            belongs to another container.
+        """
+        warn(
+            "ProvRecord.bundle is deprecated and 4.0 removes it; a record's "
+            "container is not public API. Keep the document or bundle that made "
+            "the record beside it.",
+            DeprecationWarning,
+        )
         return self._bundle
 
     @property
@@ -1011,25 +942,22 @@ class ProvRecord:
         This is the record's ``prov:label`` attribute if set, otherwise its
         identifier.
         """
-        return str(
-            first(self._attributes[PROV_LABEL])
-            if self._attributes[PROV_LABEL]
-            else self._identifier
-        )
+        labels = self._attributes.get(PROV_LABEL)
+        return str(first(labels) if labels else self._identifier)
 
     @property
     def value(self) -> set[Any]:
         """The set of the record's ``prov:value`` attribute values.
 
-        Returns a fresh, plain ``set`` copy (2.x-compatible); see
-        :meth:`get_attribute` for what that means for a Python-equal-but-
-        differently-typed pair of ``prov:value`` values (#34).
+        Returns a fresh, plain ``set`` copy. :meth:`get_attribute` describes
+        how it treats ``prov:value`` values that Python holds equal but that
+        differ in type.
         """
-        return set(self._attributes[PROV_VALUE])
+        return set(self._attributes.get(PROV_VALUE, ()))
 
     # Handling attributes
-    def _auto_literal_conversion(self, literal: Any) -> Any:
-        # This method normalise datatype for literals
+    def _auto_literal_conversion(self, literal: Any, attr: QualifiedName) -> Any:
+        # The form a non-formal attribute value of `attr` takes at assertion.
 
         if isinstance(literal, ProvRecord):
             # Use the QName of the record as the literal
@@ -1040,48 +968,80 @@ class ProvRecord:
         elif isinstance(literal, QualifiedName):
             return self._bundle.valid_qualified_name(literal)
         elif isinstance(literal, Literal) and literal.has_no_langtag():
-            if literal.datatype == PROV_QUALIFIEDNAME:
-                # #238: a prov:QUALIFIED_NAME-typed Literal (e.g. decoded from
-                # a legacy PROV-JSON document, or asserted directly) denotes a
-                # QualifiedName; resolve it against this record's bundle
-                # namespaces. If the prefix has no in-scope namespace, keep
-                # the opaque Literal rather than reject it (#257 lock). Only
-                # PROV_QUALIFIEDNAME is handled here: an XSD_QNAME literal
-                # keeps today's opaque model-side behaviour -- the PROV-JSON
-                # and PROV-JSONLD codecs are the only places that treat
-                # xsd:QName as a QualifiedName value, per the submission
-                # (#168).
-                resolved = self._bundle.valid_qualified_name(literal.value)
-                return resolved if resolved is not None else literal
-            if literal.datatype:
-                # try to convert a generic Literal object to Python standard type
-                # to match the JSON decoding's literal conversion
-                # #522: a lexical form outside the datatype's lexical space
-                # keeps the Literal.
-                try:
-                    value = parse_xsd_types(literal.value, literal.datatype)
-                except (ValueError, OverflowError):
-                    return literal
-                # #235: only collapse the integer family when it is lossless,
-                # i.e. the asserted datatype is the one `prov` would itself
-                # infer for the parsed value. Otherwise, keep the Literal so
-                # its asserted datatype survives serialization (e.g.
-                # Literal("42", XSD_LONG)).
-                if (
-                    value is not None
-                    and literal.datatype in (XSD_LONG, XSD_INT, XSD_INTEGER)
-                    and canonical_xsd_datatype(value) != literal.datatype
-                ):
-                    return literal
-            else:
-                # A literal with no datatype nor langtag defined
-                # try auto-converting the value
-                value = self._auto_literal_conversion(literal.value)
+            if literal.datatype in (PROV_QUALIFIEDNAME, XSD_QNAME):
+                # A qualified-name literal resolves by its prefix in this
+                # record's bundle, never by compacting an IRI (#516, #553).
+                name = resolve_name(self._bundle, literal.value, attr=attr)
+                if isinstance(name, str):
+                    raise ProvExceptionInvalidQualifiedName(literal.value, name)
+                return name
+            if datatype := literal.datatype:
+                value = self._convert_typed_literal(literal, datatype)
+                return (
+                    self._literal_in_scope(value, datatype)
+                    if isinstance(value, Literal)
+                    else value
+                )
+            # A literal with no datatype nor langtag defined
+            # try auto-converting the value
+            value = self._auto_literal_conversion(literal.value, attr)
             if value is not None:
                 return value
+        elif isinstance(literal, Identifier):
+            # An IRI value is an xsd:anyURI literal, the form every writer
+            # emits for it.
+            return Literal(literal.uri, XSD_ANYURI)
 
         # No conversion possible, return the original value
         return literal
+
+    def _literal_in_scope(self, literal: Literal, datatype: QualifiedName) -> Literal:
+        """``literal`` with its ``datatype`` as this record's bundle holds it,
+        so the namespace is declared (#615); rebuilt only when the bundle
+        gives the datatype another prefix. The built-in ``xsd`` and ``prov``
+        datatypes are held as they are."""
+        if datatype.namespace is XSD or datatype.namespace is PROV:
+            return literal
+        held = self._bundle.mandatory_valid_qname(datatype)
+        if held.namespace == datatype.namespace:
+            return literal
+        return Literal(literal.value, held)
+
+    @staticmethod
+    def _convert_typed_literal(literal: Literal, datatype: QualifiedName) -> Any:
+        """The Python value of a typed literal whose text is the canonical
+        spelling of a plain value, or the literal: a text outside the
+        datatype's lexical space (#522), a datatype other than the one prov
+        writes for the value (#235), a spelling that is not the canonical one
+        once XML whitespace around it is stripped (#527) and a datatype with
+        no plain form keep the Literal."""
+        text = literal.value
+        if datatype == XSD_STRING:
+            return text
+        if datatype == XSD_DATETIME:
+            return _datetime_value(text) or literal
+        lexical = text.strip(_XML_WHITESPACE)
+        value = xsd_value(datatype, lexical)
+        if isinstance(value, (bool, int, float)) and python_value_form(value) == (
+            lexical,
+            datatype,
+        ):
+            return value
+        return literal
+
+    @staticmethod
+    def _literal_for_python_value(attr: QualifiedName, value: Any) -> Literal:
+        """The ``Literal`` prov stores a Python value of ``attr`` as, or
+        ``ProvValueError`` when the value has no PROV form (#482)."""
+        form = python_value_form(value)
+        if form is None:
+            raise ProvValueError(no_prov_form_detail(attr, value))
+        text, datatype = form
+        if text is None:
+            raise ProvValueError(
+                f"the value {value!r} of {attr} has no {datatype} form"
+            )
+        return Literal(text, datatype)
 
     def _coerce_attribute_value(
         self, attr: QualifiedName, original_value: Any
@@ -1091,7 +1051,7 @@ class ProvRecord:
         # Raises:
         #     ProvException: If the value is invalid for `attr`.
 
-        # the branches below bind `value` to different types
+        # the two branches below bind `value` to different types
         value: CoercedAttributeValue
 
         if attr in PROV_ATTRIBUTE_QNAMES:
@@ -1106,80 +1066,68 @@ class ProvRecord:
                     )
             else:
                 qname = original_value
-            value = self._bundle.mandatory_valid_qname(qname)
-        elif attr in PROV_ATTRIBUTE_LITERALS:
-            # Expecting a datetime, or a string or xsd:dateTime Literal that parses as one
-            if isinstance(original_value, str):
-                value = parse_xsd_datetime(original_value)
-            elif (
-                isinstance(original_value, Literal)
-                and original_value.datatype == XSD_DATETIME
-            ):
-                value = parse_xsd_datetime(original_value.value)
-            else:
-                value = original_value
-            if not isinstance(value, datetime.datetime):
-                raise ProvException(
-                    f"Invalid value for attribute {attr}: {original_value}. "
-                    f"Expected a datetime, or a string or xsd:dateTime Literal"
-                    f" that parses as one."
-                )
-            if _offset_beyond_xsd_bound(value):
-                _warn_offset_beyond_bound(f"{attr} {value.isoformat()}")
+            return self._bundle.mandatory_valid_qname(qname, attr=attr)
+        if attr in PROV_ATTRIBUTE_LITERALS:
+            value = self._coerce_time(attr, original_value)
         else:
-            value = self._auto_literal_conversion(original_value)
-            if type(value) not in _PLAIN_VALUE_TYPES:
-                _warn_about_value(attr, original_value, value)
-            elif isinstance(original_value, Literal):
-                _warn_unresolved_name(self._bundle, attr, original_value, value)
+            value = self._auto_literal_conversion(original_value, attr)
+            if value is None:
+                raise ProvException(
+                    f"Invalid value for attribute {attr}: {original_value}"
+                )
+            if not isinstance(value, _PLAIN_VALUE_BASES):
+                value = self._literal_for_python_value(attr, value)
 
-        if value is None:
-            raise ProvException(f"Invalid value for attribute {attr}: {original_value}")
-
+        if isinstance(value, datetime.datetime):
+            # In any position, because no writer can emit such an offset as an
+            # xsd:dateTime. A typed Literal beyond the bound stays a Literal.
+            detail = time_offset_detail(attr, value)
+            if detail is not None:
+                raise ProvValueError(detail)
         return value
 
-    def _store_attribute_value(
+    def _coerce_time(
+        self, attr: QualifiedName, original_value: Any
+    ) -> datetime.datetime:
+        # A time of the statement: a datetime, or a string or xsd:dateTime
+        # Literal that parses as one.
+        if isinstance(original_value, str):
+            value = parse_xsd_datetime(original_value)
+        elif (
+            isinstance(original_value, Literal)
+            and original_value.datatype == XSD_DATETIME
+        ):
+            value = parse_xsd_datetime(original_value.value)
+        else:
+            value = original_value
+        if not isinstance(value, datetime.datetime):
+            raise ProvException(
+                f"Invalid value for attribute {attr}: {original_value}. "
+                f"Expected a datetime, or a string or xsd:dateTime Literal"
+                f" that parses as one."
+            )
+        return value
+
+    def _check_repeated_value(
         self,
         attr: QualifiedName,
         value: CoercedAttributeValue,
-        is_collection: bool,
+        existing_values: TypedValueSet,
     ) -> None:
-        # Add `value` for `attr`, enforcing single-valued (non-collection)
-        # attributes have at most one (distinct) value.
+        # Return if `value` equals the one value already held for the
+        # single-valued `attr`, so the caller ignores it.
         #
         # Raises:
-        #     ProvException: If a second, different value is supplied for a
-        #         single-valued (non-collection) attribute.
-        #
-        # `_attributes` is a defaultdict(TypedValueSet): every code path below
-        # ends up subscripting `self._attributes[attr]` at least once (the
-        # early-return and raise paths via the guard/`first()`, the fall-through
-        # path via `.add()`), so binding it once up front auto-vivifies the
-        # entry no earlier than it would have been created anyway.
-        existing_values = self._attributes[attr]
-        if not is_collection and attr in PROV_ATTRIBUTES and existing_values:
-            existing_value = first(existing_values)
-            is_not_same_value = True
-            # This duplicate-value branch runs at scale in
-            # _unified_records()'s merge loop (unified()/flattened() on
-            # large documents), where contextlib.suppress()'s per-call
-            # context-manager overhead adds up — the plain try/except
-            # stays here.
-            try:  # noqa: SIM105
-                is_not_same_value = value != existing_value
-            except TypeError:
-                # Cannot compare them
-                pass  # consider them different values
+        #     ProvException: If `value` differs from it, or cannot be
+        #         compared with it.
+        existing_value = first(existing_values)
+        try:
+            is_not_same_value = value != existing_value
+        except TypeError:
+            is_not_same_value = True  # values that cannot be compared differ
 
-            if is_not_same_value:
-                raise ProvException(
-                    f"Cannot have more than one value for attribute {attr}"
-                )
-            else:
-                # Same value, ignore it
-                return
-
-        existing_values.add(value)
+        if is_not_same_value:
+            raise ProvException(f"Cannot have more than one value for attribute {attr}")
 
     def add_attributes(self, attributes: RecordAttributesArg) -> None:
         """Add attributes to the record.
@@ -1196,23 +1144,14 @@ class ProvRecord:
 
         Raises:
             ProvExceptionInvalidQualifiedName: If an attribute name cannot be
-                resolved to a valid qualified name.
+                resolved to a valid qualified name, or a value typed as a
+                qualified name does not resolve by its prefix.
             ProvException: If a value is invalid for its attribute, or a
                 second, different value is supplied for a single-valued
-                (non-collection) attribute.
+                attribute.
         """
         if attributes:
-            # Two passes follow, so a one-shot iterator is copied first.
-            pairs = list(_attribute_pairs(attributes))
-
-            # Check if one of the attributes specifies that the current type
-            # is a collection. In that case multiple attributes of the same
-            # type are allowed.
-            is_collection = any(
-                attr_name == PROV_ATTR_COLLECTION for attr_name, _ in pairs
-            )
-
-            for attr_name, original_value in pairs:
+            for attr_name, original_value in _attribute_pairs(attributes):
                 if original_value is None:
                     continue
 
@@ -1221,81 +1160,132 @@ class ProvRecord:
 
                 value = self._coerce_attribute_value(attr, original_value)
 
-                self._store_attribute_value(attr, value, is_collection)
+                existing_values = self._attributes.get(attr)
+                if existing_values and attr in PROV_ATTRIBUTES:
+                    self._check_repeated_value(attr, value, existing_values)
+                    continue
+                self._attributes[attr].add(value)
 
     def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, ProvRecord):
-            return False
-        if self.get_type() != other.get_type():
-            return False
-        if self._identifier and not (self._identifier == other._identifier):
-            return False
-
-        return self._typed_attributes() == other._typed_attributes()
+        return (
+            isinstance(other, ProvRecord)
+            and self.get_type() == other.get_type()
+            and self._identifier == other._identifier
+            and self._typed_attributes() == other._typed_attributes()
+        )
 
     def __str__(self) -> str:
-        return self.get_provn()
+        return self.get_provn(width=None)
 
-    def get_provn(self, strict: bool = False) -> str:
+    def get_provn(self, strict: bool = False, width: int | None = 80) -> str:
         """Return the PROV-N representation of the record.
 
+        A statement with an attribute block that is wider than ``width``
+        columns is written over several lines. The keyword, identifier and
+        formal arguments stay on the first line and the attribute block
+        follows, one ``name=value`` pair per line, aligned after the opening
+        parenthesis. The formal arguments and a single pair are never broken.
+        ``str(record)`` never wraps. A string value that holds a line feed is
+        still written as a triple-quoted string over several lines. A subclass
+        that overrides this method takes ``width`` too, because the PROV-N
+        writer passes it.
+
         Args:
-            strict: Write ``prov:mentionOf`` instead of the bare
-                ``mentionOf`` keyword so the output parses under the strict
-                PROV-N profile.
+            strict: Write output that parses under the strict PROV-N
+                profile. Mention is written ``prov:mentionOf`` instead of
+                the bare ``mentionOf`` keyword, and ``alternateOf``,
+                ``specializationOf`` and ``hadMember`` are written without
+                the identifier or attribute block PROV-N does not give them,
+                each dropped with a :class:`~prov.model.ProvWarning` that
+                names the record.
+            width: The column limit for one line. ``None`` never wraps. A
+                width of ``0`` or less wraps every statement that has an
+                attribute block.
         """
-        items = []
-
-        # Generating identifier
-        relation_id = ""  # default blank
-        if self._identifier:
-            identifier = self._identifier.provn_bare_representation()
-            if self.is_element():
-                items.append(identifier)
-            else:
-                # a relation's identifier is followed by a semicolon
-                relation_id = identifier + "; "
-
-        # Writing out the formal attributes
-        for attr in self.FORMAL_ATTRIBUTES:
-            values = self._attributes.get(attr)
-            if values:
-                # Formal attributes always have single values
-                value = first(values)
-                if isinstance(value, datetime.datetime):
-                    items.append(_xsd_datetime_text(value))
-                elif isinstance(value, QualifiedName):
-                    items.append(value.provn_bare_representation())
-                else:
-                    items.append(str(value))
-            else:
-                items.append("-")
-
-        # Writing out the remaining attributes
-        extra = []
-        for attr in self._attributes:
-            if attr not in self.FORMAL_ATTRIBUTES:
-                for value in self._attributes[attr]:
-                    try:
-                        # try if there is a prov-n representation defined
-                        provn_representation = value.provn_representation()
-                    except AttributeError:
-                        provn_representation = encoding_provn_value(value)
-                    attr_name = attr.provn_bare_representation()
-                    extra.append(f"{attr_name}={provn_representation}")
-
-        if extra:
-            # .format(), not an f-string: the nested string literals reuse the
-            # same quote character, which f-strings only allow from py3.12 (PEP 701)
-            items.append("[{}]".format(", ".join(extra)))
         keyword = PROV_N_MAP[self.get_type()]
+        identifier = ""
+        items: list[str] = []
+        if self._identifier:
+            bare = self._identifier.provn_bare_representation()
+            if self.is_element():
+                items.append(bare)
+            else:
+                identifier = bare
+        items.extend(self._provn_formal_items())
+        pairs = self._provn_attribute_block()
         if strict and self.get_type() == PROV_MENTION:
             # The Recommendation grammar has no Mention; PROV-Links writes it
             # as prov:mentionOf. The default keeps the bare keyword ProvToolbox
             # reads (#248).
             keyword = "prov:mentionOf"
-        prov_n = "{}({}{})".format(keyword, relation_id, ", ".join(items))
-        return prov_n
+        elif strict and self.get_type() in _PROV_N_BARE_RELATIONS:
+            # A strict read rejects an identifier or attribute block here, so neither
+            # is written.
+            written = f"{keyword}({', '.join(items)})"
+            if identifier:
+                warn(
+                    f"strict=True drops the identifier {identifier} of {written},"
+                    f" because PROV-N gives {keyword} no identifier"
+                )
+                identifier = ""
+            if pairs:
+                block = f"[{', '.join(pairs)}]"
+                warn(
+                    f"strict=True drops the attribute block {block} of {written},"
+                    f" because PROV-N gives {keyword} no attribute block"
+                )
+                pairs = []
+        relation_id = f"{identifier}; " if identifier else ""
+        return self._provn_layout(
+            keyword, f"{relation_id}{', '.join(items)}", pairs, width
+        )
+
+    @staticmethod
+    def _provn_layout(
+        keyword: str, head: str, pairs: list[str], width: int | None
+    ) -> str:
+        """Lay the statement out on one line or, past ``width``, over rows."""
+        if not pairs:
+            return f"{keyword}({head})"
+        one_line = f"{keyword}({head}, [{', '.join(pairs)}])"
+        if width is None or len(one_line) <= width:
+            return one_line
+        # Pairs after the first sit one column right, under the first pair.
+        column = " " * (len(keyword) + 1)
+        rows = f",\n{column} ".join(pairs)
+        return f"{keyword}({head},\n{column}[{rows}])"
+
+    def _provn_formal_items(self) -> list[str]:
+        """The formal attributes in production order, ``-`` where absent."""
+        items = []
+        for attr in self.FORMAL_ATTRIBUTES:
+            values = self._attributes.get(attr)
+            if not values:
+                items.append("-")
+                continue
+            value = first(values)  # a formal attribute holds one value
+            if isinstance(value, datetime.datetime):
+                items.append(_xsd_datetime_text(value))
+            elif isinstance(value, QualifiedName):
+                items.append(value.provn_bare_representation())
+            else:
+                items.append(str(value))
+        return items
+
+    def _provn_attribute_block(self) -> list[str]:
+        """The ``name=value`` texts of the other attributes, in order."""
+        pairs = []
+        for attr in self._attributes:
+            if attr in self.FORMAL_ATTRIBUTES:
+                continue
+            for value in self._attributes[attr]:
+                text = (
+                    value.provn_representation()
+                    if isinstance(value, (Identifier, Literal))
+                    else encoding_provn_value(value)
+                )
+                pairs.append(f"{attr.provn_bare_representation()}={text}")
+        return pairs
 
     def is_element(self) -> bool:
         """Return ``True`` if the record is an element, ``False`` otherwise."""
@@ -1310,6 +1300,8 @@ class ProvRecord:
 class ProvElement(ProvRecord):
     """Provenance Element (nodes in the provenance graph)."""
 
+    _identifier: QualifiedName
+
     def __init__(
         self,
         bundle: ProvBundle,
@@ -1321,6 +1313,11 @@ class ProvElement(ProvRecord):
             raise ProvElementIdentifierRequired()
 
         super().__init__(bundle, identifier, attributes)
+
+    @property
+    def identifier(self) -> QualifiedName:
+        """The element's identifier. Every element has one."""
+        return self._identifier
 
     def is_element(self) -> bool:
         """Return ``True`` if the record is an element, ``False`` otherwise."""
@@ -1356,7 +1353,7 @@ class ProvEntity(ProvElement):
         activity: ActivityRef | None = None,
         time: DatetimeOrStr | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new generation record to this entity.
 
         Args:
@@ -1379,7 +1376,7 @@ class ProvEntity(ProvElement):
         activity: ActivityRef | None,
         time: DatetimeOrStr | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new invalidation record for this entity.
 
         Args:
@@ -1404,7 +1401,7 @@ class ProvEntity(ProvElement):
         generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new derivation record for this entity from a used entity.
 
         Args:
@@ -1428,7 +1425,7 @@ class ProvEntity(ProvElement):
 
     def wasAttributedTo(
         self, agent: AgentRef, attributes: RecordAttributesArg | None = None
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new attribution record between this entity and an agent.
 
         Args:
@@ -1443,7 +1440,7 @@ class ProvEntity(ProvElement):
         self._bundle.attribution(self, agent, other_attributes=attributes)
         return self
 
-    def alternateOf(self, alternate2: EntityRef) -> ProvEntity:
+    def alternateOf(self, alternate2: EntityRef) -> Self:
         """Create a new alternate record between this and another entity.
 
         Args:
@@ -1451,11 +1448,14 @@ class ProvEntity(ProvElement):
 
         Returns:
             This entity (to allow chaining).
+
+        Raises:
+            ProvMissingFormalAttribute: If ``alternate2`` is ``None``.
         """
         self._bundle.alternate(self, alternate2)
         return self
 
-    def specializationOf(self, generalEntity: EntityRef) -> ProvEntity:
+    def specializationOf(self, generalEntity: EntityRef) -> Self:
         """Create a new specialisation record for this from a general entity.
 
         Args:
@@ -1463,11 +1463,14 @@ class ProvEntity(ProvElement):
 
         Returns:
             This entity (to allow chaining).
+
+        Raises:
+            ProvMissingFormalAttribute: If ``generalEntity`` is ``None``.
         """
         self._bundle.specialization(self, generalEntity)
         return self
 
-    def hadMember(self, entity: EntityRef) -> ProvEntity:
+    def hadMember(self, entity: EntityRef) -> Self:
         """Create a new membership record adding an entity to this collection.
 
         Args:
@@ -1476,6 +1479,9 @@ class ProvEntity(ProvElement):
 
         Returns:
             This entity (to allow chaining).
+
+        Raises:
+            ProvMissingFormalAttribute: If ``entity`` is ``None``.
         """
         self._bundle.membership(self, entity)
         return self
@@ -1487,7 +1493,7 @@ class ProvEntity(ProvElement):
         generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new revision record for this entity from a used entity.
 
         Args:
@@ -1516,7 +1522,7 @@ class ProvEntity(ProvElement):
         generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new quotation record for this entity from a quoted entity.
 
         Args:
@@ -1545,7 +1551,7 @@ class ProvEntity(ProvElement):
         generation: GenerationRef | None = None,
         usage: UsageRef | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new primary-source record for this entity.
 
         Args:
@@ -1567,7 +1573,7 @@ class ProvEntity(ProvElement):
         )
         return self
 
-    def mentionOf(self, generalEntity: EntityRef, bundle: EntityRef) -> ProvEntity:
+    def mentionOf(self, generalEntity: EntityRef, bundle: EntityRef) -> Self:
         """Create a new mention record of this entity from a general entity.
 
         Args:
@@ -1578,6 +1584,9 @@ class ProvEntity(ProvElement):
 
         Returns:
             This entity (to allow chaining).
+
+        Raises:
+            ProvMissingFormalAttribute: If ``generalEntity`` is ``None``.
         """
         self._bundle.mention(self, generalEntity, bundle)
         return self
@@ -1586,7 +1595,7 @@ class ProvEntity(ProvElement):
         self,
         influencer: InfluencerRef,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvEntity:
+    ) -> Self:
         """Create a new influence record on this entity by an influencer.
 
         Args:
@@ -1633,13 +1642,11 @@ class ProvActivity(ProvElement):
 
     def get_startTime(self) -> datetime.datetime | None:
         """Return the activity's start time, or ``None`` if unset."""
-        values = self._attributes[PROV_ATTR_STARTTIME]
-        return first(values) if values else None
+        return first(self._attributes.get(PROV_ATTR_STARTTIME, ()))
 
     def get_endTime(self) -> datetime.datetime | None:
         """Return the activity's end time, or ``None`` if unset."""
-        values = self._attributes[PROV_ATTR_ENDTIME]
-        return first(values) if values else None
+        return first(self._attributes.get(PROV_ATTR_ENDTIME, ()))
 
     # Convenient assertions that take the current ProvActivity as the first
     # (formal) argument
@@ -1648,7 +1655,7 @@ class ProvActivity(ProvElement):
         entity: EntityRef,
         time: DatetimeOrStr | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvActivity:
+    ) -> Self:
         """Create a new usage record for this activity.
 
         Args:
@@ -1669,7 +1676,7 @@ class ProvActivity(ProvElement):
 
     def wasInformedBy(
         self, informant: ActivityRef, attributes: RecordAttributesArg | None = None
-    ) -> ProvActivity:
+    ) -> Self:
         """Create a new communication record for this activity.
 
         Args:
@@ -1689,7 +1696,7 @@ class ProvActivity(ProvElement):
         starter: ActivityRef | None = None,
         time: DatetimeOrStr | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvActivity:
+    ) -> Self:
         """Create a new start record for this activity.
 
         The activity did not exist before being started by the trigger.
@@ -1718,7 +1725,7 @@ class ProvActivity(ProvElement):
         ender: ActivityRef | None = None,
         time: DatetimeOrStr | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvActivity:
+    ) -> Self:
         """Create a new end record for this activity.
 
         Args:
@@ -1744,7 +1751,7 @@ class ProvActivity(ProvElement):
         agent: AgentRef,
         plan: EntityRef | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvActivity:
+    ) -> Self:
         """Create a new association record for this activity.
 
         Args:
@@ -1765,7 +1772,7 @@ class ProvActivity(ProvElement):
         self,
         influencer: InfluencerRef,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvActivity:
+    ) -> Self:
         """Create a new influence record on this activity by an influencer.
 
         Args:
@@ -1867,7 +1874,7 @@ class ProvAgent(ProvElement):
         responsible: AgentRef,
         activity: ActivityRef | None = None,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvAgent:
+    ) -> Self:
         """Create a new delegation record on behalf of this agent.
 
         Args:
@@ -1890,7 +1897,7 @@ class ProvAgent(ProvElement):
         self,
         influencer: InfluencerRef,
         attributes: RecordAttributesArg | None = None,
-    ) -> ProvAgent:
+    ) -> Self:
         """Create a new influence record on this agent by an influencer.
 
         Args:
@@ -1946,6 +1953,7 @@ class ProvSpecialization(ProvRelation):
         PROV_ATTR_SPECIFIC_ENTITY,
         PROV_ATTR_GENERAL_ENTITY,
     )
+    _REQUIRED_ATTRIBUTES = FORMAL_ATTRIBUTES
 
     _prov_type = PROV_SPECIALIZATION
 
@@ -1954,6 +1962,7 @@ class ProvAlternate(ProvRelation):
     """Provenance Alternate relationship."""
 
     FORMAL_ATTRIBUTES = (PROV_ATTR_ALTERNATE1, PROV_ATTR_ALTERNATE2)
+    _REQUIRED_ATTRIBUTES = FORMAL_ATTRIBUTES
 
     _prov_type = PROV_ALTERNATE
 
@@ -1975,6 +1984,7 @@ class ProvMembership(ProvRelation):
     """Provenance Membership relationship."""
 
     FORMAL_ATTRIBUTES = (PROV_ATTR_COLLECTION, PROV_ATTR_ENTITY)
+    _REQUIRED_ATTRIBUTES = FORMAL_ATTRIBUTES
 
     _prov_type = PROV_MEMBERSHIP
 

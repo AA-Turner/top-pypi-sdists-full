@@ -109,6 +109,26 @@ class InvalidTimestampTestCase(unittest.TestCase):
     # But it doesn't cover all invalid cases, so we test those here.
     # See `generate_test_timestamps.generate_invalid_timestamp` for details.
 
+    def test_embedded_null(self):
+        for parse in (parse_datetime, parse_datetime_as_naive, parse_rfc3339):
+            for timestamp in (
+                "2024-01-01T12:00:00Z\x00",
+                "2024-01-01T12:00:00Z\x00garbage",
+                "2024-01-01T12:00:00+01:30\x00garbage",
+                u"2024-01-01T12:00:00Z\x00\u00e9",
+            ):
+                self.assertRaises(ValueError, parse, timestamp)
+
+    def test_null_in_incomplete_timestamp(self):
+        for parse in (parse_datetime, parse_datetime_as_naive, parse_rfc3339):
+            for timestamp in ("\x00", "2024-01-01T12:\x0000:00Z"):
+                self.assertRaises(ValueError, parse, timestamp)
+
+    def test_iso_week_date_year_zero(self):
+        for parse in (parse_datetime, parse_datetime_as_naive):
+            for timestamp in ("0000W06", "0000W017", "0000-W53", "0000-W01-1"):
+                self.assertRaises(ValueError, parse, timestamp)
+
     def test_parse_auto_generated_invalid_formats(self):
         for timestamp, reason in generate_invalid_timestamp():
             try:
@@ -672,6 +692,11 @@ class GithubIssueRegressionTestCase(unittest.TestCase):
             r"Cannot combine \"basic\" date format with \"extended\" time format",
             parse_datetime,
             "20010203T04:05",
+        )
+    
+    def test_surrogate(self):
+        self.assertRaises(
+            UnicodeEncodeError, parse_datetime, '2026-01-01T00:00:00\ud800+00:00'
         )
 
 

@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class PublishSiteInformation(ClientValue):
     SiteType: Optional[int] = None
     SiteUrl: Optional[str] = None

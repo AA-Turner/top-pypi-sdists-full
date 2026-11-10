@@ -13,7 +13,7 @@ from functools import lru_cache
 from importlib.resources import files
 from typing import Any
 
-from prov import Error
+from prov._warnings import warn
 from prov.constants import (
     PROV_ATTR_ENTITY,
     PROV_ATTRIBUTE_LITERALS,
@@ -24,14 +24,11 @@ from prov.constants import (
     PROV_MEMBERSHIP,
     PROV_MENTION,
     PROV_N_MAP,
-    PROV_QUALIFIEDNAME,
     PROV_ROLE,
     PROV_TYPE,
     PROV_VALUE,
-    XSD_ANYURI,
-    XSD_QNAME,
 )
-from prov.identifier import Identifier, Namespace, QualifiedName
+from prov.identifier import Namespace, QualifiedName
 from prov.model import (
     PROV_REC_CLS,
     AttributePair,
@@ -39,19 +36,20 @@ from prov.model import (
     ProvBundle,
     ProvDocument,
     ProvElement,
+    ProvException,
+    ProvMissingFormalAttribute,
     ProvRecord,
     QualifiedNameCandidate,
-    canonical_xsd_datatype,
     first,
     parse_xsd_datetime,
 )
-from prov.model.records import (
-    _warn_unresolved_name,
-    _xsd_datetime_text,
-    _xsd_double_text,
+from prov.model._values import _xsd_datetime_text, python_value_form
+from prov.serializers import ProvSerializationError, Serializer, _is_text_stream
+from prov.serializers._json_common import (
+    _add_memberships,
+    _JSONPrefixMap,
+    _repeated_key_hook,
 )
-from prov.serializers import Serializer, _is_text_stream
-from prov.serializers.provjson import _add_memberships, _JSONPrefixMap
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
@@ -79,8 +77,8 @@ SPECIAL_ATTR_TERMS: dict[QualifiedName, str] = {
 SPECIAL_TERM_ATTRS: dict[str, QualifiedName] = {
     term: attr for attr, term in SPECIAL_ATTR_TERMS.items()
 }
-#: Special terms typed ``@id`` in the context: their values are bare
-#: qualified-name strings, not value objects.
+#: Special terms typed ``@id`` in the context. Their values are bare
+#: qualified-name strings, not node references or value objects.
 ID_TYPED_TERMS = frozenset({"type", "role", "location"})
 
 #: Every bare (unprefixed) term the submission context defines: each record
@@ -104,7 +102,7 @@ FORMAL_ATTRS_BY_TERM: dict[type[ProvRecord], dict[str, QualifiedName]] = {
 }
 
 
-class ProvJSONLDException(Error):
+class ProvJSONLDException(ProvSerializationError):
     """Raised when a document cannot be written as, or read from, PROV-JSONLD."""
 
 
@@ -152,49 +150,43 @@ def encode_jsonld_value(
     Args:
         value: Attribute value to encode: a
             :class:`~prov.identifier.QualifiedName`, a
-            :class:`~prov.model.Literal`, a :class:`datetime.datetime`,
-            another :class:`~prov.identifier.Identifier`, a plain ``bool``,
-            ``str``, ``int``/``float`` (typed by
-            :func:`~prov.model.canonical_xsd_datatype`), or another plain
-            JSON-native value.
+            :class:`~prov.model.Literal`, a ``str``, or any other value with
+            an XSD form (``python_value_form``, e.g. a ``bool``, ``int``,
+            ``float``, ``Decimal``, ``date`` or :class:`datetime.datetime`),
+            which is written as a typed value object. A value with no form is
+            written as its ``str()``.
         term: The unprefixed JSON-LD term ``value`` is being encoded under
             (e.g. ``"type"``, ``"ex:price"``), used to decide whether a
             :class:`~prov.identifier.QualifiedName` value is emitted as a
             bare string (``@id``-typed terms, see :data:`ID_TYPED_TERMS`) or
-            as a typed value object.
+            as a ``{"@id": ...}`` node reference.
         qname_text: Writes a qualified name (the value or a literal's
             datatype); the container's ``_JSONPrefixMap.qname_text`` in
             :func:`encode_jsonld_container`.
 
     Returns:
-        A bare qualified-name string for ``@id``-typed terms, or a
-        ``{"@value": ..., "@type"/"@language": ...}`` value object.
+        A bare qualified-name string for ``@id``-typed terms, a
+        ``{"@id": ...}`` node reference for a qualified name under any other
+        term (schema 2026-10-14 ``node_reference``, openprov/prov-jsonld#7),
+        or a ``{"@value": ..., "@type"/"@language": ...}`` value object. A
+        JSON-LD processor reads the node reference as the IRI, which is what
+        PROV-O holds for the value (#545).
     """
     if isinstance(value, QualifiedName):
         if term in ID_TYPED_TERMS:
             return qname_text(value)  # @id-typed term: bare qualified-name string
-        return {"@value": qname_text(value), "@type": str(XSD_QNAME)}
+        return {"@id": qname_text(value)}
     if isinstance(value, Literal):
         if value.langtag:
             return {"@value": value.value, "@language": value.langtag}
         return {"@value": value.value, "@type": qname_text(value.datatype)}
-    if isinstance(value, datetime.datetime):
-        return {"@value": _xsd_datetime_text(value), "@type": "xsd:dateTime"}
-    if isinstance(value, Identifier):
-        return {"@value": value.uri, "@type": "xsd:anyURI"}
-    if isinstance(value, bool):
-        return {"@value": "true" if value else "false", "@type": "xsd:boolean"}
     if isinstance(value, str):
         return {"@value": value}
-    datatype = canonical_xsd_datatype(value)
-    if datatype is not None:  # int / float, magnitude-aware (#244/#256)
-        return {
-            "@value": _xsd_double_text(value)
-            if isinstance(value, float)
-            else str(value),
-            "@type": str(datatype),
-        }
-    return {"@value": str(value)}
+    form = python_value_form(value)
+    if form is None or form[0] is None:
+        return {"@value": str(value)}
+    text, datatype = form
+    return {"@value": text, "@type": str(datatype)}
 
 
 def _encode_attribute_term(attr: QualifiedName, rec_type: QualifiedName) -> str:
@@ -393,20 +385,13 @@ def _decode_context(context: Any, bundle: ProvBundle) -> None:
     String items (the context URL) and the embedded copy of the submission
     context (see :func:`_is_embedded_submission_context`; its terms are
     already known to this library via the built-in ``prov``/``xsd``
-    namespaces) are skipped entirely. Every other object is treated as a
-    namespace map: its string-valued entries are registered as prefixes
-    (``"@vocab"`` as the default namespace), and any dict-valued entries --
-    third-party inline term definitions this library does not model -- are
-    ignored individually rather than causing the whole object to be
-    skipped. Every other JSON-LD keyword key (``@base``, ``@version``, ...)
-    is likewise ignored: ``@base`` is written as a duplicate of ``@vocab``
-    (needed for real JSON-LD processors, see :data:`_JSONLD_DEFAULT_KEYS`)
-    and carries no information this library doesn't already get from
-    ``@vocab``.
+    namespaces) are skipped entirely. Every other object is a namespace map
+    (see :func:`_register_context_namespaces`).
 
     Raises:
         ProvJSONLDException: If a ``@context`` entry is neither a string nor
-            a JSON object.
+            a JSON object, or a namespace map is refused (see
+            :func:`_register_context_namespaces`).
     """
     if not isinstance(context, list):
         context = [context]
@@ -414,13 +399,49 @@ def _decode_context(context: Any, bundle: ProvBundle) -> None:
         if isinstance(item, str):
             continue
         item = _expect_object(item, "A @context entry")
-        if _is_embedded_submission_context(item):
-            continue
+        if not _is_embedded_submission_context(item):
+            _register_context_namespaces(item, bundle)
+
+
+def _register_context_namespaces(item: dict[str, Any], bundle: ProvBundle) -> None:
+    """Register the string-valued entries of one ``@context`` object on ``bundle``.
+
+    Dict-valued entries (third-party inline term definitions this library
+    does not model) are skipped individually rather than causing the whole
+    object to be skipped, and so are the ``@``-keys other than ``"@vocab"``.
+    ``@base`` is written as a duplicate of ``@vocab`` (see
+    :data:`_JSONLD_DEFAULT_KEYS`) and carries no information this library
+    doesn't already get from ``@vocab``. Every other string-valued entry is a
+    namespace: ``"@vocab"`` and ``""`` set the default, and any other key is a
+    prefix.
+
+    Args:
+        item: A ``@context`` entry that is a JSON object and a namespace map.
+        bundle: Bundle (or document) to register the namespaces on.
+
+    Raises:
+        ProvJSONLDException: If the map declares its default namespace under
+            both ``"@vocab"`` and ``""`` with different IRIs, or the model
+            refuses a prefix, the default namespace or an IRI, such as a
+            prefix that is not a ``PN_PREFIX`` or an IRI that starts with
+            ``"@"`` (``__cause__`` holds the :class:`ProvException`).
+    """
+    empty, vocab = item.get(""), item.get("@vocab")
+    if isinstance(empty, str) and isinstance(vocab, str) and empty != vocab:
+        raise ProvJSONLDException(
+            "A @context entry declares two different default namespaces, "
+            'under "@vocab" and ""'
+        )
+    try:
         for prefix, value in item.items():
-            if prefix == "@vocab" and isinstance(value, str):
+            if not isinstance(value, str):
+                continue
+            if prefix in ("@vocab", ""):
                 bundle.set_default_namespace(value)
-            elif not prefix.startswith("@") and isinstance(value, str):
+            elif not prefix.startswith("@"):
                 bundle.add_namespace(Namespace(prefix, value))
+    except ProvException as exc:
+        raise ProvJSONLDException(f"prefix {prefix!r}, IRI {value!r}: {exc}") from exc
 
 
 def _strip_prov_prefix(term: str) -> str:
@@ -463,55 +484,79 @@ def _decode_node_reference(value: dict[str, Any], term: str) -> str:
 
 
 def decode_jsonld_value(
-    value: Any, bundle: ProvBundle, term: str, *, attr: QualifiedName | None = None
+    value: Any, bundle: ProvBundle, term: str, *, attr: QualifiedName, record: str
 ) -> Any:
     """Decode one member of a non-formal attribute's value array.
 
-    Mirrors :func:`~prov.serializers.provjson.decode_json_representation`'s
-    #168/#238 behaviour: a qualified-name value whose prefix has no in-scope
-    namespace is kept as an opaque :class:`~prov.model.Literal` rather than
-    dropped. A node reference is the exception: a JSON-LD processor reads
-    its ``"@id"`` as an IRI, so one no namespace compacts is kept as an
-    :class:`~prov.identifier.Identifier`.
+    A bare string under an ``@id``-typed term (see :data:`ID_TYPED_TERMS`)
+    and a ``{"@id": ...}`` node reference are IRIs: the
+    :class:`~prov.identifier.QualifiedName` when a declared namespace
+    compacts the IRI. The model resolves the IRI, so an IRI no namespace
+    compacts raises its :class:`~prov.model.ProvExceptionInvalidQualifiedName`
+    naming ``attr``. A blank-node reference (``_:``) names no record, so it is
+    dropped with a :class:`~prov.model.ProvWarning`. A bare string under any
+    other term is the text. A value object is a language-tagged or datatyped
+    :class:`~prov.model.Literal`, which the model resolves when its datatype
+    is ``xsd:QName`` or ``prov:QUALIFIED_NAME`` (#168, #238), or the text
+    when it has no type. A value object's datatype resolves by the node
+    reference's rule, with no blank-node drop.
 
     Args:
         value: The raw JSON-LD value: a bare string, a ``{"@id": ...}`` node
             reference or a ``{"@value": ..., ...}`` value object.
-        bundle: Bundle used to resolve any qualified-name value.
+        bundle: Bundle used to resolve an IRI or a datatype.
         term: The unprefixed JSON-LD term ``value`` was read from (e.g.
             ``"type"``, ``"ex:price"``), used to decide how a bare string is
             interpreted.
-        attr: The attribute ``value`` belongs to, named in the warning for a
-            typed qualified-name value that resolves only by compacting a
-            full IRI. Without it, that value does not warn.
+        attr: The attribute ``value`` belongs to, named in the model's error
+            and in the warning.
+        record: The statement's ``"@id"`` as written, or a description of the
+            anonymous statement, named in the warning.
 
     Returns:
-        The resolved :class:`~prov.identifier.QualifiedName` for a bare
-        string under an ``@id``-typed term (see :data:`ID_TYPED_TERMS`), a
-        node reference under any term, or an
-        ``xsd:QName``/``prov:QUALIFIED_NAME``-typed value object; an
-        :class:`~prov.identifier.Identifier` for an ``xsd:anyURI``-typed
-        value object or a node reference no namespace compacts; a
-        language-tagged or datatyped
-        :class:`~prov.model.Literal`; or the plain decoded text, which is
-        what a bare string under any other term is.
+        The decoded value, or ``None`` for a blank-node reference, which the
+        model skips.
 
     Raises:
         ProvJSONLDException: If ``value`` is neither a string nor a JSON
             object, if a node reference has keys other than ``"@id"`` or an
-            empty ``"@id"``, or
-            if a value object is missing its required ``"@value"`` key.
+            empty ``"@id"``, if a value object is missing its required
+            ``"@value"`` key, if a value object holds both ``"@language"`` and
+            ``"@type"`` or a ``"@type"`` that is not a string.
+        ProvExceptionInvalidQualifiedName: If a node reference, an
+            ``@id``-typed bare string or a value object's datatype resolves
+            in no declared namespace; see :func:`decode_jsonld_statement`.
     """
     if isinstance(value, str):
-        if term in ID_TYPED_TERMS:
-            resolved = bundle.valid_qualified_name(value)
-            return resolved if resolved is not None else Literal(value, XSD_QNAME)
-        return value
-    value = _expect_object(value, f"A value of {term!r}")
-    if "@id" in value:
+        if term not in ID_TYPED_TERMS:
+            return value
+        text = value
+    else:
+        value = _expect_object(value, f"A value of {term!r}")
+        if "@id" not in value:
+            return _decode_value_object(value, bundle, term, attr=attr)
         text = _decode_node_reference(value, term)
-        resolved = bundle.valid_qualified_name(text)
-        return resolved if resolved is not None else Identifier(text)
+    if text.startswith("_:"):
+        warn(
+            f"{record}: {attr} points at a blank node that names no record; "
+            "the value is dropped"
+        )
+        return None
+    return bundle.mandatory_valid_qname(text, attr=attr)
+
+
+def _decode_value_object(
+    value: dict[str, Any], bundle: ProvBundle, term: str, *, attr: QualifiedName
+) -> Any:
+    """Decode a ``{"@value": ...}`` object into a ``Literal`` or its text.
+
+    Raises:
+        ProvJSONLDException: If the ``"@value"`` key is missing, if the value
+            object holds both ``"@language"`` and ``"@type"`` or a ``"@type"``
+            that is not a string.
+        ProvExceptionInvalidQualifiedName: If no declared namespace resolves
+            the datatype; see :func:`decode_jsonld_statement`.
+    """
     try:
         text = value["@value"]
     except KeyError as exc:
@@ -519,51 +564,32 @@ def decode_jsonld_value(
             f'A value object for {term!r} is missing its required "@value" '
             f"key; found {value!r}"
         ) from exc
+    if "@language" in value and "@type" in value:
+        raise ProvJSONLDException(
+            f'A value object for {term!r} cannot hold both "@language" and '
+            f'"@type"; found {value!r}'
+        )
     if "@language" in value:
         return Literal(text, langtag=value["@language"])
-    datatype_str = value.get("@type")
-    if datatype_str is None:
+    if "@type" not in value:
         return text
-    datatype = bundle.valid_qualified_name(datatype_str)
-    if datatype == XSD_ANYURI:
-        return Identifier(text)
-    if datatype in (XSD_QNAME, PROV_QUALIFIEDNAME):
-        resolved = bundle.valid_qualified_name(text)
-        if resolved is None:
-            # The model warns about the Literal.
-            return Literal(text, datatype)
-        if attr is not None:
-            _warn_unresolved_name(bundle, attr, Literal(text, datatype), resolved)
-        return resolved
-    return Literal(text, datatype)
-
-
-def _decode_formal_qname(
-    bundle: ProvBundle, value: Any, type_term: str, key: str
-) -> QualifiedName:
-    """Resolve a formal QName-valued attribute's raw value, requiring success.
-
-    Args:
-        bundle: Bundle used to resolve ``value``.
-        value: The raw (string) value read from the statement object.
-        type_term: The enclosing statement's ``@type``, used in the
-            exception message.
-        key: The attribute's JSON-LD key, used in the exception message.
-
-    Returns:
-        The resolved :class:`~prov.identifier.QualifiedName`.
-
-    Raises:
-        ProvJSONLDException: If ``value`` cannot be resolved to a qualified
-            name (e.g. its prefix has no in-scope namespace).
-    """
-    resolved = bundle.valid_qualified_name(value)
-    if resolved is None:
+    datatype_str = value["@type"]
+    if not isinstance(datatype_str, str):
         raise ProvJSONLDException(
-            f"The {key!r} attribute of {type_term} is not a valid qualified "
-            f"name: {value!r}"
+            f'A value object for {term!r} must hold a string "@type"; found {value!r}'
         )
-    return resolved
+    return Literal(text, bundle.mandatory_valid_qname(datatype_str, attr=attr))
+
+
+def _decode_formal_time(value: Any, key: str) -> datetime.datetime:
+    """The time of a formal attribute, or ``ProvJSONLDException`` when
+    ``value`` is not an ``xsd:dateTime`` string (#514)."""
+    parsed = parse_xsd_datetime(value) if isinstance(value, str) else None
+    if parsed is None:
+        raise ProvJSONLDException(
+            f"The {key!r} attribute is not an xsd:dateTime: {value!r}"
+        )
+    return parsed
 
 
 def _decode_statement_type(item: dict[str, Any]) -> tuple[QualifiedName, str]:
@@ -601,7 +627,6 @@ def _decode_statement_attributes(
     item: dict[str, Any],
     bundle: ProvBundle,
     rec_type: QualifiedName,
-    type_term: str,
     formal_by_term: dict[str, QualifiedName],
 ) -> tuple[dict[QualifiedNameCandidate, Any], list[AttributePair], list[Any] | None]:
     """Split one statement object's keys into formal, non-formal and Membership members.
@@ -610,7 +635,6 @@ def _decode_statement_attributes(
         item: The statement object, as passed to :func:`decode_jsonld_statement`.
         bundle: Bundle the decoded values resolve qualified names against.
         rec_type: The statement's record type.
-        type_term: ``item``'s ``"@type"`` term, for error messages.
         formal_by_term: ``rec_type``'s formal attributes, keyed by local part.
 
     Returns:
@@ -623,22 +647,27 @@ def _decode_statement_attributes(
     Raises:
         ProvJSONLDException: If a formal attribute's value is an array
             (formal attributes take a single value, except a Membership's
-            ``entity``, which may be a non-empty array) or cannot be
-            resolved to a qualified name; or if a non-formal attribute's
-            value is not a JSON array.
+            ``entity``, which may be a non-empty array); or if a non-formal
+            attribute's value is not a JSON array; or if a formal time is not
+            an ``xsd:dateTime`` string.
+        ProvExceptionInvalidQualifiedName: If no namespace resolves a
+            formal attribute's value, a non-formal attribute's key or a
+            non-formal value's node reference (an ``@id``-typed bare string
+            or a datatype); see :func:`decode_jsonld_statement`.
     """
     attributes: dict[QualifiedNameCandidate, Any] = {}
     other_attributes: list[AttributePair] = []
     members: list[Any] | None = None
+    record = item.get("@id") or f"an anonymous {rec_type}"
     for key, value in item.items():
         if key in ("@type", "@id"):
             continue
         attr = formal_by_term.get(_strip_prov_prefix(key))
         if attr is not None and not isinstance(value, list):
             if attr in PROV_ATTRIBUTE_LITERALS:
-                attributes[attr] = parse_xsd_datetime(value)
+                attributes[attr] = _decode_formal_time(value, key)
             else:
-                attributes[attr] = _decode_formal_qname(bundle, value, type_term, key)
+                attributes[attr] = bundle.mandatory_valid_qname(value, attr=attr)
             continue
         if attr is not None:
             if rec_type == PROV_MEMBERSHIP and attr == PROV_ATTR_ENTITY:
@@ -649,8 +678,8 @@ def _decode_statement_attributes(
                 members = value
                 continue
             raise ProvJSONLDException(
-                f"The formal attribute {key!r} of {type_term} takes a single "
-                f"value, not an array; found {value!r}"
+                f"The formal attribute {key!r} takes a single value, not an "
+                f"array; found {value!r}"
             )
         stripped = _strip_prov_prefix(key)
         term = stripped if stripped in SPECIAL_TERM_ATTRS else key
@@ -660,9 +689,17 @@ def _decode_statement_attributes(
                 f"The attribute {key!r} must be an array of values; found {value!r}"
             )
         other_attributes.extend(
-            (qname, decode_jsonld_value(v, bundle, term, attr=qname)) for v in value
+            (qname, decode_jsonld_value(v, bundle, term, attr=qname, record=record))
+            for v in value
         )
     return attributes, other_attributes, members
+
+
+def _statement_name(rec_type: QualifiedName, rec_id: Any) -> str:
+    """Return the label that names a statement in a warning or an error."""
+    if rec_id is None:
+        return f"an anonymous {rec_type}"
+    return f"{rec_type} {rec_id!r}"
 
 
 def decode_jsonld_statement(item: dict[str, Any], bundle: ProvBundle) -> None:
@@ -684,32 +721,51 @@ def decode_jsonld_statement(item: dict[str, Any], bundle: ProvBundle) -> None:
             type without an ``"@id"``; if a formal attribute's value is an
             array (formal attributes take a single value, except a
             Membership's ``entity``, which may be a non-empty array and
-            yields one record per member) or cannot be
-            resolved to a qualified name; or if a non-formal attribute's
-            value is not a JSON array.
+            yields one record per member); or if a non-formal attribute's
+            value is not a JSON array. The model resolves every name, so a
+            name no namespace resolves is the model's
+            ``ProvExceptionInvalidQualifiedName``. Every error raised while
+            reading the statement, the reader's own and the model's, carries
+            the statement's label, with the model's error as the
+            ``__cause__``, except the two raised before the statement has
+            one, an unrecognised ``@type`` and an element with no ``@id``.
+            A missing party warns instead (see Warns).
+
+    Warns:
+        ProvWarning: If the model refuses the statement for a missing party
+            (``ProvMissingFormalAttribute``); the statement is skipped.
     """
     rec_type, type_term = _decode_statement_type(item)
     cls = PROV_REC_CLS[rec_type]
     formal_by_term = FORMAL_ATTRS_BY_TERM[cls]
+    is_element = issubclass(cls, ProvElement)
     rec_id = item.get("@id")
-    if rec_id is None and issubclass(cls, ProvElement):
+    if rec_id is None and is_element:
         raise ProvJSONLDException(
             f'A {type_term} statement requires an "@id"; found {item!r}'
         )
-    attributes, other_attributes, members = _decode_statement_attributes(
-        item, bundle, rec_type, type_term, formal_by_term
-    )
-    if members is None:
-        bundle.new_record(rec_type, rec_id, attributes, other_attributes)
-        return
-    if not members:
-        raise ProvJSONLDException(
-            f'The "entity" array of {type_term} is empty; found {item!r}'
+    if not is_element and isinstance(rec_id, str) and rec_id.startswith("_:"):
+        rec_id = None
+    try:
+        attributes, other_attributes, members = _decode_statement_attributes(
+            item, bundle, rec_type, formal_by_term
         )
-    resolved = [
-        _decode_formal_qname(bundle, member, type_term, "entity") for member in members
-    ]
-    _add_memberships(bundle, rec_id, attributes, other_attributes, resolved)
+        if members is None:
+            bundle.new_record(rec_type, rec_id, attributes, other_attributes)
+            return
+        if not members:
+            raise ProvJSONLDException(f'The "entity" array is empty; found {item!r}')
+        resolved = [
+            bundle.mandatory_valid_qname(member, attr=PROV_ATTR_ENTITY)
+            for member in members
+        ]
+        _add_memberships(bundle, rec_id, attributes, other_attributes, resolved)
+    except ProvMissingFormalAttribute as exc:
+        warn(f"{_statement_name(rec_type, rec_id)}: {exc}")
+    except (ProvException, ProvJSONLDException) as exc:
+        raise ProvJSONLDException(
+            f"{_statement_name(rec_type, rec_id)}: {exc}"
+        ) from exc
 
 
 def decode_jsonld_document(container: Any, document: ProvDocument) -> None:
@@ -724,8 +780,11 @@ def decode_jsonld_document(container: Any, document: ProvDocument) -> None:
         ProvJSONLDException: If ``container`` is not a JSON object; if it is
             missing ``"@context"`` or ``"@graph"``; if ``"@graph"`` is not a
             JSON array; if a ``@graph`` entry is not a JSON object; if a
-            nested bundle object is missing its required ``"@id"``; or (from
-            further down the call chain) if a statement is malformed (see
+            nested bundle object is missing its required ``"@id"``; if the
+            model rejects a nested bundle's ``"@id"``, which ``add_bundle``
+            resolves as written, naming the bundle (the model's error is the
+            ``__cause__``); or (from further down the
+            call chain) if a statement is malformed (see
             :func:`decode_jsonld_statement`).
     """
     container = _expect_object(container, "A PROV-JSONLD document")
@@ -749,13 +808,19 @@ def decode_jsonld_document(container: Any, document: ProvDocument) -> None:
         if not is_bundle:
             decode_jsonld_statement(item, document)
             continue
-        if "@id" not in item:
+        bundle_id = item.get("@id")
+        if bundle_id is None:
             raise ProvJSONLDException(f'A Bundle requires an "@id"; found {item!r}')
-        bundle = ProvBundle(document=document)
+        bundle = ProvBundle(_parent=document)
         _decode_context(item.get("@context", []), bundle)
         for stmt in item.get("@graph", []):
             decode_jsonld_statement(_expect_object(stmt, "A bundle statement"), bundle)
-        document.add_bundle(bundle, bundle.valid_qualified_name(item["@id"]))
+        try:
+            document.add_bundle(bundle, bundle_id)
+        except ProvException as exc:
+            raise ProvJSONLDException(
+                f"{_statement_name(PROV_BUNDLE, bundle_id)}: {exc}"
+            ) from exc
 
 
 class ProvJSONLDSerializer(Serializer):
@@ -770,27 +835,37 @@ class ProvJSONLDSerializer(Serializer):
             "parse_constant",
         }
     )
-    """The :func:`json.load` options :meth:`deserialize` forwards."""
+    """The :func:`json.load` options :meth:`deserialize` forwards.
 
-    def serialize(self, stream: io.IOBase, **args: Any) -> None:
-        """Serialize ``self.document`` to `PROV-JSONLD <https://www.w3.org/submissions/prov-jsonld/>`_.
+    ``object_hook`` and ``object_pairs_hook`` receive each object after the
+    check for repeated keys."""
+
+    serialize_options = frozenset({"context", "indent", "sort_keys", "ensure_ascii"})
+    """The :meth:`serialize` and :func:`json.dump` keywords the command line may
+    name."""
+
+    def serialize(self, stream: io.IOBase, context: str = "url", **args: Any) -> None:
+        """Serialize ``self.document`` to PROV-JSONLD.
+
+        The output follows the `PROV-JSONLD <https://www.w3.org/submissions/prov-jsonld/>`_
+        submission.
 
         Args:
             stream: Stream to write the output to. Text streams receive the
                 JSON text directly; other (binary) streams receive it
                 UTF-8-encoded.
-            **args: ``context`` (``"url"`` (default) or ``"embed"``) selects
-                whether ``@context`` references the canonical context by URL
-                or inlines the vendored context object; any other value
-                raises :class:`ValueError`. Remaining keyword arguments are
-                passed through to :func:`json.dump`.
+            context: ``"url"`` (default) or ``"embed"``. Selects whether
+                ``@context`` references the canonical context by URL or
+                inlines the vendored context object; any other value raises
+                :class:`ValueError`.
+            **args: Extra keyword arguments passed through to
+                :func:`json.dump`.
 
         Raises:
             ValueError: If ``context`` is neither ``"url"`` nor ``"embed"``.
             ProvJSONLDException: If ``self.document`` is ``None``, or if the
                 document contains a :class:`~prov.model.ProvMention` record.
         """
-        context = args.pop("context", "url")
         if context not in ("url", "embed"):
             raise ValueError(f'context must be "url" or "embed"; got {context!r}')
         if self.document is None:
@@ -824,12 +899,18 @@ class ProvJSONLDSerializer(Serializer):
             The deserialized :class:`~prov.model.ProvDocument`.
 
         Raises:
-            ProvJSONLDException: If ``stream`` does not hold a well-formed
-                PROV-JSONLD document (see :func:`decode_jsonld_document`).
+            ProvJSONLDException: If a key is repeated in a JSON object (#532),
+                or if ``stream`` does not hold a well-formed PROV-JSONLD
+                document (see :func:`decode_jsonld_document`).
         """
         if not _is_text_stream(stream):
             stream = io.StringIO(stream.read().decode("utf-8"))
-        container = json.load(stream, **args)
+        hook = _repeated_key_hook(
+            ProvJSONLDException,
+            args.pop("object_hook", None),
+            args.pop("object_pairs_hook", None),
+        )
+        container = json.load(stream, object_pairs_hook=hook, **args)
         document = ProvDocument()
         decode_jsonld_document(container, document)
         return document

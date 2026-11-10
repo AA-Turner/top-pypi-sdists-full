@@ -1,4 +1,4 @@
-"""momwire-razor2p-standalone (standalone/, MW_EXE_NO_PYTHON, momwire#1512):
+"""momwire-nec5-razor-2p-standalone (standalone/, MW_EXE_NO_PYTHON, momwire#1512):
 the launcher layer with no Python in the process.
 
 The corpus gate (`scripts/core_split/exe_compare.py --standalone`) holds every
@@ -27,12 +27,13 @@ import sys
 from pathlib import Path
 
 import pytest
+from _standalone_version import assert_standalone_line
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 EXE = os.environ.get("MOMWIRE_RAZOR2P_STANDALONE_EXE")
 # Which formulation the executable is (momwire#1517 Phase A): razor-2p (the
-# default), or bspline for `momwire-bs2-standalone`, compared with
+# default), or bspline for `momwire-nec5-bspline-standalone`, compared with
 # `momwire-nec5-bspline`.
 BASIS = os.environ.get("MOMWIRE_STANDALONE_BASIS", "razor-2p")
 
@@ -47,8 +48,7 @@ RAISES = FIXTURES / "razor_printout_3a" / "echo_raises_nxq.nec"
 BURIED = FIXTURES / "razor_printout_somm" / "gn0_buried_radial.nec"
 EXAMPLE3 = FIXTURES / "4nec2_example3" / "EXAMPLE3.inp"
 DECKS = (DIPOLE, REFUSES, RAISES, BURIED, EXAMPLE3)
-# What a build does not serve yet, by deck name (none since the Galerkin
-# build's crossing decks, momwire#1718 S11b).
+# What a build does not serve yet, by deck name (none today).
 _NOT_YET: dict[str, str] = {}
 
 
@@ -187,14 +187,23 @@ def test_a_deck_answers_as_the_launcher(deck, tmp_path):
         ["a.nec", "b.out", "c"],
         ["-", "-"],
         ["x.nec", "-"],
-        ["-version"],
     ],
-    ids=["one argument", "three arguments", "streaming", "streaming out", "version"],
+    ids=["one argument", "three arguments", "streaming", "streaming out"],
 )
 def test_the_command_line_edges(argv, tmp_path):
     exe, ref, de, dl = _both(argv, tmp_path)
     _same(exe, ref, de, dl)
     assert exe.stderr.strip() == ref.stderr.strip()
+
+
+def test_the_version_line_marks_the_executable(tmp_path):
+    """The launcher's line, NAME suffixed `-standalone-<variant>` (momwire#1831):
+    nothing else differs, and neither writes a file or a word on stderr."""
+    exe, ref, de, dl = _both(["-version"], tmp_path)
+    assert exe.returncode == ref.returncode == 0
+    assert_standalone_line(exe.stdout, ref.stdout)
+    assert exe.stderr.strip() == ref.stderr.strip()
+    assert sorted(p.name for p in de.iterdir()) == sorted(p.name for p in dl.iterdir())
 
 
 def _cards(deck: Path) -> bytes:
@@ -341,7 +350,7 @@ def test_an_unwritable_gmo(tmp_path):
 def test_a_cxx_exception_is_the_internal_error_printout(fail, line, tmp_path):
     """An exception from the C++ side (memory, ...) is `_shell`'s last line of
     defence: the refusal printout with the deck's echo, never a crash."""
-    from momwire.eznec import _printout, _shell
+    from momwire.dropin.nec5 import _printout, _shell
 
     out = tmp_path / "x.out"
     r = subprocess.run(
@@ -435,9 +444,7 @@ def test_momwire_times_streams_a_line_per_structure(tmp_path):
 MIXED = FIXTURES / "transmitted_mixed" / "m3_two_radii.nec"
 
 
-@pytest.mark.skipif(
-    BASIS != "bspline", reason="the transmitted blocks are bs2's (and sg5's) fill"
-)
+@pytest.mark.skipif(BASIS != "bspline", reason="the transmitted blocks are bs2's fill")
 def test_the_transmitted_grid_is_stored_and_moves_no_byte(tmp_path):
     """A mixed deck (wires above and below, no crossing node) fills the
     below->above grid; the executable keeps it in its Sommerfeld store as
@@ -494,9 +501,7 @@ def test_the_transmitted_grid_is_stored_and_moves_no_byte(tmp_path):
 MIXED_MORE = FIXTURES / "transmitted_store" / "m3_plus_short_vertical.nec"
 
 
-@pytest.mark.skipif(
-    BASIS != "bspline", reason="the transmitted blocks are bs2's (and sg5's) fill"
-)
+@pytest.mark.skipif(BASIS != "bspline", reason="the transmitted blocks are bs2's fill")
 def test_the_transmitted_grid_fills_only_what_its_reads_add(tmp_path):
     """The executable fills the below->above grid node by node, only where
     the deck's pairs read it. A second deck on the same grid key (the same
@@ -549,7 +554,6 @@ def test_the_transmitted_grid_fills_only_what_its_reads_add(tmp_path):
 LAZY_ABOVE = FIXTURES / "lazy_above" / "gn2_dipole41.nec"
 LAZY_ABOVE_READER = {
     "bspline": "bspline sommerfeld remainder",
-    "sinusoidal-galerkin": "sg sommerfeld remainder block",
 }
 
 
@@ -558,7 +562,7 @@ LAZY_ABOVE_READER = {
     reason="razor-2p's windows took their census already (momwire#1512)",
 )
 def test_the_above_remainder_fills_only_the_nodes_it_reads(tmp_path):
-    """bs2's and the Sinusoidal-Galerkin fill's above-ground remainder read a
+    """bs2's above-ground remainder reads a
     LAZY grid: a census of the block's and the graded pairs' reads names the
     nodes, and only those are filled (a node is its own contour, so its value
     is the whole grid's). Every read is checked finite (a node not filled
@@ -647,3 +651,81 @@ def test_the_near_field_sheets_are_stored_and_move_no_byte(tmp_path):
     sheets[0].write_bytes(stamps[0][:-9] + b"\0" * 9)
     exe_run("damaged")
     assert [p.read_bytes() for p in sheets] == stamps
+
+
+# --- the huge-page allocator's bookkeeping (Linux) --------------------------------
+
+# A preloaded shim: after every large anonymous mmap (a block of 4 MiB and up
+# is one), the next four 48-byte mallocs -- a std::map node's size -- come
+# back on a 2 MiB boundary, as glibc's malloc now and then places one. The
+# executable's bookkeeping node for that block is then such a node.
+_ALIGN_SHIM = r"""
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <stddef.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+extern void *__libc_malloc(size_t);
+extern void *__libc_memalign(size_t, size_t);
+static int pending;
+void *mmap(void *a, size_t len, int prot, int flags, int fd, off_t off) {
+    static void *(*real)(void *, size_t, int, int, int, off_t);
+    if (!real) real = (void *(*)(void *, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
+    if (len >= ((size_t)6 << 20) && (flags & MAP_ANONYMOUS)) pending = 4;
+    return real(a, len, prot, flags, fd, off);
+}
+void *malloc(size_t n) {
+    if (n == 48 && pending > 0) {
+        pending--;
+        return __libc_memalign((size_t)2 << 20, n);
+    }
+    return __libc_malloc(n);
+}
+"""
+
+# A free-space dipole big enough that its matrix is a block of 4 MiB and up.
+_BIG_DIPOLE = (
+    "CM free-space dipole, 601 segments\nCE\nGW 1 601 0 0 -5 0 0 5 0.001\nGE 0\n"
+    "FR 0 1 0 0 14.0 0\nEX 0 1 301 0 1 0\nXQ\nEN\n"
+)
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="the allocator is Linux's"
+)
+def test_a_bookkeeping_node_on_a_huge_page_boundary_does_not_deadlock(tmp_path):
+    """The executable maps each block of 4 MiB and up on its own and keeps a
+    map of them under a mutex. Freeing a block erased its node under that
+    mutex, the node's free went back through the executable's operator
+    delete, and a node on a 2 MiB boundary passed the block test and locked
+    the mutex again: the run hung for good, every thread in a futex wait.
+    With the shim forcing that boundary the run must still answer, and
+    answer as it does without it."""
+    cc = shutil.which("cc") or shutil.which("gcc")
+    if cc is None:
+        pytest.skip("no C compiler for the shim")
+    shim = tmp_path / "align_shim.so"
+    src = tmp_path / "align_shim.c"
+    src.write_text(_ALIGN_SHIM)
+    subprocess.run(
+        [cc, "-shared", "-fPIC", "-O2", "-o", str(shim), str(src), "-ldl"], check=True
+    )
+    (tmp_path / "big.nec").write_text(_BIG_DIPOLE, newline="")
+    env = dict(os.environ, MOMWIRE_THREADS="1")
+    plain = subprocess.run(
+        [EXE, "big.nec", "plain.out"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        timeout=120,
+    )
+    assert plain.returncode == 0, plain.stderr
+    shimmed = subprocess.run(
+        [EXE, "big.nec", "shim.out"],
+        cwd=tmp_path,
+        env=dict(env, LD_PRELOAD=str(shim)),
+        capture_output=True,
+        timeout=120,
+    )
+    assert shimmed.returncode == 0, shimmed.stderr
+    assert (tmp_path / "shim.out").read_bytes() == (tmp_path / "plain.out").read_bytes()

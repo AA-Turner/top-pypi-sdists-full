@@ -10,7 +10,7 @@ import re
 from collections.abc import Callable, Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Any, TypeAlias, cast
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 from lxml import etree
 from parsel.csstranslator import HTMLTranslator
@@ -18,11 +18,11 @@ from w3lib.html import strip_html5_whitespace
 from w3lib.url import canonicalize_url, safe_url_string
 
 from scrapy.link import Link
-from scrapy.linkextractors import IGNORED_EXTENSIONS, _is_valid_url, _matches
+from scrapy.linkextractors import IGNORED_EXTENSIONS, _matches
+from scrapy.utils.httpobj import urlparse_cached
 from scrapy.utils.misc import arg_to_iter, rel_has_nofollow
 from scrapy.utils.python import unique as unique_list
-from scrapy.utils.response import get_base_url
-from scrapy.utils.url import url_has_any_extension, url_is_from_any_domain
+from scrapy.utils.url import url_is_from_any_domain
 
 if TYPE_CHECKING:
     from lxml.html import HtmlElement
@@ -55,6 +55,18 @@ def _identity(x: Any) -> Any:
 
 def _canonicalize_link_url(link: Link) -> str:
     return canonicalize_url(link.url, keep_fragments=True)
+
+
+def _has_extension(path: str, extensions: set[str]) -> bool:
+    """Return whether *path* ends with any of *extensions*, which all start
+    with a dot and are lowercase, ignoring case.
+    """
+    dot = path.rfind(".")
+    while dot != -1:
+        if path[dot:].lower() in extensions:
+            return True
+        dot = path.rfind(".", 0, dot)
+    return False
 
 
 def _name_matches(allowed: set[str], denied: set[str], name: str) -> bool:
@@ -151,7 +163,7 @@ class LxmlParserLinkExtractor:
         return self._deduplicate_if_needed(links)
 
     def extract_links(self, response: TextResponse) -> list[Link]:
-        base_url = get_base_url(response)
+        base_url = response.base_url
         return self._extract_links(
             response.selector, response.url, response.encoding, base_url
         )
@@ -178,22 +190,22 @@ class LxmlLinkExtractor:
     options. It is implemented using lxml's robust HTMLParser.
 
     :param allow: a single regular expression (or list of regular expressions)
-        that the (absolute) urls must match in order to be extracted. If not
+        that the (absolute) URLs must match in order to be extracted. If not
         given (or empty), it will match all links.
     :type allow: str or list
 
     :param deny: a single regular expression (or list of regular expressions)
-        that the (absolute) urls must match in order to be excluded (i.e. not
+        that the (absolute) URLs must match in order to be excluded (i.e. not
         extracted). It has precedence over the ``allow`` parameter. If not
-        given (or empty) it won't exclude any links.
+        given (or empty), it won't exclude any links.
     :type deny: str or list
 
-    :param allow_domains: a single value or a list of string containing
-        domains which will be considered for extracting the links
+    :param allow_domains: a single value or a list of strings containing
+        domains that will be considered for extracting the links.
     :type allow_domains: str or list
 
     :param deny_domains: a single value or a list of strings containing
-        domains which won't be considered for extracting the links
+        domains that won't be considered for extracting the links.
     :type deny_domains: str or list
 
     :param deny_extensions: a single value or list of strings containing
@@ -202,15 +214,22 @@ class LxmlLinkExtractor:
         :data:`scrapy.linkextractors.IGNORED_EXTENSIONS`.
     :type deny_extensions: list
 
-    :param restrict_xpaths: is an XPath (or list of XPath's) which defines
-        regions inside the response where links should be extracted from.
-        If given, only the text selected by those XPath will be scanned for
-        links.
+    :param schemes: a single value or list of strings containing the URL
+        schemes that extracted links may use. If not given, links may only use
+        ``http``, ``https`` or the scheme of the response. Use ``()`` to
+        extract links regardless of their scheme.
+
+        .. versionadded:: 2.20.0
+    :type schemes: str or list
+
+    :param restrict_xpaths: an XPath (or list of XPaths) that defines regions
+        inside the response where links should be extracted. If given, only the
+        text selected by those XPaths will be scanned for links.
     :type restrict_xpaths: str or list
 
-    :param restrict_css: a CSS selector (or list of selectors) which defines
-        regions inside the response where links should be extracted from.
-        Has the same behaviour as ``restrict_xpaths``.
+    :param restrict_css: a CSS selector (or list of selectors) that defines
+        regions inside the response where links should be extracted. It has the
+        same behaviour as ``restrict_xpaths``.
     :type restrict_css: str or list
 
     :param restrict_text: a single regular expression (or list of regular
@@ -224,7 +243,7 @@ class LxmlLinkExtractor:
         Defaults to ``('a', 'area')``. Use ``'*'`` to consider every tag.
     :type tags: str or list
 
-    :param attrs: an attribute or list of attributes which should be considered
+    :param attrs: an attribute or list of attributes that should be considered
         when looking for links to extract (only for those tags specified in the
         ``tags`` parameter). Defaults to ``('href',)``. Use ``'*'`` to consider
         every attribute.
@@ -247,20 +266,20 @@ class LxmlLinkExtractor:
         .. versionadded:: 2.17.0
     :type deny_attrs: str or list
 
-    :param canonicalize: canonicalize each extracted url (using
-        w3lib.url.canonicalize_url). Defaults to ``False``.
-        Note that canonicalize_url is meant for duplicate checking;
-        it can change the URL visible at server side, so the response can be
-        different for requests with canonicalized and raw URLs. If you're
-        using LinkExtractor to follow links it is more robust to
-        keep the default ``canonicalize=False``.
+    :param canonicalize: canonicalize each extracted URL (using
+        w3lib.url.canonicalize_url). Defaults to ``False``. Note that
+        canonicalize_url is meant for duplicate checking; it can change the URL
+        visible at the server side, so the response can be different for
+        requests with canonicalized and raw URLs. If you're using LinkExtractor
+        to follow links, it is more robust to keep the default
+        ``canonicalize=False``.
     :type canonicalize: bool
 
     :param unique: whether duplicate filtering should be applied to extracted
         links.
     :type unique: bool
 
-    :param process_value: a function which receives each value extracted from
+    :param process_value: a function that receives each value extracted from
         the tag and attributes scanned and can modify the value and return a
         new one, or return ``None`` to ignore the link altogether. If not
         given, ``process_value`` defaults to ``lambda x: x``.
@@ -291,12 +310,13 @@ class LxmlLinkExtractor:
     :type process_value: collections.abc.Callable
 
     :param strip: whether to strip whitespaces from extracted attributes.
-        According to HTML5 standard, leading and trailing whitespaces
-        must be stripped from ``href`` attributes of ``<a>``, ``<area>``
-        and many other elements, ``src`` attribute of ``<img>``, ``<iframe>``
-        elements, etc., so LinkExtractor strips space chars by default.
-        Set ``strip=False`` to turn it off (e.g. if you're extracting urls
-        from elements or attributes which allow leading/trailing whitespaces).
+        According to the HTML5 standard, leading and trailing whitespaces must
+        be stripped from ``href`` attributes of ``<a>``, ``<area>`` and many
+        other elements, the ``src`` attribute of ``<img>`` and ``<iframe>``
+        elements, etc., so LinkExtractor strips space characters by default.
+        Set ``strip=False`` to turn it off (for example, if you're extracting
+        URLs from elements or attributes that allow leading or trailing
+        whitespaces).
     :type strip: bool
     """
 
@@ -320,6 +340,7 @@ class LxmlLinkExtractor:
         restrict_text: _RegexOrSeveral | None = None,
         deny_tags: str | Iterable[str] = (),
         deny_attrs: str | Iterable[str] = (),
+        schemes: str | Iterable[str] | None = None,
     ):
         tags, attrs = set(arg_to_iter(tags)), set(arg_to_iter(attrs))
         deny_tags, deny_attrs = (
@@ -349,6 +370,9 @@ class LxmlLinkExtractor:
             deny_extensions = IGNORED_EXTENSIONS
         self.canonicalize: bool = canonicalize
         self.deny_extensions: set[str] = {"." + e for e in arg_to_iter(deny_extensions)}
+        self.schemes: set[str] | None = (
+            None if schemes is None else set(arg_to_iter(schemes))
+        )
         self.restrict_text: list[re.Pattern[str]] = self._compile_regexes(restrict_text)
 
     @staticmethod
@@ -358,22 +382,22 @@ class LxmlLinkExtractor:
             for x in arg_to_iter(value)
         ]
 
-    def _link_allowed(self, link: Link) -> bool:
-        if not _is_valid_url(link.url):
+    def _link_allowed(self, link: Link, schemes: set[str]) -> bool:
+        parsed_url = urlparse_cached(link.url)
+        if schemes and parsed_url.scheme not in schemes:
             return False
         if self.allow_res and not _matches(link.url, self.allow_res):
             return False
         if self.deny_res and _matches(link.url, self.deny_res):
             return False
-        parsed_url = urlparse(link.url)
         if self.allow_domains and not url_is_from_any_domain(
             parsed_url, self.allow_domains
         ):
             return False
         if self.deny_domains and url_is_from_any_domain(parsed_url, self.deny_domains):
             return False
-        if self.deny_extensions and url_has_any_extension(
-            parsed_url, self.deny_extensions
+        if self.deny_extensions and _has_extension(
+            parsed_url.path, self.deny_extensions
         ):
             return False
         return not self.restrict_text or _matches(link.text, self.restrict_text)
@@ -392,12 +416,13 @@ class LxmlLinkExtractor:
         denied = (regex.search(url) for regex in self.deny_res) if self.deny_res else ()
         return any(allowed) and not any(denied)
 
-    def _process_links(self, links: list[Link]) -> list[Link]:
-        links = [x for x in links if self._link_allowed(x)]
+    def _process_links(self, links: list[Link], schemes: set[str]) -> list[Link]:
+        links = [x for x in links if self._link_allowed(x, schemes)]
         if self.canonicalize:
             for link in links:
                 link.url = canonicalize_url(link.url)
-        return self.link_extractor._process_links(links)
+            return self.link_extractor._process_links(links)
+        return links
 
     def _extract_links(self, *args: Any, **kwargs: Any) -> list[Link]:
         return self.link_extractor._extract_links(*args, **kwargs)
@@ -412,17 +437,22 @@ class LxmlLinkExtractor:
         Duplicate links are omitted if the ``unique`` attribute is set to ``True``,
         otherwise they are returned.
         """
-        base_url = get_base_url(response)
+        base_url = response.base_url
         if self.restrict_xpaths:
             docs = [
                 subdoc for x in self.restrict_xpaths for subdoc in response.xpath(x)
             ]
         else:
             docs = [response.selector]
+        schemes = (
+            {"http", "https", urlparse_cached(response).scheme}
+            if self.schemes is None
+            else self.schemes
+        )
         all_links = []
         for doc in docs:
             links = self._extract_links(doc, response.url, response.encoding, base_url)
-            all_links.extend(self._process_links(links))
-        if self.link_extractor.unique:
+            all_links.extend(self._process_links(links, schemes))
+        if self.link_extractor.unique and len(docs) > 1:
             return unique_list(all_links, key=self.link_extractor.link_key)
         return all_links

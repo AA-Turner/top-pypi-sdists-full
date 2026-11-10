@@ -198,11 +198,11 @@ class OpenVikingSessionRecorder:
         async_client: Any = None,
         url: str | None = None,
         api_key: str | None = None,
+        auth_mode: str | None = None,
         account: str | None = None,
         user: str | None = None,
         user_id: str | None = None,
         actor_peer_id: str | None = None,
-        path: str | None = None,
         timeout: float = 60.0,
         extra_headers: dict[str, str] | None = None,
         auto_initialize: bool = True,
@@ -216,11 +216,11 @@ class OpenVikingSessionRecorder:
             async_client=async_client,
             url=url,
             api_key=api_key,
+            auth_mode=auth_mode,
             account=account,
             user=user,
             user_id=user_id,
             actor_peer_id=actor_peer_id,
-            path=path,
             timeout=timeout,
             extra_headers=extra_headers,
             auto_initialize=auto_initialize,
@@ -286,10 +286,16 @@ class OpenVikingSessionRecorder:
         messages: Iterable[BaseMessage],
         peer_id: str | None = None,
         context_parts: Sequence[dict[str, Any]] = (),
+        *,
+        commit_policy: OpenVikingCommitPolicy | None = None,
     ) -> OpenVikingRecordResult:
-        """Persist a caller-selected batch and apply the configured commit policy."""
+        """Persist messages with a per-call policy, or the recorder default if None.
+
+        Use a ``never`` policy to suppress this call's post-write commit.
+        """
 
         self._raise_if_closed()
+        policy = self.commit_policy if commit_policy is None else commit_policy
         self._retry_pending_commit(session_id)
         input_messages = list(messages)
         prepared_messages = _prepare_messages(
@@ -345,7 +351,7 @@ class OpenVikingSessionRecorder:
             apply_commit_policy(
                 client,
                 session_id,
-                self.commit_policy,
+                policy,
                 persisted_pending_tokens=persisted_pending_tokens,
             )
         except Exception as exc:
@@ -364,10 +370,13 @@ class OpenVikingSessionRecorder:
         messages: Iterable[BaseMessage],
         peer_id: str | None = None,
         context_parts: Sequence[dict[str, Any]] = (),
+        *,
+        commit_policy: OpenVikingCommitPolicy | None = None,
     ) -> OpenVikingRecordResult:
-        """Asynchronously persist messages and apply the configured commit policy."""
+        """Async ``record`` with the same per-call and default policy behavior."""
 
         self._raise_if_closed()
+        policy = self.commit_policy if commit_policy is None else commit_policy
         await self._aretry_pending_commit(session_id)
         input_messages = list(messages)
         prepared_messages = _prepare_messages(
@@ -437,7 +446,7 @@ class OpenVikingSessionRecorder:
             await aapply_commit_policy(
                 client,
                 session_id,
-                self.commit_policy,
+                policy,
                 persisted_pending_tokens=persisted_pending_tokens,
             )
         except asyncio.CancelledError as exc:
@@ -545,15 +554,12 @@ class OpenVikingSessionRecorder:
         whose method calls support recovery. Direct attributes on that handle
         are best-effort during recovery; use ``await handle.get()`` only to read
         raw properties immediately because recovery may replace that snapshot.
-        Embedded ``path=`` connections return an adapter-owned synchronous
-        client whose calls are dispatched through a worker thread.
         """
 
         self._raise_if_closed()
         client = await ensure_async_client(
             self._connection,
             client_cache=self._async_clients,
-            embedded_client_factory=lambda: self.client,
         )
         self._raise_if_closed()
         return client
@@ -572,14 +578,11 @@ class OpenVikingSessionRecorder:
 
         if self._closed:
             return
-        uses_http_client = bool(self._connection.url) or self._connection.path is None
-        if uses_http_client and self._async_clients.has_clients():
+        if self._async_clients.has_clients():
             raise RuntimeError(
                 "OpenVikingSessionRecorder has an active async client; "
                 "use `await recorder.aclose()`"
             )
-        if not uses_http_client:
-            self._async_clients.pop_all()
         self._closed = True
         self._clear_pending_commits()
         with self._client_cache_lock:

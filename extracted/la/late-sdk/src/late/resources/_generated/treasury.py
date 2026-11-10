@@ -78,7 +78,7 @@ class TreasuryResource:
         return self._client._get("/v1/balance")
 
     def get_auto_recharge(self) -> dict[str, Any]:
-        """Get auto-recharge settings"""
+        """Get auto top-up settings"""
         return self._client._get("/v1/balance/auto-recharge")
 
     def update_auto_recharge(
@@ -90,7 +90,7 @@ class TreasuryResource:
         monthly_limit_cents: Any | None = None,
         alert_below_cents: Any | None = None,
     ) -> dict[str, Any]:
-        """Update auto-recharge settings"""
+        """Update auto top-up settings"""
         payload = self._build_payload(
             enabled=enabled,
             below_cents=below_cents,
@@ -108,7 +108,7 @@ class TreasuryResource:
         idempotency_key: str | None = None,
         payment_method_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create a top-up"""
+        """Add funds"""
         payload = self._build_payload(
             amount_cents=amount_cents,
             method=method,
@@ -136,9 +136,16 @@ class TreasuryResource:
         )
         return self._client._post("/v1/balance/top-ups/preview", data=payload)
 
-    def get_topup_receipt(self, topup_id: str) -> dict[str, Any]:
+    def get_topup_receipt(
+        self, topup_id: str, *, download: bool | None = None
+    ) -> dict[str, Any]:
         """Get a top-up receipt"""
-        return self._client._get(f"/v1/balance/top-ups/{topup_id}/receipt")
+        params = self._build_params(
+            download=download,
+        )
+        return self._client._get(
+            f"/v1/balance/top-ups/{topup_id}/receipt", params=params
+        )
 
     def get_topup_invoice(self, topup_id: str) -> dict[str, Any]:
         """Get a top-up invoice"""
@@ -172,7 +179,7 @@ class TreasuryResource:
         idempotency_key: str | None = None,
         reference: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create a transfer"""
+        """Create a transfer (removed)"""
         payload = self._build_payload(
             payee_id=payee_id,
             amount_cents=amount_cents,
@@ -214,7 +221,7 @@ class TreasuryResource:
         return await self._client._aget("/v1/balance")
 
     async def aget_auto_recharge(self) -> dict[str, Any]:
-        """Get auto-recharge settings (async)"""
+        """Get auto top-up settings (async)"""
         return await self._client._aget("/v1/balance/auto-recharge")
 
     async def aupdate_auto_recharge(
@@ -226,7 +233,7 @@ class TreasuryResource:
         monthly_limit_cents: Any | None = None,
         alert_below_cents: Any | None = None,
     ) -> dict[str, Any]:
-        """Update auto-recharge settings (async)"""
+        """Update auto top-up settings (async)"""
         payload = self._build_payload(
             enabled=enabled,
             below_cents=below_cents,
@@ -244,7 +251,7 @@ class TreasuryResource:
         idempotency_key: str | None = None,
         payment_method_id: str | None = None,
     ) -> dict[str, Any]:
-        """Create a top-up (async)"""
+        """Add funds (async)"""
         payload = self._build_payload(
             amount_cents=amount_cents,
             method=method,
@@ -274,9 +281,16 @@ class TreasuryResource:
         )
         return await self._client._apost("/v1/balance/top-ups/preview", data=payload)
 
-    async def aget_topup_receipt(self, topup_id: str) -> dict[str, Any]:
+    async def aget_topup_receipt(
+        self, topup_id: str, *, download: bool | None = None
+    ) -> dict[str, Any]:
         """Get a top-up receipt (async)"""
-        return await self._client._aget(f"/v1/balance/top-ups/{topup_id}/receipt")
+        params = self._build_params(
+            download=download,
+        )
+        return await self._client._aget(
+            f"/v1/balance/top-ups/{topup_id}/receipt", params=params
+        )
 
     async def aget_topup_invoice(self, topup_id: str) -> dict[str, Any]:
         """Get a top-up invoice (async)"""
@@ -310,7 +324,7 @@ class TreasuryResource:
         idempotency_key: str | None = None,
         reference: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Create a transfer (async)"""
+        """Create a transfer (removed) (async)"""
         payload = self._build_payload(
             payee_id=payee_id,
             amount_cents=amount_cents,

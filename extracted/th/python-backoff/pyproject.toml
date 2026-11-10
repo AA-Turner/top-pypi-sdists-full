@@ -1,7 +1,7 @@
 [project]
 name = "python-backoff"
-version = "3.0.0"
-description = "Function decoration for backoff and retry"
+version = "3.1.0"
+description = "Function decoration and context managers for backoff and retry"
 authors = [{ name = "Bob Green", email = "rgreen@aquent.com" }]
 maintainers = [{ name = "Edgar Ramírez-Mondragón", email = "edgarrm358@gmail.com" }]
 requires-python = ">=3.10"
@@ -25,9 +25,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3.16",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
+]
+import-names = [
+    "backoff",
 ]
 
 [project.urls]
@@ -43,18 +47,18 @@ dev = [
 ]
 docs = [
     "mkdocstrings[python]~=1.0.2",
-    "zensical==0.0.53",
+    "zensical==0.0.67",
 ]
 lint = [
     "ruff>=0.16.0",
 ]
 test = [
+    "anyio>=4.15.1",
     "coverage>=7.2.7",
     "dirty-equals>=0.11",
     "importlib-metadata>=8.5.0",
     "packaging>=25.0",
     "pytest>=7.1.2",
-    "pytest-asyncio>=0.18.3",
     "requests>=2.26.0",
     "responses>=0.20.0",
     "tomli>=2.3.0",
@@ -68,10 +72,10 @@ typing = [
 ]
 
 [tool.hatch.build.targets.sdist]
-include = ["backoff", "tests"]
+include = ["/backoff", "/docs", "/tests"]
 
 [tool.hatch.build.targets.wheel]
-include = ["backoff"]
+include = ["/backoff"]
 
 [tool.tox]
 requires = [ "tox>=4.61", "tox-uv" ]
@@ -212,7 +216,6 @@ required-version = ">=0.16.0"
 
 [tool.ruff.format]
 docstring-code-format = true
-docstring-code-line-length = 20
 
 [tool.ruff.lint]
 extend-select = [

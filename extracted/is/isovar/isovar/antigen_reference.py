@@ -4,19 +4,22 @@ GDC's combined FASTA is a recommended alignment profile, not an Ensembl
 release. No function here downloads data or changes existing genome defaults.
 """
 
+import json
 from dataclasses import dataclass
 from hashlib import md5, sha256
 from importlib.resources import files
-import json
 from pathlib import Path
 
 from pyensembl import Genome
 from pyensembl.download_cache import cache_root
 from varcode import ContigResolver
 
-from .contig_resolution import UnresolvedContigError, require_resolved_contig
-
 from .audit_bundle import digest
+from .contig_resolution import (
+    UnresolvedContigError,
+    require_resolved_contig,
+    resolve_reference_contig,
+)
 from .dna import reverse_complement_dna
 from .fusion import FusionReference
 
@@ -33,8 +36,23 @@ def gdc_viral_panel():
     return json.loads(files("isovar").joinpath("data/references/gdc-grch38.d1.vd1-viruses.json").read_text())
 
 
-def _annotation_cache(gtf, transcript_fasta=None, protein_fasta=None, *, directory=None):
-    """Reuse identical local annotations without same-basename index collisions."""
+def annotation_cache(gtf, transcript_fasta=None, protein_fasta=None, *, directory=None):
+    """Reuse identical local annotations without same-basename index collisions.
+
+    Parameters
+    ----------
+    gtf : path-like
+        Local annotation file whose content determines cache identity.
+    transcript_fasta, protein_fasta : path-like, optional
+        Companion sequence inputs included in that identity.
+    directory : path-like, optional
+        Cache root; otherwise use the existing PyEnsembl default.
+
+    Returns
+    -------
+    str
+        Content-addressed annotation cache directory.
+    """
     identities = [digest(Path(path).expanduser()) if path is not None else None
                   for path in (gtf, transcript_fasta, protein_fasta)]
     key = sha256(json.dumps(identities).encode()).hexdigest()
@@ -58,7 +76,7 @@ def gdc_genome(*, genome_fasta, gtf, annotation_version, cache_directory=None,
         genome_fasta_path_or_url=str(Path(genome_fasta).expanduser().resolve()),
         transcript_fasta_paths_or_urls=[] if transcript_fasta is None else [str(Path(transcript_fasta).expanduser().resolve())],
         protein_fasta_paths_or_urls=[] if protein_fasta is None else [str(Path(protein_fasta).expanduser().resolve())],
-        cache_directory_path=_annotation_cache(gtf, transcript_fasta, protein_fasta, directory=cache_directory))
+        cache_directory_path=annotation_cache(gtf, transcript_fasta, protein_fasta, directory=cache_directory))
 
 
 def contig_in_reference(contig, names):
@@ -69,7 +87,7 @@ def contig_in_reference(contig, names):
     resolving a name does not establish sequence identity or perform liftover.
     """
     resolver = names if isinstance(names, ContigResolver) else ContigResolver(names)
-    return require_resolved_contig(resolver.resolve(contig))
+    return require_resolved_contig(resolve_reference_contig(resolver, contig))
 
 
 def validate_alignment_reference(bam, genome, *, profile=None, contigs=()):
@@ -106,7 +124,7 @@ def validate_alignment_reference(bam, genome, *, profile=None, contigs=()):
     bam_names_by_fasta = {}
     for row in rows:
         name = row["SN"]
-        resolution = fasta_resolver.resolve(name)
+        resolution = resolve_reference_contig(fasta_resolver, name)
         fasta_name = require_resolved_contig(resolution)
         if fasta_name in bam_names_by_fasta:
             raise ValueError("Distinct BAM contigs %r and %r resolve to the same FASTA contig: %s" % (
@@ -182,7 +200,7 @@ def isoform_targets_from_genome(genome, genes, *, contig_names):
     for gene in sorted(selected.values(), key=lambda g: g.id):
         for transcript in sorted(gene.transcripts, key=lambda t: t.id):
             try:
-                resolution = resolver.resolve(transcript.contig)
+                resolution = resolve_reference_contig(resolver, transcript.contig)
                 contig = require_resolved_contig(resolution)
                 fasta_contig = contig_in_reference(contig, fasta_resolver)
                 exons = tuple(sorted((a - 1, b) for a, b in transcript.exon_intervals))

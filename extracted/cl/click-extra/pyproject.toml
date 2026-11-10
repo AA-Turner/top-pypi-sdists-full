@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "10.1.1"
+version = "10.2.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -105,7 +105,8 @@ yaml = ["pyyaml>=6.0.3"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v10.1.1"
+Documentation = "https://kdeldycke.github.io/click-extra/"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v10.2.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -148,7 +149,7 @@ click-extra = "click_extra.pytest"
 
 [dependency-groups]
 test = [
-    "coverage[toml]>=7.13",
+    "coverage>=7.13",
     "extra-platforms[pytest]>=14",
     "jsonschema>=4.18",
     "mkdocs>=1.4",
@@ -168,7 +169,9 @@ docs = [
     "furo>=2025.9.25",
     "hjson>=3.1",
     "json5>=0.12.1",
+    "jsonschema>=4.18",
     "mkdocs>=1.4",
+    "mkdocs-click>=0.8.1",
     "myst-parser>=5.1",
     "platformdirs>=4",
     "pygments>=2.14",
@@ -180,6 +183,8 @@ docs = [
     "sphinx-copybutton>=0.5.2",
     "sphinx-datatables>=1",
     "sphinx-design>=0.6",
+    "sphinx-sitemap>=2.6",
+    "sphinxcontrib-jquery>=4",
     "sphinxcontrib-mermaid>=1.2.3",
     "sphinxext-opengraph>=0.13",
     "tomlrt>=2.2.10",
@@ -350,7 +355,7 @@ fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "10.1.1"
+current_version = "10.2.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -441,7 +446,6 @@ exclude = [
     "^https://doi.org/.+/zenodo.*$",
     "^https://crates.io/crates/.*$",
     '^https://www\.virustotal\.com/gui/.*$',
-    "^https://asciinema.org.*$",
     "^https://no-color.org.*$",
     "^https://openclipart.org.*$",
     '^https://www\.gnu\.org/.*$',
@@ -504,6 +508,9 @@ tyro = "brentyi/tyro"
 [tool.repomatic.nuitka]
 nofollow-imports = ["tkinter"]
 
+[tool.repomatic.sphinx]
+fail-on-warning = true
+
 [tool.repomatic.test-matrix.remove]
 os = [
     "macos-26-intel",
@@ -532,6 +539,11 @@ python-version = "3.16"
 os = "ubuntu-26.04-arm"
 python-version = "3.11"
 resolution = "lowest-direct"
+
+[[tool.repomatic.test-matrix.full-include]]
+os = "ubuntu-26.04-arm"
+python-version = "3.15"
+source = "sdist"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
@@ -605,6 +617,17 @@ python-version = "3.15t"
 click-version = "main"
 cloup-version = "master"
 state = "unstable"
+
+[tool.repomatic.workflow.paths]
+"tests.yaml" = [
+    "click_extra/**",
+    "docs/**",
+    "tests/**",
+    "pyproject.toml",
+    "readme.md",
+    "uv.lock",
+    ".github/workflows/tests.yaml",
+]
 
 [tool.click-extra.test-suite]
 file = "tests/cli-test-suite.toml"

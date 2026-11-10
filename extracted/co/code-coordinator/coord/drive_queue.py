@@ -92,6 +92,12 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from coord.drive_state import TERMINAL_STATUSES, WORK_LIKE
+from coord.entry_truth import (
+    EntryTruth,
+    NEXT_ACTION_ESCALATE,
+    NEXT_ACTION_MARK_DONE,
+    NEXT_ACTION_UNKNOWN,
+)
 from coord.gate_a import is_gate_a_refusal_reason
 from coord.github_ops import is_throttle_skip_reason, parse_throttle_skip_until
 from coord.issues_sync_status import STALENESS_WARN_SECONDS as ISSUE_CACHE_STALE_CEILING_S
@@ -113,10 +119,12 @@ from coord.models import (
     EPIC_DECOMPOSE_TYPE,
     DEFAULT_ISSUE_RESOLUTION,
     is_merge_landed_reason,
+    is_needs_decomposition_reason,
     is_policy_refusal_reason,
     is_premise_refusal_reason,
     parse_issue_resolution,
 )
+from coord.worker_events import classify_zero_commit_outcome
 
 # ── dispatch type selection (#3132) ─────────────────────────────────────────
 #
@@ -1170,6 +1178,15 @@ def parse_max_parallel_flags_from_execstart(unit_text: str) -> dict[str, int]:
             break
     if execstart_line is None:
         return {}
+    return _extract_max_parallel_flags(execstart_line)
+
+
+def _extract_max_parallel_flags(execstart_line: str) -> dict[str, int]:
+    """The regex half of :func:`parse_max_parallel_flags_from_execstart`,
+    split out so :func:`_merged_execstart_line` (the drop-in-aware reader)
+    can apply the SAME extraction to the line it resolves across multiple
+    files, instead of a second copy of these two regexes.
+    """
     result: dict[str, int] = {}
     per_repo_match = re.search(r"--max-parallel-per-repo[ =](\d+)", execstart_line)
     if per_repo_match:
@@ -1183,11 +1200,65 @@ def parse_max_parallel_flags_from_execstart(unit_text: str) -> dict[str, int]:
     return result
 
 
+def _dropin_conf_paths(unit_path: Path) -> list[Path]:
+    """Every ``*.conf`` under *unit_path*'s drop-in directory
+    (``<unit_path>.d/``), in the same lexicographic order systemd itself
+    applies them — ``systemctl --user edit`` writes ``override.conf``, but
+    operators can and do add more, and systemd merges all of them in
+    filename order. Returns ``[]`` for "no drop-in directory" exactly like
+    "unit file absent": both mean this host carries no override via this
+    path.
+    """
+    dropin_dir = unit_path.parent / f"{unit_path.name}.d"
+    try:
+        return sorted(dropin_dir.glob("*.conf"))
+    except OSError:
+        return []
+
+
+def _merged_execstart_line(texts: Sequence[str]) -> str | None:
+    """systemd's own ``ExecStart=`` merge rule across a main unit file plus
+    its drop-ins: a bare ``ExecStart=`` line (no value) clears every entry
+    accumulated so far — INCLUDING the main unit's own line — and any other
+    ``ExecStart=`` line appends one. *texts* is the main unit's text
+    followed by each drop-in's text in application order
+    (:func:`_dropin_conf_paths`'s own order); this applies that rule across
+    ALL of them as a single stream, then returns the LAST entry left
+    standing, or ``None`` if nothing ever set one.
+
+    This is what makes a drop-in built "solely to carry
+    ``--max-parallel-per-repo 2``" — `coord/deploy/coord-drive-queue.
+    service`'s own header names this exact pattern as something seen on a
+    real daemon host — visible at all: the packaged unit's own
+    ``ExecStart=`` deliberately omits that flag, so reading the main unit
+    alone can never see an override that lives only in a drop-in.
+    """
+    lines: list[str] = []
+    for text in texts:
+        for raw_line in text.splitlines():
+            stripped = raw_line.strip()
+            if not stripped.startswith("ExecStart="):
+                continue
+            if stripped == "ExecStart=":
+                lines = []
+            else:
+                lines.append(stripped)
+    return lines[-1] if lines else None
+
+
 def read_systemd_max_parallel_flags(unit_path: Path | None = None) -> dict[str, int]:
     """Best-effort read of a locally-INSTALLED systemd user unit's hardcoded
     ``--max-parallel``/``--max-parallel-per-repo`` (#3408) — the one source
     that outranks `coordinator.yml` outright (#3388) and, before this, was
     visible only via an SSH in and `systemctl --user cat`.
+
+    Reads the main unit file AND every drop-in under its ``<unit>.d/``
+    directory (:func:`_dropin_conf_paths`), merged with systemd's own
+    last-wins ``ExecStart=`` rule (:func:`_merged_execstart_line`) — a value
+    set only in a drop-in, never the main unit's own ``ExecStart=`` line, is
+    a form this override can take on a real daemon host (see
+    `coord/deploy/coord-drive-queue.service`'s own header), and a reader
+    that only ever opened the main unit file could never see it.
 
     *unit_path* defaults to :func:`default_systemd_user_unit_path` (this
     machine's own `~/.config/systemd/user/coord-drive-queue.service`);
@@ -1195,14 +1266,26 @@ def read_systemd_max_parallel_flags(unit_path: Path | None = None) -> dict[str, 
     real home directory or a real systemd install. Returns ``{}`` for
     "absent", "unreadable" and "present but carries neither flag" alike —
     every caller already treats an empty result as "no override known",
-    which is correct for a machine that simply is not the daemon host.
+    which is correct for a machine that simply is not the daemon host. A
+    drop-in directory is only consulted when the main unit file itself is
+    readable — a drop-in with no unit to override means nothing to systemd
+    either.
     """
     path = unit_path if unit_path is not None else default_systemd_user_unit_path()
     try:
-        text = path.read_text()
+        main_text = path.read_text()
     except OSError:
         return {}
-    return parse_max_parallel_flags_from_execstart(text)
+    texts = [main_text]
+    for conf_path in _dropin_conf_paths(path):
+        try:
+            texts.append(conf_path.read_text())
+        except OSError:
+            continue
+    execstart_line = _merged_execstart_line(texts)
+    if execstart_line is None:
+        return {}
+    return _extract_max_parallel_flags(execstart_line)
 
 
 def compute_running_occupancy(
@@ -1917,18 +2000,55 @@ def _entry_stops_fleet(entry: QueueEntry) -> bool:
     return _entry_is_holding(entry) and entry.hold_scope == HOLD_SCOPE_FLEET
 
 
-def _after_satisfied(entry: QueueEntry, all_entries: Sequence[QueueEntry]) -> bool:
+def _after_satisfied(
+    entry: QueueEntry,
+    all_entries: Sequence[QueueEntry],
+    prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+) -> bool:
     """Is *entry*'s `after=` list satisfied by the queue it sits in?
 
     Same conservative, local read as the Rust original: a pre-req not
     present in *all_entries* at all is treated as satisfied (it may have
     landed long ago); a pre-req whose OWN gate has fired is unsatisfied even
     though its row has by then reconciled to `done`.
+
+    *prereq_truth* (#3934) maps a pre-req key to its LIVE, just-reconciled
+    :class:`~coord.entry_truth.EntryTruth`, when the caller has one. Once
+    present for a key WITH something decisive to say, it decides that edge
+    outright — the pre-req's own queue-row `state` (a latched conclusion
+    that can go stale the moment a different actor changes the pre-req's
+    reality without rewriting that row, e.g. vimcode#2140: pre-req
+    quadraui#2256 sat `blocked` while the feature it named had already
+    shipped upstream) is never consulted for a key a live truth already
+    answers — `other.state` only decides a key `prereq_truth` has nothing
+    decisive to say about: absent entirely, :data:`~coord.entry_truth.
+    NEXT_ACTION_UNKNOWN` (no live access was even gathered this tick), or
+    an ESCALATE whose `escalate_probe_failure` is set (a live read FAILED
+    rather than confirming an operator is actually needed — inconclusive,
+    same as UNKNOWN).
+
+    Checked BEFORE the `_entry_is_holding` scan just above: a pre-req
+    whose own deploy gate is CURRENTLY FIRED is unsatisfied regardless of
+    what a live truth says about it — `mark_done` on a `done` row whose
+    gate has since fired is a real, later fact a `reconcile_entry` call
+    taken before the gate fired cannot see, so the gate always wins.
     """
     for key in entry.after:
+        if any(other.key == key and _entry_is_holding(other) for other in all_entries):
+            return False
+        truth = (prereq_truth or {}).get(key)
+        if truth is not None and truth.next_action != NEXT_ACTION_UNKNOWN:
+            if truth.next_action == NEXT_ACTION_MARK_DONE:
+                continue
+            if not (
+                truth.next_action == NEXT_ACTION_ESCALATE
+                and truth.escalate_probe_failure
+            ):
+                return False
+            # else: an inconclusive probe failure — fall through to the
+            # dep's own queue-row `state` below, same as UNKNOWN/absent.
         unsatisfied = any(
-            other.key == key
-            and (other.state not in STATE_DONE_LIKE or _entry_is_holding(other))
+            other.key == key and other.state not in STATE_DONE_LIKE
             for other in all_entries
         )
         if unsatisfied:
@@ -1965,8 +2085,15 @@ class DriveQueueSummary:
     fleet_held: int = 0
 
 
-def summarize_drive_queue(entries: Sequence[QueueEntry]) -> DriveQueueSummary:
-    """Summarise *entries* — pure, no clock, no DB. See :class:`DriveQueueSummary`."""
+def summarize_drive_queue(
+    entries: Sequence[QueueEntry],
+    prereq_truth: Mapping[str, "EntryTruth"] | None = None,
+) -> DriveQueueSummary:
+    """Summarise *entries* — pure, no clock, no DB. See :class:`DriveQueueSummary`.
+
+    *prereq_truth* (#3934) is passed straight through to :func:`_after_satisfied`
+    — see its own docstring.
+    """
     pending = sum(1 for e in entries if _entry_is_pending(e))
     held = sum(1 for e in entries if _entry_is_holding(e))
     fleet_held = sum(1 for e in entries if _entry_stops_fleet(e))
@@ -1980,7 +2107,7 @@ def summarize_drive_queue(entries: Sequence[QueueEntry]) -> DriveQueueSummary:
             blocked += 1
         elif e.state == STATE_WAITING:
             waiting += 1
-            if _after_satisfied(e, entries):
+            if _after_satisfied(e, entries, prereq_truth):
                 eligible += 1
         # An unrecognised state from a newer daemon: counted in `pending`
         # above (it is not `done`) but never as waiting/eligible/running/
@@ -2097,6 +2224,38 @@ class IssueFacts:
     # identically to a genuine pre-`coord assign` crash unless this is
     # checked separately.
     work_done: bool = False
+    # #3931: a work-like assignment reaped `coord.agent.REFUSED_PREMISE`
+    # whose own 0-commit refusal was specifically the "already implemented"
+    # shape (`coord.worker_events.classify_zero_commit_outcome` ==
+    # ``"already_done"``). That only ever happens from an EXPLICIT
+    # `WORK_OUTCOME: already-done` marker — the #3923 prose heuristic
+    # (`looks_like_premise_refusal`'s six-phrase list) classifies the exact
+    # same "already implemented" finding as plain ``"premise"``, never
+    # ``"already_done"``, so a pre-#3931 worker whose message matches only
+    # that prose still parks `refused_premise` but leaves this flag `False`
+    # — its dependent still waits on an operator's `clear-refusal`, same as
+    # before this issue. See `build_board_view`'s population of this field
+    # for exactly which text it reads this off.
+    #
+    # Distinct from the generic `refused_premise` shape (a worker finding the
+    # issue's stated PREREQUISITE unmet, not already satisfied): that shape
+    # genuinely has nothing to satisfy a dependent with, so it must NOT
+    # release anything `--after` it — only "already done" means the
+    # prerequisite the dependent names actually exists, just without a
+    # commit/merge `facts.landed` can see. `_resolve_prereqs` treats this
+    # exactly like `landed` for THAT purpose, releasing any entry chained
+    # `--after` this issue (#3931 item 4) without waiting for an operator to
+    # notice the park and run `clear-refusal` — the queue's own evidence
+    # already answers the question `landed` alone could not.
+    #
+    # Best-effort, same caveat as `merge_resolution` below: the worker's
+    # final message is only visible here when it was captured into
+    # `completion_summary` (a "### Summary" heading in the transcript,
+    # `coord.notify._capture_completion_summary`) — a refusal whose message
+    # never used that heading leaves this `False`, same as #3923 left the
+    # bare ADVISORY default for a worker whose prose matched none of its
+    # markers.
+    already_done: bool = False
     # #1891: this issue's CURRENT merge-queue entry is refused for nothing
     # stronger than "CI checks have not reported yet" — see
     # `build_board_view`'s population of this field for exactly which board
@@ -2490,6 +2649,26 @@ def build_board_view(
                 summary = row.get("completion_summary")
                 if summary:
                     entry["merge_resolution"] = parse_issue_resolution(summary).value
+        if status == "refused_premise" and (row.get("type") or "") in CLOSES_ISSUE_TYPES:
+            # #3931: the SAME `completion_summary` column every other field
+            # on this loop reads, checked for the "already implemented"
+            # shape specifically — see `IssueFacts.already_done`'s
+            # docstring. `or` rather than overwrite: once any row for this
+            # key has set it True, a later row with no (or a plain, non-
+            # already-done) refusal must never flip it back to False —
+            # `entry.setdefault`'s own `False` default already covers "no
+            # row said already_done yet", so only the positive case needs
+            # writing here.
+            #
+            # Scoped to `CLOSES_ISSUE_TYPES`, mirroring the `merge_resolution`
+            # read immediately above (#3502's precedent in this same loop):
+            # a `mock-author`/`test-author`/`epic-decompose` row's merge does
+            # not close the issue, so its own "already implemented" finding
+            # must not flip the issue-level `already_done` flag or release
+            # every `--after` dependent on its say alone.
+            summary = row.get("completion_summary")
+            if summary and classify_zero_commit_outcome(summary) == "already_done":
+                entry["already_done"] = True
         if status not in TERMINAL_STATUSES:
             entry["active_work"] = True
         # #2273: high-water mark of `dispatched_at`, regardless of `status` —
@@ -3465,6 +3644,65 @@ class _Verdict:
     reason: str = ""
 
 
+def _truth_is_done(truth: "EntryTruth | None") -> bool:
+    """Whether *truth* is :data:`~coord.entry_truth.NEXT_ACTION_MARK_DONE` —
+    the single predicate for "a live EntryTruth says this pre-req already
+    landed", shared by :func:`_prereq_truth_verdict` and
+    :func:`diagnose_blocked_after`'s own check so the two answers to the
+    same question can never silently drift apart (#2096).
+    """
+    return truth is not None and truth.next_action == NEXT_ACTION_MARK_DONE
+
+
+def _prereq_truth_verdict(dep: str, truth: "EntryTruth") -> "_Verdict | None":
+    """The after= verdict *dep*'s live :class:`~coord.entry_truth.EntryTruth`
+    decides, in place of *dep*'s own queue-row ``state`` — a latched
+    conclusion that can go stale the moment a different actor changes
+    *dep*'s reality without rewriting that row.
+
+    Returns ``None`` when *truth* has nothing decisive to say (no live
+    access was gathered for *dep* this tick, or its probe only failed —
+    see below), so the caller falls through to the board/queue-row
+    reasoning exactly as if *dep* had no truth supplied at all.
+
+    * :data:`~coord.entry_truth.NEXT_ACTION_MARK_DONE` satisfies the edge.
+    * :data:`~coord.entry_truth.NEXT_ACTION_ESCALATE` with
+      ``truth.escalate_probe_failure`` set means a live read FAILED (e.g.
+      the branch head or PR state could not be confirmed) — inconclusive,
+      not a confirmed block, so this returns ``None`` the same as
+      ``NEXT_ACTION_UNKNOWN`` and lets the caller retry next tick.
+    * ``NEXT_ACTION_ESCALATE`` WITHOUT ``escalate_probe_failure`` means a
+      fact WAS read and it confirms *dep* needs an operator (refused
+      premise/needs-decomposition, a PR closed without merging, a latched
+      merge-gate) — unsatisfiable, the same disposition this function's
+      pre-EntryTruth `blocked`/`failed`-row branch already gave.
+    * anything else (`wait`, `dispatch_review`, `dispatch_test`,
+      `dispatch_ci_fix`, `conflict_fix`, `merge`) means *dep* is
+      demonstrably still in flight — an ordinary, plausibly-temporary
+      deferral, never a permanent block.
+    """
+    if truth.next_action == NEXT_ACTION_UNKNOWN:
+        return None
+    if _truth_is_done(truth):
+        return _Verdict(True)
+    if truth.next_action == NEXT_ACTION_ESCALATE:
+        if truth.escalate_probe_failure:
+            return None
+        return _Verdict(
+            False,
+            True,
+            f"pre-req {dep}'s live status is escalate "
+            f"({truth.next_action_reason}) — it will never satisfy without "
+            "operator action",
+        )
+    return _Verdict(
+        False,
+        False,
+        f"waiting on {dep} (live status: {truth.next_action} — "
+        f"{truth.next_action_reason})",
+    )
+
+
 def _resolve_prereqs(
     entry: QueueEntry,
     board: BoardView,
@@ -3473,6 +3711,7 @@ def _resolve_prereqs(
     held_gates: Mapping[str, Hold] | None = None,
     live_prereq_terminal: Mapping[str, bool] | None = None,
     dep_reasons: Mapping[str, str] | None = None,
+    prereq_truth: Mapping[str, "EntryTruth"] | None = None,
 ) -> _Verdict:
     """Decide whether *entry* may launch now.
 
@@ -3534,6 +3773,28 @@ def _resolve_prereqs(
     tick — exactly like waiting on any other still-in-flight dep. A dep
     ABSENT here, or `blocked`/`failed` for any OTHER reason, keeps the
     pre-#3368 "it will never satisfy" verdict unchanged.
+
+    *prereq_truth* (#3934) maps a dep key to its LIVE, just-reconciled
+    :class:`~coord.entry_truth.EntryTruth`, when the caller has one — see
+    :func:`_prereq_truth_verdict` for exactly what it decides. Checked
+    AFTER every board-level positive signal this module already trusts —
+    *held_gates* (a fired deploy gate always wins), `facts.landed`/
+    `facts.already_done` (EntryTruth does not yet have its own equivalent
+    of the #3931 "already implemented" reading), and `dep_state in
+    STATE_DONE_LIKE` (the queue's own row is at least as trustworthy a
+    positive signal as `facts.landed`) — so a confirmed-done dep is never
+    shadowed by a live truth whose own probe happens to fail against it.
+    Checked BEFORE the REST of `dep_state`'s reasoning (`live_prereq_
+    terminal`/`dep_reasons`/anything else below): once present for a key
+    and none of those positive signals fired, it is what decides this
+    edge instead — that reasoning is never reached for that key. A key
+    ABSENT from *prereq_truth* (no caller-side live truth for that dep
+    this tick), or present with :data:`~coord.entry_truth.
+    NEXT_ACTION_UNKNOWN` or an inconclusive probe-failure ESCALATE (see
+    `EntryTruth.escalate_probe_failure`), falls straight through to that
+    unchanged pre-#3934 reasoning — the production default today, since
+    nothing yet wires a live `reconcile_entry` call into the shell that
+    builds this mapping.
     """
     if entry.key in cycle_keys:
         return _Verdict(False, True, cycle_keys[entry.key])
@@ -3543,31 +3804,62 @@ def _resolve_prereqs(
         if hold is not None:
             return _Verdict(False, False, _gate_defer_reason(dep, hold))
         facts = board.facts(dep)
-        if facts.landed:
+        if facts.landed or (facts.already_done and not facts.reopened):
+            # #3931: `already_done` — *dep* parked `refused_premise` on the
+            # specific "already implemented" finding (`IssueFacts.
+            # already_done`'s docstring) — satisfies this `--after` edge
+            # exactly like `landed`: the prerequisite the dependent names
+            # genuinely exists, it just has no commit/merge `landed` alone
+            # can see. Before this, a dependent chained behind such a park
+            # read "waiting on {dep} (queued, parked)" forever — correct
+            # that nothing was dispatching, wrong that anything needed to:
+            # the whole reason for the park IS that the work is already
+            # there.
+            #
+            # `not facts.reopened` mirrors `IssueFacts.landed`'s own
+            # `reopened` override (#3384): `already_done` is read off a
+            # historical `refused_premise` row's `completion_summary` and is
+            # never invalidated on its own, so an operator reopening the
+            # issue afterward — GitHub's own witness that the earlier
+            # finding did not actually finish the work — must stop this
+            # edge from releasing, the same claude-coordinator#3380 shape
+            # `landed` already guards against.
             continue
         dep_state = states.get(dep)
+        if dep_state in STATE_DONE_LIKE:
+            # #2715: the queue's OWN row for *dep* already knows it
+            # landed — every `STATE_DONE` write in this module
+            # (`_reconcile_running`'s `facts.landed` branch, the
+            # `parked`/`blocked`/`failed` #2055 re-check, and step 4's
+            # own `facts.landed` short-circuit just below) is gated on a
+            # landed fact from `board.facts`, and the one write outside
+            # this module — `_run_merge_only_candidates` in
+            # `coord.commands.drive_queue` — only fires after its own
+            # `coord merge --only` attempt lands, confirmed by reading
+            # the merge queue's row back as `MERGED`
+            # (`_merge_only_landed`). `done` is therefore never written
+            # speculatively, so it is as trustworthy as `facts.landed`
+            # itself — and unlike `facts.landed`, it does not depend on
+            # the `issues` cache's own refresh cadence (observed ~10m
+            # behind) to reflect a merge the queue performed itself this
+            # same tick. Treating it as satisfied here is what lets a
+            # dependent resume on the tick right after its pre-req's row
+            # flips to `done`, instead of the tick after the cache
+            # independently rediscovers the same fact. Checked BEFORE
+            # *prereq_truth* below: this row is at least as trustworthy a
+            # positive signal as `facts.landed`/`already_done` above, so a
+            # pre-req the queue itself confirmed `done` this tick must not
+            # be shadowed by a live truth read whose OWN probe happens to
+            # fail against that same pre-req.
+            continue
+        dep_truth = (prereq_truth or {}).get(dep)
+        if dep_truth is not None:
+            truth_verdict = _prereq_truth_verdict(dep, dep_truth)
+            if truth_verdict is not None:
+                if truth_verdict.satisfied:
+                    continue
+                return truth_verdict
         if dep_state is not None:
-            if dep_state in STATE_DONE_LIKE:
-                # #2715: the queue's OWN row for *dep* already knows it
-                # landed — every `STATE_DONE` write in this module
-                # (`_reconcile_running`'s `facts.landed` branch, the
-                # `parked`/`blocked`/`failed` #2055 re-check, and step 4's
-                # own `facts.landed` short-circuit just below) is gated on a
-                # landed fact from `board.facts`, and the one write outside
-                # this module — `_run_merge_only_candidates` in
-                # `coord.commands.drive_queue` — only fires after its own
-                # `coord merge --only` attempt lands, confirmed by reading
-                # the merge queue's row back as `MERGED`
-                # (`_merge_only_landed`). `done` is therefore never written
-                # speculatively, so it is as trustworthy as `facts.landed`
-                # itself — and unlike `facts.landed`, it does not depend on
-                # the `issues` cache's own refresh cadence (observed ~10m
-                # behind) to reflect a merge the queue performed itself this
-                # same tick. Treating it as satisfied here is what lets a
-                # dependent resume on the tick right after its pre-req's row
-                # flips to `done`, instead of the tick after the cache
-                # independently rediscovers the same fact.
-                continue
             if (live_prereq_terminal or {}).get(dep):
                 # #2850: *dep*'s OWN queue row says it is still in play
                 # (``running``, ``waiting``, ``blocked``, ...) — but a live
@@ -3669,6 +3961,7 @@ def diagnose_blocked_after(
     cycle_keys: Mapping[str, str],
     live_prereq_terminal: Mapping[str, bool] | None = None,
     dep_reasons: Mapping[str, str] | None = None,
+    prereq_truth: Mapping[str, "EntryTruth"] | None = None,
 ) -> BlockedAfterDiagnosis:
     """Re-check a `blocked`/`failed` row's `after=` graph against the CURRENT
     board, fresh on every render (#2183).
@@ -3723,12 +4016,25 @@ def diagnose_blocked_after(
     probe failure rather than a confirmed-still-shut gate, and what lets
     `coord drive-queue list`/`status` (#2183's rendering) compute the exact
     same verdict a live tick would.
+
+    *prereq_truth* (#3934) is passed straight through to
+    :func:`_resolve_prereqs` — see its own docstring. A dep whose live truth
+    reads :data:`~coord.entry_truth.NEXT_ACTION_MARK_DONE` also drops out of
+    ``unsatisfied`` below, the same way *live_prereq_terminal* already does
+    for its own narrower "closed or merged" reading — this render must never
+    show a dep as still-pending once a live truth says otherwise, the exact
+    #2096 "one question, one answer" this issue exists to enforce against
+    the dep's own possibly-stale queue-row ``state``.
     """
     live_terminal = live_prereq_terminal or {}
+    truth_map = prereq_truth or {}
+
     unsatisfied = tuple(
         dep for dep in entry.after
         if not board.facts(dep).landed
+        and not (board.facts(dep).already_done and not board.facts(dep).reopened)
         and not live_terminal.get(dep)
+        and not _truth_is_done(truth_map.get(dep))
         and states.get(dep) not in STATE_DONE_LIKE
     )
     if not entry.after:
@@ -3737,6 +4043,7 @@ def diagnose_blocked_after(
         entry, board, states, cycle_keys, held_gates={},
         live_prereq_terminal=live_prereq_terminal,
         dep_reasons=dep_reasons,
+        prereq_truth=prereq_truth,
     )
     return BlockedAfterDiagnosis(
         unsatisfied,
@@ -4095,6 +4402,7 @@ def _reconcile_blocked_after(
     cycle_keys: Mapping[str, str],
     live_prereq_terminal: Mapping[str, bool] | None = None,
     dep_reasons: Mapping[str, str] | None = None,
+    prereq_truth: Mapping[str, "EntryTruth"] | None = None,
 ) -> Reconcile | None:
     """#2362: resume a `blocked` entry whose ONLY cause was an unsatisfiable
     `after=` pre-req, once every named pre-req has since landed. #2756:
@@ -4159,6 +4467,12 @@ def _reconcile_blocked_after(
     that never CACHE-resolves needs an operator `remove` + `add`, same as
     always.
 
+    *prereq_truth* (#3934) is threaded straight through to
+    :func:`diagnose_blocked_after` / :func:`_resolve_prereqs` the same way —
+    a dep's live `mark_done` truth resumes this row exactly like
+    *live_prereq_terminal* already does, without waiting on the dep's own
+    queue row to repaint itself.
+
     On resume: `state` flips to `waiting`, `attempts` resets to 0 (a fresh
     start, exactly like #2230's gate-cleared resume — nothing about being
     blocked on a now-landed pre-req should cost this entry its launch
@@ -4175,7 +4489,8 @@ def _reconcile_blocked_after(
     if not _is_unsatisfiable_prereq_reason(entry.last_reason):
         return None
     diagnosis = diagnose_blocked_after(
-        entry, board, states, cycle_keys, live_prereq_terminal, dep_reasons
+        entry, board, states, cycle_keys, live_prereq_terminal, dep_reasons,
+        prereq_truth,
     )
     if diagnosis.unsatisfiable:
         return None
@@ -5563,6 +5878,40 @@ def _reconcile_running(
             "they assumed. If the prerequisite has since landed, `coord "
             "drive-queue clear-refusal <repo> <issue> --reason \"...\"` "
             "then `remove` + `add` dispatches fresh work (#3339)."
+        )
+        return (
+            Reconcile(
+                entry.key,
+                "parked",
+                reason,
+                occupies=False,
+                updates={
+                    "state": STATE_PARKED,
+                    "last_reason": reason,
+                    "session_name": None,
+                },
+            ),
+            None,
+        )
+
+    # #3931 rides the SAME evidence as `refused_policy`/`refused_premise`
+    # above — the drive's own `drive_exited` reason — for the THIRD
+    # permanent shape: `coord.drive.decide` marks a `needs_decomposition`
+    # work row with `NEEDS_DECOMPOSITION_MARKER` (coord.models) when the
+    # worker concluded the issue itself needs epic decomposition rather than
+    # one leg of work. Parks with no attempt spent, same as the other two —
+    # relaunching reproduces the identical split proposal (#3922's
+    # incident), so there is nothing a retry could discover that this leg
+    # did not already report. The remediation text names the operator
+    # action (decompose + close/re-scope) rather than a retarget or a
+    # `clear-refusal`-style recheck — unlike a premise refusal, there is no
+    # "the prerequisite has since landed" escape hatch here.
+    if own_reason and is_needs_decomposition_reason(own_reason):
+        reason = (
+            f"{own_reason} — parking without spending an attempt (#3931); "
+            "needs the coordinator, not a relaunch — decompose the issue "
+            "into the proposed sub-issues (posted to the issue) and close "
+            "or re-scope this one, then dispatch the replacements normally."
         )
         return (
             Reconcile(
@@ -7270,6 +7619,7 @@ def plan_tick(
     live_running_merge_gate_reason: Mapping[str, str] | None = None,
     live_test_routing_clear: Mapping[str, bool] | None = None,
     live_test_routing_reason: Mapping[str, str] | None = None,
+    prereq_truth: Mapping[str, "EntryTruth"] | None = None,
 ) -> TickPlan:
     """Decide one tick.  Pure; the caller executes the returned plan.
 
@@ -7603,6 +7953,14 @@ def plan_tick(
     2026-08-22). A dep ABSENT here (the shell's bounded live check never ran
     for it, or ran and came back inconclusive) leaves both call sites to
     their pre-#2602 behaviour — never a false "satisfied".
+
+    *prereq_truth* (#3934) maps a dep key to its LIVE, just-reconciled
+    :class:`~coord.entry_truth.EntryTruth` — passed straight through to the
+    same two call sites *live_prereq_terminal* is, where it is what
+    actually decides (:func:`_prereq_truth_verdict`) rather than the dep's
+    own queue-row ``state``. A key ABSENT here (no caller-side wiring has
+    computed a live truth for that dep this tick — true of every production
+    caller today) leaves both call sites to their pre-#3934 behaviour.
 
     *fix_round_config_default* (#2972) is ``pipeline.max_fix_rounds`` — the
     SAME value the shell also hands ``_launch_argv`` to compute the actual
@@ -7958,6 +8316,7 @@ def plan_tick(
                 cycle_keys,
                 live_prereq_terminal,
                 effective_last_reason,
+                prereq_truth,
             )
             if blocked_reconcile is None:
                 # #3695: re-check a Test-stage routing dead end (no
@@ -8048,12 +8407,35 @@ def plan_tick(
                         "rate limit fleet-wide (#3536); resuming on a "
                         "later tick"
                     )
+                    # #3874: when the resume this tick staggered came from
+                    # `_reconcile_blocked_after`'s own `after=` resume (the
+                    # ONLY path that can hand back `resumed` while
+                    # `entry.last_reason` still carries
+                    # `_is_unsatisfiable_prereq_reason`'s marker —
+                    # `_reconcile_blocked` refuses to touch a row in that
+                    # shape at all, see its own top-of-function guard),
+                    # writing the stagger note over `last_reason` would
+                    # destroy the ONLY signal a LATER tick's
+                    # `_reconcile_blocked_after` uses to recognise this row
+                    # and try the `after=` resume again. A never-dispatched
+                    # row (no branch, no PR, no merge-queue row — see
+                    # `is_pre_dispatch_block_reason`) has nothing else to
+                    # fall back on once that marker is gone: it drops
+                    # straight into `_reconcile_blocked`'s merge-gate probe,
+                    # which can only ever report "could not be read" for it,
+                    # forever. Leave `last_reason` untouched here so the
+                    # marker survives into the next tick instead.
+                    stagger_updates: dict[str, Any] = (
+                        {}
+                        if _is_unsatisfiable_prereq_reason(entry.last_reason)
+                        else _refresh_only(reason, entry.last_reason)
+                    )
                     blocked_reconcile = Reconcile(
                         entry.key,
                         "resume_staggered",
                         reason,
                         occupies=False,
-                        updates=_refresh_only(reason, entry.last_reason),
+                        updates=stagger_updates,
                     )
                 else:
                     resume_quota_used[entry.repo] = used + 1
@@ -8293,6 +8675,14 @@ def plan_tick(
         # human re-scopes/closes the issue and clears it by hand (`coord
         # drive-queue remove`).
         if is_premise_refusal_reason(entry.last_reason):
+            continue
+        # #3931: a needs-decomposition park has the SAME "no external
+        # verdict to poll for" shape as the two checks just above — the
+        # issue needs decomposing, and nothing on the board signals when
+        # that has happened, so this never resumes itself either. Stays
+        # parked until a human decomposes the issue and clears it by hand
+        # (`coord drive-queue remove`).
+        if is_needs_decomposition_reason(entry.last_reason):
             continue
         # #2977: a throttle-skip park (`github_ops.is_throttle_skip_reason`)
         # carries its OWN known wall-clock expiry (`until=<epoch>`, embedded
@@ -8562,6 +8952,7 @@ def plan_tick(
                 held_gates,
                 live_prereq_terminal,
                 effective_last_reason,
+                prereq_truth,
             )
             updates = _refresh_only(verdict.reason, entry.last_reason)
             if not updates:
@@ -8784,6 +9175,7 @@ def plan_tick(
                 held_gates,
                 live_prereq_terminal,
                 effective_last_reason,
+                prereq_truth,
             )
             if not verdict.satisfied:
                 deferrals.append(
@@ -8903,6 +9295,7 @@ def plan_tick(
             held_gates,
             live_prereq_terminal,
             effective_last_reason,
+            prereq_truth,
         )
         if verdict.unsatisfiable:
             blocked.append(

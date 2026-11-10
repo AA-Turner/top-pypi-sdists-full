@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
-import time
 from calendar import timegm
 from json import loads
+from time import time as _time
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import jwt
@@ -18,6 +18,7 @@ from jwt import (
 )
 from jwt.utils import base64url_decode
 
+from social_core.backends.base import ResponseT_co
 from social_core.backends.oauth import BaseOAuth2PKCE
 from social_core.backends.utils import OIDCDiscoveryMixin, jwt_error
 from social_core.exceptions import (
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
     from requests.auth import AuthBase
 
     from social_core.storage import PartialMixin, UserProtocol
-    from social_core.strategy import BaseStrategy, HttpResponseProtocol
+    from social_core.strategy import BaseStrategy
 
 
 class OpenIdConnectAssociation:
@@ -55,7 +56,7 @@ class OpenIdConnectAssociation:
         self.assoc_type = assoc_type  # as state
 
 
-class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
+class OpenIdConnectAuth(OIDCDiscoveryMixin[ResponseT_co], BaseOAuth2PKCE[ResponseT_co]):
     """
     Base class for Open ID Connect backends.
     Currently only the code response type is supported.
@@ -111,7 +112,9 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
     DEFAULT_USE_PKCE = False
 
     def __init__(
-        self, strategy: BaseStrategy | None = None, redirect_uri: str | None = None
+        self,
+        strategy: BaseStrategy[ResponseT_co] | None = None,
+        redirect_uri: str | None = None,
     ) -> None:
         super().__init__(strategy, redirect_uri=redirect_uri)
         self.id_token: dict[str, Any] | None = None
@@ -130,11 +133,11 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
 
     def pipeline(
         self, pipeline, pipeline_index: int = 0, *args, **kwargs
-    ) -> UserProtocol | HttpResponseProtocol | None:
+    ) -> UserProtocol | ResponseT_co | None:
         # Only persist claims validated by this backend, never caller-supplied
         # pipeline arguments. Partial storage will carry them across requests.
-        # The strategy may run the pipeline on a new backend instance, so read
-        # the claims from the instance the pipeline steps receive.
+        # Read the claims from the instance the pipeline steps receive, in case
+        # pipeline() is called on another instance.
         backend = kwargs.get("backend", self)
         id_token = backend.id_token if isinstance(backend, OpenIdConnectAuth) else None
         if id_token is not None:
@@ -145,7 +148,7 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
 
     def continue_pipeline(
         self, partial: PartialMixin
-    ) -> UserProtocol | HttpResponseProtocol | None:
+    ) -> UserProtocol | ResponseT_co | None:
         # Login already consumed the nonce. Restore the validated claims from
         # trusted partial storage rather than validating the token again.
         claims = partial.kwargs.get(_VALIDATED_ID_TOKEN_KEY)
@@ -375,7 +378,7 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
         nonce = self.strategy.random_string(64)
         # Store the nonce
         association = OpenIdConnectAssociation(
-            nonce, issued=int(time.time()), lifetime=lifetime, assoc_type=state
+            nonce, issued=int(_time()), lifetime=lifetime, assoc_type=state
         )
         self.strategy.storage.association.store(url, association)
         return nonce
@@ -396,7 +399,7 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
         self.strategy.storage.association.remove([nonce_id])
 
     def validate_temporal_claims(self, id_token) -> None:
-        utc_timestamp = timegm(dt.datetime.now(dt.timezone.utc).timetuple())
+        utc_timestamp = timegm(dt.datetime.now(dt.UTC).timetuple())
 
         if "nbf" in id_token and utc_timestamp < id_token["nbf"]:
             raise AuthResponseError(

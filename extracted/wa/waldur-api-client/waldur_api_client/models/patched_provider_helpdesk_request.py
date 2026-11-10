@@ -19,9 +19,10 @@ T = TypeVar("T", bound="PatchedProviderHelpdeskRequest")
 class PatchedProviderHelpdeskRequest:
     """
     Attributes:
-        service_provider (Union[Unset, UUID]):
+        service_provider (Union[Unset, UUID]): Service provider the helpdesk serves. Only staff can change it.
         backend_type (Union[Unset, BackendTypeEnum]):
-        settings (Union[Unset, PatchedProviderHelpdeskRequestSettings]): Backend-specific configuration.
+        settings (Union[Unset, PatchedProviderHelpdeskRequestSettings]): Backend-specific configuration. Only staff can
+            change it, and only staff see the credentials in it.
         is_active (Union[Unset, bool]):
         webhook_secret (Union[Unset, str]):
         notification_email (Union[Unset, str]): Primary email for notifications.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pyopenxlsx
-Version: 1.5.0
+Version: 1.6.0
 Summary: Python bindings for OpenXLSX-NX using nanobind
 Keywords: excel,xlsx,openxlsx,nanobind,high-performance
 Author-Email: curry tang <twn39@163.com>

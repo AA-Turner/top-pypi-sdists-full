@@ -10,15 +10,16 @@ use crate::{
         BoxedValidator, BuiltinKeyword, Keyword,
     },
     node::{PendingSchemaNode, SchemaNode},
-    options::{PatternEngineOptions, ValidationOptions},
+    options::{PatternCache, PatternEngineOptions, ValidationOptions},
     paths::{Location, LocationSegment},
+    regex::{Compiled, LazyRegex, SequenceMatcher},
     types::{JsonType, JsonTypeSet},
     validator::Validate,
     Json, LazyInstance, SerdeJson, ValidationError, Validator, ValidatorMap,
 };
 use ahash::{AHashMap, AHashSet};
 use referencing::{
-    uri, write_escaped_str, Draft, List, Registry, Resolved, Resolver, ResourceRef, Uri,
+    uri, write_escaped_str, Draft, List, Registry, Resolved, Resolver, ResourceRef, Target, Uri,
     Vocabulary, VocabularySet,
 };
 use serde_json::{Map, Value};
@@ -48,6 +49,7 @@ fn resolve_absolute_location(
 }
 
 /// [`Context::absolute_location`] for a location resolved after compilation.
+#[derive(Clone)]
 pub(crate) struct DeferredAbsoluteLocation {
     base: Arc<Uri<String>>,
     resource_start: usize,
@@ -85,6 +87,7 @@ pub(crate) trait CompilationOptions<F: Json> {
     fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory<F>>>;
     fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)>;
     fn pattern_options(&self) -> PatternEngineOptions;
+    fn pattern_cache(&self) -> Option<&PatternCache>;
     fn email_options(&self) -> Option<&email_address::Options>;
 }
 
@@ -128,12 +131,16 @@ impl<R, F: Json> CompilationOptions<F> for ValidationOptions<'_, R, F> {
         ValidationOptions::compiler_pattern_options(self)
     }
 
+    fn pattern_cache(&self) -> Option<&PatternCache> {
+        ValidationOptions::compiler_pattern_cache(self)
+    }
+
     fn email_options(&self) -> Option<&email_address::Options> {
         ValidationOptions::compiler_email_options(self)
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct LocationCacheKey {
     pub(crate) base_uri: Arc<Uri<String>>,
     location: Arc<str>,
@@ -143,10 +150,17 @@ pub(crate) struct LocationCacheKey {
 /// Named anchors can share a base URI and output location without naming the same schema.
 /// The node cache lives only for one root compilation: input/registry values stay borrowed
 /// and immovable until that cache is dropped. This pointer is never persisted or dereferenced.
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct NodeCacheKey {
     location: LocationCacheKey,
     schema_ptr: usize,
+}
+
+/// The schema address almost always tells keys apart on its own; equality compares the rest.
+impl std::hash::Hash for NodeCacheKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.schema_ptr.hash(state);
+    }
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -175,14 +189,28 @@ impl ItemsValidatorsPendingKey {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub(crate) struct AliasCacheKey {
     uri: Arc<Uri<String>>,
     dynamic_scope: List<Uri<String>>,
 }
 
+/// Keys for one URI differ only by dynamic scope, which equality compares.
+impl std::hash::Hash for AliasCacheKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.uri.hash(state);
+    }
+}
+
 /// A `$ref`'s resolved URI and the location its target starts at.
 type RefTarget = (Arc<Uri<String>>, Location);
+
+/// What a `$ref` resolves to from one base URI.
+struct RefTargetEntry<'a> {
+    target: RefTarget,
+    /// Filled by the first `$ref` that looks the reference up.
+    lookup: Option<Target<'a>>,
+}
 
 /// Base URIs are interned, so identity keys them without hashing the whole URI. Holding the `Arc`
 /// keeps the address from being reused.
@@ -288,7 +316,7 @@ struct SharedContextState<'a, F: Json = SerdeJson> {
     pending_items_validators_by_schema:
         SharedCache<ItemsValidatorsPendingKey, PendingItemsValidators<F>>,
     pattern_cache: SharedCache<Arc<str>, PatternCacheEntry>,
-    ref_targets: SharedCache<BaseUriKey, AHashMap<Box<str>, RefTarget>>,
+    ref_targets: SharedCache<BaseUriKey, AHashMap<Box<str>, RefTargetEntry<'a>>>,
     /// Locations of anchor-bearing schemas, keyed by their resource root's address and then
     /// by their own. Roots stay borrowed until this cache is dropped.
     anchor_locations: SharedCache<usize, AHashMap<usize, Location>>,
@@ -312,8 +340,10 @@ impl<F: Json> fmt::Debug for SharedContextState<'_, F> {
 #[derive(Debug, Clone)]
 struct PatternCacheEntry {
     translated: Arc<str>,
-    fancy: Option<Arc<fancy_regex::Regex>>,
-    standard: Option<Arc<regex::Regex>>,
+    fancy: Option<Arc<Compiled<fancy_regex::Regex>>>,
+    standard: Option<Arc<Compiled<regex::Regex>>>,
+    /// Holds `None` once the pattern is known not to be a sequence.
+    sequence: std::cell::OnceCell<Option<Arc<SequenceMatcher<LazyRegex>>>>,
 }
 
 impl<F: Json> SharedContextState<'_, F> {
@@ -521,6 +551,7 @@ impl<'a, F: Json> Context<'a, F> {
                 translated: Arc::clone(&translated),
                 fancy: None,
                 standard: None,
+                sequence: std::cell::OnceCell::new(),
             },
         );
         Ok(translated)
@@ -609,21 +640,8 @@ impl<'a, F: Json> Context<'a, F> {
     pub(crate) fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)> {
         self.config.get_format(format)
     }
-    pub(crate) fn is_circular_reference(
-        &self,
-        reference: &str,
-    ) -> Result<bool, referencing::Error> {
-        let uri = self
-            .resolver
-            .resolve_uri(&self.resolver.base_uri().borrow(), reference)?;
-        Ok(self.shared.seen.borrow().contains(&*uri))
-    }
-    pub(crate) fn mark_seen(&self, reference: &str) -> Result<(), referencing::Error> {
-        let uri = self
-            .resolver
-            .resolve_uri(&self.resolver.base_uri().borrow(), reference)?;
-        self.shared.seen.borrow_mut().insert(uri);
-        Ok(())
+    pub(crate) fn mark_seen(&self, alias: &Arc<Uri<String>>) {
+        self.shared.seen.borrow_mut().insert(Arc::clone(alias));
     }
 
     pub(crate) fn lookup_recursive_reference(&self) -> Result<Resolved<'a>, referencing::Error> {
@@ -662,14 +680,14 @@ impl<'a, F: Json> Context<'a, F> {
         target_base: impl FnOnce(&Uri<String>) -> Location,
     ) -> Result<RefTarget, referencing::Error> {
         let base_uri = BaseUriKey(self.resolver.base_uri());
-        if let Some(target) = self
+        if let Some(entry) = self
             .shared
             .ref_targets
             .borrow()
             .get(&base_uri)
             .and_then(|by_reference| by_reference.get(reference))
         {
-            return Ok(target.clone());
+            return Ok(entry.target.clone());
         }
         let alias = self.resolve_reference_uri(reference)?;
         let target = (Arc::clone(&alias), target_base(&alias));
@@ -678,8 +696,47 @@ impl<'a, F: Json> Context<'a, F> {
             .borrow_mut()
             .entry(base_uri)
             .or_default()
-            .insert(reference.into(), target.clone());
+            .insert(
+                reference.into(),
+                RefTargetEntry {
+                    target: target.clone(),
+                    lookup: None,
+                },
+            );
         Ok(target)
+    }
+
+    /// [`Context::ref_target`] together with what `reference` resolves to.
+    pub(crate) fn resolve_ref_target(
+        &self,
+        reference: &str,
+        target_base: impl FnOnce(&Uri<String>) -> Location,
+    ) -> Result<(RefTarget, Resolved<'a>), referencing::Error> {
+        let base_uri = BaseUriKey(self.resolver.base_uri());
+        if let Some(entry) = self
+            .shared
+            .ref_targets
+            .borrow()
+            .get(&base_uri)
+            .and_then(|by_reference| by_reference.get(reference))
+        {
+            if let Some(lookup) = &entry.lookup {
+                return Ok((entry.target.clone(), self.resolver.enter(lookup)?));
+            }
+        }
+        let target = self.ref_target(reference, target_base)?;
+        let lookup = self.resolver.lookup_target(reference)?;
+        let resolved = self.resolver.enter(&lookup)?;
+        if let Some(entry) = self
+            .shared
+            .ref_targets
+            .borrow_mut()
+            .get_mut(&base_uri)
+            .and_then(|by_reference| by_reference.get_mut(reference))
+        {
+            entry.lookup = Some(lookup);
+        }
+        Ok((target, resolved))
     }
 
     /// Record that the node compiling now reaches an unsettled node.
@@ -867,7 +924,7 @@ impl<'a, F: Json> Context<'a, F> {
     pub(crate) fn get_or_compile_regex(
         &self,
         pattern: &str,
-    ) -> Result<Arc<fancy_regex::Regex>, ()> {
+    ) -> Result<Arc<Compiled<fancy_regex::Regex>>, ()> {
         let translated = self.translated_pattern(pattern)?;
         {
             let cache = self.shared.pattern_cache.borrow();
@@ -878,21 +935,32 @@ impl<'a, F: Json> Context<'a, F> {
             }
         }
 
-        let (backtrack_limit, size_limit, dfa_size_limit) = match self.config.pattern_options() {
-            PatternEngineOptions::FancyRegex {
+        let options = self.config.pattern_options();
+        let shared = self.config.pattern_cache();
+        let regex = if let Some(cached) = shared.and_then(|cache| cache.fancy(options, pattern)) {
+            cached?
+        } else {
+            let (backtrack_limit, size_limit, dfa_size_limit) = match options {
+                PatternEngineOptions::FancyRegex {
+                    backtrack_limit,
+                    size_limit,
+                    dfa_size_limit,
+                } => (backtrack_limit, size_limit, dfa_size_limit),
+                PatternEngineOptions::Regex { .. } => (None, None, None),
+            };
+            let compiled = crate::regex::build_fancy_regex(
+                pattern,
+                translated.as_ref(),
                 backtrack_limit,
                 size_limit,
                 dfa_size_limit,
-            } => (backtrack_limit, size_limit, dfa_size_limit),
-            PatternEngineOptions::Regex { .. } => (None, None, None),
+            )
+            .map(Arc::new);
+            if let Some(cache) = shared {
+                cache.insert_fancy(options, pattern, compiled.clone());
+            }
+            compiled?
         };
-
-        let regex = Arc::new(crate::regex::build_fancy_regex(
-            translated.as_ref(),
-            backtrack_limit,
-            size_limit,
-            dfa_size_limit,
-        )?);
 
         if let Some(entry) = self.shared.pattern_cache.borrow_mut().get_mut(pattern) {
             entry.fancy = Some(Arc::clone(&regex));
@@ -901,11 +969,52 @@ impl<'a, F: Json> Context<'a, F> {
         Ok(regex)
     }
 
+    /// The pattern as a [`SequenceMatcher`] with a lazily built fallback, if it is a sequence.
+    pub(crate) fn get_or_compile_sequence(
+        &self,
+        pattern: &str,
+    ) -> Option<Arc<SequenceMatcher<LazyRegex>>> {
+        let translated = self.translated_pattern(pattern).ok()?;
+        let cache = self.shared.pattern_cache.borrow();
+        let entry = cache.get(pattern)?;
+        entry
+            .sequence
+            .get_or_init(|| {
+                let shared = self.config.pattern_cache();
+                if let Some(cached) = shared.and_then(|cache| cache.sequence(pattern)) {
+                    return cached.ok();
+                }
+                let compiled = jsonschema_regex::Sequence::compile(&translated).map(|sequence| {
+                    Arc::new(SequenceMatcher {
+                        sequence: Arc::new(sequence),
+                        fallback: LazyRegex::new(translated),
+                    })
+                });
+                if let Some(cache) = shared {
+                    cache.insert_sequence(pattern, compiled.clone().ok_or(()));
+                }
+                compiled
+            })
+            .clone()
+    }
+
+    /// The pattern's sequence when it is one and no engine limits are configured: with limits,
+    /// the engine must still see every pattern at build time.
+    pub(crate) fn sequence_without_limits(
+        &self,
+        pattern: &str,
+    ) -> Option<Arc<SequenceMatcher<LazyRegex>>> {
+        if self.config.pattern_options().has_limits() {
+            return None;
+        }
+        self.get_or_compile_sequence(pattern)
+    }
+
     /// Get a cached compiled standard regex, or compile and cache it if not present.
     pub(crate) fn get_or_compile_standard_regex(
         &self,
         pattern: &str,
-    ) -> Result<Arc<regex::Regex>, ()> {
+    ) -> Result<Arc<Compiled<regex::Regex>>, ()> {
         let translated = self.translated_pattern(pattern)?;
         {
             let cache = self.shared.pattern_cache.borrow();
@@ -916,19 +1025,31 @@ impl<'a, F: Json> Context<'a, F> {
             }
         }
 
-        let (size_limit, dfa_size_limit) = match self.config.pattern_options() {
-            PatternEngineOptions::Regex {
+        let options = self.config.pattern_options();
+        let shared = self.config.pattern_cache();
+        let regex = if let Some(cached) = shared.and_then(|cache| cache.standard(options, pattern))
+        {
+            cached?
+        } else {
+            let (size_limit, dfa_size_limit) = match options {
+                PatternEngineOptions::Regex {
+                    size_limit,
+                    dfa_size_limit,
+                } => (size_limit, dfa_size_limit),
+                PatternEngineOptions::FancyRegex { .. } => (None, None),
+            };
+            let compiled = crate::regex::build_standard_regex(
+                pattern,
+                translated.as_ref(),
                 size_limit,
                 dfa_size_limit,
-            } => (size_limit, dfa_size_limit),
-            PatternEngineOptions::FancyRegex { .. } => (None, None),
+            )
+            .map(Arc::new);
+            if let Some(cache) = shared {
+                cache.insert_standard(options, pattern, compiled.clone());
+            }
+            compiled?
         };
-
-        let regex = Arc::new(crate::regex::build_standard_regex(
-            translated.as_ref(),
-            size_limit,
-            dfa_size_limit,
-        )?);
 
         if let Some(entry) = self.shared.pattern_cache.borrow_mut().get_mut(pattern) {
             entry.standard = Some(Arc::clone(&regex));
@@ -944,26 +1065,23 @@ impl<'a, F: Json> Context<'a, F> {
     /// scope it was compiled in, which is the target's, not this context's.
     pub(crate) fn lookup_maybe_recursive(
         &self,
-        reference: &str,
+        alias: &Arc<Uri<String>>,
         target: &Resolver<'_>,
-    ) -> Result<Option<Box<dyn Validate<F>>>, ValidationError<'static>> {
-        if self.is_circular_reference(reference)? {
-            let uri = self
-                .resolve_reference_uri(reference)
-                .map_err(ValidationError::from)?;
+    ) -> Option<Box<dyn Validate<F>>> {
+        if self.shared.seen.borrow().contains(alias) {
             let key = AliasCacheKey {
-                uri: Arc::clone(&uri),
+                uri: Arc::clone(alias),
                 dynamic_scope: target.dynamic_scope(),
             };
             if let Some(node) = self.cached_alias_node(&key) {
-                return Ok(Some(self.reuse(node).into_validator()));
+                return Some(self.reuse(node).into_validator());
             }
-            if let Some(node) = self.cached_alias_placeholder(&uri) {
+            if let Some(node) = self.cached_alias_placeholder(alias) {
                 self.reach_unsettled();
-                return Ok(Some(Box::new(node)));
+                return Some(Box::new(node));
             }
         }
-        Ok(None)
+        None
     }
 
     /// Whether the target of `alias` goes to the worklist: the call stack holds too many `$ref`
@@ -1114,6 +1232,7 @@ pub(crate) fn build_registry<'a, F: Json>(
     let registry = referencing::Registry::new()
         .retriever(config.retriever.clone())
         .draft(draft)
+        .retrieve_known_draft_meta_schemas(config.draft.is_none())
         .add(base_uri.as_str(), resource)?
         .prepare()?;
     Ok((registry, base_uri))
@@ -1137,6 +1256,7 @@ pub(crate) fn build_validator<F: Json>(
             .add(base_uri.as_str(), resource)?
             .retriever(config.retriever.clone())
             .draft(draft)
+            .retrieve_known_draft_meta_schemas(config.draft.is_none())
             .prepare()?;
         return build_validator_with_registry(config, schema, draft, resource, &registry);
     }
@@ -1155,6 +1275,7 @@ pub(crate) async fn build_registry_async<'a, F: Json>(
     let registry = referencing::Registry::new()
         .async_retriever(config.retriever.clone())
         .draft(draft)
+        .retrieve_known_draft_meta_schemas(config.draft.is_none())
         .add(base_uri.as_str(), resource)?
         .async_prepare()
         .await?;
@@ -1179,6 +1300,7 @@ pub(crate) async fn build_validator_async<F: Json>(
             .add(base_uri.as_str(), resource_ref)?
             .async_retriever(config.retriever.clone())
             .draft(draft)
+            .retrieve_known_draft_meta_schemas(config.draft.is_none())
             .async_prepare()
             .await?;
         return build_validator_with_registry(config, schema, draft, resource_ref, &registry);
@@ -1757,6 +1879,7 @@ pub(crate) fn build_validator_map<F: Json>(
             .add(base_uri.as_str(), resource)?
             .retriever(config.retriever.clone())
             .draft(draft)
+            .retrieve_known_draft_meta_schemas(config.draft.is_none())
             .prepare()?;
         return build_validator_map_with_registry(config, schema, draft, resource, &registry);
     }
@@ -1781,6 +1904,7 @@ pub(crate) async fn build_validator_map_async<F: Json>(
             .add(base_uri.as_str(), resource)?
             .async_retriever(config.retriever.clone())
             .draft(draft)
+            .retrieve_known_draft_meta_schemas(config.draft.is_none())
             .async_prepare()
             .await?;
         return build_validator_map_with_registry(config, schema, draft, resource, &registry);

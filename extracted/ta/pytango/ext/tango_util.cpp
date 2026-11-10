@@ -79,64 +79,42 @@ void __fill_attr_polling_buffer_array(Tango::Util &self,
 
         } else {
             py::object py_value = obj.attr("value");
-            TangoScalarType *cpp_value;
             py::size_t dim_x = 0, dim_y = 0;
-            // clang-format off
-            cpp_value = python_to_cpp_buffer<tangoArrayTypeConst>(py_value,
-                                                                  MemoryAllocation::NEW,
-                                                                  "fill_attr_polling_buffer_array",
-                                                                  is_image,
-                                                                  dim_x,
-                                                                  dim_y);
+            auto buffer = python_to_cpp_buffer<tangoArrayTypeConst, MemoryAllocation::NEW>(
+                py_value, "fill_attr_polling_buffer_array", is_image, dim_x, dim_y);
 
             long res_dim_x = static_cast<long>(dim_x);
             long res_dim_y = static_cast<long>(dim_y);
 
             auto quality = obj.attr("quality").cast<Tango::AttrQuality>();
 
+            // release == true: cppTango frees the buffers with delete[].
             if(obj.attr("w_value").is_none()) {
                 if(!is_image) {
-                    attr_history_stack.push(Tango::TimedAttrData(cpp_value,
-                                                                 res_dim_x,
-                                                                 quality,
-                                                                 true,
-                                                                 time_stamp));
+                    attr_history_stack.push(
+                        Tango::TimedAttrData(buffer.release(), res_dim_x, quality, true, time_stamp));
                 } else {
-                    attr_history_stack.push(Tango::TimedAttrData(cpp_value,
-                                                                 res_dim_x,
-                                                                 res_dim_y,
-                                                                 quality,
-                                                                 true,
-                                                                 time_stamp));
+                    attr_history_stack.push(
+                        Tango::TimedAttrData(buffer.release(), res_dim_x, res_dim_y, quality, true, time_stamp));
                 }
             } else {
-                TangoScalarType *cpp_w_value;
                 py::size_t w_dim_x = 0, w_dim_y = 0;
                 py::object py_w_value = obj.attr("w_value");
 
-                cpp_w_value = python_to_cpp_buffer<tangoArrayTypeConst>(py_w_value,
-                                                                        MemoryAllocation::NEW,
-                                                                        "fill_attr_polling_buffer_array",
-                                                                        is_image,
-                                                                        w_dim_x,
-                                                                        w_dim_y);
+                auto w_buffer = python_to_cpp_buffer<tangoArrayTypeConst, MemoryAllocation::NEW>(
+                    py_w_value, "fill_attr_polling_buffer_array", is_image, w_dim_x, w_dim_y);
 
                 long w_res_dim_x = static_cast<long>(w_dim_x);
                 long w_res_dim_y = static_cast<long>(w_dim_y);
 
                 if(!is_image) {
-                    attr_history_stack.push(Tango::TimedAttrData(cpp_value,
-                                                                 res_dim_x,
-                                                                 cpp_w_value,
-                                                                 w_res_dim_x,
-                                                                 quality,
-                                                                 true,
-                                                                 time_stamp));
+                    attr_history_stack.push(Tango::TimedAttrData(
+                        buffer.release(), res_dim_x, w_buffer.release(), w_res_dim_x, quality, true, time_stamp));
                 } else {
-                    attr_history_stack.push(Tango::TimedAttrData(cpp_value,
+                    attr_history_stack.push(Tango::TimedAttrData(buffer.release(),
                                                                  res_dim_x,
                                                                  res_dim_y,
-                                                                 cpp_w_value,
+                                                                 w_buffer.release(),
                                                                  w_res_dim_x,
                                                                  w_res_dim_y,
                                                                  quality,
@@ -145,7 +123,6 @@ void __fill_attr_polling_buffer_array(Tango::Util &self,
                 }
             }
         }
-        // clang-format on
     }
     self.fill_attr_polling_buffer(dev, att_name, attr_history_stack);
 }
@@ -382,6 +359,9 @@ inline Tango::Util *init(py::object &obj) {
     for(unsigned long i = 0; i < argc; ++i) {
         PyObject *item_ptr = PySequence_GetItem(obj_ptr, static_cast<Py_ssize_t>(i));
         py::str item = py::reinterpret_steal<py::str>(item_ptr);
+        if(!item) {
+            throw py::error_already_set();
+        }
         arg_strings[i] = item.cast<std::string>();
         argv[i] = const_cast<char *>(arg_strings[i].c_str());
     }

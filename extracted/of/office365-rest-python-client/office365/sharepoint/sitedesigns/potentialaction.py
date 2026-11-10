@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +9,6 @@ from office365.sharepoint.sitedesigns.messagecardactionbutton import (
 from office365.sharepoint.sitedesigns.messagecardinput import MessageCardInput
 
 
-@dataclass
 class PotentialAction(ClientValue):
     actions: ClientValueCollection[MessageCardActionButton] = field(
         default_factory=lambda: ClientValueCollection(MessageCardActionButton)

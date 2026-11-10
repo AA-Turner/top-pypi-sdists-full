@@ -17,6 +17,7 @@ from ..errors.bad_request_error import BadRequestError
 from ..errors.content_too_large_error import ContentTooLargeError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
+from ..errors.payment_required_error import PaymentRequiredError
 from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
@@ -65,12 +66,14 @@ class RawResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[typing.Iterator[ResponseStreamEvent]]]:
         """
         Generate a model reply in the OpenAI Responses format.
 
-        **Models:** `sarvam-105b`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro` (ids are case-sensitive).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
 
         **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
 
@@ -102,7 +105,7 @@ class RawResponsesClient:
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`, `low`, `high`, or `max` all work directly. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -144,6 +147,12 @@ class RawResponsesClient:
 
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
+
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -192,6 +201,8 @@ class RawResponsesClient:
                 ),
                 "background": background,
                 "max_tool_calls": max_tool_calls,
+                "top_logprobs": top_logprobs,
+                "include": include,
                 "stream": True,
             },
             headers={
@@ -245,6 +256,17 @@ class RawResponsesClient:
                         )
                     if _response.status_code == 401:
                         raise UnauthorizedError(
+                            headers=dict(_response.headers),
+                            body=typing.cast(
+                                typing.Any,
+                                parse_obj_as(
+                                    type_=typing.Any,  # type: ignore
+                                    object_=_response.json(),
+                                ),
+                            ),
+                        )
+                    if _response.status_code == 402:
+                        raise PaymentRequiredError(
                             headers=dict(_response.headers),
                             body=typing.cast(
                                 typing.Any,
@@ -354,12 +376,14 @@ class RawResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateResponseV2Response]:
         """
         Generate a model reply in the OpenAI Responses format.
 
-        **Models:** `sarvam-105b`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro` (ids are case-sensitive).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
 
         **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
 
@@ -391,7 +415,7 @@ class RawResponsesClient:
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`, `low`, `high`, or `max` all work directly. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -433,6 +457,12 @@ class RawResponsesClient:
 
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
+
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -481,6 +511,8 @@ class RawResponsesClient:
                 ),
                 "background": background,
                 "max_tool_calls": max_tool_calls,
+                "top_logprobs": top_logprobs,
+                "include": include,
                 "stream": False,
             },
             headers={
@@ -512,6 +544,17 @@ class RawResponsesClient:
                 )
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 402:
+                raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -623,12 +666,14 @@ class AsyncRawResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[ResponseStreamEvent]]]:
         """
         Generate a model reply in the OpenAI Responses format.
 
-        **Models:** `sarvam-105b`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro` (ids are case-sensitive).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
 
         **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
 
@@ -660,7 +705,7 @@ class AsyncRawResponsesClient:
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`, `low`, `high`, or `max` all work directly. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -702,6 +747,12 @@ class AsyncRawResponsesClient:
 
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
+
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -750,6 +801,8 @@ class AsyncRawResponsesClient:
                 ),
                 "background": background,
                 "max_tool_calls": max_tool_calls,
+                "top_logprobs": top_logprobs,
+                "include": include,
                 "stream": True,
             },
             headers={
@@ -803,6 +856,17 @@ class AsyncRawResponsesClient:
                         )
                     if _response.status_code == 401:
                         raise UnauthorizedError(
+                            headers=dict(_response.headers),
+                            body=typing.cast(
+                                typing.Any,
+                                parse_obj_as(
+                                    type_=typing.Any,  # type: ignore
+                                    object_=_response.json(),
+                                ),
+                            ),
+                        )
+                    if _response.status_code == 402:
+                        raise PaymentRequiredError(
                             headers=dict(_response.headers),
                             body=typing.cast(
                                 typing.Any,
@@ -912,12 +976,14 @@ class AsyncRawResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateResponseV2Response]:
         """
         Generate a model reply in the OpenAI Responses format.
 
-        **Models:** `sarvam-105b`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro` (ids are case-sensitive).
+        **Models:** `sarvam-105b`, `sarvam-105b-conversations`, `glm5.3`, `gemma4`, `deepseekv4.1-flash-1017`, `glm5.3-flash`, `deepseekv4.1-flash-1017-interactive`, and, on Provisioned Throughput, `deepseekv4-pro`, `kimi-k3.1-pro`, `qwen38-27b` (ids are case-sensitive).
 
         **Each call is independent.** Send the full conversation in `input` every time — nothing is stored for you. Leave out `store` or set it to `false` (`true` returns **`400`**). You cannot load a past response by id (`GET /v2/responses/{id}` is always **`404`**).
 
@@ -949,7 +1015,7 @@ class AsyncRawResponsesClient:
             Forwarded exactly as written: `none`, `auto`, `required`, `{ "type": "function", "name": "..." }`, or another object.
 
         reasoning : typing.Optional[ResponseReasoningParams]
-            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`, `low`, `high`, or `max` all work directly. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
+            Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, the DeepSeek models, `kimi-k3.1-pro`, and `qwen38-27b`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, and `deepseekv4-pro`, `low`, `high`, `max`, or `none` (thinking off); on `kimi-k3.1-pro`, `low`, `medium`, `high`, or `max` (thinking is always on); on `qwen38-27b`, `none` turns thinking off. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
 
         extra_body : typing.Optional[typing.Dict[str, typing.Any]]
             Merged into the outbound body. Must not overwrite any modelled field (`400`). `max_tool_calls` and `prompt` are `400` here and in `extra_body` — not supported by any serving deployment.
@@ -991,6 +1057,12 @@ class AsyncRawResponsesClient:
 
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
+
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include: ["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. Supported on `sarvam-105b`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4.1-flash-1017-interactive`, `deepseekv4-pro`, and `qwen38-27b`; `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1039,6 +1111,8 @@ class AsyncRawResponsesClient:
                 ),
                 "background": background,
                 "max_tool_calls": max_tool_calls,
+                "top_logprobs": top_logprobs,
+                "include": include,
                 "stream": False,
             },
             headers={
@@ -1070,6 +1144,17 @@ class AsyncRawResponsesClient:
                 )
             if _response.status_code == 401:
                 raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 402:
+                raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,

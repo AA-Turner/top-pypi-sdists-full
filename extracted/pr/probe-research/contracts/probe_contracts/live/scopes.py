@@ -1,0 +1,102 @@
+"""What a subscription follows: one run, one experiment, one project or the whole team, plus the routes' query."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ..compat import StrEnum
+from .kinds import KindFilter
+from .live import LiveEvent, LiveRefs
+
+#: A long-poll waits at most this long: under the MCP client's 30 s timeout.
+MAX_WAIT_SECONDS = 25
+#: A poll answers at most this many events (one replay page).
+MAX_POLL_EVENTS = 500
+DEFAULT_POLL_EVENTS = 100
+MAX_REF_CHARS = 256
+
+
+class LiveScope(StrEnum):
+    """How wide a subscription is. A run token may only follow its own run."""
+
+    RUN = "run"
+    EXPERIMENT = "experiment"
+    PROJECT = "project"
+    TEAM = "team"
+
+
+#: The `LiveRefs` field (and the query parameter) each narrow scope matches on; the team matches every event.
+SCOPE_REFS = {LiveScope.RUN: "run", LiveScope.EXPERIMENT: "experiment", LiveScope.PROJECT: "project"}
+
+
+class LiveTarget(BaseModel):
+    """A scope resolved to ids at connect (`run=` may be a slug; this holds the uuid). Team: `id` is None."""
+
+    model_config = ConfigDict(frozen=True)
+
+    scope: LiveScope
+    id: UUID | None = None
+
+    @model_validator(mode="after")
+    def _check_id(self) -> LiveTarget:
+        if (self.scope == LiveScope.TEAM) != (self.id is None):
+            raise ValueError("a team scope has no id; every other scope names one")
+        return self
+
+    def includes(self, event: LiveEvent) -> bool:
+        """Is the event inside this scope? Control events always are. Access is checked separately."""
+        if event.is_control():
+            return True
+        return self.includes_refs(event.refs)
+
+    def includes_refs(self, refs: LiveRefs) -> bool:
+        field = SCOPE_REFS.get(self.scope)
+        return field is None or getattr(refs, field) == self.id
+
+
+class LiveQuery(BaseModel):
+    """`GET /v1/live/events` query. At most one of run / experiment / project (none = the team)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Each an id or a slug, resolved once at connect; unreadable or unknown = 404, never 403. A `project` naming
+    #: an experiment follows that experiment (an experiment IS a project; `refs.project` is its parent).
+    run: str | None = Field(default=None, min_length=1, max_length=MAX_REF_CHARS)
+    experiment: str | None = Field(default=None, min_length=1, max_length=MAX_REF_CHARS)
+    project: str | None = Field(default=None, min_length=1, max_length=MAX_REF_CHARS)
+    #: Comma-separated kinds and `family.*` patterns (`KindFilter`); absent = every kind.
+    kinds: str | None = None
+    #: Resume after this seq (`Last-Event-ID` wins on the stream). Absent = from the head at connect.
+    since: int | None = Field(default=None, ge=0)
+    #: A producer stream: the run's writer session (`run_writers.session_id`), admitted apart from people's limit.
+    writer: UUID | None = None
+
+    @model_validator(mode="after")
+    def _check_scope(self) -> LiveQuery:
+        named = [name for name in SCOPE_REFS.values() if getattr(self, name) is not None]
+        if len(named) > 1:
+            raise ValueError(f"name one scope, not {' and '.join(named)}")
+        if self.writer is not None and self.run is None:
+            raise ValueError("a producer stream (`writer`) follows one run: name `run`")
+        KindFilter.parse(self.kinds)
+        return self
+
+    def get_scope(self) -> LiveScope:
+        named = [scope for scope, name in SCOPE_REFS.items() if getattr(self, name) is not None]
+        return named[0] if named else LiveScope.TEAM
+
+    def get_ref(self) -> str | None:
+        """The run, experiment or project as sent (id or slug); None for the team."""
+        return self.run or self.experiment or self.project
+
+    def get_kind_filter(self) -> KindFilter:
+        return KindFilter.parse(self.kinds)
+
+
+class LivePollQuery(LiveQuery):
+    """`GET /v1/live/events/poll` query: the stream's, plus how long to wait and how many to answer."""
+
+    wait: float = Field(default=MAX_WAIT_SECONDS, ge=0, le=MAX_WAIT_SECONDS)
+    limit: int = Field(default=DEFAULT_POLL_EVENTS, ge=1, le=MAX_POLL_EVENTS)

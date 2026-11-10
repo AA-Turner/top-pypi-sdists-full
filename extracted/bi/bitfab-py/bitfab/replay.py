@@ -948,6 +948,7 @@ def replay(
     code_change_base: str | None = None,
     experiment_group_id: str | None = None,
     experiment_group_name: str | None = None,
+    baseline_experiment_id: str | None = None,
     dataset_id: str | None = None,
     dataset_ids: list[str] | None = None,
     grader_ids: list[str] | None = None,
@@ -1066,6 +1067,11 @@ def replay(
             120 characters. Applied when this replay creates the group or the
             group has no name yet. A group that already has a name keeps it.
             Requires ``experiment_group_id``.
+        baseline_experiment_id: Optional UUID of an earlier experiment to
+            compare this run against. When set, the run's summary measures
+            against that experiment instead of the first finished experiment
+            in its group or the original traces. The server refuses an
+            experiment outside your organization.
         dataset_id: Optional UUID of the dataset this replay runs against.
             Mutually exclusive with ``dataset_ids``. Alone it replays the
             dataset's full membership, and with ``trace_ids`` it replays only
@@ -1347,6 +1353,7 @@ def replay(
             code_change_files=request_code_change_files,
             experiment_group_id=experiment_group_id,
             experiment_group_name=experiment_group_name,
+            baseline_experiment_id=baseline_experiment_id,
             include_db_branch_lease=include_db_branch_lease,
             include_original_metadata=adapt_inputs is not None,
             dataset_ids=resolved_dataset_ids,

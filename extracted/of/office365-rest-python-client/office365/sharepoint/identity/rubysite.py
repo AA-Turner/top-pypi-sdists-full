@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -8,7 +8,6 @@ from office365.sharepoint.identity.defaultdocumentlibrary import (
 )
 
 
-@dataclass
 class SPRubySite(ClientValue):
     channelGroupId: Optional[str] = None
     createdDateTime: Optional[datetime] = None

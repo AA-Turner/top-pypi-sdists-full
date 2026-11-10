@@ -43,7 +43,7 @@ def check_origin(directory: Path, client: Client, *, allow_mismatch: bool = Fals
             # another context may be another team's login.
             raise errors.ScopeError(
                 f"{directory}: {message}, and the team it was recorded for is unknown. "
-                f"Switch back to context {recorded_ctx!r} (`probe wizard --action account`), or pass "
+                f"Switch back to context {recorded_ctx!r} (`probe context use {recorded_ctx}`), or pass "
                 "--allow-mismatch to deliver it with this login."
             )
         else:
@@ -60,8 +60,8 @@ def check_tenant(directory: Path, client: Client) -> dict:
     if recorded and current and recorded != current:
         raise errors.ScopeError(
             f"{directory}: this run was recorded for team {recorded!r}, but you are "
-            f"logged in to {current!r}. Sign in to that team (`probe wizard --action login "
-            "--context <name>`) to sync it."
+            f"logged in to {current!r}. Sign in as that team's account to sync it "
+            "(`npx -y probe-research sign-in --json`; in the tab, \"Use a different account\")."
         )
     return me
 

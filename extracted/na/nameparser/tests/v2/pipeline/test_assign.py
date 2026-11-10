@@ -17,25 +17,38 @@ from nameparser._policy import (
 )
 from nameparser._types import Ambiguity, AmbiguityKind, Role
 
-#: The three read orders and the role a lone name word takes under
-#: each, shared by every parametrized case below that asks the same
-#: question of all three: the default (None, given-first), and the two
-#: declared family-first orders.
+#: The three read orders and the role the first of two name words
+#: takes under each, shared by every parametrized case below that asks
+#: the same question of all three: the default (None, given-first), and
+#: the two declared family-first orders.
 _ORDERS = [
     (None, "given"),
     (Policy(name_order=FAMILY_FIRST), "family"),
     (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "family"),
 ]
 
-_LEX = Lexicon(
-    titles=frozenset({"dr", "mr", "mrs", "sir", "sr"}),
-    given_name_titles=frozenset({"sir"}),
-    suffix_acronyms=frozenset({"phd", "md"}),
-    suffix_words=frozenset({"jr", "iii", "v", "sr"}),
-    particles=frozenset({"de", "la", "van"}),
-    particles_ambiguous=frozenset({"van"}),
-    conjunctions=frozenset({"and"}),
-    maiden_markers=frozenset({"née"}),
+#: A lone name word's field is the switch's, under every order
+#: (rules/O5, #1111): each order with the default, and the switch set.
+_LONE = [
+    (None, "given"),
+    (Policy(name_order=FAMILY_FIRST), "given"),
+    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "given"),
+    (Policy(lone_name_word=Role.FAMILY), "family"),
+    (Policy(name_order=FAMILY_FIRST, lone_name_word=Role.FAMILY), "family"),
+    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST,
+            lone_name_word=Role.FAMILY), "family"),
+]
+
+_LEX = (
+    Lexicon()
+    .add("dr", "mr", "mrs", "sr", kind="title")
+    .add("sir", kind="title", addresses="given")
+    .add("phd", "md", kind="credential")
+    .add("jr", "iii", "v", "sr", kind="suffix")
+    .add("de", "la", "van", kind="particle")
+    .add("van", kind="given")           # an ambiguous particle
+    .add("and", kind="conjunction")
+    .add("née", kind="birth_marker")
 )
 
 
@@ -191,8 +204,8 @@ def test_jack_ma_s_two_detail_strings_are_verbatim() -> None:
     assert details == {
         "given-or-family": (
             "'Jack' is the only name word and nothing else decides "
-            "it; read as a given name by convention, which follows "
-            "the read order"),
+            "it; read as a given name by convention, the field "
+            "Policy.lone_name_word names"),
     }
     details = {a.kind.value: a.detail
                for a in _reported("JOHN SMITH MA",
@@ -220,10 +233,11 @@ def test_middles() -> None:
     assert _by_role(out, Role.FAMILY) == "Smith"
 
 
-def test_single_token_takes_name_order_head() -> None:
-    assert _by_role(_assigned("John"), Role.GIVEN) == "John"
-    out = _assigned("John", Policy(name_order=FAMILY_FIRST))
-    assert _by_role(out, Role.FAMILY) == "John"
+@pytest.mark.parametrize("policy,role", _LONE)
+def test_single_token_takes_the_lone_name_word_field(
+        policy: Policy | None, role: str) -> None:
+    # the switch, not the order, names a lone word's field (O5, #1111)
+    assert _by_role(_assigned("John", policy), Role(role)) == "John"
 
 
 def test_title_only() -> None:
@@ -267,11 +281,12 @@ def test_leading_particle_detail_names_the_field_the_word_lands_in(
         f"read as a {role} name")
 
 
-@pytest.mark.parametrize("policy,role", _ORDERS)
+@pytest.mark.parametrize("policy,role", _LONE)
 @pytest.mark.parametrize("text,kind,detail", [
     ("Andrew", AmbiguityKind.GIVEN_OR_FAMILY,
      "'Andrew' is the only name word and nothing else decides it; "
-     "read as a {role} name by convention, which follows the read order"),
+     "read as a {role} name by convention, the field "
+     "Policy.lone_name_word names"),
     ("Rinpoche", AmbiguityKind.SUFFIX_OR_NAME,
      "'Rinpoche' is post-nominal vocabulary with no name word beside "
      "it; read as a {role} name rather than a post-nominal, nothing "
@@ -285,14 +300,16 @@ def test_convention_details_name_the_field_the_word_lands_in(
         policy: Policy | None, role: str) -> None:
     # The three conventions this site reports all place a lone name
     # word, and all three details name the field the word lands in
-    # rather than hardcoding "given": the field follows the read
-    # order, which is why none of the three kinds names it. The
+    # rather than hardcoding "given": the field follows
+    # Policy.lone_name_word, which is why none of the three kinds
+    # names it. The
     # PARTICLE_OR_GIVEN test above is the precedent, and these are the
     # only other details at this site that name a field -- H4's PEEL
     # shape ("Lord Chancellor") deliberately names none, because H1
-    # retags that word after assign under the default order.
-    lex = _LEX.add(suffix_words={"rinpoche"}, conjunctions={"of"},
-                   titles={"bishop"})
+    # retags that word after assign under the default switch, whatever
+    # the order.
+    lex = (_LEX.add("rinpoche", kind="suffix").add("of", kind="conjunction")
+           .add("bishop", kind="title"))
     (amb,) = _reported(text, policy, lexicon=lex)
     assert amb.kind is kind
     assert amb.detail == detail.format(role=role)
@@ -305,7 +322,7 @@ def test_leading_particle_detail_follows_the_effective_order() -> None:
     # resolves family-first through _effective_order while name_order
     # is untouched and still reads given-first. The head piece is the
     # FAMILY name here, and the detail has to say so.
-    han = _LEX.add(particles={"毛"}, particles_ambiguous={"毛"})
+    han = _LEX.add("毛", kind="particle").add("毛", kind="given")
     out = _assigned("毛 泽东", lexicon=han)
     assert out.policy.name_order[0] is Role.GIVEN
     assert out.policy.script_orders[0][0] is Script.HAN
@@ -412,8 +429,7 @@ def test_the_trailing_title_is_transparent_to_the_suffix_peel() -> None:
     reserve keeps a bare ambiguous acronym the family of a two-word
     name, and takes it as a credential when a full name remains.
     """
-    lex = _LEX.add(suffix_acronyms={"ma"},
-                   suffix_acronyms_ambiguous={"ma"})
+    lex = _LEX.add("ma", kind="credential").add("ma", kind="family")
     # MOVED by #289, not deleted: spliced, 'John MA' is the bare
     # 'Jack MA' shape -- an ALL-CAPS ambiguous acronym in a mixed-case
     # name leans credential and is taken with no words to spare, so
@@ -531,7 +547,7 @@ def test_family_first_order() -> None:
 
 def test_family_first_given_last_order() -> None:
     # Pinned against the actual built pipeline (2026-07-12), not guessed:
-    # 'Van' is particles_ambiguous and non-leading, so group's prefix
+    # 'Van' is an ambiguous particle and non-leading, so group's prefix
     # chain (which is name_order-agnostic -- it lands upstream of assign
     # and doesn't consult Policy) absorbs 'Van Anh Thu' into ONE piece
     # before assign ever sees it. With only two name pieces left,

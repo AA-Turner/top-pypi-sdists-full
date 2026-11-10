@@ -1,4 +1,5 @@
 #include "logger.hpp"
+#include "queued_file_writer.hpp"
 
 #include <utils/finally.hpp>
 #include <utils/win.hpp>
@@ -7,9 +8,14 @@
 #include <array>
 #include <cstdarg>
 #include <cstdio>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
+
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <unistd.h>
+#endif
 
 namespace sogen
 {
@@ -68,6 +74,19 @@ namespace sogen
             return GetStdHandle(STD_OUTPUT_HANDLE);
         }
 #endif
+
+        // Output redirected to a file or pipe gets no colors, and flushing it after every line would cost a host
+        // write per line, which verbose runs make thousands of times a second.
+        bool stdout_is_terminal()
+        {
+#ifdef _WIN32
+            return GetFileType(get_console_handle()) == FILE_TYPE_CHAR;
+#elif defined(__EMSCRIPTEN__)
+            return true;
+#else
+            return isatty(fileno(stdout)) != 0;
+#endif
+        }
 
         void set_color(const color_type color)
         {
@@ -135,18 +154,21 @@ namespace sogen
         }
     }
 
-#ifdef _WIN32
     logger::logger()
+        : terminal_(stdout_is_terminal())
     {
+#ifdef _WIN32
         old_cp = GetConsoleOutputCP();
         SetConsoleOutputCP(CP_UTF8);
+#endif
     }
 
     logger::~logger()
     {
+#ifdef _WIN32
         SetConsoleOutputCP(old_cp);
-    }
 #endif
+    }
 
     void logger::print_message(const color c, const std::string_view message, const bool force) const
     {
@@ -162,12 +184,67 @@ namespace sogen
             return;
         }
 
-        print_colored(message, get_color_type(c));
+        if (this->terminal_)
+        {
+            print_colored(message, get_color_type(c));
+            return;
+        }
+
+        // The writer thread writes and flushes queued lines within 50 ms, so a line reaches the file even when the run
+        // hangs or crashes before the next one; errors and forced lines return once they are written.
+        if (!this->redirected_output_)
+        {
+            this->redirected_output_ = std::make_unique<queued_file_writer>(stdout);
+        }
+
+        this->redirected_output_->write(message, force || c == color::red);
+    }
+
+    void logger::flush() const
+    {
+        queued_file_writer* writer{};
+        {
+            const std::scoped_lock lock(this->print_mutex_);
+            writer = this->redirected_output_.get();
+        }
+
+        if (writer)
+        {
+            writer->flush();
+        }
     }
 
     void logger::print(const color c, const std::string_view message)
     {
         this->print_message(c, message);
+    }
+
+    void logger::print_deferred_record(const color c, void (*format)(const void* record, std::string& out), const void* record,
+                                       const size_t size)
+    {
+        {
+            const std::scoped_lock lock(this->print_mutex_);
+
+            if (!this->sink_ && (this->silent_ || this->disable_output_))
+            {
+                return;
+            }
+
+            if (!this->sink_ && !this->terminal_ && c != color::red)
+            {
+                if (!this->redirected_output_)
+                {
+                    this->redirected_output_ = std::make_unique<queued_file_writer>(stdout);
+                }
+
+                this->redirected_output_->write_deferred(format, record, size);
+                return;
+            }
+        }
+
+        std::string line{};
+        format(record, line);
+        this->print_message(c, line);
     }
 
     // NOLINTNEXTLINE(cert-dcl50-cpp,modernize-avoid-variadic-functions)

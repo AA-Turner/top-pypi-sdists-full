@@ -1,9 +1,9 @@
 [workspace]
-members = ["crates/djust_core", "crates/djust_templates", "crates/djust_vdom", "crates/djust_live", "crates/djust_components"]
+members = ["crates/djust_core", "crates/djust_templates", "crates/djust_vdom", "crates/djust_live", "crates/djust_components", "crates/markup5ever_rcdom_vendored"]
 resolver = "2"
 
 [workspace.package]
-version = "1.2.6"
+version = "1.3.1"
 edition = "2021"
 authors = ["djust contributors"]
 license = "MIT"
@@ -27,8 +27,16 @@ regex = "1.12"
 once_cell = "1.21"
 thiserror = "2.0"
 quick-xml = "0.36"
-html5ever = "0.39"
-markup5ever_rcdom = "0.39"
+html5ever = "0.40"
+markup5ever = "0.40"
+# `markup5ever_rcdom` has NO 0.40 release on crates.io (upstream publishes it out
+# of band and marks it `publish = false`), so the three parser crates cannot move
+# together from the registry. Vendored at the SAME crate name from
+# servo/html5ever tag `html5ever-v0.40.1`; see the crate's PROVENANCE.md.
+markup5ever_rcdom = { path = "crates/markup5ever_rcdom_vendored" }
+# Pulled in by the vendored rcdom (`tendril::StrTendril`, `xml5ever::interface::ElemName`).
+tendril = "0.5"
+xml5ever = "0.40"
 chrono = "0.4"  # DateTime handling for timesince filter
 # Timezone database for USE_TZ/TIME_ZONE parity (#2209). Bundles compiled
 # tzdata: +1.16 MB raw on the extension, +136 KB compressed (what a wheel
@@ -55,7 +63,7 @@ chrono-tz = "0.10"
 unicode-normalization = "0.1"
 
 # Actor system dependencies
-parking_lot = "0.12"  # Faster sync primitives
+parking_lot = "0.13"  # Faster sync primitives
 tracing = "0.1"  # Structured logging
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }  # PyO3 async bridge (matches pyo3 0.29)

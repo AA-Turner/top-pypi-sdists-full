@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -8,7 +8,6 @@ from office365.runtime.client_value import ClientValue
 from office365.sharepoint.portal.project.myrecsqueryinfo import MyRecsQueryInfo
 
 
-@dataclass
 class MyRecsCacheBlob(ClientValue):
     DateCached: Optional[datetime] = None
     FillInQuery: Optional[str] = None

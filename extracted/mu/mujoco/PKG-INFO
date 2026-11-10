@@ -1,35 +1,33 @@
 Metadata-Version: 2.4
 Name: mujoco
-Version: 3.17.0
+Version: 4.0.0
 Summary: MuJoCo Physics Simulator
 Author-email: Google DeepMind <mujoco@deepmind.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/google-deepmind/mujoco
-Project-URL: Documentation, https://mujoco.readthedocs.io/en/3.17.0
+Project-URL: Documentation, https://mujoco.readthedocs.io/en/4.0.0
 Project-URL: Repository, https://github.com/google-deepmind/mujoco
-Project-URL: Changelog, https://mujoco.readthedocs.io/en/3.17.0/changelog.html
+Project-URL: Changelog, https://mujoco.readthedocs.io/en/4.0.0/changelog.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSES_THIRD_PARTY.md
-Requires-Dist: absl-py
-Requires-Dist: etils[epath]
 Requires-Dist: glfw
+Requires-Dist: mujoco-core==4.0.0
+Requires-Dist: mujoco-studio==4.0.0
 Requires-Dist: numpy
 Requires-Dist: pyopengl
-Requires-Dist: websockets>=13
 Provides-Extra: sysid
 Requires-Dist: absl-py; extra == "sysid"
 Requires-Dist: colorama; extra == "sysid"
@@ -42,8 +40,9 @@ Requires-Dist: scipy; extra == "sysid"
 Requires-Dist: tabulate; extra == "sysid"
 Requires-Dist: typing_extensions; extra == "sysid"
 Provides-Extra: usd
-Requires-Dist: usd-core; extra == "usd"
+Requires-Dist: mujoco-usd==4.0.0; python_version <= "3.13" and extra == "usd"
 Requires-Dist: pillow; extra == "usd"
+Requires-Dist: usd-core; extra == "usd"
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: license-file
@@ -57,21 +56,28 @@ Dynamic: license-file
 [pypi-badge]: https://badge.fury.io/py/mujoco.svg
 [pypi]: https://pypi.org/project/mujoco/
 
-This package is the canonical Python bindings for the
+This package is the canonical Python distribution for the
 [MuJoCo physics engine](https://github.com/google-deepmind/mujoco).
-These bindings are developed and maintained by Google DeepMind, and is kept
+These bindings are developed and maintained by Google DeepMind, and are kept
 up-to-date with the latest developments in MuJoCo itself.
 
-The `mujoco` package provides direct access to raw MuJoCo C API functions,
-structs, constants, and enumerations. Structs are provided as Python classes,
-with Pythonic initialization and deletion semantics.
+Installing `mujoco` installs:
 
-It is not the aim of this package to provide fully fledged
-scene/environment/game authoring API, as there are already a number of existing
-packages that do this well. However, this package does provide a number of
-lower-level components outside of MuJoCo itself that are likely to be useful to
-most users who access MuJoCo through Python. For example, the `egl`, `glfw`, and
-`osmesa` subpackages contain utilities for setting up OpenGL rendering contexts.
+- **`mujoco-core`**: Core C API functions, structs, constants, enumerations,
+  `MjSpec`, classic OpenGL rendering (`egl`, `glfw`, `osmesa`), and the classic
+  `mujoco.viewer`.
+- **`mujoco-studio`**: MuJoCo Studio desktop and web viewers (`mujoco.studio`)
+  and Filament rendering bindings (`mujoco.mjrf`).
+- **`glfw`** and **`pyopengl`**: Default OpenGL context and viewer dependencies.
+
+For minimal headless simulation environments (e.g., RL training or MJX/Warp
+workers) that do not need Studio, Filament, or OpenGL, you can install
+`mujoco-core` directly (`pip install mujoco-core`), which depends only on
+`numpy`. To switch an existing `mujoco` installation to `mujoco-core` only, run:
+
+```sh
+pip uninstall -y mujoco mujoco-studio && pip install --force-reinstall --no-deps mujoco-core
+```
 
 ## Installation
 
@@ -81,18 +87,8 @@ The recommended way to install this package is via [PyPI](https://pypi.org/proje
 pip install mujoco
 ```
 
-A copy of the MuJoCo library is provided as part of the package and does **not**
-need to be downloaded or installed separately.
-
-### Source
-
-**IMPORTANT:** Building from source is only necessary if you are modifying the
-Python bindings (or are trying to run on exceptionally old Linux systems).
-If that's not the case, then we recommend installing the prebuilt binaries from
-PyPI.
-
-If you need to build the Python bindings from source, please consult
-[the documentation](https://mujoco.readthedocs.io/en/latest/python.html#building-from-source).
+A copy of the MuJoCo library is provided as part of `mujoco-core` and does
+**not** need to be downloaded or installed separately.
 
 ## Usage
 
@@ -107,10 +103,7 @@ MuJoCo using Python:
 ## Versioning
 
 The `major.minor.micro` portion of the version number matches the version of
-MuJoCo that the bindings provide. Optionally, if we release updates to the
-Python bindings themselves that target the same version of MuJoCo, a `.postN`
-suffix is added, for example `2.1.2.post2` represents the second update to the
-bindings for MuJoCo 2.1.2.
+MuJoCo that the bindings provide.
 
 ## License and Disclaimer
 

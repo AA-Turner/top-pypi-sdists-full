@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datasets
-Version: 5.1.0
+Version: 5.2.0
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -33,7 +33,7 @@ Requires-Dist: pandas
 Requires-Dist: tqdm>=4.66.3
 Requires-Dist: xxhash
 Requires-Dist: multiprocess<0.70.20
-Requires-Dist: fsspec[http]<=2026.7.0,>=2023.1.0
+Requires-Dist: fsspec<=2026.9.0,>=2023.1.0
 Requires-Dist: huggingface-hub<3.0,>=1.31.0
 Requires-Dist: packaging
 Requires-Dist: pyyaml>=5.1

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -7,7 +7,6 @@ from office365.sharepoint.publishing.calltoaction import CallToAction as _CallTo
 from office365.sharepoint.publishing.icon import Icon as _Icon
 
 
-@dataclass
 class ChannelAnnouncement(ClientValue):
     Author: AnnouncementAuthor = field(default_factory=AnnouncementAuthor)
     CallToAction: _CallToAction = field(default_factory=_CallToAction)

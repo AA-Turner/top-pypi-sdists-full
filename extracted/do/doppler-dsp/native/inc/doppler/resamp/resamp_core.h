@@ -144,17 +144,19 @@ extern "C"
 
   /**
    * @brief Create a resampler over a user-supplied polyphase bank.
-   * @param num_phases  Arms in the bank; a power of two (1 included).
-   *                    The arm is the top log2(num_phases) bits of the
-   *                    phase word, so any other count would address arms
-   *                    past the end of the bank; it is refused.
+   * @param num_phases  Arms in the bank; a power of two (1 included),
+   *                    at most 2^32.  The arm is the top log2(num_phases)
+   *                    bits of the 32-bit phase word, so any other count
+   *                    would address arms past the end of the bank, and
+   *                    a word that wide cannot name more than 2^32; both
+   *                    are refused, before the bank is copied.
    * @param num_taps    Taps per arm.
    * @param bank        num_phases x num_taps floats, row-major (one row
    *                    per arm); copied, so the caller keeps ownership.
    * @param rate        Output/input rate ratio; must satisfy
    *                    dp_resamp_rate_ok().
-   * @return Heap-allocated state, or NULL if @p num_phases is 0 or not a
-   *         power of two, @p num_taps is 0, @p bank is NULL, @p rate is
+   * @return Heap-allocated state, or NULL if @p num_phases is 0, not a
+   *         power of two or above 2^32, @p num_taps is 0, @p bank is NULL, @p rate is
    *         outside dp_resamp_rate_ok(), or allocation fails.
    */
   resamp_state_t *dp_resamp_create_custom (size_t num_phases, size_t num_taps,
@@ -201,6 +203,14 @@ extern "C"
    * reaches it. */
   /** @brief Floor on the composite rate `rate + ctrl` in the ctrl paths. */
 #define RESAMP_CTRL_RATE_MIN 1e-6
+
+/** @brief Most polyphase arms a bank may have: 2^32.  The arm is the top
+ *  log2(num_phases) bits of the 32-bit phase word, selected by a right
+ *  shift of 32 - log2(num_phases), which is defined only while that count
+ *  is >= 0; a 32-bit word cannot name more arms anyway.  A uint64_t, since
+ *  2^32 does not fit a 32-bit size_t.  dp_resamp_create_custom() refuses a
+ *  larger count, and so does every create that builds a bank for it. */
+#define RESAMP_MAX_PHASES ((uint64_t)1 << 32)
 
 /** @brief State-blob magic for the resampler (FourCC "RSMP"). */
 #define RESAMP_STATE_MAGIC DP_FOURCC ('R', 'S', 'M', 'P')
@@ -395,12 +405,14 @@ extern "C"
    *
    * **The scalar and block forms are INDISTINGUISHABLE.** Feeding a stream
    * one sample at a time through here yields the same outputs, in the same
-   * number, bit-for-bit, as one dp_resamp_execute_ctrl() over the same
-   * `(in, ctrl[])`. Not "close" and not "one sample of delay apart": the
-   * same. A caller chooses between them for control flow — the block form
-   * when `ctrl[]` is known in advance, this one when each correction
-   * depends on the outputs already emitted — never for a difference in what
-   * comes out.
+   * number, at the same ticks, as one dp_resamp_execute_ctrl() over the same
+   * `(in, ctrl[])` -- never "one sample of delay apart". Each value agrees
+   * to a few float ULPs rather than to the bit: the library builds with
+   * -ffast-math, and a compiler may sum the polyphase dot product in a
+   * different order at each call site (GCC 15 on aarch64 does). A caller
+   * chooses between them for control flow — the block form when `ctrl[]`
+   * is known in advance, this one when each correction depends on the
+   * outputs already emitted — never for a difference in what comes out.
    *
    * That is what "offers" buys, and why @p x is NOT pushed on entry:
    * nothing enters an interpolator's delay line without a load REQUEST — a

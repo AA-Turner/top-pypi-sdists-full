@@ -38,6 +38,7 @@ from .constants import Sizing
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Hashable
+    from typing import Self
 
 
 __all__ = (
@@ -749,8 +750,9 @@ class Widget(AbstractWidget, metaclass=WidgetMeta):
         :param event: Values such as ``'mouse press'``, ``'ctrl mouse press'``,
                      ``'mouse release'``, ``'meta mouse release'``,
                      ``'mouse drag'``; see :ref:`mouse-input`
-        :param button: 1 through 5 for press events, often 0 for release events
-                      (which button was released is often not known)
+        :param button: a :class:`MouseButton` value, usually as a plain :class:`int`.
+            Buttons 1 to 3 are the mouse buttons, 4 to 7 the wheel, and 8 to 11 extra buttons.
+            It is 0 when a release does not say which button was released (a terminal's X10 report).
         :param col: Column of the event, 0 is the left edge of this widget
         :param row: Row of the event, 0 it the top row of this widget
         :param focus: Set to ``True`` if this widget or one of its children is in focus
@@ -813,6 +815,58 @@ class Widget(AbstractWidget, metaclass=WidgetMeta):
         may render the cached canvas instead of creating a new one.
         """
         raise NotImplementedError
+
+
+_AttributeValue = typing.TypeVar("_AttributeValue")
+
+
+class _InvalidatingAttribute(typing.Generic[_AttributeValue]):
+    """Widget attribute whose assignment invalidates the widget's cached canvases and rows.
+
+    The value is stored in the instance dictionary under the attribute's own name,
+    so the instance state, which pickles and copies carry, is the one a plain attribute has.
+    """
+
+    __slots__ = ("__weakref__", "_name")
+
+    def __init__(self) -> None:
+        # Empty until __set_name__ runs: no attribute is stored under "", so a lookup by it misses.
+        self._name = ""
+
+    def __set_name__(self, owner: type[AbstractWidget], name: str) -> None:
+        self._name = name
+
+    def _attribute_name(self) -> str:
+        """Return the name the attribute is declared under.
+
+        :raises TypeError: the attribute was not created in a class body, so it has no name.
+        """
+        if not self._name:
+            msg = f"{type(self).__name__} is used outside a class body and has no attribute name"
+            raise TypeError(msg)
+        return self._name
+
+    @typing.overload
+    def __get__(self, instance: None, owner: type[AbstractWidget]) -> Self: ...
+
+    @typing.overload
+    def __get__(self, instance: AbstractWidget, owner: type[AbstractWidget]) -> _AttributeValue: ...
+
+    def __get__(self, instance: AbstractWidget | None, owner: type[AbstractWidget]) -> Self | _AttributeValue:
+        if instance is None:
+            return self
+        # Layout code reads these attributes on every call, so the lookup uses the stored name directly.
+        try:
+            value: _AttributeValue = vars(instance)[self._name]
+        except KeyError:
+            name = self._attribute_name()
+            msg = f"{type(instance).__name__!r} object has no attribute {name!r}"
+            raise AttributeError(msg, name=name, obj=instance) from None
+        return value
+
+    def __set__(self, instance: AbstractWidget, value: _AttributeValue) -> None:
+        vars(instance)[self._attribute_name()] = value
+        instance._invalidate()
 
 
 def fixed_size(size: tuple[()]) -> None:

@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import multiprocessing
 import os
+import re
 import sys
 import textwrap
 import threading
@@ -28,9 +29,16 @@ from tango import (
     AttrDataFormat,
     AttReqType,
     AttrWriteType,
+    AutoTangoMonitor,
     CmdArgType,
     DevFailed,
+    Device_2Impl,
+    Device_3Impl,
+    Device_4Impl,
+    Device_5Impl,
+    Device_6Impl,
     DeviceClass,
+    DeviceImpl,
     DeviceProxy,
     DevState,
     EnsureOmniThread,
@@ -122,6 +130,71 @@ def test_device_classes_use_latest_implementation():
     assert issubclass(LatestDeviceImpl, get_latest_device_class())
     assert issubclass(BaseDevice, LatestDeviceImpl)
     assert issubclass(Device, BaseDevice)
+
+
+UNINITIALISED_DEVICE_ERROR = r"before DeviceImpl\.__init__\(\)"
+
+
+@pytest.mark.parametrize(
+    "device_impl_class",
+    [DeviceImpl, Device_2Impl, Device_3Impl, Device_4Impl, Device_5Impl, Device_6Impl, LatestDeviceImpl, Device],
+)
+@pytest.mark.parametrize(
+    "use_device",
+    [
+        pytest.param(lambda dev: dev.get_name(), id="get_name"),
+        pytest.param(lambda dev: dev.get_state(), id="get_state"),
+        pytest.param(lambda dev: dev.get_status(), id="get_status"),
+        pytest.param(lambda dev: dev.get_exported_flag(), id="get_exported_flag"),
+        pytest.param(lambda dev: dev.get_device_attr(), id="get_device_attr"),
+        pytest.param(lambda dev: AutoTangoMonitor(dev), id="device_as_argument"),
+    ],
+)
+def test_device_used_before_base_init_raises(device_impl_class, use_device):
+    class UninitialisedDevice(device_impl_class):
+        def __init__(self):
+            with pytest.raises(RuntimeError, match=UNINITIALISED_DEVICE_ERROR):
+                use_device(self)
+
+    with pytest.raises(TypeError, match="must be called when overriding __init__"):
+        UninitialisedDevice()
+
+
+def test_device_starts_after_use_before_base_init_raised():
+    early_errors = []
+
+    class EarlyUseDevice(Device):
+        def __init__(self, cl, name):
+            try:
+                self.get_name()
+            except RuntimeError as exc:
+                early_errors.append(exc)
+            super().__init__(cl, name)
+
+        @attribute(dtype=str)
+        def device_name(self):
+            return self.get_name()
+
+    with DeviceTestContext(EarlyUseDevice) as proxy:
+        assert proxy.device_name == proxy.dev_name()
+    assert len(early_errors) == 1
+    assert re.search(UNINITIALISED_DEVICE_ERROR, str(early_errors[0]))
+
+
+def test_device_repr_before_base_init_while_server_runs():
+    reprs = []
+
+    class UninitialisedDevice(Device):
+        def __init__(self):
+            reprs.append(repr(self))
+
+    class RunningDevice(Device):
+        pass
+
+    with DeviceTestContext(RunningDevice):
+        with pytest.raises(TypeError, match="must be called when overriding __init__"):
+            UninitialisedDevice()
+    assert reprs == ["UninitialisedDevice(unknown)"]
 
 
 # Test state/status

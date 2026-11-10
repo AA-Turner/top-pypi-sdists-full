@@ -28,7 +28,7 @@ from urwid.util import is_mouse_press
 
 from .attr_map import AttrMap
 from .columns import Columns
-from .constants import WrapMode
+from .constants import MouseButton, WrapMode
 from .list_walker import SimpleFocusListWalker
 from .listbox import ListBox
 from .popup import PopUpLauncher
@@ -37,11 +37,12 @@ from .text import Text
 from .wimp import SelectableIcon
 
 if typing.TYPE_CHECKING:
-    from collections.abc import Callable, Hashable, Iterable, Mapping
+    from collections.abc import Callable, Iterable
 
     from urwid.canvas import Canvas, CompositeCanvas
     from urwid.util import _TagMarkup
 
+    from .attr_map import _AttrMapLike
     from .popup import PopUpParametersModel
 
 
@@ -72,7 +73,7 @@ class _DropDownItem(SelectableIcon):
         focus: bool,
     ) -> bool:
         """Choose this option on a button 1 press."""
-        if button != 1 or not is_mouse_press(event):
+        if button != MouseButton.LEFT or not is_mouse_press(event):
             return False
         if on_choose := self._on_choose():
             on_choose(self._index)
@@ -84,7 +85,11 @@ class DropDown(PopUpLauncher[Columns]):
 
     The list opens with the selected option focused. It moves above the widget when it does not fit below, and
     when it fits on neither side it takes the side with more rows and scrolls. :kbd:`enter`, :kbd:`space` or a
-    click chooses the focused option and closes the list; :kbd:`esc` closes it without a change.
+    click chooses the focused option and closes the list.
+    :kbd:`esc`, or a click outside the list, closes it without a change.
+
+    With a single option there is nothing to choose, so the widget is read-only: it is not selectable, and
+    activating it opens no list.
 
     .. important::
         DropDown requires ``MainLoop(..., pop_ups=True)``, or another :class:`PopUpTarget <urwid.PopUpTarget>`
@@ -112,8 +117,8 @@ class DropDown(PopUpLauncher[Columns]):
         *,
         selected: int = 0,
         max_visible_items: int = 10,
-        attr_map: Hashable | Mapping[Hashable, Hashable] = None,
-        focus_map: Hashable | Mapping[Hashable, Hashable] = None,
+        attr_map: _AttrMapLike = None,
+        focus_map: _AttrMapLike = None,
     ) -> None:
         """Create a drop-down over `options`, with the option at index `selected` shown.
 
@@ -143,10 +148,15 @@ class DropDown(PopUpLauncher[Columns]):
         super().__init__(
             Columns([self._label, (indicator_width, self.drop_down_indicator)], dividechars=1),
             close_on_menu=True,
+            close_on_click_outside=True,
         )
 
         self._selected = 0
         self.selected = selected
+
+    def selectable(self) -> bool:
+        """Return whether there is more than one option to choose from."""
+        return len(self._options) > 1
 
     @property
     def options(self) -> tuple[_TagMarkup, ...]:
@@ -221,8 +231,11 @@ class DropDown(PopUpLauncher[Columns]):
         size: tuple[()] | tuple[int] | tuple[int, int],
         key: str,
     ) -> str | None:
-        """Open the list on the ``activate`` command."""
-        if self._command_map[key] != Command.ACTIVATE:
+        """Open the list on the ``activate`` command.
+
+        When the widget is not selectable, the list does not open and the key is returned unhandled.
+        """
+        if self._command_map[key] != Command.ACTIVATE or not self.selectable():
             return key
         self.open_pop_up()
         return None
@@ -236,8 +249,11 @@ class DropDown(PopUpLauncher[Columns]):
         row: int,
         focus: bool,
     ) -> bool:
-        """Open the list on a button 1 press."""
-        if button != 1 or not is_mouse_press(event):
+        """Open the list on a button 1 press.
+
+        When the widget is not selectable, the list does not open and the press is not handled.
+        """
+        if button != MouseButton.LEFT or not is_mouse_press(event) or not self.selectable():
             return False
         self.open_pop_up()
         return True

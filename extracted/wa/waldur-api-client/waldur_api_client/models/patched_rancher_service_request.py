@@ -20,27 +20,13 @@ class PatchedRancherServiceRequest:
     Attributes:
         name (Union[Unset, str]):
         description (Union[Unset, str]):
-        service_settings (Union[Unset, str]):
-        project (Union[Unset, str]):
-        error_message (Union[Unset, str]):
-        error_traceback (Union[Unset, str]):
-        backend_id (Union[Unset, str]):
-        runtime_state (Union[Unset, str]):
-        namespace (Union[Unset, str]):
-        cluster_ip (Union[None, Unset, str]): An IPv4 or IPv6 address.
+        cluster_ip (Union[None, Unset, str]):
         selector (Union['PatchedRancherServiceRequestSelectorType0', None, Unset]):
         target_workloads (Union[Unset, list['RancherNestedWorkloadRequest']]):
     """
 
     name: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
-    service_settings: Union[Unset, str] = UNSET
-    project: Union[Unset, str] = UNSET
-    error_message: Union[Unset, str] = UNSET
-    error_traceback: Union[Unset, str] = UNSET
-    backend_id: Union[Unset, str] = UNSET
-    runtime_state: Union[Unset, str] = UNSET
-    namespace: Union[Unset, str] = UNSET
     cluster_ip: Union[None, Unset, str] = UNSET
     selector: Union["PatchedRancherServiceRequestSelectorType0", None, Unset] = UNSET
     target_workloads: Union[Unset, list["RancherNestedWorkloadRequest"]] = UNSET
@@ -52,20 +38,6 @@ class PatchedRancherServiceRequest:
         name = self.name
 
         description = self.description
-
-        service_settings = self.service_settings
-
-        project = self.project
-
-        error_message = self.error_message
-
-        error_traceback = self.error_traceback
-
-        backend_id = self.backend_id
-
-        runtime_state = self.runtime_state
-
-        namespace = self.namespace
 
         cluster_ip: Union[None, Unset, str]
         if isinstance(self.cluster_ip, Unset):
@@ -95,20 +67,6 @@ class PatchedRancherServiceRequest:
             field_dict["name"] = name
         if description is not UNSET:
             field_dict["description"] = description
-        if service_settings is not UNSET:
-            field_dict["service_settings"] = service_settings
-        if project is not UNSET:
-            field_dict["project"] = project
-        if error_message is not UNSET:
-            field_dict["error_message"] = error_message
-        if error_traceback is not UNSET:
-            field_dict["error_traceback"] = error_traceback
-        if backend_id is not UNSET:
-            field_dict["backend_id"] = backend_id
-        if runtime_state is not UNSET:
-            field_dict["runtime_state"] = runtime_state
-        if namespace is not UNSET:
-            field_dict["namespace"] = namespace
         if cluster_ip is not UNSET:
             field_dict["cluster_ip"] = cluster_ip
         if selector is not UNSET:
@@ -127,20 +85,6 @@ class PatchedRancherServiceRequest:
         name = d.pop("name", UNSET)
 
         description = d.pop("description", UNSET)
-
-        service_settings = d.pop("service_settings", UNSET)
-
-        project = d.pop("project", UNSET)
-
-        error_message = d.pop("error_message", UNSET)
-
-        error_traceback = d.pop("error_traceback", UNSET)
-
-        backend_id = d.pop("backend_id", UNSET)
-
-        runtime_state = d.pop("runtime_state", UNSET)
-
-        namespace = d.pop("namespace", UNSET)
 
         def _parse_cluster_ip(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -178,13 +122,6 @@ class PatchedRancherServiceRequest:
         patched_rancher_service_request = cls(
             name=name,
             description=description,
-            service_settings=service_settings,
-            project=project,
-            error_message=error_message,
-            error_traceback=error_traceback,
-            backend_id=backend_id,
-            runtime_state=runtime_state,
-            namespace=namespace,
             cluster_ip=cluster_ip,
             selector=selector,
             target_workloads=target_workloads,

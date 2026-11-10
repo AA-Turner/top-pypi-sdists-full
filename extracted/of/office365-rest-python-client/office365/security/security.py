@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING
 
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
@@ -18,6 +20,7 @@ from office365.security.datasecurity.governance import (
 from office365.security.hunting_query_results import HuntingQueryResults
 from office365.security.incidents.incident import Incident
 from office365.security.labels.root import LabelsRoot
+from office365.security.quotas import DETECTIONS_BUDGETS
 from office365.security.scorecontrol.profile import SecureScoreControlProfile
 from office365.security.subjectrightsrequests.request import (
     SubjectRightsRequest,
@@ -34,13 +37,19 @@ if TYPE_CHECKING:
     from office365.security.collaboration.collaboration_root import (
         CollaborationRoot,
     )
+    from office365.security.rules_root import RulesRoot
     from office365.security.securescores.secure_score import SecureScore
 
 
+@limit(*DETECTIONS_BUDGETS)
 class Security(Entity):
     """The security resource is the entry point for the Security object model. It returns a singleton security resource.
     It doesn't contain any usable properties."""
 
+    @require_permission(
+        delegated=["ThreatHunting.Read.All"],
+        application=["ThreatHunting.Read.All"],
+    )
     def run_hunting_query(self, query: str) -> ClientResult[HuntingQueryResults]:
         """Queries a specified set of event, activity, or entity data supported by Microsoft 365 Defender
         to proactively look for specific threats in your environment.
@@ -56,6 +65,7 @@ class Security(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @odata(name="alerts", navigation=True)
     @property
     def alerts(self) -> AlertCollection:
         return self.properties.get(
@@ -63,7 +73,7 @@ class Security(Entity):
             AlertCollection(self.context, ResourcePath("alerts", self.resource_path)),
         )
 
-    @odata(name="alerts_v2")
+    @odata(name="alerts_v2", navigation=True)
     @property
     def alerts_v2(self) -> EntityCollection[Alert]:
         """A collection of alerts in Microsoft 365 Defender."""
@@ -72,12 +82,13 @@ class Security(Entity):
             EntityCollection(self.context, Alert, ResourcePath("alerts_v2", self.resource_path)),
         )
 
+    @odata(name="cases", navigation=True)
     @property
     def cases(self) -> CasesRoot:
         """"""
         return self.properties.get("cases", CasesRoot(self.context, ResourcePath("cases", self.resource_path)))
 
-    @odata(name="attackSimulation")
+    @odata(name="attackSimulation", navigation=True)
     @property
     def attack_simulation(self) -> AttackSimulationRoot:
         """"""
@@ -86,7 +97,7 @@ class Security(Entity):
             AttackSimulationRoot(self.context, ResourcePath("attackSimulation", self.resource_path)),
         )
 
-    @odata(name="dataSecurityAndGovernance")
+    @odata(name="dataSecurityAndGovernance", navigation=True)
     @property
     def data_security_and_governance(self) -> TenantDataSecurityAndGovernance:
         """Provides access to sensitivity labels and other data security settings."""
@@ -95,6 +106,7 @@ class Security(Entity):
             TenantDataSecurityAndGovernance(self.context, ResourcePath("dataSecurityAndGovernance", self.resource_path)),
         )
 
+    @odata(name="incidents", navigation=True)
     @property
     def incidents(self) -> EntityCollection[Incident]:
         """A collection of correlated alert instances and associated metadata that reflects the story of
@@ -104,6 +116,7 @@ class Security(Entity):
             EntityCollection(self.context, Incident, ResourcePath("incidents", self.resource_path)),
         )
 
+    @odata(name="labels", navigation=True)
     @property
     def labels(self) -> LabelsRoot:
         """"""
@@ -112,7 +125,7 @@ class Security(Entity):
             LabelsRoot(self.context, ResourcePath("labels", self.resource_path)),
         )
 
-    @odata(name="subjectRightsRequests")
+    @odata(name="subjectRightsRequests", navigation=True)
     @property
     def subject_rights_requests(self) -> EntityCollection[SubjectRightsRequest]:
         """Get a list of the subjectRightsRequest objects and their properties."""
@@ -125,7 +138,7 @@ class Security(Entity):
             ),
         )
 
-    @odata(name="secureScoreControlProfiles")
+    @odata(name="secureScoreControlProfiles", navigation=True)
     @property
     def secure_score_control_profiles(
         self,
@@ -140,6 +153,7 @@ class Security(Entity):
             ),
         )
 
+    @odata(name="triggers", navigation=True)
     @property
     def triggers(self) -> TriggersRoot:
         """"""
@@ -148,7 +162,7 @@ class Security(Entity):
             TriggersRoot(self.context, ResourcePath("triggers", self.resource_path)),
         )
 
-    @odata(name="triggerTypes")
+    @odata(name="triggerTypes", navigation=True)
     @property
     def trigger_types(self) -> TriggerTypesRoot:
         """"""
@@ -157,7 +171,7 @@ class Security(Entity):
             TriggerTypesRoot(self.context, ResourcePath("triggerTypes", self.resource_path)),
         )
 
-    @odata(name="threatIntelligence")
+    @odata(name="threatIntelligence", navigation=True)
     @property
     def threat_intelligence(self) -> ThreatIntelligence:
         """"""
@@ -168,8 +182,9 @@ class Security(Entity):
 
     @property
     def entity_type_name(self) -> str:
-        return "microsoft.graph.security.Security"
+        return "microsoft.graph.Security"
 
+    @odata(name="identities", navigation=True)
     @property
     def identities(self) -> IdentityContainer:
         """Gets the identities property"""
@@ -179,6 +194,7 @@ class Security(Entity):
             "identities", IdentityContainer(self.context, ResourcePath("identities", self.resource_path))
         )
 
+    @odata(name="auditLog", navigation=True)
     @property
     def audit_log(self) -> AuditCoreRoot:
         """Gets the auditLog property"""
@@ -186,6 +202,7 @@ class Security(Entity):
 
         return self.properties.get("auditLog", AuditCoreRoot(self.context, ResourcePath("auditLog", self.resource_path)))
 
+    @odata(name="collaboration", navigation=True)
     @property
     def collaboration(self) -> CollaborationRoot:
         """Gets the collaboration property"""
@@ -197,6 +214,7 @@ class Security(Entity):
             "collaboration", CollaborationRoot(self.context, ResourcePath("collaboration", self.resource_path))
         )
 
+    @odata(name="secureScores", navigation=True)
     @property
     def secure_scores(self) -> EntityCollection[SecureScore]:
         """Gets the secureScores property"""
@@ -206,3 +224,11 @@ class Security(Entity):
             "secureScores",
             EntityCollection[SecureScore](self.context, SecureScore, ResourcePath("secureScores", self.resource_path)),
         )
+
+    @odata(name="rules", navigation=True)
+    @property
+    def rules(self) -> RulesRoot:
+        """Gets the rules property"""
+        from office365.security.rules_root import RulesRoot
+
+        return self.properties.get("rules", RulesRoot(self.context, ResourcePath("rules", self.resource_path)))

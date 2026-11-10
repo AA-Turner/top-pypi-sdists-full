@@ -1,8 +1,10 @@
 //! Template renderer that converts AST nodes to output strings
+use djust_core::context::LiteralOutput;
 
 use crate::filters;
 use crate::inheritance::TemplateLoader;
 use crate::parser::Node;
+use crate::provenance::RenderOutput;
 use crate::registry::TagArg;
 #[cfg(feature = "liveview")]
 use djust_components::Component;
@@ -13,6 +15,25 @@ use pyo3::types::PyAnyMethods;
 use pyo3::{Py, PyAny, Python};
 use regex::Regex;
 use std::collections::HashSet;
+
+/// `{% djust_audio %}` markup around the escaped manifest. Must stay
+/// byte-identical to `djust_audio` in `python/djust/templatetags/live_tags.py`
+/// (the Django-engine path); `tests/unit/test_audio.py` pins the two together.
+const DJUST_AUDIO_OPEN: &str = "<div dj-audio=\"";
+const DJUST_AUDIO_CLOSE: &str = concat!(
+    "\">",
+    "<div dj-update=\"ignore\" data-audio-controls>",
+    "<button type=\"button\" data-audio-toggle aria-pressed=\"false\">",
+    "<svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" ",
+    "stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">",
+    "<path d=\"M11 5 6 9H3v6h3l5 4V5Z\"/><path d=\"M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14\"/>",
+    "</svg><span data-audio-label>Enable sound</span></button>",
+    "<label><span>Volume</span><input data-audio-volume type=\"range\" min=\"0\" max=\"1\" ",
+    "step=\"0.05\" value=\"0.5\" aria-label=\"Sound volume\"></label>",
+    "<output data-audio-level aria-hidden=\"true\">50%</output>",
+    "<span data-audio-status role=\"status\">Sound off</span>",
+    "</div></div>",
+);
 
 /// Should this render emit the `<!--dj-if-->` VDOM markers (#2519)?
 ///
@@ -171,7 +192,7 @@ const ITEM_SAFETY_PRESERVING_FILTERS: [&str; 1] = ["slice"];
 /// like it, ASSIGNED per filter rather than OR-ed over the chain — a filter
 /// that is neither a producer nor a preserver re-taints the items, exactly as
 /// a plain filter re-taints the container.
-fn filter_output_items_are_safe(
+pub(crate) fn filter_output_items_are_safe(
     filter_name: &str,
     input_items_were_safe: bool,
     input_was_safe: bool,
@@ -495,6 +516,8 @@ fn node_is_element_bearing(node: &Node) -> bool {
         // unused marker pair is harmless (browsers ignore comments)
         // while a missed marker breaks Iter 3's differ.
         Node::CsrfToken => true,
+        // `{% djust_audio %}` always renders its control `<div>`s.
+        Node::DjustAudio => true,
         // Other static text-emitting tags — none produce elements
         // unless the user template itself surrounds them with HTML
         // (which would appear in adjacent Text nodes).
@@ -545,6 +568,28 @@ fn node_is_element_bearing(node: &Node) -> bool {
     }
 }
 
+pub fn render_nodes_with_loader_mut<L: TemplateLoader>(
+    nodes: &[Node],
+    context: &mut Context,
+    loader: Option<&L>,
+) -> Result<String> {
+    if context.provenance_flatten_tracking() {
+        let output = render_nodes_output::<L, crate::provenance::Rendered>(nodes, context, loader)?;
+        let text = output.to_string();
+        Ok(context.record_provenance_flatten(output.into_authored_output(), text))
+    } else {
+        render_nodes_output::<L, String>(nodes, context, loader)
+    }
+}
+
+pub fn render_node_with_loader_mut<L: TemplateLoader>(
+    node: &Node,
+    context: &mut Context,
+    loader: Option<&L>,
+) -> Result<String> {
+    render_node_output::<L, String>(node, context, loader)
+}
+
 pub fn render_nodes(nodes: &[Node], context: &Context) -> Result<String> {
     render_nodes_with_loader(nodes, context, None::<&NoOpLoader>)
 }
@@ -554,34 +599,61 @@ pub fn render_nodes(nodes: &[Node], context: &Context) -> Result<String> {
 /// Assignment effects remain visible to following siblings and recursive
 /// control-flow bodies. Nodes that introduce a lexical scope push a frame;
 /// their local bindings disappear when that frame is popped.
-pub fn render_nodes_with_loader_mut<L: TemplateLoader>(
+pub fn render_nodes_output<L: TemplateLoader, R: RenderOutput>(
     nodes: &[Node],
     context: &mut Context,
     loader: Option<&L>,
-) -> Result<String> {
-    let mut output = String::new();
+) -> Result<R> {
+    if R::TRACKED {
+        context.enable_provenance_flatten_tracking();
+    }
+    let mut output = R::default();
     for node in nodes {
-        output.push_str(&render_effectful_node(node, context, loader)?);
+        let child = render_effectful_node_output::<L, R>(node, context, loader)?;
+        output.append(&child);
     }
     Ok(output)
 }
 
-fn render_effectful_node<L: TemplateLoader>(
+fn render_effectful_node_output<L: TemplateLoader, R: RenderOutput>(
     node: &Node,
     context: &mut Context,
     loader: Option<&L>,
-) -> Result<String> {
+) -> Result<R> {
     if let Node::Located {
         nodes,
         span,
         source,
         origin,
         registry_namespace,
+        lazy_origin,
+        lazy_site,
+        lazy_text,
     } = node
     {
         let _namespace = crate::registry_scope::NamespaceGuard::enter(*registry_namespace);
         let previous = context.replace_node_identity(Some((source.as_ptr() as usize, span.0)));
-        let rendered = render_effectful_node(&nodes[0], context, loader);
+        let mut rendered = if let (Some(metadata), Node::Text(text)) = (lazy_text, &nodes[0]) {
+            let mut output = R::source_text(text, metadata);
+            if R::TRACKED {
+                output.loop_identity(context);
+            }
+            Ok(output)
+        } else {
+            render_effectful_node_output::<L, R>(&nodes[0], context, loader)
+        };
+        if R::TRACKED {
+            if let Ok(output) = &mut rendered {
+                if lazy_text.is_some() {
+                    output.identify(lazy_origin.as_deref().unwrap_or("inline"));
+                } else if let Some(site) = lazy_site {
+                    output.identify(&format!(
+                        "{}/site{site}",
+                        lazy_origin.as_deref().unwrap_or("inline")
+                    ));
+                }
+            }
+        }
         context.replace_node_identity(previous);
         return rendered.map_err(|error| {
             error
@@ -589,19 +661,41 @@ fn render_effectful_node<L: TemplateLoader>(
                 .with_template_source(source, origin.as_deref().unwrap_or("<unknown source>"))
         });
     }
-    match sibling_updates(node, context, loader)? {
+    let result = match sibling_updates(node, context, loader)? {
         Some(effect) => {
             for binding in effect.bindings {
+                let name = binding.name.clone();
                 if binding.upward {
                     context.bind_upward(binding.name, binding.value, binding.safe);
                 } else {
                     context.bind(binding.name, binding.value, binding.safe);
                 }
+                if R::TRACKED {
+                    if let Some(capture) = binding.capture {
+                        context.mark_captured_literals(&name, capture);
+                    }
+                }
+                if R::TRACKED && binding.literal {
+                    context.mark_template_literal(&name);
+                }
             }
-            Ok(effect.html)
+            Ok(if let Some(capture) = effect.capture {
+                R::captured_projection(effect.html, capture)
+            } else if effect.literal {
+                R::context_literal(effect.html)
+            } else {
+                effect.html.into()
+            })
         }
-        None => render_node_with_loader_mut(node, context, loader),
-    }
+        None => render_node_output::<L, R>(node, context, loader),
+    };
+    let literals = context.take_provenance_flatten();
+    result.map(|mut output| {
+        if R::TRACKED {
+            output.flattened_literals(literals);
+        }
+        output
+    })
 }
 
 /// Render with one owned context for the complete recursive render.
@@ -654,7 +748,12 @@ fn sibling_updates<L: TemplateLoader>(
         // to hand its bindings to.
         Node::CustomTag { name, args } if crate::registry::tag_handler_returns_bindings(name) => {
             let (html, bindings) = call_custom_tag(name, args, context)?;
-            Ok(Some(SiblingEffect { html, bindings }))
+            Ok(Some(SiblingEffect {
+                html,
+                bindings,
+                literal: false,
+                capture: None,
+            }))
         }
         Node::BlockCustomTag {
             name,
@@ -662,14 +761,24 @@ fn sibling_updates<L: TemplateLoader>(
             children,
         } if crate::registry::block_handler_returns_bindings(name) => {
             let (html, bindings) = call_block_custom_tag(name, args, children, context, loader)?;
-            Ok(Some(SiblingEffect { html, bindings }))
+            Ok(Some(SiblingEffect {
+                html,
+                bindings,
+                literal: false,
+                capture: None,
+            }))
         }
         Node::RawBlockCustomTag { name, args, body } => {
             // Every raw-block handler declares RETURNS_BINDINGS by
             // construction (the kind exists for the #2547 bridge), so there
             // is no non-bindings twin to shadow this arm (#2129).
             let (html, bindings) = call_raw_block_tag(name, args, body, context)?;
-            Ok(Some(SiblingEffect { html, bindings }))
+            Ok(Some(SiblingEffect {
+                html,
+                bindings,
+                literal: false,
+                capture: None,
+            }))
         }
         Node::AssignTag { name, args } => {
             // Resolve variable references in args, mirroring only the JSON
@@ -681,6 +790,7 @@ fn sibling_updates<L: TemplateLoader>(
             // operands the handler declares literal (RESOLVE_ARG_POSITIONS)
             // are passed raw (#2041).
             let resolved_args = plain_args(resolve_assign_tag_args(name, args, context));
+            context.take_provenance_flatten();
             // #2710: through the ONE bridge, so a deferred `block.super` is
             // materialised for the flat map Python resolves against.
             let context_map = bridged_context_map(context)?;
@@ -699,6 +809,8 @@ fn sibling_updates<L: TemplateLoader>(
                 updates
                     .into_iter()
                     .map(|(name, value)| SiblingBinding {
+                        literal: false,
+                        capture: None,
                         upward: false,
                         name,
                         value,
@@ -718,6 +830,8 @@ fn sibling_updates<L: TemplateLoader>(
             max_width,
             asvar: Some(name),
         } => Ok(Some(SiblingEffect::silent(vec![SiblingBinding {
+            literal: false,
+            capture: None,
             upward: false,
             name: name.clone(),
             value: Value::String(width_ratio(value, max_value, max_width, context)?),
@@ -729,9 +843,12 @@ fn sibling_updates<L: TemplateLoader>(
             args,
             asvar: Some(name),
         } => {
-            let value = first_of(args, context)?.unwrap_or_else(|| Value::String(String::new()));
+            let (value, literal, capture) = first_of(args, context)?;
+            let value = value.unwrap_or_else(|| Value::String(String::new()));
             let safe = value.is_safe_string();
             Ok(Some(SiblingEffect::silent(vec![SiblingBinding {
+                literal,
+                capture,
                 upward: false,
                 name: name.clone(),
                 value,
@@ -752,7 +869,7 @@ fn sibling_updates<L: TemplateLoader>(
             id,
             ..
         } => {
-            let (value, runtime_safe) = cycle_step(values, id, context)?;
+            let (value, runtime_safe, literal, capture) = cycle_step(values, id, context)?;
             let html = if *silent {
                 String::new()
             } else {
@@ -766,7 +883,11 @@ fn sibling_updates<L: TemplateLoader>(
             };
             Ok(Some(SiblingEffect {
                 html,
+                literal,
+                capture: if *silent { None } else { capture.clone() },
                 bindings: vec![SiblingBinding {
+                    literal,
+                    capture,
                     upward: true,
                     name: name.clone(),
                     value: bound,
@@ -778,6 +899,107 @@ fn sibling_updates<L: TemplateLoader>(
     }
 }
 
+// These built-ins can read locale, time, translations or formatting policy.
+// Custom filters can return arbitrary bytes. Both remain nonliteral.
+fn literal_filter(name: &str) -> bool {
+    crate::filter_arity::builtin_arity(name).is_some()
+        && !matches!(
+            name,
+            "date"
+                | "time"
+                | "timesince"
+                | "timeuntil"
+                | "floatformat"
+                | "filesizeformat"
+                | "yesno"
+                | "truncatechars"
+                | "truncatechars_html"
+                | "truncatewords"
+                | "truncatewords_html"
+        )
+}
+
+// Replay is a deliberately small allow-list, separate from literal-expression
+// evaluation. These text transforms do not select fallback bytes from input
+// truthiness, consult locale/i18n, or introduce value arguments into the literal
+// run. Spaceless is handled by its node arm using the same transform on both runs.
+fn replayable_filter(name: &str, arg: Option<&str>, context: &Context) -> bool {
+    matches!(
+        name,
+        "lower"
+            | "upper"
+            | "title"
+            | "capfirst"
+            | "cut"
+            | "escape"
+            | "force_escape"
+            | "linebreaksbr"
+    ) && arg.is_none_or(|arg| expression_is_literal(arg, context))
+}
+
+// Escaping a capture's authored opener can relax its hiding context. The
+// literal projection must still receive the page escape policy, but cannot
+// authorize later containers solely because that opener became escaped text.
+#[cfg(feature = "liveview")]
+fn escaping_erases_hiding_context(literal: &str) -> bool {
+    if !literal.contains('<') {
+        return false;
+    }
+    let probe = format!("{literal}<div dj-view=\"djust.provenance.Probe\" dj-lazy></div>");
+    djust_vdom::lazy_provenance::lazy_elements(&probe, &[(literal.len(), probe.len())]).is_empty()
+}
+
+#[cfg(not(feature = "liveview"))]
+fn escaping_erases_hiding_context(_literal: &str) -> bool {
+    false
+}
+
+fn literal_run(literals: Vec<LiteralOutput>) -> LiteralOutput {
+    let mut out = crate::provenance::Rendered::default();
+    out.flattened_literals(literals);
+    out.into_authored_output().3
+}
+
+fn filters_are_literal(specs: &[(String, Option<String>)], context: &Context) -> bool {
+    specs.iter().all(|(name, arg)| {
+        literal_filter(name)
+            && arg
+                .as_ref()
+                .is_none_or(|arg| expression_is_literal(arg, context))
+    })
+}
+
+/// Snapshot projection for a resolved capture, removing resolver notifications
+/// before any intervening body node can consume them. No bytes are emitted here.
+fn captured_expression(expr: &str, context: &Context) -> Option<LiteralOutput> {
+    let pending = context.take_provenance_flatten();
+    if !pending.is_empty() {
+        return Some(literal_run(pending));
+    }
+    let base = crate::filter_lexer::split_pipes(expr)
+        .first()
+        .copied()
+        .unwrap_or(expr)
+        .trim();
+    context.captured_literals(base)
+}
+
+fn expression_is_literal(expr: &str, context: &Context) -> bool {
+    let parts = crate::filter_lexer::split_pipes(expr);
+    let head = parts[0].trim();
+    // Tag operands consult the value stack before their literal recognizer.
+    // Classify the actual source, including unusually named shadowing keys.
+    (if context.get(head).is_some() {
+        context.is_template_literal(head)
+    } else {
+        !head.starts_with("_(") && django_literal(head).is_some()
+    }) && parts[1..].iter().all(|spec| {
+        crate::filter_lexer::split_filter_spec(spec, expr).is_ok_and(|(name, arg)| {
+            literal_filter(name) && arg.is_none_or(|arg| expression_is_literal(arg, context))
+        })
+    })
+}
+
 /// Advance a `{% cycle %}` node's per-render iterator ONCE and resolve the
 /// value it lands on (#2556) — Django's `next(cycle_iter).resolve(context)`.
 ///
@@ -787,12 +1009,23 @@ fn sibling_updates<L: TemplateLoader>(
 /// (Django compiles each operand with `compile_filter` and a missing
 /// variable is `string_if_invalid`, not an error), and the runtime-safe
 /// flag rides along for the emit (#1672).
-fn cycle_step(values: &[String], id: &str, context: &Context) -> Result<(Value, bool)> {
+fn cycle_step(
+    values: &[String],
+    id: &str,
+    context: &Context,
+) -> Result<(Value, bool, bool, Option<LiteralOutput>)> {
     if values.is_empty() {
-        return Ok((Value::Missing, false));
+        return Ok((Value::Missing, false, true, None));
     }
     let idx = context.cycle_advance(id) % values.len();
-    get_value_safe_ignoring_failures(values[idx].trim(), context)
+    let expr = values[idx].trim();
+    let (value, safe) = get_value_safe_ignoring_failures(expr, context)?;
+    Ok((
+        value,
+        safe,
+        expression_is_literal(expr, context),
+        captured_expression(expr, context),
+    ))
 }
 
 /// Resolve an `{% extends %}` filter expression against the render context.
@@ -801,6 +1034,7 @@ fn cycle_step(values: &[String], id: &str, context: &Context) -> Result<(Value, 
 /// results before invoking the loader, as Django's ExtendsNode does.
 pub(crate) fn resolve_extends_operand(token: &str, context: &Context) -> Result<Value> {
     let (mut value, _) = get_value_safe(token, context)?;
+    context.take_provenance_flatten();
     if matches!(value, Value::Missing) {
         value = Value::String(context.string_if_invalid_for(token).unwrap_or_default());
     }
@@ -1021,6 +1255,8 @@ fn cycle_emit(value: &Value, runtime_safe: bool, autoescape: bool) -> String {
 
 /// One name a context-mutating node binds for the siblings that follow it.
 struct SiblingBinding {
+    literal: bool,
+    capture: Option<LiteralOutput>,
     upward: bool,
     name: String,
     value: Value,
@@ -1031,6 +1267,8 @@ struct SiblingBinding {
 /// What a sibling-aware node contributes: the HTML it emits and the names it
 /// binds for the siblings that follow it (#2547).
 struct SiblingEffect {
+    literal: bool,
+    capture: Option<LiteralOutput>,
     html: String,
     bindings: Vec<SiblingBinding>,
 }
@@ -1040,6 +1278,8 @@ impl SiblingEffect {
     fn silent(bindings: Vec<SiblingBinding>) -> Self {
         Self {
             html: String::new(),
+            literal: false,
+            capture: None,
             bindings,
         }
     }
@@ -1068,12 +1308,13 @@ fn call_custom_tag(
     // TOKENS instead (#2423); both rules apply, in that order, through
     // `resolve_custom_tag_args`.
     let resolved_args = resolve_custom_tag_args(name, args, context);
+    context.take_provenance_flatten();
     let raw_py = context.render_raw_py_objects();
     let returns_bindings = crate::registry::tag_handler_returns_bindings(name);
     if returns_bindings && !context.block_super_is_armed() {
         // #2914: the live frames, memoised per frame version. Gated on the
         // SAME condition as `bridged_context_map`'s own fast path (#2710): an
-        // armed `block.super` binds a synthetic `block` key on a clone, which
+        // armed `block.super` swaps `block` for a lazy object (#2918), which
         // only the flattened map below carries.
         let (html, bindings) = crate::registry::call_handler_with_bindings(
             name,
@@ -1085,7 +1326,11 @@ fn call_custom_tag(
         )?;
         return Ok((html, bindings.into_iter().map(sibling_binding).collect()));
     }
-    let context_map = bridged_context_map(context)?;
+    let mut context_map = bridged_context_map(context)?;
+    if !returns_bindings && crate::registry::tag_handler_wants_typed_args(name) {
+        let only = crate::registry::tag_handler_typed_standins_only(name);
+        add_typed_operands(&mut context_map, args, context, only);
+    }
     if returns_bindings {
         let (html, bindings) = crate::registry::call_handler_with_bindings(
             name,
@@ -1106,6 +1351,109 @@ fn call_custom_tag(
     )
     .map_err(|e| handler_call_error("Custom tag", name, e))?;
     Ok((html, Vec::new()))
+}
+
+/// The context key under which a handler that declares `TYPED_ARGS` receives its operands as
+/// typed Python values (#3756). Leading underscores: Django's own variable syntax refuses such a
+/// name, so no template can spell it, and `python/djust/components/rust_handlers.py`
+/// (`TYPED_ARGS_KEY`) is the one reader.
+///
+/// The key is RESERVED (#3773): it is the engine's, never the application's. A context key of this
+/// name (a top-level dict key in the view's context, or a raw-Python sidecar object) is removed
+/// before any handler is called, at [`bridged_context_map`] for the flat map and at
+/// `registry::build_py_context` / `build_py_context_memo` for the sidecar and the live frames, and
+/// only [`call_custom_tag`] puts the key back, from [`typed_operands`]. Without the removal, a
+/// template whose operands are all literals produces an empty `typed_operands`, nothing is
+/// inserted, and the application's value would stand in for the engine's.
+pub(crate) const TYPED_ARGS_KEY: &str = "__djust_typed_args__";
+
+/// Fold a `TYPED_ARGS` handler's operands into the context map it is called with, under
+/// [`TYPED_ARGS_KEY`] (#3756). The ONE site that does it for the inline tag
+/// ([`call_custom_tag`]) and the block tag ([`call_block_custom_tag`], #3768), so the two
+/// cannot resolve an operand differently (#1646).
+fn add_typed_operands(
+    context_map: &mut BridgedContextMap,
+    args: &[String],
+    context: &Context,
+    standins_only: bool,
+) {
+    let typed = typed_operands(args, context, standins_only);
+    if !typed.is_empty() {
+        // PROVENANCE (provenance_flatten_site_inventory): the operands of a tag
+        // are folded into the handler's context; the handler's output returns as a plain,
+        // never-authored `String`. See `typed_operands` for the full classification.
+        context_map
+            .map
+            .insert(TYPED_ARGS_KEY.to_string(), Value::Object(typed));
+    }
+}
+
+/// Each `key=<expression>` operand of an inline tag, resolved to a [`Value`] through
+/// [`get_value`] and keyed by `key` (#3756).
+///
+/// This is the resolution `{{ <expression> }}` performs, filters included, and it is the point of
+/// the channel: [`Context::resolve`] re-protects every segment of a dotted path
+/// (`protect_sidecar`), so `data=form.instance.password` is the same refusal here as in
+/// `{{ form.instance.password }}`. A handler that resolved the path itself over the raw objects (the
+/// `{% load %}` bridge) would have no floor. Quoted literals are skipped: the handler already
+/// reads them from its string arguments, and a literal has no type to recover. An operand that
+/// does not resolve (`Missing`, or an error) is skipped as well, so the handler falls back to its
+/// string argument exactly as before.
+///
+/// The values cross as typed Python objects through `value_into_handler_pyobject`: a `datetime`
+/// as the `datetime`, a `Decimal` as the `Decimal`, a carried object as its floor-protected live
+/// handle or its `TemplateObject`.
+fn typed_operands(
+    args: &[String],
+    context: &Context,
+    standins_only: bool,
+) -> indexmap::IndexMap<djust_core::ObjectKey, Value> {
+    let mut typed = indexmap::IndexMap::new();
+    for arg in args {
+        let Some((key, expr)) = arg.split_once('=') else {
+            continue;
+        };
+        let (key, expr) = (key.trim(), expr.trim());
+        if key.is_empty() || expr.is_empty() || strip_quotes(expr).is_some() {
+            continue;
+        }
+        // `get_value_safe`, not `get_value`: the second discards the runtime-safe flag, so
+        // `data=p` for a `p` bound by `{% with p=x|safe %}` (or a `mark_safe`d context value)
+        // reached the handler as a plain `str` and was escaped where Django hands the tag the
+        // `SafeString` and leaves it raw. Over-escaping, not a leak, and a byte difference from
+        // Django. The narrowing is `tag_arg`'s: only a STRING can be `SafeData`.
+        if let Ok((value, safe)) = get_value_safe(expr, context) {
+            let value = match value {
+                Value::String(text) if safe => Value::SafeString(text),
+                other => other,
+            };
+            // `standins_only` (#3768): a handler that reads only the types its string argument
+            // loses wants a tuple and an object (a `UUID`, a `Path`). A list, a dict, a number or a
+            // string is left out, so a large operand is not materialised a second time as Python
+            // objects for nothing: the handler has it, as JSON or text, in its string argument.
+            // A namedtuple is a tuple whose type the string argument loses as well (#3849): it
+            // arrives as the JSON list `[1, 2]` where Django's tag prints `P(x=1, y=2)`.
+            if standins_only
+                && !matches!(
+                    value,
+                    Value::Tuple(_) | Value::NamedTuple { .. } | Value::Encoded(_)
+                )
+            {
+                continue;
+            }
+            if !matches!(value, Value::Missing) {
+                // PROVENANCE: this folds a resolved operand into the object the handler is
+                // handed; it is not a rendered-output conversion. The handler's OUTPUT comes
+                // back as a plain `String` (`Ok((html).into())` in the `CustomTag` arm), never
+                // authored, so no authority is minted or dropped here, and the literal records
+                // this resolution leaves pending are discarded below exactly as
+                // `call_custom_tag` discards them after `resolve_custom_tag_args` (fail closed).
+                typed.insert(djust_core::ObjectKey::from(key), value);
+            }
+        }
+    }
+    context.take_provenance_flatten();
+    typed
 }
 
 /// Attribute a registry call's failure to its tag — unless it is the
@@ -1174,10 +1522,18 @@ fn call_block_custom_tag<L: TemplateLoader>(
     }
     // Render children first to get block content
     let content = render_nodes_with_loader_mut(children, context, loader)?;
+    let body_literals = context.take_provenance_flatten();
     let resolved_args = resolve_block_tag_args(name, args, context);
+    context.take_provenance_flatten();
     // #2710: through the ONE bridge, so a deferred `block.super` is
     // materialised for the flat map Python resolves against.
-    let context_map = bridged_context_map(context)?;
+    let mut context_map = bridged_context_map(context)?;
+    // A block handler that declared `TYPED_ARGS` is handed its operands as typed values, as an
+    // inline one is (#3768): the same helper, after the body is rendered and the args resolved.
+    if crate::registry::block_handler_wants_typed_args(name) {
+        let only = crate::registry::block_handler_typed_standins_only(name);
+        add_typed_operands(&mut context_map, args, context, only);
+    }
     // Forward raw-Python sidecar so block handlers can reach Python-only
     // context (request, view) the same way ``Node::CustomTag`` handlers do
     // (#1167).
@@ -1192,6 +1548,17 @@ fn call_block_custom_tag<L: TemplateLoader>(
             &context.safe_key_paths(),
             context.autoescape(),
         )?;
+        context.restore_provenance_literals(if html == content {
+            body_literals
+        } else {
+            vec![LiteralOutput {
+                html: None,
+                blank_html: None,
+                blank_openings: Vec::new(),
+                openings: Vec::new(),
+                blocked: false,
+            }]
+        });
         return Ok((html, bindings.into_iter().map(sibling_binding).collect()));
     }
     let html = crate::registry::call_block_handler_with_py_sidecar(
@@ -1203,6 +1570,17 @@ fn call_block_custom_tag<L: TemplateLoader>(
         context.autoescape(),
     )
     .map_err(|e| handler_call_error("Block tag", name, e))?;
+    context.restore_provenance_literals(if html == content {
+        body_literals
+    } else {
+        vec![LiteralOutput {
+            html: None,
+            blank_html: None,
+            blank_openings: Vec::new(),
+            openings: Vec::new(),
+            blocked: false,
+        }]
+    });
     Ok((html, Vec::new()))
 }
 
@@ -1230,13 +1608,14 @@ fn call_lazy_body_block_tag<L: TemplateLoader>(
     loader: Option<&L>,
 ) -> Result<(String, Vec<SiblingBinding>)> {
     let resolved_args = resolve_block_tag_args(name, args, context);
+    context.take_provenance_flatten();
     // #2710: through the ONE bridge, so a deferred `block.super` is
     // materialised for the flat map Python resolves against.
     let context_map = bridged_context_map(context)?;
     let raw_py = context.render_raw_py_objects();
     let autoescape = context.autoescape();
 
-    let (answered, state) = crate::registry::call_block_handler_before_body(
+    let (answered, state, literal) = crate::registry::call_block_handler_before_body(
         name,
         &resolved_args,
         &context_map,
@@ -1245,6 +1624,7 @@ fn call_lazy_body_block_tag<L: TemplateLoader>(
     )
     .map_err(|e| handler_call_error("Block tag", name, e))?;
     if let Some(html) = answered {
+        context.record_provenance_flatten((String::new(), vec![], vec![], literal), String::new());
         return Ok((html, Vec::new()));
     }
 
@@ -1255,17 +1635,49 @@ fn call_lazy_body_block_tag<L: TemplateLoader>(
     // here would let the body's own writes change the answer between the two
     // halves of one call — a `{% cache %}` looking a key up under one context
     // and storing under another would store a key nobody can find again.
-    let content = render_nodes_with_loader_mut(children, context, loader)?;
+    // Cache metadata must describe this body even for plain/WS renders.
+    // A fresh notification scope keeps surrounding literal bytes out of the entry.
+    let output = context.with_isolated_provenance_flatten(|context| {
+        render_nodes_output::<L, crate::provenance::Rendered>(children, context, loader)
+    })?;
+    let text = output.to_string();
+    let flattened =
+        djust_core::context::flatten_authored_output(output.into_authored_output(), text);
+    let literal_only = flattened.3.html.clone();
+
+    let literal_blocked = flattened.3.blocked;
+    let content = flattened.0.clone();
+    let mut handler_context = std::ops::Deref::deref(&context_map).clone();
+    handler_context.insert(
+        "_djust_body_literal_blocked".into(),
+        Value::Bool(literal_blocked),
+    );
+    if let Some(blank) = &flattened.3.blank_html {
+        handler_context.insert(
+            "_djust_body_blank_only".into(),
+            Value::String(blank.clone()),
+        );
+    }
+    if let Some(literal_only) = literal_only {
+        handler_context.insert(
+            "_djust_body_literal_only".into(),
+            Value::String(literal_only),
+        );
+    }
     let html = crate::registry::call_block_handler_after_body(
         name,
         &resolved_args,
         &content,
-        &context_map,
+        &handler_context,
         raw_py.as_deref(),
         &state,
         autoescape,
     )
     .map_err(|e| handler_call_error("Block tag", name, e))?;
+    context.record_provenance_flatten(
+        djust_core::context::flatten_authored_output(flattened, html.clone()),
+        String::new(),
+    );
     Ok((html, Vec::new()))
 }
 
@@ -1295,6 +1707,9 @@ fn call_raw_block_tag(
         &context.safe_key_paths(),
         context.autoescape(),
     )?;
+    // Raw translation output is opaque. Resolving a Python-side operand
+    // (including an unused block.super binding) is not an emitted capture.
+    context.take_provenance_flatten();
     Ok((html, bindings.into_iter().map(sibling_binding).collect()))
 }
 
@@ -1396,17 +1811,17 @@ impl Drop for ScopeExitGuard {
 /// render the children in Rust, exit on ALL THREE paths — `Ok`, `Err` and a
 /// panicking child (#2597). A leak here installs the WRONG LANGUAGE on the
 /// pooled worker thread, which then serves the next render.
-fn render_language_scope<L: TemplateLoader>(
+fn render_language_scope<L: TemplateLoader, R: RenderOutput>(
     expr: &str,
     children: &[Node],
     context: &mut Context,
     loader: Option<&L>,
-) -> Result<String> {
+) -> Result<R> {
     let lang = scope_operand_string(expr, context);
     let token = crate::registry::language_scope_enter(lang.as_deref())
         .map_err(|e| scope_hook_error("language scope enter", e))?;
     let guard = ScopeExitGuard::new(token, crate::registry::language_scope_exit);
-    let result = render_nodes_with_loader_mut(children, context, loader);
+    let result = render_nodes_output::<L, R>(children, context, loader);
     if let Err(exit_err) = guard.release() {
         if result.is_ok() {
             return Err(scope_hook_error("language scope exit", exit_err));
@@ -1417,17 +1832,17 @@ fn render_language_scope<L: TemplateLoader>(
 
 /// Render a [`Node::Timezone`] (#2558) — the timezone twin of
 /// [`render_language_scope`], panic-guarded the same way (#2597).
-fn render_timezone_scope<L: TemplateLoader>(
+fn render_timezone_scope<L: TemplateLoader, R: RenderOutput>(
     expr: &str,
     children: &[Node],
     context: &mut Context,
     loader: Option<&L>,
-) -> Result<String> {
+) -> Result<R> {
     let zone = scope_operand_string(expr, context);
     let token = crate::registry::timezone_scope_enter(zone.as_deref())
         .map_err(|e| scope_hook_error("timezone scope enter", e))?;
     let guard = ScopeExitGuard::new(token, crate::registry::timezone_scope_exit);
-    let result = render_nodes_with_loader_mut(children, context, loader);
+    let result = render_nodes_output::<L, R>(children, context, loader);
     if let Err(exit_err) = guard.release() {
         if result.is_ok() {
             return Err(scope_hook_error("timezone scope exit", exit_err));
@@ -1439,6 +1854,8 @@ fn render_timezone_scope<L: TemplateLoader>(
 /// A registry [`crate::registry::HandlerBinding`] as a [`SiblingBinding`].
 fn sibling_binding(binding: crate::registry::HandlerBinding) -> SiblingBinding {
     SiblingBinding {
+        literal: false,
+        capture: None,
         upward: false,
         name: binding.name,
         value: binding.value,
@@ -1464,6 +1881,16 @@ fn sibling_binding(binding: crate::registry::HandlerBinding) -> SiblingBinding {
 /// `[List]`/`[Object]`-collapse parallel-path-drift class (CLAUDE.md
 /// #1646, issue #2042).
 fn value_to_arg_string(v: &Value) -> String {
+    // A carried MODEL (#3888) is its floored dict here, as every model was before it was a handle:
+    // a handler parses this text, and `{% data_table rows=rows %}` reads dict rows. A model inside
+    // a list reaches the same dict through `Value`'s `Serialize`; a bare one (a loop variable,
+    // `{% with u=rows|first %}`) comes through this early return. Ahead of the `match` so no new
+    // flatten site is added beside it (the provenance inventory pins those).
+    if let Value::Encoded(e) = v {
+        if let Some(Ok(text)) = e.floored_model_dict().map(|d| serde_json::to_string(&d)) {
+            return text;
+        }
+    }
     match v {
         // Tuple included: a structured arg must be JSON-encoded, not collapsed
         // to its Display form — the #2042 `[List]`-collapse class (#2203).
@@ -1843,8 +2270,9 @@ fn resolve_tag_operand_value(expr: &str, context: &Context) -> Option<Value> {
 /// * `Decimal` / `BigInt` also serialize as JSON strings (their exact digits
 ///   would not survive a JSON number), so routing them through here would tell
 ///   the handler a `Decimal` is a sequence of characters — where Python raises
-///   `TypeError: 'decimal.Decimal' object is not iterable`. Their `Display`
-///   form is already unambiguous, so they keep it.
+///   `TypeError` (`'decimal.Decimal' object is not iterable`; the spelling is
+///   the interpreter's, #3255). Their `Display` form is already unambiguous, so
+///   they keep it.
 /// * `List` / `Tuple` / `Object` / `DictView` were ALREADY JSON — that is what
 ///   [`value_to_arg_string`] exists for — so nothing changes for them.
 /// * `Bool` IS re-encoded, as of #2463, and the sentence that used to stand
@@ -2011,7 +2439,7 @@ fn localize_if_number(value: &Value) -> Result<String> {
             // `{{ p }}` over a raising `__str__` propagates on both
             // engines). Before the temporal branch: a `datetime` whose
             // tzinfo raises inside `__str__` is this carrier too.
-            if encoded.str_raised {
+            if encoded.str_raised() {
                 if let Some(handle) = encoded.live.as_ref() {
                     return Python::attach(|py| -> Result<String> {
                         let text = handle
@@ -2034,7 +2462,7 @@ fn localize_if_number(value: &Value) -> Result<String> {
                 // them.
                 return Ok(match value.container_spelling() {
                     Some(spelled) => spelled.to_string(),
-                    None => encoded.display.clone(),
+                    None => encoded.display().to_string(),
                 });
             }
             // `localize_temporal` resolved once per process, not per value.
@@ -2044,7 +2472,7 @@ fn localize_if_number(value: &Value) -> Result<String> {
                 pyo3::sync::PyOnceLock::new();
             return Python::attach(|py| -> PyResult<String> {
                 let Some(value) = encoded.temporal_object(py)? else {
-                    return Ok(encoded.display.clone());
+                    return Ok(encoded.display().to_string());
                 };
                 // `None` is cached ONLY for ImportError (a bare-Rust harness
                 // with no djust package); any other failure propagates and
@@ -2063,7 +2491,7 @@ fn localize_if_number(value: &Value) -> Result<String> {
                         }
                     })?;
                 let Some(localize) = localize else {
-                    return Ok(encoded.display.clone());
+                    return Ok(encoded.display().to_string());
                 };
                 let use_l10n = USE_L10N_STACK.with(|stack| stack.borrow().last().copied());
                 localize.bind(py).call1((value, use_l10n))?.extract()
@@ -2226,7 +2654,7 @@ pub fn render_nodes_collecting<L: TemplateLoader>(
     let mut output = String::new();
     let mut fragments = Vec::with_capacity(nodes.len());
     for node in nodes {
-        let fragment = render_effectful_node(node, &mut context, loader)?;
+        let fragment = render_effectful_node_output::<L, String>(node, &mut context, loader)?;
         output.push_str(&fragment);
         fragments.push(fragment);
     }
@@ -2264,7 +2692,7 @@ pub fn render_nodes_partial<L: TemplateLoader>(
         });
         let html = if needs_render {
             changed.push(i);
-            render_effectful_node(node, &mut context, loader)?
+            render_effectful_node_output::<L, String>(node, &mut context, loader)?
         } else {
             node_html_cache[i].clone()
         };
@@ -2355,8 +2783,8 @@ struct DeferredBlockSuper {
     loader: Option<std::sync::Arc<dyn TemplateLoader + Send + Sync>>,
 }
 
-impl djust_core::context::BlockSuperSource for DeferredBlockSuper {
-    fn render_block_super(&self, ctx: &Context) -> Result<String> {
+impl DeferredBlockSuper {
+    fn render_output<R: RenderOutput>(&self, ctx: &Context) -> Result<R> {
         // A CLONE of the live context, not a scope push on it, because the
         // resolver hands us `&Context` and the render needs `&mut`. The two
         // are equivalent for what Django does here: `BlockNode.render` wraps
@@ -2383,18 +2811,31 @@ impl djust_core::context::BlockSuperSource for DeferredBlockSuper {
             Some(handle) => {
                 let loader = SharedLoader(std::sync::Arc::clone(handle));
                 scoped.with_scope(|inner| {
-                    render_nodes_with_loader_mut(&self.super_nodes, inner, Some(&loader))
+                    render_nodes_output::<SharedLoader, R>(&self.super_nodes, inner, Some(&loader))
                 })
             }
             None => scoped.with_scope(|inner| {
-                render_nodes_with_loader_mut(&self.super_nodes, inner, None::<&NoOpLoader>)
+                render_nodes_output::<NoOpLoader, R>(&self.super_nodes, inner, None::<&NoOpLoader>)
             }),
         }
     }
 }
 
-/// The context map to hand a PYTHON-BRIDGED tag, with `block.super`
-/// materialised when one is armed (#2710).
+impl djust_core::context::BlockSuperSource for DeferredBlockSuper {
+    fn render_block_super(&self, ctx: &Context) -> Result<String> {
+        self.render_output::<String>(ctx)
+    }
+    fn render_block_super_authored(
+        &self,
+        ctx: &Context,
+    ) -> Result<djust_core::context::AuthoredOutput> {
+        let rendered = self.render_output::<crate::provenance::Rendered>(ctx)?;
+        Ok(rendered.into_authored_output())
+    }
+}
+
+/// The context map to hand a PYTHON-BRIDGED tag, with `block.super` deferred
+/// behind a lazy object when one is armed (#2710, #2918).
 ///
 /// #2710 defers the parent render to the moment an expression resolves
 /// `block.super`, which works for every operand channel the RENDERER owns
@@ -2402,51 +2843,86 @@ impl djust_core::context::BlockSuperSource for DeferredBlockSuper {
 /// renderer's: a bridged tag receives the context as a FLAT MAP
 /// ([`djust_core::Context::to_hashmap`]) and Django's own Python code then
 /// resolves against that map — `{% blocktranslate with s=block.super %}` is
-/// the shape that finds it. A map has nothing to defer behind, so this is
-/// where the laziness ends.
+/// the shape that finds it.
+///
+/// A map has nothing to defer behind, so `block` in it is a [`LazyBlock`]
+/// (`djust_core`) rather than a rendered string: the parent runs when the
+/// tag READS `super`, once per read, and not at all for a tag that never
+/// does. Django's context carries the `BlockNode` and `super()` is a method,
+/// so this is the same shape — the parent's own side effects now run exactly
+/// as often as Django's. The earlier version rendered the parent for every
+/// bridged call made inside an overriding block (60 handler calls against 12
+/// in #2916's probe).
 ///
 /// The ONE statement of that rule, read by every `to_hashmap()` caller,
 /// because a second copy is #1646 and the sites are seven
 /// (`the_python_bridge_has_exactly_the_callers_it_claims` pins the SET, not
-/// a floor). Costs nothing when nothing is armed, which is every render that
-/// is not inside an overriding `{% block %}`.
+/// a floor). Costs nothing when nothing is armed. Armed is wider than "inside
+/// a block that names `block.super`": every inherited block of an extending
+/// template is wrapped in a (possibly empty-parent) scope, so a bridged call
+/// anywhere inside `{% extends %}` pays for one `LazyBlock`.
 ///
-/// **The residual divergence, stated rather than left silent**: a bridged tag
-/// inside such a block renders the parent even when it never asks — the class
-/// #2710 fixes, narrowed to this boundary. Django does not: its context
-/// carries the `BlockNode` and `super()` is a method. Closing it would mean
-/// scanning the bridged tag's own source text for the name, which is the
-/// "static detection is not evidence of evaluation" reasoning #2710 rejects,
-/// one level down. What this DOES preserve is the pre-#2710 behaviour at
-/// these seven sites exactly, so nothing that worked stops working.
-fn bridged_context_map(context: &Context) -> Result<std::collections::HashMap<String, Value>> {
-    let Some(parent_html) = context.render_armed_block_super()? else {
-        return Ok(context.to_hashmap());
-    };
-    let mut owned = context.clone();
-    // Disarmed on the copy so nothing can render the parent a SECOND time
-    // for the same tag: the binding below is now the answer.
-    owned.disarm_block_super();
-    let mut block_obj = indexmap::IndexMap::new();
-    block_obj.insert(
-        djust_core::ObjectKey::from("super"),
-        Value::String(parent_html),
-    );
-    owned.bind("block".to_string(), Value::Object(block_obj), false);
-    owned.mark_safe("block.super".to_string());
-    Ok(owned.to_hashmap())
+/// A user binding named `block` (a `{% for block in … %}` variable) is left
+/// alone: the lazy object replaces only the scope's own, EMPTY `block`.
+fn bridged_context_map(context: &Context) -> Result<BridgedContextMap> {
+    let mut map = context.to_hashmap();
+    // #3773: the typed-operand channel is the engine's. See `TYPED_ARGS_KEY`.
+    map.remove(TYPED_ARGS_KEY);
+    let mut guard = None;
+    if let Some((lazy_block, lazy_guard)) = context.lazy_block_value()? {
+        let scope_block =
+            matches!(map.get("block"), Some(Value::Object(fields)) if fields.is_empty());
+        if scope_block {
+            map.insert("block".to_string(), lazy_block);
+            guard = Some(lazy_guard);
+        }
+    }
+    Ok(BridgedContextMap { map, _guard: guard })
 }
 
-pub fn render_node_with_loader_mut<L: TemplateLoader>(
+/// The flat map a bridged tag is called with, plus the [`LazyBlockGuard`] that
+/// ends the lazy `block`'s snapshot when this drops — after the call, on every
+/// path. Derefs to the map, so the seven callers pass `&context_map` as before.
+struct BridgedContextMap {
+    map: std::collections::HashMap<String, Value>,
+    _guard: Option<djust_core::LazyBlockGuard>,
+}
+
+impl std::ops::Deref for BridgedContextMap {
+    type Target = std::collections::HashMap<String, Value>;
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+pub fn render_node_output<L: TemplateLoader, R: RenderOutput>(
     node: &Node,
     context: &mut Context,
     loader: Option<&L>,
-) -> Result<String> {
+) -> Result<R> {
     match node {
-        Node::Located { .. } => render_effectful_node(node, context, loader),
-        Node::Text(text) => Ok(text.clone()),
+        Node::Located { .. } => render_effectful_node_output::<L, R>(node, context, loader),
+        Node::Text(text) => {
+            let mut output = R::authored(text);
+            if R::TRACKED {
+                output.loop_identity(context);
+            }
+            Ok(output)
+        }
 
         Node::Variable(var_name, filter_specs, in_attr) => {
+            let mut super_value = None;
+            let mut super_context = None;
+            if R::TRACKED && var_name == "block.super" && context.get(var_name).is_none() {
+                if let Some(output) = context.render_armed_block_super_authored()? {
+                    if filter_specs.is_empty() {
+                        return Ok(R::from_authored_output(output));
+                    }
+                    super_value = Some(Value::SafeString(output.0.clone()));
+                    super_context = Some(output);
+                }
+            }
+
             // A LITERAL is decided before any lookup, exactly as Django does
             // it (#2376). `Variable.__init__` runs at COMPILE time and a
             // quoted or numeric token never becomes a `lookups` tuple at all,
@@ -2466,7 +2942,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // then falls back to `getattr` on any Py<PyAny> sidecar attached
             // to the context (e.g. Django model instances). The `?`
             // propagates exceptions raised inside an auto-called method
-            // (ADR-024 Django parity); lookup misses stay `Ok(None)`.
+            // (ADR-024 Django parity); lookup misses stay `Ok((None).into())`.
             let literal = django_literal(var_name);
             let literal_safe = literal.as_ref().is_some_and(|(_, safe)| *safe);
             // Captured BEFORE the move below: a literal is never a failed
@@ -2474,7 +2950,10 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             let was_literal = literal.is_some();
             let mut value = match literal {
                 Some((value, _)) => value,
-                None => context.resolve(var_name)?.unwrap_or(Value::Missing),
+                None => match super_value {
+                    Some(value) => value,
+                    None => context.resolve(var_name)?.unwrap_or(Value::Missing),
+                },
             };
 
             // Django's `string_if_invalid` (#2517). A NON-empty setting is
@@ -2488,13 +2967,14 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     // makes: Django puts the marker through
                     // `render_value_in_context`, which applies
                     // `conditional_escape` like any other value.
-                    return Ok(if !context.autoescape() {
+                    return Ok((if !context.autoescape() {
                         marker
                     } else if *in_attr {
                         filters::html_escape_attr(&marker)
                     } else {
                         filters::html_escape(&marker)
-                    });
+                    })
+                    .into());
                 }
             }
 
@@ -2534,6 +3014,41 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // before widening it. Seeded `false` for anything that is not a
             // fully-marked sequence, which is the escaping direction.
             let mut items_safe = context.items_are_safe(var_name);
+            let captured = if R::TRACKED {
+                super_context
+                    .as_ref()
+                    .map(|output| output.3.clone())
+                    .or_else(|| context.captured_literals(var_name))
+            } else {
+                None
+            };
+            let mut literal_blocked = captured.as_ref().is_some_and(|capture| capture.blocked);
+            let mut blank_value =
+                captured
+                    .as_ref()
+                    .and_then(|c| c.blank_html.clone())
+                    .map(|text| {
+                        (
+                            Value::String(text),
+                            filters::InputSafety {
+                                container: runtime_safe,
+                                items: items_safe,
+                            },
+                        )
+                    });
+            let mut literal_value =
+                captured
+                    .clone()
+                    .and_then(|capture| capture.html)
+                    .map(|literal| {
+                        (
+                            Value::String(literal),
+                            filters::InputSafety {
+                                container: runtime_safe,
+                                items: items_safe,
+                            },
+                        )
+                    });
             for (filter_name, arg) in filter_specs {
                 // Strip quotes from literal filter args at render time —
                 // the parser preserves quotes so the dep-tracking
@@ -2545,7 +3060,8 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 let arg_was_quoted = original.map(is_quoted_arg).unwrap_or(false);
                 let unescaped = original.map(crate::parser::unescape_filter_arg_literal);
                 let stripped = unescaped.as_deref();
-                let (new_value, produced_safe) = filters::apply_filter_full_safe(
+                let replay = replayable_filter(filter_name, original, context);
+                let (new_value, produced_safe) = filters::apply_filter_with_projections(
                     filter_name,
                     &value,
                     stripped,
@@ -2563,7 +3079,19 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     // Django's `needs_autoescape` OTHER term (#2556): the
                     // surrounding `{% autoescape %}` policy.
                     context.autoescape(),
+                    if replay { literal_value.as_mut() } else { None },
+                    if replay { blank_value.as_mut() } else { None },
                 )?;
+                if !replay
+                    && literal_value
+                        .as_ref()
+                        .is_some_and(|(literal, _)| !literal.to_string().is_empty())
+                    && new_value.to_string() != value.to_string()
+                {
+                    literal_value = None;
+                    blank_value = None;
+                    literal_blocked = true;
+                }
                 value = new_value;
                 // Captured BEFORE the reassignment below: both rules read the
                 // safety of the value that went IN, and the item rule reads it
@@ -2623,18 +3151,79 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // in HERE and nowhere upstream — `runtime_safe` is exactly what it
             // was, so the flag never becomes a grant a later filter could read.
             let is_safe = runtime_safe || value.string_conversion_is_safe();
-            if is_safe || !context.autoescape() {
-                Ok(text)
+            let text = if is_safe || !context.autoescape() {
+                text
             } else if *in_attr {
-                // Attribute-context escape: handles `"` → `&quot;`
-                // and `'` → `&#x27;` in addition to the base
-                // `&`/`<`/`>` escapes, so quoted attribute values
-                // like `<a href="{{ url }}">` never break when the
-                // value itself contains a quote.
-                Ok(filters::html_escape_attr(&text))
+                filters::html_escape_attr(&text)
             } else {
-                Ok(filters::html_escape(&text))
+                filters::html_escape(&text)
+            };
+            context.take_provenance_flatten();
+            let literal_output = R::TRACKED
+                && ((was_literal && !var_name.starts_with("_("))
+                    || context.is_template_literal(var_name))
+                && filters_are_literal(filter_specs, context);
+            // Replay the same filters over the capture's literal-only run.
+            // This drops start-tag authority without retaining stale closers.
+            if captured.is_some() {
+                // Use the PAGE's final escape decision, not replay safety:
+                // escaping an authored closer must erase it in both trees.
+                let blank = blank_value.and_then(|(value, _)| {
+                    let literal = value.to_string();
+                    let escaped = if is_safe || !context.autoescape() {
+                        literal.clone()
+                    } else if *in_attr {
+                        filters::html_escape_attr(&literal)
+                    } else {
+                        filters::html_escape(&literal)
+                    };
+                    if escaped != literal && escaping_erases_hiding_context(&literal) {
+                        literal_blocked = true;
+                        None
+                    } else {
+                        Some(escaped)
+                    }
+                });
+                let literal = literal_value.and_then(|(value, _)| {
+                    let literal = value.to_string();
+                    let escaped = if is_safe || !context.autoescape() {
+                        literal.clone()
+                    } else if *in_attr {
+                        filters::html_escape_attr(&literal)
+                    } else {
+                        filters::html_escape(&literal)
+                    };
+                    if escaped != literal && escaping_erases_hiding_context(&literal) {
+                        literal_blocked = true;
+                        None
+                    } else {
+                        Some(escaped)
+                    }
+                });
+                return Ok(R::captured_projection(
+                    text,
+                    LiteralOutput {
+                        html: if literal_blocked {
+                            Some(String::new())
+                        } else {
+                            literal
+                        },
+                        blank_html: if literal_blocked {
+                            Some(String::new())
+                        } else {
+                            blank
+                        },
+                        blank_openings: Vec::new(),
+                        openings: Vec::new(),
+                        blocked: literal_blocked,
+                    },
+                ));
             }
+            Ok(if literal_output {
+                R::context_literal(text)
+            } else {
+                text.into()
+            })
         }
 
         Node::InlineIf {
@@ -2643,7 +3232,9 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             false_expr,
             filters,
         } => {
-            let expr = if evaluate_condition_for_if(condition, context)? {
+            let condition_result = evaluate_condition_for_if(condition, context)?;
+            context.take_provenance_flatten();
+            let expr = if condition_result {
                 true_expr.as_str()
             } else {
                 false_expr.as_str()
@@ -2657,6 +3248,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // read before, so nothing that resolved through the context
             // changes answer.
             let (mut value, seeded_safe) = get_value_safe(expr, context)?;
+            let capture = captured_expression(expr, context);
 
             // See the Variable arm: track the LAST filter's runtime safeness so
             // a custom filter that ``mark_safe()``s at runtime bypasses escaping
@@ -2666,12 +3258,39 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // See the Variable arm: item-level safety, seeded from the context
             // (#2283, #2287) — the second of the three sites.
             let mut items_safe = context.items_are_safe(expr);
+            let mut literal_blocked = capture.as_ref().is_some_and(|capture| capture.blocked);
+            let mut blank_value = capture
+                .as_ref()
+                .and_then(|c| c.blank_html.clone())
+                .map(|text| {
+                    (
+                        Value::String(text),
+                        filters::InputSafety {
+                            container: runtime_safe,
+                            items: items_safe,
+                        },
+                    )
+                });
+            let mut literal_value =
+                capture
+                    .clone()
+                    .and_then(|capture| capture.html)
+                    .map(|literal| {
+                        (
+                            Value::String(literal),
+                            filters::InputSafety {
+                                container: runtime_safe,
+                                items: items_safe,
+                            },
+                        )
+                    });
             for (filter_name, arg) in filters {
                 let original = arg.as_deref();
                 let arg_was_quoted = original.map(is_quoted_arg).unwrap_or(false);
                 let unescaped = original.map(crate::parser::unescape_filter_arg_literal);
                 let stripped = unescaped.as_deref();
-                let (new_value, produced_safe) = filters::apply_filter_full_safe(
+                let replay = replayable_filter(filter_name, original, context);
+                let (new_value, produced_safe) = filters::apply_filter_with_projections(
                     filter_name,
                     &value,
                     stripped,
@@ -2686,7 +3305,19 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     // Django's `needs_autoescape` OTHER term (#2556): the
                     // surrounding `{% autoescape %}` policy.
                     context.autoescape(),
+                    if replay { literal_value.as_mut() } else { None },
+                    if replay { blank_value.as_mut() } else { None },
                 )?;
+                if !replay
+                    && literal_value
+                        .as_ref()
+                        .is_some_and(|(literal, _)| !literal.to_string().is_empty())
+                    && new_value.to_string() != value.to_string()
+                {
+                    literal_value = None;
+                    blank_value = None;
+                    literal_blocked = true;
+                }
                 value = new_value;
                 // Captured BEFORE the reassignment below: both rules read the
                 // safety of the value that went IN, and the item rule reads it
@@ -2721,16 +3352,71 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // Applied at BOTH variable-output sites (`Node::Variable` and the
             // inline-if expression), which are byte-identical and were found
             // only by counting the matches rather than by reading the diff.
+            context.take_provenance_flatten();
             let text = localize_if_number(&value)?;
             // Same shape as the Variable arm — see `filter_output_is_safe`.
             // Seeded, not OR-ed — see the Variable arm (#2274).
             let is_safe = runtime_safe || value.string_conversion_is_safe();
-            // Row 2 of #2556 — same shape as the Variable arm.
-            if is_safe || !context.autoescape() {
-                Ok(text)
+            let text = if is_safe || !context.autoescape() {
+                text
             } else {
-                Ok(filters::html_escape(&text))
-            }
+                filters::html_escape(&text)
+            };
+            Ok(if capture.is_some() {
+                let blank = blank_value.and_then(|(value, _)| {
+                    let literal = value.to_string();
+                    let escaped = if is_safe || !context.autoescape() {
+                        literal.clone()
+                    } else {
+                        filters::html_escape(&literal)
+                    };
+                    if escaped != literal && escaping_erases_hiding_context(&literal) {
+                        literal_blocked = true;
+                        None
+                    } else {
+                        Some(escaped)
+                    }
+                });
+                let literal = literal_value.and_then(|(value, _)| {
+                    let literal = value.to_string();
+                    let escaped = if is_safe || !context.autoescape() {
+                        literal.clone()
+                    } else {
+                        filters::html_escape(&literal)
+                    };
+                    if escaped != literal && escaping_erases_hiding_context(&literal) {
+                        literal_blocked = true;
+                        None
+                    } else {
+                        Some(escaped)
+                    }
+                });
+                R::captured_projection(
+                    text,
+                    LiteralOutput {
+                        html: if literal_blocked {
+                            Some(String::new())
+                        } else {
+                            literal
+                        },
+                        blank_html: if literal_blocked {
+                            Some(String::new())
+                        } else {
+                            blank
+                        },
+                        blank_openings: Vec::new(),
+                        openings: Vec::new(),
+                        blocked: literal_blocked,
+                    },
+                )
+            } else if R::TRACKED
+                && expression_is_literal(expr, context)
+                && filters_are_literal(filters, context)
+            {
+                R::context_literal(text)
+            } else {
+                text.into()
+            })
         }
 
         Node::If {
@@ -2741,21 +3427,23 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             marker_id,
         } => {
             let condition_result = evaluate_condition_for_if(condition, context)?;
+            // Condition operands are evaluated but their bytes are not emitted.
+            context.take_provenance_flatten();
             // #2519: the plain-backend path (and the engine built without the
             // `liveview` feature) renders `{% if %}` exactly as Django does —
             // no placeholder, no boundary pair. One switch for both forms.
             let markers = dj_if_markers_enabled(context);
 
             // Render the body that fires (truthy/falsy branch).
-            let body = if condition_result {
-                render_nodes_with_loader_mut(true_nodes, context, loader)?
+            let mut body = if condition_result {
+                render_nodes_output::<L, R>(true_nodes, context, loader)?
             } else if false_nodes.is_empty() {
                 if *in_tag_context || !markers {
                     // Inside an HTML attribute value: a comment node would produce
                     // malformed HTML (e.g. class="btn <!--dj-if-->"). Emit empty
                     // string instead. Fix for issue #380. Same answer when
                     // markers are off (#2519).
-                    String::new()
+                    R::default()
                 } else if !nodes_contain_elements(true_nodes)
                     && !nodes_contain_elements(false_nodes)
                 {
@@ -2764,15 +3452,18 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     // Element-bearing branches drop into the dj-if pair
                     // path below, which serves the same sibling-stability
                     // role (closing tag adjacent to opening).
-                    "<!--dj-if-->".to_string()
+                    R::context_neutral("<!--dj-if-->".to_string())
                 } else {
                     // Element-bearing if with no else and false condition:
                     // emit empty body inside the wrapping pair below.
-                    String::new()
+                    R::default()
                 }
             } else {
-                render_nodes_with_loader_mut(false_nodes, context, loader)?
+                render_nodes_output::<L, R>(false_nodes, context, loader)?
             };
+            if R::TRACKED && body.has_origin() {
+                body.identify(if condition_result { "then" } else { "else" });
+            }
 
             // Decide whether to wrap in `<!--dj-if id="if-N"-->` /
             // `<!--/dj-if-->` boundary markers. Wrap iff:
@@ -2838,9 +3529,12 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     // segments, so the two concatenate unambiguously.
                     let include_path = context.dj_if_include_path();
                     let loop_path = context.dj_if_loop_path();
-                    return Ok(format!(
-                        "<!--dj-if id=\"{id}{namespace}{include_path}{loop_path}\"-->{body}<!--/dj-if-->"
+                    let mut wrapped = R::context_neutral(format!(
+                        "<!--dj-if id=\"{id}{namespace}{include_path}{loop_path}\"-->"
                     ));
+                    wrapped.append(&body);
+                    wrapped.append(&R::context_neutral("<!--/dj-if-->".to_owned()));
+                    return Ok(wrapped);
                 }
             }
 
@@ -2871,6 +3565,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // unescaped, which is the one direction this fix must not move
             // (`{% for x in p|safe %}` over-escapes, as it did before).
             let iterable_value = get_value_ignoring_failures(iterable, context)?;
+            context.take_provenance_flatten();
 
             // Python iterates a string by CHARACTER, and #2325's own repro
             // table needs it: `{% for x in p|upper %}` over `"ab"` is `AB` in
@@ -2909,6 +3604,12 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     true,
                     Vec::new(),
                 ),
+                // A serialized Django model is not iterable (`list(model)` raises): it falls
+                // through to the refusal arm below, as a live model handle does, rather than
+                // iterating the keys of the map it was serialized to.
+                model @ Value::Object(_) if model.model_str().is_some() => {
+                    (model, false, Vec::new())
+                }
                 Value::Object(map) => (
                     // Each key as the VALUE it is, not its text: an int key
                     // binds `Value::Integer` so `{{ k }}` renders `0` and
@@ -2991,13 +3692,13 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 Value::List(items) | Value::Tuple(items) | Value::NamedTuple { items, .. } => {
                     // If list is empty, render the {% empty %} block
                     if items.is_empty() {
-                        return render_nodes_with_loader_mut(empty_nodes, context, loader);
+                        return render_nodes_output::<L, R>(empty_nodes, context, loader);
                     }
 
                     let parent_context = context.clone();
                     context.with_scope(|ctx| {
                         let context = &parent_context;
-                        let mut output = String::new();
+                        let mut output = R::default();
                         // ONE fresh `{% ifchanged %}` frame per EXECUTION of this
                         // loop, hoisted out of the iteration exactly as Django
                         // binds one `forloop` dict before iterating. Inside the
@@ -3116,10 +3817,11 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                         //       See `loop_cache::body_is_cacheable`.
                         // When disabled, `loop_caching_enabled` is `false` and the
                         // render path below is byte-identical to before #1967.
-                        let loop_caching_enabled = crate::loop_cache::with_active_cache(|cache| {
-                            cache.body_cacheable(nodes, var_names)
-                        })
-                        .unwrap_or(false);
+                        let loop_caching_enabled = !R::TRACKED
+                            && crate::loop_cache::with_active_cache(|cache| {
+                                cache.body_cacheable(nodes, var_names)
+                            })
+                            .unwrap_or(false);
 
                         // No per-iteration `{% cycle %}` counter here any more (#2556):
                         // cycle state is per NODE per RENDER on the `Context`'s
@@ -3419,12 +4121,11 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                                 // (on a parse-miss) and to reconstruct the full HTML
                                 // for the fallback / `last_html`.
                                 let item_html = match cached {
-                                    Some(html) => html,
+                                    Some(html) => R::from(html),
                                     None => {
-                                        let html =
-                                            render_nodes_with_loader_mut(nodes, ctx, loader)?;
+                                        let html = render_nodes_output::<L, R>(nodes, ctx, loader)?;
                                         crate::loop_cache::with_active_cache(|cache| {
-                                            cache.insert(hash, html.clone())
+                                            cache.insert(hash, html.to_string())
                                         });
                                         html
                                     }
@@ -3464,7 +4165,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                                         cache.record_manifest_item(
                                             hash,
                                             parse_hit,
-                                            item_html.clone(),
+                                            item_html.to_string(),
                                         );
                                     })
                                     .is_some();
@@ -3486,10 +4187,10 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                                     // the real item HTML. `render_with_diff` parses
                                     // it and (for recorded eligible items) caches the
                                     // resulting subtree.
-                                    output.push_str(&item_html);
+                                    output.append(&item_html);
                                 }
                             } else {
-                                output.push_str(&render_nodes_with_loader_mut(nodes, ctx, loader)?);
+                                output.append(&render_nodes_output::<L, R>(nodes, ctx, loader)?);
                             }
                         }
 
@@ -3542,7 +4243,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     // folded into the raise below: these two are the reason
                     // this class is about non-iterables rather than falsiness,
                     // and they AGREE today.
-                    render_nodes_with_loader_mut(empty_nodes, context, loader)
+                    render_nodes_output::<L, R>(empty_nodes, context, loader)
                 }
                 other => Err(DjangoRustError::TemplateError(format!(
                     "'{}' object is not iterable",
@@ -3553,7 +4254,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
 
         Node::Block { name: _, nodes } => context.with_scope(|inner| {
             inner.enter_base_block();
-            render_nodes_with_loader_mut(nodes, inner, loader)
+            render_nodes_output::<L, R>(nodes, inner, loader)
         }),
 
         Node::Include {
@@ -3575,6 +4276,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 let literal = is_quoted_literal(template)
                     && !crate::filter_lexer::has_unquoted_pipe(template);
                 let (mut value, _) = get_value_safe(template.trim(), context)?;
+                context.take_provenance_flatten();
                 if matches!(value, Value::Missing) {
                     value =
                         Value::String(context.string_if_invalid_for(template).unwrap_or_default());
@@ -3735,7 +4437,13 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 let mut pending = Vec::new();
                 for (key, expression) in with_vars {
                     let (value, safe) = get_value_safe(expression, context)?;
-                    bindings.push((key.clone(), value, safe));
+                    bindings.push((
+                        key.clone(),
+                        value,
+                        safe,
+                        R::TRACKED && expression_is_literal(expression, context),
+                        captured_expression(expression, context),
+                    ));
                     if let Some(path) = bare_dotted_path(expression) {
                         pending.push((key.clone(), context.alias_path(path)));
                     }
@@ -3748,12 +4456,18 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 let render_include = |include_context: &mut Context| {
                     include_context.enter_include_instance(shared, identity);
                     include_context.begin_template_render();
-                    for (name, value, safe) in bindings {
-                        include_context.bind(name, value, safe);
+                    for (name, value, safe, literal, capture) in bindings {
+                        include_context.bind(name.clone(), value, safe);
+                        if literal {
+                            include_context.mark_template_literal(&name);
+                        }
+                        if let Some(capture) = capture {
+                            include_context.mark_captured_literals(&name, capture);
+                        }
                     }
                     register_binding_aliases(include_context, pending, &bound);
                     if let Some(object) = &object {
-                        return render_template_object(object, include_context);
+                        return render_template_object(object, include_context).map(R::from);
                     }
                     // Resolve the parent only after `with` and `only` establish
                     // the context in which the included template renders.
@@ -3774,7 +4488,12 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                             nodes
                         };
 
-                    render_nodes_with_loader_mut(&nodes, include_context, Some(loader))
+                    let mut output =
+                        render_nodes_output::<L, R>(&nodes, include_context, Some(loader))?;
+                    if R::TRACKED && output.has_origin() {
+                        output.identify(&format!("include:{}", name));
+                    }
+                    Ok(output)
                 };
                 if let Some(fresh) = fresh_context.as_mut() {
                     render_include(fresh)
@@ -3790,7 +4509,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             } else {
                 // No loader available — silently omit ({% include %} without a loader
                 // is valid in tests where only a fragment is rendered)
-                Ok(String::new())
+                Ok((String::new()).into())
             }
         }
 
@@ -3800,7 +4519,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             children,
         } => {
             // Render React component as data attributes for client-side hydration
-            let mut output = String::new();
+            let mut output = R::default();
             output.push_str(&format!("<div data-react-component=\"{name}\""));
 
             // Add props as data attributes
@@ -3843,14 +4562,14 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     "{{{}}}",
                     props_json.join(",")
                 )));
-                output.push('\'');
+                output.push_str("'");
             }
 
-            output.push('>');
+            output.push_str(">");
 
             // Render children
             for child in children {
-                output.push_str(&render_node_with_loader_mut(child, context, loader)?);
+                output.append(&render_node_output::<L, R>(child, context, loader)?);
             }
 
             output.push_str("</div>");
@@ -3859,8 +4578,9 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
 
         #[cfg(feature = "liveview")]
         Node::RustComponent { name, props } => {
-            // Render Rust component server-side
-            render_rust_component(name, props, context)
+            // Deprecated in 1.3, removed in 2.0.0: warn, then render as before.
+            warn_rust_component_tag(name)?;
+            render_rust_component(name, props, context).map(R::from)
         }
 
         #[cfg(not(feature = "liveview"))]
@@ -3883,12 +4603,29 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             match token {
                 Some(t) => {
                     let escaped = filters::html_escape(&t);
-                    Ok(format!(
+                    Ok((format!(
                         "<input type=\"hidden\" name=\"csrfmiddlewaretoken\" value=\"{escaped}\">"
                     ))
+                    .into())
                 }
-                None => Ok(String::new()),
+                None => Ok((String::new()).into()),
             }
+        }
+
+        Node::DjustAudio => {
+            // Same markup and escaping as the Python `djust_audio` tag
+            // (`format_html`, which escapes the manifest like `html_escape`).
+            // Absent or `None` is an error, like the Python tag's `is None`.
+            let manifest = context
+                .get("djust_audio_manifest")
+                .filter(|v| !matches!(v, Value::None | Value::Missing))
+                .ok_or_else(|| {
+                    DjangoRustError::TemplateError(
+                        "djust_audio requires AudioMixin on the view".to_string(),
+                    )
+                })?;
+            let escaped = filters::html_escape(&manifest.to_string());
+            Ok((format!("{DJUST_AUDIO_OPEN}{escaped}{DJUST_AUDIO_CLOSE}")).into())
         }
 
         Node::Static(operand) => {
@@ -3912,7 +4649,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     v => v.to_string(),
                 }
             };
-            Ok(format!("{static_url}{path}"))
+            Ok((format!("{static_url}{path}")).into())
         }
 
         Node::With { assignments, nodes } => {
@@ -3921,18 +4658,30 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             let mut pending = Vec::new();
             for (name, expression) in assignments {
                 let (value, safe) = get_value_safe(expression, context)?;
-                bindings.push((name.clone(), value, safe));
+                bindings.push((
+                    name.clone(),
+                    value,
+                    safe,
+                    R::TRACKED && expression_is_literal(expression, context),
+                    captured_expression(expression, context),
+                ));
                 if let Some(path) = bare_dotted_path(expression) {
                     pending.push((name.clone(), context.alias_path(path)));
                 }
             }
             let bound: Vec<&str> = assignments.iter().map(|(name, _)| name.as_str()).collect();
             context.with_scope(|inner| {
-                for (name, value, safe) in bindings {
-                    inner.bind(name, value, safe);
+                for (name, value, safe, literal, capture) in bindings {
+                    inner.bind(name.clone(), value, safe);
+                    if literal {
+                        inner.mark_template_literal(&name);
+                    }
+                    if let Some(capture) = capture {
+                        inner.mark_captured_literals(&name, capture);
+                    }
                 }
                 register_binding_aliases(inner, pending, &bound);
-                render_nodes_with_loader_mut(nodes, inner, loader)
+                render_nodes_output::<L, R>(nodes, inner, loader)
             })
         }
 
@@ -3945,8 +4694,8 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             ))
         }
 
-        Node::Comment => Ok(String::new()),
-        Node::Load(_) => Ok(String::new()), // No-op at render time; preserved for reconstruction
+        Node::Comment => Ok((String::new()).into()),
+        Node::Load(_) => Ok((String::new()).into()), // No-op at render time; preserved for reconstruction
 
         Node::WidthRatio {
             value,
@@ -3960,22 +4709,29 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // sibling-aware loops can apply — a lone node has no sibling to
             // hand a mutated context to, exactly as `Node::AssignTag` here
             // invokes its handler and discards the updates.
-            Ok(if asvar.is_some() {
+            Ok((if asvar.is_some() {
                 String::new()
             } else {
                 result
             })
+            .into())
         }
 
         Node::FirstOf { args, asvar } => {
             // `as <var>` renders NOTHING; the assignment is `sibling_updates`'
             // job, exactly as for `Node::WidthRatio` above.
             if asvar.is_some() {
-                return Ok(String::new());
+                return Ok((String::new()).into());
             }
-            Ok(first_of(args, context)?
-                .map(|value| value.to_string())
-                .unwrap_or_default())
+            let (value, literal, capture) = first_of(args, context)?;
+            let text = value.map(|v| v.to_string()).unwrap_or_default();
+            Ok(if let Some(capture) = capture {
+                R::captured_projection(text, capture)
+            } else if literal {
+                R::context_literal(text)
+            } else {
+                text.into()
+            })
         }
 
         Node::TemplateTag(name) => {
@@ -3995,7 +4751,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                     )));
                 }
             };
-            Ok(output.to_string())
+            Ok((output.to_string()).into())
         }
 
         Node::AutoEscape { on, nodes } => {
@@ -4003,16 +4759,29 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // body belong to the surrounding variable scope.
             let previous = context.autoescape();
             context.set_autoescape(*on);
-            let result = render_nodes_with_loader_mut(nodes, context, loader);
+            let result = render_nodes_output::<L, R>(nodes, context, loader);
             context.set_autoescape(previous);
             result
         }
 
         Node::Spaceless { nodes } => {
             // {% spaceless %}...{% endspaceless %} → remove whitespace between HTML tags
-            let content = render_nodes_with_loader_mut(nodes, context, loader)?;
+            let content = render_nodes_output::<L, R>(nodes, context, loader)?;
             // Remove whitespace between > and <
-            Ok(SPACELESS_RE.replace_all(content.trim(), "><").to_string())
+            let text = SPACELESS_RE.replace_all(content.trim(), "><").to_string();
+            if R::TRACKED {
+                let output = content.into_authored_output();
+                let mut literal = output.3;
+                literal.blank_html = literal
+                    .blank_html
+                    .map(|literal| SPACELESS_RE.replace_all(literal.trim(), "><").to_string());
+                literal.html = literal
+                    .html
+                    .map(|literal| SPACELESS_RE.replace_all(literal.trim(), "><").to_string());
+                Ok(R::captured_projection(text, literal))
+            } else {
+                Ok(text.into())
+            }
         }
 
         Node::Filter { filters, nodes } => {
@@ -4028,7 +4797,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // block is text, not a keyed subtree (documented limitation).
             let previous_markers = context.emit_dj_if_markers();
             context.set_emit_dj_if_markers(false);
-            let body = render_nodes_with_loader_mut(nodes, context, loader);
+            let body = render_nodes_output::<L, R>(nodes, context, loader);
             context.set_emit_dj_if_markers(previous_markers);
             let body = body?;
             // `bind`, SAFE: `NodeList.render` returns `SafeString`, which is
@@ -4038,7 +4807,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // to any input, safe or not.
             let mut ctx = context.clone();
             ctx.push();
-            ctx.bind("var".to_string(), Value::String(body), true);
+            ctx.bind("var".to_string(), Value::String(body.to_string()), true);
             // ONE pipe loop: `get_value_safe` is the resolver `{{ }}`,
             // `{% firstof %}` and `{% cycle %}` share, so every filter rule
             // is the one they have — never a second copy.
@@ -4050,13 +4819,22 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // on Django (the body's own escape, upper-cased), not the
             // `&amp;LT;` a second escape would make of it. The block's
             // output is therefore exactly the chain's output.
+            if R::TRACKED {
+                ctx.mark_captured_literals("var", body.into_authored_output().3);
+            }
             let expr = format!("var|{}", format_filter_chain(filters));
             let (value, _runtime_safe) = get_value_safe(&expr, &ctx)?;
-            Ok(if matches!(value, Value::Missing) {
+            let text = if matches!(value, Value::Missing) {
                 String::new()
             } else {
                 value.to_string()
-            })
+            };
+            let literals = ctx.take_provenance_flatten();
+            if R::TRACKED {
+                Ok(R::captured_projection(text, literal_run(literals)))
+            } else {
+                Ok(text.into())
+            }
         }
 
         Node::Cycle {
@@ -4070,8 +4848,15 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // update (`sibling_updates`), which is where its single advance
             // and its binding live; this arm is only ever reached for a
             // cycle that binds nothing.
-            let (value, runtime_safe) = cycle_step(values, id, context)?;
-            Ok(cycle_emit(&value, runtime_safe, context.autoescape()))
+            let (value, runtime_safe, literal, capture) = cycle_step(values, id, context)?;
+            let text = cycle_emit(&value, runtime_safe, context.autoescape());
+            Ok(if let Some(capture) = capture {
+                R::captured_projection(text, capture)
+            } else if literal {
+                R::context_literal(text)
+            } else {
+                text.into()
+            })
         }
 
         Node::Cycle { name: Some(_), .. } => {
@@ -4079,15 +4864,21 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // `sibling_updates` first); a direct caller gets the same bytes
             // as the loop would have emitted, with the same single advance.
             match sibling_updates(node, context, loader)? {
-                Some(effect) => Ok(effect.html),
-                None => Ok(String::new()),
+                Some(effect) => Ok(if let Some(capture) = effect.capture {
+                    R::captured_projection(effect.html, capture)
+                } else if effect.literal {
+                    R::context_literal(effect.html)
+                } else {
+                    effect.html.into()
+                }),
+                None => Ok((String::new()).into()),
             }
         }
 
         Node::ResetCycle { id, .. } => {
             // {% resetcycle [name] %} → `CycleNode.reset(context)`, "" (#2556).
             context.cycle_reset(id);
-            Ok(String::new())
+            Ok((String::new()).into())
         }
 
         Node::BlockSuperScope { super_nodes, nodes } => {
@@ -4130,7 +4921,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 );
                 scoped.mark_safe("block.super".to_string());
                 scoped.arm_block_super(source);
-                render_nodes_with_loader_mut(nodes, scoped, loader)
+                render_nodes_output::<L, R>(nodes, scoped, loader)
             })
         }
 
@@ -4153,8 +4944,8 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // a side effect (`{% cycle %}`, a custom tag) would otherwise
             // fire twice per iteration.
             let (compare_to, rendered) = if vars.is_empty() {
-                let body = render_nodes_with_loader_mut(nodes, context, loader)?;
-                (body.clone(), Some(body))
+                let body = render_nodes_output::<L, R>(nodes, context, loader)?;
+                (body.to_string(), Some(body))
             } else {
                 // Django resolves with `ignore_failures=True`, so a missing
                 // operand compares as `None` — NOT as `string_if_invalid`,
@@ -4163,6 +4954,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 let mut parts = Vec::with_capacity(vars.len());
                 for var in vars {
                     let (value, _) = get_value_safe_ignoring_failures(var.trim(), context)?;
+                    context.take_provenance_flatten();
                     parts.push(ifchanged_key(&value));
                 }
                 (parts.join("\u{1f}"), None)
@@ -4171,19 +4963,19 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             if context.ifchanged_step_in_template(id, origin.as_deref(), &compare_to) {
                 match rendered {
                     Some(body) => Ok(body),
-                    None => render_nodes_with_loader_mut(nodes, context, loader),
+                    None => render_nodes_output::<L, R>(nodes, context, loader),
                 }
             } else if else_nodes.is_empty() {
-                Ok(String::new())
+                Ok((String::new()).into())
             } else {
-                render_nodes_with_loader_mut(else_nodes, context, loader)
+                render_nodes_output::<L, R>(else_nodes, context, loader)
             }
         }
 
         Node::Now(format) => {
             // {% now "Y-m-d" %} → current date/time
             let now = chrono::Local::now();
-            Ok(django_date_format(&now, format))
+            Ok((django_date_format(&now, format)).into())
         }
 
         Node::UnsupportedTag { name, args } => {
@@ -4211,7 +5003,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // bindings to, so they are dropped here, as the AssignTag arm
             // below drops its updates.
             let (html, _bindings) = call_block_custom_tag(name, args, children, context, loader)?;
-            Ok(html)
+            Ok((html).into())
         }
 
         Node::AssignTag { name, args } => {
@@ -4224,6 +5016,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // Resolve args (JSON-aware) honoring RESOLVE_ARG_POSITIONS,
             // as in render_nodes_with_loader_mut (#2041).
             let resolved_args = plain_args(resolve_assign_tag_args(name, args, context));
+            context.take_provenance_flatten();
             // #2710: through the ONE bridge, so a deferred `block.super` is
             // materialised for the flat map Python resolves against.
             let context_map = bridged_context_map(context)?;
@@ -4236,7 +5029,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 raw_py.as_deref(),
             )
             .map_err(|e| handler_call_error("Assign tag", name, e))?;
-            Ok(String::new())
+            Ok((String::new()).into())
         }
 
         Node::CustomTag { name, args } => {
@@ -4268,7 +5061,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // to, so they are dropped here, as the AssignTag arm above drops
             // its updates.
             let (html, _bindings) = call_custom_tag(name, args, context)?;
-            Ok(html)
+            Ok((html).into())
         }
 
         Node::RawBlockCustomTag { name, args, body } => {
@@ -4276,12 +5069,16 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // to hand bindings to, so they are dropped here, exactly as the
             // `Node::CustomTag` arm above drops its own.
             let (html, _bindings) = call_raw_block_tag(name, args, body, context)?;
-            Ok(html)
+            Ok((html).into())
         }
 
-        Node::Language { expr, children } => render_language_scope(expr, children, context, loader),
+        Node::Language { expr, children } => {
+            render_language_scope::<L, R>(expr, children, context, loader)
+        }
 
-        Node::Timezone { expr, children } => render_timezone_scope(expr, children, context, loader),
+        Node::Timezone { expr, children } => {
+            render_timezone_scope::<L, R>(expr, children, context, loader)
+        }
 
         Node::Localize { use_l10n, children } => {
             // Django's `LocalizeNode` toggles `context.use_l10n` and
@@ -4296,7 +5093,7 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
             // would inherit a stale `localize` state.
             USE_L10N_STACK.with(|s| s.borrow_mut().push(*use_l10n));
             let _guard = UseL10nGuard;
-            render_nodes_with_loader_mut(children, context, loader)
+            render_nodes_output::<L, R>(children, context, loader)
         }
 
         Node::LocalTime { use_tz, children } => {
@@ -4313,8 +5110,39 @@ pub fn render_node_with_loader_mut<L: TemplateLoader>(
                 crate::timezone::set_active_timezone(None);
                 Some(ActiveTimezoneGuard { prev })
             };
-            render_nodes_with_loader_mut(children, context, loader)
+            render_nodes_output::<L, R>(children, context, loader)
         }
+    }
+}
+
+/// The standard djust deprecation for a JSX-style `<RustX …/>` tag (removed in
+/// 2.0.0). The same route as the dict-style `block["super"]` read
+/// (`djust_core::context::warn_dict_style`): `djust._deprecation.warn_deprecated`.
+///
+/// No interpreter (a pure-Rust test) or no `djust` package (a bare embedded
+/// interpreter) is not an error; a warning the caller's filters promote to an
+/// exception is, and crosses whole.
+#[cfg(feature = "liveview")]
+fn warn_rust_component_tag(name: &str) -> Result<()> {
+    use pyo3::prelude::*;
+
+    let warned = Python::try_attach(|py| -> PyResult<()> {
+        let Ok(module) = py.import("djust._deprecation") else {
+            return Ok(());
+        };
+        let kwargs = pyo3::types::PyDict::new(py);
+        kwargs.set_item("since", "1.3")?;
+        kwargs.set_item("removed_in", "2.0.0")?;
+        kwargs.set_item("instead", "a djust.components.ui component")?;
+        module.getattr("warn_deprecated")?.call(
+            (format!("The JSX-style `<{name} />` template tag"),),
+            Some(&kwargs),
+        )?;
+        Ok(())
+    });
+    match warned {
+        Some(Err(err)) => Err(DjangoRustError::PythonException(err)),
+        _ => Ok(()),
     }
 }
 
@@ -5038,7 +5866,9 @@ fn evaluate_condition(condition: &str, context: &Context) -> Result<bool> {
                         .or_else(|| e.consume_live_match(|item| values_equal(&needle, item)))
                     {
                         Some(Ok(found)) => Ok(found),
-                        Some(Err(_)) | None => Ok(false),
+                        // The handle's own `in` raised (a model handle has no `__contains__`):
+                        // false for `not in` as well, as in Django's smart-if.
+                        Some(Err(_)) | None => return Ok(false),
                     }
                 }
                 Value::Encoded(ref e) if e.items.is_some() => Ok(e
@@ -5052,6 +5882,10 @@ fn evaluate_condition(condition: &str, context: &Context) -> Result<bool> {
                         return Ok(false);
                     }
                 }
+                // A serialized model is not a container: `x in model` raises in Python, and
+                // smart-if reads the raise as false for `in` AND for `not in`, so this returns
+                // rather than flowing into the negation below.
+                ref model @ Value::Object(_) if model.model_str().is_some() => return Ok(false),
                 Value::Object(map) => {
                     // Django: "x in dict" checks dict keys — BY VALUE, as
                     // Python does, not by `Display` (#2339).
@@ -5421,6 +6255,12 @@ fn get_value_safe_ignoring_failures(expr: &str, context: &Context) -> Result<(Va
     get_value_safe_inner(expr, context, true)
 }
 
+/// Resolve a template reference with the renderer's own FilterExpression rules.
+/// Used by compiled lazy-container planning; no second expression grammar.
+pub fn resolve_template_reference(expr: &str, context: &Context) -> Result<Value> {
+    get_value(expr, context)
+}
+
 fn get_value(expr: &str, context: &Context) -> Result<Value> {
     // Thin wrapper that discards the runtime-safe flag. Most callers
     // (condition operators, progress-bar math, etc.) only need the `Value`
@@ -5429,7 +6269,9 @@ fn get_value(expr: &str, context: &Context) -> Result<Value> {
     // `get_value_safe` directly to honour runtime SafeStrings (#1672).
     // Mirrors the `apply_filter_full` / `apply_filter_full_safe` shape in
     // `filters.rs` — single pipe-loop source of truth, no parallel drift.
-    get_value_safe(expr, context).map(|(value, _)| value)
+    let result = get_value_safe(expr, context).map(|(value, _)| value);
+    context.take_provenance_flatten();
+    result
 }
 
 /// Like [`get_value`] but also reports whether the produced value is a runtime
@@ -5494,6 +6336,41 @@ fn get_value_safe_inner(
         // `split_pipes`'s FIRST part and so contains no pipe.
         let (mut value, mut runtime_safe) =
             get_value_safe_inner(var_name, context, ignore_failures)?;
+        // See the Variable arm: item-level safety, seeded from the context
+        // (#2283, #2287) — the third of the three sites, kept in step with the
+        // other two by construction (#1646).
+        let mut items_safe = context.items_are_safe(var_name);
+        let input_literals = context.take_provenance_flatten();
+        let capture = if input_literals.is_empty() {
+            context.captured_literals(var_name)
+        } else {
+            Some(literal_run(input_literals))
+        };
+        let mut literal_blocked = capture.as_ref().is_some_and(|capture| capture.blocked);
+        let mut blank_value = capture
+            .as_ref()
+            .and_then(|c| c.blank_html.clone())
+            .map(|text| {
+                (
+                    Value::String(text),
+                    filters::InputSafety {
+                        container: runtime_safe,
+                        items: items_safe,
+                    },
+                )
+            });
+        let mut literal_value = capture
+            .clone()
+            .and_then(|capture| capture.html)
+            .map(|literal| {
+                (
+                    Value::String(literal),
+                    filters::InputSafety {
+                        container: runtime_safe,
+                        items: items_safe,
+                    },
+                )
+            });
         // Django's `ignore_failures=True` substitutes **None**, not "missing"
         // (#2528, ADR-027). `FilterExpression.resolve` (`base.py:720-726`)
         // reads
@@ -5531,11 +6408,6 @@ fn get_value_safe_inner(
                 return Ok((Value::String(marker), false));
             }
         }
-        // See the Variable arm: item-level safety, seeded from the context
-        // (#2283, #2287) — the third of the three sites, kept in step with the
-        // other two by construction (#1646).
-        let mut items_safe = context.items_are_safe(var_name);
-
         // Parse and apply filters (handles chained filters too)
         for filter_part in &pipe_parts[1..] {
             let filter_part = filter_part.trim();
@@ -5557,7 +6429,8 @@ fn get_value_safe_inner(
             // emit path can honour runtime SafeStrings (#1672, follow-up to
             // #1660). Built-ins report it too, for the four whose safety is
             // per-call rather than per-name (`filters::builtin_produced_safe`).
-            let (new_value, produced_safe) = filters::apply_filter_full_safe(
+            let replay = replayable_filter(filter_name, raw_arg, context);
+            let (new_value, produced_safe) = filters::apply_filter_with_projections(
                 filter_name,
                 &value,
                 arg.as_deref(),
@@ -5571,7 +6444,19 @@ fn get_value_safe_inner(
                     items: items_safe,
                 },
                 context.autoescape(),
+                if replay { literal_value.as_mut() } else { None },
+                if replay { blank_value.as_mut() } else { None },
             )?;
+            if !replay
+                && literal_value
+                    .as_ref()
+                    .is_some_and(|(literal, _)| !literal.to_string().is_empty())
+                && new_value.to_string() != value.to_string()
+            {
+                literal_value = None;
+                blank_value = None;
+                literal_blocked = true;
+            }
             value = new_value;
             // Captured before the reassignment — see the Variable arm (#2283).
             let input_was_safe = runtime_safe;
@@ -5582,6 +6467,24 @@ fn get_value_safe_inner(
             items_safe = filter_output_items_are_safe(filter_name, items_safe, input_was_safe);
         }
 
+        context.take_provenance_flatten();
+        if capture.is_some() {
+            context.restore_provenance_literals(vec![LiteralOutput {
+                html: if literal_blocked {
+                    Some(String::new())
+                } else {
+                    literal_value.map(|(value, _)| value.to_string())
+                },
+                blank_html: if literal_blocked {
+                    Some(String::new())
+                } else {
+                    blank_value.map(|(value, _)| value.to_string())
+                },
+                blank_openings: Vec::new(),
+                openings: Vec::new(),
+                blocked: literal_blocked,
+            }]);
+        }
         return Ok((value, runtime_safe));
     }
 
@@ -5954,6 +6857,10 @@ fn encoded_equal(a: &Encoded, b: &Encoded) -> bool {
         (Some(EqClass::Mapping), Some(EqClass::Mapping)) => {
             a.live_eq(b).unwrap_or_else(|| a.repr == b.repr)
         }
+        // #3888: two raw models, carried as floored handles: the model's own `==` (class and
+        // primary key). No handle (a round trip) is "not equal", never "equal by repr": two
+        // distinct rows can print the same `__str__`.
+        (Some(EqClass::Live), Some(EqClass::Live)) => a.live_eq(b).unwrap_or(false),
         // Everything else — two Sets, two datetimes, and every CROSS-class
         // pair (which answers `None` there, i.e. false, exactly as Python
         // says `set() != complex(0)`).
@@ -6282,27 +7189,35 @@ fn try_compare(a: &Value, b: &Value) -> Option<i32> {
 /// at runtime (e.g. `{% firstof a|md %}`) must NOT be re-escaped, matching the
 /// `Variable` / `InlineIf` arms (#1660). `runtime_safe` is true ONLY when the
 /// LAST filter produced a genuine `SafeString` → fail-safe.
-fn first_of(args: &[String], context: &Context) -> Result<Option<Value>> {
+fn first_of(
+    args: &[String],
+    context: &Context,
+) -> Result<(Option<Value>, bool, Option<LiteralOutput>)> {
     for arg in args {
         let (val, runtime_safe) = get_value_safe_ignoring_failures(arg.trim(), context)?;
+        let capture = captured_expression(arg.trim(), context);
         if val.is_truthy() {
             let safe = runtime_safe || val.string_conversion_is_safe();
             let text = val.to_string();
-            return Ok(Some(if context.autoescape() {
-                Value::SafeString(if safe {
-                    text
+            return Ok((
+                Some(if context.autoescape() {
+                    Value::SafeString(if safe {
+                        text
+                    } else {
+                        filters::html_escape(&text)
+                    })
+                } else if safe {
+                    Value::SafeString(text)
                 } else {
-                    filters::html_escape(&text)
-                })
-            } else if safe {
-                Value::SafeString(text)
-            } else {
-                Value::String(text)
-            }));
+                    Value::String(text)
+                }),
+                expression_is_literal(arg.trim(), context),
+                capture,
+            ));
         }
     }
     // Django binds the initial plain empty string when no operand is truthy.
-    Ok(None)
+    Ok((None, true, None))
 }
 
 /// `{% widthratio %}`'s value, arm for arm with Django's `WidthRatioNode`.
@@ -6667,6 +7582,75 @@ mod tests {
     use crate::lexer::tokenize;
     use crate::parser::parse;
     use indexmap::IndexMap;
+
+    #[test]
+    fn two_carried_models_without_a_handle_are_never_equal_3888() {
+        // The class survives a snapshot (wire tag 5) and the live object does not. Equal-by-repr
+        // would conflate two rows that print the same `__str__`, so a carrier with no handle to
+        // ask is "not equal", never "equal".
+        let carried = || {
+            Value::Encoded(Box::new(djust_core::Encoded {
+                type_name: "User".to_string(),
+                display: "u0".to_string().into(),
+                json: None,
+                truthy: true,
+                len: None,
+                iterable: false,
+                repr: "u0".to_string(),
+                cmp_key: None,
+                attrs: Default::default(),
+                items: None,
+                eq_class: Some(EqClass::Live),
+                live: None,
+            }))
+        };
+        assert!(!values_equal(&carried(), &carried()));
+    }
+
+    #[test]
+    fn captured_literal_replay_requires_allowlisted_text_and_literal_arguments() {
+        let mut context = Context::new();
+        context.set("value_arg".into(), Value::String("-->".into()));
+        for name in [
+            "lower",
+            "upper",
+            "title",
+            "capfirst",
+            "cut",
+            "escape",
+            "force_escape",
+            "linebreaksbr",
+        ] {
+            assert!(replayable_filter(name, None, &context), "{name}");
+            assert!(replayable_filter(name, Some("\";\""), &context), "{name}");
+            assert!(
+                !replayable_filter(name, Some("value_arg"), &context),
+                "{name}"
+            );
+        }
+        for name in [
+            "slice",
+            "striptags",
+            "default",
+            "default_if_none",
+            "yesno",
+            "length",
+            "length_is",
+            "date",
+            "time",
+            "random",
+            "pluralize",
+            "add",
+            "floatformat",
+            "wordwrap",
+            "custom",
+        ] {
+            assert!(
+                !replayable_filter(name, Some("\"-->\""), &context),
+                "{name}"
+            );
+        }
+    }
 
     // ---- #2597: the scope stacks unwind on PANIC, not just on `Err` -------
 
@@ -7075,6 +8059,42 @@ mod tests {
     }
 
     #[test]
+    fn test_djust_audio_tag_escapes_the_manifest_into_fixed_markup() {
+        let tokens = tokenize("{% djust_audio %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        context.set(
+            "djust_audio_manifest".to_string(),
+            Value::String("{\"a\":\"<x>&'\"}".to_string()),
+        );
+        let result = render_nodes(&nodes, &context).unwrap();
+        assert!(result.starts_with(
+            "<div dj-audio=\"{&quot;a&quot;:&quot;&lt;x&gt;&amp;&#x27;&quot;}\"><div dj-update=\"ignore\""
+        ));
+        assert!(result.ends_with("</div></div>"));
+        assert!(!result.contains("<x>"));
+    }
+
+    #[test]
+    fn test_djust_audio_tag_without_manifest_is_an_error() {
+        let tokens = tokenize("{% djust_audio %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let err = render_nodes(&nodes, &Context::new()).unwrap_err();
+        assert!(err.to_string().contains("AudioMixin"), "{err}");
+    }
+
+    #[test]
+    fn test_djust_audio_tag_with_a_none_manifest_is_an_error() {
+        // The Python tag raises on `manifest is None`; so must the native one.
+        let tokens = tokenize("{% djust_audio %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        context.set("djust_audio_manifest".to_string(), Value::None);
+        let err = render_nodes(&nodes, &context).unwrap_err();
+        assert!(err.to_string().contains("AudioMixin"), "{err}");
+    }
+
+    #[test]
     fn test_csrf_token_tag() {
         let tokens = tokenize("{% csrf_token %}").unwrap();
         let nodes = parse(&tokens).unwrap();
@@ -7331,6 +8351,38 @@ mod tests {
         context.set("sub".to_string(), Value::String("xyz".to_string()));
         // Fix for DJE-053: false {% if %} blocks emit placeholder comment, not empty string
         assert_eq!(render_nodes(&nodes, &context).unwrap(), "<!--dj-if-->");
+    }
+
+    /// `x in model` and `x not in model` both raise in Python, and smart-if reads a raise as false
+    /// for BOTH, so neither takes the true branch (the `not in` negation must not flip it).
+    #[test]
+    fn test_membership_in_a_serialized_model_is_false_for_in_and_not_in() {
+        let model: IndexMap<_, _> = [
+            ("pk", "1"),
+            ("__str__", "Account:a1"),
+            ("__model__", "Account"),
+            ("name", "a1"),
+        ]
+        .into_iter()
+        .map(|(k, v)| {
+            (
+                djust_core::ObjectKey::Str(k.chars().collect()),
+                Value::String(v.chars().collect()),
+            )
+        })
+        .collect();
+        let mut context = Context::new();
+        context.set("m".chars().collect(), Value::Object(model));
+        for (src, want) in [
+            ("{% if 'name' in m %}YES{% else %}NO{% endif %}", "NO"),
+            ("{% if 'zzz' in m %}YES{% else %}NO{% endif %}", "NO"),
+            ("{% if 'name' not in m %}YES{% else %}NO{% endif %}", "NO"),
+            ("{% if 'zzz' not in m %}YES{% else %}NO{% endif %}", "NO"),
+        ] {
+            let tokens = tokenize(src).unwrap();
+            let nodes = parse(&tokens).unwrap();
+            assert_eq!(render_nodes(&nodes, &context).unwrap(), want, "{src}");
+        }
     }
 
     // Asserts `<!--dj-if-->` from a default Context: LiveView pin (#2519).
@@ -7854,7 +8906,7 @@ mod tests {
     #[test]
     fn test_if_in_attribute_with_gt_in_value() {
         // Fix for review issue #2: bare > inside an attribute value must not
-        // trick is_inside_html_tag() into thinking we are outside the tag.
+        // trick is_inside_html_tag_at() into thinking we are outside the tag.
         // e.g. title="a > b {% if show %}text{% endif %}" with show=False
         // must produce title="a > b " not title="a > b <!--dj-if-->".
         let template = r#"<div title="a > b {% if show %}text{% endif %}"></div>"#;
@@ -8045,6 +9097,34 @@ mod tests {
             Value::List(Vec::new()),
             Value::Tuple(vec![Value::Integer(1)]),
             Value::Object(IndexMap::new()),
+            // A serialized model: `list(model)` raises, so BOTH probes say "not iterable".
+            Value::Object(
+                [
+                    ("__str__", "Account:a1"),
+                    ("__model__", "Account"),
+                    ("pk", "1"),
+                ]
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        djust_core::ObjectKey::Str(k.chars().collect()),
+                        Value::String(v.chars().collect()),
+                    )
+                })
+                .collect(),
+            ),
+            // A dict that merely carries a text `__str__` is user data and iterates its keys.
+            Value::Object(
+                [("__str__", "lbl"), ("k1", "v1")]
+                    .into_iter()
+                    .map(|(k, v)| {
+                        (
+                            djust_core::ObjectKey::Str(k.chars().collect()),
+                            Value::String(v.chars().collect()),
+                        )
+                    })
+                    .collect(),
+            ),
             Value::DictView {
                 kind: djust_core::DictViewKind::Keys,
                 items: vec![Value::Integer(1)],
@@ -8053,8 +9133,8 @@ mod tests {
             // say "not iterable".
             Value::Encoded(Box::new(djust_core::Encoded {
                 type_name: "datetime.datetime".to_string(),
-                display: "2020-01-01 03:04:05".to_string(),
-                json: "2020-01-01T03:04:05".to_string(),
+                display: "2020-01-01 03:04:05".to_string().into(),
+                json: Some("2020-01-01T03:04:05".to_string()),
                 truthy: true,
                 len: None,
                 iterable: false,
@@ -8068,15 +9148,13 @@ mod tests {
                 items: None,
                 eq_class: None,
                 live: None,
-                display_safe: false,
-                str_raised: false,
             })),
             // A `set()`: `len` 0 and iterable, so both probes say
             // "iterates to nothing".
             Value::Encoded(Box::new(djust_core::Encoded {
                 type_name: "set".to_string(),
-                display: "set()".to_string(),
-                json: "set()".to_string(),
+                display: "set()".to_string().into(),
+                json: Some("set()".to_string()),
                 truthy: false,
                 len: Some(0),
                 iterable: true,
@@ -8086,8 +9164,6 @@ mod tests {
                 items: Some(vec![]),
                 eq_class: None,
                 live: None,
-                display_safe: false,
-                str_raised: false,
             })),
             // A `{'a'}`: truthy, `len` 1, and its item carried (#2477/#2489).
             // Without it every `Encoded` sample here is EMPTY, and the sweep
@@ -8095,8 +9171,8 @@ mod tests {
             // always renders nothing".
             Value::Encoded(Box::new(djust_core::Encoded {
                 type_name: "set".to_string(),
-                display: "{'a'}".to_string(),
-                json: "{'a'}".to_string(),
+                display: "{'a'}".to_string().into(),
+                json: Some("{'a'}".to_string()),
                 truthy: true,
                 len: Some(1),
                 iterable: true,
@@ -8106,8 +9182,6 @@ mod tests {
                 items: Some(vec![Value::String("a".to_string())]),
                 eq_class: None,
                 live: None,
-                display_safe: false,
-                str_raised: false,
             })),
             // A falsy `__iter__` class with NO `__len__`: Django's `ForNode`
             // has no length to read, so it `list()`s the object and renders
@@ -8115,8 +9189,8 @@ mod tests {
             // iterate — which is why that arm reads `items`, not `len`.
             Value::Encoded(Box::new(djust_core::Encoded {
                 type_name: "FalsyIterable".to_string(),
-                display: "FalsyIterable()".to_string(),
-                json: "FalsyIterable()".to_string(),
+                display: "FalsyIterable()".to_string().into(),
+                json: Some("FalsyIterable()".to_string()),
                 truthy: false,
                 len: None,
                 iterable: true,
@@ -8126,16 +9200,14 @@ mod tests {
                 items: Some(vec![Value::String("x".to_string())]),
                 eq_class: None,
                 live: None,
-                display_safe: false,
-                str_raised: false,
             })),
             // A zero-`__len__` class with no `__iter__`: `{% for %}` renders
             // the empty branch, `iter_values` refuses. The one sample that
             // makes the two questions distinguishable.
             Value::Encoded(Box::new(djust_core::Encoded {
                 type_name: "LenZero".to_string(),
-                display: "<LenZero object>".to_string(),
-                json: "<LenZero object>".to_string(),
+                display: "<LenZero object>".to_string().into(),
+                json: Some("<LenZero object>".to_string()),
                 truthy: false,
                 len: Some(0),
                 iterable: false,
@@ -8145,8 +9217,6 @@ mod tests {
                 items: None,
                 eq_class: None,
                 live: None,
-                display_safe: false,
-                str_raised: false,
             })),
         ];
         // `Value::None` and `Value::Missing` are Django's `values is None`
@@ -8185,12 +9255,12 @@ mod tests {
                 refusing += 1;
             }
         }
-        // The canary: the sweep is not vacuous in either direction. Six of the
+        // The canary: the sweep is not vacuous in either direction. Seven of the
         // samples refuse and eleven do not, so a change that made EVERYTHING
         // refuse — or nothing — cannot pass by making the equality trivially
         // true.
-        assert_eq!(refusing, 6, "expected exactly six refusing samples");
-        assert_eq!(samples.len(), 19);
+        assert_eq!(refusing, 7, "expected exactly seven refusing samples");
+        assert_eq!(samples.len(), 21);
         // Non-vacuity for the extra term: the zero-`len`-and-not-iterable
         // sample must be one the two probes DISAGREE about, or the relation
         // above is indistinguishable from a plain equality.

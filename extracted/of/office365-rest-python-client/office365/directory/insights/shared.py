@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from office365.directory.insights.resource_reference import ResourceReference
 from office365.directory.insights.sharing_detail import SharingDetail
+from office365.directory.resource_visualization import ResourceVisualization
 from office365.entity import Entity
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
-
-if TYPE_CHECKING:
-    from office365.directory.resource_visualization import ResourceVisualization
 
 
 class SharedInsight(Entity):
@@ -28,12 +24,13 @@ class SharedInsight(Entity):
         """Details about the shared item. Read-only"""
         return self.properties.get("lastShared", SharingDetail())
 
-    @odata(name="resourceReference")
+    @odata(name="resourceReference", readonly=True)
     @property
     def resource_reference(self) -> ResourceReference:
         """Reference properties of the used document, such as the url and type of the document. Read-only"""
         return self.properties.get("resourceReference", ResourceReference())
 
+    @odata(name="resource", navigation=True)
     @property
     def resource(self) -> Entity:
         """Used for navigating to the item that was shared. For file attachments, the type is fileAttachment.
@@ -49,13 +46,13 @@ class SharedInsight(Entity):
         """Details about the sharing history. Read-only"""
         return self.properties.get("sharingHistory", ClientValueCollection(SharingDetail))
 
+    @odata(name="resourceVisualization", readonly=True)
     @property
     def resource_visualization(self) -> ResourceVisualization:
         """Gets the resourceVisualization property"""
-        from office365.directory.resource_visualization import ResourceVisualization
-
         return self.properties.get("resourceVisualization", ResourceVisualization())
 
+    @odata(name="lastSharedMethod", navigation=True)
     @property
     def last_shared_method(self) -> Entity:
         """Gets the lastSharedMethod property"""

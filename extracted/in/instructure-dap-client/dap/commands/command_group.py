@@ -7,7 +7,6 @@ from ..__init__ import __version__
 from ..commands import commands
 
 from ..commands.global_options import (
-    DAP_API_URL_DEFAULT,
     GlobalOptions,
     dap_tracking_valid_values,
     pass_global_options,
@@ -85,8 +84,6 @@ class CustomGroup(click.Group):
 @click.option(
     "--base-url",
     type=click.STRING,
-    default=DAP_API_URL_DEFAULT,
-    show_default=True,
     metavar="URL",
     help="Base URL of the DAP API. May be set via environment variable DAP_API_URL.",
     envvar="DAP_API_URL",

@@ -9,6 +9,7 @@ from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.lists.version_policy_manager import VersionPolicyManager
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class SiteVersionPolicyManager(Entity):
@@ -18,6 +19,7 @@ class SiteVersionPolicyManager(Entity):
     major version limits and automatic expiration policies.
     """
 
+    @odata(name="MajorVersionLimit", beta=True)
     @property
     def major_version_limit(self) -> Optional[int]:
         """Gets the maximum number of major versions allowed for documents.
@@ -27,7 +29,7 @@ class SiteVersionPolicyManager(Entity):
         """
         return self.properties.get("MajorVersionLimit", None)
 
-    @odata(name="VersionPolicies")
+    @odata(name="VersionPolicies", navigation=True, beta=True)
     @property
     def version_policies(self) -> VersionPolicyManager:
         """Gets the version policies manager for detailed version control settings.
@@ -40,6 +42,7 @@ class SiteVersionPolicyManager(Entity):
             VersionPolicyManager(self.context, ResourcePath("VersionPolicies", self.resource_path)),
         )
 
+    @site_access(SiteLevel.MANAGE)
     def inherit_tenant_settings(self) -> Self:
         """Inherits version policy settings from the tenant-level configuration.
 
@@ -53,6 +56,7 @@ class SiteVersionPolicyManager(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_auto_expiration(self) -> Self:
         """Enables automatic expiration of document versions based on policy rules.
 
@@ -66,6 +70,7 @@ class SiteVersionPolicyManager(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_expire_after(self, major_version_limit: int, expire_after_days: int) -> Self:
         """SetExpireAfter operation.
 
@@ -86,6 +91,7 @@ class SiteVersionPolicyManager(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_no_expiration(self, major_version_limit: int) -> Self:
         """SetNoExpiration operation.
 

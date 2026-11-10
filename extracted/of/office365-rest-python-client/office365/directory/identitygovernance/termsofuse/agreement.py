@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.directory.identitygovernance.termsofuse.agreement_acceptance import (
     AgreementAcceptance,
@@ -12,14 +12,11 @@ from office365.directory.identitygovernance.termsofuse.agreement_file import (
 from office365.directory.identitygovernance.termsofuse.agreement_file_localization import (
     AgreementFileLocalization,
 )
+from office365.directory.identitygovernance.termsofuse.terms_expiration import TermsExpiration
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
-
-if TYPE_CHECKING:
-    from office365.directory.identitygovernance.termsofuse.terms_expiration import (
-        TermsExpiration,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class Agreement(Entity):
@@ -29,26 +26,31 @@ class Agreement(Entity):
     Terms of Use feature according to your scenario.
     """
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """Gets the displayName property"""
         return self.properties.get("displayName", None)
 
+    @odata(name="isPerDeviceAcceptanceRequired")
     @property
     def is_per_device_acceptance_required(self) -> Optional[bool]:
         """Gets the isPerDeviceAcceptanceRequired property"""
         return self.properties.get("isPerDeviceAcceptanceRequired", None)
 
+    @odata(name="isViewingBeforeAcceptanceRequired")
     @property
     def is_viewing_before_acceptance_required(self) -> Optional[bool]:
         """Gets the isViewingBeforeAcceptanceRequired property"""
         return self.properties.get("isViewingBeforeAcceptanceRequired", None)
 
+    @odata(name="userReacceptRequiredFrequency")
     @property
     def user_reaccept_required_frequency(self) -> timedelta:
         """Gets the userReacceptRequiredFrequency property"""
         return self.properties.get("userReacceptRequiredFrequency", timedelta.min)
 
+    @odata(name="acceptances", navigation=True)
     @property
     def acceptances(self) -> EntityCollection[AgreementAcceptance]:
         """Gets the acceptances property"""
@@ -59,11 +61,13 @@ class Agreement(Entity):
             ),
         )
 
+    @odata(name="file", navigation=True)
     @property
     def file(self) -> AgreementFile:
         """Gets the file property"""
         return self.properties.get("file", AgreementFile(self.context, ResourcePath("file", self.resource_path)))
 
+    @odata(name="files", navigation=True)
     @property
     def files(self) -> EntityCollection[AgreementFileLocalization]:
         """Gets the files property"""
@@ -78,11 +82,8 @@ class Agreement(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.Agreement"
 
+    @odata(name="termsExpiration")
     @property
     def terms_expiration(self) -> TermsExpiration:
         """Gets the termsExpiration property"""
-        from office365.directory.identitygovernance.termsofuse.terms_expiration import (
-            TermsExpiration,
-        )
-
         return self.properties.get("termsExpiration", TermsExpiration())

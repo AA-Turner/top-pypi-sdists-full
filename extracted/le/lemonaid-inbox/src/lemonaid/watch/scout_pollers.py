@@ -9,6 +9,8 @@ from ..config import load_config
 from ..log import get_logger
 from . import (
     briefs_events,
+    command_cli,
+    command_events,
     doc_events,
     failure_state,
     file_events,
@@ -23,6 +25,8 @@ from . import (
     pr_wait,
     repo_activity,
     repo_events,
+    review_events,
+    review_requests,
     roles,
     subscriptions,
 )
@@ -75,6 +79,37 @@ def _repo_poller(
             exclude_authors=spec.exclude_authors,
             pushes=spec.pushes,
         )
+
+    return poll
+
+
+def _reviews_poller(
+    spec: subscriptions.Subscription,
+    root: Path,
+    directory: Path,
+    me: str,
+    deliver: abc.Callable[[str], bool],
+    debounce: float,
+) -> abc.Callable[[], object]:
+    scope = spec.target[1:]
+    stem = review_events.state_stem(directory, scope, me)
+    failed = failure_state.path(root, spec, "github")
+    retry_at = 0.0
+
+    def poll() -> None:
+        nonlocal retry_at
+        if time.monotonic() < retry_at:
+            return
+
+        if (prs := review_requests.fetch(scope, spec.interval)) is None:
+            _log.warning("Cannot read GitHub for review requests")
+            retry_at = time.monotonic() + github_failures.failed(
+                root, failed, "review requests", deliver, spec.interval, debounce
+            )
+            return
+
+        github_failures.recovered(root, failed)
+        review_events.poll(stem, prs, deliver, spec.backlog)
 
     return poll
 
@@ -133,9 +168,23 @@ def open_poller(
         return doc
     if spec.kind == "file":
         watch = file_events.open_watch(
-            directory, [Path(p) for p in spec.target], me, spec.quiet, spec.ignore_removed
+            directory,
+            [Path(p) for p in spec.target],
+            me,
+            spec.quiet,
+            spec.ignore_removed,
+            spec.deadline,
         )
         return lambda: file_events.poll(watch, deliver)
+    if spec.kind == "command":
+        pid = int(spec.target[0])
+        command = command_events.open_watch(directory, pid, me)
+
+        def exited() -> None:
+            if command_events.poll(command, deliver):
+                command_cli.forget(root.name, pid)
+
+        return exited
     if spec.kind == "briefs":
         watch = briefs_events.open_watch(
             directory,
@@ -153,6 +202,8 @@ def open_poller(
     settings = load_config().watch
     if spec.kind == "repo":
         return _repo_poller(spec, root, directory, me, deliver, settings.github_debounce)
+    if spec.kind == "reviews":
+        return _reviews_poller(spec, root, directory, me, deliver, settings.github_debounce)
 
     repo, number = spec.target
     stem = pr_wait.state_stem(directory, repo, int(number), me)
@@ -160,12 +211,18 @@ def open_poller(
     wake = roles.wake(spec.role or roles.AUTHOR, settings.roles)
     if writer:
         own_pushes.register(own_edits.root(), writer)
-    head, merged, retry_at = spec.head, False, 0.0
+    head, retry_at = spec.head, 0.0
+    reported = pr_events.reported_state(stem)
+    # a mention that closed before this lemon first saw it is old news
+    finished = reported == "MERGED" or (
+        spec.role == roles.MENTION
+        and (reported == "CLOSED" or (not reported and pr_states.is_finished(repo, number)))
+    )
     failed = failure_state.path(root, spec, "github")
 
     def pr() -> None:
-        nonlocal head, merged, retry_at
-        if merged or time.monotonic() < retry_at:
+        nonlocal head, finished, retry_at
+        if finished or time.monotonic() < retry_at:
             return
 
         pr_poller.interested(repo, int(number), root.name)
@@ -197,8 +254,12 @@ def open_poller(
             own_head=lambda value: own_pushes.is_own(own_edits.root(), writer, value),
             trusted=trusted,
             wake=wake,
+            mentioned=spec.mentioned,
         )
         head = ""
-        merged = snapshot.state == "MERGED"  # a closed PR can reopen, so it is still read
+        # a closed PR can reopen, so it is still read unless the brief only links to it
+        finished = snapshot.state == "MERGED" or (
+            spec.role == roles.MENTION and snapshot.state == "CLOSED"
+        )
 
     return pr

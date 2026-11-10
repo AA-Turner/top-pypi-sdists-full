@@ -7,6 +7,7 @@ from dateutil.parser import isoparse
 
 from ..models.list_scripts_response_200_item_kind import ListScriptsResponse200ItemKind
 from ..models.list_scripts_response_200_item_language import ListScriptsResponse200ItemLanguage
+from ..models.list_scripts_response_200_item_on_concurrency_limit import ListScriptsResponse200ItemOnConcurrencyLimit
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -49,6 +50,9 @@ class ListScriptsResponse200Item:
         envs (Union[Unset, List[str]]):
         concurrent_limit (Union[Unset, int]):
         concurrency_time_window_s (Union[Unset, int]):
+        on_concurrency_limit (Union[Unset, ListScriptsResponse200ItemOnConcurrencyLimit]): What a run does when its
+            concurrency limit is reached when a worker picks it up. `queue` (default) re-queues it to a later slot, `fail`
+            ends it immediately as failed.
         concurrency_key (Union[Unset, str]):
         debounce_key (Union[Unset, str]):
         debounce_delay_s (Union[Unset, int]):
@@ -123,6 +127,7 @@ class ListScriptsResponse200Item:
     envs: Union[Unset, List[str]] = UNSET
     concurrent_limit: Union[Unset, int] = UNSET
     concurrency_time_window_s: Union[Unset, int] = UNSET
+    on_concurrency_limit: Union[Unset, ListScriptsResponse200ItemOnConcurrencyLimit] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
     debounce_key: Union[Unset, str] = UNSET
     debounce_delay_s: Union[Unset, int] = UNSET
@@ -190,6 +195,10 @@ class ListScriptsResponse200Item:
 
         concurrent_limit = self.concurrent_limit
         concurrency_time_window_s = self.concurrency_time_window_s
+        on_concurrency_limit: Union[Unset, str] = UNSET
+        if not isinstance(self.on_concurrency_limit, Unset):
+            on_concurrency_limit = self.on_concurrency_limit.value
+
         concurrency_key = self.concurrency_key
         debounce_key = self.debounce_key
         debounce_delay_s = self.debounce_delay_s
@@ -282,6 +291,8 @@ class ListScriptsResponse200Item:
             field_dict["concurrent_limit"] = concurrent_limit
         if concurrency_time_window_s is not UNSET:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
+        if on_concurrency_limit is not UNSET:
+            field_dict["on_concurrency_limit"] = on_concurrency_limit
         if concurrency_key is not UNSET:
             field_dict["concurrency_key"] = concurrency_key
         if debounce_key is not UNSET:
@@ -400,6 +411,13 @@ class ListScriptsResponse200Item:
 
         concurrency_time_window_s = d.pop("concurrency_time_window_s", UNSET)
 
+        _on_concurrency_limit = d.pop("on_concurrency_limit", UNSET)
+        on_concurrency_limit: Union[Unset, ListScriptsResponse200ItemOnConcurrencyLimit]
+        if isinstance(_on_concurrency_limit, Unset):
+            on_concurrency_limit = UNSET
+        else:
+            on_concurrency_limit = ListScriptsResponse200ItemOnConcurrencyLimit(_on_concurrency_limit)
+
         concurrency_key = d.pop("concurrency_key", UNSET)
 
         debounce_key = d.pop("debounce_key", UNSET)
@@ -490,6 +508,7 @@ class ListScriptsResponse200Item:
             envs=envs,
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,
+            on_concurrency_limit=on_concurrency_limit,
             concurrency_key=concurrency_key,
             debounce_key=debounce_key,
             debounce_delay_s=debounce_delay_s,

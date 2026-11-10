@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 from office365.todo.attachments.type import AttachmentType
 
 
-@dataclass
 class AttachmentInfo(ClientValue):
     """Represents the attributes of an attachment to be uploaded to a todoTask."""
 

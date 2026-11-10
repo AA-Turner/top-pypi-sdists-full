@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libpff-python"
-version = "20260926"
+version = "20261030"
 description = "Python bindings for libpff"
 maintainers = [
     { name = "Joachim Metz", email = "joachim.metz@gmail.com" },

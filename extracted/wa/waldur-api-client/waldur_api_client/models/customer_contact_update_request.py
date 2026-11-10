@@ -18,6 +18,8 @@ class CustomerContactUpdateRequest:
         phone_number (Union[Unset, str]):
         homepage (Union[Unset, str]):
         notification_emails (Union[Unset, str]): Comma-separated list of notification email addresses
+        invoice_emails (Union[Unset, str]): Comma-separated list of email addresses that receive invoice notifications
+            instead of the organization owners
     """
 
     contact_details: Union[Unset, str] = UNSET
@@ -25,6 +27,7 @@ class CustomerContactUpdateRequest:
     phone_number: Union[Unset, str] = UNSET
     homepage: Union[Unset, str] = UNSET
     notification_emails: Union[Unset, str] = UNSET
+    invoice_emails: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -37,6 +40,8 @@ class CustomerContactUpdateRequest:
         homepage = self.homepage
 
         notification_emails = self.notification_emails
+
+        invoice_emails = self.invoice_emails
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -51,6 +56,8 @@ class CustomerContactUpdateRequest:
             field_dict["homepage"] = homepage
         if notification_emails is not UNSET:
             field_dict["notification_emails"] = notification_emails
+        if invoice_emails is not UNSET:
+            field_dict["invoice_emails"] = invoice_emails
 
         return field_dict
 
@@ -67,12 +74,15 @@ class CustomerContactUpdateRequest:
 
         notification_emails = d.pop("notification_emails", UNSET)
 
+        invoice_emails = d.pop("invoice_emails", UNSET)
+
         customer_contact_update_request = cls(
             contact_details=contact_details,
             email=email,
             phone_number=phone_number,
             homepage=homepage,
             notification_emails=notification_emails,
+            invoice_emails=invoice_emails,
         )
 
         customer_contact_update_request.additional_properties = d

@@ -1807,6 +1807,33 @@ def test_case_mode_passes_when_control_reproduces_and_target_is_fixed(
     assert result["twin_gaps"] == []
 
 
+def test_case_result_precedes_report_enrichment(
+    tmp_path, case_run, monkeypatch, caplog
+):
+    reports = []
+    ordered_failures = []
+    monkeypatch.setattr(
+        cloud, "write_json_output", lambda _, payload: reports.append(payload)
+    )
+
+    def crash(*args, **kwargs):
+        assert reports[0]["success"] is True
+        result = json.loads((tmp_path / "out" / CASE_RESULT_FILE).read_text())
+        assert result["passed"] is True
+        ordered_failures.append(True)
+        raise RuntimeError("report-only failure")
+
+    monkeypatch.setattr(cloud, "_collect_connection_objects", crash)
+    outputs = case_run(_reproducing_sides(tmp_path))
+
+    assert ordered_failures == [True]
+    assert outputs["success"] is True
+    assert reports[0]["success"] is True
+    assert (tmp_path / "out" / "report.md").exists()
+    assert (tmp_path / "out" / "report.html").exists()
+    assert "Could not generate connection objects (RuntimeError)" in caplog.text
+
+
 def test_case_mode_never_starts_a_proxy(tmp_path, capsys, case_run, monkeypatch):
     """The sandbox is the controlled upstream, so the capture stays off here.
 

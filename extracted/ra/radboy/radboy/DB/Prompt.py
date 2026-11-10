@@ -2781,6 +2781,7 @@ class Prompt(object):
 {Fore.grey_70}**{Fore.light_salmon_1}'cpcd ean8'{Fore.light_blue} cp barcode to EAN8 and save to {Fore.light_green}the same as bcd-img{Style.reset}
 {Fore.grey_70}**{Fore.light_salmon_1}'cpcd ean13'{Fore.light_blue} cp barcode to EAN13 and save to {Fore.light_green}the same as bcd-img{Style.reset}
 {Fore.grey_70}**{Fore.light_salmon_1}'cpcd ean14'{Fore.light_blue} cp barcode to EAN14 and save to {Fore.light_green}the same as bcd-img{Style.reset}
+{Fore.grey_70}**{Fore.light_salmon_1}['bcd-btch','bcd bat','bcd b','bcdb']{Fore.light_blue}generate barcodes in ./Batch from Entry's with InList=True{Style.reset}
 {Fore.orange_red_1}--Text && Code Generation--{Style.reset}
 {Fore.grey_70}**{Fore.light_sea_green}'crbc',"checked random barcode"{Fore.light_yellow}- generate a random, but non-local-system existant barcode for input{Style.reset}
 {Fore.grey_70}**{Fore.light_sea_green}'cruid',"checked uid"{Fore.light_yellow}- generate a uid, but non-local-system existant uid for input{Style.reset}
@@ -3185,10 +3186,14 @@ Use an App Like Google Keep, or Notion, to Store a note with the Title as the Na
                             TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean8")
                         elif cmd.lower() in ['cpcd ean14',]:
                             TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean14")
+                        elif cmd.lower() in ['cpcd itf',]:
+                            TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="itf")
                         elif cmd.lower() in ['pkge','pkg e','pkg enry','repack']:
                             TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).pkg_gen()
                         elif cmd.lower() in ['bcd-gen','bcd-img']:
                             TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img()
+                        elif cmd.lower() in ['bcd-btch','bcd bat','bcd b','bcdb']:
+                            TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_btch()
                         elif cmd.lower() in ['qr-gen','qr-img']:
                             TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).qr_img()
                         elif cmd.lower() in ['dsu','daystring','daystr']:

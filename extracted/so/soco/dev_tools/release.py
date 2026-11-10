@@ -33,7 +33,6 @@ import urllib.request
 INIT_FILE = "soco/__init__.py"
 INDEX_FILE = "doc/releases/index.rst"
 RELEASES_DIR = "doc/releases"
-WORKFLOW_FILE = ".github/workflows/soco-check-jobs.yaml"
 PYPI_URL = "https://pypi.org/pypi/soco/{}/json"
 GITHUB_REPO = "SoCo/SoCo"
 ORIGIN_RE = re.compile(r"github\.com[:/]SoCo/SoCo(\.git)?/?$")
@@ -67,12 +66,6 @@ def fixes_branch(version):
     """Return the fixes branch for a version, e.g. 'v0.32.fixes'."""
     major, minor, _ = parse_version(version)
     return f"v{major}.{minor}.fixes"
-
-
-def previous_fixes_branch(version):
-    """Return the fixes branch of the previous minor version."""
-    major, minor, _ = parse_version(version)
-    return f"v{major}.{minor - 1}.fixes"
 
 
 def next_dev_version(version):
@@ -120,8 +113,10 @@ def validate_fix(version, tags):
         )
 
 
-VERSION_LINE_RE = re.compile(r'^__version__ = "([^"]*)"$', re.MULTILINE)
-INDEX_ENTRY_RE = re.compile(r"^   (\d\S*)$", re.MULTILINE)
+# Files are read with their line endings kept, which are CRLF in a Windows
+# checkout, so a line may end in \r.
+VERSION_LINE_RE = re.compile(r'^__version__ = "([^"]*)"(?=\r?$)', re.MULTILINE)
+INDEX_ENTRY_RE = re.compile(r"^   (\d\S*)\r?$", re.MULTILINE)
 
 
 def read_version(init_text):
@@ -152,7 +147,9 @@ def add_release_to_index(index_text, name):
     first = INDEX_ENTRY_RE.search(index_text)
     if first is None:
         raise ReleaseError(f"No release entries found in {INDEX_FILE}")
-    return index_text[: first.start()] + f"   {name}\n" + index_text[first.start() :]
+    newline = "\r\n" if "\r\n" in index_text else "\n"
+    entry = f"   {name}{newline}"
+    return index_text[: first.start()] + entry + index_text[first.start() :]
 
 
 def missing_index_entries(index_text, filenames):
@@ -160,20 +157,6 @@ def missing_index_entries(index_text, filenames):
     return [
         entry for entry in index_entries(index_text) if f"{entry}.rst" not in filenames
     ]
-
-
-def replace_fixes_branch(workflow_text, old, new):
-    """Return WORKFLOW_FILE text with the old fixes branch replaced.
-
-    If the new branch is already there, the text is returned unchanged, so
-    the edit can be repeated when a release is resumed.
-    """
-    old_quoted, new_quoted = f"'{old}'", f"'{new}'"
-    if old_quoted in workflow_text:
-        return workflow_text.replace(old_quoted, new_quoted)
-    if new_quoted in workflow_text:
-        return workflow_text
-    raise ReleaseError(f"{WORKFLOW_FILE} mentions neither {old} nor {new}")
 
 
 def release_notes_template(version, released_on):
@@ -590,7 +573,6 @@ def main_release_steps(repo, version, today=None):
     major, minor, _ = parse_version(version)
     tag = f"v{version}"
     next_dev = next_dev_version(version)
-    old_branch = previous_fixes_branch(version)
     new_branch = fixes_branch(version)
     notes_file = f"{RELEASES_DIR}/{version}.rst"
     push_args = ("git", "push", "origin", "master")
@@ -645,16 +627,12 @@ def main_release_steps(repo, version, today=None):
     )
 
     def start_next():
-        workflow = repo.read(WORKFLOW_FILE)
-        repo.write(
-            WORKFLOW_FILE, replace_fixes_branch(workflow, old_branch, new_branch)
-        )
         repo.write(INIT_FILE, set_version(repo.read(INIT_FILE), next_dev))
-        repo.shell.run("git", "add", WORKFLOW_FILE, INIT_FILE)
+        repo.shell.run("git", "add", INIT_FILE)
         repo.shell.run("git", "commit", "-m", f"Start {major}.{minor + 1} development")
 
     start = Step(
-        f"Set version {next_dev}, test {new_branch} in CI, and commit",
+        f"Set version {next_dev} and commit",
         AUTO,
         lambda: repo.committed_version("HEAD") == next_dev,
         run=start_next,
@@ -726,7 +704,7 @@ def preflight(repo, branch, check_index):
     origin = repo.origin_url()
     if not ORIGIN_RE.search(origin):
         problems.append(f"origin is {origin}, not {GITHUB_REPO} on GitHub")
-    own_files = {INIT_FILE, INDEX_FILE, WORKFLOW_FILE}
+    own_files = {INIT_FILE, INDEX_FILE}
     other = [name for name in repo.changed_tracked_files() if name not in own_files]
     if other:
         problems.append("Uncommitted changes to tracked files: " + ", ".join(other))

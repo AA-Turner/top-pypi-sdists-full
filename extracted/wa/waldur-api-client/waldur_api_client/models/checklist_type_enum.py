@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class ChecklistTypeEnum(str, Enum):
+    FEEDBACK = "feedback"
     OFFERING_COMPLIANCE = "offering_compliance"
     ONBOARDING_CUSTOMER = "onboarding_customer"
     ONBOARDING_INTENT = "onboarding_intent"

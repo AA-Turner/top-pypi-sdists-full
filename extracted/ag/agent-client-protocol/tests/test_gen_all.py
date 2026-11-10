@@ -1,13 +1,11 @@
-from acp.schema import AvailableCommandInput, ReadTextFileRequest
+from pathlib import Path
+
+import pytest
+
+from acp.schema import ReadTextFileRequest
 from scripts.gen_all import resolve_ref, schema_source_paths
-from scripts.gen_schema import (
-    _deserialize_field_specs,
-    _extensible_union_excluded_tags,
-    _fallback_expression,
-    _normalize_catchall_unions,
-    _preprocess_schema_for_codegen,
-    _restore_required_nullable_fields,
-)
+from scripts.gen_meta import generate_meta
+from scripts.gen_schema import generate_schema
 
 
 def test_generated_field_descriptions_are_introspectable() -> None:
@@ -15,13 +13,10 @@ def test_generated_field_descriptions_are_introspectable() -> None:
     assert ReadTextFileRequest.model_fields["path"].description == path_description
     assert ReadTextFileRequest.model_json_schema()["properties"]["path"]["description"] == path_description
 
-    root_description = "The input specification for a command."
-    assert AvailableCommandInput.model_fields["root"].description == root_description
-    assert AvailableCommandInput.model_json_schema()["description"] == root_description
-
 
 def test_resolve_ref_accepts_schema_release_tags() -> None:
     assert resolve_ref("schema-v1.16.0") == "refs/tags/schema-v1.16.0"
+    assert resolve_ref("schema-v2.0.0-alpha.3") == "refs/tags/schema-v2.0.0-alpha.3"
 
 
 def test_resolve_ref_keeps_legacy_version_tags() -> None:
@@ -33,6 +28,12 @@ def test_schema_release_tags_prefer_v1_schema_layout() -> None:
     assert schema_source_paths("refs/tags/schema-v1.16.0")[0] == (
         "schema/v1/schema.unstable.json",
         "schema/v1/meta.unstable.json",
+    )
+
+
+def test_v2_generation_uses_v2_schema_layout() -> None:
+    assert schema_source_paths("refs/tags/schema-v2.0.0-alpha.3", 2) == (
+        ("schema/v2/schema.unstable.json", "schema/v2/meta.unstable.json"),
     )
 
 
@@ -57,159 +58,160 @@ def test_parse_args_can_skip_format(monkeypatch) -> None:
     assert gen_all.parse_args().format_output is False
 
 
-def test_codegen_preprocess_distributes_common_object_properties() -> None:
-    schema = {
-        "$defs": {
-            "ScopeA": {
-                "type": "object",
-                "properties": {"scopeA": {"type": "string"}},
-                "required": ["scopeA"],
-            },
-            "ScopeB": {
-                "type": "object",
-                "properties": {"scopeB": {"type": "string"}},
-                "required": ["scopeB"],
-            },
-            "Mode": {
-                "type": "object",
-                "properties": {"payload": {"type": "string"}},
-                "required": ["payload"],
-                "anyOf": [
-                    {"allOf": [{"$ref": "#/$defs/ScopeA"}]},
-                    {"allOf": [{"$ref": "#/$defs/ScopeB"}]},
-                ],
-            },
-            "Request": {
-                "type": "object",
-                "properties": {"message": {"type": "string"}},
-                "required": ["message"],
-                "oneOf": [
-                    {
-                        "type": "object",
-                        "properties": {"kind": {"type": "string", "const": "mode"}},
-                        "required": ["kind"],
-                        "allOf": [{"$ref": "#/$defs/Mode"}],
-                    }
-                ],
-            },
-        },
-        "$ref": "#/$defs/Request",
+def test_codegen_check_is_clean_and_read_only() -> None:
+    outputs = (
+        Path("src/acp/meta.py"),
+        Path("src/acp/schema.py"),
+        Path("src/acp/experimental/v2/meta.py"),
+        Path("src/acp/experimental/v2/schema.py"),
+    )
+    before = {output: output.read_bytes() for output in outputs}
+
+    assert generate_schema(check=True)
+    assert generate_meta(check=True)
+    assert generate_schema(check=True, protocol_version=2)
+    assert generate_meta(check=True, protocol_version=2)
+    assert {output: output.read_bytes() for output in outputs} == before
+
+
+def test_signature_generation_preserves_inline_literal_values() -> None:
+    import ast
+    from typing import Literal, get_type_hints
+
+    from scripts.gen_signature import NodeTransformer
+
+    tree = ast.parse(
+        "from typing import Any\n"
+        "from schema import SetProviderRequest, SuggestNesRequest\n"
+        "class Methods:\n"
+        '    @param_model(SetProviderRequest, method="providers/set", unstable=True)\n'
+        "    async def set_provider(self, **kwargs: Any): ...\n"
+        "    @param_model(SuggestNesRequest)\n"
+        "    async def suggest_nes(self, **kwargs: Any): ...\n"
+    )
+    NodeTransformer().visit(tree)
+    ast.fix_missing_locations(tree)
+    # Evaluate the annotation itself to catch unquoted literal values and ensure
+    # generation adds the required typing import.
+    typing_import = tree.body[0]
+    assert isinstance(typing_import, ast.ImportFrom)
+    assert "Literal" in {alias.name for alias in typing_import.names}
+    methods = tree.body[-1]
+    assert isinstance(methods, ast.ClassDef)
+    provider = methods.body[0]
+    assert isinstance(provider, ast.AsyncFunctionDef)
+    decorator = provider.decorator_list[0]
+    assert isinstance(decorator, ast.Call)
+    assert {keyword.arg: ast.literal_eval(keyword.value) for keyword in decorator.keywords} == {
+        "method": "providers/set",
+        "unstable": True,
     }
+    suggest = methods.body[-1]
+    assert isinstance(suggest, ast.AsyncFunctionDef)
+    trigger = next(arg for arg in suggest.args.args if arg.arg == "trigger_kind")
+    annotation = ast.unparse(trigger.annotation)
 
-    request = _preprocess_schema_for_codegen(schema)["$defs"]["Request"]
+    class Annotated:
+        __annotations__ = {"trigger": annotation}
 
-    assert len(request["oneOf"]) == 2
-    assert request["oneOf"][0]["required"] == ["message", "kind", "payload"]
-    assert request["oneOf"][0]["properties"].keys() >= {"message", "kind", "payload"}
-    assert request["oneOf"][0]["allOf"] == [{"$ref": "#/$defs/ScopeA"}]
-    assert request["oneOf"][1]["allOf"] == [{"$ref": "#/$defs/ScopeB"}]
-
-
-def test_codegen_preprocess_normalizes_catchall_unions() -> None:
-    schema = {
-        "anyOf": [
-            {
-                "type": "object",
-                "properties": {"type": {"type": "string", "const": "known"}},
-                "required": ["type"],
-            },
-            {
-                "title": "other",
-                "description": "Custom or future.",
-                "type": "object",
-                "properties": {"type": {"type": "string"}},
-                "required": ["type"],
-                "not": {"anyOf": [{"const": "known"}]},
-                "unevaluatedProperties": True,
-            },
-        ],
-        "discriminator": {"propertyName": "type"},
-    }
-
-    normalized = _normalize_catchall_unions(schema)
-
-    assert "discriminator" not in normalized
-    known, other = normalized["anyOf"]
-    assert known["properties"]["type"]["const"] == "known"
-    assert other["additionalProperties"] is True
-    assert other["properties"] == {"type": {"type": "string"}}
-    assert other["required"] == ["type"]
-    assert "not" not in other
-    assert "unevaluatedProperties" not in other
+    assert (
+        get_type_hints(Annotated, globalns={"Literal": Literal})["trigger"]
+        == Literal["automatic", "diagnostic", "manual"]
+    )
 
 
-def test_extensible_union_excluded_tags_reads_not_clause() -> None:
-    union_def = {
-        "discriminator": {"propertyName": "action"},
-        "anyOf": [
-            {"properties": {"action": {"const": "accept"}}, "required": ["action"]},
-            {
-                "title": "other",
-                "properties": {"action": {"type": "string"}},
-                "not": {
-                    "anyOf": [
-                        {"properties": {"action": {"const": "accept"}}},
-                        {"properties": {"action": {"const": "decline"}}},
-                    ]
-                },
-            },
-        ],
-    }
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "SetSessionConfigOptionBooleanRequest | SetSessionConfigOptionSelectRequest",
+        "Union[SetSessionConfigOptionBooleanRequest, SetSessionConfigOptionSelectRequest]",
+        "Annotated[SetSessionConfigOptionBooleanRequest | SetSessionConfigOptionSelectRequest, Field(discriminator='type')]",
+        "RequestAlias",
+        "CreateElicitationRequest",
+    ],
+)
+def test_signature_generation_preserves_union_signatures(expression) -> None:
+    import ast
 
-    assert _extensible_union_excluded_tags(union_def, "action") == ("accept", "decline")
+    from scripts.gen_signature import NodeTransformer
 
-
-def test_deserialize_field_specs_groups_by_fallback_and_excludes_meta() -> None:
-    definition = {
-        "required": ["items"],
-        "properties": {
-            "_meta": {"x-deserialize-default-on-error": True},
-            "note": {"type": "string", "x-deserialize-default-on-error": True},
-            "flag": {"type": "boolean", "default": False, "x-deserialize-default-on-error": True},
-            "items": {"type": "array", "x-deserialize-skip-invalid-items": True},
-        },
-    }
-
-    salvage, skip = _deserialize_field_specs(definition)
-
-    assert salvage == {"lambda: None": ["note"], "lambda: False": ["flag"]}
-    assert skip == ["items"]
+    tree = ast.parse(
+        "from typing import Annotated, Any, Union\n"
+        "from schema import SetSessionConfigOptionBooleanRequest, SetSessionConfigOptionSelectRequest, CreateElicitationRequest\n"
+        "RequestAlias = SetSessionConfigOptionBooleanRequest | SetSessionConfigOptionSelectRequest\n"
+        "class Methods:\n"
+        f"    @param_model({expression}, method='example/request')\n"
+        "    async def request(self, config_id: str, session_id: str, value: str | bool, **kwargs: Any): ...\n"
+    )
+    before = ast.dump(tree)
+    NodeTransformer().visit(tree)
+    assert ast.dump(tree) == before
 
 
-def test_fallback_expression_matches_schema_default_rules() -> None:
-    assert _fallback_expression({"default": False}, is_required=False) == "lambda: False"
-    assert _fallback_expression({"type": "array"}, is_required=True) == "lambda: []"
-    assert _fallback_expression({"type": ["array", "null"]}, is_required=False) == "lambda: None"
-    assert _fallback_expression({"type": "string"}, is_required=False) == "lambda: None"
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "DeleteSessionRequest",
+        "Annotated[DeleteSessionRequest, Field(title='Delete')]",
+        "RequestAlias",
+        "schema.DeleteSessionRequest",
+    ],
+)
+def test_signature_generation_expands_single_model_types(expression) -> None:
+    import ast
+
+    from scripts.gen_signature import NodeTransformer
+
+    tree = ast.parse(
+        "from typing import Annotated, Any, TypeAlias\n"
+        "from schema import DeleteSessionRequest\n"
+        "RequestAlias: TypeAlias = Annotated[DeleteSessionRequest, Field(title='Delete')]\n"
+        "class Methods:\n"
+        f"    @param_model({expression}, method='session/delete')\n"
+        "    async def delete_session(self, **kwargs: Any): ...\n"
+    )
+    NodeTransformer().visit(tree)
+    methods = tree.body[-1]
+    assert isinstance(methods, ast.ClassDef)
+    method = methods.body[0]
+    assert isinstance(method, ast.AsyncFunctionDef)
+    assert [arg.arg for arg in method.args.args] == ["self", "session_id"]
+    assert ast.unparse(method.decorator_list[0]) == f"param_model({expression}, method='session/delete')"
 
 
-def test_codegen_postprocess_preserves_required_nullable_fields() -> None:
-    schema = {
-        "$defs": {
-            "Example": {
-                "type": "object",
-                "properties": {
-                    "requiredId": {"anyOf": [{"type": "null"}, {"type": "string"}]},
-                    "optionalId": {"anyOf": [{"type": "null"}, {"type": "string"}]},
-                },
-                "required": ["requiredId"],
-            }
-        }
-    }
-    content = """\
-class Example(BaseModel):
-    required_id: Annotated[
-        Optional[str],
-        Field(alias="requiredId"),
-    ] = None
-    optional_id: Annotated[
-        Optional[str],
-        Field(alias="optionalId"),
-    ] = None
-"""
+def test_v2_signature_generation_uses_v2_schema_and_qualified_types() -> None:
+    import ast
 
-    processed = _restore_required_nullable_fields(content, schema)
+    from acp.experimental import v2
+    from scripts.gen_signature import NodeTransformer
 
-    assert 'Field(alias="requiredId"),\n    ] = None' not in processed
-    assert 'Field(alias="requiredId"),\n    ]' in processed
-    assert 'Field(alias="optionalId"),\n    ] = None' in processed
+    tree = ast.parse(
+        "from typing import Any\n"
+        "from . import schema\n"
+        "class Methods:\n"
+        "    @param_model(schema.InitializeRequest)\n"
+        "    async def initialize(self, **kwargs: Any): ...\n"
+    )
+    NodeTransformer(v2.schema).visit(tree)
+    ast.fix_missing_locations(tree)
+    methods = tree.body[-1]
+    assert isinstance(methods, ast.ClassDef)
+    method = methods.body[0]
+    assert isinstance(method, ast.AsyncFunctionDef)
+    assert [arg.arg for arg in method.args.args] == ["self", "protocol_version", "info", "capabilities"]
+    assert method.args.args[2].annotation is not None
+    assert method.args.args[3].annotation is not None
+    assert ast.unparse(method.args.args[2].annotation) == "schema.Implementation"
+    assert ast.unparse(method.args.args[3].annotation) == "schema.ClientCapabilities | None"
+
+
+def test_v1_signature_generation_does_not_rewrite_experimental_files(tmp_path) -> None:
+    from scripts.gen_signature import gen_signature
+
+    experimental = tmp_path / "experimental" / "v2"
+    experimental.mkdir(parents=True)
+    target = experimental / "interfaces.py"
+    source = "from . import schema\n@param_model(schema.InitializeRequest)\nasync def initialize(self): ...\n"
+    target.write_text(source)
+    gen_signature(tmp_path)
+    assert target.read_text() == source

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class InsightIdentity(ClientValue):
     """Complex type containing properties of sharedInsight items."""
 

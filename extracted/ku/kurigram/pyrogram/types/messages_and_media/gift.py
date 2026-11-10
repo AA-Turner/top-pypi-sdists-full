@@ -18,12 +18,15 @@
 
 from __future__ import annotations as _annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pyrogram
 from pyrogram import enums, raw, types, utils
 
 from ..object import Object
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class Gift(Object):
@@ -907,7 +910,7 @@ class Gift(Object):
         .. code-block:: python
 
             await client.convert_gift_to_stars(
-                owned_gift_id="message_id"
+                owned_gift_id="123456"
             )
 
         Example:

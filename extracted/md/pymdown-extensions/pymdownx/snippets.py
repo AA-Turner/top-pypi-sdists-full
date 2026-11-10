@@ -115,7 +115,7 @@ class SnippetPreprocessor(Preprocessor):
             m = self.RE_SNIPPET_SECTION.match(l)
 
             # Handle escaped line
-            if m and start and m.group('escape'):
+            if m and m.group('escape'):
                 l = (
                     m.group('pre') + m.group('escape').replace(';', '', 1) + m.group('inline_marker') +
                     m.group('section') + m.group('post')
@@ -238,7 +238,7 @@ class SnippetPreprocessor(Preprocessor):
                         s_lines.append('')
                     return s_lines
 
-            except urllib.error.HTTPError as e:  # noqa: PERF203
+            except urllib.error.HTTPError as e:
                 # Handle rate limited error codes
                 if e.code == 429 and retries:
                     retries -= 1

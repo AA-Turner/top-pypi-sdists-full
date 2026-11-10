@@ -52,7 +52,7 @@ def test_wrap_string_literal_keeps_escape_sequences_whole(output_file: Path) -> 
         )
 
 
-@pytest.mark.parametrize("line_length", [18, 21])
+@pytest.mark.parametrize("line_length", [18, 20, 21])
 def test_wrap_string_literal_with_a_line_length_that_leaves_no_room(output_file: Path, line_length: int) -> None:
     """Finish when the line length leaves no room for content, or room for less than one escape sequence.
 
@@ -176,4 +176,215 @@ def test_dataclass_field_call_moves_to_parentheses_when_its_head_overflows(outpu
         expected_error_type="list_type",
         expected_attribute_path=("aCollectionFieldNameThatKeepsGoingAndGoingxxxxxxxxxxxxxxxxxx",),
         expected_attribute_value=["a"],
+    )
+
+
+def test_union_annotation_over_the_line_length_is_split_at_its_brackets(output_file: Path) -> None:
+    """Split a ``Union`` or ``Optional[Union]`` annotation of 92 columns at its brackets, as black does.
+
+    A field without a default, and a ``Union`` inside ``Optional`` with a default, used to stay on one line.
+    """
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "builtin_union_annotation_split.json",
+        output_path=output_file,
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        formatters=[Formatter.BUILTIN],
+        builtin_format_line_length=88,
+        use_union_operator=False,
+        disable_timestamp=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="builtin_union_annotation_split",
+        model_name="UnionSplit",
+        valid_json='{"values":{"a1":"x"}}',
+        invalid_json='{"values":{"c":1}}',
+        expected_error_type="string_pattern_mismatch",
+        expected_attribute_path=("values",),
+        expected_attribute_value={"a1": "x"},
+    )
+
+
+def test_empty_tuple_annotation_over_the_line_length_is_split_at_its_brackets(output_file: Path) -> None:
+    """Split a ``tuple[()]`` annotation of 90 columns at its brackets with ``()`` as its element, as black does.
+
+    The split wrote no element, ``tuple[`` and ``]`` around a blank line, which Python cannot parse.
+    """
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "builtin_empty_tuple_annotation_split.json",
+        output_path=output_file,
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        formatters=[Formatter.BUILTIN],
+        builtin_format_line_length=88,
+        disable_timestamp=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="builtin_empty_tuple_annotation_split",
+        model_name="EmptyTupleSplit",
+        valid_json='{"anEmptyTupleFieldWhoseAnnotationRunsOverTheLineLengthxxxxxxxxxxxxxxxxxxxxxx":[]}',
+        invalid_json='{"anEmptyTupleFieldWhoseAnnotationRunsOverTheLineLengthxxxxxxxxxxxxxxxxxxxxxx":[1]}',
+        expected_error_type="too_long",
+        expected_attribute_path=("anEmptyTupleFieldWhoseAnnotationRunsOverTheLineLengthxxxxxxxxxxxxxxxxxxxxxx",),
+        expected_attribute_value=(),
+    )
+
+
+@pytest.mark.parametrize("formatters", [["black", "isort"], ["builtin"]], ids=["black", "builtin"])
+def test_one_key_functional_typed_dict_keeps_its_trailing_comma(output_file: Path, formatters: list[str]) -> None:
+    """Keep the trailing comma of the one key of a functional ``TypedDict``, as black does (#6319).
+
+    The template writes a comma after each key, which black keeps as a magic trailing comma; the builtin formatter
+    dropped it when the dict had one key.
+    """
+    (input_path := output_file.parent / "one_key_functional.json").write_text(
+        json.dumps({"type": "object", "properties": {"a-b": {}}}), encoding="utf-8"
+    )
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "typing.TypedDict", "--formatters", *formatters],
+    )
+
+
+@pytest.mark.parametrize("formatters", [["black", "isort"], ["builtin"]], ids=["black", "builtin"])
+def test_docstrings_keep_line_ends_black_keeps(output_file: Path, formatters: list[str]) -> None:
+    """Lay out docstrings as black does, and keep the line ends of those black leaves as they are.
+
+    A docstring with a backslash at a line end is left alone by black; the builtin formatter stripped its trailing
+    spaces, and those of every attribute docstring, which black never changes.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "builtin_docstring_line_ends.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--use-schema-description", "--use-field-description", "--formatters", *formatters],
+    )
+
+
+def _write_custom_base_model_template(output_file: Path, body: str) -> Path:
+    template_dir = output_file.parent / "templates"
+    (template_dir / "pydantic_v2").mkdir(parents=True)
+    (template_dir / "pydantic_v2" / "BaseModel.jinja2").write_text(
+        "class {{ class_name }}({{ base_class }}):\n" + body, encoding="utf-8"
+    )
+    (input_path := output_file.parent / "custom_template_model.json").write_text(
+        json.dumps({"title": "Model", "type": "object", "properties": {"name": {"type": "string"}}}), encoding="utf-8"
+    )
+    return input_path
+
+
+@pytest.mark.parametrize("formatters", [["black", "isort"], ["builtin"]], ids=["black", "builtin"])
+def test_custom_template_return_annotation_is_split_at_its_brackets(output_file: Path, formatters: list[str]) -> None:
+    """Split a too long return annotation of a method without parameters at its brackets, as black does.
+
+    The builtin formatter put the annotation in parentheses with a trailing comma, which made it a tuple, and split
+    a union the same way.
+    """
+    input_path = _write_custom_base_model_template(
+        output_file,
+        "    name: str | None = None\n\n"
+        "    def first_names() -> tuple[dict[str, frozenset[bytes]], dict[str, frozenset[bytearray]]"
+        ", memoryview, int]:\n"
+        "        pass\n\n"
+        "    def other_names() -> frozenset[bytearray] | frozenset[memoryview] | frozenset[bytes] | None:\n"
+        "        pass\n",
+    )
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--custom-template-dir",
+            str(output_file.parent / "templates"),
+            "--formatters",
+            *formatters,
+            "--disable-timestamp",
+        ],
+        skip_code_validation=True,
+    )
+
+
+@pytest.mark.parametrize("formatters", [["black", "isort"], ["builtin"]], ids=["black", "builtin"])
+def test_wrap_string_literal_joins_implicitly_concatenated_strings(output_file: Path, formatters: list[str]) -> None:
+    """Wrap a long keyword value of implicitly concatenated strings as one string, as black does.
+
+    The builtin formatter wrapped the first string alone and left the next one after the parentheses, which does not
+    parse.
+    """
+    input_path = _write_custom_base_model_template(
+        output_file,
+        "    name: dict[str, str] = dict(\n"
+        "        description='A name written by a custom template with a long description that goes on'\n"
+        "        ' Done.'\n"
+        "    )\n",
+    )
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--custom-template-dir",
+            str(output_file.parent / "templates"),
+            "--formatters",
+            *formatters,
+            "--wrap-string-literal",
+            "--disable-timestamp",
+        ],
+    )
+
+
+@pytest.mark.parametrize("formatters", [["black", "isort"], ["builtin"]], ids=["black", "builtin"])
+def test_imported_names_with_digit_runs_sort_naturally(output_dir: Path, formatters: list[str]) -> None:
+    """Sort imported names with digit runs by their numbers, as isort does: ``Schema4`` before ``Schema10``.
+
+    The builtin formatter compared the digits as text and wrote ``Band10, Band6, Schema10, Schema100, Schema3``.
+    """
+    names = ["Schema3", "Schema10", "Schema4", "Schema100", "Band6", "Band10"]
+    (input_path := output_dir.parent / "digit_run_names.json").write_text(
+        json.dumps({
+            "title": "Holder",
+            "type": "object",
+            "properties": {name.lower(): {"$ref": f"#/$defs/bands.{name}"} for name in names},
+            "$defs": {f"bands.{name}": {"type": "object", "properties": {"a": {"type": "string"}}} for name in names},
+        }),
+        encoding="utf-8",
+    )
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=["--all-exports-scope", "children", "--formatters", *formatters, "--disable-timestamp"],
+    )
+
+
+@pytest.mark.parametrize("formatters", [["black", "isort"], ["builtin"]], ids=["black", "builtin"])
+def test_msgspec_convert_default_factory_has_one_space_before_its_type(
+    output_file: Path, formatters: list[str]
+) -> None:
+    """Write one space before the ``type`` argument of a msgspec ``convert`` default factory, as black lays it out.
+
+    The generator wrote ``convert({},  type=Param)``; black closed the gap and the builtin formatter kept it.
+    """
+    (input_path := output_file.parent / "msgspec_convert_default.json").write_text(
+        json.dumps({
+            "title": "Holder",
+            "type": "object",
+            "properties": {"param": {"$ref": "#/$defs/Param", "default": {}}},
+            "$defs": {"Param": {"type": "object", "properties": {"a": {"type": "string"}}}},
+        }),
+        encoding="utf-8",
+    )
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "msgspec.Struct", "--formatters", *formatters, "--disable-timestamp"],
     )

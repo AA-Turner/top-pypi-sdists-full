@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 import numba
 from sklearn.base import BaseEstimator
@@ -5,7 +7,13 @@ from sklearn.utils import check_array
 
 from umap.sparse import arr_intersect as intersect1d
 from umap.sparse import arr_union as union1d
-from umap.umap_ import UMAP, make_epochs_per_sample
+from warnings import warn
+
+from umap.umap_ import (
+    COMPATIBILITY_LAYOUT_DEFAULT_WARNING,
+    UMAP,
+    make_epochs_per_sample,
+)
 from umap.spectral import spectral_layout
 from umap.layouts import optimize_layout_aligned_euclidean
 
@@ -28,6 +36,33 @@ def in1d(arr, test_set):
 
 def invert_dict(d):
     return {value: key for key, value in d.items()}
+
+
+def relation_lut(d, n_samples):
+    """Materialize a relation dict as a lookup array: lut[key] = value, else -1.
+
+    Keys and values are bounded by n_samples (see expand_relations), so an
+    array of length n_samples covers every entry and turns each dict.get(n, -1)
+    into a C-level gather instead of a Python-level lookup.
+    """
+    lut = np.full(n_samples, -1, dtype=np.int32)
+    if d:
+        keys = np.fromiter(d.keys(), dtype=np.int64, count=len(d))
+        vals = np.fromiter(d.values(), dtype=np.int64, count=len(d))
+        lut[keys] = vals
+    return lut
+
+
+def chain_relation_lut(lut, mapping):
+    """Apply one relation step: mapping[i] -> lut[mapping[i]], propagating -1.
+
+    Mirrors `np.array([d.get(n, -1) for n in mapping])` where negative sentinels
+    (and missing keys) map to -1, but with masked fancy indexing in C.
+    """
+    nxt = np.full(mapping.shape, -1, dtype=np.int32)
+    valid = mapping >= 0
+    nxt[valid] = lut[mapping[valid]]
+    return nxt
 
 
 @numba.njit()
@@ -53,18 +88,19 @@ def expand_relations(relation_dicts, window_size=3):
         -1,
         dtype=np.int32,
     )
-    reverse_relation_dicts = [invert_dict(d) for d in relation_dicts]
+    # Precompute each relation (and its inverse) as a lookup array once, so the
+    # windowed chaining below uses C-level gathers instead of Python dict.get.
+    luts = [relation_lut(d, max_n_samples) for d in relation_dicts]
+    reverse_luts = [relation_lut(invert_dict(d), max_n_samples) for d in relation_dicts]
     for i in range(result.shape[0]):
         for j in range(window_size):
             result_index = (window_size) + (j + 1)
             if i + j + 1 >= len(relation_dicts):
                 result[i, result_index] = np.full(max_n_samples, -1, dtype=np.int32)
             else:
-                mapping = np.arange(max_n_samples)
+                mapping = np.arange(max_n_samples, dtype=np.int32)
                 for k in range(j + 1):
-                    mapping = np.array(
-                        [relation_dicts[i + k].get(n, -1) for n in mapping]
-                    )
+                    mapping = chain_relation_lut(luts[i + k], mapping)
                 result[i, result_index] = mapping
 
         for j in range(0, -window_size, -1):
@@ -72,11 +108,9 @@ def expand_relations(relation_dicts, window_size=3):
             if i + j - 1 < 0:
                 result[i, result_index] = np.full(max_n_samples, -1, dtype=np.int32)
             else:
-                mapping = np.arange(max_n_samples)
+                mapping = np.arange(max_n_samples, dtype=np.int32)
                 for k in range(0, j - 1, -1):
-                    mapping = np.array(
-                        [reverse_relation_dicts[i + k - 1].get(n, -1) for n in mapping]
-                    )
+                    mapping = chain_relation_lut(reverse_luts[i + k - 1], mapping)
                 result[i, result_index] = mapping
 
     return result
@@ -86,6 +120,7 @@ def expand_relations(relation_dicts, window_size=3):
 def build_neighborhood_similarities(graphs_indptr, graphs_indices, relations):
     result = np.zeros(relations.shape, dtype=np.float32)
     center_index = (relations.shape[1] - 1) // 2
+    n_samples = relations.shape[2]
     for i in range(relations.shape[0]):
         base_graph_indptr = graphs_indptr[i]
         base_graph_indices = graphs_indices[i]
@@ -95,16 +130,30 @@ def build_neighborhood_similarities(graphs_indptr, graphs_indices, relations):
 
             comparison_graph_indptr = graphs_indptr[i + j - center_index]
             comparison_graph_indices = graphs_indices[i + j - center_index]
-            for k in range(relations.shape[2]):
-                comparison_index = relations[i, j, k]
+
+            # relations[i, j] is constant across k, so precompute once which
+            # comparison-model indices appear as values in it. This replaces the
+            # per-sample set(relations[i, j]) rebuild inside in1d (an
+            # O(n_samples) cost paid for every k) with an O(degree) membership
+            # lookup. A value >= n_samples can never appear in relations[i, j],
+            # so it maps to False, exactly matching in1d's set-membership result.
+            relation_row = relations[i, j]
+            present = np.zeros(n_samples, dtype=np.bool_)
+            for b in range(n_samples):
+                v = relation_row[b]
+                if v >= 0:
+                    present[v] = True
+
+            for k in range(n_samples):
+                comparison_index = relation_row[k]
                 if comparison_index < 0:
                     continue
 
                 raw_base_graph_indices = base_graph_indices[
                     base_graph_indptr[k] : base_graph_indptr[k + 1]
                 ].copy()
-                base_indices = relations[i, j][
-                    raw_base_graph_indices[raw_base_graph_indices < relations.shape[2]]
+                base_indices = relation_row[
+                    raw_base_graph_indices[raw_base_graph_indices < n_samples]
                 ]
                 base_indices = base_indices[base_indices >= 0]
                 comparison_indices = comparison_graph_indices[
@@ -112,9 +161,14 @@ def build_neighborhood_similarities(graphs_indptr, graphs_indices, relations):
                         comparison_index + 1
                     ]
                 ]
-                comparison_indices = comparison_indices[
-                    in1d(comparison_indices, relations[i, j])
-                ]
+                comparison_mask = np.empty(comparison_indices.shape[0], dtype=np.bool_)
+                for idx in range(comparison_indices.shape[0]):
+                    c = comparison_indices[idx]
+                    if c < n_samples:
+                        comparison_mask[idx] = present[c]
+                    else:
+                        comparison_mask[idx] = False
+                comparison_indices = comparison_indices[comparison_mask]
 
                 intersection_size = intersect1d(base_indices, comparison_indices).shape[
                     0
@@ -134,7 +188,7 @@ def get_nth_item_or_val(iterable_or_val, n):
         return None
     if type(iterable_or_val) in (list, tuple, np.ndarray):
         return iterable_or_val[n]
-    elif type(iterable_or_val) in (int, float, bool, None):
+    elif type(iterable_or_val) in (int, float, bool, str):
         return iterable_or_val
     else:
         raise ValueError("Unrecognized parameter type")
@@ -161,6 +215,7 @@ PARAM_NAMES = (
     "target_metric_kwds",
     "target_weight",
     "unique",
+    "nearest_neighbor_backend",
 )
 
 
@@ -168,7 +223,7 @@ def set_aligned_params(new_params, existing_params, n_models, param_names=PARAM_
     for param in param_names:
         if param in new_params:
             if isinstance(existing_params[param], list):
-                existing_params[param].append(new_params[param])
+                existing_params[param] = existing_params[param] + [new_params[param]]
             elif isinstance(existing_params[param], tuple):
                 existing_params[param] = existing_params[param] + (new_params[param],)
             elif isinstance(existing_params[param], np.ndarray):
@@ -226,6 +281,71 @@ def init_from_existing(previous_embedding, graph, relations):
 
 
 class AlignedUMAP(BaseEstimator):
+    """Jointly embed a sequence of related datasets with aligned UMAP layouts.
+
+    Each dataset is modelled with its own UMAP fuzzy graph. The embeddings are
+    then optimized together, with an additional regularisation term that keeps
+    related points (given by ``relations`` in :meth:`fit`) close to each other
+    across neighbouring datasets.
+
+    Most parameters have the same meaning as for :class:`umap.UMAP` and may be
+    given either as a single value or as a list/tuple with one value per
+    dataset (``n_neighbors``, ``n_epochs``, ``min_dist``, ``spread``,
+    ``learning_rate``, ``repulsion_strength``, ``negative_sample_rate``,
+    ``local_connectivity``, ``set_op_mix_ratio``, ``unique`` and
+    ``nearest_neighbor_backend``).
+
+    Parameters
+    ----------
+    n_neighbors, n_components, metric, metric_kwds, min_dist, spread, \
+low_memory, set_op_mix_ratio, local_connectivity, repulsion_strength, \
+negative_sample_rate, transform_queue_size, a, b, random_state, \
+angular_rp_forest, target_n_neighbors, target_metric, target_metric_kwds, \
+target_weight, transform_seed, force_approximation_algorithm, verbose, unique:
+        As for :class:`umap.UMAP`; used to build each dataset's fuzzy graph.
+
+    n_epochs: int or list of int (optional, default None)
+        Number of optimization epochs. The joint layout runs for the largest
+        value; ``None`` uses 200.
+
+    learning_rate: float or list of float (optional, default 1.0)
+        Initial learning rate of the aligned optimization.
+
+    alignment_regularisation: float (optional, default 1e-2)
+        Strength of the term that pulls related points together across
+        neighbouring datasets.
+
+    alignment_window_size: int (optional, default 3)
+        How many neighbouring datasets on each side are regularised towards
+        each other.
+
+    compatibility_layout: bool or None (optional, default None)
+        Whether to build the per-dataset graphs and spectral initializations
+        exactly as umap-learn 0.5.x did. ``None`` currently means ``True`` and
+        emits a ``FutureWarning``; the default will change to ``False`` in a
+        future release. Seeded ``compatibility_layout=True`` fits reproduce
+        0.5.x results.
+
+    nearest_neighbor_backend: str or list of str (optional, default "auto")
+        Nearest-neighbor backend for each dataset; see :class:`umap.UMAP`.
+
+    init, recursive_coarsening_ratio:
+        Forwarded to the per-dataset :class:`umap.UMAP` models, but they do
+        not affect ``embeddings_``: the aligned layout is always initialised
+        from spectral embeddings and optimized with the established aligned
+        optimizer. Layout-only options of :class:`umap.UMAP` (``optimizer``,
+        ``init_rescale``, negative-sampling controls and so on) are therefore
+        not exposed here.
+
+    Attributes
+    ----------
+    embeddings_: list of arrays of shape (n_samples_i, n_components)
+        The aligned embedding of each dataset.
+
+    mappers_: list of UMAP
+        The fitted per-dataset models providing the fuzzy graphs.
+    """
+
     def __init__(
         self,
         n_neighbors=15,
@@ -255,8 +375,11 @@ class AlignedUMAP(BaseEstimator):
         target_weight=0.5,
         transform_seed=42,
         force_approximation_algorithm=False,
+        recursive_coarsening_ratio=4,
         verbose=False,
         unique=False,
+        nearest_neighbor_backend="auto",
+        compatibility_layout=None,
     ):
 
         self.n_neighbors = n_neighbors
@@ -286,20 +409,46 @@ class AlignedUMAP(BaseEstimator):
         self.target_weight = target_weight
         self.transform_seed = transform_seed
         self.force_approximation_algorithm = force_approximation_algorithm
+        self.recursive_coarsening_ratio = recursive_coarsening_ratio
+        self.nearest_neighbor_backend = nearest_neighbor_backend
+        self.compatibility_layout = compatibility_layout
         self.verbose = verbose
         self.unique = unique
 
         self.a = a
         self.b = b
 
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        # Fill parameters added after the model was pickled with their defaults;
+        # fitted pre-0.6 models always used the legacy pipeline.
+        for name, parameter in inspect.signature(
+            AlignedUMAP.__init__
+        ).parameters.items():
+            if name != "self" and name not in self.__dict__:
+                setattr(self, name, parameter.default)
+        if "embeddings_" in self.__dict__ and "_compatibility_layout" not in (
+            self.__dict__
+        ):
+            self._compatibility_layout = True
+
+    def _resolve_compatibility_layout(self):
+        if self.compatibility_layout is None:
+            warn(COMPATIBILITY_LAYOUT_DEFAULT_WARNING, FutureWarning, stacklevel=3)
+            return True
+        if not isinstance(self.compatibility_layout, (bool, np.bool_)):
+            raise ValueError("compatibility_layout must be True, False, or None")
+        return bool(self.compatibility_layout)
+
     def fit(self, X, y=None, **fit_params):
         if "relations" not in fit_params:
             raise ValueError(
-                "Aligned UMAP requires relations between data to be " "specified"
+                "Aligned UMAP requires relations between data to be specified"
             )
 
-        self.dict_relations_ = fit_params["relations"]
-        assert type(self.dict_relations_) in (list, tuple)
+        assert type(fit_params["relations"]) in (list, tuple)
+        # Copy so that update() does not append to the caller's list
+        self.dict_relations_ = list(fit_params["relations"])
         assert type(X) in (list, tuple, np.ndarray)
         assert (len(X) - 1) == (len(self.dict_relations_))
 
@@ -314,11 +463,14 @@ class AlignedUMAP(BaseEstimator):
             raise ValueError("n_components must be a single integer, and cannot vary")
 
         self.n_models_ = len(X)
+        self._compatibility_layout = self._resolve_compatibility_layout()
 
         if self.n_epochs is None:
             self.n_epochs = 200
 
-        n_epochs = self.n_epochs
+        # n_epochs can be given per model, but the models are laid out together,
+        # so optimise the joint layout for the largest number of epochs
+        n_epochs = int(np.max(self.n_epochs))
 
         self.mappers_ = [
             UMAP(
@@ -346,9 +498,14 @@ class AlignedUMAP(BaseEstimator):
                 target_weight=self.target_weight,
                 transform_seed=self.transform_seed,
                 force_approximation_algorithm=self.force_approximation_algorithm,
+                recursive_coarsening_ratio=self.recursive_coarsening_ratio,
+                nearest_neighbor_backend=get_nth_item_or_val(
+                    self.nearest_neighbor_backend, n
+                ),
                 verbose=self.verbose,
                 a=self.a,
                 b=self.b,
+                compatibility_layout=self._compatibility_layout,
             ).fit(X[n], y[n])
             for n in range(self.n_models_)
         ]
@@ -363,13 +520,12 @@ class AlignedUMAP(BaseEstimator):
         epochs_per_samples = numba.typed.List.empty_list(numba.types.float64[::1])
 
         for mapper in self.mappers_:
+            graph_coo = mapper.graph_.tocoo()
             indptr_list.append(mapper.graph_.indptr)
             indices_list.append(mapper.graph_.indices)
-            heads.append(mapper.graph_.tocoo().row)
-            tails.append(mapper.graph_.tocoo().col)
-            epochs_per_samples.append(
-                make_epochs_per_sample(mapper.graph_.tocoo().data, n_epochs)
-            )
+            heads.append(graph_coo.row)
+            tails.append(graph_coo.col)
+            epochs_per_samples.append(make_epochs_per_sample(graph_coo.data, n_epochs))
 
         rng_state_transform = np.random.RandomState(self.transform_seed)
         regularisation_weights = build_neighborhood_similarities(
@@ -382,6 +538,7 @@ class AlignedUMAP(BaseEstimator):
             self.mappers_[0].graph_,
             self.n_components,
             rng_state_transform,
+            compatibility_layout=self._compatibility_layout,
         )
         expansion = 10.0 / np.abs(first_init).max()
         first_embedding = (first_init * expansion).astype(
@@ -397,6 +554,7 @@ class AlignedUMAP(BaseEstimator):
                 self.mappers_[i].graph_,
                 self.n_components,
                 rng_state_transform,
+                compatibility_layout=self._compatibility_layout,
             )
             expansion = 10.0 / np.abs(next_init).max()
             next_embedding = (next_init * expansion).astype(
@@ -446,7 +604,7 @@ class AlignedUMAP(BaseEstimator):
     def update(self, X, y=None, **fit_params):
         if "relations" not in fit_params:
             raise ValueError(
-                "Aligned UMAP requires relations between data to be " "specified"
+                "Aligned UMAP requires relations between data to be specified"
             )
 
         new_dict_relations = fit_params["relations"]
@@ -455,6 +613,9 @@ class AlignedUMAP(BaseEstimator):
         X = check_array(X)
 
         self.__dict__ = set_aligned_params(fit_params, self.__dict__, self.n_models_)
+        if not hasattr(self, "_compatibility_layout"):
+            # Models fitted before 0.6 always used the legacy pipeline.
+            self._compatibility_layout = True
 
         # We need n_components to be constant or this won't work
         if type(self.n_components) in (list, tuple, np.ndarray):
@@ -463,7 +624,8 @@ class AlignedUMAP(BaseEstimator):
         if self.n_epochs is None:
             self.n_epochs = 200
 
-        n_epochs = self.n_epochs
+        # The layout update runs for the new model's number of epochs
+        n_epochs = get_nth_item_or_val(self.n_epochs, self.n_models_)
 
         new_mapper = UMAP(
             n_neighbors=get_nth_item_or_val(self.n_neighbors, self.n_models_),
@@ -496,9 +658,14 @@ class AlignedUMAP(BaseEstimator):
             target_weight=self.target_weight,
             transform_seed=self.transform_seed,
             force_approximation_algorithm=self.force_approximation_algorithm,
+            recursive_coarsening_ratio=self.recursive_coarsening_ratio,
+            nearest_neighbor_backend=get_nth_item_or_val(
+                self.nearest_neighbor_backend, self.n_models_
+            ),
             verbose=self.verbose,
             a=self.a,
             b=self.b,
+            compatibility_layout=self._compatibility_layout,
         ).fit(X, y)
 
         self.n_models_ += 1

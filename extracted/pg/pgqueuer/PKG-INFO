@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 1.6.0
+Version: 2.0.0
 Summary: PostgreSQL-backed background job and task queue for Python.
 Author: JeyBee
 License: MIT License
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -27,7 +26,7 @@ Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Classifier: Topic :: System :: Distributed Computing
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: anyio>=4.0
@@ -107,14 +106,14 @@ If you already run PostgreSQL, it can do double duty as your job queue. That mea
 
 ## Installation
 
-PgQueuer targets Python 3.10+ and PostgreSQL 14+:
+PgQueuer targets Python 3.11+ and PostgreSQL 14+:
 
 ```bash
 pip install pgqueuer
 pgq install        # create tables and functions in your database
 ```
 
-The CLI reads `PGHOST`, `PGUSER`, `PGDATABASE` and related environment variables. Use `pgq sql install` to preview the SQL (or pipe it to another client: `pgq sql install | psql`), `--prefix myapp_` to namespace tables, or `pgq uninstall` to remove the schema.
+The CLI reads `PGHOST`, `PGUSER`, `PGDATABASE` and related environment variables. Use `pgq sql install` to preview the SQL (or pipe it to another client: `pgq sql install | psql`), `--prefix myapp_` to namespace tables, or `pgq uninstall` to remove the schema. Code reads the same names from `PGQUEUER_PREFIX` and related environment variables, or from `settings=DBSettings(prefix="myapp_")` passed to `PgQueuer` and `Queries`.
 
 ## Quick Start
 

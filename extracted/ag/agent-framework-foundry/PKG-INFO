@@ -1,9 +1,9 @@
 Metadata-Version: 2.5
 Name: agent-framework-foundry
-Version: 1.16.0
+Version: 1.16.1
 Summary: Microsoft Foundry integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 5 - Production/Stable
@@ -20,7 +20,7 @@ Requires-Dist: agent-framework-core>=1.24.0,<2
 Requires-Dist: agent-framework-openai>=1.18.0,<2
 Requires-Dist: aiohttp>=3.9,<4
 Requires-Dist: azure-ai-inference>=1.0.0b9,<1.0.0b10
-Requires-Dist: azure-ai-projects>=2.2.0,<2.8.0
+Requires-Dist: azure-ai-projects>=2.2.0,<2.10.0
 Requires-Dist: httpx>=0.28,<1
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -101,9 +101,17 @@ The client uses the project for authentication and converts a
 `https://<resource>.services.ai.azure.com/api/projects/<project>` endpoint to the documented resource-scoped
 `https://<resource>.openai.azure.com/openai/v1/` model route. The existing `FOUNDRY_MODELS_ENDPOINT` and
 `FOUNDRY_MODELS_API_KEY` configuration remains available for Foundry Models inference endpoints. A Models endpoint is
-required for image embedding models. If both project and Models endpoints are configured only through environment
-variables, the Models endpoint is retained for backward compatibility; pass `project_endpoint` explicitly to select
-the project OpenAI deployment.
+required for image embedding models unless an `ImageEmbeddingsClient` is supplied. If both project and Models
+endpoints are configured only through environment variables, the Models endpoint is retained for backward
+compatibility; pass `project_endpoint` explicitly to select the project OpenAI deployment.
+
+A preconfigured `EmbeddingsClient` or `ImageEmbeddingsClient` can be passed as `text_client` or `image_client`.
+The injected client is the transport for that modality and takes precedence over constructor connection settings,
+environment settings, and framework defaults, so no endpoint, API key, credential, or Foundry environment is
+required for it. `model` and `image_model` keep their usual explicit-argument, environment, then default
+resolution. The other modality is created only when a request needs it and enough settings are available.
+For example, an injected `image_client` can be combined with project configuration for text embeddings;
+the project text transport is initialized only when a request includes text.
 
 ## Evaluations
 

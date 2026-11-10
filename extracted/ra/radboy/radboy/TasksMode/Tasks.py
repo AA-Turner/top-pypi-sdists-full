@@ -7180,6 +7180,56 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
                 else:
                     print(f"{Fore.light_steel_blue}Qty was still {Fore.orange_red_1}{Qty}{Style.reset}")
 
+    def bcd_btch(self,cp2=None):
+        data=None
+        SUPPORTEDOUT=barcode.PROVIDED_BARCODES
+        batchd=Path('Batch')
+        if batchd.exists() == False:
+                batchd.mkdir(parents=True)
+        with Session(ENGINE) as session:
+            results=session.query(Entry).filter(Entry.InList==True)
+            results=orderQuery(results,Entry.Timestamp)
+            results=results.all()
+            cta=len(results)
+            for num,i in enumerate(results):
+                data=i.Barcode
+                final_out=str(batchd/Path(f"GENERATED_BCD_{num}"))
+                ct=len(SUPPORTEDOUT)
+                if cp2 is None:
+                    for num,ii in enumerate(SUPPORTEDOUT):
+                        msg=f'''{Fore.medium_violet_red}{num}{Fore.light_magenta}/{num+1} of {Fore.dark_goldenrod}{ct} -> {Fore.light_green}{ii}{Style.reset}'''
+                        print(msg)
+                    msg=std_colorize(f"Name = '{i.Name}' | Barcode = '{i.Barcode}'",num,cta)
+                    which=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"{msg}\nWhich {Fore.medium_violet_red}index? {Fore.light_yellow}",helpText="which {Fore.medium_violet_red}index? {Fore.light_yellow}",data="integer")
+                    if which in ['d']:
+                        which=SUPPORTEDOUT.index("code128")
+                    elif which in [None,]:
+                        return
+                try:
+                    if data in [None,]:
+                        continue
+                    options={}
+                    options['writer']=barcode.writer.ImageWriter()
+                    if data in ['d',None]:
+                        return
+                    if cp2 is None:    
+                        if SUPPORTEDOUT[which] == 'code39':
+                            options['add_checksum']=False
+                    else:
+                        if cp2 == "code39":
+                            options['add_checksum']=False
+                            
+                    if cp2 is None:
+                        bcd_class=barcode.get_class(SUPPORTEDOUT[which])
+                    else:
+                        bcd_class=barcode.get_class(cp2)
+
+                    cde=bcd_class(data,**options)
+                    cde.save(final_out)
+                    print(f"Saved to '{final_out}'!")
+                except Exception as e:
+                    print(e)
+
     def bcd_img(self,cp2=None,data=None):
         SUPPORTEDOUT=barcode.PROVIDED_BARCODES
         final_out=detectGetOrSet("IMG_GEN_OUT","GENERATED_BCD",literal=True)

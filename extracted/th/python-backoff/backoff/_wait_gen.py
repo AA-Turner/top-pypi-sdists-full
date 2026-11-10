@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import itertools
 import math
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ParamSpec
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable
+
+    P = ParamSpec("P")
 
 
 def expo(
@@ -38,7 +40,7 @@ def decay(
     decay_factor: float = 1,
     min_value: float | None = None,
 ) -> Generator[float, Any, None]:
-    """Generator for exponential decay[1]:
+    """Generator for [exponential decay](https://en.wikipedia.org/wiki/Exponential_decay).
 
     Args:
         initial_value: initial quantity
@@ -46,8 +48,6 @@ def decay(
         min_value: The minimum value to yield. Once the value in the
              true exponential sequence is lower than this, the value
              of min_value will forever after be yielded.
-
-    [1] https://en.wikipedia.org/wiki/Exponential_decay
     """
     # Advance past initial .send() call
     yield 0
@@ -61,12 +61,12 @@ def decay(
 
 
 def fibo(max_value: int | None = None) -> Generator[int, Any, None]:
-    """Generator for fibonaccial decay.
+    """Generator for Fibonacci decay.
 
     Args:
         max_value: The maximum value to yield. Once the value in the
-             true fibonacci sequence exceeds this, the value
-             of max_value will forever after be yielded.
+             true Fibonacci sequence exceeds this, the value
+             of `max_value` will forever after be yielded.
     """
     # Advance past initial .send() call
     yield 0
@@ -99,6 +99,57 @@ def constant(interval: float | Iterable[float] = 1) -> Generator[float, Any, Non
         yield val
 
 
+def capped(
+    wait_gen: Callable[P, Generator[float, Any, None]],
+    *,
+    min_value: float | None = None,
+    max_value: float | None = None,
+) -> Callable[P, Generator[float, Any, None]]:
+    """Wraps a wait generator, clamping each value it yields.
+
+    Useful for wait generators without their own bound, such as
+    [`constant`][backoff.constant] or [`runtime`][backoff.runtime] (e.g.
+    capping a server-provided `Retry-After` value so a misbehaving server
+    can't stall retries indefinitely):
+
+    ```python
+    backoff.on_predicate(
+        backoff.capped(backoff.runtime, max_value=60),
+        predicate=lambda r: r.status_code == 429,
+        value=lambda r: int(r.headers.get("Retry-After", 1)),
+    )
+    ```
+
+    Args:
+        wait_gen: The wait generator to wrap.
+        min_value: The minimum value to yield. Values below this are
+            raised to min_value.
+        max_value: The maximum value to yield. Values above this are
+            lowered to max_value.
+    """
+    if min_value is not None and max_value is not None and min_value > max_value:
+        msg = f"`min_value` {min_value} cannot be greater than `max_value` {max_value}"
+        raise ValueError(msg)
+
+    def generator(*args: P.args, **kwargs: P.kwargs) -> Generator[float, Any, None]:
+        gen = wait_gen(*args, **kwargs)
+        gen.send(None)
+
+        send_value = yield 0
+        while True:
+            try:
+                value = gen.send(send_value)
+            except StopIteration:
+                return
+            if max_value is not None:
+                value = min(value, max_value)
+            if min_value is not None:
+                value = max(value, min_value)
+            send_value = yield value
+
+    return generator
+
+
 def runtime(*, value: Callable[[Any], float]) -> Generator[float, Any, None]:
     """Generator that is based on parsing the return value or thrown
         exception of the decorated method
@@ -106,23 +157,25 @@ def runtime(*, value: Callable[[Any], float]) -> Generator[float, Any, None]:
     Useful for honoring a server-specified retry delay, e.g. an HTTP
     `Retry-After` header, rather than a fixed wait sequence:
 
-        # with on_predicate, `value` receives the return value
-        @backoff.on_predicate(
-            backoff.runtime,
-            predicate=lambda r: r.status_code == 429,
-            value=lambda r: int(r.headers.get("Retry-After", 1)),
-        )
-        def get_page():
-            return requests.get(url)
+    ```python
+    # with on_predicate, `value` receives the return value
+    @backoff.on_predicate(
+        backoff.runtime,
+        predicate=lambda r: r.status_code == 429,
+        value=lambda r: int(r.headers.get("Retry-After", 1)),
+    )
+    def get_page():
+        return requests.get(url)
 
-        # with on_exception, `value` receives the raised exception
-        @backoff.on_exception(
-            backoff.runtime,
-            RetryableError,
-            value=lambda e: e.wait_seconds,
-        )
-        def get_page():
-            ...
+
+    # with on_exception, `value` receives the raised exception
+    @backoff.on_exception(
+        backoff.runtime,
+        RetryableError,
+        value=lambda e: e.wait_seconds,
+    )
+    def get_page(): ...
+    ```
 
     Args:
         value: a callable which takes as input the decorated

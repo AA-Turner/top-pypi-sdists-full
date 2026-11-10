@@ -52,7 +52,7 @@ impl From<Tree> for TreeWire {
 }
 
 /// A repo file path: plain segments, not under [`CHUNKS_DIR`].
-pub(crate) fn check_file(p: &str) -> Result<()> {
+pub fn check_file(p: &str) -> Result<()> {
     if !path(p) || p.split('/').next() == Some(CHUNKS_DIR) {
         return invalid(format!("file path {p:?} is not a repo file path"));
     }
@@ -158,7 +158,7 @@ impl From<Repo> for RepoWire {
 pub const ROOT_ORG: &str = "_";
 
 /// A repository name: `<org>/<name>`, two segments.
-pub(crate) fn repo_name(name: &str) -> bool {
+pub fn repo_name(name: &str) -> bool {
     name.split_once('/').is_some_and(|(org, name)| segment(org) && segment(name))
 }
 
@@ -166,11 +166,11 @@ impl Repo {
     pub fn new(name: &str) -> Repo {
         Repo { name: name.into(), ..Repo::default() }
     }
-    pub fn from_json(bytes: &[u8]) -> Result<Repo> {
+    pub(crate) fn from_json(bytes: &[u8]) -> Result<Repo> {
         json::read(bytes, REPO_FORMAT)
     }
     /// The canonical bytes; refuses a document a reader would refuse.
-    pub fn to_json(&self) -> Result<Vec<u8>> {
+    pub(crate) fn to_json(&self) -> Result<Vec<u8>> {
         self.check()?;
         json::write(self)
     }
@@ -187,7 +187,7 @@ impl Repo {
     }
 
     /// Release `version`.
-    pub fn release(&self, version: &str) -> Option<&Release> {
+    pub(crate) fn release(&self, version: &str) -> Option<&Release> {
         self.releases.iter().find(|r| r.version == version)
     }
 
@@ -244,7 +244,7 @@ impl Repo {
     }
 
     /// Every commit the repo keeps alive, each once.
-    pub fn roots(&self) -> Vec<&ObjectRef> {
+    pub(crate) fn roots(&self) -> Vec<&ObjectRef> {
         let mut roots: Vec<&ObjectRef> = self.releases.iter().flat_map(|r| r.lanes.values()).chain(&self.commits).collect();
         roots.sort();
         roots.dedup();

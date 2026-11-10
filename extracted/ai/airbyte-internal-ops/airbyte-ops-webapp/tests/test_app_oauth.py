@@ -149,6 +149,75 @@ def test_oauth_callback_csp_restricts_connections_to_self() -> None:
     assert "script-src 'unsafe-inline'" in csp
 
 
+@pytest.mark.parametrize(
+    "host", ["mtx.internal.airbyte.ai", "preview.mtx.internal.airbyte.ai"]
+)
+def test_workspace_login_uses_allowlisted_same_origin_callback(
+    monkeypatch, host
+) -> None:
+    callback = f"https://{host}/oauth/callback"
+    monkeypatch.setenv(oauth_module.OAUTH_ADDITIONAL_REDIRECT_URIS_ENV_VAR, callback)
+    app = Starlette()
+    add_oauth_routes(app)
+    client = TestClient(app, base_url=f"https://{host}")
+    response = client.get("/oauth/login?return_to=%2F%3Fview%3Ddocs")
+    assert response.status_code == 200
+    assert callback in response.text
+    assert f"https://{host}/?view=docs" in response.text
+    assert callback in client.get("/oauth/callback").text
+    assert (
+        callback
+        not in TestClient(app, base_url="https://untrusted.example")
+        .get("/oauth/callback")
+        .text
+    )
+
+
+@pytest.mark.parametrize(
+    ("host", "scheme", "forwarded_proto"),
+    [
+        ("mtx.internal.airbyte.ai", "https", None),
+        ("preview.mtx.internal.airbyte.ai", "https", None),
+        ("mtx.internal.airbyte.ai", "http", "https"),
+        ("preview.mtx.internal.airbyte.ai", "http", "https"),
+        ("untrusted.example", "https", None),
+    ],
+)
+def test_oauth_token_exchange_uses_allowlisted_request_callback(
+    monkeypatch, host, scheme, forwarded_proto
+) -> None:
+    configured = "https://ops.internal.airbyte.ai/oauth/callback"
+    callbacks = {
+        "https://mtx.internal.airbyte.ai/oauth/callback",
+        "https://preview.mtx.internal.airbyte.ai/oauth/callback",
+    }
+    monkeypatch.setenv(state_module.OAUTH_REDIRECT_URI_ENV_VAR, configured)
+    monkeypatch.setenv(
+        oauth_module.OAUTH_ADDITIONAL_REDIRECT_URIS_ENV_VAR,
+        ",".join(sorted(callbacks)),
+    )
+    exchanges = []
+
+    def exchange(code, code_verifier, *, redirect_uri):
+        exchanges.append((code, code_verifier, redirect_uri))
+        return {"access_token": "test-access-token"}
+
+    monkeypatch.setattr(oauth_module, "_exchange_oauth_token", exchange)
+    app = Starlette()
+    add_oauth_routes(app)
+    headers = {"X-Forwarded-Proto": forwarded_proto} if forwarded_proto else {}
+    response = TestClient(app, base_url=f"{scheme}://{host}").post(
+        "/oauth/token",
+        json={"code": "test-code", "code_verifier": "test-verifier"},
+        headers=headers,
+    )
+
+    requested = f"https://{host}/oauth/callback"
+    expected = requested if requested in callbacks else configured
+    assert response.status_code == 200
+    assert exchanges == [("test-code", "test-verifier", expected)]
+
+
 def test_webapp_host_serves_oauth_routes(monkeypatch) -> None:
     monkeypatch.delenv(state_module.OAUTH_CLIENT_ID_ENV_VAR, raising=False)
     monkeypatch.delenv(state_module.OAUTH_ENABLED_ENV_VAR, raising=False)
@@ -158,7 +227,7 @@ def test_webapp_host_serves_oauth_routes(monkeypatch) -> None:
     monkeypatch.setattr(
         oauth_module,
         "_exchange_oauth_token",
-        lambda code, code_verifier: {
+        lambda code, code_verifier, **kwargs: {
             "access_token": f"{code}-{code_verifier}",
             "id_token": "header.payload.signature",
             "expires_in": 180,

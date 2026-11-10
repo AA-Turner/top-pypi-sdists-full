@@ -42,9 +42,11 @@
 
 extern int codecs_datetime_init(void);
 extern int connection_datetime_init(void);
+extern int cursor_datetime_init(void);
 
 PyObject *decimal_module= NULL,
          *decimal_type= NULL,
+         *keyword_iskeyword= NULL,
          *socket_module= NULL,
          *indicator_module= NULL;
 extern uint16_t max_pool_size;
@@ -126,6 +128,7 @@ PyMODINIT_FUNC PyInit__mariadb(void)
     /* Initialize DateTimeAPI */
     if (mariadb_datetime_init() ||
         connection_datetime_init() ||
+        cursor_datetime_init() ||
         codecs_datetime_init())
     {
         goto error;
@@ -139,7 +142,7 @@ PyMODINIT_FUNC PyInit__mariadb(void)
 
     /* Import Decimal support (CONPY-49) */
     if (!(decimal_module= PyImport_ImportModule("decimal")) ||
-        !(decimal_type= PyObject_GetAttr(decimal_module, PyUnicode_FromString("Decimal"))))
+        !(decimal_type= PyObject_GetAttrString(decimal_module, "Decimal")))
     {
         goto error;
     }
@@ -147,6 +150,21 @@ PyMODINIT_FUNC PyInit__mariadb(void)
     if (!(socket_module= PyImport_ImportModule("socket")))
     {
         goto error;
+    }
+
+    {
+        PyObject *keyword_module;
+
+        if (!(keyword_module= PyImport_ImportModule("keyword")))
+        {
+            goto error;
+        }
+        keyword_iskeyword= PyObject_GetAttrString(keyword_module, "iskeyword");
+        Py_DECREF(keyword_module);
+        if (!keyword_iskeyword)
+        {
+            goto error;
+        }
     }
 
     Py_SET_TYPE(&MrdbCursor_Type, &PyType_Type);
@@ -203,6 +221,7 @@ PyMODINIT_FUNC PyInit__mariadb(void)
 
     return module;
 error:
+    Py_XDECREF(module);
     if (PyErr_Occurred())
     {
         return NULL;

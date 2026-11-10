@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3-athena
-Version: 1.43.0
-Summary: Type annotations for boto3 Athena 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.126
+Summary: Type annotations for boto3 Athena 1.43.126 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Athena 1.43.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Athena 1.43.126](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.126' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Add `Athena` service.
 4. Use provided commands to install generated packages.
@@ -343,6 +343,7 @@ from types_boto3_athena.paginator import (
     ListDatabasesPaginator,
     ListNamedQueriesPaginator,
     ListQueryExecutionsPaginator,
+    ListSystemTableStatusesPaginator,
     ListTableMetadataPaginator,
     ListTagsForResourcePaginator,
 )
@@ -357,6 +358,9 @@ list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_da
 list_named_queries_paginator: ListNamedQueriesPaginator = client.get_paginator("list_named_queries")
 list_query_executions_paginator: ListQueryExecutionsPaginator = client.get_paginator(
     "list_query_executions"
+)
+list_system_table_statuses_paginator: ListSystemTableStatusesPaginator = client.get_paginator(
+    "list_system_table_statuses"
 )
 list_table_metadata_paginator: ListTableMetadataPaginator = client.get_paginator(
     "list_table_metadata"

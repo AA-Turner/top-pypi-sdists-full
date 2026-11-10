@@ -12,6 +12,7 @@ from narwhals.dataframe import DataFrame
 from narwhals.dependencies import is_narwhals_lazyframe
 
 from pointblank._constants import SVG_ICONS_FOR_DATA_TYPES
+from pointblank._interrogation import _string_expr
 from pointblank._utils import transpose_dicts
 from pointblank.scan_profile_stats import (
     FreqStat,
@@ -36,20 +37,39 @@ if TYPE_CHECKING:
     from narwhals.typing import Frame
 
 
-## Types that may cause unrecoverable errors and don't pose any value
-ILLEGAL_TYPES = ("struct",)
-
-
-class _TypeMap(Enum):  # ! ordered;
+class _TypeMap(Enum):
     # TODO: consolidate w/other stats?
-    NUMERIC = ("int", "float")
-    STRING = ("string", "categorical")
-    DATE = ("date",)
-    BOOL = ("bool",)
+    NUMERIC = "numeric"
+    STRING = "string"
+    DATE = "date"
+    BOOL = "bool"
 
     @classmethod
-    def is_illegal(cls, dtype: Any) -> bool:
-        return any(ind for ind in ILLEGAL_TYPES if ind in str(dtype).lower())
+    def from_dtype(cls, dtype: Any) -> _TypeMap | None:
+        """
+        The profile type for a Narwhals dtype, or `None` if it can't be profiled.
+
+        The dtype can also be given as its string form (the `coltype` of a profile, e.g.,
+        `Enum(categories=['a'])`), which is matched on its class name only. Matching on the dtype
+        class, rather than on substrings of its name, keeps nested types such as `List(Int64)` and
+        the category names of an `Enum` from picking the profile.
+        """
+        if isinstance(dtype, str):
+            dtype = getattr(nw.dtypes, dtype.split("(")[0].strip(), None)
+        base = dtype if isinstance(dtype, type) else type(dtype)
+        if not issubclass(base, nw.dtypes.DType):
+            return None
+        if issubclass(base, nw.Boolean):
+            return cls.BOOL
+        if base.is_numeric():  # includes `Decimal`
+            return cls.NUMERIC
+        if issubclass(base, (nw.String, nw.Categorical, nw.Enum)):
+            return cls.STRING
+        if issubclass(base, (nw.Date, nw.Datetime, nw.Time)):
+            return cls.DATE
+        # Nested types (`List`, `Array`, `Struct`) and others such as `Duration`, `Binary`,
+        # `Object` and `Unknown` have no profile
+        return None
 
     @classmethod
     def fetch_prof_map(cls) -> dict[_TypeMap, type[ColumnProfile]]:
@@ -64,13 +84,10 @@ class _TypeMap(Enum):  # ! ordered;
 
     @classmethod
     def fetch_profile(cls, dtype: Any) -> type[ColumnProfile]:
-        stringified: str = str(dtype).lower()
-        for _type in cls:
-            inds: tuple[str, ...] = _type.value
-            is_match: bool = any(ind for ind in inds if ind in stringified)
-            if is_match:
-                return cls.fetch_prof_map()[_type]
-        raise NotImplementedError  # pragma: no-cover
+        _type = cls.from_dtype(dtype)
+        if _type is None:
+            raise NotImplementedError(f"No profile for the type {dtype!s}.")
+        return cls.fetch_prof_map()[_type]
 
     @classmethod
     def fetch_icon(cls, _type: _TypeMap) -> str:
@@ -170,7 +187,13 @@ class _StringProfile(ColumnProfile):
     _type: _TypeMap = _TypeMap.STRING
 
     def calc_stats(self, data: Frame) -> None:
-        str_data = data.select(nw.all().cast(nw.String).str.len_chars())
+        # `_string_expr()` casts only Categorical and Enum columns, keeping missing values missing
+        # (a plain cast turns them into "None" or "nan" on pandas with Narwhals < 2.27)
+        str_data = data.select(_string_expr(data, self.colname).str.len_chars().alias(self.colname))
+        if not str_data.collect_schema()[self.colname].is_numeric():
+            # With Narwhals < 2.27, the lengths of an all-missing pandas `object` column are left
+            # as `object` (the old cast made them "None", 4 characters each)
+            str_data = str_data.with_columns(nw.col(self.colname).cast(nw.Float64))
 
         # TODO: We should get an FreqStat here; estimate cardinality first
 
@@ -258,6 +281,8 @@ class _DataProfile:  # TODO: feels redundant and weird
         self.columns: list[str] = columns
         self.implementation = implementation
         self.column_profiles: list[ColumnProfile] = []
+        # Column name -> dtype of the columns whose type cannot be profiled.
+        self.skipped_columns: dict[str, str] = {}
 
     def set_row_count(self, data: Frame) -> None:
         assert self.columns  # internal: cols should already be set
@@ -267,7 +292,12 @@ class _DataProfile:  # TODO: feels redundant and weird
             self.row_count = len(data)
 
     def as_dataframe(self, *, strict: bool = True) -> DataFrame:
-        assert self.column_profiles
+        if not self.column_profiles:
+            detail = ", ".join(f"{name} ({dtype})" for name, dtype in self.skipped_columns.items())
+            msg = "No column could be summarized: none of them has a supported type."
+            if detail:
+                msg += f" Unsupported columns: {detail}."
+            raise ValueError(msg)
 
         cols: list[dict[str, Any]] = []
         for prof in self.column_profiles:
@@ -286,8 +316,9 @@ class _DataProfile:  # TODO: feels redundant and weird
         all_keys = set().union(*(d.keys() for d in cols))
 
         for key in all_keys:
-            # Get all values for this key across all dictionaries
-            values = [d.get(key) for d in cols if key in d]
+            # Get all values for this key across all dictionaries (a missing statistic, e.g., the
+            # `std` of a single value, is left as a null rather than counted as another type)
+            values = [d[key] for d in cols if d.get(key) is not None]
 
             # Check if all values are of the same type
             if len(values) > 1:
@@ -303,7 +334,7 @@ class _DataProfile:  # TODO: feels redundant and weird
                         msg = f"Some types in {key!s} stat are different. Turn off `strict` to bypass."  # pragma: no cover
                         raise TypeError(msg)  # pragma: no cover
                     for d in cols:  # pragma: no cover
-                        if key in d:  # pragma: no cover
+                        if d.get(key) is not None:  # pragma: no cover
                             d[key] = str(d[key])  # pragma: no cover
 
         return nw.from_dict(transpose_dicts(cols), backend=self.implementation)

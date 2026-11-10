@@ -13,15 +13,15 @@ from pr_agent.algo.pr_processing import (
     FallbackEligibleError,
     get_pr_diff,
     retry_with_fallback_models,
+    run_diff_preparation,
 )
 from pr_agent.algo.run_details import init_run_details
-from pr_agent.algo.run_output import append_run_details
+from pr_agent.algo.run_output import append_run_details, push_outputs_async
 from pr_agent.algo.skills_loader import get_skills_context
 from pr_agent.algo.token_budget import AttemptTokenBudget
-from pr_agent.algo.token_handler import TokenHandler
 from pr_agent.algo.utils import ModelType, decode_user_text_args
 from pr_agent.config_loader import get_settings
-from pr_agent.git_providers import get_git_provider
+from pr_agent.git_providers import get_git_provider_for_tool
 from pr_agent.git_providers.git_provider import get_main_pr_language
 from pr_agent.log import get_logger
 from pr_agent.servers.help import HelpMessage
@@ -44,7 +44,7 @@ class PRQuestions:
     def __init__(self, pr_url: str, args=None, ai_handler: partial[BaseAiHandler,] = LiteLLMAIHandler):
         question_str = self.parse_args(args)
         self.pr_url = pr_url
-        self.git_provider = get_git_provider()(pr_url)
+        self.git_provider = get_git_provider_for_tool(pr_url)
         self.main_pr_language = get_main_pr_language(
             self.git_provider.get_languages(), self.git_provider.get_files()
         )
@@ -71,10 +71,6 @@ class PRQuestions:
             "skills_context": skills_context,
             "artifact_context": get_artifact_context("pr_questions"),
         }
-        self.token_handler = TokenHandler(self.git_provider.pr,
-                                          self.vars,
-                                          get_settings().pr_questions_prompt.system,
-                                          get_settings().pr_questions_prompt.user)
         self.patches_diff = None
         self.prediction = None
         self.no_analyzable_files = False
@@ -106,7 +102,7 @@ class PRQuestions:
                 # No model was called, so there are no run details to report.
                 note = self._prepare_no_analyzable_files_answer()
                 if get_settings().config.publish_output:
-                    self._publish_answer(note)
+                    await self._publish_answer_with_sinks(note, NO_ANALYZABLE_FILES_NOTE)
                 else:
                     get_settings().set("data.answer", NO_ANALYZABLE_FILES_NOTE)
                 return ""
@@ -120,7 +116,9 @@ class PRQuestions:
                 pr_comment += "\n</details>\n"
 
             if get_settings().config.publish_output:
-                self._publish_answer(append_run_details(pr_comment, self.git_provider))
+                await self._publish_answer_with_sinks(
+                    append_run_details(pr_comment, self.git_provider), (self.prediction or "").strip()
+                )
             else:
                 get_settings().set("data.answer", (self.prediction or "").strip())
         finally:
@@ -132,6 +130,13 @@ class PRQuestions:
                         f"Failed to remove the temporary question comment: {cleanup_error}"
                     )
         return ""
+
+    async def _publish_answer_with_sinks(self, comment: str, answer: str):
+        await push_outputs_async(
+            "ask", payload={"question": self.question_str, "answer": answer},
+            markdown=self._format_answer(_sanitize_slash_commands(answer)), git_provider=self.git_provider,
+        )
+        return self._publish_answer(comment)
 
     def _publish_answer(self, answer: str):
         comment_id = get_settings().get("comment_id", "")
@@ -237,7 +242,8 @@ class PRQuestions:
             OUTPUT_BUFFER_TOKENS_SOFT_THRESHOLD,
             preserve_minimum=True,
         )
-        output = get_pr_diff(
+        output = await run_diff_preparation(
+            get_pr_diff,
             self.git_provider,
             budget.token_handler,
             model,
@@ -262,6 +268,7 @@ class PRQuestions:
             default_output_tokens=OUTPUT_BUFFER_TOKENS_HARD_THRESHOLD,
             preserve_minimum=True,
             image_path=image_path,
+            require_full_text=True,
         )
         if fitted.optional_text != patches_diff:
             raise FallbackEligibleError(

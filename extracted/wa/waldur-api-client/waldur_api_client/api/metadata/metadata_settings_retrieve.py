@@ -47,9 +47,8 @@ def sync_detailed(
 ) -> Response[SettingsMetadataResponse]:
     """Get overridable settings metadata
 
-     Retrieves metadata for all settings that can be configured via the Constance backend. This includes
-    setting keys, human-readable descriptions, default values, and types. This endpoint is publicly
-    accessible.
+     Retrieves metadata for all settings that can be changed at runtime. This includes setting keys,
+    human-readable descriptions, default values, and types. This endpoint is publicly accessible.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -74,9 +73,8 @@ def sync(
 ) -> SettingsMetadataResponse:
     """Get overridable settings metadata
 
-     Retrieves metadata for all settings that can be configured via the Constance backend. This includes
-    setting keys, human-readable descriptions, default values, and types. This endpoint is publicly
-    accessible.
+     Retrieves metadata for all settings that can be changed at runtime. This includes setting keys,
+    human-readable descriptions, default values, and types. This endpoint is publicly accessible.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -97,9 +95,8 @@ async def asyncio_detailed(
 ) -> Response[SettingsMetadataResponse]:
     """Get overridable settings metadata
 
-     Retrieves metadata for all settings that can be configured via the Constance backend. This includes
-    setting keys, human-readable descriptions, default values, and types. This endpoint is publicly
-    accessible.
+     Retrieves metadata for all settings that can be changed at runtime. This includes setting keys,
+    human-readable descriptions, default values, and types. This endpoint is publicly accessible.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -122,9 +119,8 @@ async def asyncio(
 ) -> SettingsMetadataResponse:
     """Get overridable settings metadata
 
-     Retrieves metadata for all settings that can be configured via the Constance backend. This includes
-    setting keys, human-readable descriptions, default values, and types. This endpoint is publicly
-    accessible.
+     Retrieves metadata for all settings that can be changed at runtime. This includes setting keys,
+    human-readable descriptions, default values, and types. This endpoint is publicly accessible.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

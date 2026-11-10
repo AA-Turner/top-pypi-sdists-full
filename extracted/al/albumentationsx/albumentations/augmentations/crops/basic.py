@@ -28,10 +28,7 @@ from ._transforms_shared import (
     model_validator,
     np,
 )
-from .base import (
-    BaseCropAndPad,
-    CropSizeError,
-)
+from .base import BaseCropAndPad
 
 
 class RandomCrop(BaseCropAndPad):
@@ -41,7 +38,8 @@ class RandomCrop(BaseCropAndPad):
     Args:
         height (int): height of the crop.
         width (int): width of the crop.
-        pad_if_needed (bool): Whether to pad if crop size exceeds image size. Default: False.
+        pad_if_needed (bool): Whether to pad when needed. Inputs smaller than the requested crop are padded even when
+            this is False. Default: False.
         border_mode (OpenCV flag): OpenCV border mode used for padding. Default: cv2.BORDER_CONSTANT.
         fill (tuple[float, ...] | float): Padding value for images if border_mode is
             cv2.BORDER_CONSTANT. Default: 0.
@@ -55,14 +53,14 @@ class RandomCrop(BaseCropAndPad):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:
         hbb, obb
     Note:
-        If pad_if_needed is True and crop size exceeds image dimensions, the image will be padded
-        before applying the random crop.
+        If the requested crop exceeds image dimensions, padding is applied before cropping, regardless of
+        `pad_if_needed`.
 
     Examples:
         >>> import numpy as np
@@ -169,14 +167,9 @@ class RandomCrop(BaseCropAndPad):
         targets: TargetSet,
         sampling: SamplingContext,
     ) -> SampledParams:
+        """Sample random crop coordinates and padding for the requested fixed size."""
         image_shape = targets.require_aligned_spatial_shape(2)
         image_height, image_width = image_shape
-
-        if not self.pad_if_needed and (self.height > image_height or self.width > image_width):
-            raise CropSizeError(
-                f"Crop size (height, width) exceeds image dimensions (height, width):"
-                f" {(self.height, self.width)} vs {image_shape[:2]}",
-            )
 
         pad_params = self._get_pad_params(image_shape, (self.height, self.width), sampling)
 
@@ -217,7 +210,8 @@ class CenterCrop(BaseCropAndPad):
     Args:
         height (int): The height of the crop. Must be greater than 0.
         width (int): The width of the crop. Must be greater than 0.
-        pad_if_needed (bool): Whether to pad if crop size exceeds image size. Default: False.
+        pad_if_needed (bool): Whether to pad when needed. Inputs smaller than the requested crop are padded even when
+            this is False. Default: False.
         border_mode (OpenCV flag): OpenCV border mode used for padding. Default: cv2.BORDER_CONSTANT.
         fill (tuple[float, ...] | float): Padding value for images if border_mode is
             cv2.BORDER_CONSTANT. Default: 0.
@@ -231,14 +225,13 @@ class CenterCrop(BaseCropAndPad):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:
         hbb, obb
     Note:
-        - If pad_if_needed is False and crop size exceeds image dimensions, it will raise a CropSizeError.
-        - If pad_if_needed is True and crop size exceeds image dimensions, the image will be padded.
+        - If the crop exceeds image dimensions, padding is applied to reach the requested size.
         - For bounding boxes and keypoints, coordinates are adjusted appropriately for both padding and cropping.
 
     Examples:
@@ -346,14 +339,9 @@ class CenterCrop(BaseCropAndPad):
         targets: TargetSet,
         sampling: SamplingContext,
     ) -> SampledParams:
+        """Sample centered crop coordinates and padding for the requested fixed size."""
         image_shape = targets.require_aligned_spatial_shape(2)
         image_height, image_width = image_shape
-
-        if not self.pad_if_needed and (self.height > image_height or self.width > image_width):
-            raise CropSizeError(
-                f"Crop size (height, width) exceeds image dimensions (height, width):"
-                f" {(self.height, self.width)} vs {image_shape[:2]}",
-            )
 
         pad_params = self._get_pad_params(image_shape, (self.height, self.width), sampling)
 
@@ -405,7 +393,7 @@ class Crop(BaseCropAndPad):
         image, images, mask, masks, bboxes, keypoints, volume, volumes, mask3d, masks3d
 
     Image types:
-        uint8, float32
+        uint8, float16, float32
 
 
     Supported bboxes:
@@ -910,9 +898,14 @@ class CropAndPad(DualTransform):
         pad_params: tuple[int, int, int, int] | None,
         result_shape: tuple[int, int],
         shape: tuple[int, int],
+        bbox_type: Literal["hbb", "obb"],
         **params: Any,
     ) -> np.ndarray:
-        return fcrops.crop_and_pad_bboxes(bboxes, crop_params, pad_params, shape[:2], result_shape)
+        image_shape = shape[:2]
+        cropped = fcrops.crop_and_pad_bboxes(bboxes, crop_params, pad_params, image_shape, result_shape)
+        if self.keep_size and bbox_type == "obb":
+            return fgeometric.resize_bboxes(cropped, result_shape, image_shape, bbox_type)
+        return cropped
 
     def apply_to_keypoints(
         self,
@@ -933,23 +926,14 @@ class CropAndPad(DualTransform):
         )
 
     @staticmethod
-    def __prevent_zero(val1: int, val2: int, max_val: int) -> tuple[int, int]:
-        regain = abs(max_val) + 1
-        regain1 = regain // 2
-        regain2 = regain // 2
-        if regain1 + regain2 < regain:
-            regain1 += 1
-
-        if regain1 > val1:
-            diff = regain1 - val1
-            regain1 = val1
-            regain2 += diff
-        elif regain2 > val2:
-            diff = regain2 - val2
-            regain2 = val2
-            regain1 += diff
-
-        return val1 - regain1, val2 - regain2
+    def _restore_crop_pixels(start: int, end: int, pixels_to_restore: int) -> tuple[int, int]:
+        restore_start = (pixels_to_restore + 1) // 2
+        restore_end = pixels_to_restore - restore_start
+        if restore_start > start:
+            return 0, end - (pixels_to_restore - start)
+        if restore_end > end:
+            return start - (pixels_to_restore - end), 0
+        return start - restore_start, end - restore_end
 
     @staticmethod
     def _prevent_zero(crop_params: list[int], height: int, width: int) -> list[int]:
@@ -959,9 +943,9 @@ class CropAndPad(DualTransform):
         remaining_width = width - (left + right)
 
         if remaining_height < 1:
-            top, bottom = CropAndPad.__prevent_zero(top, bottom, height)
+            top, bottom = CropAndPad._restore_crop_pixels(top, bottom, 1 - remaining_height)
         if remaining_width < 1:
-            left, right = CropAndPad.__prevent_zero(left, right, width)
+            left, right = CropAndPad._restore_crop_pixels(left, right, 1 - remaining_width)
 
         return [max(top, 0), max(right, 0), max(bottom, 0), max(left, 0)]
 

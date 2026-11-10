@@ -80,6 +80,11 @@ public:
     [[nodiscard]] forceinline std::optional<Symbol>
     decode( gzip::BitReader& bitReader ) const
     {
+        /* An all-zero alphabet has no symbols. Peeking zero bits would assert in the BitReader. */
+        if ( UNLIKELY( this->m_maxCodeLength == 0 ) ) [[unlikely]] {
+            return std::nullopt;
+        }
+
         try {
             const auto value = bitReader.peek( this->m_maxCodeLength );
 
@@ -95,7 +100,7 @@ public:
 
             bitReader.seekAfterPeek( length );
             return symbol - 1;
-        } catch ( const gzip::BitReader::EndOfFileReached& ) {
+        } catch ( const EndOfFileReached& ) {
             /* Should only happen at the end of the file and probably not even there
              * because the gzip footer should be longer than the peek length. */
             return BaseType::decode( bitReader );

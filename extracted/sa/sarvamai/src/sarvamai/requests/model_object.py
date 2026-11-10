@@ -3,6 +3,7 @@
 import typing
 
 import typing_extensions
+from ..types.model_object_access import ModelObjectAccess
 
 
 class ModelObjectParams(typing_extensions.TypedDict):
@@ -10,3 +11,7 @@ class ModelObjectParams(typing_extensions.TypedDict):
     object: typing_extensions.NotRequired[typing.Literal["model"]]
     created: int
     owned_by: str
+    access: typing_extensions.NotRequired[ModelObjectAccess]
+    """
+    How the model is offered. `"provisioned"`: Provisioned Throughput, enabled per organisation (without access, `deepseekv4-pro` returns `400` and the others return `404` and aren't listed). `"standard"`: serverless, any API key can call it.
+    """

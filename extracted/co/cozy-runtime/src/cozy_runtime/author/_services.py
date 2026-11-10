@@ -25,7 +25,9 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
-from typing import Any, Literal, Protocol, TypeVar, cast, runtime_checkable
+from typing import Any, Literal, Protocol, TypeVar, cast, overload, runtime_checkable
+
+from tensorfs.executor import Answer, Publish, PublishPart
 
 import cozy_runtime.author._codec as _codec
 import cozy_runtime.author._stalls as _stalls
@@ -40,7 +42,6 @@ from cozy_runtime.author._decode import (
     MediaReads,
 )
 from cozy_runtime.author._errors import AuthorError, CapabilityError, OutputError
-from cozy_runtime.author._executor_requests import Publish, Published, PublishPart
 from cozy_runtime.author._files import (
     AudioFile,
     File,
@@ -49,6 +50,7 @@ from cozy_runtime.author._files import (
     VideoFile,
     digest_bytes,
 )
+from cozy_runtime.author._media import AudioMedia, ImageMedia, VideoMedia, normalize, slot_kind
 from cozy_runtime.author._observations import DEVICE, Attribution, EventRing, Observation, Scalar
 
 T = TypeVar("T")
@@ -59,6 +61,13 @@ RowKind = Literal["adjusted", "clamp", "warn"]
 
 #: Default per-attempt output ceiling. The deployment lowers it; nothing raises it in code.
 MAX_OUTPUT_BYTES = 256 * 1024 * 1024
+
+#: A saved file's handle by its media type's family.
+_SAVED: dict[str, type[File]] = {"image": ImageFile, "video": VideoFile, "audio": AudioFile}
+
+
+def _saved(media_type: str) -> type[File]:
+    return _SAVED.get(slot_kind(_SAVED, normalize(media_type)) or "", File)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +106,18 @@ class _ProgressScope:
 
 
 _progress_scope: ContextVar[_ProgressScope | None] = ContextVar("cozy_progress_scope", default=None)
+#: The `Telemetry.stage` running on this thread, and its name.
+_stage: ContextVar[tuple[Telemetry, str] | None] = ContextVar("cozy_stage", default=None)
+
+
+def stage_progress() -> Callable[[float], None] | None:
+    """The running stage's `progress(fraction)`, for Runtime work inside it that is told no
+    progress of its own (a decode): a stage of minutes with none reads as stalled."""
+    current = _stage.get()
+    if current is None:
+        return None
+    telemetry, name = current
+    return lambda fraction: telemetry.progress(fraction, stage=name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,7 +208,7 @@ class Attempt:
     _stall_watch: _stalls.Watch | None = None
     #: Sends one publish to the worker, which journals it on the run's output log. None in a
     #: harness with no worker: `published` then records what would have been shown.
-    publish: Callable[[Publish], Published] | None = None
+    publish: Callable[[Publish], Answer] | None = None
     published: list[Publish] = field(default_factory=list)
     #: The result fields `Outputs.publish` may name (`Surface.outputs`); None: not known here.
     outputs: frozenset[str] | None = None
@@ -931,8 +952,18 @@ class Outputs(_Bound):
         self._attempt.emit("log", "undeclared output dropped", "warn", output=output, reason=why)
         warnings.warn(f"publish to undeclared output {output!r} dropped: {why}", stacklevel=3)
 
+    @overload
+    def save_bytes(self, data: bytes, *, media_type: VideoMedia) -> VideoFile: ...
+    @overload
+    def save_bytes(self, data: bytes, *, media_type: ImageMedia) -> ImageFile: ...
+    @overload
+    def save_bytes(self, data: bytes, *, media_type: AudioMedia) -> AudioFile: ...
+    @overload
+    def save_bytes(self, data: bytes, *, media_type: str) -> File: ...
     def save_bytes(self, data: bytes, *, media_type: str) -> File:
-        return self._register(data, File, media_type)
+        """Encoded bytes as they are, typed by their media type: `video/mp4` is a `VideoFile`,
+        which a `VideoFile` result field takes; a type no kind reads is a `File`."""
+        return self._register(data, _saved(media_type), media_type)
 
     def save_tree(self, path: Path | str) -> Tree:
         """Snapshot regular files now; native retention commits after the handler returns."""
@@ -982,9 +1013,18 @@ class Outputs(_Bound):
             shutil.rmtree(target)
             raise
 
+    @overload
+    def save_file(self, path: Path | str, *, media_type: VideoMedia) -> VideoFile: ...
+    @overload
+    def save_file(self, path: Path | str, *, media_type: ImageMedia) -> ImageFile: ...
+    @overload
+    def save_file(self, path: Path | str, *, media_type: AudioMedia) -> AudioFile: ...
+    @overload
+    def save_file(self, path: Path | str, *, media_type: str = ...) -> File: ...
     def save_file(self, path: Path | str, *, media_type: str = "application/octet-stream") -> File:
-        """Copies immediately: a MUTABLE AUTHOR PATH is never retained (§3.4 step 2)."""
-        return self._register(Path(path).read_bytes(), File, media_type)
+        """Copies immediately: a MUTABLE AUTHOR PATH is never retained (§3.4 step 2). Typed as
+        `save_bytes` types its bytes."""
+        return self._register(Path(path).read_bytes(), _saved(media_type), media_type)
 
     def temporary_file(self, suffix: str = "") -> Path:
         """A bounded attempt-spool target for encoders that need a filesystem path.
@@ -1289,6 +1329,7 @@ class Telemetry(_Bound):
 
         def on_step(step: int) -> None:
             self._ctx.raise_if_cancelled()
+            self._ctx._steps += 1
             now = work_clock()
             mark = attempt._step_mark
             ran = clock.mark() if clock is not None else None
@@ -1331,6 +1372,46 @@ class Telemetry(_Bound):
             )
 
         return on_step
+
+    def loop_progress(self) -> tuple[Callable[[int, int], None], Callable[[str], None]]:
+        """`ctx.progress(step, total)` and a model method call's activity (`ctx._called`).
+
+        Progress is `step_callback`'s frame under the enclosing stage (else "denoise"); a step 0
+        starts a new count, timed from the first model call after the previous progress. Until
+        the attempt reports progress, model calls show as a count, at most two frames a second.
+        """
+        attempt = self._attempt
+        counts: dict[tuple[str, int], Callable[[int], None]] = {}
+        state: dict[str, Any] = {"said": False, "calls": 0, "shown": 0.0, "began": None}
+
+        def stage(otherwise: str) -> str:
+            current = _stage.get()
+            ours = current is not None and current[0]._attempt is attempt
+            return current[1] if current is not None and ours else otherwise
+
+        def progress(step: int, total: int) -> None:
+            state["said"] = True
+            key = (stage("denoise"), total)
+            if step == 0 or key not in counts:
+                counts[key] = self.step_callback(total, stage=key[0])
+                if state["began"] is not None:
+                    attempt._step_mark, attempt._step_device = state["began"]
+            state["began"] = None
+            counts[key](step)
+
+        def called(method: str) -> None:
+            if state["began"] is None:
+                clock = DEVICE[0] if DEVICE else None
+                state["began"] = (work_clock(), clock.mark() if clock is not None else None)
+            if state["said"] or attempt.closed:
+                return
+            state["calls"] += 1
+            now = work_clock()
+            if now - state["shown"] >= 0.5:
+                state["shown"] = now
+                self._progress_frame(stage(method), position=state["calls"])
+
+        return progress, called
 
     def log(self, message: str, /, *, level: str = "info", **fields: Scalar) -> None:
         self._attempt.check_open("Telemetry.log")
@@ -1452,11 +1533,14 @@ class Telemetry(_Bound):
             )
         start = work_clock()
         succeeded = False
+        token = _stage.set((self, stage)) if stage is not None else None
         try:
             yield
             settle()
             succeeded = True
         finally:
+            if token is not None:
+                _stage.reset(token)
             elapsed = (work_clock() - start) * 1000
             if stage is not None:
                 self._attempt.attribution.stage(stage, elapsed)

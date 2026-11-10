@@ -1,9 +1,6 @@
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SubwebQuery(ClientValue):
     """Defines a query to specify which child Web sites to return from a Web site.
 

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.outlook.mail.location import Location
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class EmergencyCallerInfo(ClientValue):
     displayName: str | None = None
     location: Location = field(default_factory=Location)

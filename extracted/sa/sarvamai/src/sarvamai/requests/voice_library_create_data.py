@@ -18,3 +18,8 @@ class VoiceLibraryCreateDataParams(typing_extensions.TypedDict):
     """
     Transcript of the reference audio, auto-generated via ASR. Stored with the voice and reused at synthesis time.
     """
+
+    background_noise_removed: typing_extensions.NotRequired[bool]
+    """
+    True when background noise was successfully removed from the reference audio during create. False when you passed `remove_background_noise=false`, or when denoising was disabled or failed and the original clip was kept.
+    """

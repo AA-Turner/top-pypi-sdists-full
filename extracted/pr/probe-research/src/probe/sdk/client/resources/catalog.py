@@ -144,6 +144,11 @@ class CatalogMixin:
         ``best``, ``stored``, ``cursor``, ``limit``): every checkpoint team-wide."""
         return self.transport.get("/v1/catalog/checkpoints", params=_present(params))
 
+    def get_catalog_checkpoint(self, ref: str) -> dict:
+        """``GET /v1/catalog/checkpoints/{ref}``: one checkpoint by ``checkpoint:<id>`` or
+        ``checkpoint:<run>@best|latest|step<N>`` (its ``id``, ``step``, run and saves)."""
+        return self.transport.get(f"/v1/catalog/checkpoints/{catalog_path_ref(ref)}")
+
     def provenance(self, ref: str, direction: str = "upstream", depth: int = 4) -> dict:
         """``GET /v1/provenance``: the bounded graph up to the sources, or down
         to everything that used ``ref``."""

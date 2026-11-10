@@ -1,13 +1,14 @@
 from typing import List, Optional
 
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.v4.entity import EntityPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.search.acronyms.acronym import Acronym
 from office365.search.bookmarks.bookmark import Bookmark
 from office365.search.entity_type import EntityType
@@ -39,7 +40,7 @@ class SearchEntity(Entity):
             "Calendars.Read",
             "Files.Read.All",
             "Sites.Read.All",
-            "People.Read",
+            "People.Read.All",
             "ExternalItem.Read.All",
             "Chat.Read.All",
         ],
@@ -80,10 +81,10 @@ class SearchEntity(Entity):
             resource_type_name = search_hit.get_property("resource").get("@odata.type", None)
             resource_type = EntityType.resolve(resource_type_name)
             resource = resource_type(self.context, EntityPath())
-            self.context.pending_request().map_json(search_hit.resource, resource)
+            self.context.pending_request().hydrate(resource, search_hit.resource)
             search_hit.set_property("resource", resource)
 
-        def _process_response(
+        def _handle_response(
             result: ClientResult[ClientValueCollection[SearchResponse]],
         ) -> None:
             result_items = result.value
@@ -94,7 +95,7 @@ class SearchEntity(Entity):
         payload = {"requests": ClientValueCollection(SearchRequest, [search_request])}
         return_type = ClientResult(self.context, ClientValueCollection(SearchResponse))
         qry = ServiceOperationQuery(self, "query", None, payload, None, return_type)
-        self.context.add_query(qry).after_execute(_process_response)
+        self.context.add_query(qry).after_execute(_handle_response)
         return return_type
 
     @require_permission(delegated=["Mail.Read"], application=["Mail.Read"])
@@ -178,7 +179,7 @@ class SearchEntity(Entity):
             region=region,
         )
 
-    @require_permission(delegated=["People.Read"], application=["People.Read"])
+    @require_permission(delegated=["People.Read"], application=["People.Read.All"])
     def query_peoples(
         self,
         query_string: str,
@@ -256,6 +257,7 @@ class SearchEntity(Entity):
             region=region,
         )
 
+    @odata(name="acronyms", navigation=True)
     @property
     @require_permission(
         delegated=["SearchConfiguration.Read.All", "SearchConfiguration.ReadWrite.All"],
@@ -272,6 +274,7 @@ class SearchEntity(Entity):
             ),
         )
 
+    @odata(name="bookmarks", navigation=True)
     @property
     @require_permission(
         delegated=["SearchConfiguration.Read.All", "SearchConfiguration.ReadWrite.All"],
@@ -288,6 +291,7 @@ class SearchEntity(Entity):
             ),
         )
 
+    @odata(name="qnas", navigation=True)
     @property
     @require_permission(
         delegated=["SearchConfiguration.Read.All", "SearchConfiguration.ReadWrite.All"],

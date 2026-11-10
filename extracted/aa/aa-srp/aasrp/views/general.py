@@ -78,7 +78,10 @@ def srp_links(request: WSGIRequest, show_all_links: bool = False) -> HttpRespons
     logger.info(msg=logger_message)
 
     # Prepare the context for rendering the dashboard
-    context = {"show_all_links": show_all_links}
+    context = {
+        "show_all_links": show_all_links,
+        "total_srp_cost": SrpLink.total_srp_cost(),
+    }
 
     return render(
         request=request, template_name="aasrp/dashboard.html", context=context
@@ -265,7 +268,6 @@ def srp_link_add(request: WSGIRequest) -> HttpResponse:
                 fleet_type=fleet_type,
                 fleet_doctrine=fleet_doctrine,
                 aar_link=aar_link,
-                fleet_commander=request.user.profile.main_character,
                 creator=request.user,
             )
             srp_link.save()
@@ -718,6 +720,9 @@ def srp_link_view_requests(request: WSGIRequest, srp_code: str) -> HttpResponse:
             "accept_request": SrpRequestAcceptForm(),
             "accept_rejected_request": SrpRequestAcceptRejectedForm(),
         },
+        "payout_editable_mode": Setting.objects.get_setting(
+            setting_key=Setting.Field.PAYOUT_EDITABLE_MODE
+        ),
     }
 
     # Render the view with the provided context

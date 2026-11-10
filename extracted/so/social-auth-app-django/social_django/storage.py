@@ -5,9 +5,8 @@ from __future__ import annotations
 import base64
 import re
 import sqlite3
-import time
-from datetime import timedelta
-from datetime import timezone as datetime_timezone
+from datetime import UTC, timedelta
+from time import time as _time
 from typing import TYPE_CHECKING, cast
 
 from django.conf import settings
@@ -150,7 +149,7 @@ class DjangoUserMixin(UserMixin):
     def create_user(cls, *args, **kwargs):
         username_field = cls.username_field()
         model = cls.user_model()
-        manager = model._default_manager
+        manager = cast("_DjangoUserManager", model._default_manager)
         if "username" in kwargs:
             if username_field not in kwargs:
                 kwargs[username_field] = kwargs.pop("username")
@@ -381,7 +380,7 @@ class DjangoAssociationMixin(AssociationMixin):
     def cleanup_expired(cls, now: int | None = None) -> int:
         """Delete expired OpenID associations and OIDC nonces."""
         if now is None:
-            now = int(time.time())
+            now = int(_time())
         expired = cls.objects.alias(expires=Cast("issued", BigIntegerField()) + F("lifetime")).filter(
             Q(lifetime__lte=0) | Q(expires__lte=now)
         )
@@ -431,8 +430,8 @@ class DjangoCodeMixin(CodeMixin):
             timestamp = timezone.make_aware(timestamp, timezone.get_default_timezone())
         if timezone.is_naive(now):
             now = timezone.make_aware(now, timezone.get_default_timezone())
-        timestamp = timestamp.astimezone(datetime_timezone.utc)
-        return now.astimezone(datetime_timezone.utc) >= timestamp + timedelta(seconds=seconds)
+        timestamp = timestamp.astimezone(UTC)
+        return now.astimezone(UTC) >= timestamp + timedelta(seconds=seconds)
 
     @classmethod
     def get_code(cls, code):

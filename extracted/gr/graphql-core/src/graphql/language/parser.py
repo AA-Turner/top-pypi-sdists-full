@@ -97,20 +97,27 @@ def parse(
     no_location: bool = False,
     max_tokens: int | None = None,
     experimental_fragment_arguments: bool = False,
+    allow_empty_selection_sets: bool = True,
+    max_lexical_tokens: int | None = None,
+    max_comments: int | None = None,
+    max_source_length: int | None = None,
 ) -> DocumentNode:
     """Given a GraphQL source, parse it into a Document.
 
-    Throws GraphQLError if a syntax error is encountered.
+    Throws GraphQLError if a syntax error is encountered, or if the document is nested
+    too deeply to be parsed within the recursion limit of the interpreter.
 
     By default, the parser creates AST nodes that know the location in the source that
     they correspond to. The ``no_location`` option disables that behavior for
     performance or testing.
 
-    Parser CPU and memory usage is linear to the number of tokens in a document,
-    however in extreme cases it becomes quadratic due to memory exhaustion.
+    Parser CPU and memory usage is linear to the number of lexical tokens in a
+    document, however in extreme cases it becomes quadratic due to memory exhaustion.
     Parsing happens before validation so even invalid queries can burn lots of
     CPU time and memory.
-    To prevent this you can set a maximum number of tokens allowed within a document.
+    To prevent this you can set a maximum number of lexical tokens allowed within a
+    document. This does not limit the length of the source text or of an individual
+    token.
 
     EXPERIMENTAL:
 
@@ -132,17 +139,48 @@ def parse(
           ...B(x: $var)
         }
 
+    If ``allow_empty_selection_sets`` is set to ``True`` (the default), the parser
+    accepts selection sets that contain no selections, changing the grammar from
+    ``SelectionSet : { Selection+ }`` to ``SelectionSet : { Selection* }``.
+    See https://github.com/graphql/graphql-spec/pull/1227
+
+    For example::
+
+        {
+          viewer { }
+        }
+
     :param source: A GraphQL source string or source object.
     :param no_location: By default, the parser creates AST nodes that know the
         location in the source that they correspond to. Setting this parameter to
         ``True`` disables that behavior for performance or testing.
-    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
-        in a document, however in extreme cases it becomes quadratic due to memory
-        exhaustion. Parsing happens before validation, so even invalid queries can
-        burn lots of CPU time and memory. To prevent this, you can set a maximum
-        number of tokens allowed within a document.
+    :param max_tokens: Deprecated, use ``max_lexical_tokens`` together with
+        ``max_comments`` or ``max_source_length`` instead; this option will be removed
+        in a future version. Unlike ``max_lexical_tokens``, this limit also counts
+        comments, and it is enforced while skipping a run of comments. It applies
+        independently of the other limits.
     :param experimental_fragment_arguments: Allows fragment variable definitions
         and arguments on fragment spreads to be parsed (experimental).
+    :param allow_empty_selection_sets: Allows selection sets without selections
+        (the default). Deprecated, since empty selection sets are now always allowed;
+        this option will be removed in a future version.
+    :param max_lexical_tokens: Parser CPU and memory usage is linear to the number of
+        lexical tokens in a document, however in extreme cases it becomes quadratic
+        due to memory exhaustion. Parsing happens before validation, so even invalid
+        queries can burn lots of CPU time and memory. To prevent this, you can set a
+        maximum number of lexical tokens allowed within a document. This limit does
+        not count comments, use ``max_comments`` for these. It also does not limit the
+        length of the source text or of an individual token, use ``max_source_length``
+        for this.
+    :param max_comments: The maximum number of comments allowed in a document.
+        Comments are ignored by the parser but retained as tokens, so limiting them
+        bounds the memory used by comments in the token linked list. This limit is
+        enforced while the comments are read, independently of ``max_tokens`` and
+        ``max_lexical_tokens``.
+    :param max_source_length: The maximum length of source text accepted by the parser.
+        The length is measured in code points, as reported by ``len(source.body)``.
+        Sources longer than this limit are rejected before lexing, independently of
+        the other limits. This covers comments, ignored characters and long tokens.
     :returns: The parsed GraphQL document AST.
 
     Parse a GraphQL document with the default parser options:
@@ -158,7 +196,7 @@ def parse(
     ...     '{ t { ...A(var: true) } }'
     ...     ' fragment A($var: Boolean = false) on T { name }',
     ...     experimental_fragment_arguments=True,
-    ...     max_tokens=80,
+    ...     max_lexical_tokens=80,
     ...     no_location=True,
     ... )
     >>> directive_document = parse('directive @foo @bar on FIELD')
@@ -176,8 +214,16 @@ def parse(
         no_location=no_location,
         max_tokens=max_tokens,
         experimental_fragment_arguments=experimental_fragment_arguments,
+        allow_empty_selection_sets=allow_empty_selection_sets,
+        max_lexical_tokens=max_lexical_tokens,
+        max_comments=max_comments,
+        max_source_length=max_source_length,
     )
-    return parser.parse_document()
+    try:
+        return parser.parse_document()
+    except RecursionError:
+        pass
+    raise nested_too_deeply_error(parser)
 
 
 def parse_value(
@@ -185,10 +231,14 @@ def parse_value(
     no_location: bool = False,
     max_tokens: int | None = None,
     experimental_fragment_arguments: bool = False,
+    max_lexical_tokens: int | None = None,
+    max_comments: int | None = None,
+    max_source_length: int | None = None,
 ) -> ValueNode:
     """Parse the AST for a given string containing a GraphQL value.
 
-    Throws GraphQLError if a syntax error is encountered.
+    Throws GraphQLError if a syntax error is encountered, or if the value is nested
+    too deeply to be parsed within the recursion limit of the interpreter.
 
     This is useful within tools that operate upon GraphQL Values directly and in
     isolation of complete GraphQL documents.
@@ -197,13 +247,30 @@ def parse_value(
     :param no_location: By default, the parser creates AST nodes that know the
         location in the source that they correspond to. Setting this parameter to
         ``True`` disables that behavior for performance or testing.
-    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
-        in a document, however in extreme cases it becomes quadratic due to memory
-        exhaustion. Parsing happens before validation, so even invalid queries can
-        burn lots of CPU time and memory. To prevent this, you can set a maximum
-        number of tokens allowed within a document.
+    :param max_tokens: Deprecated, use ``max_lexical_tokens`` together with
+        ``max_comments`` or ``max_source_length`` instead; this option will be removed
+        in a future version. Unlike ``max_lexical_tokens``, this limit also counts
+        comments, and it is enforced while skipping a run of comments. It applies
+        independently of the other limits.
     :param experimental_fragment_arguments: Allows fragment variable definitions
         and arguments on fragment spreads to be parsed (experimental).
+    :param max_lexical_tokens: Parser CPU and memory usage is linear to the number of
+        lexical tokens in a document, however in extreme cases it becomes quadratic
+        due to memory exhaustion. Parsing happens before validation, so even invalid
+        queries can burn lots of CPU time and memory. To prevent this, you can set a
+        maximum number of lexical tokens allowed within a document. This limit does
+        not count comments, use ``max_comments`` for these. It also does not limit the
+        length of the source text or of an individual token, use ``max_source_length``
+        for this.
+    :param max_comments: The maximum number of comments allowed in a document.
+        Comments are ignored by the parser but retained as tokens, so limiting them
+        bounds the memory used by comments in the token linked list. This limit is
+        enforced while the comments are read, independently of ``max_tokens`` and
+        ``max_lexical_tokens``.
+    :param max_source_length: The maximum length of source text accepted by the parser.
+        The length is measured in code points, as reported by ``len(source.body)``.
+        Sources longer than this limit are rejected before lexing, independently of
+        the other limits. This covers comments, ignored characters and long tokens.
     :returns: The parsed GraphQL value AST.
 
     >>> from graphql import parse_value
@@ -216,11 +283,19 @@ def parse_value(
         no_location=no_location,
         max_tokens=max_tokens,
         experimental_fragment_arguments=experimental_fragment_arguments,
+        max_lexical_tokens=max_lexical_tokens,
+        max_comments=max_comments,
+        max_source_length=max_source_length,
     )
-    parser.expect_token(TokenKind.SOF)
-    value = parser.parse_value_literal(False)
-    parser.expect_token(TokenKind.EOF)
-    return value
+    try:
+        parser.expect_token(TokenKind.SOF)
+        value = parser.parse_value_literal(False)
+        parser.expect_token(TokenKind.EOF)
+    except RecursionError:
+        pass
+    else:
+        return value
+    raise nested_too_deeply_error(parser)
 
 
 def parse_const_value(
@@ -228,10 +303,15 @@ def parse_const_value(
     no_location: bool = False,
     max_tokens: int | None = None,
     experimental_fragment_arguments: bool = False,
+    max_lexical_tokens: int | None = None,
+    max_comments: int | None = None,
+    max_source_length: int | None = None,
 ) -> ConstValueNode:
     """Parse the AST for a given string containing a GraphQL constant value.
 
     Similar to parse_value, but raises a parse error if it encounters a variable.
+    It also throws GraphQLError if the value is nested too deeply to be parsed within
+    the recursion limit of the interpreter.
     The return type will be a constant value.
 
     :param source: A GraphQL source string or source object containing a
@@ -239,13 +319,30 @@ def parse_const_value(
     :param no_location: By default, the parser creates AST nodes that know the
         location in the source that they correspond to. Setting this parameter to
         ``True`` disables that behavior for performance or testing.
-    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
-        in a document, however in extreme cases it becomes quadratic due to memory
-        exhaustion. Parsing happens before validation, so even invalid queries can
-        burn lots of CPU time and memory. To prevent this, you can set a maximum
-        number of tokens allowed within a document.
+    :param max_tokens: Deprecated, use ``max_lexical_tokens`` together with
+        ``max_comments`` or ``max_source_length`` instead; this option will be removed
+        in a future version. Unlike ``max_lexical_tokens``, this limit also counts
+        comments, and it is enforced while skipping a run of comments. It applies
+        independently of the other limits.
     :param experimental_fragment_arguments: Allows fragment variable definitions
         and arguments on fragment spreads to be parsed (experimental).
+    :param max_lexical_tokens: Parser CPU and memory usage is linear to the number of
+        lexical tokens in a document, however in extreme cases it becomes quadratic
+        due to memory exhaustion. Parsing happens before validation, so even invalid
+        queries can burn lots of CPU time and memory. To prevent this, you can set a
+        maximum number of lexical tokens allowed within a document. This limit does
+        not count comments, use ``max_comments`` for these. It also does not limit the
+        length of the source text or of an individual token, use ``max_source_length``
+        for this.
+    :param max_comments: The maximum number of comments allowed in a document.
+        Comments are ignored by the parser but retained as tokens, so limiting them
+        bounds the memory used by comments in the token linked list. This limit is
+        enforced while the comments are read, independently of ``max_tokens`` and
+        ``max_lexical_tokens``.
+    :param max_source_length: The maximum length of source text accepted by the parser.
+        The length is measured in code points, as reported by ``len(source.body)``.
+        Sources longer than this limit are rejected before lexing, independently of
+        the other limits. This covers comments, ignored characters and long tokens.
     :returns: The parsed GraphQL constant value AST.
 
     >>> from graphql import parse_const_value
@@ -262,11 +359,19 @@ def parse_const_value(
         no_location=no_location,
         max_tokens=max_tokens,
         experimental_fragment_arguments=experimental_fragment_arguments,
+        max_lexical_tokens=max_lexical_tokens,
+        max_comments=max_comments,
+        max_source_length=max_source_length,
     )
-    parser.expect_token(TokenKind.SOF)
-    value = parser.parse_const_value_literal()
-    parser.expect_token(TokenKind.EOF)
-    return value
+    try:
+        parser.expect_token(TokenKind.SOF)
+        value = parser.parse_const_value_literal()
+        parser.expect_token(TokenKind.EOF)
+    except RecursionError:
+        pass
+    else:
+        return value
+    raise nested_too_deeply_error(parser)
 
 
 def parse_type(
@@ -274,10 +379,14 @@ def parse_type(
     no_location: bool = False,
     max_tokens: int | None = None,
     experimental_fragment_arguments: bool = False,
+    max_lexical_tokens: int | None = None,
+    max_comments: int | None = None,
+    max_source_length: int | None = None,
 ) -> TypeNode:
     """Parse the AST for a given string containing a GraphQL Type.
 
-    Throws GraphQLError if a syntax error is encountered.
+    Throws GraphQLError if a syntax error is encountered, or if the type is nested
+    too deeply to be parsed within the recursion limit of the interpreter.
 
     This is useful within tools that operate upon GraphQL Types directly and
     in isolation of complete GraphQL documents.
@@ -290,13 +399,30 @@ def parse_type(
     :param no_location: By default, the parser creates AST nodes that know the
         location in the source that they correspond to. Setting this parameter to
         ``True`` disables that behavior for performance or testing.
-    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
-        in a document, however in extreme cases it becomes quadratic due to memory
-        exhaustion. Parsing happens before validation, so even invalid queries can
-        burn lots of CPU time and memory. To prevent this, you can set a maximum
-        number of tokens allowed within a document.
+    :param max_tokens: Deprecated, use ``max_lexical_tokens`` together with
+        ``max_comments`` or ``max_source_length`` instead; this option will be removed
+        in a future version. Unlike ``max_lexical_tokens``, this limit also counts
+        comments, and it is enforced while skipping a run of comments. It applies
+        independently of the other limits.
     :param experimental_fragment_arguments: Allows fragment variable definitions
         and arguments on fragment spreads to be parsed (experimental).
+    :param max_lexical_tokens: Parser CPU and memory usage is linear to the number of
+        lexical tokens in a document, however in extreme cases it becomes quadratic
+        due to memory exhaustion. Parsing happens before validation, so even invalid
+        queries can burn lots of CPU time and memory. To prevent this, you can set a
+        maximum number of lexical tokens allowed within a document. This limit does
+        not count comments, use ``max_comments`` for these. It also does not limit the
+        length of the source text or of an individual token, use ``max_source_length``
+        for this.
+    :param max_comments: The maximum number of comments allowed in a document.
+        Comments are ignored by the parser but retained as tokens, so limiting them
+        bounds the memory used by comments in the token linked list. This limit is
+        enforced while the comments are read, independently of ``max_tokens`` and
+        ``max_lexical_tokens``.
+    :param max_source_length: The maximum length of source text accepted by the parser.
+        The length is measured in code points, as reported by ``len(source.body)``.
+        Sources longer than this limit are rejected before lexing, independently of
+        the other limits. This covers comments, ignored characters and long tokens.
     :returns: The parsed GraphQL type AST.
 
     >>> from graphql import parse_type
@@ -309,17 +435,28 @@ def parse_type(
         no_location=no_location,
         max_tokens=max_tokens,
         experimental_fragment_arguments=experimental_fragment_arguments,
+        max_lexical_tokens=max_lexical_tokens,
+        max_comments=max_comments,
+        max_source_length=max_source_length,
     )
-    parser.expect_token(TokenKind.SOF)
-    type_ = parser.parse_type_reference()
-    parser.expect_token(TokenKind.EOF)
-    return type_
+    try:
+        parser.expect_token(TokenKind.SOF)
+        type_ = parser.parse_type_reference()
+        parser.expect_token(TokenKind.EOF)
+    except RecursionError:
+        pass
+    else:
+        return type_
+    raise nested_too_deeply_error(parser)
 
 
 def parse_schema_coordinate(
     source: SourceType,
     no_location: bool = False,
     max_tokens: int | None = None,
+    max_lexical_tokens: int | None = None,
+    max_comments: int | None = None,
+    max_source_length: int | None = None,
 ) -> SchemaCoordinateNode:
     """Parse the AST for a given string containing a GraphQL schema coordinate.
 
@@ -338,11 +475,28 @@ def parse_schema_coordinate(
     :param no_location: By default, the parser creates AST nodes that know the
         location in the source that they correspond to. Setting this parameter to
         ``True`` disables that behavior for performance or testing.
-    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
-        in a document, however in extreme cases it becomes quadratic due to memory
-        exhaustion. Parsing happens before validation, so even invalid queries can
-        burn lots of CPU time and memory. To prevent this, you can set a maximum
-        number of tokens allowed within a document.
+    :param max_tokens: Deprecated, use ``max_lexical_tokens`` together with
+        ``max_comments`` or ``max_source_length`` instead; this option will be removed
+        in a future version. Unlike ``max_lexical_tokens``, this limit also counts
+        comments, and it is enforced while skipping a run of comments. It applies
+        independently of the other limits.
+    :param max_lexical_tokens: Parser CPU and memory usage is linear to the number of
+        lexical tokens in a document, however in extreme cases it becomes quadratic
+        due to memory exhaustion. Parsing happens before validation, so even invalid
+        queries can burn lots of CPU time and memory. To prevent this, you can set a
+        maximum number of lexical tokens allowed within a document. This limit does
+        not count comments, use ``max_comments`` for these. It also does not limit the
+        length of the source text or of an individual token, use ``max_source_length``
+        for this.
+    :param max_comments: The maximum number of comments allowed in a document.
+        Comments are ignored by the parser but retained as tokens, so limiting them
+        bounds the memory used by comments in the token linked list. This limit is
+        enforced while the comments are read, independently of ``max_tokens`` and
+        ``max_lexical_tokens``.
+    :param max_source_length: The maximum length of source text accepted by the parser.
+        The length is measured in code points, as reported by ``len(source.body)``.
+        Sources longer than this limit are rejected before lexing, independently of
+        the other limits. This covers comments, ignored characters and long tokens.
     :returns: The parsed GraphQL schema coordinate AST.
 
     >>> from graphql import parse_schema_coordinate
@@ -353,11 +507,32 @@ def parse_schema_coordinate(
     if not is_source(source):
         source = Source(cast("str", source))
     lexer = SchemaCoordinateLexer(source)
-    parser = Parser(source, no_location=no_location, max_tokens=max_tokens, lexer=lexer)
-    parser.expect_token(TokenKind.SOF)
-    coordinate = parser.parse_schema_coordinate()
-    parser.expect_token(TokenKind.EOF)
-    return coordinate
+    parser = Parser(
+        source,
+        no_location=no_location,
+        max_tokens=max_tokens,
+        lexer=lexer,
+        max_lexical_tokens=max_lexical_tokens,
+        max_comments=max_comments,
+        max_source_length=max_source_length,
+    )
+    try:
+        parser.expect_token(TokenKind.SOF)
+        coordinate = parser.parse_schema_coordinate()
+        parser.expect_token(TokenKind.EOF)
+    except RecursionError:
+        pass
+    else:
+        return coordinate
+    raise nested_too_deeply_error(parser)
+
+
+# The maximum nesting depth of documents and of variable values.
+#
+# Too deep nesting is reported as an error also when it exhausts the stack, but PyPy
+# does not handle a stack overflow in JIT-compiled code reliably. So we stop well below
+# the stack limit of PyPy, on all interpreters, so that they all accept the same input.
+MAX_NESTING_DEPTH = 200
 
 
 class Parser:
@@ -370,13 +545,20 @@ class Parser:
     It's still part of the internal API and is versioned, so any changes to it are never
     considered breaking changes. If you still need to support multiple versions of the
     library, please use the `__version_info__` variable for version detection.
+
+    Its methods raise a RecursionError if the source is nested too deeply. Only
+    :func:`parse` and the other parse functions turn this into a syntax error.
     """
 
     _no_location: bool
     _max_tokens: int | None
+    _max_lexical_tokens: int | None
+    _has_token_limit: bool
     _experimental_fragment_arguments: bool
+    _allow_empty_selection_sets: bool
     _lexer: Lexer
     _token_counter: int
+    _lexical_token_counter: int
 
     def __init__(
         self,
@@ -385,17 +567,39 @@ class Parser:
         max_tokens: int | None = None,
         experimental_fragment_arguments: bool = False,
         lexer: Lexer | None = None,
+        allow_empty_selection_sets: bool = True,
+        max_lexical_tokens: int | None = None,
+        max_comments: int | None = None,
+        max_source_length: int | None = None,
     ) -> None:
         if not is_source(source):
             source = Source(cast("str", source))
 
         self._no_location = no_location
         self._max_tokens = max_tokens
+        self._max_lexical_tokens = max_lexical_tokens
+        self._has_token_limit = max_tokens is not None or max_lexical_tokens is not None
         self._experimental_fragment_arguments = experimental_fragment_arguments
+        self._allow_empty_selection_sets = allow_empty_selection_sets
         # You may override the lexer used to lex the source; this is used by schema
         # coordinates to introduce a lexer with a restricted syntax.
         self._lexer = lexer if lexer is not None else Lexer(source)
-        self._token_counter = 0
+        # Let the lexer enforce max_tokens while it skips over a run of comments.
+        self._lexer._max_tokens = self._lexer._comment_budget = max_tokens  # noqa: SLF001
+        self._lexer._max_comments = max_comments  # noqa: SLF001
+        self._lexer._comment_count = 0  # noqa: SLF001
+        self._token_counter = self._lexical_token_counter = 0
+        self._nesting_depth = 0
+
+        if max_source_length is not None:
+            lexer_source = self._lexer.source
+            if len(lexer_source.body) > max_source_length:
+                raise GraphQLSyntaxError(
+                    lexer_source,
+                    max_source_length,
+                    f"Source contains more than {max_source_length} code points."
+                    " Parsing aborted.",
+                )
 
     def parse_name(self) -> NameNode:
         """Convert a name lex token into a name parse node."""
@@ -407,7 +611,10 @@ class Parser:
 
     @property
     def token_count(self) -> int:
-        """Get the number of tokens that have been parsed so far."""
+        """Get the number of tokens that have been parsed so far.
+
+        The count includes comments, unlike in GraphQL.js.
+        """
         return self._token_counter
 
     def parse_document(self) -> DocumentNode:
@@ -562,14 +769,34 @@ class Parser:
         return VariableNode(name=self.parse_name(), loc=self.loc(start))
 
     def parse_selection_set(self) -> SelectionSetNode:
-        """SelectionSet: {Selection+}"""
+        """SelectionSet: {Selection+}
+
+        With ``allow_empty_selection_sets`` enabled (the default):
+
+        SelectionSet: {Selection*}
+
+        The ``allow_empty_selection_sets`` option is deprecated and will be removed in
+        a future version, at which point this will be the only grammar.
+        """
+        self._enter_nesting()
         start = self._lexer.token
-        return SelectionSetNode(
-            selections=self.many(
-                TokenKind.BRACE_L, self.parse_selection, TokenKind.BRACE_R
+        node = SelectionSetNode(
+            selections=(
+                self.any(TokenKind.BRACE_L, self.parse_selection, TokenKind.BRACE_R)
+                if self._allow_empty_selection_sets
+                else self.many(
+                    TokenKind.BRACE_L, self.parse_selection, TokenKind.BRACE_R
+                )
             ),
             loc=self.loc(start),
         )
+        self._nesting_depth -= 1
+        return node
+
+    def _enter_nesting(self) -> None:
+        self._nesting_depth += 1
+        if self._nesting_depth > MAX_NESTING_DEPTH:
+            raise RecursionError
 
     def parse_selection(self) -> SelectionNode:
         """Selection: Field or FragmentSpread or InlineFragment"""
@@ -739,12 +966,15 @@ class Parser:
 
     def parse_list(self, is_const: bool) -> ListValueNode:
         """ListValue[Const]"""
+        self._enter_nesting()
         start = self._lexer.token
         item = partial(self.parse_value_literal, is_const)
-        return ListValueNode(
+        node = ListValueNode(
             values=self.any(TokenKind.BRACKET_L, item, TokenKind.BRACKET_R),
             loc=self.loc(start),
         )
+        self._nesting_depth -= 1
+        return node
 
     def parse_object_field(self, is_const: bool) -> ObjectFieldNode:
         start = self._lexer.token
@@ -757,12 +987,15 @@ class Parser:
 
     def parse_object(self, is_const: bool) -> ObjectValueNode:
         """ObjectValue[Const]"""
+        self._enter_nesting()
         start = self._lexer.token
         item = partial(self.parse_object_field, is_const)
-        return ObjectValueNode(
+        node = ObjectValueNode(
             fields=self.any(TokenKind.BRACE_L, item, TokenKind.BRACE_R),
             loc=self.loc(start),
         )
+        self._nesting_depth -= 1
+        return node
 
     def parse_int(self, _is_const: bool = False) -> IntValueNode:
         token = self._lexer.token
@@ -836,7 +1069,9 @@ class Parser:
         start = self._lexer.token
         type_: TypeNode
         if self.expect_optional_token(TokenKind.BRACKET_L):
+            self._enter_nesting()
             inner_type = self.parse_type_reference()
+            self._nesting_depth -= 1
             self.expect_token(TokenKind.BRACKET_R)
             type_ = ListTypeNode(type=inner_type, loc=self.loc(start))
         else:
@@ -1484,7 +1719,12 @@ class Parser:
         and the new one. Comments are read and allocated as ``Token`` objects (and
         chained into the token list) but are not returned by the lexer, so counting
         only the returned tokens would let a comment-padded document bypass
-        ``max_tokens`` while still allocating one token per comment.
+        ``max_tokens`` while still allocating one token per comment. The lexer also
+        enforces ``max_tokens`` while it skips over a run of comments, so that such a
+        document is aborted before the whole run has been read.
+
+        The separate count for ``max_lexical_tokens`` leaves out the comments. It is
+        only kept when that limit is set, so that parsing without limits pays nothing.
         """
         lexer = self._lexer
         token = lexer.advance()
@@ -1497,13 +1737,46 @@ class Parser:
             skipped = skipped.next
         if token.kind is not TokenKind.EOF:
             self._token_counter += 1
-        max_tokens = self._max_tokens
-        if max_tokens is not None and self._token_counter > max_tokens:
-            raise GraphQLSyntaxError(
-                lexer.source,
-                token.start,
-                f"Document contains more than {max_tokens} tokens. Parsing aborted.",
-            )
+        if self._has_token_limit:
+            max_lexical_tokens = self._max_lexical_tokens
+            if max_lexical_tokens is not None and token.kind is not TokenKind.EOF:
+                self._lexical_token_counter += 1
+                if self._lexical_token_counter > max_lexical_tokens:
+                    raise GraphQLSyntaxError(
+                        lexer.source,
+                        token.start,
+                        f"Document contains more than {max_lexical_tokens} tokens."
+                        " Parsing aborted.",
+                    )
+            max_tokens = self._max_tokens
+            if max_tokens is not None:
+                if self._token_counter > max_tokens:
+                    raise GraphQLSyntaxError(
+                        lexer.source,
+                        token.start,
+                        f"Document contains more than {max_tokens} tokens."
+                        " Parsing aborted.",
+                    )
+                # The number of comments the lexer may still skip before the next
+                # token.
+                lexer._comment_budget = max_tokens - self._token_counter  # noqa: SLF001
+
+
+def nested_too_deeply_error(parser: Parser) -> GraphQLSyntaxError:
+    """Create the error for a source that exceeds the recursion limit.
+
+    Raise this only after leaving the block that handled the RecursionError. Otherwise
+    it would be kept as the context of this error, and its traceback would keep all the
+    frames of the recursion alive.
+
+    :meta private:
+    """
+    lexer = parser._lexer  # noqa: SLF001
+    return GraphQLSyntaxError(
+        lexer.source,
+        lexer.token.start,
+        "Document is nested too deeply. Parsing aborted.",
+    )
 
 
 def get_token_desc(token: Token) -> str:

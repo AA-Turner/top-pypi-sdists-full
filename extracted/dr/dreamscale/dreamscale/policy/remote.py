@@ -18,6 +18,7 @@ from typing import Any, Literal, TypeVar
 import numpy as np
 from dreamscale_transport import (
     PROTOCOL_VERSION,
+    EpisodeRequestContext,
     Observation,
     RtcRequestContext,
     RuntimeRequestContext,
@@ -44,7 +45,12 @@ from dreamscale.policy.config import (
     ResolvedOptimizationConfig,
     Rtc,
 )
-from dreamscale.policy.context import ObservationHistory, TickHistory
+from dreamscale.policy.context import (
+    EpisodeObservation,
+    EpisodeTicks,
+    ObservationHistory,
+    TickHistory,
+)
 from dreamscale.policy.deployment import (
     check_observation,
     deployment_only_base,
@@ -282,13 +288,21 @@ class AsyncRemotePolicy:
         )
         # Older frames at fixed offsets (FLUX 3 Action SO-101's t-7 snapshot), where the server
         # takes them; otherwise each request carries its current frames only.
-        if contract.history_ticks:
+        if contract.episode_tick_steps:
+            # The server keeps the episode (Verne V0.5): every tick's frames go ahead.
+            if HISTORY_FRAMES_CAPABILITY not in capabilities:
+                raise ValueError("this deployment's server takes no history frames; it needs "
+                                 "the episode's frames sent ahead")
+            self.observation_history = EpisodeTicks(
+                contract.episode_tick_steps, contract.execution_chunk_size)
+        elif contract.history_ticks:
             # Hy-VLA: the frames 25-5 executed ticks back travel in each request's strips; a
             # server without history frames would read a strip as one wide frame.
             if HISTORY_FRAMES_CAPABILITY not in capabilities:
                 raise ValueError("this deployment's server takes no history frames; it needs "
                                  "the frames from earlier ticks of the episode")
-            self.observation_history = TickHistory(contract.history_ticks)
+            self.observation_history = TickHistory(contract.history_ticks,
+                                                   start=contract.history_start)
         elif contract.history_anchor:
             if HISTORY_FRAMES_CAPABILITY not in capabilities:
                 raise ValueError("this deployment's server takes no history frames; it needs "
@@ -417,10 +431,15 @@ class AsyncRemotePolicy:
                 **({"context": self.context} if self.context != "auto" else {}))
             self._require_open()
             frames = getattr(self._connection.transport, "context_frames", None) or 1
-            # History frames at the checkpoint's own action period (Isaac: 1/30 s).
-            self.observation_history = (
-                ObservationHistory(frames, 1.0 / self.native_action_hz) if frames > 1 else None
-            )
+            if isinstance(self.observation_history, EpisodeTicks):
+                # A prepared task starts a new episode on the server and here.
+                self.observation_history.clear()
+            else:
+                # History frames at the checkpoint's own action period (Isaac: 1/30 s).
+                self.observation_history = (
+                    ObservationHistory(frames, 1.0 / self.native_action_hz)
+                    if frames > 1 else None
+                )
             self._prepared_run_active = managed
             self._emit_progress("Task ready.")
 
@@ -443,7 +462,11 @@ class AsyncRemotePolicy:
             history.push(observation)
             return
         self._raise_history_error()
-        key = time.time_ns()
+        send_key = getattr(history, "send_key", None)
+        key = send_key() if send_key is not None else time.time_ns()
+        if key is None:  # this step's frames stay local (an episode's non-tick step)
+            history.push(observation)
+            return
 
         def encode(snapshot: Any) -> dict[str, bytes]:
             with wire.wire_image(self.wire_image):
@@ -839,6 +862,15 @@ class AsyncRemotePolicy:
                     self._emit_progress("Inference started.")
                     self._inference_announced = True
             self._raise_history_error()
+            episode = self.observation_history
+            if isinstance(episode, EpisodeTicks):
+                if not isinstance(observation, EpisodeObservation):
+                    # predict(): the observation alone, after the chunks before it ran.
+                    observation = episode.predict_window(observation)
+                episode_context = EpisodeRequestContext(
+                    step=observation.step, chunk=episode.take_chunk(), seed=episode.seed)
+            else:
+                episode_context = None
             observation_id = self._observation_id
             self._observation_id += 1
             if self._send_floor_s:
@@ -876,6 +908,14 @@ class AsyncRemotePolicy:
                             [float(value) for value in previous.state] for previous in samples
                         ]}),
                     )
+            if episode_context is not None:
+                # The state one executed step before the request.
+                wire_observation = dataclasses.replace(
+                    wire_observation,
+                    frame=wire_observation.frame.model_copy(update={"state_history": [
+                        [float(value) for value in observation.previous.state]
+                    ]}),
+                )
             if self._runtime_contract.state_history and older:
                 # The states of the older frames, which the window carries as observations.
                 wire_observation = dataclasses.replace(
@@ -923,6 +963,11 @@ class AsyncRemotePolicy:
                 ),
                 rtc_context=rtc_context,
             )
+            if episode_context is not None:
+                frame = wire_observation.frame
+                wire_observation = dataclasses.replace(wire_observation, frame=frame.model_copy(
+                    update={"runtime_context": frame.runtime_context.model_copy(
+                        update={"episode": episode_context})}))
             transport = self._connection.transport
             rtt_probe = self._start_data_plane_rtt_probe(transport)
             start_ns = time.monotonic_ns()
@@ -2344,6 +2389,7 @@ async def aconnect(
     rtc: Rtc | None = "auto",
     calibration: RequestedCalibration | None = "auto",
     region: RegionPreference = "auto",
+    region_fallback: bool | None = None,
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -2366,6 +2412,7 @@ async def aconnect(
         rtc=rtc,
         calibration=calibration,
         region=region,
+        **({"region_fallback": region_fallback} if region_fallback is not None else {}),
         provider=provider,
         speed=speed,
         idle_timeout=idle_timeout,
@@ -2391,6 +2438,7 @@ def connect(
     rtc: Rtc | None = "auto",
     calibration: RequestedCalibration | None = "auto",
     region: RegionPreference = "auto",
+    region_fallback: bool | None = None,
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -2416,6 +2464,7 @@ def connect(
                 rtc=rtc,
                 calibration=calibration,
                 region=region,
+                **({"region_fallback": region_fallback} if region_fallback is not None else {}),
                 provider=provider,
                 speed=speed,
                 idle_timeout=idle_timeout,

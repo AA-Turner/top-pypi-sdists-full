@@ -102,7 +102,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         proxy_options=isc_pathways.ProxyOptions(use_insecure_credentials=False),
     )
 
-    mock_deploy_gke_yaml.assert_called_once()
+    mock_deploy_gke_yaml.assert_called_once_with(mock.ANY, action="create")
     substituted_yaml = mock_deploy_gke_yaml.call_args[0][0]
     self.assertIn("name: test-proxy", substituted_yaml)
     self.assertIn(
@@ -137,7 +137,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         proxy_options=isc_pathways.ProxyOptions(use_insecure_credentials=False),
     )
 
-    mock_deploy_gke_yaml.assert_called_once()
+    mock_deploy_gke_yaml.assert_called_once_with(mock.ANY, action="create")
     substituted_yaml = mock_deploy_gke_yaml.call_args[0][0]
     self.assertIn(
         'image: "gcr.io/image:latest\\"\\n- command: [pwn]\\\\\\n"',
@@ -165,7 +165,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         proxy_options=isc_pathways.ProxyOptions(use_insecure_credentials=True),
     )
 
-    mock_deploy_gke_yaml.assert_called_once()
+    mock_deploy_gke_yaml.assert_called_once_with(mock.ANY, action="create")
     substituted_yaml = mock_deploy_gke_yaml.call_args[0][0]
     self.assertIn("env:", substituted_yaml)
     self.assertIn(
@@ -193,7 +193,7 @@ class ISCPathwaysTest(parameterized.TestCase):
             xla_flags=["--xla_flag1", "--xla_flag2"]
         ),
     )
-    mock_deploy_gke_yaml.assert_called_once()
+    mock_deploy_gke_yaml.assert_called_once_with(mock.ANY, action="create")
     substituted_yaml = mock_deploy_gke_yaml.call_args[0][0]
     self.assertIn("- --xla_flag1", substituted_yaml)
     self.assertIn("- --xla_flag2", substituted_yaml)
@@ -216,7 +216,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         proxy_server_image="test-image:latest",
         proxy_options=isc_pathways.ProxyOptions(sidecar=True),
     )
-    mock_deploy_gke_yaml.assert_called_once()
+    mock_deploy_gke_yaml.assert_called_once_with(mock.ANY, action="create")
     substituted_yaml = mock_deploy_gke_yaml.call_args[0][0]
     self.assertIn("- --sidecar_name=external", substituted_yaml)
 
@@ -359,8 +359,18 @@ class ISCPathwaysTest(parameterized.TestCase):
     self.enter_context(
         mock.patch("urllib.parse.quote", return_value="encoded_filter")
     )
-    # Simulate 'kubectl get' returning a pod, 'kubectl wait' timing out,
-    # then 'kubectl delete' succeeding.
+    mock_check_pod_ready = self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils,
+            "check_pod_ready",
+            autospec=True,
+            side_effect=RuntimeError(
+                "Pod did not become ready within 60 seconds: pod/test-pod-123."
+            ),
+        )
+    )
+    # Simulate 'kubectl get' returning a pod, the pod not becoming ready, then
+    # 'kubectl delete' succeeding.
     mock_get_pods_result = subprocess.CompletedProcess(
         args=["kubectl", "get", "pods"],
         returncode=0,
@@ -373,9 +383,7 @@ class ISCPathwaysTest(parameterized.TestCase):
     mock_run.side_effect = [
         # First call for 'get'
         mock_get_pods_result,
-        # Second call for 'wait'
-        subprocess.TimeoutExpired(cmd="kubectl wait", timeout=30),
-        # Third call for 'delete'
+        # Second call for 'delete'
         mock_delete_result,
     ]
 
@@ -398,12 +406,15 @@ class ISCPathwaysTest(parameterized.TestCase):
 
     self.assertIn("Pod did not become ready", str(context.exception))
     mock_deploy.assert_called_once()
+    mock_check_pod_ready.assert_called_once_with(
+        "test-pod-123",
+        timeout=isc_pathways.gke_utils.DEFAULT_POD_READY_TIMEOUT_S,
+    )
 
-    # Check that subprocess.run was called for get, wait, and delete.
-    self.assertEqual(mock_run.call_count, 3)
+    # Check that subprocess.run was called for get and delete.
+    self.assertEqual(mock_run.call_count, 2)
     self.assertIn("get", mock_run.call_args_list[0][0][0])
-    self.assertIn("wait", mock_run.call_args_list[1][0][0])
-    self.assertIn("delete", mock_run.call_args_list[2][0][0])
+    self.assertIn("delete", mock_run.call_args_list[1][0][0])
 
   def test_isc_pathways(self):
     """Tests the full lifecycle of ISCPathways."""
@@ -481,7 +492,7 @@ class ISCPathwaysTest(parameterized.TestCase):
     mock_random.choices.return_value = list("abcde")
     mock_random.randint.return_value = 29005
 
-    # Mock for 'kubectl wait' and 'kubectl delete'
+    # Mock for 'kubectl delete'
     mock_success_result = subprocess.CompletedProcess(
         args=["kubectl"],
         returncode=0,
@@ -497,9 +508,16 @@ class ISCPathwaysTest(parameterized.TestCase):
 
     mock_run.side_effect = [
         mock_get_pods_result,  # For 'get_pod_from_job'
-        mock_success_result,  # For 'check_pod_ready'
         mock_success_result,  # For 'kubectl delete job' in __exit__
     ]
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils,
+            "check_pod_ready",
+            autospec=True,
+            return_value="test-pod-123",
+        )
+    )
 
     mock_pick_unused_port.return_value = 29007
 
@@ -603,7 +621,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -631,6 +649,47 @@ class ISCPathwaysTest(parameterized.TestCase):
         cluster="test-cluster", project="test-project", location="test-region"
     )
     mock_fetch_creds.assert_not_called()
+
+  def test_connect_passes_proxy_ready_timeout(self):
+    """Tests that connect passes the proxy readiness timeout to the manager."""
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "fetch_cluster_credentials", autospec=True
+        )
+    )
+    mock_get_images = self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "get_pathways_service_images", autospec=True
+        )
+    )
+    mock_get_images.return_value = (
+        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        None,
+    )
+    mock_isc_pathways = self.enter_context(
+        mock.patch.object(isc_pathways, "_ISCPathways", autospec=True)
+    )
+    self.enter_context(mock.patch("threading.Thread", autospec=True))
+    mock_manager_instance = (
+        mock_isc_pathways.return_value.__enter__.return_value
+    )
+    mock_manager_instance.proxy_pod_name = "test-pod-123"
+    mock_manager_instance.expected_tpu_instances = {"tpuv6e:2x2": 1}
+
+    with isc_pathways.connect(
+        cluster="test-cluster",
+        project="test-project",
+        region="test-region",
+        gcs_bucket="test-bucket",
+        pathways_service="test-service-pathways-head:1234",
+        expected_tpu_instances={"tpuv6e:2x2": 1},
+        proxy_ready_timeout=900,
+    ):
+      pass
+
+    self.assertEqual(
+        mock_isc_pathways.call_args.kwargs["proxy_ready_timeout"], 900
+    )
 
   def test_connect_success(self):
     """Tests that connect calls the dependencies and yields the manager."""
@@ -660,7 +719,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -710,6 +769,9 @@ class ISCPathwaysTest(parameterized.TestCase):
           proxy_server_image=isc_pathways.DEFAULT_PROXY_IMAGE,
           proxy_options=isc_pathways.ProxyOptions(),
           collect_service_metrics=False,
+          proxy_ready_timeout=(
+              isc_pathways.gke_utils.DEFAULT_POD_READY_TIMEOUT_S
+          ),
       )
       self.assertIs(tm, mock_manager_instance)
 
@@ -785,7 +847,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -833,7 +895,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         sidecar_img,
     )
     expected_versions = validators.SidecarVersions(
@@ -910,7 +972,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         sidecar_img,
     )
     expected_versions = validators.SidecarVersions(
@@ -982,7 +1044,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         sidecar_img,
     )
     expected_versions = validators.SidecarVersions(
@@ -1074,7 +1136,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -1121,7 +1183,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:latest",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:latest",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -1161,6 +1223,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         proxy_job_name="test-proxy",
         proxy_server_image="test-image",
     )
+    manager._proxy_deployed = True
     mock_delete = self.enter_context(
         mock.patch.object(
             isc_pathways.gke_utils, "delete_gke_resource", autospec=True
@@ -1169,6 +1232,96 @@ class ISCPathwaysTest(parameterized.TestCase):
     manager._cleanup()
     mock_delete.assert_called_once_with("job", "test-proxy")
     # Second cleanup should be a no-op
+    manager._cleanup()
+    mock_delete.assert_called_once_with("job", "test-proxy")
+
+  def test_enter_deploy_failure_does_not_delete_existing_proxy_job(self):
+    manager = isc_pathways._ISCPathways(
+        cluster="test-cluster",
+        project="test-project",
+        region="test-region",
+        gcs_bucket="test-bucket",
+        pathways_service="test-service:1234",
+        expected_tpu_instances={"tpuv6e:2x2": 1},
+        proxy_job_name="existing-proxy",
+        proxy_server_image="test-image",
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways,
+            "_deploy_pathways_proxy_server",
+            side_effect=subprocess.CalledProcessError(
+                returncode=1,
+                cmd=["kubectl", "create"],
+                stderr=(
+                    "Error from server (AlreadyExists): jobs.batch"
+                    ' "existing-proxy" already exists'
+                ),
+            ),
+        )
+    )
+    mock_delete = self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "delete_gke_resource", autospec=True
+        )
+    )
+
+    with self.assertRaises(subprocess.CalledProcessError):
+      manager.__enter__()
+
+    mock_delete.assert_not_called()
+
+  def test_enter_deploy_success_cleanup_deletes_proxy_job(self):
+    manager = isc_pathways._ISCPathways(
+        cluster="test-cluster",
+        project="test-project",
+        region="test-region",
+        gcs_bucket="test-bucket",
+        pathways_service="test-service:1234",
+        expected_tpu_instances={"tpuv6e:2x2": 1},
+        proxy_job_name="test-proxy",
+        proxy_server_image="test-image",
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways, "_deploy_pathways_proxy_server", autospec=True
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "get_log_link", return_value="http://log"
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "wait_for_pod", return_value="test-proxy-pod"
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils,
+            "start_port_forwarding",
+            return_value=(12345, mock.MagicMock()),
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "wait_for_port_forwarding", autospec=True
+        )
+    )
+    self.enter_context(
+        mock.patch.object(
+            isc_pathways.pathwaysutils, "initialize", autospec=True
+        )
+    )
+    mock_delete = self.enter_context(
+        mock.patch.object(
+            isc_pathways.gke_utils, "delete_gke_resource", autospec=True
+        )
+    )
+
+    manager.__enter__()
+    self.assertTrue(manager._proxy_deployed)
     manager._cleanup()
     mock_delete.assert_called_once_with("job", "test-proxy")
 
@@ -1325,6 +1478,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         proxy_job_name="test-proxy",
         proxy_server_image="test-image",
     )
+    manager._proxy_deployed = True
     mock_pf_proc = mock.create_autospec(subprocess.Popen, instance=True)
     mock_log_proc = mock.create_autospec(subprocess.Popen, instance=True)
     manager._port_forward_process = mock_pf_proc
@@ -1364,7 +1518,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:jax-0.12.0",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -1386,7 +1540,7 @@ class ISCPathwaysTest(parameterized.TestCase):
     _, kwargs = mock_isc_pathways.call_args
     self.assertEqual(
         kwargs["proxy_server_image"],
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:jax-0.12.0",
     )
 
   def test_connect_incompatible_proxy_image_replaced_with_warning(self):
@@ -1403,7 +1557,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:jax-0.12.0",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -1419,7 +1573,7 @@ class ISCPathwaysTest(parameterized.TestCase):
           gcs_bucket="test-bucket",
           pathways_service="test-service-pathways-head:1234",
           expected_tpu_instances={"tpuv6e:2x2": 1},
-          proxy_server_image="us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:latest",
+          proxy_server_image="us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:latest",
       ):
         pass
 
@@ -1428,7 +1582,7 @@ class ISCPathwaysTest(parameterized.TestCase):
     _, kwargs = mock_isc_pathways.call_args
     self.assertEqual(
         kwargs["proxy_server_image"],
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:jax-0.12.0",
     )
 
   def test_connect_compatible_proxy_image_no_warning(self):
@@ -1445,7 +1599,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:jax-0.12.0",
         None,
     )
     mock_isc_pathways = self.enter_context(
@@ -1460,7 +1614,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         gcs_bucket="test-bucket",
         pathways_service="test-service-pathways-head:1234",
         expected_tpu_instances={"tpuv6e:2x2": 1},
-        proxy_server_image="us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:jax-0.9.0",
+        proxy_server_image="us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:jax-0.12.0",
     ):
       pass
 
@@ -1468,7 +1622,7 @@ class ISCPathwaysTest(parameterized.TestCase):
     _, kwargs = mock_isc_pathways.call_args
     self.assertEqual(
         kwargs["proxy_server_image"],
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:jax-0.12.0",
     )
 
   def test_connect_autodetect_fails_fallback_to_default(self):
@@ -1511,7 +1665,7 @@ class ISCPathwaysTest(parameterized.TestCase):
         )
     )
     mock_get_images.return_value = (
-        "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/server:jax-0.9.0",
+        "us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/server:jax-0.12.0",
         None,
     )
     self.enter_context(
@@ -1527,7 +1681,7 @@ class ISCPathwaysTest(parameterized.TestCase):
           gcs_bucket="test-bucket",
           pathways_service="test-service-pathways-head:1234",
           expected_tpu_instances={"tpuv6e:2x2": 1},
-          proxy_server_image="us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:jax-0.9.0",
+          proxy_server_image="us-docker.pkg.dev/cloud-tpu-v2-images/cloud-pathways/proxy_server:jax-0.12.0",
       ):
         pass
 

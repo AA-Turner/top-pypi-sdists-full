@@ -1,16 +1,68 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import warnings
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+from importlib import import_module
 from numbers import Integral, Real
-from typing import ClassVar, Literal, get_args
+from types import ModuleType
+from typing import ClassVar, Literal, cast, get_args
 
-from pyfixest.core.demean import Preconditioner
+import numpy as np
+from within import Effect
 
-MapBackend = Literal["numba", "rust", "jax"]
-LsmrBackend = Literal["within", "cupy", "torch"]
+from pyfixest.core.demean import (
+    Preconditioner,
+    WithinPreconditionerName,
+    demean_within,
+    within_preconditioner_name,
+)
+from pyfixest.utils.dev_utils import _find_stack_level
+
+MapBackend = Literal["numba", "rust"]
+LsmrBackend = Literal["within", "torch"]
 LsmrPrecision = Literal["float32", "float64"]
 TorchDevice = Literal["auto", "cpu", "mps", "cuda"]
-LsmrPreconditioner = Literal["auto", "off", "additive", "diagonal"]
+LsmrPreconditioner = Literal["auto", "off", "adaptive", "additive", "diagonal"]
+
+_PRECONDITIONER_SUPPORT: dict[LsmrBackend, tuple[set[str], str]] = {
+    "within": (set(get_args(WithinPreconditionerName)), "adaptive"),
+    "torch": ({"diagonal"}, "diagonal"),
+}
+
+
+def _resolve_preconditioner(backend: LsmrBackend, requested: LsmrPreconditioner) -> str:
+    """Resolve `preconditioner` against the supported set of Preconditioners for the
+    specified backend.
+
+    `"auto"` always resolves silently to the backend's default.
+    An explicit but unsupported value emits a `UserWarning` and is replaced
+    with the natural default.
+    """
+    supported, default = _PRECONDITIONER_SUPPORT[backend]
+    if requested == "auto" or requested in supported:
+        return default if requested == "auto" else requested
+    warnings.warn(
+        (
+            f"preconditioner={requested!r} is not supported by the {backend!r} "
+            f"LSMR backend; falling back to {default!r}."
+        ),
+        UserWarning,
+        stacklevel=_find_stack_level(),
+    )
+    return default
+
+
+def _require_fixed_effect_codes(
+    flist: np.ndarray | list[Effect], backend: str
+) -> np.ndarray:
+    """Require group codes for backends without explicit-effect support."""
+    if isinstance(flist, list):
+        raise TypeError(
+            f"Explicit fixed effects are not supported by the {backend} "
+            "demeaner. Use `LsmrDemeaner(backend='within')`, the default demeaner."
+        )
+    return flist
 
 
 def _validate_unit_interval_float(value: float, name: str) -> None:
@@ -30,9 +82,51 @@ def _validate_positive_int(value: int, name: str) -> None:
         raise ValueError(f"`{name}` must be strictly positive.")
 
 
+def _get_numba_demean() -> Callable[..., tuple[np.ndarray, bool]]:
+    try:
+        from pyfixest.estimation.numba.demean_nb import demean as demean_nb
+    except ImportError as exc:
+        raise ImportError(
+            "The Numba MAP backend requires the optional `numba` extra. "
+            "Install it with `pip install pyfixest[numba]`, or use the Rust "
+            "MAP backend with `MapDemeaner(backend='rust')`."
+        ) from exc
+
+    return cast(Callable[..., tuple[np.ndarray, bool]], demean_nb)
+
+
+def _import_torch() -> ModuleType:
+    try:
+        return import_module("torch")
+    except ImportError as exc:
+        raise ImportError(
+            "The torch LSMR backend requires the optional `torch` extra. "
+            "Install it with `pip install pyfixest[torch]`, or use the default "
+            "`LsmrDemeaner(backend='within')` backend."
+        ) from exc
+
+
 @dataclass(frozen=True, slots=True)
 class BaseDemeaner:
-    """Base configuration shared by all fixed-effects demeaners."""
+    """
+    Base configuration shared by all fixed-effects demeaners.
+
+    Holds the settings shared by all backends, currently `fixef_maxiter`. This
+    class is not passed to an estimation function directly. Use one of the
+    concrete demeaners instead:
+    [LsmrDemeaner](/reference/demeaners.LsmrDemeaner.qmd), the default, or
+    [MapDemeaner](/reference/demeaners.MapDemeaner.qmd). See
+    [Choosing a Demeaner Backend](/how-to/demeaner-backends.qmd) for a
+    comparison.
+
+    Examples
+    --------
+    ```{python}
+    import pyfixest as pf
+
+    pf.MapDemeaner(), pf.LsmrDemeaner()
+    ```
+    """
 
     fixef_maxiter: int = 10_000
     kind: ClassVar[str]
@@ -43,7 +137,25 @@ class BaseDemeaner:
 
 @dataclass(frozen=True, slots=True)
 class MapDemeaner(BaseDemeaner):
-    """Method of Alternating Projections (MAP) demeaner."""
+    """
+    Method of Alternating Projections (MAP) demeaner.
+
+    Projects out the fixed effects using the method of alternating
+    projections until convergence. See
+    [Choosing a Demeaner Backend](/how-to/demeaner-backends.qmd) for when to use
+    which backend.
+
+    Examples
+    --------
+    ```{python}
+    import pyfixest as pf
+
+    data = pf.get_data()
+
+    fit = pf.feols("Y ~ X1 | f1 + f2", data, demeaner=pf.MapDemeaner(fixef_tol=1e-08))
+    fit.tidy()
+    ```
+    """
 
     fixef_tol: float = 1e-06
     backend: MapBackend = "rust"
@@ -57,49 +169,120 @@ class MapDemeaner(BaseDemeaner):
         if self.backend not in get_args(MapBackend):
             raise ValueError(f"`backend` must be one of {get_args(MapBackend)}.")
 
+    def with_tol(self, tol: float | None) -> MapDemeaner:
+        """Override the `fixef_tol`, used for IWLS acceleration."""
+        if tol is None or tol == self.fixef_tol:
+            return self
+        return replace(self, fixef_tol=tol)
+
+    def demean(
+        self,
+        x: np.ndarray,
+        flist: np.ndarray | list[Effect],
+        weights: np.ndarray | None = None,
+        cached_preconditioner: Preconditioner | None = None,
+    ) -> tuple[np.ndarray, bool, Preconditioner | None]:
+        """Demean `x` by the fixed effects in `flist` via MAP.
+
+        `cached_preconditioner` is accepted for interface uniformity with
+        :meth:`LsmrDemeaner.demean` and ignored: MAP does not use a
+        preconditioner, so the third return value is always `None`. MAP requires
+        a group-code array and raises `TypeError` for explicit `within.Effect`
+        objects.
+        """
+        flist = _require_fixed_effect_codes(flist=flist, backend="MAP")
+        if weights is None:
+            weights = np.ones(x.shape[0], dtype=np.float64)
+
+        if self.backend == "numba":
+            demean_func = _get_numba_demean()
+        elif self.backend == "rust":
+            from pyfixest.core.demean import demean as demean_rs
+
+            demean_func = demean_rs
+        else:
+            raise ValueError(f"Unknown MapDemeaner backend: {self.backend!r}")
+
+        result, success = demean_func(
+            x=x,
+            flist=flist.astype(np.uintp, copy=False),
+            weights=weights,
+            tol=self.fixef_tol,
+            maxiter=self.fixef_maxiter,
+        )
+        return result, success, None
+
 
 @dataclass(frozen=True, slots=True)
 class LsmrDemeaner(BaseDemeaner):
     """Sparse LSMR demeaner.
 
+    Solves the demeaning problem as a single sparse least squares system with
+    LSMR instead of alternating projections. See
+    [Choosing a Demeaner Backend](/how-to/demeaner-backends.qmd) for when to use
+    which backend.
+
+    Examples
+    --------
+    ```{python}
+    import pyfixest as pf
+
+    data = pf.get_data()
+
+    fit = pf.feols("Y ~ X1 | f1 + f2", data, demeaner=pf.LsmrDemeaner())
+    fit.tidy()
+    ```
+
     Notes
     -----
-    The ``within`` backend takes a single tolerance, so ``fixef_atol`` and
-    ``fixef_btol`` are collapsed to ``max(fixef_atol, fixef_btol)`` for that
-    backend. The ``cupy`` and ``torch`` backends use both tolerances
-    independently (SciPy LSMR convention).
+    The `within`` backend takes a single tolerance, so `fixef_atol` and
+    `fixef_btol` are collapsed to `max(fixef_atol, fixef_btol)` for that
+    backend. The `torch` backend uses both tolerances independently
+    (SciPy LSMR convention).
 
-    The ``local_size`` field only applies to ``backend="within"``; the
-    ``cupy`` and ``torch`` backends ignore it.
+    Both tolerances default to `1e-8`, matching `within`'s default. They
+    control solver convergence, not the error in each demeaned value or
+    derived statistic.
 
-    The ``precision``, ``device``, and ``warn_on_cpu_fallback`` fields are
-    only relevant for the ``torch`` backend (and the deprecated ``cupy``
-    backend). The ``within`` backend always runs on CPU in float64 and
-    ignores these fields.
+    The `local_size` field only applies to `backend="within"`; the
+    `torch` backend ignores it.
 
-    ``preconditioner`` selects the preconditioner. Supported values:
+    The `precision``, `device``, and `warn_on_cpu_fallback`` fields are
+    only relevant for the `torch` backend. The `within` backend always
+    runs on CPU in float64 and ignores these fields.
 
-    - ``"auto"`` (default): selects different preconditioners for different
-      backend implementations: ``"additive"`` for ``within``; ``"diagonal"``
-      for ``torch`` / ``cupy``.
-    - ``"off"``: disables preconditioning. Supported by ``within`` and
-      ``cupy``; not supported by ``torch``.
-    - ``"additive"``: additive Schwarz preconditioner. Only supported by the
-      ``within`` backend.
-    - ``"diagonal"``: diagonal (Jacobi) preconditioner. Supported by
-      ``within``, ``torch``, and ``cupy``.
+    `preconditioner` selects the preconditioner. Supported values:
+
+    - `"auto"` (default): selects different preconditioners for different
+      backend implementations: `"adaptive"` for `"within"`; `"diagonal"`
+      for `"torch"`.
+    - `"off"`: disables preconditioning. Supported by `"within"`; not
+      supported by `"torch"`.
+    - `"adaptive"`: starts with the diagonal preconditioner and escalates to
+      additive Schwarz only when convergence stalls. Only supported by the
+      `"within"` backend.
+    - `"additive"`: additive Schwarz preconditioner. Only supported by the
+      `"within"` backend.
+    - `"diagonal"`: diagonal (Jacobi) preconditioner. Supported by
+      `"within"` and `"torch"`.
     - A :class:`pyfixest.Preconditioner` instance: a previously built
-      preconditioner (typically obtained via ``fit.preconditioner`` or
-      pickled across sessions). Only supported by ``backend='within'``;
+      preconditioner (typically obtained via `fit.preconditioner` or
+      pickled across sessions). Only supported by `backend='within'`;
       preconditioners are only computed and applied for two or more
       fixed-effect factors because single-factor problems run MAP as the within algo
-      provides no benefits. Passing a preconditioner to any other backend raises ``ValueError``
+      provides no benefits. Passing a preconditioner to any other backend raises `ValueError`
       at construction time.
 
+    Varying slopes such as `f1[z]` and `f1[[z]]` require `backend="within"`.
+
+    In ``fepois`` and ``feglm``, IWLS reuses the first preconditioner while
+    solving each projection with its current working weights. If an adaptive
+    solve escalates, subsequent iterations reuse the additive replacement.
+
     If a *string* value is incompatible with the chosen backend, a
-    ``UserWarning`` is emitted at solve time and the backend's default is
-    used. A ``Preconditioner`` paired with a non-``within`` backend is
-    rejected eagerly with ``ValueError`` because there is no sensible
+    `UserWarning` is emitted at solve time and the backend's default is
+    used. A `Preconditioner` paired with a non-`within` backend is
+    rejected eagerly with `ValueError` because there is no sensible
     fallback for a prebuilt object.
     """
 
@@ -151,15 +334,164 @@ class LsmrDemeaner(BaseDemeaner):
         if self.local_size is not None:
             _validate_positive_int(self.local_size, "local_size")
 
-        if self.backend == "cupy" and self.device == "mps":
-            raise ValueError("The CuPy backend does not support MPS devices.")
-
         if (
             self.backend == "torch"
             and self.device == "mps"
             and self.precision != "float32"
         ):
             raise ValueError("The MPS torch backend requires `precision='float32'`.")
+
+    def with_tol(self, tol: float | None) -> LsmrDemeaner:
+        """Overwrite LSMR tolerances (used for IWLS acceleration)."""
+        if tol is None or (tol == self.fixef_atol and tol == self.fixef_btol):
+            return self
+        return replace(self, fixef_atol=tol, fixef_btol=tol)
+
+    def demean(
+        self,
+        x: np.ndarray,
+        flist: np.ndarray | list[Effect],
+        weights: np.ndarray | None = None,
+        cached_preconditioner: Preconditioner | None = None,
+    ) -> tuple[np.ndarray, bool, Preconditioner | None]:
+        """Demean ``x`` by the fixed effects in ``flist`` via LSMR.
+
+        Parameters
+        ----------
+        flist : np.ndarray or list[within.Effect]
+            Encoded group identifiers, or complete effects containing group
+            codes, intercept flags, and slope covariates. Only the ``within``
+            backend accepts explicit effects; ``torch`` raises ``TypeError``.
+        cached_preconditioner : Preconditioner or None, optional
+            A preconditioner saved by the caller from an earlier within solve
+            on the same fixed-effect design. This is separate from
+            ``self.preconditioner``: the latter is the user's requested
+            configuration, while ``cached_preconditioner`` is the model's
+            internal "reuse this if it still matches" handle. The cache is
+            used when the current request is a string preconditioner
+            built with the same configuration (``"additive"`` or
+            ``"diagonal"``); an ``"adaptive"`` request also reuses an
+            escalated additive Schwarz preconditioner. If the
+            user explicitly supplied a ``Preconditioner`` on the demeaner,
+            that object is passed through and the model cache is ignored.
+
+        Returns
+        -------
+        tuple[np.ndarray, bool, Preconditioner | None]
+            The demeaned array, a convergence flag, and the within
+            preconditioner actually used during the solve. The third element
+            is ``None`` for non-within backends, when
+            ``preconditioner='off'`` was requested, or when the single-FE MAP
+            fallback path was taken inside ``demean_within`` — in those cases
+            no preconditioner participated in the solve. Callers (e.g. the
+            ``DemeanCache``) can cache the returned instance to amortise
+            setup across subsequent solves on the same design.
+        """
+        if self.backend == "within":
+            return self._demean_within(
+                x=x,
+                flist=flist,
+                weights=weights,
+                cached_preconditioner=cached_preconditioner,
+            )
+        if self.backend == "torch":
+            flist = _require_fixed_effect_codes(flist=flist, backend="torch LSMR")
+            return self._demean_torch(x=x, flist=flist, weights=weights)
+        raise ValueError(f"Unknown LsmrDemeaner backend: {self.backend!r}")
+
+    def _demean_within(
+        self,
+        x: np.ndarray,
+        flist: np.ndarray | list[Effect],
+        weights: np.ndarray | None,
+        cached_preconditioner: Preconditioner | None,
+    ) -> tuple[np.ndarray, bool, Preconditioner | None]:
+        """Demean via `within`, reusing a matching cached preconditioner."""
+        preconditioner: WithinPreconditionerName | Preconditioner
+        if isinstance(self.preconditioner, Preconditioner):
+            preconditioner = self.preconditioner
+        else:
+            preconditioner = cast(
+                WithinPreconditionerName,
+                _resolve_preconditioner("within", self.preconditioner),
+            )
+
+        if cached_preconditioner is not None and isinstance(preconditioner, str):
+            cached_name = within_preconditioner_name(cached_preconditioner)
+            same_kind = cached_name == preconditioner
+            already_escalated = (
+                preconditioner == "adaptive" and cached_name == "additive"
+            )
+            if same_kind or already_escalated:
+                preconditioner = cached_preconditioner
+
+        return demean_within(
+            x=x,
+            flist=flist.astype(np.uint32, copy=False)
+            if isinstance(flist, np.ndarray)
+            else flist,
+            weights=weights,
+            tol=max(self.fixef_atol, self.fixef_btol),
+            maxiter=self.fixef_maxiter,
+            local_size=self.local_size,
+            preconditioner=preconditioner,
+        )
+
+    def _demean_torch(
+        self,
+        x: np.ndarray,
+        flist: np.ndarray,
+        weights: np.ndarray | None,
+    ) -> tuple[np.ndarray, bool, Preconditioner | None]:
+        """Demean via PyTorch LSMR with its built-in diagonal preconditioner.
+
+        The third return value is always `None`: no within preconditioner
+        participates in the solve.
+        """
+        # Call the resolver for its UserWarning side effect on incompatible
+        # requests; torch LSMR always uses its diagonal preconditioner.
+        _ = _resolve_preconditioner(
+            "torch", cast(LsmrPreconditioner, self.preconditioner)
+        )
+        torch = _import_torch()
+        torch_demean_module = import_module("pyfixest.estimation.torch.demean_torch_")
+
+        if weights is None:
+            weights = np.ones(x.shape[0], dtype=np.float64)
+
+        dtype = torch.float32 if self.precision == "float32" else torch.float64
+        tol = max(self.fixef_atol, self.fixef_btol)
+        flist_uint64 = flist.astype(np.uint64, copy=False)
+
+        if self.device == "auto":
+            demean_torch = cast(
+                Callable[..., tuple[np.ndarray, bool]],
+                torch_demean_module.demean_torch,
+            )
+            result, success = demean_torch(
+                x=x,
+                flist=flist_uint64,
+                weights=weights,
+                tol=tol,
+                maxiter=self.fixef_maxiter,
+                dtype=dtype,
+            )
+            return result, success, None
+
+        demean_torch_on_device = cast(
+            Callable[..., tuple[np.ndarray, bool]],
+            torch_demean_module._demean_torch_on_device_impl,
+        )
+        result, success = demean_torch_on_device(
+            x=x,
+            flist=flist_uint64,
+            weights=weights,
+            tol=tol,
+            maxiter=self.fixef_maxiter,
+            device=torch.device(self.device),
+            dtype=dtype,
+        )
+        return result, success, None
 
 
 AnyDemeaner = MapDemeaner | LsmrDemeaner

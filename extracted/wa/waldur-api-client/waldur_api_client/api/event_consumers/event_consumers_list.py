@@ -7,6 +7,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.backend_resource_req_o_enum import BackendResourceReqOEnum
+from ...models.delivery_enum import DeliveryEnum
 from ...models.event_consumer import EventConsumer
 from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
@@ -14,6 +15,7 @@ from ...utils import parse_link_header
 
 def _get_kwargs(
     *,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -22,6 +24,12 @@ def _get_kwargs(
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    json_delivery: Union[Unset, str] = UNSET
+    if not isinstance(delivery, Unset):
+        json_delivery = delivery.value
+
+    params["delivery"] = json_delivery
 
     params["is_global"] = is_global
 
@@ -85,6 +93,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -94,6 +103,7 @@ def sync_detailed(
 ) -> Response[list["EventConsumer"]]:
     """
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -110,6 +120,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        delivery=delivery,
         is_global=is_global,
         o=o,
         page=page,
@@ -128,6 +139,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -137,6 +149,7 @@ def sync(
 ) -> list["EventConsumer"]:
     """
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -154,6 +167,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        delivery=delivery,
         is_global=is_global,
         o=o,
         page=page,
@@ -166,6 +180,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -175,6 +190,7 @@ async def asyncio_detailed(
 ) -> Response[list["EventConsumer"]]:
     """
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -191,6 +207,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        delivery=delivery,
         is_global=is_global,
         o=o,
         page=page,
@@ -207,6 +224,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -216,6 +234,7 @@ async def asyncio(
 ) -> list["EventConsumer"]:
     """
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         page (Union[Unset, int]):
@@ -234,6 +253,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            delivery=delivery,
             is_global=is_global,
             o=o,
             page=page,
@@ -247,6 +267,7 @@ async def asyncio(
 def sync_all(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     user_username: Union[Unset, str] = UNSET,
@@ -260,6 +281,7 @@ def sync_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         user_username (Union[Unset, str]):
@@ -278,6 +300,7 @@ def sync_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        delivery=delivery,
         is_global=is_global,
         o=o,
         user_username=user_username,
@@ -329,6 +352,7 @@ def sync_all(
 async def asyncio_all(
     *,
     client: AuthenticatedClient,
+    delivery: Union[Unset, DeliveryEnum] = UNSET,
     is_global: Union[Unset, bool] = UNSET,
     o: Union[Unset, list[BackendResourceReqOEnum]] = UNSET,
     user_username: Union[Unset, str] = UNSET,
@@ -342,6 +366,7 @@ async def asyncio_all(
      Note: page_size will be set to 100 (the maximum allowed) automatically.
 
     Args:
+        delivery (Union[Unset, DeliveryEnum]):
         is_global (Union[Unset, bool]):
         o (Union[Unset, list[BackendResourceReqOEnum]]):
         user_username (Union[Unset, str]):
@@ -360,6 +385,7 @@ async def asyncio_all(
 
     # Get initial request kwargs
     kwargs = _get_kwargs(
+        delivery=delivery,
         is_global=is_global,
         o=o,
         user_username=user_username,

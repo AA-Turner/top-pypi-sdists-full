@@ -40,19 +40,59 @@ REFUSALS = (ow.BacklogError, BadInput, ME.SlugCollision, ME.HookTooLong, ME.Empt
 
 def _backlog_list(inp, cwd):
     path = ow.backlog_path(cwd)
-    data = {"path": str(path), "items": ow.list_items(path, state=inp.get("state", "open"))}
+    state = inp.get("state", "open")
+    data = {"path": str(path), "items": ow.list_items(path, state=state)}
     if not path.is_file():
         data["note"] = "no OPEN-WORK.md at %s yet; backlog_add creates it" % path.parent
+    unranked = ow.unranked_lines(path, state=state)
+    if unranked:
+        data["unranked"] = unranked
+        data["note"] = ("%d checkbox line(s) carry no [rank], so they are in `unranked`, not "
+                        "`items`: this backlog is not empty, its lines are in an older format"
+                        % len(unranked))
     return data
 
 
+def _where(data, path, cwd):
+    # The caller reports the change to a person who may look at another copy of the file: name the
+    # one written, and in a linked worktree say the main checkout's copy does not have it yet.
+    data["path"] = str(path)
+    main = ow.main_checkout_of(cwd)
+    if main is not None:
+        data["note"] = ("written in a linked worktree; %s does not have this change until the "
+                        "commit reaches the main checkout" % (main / ow.FILENAME))
+    return data
+
+
+def _refuse_a_second_backlog(path, inp):
+    # The session's cwd can sit in a nested repo after a cd, and a fresh file there splits the
+    # backlog while the tool still answers ok; only an explicit create_new starts one on purpose.
+    if inp.get("create_new") is True:
+        return
+    enclosing = ow.enclosing_backlog(path.parent)
+    if enclosing is not None:
+        raise ow.BacklogElsewhere(
+            "%s has no OPEN-WORK.md, but %s exists above it; a new file here would split the "
+            "backlog. Run from that repository, or pass create_new: true to start a separate "
+            "backlog here" % (path.parent, enclosing))
+
+
 def _backlog_add(inp, cwd):
-    return ow.add_item(ow.backlog_path(cwd), inp.get("rank"), inp.get("origin"), inp.get("what"),
-                       inp.get("size"), inp.get("open"), inp.get("next"), raised=inp.get("raised"))
+    path = ow.backlog_path(cwd)
+    created = not path.is_file()
+    if created:
+        _refuse_a_second_backlog(path, inp)
+    data = _where(ow.add_item(path, inp.get("rank"), inp.get("origin"), inp.get("what"),
+                              inp.get("size"), inp.get("open"), inp.get("next"),
+                              raised=inp.get("raised")), path, cwd)
+    if created:
+        data["created"] = True
+    return data
 
 
 def _backlog_close(inp, cwd):
-    return ow.close_item(ow.backlog_path(cwd), inp.get("rank"), inp.get("reason"))
+    path = ow.backlog_path(cwd)
+    return _where(ow.close_item(path, inp.get("rank"), inp.get("reason")), path, cwd)
 
 
 def _optional_text(inp, name):

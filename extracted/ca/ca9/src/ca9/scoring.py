@@ -36,10 +36,10 @@ def _threat_intel_boost(ev: Evidence) -> int:
     if ti is None:
         return 0
     boost = 0
-    has_high_epss = ti.epss_score is not None and ti.epss_score >= 0.5
-    if has_high_epss and ti.in_kev:
+    has_high_epss = ti.current_high_epss
+    if has_high_epss and ti.current_kev:
         boost = 15
-    elif has_high_epss or ti.in_kev:
+    elif has_high_epss or ti.current_kev:
         boost = 10
     return boost
 
@@ -96,11 +96,22 @@ def _score_reachable(ev: Evidence) -> int:
     return score
 
 
+def _import_mapping_adjustment(ev: Evidence) -> int:
+    # Installed metadata confirms the import names and lets ca9 check entry
+    # points; a curated mapping cannot, and a guessed one proves nothing.
+    if ev.package_imported or ev.import_name_source in ("", "metadata"):
+        return 0
+    if ev.import_name_source == "curated":
+        return -5
+    return -15
+
+
 def _score_unreachable_static(ev: Evidence) -> int:
     score = 60
 
     if not ev.package_imported:
         score += 25
+        score += _import_mapping_adjustment(ev)
     else:
         score -= 10
 

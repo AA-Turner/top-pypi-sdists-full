@@ -1363,13 +1363,16 @@ pub use error::{
 };
 pub use evaluation::{
     AnnotationEntry, ErrorEntry, Evaluation, FlagOutput, HierarchicalOutput, ListOutput,
+    OutputUnit, OutputUnitChildren,
 };
 pub use http::HttpOptions;
 #[doc(inline)]
 #[cfg(feature = "macros")]
 pub use jsonschema_macros::validator;
 pub use keywords::custom::Keyword;
-pub use options::{EmailOptions, FancyRegex, PatternOptions, Regex, ValidationOptions};
+pub use options::{
+    EmailOptions, FancyRegex, PatternCache, PatternOptions, Regex, ValidationOptions,
+};
 pub use referencing::{
     uri, Draft, Error as ReferencingError, Registry, RegistryBuilder, Resource, Retrieve, Uri,
 };
@@ -3527,7 +3530,7 @@ pub mod __private {
         pub use fancy_regex::{Regex, RegexBuilder};
     }
     pub mod regex {
-        pub use jsonschema_regex::contains_ecma_whitespace;
+        pub use jsonschema_regex::{contains_ecma_whitespace, RepeatedClass};
         pub use regex::{Regex, RegexBuilder};
     }
     /// Regex matching for generated code: a match the engine cannot finish is resolved by running

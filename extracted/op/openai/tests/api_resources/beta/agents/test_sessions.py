@@ -53,6 +53,7 @@ class TestSessions:
                         "name": "name",
                         "parameters": {"foo": "bar"},
                         "type": "function",
+                        "async": True,
                         "defer_loading": True,
                     }
                 ],
@@ -63,6 +64,7 @@ class TestSessions:
             review="none",
             spend_control={"limit": 1},
             stream=False,
+            stream_options={"include_obfuscation": True},
             vault_ids=["string"],
         )
         assert_matches_type(AgentSession, session, path=["response"])
@@ -128,6 +130,7 @@ class TestSessions:
                         "name": "name",
                         "parameters": {"foo": "bar"},
                         "type": "function",
+                        "async": True,
                         "defer_loading": True,
                     }
                 ],
@@ -137,6 +140,7 @@ class TestSessions:
             metadata={"foo": "string"},
             review="none",
             spend_control={"limit": 1},
+            stream_options={"include_obfuscation": True},
             vault_ids=["string"],
         )
         session_stream.response.close()
@@ -227,6 +231,7 @@ class TestSessions:
                         "name": "name",
                         "parameters": {"foo": "bar"},
                         "type": "function",
+                        "async": True,
                         "defer_loading": True,
                     }
                 ],
@@ -383,6 +388,7 @@ class TestAsyncSessions:
                         "name": "name",
                         "parameters": {"foo": "bar"},
                         "type": "function",
+                        "async": True,
                         "defer_loading": True,
                     }
                 ],
@@ -393,6 +399,7 @@ class TestAsyncSessions:
             review="none",
             spend_control={"limit": 1},
             stream=False,
+            stream_options={"include_obfuscation": True},
             vault_ids=["string"],
         )
         assert_matches_type(AgentSession, session, path=["response"])
@@ -458,6 +465,7 @@ class TestAsyncSessions:
                         "name": "name",
                         "parameters": {"foo": "bar"},
                         "type": "function",
+                        "async": True,
                         "defer_loading": True,
                     }
                 ],
@@ -467,6 +475,7 @@ class TestAsyncSessions:
             metadata={"foo": "string"},
             review="none",
             spend_control={"limit": 1},
+            stream_options={"include_obfuscation": True},
             vault_ids=["string"],
         )
         await session_stream.response.aclose()
@@ -557,6 +566,7 @@ class TestAsyncSessions:
                         "name": "name",
                         "parameters": {"foo": "bar"},
                         "type": "function",
+                        "async": True,
                         "defer_loading": True,
                     }
                 ],

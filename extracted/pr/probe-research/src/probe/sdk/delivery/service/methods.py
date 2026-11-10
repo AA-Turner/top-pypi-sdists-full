@@ -131,10 +131,12 @@ class SdkMethods:
         """`api.call` (plan D10): send the HTTP request a training process packaged, on the relay's
         own threads, and answer with the response. A fenced caller reaches only the API and its
         storage (D25). While a body streams into the caller's file, `api.progress` events keep it
-        waiting; a caller gone stops the stream."""
+        waiting; a caller gone stops the stream. A held stream (`stream: true`, the live events' SSE) is
+        answered at its headers and its body goes on into the caller's socket (`relay/streams.py`)."""
         from .relay import need_api_call
 
         call = need_api_call(parameters, connection.take_fds())
+        call.caller_pid = connection.peer_pid
         call.is_fenced = await asyncio.to_thread(self._check_fenced, connection.peer_pid)
         if call.is_fenced:
             call.env = {**drop_fence_endpoint_names(call.env), **get_network_env()}  # H-2: this service's own

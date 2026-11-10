@@ -61,7 +61,7 @@ const adoptionApi = {
   // No dedicated discovery action in the engine contract; resume rides a run id
   // already present in the URL. Returns null until such an action exists.
   latest: async () => null,
-  status: (runId) => command("adoption_studio", {action: "status", run_id: runId}),
+  status: (runId) => command("adoption_studio", {action: "status", run_id: runId, view: "full"}),
   select: (runId, payload) =>
     adoptionMutation({action: "select", run_id: runId, ...payload}),
   plan: (runId, onProgress) => boundedMutation({action: "plan", run_id: runId}, onProgress),
@@ -947,7 +947,7 @@ function proposalSummary(context, item) {
   if (payload.relation_type || context.kind === "relation") {
     const from = payload.from || payload.subject_path || "";
     const to = payload.to || payload.duplicate_of || "";
-    if (from || to) rows.push(el("p", `${payload.relation_type || "relates_to"}: ${from} → ${to}`));
+    if (from || to) rows.push(el("p", `${payload.relation_type ? `${payload.relation_type}: ` : ""}${from} → ${to}`));
   }
   if (payload.name) rows.push(el("p", `${payload.entity_type || "entity"}: ${payload.name}`));
   if (payload.summary) rows.push(el("p", payload.summary, "fine-print"));

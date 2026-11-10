@@ -125,6 +125,7 @@ if typing.TYPE_CHECKING:
     from .document_translation_export_state import DocumentTranslationExportState
     from .document_translation_job_state import DocumentTranslationJobState
     from .document_translation_state import DocumentTranslationState
+    from .dubbing_error_response import DubbingErrorResponse
     from .dubbing_export_item import DubbingExportItem
     from .dubbing_export_item_status import DubbingExportItemStatus
     from .dubbing_export_option import DubbingExportOption
@@ -139,6 +140,7 @@ if typing.TYPE_CHECKING:
     from .dubbing_model_tier import DubbingModelTier
     from .dubbing_pace_preset import DubbingPacePreset
     from .dubbing_register import DubbingRegister
+    from .dubbing_source_language import DubbingSourceLanguage
     from .dubbing_start_data import DubbingStartData
     from .dubbing_start_response import DubbingStartResponse
     from .error_code import ErrorCode
@@ -175,6 +177,7 @@ if typing.TYPE_CHECKING:
     from .mode import Mode
     from .model_list_response import ModelListResponse
     from .model_object import ModelObject
+    from .model_object_access import ModelObjectAccess
     from .model_type import ModelType
     from .numerals_format import NumeralsFormat
     from .page_metrics import PageMetrics
@@ -455,6 +458,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocumentTranslationExportState": ".document_translation_export_state",
     "DocumentTranslationJobState": ".document_translation_job_state",
     "DocumentTranslationState": ".document_translation_state",
+    "DubbingErrorResponse": ".dubbing_error_response",
     "DubbingExportItem": ".dubbing_export_item",
     "DubbingExportItemStatus": ".dubbing_export_item_status",
     "DubbingExportOption": ".dubbing_export_option",
@@ -469,6 +473,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DubbingModelTier": ".dubbing_model_tier",
     "DubbingPacePreset": ".dubbing_pace_preset",
     "DubbingRegister": ".dubbing_register",
+    "DubbingSourceLanguage": ".dubbing_source_language",
     "DubbingStartData": ".dubbing_start_data",
     "DubbingStartResponse": ".dubbing_start_response",
     "ErrorCode": ".error_code",
@@ -505,6 +510,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Mode": ".mode",
     "ModelListResponse": ".model_list_response",
     "ModelObject": ".model_object",
+    "ModelObjectAccess": ".model_object_access",
     "ModelType": ".model_type",
     "NumeralsFormat": ".numerals_format",
     "PageMetrics": ".page_metrics",
@@ -802,6 +808,7 @@ __all__ = [
     "DocumentTranslationExportState",
     "DocumentTranslationJobState",
     "DocumentTranslationState",
+    "DubbingErrorResponse",
     "DubbingExportItem",
     "DubbingExportItemStatus",
     "DubbingExportOption",
@@ -816,6 +823,7 @@ __all__ = [
     "DubbingModelTier",
     "DubbingPacePreset",
     "DubbingRegister",
+    "DubbingSourceLanguage",
     "DubbingStartData",
     "DubbingStartResponse",
     "ErrorCode",
@@ -852,6 +860,7 @@ __all__ = [
     "Mode",
     "ModelListResponse",
     "ModelObject",
+    "ModelObjectAccess",
     "ModelType",
     "NumeralsFormat",
     "PageMetrics",

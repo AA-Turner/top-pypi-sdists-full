@@ -44,25 +44,47 @@ rm -f vg_*
 #
 # NOTE: we intentionally fail only on "definite" leaks. Leaked *Python* references
 # (e.g. a missing decref in the C++ exception-translation path) are NOT catchable
-# here: the orphaned Python objects remain linked in CPython's GC generation list,
-# so valgrind classifies them as "still reachable" / "possibly lost", never
-# "definitely lost". Widening --show-leak-kinds does not help -- the possibly-lost
-# count is dominated by interpreter/pybind11 noise and is non-deterministic (it does
-# not even shrink when the leak is fixed). Such reference leaks must be found via
-# heap growth over time (heaptrack, or an RSS-plateau test), not leak-check-at-exit.
-# memory_test.py has a built-in RSS-plateau check for exactly that -- but it is only
-# meaningful WITHOUT valgrind, whose allocator makes RSS climb on its own. So we run
-# the script twice: plainly (RSS check on, may fail) and under valgrind (check off).
+# here: an orphaned PyObject stays reachable from CPython's internals -- the GC
+# generation list for containers, the type's instance bookkeeping otherwise -- so
+# valgrind classifies it as "still reachable" / "possibly lost", never "definitely
+# lost". Widening --show-leak-kinds does not help: the possibly-lost count is
+# dominated by interpreter/pybind11 noise and is non-deterministic (it does not
+# even shrink when the leak is fixed). Such leaks must be counted from inside the
+# interpreter instead, which is what the block-count check below does.
+# memory_test.py has two built-in checks for exactly that -- an RSS plateau check
+# and a Python-allocator block-count check -- but neither is meaningful under
+# valgrind, whose allocator makes RSS climb on its own.
+#
+# Three checks, three jobs. None of them subsumes the others, so we gate on all:
+#   * valgrind leak-check      -> C-level blocks with no pointer left to them
+#   * RSS plateau              -> gross heap growth, whatever the cause; the only
+#                                 check that sees pure C/C++ leaks with no Python
+#                                 object attached (the forced leak above included)
+#   * allocator block count    -> every leaked Python object, however small,
+#                                 pybind11 wrapper instances included; blind to
+#                                 anything that is not a Python object
+#
+# Hence three runs of memory_test.py below. RSS and blocks are deliberately NOT
+# measured in the same run: sampling blocks costs a gc.collect() plus an extra
+# Tango round-trip per cycle, which perturbs the RSS slope.
 
-# Plain run: RSS-plateau check enabled, exits non-zero if RSS grows. Capture the
-# result but don't fail yet -- re-thrown together with valgrind errors below.
+# Plain run 1: RSS-plateau check only. Capture the result but don't fail yet --
+# re-thrown together with the other errors below.
 set +e
-python memory_test.py
+MEMTEST_RSS_CHECK=1 python memory_test.py
 rss_exit=$?
 set -e
 
-# Valgrind run: leak-check only; disable the RSS check (it would false-positive here).
-MEMTEST_RSS_CHECK=0 PYTHONMALLOC=malloc valgrind \
+# Plain run 2: allocator block-count check only.
+set +e
+MEMTEST_BLOCKS_CHECK=1 python memory_test.py
+blocks_exit=$?
+set -e
+
+# Valgrind run: leak-check only. Both growth checks are opt-in, so enabling
+# neither also skips memory_test.py's warm-up pass, leaving the call counts it
+# prints equal to the calls actually made.
+PYTHONMALLOC=malloc valgrind \
   --leak-check=yes --show-leak-kinds=definite --trace-children=yes \
   --xml=yes --xml-file=vg_%p.xml \
   python memory_test.py
@@ -129,6 +151,10 @@ do
 done
 if [ "${rss_exit:-0}" -ne 0 ]; then
   echo "Error: RSS growth detected by memory_test.py RSS-plateau check (exit ${rss_exit})!"
+  error=1
+fi
+if [ "${blocks_exit:-0}" -ne 0 ]; then
+  echo "Error: Python reference leak detected by memory_test.py block-count check (exit ${blocks_exit})!"
   error=1
 fi
 if [ $error -ne 0 ]; then

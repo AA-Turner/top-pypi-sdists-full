@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from office365.directory.protection.threatassessment.requests.maildestinationroutingreason import (  # noqa: E501
+    MailDestinationRoutingReason,
+)
 from office365.directory.protection.threatassessment.requests.request import (
     ThreatAssessmentRequest,
 )
-
-if TYPE_CHECKING:
-    from office365.directory.protection.threatassessment.requests.maildestinationroutingreason import (
-        MailDestinationRoutingReason,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class EmailFileAssessmentRequest(ThreatAssessmentRequest):
@@ -18,6 +17,7 @@ class EmailFileAssessmentRequest(ThreatAssessmentRequest):
     The email file can be an .eml file type.
     """
 
+    @odata(name="contentData")
     @property
     def content_data(self) -> Optional[str]:
         """
@@ -32,15 +32,13 @@ class EmailFileAssessmentRequest(ThreatAssessmentRequest):
         """
         return self.properties.get("fileName", None)
 
+    @odata(name="destinationRoutingReason")
     @property
     def destination_routing_reason(self) -> MailDestinationRoutingReason:
         """Gets the destinationRoutingReason property"""
-        from office365.directory.protection.threatassessment.requests.maildestinationroutingreason import (
-            MailDestinationRoutingReason,
-        )
-
         return self.properties.get("destinationRoutingReason", MailDestinationRoutingReason.none)
 
+    @odata(name="recipientEmail")
     @property
     def recipient_email(self) -> Optional[str]:
         """Gets the recipientEmail property"""

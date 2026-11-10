@@ -387,17 +387,18 @@ def test_every_example_says_what_was_verified_and_how() -> None:
 def test_what_is_not_enabled_is_said_as_setup_and_not_as_a_mistake() -> None:
     # The chat that only searches the web runs on what is enabled today.
     assert app_setup(APP_CATALOGUE["web-research"]) == []
-    # Inbox triage's agent and Gmail's server are offered since 0.0.128.
+    # Inbox triage's Gmail server is offered since 0.0.128; its agent, Mail Triage
+    # Assistant, is out of the agents' catalogue since 0.0.164 (8 November 2026): the
+    # application still runs it, and says so as setup.
     triage = APP_CATALOGUE["inbox-triage"]
     assert app_problems(triage) == []
-    assert app_setup(triage) == []
-    # An application naming an agent and a server that are not: that is setup, said in
-    # words, and not a problem of the spec.
+    assert app_setup(triage) == ["The agent 'worker-mail-triage:0.0.1' is not enabled."]
+    # An application naming an agent that is not: that is setup, said in words, and not
+    # a problem of the spec (its odoo-accounting server is on since 0.0.162).
     accounting = APP_CATALOGUE["accounting"]
     assert app_problems(accounting) == []
     assert app_setup(accounting) == [
         "The agent 'worker-accountant:0.0.1' is not enabled.",
-        "The MCP server 'odoo-accounting:0.0.1' is not enabled.",
     ]
 
 
@@ -419,10 +420,15 @@ def test_an_example_is_offered_where_its_agent_works_and_says_why_otherwise() ->
     )
     for identity, spec in off.items():
         assert spec.unavailable_because.strip().endswith("."), identity
-    for identity in ("quote-calculator", "report-from-a-file", "customer-interview", "support-desk"):
+    for identity in ("quote-calculator", "report-from-a-file", "customer-interview"):
         spec = APP_CATALOGUE[identity]
         assert spec.enabled and spec.unavailable_because == "", identity
         assert app_setup(spec) == [], identity
+    # Support Desk's agent, Document Q&A, is out of the agents' catalogue since 0.0.164
+    # (8 November 2026): the application is still offered, and says so as setup.
+    support = APP_CATALOGUE["support-desk"]
+    assert support.enabled and support.unavailable_because == ""
+    assert app_setup(support) == ["The agent 'worker-document-qa:0.0.1' is not enabled."]
     # Off without a reason, or a reason on one that is offered, is refused.
     with pytest.raises(AppError, match="says why, under `unavailable_because`"):
         app(enabled=False)
@@ -865,6 +871,8 @@ EXAMPLES = {
     "model-choice": AppKind.DECISION,
     "support-desk": AppKind.CHAT,
     "web-research": AppKind.CHAT,
+    # The Marketer (the user, 7 November 2026): X, Bluesky and LinkedIn, with a memory.
+    "marketer": AppKind.CHAT,
     "decide": AppKind.CHAT,
     "sales": AppKind.CHAT,
     "accounting": AppKind.CHAT,
@@ -899,6 +907,10 @@ EXAMPLES = {
     "sign-in-desk": AppKind.CHAT,
     "returns-desk": AppKind.CHAT,
     "bookkeeping-desk": AppKind.CHAT,
+    # The Battles' makers (6 November 2026): a deck and a sheet built in the page, two of each racing.
+    "deck-maker": AppKind.CHAT,
+    "player": AppKind.CHAT,
+    "sheet-maker": AppKind.CHAT,
 }
 
 #: Each of the SDK's seven recorded PAP journeys (agent-runtimes' trace examples) and the example it became.
@@ -1042,7 +1054,6 @@ def test_accounting_only_reads_the_books_and_asks_before_anything_that_would_cha
     assert app_problems(found) == []
     assert app_setup(found) == [
         "The agent 'worker-accountant:0.0.1' is not enabled.",
-        "The MCP server 'odoo-accounting:0.0.1' is not enabled.",
     ]
 
 

@@ -22,8 +22,9 @@ is covered separately by the pyld expansion tests added in a later task.
 """
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -34,6 +35,9 @@ from prov.serializers.provjsonld import ProvJSONLDException  # noqa: E402
 from prov.tests import examples  # noqa: E402
 
 from .conftest import contains_mention  # noqa: E402
+
+if TYPE_CHECKING:
+    from jsonschema.protocols import Validator  # type: ignore[import-untyped]
 
 EX_URI = "http://example.org/"
 
@@ -46,11 +50,12 @@ CANONICAL_CONTEXT_URL = "https://openprovenance.org/prov-jsonld/context.jsonld"
 
 
 @pytest.fixture(scope="module")
-def prov_jsonld_validator():
+def prov_jsonld_validator() -> "Validator":
     schema = json.loads(SCHEMA_PATH.read_text())
     validator_cls = jsonschema.validators.validator_for(schema)
     validator_cls.check_schema(schema)
-    return validator_cls(schema)
+    validator: Validator = validator_cls(schema)
+    return validator
 
 
 def _canonicalize_embedded_context(container: dict[str, Any]) -> dict[str, Any]:
@@ -88,7 +93,9 @@ def _canonicalize_embedded_context(container: dict[str, Any]) -> dict[str, Any]:
 )
 @pytest.mark.parametrize("context", ["url", "embed"])
 def test_example_documents_validate_against_prov_jsonld_schema(
-    prov_jsonld_validator, make_document, context
+    prov_jsonld_validator: "Validator",
+    make_document: Callable[[], ProvDocument],
+    context: str,
 ) -> None:
     document = make_document()
     if contains_mention(document):
@@ -103,7 +110,7 @@ def test_example_documents_validate_against_prov_jsonld_schema(
 
 
 def test_default_namespace_attributes_validate_against_prov_jsonld_schema(
-    prov_jsonld_validator,
+    prov_jsonld_validator: "Validator",
 ) -> None:
     """A default-namespace attribute must not encode to a bare (unprefixed) key.
 
@@ -125,6 +132,28 @@ def test_default_namespace_attributes_validate_against_prov_jsonld_schema(
     assert not errors, "\n".join(str(e) for e in errors)
 
 
+def test_qualified_name_under_extension_key_validates_against_prov_jsonld_schema(
+    prov_jsonld_validator: "Validator",
+) -> None:
+    """A qualified-name value is written as a node reference (#564).
+
+    No canonical example holds a qualified name under an extension key,
+    which is why the parametrized test above never checked the value's
+    shape. ``label`` is left out: the schema's ``ArrayOfLabelValues``
+    admits only strings, so a qualified name under it does not validate
+    in either form.
+    """
+    document = ProvDocument()
+    document.add_namespace("ex", EX_URI)
+    thing = document.valid_qualified_name("ex:thing")
+    document.entity("ex:e1", (("ex:ref", thing), ("prov:value", thing)))
+    container = json.loads(document.serialize(format="jsonld"))
+    (stmt,) = container["@graph"]
+    assert stmt["ex:ref"] == [{"@id": "ex:thing"}]
+    errors = sorted(prov_jsonld_validator.iter_errors(container), key=str)
+    assert not errors, "\n".join(str(e) for e in errors)
+
+
 @pytest.mark.parametrize(
     "fixture",
     [
@@ -135,7 +164,7 @@ def test_default_namespace_attributes_validate_against_prov_jsonld_schema(
     ],
 )
 def test_interop_fixtures_validate_against_prov_jsonld_schema(
-    prov_jsonld_validator, fixture
+    prov_jsonld_validator: "Validator", fixture: str
 ) -> None:
     """The vendored fixtures in the submission's dialect satisfy the vendored schema.
 

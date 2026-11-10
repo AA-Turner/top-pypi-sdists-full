@@ -7,6 +7,7 @@ Lemonaid is a toolkit for working with lemons (LLMs). Current features:
 import argparse
 import sys
 
+import lemonaid.audit.cli
 import lemonaid.brief.archive_cli
 import lemonaid.brief.cli
 import lemonaid.claude.cli
@@ -34,6 +35,7 @@ import lemonaid.usage.cli
 import lemonaid.watch.cli
 import lemonaid.watch.reconcile
 import lemonaid.watch.restart
+import lemonaid.watch.run_cli
 import lemonaid.watch.wait_cli
 import lemonaid.wezterm.cli
 
@@ -159,6 +161,7 @@ def main() -> None:
     lemonaid.openclaw.cli.setup_parser(subparsers)
     lemonaid.opencode.cli.setup_parser(subparsers)
     lemonaid.places.cli.setup_parser(subparsers)
+    lemonaid.audit.cli.setup_parser(subparsers)
     lemonaid.restore.cli.setup_parser(subparsers)
     lemonaid.brief.cli.setup_parser(subparsers)
     lemonaid.skills.cli.setup_parser(subparsers)
@@ -167,6 +170,7 @@ def main() -> None:
     lemonaid.tmux.cli.setup_parser(subparsers)
     lemonaid.usage.cli.setup_parser(subparsers)
     lemonaid.watch.wait_cli.setup_parser(subparsers)
+    lemonaid.watch.run_cli.setup_parser(subparsers)
     lemonaid.watch.cli.setup_parser(
         subparsers, (lemonaid.tmux.label_host.service, lemonaid.tasks.inspection.service.service)
     )

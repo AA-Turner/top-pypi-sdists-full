@@ -1,6 +1,6 @@
 import re
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import copy, deepcopy
 from dataclasses import dataclass
 from typing import (
@@ -9,18 +9,19 @@ from typing import (
     Final,
     Generic,
     Union,
+    assert_never,
     cast,
 )
 
 import fastapi.routing
 from fastapi import APIRouter
 from fastapi.datastructures import _Unset
-from fastapi.routing import APIRoute, _EffectiveRouteContext, _iter_routes_with_context
+from fastapi.routing import APIRoute, APIWebSocketRoute, _EffectiveRouteContext, _iter_routes_with_context
 from pydantic import BaseModel
-from starlette.routing import BaseRoute
-from typing_extensions import TypeVar, assert_never
+from starlette.routing import BaseRoute, compile_path
+from typing_extensions import TypeVar
 
-from cadwyn._utils import DATACLASS_SLOTS, Sentinel, _callable_name, lenient_issubclass
+from cadwyn._utils import DATACLASS_SLOTS, Sentinel, _callable_name, is_same_value, lenient_issubclass
 from cadwyn.exceptions import (
     CadwynError,
     RouteAlreadyExistsError,
@@ -30,11 +31,9 @@ from cadwyn.exceptions import (
     RouterGenerationError,
     RouterPathParamsModifiedError,
 )
-from cadwyn.schema_generation import (
-    _add_request_and_response_params,
-    generate_versioned_models,
-    get_models_that_routes_request,
-)
+from cadwyn.middleware import APIVersionLocation  # noqa: TC001 # Needed by runtime annotation introspection.
+from cadwyn.schema_generation import generate_versioned_models, get_models_that_routes_request
+from cadwyn.schema_generation._callables import _add_request_and_response_params
 from cadwyn.structure import Version, VersionBundle
 from cadwyn.structure.common import Endpoint, VersionType
 from cadwyn.structure.data import _AlterRequestByPathInstruction, _AlterResponseByPathInstruction
@@ -44,11 +43,15 @@ from cadwyn.structure.endpoints import (
     EndpointHadInstruction,
 )
 from cadwyn.structure.versions import VersionChange
+from cadwyn.structure.versions._background import (
+    _DroppedBackgroundTasksWarning,
+    _get_hidden_background_tasks_param_name,
+)
+from cadwyn.structure.versions._migration_targets import _get_request_body_target, _get_schema_migration_target
 
 if TYPE_CHECKING:
     from fastapi.dependencies.models import Dependant
 
-    from cadwyn.middleware import APIVersionLocation
 
 _Call = TypeVar("_Call", bound=Callable[..., Any])
 _R = TypeVar("_R", bound=APIRouter)
@@ -81,11 +84,17 @@ def generate_versioned_routers(
     webhooks: Union[_WR, None] = None,
     api_version_parameter_name: str = "X-API-Version",
     api_version_location: "APIVersionLocation" = "custom_header",
+    run_background_tasks_of_latest_version_dependencies: bool = False,
 ) -> GeneratedRouters[_R, _WR]:
     if webhooks is None:
         webhooks = cast("_WR", APIRouter())
     return _EndpointTransformer(
-        router, versions, webhooks, api_version_parameter_name, api_version_location
+        router,
+        versions,
+        webhooks,
+        api_version_parameter_name,
+        api_version_location,
+        run_background_tasks_of_latest_version_dependencies=run_background_tasks_of_latest_version_dependencies,
     ).transform()
 
 
@@ -97,11 +106,11 @@ class VersionedAPIRouter(fastapi.routing.APIRouter):
                 f'Route not found on endpoint: "{_callable_name(endpoint)}". '
                 "Are you sure it's a route and decorators are in the correct order?",
             )
-        if _DELETED_ROUTE_TAG in route.tags:
+        if _route_is_deleted(route):
             raise CadwynError(
                 f'The route "{_callable_name(endpoint)}" was already deleted. You can\'t delete it again.'
             )
-        route.tags.append(_DELETED_ROUTE_TAG)
+        _set_route_deleted(route, deleted=True)
         return endpoint
 
 
@@ -128,10 +137,17 @@ def copy_route(route: _RouteT, effective_route_context: _EffectiveRouteContext |
         and not isinstance(route, APIRoute)
         and effective_route_context.starlette_route is not None
     ):
-        return cast("_RouteT", copy(effective_route_context.starlette_route))
+        new_route = copy(effective_route_context.starlette_route)
+        if isinstance(route, APIWebSocketRoute) and isinstance(new_route, APIWebSocketRoute):
+            _set_route_deleted(new_route, deleted=_route_is_deleted(route))
+            new_route.dependencies = list(new_route.dependencies)
+        return cast("_RouteT", new_route)
 
     if not isinstance(route, APIRoute):
-        return copy(route)
+        new_route = copy(route)
+        if isinstance(new_route, APIWebSocketRoute):
+            new_route.dependencies = list(new_route.dependencies)
+        return new_route
 
     # This is slightly wasteful in terms of resources but it makes it easy for us
     # to make sure that new versions of FastAPI are going to be supported even if
@@ -180,8 +196,39 @@ def _refresh_route_app(route: APIRoute) -> None:
     route.app = fastapi.routing.request_response(route.get_route_handler())
 
 
-def _route_methods(route: APIRoute) -> set[str]:
+def _route_methods(route: APIRoute | APIWebSocketRoute) -> set[str]:
+    if isinstance(route, APIWebSocketRoute):
+        return {"WEBSOCKET"}
     return route.methods or set()
+
+
+def _route_is_deleted(route: APIRoute | APIWebSocketRoute) -> bool:
+    if isinstance(route, APIRoute):
+        return _DELETED_ROUTE_TAG in route.tags
+    return getattr(route, _DELETED_ROUTE_TAG, False)
+
+
+def _set_route_deleted(route: APIRoute | APIWebSocketRoute, *, deleted: bool) -> None:
+    if isinstance(route, APIRoute):
+        if deleted:
+            route.tags.append(_DELETED_ROUTE_TAG)
+        else:
+            route.tags.remove(_DELETED_ROUTE_TAG)
+    else:
+        setattr(route, _DELETED_ROUTE_TAG, deleted)
+
+
+def _refresh_websocket_route(route: APIWebSocketRoute, dependency_overrides_provider: object) -> None:
+    # FastAPI builds path matchers, dependants, embedding rules, and the handler closure together.
+    # Copy all of that state, including fields added by newer FastAPI versions, but keep Cadwyn's marker.
+    rebuilt = APIWebSocketRoute(
+        route.path,
+        route.endpoint,
+        name=route.name,
+        dependencies=route.dependencies,
+        dependency_overrides_provider=dependency_overrides_provider,
+    )
+    vars(route).update(vars(rebuilt))
 
 
 class _EndpointTransformer(Generic[_R, _WR]):
@@ -192,9 +239,12 @@ class _EndpointTransformer(Generic[_R, _WR]):
         webhooks: _WR,
         api_version_parameter_name: str,
         api_version_location: "APIVersionLocation",
+        *,
+        run_background_tasks_of_latest_version_dependencies: bool,
     ) -> None:
         super().__init__()
         self.parent_router = parent_router
+        self.run_background_tasks_of_latest_version_dependencies = run_background_tasks_of_latest_version_dependencies
         self.versions = versions
         self.parent_webhooks_router = webhooks
         self.api_version_parameter_name = api_version_parameter_name
@@ -205,7 +255,7 @@ class _EndpointTransformer(Generic[_R, _WR]):
         self.routes_that_never_existed = [
             route
             for route in self.head_router.routes
-            if isinstance(route, APIRoute) and _DELETED_ROUTE_TAG in route.tags
+            if isinstance(route, APIRoute | APIWebSocketRoute) and _route_is_deleted(route)
         ]
 
     def transform(self) -> GeneratedRouters[_R, _WR]:
@@ -216,6 +266,10 @@ class _EndpointTransformer(Generic[_R, _WR]):
         webhook_routers: dict[VersionType, _WR] = {}
 
         for version in self.versions:
+            for version_router in (router, webhook_router):
+                for route in version_router.routes:
+                    if isinstance(route, APIWebSocketRoute) and not _route_is_deleted(route):
+                        _refresh_websocket_route(route, version_router.dependency_overrides_provider)
             schema_generator = self.schema_generators[str(version.value)]
             # All routes of the version must be known before any of them is versioned so that the decisions about
             # the models that refer to each other do not depend on the order of the routes
@@ -244,8 +298,14 @@ class _EndpointTransformer(Generic[_R, _WR]):
         for route_index, head_route in enumerate(self.head_router.routes):
             if not isinstance(head_route, APIRoute):
                 continue
+            _validate_no_http_error_migrations_of_union_members(
+                head_route, _get_version_changes_that_migrate_route(route_index, self.versions, routers)
+            )
             _add_request_and_response_params(head_route)
             copy_of_dependant = copy(head_route.dependant)
+            dropped_background_tasks_warning = _DroppedBackgroundTasksWarning(
+                f'"{list(_route_methods(head_route))} {head_route.path}"'
+            )
 
             for older_router in list(routers.values()):
                 older_route = older_router.routes[route_index]
@@ -253,6 +313,8 @@ class _EndpointTransformer(Generic[_R, _WR]):
                 # We know they are APIRoutes because of the check at the very beginning of the top loop.
                 # I.e. Because head_route is an APIRoute, both routes are  APIRoutes too
                 older_route = cast("APIRoute", older_route)
+                if _DELETED_ROUTE_TAG in older_route.tags:
+                    continue
                 # Wait.. Why do we need this code again?
                 if older_route.body_field is not None and _route_has_a_simple_body_schema(older_route):
                     annotation = older_route.body_field.field_info.annotation
@@ -270,18 +332,22 @@ class _EndpointTransformer(Generic[_R, _WR]):
                     older_route.body_field.alias if older_route.body_field is not None else None,
                     copy_of_dependant,
                     self.versions,
+                    run_background_tasks_of_latest_version_dependencies=(
+                        self.run_background_tasks_of_latest_version_dependencies
+                    ),
+                    dropped_background_tasks_warning=dropped_background_tasks_warning,
                 )
         for router in routers.values():
             router.routes = [
                 route
                 for route in router.routes
-                if not (isinstance(route, fastapi.routing.APIRoute) and _DELETED_ROUTE_TAG in route.tags)
+                if not (isinstance(route, APIRoute | APIWebSocketRoute) and _route_is_deleted(route))
             ]
         for webhook_router in webhook_routers.values():
             webhook_router.routes = [
                 route
                 for route in webhook_router.routes
-                if not (isinstance(route, fastapi.routing.APIRoute) and _DELETED_ROUTE_TAG in route.tags)
+                if not (isinstance(route, APIRoute | APIWebSocketRoute) and _route_is_deleted(route))
             ]
         return GeneratedRouters(routers, webhook_routers)
 
@@ -289,7 +355,7 @@ class _EndpointTransformer(Generic[_R, _WR]):
         # This method is way out of its league in terms of complexity. We gotta refactor it.
 
         path_to_route_methods_mapping, head_response_models, head_request_bodies = (
-            self._extract_all_routes_identifiers_for_route_to_converter_matching(router)
+            self._extract_all_routes_identifiers_for_route_to_converter_matching(router, head_router)
         )
 
         for version_change in version.changes:
@@ -312,7 +378,7 @@ class _EndpointTransformer(Generic[_R, _WR]):
                             f"Request by body schema converter "
                             f'"{version_change.__name__}.{_callable_name(by_schema_converter.transformer)}" '
                             f"failed to find routes with the following body schemas: "
-                            f"{[m.__name__ for m in missing_models]}. "
+                            f"{[_schema_name(m) for m in missing_models]}. "
                             f"This means that you are trying to apply this converter to non-existing endpoint(s). "
                         )
             for by_schema_converters in version_change.alter_response_by_schema_instructions.values():
@@ -325,7 +391,7 @@ class _EndpointTransformer(Generic[_R, _WR]):
                             f"Response by response model converter "
                             f'"{version_change.__name__}.{_callable_name(by_schema_converter.transformer)}" '
                             f"failed to find routes with the following response models: "
-                            f"{[m.__name__ for m in missing_models]}. "
+                            f"{[_schema_name(m) for m in missing_models]}. "
                             f"This means that you are trying to apply this converter to non-existing endpoint(s). "
                             "If this is intentional and this converter really does not apply to any endpoints, then "
                             "pass check_usage=False argument to "
@@ -363,7 +429,7 @@ class _EndpointTransformer(Generic[_R, _WR]):
             )
 
     def _extract_all_routes_identifiers_for_route_to_converter_matching(
-        self, router: APIRouter
+        self, router: APIRouter, head_router: APIRouter
     ) -> tuple[dict[_RoutePath, dict[_RouteMethod, set[_RouteId]]], set[Any], set[Any]]:
         # int is the index of the route in the router.routes list.
         # So we essentially keep track of which routes have which response models and request bodies.
@@ -379,11 +445,18 @@ class _EndpointTransformer(Generic[_R, _WR]):
             if isinstance(route, APIRoute):
                 if route.response_model is not None and lenient_issubclass(route.response_model, BaseModel):
                     response_models.add(route.response_model)
-                    # Not sure if it can ever be None when it's a simple schema. Eh, I would rather be safe than sorry
+                # Migrations are looked up by the latest version of the route, e.g. for a union or a type alias.
+                # The routers of all versions have the same routes in the same order, so it's an APIRoute too
+                head_route = cast("APIRoute", head_router.routes[index])
+                response_target = _get_schema_migration_target(head_route.response_model)
+                response_models.update(response_target.keys, response_target.union_members)
+                # Not sure if it can ever be None when it's a simple schema. Eh, I would rather be safe than sorry
                 if _route_has_a_simple_body_schema(route) and route.body_field is not None:
                     annotation = route.body_field.field_info.annotation
                     if annotation is not None and lenient_issubclass(annotation, BaseModel):
                         request_bodies.add(annotation)
+                    request_target = _get_request_body_target(annotation, head_route)
+                    request_bodies.update(request_target.keys, request_target.union_members)
                 for method in _route_methods(route):
                     path_to_route_methods_mapping[route.path][method].add(index)
 
@@ -392,138 +465,107 @@ class _EndpointTransformer(Generic[_R, _WR]):
 
         return path_to_route_methods_mapping, head_response_models, head_request_bodies
 
-    # TODO (https://github.com/zmievsa/cadwyn/issues/28): Simplify
-    def _apply_endpoint_changes_to_router(  # noqa: C901
+    def _apply_endpoint_changes_to_router(
         self,
         routes: Union[list[BaseRoute], list[APIRoute]],
         version: Version,
     ):
         for version_change in version.changes:
             for instruction in version_change.alter_endpoint_instructions:
-                original_routes = _get_routes(
-                    routes,
-                    instruction.endpoint_path,
-                    instruction.endpoint_methods,
-                    instruction.endpoint_func_name,
-                    is_deleted=False,
+                self._apply_endpoint_instruction(routes, instruction, version_change.__name__)
+
+    def _apply_endpoint_instruction(
+        self,
+        routes: Union[list[BaseRoute], list[APIRoute]],
+        instruction: Union[EndpointDidntExistInstruction, EndpointExistedInstruction, EndpointHadInstruction],
+        version_change_name: str,
+    ) -> None:
+        path = instruction.endpoint_path
+        selector = (path, instruction.endpoint_methods, instruction.endpoint_func_name)
+        existing_routes = _get_routes(routes, *selector, is_deleted=False)
+        deleted_routes = _get_routes(routes, *selector, is_deleted=True)
+
+        def error(methods: Iterable[str], action: str, problem: str) -> RouterGenerationError:
+            return RouterGenerationError(
+                f'Endpoint "{list(methods)} {path}" you tried to {action} in "{version_change_name}" {problem}'
+            )
+
+        # We take the methods of the routes before changing them because had(methods=...) changes them
+        if isinstance(instruction, EndpointDidntExistInstruction):
+            action, problem_of_missing_methods = "delete", "doesn't exist in a newer version"
+            if deleted_routes:
+                problem = "was already deleted in a newer version. " + _func_name_advice(
+                    "were already deleted", deleted_routes
                 )
-                methods_to_which_we_applied_changes = set()
-                methods_we_should_have_applied_changes_to = instruction.endpoint_methods.copy()
+                raise error(_get_methods(deleted_routes), action, problem)
+            changed_methods = _get_methods(existing_routes)
+            for route in existing_routes:
+                _set_route_deleted(route, deleted=True)
+        elif isinstance(instruction, EndpointExistedInstruction):
+            action, problem_of_missing_methods = "restore", "wasn't among the deleted routes"
+            if existing_routes:
+                problem = "already existed in a newer version. " + _func_name_advice("already existed", existing_routes)
+                raise error(_get_methods(existing_routes), action, problem)
+            try:
+                _validate_no_repetitions_in_routes(deleted_routes)
+            except RouteAlreadyExistsError as e:
+                problem = f"has {len(e.routes)} applicable routes that could be restored. " + _func_name_advice(
+                    "can be restored", e.routes
+                )
+                raise error(instruction.endpoint_methods, action, problem) from e
+            changed_methods = _get_methods(deleted_routes)
+            for route in deleted_routes:
+                _set_route_deleted(route, deleted=False)
+                self._forget_restored_endpoint(route, version_change_name)
+        elif isinstance(instruction, EndpointHadInstruction):
+            action, problem_of_missing_methods = "change", "doesn't exist"
+            changed_methods = _get_methods(existing_routes)
+            for route in existing_routes:
+                _apply_endpoint_had_instruction(
+                    version_change_name,
+                    instruction,
+                    route,
+                    api_version_parameter_name=self.api_version_parameter_name,
+                    api_version_location=self.api_version_location,
+                )
+        else:
+            assert_never(instruction)
+        if missing_methods := instruction.endpoint_methods - changed_methods:
+            raise error(missing_methods, action, problem_of_missing_methods)
 
-                if isinstance(instruction, EndpointDidntExistInstruction):
-                    deleted_routes = _get_routes(
-                        routes,
-                        instruction.endpoint_path,
-                        instruction.endpoint_methods,
-                        instruction.endpoint_func_name,
-                        is_deleted=True,
-                    )
-                    if deleted_routes:
-                        method_union = set()
-                        for deleted_route in deleted_routes:
-                            method_union |= _route_methods(deleted_route)
-                        raise RouterGenerationError(
-                            f'Endpoint "{list(method_union)} {instruction.endpoint_path}" you tried to delete in '
-                            f'"{version_change.__name__}" was already deleted in a newer version. If you really have '
-                            f'two routes with the same paths and methods, please, use "endpoint(..., func_name=...)" '
-                            f"to distinguish between them. Function names of endpoints that were already deleted: "
-                            f"{[_callable_name(r.endpoint) for r in deleted_routes]}",
-                        )
-                    for original_route in original_routes:
-                        methods_to_which_we_applied_changes |= _route_methods(original_route)
-                        original_route.tags.append(_DELETED_ROUTE_TAG)
-                    err = (
-                        'Endpoint "{endpoint_methods} {endpoint_path}" you tried to delete in'
-                        ' "{version_change_name}" doesn\'t exist in a newer version'
-                    )
-                elif isinstance(instruction, EndpointExistedInstruction):
-                    if original_routes:
-                        method_union = set()
-                        for original_route in original_routes:
-                            method_union |= _route_methods(original_route)
-                        raise RouterGenerationError(
-                            f'Endpoint "{list(method_union)} {instruction.endpoint_path}" you tried to restore in'
-                            f' "{version_change.__name__}" already existed in a newer version. If you really have two '
-                            f'routes with the same paths and methods, please, use "endpoint(..., func_name=...)" to '
-                            f"distinguish between them. Function names of endpoints that already existed: "
-                            f"{[_callable_name(r.endpoint) for r in original_routes]}",
-                        )
-                    deleted_routes = _get_routes(
-                        routes,
-                        instruction.endpoint_path,
-                        instruction.endpoint_methods,
-                        instruction.endpoint_func_name,
-                        is_deleted=True,
-                    )
-                    try:
-                        _validate_no_repetitions_in_routes(deleted_routes)
-                    except RouteAlreadyExistsError as e:
-                        raise RouterGenerationError(
-                            f'Endpoint "{list(instruction.endpoint_methods)} {instruction.endpoint_path}" you tried to '
-                            f'restore in "{version_change.__name__}" has {len(e.routes)} applicable routes that could '
-                            f"be restored. If you really have two routes with the same paths and methods, please, use "
-                            f'"endpoint(..., func_name=...)" to distinguish between them. Function names of '
-                            f"endpoints that can be restored: {[_callable_name(r.endpoint) for r in e.routes]}",
-                        ) from e
-                    for deleted_route in deleted_routes:
-                        methods_to_which_we_applied_changes |= _route_methods(deleted_route)
-                        deleted_route.tags.remove(_DELETED_ROUTE_TAG)
-
-                        routes_that_never_existed = _get_routes(
-                            self.routes_that_never_existed,
-                            deleted_route.path,
-                            _route_methods(deleted_route),
-                            _callable_name(deleted_route.endpoint),
-                            is_deleted=True,
-                        )
-                        if len(routes_that_never_existed) == 1:
-                            self.routes_that_never_existed.remove(routes_that_never_existed[0])
-                        elif len(routes_that_never_existed) > 1:  # pragma: no cover
-                            # I am not sure if it's possible to get to this error but I also don't want
-                            # to remove it because I like its clarity very much
-                            routes = routes_that_never_existed
-                            raise RouterGenerationError(
-                                f'Endpoint "{list(_route_methods(deleted_route))} {deleted_route.path}" '
-                                "you tried to restore "
-                                f'in "{version_change.__name__}" has {len(routes_that_never_existed)} applicable '
-                                f"routes with the same function name and path that could be restored. This can cause "
-                                f"problems during version generation. Specifically, Cadwyn won't be able to warn "
-                                f"you when you deleted a route and never restored it. Please, make sure that "
-                                f"functions for all these routes have different names: "
-                                f"{[f'{r.endpoint.__module__}.{_callable_name(r.endpoint)}' for r in routes]}",
-                            )
-                    err = (
-                        'Endpoint "{endpoint_methods} {endpoint_path}" you tried to restore in'
-                        ' "{version_change_name}" wasn\'t among the deleted routes'
-                    )
-                elif isinstance(instruction, EndpointHadInstruction):
-                    for original_route in original_routes:
-                        methods_to_which_we_applied_changes |= _route_methods(original_route)
-                        _apply_endpoint_had_instruction(
-                            version_change.__name__,
-                            instruction,
-                            original_route,
-                            api_version_parameter_name=self.api_version_parameter_name,
-                            api_version_location=self.api_version_location,
-                        )
-                    err = (
-                        'Endpoint "{endpoint_methods} {endpoint_path}" you tried to change in'
-                        ' "{version_change_name}" doesn\'t exist'
-                    )
-                else:
-                    assert_never(instruction)
-                method_diff = methods_we_should_have_applied_changes_to - methods_to_which_we_applied_changes
-                if method_diff:
-                    raise RouterGenerationError(
-                        err.format(
-                            endpoint_methods=list(method_diff),
-                            endpoint_path=instruction.endpoint_path,
-                            version_change_name=version_change.__name__,
-                        ),
-                    )
+    def _forget_restored_endpoint(self, route: APIRoute | APIWebSocketRoute, version_change_name: str) -> None:
+        methods = _route_methods(route)
+        matching_routes = _get_routes(
+            self.routes_that_never_existed, route.path, methods, _callable_name(route.endpoint), is_deleted=True
+        )
+        if len(matching_routes) > 1:  # pragma: no cover
+            # I am not sure if it's possible to get to this error but I also don't want
+            # to remove it because I like its clarity very much
+            raise RouterGenerationError(
+                f'Endpoint "{list(methods)} {route.path}" you tried to restore in "{version_change_name}" has '
+                f"{len(matching_routes)} applicable routes with the same function name and path that could be "
+                "restored. This can cause problems during version generation. Specifically, Cadwyn won't be able "
+                "to warn you when you deleted a route and never restored it. Please, make sure that functions for "
+                f"all these routes have different names: "
+                f"{[f'{r.endpoint.__module__}.{_callable_name(r.endpoint)}' for r in matching_routes]}",
+            )
+        if matching_routes:
+            self.routes_that_never_existed.remove(matching_routes[0])
 
 
-def _validate_no_repetitions_in_routes(routes: list[fastapi.routing.APIRoute]):
+def _get_methods(routes: Iterable[APIRoute | APIWebSocketRoute]) -> set[str]:
+    return set[str]().union(*map(_route_methods, routes))
+
+
+def _func_name_advice(routes_description: str, routes: Iterable[APIRoute | APIWebSocketRoute]) -> str:
+    return (
+        'If you really have two routes with the same paths and methods, please, use "endpoint(..., func_name=...)" '
+        f"to distinguish between them. Function names of endpoints that {routes_description}: "
+        f"{[_callable_name(route.endpoint) for route in routes]}"
+    )
+
+
+def _validate_no_repetitions_in_routes(routes: list[APIRoute | APIWebSocketRoute]):
     route_map = {}
 
     for route in routes:
@@ -541,6 +583,9 @@ def _add_data_migrations_to_route(
     template_body_field_name: Union[str, None],
     dependant_for_request_migrations: "Dependant",
     versions: VersionBundle,
+    *,
+    run_background_tasks_of_latest_version_dependencies: bool,
+    dropped_background_tasks_warning: _DroppedBackgroundTasksWarning,
 ):
     if not (route.dependant.request_param_name and route.dependant.response_param_name):  # pragma: no cover
         raise CadwynError(
@@ -548,6 +593,13 @@ def _add_data_migrations_to_route(
             f"for route {list(_route_methods(route))} {route.path} which should not be possible. "
             "Please, contact my author.",
         )
+    # The solve of the latest version needs the BackgroundTasks that FastAPI runs after the response. FastAPI only
+    # creates one if something asks for it, so with the flag we ask for it if the endpoint doesn't.
+    background_tasks_param_name = route.dependant.background_tasks_param_name
+    hidden_background_tasks_param_name = None
+    if background_tasks_param_name is None and run_background_tasks_of_latest_version_dependencies:
+        hidden_background_tasks_param_name = _get_hidden_background_tasks_param_name(route.endpoint)
+        route.dependant.background_tasks_param_name = hidden_background_tasks_param_name
 
     route.endpoint = versions._versioned(
         template_body_field,
@@ -556,8 +608,10 @@ def _add_data_migrations_to_route(
         head_route,
         dependant_for_request_migrations,
         request_param_name=route.dependant.request_param_name,
-        background_tasks_param_name=route.dependant.background_tasks_param_name,
+        background_tasks_param_name=background_tasks_param_name,
+        hidden_background_tasks_param_name=hidden_background_tasks_param_name,
         response_param_name=route.dependant.response_param_name,
+        dropped_background_tasks_warning=dropped_background_tasks_warning,
     )(route.endpoint)
     route.dependant.call = route.endpoint
 
@@ -565,14 +619,14 @@ def _add_data_migrations_to_route(
 def _apply_endpoint_had_instruction(
     version_change_name: str,
     instruction: EndpointHadInstruction,
-    original_route: APIRoute,
+    original_route: APIRoute | APIWebSocketRoute,
     api_version_parameter_name: str,
     api_version_location: "APIVersionLocation",
 ):
     for attr_name in instruction.attributes.__dataclass_fields__:
         attr = getattr(instruction.attributes, attr_name)
         if attr is not Sentinel:
-            if getattr(original_route, attr_name) == attr:
+            if is_same_value(getattr(original_route, attr_name), attr):
                 raise RouterGenerationError(
                     f'Expected attribute "{attr_name}" of endpoint'
                     f' "{list(_route_methods(original_route))} {original_route.path}"'
@@ -581,10 +635,18 @@ def _apply_endpoint_had_instruction(
                     " and can be removed.",
                 )
             if attr_name == "path":
-                original_path_params = {p.alias for p in original_route.dependant.path_params}
-                new_path_params = set(re.findall(r"{(.*?)}", attr))
-                if api_version_location == "path":
-                    new_path_params.discard(api_version_parameter_name)
+                if isinstance(original_route, APIWebSocketRoute):
+                    original_path_params = set(original_route.param_convertors)
+                    new_path_params = set(compile_path(attr)[2])
+                    if api_version_location == "path":
+                        parameter_name = api_version_parameter_name.replace("-", "_")
+                        original_path_params.discard(parameter_name)
+                        new_path_params.discard(parameter_name)
+                else:
+                    original_path_params = {p.alias for p in original_route.dependant.path_params}
+                    new_path_params = set(re.findall(r"{(.*?)}", attr))
+                    if api_version_location == "path":
+                        new_path_params.discard(api_version_parameter_name)
                 if new_path_params != original_path_params:
                     raise RouterPathParamsModifiedError(
                         f'When altering the path of "{list(_route_methods(original_route))} {original_route.path}" '
@@ -605,17 +667,19 @@ def _get_routes(
     endpoint_func_name: Union[str, None] = None,
     *,
     is_deleted: bool = False,
-) -> list[fastapi.routing.APIRoute]:
+) -> list[APIRoute | APIWebSocketRoute]:
     endpoint_path = endpoint_path.rstrip("/")
     return [
         route
         for route in routes
         if (
-            isinstance(route, fastapi.routing.APIRoute)
+            isinstance(route, APIRoute | APIWebSocketRoute)
             and route.path.rstrip("/") == endpoint_path
+            # A WEBSOCKET selector matches only WebSocket routes, and an HTTP selector matches only HTTP routes
+            and ("WEBSOCKET" in endpoint_methods) == isinstance(route, APIWebSocketRoute)
             and _route_methods(route).issubset(endpoint_methods)
             and (endpoint_func_name is None or _callable_name(route.endpoint) == endpoint_func_name)
-            and (_DELETED_ROUTE_TAG in route.tags) == is_deleted
+            and _route_is_deleted(route) == is_deleted
         )
     ]
 
@@ -623,11 +687,64 @@ def _get_routes(
 def _get_route_from_func(
     routes: Sequence[BaseRoute],
     endpoint: Endpoint,
-) -> Union[fastapi.routing.APIRoute, None]:
+) -> APIRoute | APIWebSocketRoute | None:
+    websocket_route = None
     for route, _effective_route_context in _iter_routes_with_context(routes):
-        if isinstance(route, fastapi.routing.APIRoute) and (route.endpoint == endpoint):
+        if isinstance(route, APIRoute) and route.endpoint == endpoint:
             return route
-    return None
+        if isinstance(route, APIWebSocketRoute) and route.endpoint == endpoint and websocket_route is None:
+            websocket_route = route
+    # Preserve the decorator's HTTP selection when the same function serves both protocols.
+    return websocket_route
+
+
+def _get_version_changes_that_migrate_route(
+    route_index: int, versions: VersionBundle, routers: "Mapping[VersionType, APIRouter]"
+) -> list[type[VersionChange]]:
+    """Return the version changes whose migrations run for the requests to a route in the versions it exists in.
+
+    A request to a version runs the migrations of every newer version, so these are the changes of the versions that
+    are newer than the oldest version that has the route.
+    """
+    version_list = list(versions)
+    existing_indices = [
+        index
+        for index, version in enumerate(version_list)
+        if _DELETED_ROUTE_TAG not in cast("APIRoute", routers[version.value].routes[route_index]).tags
+    ]
+    if not existing_indices:  # pragma: no cover # Route generation fails for routes that exist in no version
+        return []
+    return [change for version in version_list[: max(existing_indices)] for change in version.changes]
+
+
+def _validate_no_http_error_migrations_of_union_members(
+    head_route: APIRoute, version_changes: Sequence[type[VersionChange]]
+) -> None:
+    """Fail if a schema migration of a member of a union response model migrates HTTP errors of this route.
+
+    An error isn't any member of the union, so we can't tell whether the migration should run for it.
+    Responses are migrated by the response model of the latest version, so that's the one we check.
+    """
+    target = _get_schema_migration_target(head_route.response_model)
+    for version_change in version_changes:
+        schema_instructions = version_change.alter_response_by_schema_instructions
+        if any(key in schema_instructions for key in target.keys):
+            continue
+        for member in target.union_members:
+            for instruction in schema_instructions.get(member, ()):
+                if instruction.migrate_http_errors:
+                    raise RouterGenerationError(
+                        f'Response by response model converter "{version_change.__name__}.'
+                        f'{_callable_name(instruction.transformer)}" migrates HTTP errors of {member.__name__}, '
+                        f"but {list(_route_methods(head_route))} {head_route.path} responds with a union of it and "
+                        f"other types ({head_route.response_model!r}). Cadwyn can't tell which member of the union "
+                        "an HTTP error is, so it can't tell whether this converter should run for it. Pass "
+                        "migrate_http_errors=False, and migrate the errors of this endpoint by its path."
+                    )
+
+
+def _schema_name(schema: object) -> str:
+    return schema.__name__ if isinstance(schema, type) else repr(schema)
 
 
 def _route_has_a_simple_body_schema(route: APIRoute) -> bool:

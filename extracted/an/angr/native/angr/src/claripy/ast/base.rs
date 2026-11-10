@@ -1,7 +1,8 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use clarirs_core::algorithms::{
-    canonicalize::compare_names, collect_vars::collect_vars, structurally_match,
+    canonicalize::compare_names, collect_vars::collect_vars, replace::Replacements,
+    structurally_match,
 };
 use clarirs_vsa::cardinality::Cardinality;
 use num_bigint::BigUint;
@@ -10,6 +11,14 @@ use pyo3::types::{PyDict, PyFrozenSet, PyTuple, PyType};
 
 use crate::claripy::ast::repr;
 use crate::claripy::prelude::*;
+
+/// A Python wrapper class around an [`AstRef`]: [`Base`] and its sort-specific
+/// subclasses. Gives generic code (argument extraction, coercion) one way to
+/// reach the wrapped AST without knowing the concrete class.
+pub trait AstWrapper: pyo3::PyClass<Frozen = pyo3::pyclass::boolean_struct::True> + Sync {
+    /// The wrapped AST.
+    fn inner(&self) -> &AstRef<'static>;
+}
 
 type Reduced<'py> = (
     Bound<'py, PyType>,
@@ -35,6 +44,12 @@ pub struct Base {
     /// Python `args` tuple built on first access.
     /// This is important, otherwise expr.args will cause a new Python list to be created each time it's accessed.
     args: PyOnceLock<Py<PyTuple>>,
+}
+
+impl AstWrapper for Base {
+    fn inner(&self) -> &AstRef<'static> {
+        &self.inner
+    }
 }
 
 impl Base {
@@ -245,7 +260,7 @@ impl Base {
         });
 
         let ctx = self.inner.context();
-        let mut replacements: HashMap<u64, AstRef<'static>> = HashMap::new();
+        let mut replacements = Replacements::new();
         for (_, var) in sorted_vars {
             let key = var.hash();
             let canonical_ast = match dict.get_item(key)? {
@@ -273,7 +288,7 @@ impl Base {
                     canonical
                 }
             };
-            replacements.insert(key, canonical_ast);
+            replacements.insert(var, canonical_ast);
         }
 
         let result = self.inner.replace_many(&replacements)?;
@@ -487,7 +502,7 @@ impl Base {
             self.inner
                 .annotations()
                 .iter()
-                .filter(|a| !annotations_set.contains(a))
+                .filter(|a| !annotations_set.contains(*a))
                 .cloned()
                 .collect(),
         )?;

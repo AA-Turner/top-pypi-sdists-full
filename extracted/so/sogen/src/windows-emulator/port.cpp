@@ -6,6 +6,7 @@
 #include "ports/api_port.hpp"
 #include "ports/audio_service.hpp"
 #include "ports/core_messaging_registrar.hpp"
+#include "ports/crypt_service.hpp"
 #include "ports/dns_resolver.hpp"
 #include "ports/event_log.hpp"
 #include "ports/lsa_policy_lookup.hpp"
@@ -361,6 +362,11 @@ namespace sogen
             return create_sspi_rpc_port();
         }
 
+        if (port == u"\\RPC Control\\keysvc")
+        {
+            return create_crypt_service_port();
+        }
+
         if (port == u"\\RPC Control\\umpo")
         {
             // User-Mode Power Orchestrator. The audio stack registers a power request here while starting a
@@ -392,7 +398,7 @@ namespace sogen
         }
         io_completion_message message{};
         message.key_context = this->completion_key_;
-        completion->enqueue(message);
+        io_completion_wait::insert(win_emu, this->completion_port_, *completion, message);
         win_emu.wake_idle_vcpu();
     }
 

@@ -1,0 +1,720 @@
+# Copyright 2026 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import sys
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+import pytest
+
+from doc_builder.build_embeddings import (
+    Chunk,
+    chunks_to_documents,
+    clean_heading,
+    clean_meilisearch,
+    markdown_to_plain_text,
+    split_markdown_by_headings,
+)
+from doc_builder.commands import embeddings as embeddings_command
+from doc_builder.meilisearch_helper import generate_doc_id
+from doc_builder.process_hf_docs import (
+    HF_BLOG_API_URL,
+    HF_COMMUNITY_BLOG_API_URL,
+    fetch_blog_chunks,
+    fetch_blog_listing,
+    markdown_file_to_url,
+    process_all_libraries,
+    process_api_html_file,
+    process_markdown_file,
+    should_embed_chunk,
+)
+
+
+def make_chunk(package_name: str, page: str, text: str = "Searchable text") -> Chunk:
+    return Chunk(
+        text=text,
+        source_page_url=f"https://huggingface.co/{page}",
+        source_page_title="Page title",
+        package_name=package_name,
+        headings=["# Page title"],
+        page=page,
+    )
+
+
+@pytest.mark.parametrize(
+    ("package_name", "page", "expected"),
+    [
+        ("transformers", "model_doc/bert", False),
+        ("transformers", "model_doc/bert.mdx", False),
+        ("transformers", "main_classes/trainer", True),
+        ("diffusers", "api/models/autoencoder_kl", False),
+        ("diffusers", "api/pipelines/stable_diffusion/pipeline", False),
+        ("diffusers", "api/schedulers/ddim", True),
+        ("course", "chapter1/1", False),
+        ("llm-course", "chapter1/1", False),
+        ("agents-course", "unit0/introduction", False),
+        ("cookbook", "notebooks/example", False),
+        ("blog", "/blog/search-post", False),
+        ("datasets", "about_dataset_features", True),
+    ],
+)
+def test_should_embed_chunk_policy(package_name, page, expected):
+    assert should_embed_chunk(make_chunk(package_name, page)) is expected
+
+
+def test_course_uses_public_product_name_and_learn_url(tmp_path):
+    page = tmp_path / "chapter1" / "lesson.md"
+    page.parent.mkdir()
+    page.write_text("# Lesson\n\nCourse content.", encoding="utf-8")
+
+    assert markdown_file_to_url(page, "course", tmp_path) == (
+        "https://huggingface.co/learn/llm-course/en/chapter1/lesson"
+    )
+
+    chunks = process_markdown_file(page, "course", tmp_path)
+
+    assert chunks
+    assert {chunk.package_name for chunk in chunks} == {"llm-course"}
+    assert {chunk.page for chunk in chunks} == {"chapter1/lesson"}
+    assert all(
+        chunk.source_page_url.startswith("https://huggingface.co/learn/llm-course/en/chapter1/lesson")
+        for chunk in chunks
+    )
+
+
+def test_api_page_becomes_one_vectorless_record_per_docstring(tmp_path):
+    page = tmp_path / "model_doc" / "bert.md"
+    page.parent.mkdir()
+    page.write_text("# BERT", encoding="utf-8")
+    page.with_suffix(".html").write_text(
+        """
+        <div class="docstring">
+          <div>
+            <span id="transformers.BertModel"><h3>transformers.BertModel</h3></span>
+            <p>(config, add_pooling_layer=True)</p>
+            <div class="docstring-details"><p>Returns a tensor.</p></div>
+          </div>
+          <p>The bare BERT model transformer.</p>
+        </div>
+        """,
+        encoding="utf-8",
+    )
+
+    chunks = process_api_html_file(page, "transformers", tmp_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].text == "transformers.BertModel\n\nThe bare BERT model transformer."
+    assert chunks[0].source_page_url.endswith("/docs/transformers/model_doc/bert#transformers.BertModel")
+    assert chunks[0].source_page_title == "transformers.BertModel"
+    assert chunks[0].headings == ["# transformers.BertModel"]
+    assert chunks[0].page == "model_doc/bert#transformers.BertModel"
+    assert should_embed_chunk(chunks[0]) is False
+
+
+def test_process_all_libraries_keeps_courses_and_adds_blog(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "doc_builder.process_hf_docs.fetch_library_directories",
+        lambda: [{"path": "course"}, {"path": "datasets"}],
+    )
+    processed_libraries = []
+
+    def fake_process_library(library_name, *args, **kwargs):
+        processed_libraries.append(library_name)
+        return []
+
+    monkeypatch.setattr("doc_builder.process_hf_docs.process_library", fake_process_library)
+    monkeypatch.setattr(
+        "doc_builder.process_hf_docs.fetch_blog_chunks", lambda published_after: [make_chunk("blog", "/blog/post")]
+    )
+
+    results = process_all_libraries(output_dir=tmp_path)
+
+    assert processed_libraries == ["course", "datasets"]
+    assert results["blog"][0].package_name == "blog"
+
+
+def test_process_all_libraries_can_target_blog_without_fetching_dataset(monkeypatch, tmp_path):
+    def fail_dataset_fetch():
+        pytest.fail("The doc-build dataset should not be fetched for a blog-only run")
+
+    monkeypatch.setattr("doc_builder.process_hf_docs.fetch_library_directories", fail_dataset_fetch)
+    monkeypatch.setattr(
+        "doc_builder.process_hf_docs.fetch_blog_chunks", lambda published_after: [make_chunk("blog", "/blog/post")]
+    )
+
+    results = process_all_libraries(output_dir=tmp_path, libraries=["blog"])
+
+    assert list(results) == ["blog"]
+
+
+def test_process_all_libraries_maps_llm_course_to_dataset_name(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "doc_builder.process_hf_docs.fetch_library_directories",
+        lambda: [{"path": "course"}, {"path": "datasets"}],
+    )
+    processed_libraries = []
+
+    def fake_process_library(library_name, *args, **kwargs):
+        processed_libraries.append(library_name)
+        return []
+
+    monkeypatch.setattr("doc_builder.process_hf_docs.process_library", fake_process_library)
+
+    results = process_all_libraries(output_dir=tmp_path, libraries=["llm-course"])
+
+    assert processed_libraries == ["course"]
+    assert list(results) == ["course"]
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self.payload
+
+
+def test_fetch_blog_chunks_paginates_official_and_community_listings(monkeypatch):
+    pages = {
+        (HF_BLOG_API_URL, 0): {
+            "numTotalItems": 3,
+            "numItemsPerPage": 2,
+            "allBlogs": [
+                {
+                    "title": "First post",
+                    "url": "/blog/first-post",
+                    "summary": "This body must not be indexed.",
+                    "canonical": True,
+                },
+                {
+                    "title": "Namespaced post",
+                    "url": "/blog/acme/namespaced-post",
+                    "canonical": False,
+                },
+            ],
+            "communityBlogPosts": [{"title": "Sidebar community post", "url": "/blog/user/sidebar"}],
+        },
+        (HF_BLOG_API_URL, 1): {
+            "allBlogs": [{"title": "Last post", "url": "/blog/last-post"}],
+            "communityBlogPosts": [{"title": "Sidebar community post", "url": "/blog/user/sidebar"}],
+        },
+        (HF_COMMUNITY_BLOG_API_URL, 0): {
+            "numTotalItems": 2,
+            "numItemsPerPage": 1,
+            "posts": [{"title": "Community post", "url": "/blog/user/community-post", "canonical": False}],
+        },
+        (HF_COMMUNITY_BLOG_API_URL, 1): {
+            "posts": [{"title": "Older community post", "url": "/blog/other-user/older"}],
+        },
+    }
+    calls = []
+
+    def fake_get(url, *, params, timeout, follow_redirects):
+        calls.append((url, params, timeout, follow_redirects))
+        return FakeResponse(pages[url, params["p"]])
+
+    monkeypatch.setattr("doc_builder.process_hf_docs.httpx.get", fake_get)
+
+    chunks = fetch_blog_chunks()
+
+    assert calls == [
+        (HF_BLOG_API_URL, {"p": 0}, 60, True),
+        (HF_BLOG_API_URL, {"p": 1}, 60, True),
+        (HF_COMMUNITY_BLOG_API_URL, {"p": 0}, 60, True),
+        (HF_COMMUNITY_BLOG_API_URL, {"p": 1}, 60, True),
+    ]
+    assert [chunk.text for chunk in chunks] == [
+        "First post",
+        "Namespaced post",
+        "Last post",
+        "Community post",
+        "Older community post",
+    ]
+    assert [chunk.source_page_url for chunk in chunks] == [
+        "https://huggingface.co/blog/first-post",
+        "https://huggingface.co/blog/acme/namespaced-post",
+        "https://huggingface.co/blog/last-post",
+        "https://huggingface.co/blog/user/community-post",
+        "https://huggingface.co/blog/other-user/older",
+    ]
+    assert all(chunk.package_name == "blog" for chunk in chunks)
+    assert all(chunk.text == chunk.source_page_title for chunk in chunks)
+    assert all(chunk.headings == [f"# {chunk.text}"] for chunk in chunks)
+    # The listing's sidebar only previews community posts, which come from the community listing
+    assert "Sidebar community post" not in {chunk.text for chunk in chunks}
+    assert "This body must not be indexed." not in {chunk.text for chunk in chunks}
+
+
+def test_fetch_blog_listing_crawls_again_when_pages_shift(monkeypatch):
+    newest = {"title": "Newest", "url": "/blog/user/newest"}
+    oldest = {"title": "Oldest", "url": "/blog/user/oldest"}
+    # The post between them is removed after the first page is fetched, so "Oldest" moves up past the crawl
+    responses = iter(
+        [
+            {"numTotalItems": 3, "numItemsPerPage": 1, "posts": [newest]},
+            {"posts": [oldest]},
+            {"posts": []},
+            {"numTotalItems": 2, "numItemsPerPage": 1, "posts": [newest]},
+            {"posts": [oldest]},
+        ]
+    )
+    monkeypatch.setattr("doc_builder.process_hf_docs.httpx.get", lambda *args, **kwargs: FakeResponse(next(responses)))
+
+    assert fetch_blog_listing(HF_COMMUNITY_BLOG_API_URL, "posts") == {
+        "/blog/user/newest": "Newest",
+        "/blog/user/oldest": "Oldest",
+    }
+
+
+def test_fetch_blog_chunks_rejects_incomplete_results(monkeypatch):
+    response = FakeResponse(
+        {
+            "numTotalItems": 2,
+            "numItemsPerPage": 2,
+            "allBlogs": [{"title": "Only post", "url": "/blog/only-post"}],
+            "communityBlogPosts": [{"title": "Not a replacement", "url": "/blog/user/community"}],
+        }
+    )
+    monkeypatch.setattr("doc_builder.process_hf_docs.httpx.get", lambda *args, **kwargs: response)
+
+    with pytest.raises(ValueError, match="returned 1 unique allBlogs items, expected 2"):
+        fetch_blog_chunks()
+
+
+def test_fetch_blog_chunks_stops_at_posts_published_before_the_date(monkeypatch):
+    def post(slug, published_at, **fields):
+        return {"title": slug, "url": f"/blog/{slug}", "publishedAt": published_at, **fields}
+
+    pages = {
+        (HF_BLOG_API_URL, 0): {
+            "numTotalItems": 6,
+            "numItemsPerPage": 2,
+            # A pinned post is moved to the top of the first page, ahead of newer posts
+            "allBlogs": [
+                post("pinned", "2026-10-25T00:00:00.000Z", pinned=True),
+                post("newest", "2026-10-29T08:00:00.000Z"),
+            ],
+        },
+        (HF_BLOG_API_URL, 1): {
+            "allBlogs": [post("newer", "2026-10-28T08:00:00.000Z"), post("older", "2026-10-26T08:00:00.000Z")],
+        },
+        (HF_COMMUNITY_BLOG_API_URL, 0): {
+            "numTotalItems": 2,
+            "numItemsPerPage": 1,
+            "posts": [post("user/community-newest", "2026-10-29T09:00:00.000Z")],
+        },
+        (HF_COMMUNITY_BLOG_API_URL, 1): {"posts": [post("user/community-newer", "2026-10-28T09:00:00.000Z")]},
+    }
+    calls = []
+
+    def fake_get(url, *, params, timeout, follow_redirects):
+        calls.append((url, params["p"]))
+        return FakeResponse(pages[url, params["p"]])
+
+    monkeypatch.setattr("doc_builder.process_hf_docs.httpx.get", fake_get)
+
+    chunks = fetch_blog_chunks(published_after=datetime(2026, 10, 27, 7, 5, tzinfo=timezone.utc))
+
+    # The official listing's last page only has older posts, and the community listing has no more pages
+    assert calls == [
+        (HF_BLOG_API_URL, 0),
+        (HF_BLOG_API_URL, 1),
+        (HF_COMMUNITY_BLOG_API_URL, 0),
+        (HF_COMMUNITY_BLOG_API_URL, 1),
+    ]
+    assert [chunk.page for chunk in chunks] == [
+        "/blog/newest",
+        "/blog/newer",
+        "/blog/user/community-newest",
+        "/blog/user/community-newer",
+    ]
+
+
+def test_recent_blog_days_requires_incremental():
+    with pytest.raises(ValueError, match="--recent-blog-days requires --incremental"):
+        embeddings_command.process_hf_docs_command(SimpleNamespace(recent_blog_days=2, incremental=False))
+
+
+def test_chunks_to_documents_uses_none_for_vectorless_chunks():
+    chunk = make_chunk("blog", "blog/vectorless", text="Open R1: Update #4")._replace(
+        source_page_title="Open R1: Update #4",
+        headings=["# Open R1: Update #4"],
+    )
+
+    documents = chunks_to_documents([chunk])
+
+    assert len(documents) == 1
+    assert documents[0].embedding is None
+    assert documents[0].library == "blog"
+    assert documents[0].heading1 == "Open R1: Update #4"
+    assert documents[0].source_page_url == chunk.source_page_url
+
+
+def test_chunks_to_search_documents_embeds_only_eligible_chunks(monkeypatch):
+    regular_chunk = make_chunk("datasets", "about_dataset_features", text="Regular docs")
+    api_chunk = make_chunk("transformers", "model_doc/bert", text="API docs")
+    course_chunk = make_chunk("llm-course", "chapter1/1", text="Course docs")
+    inference_calls = []
+
+    def fake_inference(chunks, hf_ie_url, hf_ie_token, is_python_module):
+        inference_calls.append((chunks, hf_ie_url, hf_ie_token, is_python_module))
+        return chunks_to_documents(chunks, [[0.1, 0.2]])
+
+    monkeypatch.setattr(embeddings_command, "call_embedding_inference", fake_inference)
+
+    documents = embeddings_command._chunks_to_search_documents(
+        [regular_chunk, api_chunk, course_chunk], "https://inference.test", "token"
+    )
+
+    assert inference_calls == [([regular_chunk], "https://inference.test", "token", False)]
+    documents_by_text = {document.text: document for document in documents}
+    assert documents_by_text["Regular docs"].embedding == [0.1, 0.2]
+    assert documents_by_text["API docs"].embedding is None
+    assert documents_by_text["Course docs"].embedding is None
+
+
+def test_chunks_to_search_documents_skips_inference_when_every_chunk_is_vectorless(monkeypatch):
+    chunks = [
+        make_chunk("blog", "/blog/post", text="Blog title"),
+        make_chunk("diffusers", "api/models/autoencoder_kl", text="API docs"),
+    ]
+
+    def fail_inference(*args, **kwargs):
+        pytest.fail("Embedding inference should not be called for full-text-only chunks")
+
+    monkeypatch.setattr(embeddings_command, "call_embedding_inference", fail_inference)
+
+    documents = embeddings_command._chunks_to_search_documents(chunks, None, None)
+
+    assert [document.text for document in documents] == ["Blog title", "API docs"]
+    assert all(document.embedding is None for document in documents)
+
+
+def test_incremental_course_scope_uses_public_product_prefix(monkeypatch):
+    existing_ids = {"llm-course-old-page-a1b2c3d4", "course-legacy-page-a1b2c3d4", "datasets-page-a1b2c3d4"}
+    deleted_batches = []
+    saved_trackers = []
+
+    monkeypatch.setattr("doc_builder.embeddings_tracker.load_tracker", lambda token: existing_ids)
+    monkeypatch.setattr(
+        "doc_builder.embeddings_tracker.save_tracker", lambda ids, token: saved_trackers.append((ids, token))
+    )
+    monkeypatch.setattr(
+        "doc_builder.meilisearch_helper.delete_documents_from_db",
+        lambda client, index, ids: deleted_batches.append(ids),
+    )
+    monkeypatch.setattr("meilisearch.Client", lambda *args: object())
+
+    embeddings_command._run_incremental(
+        SimpleNamespace(libraries=["course"], hf_token=None, recent_blog_days=None),
+        [],
+        None,
+        None,
+        "meili-key",
+        "https://meili.test",
+        5000,
+    )
+
+    assert deleted_batches == [["llm-course-old-page-a1b2c3d4"]]
+    assert saved_trackers == [
+        ({"course-legacy-page-a1b2c3d4", "datasets-page-a1b2c3d4"}, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("heading", "expected"),
+    [
+        ("BatchEncoding[[transformers.BatchEncoding]]", "BatchEncoding"),
+        ("Trainer[[api-reference]][[transformers.Trainer]]", "Trainer"),
+        ("__call__[[transformers.TopKLogitsWarper.__call__]]", "__call__"),
+        ("Using `huggingface_hub` with **Spaces**", "Using huggingface_hub with Spaces"),
+        ("Using _Adapters_ at Hugging Face", "Using Adapters at Hugging Face"),
+        ("Returns: [0, 0, 1] for sequence pairs", "Returns: [0, 0, 1] for sequence pairs"),
+        (None, None),
+    ],
+)
+def test_clean_heading(heading, expected):
+    assert clean_heading(heading) == expected
+
+
+def test_markdown_to_plain_text_removes_syntax_and_keeps_code():
+    markdown = (
+        "#### token_to_word[[transformers.BatchEncoding.token_to_word]]\n\n"
+        "```python\ntoken_to_word(batch_index: int)\n```\n\n"
+        "[Source](https://github.com/huggingface/transformers)\n\n"
+        "**Parameters:**\n\nbatch_index (`int`, *optional*) : Index of the sequence."
+    )
+
+    assert markdown_to_plain_text(markdown) == (
+        "token_to_word\ntoken_to_word(batch_index: int)\nSource\nParameters:\n"
+        "batch_index (int, optional) : Index of the sequence."
+    )
+
+
+def test_markdown_to_plain_text_treats_indented_components_as_prose():
+    markdown = "<Tip warning={true}>\n\n    ## Installation\n\n    Run `pip install <b>spaces</b>`.\n\n</Tip>"
+
+    assert markdown_to_plain_text(markdown) == "Installation\nRun pip install <b>spaces</b>."
+
+
+@pytest.mark.parametrize(
+    ("markdown", "expected"),
+    [
+        # Continuation excerpt: the bare fence closes a block opened in the previous excerpt
+        (
+            "int = 0)\n```\n\nSee [the guide](./guide) for **details**.\n\n```python\nx = 1\n```",
+            "int = 0)\nSee the guide for details.\nx = 1",
+        ),
+        # First excerpt of a section: the bare fence opens a block continued in the next excerpt
+        (
+            "## Installation\n\nFollow the [guide](https://example.com):\n\n```\npip install foo",
+            "Installation\nFollow the guide:\npip install foo",
+        ),
+    ],
+)
+def test_markdown_to_plain_text_handles_code_blocks_cut_by_excerpts(markdown, expected):
+    assert markdown_to_plain_text(markdown) == expected
+
+
+@pytest.mark.parametrize(
+    ("markdown", "expected"),
+    [
+        # Table rows whose header was left in the previous excerpt
+        ("ll    | 4 vCPU | 15 GB |\n| Nvidia A10G | 12 vCPU | 46 GB |", "ll 4 vCPU 15 GB Nvidia A10G 12 vCPU 46 GB"),
+        # Links cut at the start or the end of the excerpt
+        ("ions](./spaces-sdks-docker#permissions); `USER` runs", "; USER runs"),
+        (
+            "Character spans are returned as a [`CharSpan`](/docs/transformers/main/en/intern",
+            "Character spans are returned as a CharSpan",
+        ),
+    ],
+)
+def test_markdown_to_plain_text_handles_tables_and_links_cut_by_excerpts(markdown, expected):
+    assert markdown_to_plain_text(markdown) == expected
+
+
+def test_chunks_to_documents_cleans_headings_and_adds_plain_text():
+    chunk = make_chunk("transformers", "main_classes/tokenizer", text="Uses **fast** `tokenizers`.")._replace(
+        source_page_url="https://huggingface.co/docs/transformers/main_classes/tokenizer",
+        headings=["# Tokenizer", "## BatchEncoding[[transformers.BatchEncoding]]"],
+    )
+
+    [document] = chunks_to_documents([chunk])
+
+    assert document.text == chunk.text
+    assert document.text_plain == "Uses fast tokenizers."
+    assert (document.heading1, document.heading2) == ("Tokenizer", "BatchEncoding")
+    assert document.source_page_url.endswith("/main_classes/tokenizer#transformers.BatchEncoding")
+
+
+@pytest.mark.parametrize(
+    ("heading", "anchor"),
+    [
+        ("token_to_word[[transformers.BatchEncoding.token_to_word]]", "transformers.BatchEncoding.token_to_word"),
+        ("Trainer[[api-reference]][[transformers.Trainer]]", "transformers.Trainer"),
+        (
+            "__call__[[transformers.NoRepeatNGramLogitsProcessor.__call__]]",
+            "transformers.NoRepeatNGramLogitsProcessor.__call__",
+        ),
+        ("Low-rank adaptation", "low-rank-adaptation"),
+        ("3.1 Improving positional embeddings of LLMs", "31-improving-positional-embeddings-of-llms"),
+    ],
+)
+def test_markdown_chunk_urls_use_the_rendered_heading_anchor(tmp_path, heading, anchor):
+    page = tmp_path / "main_classes" / "tokenizer.md"
+    page.parent.mkdir()
+    page.write_text(f"# Tokenizer\n\n### {heading}\n\nSome content.", encoding="utf-8")
+
+    chunks = process_markdown_file(page, "transformers", tmp_path)
+
+    assert chunks[-1].source_page_url.endswith(f"/docs/transformers/main_classes/tokenizer#{anchor}")
+
+
+def test_incremental_deletes_stale_documents_in_one_task(monkeypatch):
+    existing_ids = {f"datasets-page-{i:04}" for i in range(2500)}
+    deleted_batches = []
+    saved_trackers = []
+
+    monkeypatch.setattr("doc_builder.embeddings_tracker.load_tracker", lambda token: existing_ids)
+    monkeypatch.setattr("doc_builder.embeddings_tracker.save_tracker", lambda ids, token: saved_trackers.append(ids))
+    monkeypatch.setattr(
+        "doc_builder.meilisearch_helper.delete_documents_from_db",
+        lambda client, index, ids: deleted_batches.append(ids),
+    )
+    monkeypatch.setattr("meilisearch.Client", lambda *args: object())
+
+    embeddings_command._run_incremental(
+        SimpleNamespace(libraries=None, hf_token=None, recent_blog_days=None),
+        [],
+        None,
+        None,
+        "meili-key",
+        "https://meili.test",
+        2,
+    )
+
+    assert deleted_batches == [sorted(existing_ids)]
+    assert saved_trackers == [set()]
+
+
+def test_incremental_keeps_ids_whose_deletion_failed_in_the_tracker(monkeypatch):
+    existing_ids = {f"datasets-page-{i:04}" for i in range(3)}
+    saved_trackers = []
+
+    def delete_documents(client, index, ids):
+        raise Exception("Meilisearch operation failed")
+
+    monkeypatch.setattr("doc_builder.embeddings_tracker.load_tracker", lambda token: existing_ids)
+    monkeypatch.setattr("doc_builder.embeddings_tracker.save_tracker", lambda ids, token: saved_trackers.append(ids))
+    monkeypatch.setattr("doc_builder.meilisearch_helper.delete_documents_from_db", delete_documents)
+    monkeypatch.setattr("meilisearch.Client", lambda *args: object())
+
+    with pytest.raises(Exception, match="Meilisearch operation failed"):
+        embeddings_command._run_incremental(
+            SimpleNamespace(libraries=None, hf_token=None, recent_blog_days=None),
+            [],
+            None,
+            None,
+            "meili-key",
+            "https://meili.test",
+            2,
+        )
+
+    # The stale IDs stay tracked so the next run retries their deletion
+    assert saved_trackers == [existing_ids]
+
+
+def test_incremental_with_recent_blog_posts_keeps_the_older_ones(monkeypatch):
+    tracked_post = make_chunk("blog", "/blog/tracked", text="Tracked post")
+    new_post = make_chunk("blog", "/blog/new", text="New post")
+    older_post_id = generate_doc_id("blog", "/blog/older", "Older post")
+    stale_page_id = "datasets-stale-page-a1b2c3d4"
+    existing_ids = {generate_doc_id("blog", tracked_post.page, tracked_post.text), older_post_id, stale_page_id}
+    uploaded_documents = []
+    deleted_batches = []
+    saved_trackers = []
+
+    monkeypatch.setattr("doc_builder.embeddings_tracker.load_tracker", lambda token: existing_ids)
+    monkeypatch.setattr("doc_builder.embeddings_tracker.save_tracker", lambda ids, token: saved_trackers.append(ids))
+    monkeypatch.setattr(
+        "doc_builder.meilisearch_helper.delete_documents_from_db",
+        lambda client, index, ids: deleted_batches.append(ids),
+    )
+    monkeypatch.setattr(
+        embeddings_command,
+        "add_embeddings_to_db",
+        lambda client, index, documents: uploaded_documents.extend(documents),
+    )
+    monkeypatch.setattr("meilisearch.Client", lambda *args: object())
+
+    embeddings_command._run_incremental(
+        SimpleNamespace(libraries=None, hf_token=None, recent_blog_days=2),
+        [tracked_post, new_post],
+        None,
+        None,
+        "meili-key",
+        "https://meili.test",
+        2,
+    )
+
+    # Only the post that isn't indexed yet is uploaded, and only stale documents outside the blog are deleted
+    assert [document.text for document in uploaded_documents] == ["New post"]
+    assert deleted_batches == [[stale_page_id]]
+    assert saved_trackers == [existing_ids - {stale_page_id} | {generate_doc_id("blog", new_post.page, new_post.text)}]
+
+
+# `doc_builder.build_embeddings` is also the name of a function re-exported by `doc_builder`
+build_embeddings_module = sys.modules["doc_builder.build_embeddings"]
+
+
+def test_meilisearch_clean_swap_rebuilds_the_tracker_from_the_main_index(monkeypatch):
+    calls = []
+    monkeypatch.setattr("meilisearch.Client", lambda *args: "client")
+    for name in ("swap_indexes", "delete_embedding_db", "create_embedding_db", "update_db_settings"):
+        monkeypatch.setattr(build_embeddings_module, name, lambda *args, name=name: calls.append(name))
+    monkeypatch.setattr(
+        build_embeddings_module, "get_all_document_ids", lambda client, index: {"main-doc-1", "main-doc-2"}
+    )
+    monkeypatch.setattr(
+        build_embeddings_module, "save_tracker", lambda ids, token: calls.append(("save_tracker", ids, token))
+    )
+
+    clean_meilisearch("meili-key", True, "https://meili.test", "hf-token")
+
+    assert calls[:2] == ["swap_indexes", ("save_tracker", {"main-doc-1", "main-doc-2"}, "hf-token")]
+
+
+def test_meilisearch_clean_without_swap_leaves_the_tracker(monkeypatch):
+    monkeypatch.setattr("meilisearch.Client", lambda *args: "client")
+    for name in ("delete_embedding_db", "create_embedding_db", "update_db_settings"):
+        monkeypatch.setattr(build_embeddings_module, name, lambda *args: None)
+    monkeypatch.setattr(build_embeddings_module, "save_tracker", lambda *args: pytest.fail("tracker saved"))
+
+    clean_meilisearch("meili-key", False, "https://meili.test")
+
+
+def test_split_markdown_by_headings_ignores_comments_in_code_blocks():
+    markdown = (
+        "# Hyperparameter search\n\nPick a backend.\n\n"
+        "```py\n# install one of these backends\npip install optuna\n```\n\n"
+        "~~~~\n```\n# still code\n```\n~~~~\n\n"
+        "## Run the search\n\nCall `hyperparameter_search`."
+    )
+
+    sections = split_markdown_by_headings(markdown)
+
+    assert [section["headings"] for section in sections] == [
+        {"heading1": "Hyperparameter search"},
+        {"heading1": "Hyperparameter search", "heading2": "Run the search"},
+    ]
+    assert "# install one of these backends" in sections[0]["excerpts"][0]
+    assert "# still code" in sections[0]["excerpts"][0]
+
+
+@pytest.mark.parametrize(
+    ("content", "title"),
+    [
+        ("# Hyperparameter search[[hyperparameter-search]]\n\n## Run the search\n\nText.", "Hyperparameter search"),
+        ("Intro without a title.\n\n## Run the search\n\nText.", "Hpo Train"),
+    ],
+)
+def test_markdown_page_title_is_its_first_heading(tmp_path, content, title):
+    page = tmp_path / "hpo_train.md"
+    page.write_text(content, encoding="utf-8")
+
+    chunks = process_markdown_file(page, "transformers", tmp_path)
+
+    assert {chunk.source_page_title for chunk in chunks} == {title}
+
+
+@pytest.mark.parametrize(
+    ("markdown", "expected"),
+    [
+        ("Dataset review request for <Dataset name>", "Dataset review request for <Dataset name>"),
+        ('The chat template places a special "<image>" token', 'The chat template places a special "<image>" token'),
+        ("Press <kbd>Ctrl</kbd>+C to stop", "Press Ctrl+C to stop"),
+        ("<Tip warning={true}>\n\nUse a GPU.\n\n</Tip>", "Use a GPU."),
+        ('<hfoption id="PyTorch">\n\nUse PyTorch.', "Use PyTorch."),
+        ('<Youtube id="abc"/>\n\nWatch it.', "Watch it."),
+    ],
+)
+def test_markdown_to_plain_text_keeps_placeholders_and_removes_markup(markdown, expected):
+    assert markdown_to_plain_text(markdown) == expected
+
+
+def test_clean_heading_keeps_placeholders():
+    assert clean_heading("kernel.<name>[[kernel-name]]") == "kernel.<name>"

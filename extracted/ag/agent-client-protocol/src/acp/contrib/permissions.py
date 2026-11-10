@@ -3,8 +3,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
-from ..helpers import text_block, tool_content
-from ..schema import PermissionOption, RequestPermissionRequest, RequestPermissionResponse, ToolCallUpdate
+from ..schema import (
+    ContentToolCallContent,
+    PermissionOption,
+    RequestPermissionRequest,
+    RequestPermissionResponse,
+    TextContentBlock,
+    ToolCallUpdate,
+)
 from .tool_calls import ToolCallTracker, _copy_model_list
 
 
@@ -50,7 +56,8 @@ class PermissionBroker:
         self._requester = requester
         self._tracker = tracker
         self._default_options = tuple(
-            option.model_copy(deep=True) for option in (default_options or default_permission_options())
+            option.model_copy(deep=True)
+            for option in (default_permission_options() if default_options is None else default_options)
         )
 
     async def request_for(
@@ -75,10 +82,12 @@ class PermissionBroker:
 
         if description:
             existing = tool_call.content or []
-            existing.append(tool_content(text_block(description)))
+            existing.append(ContentToolCallContent(content=TextContentBlock(text=description)))
             tool_call.content = existing
 
-        option_set = tuple(option.model_copy(deep=True) for option in (options or self._default_options))
+        option_set = tuple(
+            option.model_copy(deep=True) for option in (self._default_options if options is None else options)
+        )
         if not option_set:
             raise MissingPermissionOptionsError()
 

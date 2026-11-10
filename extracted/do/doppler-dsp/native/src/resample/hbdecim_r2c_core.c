@@ -124,7 +124,7 @@ dp_hbdecim_r2c_create (size_t num_taps, const float *h)
   else
     r->delay_sign = (((num_taps - 1) / 2) & 1) ? -1.0f : 1.0f;
 
-  r->h = malloc (num_taps * sizeof (float));
+  r->h = dp_mallocn (num_taps, sizeof (float));
   if (!r->h)
     goto fail;
 
@@ -136,8 +136,9 @@ dp_hbdecim_r2c_create (size_t num_taps, const float *h)
     r->even_cap <<= 1;
   r->even_mask = r->even_cap - 1;
 
-  r->even_buf = calloc (2 * r->even_cap, sizeof (float));
-  r->odd_buf  = calloc (2 * r->even_cap, sizeof (float));
+  /* Two copies of the ring, so any window is contiguous. */
+  r->even_buf = dp_callocn (2, r->even_cap, sizeof (float));
+  r->odd_buf  = dp_callocn (2, r->even_cap, sizeof (float));
   if (!r->even_buf || !r->odd_buf)
     goto fail;
 

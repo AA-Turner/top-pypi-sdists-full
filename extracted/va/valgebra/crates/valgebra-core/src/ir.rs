@@ -333,11 +333,32 @@ pub enum PathSegment {
     /// walking back down. Carried as its digits, a Python integer literal,
     /// because the core holds no Python object and has no big integer of its
     /// own: decimal, and `0x` hexadecimal past the interpreter's limit on the
-    /// decimal digits it converts. The binding turns it back into the `int` it
-    /// came from, which is the only form a caller can index with.
+    /// decimal digits it converts. The binding turns decimal digits back into
+    /// the `int` they came from, which is the only form a caller can index
+    /// with, and keeps hexadecimal ones as text, since the standard library's
+    /// JSON encoder and `repr` refuse an `int` past the limit.
     BigIntKey(String),
     /// A sequence, tuple, or set position.
     Index(usize),
+    /// The key before it, entered by a failure inside it: a position of a
+    /// tuple key, say. A path a caller walks back down ends at the key, since
+    /// no subscript reaches into one, and the message writes the segments after
+    /// it as the key's own location, `('x',), key[0]`, apart from `('x',)[0]`,
+    /// the same position of the key's value. It is no step of the walk, so
+    /// [`PathSegment::steps`] leaves it out. It holds nothing, which keeps a
+    /// segment's drop the inline one a walk pays at every level.
+    Entered,
+}
+
+impl PathSegment {
+    /// How many levels into the value `path` goes: its segments, but each
+    /// [`PathSegment::Entered`], which marks a key and is no level.
+    #[must_use]
+    pub fn steps(path: &[PathSegment]) -> usize {
+        path.iter()
+            .filter(|segment| !matches!(segment, PathSegment::Entered))
+            .count()
+    }
 }
 
 /// The clause list an open record carries, allocated once for the process.
@@ -944,7 +965,10 @@ pub enum Schema {
     /// satisfy. Named fields take precedence over the defaults. That is a
     /// dict's membership in a record type [Cas23, (21)], each clause the
     /// default of the keys it claims, and two clauses claiming one key read as
-    /// a disjunction (`defaults`).
+    /// a disjunction (`defaults`). A field's value is what the dict answers for
+    /// its name, so where two keys of a dict reach one name, which `str`'s `==`
+    /// beside a subclass's own allows, the one the lookup does not find is a key
+    /// no field declares.
     ///
     /// One node subsumes the record, the homogeneous mapping, the heterogeneous
     /// mapping, and their combination: a closed record has no default clause, an
@@ -1400,6 +1424,18 @@ impl Schema {
     /// identity law, settled where the schema is built like the others.
     #[must_use]
     pub fn refine(base: Schema, mut constraints: Vec<Constraint>) -> Schema {
+        // A refinement of a refinement is one: `⟦b⟧ ∩ ⟦c1⟧ ∩ ⟦c2⟧` [JV20, §3.2], which
+        // `typing` flattens where a `Validator` between the two does not.
+        let base = match base {
+            Schema::Refine {
+                base,
+                constraints: inner,
+            } => {
+                constraints.extend(inner.iter().cloned());
+                (*base).clone()
+            }
+            base => base,
+        };
         constraints.sort();
         constraints.dedup();
         if constraints.is_empty() {

@@ -6,7 +6,8 @@ preparation, contracts, RTC, blending). It adds what the public surface promises
 
 * ``predict``/``next_action`` reopen a released session transparently, and reopen is the
   only thing that ever opens a session (see ``dreamscale.policy.connection``);
-* ``next_action`` returns within one control tick, with a model action or a hold;
+* ``next_action`` returns within one control tick, with a model action or a hold (counted),
+  and holds with no session serving for at most ``RECONNECT_HOLD_S`` before it raises;
 * retries cover a closed list (data-plane drop, request stall, server_lost, time limit,
   server idle timeout, queueing); everything else raises with its fix;
 * idle release after 60 s with nothing in flight; on a deployment kept warm, after its
@@ -87,6 +88,7 @@ from dreamscale.policy.types import (
     ObservationLike,
     PolicyContract,
     RunStrategy,
+    RuntimeStats,
 )
 from dreamscale.so101 import So101Observation
 from dreamscale.yam import YamEndEffectorObservation, YamObservation
@@ -108,6 +110,11 @@ KEEP_WARM_HOLD_S = {
     "10m": 600.0, "30m": 1800.0, "1h": 3600.0, "2h": 7200.0, "6h": 21600.0, "12h": 43200.0,
 }
 DEFAULT_WAIT_TIMEOUT_S = 60.0
+# How long next_action() holds the robot with no session serving it (the link was lost and a
+# new session is starting) before it gives up and raises reconnect_failed. A deployment's
+# replacement unit can take a cold start (about two minutes for the largest models); a
+# reconnect that has not served by then is not coming back soon.
+RECONNECT_HOLD_S = 300.0
 
 # Exceptions a request raises when the link is gone (or the server ended the session).
 # Anything else a request raises is a real error and propagates.
@@ -603,6 +610,18 @@ def _close_open_policies_at_exit() -> None:
 atexit.register(_close_open_policies_at_exit)
 
 
+class _LogProgress:
+    """Progress on the ``dreamscale`` logger: lines at INFO, faults (a lost session, a
+    reconnect given up) at WARNING, which Python prints on stderr even when the script
+    configured no logging."""
+
+    def __call__(self, line: str) -> None:
+        log.info("%s", line)
+
+    def warn(self, line: str) -> None:
+        log.warning("%s", line)
+
+
 def default_progress() -> Callable[[str], None]:
     """Status output: stderr when it is a terminal, otherwise the ``dreamscale`` logger."""
     stderr = getattr(sys, "stderr", None)
@@ -612,7 +631,7 @@ def default_progress() -> Callable[[str], None]:
         from dreamscale.terminal import ProgressPrinter
 
         return ProgressPrinter(console=Console(stderr=True, highlight=False, soft_wrap=True))
-    return lambda line: log.info("%s", line)
+    return _LogProgress()
 
 
 class AsyncPolicy:
@@ -650,6 +669,8 @@ class AsyncPolicy:
         self._waiters = 0
         self._deadline_timeouts = 0
         self._error_frames = 0
+        # Since when next_action() has held with no session serving it (None: served).
+        self._reconnect_hold_since: float | None = None
         # (session, instruction) the open session last prepared (models that prepare tasks).
         self._prepared_task: tuple[Any, str] | None = None
         # Open tasks cancelled because their caller left: close() waits for their cleanup
@@ -820,15 +841,17 @@ class AsyncPolicy:
         deployments read measured states (the server refuses a request without its full
         window), and FLUX models condition on their executed actions. Elsewhere a missing
         history is allowed and counted in ``history_padded``."""
-        from dreamscale.policy.context import EpisodeHistory
+        from dreamscale.policy.context import EpisodeHistory, EpisodeTicks
 
         model = public_model(self._model)
         history = getattr(inner, "observation_history", None)
-        if past is not None and isinstance(history, EpisodeHistory):
+        if past is not None and isinstance(history, EpisodeHistory | EpisodeTicks):
             raise errors.catalog("past_observations_unsupported", model=model)
         ticks = history_ticks(history)
         commands = int(inner.runtime_contract.action_history)
-        needs_states = getattr(history, "state_steps", 0) > 0
+        # An episode the server keeps (EpisodeTicks) reads its own ticks, never a window.
+        needs_states = (getattr(history, "state_steps", 0) > 0
+                        and not isinstance(history, EpisodeTicks))
         missing = [
             *(["past_observations"] if needs_states and past is None else []),
             *(["action_history"] if commands and action_history is None else []),
@@ -927,7 +950,15 @@ class AsyncPolicy:
         pace: bool = True,
         timeout_s: float | None = None,
     ) -> tuple[float, ...]:
-        """One executable action per call, on the model's clock."""
+        """One executable action per call, on the model's clock.
+
+        When the session's server is lost, the robot holds (counted in ``runtime_stats``:
+        ``underruns``, ``hold_position_count`` and ``reconnect_holds``) while a new session
+        opens, and ``policy.state`` reads ``opening``/``queued``. ``timeout_s``: for a model
+        that waits for its action (LIBERO), the most seconds one call waits (60 by default);
+        otherwise the most seconds the robot holds with no session serving it before this
+        raises ``reconnect_failed`` and the policy closes (``RECONNECT_HOLD_S``, 300, by
+        default)."""
         self._guard()
         instruction = require_instruction(instruction)
         contract = self.runtime_contract
@@ -950,6 +981,8 @@ class AsyncPolicy:
             self._guard()
             if self._machine.state is State.READY:
                 step = await self._step(observation, instruction, step_deadline)
+                if step is not None:
+                    self._reconnect_hold_since = None  # a session is serving this robot
                 if step is not None and (not step.stalled or rule != HOLD_WAIT):
                     action = step.action
                     if step.stalled:
@@ -962,7 +995,14 @@ class AsyncPolicy:
             elif self._machine.state is State.RELEASED:
                 self._fire(Event.OPEN)
             if rule != HOLD_WAIT:
+                # No session served this tick (its link was lost, a new one is opening):
+                # the arm holds, counted as the controller counts its own holds, for at
+                # most the reconnect bound.
                 action = hold_action(contract, observation)
+                self._count_reconnect_hold()
+                await self._give_up_reconnect_after(
+                    RECONNECT_HOLD_S if timeout_s is None else float(timeout_s)
+                )
                 break
             remaining = hard_deadline - self._clock()
             if remaining <= 0:
@@ -986,6 +1026,39 @@ class AsyncPolicy:
         if skipped and dispatched_before and self._controller is controller_before:
             self._controller.skip(skipped)
         return action
+
+    def _count_reconnect_hold(self) -> None:
+        inner = self._inner
+        stats = (getattr(inner, "runtime_stats", None) if inner is not None
+                 else self._snapshot.get("runtime_stats"))
+        if not isinstance(stats, RuntimeStats):
+            return
+        stats.underruns += 1
+        stats.hold_position_count += 1
+        stats.reconnect_holds += 1
+
+    async def _give_up_reconnect_after(self, bound_s: float) -> None:
+        """Raise reconnect_failed once next_action() has held for ``bound_s`` with no session
+        serving: the policy closes (the session it was waiting for is deleted) and every
+        later call raises the same error."""
+        now = self._clock()
+        if self._reconnect_hold_since is None:
+            self._reconnect_hold_since = now
+            return
+        held_s = now - self._reconnect_hold_since
+        if held_s < bound_s:
+            return
+        failure = errors.catalog(
+            "reconnect_failed",
+            detail=f"the robot held for {bound_s:g} s with no server answering (state "
+            f"{self._machine.state.value}); the new session never served",
+        )
+        self._emit(f"✗ {failure.info.problem}: {failure.info.cause}.", always=True, warn=True)
+        self._latch(failure)
+        if self._machine.can(Event.CLOSE):
+            self._fire(Event.CLOSE)
+        await self._await_shutdown()
+        raise failure
 
     async def prefetch(
         self,
@@ -1528,6 +1601,16 @@ class AsyncPolicy:
             inner._calibration_profile = profile
             controller._planner.seed_calibration(profile)
             self._calibration_profile = profile
+        previous = self._snapshot.get("runtime_stats")
+        current = getattr(inner, "runtime_stats", None)
+        if (
+            isinstance(previous, RuntimeStats) and isinstance(current, RuntimeStats)
+            and previous is not current
+        ):
+            # One policy, one set of counters: a reopen carries the last session's on.
+            for stat in dataclasses.fields(RuntimeStats):
+                setattr(current, stat.name, getattr(current, stat.name)
+                        + getattr(previous, stat.name))
         self._inner = inner
         self._controller = controller
         self._pinned = False
@@ -1701,7 +1784,7 @@ class AsyncPolicy:
             else:
                 self._emit(
                     lost_session_line(lost, inner.runtime_contract, holding=controller is not None),
-                    always=True,
+                    always=True, warn=True,
                 )
             if failure is None and not await self._confirm_delete(client, session_id):
                 failure = errors.catalog(
@@ -1801,8 +1884,13 @@ class AsyncPolicy:
         if inner is not None:
             _release_blocking(inner)
 
-    def _emit(self, line: str, *, always: bool = False) -> None:
+    def _emit(self, line: str, *, always: bool = False, warn: bool = False) -> None:
+        """``warn``: a fault the user must hear of (a lost session, a reconnect given up):
+        a WARNING on the default logger."""
         if self._progress is None:
+            return
+        if warn and callable(getattr(self._progress, "warn", None)):
+            self._progress.warn(line)
             return
         if line.startswith("Run summary:") and not self._closing:
             return
@@ -1999,6 +2087,7 @@ LEGACY_CONNECT_KWARGS = frozenset(
         "acceleration", "control", "rtc", "calibration", "region", "provider", "speed",
         "idle_timeout", "keep_warm", "startup_timeout", "transport", "control_hz",
         "deployment", "endpoint", "context", "optimization_config", "steady_send",
+        "region_fallback",
     }
 )
 
@@ -2025,6 +2114,8 @@ async def aconnect(
     deployment: str | None = None,
     checkpoint: str | None = None,
     api_key: str | None = None,
+    region: str = "auto",
+    region_fallback: bool | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
     **legacy: Any,
 ) -> AsyncPolicy:
@@ -2050,6 +2141,8 @@ async def aconnect(
             **({"deployment": deployment} if deployment is not None else {}),
             **({"checkpoint": checkpoint} if checkpoint is not None else {}),
             **({"api_key": api_key} if api_key is not None else {}),
+            **({"region": region} if region != "auto" else {}),
+            **({"region_fallback": region_fallback} if region_fallback is not None else {}),
             **legacy,
         )
 
@@ -2071,6 +2164,8 @@ def connect(
     deployment: str | None = None,
     checkpoint: str | None = None,
     api_key: str | None = None,
+    region: str = "auto",
+    region_fallback: bool | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
     **legacy: Any,
 ) -> Policy:
@@ -2082,6 +2177,8 @@ def connect(
             aconnect(
                 model, deployment=deployment, checkpoint=checkpoint, api_key=api_key,
                 on_progress=on_progress, **legacy,
+                **({"region": region} if region != "auto" else {}),
+                **({"region_fallback": region_fallback} if region_fallback is not None else {}),
             )
         )
     except BaseException:

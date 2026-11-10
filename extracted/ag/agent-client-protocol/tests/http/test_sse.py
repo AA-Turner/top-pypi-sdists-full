@@ -36,6 +36,17 @@ async def test_parse_multiple_events_split_across_chunks() -> None:
 
 
 @pytest.mark.asyncio
+async def test_parse_multibyte_utf8_split_across_chunks() -> None:
+    frame = 'data: {"text":"你好"}\n\n'.encode()
+    split_at = frame.index("你".encode()) + 1
+    stream = _aiter([frame[:split_at], frame[split_at:]])
+
+    events = [event async for event in parse_sse_stream(stream)]
+
+    assert events == [{"text": "你好"}]
+
+
+@pytest.mark.asyncio
 async def test_parse_ignores_comments_and_other_fields() -> None:
     stream = _aiter([b': keepalive\n\nevent: message\ndata: {"id":7}\n\n'])
     events = [event async for event in parse_sse_stream(stream)]
@@ -59,5 +70,13 @@ async def test_parse_flushes_trailing_event_without_blank_line() -> None:
 @pytest.mark.asyncio
 async def test_parse_skips_invalid_json() -> None:
     stream = _aiter([b'data: not-json\n\ndata: {"id":1}\n\n'])
+    events = [event async for event in parse_sse_stream(stream)]
+    assert events == [{"id": 1}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [b"[]", b'[ {"id":2} ]', b'"text"', b"42", b"true", b"false", b"null"])
+async def test_parse_skips_non_object_json(payload: bytes) -> None:
+    stream = _aiter([b"data: " + payload + b'\n\ndata: {"id":1}\n\n'])
     events = [event async for event in parse_sse_stream(stream)]
     assert events == [{"id": 1}]

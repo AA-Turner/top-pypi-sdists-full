@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.common.setting_source import SettingSource
 from office365.intune.devices.compliance.status import ComplianceStatus
@@ -8,7 +8,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
-@dataclass
 class DeviceCompliancePolicySettingState(ClientValue):
     currentValue: str | None = None
     errorCode: int | None = None

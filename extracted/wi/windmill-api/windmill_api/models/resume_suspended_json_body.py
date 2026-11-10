@@ -12,7 +12,8 @@ T = TypeVar("T", bound="ResumeSuspendedJsonBody")
 class ResumeSuspendedJsonBody:
     """
     Attributes:
-        payload (Union[Unset, Any]): payload to send to the resumed job
+        payload (Union[Unset, Any]): payload to send to the resumed job. On a denial, a string `reason` in it is shown
+            in the step's error and the audit log.
         approval_token (Union[Unset, str]): approval token for unauthenticated access
         approved (Union[Unset, bool]): whether to approve (true) or cancel (false) the job Default: True.
     """

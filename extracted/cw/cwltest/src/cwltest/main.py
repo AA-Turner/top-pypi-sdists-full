@@ -74,6 +74,7 @@ def _run_test(
         timeout=args.timeout,
         verbose=args.verbose,
         runner_quiet=not args.junit_verbose,
+        outdir=args.outdir,
     )
     return utils.run_test_plain(config, test, test_number)
 
@@ -114,6 +115,7 @@ def main() -> int:
     try:
         tests, metadata = utils.load_and_validate_tests(args.test)
     except ValidationException:
+        logger.error(f"Failed validating test file: {args.test}", exc_info=args.verbose)
         return 1
 
     failures = 0

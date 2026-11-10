@@ -51,6 +51,8 @@ from ...common.settings import settings
 from ...errors import _APIError
 from ..drift import RequestedSandbox, caller_stacklevel, drift_message, requested_from_model
 from ..drive_setup import _AsyncDriveSetup, _normalize_mount_drives, _requested_region
+from ..names import _invalid_name_hint
+from ..transient_retry import _backoff_delay_seconds
 from ..types import (
     SandboxConfiguration,
     SandboxCreateConfiguration,
@@ -166,6 +168,82 @@ def _raise_if_creation_timeout(
         )
 
 
+# A creation the control plane rejects at its credential check, in a way a new
+# attempt can fix: a generic 403 "Authorization failed" (code UNAUTHORIZED) when
+# it could not resolve the credentials, or a 503 AUTHENTICATION_UNAVAILABLE when
+# its credential store is unreachable. Both are answered before anything is
+# created, so sending the same request again is safe. A revoked token (401
+# TOKEN_REVOKED) or a missing workspace permission (UNAUTHORIZED_WORKSPACE) is
+# final and is not retried. A key the API does not recognize gets the same
+# 403, so the retries stay few and the final message asks to check the key.
+CREATE_AUTH_RETRIES = 2
+CREATE_AUTH_RETRY_BASE_DELAY_SECONDS = 0.5
+CREATE_AUTH_RETRY_MAX_DELAY_SECONDS = 2.0
+
+
+def _error_status(error: SandboxError) -> int | None:
+    if isinstance(error.status_code, int):
+        return error.status_code
+    return error._response.status_code if error._response is not None else None
+
+
+def _is_transient_create_auth_failure(error: object) -> bool:
+    if isinstance(error, SandboxError):
+        return _error_status(error) == 403 and error.code == "UNAUTHORIZED"
+    if isinstance(error, client_errors.UnexpectedStatus):
+        return error.status_code == 503 and error.code == "AUTHENTICATION_UNAVAILABLE"
+    return False
+
+
+def _create_auth_retry_delay(attempt: int) -> float:
+    return _backoff_delay_seconds(
+        attempt, CREATE_AUTH_RETRY_BASE_DELAY_SECONDS, CREATE_AUTH_RETRY_MAX_DELAY_SECONDS
+    )
+
+
+def _create_error_message(error: SandboxError, sandbox_name: str | None, attempts: int) -> str:
+    """Message of the SandboxAPIError raised for a rejected creation."""
+    message = error.message if error.message else str(error)
+    if _is_transient_create_auth_failure(error):
+        try:
+            workspace = settings.workspace
+        except Exception:
+            workspace = None
+        current = f"; current workspace: '{workspace}'" if workspace else ""
+        return (
+            f"{message} (HTTP 403 {error.code}, after {attempts} attempts). The API answers"
+            " this way both for a key it does not recognize and when its credential check"
+            " fails for a moment. Check the credentials and workspace the SDK uses"
+            f" (BL_API_KEY and BL_WORKSPACE, or `bl login`{current}); if they are right,"
+            " retry in a few seconds."
+        )
+    if _error_status(error) == 400:
+        hint = _invalid_name_hint(sandbox_name)
+        if hint and message and not message.endswith((".", "!", "?")):
+            message += "."
+        return message + hint
+    return message
+
+
+_region_notice_shown = False
+
+
+def _notify_region_unset(class_name: str = "SandboxInstance") -> None:
+    """Say once per process that the platform picks the region when none is set."""
+    global _region_notice_shown
+    if _region_notice_shown:
+        return
+    _region_notice_shown = True
+    warnings.warn(
+        f"{class_name}.create: no region set, so the platform picks one for the sandbox."
+        " Set 'region' in the sandbox configuration or the BL_REGION environment variable"
+        " (e.g. 'us-pdx-1', 'eu-lon-1', 'us-was-1') to choose it; 'region' will become"
+        " required in a future version. This notice is shown once per process.",
+        FutureWarning,
+        stacklevel=3,
+    )
+
+
 logger = logging.getLogger(__name__)
 
 # Archiving a filesystem, and restoring it, take as long as that filesystem is
@@ -236,6 +314,7 @@ class _AsyncDeleteDescriptor:
         else:
             # Called on an instance: instance.delete()
             async def instance_delete() -> Sandbox:
+                """Delete this sandbox; see ``SandboxInstance.delete("name")`` for details."""
                 return await self._delete_func(instance.metadata.name)
 
             return instance_delete
@@ -350,6 +429,44 @@ class _AsyncSandboxCallDescriptor:
 
 
 class SandboxInstance:
+    """A Blaxel sandbox and the async clients that work inside it.
+
+    Get an instance from :meth:`create`, :meth:`create_if_not_exists`,
+    :meth:`get`, :meth:`list` or :meth:`from_session` rather than calling the
+    constructor. The instance holds the sandbox record as it was when it was
+    read; it is not refreshed on its own, so call :meth:`get` again to read the
+    current status. For blocking code, use ``SyncSandboxInstance``, which has
+    the same methods without ``await``.
+
+    Attributes:
+        sandbox: The ``Sandbox`` record returned by the API.
+        config: The record plus the URL and headers used to reach the sandbox.
+        process: Runs commands and reads their output (``SandboxProcess``).
+        fs: Reads, writes, searches and watches files (``SandboxFileSystem``).
+        previews: Exposes sandbox ports on public or private URLs
+            (``SandboxPreviews``).
+        sessions: Creates short-lived URLs and tokens for clients that must not
+            hold an API key (``SandboxSessions``).
+        schedules: Manages the sandbox's schedules (``SandboxSchedules``).
+        network: Sends HTTP requests to ports inside the sandbox
+            (``SandboxNetwork``).
+        codegen: Applies code edits and ranks files (``SandboxCodegen``).
+        system: Reads health and upgrades the sandbox API (``SandboxSystem``).
+        drives: Mounts and unmounts drives (``SandboxDrive``).
+        snapshots: Creates and restores snapshots (``SandboxSnapshots``).
+
+    Example:
+        ```python
+        from blaxel.core import SandboxInstance
+
+        sandbox = await SandboxInstance.create_if_not_exists(
+            {"name": "my-sandbox", "image": "blaxel/base-image:latest", "region": "us-pdx-1"}
+        )
+        result = await sandbox.process.exec({"command": "echo hello", "wait_for_completion": True})
+        print(result.status, result.exit_code, result.stdout)
+        ```
+    """
+
     delete: "_AsyncDeleteDescriptor"
     archive: "_AsyncSandboxCallDescriptor"
     unarchive: "_AsyncSandboxCallDescriptor"
@@ -388,18 +505,29 @@ class SandboxInstance:
 
     @property
     def metadata(self):
+        """The sandbox metadata: ``name``, ``display_name``, ``labels``, ``url`` and more."""
         return self.sandbox.metadata
 
     @property
     def status(self):
+        """The sandbox status when the record was read, such as ``DEPLOYED`` or ``FAILED``.
+
+        It is not refreshed on its own: call :meth:`get` to read the current status.
+        """
         return self.sandbox.status
 
     @property
     def events(self):
+        """The events the platform recorded for this sandbox."""
         return self.sandbox.events
 
     @property
     def spec(self):
+        """The sandbox spec as last read.
+
+        It holds ``runtime`` (image, memory, ports, envs, ttl), ``region``,
+        ``lifecycle``, ``network`` and ``volumes``.
+        """
         return self.sandbox.spec
 
     @property
@@ -415,10 +543,12 @@ class SandboxInstance:
 
     @property
     def last_used_at(self):
+        """When the sandbox was last used, as reported by the API."""
         return self.sandbox.last_used_at
 
     @property
     def expires_in(self):
+        """Time left before a lifecycle or TTL rule deletes the sandbox, as reported by the API."""
         return self.sandbox.expires_in
 
     async def fetch(
@@ -426,11 +556,24 @@ class SandboxInstance:
     ) -> "httpx.Response":
         """Fetch a resource served on a sandbox port.
 
+        The request goes through the sandbox API (``/port/{port}``) with this
+        instance's credentials, so the port does not need a preview. HTTP error
+        statuses are returned in the response, not raised.
+
         Args:
             port: The port number inside the sandbox
             path: Optional path appended after the port (default: "/")
             method: HTTP method (default: "GET")
             **kwargs: Additional arguments forwarded to httpx (e.g. headers, content)
+
+        Returns:
+            The ``httpx.Response`` from the service listening on the port.
+
+        Example:
+            ```python
+            response = await sandbox.fetch(3000, "/health")
+            print(response.status_code, response.text)
+            ```
         """
         return await self.network.fetch(port, path, method, **kwargs)
 
@@ -537,6 +680,13 @@ class SandboxInstance:
             lifecycle: Lifecycle the fork runs with, replacing the source's.
                 When omitted, a sandbox fork keeps the source's lifecycle and
                 its runtime ttl and expires. Only valid for a sandbox fork.
+
+        Returns:
+            The ``SandboxForkResponse`` describing the new resource. Call
+            ``SandboxInstance.get(target_name)`` to work with a sandbox fork.
+
+        Raises:
+            SandboxAPIError: When the API rejects the fork.
         """
         body = SandboxForkRequest(target_name=target_name, target_type=target_type)
         if port is not None:
@@ -563,6 +713,14 @@ class SandboxInstance:
         return _unwrap_response(response, "fork sandbox")
 
     async def wait(self, max_wait: int = 60000, interval: int = 1000) -> "SandboxInstance":
+        """Return this instance right away; kept for compatibility.
+
+        A sandbox returned by :meth:`create` is ready to use, so there is
+        nothing to wait for. Both arguments are ignored and a deprecation
+        warning is logged.
+
+        .. deprecated:: Remove the call.
+        """
         logger.warning(
             "⚠️  Warning: sandbox.wait() is deprecated. You don't need to wait for the sandbox to be deployed anymore."
         )
@@ -578,9 +736,45 @@ class SandboxInstance:
         *,
         mount_drives: "list[SandboxDriveMountConfiguration | dict] | None" = None,
     ) -> "SandboxInstance":
-        """Create a sandbox.
+        """Create a sandbox and return it once it is ready to use.
+
+        Missing settings get defaults: image ``blaxel/base-image:latest`` and
+        4096 MB of memory. Creating a name that is already taken fails with
+        HTTP 409; use :meth:`create_if_not_exists` to reuse the sandbox instead.
+
+        Lifetime: ``ttl`` deletes the sandbox that long after it is created, and
+        ``lifecycle`` holds expiration policies of type ``ttl-idle`` (after that
+        long without activity), ``ttl-max-age`` (after that long in total) or
+        ``date`` (at an ISO 8601 date), each with action ``"delete"``. Durations
+        are a number followed by ``s``, ``m``, ``h``, ``d`` or ``w``, such as
+        ``"30m"`` or ``"7d"``. ``ttl`` and ``ttl-max-age`` must be at least
+        ``5m`` and ``ttl-idle`` at least ``60s``; shorter values get HTTP 400.
+        Recipes: https://docs.blaxel.ai/Sandboxes/Lifecycle-recipe
+
+        A creation rejected by a transient authentication failure (403
+        ``UNAUTHORIZED`` or 503 ``AUTHENTICATION_UNAVAILABLE``, both answered
+        before anything is created) is sent again up to ``CREATE_AUTH_RETRIES``
+        times with a short backoff.
 
         Args:
+            sandbox: The sandbox to create: a ``SandboxCreateConfiguration``, a
+                dict with the same keys (``name``, ``image``, ``memory`` in MB,
+                ``ports``, ``envs``, ``volumes``, ``ttl``, ``expires``,
+                ``region``, ``lifecycle``, ``network``, ``labels``, ...), or a
+                full ``Sandbox`` model. Its name must use lowercase letters,
+                digits and single hyphens, at most ``SANDBOX_NAME_MAX_LENGTH``
+                (49) characters, like ``my-sandbox-1``. The API rejects any other
+                name with a 400, and the SDK never renames it for you: to name a
+                sandbox after an external id such as ``sesn_01AbC``, pass the id
+                through ``sanitize_sandbox_name`` first (``is_valid_sandbox_name``
+                checks a name). Omit the name to let the platform assign one.
+                Without a region (here or in ``BL_REGION``) the platform picks
+                one and a ``FutureWarning`` is shown once per process.
+            safe: When True, make one filesystem call after creation so the
+                sandbox API answers before this returns. Errors from that call
+                are ignored.
+            create_if_not_exist: Prefer :meth:`create_if_not_exists`, which sets
+                this flag.
             mount_drives: Drives to mount on the sandbox. Drives are looked up or created
                 while the sandbox is being created (a few at a time) and each is mounted
                 as soon as the sandbox and that drive are ready. New drives go in the region
@@ -597,6 +791,38 @@ class SandboxInstance:
                 sandbox and ``SandboxCreationTimeoutError`` is raised. Omitted, the
                 platform default deadline applies; an explicit value can only
                 shorten it.
+
+        Returns:
+            The new ``SandboxInstance``.
+
+        Raises:
+            ValueError: When ``timeout`` is out of range, or ``lifecycle`` has an
+                unknown policy type or action (checked before any request).
+            SandboxCreationTimeoutError: When the sandbox was not ready before
+                the deadline.
+            SandboxAPIError: When the API rejects the creation, for example
+                HTTP 400 for an invalid name or lifecycle value, or HTTP 409 for
+                a name already in use. ``status_code`` and ``code`` carry the
+                details.
+            blaxel.core.client.errors.UnexpectedStatus: For a status the API
+                does not document for this call.
+
+        Example:
+            ```python
+            sandbox = await SandboxInstance.create(
+                {
+                    "name": "my-sandbox",
+                    "image": "blaxel/base-image:latest",
+                    "memory": 4096,
+                    "region": "us-pdx-1",
+                    "lifecycle": {
+                        "expiration_policies": [
+                            {"type": "ttl-idle", "value": "30m", "action": "delete"}
+                        ]
+                    },
+                }
+            )
+            ```
         """
         mounts = _normalize_mount_drives(mount_drives, create_if_not_exist)
         timeout = _validate_creation_timeout(timeout)
@@ -664,12 +890,7 @@ class SandboxInstance:
                 envs=config._normalize_envs(),
             )
             if not region:
-                warnings.warn(
-                    "SandboxInstance.create: 'region' is not set. In a future version, 'region' will be a required parameter. "
-                    "Please specify a region (e.g. 'us-pdx-1', 'eu-lon-1', 'us-was-1') in the sandbox configuration or set the BL_REGION environment variable.",
-                    FutureWarning,
-                    stacklevel=2,
-                )
+                _notify_region_unset()
             lifecycle = config.lifecycle
             network = config.network
             snapshot_enabled = config.snapshot_enabled
@@ -760,28 +981,39 @@ class SandboxInstance:
             drives.start()
         try:
             body = _create_body(sandbox)
-            try:
-                if timeout is None:
-                    response = await create_sandbox(
-                        client=client, body=body, create_if_not_exist=create_if_not_exist
-                    )
-                else:
-                    async with _creation_client(timeout) as creation_client:
+            attempts = 0
+            while True:
+                attempts += 1
+                try:
+                    if timeout is None:
                         response = await create_sandbox(
-                            client=creation_client,
-                            body=body,
-                            create_if_not_exist=create_if_not_exist,
+                            client=client, body=body, create_if_not_exist=create_if_not_exist
                         )
-            except client_errors.UnexpectedStatus as e:
-                _raise_if_creation_timeout(e, _sandbox_name(sandbox), timeout)
-                raise
+                    else:
+                        async with _creation_client(timeout) as creation_client:
+                            response = await create_sandbox(
+                                client=creation_client,
+                                body=body,
+                                create_if_not_exist=create_if_not_exist,
+                            )
+                except client_errors.UnexpectedStatus as e:
+                    _raise_if_creation_timeout(e, _sandbox_name(sandbox), timeout)
+                    if attempts > CREATE_AUTH_RETRIES or not _is_transient_create_auth_failure(e):
+                        raise
+                else:
+                    if attempts > CREATE_AUTH_RETRIES or not _is_transient_create_auth_failure(
+                        response
+                    ):
+                        break
+                logger.debug("Sandbox creation hit a transient authentication failure, retrying")
+                await asyncio.sleep(_create_auth_retry_delay(attempts))
 
             # Check if response is an error
             if isinstance(response, SandboxError):
                 _raise_if_creation_timeout(response, _sandbox_name(sandbox), timeout)
-                status_code = response.status_code if response.status_code is not UNSET else None
+                status_code = _error_status(response)
                 code = response.code if response.code else None
-                message = response.message if response.message else str(response)
+                message = _create_error_message(response, _sandbox_name(sandbox), attempts)
                 raise SandboxAPIError(message, status_code=status_code, code=code, error=response)
 
             assert response is not None
@@ -811,6 +1043,29 @@ class SandboxInstance:
 
     @classmethod
     async def get(cls, sandbox_name: str) -> "SandboxInstance":
+        """Read an existing sandbox by name.
+
+        Use it to reconnect to a sandbox created earlier, or to refresh the
+        status of an instance you already hold.
+
+        Args:
+            sandbox_name: The sandbox name.
+
+        Returns:
+            A ``SandboxInstance`` with the current record.
+
+        Raises:
+            SandboxAPIError: When the sandbox does not exist (``status_code``
+                404) or the API rejects the request. A deleted sandbox is
+                still returned, with status ``TERMINATED``, until its
+                ``terminated_retention`` (5 minutes by default) has passed.
+
+        Example:
+            ```python
+            sandbox = await SandboxInstance.get("my-sandbox")
+            print(sandbox.status)
+            ```
+        """
         response = await get_sandbox(
             sandbox_name,
             client=client,
@@ -842,6 +1097,9 @@ class SandboxInstance:
         Returns:
             AsyncPaginatedList[SandboxInstance]: A list-like page with `.data`, `.meta`,
             `.has_more`, `.next_cursor`, `.next_page()`, and `.auto_paging_iter()`.
+
+        Raises:
+            SandboxAPIError: When the API rejects the request.
 
         Example:
             ```python
@@ -880,12 +1138,29 @@ class SandboxInstance:
     ) -> "SandboxInstance":
         """Update sandbox metadata by merging new metadata with existing metadata.
 
+        The sandbox is read first, then written back with the changes. Given
+        labels are added to the existing ones (a label with the same key is
+        replaced); no label is removed. The sandbox keeps running.
+
         Args:
             sandbox_name: The name of the sandbox to update
             metadata: The metadata fields to update (labels and/or display_name)
 
         Returns:
             A new SandboxInstance with updated metadata
+
+        Raises:
+            SandboxAPIError: When the sandbox does not exist or the API rejects
+                the update.
+
+        Example:
+            ```python
+            from blaxel.core.sandbox.types import SandboxUpdateMetadata
+
+            sandbox = await SandboxInstance.update_metadata(
+                "my-sandbox", SandboxUpdateMetadata(labels={"team": "data"})
+            )
+            ```
         """
         # Get the existing sandbox
         sandbox_instance = await cls.get(sandbox_name)
@@ -931,12 +1206,28 @@ class SandboxInstance:
     async def update_ttl(cls, sandbox_name: str, ttl: str | None) -> "SandboxInstance":
         """Update sandbox TTL without recreating it.
 
+        The TTL counts from the sandbox creation, not from this call: a sandbox
+        created two hours ago and given ``"1h"`` is deleted soon after. To
+        delete after a period without activity, use :meth:`update_lifecycle`
+        with a ``ttl-idle`` policy. Recipes:
+        https://docs.blaxel.ai/Sandboxes/Lifecycle-recipe
+
         Args:
             sandbox_name: The name of the sandbox to update
-            ttl: The new TTL value (e.g., "5m", "1h"; minimum 5m), or None/"" to clear
+            ttl: The new TTL value (e.g., "5m", "1h"; minimum 5m), or None/"" to clear.
+                Units are ``s``, ``m``, ``h``, ``d`` or ``w``.
 
         Returns:
             A new SandboxInstance with updated TTL
+
+        Raises:
+            SandboxAPIError: When the sandbox does not exist, or with HTTP 400
+                when the value is malformed or shorter than 5m.
+
+        Example:
+            ```python
+            sandbox = await SandboxInstance.update_ttl("my-sandbox", "24h")
+            ```
         """
         # Get the existing sandbox
         sandbox_instance = await cls.get(sandbox_name)
@@ -965,12 +1256,33 @@ class SandboxInstance:
     ) -> "SandboxInstance":
         """Update sandbox lifecycle configuration without recreating it.
 
+        The given lifecycle replaces the current one as a whole, so include
+        every policy you want to keep. Each expiration policy has a ``type``
+        (``ttl-idle``, ``ttl-max-age`` or ``date``), a ``value`` and the action
+        ``"delete"``. Durations use ``s``, ``m``, ``h``, ``d`` or ``w``;
+        ``ttl-idle`` must be at least ``60s`` and ``ttl-max-age`` at least
+        ``5m``. Recipes: https://docs.blaxel.ai/Sandboxes/Lifecycle-recipe
+
         Args:
             sandbox_name: The name of the sandbox to update
             lifecycle: The new lifecycle configuration, or None to clear
 
         Returns:
             A new SandboxInstance with updated lifecycle
+
+        Raises:
+            SandboxAPIError: When the sandbox does not exist, or with HTTP 400
+                when a value is malformed or below its minimum.
+
+        Example:
+            ```python
+            from blaxel.core.client.models import SandboxLifecycle
+
+            lifecycle = SandboxLifecycle.from_dict(
+                {"expiration_policies": [{"type": "ttl-idle", "value": "30m", "action": "delete"}]}
+            )
+            sandbox = await SandboxInstance.update_lifecycle("my-sandbox", lifecycle)
+            ```
         """
         # Get the existing sandbox
         sandbox_instance = await cls.get(sandbox_name)
@@ -997,12 +1309,20 @@ class SandboxInstance:
     ) -> "SandboxInstance":
         """Update sandbox network configuration without recreating it.
 
+        The given network configuration replaces the current one. A
+        ``SandboxUpdateNetwork`` whose ``network`` is None sends the update
+        without a ``network`` field.
+
         Args:
             sandbox_name: The name of the sandbox to update
             network: The new network configuration
 
         Returns:
             A new SandboxInstance with updated network configuration
+
+        Raises:
+            SandboxAPIError: When the sandbox does not exist or the API rejects
+                the configuration.
         """
         sandbox_instance = await cls.get(sandbox_name)
         sandbox = sandbox_instance.sandbox
@@ -1043,6 +1363,38 @@ class SandboxInstance:
         is, a FAILED/TERMINATED one is replaced, and a deletion or concurrent
         creation still in flight is waited for server-side. A 409 therefore only
         surfaces when the name really cannot be used, and is raised as is.
+
+        A live sandbox is reused as it is, including one in standby: the
+        requested image, memory, region, envs and other settings are not
+        applied to it. When the image, memory, region or envs you set differ
+        from the sandbox returned, a ``UserWarning`` names the differences;
+        delete and create again to change them. Without a name in ``sandbox`` this always
+        creates a new sandbox. Name rules, defaults and lifetime settings are
+        the same as for :meth:`create`; recipes:
+        https://docs.blaxel.ai/Sandboxes/Lifecycle-recipe
+
+        Args:
+            sandbox: The sandbox to create, in any form :meth:`create` accepts.
+                Give it a name so a second call finds the same sandbox.
+            timeout: Optional creation deadline in whole seconds, as in
+                :meth:`create`.
+
+        Returns:
+            The existing or new ``SandboxInstance``.
+
+        Raises:
+            ValueError: When ``timeout`` or ``lifecycle`` is invalid.
+            SandboxCreationTimeoutError: When a new sandbox was not ready before
+                the deadline.
+            SandboxAPIError: When the API rejects the request, for example
+                HTTP 400 for an invalid name.
+
+        Example:
+            ```python
+            sandbox = await SandboxInstance.create_if_not_exists(
+                {"name": "agent-workspace", "region": "us-pdx-1"}
+            )
+            ```
         """
         create_kwargs: Dict[str, Any] = {} if timeout is None else {"timeout": timeout}
         if mount_drives is not None:
@@ -1053,7 +1405,38 @@ class SandboxInstance:
     async def from_session(
         cls, session: Union[SessionWithToken, Dict[str, Any]]
     ) -> "SandboxInstance":
-        """Create a sandbox instance from a session with token."""
+        """Create a sandbox instance from a session with token.
+
+        Use it where the code must not hold a Blaxel API key, such as a browser
+        backend or a separate service: create the session with an API key
+        elsewhere (``sandbox.sessions.create()``) and pass it here. The
+        instance reaches the sandbox through the session URL with the session
+        token, so these calls work without an API key until the token
+        expires: ``fs.read``, ``fs.write`` (up to 5 MB), ``fs.ls``,
+        ``fs.mkdir``, ``fs.rm``, ``process.exec``, ``process.get`` and
+        ``process.kill``. Other helpers, such as ``fs.read_binary``,
+        ``fs.write_binary``, ``fs.find``, ``fs.grep``, ``fs.watch`` and log
+        streaming, still read Blaxel credentials in this version and raise
+        ``CredentialsError`` without them. Its ``metadata.name`` is derived
+        from the session name, not read from the API: do not call
+        control-plane methods (``previews``, ``sessions``, ``update_*``,
+        ``delete``) on it.
+
+        Args:
+            session: A ``SessionWithToken``, or a dict with ``name``, ``url``,
+                ``token`` and ``expires_at``.
+
+        Returns:
+            A ``SandboxInstance`` bound to the session URL and token. No request
+            is made.
+
+        Example:
+            ```python
+            session = await sandbox.sessions.create()
+            remote = await SandboxInstance.from_session(session)
+            await remote.fs.write("/tmp/hello.txt", "hi")
+            ```
+        """
         if isinstance(session, dict):
             session = SessionWithToken.from_dict(session)
 
@@ -1073,7 +1456,28 @@ class SandboxInstance:
 
 
 async def _delete_sandbox_by_name(sandbox_name: str) -> Sandbox:
-    """Delete a sandbox by name."""
+    """Delete a sandbox by name.
+
+    Exposed as ``await SandboxInstance.delete("name")`` and as
+    ``await sandbox.delete()`` on an instance. The sandbox, its processes and
+    its filesystem are removed; persistent volumes and drives attached to it
+    are separate resources and are not deleted. The deletion finishes in the
+    background, and the name can be reused once it is done. The record stays
+    readable for the lifecycle's ``terminated_retention`` (5 minutes by
+    default): ``get`` returns it with status ``TERMINATED`` instead of raising
+    a 404, and ``list`` no longer includes it. To confirm a deletion, check
+    for ``TERMINATED`` or for the name to leave ``list``.
+
+    Args:
+        sandbox_name: The sandbox name.
+
+    Returns:
+        The ``Sandbox`` record as the API returned it for the deletion.
+
+    Raises:
+        SandboxAPIError: When the sandbox does not exist (``status_code`` 404)
+            or the API rejects the request.
+    """
     response = await delete_sandbox(
         sandbox_name,
         client=client,

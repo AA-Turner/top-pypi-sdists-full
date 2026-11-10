@@ -28,7 +28,7 @@ class VoiceLibraryDetail(VoiceLibraryVoice):
     previews: typing.Optional[typing.List[VoiceLibraryPreviewItem]] = None
     noise_reduction_applied: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    True once the background denoise job has improved the reference audio.
+    True when background noise was removed from the reference audio for this voice.
     """
 
     tags: typing.Optional[typing.List[str]] = None

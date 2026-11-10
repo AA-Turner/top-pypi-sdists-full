@@ -43,6 +43,7 @@ from .cci_fingerprint import (
 from .const import (
     BRANDS,
     CHARGE_PORT_ACTION,
+    CHARGING_CONNECTOR_LOCK_STATE,
     CONNECTOR_FASTENING_STATE,
     DISTANCE_UNITS,
     DOMAIN,
@@ -169,6 +170,22 @@ def _parse_gspa_svm_timestamp(value: Any) -> dt.datetime | None:
             return dt.datetime.fromisoformat(value)
         except ValueError:
             return None
+    return None
+
+
+def _parse_valet_mode(value: Any) -> bool | None:
+    """Map the app's ValetMode enum to the active flag.
+
+    myHyundai 1.4.0 (CCS SDK lib-domain) defines ACTIVE(0), IGN_OFF(1),
+    INACTIVE(2), INVALID(-1); live on a Santa Fe HEV the idle car reads
+    INACTIVE(2). Anything else stays unknown.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value in (0, 1):
+        return True
+    if value == 2:
+        return False
     return None
 
 
@@ -1327,17 +1344,13 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
     ) -> ORDER_STATUS:
         """Poll a GSPA action's status.
 
-        GET /gspa/v1/status/vehicles/{carId}/update-status
-            ?path=gspa/v1/remote/vehicles
+        GET /gspa/v1/status/vehicles/{carId}/update-status (no query
+        argument, as the EU apps send it)
         Response: {"metaInfo": {"retCode": "S"}, "data": {"pollingState":
         "WAIT" | "SUCCESS" | "FAILURE" | "TIMEOUT"}}. Any transport/parse
         error or non-success retCode is reported as PENDING (caller re-polls).
         """
-        url = (
-            self.CCSP_API_URL
-            + f"/gspa/v1/status/vehicles/{vehicle.id}/update-status"
-            + f"?path={self.GSPA_REMOTE_VEHICLES_PATH}"
-        )
+        url = self.CCSP_API_URL + f"/gspa/v1/status/vehicles/{vehicle.id}/update-status"
         self._validate_ccs_token(token)
         headers = self._get_authenticated_headers(
             token, vehicle.ccu_ccs2_protocol_support or 0
@@ -1487,6 +1500,20 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             _LOGGER.debug(f"{DOMAIN} - GSPA stored-status failed")
             return None
 
+    def _request_status_upload(self, token: Token, vehicle: Vehicle) -> None:
+        """Ask the car to upload a fresh status (best effort).
+
+        prewakeup alone does not make every car upload: a Kia Niro EV
+        accepts the wake (202) but keeps the old stored-status until
+        update-status is called.
+        """
+        try:
+            self._gspa_get(token, vehicle, "status/vehicles/{carId}/update-status")
+        except AuthenticationError:
+            raise
+        except Exception:
+            _LOGGER.debug(f"{DOMAIN} - GSPA update-status request failed")
+
     def _apply_stored_status(
         self, token: Token, vehicle: Vehicle, data: dict[str, Any]
     ) -> None:
@@ -1565,8 +1592,14 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         requested_at = int(time() * 1000)
         if self.prewakeup(token, vehicle) is None:
             raise APIError("GSPA prewakeup failed")
+        self._request_status_upload(token, vehicle)
+        # update-status can take up to its read timeout; keep the total budget.
+        elapsed = time() - (requested_at / 1000)
         attempts = 1 + int(
-            (self.FORCE_REFRESH_TIMEOUT - self.FORCE_REFRESH_INITIAL_DELAY)
+            max(
+                0,
+                self.FORCE_REFRESH_TIMEOUT - self.FORCE_REFRESH_INITIAL_DELAY - elapsed,
+            )
             // self.FORCE_REFRESH_POLL_INTERVAL
         )
         oldest = requested_at - self.FORCE_REFRESH_CLOCK_TOLERANCE_MS
@@ -1595,6 +1628,42 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             f"{(updated - requested_at) / 1000:.1f} s after prewakeup"
         )
         self._apply_stored_status(token, vehicle, data)
+
+    def _update_vehicle_gspa_data(self, token: Token, vehicle: Vehicle) -> None:
+        """Populate Vehicle GSPA query fields from server-side cached data.
+
+        These are GET endpoints that read cached data from the GSPA server.
+        They do NOT wake the telematics unit or drain the 12V battery.
+        """
+        try:
+            sw = self.get_software_version(token, vehicle)
+            if sw and isinstance(sw, dict):
+                vehicle.software_version = sw.get("softwareVersion")
+        except Exception:
+            _LOGGER.debug(f"{DOMAIN} - GSPA software_version update failed")
+
+        try:
+            if not vehicle._ota_checked:
+                vehicle._ota_checked = True  # set before call — concurrent workers skip
+                ota = self.get_ota_updates(token, vehicle)
+                if ota and isinstance(ota, dict):
+                    updates = ota.get("otaUpdateList", [])
+                    vehicle.ota_update_available = (
+                        len(updates) > 0 if updates else False
+                    )
+        except Exception:
+            vehicle.ota_update_available = None  # HA convention: unavailable = unknown
+            _LOGGER.debug(f"{DOMAIN} - GSPA ota_updates update failed")
+
+        # Vehicle._valet_failed marks a failed valet read; force refresh resets.
+        if not vehicle._valet_failed:
+            try:
+                valet = self._get_valet_status(token, vehicle)
+                if valet and isinstance(valet, dict) and "valetMode" in valet:
+                    vehicle.valet_mode_active = _parse_valet_mode(valet["valetMode"])
+            except Exception:
+                vehicle._valet_failed = True
+                _LOGGER.debug(f"{DOMAIN} - GSPA valet_status update failed")
 
     # ------------------------------------------------------------------
     # CCS2 property parser (shared by Hyundai and Kia CCI)
@@ -1904,6 +1973,21 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
                     fastening_raw,
                 )
                 vehicle.ev_connector_fastening_state = None
+        if (
+            lock_raw := get_child_value(state, "Green.ChargingConnector.LockState")
+        ) is not None:
+            try:
+                vehicle.ev_connector_lock_state = CHARGING_CONNECTOR_LOCK_STATE(
+                    int(lock_raw)
+                )
+            except ValueError:
+                _LOGGER.debug(
+                    "%s - ChargingConnector.LockState %r not in {0: idle, "
+                    "1: unlocked, 2: locked, 3: releasing, 4: locking, "
+                    "5: released}",
+                    DOMAIN,
+                    lock_raw,
+                )
         vehicle.ev_battery_is_plugged_in = (
             True
             if vehicle.ev_connector_fastening_state
@@ -2224,9 +2308,9 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         # Off-peak charging window — flat CCS2-schema OffPeakTime block
         # (live EV6/PV5 GSPA stored-status + Sportage PHEV CCS2 dump; the
         # nested "OffPeakPower.*" variants appear in no captured payload).
-        # Mode 0 = off, 2 = target-priority, 3 = time-priority (kia_uvo
-        # #1304/#1269 lineage). When the block is absent all fields stay
-        # None — do NOT synthesise dt.time(0,0) (phantom midnight window).
+        # Mode enum as on the ApiImplType1 OffPeakTime branch (same wire
+        # schema): 1 = undefined maps like 0. Absent block stays None —
+        # no synthesised dt.time(0,0) (phantom midnight window).
         # ccs2_reservation_time_or_none handles the 31:70 sentinel silently.
         off_peak = get_child_value(state, "Green.Reservation.OffPeakTime")
         if off_peak:
@@ -2243,7 +2327,7 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
                 vehicle.ev_off_peak_end_time = None
 
             mode = off_peak.get("Mode")
-            if mode == 0:
+            if mode in (0, 1):
                 vehicle.ev_schedule_charge_enabled = False
                 vehicle.ev_off_peak_charge_only_enabled = None
             elif mode == 2:
@@ -2885,23 +2969,24 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         body = {"dischargingLimit": int(limit), "command": "set"}
         return self._gspa_control_command(token, vehicle, "discharge-limit", body)
 
-    def set_charge_alarm(self, token: Token, vehicle: Vehicle, enabled: bool) -> str:
-        if enabled:
-            body = {
-                "alarmOff": 0,
-                "alarmBefore10": 1,
-                "alarmBefore20": 1,
-                "alarmBefore30": 1,
-                "command": "set",
-            }
-        else:
-            body = {
-                "alarmOff": 1,
-                "alarmBefore10": 0,
-                "alarmBefore20": 0,
-                "alarmBefore30": 0,
-                "command": "set",
-            }
+    def set_charge_alarm(
+        self,
+        token: Token,
+        vehicle: Vehicle,
+        before_10min: bool = False,
+        before_20min: bool = False,
+        before_30min: bool = False,
+    ) -> str:
+        # alarmOff is 1 exactly when no flag is on (PV5, issue #1145:
+        # all-off = alarmOff 1 + 0/0/0, single flag = alarmOff 0), so the
+        # all-on / all-off bodies stay on the wire unchanged.
+        body = {
+            "alarmOff": int(not (before_10min or before_20min or before_30min)),
+            "alarmBefore10": int(before_10min),
+            "alarmBefore20": int(before_20min),
+            "alarmBefore30": int(before_30min),
+            "command": "set",
+        }
         return self._gspa_control_command(token, vehicle, "charge-alarm", body)
 
     def schedule_reservation_charge(
@@ -3313,4 +3398,22 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             raise
         except Exception:
             _LOGGER.debug(f"{DOMAIN} - GSPA software-version GET failed")
+            return None
+
+    def _get_valet_status(
+        self, token: Token, vehicle: Vehicle
+    ) -> dict[str, Any] | None:
+        """Get valet mode status from GSPA; None on failure.
+
+        Wire shape: {"valetMode": <int>} when idle (live, Santa Fe HEV
+        2026-11-01); the app's ValetStatus model adds startDate/endDateTime/
+        runTime/currentLocation blocks while valet is engaged.
+        """
+        self._validate_ccs_token(token)
+        try:
+            return self._gspa_get(token, vehicle, "valet/vehicles/{carId}/status")
+        except AuthenticationError:
+            raise
+        except Exception:
+            _LOGGER.debug(f"{DOMAIN} - GSPA valet status failed")
             return None

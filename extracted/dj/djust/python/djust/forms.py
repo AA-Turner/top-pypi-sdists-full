@@ -6,15 +6,199 @@ enabling real-time validation, error display, and reactive form handling.
 """
 
 import logging
-from typing import Dict, Any, Optional, Type, List
+import math
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Generic,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 from django import forms
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
+from django.db import models
+from django.http import Http404
 from django.utils.safestring import SafeString
 
+from ._class_snapshot import namespace
+from . import _form_data_bounds
 from ._deprecation import warn_deprecated
+from ._exposure import ExposureConfigurationError, ExposureError, ProviderContract
+from ._exposure_providers import provide_context_items
+from ._state import StateProperty
 from .decorators import event_handler
 
 logger = logging.getLogger(__name__)
+
+#: ADR-038 E2-3: the form keys an explicit view renders. Render-only: the
+#: provider persists and discloses nothing (``persisted``/``client`` empty).
+#: ``model_pk``/``model_label`` are deliberately absent; see
+#: ``FormMixin._ensure_model_instance``.
+FORM_PROVIDER = ProviderContract(
+    "djust.forms",
+    rendered=frozenset(
+        {
+            "form_data",
+            "form_choices",
+            "form_errors",
+            "field_errors",
+            "is_valid",
+            "success_message",
+            "error_message",
+        }
+    ),
+    tracked=frozenset({"form_data", "form_errors", "field_errors", "is_valid"}),
+)
+
+#: Replacement for an error message that would echo a sensitive field's value.
+_REDACTED_FORM_ERROR = "Invalid value."
+
+
+def is_sensitive_form_field(name: str, field: forms.Field) -> bool:
+    """Whether a form field's value may never be persisted, rendered or debugged.
+
+    ADR-038 D-e: a ``PasswordInput`` widget (or subclass, or any widget that draws a password
+    input), or a field name in the serialization floor (``password``, ``is_superuser``,
+    ``is_staff``) unioned with ``settings.DJUST_SENSITIVE_FIELDS``. The widget half is
+    :func:`djust.serialization.field_has_password_widget`, which the template walk's form floor asks
+    too (#3798), so the two cannot disagree about what a password field is.
+    """
+    from .serialization import _resolve_sensitive_fields, field_has_password_widget
+
+    return field_has_password_widget(field) or name in _resolve_sensitive_fields()
+
+
+def _is_persistable_input(value: Any) -> bool:
+    """JSON primitives only (D-i); anything else resets on reconnect."""
+    if value is None or type(value) in (str, bool, int):
+        return True
+    if type(value) is float:
+        return math.isfinite(value)
+    if type(value) is list:
+        return all(type(item) is str for item in value)
+    return False
+
+
+class PersistedFormInput(StateProperty[Dict[str, Any]]):
+    """Server-persisted input for named, non-sensitive form fields (ADR-038 D-e).
+
+    Declare with :func:`persisted_form_input`. The field is an ordinary
+    ``state(persist="server")`` declaration in the view's exposure contract,
+    but its value is a projection of ``form_data`` rather than stored state:
+    reading it selects the declared fields from ``form_data`` (JSON primitives
+    only), and restoring it merges those fields back into ``form_data`` after
+    ``mount()``. Nothing else of the form is persisted.
+    """
+
+    def __init__(self, field_names: FrozenSet[str]) -> None:
+        super().__init__(default_factory=dict, persist="server")
+        self.field_names = field_names
+
+    def __get__(self, obj: Any, objtype: Optional[type] = None) -> Any:
+        if obj is None:
+            return self
+        data = obj.__dict__.get("form_data")
+        if type(data) is not dict:
+            return {}
+        form = obj.__dict__.get("_form_instance")
+        fields = getattr(form, "fields", None) or {}
+        selected: Dict[str, Any] = {}
+        for name in sorted(self.field_names):
+            if name not in data or not _is_persistable_input(data[name]):
+                continue
+            field = fields.get(name)
+            # Defence in depth: configuration already refuses sensitive fields.
+            if field is not None and is_sensitive_form_field(name, field):
+                continue
+            selected[name] = data[name]
+        return selected
+
+    def __set__(self, obj: Any, value: Dict[str, Any]) -> None:
+        if (
+            type(value) is not dict
+            or not set(value) <= self.field_names
+            or not all(_is_persistable_input(item) for item in value.values())
+        ):
+            raise ExposureError("Persisted form input does not match its declaration")
+        data = obj.__dict__.get("form_data")
+        if type(data) is not dict:
+            data = {}
+            obj.form_data = data
+        data.update(value)
+
+
+def persisted_form_input(*field_names: str) -> Any:
+    """Opt named form fields into server persistence under the explicit policy.
+
+    ADR-038 D-e: form input and errors are not persisted by default. Declare
+    ``form_input = persisted_form_input("name", "email")`` on a ``FormMixin``
+    view to restore those fields' input across reconnect and HTTP POST;
+    every other field, all errors and ``is_valid`` reset to their mount
+    values. A field with a ``PasswordInput`` widget or a sensitive name can
+    never be listed: that is an ``ExposureConfigurationError`` when the class
+    is defined (static ``form_class``) or mounted (``get_form_class()``).
+    Like any ``state()`` grant, it requires ``exposure_policy = "explicit"``.
+    """
+    names = frozenset(field_names)
+    if not names or any(type(name) is not str or not name for name in field_names):
+        raise ExposureConfigurationError("persisted_form_input() requires form field names")
+    return PersistedFormInput(names)
+
+
+def _persisted_form_inputs(view_class: type) -> List[PersistedFormInput]:
+    """Declarations visible on the class, read from class dictionaries only."""
+    found: List[PersistedFormInput] = []
+    seen: set = set()
+    for owner in view_class.__mro__:
+        for name, declaration in namespace(owner).items():  # #3151
+            if name in seen:
+                continue
+            seen.add(name)
+            if isinstance(declaration, PersistedFormInput):
+                found.append(declaration)
+    return found
+
+
+def _check_persisted_form_input(view_class: type, form_class: Optional[Type[forms.Form]]) -> None:
+    """Refuse an opt-in that names a sensitive, unknown or reserved field."""
+    declarations = _persisted_form_inputs(view_class)
+    if not declarations:
+        return
+    for declaration in declarations:
+        if declaration.public_name in FormMixin._djust_injects_context:
+            raise ExposureConfigurationError(
+                "persisted_form_input() cannot be assigned to a FormMixin context name"
+            )
+    if form_class is None:
+        return
+    fields = form_class.base_fields
+    for declaration in declarations:
+        for name in declaration.field_names:
+            field = fields.get(name)
+            if field is None:
+                raise ExposureConfigurationError(
+                    "persisted_form_input() names a field the form does not define"
+                )
+            if is_sensitive_form_field(name, field):
+                raise ExposureConfigurationError(
+                    "persisted_form_input() cannot persist a password or sensitive form field"
+                )
+
+
+def _bound_initial(form: Any, name: str, field: Any) -> Any:
+    """The raw initial value of a field (see :func:`initial_field_value`), withholding nothing."""
+    # ``BoundField.initial`` is ``get_initial_for_field`` cached on the form's
+    # bound field, so a callable initial is called once per form and the form
+    # instance renders the same value this returns.
+    initial = field.prepare_value(form[name].initial)
+    return "" if initial is None else initial
 
 
 def initial_field_value(form: Any, name: str, field: Any) -> Any:
@@ -22,11 +206,22 @@ def initial_field_value(form: Any, name: str, field: Any) -> Any:
 
     ``get_initial_for_field`` calls a callable ``initial``
     (``UUIDField(initial=uuid.uuid4)``, ``initial=timezone.now``) instead of
-    returning the function, and lets the form's own ``initial`` win. Only
-    ``None`` becomes ``""``: ``0`` and ``False`` are real initial values.
+    returning the function, and lets the form's own ``initial`` (and a
+    ModelForm's ``instance``) win. ``prepare_value`` then gives the value an
+    unbound ``form[name].value()`` renders: a related object becomes its pk
+    (ADR-035). Only ``None`` becomes ``""``: ``0`` and ``False`` are real
+    initial values.
+
+    A SECRET-LIKE floor field is the exception: its stored value is never seeded
+    (``""``), because what is seeded reaches ``form_data`` and so the live
+    renderers, ``get_state()``, ``get_debug_info()`` and the session snapshot
+    (:func:`djust.serialization.form_field_value_withheld`).
     """
-    initial = form.get_initial_for_field(field, name)
-    return "" if initial is None else initial
+    from .serialization import form_field_value_withheld
+
+    if form_field_value_withheld(form, name, field):
+        return ""
+    return _bound_initial(form, name, field)
 
 
 class FormMixin:
@@ -57,6 +252,8 @@ class FormMixin:
     """
 
     form_class: Optional[Type[forms.Form]] = None
+    initial: Dict[str, Any] = {}
+    prefix: Optional[str] = None
     # Private: non-serializable form object, re-created as needed
     _form_instance: Optional[forms.Form] = None
     _model_instance: Any = None
@@ -95,6 +292,80 @@ class FormMixin:
         }
     )
 
+    # ADR-038 E2-3: under the explicit policy the form keys are a registered,
+    # render-only provider (see FORM_PROVIDER and get_context_data).
+    _djust_context_providers: Tuple[
+        Union[ProviderContract, Callable[[type], ProviderContract]], ...
+    ] = (FORM_PROVIDER,)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # Configuration-time refusal of a sensitive persistence opt-in (D-e).
+        # A dynamic get_form_class() is checked again at mount.
+        _check_persisted_form_input(cls, cls.__dict__.get("form_class") or cls.form_class)
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        """Provide the form's keys to explicit templates; legacy is unchanged."""
+        context: Dict[str, Any] = super().get_context_data(**kwargs)  # type: ignore[misc]  # mixin: LiveView provides get_context_data()
+        from ._exposure import uses_legacy_exposure
+
+        if not uses_legacy_exposure(self):
+            provide_context_items(self, context, FORM_PROVIDER.name, self._explicit_form_context())
+        return context
+
+    def _sensitive_form_field_names(self) -> FrozenSet[str]:
+        form = self._form_instance
+        if form is None and self.get_form_class():
+            form = self.form_instance
+        if form is None:
+            return frozenset()
+        return frozenset(
+            name for name, field in form.fields.items() if is_sensitive_form_field(name, field)
+        )
+
+    def _explicit_form_context(self) -> Dict[str, Any]:
+        """Render values with sensitive fields' input blanked (ADR-038 D-e).
+
+        A sensitive field renders as empty, like Django's ``PasswordInput``
+        (``render_value=False``); an error message that contains a sensitive
+        field's value is replaced by a generic one. Errors themselves render.
+        """
+        form_data: Dict[str, Any] = dict(getattr(self, "form_data", None) or {})
+        sensitive = self._sensitive_form_field_names()
+        secrets: List[str] = []
+        for name in sensitive:
+            value = form_data.get(name)
+            items = value if isinstance(value, (list, tuple)) else [value]
+            secrets.extend(str(item) for item in items if item not in (None, ""))
+            if name in form_data:
+                form_data[name] = ""
+
+        def scrub(messages: Any) -> List[str]:
+            texts = [str(message) for message in messages]
+            return [
+                _REDACTED_FORM_ERROR if any(secret in text for secret in secrets) else text
+                for text in texts
+            ]
+
+        field_errors = {
+            name: scrub(errors)
+            for name, errors in (getattr(self, "field_errors", None) or {}).items()
+        }
+        form_errors = getattr(self, "form_errors", None) or {}
+        if isinstance(form_errors, dict):
+            form_errors = {name: scrub(errors) for name, errors in form_errors.items()}
+        else:
+            form_errors = scrub(form_errors)
+        return {
+            "form_data": form_data,
+            "form_choices": dict(getattr(self, "form_choices", None) or {}),
+            "form_errors": form_errors,
+            "field_errors": field_errors,
+            "is_valid": bool(getattr(self, "is_valid", False)),
+            "success_message": getattr(self, "success_message", ""),
+            "error_message": getattr(self, "error_message", ""),
+        }
+
     def mount(self, request: Any, **kwargs: Any) -> None:
         """Initialize form on view mount"""
         super().mount(request, **kwargs)  # type: ignore[misc]  # mixin: LiveView provides mount()
@@ -111,7 +382,7 @@ class FormMixin:
         self._init_form_state()
 
         # Create initial form instance (private, not serialized)
-        if self.form_class:
+        if self._form_instance is None and self.get_form_class():
             self._form_instance = self._create_form()
 
     def _init_form_state(self) -> None:
@@ -126,24 +397,18 @@ class FormMixin:
         # it doesn't render missing keys as empty, which would clear user input
         self.form_data = {}
         self.form_choices = {}
-        if self.form_class:
-            form = self.form_class()
+        if self.get_form_class():
+            form = self._create_form()
+            self._form_instance = form
             self.form_data = self._initial_form_data(form)
             for field_name, field in form.fields.items():
                 # Expose serializable choices for template iteration
                 if hasattr(field, "choices"):
                     self.form_choices[field_name] = [(str(k), str(v)) for k, v in field.choices]
-
-            # If _model_instance is set and this is a ModelForm, populate from instance
-            if self._model_instance and issubclass(self.form_class, forms.ModelForm):
-                for field_name in form.fields:
-                    if hasattr(self._model_instance, field_name):
-                        val = getattr(self._model_instance, field_name)
-                        if val is not None:
-                            # For FK fields, store the PK not the related object
-                            if hasattr(val, "pk"):
-                                val = val.pk
-                            self.form_data[field_name] = val
+            # ADR-038 D-e: refuse a sensitive opt-in for a dynamic form class.
+            _check_persisted_form_input(type(self), type(form))
+        elif _persisted_form_inputs(type(self)):
+            raise ExposureConfigurationError("persisted_form_input() requires a form class")
 
         self.form_errors = {}
         self.field_errors = {}
@@ -227,7 +492,7 @@ class FormMixin:
     @property
     def form_instance(self) -> Optional[forms.Form]:
         """Access the form instance (re-creates if lost after serialization)."""
-        if self._form_instance is None and self.form_class:
+        if self._form_instance is None and self.get_form_class():
             self._ensure_model_instance()
             self._form_instance = self._create_form()
         return self._form_instance
@@ -237,10 +502,22 @@ class FormMixin:
         self._form_instance = value
 
     def _ensure_model_instance(self) -> None:
-        """Re-hydrate _model_instance from stored PK if lost after WS serialization."""
+        """Re-hydrate _model_instance from stored PK if lost after WS serialization.
+
+        Legacy only. Under ADR-038's explicit policy ``model_pk`` is neither
+        persisted nor rendered, and a raw primary key is never re-resolved with
+        an unscoped ``objects.get``: every restore (reconnect, HTTP POST) runs
+        ``mount()`` first, which must establish ``_model_instance`` through the
+        view's own authorized lookup. ADR-035's managed-object identity is the
+        eventual owner of a persisted model reference.
+        """
         if self._model_instance is not None:
             return
         if not getattr(self, "model_pk", None):
+            return
+        from ._exposure import uses_legacy_exposure
+
+        if not uses_legacy_exposure(self):
             return
         try:
             from django.apps import apps
@@ -256,27 +533,110 @@ class FormMixin:
             )
             self._model_instance = None
 
-    def _create_form(self, data: Optional[Dict[str, Any]] = None) -> forms.Form:
+    def get_form_class(self) -> Optional[Type[forms.Form]]:
+        """Return the configured form class; override for dynamic forms."""
+        return self.form_class
+
+    def get_initial(self) -> Dict[str, Any]:
+        """Return a fresh initial-value mapping, following Django's form hook."""
+        return self.initial.copy()
+
+    def get_prefix(self) -> Optional[str]:
+        """Return the HTML field-name prefix, if configured."""
+        return self.prefix
+
+    def get_form_kwargs(self) -> Dict[str, Any]:
+        """Build form arguments for initial rendering or the current event.
+
+        Event data is supplied by the compatibility bridge, not request.POST.
+        Overrides may add constructor arguments (including authorized files).
         """
-        Create a form instance with optional data.
-
-        Args:
-            data: Form data dictionary
-
-        Returns:
-            Django Form instance
-        """
-        if not self.form_class:
-            raise ValueError("form_class must be set to use FormMixin")
-
-        kwargs: Dict[str, Any] = {}
-        if self._model_instance and issubclass(self.form_class, forms.ModelForm):
+        kwargs: Dict[str, Any] = {"initial": self.get_initial(), "prefix": self.get_prefix()}
+        data = getattr(self, "_form_binding_data", None)
+        if data is not None:
+            kwargs["data"] = data
+        form_class = self.get_form_class()
+        if (
+            self._model_instance is not None
+            and form_class
+            and issubclass(form_class, forms.ModelForm)
+        ):
             kwargs["instance"] = self._model_instance
+        return kwargs
 
-        if data:
-            return self.form_class(data, **kwargs)
-        else:
-            return self.form_class(**kwargs)
+    def get_form(self, form_class: Optional[Type[forms.Form]] = None) -> forms.Form:
+        """Construct a form through the public class, initial, prefix and kwargs hooks."""
+        form_class = form_class or self.get_form_class()
+        if form_class is None:
+            raise ValueError("form_class must be set to use FormMixin")
+        form = form_class(**self.get_form_kwargs())
+        from .serialization import protect_blanked_floor_columns
+
+        # A secret djust draws WITHOUT its stored value would be saved as empty by an untouched
+        # re-post; a disabled form field keeps its initial value (#3797).
+        protect_blanked_floor_columns(form)
+        return form
+
+    def _create_form(self, data: Optional[Dict[str, Any]] = None) -> forms.Form:
+        """Compatibility entry point: existing overrides delegate to public hooks.
+
+        Preserve nested construction and remove transient binding data even when
+        a custom hook raises. An empty mapping deliberately creates a bound form.
+        """
+        had_binding = "_form_binding_data" in self.__dict__
+        previous = self.__dict__.get("_form_binding_data")
+        self._form_binding_data = data
+        try:
+            return self.get_form()
+        finally:
+            if had_binding:
+                self._form_binding_data = previous
+            else:
+                del self._form_binding_data
+
+    def _form_event_field_name(self, name: str) -> str:
+        """Map an HTML-prefixed field name back to reactive form state."""
+        prefix = self.get_prefix()
+        marker = f"{prefix}-" if prefix else ""
+        return name[len(marker) :] if marker and name.startswith(marker) else name
+
+    def _form_event_data(self) -> Dict[str, Any]:
+        """Bind logical state keys using Django's configured HTML prefix."""
+        prefix = self.get_prefix()
+        if not prefix:
+            return self.form_data
+        return {f"{prefix}-{name}": value for name, value in self.form_data.items()}
+
+    def _declared_field_names(self) -> FrozenSet[str]:
+        """The names of the fields the form declares: the keys ``form_data`` holds from mount on, and
+        so not the client's to add (they do not count toward ``max_form_fields``)."""
+        try:
+            form_class = self.get_form_class()
+            return frozenset(getattr(form_class, "base_fields", None) or ())
+        except Exception:  # noqa: BLE001 - a dynamic get_form_class() that needs state: count them
+            return frozenset()
+
+    def _refuse_form_data(self, incoming: Mapping[str, Any]) -> bool:
+        """Refuse *incoming* when merging it into ``form_data`` would take the form past
+        ``max_form_fields`` / ``max_form_data_size`` (#3834). True when refused: nothing of it was
+        stored, the log says so, and the form's errors tell the person using the form. When it is
+        accepted, the refusal message an earlier event left in ``form_errors`` is cleared.
+
+        ``form_data`` outlives the frame that filled it and is bound to the form on every event, so
+        the bound that matters is on what it HOLDS, not on a frame (``max_message_size``)."""
+        message = _form_data_bounds.refusal(
+            getattr(self, "form_data", None), incoming, self._declared_field_names()
+        )
+        if message is None:
+            earlier = self.__dict__.pop("_form_data_refusal", None)
+            if earlier is not None and getattr(self, "form_errors", None) == [earlier]:
+                self.form_errors = {}
+            return False
+        _form_data_bounds.warn(self, message)
+        self._form_data_refusal = message
+        self.is_valid = False
+        self.form_errors = [message]
+        return True
 
     @event_handler
     def validate_field(
@@ -325,19 +685,21 @@ class FormMixin:
         name = field or field_name
         if not name:
             return
-        field_name = name
+        field_name = self._form_event_field_name(name)
 
         # Ensure form state is initialized (defensive check — see #2667)
         self._ensure_form_state()
 
         # Update form data
+        if self._refuse_form_data({field_name: value}):
+            return
         self.form_data[field_name] = value
 
         # Re-hydrate model instance if needed
         self._ensure_model_instance()
 
         # Create form with current data
-        form = self._create_form(self.form_data)
+        form = self._create_form(self._form_event_data())
 
         # Clear previous error for this field
         if field_name in self.field_errors:
@@ -372,7 +734,9 @@ class FormMixin:
 
         except ValidationError as e:
             # Store field error
-            self.field_errors[field_name] = e.messages
+            from .serialization import scrub_error_messages
+
+            self.field_errors[field_name] = scrub_error_messages(form, field_name, e.messages)
 
         # Update form instance
         self._form_instance = form
@@ -388,13 +752,21 @@ class FormMixin:
         self._ensure_form_state()
 
         # Merge kwargs into form_data (for fields submitted with the form)
-        self.form_data.update(kwargs)
+        incoming = {self._form_event_field_name(name): value for name, value in kwargs.items()}
+        if self._refuse_form_data(incoming):
+            return
+        self.form_data.update(incoming)
 
         # Re-hydrate model instance if lost after WS serialization
         self._ensure_model_instance()
 
         # Create form with all data
-        form = self._create_form(self.form_data)
+        form = self._create_form(self._form_event_data())
+        # ``form_data`` holds ``""`` for a withheld secret, so a submission that never typed one must
+        # not save that emptiness over the stored column (an edit form only).
+        from .serialization import keep_withheld_columns_when_blank
+
+        keep_withheld_columns_when_blank(form)
 
         # Validate entire form
         if form.is_valid():
@@ -422,13 +794,21 @@ class FormMixin:
         else:
             self.is_valid = False
 
-            # Store all errors
-            self.field_errors = {field: errors for field, errors in form.errors.items()}
+            # Store all errors (a secret-like field's value-bearing errors made generic)
+            from .serialization import form_errors_without_secret_values
 
-            # Store non-field errors
-            if form.non_field_errors():
-                self.form_errors = form.non_field_errors()
+            safe_errors = form_errors_without_secret_values(form)
+            self.field_errors = {field: errors for field, errors in safe_errors.items()}
 
+            # Store non-field errors (scrubbed the same way)
+            non_field = safe_errors.get("__all__")
+            if non_field:
+                self.form_errors = non_field
+
+            # ``form_invalid(form)`` gets the form, and its own ``errors`` are what a hook renders:
+            # the scrubbed ones, so the stored value is on no path from here on.
+            if safe_errors is not form.errors:
+                form._errors = safe_errors
             self._form_instance = form
 
             # Call form_invalid hook
@@ -442,10 +822,18 @@ class FormMixin:
         reflecting the saved state. For ModelForms, reads from the saved
         instance; for plain forms, reads from cleaned_data.
         """
+        from .serialization import form_withheld_field_names
+
         source = None
         if isinstance(form, forms.ModelForm) and hasattr(form, "instance"):
             source = form.instance
+        # A secret-like field is not synced back: the saved column (or what was typed) must not
+        # land in ``form_data`` and so in the state the framework reports.
+        withheld = form_withheld_field_names(form)
         for field_name in form.fields:
+            if field_name in withheld:
+                self.form_data[field_name] = ""
+                continue
             if source is not None and hasattr(source, field_name):
                 val = getattr(source, field_name)
                 # FK fields: store PK, not the related object
@@ -459,8 +847,17 @@ class FormMixin:
 
     @staticmethod
     def _initial_form_data(form: Any) -> Dict[str, Any]:
-        """Each field's initial value, or ``""`` when it has none."""
-        return {name: initial_field_value(form, name, field) for name, field in form.fields.items()}
+        """Each field's initial value, or ``""`` when it has none or must not be carried.
+
+        The floor is asked once for the whole form, not once per field.
+        """
+        from .serialization import form_withheld_field_names
+
+        withheld = form_withheld_field_names(form)
+        return {
+            name: "" if name in withheld else _bound_initial(form, name, field)
+            for name, field in form.fields.items()
+        }
 
     @event_handler
     def reset_form(self, **kwargs: Any) -> None:
@@ -478,8 +875,10 @@ class FormMixin:
         # Reset form_data with all field keys initialized (matching mount() behavior)
         # This ensures consistent VDOM state and prevents alternating patches/html_update
         self.form_data = {}
-        if self.form_class:
-            self.form_data = self._initial_form_data(self.form_class())
+        if self.get_form_class():
+            form = self._create_form()
+            self._form_instance = form
+            self.form_data = self._initial_form_data(form)
 
         self.form_errors = {}
         self.field_errors = {}
@@ -487,17 +886,69 @@ class FormMixin:
         self.success_message = ""
         self.error_message = ""
 
-        if self.form_class:
-            self._form_instance = self._create_form()
-
         # Signal to WebSocket handler that we need to reset the form on client-side
         # This bypasses VDOM form value preservation
         self._should_reset_form = True
 
     def get_field_value(self, field_name: str, default: Any = "") -> Any:
-        """Get current value for a field"""
+        """Get current value for a field.
+
+        The STORED value of a withheld field is never returned, even if ``form_data`` holds it (state
+        restored from earlier state, or set by the view's own code): the read-time twin of
+        the seeding (:func:`djust.serialization.form_field_value_withheld`). ``as_live_field`` and
+        ``{% live_field %}`` read through here, so the live renderers never print it either. What a
+        person typed into the field is returned as typed.
+        """
         self._ensure_form_state()
-        return self.form_data.get(field_name, default)
+        return self._without_stored_secret(
+            field_name, self.form_data.get(field_name, default), default
+        )
+
+    def _without_stored_secret(self, field_name: str, value: Any, default: Any = "") -> Any:
+        from .serialization import stored_value_withheld
+
+        if not value:
+            return value
+        # The ``form_instance`` property, which rebuilds a form that was lost (it is private and is
+        # not restored): a guard that sees no form guards nothing.
+        if stored_value_withheld(
+            self.form_instance, field_name, value, row_expected=self._stored_row_expected()
+        ):
+            return "" if default is None else default
+        return value
+
+    def _stored_row_expected(self) -> bool:
+        """Does this view say a stored row backs its form? (``model_pk`` is set from the mounted
+        instance; a create view has none, and its typed drafts must survive.)"""
+        return bool(getattr(self, "model_pk", None))
+
+    def _form_class_for_restore(self) -> Any:
+        """The form class whose fields name what a restore must withhold (admin overrides it)."""
+        return self.get_form_class()
+
+    def _djust_scrub_restored(self, key: str, value: Any) -> Any:
+        """Framework hook (``restore_public_state``): a saved ``form_data`` loses its withheld fields.
+
+        A restore writes the saved ``form_data`` over the freshly seeded one, so a withheld field is
+        set back to ``""`` here. Class-level (no form is built, no row is read).
+        """
+        if key != "form_data" or not isinstance(value, dict):
+            return value
+        from .serialization import (
+            _name_is_secret_like,
+            form_class_withheld_field_names,
+            scrub_restored_form_data,
+        )
+
+        try:
+            form_class = self._form_class_for_restore()
+        except Exception:  # noqa: BLE001 - a dynamic form class that needs state this restore lacks
+            logger.debug("[djust] the form class could not be resolved to scrub a restore")
+            form_class = None
+        if form_class is None:
+            # Nothing to ask: refuse every key that looks like a secret, a restore may only lose data.
+            return scrub_restored_form_data(value, {k for k in value if _name_is_secret_like(k)})
+        return scrub_restored_form_data(value, form_class_withheld_field_names(form_class))
 
     def get_field_errors(self, field_name: str) -> List[str]:
         """Get errors for a specific field"""
@@ -603,13 +1054,312 @@ class FormMixin:
         return field_html
 
 
+_ModelT = TypeVar("_ModelT", bound=models.Model)
+
+#: ADR-035 D4: the edit adapter's configuration and framework slots. They are
+#: never inferred template context and never persisted or snapshotted state.
+_MODEL_FORM_CONFIGURATION = frozenset(
+    {
+        "model",
+        "queryset",
+        "pk_url_kwarg",
+        "slug_url_kwarg",
+        "slug_field",
+        "query_pk_and_slug",
+        "context_object_name",
+        "kwargs",
+        "object",
+    }
+)
+
+_MANAGED_OBJECT_PROVIDER = "djust.forms.object"
+
+_RETARGET_MESSAGE = (
+    "self.object can only be replaced by the same record, as in "
+    "`self.object = form.save()`. To edit a different record, navigate to its URL."
+)
+
+
+def _managed_object_provider(view_class: type) -> ProviderContract:
+    """Render-only ``object`` (and the opt-in ``context_object_name``)."""
+    keys = {"object"}
+    alias = getattr(view_class, "context_object_name", None)
+    if alias:
+        keys.add(alias)
+    return ProviderContract(_MANAGED_OBJECT_PROVIDER, rendered=frozenset(keys))
+
+
+class ModelFormMixin(FormMixin, Generic[_ModelT]):
+    """Edit one authorized model instance with a ``ModelForm`` (ADR-035).
+
+    Usage::
+
+        class EditProjectView(ModelFormMixin[Project], LiveView):
+            template_name = "projects/edit.html"
+            model = Project
+            form_class = ProjectForm  # a ModelForm naming its editable fields
+            login_required = True
+
+            def get_queryset(self):
+                return super().get_queryset().filter(owner=self.request.user)
+
+            def has_object_permission(self, request, obj):
+                return obj.owner_id == request.user.pk
+
+            def form_valid(self, form):
+                self.object = form.save()
+                self.success_message = "Saved!"
+
+    The route supplies the lookup (``pk_url_kwarg`` / ``slug_url_kwarg``);
+    ``self.kwargs`` is the route's resolved URL kwargs on every transport, never
+    client mount parameters. Before the form exists, ``mount()`` resolves the
+    object through ``get_queryset()``/``get_object()`` and authorizes it with
+    ``has_object_permission()`` (ADR-017). Every later event resolves and
+    authorizes it again before the form is built. A missing, filtered-out or
+    forbidden object is the same ``PermissionDenied``; nothing is created in
+    its place.
+
+    ``self.object`` is the object authorized for the current dispatch. It
+    renders as ``object`` (plus ``context_object_name``, if set) and is never
+    persisted: only the route identifies the record. It can be replaced by the
+    same record (``self.object = form.save()``); anything else is a
+    ``ValueError``. ``form_valid`` decides whether and how to save.
+    """
+
+    model: Optional[Type[_ModelT]] = None
+    queryset: Optional["models.QuerySet[_ModelT]"] = None
+    pk_url_kwarg: str = "pk"
+    slug_url_kwarg: str = "slug"
+    slug_field: str = "slug"
+    query_pk_and_slug: bool = False
+    context_object_name: Optional[str] = None
+
+    kwargs: Dict[str, Any]
+
+    # The ADR-017 object lifecycle treats "no object" as a denial for this view.
+    _djust_object_required = True
+    _djust_configuration_names = _MODEL_FORM_CONFIGURATION
+    _djust_injects_context = FormMixin._djust_injects_context | frozenset({"object"})
+    _djust_context_providers = (_managed_object_provider,)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Allocated before LiveView records its framework slots, so the legacy
+        # session never mistakes the verdict for user private state.
+        self._djust_authorized_object: Optional[tuple] = None
+        super().__init__(*args, **kwargs)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        for owner in cls.__mro__:
+            if owner is ModelFormMixin:
+                break
+            if "_model_instance" in vars(owner):
+                raise ImproperlyConfigured(
+                    "%s uses ModelFormMixin and _model_instance together. "
+                    "ModelFormMixin resolves self.object from the route; "
+                    "remove _model_instance." % cls.__name__
+                )
+        alias = cls.context_object_name
+        if alias is not None and (
+            type(alias) is not str
+            or not alias.isidentifier()
+            or alias.startswith("_")
+            or alias == "object"
+            or alias in FormMixin._djust_injects_context
+        ):
+            raise ImproperlyConfigured(
+                "%s.context_object_name must be a template name other than "
+                "'object' and the form's own context names." % cls.__name__
+            )
+
+    # -- the managed object --------------------------------------------------
+
+    @property
+    def object(self) -> Optional[_ModelT]:
+        """The object authorized for the current dispatch, or ``None``."""
+        obj: Optional[_ModelT] = self.__dict__.get("_object")
+        return obj
+
+    @object.setter
+    def object(self, value: Optional[_ModelT]) -> None:
+        current = self.__dict__.get("_object")
+        if value is current:
+            return
+        if (
+            current is None
+            or not isinstance(value, models.Model)
+            or value._meta.concrete_model is not current._meta.concrete_model
+            or value.pk is None
+            or value.pk != current.pk
+        ):
+            raise ValueError(_RETARGET_MESSAGE)
+        self._object = value
+
+    def _djust_bind_route_kwargs(self, route_kwargs: Optional[Mapping[str, Any]]) -> None:
+        """Framework hook: the route's resolved kwargs, bound before mount/restore.
+
+        ``None`` means the transport could not resolve this view's own route;
+        the lookup then fails closed.
+        """
+        self.kwargs = dict(route_kwargs) if route_kwargs is not None else {}
+
+    def _djust_route_changed(self, url: str) -> bool:
+        """Whether ``url`` would select a different route (and so object) (#3125).
+
+        A URL change that keeps this view mounted cannot rebind the route, so
+        the runtime answers ``url_change`` to such a URL with a remount there.
+        A URL routed to another view also counts as changed.
+        """
+        from .mixins.navigation import own_route_kwargs
+
+        return own_route_kwargs(self, url) != getattr(self, "kwargs", {})
+
+    def live_patch(
+        self,
+        params: Optional[Dict[str, Any]] = None,
+        path: Optional[str] = None,
+        replace: bool = False,
+    ) -> None:
+        """``live_patch`` that remounts when ``path`` names another record (#3125).
+
+        A patch keeps the view mounted, and the mounted view edits the object
+        its route selected, so a patch to another record's URL would show that
+        URL over the old form. It becomes a ``live_redirect`` instead.
+        """
+        if path is not None and self._djust_route_changed(path):
+            self.live_redirect(path, params=params, replace=replace)  # type: ignore[attr-defined]
+            return
+        super().live_patch(params=params, path=path, replace=replace)  # type: ignore[misc]
+
+    def _djust_render_only_context(self) -> Dict[str, Any]:
+        """The managed object's template names (render-only, never persisted)."""
+        obj = self.object
+        items: Dict[str, Any] = {"object": obj}
+        if self.context_object_name:
+            items[self.context_object_name] = obj
+        return items
+
+    def _djust_render_only_context_keys(self) -> FrozenSet[str]:
+        # Chain: a mixin after this one in the MRO (``TenantMixin``'s tenant
+        # key, #3328) declares render-only keys too, and would be hidden.
+        parent = getattr(super(), "_djust_render_only_context_keys", None)
+        keys = set(parent()) if callable(parent) else set()
+        keys.update(self._djust_render_only_context())
+        return frozenset(keys)
+
+    # -- Django's single-object vocabulary -----------------------------------
+
+    def get_queryset(self) -> "models.QuerySet[_ModelT]":
+        """A fresh queryset from ``queryset`` or ``model``."""
+        if self.queryset is not None:
+            return self.queryset.all()
+        if self.model is not None:
+            return self.model._default_manager.all()
+        raise ImproperlyConfigured(
+            "%(cls)s is missing a QuerySet. Define %(cls)s.model, %(cls)s.queryset, "
+            "or override %(cls)s.get_queryset()." % {"cls": type(self).__name__}
+        )
+
+    def get_slug_field(self) -> str:
+        """The model field a route slug is matched against."""
+        return self.slug_field
+
+    def get_object(self, queryset: Optional["models.QuerySet[_ModelT]"] = None) -> _ModelT:
+        """Look up the route's record in ``queryset`` (default ``get_queryset()``).
+
+        The result is not authorized by this call; the framework runs
+        ``has_object_permission()`` on it before it becomes ``self.object``.
+        """
+        if queryset is None:
+            queryset = self.get_queryset()
+        route = getattr(self, "kwargs", None) or {}
+        pk = route.get(self.pk_url_kwarg)
+        slug = route.get(self.slug_url_kwarg)
+        if pk is not None:
+            queryset = queryset.filter(pk=pk)
+        if slug is not None and (pk is None or self.query_pk_and_slug):
+            queryset = queryset.filter(**{self.get_slug_field(): slug})
+        if pk is None and slug is None:
+            raise ImproperlyConfigured(
+                "%s must be routed with a %r or %r URL kwarg; client mount "
+                "parameters never select the object."
+                % (type(self).__name__, self.pk_url_kwarg, self.slug_url_kwarg)
+            )
+        try:
+            obj: _ModelT = queryset.get()
+        except queryset.model.DoesNotExist:
+            raise Http404("No object matches the route")
+        return obj
+
+    # -- lifecycle -----------------------------------------------------------
+
+    def mount(self, request: Any, **kwargs: Any) -> None:
+        """Resolve and authorize the object, then build the form around it."""
+        if self._model_instance is not None:
+            raise ImproperlyConfigured(
+                "%s sets _model_instance; ModelFormMixin resolves self.object from "
+                "the route instead." % type(self).__name__
+            )
+        if "kwargs" not in self.__dict__:
+            # Nothing bound the route: never fall back to the mount parameters.
+            self.kwargs = {}
+        if not self._authorize_object(request):
+            # Denied: no object and no form. The object-permission check that
+            # follows mount on every transport reports the denial.
+            return
+        super().mount(request, **kwargs)
+
+    def _authorize_object(self, request: Any) -> bool:
+        from .auth.core import enforce_object_permission
+
+        self._djust_authorized_object = None
+        try:
+            enforce_object_permission(self, request)
+        except PermissionDenied:
+            self._object = None
+            self._djust_authorized_object = (request, None)
+            return False
+        self._djust_authorized_object = (request, self._object)
+        return True
+
+    def get_form(self, form_class: Optional[Type[forms.Form]] = None) -> forms.Form:
+        form_class = form_class or self.get_form_class()
+        if form_class is None or not issubclass(form_class, forms.ModelForm):
+            raise ImproperlyConfigured(
+                "%s.form_class must be a ModelForm that declares its editable fields."
+                % type(self).__name__
+            )
+        return super().get_form(form_class)
+
+    def get_form_kwargs(self) -> Dict[str, Any]:
+        """Bind the authorized object; never construct a form for a new record."""
+        obj = self.object
+        if obj is None:
+            raise PermissionDenied("No authorized object to edit.")
+        kwargs = super().get_form_kwargs()
+        kwargs["instance"] = obj
+        return kwargs
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        from ._exposure import uses_legacy_exposure
+
+        # Legacy views receive these through the attribute walk, before its
+        # model serialization, and drop them from every session save.
+        if not uses_legacy_exposure(self):
+            provide_context_items(
+                self, context, _MANAGED_OBJECT_PROVIDER, self._djust_render_only_context()
+            )
+        return context
+
+
 class LiveViewForm(forms.Form):
     """
     Base form class for LiveView usage.
 
     .. deprecated:: 0.3
         ``LiveViewForm`` adds no functionality over ``forms.Form`` and will
-        be removed no earlier than djust 1.1.0. Use ``django.forms.Form``
+        be removed in djust 2.0.0. Use ``django.forms.Form``
         directly instead.
     """
 
@@ -624,7 +1374,7 @@ class LiveViewForm(forms.Form):
         warn_deprecated(
             "LiveViewForm",
             since="0.3",
-            removed_in="1.1.0",
+            removed_in="2.0.0",
             instead="django.forms.Form",
             stacklevel=5,
         )

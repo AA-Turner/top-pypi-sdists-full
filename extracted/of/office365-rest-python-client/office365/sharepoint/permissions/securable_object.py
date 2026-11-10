@@ -7,8 +7,10 @@ from typing_extensions import Self
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
-from office365.runtime.types.odata_property import odata
+from office365.runtime.schema import TypeSchema
+from office365.runtime.types.odata_property import PERMISSIONS, odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.permissions.base_permissions import BasePermissions
 from office365.sharepoint.permissions.roles.assignments.assignment import RoleAssignment
 from office365.sharepoint.permissions.roles.assignments.collection import (
@@ -38,6 +40,7 @@ class SecurableObject(Entity):
         principal.ensure_property("Id").after_execute(lambda _: _principal_loaded())
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def add_role_assignment(self, principal: Union[Principal, str], role: Union[RoleDefinition, RoleType]) -> Self:
         """Adds a role assignment to securable resource.
 
@@ -62,6 +65,7 @@ class SecurableObject(Entity):
         principal.ensure_property("Id").after_execute(lambda _: _ensure_role_def())
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def remove_role_assignment(self, principal: Principal | str, role_def: RoleDefinition | RoleType) -> Self:
         """Removes a role assignment from a securable resource.
 
@@ -122,6 +126,7 @@ class SecurableObject(Entity):
         """
         return self.remove_role_assignment(principal, role)
 
+    @site_access(SiteLevel.MANAGE)
     def break_role_inheritance(self, copy_role_assignments=True, clear_sub_scopes=True):
         """Creates unique role assignments for the securable object. If the securable object already has
         unique role assignments, the protocol server MUST NOT alter any role assignments.
@@ -154,6 +159,7 @@ class SecurableObject(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def reset_role_inheritance(self) -> Self:
         """Resets the role inheritance for the securable object and inherits role assignments from
         the parent securable object."""
@@ -161,6 +167,7 @@ class SecurableObject(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def get_user_effective_permissions(self, user: str | User) -> ClientResult[BasePermissions]:
         """Returns the user permissions for secured object.
 
@@ -191,15 +198,19 @@ class SecurableObject(Entity):
             _get_user_effective_permissions(user)
         return return_type
 
+    @odata(name="HasUniqueRoleAssignments", readonly=True, facet=PERMISSIONS)
     @property
     def has_unique_role_assignments(self) -> Optional[bool]:
         """Specifies whether the role assignments are uniquely defined for this securable object or inherited from a
         parent securable object. If the value is "false", role assignments are inherited from a parent securable
         object.
+
+        A plain entity read does not return it, so it costs a ``$select``; the service
+        assigns it, so it never travels back in a request.
         """
         return self.properties.get("HasUniqueRoleAssignments", None)
 
-    @odata(name="FirstUniqueAncestorSecurableObject")
+    @odata(name="FirstUniqueAncestorSecurableObject", navigation=True)
     @property
     def first_unique_ancestor_securable_object(self) -> SecurableObject:
         """Specifies the object where role assignments for this object are defined"""
@@ -211,7 +222,7 @@ class SecurableObject(Entity):
             ),
         )
 
-    @odata(name="RoleAssignments")
+    @odata(name="RoleAssignments", navigation=True)
     @property
     def role_assignments(self) -> RoleAssignmentCollection:
         """The role assignments for the securable object."""
@@ -220,7 +231,19 @@ class SecurableObject(Entity):
             RoleAssignmentCollection(self.context, ResourcePath("RoleAssignments", self.resource_path)),
         )
 
+    @site_access(SiteLevel.READ)
+    def get_role_assignments(self) -> RoleAssignmentCollection:
+        """Queue a read of this object's role assignments, each with its member and its role definitions.
+
+        The navigations a reader needs are expanded by the declaration instead of by the
+        caller, and the request is queued like any other: run ``execute_query()`` and read the
+        collection this returns. A securable object that inherits returns its *parent's*
+        assignments, so ask :attr:`has_unique_role_assignments` first when that matters.
+        """
+        return self.role_assignments.expand(TypeSchema.of(RoleAssignment).expansions).get()
+
+    @odata(name="EffectiveBasePermissions", readonly=True, system=True)
     @property
-    def shield_add_role_assignment_pushdown(self) -> Optional[bool]:
-        """Gets the ShieldAddRoleAssignmentPushdown property"""
-        return self.properties.get("ShieldAddRoleAssignmentPushdown", None)
+    def effective_base_permissions(self) -> BasePermissions:
+        """Gets the EffectiveBasePermissions property"""
+        return self.properties.get("EffectiveBasePermissions", BasePermissions())

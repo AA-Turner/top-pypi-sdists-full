@@ -167,7 +167,7 @@ def sync_detailed(
     """Conversations grouped by session
 
      One row per anonymous conversation (``session_id``) with aggregate counters, mirroring the
-    authenticated threads table. Honours the same filters as the list endpoint. Read a conversation's
+    authenticated threads table. Honors the same filters as the list endpoint. Read a conversation's
     transcript via ``by-session/{session_id}``.
 
     Args:
@@ -257,7 +257,7 @@ def sync(
     """Conversations grouped by session
 
      One row per anonymous conversation (``session_id``) with aggregate counters, mirroring the
-    authenticated threads table. Honours the same filters as the list endpoint. Read a conversation's
+    authenticated threads table. Honors the same filters as the list endpoint. Read a conversation's
     transcript via ``by-session/{session_id}``.
 
     Args:
@@ -342,7 +342,7 @@ async def asyncio_detailed(
     """Conversations grouped by session
 
      One row per anonymous conversation (``session_id``) with aggregate counters, mirroring the
-    authenticated threads table. Honours the same filters as the list endpoint. Read a conversation's
+    authenticated threads table. Honors the same filters as the list endpoint. Read a conversation's
     transcript via ``by-session/{session_id}``.
 
     Args:
@@ -430,7 +430,7 @@ async def asyncio(
     """Conversations grouped by session
 
      One row per anonymous conversation (``session_id``) with aggregate counters, mirroring the
-    authenticated threads table. Honours the same filters as the list endpoint. Read a conversation's
+    authenticated threads table. Honors the same filters as the list endpoint. Read a conversation's
     transcript via ``by-session/{session_id}``.
 
     Args:

@@ -12,14 +12,16 @@ try:
     # Used for tf.data.
     import tensorflow as tf
 except ImportError:
-    warn("""The umap.parametric_umap package requires Tensorflow > 2.0 to be installed.
+    warn(
+        """The umap.parametric_umap package requires Tensorflow > 2.0 to be installed.
     You can install Tensorflow at https://www.tensorflow.org/install
     
     or you can install the CPU version of Tensorflow using 
 
     pip install umap-learn[parametric_umap]
 
-    """)
+    """
+    )
     raise ImportError("umap.parametric_umap requires Tensorflow >= 2.0") from None
 
 try:
@@ -131,9 +133,10 @@ class ParametricUMAP(UMAP):
         # (different than n_epochs which is specific to each sample)
         self.n_training_epochs = 1
 
-        # Set optimizer.
+        # Keras optimizer for training the network (``self.optimizer`` is the
+        # UMAP layout optimizer parameter, which ParametricUMAP does not use).
         # Adam is better for parametric_embedding. Use gradient clipping by value.
-        self.optimizer = keras.optimizers.Adam(1e-3, clipvalue=4.0)
+        self.keras_optimizer = keras.optimizers.Adam(1e-3, clipvalue=4.0)
 
         if self.encoder is not None:
             if encoder.outputs[0].shape[-1] != self.n_components:
@@ -179,8 +182,7 @@ class ParametricUMAP(UMAP):
             nan_array = np.empty(self.n_components)
             nan_array.fill(np.nan)
             landmark_positions = np.stack(
-                [nan_array] * X.shape[0]
-                + list(self.transform(self.prev_epoch_X))
+                [nan_array] * X.shape[0] + list(self.transform(self.prev_epoch_X))
             )
             X = np.concatenate((X, self.prev_epoch_X))
 
@@ -188,13 +190,17 @@ class ParametricUMAP(UMAP):
             len_X = len(X)
             len_land = len(landmark_positions)
             if len_X != len_land:
-                raise ValueError(f"Length of x = {len_X}, length of landmark_positions \
-                    = {len_land}, while it must be equal.")
+                raise ValueError(
+                    f"Length of x = {len_X}, length of landmark_positions \
+                    = {len_land}, while it must be equal."
+                )
 
         if self.metric == "precomputed":
             if precomputed_distances is None:
-                raise ValueError("Precomputed distances must be supplied if metric \
-                    is precomputed.")
+                raise ValueError(
+                    "Precomputed distances must be supplied if metric \
+                    is precomputed."
+                )
             # prepare X for training the network
             self._X = X
             # geneate the graph on precomputed distances
@@ -240,8 +246,7 @@ class ParametricUMAP(UMAP):
             nan_array = np.empty(self.n_components)
             nan_array.fill(np.nan)
             landmark_positions = np.stack(
-                [nan_array] * X.shape[0]
-                + list(self.transform(self.prev_epoch_X))
+                [nan_array] * X.shape[0] + list(self.transform(self.prev_epoch_X))
             )
             X = np.concatenate((X, self.prev_epoch_X))
 
@@ -249,13 +254,17 @@ class ParametricUMAP(UMAP):
             len_X = len(X)
             len_land = len(landmark_positions)
             if len_X != len_land:
-                raise ValueError(f"Length of x = {len_X}, length of landmark_positions \
-                    = {len_land}, while it must be equal.")
+                raise ValueError(
+                    f"Length of x = {len_X}, length of landmark_positions \
+                    = {len_land}, while it must be equal."
+                )
 
         if self.metric == "precomputed":
             if precomputed_distances is None:
-                raise ValueError("Precomputed distances must be supplied if metric \
-                    is precomputed.")
+                raise ValueError(
+                    "Precomputed distances must be supplied if metric \
+                    is precomputed."
+                )
             # prepare X for training the network
             self._X = X
             # generate the graph on precomputed distances
@@ -327,7 +336,8 @@ class ParametricUMAP(UMAP):
             autoencoder_loss=self.autoencoder_loss,
             landmark_loss_fn=self.landmark_loss_fn,
             landmark_loss_weight=self.landmark_loss_weight,
-            optimizer=self.optimizer,
+            # Not pickled; UMAPModel creates a fresh Adam when it is missing.
+            optimizer=getattr(self, "keras_optimizer", None),
         )
 
     def _fit_embed_data(self, X, n_epochs, init, random_state, landmark_positions=None):
@@ -442,7 +452,9 @@ class ParametricUMAP(UMAP):
                 self._history[key] += history.history[key]
 
         # get the final embedding
-        embedding = self.encoder.predict(X, verbose=self.verbose)
+        embedding = self.encoder.predict(
+            X, batch_size=self.batch_size, verbose=self.verbose
+        )
 
         return embedding, {}
 
@@ -452,7 +464,8 @@ class ParametricUMAP(UMAP):
             (k, v)
             for (k, v) in self.__dict__.items()
             if should_pickle(k, v)
-            and k not in ("optimizer", "encoder", "decoder", "parametric_model")
+            and k
+            not in ("keras_optimizer", "encoder", "decoder", "parametric_model")
         )
 
     def save(self, save_location, verbose=True, exclude_raw_data=False):
@@ -696,6 +709,14 @@ def init_embedding_from_graph(
                 embedding = init_data
 
     return embedding
+
+
+def _distance(x, y):
+    # The epsilon keeps the gradient finite where x == y.
+    # A bare norm has a 0/0 gradient at zero distance.
+    # Keras 3 enables XLA by default when GPU is present,
+    # and XLA returns 0/0 gradient as NaN rather than 0.
+    return ops.sqrt(ops.sum((x - y) ** 2, axis=1) + 1e-12)
 
 
 def convert_distance_to_log_probability(distances, a=1.0, b=1.0):
@@ -1100,12 +1121,8 @@ class StopGradient(keras.layers.Layer):
 
 
 def _default_landmark_loss(y, y_pred):
-    # Euclidean distance between points.
-    # Use sqrt(sum_sq + eps) instead of norm to avoid NaN gradient at zero.
     # Relu activation smooths gradients.
-    sq_diff = ops.sum((y_pred - y) ** 2, axis=1)
-    safe_dist = ops.sqrt(sq_diff + 1e-10)
-    return keras.activations.relu(ops.mean(safe_dist))
+    return keras.activations.relu(ops.mean(_distance(y_pred, y)))
 
 
 class UMAPModel(keras.Model):
@@ -1223,8 +1240,8 @@ class UMAPModel(keras.Model):
         #  distances between samples (and negative samples)
         distance_embedding = ops.concatenate(
             [
-                ops.norm(embedding_to - embedding_from, axis=1),
-                ops.norm(embedding_neg_to - embedding_neg_from, axis=1),
+                _distance(embedding_to, embedding_from),
+                _distance(embedding_neg_to, embedding_neg_from),
             ],
             axis=0,
         )
@@ -1269,8 +1286,8 @@ class UMAPModel(keras.Model):
         x = ops.clip(x, -10, 10)
         z_x = ops.clip(z_x, -10, 10)
 
-        dx = ops.norm(x[1:] - x[:-1], axis=1)
-        dz = ops.norm(z_x[1:] - z_x[:-1], axis=1)
+        dx = _distance(x[1:], x[:-1])
+        dz = _distance(z_x[1:], z_x[:-1])
 
         # jitter dz to prevent mode collapse
         dz = dz + keras.random.uniform(dz.shape, seed=self.seed_generator) * 1e-10

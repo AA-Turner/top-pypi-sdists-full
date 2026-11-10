@@ -33,6 +33,7 @@ from .literals import (
     ExpirationStatusType,
     FormatType,
     GranteeTypeType,
+    InstanceScopeType,
     JobManifestFieldNameType,
     JobManifestFormatType,
     JobReportScopeType,
@@ -742,6 +743,7 @@ class GetDataAccessRequestTypeDef(TypedDict):
     Privilege: NotRequired[PrivilegeType]
     TargetType: NotRequired[Literal["Object"]]
     AuditContext: NotRequired[str]
+    InstanceScope: NotRequired[InstanceScopeType]
 
 class GetJobTaggingRequestTypeDef(TypedDict):
     AccountId: str
@@ -927,6 +929,7 @@ class ListCallerAccessGrantsEntryTypeDef(TypedDict):
     Permission: NotRequired[PermissionType]
     GrantScope: NotRequired[str]
     ApplicationArn: NotRequired[str]
+    AccessGrantsInstanceArn: NotRequired[str]
 
 class ListCallerAccessGrantsRequestTypeDef(TypedDict):
     AccountId: str
@@ -934,6 +937,7 @@ class ListCallerAccessGrantsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     AllowedByApplication: NotRequired[bool]
+    InstanceScope: NotRequired[InstanceScopeType]
 
 class ListJobsRequestTypeDef(TypedDict):
     AccountId: str
@@ -1440,6 +1444,7 @@ class GetDataAccessResultTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
     MatchedGrantTarget: str
     Grantee: GranteeTypeDef
+    MatchedInstanceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GeneratedManifestEncryptionOutputTypeDef(TypedDict):
@@ -1549,6 +1554,7 @@ class ListCallerAccessGrantsRequestPaginateTypeDef(TypedDict):
     AccountId: str
     GrantScope: NotRequired[str]
     AllowedByApplication: NotRequired[bool]
+    InstanceScope: NotRequired[InstanceScopeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCallerAccessGrantsResultTypeDef(TypedDict):

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class CloudClipboardItemPayload(ClientValue):
     content: str | None = None
     formatName: str | None = None

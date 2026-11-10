@@ -10,7 +10,7 @@
 #include "convertors/generic_to_py.h"
 #include "convertors/generic_from_py.h"
 
-extern py::object PyTango_DevFailed;
+extern py::handle PyTango_DevFailed;
 
 PYBIND11_MAKE_OPAQUE(StdStringVector)
 PYBIND11_MAKE_OPAQUE(StdLongVector)
@@ -60,14 +60,7 @@ bool generic_sequence_caster_load(py::handle &src, CorbaContainerType &result) {
         return false;
     }
 
-    py::list py_list;
-    try {
-        py_list = py::reinterpret_borrow<py::list>(src);
-    } catch(const py::cast_error &) {
-        return false; // Cannot cast to list
-    }
-
-    python_seq_to_tango(py_list, result);
+    python_seq_to_tango(py::reinterpret_borrow<py::sequence>(src), result);
     return true;
 }
 
@@ -262,10 +255,8 @@ struct type_caster<CORBA::String_member> {
     PYBIND11_TYPE_CASTER(CORBA::String_member, _("str"));
 
     bool load(handle src, bool) {
-        char *new_value = nullptr;
-        python_scalar_to_cpp<Tango::DEV_STRING>::convert(py::reinterpret_borrow<py::object>(src), new_value);
-        value = CORBA::string_dup(new_value);
-        delete[] new_value;
+        TangoScalar<Tango::DEV_STRING> new_value(py::reinterpret_borrow<py::object>(src));
+        value = CORBA::string_dup(new_value.get());
         return true;
     }
 
@@ -281,10 +272,8 @@ struct type_caster<_CORBA_String_element> {
     PYBIND11_TYPE_CASTER(_CORBA_String_element, _("str"));
 
     bool load(handle src, bool) {
-        char *new_value = nullptr;
-        python_scalar_to_cpp<Tango::DEV_STRING>::convert(py::reinterpret_borrow<py::object>(src), new_value);
-        value = CORBA::string_dup(new_value);
-        delete[] new_value;
+        TangoScalar<Tango::DEV_STRING> new_value(py::reinterpret_borrow<py::object>(src));
+        value = CORBA::string_dup(new_value.get());
         return true;
     }
 

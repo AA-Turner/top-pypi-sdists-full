@@ -20,6 +20,9 @@ _SC_HOST_NAME = "x-vercel-sc-host"
 _SC_BASEPATH_NAME = "x-vercel-sc-basepath"
 _SC_PROTOCOL_NAME = "x-vercel-sc-protocol"
 _SC_RUNTIME_CACHE_NAME = "x-vercel-sc-runtime-cache"
+# Anything other than a bare scheme would be interpolated into the URL and
+# could redirect the Authorization header to another host (VULN-16686).
+_SC_ALLOWED_PROTOCOLS: frozenset[str] = frozenset({"http", "https"})
 
 # If this header is set, then we should strip some extra headers
 # before passing them to the client code
@@ -174,5 +177,5 @@ def _build_endpoint(
     basepath: str | None,
     protocol: str | None,
 ) -> str:
-    proto = protocol or "https"
+    proto = protocol if protocol in _SC_ALLOWED_PROTOCOLS else "https"
     return f"{proto}://{host}{basepath or ''}/v1/suspense-cache/"

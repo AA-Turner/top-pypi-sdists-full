@@ -5,16 +5,16 @@ placement bounds, not a regional replacement for the original library. Exact
 CIGAR and sequence evidence is assessed by the existing reconstruction layers.
 """
 
+import errno
+import json
+import sqlite3
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass
-import errno
 from hashlib import sha256
-import json
 from os import fsdecode
 from pathlib import Path
-import sqlite3
 from tempfile import TemporaryDirectory
 from typing import Any
 
@@ -22,10 +22,10 @@ import pysam
 from varcode import ContigResolver
 
 from .audit_bundle import software_identity
+from .contig_resolution import resolve_reference_contig
 from .read_collector import ReadCollector
 from .read_identity import segment_identity
 from .rna_evidence import canonical_json, content_identifier
-
 
 Fragment = tuple[str, str]
 Segment = tuple[str, str, int]
@@ -370,7 +370,7 @@ class RnaLibraryIndex(Mapping[Segment, list[pysam.AlignedSegment]]):
             for contig, start, end in regions or ():
                 if type(start) is not int or type(end) is not int or not 0 <= start < end:
                     raise ValueError("RNA index queries require nonnegative half-open integer intervals")
-                resolution = self.resolver.resolve(contig)
+                resolution = resolve_reference_contig(self.resolver, contig)
                 if resolution.resolved_name is None:
                     raise ValueError(resolution.diagnostic)
                 reference = self.reader.get_tid(resolution.resolved_name)
@@ -421,10 +421,36 @@ class RnaLibraryIndex(Mapping[Segment, list[pysam.AlignedSegment]]):
 
 
 @contextmanager
-def _original_library_context(bam: pysam.AlignmentFile, collector: ReadCollector, directory: str | Path, *,
+def original_library_context(bam: pysam.AlignmentFile, collector: ReadCollector, directory: str | Path, *,
                               library_index: RnaLibraryIndex | None, reference_name: str | None,
                               read_filter_identity: str | None) -> Iterator[RnaLibraryIndex]:
-    """Use the same original-template index for persistent and private contexts."""
+    """Open or validate the original-library index used by RNA path workflows.
+
+    Parameters
+    ----------
+    bam : pysam.AlignmentFile
+        Original alignment input; SAM/CRAM may be copied into temporary BAM.
+    collector : ReadCollector
+        Explicit read/end policy, applied to original alignments.
+    directory : path-like
+        Disposable directory for a private source/index when none is supplied.
+    library_index : RnaLibraryIndex or None
+        Caller-owned open index to validate and reuse; never closed here.
+    reference_name : str or None
+        Declared reference context; conflicting supplied contexts are rejected.
+    read_filter_identity : str or None
+        Stable identity for custom eligibility when reusing persistent indexes.
+
+    Returns
+    -------
+    context manager of RnaLibraryIndex
+        Validated original-template access for the context lifetime.
+
+    Notes
+    -----
+    Source identity, reference context and eligibility are validated before
+    reuse. Temporary indexes are owned by this context; supplied indexes are not.
+    """
     if library_index is not None:
         if not isinstance(library_index, RnaLibraryIndex):
             raise TypeError('library_index must be an open RnaLibraryIndex context')

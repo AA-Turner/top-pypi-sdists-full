@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cuid2
-Version: 2.2.1
+Version: 3.0.0
 Summary: Next generation GUIDs. Collision-resistant ids optimized for horizontal scaling and performance.
 Keywords: crypt,security,uuid,guid,cuid,cryptography
 Author: Will Gordon
@@ -11,7 +11,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -20,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Topic :: Security :: Cryptography
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: repository, https://github.com/gordon-code/cuid2/
 Project-URL: Changelog, https://github.com/gordon-code/cuid2/blob/main/CHANGELOG.md
 Project-URL: Issues, https://github.com/gordon-code/cuid2/issues
@@ -28,7 +27,7 @@ Description-Content-Type: text/markdown
 
 # cuid2
 
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://pypi.org/project/cuid2/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://pypi.org/project/cuid2/)
 [![PyPi](https://img.shields.io/pypi/v/cuid2.svg)](https://pypi.org/project/cuid2/)
 [![PyPi](https://img.shields.io/pypi/dm/cuid2.svg)](https://pypi.org/project/cuid2/)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/gordon-code/cuid2/badge)](https://scorecard.dev/viewer/?uri=github.com/gordon-code/cuid2)
@@ -105,6 +104,8 @@ short_cuid: str = create_id(length=10)
 print(is_cuid(my_cuid))  # True
 ```
 
+The CUID2 specification allows lengths 2..32 (`MIN_LENGTH` to `BIG_LENGTH`); lengths outside `2..32` raise `ValueError` (and exit with code 2 on the CLI).
+
 > **Tip for Django & ORM defaults:** Pass `default=create_id` directly on model fields (e.g., `models.CharField(max_length=24, default=create_id)`). Because `create_id` is a top-level function backed by a lazy singleton generator, Django `makemigrations` can serialize it directly and `Cuid()` initialization is deferred until the first ID is generated in each worker process.
 
 You can also generate and validate CUIDs directly in the terminal:
@@ -151,7 +152,7 @@ def main() -> None:
 ```
 
 `is_cuid` (and `Cuid.is_cuid`) also accepts optional `min_length` and `max_length` arguments to tighten the allowed length.
-The bounds are clamped to 2 and 98 characters, so they can narrow but never widen what is considered valid.
+The bounds are clamped to 2 and 32 characters (`MIN_LENGTH` and `BIG_LENGTH`), so they can narrow but never widen what is considered valid.
 
 ## Changelog
 

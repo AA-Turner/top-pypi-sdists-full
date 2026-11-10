@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prowler
-Version: 5.47.0
+Version: 5.48.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
@@ -69,7 +69,7 @@ Requires-Dist: defusedxml==0.7.1
 Requires-Dist: dulwich==1.2.9
 Requires-Dist: google-api-python-client==2.163.0
 Requires-Dist: google-auth-httplib2==0.2.0
-Requires-Dist: h2==4.3.0
+Requires-Dist: h2==4.4.1
 Requires-Dist: huaweicloudsdkcore==3.1.204
 Requires-Dist: huaweicloudsdkcts==3.1.204
 Requires-Dist: huaweicloudsdkecs==3.1.204
@@ -82,7 +82,7 @@ Requires-Dist: huaweicloudsdkrds==3.1.204
 Requires-Dist: huaweicloudsdksmn==3.1.204
 Requires-Dist: huaweicloudsdkvpc==3.1.204
 Requires-Dist: huaweicloudsdkwaf==3.1.204
-Requires-Dist: jsonschema==4.23.0
+Requires-Dist: jsonschema==4.26.0
 Requires-Dist: kingfisher-bin==1.104.0
 Requires-Dist: kubernetes==32.0.1
 Requires-Dist: linode-api4==5.45.0
@@ -252,7 +252,7 @@ Every AWS provider scan will enqueue an Attack Paths ingestion job automatically
 | M365 | 144 | 10 | 9 | 10 | Official | UI, API, CLI |
 | OCI | 52 | 14 | 5 | 10 | Official | UI, API, CLI |
 | Alibaba Cloud | 63 | 9 | 6 | 9 | Official | UI, API, CLI |
-| Cloudflare | 29 | 3 | 2 | 5 | Official | UI, API, CLI |
+| Cloudflare | 43 | 5 | 3 | 9 | Official | UI, API, CLI |
 | IaC | [See `trivy` docs.](https://trivy.dev/latest/docs/coverage/iac/) | N/A | N/A | N/A | Official | UI, API, CLI |
 | MongoDB Atlas | 10 | 3 | 1 | 8 | Official | UI, API, CLI |
 | LLM | [See `promptfoo` docs.](https://www.promptfoo.dev/docs/red-team/plugins/) | N/A | N/A | N/A | Official | CLI |

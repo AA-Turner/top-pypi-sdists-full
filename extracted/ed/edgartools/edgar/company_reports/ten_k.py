@@ -1,6 +1,5 @@
 """Form 10-K annual report class."""
 import re
-import warnings
 from functools import cached_property
 
 from rich import box
@@ -11,12 +10,9 @@ from rich.tree import Tree
 
 from edgar.company_reports._base import CompanyReport, report_lookup_miss
 from edgar.company_reports._structures import FilingStructure, item_sort_key
-from edgar.core import log
 from edgar.display.formatting import datefmt
 from edgar.documents import HTMLParser, ParserConfig, parse_html
 from edgar.documents.form_schema import TEN_K_FRIENDLY_ITEMS
-from edgar.exceptions import strict_errors_enabled
-from edgar.files.htmltools import ChunkedDocument
 
 __all__ = ['TenK']
 
@@ -213,48 +209,20 @@ class TenK(CompanyReport):
             Document object from edgar.documents module with sections property,
             or None when the filing has no HTML document at all — a real
             condition for older 10-Ks filed as plain text, and the only thing
-            None means here from 6.0 onwards.
+            None means here.
 
-            Today None also comes back when the parser *failed*, with a
-            FutureWarning; in 6.0 that raises instead. Two very different facts
-            were arriving as the same value: "this filing has no HTML" and "this
-            filing has HTML we could not read". Every sibling report class
-            (TenQ, TwentyF, FortyF, CurrentReport) already lets a parse failure
-            propagate — this one was the outlier.
-
-            Set EDGARTOOLS_STRICT_ERRORS=1 for the 6.0 behaviour now.
+        Raises:
+            ParsingError: the filing has HTML the parser could not read. In 5.x
+                this was a FutureWarning and None (edgartools-07lk.10), the same
+                value as "this filing has no HTML"; every sibling report class
+                (TenQ, TwentyF, FortyF, CurrentReport) already let it propagate.
         """
         html = self._filing.html()
         if not html:
             return None
         config = ParserConfig(form='10-K')
         parser = HTMLParser(config)
-        try:
-            return parser.parse(html)
-        except Exception as e:
-            # Deliberately not warn_will_raise(): what 6.0 does here is let the
-            # parser's own ParsingError through, and a bare `raise` keeps its
-            # type, message and traceback. Building a fresh error to raise would
-            # replace a specific diagnosis with a generic one.
-            if strict_errors_enabled():
-                raise
-            # Which filing failed, and why, goes to the log: naming it in the
-            # warning would put the accession in the text Python dedups on, and
-            # a parser regression across a form-year would then warn once per
-            # filing. The warning dedups on the failure *mode* instead, which is
-            # a bounded set — see warn_will_raise in edgar/exceptions.py.
-            log.warning("HTMLParser failed for 10-K filing %s: %s",
-                        self._filing.accession_number, e)
-            warnings.warn(
-                f"HTMLParser raised {type(e).__name__} on a 10-K "
-                f"(falling back to ChunkedDocument); the filing and the parser "
-                f"message are in the log.\n"
-                f"This returns None today and raises in edgartools 6.0. Set "
-                f"EDGARTOOLS_STRICT_ERRORS=1 to get the 6.0 behaviour now.",
-                FutureWarning,
-                stacklevel=2
-            )
-            return None
+        return parser.parse(html)
 
     @property
     def sections(self):
@@ -281,8 +249,7 @@ class TenK(CompanyReport):
         """
         List of detected item names in standard "Item X" format.
 
-        Uses new parser's section detection for improved accuracy.
-        Falls back to old chunked_document if new parser returns no sections.
+        Uses the parser's section detection.
 
         Returns:
             List of unique item titles in canonical SEC order
@@ -375,13 +342,6 @@ class TenK(CompanyReport):
                 subs = parse_subsidiaries(content)
                 return SubsidiaryList(subs)
         return None
-
-    @cached_property
-    def _chunked_document(self):
-        # Construction only — the deprecation lives on the public
-        # `chunked_document` in CompanyReport. Overriding that one here is what
-        # previously cost TenK users their warning entirely.
-        return ChunkedDocument(self._filing.html(), prefix_src=self._filing.base_dir)
 
     @cached_property
     def _cross_reference_index(self):
@@ -545,7 +505,7 @@ class TenK(CompanyReport):
         - Short format: '1', '1A', '7', '7A'
         - Friendly names: 'business', 'risk_factors', 'mda'
 
-        Falls back to old chunked_document and Cross Reference Index for backward compatibility.
+        Falls back to the Cross Reference Index for filings that use one.
 
         Args:
             item_or_part: Section identifier in various formats
@@ -670,7 +630,7 @@ class TenK(CompanyReport):
                         if text and text.strip():
                             return text
 
-        # If Cross Reference Index format is detected, prefer it over chunked_document
+        # If Cross Reference Index format is detected, use it
         # (Some filings like GE, Henry Schein use Cross Reference Index - issue #107)
         if self._cross_reference_index is not None:
             item_id = _CROSS_REF_ITEM_MAP.get(item_or_part)

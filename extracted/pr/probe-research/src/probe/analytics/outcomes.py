@@ -179,6 +179,46 @@ class UninstallOutcome(StrEnum):
 
     REMOVED = "removed"
     DECLINED = "declined"
+    #: Refused or stopped partway (`probe uninstall`'s `Stop`): its own `reason` rides along.
+    STOPPED = "stopped"
+
+
+class AgentRunOutcome(StrEnum):
+    """How an agent's install command ended (`sign-in --wait`, `install`), from its `reason`."""
+
+    SUCCESS = "success"
+    #: Exit 75: the agent runs the same command again (waiting_for_approval, downloading, setup_busy, ...).
+    RUN_AGAIN = "run_again"
+    FAILED = "failed"
+
+
+class InstallSettings(StrEnum):
+    """`agent_install.configured`'s `settings`: what the person answered "Install settings" with."""
+
+    RECOMMENDED = "recommended"
+    #: Let me pick: who files the work and new chats' default, each given.
+    PICKED = "picked"
+    #: Neither: a re-run or a switch that keeps this computer's own settings.
+    KEPT = "kept"
+
+
+class SwitchTrigger(StrEnum):
+    """`session.switched`'s `trigger`: what moved the switch (probe auto mode)."""
+
+    #: The agent ran the command after the person asked (`--directed`: `probe session state`, `session default`, ...).
+    AGENT = "agent"
+    #: The agent moved an auto chat's switch on its own, by the work (`probe session state` in auto mode).
+    AUTO = "auto"
+    #: A run launched through Probe turned an auto chat on (`probe exec`, `run start`, the SDK).
+    RUN_LAUNCH = "run_launch"
+
+
+class RepairOutcome(StrEnum):
+    """`repair.finished`'s `outcome`: `probe repair`'s exit 0, 1 and 2."""
+
+    COMPLETE = "complete"
+    INCOMPLETE = "incomplete"
+    REFUSED = "refused"
 
 
 class ImportJobStall(StrEnum):

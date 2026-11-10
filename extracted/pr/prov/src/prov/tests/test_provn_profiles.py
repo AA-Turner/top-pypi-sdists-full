@@ -15,7 +15,7 @@ from prov.model import (
     ProvMention,
     ProvWarning,
 )
-from prov.serializers.provn import PROFILES, ProvNSyntaxError
+from prov.serializers.provn import PROFILES, ProvNParser, ProvNSyntaxError
 
 PREFIXES = "prefix ex <http://example.org/>\n"
 
@@ -89,11 +89,13 @@ def test_strict_rejects_bare_mention_but_accepts_prefixed() -> None:
         parse("mentionOf(ex:e1, ex:e0, ex:b)", profile="strict")
     (record,) = records(parse("prov:mentionOf(ex:e1, ex:e0, ex:b)", profile="strict"))
     assert isinstance(record, ProvMention)
-
-
-def test_extensibility_rejected_in_default() -> None:
-    with pytest.raises(ProvNSyntaxError, match="extensibility expression"):
-        parse("ex:custom(ex:e1)")
+    # A profile assigned after construction governs the parse.
+    parser = ProvNParser(
+        f"document\n{PREFIXES}mentionOf(ex:e1, ex:e0, ex:b)\nendDocument", "default"
+    )
+    parser.profile = "strict"
+    with pytest.raises(ProvNSyntaxError, match="mentionOf"):
+        parser.parse()
 
 
 def test_lenient_skips_bad_statement_and_warns_with_position() -> None:
@@ -144,31 +146,12 @@ def test_lenient_warns_for_each_of_two_adjacent_unknown_statements() -> None:
     assert sorted(str(r.identifier) for r in records(doc)) == ["ex:e1", "ex:e4"]
 
 
-def test_lenient_warns_for_each_of_two_adjacent_extensibility_expressions() -> None:
-    # ProvToolbox's summary documents write runs of provext: statements; each
-    # must be reported, not only the first of a run.
-    body = (
-        "prefix provext <http://openprovenance.org/prov/extension#>\n"
-        "entity(ex:e1)\n"
-        "provext:hadMember(ex:c, ex:e1)\n"
-        "provext:hadMember(ex:c, ex:e2)\n"
-        "entity(ex:e2)"
-    )
-    with pytest.warns(ProvWarning) as caught:
-        doc = parse(body, profile="lenient")
-    assert [str(w.message) for w in caught] == [
-        "PROV-N statement skipped: line 5, column 1: extensibility expression "
-        "'provext:hadMember(...)' is not supported",
-        "PROV-N statement skipped: line 6, column 1: extensibility expression "
-        "'provext:hadMember(...)' is not supported",
-    ]
-    assert sorted(str(r.identifier) for r in records(doc)) == ["ex:e1", "ex:e2"]
-
-
-def test_lenient_skips_extensibility_expression() -> None:
-    with pytest.warns(ProvWarning, match="extensibility"):
-        doc = parse("ex:custom(ex:e1)\nentity(ex:e2)", profile="lenient")
-    assert [str(r.identifier) for r in records(doc)] == ["ex:e2"]
+def test_dropped_expression_keeps_its_neighbours() -> None:
+    for profile in PROFILES:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ProvWarning)
+            doc = parse("ex:custom(ex:e1)\nentity(ex:e2)", profile=profile)
+        assert [str(r.identifier) for r in records(doc)] == ["ex:e2"], profile
 
 
 def test_lenient_still_raises_on_tokenisation_error() -> None:
@@ -185,9 +168,8 @@ def test_lenient_returns_bundle_statements_after_a_skip() -> None:
 
 
 def test_lenient_resync_recovers_from_a_missing_close_paren() -> None:
-    # entity(ex:e1 is missing its ')'; _advance() raises self._depth on '('
-    # and never lowers it again, so resync must not gate on depth staying
-    # at or below where the failed statement started.
+    # entity(ex:e1 is missing its ')', so resync must trust a statement start
+    # at any bracket depth.
     body = "entity(ex:e1\nentity(ex:e2)\nentity(ex:e3)"
     with pytest.warns(ProvWarning) as caught:
         doc = parse(body, profile="lenient")
@@ -213,11 +195,8 @@ def test_lenient_resync_recovers_from_a_missing_close_paren_in_a_bundle() -> Non
 
 
 def test_lenient_resync_does_not_stop_on_a_structural_keyword_shaped_value() -> None:
-    # A structural keyword (here 'bundle') used as a bare attribute value
-    # inside the failed statement's still-open '[...]' is not a resync
-    # boundary just because it matches by name -- unlike an element/relation
-    # keyword, it is never followed by '(', so it can only be told apart
-    # from a real boundary by depth.
+    # A structural keyword followed by ']' (here 'bundle') is data, not a
+    # boundary, so the skip runs on to the next statement.
     body = "entity(ex:e1, [ex:k=bundle]\nentity(ex:e2)\nentity(ex:e3)"
     with pytest.warns(ProvWarning) as caught:
         doc = parse(body, profile="lenient")

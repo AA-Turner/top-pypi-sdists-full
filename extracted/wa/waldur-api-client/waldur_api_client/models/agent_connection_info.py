@@ -40,7 +40,7 @@ class AgentConnectionInfo:
         auth_kind (Union[AuthKindEnum, BlankEnum, None]): How the agent authenticated when it registered the queue
         auth_token_prefix (Union[None, str]): Prefix of the Personal Access Token backing the queue
         auth_token_name (Union[None, str]): Name of the Personal Access Token backing the queue
-        authorized_via (Union[AuthorizedViaEnum, BlankEnum, None]): Permission branch that authorised the registration
+        authorized_via (Union[AuthorizedViaEnum, BlankEnum, None]): Permission branch that authorized the registration
         delivery_blocked_reason (Union[None, str]): Why no event can reach this consumer, null when delivery works
         services (list['AgentServiceStatus']): Services running within this agent
         event_subscriptions (list['AgentEventSubscriptionWithConnection']): Event subscriptions with connection status

@@ -330,7 +330,8 @@ class FilesMixin:
             labels=labels or None,
         )
         body = artifact.model_dump(mode="json", exclude_none=True)
-        return self._client.write("POST", f"/v1/runs/{self.id}/artifacts", body, strict=strict)
+        # `sync=True` asks for the row in hand (its id: a commanded checkpoint's answer), here as on the upload paths.
+        return self._client.write("POST", f"/v1/runs/{self.id}/artifacts", body, strict=strict, sync=bool(sync))
 
     def _write_marks(self, path: str | os.PathLike) -> dict[str, Any]:
         """`written_during_run` / `written_at` for a file being logged.

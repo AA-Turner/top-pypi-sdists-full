@@ -55,6 +55,15 @@ pub mod django_rusty_templates {
 
     #[pymethods]
     impl PortableEngine {
+        /// A copy shares the original, like `Engine`.
+        fn __copy__(slf: Py<Self>) -> Py<Self> {
+            slf
+        }
+
+        fn __deepcopy__(slf: Py<Self>, _memo: &Bound<'_, PyAny>) -> Py<Self> {
+            slf
+        }
+
         #[new]
         fn new() -> Self {
             Self {
@@ -353,6 +362,7 @@ pub mod django_rusty_templates {
                     nodes: Gc::new(Vec::new()),
                     has_inheritance: false,
                     has_python_callbacks: false,
+                    interop_fragment: false,
                     engine: self.engine.clone(),
                     template_name: Some(renderer.getattr("name")?.extract()?),
                     loader_path: loader.path[self.path.len()..].to_vec(),
@@ -373,7 +383,7 @@ pub mod django_rusty_templates {
                 .with_loader(py, |loader| {
                     loader.find_template(py, &template_name, &self.engine)
                 })
-                .map_err(|_| TemplateDoesNotExist::new_err(template_name.clone()))??;
+                .map_err(|error| template_does_not_exist(template_name.clone(), error.tried))??;
             let mut template = match lookup {
                 Lookup::Cached(template) => template,
                 // Compile without the loader lock, as the engine's `get_template` does.
@@ -496,6 +506,16 @@ pub mod django_rusty_templates {
 
     #[pymethods]
     impl Origin {
+        /// Compiled engines and templates don't change, so a copy shares
+        /// the original, as code that copies Django's objects expects.
+        fn __copy__(slf: Py<Self>) -> Py<Self> {
+            slf
+        }
+
+        fn __deepcopy__(slf: Py<Self>, _memo: &Bound<'_, PyAny>) -> Py<Self> {
+            slf
+        }
+
         fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
             if let Some(loader) = &self.loader {
                 loader.engine.trace(&visit)?;
@@ -559,10 +579,12 @@ pub mod django_rusty_templates {
             Some(item) => item?,
             None => return Err(ImproperlyConfigured::new_err("Configuration is empty")),
         };
-        let loader_path = first_item.extract::<String>().map_err(|_| {
-            ImproperlyConfigured::new_err(
+        let loader_path = first_item.extract::<String>().map_err(|error| {
+            let configuration = ImproperlyConfigured::new_err(
                 "First element of tuple configuration must be a Loader class name",
-            )
+            );
+            configuration.set_cause(loader.py(), Some(error));
+            configuration
         })?;
         let remaining_args = match items.next() {
             Some(item) => item?,
@@ -601,10 +623,12 @@ pub mod django_rusty_templates {
         }
 
         let (loader_path, args) = unpack(&loader).map_err(|e| {
-            ImproperlyConfigured::new_err(format!(
+            let invalid = ImproperlyConfigured::new_err(format!(
                 "Invalid template loader: {loader}. {}",
                 e.value(py),
-            ))
+            ));
+            invalid.set_cause(py, Some(e));
+            invalid
         })?;
 
         map_loader(py, &loader_path, Some(args), encoding, dirs)
@@ -683,6 +707,8 @@ pub mod django_rusty_templates {
         pub template_builtins: Vec<Py<PyAny>>,
         pub autoescape: bool,
         pub django_series: (u8, u8),
+        /// Django 6.2's transitional `allow_multiline_tags` option.
+        pub allow_multiline_tags: bool,
         loaded_context_processors: Vec<Py<PyAny>>,
         pub libraries: HashMap<String, Py<PyAny>>,
     }
@@ -742,6 +768,11 @@ pub mod django_rusty_templates {
     }
 
     impl Engine {
+        /// Whether `{% ... %}` tags may span lines, as in Django 6.2+.
+        pub fn multiline_tags(&self) -> bool {
+            self.django_series >= (6, 2) && self.allow_multiline_tags
+        }
+
         /// Peek only at the first loader: later loaders cannot bypass an
         /// earlier uncached loader's search order. Misses use normal loading.
         pub(crate) fn cached_native_template(
@@ -800,6 +831,7 @@ pub mod django_rusty_templates {
                 template_builtins: Vec::new(),
                 autoescape: false,
                 django_series: (5, 2),
+                allow_multiline_tags: true,
                 loaded_context_processors: Vec::new(),
                 libraries: HashMap::new(),
             }
@@ -848,6 +880,7 @@ pub mod django_rusty_templates {
                 nodes: Gc::new(Vec::new()),
                 has_inheritance: false,
                 has_python_callbacks: false,
+                interop_fragment: false,
                 engine,
             });
         }
@@ -887,23 +920,26 @@ pub mod django_rusty_templates {
             template.loader_path.insert(0, index);
             return Ok(template);
         }
-        let requested_name = template_name.to_string();
-        Err(TemplateDoesNotExist::new_err((
-            template_name.into_owned(),
-            tried
-                .into_iter()
-                .map(|(name, reason)| {
-                    (
-                        Origin {
-                            name,
-                            template_name: Some(requested_name.clone()),
-                            loader: None,
-                        },
-                        reason,
-                    )
-                })
-                .collect::<Vec<_>>(),
-        )))
+        Err(template_does_not_exist(template_name.into_owned(), tried))
+    }
+
+    /// Django's `TemplateDoesNotExist`, with `tried` listing each skipped
+    /// origin and why.
+    fn template_does_not_exist(template_name: String, tried: Vec<(String, String)>) -> PyErr {
+        let tried = tried
+            .into_iter()
+            .map(|(name, reason)| {
+                (
+                    Origin {
+                        name,
+                        template_name: Some(template_name.clone()),
+                        loader: None,
+                    },
+                    reason,
+                )
+            })
+            .collect::<Vec<_>>();
+        TemplateDoesNotExist::new_err((template_name, tried))
     }
 
     pub fn select_template(
@@ -935,12 +971,22 @@ pub mod django_rusty_templates {
 
     #[pymethods]
     impl PyEngine {
+        /// Compiled engines and templates don't change, so a copy shares
+        /// the original, as code that copies Django's objects expects.
+        fn __copy__(slf: Py<Self>) -> Py<Self> {
+            slf
+        }
+
+        fn __deepcopy__(slf: Py<Self>, _memo: &Bound<'_, PyAny>) -> Py<Self> {
+            slf
+        }
+
         fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
             self.engine.trace(&visit)
         }
 
         #[new]
-        #[pyo3(signature = (dirs=None, app_dirs=false, context_processors=None, debug=false, loaders=None, string_if_invalid=String::new(), file_charset="utf-8".to_string(), libraries=None, builtins=None, autoescape=true))]
+        #[pyo3(signature = (dirs=None, app_dirs=false, context_processors=None, debug=false, loaders=None, string_if_invalid=String::new(), file_charset="utf-8".to_string(), libraries=None, builtins=None, autoescape=true, allow_multiline_tags=None))]
         #[expect(
             clippy::too_many_lines,
             reason = "normalises every argument of Django's Engine.__init__"
@@ -958,6 +1004,7 @@ pub mod django_rusty_templates {
             libraries: Option<Bound<'_, PyAny>>,
             #[allow(unused_variables)] builtins: Option<Bound<'_, PyAny>>,
             autoescape: bool,
+            allow_multiline_tags: Option<Bound<'_, PyAny>>,
         ) -> PyResult<Self> {
             let configuration = PyDict::new(py);
             configuration.set_item(
@@ -1067,8 +1114,25 @@ pub mod django_rusty_templates {
                 version.get_item(0)?.extract()?,
                 version.get_item(1)?.extract()?,
             );
+            let allow_multiline_tags = match allow_multiline_tags {
+                None => true,
+                // Django added the option in 6.2; older Engines reject it.
+                Some(_) if django_series < (6, 2) => {
+                    return Err(PyTypeError::new_err(
+                        "Engine.__init__() got an unexpected keyword argument \
+                         'allow_multiline_tags'",
+                    ));
+                }
+                Some(value) => {
+                    py.import("django_rusty_templates.diagnostics")?
+                        .getattr("warn_allow_multiline_tags")?
+                        .call0()?;
+                    value.is_truthy()?
+                }
+            };
             let engine = Engine {
                 django_series,
+                allow_multiline_tags,
                 dirs: Mutex::new(dirs),
                 app_dirs,
                 context_processors: processors,
@@ -1323,6 +1387,7 @@ pub mod django_rusty_templates {
                 python_renderer: None,
                 has_inheritance: false,
                 has_python_callbacks,
+                interop_fragment: true,
             })
         }
 
@@ -1366,6 +1431,17 @@ pub mod django_rusty_templates {
                 template_code.extract()?,
                 self.engine.clone(),
             )
+        }
+
+        /// A variable fragment of a mixed template; see `Template::interop_fragment`.
+        fn _from_string_fragment(&self, template_code: Bound<'_, PyString>) -> PyResult<Template> {
+            let mut template = Template::new_from_string(
+                template_code.py(),
+                template_code.extract()?,
+                self.engine.clone(),
+            )?;
+            template.interop_fragment = true;
+            Ok(template)
         }
 
         /// Preserve Django's direct Template constructor metadata in conformance tests.
@@ -1593,6 +1669,11 @@ pub mod django_rusty_templates {
         }
 
         #[getter]
+        pub fn allow_multiline_tags(&self) -> bool {
+            self.engine.allow_multiline_tags
+        }
+
+        #[getter]
         pub fn libraries<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
             if let Some(configuration) = &self.engine.configuration {
                 return Ok(configuration
@@ -1672,6 +1753,10 @@ pub mod django_rusty_templates {
         has_inheritance: bool,
         has_python_callbacks: bool,
         python_renderer: Option<Gc<Py<PyAny>>>,
+        /// A fragment of a mixed template. In debug mode its errors keep the
+        /// fragment's span for the interop node to map onto the full template,
+        /// instead of debug data for the fragment's own source.
+        interop_fragment: bool,
     }
 
     impl Trace for Template {
@@ -1835,6 +1920,7 @@ pub mod django_rusty_templates {
                 python_renderer,
                 has_inheritance: Self::nodes_have_inheritance(&nodes),
                 has_python_callbacks,
+                interop_fragment: false,
                 nodes: Gc::new(nodes),
                 engine,
             })
@@ -1983,6 +2069,7 @@ pub mod django_rusty_templates {
                 has_inheritance: Self::nodes_have_inheritance(&nodes),
                 has_python_callbacks: self.has_python_callbacks
                     && Self::nodes_have_callbacks(&nodes),
+                interop_fragment: self.interop_fragment,
                 nodes,
                 caches: TemplateCaches {
                     native_partials: self.caches.native_partials.clone(),
@@ -2230,7 +2317,7 @@ pub mod django_rusty_templates {
                     match node.render_into(py, template, context, output) {
                         Err(PyRenderError::InvalidTagResult(value)) => join.push(index, value),
                         Err(PyRenderError::PyErr(error)) => {
-                            if self.engine.debug.load(Ordering::Relaxed) {
+                            if self.engine.debug.load(Ordering::Relaxed) && !self.interop_fragment {
                                 let _ = (|| -> PyResult<()> {
                                     py.import("django_rusty_templates.diagnostics")?
                                         .getattr("attach_debug")?
@@ -2240,6 +2327,7 @@ pub mod django_rusty_templates {
                                             self.filename
                                                 .as_ref()
                                                 .map(|path| path.to_string_lossy().into_owned()),
+                                            self.engine.allow_multiline_tags,
                                         ))?;
                                     Ok(())
                                 })();
@@ -2336,6 +2424,9 @@ pub mod django_rusty_templates {
                 Python::attach(|py| {
                     let _ = (|| -> PyResult<()> {
                         error.value(py).setattr("_rusty_token_span", span)?;
+                        if self.interop_fragment {
+                            return Ok(());
+                        }
                         py.import("django_rusty_templates.diagnostics")?
                             .getattr("attach_debug")?
                             .call1((
@@ -2344,6 +2435,7 @@ pub mod django_rusty_templates {
                                 self.filename
                                     .as_ref()
                                     .map(|path| path.to_string_lossy().into_owned()),
+                                self.engine.allow_multiline_tags,
                             ))?;
                         Ok(())
                     })();
@@ -2355,6 +2447,16 @@ pub mod django_rusty_templates {
 
     #[pymethods]
     impl Template {
+        /// Compiled engines and templates don't change, so a copy shares
+        /// the original, as code that copies Django's objects expects.
+        fn __copy__(slf: Py<Self>) -> Py<Self> {
+            slf
+        }
+
+        fn __deepcopy__(slf: Py<Self>, _memo: &Bound<'_, PyAny>) -> Py<Self> {
+            slf
+        }
+
         fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
             self.trace(&visit)
         }
@@ -2556,6 +2658,7 @@ pub mod django_rusty_templates {
                             builtins,
                             self.origin(),
                             self.engine.debug.load(Ordering::Relaxed),
+                            self.engine.allow_multiline_tags,
                         ))?
                         .unbind())
                 })
@@ -2618,7 +2721,7 @@ pub mod django_rusty_templates {
                     .call_method1("render", (context, request))?
                     .extract();
             }
-            let mut base_context = HashMap::from([
+            let mut base_context = Vec::from([
                 ("None".to_string(), py.None()),
                 ("True".to_string(), PyBool::new(py, true).to_owned().into()),
                 (
@@ -2747,30 +2850,34 @@ pub mod django_rusty_templates {
                 }
                 for processor in processors {
                     let result = processor.call1((request,))?;
-                    let values: HashMap<String, Py<PyAny>> = result.extract().map_err(|_| {
-                        let name = processor
-                            .getattr("__qualname__")
-                            .map_or_else(|_| "unknown".to_string(), |name| name.to_string());
-                        let name = if is_django_context {
-                            name
-                        } else {
-                            let module = processor.getattr("__module__").map_or_else(
-                                |_| "unknown".to_string(),
-                                |module| module.to_string(),
-                            );
-                            format!("{module}.{name}")
-                        };
-                        let message = if is_django_context {
-                            format!("Context processor {name} didn't return a dictionary.")
-                        } else {
-                            format!("Context processor '{name}' didn't return a dictionary.")
-                        };
-                        PyTypeError::new_err(message)
-                    })?;
+                    let values: HashMap<String, Py<PyAny>> =
+                        result.extract().map_err(|error: PyErr| {
+                            let name = processor
+                                .getattr("__qualname__")
+                                .map_or_else(|_| "unknown".to_string(), |name| name.to_string());
+                            let name = if is_django_context {
+                                name
+                            } else {
+                                let module = processor.getattr("__module__").map_or_else(
+                                    |_| "unknown".to_string(),
+                                    |module| module.to_string(),
+                                );
+                                format!("{module}.{name}")
+                            };
+                            let message = if is_django_context {
+                                format!("Context processor {name} didn't return a dictionary.")
+                            } else {
+                                format!("Context processor '{name}' didn't return a dictionary.")
+                            };
+                            let not_a_dict = PyTypeError::new_err(message);
+                            not_a_dict.set_cause(py, Some(error));
+                            not_a_dict
+                        })?;
                     processor_values.extend(values);
                 }
             }
             let mut autoescape = self.engine.autoescape;
+            let mut source = None;
             let mut use_l10n = None;
             let mut use_tz = None;
             if let Some(ref context) = context {
@@ -2795,13 +2902,22 @@ pub mod django_rusty_templates {
                     }
                 } else {
                     base_context.extend(processor_values);
-                    base_context.extend(context.extract::<HashMap<String, Py<PyAny>>>()?);
+                    // A dict is read lazily, so names the template never uses
+                    // cost nothing. Like Django, other key types are ignored.
+                    if let Ok(dict) = context.cast::<PyDict>() {
+                        source = Some(dict.copy()?);
+                    } else {
+                        base_context.extend(context.extract::<HashMap<String, Py<PyAny>>>()?);
+                    }
                 }
             } else {
                 base_context.extend(processor_values);
             }
             let mut rendering_context =
                 Context::new(base_context, request.map(pyo3::Bound::unbind), autoescape);
+            if let Some(source) = &source {
+                rendering_context = rendering_context.with_source(source);
+            }
             rendering_context.use_l10n = use_l10n;
             rendering_context.use_tz = use_tz;
             rendering_context.format_values = true;
@@ -3005,6 +3121,7 @@ user = User(["Lily"])
                 None,
                 None,
                 false,
+                None,
             )
             .unwrap();
             let template_string = PyString::new(py, "Hello {{ user }}!");
@@ -3049,6 +3166,7 @@ user = User(["Lily"])
                 ),
                 None,
                 false,
+                None,
             )
             .unwrap();
             let template = engine
@@ -3102,6 +3220,7 @@ user = User(["Lily"])
                 ),
                 None,
                 false,
+                None,
             )
             .unwrap();
 
@@ -3155,6 +3274,7 @@ user = User(["Lily"])
                 None,
                 None,
                 false,
+                None,
             )
             .unwrap_err();
 

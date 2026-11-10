@@ -6,10 +6,13 @@ from typing_extensions import Self
 
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.permissions import SiteLevel, site_access
 
 
 class WorkflowSubscriptionService(Entity):
+    @odata(name="Current", navigation=True)
     @property
     def current(self) -> WorkflowSubscriptionService:
         """Gets the Current property"""
@@ -21,6 +24,7 @@ class WorkflowSubscriptionService(Entity):
     def entity_type_name(self):
         return "SP.WorkflowServices.WorkflowSubscriptionService"
 
+    @site_access(SiteLevel.WRITE)
     def delete_subscription(self, subscription_id: UUID) -> Self:
         """DeleteSubscription operation.
 
@@ -31,6 +35,7 @@ class WorkflowSubscriptionService(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def register_interest_in_host_web_list(self, list_id: UUID, event_name: str) -> Self:
         """RegisterInterestInHostWebList operation.
 
@@ -44,6 +49,7 @@ class WorkflowSubscriptionService(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def register_interest_in_list(self, list_id: UUID, event_name: str) -> Self:
         """RegisterInterestInList operation.
 
@@ -57,6 +63,7 @@ class WorkflowSubscriptionService(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def unregister_interest_in_host_web_list(self, list_id: UUID, event_name: str) -> Self:
         """UnregisterInterestInHostWebList operation.
 
@@ -70,6 +77,7 @@ class WorkflowSubscriptionService(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def unregister_interest_in_list(self, list_id: UUID, event_name: str) -> Self:
         """UnregisterInterestInList operation.
 

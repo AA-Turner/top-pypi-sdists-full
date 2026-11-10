@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from office365.entity_collection import EntityCollection
@@ -13,7 +12,6 @@ if TYPE_CHECKING:
     )
 
 
-@dataclass
 class ComputeRightsAndInheritanceResult(ClientValue):
     inheritedLabel: SensitivityLabel | None = None
     sensitivityLabels: EntityCollection[SensitivityLabel] | None = None

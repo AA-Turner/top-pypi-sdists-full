@@ -127,6 +127,11 @@ class RunMetricsMixin:
             params={"source_read_contract": SOURCE_READ_CONTRACT},
         )
 
+    def get_series_digests(self, run_id: str, keys: list[str], *, kind: str = "model") -> dict:
+        """Each named series' point count, stats and order-free digest, as Probe stores them: what a copy's parity
+        check compares (`connectors/wandb_history.py` has the rule). `{run_id, kind, series: [...]}`."""
+        return self.transport.get(f"/v1/runs/{run_id}/series/digest", params={"keys": list(keys), "kind": kind})
+
     # -- coordinate reads (below-run coordinates, research-os 0059-0062) -----
     def get_metrics_grouped(
         self,

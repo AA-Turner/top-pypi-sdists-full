@@ -158,8 +158,9 @@ class Manager:
           pass
         else:
           raise
-      self._monitor_thread = None
-      self._stop_event = None
+      finally:
+        self._monitor_thread = None
+        self._stop_event = None
 
   @functools.cached_property
   def total_slice_count(self) -> int:
@@ -197,6 +198,14 @@ class Manager:
     """The number of active slices."""
     return len(self.active_slice_indices)
 
+  @property
+  def active_devices(self) -> list[jax.Device]:
+    """The devices belonging to the active slices, ordered by slice index."""
+    devices = []
+    for slice_index in sorted(self.active_slice_indices):
+      devices.extend(self.slice_to_devices[slice_index])
+    return devices
+
   def scale_by_active_slices(self, x: int | float) -> int | float:
     """Scale x by the number of active slices."""
     if isinstance(x, int):
@@ -213,20 +222,6 @@ class Manager:
       return x * self.active_slice_count / self.total_slice_count
     else:
       raise ValueError(f"Unsupported type: {type(x)=}")
-
-  def _cleanup_on_retry(self):
-    """Cleans up JAX caches and traces on retry."""
-    try:
-      _logger.debug("Cleaning up any ongoing traces")
-      jax.profiler.stop_trace()
-    except (RuntimeError, ValueError):
-      _logger.debug("No ongoing traces to clean up")
-    except Exception:  # pylint: disable=broad-exception-caught
-      _logger.exception("Error cleaning up ongoing traces")
-
-    jax.clear_caches()
-    for array in jax.live_arrays():
-      array.delete()
 
   def _check_inactive_slices(self) -> None:
     """Checks inactive slices and updates available_inactive_slices."""

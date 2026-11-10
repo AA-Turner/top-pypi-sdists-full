@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from ..models.report_section import ReportSection
     from ..models.resource_attributes import ResourceAttributes
     from ..models.resource_current_usages import ResourceCurrentUsages
+    from ..models.resource_display_limits import ResourceDisplayLimits
     from ..models.resource_limit_usage import ResourceLimitUsage
     from ..models.resource_limits import ResourceLimits
     from ..models.resource_offering_plugin_options import ResourceOfferingPluginOptions
@@ -142,6 +143,8 @@ class Resource:
         has_api_keys (Union[Unset, bool]): Whether the resource owns any API keys, so the portal can offer key
             management without knowing which backend serves the resource.
         offering_account_settings (Union[Unset, OfferingAccountSettings]):
+        display_limits (Union[Unset, ResourceDisplayLimits]): Resource option values shown as the limits of usage-based
+            components. Display only: not stored in limits, billed or enforced.
     """
 
     offering: Union[Unset, str] = UNSET
@@ -232,6 +235,7 @@ class Resource:
     offering_components: Union[Unset, list["OfferingComponent"]] = UNSET
     has_api_keys: Union[Unset, bool] = UNSET
     offering_account_settings: Union[Unset, "OfferingAccountSettings"] = UNSET
+    display_limits: Union[Unset, "ResourceDisplayLimits"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -582,6 +586,10 @@ class Resource:
         if not isinstance(self.offering_account_settings, Unset):
             offering_account_settings = self.offering_account_settings.to_dict()
 
+        display_limits: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.display_limits, Unset):
+            display_limits = self.display_limits.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -761,6 +769,8 @@ class Resource:
             field_dict["has_api_keys"] = has_api_keys
         if offering_account_settings is not UNSET:
             field_dict["offering_account_settings"] = offering_account_settings
+        if display_limits is not UNSET:
+            field_dict["display_limits"] = display_limits
 
         return field_dict
 
@@ -774,6 +784,7 @@ class Resource:
         from ..models.report_section import ReportSection
         from ..models.resource_attributes import ResourceAttributes
         from ..models.resource_current_usages import ResourceCurrentUsages
+        from ..models.resource_display_limits import ResourceDisplayLimits
         from ..models.resource_limit_usage import ResourceLimitUsage
         from ..models.resource_limits import ResourceLimits
         from ..models.resource_offering_plugin_options import ResourceOfferingPluginOptions
@@ -1333,6 +1344,13 @@ class Resource:
         else:
             offering_account_settings = OfferingAccountSettings.from_dict(_offering_account_settings)
 
+        _display_limits = d.pop("display_limits", UNSET)
+        display_limits: Union[Unset, ResourceDisplayLimits]
+        if isinstance(_display_limits, Unset):
+            display_limits = UNSET
+        else:
+            display_limits = ResourceDisplayLimits.from_dict(_display_limits)
+
         resource = cls(
             offering=offering,
             offering_name=offering_name,
@@ -1422,6 +1440,7 @@ class Resource:
             offering_components=offering_components,
             has_api_keys=has_api_keys,
             offering_account_settings=offering_account_settings,
+            display_limits=display_limits,
         )
 
         resource.additional_properties = d

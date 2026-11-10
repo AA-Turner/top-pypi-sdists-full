@@ -9,8 +9,14 @@ the tensor network can locally have arbitrary structure and outer indices.
 
 """
 
-from ...utils import ensure_dict
-from ..tensor_core import TensorNetwork, choose_local_compress_gauge_settings
+import warnings
+
+from ...utils import check_opt, ensure_dict
+from ..tensor_core import (
+    TensorNetwork,
+    choose_local_compress_gauge_settings,
+    parse_site_tag_groups,
+)
 from ..tnag.core import create_lazy_edge_map
 
 
@@ -48,10 +54,11 @@ def tensor_network_ag_compress_projector(
         The maximum bond dimension to compress to.
     cutoff : float, optional
         A dynamic threshold for discarding singular values when compressing.
-    site_tags : sequence of str, optional
-        The tags to use to group the tensors from ``tn``. If not
-        given, uses ``tn.site_tags``. The tensor network built will have one
-        tensor per site.
+    site_tags : sequence of str or tag groups, optional
+        Tags that identify sites. Defaults to ``tn.site_tags``. Each item can
+        group tags as described by
+        :func:`~quimb.tensor.parse_site_tag_groups`. The output has one tensor
+        per item.
     canonize : bool or {'layered', 'bp'}, optional
         How to pseudo canonicalize the initial tensor network. ``True`` gauges
         the whole network with simple update. ``'layered'`` gauges each tensor
@@ -116,6 +123,7 @@ def tensor_network_ag_compress_projector(
 
     if site_tags is None:
         site_tags = tn.site_tags
+    site_tags, untag_groups = parse_site_tag_groups(tn, site_tags)
 
     edges, _ = create_lazy_edge_map(tn, site_tags)
 
@@ -199,6 +207,7 @@ def tensor_network_ag_compress_projector(
     elif equalize_norms:
         tn.equalize_norms_(value=equalize_norms)
 
+    untag_groups(tn)
     return tn
 
 
@@ -236,10 +245,11 @@ def tensor_network_ag_compress_local_early(
         The maximum bond dimension to compress to.
     cutoff : float, optional
         A dynamic threshold for discarding singular values when compressing.
-    site_tags : sequence of str, optional
-        The tags to use to group the tensors from ``tn``. If not
-        given, uses ``tn.site_tags``. The tensor network built will have one
-        tensor per site.
+    site_tags : sequence of str or tag groups, optional
+        Tags that identify sites. Defaults to ``tn.site_tags``. Each item can
+        group tags as described by
+        :func:`~quimb.tensor.parse_site_tag_groups`. The output has one tensor
+        per item.
     canonize : bool, optional
         Whether to locally gauge before each compression, defaults to True.
     tree_gauge_distance : int, optional
@@ -278,6 +288,7 @@ def tensor_network_ag_compress_local_early(
 
     if site_tags is None:
         site_tags = tnc.site_tags
+    site_tags, untag_groups = parse_site_tag_groups(tnc, site_tags)
 
     _, neighbors = create_lazy_edge_map(tnc, site_tags)
 
@@ -327,6 +338,7 @@ def tensor_network_ag_compress_local_early(
     elif equalize_norms:
         tnc.equalize_norms_(value=equalize_norms)
 
+    untag_groups(tnc)
     return tnc
 
 
@@ -363,10 +375,11 @@ def tensor_network_ag_compress_local_late(
         The maximum bond dimension to compress to.
     cutoff : float, optional
         A dynamic threshold for discarding singular values when compressing.
-    site_tags : sequence of str, optional
-        The tags to use to group the tensors from ``tn``. If not
-        given, uses ``tn.site_tags``. The tensor network built will have one
-        tensor per site.
+    site_tags : sequence of str or tag groups, optional
+        Tags that identify sites. Defaults to ``tn.site_tags``. Each item can
+        group tags as described by
+        :func:`~quimb.tensor.parse_site_tag_groups`. The output has one tensor
+        per item.
     canonize : bool, optional
         Whether to locally gauge before each compression, defaults to True.
     tree_gauge_distance : int, optional
@@ -416,6 +429,7 @@ def tensor_network_ag_compress_local_late(
 
     if site_tags is None:
         site_tags = tnc.site_tags
+    site_tags, untag_groups = parse_site_tag_groups(tnc, site_tags)
 
     for st in site_tags:
         tnc.contract_(st, optimize=optimize)
@@ -428,6 +442,7 @@ def tensor_network_ag_compress_local_late(
     elif equalize_norms:
         tnc.equalize_norms_(value=equalize_norms)
 
+    untag_groups(tnc)
     return tnc
 
 
@@ -457,10 +472,11 @@ def tensor_network_ag_compress_superorthogonal(
         The maximum bond dimension to compress to.
     cutoff : float, optional
         A dynamic threshold for discarding singular values when compressing.
-    site_tags : sequence of str, optional
-        The tags to use to group the tensors from ``tn``. If not
-        given, uses ``tn.site_tags``. The tensor network built will have one
-        tensor per site.
+    site_tags : sequence of str or tag groups, optional
+        Tags that identify sites. Defaults to ``tn.site_tags``. Each item can
+        group tags as described by
+        :func:`~quimb.tensor.parse_site_tag_groups`. The output has one tensor
+        per item.
     canonize : bool, optional
         Whether to locally gauge before each compression, defaults to True.
     optimize : str, optional
@@ -491,6 +507,7 @@ def tensor_network_ag_compress_superorthogonal(
 
     if site_tags is None:
         site_tags = tnc.site_tags
+    site_tags, untag_groups = parse_site_tag_groups(tnc, site_tags)
 
     for st in site_tags:
         tnc.contract_(st, optimize=optimize)
@@ -513,6 +530,7 @@ def tensor_network_ag_compress_superorthogonal(
     elif equalize_norms:
         tnc.equalize_norms_(value=equalize_norms)
 
+    untag_groups(tnc)
     return tnc
 
 
@@ -543,10 +561,11 @@ def tensor_network_ag_compress_l2bp(
         The maximum bond dimension to compress to.
     cutoff : float, optional
         A dynamic threshold for discarding singular values when compressing.
-    site_tags : sequence of str, optional
-        The tags to use to group the tensors from ``tn``. If not
-        given, uses ``tn.site_tags``. The tensor network built will have one
-        tensor per site.
+    site_tags : sequence of str or tag groups, optional
+        Tags that identify sites. Defaults to ``tn.site_tags``. Each item can
+        group tags as described by
+        :func:`~quimb.tensor.parse_site_tag_groups`. The output has one tensor
+        per item.
     canonize : bool, optional
         Whether to locally gauge before each compression, defaults to True.
     damping : float, optional
@@ -589,6 +608,8 @@ def tensor_network_ag_compress_l2bp(
     if not canonize:
         compress_opts.setdefault("max_iterations", 1)
 
+    site_tags, untag_groups = parse_site_tag_groups(tn, site_tags)
+
     tnc = compress_l2bp(
         tn, site_tags=site_tags, inplace=inplace, **compress_opts
     )
@@ -599,6 +620,7 @@ def tensor_network_ag_compress_l2bp(
     elif equalize_norms:
         tnc.equalize_norms_(value=equalize_norms)
 
+    untag_groups(tnc)
     return tnc
 
 
@@ -622,6 +644,7 @@ def tensor_network_ag_compress(
     optimize="auto-hq",
     equalize_norms=False,
     inplace=False,
+    sweep_reverse=False,
     **kwargs,
 ):
     """Compress an arbitrary geometry tensor network, with potentially multiple
@@ -636,8 +659,9 @@ def tensor_network_ag_compress(
         The maximum bond dimension to compress to.
     cutoff : float, optional
         A dynamic threshold for discarding singular values when compressing.
-    method : {'local-early', 'local-late', 'projector', 'superorthogonal', 'l2bp'}, optional
-        The compression method to use:
+    method : str or callable, optional
+        The compression method to use. A callable is passed the same arguments
+        as a built-in arbitrary-geometry method. The named options are:
 
         - 'local-early': explicitly contract each site and interleave with
           immediate compression, see
@@ -651,10 +675,11 @@ def tensor_network_ag_compress(
         - 'l2bp': use lazy 2-norm belief propagation, see
           :func:`~quimb.tensor.tnag.compress.tensor_network_ag_compress_l2bp`.
 
-    site_tags : sequence of str, optional
-        The tags to use to group the tensors from ``tn``. If not
-        given, uses ``tn.site_tags``. The tensor network built will have one
-        tensor per site.
+    site_tags : sequence of str or tag groups, optional
+        Tags that identify sites. Defaults to ``tn.site_tags``. Each item can
+        group tags as described by
+        :func:`~quimb.tensor.parse_site_tag_groups`. The output has one tensor
+        per item.
     canonize : bool or str, optional
         Whether to perform canonicalization, pseudo or otherwise depending on
         the method, before compressing. The ``'projector'`` method also accepts
@@ -668,10 +693,24 @@ def tensor_network_ag_compress(
         the overall scaling factor will be accumulated into `.exponent`.
     inplace : bool, optional
         Whether to perform the compression inplace.
+    sweep_reverse : bool, optional
+        Ignored, since there is no sweep direction. Accepted to match the 1D
+        methods, with a warning if ``True``.
     kwargs
         Supplied to the chosen compression method.
     """
-    return _TNAG_COMPRESS_METHODS[method](
+    if sweep_reverse:
+        warnings.warn(
+            "sweep_reverse has no effect for arbitrary geometry (AG) methods."
+        )
+
+    if callable(method):
+        f_compress = method
+    else:
+        check_opt("method", method, tuple(_TNAG_COMPRESS_METHODS))
+        f_compress = _TNAG_COMPRESS_METHODS[method]
+
+    return f_compress(
         tn,
         max_bond=max_bond,
         cutoff=cutoff,

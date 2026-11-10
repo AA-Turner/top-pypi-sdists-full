@@ -7,13 +7,16 @@ from uuid import UUID
 
 from typing_extensions import Self
 
+from office365.permissions import DirectoryRole
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.http.url import get_absolute_url
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import GuidCollection, StringCollection
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.administration.unlicensedodblicenseenforcementwarningcontext import (
     UnlicensedOdbLicenseEnforcementWarningContext,
 )
@@ -37,6 +40,7 @@ from office365.sharepoint.lists.templates.type import ListTemplateType
 from office365.sharepoint.onboarding.customerkeyinfo import CustomerKeyInfo
 from office365.sharepoint.onboarding.customerkeystatusinfo import CustomerKeyStatusInfo
 from office365.sharepoint.onboarding.customerkeyvaultinfo import CustomerKeyVaultInfo
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.portal.sites.icon_manager import SiteIconManager
 from office365.sharepoint.principal.groups.group import Group
 from office365.sharepoint.principal.users.user import User
@@ -66,6 +70,7 @@ from office365.sharepoint.storagemetrics.storage_metrics import StorageMetrics
 from office365.sharepoint.teams.channel_capabilities import ChannelCapabilities
 from office365.sharepoint.tenant.administration.hubsites.creation_information import HubSiteCreationInformation
 from office365.sharepoint.tenant.administration.sites.administrators_info import SiteAdministratorsInfo
+from office365.sharepoint.thresholds import Limits, limit
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 from office365.sharepoint.usercustomactions.collection import UserCustomActionCollection
 from office365.sharepoint.webs.templates.collection import WebTemplateCollection
@@ -84,6 +89,14 @@ def _aes_key_base64(value: str | bytes) -> str:
     return base64.b64encode(value).decode("ascii") if isinstance(value, bytes) else value
 
 
+#: What one site collection may hold: its lists, its subsites, its groups and its storage.
+@limit(
+    Limits.LISTS_PER_SITE,
+    Limits.SUBSITES_PER_SITE,
+    Limits.SITE_STORAGE,
+    Limits.SITE_METADATA,
+    Limits.GROUPS_PER_SITE,
+)
 class Site(Entity):
     """
     Represents a collection of sites in a Web application, including a top-level website and all its sub sites.
@@ -100,6 +113,7 @@ class Site(Entity):
     def __repr__(self):
         return self.url or self.entity_type_name
 
+    @site_access(SiteLevel.WRITE)
     def cancel_delete_file_versions(self) -> Self:
         """Cancels the pending deletion of file versions in the site collection.
 
@@ -110,20 +124,42 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def cancel_set_version_policy_for_doc_libs(self) -> Self:
         """ """
         qry = ServiceOperationQuery(self, "CancelSetVersionPolicyForDocLibs")
         self.context.add_query(qry)
         return self
 
+    def _absolute_uri(self, uri: str) -> str:
+        """Copy jobs address their export objects and their destination by absolute URL.
+
+        A server-relative URL (``/sites/project/Shared Documents/file.docx``) is resolved
+        against the tenant, since that is how the rest of the library names an item.
+        """
+        if uri.startswith("/"):
+            return get_absolute_url(self.context.service_root_url) + uri
+        return uri
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_copy_job(self, export_object_uris, destination_uri, options=None) -> ClientResult[CopyMigrationInfo]:
-        """"""
+        """Queues a single copy job.
+
+        The service retired this operation and answers ``Function CreateCopyJob is obsoleted.
+        Please use CreateCopyJobs instead``; it stays declared rather than deleted, because
+        the ratchet counts the code that is there.
+        """
         return_type = ClientResult(self.context, CopyMigrationInfo())
-        payload = {"exportObjectUris": export_object_uris, "destinationUri": destination_uri, "options": options}
+        payload = {
+            "exportObjectUris": [self._absolute_uri(uri) for uri in export_object_uris],
+            "destinationUri": self._absolute_uri(destination_uri),
+            "options": options,
+        }
         qry = ServiceOperationQuery(self, "CreateCopyJob", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_migration_ingestion_job(
         self,
         g_web_id: Union[str, UUID],
@@ -156,6 +192,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_migration_job(
         self,
         g_web_id: Union[str, UUID] | None = None,
@@ -185,6 +222,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_migration_job_encrypted(
         self,
         g_web_id: Union[str, UUID],
@@ -221,6 +259,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_migration_job_progress(self, job_id: str, next_token: str = "0") -> ClientResult[MigrationJobProgress]:
         """Retrieves a page of migration job progress events.
 
@@ -238,6 +277,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def provision_migration_containers(self) -> ClientResult[ProvisionedMigrationContainersInfo]:
         """Provisions SharePoint-provided Azure containers for migration content and manifest.
 
@@ -250,6 +290,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def provision_migration_queue(self) -> ClientResult[ProvisionedMigrationQueueInfo]:
         """Provisions a SharePoint-provided Azure queue for migration job progress."""
         return_type = ClientResult(self.context, ProvisionedMigrationQueueInfo())
@@ -257,6 +298,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def create_preview_site(self, upgrade: Optional[bool] = None, sendemail: Optional[str] = None) -> Self:
         """Schedules the creation of an evaluation copy of the site collection for the purposes of evaluating an upgrade
         of the site collection to a newer version
@@ -299,6 +341,7 @@ class Site(Entity):
         self.ensure_property("Id").after_execute(lambda _: _check_is_deletable())
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def extend_upgrade_reminder_date(self) -> Self:
         """
         Extend the upgrade reminder date for this site collection, so that site collection administrators will
@@ -340,6 +383,7 @@ class Site(Entity):
         self.get_available_tags().after_execute(_loaded)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_block_download_policy_for_files_data(self) -> ClientResult[str]:
         """ """
         return_type = ClientResult(self.context, str())
@@ -347,6 +391,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_migration_status(self) -> EntityCollection[SPMigrationJobStatus]:
         """"""
         return_type = EntityCollection(self.context, SPMigrationJobStatus)
@@ -354,9 +399,14 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
-    def get_copy_job_progress(self, copy_job_info=None) -> ClientResult[CopyJobProgress]:
-        """Args:
-        copy_job_info: Optional copyJobInfo object.
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
+    def get_copy_job_progress(self, copy_job_info: CopyMigrationInfo) -> ClientResult[CopyJobProgress]:
+        """Reports what happened to a queued copy job.
+
+        Args:
+            copy_job_info (CopyMigrationInfo): The job exactly as ``create_copy_jobs`` returned
+                it. The service reads the queue URI out of it, so an empty payload is not a
+                progress read: it answers ``The copy or move job queue URI is not supported``.
         """
         payload = {"copyJobInfo": copy_job_info}
         return_type = ClientResult(self.context, CopyJobProgress())
@@ -427,6 +477,7 @@ class Site(Entity):
         self.ensure_property("Url").after_execute(lambda _: _site_loaded())
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_changes(self, query=None) -> ChangeCollection:
         """Returns the collection of all changes from the change log that have occurred within the scope of the site,
         based on the specified query.
@@ -442,6 +493,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_recycle_bin_items(self, row_limit: int = 100, is_ascending: bool = True) -> RecycleBinItemCollection:
         """Returns a collection of recycle bin items based on the specified query.
 
@@ -468,6 +520,7 @@ class Site(Entity):
         self.ensure_property("Id").after_execute(lambda _: _get_site_administrators())
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_web_path(self, site_id: str, web_id: str) -> ClientResult[SPResPath]:
         """Args:
         site_id (int): The site identifier
@@ -479,6 +532,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_web_templates(self, lcid=1033, override_compat_level=0) -> WebTemplateCollection:
         """Returns the collection of site definitions that are available for creating
         Web sites within the site collection.
@@ -497,6 +551,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def invalidate(self) -> Self:
         """
         Invalidates cached upgrade information about the site collection so that this information will be
@@ -506,6 +561,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def needs_upgrade_by_type(self, version_upgrade: bool, recursive: bool) -> ClientResult[bool]:
         """Returns "true" if this site collection requires site collection upgrade of the specified type;
         otherwise, "false"
@@ -521,6 +577,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def join_hub_site(
         self, hub_site_id: str, approval_token: Optional[str] = None, approval_correlation_id: Optional[str] = None
     ) -> Self:
@@ -541,6 +598,7 @@ class Site(Entity):
         return self
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_url_by_id(context: ClientContext, site_id: str, stop_redirect: bool = False) -> ClientResult[str]:
         """Gets Site Url By Id
 
@@ -556,6 +614,7 @@ class Site(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_url_by_id_for_web(context, site_id: str, stop_redirect: bool, web_id: str) -> ClientResult[str]:
         """Gets Site Url By Id
 
@@ -573,6 +632,7 @@ class Site(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def exists(context, url: str) -> ClientResult[bool]:
         """Determine whether site exists
 
@@ -606,6 +666,7 @@ class Site(Entity):
         """
         return List(self.context, ServiceOperationPath("getCatalog", [int(type_catalog)], self.resource_path))
 
+    @site_access(SiteLevel.READ)
     def open_web(self, str_url: str) -> Web:
         """Returns the specified Web site from the site collection.
 
@@ -619,6 +680,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def open_web_by_id(self, web_id: str) -> Web:
         """Returns the specified Web site from the site collection.
 
@@ -630,6 +692,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def provision_temporary_azure_container(self) -> ClientResult[ProvisionedTemporaryAzureContainerInfo]:
         """"""
         return_type = ClientResult(self.context, ProvisionedTemporaryAzureContainerInfo())
@@ -637,12 +700,14 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def process_storage_metrics_changes(self) -> Self:
         """"""
         qry = ServiceOperationQuery(self, "ProcessStorageMetricsChanges")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def get_storage_metrics(self) -> StorageMetrics:
         """Gets storage-related metrics for the site collection.
 
@@ -654,6 +719,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def register_hub_site(self, create_info: Optional[HubSiteCreationInformation] = None) -> Self:
         """Registers an existing site as a hub site.
 
@@ -664,6 +730,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def run_health_check(
         self, rule_id: Optional[str] = None, repair: Optional[bool] = None, run_always: Optional[bool] = None
     ) -> SiteHealthSummary:
@@ -683,12 +750,14 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def unregister_hub_site(self) -> Self:
         """Disables the hub site feature on a site."""
         qry = ServiceOperationQuery(self, "UnRegisterHubSite")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def update_client_object_model_use_remote_apis_permission_setting(self, require_use_remote_apis: bool) -> Self:
         """Sets whether the client-side object model (CSOM) requests that are made in the context of any site inside
         the site collection require UseRemoteAPIs permission.
@@ -702,11 +771,13 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="AllowCreateDeclarativeWorkflow")
     @property
     def allow_create_declarative_workflow(self) -> Optional[bool]:
         """Specifies whether a designer can be used to create declarative workflows on this site collection"""
         return self.properties.get("AllowCreateDeclarativeWorkflow", None)
 
+    @odata(name="AllowDesigner")
     @property
     def allow_designer(self) -> Optional[bool]:
         """
@@ -716,10 +787,12 @@ class Site(Entity):
         """
         return self.properties.get("AllowDesigner", None)
 
+    @odata(name="AllowedExternalDomains", beta=True)
     @property
     def allowed_external_domains(self) -> Optional[HTMLFieldSecuritySetting]:
         return self.properties.get("AllowedExternalDomains", HTMLFieldSecuritySetting())
 
+    @odata(name="AllowMasterPageEditing")
     @property
     def allow_master_page_editing(self) -> Optional[bool]:
         """
@@ -729,6 +802,7 @@ class Site(Entity):
         """
         return self.properties.get("AllowMasterPageEditing", None)
 
+    @odata(name="AllowRevertFromTemplate")
     @property
     def allow_revert_from_template(self) -> Optional[bool]:
         """
@@ -738,11 +812,13 @@ class Site(Entity):
         """
         return self.properties.get("AllowRevertFromTemplate", None)
 
+    @odata(name="Audit", navigation=True)
     @property
     def audit(self) -> Audit:
         """Enables auditing of how site collection is accessed, changed, and used."""
         return self.properties.get("Audit", Audit(self.context, ResourcePath("Audit", self.resource_path)))
 
+    @odata(name="CanUpgrade")
     @property
     def can_upgrade(self) -> Optional[bool]:
         """
@@ -751,16 +827,19 @@ class Site(Entity):
         """
         return self.properties.get("CanUpgrade", None)
 
+    @odata(name="ChannelGroupId", beta=True)
     @property
     def channel_group_id(self) -> Optional[str]:
         """ """
         return self.properties.get("ChannelGroupId", None)
 
+    @odata(name="Classification", beta=True)
     @property
     def classification(self) -> Optional[str]:
         """Gets the classification of this site."""
         return self.properties.get("Classification", None)
 
+    @odata(name="CompatibilityLevel")
     @property
     def compatibility_level(self) -> Optional[str]:
         """
@@ -769,21 +848,25 @@ class Site(Entity):
         """
         return self.properties.get("CompatibilityLevel", None)
 
+    @odata(name="CommentsOnSitePagesDisabled", beta=True)
     @property
     def comments_on_site_pages_disabled(self) -> Optional[bool]:
         """Indicates whether comments on site pages are disabled or not."""
         return self.properties.get("CommentsOnSitePagesDisabled", None)
 
+    @odata(name="CurrentChangeToken")
     @property
     def current_change_token(self) -> ChangeToken:
         """Gets the current change token that is used in the change log for the site collection."""
         return self.properties.get("CurrentChangeToken", ChangeToken())
 
+    @odata(name="DisableFlows")
     @property
     def disable_flows(self) -> Optional[bool]:
         """"""
         return self.properties.get("DisableFlows", None)
 
+    @odata(name="ExternalSharingTipsEnabled")
     @property
     def external_sharing_tips_enabled(self) -> Optional[bool]:
         """Gets a Boolean value that specifies whether users will be greeted with a notification bar telling them that
@@ -791,36 +874,43 @@ class Site(Entity):
         it is false."""
         return self.properties.get("ExternalSharingTipsEnabled", None)
 
+    @odata(name="ExternalUserExpirationInDays")
     @property
     def external_user_expiration_in_days(self) -> Optional[int]:
         """"""
         return self.properties.get("ExternalUserExpirationInDays", None)
 
+    @odata(name="GeoLocation")
     @property
     def geo_location(self) -> Optional[str]:
         """"""
         return self.properties.get("GeoLocation", None)
 
+    @odata(name="GroupId", beta=True)
     @property
     def group_id(self) -> Optional[str]:
         """Group identifier"""
         return self.properties.get("GroupId", None)
 
+    @odata(name="LockIssue")
     @property
     def lock_issue(self) -> Optional[str]:
         """Specifies the comment that is used when a site collection is locked"""
         return self.properties.get("LockIssue", None)
 
+    @odata(name="RootWeb", navigation=True)
     @property
     def root_web(self) -> Web:
         """Get root web"""
         return self.properties.get("RootWeb", Web(self.context, ResourcePath("RootWeb", self.resource_path)))
 
+    @odata(name="Owner", navigation=True)
     @property
     def owner(self) -> User:
         """Gets or sets the owner of the site collection. (Read-only in sandboxed solutions.)"""
         return self.properties.get("Owner", User(self.context, ResourcePath("Owner", self.resource_path)))
 
+    @odata(name="ReadOnly")
     @property
     def read_only(self) -> Optional[bool]:
         """
@@ -829,6 +919,7 @@ class Site(Entity):
         """
         return self.properties.get("ReadOnly", None)
 
+    @odata(name="RequiredDesignerVersion")
     @property
     def required_designer_version(self) -> Optional[str]:
         """
@@ -837,16 +928,19 @@ class Site(Entity):
         """
         return self.properties.get("RequiredDesignerVersion", None)
 
+    @odata(name="Url")
     @property
     def url(self) -> Optional[str]:
         """Specifies the full URL of the site (2), including host name, port number and path"""
         return self.properties.get("Url", None)
 
+    @odata(name="ServerRelativeUrl")
     @property
     def server_relative_url(self) -> Optional[str]:
         """Specifies the server-relative URL of the top-level site in the site collection."""
         return self.properties.get("ServerRelativeUrl", None)
 
+    @odata(name="ShareByEmailEnabled")
     @property
     def share_by_email_enabled(self) -> Optional[bool]:
         """
@@ -854,46 +948,55 @@ class Site(Entity):
         """
         return self.properties.get("ShareByEmailEnabled", None)
 
+    @odata(name="StatusBarText", beta=True)
     @property
     def status_bar_text(self) -> Optional[str]:
         """Gets or sets the status bar message text for this site."""
         return self.properties.get("StatusBarText", None)
 
+    @odata(name="TrimAuditLog")
     @property
     def trim_audit_log(self) -> Optional[bool]:
         """When this flag is set for the site, the audit events are trimmed periodically."""
         return self.properties.get("TrimAuditLog", None)
 
+    @odata(name="WriteLocked")
     @property
     def write_locked(self) -> Optional[bool]:
         """ """
         return self.properties.get("WriteLocked", None)
 
+    @odata(name="Id")
     @property
     def id(self) -> Optional[str]:
         """Specifies the GUID that identifies the site collection."""
         return self.properties.get("Id", None)
 
+    @odata(name="HubSiteId", beta=True)
     @property
     def hub_site_id(self) -> Optional[str]:
         """ """
         return self.properties.get("HubSiteId", None)
 
+    @odata(name="IsHubSite", beta=True)
     @property
     def is_hub_site(self) -> Optional[bool]:
         """Returns whether the specified site is a hub site"""
         return self.properties.get("IsHubSite", None)
 
+    @odata(name="ServerRelativePath", beta=True)
     @property
     def server_relative_path(self) -> Optional[SPResPath]:
         """Gets the server-relative Path of the Site."""
         return self.properties.get("ServerRelativePath", SPResPath())
 
+    @odata(name="StatusBarLink", beta=True)
     @property
     def status_bar_link(self) -> Optional[str]:
         """Gets the status bar message link target for this site."""
         return self.properties.get("StatusBarLink", None)
 
+    @odata(name="SecondaryContact", navigation=True)
     @property
     def secondary_contact(self) -> User:
         """Gets or sets the secondary contact that is used for the site collection."""
@@ -901,6 +1004,7 @@ class Site(Entity):
             "SecondaryContact", User(self.context, ResourcePath("SecondaryContact", self.resource_path))
         )
 
+    @odata(name="RecycleBin", navigation=True)
     @property
     def recycle_bin(self) -> RecycleBinItemCollection:
         """Get recycle bin"""
@@ -908,6 +1012,7 @@ class Site(Entity):
             "RecycleBin", RecycleBinItemCollection(self.context, ResourcePath("RecycleBin", self.resource_path))
         )
 
+    @odata(name="Features", navigation=True)
     @property
     def features(self) -> FeatureCollection:
         """Get features"""
@@ -915,6 +1020,7 @@ class Site(Entity):
             "Features", FeatureCollection(self.context, ResourcePath("Features", self.resource_path), self)
         )
 
+    @odata(name="MaxItemsPerThrottledOperation")
     @property
     def max_items_per_throttled_operation(self) -> Optional[int]:
         """
@@ -923,11 +1029,13 @@ class Site(Entity):
         """
         return self.properties.get("MaxItemsPerThrottledOperation", None)
 
+    @odata(name="NeedsB2BUpgrade")
     @property
     def needs_b2b_upgrade(self) -> Optional[bool]:
         """Specifies whether the site needs a Build-to-Build upgrade."""
         return self.properties.get("NeedsB2BUpgrade", None)
 
+    @odata(name="EventReceivers", navigation=True)
     @property
     def event_receivers(self) -> EventReceiverDefinitionCollection:
         """
@@ -938,6 +1046,7 @@ class Site(Entity):
             EventReceiverDefinitionCollection(self.context, ResourcePath("eventReceivers", self.resource_path), self),
         )
 
+    @odata(name="ShowUrlStructure")
     @property
     def show_url_structure(self) -> Optional[bool]:
         """
@@ -947,6 +1056,7 @@ class Site(Entity):
         """
         return self.properties.get("ShowUrlStructure", None)
 
+    @odata(name="UIVersionConfigurationEnabled")
     @property
     def ui_version_configuration_enabled(self) -> Optional[bool]:
         """
@@ -959,11 +1069,13 @@ class Site(Entity):
         """Provides fields used to access information regarding site collection usage."""
         return self.properties.get("UsageInfo", UsageInfo())
 
+    @odata(name="UpgradeInfo")
     @property
-    def upgrade_info(self):
+    def upgrade_info(self) -> UpgradeInfo:
         """Specifies the upgrade information of this site collection."""
         return self.properties.get("UpgradeInfo", UpgradeInfo())
 
+    @odata(name="UpgradeReminderDate")
     @property
     def upgrade_reminder_date(self) -> Optional[datetime]:
         """
@@ -971,6 +1083,7 @@ class Site(Entity):
         """
         return self.properties.get("UpgradeReminderDate", datetime.min)
 
+    @odata(name="UpgradeScheduled")
     @property
     def upgrade_scheduled(self) -> Optional[bool]:
         """
@@ -979,6 +1092,7 @@ class Site(Entity):
         """
         return self.properties.get("UpgradeScheduled", None)
 
+    @odata(name="UpgradeScheduledDate")
     @property
     def upgrade_scheduled_date(self) -> Optional[datetime]:
         """
@@ -987,6 +1101,7 @@ class Site(Entity):
         """
         return self.properties.get("UpgradeScheduledDate", datetime.min)
 
+    @odata(name="Upgrading")
     @property
     def upgrading(self) -> Optional[bool]:
         """
@@ -994,6 +1109,7 @@ class Site(Entity):
         """
         return self.properties.get("Upgrading", None)
 
+    @odata(name="UserCustomActions", navigation=True)
     @property
     def user_custom_actions(self) -> UserCustomActionCollection:
         """Gets the User Custom Actions that are associated with the site."""
@@ -1002,6 +1118,7 @@ class Site(Entity):
             UserCustomActionCollection(self.context, ResourcePath("UserCustomActions", self.resource_path)),
         )
 
+    @odata(name="VersionPolicyForNewLibrariesTemplate", navigation=True, beta=True)
     @property
     def version_policy_for_new_libraries_template(self) -> SiteVersionPolicyManager:
         """"""
@@ -1012,206 +1129,247 @@ class Site(Entity):
             ),
         )
 
+    @odata(name="AllowExternalEmbeddingWrapper", beta=True)
     @property
     def allow_external_embedding_wrapper(self) -> Optional[int]:
         """Gets the AllowExternalEmbeddingWrapper property"""
         return self.properties.get("AllowExternalEmbeddingWrapper", None)
 
+    @odata(name="AllowSaveDeclarativeWorkflowAsTemplate")
     @property
     def allow_save_declarative_workflow_as_template(self) -> Optional[bool]:
         """Gets the AllowSaveDeclarativeWorkflowAsTemplate property"""
         return self.properties.get("AllowSaveDeclarativeWorkflowAsTemplate", None)
 
+    @odata(name="AllowSavePublishDeclarativeWorkflow")
     @property
     def allow_save_publish_declarative_workflow(self) -> Optional[bool]:
         """Gets the AllowSavePublishDeclarativeWorkflow property"""
         return self.properties.get("AllowSavePublishDeclarativeWorkflow", None)
 
+    @odata(name="AllowSelfServiceUpgrade")
     @property
     def allow_self_service_upgrade(self) -> Optional[bool]:
         """Gets the AllowSelfServiceUpgrade property"""
         return self.properties.get("AllowSelfServiceUpgrade", None)
 
+    @odata(name="AllowSelfServiceUpgradeEvaluation")
     @property
     def allow_self_service_upgrade_evaluation(self) -> Optional[bool]:
         """Gets the AllowSelfServiceUpgradeEvaluation property"""
         return self.properties.get("AllowSelfServiceUpgradeEvaluation", None)
 
+    @odata(name="AuditLogTrimmingRetention")
     @property
     def audit_log_trimming_retention(self) -> Optional[int]:
         """Gets the AuditLogTrimmingRetention property"""
         return self.properties.get("AuditLogTrimmingRetention", None)
 
+    @odata(name="CanSyncHubSitePermissions", beta=True)
     @property
     def can_sync_hub_site_permissions(self) -> Optional[bool]:
         """Gets the CanSyncHubSitePermissions property"""
         return self.properties.get("CanSyncHubSitePermissions", None)
 
+    @odata(name="ChannelCapabilities")
     @property
     def channel_capabilities(self) -> ChannelCapabilities:
         """Gets the ChannelCapabilities property"""
         return self.properties.get("ChannelCapabilities", ChannelCapabilities())
 
+    @odata(name="ComplianceAttribute", beta=True)
     @property
     def compliance_attribute(self) -> Optional[str]:
         """Gets the ComplianceAttribute property"""
         return self.properties.get("ComplianceAttribute", None)
 
+    @odata(name="CustomizedFormsPages", beta=True)
     @property
     def customized_forms_pages(self) -> CustomizedFormsPageCollection:
         """Gets the CustomizedFormsPages property"""
         return self.properties.get("CustomizedFormsPages", CustomizedFormsPageCollection())
 
+    @odata(name="DisableAppViews")
     @property
     def disable_app_views(self) -> Optional[bool]:
         """Gets the DisableAppViews property"""
         return self.properties.get("DisableAppViews", None)
 
+    @odata(name="DisableCompanyWideSharingLinks")
     @property
     def disable_company_wide_sharing_links(self) -> Optional[bool]:
         """Gets the DisableCompanyWideSharingLinks property"""
         return self.properties.get("DisableCompanyWideSharingLinks", None)
 
+    @odata(name="Id")
     @property
     def id_(self) -> Optional[UUID]:
         """Gets the Id property"""
         return self.properties.get("Id", None)
 
+    @odata(name="SensitivityLabelId", beta=True)
     @property
     def sensitivity_label_id(self) -> Optional[str]:
         """Gets the SensitivityLabelId property"""
         return self.properties.get("SensitivityLabelId", None)
 
+    @odata(name="SensitivityLabel", beta=True)
     @property
     def sensitivity_label(self) -> Optional[UUID]:
         """Gets the SensitivityLabel property"""
         return self.properties.get("SensitivityLabel", None)
 
+    @odata(name="IsPersonalSiteOverLicenseQuota")
     @property
     def is_personal_site_over_license_quota(self) -> Optional[bool]:
         """Gets the IsPersonalSiteOverLicenseQuota property"""
         return self.properties.get("IsPersonalSiteOverLicenseQuota", None)
 
+    @odata(name="IsPersonalSiteStorageLimitSetOnPaygTenant")
     @property
     def is_personal_site_storage_limit_set_on_payg_tenant(self) -> Optional[bool]:
         """Gets the IsPersonalSiteStorageLimitSetOnPaygTenant property"""
         return self.properties.get("IsPersonalSiteStorageLimitSetOnPaygTenant", None)
 
+    @odata(name="IsRestrictContentOrgWideSearchPolicyEnforcedOnSite")
     @property
     def is_restrict_content_org_wide_search_policy_enforced_on_site(self) -> Optional[bool]:
         """Gets the IsRestrictContentOrgWideSearchPolicyEnforcedOnSite property"""
         return self.properties.get("IsRestrictContentOrgWideSearchPolicyEnforcedOnSite", None)
 
+    @odata(name="IsRestrictedAccessControlPolicyEnforcedOnSite")
     @property
     def is_restricted_access_control_policy_enforced_on_site(self) -> Optional[bool]:
         """Gets the IsRestrictedAccessControlPolicyEnforcedOnSite property"""
         return self.properties.get("IsRestrictedAccessControlPolicyEnforcedOnSite", None)
 
+    @odata(name="IsRestrictedContentDiscoveryforCopilotAndAgentsEnabled")
     @property
     def is_restricted_content_discoveryfor_copilot_and_agents_enabled(self) -> Optional[bool]:
         """Gets the IsRestrictedContentDiscoveryforCopilotAndAgentsEnabled property"""
         return self.properties.get("IsRestrictedContentDiscoveryforCopilotAndAgentsEnabled", None)
 
+    @odata(name="IsScheduledForRemoval")
     @property
     def is_scheduled_for_removal(self) -> Optional[bool]:
         """Gets the IsScheduledForRemoval property"""
         return self.properties.get("IsScheduledForRemoval", None)
 
+    @odata(name="IsUnlicensedOdb")
     @property
     def is_unlicensed_odb(self) -> Optional[bool]:
         """Gets the IsUnlicensedOdb property"""
         return self.properties.get("IsUnlicensedOdb", None)
 
+    @odata(name="MediaTranscriptionDisabled")
     @property
     def media_transcription_disabled(self) -> Optional[bool]:
         """Gets the MediaTranscriptionDisabled property"""
         return self.properties.get("MediaTranscriptionDisabled", None)
 
+    @odata(name="NeedsB2BUpgrade")
     @property
     def needs_b2_b_upgrade(self) -> Optional[bool]:
         """Gets the NeedsB2BUpgrade property"""
         return self.properties.get("NeedsB2BUpgrade", None)
 
+    @odata(name="PrimaryUri")
     @property
     def primary_uri(self) -> Optional[str]:
         """Gets the PrimaryUri property"""
         return self.properties.get("PrimaryUri", None)
 
+    @odata(name="RelatedGroupId", beta=True)
     @property
     def related_group_id(self) -> Optional[UUID]:
         """Gets the RelatedGroupId property"""
         return self.properties.get("RelatedGroupId", None)
 
+    @odata(name="RestrictContentOrgWideSearchUpdate")
     @property
     def restrict_content_org_wide_search_update(self) -> RestrictContentOrgWidePolicyUpdate:
         """Gets the RestrictContentOrgWideSearchUpdate property"""
         return self.properties.get("RestrictContentOrgWideSearchUpdate", RestrictContentOrgWidePolicyUpdate())
 
+    @odata(name="RestrictedAccessControlGroupsDelegatedOnSite", beta=True)
     @property
     def restricted_access_control_groups_delegated_on_site(self) -> RestrictAccessControlUpdate:
         """Gets the RestrictedAccessControlGroupsDelegatedOnSite property"""
         return self.properties.get("RestrictedAccessControlGroupsDelegatedOnSite", RestrictAccessControlUpdate())
 
+    @odata(name="RestrictedAccessControlGroupsEnforcedOnSite", beta=True)
     @property
     def restricted_access_control_groups_enforced_on_site(self) -> StringCollection:
         """Gets the RestrictedAccessControlGroupsEnforcedOnSite property"""
         return self.properties.get("RestrictedAccessControlGroupsEnforcedOnSite", StringCollection())
 
+    @odata(name="SandboxedCodeActivationCapability")
     @property
     def sandboxed_code_activation_capability(self) -> Optional[int]:
         """Gets the SandboxedCodeActivationCapability property"""
         return self.properties.get("SandboxedCodeActivationCapability", None)
 
+    @odata(name="ScheduledDateForRemoval")
     @property
     def scheduled_date_for_removal(self) -> Optional[str]:
         """Gets the ScheduledDateForRemoval property"""
         return self.properties.get("ScheduledDateForRemoval", None)
 
+    @odata(name="SearchBoxInNavBar", beta=True)
     @property
     def search_box_in_nav_bar(self) -> Optional[int]:
         """Gets the SearchBoxInNavBar property"""
         return self.properties.get("SearchBoxInNavBar", None)
 
+    @odata(name="SearchBoxPlaceholderText", beta=True)
     @property
     def search_box_placeholder_text(self) -> Optional[str]:
         """Gets the SearchBoxPlaceholderText property"""
         return self.properties.get("SearchBoxPlaceholderText", None)
 
+    @odata(name="SensitivityLabelInfo", beta=True)
     @property
     def sensitivity_label_info(self) -> SensitivityLabelInfo:
         """Gets the SensitivityLabelInfo property"""
         return self.properties.get("SensitivityLabelInfo", SensitivityLabelInfo())
 
+    @odata(name="ShareByLinkEnabled")
     @property
     def share_by_link_enabled(self) -> Optional[bool]:
         """Gets the ShareByLinkEnabled property"""
         return self.properties.get("ShareByLinkEnabled", None)
 
+    @odata(name="ShowPeoplePickerSuggestionsForGuestUsers", beta=True)
     @property
     def show_people_picker_suggestions_for_guest_users(self) -> Optional[bool]:
         """Gets the ShowPeoplePickerSuggestionsForGuestUsers property"""
         return self.properties.get("ShowPeoplePickerSuggestionsForGuestUsers", None)
 
+    @odata(name="SitePolicyEnabled")
     @property
     def site_policy_enabled(self) -> Optional[bool]:
         """Gets the SitePolicyEnabled property"""
         return self.properties.get("SitePolicyEnabled", None)
 
+    @odata(name="SocialBarOnSitePagesDisabled", beta=True)
     @property
     def social_bar_on_site_pages_disabled(self) -> Optional[bool]:
         """Gets the SocialBarOnSitePagesDisabled property"""
         return self.properties.get("SocialBarOnSitePagesDisabled", None)
 
+    @odata(name="ThicketSupportDisabled")
     @property
     def thicket_support_disabled(self) -> Optional[bool]:
         """Gets the ThicketSupportDisabled property"""
         return self.properties.get("ThicketSupportDisabled", None)
 
+    @odata(name="UnifiedDomainUrl")
     @property
     def unified_domain_url(self) -> Optional[str]:
         """Gets the UnifiedDomainUrl property"""
         return self.properties.get("UnifiedDomainUrl", None)
 
+    @odata(name="UnlicensedOdbLicenseEnforcementWarningContext")
     @property
     def unlicensed_odb_license_enforcement_warning_context(self) -> UnlicensedOdbLicenseEnforcementWarningContext:
         """Gets the UnlicensedOdbLicenseEnforcementWarningContext property"""
@@ -1219,11 +1377,13 @@ class Site(Entity):
             "UnlicensedOdbLicenseEnforcementWarningContext", UnlicensedOdbLicenseEnforcementWarningContext()
         )
 
+    @odata(name="Usage")
     @property
     def usage(self) -> UsageInfo:
         """Gets the Usage property"""
         return self.properties.get("Usage", UsageInfo())
 
+    @odata(name="CustomScriptSafeDomains", navigation=True)
     @property
     def custom_script_safe_domains(self) -> EntityCollection[ScriptSafeDomain]:
         """Gets the CustomScriptSafeDomains property"""
@@ -1234,6 +1394,7 @@ class Site(Entity):
             ),
         )
 
+    @odata(name="HubSiteSynchronizableVisitorGroup", navigation=True, beta=True)
     @property
     def hub_site_synchronizable_visitor_group(self) -> Group:
         """Gets the HubSiteSynchronizableVisitorGroup property"""
@@ -1242,6 +1403,7 @@ class Site(Entity):
             Group(self.context, ResourcePath("HubSiteSynchronizableVisitorGroup", self.resource_path)),
         )
 
+    @odata(name="CopilotSearchOptOut")
     @property
     def copilot_search_opt_out(self) -> Optional[bool]:
         """Gets the CopilotSearchOptOut property"""
@@ -1273,6 +1435,7 @@ class Site(Entity):
             super().set_property(name, value, persist_changes)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_copy_jobs(
         self, export_object_uris: list[str], destination_uri: str, options: CopyMigrationOptions
     ) -> ClientResult[ClientValueCollection[CopyMigrationInfo]]:
@@ -1283,14 +1446,16 @@ class Site(Entity):
             destination_uri (str): destinationUri parameter
             options (CopyMigrationOptions): options parameter
         """
-        return_type = ClientResult(self.context, ClientValueCollection[CopyMigrationInfo]())
+        return_type = ClientResult(self.context, ClientValueCollection(CopyMigrationInfo))
         qry = ServiceOperationQuery(
             self,
             "CreateCopyJobs",
             None,
             {
-                "exportObjectUris": StringCollection(export_object_uris),
-                "destinationUri": destination_uri,
+                # A bare array: the service binds this parameter itself and rejects the verbose
+                # ``{"results": ...}`` wrapper that the collection types serialize to.
+                "exportObjectUris": [self._absolute_uri(uri) for uri in export_object_uris],
+                "destinationUri": self._absolute_uri(destination_uri),
                 "options": options,
             },
             None,
@@ -1299,6 +1464,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def create_preview_sp_site(self, upgrade: bool, sendemail: bool) -> Self:
         """CreatePreviewSPSite operation.
 
@@ -1312,6 +1478,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_sp_async_read_job(
         self,
         url: str,
@@ -1347,6 +1514,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_sp_async_read_job_with_multi_url(
         self,
         urls: list[str],
@@ -1382,6 +1550,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete_migration_job(self, id_: UUID) -> ClientResult[bool]:
         """DeleteMigrationJob operation.
 
@@ -1393,6 +1562,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def enqueue_apply_sensitivity_label_work(
         self, work_item_information: AutoLabellingWorkInformation
     ) -> ClientResult[EnqueueJobInformation]:
@@ -1413,6 +1583,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_bring_your_own_key_recovery_key_mode(self) -> ClientResult[int]:
         """GetBringYourOwnKeyRecoveryKeyMode operation."""
         return_type = ClientResult(self.context, int())
@@ -1420,6 +1591,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_bring_your_own_key_site_status(self) -> ClientResult[CustomerKeyStatusInfo]:
         """GetBringYourOwnKeySiteStatus operation."""
         return_type = ClientResult(self.context, CustomerKeyStatusInfo())
@@ -1427,6 +1599,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_bring_your_own_key_tenant_status(self) -> ClientResult[CustomerKeyStatusInfo]:
         """GetBringYourOwnKeyTenantStatus operation."""
         return_type = ClientResult(self.context, CustomerKeyStatusInfo())
@@ -1435,6 +1608,7 @@ class Site(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ebar_protection_units_exist_by_ids(
         context: ClientContext, site_subscription_id: UUID, protection_unit_ids: list[UUID]
     ) -> ClientResult[dict]:
@@ -1455,6 +1629,7 @@ class Site(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ebar_restore_session_exists_by_id(
         context: ClientContext, site_subscription_id: UUID, restore_session_id: UUID
     ) -> ClientResult[bool]:
@@ -1471,6 +1646,7 @@ class Site(Entity):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_hub_site_join_approval_correlation_id(self) -> ClientResult[str]:
         """GetHubSiteJoinApprovalCorrelationId operation."""
         return_type = ClientResult(self.context, str())
@@ -1478,6 +1654,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_migration_job_status(self, id_: UUID) -> ClientResult[int]:
         """GetMigrationJobStatus operation.
 
@@ -1489,6 +1666,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_progress_for_delete_file_versions(self) -> ClientResult[str]:
         """GetProgressForDeleteFileVersions operation."""
         return_type = ClientResult(self.context, str())
@@ -1496,6 +1674,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_progress_for_expire_file_versions_by_schedule(self, schedule_file_path: ResourcePath) -> ClientResult[str]:
         """GetProgressForExpireFileVersionsBySchedule operation.
 
@@ -1514,6 +1693,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_progress_for_file_version_expiration_report(self, report_file_url: str) -> ClientResult[str]:
         """GetProgressForFileVersionExpirationReport operation.
 
@@ -1532,6 +1712,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_progress_for_set_version_policy_for_doc_libs(self) -> ClientResult[str]:
         """GetProgressForSetVersionPolicyForDocLibs operation."""
         return_type = ClientResult(self.context, str())
@@ -1540,6 +1721,7 @@ class Site(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sites_exist_by_site_ids(
         context: ClientContext, site_subscription_id: UUID, site_ids: list[UUID]
     ) -> ClientResult[dict]:
@@ -1557,6 +1739,7 @@ class Site(Entity):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sites_exist_by_site_urls(
         context: ClientContext, site_subscription_id: UUID, urls: list[str]
     ) -> ClientResult[dict]:
@@ -1573,6 +1756,7 @@ class Site(Entity):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def multi_geo_copy_job(self, job_id: UUID, user_id: int, binary_payload: bytes) -> Self:
         """MultiGeoCopyJob operation.
 
@@ -1592,6 +1776,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def needs_upgrade_by_type_from_spo_shell(self, version_upgrade: bool, recursive: bool) -> ClientResult[bool]:
         """NeedsUpgradeByTypeFromSpoShell operation.
 
@@ -1604,6 +1789,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def onboard_tenant_for_bring_your_own_key(self, key_info: CustomerKeyInfo) -> ClientResult[CustomerKeyStatusInfo]:
         """OnboardTenantForBringYourOwnKey operation.
 
@@ -1617,6 +1803,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def on_hub_site_join_request_approved(self, joining_site_id: UUID) -> ClientResult[str]:
         """OnHubSiteJoinRequestApproved operation.
 
@@ -1630,6 +1817,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def on_hub_site_join_request_canceled(self, approval_correlation_id: str) -> Self:
         """OnHubSiteJoinRequestCanceled operation.
 
@@ -1642,6 +1830,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def on_hub_site_join_request_started(self, approval_correlation_id: str) -> Self:
         """OnHubSiteJoinRequestStarted operation.
 
@@ -1654,6 +1843,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def recover_tenant_for_bring_your_own_key(self, key_info: CustomerKeyInfo) -> ClientResult[CustomerKeyStatusInfo]:
         """RecoverTenantForBringYourOwnKey operation.
 
@@ -1667,6 +1857,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def roll_tenant_bring_your_own_key(
         self, key_type: int, key_vault_info: CustomerKeyVaultInfo
     ) -> ClientResult[CustomerKeyStatusInfo]:
@@ -1688,6 +1879,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL)
     def run_upgrade_site_session(self, version_upgrade: bool, queue_only: bool, send_email: bool) -> Self:
         """RunUpgradeSiteSession operation.
 
@@ -1707,6 +1899,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_block_download_policy_for_files(self, block_download_policy_file_type_ids: list[str]) -> Self:
         """SetBlockDownloadPolicyForFiles operation.
 
@@ -1724,6 +1917,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_is_contributor_owner_enabled_property_for_default_doc_lib(
         self,
         property_value: bool,
@@ -1756,6 +1950,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def start_delete_file_versions(self, delete_older_than_days: int) -> Self:
         """StartDeleteFileVersions operation.
 
@@ -1768,6 +1963,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_delete_file_versions_by_mode(self, batch_delete_parameters: FileVersionBatchDeleteParameters) -> Self:
         """StartDeleteFileVersionsByMode operation.
 
@@ -1780,6 +1976,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_expire_file_versions_by_schedule(self, schedule_file_path: ResourcePath) -> Self:
         """StartExpireFileVersionsBySchedule operation.
 
@@ -1792,6 +1989,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_file_version_expiration_report(self, report_file_url: str) -> Self:
         """StartFileVersionExpirationReport operation.
 
@@ -1804,6 +2002,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def start_set_version_policy_for_doc_libs(
         self,
         enable_auto_trim: bool,
@@ -1835,6 +2034,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_inactive_site_properties(self, operation: str, execution_id: int) -> ClientResult[UpdateCard]:
         """UpdateInactiveSiteProperties operation.
 
@@ -1854,6 +2054,7 @@ class Site(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def validate_hub_site_join_approval_token(self, joining_site_id: UUID, approval_token: str) -> ClientResult[bool]:
         """ValidateHubSiteJoinApprovalToken operation.
 

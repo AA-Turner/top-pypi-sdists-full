@@ -56,7 +56,7 @@ _CARD_FIELDS: dict[str, tuple[str, ...]] = {
         "contributor_count",
     ),
     EntityType.EXPERIMENT: ("question", "run_count", "active_run_count"),
-    EntityType.RUN: ("source", "env_ref", "counts"),
+    EntityType.RUN: ("source", "env_ref", "counts", "origin_session"),
     EntityType.TRIAL: (
         "rollout_span_id",
         "provider",

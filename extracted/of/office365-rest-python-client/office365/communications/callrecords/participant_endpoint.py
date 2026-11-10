@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.communications.callrecords.user_feedback import UserFeedback
 from office365.directory.permissions.identity import Identity
@@ -8,7 +8,6 @@ from office365.directory.permissions.identity_set import IdentitySet
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ParticipantEndpoint(ClientValue):
     associatedIdentity: Identity = field(default_factory=Identity)
     cpuCoresCount: int | None = None

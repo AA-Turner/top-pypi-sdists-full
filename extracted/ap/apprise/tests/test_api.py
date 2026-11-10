@@ -570,6 +570,10 @@ def apprise_test(do_notify):
     assert "good" in plugin
     assert "bad" not in plugin
 
+    # Tag checks ignore case
+    assert "GOOD" in plugin
+    assert ["bad", "Good"] in plugin
+
     # the in (__contains__ override) is based on or'ed content; so although
     # 'bad' isn't tagged as being in the plugin, 'good' is, so the return
     # value of this is True
@@ -1995,8 +1999,11 @@ def test_apprise_asset(tmpdir):
         == "http://localhost/default/info-256x256.test"
     )
 
-    a = AppriseAsset(plugin_paths=("/tmp",))
-    assert a.plugin_paths == ("/tmp",)
+    # Use an empty folder of our own; the plugin loader imports (and runs)
+    # every .py file it finds in the paths it is given
+    plugin_path = str(tmpdir.mkdir("plugins"))
+    a = AppriseAsset(plugin_paths=(plugin_path,))
+    assert a.plugin_paths == (plugin_path,)
 
 
 def test_apprise_disabled_plugins():
@@ -2860,6 +2867,8 @@ def test_apprise_details_email_token_types():
         ("NotifyResend", "target_email"),
         ("NotifyMailerSend", "from_email"),
         ("NotifyMailerSend", "target_email"),
+        ("NotifyGroundmail", "from_addr"),
+        ("NotifyGroundmail", "target_email"),
         ("NotifyOffice365", "target_email"),
         ("NotifyOctopush", "api_login"),
         ("NotifyThreema", "target_email"),

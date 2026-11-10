@@ -92,11 +92,13 @@ class DeploymentsClient:
         else:
             self._backend = _GatewayDeployBackend(api_key, base)
 
-    def submit(self, request: DeploymentRequest, *, override: bool = False) -> Accepted:
+    def submit(self, request: DeploymentRequest, *, override: bool = False,
+               time_limit_s: float | None = None) -> Accepted:
 
 
 
-        return self._backend.submit(request, override=override)
+
+        return self._backend.submit(request, override=override, time_limit_s=time_limit_s)
 
     def validate(self, request: DeploymentRequest, *, override: bool = False) -> Optional[dict]:
 
@@ -118,9 +120,9 @@ class DeploymentsClient:
         now: Callable[[], float] = time.monotonic,
     ) -> DeploymentStatusResponse:
         """Poll `status` until the build is terminal (`ready` | `failed`) or `timeout_s` elapses, whichever
-        comes first. Returns the last status seen — terminal, or `building` if the deadline hit (the caller
-        distinguishes them by `.status`; the CLI and the handle raise `seq.errors.still_building` on a non-terminal
-        return).
+        comes first; `math.inf` for no window: a build ends, at the latest at the platform's own limit. Returns the last
+        status seen — terminal, or `building` if the deadline hit (the caller distinguishes them by `.status`; a watch
+        raises `seq.errors.still_building` on a non-terminal return).
 
         `on_poll` (if given) is called with every status, so the CLI can show the transition live. `sleep` /
         `now` are injectable so tests advance a virtual clock instead of waiting real seconds (goal 24)."""
@@ -160,7 +162,8 @@ class _GatewayDeployBackend:
             transport=RetryReads(),
         )
 
-    def submit(self, request: DeploymentRequest, *, override: bool = False) -> Accepted:
+    def submit(self, request: DeploymentRequest, *, override: bool = False,
+               time_limit_s: float | None = None) -> Accepted:
         """POST /v1/deployments. 202 → Accepted (building), with the platform's notice when it gives one. Any other
         answer is a FAILURE, raised as the one mapping makes it and never treated as submitted (goal 12): a bad payload
         or an unknown or foreign secret is InvalidRequest (goal 10), a missing key AuthError, a taken name Conflict.
@@ -175,7 +178,7 @@ class _GatewayDeployBackend:
 
 
                 r = c.post("/v1/deployments", content=request.model_dump_json(exclude_none=True),
-                           params=_params(override))
+                           params=_params(override, time_limit_s))
         except httpx.TransportError as exc:
 
 
@@ -228,9 +231,11 @@ class _GatewayDeployBackend:
             raise InternalError(f"gateway returned a malformed status for deployment {deployment_id!r}") from None
 
 
-def _params(override: bool) -> dict | None:
-    """The deploy's query: --override."""
-    return {"override": "true"} if override else None
+def _params(override: bool, time_limit_s: float | None = None) -> dict | None:
+    """The deploy's query: what is this deploy's and no version's - --override, --timeout. WHY never in the body: it is what
+    a version is, and an upgrade, a fork and a release read it back."""
+    return {**({"override": "true"} if override else {}),
+            **({"time_limit_s": time_limit_s} if time_limit_s is not None else {})} or None
 
 
 def _api_key(api_key: str | None, base_url: str | None = None) -> Any:

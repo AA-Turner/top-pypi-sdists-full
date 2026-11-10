@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
@@ -9,7 +9,6 @@ from office365.sharepoint.microfeed.posts.collection import MicrofeedPostCollect
 from office365.sharepoint.microfeed.posts.post import MicrofeedPost
 
 
-@dataclass
 class MicrofeedThread(ClientValue):
     CanFollowUp: Optional[bool] = None
     CanHaveAttachments: Optional[bool] = None

@@ -9,8 +9,18 @@ leaves it (:func:`tire_friction_range`, by the weather rules of
 :func:`follow_tire_friction` gives a vehicle spawned later the same.
 
 Nor is CARLA's weather ever seen through: the action records how far drivers
-see in the weather it leaves (:mod:`autoware_carla_scenario.visibility`), for
-a traffic backend that models their sight.
+see (:mod:`autoware_carla_scenario.visibility`), for a traffic backend that
+models their sight.
+
+The action applies numbers: the CARLA fields, the visibility and the
+conditions they render (the rainfall rate, the visibility through the fog,
+the wind speed, the cloud cover), which it records for the ODD's probes
+(:func:`world_rainfall_rate`, :func:`world_fog_visibility_range`,
+:func:`world_wind_speed`, :func:`world_cloud_cover`).  What follows from the conditions is
+worked out before the run, once
+(:func:`~autoware_carla_scenario.weather_rules.resolve_environment`); only
+the grip, which may differ by vehicle, is read off the rules here, from the
+CARLA weather the action leaves and the conditions the run was set to.
 """
 
 from __future__ import annotations
@@ -21,9 +31,11 @@ from typing import TYPE_CHECKING, Optional
 
 from ..conditions.base import BaseCondition
 from ..utils.vehicles import as_vehicle
-from ..visibility import set_world_visibility
+from ..visibility import set_world_visibility, world_visibility
 from ..entity_role import _role_name
+from ..weather_inputs import cloud_cover_level, time_of_day_level
 from ..weather_rules import (
+    custom_rules_in_use,
     vehicle_at,
     vehicle_rules_in_use,
     weather_at,
@@ -42,25 +54,15 @@ __all__ = [
     "apply_weather_grip",
     "follow_tire_friction",
     "forget_tire_friction",
-    "rain_weather",
+    "forget_weather_conditions",
     "tire_friction",
     "tire_friction_range",
+    "world_cloud_cover",
+    "world_fog_visibility_range",
+    "world_rainfall_rate",
+    "world_wind_speed",
     "world_tire_friction",
 ]
-
-#: CARLA's rain presets (``SoftRain``, ``MidRainy``, ``HardRain``; LibCarla's
-#: ``WeatherParameters.cpp``), by precipitation: the cloudiness, standing water
-#: and wetness that come with it.  The wetness is the night presets', the ones
-#: that set it.  Precipitation alone barely shows in a camera image -- a few
-#: drops -- on a dry road under a clear sky: it is these that make it rain.
-_RAIN_PRESETS: tuple[tuple[float, float, float, float], ...] = (
-    # precipitation, cloudiness, precipitation_deposits, wetness
-    (0.0, 0.0, 0.0, 0.0),
-    (30.0, 60.0, 50.0, 30.0),
-    (60.0, 80.0, 60.0, 60.0),
-    (100.0, 100.0, 90.0, 100.0),
-)
-
 
 #: The weather fields given as a share, 0-100: CARLA's own range for them.
 _PERCENT_FIELDS: tuple[str, ...] = (
@@ -72,9 +74,19 @@ _PERCENT_FIELDS: tuple[str, ...] = (
     "fog_density",
 )
 #: The arguments that must be greater than 0.
-_POSITIVE_ARGUMENTS: tuple[str, ...] = ("tire_friction", "visibility_m")
+_POSITIVE_ARGUMENTS: tuple[str, ...] = (
+    "tire_friction",
+    "visibility_m",
+    "fog_visibility_range_m",
+)
+#: The arguments that must not be negative.
+_NON_NEGATIVE_ARGUMENTS: tuple[str, ...] = ("rainfall_rate_mm_h", "wind_speed_kmh")
 #: The arguments that are quantiles, 0-1.
 _QUANTILE_ARGUMENTS: tuple[str, ...] = ("tire_friction_quantile", "visibility_quantile")
+#: The cloud covers *cloud_cover* takes: the taxonomy's cloudiness
+#: (``odd.probes.CLOUD_COVERS``, which a test holds this to; not imported, so
+#: the action does not load the ODD package).
+_CLOUD_COVERS: tuple[str, ...] = ("clear", "partly_cloudy", "overcast")
 
 
 def _refusal(name: str, value: float) -> str:
@@ -82,8 +94,9 @@ def _refusal(name: str, value: float) -> str:
     or ``""`` when it takes it.
 
     Every value must be finite; the weather fields of :data:`_PERCENT_FIELDS`
-    within [0, 100], *tire_friction* and *visibility_m* positive, the
-    quantiles within [0, 1].  *rain* is clamped to [0, 100], not refused.
+    within [0, 100], *tire_friction*, *visibility_m* and
+    *fog_visibility_range_m* positive, *rainfall_rate_mm_h* and
+    *wind_speed_kmh* not negative, the quantiles within [0, 1].
     """
     if not math.isfinite(value):
         return f"must be finite, got {value}"
@@ -91,34 +104,11 @@ def _refusal(name: str, value: float) -> str:
         return f"must be within [0, 100], got {value}"
     if name in _POSITIVE_ARGUMENTS and not value > 0.0:
         return f"must be positive, got {value}"
+    if name in _NON_NEGATIVE_ARGUMENTS and not value >= 0.0:
+        return f"must not be negative, got {value}"
     if name in _QUANTILE_ARGUMENTS and not (0.0 <= value <= 1.0):
         return f"must be within [0, 1], got {value}"
     return ""
-
-
-def rain_weather(rain: float) -> dict[str, float]:
-    """The weather fields of rain at intensity *rain* (0-100), as CARLA's presets set them.
-
-    ``precipitation`` is *rain*; ``cloudiness``, ``precipitation_deposits`` and
-    ``wetness`` are interpolated linearly between CARLA's rain presets.  A
-    *rain* outside 0-100 is clamped to it.
-
-    Raises:
-        ValueError: *rain* is not finite (NaN or infinite).
-    """
-    if not math.isfinite(rain):
-        raise ValueError(f"rain must be finite, got {rain}")
-    level = min(max(float(rain), 0.0), 100.0)
-    for (p0, c0, d0, w0), (p1, c1, d1, w1) in zip(_RAIN_PRESETS, _RAIN_PRESETS[1:]):
-        if level <= p1:
-            t = (level - p0) / (p1 - p0)
-            return {
-                "precipitation": level,
-                "cloudiness": c0 + t * (c1 - c0),
-                "precipitation_deposits": d0 + t * (d1 - d0),
-                "wetness": w0 + t * (w1 - w0),
-            }
-    raise AssertionError("unreachable: the presets end at 100")
 
 
 def tire_friction_range(
@@ -128,20 +118,14 @@ def tire_friction_range(
 
     The weather rules' ``tire_friction``
     (:mod:`autoware_carla_scenario.weather_rules`): by default, by how wet the
-    road is -- the larger of the two, ``water`` -- a dry road's around its own
+    road is -- the wetter of the two holds -- a dry road's around its own
     grip, a wet one's about three quarters of it, a flooded one's about half.
 
     Args:
         wetness: The weather's ``wetness``, 0-100.
         precipitation_deposits: Its standing water, 0-100.
     """
-    return weather_range(
-        "tire_friction",
-        {
-            "wetness": float(wetness),
-            "precipitation_deposits": float(precipitation_deposits),
-        },
-    )
+    return weather_range("tire_friction", _water(wetness, precipitation_deposits))
 
 
 def tire_friction(
@@ -153,13 +137,85 @@ def tire_friction(
     0.5, the default, is its median: a dry road's is 1.0.
     """
     return weather_at(
-        "tire_friction",
-        {
-            "wetness": float(wetness),
-            "precipitation_deposits": float(precipitation_deposits),
-        },
-        quantile,
+        "tire_friction", _water(wetness, precipitation_deposits), quantile
     )
+
+
+def _water(wetness: float, precipitation_deposits: float) -> dict[str, float]:
+    """What the rules' grip reads: CARLA's wetness and standing water."""
+    return {
+        "carla_wetness": float(wetness),
+        "carla_precipitation_deposits": float(precipitation_deposits),
+    }
+
+
+#: World (episode) id -> the rainfall rate (mm/h), the visibility through the
+#: fog (m), the wind speed (km/h) and the cloud cover (a label) the run was
+#: set to, where an action named them.
+_RAINFALL: dict[int, float] = {}
+_FOG_VISIBILITY: dict[int, float] = {}
+_WIND_SPEED: dict[int, float] = {}
+_CLOUD_COVER: dict[int, str] = {}
+
+
+def _record_condition(store: dict[int, float], world_id: int, value: float) -> None:
+    """Record *value* for the world; another world's is dropped."""
+    for old in [w for w in store if w != world_id]:
+        del store[old]
+    store[world_id] = value
+
+
+def _record_label(store: dict[int, str], world_id: int, label: str) -> None:
+    """Record *label* for the world; another world's is dropped."""
+    for old in [w for w in store if w != world_id]:
+        del store[old]
+    store[world_id] = label
+
+
+def world_rainfall_rate(world_id: Optional[int]) -> Optional[float]:
+    """The rainfall rate, mm/h, an action set the world *world_id* to, or
+    ``None``: what the ODD's ``rainfall_rate_mm_h`` probe reads.  A run that
+    sets CARLA's precipitation alone names no rainfall rate."""
+    if world_id is None or world_id not in _RAINFALL:
+        return None
+    return _RAINFALL[world_id]
+
+
+def world_fog_visibility_range(world_id: Optional[int]) -> Optional[float]:
+    """The visibility through the fog, m, an action set the world *world_id*
+    to, or ``None``: what the ODD's ``fog_visibility_range_m`` probe reads."""
+    if world_id is None or world_id not in _FOG_VISIBILITY:
+        return None
+    return _FOG_VISIBILITY[world_id]
+
+
+def world_wind_speed(world_id: Optional[int]) -> Optional[float]:
+    """The wind speed, km/h, an action set the world *world_id* to, or
+    ``None``: what the ODD's ``wind_speed_kmh`` probe reads."""
+    if world_id is None or world_id not in _WIND_SPEED:
+        return None
+    return _WIND_SPEED[world_id]
+
+
+def world_cloud_cover(world_id: Optional[int]) -> Optional[str]:
+    """The cloud cover (``clear``, ``partly_cloudy``, ``overcast``) an action
+    set the world *world_id* to, or ``None``: what the ODD's ``cloud_cover``
+    probe reads.  The cloudiness CARLA renders may be more than it -- rain
+    clouds the sky (the weather rules' ``carla_cloudiness``) -- but the
+    condition the run was set to is the sky's.  A run that sets CARLA's
+    cloudiness alone names no cloud cover."""
+    if world_id is None or world_id not in _CLOUD_COVER:
+        return None
+    return _CLOUD_COVER[world_id]
+
+
+def forget_weather_conditions() -> None:
+    """Forget every world's conditions; the runner calls this for every run,
+    so a run that names none does not read the last run's."""
+    _RAINFALL.clear()
+    _FOG_VISIBILITY.clear()
+    _WIND_SPEED.clear()
+    _CLOUD_COVER.clear()
 
 
 #: World (episode) id -> the grip share last applied in it.
@@ -170,10 +226,11 @@ _TIRE_BASES: dict[int, dict[int, list[float]]] = {}
 #: World (episode) id -> the ids of every actor already looked at, vehicle or
 #: not, so following the world reads only the actors new since.
 _TIRE_SEEN: dict[int, set[int]] = {}
-#: World (episode) id -> the weather the grip was read off and the quantile,
-#: when it was (:func:`apply_weather_grip`): each vehicle's grip is then its
-#: own rules' (:func:`~autoware_carla_scenario.weather_rules.vehicle_at`).
-_TIRE_WEATHER: dict[int, tuple[dict[str, float], float]] = {}
+#: World (episode) id -> the weather the grip was read off -- its numbers and
+#: its labels -- and the quantile, when it was (:func:`apply_weather_grip`):
+#: each vehicle's grip is then its own rules'
+#: (:func:`~autoware_carla_scenario.weather_rules.vehicle_at`).
+_TIRE_WEATHER: dict[int, tuple[dict[str, float], dict[str, str], float]] = {}
 #: World (episode) id -> the grip share the ego was given, where it differs
 #: by vehicle: what the ODD's ``tire_friction`` probe reads.
 _TIRE_EGO: dict[int, float] = {}
@@ -221,7 +278,7 @@ def _vehicle_factor(world_id: int, actor: "carla.Actor", factor: float) -> float
     quantile where the rules differ by vehicle, else the world's *factor*."""
     if world_id not in _TIRE_WEATHER or not vehicle_rules_in_use():
         return factor
-    inputs, quantile = _TIRE_WEATHER[world_id]
+    inputs, labels, quantile = _TIRE_WEATHER[world_id]
     role = _role_name(actor)
     return vehicle_at(
         "tire_friction",
@@ -229,6 +286,7 @@ def _vehicle_factor(world_id: int, actor: "carla.Actor", factor: float) -> float
         quantile,
         str(actor.type_id),
         "" if role is None else role,
+        labels,
     )
 
 
@@ -275,23 +333,31 @@ def apply_tire_friction(world: "carla.World", factor: float) -> None:
 
 
 def apply_weather_grip(
-    world: "carla.World", inputs: dict[str, float], quantile: float
+    world: "carla.World",
+    inputs: dict[str, float],
+    quantile: float,
+    labels: Optional[dict[str, str]] = None,
 ) -> None:
-    """Give every vehicle in *world* the grip the weather *inputs* leave, at
-    *quantile* (0-1) of its distribution: the run's rules', or, where they
-    differ by vehicle (``environment.rules.vehicles``), each vehicle's own.
+    """Give every vehicle in *world* the grip the weather *inputs* (and
+    *labels*, its categorical inputs: the time of day, the cloud cover)
+    leave, at *quantile* (0-1) of its distribution: the run's rules', or,
+    where they differ by vehicle (``environment.rules.vehicles``), each
+    vehicle's own.
 
     Remembered for the world, as :func:`apply_tire_friction`'s factor is, so
     :func:`follow_tire_friction` gives a vehicle spawned later its own.
     """
-    share = weather_at("tire_friction", inputs, quantile)
-    _set_grip(world, share, (dict(inputs), quantile))
+    named: dict[str, str] = {}
+    if labels is not None:
+        named = dict(labels)
+    share = weather_at("tire_friction", inputs, quantile, named)
+    _set_grip(world, share, (dict(inputs), named, quantile))
 
 
 def _set_grip(
     world: "carla.World",
     factor: float,
-    weather: Optional[tuple[dict[str, float], float]],
+    weather: Optional[tuple[dict[str, float], dict[str, str], float]],
 ) -> None:
     """Record the world's grip -- *factor*, and the *weather* each vehicle's
     is read off, if any -- and scale its vehicles; the same again only
@@ -438,18 +504,55 @@ def _set_weather_field(
         raise KeyError(name)
 
 
-def _weather_inputs(weather: "carla.WeatherParameters") -> dict[str, float]:
-    """What the weather rules read of *weather*: every field a setting sets."""
+def _weather_inputs(
+    world_id: int, weather: "carla.WeatherParameters"
+) -> dict[str, float]:
+    """The numbers the rules' grip reads in the world *world_id*, its weather
+    *weather*: every CARLA field (``weather_rules.CARLA_QUANTITIES``), and
+    the conditions the run was set to -- the rainfall rate, the visibility
+    through the fog, the wind speed -- and how far its drivers see, where
+    they were named (a cause not named reads the rules' default, as it does
+    before the run, ``resolve_environment``).  So a ``tire_friction`` part
+    reading a cause or another quantity reads the run's (#1938)."""
+    inputs: dict[str, float] = {
+        "carla_precipitation": float(weather.precipitation),
+        "carla_cloudiness": float(weather.cloudiness),
+        "carla_precipitation_deposits": float(weather.precipitation_deposits),
+        "carla_wetness": float(weather.wetness),
+        "carla_wind_intensity": float(weather.wind_intensity),
+        "carla_fog_density": float(weather.fog_density),
+        "carla_sun_altitude": float(weather.sun_altitude_angle),
+        "carla_sun_azimuth": float(weather.sun_azimuth_angle),
+    }
+    if world_id in _RAINFALL:
+        inputs["rainfall_rate"] = _RAINFALL[world_id]
+    if world_id in _FOG_VISIBILITY:
+        inputs["fog_visibility_range"] = _FOG_VISIBILITY[world_id]
+    if world_id in _WIND_SPEED:
+        inputs["wind_speed"] = _WIND_SPEED[world_id]
+    seen = world_visibility(world_id)
+    if seen is not None:
+        inputs["visibility"] = seen
+    return inputs
+
+
+def _weather_labels(
+    world_id: int, weather: "carla.WeatherParameters"
+) -> dict[str, str]:
+    """The labels the rules' grip reads in the world *world_id*: the time of
+    day CARLA's sun renders and the cloud cover the run was set to, else the
+    one CARLA's clouds render -- what the ODD's ``time_of_day`` and
+    ``cloud_cover`` probes read."""
+    sky = (
+        _CLOUD_COVER[world_id]
+        if world_id in _CLOUD_COVER
+        else cloud_cover_level(float(weather.cloudiness))
+    )
     return {
-        "cloudiness": float(weather.cloudiness),
-        "precipitation": float(weather.precipitation),
-        "precipitation_deposits": float(weather.precipitation_deposits),
-        "wetness": float(weather.wetness),
-        "wind_intensity": float(weather.wind_intensity),
-        "fog_density": float(weather.fog_density),
-        "fog_distance": float(weather.fog_distance),
-        "sun_altitude_angle": float(weather.sun_altitude_angle),
-        "sun_azimuth_angle": float(weather.sun_azimuth_angle),
+        "time_of_day": time_of_day_level(
+            float(weather.sun_altitude_angle), float(weather.sun_azimuth_angle)
+        ),
+        "cloudiness": sky,
     }
 
 
@@ -466,33 +569,49 @@ class EnvironmentAction(BaseAction):
     scenario that wants rain does not have to restate the sun's position and
     silently reset it to a default.
 
-    ``TimeOfDay`` maps onto :attr:`sun_altitude_angle` and
-    :attr:`sun_azimuth_angle` rather than onto a wall-clock time.  CARLA has no
-    clock, and offering one would put a field in the document that the runtime
-    could not honour.
+    **It applies numbers.**  The conditions a run is given -- the rainfall
+    rate, the visibility through the fog, the time of day -- are rendered by
+    CARLA's fields, and what those are follows from the conditions by the
+    weather rules, worked out once before the run
+    (:func:`~autoware_carla_scenario.weather_rules.resolve_environment`; the
+    runner does it for a config's ``environment``, the sampler for the cases
+    it draws)::
+
+        EnvironmentAction(**resolve_environment({"rainfall_rate_mm_h": 5.0}))
+
+    *rainfall_rate_mm_h*, *fog_visibility_range_m*, *wind_speed_kmh* and
+    *cloud_cover* are recorded as what the run was set to, which the ODD's
+    probes read (:func:`world_rainfall_rate`,
+    :func:`world_fog_visibility_range`, :func:`world_wind_speed`,
+    :func:`world_cloud_cover`); the time of day is read off CARLA's sun, and
+    the cloud cover off CARLA's clouds when no action named one.
 
     The default phase is ``init``: most scenarios set the weather once, before
     anything moves.  Registering it on the tick loop instead is what makes the
     weather change *during* a run.
 
-    **How far drivers see follows the weather.**  An action that sets the fog,
-    the rain or the sun, or names a visibility, records the distance drivers
-    see in the resulting weather
-    (:func:`~autoware_carla_scenario.visibility.visibility`): *visibility_m*
-    if given, else the value at *visibility_quantile* of its distribution
-    in that weather, which spans
-    :func:`~autoware_carla_scenario.visibility.visibility_range` -- its
-    median by default.  A traffic backend that models drivers' sight (``sumo``)
-    holds its traffic to it, and the TrafficManager with
-    ``follow_visibility: true``.
+    **How far drivers see** is *visibility_m*, when given: the action records
+    it (:func:`~autoware_carla_scenario.visibility.set_world_visibility`), and
+    a traffic backend that models drivers' sight (``sumo``) holds its traffic
+    to it, and the TrafficManager with ``follow_visibility: true``.
 
     **The road's grip follows the water on it.**  An action that sets the
-    ``wetness`` or the standing water (``rain`` sets both), or names a tire
-    friction, scales every vehicle's wheel friction to the share of the dry
-    road's grip the resulting weather leaves (:func:`tire_friction`):
-    *tire_friction* if given, else the value at *tire_friction_quantile* of
-    its distribution, which spans :func:`tire_friction_range` -- its median
-    by default, so ``rain=0`` keeps the dry grip.  Vehicles spawned later get it from
+    ``wetness`` or the standing water, or names a tire friction, scales every
+    vehicle's wheel friction to the share of the dry road's grip the
+    resulting weather leaves (:func:`tire_friction`): *tire_friction* if
+    given, else the value at *tire_friction_quantile* of its distribution,
+    which spans :func:`tire_friction_range` -- by default the quantile an
+    earlier action in the run read the grip at, else its median, so a dry
+    road keeps the dry grip -- read off each vehicle's rules where they
+    differ by vehicle.  Under rules other than the default ones (a rule file
+    of the run's, or rules by vehicle) every action does, whatever it sets,
+    since their grip may differ from CARLA's on any road (#1937) -- but one
+    that names no grip, quantile or water keeps a grip named outright
+    earlier in the run.  The rules
+    read every CARLA field of the weather it leaves and the conditions the
+    run was set to -- the rainfall rate, the visibility through the fog, the
+    wind speed, the cloud cover, the time of day CARLA's sun renders, how far
+    drivers see -- where named (#1938).  Vehicles spawned later get it from
     :func:`follow_tire_friction`.
 
     Args:
@@ -505,29 +624,25 @@ class EnvironmentAction(BaseAction):
         fog_distance: Metres before fog starts.
         sun_altitude_angle: Degrees above the horizon; negative is night.
         sun_azimuth_angle: Degrees.
-        rain: Rain as a camera sees it, 0-100: ``precipitation``, and the
-            ``cloudiness``, ``precipitation_deposits`` and ``wetness`` CARLA's
-            rain presets pair with it (:func:`rain_weather`).  Cloudiness,
-            standing water or wetness given as well wins over the one *rain*
-            derives; precipitation may not be given with it.  ``rain=0`` is a
-            dry road under a clear sky, whatever the map's own weather.
+        rainfall_rate_mm_h: The rainfall rate the run is set to, mm/h:
+            recorded, not applied.  Keyword-only.
+        fog_visibility_range_m: The visibility through the fog the run is set
+            to, metres: recorded, not applied.  Keyword-only.
+        wind_speed_kmh: The wind speed the run is set to, km/h: recorded, not
+            applied.  Keyword-only.
+        cloud_cover: The cloud cover the run is set to, ``clear``,
+            ``partly_cloudy`` or ``overcast``: recorded, not applied (the
+            *cloudiness* that renders it may be more: rain clouds the sky).
             Keyword-only.
         tire_friction: The vehicles' grip, as a share of the dry road's
             (1.0): fixed, whatever the weather.  Keyword-only.
         tire_friction_quantile: The quantile of the distribution of grip the
             weather leaves (:func:`tire_friction_range`) the vehicles' is at,
-            0 (its low end) to 1 (its high end); 0.5 when the action sets
-            the road's water and this is not given.  *tire_friction* wins over it.  An ODD sweep
+            0 (its low end) to 1 (its high end); when the action sets
+            the grip (:attr:`sets_tire_friction`) and this is not given,
+            the one an earlier action in the run read it at, else 0.5.  *tire_friction* wins over it.  An ODD sweep
             draws it per case.  Keyword-only.
-        visibility_m: How far drivers see, metres: fixed, whatever the
-            weather.  Keyword-only.
-        visibility_quantile: The quantile of the distribution of visibility
-            the weather leaves
-            (:func:`~autoware_carla_scenario.visibility.visibility_range`) the
-            drivers' is at, 0 (its low end) to 1 (its high end); 0.5 when the
-            action sets the fog, the rain or the sun and this is not given.
-            *visibility_m* wins over it.  An ODD sweep draws it per case.
-            Keyword-only.
+        visibility_m: How far drivers see, metres.  Keyword-only.
         condition: Trigger condition (see :class:`BaseCondition`).
         timing: Tick phase.
         label: Human-readable identifier.
@@ -537,17 +652,21 @@ class EnvironmentAction(BaseAction):
         ValueError: A numeric argument is not finite (NaN or infinite); a
             weather field given as 0-100 (*cloudiness*, *precipitation*,
             *precipitation_deposits*, *wetness*, *wind_intensity*,
-            *fog_density*) is outside it; *tire_friction* or *visibility_m*
-            is not positive; a quantile is outside [0, 1]; or *rain* and
-            *precipitation* are both given.  The message names the
-            argument.  *rain* outside 0-100 is clamped, not refused.
+            *fog_density*) is outside it; *tire_friction*, *visibility_m* or
+            *fog_visibility_range_m* is not positive; *rainfall_rate_mm_h* or
+            *wind_speed_kmh* is negative; *tire_friction_quantile* is outside
+            [0, 1]; or *cloud_cover* is none of its labels.  The message names
+            the argument.
     """
 
     _settings: dict[str, float]
+    _rainfall_rate_mm_h: Optional[float]
+    _fog_visibility_range_m: Optional[float]
+    _wind_speed_kmh: Optional[float]
+    _cloud_cover: Optional[str]
     _tire_friction: Optional[float]
     _tire_friction_quantile: Optional[float]
     _visibility_m: Optional[float]
-    _visibility_quantile: Optional[float]
 
     def __init__(
         self,
@@ -563,22 +682,17 @@ class EnvironmentAction(BaseAction):
         condition: Optional[BaseCondition] = None,
         timing: TickTiming = TickTiming.PRE_TICK,
         *,
-        rain: Optional[float] = None,
+        rainfall_rate_mm_h: Optional[float] = None,
+        fog_visibility_range_m: Optional[float] = None,
+        wind_speed_kmh: Optional[float] = None,
+        cloud_cover: Optional[str] = None,
         tire_friction: Optional[float] = None,
         tire_friction_quantile: Optional[float] = None,
         visibility_m: Optional[float] = None,
-        visibility_quantile: Optional[float] = None,
         label: str = "environment",
         once: bool = True,
     ) -> None:
         super().__init__(label=label, condition=condition, timing=timing, once=once)
-        if rain is not None and precipitation is not None:
-            # rain sets the precipitation: both would leave the probe reading a
-            # different rain than the one asked for.
-            raise ValueError(
-                "EnvironmentAction: give rain or precipitation, not both "
-                "(rain sets the precipitation)"
-            )
         for name, value in (
             ("cloudiness", cloudiness),
             ("precipitation", precipitation),
@@ -589,23 +703,31 @@ class EnvironmentAction(BaseAction):
             ("fog_distance", fog_distance),
             ("sun_altitude_angle", sun_altitude_angle),
             ("sun_azimuth_angle", sun_azimuth_angle),
-            ("rain", rain),
+            ("rainfall_rate_mm_h", rainfall_rate_mm_h),
+            ("fog_visibility_range_m", fog_visibility_range_m),
+            ("wind_speed_kmh", wind_speed_kmh),
             ("tire_friction", tire_friction),
             ("tire_friction_quantile", tire_friction_quantile),
             ("visibility_m", visibility_m),
-            ("visibility_quantile", visibility_quantile),
         ):
             if value is not None:
                 refusal = _refusal(name, value)
                 if refusal != "":
                     raise ValueError(f"EnvironmentAction: {name} {refusal}")
+        self._rainfall_rate_mm_h = rainfall_rate_mm_h
+        self._fog_visibility_range_m = fog_visibility_range_m
+        # str(): Codon's Optional[str] `in` a tuple is always False.
+        if cloud_cover is not None and str(cloud_cover) not in _CLOUD_COVERS:
+            raise ValueError(
+                f"EnvironmentAction: cloud_cover must be one of "
+                f"{list(_CLOUD_COVERS)}, got {cloud_cover!r}"
+            )
+        self._wind_speed_kmh = wind_speed_kmh
+        self._cloud_cover = cloud_cover
         self._tire_friction = tire_friction
         self._tire_friction_quantile = tire_friction_quantile
         self._visibility_m = visibility_m
-        self._visibility_quantile = visibility_quantile
         settings: dict[str, float] = {}
-        if rain is not None:
-            settings.update(rain_weather(rain))
         for name, value in (
             ("cloudiness", cloudiness),
             ("precipitation", precipitation),
@@ -626,10 +748,9 @@ class EnvironmentAction(BaseAction):
         """The values this action will apply, by attribute name."""
         return dict(self._settings)
 
-    @property
-    def sets_tire_friction(self) -> bool:
-        """Whether the action sets the vehicles' grip: it names a tire
-        friction or sets the road's water."""
+    def _names_grip(self) -> bool:
+        """Whether the action names a tire friction or its quantile, or sets
+        the road's water."""
         return (
             self._tire_friction is not None
             or self._tire_friction_quantile is not None
@@ -638,26 +759,27 @@ class EnvironmentAction(BaseAction):
         )
 
     @property
-    def sets_visibility(self) -> bool:
-        """Whether the action sets how far drivers see: it names a visibility
-        or sets the fog, the rain or the sun."""
-        return (
-            self._visibility_m is not None
-            or self._visibility_quantile is not None
-            or "fog_density" in self._settings
-            or "precipitation" in self._settings
-            or "sun_altitude_angle" in self._settings
-        )
+    def sets_tire_friction(self) -> bool:
+        """Whether the action sets the vehicles' grip: it names a tire
+        friction or sets the road's water, or the run follows rules other
+        than the default ones
+        (:func:`~autoware_carla_scenario.weather_rules.custom_rules_in_use`),
+        whose grip may differ from CARLA's whatever the action sets."""
+        return self._names_grip() or custom_rules_in_use()
 
-    def _visibility(self, weather: "carla.WeatherParameters") -> float:
-        """How far drivers see in *weather*, the weather the action leaves, m."""
-        if self._visibility_m is not None:
-            return self._visibility_m
-        quantile = self._visibility_quantile
-        return weather_at(
-            "visibility",
-            _weather_inputs(weather),
-            0.5 if quantile is None else quantile,
+    @property
+    def sets_visibility(self) -> bool:
+        """Whether the action sets how far drivers see: it names a visibility."""
+        return self._visibility_m is not None
+
+    @property
+    def sets_conditions(self) -> bool:
+        """Whether the action names a condition the run is set to."""
+        return (
+            self._rainfall_rate_mm_h is not None
+            or self._fog_visibility_range_m is not None
+            or self._wind_speed_kmh is not None
+            or self._cloud_cover is not None
         )
 
     def execute(self, world: "carla.World") -> None:
@@ -666,6 +788,7 @@ class EnvironmentAction(BaseAction):
             len(self._settings) == 0
             and not self.sets_tire_friction
             and not self.sets_visibility
+            and not self.sets_conditions
         ):
             logger.warning(
                 "EnvironmentAction '%s' sets nothing; the weather is unchanged",
@@ -685,17 +808,44 @@ class EnvironmentAction(BaseAction):
                     f"{name}={value:g}" for name, value in self._settings.items()
                 ),
             )
-        if self.sets_tire_friction:
-            if self._tire_friction is not None:
-                apply_tire_friction(world, self._tire_friction)
-            else:
-                quantile = self._tire_friction_quantile
-                apply_weather_grip(
-                    world,
-                    _weather_inputs(weather),
-                    0.5 if quantile is None else quantile,
-                )
-        if self.sets_visibility:
-            seen = self._visibility(weather)
+        rainfall = self._rainfall_rate_mm_h
+        if rainfall is not None:
+            _record_condition(_RAINFALL, world.id, rainfall)
+        fog = self._fog_visibility_range_m
+        if fog is not None:
+            _record_condition(_FOG_VISIBILITY, world.id, fog)
+        wind = self._wind_speed_kmh
+        if wind is not None:
+            _record_condition(_WIND_SPEED, world.id, wind)
+        sky = self._cloud_cover
+        if sky is not None:
+            _record_label(_CLOUD_COVER, world.id, sky)
+        # Before the grip, which may read it.
+        seen = self._visibility_m
+        if seen is not None:
             set_world_visibility(world.id, seen)
             logger.info("Drivers see %.0f m", seen)
+        if self.sets_tire_friction:
+            world_id = world.id
+            quantile = self._tire_friction_quantile
+            if quantile is None and world_id in _TIRE_WEATHER:
+                # The quantile the run's grip is at holds: a later action
+                # reads the grip off its weather at it (a case draws one).
+                quantile = _TIRE_WEATHER[world_id][2]
+            if self._tire_friction is not None:
+                apply_tire_friction(world, self._tire_friction)
+            elif (
+                quantile is None
+                and world_id in _TIRE_FACTORS
+                and not self._names_grip()
+            ):
+                # A grip named outright holds against an action that sets
+                # the grip only because the run's rules are its own.
+                pass
+            else:
+                apply_weather_grip(
+                    world,
+                    _weather_inputs(world_id, weather),
+                    0.5 if quantile is None else quantile,
+                    _weather_labels(world_id, weather),
+                )

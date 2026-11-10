@@ -1,10 +1,11 @@
 import itertools
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type, Union, cast
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type, Union
 
 from django.db.models import Field as DjangoField
-from django.db.models import ManyToManyRel, ManyToOneRel, Model
+from django.db.models import ForeignObjectRel, Model
 from pydantic import create_model as create_pydantic_model
 
+from ninja.compatibility.util import PYDANTIC_FIELDS_ATTR
 from ninja.errors import ConfigError
 from ninja.orm.fields import get_schema_field
 from ninja.schema import Schema
@@ -24,7 +25,7 @@ from ninja.schema import Schema
 
 __all__ = ["SchemaFactory", "factory", "create_schema"]
 
-SchemaKey = Tuple[Type[Model], str, int, str, str, str, str]
+SchemaKey = Tuple[Type[Model], str, int, str, str, str, str, Type[Schema]]
 
 
 class SchemaFactory:
@@ -50,7 +51,14 @@ class SchemaFactory:
             raise ConfigError("Only one of 'fields' or 'exclude' should be set.")
 
         key = self.get_key(
-            model, name, depth, fields, exclude, optional_fields, custom_fields
+            model,
+            name,
+            depth,
+            fields,
+            exclude,
+            optional_fields,
+            custom_fields,
+            base_class,
         )
         if key in self.schemas:
             return self.schemas[key]
@@ -60,20 +68,22 @@ class SchemaFactory:
             if optional_fields == "__all__":
                 optional_fields = [f.name for f in model_fields_list]
 
+        declared = {name: (type_, info) for name, type_, info in custom_fields or ()}
+
         definitions = {}
         for fld in model_fields_list:
-            python_type, field_info = get_schema_field(
-                fld,
-                depth=depth,
-                optional=optional_fields and (fld.name in optional_fields),
-            )
-            definitions[fld.name] = (python_type, field_info)
-
-        if custom_fields:
-            for fld_name, python_type, field_info in custom_fields:
-                # if not isinstance(field_info, FieldInfo):
-                #     field_info = Field(field_info)
-                definitions[fld_name] = (python_type, field_info)
+            if fld.name in declared:
+                # The declaration wins and keeps the model field's position. The
+                # model field itself is not converted: its type may be one ninja
+                # does not know, which is often why it was declared (#1482).
+                definitions[fld.name] = declared[fld.name]
+            else:
+                definitions[fld.name] = get_schema_field(
+                    fld,
+                    depth=depth,
+                    optional=optional_fields and (fld.name in optional_fields),
+                )
+        definitions.update(declared)  # the rest of the declared fields go last
 
         if name in self.schema_names:
             name = self._get_unique_name(name)
@@ -94,6 +104,16 @@ class SchemaFactory:
         # __validators__: dict[str, AnyClassMethod] | None = None,
         # __cls_kwargs__: dict[str, Any] | None = None,
         # **field_definitions: Any,
+        if custom_fields and list(schema.model_fields) != list(definitions):
+            # pydantic orders fields inherited from base_class first. For a
+            # ModelSchema the base class is the user's class, which already
+            # holds the custom fields, so they would precede the model fields.
+            # Restore the definition order (model fields, then custom fields)
+            # and rebuild the core schema / serializer.
+            ordered = {k: schema.model_fields[k] for k in definitions}
+            ordered.update(schema.model_fields)  # keep any other inherited fields
+            setattr(schema, PYDANTIC_FIELDS_ATTR, ordered)
+            schema.model_rebuild(force=True)
         self.schemas[key] = schema
         self.schema_names.add(name)
         return schema
@@ -107,6 +127,7 @@ class SchemaFactory:
         exclude: Optional[List[str]],
         optional_fields: Optional[Union[List[str], str]],
         custom_fields: Optional[List[Tuple[str, str, Any]]],
+        base_class: Type[Schema],
     ) -> SchemaKey:
         "returns a hashable value for all given parameters"
         # TODO: must be a test that compares all kwargs from init to get_key
@@ -118,6 +139,7 @@ class SchemaFactory:
             str(exclude),
             str(optional_fields),
             str(custom_fields),
+            base_class,
         )
 
     def _get_unique_name(self, name: str) -> str:
@@ -143,9 +165,18 @@ class SchemaFactory:
 
         invalid_fields = (set(fields or []) | set(exclude or [])) - all_fields.keys()
         if invalid_fields:
-            raise ConfigError(
-                f"DjangoField(s) {invalid_fields} are not in model {model}"
-            )
+            msg = f"DjangoField(s) {invalid_fields} are not in model {model}."
+            # "user_id" is the attname of the "user" ForeignKey, not a field name
+            attnames = {
+                f.attname: f.name for f in model._meta.concrete_fields if f.is_relation
+            }
+            for name in sorted(invalid_fields):
+                if name in attnames:
+                    msg += (
+                        f" Use '{attnames[name]}' instead of '{name}',"
+                        f" or declare '{name}: int' on the schema."
+                    )
+            raise ConfigError(msg)
 
         if fields:
             for name in fields:
@@ -158,10 +189,11 @@ class SchemaFactory:
     def _model_fields(self, model: Type[Model]) -> Iterator[DjangoField]:
         "returns iterator with all the fields that can be part of schema"
         for fld in model._meta.get_fields():
-            if isinstance(fld, (ManyToOneRel, ManyToManyRel)):
-                # skipping relations
+            if isinstance(fld, ForeignObjectRel):
+                # skipping reverse relations (ManyToOneRel, ManyToManyRel, and the
+                # bare ForeignObjectRel produced by a ForeignObject field)
                 continue
-            yield cast(DjangoField, fld)
+            yield fld
 
 
 factory = SchemaFactory()

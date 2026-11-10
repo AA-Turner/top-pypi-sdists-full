@@ -168,7 +168,9 @@ private:
     {
         /* Effectively skip over some bits to align to the next byte. */
         readBytes<0>();
-        return Footer{};
+        Footer footer;
+        footer.blockBoundary.encodedOffset = tellCompressed();
+        return footer;
     }
 
     Footer
@@ -342,7 +344,7 @@ IsalInflateWrapper::readStream( uint8_t* const output,
             m_bitReader.seek( oldOffset );
         #endif
 
-            throw std::runtime_error( std::move( message ).str() );
+            throw std::domain_error( std::move( message ).str() );
         }
 
         if ( decodedSize + m_stream.total_out > outputSize ) {
@@ -421,7 +423,7 @@ IsalInflateWrapper::readBytes()
             m_stream.avail_in = 0;
             refillBuffer();
             if ( m_stream.avail_in == 0 ) {
-                throw gzip::BitReader::EndOfFileReached();
+                throw EndOfFileReached();
             }
         }
     }
@@ -460,10 +462,9 @@ IsalInflateWrapper::readZlibFooter()
     const auto footerBuffer = readBytes<4U>();
     zlib::Footer footer;
 
-    /* Get Adler32 machine-endian-agnostically. */
+    /* The zlib Adler-32 is stored in big-endian byte order, in contrast to the gzip footer. */
     for ( auto i = 0U; i < 4U; ++i ) {
-        const auto subbyte = static_cast<uint8_t>( footerBuffer[i] );
-        footer.adler32 += static_cast<uint32_t>( subbyte ) << ( i * BYTE_SIZE );
+        footer.adler32 = ( footer.adler32 << BYTE_SIZE ) | static_cast<uint8_t>( footerBuffer[i] );
     }
 
     Footer result;
@@ -517,7 +518,7 @@ IsalInflateWrapper::readHeader()
         if ( error != Error::NONE ) {
             std::stringstream message;
             message << "Error reading zlib header: " << toString( error );
-            throw std::logic_error( std::move( message ).str() );
+            throw std::domain_error( std::move( message ).str() );
         }
         return true;
     }
@@ -549,7 +550,7 @@ IsalInflateWrapper::readIsalHeader( Header* const    header,
         if ( errorCode != ISAL_END_INPUT ) {
             std::stringstream message;
             message << "Failed to parse gzip/zlib header (" << errorCode << ": " << getErrorString( errorCode ) << ")!";
-            throw std::runtime_error( std::move( message ).str() );
+            throw std::domain_error( std::move( message ).str() );
         }
 
         refillBuffer();
@@ -679,7 +680,7 @@ inflateWithIsal( const Container& toDecompress,
         std::stringstream message;
         message << "Decompression of " << toDecompress.size() << "B sized vector failed with error code: "
                 << IsalInflateWrapper::getErrorString( result ) << " (" << std::to_string( result ) << ")";
-        throw std::runtime_error( std::move( message ).str() );
+        throw std::domain_error( std::move( message ).str() );
     }
     if ( stream.avail_out > 0 ) {
         std::stringstream message;

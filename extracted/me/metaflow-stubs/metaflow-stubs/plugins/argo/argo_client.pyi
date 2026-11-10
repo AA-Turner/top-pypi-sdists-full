@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.40                                                                                #
-# Generated on 2026-10-29T20:14:39.511862                                                            #
+# MF version: 2.19.41                                                                                #
+# Generated on 2026-11-06T18:55:47.763406                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -16,7 +16,11 @@ from ..kubernetes.kubernetes_client import KubernetesClient as KubernetesClient
 
 ARGO_EVENTS_SENSOR_NAMESPACE: str
 
+ARGO_WORKFLOWS_UI_URL: None
+
 ARGO_WORKFLOWS_USE_SCHEDULES: bool
+
+KUBERNETES_NAMESPACE: str
 
 class ArgoClientException(metaflow.exception.MetaflowException, metaclass=type):
     ...
@@ -71,6 +75,15 @@ class ArgoClient(object, metaclass=type):
         Issues an API call for deleting a sensor
         
         Returns either the successful API response, or None in case the resource was not found.
+        """
+        ...
+    def get_argo_version(self):
+        """
+        Best-effort detection of the Argo Workflows version; None if unknown.
+        
+        Prefers the workflow controller's image tag, since the controller is
+        what executes workflows; falls back to the Argo Server's
+        /api/v1/version endpoint, which may run a different version.
         """
         ...
     ...

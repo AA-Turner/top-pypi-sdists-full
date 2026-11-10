@@ -11,12 +11,12 @@ T = TypeVar("T", bound="ServiceProviderRevenues")
 class ServiceProviderRevenues:
     """
     Attributes:
-        total (int): Total revenue amount
+        total (float): Total revenue amount
         year (int): Invoice year
         month (int): Invoice month
     """
 
-    total: int
+    total: float
     year: int
     month: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)

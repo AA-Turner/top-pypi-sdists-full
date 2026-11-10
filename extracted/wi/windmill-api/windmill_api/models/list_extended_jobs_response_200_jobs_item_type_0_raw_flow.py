@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.list_extended_jobs_response_200_jobs_item_type_0_raw_flow_on_concurrency_limit import (
+    ListExtendedJobsResponse200JobsItemType0RawFlowOnConcurrencyLimit,
+)
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -47,6 +50,9 @@ class ListExtendedJobsResponse200JobsItemType0RawFlow:
         concurrent_limit (Union[Unset, float]): Maximum number of concurrent executions of this flow
         concurrency_key (Union[Unset, str]): Expression to group concurrent executions (e.g., by user ID)
         concurrency_time_window_s (Union[Unset, float]): Time window in seconds for concurrent_limit
+        on_concurrency_limit (Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowOnConcurrencyLimit]): What a
+            run of this flow does when its concurrency limit is reached. `queue` (default) re-queues it to a later slot,
+            `fail` ends it immediately as failed, like any failed step.
         debounce_delay_s (Union[Unset, int]): Delay in seconds to debounce flow executions
         debounce_key (Union[Unset, str]): Expression to group debounced executions
         debounce_args_to_accumulate (Union[Unset, List[str]]): Arguments to accumulate across debounced executions
@@ -84,6 +90,7 @@ class ListExtendedJobsResponse200JobsItemType0RawFlow:
     concurrent_limit: Union[Unset, float] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
     concurrency_time_window_s: Union[Unset, float] = UNSET
+    on_concurrency_limit: Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowOnConcurrencyLimit] = UNSET
     debounce_delay_s: Union[Unset, int] = UNSET
     debounce_key: Union[Unset, str] = UNSET
     debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
@@ -122,6 +129,10 @@ class ListExtendedJobsResponse200JobsItemType0RawFlow:
         concurrent_limit = self.concurrent_limit
         concurrency_key = self.concurrency_key
         concurrency_time_window_s = self.concurrency_time_window_s
+        on_concurrency_limit: Union[Unset, str] = UNSET
+        if not isinstance(self.on_concurrency_limit, Unset):
+            on_concurrency_limit = self.on_concurrency_limit.value
+
         debounce_delay_s = self.debounce_delay_s
         debounce_key = self.debounce_key
         debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
@@ -179,6 +190,8 @@ class ListExtendedJobsResponse200JobsItemType0RawFlow:
             field_dict["concurrency_key"] = concurrency_key
         if concurrency_time_window_s is not UNSET:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
+        if on_concurrency_limit is not UNSET:
+            field_dict["on_concurrency_limit"] = on_concurrency_limit
         if debounce_delay_s is not UNSET:
             field_dict["debounce_delay_s"] = debounce_delay_s
         if debounce_key is not UNSET:
@@ -269,6 +282,15 @@ class ListExtendedJobsResponse200JobsItemType0RawFlow:
 
         concurrency_time_window_s = d.pop("concurrency_time_window_s", UNSET)
 
+        _on_concurrency_limit = d.pop("on_concurrency_limit", UNSET)
+        on_concurrency_limit: Union[Unset, ListExtendedJobsResponse200JobsItemType0RawFlowOnConcurrencyLimit]
+        if isinstance(_on_concurrency_limit, Unset):
+            on_concurrency_limit = UNSET
+        else:
+            on_concurrency_limit = ListExtendedJobsResponse200JobsItemType0RawFlowOnConcurrencyLimit(
+                _on_concurrency_limit
+            )
+
         debounce_delay_s = d.pop("debounce_delay_s", UNSET)
 
         debounce_key = d.pop("debounce_key", UNSET)
@@ -325,6 +347,7 @@ class ListExtendedJobsResponse200JobsItemType0RawFlow:
             concurrent_limit=concurrent_limit,
             concurrency_key=concurrency_key,
             concurrency_time_window_s=concurrency_time_window_s,
+            on_concurrency_limit=on_concurrency_limit,
             debounce_delay_s=debounce_delay_s,
             debounce_key=debounce_key,
             debounce_args_to_accumulate=debounce_args_to_accumulate,

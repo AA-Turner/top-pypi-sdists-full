@@ -70,7 +70,7 @@ from .losses import (
     _positive,
     resolve_loss,
 )
-from .metrics import MetricsReporter
+from .metrics import Metrics, MetricsReporter
 from .progress import Activities
 from .streaming_custom_loss import StreamingCustomLoss
 from .trajectory import Trajectory, decode_state
@@ -214,6 +214,32 @@ class PolicyRewoundError(RiverError):
 _DEFAULT_TRUNCATION = Truncation()
 
 
+def _resolve_metrics(metrics, log_step_metrics, metrics_interval):
+    if log_step_metrics is None and metrics_interval is None:
+        if metrics is None:
+            return Metrics()
+        if not isinstance(metrics, Metrics):
+            raise TypeError("metrics must be an rl.Metrics")
+        return metrics
+    if metrics is not None:
+        raise ValueError(
+            "choose metrics or legacy log_step_metrics/metrics_interval, not both"
+        )
+    if log_step_metrics is not None and not isinstance(log_step_metrics, bool):
+        raise TypeError("log_step_metrics must be a bool")
+    if metrics_interval is not None:
+        _positive(metrics_interval, "metrics_interval")
+    metrics = Metrics(steps=bool(log_step_metrics), interval=metrics_interval)
+    warnings.warn(
+        "AsyncTrainer(log_step_metrics=..., metrics_interval=...) is deprecated and "
+        "will be removed in a future river-client release; use metrics=rl.Metrics("
+        f"steps={metrics.steps}, interval={metrics.interval!r}).",
+        FutureWarning,
+        stacklevel=3,
+    )
+    return metrics
+
+
 class AsyncTrainer:
     """Train a model from rollout groups while sampling continues.
 
@@ -261,7 +287,8 @@ class AsyncTrainer:
         forward_backward_groups: int | None = None,
         forward_backward_batch: ForwardBackwardBatch | Literal["auto"] | None = "auto",
         max_pending_forward_backward: int = 16,
-        log_step_metrics: bool = False,
+        metrics: Metrics | None = None,
+        log_step_metrics: bool | None = None,
         metrics_interval: float | None = None,
         **loss_config,
     ):
@@ -354,11 +381,10 @@ class AsyncTrainer:
                 submission when eligible; set a ``ForwardBackwardBatch`` or
                 ``None`` explicitly to override.
             max_pending_forward_backward: Limit concurrent submitted operations.
-            log_step_metrics: Publish completed Step metrics to River Console.
-                Defaults to False. RIVER_METRICS_DISABLED disables reporting.
-            metrics_interval: Seconds between River Console progress observations.
-                None (default) disables progress reporting independently of steps.
-                Use 60 for one-minute progress snapshots.
+            metrics: Opt-in River Console reporting; see ``rl.Metrics``.
+                ``None`` (default) reports nothing automatically.
+            log_step_metrics: Deprecated; use ``metrics=rl.Metrics(steps=...)``.
+            metrics_interval: Deprecated; use ``metrics=rl.Metrics(interval=...)``.
             loss_config: Legacy numeric options for string-based losses, such as
                 eps_max. Do not combine these with a configured loss object.
         """
@@ -376,12 +402,7 @@ class AsyncTrainer:
             )
         _integer(max_pending_forward_backward, "max_pending_forward_backward", 1)
         self.max_pending_forward_backward = max_pending_forward_backward
-        if not isinstance(log_step_metrics, bool):
-            raise TypeError("log_step_metrics must be a bool")
-        self.log_step_metrics = log_step_metrics
-        if metrics_interval is not None:
-            _positive(metrics_interval, "metrics_interval")
-        self.metrics_interval = metrics_interval
+        self.metrics = _resolve_metrics(metrics, log_step_metrics, metrics_interval)
         _integer(groups_per_step, "groups_per_step", 1)
         _integer(group_size, "group_size", 1)
         self._uses_admission = admission is not None
@@ -869,30 +890,37 @@ class AsyncTrainer:
             )
         return compatible_fingerprints
 
+    def _adopt_auto_checkpoint(self, latest, training_run_id):
+        """Make ``latest``, run ``training_run_id``'s newest auto checkpoint,
+        the recovery base when it is newer than the base.
+
+        A post-load auto save refreshes an expiring source from another run.
+        At equal steps, keep durable saves and that run's own saves.
+        """
+        if latest is not None and (
+            self._base is None
+            or latest.step > self._base.step
+            or (
+                not self._durable_base
+                and latest.step == self._base.step
+                and not self._base.path.startswith(f"river://{training_run_id}/")
+                and latest.policy_version is not None
+                and latest.policy_version == self._base.policy_version
+            )
+        ):
+            self._base = latest
+            self._durable_base = False
+
     async def _save_state(self, *, background=False):
         if self._state_write is not None:
             await self._wait_state_write(self._state_write)
         if self._full_weight:
-            # A post-load auto save refreshes an expiring source from another
-            # run. At equal steps, keep durable saves and this run's own saves.
-            latest = await self._call(
-                "auto_checkpoint", self.engine.model.latest_auto_checkpoint
+            self._adopt_auto_checkpoint(
+                await self._call(
+                    "auto_checkpoint", self.engine.model.latest_auto_checkpoint
+                ),
+                self.engine.model.training_run_id,
             )
-            if latest is not None and (
-                self._base is None
-                or latest.step > self._base.step
-                or (
-                    not self._durable_base
-                    and latest.step == self._base.step
-                    and not self._base.path.startswith(
-                        f"river://{self.engine.model.training_run_id}/"
-                    )
-                    and latest.policy_version is not None
-                    and latest.policy_version == self._base.policy_version
-                )
-            ):
-                self._base = latest
-                self._durable_base = False
         # The previous write has committed, so only newer content is copied.
         capture = self._store.capture()
         state = {
@@ -915,6 +943,8 @@ class AsyncTrainer:
             **(
                 {
                     "training_run_id": self.engine.model.training_run_id,
+                    # A new run reads this run's newest auto checkpoint by it.
+                    "model_id": self.engine.model.model_id,
                     # Steps repeat after a rewind; only the id names the weights.
                     "policy_id": self._policy.id,
                 }
@@ -1143,10 +1173,29 @@ class AsyncTrainer:
         same_run = saved["training_run_id"] == model.training_run_id
         if same_run:
             await call(model.sync_committed_policy)
-        elif self._base is not None:
-            await self._call(
-                "load_weights", model.load_weights, self._base, load_optimizer=True
-            )
+        else:
+            # The saved run can commit an auto checkpoint after the state was
+            # saved, as when the driver dies during a step. Once that run ends
+            # the server keeps only its newest, which may not be the saved base.
+            # The server records auto checkpoints only of acknowledged updates,
+            # never of one with a non-finite gradient norm. States written
+            # before model_id was recorded cannot look it up.
+            if "model_id" in saved:
+                self._adopt_auto_checkpoint(
+                    await self._call(
+                        "auto_checkpoint",
+                        model.latest_auto_checkpoint,
+                        model_id=saved["model_id"],
+                    ),
+                    saved["training_run_id"],
+                )
+            if self._base is not None:
+                await self._call(
+                    "load_weights",
+                    model.load_weights,
+                    self._base,
+                    load_optimizer=True,
+                )
         await self._refresh_policy()
         self._committed_step = model.step
         if self._policy.id == saved["policy_id"]:
@@ -2206,10 +2255,10 @@ class AsyncTrainer:
         try:
             reporter = MetricsReporter(
                 self.engine.model,
-                steps=self.log_step_metrics,
-                interval=self.metrics_interval,
+                steps=self.metrics.steps,
+                interval=self.metrics.interval,
             )
-            if reporter.enabled and self.metrics_interval is not None:
+            if reporter.enabled and self.metrics.interval is not None:
                 metrics_task = asyncio.create_task(reporter._report_progress(self))
             # Only the trainer publishes snapshots before each admission.
             # Standalone trajectory rollouts must still select current weights.

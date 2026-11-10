@@ -17,8 +17,14 @@ import pytest
 from eth_abi.abi import decode, encode
 from pytempo import Call, TempoTransaction  # pyright: ignore[reportMissingTypeStubs]
 
-from mpp.errors import BadRequestError, VerificationError, VerificationFailedError
+from mpp.errors import (
+    BadRequestError,
+    PaymentSimulationError,
+    VerificationError,
+    VerificationFailedError,
+)
 from mpp.methods.tempo import TempoAccount
+from mpp.methods.tempo._rpc import RpcError as NodeRpcError
 from mpp.methods.tempo.session import _abi as abi
 from mpp.methods.tempo.session import _chain as chain
 from mpp.methods.tempo.session._channel import compute_channel_id, expiring_nonce_hash
@@ -818,6 +824,78 @@ class TestBroadcastOpen:
             await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
         assert not rpc.sent
 
+    async def test_failed_sender_preflight_is_tagged(self, rpc: FakeRpc) -> None:
+        raw, descriptor, channel_id = await build_open(rpc, fee_payer=True)
+        rpc.overrides["eth_call"] = fail("execution reverted: insufficient balance")
+        with pytest.raises(PaymentSimulationError, match="insufficient balance") as raised:
+            await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+        error = raised.value
+        assert error.phase == "sender"
+        assert error.sender == PAYER.address
+        assert error.fee_payer is None
+        # The escrow open is not a single TIP-20 transfer.
+        assert error.payment_token is None
+        assert isinstance(error.__cause__, NodeRpcError)
+        assert str(error) == f"Payment verification failed: {error.__cause__}."
+        assert not rpc.sent
+
+    async def test_failed_sponsored_preflight_is_tagged(self, rpc: FakeRpc) -> None:
+        raw, descriptor, channel_id = await build_open(rpc, fee_payer=True)
+
+        def call(params: list[Any]) -> Any:
+            if "feePayerSignature" in params[0]:
+                raise RpcError("execution reverted: insufficient fee token balance")
+            return rpc._call(params)
+
+        rpc.overrides["eth_call"] = call
+        with pytest.raises(PaymentSimulationError, match="insufficient fee token") as raised:
+            await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+        error = raised.value
+        assert error.phase == "sponsored"
+        assert error.sender == PAYER.address
+        assert error.fee_payer == SPONSOR.address
+        assert isinstance(error.__cause__, NodeRpcError)
+        assert not rpc.sent
+
+    async def test_non_execution_preflight_error_keeps_the_untagged_error(
+        self, rpc: FakeRpc
+    ) -> None:
+        raw, descriptor, channel_id = await build_open(rpc, fee_payer=True)
+        rpc.overrides["eth_call"] = fail("rate limited")
+        with pytest.raises(VerificationFailedError, match="rate limited") as raised:
+            await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+        error = raised.value
+        assert not isinstance(error, PaymentSimulationError)
+        simulation = error.__cause__
+        assert isinstance(simulation, PaymentSimulationError)
+        assert simulation.phase == "sender"
+        assert isinstance(simulation.__cause__, NodeRpcError)
+        assert not rpc.sent
+
+    async def test_preflight_transport_error_is_not_tagged(self, rpc: FakeRpc) -> None:
+        raw, descriptor, channel_id = await build_open(rpc, fee_payer=True)
+
+        def call(params: list[Any]) -> Any:
+            raise httpx.ConnectError("connection refused")
+
+        rpc.overrides["eth_call"] = call
+        with pytest.raises(httpx.ConnectError):
+            await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+        assert not rpc.sent
+
+    async def test_payment_token_is_set_only_for_a_single_transfer(self) -> None:
+        from mpp.methods.tempo import _fee_payer
+
+        transfer = {"to": CURRENCY, "value": "0x0", "data": "0xa9059cbb" + "00" * 64}
+        with_memo = {**transfer, "data": "0x95777d59" + "00" * 96}
+        other = {**transfer, "data": "0x095ea7b3" + "00" * 64}
+        token = _fee_payer.simulation_payment_token
+        assert token({"calls": [transfer]}) == CURRENCY
+        assert token({"calls": [with_memo]}) == CURRENCY
+        assert token({"calls": [other]}) is None
+        assert token({"calls": [transfer, transfer]}) is None
+        assert token({}) is None
+
     async def test_reverted_open_names_the_transaction(self, rpc: FakeRpc) -> None:
         raw, descriptor, channel_id = await build_open(rpc)
         rpc.receipt_status = "0x0"
@@ -885,6 +963,115 @@ class TestBroadcastTopUp:
         result = await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
         assert result.new_deposit == DEPOSIT + 500
         assert rpc.sent[0].startswith("0x76")
+
+    async def test_sponsored_top_up_simulates_with_the_sponsor_signature(
+        self, rpc: FakeRpc, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Tempo nodes bill the sender of a sponsored eth_call without feePayerSignature.
+
+        The sponsor signs a simulation-only copy with SPONSORED_SIMULATION_GAS_BUFFER
+        more gas (the sponsored eth_call charges more than the mined top-up uses),
+        only after the sender simulation passed; the broadcast keeps its gas.
+        """
+        import attrs
+        from eth_account import Account
+
+        from mpp.methods.tempo import _fee_payer
+
+        raw, descriptor, channel_id = await self._setup(rpc, fee_payer=True)
+        rpc.states[channel_id] = (0, DEPOSIT + 500, 0)
+        events: list[str] = []
+
+        def call(params: list[Any]) -> str:
+            if "calls" in params[0]:
+                kind = "sponsored" if "feePayer" in params[0] else "sender"
+                events.append("simulate:" + kind)
+            return rpc._call(params)
+
+        real_cosign = chain._cosign
+        real_sign = _fee_payer.local_sponsored_simulation_request
+
+        def cosign(*args: Any, **kwargs: Any) -> Any:
+            events.append("complete")
+            return real_cosign(*args, **kwargs)
+
+        def sign(*args: Any) -> dict[str, Any]:
+            events.append("sign")
+            return real_sign(*args)
+
+        rpc.overrides["eth_call"] = call
+        monkeypatch.setattr(chain, "_cosign", cosign)
+        monkeypatch.setattr(_fee_payer, "local_sponsored_simulation_request", sign)
+
+        await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+
+        # Validation co-signs once to check the policy; nothing is simulated with it.
+        assert events == ["complete", "simulate:sender", "complete", "sign", "simulate:sponsored"]
+        client_gas = int.from_bytes(rlp_fields(raw)[3], "big")
+        broadcast = TempoTransaction.decode(bytes.fromhex(rpc.sent[0][2:]))
+        assert broadcast.gas_limit == client_gas
+        assert broadcast.recover_fee_payer() == SPONSOR.address
+        sponsored = [p[0] for p in rpc.methods("eth_call") if "feePayer" in p[0]][0]
+        assert "signature" not in sponsored
+        buffered = client_gas + _fee_payer.SPONSORED_SIMULATION_GAS_BUFFER
+        assert sponsored["gas"] == hex(buffered)
+        signature = sponsored["feePayerSignature"]
+        simulated = attrs.evolve(broadcast, gas_limit=buffered, fee_payer_signature=None)
+        recovered = Account._recover_hash(
+            simulated.get_signing_hash(for_fee_payer=True),
+            vrs=(int(signature["yParity"], 16), int(signature["r"], 16), int(signature["s"], 16)),
+        )
+        assert recovered == SPONSOR.address
+
+    @pytest.mark.parametrize("clamped", [True, False])
+    async def test_sponsored_out_of_gas_passes_only_when_policy_clamps_the_padding(
+        self, rpc: FakeRpc, clamped: bool
+    ) -> None:
+        """The sender simulation checks the broadcast gas; a clamped sponsored copy may lack
+        the sponsored eth_call's extra gas, so out of gas alone passes only then."""
+        from mpp.methods.tempo import _fee_payer
+
+        raw, descriptor, channel_id = await self._setup(rpc, fee_payer=True)
+        rpc.states[channel_id] = (0, DEPOSIT + 500, 0)
+        client_gas = int.from_bytes(rlp_fields(raw)[3], "big")
+        policy = {"max_gas": client_gas + 1_000} if clamped else None
+        sponsored: list[dict[str, Any]] = []
+
+        def call(params: list[Any]) -> str:
+            if "feePayerSignature" in params[0]:
+                sponsored.append(params[0])
+                raise RpcError("out of gas: gas exhausted during precompiled contract execution")
+            return rpc._call(params)
+
+        rpc.overrides["eth_call"] = call
+        if clamped:
+            await self._broadcast(
+                rpc, raw, descriptor, channel_id, fee_payer=SPONSOR, fee_payer_policy=policy
+            )
+            assert sponsored[0]["gas"] == hex(client_gas + 1_000)
+            assert len(rpc.sent) == 1
+        else:
+            with pytest.raises(VerificationFailedError, match="out of gas"):
+                await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+            assert sponsored[0]["gas"] == hex(
+                client_gas + _fee_payer.SPONSORED_SIMULATION_GAS_BUFFER
+            )
+            assert not rpc.sent
+
+    async def test_failed_sender_simulation_signs_nothing_for_simulation(
+        self, rpc: FakeRpc, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from mpp.methods.tempo import _fee_payer
+
+        raw, descriptor, channel_id = await self._setup(rpc, fee_payer=True)
+        signed: list[Any] = []
+        monkeypatch.setattr(
+            _fee_payer, "local_sponsored_simulation_request", lambda *args: signed.append(args)
+        )
+        rpc.overrides["eth_call"] = fail("execution reverted: insufficient balance")
+        with pytest.raises(VerificationFailedError, match="insufficient balance"):
+            await self._broadcast(rpc, raw, descriptor, channel_id, fee_payer=SPONSOR)
+        assert not signed and not rpc.sent
 
     async def test_reads_back_at_an_integer_receipt_block(self, rpc: FakeRpc) -> None:
         raw, descriptor, channel_id = await self._setup(rpc)

@@ -22,21 +22,32 @@ again on resume rather than being voided (design S4).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
+import threading
 import time
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import FrameType
 from typing import Any
+
+if sys.platform != "win32":
+    # flock for the run dir lock. Windows has no fcntl; the suite still imports this module there.
+    import fcntl
 
 import abarm
 import abguard
 import abscore
+import abtrace
 from _ablib import (
     EXIT_ERROR,
     EXIT_NO,
@@ -44,7 +55,9 @@ from _ablib import (
     append_jsonl,
     envelope,
     git,
+    git_env,
     rotated_schedule,
+    run,
     sha256_file,
     utc_now,
 )
@@ -52,14 +65,14 @@ from abprofile import SANDBOX_BWRAP_KINDS, SANDBOX_MISSING, SKELETON, Profile, P
 from abstream import OPUS_PREFIX, SYNTHETIC_REASON_PREFIX
 
 __all__ = [
-    "DEFAULT_CREDENTIALS",
-    "DEFAULT_SKILLS_REPO",
     "OPUS_PREFIX",
     "WEIGHTS",
     "JournalError",
     "RunContext",
     "RunRefused",
     "build_parser",
+    "default_credentials",
+    "default_skills_repo",
     "load_journal",
     "main",
     "record",
@@ -67,10 +80,21 @@ __all__ = [
 ]
 
 LoginCheck = Callable[[Path], str]
-DEFAULT_CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
-DEFAULT_SKILLS_REPO = Path.home() / ".claude" / "plugins" / "marketplaces" / "bitranox-skills"  # the clone every install has
 WEIGHTS = {"correctness": 0.30, "task_coverage": 0.25, "tests": 0.20, "beyond_plan_fixes": 0.10,
            "readability": 0.10, "scope_creep": 0.05}
+
+
+def default_credentials() -> Path:
+    """The login `run` checks and installs from when --credentials is not given: the one in the
+    user's Claude config dir (abarm.user_config_dir, which follows CLAUDE_CONFIG_DIR). Per call."""
+    return abarm.user_config_dir() / ".credentials.json"
+
+
+def default_skills_repo() -> Path:
+    """The marketplace clone every install has, in the user's Claude config dir. Per call."""
+    return abarm.user_config_dir() / "plugins" / "marketplaces" / "bitranox-skills"
+
+
 PREREG_SKELETON = """# Pre-registration
 
 ## Question
@@ -83,7 +107,12 @@ PREREG_SKELETON = """# Pre-registration
 Pairwise blind judge (design S2), A/B swap tie rule, control first then finalists; labels per design S5.4.
 """
 GITIGNORE = ("frozen/\narms/*/cfg\narms/*/home\narms/*/stream.jsonl\narms/*/bundle.git\narms/*/guard\n"
-             "arms/*/transcripts\narms/*/uncommitted.patch\narms/*/untracked.tar\njournal.jsonl\njournal.torn\n")
+             "arms/*/transcripts\narms/*/uncommitted.patch\narms/*/untracked.tar\njournal.jsonl\njournal.torn\n"
+             "run.lock\n")
+# The file `run` holds an exclusive flock on while it runs, the holder's pid written in it. Two runs
+# on one run dir raced before it: the second swept the first's live config dir and set its arm aside.
+# flock is released by the kernel when the holder dies, however it dies, so no pid is ever stale.
+LOCK_FILE = "run.lock"
 # Where an arm's session transcripts (copied out of its config dir before that is deleted) go.
 TRANSCRIPTS = "transcripts"
 JOURNAL, TORN = "journal.jsonl", "journal.torn"
@@ -120,7 +149,20 @@ host's /proc read-only (an LXC container); "none" opts out, recorded per arm.
 [[variant]] remove_skill = true (no dir, no markers): a bare arm, the plugin without the skill under test.
 [[variant]] task_file = "task-V1.md": that arm's own prompt (default [workpiece].task_file); seal records
 its sha256 per arm, run refuses a changed one, and the journal, result.json and score name it.
-[floor] suite_from = "/abs/path": seal copies the acceptance suite from there instead of <repo>/<suite>."""
+[floor] suite_from = "/abs/path": seal copies the acceptance suite from there instead of <repo>/<suite>.
+[workpiece] link = [".packages"]: gitignored workpiece paths a fresh worktree lacks (a vendored protoc),
+symlinked into every arm's worktree before its session; read-only under bwrap. seal refuses an entry that
+is missing, tracked, not ignored, or ignored only by a dir-only pattern (".packages/"): ignore it as
+"/.packages".
+[run] unattended_note = "...": appended to every arm's prompt alike after a blank line (the bare arm's
+too); its sha256 is in each journal row and result.json. score's ended_with_question flags an arm whose
+session's last text ends with "?" (it stopped to ask); a flag, never a void.
+--json prints one pretty-printed envelope: parse the whole stdout as one JSON document."""
+# How much of an arm's last text the question flag shows: its end, where the question is.
+QUESTION_SHOWN = 200
+# Printed under every human score table: readers of the table took a low suite count for bad code.
+SUITE_LEGEND = ("suite= and gate= show how far an arm got before it stopped (completeness), "
+                "not code quality; rate quality from the diff")
 SEAL_GIT = ("-c", "user.name=abtest", "-c", "user.email=abtest@localhost", "-c", "commit.gpgsign=false",
             "-c", "core.hooksPath=/dev/null")
 
@@ -165,7 +207,17 @@ class RunContext:
     def arm_meta(self, name: str) -> dict[str, Any]:
         """What every journal row and result.json of arm `name` records beside its outcome."""
         task = self.tasks[name]
-        return {"sandbox": self.profile.run.sandbox, "task_file": task.file, "task_sha256": task.sha256}
+        note = self.profile.run.unattended_note
+        return {"sandbox": self.profile.run.sandbox, "task_file": task.file, "task_sha256": task.sha256,
+                "unattended_note_sha256": None if note is None else hashlib.sha256(note.encode("utf-8")).hexdigest()}
+
+    def prompt(self, name: str) -> str:
+        """Arm `name`'s task text, then the profile's unattended_note after a blank line when it has one."""
+        text, note = self.tasks[name].text, self.profile.run.unattended_note
+        if note is None:
+            return text
+        ended = text if text.endswith("\n") else text + "\n"
+        return f"{ended}\n{note}\n"
 
 
 def _warn(text: str) -> None:
@@ -352,7 +404,57 @@ def _seal_problems(run_dir: Path, profile: Profile) -> list[str]:
             continue  # a remove_skill variant: the arm runs without the skill, nothing to overlay
         if not (run_dir / v.dir).is_dir() or not any(p.is_file() for p in (run_dir / v.dir).rglob("*")):
             problems.append(f"variants/{v.name}: {v.dir} holds no file")
+    problems += [p for entry in profile.workpiece.link if (p := _link_problem(profile.workpiece.repo, entry))]
     return problems
+
+
+def _link_problem(repo: Path, entry: str) -> str | None:
+    """Why workpiece.link `entry` cannot be linked into an arm's worktree; None when it can.
+
+    Only ignored build output is linkable: a tracked path is in every worktree already, and an
+    unignored one would show as the arm's own work. In a worktree the entry is a symlink, which a
+    dir-only pattern (`name/`) does not match, so the entry must be ignored AS a symlink;
+    link_paths checks that again in each worktree.
+    """
+    if not (repo / entry).exists():
+        return f"workpiece.link: {entry} does not exist in the workpiece {repo}"
+    if git(repo, "ls-files", "--", entry).stdout.strip():
+        return f"workpiece.link: {entry} is tracked by git; a worktree has it already"
+    # -q decides; -v alone would also count a matching negated (!) pattern as ignored.
+    if git(repo, "check-ignore", "-q", "--no-index", "--", entry).returncode != 0:
+        return f"workpiece.link: {entry} is not ignored by git; ignore it as /{entry} (e.g. in .git/info/exclude)"
+    if not _ignored_as_symlink(repo, entry):
+        # -v prints <source>:<line>:<pattern><TAB><path>: the pattern that ignores the directory.
+        verbose = git(repo, "check-ignore", "-v", "--no-index", "--", entry).stdout
+        pattern = verbose.split("\t", 1)[0].split(":", 2)[-1]
+        return (f"workpiece.link: {entry} is ignored only as a directory ({pattern}), so its symlink in a "
+                f"worktree would not be; also ignore it as /{entry}, without the trailing slash")
+    return None
+
+
+def _ignored_as_symlink(repo: Path, entry: str) -> bool:
+    """Would git ignore `entry` where it is a symlink, as in an arm's worktree? Nothing is written to repo.
+
+    git asks the filesystem whether a path is a directory, so the question is put to a scratch
+    work tree that holds a symlink at `entry` and copies of the .gitignore files on its way; the
+    repository's own info/exclude and core.excludesFile apply through --git-dir as usual.
+    """
+    git_dir = git(repo, "rev-parse", "--absolute-git-dir").stdout.strip()
+    with tempfile.TemporaryDirectory(prefix="abtest-link-") as tmp:
+        scratch = Path(tmp)
+        parts = Path(entry).parts
+        for depth in range(len(parts)):
+            source = repo.joinpath(*parts[:depth], ".gitignore")
+            if source.is_file():
+                target = scratch.joinpath(*parts[:depth], ".gitignore")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+        link = scratch / entry
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(repo / entry)
+        proc = run(["git", "--git-dir", git_dir, "--work-tree", str(scratch), "-C", str(scratch),
+                    "check-ignore", "-q", "--no-index", "--", entry], env=git_env())
+    return proc.returncode == 0
 
 
 def _seal_suite(run_dir: Path, profile: Profile) -> str | None:
@@ -448,7 +550,7 @@ def _guard_after(result: dict[str, Any], guard_dir: Path) -> None:
 
 def _session_argv(ctx: RunContext, name: str, frozen: abarm.Frozen, ws: Path, home: Path, cfg: Path) -> list[str]:
     """claude_argv with arm `name`'s prompt, behind the bubblewrap prefix when the profile names a bwrap sandbox."""
-    argv = abarm.claude_argv(ctx.tasks[name].text, ctx.max_turns)
+    argv = abarm.claude_argv(ctx.prompt(name), ctx.max_turns)
     sandbox = ctx.profile.run.sandbox
     if sandbox not in SANDBOX_BWRAP_KINDS:
         return argv
@@ -467,6 +569,7 @@ def _arm_steps(ctx: RunContext, result: dict[str, Any], frozen: abarm.Frozen, la
     result["install"] = abarm.install_plugin(cfg, frozen, ctx.credentials, env)
     _ignore_worktrees(ctx)
     result["worktree"] = abarm.make_worktree(p.workpiece.repo, p.workpiece.base, branch, ws, copy_untracked_claude_md=True)
+    result["linked"] = abarm.link_paths(p.workpiece.repo, ws, p.workpiece.link)
     result["guard"] = abguard.snapshot(ws, arm_dir / "guard")
     if not ctx.dry_run:
         result.update(abarm.dispatch(arm_dir, ws, env, _session_argv(ctx, result["name"], frozen, ws, home, cfg),
@@ -718,7 +821,8 @@ def _context(args: argparse.Namespace, run_dir: Path, profile: Profile,
     if not args.stop_grace_s > 0:
         raise RunRefused("--stop-grace-s must be above 0")
     return RunContext(run_dir=run_dir, profile=profile, tasks=_arm_tasks(run_dir, profile),
-                      credentials=Path(args.credentials).expanduser(), skills_repo=Path(args.skills_repo).expanduser(),
+                      credentials=Path(args.credentials).expanduser() if args.credentials else default_credentials(),
+                      skills_repo=Path(args.skills_repo).expanduser() if args.skills_repo else default_skills_repo(),
                       dry_run=args.dry_run, max_turns=args.max_turns, stop_grace_s=args.stop_grace_s,
                       sealed_suite=sealed_suite)
 
@@ -903,9 +1007,73 @@ def _require_sandbox(profile: Profile) -> None:
             raise RunRefused(problem)
 
 
+def _lock_holder(fd: int) -> str:
+    """The pid the holder wrote into the lock file, or "unknown" (it may not have written it yet)."""
+    try:
+        text = os.pread(fd, 64, 0).decode("ascii", errors="replace").strip()
+    except OSError:
+        return "unknown"
+    return text if text.isascii() and text.isdecimal() else "unknown"
+
+
+@contextmanager
+def _run_lock(run_dir: Path) -> Iterator[None]:
+    """Hold an exclusive flock on <run_dir>/run.lock for the whole run, the holder's pid written in it.
+
+    Raises:
+        RunRefused: another process holds the lock (a `run` already going on this run dir).
+    """
+    if sys.platform == "win32":
+        yield  # no flock here; the harness is Linux only
+        return
+    path = run_dir / LOCK_FILE
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RunRefused(f"another `run` holds {path} (pid {_lock_holder(fd)}); two runs on one run dir "
+                             "would delete each other's live arm state: wait for it, or stop it "
+                             "(Ctrl-C or SIGTERM end it cleanly)") from None
+        os.ftruncate(fd, 0)
+        os.pwrite(fd, f"{os.getpid()}\n".encode("ascii"), 0)
+        yield
+    finally:
+        os.close(fd)  # closing the descriptor releases the flock
+
+
+def _raise_interrupt(signum: int, frame: FrameType | None) -> None:
+    raise KeyboardInterrupt
+
+
+@contextmanager
+def _sigterm_as_interrupt() -> Iterator[None]:
+    """While a run goes, SIGTERM raises KeyboardInterrupt: the Ctrl-C path, which writes result.json and
+    the journal row, ends the session's group and removes the credentials copy. Restored on exit.
+
+    A handler can only be installed from the main thread; elsewhere SIGTERM keeps its own handling.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    previous = signal.signal(signal.SIGTERM, _raise_interrupt)
+    try:
+        yield
+    finally:
+        # None: the previous handler was not installed from Python; the default is what it was.
+        signal.signal(signal.SIGTERM, signal.SIG_DFL if previous is None else previous)
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     run_dir = _run_dir(args.run_dir)
     _require_sealed(run_dir)
+    # Before anything that touches arm state (_sweep_cfgs deletes every arms/*/cfg).
+    with _run_lock(run_dir), _sigterm_as_interrupt():
+        return _run_locked(args, run_dir)
+
+
+def _run_locked(args: argparse.Namespace, run_dir: Path) -> int:
+    """cmd_run's body, under the run dir lock."""
     profile = load_profile(run_dir / "abtest.toml")
     sealed_suite = _require_seal_intact(run_dir, profile)
     ctx = _context(args, run_dir, profile, sealed_suite)
@@ -980,12 +1148,34 @@ def _store_flag(label: str, score: dict[str, Any]) -> str | None:
     return f"store changed: {len(changes)} entries, adjudicate against arms/{label}/{TRANSCRIPTS}/"
 
 
+def _question_flag(score: dict[str, Any]) -> str | None:
+    """The line that names an arm whose session ended by asking (nobody answers); a flag, never a void."""
+    if score.get("ended_with_question") is not True:
+        return None
+    text = str(score.get("last_text") or "")
+    return f"ended with a question: {text if len(text) <= QUESTION_SHOWN else '...' + text[-QUESTION_SHOWN:]}"
+
+
+def _arm_flag(label: str, score: dict[str, Any]) -> str | None:
+    """Every flag of the arm on one line, "; "-joined; None when it has none."""
+    flags = [f for f in (_store_flag(label, score), _question_flag(score)) if f is not None]
+    return "; ".join(flags) or None
+
+
 def _score_line(label: str, score: dict[str, Any]) -> str:
     line = (f"{label}: cost={score['cost_usd']} floor={score['floor_passed']} void={score['void'] or '-'} "
             f"sandbox={score.get('sandbox') or '-'} task={score.get('task_file') or '-'}"
-            f"@{(score.get('task_sha256') or '-')[:12]}")
-    flag = _store_flag(label, score)
-    return line if flag is None else f"{line} FLAG {flag}"
+            f"@{(score.get('task_sha256') or '-')[:12]}"
+            f" subagents={abtrace.describe_subagents(score.get('subagents'))}"
+            f" ideas={abtrace.describe_ideas(score.get('idea_markers'))}"
+            f" suite={abtrace.describe_suite(score.get('floor_suite'))}"
+            f" gate={abtrace.describe_suite(score.get('floor_gate'))}"
+            f" commits={score.get('bundle_commits', 0)}")
+    flag = _arm_flag(label, score)
+    line = line if flag is None else f"{line} FLAG {flag}"
+    # One line per idea under its arm: the first marker line the arm wrote for it.
+    ideas = (score.get("idea_markers") or {}).get("ideas") or {}
+    return "\n".join([line, *(f"  {label} idea {n}: {v['first']}" for n, v in ideas.items())])
 
 
 def cmd_score(args: argparse.Namespace) -> int:
@@ -999,9 +1189,9 @@ def cmd_score(args: argparse.Namespace) -> int:
     scores = _score_all(run_dir, profile, results)
     for res in results.values():
         record(run_dir, step="score", round=res.get("round", 0), arm=res.get("name", ""), status="scored")
-    flags = {label: flag for label, score in scores.items() if (flag := _store_flag(label, score)) is not None}
+    flags = {label: flag for label, score in scores.items() if (flag := _arm_flag(label, score)) is not None}
     _emit(args.json, "score", {"arms": scores, "flags": flags}, True,
-          "\n".join(_score_line(k, v) for k, v in scores.items()))
+          "\n".join([*(_score_line(k, v) for k, v in scores.items()), SUITE_LEGEND]))
     return EXIT_YES
 
 
@@ -1044,6 +1234,27 @@ def _sandboxes(run_dir: Path) -> dict[str, str | None]:
             if r.get("step") == "arm" and r.get("status") in DONE_LIVE}
 
 
+def _bundle_branches(repo: Path, run_dir: Path, refs: list[str]) -> str | None:
+    """Write every branch of the run into <run_dir>/branches.bundle before any is deleted.
+
+    An arm's own bundle.git holds only its final branch, so the set-aside attempts, a killed arm's
+    branch and a parallel node's branch would be gone after the delete (measured: 17 of 62). A
+    second prune with nothing left writes no bundle; an existing bundle is never replaced.
+    Returns the error text, or None when the branches are bundled or there are none.
+    """
+    if not refs:
+        return None
+    target = run_dir / "branches.bundle"
+    n = 1
+    while target.exists():
+        n += 1
+        target = run_dir / f"branches-{n}.bundle"
+    made = git(repo, "bundle", "create", str(target), *refs)
+    if made.returncode != 0:
+        return f"bundle of the run's branches failed, none deleted: {' '.join(made.stderr.split())[:200]}"
+    return None
+
+
 def cmd_prune_run(args: argparse.Namespace) -> int:
     """Prune every arm worktree of the run, then delete its branches.
 
@@ -1074,6 +1285,10 @@ def cmd_prune_run(args: argparse.Namespace) -> int:
         elif branch:
             own_refs.append(branch)
     refs = [*_run_branches(repo, run_id), *own_refs]
+    bundle_error = _bundle_branches(repo, run_dir, refs)
+    if bundle_error:
+        errors.append(bundle_error)
+        refs = []  # nothing is deleted that no bundle holds
     deleted = [b for b in refs if git(repo, "branch", "-D", b).returncode == 0]
     errors += [f"branch {b} could not be deleted" for b in refs if b not in deleted]
     skipped = [f"frozen checkout {p} is left (release it from the skills repo)" for p in sorted((run_dir / "frozen").glob("*"))]
@@ -1100,8 +1315,10 @@ class _Parser(argparse.ArgumentParser):
 def _add_run_options(sp: argparse.ArgumentParser) -> None:
     sp.add_argument("--dry-run", action="store_true", help="everything but the paid claude -p step")
     sp.add_argument("--only", help="run only this arm name (C or a variant name)")
-    sp.add_argument("--credentials", default=str(DEFAULT_CREDENTIALS))
-    sp.add_argument("--skills-repo", default=str(DEFAULT_SKILLS_REPO))
+    sp.add_argument("--credentials", default=None,
+                    help="the login file (default <Claude config dir>/.credentials.json)")
+    sp.add_argument("--skills-repo", default=None,
+                    help="the bitranox-skills clone (default <Claude config dir>/plugins/marketplaces/bitranox-skills)")
     sp.add_argument("--max-turns", type=int, default=400)
     sp.add_argument("--stop-grace-s", type=float, default=float(abarm.STOP_GRACE_S),
                     help="seconds a session's process group gets between SIGTERM and SIGKILL when it is ended")

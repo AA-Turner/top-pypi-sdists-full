@@ -421,6 +421,14 @@ def test_validation_error_handles_huge_scientific_numbers():
     assert exc.value.kind.expected_value == Decimal("1e10000")
 
 
+# A whole float past 2^53 in the schema comes back as the same float, not a `Decimal`
+@pytest.mark.parametrize("value", [2.0**55, -(2.0**55), 2.0**62])
+def test_validation_error_returns_whole_float_past_2_53(value):
+    with pytest.raises(ValidationError) as exc:
+        validator_for({"const": value}).validate(0)
+    assert repr(exc.value.kind.expected_value) == repr(value)
+
+
 @pytest.mark.parametrize(
     ["schema", "instance", "kind", "attrs"],
     [
@@ -750,6 +758,66 @@ def test_error_instance():
     except ValidationError as exc:
         assert isinstance(exc.kind, ValidationErrorKind.Type)
         assert exc.instance == instance["a"]
+
+
+@pytest.mark.parametrize(
+    ("schema", "instance", "path"),
+    [
+        ({"type": "array"}, {"a": [42]}, []),
+        ({"properties": {"a": {"type": "object"}}}, {"a": [42, "x", None, 1.5, True]}, ["a"]),
+        ({"items": {"type": "string"}}, [{"b": {"c": 2**70}}], [0]),
+        ({"items": {"type": "string"}}, ({"b": 1},), [0]),
+        ({"properties": {"200": {"type": "string"}}}, {"200": [1]}, ["200"]),
+        ({"properties": {"a/b~": {"type": "string"}}}, {"a/b~": [1]}, ["a/b~"]),
+    ],
+)
+def test_error_instance_is_the_validated_object(schema, instance, path):
+    expected = instance
+    for segment in path:
+        expected = expected[segment]
+    with pytest.raises(ValidationError) as exc:
+        validate(schema, instance)
+    assert exc.value.instance is expected
+    assert next(iter_errors(schema, instance)).instance is expected
+
+
+def test_any_of_context_instance_is_the_validated_object():
+    instance = {"a": {"b": 1}}
+    with pytest.raises(ValidationError) as exc:
+        validate({"properties": {"a": {"anyOf": [{"type": "string"}, {"required": ["c"]}]}}}, instance)
+    assert exc.value.instance is instance["a"]
+    assert [error.instance is instance["a"] for branch in exc.value.kind.context for error in branch] == [True, True]
+
+
+class Color(E.Enum):
+    RED = "red"
+
+
+# Values Python and JSON represent differently keep the JSON form.
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ((1, 2), [1, 2]),
+        ([Color.RED], ["red"]),
+        ([Decimal("1.5")], [1.5]),
+        ({"k": (1,)}, {"k": [1]}),
+        ([OrderedDict(k=1)], [{"k": 1}]),
+    ],
+)
+def test_error_instance_keeps_the_json_form(value, expected):
+    with pytest.raises(ValidationError) as exc:
+        validate({"properties": {"a": {"type": "string"}}}, {"a": value})
+    assert exc.value.instance == expected
+    assert type(exc.value.instance) is type(expected)
+    assert [type(item) for item in exc.value.instance] == [type(item) for item in expected]
+
+
+def test_property_names_error_instance():
+    instance = {"ab": 1}
+    with pytest.raises(ValidationError) as exc:
+        validate({"propertyNames": {"maxLength": 1}}, instance)
+    assert exc.value.instance is instance
+    assert exc.value.kind.error.instance == "ab"
 
 
 SCHEMA = {"properties": {"foo": {"type": "integer"}, "bar": {"type": "string"}}}
@@ -1230,6 +1298,29 @@ def test_custom_meta_schema_registered():
         ({"exclusiveMaximum": -9223372036854775808}, -9223372036854775809, True),
         ({"minimum": 18446744073709551615}, 18446744073709551616, True),
         ({"maximum": 18446744073709551615}, 18446744073709551616, False),
+        # whole floats past 2^53 hold a different integer than their shortest text names
+        ({"exclusiveMinimum": 22734393525036408}, float(22734393525036408), False),
+        ({"minimum": 22734393525036408}, float(22734393525036408), True),
+        ({"maximum": 22734393525036408}, float(22734393525036408), True),
+        ({"exclusiveMaximum": 22734393525036408}, float(22734393525036408), False),
+        ({"const": 22734393525036408}, float(22734393525036408), True),
+        ({"enum": [22734393525036408]}, float(22734393525036408), True),
+        ({"multipleOf": 8}, float(22734393525036408), True),
+        ({"minimum": -9223372036854775808}, float(-(2**63)), True),
+        ({"const": 2**70}, float(2**70), True),
+        # whole floats past 2^53 in the schema hold the integer they are, not their shortest text
+        ({"maximum": 2.0**55}, 2**55, True),
+        ({"maximum": 2.0**55}, 2**55 + 1, False),
+        ({"minimum": 2.0**55}, 2**55 - 1, False),
+        ({"exclusiveMaximum": 2.0**55}, 2**55, False),
+        ({"exclusiveMinimum": 2.0**55}, 2**55 + 1, True),
+        ({"const": 2.0**55}, 2**55, True),
+        ({"enum": [2.0**55]}, 2**55, True),
+        ({"multipleOf": 2.0**62}, 2**62, True),
+        ({"minimum": -(2.0**55)}, -(2**55) - 1, False),
+        ({"const": -(2.0**55)}, -(2**55), True),
+        ({"maximum": 2.0**52}, 2**52 + 1, False),
+        ({"const": 2.0**52}, 2**52, True),
     ],
 )
 def test_large_integer_validation(schema, instance, expected):
@@ -1434,3 +1525,20 @@ def test_large_integer_in_union_type_all_drafts(validator_cls):
     assert validator.is_valid("hello")
     assert not validator.is_valid(1.5)
     assert not validator.is_valid([])
+
+
+@pytest.mark.parametrize(
+    ("schema", "instance", "expected"),
+    [
+        ({"properties": {"a": {"type": "number"}}}, {"a": float("nan")}, False),
+        ({"properties": {"a": {"type": "number"}}}, {"a": float("inf")}, False),
+        ({"properties": {"a": {"type": "number"}}}, {"a": Decimal("NaN")}, False),
+        ({"properties": {"a": {"type": ["number", "string"]}}}, {"a": float("nan")}, False),
+        ({"anyOf": [{"type": "number"}, {"type": "string"}]}, float("nan"), False),
+        ({"not": {"type": "number"}}, float("nan"), True),
+    ],
+)
+def test_non_finite_numbers_in_typed_subschemas(schema, instance, expected):
+    validator = validator_for(schema)
+    assert validator.is_valid(instance) is expected
+    assert (next(validator.iter_errors(instance), None) is None) is expected

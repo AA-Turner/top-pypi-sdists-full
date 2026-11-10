@@ -77,15 +77,16 @@ def _append_metadata_section(
         return final_diff, curr_token, ""
 
     if whole_lines:
-        lines = section.splitlines()
-        # A heading without a filename conveys no useful filtered-file information.
+        # Split only metadata delimiters; other line separators can belong to filenames.
+        lines = section.removesuffix("\n").split("\n")
+        # Omit headings without filenames.
         if len(lines) > 2:
             heading, filenames = lines[:2], lines[2:]
             result = (final_diff, curr_token, "")
 
             def fits(prefix: list[str]) -> bool:
                 nonlocal result
-                clipped_section = "\n".join(heading + prefix)
+                clipped_section = section if len(prefix) == len(filenames) else "\n".join(heading + prefix)
                 candidate = final_diff + separator + clipped_section
                 candidate_tokens = token_handler.prompt_tokens + _count_raw_and_stripped_tokens(
                     token_handler, candidate
@@ -197,6 +198,9 @@ def cap_and_log_extra_lines(value, direction) -> int:
         get_logger().warning(
             f"patch_extra_lines_{direction} is not a number ({value!r}), using 0")
         return 0
+    if value < 0:
+        get_logger().warning(f"patch_extra_lines_{direction} was {value}, using 0")
+        return 0
     if value > MAX_EXTRA_LINES:
         get_logger().warning(f"patch_extra_lines_{direction} was {value}, capping to {MAX_EXTRA_LINES}")
         return MAX_EXTRA_LINES
@@ -274,7 +278,7 @@ def get_pr_diff(git_provider: GitProvider, token_handler: TokenHandler,
             )
             # Repack if joined patch token counts leave no room for the first filename.
             first_name = _prioritized_filtered_files(filtered_files)[0]
-            if first_name not in included_section.splitlines():
+            if first_name not in included_section.split("\n"):
                 full_diff_is_usable = False
                 get_logger().info("Full diff left no room for filtered filenames; repacking")
                 del full_diff, full_diff_with_metadata
@@ -351,13 +355,13 @@ def get_pr_diff(git_provider: GitProvider, token_handler: TokenHandler,
 
     # prune the added, modified, and deleted files lists, and add them to the final diff
     final_diff, curr_token, added_list_str = _append_metadata_section(
-        final_diff, curr_token, added_list_str, max_tokens, token_handler
+        final_diff, curr_token, added_list_str, max_tokens, token_handler, whole_lines=True
     )
     final_diff, curr_token, modified_list_str = _append_metadata_section(
-        final_diff, curr_token, modified_list_str, max_tokens, token_handler
+        final_diff, curr_token, modified_list_str, max_tokens, token_handler, whole_lines=True
     )
     final_diff, curr_token, deleted_list_str = _append_metadata_section(
-        final_diff, curr_token, deleted_list_str, max_tokens, token_handler
+        final_diff, curr_token, deleted_list_str, max_tokens, token_handler, whole_lines=True
     )
     final_diff, curr_token, filtered_list_str = _append_metadata_section(
         final_diff, curr_token, _filtered_file_section(filtered_files), max_tokens, token_handler, whole_lines=True
@@ -432,7 +436,7 @@ def _pack_pr_multi_diffs(file_dict: dict,
                          return_remaining_files: bool,
                          token_budget: int,
                          *, return_coverage: bool = False):
-    """Pack diffs additively, then verify each rendered group against the input budget."""
+    """Pack diffs lazily, then verify each rendered group against the input budget."""
     final_diff_list = []
     files_in_patches = set()
     clipped_files = set()
@@ -445,7 +449,7 @@ def _pack_pr_multi_diffs(file_dict: dict,
         if file_dict[filename].get("content_fetch_failed", False):
             get_logger().warning(f"Unreadable-file notice too large, skipping: {filename}")
             return None
-        if get_settings().config.get("large_patch_policy", "skip") != "clip":
+        if get_settings().config.get("large_patch_policy", "clip") != "clip":
             get_logger().warning(f"Patch too large, skipping: {filename}")
             return None
         patch_tokens = count_chunk([patch])
@@ -464,37 +468,38 @@ def _pack_pr_multi_diffs(file_dict: dict,
             get_logger().info(f"Clipped large patch for file: {filename}")
         return filename, patch_clipped, clipped_tokens
 
-    packable = []
-    for filename, data in file_dict.items():
-        patch = data["patch"]
-        new_patch_tokens = data["tokens"]
-        if not patch:
-            continue
-
-        if new_patch_tokens > token_budget:
-            clipped_item = clip_single_patch(filename, patch)
-            if not clipped_item:
-                continue
-            filename, patch, new_patch_tokens = clipped_item
-
-        packable.append((filename, patch, new_patch_tokens))
-
+    packable_count = 0
+    source_exhausted = False
     separator_tokens = token_handler.count_tokens("\n")
-    additive_groups = []
-    current_group = []
-    current_tokens = 0
-    for item in packable:
-        item_tokens = item[2]
-        item_cost = item_tokens + (separator_tokens if current_group else 0)
-        if current_group and current_tokens + item_cost > token_budget:
-            additive_groups.append(current_group)
-            current_group = []
-            current_tokens = 0
-            item_cost = item_tokens
-        current_group.append(item)
-        current_tokens += item_cost
-    if current_group:
-        additive_groups.append(current_group)
+
+    def iter_additive_groups():
+        nonlocal packable_count, source_exhausted
+        current_group = []
+        current_tokens = 0
+        for filename, data in file_dict.items():
+            patch = data["patch"]
+            new_patch_tokens = data["tokens"]
+            if not patch:
+                continue
+            if new_patch_tokens > token_budget:
+                clipped_item = clip_single_patch(filename, patch)
+                if not clipped_item:
+                    continue
+                filename, patch, new_patch_tokens = clipped_item
+            item = (filename, patch, new_patch_tokens)
+            packable_count += 1
+            item_cost = new_patch_tokens + (separator_tokens if current_group else 0)
+            if current_group and current_tokens + item_cost > token_budget:
+                # Count the lookahead item so an omitted file keeps the final chunk untrimmed.
+                yield current_group
+                current_group = []
+                current_tokens = 0
+                item_cost = new_patch_tokens
+            current_group.append(item)
+            current_tokens += item_cost
+        source_exhausted = True
+        if current_group:
+            yield current_group
 
     packed_groups = []
 
@@ -505,8 +510,10 @@ def _pack_pr_multi_diffs(file_dict: dict,
         files_in_patches.update(filename for filename, _, _ in group)
         return True
 
-    for group in additive_groups:
-        if len(packed_groups) >= max_calls:
+    additive_groups = iter_additive_groups()
+    while len(packed_groups) < max_calls:
+        group = next(additive_groups, None)
+        if group is None:
             break
 
         pending_group = group
@@ -532,14 +539,14 @@ def _pack_pr_multi_diffs(file_dict: dict,
                 append_group([clipped_item])
             pending_group = pending_group[1:]
 
-    packed_all = len(files_in_patches) == len(packable)
+    packed_all = source_exhausted and len(files_in_patches) == packable_count
     for index, group in enumerate(packed_groups):
         rendered_chunk = "\n".join(patch for _, patch, _ in group)
         if packed_all and index == len(packed_groups) - 1:
             rendered_chunk = rendered_chunk.strip("\r\n")
         final_diff_list.append(rendered_chunk)
 
-    if len(files_in_patches) < len(packable) and get_verbosity_level() >= 2:
+    if len(files_in_patches) < packable_count and get_verbosity_level() >= 2:
         get_logger().info(f"Reached max calls ({max_calls})")
 
     if not return_remaining_files and not return_coverage:
@@ -841,6 +848,13 @@ def generate_full_patch(convert_hunks_to_line_numbers, file_dict, soft_token_bud
     return total_tokens, patches, remaining_files_list_new, files_in_patch_list
 
 
+async def run_diff_preparation(f: Callable, *args, **kwargs):
+    """Offload diff work only when settings are isolated from global state."""
+    if get_settings() is get_settings(use_context=False):
+        return f(*args, **kwargs)
+    return await asyncio.to_thread(f, *args, **kwargs)
+
+
 async def retry_with_fallback_models(f: Callable, model_type: ModelType = ModelType.REGULAR,
                                      git_provider: GitProvider | None = None):
     all_models = _get_all_models(model_type)
@@ -849,7 +863,12 @@ async def retry_with_fallback_models(f: Callable, model_type: ModelType = ModelT
     # the existing retry loop, which stops as soon as the first successful model returns.
     configured_chain = tuple(zip(all_models, all_deployments[:len(all_models)], strict=True))
     effective_chain = configured_chain
-    routed = route_primary_model(model_type, git_provider)
+    if (model_type == ModelType.REGULAR and git_provider is not None
+            and get_settings().get("model_routing.enable", False)):
+        # Offload routing because it may fetch the diff before prediction preparation.
+        routed = await run_diff_preparation(route_primary_model, model_type, git_provider)
+    else:
+        routed = route_primary_model(model_type, git_provider)
     if routed:
         effective_chain = (routed, *configured_chain[1:])
         # Routing treats empty deployment IDs as absent; compare equivalent endpoint pairs.

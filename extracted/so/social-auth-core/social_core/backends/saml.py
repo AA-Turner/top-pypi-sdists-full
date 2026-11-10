@@ -11,6 +11,8 @@ Terminology:
 from __future__ import annotations
 
 import json
+from html import escape
+from secrets import token_urlsafe
 from typing import Any, cast
 
 # lxml exposes this exception from its C extension.
@@ -25,6 +27,7 @@ from onelogin.saml2.utils import OneLogin_Saml2_Utils
 from onelogin.saml2.xml_utils import OneLogin_Saml2_XML
 from xmlsec import Error as XMLSecError
 
+from social_core.backends.base import ResponseT_co
 from social_core.exceptions import (
     AuthConfigurationError,
     AuthInputError,
@@ -109,9 +112,9 @@ SAML_RESPONSE_ERRORS = (
 class SAMLIdentityProvider:
     """Wrapper around configuration for a SAML Identity provider"""
 
-    def __init__(self, backend: BaseAuth, name: str, **kwargs) -> None:
+    def __init__(self, backend: BaseAuth[object], name: str, **kwargs) -> None:
         """Load and parse configuration"""
-        self.backend: BaseAuth = backend
+        self.backend: BaseAuth[object] = backend
         self.name: str = name
         # name should be a slug and must not contain a colon, which
         # could conflict with uid prefixing:
@@ -263,7 +266,7 @@ class SAMLIdentityProvider:
         )
 
 
-class SAMLAuth(BaseAuth):
+class SAMLAuth(BaseAuth[ResponseT_co]):
     """
     PSA Backend that implements SAML 2.0 Service Provider (SP) functionality.
 
@@ -310,6 +313,53 @@ class SAMLAuth(BaseAuth):
     name = "saml"
     title = "SAML"
     EXTRA_DATA = []
+    BROWSER_RETURN_FIELD = "psa_saml_browser_return"
+
+    def _browser_return(self, saml_response: Any, relay_state: Any) -> ResponseT_co:
+        if not isinstance(saml_response, str):
+            raise AuthInputError(
+                self,
+                parameter="SAMLResponse",
+                code="invalid_parameter",
+                stage="callback",
+            )
+        if relay_state is not None and not isinstance(relay_state, str):
+            raise AuthInputError(
+                self,
+                parameter="RelayState",
+                code="invalid_parameter",
+                stage="callback",
+            )
+        nonce = token_urlsafe(16)
+        relay_field = (
+            f'<input type="hidden" name="RelayState" value="{escape(relay_state, quote=True)}">'
+            if relay_state is not None
+            else ""
+        )
+        content = (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            "<title>Completing sign in...</title></head><body>"
+            f'<form id="samlReturnForm" method="post" action="{escape(self.redirect_uri or "", quote=True)}">'
+            f'<input type="hidden" name="SAMLResponse" value="{escape(saml_response, quote=True)}">'
+            f"{relay_field}"
+            f'<input type="hidden" name="{self.BROWSER_RETURN_FIELD}" value="1">'
+            '<button type="submit">Continue signing in</button></form>'
+            f'<script nonce="{nonce}">document.getElementById("samlReturnForm").submit();</script>'
+            "</body></html>"
+        )
+        return self.strategy.html_with_headers(
+            content,
+            {
+                "Cache-Control": "no-store, no-cache, must-revalidate",
+                "Pragma": "no-cache",
+                "Referrer-Policy": "no-referrer",
+                "X-Frame-Options": "DENY",
+                "Content-Security-Policy": (
+                    f"default-src 'none'; script-src 'nonce-{nonce}'; "
+                    "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+                ),
+            },
+        )
 
     def _authn_request_id_session_key(self, idp_name: str) -> str:
         return f"{self.name}_{idp_name}_authn_request_id"
@@ -437,13 +487,9 @@ class SAMLAuth(BaseAuth):
         return bool(request_id) or user_is_authenticated(kwargs.get("user"))
 
     def _check_missing_request_id(
-        self, request_id: str | None, session_id: str | None, kwargs: dict[str, Any]
+        self, request_id: str | None, kwargs: dict[str, Any]
     ) -> None:
-        if (
-            self._request_id_required(request_id, kwargs)
-            and not request_id
-            and not session_id
-        ):
+        if self._request_id_required(request_id, kwargs) and not request_id:
             raise AuthSessionError(
                 self,
                 "SAML login failed: missing AuthnRequest ID",
@@ -475,46 +521,23 @@ class SAMLAuth(BaseAuth):
                 code="state_mismatch",
                 stage="callback",
             )
+        if not self.setting("ALLOW_IDP_INITIATED", False):
+            raise AuthSessionError(
+                self,
+                "SAML login failed: missing AuthnRequest ID",
+                code="session_context_missing",
+                stage="callback",
+            )
         return False
 
     def _validate_auth_response(
         self,
         auth: OneLogin_Saml2_Auth,
-        request_id_key: str,
         request_id: str | None,
-        session_id: str | None,
         kwargs: dict[str, Any],
         response_in_response_to: str | None,
-    ) -> tuple[bool, bool]:
-        self._check_missing_request_id(request_id, session_id, kwargs)
-        if session_id:
-            if response_in_response_to:
-                # Authenticate the SAML response before trusting RelayState to
-                # restore another session. The restored request ID is checked
-                # against this response below.
-                self._process_response(auth, response_in_response_to)
-                self.strategy.restore_session(session_id, kwargs)
-                request_id = cast(
-                    "str | None", self.strategy.session_get(request_id_key)
-                )
-                if not request_id:
-                    raise AuthSessionError(
-                        self,
-                        "SAML login failed: missing AuthnRequest ID",
-                        code="session_context_missing",
-                        stage="callback",
-                    )
-            else:
-                self._process_response(auth)
-                self.strategy.restore_session(session_id, kwargs)
-                request_id = cast(
-                    "str | None", self.strategy.session_get(request_id_key)
-                )
-                return True, self._validate_processed_response_request_id(
-                    auth, request_id, kwargs
-                )
-            self._validate_in_response_to(auth, request_id)
-            return True, True
+    ) -> bool:
+        self._check_missing_request_id(request_id, kwargs)
         if response_in_response_to:
             if not request_id:
                 raise AuthSessionError(
@@ -525,11 +548,9 @@ class SAMLAuth(BaseAuth):
                 )
             self._process_response(auth, request_id)
             self._validate_in_response_to(auth, request_id)
-            return False, True
+            return True
         self._process_response(auth)
-        return False, self._validate_processed_response_request_id(
-            auth, request_id, kwargs
-        )
+        return self._validate_processed_response_request_id(auth, request_id, kwargs)
 
     def get_idp(self, idp_name: str | None) -> SAMLIdentityProvider:
         """Given the name of an IdP, get a SAMLIdentityProvider instance"""
@@ -657,8 +678,6 @@ class SAMLAuth(BaseAuth):
             "idp": idp_name,
             "next": self.data.get("next"),
         }
-        if session_id := self.strategy.get_session_id():
-            relay_state[self.strategy.SESSION_SAVE_KEY] = session_id
         url = auth.login(return_to=json.dumps(relay_state))
         self.strategy.session_set(
             self._authn_request_id_session_key(idp.name), auth.get_last_request_id()
@@ -735,8 +754,13 @@ class SAMLAuth(BaseAuth):
         The user has been redirected back from the IdP and we should
         now log them in, if everything checks out.
         """
+        post = self.strategy.request_post()
+        if "SAMLResponse" in post and self.BROWSER_RETURN_FIELD not in post:
+            return self._browser_return(
+                post["SAMLResponse"], self.strategy.request_data().get("RelayState")
+            )
+
         idp_name: str | None
-        session_id: str | None = None
         next_url: str | None = None
         try:
             relay_state_str = self.strategy.request_data()["RelayState"]
@@ -756,23 +780,18 @@ class SAMLAuth(BaseAuth):
                     stage="callback",
                 )
 
-            session_id = relay_state.get(self.strategy.SESSION_SAVE_KEY)
             next_url = relay_state.get("next")
 
         idp = self.get_idp(idp_name)
         request_id_key = self._authn_request_id_session_key(idp.name)
         request_id = cast("str | None", self.strategy.session_get(request_id_key))
-        if session_id:
-            request_id = None
-        self._check_missing_request_id(request_id, session_id, kwargs)
+        self._check_missing_request_id(request_id, kwargs)
         response_in_response_to = self._response_in_response_to(idp)
 
         auth = self._get_saml_auth(idp, stage="callback")
-        session_restored, request_id_validated = self._validate_auth_response(
+        request_id_validated = self._validate_auth_response(
             auth,
-            request_id_key,
             request_id,
-            session_id,
             kwargs,
             response_in_response_to,
         )
@@ -781,9 +800,7 @@ class SAMLAuth(BaseAuth):
         attributes = auth.get_attributes()
         attributes["name_id"] = auth.get_nameid()
         self._check_entitlements(idp, attributes)
-        if session_id and not session_restored:
-            self.strategy.restore_session(session_id, kwargs)
-        elif next_url:
+        if next_url:
             # The do_complete action expects the "next" URL to be in
             # session state or the request params.
             self.strategy.session_set(kwargs.get("redirect_name", "next"), next_url)

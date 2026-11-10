@@ -6,12 +6,14 @@ from datetime import timedelta
 import pytest
 
 from pgqueuer.adapters.inmemory import InMemoryQueries
-from pgqueuer.adapters.inmemory.queries import percentile_cont
+from pgqueuer.adapters.inmemory.logs import percentile_cont
 from pgqueuer.core.insights import (
+    DEFAULT_BUCKET,
     DEFAULT_WINDOW,
     MAX_WINDOW,
     InsightsService,
     QueueManagementService,
+    check_bucket,
     clamp_window,
     sparkline_buckets,
 )
@@ -34,7 +36,7 @@ async def dequeue_all(queries: InMemoryQueries, entrypoint: str) -> list[models.
 
 class TestPercentileCont:
     def test_empty_raises(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="empty"):
             percentile_cont([], 0.5)
 
     def test_single_value(self) -> None:
@@ -47,6 +49,49 @@ class TestPercentileCont:
     def test_matches_postgres_definition(self) -> None:
         # percentile_cont(0.95) over [1..4]: rank = 3 * 0.95 = 2.85 -> 3 + 0.85
         assert percentile_cont([1.0, 2.0, 3.0, 4.0], 0.95) == pytest.approx(3.85)
+
+
+class TestCheckBucket:
+    def test_none_is_one_minute(self) -> None:
+        assert check_bucket(None) == DEFAULT_BUCKET == timedelta(minutes=1)
+
+    @pytest.mark.parametrize(
+        "bucket",
+        (timedelta(seconds=1), timedelta(minutes=5), timedelta(days=1)),
+    )
+    def test_whole_seconds_pass_through(self, bucket: timedelta) -> None:
+        assert check_bucket(bucket) == bucket
+
+    @pytest.mark.parametrize(
+        "bucket",
+        (timedelta(0), timedelta(seconds=-60), timedelta(milliseconds=500), timedelta(seconds=1.5)),
+    )
+    def test_rejects_less_than_a_second_or_part_seconds(self, bucket: timedelta) -> None:
+        with pytest.raises(ValueError, match="whole number of seconds"):
+            check_bucket(bucket)
+
+    async def test_service_passes_bucket_to_repository(self, queries: InMemoryQueries) -> None:
+        await queries.enqueue(["ep"], [None], [0])
+        await dequeue_all(queries, "ep")
+        service = InsightsService(queries)
+        with pytest.raises(ValueError, match="whole number of seconds"):
+            await service.throughput_timeseries(bucket=timedelta(milliseconds=10))
+        hourly = await service.throughput_timeseries(bucket=timedelta(hours=1))
+        assert all(row.bucket.minute == row.bucket.second == 0 for row in hourly)
+
+    async def test_default_bucket_keeps_old_repository_signature(
+        self, queries: InMemoryQueries
+    ) -> None:
+        """A repository without the *bucket* parameter still serves the default bucket."""
+
+        class OldRepository:
+            async def throughput_timeseries(self, last: timedelta) -> list[models.ThroughputBucket]:
+                return await queries.throughput_timeseries(last)
+
+        await queries.enqueue(["ep"], [None], [0])
+        service = InsightsService(OldRepository())  # type: ignore[arg-type]
+        (row,) = await service.throughput_timeseries()
+        assert row.count == 1
 
 
 class TestClampWindow:
@@ -126,7 +171,8 @@ class TestInsightsService:
         (job_id,) = await queries.enqueue("ep", b"payload")
         service = InsightsService(queries)
         job = await service.job(job_id)
-        assert job is not None and job.payload == b"payload"
+        assert job is not None
+        assert job.payload == b"payload"
         history = await service.job_history(job_id)
         assert [h.status for h in history] == ["queued"]
         assert await service.job(types.JobId(999_999)) is None
@@ -188,6 +234,52 @@ class TestSparklineBuckets:
         ]
         buckets = sparkline_buckets(series, "ep", timedelta(hours=1))
         assert sum(buckets) == 5
+
+    @pytest.mark.parametrize(
+        ("age", "slot"),
+        [
+            (timedelta(seconds=-30), 29),
+            (timedelta(0), 29),
+            (timedelta(minutes=31), 14),
+            (timedelta(minutes=49), 5),
+        ],
+        ids=["ahead", "now", "31m", "49m"],
+    )
+    def test_bucket_lands_by_its_age(self, age: timedelta, slot: int) -> None:
+        # One entrypoint that went quiet: its last bucket is not "now". A negative
+        # age is a bucket ahead of this clock, as skew with the database gives.
+        series = [
+            models.ThroughputBucket(
+                bucket=models.utc_now() - age,
+                entrypoint=QueueEntrypoint("ep"),
+                status="successful",
+                count=4,
+            )
+        ]
+        buckets = sparkline_buckets(series, "ep", timedelta(hours=1))
+        assert buckets[slot] == 4
+        assert sum(buckets) == 4
+
+    def test_bucket_older_than_window_start_counts_in_first_slot(self) -> None:
+        # The timeseries truncates to the minute, so its oldest bucket can start
+        # up to a minute before the window does.
+        series = [
+            models.ThroughputBucket(
+                bucket=models.utc_now() - timedelta(hours=1, seconds=40),
+                entrypoint=QueueEntrypoint("ep"),
+                status="successful",
+                count=1,
+            ),
+            models.ThroughputBucket(
+                bucket=models.utc_now(),
+                entrypoint=QueueEntrypoint("ep"),
+                status="successful",
+                count=2,
+            ),
+        ]
+        buckets = sparkline_buckets(series, "ep", timedelta(hours=1))
+        assert buckets[0] == 1
+        assert buckets[29] == 2
 
 
 class TestQueueManagementService:

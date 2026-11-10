@@ -80,6 +80,11 @@ impl<T: Trace + Any + Send + Sync + Debug> Gc<T> {
         })
     }
 
+    /// Whether this is the only native handle to movable state.
+    pub fn is_sole_native_owner(&self) -> bool {
+        self.shared.get().native_owners.load(Ordering::Acquire) == 1
+    }
+
     pub fn ptr_eq(left: &Self, right: &Self) -> bool {
         left.shared.as_ptr() == right.shared.as_ptr()
     }
@@ -315,8 +320,34 @@ impl Trace for FilterType {
             Self::Django(filter) => filter.filter.trace(visit),
             Self::External(filter) => filter.filter.trace(visit),
             Self::TruncateChars(filter) => filter.django.filter.trace(visit),
+            Self::TruncateCharsHtml(filter) => filter.django.filter.trace(visit),
             Self::TruncateWords(filter) => filter.django.filter.trace(visit),
+            Self::Urlizetrunc(filter) => filter.django.filter.trace(visit),
+            Self::Urlize(filter) => filter.django.filter.trace(visit),
+            Self::TruncateWordsHtml(filter) => filter.django.filter.trace(visit),
+            Self::JsonScript(filter) => filter.django.filter.trace(visit),
+            Self::Dictsortreversed(filter) => filter.django.filter.trace(visit),
+            Self::Dictsort(filter) => filter.django.filter.trace(visit),
+            Self::Stringformat(filter) => filter.django.filter.trace(visit),
+            Self::Striptags(filter) => filter.django.filter.trace(visit),
+            Self::UnorderedList(filter) => filter.django.filter.trace(visit),
+            Self::Filesizeformat(filter) => filter.django.filter.trace(visit),
+            Self::Pprint(filter) => filter.django.filter.trace(visit),
+            Self::Random(filter) => filter.django.filter.trace(visit),
+            Self::Safeseq(filter) => filter.django.filter.trace(visit),
+            Self::Escapeseq(filter) => filter.django.filter.trace(visit),
+            Self::MakeList(filter) => filter.django.filter.trace(visit),
+            Self::Iriencode(filter) => filter.django.filter.trace(visit),
+            Self::Urlencode(filter) => filter.django.filter.trace(visit),
+            Self::Phone2numeric(filter) => filter.django.filter.trace(visit),
+            Self::GetDigit(filter) => filter.django.filter.trace(visit),
+            Self::Pluralize(filter) => filter.django.filter.trace(visit),
+            Self::Justify(filter) => filter.django.filter.trace(visit),
             Self::FloatFormat(filter) => filter.django.filter.trace(visit),
+            Self::Tz(filter) => filter.django.filter.trace(visit),
+            Self::L10n(filter) => filter.django.filter.trace(visit),
+            Self::LanguageInfo(filter) => filter.django.filter.trace(visit),
+            Self::Humanize(filter) => filter.django.filter.trace(visit),
             Self::Slice(filter) => filter.django.filter.trace(visit),
             Self::Join(filter) => filter.django.filter.trace(visit),
             Self::Timesince(filter) => filter.django.filter.trace(visit),
@@ -331,10 +362,12 @@ impl Trace for FilterType {
             | Self::Date(_)
             | Self::Escape(_)
             | Self::Escapejs(_)
+            | Self::First(_)
             | Self::ForceEscape(_)
             | Self::Last(_)
             | Self::Linebreaks(_)
             | Self::Linebreaksbr(_)
+            | Self::Linenumbers(_)
             | Self::Lower(_)
             | Self::Length(_)
             | Self::Safe(_)
@@ -423,6 +456,7 @@ impl Trace for StockNode {
         match self {
             Self::Static { path, .. } => path.trace(visit)?,
             Self::Prefix { .. } => {}
+            Self::Node(node) => node.trace(visit)?,
             Self::Flag { nodes, .. } => nodes.trace(visit)?,
             Self::Override { value, nodes, .. } => {
                 value.trace(visit)?;

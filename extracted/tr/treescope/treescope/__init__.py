@@ -29,6 +29,7 @@ or, for more control: ::
 You can also pretty-print individual values using `treescope.show` or
 `treescope.display`.
 """
+
 from __future__ import annotations
 
 # pylint: disable=g-importing-member,g-multiple-import,unused-import
@@ -69,6 +70,9 @@ from ._internal.api.autovisualize import (
     ChildAutovisualizer,
     Autovisualizer,
     active_autovisualizer,
+)
+from ._internal.api.theme import (
+    theme,
 )
 from ._internal.api.default_renderer import (
     active_renderer,
@@ -119,6 +123,27 @@ active_autovisualizer: context.ContextualValue[Autovisualizer | None] = (
 This can be overridden interactively to enable rich visualizations in
 treescope. Users are free to set this to an arbitrary renderer of their
 choice; a common choice is arrayviz's `ArrayAutovisualizer()`.
+"""
+
+theme: context.ContextualValue[typing.Literal['light', 'dark', 'auto']] = theme
+"""The theme to use when rendering a tree to HTML.
+
+This can be set to:
+
+* ``"light"`` (the default), to render dark text on a light background,
+* ``"dark"``, to render light text on a dark background,
+* ``"auto"``, to match the theme of whatever is displaying the
+  rendering.
+
+In ``"auto"`` mode, the theme is determined in the browser when the rendering
+is displayed, by inspecting the text color that the rendering inherits from
+the page around it. Renderings fall back to ``"light"`` if that isn't
+possible, for instance if they are displayed somewhere that doesn't run
+JavaScript. A rendering that has matched the page also keeps that page's
+background instead of drawing one of its own, so that it blends in with
+whatever shade the page happens to use.
+
+This has no effect on text renderings, which are never colored.
 """
 
 active_renderer: context.ContextualValue[renderers.TreescopeRenderer] = (
@@ -184,7 +209,7 @@ fully roundtrippable due to the abbreviated children.
 """
 
 # Package version.
-__version__ = '0.1.10'
+__version__ = '0.1.11'
 
 
 # Set up canonical aliases for the treescope API itself.

@@ -1,5 +1,4 @@
-from libc.math cimport ceil, fabs, floor, round
-from libc.string cimport memset
+from libc.math cimport NAN, ceil, fabs, floor, round
 from libcpp.algorithm cimport sort as sort_cpp
 from libcpp.map cimport map
 from libcpp.pair cimport pair
@@ -9,8 +8,6 @@ from libcpp.vector cimport vector
 
 import numpy as np
 cimport numpy as cnp
-
-from scipy import sparse
 
 from ._utils cimport parallel_qsort_asc
 
@@ -86,11 +83,63 @@ cpdef double calc_weighted_mean(
     return out
 
 
+cdef inline double calc_quantile_index(
+    double n,
+    double quantile,
+    double C,
+) noexcept nogil:
+    """Return the 0-based (fractional) index of a quantile.
+
+    The index is ``(n + 1 - 2C)q + C - 1``, the 0-based form of the input rank
+    ``x = (n + 1 - 2C)q + C``, where ``n`` is the number of inputs (or the total
+    weight) and ``C`` is a constant (degree of freedom). ``C = 1`` matches
+    NumPy's "linear" method, ``C = 1/2`` its "hazen" method, and ``C = 0`` its
+    "weibull" method.
+
+    The index is computed with one multiplication and one addition of the
+    constant ``C - 1``, which avoids extra rounding at exact ranks. For
+    ``C = 1``, this is exactly NumPy's ``(n - 1)q``.
+    """
+    return quantile * (n - (2 * C - 1)) + (C - 1)
+
+
+cdef inline double calc_inverted_cdf_quantile(
+    vector[double]& inputs,
+    double quantile,
+    bint average,
+) noexcept nogil:
+    """Return a quantile of sorted inputs from their inverted CDF.
+
+    The quantile is the smallest input such that a fraction ``q`` of the
+    inputs are at or below it. If `average` and that fraction is exact (that
+    is, ``q`` times the number of inputs is an integer), then the input and
+    the next one are averaged, which makes the median the usual median. These
+    match NumPy's "inverted_cdf" and "averaged_inverted_cdf" methods.
+    """
+    cdef intp_t n_inputs = inputs.size()
+    cdef double target = quantile * n_inputs
+    cdef intp_t k
+
+    if target >= n_inputs:
+        return inputs[n_inputs - 1]
+    if target < 1:
+        return inputs[0]
+
+    k = <intp_t>floor(target)
+    if target == k:  # exactly k inputs are at or below the k-th input
+        if average:
+            # Average the k-th and next inputs, with NumPy's arithmetic.
+            return inputs[k] - (inputs[k] - inputs[k - 1]) * 0.5
+        return inputs[k - 1]
+    return inputs[k]
+
+
 cpdef vector[double] calc_quantile(
     vector[double]& inputs,
     vector[double] quantiles,
     char* interpolation=b"linear",
     bint issorted=<bint>False,
+    double C=1,
 ) noexcept nogil:
     """Return quantiles for list of inputs.
 
@@ -109,8 +158,8 @@ cpdef vector[double] calc_quantile(
     quantiles : list of floats
         Quantiles in the range [0, 1] to compute.
 
-    interpolation : {"linear", "lower", "higher", "midpoint", "nearest"}, \
-            default="linear"
+    interpolation : {"linear", "lower", "higher", "midpoint", "nearest", \
+            "inverted_cdf", "averaged_inverted_cdf"}, default="linear"
         Specifies the interpolation method to use when the desired quantile
         lies between two data points ``i < j``:
 
@@ -121,20 +170,32 @@ cpdef vector[double] calc_quantile(
         - If "nearest", then ``i`` or ``j``, whichever is nearest.
         - If "midpoint", then ``(i + j) / 2``.
 
+        Or, instead of the input rank ``x``, use the inverted cumulative
+        distribution function (CDF), as NumPy's methods of the same names do:
+
+        - If "inverted_cdf", then the smallest input such that a fraction
+          ``q`` of the inputs are at or below it.
+        - If "averaged_inverted_cdf", then the same, except that if the
+          fraction is exact, the input and the next one are averaged.
+
     issorted : bool, default=False
         Inputs are sorted in ascending order.
+
+    C : float, default=1
+        The constant ``C`` in the input rank ``x``, in the range [0, 1]. The
+        default of 1 matches NumPy's "linear" method, 1/2 matches "hazen", and
+        0 matches "weibull". With other values, the interpolation methods are
+        applied at the same rank.
 
     Returns
     -------
     out : array-like of shape (n_quantiles,)
         Quantiles for `inputs` as floats. Empty list if empty inputs.
     """
-    cdef double C = 1
-
     cdef intp_t n_inputs, n_quantiles
     cdef string s_interpolation
+    cdef bint inverted_cdf, average
     cdef intp_t i
-    cdef double f
     cdef double quantile
     cdef double idx, v_floor, v_ceil, frac
     cdef vector[double] out
@@ -143,6 +204,8 @@ cpdef vector[double] calc_quantile(
     n_quantiles = quantiles.size()
 
     s_interpolation = <string>interpolation
+    average = s_interpolation == <char*>b"averaged_inverted_cdf"
+    inverted_cdf = average or s_interpolation == <char*>b"inverted_cdf"
 
     if n_inputs < 1:
         return out
@@ -155,15 +218,17 @@ cpdef vector[double] calc_quantile(
     if not issorted:
         sort_cpp(inputs.begin(), inputs.end())
 
-    f = <int>n_inputs + 1 - (2 * C)
-
     out = vector[double](n_quantiles)
 
     for i in range(n_quantiles):
         quantile = quantiles[i]
 
+        if inverted_cdf:
+            out[i] = calc_inverted_cdf_quantile(inputs, quantile, average)
+            continue
+
         # Calculate the quantile's (potentially fractional) index.
-        idx = quantile * f + C - 1
+        idx = calc_quantile_index(<double>n_inputs, quantile, C)
 
         # Check if the quantile is the first or last value.
         if idx >= <int>n_inputs - 1:
@@ -208,21 +273,23 @@ cpdef vector[double] calc_weighted_quantile(
     vector[double] quantiles,
     char* interpolation=b"linear",
     bint issorted=<bint>False,
+    double C=1,
 ) noexcept nogil:
     """Return quantiles for list of weighted inputs.
 
     The weighted quantile is calculated by first calculating the empirical
-    cumulative distribution function (ECDF) from the weights and then finding
-    the first index where the proportion of the ECDF weight is greater than
-    the quantile's proportion of total weight.
+    cumulative distribution function (ECDF) from the weights, treating an
+    input with weight ``w`` as occupying ``w`` consecutive ranks, and then
+    finding the inputs on either side of the desired rank. Inputs with zero
+    weight are ignored.
 
     If the weights represent frequencies of appearance ``f_v`` for each value
     ``v``, the output is equivalent to calculating the unweighted quantile
     with each value ``v`` appearing ``f_v`` times.
 
     A desired quantile is calculated from the input rank ``x`` such that
-    ``x = (N + 1 - 2C)q + C``, where ``q`` is the quantile, ``N`` is the
-    number of samples, and ``C`` is a constant (degree of freedom).
+    ``x = (W + 1 - 2C)q + C``, where ``q`` is the quantile, ``W`` is the
+    total weight, and ``C`` is a constant (degree of freedom).
 
     If the desired quantile lies between two input ranks ``i < j``, then the
     quantile is interpolated based on the specified `interpolation` method.
@@ -238,8 +305,8 @@ cpdef vector[double] calc_weighted_quantile(
     quantiles : list of floats
         Quantiles in the range [0, 1] to compute.
 
-    interpolation : {"linear", "lower", "higher", "midpoint", "nearest"}, \
-            default="linear"
+    interpolation : {"linear", "lower", "higher", "midpoint", "nearest", \
+            "inverted_cdf", "averaged_inverted_cdf"}, default="linear"
         Specifies the interpolation method to use when the desired quantile
         lies between two data points ``i < j``:
 
@@ -250,31 +317,51 @@ cpdef vector[double] calc_weighted_quantile(
         - If "nearest", then ``i`` or ``j``, whichever is nearest.
         - If "midpoint", then ``(i + j) / 2``.
 
+        Or, instead of the input rank ``x``, use the inverted cumulative
+        distribution function (CDF) of the weights, which depends only on the
+        relative weights:
+
+        - If "inverted_cdf", then the first input whose cumulative weight
+          reaches the fraction ``q`` of the total weight.
+        - If "averaged_inverted_cdf", then the same, except that if the
+          cumulative weight equals that fraction exactly, the input and the
+          next one with positive weight are averaged.
+
+        For integer weights, these match NumPy's methods of the same names
+        with each input repeated, as does scikit-learn's
+        ``_weighted_percentile`` (``average=True`` for the averaged method).
+
     issorted : bool, default=False
         Inputs and weights are sorted by inputs in ascending order.
+
+    C : float, default=1
+        The constant ``C`` in the input rank ``x``, in the range [0, 1]. The
+        default of 1 matches NumPy's "linear" method, 1/2 matches "hazen", and
+        0 matches "weibull". With other values, the interpolation methods are
+        applied at the same rank.
 
     Returns
     -------
     out : array-like of shape (n_quantiles,)
         Quantiles for `inputs` as floats. Empty list if empty inputs.
     """
-    cdef double C = 1
-
     cdef intp_t n_inputs, n_quantiles
     cdef string s_interpolation
-    cdef intp_t i, j
-    cdef double f
-    cdef double quantile
+    cdef bint inverted_cdf, average
+    cdef intp_t i, j, k
+    cdef intp_t idx_floor, idx_ceil, idx_last
+    cdef double total_weight
+    cdef double quantile, pos, pos_floor, frac, target
+    cdef double v_floor, v_ceil
     cdef vector[double] cum_weights, sorted_quantile_indices
-    cdef intp_t idx_floor, idx_ceil
-    cdef double p, p_floor, p_ceil
-    cdef double v_floor, v_ceil, frac
     cdef vector[double] out
 
     n_inputs = inputs.size()
     n_quantiles = quantiles.size()
 
     s_interpolation = <string>interpolation
+    average = s_interpolation == <char*>b"averaged_inverted_cdf"
+    inverted_cdf = average or s_interpolation == <char*>b"inverted_cdf"
 
     if n_inputs < 1:
         return out
@@ -289,10 +376,9 @@ cpdef vector[double] calc_weighted_quantile(
     for i in range(1, n_inputs):
         cum_weights[i] = cum_weights[i - 1] + weights[i]
 
-    if cum_weights[n_inputs - 1] <= 0:
+    total_weight = cum_weights[n_inputs - 1]
+    if total_weight <= 0:
         return out
-
-    f = cum_weights[n_inputs - 1] + 1 - (2 * C)
 
     # Get the indices that would sort the quantiles in ascending order.
     sorted_quantile_indices = vector[double](n_quantiles)
@@ -305,99 +391,103 @@ cpdef vector[double] calc_weighted_quantile(
 
     out = vector[double](n_quantiles)
 
+    # Inputs with zero weight are never part of the distribution, so start at
+    # the first input with positive weight.
     idx_floor = 0
-    idx_ceil = 1
+    while weights[idx_floor] <= 0:
+        idx_floor += 1
+    j = idx_floor
+
+    if inverted_cdf:
+        # Find the first input with positive weight whose cumulative weight
+        # reaches the fraction `quantile` of the total weight.
+        idx_last = n_inputs - 1
+        while weights[idx_last] <= 0:
+            idx_last -= 1
+        for i in range(n_quantiles):
+            k = <intp_t>sorted_quantile_indices[i]
+            target = quantiles[i] * total_weight
+            while j < idx_last and (weights[j] <= 0 or cum_weights[j] < target):
+                j += 1
+            out[k] = inputs[j]
+            if average and cum_weights[j] == target:
+                # Average the input and the next one with positive weight,
+                # with NumPy's arithmetic.
+                idx_ceil = j + 1
+                while idx_ceil < idx_last and weights[idx_ceil] <= 0:
+                    idx_ceil += 1
+                if idx_ceil <= idx_last:
+                    out[k] = inputs[idx_ceil] - (inputs[idx_ceil] - inputs[j]) * 0.5
+        return out
 
     for i in range(n_quantiles):
         quantile = quantiles[i]
 
         # Assign the output based on the input quantile ordering.
-        i = <intp_t>sorted_quantile_indices[i]
+        k = <intp_t>sorted_quantile_indices[i]
 
-        # Calculate the quantile's proportion of total weight.
-        p = quantile * f + C
+        # Calculate the quantile's position, treating an input with weight `w`
+        # as occupying `w` consecutive positions (like `w` repeated values), so
+        # that integer weights match the unweighted quantile of repeated values.
+        # Positions before the first input or after the last one (possible when
+        # C < 1) give the first or last input, as for unweighted quantiles.
+        pos = calc_quantile_index(total_weight, quantile, C)
 
-        # Find the first index where the proportion of weight exceeds p.
-        for j in range(idx_floor, n_inputs):
-            if p >= cum_weights[j]:
-                if weights[j] > 0:
-                    idx_floor = j
-                    idx_ceil = j + 1
-            else:
-                break
+        # Find the last input with positive weight whose final position is at
+        # or before `pos`.
+        while j < n_inputs and cum_weights[j] - 1 <= pos:
+            if weights[j] > 0:
+                idx_floor = j
+            j += 1
 
-        # Ensure `idx_ceil` is not out of bounds.
-        if idx_ceil > n_inputs - 1:
-            idx_ceil = n_inputs - 1
+        # The final position of the floor input.
+        pos_floor = cum_weights[idx_floor] - 1
 
-        # Ensure the input indexed by `idx_ceil` does not have 0 weight.
-        while weights[idx_ceil] == 0:
-            idx_ceil = idx_ceil + 1
-            if idx_ceil > n_inputs - 1:
-                idx_ceil = idx_floor
-                break
-
-        # Check if the quantile is the first, last, or known index value.
-        if idx_floor >= n_inputs - 1:
-            out[i] = inputs[n_inputs - 1]
+        # Check if the quantile lies within the positions of the first input.
+        if pos < pos_floor:
+            out[k] = inputs[idx_floor]
             continue
-        if idx_ceil <= 0:
-            out[i] = inputs[0]
-            continue
-        if idx_floor == idx_ceil:
-            out[i] = inputs[idx_floor]
+
+        # Find the next input with positive weight.
+        idx_ceil = idx_floor + 1
+        while idx_ceil < n_inputs and weights[idx_ceil] <= 0:
+            idx_ceil += 1
+
+        # Check if the floor input is the last input with positive weight.
+        if idx_ceil >= n_inputs:
+            out[k] = inputs[idx_floor]
             continue
 
         v_floor = inputs[idx_floor]
         v_ceil = inputs[idx_ceil]
 
-        # Check if the quantile does not lie between two values.
-        if v_floor == v_ceil:
-            out[i] = v_floor
+        # The ceiling input's first position is one past the floor input's final
+        # position, so the fractional remainder is the distance from the floor.
+        frac = pos - pos_floor
+
+        # Check if the quantile lies at the floor value or within the ceiling.
+        if frac <= 0 or v_floor == v_ceil:
+            out[k] = v_floor
             continue
-
-        # Calculate the proportion of weights at indices from the ECDF.
-        p_floor = (cum_weights[idx_floor] - C) / f
-        p_ceil = (cum_weights[idx_ceil] - C) / f
-
-        # Ensure `p_floor` and `p_ceil` are not out of bounds.
-        p_floor = min(quantile, p_floor)
-        p_ceil = max(quantile, p_ceil)
-
-        # Interpolate the minimum proportion for `p_ceil` (for weights > 1).
-        # Equivalent to taking the index of the first occurrence of `v_ceil`.
-        p_ceil = p_floor + ((p_ceil - p_floor) / weights[idx_ceil])
-
-        # Check if the quantile lies at the interpolated ceiling value.
-        if quantile >= p_ceil:
-            out[i] = v_ceil
-            continue
-
-        # Calculate the fractional remainder.
-        frac = (quantile - p_floor) / (p_ceil - p_floor)
-
-        # Check if the quantile lies at the ceiling or floor values.
-        if frac <= 0:
-            out[i] = v_floor
-            continue
-        elif frac >= 1:
-            out[i] = v_ceil
+        if frac >= 1:
+            out[k] = v_ceil
             continue
 
         # Interpolate the quantile, as it lies between two values.
         if s_interpolation == <char*>b"lower":
-            out[i] = v_floor
+            out[k] = v_floor
         elif s_interpolation == <char*>b"higher":
-            out[i] = v_ceil
+            out[k] = v_ceil
         elif s_interpolation == <char*>b"midpoint":
-            out[i] = 0.5 * (v_floor + v_ceil)
+            out[k] = 0.5 * (v_floor + v_ceil)
         elif s_interpolation == <char*>b"nearest":
-            if fabs(frac - 0.5) < 1e-16:
-                out[i] = v_floor if cum_weights[idx_floor] % 2 else v_ceil
+            if frac == 0.5:
+                # Round half to the even position, as NumPy does.
+                out[k] = v_floor if floor(pos_floor / 2) * 2 == pos_floor else v_ceil
             else:
-                out[i] = v_floor if frac < 0.5 else v_ceil
+                out[k] = v_floor if frac < 0.5 else v_ceil
         elif s_interpolation == <char*>b"linear":
-            out[i] = v_floor + frac * (v_ceil - v_floor)
+            out[k] = v_floor + frac * (v_ceil - v_floor)
 
     return out
 
@@ -476,8 +566,137 @@ cpdef double calc_quantile_rank(
     return out
 
 
+cpdef double calc_weighted_quantile_rank(
+    vector[double]& inputs,
+    vector[double]& weights,
+    double score,
+    char* kind=b"rank",
+) noexcept nogil:
+    """Return quantile rank of score relative to weighted inputs.
+
+    An input with weight ``w`` counts like ``w`` repeated inputs, so that
+    integer weights give the same rank as `calc_quantile_rank` with each
+    input repeated. Inputs with zero weight are ignored.
+
+    Parameters
+    ----------
+    inputs : list of floats
+        List of inputs with which `score` is compared.
+
+    weights : list of floats
+        List of weights for `inputs`.
+
+    score : float
+        Value for which to get quantile rank.
+
+    kind : {"rank", "weak", "strict", "mean"}, default="rank"
+        Specifies the interpretation of the resulting score:
+
+        - If "rank", then average percentage ranking of score. If multiple
+          matches, average the percentage rankings of all matching scores.
+          If the matching inputs have a total weight below 1, then the
+          "weak" rank.
+        - If "weak", then only values that are less than or equal to the
+          provided score are counted. Corresponds to the definition of a
+          cumulative distribution function.
+        - If "strict", then similar to "weak", except that only values that
+          are strictly less than the provided score are counted.
+        - If "mean", then the average of the "weak" and "strict" scores.
+
+    Returns
+    -------
+    out : float
+        Quantile rank for `score` as float. -1 if empty inputs or if the
+        total weight is not positive.
+    """
+    cdef intp_t n_inputs
+    cdef string s_kind
+    cdef intp_t i
+    cdef double left, right, total_weight, tie
+    cdef double out = -1
+
+    n_inputs = inputs.size()
+
+    s_kind = <string>kind
+
+    # Sum the weights of the inputs below (left) and up to (right) the score.
+    left = 0
+    right = 0
+    total_weight = 0
+    for i in range(n_inputs):
+        if weights[i] > 0:
+            total_weight += weights[i]
+            if inputs[i] < score:
+                left += weights[i]
+            if inputs[i] <= score:
+                right += weights[i]
+
+    if total_weight <= 0:
+        return out
+
+    if s_kind == <char*>b"rank":
+        # The matching inputs take the ranks from `left + 1` to `right`, so
+        # their average rank is `(left + 1 + right) / 2`. If their total weight
+        # is below 1, use it in place of 1, which gives the "weak" rank.
+        tie = right - left
+        if tie > 1:
+            tie = 1
+        out = (right + left + tie) * 0.5 / total_weight
+    elif s_kind == <char*>b"weak":
+        out = right / total_weight
+    elif s_kind == <char*>b"strict":
+        out = left / total_weight
+    elif s_kind == <char*>b"mean":
+        out = (left + right) * 0.5 / total_weight
+
+    return out
+
+
+def _compact_from_padded(y_train_leaves, n_outputs):
+    """Return the compact layout of training indices that are padded with 0s.
+
+    Parameters
+    ----------
+    y_train_leaves : array-like of shape \
+            (n_estimators, n_nodes, n_outputs, n_indices)
+        The one-based indices of the training samples of each node, padded to
+        equal length with 0s, as earlier versions stored them.
+
+    n_outputs : int
+        Number of outputs, for an empty `y_train_leaves`.
+
+    Returns
+    -------
+    tree_offsets, leaf_offsets, y_train_indices : arrays
+        The compact layout, as described for `QuantileForest`.
+    """
+    y_train_leaves = np.asarray(y_train_leaves)
+    if y_train_leaves.size > 0 and y_train_leaves.shape[2] != n_outputs:
+        raise ValueError(
+            f"y_train_leaves must have {n_outputs} outputs, got shape {y_train_leaves.shape}."
+        )
+    # A node keeps the same number of samples for every output.
+    is_stored = (y_train_leaves != 0).any(axis=2)
+    n_stored = is_stored.sum(axis=2)
+    leaf_offsets = np.zeros((n_stored.shape[0], n_stored.shape[1] + 1), dtype=np.int64)
+    np.cumsum(n_stored, axis=1, out=leaf_offsets[:, 1:])
+    tree_offsets = np.zeros(n_stored.shape[0] + 1, dtype=np.int64)
+    np.cumsum(leaf_offsets[:, -1], out=tree_offsets[1:])
+    y_train_indices = np.empty((n_outputs, n_stored.sum()), dtype=np.int64)
+    for output in range(y_train_leaves.shape[2]):
+        y_train_indices[output] = y_train_leaves[:, :, output, :][is_stored]
+    return tree_offsets, leaf_offsets, y_train_indices
+
+
 cdef class QuantileForest:
     """Representation of a quantile forest.
+
+    The training samples of each node are stored without padding, so that
+    the memory taken is proportional to the number of samples stored, however
+    unevenly they are spread across the nodes: those of node ``n`` of tree
+    ``t`` are ``y_train_indices[:, start:end]``, where ``start`` is
+    ``tree_offsets[t] + leaf_offsets[t, n]`` and ``end`` is
+    ``tree_offsets[t] + leaf_offsets[t, n + 1]``.
 
     Attributes
     ----------
@@ -486,76 +705,187 @@ cdef class QuantileForest:
         ascending order for each output. The outputs are assigned to the first
         dimension (n_outputs) of the array for ease of indexing.
 
+    tree_offsets : array-like of shape (n_estimators + 1,)
+        Position in `y_train_indices` of the first training sample of each
+        tree, followed by the number of training samples stored.
+
+    leaf_offsets : array-like of shape (n_estimators, n_nodes + 1)
+        Position of the first training sample of each node, relative to the
+        position of its tree, followed by the number of training samples of
+        the tree. Nodes are indexed as by ``est.apply``. Nodes with no samples
+        (e.g., internal nodes) are empty.
+
+    y_train_indices : array-like of shape (n_outputs, n_stored)
+        One-based indices into `y_train` of the training samples of each node,
+        for each output, ordered by tree and node.
+
     y_train_leaves : array-like of shape \
-            (n_estimators, n_leaves, n_outputs, n_indices)
-        List of trees, each with a list of nodes, each with a list of indices
-        of the training samples residing at that node. Nodes with no samples
-        (e.g., internal nodes) are empty. Internal nodes are included so that
-        leaf node indices match their ``est.apply`` outputs. Each node list is
-        padded to equal length with 0s.
+            (n_estimators, n_nodes, n_outputs, n_indices)
+        The indices of the training samples of each node, padded to equal
+        length with 0s, as earlier versions stored them. Built when accessed,
+        so it can take far more memory than the forest. It can be passed in
+        place of the other indices (e.g., by a forest that an earlier version
+        pickled), which are then built from it.
 
     y_bound_leaves : array-like of shape (n_estimators, n_leaves, 2), \
             default=None
         Minimum and maximum bounds for target values for each leaf node. Used
         to enforce monotonicity constraints. None if no constraints.
 
-    sparse_pickle : bool, default=False
-        Pickle using a SciPy sparse matrix.
+    sample_weight : array-like of shape (n_outputs, n_samples), default=None
+        Weights of the training samples, in the same order as `y_train`. Each
+        training sample in a leaf node counts like that many samples. Where the
+        number of samples matters (e.g., quantiles that interpolate between
+        samples), a sample of average positive weight counts as one sample.
+        None if the samples are not weighted.
     """
 
     def __cinit__(
         self,
         cnp.ndarray[float64_t, ndim=2] y_train,
-        cnp.ndarray[intp_t, ndim=4] y_train_leaves,
+        y_train_leaves=None,
         cnp.ndarray[float64_t, ndim=3] y_bound_leaves=None,
-        bint sparse_pickle=<bint>False,
+        _sparse_pickle=None,
+        cnp.ndarray[float64_t, ndim=2] sample_weight=None,
+        tree_offsets=None,
+        leaf_offsets=None,
+        y_train_indices=None,
     ):
-        """Constructor."""
-        self.y_train = y_train
-        self.y_train_leaves = y_train_leaves
-        self.y_bound_leaves = y_bound_leaves
-        self.sparse_pickle = sparse_pickle
+        """Constructor.
 
-        if self.y_bound_leaves is None:
-            self.y_bound_leaves = np.empty(shape=(0, 0, 0), dtype=np.float64)
+        The positional arguments are those that earlier versions pickled, whose
+        fourth one (whether they pickled sparse matrices) is unused.
+        """
+        if y_bound_leaves is None:
+            y_bound_leaves = np.empty(shape=(0, 0, 0), dtype=np.float64)
+        if sample_weight is None:
+            sample_weight = np.empty(shape=(0, 0), dtype=np.float64)
+        elif np.shape(sample_weight) != np.shape(y_train):
+            raise ValueError(
+                f"sample_weight must have the shape of y_train {np.shape(y_train)}, "
+                f"got {np.shape(sample_weight)}."
+            )
+
+        self.y_train = np.ascontiguousarray(y_train)
+        if y_train_indices is None:
+            if y_train_leaves is None:
+                raise ValueError("Either y_train_indices or y_train_leaves must be given.")
+            self._set_indices(*_compact_from_padded(y_train_leaves, y_train.shape[0]))
+        else:
+            self._set_indices(tree_offsets, leaf_offsets, y_train_indices)
+        self.y_bound_leaves = np.ascontiguousarray(y_bound_leaves)
+        self.sample_weight = np.ascontiguousarray(sample_weight)
+
+        # The average positive weight, which counts as one sample where the
+        # number of samples matters (e.g., interpolating between them).
+        self.weight_unit = 1
+        if sample_weight.size > 0:
+            positive_weight = np.asarray(sample_weight)[0]
+            positive_weight = positive_weight[positive_weight > 0]
+            if positive_weight.size > 0:
+                self.weight_unit = positive_weight.mean()
+
+    def _set_indices(self, tree_offsets, leaf_offsets, y_train_indices):
+        """Set the indices of the training samples of each node."""
+        if tree_offsets is None or leaf_offsets is None:
+            raise ValueError("tree_offsets and leaf_offsets must be given with y_train_indices.")
+
+        # Arrays of the right types are kept as they are (e.g., memory-mapped).
+        tree_offsets = np.ascontiguousarray(tree_offsets, dtype=np.int64)
+        leaf_offsets = np.asarray(leaf_offsets)
+        y_train_indices = np.asarray(y_train_indices)
+        if (
+            tree_offsets.ndim != 1
+            or leaf_offsets.ndim != 2
+            or y_train_indices.ndim != 2
+            or tree_offsets.shape[0] != leaf_offsets.shape[0] + 1
+            or y_train_indices.shape
+            != (self.y_train.shape[0], tree_offsets[tree_offsets.shape[0] - 1])
+        ):
+            raise ValueError(
+                "tree_offsets, leaf_offsets and y_train_indices do not match, with "
+                f"shapes {tree_offsets.shape}, {leaf_offsets.shape} and "
+                f"{y_train_indices.shape} for y_train of shape {np.shape(self.y_train)}."
+            )
+
+        self.tree_offsets = tree_offsets
+        self.leaf_offsets = np.ascontiguousarray(leaf_offsets, dtype=np.int32)
+        self.y_train_indices = np.ascontiguousarray(y_train_indices, dtype=np.int32)
 
     def __reduce__(self):
         """Reduce re-implementation, for pickling."""
-        if self.sparse_pickle:
-            y_train_leaves = np.empty(shape=(0, 0, 0, 0), dtype=np.int64)
-            y_bound_leaves = np.empty(shape=(0, 0, 0), dtype=np.float64)
-            kwargs = {
-                "y_train_leaves": np.asarray(self.y_train_leaves),
-                "y_bound_leaves": np.asarray(self.y_bound_leaves),
-            }
-        else:
-            y_train_leaves = np.asarray(self.y_train_leaves)
-            y_bound_leaves = np.asarray(self.y_bound_leaves)
-            kwargs = {}
-        args = (np.asarray(self.y_train), y_train_leaves, y_bound_leaves, self.sparse_pickle)
-        return (QuantileForest, args, self.__getstate__(**kwargs))
-
-    def __getstate__(self, **kwargs):
-        """Getstate re-implementation, for pickling."""
-        d = {}
-        if self.sparse_pickle:
-            matrix1 = kwargs["y_train_leaves"]
-            reshape1 = (matrix1.shape[3], matrix1.shape[0] * matrix1.shape[1] * matrix1.shape[2])
-            d["shape1"] = matrix1.shape
-            d["matrix1"] = sparse.csc_matrix(matrix1.reshape(reshape1))
-
-            matrix2 = kwargs["y_bound_leaves"]
-            reshape2 = (matrix2.shape[2], matrix2.shape[0] * matrix2.shape[1])
-            d["shape2"] = matrix2.shape
-            d["matrix2"] = sparse.csc_matrix(matrix2.reshape(reshape2))
-
-        return d
+        sample_weight = None
+        if self.sample_weight.shape[0] > 0:
+            sample_weight = np.asarray(self.sample_weight)
+        args = (
+            np.asarray(self.y_train),
+            None,
+            np.asarray(self.y_bound_leaves),
+            None,
+            sample_weight,
+            np.asarray(self.tree_offsets),
+            np.asarray(self.leaf_offsets),
+            np.asarray(self.y_train_indices),
+        )
+        return (QuantileForest, args)
 
     def __setstate__(self, d):
-        """Setstate re-implementation, for unpickling."""
-        if self.sparse_pickle:
-            self.y_train_leaves = d["matrix1"].toarray().reshape(d["shape1"])
-            self.y_bound_leaves = d["matrix2"].toarray().reshape(d["shape2"])
+        """Setstate re-implementation, for unpickling forests of earlier versions.
+
+        Earlier versions could pickle the padded training indices and the leaf
+        bounds as sparse matrices (with ``fit(..., sparse_pickle=True)``).
+        """
+        if d and "matrix1" in d:
+            y_train_leaves = d["matrix1"].toarray().reshape(d["shape1"])
+            self._set_indices(*_compact_from_padded(y_train_leaves, self.y_train.shape[0]))
+            # Dense arrays from sparse matrices may not be C-contiguous.
+            self.y_bound_leaves = np.ascontiguousarray(d["matrix2"].toarray().reshape(d["shape2"]))
+
+    def first_train_indices(self, intp_t tree, const intp_t[:] leaves, intp_t output):
+        """Return the index of the first training sample of each of the leaves.
+
+        For a forest whose leaf nodes keep at most one training sample each.
+
+        Parameters
+        ----------
+        tree : int
+            Index of the tree.
+
+        leaves : array-like of shape (n_leaves,)
+            Indices of leaf nodes of the tree.
+
+        output : int
+            Index of the output.
+
+        Returns
+        -------
+        train_indices : array-like of shape (n_leaves,)
+            The one-based index into `y_train` of the first training sample of
+            each leaf node, or 0 if the leaf node has none.
+        """
+        cdef intp_t i, start
+        cdef cnp.ndarray[intp_t, ndim=1] train_indices = np.zeros(leaves.shape[0], dtype=np.intp)
+
+        for i in range(leaves.shape[0]):
+            start = self.leaf_offsets[tree, leaves[i]]
+            if self.leaf_offsets[tree, leaves[i] + 1] > start:
+                train_indices[i] = self.y_train_indices[output, self.tree_offsets[tree] + start]
+
+        return train_indices
+
+    @property
+    def y_train_leaves(self):
+        """The indices of the training samples of each node, padded with 0s."""
+        n_outputs = self.y_train.shape[0]
+        n_trees = self.leaf_offsets.shape[0]
+        n_nodes = self.leaf_offsets.shape[1] - 1
+        n_stored = np.diff(self.leaf_offsets, axis=1)
+        n_indices = n_stored.max(initial=0)
+        is_stored = np.arange(n_indices) < n_stored[:, :, np.newaxis]
+        y_train_leaves = np.zeros((n_trees, n_nodes, n_outputs, n_indices), dtype=np.int64)
+        for output in range(n_outputs):
+            y_train_leaves[:, :, output, :][is_stored] = np.asarray(self.y_train_indices)[output]
+        return y_train_leaves
 
     cpdef cnp.ndarray predict(
         self,
@@ -584,8 +914,8 @@ cdef class QuantileForest:
             the bootstrapping process. By default, selects all samples across
             all base estimators. 1 if sample should be selected, 0 otherwise.
 
-        interpolation : {"linear", "lower", "higher", "midpoint", "nearest"}, \
-                default="linear"
+        interpolation : {"linear", "lower", "higher", "midpoint", "nearest", \
+                "inverted_cdf", "averaged_inverted_cdf"}, default="linear"
             The interpolation method to use when calculating quantiles.
 
         weighted_quantile : bool, default=True
@@ -603,38 +933,53 @@ cdef class QuantileForest:
             Quantiles or means for samples as floats.
         """
         cdef intp_t n_samples, n_outputs, n_quantiles
-        cdef intp_t n_trees, n_train, max_idx
+        cdef intp_t n_trees, n_train
         cdef intp_t i, j, k, l
+        cdef intp_t start, end
         cdef bint use_mean
         cdef double q
         cdef list[char*] interpolations
         cdef vector[double] leaf_samples
         cdef vector[double] leaf_weights
+        cdef vector[intp_t] touched_indices
+        cdef vector[double] touched_weights
         cdef vector[vector[intp_t]] train_indices
         cdef vector[vector[double]] train_weights
         cdef intp_t idx, train_idx
         cdef double train_wgt
-        cdef vector[int] n_leaf_samples
-        cdef int n_total_samples, n_total_trees
+        cdef bint use_sample_weight
+        cdef double weight_scale
+        cdef vector[double] n_leaf_samples
+        cdef double n_total_samples
+        cdef int n_total_trees
         cdef vector[vector[double]] leaf_preds
         cdef vector[double] pred
         cdef cnp.ndarray[float64_t, ndim=3] preds
         cdef double[:, :, :] preds_view
 
         n_samples = X_leaves.shape[0]
-        n_outputs = self.y_train.size()
+        n_outputs = self.y_train.shape[0]
         n_quantiles = len(quantiles)
 
         n_trees = X_leaves.shape[1]
-        n_train = self.y_train[0].size()
-        max_idx = self.y_train_leaves.shape[3]
+        n_train = self.y_train.shape[1]
+
+        # With sample weights, sum the weights of each training sample, as for
+        # weighted quantiles, since a sample's weight split across entries can
+        # give different quantiles (e.g., if each entry has a weight below 1).
+        use_sample_weight = self.sample_weight.shape[0] > 0
+        if use_sample_weight:
+            weighted_quantile = True
+
+        if n_quantiles == 0:
+            raise ValueError("Quantiles must not be empty.")
 
         use_mean = False
         if len(quantiles) == 1 and quantiles[0] == -1:
             use_mean = True
         else:
             for q in quantiles:
-                if q < 0 or q > 1:
+                if not 0 <= q <= 1:  # also rejects NaN
                     raise ValueError(f"Quantiles must be in the range [0, 1], got {q}.")
 
         if X_indices is not None:
@@ -645,9 +990,24 @@ cdef class QuantileForest:
                     "must be None."
                 )
 
-        interpolations = [b"linear", b"lower", b"higher", b"midpoint", b"nearest"]
+        interpolations = [
+            b"linear",
+            b"lower",
+            b"higher",
+            b"midpoint",
+            b"nearest",
+            b"inverted_cdf",
+            b"averaged_inverted_cdf",
+        ]
         if interpolation not in interpolations:
             raise ValueError(f"Invalid interpolation method {interpolation}.")
+
+        # Quantiles that interpolate between samples count a sample of average
+        # weight as one sample. Inverted CDF quantiles depend only on relative
+        # weights, so they keep the weights unscaled (and exact).
+        weight_scale = 1
+        if use_sample_weight and interpolation not in [b"inverted_cdf", b"averaged_inverted_cdf"]:
+            weight_scale = 1 / self.weight_unit
 
         # Initialize NumPy array with NaN values and get view for nogil.
         preds = np.full((n_samples, n_outputs, n_quantiles), np.nan, dtype=np.float64)
@@ -657,7 +1017,7 @@ cdef class QuantileForest:
             idx = 1 if aggregate_leaves_first else n_trees
             train_indices = vector[vector[intp_t]](idx)
 
-            n_leaf_samples = vector[int](n_trees)
+            n_leaf_samples = vector[double](n_trees)
             leaf_preds = vector[vector[double]](n_quantiles)
             for i in range(<intp_t>(leaf_preds.size())):
                 leaf_preds[i].reserve(idx)
@@ -671,12 +1031,19 @@ cdef class QuantileForest:
                 n_total_trees = 0
 
                 if weighted_leaves:
+                    # Get the size (total weight) of each leaf.
                     for j in range(n_trees):
                         if X_indices is None or X_indices[i, j] is True:
+                            start = self.tree_offsets[j] + self.leaf_offsets[j, X_leaves[i, j]]
+                            end = self.tree_offsets[j] + self.leaf_offsets[j, X_leaves[i, j] + 1]
                             n_leaf_samples[j] = 0
-                            for k in range(max_idx):
-                                if self.y_train_leaves[j, X_leaves[i, j], 0, k] != 0:
-                                    n_leaf_samples[j] += 1
+                            for k in range(start, end):
+                                train_idx = self.y_train_indices[0, k]
+                                if train_idx != 0:
+                                    if use_sample_weight:
+                                        n_leaf_samples[j] += self.sample_weight[0, train_idx - 1]
+                                    else:
+                                        n_leaf_samples[j] += 1
                             n_total_samples += n_leaf_samples[j]
                             n_total_trees += 1
 
@@ -691,10 +1058,12 @@ cdef class QuantileForest:
                     for k in range(n_trees):
                         if X_indices is None or X_indices[i, k] is True:
                             idx = 0 if aggregate_leaves_first else k
+                            start = self.tree_offsets[k] + self.leaf_offsets[k, X_leaves[i, k]]
+                            end = self.tree_offsets[k] + self.leaf_offsets[k, X_leaves[i, k] + 1]
                             train_indices[idx].insert(
                                 train_indices[idx].end(),
-                                &self.y_train_leaves[k, X_leaves[i, k], j, 0],
-                                &self.y_train_leaves[k, X_leaves[i, k], j, max_idx],
+                                &self.y_train_indices[j, start],
+                                &self.y_train_indices[j, end],
                             )
 
                     if weighted_quantile:
@@ -707,11 +1076,14 @@ cdef class QuantileForest:
                                 if weighted_leaves:
                                     train_wgt = 0
                                     if n_leaf_samples[k] > 0:
-                                        train_wgt = 1 / <double>n_leaf_samples[k]
-                                        train_wgt *= <double>n_total_samples
+                                        train_wgt = 1 / n_leaf_samples[k]
+                                        train_wgt *= n_total_samples
                                         train_wgt /= <double>n_total_trees
                                 train_weights[idx].insert(
-                                    train_weights[idx].end(), max_idx, train_wgt
+                                    train_weights[idx].end(),
+                                    self.leaf_offsets[k, X_leaves[i, k] + 1]
+                                    - self.leaf_offsets[k, X_leaves[i, k]],
+                                    train_wgt,
                                 )
 
                         # For each list of training indices, calculate output.
@@ -719,21 +1091,36 @@ cdef class QuantileForest:
                             if train_indices[k].size() == 0:
                                 continue
 
-                            # Reset leaf weights for all training indices to 0.
-                            memset(&leaf_weights[0], 0, n_train * sizeof(double))
-
-                            # Sum the weights/counts for each training index.
+                            # Sum the weights/counts for each training index,
+                            # and record the indices with a weight, so that only
+                            # they are used rather than all `n_train` indices.
+                            touched_indices.clear()
                             for l in range(<intp_t>(train_indices[k].size())):
                                 train_idx = train_indices[k][l]
                                 train_wgt = train_weights[k][l]
                                 if train_idx != 0:
+                                    if use_sample_weight:
+                                        train_wgt *= self.sample_weight[j, train_idx - 1]
+                                    if leaf_weights[train_idx - 1] == 0:
+                                        touched_indices.push_back(train_idx - 1)
                                     leaf_weights[train_idx - 1] += train_wgt
+
+                            # Get the targets and weights in sorted order, and
+                            # reset the leaf weights to 0.
+                            sort_cpp(touched_indices.begin(), touched_indices.end())
+                            leaf_samples.resize(touched_indices.size())
+                            touched_weights.resize(touched_indices.size())
+                            for l in range(<intp_t>(touched_indices.size())):
+                                train_idx = touched_indices[l]
+                                leaf_samples[l] = self.y_train[j, train_idx]
+                                touched_weights[l] = leaf_weights[train_idx] * weight_scale
+                                leaf_weights[train_idx] = 0
 
                             # Calculate quantiles (or mean).
                             if not use_mean:
                                 pred = calc_weighted_quantile(
-                                    self.y_train[j],
-                                    leaf_weights,
+                                    leaf_samples,
+                                    touched_weights,
                                     quantiles,
                                     interpolation,
                                     issorted=True,
@@ -741,9 +1128,12 @@ cdef class QuantileForest:
                                 for l in range(<intp_t>(pred.size())):
                                     leaf_preds[l].push_back(pred[l])
                             else:
-                                if self.y_train[j].size() > 0:
+                                if n_train > 0:
                                     pred = vector[double](1)
-                                    pred[0] = calc_weighted_mean(self.y_train[j], leaf_weights)
+                                    if touched_indices.size() > 0:
+                                        pred[0] = calc_weighted_mean(leaf_samples, touched_weights)
+                                    else:  # all weights are 0, so the mean is NaN, as before
+                                        pred[0] = NAN
                                     leaf_preds[0].push_back(pred[0])
                     else:
                         # For each list of training indices, calculate output.
@@ -757,7 +1147,7 @@ cdef class QuantileForest:
                             # Get training target values associated with indices.
                             for train_idx in train_indices[k]:
                                 if train_idx != 0:
-                                    leaf_samples.push_back(self.y_train[j][train_idx - 1])
+                                    leaf_samples.push_back(self.y_train[j, train_idx - 1])
 
                             # Calculate quantiles (or mean).
                             if not use_mean:
@@ -821,10 +1211,14 @@ cdef class QuantileForest:
             Quantiles ranks in range [0, 1] for samples as floats.
         """
         cdef intp_t n_samples, n_outputs
-        cdef intp_t n_trees, max_idx
+        cdef intp_t n_trees
         cdef intp_t i, j, k
+        cdef intp_t start, end
         cdef list[char*] kinds
         cdef vector[double] leaf_samples
+        cdef bint use_sample_weight
+        cdef double weight_scale
+        cdef vector[double] sample_weights
         cdef vector[vector[intp_t]] train_indices
         cdef intp_t idx, train_idx
         cdef vector[double] leaf_preds
@@ -835,14 +1229,17 @@ cdef class QuantileForest:
         n_samples = y_scores.shape[0]
         n_outputs = y_scores.shape[1]
 
-        if n_outputs != <intp_t>self.y_train.size():
+        # Ranks of ties count a sample of average weight as one sample.
+        use_sample_weight = self.sample_weight.shape[0] > 0
+        weight_scale = 1 / self.weight_unit
+
+        if n_outputs != self.y_train.shape[0]:
             raise ValueError(
-                f"Number of target outputs in training data ({self.y_train.size()}) does not "
+                f"Number of target outputs in training data ({self.y_train.shape[0]}) does not "
                 f"match the number of outputs in test data being scored ({n_outputs})."
             )
 
         n_trees = X_leaves.shape[1]
-        max_idx = self.y_train_leaves.shape[3]
 
         if X_indices is not None:
             if X_indices.shape[1] != X_leaves.shape[1]:
@@ -875,10 +1272,12 @@ cdef class QuantileForest:
                     for k in range(n_trees):
                         if X_indices is None or X_indices[i, k] is True:
                             idx = 0 if aggregate_leaves_first else k
+                            start = self.tree_offsets[k] + self.leaf_offsets[k, X_leaves[i, k]]
+                            end = self.tree_offsets[k] + self.leaf_offsets[k, X_leaves[i, k] + 1]
                             train_indices[idx].insert(
                                 train_indices[idx].end(),
-                                &self.y_train_leaves[k, X_leaves[i, k], j, 0],
-                                &self.y_train_leaves[k, X_leaves[i, k], j, max_idx],
+                                &self.y_train_indices[j, start],
+                                &self.y_train_indices[j, end],
                             )
 
                     # For each list of training indices, calculate rank.
@@ -888,14 +1287,24 @@ cdef class QuantileForest:
 
                         # Clear list of training target values.
                         leaf_samples.clear()
+                        sample_weights.clear()
 
                         # Get training target values associated with indices.
                         for train_idx in train_indices[k]:
                             if train_idx != 0:
-                                leaf_samples.push_back(self.y_train[j][train_idx - 1])
+                                leaf_samples.push_back(self.y_train[j, train_idx - 1])
+                                if use_sample_weight:
+                                    sample_weights.push_back(
+                                        self.sample_weight[j, train_idx - 1] * weight_scale
+                                    )
 
                         # Calculate rank.
-                        pred = calc_quantile_rank(leaf_samples, y_scores[i, j], kind=kind)
+                        if use_sample_weight:
+                            pred = calc_weighted_quantile_rank(
+                                leaf_samples, sample_weights, y_scores[i, j], kind=kind
+                            )
+                        else:
+                            pred = calc_quantile_rank(leaf_samples, y_scores[i, j], kind=kind)
                         if pred != -1:
                             leaf_preds.push_back(pred)
 
@@ -912,7 +1321,7 @@ cdef class QuantileForest:
         intp_t[:, :] X_leaves,
         uint8_t[:, :] X_indices=None,
         uint32_t max_proximities=0,
-        intp_t[:, :] sorter=None,
+        const intp_t[:, :] sorter=None,
     ):
         """Return proximity counts of the training samples for target leaves.
 
@@ -946,10 +1355,12 @@ cdef class QuantileForest:
             List of dicts mapping training sample indices to proximity counts.
         """
         cdef intp_t n_samples
-        cdef intp_t n_trees, n_train, max_idx
+        cdef intp_t n_trees, n_train
         cdef intp_t i, j
+        cdef intp_t start, end
         cdef vector[intp_t] train_indices
         cdef vector[int] leaf_weights
+        cdef vector[intp_t] touched_indices
         cdef intp_t train_idx
         cdef int cutoff, train_wgt
         cdef priority_queue[pair[int, intp_t]] queue
@@ -959,8 +1370,7 @@ cdef class QuantileForest:
         n_samples = X_leaves.shape[0]
 
         n_trees = X_leaves.shape[1]
-        n_train = self.y_train[0].size()
-        max_idx = self.y_train_leaves.shape[3]
+        n_train = self.y_train.shape[1]
 
         if X_indices is not None:
             if X_indices.shape[1] != X_leaves.shape[1]:
@@ -980,33 +1390,39 @@ cdef class QuantileForest:
             leaf_weights = vector[int](n_train)
             for i in range(n_samples):
                 train_indices.clear()
-                memset(&leaf_weights[0], 0, n_train * sizeof(int))
+                touched_indices.clear()
 
                 # Accumulate training indices across leaves for each tree.
                 # Choose the first target output index, even if multi-output.
                 for j in range(n_trees):
                     if X_indices is None or X_indices[i, j] is True:
+                        start = self.tree_offsets[j] + self.leaf_offsets[j, X_leaves[i, j]]
+                        end = self.tree_offsets[j] + self.leaf_offsets[j, X_leaves[i, j] + 1]
                         train_indices.insert(
                             train_indices.end(),
-                            &self.y_train_leaves[j, X_leaves[i, j], 0, 0],
-                            &self.y_train_leaves[j, X_leaves[i, j], 0, max_idx],
+                            &self.y_train_indices[0, start],
+                            &self.y_train_indices[0, end],
                         )
 
-                # Sum the weights/counts for each training index.
+                # Sum the weights/counts for each training index, and record
+                # the indices with a count, so that only they are ranked.
                 for train_idx in train_indices:
                     if train_idx != 0:
                         train_idx -= 1
                         if sorter is not None:
                             # Align to the input (unsorted) training index.
                             train_idx = sorter[:, 0][train_idx]
+                        if leaf_weights[train_idx] == 0:
+                            touched_indices.push_back(train_idx)
                         leaf_weights[train_idx] += 1
 
                 # Build priority queue by -weight (so smallest weight is top).
                 # Using a priority queue can avoid having to sort all samples.
+                # The kept proximities don't depend on the order of the pushes.
                 cutoff = 1
-                for j in range(n_train):
-                    train_idx = j
-                    train_wgt = leaf_weights[j]
+                for train_idx in touched_indices:
+                    train_wgt = leaf_weights[train_idx]
+                    leaf_weights[train_idx] = 0  # reset for the next sample
                     if train_wgt >= cutoff:
                         queue.push(pair[int, intp_t](-train_wgt, train_idx))
                         if queue.size() > max_proximities:

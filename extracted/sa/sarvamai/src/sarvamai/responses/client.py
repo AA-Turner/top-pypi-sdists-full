@@ -55,6 +55,8 @@ class ResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[ResponseStreamEvent]:
         """
@@ -112,6 +114,12 @@ class ResponsesClient:
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -152,6 +160,8 @@ class ResponsesClient:
             conversation=conversation,
             background=background,
             max_tool_calls=max_tool_calls,
+            top_logprobs=top_logprobs,
+            include=include,
             request_options=request_options,
         ) as r:
             yield from r.data
@@ -177,6 +187,8 @@ class ResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateResponseV2Response, typing.Iterator[ResponseStreamEvent]]:
         """
@@ -237,6 +249,12 @@ class ResponsesClient:
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -279,6 +297,8 @@ class ResponsesClient:
                 conversation=conversation,
                 background=background,
                 max_tool_calls=max_tool_calls,
+                top_logprobs=top_logprobs,
+                include=include,
                 request_options=request_options,
             )
 
@@ -300,6 +320,8 @@ class ResponsesClient:
             conversation=conversation,
             background=background,
             max_tool_calls=max_tool_calls,
+            top_logprobs=top_logprobs,
+            include=include,
             request_options=request_options,
         )
         return _response.data
@@ -340,6 +362,8 @@ class AsyncResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[ResponseStreamEvent]:
         """
@@ -397,6 +421,12 @@ class AsyncResponsesClient:
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -445,6 +475,8 @@ class AsyncResponsesClient:
             conversation=conversation,
             background=background,
             max_tool_calls=max_tool_calls,
+            top_logprobs=top_logprobs,
+            include=include,
             request_options=request_options,
         ) as r:
             async for _chunk in r.data:
@@ -471,6 +503,8 @@ class AsyncResponsesClient:
         conversation: typing.Optional[ResponseConversationParams] = OMIT,
         background: typing.Optional[bool] = OMIT,
         max_tool_calls: typing.Optional[int] = OMIT,
+        top_logprobs: typing.Optional[int] = OMIT,
+        include: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateResponseV2Response, typing.AsyncIterator[ResponseStreamEvent]]:
         """
@@ -531,6 +565,12 @@ class AsyncResponsesClient:
         max_tool_calls : typing.Optional[int]
             `400 invalid_request_error` — not supported by any serving deployment, top-level or via `extra_body`.
 
+        top_logprobs : typing.Optional[int]
+            How many of the most likely tokens to return at each output position, with their log probabilities. Send it with `include=["message.output_text.logprobs"]`; without `include`, `output[].content[].logprobs` comes back empty. `0` returns no logprobs. `glm5.3`, `gemma4`, and `kimi-k3.1-pro` return `400`.
+
+        include : typing.Optional[typing.Sequence[str]]
+            Extra data to add to the response. `message.output_text.logprobs` returns token log probabilities (use with `top_logprobs`); `reasoning.encrypted_content` is accepted. An unknown value returns `400`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -581,6 +621,8 @@ class AsyncResponsesClient:
                 conversation=conversation,
                 background=background,
                 max_tool_calls=max_tool_calls,
+                top_logprobs=top_logprobs,
+                include=include,
                 request_options=request_options,
             )
 
@@ -602,6 +644,8 @@ class AsyncResponsesClient:
             conversation=conversation,
             background=background,
             max_tool_calls=max_tool_calls,
+            top_logprobs=top_logprobs,
+            include=include,
             request_options=request_options,
         )
         return _response.data

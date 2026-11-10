@@ -60,14 +60,18 @@ char *from_python_str_to_cpp_char(const py::object &in, Py_ssize_t *size_out, co
 char *from_python_str_to_cpp_char(PyObject *in, Py_ssize_t *size_out, const bool utf_encoding) {
     char *out = nullptr;
     if(PyUnicode_Check(in)) {
-        PyObject *bytes_in;
+        // py::object, not a raw PyObject*: __copy_bytes_to_char can throw, and a
+        // bare Py_DECREF after it would be skipped, leaking the encoded bytes.
+        py::object bytes_in;
         if(utf_encoding) {
-            bytes_in = PyUnicode_AsUTF8String(in);
+            bytes_in = py::reinterpret_steal<py::object>(PyUnicode_AsUTF8String(in));
+            if(!bytes_in) {
+                throw py::error_already_set();
+            }
         } else {
             bytes_in = EncodeAsLatin1(in);
         }
-        out = __copy_bytes_to_char(bytes_in, size_out);
-        Py_DECREF(bytes_in);
+        out = __copy_bytes_to_char(bytes_in.ptr(), size_out);
     } else if(PyBytes_Check(in) || PyByteArray_Check(in)) {
         out = __copy_bytes_to_char(in, size_out);
     } else {

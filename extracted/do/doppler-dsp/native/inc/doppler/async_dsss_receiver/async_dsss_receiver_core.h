@@ -14,8 +14,9 @@
  * `ASYNC_DSSS_RX_*` values below, also `status().state`:
  *
  *   - **searching** (the start): samples feed the
- *     embedded `Acquisition`. A hit is made into a seed by
- *     `dp_acq_build_handoff()` and taken through
+ *     embedded continuous search (the `Correlator` flavor). A hit is made
+ *     into a seed by
+ *     `dp_correlator_build_handoff()` and taken through
  *     `dp_async_dsss_receiver_seed()`, and the unconsumed tail of the same
  *     call goes straight on. The refine chain is a FROZEN carrier wipe
  *     (`costas_wipeoff()` at the coarse estimate, `costas_update()` never
@@ -30,7 +31,21 @@
  *     is ready or gives up; then the live tracking chain is built FRESH,
  *     from the hand-off's chip phase advanced by the clock dilation over the
  *     refine (not wherever the refine-stage `Dll` drifted) and the refined
- *     -- on a give-up, the seed's -- Doppler.
+ *     -- on a give-up, the seed's -- Doppler. It starts at the refine's
+ *     estimate of where it stopped, `ceil(k * period)` samples from the
+ *     hand-off (k whole code periods, the fraction carried in its phase),
+ *     on the same input sample at any chunking (doppler#2974). The refine
+ *     decides up to its chain's lag past that estimate, so the receiver
+ *     keeps its last refine samples in a ring sized at create for that lag
+ *     (`refine_hist_cap`, from dp_RateConverter_get_count_lag()), and the
+ *     start is read from it when it is behind the call. A start the input
+ *     has not reached yet is waited for, the receiver still refining. A
+ *     refine that decides further past than the ring holds (a refine Dll
+ *     drifting on noise; no signal geometry measured) starts at the first
+ *     such point the ring still holds, still the same at any chunking. The
+ *     ring is held for the receiver's lifetime -- up to ~38 KiB (Gold-1023
+ *     at 2 samples a chip) -- and carried in every blob, a pool member's
+ *     included.
  *   - **tracking**: the pre-despread carrier loop (`costas_wipeoff`/
  *     `costas_update`) -> `Dll` -> `RateConverter` -> `MpskReceiver`. The
  *     carrier loop updates once per code period from a NON-DATA-AIDED
@@ -92,7 +107,7 @@
 #define DP_ASYNC_DSSS_RECEIVER_CORE_H
 
 #include "doppler/RateConverter/RateConverter_core.h"
-#include "doppler/acq/acq_core.h"
+#include "doppler/correlator/correlator_core.h"
 #include "doppler/carrier_acq/carrier_acq_core.h"
 #include "doppler/cic/cic_core.h"
 #include "doppler/costas/costas_core.h"
@@ -107,10 +122,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "doppler/psd/psd_core.h"
-#include "doppler/detector/detector_core.h"
 #include "doppler/detection/detection_core.h"
 #include "doppler/spectral/spectral_core.h"
-#include "doppler/corr/corr_core.h"
 #include "doppler/fft/fft_core.h"
 #include "doppler/acc_trace/acc_trace_core.h"
 #include "doppler/ber/ber_core.h"
@@ -197,7 +210,7 @@ extern "C"
  *  dp_async_dsss_receiver_set_refine_min_blocks(). */
 #define ASYNC_DSSS_RX_REFINE_MIN_BLOCKS 7u
 
-/** Peaks the searcher reports per dwell (dp_acq_set_max_peaks()): the list
+/** Peaks the searcher reports per dwell (dp_correlator_set_max_peaks()): the list
  *  the receiver filters by exclusion, de-duplicates and ranks
  *  (dp_async_dsss_receiver_set_rank()). A rank is below this. */
 #define ASYNC_DSSS_RX_MAX_PEAKS 16u
@@ -256,7 +269,7 @@ typedef enum
    */
   typedef struct
   {
-    dp_acq_state_t *acq; /**< The embedded search. */
+    dp_correlator_state_t *acq; /**< The embedded search. */
 
     /* Refine stage: a frozen-carrier collection Dll feeding
      * CarrierAcquisition via a RateConverter. Rebuilt on every real
@@ -277,12 +290,14 @@ typedef enum
                                   set_state's check. */
     uint64_t refine_samples_fed; /**< Raw samples fed into the refine
                                        pipeline since it was last (re)built.
-                                       At the hand-over, fed minus consumed
-                                       is the tail of the last call that
-                                       goes straight on to the live chain.
-                                       The clock dilation is taken over the
-                                       consumed count, from the refine's
-                                       blocks, not over this. */
+                                       At the hand-over, fed minus the
+                                       live chain's start is the tail that
+                                       goes straight on to it: this call's,
+                                       and the ring's newest samples when
+                                       the start is behind it. The clock
+                                       dilation is taken over the live
+                                       chain's start, the estimate from the
+                                       refine's blocks, not over this. */
     uint64_t refine_periods;     /**< Diagnostic: code periods the refine
                                       stage processed since its chain was
                                       built. It stops at the period the
@@ -342,7 +357,7 @@ typedef enum
                                         carry, 0..tsamps-1.            */
 
     /* Own copy of the spreading code (same rationale as DsssReceiver's
-     * own copy -- neither dp_acq_create_continuous() nor dp_dll_create()'s
+     * own copy -- neither dp_correlator_create_continuous() nor dp_dll_create()'s
      * borrow-vs-copy semantics are part of their public contract). */
     uint8_t *code;     /**< Owned copy of the spreading code, 0/1 chips. */
     size_t   code_len; /**< Chips in @c code.                            */
@@ -421,7 +436,7 @@ typedef enum
                                  before its next dwell starts.           */
 
     /* The search's own rate. The engine runs at the rate where one code
-     * period is dp_acq_period_samples(code_len) samples (a power of two:
+     * period is dp_correlator_period_samples(code_len) samples (a power of two:
      * its transforms are that long); refine and tracking run at the
      * caller's. `srch_rs` resamples the input to it while searching and
      * is NULL when the caller already feeds that rate. Search sample j
@@ -531,6 +546,25 @@ typedef enum
     int32_t   tlm_state;      /**< "<prefix>.state" id, -1 detached.      */
     int32_t   tlm_handover;   /**< "<prefix>.handover_hz" id, -1 detached.*/
     int32_t   tlm_refused;    /**< "<prefix>.refused" id, -1 detached.    */
+
+    /* The hand-over starts the live chain at the refine's estimate, and
+     * the refine decides up to its chain's lag past it, so the start can
+     * lie in input an earlier call already passed (#2974). The last
+     * refine_hist_cap refine samples are kept, a ring, so the start is
+     * reached at any chunking. The cap is the most the refine decides past
+     * its estimate, from the configuration at create: how far the refine
+     * RateConverter's output count can trail its input
+     * (dp_RateConverter_get_count_lag(), in partials of code_len * spc /
+     * refine_segments samples each), plus one partial of Dll framing, one
+     * code period of the estimate's round-up and one tsamps block of the
+     * refine's own. Running state: it travels in the blob (v17). Held for
+     * the receiver's lifetime, up to ~38 KiB (Gold-1023 at 2 samples a
+     * chip). Last in the struct, so every field the search and tracking
+     * touch keeps the offset it had before the ring. */
+    float _Complex *refine_hist;      /**< Owned ring, refine_hist_cap. */
+    size_t          refine_hist_cap;  /**< Config: derived at create.   */
+    size_t          refine_hist_len;  /**< Running: samples held.       */
+    size_t          refine_hist_head; /**< Running: the next write.     */
   } dp_async_dsss_receiver_state_t;
 
   /**
@@ -557,13 +591,13 @@ typedef enum
    *                                   tracking run at this rate. The
    *                                   search runs at it too when one code
    *                                   period is a whole number of samples
-   *                                   (dp_acq_search_period()); a
+   *                                   (dp_correlator_search_period()); a
    *                                   fractional period is resampled, for
    *                                   the search alone, to a power of
    *                                   two.
    * @param m                          PSK order, 2/4/8; default 2 (BPSK).
    * @param cn0_dbhz                   Design C/N0, dB-Hz; default 55.0 --
-   *                                   feeds BOTH the embedded Acquisition's
+   *                                   feeds BOTH the embedded search's
    *                                   own sizing AND (derated by
    *                                   `refine_design_margin_db`)
    *                                   CarrierAcquisition's `design_snr`.
@@ -630,7 +664,7 @@ typedef enum
    *                                   downlink RF frequency for a
    *                                   physically-coupled Doppler capture.
    *                                   Coupled, it is above half the sample
-   *                                   rate (dp_acq_carrier_freq_ok()).
+   *                                   rate (dp_correlator_carrier_freq_ok()).
    * @param lost_confirm_s             Release rule: both lock flags down,
    *                                   continuously, for longer than this
    *                                   many seconds puts the receiver in
@@ -675,12 +709,12 @@ typedef enum
    *                     (at least 1), and the searcher's slow-time depth
    *                     follows: `coherent_bins = D`, at most
    *                     `(code_only_epochs + 1)/2`, rounded down to a
-   *                     7-smooth length (dp_acq_create_continuous()).
+   *                     7-smooth length (dp_correlator_create_continuous()).
    *                     Default 0: no window, D = 1.
    * @param doppler_rate  Doppler rate in Hz/s, >= 0 and finite, that the
    *                      slow-time depth is bounded against: at most
    *                      `f_epoch / sqrt(2 * doppler_rate)` epochs
-   *                      (dp_acq_create_continuous()). Default 0: the
+   *                      (dp_correlator_create_continuous()). Default 0: the
    *                      window is the only bound.
    * @return A new receiver, searching; NULL on an invalid argument,
    *         including reacquire with a lost_confirm_s under one sample.
@@ -714,7 +748,7 @@ typedef enum
 
   /**
    * @brief Return to the searching state.
-   * Resets the embedded Acquisition and rebuilds the refine-stage chain
+   * Resets the embedded search and rebuilds the refine-stage chain
    * and the live tracking chain back to their
    * placeholder seed (phase 0, no Doppler). A receiver that has locked
    * cannot be "reset back to tracking the same signal," only back to
@@ -774,7 +808,7 @@ typedef enum
    *   loops, the symbols, its AGC), once per recovered symbol (the AGC's
    *   pair once per gain update);
    * - "<prefix>.acq" -- the acquisition engine
-   *   (dp_acq_set_telemetry()), once per decided dwell;
+   *   (dp_correlator_set_telemetry()), once per decided dwell;
    * - "<prefix>.rc" -- the rate converter between the code loop and the
    *   demodulator (dp_RateConverter_set_telemetry()). It reports only an
    *   AGC, and this receiver builds it without one, so it registers no
@@ -942,11 +976,11 @@ typedef enum
    *
    * The hand-off of docs/design/async-dsss-receiver.md §2.2: the
    * three numbers a searcher's hit carries that this receiver uses --
-   * `acq_handoff_t`'s `chip_phase`, `doppler_hz_est` and `cn0_dbhz_est` --
+   * `dp_correlator_handoff_t`'s `chip_phase`, `doppler_hz_est` and `cn0_dbhz_est` --
    * exactly as its own hit would have produced them (`steps()` calls this on
    * its own hit). `chip_phase` is the code's
    * instantaneous phase in chips, Dll's convention, at the FIRST sample of
-   * the next `steps()` call; dp_acq_build_handoff() makes it from a hit's
+   * the next `steps()` call; dp_correlator_build_handoff() makes it from a hit's
    * lag. The refine chain is rebuilt from the seed and the state becomes
    * refining; the unconsumed tail is the caller's to feed.
    *
@@ -1006,7 +1040,7 @@ typedef enum
    * `chip_phase` must be finite and inside `[0, code_len)`, and
    * `doppler_hz_est` must be strictly inside `(-fs/2, fs/2)`, where `fs` is
    * `chip_rate * spc`. A Doppler at or past half the sample rate is not
-   * reportable (dp_acq_carrier_freq_ok() relies on this bound), and a seed
+   * reportable (dp_correlator_carrier_freq_ok() relies on this bound), and a seed
    * there sent the hand-off's phase to NaN (doppler#2103).
    *
    * seed() refuses by this predicate, set_state() restores the seed fields
@@ -1131,8 +1165,8 @@ typedef enum
   int dp_async_dsss_receiver_get_lost (const dp_async_dsss_receiver_state_t *state);
 
   /**
-   * @brief Pin the embedded Acquisition's search grid directly.
-   * Forwards to `dp_acq_configure_search_raw()` -- the escape hatch under
+   * @brief Pin the embedded search's grid directly.
+   * Forwards to `dp_correlator_configure_search_raw()` -- the escape hatch under
    * this object's `symbol_rate`-driven auto-sizing, for a power user who
    * wants a specific `(doppler_bins, n_noncoh)`. The pin replaces the whole
    * auto-sized grid, the window-tiled search included. Only meaningful
@@ -1145,7 +1179,8 @@ typedef enum
    * @param n_noncoh      Non-coherent looks accumulated per grid cell
    *                      (1..256); more looks buys sensitivity at the cost
    *                      of dwell, replacing the auto-sized count.
-   * @return 0 on success, -1 on invalid grid (see dp_acq_configure_search_raw).
+   * @return 0 on success; DP_ERR_INVALID on an invalid grid, DP_ERR_MEMORY
+   *         on a failed allocation (see dp_correlator_configure_search_raw).
    * @code
    * >>> import numpy as np
    * >>> from doppler.dsss import AsyncDsssReceiver
@@ -1204,7 +1239,7 @@ typedef enum
   /**
    * @brief Set the workers the searcher fans its Doppler tiles across.
    *
-   * Forwards to dp_acq_set_threads() on the receiver's searcher. The
+   * Forwards to dp_correlator_set_threads() on the receiver's searcher. The
    * search is bit-identical at every count, so this changes the cost of a
    * steps() call and nothing about its output. A pool that steps its
    * receivers in parallel sets each one to 1. A mutator's value, so it
@@ -1245,23 +1280,23 @@ typedef enum
    * peak at this rank hands nothing off and the search goes on.
    *
    * The sidelobe rule, per cell: a strong signal's list also holds its
-   * code's Doppler-offset sidelobes, up to dp_acq_dsl_db() below it and
+   * code's Doppler-offset sidelobes, up to dp_correlator_dsl_db() below it and
    * hundreds of chips from its phase (design acq-surface.md §8). A peak
    * counts as a second signal only if its test_stat exceeds what the
    * stronger signals' sidelobes can read AT ITS CELL by more than the
-   * detector's own gate (dp_acq_gate_stat()). Each stronger signal reads
-   * its statistic on its own lag (acq_result_t::test_stat_peak) times the
-   * code's cross-ambiguity from it to this cell (dp_acq_sidelobe_ratio()),
-   * which reaches dp_acq_dsl_db() only at the worst cells. The bound is
+   * detector's own gate (dp_correlator_gate_stat()). Each stronger signal reads
+   * its statistic on its own lag (dp_correlator_hit_t::test_stat_peak) times the
+   * code's cross-ambiguity from it to this cell (dp_correlator_sidelobe_ratio()),
+   * which reaches dp_correlator_dsl_db() only at the worst cells. The bound is
    * the strongest of these; on a deep block (get_coherent_bins() > 1) it
    * is the sum over the stronger signals on the peak's own Doppler row,
    * modulo the epoch rate, when that is larger, since their fixed sidelobes
-   * can stack on one cell, and each is floored at dp_acq_dsl_db() until a
+   * can stack on one cell, and each is floored at dp_correlator_dsl_db() until a
    * strong signal's data splatter is modelled (doppler#2730). So the range
    * does not narrow with the number of signals on the air (doppler#2554),
    * and a sidelobe passes only when the noise on it alone would have
    * cleared the gate, the rate the search already runs at. A second
-   * signal is taken well past dp_acq_dsl_db() below a stronger one at
+   * signal is taken well past dp_correlator_dsl_db() below a stronger one at
    * most cells: on a one-epoch search, measured, in every stream to 10 dB
    * below and in a fifth of them at 20 dB (design async-dsss-receiver.md
    * §7.2, the near-far limit). The model is one clean code period: when a
@@ -1511,8 +1546,8 @@ typedef enum
    *          configure_chain_raw(). */
   int    dp_async_dsss_receiver_get_n (const dp_async_dsss_receiver_state_t *state);
   /** @brief The live Dll's code phase, chips, in the Dll's instantaneous
-   *  convention -- the mirror of acq_result_t::code_phase's correlation-lag
-   *  convention (dp_acq_build_handoff()). While refining there is no live
+   *  convention -- the mirror of dp_correlator_hit_t::code_phase's correlation-lag
+   *  convention (dp_correlator_build_handoff()). While refining there is no live
    *  Dll: it is the seed's phase advanced by the clock dilation since, the
    *  phase the hand-over starts the live chain from.
    *  @param state  Must be non-NULL.
@@ -1657,19 +1692,25 @@ typedef enum
     double   pick_doppler[ASYNC_DSSS_RX_MAX_PEAKS]; /**< Dopplers and    */
     double   pick_cn0[ASYNC_DSSS_RX_MAX_PEAKS];     /**< C/N0s, the unused
                                  tails zeroed.                           */
+    uint64_t refine_hist_cap; /**< v17: layout key, the hand-over ring's
+                                   size; must match the receiver.       */
+    uint64_t refine_hist_len; /**< v17: the ring's live count, always
+                                   min(refine_samples_fed, cap); packed
+                                   oldest first after the carry.        */
   } async_dsss_receiver_extra_t;
 
 /** @brief Envelope magic ("ADRX") identifying an AsyncDsssReceiver blob. */
 #define ASYNC_DSSS_RECEIVER_STATE_MAGIC DP_FOURCC ('A', 'D', 'R', 'X')
 /** @brief Layout version of the AsyncDsssReceiver blob (history below). */
-#define ASYNC_DSSS_RECEIVER_STATE_VERSION 15u /* v15: pooled, search-only picks; v14: the search resampler and its origin; v13: rank, exclusions; v12: samples_in, the dwell alignment, threads; v11: no cell mode; v10: the dll children grew (output level, #2495); v9: refine_min_blocks; v8: refused_hits; v7: no hand-off flavor; v6: the cell pull-in */
+#define ASYNC_DSSS_RECEIVER_STATE_VERSION 17u /* v17: the refine hand-over's ring (#2974); v16: the search child is the correlator's search flavor ('CORL', #2752 3.4b); v15: pooled, search-only picks; v14: the search resampler and its origin; v13: rank, exclusions; v12: samples_in, the dwell alignment, threads; v11: no cell mode; v10: the dll children grew (output level, #2495); v9: refine_min_blocks; v8: refused_hits; v7: no hand-off flavor; v6: the cell pull-in */
 
   /**
    * @brief Size in bytes of the blob dp_async_dsss_receiver_get_state()
    *        writes.
    *
    * Envelope + async_dsss_receiver_extra_t + every child's blob + a fixed
-   * tsamps-sample carry region; fixed for a given configuration.
+   * tsamps-sample carry region + the hand-over ring (refine_hist_cap
+   * samples); fixed for a given configuration.
    *
    * @param state  Must be non-NULL.
    * @return Blob size, bytes.
@@ -1697,7 +1738,7 @@ typedef enum
    * checked before any child is decoded; a refusal there changes nothing.
    * The children are then restored in order, so a child that rejects its
    * sub-blob leaves the children before it already restored.  Restores
-   * set_threads()'s value by calling dp_acq_set_threads().
+   * set_threads()'s value by calling dp_correlator_set_threads().
    *
    * @param state  Must be non-NULL; built with the same configuration.
    * @param blob   A blob produced by dp_async_dsss_receiver_get_state().

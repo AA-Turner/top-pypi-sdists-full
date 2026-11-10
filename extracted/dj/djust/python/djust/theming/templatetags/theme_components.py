@@ -11,15 +11,21 @@ Falling back to:
     djust_theming/components/{component}.html
 """
 
+import inspect
 import logging
+import re
 import uuid
-from collections.abc import Callable, Iterable
-
-from typing import Any, Optional
+from collections.abc import Callable, Iterable, Mapping
+from decimal import Decimal
+from typing import Any, Optional, Tuple
+from urllib.parse import unquote
 
 from django import template
 from django.template import Context
+from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
+
+from djust.components.utils import _srcset_candidates, url_allowed
 
 from ..manager import get_theme_config
 from ..template_resolver import resolve_component_template
@@ -52,7 +58,13 @@ def _extract_slots(attrs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any
 
 @register.simple_tag(takes_context=True)
 def theme_button(
-    context: Context, text: str, variant: str = "primary", size: str = "md", **attrs: Any
+    context: Context,
+    text: str,
+    variant: str = "primary",
+    size: str = "md",
+    href: Optional[str] = None,
+    element: Optional[str] = None,
+    **attrs: Any,
 ) -> SafeString:
     """
     Render a themed button.
@@ -61,16 +73,52 @@ def theme_button(
         text: Button text
         variant: 'primary', 'secondary', 'destructive', 'ghost', 'link'
         size: 'sm', 'md', 'lg'
-        **attrs: Additional HTML attributes (class, id, onclick, etc.)
+        href: Render an ``<a class="btn ...">`` pointing here instead of a
+            ``<button>``. ``javascript:``, ``vbscript:`` and ``data:`` URLs
+            are refused.
+        element: 'button' or 'a'. Defaults to 'a' when ``href`` is given and
+            'button' otherwise.
+        **attrs: Additional HTML attributes. ``class``, ``id``, ``onclick``
+            and ``type`` (``<button>`` only) are handled by the template;
+            everything else (``dj_click``, ``dj_value_id``, ``name``,
+            ``value``, ``disabled``, ``data_*``, ``aria_*`` ...) is emitted on
+            the element, escaped per attribute, underscores becoming hyphens.
+            Other ``on*`` handler attributes are refused. On an ``<a>``,
+            ``type=`` raises, and ``disabled=True`` becomes
+            ``aria-disabled="true" tabindex="-1"`` with no ``href``.
+
+            A project-level ``components/button.html`` that predates this must
+            render ``{{ extra_attrs }}``, ``{{ href }}`` and branch on ``tag``
+            to honour them; ``djust_theme check-compat`` flags one that does not.
 
     Usage:
         {% theme_button "Click me" variant="primary" size="md" %}
         {% theme_button "Delete" variant="destructive" onclick="confirmDelete()" %}
+        {% theme_button "Advance" dj_click="advance" dj_value_id=item.id %}
+        {% theme_button "Open record" href=record.url variant="secondary" %}
     """
+    if element is None:
+        element = "a" if href else "button"
+    if element not in ("button", "a"):
+        raise ValueError(f"theme_button: element must be 'button' or 'a', got {element!r}")
+    if href and element != "a":
+        raise ValueError(
+            "theme_button: href= renders an <a>; it cannot be used with element='button'"
+        )
+    if href:
+        href = _check_url("href", href)
+    if element == "a":
+        if attrs.get("type") is not None:
+            raise ValueError("theme_button: type= applies to a <button>, not an <a>")
+        if attrs.get("disabled"):
+            # `disabled` does nothing on an anchor: the link stays clickable. Say
+            # it is disabled to assistive tech, take it out of the tab order and
+            # drop the destination.
+            attrs = {k: v for k, v in attrs.items() if k != "disabled"}
+            attrs.update(aria_disabled="true", tabindex="-1")
+            href = None
     request = context.get("request")
     tmpl = resolve_component_template(request, "button")
-    if attrs.get("href") is not None:
-        _check_url("href", attrs["href"])
     # `slot_*` keywords are context, not attributes — the template
     # reads them by name. Without this they stay in `attrs`, which
     # templates only ever read as `attrs.class` / `attrs.id`, so a
@@ -80,7 +128,12 @@ def theme_button(
         "text": text,
         "variant": variant,
         "size": size,
+        "tag": element,
+        "href": href,
         "attrs": remaining_attrs,
+        "extra_attrs": _passthrough_attrs(
+            remaining_attrs, skip=("class", "id", "onclick", "type", "href")
+        ),
         "css_prefix": _css_prefix(),
         **slots,
     }
@@ -112,8 +165,9 @@ def theme_card(
     Each part is optional and each is dropped when absent, so a card with only
     a body is as valid as one with all three.
 
-    A card body is a string, not a block — this is a `simple_tag`, so it takes
-    no `{% end_theme_card %}` and cannot wrap other template tags.
+    A card body here is a string — this is a `simple_tag`, so it takes no
+    closing tag. For a body of other template tags use the block form,
+    `{% theme_card_block %}…{% end_theme_card_block %}` (#2894).
     """
     request = context.get("request")
     tmpl = resolve_component_template(request, "card")
@@ -161,6 +215,10 @@ def theme_badge(context: Context, text: str, variant: str = "default", **attrs: 
     return mark_safe(tmpl.render(ctx))
 
 
+_ASSERTIVE_ALERT_VARIANTS = frozenset({"destructive", "warning"})
+_ALERT_ROLES = frozenset({"alert", "status", "log"})
+
+
 @register.simple_tag(takes_context=True)
 def theme_alert(
     context: Context,
@@ -168,6 +226,7 @@ def theme_alert(
     title: Optional[str] = None,
     variant: str = "default",
     dismissible: bool = False,
+    role: Optional[str] = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -176,14 +235,25 @@ def theme_alert(
     Args:
         message: Alert message
         title: Optional alert title
-        variant: 'default', 'success', 'warning', 'destructive'
+        variant: 'default', 'info', 'success', 'warning', 'destructive'
         dismissible: Whether alert can be dismissed
+        role: ARIA live-region role: 'alert' (assertive), 'status' (polite)
+            or 'log'. Defaults to 'alert' for the 'destructive' and 'warning'
+            variants and 'status' for the rest, so a persistent banner does
+            not interrupt a screen reader the way an error should.
         **attrs: Additional HTML attributes
 
     Usage:
         {% theme_alert "Operation successful!" variant="success" dismissible=True %}
         {% theme_alert "Error occurred" title="Error" variant="destructive" %}
+        {% theme_alert "Viewing the record as of 2026-01-01" variant="info" %}
+        {% theme_alert "Saved" variant="success" role="alert" %}
+        {% theme_alert_block variant="info" %}Rich <a href="/x">content</a>{% end_theme_alert_block %}
     """
+    if role is None:
+        role = "alert" if variant in _ASSERTIVE_ALERT_VARIANTS else "status"
+    elif role not in _ALERT_ROLES:
+        raise ValueError(f"theme_alert: role must be one of {sorted(_ALERT_ROLES)}, got {role!r}")
     request = context.get("request")
     tmpl = resolve_component_template(request, "alert")
     # `slot_*` keywords are context, not attributes — the template
@@ -195,6 +265,7 @@ def theme_alert(
         "message": message,
         "title": title,
         "variant": variant,
+        "role": role,
         "dismissible": dismissible,
         "attrs": remaining_attrs,
         "css_prefix": _css_prefix(),
@@ -210,6 +281,7 @@ def theme_input(
     label: Optional[str] = None,
     placeholder: str = "",
     type: str = "text",
+    id: Optional[str] = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -220,6 +292,9 @@ def theme_input(
         label: Optional label text
         placeholder: Placeholder text
         type: Input type (text, email, password, etc.)
+        id: The ``<input>``'s id, which the label's ``for`` points at. Defaults
+            to ``name``; pass one when the same field repeats on a page (one
+            note field per row) so ids stay unique.
         **attrs: Additional HTML attributes
 
     Usage:
@@ -234,6 +309,7 @@ def theme_input(
     slots, remaining_attrs = _extract_slots(attrs)
     ctx = {
         "name": name,
+        "field_id": id or name,
         "label": label,
         "placeholder": placeholder,
         "type": type,
@@ -251,52 +327,225 @@ def theme_input(
     return mark_safe(tmpl.render(ctx))
 
 
+# What an attribute name may look like once ``_`` has become ``-``: a letter
+# first, then letters, digits and hyphens. Template kwargs are already
+# ``\w+``, but these helpers are plain functions too, so the name is checked
+# rather than trusted — it is written into the tag unescaped.
+_ATTR_NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
+
 # Attributes whose value is a URL the browser will navigate to or load.
 _URL_ATTRS = frozenset({"href", "src", "action", "formaction"})
 
-_UNSAFE_URL_SCHEMES = ("javascript:", "vbscript:", "data:")
+# The other attributes a caller can pass through (``**attrs``) that are JUDGED (#3749, #3765).
+# An EXPLICIT set, decided name by name, never a pattern over names: a ``data-*`` / ``dj-*``
+# attribute is author-defined, and a heuristic ("the name contains link / location / image")
+# rewrote values that are not URLs (``data_action="toggle:menu"``, ``icon="mdi:home"``) to ``#``.
+# Unlike :data:`_URL_ATTRS` these have never raised: a rejected scheme renders ``#`` (and a
+# warning), so a page that printed one before does not start to 500.
+#
+# * ``ping`` (a list of URLs the browser POSTs to), ``srcset`` (a list of candidates), ``poster``,
+#   ``data`` (``<object>``), ``background`` (legacy table / body image): the browser follows or
+#   loads them. ``srcset`` and ``ping`` are judged entry by entry (:func:`_check_url_list`).
+# * ``dj-navigate`` / ``dj-patch`` / ``dj-patch-reload``: the framework's own URL-valued
+#   directives, the same attribute ``nav_item.html`` prints from a judged ``url``. The client
+#   also guards them (``safeNavigationTarget``), so this is consistency, not the only defence.
+_QUIET_URL_ATTRS = frozenset(
+    {"ping", "srcset", "poster", "data", "background", "dj-navigate", "dj-patch", "dj-patch-reload"}
+)
+# Attributes whose NAME is a URL attribute in HTML but that are deliberately NOT judged: no
+# browser follows them on the elements these tags print, or they are obsolete or metadata (a
+# citation, an icon NAME, a microdata identifier), so they are printed as written. The decision
+# is recorded, name by name, with its reason, in ``UNJUDGED_PASSTHROUGH`` in
+# ``python/tests/test_theming_url_hardening_3749.py``, which pins that every name the sweep
+# scanner reads as a URL is either judged here or decided there. Every ``data-*`` / ``dj-*`` name
+# other than the framework's own directives (``data-url``, ``dj-action``, ``data-imageurl`` ...)
+# is the page author's own attribute, read by the author's own script, and is printed as written.
+# The ones that only ever LOAD AN IMAGE, where an inline ``data:image/...`` URI is fine.
+_IMAGE_URL_ATTRS = frozenset({"poster", "srcset"})
 
 
-def _has_unsafe_url_scheme(value: Any, *, image: bool = False) -> bool:
-    """Apply the theming denylist after stripping scheme obfuscation."""
-    compact = "".join(ch for ch in str(value) if ord(ch) > 32 and ord(ch) != 127).lower()
-    if image and compact.startswith("data:image/"):
-        return False
-    return compact.startswith(_UNSAFE_URL_SCHEMES)
+def _is_url_attribute(name: str) -> bool:
+    """Whether the (hyphenated, lower-case) pass-through attribute ``name`` is judged."""
+    return name in _URL_ATTRS or name in _QUIET_URL_ATTRS
 
 
-def _check_url(name: str, value: Any) -> None:
-    """Refuse a script-bearing URL scheme in ``name``.
+# Every URL theming prints is judged by ``djust.components.utils.url_allowed``, the
+# allowlist decision ``safe_url`` / ``url_attr`` make for ``djust_components``. Theming
+# keeps no list of its own that decides whether a URL is allowed (it had a denylist,
+# which let every scheme it did not name through: ``blob:``, ``file:``, ``intent:``,
+# custom schemes ... #3677).
+#
+# The one remaining list is a SEVERITY, not a decision: these schemes in a
+# developer-supplied literal (``theme_button href=``, an ``**attrs`` URL) have always
+# raised ``ValueError`` rather than render, so they still do. Any other scheme the
+# allowlist rejects is rendered as ``#`` (with a warning) in those sinks, as it is in
+# the data-derived ones: before #3677 they rendered, and a page must not start to 500
+# on a ``webcal:`` or ``myapp://`` link that used to work.
+_RAISING_SCHEMES = ("javascript", "vbscript", "data", "livescript", "mhtml")
 
-    Browsers drop tabs, newlines and other control characters inside a URL
-    scheme and ignore leading whitespace, so ``"java\tscript:..."`` is still
-    ``javascript:``. Strip those before looking at the scheme.
+
+def _plain_url(value: Any) -> Any:
+    """``value`` as the plain text that is both JUDGED and PRINTED (``None`` stays ``None``).
+
+    A value is converted to text exactly ONCE, here: the check and the template then see the
+    same string. Judging ``str(value)`` and leaving the object for the template to stringify
+    again lets an object whose ``__str__`` answers differently the second time (a lazy value, a
+    cached or time-dependent one) pass the check and print something else (#3765).
+
+    A marked-safe URL becomes ordinary text, so the template escapes it: ``safe_url`` escapes a
+    ``mark_safe`` URL, and theming prints the value through a template, which prints a
+    ``SafeData`` raw; ``mark_safe("&#x6A;avascript:x")`` is a ``javascript:`` URL to a browser.
+    The same holds for anything with ``__html__`` and for a value that is not text but PRINTS as
+    marked-safe text (a lazy proxy, ``lazy(lambda: mark_safe(...), str)()``, #3749).
     """
-    if _has_unsafe_url_scheme(value):
-        raise ValueError(f"{name}= refuses javascript:, vbscript: and data: URLs")
+    if value is None or type(value) is str:
+        return value
+    return str.__str__(str(value))
+
+
+def _raises_for_scheme(value: Any) -> bool:
+    """Whether ``value`` is one of the schemes a literal URL has always raised for."""
+    compact = "".join(ch for ch in str(value) if ord(ch) > 32 and ord(ch) != 127).lower()
+    return compact.startswith(tuple(f"{scheme}:" for scheme in _RAISING_SCHEMES))
+
+
+def _check_url(name: str, value: Any) -> Any:
+    """Return the URL for a developer-supplied literal or ``**attrs`` URL in ``name``.
+
+    A script-bearing scheme (:data:`_RAISING_SCHEMES`, read the way a browser reads it:
+    case, leading space and control characters, tabs and newlines inside the scheme)
+    raises ``ValueError``, a loud error at development time, as it always has. Any
+    other scheme the shared allowlist rejects (``sms:``, ``webcal:``, ``myapp://``,
+    ``blob:`` ...) is rendered as ``"#"`` and logged: these sinks rendered such a URL
+    before the allowlist, and a ``{% theme_button href=record.url %}`` whose data holds
+    one must not become a 500. A marked-safe value is returned as plain text.
+    """
+    value = _plain_url(value)
+    if _raises_for_scheme(value):
+        raise ValueError(
+            f"{name}= refuses a script-bearing URL (javascript:, vbscript:, data:, livescript:, mhtml:)"
+        )
+    if not url_allowed(value):
+        logger.warning("theming: %s= URL with a disallowed scheme rendered as '#'", name)
+        return "#"
+    return value
 
 
 def _neutralise_url(name: str, value: Any, *, image: bool = False) -> Any:
-    """Return ``value`` unchanged, or ``"#"`` for a script-bearing scheme.
+    """Return ``value`` unchanged, or ``"#"`` for a scheme the shared allowlist rejects.
 
-    Data-derived URLs must not take the whole render down. Use the same
-    denylist as :func:`_check_url`, allowing ``data:image/*`` for image sources.
-    Safe values retain single template escaping; developer-supplied literals
-    and passthrough attributes still raise via :func:`_check_url`.
+    Data-derived URLs must not take the whole render down. The decision is
+    :func:`djust.components.utils.url_allowed` (``image=True`` also allows an inline
+    ``data:image/*`` URI, for image sources). Safe values retain single template
+    escaping; a marked-safe value is returned as plain text so the template escapes it
+    (:func:`_plain_url`). Developer-supplied literals and passthrough attributes go
+    through :func:`_check_url`, which raises for a script scheme.
     """
-    if value is not None and _has_unsafe_url_scheme(value, image=image):
+    if value is None:
+        return value
+    value = _plain_url(value)
+    if not url_allowed(value, image=image):
         logger.debug("theming: %s= URL with a disallowed scheme rendered as '#'", name)
         return "#"
     return value
 
 
+def _check_url_list(name: str, value: Any, *, image: bool = False) -> str:
+    """``value`` of a list-valued attribute (``srcset``, ``ping``) with each URL judged.
+
+    An entry the allowlist rejects becomes ``"#"`` (and is logged); the others stay, so one
+    bad entry does not take the good ones with it. ``srcset`` is split the way the HTML spec
+    splits it (:func:`djust.components.utils._srcset_candidates`, the parse the
+    ``djust_components`` ``srcset`` sinks use), ``ping`` on ASCII whitespace. Returns plain
+    text, which the caller escapes once.
+    """
+    text = str(_plain_url(value))
+    if name == "srcset":
+        parts = []
+        for url, descriptors in _srcset_candidates(text):
+            if not url_allowed(url, image=True):
+                logger.warning("theming: %s= URL with a disallowed scheme rendered as '#'", name)
+                url = "#"
+            parts.append(" ".join([url, *descriptors]))
+        return ", ".join(parts)
+    kept = []
+    for url in (u for u in re.split(r"[\t\n\f\r ]+", text) if u):
+        if not url_allowed(url, image=image):
+            logger.warning("theming: %s= URL with a disallowed scheme rendered as '#'", name)
+            url = "#"
+        kept.append(url)
+    return " ".join(kept)
+
+
+def _resolve_callable(value: Any) -> Any:
+    """What the template engine makes of ``value`` when it prints ``{{ item.url }}``.
+
+    The engine CALLS a callable it finds while resolving a variable, ONCE, and prints
+    ``str`` of the result; a check that runs before the template sees the callable, not what
+    it returns, and judged ``"<bound method ...>"`` (no scheme, so allowed) while the engine
+    then printed ``javascript:...`` (#3749). This resolves the value by the engine's own rules
+    (``django.template.base.Variable._resolve_lookup``): a ``do_not_call_in_templates`` value
+    is left as it is (the engine prints it), an ``alters_data`` one is never called (the
+    engine prints ``string_if_invalid``), and one that needs arguments is left to the engine,
+    which prints ``string_if_invalid`` for it.
+
+    The caller replaces the item's value with the result, so the template does not call it
+    again, and the result must be something the engine will NOT call again: a result that is
+    itself callable (``lambda: (lambda: "javascript:...")``) is written back as the text the
+    engine would have printed for it, ``str(result)`` (#3765). One call, then text.
+    """
+    if not callable(value) or getattr(value, "do_not_call_in_templates", False):
+        return value
+    if getattr(value, "alters_data", False):
+        return value
+    try:
+        result = value()
+    except TypeError:
+        try:
+            inspect.signature(value).bind()
+        except (TypeError, ValueError):
+            return value  # it needs arguments: the engine renders string_if_invalid
+        raise
+    except Exception as exc:
+        if getattr(exc, "silent_variable_failure", False):
+            return value  # the engine renders string_if_invalid for it
+        raise
+    return str(result) if callable(result) else result
+
+
+def _neutralise_passthrough_url(name: str, value: Any, *, image: bool = False) -> Any:
+    """A pass-through URL attribute other than ``href`` / ``src`` / ``action`` / ``formaction``.
+
+    ``"#"`` (and a warning) for a scheme the shared allowlist rejects, whatever it is; these
+    attributes never raised, so a script scheme does not raise here either. The value is
+    returned as plain text (:func:`_plain_url`), which the caller escapes, and that text is
+    the one that was judged.
+    """
+    value = _plain_url(value)
+    if not url_allowed(value, image=image):
+        logger.warning("theming: %s= URL with a disallowed scheme rendered as '#'", name)
+        return "#"
+    return value
+
+
 class _ItemAttributeProxy:
-    """Override one template-visible attribute without modifying its object."""
+    """Override one template-visible value of an item without modifying the item.
+
+    The engine reads ``item.url`` by a SUBSCRIPT first and an ATTRIBUTE second, so both are
+    answered here: ``proxy["url"]`` and ``proxy.url`` return the checked value, and every
+    other key or attribute is the item's own (a subscript the item does not support raises
+    what the item raises, which sends the engine on to the attribute).
+    """
 
     def __init__(self, item: Any, name: str, value: Any) -> None:
         self._item = item
         self._name = name
         self._value = value
+
+    def __getitem__(self, key: Any) -> Any:
+        if key == self._name:
+            return self._value
+        return self._item[key]
 
     def __getattr__(self, name: str) -> Any:
         if name == self._name:
@@ -304,19 +553,43 @@ class _ItemAttributeProxy:
         return getattr(self._item, name)
 
 
+_MISSING = object()
+
+
+def _lookup(item: Any, name: str) -> Any:
+    """``item.<name>`` as the template engine resolves it: ``item[name]`` first, for ANY object
+    that supports a subscript, then ``getattr`` (``Variable._resolve_lookup``, the same
+    exceptions). :data:`_MISSING` when neither finds it. Reading the attribute first, or only
+    for a non-``Mapping``, judges a value the engine does not print (#3765)."""
+    try:
+        return item[name]
+    except (TypeError, AttributeError, KeyError, ValueError, IndexError):
+        pass
+    try:
+        return getattr(item, name)
+    except (TypeError, AttributeError):
+        return _MISSING
+
+
 def _map_item_attribute(items: Any, name: str, transform: Callable[[Any], Any]) -> Any:
-    """Copy changed dicts, proxy changed objects and materialise item iterables."""
+    """Copy changed dicts, proxy changed objects and materialise item iterables.
+
+    The value is looked up (:func:`_lookup`) and resolved (:func:`_resolve_callable`) the way
+    the template engine will resolve ``{{ item.<name> }}`` BEFORE it is transformed, so the
+    transform judges what is printed.
+    """
     if items is None or isinstance(items, (str, bytes)):
         return items
-    if isinstance(items, dict):
-        value = items.get(name)
-        safe = transform(value)
-        return {**items, name: safe} if safe is not value else items
-    missing = object()
-    value = getattr(items, name, missing)
-    if value is not missing:
-        safe = transform(value)
-        return _ItemAttributeProxy(items, name, safe) if safe is not value else items
+    value = _lookup(items, name)
+    if value is not _MISSING:
+        safe = transform(_resolve_callable(value))
+        if safe is value:
+            return items
+        if isinstance(items, dict):
+            return {**items, name: safe}
+        return _ItemAttributeProxy(items, name, safe)
+    if isinstance(items, Mapping):  # a mapping without the key: nothing to check, not a list
+        return items
     if isinstance(items, Iterable):
         return [_map_item_attribute(item, name, transform) for item in items]
     return items
@@ -334,7 +607,20 @@ def _neutralise_item_urls(items: Any, name: str = "url") -> Any:
 def _passthrough_attrs(attrs: dict[str, Any], skip: tuple[str, ...]) -> SafeString:
     """``key="value"`` pairs for the attrs a component template does not
     handle itself. ``dj_input`` → ``dj-input``; values are escaped; ``True``
-    emits a bare attribute, ``False``/``None`` nothing."""
+    emits a bare attribute, ``False``/``None`` nothing.
+
+    Names are validated, because they are written into the tag as given: a
+    name that is not a plain attribute identifier raises ``ValueError``, as
+    does an ``on*`` event-handler attribute (inline script — use a ``dj-*``
+    binding) and a script-bearing ``href`` / ``src`` / ``action`` /
+    ``formaction`` URL (:data:`_RAISING_SCHEMES`). Any other scheme the shared
+    allowlist rejects in one of those four renders as ``#`` (:func:`_check_url`).
+
+    Every other attribute that holds a URL (:func:`_is_url_attribute`: ``ping``,
+    ``poster``, ``srcset``, ``data``, ``dj-navigate`` ...) is judged by the same allowlist
+    and renders ``#`` for a scheme it rejects, never raising (#3749). A value that is a
+    LIST of URLs (``srcset``, ``ping``) is judged entry by entry.
+    """
     from django.utils.html import escape
 
     parts = []
@@ -342,9 +628,28 @@ def _passthrough_attrs(attrs: dict[str, Any], skip: tuple[str, ...]) -> SafeStri
         if key in skip or value is None or value is False:
             continue
         name = key.replace("_", "-")
-        if name.lower() in _URL_ATTRS and value is not True:
-            _check_url(key, value)
-        parts.append(name if value is True else f'{name}="{escape(value)}"')
+        if not _ATTR_NAME_RE.fullmatch(name):
+            raise ValueError(f"{key!r} is not a valid HTML attribute name")
+        if name.lower().startswith("on"):
+            raise ValueError(
+                f"{key!r}: inline event-handler attributes are not passed through; "
+                "use a dj-* binding (dj_click, dj_change ...)"
+            )
+        lowered = name.lower()
+        if lowered in _URL_ATTRS and value is not True:
+            value = _check_url(key, value)
+        elif value is not True and _is_url_attribute(lowered):
+            if lowered in ("srcset", "ping"):
+                value = _check_url_list(lowered, value, image=lowered in _IMAGE_URL_ATTRS)
+            else:
+                value = _neutralise_passthrough_url(key, value, image=lowered in _IMAGE_URL_ATTRS)
+        # ``escape`` (not ``conditional_escape``): a marked-safe value is escaped too, as it
+        # always was. ``format_html`` then escapes ``name`` and leaves the escaped value alone.
+        parts.append(
+            format_html("{}", name)
+            if value is True
+            else format_html('{}="{}"', name, escape(value))
+        )
     return mark_safe(" ".join(parts))
 
 
@@ -379,6 +684,7 @@ def theme_modal(
 
     Usage:
         {% theme_modal id="confirm" title="Confirm Action" size="md" is_open=modal.is_open %}
+        {% theme_modal_block id="confirm" title="Confirm" is_open=modal.is_open %}…{% end_theme_modal_block %}
     """
     request = context.get("request")
     tmpl = resolve_component_template(request, "modal")
@@ -430,6 +736,7 @@ def theme_dropdown(
 
     Usage:
         {% theme_dropdown id="actions" label="Actions" align="right" is_open=menu.is_open %}
+        {% theme_dropdown_block id="actions" label="Actions" is_open=menu.is_open %}…{% end_theme_dropdown_block %}
     """
     request = context.get("request")
     tmpl = resolve_component_template(request, "dropdown")
@@ -607,6 +914,45 @@ def theme_pagination(
     return mark_safe(tmpl.render(ctx))
 
 
+def _option_parts(opt: Any) -> tuple[Any, Any, bool]:
+    """``(value, label, selected)`` of one option: a dict, a ``(value, label)``
+    pair, or an object with ``value`` / ``label`` attributes. Missing parts are
+    ``""`` (what the template printed before) rather than ``"None"``."""
+    if isinstance(opt, dict):
+        value, label, selected = opt.get("value"), opt.get("label"), opt.get("selected")
+    elif isinstance(opt, (tuple, list)):
+        value = opt[0] if len(opt) > 0 else None
+        label = opt[1] if len(opt) > 1 else value
+        selected = None
+    else:
+        value, label, selected = (getattr(opt, key, None) for key in ("value", "label", "selected"))
+    return ("" if value is None else value, "" if label is None else label, bool(selected))
+
+
+def _mark_selected(options: Any, value: Any) -> list[dict[str, Any]]:
+    """Copy ``options`` as ``{value, label, selected}`` dicts, selecting those
+    whose value equals ``value`` as a string. A list, tuple or set ``value``
+    (a ``multiple`` select) selects every match. The caller's option dicts are
+    shared view state, so none is mutated."""
+    if value is None:
+        wanted: set[str] = set()
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        wanted = {str(v) for v in value}
+    else:
+        wanted = {str(value)}
+    resolved = []
+    for opt in options:
+        opt_value, label, selected = _option_parts(opt)
+        resolved.append(
+            {
+                "value": opt_value,
+                "label": label,
+                "selected": selected or str(opt_value) in wanted,
+            }
+        )
+    return resolved
+
+
 @register.simple_tag(takes_context=True)
 def theme_select(
     context: Context,
@@ -614,6 +960,8 @@ def theme_select(
     label: Optional[str] = None,
     options: Any = None,
     placeholder: str = "",
+    value: Any = None,
+    id: Optional[str] = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -622,22 +970,37 @@ def theme_select(
     Args:
         name: Select name attribute
         label: Optional label text
-        options: List of dicts with 'value' and 'label' keys
+        options: List of dicts with 'value' and 'label' keys. An option dict
+            carrying a truthy 'selected' is selected, as before.
         placeholder: Placeholder option text
-        **attrs: Additional HTML attributes (required, disabled, etc.)
+        value: The current value. The option whose 'value' equals it
+            (compared as strings, so ``3`` matches ``"3"``) is rendered
+            ``selected``, which is what an edit form needs to open on the
+            stored choice. The placeholder is selected only when nothing else is.
+        id: The ``<select>``'s id, which the label's ``for`` points at.
+            Defaults to ``name``.
+        **attrs: Additional HTML attributes. ``required`` and ``disabled`` are
+            handled by the template; everything else (``dj_change``,
+            ``data_*``, ``aria_*`` ...) is emitted on the ``<select>``, escaped
+            per attribute, underscores becoming hyphens.
 
     Usage:
         {% theme_select "country" label="Country" options=countries placeholder="Choose..." %}
+        {% theme_select "category" options=opts value=doc.category dj_change="set_category" %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
     request = context.get("request")
     tmpl = resolve_component_template(request, "select")
+    resolved_options = _mark_selected(options or [], value)
     ctx = {
         "name": name,
+        "field_id": id or name,
         "label": label,
-        "options": options or [],
+        "options": resolved_options,
         "placeholder": placeholder,
+        "has_selected_option": any(opt["selected"] for opt in resolved_options),
         "attrs": remaining_attrs,
+        "extra_attrs": _passthrough_attrs(remaining_attrs, skip=("class", "required", "disabled")),
         "css_prefix": _css_prefix(),
         **slots,
     }
@@ -651,6 +1014,7 @@ def theme_textarea(
     label: Optional[str] = None,
     placeholder: str = "",
     rows: int = 4,
+    id: Optional[str] = None,
     **attrs: Any,
 ) -> SafeString:
     """
@@ -661,6 +1025,8 @@ def theme_textarea(
         label: Optional label text
         placeholder: Placeholder text
         rows: Number of visible text rows
+        id: The ``<textarea>``'s id, which the label's ``for`` points at.
+            Defaults to ``name``.
         **attrs: Additional HTML attributes (required, disabled, readonly, etc.)
 
     Usage:
@@ -671,6 +1037,7 @@ def theme_textarea(
     tmpl = resolve_component_template(request, "textarea")
     ctx = {
         "name": name,
+        "field_id": id or name,
         "label": label,
         "placeholder": placeholder,
         "rows": rows,
@@ -877,11 +1244,15 @@ def theme_progress(
         value: Current value (None for indeterminate)
         max: Maximum value
         label: Accessible label text
-        **attrs: Additional HTML attributes
+        **attrs: Additional HTML attributes. ``class`` and ``id`` land on the
+            wrapper; everything else (``dj_upload_progress``, ``dj_hook``,
+            ``data_*`` ...) is emitted on the wrapper too, underscores becoming
+            hyphens.
 
     Usage:
         {% theme_progress value=75 max=100 label="Upload progress" %}
         {% theme_progress label="Loading..." %}
+        {% theme_progress value=0 dj_upload_progress="avatar" %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
     request = context.get("request")
@@ -899,6 +1270,9 @@ def theme_progress(
         "is_indeterminate": is_indeterminate,
         "percentage": percentage,
         "attrs": remaining_attrs,
+        # `dj_upload_progress="slot"` makes the client drive this bar from
+        # that upload slot's progress (#3289).
+        "extra_attrs": _passthrough_attrs(remaining_attrs, skip=("class", "id")),
         "css_prefix": _css_prefix(),
         **slots,
     }
@@ -950,6 +1324,7 @@ def theme_tooltip(context: Context, text: str, position: str = "top", **attrs: A
             ``mark_safe`` or ``format_html`` output.
 
     Usage:
+        {% theme_tooltip_block "Help text" position="top" %}<button>Hover me</button>{% end_theme_tooltip_block %}
         {% theme_tooltip "Help text" position="top" slot_content=trigger_html %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
@@ -967,26 +1342,164 @@ def theme_tooltip(context: Context, text: str, position: str = "top", **attrs: A
     return mark_safe(tmpl.render(ctx))
 
 
+#: The icon size ``theme_icon`` falls back to when it is not given a usable one.
+_ICON_DEFAULT_SIZE = "20"
+
+#: What ``size=`` may be: a plain decimal number (``16``, ``1.5``), optionally with a CSS
+#: length unit (any case, as CSS reads it). Matched whole (``fullmatch``), and no whitespace,
+#: sign or exponent is allowed: ``size`` is written into two attributes, so only ``[0-9.]`` and
+#: a unit may reach them.
+_ICON_SIZE_RE = re.compile(r"([0-9]+(?:\.[0-9]{1,3})?)(px|em|rem|ex|pt|%)?", re.IGNORECASE)
+
+#: A ``float`` / ``Decimal`` is rounded to this many decimals before it is matched, so computed
+#: noise (``14 * 1.1`` is ``15.400000000000002``) prints as ``15.4``.
+_ICON_SIZE_STEP = Decimal("0.001")
+
+#: The largest number a size may carry (any unit): a bound, not a design size.
+_ICON_SIZE_MAX = Decimal(1000)
+
+#: The most digits the whole-number part of a valid size has once its leading zeros are dropped
+#: (``1000`` is four). A longer one is over :data:`_ICON_SIZE_MAX` by length alone, so it is
+#: refused BEFORE any ``Decimal`` is built from it: ``Decimal(<text>)`` is not safe on an
+#: unbounded digit string, because the pure-Python ``_pydecimal`` parses it with ``int()``, which
+#: raises ``ValueError`` past ``sys.get_int_max_str_digits()`` (4300 by default); CPython's C
+#: ``_decimal`` does not, which is why this only showed on a build using ``_pydecimal`` (#3766).
+_ICON_SIZE_MAX_WHOLE_DIGITS = len(str(int(_ICON_SIZE_MAX)))
+
+
+def _icon_size_text(value: Any) -> str:
+    """The text of ``value`` to match: a float or Decimal rounded to three decimals, else ``str``.
+
+    ``str()`` is called once. Raises for a value that has no usable text (a ``__str__`` that
+    raises, an int over Python's 4300-digit limit, a NaN or an out-of-range float):
+    :func:`_icon_size` turns any exception here into the default size.
+    """
+    if isinstance(value, float):
+        value = Decimal(repr(value))
+    if isinstance(value, Decimal):
+        return format(value.quantize(_ICON_SIZE_STEP), "f")
+    return str(value)
+
+
+def _icon_size_number(text: str) -> Optional[Decimal]:
+    """The number in ``text`` (the digits of ``_ICON_SIZE_RE`` group 1), or ``None`` if too big.
+
+    The length of the whole-number part is checked before ``Decimal`` sees it, so no digit string
+    of any length reaches a conversion that has a digit limit. Leading zeros are not magnitude
+    and are dropped first (``"0016"`` is 16, as it always was). The fractional part is at most
+    three digits by the pattern. It does not catch: :func:`_icon_size` turns anything ``Decimal``
+    raises anyway (a build with other limits) into the default size, in one place.
+    """
+    whole, dot, fraction = text.partition(".")
+    whole = whole.lstrip("0")
+    if len(whole) > _ICON_SIZE_MAX_WHOLE_DIGITS:
+        return None
+    return Decimal((whole or "0") + dot + fraction)
+
+
+def _icon_size(value: Any) -> str:
+    """Return ``value`` as text that is safe in an SVG ``width`` / ``height``, or the default.
+
+    Accepted: a number above zero and at most 1000 with up to three decimals, optionally
+    followed by one of ``px em rem ex pt %`` in any case: ``16``, ``"16"``, ``1.5``, ``24px``,
+    ``1.5rem``, ``"16PX"``. An ``int``, ``float`` or ``Decimal`` is a number; a ``float`` or
+    ``Decimal`` is first rounded to three decimals. Any other type is matched by its text
+    (``str``), so a ``Fraction`` (``"3/2"``) is refused. The number is re-printed from its
+    parsed value and the unit lower-cased (``"016"`` and ``16.0`` both print ``16``, ``16PX``
+    prints ``16px``), so what reaches the markup is built here, not copied from the caller.
+
+    Anything else (a quote, ``>``, an entity, whitespace, a sign, an exponent, a ``bool``,
+    zero, a negative, a number over 1000, a value with no text) renders the default size and
+    logs one WARNING per call (the value's type, never its content; a template that renders
+    the icon in a loop logs once per icon). It does not raise: ``size`` is often data, and bad
+    data must not become a 500 (the way a disallowed URL renders ``#`` in
+    :func:`_neutralise_url`). That includes a value whose ``__str__`` raises and an int too
+    large to print; both used to propagate. So does a digit string of any length: the
+    whole-number part is length-checked before any ``Decimal`` is built from it (see
+    :func:`_icon_size_number`). ``None`` means "not given" and renders the default silently.
+    """
+    if value is None:
+        return _ICON_DEFAULT_SIZE
+    parsed: Optional[Tuple[Optional[Decimal], str]] = None
+    try:
+        match = _ICON_SIZE_RE.fullmatch(_icon_size_text(value))
+        if match is not None:
+            parsed = (_icon_size_number(match.group(1)), (match.group(2) or "").lower())
+    except Exception:  # noqa: BLE001 - any failure to get a number is bad data: warn, use the default
+        parsed = None
+    if parsed is not None:
+        number, unit = parsed
+        if number is not None and 0 < number <= _ICON_SIZE_MAX:
+            return format(number.normalize(), "f") + unit
+    logger.warning(
+        "theming: theme_icon size= (a %s) is not a number or CSS length; rendering size %s",
+        type(value).__name__,
+        _ICON_DEFAULT_SIZE,
+    )
+    return _ICON_DEFAULT_SIZE
+
+
+#: The inside of each placeholder icon. Constant markup: only ``size`` varies, and it is
+#: added by ``format_html`` below, never by string interpolation under ``mark_safe``.
+_ICON_BODIES = {
+    "check": '<polyline points="20 6 9 17 4 12"></polyline>',
+    "x": '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>',
+    "alert": '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>',
+    "info": '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>',
+}
+
+
 @register.simple_tag
-def theme_icon(name: str, size: int = 20) -> SafeString:
+def theme_icon(name: str, size: Any = 20) -> SafeString:
     """
     Render an SVG icon (placeholder - integrate with your icon library).
 
     Args:
-        name: Icon name
-        size: Icon size in pixels
+        name: Icon name (``check``, ``x``, ``alert``, ``info``); any other name renders nothing
+        size: Icon size: a number of pixels (``16``) or a CSS length (``1.5rem``,
+            ``24px``). Anything else renders the default size, ``20``, and logs a warning
+            (see :func:`_icon_size`).
 
     Usage:
         {% theme_icon "check" size=16 %}
     """
-    # Placeholder SVG icons
-    icons = {
-        "check": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-        "x": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
-        "info": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
-    }
-    return mark_safe(icons.get(name, ""))
+    body = _ICON_BODIES.get(name)
+    if body is None:
+        return mark_safe("")
+    return format_html(
+        '<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+        'stroke="currentColor" stroke-width="2">{body}</svg>',
+        size=_icon_size(size),
+        body=mark_safe(body),
+    )
+
+
+# A query string or fragment: such a url is not a plain path match.
+_URL_TAIL_RE = re.compile(r"[?#]")
+
+
+def _nav_url_is_plain_path(url: str) -> bool:
+    return url.startswith("/") and not url.startswith("//") and not _URL_TAIL_RE.search(url)
+
+
+def _nav_url_matches(url: str, path: str) -> bool:
+    """Whether a nav link to ``url`` is active on ``path``.
+
+    ``/`` matches only itself. Any other url matches its own path and what is
+    under it, on a SEGMENT boundary (``/docs`` is active on ``/docs/x/`` and
+    ``/docs``, not on ``/docs-old/``), with or without a trailing slash. Both
+    sides are percent-decoded, because ``request.path`` is decoded while a
+    reversed url is not. ``components.js`` (``updateNavActive``) is the same
+    rule: change one, change the other, and the ``PARITY_CASES`` tables in both
+    tests (#3318).
+    """
+    if not _nav_url_is_plain_path(url):
+        return False
+    url, path = unquote(url), unquote(path)
+    if url == "/":
+        return path == "/"
+    base = url.rstrip("/")
+    return path == base or path.startswith(base + "/")
 
 
 @register.simple_tag(takes_context=True)
@@ -1026,16 +1539,20 @@ def theme_nav_item(
     if is_active is None and request is not None:
         request_path = getattr(request, "path", None)
         if request_path is not None:
-            if url == "/":
-                is_active = request_path == "/"
-            else:
-                is_active = request_path.startswith(url)
+            is_active = _nav_url_matches(url, request_path)
 
     ctx = {
         "label": label,
         "url": url,
         "icon": icon,
         "is_active": bool(is_active),
+        # Marker for the client (#3318). Only a link whose state was
+        # auto-detected from the path above carries it: components.js re-runs
+        # that same rule on navigation, for a nav that sits outside dj-root and
+        # is never re-rendered. An explicit ``active=`` is the app's call, and a
+        # url that is not a plain path (``?``, ``#``, ``//``, a scheme) is not
+        # a path match.
+        "track_active": active is None and _nav_url_is_plain_path(url),
         "badge": badge,
         "attrs": remaining_attrs,
         "css_prefix": _css_prefix(),
@@ -1068,6 +1585,7 @@ def theme_nav_group(
     Usage:
         {% theme_nav_group "Admin" items=admin_links %}
         {% theme_nav_group "Settings" items=settings_links expanded=False %}
+        {% theme_nav_group_block "Settings" %}{% theme_nav_item "Home" "/" %}{% end_theme_nav_group_block %}
     """
     slots, remaining_attrs = _extract_slots(attrs)
     request = context.get("request")
@@ -1147,3 +1665,178 @@ def theme_sidebar_nav(context: Context, sections: Any = None, **attrs: Any) -> S
         **slots,
     }
     return mark_safe(tmpl.render(ctx))
+
+
+# ---------------------------------------------------------------------------
+# Block forms (#2894, #3279)
+#
+# `{% theme_card %}` and its siblings are `simple_tag`s: their body is an
+# argument, so a body made of other template tags has to be pre-rendered in
+# Python and passed through a `|safe` slot. The block forms below are the same
+# components with the body written between an opening and a closing tag:
+#
+#     {% theme_card_block title="Welcome" %}
+#         {% theme_button "Save" variant="primary" %}
+#     {% end_theme_card_block %}
+#
+# Convention: block form = inline name + `_block`, closing tag
+# `end_<name>_block`. The inline tags are unchanged. A block form takes the
+# inline tag's arguments EXCEPT the one its body replaces, and it calls the
+# inline function with the rendered body, so the context, the (per-theme)
+# template and the escaping are the inline form's — there is one copy of each
+# component's markup.
+#
+# The body is rendered by Django's own nodelist in the caller's context, so
+# autoescaping applies to a variable inside it exactly as anywhere else in the
+# template, and the rendered result is already safe when it reaches the
+# component's `|safe` slot. These are raw `@register.tag` wrappers rather than
+# `simple_block_tag` (Django 5.2+) because djust supports Django 4.2; a wrapper
+# of this shape — one `parser.parse((end,))`, body rendered as-is — is bridged
+# to djust's Rust engine by `djust.template_libraries` (ADR-030).
+# ---------------------------------------------------------------------------
+
+
+class _ThemeBlockNode(template.Node):
+    """Render the body, then call the inline tag function with it."""
+
+    def __init__(
+        self,
+        inline: Any,
+        body_param: str,
+        names: list[str],
+        args: list[Any],
+        kwargs: dict[str, Any],
+        nodelist: Any,
+    ) -> None:
+        self.inline = inline
+        self.body_param = body_param
+        self.names = names
+        self.args = args
+        self.kwargs = kwargs
+        self.nodelist = nodelist
+
+    def render(self, context: Context) -> str:
+        # Strip the whitespace the tag's own line breaks add around the body:
+        # it is markup noise in a block-level card and visible spacing inside
+        # an inline wrapper such as the tooltip.
+        body = mark_safe(self.nodelist.render(context).strip())
+        call = {name: value.resolve(context) for name, value in zip(self.names, self.args)}
+        call.update({key: value.resolve(context) for key, value in self.kwargs.items()})
+        call[self.body_param] = body
+        return str(self.inline(context, **call))
+
+
+def _register_block_form(inline: Any, body_param: str, reserved: tuple[str, ...]) -> None:
+    """Register ``<inline>_block`` as the block form of ``inline``.
+
+    ``body_param`` is the keyword the rendered body is passed as; ``reserved``
+    are the names a caller may not also pass, because the body already fills
+    them (``body=`` and ``slot_body=`` on a card). Passing one is a
+    ``TemplateSyntaxError`` at compile time rather than a body that silently
+    wins or loses.
+    """
+    from inspect import getfullargspec, unwrap
+
+    from django.template import TemplateSyntaxError
+    from django.template.library import parse_bits
+
+    name = f"{inline.__name__}_block"
+    end_name = f"end_{name}"
+    spec = getfullargspec(unwrap(inline))
+    params = list(spec.args)
+    defaults = list(spec.defaults or ())
+    # Where the body parameter sat among the inline tag's positional arguments,
+    # when it was one (alert's `message` is the first). Positional arguments at
+    # or past that position would bind to different names than they do inline.
+    body_position = params[1:].index(body_param) if body_param in params else None
+    if body_param in params:
+        # A required body parameter (alert's `message`) is filled by the block,
+        # so it must not be asked for by the tag.
+        index = params.index(body_param)
+        first_default = len(params) - len(defaults)
+        del params[index]
+        if index >= first_default:
+            del defaults[index - first_default]
+    # `parse_bits` strips the leading `context` itself; the names positional
+    # arguments bind to are what follows it.
+    positional = params[1:]
+
+    def compile_block(parser: Any, token: Any) -> _ThemeBlockNode:
+        bits = token.split_contents()[1:]
+        if len(bits) >= 2 and bits[-2] == "as":
+            raise TemplateSyntaxError(
+                f"'{name}' does not support 'as <variable>'; it renders in place"
+            )
+        args, kwargs = parse_bits(
+            parser,
+            bits,
+            params,
+            spec.varargs,
+            spec.varkw,
+            tuple(defaults) or None,
+            spec.kwonlyargs,
+            spec.kwonlydefaults,
+            True,
+            name,
+        )
+        if body_position is not None and len(args) > body_position:
+            raise TemplateSyntaxError(
+                f"'{name}' takes its {body_param} from the block between the tags, so "
+                f"positional arguments would bind differently than in '{inline.__name__}': "
+                "pass them as keywords"
+            )
+        clash = sorted(set(kwargs) & set(reserved))
+        if clash:
+            raise TemplateSyntaxError(
+                f"'{name}' takes its {body_param} from the block between the tags, so it "
+                f"cannot also be given {', '.join(clash)}="
+            )
+        nodelist = parser.parse((end_name,))
+        parser.delete_first_token()
+        return _ThemeBlockNode(inline, body_param, positional, args, kwargs, nodelist)
+
+    register.tag(name, compile_block)
+
+
+# (inline tag, keyword the block's body fills, names it may not also be given)
+_register_block_form(theme_card, "body", ("body", "slot_body"))
+_register_block_form(theme_alert, "message", ("message", "slot_message"))
+_register_block_form(theme_modal, "slot_body", ("slot_body",))
+_register_block_form(theme_dropdown, "slot_menu", ("slot_menu",))
+_register_block_form(theme_tooltip, "slot_content", ("slot_content",))
+_register_block_form(theme_nav_group, "slot_items", ("slot_items", "items"))
+
+
+def _register_misspelt_end_tag(inline: Any) -> None:
+    """``{% end_<inline> %}`` is an error that says where the block form is.
+
+    ``{% theme_card %}…{% end_theme_card %}`` is the spelling the scaffold and
+    the old docs showed (#2894). The inline tags stay inline tags, so the
+    closing tag is NOT accepted; this only replaces Django's generic "Invalid
+    block tag" with a pointer to the block form.
+    """
+    from django.template import TemplateSyntaxError
+
+    end_name = f"end_{inline.__name__}"
+    block = f"{inline.__name__}_block"
+
+    def refuse(parser: Any, token: Any) -> Any:
+        raise TemplateSyntaxError(
+            f"'{end_name}' is not a closing tag: '{inline.__name__}' is an inline tag with "
+            f"no body. To put template tags in the body use "
+            f"{{% {block} %}}...{{% end_{block} %}}."
+        )
+
+    register.tag(end_name, refuse)
+
+
+for _inline in (
+    theme_card,
+    theme_alert,
+    theme_modal,
+    theme_dropdown,
+    theme_tooltip,
+    theme_nav_group,
+):
+    _register_misspelt_end_tag(_inline)
+del _inline

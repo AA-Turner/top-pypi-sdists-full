@@ -385,7 +385,7 @@ void Solution::update_indicators(
     // number_of_stages_real) contain no cuts or a single cut separating one
     // item from one waste (i.e. ≤ 2 non-residual children, exactly 1 item).
     // A pattern is Roadef2018-style if ALL depth-k CUT nodes are valid
-    // Roadef2018 extra cuts (≥ 2 item children, ≤ 3 non-residual children
+    // Roadef2018 extra cuts (2 item children, ≤ 3 non-residual children
     // total).  If any depth-k CUT node is a regular intermediate stage the
     // flags remain false.
     if (bin.number_of_stages_real > 0) {
@@ -413,7 +413,7 @@ void Solution::update_indicators(
             }
             if (item_children == 1 && total_children <= 2) {
                 // Non-exact style: one item + at most one waste.
-            } else if (item_children >= 2 && total_children <= 3) {
+            } else if (item_children == 2 && total_children <= 3) {
                 // Roadef2018 style: two items + at most one waste.
                 any_roadef2018_style = true;
                 all_non_exact = false;
@@ -448,14 +448,6 @@ void Solution::update_indicators(
     // Number-of-stages feasibility check.
     if (this->number_of_stages_ > instance().parameters().number_of_stages) {
         this->number_of_stages_feasible_ = false;
-    }
-
-    if (!minimum_waste_length_feasible()) {
-        for (const SolutionNode& node: bin.nodes) {
-            std::cout << node << std::endl;
-        }
-        write("solution_rectangleguillotine.csv");
-        exit(1);
     }
 
     cutting_cost_ += instance().parameters().waste_cost * (waste() - waste_before_bin);

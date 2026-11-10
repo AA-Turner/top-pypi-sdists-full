@@ -1,15 +1,11 @@
 //! The cozytensors level: a tensor's stored bytes become byte ranges of its chunk files. A
 //! location longer than the rest of its chunk continues at offset 0 of the following chunks.
 
-#[cfg(feature = "store")]
 use std::collections::{btree_map::Entry, BTreeMap};
 
 use super::Dst;
-#[cfg(feature = "store")]
 use super::{Copy, ReadOpts, ReadStats, Src};
-#[cfg(feature = "store")]
 use crate::format::{self, Body, Location, Tensor};
-#[cfg(feature = "store")]
 use crate::store::{Checkpoint, Error, Result};
 
 /// `dst.len()` stored bytes of one tensor from `offset`: a plain tensor's data (`role` `""`),
@@ -23,7 +19,6 @@ pub struct Target<'a> {
     pub dst: Dst,
 }
 
-#[cfg(feature = "store")]
 impl Checkpoint {
     /// Every target's bytes through the engine ([`super::read`]), each chunk opened once and
     /// read in chunk order.
@@ -69,7 +64,6 @@ impl Checkpoint {
 }
 
 /// The location `t` reads, checked to hold its range.
-#[cfg(feature = "store")]
 fn stored(tensor: &Tensor, t: &Target) -> Result<Location> {
     let what = || format!("{}/{}", t.component, t.key);
     let at = match (&tensor.body, t.role) {

@@ -47,20 +47,21 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "hooks"))
+import claude_paths                      # noqa: E402
 import self_improve_signals as sig       # noqa: E402
 import memory_engine as ME               # noqa: E402
 import reconcile_memory_index as R       # noqa: E402
 
 def _projects_dir():
-    return Path.home() / ".claude" / "projects"
+    return claude_paths.config_dir() / "projects"
 
 
 def _backups_dir():
-    return Path.home() / ".claude" / "self-improve-audit" / "backups"
+    return claude_paths.audit_dir() / "backups"
 
 
 def _parked_dir():
-    return Path.home() / ".claude" / "self-improve-audit" / "migration-unresolved"
+    return claude_paths.audit_dir() / "migration-unresolved"
 
 
 # ---- slug -> path resolution (filesystem-guided; `/` and `.` both encode to `-`) ---------------
@@ -266,10 +267,15 @@ def _placement_slug(anchor, entry):
 
 
 def _is_own_placement(stored, slug, entry):
-    """True when the body `stored` at `slug` is byte for byte what migrating `entry` writes there."""
+    """True when the body `stored` at `slug` is byte for byte what migrating `entry` writes there,
+    under this engine (with the `title:` field) or under one from before it (without): a run that
+    crashed before an upgrade and resumes after it would otherwise place a `-2` copy of each fact."""
     hook = (entry["hook"] or "").strip()
-    written = ME._framed_body(slug, hook, entry["type"], entry["body"])  # noqa: SLF001 - the engine's frame
-    return bool(entry["body"]) and stored.rstrip("\n") == written.rstrip("\n")
+    # The engine's frame plus the `title:` its write path adds: what upsert really stores.
+    framed = ME._framed_body(slug, hook, entry["type"], entry["body"])  # noqa: SLF001 - the engine's frame
+    written = ME._with_title(framed, entry["title"])  # noqa: SLF001 - the engine's title field
+    return bool(entry["body"]) and stored.rstrip("\n") in (written.rstrip("\n"),
+                                                           framed.rstrip("\n"))
 
 
 # ---- receipts (idempotency + resume) -----------------------------------------------------------

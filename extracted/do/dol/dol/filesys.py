@@ -12,6 +12,7 @@ Main entry points:
 - ``JsonFiles``: same, with JSON-decoded values
 - ``PickleFiles``: same, with pickled values
 - ``mk_dirs_if_missing``: make a file store create missing directories on write
+- ``dir_made``: make the directories for a write, unmake them if it fails
 
     >>> import tempfile
     >>> s = Files(tempfile.mkdtemp())
@@ -25,6 +26,7 @@ Main entry points:
 import locale
 import os
 from os import stat as os_stat
+from contextlib import contextmanager
 from functools import wraps, partial
 from typing import Union, Optional
 from collections.abc import Callable, Iterable
@@ -362,7 +364,11 @@ class KeyValidationError(KeyError):
 
 # TODO: The validate and try/except is a frequent pattern. Make it a decorator.
 def validate_key_and_raise_key_error_on_exception(func):
-    """Method decorator: validate the key first, and re-raise any exception of the method as a ``KeyError``."""
+    """Method decorator: validate the key first, and re-raise any exception of the method as a ``KeyError``.
+
+    Which exceptions become a ``KeyError`` is the store's ``_reads_as_missing(error, k)``
+    (default: every ``Exception``; see ``FileBytesReader(strict_key_errors=...)``).
+    """
 
     @wraps(func)
     def wrapped_method(self, k, *args, **kwargs):
@@ -370,6 +376,10 @@ def validate_key_and_raise_key_error_on_exception(func):
         try:
             return func(self, k, *args, **kwargs)
         except Exception as e:
+            if getattr(self, "_strict_key_errors", False) and not _is_missing_file(
+                e, k
+            ):
+                raise
             raise KeyError(str(e))
 
     return wrapped_method
@@ -659,6 +669,18 @@ class FileInfoReader(FileCollection, KvReader):
         return os_stat(k)
 
 
+#: What ``FileBytesReader(strict_key_errors=True)`` reads as "no such key".
+_MISSING_FILE_ERRORS = (FileNotFoundError, IsADirectoryError, NotADirectoryError)
+
+
+def _is_missing_file(error: Exception, k) -> bool:
+    """Whether ``error`` means there is no file ``k``: not found, a folder where a file
+    is expected (on Windows that is a ``PermissionError``), or a path through a file."""
+    return isinstance(error, _MISSING_FILE_ERRORS) or (
+        isinstance(error, PermissionError) and os.path.isdir(k)
+    )
+
+
 class FileBytesReader(FileCollection, KvReader):
     """Reader mapping file paths under ``rootdir`` to the files' bytes."""
 
@@ -671,6 +693,29 @@ class FileBytesReader(FileCollection, KvReader):
         closefd=True,
         opener=None,
     )
+
+    _strict_key_errors: bool = False
+    _read_retry: "Callable | None" = None
+
+    def __init__(
+        self,
+        *args,
+        read_retry: "Callable | None" = None,
+        strict_key_errors: bool = False,
+        **kwargs,
+    ):
+        """
+        :param read_retry: How a file is read, ``read_retry(op, *args)`` (e.g. a
+            :class:`dol.atomic.Retry`, which retries a Windows sharing violation while a
+            writer swaps the file). Default ``None``: read once.
+        :param strict_key_errors: Default ``False``: any exception of a read, write or
+            delete becomes a ``KeyError`` (so a full disk or a permission error reads as
+            "missing"). ``True``: only a missing file (or a folder where a file is
+            expected) does; every other failure propagates as itself.
+        """
+        super().__init__(*args, **kwargs)
+        self._read_retry = read_retry
+        self._strict_key_errors = strict_key_errors
 
     @validate_key_and_raise_key_error_on_exception
     def __getitem__(self, k):
@@ -703,6 +748,11 @@ class FileBytesReader(FileCollection, KvReader):
         ...     print("KeyError (not FileNotFoundError) was raised.")
         KeyError (not FileNotFoundError) was raised.
         '''
+        if self._read_retry is None:
+            return self._read_file(k)
+        return self._read_retry(self._read_file, k)
+
+    def _read_file(self, k):
         with open(k, **self._read_open_kwargs) as fp:
             return fp.read()
 
@@ -757,8 +807,11 @@ class FileBytesPersister(LocalFileDeleteMixin, FileBytesReader, KvPersister):
         opener=None,
     )
     # _make_dirs_if_missing = False
+    _write: "Callable | None" = None
 
-    def __init__(self, *args, delete_func=None, write_open_kwargs=None, **kwargs):
+    def __init__(
+        self, *args, delete_func=None, write_open_kwargs=None, write_func=None, **kwargs
+    ):
         """Initialize FileBytesPersister.
 
         Args:
@@ -769,6 +822,15 @@ class FileBytesPersister(LocalFileDeleteMixin, FileBytesReader, KvPersister):
                 create files with ``0o600``), ``encoding=``, ``errors=`` or
                 ``newline=``. If you override ``mode``, also override the keys that go with
                 it (a binary mode takes no ``encoding``/``errors``/``newline``).
+            write_func: Optional ``write_func(path, data)`` that stores each value, in
+                place of ``open(path, ...).write(data)``, e.g.
+                :func:`dol.atomic.atomic_write` (or ``functools.partial(atomic_write,
+                fsync=True, perms=0o600)``), so a concurrent reader never sees a
+                truncated file. It runs inside the key-validated ``__setitem__``, so a
+                key outside the root is still refused. It gets bytes (a text store
+                encodes first, as UTF-8 by default, ``\\n`` as the platform writes it);
+                give it ``perms=`` etc. instead of ``write_open_kwargs``, which cannot
+                be combined with it. Default ``None``: plain ``open``.
             delete_func: Optional custom deletion function.
                 If None, uses class default (safe trash with fallback).
                 Common options from dol.trash:
@@ -792,6 +854,13 @@ class FileBytesPersister(LocalFileDeleteMixin, FileBytesReader, KvPersister):
             self._delete_func = delete_func
         if write_open_kwargs:
             self._write_open_kwargs = {**self._write_open_kwargs, **write_open_kwargs}
+        if write_func is not None:
+            if write_open_kwargs:
+                raise ValueError(
+                    "write_open_kwargs does not apply with write_func: configure "
+                    "write_func itself (e.g. functools.partial(atomic_write, perms=...))"
+                )
+            self._write = write_func
 
     def _check_value_before_open(self, v):
         """Raise if ``v`` can't be written, *before* the file is opened (and so
@@ -813,8 +882,15 @@ class FileBytesPersister(LocalFileDeleteMixin, FileBytesReader, KvPersister):
         #     dirname = os.path.dirname(k)
         #     os.makedirs(dirname, exist_ok=True)
         self._check_value_before_open(v)
+        if self._write is not None:
+            self._write(k, self._bytes_of(v))
+            return
         with open(k, **self._write_open_kwargs) as fp:
             return fp.write(v)
+
+    def _bytes_of(self, v) -> bytes:
+        """``v`` as the bytes handed to a ``write=`` function (a bytes-like value as is)."""
+        return v if isinstance(v, bytes) else bytes(memoryview(v))
 
 
 # ---------------------------------------------------------------------------------------
@@ -878,6 +954,17 @@ class FileStringPersister(FileBytesPersister):
     _write_open_kwargs = dict(
         FileBytesPersister._write_open_kwargs, mode="wt", encoding="utf-8"
     )
+
+    def _bytes_of(self, v) -> bytes:
+        kw = self._write_open_kwargs
+        if "b" in kw.get("mode", "wt"):
+            return super()._bytes_of(v)
+        newline = os.linesep if kw.get("newline") is None else kw["newline"]
+        if newline not in ("", "\n"):
+            v = v.replace("\n", newline)  # as open(..., "wt") translates it
+        return v.encode(
+            kw.get("encoding") or _locale_encoding(), kw.get("errors") or "strict"
+        )
 
     def _check_value_before_open(self, v):
         """Encode ``v`` (and discard the result) before the file is opened.
@@ -1112,12 +1199,13 @@ def _make_dirs_tracking(dirname, *, max_dirs_to_make=None, verbose=False):
     A directory another process makes meanwhile is not counted as made here, so a later
     cleanup never removes it. Exceeding ``max_dirs_to_make`` makes none, as there.
     """
+    dirname = os.fspath(dirname)
     if os.path.exists(dirname):
         return []
-    _announce_dir_to_make(dirname, verbose)
     to_make = _missing_ancestors(dirname)
     if max_dirs_to_make is not None and len(to_make) > max_dirs_to_make:
         return []
+    _announce_dir_to_make(dirname, verbose)
     made = []
     try:
         for dir_to_make in to_make:
@@ -1144,25 +1232,57 @@ def _remove_dirs_made(made):
             pass
 
 
+@contextmanager
+def _dir_made(directory, *, max_dirs_to_make=None, verbose=False):
+    """:func:`dir_made` plus the ``max_dirs_to_make`` limit ``mk_dirs_if_missing`` has."""
+    made = _make_dirs_tracking(
+        directory, max_dirs_to_make=max_dirs_to_make, verbose=verbose
+    )
+    try:
+        yield tuple(made)
+    except BaseException:
+        # e.g. a layer below refused the write (``filt_iter``, i2mint/dol#122)
+        _remove_dirs_made(made)
+        raise
+
+
+def dir_made(directory, *, verbose=False):
+    """Context manager: make ``directory`` (and its missing ancestors) for a write.
+
+    If the ``with`` body (or the making) raises, the directories *this call* made are
+    removed again, deepest first, provided they are still empty, so a failed write
+    leaves no stray folder behind. A folder another writer made meanwhile is not this
+    call's and stays. Use it for writes that do not go through a ``Files`` store
+    (temp-file spools, :func:`~dol.atomic.atomic_write`). Yields the directories made,
+    top-down, as a tuple of ``str``.
+
+    >>> import tempfile
+    >>> with tempfile.TemporaryDirectory() as root:
+    ...     target = os.path.join(root, "a", "b")
+    ...     try:
+    ...         with dir_made(target):
+    ...             raise RuntimeError("the write failed")
+    ...     except RuntimeError:
+    ...         pass
+    ...     os.listdir(root)
+    []
+    >>> with tempfile.TemporaryDirectory() as root:
+    ...     with dir_made(os.path.join(root, "a", "b")) as made:
+    ...         len(made)
+    2
+    """
+    return _dir_made(directory, verbose=verbose)
+
+
 def _mk_dirs_if_missing_class_trans(
     store_cls, *, max_dirs_to_make=None, verbose=False, __module__=None
 ):
     def __setitem__(self, k, v):
         dirname = _missing_dir_of_key(self, k)
-        made = (
-            _make_dirs_tracking(
-                dirname, max_dirs_to_make=max_dirs_to_make, verbose=verbose
-            )
-            if dirname is not None
-            else []
-        )
-        try:
+        if dirname is None:
             return super(store_cls, self).__setitem__(k, v)
-        except BaseException:
-            # A layer below refused the write (e.g. a ``filt_iter`` that rejects ``k``,
-            # i2mint/dol#122): do not leave the directories made for it behind.
-            _remove_dirs_made(made)
-            raise
+        with _dir_made(dirname, max_dirs_to_make=max_dirs_to_make, verbose=verbose):
+            return super(store_cls, self).__setitem__(k, v)
 
     store_cls.__setitem__ = __setitem__
     if __module__ is not None:

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: ormar
-Version: 0.27.0
+Version: 0.28.0
 Summary: An async ORM with fastapi in mind and pydantic validation.
 License: MIT
 License-File: LICENSE.md
 Keywords: orm,sqlalchemy,fastapi,pydantic,databases,async,alembic
 Author: Radosław Drążkiewicz
 Author-email: collerek@gmail.com
-Requires-Python: >=3.10.0,<4.0.0
+Requires-Python: >=3.11.0,<4.0.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: Framework :: AsyncIO
@@ -15,12 +15,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Provides-Extra: aiopg
 Provides-Extra: all
@@ -672,6 +672,7 @@ asyncio.run(cleanup_database())
 #### Relation types
 
 *  One to many  - with `ForeignKey(to: Model)`
+*  One to one   - with `OneToOne(to: Model)`
 *  Many to many - with `ManyToMany(to: Model, Optional[through]: Model)`
 
 #### Model fields types
@@ -696,12 +697,13 @@ Available Model Fields (with required args - optional ones in docs):
 * `Enum` like Field - by passing `choices` to any other Field type
 * `EncryptedString` - by passing `encrypt_secret` and `encrypt_backend`
 * `ForeignKey(to)`
+* `OneToOne(to)`
 * `ManyToMany(to)`
 
 ### Available fields options
 The following keyword arguments are supported on all field types.
 
-* `primary_key: bool`
+* `primary_key: bool` (set it on several fields for a composite primary key)
 * `nullable: bool`
 * `default: Any`
 * `server_default: Any`

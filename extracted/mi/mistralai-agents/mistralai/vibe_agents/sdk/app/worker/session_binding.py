@@ -304,8 +304,8 @@ class WorkflowSessionBinding:
         )
         self.runtime_metrics = runtime_metrics.WorkflowRuntimeMetrics(
             now_unix_ms=_workflow_time_unix_ms,
-            session_created_at_unix_ms=lambda: runtime.state.event_producer.session_created_at,
-            turns_to_drive=lambda: runtime.state.turns_to_drive,
+            session_created_at_unix_ms=lambda: runtime.session_created_at_unix_ms,
+            turns_to_drive=lambda: runtime.turns_to_drive,
             active_turn_id=lambda: runtime.inspection.active_turn_id,
         )
         runtime.bind_command_observer(self._publish_command_result)
@@ -1082,7 +1082,7 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
             # The Workflows API maps this type to HTTP 500 for ordinary sender
             # Activity retry; a RuntimeError would fail and replay this Task.
             raise ApplicationError("Session is not accepting command Updates", type="INTERNAL_ERROR")
-        if str(request.recipient_session_id) != binding.runtime.state.session_id:
+        if str(request.recipient_session_id) != binding.runtime.session_id:
             raise _invalid_command_update("Command recipient does not identify this Session")
         self._command_handlers_in_flight += 1
         try:
@@ -2244,9 +2244,7 @@ async def _serve(
                 customer_metadata.fetch_customer_completion_headers, str(principal.customer_id)
             )
         control_plane = (
-            worker_control_plane.ActivitySessionControlPlane(
-                control_plane_binding_id, execution_token=worker_control_plane.workflow_execution_token()
-            )
+            worker_control_plane.ActivitySessionControlPlane(control_plane_binding_id)
             if control_plane_binding_id is not None
             else None
         )
@@ -2330,7 +2328,7 @@ async def _serve(
             elif params.initial_turn is not None:
                 await binding.start_initial_turn(params.initial_turn)
         elif restored.stop_requested:
-            carried_turn_ids.update(binding.runtime.state.turns_to_drive)
+            carried_turn_ids.update(binding.runtime.turns_to_drive)
         workflow.attach_binding(binding, single_turn=_single_turn(params))
         runtime = binding.runtime
 
@@ -2341,7 +2339,7 @@ async def _serve(
                 return False
             # Wait only for carried Turns still to be driven: a finished Turn the Runtime drops from
             # turns_to_drive without driving it never reaches on_turn_finished.
-            return not carried_turn_ids or carried_turn_ids.isdisjoint(runtime.state.turns_to_drive)
+            return not carried_turn_ids or carried_turn_ids.isdisjoint(runtime.turns_to_drive)
 
         callbacks = binding.callbacks
         limit_clock = session_limits.SessionLimitClock(

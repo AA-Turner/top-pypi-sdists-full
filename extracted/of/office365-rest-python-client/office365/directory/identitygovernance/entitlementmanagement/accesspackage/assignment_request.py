@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+from office365.directory.identitygovernance.entitlementmanagement.accesspackage.answer import AccessPackageAnswer
 from office365.directory.identitygovernance.entitlementmanagement.accesspackage.assignment import (
     AccessPackageAssignment,
+)
+from office365.directory.identitygovernance.entitlementmanagement.accesspackage.assignment_request_parameters import (  # noqa: E501
+    AccessPackageAssignmentRequestParameters,
+)
+from office365.directory.identitygovernance.entitlementmanagement.accesspackage.custom_extension_callout_instance import (  # noqa: E501
+    CustomExtensionCalloutInstance,
 )
 from office365.directory.identitygovernance.entitlementmanagement.accesspackage.package import (
     AccessPackage,
@@ -18,56 +25,51 @@ from office365.directory.identitygovernance.entitlementmanagement.accesspackage.
 from office365.directory.identitygovernance.entitlementmanagement.accesspackage.subject import (
     AccessPackageSubject,
 )
+from office365.directory.identitygovernance.entitlementmanagement.schedule import EntitlementManagementSchedule
 from office365.entity import Entity
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
-
-if TYPE_CHECKING:
-    from office365.directory.identitygovernance.entitlementmanagement.accesspackage.answer import (
-        AccessPackageAnswer,
-    )
-    from office365.directory.identitygovernance.entitlementmanagement.accesspackage.assignment_request_parameters import (  # noqa: E501
-        AccessPackageAssignmentRequestParameters,
-    )
-    from office365.directory.identitygovernance.entitlementmanagement.accesspackage.custom_extension_callout_instance import (  # noqa: E501
-        CustomExtensionCalloutInstance,
-    )
-    from office365.directory.identitygovernance.entitlementmanagement.schedule import (
-        EntitlementManagementSchedule,
-    )
+from office365.runtime.types.odata_property import odata
 
 
 class AccessPackageAssignmentRequest(Entity):
+    @odata(name="completedDateTime")
     @property
     def completed_date_time(self) -> datetime:
         """Gets the completedDateTime property"""
         return self.properties.get("completedDateTime", datetime.min)
 
+    @odata(name="createdDateTime")
     @property
     def created_date_time(self) -> datetime:
         """Gets the createdDateTime property"""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="justification")
     @property
     def justification(self) -> Optional[str]:
         """Gets the justification property"""
         return self.properties.get("justification", None)
 
+    @odata(name="requestType")
     @property
     def request_type(self) -> AccessPackageRequestType:
         """Gets the requestType property"""
         return self.properties.get("requestType", AccessPackageRequestType.notSpecified)
 
+    @odata(name="state")
     @property
     def state(self) -> AccessPackageRequestState:
         """Gets the state property"""
         return self.properties.get("state", AccessPackageRequestState.submitted)
 
+    @odata(name="status")
     @property
     def status(self) -> Optional[str]:
         """Gets the status property"""
         return self.properties.get("status", None)
 
+    @odata(name="accessPackage", navigation=True)
     @property
     def access_package(self) -> AccessPackage:
         """Gets the accessPackage property"""
@@ -75,6 +77,7 @@ class AccessPackageAssignmentRequest(Entity):
             "accessPackage", AccessPackage(self.context, ResourcePath("accessPackage", self.resource_path))
         )
 
+    @odata(name="assignment", navigation=True)
     @property
     def assignment(self) -> AccessPackageAssignment:
         """Gets the assignment property"""
@@ -82,6 +85,7 @@ class AccessPackageAssignmentRequest(Entity):
             "assignment", AccessPackageAssignment(self.context, ResourcePath("assignment", self.resource_path))
         )
 
+    @odata(name="requestor", navigation=True)
     @property
     def requestor(self) -> AccessPackageSubject:
         """Gets the requestor property"""
@@ -93,41 +97,29 @@ class AccessPackageAssignmentRequest(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.AccessPackageAssignmentRequest"
 
+    @odata(name="answers")
     @property
     def answers(self) -> ClientValueCollection[AccessPackageAnswer]:
         """Gets the answers property"""
-        from office365.directory.identitygovernance.entitlementmanagement.accesspackage.answer import (
-            AccessPackageAnswer,
-        )
-
         return self.properties.get("answers", ClientValueCollection[AccessPackageAnswer](AccessPackageAnswer))
 
+    @odata(name="customExtensionCalloutInstances")
     @property
     def custom_extension_callout_instances(self) -> ClientValueCollection[CustomExtensionCalloutInstance]:
         """Gets the customExtensionCalloutInstances property"""
-        from office365.directory.identitygovernance.entitlementmanagement.accesspackage.custom_extension_callout_instance import (  # noqa: E501
-            CustomExtensionCalloutInstance,
-        )
-
         return self.properties.get(
             "customExtensionCalloutInstances",
             ClientValueCollection[CustomExtensionCalloutInstance](CustomExtensionCalloutInstance),
         )
 
+    @odata(name="parameters")
     @property
     def parameters(self) -> AccessPackageAssignmentRequestParameters:
         """Gets the parameters property"""
-        from office365.directory.identitygovernance.entitlementmanagement.accesspackage.assignment_request_parameters import (  # noqa: E501
-            AccessPackageAssignmentRequestParameters,
-        )
-
         return self.properties.get("parameters", AccessPackageAssignmentRequestParameters())
 
+    @odata(name="schedule")
     @property
     def schedule(self) -> EntitlementManagementSchedule:
         """Gets the schedule property"""
-        from office365.directory.identitygovernance.entitlementmanagement.schedule import (
-            EntitlementManagementSchedule,
-        )
-
         return self.properties.get("schedule", EntitlementManagementSchedule())

@@ -62,10 +62,6 @@ class Flags(Enum):
         visible=True,
         description="Enables JSON output format for the modules list command",
     )
-    ENTITY_MATCHING = FlagMetadata(
-        visible=True,
-        description="Enables the entity-matching command family under the dev plugin",
-    )
     CUSTOM_APPS = FlagMetadata(
         visible=True,
         description="Enables support for custom app resources (App Hosting API deployment)",
@@ -110,6 +106,10 @@ class Flags(Enum):
     NEAT = FlagMetadata(
         visible=True,
         description="Enables support for NEAT format for data models",
+    )
+    EXTEND_DOWNLOAD = FlagMetadata(
+        visible=True,
+        description="Enables additional data types in the download command, such as sequences",
     )
 
     def is_enabled(self) -> bool:

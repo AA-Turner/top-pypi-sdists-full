@@ -25,8 +25,10 @@ class VaultSettings:
             Set this when the JWT auth method is mounted at a non-default path, e.g. via `vault auth enable -path=<mount>
             jwt`.
         approle_role_id (Union[Unset, str]): AppRole role_id (optional). When set and no static token is given, Windmill
-            logs in with AppRole; the secret_id is read from the `VAULT_APPROLE_SECRET_ID` environment variable of servers
-            and workers.
+            logs in with AppRole.
+        approle_secret_id (Union[Unset, str]): AppRole secret_id (optional). When empty, the `VAULT_APPROLE_SECRET_ID`
+            environment variable of servers and workers is used; when that is unset too, no secret_id is sent (a role with
+            `bind_secret_id=false`).
         approle_mount_path (Union[Unset, str]): Mount path of the AppRole auth method (optional, defaults to "approle").
         namespace (Union[Unset, str]): Vault Enterprise namespace (optional)
         token (Union[Unset, str]): Static Vault token for testing/development (optional, if provided this is used
@@ -41,6 +43,7 @@ class VaultSettings:
     jwt_role: Union[Unset, str] = UNSET
     jwt_mount_path: Union[Unset, str] = UNSET
     approle_role_id: Union[Unset, str] = UNSET
+    approle_secret_id: Union[Unset, str] = UNSET
     approle_mount_path: Union[Unset, str] = UNSET
     namespace: Union[Unset, str] = UNSET
     token: Union[Unset, str] = UNSET
@@ -54,6 +57,7 @@ class VaultSettings:
         jwt_role = self.jwt_role
         jwt_mount_path = self.jwt_mount_path
         approle_role_id = self.approle_role_id
+        approle_secret_id = self.approle_secret_id
         approle_mount_path = self.approle_mount_path
         namespace = self.namespace
         token = self.token
@@ -76,6 +80,8 @@ class VaultSettings:
             field_dict["jwt_mount_path"] = jwt_mount_path
         if approle_role_id is not UNSET:
             field_dict["approle_role_id"] = approle_role_id
+        if approle_secret_id is not UNSET:
+            field_dict["approle_secret_id"] = approle_secret_id
         if approle_mount_path is not UNSET:
             field_dict["approle_mount_path"] = approle_mount_path
         if namespace is not UNSET:
@@ -102,6 +108,8 @@ class VaultSettings:
 
         approle_role_id = d.pop("approle_role_id", UNSET)
 
+        approle_secret_id = d.pop("approle_secret_id", UNSET)
+
         approle_mount_path = d.pop("approle_mount_path", UNSET)
 
         namespace = d.pop("namespace", UNSET)
@@ -117,6 +125,7 @@ class VaultSettings:
             jwt_role=jwt_role,
             jwt_mount_path=jwt_mount_path,
             approle_role_id=approle_role_id,
+            approle_secret_id=approle_secret_id,
             approle_mount_path=approle_mount_path,
             namespace=namespace,
             token=token,

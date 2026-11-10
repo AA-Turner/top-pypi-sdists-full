@@ -56,6 +56,7 @@ from office365.sharepoint.listitems.creation_information_using_path import (
 )
 from office365.sharepoint.listitems.form_update_value import ListItemFormUpdateValue
 from office365.sharepoint.listitems.listitem import ListItem
+from office365.sharepoint.lists.base_type import is_document_library
 from office365.sharepoint.lists.bloom_filter import ListBloomFilter
 from office365.sharepoint.lists.creatables_info import CreatablesInfo
 from office365.sharepoint.lists.data_source import ListDataSource
@@ -70,6 +71,8 @@ from office365.sharepoint.navigation.configured_metadata_item_col import (
 from office365.sharepoint.pages.wiki_page_creation_information import (
     WikiPageCreationInformation,
 )
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.permissions.base_permissions import BasePermissions
 from office365.sharepoint.permissions.securable_object import SecurableObject
 from office365.sharepoint.principal.users.user import User
 from office365.sharepoint.sharing.object_sharing_settings import ObjectSharingSettings
@@ -89,6 +92,7 @@ from office365.sharepoint.views.view import View
 from office365.sharepoint.webhooks.subscription_collection import SubscriptionCollection
 
 if TYPE_CHECKING:
+    from office365.runtime.converters.coercion import ConverterSpec
     from office365.runtime.converters.dataframe import DataFrameResult
     from office365.runtime.imports import (
         CheckpointStore,
@@ -150,6 +154,20 @@ if TYPE_CHECKING:
     )
 
 
+#: The ceilings on a list's own shape and on what a query against it may do: its item count,
+#: its indexes, who may see those items, and the joins one view may make.
+@limit(
+    Limits.LIST_VIEW_ADMIN,
+    Limits.INDEX_ADD_REMOVE,
+    Limits.DELETE_ITEMS,
+    Limits.MAX_LIST_ITEMS,
+    Limits.MAX_INDEXED_COLUMNS,
+    Limits.LOOKUP_JOINS,
+    Limits.PERMISSION_INHERITANCE,
+    Limits.UNIQUE_SCOPES,
+    Limits.UNIQUE_SCOPES_RECOMMENDED,
+    Limits.ACL_PROPAGATION,
+)
 class List(SecurableObject):
     """
     Represents a list on a SharePoint Web site.
@@ -216,6 +234,7 @@ class List(SecurableObject):
         self.ensure_property("Title").after_execute(lambda _: _can_customize_forms())
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def clear(self) -> Self:
         """Clears the list (deletes all items).
 
@@ -236,6 +255,7 @@ class List(SecurableObject):
         result = DocumentSet.create(self.context, self.root_folder, name)
         return result
 
+    @site_access(SiteLevel.WRITE)
     def create_document_and_get_edit_link(
         self,
         file_name: Optional[str] = None,
@@ -263,6 +283,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def delete_rule(self, rule_id: str) -> Self:
         """Args:
         rule_id (str):
@@ -272,6 +293,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_async_action_config(self) -> ClientResult[Dict]:
         """ """
         return_type = ClientResult[dict](self.context)
@@ -279,6 +301,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_bloom_filter(self, start_item_id: Optional[int] = None) -> ListBloomFilter:
         """Generates a Bloom filter (probabilistic structure for checking the existence of list items) for the current
             list
@@ -406,6 +429,7 @@ class List(SecurableObject):
         self.ensure_property("RootFolder").after_execute(lambda _: _list_loaded())
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def ensure_signoff_status_field(self) -> Field:
         """"""
         return_type = Field(self.context)
@@ -414,6 +438,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_all_rules(self) -> ClientResult[ClientValueCollection[SPListRule]]:
         """Retrieves rules of a List"""
         return_type = ClientResult(self.context, ClientValueCollection(SPListRule))
@@ -421,6 +446,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_business_app_operation_status(self) -> FlowSynchronizationResult:
         """ """
         return_type = FlowSynchronizationResult(self.context)
@@ -428,6 +454,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def search_lookup_field_choices(
         self, target_field_name: str, begins_with_search_string: str, paging_info: str
     ) -> FlowSynchronizationResult:
@@ -446,6 +473,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def sync_flow_callback_url(self, flow_id: str) -> FlowSynchronizationResult:
         """Args:
         flow_id (str):
@@ -455,6 +483,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def sync_flow_instance(self, flow_id: str) -> FlowSynchronizationResult:
         """Args:
         flow_id (str):
@@ -464,6 +493,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def sync_flow_instances(self, retrieve_group_flows: bool) -> FlowSynchronizationResult:
         """Args:
         retrieve_group_flows (bool):
@@ -474,6 +504,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def sync_flow_templates(self, category: str) -> FlowSynchronizationResult:
         """Args:
         category (str):
@@ -484,6 +515,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def create_document_with_default_name(self, folder_path: str, extension: str):
         """Creates a empty document with default filename with the given extension at the path given by folderPath.
         Returns the name of the newly created document.
@@ -498,6 +530,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def recycle(self, ignore_missing: bool = False) -> ClientResult[str]:
         """Moves the list to the Recycle Bin and returns the identifier of the new Recycle Bin item.
 
@@ -511,6 +544,7 @@ class List(SecurableObject):
         self._tolerate_missing(ignore_missing)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def start_recycle(self) -> ClientResult[str]:
         """Moves the list to the Recycle Bin and returns the identifier of the new Recycle Bin item."""
         return_type = ClientResult(self.context, str())
@@ -518,6 +552,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_list_data(self, view_xml: str) -> ClientResult[bytes]:
         """Returns the data for the specified query view. The result is implementation-specific, used for
         providing data to a user interface.
@@ -533,6 +568,7 @@ class List(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_list_data_as_stream(
         context: ClientContext,
         list_full_url: str,
@@ -573,6 +609,7 @@ class List(SecurableObject):
         return return_type
 
     @staticmethod
+    @site_access(SiteLevel.READ)
     def get_onedrive_list_data_as_stream(
         context: ClientContext,
         parameters: Optional[RenderListDataParameters] = None,
@@ -602,6 +639,7 @@ class List(SecurableObject):
         context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def bulk_validate_update_list_items(
         self,
         item_ids,
@@ -634,6 +672,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_lookup_field_choices(self, target_field_name: str, paging_info: Optional[str] = None) -> ClientResult[str]:
         """Retrieves the possible choices or values for a lookup field in a SharePoint list
 
@@ -647,6 +686,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_list_item_changes_since_token(self, query: ChangeLogItemQuery) -> ClientResult[AnyStr]:
         """
         Returns the changes made to the list since the date and time specified in the change token defined
@@ -658,6 +698,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type  # type: ignore[return-type]
 
+    @site_access(SiteLevel.MANAGE)
     def save_as_new_view(self, old_name: str, new_name: str, private_view: bool, uri: str) -> ClientResult[str]:
         """Overwrites a view if it already exists, creates a new view if it does not; and then extracts the
         implementation-specific filter and sort information from the URL and builds and updates the view's XML.
@@ -680,6 +721,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def save_as_template(self, file_name: str, name: str, description: str, save_data: bool) -> Self:
         """Saves the list as a template in the list template gallery and includes the option of saving with or
         without the data that is contained in the current list.
@@ -711,6 +753,7 @@ class List(SecurableObject):
             ServiceOperationPath("getItemByUniqueId", [unique_id], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_web_dav_url(self, source_url: str) -> ClientResult[str]:
         """Gets the trusted URL for opening the folder in Explorer view.
 
@@ -744,6 +787,7 @@ class List(SecurableObject):
         """
         return caml_query.index_candidates
 
+    @site_access(SiteLevel.READ)
     def check_query(self, caml_query: CamlQuery, *, item_count: Optional[int] = None) -> None:
         """Pre-flight a CAML query against the SharePoint list view threshold.
 
@@ -785,6 +829,7 @@ class List(SecurableObject):
             )
 
     @limit(Limits.LIST_VIEW, arg="page_size")
+    @site_access(SiteLevel.READ)
     def get_items(
         self,
         caml_query: Optional[CamlQuery] = None,
@@ -914,6 +959,7 @@ class List(SecurableObject):
         """
         return self.fields.get_by_internal_name_or_title(name).ensure_indexed()
 
+    @site_access(SiteLevel.WRITE)
     def from_records(
         self,
         source,
@@ -933,6 +979,7 @@ class List(SecurableObject):
         on_schema_change: str = "evolve",
         dead_letter: "str | None" = None,
         mapping: "Dict[str, str] | None" = None,
+        coerce: "Dict[str, ConverterSpec] | None" = None,
     ) -> "ImportResult":
         """Stream a source into this list's items, memory-bounded (streaming entry).
 
@@ -953,7 +1000,14 @@ class List(SecurableObject):
             format: Source format (default ``"records"``).
             schema: Optional explicit ``{column: FieldType}``; inferred from dtypes.
                 A ``FieldType`` also drives typed value coercion (multi-choice,
-                lookup, user, URL, geolocation, ...).
+                lookup, user, URL, geolocation, ...). A list item's field types are
+                not declared on ``ListItem``, so this is the only place they can be
+                stated -- ``coerce`` is the same mechanism with the general arms.
+            coerce: Optional ``{column: converter}`` for a cell the field type does not
+                describe: a callable, a Python type, a type name or a ``FieldType``
+                (see :func:`~office365.runtime.converters.coercion.converter_for`).
+                Keys are column names as they appear in the source; an entry here wins
+                over the ``schema`` entry for the same column.
             chunksize: Rows per chunk for a DataFrame/CSV source.
             progress: Optional hook fired live (initial, per chunk, per batch).
             total: Total rows when known upfront (drives the progress percentage).
@@ -971,21 +1025,21 @@ class List(SecurableObject):
         Returns:
             ImportResult: The deferred streaming import driver.
         """
-        from functools import partial
-
         from office365.runtime.converters.dataframe import records_from_dataframe
-        from office365.sharepoint.fields.coercion import coerce_field_value
         from office365.sharepoint.fields.name import internal_field_name
 
         if on_schema_change not in ("evolve", "fail"):
             raise ValueError(f"on_schema_change must be 'evolve' or 'fail', got {on_schema_change!r}")
         provisioned: set[str] = set()
-        coercions: "Dict[str, Any] | None" = None
-        if isinstance(schema, dict):
-            coercions = {
-                internal_field_name(str(column)): partial(coerce_field_value, field_type)
-                for column, field_type in schema.items()
-            }
+        coercions: "Dict[str, ConverterSpec]" = {}
+        if isinstance(schema, dict) or coerce:
+            # A DataFrame/CSV chunk is renamed to internal field names on the way in, so
+            # the coercion keys are too. A `records` batch arrives as the caller spelled
+            # it, so its keys are taken verbatim.
+            spelled = internal_field_name if format in ("dataframe", "csv") else str
+            coercions = {spelled(str(column)): field_type for column, field_type in (schema or {}).items()}
+            for column, spec in (coerce or {}).items():
+                coercions[spelled(str(column))] = spec
 
         def _mapped(chunk: Any) -> Any:
             if mapping and hasattr(chunk, "rename"):
@@ -1194,6 +1248,7 @@ class List(SecurableObject):
         """Export this list's items to Feather (deferred; requires the ``[parquet]`` extra)."""
         return self.export_to(target, format="feather")
 
+    @site_access(SiteLevel.WRITE)
     def add_item(self, creation_information: Union[ListItemCreationInformation, Dict]) -> ListItem:
         """The recommended way to add a list item is to send a POST request to the ListItemCollection resource endpoint,
         as shown in ListItemCollection request examples."""
@@ -1238,6 +1293,7 @@ class List(SecurableObject):
         )
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def add_item_using_path(self, leaf_name: str, object_type: int, folder_url: str) -> ListItem:
         """Adds a ListItem to an existing List.
 
@@ -1258,6 +1314,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def add_validate_update_item(
         self, create_info: ListItemCreationInformation, form_values: Optional[Dict] = None
     ) -> ClientResult[ClientValueCollection[ListItemFormUpdateValue]]:
@@ -1316,6 +1373,7 @@ class List(SecurableObject):
             self,
         )
 
+    @site_access(SiteLevel.READ)
     def get_changes(self, query: Optional[ChangeQuery] = None) -> ChangeCollection:
         """Returns the collection of changes from the change log that have occurred within the list,
         based on the specified query.
@@ -1331,6 +1389,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_checked_out_files(self) -> CheckedOutFileCollection:
         """Returns a collection of checked-out files as specified in section 3.2.5.381."""
         return_type = CheckedOutFileCollection(
@@ -1341,6 +1400,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_list_data_as_stream(
         self,
         view_xml: Optional[str] = None,
@@ -1368,6 +1428,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def reserve_list_item_id(self) -> ClientResult[int]:
         """Reserves the returned list item identifier for the idempotent creation of a list item."""
         return_type = ClientResult(self.context, int())
@@ -1385,6 +1446,7 @@ class List(SecurableObject):
             ServiceOperationPath("getRelatedFields", [], self.resource_path),
         )
 
+    @site_access(SiteLevel.READ)
     def get_special_folder_url(
         self, folder_type: int, force_create: bool, existing_folder_guid: str
     ) -> ClientResult[str]:
@@ -1421,6 +1483,7 @@ class List(SecurableObject):
         self.ensure_property("RootFolder").after_execute(lambda _: _reset_doc_ids(self.root_folder.server_relative_url))
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_exempt_from_block_download_of_non_viewable_files(self, value: bool) -> Self:
         """
         Method to set the ExemptFromBlockDownloadOfNonViewableFiles property.
@@ -1437,40 +1500,48 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @odata(name="Id", readonly=True)
     @property
     def id(self) -> Optional[str]:
         """Gets a value that specifies the list identifier."""
         return self.properties.get("Id", None)
 
+    @odata(name="AdditionalUXProperties", readonly=True, beta=True)
     @property
     def additional_ux_properties(self) -> Optional[str]:
         return self.properties.get("AdditionalUXProperties", None)
 
+    @odata(name="Author", navigation=True, beta=True)
     @property
     def author(self) -> User:
         """Specifies the user who created the list."""
         return self.properties.get("Author", User(self.context, ResourcePath("Author", self.resource_path)))
 
+    @odata(name="AllowContentTypes", readonly=True)
     @property
     def allow_content_types(self) -> Optional[bool]:
         """Specifies whether the list supports content types."""
         return self.properties.get("AllowContentTypes", None)
 
+    @odata(name="AllowDeletion")
     @property
     def allow_deletion(self) -> Optional[bool]:
         """Specifies whether the list could be deleted."""
         return self.properties.get("AllowDeletion", None)
 
+    @odata(name="Hidden")
     @property
     def hidden(self) -> Optional[bool]:
         """Specifies whether the list is hidden from UI."""
         return self.properties.get("Hidden", None)
 
+    @odata(name="BaseTemplate", readonly=True)
     @property
     def base_template(self) -> Optional[int]:
         """Specifies the list server template of the list."""
         return self.properties.get("BaseTemplate", None)
 
+    @odata(name="BaseType", readonly=True)
     @property
     def base_type(self) -> Optional[int]:
         """
@@ -1479,6 +1550,16 @@ class List(SecurableObject):
         """
         return self.properties.get("BaseType", None)
 
+    @property
+    def is_document_library(self) -> bool:
+        """Whether this list holds files rather than records, read off its ``BaseType``.
+
+        Derived rather than declared: ``BaseType`` is what the service reports, and this
+        is the question every caller asks of it.
+        """
+        return is_document_library(self.base_type)
+
+    @odata(name="BrowserFileHandling", readonly=True)
     @property
     def browser_file_handling(self) -> Optional[int]:
         """
@@ -1489,22 +1570,25 @@ class List(SecurableObject):
         """
         return self.properties.get("BrowserFileHandling", None)
 
+    @odata(name="Created", readonly=True)
     @property
     def created(self) -> datetime:
         """Specifies when the list was created."""
         return self.properties.get("Created", datetime.min)
 
+    @odata(name="DefaultDisplayFormUrl")
     @property
     def default_display_form_url(self) -> Optional[str]:
         """Specifies the location of the default display form for the list."""
         return self.properties.get("DefaultDisplayFormUrl", None)
 
-    @odata(name="DefaultViewPath")
+    @odata(name="DefaultViewPath", readonly=True)
     @property
     def default_view_path(self) -> SPResPath:
         """Specifies the server-relative URL of the default view for the list."""
         return self.properties.get("DefaultViewPath", SPResPath())
 
+    @odata(name="DefaultViewUrl", readonly=True)
     @property
     def default_view_url(self) -> Optional[str]:
         """
@@ -1512,6 +1596,7 @@ class List(SecurableObject):
         """
         return self.properties.get("DefaultViewUrl", None)
 
+    @odata(name="CrawlNonDefaultViews")
     @property
     def crawl_non_default_views(self) -> Optional[bool]:
         """
@@ -1520,7 +1605,7 @@ class List(SecurableObject):
         """
         return self.properties.get("CrawlNonDefaultViews", None)
 
-    @odata(name="CreatablesInfo")
+    @odata(name="CreatablesInfo", navigation=True)
     @property
     def creatables_info(self) -> CreatablesInfo:
         """
@@ -1537,7 +1622,7 @@ class List(SecurableObject):
             CreatablesInfo(self.context, ResourcePath("CreatablesInfo", self.resource_path)),
         )
 
-    @odata(name="CurrentChangeToken")
+    @odata(name="CurrentChangeToken", readonly=True)
     @property
     def current_change_token(self) -> ChangeToken:
         """Gets the current change token that is used in the change log for the list."""
@@ -1552,15 +1637,18 @@ class List(SecurableObject):
         """
         return self.properties.get("DataSource", ListDataSource())
 
+    @odata(name="DefaultEditFormUrl")
     @property
     def default_edit_form_url(self) -> Optional[str]:
         """Gets a value that specifies the URL of the edit form to use for list items in the list."""
         return self.properties.get("DefaultEditFormUrl", None)
 
+    @odata(name="DefaultItemOpenInBrowser", beta=True)
     @property
     def default_item_open_in_browser(self) -> Optional[bool]:
         return self.properties.get("DefaultItemOpenInBrowser", None)
 
+    @odata(name="DefaultItemOpenUseListSetting", readonly=True, beta=True)
     @property
     def default_item_open_use_list_setting(self) -> Optional[bool]:
         """
@@ -1570,32 +1658,33 @@ class List(SecurableObject):
         """
         return self.properties.get("DefaultItemOpenUseListSetting", None)
 
+    @odata(name="DisableCommenting")
     @property
     def disable_commenting(self) -> Optional[bool]:
         return self.properties.get("DisableCommenting", None)
 
+    @odata(name="DisableGridEditing")
     @property
     def disable_grid_editing(self) -> Optional[bool]:
         return self.properties.get("DisableGridEditing", None)
 
+    @odata(name="DocumentTemplateUrl")
     @property
     def document_template_url(self) -> Optional[str]:
         """Specifies the URL of the document template assigned to the list."""
         return self.properties.get("DocumentTemplateUrl", None)
 
-    @odata(name="EffectiveBasePermissions")
+    @odata(name="EffectiveBasePermissions", readonly=True)
     @property
-    def effective_base_permissions(self):
+    def effective_base_permissions(self) -> BasePermissions:
         """
         Specifies the effective permissions on the list that are assigned to the current user.
         """
-        from office365.sharepoint.permissions.base_permissions import BasePermissions
-
         return self.properties.get("EffectiveBasePermissions", BasePermissions())
 
-    @odata(name="EffectiveBasePermissionsForUI")
+    @odata(name="EffectiveBasePermissionsForUI", readonly=True)
     @property
-    def effective_base_permissions_for_ui(self):
+    def effective_base_permissions_for_ui(self) -> BasePermissions:
         """
         Specifies the effective base permissions for the current user as they SHOULD be displayed in user interface (UI)
         If the list is not in read-only UI mode, the value of EffectiveBasePermissionsForUI MUST be the same as the
@@ -1606,6 +1695,7 @@ class List(SecurableObject):
 
         return self.properties.get("EffectiveBasePermissionsForUI", BasePermissions())
 
+    @odata(name="EnableAssignToEmail")
     @property
     def enable_assign_to_email(self) -> Optional[bool]:
         """
@@ -1613,11 +1703,13 @@ class List(SecurableObject):
         """
         return self.properties.get("EnableAssignToEmail", None)
 
+    @odata(name="EnableAttachments")
     @property
     def enable_attachments(self) -> Optional[bool]:
         """Specifies whether list item attachments are enabled for the list"""
         return self.properties.get("EnableAttachments", None)
 
+    @odata(name="EnableFolderCreation")
     @property
     def enable_folder_creation(self) -> Optional[bool]:
         """Specifies whether new list folders can be added to the list."""
@@ -1627,25 +1719,30 @@ class List(SecurableObject):
     def enable_folder_creation(self, value: bool) -> None:
         self.set_property("EnableFolderCreation", value, True)
 
+    @odata(name="EnableMinorVersions")
     @property
     def enable_minor_versions(self) -> Optional[bool]:
         """Specifies whether minor versions are enabled for the list."""
         return self.properties.get("EnableMinorVersions", None)
 
+    @odata(name="EnableModeration")
     @property
     def enable_moderation(self) -> Optional[bool]:
         """Specifies whether content approval is enabled for the list."""
         return self.properties.get("EnableModeration", None)
 
+    @odata(name="EnableRequestSignOff")
     @property
     def enable_request_sign_off(self) -> Optional[bool]:
         return self.properties.get("EnableRequestSignOff", None)
 
+    @odata(name="EnableVersioning")
     @property
     def enable_versioning(self) -> Optional[bool]:
         """Specifies whether content approval is enabled for the list."""
         return self.properties.get("EnableVersioning", None)
 
+    @odata(name="ExcludeFromOfflineClient")
     @property
     def exclude_from_offline_client(self) -> Optional[bool]:
         """
@@ -1654,6 +1751,7 @@ class List(SecurableObject):
         """
         return self.properties.get("ExcludeFromOfflineClient", None)
 
+    @odata(name="ExemptFromBlockDownloadOfNonViewableFiles", readonly=True, beta=True)
     @property
     def exempt_from_block_download_of_non_viewable_files(self) -> Optional[bool]:
         """
@@ -1662,6 +1760,7 @@ class List(SecurableObject):
         """
         return self.properties.get("ExemptFromBlockDownloadOfNonViewableFiles", None)
 
+    @odata(name="FileSavePostProcessingEnabled", readonly=True)
     @property
     def file_save_post_processing_enabled(self) -> Optional[bool]:
         """
@@ -1670,16 +1769,19 @@ class List(SecurableObject):
         """
         return self.properties.get("FileSavePostProcessingEnabled", None)
 
+    @odata(name="ForceCheckout")
     @property
     def force_checkout(self) -> Optional[bool]:
         """Specifies whether check out is required when adding or editing documents in the list"""
         return self.properties.get("ForceCheckout", None)
 
+    @odata(name="HasContentAssemblyTemplates", beta=True)
     @property
     def has_content_assembly_templates(self) -> Optional[bool]:
         """ """
         return self.properties.get("HasContentAssemblyTemplates", None)
 
+    @odata(name="HasExternalDataSource", readonly=True)
     @property
     def has_external_data_source(self) -> Optional[bool]:
         """
@@ -1687,16 +1789,19 @@ class List(SecurableObject):
         """
         return self.properties.get("HasExternalDataSource", None)
 
+    @odata(name="HasFolderColoringFields", readonly=True, beta=True)
     @property
     def has_folder_coloring_fields(self) -> Optional[bool]:
         """ """
         return self.properties.get("HasFolderColoringFields", None)
 
+    @odata(name="IrmEnabled")
     @property
     def irm_enabled(self) -> Optional[bool]:
         """Gets a Boolean value that specifies whether Information Rights Management (IRM) is enabled for the list."""
         return self.properties.get("IrmEnabled", None)
 
+    @odata(name="IrmExpire", readonly=True)
     @property
     def irm_expire(self) -> Optional[bool]:
         """Gets a Boolean value that specifies whether Information Rights Management (IRM) expiration is enabled
@@ -1704,6 +1809,7 @@ class List(SecurableObject):
         """
         return self.properties.get("IrmExpire", None)
 
+    @odata(name="Items", navigation=True)
     @property
     def items(self) -> ListItemCollection:
         """Get list items"""
@@ -1712,7 +1818,7 @@ class List(SecurableObject):
             ListItemCollection(self.context, ResourcePath("items", self.resource_path), parent=self),
         )
 
-    @odata(name="RootFolder")
+    @odata(name="RootFolder", navigation=True)
     @property
     def root_folder(self) -> Folder:
         """Get a root folder"""
@@ -1721,6 +1827,7 @@ class List(SecurableObject):
             Folder(self.context, ResourcePath("RootFolder", self.resource_path)),
         )
 
+    @odata(name="Fields", navigation=True)
     @property
     def fields(self) -> FieldCollection:
         """Gets a value that specifies the collection of all fields in the list."""
@@ -1729,6 +1836,7 @@ class List(SecurableObject):
             FieldCollection(self.context, ResourcePath("Fields", self.resource_path), self),
         )
 
+    @odata(name="Subscriptions", navigation=True)
     @property
     def subscriptions(self) -> SubscriptionCollection:
         """Gets one or more webhook subscriptions on a SharePoint list."""
@@ -1737,6 +1845,7 @@ class List(SecurableObject):
             SubscriptionCollection(self.context, ResourcePath("Subscriptions", self.resource_path), self),
         )
 
+    @odata(name="Views", navigation=True)
     @property
     def views(self) -> ViewCollection:
         """Gets a value that specifies the collection of all public views on the list and personal views
@@ -1746,7 +1855,7 @@ class List(SecurableObject):
             ViewCollection(self.context, ResourcePath("views", self.resource_path), self),
         )
 
-    @odata(name="DefaultView")
+    @odata(name="DefaultView", navigation=True)
     @property
     def default_view(self) -> View:
         """Gets or sets a value that specifies whether the list view is the default list view."""
@@ -1755,7 +1864,7 @@ class List(SecurableObject):
             View(self.context, ResourcePath("DefaultView", self.resource_path), self),
         )
 
-    @odata(name="ContentTypes")
+    @odata(name="ContentTypes", navigation=True)
     @property
     def content_types(self) -> ContentTypeCollection:
         """Gets the content types that are associated with the list."""
@@ -1764,11 +1873,13 @@ class List(SecurableObject):
             ContentTypeCollection(self.context, ResourcePath("ContentTypes", self.resource_path), self),
         )
 
+    @odata(name="ContentTypesEnabled")
     @property
     def content_types_enabled(self) -> Optional[bool]:
         """Specifies whether content types are enabled for the list."""
         return self.properties.get("ContentTypesEnabled", None)
 
+    @odata(name="IsPrivate", readonly=True)
     @property
     def is_private(self) -> Optional[bool]:
         """
@@ -1777,6 +1888,7 @@ class List(SecurableObject):
         """
         return self.properties.get("IsPrivate", None)
 
+    @odata(name="IsSiteAssetsLibrary", readonly=True)
     @property
     def is_site_assets_library(self) -> Optional[bool]:
         """
@@ -1785,6 +1897,7 @@ class List(SecurableObject):
         """
         return self.properties.get("IsSiteAssetsLibrary", None)
 
+    @odata(name="IsSystemList", readonly=True, beta=True)
     @property
     def is_system_list(self) -> Optional[bool]:
         """
@@ -1793,7 +1906,7 @@ class List(SecurableObject):
         """
         return self.properties.get("IsSystemList", None)
 
-    @odata(name="UserCustomActions")
+    @odata(name="UserCustomActions", navigation=True)
     @property
     def user_custom_actions(self) -> UserCustomActionCollection:
         """Gets the User Custom Actions that are associated with the list."""
@@ -1802,7 +1915,7 @@ class List(SecurableObject):
             UserCustomActionCollection(self.context, ResourcePath("UserCustomActions", self.resource_path)),
         )
 
-    @odata(name="VersionPolicies")
+    @odata(name="VersionPolicies", navigation=True, beta=True)
     @property
     def version_policies(self) -> VersionPolicyManager:
         """ """
@@ -1816,6 +1929,7 @@ class List(SecurableObject):
     def custom_action_elements(self) -> CustomActionElementCollection:
         return self.properties.get("CustomActionElements", CustomActionElementCollection())
 
+    @odata(name="Forms", navigation=True)
     @property
     def forms(self) -> FormCollection:
         """Gets a value that specifies the collection of all list forms in the list."""
@@ -1824,7 +1938,7 @@ class List(SecurableObject):
             FormCollection(self.context, ResourcePath("forms", self.resource_path)),
         )
 
-    @odata(name="ParentWeb")
+    @odata(name="ParentWeb", navigation=True)
     @property
     def parent_web(self) -> Web:
         """Gets a value that specifies the web where list resides."""
@@ -1835,7 +1949,7 @@ class List(SecurableObject):
             Web(self.context, ResourcePath("parentWeb", self.resource_path)),
         )
 
-    @odata(name="EventReceivers")
+    @odata(name="EventReceivers", navigation=True)
     @property
     def event_receivers(self) -> EventReceiverDefinitionCollection:
         """Get Event receivers"""
@@ -1844,12 +1958,13 @@ class List(SecurableObject):
             EventReceiverDefinitionCollection(self.context, ResourcePath("eventReceivers", self.resource_path), self),
         )
 
+    @odata(name="ItemCount", readonly=True)
     @property
     def item_count(self) -> Optional[int]:
         """Gets a value that specifies the number of list items in the list"""
         return self.properties.get("ItemCount", None)
 
-    @odata(name="LastItemDeletedDate")
+    @odata(name="LastItemDeletedDate", readonly=True)
     @property
     def last_item_deleted_date(self) -> Optional[datetime]:
         """
@@ -1858,7 +1973,7 @@ class List(SecurableObject):
         """
         return self.properties.get("LastItemDeletedDate", None)
 
-    @odata(name="LastItemModifiedDate")
+    @odata(name="LastItemModifiedDate", readonly=True)
     @property
     def last_item_modified_date(self) -> Optional[datetime]:
         """
@@ -1867,7 +1982,7 @@ class List(SecurableObject):
         """
         return self.properties.get("LastItemModifiedDate", None)
 
-    @odata(name="LastItemUserModifiedDate")
+    @odata(name="LastItemUserModifiedDate", readonly=True)
     @property
     def last_item_user_modified_date(self) -> Optional[datetime]:
         """
@@ -1875,6 +1990,7 @@ class List(SecurableObject):
         """
         return self.properties.get("LastItemUserModifiedDate", None)
 
+    @odata(name="ListExperienceOptions")
     @property
     def list_experience_options(self) -> Optional[int]:
         """
@@ -1882,11 +1998,13 @@ class List(SecurableObject):
         """
         return self.properties.get("ListExperienceOptions", None)
 
+    @odata(name="ListFormCustomized", beta=True)
     @property
     def list_form_customized(self) -> Optional[bool]:
         """ """
         return self.properties.get("ListFormCustomized", None)
 
+    @odata(name="ListItemEntityTypeFullName", readonly=True)
     @property
     def list_item_entity_type_full_name(self) -> Optional[str]:
         """
@@ -1894,6 +2012,7 @@ class List(SecurableObject):
         """
         return self.properties.get("ListItemEntityTypeFullName", None)
 
+    @odata(name="MajorVersionLimit")
     @property
     def major_version_limit(self) -> Optional[int]:
         """
@@ -1902,11 +2021,13 @@ class List(SecurableObject):
         """
         return self.properties.get("MajorVersionLimit", None)
 
+    @odata(name="ListSchemaVersion", readonly=True, beta=True)
     @property
     def list_schema_version(self) -> Optional[str]:
         """"""
         return self.properties.get("ListSchemaVersion", None)
 
+    @odata(name="MajorWithMinorVersionsLimit")
     @property
     def major_with_minor_versions_limit(self) -> Optional[int]:
         """
@@ -1915,6 +2036,7 @@ class List(SecurableObject):
         """
         return self.properties.get("MajorWithMinorVersionsLimit", None)
 
+    @odata(name="NoCrawl")
     @property
     def no_crawl(self) -> Optional[bool]:
         """
@@ -1922,6 +2044,7 @@ class List(SecurableObject):
         """
         return self.properties.get("NoCrawl", None)
 
+    @odata(name="OnQuickLaunch")
     @property
     def on_quick_launch(self) -> Optional[bool]:
         """
@@ -1930,6 +2053,7 @@ class List(SecurableObject):
         """
         return self.properties.get("OnQuickLaunch", None)
 
+    @odata(name="PageRenderType", readonly=True, beta=True)
     @property
     def page_render_type(self) -> Optional[int]:
         """
@@ -1939,6 +2063,7 @@ class List(SecurableObject):
         """
         return self.properties.get("PageRenderType", None)
 
+    @odata(name="ParentWebUrl", readonly=True)
     @property
     def parent_web_url(self) -> Optional[str]:
         """
@@ -1947,6 +2072,7 @@ class List(SecurableObject):
         """
         return self.properties.get("ParentWebUrl", None)
 
+    @odata(name="ParserDisabled", readonly=True)
     @property
     def parser_disabled(self) -> Optional[str]:
         """
@@ -1955,11 +2081,13 @@ class List(SecurableObject):
         """
         return self.properties.get("ParserDisabled", None)
 
+    @odata(name="ReadSecurity")
     @property
     def read_security(self) -> Optional[int]:
         """Gets or sets the Read security setting for the list."""
         return self.properties.get("ReadSecurity", None)
 
+    @odata(name="ServerTemplateCanCreateFolders", readonly=True)
     @property
     def server_template_can_create_folders(self) -> Optional[bool]:
         """
@@ -1967,10 +2095,12 @@ class List(SecurableObject):
         """
         return self.properties.get("ServerTemplateCanCreateFolders", None)
 
+    @odata(name="ShowHiddenFieldsInModernForm", beta=True)
     @property
     def show_hidden_fields_in_modern_form(self) -> Optional[bool]:
         return self.properties.get("ShowHiddenFieldsInModernForm", None)
 
+    @odata(name="Title")
     @property
     def title(self) -> Optional[str]:
         """Gets the displayed title for the list."""
@@ -1981,6 +2111,7 @@ class List(SecurableObject):
         """Sets the displayed title for the list."""
         self.set_property("Title", val)
 
+    @odata(name="DefaultContentApprovalWorkflowId", readonly=True)
     @property
     def default_content_approval_workflow_id(self) -> Optional[str]:
         """
@@ -1989,6 +2120,7 @@ class List(SecurableObject):
         """
         return self.properties.get("DefaultContentApprovalWorkflowId", None)
 
+    @odata(name="Description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description for the list."""
@@ -1999,7 +2131,7 @@ class List(SecurableObject):
         """Sets the description for the list."""
         self.set_property("Description", val)
 
-    @odata(name="DescriptionResource")
+    @odata(name="DescriptionResource", navigation=True)
     @property
     def description_resource(self) -> UserResource:
         """Represents the description of this list."""
@@ -2008,17 +2140,19 @@ class List(SecurableObject):
             UserResource(self.context, ResourcePath("DescriptionResource", self.resource_path)),
         )
 
-    @odata(name="ParentWebPath")
+    @odata(name="ParentWebPath", readonly=True)
     @property
     def parent_web_path(self) -> SPResPath:
         """Returns the path of the parent web for the list."""
         return self.properties.get("ParentWebPath", SPResPath())
 
+    @odata(name="SchemaXml", readonly=True)
     @property
     def schema_xml(self) -> Optional[str]:
         """Specifies the list schema of the list."""
         return self.properties.get("SchemaXml", None)
 
+    @odata(name="TemplateFeatureId", readonly=True)
     @property
     def template_feature_id(self) -> Optional[str]:
         """
@@ -2027,7 +2161,7 @@ class List(SecurableObject):
         """
         return self.properties.get("TemplateFeatureId", None)
 
-    @odata(name="TitleResource")
+    @odata(name="TitleResource", navigation=True)
     @property
     def title_resource(self) -> UserResource:
         """Represents the title of this list."""
@@ -2036,6 +2170,7 @@ class List(SecurableObject):
             UserResource(self.context, ResourcePath("TitleResource", self.resource_path)),
         )
 
+    @odata(name="ValidationFormula")
     @property
     def validation_formula(self) -> Optional[str]:
         """Specifies the data validation criteria for a list item."""
@@ -2049,66 +2184,79 @@ class List(SecurableObject):
                 self._resource_path = ServiceOperationPath("getList", [value], self.context.web.resource_path)
         return self
 
+    @odata(name="Color", beta=True)
     @property
     def color(self) -> Optional[str]:
         """Gets the Color property"""
         return self.properties.get("Color", None)
 
+    @odata(name="DefaultNewFormUrl")
     @property
     def default_new_form_url(self) -> Optional[str]:
         """Gets the DefaultNewFormUrl property"""
         return self.properties.get("DefaultNewFormUrl", None)
 
+    @odata(name="Direction", readonly=True)
     @property
     def direction(self) -> Optional[str]:
         """Gets the Direction property"""
         return self.properties.get("Direction", None)
 
+    @odata(name="DocumentReadSecurity", beta=True)
     @property
     def document_read_security(self) -> Optional[bool]:
         """Gets the DocumentReadSecurity property"""
         return self.properties.get("DocumentReadSecurity", None)
 
+    @odata(name="DraftVersionVisibility")
     @property
     def draft_version_visibility(self) -> Optional[int]:
         """Gets the DraftVersionVisibility property"""
         return self.properties.get("DraftVersionVisibility", None)
 
+    @odata(name="EnabledQueryableColumnsDateTime", readonly=True)
     @property
     def enabled_queryable_columns_datetime(self) -> Optional[datetime]:
         """Gets the EnabledQueryableColumnsDateTime property"""
         return self.properties.get("EnabledQueryableColumnsDateTime", datetime.min)
 
+    @odata(name="ExcludeFromOfflineMode")
     @property
     def exclude_from_offline_mode(self) -> Optional[bool]:
         """Gets the ExcludeFromOfflineMode property"""
         return self.properties.get("ExcludeFromOfflineMode", None)
 
+    @odata(name="ExtendedSharePointPermissionOfflineDaysForLibrary")
     @property
     def extended_sharepoint_permission_offline_days_for_library(self) -> Optional[int]:
         """Gets the ExtendedSharePointPermissionOfflineDaysForLibrary property"""
         return self.properties.get("ExtendedSharePointPermissionOfflineDaysForLibrary", None)
 
+    @odata(name="HasCopyMoveRules", readonly=True, beta=True)
     @property
     def has_copy_move_rules(self) -> Optional[bool]:
         """Gets the HasCopyMoveRules property"""
         return self.properties.get("HasCopyMoveRules", None)
 
+    @odata(name="HasListBoundContentAssemblyTemplates", beta=True)
     @property
     def has_list_bound_content_assembly_templates(self) -> Optional[bool]:
         """Gets the HasListBoundContentAssemblyTemplates property"""
         return self.properties.get("HasListBoundContentAssemblyTemplates", None)
 
+    @odata(name="HighPriorityMediaProcessing", readonly=True, beta=True)
     @property
     def high_priority_media_processing(self) -> Optional[bool]:
         """Gets the HighPriorityMediaProcessing property"""
         return self.properties.get("HighPriorityMediaProcessing", None)
 
+    @odata(name="Icon", beta=True)
     @property
     def icon(self) -> Optional[str]:
         """Gets the Icon property"""
         return self.properties.get("Icon", None)
 
+    @odata(name="ImagePath")
     @property
     def image_path(self) -> ResourcePath:
         """Gets the ImagePath property"""
@@ -2116,81 +2264,97 @@ class List(SecurableObject):
 
         return self.properties.get("ImagePath", ResourcePath())
 
+    @odata(name="ImageUrl")
     @property
     def image_url(self) -> Optional[str]:
         """Gets the ImageUrl property"""
         return self.properties.get("ImageUrl", None)
 
+    @odata(name="DefaultSensitivityLabelForLibrary", readonly=True)
     @property
     def default_sensitivity_label_for_library(self) -> Optional[str]:
         """Gets the DefaultSensitivityLabelForLibrary property"""
         return self.properties.get("DefaultSensitivityLabelForLibrary", None)
 
+    @odata(name="SensitivityLabelToEncryptOnDownloadForLibrary")
     @property
     def sensitivity_label_to_encrypt_on_download_for_library(self) -> Optional[str]:
         """Gets the SensitivityLabelToEncryptOnDownloadForLibrary property"""
         return self.properties.get("SensitivityLabelToEncryptOnDownloadForLibrary", None)
 
+    @odata(name="IrmReject", readonly=True)
     @property
     def irm_reject(self) -> Optional[bool]:
         """Gets the IrmReject property"""
         return self.properties.get("IrmReject", None)
 
+    @odata(name="IsApplicationList")
     @property
     def is_application_list(self) -> Optional[bool]:
         """Gets the IsApplicationList property"""
         return self.properties.get("IsApplicationList", None)
 
+    @odata(name="IsCatalog", readonly=True)
     @property
     def is_catalog(self) -> Optional[bool]:
         """Gets the IsCatalog property"""
         return self.properties.get("IsCatalog", None)
 
+    @odata(name="IsContributorOwnerEnabled", readonly=True, beta=True)
     @property
     def is_contributor_owner_enabled(self) -> Optional[bool]:
         """Gets the IsContributorOwnerEnabled property"""
         return self.properties.get("IsContributorOwnerEnabled", None)
 
+    @odata(name="IsDefaultDocumentLibrary", readonly=True, beta=True)
     @property
     def is_default_document_library(self) -> Optional[bool]:
         """Gets the IsDefaultDocumentLibrary property"""
         return self.properties.get("IsDefaultDocumentLibrary", None)
 
+    @odata(name="IsEnterpriseGalleryLibrary", beta=True)
     @property
     def is_enterprise_gallery_library(self) -> Optional[bool]:
         """Gets the IsEnterpriseGalleryLibrary property"""
         return self.properties.get("IsEnterpriseGalleryLibrary", None)
 
+    @odata(name="IsPredictionModelApplied", readonly=True, beta=True)
     @property
     def is_prediction_model_applied(self) -> Optional[bool]:
         """Gets the IsPredictionModelApplied property"""
         return self.properties.get("IsPredictionModelApplied", None)
 
+    @odata(name="MultipleDataList")
     @property
     def multiple_data_list(self) -> Optional[bool]:
         """Gets the MultipleDataList property"""
         return self.properties.get("MultipleDataList", None)
 
+    @odata(name="ShowOneTabOnly")
     @property
     def show_one_tab_only(self) -> Optional[bool]:
         """Gets the ShowOneTabOnly property"""
         return self.properties.get("ShowOneTabOnly", None)
 
+    @odata(name="TemplateTypeId", beta=True)
     @property
     def template_type_id(self) -> Optional[str]:
         """Gets the TemplateTypeId property"""
         return self.properties.get("TemplateTypeId", None)
 
+    @odata(name="ValidationMessage")
     @property
     def validation_message(self) -> Optional[str]:
         """Gets the ValidationMessage property"""
         return self.properties.get("ValidationMessage", None)
 
+    @odata(name="WriteSecurity")
     @property
     def write_security(self) -> Optional[int]:
         """Gets the WriteSecurity property"""
         return self.properties.get("WriteSecurity", None)
 
+    @odata(name="ExtendedSharePointPermissionSettings", navigation=True)
     @property
     def extended_sharepoint_permission_settings(self) -> ExtendedSharePointPermissionSettings:
         """Gets the ExtendedSharePointPermissionSettings property"""
@@ -2205,6 +2369,7 @@ class List(SecurableObject):
             ),
         )
 
+    @odata(name="InformationRightsManagementSettings", navigation=True)
     @property
     def information_rights_management_settings(self) -> InformationRightsManagementSettings:
         """Gets the InformationRightsManagementSettings property"""
@@ -2219,6 +2384,7 @@ class List(SecurableObject):
             ),
         )
 
+    @odata(name="WorkflowAssociations", navigation=True)
     @property
     def workflow_associations(self) -> EntityCollection[WorkflowAssociation]:
         """Gets the WorkflowAssociations property"""
@@ -2233,6 +2399,7 @@ class List(SecurableObject):
             ),
         )
 
+    @site_access(SiteLevel.WRITE)
     def add_validate_update_item_using_path(
         self,
         list_item_create_info: ListItemCreationInformationUsingPath,
@@ -2281,6 +2448,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def caae_create_temp_folder(self) -> ClientResult[str]:
         """CAAECreateTempFolder operation."""
         return_type = ClientResult(self.context, str())
@@ -2288,6 +2456,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def caae_rename_file_in_temporary_folder(self, path: str, updated_name: str) -> ClientResult[str]:
         """CAAERenameFileInTemporaryFolder operation.
 
@@ -2304,18 +2473,21 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def cancel_delete_file_versions(self) -> Self:
         """CancelDeleteFileVersions operation."""
         qry = ServiceOperationQuery(self, "CancelDeleteFileVersions", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def clear_business_app_migration_interactive_data(self) -> Self:
         """ClearBusinessAppMigrationInteractiveData operation."""
         qry = ServiceOperationQuery(self, "ClearBusinessAppMigrationInteractiveData", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def copy_template_and_get_metadata(self, id_: str) -> ClientResult[TemplatizationMetaData]:
         """CopyTemplateAndGetMetadata operation.
 
@@ -2332,6 +2504,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def create_document_from_caae_template(
         self, content_type_name: str, document_generation_info: DocumentGenerationInfo
     ) -> ClientResult[ContentAssemblyFileInfo]:
@@ -2359,6 +2532,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def create_document_from_caae_template_v2(
         self, id_: str, document_generation_info: DocumentGenerationInfo
     ) -> ClientResult[ContentAssemblyFileInfo]:
@@ -2386,6 +2560,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def create_document_from_content_assembly_template(
         self, template_url: str, document_generation_info: DocumentGenerationInfo
     ) -> ClientResult[ContentAssemblyFileInfo]:
@@ -2413,6 +2588,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def create_hvcs_item_approval_request(
         self, create_item_request_payload: CreateHVCSItemApprovalRequestParameters
     ) -> ClientResult[str]:
@@ -2434,6 +2610,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def create_list_form(self, parameters: ListForm) -> ClientResult[ListForm]:
         """CreateListForm operation.
 
@@ -2448,6 +2625,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def create_rule_ex(
         self, condition: str, title: str, trigger_type: int, action: SPRuleAction, rule_template_id: str
     ) -> ClientResult[UUID]:
@@ -2483,12 +2661,14 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def enable_queryable_columns(self) -> Self:
         """EnableQueryableColumns operation."""
         qry = ServiceOperationQuery(self, "EnableQueryableColumns", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_async_action_task_ids(self) -> ClientResult[GuidCollection]:
         """GetAsyncActionTaskIds operation."""
         return_type = ClientResult(self.context, GuidCollection())
@@ -2496,6 +2676,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_business_app_migration_interactive_data(self) -> ClientResult[str]:
         """GetBusinessAppMigrationInteractiveData operation."""
         return_type = ClientResult(self.context, str())
@@ -2503,6 +2684,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_caae_template_metadata(self, name: str, published: bool) -> ClientResult[TemplateMetaData]:
         """GetCAAETemplateMetadata operation.
 
@@ -2519,6 +2701,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_caae_template_metadata_v2(self, id_: str) -> ClientResult[ClientValueCollection[PlaceholderV2]]:
         """GetCAAETemplateMetadataV2 operation.
 
@@ -2533,6 +2716,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_content_assembly_document_field_values(self, document_url: str) -> ClientResult[FieldValuesWithUrl]:
         """GetContentAssemblyDocumentFieldValues operation.
 
@@ -2547,6 +2731,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_content_assembly_template_fields(
         self, template_url: str
     ) -> ClientResult[ClientValueCollection[PlaceholderV2]]:
@@ -2563,6 +2748,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_list_forms(self, bsanitize: bool) -> ClientResult[ClientValueCollection[ListForm]]:
         """GetListForms operation.
 
@@ -2577,6 +2763,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_progress_for_delete_file_versions(self) -> ClientResult[str]:
         """GetProgressForDeleteFileVersions operation."""
         return_type = ClientResult(self.context, str())
@@ -2584,6 +2771,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def get_progress_for_file_version_expiration_report(self, report_file_url: str) -> ClientResult[str]:
         """GetProgressForFileVersionExpirationReport operation.
 
@@ -2603,6 +2791,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def is_syntex_ai_features_flight_enabled(self) -> ClientResult[bool]:
         """IsSyntexAIFeaturesFlightEnabled operation."""
         return_type = ClientResult(self.context, bool())
@@ -2610,6 +2799,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def lock_smart_template(self, id_: str) -> ClientResult[LockFileData]:
         """LockSmartTemplate operation.
 
@@ -2624,6 +2814,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def map_fields_to_columns_for_modern_temlate(
         self, payload: PublishModernTemplatePayload
     ) -> ClientResult[ContentAssemblyModernTemplateColumnsMappingInfo]:
@@ -2644,6 +2835,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def map_fields_to_columns_for_modern_template(
         self, template_payload: PublishModernTemplatePayload
     ) -> ClientResult[ContentAssemblyModernTemplateColumnsMappingInfo]:
@@ -2664,6 +2856,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def parse_document_template(self, name: str) -> ClientResult[str]:
         """ParseDocumentTemplate operation.
 
@@ -2676,6 +2869,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def publish_snippet(self, publish_snippet_payload: PublishSnippetPayload) -> Self:
         """PublishSnippet operation.
 
@@ -2689,6 +2883,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def publish_template_v2(self, payload: PublishTemplateV2Payload) -> Self:
         """PublishTemplateV2 operation.
 
@@ -2700,6 +2895,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def refresh_lock_smart_template(self, id_: str, lock_id: str) -> ClientResult[LockFileData]:
         """RefreshLockSmartTemplate operation.
 
@@ -2718,6 +2914,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_extended_list_form_data(
         self, item_id: int, form_id: str, mode: int, options: int, cutoff_version: int
     ) -> ClientResult[str]:
@@ -2747,6 +2944,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_list_context_menu_data(
         self,
         casc_del_warn_message: str,
@@ -2823,6 +3021,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_list_filter_data(
         self,
         exclude_field_filtering_html: bool,
@@ -2867,6 +3066,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_list_form_data(self, item_id: int, form_id: str, mode: int) -> ClientResult[str]:
         """RenderListFormData operation.
 
@@ -2885,6 +3085,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_column_mapping(self, column_mapping: str) -> Self:
         """SetColumnMapping operation.
 
@@ -2896,6 +3097,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_content_assembly_template_read_only(self, id_: str) -> Self:
         """SetContentAssemblyTemplateReadOnly operation.
 
@@ -2907,6 +3109,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_items_order(
         self, item_ids: list[int], lower_order_item_id: int, higher_order_item_id: int, use_provided_order_item_id: bool
     ) -> ClientResult[ClientValueCollection[ItemOrderUpdateValue]]:
@@ -2943,6 +3146,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def set_list_custom_order_flag(self, value: bool) -> Self:
         """SetListCustomOrderFlag operation.
 
@@ -2954,6 +3158,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def set_quickstep_ordering(self, quickstep_ids: str) -> Self:
         """SetQuickstepOrdering operation.
 
@@ -2965,6 +3170,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_delete_file_versions(self, delete_older_than_days: int) -> Self:
         """StartDeleteFileVersions operation.
 
@@ -2978,6 +3184,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_delete_file_versions_by_mode(self, batch_delete_parameters: FileVersionBatchDeleteParameters) -> Self:
         """StartDeleteFileVersionsByMode operation.
 
@@ -2991,6 +3198,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def start_file_version_expiration_report(self, report_file_url: str) -> Self:
         """StartFileVersionExpirationReport operation.
 
@@ -3004,6 +3212,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def unlock_smart_template(self, id_: str, lock_id: str) -> Self:
         """UnlockSmartTemplate operation.
 
@@ -3017,6 +3226,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def unset_content_assembly_template_read_only(self, id_: str) -> Self:
         """UnsetContentAssemblyTemplateReadOnly operation.
 
@@ -3028,6 +3238,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def update_caae_template(self, name: str, update_template_info: UpdateTemplateInfo) -> Self:
         """UpdateCAAETemplate operation.
 
@@ -3043,6 +3254,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def update_caae_template_v2(self, id_: str, update_template_info: UpdateTemplateInfoV2) -> Self:
         """UpdateCAAETemplateV2 operation.
 
@@ -3058,6 +3270,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def update_content_assembly_document(
         self, template_url: str, content_assembly_form_answers: ClientValueCollection[ContentAssemblyFormAnswer]
     ) -> ClientResult[ContentAssemblyFileInfo]:
@@ -3085,6 +3298,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def update_form_processing_model_retention_label(self, retention_label: str) -> Self:
         """UpdateFormProcessingModelRetentionLabel operation.
 
@@ -3098,6 +3312,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def update_form_processing_model_settings(self, retention_label: str, linked_list: str) -> Self:
         """UpdateFormProcessingModelSettings operation.
 
@@ -3118,6 +3333,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def update_list_form(self, parameters: ListForm) -> ClientResult[ListForm]:
         """UpdateListForm operation.
 
@@ -3132,6 +3348,7 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def update_rule_ex(
         self, rule_id: str, condition: str, title: str, status: int, action: SPRuleAction, trigger_type: int
     ) -> Self:

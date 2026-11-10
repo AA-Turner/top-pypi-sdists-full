@@ -242,6 +242,13 @@ PAINT_KEYS_OVERRIDE: str = "paint_keys"
 #: suffix: it compares against the ``0`` it appends to every key.
 RIDER_IN_FRONT: int = 1
 RIDER_BEHIND: int = -1
+#: The core's mark on an attached world member the compiler draws right
+#: beside its host, wherever the host is drawn (an#692): ``{"host": id,
+#: "side": RIDER_BEHIND | RIDER_IN_FRONT}``, the side the built order gave
+#: it. The host may be drawn away from its built place (placed ``after`` an
+#: entity or a plane); several riders on one side keep their built order. An
+#: entity that names its own ``stage.after`` keeps it instead.
+BESIDE_HOST_OVERRIDE: str = "beside_host"
 #: Items in a world entity's own paint key (layer, depth, tiebreak), and in
 #: the suffix a rider adds to its host's (side, n).
 BASE_PAINT_KEY_LEN: int = 3
@@ -250,9 +257,24 @@ RIDER_SUFFIX_LEN: int = 2
 #: (an#504): its ``rotation`` channel is that lean, which the hold layer takes
 #: out of the angle an item it carries comes to rest at (an#659).
 SWAY_OVERRIDE: str = "leans"
+#: The core's record, on each positioned member of a world that declares a
+#: ``ground`` (an#519), of the floor under it as the camera projects it:
+#: ``{"at": [x, y], "along": [dx, dy], "scale": s}`` (the floor point under
+#: its placement point, the floor line's unit direction, and the stage px per
+#: world unit there), or ``{"keys": [[t, x, y, dx, dy, s, lateral], ...]}``
+#: for a member the camera sees move (``lateral``: where that floor point is
+#: along the floor, in world units in the frame the member stands in, from
+#: where it stood as the shot opens: what skate is measured from). Read by
+#: :func:`an.ir.world.world_ground_at`; the ``support`` and ``skate`` checks
+#: and the hold layer's floor read it, only on a shot lowered from a world
+#: (:func:`an.ir.world.world_ground_mark`). Never an authoring field: the
+#: lowering replaces or drops one an author wrote on a framed shot (a
+#: ``ground`` warning), and the compiler refuses it on any other.
+GROUND_OVERRIDE: str = "ground"
 #: At or under this alpha an entity is not seen (a stream slot between its
 #: passes, a fade's end): it cannot jump or swap sides at a cut (an#516), nor
-#: overlap or be drawn through anything at an instant (an#632).
+#: overlap or be drawn through anything at an instant (an#632), nor be held
+#: to its supports or skate at one (an#519).
 UNSEEN_ALPHA: float = 1e-3
 
 #: Keys the CORE records in an entity's ``overrides``: what attaches it, the
@@ -269,7 +291,9 @@ CORE_OVERRIDE_KEYS: frozenset[str] = frozenset(
         "held_rotation",
         PLANE_FACTORS_OVERRIDE,
         PAINT_KEYS_OVERRIDE,
+        BESIDE_HOST_OVERRIDE,
         SWAY_OVERRIDE,
+        GROUND_OVERRIDE,
     }
 )
 

@@ -74,6 +74,20 @@ def _has_cli_install() -> bool:
     return get_cli_python() is not None
 
 
+def _forget_start(pid: int) -> None:
+    """Take this service's own spawn out of `starts.json` (`start.forget_start`; never raises)."""
+    from probe.foundation.service_api.start import forget_start
+
+    forget_start(pid)
+
+
+def _record_stop(reason: str, version: str) -> None:
+    """Say why this service stopped in `last-stop.json` (`stop_record.record_stop`; never raises)."""
+    from probe.foundation.service_api.stop_record import record_stop
+
+    record_stop(reason, version)
+
+
 def log(message: str) -> None:
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with contextlib.suppress(OSError, ValueError):
@@ -152,6 +166,12 @@ class DeliveryService:
         self.sdk.is_stopping = True
         with contextlib.suppress(OSError):
             (paths.service_dir() / STOPPING_NAME).touch()
+        # Its stop on record, as the machine service's: the service after it reads no crash (`watch.last_run`).
+        _record_stop(reason, self.version)
+        if reason in (StopReason.IDLE, StopReason.STOP):
+            # A stop on purpose is no start for `ensure` to wait on or back off from (the machine
+            # service's rule): a step aside's caller starts the machine service at once.
+            _forget_start(self.pid)
         log(f"stopping ({reason})")
         if not self._done.done():
             self._done.set_result(reason)

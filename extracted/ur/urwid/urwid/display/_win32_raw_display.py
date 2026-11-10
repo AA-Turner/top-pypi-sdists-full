@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import contextlib
+import ctypes
 import functools
 import logging
 import selectors
@@ -36,10 +37,12 @@ from ctypes.wintypes import DWORD
 from urwid import signals
 
 from . import _raw_display_base, _win32, escape
-from .common import INPUT_DESCRIPTORS_CHANGED
+from .common import INPUT_DESCRIPTORS_CHANGED, InputClosedError
 
 # milliseconds the console reader waits for input before checking whether it has to stop
 _INPUT_POLL_MS = 100
+# characters read of the console title: the console API limits a title to 64 KiB
+_TITLE_BUFFER_SIZE = 32768
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
@@ -91,6 +94,8 @@ class Screen(_raw_display_base.Screen):
             focus_reporting=focus_reporting,
             extended_keys=extended_keys,
         )
+        # the console title before set_title() changed it, read through the console API
+        self._saved_title: str | None = None
 
     _dwOriginalOutMode: DWORD | None = None
     _dwOriginalInMode: DWORD | None = None
@@ -104,6 +109,38 @@ class Screen(_raw_display_base.Screen):
         reading the real console, not the console handle itself.
         """
         return self._console_mode_active
+
+    def _save_title(self) -> None:
+        """Save the console title through the console API.
+
+        The Windows console has no title stack.
+        A title read as empty is not saved, as the console API reports a failed read the same way.
+        Outside a console, the title is saved on the terminal's title stack.
+        """
+        if not self._console_mode_active:
+            super()._save_title()
+            return
+        title = ctypes.create_unicode_buffer(_TITLE_BUFFER_SIZE)
+        self._saved_title = title.value if _win32.GetConsoleTitleW(title, len(title)) else None
+
+    def _restore_saved_title(self) -> None:
+        """Give the console back the title :meth:`_save_title` read, if it read one."""
+        if not self._console_mode_active:
+            super()._restore_saved_title()
+            return
+        saved_title, self._saved_title = self._saved_title, None
+        if saved_title is not None:
+            _win32.SetConsoleTitleW(saved_title)
+
+    def _write_title(self, title: str) -> None:
+        """Set the console title through the console API.
+
+        The Windows console ignores a title sequence of 255 characters or more, and the API has no such limit.
+        """
+        if not self._console_mode_active:
+            super()._write_title(title)
+            return
+        _win32.SetConsoleTitleW(title)
 
     def _start(  # pylint: disable=keyword-arg-before-vararg
         self,
@@ -174,6 +211,7 @@ class Screen(_raw_display_base.Screen):
             self.write(escape.PrivateMode.FOCUS_REPORTING.enable_seq)
 
         self._enable_keyboard_protocol()
+        self._show_title()
 
         self._next_timeout = self.max_wait
 
@@ -194,38 +232,55 @@ class Screen(_raw_display_base.Screen):
         Restore the screen.
 
         :raises RuntimeError: the original console mode could not be restored.
+        :raises OSError: writing to the output failed; the reader is stopped and the console modes are set back first.
         """
-        self.clear()
+        try:
+            self.clear()
 
-        if self.modes.bracketed_paste:
-            self.write(escape.PrivateMode.BRACKETED_PASTE.disable_seq)
+            if self.modes.bracketed_paste:
+                self.write(escape.PrivateMode.BRACKETED_PASTE.disable_seq)
 
-        if self.modes.focus_reporting:
-            self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
+            if self.modes.focus_reporting:
+                self.write(escape.PrivateMode.FOCUS_REPORTING.disable_seq)
 
-        # before the alternate screen is left: the kitty keyboard flags are kept per screen
-        self._disable_keyboard_protocol()
+            # before the alternate screen is left: the kitty keyboard flags are kept per screen
+            self._disable_keyboard_protocol()
 
-        self._stop_input_thread()
+            # before the last writes, so keys typed meanwhile stay in the console for whatever reads it next
+            self._stop_input_thread()
 
-        self._stop_restore_palette()
-        self._stop_mouse_restore_buffer()
-
-        if self._dwOriginalOutMode is not None and self._dwOriginalInMode is not None:
-            handle_out = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
-            handle_in = _win32.GetStdHandle(_win32.STD_INPUT_HANDLE)
-
-            if not (ok := _win32.SetConsoleMode(handle_out, self._dwOriginalOutMode)):
-                raise RuntimeError(f"ConsoleMode set failed for output. Err: {ok!r}")
-
-            if not (ok := _win32.SetConsoleMode(handle_in, self._dwOriginalInMode)):
-                raise RuntimeError(f"ConsoleMode set failed for input. Err: {ok!r}")
-
-            self._dwOriginalOutMode = None
-            self._dwOriginalInMode = None
-            self._console_mode_active = False
+            self._stop_restore_palette()
+            # before the console mode is restored: the title is saved through the console API while it is active
+            self._restore_title()
+            self._stop_mouse_restore_buffer()
+        finally:
+            # the reader is stopped and the console modes are set back also when a step above failed
+            self._stop_input_thread()
+            self._restore_console_modes()
 
         super()._stop()  # type: ignore[safe-super]
+
+    def _restore_console_modes(self) -> None:
+        """Set back the console modes saved by the start.
+
+        :raises RuntimeError: a console mode could not be set back.
+        """
+        if self._dwOriginalOutMode is None or self._dwOriginalInMode is None:
+            return
+        handle_out = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)
+        handle_in = _win32.GetStdHandle(_win32.STD_INPUT_HANDLE)
+
+        # both modes are set before either failure is raised, so a failed output mode leaves no input mode behind
+        out_ok = _win32.SetConsoleMode(handle_out, self._dwOriginalOutMode)
+        in_ok = _win32.SetConsoleMode(handle_in, self._dwOriginalInMode)
+        if not out_ok:
+            raise RuntimeError(f"ConsoleMode set failed for output. Err: {out_ok!r}")
+        if not in_ok:
+            raise RuntimeError(f"ConsoleMode set failed for input. Err: {in_ok!r}")
+
+        self._dwOriginalOutMode = None
+        self._dwOriginalInMode = None
+        self._console_mode_active = False
 
     def unhook_event_loop(self, event_loop: EventLoop) -> None:
         """Remove any hooks added by hook_event_loop."""
@@ -312,7 +367,7 @@ class Screen(_raw_display_base.Screen):
             while selector.select(0):
                 chunk = self._term_input_file.recv(1024)
                 if not chunk:
-                    raise RuntimeError("stdin has been closed")
+                    raise InputClosedError("stdin has been closed")
                 chars.extend(chunk)
 
             return chars

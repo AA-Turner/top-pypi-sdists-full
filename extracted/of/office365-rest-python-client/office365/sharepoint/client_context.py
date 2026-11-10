@@ -25,6 +25,7 @@ from office365.runtime.transport.base import NoTimeoutType
 from office365.runtime.transport.requests_transport import DEFAULT_POOL_CONNECTIONS, DEFAULT_POOL_MAXSIZE
 from office365.runtime.types.collections import StringCollection
 from office365.sharepoint.exceptions import SecurityValidationException
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.portal.groups.creation_params import GroupCreationParams
 from office365.sharepoint.portal.groups.site_info import GroupSiteInfo
 from office365.sharepoint.portal.sites.creation_response import SPSiteCreationResponse
@@ -223,7 +224,7 @@ class ClientContext(ClientRuntimeContext):
             verify: SSL verification — ``True``, ``False``, or a CA bundle path.
                 ``None`` (default) defers to the session/environment default.
             timeout: Request timeout — a number or a ``(connect, read)`` tuple.
-                When ``None`` the bundled default (10 s connect, unbounded read)
+                When ``None`` the bundled default (10 s connect, 300 s read)
                 applies; pass
                 :data:`~office365.runtime.transport.base.NO_TIMEOUT` to disable.
             session: Custom ``requests.Session`` with pre-configured adapters
@@ -307,6 +308,7 @@ class ClientContext(ClientRuntimeContext):
         self.authentication_context.with_credentials(credentials)
         return self
 
+    @limit(Limits.BATCH_BYTES)
     @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
     def execute_batch(
         self,
@@ -355,6 +357,7 @@ class ClientContext(ClientRuntimeContext):
         return self
 
     @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
+    @site_access(SiteLevel.WRITE)
     async def execute_batch_async(
         self,
         items_per_batch: int = Limits.BATCH_ITEMS.value,
@@ -420,7 +423,9 @@ class ClientContext(ClientRuntimeContext):
         from office365.runtime.odata.batch_util import partition_by_limits
         from office365.runtime.queries.batch import BatchQuery
 
-        return [BatchQuery(self, chunk) for chunk in partition_by_limits(queries, items_per_batch, max_batch_bytes)]
+        json_format = self.pending_request().json_format
+        chunks = partition_by_limits(queries, items_per_batch, max_batch_bytes, json_format)
+        return [BatchQuery(self, chunk) for chunk in chunks]
 
     def _resolve_deferred(self, barrier: DeferredOperationQuery) -> None:
         """Resolve a deferred barrier in place, firing its handlers.
@@ -685,6 +690,11 @@ class ClientContext(ClientRuntimeContext):
     ) -> Site:
         """Creates a modern SharePoint Team site
 
+        Provisioning runs asynchronously: ``CreateGroupEx`` answers ``Provisioning`` with no
+        url, and the site answers no request until the tenant finishes. The call waits it out
+        (:meth:`GroupSiteManager.await_site`) so the returned ``Site`` is usable, and raises
+        :class:`~office365.runtime.lro.OperationTimeoutError` when it does not finish.
+
         Args:
             alias (str): Site alias which defines site url, e.g. https://contoso.sharepoint.com/teams/{alias}
             title (str): Site title
@@ -693,10 +703,7 @@ class ClientContext(ClientRuntimeContext):
         return_type = Site(self)
 
         def _after_site_created(result: ClientResult[GroupSiteInfo]) -> None:
-            if result.value.SiteStatus == SiteStatus.Error:
-                raise ValueError(result.value.ErrorMessage)
-            elif result.value.SiteStatus == SiteStatus.Ready:
-                return_type.set_property("__siteUrl", result.value.SiteUrl)
+            return_type.set_property("__siteUrl", self.group_site_manager.await_site(result.value).SiteUrl)
 
         opt_params = GroupCreationParams(Owners=StringCollection(owners or []))
         self.group_site_manager.create_group_ex(title, alias, is_public, opt_params).after_execute(_after_site_created)
@@ -717,8 +724,7 @@ class ClientContext(ClientRuntimeContext):
         ) -> None:
             if result.value.SiteStatus == SiteStatus.Error:
                 raise ValueError("Site creation error")
-            elif result.value.SiteStatus == SiteStatus.Ready:
-                return_type.set_property("__siteUrl", result.value.SiteUrl)
+            return_type.set_property("__siteUrl", result.value.SiteUrl or site_url)
 
         self.site_pages.communication_site.create(title, site_url).after_execute(_after_site_created)
         return return_type

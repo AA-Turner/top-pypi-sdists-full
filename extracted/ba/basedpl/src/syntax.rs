@@ -2,10 +2,23 @@ use crate::name::{Name, is_implicit};
 use crate::{
     At, Described, Error, ErrorKind, Number, Source, Span, Value,
     number::{Arithmetic, DENOMINATOR, EXPONENT, IMAGINARY, MARKS, Mark, Math, Numeric, SUFFIXES, Suffix, subscript},
-    primitive::{Builtin, Exact, OperatorKind, Primitive, Superscript}, symbols::canonical
+    primitive::{Builtin, OperatorKind, Primitive, Superscript}, symbols::canonical
 };
 use rustymath::{buffer::{DType, FloatWidth}, error::Kind};
 use std::{iter::Peekable, str::CharIndices, sync::{Arc, atomic::{AtomicU64, Ordering::Relaxed}}};
+
+/// The two numeric postfix scripts share digit strands and binding, then use Index/Axis or Power/Rank.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ScriptKind { Sub, Super }
+impl ScriptKind {
+    pub(crate) fn operator(self) -> OperatorKind { match self { Self::Sub => OperatorKind::Axis, Self::Super => OperatorKind::Rank } }
+    pub(crate) fn text(self, indices: &Value) -> String {
+        let (digits, minus) = match self { Self::Sub => (SUBSCRIPT_DIGITS, '₋'), Self::Super => (SUPERSCRIPT_DIGITS, '⁻') };
+        indices.as_items().integers().expect("parsed numeric scripts contain integers").iter().map(|n| {
+            n.to_string().chars().map(|c| if c == '-' { minus } else { digits.chars().nth(c.to_digit(10).unwrap() as usize).unwrap() }).collect::<String>()
+        }).collect::<Vec<_>>().join(" ")
+    }
+}
 
 #[derive(Clone, Debug)]
 pub(crate) enum NodeKind {
@@ -22,8 +35,8 @@ pub(crate) enum NodeKind {
     Group(Vec<Node>),
     /// A run of nodes with no spaces between them, evaluated before its neighbours.
     Run(Vec<Node>),
-    /// A subscript, as in `v₁`: `(1⌷v)` for the item just before it, which binding finds after dot access.
-    Subscript(i64),
+    /// Numeric scripts: subscripts select arrays or set function axes; superscripts raise arrays to powers or set function ranks.
+    Script(ScriptKind, Value),
     /// `ⱼ`, `ₑ` or `ᵣ` between two items, as in `xⱼy`, which binding joins into one term once dot access and subscripts are bound.
     Joiner(Joiner),
     /// `T.(expr)`, which dot access builds: the second node evaluated with the keys of the first as names.
@@ -47,10 +60,11 @@ pub(crate) enum ListForm {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum DefinitionKind { Function, MonadicOperator, DyadicOperator }
 
+/// A dfn's or an operator's definition. Its calls fill two caches that live on the definition, one per definition, as JAX's `jit` caches per function: what maps remember of a stopped batched run (`remembered`), and the programs that `∂` traces (`programs`).
 #[derive(Debug)]
 pub(crate) struct Definition {
     pub bodies: Vec<Vec<Statement>>, pub span: Span, pub kind: DefinitionKind, locals: &'static [Name], remembered: AtomicU64,
-    programs: crate::program::Programs
+    programs: crate::program::trace::Programs, admitted: Option<Primitive>
 }
 impl Definition {
     /// The names that the definition could assign, sorted, which each of its calls keeps in slots.
@@ -60,7 +74,24 @@ impl Definition {
     /// Records what maps remember of a stopped batched run of this definition.
     pub fn remember(&self, memory: u64) { self.remembered.store(memory, Relaxed) }
     /// The programs that `∂` of this definition builds, and the argument signatures whose traces stopped (`program`).
-    pub(crate) fn programs(&self) -> &crate::program::Programs { &self.programs }
+    pub(crate) fn programs(&self) -> &crate::program::trace::Programs { &self.programs }
+    /// The primitive this definition is, where it's `{⍺ p ⍵}` (`admitted`): computation takes it as that primitive, with its algebraic and floating-point freedoms. Display keeps the definition's text.
+    pub(crate) fn admitted(&self) -> Option<Primitive> { self.admitted }
+}
+
+/// The primitive that a definition is, where its one body is one expression `⍺ p ⍵` of a primitive `p`. An absent `⍺` drops out, so the definition is `p` with either valence.
+fn admitted(bodies: &[Vec<Statement>]) -> Option<Primitive> {
+    let [body] = bodies else { return None };
+    let [Statement { nodes, kind: StatementKind::Expression, .. }] = body.as_slice() else { return None };
+    let mut nodes = nodes.as_slice();
+    while let [Node { kind: NodeKind::Run(inner) | NodeKind::Group(inner), .. }] = nodes { nodes = inner; }
+    let [
+        Node { kind: NodeKind::Name(Name::ALPHA, _), .. },
+        Node { kind: NodeKind::Function(Builtin::Primitive(p)), .. },
+        Node { kind: NodeKind::Name(Name::OMEGA, _), .. },
+    ] = nodes
+    else { return None; };
+    Some(*p)
 }
 
 fn definition_kind(bodies: &[Vec<Statement>]) -> DefinitionKind {
@@ -147,7 +178,7 @@ fn mark_last(nodes: &mut [Node], name: Name) -> Result<bool, ()> {
     };
     let Some(i) = nodes.iter().position(reads) else { return Ok(false) };
     let joins = |kind: &NodeKind| matches!(kind, NodeKind::Joiner(_) | NodeKind::Operator(OperatorKind::Product));
-    let end = (i + 1..nodes.len()).find(|&j| !matches!(nodes[j].kind, NodeKind::Subscript(_)) && !joins(&nodes[j].kind) && !joins(&nodes[j - 1].kind))
+    let end = (i + 1..nodes.len()).find(|&j| !matches!(nodes[j].kind, NodeKind::Script(..)) && !joins(&nodes[j].kind) && !joins(&nodes[j - 1].kind))
         .unwrap_or(nodes.len());
     if nodes[i + 1..end].iter().any(reads) { return Err(()); }
     match &mut nodes[i].kind {
@@ -194,9 +225,7 @@ pub enum ParseStatus { Complete(Parsed), Incomplete(Error), Invalid(Error) }
 
 impl ParseStatus {
     /// The program, or the error for input that is incomplete or invalid.
-    pub(crate) fn complete(self) -> Result<Parsed, Error> {
-        match self { Self::Complete(parsed) => Ok(parsed), Self::Incomplete(e) | Self::Invalid(e) => Err(e) }
-    }
+    pub fn complete(self) -> Result<Parsed, Error> { match self { Self::Complete(parsed) => Ok(parsed), Self::Incomplete(e) | Self::Invalid(e) => Err(e) } }
 }
 
 #[derive(Debug)]
@@ -206,8 +235,8 @@ enum TokenKind {
     Literal(Value),
     Function(Primitive),
     Operator(OperatorKind),
-    /// A subscript integer, such as `₁` or `₋₁`, which selects a major cell of the item just before it.
-    Subscript(i64),
+    /// One subscript or superscript integer; spaces strand integers of the same script.
+    Script(ScriptKind, i64),
     /// `ⱼ`, `ₑ` or `ᵣ` after an item other than a literal number.
     Joiner(Joiner),
     Open,
@@ -275,19 +304,21 @@ fn real_literal(chars: &mut Characters<'_>) -> Result<(), &'static str> {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Joiner { Imaginary, Exponent, Denominator }
 
-/// The group that `left`, `joiner` at `at` and `right` stand for: `xⱼy` is `x+y×0ⱼ1`, `xₑy` is `x×10*y` and `xᵣy` is the exact quotient of `xₓ` by `yₓ`, under either kinds (`Exact::Ratio`).
+/// The group that `left`, `joiner` at `at` and `right` stand for: `xⱼy` is `x+y×0ⱼ1`, `xₑy` is `x×10*y` and `xᵣy` is `xₓ÷ᵣyₓ`, the exact quotient of the two integers, under either kinds.
 pub(crate) fn joined_term(left: Node, joiner: Joiner, at: &Span, right: Node) -> Node {
     let span = Span { source: at.source.clone(), range: left.span.range.start..right.span.range.end };
     let node = |kind| Node { kind, span: at.clone() };
     let number = |text| node(NodeKind::Literal(Value::Number(literal_number(text, Numeric::current()).expect("a joiner's constant is a number"))));
     let function = |p| node(NodeKind::Function(Builtin::Primitive(p)));
-    let mark = || node(NodeKind::Operator(OperatorKind::Super(Superscript::Mark(Mark::Exact))));
+    let mark = |m| node(NodeKind::Operator(OperatorKind::Super(Superscript::Mark(m))));
     let nodes = match joiner {
         Joiner::Imaginary => {
             vec![left, function(Primitive::Arithmetic(Arithmetic::Plus)), right, function(Primitive::Arithmetic(Arithmetic::Times)), number("0j1")]
         }
         Joiner::Exponent => vec![left, function(Primitive::Arithmetic(Arithmetic::Times)), number("10"), function(Primitive::Math(Math::Power)), right],
-        Joiner::Denominator => vec![left, mark(), function(Primitive::Exact(Exact::Ratio)), right, mark()],
+        Joiner::Denominator => {
+            vec![left, mark(Mark::Exact), function(Primitive::Arithmetic(Arithmetic::Divide)), mark(Mark::Rational), right, mark(Mark::Exact)]
+        }
     };
     Node { kind: NodeKind::Group(nodes), span }
 }
@@ -297,6 +328,14 @@ fn mark_head(chars: &mut Characters<'_>) -> Option<Mark> { let &(_, c) = chars.p
 
 fn mark(chars: &mut Characters<'_>) -> Result<Option<Mark>, (ErrorKind, String)> {
     let Some(mark) = mark_head(chars) else { return Ok(None) };
+    // `ᵣ` before something that starts a value joins the two (`xᵣy`, as the joiner token), and marks what it follows only otherwise.
+    if mark == Mark::Rational {
+        let mut next = chars.clone();
+        next.next();
+        if number_part(next.clone())
+            || next.peek().is_some_and(|&(_, c)| name_char_in(c, chars.aliases) || is_implicit(c) || matches!(c, '(' | '[' | '\'' | '"' | '$' | '•' | '⍬'))
+        { return Ok(None); }
+    }
     chars.next();
     if mark != Mark::Exact { return Ok(Some(mark)); }
     let Some(&(_, c)) = chars.peek().filter(|(_, c)| *c == '₋' || script_digit(SUBSCRIPT_DIGITS, *c).is_some()) else { return Ok(Some(mark)) };
@@ -340,11 +379,9 @@ fn number_text(text: &str) -> String { text.chars().map(canonical).collect() }
 /// The number that literal text writes, read by `Number::literal` once each character takes its canonical spelling.
 fn literal_number(text: &str, numeric: Numeric) -> Result<Number, ErrorKind> { Number::literal(&number_text(text), numeric) }
 
-/// A number written inside `[…]ₓ`. An integer's digits read exactly, and a whole float becomes exact.
+/// A number written inside `[…]ₓ`: the literal with its own `ₓ` (`Number::parse`), so an integer's digits read exactly, a fraction floors and an infinity saturates.
 fn exact_number(text: &str, numeric: Numeric) -> Result<Number, ErrorKind> {
-    let (text, numeric) = (number_text(text), numeric.with_width(FloatWidth::F64));
-    if text.chars().all(|c| c.is_ascii_digit() || c == '¯') { return Number::parse(&format!("{text}ₓ"), numeric); }
-    Number::literal(&text, numeric)?.marked_exact().ok_or_else(|| Kind::Domain.into())
+    Number::parse(&format!("{}ₓ", number_text(text)), numeric.with_width(FloatWidth::F64))
 }
 
 /// The empty numeric vector whose prototype is `fill`.
@@ -354,8 +391,8 @@ pub(crate) fn zilde(fill: Number) -> Value { Value::empty([0], Value::Number(fil
 fn literal_token(kind: &TokenKind) -> bool {
     matches!(
         kind, TokenKind::Literal(_) | TokenKind::Open | TokenKind::Close(_) | TokenKind::BracketOpen | TokenKind::BracketClose(_) | TokenKind::Semicolon
-            | TokenKind::Separator | TokenKind::Function(Primitive::Keys)
-            | TokenKind::Operator(OperatorKind::Super(Superscript::Power(_) | Superscript::Transpose))
+            | TokenKind::Separator | TokenKind::Function(Primitive::Keys) | TokenKind::Script(ScriptKind::Super, _)
+            | TokenKind::Operator(OperatorKind::Super(Superscript::Transpose))
     )
 }
 
@@ -373,7 +410,7 @@ fn mark_literals(tokens: &mut Vec<Token>) -> Result<Vec<std::ops::Range<usize>>,
                 for token in &mut tokens[start + 1..i] {
                     let text = token.span.text();
                     let value = match (&token.kind, mark) {
-                        (TokenKind::Literal(Value::Number(n)), _) if n.as_bool().is_some() && !matches!(mark, Mark::Fixed(_)) => continue,
+                        (TokenKind::Literal(Value::Number(n)), _) if n.as_bool().is_some() && !matches!(mark, Mark::Fixed(_) | Mark::Real) => continue,
                         (TokenKind::Literal(Value::Number(_)), Mark::Exact) if text.starts_with('$') => continue,
                         (TokenKind::Literal(Value::Number(_)), Mark::Exact) => {
                             Value::Number(exact_number(text, numeric).described("ₓ marks whole numbers exact").at(&token.span)?)
@@ -386,6 +423,11 @@ fn mark_literals(tokens: &mut Vec<Token>) -> Result<Vec<std::ops::Range<usize>>,
                             let n = if text.starts_with('$') { Ok(n.clone()) } else { literal_number(text, numeric.with_width(w)) };
                             let n = n.and_then(|n| n.to_float_width(w).map_err(|_| Kind::Domain.into()));
                             Value::Number(n.described(&format!("{} marks numbers", mark.marker())).at(&token.span)?)
+                        }
+                        (TokenKind::Literal(Value::Number(n)), Mark::Real) => Value::Number(n.to_real(numeric).described("ₐ marks numbers").at(&token.span)?),
+                        (TokenKind::Literal(Value::Number(n)), Mark::Rational) => {
+                            let n = if text.starts_with('$') { n.to_rational() } else { literal_number(&format!("{text}ᵣ"), numeric) };
+                            Value::Number(n.described("ᵣ marks real numbers").at(&token.span)?)
                         }
                         (TokenKind::Literal(_), _) if text.chars().map(canonical).eq(['⍬']) => zilde(mark.zero()),
                         _ => continue,
@@ -441,7 +483,10 @@ pub fn subscripts() -> String { [SUBSCRIPT_DIGITS, "₋"].concat() }
 /// Number markers and their word names, for Python properties and editor generation.
 pub fn number_marks() -> Vec<(&'static str, &'static str)> {
     MARKS.iter().map(|&(text, mark)| {
-        (text, match mark { Mark::Exact => "exact", Mark::Width(w) => DType::Float(w).name(), Mark::Fixed(w) => DType::Integer(w).name() })
+        (text, match mark {
+            Mark::Exact => "exact", Mark::Width(w) => DType::Float(w).name(), Mark::Fixed(w) => DType::Integer(w).name(), Mark::Real => "approximate",
+            Mark::Rational => "rational"
+        })
     }).collect()
 }
 
@@ -605,7 +650,9 @@ fn token(source: &Arc<Source>, chars: &mut Characters<'_>) -> Result<Option<Toke
         real_literal(chars).map_err(|message| Error::new(ErrorKind::Syntax, message).at(&span(position(chars, len))))?;
         if suffix(chars, IMAGINARY) {
             real_literal(chars).map_err(|message| Error::new(ErrorKind::Syntax, message).at(&span(position(chars, len))))?;
-            width_mark(chars);
+            if !matches!(marked(chars)?, None | Some(Mark::Width(_) | Mark::Real)) {
+                return Err(Error::new(ErrorKind::Syntax, "invalid complex numeric literal").at(&span(position(chars, len))).into());
+            }
             if let Some(end) = run_on(chars, false) { return Err(Error::new(ErrorKind::Syntax, "invalid complex numeric literal").at(&span(end)).into()); }
         } else {
             let rational = suffix(chars, DENOMINATOR);
@@ -613,7 +660,7 @@ fn token(source: &Arc<Source>, chars: &mut Characters<'_>) -> Result<Option<Toke
                 chars.next_if(|&(_, c)| canonical(c) == '¯');
                 if digits(chars) == 0 { return Err(Error::new(ErrorKind::Syntax, "expected integer denominator").at(&span(position(chars, len))).into()); }
             }
-            if rational || marked(chars)?.is_some() {
+            if marked(chars)?.is_some() || rational {
                 if let Some(end) = run_on(chars, true) { return Err(Error::new(ErrorKind::Syntax, "invalid exact numeric literal").at(&span(end)).into()); }
             }
         }
@@ -710,12 +757,14 @@ fn token(source: &Arc<Source>, chars: &mut Characters<'_>) -> Result<Option<Toke
             'ⱼ' => TokenKind::Joiner(Joiner::Imaginary),
             'ₑ' => TokenKind::Joiner(Joiner::Exponent),
             'ᵣ' => TokenKind::Joiner(Joiner::Denominator),
-            c if c == '⁻' || script_digit(SUPERSCRIPT_DIGITS, c).is_some() => {
-                let power = script_integer(c, chars, SUPERSCRIPT_DIGITS, "superscript").map_err(|(k, m)| Error::new(k, m).at(&span(position(chars, len))))?;
-                TokenKind::Operator(OperatorKind::Super(Superscript::Power(power)))
+            '⁻' if chars.peek().is_none_or(|&(_, c)| script_digit(SUPERSCRIPT_DIGITS, c).is_none()) => {
+                TokenKind::Operator(OperatorKind::Super(Superscript::Inverse))
             }
-            c if c == '₋' || script_digit(SUBSCRIPT_DIGITS, c).is_some() => TokenKind::Subscript(
-                script_integer(c, chars, SUBSCRIPT_DIGITS, "subscript").map_err(|(k, m)| Error::new(k, m).at(&span(position(chars, len))))?),
+            c if c == '⁻' || script_digit(SUPERSCRIPT_DIGITS, c).is_some() => TokenKind::Script(
+                ScriptKind::Super,
+                script_integer(c, chars, SUPERSCRIPT_DIGITS, "superscript").map_err(|(k, m)| Error::new(k, m).at(&span(position(chars, len))))?),
+            c if c == '₋' || script_digit(SUBSCRIPT_DIGITS, c).is_some() => TokenKind::Script(
+                ScriptKind::Sub, script_integer(c, chars, SUBSCRIPT_DIGITS, "subscript").map_err(|(k, m)| Error::new(k, m).at(&span(position(chars, len))))?),
             c if c.is_whitespace() || c == '⁝' => return Ok(None),
             c => match (OperatorKind::from_glyph(c), Primitive::from_glyph(c)) {
                 (Some(op), _) => TokenKind::Operator(op), (_, Some(f)) => TokenKind::Function(f),
@@ -739,8 +788,9 @@ fn class(kind: &TokenKind, text: &str, canonical: fn(char) -> char) -> Option<&'
     }
     match kind {
         TokenKind::Literal(_) => Some(if text.starts_with(['"', '\'']) { "string" } else { "literal" }),
-        TokenKind::Operator(OperatorKind::Super(_)) => Some("monadic-operator"), TokenKind::Subscript(_) | TokenKind::ErrorGuard => Some("syntax"),
-        TokenKind::Joiner(_) => Some("literal"), TokenKind::Name(_) => Some("name"), TokenKind::System(_) => Some("function"), _ => None
+        TokenKind::Operator(OperatorKind::Super(_)) | TokenKind::Script(ScriptKind::Super, _) => Some("monadic-operator"),
+        TokenKind::Script(ScriptKind::Sub, _) | TokenKind::ErrorGuard => Some("syntax"), TokenKind::Joiner(_) => Some("literal"),
+        TokenKind::Name(_) => Some("name"), TokenKind::System(_) => Some("function"), _ => None
     }
 }
 
@@ -775,10 +825,26 @@ enum Piece { Node(Node), Diamond, Semicolon(Span), Predicate(Span) }
 struct Parser<'a> { tokens: &'a [Token], pos: usize }
 impl Parser<'_> {
     fn pieces(&mut self, open: Option<&Token>) -> Result<Vec<Piece>, ParseFailure> {
-        let mut pieces = Vec::new();
+        let mut pieces: Vec<Piece> = Vec::new();
         while let Some(token) = self.tokens.get(self.pos) {
             self.pos += 1;
             let mut span = token.span.clone();
+            // Fold the attached power before script strands: `2 3² ³` is `[2 9]³`, not `[2 729]`.
+            if let Some(Piece::Node(last)) = pieces.last_mut() && last.span.source.text[last.span.range.end..span.range.start].chars().all(|c| c == '⁝')
+                && let NodeKind::Literal(Value::Number(n)) = &last.kind {
+                    let raised = match token.kind {
+                        TokenKind::Script(ScriptKind::Super, k) => {
+                            Some(Primitive::Math(Math::Power).number(Some(n), &Number::from_integer(k).marked(true), Numeric::current()))
+                        }
+                        TokenKind::Operator(OperatorKind::Super(Superscript::Transpose)) => Some(Ok(n.clone())),
+                        _ => None,
+                    };
+                    if let Some(raised) = raised {
+                        last.span.range.end = span.range.end;
+                        last.kind = NodeKind::Literal(Value::Number(raised.at(&last.span)?));
+                        continue;
+                    }
+                }
             let kind = match &token.kind {
                 TokenKind::Separator => { pieces.push(Piece::Diamond); continue; }
                 TokenKind::Semicolon => { pieces.push(Piece::Semicolon(span)); continue; }
@@ -802,9 +868,10 @@ impl Parser<'_> {
                             let mut bodies = bodies(inner, &span)?;
                             let kind = definition_kind(&bodies);
                             let locals = locals(&bodies);
+                            let admitted = admitted(&bodies);
                             release(&mut bodies, locals);
                             NodeKind::Dfn(Arc::new(Definition { locals, bodies, span: span.clone(), kind, remembered: AtomicU64::new(0),
-                                programs: Default::default() }))
+                                programs: Default::default(), admitted }))
                         }
                         TokenKind::Open if let Some(mark) = mark => marked_literal(parenthesised(inner, &span)?, &span, mark)?,
                         TokenKind::Open => parenthesised(inner, &span)?,
@@ -815,7 +882,20 @@ impl Parser<'_> {
                 TokenKind::Literal(a) => NodeKind::Literal(a.clone()),
                 TokenKind::Function(f) => NodeKind::Function(Builtin::Primitive(*f)),
                 TokenKind::Operator(op) => NodeKind::Operator(*op),
-                TokenKind::Subscript(index) => NodeKind::Subscript(*index),
+                TokenKind::Script(script, index) => {
+                    let first = Value::Number(Number::from_integer(*index));
+                    let mut indices = Vec::new();
+                    while let Some(Token { kind: TokenKind::Script(next_script, index), span: next }) = self.tokens.get(self.pos) {
+                        let gap = &span.source.text[span.range.end..next.range.start];
+                        if next_script != script || gap.is_empty() || !gap.chars().all(char::is_whitespace) { break; }
+                        if indices.is_empty() { indices.push(first.clone()); }
+                        indices.push(Value::Number(Number::from_integer(*index)));
+                        span.range.end = next.range.end;
+                        self.pos += 1;
+                    }
+                    NodeKind::Script(
+                        *script, if indices.is_empty() { first } else { Value::new([indices.len()], indices).described("invalid script list").at(&span)? })
+                }
                 TokenKind::Joiner(joiner) => NodeKind::Joiner(*joiner),
                 TokenKind::Name(name) => NodeKind::Name(Name::new(name), false),
                 TokenKind::System(name) => Builtin::find(name).map_or_else(|| NodeKind::System(name.clone()), NodeKind::Function),
@@ -986,7 +1066,7 @@ fn expression(nodes: Vec<Node>) -> Result<Vec<Node>, ParseFailure> {
 
 /// Fails unless each subscript follows a node in its list. That node is the item the subscript touches, or after a space the run before it.
 fn subscripts_follow_items(nodes: &[Node]) -> Result<(), ParseFailure> {
-    if let Some(n @ Node { kind: NodeKind::Subscript(_), .. }) = nodes.first() {
+    if let Some(n @ Node { kind: NodeKind::Script(ScriptKind::Sub, _), .. }) = nodes.first() {
         return Err(invalid(&n.span, "a subscript selects from the item just before it, or after a space from the run before it"));
     }
     for n in nodes { if let NodeKind::Run(inner) = &n.kind { subscripts_follow_items(inner)? } }
@@ -996,23 +1076,8 @@ fn subscripts_follow_items(nodes: &[Node]) -> Result<(), ParseFailure> {
 /// Literals separated by spaces form a strand, which becomes one vector literal. A literal that touches the one before it starts a new strand: in `⍣3'b'`, `3` is the operand and `'b'` the argument.
 fn strands(nodes: Vec<Node>) -> Result<Vec<Node>, ParseFailure> {
     let (mut out, mut strand) = (Vec::with_capacity(nodes.len()), Vec::new());
-    let mut nodes = nodes.into_iter().peekable();
-    while let Some(mut node) = nodes.next() {
+    for node in nodes {
         if matches!(node.kind, NodeKind::Literal(_)) {
-            // A superscript binds to the one number before it, before literals strand, so `2 3²` is `2 9`.
-            while let Some(next @ Node { kind: NodeKind::Operator(OperatorKind::Super(power)), span }) = nodes.peek() {
-                let (power, end) = (*power, span.range.end);
-                if !touching(&node, next) { break; }
-                let NodeKind::Literal(Value::Number(n)) = &node.kind else { break };
-                let raised = match power {
-                    Superscript::Power(k) => Primitive::Math(Math::Power).number(Some(n), &Number::from_integer(k).marked(true), Numeric::current()),
-                    Superscript::Transpose => Ok(n.clone()), Superscript::Unit | Superscript::Mark(_) => break
-                };
-                node.span.range.end = end;
-                let raised = raised.at(&node.span)?;
-                node.kind = NodeKind::Literal(Value::Number(raised));
-                nodes.next();
-            }
             if strand.last().is_some_and(|last| touching(last, &node)) { close_strand(&mut strand, &mut out)?; }
             strand.push(node);
             continue;
@@ -1049,7 +1114,8 @@ fn runs(nodes: Vec<Node>) -> Vec<Node> {
 /// Whether `node` is written as a function: a primitive, an operator, a dfn, or parentheses round such nodes.
 fn written_function(node: &Node) -> bool {
     match &node.kind {
-        NodeKind::Function(_) | NodeKind::Operator(_) | NodeKind::Dfn(_) => true, NodeKind::Group(inner) => inner.iter().all(written_function), _ => false
+        NodeKind::Function(_) | NodeKind::Operator(_) | NodeKind::Script(ScriptKind::Super, _) | NodeKind::Dfn(_) => true,
+        NodeKind::Group(inner) => inner.iter().all(written_function), _ => false
     }
 }
 
@@ -1207,7 +1273,7 @@ fn syntax_node(node: &Node) -> SyntaxNode {
     SyntaxNode::new(node.kind.name(), node.span.range.clone(), children)
 }
 
-/// The `Strand` node of a literal that joins several items, with a `Literal` child for each item, or `None` for any other node. The parser keeps no item spans, so this lexes the literal's own text. A superscript there belongs to the item before it, as `strands` folds it in.
+/// The `Strand` node of a literal that joins several items, with a `Literal` child for each item, or `None` for any other node. The parser keeps no item spans, so this lexes the literal's own text. A superscript there belongs to the item before it, as `Parser::pieces` folds it in.
 fn strand_node(node: &Node) -> Option<SyntaxNode> {
     let (NodeKind::Literal(_), Span { source, range }) = (&node.kind, &node.span) else { return None };
     let mut items: Vec<SyntaxNode> = Vec::new();
@@ -1215,7 +1281,7 @@ fn strand_node(node: &Node) -> Option<SyntaxNode> {
         let item = range.start + token.span.range.start..range.start + token.span.range.end;
         match token.kind {
             TokenKind::Literal(_) => items.push(SyntaxNode::new("Literal", item, Vec::new())),
-            TokenKind::Operator(OperatorKind::Super(_)) => items.last_mut()?.range.end = item.end, _ => return None
+            TokenKind::Script(ScriptKind::Super, _) | TokenKind::Operator(OperatorKind::Super(_)) => items.last_mut()?.range.end = item.end, _ => return None
         }
     }
     (items.len() > 1).then(|| SyntaxNode::new("Strand", range.clone(), items))
@@ -1234,8 +1300,8 @@ impl NodeKind {
         match self {
             Self::Literal(_) => "Literal", Self::Function(_) => "Function", Self::Operator(_) => "Operator", Self::Name(..) => "Name",
             Self::System(_) => "System", Self::Assign => "Assign", Self::Output => "Output", Self::ErrorGuard => "ErrorGuard", Self::Group(_) => "Group",
-            Self::Run(_) => "Run", Self::Subscript(_) => "Subscript", Self::Scope(..) => "Scope", Self::ArrayLiteral { .. } => "ArrayLiteral",
-            Self::Dfn(_) => "Dfn", Self::Joiner(_) => "Joiner"
+            Self::Run(_) => "Run", Self::Script(..) => "Script", Self::Scope(..) => "Scope", Self::ArrayLiteral { .. } => "ArrayLiteral", Self::Dfn(_) => "Dfn",
+            Self::Joiner(_) => "Joiner"
         }
     }
     /// The primitive that a glyph's node holds, or `None` for any other node.

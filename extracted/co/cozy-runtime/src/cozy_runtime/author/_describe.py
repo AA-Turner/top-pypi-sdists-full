@@ -13,19 +13,30 @@ dtype, `class MyGan(Model): generator: nn.Module`) while preventing nothing.
 
 from __future__ import annotations
 
+import enum
+import typing
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, get_args, get_origin
+
+import msgspec
 
 from cozy_runtime.author._decode import require_decoder_dependency
 from cozy_runtime.author._demand import FeatureSpec, feature_specs
 from cozy_runtime.author._errors import CapabilityError, ConformanceError
-from cozy_runtime.author._files import asset_kinds, field_preparation
+from cozy_runtime.author._files import (
+    AudioFile,
+    ImageFile,
+    Latents,
+    VideoFile,
+    asset_kinds,
+    field_preparation,
+)
 from cozy_runtime.author._markers import FileBound
 from cozy_runtime.author._model_defaults import check_model_arguments
-from cozy_runtime.author._prepared_use import PreparedUse
 from cozy_runtime.author._services import UNGRANTABLE
 from cozy_runtime.author._signature import Declaration, Surface, media_kinds
-from cozy_runtime.author._walker import MISSING, is_struct, walk
+from cozy_runtime.author._tool import AspectRatio, Audio, Image, Pickup, Prompt, Seed, Video
+from cozy_runtime.author._walker import is_struct, strip, unwrap_optional, walk
 from cozy_runtime.author._weights import MAX_WEIGHTS_OUTPUTS
 
 if TYPE_CHECKING:
@@ -97,6 +108,112 @@ def validate(declared: Declaration) -> None:
         )
     _writes(declared)
     _models(declared)
+    if declared.tool is not None:
+        _box(declared)
+
+
+_FILES = (ImageFile, VideoFile, AudioFile)
+_MEDIA = (Image, Video, Audio)
+
+
+def _box(declared: Declaration) -> None:
+    """A tool's publish checks (design/tools.md): every field the box draws is one of its types,
+    every number is bounded, the shape is the box's own, no group holds itself, and the result
+    has what the box shows. A field the box can't draw keeps its default, off the box; a
+    required one refuses."""
+    shapes, _ = _fields(declared.name, declared.payload_type, (), "", top=True)
+    if len(shapes) > 1:
+        raise ConformanceError(
+            f"{declared.name}: {', '.join(shapes)} are each an AspectRatio; a box has one shape",
+            code="tool_shape",
+        )
+    result = typing.cast(type[msgspec.Struct], declared.result_type)
+    shown = [
+        f.name
+        for f in (msgspec.structs.fields(result) if is_struct(result) else ())
+        if _shows(unwrap_optional(strip(f.type)[0])[0])
+    ]
+    if not shown:
+        raise ConformanceError(
+            f"{declared.name}: its result has nothing a box shows: give it an ImageFile, "
+            "VideoFile or AudioFile field, or a str for a text box",
+            code="tool_result",
+        )
+
+
+def _shows(tp: object) -> bool:
+    return tp is str or (isinstance(tp, type) and issubclass(tp, _FILES))
+
+
+def _fields(
+    name: str, struct: object, groups: tuple[object, ...], prefix: str, *, top: bool
+) -> tuple[list[str], str]:
+    """Check a group's fields: the names of its shapes, and why a box can't draw the group ("":
+    it can). A group with a required member the box can't draw is one it can't draw: it stays
+    off the box when it has a default, as any such field does (a model's `regions`)."""
+    shapes: list[str] = []
+    for f in msgspec.structs.fields(struct):  # type: ignore[arg-type]
+        path = prefix + f.name
+        base, markers = strip(f.type)
+        inner, _ = unwrap_optional(base)
+        inner, more = strip(inner)
+        markers = (*markers, *more)
+        listed = get_origin(inner) is list
+        item = strip(get_args(inner)[0])[0] if listed and get_args(inner) else inner
+        why = _undrawable(item, markers, listed)
+        if why == "group":
+            if item in groups or item is struct:
+                raise ConformanceError(
+                    f"{name}.{path}: {getattr(item, '__name__', item)} holds itself; a group "
+                    "can't contain itself",
+                    code="tool_group",
+                )
+            member = path + ("[]." if listed else ".")
+            inner = _fields(name, item, (*groups, struct), member, top=False)[1]
+            why = f"its {inner}" if inner else ""
+        elif why == "shape":
+            if not top:
+                raise ConformanceError(
+                    f"{name}.{path}: an AspectRatio is the box's own shape, so it goes at the "
+                    "top level, not in a group",
+                    code="tool_shape",
+                )
+            shapes.append(f.name)
+            why = ""
+        if why and f.required and not top:
+            return shapes, f"{path}: {why}"
+        if why and f.required:
+            raise ConformanceError(
+                f"{name}.{path}: {why}, so a box can't draw it, and it has no default: give it "
+                "one, or write a tool whose fields a box draws",
+                code="tool_field",
+                fields=[path],
+            )
+    return shapes, ""
+
+
+def _undrawable(tp: object, markers: Sequence[object], listed: bool) -> str:
+    """Why a box can't draw a field of `tp` ("" when it can), or "group" or "shape"."""
+    slot = (
+        isinstance(tp, type) and issubclass(tp, (*_FILES, *_MEDIA)) and not issubclass(tp, Latents)
+    )
+    struct = is_struct(tp) and not slot and not issubclass(tp, (Pickup, Prompt))  # type: ignore[arg-type]
+    if listed:
+        return "" if slot else "group" if struct else "a list of anything but slots or groups"
+    if tp is AspectRatio:
+        return "shape"
+    if struct:
+        return "group"
+    if slot or tp in (str, bool, Seed) or (get_origin(tp) or tp) is Prompt:
+        return ""
+    if (isinstance(tp, type) and issubclass(tp, (Pickup, enum.Enum))) or get_origin(tp) is Literal:
+        return ""
+    if tp in (int, float):
+        meta = [m for m in markers if isinstance(m, msgspec.Meta)]
+        low = any(m.ge is not None or m.gt is not None for m in meta)
+        high = any(m.le is not None or m.lt is not None for m in meta)
+        return "" if low and high else "a number with no Range"
+    return f"{getattr(tp, '__name__', tp)} is none of a box's types"
 
 
 def _writes(declared: Declaration) -> None:
@@ -147,28 +264,6 @@ def _models(declared: Declaration) -> None:
     constructed = [slot.parameter for slot in declared.slots if not slot.weights]
     check_model_arguments(declared.model_defaults, slots)
     check_model_arguments(declared.model_components, slots, what="components")
-    check_model_arguments(declared.model_prepared_use, constructed, what="prepared_use")
-    if declared.model_prepared_use:
-        if not declared.child_task or not declared.accelerator:
-            raise ConformanceError(
-                "prepared_use belongs to a child task's GPU program, not public request knobs",
-                code="model_prepared_use",
-            )
-        nodes = {node.path: node for node in walk(declared.payload_type)}
-        for name in declared.model_prepared_use.values():
-            node = nodes.get(name)
-            if (
-                node is None
-                or node.optional
-                or node.default is not MISSING
-                or not is_struct(node.annotation)
-                or set(getattr(node.annotation, "__struct_fields__", ()))
-                != set(PreparedUse.__struct_fields__)
-            ):
-                raise ConformanceError(
-                    f"prepared_use field {name!r} must be the closed typed fixed-use record",
-                    code="model_prepared_use",
-                )
     check_model_arguments(dict.fromkeys(declared.model_on_demand), constructed, what="on_demand")
     degrees = [set(slot.spec.sequence_parallel) for slot in declared.slots]
     if any(degrees) and not set.intersection(*degrees):
@@ -181,19 +276,10 @@ def _models(declared: Declaration) -> None:
         if slot.weights:
             continue
         path, spec = f"{declared.name}.models.{slot.parameter}", slot.spec
-        uses = declared.model_components.get(slot.parameter, ())
-        unknown = sorted(set(uses) - {c for names in spec.components.values() for c in names})
-        if unknown:
-            raise ConformanceError(
-                f"{path}: components names {', '.join(unknown)}, which no "
-                f"@uses_components method of {spec.name} declares",
-                code="model_components",
-                fields=unknown,
-            )
         if not spec.loads:
             raise ConformanceError(
                 f"{path}: {spec.name} defines no load(loader) — a Model constructs "
-                "through loader.construct(T, factory=…), the one construction primitive",
+                "through loader.construct(factory), the one construction primitive",
                 code="no_load",
             )
         if spec.arguments:
@@ -205,9 +291,9 @@ def _models(declared: Declaration) -> None:
 
 
 def check(surface: Surface) -> Surface:
-    """The imported callable's build refusals: `validate`, plus the two only an import can
-    state — its release's media decoder, and its preflight hook, whose byte reads and
-    demand tables are code the source reader never evaluates."""
+    """The served callable's refusals at the executor's import: `validate`, plus the two only
+    an import can state — its release's media decoder, and its preflight hook, whose byte reads
+    and demand tables are code the source reader never evaluates."""
     validate(surface)
     _media_decode_bounds(surface)
     if surface.preflight is not None:
@@ -270,8 +356,8 @@ def _two_producers(surface: Surface, specs: Sequence[FeatureSpec]) -> None:
         )
 
 
-def describe(app: App) -> tuple[Surface, ...]:
-    """The whole app's surface, or the first refusal. Freezes registration (§1.0)."""
+def freeze(app: App) -> tuple[Surface, ...]:
+    """The served app's checked surfaces, or the first refusal. Freezes registration (§1.0)."""
     surfaces = []
     for registration in app.registrations():
         surfaces.append(check(registration.surface))

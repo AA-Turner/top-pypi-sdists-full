@@ -31,31 +31,16 @@ class HandlerMixin:
             return self._handler_metadata
 
         logger.debug("[LiveView] Extracting handler metadata for %s", self.__class__.__name__)
-        metadata = {}
+        from .._parameter_metadata import handler_metadata, published_handlers
 
-        for name in dir(self):
-            if name.startswith("_"):
-                continue
-
-            try:
-                method = getattr(self, name)
-
-                if not callable(method):
-                    continue
-
-                if hasattr(method, "_djust_decorators"):
-                    metadata[name] = method._djust_decorators
-                    logger.debug(
-                        f"[LiveView]   Found decorated handler: {name} -> "
-                        f"{list(method._djust_decorators.keys())}"
-                    )
-
-            except (AttributeError, TypeError):
-                continue
+        # The discovery dispatch uses (ADR-037 D1); no property is evaluated.
+        metadata = {
+            name: handler_metadata(method) for name, method in published_handlers(self).items()
+        }
 
         self._handler_metadata = metadata
         logger.debug(
-            f"[LiveView] Extracted {len(metadata)} decorated handlers, caching for future use"
+            "[LiveView] Extracted %d decorated handlers, caching for future use", len(metadata)
         )
 
         return metadata

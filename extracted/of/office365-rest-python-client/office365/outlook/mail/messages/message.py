@@ -3,16 +3,16 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime
-from typing import IO, AnyStr, Callable, List, Optional, Tuple, Union
+from typing import IO, TYPE_CHECKING, AnyStr, Callable, List, Optional, Tuple, Union
 
 from typing_extensions import Self
 
+from office365.common.mentions_preview import MentionsPreview
 from office365.directory.extensions.extended_property import (
     MultiValueLegacyExtendedProperty,
     SingleValueLegacyExtendedProperty,
 )
 from office365.directory.extensions.extension import Extension
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity_collection import EntityCollection
 from office365.outlook.item import OutlookItem
 from office365.outlook.mail.attachments.collection import AttachmentCollection
@@ -22,12 +22,20 @@ from office365.outlook.mail.item_body import ItemBody
 from office365.outlook.mail.messages.followup_flag import FollowupFlag
 from office365.outlook.mail.messages.internet_header import InternetMessageHeader
 from office365.outlook.mail.recipient import Recipient
+from office365.outlook.quotas import OUTLOOK_UPLOAD
+from office365.permissions import require_permission
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.limits import ensure_within
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.transfer import INLINE_ATTACHMENT_MAX, UPLOAD_CHUNK_DEFAULT
+from office365.runtime.types.collections import StringCollection
 from office365.runtime.types.odata_property import odata
+
+if TYPE_CHECKING:
+    from office365.common.mention import Mention
 
 
 class Message(OutlookItem):
@@ -41,12 +49,12 @@ class Message(OutlookItem):
         self.set_property("singleValueExtendedProperties", prop_value)
         return self
 
-    @require_permission(delegated=["Mail.ReadWrite"], application=["Mail.ReadWrite"])
     def _sibling_path(self) -> ResourcePath:
         """Path of a message in the same collection as this one (for create/move/copy results)."""
         parent = self.resource_path.parent if self.resource_path is not None else None
         return ResourcePath(None, parent)
 
+    @require_permission(delegated=["Mail.ReadWrite"], application=["Mail.ReadWrite"])
     def create_forward(
         self,
         to_recipients: Optional[List[Recipient]] = None,
@@ -89,6 +97,7 @@ class Message(OutlookItem):
         self.context.add_query(qry)
         return return_type
 
+    @require_permission(delegated=["Mail.ReadWrite"], application=["Mail.ReadWrite"])
     def add_file_attachment(self, name: str, content: bytes | str | None = None, content_type: str | None = None):
         """Attach a file to a message.
 
@@ -107,14 +116,16 @@ class Message(OutlookItem):
             raise TypeError("Content is required")
 
         attachment = self.attachments.create_file(name, content, content_type)
-        if self.id is not None:
+        path = self.resource_path
+        # a message addressed by key (``client.me.messages[id]``) never loads ``id``
+        if self.id is not None or (path is not None and path.has_key):
             # existing message: upload via POST /messages/{id}/attachments
             from office365.runtime.queries.create_entity import CreateEntityQuery
 
             qry = CreateEntityQuery(self.attachments, attachment, attachment)
             self.context.add_query(qry)
         else:
-            # new draft (no id yet): register inline so it rides the message create
+            # new draft (no key yet): register inline so it rides the message create
             self.attachments.add_child(attachment)
         return self
 
@@ -125,19 +136,26 @@ class Message(OutlookItem):
         Args:
             file_path (str):
             chunk_uploaded ((int)->None): Upload action
+
+        Raises:
+            ValueError: If the file is larger than the Outlook attachment limit (150 MB).
         """
-        max_upload_chunk = 1000000 * 3
         file_size = os.stat(file_path).st_size
-        if file_size > max_upload_chunk:
+        ensure_within(OUTLOOK_UPLOAD, file_size, context="Outlook attachment")
+        if file_size > INLINE_ATTACHMENT_MAX:
 
             def _message_loaded():
-                self.attachments.resumable_upload(file_path, max_upload_chunk, chunk_uploaded)
+                self.attachments.resumable_upload(file_path, UPLOAD_CHUNK_DEFAULT, chunk_uploaded)
 
             self.ensure_property("id").after_execute(lambda _: _message_loaded())
         else:
             with open(file_path, "rb") as file_object:
                 content = file_object.read()
-            self.attachments.add_file(os.path.basename(file_object.name), content.decode("utf-8"))
+            # ``attachments.add_file`` only registers an inline child, which rides the
+            # *message create* -- for a message that already exists nothing is queued and
+            # the attachment never reaches the mailbox. ``add_file_attachment`` posts to
+            # the message's ``attachments`` collection instead.
+            self.add_file_attachment(os.path.basename(file_path), content)
         return self
 
     @require_permission(delegated=["Mail.Send"], application=["Mail.Send"])
@@ -262,6 +280,7 @@ class Message(OutlookItem):
         self.context.add_query(qry)
         return self
 
+    @odata(name="hasAttachments")
     @property
     def has_attachments(self) -> Optional[bool]:
         """
@@ -272,7 +291,7 @@ class Message(OutlookItem):
         """
         return self.properties.get("hasAttachments", None)
 
-    @odata(name="attachments", persist=True)
+    @odata(name="attachments", persist=True, navigation=True)
     @property
     def attachments(self) -> AttachmentCollection:
         """The fileAttachment and itemAttachment attachments for the message."""
@@ -280,6 +299,7 @@ class Message(OutlookItem):
             "attachments", AttachmentCollection(self.context, ResourcePath("attachments", self.resource_path))
         )
 
+    @odata(name="extensions", navigation=True)
     @property
     def extensions(self) -> EntityCollection[Extension]:
         """The collection of open extensions defined for the message. Nullable."""
@@ -287,6 +307,7 @@ class Message(OutlookItem):
             "extensions", EntityCollection(self.context, Extension, ResourcePath("extensions", self.resource_path))
         )
 
+    @odata(name="body")
     @property
     def body(self) -> ItemBody:
         """The body of the message. It can be in HTML or text format."""
@@ -311,21 +332,25 @@ class Message(OutlookItem):
         item_body = ItemBody(content=content, contentType=BodyType(content_type.lower()))
         self.set_property("body", item_body)
 
+    @odata(name="bodyPreview")
     @property
     def body_preview(self) -> Optional[str]:
         """The first 255 characters of the message body. It is in text format."""
         return self.properties.get("bodyPreview", None)
 
+    @odata(name="conversationId")
     @property
     def conversation_id(self) -> Optional[str]:
         """The ID of the conversation the email belongs to."""
         return self.properties.get("conversationId", None)
 
+    @odata(name="conversationIndex")
     @property
     def conversation_index(self) -> Optional[str]:
         """Indicates the position of the message within the conversation."""
         return self.properties.get("conversationIndex", None)
 
+    @odata(name="flag")
     @property
     def flag(self) -> FollowupFlag:
         """
@@ -343,11 +368,13 @@ class Message(OutlookItem):
         """
         return self.properties.get("from", Recipient())
 
+    @odata(name="importance")
     @property
     def importance(self) -> Optional[str]:
         """The importance of the message."""
         return self.properties.get("importance", None)
 
+    @odata(name="inferenceClassification")
     @property
     def inference_classification(self) -> Optional[str]:
         """
@@ -366,11 +393,13 @@ class Message(OutlookItem):
         """
         return self.properties.get("internetMessageHeaders", ClientValueCollection(InternetMessageHeader))
 
+    @odata(name="internetMessageId")
     @property
     def internet_message_id(self) -> Optional[str]:
         """The message ID in the format specified by RFC2822"""
         return self.properties.get("internetMessageId", None)
 
+    @odata(name="isDeliveryReceiptRequested")
     @property
     def is_delivery_receipt_requested(self) -> Optional[bool]:
         """
@@ -378,6 +407,7 @@ class Message(OutlookItem):
         """
         return self.properties.get("isDeliveryReceiptRequested", None)
 
+    @odata(name="isDraft")
     @property
     def is_draft(self) -> Optional[bool]:
         """
@@ -385,11 +415,13 @@ class Message(OutlookItem):
         """
         return self.properties.get("isDraft", None)
 
+    @odata(name="isRead")
     @property
     def is_read(self) -> Optional[bool]:
         """Indicates whether the message has been read."""
         return self.properties.get("isRead", None)
 
+    @odata(name="isReadReceiptRequested")
     @property
     def is_read_receipt_requested(self) -> Optional[bool]:
         """
@@ -409,6 +441,7 @@ class Message(OutlookItem):
         """The date and time the message was sent."""
         return self.properties.get("sentDateTime", datetime.min)
 
+    @odata(name="subject")
     @property
     def subject(self) -> Optional[str]:
         """The subject of the message."""
@@ -443,6 +476,7 @@ class Message(OutlookItem):
         """The replyTo: recipients for the reply to the message."""
         return self.properties.setdefault("replyTo", ClientValueCollection(Recipient))
 
+    @odata(name="sender")
     @property
     def sender(self) -> Recipient:
         """The account that is actually used to generate the message. In most cases, this value is the same as the
@@ -451,11 +485,13 @@ class Message(OutlookItem):
         Find out more about setting the from and sender properties of a message."""
         return self.properties.get("sender", Recipient())
 
+    @odata(name="parentFolderId")
     @property
     def parent_folder_id(self) -> Optional[str]:
         """The unique identifier for the message's parent mailFolder."""
         return self.properties.get("parentFolderId", None)
 
+    @odata(name="webLink")
     @property
     def web_link(self) -> Optional[str]:
         """
@@ -472,7 +508,7 @@ class Message(OutlookItem):
         """
         return self.properties.get("webLink", None)
 
-    @odata(name="multiValueExtendedProperties")
+    @odata(name="multiValueExtendedProperties", navigation=True)
     @property
     def multi_value_extended_properties(self) -> EntityCollection[MultiValueLegacyExtendedProperty]:
         """The collection of multi-value extended properties defined for the event."""
@@ -485,7 +521,7 @@ class Message(OutlookItem):
             ),
         )
 
-    @odata(name="singleValueExtendedProperties")
+    @odata(name="singleValueExtendedProperties", navigation=True)
     @property
     def single_value_extended_properties(self) -> EntityCollection[SingleValueLegacyExtendedProperty]:
         """The collection of single-value extended properties defined for the message"""
@@ -526,9 +562,38 @@ class Message(OutlookItem):
     def entity_type_name(self) -> str:
         return "microsoft.graph.Message"
 
+    @odata(name="from")
     @property
     def from_(self) -> Recipient:
         """Gets the from property"""
         from office365.outlook.mail.recipient import Recipient
 
         return self.properties.get("from", Recipient())
+
+    @odata(name="mentionsPreview", beta=True)
+    @property
+    def mentions_preview(self) -> Optional[MentionsPreview]:
+        """Gets the mentionsPreview property"""
+        return self.properties.get("mentionsPreview", None)
+
+    @odata(name="unsubscribeData", beta=True)
+    @property
+    def unsubscribe_data(self) -> StringCollection:
+        """Gets the unsubscribeData property"""
+        return self.properties.get("unsubscribeData", StringCollection())
+
+    @odata(name="unsubscribeEnabled", beta=True)
+    @property
+    def unsubscribe_enabled(self) -> Optional[bool]:
+        """Gets the unsubscribeEnabled property"""
+        return self.properties.get("unsubscribeEnabled", None)
+
+    @odata(name="mentions", beta=True, navigation=True)
+    @property
+    def mentions(self) -> EntityCollection[Mention]:
+        """Gets the mentions property"""
+        from office365.common.mention import Mention
+
+        return self.properties.get(
+            "mentions", EntityCollection[Mention](self.context, Mention, ResourcePath("mentions", self.resource_path))
+        )

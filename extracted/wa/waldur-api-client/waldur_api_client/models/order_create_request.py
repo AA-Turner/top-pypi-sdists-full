@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from ..models.open_stack_tenant_create_order_attributes import OpenStackTenantCreateOrderAttributes
     from ..models.open_stack_volume_create_order_attributes import OpenStackVolumeCreateOrderAttributes
     from ..models.order_create_request_limits import OrderCreateRequestLimits
+    from ..models.order_create_request_spending_limits import OrderCreateRequestSpendingLimits
     from ..models.v_mware_virtual_machine_create_order_attributes import VMwareVirtualMachineCreateOrderAttributes
 
 
@@ -38,11 +39,16 @@ class OrderCreateRequest:
             specified in the parent object. Can also be a generic object for offerings without a specific attributes schema.
         limits (Union[Unset, OrderCreateRequestLimits]):
         accepting_terms_of_service (Union[Unset, bool]):
-        callback_url (Union[None, Unset, str]):
+        callback_url (Union[None, Unset, str]): Sent by a Waldur that orders from this one through a remote offering:
+            its public order pull endpoint (.../api/remote-waldur-api/pull_order/<its order uuid>). No other URL is
+            accepted. Not stored: order callbacks are off.
         request_comment (Union[None, Unset, str]):
         start_date (Union[None, Unset, datetime.date]): Enables delayed processing of resource provisioning order.
         slug (Union[Unset, str]): Slug of the new resource. Used when the caller is staff or holds RESOURCE.SET_SLUG on
             the project, the offering or their organizations; otherwise ignored.
+        spending_limits (Union[Unset, OrderCreateRequestSpendingLimits]): Spending limits of the new resource on its
+            usage-based components, per period: {component_type: {period: amount}}. Only the periods each component offers
+            are accepted, up to their maximum.
     """
 
     offering: str
@@ -64,6 +70,7 @@ class OrderCreateRequest:
     request_comment: Union[None, Unset, str] = UNSET
     start_date: Union[None, Unset, datetime.date] = UNSET
     slug: Union[Unset, str] = UNSET
+    spending_limits: Union[Unset, "OrderCreateRequestSpendingLimits"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -128,6 +135,10 @@ class OrderCreateRequest:
 
         slug = self.slug
 
+        spending_limits: Union[Unset, dict[str, Any]] = UNSET
+        if not isinstance(self.spending_limits, Unset):
+            spending_limits = self.spending_limits.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -152,6 +163,8 @@ class OrderCreateRequest:
             field_dict["start_date"] = start_date
         if slug is not UNSET:
             field_dict["slug"] = slug
+        if spending_limits is not UNSET:
+            field_dict["spending_limits"] = spending_limits
 
         return field_dict
 
@@ -166,6 +179,7 @@ class OrderCreateRequest:
         from ..models.open_stack_tenant_create_order_attributes import OpenStackTenantCreateOrderAttributes
         from ..models.open_stack_volume_create_order_attributes import OpenStackVolumeCreateOrderAttributes
         from ..models.order_create_request_limits import OrderCreateRequestLimits
+        from ..models.order_create_request_spending_limits import OrderCreateRequestSpendingLimits
         from ..models.v_mware_virtual_machine_create_order_attributes import VMwareVirtualMachineCreateOrderAttributes
 
         d = dict(src_dict)
@@ -291,6 +305,13 @@ class OrderCreateRequest:
 
         slug = d.pop("slug", UNSET)
 
+        _spending_limits = d.pop("spending_limits", UNSET)
+        spending_limits: Union[Unset, OrderCreateRequestSpendingLimits]
+        if isinstance(_spending_limits, Unset):
+            spending_limits = UNSET
+        else:
+            spending_limits = OrderCreateRequestSpendingLimits.from_dict(_spending_limits)
+
         order_create_request = cls(
             offering=offering,
             project=project,
@@ -302,6 +323,7 @@ class OrderCreateRequest:
             request_comment=request_comment,
             start_date=start_date,
             slug=slug,
+            spending_limits=spending_limits,
         )
 
         order_create_request.additional_properties = d

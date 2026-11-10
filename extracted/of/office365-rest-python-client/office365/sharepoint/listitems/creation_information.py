@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class ListItemCreationInformation(ClientValue):
     """Specifies the properties of the new list item.
 

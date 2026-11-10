@@ -16,7 +16,7 @@ namespace sogen::gpu_bridge
     // Identifies a valid bridge and lets the guest detect a host that speaks a different
     // protocol revision before issuing any further commands.
     inline constexpr uint32_t protocol_magic = 0x55504753; // 'SGPU'
-    inline constexpr uint32_t protocol_version = 41;
+    inline constexpr uint32_t protocol_version = 44;
 
     // Windows IOCTL encoding: CTL_CODE(DeviceType, Function, Method, Access).
     //   value = (DeviceType << 16) | (Access << 14) | (Function << 2) | Method
@@ -207,6 +207,16 @@ namespace sogen::gpu_bridge
         cmd_push_descriptor_set = 0x8A8,
         get_render_area_granularity = 0x8A9,
         cmd_dispatch_base = 0x8AA,
+        // The pending coalesced vkUpdateDescriptorSets records, then a vkAllocateDescriptorSets request, applied in that
+        // order in one round trip: descriptor_updates_prefix, updates_bytes of update_descriptor_sets_request blobs, then
+        // the allocate_descriptor_sets_request with its arrays. Answers as allocate_descriptor_sets does.
+        allocate_descriptor_sets_with_updates = 0x8AB,
+        // vkGetDeviceImageMemoryRequirements: what get_image_memory_requirements would answer for the image a
+        // create_image_request makes, without making it. Takes a create_image_request, answers a memory_requirements_response.
+        get_device_image_memory_requirements = 0x8AC,
+        // destroy_image for an image the guest destroyed earlier, then create_image, in one round trip: a
+        // create_image_after_destroy_request. Answers as create_image does.
+        create_image_after_destroy = 0x8AD,
     };
 
     // Discriminator for cmd_set_dynamic_u32: the family of extended-dynamic-state setters that all take a
@@ -321,6 +331,11 @@ namespace sogen::gpu_bridge
     inline constexpr uint32_t ioctl_free_descriptor_sets = make_ioctl(static_cast<uint32_t>(command::free_descriptor_sets));
     inline constexpr uint32_t ioctl_update_descriptor_sets = make_ioctl(static_cast<uint32_t>(command::update_descriptor_sets));
     inline constexpr uint32_t ioctl_update_descriptor_sets_batch = make_ioctl(static_cast<uint32_t>(command::update_descriptor_sets_batch));
+    inline constexpr uint32_t ioctl_allocate_descriptor_sets_with_updates =
+        make_ioctl(static_cast<uint32_t>(command::allocate_descriptor_sets_with_updates));
+    inline constexpr uint32_t ioctl_get_device_image_memory_requirements =
+        make_ioctl(static_cast<uint32_t>(command::get_device_image_memory_requirements));
+    inline constexpr uint32_t ioctl_create_image_after_destroy = make_ioctl(static_cast<uint32_t>(command::create_image_after_destroy));
     inline constexpr uint32_t ioctl_create_sampler = make_ioctl(static_cast<uint32_t>(command::create_sampler));
     inline constexpr uint32_t ioctl_destroy_sampler = make_ioctl(static_cast<uint32_t>(command::destroy_sampler));
     inline constexpr uint32_t ioctl_enumerate_device_extension_properties =
@@ -1089,17 +1104,26 @@ namespace sogen::gpu_bridge
         uint32_t flags;        // VkImageCreateFlags (e.g. CUBE_COMPATIBLE)
     };
 
+    // The new image with its VkMemoryRequirements, as get_image_memory_requirements answers for it.
     struct create_image_response
     {
         int32_t vk_result;
-        uint32_t reserved;
-        object_id image; // null_object on failure
+        uint32_t memory_type_bits;
+        object_id image;    // null_object on failure
+        uint64_t size;      // VkDeviceSize
+        uint64_t alignment; // VkDeviceSize
     };
 
     struct destroy_image_request
     {
         object_id device;
         object_id image;
+    };
+
+    struct create_image_after_destroy_request
+    {
+        destroy_image_request destroy;
+        create_image_request create;
     };
 
     struct get_image_memory_requirements_request
@@ -2444,6 +2468,15 @@ namespace sogen::gpu_bridge
         uint32_t image_layout; // image types: VkImageLayout
         uint32_t inline_uniform_data_size;
     };
+
+    // Leads an allocate_descriptor_sets_with_updates request: the size of the update records that follow it.
+    struct descriptor_updates_prefix
+    {
+        uint32_t updates_bytes;
+        uint32_t reserved;
+    };
+
+    static_assert(sizeof(descriptor_updates_prefix) == 8);
 
     // ioctl_update_descriptor_sets: header, descriptor_write[write_count], descriptor_copy[copy_count], then inline data.
     struct update_descriptor_sets_request

@@ -1,21 +1,24 @@
-Metadata-Version: 2.1
-Name: Janome
-Version: 0.5.0
-Summary: Japanese morphological analysis engine.
-Home-page: https://mocobeta.github.io/janome/en/
-Author: Tomoko Uchida
-Author-email: tomoko.uchida.1111@gmail.com
-License: AL2
+Metadata-Version: 2.5
+Name: janome
+Version: 0.5.2
+Summary: Janome is a Japanese morphological analysis engine written in pure Python.
+Project-URL: Homepage, https://github.com/mocobeta/janome
+Project-URL: Issues, https://github.com/mocobeta/janome/issues
+Project-URL: Documentation, https://janome.mocobeta.dev/en/
 Project-URL: Source, https://github.com/mocobeta/janome
+Author-email: Tomoko Uchida <tomoko.uchida.1111@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: Japanese
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-License-File: LICENSE.txt
-License-File: NOTICE.txt
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 
 =======
 Janome
@@ -27,9 +30,6 @@ Janome
 .. image:: https://coveralls.io/repos/github/mocobeta/janome/badge.svg?branch=master
     :target: https://coveralls.io/github/mocobeta/janome?branch=master
 
-.. image:: https://badges.gitter.im/org.png
-    :target: https://gitter.im/janome-python
-
 .. image:: https://img.shields.io/pypi/dm/Janome.svg
     :target: https://pypistats.org/packages/janome
 
@@ -40,14 +40,14 @@ Janome is a Japanese morphological analysis engine written in pure Python.
 
 General documentation:
 
-https://mocobeta.github.io/janome/en/ (English)
+https://janome.mocobeta.dev/en/ (English)
 
-https://mocobeta.github.io/janome/ (Japanese)
+https://janome.mocobeta.dev/ja/ (Japanese)
 
 Requirements
 =============
 
-Python 3.7+ is required.
+Python 3.11+ is required.
 
 Install
 ========
@@ -92,4 +92,4 @@ Special thanks to @ikawaha, @takuyaa, @nakagami and @janome_oekaki.
 Copyright
 ==========
 
-Copyright(C) 2015-2023, Tomoko Uchida. All rights reserved.
+Copyright(C) 2015-2025, Tomoko Uchida. All rights reserved.

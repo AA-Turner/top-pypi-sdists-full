@@ -2,7 +2,9 @@
 
 import json
 import time
+from datetime import date
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import typer
@@ -83,17 +85,48 @@ def test_git_credential_does_not_show_the_notice() -> None:
     assert MIGRATION_URL not in result.stderr
 
 
-def test_install_warns_that_direct_installs_are_deprecated(
+def test_install_warns_customer_instances_that_direct_installs_are_deprecated(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`canvas install` prints the deprecation warning on every run."""
-    with pytest.raises(typer.BadParameter):
-        install(plugin_name=tmp_path, secrets=[], variables=[], is_enabled=True, host=None)
+    """`canvas install` against a customer instance prints the deprecation warning."""
+    with (
+        patch("canvas_cli.apps.plugin.plugin.get_or_request_api_token", return_value="tok"),
+        pytest.raises(typer.BadParameter),
+    ):
+        install(
+            plugin_name=tmp_path / "missing",
+            secrets=[],
+            variables=[],
+            is_enabled=True,
+            host="https://acme.canvasmedical.com",
+        )
 
     err = capsys.readouterr().err
     assert "deprecated" in err
     assert "no longer supported as of December 14, 2026" in err
     assert MIGRATION_URL in err
+
+
+@pytest.mark.parametrize(
+    "host", ["http://localhost:8000", "https://pull-x.preview.canvasmedical.com"]
+)
+def test_install_does_not_warn_local_or_preview_instances(
+    host: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Local dev and preview environments keep accepting `canvas install`, so no warning."""
+    with (
+        patch("canvas_cli.apps.plugin.plugin.get_or_request_api_token", return_value="tok"),
+        pytest.raises(typer.BadParameter),
+    ):
+        install(
+            plugin_name=tmp_path / "missing",
+            secrets=[],
+            variables=[],
+            is_enabled=True,
+            host=host,
+        )
+
+    assert MIGRATION_URL not in capsys.readouterr().err
 
 
 def test_notice_prints_even_when_it_cannot_be_recorded(
@@ -106,3 +139,17 @@ def test_notice_prints_even_when_it_cannot_be_recorded(
     show_platform_notice(str(not_a_directory))
 
     assert MIGRATION_URL in capsys.readouterr().err
+
+
+def test_credentials_ini_support_has_not_passed_its_end_date() -> None:
+    """Fails once credentials.ini support ends, so its removal cannot be forgotten."""
+    assert date.today() <= date(2026, 12, 14), (
+        "credentials.ini support for Canvas instances ended on December 14, 2026. Do "
+        "KOALA-8029: in canvas_cli/apps/logs/logs.py, canvas_cli/apps/plugin/plugin.py, "
+        "canvas_cli/apps/namespace/namespace.py and canvas_cli/apps/platform/commands.py, "
+        "refuse a --host under canvasmedical.com instead of reading its credentials.ini token, "
+        "keeping credentials.ini for localhost and other non-Canvas hosts, which Canvas "
+        "Platform cannot reach. Then stop `canvas install` from targeting Canvas instances, "
+        "delete the deprecation notices (print_credentials_ini_deprecation, "
+        "print_install_deprecation, show_platform_notice), and delete this test."
+    )

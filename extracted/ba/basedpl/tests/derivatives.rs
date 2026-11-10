@@ -47,13 +47,13 @@ const CASES: &[Case] = &[
     case("{5○⍵}", -2.0, 2.0, &[], Oracle::Complex),
     case("{6○⍵}", -2.0, 2.0, &[], Oracle::Complex),
     case("{7○⍵}", -2.0, 2.0, &[], Oracle::Complex),
-    case("{1○⁻¹⍵}", -0.9, 0.9, &[], Oracle::Complex),
-    case("{2○⁻¹⍵}", -0.9, 0.9, &[], Oracle::Complex),
-    case("{3○⁻¹⍵}", -2.0, 2.0, &[], Oracle::Complex),
-    case("{4○⁻¹⍵}", 1.5, 3.0, &[], Oracle::Complex),
-    case("{5○⁻¹⍵}", -2.0, 2.0, &[], Oracle::Complex),
-    case("{6○⁻¹⍵}", 1.5, 3.0, &[], Oracle::Complex),
-    case("{7○⁻¹⍵}", -0.9, 0.9, &[], Oracle::Complex),
+    case("{1○⁻⍵}", -0.9, 0.9, &[], Oracle::Complex),
+    case("{2○⁻⍵}", -0.9, 0.9, &[], Oracle::Complex),
+    case("{3○⁻⍵}", -2.0, 2.0, &[], Oracle::Complex),
+    case("{4○⁻⍵}", 1.5, 3.0, &[], Oracle::Complex),
+    case("{5○⁻⍵}", -2.0, 2.0, &[], Oracle::Complex),
+    case("{6○⁻⍵}", 1.5, 3.0, &[], Oracle::Complex),
+    case("{7○⁻⍵}", -0.9, 0.9, &[], Oracle::Complex),
     // Complex step can't check a power at a negative base: BPL computes it through logarithms, and arg z = π-h÷|x| rounds to π.
     case("{(1○⍵)×⍵*2}", 0.5, 2.0, &[], Oracle::Complex),
     case("{⍵×⍵}", -2.0, 2.0, &[3], Oracle::Complex),
@@ -129,6 +129,7 @@ fn derivatives_match_numerical_ones() {
         for _ in 0..3 {
             let n: usize = c.shape.iter().product();
             let x: Vec<f64> = (0..n).map(|_| points.next(c.low, c.high)).collect();
+            eprintln!("derivative {} at {x:?}, shape {:?}", c.f, c.shape);
             let s = Session::new();
             let result = s.eval(&format!("f←{} ⋄ x←{}", c.f, literal(&x, c.shape)));
             assert!(result.error.is_none(), "{}: {:?}", c.f, result.error);

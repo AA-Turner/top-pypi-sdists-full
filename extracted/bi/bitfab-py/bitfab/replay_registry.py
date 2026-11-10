@@ -73,6 +73,7 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "max_concurrency",
         "experiment_group_id",
         "experiment_group_name",
+        "baseline_experiment_id",
         "dataset_id",
         "dataset_ids",
         "grader_ids",
@@ -346,6 +347,14 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
             "Name the experiment group when this run creates it or it has no "
             "name yet. A group that already has a name keeps it. Requires "
             "--experiment-group-id."
+        ),
+    )
+    parser.add_argument(
+        "--baseline-experiment-id",
+        metavar="UUID",
+        help=(
+            "Compare this run against that earlier experiment instead of the "
+            "first finished experiment in its group or the original traces."
         ),
     )
     parser.add_argument("--grader-ids", type=_comma_separated)
@@ -1198,6 +1207,7 @@ def run_replay_cli(
         "max_concurrency": args.max_concurrency,
         "experiment_group_id": args.experiment_group_id,
         "experiment_group_name": args.experiment_group_name,
+        "baseline_experiment_id": args.baseline_experiment_id,
         "dataset_ids": args.dataset_ids,
         "grader_ids": args.grader_ids,
         "mock": args.mock,

@@ -41,6 +41,13 @@ from . import tokens, types
 #: Row decisions one summary release may stream when policy varies by row; past it, a typed refusal.
 MAX_SUMMARY_ROW_DECISIONS = 100_000
 RELEASE_LIMIT = "COLLECTION_RELEASE_LIMIT"
+#: The owner's refusal on a connection whose write the host's connector boundary limits. Its words
+#: depend only on the collection's manifest, so they show the connection no hidden row.
+CONNECTOR_LIMITED = "COLLECTION_CONNECTOR_LIMITED"
+#: Where the boundary does not limit an owner's write, so an inspect there returns lifecycle guards
+#: that a write accepts (`visible_snapshot`).
+UNLIMITED_WRITE_ROUTES = ("from the owner's CLI or a stdio connection, or from a client whose entry in the host's "
+                          "connector boundary configuration denies it no scope")
 
 
 def _json(value: Any) -> str:
@@ -151,6 +158,73 @@ def content_available(path, identity, access_rules, access_blocked, tombstones):
             and not lifecycle.is_tombstoned_in(tombstones, path)
             and not (identity and lifecycle.is_tombstoned_in(tombstones, identity))
             and not access._matches(access_rules["excluded"], access._kb_relative(path)))
+
+
+def write_withheld(access_rules, path):
+    """The write floor: a read-only access rule or an append-only top folder refuses a change at ``path``."""
+    relative = access._kb_relative(path)
+    return (access._matches(access_rules["readonly"], relative)
+            or relative.split("/", 1)[0].casefold() in {value.casefold() for value in access._APPEND_ONLY})
+
+
+@dataclass(frozen=True, slots=True)
+class PathInputs:
+    """The inputs of a row's decision that its policy path decides; ``decide`` and the rest read none of it."""
+    shown: bool  # The content floor: no access exclusion or tombstone covers the path.
+    write_withheld: bool  # The write floor.
+    scopes: tuple[str, ...]
+    capture: frozenset[str] | None  # The membership a connector capture folder holds a write to, if one covers it.
+
+
+def path_inputs(operation, subject, path, *, mutation) -> PathInputs:
+    """``PathInputs`` for ``subject`` placed at the policy path ``path``.
+
+    Only a write reads the capture membership. Raises one of ``connector_boundary.UNDECIDED`` when it
+    cannot be read.
+    """
+    basis = subject.basis
+    if path != basis.subject.path:
+        subject = replace(subject, basis=replace(basis, subject=replace(basis.subject, path=path)))
+    return PathInputs(
+        content_available(path, basis.identity, operation.access, operation.access_blocked, operation.tombstones),
+        write_withheld(operation.access, path),
+        operation.cache.scopes(subject, operation.policy),
+        connector_boundary.capture_membership(operation.root, path, operation.policy) if mutation else None)
+
+
+def policy_path_changes(operation, cid, path) -> tuple[str, ...]:
+    """What moving every row of ``cid`` to the policy path ``path`` would change, by name; empty when nothing.
+
+    A row's decision reads its policy path only through ``path_inputs``, so equal inputs give an equal
+    decision for every audience and purpose. Each input that differs is named. A changed membership
+    counts even when no standing rule names the scope, because an authorization session admits rows
+    by scope.
+    """
+    if operation.failed or operation.policy.blocked or operation.access_blocked:
+        raise collections.CollectionError(
+            "COLLECTION_CONVERSION_DISCLOSURE_UNKNOWN",
+            "the governance policy cannot be read, so the rows' disclosure cannot be compared")
+    changes = set()
+    for subject in iter_subjects(operation.conn, cid, operation.logical_vault_id, include_held=False):
+        current = subject.basis.subject.path
+        if subject.row_id is None or current == path:
+            continue
+        try:
+            before, after = (path_inputs(operation, subject, current, mutation=True),
+                             path_inputs(operation, subject, path, mutation=True))
+        except connector_boundary.UNDECIDED as error:
+            raise collections.CollectionError(
+                "COLLECTION_CONVERSION_DISCLOSURE_UNKNOWN",
+                f"the connector capture folders cannot be read, so the rows' disclosure cannot be compared: {error}",
+            ) from error
+        changes.update(f"scope {scope}" for scope in set(before.scopes) ^ set(after.scopes))
+        if before.shown != after.shown:
+            changes.add(f"the access exclusion or tombstone that covers {current}")
+        if before.write_withheld != after.write_withheld:
+            changes.add(f"the read-only access rule that covers {current}")
+        if before.capture != after.capture:
+            changes.add(f"the connector capture folder that covers {current}")
+    return tuple(sorted(changes))
 
 
 def subject_policy(basis, scope_ids, effective):
@@ -926,6 +1000,8 @@ class OperationAuthorization:
         self.points = {}
         self.manifest_subjects = {}
         self.summary_memo = {}
+        # How many decisions an unreadable connector input withheld; the release cache keeps none of them.
+        self.undecided = 0
         self.grants_loaded = False
         self.failed = self.context is not None and not isinstance(
             self.context, authorization_session_lifecycle.AuthorizationSessionContext
@@ -1069,16 +1145,17 @@ class OperationAuthorization:
                 connector_boundary.cache_identity(self.root, self.who, self.policy)
                 if connector_identity is None else connector_identity)
 
-    def decision(self, subject: CanonicalSubject, *, session=True) -> Decision:
+    def decision(self, subject: CanonicalSubject, *, session=True, mutation: bool | None = None) -> Decision:
         """Decide one subject; a hold is released no further than the existing item it would change (A8).
 
         Without the item's decision, a hold would show a withheld item's values to an audience
-        that every selector of the item withholds it from.
+        that every selector of the item withholds it from. ``mutation`` decides for a read or a
+        write instead of this operation's own kind.
         """
         if subject.basis.quarantined and not (raw_protection.is_owner(self.who)
                                                and raw_protection.has_unrestricted_access(self.root, self.who)):
             return Decision(0)
-        decision = self._subject_decision(subject, session=session)
+        decision = self._subject_decision(subject, session=session, mutation=mutation)
         if decision.level == 0 or subject.basis.domain != "held":
             return decision
         try:
@@ -1090,29 +1167,32 @@ class OperationAuthorization:
         if not targets:
             return decision
         # A held whole log view is released as the log view is: only when every row it shows is.
-        return egress._meet_decisions((decision, *(self._subject_decision(target, session=session)
+        return egress._meet_decisions((decision, *(self._subject_decision(target, session=session, mutation=mutation)
                                                    for target in targets)))
 
-    def _subject_decision(self, subject: CanonicalSubject, *, session=True) -> Decision:
+    def _subject_decision(self, subject: CanonicalSubject, *, session=True, mutation: bool | None = None) -> Decision:
         basis = subject.basis
         path = basis.subject.path
+        mutation = self.mutation if mutation is None else mutation
         if self.failed or self.policy.blocked or (not self.who.resolved and not self.policy.empty) or self.access_blocked:
             return Decision(0)
-        if not content_available(path, basis.identity, self.access, self.access_blocked, self.tombstones):
-            return Decision(0)
-        if self.mutation:
-            relative = access._kb_relative(path)
-            if (access._matches(self.access["readonly"], relative)
-                    or relative.split("/", 1)[0].casefold() in {value.casefold() for value in access._APPEND_ONLY}):
+        try:
+            inputs = path_inputs(self, subject, path, mutation=mutation)
+            if not inputs.shown or (mutation and inputs.write_withheld):
                 return Decision(0)
-        scope_ids = self.cache.scopes(subject, self.policy)
-        ceiling = connector_boundary.decide_scopes(self.root, self.who, scope_ids, compiled=self.policy,
-                                                   mutation=self.mutation, path=path)
-        if ceiling.level == 0:
-            return ceiling
+            scope_ids = inputs.scopes
+            ceiling = connector_boundary.decide_scopes(self.root, self.who, scope_ids, compiled=self.policy,
+                                                       mutation=mutation, capture=inputs.capture, strict=True)
+            if ceiling.level == 0:
+                return ceiling
+        except connector_boundary.UNDECIDED:
+            # Withheld for this operation only: the input may read again on the next one.
+            self.undecided += 1
+            return Decision(0)
         try:
             key = self._decision_key(subject)
         except connector_boundary.BoundaryUnavailable:
+            self.undecided += 1
             return Decision(0)
         active = self.grants.get(basis.identity, ()) if session else ()
         if not active and key in self.cache.decisions:
@@ -1313,12 +1393,16 @@ class OperationAuthorization:
         manifest = _bound(state.subjects[state.epoch[0]], self.logical_vault_id)
         manifest_decision = self.decision(manifest)
         if manifest_decision.level < 6:
-            self.refuse()
-        if dependency not in state.summaries:
-            denied = {identity for identity, subject in state.subjects.items() if subject.row_id is not None
-                      and self.decision(subject, session=False).level < 6}
-            self.cache._remember(state.summaries, dependency, (denied, {}), 16)
-        denied, dirty = state.summaries[dependency]
+            self.refuse_manifest(manifest)
+        summary = state.summaries.get(dependency)
+        if summary is None:
+            undecided = self.undecided
+            summary = ({identity for identity, subject in state.subjects.items() if subject.row_id is not None
+                        and self.decision(subject, session=False).level < 6}, {})
+            # A denial that an unreadable connector input decided would outlive the input's repair.
+            if self.undecided == undecided:
+                self.cache._remember(state.summaries, dependency, summary, 16)
+        denied, dirty = summary
         changed = {identity.rsplit("/", 1)[-1] for identity, subject in dirty.items()
                    if subject is not None and isinstance(subject.row_id, int)}
         if changed:
@@ -1332,12 +1416,14 @@ class OperationAuthorization:
                     continue  # An unreadable hold follows no item; its decision cannot change with one.
                 if follows and identity in state.subjects:
                     dirty.setdefault(identity, state.subjects[identity])
-        for identity, subject in dirty.items():
+        for identity, subject in list(dirty.items()):
+            undecided = self.undecided
             if subject is not None and self.decision(subject, session=False).level < 6:
                 denied.add(identity)
             else:
                 denied.discard(identity)
-        dirty.clear()
+            if self.undecided == undecided:  # Else it stays dirty, so the next selection decides it again.
+                del dirty[identity]
         return state, denied, self.cache.overlay(cid), manifest, manifest_decision
 
     def _subject(self, cid, state, overlay, identity):
@@ -1347,11 +1433,23 @@ class OperationAuthorization:
         subject = self.cache.point(identity)
         return subject if subject is not None and subject.collection_id == cid else None
 
-    def require_complete_fields(self, cid: str) -> None:
-        manifest = self.field_manifest(cid)
+    def holds_every_field(self, manifest) -> bool:
+        """Whether this caller's field plan admits every field of ``manifest``, the full stored manifest."""
         plan = self.field_plan(manifest)
+        return plan.owner or plan.whole_fields == set(manifest.schema.fields)
+
+    def reads_whole_row(self, cid: str, subject: CanonicalSubject | None) -> bool:
+        """Whether this caller reads the row ``subject`` of ``cid`` whole: at full disclosure, every field.
+
+        A row's body, its history and its file view can carry what any field holds, so only such a
+        reader gets them; a reader of some fields gets the query's released projection instead.
+        """
+        return (subject is not None and self.decision(subject).level >= egress.LEVEL_FULL
+                and self.holds_every_field(self.field_manifest(cid)))
+
+    def require_complete_fields(self, cid: str) -> None:
         # Partial field readers cannot guard full-state writes; a false refusal costs them a retry by the owner.
-        if not plan.owner and (plan.whole_fields != set(manifest.schema.fields)):
+        if not self.holds_every_field(self.field_manifest(cid)):
             self.refuse()
 
     def require_collection(self, cid: str, *, complete: bool = True, refresh=False) -> tuple[CanonicalSubject, ...]:
@@ -1359,8 +1457,8 @@ class OperationAuthorization:
             self.require_complete_fields(cid)
         try:
             head = self.summary_manifest(cid)
-            if head is not None:
-                if head[1].level < 6 or (complete and not self._summary_complete(cid, head)):
+            if head is not None and head[1].level >= 6:
+                if complete and not self._summary_complete(cid, head):
                     self.refuse()
                 return ()
         except collections.CollectionError as error:
@@ -1369,6 +1467,8 @@ class OperationAuthorization:
         except (ValueError, TypeError, StopIteration, sqlite3.Error,
                 authorization_session_lifecycle.AuthorizationSessionUnavailable):
             self.refuse()
+        if head is not None:  # Its manifest is withheld from this caller.
+            self.refuse_manifest(head[0])
         if complete:
             try:
                 state, denied, overlay, _manifest, _decision = self._release_selection(cid)
@@ -1386,8 +1486,13 @@ class OperationAuthorization:
                     count += ((self.decision(subject).level < 6)
                               - (self.decision(subject, session=False).level < 6))
                 if count:
+                    # A row's refusal never names its cause, so it shows nothing of a row this caller may not read.
                     self.refuse()
                 return ()
+            except collections.CollectionError as error:
+                if error.code == CONNECTOR_LIMITED:  # The manifest, which `_release_selection` withholds.
+                    raise
+                self.refuse()
             except (ValueError, TypeError, sqlite3.Error,
                     authorization_session_lifecycle.AuthorizationSessionUnavailable):
                 self.refuse()
@@ -1836,7 +1941,7 @@ class OperationAuthorization:
             if not plan.owner and projection_kind == ("summary",):
                 # The stored page carries private stamps; direct reads use the canonical released overview instead.
                 return Decision(0)
-            if not plan.owner and plan.whole_fields != set(manifest.schema.fields):
+            if not self.holds_every_field(manifest):
                 # File views and audit rationale carry complete-field authority; recipients use admitted record projections.
                 return Decision(0)
             decisions = tuple(self.decision(subject) for subject in targets)
@@ -1985,7 +2090,9 @@ class OperationAuthorization:
                     )
                     if relative != path:
                         return False
-                    fingerprint = hashlib.sha256(vault.read_bytes_without_pinning(page)).hexdigest()
+                    fingerprint = hashlib.sha256(
+                        vault.read_bytes_without_pinning(page, vault_root=self.root)
+                    ).hexdigest()
                 scopes = tuple(sorted(scope_ids))
                 current: list[authority.SessionMembership] = []
 
@@ -2020,6 +2127,49 @@ class OperationAuthorization:
     def refuse(error_type=collections.CollectionError) -> None:
         # Internal freshness signals retain the same content-free public refusal.
         raise error_type("COLLECTION_NOT_FOUND", "collection was not found")
+
+    def connector_limited_owner(self) -> bool:
+        """Whether the caller is the owner on a connection that the host's connector boundary limits.
+
+        Only the owner may learn why it cannot have a collection whole, as `preview.store_notice`
+        decides; anyone else hears that the collection is absent.
+        """
+        return (raw_protection.has_unrestricted_access(self.root, self.who)
+                and not connector_boundary.unrestricted(self.root, self.who))
+
+    def refuse_manifest(self, manifest: CanonicalSubject) -> None:
+        """Refuse an operation on the collection whose manifest subject ``manifest`` withholds from it.
+
+        The owner on a limited connection hears why and what to change when this connection may read
+        the manifest and only the boundary's write ceiling refuses a write to it. Those words depend
+        on the manifest alone, so they show the connection nothing it may not read. Every other
+        caller and cause, and every read, hears `refuse`.
+        """
+        if self.mutation and self.connector_limited_owner() and self._only_the_write_ceiling_refuses(manifest):
+            raise collections.CollectionError(
+                CONNECTOR_LIMITED,
+                "this connection may not write this collection, because the host's connector boundary "
+                "limits what it can write",
+                {"remediation": f"Make this write {UNLIMITED_WRITE_ROUTES}."},
+            )
+        self.refuse()
+
+    def _only_the_write_ceiling_refuses(self, subject: CanonicalSubject) -> bool:
+        """Whether this connection reads ``subject`` and only the connector boundary's write ceiling refuses a write to it.
+
+        A subject that reads has passed the read floors, the policy and the connector's denied scopes,
+        so a write to it differs only by the write floor, the capture rule and the write ceiling.
+        """
+        try:
+            if self.decision(subject, mutation=False).level < 6:
+                return False
+            inputs = path_inputs(self, subject, subject.basis.subject.path, mutation=True)
+            return (not inputs.write_withheld
+                    and not connector_boundary.capture_refuses(inputs.scopes, inputs.capture)
+                    and connector_boundary.ceiling_refuses(self.root, self.who, inputs.scopes))
+        except (*connector_boundary.UNDECIDED, ValueError, TypeError, sqlite3.Error,
+                authorization_session_lifecycle.AuthorizationSessionUnavailable):
+            return False  # An input that cannot be read leaves the content-free refusal.
 
     def authorized_rows(self, cid: str) -> tuple[list[dict[str, Any]], str, set[str]]:
         """Decode only released rows; the manifest is an independent L6 gate."""

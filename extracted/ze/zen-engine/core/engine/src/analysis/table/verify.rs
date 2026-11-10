@@ -7,7 +7,7 @@ use zen_expression::intellisense::IntelliSense;
 
 use super::cell::CellConstraint;
 use super::index::RowIndex;
-use super::print::DateDay;
+use super::print::{CellText, DateDay};
 use super::value_set::{ValueKind, ValueSet};
 
 pub(crate) const MAX_INPUTS: usize = 30;
@@ -35,6 +35,7 @@ pub(crate) struct VerifyInput {
     pub(crate) prefer: Option<ValueKind>,
     pub(crate) label: Arc<str>,
     pub(crate) domain: Option<ValueSet>,
+    pub(crate) subject: Option<Vec<Rc<str>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +66,7 @@ pub(crate) enum Finding {
         example: Option<Value>,
         same_conditions: bool,
         redundant: bool,
+        others: Vec<usize>,
     },
     DuplicateRule {
         row: usize,
@@ -116,8 +118,77 @@ impl Budget {
     }
 }
 
-impl VerifyTable<'_> {
+impl<'a> VerifyTable<'a> {
     pub(crate) fn verify(&self, is: &mut IntelliSense) -> Vec<Finding> {
+        match self.with_expression_subjects(is) {
+            Some(resolved) => resolved.verify_resolved(is),
+            None => self.verify_resolved(is),
+        }
+    }
+
+    fn with_expression_subjects(&self, is: &mut IntelliSense) -> Option<VerifyTable<'a>> {
+        let mut inputs = self.inputs.clone();
+        let mut changed = false;
+        for input in inputs.iter_mut().filter(|input| input.field.is_none()) {
+            let mut subject: Option<Vec<Rc<str>>> = None;
+            let mut consistent = true;
+            for rule in self.rules {
+                let source = rule.get(&input.id).map(|c| c.as_ref()).unwrap_or("");
+                if source.trim().is_empty() {
+                    continue;
+                }
+                match (CellConstraint::subject_of(is, source), &subject) {
+                    (Some(found), None) => subject = Some(found),
+                    (Some(found), Some(known)) if found == *known => {}
+                    _ => {
+                        consistent = false;
+                        break;
+                    }
+                }
+            }
+            let (true, Some(subject)) = (consistent, subject) else {
+                continue;
+            };
+            let field: Arc<str> = Arc::from(subject.join("."));
+            let plain = subject.iter().all(|segment| {
+                let mut chars = segment.chars();
+                chars
+                    .next()
+                    .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                    && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+            });
+            input.analyzable = true;
+            input.path = plain.then(|| field.clone());
+            if input.label.trim().is_empty() {
+                input.label = field.clone();
+            }
+            input.field = Some(field);
+            input.subject = Some(subject);
+            changed = true;
+        }
+        changed.then(|| VerifyTable {
+            mode: self.mode,
+            inputs,
+            outputs: self.outputs.clone(),
+            rules: self.rules,
+            fallible: self.fallible.clone(),
+        })
+    }
+
+    pub(super) fn cell_text(
+        &self,
+        col: usize,
+        set: &ValueSet,
+        domain: &ValueSet,
+        dated: bool,
+    ) -> Option<String> {
+        match &self.inputs[col].subject {
+            Some(subject) => CellText::standard(set, domain, dated, &subject.join(".")),
+            None => CellText::of(set, domain, dated),
+        }
+    }
+
+    fn verify_resolved(&self, is: &mut IntelliSense) -> Vec<Finding> {
         let mut findings = Vec::new();
         if self.inputs.is_empty() {
             return findings;
@@ -130,7 +201,18 @@ impl VerifyTable<'_> {
                     .iter()
                     .map(|col| {
                         let source = rule.get(&col.id).map(|c| c.as_ref()).unwrap_or("");
-                        CellConstraint::parse(is, source, col.unary, col.analyzable, col.dated)
+                        match &col.subject {
+                            Some(subject) => {
+                                CellConstraint::parse_subject(is, source, subject, col.dated)
+                            }
+                            None => CellConstraint::parse(
+                                is,
+                                source,
+                                col.unary,
+                                col.analyzable,
+                                col.dated,
+                            ),
+                        }
                     })
                     .collect()
             })
@@ -158,7 +240,9 @@ impl VerifyTable<'_> {
         let mut index =
             (self.mode != HitMode::Collect).then(|| RowIndex::new(&cells, self.inputs.len()));
         let mut reported: Vec<bool> = satisfiable.iter().map(|s| !s).collect();
+        let mut warned: Vec<bool> = vec![false; self.rules.len()];
         let mut seen: HashMap<(Vec<CellConstraint>, Vec<String>), usize> = HashMap::default();
+        let mut blocked_by: HashMap<usize, usize> = HashMap::default();
         for row in 0..self.rules.len() {
             if let Some(index) = index.as_mut().filter(|_| row > 0) {
                 if satisfiable[row - 1] && !reported[row - 1] && !self.can_fail(row - 1) {
@@ -193,19 +277,41 @@ impl VerifyTable<'_> {
             match self.dead(&cells, row, &requirements, &mut budget, index) {
                 Some(Some(covered_by)) => {
                     reported[row] = true;
-                    let redundant = covered_by
-                        .iter()
-                        .all(|&earlier| self.same_row_outputs(earlier, row));
+                    let redundant = self.blank_outputs(row)
+                        || covered_by
+                            .iter()
+                            .all(|&earlier| self.same_row_outputs(earlier, row));
+                    warned[row] = !redundant;
                     let same_conditions = !redundant
                         && covered_by.len() == 1
                         && self.row_signature(&cells[row], row).0
                             == self.row_signature(&cells[covered_by[0]], covered_by[0]).0;
+                    let blocker = match covered_by.as_slice() {
+                        [only] if !same_conditions || self.catch_all_row(*only) => Some(*only),
+                        _ => None,
+                    };
+                    if let Some(at) = blocker.and_then(|b| blocked_by.get(&b)) {
+                        if let Some(Finding::UnreachableRule {
+                            others,
+                            redundant: group_redundant,
+                            ..
+                        }) = findings.get_mut(*at)
+                        {
+                            others.push(row);
+                            *group_redundant &= redundant;
+                        }
+                        continue;
+                    }
+                    if let Some(b) = blocker {
+                        blocked_by.insert(b, findings.len());
+                    }
                     findings.push(Finding::UnreachableRule {
                         row,
                         example: self.example(&cells[row]),
                         covered_by,
                         same_conditions,
                         redundant,
+                        others: Vec::new(),
                     });
                 }
                 Some(None) => {}
@@ -220,7 +326,7 @@ impl VerifyTable<'_> {
                 None => gaps_incomplete = true,
             }
         }
-        findings.extend(self.compress(&cells, &satisfiable));
+        findings.extend(self.compress(&cells, &satisfiable, &warned));
         findings.extend(self.covering_cells(&cells, &satisfiable));
         findings.extend(self.unproduced(is, &reported));
         if coverage_incomplete || gaps_incomplete {

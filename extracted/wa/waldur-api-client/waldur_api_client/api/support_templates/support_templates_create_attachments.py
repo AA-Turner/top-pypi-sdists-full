@@ -7,13 +7,19 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.create_attachments_request import CreateAttachmentsRequest
+from ...models.create_attachments_request_form import CreateAttachmentsRequestForm
+from ...models.create_attachments_request_multipart import CreateAttachmentsRequestMultipart
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
     *,
-    body: CreateAttachmentsRequest,
+    body: Union[
+        CreateAttachmentsRequest,
+        CreateAttachmentsRequestForm,
+        CreateAttachmentsRequestMultipart,
+    ],
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -22,9 +28,16 @@ def _get_kwargs(
         "url": f"/api/support-templates/{uuid}/create_attachments/",
     }
 
-    _kwargs["json"] = body.to_dict()
+    if isinstance(body, CreateAttachmentsRequest):
+        _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+        headers["Content-Type"] = "application/json"
+    if isinstance(body, CreateAttachmentsRequestForm):
+        _kwargs["data"] = body.to_dict()
+
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+    if isinstance(body, CreateAttachmentsRequestMultipart):
+        _kwargs["files"] = body.to_multipart()
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -53,13 +66,19 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: CreateAttachmentsRequest,
+    body: Union[
+        CreateAttachmentsRequest,
+        CreateAttachmentsRequestForm,
+        CreateAttachmentsRequestMultipart,
+    ],
 ) -> Response[Any]:
     """This view attaches documents to template.
 
     Args:
         uuid (UUID):
         body (CreateAttachmentsRequest):
+        body (CreateAttachmentsRequestForm):
+        body (CreateAttachmentsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -85,13 +104,19 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: CreateAttachmentsRequest,
+    body: Union[
+        CreateAttachmentsRequest,
+        CreateAttachmentsRequestForm,
+        CreateAttachmentsRequestMultipart,
+    ],
 ) -> Response[Any]:
     """This view attaches documents to template.
 
     Args:
         uuid (UUID):
         body (CreateAttachmentsRequest):
+        body (CreateAttachmentsRequestForm):
+        body (CreateAttachmentsRequestMultipart):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.

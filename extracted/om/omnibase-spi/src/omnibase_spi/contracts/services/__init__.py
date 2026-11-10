@@ -29,6 +29,14 @@ from omnibase_spi.contracts.services.contract_source_control_types import (
     ModelMergeResult,
     ModelPullRequest,
 )
+from omnibase_spi.contracts.services.model_floor_ticket_store_types import (
+    ModelFloorTicketCreateRequest,
+    ModelFloorTicketCreateResult,
+    ModelFloorTicketLookupRequest,
+    ModelFloorTicketLookupResult,
+    ModelFloorTicketSearchRequest,
+    ModelFloorTicketSearchResult,
+)
 from omnibase_spi.contracts.services.model_host_call_types import (
     ModelHostCallAnswer,
     ModelHostCallRequest,
@@ -37,6 +45,20 @@ from omnibase_spi.contracts.services.model_lane_host_pool_types import (
     ModelLaneHostPoolReading,
     ModelLaneHostPoolRequest,
     ModelLaneHostPoolSnapshot,
+)
+from omnibase_spi.contracts.services.model_lane_host_provisioning_types import (
+    ModelLaneChangeList,
+    ModelLaneCloseoutCells,
+    ModelLaneHostStepRequest,
+    ModelLaneHostStepResult,
+    ModelLaneLedgerOutboxRows,
+    ModelLanePluginTree,
+    ModelLaneRegistryRootResult,
+    ModelLaneRunDirsResult,
+    ModelLaneShipPluginTreesRequest,
+    ModelLaneShipPluginTreesResult,
+    ModelLaneStagedInput,
+    ModelLaneStageInputRequest,
 )
 from omnibase_spi.contracts.services.model_lane_host_transport_types import (
     ModelLaneHostRef,
@@ -51,8 +73,19 @@ from omnibase_spi.contracts.services.model_lane_host_transport_types import (
     ModelLaneStopEngineRequest,
     ModelLaneStopEngineResult,
 )
+from omnibase_spi.contracts.services.model_lane_process_runner_types import (
+    ModelLaneProcessRunResult,
+    ModelLaneProcessStartResult,
+    ModelLaneStartSpec,
+)
 
 __all__ = [
+    "ModelFloorTicketCreateRequest",
+    "ModelFloorTicketCreateResult",
+    "ModelFloorTicketLookupRequest",
+    "ModelFloorTicketLookupResult",
+    "ModelFloorTicketSearchRequest",
+    "ModelFloorTicketSearchResult",
     "ModelLaneHostRef",
     "ModelLanePrepareWorktreeRequest",
     "ModelLanePrepareWorktreeResult",
@@ -64,6 +97,9 @@ __all__ = [
     "ModelLaneStartEngineResult",
     "ModelLaneStopEngineRequest",
     "ModelLaneStopEngineResult",
+    "ModelLaneProcessRunResult",
+    "ModelLaneProcessStartResult",
+    "ModelLaneStartSpec",
     "ModelLaneHostPoolReading",
     "ModelLaneHostPoolRequest",
     "ModelLaneHostPoolSnapshot",
@@ -83,4 +119,16 @@ __all__ = [
     "ModelPullRequest",
     "ModelQueryResult",
     "ModelTableInfo",
+    "ModelLanePluginTree",
+    "ModelLaneCloseoutCells",
+    "ModelLaneShipPluginTreesResult",
+    "ModelLaneStageInputRequest",
+    "ModelLaneHostStepRequest",
+    "ModelLaneShipPluginTreesRequest",
+    "ModelLaneRunDirsResult",
+    "ModelLaneChangeList",
+    "ModelLaneLedgerOutboxRows",
+    "ModelLaneRegistryRootResult",
+    "ModelLaneStagedInput",
+    "ModelLaneHostStepResult",
 ]

@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+import warnings
+from typing import Any
+
+import pandas as pd
+
+from pyfixest.core.demean import Preconditioner
+from pyfixest.estimation.config import EstimationConfig
+from pyfixest.estimation.FixestMulti_ import FixestMulti
+from pyfixest.estimation.internals.demean_ import DemeanedData
+from pyfixest.estimation.models.feiv_ import Feiv
+from pyfixest.estimation.models.feols_ import Feols
+from pyfixest.estimation.models.fepois_ import Fepois
+from pyfixest.estimation.plan_ import (
+    ParsedFormula,
+    build_all_splits,
+    expand_specs,
+    fit_one,
+)
+from pyfixest.utils.dev_utils import _find_stack_level, _narwhals_to_pandas
+
+
+def _prepare_data(config: EstimationConfig) -> pd.DataFrame:
+    """Convert input data to pandas with a clean RangeIndex.
+
+    Reindexing is required because formulaic's model matrix starts from 0:N
+    and downstream `dropna()` calls would otherwise produce mis-aligned indices.
+    """
+    data = _narwhals_to_pandas(config.data)
+    if config.options.copy_data:
+        data = data.copy()
+    data.reset_index(drop=True, inplace=True)
+    return data
+
+
+def _split_plan(config: EstimationConfig) -> tuple[bool, bool, str | None]:
+    """Derive `(run_full, run_split, splitvar)` from the split/fsplit options."""
+    split = config.split
+    fsplit = config.fsplit
+    run_split = split is not None or fsplit is not None
+    run_full = not (split and not fsplit)
+    splitvar: str | None = (split or fsplit) if run_split else None
+    return run_full, run_split, splitvar
+
+
+def run_estimation(
+    config: EstimationConfig,
+    parsed: ParsedFormula,
+    *,
+    apply_retention: bool,
+) -> Feols | Fepois | Feiv | FixestMulti:
+    """Fit every spec the user's call expands into; unwrap when a single model was asked for.
+
+    Prepares the runtime inputs (data, split plan), builds a
+    `FixestMulti` results container, fits models based on the planner's
+    specs block-by-block (sharing the demean / preconditioner cache within
+    each `cache_key` block), and returns either the multi-object or the
+    single fitted model.
+
+    With `apply_retention`, each model drops the state its `store_data` and
+    `lean` options omit as soon as it is fitted, so a multiple estimation
+    never holds every model's full state at once. The estimation functions
+    set it; refits leave it off and get complete models.
+    """
+    data = _prepare_data(config)
+    run_full, run_split, splitvar = _split_plan(config)
+
+    fixest = FixestMulti(formula_dict=parsed.formula_dict)
+
+    all_splits = build_all_splits(
+        run_full=run_full,
+        run_split=run_split,
+        splitvar=splitvar,
+        data=data,
+    )
+
+    specs = expand_specs(
+        config=config,
+        formula_dict=parsed.formula_dict,
+        data=data,
+        splits=all_splits,
+        is_iv=parsed.is_iv,
+    )
+
+    _NO_CACHE_KEY: Any = object()
+    prev_cache_key: Any = _NO_CACHE_KEY
+    lookup_demeaned_data: dict[frozenset[int], DemeanedData] = {}
+    lookup_preconditioner: dict[frozenset[int], Preconditioner] = {}
+    duplicate_model_names: list[str] = []
+
+    for spec in specs:
+        if spec.cache_key != prev_cache_key:
+            lookup_demeaned_data = {}
+            lookup_preconditioner = {}
+            prev_cache_key = spec.cache_key
+
+        FIT = fit_one(
+            spec,
+            lookup_demeaned_data=lookup_demeaned_data,
+            lookup_preconditioner=lookup_preconditioner,
+            vcov=config.vcov,
+        )
+
+        for fitted_result in FIT._iter_fitted_models():
+            if apply_retention:
+                fitted_result._clear_attributes()
+            model_name = fitted_result.model.model_name
+            if model_name in fixest.all_fitted_models:
+                duplicate_model_names.append(model_name)
+            fixest.all_fitted_models[model_name] = fitted_result
+
+    if duplicate_model_names:
+        # Formulaic drops repeated terms, so steps such as `csw(X1, X1)` or a
+        # step repeating the endogenous variable render to the same model.
+        warnings.warn(
+            "Several multiple estimation steps parse to the same model after "
+            "repeated terms are dropped; only one model is returned for each of: "
+            f"{sorted(set(duplicate_model_names))}.",
+            UserWarning,
+            stacklevel=_find_stack_level(),
+        )
+
+    if parsed.is_multiple_estimation:
+        return fixest
+    return fixest.fetch_model(0, print_fml=False)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
@@ -8,7 +8,6 @@ from office365.runtime.types.collections import StringCollection
 from office365.security.email_sender import EmailSender
 
 
-@dataclass
 class AnalyzedMessageEvidence(ClientValue):
     antiSpamDirection: str | None = None
     attachmentsCount: int | None = None

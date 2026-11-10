@@ -12131,7 +12131,7 @@ class IntradayVwap(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data.BaseD
     def compute_next_value(self, input: QuantConnect.Data.BaseData) -> float:
         """
         Computes the next value of this indicator from the given state.
-        NOTE: This must be overriden since it's abstract in the base, but
+        NOTE: This must be overridden since it's abstract in the base, but
         will never be invoked since we've override the validate method above.
         
         

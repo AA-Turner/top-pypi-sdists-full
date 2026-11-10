@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kombo
-Version: 1.4.0
+Version: 1.4.1
 Summary: The official Python SDK for the Kombo Unified API
 Author: Kombo Technologies GmbH
 Project-URL: repository, https://github.com/kombohq/python-sdk.git
@@ -514,6 +514,7 @@ def main():
         api_key="<YOUR_BEARER_TOKEN_HERE>",
     ) as k_client:
         # Rest of application here...
+        pass
 
 
 # Or when using async:
@@ -523,6 +524,7 @@ async def amain():
         api_key="<YOUR_BEARER_TOKEN_HERE>",
     ) as k_client:
         # Rest of application here...
+        pass
 ```
 <!-- End Resource Management [resource-management] -->
 

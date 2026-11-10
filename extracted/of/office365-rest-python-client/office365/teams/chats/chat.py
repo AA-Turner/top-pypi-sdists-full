@@ -8,6 +8,7 @@ from office365.directory.permissions.grants.resource_specific import (
 )
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
+from office365.runtime.limits import limit
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
 from office365.teams.apps.installation import TeamsAppInstallation
@@ -15,19 +16,21 @@ from office365.teams.chats.messages.collection import ChatMessageCollection
 from office365.teams.chats.messages.info import ChatMessageInfo
 from office365.teams.chats.viewpoint import ChatViewpoint
 from office365.teams.members.conversation_collection import ConversationMemberCollection
+from office365.teams.migration_mode import MigrationMode
 from office365.teams.operations.async_operation import TeamsAsyncOperation
+from office365.teams.quotas import CHAT_MESSAGES_READ, CHAT_MESSAGES_WRITE
 from office365.teams.tabs.tab import TeamsTab
 from office365.teams.teamwork.online_meeting_info import TeamworkOnlineMeetingInfo
 
 if TYPE_CHECKING:
     from office365.teams.chats.pinned_chat_message_info import PinnedChatMessageInfo
     from office365.teams.chats.targeted_chat_message import TargetedChatMessage
-    from office365.teams.migration_mode import MigrationMode
 
 
 class Chat(Entity):
     """A chat is a collection of chatMessages between one or more participants. Participants can be users or apps."""
 
+    @odata(name="chatType")
     @property
     def chat_type(self) -> str | None:
         """Specifies the type of chat. Possible values are: group, oneOnOne, meeting, unknownFutureValue."""
@@ -39,6 +42,7 @@ class Chat(Entity):
         """Date and time at which the chat was created."""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="isHiddenForAllMembers")
     @property
     def is_hidden_for_all_members(self) -> bool | None:
         """Indicates whether the chat is hidden for all its members."""
@@ -57,16 +61,19 @@ class Chat(Entity):
         the property is empty. Read-only."""
         return self.properties.get("onlineMeetingInfo", TeamworkOnlineMeetingInfo())
 
+    @odata(name="tenantId")
     @property
     def tenant_id(self) -> str | None:
         """The identifier of the tenant in which the chat was created. Read-only."""
         return self.properties.get("tenantId", None)
 
+    @odata(name="topic")
     @property
     def topic(self) -> str | None:
         """(Optional) Subject or topic for the chat. Only available for group chats."""
         return self.properties.get("topic", None)
 
+    @odata(name="viewpoint")
     @property
     def viewpoint(self) -> ChatViewpoint:
         """Represents caller-specific information about the chat, such as the last message read date and time.
@@ -74,12 +81,13 @@ class Chat(Entity):
         """
         return self.properties.get("viewpoint", ChatViewpoint())
 
+    @odata(name="webUrl")
     @property
     def web_url(self) -> str | None:
         """The URL for the chat in Microsoft Teams. The URL should be treated as an opaque blob, and not parsed."""
         return self.properties.get("webUrl", None)
 
-    @odata(name="installedApps")
+    @odata(name="installedApps", navigation=True)
     @property
     def installed_apps(self) -> EntityCollection[TeamsAppInstallation]:
         """A collection of all the apps in the chat. Nullable."""
@@ -88,7 +96,7 @@ class Chat(Entity):
             EntityCollection(self.context, TeamsAppInstallation, ResourcePath("installedApps", self.resource_path)),
         )
 
-    @odata(name="lastMessagePreview")
+    @odata(name="lastMessagePreview", navigation=True)
     @property
     def last_message_preview(self) -> ChatMessageInfo:
         """Preview of the last message sent in the chat. Null if no messages have been sent in the chat."""
@@ -96,7 +104,7 @@ class Chat(Entity):
             "lastMessagePreview", ChatMessageInfo(self.context, ResourcePath("lastMessagePreview", self.resource_path))
         )
 
-    @odata(name="members", persist=True)
+    @odata(name="members", persist=True, navigation=True)
     @property
     def members(self) -> ConversationMemberCollection:
         """A collection of membership records associated with the chat."""
@@ -104,13 +112,17 @@ class Chat(Entity):
             "members", ConversationMemberCollection(self.context, ResourcePath("members", self.resource_path))
         )
 
+    # The endpoint's budgets, not the collection's: see ``Channel.messages``.
+    @odata(name="messages", navigation=True)
     @property
+    @limit(*CHAT_MESSAGES_READ, *CHAT_MESSAGES_WRITE)
     def messages(self) -> ChatMessageCollection:
         """A collection of all the messages in the chat. Nullable."""
         return self.properties.get(
             "messages", ChatMessageCollection(self.context, ResourcePath("messages", self.resource_path))
         )
 
+    @odata(name="operations", navigation=True)
     @property
     def operations(self) -> EntityCollection[TeamsAsyncOperation]:
         """
@@ -121,6 +133,7 @@ class Chat(Entity):
             EntityCollection(self.context, TeamsAsyncOperation, ResourcePath("operations", self.resource_path)),
         )
 
+    @odata(name="tabs", navigation=True)
     @property
     def tabs(self) -> EntityCollection[TeamsTab]:
         """A collection of all the tabs in the chat."""
@@ -128,11 +141,13 @@ class Chat(Entity):
             "tabs", EntityCollection(self.context, TeamsTab, ResourcePath("tabs", self.resource_path))
         )
 
+    @odata(name="originalCreatedDateTime")
     @property
     def original_created_date_time(self) -> datetime | None:
         """Gets the originalCreatedDateTime property"""
         return self.properties.get("originalCreatedDateTime", datetime.min)
 
+    @odata(name="permissionGrants", navigation=True)
     @property
     def permission_grants(self) -> EntityCollection[ResourceSpecificPermissionGrant]:
         """Gets the permissionGrants property"""
@@ -147,13 +162,13 @@ class Chat(Entity):
     def entity_type_name(self) -> str:
         return "microsoft.graph.Chat"
 
+    @odata(name="migrationMode")
     @property
     def migration_mode(self) -> MigrationMode:
         """Gets the migrationMode property"""
-        from office365.teams.migration_mode import MigrationMode
-
         return self.properties.get("migrationMode", MigrationMode.inProgress)
 
+    @odata(name="pinnedMessages", navigation=True)
     @property
     def pinned_messages(self) -> EntityCollection[PinnedChatMessageInfo]:
         """Gets the pinnedMessages property"""
@@ -166,6 +181,7 @@ class Chat(Entity):
             ),
         )
 
+    @odata(name="targetedMessages", navigation=True)
     @property
     def targeted_messages(self) -> EntityCollection[TargetedChatMessage]:
         """Gets the targetedMessages property"""

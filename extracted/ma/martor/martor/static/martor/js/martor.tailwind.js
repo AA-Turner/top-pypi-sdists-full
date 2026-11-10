@@ -1,7 +1,7 @@
 /**
- * Name         : Martor v1.8.5
+ * Name         : Martor v1.9.2
  * Created by   : Agus Makmun (Summon Agus)
- * Release date : 31-Oct-2026
+ * Release date : 10-Nov-2026
  * License      : GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
  * Repository   : https://github.com/agusmakmun/django-markdown-editor
  * JS Minifier  : terser (https://terser.org)
@@ -231,6 +231,7 @@
 
             // update the preview if this menu is clicked
             var currentTab = $('#preview-content-' + field_name);
+            var emptyPreview = currentTab.html(); // placeholder rendered by the template
             var editorTabButton = $('.tab-editor-' + field_name);
             var previewTabButton = $('.tab-preview-' + field_name);
             var toolbarButtons = $(this).closest('.tab-martor-menu').find('.martor-toolbar');
@@ -294,7 +295,7 @@
                                 });
                             }
                         } else {
-                            currentTab.html('<p class="text-gray-500">Nothing to preview</p>');
+                            currentTab.html(emptyPreview).removeClass('martor-preview-stale');
                         }
                     },
                     error: function (response) {
@@ -347,7 +348,7 @@
             }
 
             // Handle toolbar dropdowns for Tailwind
-            $('.martor-toolbar .dropdown').each(function() {
+            mainMartor.find('.martor-toolbar .dropdown').each(function() {
                 var dropdown = $(this);
                 var toggle = dropdown.find('.dropdown-toggle');
                 var menu = dropdown.find('.dropdown-menu');
@@ -361,6 +362,11 @@
 
                     // Toggle current dropdown
                     menu.toggleClass('hidden');
+                });
+
+                // Close the dropdown once an item is chosen
+                menu.on('click', '.markdown-selector', function () {
+                    menu.addClass('hidden');
                 });
 
                 // Close dropdown when clicking outside
@@ -450,6 +456,9 @@
                 TailwindUtils.showModal(modalEmoji);
                 var emojiList = typeof (emojis) != "undefined" ? emojis : []; // from `plugins/js/emojis.min.js`
                 var emojiGrid = modalEmoji.find('#emoji-grid-' + field_name);
+                // start with an empty search and the full list
+                modalEmoji.find('#emoji-search-' + field_name).val('');
+                emojiGrid.children().css('display', '');
                 var loaderInit = modalEmoji.find('.emoji-loader-init');
 
                 // Only load emojis if grid is empty
@@ -462,13 +471,13 @@
                         try {
                             console.log('Loading emojis, count:', emojiList.length);
 
-                            for (var i = 0; i < Math.min(emojiList.length, 300); i++) { // Increased to 300 for more emojis
+                            for (var i = 0; i < emojiList.length; i++) {
                                 var emoji = emojiList[i];
                                 var linkEmoji = textareaId.data('base-emoji-url') + emoji.replace(/:/g, '') + '.png';
 
                                 var emojiButton = $('<button type="button" class="insert-emoji p-2 hover:bg-gray-100 rounded border border-gray-200 text-center transition-colors" ' +
                                     'data-emoji-target="' + emoji + '" title="' + emoji + '">' +
-                                    '<img class="w-6 h-6 mx-auto" src="' + linkEmoji + '" alt="' + emoji + '" ' +
+                                    '<img class="w-6 h-6 mx-auto" loading="lazy" src="' + linkEmoji + '" alt="' + emoji + '" ' +
                                     'onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'block\';">' +
                                     '<span class="text-xs hidden">' + emoji + '</span>' +
                                     '</button>');

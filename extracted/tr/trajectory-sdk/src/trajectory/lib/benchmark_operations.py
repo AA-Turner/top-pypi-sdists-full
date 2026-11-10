@@ -7,10 +7,17 @@ import time
 from collections.abc import Iterator
 from typing import Any, Literal
 
+import httpx2
+
 from trajectory import BenchmarkIngestionFailure, BenchmarkIngestionOperationStatus, Client
 from trajectory._exceptions import APITimeoutError
 
 _TERMINAL = {"succeeded", "partial_failure", "failed", "cancelled"}
+# The error message names this many failures; `failures` has them all.
+_MAX_LISTED_FAILURES = 3
+_MAX_FAILURE_LINE_CHARS = 300
+# Bounds the one extra read, since the operation's outcome is already known.
+_FAILURE_READ_TIMEOUT_SECONDS = 10
 
 
 class BenchmarkOperationResult:
@@ -43,12 +50,57 @@ class BenchmarkOperationResult:
 
 class BenchmarkOperationError(RuntimeError):
   def __init__(self, result: BenchmarkOperationResult) -> None:
-    super().__init__(f"Benchmark operation {result.status.operation_id}: {result.status.status}")
+    message = f"Benchmark operation {result.status.operation_id}: {result.status.status}"
+    super().__init__("\n".join([message, *self._describe_failures(result)]))
     self.partial_result = result
 
   @property
   def failures(self) -> Iterator[BenchmarkIngestionFailure]:
     return self.partial_result.failures()
+
+  @staticmethod
+  def _describe_failures(result: BenchmarkOperationResult) -> list[str]:
+    """Return a line for each of the first unresolved failures, for the error message."""
+    if not result.status.failure_count:
+      return []
+    client = result.operation.client
+    client = client.with_options(
+      timeout=BenchmarkOperationError._cap_timeout(client.timeout), max_retries=0
+    )
+    try:
+      page = client.benchmarks.ingestion.list_items(
+        result.operation.id, "failure", after="", limit=100
+      )
+      items = [
+        BenchmarkIngestionFailure.model_validate(item.model_dump(exclude_unset=True))
+        for item in page.items
+      ]
+      more_pages = page.next_cursor is not None
+    # Any error reading the details must not replace the operation's own error.
+    except Exception:
+      return ["- Failure details are unavailable; read them from `failures`."]
+    failures = [failure for failure in items if not failure.resolved]
+    lines = []
+    for failure in failures[:_MAX_LISTED_FAILURES]:
+      first_line = failure.message.strip().partition("\n")[0][:_MAX_FAILURE_LINE_CHARS]
+      lines.append(
+        f"- {failure.code} ({failure.resource_type} {failure.resource_id}): {first_line}"
+      )
+    if len(failures) > _MAX_LISTED_FAILURES or more_pages:
+      lines.append("- More failures, with full messages, are in `failures`.")
+    return lines
+
+  @staticmethod
+  def _cap_timeout(timeout: float | httpx2.Timeout | None) -> float | httpx2.Timeout:
+    """Return the client's timeout with each limit at most the details read's."""
+    cap = _FAILURE_READ_TIMEOUT_SECONDS
+    if timeout is None:
+      return cap
+    if not isinstance(timeout, httpx2.Timeout):
+      return min(timeout, cap)
+    limits = (timeout.connect, timeout.read, timeout.write, timeout.pool)
+    connect, read, write, pool = (cap if limit is None else min(limit, cap) for limit in limits)
+    return httpx2.Timeout(connect=connect, read=read, write=write, pool=pool)
 
 
 class BenchmarkPartialFailureError(BenchmarkOperationError):

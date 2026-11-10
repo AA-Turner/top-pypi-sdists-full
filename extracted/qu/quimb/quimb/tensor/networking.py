@@ -4,11 +4,12 @@ finding paths, loops, connected components, hierarchical groupings and more.
 
 import collections
 import functools
+import heapq
 import itertools
 import math
 import warnings
 
-from ..utils import oset, unique
+from ..utils import check_opt, oset, unique
 
 
 class NetworkPatch:
@@ -920,8 +921,8 @@ def connected_bipartitions(tn):
 
 def _get_two_core_tids(tn):
     """Get the tids of the 2-core of ``tn``: the largest sub network in which
-    every tensor has at least two bonds. I.e. all dangling tensors are removed.
-    A tid outside the 2-core can never appear in a generalized loop.
+    every tensor has at least two bonds, found by repeatedly removing
+    dangling tensors. Only these tids can appear in a generalized loop.
     """
     live = set(tn.tensor_map)
     # number of live tensors on each index, more than one is a bond
@@ -949,7 +950,28 @@ def _get_two_core_tids(tn):
     return live
 
 
-def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
+def _parse_gloop_grow_from(grow_from, allow_dangling):
+    """Check ``grow_from``, mapping the old 'alldangle' and 'anydangle'
+    options to ``allow_dangling``.
+    """
+    if grow_from in ("alldangle", "anydangle"):
+        grow_from = grow_from.removesuffix("dangle")
+        allow_dangling = True
+
+    if grow_from not in ("all", "any"):
+        raise ValueError("`grow_from` must be 'all' or 'any'.")
+
+    return grow_from, allow_dangling
+
+
+def _gen_gloops_single(
+    tn,
+    max_size=None,
+    tids=None,
+    grow_from="all",
+    allow_dangling=False,
+    two_core_tids=None,
+):
     # whether the caller named the targets, or wants loops everywhere
     targeted = tids is not None
 
@@ -957,6 +979,7 @@ def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
         # find loops everywhere
         tids = tuple(tn.tensor_map)
         grow_from = "any"
+        allow_dangling = False
     elif isinstance(tids, int):
         # handle single tid region
         tids = (tids,)
@@ -965,28 +988,25 @@ def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
         # no targets -> no gloops
         return
 
-    if grow_from in ("all", "alldangle"):
+    grow_from, allow_dangling = _parse_gloop_grow_from(
+        grow_from, allow_dangling
+    )
+
+    if grow_from == "all":
         # take `tids` as single initial region
         queue = collections.deque((frozenset(tids),))
-    elif grow_from in ("any", "anydangle"):
+    else:
         # take each tid as an initial region
         queue = collections.deque(frozenset([tid]) for tid in tids)
-    else:
-        raise ValueError("`grow_from` must be 'all' or 'any'.")
 
-    if "dangle" in grow_from:
+    if allow_dangling:
         # target tids are allowed to be dangling
         dangle_tids = set(tids)
     else:
         dangle_tids = set()
 
-    if (max_size == "min") or ((max_size is None) and dangle_tids):
-        # the first, and thus smallest, valid gloop sets the maximum size,
-        # which any region does for a dangling target, so covering matches
-
-        # TODO: for dangling targets, resolve the size with them not exempt,
-        # so that they sit within a real loop
-
+    if max_size == "min":
+        # the first, and thus smallest, non-dangling loop sets the max size
         mode = "min"
         max_size = None
     elif max_size is None:
@@ -997,15 +1017,16 @@ def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
 
         mode = "cover"
         remaining = set(tids)
-        # TODO: cache this via an `info` dict, it is recomputed every call
         # only tids in the 2-core can appear in a gloop, so cover at most those
-        uncoverable = remaining - _get_two_core_tids(tn)
+        # TODO: cache this via an `info` dict, it is recomputed every call
+        if two_core_tids is None:
+            two_core_tids = _get_two_core_tids(tn)
+        uncoverable = remaining - two_core_tids
         if uncoverable:
             if targeted:
                 warnings.warn(
-                    f"The tensors {tuple(sorted(uncoverable))} are outside the "
-                    "2-core, and so can never appear in a generalized loop, "
-                    "ignoring them when choosing the maximum size."
+                    f"The tensors {tuple(sorted(uncoverable))} are not in a "
+                    "loop and will be ignored when choosing the maximum size."
                 )
             remaining -= uncoverable
             if not remaining:
@@ -1051,7 +1072,8 @@ def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
                 else:
                     inds_once.add(ind)
 
-        valid_gloop = True
+        can_yield = True
+        is_nondangling = True
         for tid in region:
             # count number of connections each node has within region
             num_inner_connections = 0
@@ -1065,15 +1087,21 @@ def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
                         if ntid != tid:
                             tids_next.add(ntid)
 
-            valid_gloop &= (
+            two_connected = num_inner_connections >= 2
+            can_yield &= (
                 # site is allowed to dangle
                 tid in dangle_tids
                 # or it is connected by at least two bonds
-                or num_inner_connections >= 2
+                or two_connected
             )
+            is_nondangling &= two_connected
 
-        if valid_gloop:
-            # valid region: no node is connected by a single bond only
+        if can_yield:
+            # only the target tids are allowed to dangle
+            yield tuple(sorted(region))
+
+        if is_nondangling:
+            # every node has at least two internal bonds
             if mode == "cover":
                 remaining.difference_update(region)
                 if not remaining:
@@ -1084,7 +1112,6 @@ def _gen_gloops_single(tn, max_size=None, tids=None, grow_from="all"):
                 # automatically set maximum region size
                 max_size = len(region)
                 mode = "fixed"
-            yield tuple(sorted(region))
 
         if (max_size is None) or len(region) < max_size:
             # continue searching
@@ -1104,6 +1131,7 @@ def gen_gloops(
     grow_from="all",
     num_joins=1,
     join_overlap=2,
+    allow_dangling=False,
 ):
     """Generate sets of tids that represent 'generalized loops' where every
     node is connected to at least two bonds, i.e. 2-degree connected subgraphs.
@@ -1116,30 +1144,36 @@ def gen_gloops(
         The maximum number of tensors that can appear in a region. If
         ``None``, grow the regions until every target tid, i.e. ``tids`` or
         every tid, appears in at least one loop, then use that size. Targets
-        outside the 2-core never appear in a loop and are ignored, with a
-        warning if ``tids`` was given or the network is tree like. If
-        ``"min"``, instead use the size of the first valid region found.
+        that are not in a loop are ignored, with a warning if ``tids`` was
+        given or the network is tree like. If ``"min"``, use the size of the
+        first non-dangling loop found.
     tids : None or sequence of int, optional
         If supplied, only yield loops containing these tids, see
         ``grow_from``.
-    grow_from : {'all', 'any', 'alldangle', 'anydangle'}, optional
+    grow_from : {'all', 'any'}, optional
         Only if ``tids`` is specified, this determines how to filter
         loops. If 'all', only yield loops containing *all* of the tids
         in ``tids``, if 'any', yield loops containing *any* of the tids
-        in ``tids``. If 'alldangle' or 'anydangle', the tids are allowed to
-        be dangling, i.e. 1-degree connected. This is useful for computing
-        local expectations where the operator insertion breaks the loop
-        assumption locally. Any region covers a dangling target, so with
-        these ``max_size=None`` acts like ``"min"``.
+        in ``tids``. ``'alldangle'`` and ``'anydangle'`` are old names for
+        ``'all'`` and ``'any'`` that also set ``allow_dangling=True``.
     num_joins : int, optional
         If larger than 1, repeatedly generate larger loops by joining together
         the initial set (individually with size up to ``max_size``) of
         generalized loops. Each join combines loops that overlap on at least
-        ``join_overlap`` tids.
+        ``join_overlap`` tids. If ``tids`` are supplied, the base loops for
+        each join are generated only around the current patches. An automatic
+        ``max_size`` is resolved from the initial targeted loops and then held
+        fixed.
     join_overlap : {1, 2}, optional
         When joining loops together, the minimum number of overlapping
-        tids they much share. 1 allows merging on a single node, 2 requires
+        tids they must share. 1 allows merging on a single node, 2 requires
         sharing a bond, which leads to fewer but 'denser' loops.
+    allow_dangling : bool, optional
+        Whether the target tids can have fewer than two internal bonds in
+        yielded regions. An automatic size is still taken from non-dangling
+        loops, ignoring targets that are not in a loop. If no target is in a
+        loop, warn and return the target region only. Ignored when ``tids``
+        is not supplied.
 
     Yields
     ------
@@ -1148,35 +1182,40 @@ def gen_gloops(
     if num_joins < 1:
         return ()
 
+    targeted = tids is not None
+    two_core_tids = None
+    if targeted:
+        if isinstance(tids, int):
+            tids = (tids,)
+        else:
+            tids = tuple(tids)
+
+        grow_from, allow_dangling = _parse_gloop_grow_from(
+            grow_from, allow_dangling
+        )
+
+        if allow_dangling and tids and (max_size in (None, "min")):
+            two_core_tids = _get_two_core_tids(tn)
+            if not (set(tids) & two_core_tids):
+                # no target is in a loop, so there is no loop to grow
+                warnings.warn(
+                    f"The target tensors {tuple(sorted(tids))} are not in "
+                    "a loop, so only the target region will be returned."
+                )
+                return (tuple(sorted(tids)),)
+
     base_gloops = _gen_gloops_single(
         tn,
         max_size=max_size,
         tids=tids,
         grow_from=grow_from,
+        allow_dangling=allow_dangling,
+        two_core_tids=two_core_tids,
     )
 
     if num_joins == 1:
         # just return the base loops
         return base_gloops
-
-    # will reuse
-    current_patches = tuple(map(frozenset, base_gloops))
-
-    if tids is None:
-        # loops are already global
-        base_gloops = current_patches
-    else:
-        # need to merge local base loops with global loops
-        # XXX: do this with the tids in current_patches, every join
-        base_gloops = tuple(
-            map(frozenset, _gen_gloops_single(tn, max_size=max_size))
-        )
-
-    # efficient lookup of overlapping gloop tids
-    lookup = {}
-    for gl in base_gloops:
-        for tid in gl:
-            lookup.setdefault(tid, []).append(gl)
 
     once = set()
     twice = set()
@@ -1188,7 +1227,41 @@ def gen_gloops(
     else:
         raise ValueError("`join_overlap` must be 1 or 2.")
 
+    current_patches = tuple(map(frozenset, base_gloops))
+    if not current_patches:
+        return ()
+
+    if max_size in (None, "min"):
+        # reuse the automatically resolved initial base-loop size
+        base_max_size = max(map(len, current_patches))
+    else:
+        base_max_size = max_size
+
+    if not targeted:
+        # loops are already global and can be reused for every join
+        lookup = {}
+        for gl in current_patches:
+            for tid in gl:
+                lookup.setdefault(tid, []).append(gl)
+
     for _ in range(num_joins - 1):
+        if targeted:
+            # only generate base loops which can join the current patches
+            target_tids = set().union(*current_patches)
+            base_gloops = map(
+                frozenset,
+                _gen_gloops_single(
+                    tn,
+                    max_size=base_max_size,
+                    tids=target_tids,
+                    grow_from="any",
+                ),
+            )
+            lookup = {}
+            for gl in base_gloops:
+                for tid in gl:
+                    lookup.setdefault(tid, []).append(gl)
+
         next_patches = set()
         for gl in current_patches:
             once.clear()
@@ -1197,7 +1270,7 @@ def gen_gloops(
             # for each tensor
             for tid in gl:
                 # lookup possible base loops to merge with
-                for glo in lookup[tid]:
+                for glo in lookup.get(tid, ()):
                     if glo in once:
                         twice.add(glo)
                     else:
@@ -1210,6 +1283,136 @@ def gen_gloops(
         current_patches = tuple(next_patches)
 
     return current_patches
+
+
+def _gen_gloops_edge_induced_single(tn, region):
+    """Generate all edge-induced loops that span exactly ``region``.
+
+    Each :class:`NetworkPatch` stores the tensors and retained bonds.
+    """
+    region = tuple(region)
+    num_tids = len(region)
+
+    # inner bonds appear twice in the region
+    edge_counts = collections.Counter(
+        ix for tid in region for ix in tn.tensor_map[tid].inds
+    )
+    edges = [ix for ix, count in edge_counts.items() if count == 2]
+
+    # keeping every inner bond is always valid
+    yield NetworkPatch(region, edges)
+
+    # each tensor needs at least two bonds
+    max_drop = len(edges) - num_tids
+    if max_drop < 1:
+        return
+
+    degrees = collections.Counter()
+    edge_tids = {}
+    for ix in edges:
+        tid_a, tid_b = edge_tids[ix] = tuple(tn.ind_map[ix])
+        degrees[tid_a] += 1
+        degrees[tid_b] += 1
+
+    candidates = [
+        ix for ix in edges if all(degrees[tid] > 2 for tid in edge_tids[ix])
+    ]
+    if not candidates:
+        return
+
+    def is_connected(dropped):
+        neighbors = {tid: [] for tid in region}
+        for ix in edges:
+            if ix not in dropped:
+                tid_a, tid_b = edge_tids[ix]
+                neighbors[tid_a].append(tid_b)
+                neighbors[tid_b].append(tid_a)
+        seen = {region[0]}
+        queue = [region[0]]
+        while queue:
+            for tid in neighbors[queue.pop()]:
+                if tid not in seen:
+                    seen.add(tid)
+                    queue.append(tid)
+        return len(seen) == num_tids
+
+    def gen_dropped(start, dropped):
+        if len(dropped) == max_drop:
+            return
+        for position in range(start, len(candidates)):
+            ix = candidates[position]
+            tid_a, tid_b = edge_tids[ix]
+            if (degrees[tid_a] < 3) or (degrees[tid_b] < 3):
+                continue
+            new_dropped = dropped | {ix}
+            if not is_connected(new_dropped):
+                continue
+            yield new_dropped
+            degrees[tid_a] -= 1
+            degrees[tid_b] -= 1
+            # later positions prevent duplicate sets
+            yield from gen_dropped(position + 1, new_dropped)
+            degrees[tid_a] += 1
+            degrees[tid_b] += 1
+
+    for dropped in gen_dropped(0, set()):
+        yield NetworkPatch(region, (ix for ix in edges if ix not in dropped))
+
+
+def gen_gloops_edge_induced(
+    tn,
+    max_size=None,
+    tids=None,
+    grow_from="all",
+    num_joins=1,
+    join_overlap=2,
+    allow_dangling=False,
+):
+    """Generate edge-induced loops as :class:`NetworkPatch` objects. Unlike
+    `gen_gloops`, the same tensor regions can yield multiple patches, differing
+    by whether certain internal bonds are included or not (for example
+    removing the centeral span of an figure of eight).
+
+    Each patch stores the loop tensors in ``patch.tids`` and its bonds in
+    ``patch.inds``. :func:`gen_gloops` includes every bond between a set of
+    tensors. This function also yields loops that omit bonds while remaining
+    connected and keeping at least two bonds per tensor.
+
+    Parameters
+    ----------
+    tn : TensorNetwork
+        Tensor network to search.
+    max_size : None, int or "min"
+        Maximum tensors per region. See :func:`gen_gloops`.
+    tids : None or sequence of int, optional
+        Only yield loops that contain these ``tids``. See ``grow_from``.
+    grow_from : {'all', 'any'}, optional
+        How to filter loops when ``tids`` is set. See :func:`gen_gloops`.
+    num_joins : int, optional
+        Number of loops to join per result. See :func:`gen_gloops`.
+    join_overlap : {1, 2}, optional
+        Minimum number of ``tids`` that joined loops must share.
+    allow_dangling : bool, optional
+        Whether target tids can dangle. See :func:`gen_gloops`.
+
+    Yields
+    ------
+    NetworkPatch
+
+    See Also
+    --------
+    gen_gloops
+    """
+    for region in gen_gloops(
+        tn,
+        max_size=max_size,
+        tids=tids,
+        grow_from=grow_from,
+        allow_dangling=allow_dangling,
+        num_joins=num_joins,
+        join_overlap=join_overlap,
+    ):
+        yield from _gen_gloops_edge_induced_single(tn, region)
 
 
 def gen_loops(tn, max_loop_length=None):
@@ -1242,8 +1445,9 @@ def get_loop_union(
     tids,
     max_size=None,
     grow_from="all",
+    allow_dangling=False,
 ):
-    """Find the union, in terms of tids, of all generliazed loops that pass
+    """Find the union, in terms of tids, of all generalized loops that pass
     through either all or at least one of the given tids, depending on
     `grow_from`.
 
@@ -1257,23 +1461,26 @@ def get_loop_union(
         The maximum number of tensors that can appear in the region. If
         ``None``, grow the regions until every tid in ``tids`` appears in at
         least one loop, then use that size. If ``"min"``, instead use the
-        size of the first valid region found. See :func:`gen_gloops`.
-    grow_from : {'all', 'any', 'alldangle', 'anydangle'}, optional
+        size of the first non-dangling loop found. See :func:`gen_gloops`.
+    grow_from : {'all', 'any'}, optional
         Only if ``tids`` is specified, this determines how to filter
         loops. If 'all', only take loops containing *all* of the tids
         in ``tids``, if 'any', yield loops containing *any* of the tids
-        in ``tids``. If 'alldangle' or 'anydangle', the base tids are allowed
-        to be dangling, i.e. 1-degree connected.
+        in ``tids``.
+    allow_dangling : bool, optional
+        Whether the target tids can have fewer than two internal bonds. See
+        :func:`gen_gloops`.
 
     Returns
     -------
     tuple[int]
     """
-    gloops = _gen_gloops_single(
+    gloops = gen_gloops(
         tn,
         max_size=max_size,
         tids=tids,
         grow_from=grow_from,
+        allow_dangling=allow_dangling,
     )
     return tuple(sorted({tid for r in gloops for tid in r}))
 
@@ -1325,19 +1532,30 @@ def tids_are_connected(tn, tids):
     -------
     bool
     """
-    enum = range(len(tids))
-    groups = dict(zip(enum, enum))
-    regions = [(oset([tid]), tn._get_neighbor_tids(tid)) for tid in tids]
-    for i, j in itertools.combinations(enum, 2):
-        mi = groups.get(i, i)
-        mj = groups.get(j, j)
+    parents = {tid: tid for tid in tids}
+    num_groups = len(parents)
+    if num_groups == 0:
+        return False
 
-        if regions[mi][0] & regions[mj][1]:
-            groups[mj] = mi
-            regions[mi][0].update(regions[mj][0])
-            regions[mi][1].update(regions[mj][1])
+    def find_root(tid):
+        while parents[tid] != tid:
+            parents[tid] = parents[parents[tid]]
+            tid = parents[tid]
+        return tid
 
-    return len(set(groups.values())) == 1
+    for tid in parents:
+        root = find_root(tid)
+        for neighbor_tid in tn._get_neighbor_tids(tid):
+            if neighbor_tid not in parents:
+                continue
+            neighbor_root = find_root(neighbor_tid)
+            if root != neighbor_root:
+                parents[neighbor_root] = root
+                num_groups -= 1
+                if num_groups == 1:
+                    return True
+
+    return num_groups == 1
 
 
 def compute_shortest_distances(tn, tids=None, exclude_inds=()):
@@ -1593,3 +1811,176 @@ def least_central_tid(tn):
     """Find the least central tensor in the network."""
     cents = tn.compute_centralities()
     return min((score, tid) for tid, score in cents.items())[1]
+
+
+def compute_sweep_ranks(nodes, edges):
+    r"""Rank ``nodes`` by a breadth first search over ``edges``. Start each
+    connected component from its first unranked node in ``nodes``. Except
+    for starting nodes, each node has a higher rank than at least one neighbor.
+    E.g. for a 2D grid starting at the corner::
+
+        0--1--3--6--...
+        |  |  |  |
+        2--4--7--...
+        |  |  |
+        5--8--...
+        |  |
+        ...
+
+    Parameters
+    ----------
+    nodes : sequence of hashable
+        All nodes, in the order to choose starting nodes.
+    edges : sequence of tuple[hashable, hashable]
+        The edges of the graph. A repeated edge counts as a loop.
+
+    Returns
+    -------
+    ranks : dict[hashable, int]
+        The rank of each node.
+    is_tree : bool
+        Whether the graph has no loops, i.e. is a tree (or forest).
+    """
+    neighbors = {}
+    for a, b in edges:
+        neighbors.setdefault(a, []).append(b)
+        neighbors.setdefault(b, []).append(a)
+
+    ranks = {}
+    ncomponents = 0
+    for start in nodes:
+        if start in ranks:
+            continue
+        ncomponents += 1
+        ranks[start] = len(ranks)
+        queue = collections.deque((start,))
+        while queue:
+            for node in neighbors.get(queue.popleft(), ()):
+                if node not in ranks:
+                    ranks[node] = len(ranks)
+                    queue.append(node)
+
+    return ranks, len(edges) == len(ranks) - ncomponents
+
+
+class SweepScheduler:
+    """Schedule updates in sweeps over a graph, for belief propagation or
+    simple gauging, defaulting to an efficient order when a tree is detected.
+    Keys are hashable identifiers for updates, e.g. message keys, bond indices,
+    or tensor ids. Nodes are graph vertices used to order these updates.
+    ``key_to_nodes(key)`` returns the nodes for an update key.
+
+    Sort keys by their node ranks, see :func:`compute_sweep_ranks`. Yield each
+    key at most once per sweep. Keys marked during a sweep join it if not yet
+    yielded (except with ``sweep_order=None``) this causes a local change to
+    propagate fully along a chain for example.
+
+    Parameters
+    ----------
+    nodes : sequence of hashable
+        Nodes, in the order to choose starting nodes. Rank these at
+        initialization. Nodes later returned by ``key_to_nodes`` get the next
+        unused rank if not already ranked.
+    edges : sequence of tuple[hashable, hashable]
+        The edges of the graph.
+    key_to_nodes : callable
+        Must accept an update key and return its graph nodes. Keys are ordered
+        by the sorted ranks of these nodes.
+    sweep_order : {'auto', 'alternate', 'fixed', None}, optional
+        - 'alternate': reverse node rank order every other sweep, starting
+          reversed. Undamped sequential BP on trees gives exact messages
+          after two sweeps.
+        - 'fixed': use the same order every sweep, usually better with loops.
+        - 'auto': use 'alternate' for graphs with no loops, else 'fixed'.
+        - ``None``: use reverse insertion order. Leave keys marked during a
+          sweep for the next sweep.
+
+    Attributes
+    ----------
+    touched : oset
+        The keys to update in the next sweep.
+    alternate : bool
+        Whether the order is reversed every other sweep.
+
+    Examples
+    --------
+    Mark initial keys, perform a sweep, and mark affected keys::
+
+        sweeper = SweepScheduler(nodes, edges, key_to_nodes)
+        sweeper.touch(initial_keys)
+        for key in sweeper.sweep():
+            affected_keys = update(key)
+            sweeper.touch(affected_keys)
+
+    ``update(key)`` should perform the update and return keys that need an
+    update as a result. Keys only yield once per sweep.
+    """
+
+    def __init__(self, nodes, edges, key_to_nodes, sweep_order="auto"):
+        check_opt(
+            "sweep_order", sweep_order, ("auto", "alternate", "fixed", None)
+        )
+        self.sweep_order = sweep_order
+        self.key_to_nodes = key_to_nodes
+        self.ranks, is_tree = compute_sweep_ranks(nodes, edges)
+        self.alternate = (sweep_order == "alternate") or (
+            (sweep_order == "auto") and is_tree
+        )
+        self.nsweeps = 0
+        self.touched = oset()
+        # only set during a sweep
+        self._heap = None
+        self._yielded = None
+        self._rank_sign = 1
+        self._counter = itertools.count()
+
+    def _push_key(self, key):
+        # rank new nodes after those already seen
+        rank = sorted(
+            self.ranks.setdefault(node, len(self.ranks))
+            for node in self.key_to_nodes(key)
+        )
+        rank = tuple(self._rank_sign * r for r in rank)
+        # use insertion order to break ties without comparing keys
+        heapq.heappush(self._heap, (rank, next(self._counter), key))
+
+    def touch(self, keys):
+        """Mark ``keys`` for update. Add them to the current sweep if not yet
+        updated in it, otherwise to the next. With ``sweep_order=None``,
+        always add them to the next sweep.
+        """
+        if self._heap is None:
+            self.touched.update(keys)
+            return
+        for key in keys:
+            if key in self._yielded:
+                self.touched.add(key)
+            else:
+                self._push_key(key)
+
+    def sweep(self):
+        """Yield keys for one sweep. Keep keys marked again in ``touched``."""
+        touched, self.touched = self.touched, oset()
+
+        if self.sweep_order is None:
+            # legacy sweep order
+            yield from tuple(touched)[::-1]
+            return
+
+        self._rank_sign = (
+            -1 if (self.alternate and self.nsweeps % 2 == 0) else 1
+        )
+        self.nsweeps += 1
+        self._heap = []
+        self._yielded = set()
+        try:
+            for key in touched:
+                self._push_key(key)
+            while self._heap:
+                key = heapq.heappop(self._heap)[-1]
+                if key not in self._yielded:
+                    self._yielded.add(key)
+                    yield key
+        finally:
+            self._heap = None
+            self._yielded = None

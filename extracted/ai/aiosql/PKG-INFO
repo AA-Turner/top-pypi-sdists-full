@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: aiosql
-Version: 15.0
+Version: 16.0
 Summary: Simple SQL in Python
-Author-email: "William Vaughn et al." <vaughnwilld@gmail.com>
+Author-email: William Vaughn <vaughnwilld@gmail.com>, Fabien Coelho <aiosql@coelho.net>
 License-Expression: BSD-2-Clause
 Project-URL: repository, https://github.com/nackjicholson/aiosql
 Project-URL: documentation, https://nackjicholson.github.io/aiosql/
@@ -25,6 +25,7 @@ Requires-Dist: coverage; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
+Requires-Dist: rstcheck; extra == "dev"
 Requires-Dist: mypy<1.19; implementation_name == "pypy" and extra == "dev"
 Requires-Dist: mypy; implementation_name != "pypy" and extra == "dev"
 Requires-Dist: pyright; extra == "dev"
@@ -252,7 +253,7 @@ application:
         # Aloha, William!
         # …
 
-Or even in an asynchroneous way, with two SQL queries running in parallel
+Or even in an asynchronous way, with two SQL queries running in parallel
 using ``aiosqlite`` and ``asyncio``:
 
 .. code:: python

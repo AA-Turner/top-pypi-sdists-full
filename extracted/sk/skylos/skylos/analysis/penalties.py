@@ -433,6 +433,16 @@ _NOQA_DEAD_CODE_CODES_BY_TYPE = {
     "variable": {"F841"},
     "constant": {"F841"},
 }
+DEAD_CODE_RULE_BY_TYPE = {
+    "function": "SKY-U001",
+    "method": "SKY-U001",
+    "import": "SKY-U002",
+    "variable": "SKY-U003",
+    "constant": "SKY-U003",
+    "class": "SKY-U004",
+    "type": "SKY-U004",
+    "parameter": "SKY-U006",
+}
 
 
 def _suppress(def_obj, reason=None, code=None, folder_role=None):
@@ -519,6 +529,12 @@ def _check_inline_ignore(def_obj, visitor):
     ignore_lines = _coerce_line_set(getattr(visitor, "ignore_lines", None), -1)
     if suppression_lines & ignore_lines:
         return _suppress(def_obj, "inline ignore comment")
+    rule_id = DEAD_CODE_RULE_BY_TYPE.get(def_obj.type)
+    ignore_rules_by_line = getattr(visitor, "ignore_rules_by_line", None)
+    if rule_id and isinstance(ignore_rules_by_line, dict):
+        for line in suppression_lines:
+            if rule_id in ignore_rules_by_line.get(line, ()):
+                return _suppress(def_obj, "inline ignore comment", code=rule_id)
     noqa_codes_by_line = getattr(visitor, "noqa_codes_by_line", None) or {}
     if not isinstance(noqa_codes_by_line, dict):
         noqa_codes_by_line = {}
@@ -607,6 +623,8 @@ def _check_non_library_path(def_obj, analyzer, cfg):
         getattr(analyzer, "_project_root", None),
         extra_dirs=extra_dirs,
     )
+    if non_library_kind == "test" and _proven_go_test_helper(def_obj, analyzer, cfg):
+        return None
     if non_library_kind and def_obj.type in (
         "function",
         "method",
@@ -623,6 +641,34 @@ def _check_non_library_path(def_obj, analyzer, cfg):
             folder_role=non_library_kind,
         )
     return None
+
+
+def _proven_go_test_helper(def_obj, analyzer, cfg):
+    if (
+        not getattr(def_obj, "go_proven_unused_test_helper", False)
+        or def_obj.type != "function"
+        or def_obj.is_exported
+        or not str(def_obj.filename).endswith("_test.go")
+    ):
+        return False
+    try:
+        directories = Path(def_obj.filename).resolve().relative_to(
+            Path(analyzer._project_root).resolve()
+        ).parts[:-1]
+    except (AttributeError, TypeError, ValueError, OSError):
+        return False
+    extra_dirs = {
+        folder.lower() for folder in ((cfg or {}).get("non_library_dirs") or {})
+    }
+    for directory in directories:
+        if directory.lower() in extra_dirs or directory.lower() in {
+            "doc", "docs", "documentation"
+        }:
+            return False
+        role = get_non_library_dir_kind(Path(directory) / "source.go")
+        if role is not None and role != "test":
+            return False
+    return True
 
 
 def _check_framework_decorations(def_obj, framework):
@@ -1371,8 +1417,11 @@ def _check_protocol_abc(def_obj, analyzer, framework):
             return _suppress(def_obj)
 
     if def_obj.type == "class":
-        protocol_classes = getattr(framework, "protocol_classes", set())
-        if simple_name in protocol_classes:
+        from skylos.visitors.typing_protocols import protocol_member_declaration
+
+        if protocol_member_declaration(
+            def_obj, getattr(framework, "protocol_class_decls", set())
+        ):
             return _suppress(def_obj, "Protocol class")
 
     if def_obj.type in ("method", "class") and "." in def_obj.name:
@@ -1391,10 +1440,23 @@ def _check_protocol_abc(def_obj, analyzer, framework):
                 return -40
 
     if def_obj.type in ("method", "parameter") and "." in def_obj.name:
-        parts = def_obj.name.split(".")
-        protocol_classes = getattr(framework, "protocol_classes", set())
-        for part in parts[:-1]:
-            if part in protocol_classes:
+        from skylos.visitors.typing_protocols import protocol_member_declaration
+
+        if protocol_member_declaration(
+            def_obj, getattr(framework, "protocol_class_decls", set())
+        ):
+            return _suppress(def_obj, "Protocol class member")
+
+    if def_obj.type == "variable" and "." in def_obj.name:
+        owner = getattr(def_obj, "python_class_owner", None)
+        if owner:
+            protocol_decls = getattr(framework, "protocol_class_decls", set())
+            from skylos.visitors.typing_protocols import protocol_attribute_binding
+
+            if (
+                (str(owner[0]), owner[1]) in protocol_decls
+                and protocol_attribute_binding(def_obj)
+            ):
                 return _suppress(def_obj, "Protocol class member")
 
     if def_obj.type == "method" and "." in def_obj.name:
@@ -1640,7 +1702,14 @@ def _check_data_model_fields(def_obj, analyzer, framework):
             return _suppress(def_obj, "function reads its locals dynamically")
         return None
 
-    if def_obj.type == "variable" and "." in def_obj.name:
+    if (
+        def_obj.type == "variable"
+        and "." in def_obj.name
+        and def_obj.name not in getattr(analyzer, "_module_variable_names", ())
+        # These visitors resolve reads against the declared member owner.
+        # A same-named field on another type is not a read of this field.
+        and not str(def_obj.filename).endswith((".dart", ".cs"))
+    ):
         _, attr = def_obj.name.rsplit(".", 1)
         dotted_variable_counts = getattr(
             analyzer, "_dotted_variable_simple_name_counts", None

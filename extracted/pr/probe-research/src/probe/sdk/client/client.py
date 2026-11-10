@@ -1,27 +1,34 @@
-"""The Probe Research SDK client core.
+"""The Probe SDK client core.
 
 Two write paths, one core (per the SDK/CLI primitives sketch):
   * granular ``/v1`` calls for interactive / agent-driven capture (Anthrogen);
   * one-shot idempotent ``/ingest`` push for install-once passive capture (Osmosis).
 
-Every method maps onto a real v4 endpoint (Probe Research v0.4.0.0 ingestion fold-in).
+Every method maps onto a real v4 endpoint (Probe v0.4.0.0 ingestion fold-in).
 """
 
 from __future__ import annotations
 import threading
+from typing import Any
 from ..delivery.transport.protocols import observe_with
 from ..delivery.delivery import Delivery
 # The same rule for the crash reports' ring buffer, which hears every request. Transport sits
 # below it and no longer imports it, so the client loads it and hands it down.
 from .. import diagnostics as _request_log
 from ...foundation.compose.compose import compose
+from ...foundation.request_identity.surface import Surface
 from ...generated.models import Authorship as Authorship  # re-export: probe.Authorship
 from probe.sdk.client.core import CoreMixin
+from probe.sdk.client.disabled import DisabledClient, is_disabled_mode
 from probe.sdk.client.credentials import CredentialsMixin
 from probe.sdk.client.resources.artifacts import ArtifactsMixin, ArtifactsResource
 from probe.sdk.client.resources.auth import AuthMixin, AuthResource
 from probe.sdk.client.resources.catalog import CatalogMixin, CatalogResource
+from probe.sdk.client.resources.charts import ChartsMixin, ChartsResource
 from probe.sdk.client.resources.delivery import DeliveryMixin
+from probe.sdk.client.resources.runs.commands import RunCommandsMixin
+from probe.sdk.client.resources.runs.edits import EditsMixin, EditsResource
+from probe.sdk.client.resources.example import ExampleMixin
 from probe.sdk.client.resources.integrations import IntegrationsMixin, IntegrationsResource
 from probe.sdk.client.resources.lineage import LineageMixin, LineageResource
 from probe.sdk.client.resources.notes import NotesMixin, NotesResource
@@ -29,15 +36,21 @@ from probe.sdk.client.resources.projects.admin import ProjectAdminMixin
 from probe.sdk.client.resources.projects.experiment_admin import ExperimentAdminMixin
 from probe.sdk.client.resources.projects.experiment_locator import ExperimentLocatorMixin
 from probe.sdk.client.resources.projects.experiments import ExperimentsMixin, ExperimentsResource
+from probe.sdk.client.resources.projects.filing import FilingMixin
 from probe.sdk.client.resources.projects.headlines import HeadlinesMixin
+from probe.sdk.client.resources.projects.panes import PanesMixin
 from probe.sdk.client.resources.projects.papers import PapersMixin, PapersResource
+from probe.sdk.client.resources.projects.pins import PinsMixin
 from probe.sdk.client.resources.projects.projects import ProjectsMixin, ProjectsResource
 from probe.sdk.client.resources.projects.summaries import SummariesMixin, SummariesResource
 from probe.sdk.client.resources.reads import ReadsMixin, ReadsResource
+from probe.sdk.client.resources.samples.live import LiveSamplesMixin
+from probe.sdk.client.resources.samples.samples import SampleReadsMixin, SamplesResource
 from probe.sdk.client.resources.runs.attach import RunAttachMixin
 from probe.sdk.client.resources.runs.check import RunCheckMixin
 from probe.sdk.client.resources.runs.create import RunCreateMixin
 from probe.sdk.client.resources.runs.listing import RunListingMixin
+from probe.sdk.client.resources.runs.logs import RunLogsMixin
 from probe.sdk.client.resources.runs.metrics import RunMetricsMixin, MetricsResource
 from probe.sdk.client.resources.runs.reads import RunReadsMixin
 from probe.sdk.client.resources.runs.reopen.conflict import ReopenConflictMixin
@@ -69,14 +82,20 @@ class Client(
     WorkspacesMixin,
     ProjectsMixin,
     ProjectAdminMixin,
+    FilingMixin,
     SummariesMixin,
     HeadlinesMixin,
+    PanesMixin,
+    PinsMixin,
     ExperimentLocatorMixin,
     ExperimentsMixin,
     ExperimentAdminMixin,
     PapersMixin,
     ArtifactsMixin,
     CatalogMixin,
+    ChartsMixin,
+    EditsMixin,
+    RunCommandsMixin,
     RunsMixin,
     RunCreateMixin,
     RetryLineageMixin,
@@ -91,16 +110,31 @@ class Client(
     RunViewsMixin,
     RunCheckMixin,
     RunListingMixin,
+    RunLogsMixin,
     LineageMixin,
     IntegrationsMixin,
     SessionsMixin,
+    ExampleMixin,
     NotesMixin,
     ReadsMixin,
+    SampleReadsMixin,
+    LiveSamplesMixin,
 ):
     #: True for a client whose queue is drained by hand on purpose -- the
     #: offline run's, which `probe sync` drains (plan 2.12) -- so the "no
     #: background drainer" notice below would only be noise.
     _drains_by_hand = False
+
+    def __new__(cls, *_args: Any, **kwargs: Any) -> Client:
+        """``PROBE_MODE=disabled``: a script's `Client()` is a `DisabledClient` (`disabled.py`): no socket, outbox
+        or service. Always built: a subclass (the offline client), the CLI and MCP surfaces, and a client handed
+        its `settings`, `transport` or `journal` (the outbox drain, watcher and recovery, which keep delivering
+        when a shell exported the mode)."""
+        is_scripts = cls is Client and kwargs.get("surface", Surface.SDK.value) == Surface.SDK.value and not any(
+            kwargs.get(name) is not None for name in ("settings", "transport", "journal"))
+        if is_scripts and is_disabled_mode():
+            return DisabledClient()  # type: ignore[return-value]
+        return object.__new__(cls)
 
     @property
     def _delivery(self) -> Delivery:
@@ -144,6 +178,23 @@ class Client(
         """Typed source and artifact-version reads: `client.catalog.get_source(ref)` is a
         `SourceOut`."""
         return CatalogResource(self)
+
+    @property
+    def charts(self) -> ChartsResource:
+        """Save chart settings and page layouts: `client.charts.set(run_id, "loss", x_axis="relative")`.
+        Layouts need the team flag `chart_layouts`."""
+        return ChartsResource(self)
+
+    @property
+    def edits(self) -> EditsResource:
+        """Edit a run's recorded data, never destructively: `client.edits.create(run, Edit.hide(keys="loss",
+        from_step=2000), reason=...)`; `.list(run)`, `.revert(edit_id, reason=...)`."""
+        return EditsResource(self)
+
+    @property
+    def samples(self) -> SamplesResource:
+        """Typed RL sample reads: `client.samples.get_capture(run_id)` is a `Capture`."""
+        return SamplesResource(self)
 
     @property
     def lineage(self) -> LineageResource:

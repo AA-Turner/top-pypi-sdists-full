@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class TenantAdminRansomwareActivity(ClientValue):
     activityGeneratedOn: datetime | None = None
     activityId: str | None = None

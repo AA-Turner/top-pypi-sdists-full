@@ -1,67 +1,37 @@
-"""Pytest-native shared statement round-trip tests.
+"""Shared statement round-trip tests.
 
-Migrated from the ``TestStatementsBase`` mixin (``statements.py``): each test
-method becomes a module-level function taking the ``roundtrip`` fixture, which
-runs it once per target in ``SHARED_TARGETS`` (model/json/xml/rdf/jsonld). The
-14 "scruffy" cases opt out of the shared ``fmt`` fixture with their own
-explicit parametrization so the rdf param can be skipped (permanent PROV-O
-representational limitation, see ``docs/reference/conformance.md``; the
-``scruffy_fmt`` decorator below). ``test_mention_1``/``test_mention_2``
-likewise opt out via ``mention_fmt`` so only the jsonld param is skipped
-(PROV-JSONLD defines no Mention term). The legacy mixin remains for the
-not-yet-migrated ``test_dot.py``.
+Each test builds a document and hands it to the ``roundtrip`` fixture
+(``conftest.py``), which runs it once per target in ``SHARED_TARGETS``. The
+scruffy and mention tests parametrise ``fmt`` themselves to leave out the one
+target that cannot represent the document; the comment above their target
+tuples says which test asserts that.
 """
 
 import datetime
+import json
+import warnings
 
 import pytest
 
+import prov
 from prov.model import *
+from prov.tests.conftest import SHARED_TARGETS
 
 EX_NS = Namespace("ex", "http://example.org/")
 EX2_NS = Namespace("ex2", "http://example2.org/")
 
-_TIME_2012 = datetime.datetime(
-    2012, 12, 3, 21, 8, 16, 686000, tzinfo=datetime.timezone.utc
-)
+_TIME_2012 = datetime.datetime(2012, 12, 3, 21, 8, 16, 686000, tzinfo=datetime.UTC)
 
-# The 14 "scruffy" documents below add two relations sharing one identifier
-# but differing prov:time; PROV-O cannot represent this (both times serialize
-# onto the one qualified IRI, and deserialization then raises ProvException:
-# "Cannot have more than one value for attribute prov:time"). This is a
-# permanent, documented PROV-O representational limitation, not a bug on a
-# fix path, so the rdf param is skipped rather than xfailed — see
-# docs/reference/conformance.md for the full explanation of why no
-# conformant RDF encoding exists.
-RDF_SCRUFFY_SKIP = pytest.mark.skip(
-    reason="PROV-O cannot represent same-identifier relations differing by "
-    "prov:time — permanent, documented limitation, see "
-    "docs/reference/conformance.md",
-)
-
-# These functions opt out of the module-wide `fmt` fixture (see conftest.py)
-# with their own explicit parametrization so the skip mark attaches only to
-# the rdf param; model/json/xml still run normally.
-scruffy_fmt = pytest.mark.parametrize(
-    "fmt",
-    ["model", "json", "xml", pytest.param("rdf", marks=RDF_SCRUFFY_SKIP), "jsonld"],
-)
-
-# The PROV-JSONLD submission defines no Mention term, so mentionOf cannot be
-# serialized — a permanent, documented limitation like the PROV-O one above;
-# see docs/reference/conformance.md.
-JSONLD_MENTION_SKIP = pytest.mark.skip(
-    reason="PROV-JSONLD defines no Mention term — permanent, documented "
-    "limitation, see docs/reference/conformance.md",
-)
-
-# These functions opt out of the module-wide `fmt` fixture with their own
-# explicit parametrization so the skip mark attaches only to the jsonld param;
-# model/json/xml/rdf still run normally.
-mention_fmt = pytest.mark.parametrize(
-    "fmt",
-    ["model", "json", "xml", "rdf", pytest.param("jsonld", marks=JSONLD_MENTION_SKIP)],
-)
+# The scruffy documents below hold two relations that share one identifier
+# but differ in prov:time. PROV-O cannot represent them: both times land on
+# the one qualified IRI and reading back raises, a documented limitation
+# (docs/reference/conformance.md) that test_rdf.py's
+# test_decode_scruffy_relations_raise_documented_limitation asserts, so the
+# rdf target is left out here. PROV-JSONLD defines no Mention term, which
+# test_jsonld.py's test_serialize_mention_raises asserts, so the jsonld target
+# is left out of the mention round trips.
+SCRUFFY_TARGETS = tuple(target for target in SHARED_TARGETS if target != "rdf")
+MENTION_TARGETS = tuple(target for target in SHARED_TARGETS if target != "jsonld")
 
 
 def new_document():
@@ -1334,18 +1304,176 @@ def test_specialization_1(roundtrip) -> None:
     roundtrip(document)
 
 
-@mention_fmt
+@pytest.mark.parametrize("fmt", MENTION_TARGETS)
 def test_mention_1(roundtrip) -> None:
     document = new_document()
     document.mention(EX_NS["e2"], EX_NS["e1"], None)
     roundtrip(document)
 
 
-@mention_fmt
+@pytest.mark.parametrize("fmt", MENTION_TARGETS)
 def test_mention_2(roundtrip) -> None:
     document = new_document()
     document.mention(EX_NS["e2"], EX_NS["e1"], EX_NS["b"])
     roundtrip(document)
+
+
+_NO_ENTITY = "hadMember requires a value for prov:entity"
+_PROVN_PARTYLESS = (
+    "document\nprefix ex <http://example.org/>\n"
+    "hadMember(ex:c, -)\nentity(ex:e)\nendDocument"
+)
+_PROVN_SKIPPED = f"PROV-N statement skipped: line 3, column 1: {_NO_ENTITY}"
+_XML_MEMBER = (
+    '<prov:document xmlns:prov="http://www.w3.org/ns/prov#"'
+    ' xmlns:ex="http://example.org/">\n'
+    '<prov:entity prov:id="ex:e"/>\n'
+    '<prov:hadMember prov:id="ex:m"><prov:collection prov:ref="ex:c"/><ex:k>v</ex:k>'
+    "</prov:hadMember>\n</prov:document>"
+)
+_TURTLE_MEMBER = (
+    "@prefix prov: <http://www.w3.org/ns/prov#> .\n"
+    "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+    "@prefix ex: <http://example.org/> .\n"
+    "ex:e a prov:Entity .\n"
+    'ex:m a prov:Membership ; prov:collection ex:c ; rdfs:label "m" .\n'
+)
+
+
+def _json_members(*instances: dict) -> str:
+    return json.dumps(
+        {
+            "prefix": {"ex": EX_NS.uri},
+            "entity": {"ex:e": {}},
+            "hadMember": {"_:m1": list(instances)},
+        }
+    )
+
+
+_MEMBER = {"prov:collection": "ex:c", "prov:entity": "ex:e2"}
+_PARTYLESS = {"prov:collection": "ex:c"}
+
+
+@pytest.mark.parametrize(
+    ("fmt", "kwargs", "text", "warning", "extra"),
+    [
+        pytest.param(
+            "provn",
+            {"profile": "default"},
+            _PROVN_PARTYLESS,
+            _PROVN_SKIPPED,
+            (),
+            id="provn-default",
+        ),
+        pytest.param(
+            "provn",
+            {"profile": "lenient"},
+            _PROVN_PARTYLESS,
+            _PROVN_SKIPPED,
+            (),
+            id="provn-lenient",
+        ),
+        pytest.param(
+            "provn",
+            {},
+            "document\nprefix ex <http://example.org/>\nbundle ex:b\nentity(ex:e)\n"
+            "hadMember(ex:c, -)\nendBundle\nendDocument",
+            f"PROV-N statement skipped: line 5, column 1: {_NO_ENTITY}",
+            (),
+            id="provn-in-a-bundle",
+        ),
+        pytest.param(
+            None,
+            {},
+            _PROVN_PARTYLESS,
+            _PROVN_SKIPPED,
+            (),
+            id="provn-read-detected",
+        ),
+        pytest.param(
+            "json",
+            {},
+            json.dumps(
+                {
+                    "prefix": {"ex": EX_NS.uri},
+                    "entity": {"ex:e": {}},
+                    "hadMember": {"_:m1": _PARTYLESS},
+                }
+            ),
+            f"record '_:m1': {_NO_ENTITY}",
+            (),
+            id="json",
+        ),
+        pytest.param(
+            "json",
+            {},
+            _json_members(_MEMBER, _PARTYLESS),
+            f"record '_:m1': {_NO_ENTITY}",
+            (("ex:c", "ex:e2"),),
+            id="json-skipped-instance-last",
+        ),
+        pytest.param(
+            "json",
+            {},
+            _json_members(_PARTYLESS, _MEMBER),
+            f"record '_:m1': {_NO_ENTITY}",
+            (("ex:c", "ex:e2"),),
+            id="json-skipped-instance-first",
+        ),
+        pytest.param(
+            "jsonld",
+            {},
+            json.dumps(
+                {
+                    "@context": [{"ex": EX_NS.uri}],
+                    "@graph": [
+                        {"@type": "Entity", "@id": "ex:e"},
+                        {"@type": "Membership", "collection": "ex:c"},
+                    ],
+                }
+            ),
+            f"an anonymous prov:Membership: {_NO_ENTITY}",
+            (),
+            id="jsonld",
+        ),
+        pytest.param(
+            "xml",
+            {},
+            _XML_MEMBER,
+            f"line 3, <prov:hadMember> 'ex:m': {_NO_ENTITY}",
+            (),
+            id="xml",
+        ),
+        pytest.param(
+            "rdf",
+            {"rdf_format": "turtle"},
+            _TURTLE_MEMBER,
+            f"subject 'http://example.org/m': {_NO_ENTITY}",
+            (),
+            id="rdf",
+        ),
+    ],
+)
+def test_a_reader_skips_a_relation_missing_a_party(
+    fmt: str | None, kwargs: dict, text: str, warning: str, extra: tuple
+) -> None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        document = prov.read(text, format=fmt, **kwargs)
+    assert [str(w.message) for w in caught if issubclass(w.category, ProvWarning)] == [
+        warning
+    ]
+    assert not [w for w in caught if w.category is UserWarning]
+    # The statement stays in the scope that held it: a bundle's own records, or
+    # the document's.
+    scope = next(iter(document.bundles), document)
+    assert [str(r.identifier) for r in scope.get_records(ProvEntity)] == ["ex:e"]
+    assert [
+        tuple(str(party) for party in r.args) for r in scope.get_records(ProvMembership)
+    ] == list(extra)
+    assert len(list(scope.get_records())) == 1 + len(extra)
+    if scope is not document:
+        assert list(document.get_records()) == []
 
 
 def test_membership_1(roundtrip) -> None:
@@ -1369,320 +1497,74 @@ def test_membership_3(roundtrip) -> None:
     roundtrip(document)
 
 
-# SCRUFFY
-@scruffy_fmt
-def test_scruffy_generation_1(roundtrip) -> None:
+# The scruffy documents: two relations of one family sharing ex:gen1, the
+# first at the current time and the second at _TIME_2012, with the ex:tag2
+# values, the starter or ender endpoints and the extra activities each row
+# gives. Every row declares ex:e1 and ex:a1.
+_SCRUFFY_ARGUMENTS = {
+    "generation": ("e1", "a1"),
+    "invalidation": ("e1", "a1"),
+    "usage": ("a1", "e1"),
+    "start": ("a1", "e1"),
+    "end": ("a1", "e1"),
+}
+_SCRUFFY_ENDPOINT = {"start": "starter", "end": "ender"}
+_TAGS = ("hello", "hi")
+_ENDPOINTS = ("a1s", "a2s")
+SCRUFFY_CASES = [
+    pytest.param("generation", None, None, (), id="generation_1"),
+    pytest.param(
+        "generation",
+        ("hello-scruff-gen2", "hi-scruff-gen2"),
+        None,
+        (),
+        id="generation_2",
+    ),
+    pytest.param("invalidation", None, None, (), id="invalidation_1"),
+    pytest.param("invalidation", _TAGS, None, (), id="invalidation_2"),
+    pytest.param("usage", None, None, (), id="usage_1"),
+    pytest.param("usage", _TAGS, None, (), id="usage_2"),
+    pytest.param("start", None, None, (), id="start_1"),
+    pytest.param("start", _TAGS, None, (), id="start_2"),
+    pytest.param("start", _TAGS, _ENDPOINTS, ("a2", "a2s"), id="start_3"),
+    pytest.param("start", _TAGS, _ENDPOINTS, ("a1s", "a2", "a2s"), id="start_4"),
+    pytest.param("end", None, None, (), id="end_1"),
+    pytest.param("end", _TAGS, None, (), id="end_2"),
+    pytest.param("end", _TAGS, _ENDPOINTS, ("a2", "a2s"), id="end_3"),
+    pytest.param("end", _TAGS, _ENDPOINTS, ("a1s", "a2", "a2s"), id="end_4"),
+]
+
+
+@pytest.mark.parametrize("fmt", SCRUFFY_TARGETS)
+@pytest.mark.parametrize(("family", "tags", "endpoints", "activities"), SCRUFFY_CASES)
+def test_scruffy_relation(roundtrip, family, tags, endpoints, activities) -> None:
     document = new_document()
-    document.generation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    document.generation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
+    factory = getattr(document, family)
+    arguments = [EX_NS[name] for name in _SCRUFFY_ARGUMENTS[family]]
+    for i, time in enumerate((datetime.datetime.now(), _TIME_2012)):
+        extra = {_SCRUFFY_ENDPOINT[family]: EX_NS[endpoints[i]]} if endpoints else {}
+        relation = factory(*arguments, identifier=EX_NS["gen1"], time=time, **extra)
+        if tags:
+            relation.add_attributes([(EX_NS["tag2"], tags[i])])
     document.entity(identifier=EX_NS["e1"])
     document.activity(identifier=EX_NS["a1"])
+    for name in activities:
+        document.activity(identifier=EX_NS[name])
     roundtrip(document)
 
 
-@scruffy_fmt
-def test_scruffy_generation_2(roundtrip) -> None:
+@pytest.mark.parametrize("fmt", SCRUFFY_TARGETS)
+@pytest.mark.parametrize("second", ["entity", "agent", "activity"])
+def test_element_and_relation_sharing_an_identifier(roundtrip, second) -> None:
+    # An entity (or agent or activity) and a generation share ex:g. PROV-O
+    # cannot represent that (C1 on docs/reference/conformance.md), and
+    # test_rdf.py's test_decode_refuses_an_element_and_a_relation_sharing_an_iri
+    # asserts the raise, so the rdf target is left out here.
     document = new_document()
-    gen1 = document.generation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    gen2 = document.generation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    gen1.add_attributes([(EX_NS["tag2"], "hello-scruff-gen2")])
-    gen2.add_attributes([(EX_NS["tag2"], "hi-scruff-gen2")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_invalidation_1(roundtrip) -> None:
-    document = new_document()
-    document.invalidation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    document.invalidation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_invalidation_2(roundtrip) -> None:
-    document = new_document()
-    inv1 = document.invalidation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    inv2 = document.invalidation(
-        EX_NS["e1"],
-        EX_NS["a1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    inv1.add_attributes([(EX_NS["tag2"], "hello")])
-    inv2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_usage_1(roundtrip) -> None:
-    document = new_document()
-    document.usage(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    document.usage(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_usage_2(roundtrip) -> None:
-    document = new_document()
-    use1 = document.usage(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    use2 = document.usage(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    use1.add_attributes([(EX_NS["tag2"], "hello")])
-    use2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_start_1(roundtrip) -> None:
-    document = new_document()
-    document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_start_2(roundtrip) -> None:
-    document = new_document()
-    start1 = document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    start2 = document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    start1.add_attributes([(EX_NS["tag2"], "hello")])
-    start2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_start_3(roundtrip) -> None:
-    document = new_document()
-    start1 = document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-        starter=EX_NS["a1s"],
-    )
-    start2 = document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-        starter=EX_NS["a2s"],
-    )
-    start1.add_attributes([(EX_NS["tag2"], "hello")])
-    start2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    document.activity(identifier=EX_NS["a2"])
-    document.activity(identifier=EX_NS["a2s"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_start_4(roundtrip) -> None:
-    document = new_document()
-    start1 = document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-        starter=EX_NS["a1s"],
-    )
-    start2 = document.start(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-        starter=EX_NS["a2s"],
-    )
-    start1.add_attributes([(EX_NS["tag2"], "hello")])
-    start2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    document.activity(identifier=EX_NS["a1s"])
-    document.activity(identifier=EX_NS["a2"])
-    document.activity(identifier=EX_NS["a2s"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_end_1(roundtrip) -> None:
-    document = new_document()
-    document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_end_2(roundtrip) -> None:
-    document = new_document()
-    end1 = document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-    )
-    end2 = document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-    )
-    end1.add_attributes([(EX_NS["tag2"], "hello")])
-    end2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_end_3(roundtrip) -> None:
-    document = new_document()
-    end1 = document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-        ender=EX_NS["a1s"],
-    )
-    end2 = document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-        ender=EX_NS["a2s"],
-    )
-    end1.add_attributes([(EX_NS["tag2"], "hello")])
-    end2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    document.activity(identifier=EX_NS["a2"])
-    document.activity(identifier=EX_NS["a2s"])
-    roundtrip(document)
-
-
-@scruffy_fmt
-def test_scruffy_end_4(roundtrip) -> None:
-    document = new_document()
-    end1 = document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=datetime.datetime.now(),
-        ender=EX_NS["a1s"],
-    )
-    end2 = document.end(
-        EX_NS["a1"],
-        EX_NS["e1"],
-        identifier=EX_NS["gen1"],
-        time=_TIME_2012,
-        ender=EX_NS["a2s"],
-    )
-    end1.add_attributes([(EX_NS["tag2"], "hello")])
-    end2.add_attributes([(EX_NS["tag2"], "hi")])
-    document.entity(identifier=EX_NS["e1"])
-    document.activity(identifier=EX_NS["a1"])
-    document.activity(identifier=EX_NS["a1s"])
-    document.activity(identifier=EX_NS["a2"])
-    document.activity(identifier=EX_NS["a2s"])
+    document.entity(EX_NS["e"])
+    document.activity(EX_NS["a"])
+    document.generation(EX_NS["e"], EX_NS["a"], identifier=EX_NS["g"])
+    getattr(document, second)(EX_NS["g"])
     roundtrip(document)
 
 
@@ -1717,25 +1599,6 @@ def test_bundle_2(roundtrip) -> None:
     bundle2.usage(activity=EX_NS["a1"], entity=EX_NS["e1"], identifier=EX_NS["use2"])
     bundle2.entity(identifier=EX_NS["e1"])
     bundle2.activity(identifier=EX_NS["a1"])
-
-    document.add_bundle(bundle1)
-    document.add_bundle(bundle2)
-
-    roundtrip(document)
-
-
-def test_bundle_3(roundtrip) -> None:
-    document = new_document()
-
-    bundle1 = ProvBundle(identifier=EX_NS["bundle1"])
-    bundle1.usage(activity=EX_NS["a1"], entity=EX_NS["e1"], identifier=EX_NS["use1"])
-    bundle1.entity(identifier=EX_NS["e1"])
-    bundle1.activity(identifier=EX_NS["a1"])
-
-    bundle2 = ProvBundle(identifier=EX_NS["bundle2"])
-    bundle2.usage(activity=EX_NS["aa1"], entity=EX_NS["ee1"], identifier=EX_NS["use2"])
-    bundle2.entity(identifier=EX_NS["ee1"])
-    bundle2.activity(identifier=EX_NS["aa1"])
 
     document.add_bundle(bundle1)
     document.add_bundle(bundle2)

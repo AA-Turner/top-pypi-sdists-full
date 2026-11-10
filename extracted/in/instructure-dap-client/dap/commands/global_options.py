@@ -25,7 +25,6 @@ class GlobalOptions:
 pass_global_options = click.make_pass_decorator(GlobalOptions, ensure=True)
 
 
-DAP_API_URL_DEFAULT = "https://api-gateway.instructure.com"
 DAP_TRACKING_TRUE_VALUES = ("true", "1", "yes", "on")
 DAP_TRACKING_FALSE_VALUES = ("false", "0", "no", "off")
 

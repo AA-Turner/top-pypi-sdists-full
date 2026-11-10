@@ -23,7 +23,7 @@ def _get_kwargs(
 def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Any:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
-    if response.status_code == 204:
+    if response.status_code == 202:
         return None
     if response.status_code == 403:
         return None
@@ -46,9 +46,11 @@ def sync_detailed(
 ) -> Response[Any]:
     """Unlink a resource (staff only)
 
-     Forcefully deletes a marketplace resource and its related plugin resource from the database. This
-    action does not schedule operations on the backend and is intended for cleaning up resources stuck
-    in transitioning states. Requires staff permissions.
+     Schedules forced deletion of a marketplace resource and its related plugin resource from the
+    database. This action does not schedule operations on the backend and is intended for cleaning up
+    resources stuck in transitioning states. The resource keeps its state until the deletion finishes.
+    If the deletion fails, it is rolled back and the resource is left in the Erred state with the error
+    recorded. Requires staff permissions.
 
     Args:
         uuid (UUID):
@@ -79,9 +81,11 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Unlink a resource (staff only)
 
-     Forcefully deletes a marketplace resource and its related plugin resource from the database. This
-    action does not schedule operations on the backend and is intended for cleaning up resources stuck
-    in transitioning states. Requires staff permissions.
+     Schedules forced deletion of a marketplace resource and its related plugin resource from the
+    database. This action does not schedule operations on the backend and is intended for cleaning up
+    resources stuck in transitioning states. The resource keeps its state until the deletion finishes.
+    If the deletion fails, it is rolled back and the resource is left in the Erred state with the error
+    recorded. Requires staff permissions.
 
     Args:
         uuid (UUID):

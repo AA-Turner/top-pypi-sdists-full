@@ -7,7 +7,6 @@ from decimal import Decimal
 from .constants import FIELD_TYPE
 from .err import ProgrammingError
 
-
 # This silly alias is needed for aiomysql compatibility for now. It is scheduled for removal in 1.3.0.
 # https://github.com/PyMySQL/PyMySQL/issues/1274
 escape_dict = escape_bytes_prefixed = "DO NOT IMPORT THIS!!!"
@@ -37,6 +36,7 @@ def escape_not_supported(val, charset=None, mapping=None):
 
 
 def escape_sequence(val, charset=None, mapping=None):
+    warnings.warn("escape_sequence is deprecated", DeprecationWarning, stacklevel=2)
     n = []
     for item in val:
         quoted = escape_item(item, charset, mapping)
@@ -159,7 +159,7 @@ def _convert_second_fraction(s):
 
 
 DATETIME_RE = re.compile(
-    r"(\d{1,4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{1,2}):(\d{1,2})(?:.(\d{1,6}))?"
+    r"(\d{1,4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{1,2}):(\d{1,2})(?:\.(\d{1,6}))?"
 )
 
 
@@ -181,7 +181,7 @@ def convert_datetime(obj):
     if isinstance(obj, (bytes, bytearray)):
         obj = obj.decode("ascii")
 
-    m = DATETIME_RE.match(obj)
+    m = DATETIME_RE.fullmatch(obj)
     if not m:
         return convert_date(obj)
 
@@ -193,7 +193,7 @@ def convert_datetime(obj):
         return convert_date(obj)
 
 
-TIMEDELTA_RE = re.compile(r"(-)?(\d{1,3}):(\d{1,2}):(\d{1,2})(?:.(\d{1,6}))?")
+TIMEDELTA_RE = re.compile(r"(-)?(\d{1,3}):(\d{1,2}):(\d{1,2})(?:\.(\d{1,6}))?")
 
 
 def convert_timedelta(obj):
@@ -216,7 +216,7 @@ def convert_timedelta(obj):
     if isinstance(obj, (bytes, bytearray)):
         obj = obj.decode("ascii")
 
-    m = TIMEDELTA_RE.match(obj)
+    m = TIMEDELTA_RE.fullmatch(obj)
     if not m:
         return obj
 
@@ -240,7 +240,7 @@ def convert_timedelta(obj):
         return obj
 
 
-TIME_RE = re.compile(r"(\d{1,2}):(\d{1,2}):(\d{1,2})(?:.(\d{1,6}))?")
+TIME_RE = re.compile(r"(\d{1,2}):(\d{1,2}):(\d{1,2})(?:\.(\d{1,6}))?")
 
 
 def convert_time(obj):
@@ -268,7 +268,7 @@ def convert_time(obj):
     if isinstance(obj, (bytes, bytearray)):
         obj = obj.decode("ascii")
 
-    m = TIME_RE.match(obj)
+    m = TIME_RE.fullmatch(obj)
     if not m:
         return obj
 
@@ -326,10 +326,10 @@ encoders = {
     float: escape_float,
     str: escape_str,
     bytes: escape_bytes,
-    tuple: escape_sequence,
-    list: escape_sequence,
-    set: escape_sequence,
-    frozenset: escape_sequence,
+    tuple: escape_not_supported,
+    list: escape_not_supported,
+    set: escape_not_supported,
+    frozenset: escape_not_supported,
     dict: escape_not_supported,
     type(None): escape_None,
     datetime.date: escape_date,

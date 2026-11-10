@@ -29,6 +29,7 @@ from .config import (
 )
 from .download import ensure_binary
 from .license import (
+    LICENSE_STATUS_FILE_ENV,
     CloakBrowserLicenseError,
     build_launch_env,
     license_error_for_code,
@@ -43,15 +44,25 @@ from .widevine import seed_widevine_hint
 logger = logging.getLogger("cloakbrowser")
 
 
-def _license_error(exc: BaseException) -> CloakBrowserLicenseError | None:
+def license_error_from(
+    exc: BaseException, launch_options: dict[str, Any] | None = None
+) -> CloakBrowserLicenseError | None:
     """Return a CloakBrowserLicenseError if a launch failure was a license deny.
 
+    For callers launching with build_launch_options(): a denial during launch
+    fails pw.chromium.launch() itself, before guard_browser() can run.
+
     The Pro binary exits with a distinct code (76-79) on a license problem;
-    Playwright embeds that code in the launch-failure text. Returns None for any
-    other failure so a genuine crash propagates unchanged.
+    Playwright embeds that code in the launch-failure text. When the text has no
+    code, falls back to the denial file named in *launch_options* (the binary
+    writes the same code there), like the JS and .NET wrappers. Returns None for
+    any other failure so a genuine crash propagates unchanged.
     """
     msg = license_error_message(str(exc))
-    return CloakBrowserLicenseError(msg) if msg is not None else None
+    if msg is not None:
+        return CloakBrowserLicenseError(msg)
+    denial_path = _denial_path_from(launch_options) if launch_options else None
+    return _denial_license_error(denial_path) if denial_path else None
 
 
 # Factory methods whose return value is itself a handle the user drives (a page
@@ -274,6 +285,24 @@ def _drop_conflicting_viewport(context_kwargs: dict[str, Any], kwargs: dict[str,
         context_kwargs.pop("viewport", None)
 
 
+def _context_kwargs(
+    user_agent: str | None, viewport: Any, color_scheme: str | None, kwargs: dict[str, Any]
+) -> dict[str, Any]:
+    """Context kwargs for launch_context() / launch_persistent_context(). locale and
+    timezone are NOT here: they go to the binary as flags (--lang,
+    --fingerprint-timezone), since Playwright's context options use detectable CDP
+    emulation."""
+    context_kwargs: dict[str, Any] = {}
+    if user_agent:
+        context_kwargs["user_agent"] = user_agent
+    context_kwargs.update(_resolve_context_viewport(viewport))
+    if color_scheme:
+        context_kwargs["color_scheme"] = color_scheme
+    context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
+    return context_kwargs
+
+
 def _resolve_timezone(timezone: str | None, kwargs: dict[str, Any]) -> str | None:
     """Accept both timezone and timezone_id — either works, no warning."""
     if "timezone_id" in kwargs:
@@ -303,6 +332,137 @@ class ProxySettings(_ProxySettingsRequired, total=False):
     bypass: str
     username: str
     password: str
+
+
+def build_launch_options(
+    headless: bool = True,
+    proxy: str | ProxySettings | None = None,
+    args: list[str] | None = None,
+    stealth_args: bool = True,
+    timezone: str | None = None,
+    locale: str | None = None,
+    geoip: bool = False,
+    extension_paths: list[str] | None = None,
+    license_key: str | None = None,
+    browser_version: str | None = None,
+    release_channel: str | None = None,
+    _suppress_maximize: bool = False,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Build the kwargs dict that ``launch()`` passes to ``chromium.launch()``.
+
+    Use this when you already manage a Playwright instance and want to compose
+    CloakBrowser's binary, proxy, environment, and stealth arguments yourself:
+    ``pw.chromium.launch(**build_launch_options(...))``. A license denial (e.g.
+    over the session cap) can land during launch or after it; to get
+    ``CloakBrowserLicenseError`` instead of a bare "Target closed" error::
+
+        opts = build_launch_options(...)
+        try:
+            browser = pw.chromium.launch(**opts)
+        except Exception as e:
+            raise license_error_from(e, opts) or e
+        guard_browser(browser, opts)
+    """
+    _check_removed_kwargs(kwargs)
+
+    binary_path = ensure_binary(
+        license_key=license_key, browser_version=browser_version, release_channel=release_channel
+    )
+    timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale, args)
+    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
+    args = _resolve_webrtc_args(args, proxy)
+    args = _append_webrtc_exit_ip(args, exit_ip)
+
+    chrome_args = build_args(
+        stealth_args,
+        (args or []) + proxy_extra_args,
+        timezone=timezone,
+        locale=locale,
+        headless=headless,
+        extension_paths=extension_paths,
+        start_maximized=not _suppress_maximize,
+    )
+    _maybe_warn_windows_fonts(chrome_args)
+
+    # The binary writes its license exit code here on a denial; guard_browser()
+    # reads the path back from the env.
+    denial_path = mint_denial_file() if resolve_license_key(license_key) else None
+    launch_env = build_launch_env(
+        license_key, user_env=kwargs.pop("env", None), status_file=denial_path
+    )
+    env_kwargs = {} if launch_env is None else {"env": launch_env}
+
+    return {
+        "executable_path": binary_path,
+        "headless": headless,
+        "args": chrome_args,
+        "ignore_default_args": IGNORE_DEFAULT_ARGS,
+        **env_kwargs,
+        **proxy_kwargs,
+        **kwargs,
+    }
+
+
+def _denial_path_from(launch_options: dict[str, Any]) -> str | None:
+    return (launch_options.get("env") or {}).get(LICENSE_STATUS_FILE_ENV)
+
+
+def guard_browser(browser: Any, launch_options: dict[str, Any]) -> None:
+    """Make a license denial on a sync Browser you launched yourself raise
+    CloakBrowserLicenseError (e.g. "session limit reached") instead of a bare
+    TargetClosedError. Pass the dict build_launch_options() returned. Call it
+    before humanize_browser(). No-op when no license key was in play.
+    """
+    denial_path = _denial_path_from(launch_options)
+    if denial_path:
+        browser._cloak_denial_path = denial_path
+        _install_license_guard(browser, denial_path)
+
+
+def guard_browser_async(browser: Any, launch_options: dict[str, Any]) -> None:
+    """Async-API variant of :func:`guard_browser`."""
+    denial_path = _denial_path_from(launch_options)
+    if denial_path:
+        browser._cloak_denial_path = denial_path
+        _install_license_guard_async(browser, denial_path)
+
+
+def license_denial(obj: Any) -> CloakBrowserLicenseError | None:
+    """Return why the license refused this browser/context (e.g. "session limit
+    reached"), or None. Checks now, without making a browser call: useful while
+    waiting on something else, like a CDP endpoint. Works on anything launch(),
+    launch_context(), launch_persistent_context() or guard_browser() handed back
+    (sync or async). Safe to call repeatedly.
+    """
+    denial_path = getattr(obj, "_cloak_denial_path", None)
+    return _denial_license_error(denial_path) if denial_path else None
+
+
+def humanize_browser(
+    browser: Any,
+    human_preset: HumanPreset = "default",
+    human_config: HumanConfigOverrides | None = None,
+) -> None:
+    """Apply the sync humanize layer to an existing Playwright Browser."""
+    from .human import patch_browser
+    from .human.config import resolve_config
+
+    cfg = resolve_config(human_preset, human_config)
+    patch_browser(browser, cfg)
+
+
+def humanize_browser_async(
+    browser: Any,
+    human_preset: HumanPreset = "default",
+    human_config: HumanConfigOverrides | None = None,
+) -> None:
+    """Apply the async humanize layer to an existing Playwright Browser."""
+    from .human import patch_browser_async
+    from .human.config import resolve_config
+
+    cfg = resolve_config(human_preset, human_config)
+    patch_browser_async(browser, cfg)
 
 
 def launch(
@@ -357,38 +517,31 @@ def launch(
         >>> print(page.title())
         >>> browser.close()
     """
-    _check_removed_kwargs(kwargs)
-
     from playwright.sync_api import sync_playwright
 
-    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version, release_channel=release_channel)
-    timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale, args)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
-    args = _resolve_webrtc_args(args, proxy)
-    args = _append_webrtc_exit_ip(args, exit_ip)
+    launch_options = build_launch_options(
+        headless=headless,
+        proxy=proxy,
+        args=args,
+        stealth_args=stealth_args,
+        timezone=timezone,
+        locale=locale,
+        geoip=geoip,
+        extension_paths=extension_paths,
+        license_key=license_key,
+        browser_version=browser_version,
+        release_channel=release_channel,
+        _suppress_maximize=_suppress_maximize,
+        **kwargs,
+    )
 
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=not _suppress_maximize)
-    _maybe_warn_windows_fonts(chrome_args)
-
-    logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
-
-    denial_path = mint_denial_file() if resolve_license_key(license_key) else None
-    launch_env = build_launch_env(license_key, user_env=kwargs.pop("env", None), status_file=denial_path)
-    env_kwargs = {} if launch_env is None else {"env": launch_env}
+    logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(launch_options["args"]))
 
     pw = sync_playwright().start()
     try:
-        browser = pw.chromium.launch(
-            executable_path=binary_path,
-            headless=headless,
-            args=chrome_args,
-            ignore_default_args=IGNORE_DEFAULT_ARGS,
-            **env_kwargs,
-            **proxy_kwargs,
-            **kwargs,
-        )
+        browser = pw.chromium.launch(**launch_options)
     except Exception as exc:
-        lic = _license_error(exc)
+        lic = license_error_from(exc, launch_options)
         try:
             pw.stop()
         except Exception as stop_exc:
@@ -413,15 +566,14 @@ def launch(
 
     # Convert a post-handshake license denial into a clear error on the user's
     # first call. Installed before the wraps below so it sits closest to the
-    # real call. Stash the path so launch_context() can guard its context too.
-    if denial_path:
-        browser._cloak_denial_path = denial_path
-        _install_license_guard(browser, denial_path)
+    # real call. Stashes the path so launch_context() can guard its context too.
+    guard_browser(browser, launch_options)
 
-    # Proxy went to Chrome as --proxy-server, so Playwright's request client has no
+    # Proxy went to Chrome as --proxy-server (any proxy not in Playwright's proxy
+    # option, see _resolve_proxy_config), so Playwright's request client has no
     # proxy (#579). The impl "context" event fires for every new context,
     # including the one new_page() and launch_context() create internally.
-    if proxy_extra_args:
+    if proxy is not None and "proxy" not in launch_options:
         browser._impl_obj.on("context", _warn_on_request_client_use)
 
     # Default new_page()/new_context() to no_viewport: headed, the page tracks the
@@ -431,10 +583,7 @@ def launch(
 
     # Human-like behavioral patching
     if humanize:
-        from .human import patch_browser
-        from .human.config import resolve_config
-        cfg = resolve_config(human_preset, human_config)
-        patch_browser(browser, cfg)
+        humanize_browser(browser, human_preset, human_config)
 
     return browser
 
@@ -489,39 +638,34 @@ async def launch_async(  # noqa: C901
         >>>
         >>> asyncio.run(main())
     """
-    _check_removed_kwargs(kwargs)
-
     from playwright.async_api import async_playwright
 
     # Blocking network calls (license/download, exit-IP lookups) run in a thread so
     # they don't freeze the caller's event loop.
-    binary_path = await asyncio.to_thread(ensure_binary, license_key=license_key, browser_version=browser_version, release_channel=release_channel)
-    timezone, locale, exit_ip = await asyncio.to_thread(maybe_resolve_geoip, geoip, proxy, timezone, locale, args)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
-    args = await asyncio.to_thread(_resolve_webrtc_args, args, proxy)
-    args = _append_webrtc_exit_ip(args, exit_ip)
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=not _suppress_maximize)
-    _maybe_warn_windows_fonts(chrome_args)
+    launch_options = await asyncio.to_thread(
+        build_launch_options,
+        headless=headless,
+        proxy=proxy,
+        args=args,
+        stealth_args=stealth_args,
+        timezone=timezone,
+        locale=locale,
+        geoip=geoip,
+        extension_paths=extension_paths,
+        license_key=license_key,
+        browser_version=browser_version,
+        release_channel=release_channel,
+        _suppress_maximize=_suppress_maximize,
+        **kwargs,
+    )
 
-    logger.debug("Launching stealth Chromium async (headless=%s, args=%d)", headless, len(chrome_args))
-
-    denial_path = mint_denial_file() if resolve_license_key(license_key) else None
-    launch_env = build_launch_env(license_key, user_env=kwargs.pop("env", None), status_file=denial_path)
-    env_kwargs = {} if launch_env is None else {"env": launch_env}
+    logger.debug("Launching stealth Chromium async (headless=%s, args=%d)", headless, len(launch_options["args"]))
 
     pw = await async_playwright().start()
     try:
-        browser = await pw.chromium.launch(
-            executable_path=binary_path,
-            headless=headless,
-            args=chrome_args,
-            ignore_default_args=IGNORE_DEFAULT_ARGS,
-            **env_kwargs,
-            **proxy_kwargs,
-            **kwargs,
-        )
+        browser = await pw.chromium.launch(**launch_options)
     except Exception as exc:
-        lic = _license_error(exc)
+        lic = license_error_from(exc, launch_options)
         try:
             await pw.stop()
         except Exception as stop_exc:
@@ -545,13 +689,11 @@ async def launch_async(  # noqa: C901
     browser.close = _close_with_cleanup
 
     # Convert a post-handshake license denial into a clear error on first use
-    # (see launch()). Stash the path for launch_context_async().
-    if denial_path:
-        browser._cloak_denial_path = denial_path
-        _install_license_guard_async(browser, denial_path)
+    # (see launch()). Stashes the path for launch_context_async().
+    guard_browser_async(browser, launch_options)
 
     # Warn on first use of Playwright's request client (see launch(), #579).
-    if proxy_extra_args:
+    if proxy is not None and "proxy" not in launch_options:
         browser._impl_obj.on("context", _warn_on_request_client_use)
 
     # Default new_page()/new_context() to no_viewport (see launch()).
@@ -559,10 +701,7 @@ async def launch_async(  # noqa: C901
 
     # Human-like behavioral patching (async variant)
     if humanize:
-        from .human import patch_browser_async
-        from .human.config import resolve_config
-        cfg = resolve_config(human_preset, human_config)
-        patch_browser_async(browser, cfg)
+        humanize_browser_async(browser, human_preset, human_config)
 
     return browser
 
@@ -633,15 +772,22 @@ def launch_persistent_context(
     from playwright.sync_api import sync_playwright
 
     timezone = _resolve_timezone(timezone, kwargs)
-
-    binary_path = ensure_binary(license_key=license_key, browser_version=browser_version, release_channel=release_channel)
-    timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale, args)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
-    args = _resolve_webrtc_args(args, proxy)
-    args = _append_webrtc_exit_ip(args, exit_ip)
-    args = persistent_seed_args(user_data_dir, stealth_args, args)
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
-    _maybe_warn_windows_fonts(chrome_args)
+    launch_options = build_launch_options(
+        headless=headless,
+        proxy=proxy,
+        args=persistent_seed_args(user_data_dir, stealth_args, args),
+        stealth_args=stealth_args,
+        timezone=timezone,
+        locale=locale,
+        geoip=geoip,
+        extension_paths=extension_paths,
+        license_key=license_key,
+        browser_version=browser_version,
+        release_channel=release_channel,
+        # Caller chose a viewport geometry -> don't also auto-maximize the window.
+        _suppress_maximize=(viewport is not _VIEWPORT_UNSET or "no_viewport" in kwargs),
+        **_context_kwargs(user_agent, viewport, color_scheme, kwargs),
+    )
 
     logger.debug(
         "Launching persistent stealth Chromium (headless=%s, user_data_dir=%s)",
@@ -649,41 +795,15 @@ def launch_persistent_context(
         user_data_dir,
     )
 
-    # locale and timezone are set via binary flags (--lang, --fingerprint-timezone)
-    # — NOT via Playwright context kwargs which use detectable CDP emulation.
-    context_kwargs: dict[str, Any] = {}
-    if user_agent:
-        context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(
-        _resolve_context_viewport(viewport)
-    )
-    if color_scheme:
-        context_kwargs["color_scheme"] = color_scheme
-    context_kwargs.update(kwargs)
-    _drop_conflicting_viewport(context_kwargs, kwargs)
-
-    # Resolve env for the browser process (license key injection, if needed)
-    user_env = context_kwargs.pop("env", None)
-    denial_path = mint_denial_file() if resolve_license_key(license_key) else None
-    launch_env = build_launch_env(license_key, user_env=user_env, status_file=denial_path)
-    if launch_env is not None:
-        context_kwargs["env"] = launch_env
-
-    seed_widevine_hint(user_data_dir, binary_path)
+    seed_widevine_hint(user_data_dir, launch_options["executable_path"])
 
     pw = sync_playwright().start()
     try:
         context = pw.chromium.launch_persistent_context(
-            user_data_dir=os.fspath(user_data_dir),
-            executable_path=binary_path,
-            headless=headless,
-            args=chrome_args,
-            ignore_default_args=IGNORE_DEFAULT_ARGS,
-            **proxy_kwargs,
-            **context_kwargs,
+            user_data_dir=os.fspath(user_data_dir), **launch_options
         )
     except Exception as exc:
-        lic = _license_error(exc)
+        lic = license_error_from(exc, launch_options)
         try:
             pw.stop()
         except Exception as stop_exc:
@@ -707,7 +827,7 @@ def launch_persistent_context(
     context.close = _close_with_cleanup
 
     # Warn on first use of Playwright's request client (see launch(), #579).
-    if proxy_extra_args:
+    if proxy is not None and "proxy" not in launch_options:
         _warn_on_request_client_use(context._impl_obj)
 
     # Human-like behavioral patching. Applied BEFORE the license guard: the guard
@@ -726,7 +846,9 @@ def launch_persistent_context(
     # the user navigates pages[0] directly and never calls new_page — guard those
     # existing pages too, or a post-handshake denial surfaces as a bare
     # TargetClosedError on that first navigation.
+    denial_path = _denial_path_from(launch_options)
     if denial_path:
+        context._cloak_denial_path = denial_path  # for license_denial()
         _install_license_guard(context, denial_path)
         for _pg in context.pages:
             _install_license_guard(_pg, denial_path)
@@ -804,14 +926,23 @@ async def launch_persistent_context_async(
     timezone = _resolve_timezone(timezone, kwargs)
 
     # Blocking network calls run in a thread (see launch_async).
-    binary_path = await asyncio.to_thread(ensure_binary, license_key=license_key, browser_version=browser_version, release_channel=release_channel)
-    timezone, locale, exit_ip = await asyncio.to_thread(maybe_resolve_geoip, geoip, proxy, timezone, locale, args)
-    proxy_kwargs, proxy_extra_args = _resolve_proxy_config(proxy)
-    args = await asyncio.to_thread(_resolve_webrtc_args, args, proxy)
-    args = _append_webrtc_exit_ip(args, exit_ip)
-    args = persistent_seed_args(user_data_dir, stealth_args, args)
-    chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths, start_maximized=viewport is _VIEWPORT_UNSET and "viewport" not in kwargs and "no_viewport" not in kwargs)
-    _maybe_warn_windows_fonts(chrome_args)
+    launch_options = await asyncio.to_thread(
+        build_launch_options,
+        headless=headless,
+        proxy=proxy,
+        args=persistent_seed_args(user_data_dir, stealth_args, args),
+        stealth_args=stealth_args,
+        timezone=timezone,
+        locale=locale,
+        geoip=geoip,
+        extension_paths=extension_paths,
+        license_key=license_key,
+        browser_version=browser_version,
+        release_channel=release_channel,
+        # Caller chose a viewport geometry -> don't also auto-maximize the window.
+        _suppress_maximize=(viewport is not _VIEWPORT_UNSET or "no_viewport" in kwargs),
+        **_context_kwargs(user_agent, viewport, color_scheme, kwargs),
+    )
 
     logger.debug(
         "Launching persistent stealth Chromium async (headless=%s, user_data_dir=%s)",
@@ -819,41 +950,15 @@ async def launch_persistent_context_async(
         user_data_dir,
     )
 
-    # locale and timezone are set via binary flags (--lang, --fingerprint-timezone)
-    # — NOT via Playwright context kwargs which use detectable CDP emulation.
-    context_kwargs: dict[str, Any] = {}
-    if user_agent:
-        context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(
-        _resolve_context_viewport(viewport)
-    )
-    if color_scheme:
-        context_kwargs["color_scheme"] = color_scheme
-    context_kwargs.update(kwargs)
-    _drop_conflicting_viewport(context_kwargs, kwargs)
-
-    # Resolve env for the browser process (license key injection, if needed)
-    user_env = context_kwargs.pop("env", None)
-    denial_path = mint_denial_file() if resolve_license_key(license_key) else None
-    launch_env = build_launch_env(license_key, user_env=user_env, status_file=denial_path)
-    if launch_env is not None:
-        context_kwargs["env"] = launch_env
-
-    seed_widevine_hint(user_data_dir, binary_path)
+    seed_widevine_hint(user_data_dir, launch_options["executable_path"])
 
     pw = await async_playwright().start()
     try:
         context = await pw.chromium.launch_persistent_context(
-            user_data_dir=os.fspath(user_data_dir),
-            executable_path=binary_path,
-            headless=headless,
-            args=chrome_args,
-            ignore_default_args=IGNORE_DEFAULT_ARGS,
-            **proxy_kwargs,
-            **context_kwargs,
+            user_data_dir=os.fspath(user_data_dir), **launch_options
         )
     except Exception as exc:
-        lic = _license_error(exc)
+        lic = license_error_from(exc, launch_options)
         try:
             await pw.stop()
         except Exception as stop_exc:
@@ -877,7 +982,7 @@ async def launch_persistent_context_async(
     context.close = _close_with_cleanup
 
     # Warn on first use of Playwright's request client (see launch(), #579).
-    if proxy_extra_args:
+    if proxy is not None and "proxy" not in launch_options:
         _warn_on_request_client_use(context._impl_obj)
 
     # Human-like behavioral patching (async variant). Applied BEFORE the license
@@ -893,8 +998,9 @@ async def launch_persistent_context_async(
     # launch()). A persistent context also arrives with a page already open (see
     # the sync variant): guard those existing pages so a post-handshake denial on
     # pages[0] surfaces cleanly instead of as a bare TargetClosedError.
+    denial_path = _denial_path_from(launch_options)
     if denial_path:
-        context._cloak_denial_path = denial_path
+        context._cloak_denial_path = denial_path  # for license_denial(); Manager reads it too
         _install_license_guard_async(context, denial_path)
         for _pg in context.pages:
             _install_license_guard_async(_pg, denial_path)
@@ -969,19 +1075,8 @@ def launch_context(
                      # the window (mirrors the persistent-context path + JS).
                      _suppress_maximize=(viewport is not _VIEWPORT_UNSET or "no_viewport" in kwargs))
 
-    context_kwargs: dict[str, Any] = {}
-    if user_agent:
-        context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(
-        _resolve_context_viewport(viewport)
-    )
-    if color_scheme:
-        context_kwargs["color_scheme"] = color_scheme
-    context_kwargs.update(kwargs)
-    _drop_conflicting_viewport(context_kwargs, kwargs)
-
     try:
-        context = browser.new_context(**context_kwargs)
+        context = browser.new_context(**_context_kwargs(user_agent, viewport, color_scheme, kwargs))
     except Exception:
         browser.close()
         raise
@@ -1000,11 +1095,11 @@ def launch_context(
 
     context.close = _close_context_with_cleanup
 
-    # browser.new_context above is already guarded by launch(); also guard the
-    # context's new_page for a denial that lands after the context is created.
+    # launch() guards browser.new_context deeply, so this context is already
+    # guarded; only store the path for license_denial().
     denial_path = getattr(browser, "_cloak_denial_path", None)
     if denial_path:
-        _install_license_guard(context, denial_path)
+        context._cloak_denial_path = denial_path
 
     # Human-like behavioral patching
     if humanize:
@@ -1102,22 +1197,11 @@ async def launch_context_async(
                                  # the window (mirrors the persistent-context path + JS).
                                  _suppress_maximize=(viewport is not _VIEWPORT_UNSET or "no_viewport" in kwargs))
 
-    context_kwargs: dict[str, Any] = {}
-    if user_agent:
-        context_kwargs["user_agent"] = user_agent
-    context_kwargs.update(
-        _resolve_context_viewport(viewport)
-    )
-    if color_scheme:
-        context_kwargs["color_scheme"] = color_scheme
-    context_kwargs.update(kwargs)
-    _drop_conflicting_viewport(context_kwargs, kwargs)
-
     # Catch BaseException (not just Exception) so that asyncio.CancelledError
     # triggers browser cleanup — otherwise the underlying Chromium process
     # leaks when the awaiting task is cancelled.
     try:
-        context = await browser.new_context(**context_kwargs)
+        context = await browser.new_context(**_context_kwargs(user_agent, viewport, color_scheme, kwargs))
     except BaseException:
         try:
             await browser.close()
@@ -1139,11 +1223,11 @@ async def launch_context_async(
 
     context.close = _close_context_with_cleanup
 
-    # browser.new_context above is already guarded by launch_async(); also guard
-    # the context's new_page for a denial that lands after context creation.
+    # launch_async() guards browser.new_context deeply, so this context is already
+    # guarded; only store the path for license_denial().
     denial_path = getattr(browser, "_cloak_denial_path", None)
     if denial_path:
-        _install_license_guard_async(context, denial_path)
+        context._cloak_denial_path = denial_path
 
     # Human-like behavioral patching (async variant)
     if humanize:

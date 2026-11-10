@@ -1,25 +1,33 @@
 """Source-separated landscapes and sequence exemplars from cohort results."""
 
-from collections import Counter, defaultdict
 import gzip
-from html import escape
 import json
 import math
+from collections import Counter, defaultdict
+from html import escape
 from pathlib import Path
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (
-    Flowable, Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    Flowable,
+    Image,
+    KeepTogether,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
 
 from .json_files import read_json
-from .sv_rna_audit import file_sha256, write_json
-from .rna_evidence import content_identifier
-from .protein_window_comparison import aligned_protein_columns as aligned_columns
 from .protein_reporting import best_supported_translation, protein_comparison_status
-
+from .protein_window_comparison import aligned_protein_columns
+from .rna_evidence import content_identifier
+from .sv_rna_audit import file_sha256, write_json
+from .sv_rna_relations import ADJACENCY_JOIN_RELATIONS
 
 INK = "#223743"
 MUTANT = "#d26928"
@@ -118,6 +126,7 @@ def _collect(result, highlights=()):
                 continue
             event, alt = _counts(row)
             category = row["category"]
+            counts["dna_categorized"] += row.get("annotation", {}).get("category") == category
             categories[category] += 1
             depths[category].append(alt)
             counts["alt"] += alt > 0
@@ -202,11 +211,13 @@ def _landscape(sample, analyses, directory, index=1):
                                          (.23, "changed_protein", "Changed protein context", MUTANT)]:
             value = counts[key]
             ax.barh(i + offset, value, height=.21, color=color, label=label if i == 0 else None)
-            ax.text(max(value, 1), i + offset, f" {value:,}", fontsize=7, va="center", color=INK)
+            ax.annotate(f"{value:,}", (value, i + offset), xytext=(3, 0),
+                        textcoords="offset points", fontsize=7, va="center", color=INK)
     ax.set_yticks(range(len(labels)), labels, fontsize=7)
     ax.invert_yaxis()
-    ax.set_xscale("symlog", linthresh=1)
-    ax.set_xlabel("Variant counts within each library (log scale above 1)", fontsize=8)
+    maximum = max((counts['nominated'] for _, counts, _, _, _ in analyses), default=0)
+    scale = _count_axis(ax, maximum)
+    ax.set_xlabel("Variant counts within each library" + scale, fontsize=8)
     ax.set_title(sample + " | RNA evidence funnel", loc="left", fontsize=12, color=INK)
     ax.legend(frameon=False, fontsize=7, loc="upper left", bbox_to_anchor=(0, -.28),
               borderaxespad=0, ncol=3)
@@ -216,6 +227,28 @@ def _landscape(sample, analyses, directory, index=1):
         figure.savefig(str(prefix) + "." + extension, dpi=180, facecolor="white")
     return Path(str(prefix) + ".png"), figure.get_size_inches()
 
+
+
+def _count_axis(axes, maximum, *, vertical=False):
+    """Readable integer counts for sparse panels; compact log ticks for large ones."""
+    from matplotlib.ticker import MaxNLocator, NullLocator
+
+    axis = axes.yaxis if vertical else axes.xaxis
+    set_scale = axes.set_yscale if vertical else axes.set_xscale
+    set_limits = axes.set_ylim if vertical else axes.set_xlim
+    if maximum <= 20:
+        set_scale('linear')
+        axis.set_major_locator(MaxNLocator(nbins=5, integer=True, min_n_ticks=2))
+        set_limits(0, max(1, maximum * 1.2))
+        suffix = ''
+    else:
+        set_scale('symlog', linthresh=1)
+        values = sorted({0, 1, 10 ** (int(math.log10(maximum)) // 2), int(maximum)})
+        axis.set_ticks(values, labels=[f'{value:,}' for value in values])
+        set_limits(0, maximum * 2)
+        suffix = ' (log scale above 1)'
+    axis.set_minor_locator(NullLocator())
+    return suffix
 
 
 def _set_count_ticks(axis, low: int, high: int) -> None:
@@ -229,18 +262,21 @@ def _set_count_ticks(axis, low: int, high: int) -> None:
 
 
 def _category_landscape(result, categories, depths, directory):
-    from matplotlib.figure import Figure
     import numpy as np
+    from matplotlib.figure import Figure
 
     fig = Figure(figsize=(7.2, 3.6), layout="constrained")
     left, right = fig.subplots(1, 2)
     labels = list(categories)
-    positions = range(len(labels))
-    left.barh(positions, [categories[k] for k in labels], color="#a4b6bd", label="Evaluated")
-    left.barh(positions, [sum(n >= 20 for n in depths[k]) for k in labels], color=TEAL, label="ALT >=20 fragments")
+    positions = np.arange(len(labels))
+    for offset, values, color, label in [
+            (-.18, [categories[k] for k in labels], '#a4b6bd', 'Evaluated'),
+            (.18, [sum(n >= 20 for n in depths[k]) for k in labels], TEAL, 'ALT >=20 fragments')]:
+        bars = left.barh(positions + offset, values, height=.32, color=color, label=label)
+        left.bar_label(bars, labels=[f'{value:,}' for value in values], padding=3, fontsize=7)
     left.set_yticks(positions, labels, fontsize=7)
-    left.set_xscale("symlog", linthresh=1)
-    left.set_xlabel("Calls (log scale above 1)", fontsize=8)
+    scale = _count_axis(left, max(categories.values(), default=0))
+    left.set_xlabel("Calls" + scale, fontsize=8)
     left.legend(frameon=False, fontsize=7, loc="upper left", bbox_to_anchor=(0, -.22),
                 borderaxespad=0, ncol=2)
     palette = [INK, MUTANT, TEAL, GERMLINE, COSOMATIC]
@@ -410,10 +446,12 @@ def _fusion_comparisons(result, supplied, depth, whole_fragments):
         # arbitrarily pick among references with the same transcript ID.
         acceptor = acceptors[0] if len(acceptors) == 1 else None
         acceptor_status = 'available' if acceptor else 'ambiguous' if acceptors else 'unavailable'
-        donor_protein, _ = translate_cdna(donor.sequence[donor.cds_start:donor.cds_end])
+        donor_protein, _ = translate_cdna(
+            donor.sequence[donor.cds_start:donor.cds_end], translation_table=donor.genetic_code)
         acceptor_protein = ''
         if acceptor is not None:
-            acceptor_protein, _ = translate_cdna(acceptor.sequence[acceptor.cds_start:acceptor.cds_end])
+            acceptor_protein, _ = translate_cdna(
+                acceptor.sequence[acceptor.cds_start:acceptor.cds_end], translation_table=acceptor.genetic_code)
             acceptor_start = acceptor.spliced_offset(path['junctions'][0]['right'][1]) - acceptor.cds_start
         q0 = translation['translation_start']
         donor_start = donor_frame['donor_reference_offset'] - donor.cds_start
@@ -459,15 +497,16 @@ def _fusion_display(result, supplied, directory):
     junctions = sorted(set(path['junctions'][0]['query_interval']))
     fig = Figure(figsize=(7.2, 3.2), layout='constrained')
     ax = fig.subplots()
-    ax.fill_between(range(len(depth)), depth, color=TEAL, alpha=.8, step='mid')
+    ax.step(range(len(depth)), depth, color=TEAL, linewidth=1.4, where='mid', label='Fragment depth')
+    ax.fill_between(range(len(depth)), depth, color=TEAL, alpha=.15, step='mid')
     for i, junction in enumerate(junctions):
         ax.axvline(junction, color=MUTANT, linewidth=1.6, label='Fusion junction' if i == 0 else None)
-    ax.set_yscale('symlog', linthresh=1)
-    ax.set_ylim(bottom=0)
+    scale = _count_axis(ax, max(depth, default=0), vertical=True)
     ax.set_xlabel('Observed fusion cDNA position (nt)', fontsize=8)
-    ax.set_ylabel('Exact original fragments', fontsize=8)
+    ax.set_ylabel('Exact original fragments' + scale, fontsize=8)
     ax.set_title(result['event_id'].replace('--', ' / ') + ' | observed RNA coverage', loc='left', fontsize=11)
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False, fontsize=8, loc='upper left', bbox_to_anchor=(0, -.22),
+              borderaxespad=0, ncol=2)
     ax.spines[['top', 'right']].set_visible(False)
     prefix = directory / 'coverage'
     for ext in ('png', 'svg', 'pdf'):
@@ -481,8 +520,9 @@ def _fusion_display(result, supplied, directory):
 
 def _sv_path_figure(candidate, assessment, directory, identifier):
     """Show exact path matching without equating tiling with joint phase."""
-    from matplotlib.figure import Figure
     import numpy as np
+    from matplotlib.figure import Figure
+    from .rna_path_geometry import merge_intervals
 
     length = len(candidate['sequence'])
     intervals = defaultdict(list)
@@ -490,13 +530,7 @@ def _sv_path_figure(candidate, assessment, directory, identifier):
         intervals[tuple(match['fragment_id'])].append(match['path_interval'])
     changes = np.zeros(length + 1, dtype=int)
     for spans in intervals.values():
-        merged = []
-        for start, end in sorted(spans):
-            if merged and start <= merged[-1][1]:
-                merged[-1][1] = max(end, merged[-1][1])
-            else:
-                merged.append([start, end])
-        for start, end in merged:
+        for start, end in merge_intervals(spans):
             changes[max(0, start)] += 1
             changes[min(length, end)] -= 1
     depth = np.cumsum(changes[:-1])
@@ -513,7 +547,7 @@ def _sv_path_figure(candidate, assessment, directory, identifier):
     blocks.axis('off')
     coverage.fill_between(np.arange(length), depth, color=TEAL, alpha=.8)
     for junction in candidate['junctions']:
-        if junction['relation'] in ('breakpoint_junction', 'event_compatible_junction'):
+        if junction['relation'] in ADJACENCY_JOIN_RELATIONS:
             a, b = junction['query_interval']
             for ax in (blocks, coverage):
                 ax.axvline(a, color=MUTANT, linewidth=1)
@@ -532,7 +566,7 @@ def _sv_path_figure(candidate, assessment, directory, identifier):
 
 
 def _additional_sections(manifest, summary, sample_id, figures, p, table, styles):
-    from .antigen_report import fusion_summary, viral_summary, isoform_summary
+    from .antigen_report import fusion_summary, isoform_summary, viral_summary
 
     story = []
     for entry in summary.get('additional', []):
@@ -636,13 +670,13 @@ def _additional_sections(manifest, summary, sample_id, figures, p, table, styles
                 reconstruction = snapshot['reconstruction']
                 supported = sorted(reconstruction['paths'], key=lambda x: -max(
                     (j['direct_support'].get('fragments', 0) for j in x['junctions']
-                     if j['relation'] in ('breakpoint_junction', 'event_compatible_junction')), default=0))
+                     if j['relation'] in ADJACENCY_JOIN_RELATIONS), default=0))
                 if not supported:
                     continue
                 candidate = supported[0]
                 assessed = next(p for p in snapshot['assessment']['paths'] if p['path_id'] == candidate['path_id'])
                 count = max((j['direct_support'].get('fragments', 0) for j in candidate['junctions']
-                             if j['relation'] in ('breakpoint_junction', 'event_compatible_junction')), default=0)
+                             if j['relation'] in ADJACENCY_JOIN_RELATIONS), default=0)
                 score = (any(p['event_linked'] for p in assessed['proteins']), count)
                 key = (row['event_id'], row['source_id'])
                 if key not in strongest or score > strongest[key][0]:
@@ -650,7 +684,7 @@ def _additional_sections(manifest, summary, sample_id, figures, p, table, styles
             selected = sorted(strongest.values(), key=lambda x: (-x[0][0], -x[0][1], x[1]['event_id']))[:5]
             for display_index, (_, row, candidate, assessed, reference_name) in enumerate(selected):
                 junctions = [j for j in candidate['junctions'] if j['relation'] in
-                             ('breakpoint_junction', 'event_compatible_junction')]
+                             ADJACENCY_JOIN_RELATIONS]
                 coord = []
                 for j in junctions:
                     for point in (j.get('left'), j.get('right')):
@@ -797,10 +831,11 @@ def write_cohort_reports(manifest, summary, output):
                             "their RNA support is unmeasured and excluded from depth distributions.")])
             if counts['processed'] > 1:
                 story.extend([Image(str(_category_landscape(result, categories, depths, figures)), width=510, height=255),
-                          p("These are RNA-informed groups: frameshift labels use annotation predictions or reconstructed "
-                            "coding contexts; in-frame labels require a reconstructed context. Other non-SNV includes indels "
-                            "without resolved coding consequences. Consequence prediction is run on ALT-supported calls. "
-                            "Unprocessed calls have no inferred support state.", "Small"),
+                          p("Variant categories use the DNA allele and its selected annotation effect, independently of RNA "
+                            "support. Other non-SNV includes indels without resolved coding consequences. "
+                            "Unprocessed calls have no inferred support state." if counts["dna_categorized"] == sum(categories.values()) else
+                            "These saved categories include older RNA-dependent assignments. Recompute the analysis "
+                            "to obtain DNA categories independent of RNA support.", "Small"),
                               table(("Variant category", "Evaluated calls"), sorted(categories.items()), (330, 180))])
             displayed_variants = set()
             for category in ("SNV", "Frameshift", "In-frame indel", "Other non-SNV", "ncORF", "ALT without changed protein", "Normal-call overlap", "Highlighted loci"):
@@ -870,7 +905,7 @@ def write_cohort_reports(manifest, summary, output):
                                        "; no protein sequence was reconstructed.", "Small"))
                         intro.append(p(escape(_unframed_rna_description(event)), "Small"))
                         intro.append(p("The full result retains ncORF model outcomes and original RNA evidence. "
-                                       "Intronic depth alone does not establish retention, initiation or translation.", "Small"))
+                                       "RNA depth alone does not establish initiation or translation.", "Small"))
                         story.append(KeepTogether(intro))
                         continue
                     spans = coverage["allele_observation_span_support"]["fragments"]
@@ -892,7 +927,7 @@ def write_cohort_reports(manifest, summary, output):
                         delta = len(v["ref"]) - len(v["alt"])
                     else:
                         delta = comparison["reference_allele_length"] - comparison["observed_allele_length"]
-                    columns = aligned_columns(reference, protein, interval, allele_length_delta=delta,
+                    columns = aligned_protein_columns(reference, protein, interval, allele_length_delta=delta,
                                               frameshift=candidate["frameshift"], stop=stop,
                                               reference_stop=comparison.get("reference_stop_in_context", False))
                     sequence_panels = [SequencePanel(columns[start:start + 80], interval,
@@ -992,8 +1027,8 @@ def write_cohort_reports(manifest, summary, output):
             story.append(p('Original URLs, full source IDs, available checksums and snapshot identities are in the '
                            'pinned source-inventory JSON beside the cohort manifest.', 'Small'))
         doc = SimpleDocTemplate(str(report), pagesize=letter, leftMargin=42, rightMargin=42,
-                                topMargin=42, bottomMargin=48, title=sample_id + " RNA evidence")
+                                topMargin=42, bottomMargin=48, title=sample_id + " RNA evidence", invariant=1)
         doc.build(story, onFirstPage=footer, onLaterPages=footer)
         paths.append(report)
-    write_json(output / "report_files.json", [dict(path=str(p), sha256=file_sha256(p)) for p in paths])
+    write_json(output / "report_files.json", [dict(path=str(p.relative_to(output)), sha256=file_sha256(p)) for p in paths])
     return paths

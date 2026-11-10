@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kcli
-Version: 99.0.202611051516
+Version: 99.0.202611092212
 Summary: Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers
 Home-page: http://github.com/karmab/kcli
 Author: Karim Boumedhel
@@ -33,7 +33,7 @@ Requires-Dist: ovirt-engine-sdk-python; extra == "all"
 Requires-Dist: pyvmomi; extra == "all"
 Requires-Dist: cryptography; extra == "all"
 Requires-Dist: google-crc32c==1.1.2; extra == "all"
-Requires-Dist: ibm_vpc; extra == "all"
+Requires-Dist: ibm-vpc>=0.36.1; extra == "all"
 Requires-Dist: ibm-cos-sdk; extra == "all"
 Requires-Dist: ibm-platform-services; extra == "all"
 Requires-Dist: ibm-cloud-networking-services; extra == "all"
@@ -78,7 +78,7 @@ Provides-Extra: hcloud
 Requires-Dist: hcloud; extra == "hcloud"
 Provides-Extra: ibm
 Requires-Dist: google-crc32c==1.1.2; extra == "ibm"
-Requires-Dist: ibm_vpc; extra == "ibm"
+Requires-Dist: ibm-vpc>=0.36.1; extra == "ibm"
 Requires-Dist: ibm-cos-sdk; extra == "ibm"
 Requires-Dist: ibm-platform-services; extra == "ibm"
 Requires-Dist: ibm-cloud-networking-services; extra == "ibm"

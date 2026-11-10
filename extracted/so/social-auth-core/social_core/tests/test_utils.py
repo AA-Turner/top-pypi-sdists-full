@@ -123,21 +123,21 @@ class CacheTest(unittest.TestCase):
         fetch = Mock(return_value=object())
         cached = cache(ttl=86400)(fetch)
         owner = object()
-        with patch("social_core.utils.time.time", return_value=1000):
+        with patch("social_core.utils._time", return_value=1000):
             value = cached(owner, "first")
         fetch.side_effect = RuntimeError("fetch failed")
 
         with (
-            patch("social_core.utils.time.time", return_value=2000),
+            patch("social_core.utils._time", return_value=2000),
             self.assertRaisesRegex(RuntimeError, "fetch failed"),
         ):
             cached.refresh(owner, "first")
 
         self.assertEqual(fetch.call_count, 2)
-        with patch("social_core.utils.time.time", return_value=1000 + 86400):
+        with patch("social_core.utils._time", return_value=1000 + 86400):
             self.assertIs(cached(owner, "first"), value)
         self.assertEqual(fetch.call_count, 2)
-        with patch("social_core.utils.time.time", return_value=1000 + 86401):
+        with patch("social_core.utils._time", return_value=1000 + 86401):
             self.assertIs(cached(owner, "first"), value)
         self.assertEqual(fetch.call_count, 3)
 
@@ -145,13 +145,13 @@ class CacheTest(unittest.TestCase):
         fetch = Mock(side_effect=lambda *_args: object())
         cached = cache(ttl=86400)(fetch)
         owner = object()
-        with patch("social_core.utils.time.time", return_value=1000):
+        with patch("social_core.utils._time", return_value=1000):
             first = cached(owner, "first")
-        with patch("social_core.utils.time.time", return_value=2000):
+        with patch("social_core.utils._time", return_value=2000):
             refreshed = cached.refresh(owner, "first")
 
         self.assertIsNot(refreshed, first)
-        with patch("social_core.utils.time.time", return_value=1000 + 86401):
+        with patch("social_core.utils._time", return_value=1000 + 86401):
             self.assertIs(cached(owner, "first"), refreshed)
         self.assertEqual(fetch.call_count, 2)
 
@@ -871,7 +871,7 @@ class GetKeyAndSecretBasicAuthTest(unittest.TestCase):
     def test_basic_auth_returns_bytes(self) -> None:
         """Test that method returns bytes with base64 encoding"""
         test_setting = {"KEY": "test_key", "SECRET": "test_secret"}
-        backend = BaseAuth(strategy=Mock())
+        backend: BaseAuth[object] = BaseAuth(strategy=Mock())
         with patch("social_core.backends.base.BaseAuth.setting", new=test_setting.get):
             result = backend.get_key_and_secret_basic_auth()
             expected = b"Basic " + base64.b64encode(b"test_key:test_secret")
@@ -881,7 +881,7 @@ class GetKeyAndSecretBasicAuthTest(unittest.TestCase):
 
 class HandleHttpErrorsTest(unittest.TestCase):
     def test_unauthorized_and_forbidden_raise_auth_forbidden(self) -> None:
-        backend = BaseAuth(TestStrategy(TestStorage))
+        backend: BaseAuth[object] = BaseAuth(TestStrategy(TestStorage))
 
         @handle_http_errors
         def fail(_backend, error):
@@ -908,7 +908,7 @@ class IdKeyConfigurabilityTest(unittest.TestCase):
         """Test that id_key() returns class attribute when no setting is provided"""
         strategy = Mock()
         strategy.setting = Mock(return_value=None)
-        backend = BaseAuth(strategy=strategy)
+        backend: BaseAuth[object] = BaseAuth(strategy=strategy)
         backend.ID_KEY = "default_id"
 
         result = backend.id_key()
@@ -922,7 +922,7 @@ class IdKeyConfigurabilityTest(unittest.TestCase):
         """Test that id_key() returns setting value when provided"""
         strategy = Mock()
         strategy.setting = Mock(return_value="custom_id")
-        backend = BaseAuth(strategy=strategy)
+        backend: BaseAuth[object] = BaseAuth(strategy=strategy)
         backend.ID_KEY = "default_id"
 
         result = backend.id_key()
@@ -936,7 +936,7 @@ class IdKeyConfigurabilityTest(unittest.TestCase):
         """Test that get_user_id() uses the configurable id_key()"""
         strategy = Mock()
         strategy.setting = Mock(return_value="custom_user_id")
-        backend = BaseAuth(strategy=strategy)
+        backend: BaseAuth[object] = BaseAuth(strategy=strategy)
         backend.ID_KEY = "default_id"
 
         response = {"custom_user_id": "12345", "default_id": "67890"}
@@ -952,7 +952,7 @@ class IdKeyConfigurabilityTest(unittest.TestCase):
         ):
             strategy = Mock()
             strategy.setting = Mock(return_value=configured_id_key)
-            backend = BaseAuth(strategy=strategy)
+            backend: BaseAuth[object] = BaseAuth(strategy=strategy)
             backend.ID_KEY = "missing_id"
             backend.REQUIRES_USER_ID = requires_user_id
 

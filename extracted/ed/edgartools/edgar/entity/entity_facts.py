@@ -7,7 +7,7 @@ analytics and AI-ready interfaces.
 
 import warnings
 from collections import OrderedDict, defaultdict
-from datetime import date
+from datetime import date, timedelta
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Union as TypingUnion
 
@@ -20,10 +20,9 @@ if TYPE_CHECKING:
 
 from typing import Union
 
-import httpx
+import httpx2
 import orjson as json
 import pandas as pd
-from pandas.core.interchange.dataframe_protocol import DataFrame
 from rich.box import SIMPLE, SIMPLE_HEAVY
 from rich.columns import Columns
 from rich.console import Group
@@ -34,7 +33,7 @@ from rich.text import Text
 
 from edgar.core import log
 from edgar.datatools import apply_declared_schema, empty_declared_frame
-from edgar.entity.dataframe_schema import NULL_DTYPES, PINNED, entity_facts_columns
+from edgar.entity.dataframe_schema import PINNED, entity_facts_columns
 from edgar.entity.enhanced_statement import MultiPeriodStatement
 from edgar.entity.utils import is_consolidated_total_over
 from edgar.entity.models import FinancialFact
@@ -43,15 +42,7 @@ from edgar.httprequests import download_json
 from edgar.storage import get_edgar_data_directory, is_using_local_storage
 
 
-# NoCompanyFactsFound is now CompanyFactsNotFoundError in edgar.exceptions
-# (bead edgartools-07lk.10). Its __init__ called super().__init__() with no
-# arguments and set self.message instead, so str(exc) was '' and the message
-# never reached a traceback or a log. The canonical class builds the message
-# and passes it up. Old name kept as a deprecated alias below.
-from edgar._compat import deprecated_alias
 from edgar.exceptions import CompanyFactsNotFoundError, TransportError, ValidationError, http_status
-
-__getattr__ = deprecated_alias(NoCompanyFactsFound=CompanyFactsNotFoundError)
 
 
 def download_company_facts_from_sec(cik: int) -> Dict[str, Any]:
@@ -62,7 +53,7 @@ def download_company_facts_from_sec(cik: int) -> Dict[str, Any]:
     company_facts_url = build_company_facts_url(cik)
     try:
         return download_json(company_facts_url)
-    except (httpx.HTTPStatusError, TransportError) as err:
+    except (httpx2.HTTPStatusError, TransportError) as err:
         # The model for domain translation across both error eras: a 404 is
         # something this layer understands, so it becomes the domain's own
         # NotFoundError. Everything else propagates as a transport failure,
@@ -87,6 +78,60 @@ def load_company_facts_from_local(cik: int) -> Dict[str, Any]:
         raise CompanyFactsNotFoundError(cik=cik)
 
     return json.loads(company_facts_file.read_text())
+
+
+def _load_company_facts_json(cik: int) -> Dict[str, Any]:
+    if is_using_local_storage():
+        return load_company_facts_from_local(cik)
+    return download_company_facts_from_sec(cik)
+
+
+def _with_predecessor_facts(cik: int, company_facts_json: Dict[str, Any]) -> Dict[str, Any]:
+    """Add the history a successor registrant's predecessor filed under its own CIK (GH #1821)."""
+    from edgar.reference.successors import get_predecessor
+    predecessor = get_predecessor(cik)
+    if predecessor is None:
+        return company_facts_json
+    try:
+        predecessor_json = _load_company_facts_json(predecessor.cik)
+    except CompanyFactsNotFoundError:
+        warnings.warn(f"No company facts found for CIK {predecessor.cik}, the predecessor of CIK {cik}; "
+                      f"facts from before {predecessor.effective_date} are missing.", stacklevel=3)
+        return company_facts_json
+    return merge_predecessor_facts(company_facts_json, predecessor_json, predecessor.effective_date)
+
+
+def merge_predecessor_facts(successor_json: Dict[str, Any], predecessor_json: Dict[str, Any],
+                            effective_date: str) -> Dict[str, Any]:
+    """
+    Merge a predecessor's companyfacts JSON into its successor's.
+
+    Only predecessor facts for periods that ended before ``effective_date`` are taken,
+    so a predecessor that keeps filing as a subsidiary adds nothing after the
+    succession. Where both CIKs report the same concept, unit and period, the
+    successor's value wins.
+
+    The inputs are not modified.
+    """
+    merged = dict(successor_json)
+    merged_facts = {taxonomy: dict(concepts) for taxonomy, concepts in successor_json.get('facts', {}).items()}
+    for taxonomy, concepts in predecessor_json.get('facts', {}).items():
+        target = merged_facts.setdefault(taxonomy, {})
+        for concept, body in concepts.items():
+            existing = target.get(concept)
+            units = dict(existing['units']) if existing else {}
+            for unit, rows in body.get('units', {}).items():
+                have = list(units.get(unit, []))
+                periods = {(row.get('start'), row.get('end')) for row in have}
+                have.extend(row for row in rows
+                            if row.get('end', '') < effective_date
+                            and (row.get('start'), row.get('end')) not in periods)
+                if have:
+                    units[unit] = have
+            if units:
+                target[concept] = {**(existing or body), 'units': units}
+    merged['facts'] = merged_facts
+    return merged
 
 
 # Revenue variants for get_revenue() and get_revenue_detailed(), in priority
@@ -134,10 +179,9 @@ def get_company_facts(cik: int):
         _company_facts_cache.move_to_end(cik)
         return cached
 
-    if is_using_local_storage():
-        company_facts_json = load_company_facts_from_local(cik)
-    else:
-        company_facts_json = download_company_facts_from_sec(cik)
+    company_facts_json = _load_company_facts_json(cik)
+    if company_facts_json:
+        company_facts_json = _with_predecessor_facts(cik, company_facts_json)
     if not company_facts_json:
         warnings.warn(
             f"Could not retrieve company facts for CIK {cik}. "
@@ -310,6 +354,14 @@ class EntityFacts:
         """
         return self._facts
 
+    def to_pandas(self, *args, **kwargs) -> pd.DataFrame:
+        """Alias of :meth:`to_dataframe`, taking the same arguments.
+
+        ``Filings``, ``XBRL`` and ``FilingSummary`` export with ``to_pandas()``, and
+        code written against them reaches for it here too (edgartools-m3jpa).
+        """
+        return self.to_dataframe(*args, **kwargs)
+
     def to_dataframe(self,
                      include_metadata: bool = False,
                      columns: Optional[List[str]] = None,
@@ -410,7 +462,7 @@ class EntityFacts:
             # entity with no facts, and a `columns` projection raised too.
             return empty_declared_frame(declared, [c for c in order if c in declared])
 
-        df = apply_declared_schema(pd.DataFrame(records), declared, order, PINNED, NULL_DTYPES)
+        df = apply_declared_schema(pd.DataFrame(records), declared, order, PINNED)
 
         # Sort for consistency
         if not df.empty:
@@ -804,6 +856,13 @@ class EntityFacts:
         facts sharing a ``period_end`` but representing different reporting
         windows (e.g., a 3-month Q2 vs. a 6-month YTD H1) remain distinguishable.
 
+        The concept resolves the way ``get_fact()`` does: a qualified name
+        (``'us-gaap:Assets'``), a bare local name (``'Assets'``) or a lowercased
+        label (``'assets'``) selects exactly that concept. Only text that names
+        no concept and has no taxonomy prefix (``'Net Income'``) falls back to a
+        substring search over concept names and labels; that fallback can mix
+        several concepts in one series, so it warns and names them.
+
         Args:
             concept: Concept name or label
             periods: Number of periods to retrieve
@@ -815,8 +874,32 @@ class EntityFacts:
         from edgar.entity.query import FactQuery
         query = FactQuery(self._facts, self._fact_index)
 
+        # A bare name used to be substring-matched, so time_series('Assets')
+        # returned AssetsCurrent, AmortizationOfIntangibleAssets... rows with no
+        # way to tell them apart (GH #1658). The index holds local names (#1217),
+        # so resolve exactly first, exactly as get_fact() does.
+        by_concept = self._fact_index['by_concept']
+        if concept in by_concept:
+            key, exact = concept, True
+        elif concept.lower() in by_concept:
+            key, exact = concept.lower(), True
+        else:
+            key, exact = concept, ":" in concept
+            if not exact and not getattr(self, '_suppress_warnings', False):
+                needle = concept.lower()
+                matched = sorted({f.concept for f in self._facts
+                                  if needle in f.concept.lower()
+                                  or (f.label and needle in f.label.lower())})
+                if matched:
+                    shown = ', '.join(matched[:5]) + (f" (+{len(matched) - 5} more)" if len(matched) > 5 else "")
+                    warnings.warn(
+                        f"No concept named '{concept}'; time_series() fell back to a substring "
+                        f"match over {len(matched)} concepts: {shown}. Pass a concept name "
+                        f"(see search_concepts('{concept}')) for a single-concept series.",
+                        stacklevel=2)
+
         df = query \
-            .by_concept(concept, exact=":" in concept) \
+            .by_concept(key, exact=exact) \
             .sort_by('filing_date', ascending=False) \
             .to_dataframe('period_start', 'period_end', 'numeric_value',
                           'fiscal_period', 'fiscal_year') \
@@ -1611,7 +1694,7 @@ class EntityFacts:
 
     def _prepare_quarterly_facts(self, facts: List[FinancialFact]) -> List[FinancialFact]:
         """Enhance facts with derived quarter-level duration facts for TTM/quarterly views."""
-        from edgar.ttm.calculator import TTMCalculator
+        from edgar.ttm.calculator import EPS_NUMERATOR_CONCEPTS, TTMCalculator, numerator_agrees_within
         from edgar.entity.enhanced_statement import (
             detect_fiscal_year_end,
             is_forward_looking_schedule,
@@ -1663,17 +1746,20 @@ class EntityFacts:
                         collected.extend(concept_facts[prefixed])
             return collected
 
-        net_income_facts = _collect_facts([
-            "NetIncomeLoss",
-            "NetIncomeLossAvailableToCommonStockholdersBasic",
-        ])
+        # EPS numerators, best first, kept apart so one derivation never pairs one
+        # concept's year with another's quarters (GH #1692)
+        numerators = {
+            kind: [facts for facts in (_collect_facts([name]) for name in names) if facts]
+            for kind, names in EPS_NUMERATOR_CONCEPTS.items()
+        }
         shares_basic = _collect_facts([
             "WeightedAverageNumberOfSharesOutstandingBasic",
-            "WeightedAverageNumberOfSharesOutstandingBasicAndDiluted",
+            "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
         ])
         shares_diluted = _collect_facts([
             "WeightedAverageNumberOfDilutedSharesOutstanding",
             "WeightedAverageNumberOfSharesOutstandingDiluted",
+            "WeightedAverageNumberOfShareOutstandingBasicAndDiluted",
         ])
 
         def _has_eps_for_period(concept_name: str, period_end: date, fiscal_period: str) -> bool:
@@ -1694,25 +1780,33 @@ class EntityFacts:
                         return True
             return False
 
-        if net_income_facts and shares_basic:
-            calc = TTMCalculator(net_income_facts)
-            for eps_fact in calc.derive_eps_for_quarter(
-                net_income_facts,
-                shares_basic,
-                "us-gaap:EarningsPerShareBasic",
-            ):
-                if not _has_eps_for_period(eps_fact.concept, eps_fact.period_end, eps_fact.fiscal_period):
-                    derived_facts.append(eps_fact)
+        def _fiscal_year_start(facts: List[FinancialFact], year_end: date) -> date:
+            for fact in facts:
+                if fact.period_end == year_end and fact.period_start and fact.fiscal_period == "FY":
+                    return fact.period_start
+            return year_end - timedelta(days=364)
 
-        if net_income_facts and shares_diluted:
-            calc = TTMCalculator(net_income_facts)
-            for eps_fact in calc.derive_eps_for_quarter(
-                net_income_facts,
-                shares_diluted,
-                "us-gaap:EarningsPerShareDiluted",
-            ):
-                if not _has_eps_for_period(eps_fact.concept, eps_fact.period_end, eps_fact.fiscal_period):
-                    derived_facts.append(eps_fact)
+        for kind, eps_concept, shares in (("basic", "us-gaap:EarningsPerShareBasic", shares_basic),
+                                          ("diluted", "us-gaap:EarningsPerShareDiluted", shares_diluted)):
+            if not shares:
+                continue
+            candidates = numerators[kind]
+            decided = set()
+            for rank, numerator_facts in enumerate(candidates):
+                calc = TTMCalculator(numerator_facts)
+                for eps_fact in calc.derive_eps_for_quarter(numerator_facts, shares, eps_concept):
+                    if eps_fact.period_end in decided:
+                        continue
+                    decided.add(eps_fact.period_end)
+                    # A lesser numerator (net income) stands in only where the
+                    # filer's facts for that fiscal year do not show it differing
+                    # from income available to common stockholders.
+                    year_start = _fiscal_year_start(numerator_facts, eps_fact.period_end)
+                    if not all(numerator_agrees_within(better, numerator_facts, year_start, eps_fact.period_end)
+                               for better in candidates[:rank]):
+                        continue
+                    if not _has_eps_for_period(eps_fact.concept, eps_fact.period_end, eps_fact.fiscal_period):
+                        derived_facts.append(eps_fact)
 
         return facts + derived_facts
 
@@ -1849,71 +1943,27 @@ class EntityFacts:
     # Period resolution
     # ------------------------------------------------------------------
     #
-    # Three parameters name the same thing. `period` is the supported spelling;
-    # `annual` and `period_length` are legacy and both go in 6.0.
-    #
-    # `period_length` was accepted, documented as "3=quarterly, 12=annual", and
-    # never read — it appeared nowhere in the body of either statement method
-    # (#1177). Honouring it is therefore a fix and not a behaviour change: a
-    # caller passing period_length=3 was already getting the annual statement
-    # they did not ask for, silently, which is the failure class 6.0 is closing.
+    # Two parameters name the same thing. `period` is the supported spelling;
+    # `annual` is legacy and goes in a later release. (`period_length` was
+    # removed in 6.0; passing it raises TypeError.)
 
-    _PERIOD_LENGTH_TO_PERIOD = {3: "quarterly", 12: "annual"}
     _VALID_PERIODS = {"annual", "quarterly", "ttm"}
 
     @classmethod
     def _resolve_period(cls,
                         period: Optional[str],
-                        annual: Optional[bool],
-                        period_length: Optional[int]) -> str:
-        """Collapse period/annual/period_length into one period name.
+                        annual: Optional[bool]) -> str:
+        """Collapse period/annual into one period name.
 
-        `period=None` means the caller did not say, which is what lets a
-        contradiction be told apart from the default. Raises ValidationError
-        when the caller asks for two different things at once.
+        `annual`, when given, overrides `period`; with neither the default is
+        annual.
         """
         if annual is not None:
-            explicit = "annual" if annual else "quarterly"
+            resolved = "annual" if annual else "quarterly"
         elif period is not None:
-            explicit = period.lower()
+            resolved = period.lower()
         else:
-            explicit = None
-
-        if period_length is None:
-            resolved = explicit or "annual"
-        else:
-            implied = cls._PERIOD_LENGTH_TO_PERIOD.get(period_length)
-            if implied is None:
-                raise ValidationError(
-                    f"period_length={period_length!r} is not a period this statement can be "
-                    "built for.",
-                    parameter="period_length",
-                    invalid_value=period_length,
-                    suggestions=[
-                        "period_length=3 for quarterly, or period_length=12 for annual",
-                        "better, use period='quarterly' or period='annual' — "
-                        "period_length is removed in 6.0",
-                    ],
-                )
-            if explicit is not None and explicit != implied:
-                raise ValidationError(
-                    f"period_length={period_length!r} means {implied!r}, which contradicts "
-                    f"the {explicit!r} period also requested.",
-                    parameter="period_length",
-                    invalid_value=period_length,
-                    suggestions=[
-                        f"drop period_length and pass period={implied!r}",
-                        f"or drop the {explicit!r} request if you meant {implied!r}",
-                    ],
-                )
-            warnings.warn(
-                "period_length is deprecated and will be removed in v6.0. "
-                "Use period='quarterly' instead of period_length=3, and "
-                "period='annual' instead of period_length=12.",
-                DeprecationWarning,
-                stacklevel=3,
-            )
-            resolved = implied
+            resolved = "annual"
 
         if resolved not in cls._VALID_PERIODS:
             # ValidationError IS-A ValueError, so this stays catchable as one.
@@ -1954,7 +2004,7 @@ class EntityFacts:
     # Financial statement helpers
     def income_statement(self,
                          periods: int = 4,
-                         period_length: Optional[int] = None,
+                         *,
                          as_dataframe: bool = False,
                          annual: Optional[bool] = None,
                          concise_format: bool = False,
@@ -1964,9 +2014,6 @@ class EntityFacts:
 
         Args:
             periods: Number of periods to retrieve
-            period_length: Deprecated, removed in 6.0. Period length in months
-                (3=quarterly, 12=annual); prefer period='quarterly'/'annual'.
-                Raises ValidationError if it contradicts period or annual.
             as_dataframe: If True, return DataFrame; if False, return MultiPeriodStatement
             annual: Legacy parameter - if provided, overrides period (True='annual', False='quarterly')
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
@@ -1990,7 +2037,7 @@ class EntityFacts:
             stmt = facts.income_statement(periods=4)
             df = stmt.to_dataframe()
         """
-        period = self._resolve_period(period, annual, period_length)
+        period = self._resolve_period(period, annual)
 
         if period == 'ttm':
             from edgar.ttm.statement import TTMStatementBuilder
@@ -2119,20 +2166,9 @@ class EntityFacts:
 
         return df
 
-    def cashflow_statement(self, **kwargs):
-        """Deprecated: use :meth:`cash_flow_statement`."""
-        warnings.warn(
-            "cashflow_statement() is deprecated and will be removed in v6.0. "
-            "Use cash_flow_statement(), which matches income_statement() and "
-            "balance_sheet().",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.cash_flow_statement(**kwargs)
-
     def cash_flow_statement(self,
                            periods: int = 4,
-                           period_length: Optional[int] = None,
+                           *,
                            as_dataframe: bool = False,
                            annual: Optional[bool] = None,
                            concise_format: bool = False,
@@ -2142,9 +2178,6 @@ class EntityFacts:
 
         Args:
             periods: Number of periods to retrieve
-            period_length: Deprecated, removed in 6.0. Period length in months
-                (3=quarterly, 12=annual); prefer period='quarterly'/'annual'.
-                Raises ValidationError if it contradicts period or annual.
             as_dataframe: If True, return DataFrame; if False, return MultiPeriodStatement
             annual: Legacy parameter - if provided, overrides period
             concise_format: If True, display values as $1.0B, if False display as $1,000,000,000
@@ -2165,7 +2198,7 @@ class EntityFacts:
             stmt = facts.cash_flow_statement(periods=4)
             df = stmt.to_dataframe()
         """
-        period = self._resolve_period(period, annual, period_length)
+        period = self._resolve_period(period, annual)
 
         if period == 'ttm':
             from edgar.ttm.statement import TTMStatementBuilder
@@ -2185,19 +2218,6 @@ class EntityFacts:
             as_dataframe=as_dataframe,
             concise_format=concise_format,
         )
-
-    def cash_flow(self, periods: int = 4, period_length: Optional[int] = None, as_dataframe: bool = False,
-                  annual: Optional[bool] = None, concise_format: bool = False) -> Union[DataFrame, MultiPeriodStatement]:
-        """Deprecated: Use cash_flow_statement() instead."""
-        warnings.warn(
-            "cash_flow() is deprecated and will be removed in v6.0. "
-            "Use cash_flow_statement() instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return self.cash_flow_statement(periods=periods, period_length=period_length,
-                                       as_dataframe=as_dataframe, annual=annual,
-                                       concise_format=concise_format)
 
     # Investment analytics
     def calculate_ratios(self) -> Dict[str, Any]:
@@ -2446,27 +2466,117 @@ class EntityFacts:
 
         return analysis
 
+    def _revenue_growth_yoy(self, annual_only: bool = False) -> Optional[Dict[str, Any]]:
+        """Year-over-year revenue growth for the latest reported period, like for like.
+
+        Both observations share one concept, one unit and one period length (a
+        quarter or a year), and the prior one ends a year before the current one.
+        The current period is the latest revenue period the company reports; if
+        it has no comparable prior period, the answer is None rather than an
+        older or mismatched pair.
+
+        The growth paths used to take the first two rows of
+        ``time_series('Revenue')``: whatever concepts the substring matched, in
+        any unit, period length or order. Snowflake's Q1 read -17.96% from two
+        deferred-revenue rows against a filed +25.75% (GH #1671).
+
+        Args:
+            annual_only: Compare fiscal years only. Otherwise the latest period of
+                either length is used, a year when a quarter and a year end together.
+
+        Returns:
+            Dict with ``value`` (percent, 2 dp), ``concept``, ``unit``,
+            ``duration``, ``current_period_end``, ``prior_period_end``,
+            ``current`` and ``prior``; or None when no like-for-like pair exists.
+        """
+        from edgar.ttm.calculator import ANNUAL_MAX_DAYS, ANNUAL_MIN_DAYS, QUARTER_MAX_DAYS, QUARTER_MIN_DAYS
+
+        def length_of(fact):
+            if fact.period_start is None or fact.period_end is None or fact.numeric_value is None:
+                return None
+            days = (fact.period_end - fact.period_start).days
+            if ANNUAL_MIN_DAYS <= days <= ANNUAL_MAX_DAYS:
+                return 'annual'
+            if not annual_only and QUARTER_MIN_DAYS <= days <= QUARTER_MAX_DAYS:
+                return 'quarterly'
+            return None
+
+        # (concept, unit, length, period_end) -> the latest-filed fact for it
+        observations: Dict[tuple, FinancialFact] = {}
+        for variant in _REVENUE_VARIANTS:
+            for fact in self._fact_index['by_concept'].get(variant, []):
+                length = length_of(fact)
+                if length is None:
+                    continue
+                key = (fact.concept, fact.unit, length, fact.period_end)
+                held = observations.get(key)
+                if held is None or (fact.filing_date or date.min) > (held.filing_date or date.min):
+                    observations[key] = fact
+        if not observations:
+            return None
+
+        # The latest period reported under any revenue name; a year outranks a
+        # quarter ending the same day.
+        latest_end = max(k[3] for k in observations)
+        lengths = {k[2] for k in observations if k[3] == latest_end}
+        length = 'annual' if 'annual' in lengths else 'quarterly'
+
+        pairs = []
+        for (concept, unit, obs_length, end), current in observations.items():
+            if end != latest_end or obs_length != length:
+                continue
+            priors = [f for (c, u, ln, e), f in observations.items()
+                      if c == concept and u == unit and ln == length
+                      and ANNUAL_MIN_DAYS <= (end - e).days <= ANNUAL_MAX_DAYS]
+            if not priors:
+                continue
+            prior = max(priors, key=lambda f: f.period_end)
+            if not prior.numeric_value:
+                continue  # growth from nil revenue is undefined
+            local = concept.rsplit(':', 1)[-1]
+            rank = _REVENUE_VARIANTS.index(local) if local in _REVENUE_VARIANTS else len(_REVENUE_VARIANTS)
+            pairs.append((unit != 'USD', rank, current, prior))
+        if not pairs:
+            return None
+
+        # USD first, then the variant order; but a same-period total many times
+        # larger is the consolidated figure the ranked name is a slice of.
+        pairs.sort(key=lambda p: (p[0], p[1]))
+        chosen = pairs[0]
+        for pair in pairs[1:]:
+            if pair[2].unit == chosen[2].unit and is_consolidated_total_over(
+                    pair[2].numeric_value, chosen[2].numeric_value):
+                chosen = pair
+        _, _, current, prior = chosen
+        growth = (current.numeric_value - prior.numeric_value) / abs(prior.numeric_value) * 100
+        return {
+            "value": round(growth, 2),
+            "concept": current.concept,
+            "unit": current.unit,
+            "duration": length,
+            "current_period_end": current.period_end.isoformat(),
+            "prior_period_end": prior.period_end.isoformat(),
+            "current": current.numeric_value,
+            "prior": prior.numeric_value,
+        }
+
     def _analyze_growth(self) -> Dict[str, Any]:
         """Analyze growth trends"""
-        # Get revenue time series
-        revenue_series = self.time_series('Revenue', periods=8)
-
-        if len(revenue_series) >= 2:
-            # Calculate year-over-year growth
-            latest = revenue_series.iloc[0]['numeric_value']
-            prior = revenue_series.iloc[1]['numeric_value']
-
-            if prior and prior != 0:
-                growth_rate = ((latest - prior) / prior) * 100
-                return {
-                    "revenue_growth_yoy": {
-                        "value": round(growth_rate, 2),
-                        "unit": "percent",
-                        "period_comparison": f"{revenue_series.iloc[0]['fiscal_period']} vs {revenue_series.iloc[1]['fiscal_period']}"
-                    }
-                }
-
-        return {"message": "Insufficient data for growth analysis"}
+        growth = self._revenue_growth_yoy()
+        if growth is None:
+            return {"message": "Year-over-year revenue growth not available: no revenue figure "
+                               "for the latest period has a prior-year figure of the same "
+                               "concept, unit and period length"}
+        span = "fiscal year" if growth["duration"] == "annual" else "quarter"
+        return {
+            "revenue_growth_yoy": {
+                "value": growth["value"],
+                "unit": "percent",
+                "period_comparison": f"{span} ended {growth['current_period_end']} vs "
+                                     f"{span} ended {growth['prior_period_end']}",
+                "concept": growth["concept"],
+            }
+        }
 
     def _analyze_liquidity(self) -> Dict[str, Any]:
         """Analyze liquidity metrics"""

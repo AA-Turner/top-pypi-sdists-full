@@ -1,11 +1,25 @@
 """Test Algebra."""
 import unittest
 import math
+import random
 from coloraide import algebra as alg
 
 
 class TestAlgebra(unittest.TestCase):
     """Test Algebra."""
+
+    def test_rect_to_polar(self):
+        """Test rectangular to polar conversion."""
+
+        self.assertEqual(alg.rect_to_polar(1, 0), (1.0, 0.0))
+        self.assertEqual(alg.rect_to_polar(1, -1), (math.sqrt(2), 315.0))
+        self.assertEqual(alg.rect_to_polar(-1, 0), (1.0, 180.0))
+
+    def test_rect_to_polar_tiny_negative_angle(self):
+        """Test that a very small negative angle is wrapped to 0 and not rounded up to 360."""
+
+        self.assertEqual(alg.rect_to_polar(1, -1e-17), (1.0, 0.0))
+        self.assertEqual(alg.rect_to_polar(1, -1e-300), (1.0, 0.0))
 
     def test_ascopy(self):
         """Test "as copy"."""
@@ -2818,6 +2832,31 @@ class TestAlgebra(unittest.TestCase):
         with self.assertRaises(ValueError):
             alg.det([[1, 2, 3], [4, 5, 6]])
 
+    def test_det_permutation_sign(self):
+        """Test that the sign is determined by the parity of the permutation and not by how many rows moved."""
+
+        # Two separate swaps moves four rows, but it is an even permutation
+        self.assertEqual(alg.det([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]), 1.0)
+        # A single swap is odd
+        self.assertEqual(alg.det([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]), -1.0)
+        # A three cycle is even
+        self.assertEqual(alg.det([[0, 1, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0], [0, 0, 0, 1]]), 1.0)
+        # A four cycle is odd
+        self.assertEqual(alg.det([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1], [1, 0, 0, 0]]), -1.0)
+        # A swap and a three cycle is odd
+        self.assertEqual(
+            alg.det([[0, 1, 0, 0, 0], [1, 0, 0, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1], [0, 0, 1, 0, 0]]),
+            -1.0
+        )
+
+    def test_det_large(self):
+        """Test determinants of larger matrices that require row swaps."""
+
+        self.assertAlmostEqual(
+            alg.det([[0, 2, 1, 3], [4, 0, 1, 2], [1, 5, 0, 7], [2, 1, 6, 0]]),
+            -95.0
+        )
+
     def test_any(self):
         """Test any."""
 
@@ -2933,7 +2972,8 @@ class TestAlgebra(unittest.TestCase):
             lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
             bounds=(0, 1)
         )
-        self.assertEqual(results, (0.08787147001914432, True))
+        # Within one ULP of the other results; both are equally close to the root (residual of about 3e-17)
+        self.assertEqual(results, (0.0878714700191443, True))
 
         # Solved (flip bounds)
         results = alg.solve_newton(
@@ -2943,7 +2983,8 @@ class TestAlgebra(unittest.TestCase):
             lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
             bounds=(1, 0)
         )
-        self.assertEqual(results, (0.08787147001914432, True))
+        # The same path is followed regardless of the order of the bounds
+        self.assertEqual(results, (0.0878714700191443, True))
 
         # Solved (Solution on start boundary edge)
         results = alg.solve_newton(
@@ -2988,7 +3029,7 @@ class TestAlgebra(unittest.TestCase):
 
         # Negative results can be returned
         result = alg.dot(alg.pinv(m), v)
-        self.assertEqual(result, [6.938893903907228e-17, 0.015208514422912755, 0.23455058216100522])
+        self.assertEqual(result, [6.938893903907228e-17, 0.015208514422912734, 0.23455058216100522])
 
         wide = alg.pinv([[4, 5], [3, 3], [9, 7]])
         self.assertEqual(alg.dot(wide, [3, 5, 6]), [0.296407185628742, 0.5389221556886239])
@@ -3049,18 +3090,15 @@ class TestAlgebra(unittest.TestCase):
         r = alg.svd([[4, 5, 3], [9, 7, 3]])
         self.assertEqual(
             r,
-            (
-                [[-0.8620053963543735, 0.5068990990877176],
-                 [0.5068990990877176, 0.8620053963543735]],
-                [1.7193878535843496, 13.639783920903831],
-                [[0.6479458977504693, 0.7174340165714145, 0.25584085962673253],
-                 [-0.44302586328610233, 0.6282015404061778, -0.6396021490668312],
-                 [-0.6195919609290794, 0.3010834709802459, 0.7248824356090755]]
-            )
+            ([[0.5068990990877176, -0.8620053963543735], [0.8620053963543735, 0.5068990990877176]],
+             [13.639783920903831, 1.7193878535843496],
+             [[0.7174340165714145, 0.6479458977504693, 0.25584085962673253],
+              [0.6282015404061778, -0.44302586328610233, -0.6396021490668312],
+              [0.3010834709802459, -0.6195919609290794, 0.7248824356090755]])
         )
 
         r = alg.svd([[4, 5, 3], [9, 7, 3]], compute_uv=False)
-        self.assertEqual(r, [1.7193878535843496, 13.639783920903831])
+        self.assertEqual(r, [13.639783920903831, 1.7193878535843496])
 
         self.assertEqual(
             alg.svd(
@@ -3070,11 +3108,8 @@ class TestAlgebra(unittest.TestCase):
                   [[6, 4], [2, 2]]]],
                 compute_uv=False
             ),
-            [[[1.5687405878887022, 12.74908047538765],
-              [9.448977704014812, 0.8466524369721866]],
-
-             [[9.680328785854748, 1.1363250405372183],
-              [7.72865690108165, 0.5175543501536712]]]
+            [[[12.74908047538765, 1.5687405878887022], [9.448977704014812, 0.8466524369721866]],
+             [[9.680328785854748, 1.1363250405372183], [7.72865690108165, 0.5175543501536712]]]
         )
 
         self.assertEqual(
@@ -3084,38 +3119,24 @@ class TestAlgebra(unittest.TestCase):
                  [[[7, 3], [6, 1]],
                   [[6, 4], [2, 2]]]]
             ),
-            (
-                [[[[0.3310069414355005, 0.9436283191604176],
-                   [-0.9436283191604177, 0.3310069414355005]],
-
-                  [[-0.6659918587924756, 0.7459590096125545],
-                   [-0.7459590096125545, -0.6659918587924756]]],
-
-
-                 [[[-0.7833356929204806, 0.6215988997712197],
-                   [-0.6215988997712197, -0.7833356929204804]],
-
-                  [[-0.9327218431547384, 0.36059667677618457],
-                   [-0.3605966767761846, -0.9327218431547382]]]],
-
-                [[[1.5687405878887022, 12.74908047538765],
-                  [9.448977704014812, 0.8466524369721866]],
-
-                 [[9.680328785854748, 1.1363250405372183],
-                  [7.72865690108165, 0.5175543501536712]]],
-
-                [[[[-0.7180650222569405, 0.6959760224398106],
-                   [0.6959760224398106, 0.7180650222569405]],
-
-                  [[-0.9755197343863141, -0.21991190923380002],
-                   [-0.21991190923380002, 0.9755197343863141]]],
-
-                 [[[-0.9517180100879393, -0.3069736621833424],
-                   [-0.3069736621833424, 0.9517180100879393]],
-
-                  [[-0.8174155604703632, 0.5760484367663209],
-                   [-0.5760484367663209, -0.8174155604703632]]]]
-            )
+            ([[[[0.9436283191604176, 0.3310069414355005],
+                [0.3310069414355005, -0.9436283191604177]],
+               [[-0.6659918587924756, 0.7459590096125545],
+                [-0.7459590096125545, -0.6659918587924756]]],
+              [[[-0.7833356929204806, 0.6215988997712197],
+                [-0.6215988997712197, -0.7833356929204804]],
+               [[-0.9327218431547384, 0.36059667677618457],
+                [-0.3605966767761846, -0.9327218431547382]]]],
+             [[[12.74908047538765, 1.5687405878887022], [9.448977704014812, 0.8466524369721866]],
+              [[9.680328785854748, 1.1363250405372183], [7.72865690108165, 0.5175543501536712]]],
+             [[[[0.6959760224398106, -0.7180650222569405],
+                [0.7180650222569405, 0.6959760224398106]],
+               [[-0.9755197343863141, -0.21991190923380002],
+                [-0.21991190923380002, 0.9755197343863141]]],
+              [[[-0.9517180100879393, -0.3069736621833424],
+                [-0.3069736621833424, 0.9517180100879393]],
+               [[-0.8174155604703632, 0.5760484367663209],
+                [-0.5760484367663209, -0.8174155604703632]]]])
         )
 
         self.assertEqual(
@@ -3478,16 +3499,40 @@ class TestAlgebra(unittest.TestCase):
         """Get just the SVD values."""
 
         svd = alg.svdvals([[8, 9], [4, 2]])
-        self.assertTrue(svd, [1.5687405878887022, 12.74908047538765])
+        self.assertEqual(svd, [12.74908047538765, 1.5687405878887022])
 
         svd = alg.svdvals([[4, 5], [3, 3], [9, 7]])
-        self.assertTrue(svd, [13.682688482364616, 1.335678065465881])
+        self.assertEqual(svd, [13.682688482364616, 1.335678065465881])
 
         svd = alg.svdvals([[4, 5, 3], [9, 7, 3]])
-        self.assertTrue(svd, [1.7193878535843492, 13.639783920903826])
+        self.assertEqual(svd, [13.639783920903831, 1.7193878535843496])
 
         svd = alg.svdvals([[1, 2], [1, 2]])
-        self.assertTrue(svd, [2.220446049250313e-16, 3.162277660168379])
+        self.assertEqual(svd, [3.162277660168379, 2.220446049250313e-16])
+
+    def test_svd_sorted(self):
+        """Test that singular values are sorted in descending order and that `U` and `V` follow them."""
+
+        rnd = random.Random(42)
+        for shape in ((2, 2), (3, 3), (4, 4), (5, 5), (2, 3), (3, 2), (2, 4), (4, 2), (3, 5), (5, 3)):
+            m, n = shape
+            for _ in range(20):
+                a = [[rnd.uniform(-5, 5) for _ in range(n)] for _ in range(m)]
+                self.assertEqual(alg.svdvals(a), sorted(alg.svdvals(a), reverse=True))
+
+                for full in (True, False):
+                    u, s, v = alg.svd(a, full_matrices=full)
+                    self.assertEqual(s, sorted(s, reverse=True))
+                    self.assertEqual(s, alg.svdvals(a))
+
+                    # The matrix must be recovered, which only works if the columns of `U` and `V`
+                    # are aligned with their singular values
+                    k = len(s)
+                    us = [[u[i][j] * s[j] for j in range(k)] for i in range(m)]
+                    result = alg.matmul(us, alg.transpose(v)[:k])
+                    for ra, rb in zip(a, result):
+                        for x, y in zip(ra, rb):
+                            self.assertAlmostEqual(x, y, places=9)
 
     def test_matrix_rank(self):
         """Test matrix ranks."""
@@ -3560,6 +3605,72 @@ class TestAlgebra(unittest.TestCase):
         r, converged = alg.solve_bisect(1.0, 0.0, f0)
         self.assertTrue(converged)
         self.assertEqual(r, 0.4539687953174507)
+
+    def test_bisect_negative_and_reversed(self):
+        """Test bisect when the root is negative, the bounds are reversed, or the function is decreasing."""
+
+        for f, a, b, root in (
+            (lambda x: x + 0.3, -1.0, 0.0, -0.3),
+            (lambda x: x + 0.3, 0.0, -1.0, -0.3),
+            (lambda x: x ** 3 + 2, -5.0, 5.0, -2 ** (1 / 3)),
+            (lambda x: -2 - x ** 3, 5.0, -5.0, -2 ** (1 / 3)),
+            (lambda x: x ** 3 - 2, -5.0, 5.0, 2 ** (1 / 3)),
+            (lambda x: 0.3 - x, 0.0, 1.0, 0.3),
+            (lambda x: x + 2.5, -3.0, -2.0, -2.5)
+        ):
+            r, converged = alg.solve_bisect(a, b, f)
+            self.assertTrue(converged)
+            self.assertAlmostEqual(r, root, places=9)
+
+        # The bounds do not contain a solution
+        r, converged = alg.solve_bisect(-1.0, 1.0, lambda x: x * x + 1)
+        self.assertFalse(converged)
+        self.assertTrue(math.isnan(r))
+
+    def test_solve_newton_bracketed_decreasing(self):
+        """Test bracketed Newton variants with bounds in either order and increasing or decreasing functions."""
+
+        def cosx(x):
+            return math.cos(x) - x
+
+        def cosx_dx(x):
+            return -math.sin(x) - 1
+
+        def cosx_dx2(x):
+            return -math.cos(x)
+
+        problems = (
+            # (f, f', f'', start, bounds, root)
+            (cosx, cosx_dx, cosx_dx2, 0.0, (0.0, 1.0), 0.73908513),
+            (cosx, cosx_dx, cosx_dx2, 0.9, (1.0, 0.0), 0.73908513),
+            (lambda x: x * x - 2, lambda x: 2 * x, lambda x: 2.0, 1.9, (2.0, 0.0), math.sqrt(2)),
+            (lambda x: 2 - x * x, lambda x: -2 * x, lambda x: -2.0, 0.1, (0.0, 2.0), math.sqrt(2)),
+            (lambda x: x ** 3 + 2, lambda x: 3 * x * x, lambda x: 6 * x, 0.5, (-5.0, 5.0), -2 ** (1 / 3)),
+            (lambda x: -(x ** 3 + 2), lambda x: -3 * x * x, lambda x: -6 * x, 0.5, (-5.0, 5.0), -2 ** (1 / 3))
+        )
+        for f, d1, d2, x0, bounds, root in problems:
+            for kwargs in ({}, {'dx2': d2}, {'order': 3}, {'order': 4}):
+                r, converged = alg.solve_newton(x0, f, d1, bounds=bounds, **kwargs)
+                self.assertTrue(converged, f"{bounds} {kwargs}")
+                self.assertAlmostEqual(r, root, places=7)
+
+    def test_solve_newton_traub_efficiency(self):
+        """Traub's method is third order, so it should need fewer iterations than Newton's method."""
+
+        def count(order):
+            calls = [0]
+
+            def f(x):
+                calls[0] += 1
+                return math.exp(x) - 5
+
+            r, converged = alg.solve_newton(1.0, f, math.exp, order=order)
+            self.assertTrue(converged)
+            self.assertAlmostEqual(r, math.log(5), places=12)
+            return calls[0]
+
+        # Traub evaluates the function twice per iteration (16 evaluations before the sign was corrected)
+        self.assertLessEqual(count(3), 12)
 
     def test_solve_poly(self):
         """Test cubic solving."""
@@ -3746,6 +3857,57 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(alg.prod([3, 2, 4]), 24.0)
         self.assertEqual(alg.prod([[1, 2, 3], [4, 5, 6], [7, 8, 9]]), 362880.0)
 
+    def test_line_intersect_parallel(self):
+        """Test that parallel lines have no intersection, regardless of direction."""
+
+        # Same direction
+        self.assertIsNone(alg.line_interesect([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]))
+        self.assertIsNone(alg.line_interesect([0, 0], [1, 0], [0, 1], [1, 1]))
+
+        # Opposite direction (used to raise a divide by zero)
+        self.assertIsNone(alg.line_interesect([0, 0, 0], [1, 0, 0], [0, 1, 0], [-1, 1, 0]))
+        self.assertIsNone(alg.line_interesect([0, 0], [1, 0], [0, 1], [-1, 1]))
+
+        # Collinear
+        self.assertIsNone(alg.line_interesect([0, 0, 0], [1, 0, 0], [3, 0, 0], [2, 0, 0]))
+        self.assertIsNone(alg.line_interesect([0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]))
+
+    def test_line_intersect_direction(self):
+        """Test that the direction of either line does not change the intersection."""
+
+        for s1, e1 in (([0, 1, 0], [2, 1, 0]), ([2, 1, 0], [0, 1, 0])):
+            for s2, e2 in (([1, 0, 0], [1, 2, 0]), ([1, 2, 0], [1, 0, 0])):
+                self.assertEqual(alg.line_interesect(s1, e1, s2, e2), [1.0, 1.0, 0.0])
+
+    def test_line_intersect_2d(self):
+        """Test 2D line intersections, including when one of the lines is a point."""
+
+        self.assertEqual(alg.line_interesect([0, 1], [2, 1], [1, 0], [1, 2]), [1.0, 1.0])
+        self.assertEqual(alg.line_interesect([0.5, 0], [0.5, 0], [0, 0], [1, 0]), [0.5, 0])
+        self.assertEqual(alg.line_interesect([0, 0], [1, 0], [0.5, 0], [0.5, 0]), [0.5, 0])
+        self.assertIsNone(alg.line_interesect([0.5, 1], [0.5, 1], [0, 0], [1, 0]))
+
+    def test_point_on_segment(self):
+        """Test point on segment in 2D and 3D."""
+
+        self.assertTrue(alg.point_on_segment([0, 0], [2, 2], [1, 1]))
+        self.assertTrue(alg.point_on_segment([0, 0], [2, 2], [2, 2]))
+        self.assertFalse(alg.point_on_segment([0, 0], [2, 2], [3, 3]))
+        self.assertFalse(alg.point_on_segment([0, 0], [2, 2], [-1, -1]))
+        self.assertFalse(alg.point_on_segment([0, 0], [2, 2], [1, 1.5]))
+
+        self.assertTrue(alg.point_on_segment([0, 0, 0], [2, 2, 2], [1, 1, 1]))
+        self.assertTrue(alg.point_on_segment([0, 0, 0], [0, 2, 2], [0, 1, 1]))
+        self.assertFalse(alg.point_on_segment([0, 0, 0], [2, 2, 2], [3, 3, 3]))
+        self.assertFalse(alg.point_on_segment([0, 0, 0], [2, 2, 2], [-1, -1, -1]))
+        self.assertFalse(alg.point_on_segment([0, 0, 0], [2, 2, 2], [1, 1, 1.5]))
+
+        # The segment is a point
+        self.assertTrue(alg.point_on_segment([1, 1], [1, 1], [1, 1]))
+        self.assertFalse(alg.point_on_segment([1, 1], [1, 1], [2, 2]))
+        self.assertTrue(alg.point_on_segment([1, 1, 1], [1, 1, 1], [1, 1, 1]))
+        self.assertFalse(alg.point_on_segment([1, 1, 1], [1, 1, 1], [2, 2, 2]))
+
     def test_line_intersect(self):
         """Test line intersect."""
 
@@ -3807,6 +3969,45 @@ class TestAlgebra(unittest.TestCase):
             ),
             [0.9504559270516716, 1.0, 1.0890577507598784]
         )
+
+    def test_pretty_floats_just_above_scientific_range(self):
+        """Test floats between 1e15 and 1e16, which Python does not format in scientific notation."""
+
+        self.assertEqual(alg.pretty([1.2e15]), '[1.2e+15]')
+        self.assertEqual(alg.pretty([1e-5, 2.5e15]), '[1.0e-05, 2.5e+15]')
+        self.assertEqual(alg.pretty(1.2e15), '1.2e+15')
+
+    def test_pretty_precision_zero(self):
+        """Test that rounding to whole numbers does not strip the zeros of the whole part."""
+
+        with alg.printoptions(precision=0):
+            self.assertEqual(alg.pretty([90.4, 10.0, 0.0, 100.0, 7.2]), '[ 90.,  10.,   0., 100.,   7.]')
+            self.assertEqual(alg.pretty(100.0), '100.')
+            self.assertEqual(alg.pretty(0.0), '0.')
+            self.assertEqual(alg.pretty([10, 20]), '[10, 20]')
+
+    def test_pretty_suppress_small_values(self):
+        """Test that suppressed scientific notation does not leave stray decimal points on small values."""
+
+        with alg.printoptions(suppress=True):
+            self.assertEqual(alg.pretty(0.00005), '0.00005')
+            self.assertEqual(alg.pretty([8.59e-8, 0.5]), '[0.0000000859, 0.5         ]')
+        with alg.printoptions(suppress=True, precision=8):
+            self.assertEqual(alg.pretty([0.00005, 0.00002]), '[0.00005, 0.00002]')
+
+    def test_pretty_scientific_whole_numbers(self):
+        """Test that whole number floats keep all of their digits next to values in scientific notation."""
+
+        self.assertEqual(alg.pretty([123456789012.0, 1e-9]), '[1.23456789012e+11, 1.00000000000e-09]')
+        self.assertEqual(alg.pretty([758669574536980.0, 1e-9]), '[7.5866957453698e+14, 1.0000000000000e-09]')
+        self.assertEqual(alg.pretty([1e-9, 3.0]), '[1.e-09, 3.e+00]')
+        self.assertEqual(alg.pretty([0.0, 1e-9]), '[0.e+00, 1.e-09]')
+
+    def test_pretty_invalid_option(self):
+        """Test the error message for an invalid print option."""
+
+        with self.assertRaisesRegex(ValueError, "^'foo' is not a valid print option$"):
+            alg.printoptions(foo=1).__enter__()
 
     def test_pretty(self):
         """Self test pretty string formatting of arrays."""

@@ -8,7 +8,9 @@
 #include "convertors/type_casters.h"
 #include "base_types_structures/exception.h"
 
-py::object PyTango_DevFailed;
+// Non-owning: the module keeps the exception type alive. An owning global would
+// decref it from a static destructor, after the interpreter has gone.
+py::handle PyTango_DevFailed;
 
 namespace Tango {
 inline bool operator==(const Tango::NamedDevFailed &df1, const Tango::NamedDevFailed &df2) {
@@ -36,14 +38,16 @@ Tango::DevFailed convert_to_dev_failed(PyObject *type, PyObject *value, PyObject
         // Populate a one level DevFailed exception
         //
 
-        PyObject *tracebackModule = PyImport_ImportModule("traceback");
-        if(tracebackModule != nullptr) {
+        // Held in a py::object: the blocks below can throw, and a bare Py_DECREF
+        // at the end of this scope would be skipped, leaking the module reference.
+        py::object tracebackModule = py::reinterpret_steal<py::object>(PyImport_ImportModule("traceback"));
+        if(tracebackModule) {
             //
             // Format the traceback part of the Python exception
             // and store it in the origin part of the Tango exception
             //
 
-            PyObject *tbList_ptr = PyObject_CallMethod(tracebackModule,
+            PyObject *tbList_ptr = PyObject_CallMethod(tracebackModule.ptr(),
                                                        const_cast<char *>("format_exception"),
                                                        const_cast<char *>("OOO"),
                                                        type,
@@ -65,18 +69,21 @@ Tango::DevFailed convert_to_dev_failed(PyObject *type, PyObject *value, PyObject
             // and store it in the desc part of the Tango exception
             //
 
-            tbList_ptr = PyObject_CallMethod(tracebackModule,
+            tbList_ptr = PyObject_CallMethod(tracebackModule.ptr(),
                                              const_cast<char *>("format_exception_only"),
                                              const_cast<char *>("OO"),
                                              type,
                                              value == nullptr ? Py_None : value);
 
-            py::object tbList = py::reinterpret_steal<py::object>(tbList_ptr);
-            py::str desc = py::str("").attr("join")(tbList);
-            std::string desc_str = desc.cast<std::string>();
-            dev_err[0].desc = CORBA::string_dup(desc_str.c_str());
-
-            Py_DECREF(tracebackModule);
+            try {
+                py::object tbList = py::reinterpret_steal<py::object>(tbList_ptr);
+                py::str desc = py::str("").attr("join")(tbList);
+                std::string desc_str = desc.cast<std::string>();
+                dev_err[0].desc = CORBA::string_dup(desc_str.c_str());
+            } catch(...) {
+                dev_err[0].desc = CORBA::string_dup("UNKNOWN: cannot get Python's exception description. "
+                                                    "Most probably, was a failure in c++ bindings");
+            }
 
             dev_err[0].reason = CORBA::string_dup("PyDs_PythonError");
             dev_err[0].severity = Tango::ERR;
@@ -189,8 +196,10 @@ void export_exceptions(py::module_ &m) {
         .def_readwrite("desc", &Tango::DevError::desc)
         .def_readwrite("origin", &Tango::DevError::origin);
 
-    // make a new custom exception and use it as a translation target
-    static py::exception<Tango::DevFailed> DevFailed(m, "DevFailed");
+    // make a new custom exception and use it as a translation target.
+    // Deliberately leaked: a static py::exception would be destroyed after the
+    // interpreter has finalized, decref'ing a type object without the GIL.
+    static auto &DevFailed = *new py::exception<Tango::DevFailed>(m, "DevFailed");
     m.attr("DevFailed") = DevFailed;
 
     /*
@@ -200,37 +209,41 @@ void export_exceptions(py::module_ &m) {
     */
     PyTango_DevFailed = DevFailed;
 
-    static py::exception<Tango::ConnectionFailed> ConnectionFailed(m, "ConnectionFailed", DevFailed.ptr());
+    static auto &ConnectionFailed = *new py::exception<Tango::ConnectionFailed>(m, "ConnectionFailed", DevFailed.ptr());
     m.attr("ConnectionFailed") = ConnectionFailed;
 
-    static py::exception<Tango::CommunicationFailed> CommunicationFailed(m, "CommunicationFailed", DevFailed.ptr());
+    static auto &CommunicationFailed =
+        *new py::exception<Tango::CommunicationFailed>(m, "CommunicationFailed", DevFailed.ptr());
     m.attr("CommunicationFailed") = CommunicationFailed;
 
-    static py::exception<Tango::WrongNameSyntax> WrongNameSyntax(m, "WrongNameSyntax", DevFailed.ptr());
+    static auto &WrongNameSyntax = *new py::exception<Tango::WrongNameSyntax>(m, "WrongNameSyntax", DevFailed.ptr());
     m.attr("WrongNameSyntax") = WrongNameSyntax;
 
-    static py::exception<Tango::NonDbDevice> NonDbDevice(m, "NonDbDevice", DevFailed.ptr());
+    static auto &NonDbDevice = *new py::exception<Tango::NonDbDevice>(m, "NonDbDevice", DevFailed.ptr());
     m.attr("NonDbDevice") = NonDbDevice;
 
-    static py::exception<Tango::WrongData> WrongData(m, "WrongData", DevFailed.ptr());
+    static auto &WrongData = *new py::exception<Tango::WrongData>(m, "WrongData", DevFailed.ptr());
     m.attr("WrongData") = WrongData;
 
-    static py::exception<Tango::NonSupportedFeature> NonSupportedFeature(m, "NonSupportedFeature", DevFailed.ptr());
+    static auto &NonSupportedFeature =
+        *new py::exception<Tango::NonSupportedFeature>(m, "NonSupportedFeature", DevFailed.ptr());
     m.attr("NonSupportedFeature") = NonSupportedFeature;
 
-    static py::exception<Tango::AsynCall> AsynCall(m, "AsynCall", DevFailed.ptr());
+    static auto &AsynCall = *new py::exception<Tango::AsynCall>(m, "AsynCall", DevFailed.ptr());
     m.attr("AsynCall") = AsynCall;
 
-    static py::exception<Tango::AsynReplyNotArrived> AsynReplyNotArrived(m, "AsynReplyNotArrived", DevFailed.ptr());
+    static auto &AsynReplyNotArrived =
+        *new py::exception<Tango::AsynReplyNotArrived>(m, "AsynReplyNotArrived", DevFailed.ptr());
     m.attr("AsynReplyNotArrived") = AsynReplyNotArrived;
 
-    static py::exception<Tango::EventSystemFailed> EventSystemFailed(m, "EventSystemFailed", DevFailed.ptr());
+    static auto &EventSystemFailed =
+        *new py::exception<Tango::EventSystemFailed>(m, "EventSystemFailed", DevFailed.ptr());
     m.attr("EventSystemFailed") = EventSystemFailed;
 
-    static py::exception<Tango::DeviceUnlocked> DeviceUnlocked(m, "DeviceUnlocked", DevFailed.ptr());
+    static auto &DeviceUnlocked = *new py::exception<Tango::DeviceUnlocked>(m, "DeviceUnlocked", DevFailed.ptr());
     m.attr("DeviceUnlocked") = DeviceUnlocked;
 
-    static py::exception<Tango::NotAllowed> NotAllowed(m, "NotAllowed", DevFailed.ptr());
+    static auto &NotAllowed = *new py::exception<Tango::NotAllowed>(m, "NotAllowed", DevFailed.ptr());
     m.attr("NotAllowed") = NotAllowed;
 
     py::register_exception_translator([](std::exception_ptr p) {
@@ -343,6 +356,18 @@ void export_exceptions(py::module_ &m) {
             py::arg("description"),
             py::arg("origin"),
             py::arg("severity") = Tango::ERR)
+
+        .def_static(
+            "print_exception",
+            [](const Tango::DevFailed &exception) { Tango::Except::print_exception(exception); },
+            R"doc(
+                Print all the details of a TANGO exception.
+
+                :param exception: The exception object
+                :type exception: :obj:`~tango.DevFailed`
+            )doc",
+            // cppTango calls the argument "except", which python cannot use as a keyword
+            py::arg("exception"))
 
         .def_static("print_error_stack",
                     py::overload_cast<const Tango::DevErrorList &>(&Tango::Except::print_error_stack),

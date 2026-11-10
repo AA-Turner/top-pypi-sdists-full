@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <condition_variable>
 #include <exception>
+#include <mutex>
 #include <thread>
 
 using namespace packingsolver;
@@ -26,6 +28,9 @@ const double overlap_proxy_epsilon_diameter_ratio = 0.01;
 const double weight_minimum_increase_ratio = 1.2;
 const double weight_maximum_increase_ratio = 2.0;
 const double weight_decay = 0.95;
+
+/** Number of entries of a chunk of the index of the items of a bin. */
+const Counter index_chunk_size = 16;
 
 /** Coordinate descent step multipliers. */
 const double coordinate_descent_step_success = 1.1;
@@ -221,6 +226,25 @@ bool poles_overlap(
 }
 
 /**
+ * Return true iff the interiors of the circle 'circle_1' translated by
+ * 'translation_1' and of the circle 'circle_2' translated by 'translation_2'
+ * intersect.
+ */
+bool circles_intersect(
+        const Pole& circle_1,
+        const Point& translation_1,
+        const Pole& circle_2,
+        const Point& translation_2)
+{
+    LengthDbl penetration_distance = circle_1.radius + circle_2.radius - tolerance;
+    if (penetration_distance <= 0)
+        return false;
+    LengthDbl delta_x = circle_2.center.x + translation_2.x - circle_1.center.x - translation_1.x;
+    LengthDbl delta_y = circle_2.center.y + translation_2.y - circle_1.center.y - translation_1.y;
+    return delta_x * delta_x + delta_y * delta_y < penetration_distance * penetration_distance;
+}
+
+/**
  * Proxy of the overlap area of two sets of poles.
  *
  * Algorithm 3 of the Sparrow paper: the sum, over all the pairs of poles, of
@@ -351,28 +375,50 @@ std::shared_ptr<const Separator::ItemTypes> Separator::build_item_types(
     auto build_item_type = [&instance, &simplified_instance, &rotations, &item_types, item_spacing](
             ItemTypeId item_type_id)
     {
+        const ItemType& item_type = instance.item_type(item_type_id);
         const SimplifiedItemType& simplified_item_type = simplified_instance.item_types[item_type_id];
         SeparatorItemType& separator_item_type = item_types[item_type_id];
+
+        // The items which are circles are handled exactly.
+        bool is_circle = (item_type.shapes.size() == 1
+                && item_type.shapes.front().shape_scaled.holes.empty()
+                && item_type.shapes.front().shape_scaled.shape.is_circle());
+        Pole circle;
+        if (is_circle) {
+            const ShapeElement& element = item_type.shapes.front().shape_scaled.shape.elements.front();
+            circle.center = element.center;
+            circle.radius = shape::distance(element.center, element.start);
+        }
 
         // Poles of the shapes, not transformed.
         std::vector<Polygon> polygons;
         std::vector<Pole> poles;
         for (const SimplifiedShape& simplified_shape: simplified_item_type.shapes) {
             polygons.push_back(build_polygon(simplified_shape.shape.shape));
-            std::vector<Pole> shape_poles = compute_poles(polygons.back());
-            poles.insert(poles.end(), shape_poles.begin(), shape_poles.end());
+            if (!is_circle) {
+                std::vector<Pole> shape_poles = compute_poles(polygons.back());
+                poles.insert(poles.end(), shape_poles.begin(), shape_poles.end());
+            }
         }
-        compute_convex_hull_area_and_diameter(
-                polygons,
-                separator_item_type.convex_hull_area,
-                separator_item_type.diameter);
-        AxisAlignedBoundingBox aabb;
-        for (const Polygon& polygon: polygons)
-            aabb = merge(aabb, polygon.aabb);
-        separator_item_type.minimum_dimension = (std::min)(
-                aabb.x_max - aabb.x_min,
-                aabb.y_max - aabb.y_min);
-        separator_item_type.number_of_fail_fast_poles = compute_number_of_fail_fast_poles(poles, polygons);
+        if (is_circle) {
+            poles.push_back(circle);
+            separator_item_type.convex_hull_area = M_PI * circle.radius * circle.radius;
+            separator_item_type.diameter = 2 * circle.radius;
+            separator_item_type.minimum_dimension = 2 * circle.radius;
+            separator_item_type.number_of_fail_fast_poles = 1;
+        } else {
+            compute_convex_hull_area_and_diameter(
+                    polygons,
+                    separator_item_type.convex_hull_area,
+                    separator_item_type.diameter);
+            AxisAlignedBoundingBox aabb;
+            for (const Polygon& polygon: polygons)
+                aabb = merge(aabb, polygon.aabb);
+            separator_item_type.minimum_dimension = (std::min)(
+                    aabb.x_max - aabb.x_min,
+                    aabb.y_max - aabb.y_min);
+            separator_item_type.number_of_fail_fast_poles = compute_number_of_fail_fast_poles(poles, polygons);
+        }
 
         // Orientations.
         separator_item_type.bin_types_orientation_ids.resize(instance.number_of_bin_types());
@@ -420,6 +466,23 @@ std::shared_ptr<const Separator::ItemTypes> Separator::build_item_types(
                         Pole pole_new = pole;
                         pole_new.center = transform(pole.center, rotation.angle, rotation.mirror);
                         orientation.poles.push_back(pole_new);
+                    }
+                    if (is_circle) {
+                        orientation.is_circle = true;
+                        orientation.circle = orientation.poles.front();
+                        orientation.circle_inflated = orientation.circle;
+                        orientation.circle_inflated.radius += instance.item_spacing_scaled();
+                        auto circle_aabb = [](const Pole& circle)
+                        {
+                            AxisAlignedBoundingBox aabb;
+                            aabb.x_min = circle.center.x - circle.radius;
+                            aabb.x_max = circle.center.x + circle.radius;
+                            aabb.y_min = circle.center.y - circle.radius;
+                            aabb.y_max = circle.center.y + circle.radius;
+                            return aabb;
+                        };
+                        orientation.aabb = circle_aabb(orientation.circle);
+                        orientation.aabb_inflated = circle_aabb(orientation.circle_inflated);
                     }
                     separator_item_type.orientations.push_back(orientation);
                 }
@@ -584,13 +647,6 @@ Separator::Separator(
                     hazard.convex_hull_area,
                     hazard.diameter);
             separator_bin_type.hazards.push_back(hazard);
-            SolutionItem solution_item;
-            solution_item.item_type_id = fixed_item.item_type_id;
-            solution_item.bl_corner = fixed_item.bl_corner;
-            solution_item.angle = fixed_item.angle;
-            solution_item.mirror = fixed_item.mirror;
-            solution_item.is_fixed = true;
-            separator_bin_type.fixed_items.push_back(solution_item);
         }
 
         number_of_hazards_ = (std::max)(
@@ -669,6 +725,25 @@ bool Separator::collide(
                 item_state_2.position)) {
         return true;
     }
+    if (orientation_1.is_circle && orientation_2.is_circle) {
+        return circles_intersect(
+                orientation_1.circle_inflated,
+                item_state_1.position,
+                orientation_2.circle,
+                item_state_2.position);
+    }
+    if (orientation_1.is_circle) {
+        for (const Polygon& polygon_2: orientation_2.polygons)
+            if (intersect(orientation_1.circle_inflated, item_state_1.position, polygon_2, item_state_2.position))
+                return true;
+        return false;
+    }
+    if (orientation_2.is_circle) {
+        for (const Polygon& polygon_1: orientation_1.polygons_inflated)
+            if (intersect(orientation_2.circle, item_state_2.position, polygon_1, item_state_1.position))
+                return true;
+        return false;
+    }
     for (const Polygon& polygon_1: orientation_1.polygons_inflated) {
         for (const Polygon& polygon_2: orientation_2.polygons) {
             if (intersect(polygon_1, item_state_1.position, polygon_2, item_state_2.position))
@@ -702,6 +777,15 @@ bool Separator::collide(
                 hazard.number_of_fail_fast_poles,
                 origin)) {
         return true;
+    }
+    if (orientation.is_circle) {
+        const Pole& circle = (hazard.against_inflated)?
+            orientation.circle_inflated:
+            orientation.circle;
+        for (const Polygon& hazard_polygon: hazard.polygons)
+            if (intersect(circle, item_state.position, hazard_polygon, origin))
+                return true;
+        return false;
     }
     for (const Polygon& polygon: polygons) {
         for (const Polygon& hazard_polygon: hazard.polygons) {
@@ -1014,7 +1098,7 @@ void Separator::set_solution(
             BinPos bin_pos = bins.back();
             bins.pop_back();
             for (const SolutionItem& solution_item: solution_bin.items) {
-                if (solution_item.is_fixed)
+                if (solution_item.is_fixed())
                     continue;
                 std::vector<ItemPos>& items = item_types_items[solution_item.item_type_id];
                 if (items.empty())
@@ -1132,20 +1216,16 @@ Solution Separator::solution() const
     SolutionBuilder solution_builder(instance_);
     for (BinPos bin_pos = 0; bin_pos < instance_.number_of_bins(); ++bin_pos) {
         BinTypeId bin_type_id = instance_.bin_type_id(bin_pos);
-        const SeparatorBinType& bin_type = bin_types_[bin_type_id];
+        const BinType& bin_type = instance_.bin_type(bin_type_id);
         // The bins with fixed items are always used, since the copies of
         // their fixed items are counted.
         if (bins_items_[bin_pos].empty() && bin_type.fixed_items.empty())
             continue;
         BinPos solution_bin_pos = solution_builder.add_bin(bin_type_id, 1);
-        for (const SolutionItem& fixed_item: bin_type.fixed_items) {
-            solution_builder.add_item(
-                    solution_bin_pos,
-                    fixed_item.item_type_id,
-                    fixed_item.bl_corner,
-                    fixed_item.angle,
-                    fixed_item.mirror,
-                    true);
+        for (ItemPos fixed_item_pos = 0;
+                fixed_item_pos < (ItemPos)bin_type.fixed_items.size();
+                ++fixed_item_pos) {
+            solution_builder.add_fixed_item(solution_bin_pos, fixed_item_pos);
         }
         std::vector<ItemPos> bin_items = bins_items_[bin_pos];
         std::sort(bin_items.begin(), bin_items.end());
@@ -1219,9 +1299,42 @@ Separator::Evaluation Separator::evaluate(
         if (loss > loss_bound)
             return evaluation;
     }
-    for (ItemPos item_pos_2: bins_items_[item_state.bin_pos]) {
-        if (item_pos_2 == item_pos)
+    // Items whose bounding box intersects the one of the item, in the order
+    // of the items of the bin, so that the losses are summed in the same
+    // order whatever the index.
+    AxisAlignedBoundingBox aabb = translate(
+            item_types_[items_item_type_id_[item_pos]].orientations[item_state.orientation_id].aabb_inflated,
+            item_state.position);
+    if (bins_index_search_[item_state.bin_pos] != number_of_searches_)
+        build_index(item_state.bin_pos);
+    const std::vector<IndexEntry>& index = bins_index_[item_state.bin_pos];
+    const std::vector<LengthDbl>& chunks_x_max = bins_index_chunks_x_max_[item_state.bin_pos];
+    intersecting_items_.clear();
+    for (Counter chunk_pos = 0; chunk_pos < (Counter)chunks_x_max.size(); ++chunk_pos) {
+        Counter entry_pos_start = chunk_pos * index_chunk_size;
+        if (index[entry_pos_start].aabb.x_min >= aabb.x_max - tolerance)
+            break;
+        if (aabb.x_min >= chunks_x_max[chunk_pos] - tolerance)
             continue;
+        Counter entry_pos_end = (std::min)(entry_pos_start + index_chunk_size, (Counter)index.size());
+        for (Counter entry_pos = entry_pos_start; entry_pos < entry_pos_end; ++entry_pos) {
+            const IndexEntry& entry = index[entry_pos];
+            if (entry.aabb.x_min >= aabb.x_max - tolerance)
+                break;
+            if (entry.item_pos != item_pos
+                    && aabbs_intersect(aabb, entry.aabb)) {
+                intersecting_items_.push_back(entry.item_pos);
+            }
+        }
+    }
+    std::sort(
+            intersecting_items_.begin(),
+            intersecting_items_.end(),
+            [this](ItemPos item_pos_1, ItemPos item_pos_2)
+            {
+                return items_bin_item_pos_[item_pos_1] < items_bin_item_pos_[item_pos_2];
+            });
+    for (ItemPos item_pos_2: intersecting_items_) {
         if (!collide(item_pos, item_state, item_pos_2))
             continue;
         collision = true;
@@ -1394,10 +1507,39 @@ Separator::Candidate Separator::refine(
     return current;
 }
 
+void Separator::build_index(BinPos bin_pos)
+{
+    std::vector<IndexEntry>& index = bins_index_[bin_pos];
+    index.clear();
+    for (ItemPos item_pos: bins_items_[bin_pos])
+        index.push_back({item_aabb(item_pos, items_state_[item_pos]), item_pos});
+    std::sort(
+            index.begin(),
+            index.end(),
+            [](const IndexEntry& entry_1, const IndexEntry& entry_2)
+            {
+                return entry_1.aabb.x_min < entry_2.aabb.x_min;
+            });
+    std::vector<LengthDbl>& chunks_x_max = bins_index_chunks_x_max_[bin_pos];
+    chunks_x_max.clear();
+    for (Counter entry_pos = 0; entry_pos < (Counter)index.size(); ++entry_pos) {
+        if (entry_pos % index_chunk_size == 0)
+            chunks_x_max.push_back(index[entry_pos].aabb.x_max);
+        chunks_x_max.back() = (std::max)(chunks_x_max.back(), index[entry_pos].aabb.x_max);
+    }
+    bins_index_search_[bin_pos] = number_of_searches_;
+}
+
 Separator::Candidate Separator::search_placement(
         ItemPos item_pos,
         bool insertion)
 {
+    // The indexes of the bins built for the previous search are outdated.
+    number_of_searches_++;
+    bins_index_.resize(bins_items_.size());
+    bins_index_chunks_x_max_.resize(bins_items_.size());
+    bins_index_search_.resize(bins_items_.size(), -1);
+
     // Algorithm 6 of the Sparrow paper.
     const SeparatorItemType& item_type = item_types_[items_item_type_id_[item_pos]];
     LengthDbl minimum_dimension = item_type.minimum_dimension;
@@ -1557,6 +1699,69 @@ void Separator::copy_state(const Separator& separator)
     hazard_entries_ = separator.hazard_entries_;
 }
 
+struct Separator::WorkerThreads
+{
+    /** Mutex protecting the attributes below, except 'threads'. */
+    std::mutex mutex;
+
+    /** Notified when a round starts or when the threads must stop. */
+    std::condition_variable start_condition;
+
+    /** Notified when the last thread has finished its round. */
+    std::condition_variable done_condition;
+
+    /** Number of the current round; incremented to start a round. */
+    Counter round = 0;
+
+    /** Number of threads which haven't finished the current round. */
+    Counter number_of_running_threads = 0;
+
+    /** Timer of the current round. */
+    const optimizationtools::Timer* timer = nullptr;
+
+    /** True iff the threads must stop. */
+    bool stop = false;
+
+    /** Threads, each running a worker. */
+    std::vector<std::thread> threads;
+
+    /** Run the rounds of 'worker' until the threads must stop. */
+    void run(Separator& worker)
+    {
+        Counter last_round = 0;
+        std::unique_lock<std::mutex> lock(mutex);
+        for (;;) {
+            start_condition.wait(
+                    lock,
+                    [this, last_round]()
+                    {
+                        return stop || round != last_round;
+                    });
+            if (stop)
+                return;
+            last_round = round;
+            const optimizationtools::Timer& round_timer = *timer;
+            lock.unlock();
+            worker.move_items(round_timer);
+            lock.lock();
+            number_of_running_threads--;
+            if (number_of_running_threads == 0)
+                done_condition.notify_one();
+        }
+    }
+
+    ~WorkerThreads()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            stop = true;
+        }
+        start_condition.notify_all();
+        for (std::thread& thread: threads)
+            thread.join();
+    }
+};
+
 void Separator::move_items_workers(const optimizationtools::Timer& timer)
 {
     // Algorithm 10 of the Sparrow paper.
@@ -1566,23 +1771,49 @@ void Separator::move_items_workers(const optimizationtools::Timer& timer)
                 ++worker_pos) {
             std::shared_ptr<Separator> worker(new Separator(*this));
             worker->workers_.clear();
+            worker->worker_threads_ = nullptr;
             worker->generator_.seed(generator_());
             workers_.push_back(worker);
         }
     }
 
-    std::vector<std::thread> threads;
-    for (const std::shared_ptr<Separator>& worker: workers_) {
-        worker->copy_state(*this);
-        Separator* worker_pointer = worker.get();
-        threads.push_back(std::thread(
-                    [worker_pointer, &timer]()
-                    {
-                        worker_pointer->move_items(timer);
-                    }));
+    // The first worker runs in the calling thread, the other ones in the
+    // threads of 'worker_threads_', created once with the workers rather than
+    // at each iteration.
+    if (worker_threads_ == nullptr) {
+        worker_threads_ = std::make_shared<WorkerThreads>();
+        WorkerThreads* worker_threads = worker_threads_.get();
+        for (Counter worker_pos = 1;
+                worker_pos < (Counter)workers_.size();
+                ++worker_pos) {
+            Separator* worker = workers_[worker_pos].get();
+            worker_threads->threads.push_back(std::thread(
+                        [worker_threads, worker]()
+                        {
+                            worker_threads->run(*worker);
+                        }));
+        }
     }
-    for (std::thread& thread: threads)
-        thread.join();
+
+    for (const std::shared_ptr<Separator>& worker: workers_)
+        worker->copy_state(*this);
+    {
+        std::lock_guard<std::mutex> lock(worker_threads_->mutex);
+        worker_threads_->timer = &timer;
+        worker_threads_->number_of_running_threads = worker_threads_->threads.size();
+        worker_threads_->round++;
+    }
+    worker_threads_->start_condition.notify_all();
+    workers_[0]->move_items(timer);
+    {
+        std::unique_lock<std::mutex> lock(worker_threads_->mutex);
+        worker_threads_->done_condition.wait(
+                lock,
+                [this]()
+                {
+                    return worker_threads_->number_of_running_threads == 0;
+                });
+    }
 
     // Keep the layout of the worker with the smallest weighted loss.
     Counter best_worker_pos = 0;

@@ -281,7 +281,10 @@ def test_r3_probe_is_lazy_shared_and_only_unknown_format_falls_back(
             return httpx.Response(probe_status, json=_r3_probe_result() if probe_status == 200 else error)
         assert body.get("routing_matrix_format") == ("parquet_v1" if probe_status == 200 else None)
         assert bool(body.get("include_routing_matrix")) == (probe_status != 200)
-        return httpx.Response(200, text='data: {"choices":[{"text":"ok","finish_reason":"stop"}]}\n\ndata: [DONE]\n\n')
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"text":"ok","token_ids":[3],"prompt_token_ids":[1,2],"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+        )
 
     def unexpected_probe(request):
         raise AssertionError(f"Binding must not call {request.url}")
@@ -432,7 +435,10 @@ def test_old_replica_after_successful_probe_retries_inline_once():
             )
         assert body["include_routing_matrix"] is True
         assert "x-fireworks-r3-store-id" not in request.headers
-        return httpx.Response(200, text='data: {"choices":[{"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n')
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"token_ids":[3],"prompt_token_ids":[1,2],"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+        )
 
     sampler = DeploymentSampler("https://inference.invalid", "test/model", "fw-test")
     sampler.negotiate_routing_matrix_format("parquet_v1", "nfs-test")
@@ -482,7 +488,10 @@ def test_sampler_binding_is_independent_for_reused_deployment(
                     },
                 )
             )
-        return httpx.Response(200, text='data: {"choices":[{"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n')
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"token_ids":[3],"prompt_token_ids":[1,2],"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+        )
 
     monkeypatch.setattr(
         "fireworks.training.sdk._rest_client._make_async_client",
@@ -549,11 +558,13 @@ def test_old_response_model_accepts_router_replay_capability():
     assert response.model_id == "test"
 
 
+@pytest.mark.parametrize("capacity", [None, 16], ids=["legacy-config", "cookbook-capacity"])
 @pytest.mark.parametrize("lora_rank", [0, 8], ids=["full", "lora"])
 @pytest.mark.parametrize("trainer_support", [False, True], ids=["old-trainer", "new-trainer"])
 @pytest.mark.parametrize("inference_support", [False, True], ids=["old-inference", "new-inference"])
-def test_weight_sync_transport_matrix(connect, lora_rank, trainer_support, inference_support):
-    from fireworks.training.sdk.managed import _TinkerSamplerBackend
+@pytest.mark.parametrize("lora_support", [False, True])
+def test_weight_sync_transport_matrix(connect, lora_rank, trainer_support, inference_support, lora_support, capacity):
+    from fireworks.training.sdk.managed import _rdma_candidate, _ManagedTinkerConfig, _TinkerSamplerBackend
 
     # Missing fields reproduce the response of old images, rather than requiring
     # those images to learn how to advertise a negative capability.
@@ -568,24 +579,33 @@ def test_weight_sync_transport_matrix(connect, lora_rank, trainer_support, infer
     )
     manager._hotload_headers.return_value = {}
     replica = {"supports_rdma_weight_sync": True} if inference_support else {}
+    replica["supports_rdma_lora_weight_sync"] = lora_support
     manager.hotload_check_status.return_value = {"replicas": [replica]}
     manager.hotload_and_wait.return_value = True
-    if (lora_rank == 0 and trainer_support != inference_support) or (lora_rank != 0 and trainer_support):
+    config = _ManagedTinkerConfig(base_model="test/model", max_lora_rank=capacity)
+    backend = _TinkerSamplerBackend(
+        manager,
+        "rollout",
+        "test/model",
+        lora_rank=lora_rank,
+        allow_rdma=_rdma_candidate(config),
+    )
+    expected_rdma = trainer_support and inference_support and (lora_rank == 0 or lora_support)
+    if (trainer_support or inference_support) and not expected_rdma:
         with pytest.raises(RuntimeError, match="FILE fallback is not allowed"):
-            client._attach_sampler_backend(_TinkerSamplerBackend(manager, "rollout", "test/model", lora_rank=lora_rank))
+            client._attach_sampler_backend(backend)
         assert not any(op in ("weight_sync", "save_weights_for_sampler") for op, _ in calls)
         manager.hotload_and_wait.assert_not_called()
         return
-    client._attach_sampler_backend(_TinkerSamplerBackend(manager, "rollout", "test/model", lora_rank=lora_rank))
+    client._attach_sampler_backend(backend)
 
-    expected_rdma = lora_rank == 0 and trainer_support and inference_support
     assert client.supports_rdma_weight_sync is expected_rdma
     result = client.weight_sync().result(timeout=5)
     submitted = [op for op, _ in calls if op in ("weight_sync", "save_weights_for_sampler")]
     assert submitted == (["weight_sync"] if expected_rdma else ["save_weights_for_sampler"])
     assert manager.hotload_and_wait.call_count == (0 if expected_rdma else 1)
     assert (result.optimizer_version is not None) is expected_rdma
-    assert manager.hotload_check_status.call_count == (2 if lora_rank == 0 else 0)
+    assert manager.hotload_check_status.call_count == 2
 
 
 def _weight_sync_client(connect, *, weight_sync_status=200, rdma=True):
@@ -1009,6 +1029,8 @@ def test_mask_only_sse_preserves_references_and_storage_headers():
     async def receive(request):
         payload = json.loads(request.content)
         assert payload["sampling_mask"] == "parquet_v1"
+        assert payload["raw_output"] is False
+        assert payload["return_token_ids"] is True
         assert "top_sampling_logprobs" not in payload
         assert request.headers["x-fireworks-r3-store-id"] == "test"
         assert request.headers["x-fireworks-r3-ttl-seconds"] == "120"
@@ -1017,6 +1039,8 @@ def test_mask_only_sse_preserves_references_and_storage_headers():
                 {
                     "text": "ok",
                     "finish_reason": "stop",
+                    "token_ids": [2],
+                    "prompt_token_ids": [1],
                     "r3_store_id": "test",
                     "sampling_mask_format": "parquet_v1",
                     "sampling_mask_references": references,

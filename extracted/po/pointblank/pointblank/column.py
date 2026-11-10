@@ -533,8 +533,7 @@ def col(
 
     See Also
     --------
-    Create a column expression for use in `conjointly()` validation with the
-    [`expr_col()`](`pointblank.expr_col`) function.
+    expr_col : Create a column expression for use in `conjointly()`.
     """
     if isinstance(exprs, str):
         return ColumnLiteral(exprs=exprs)
@@ -600,6 +599,8 @@ def ref(column_name: str) -> ReferenceColumn:
     validation
     ```
 
+    The `sales` column sums to `600` in both tables, so the single test unit passes.
+
     You can also compare different columns or use tolerance:
 
     ```{python}
@@ -616,9 +617,13 @@ def ref(column_name: str) -> ReferenceColumn:
     validation
     ```
 
+    The `revenue` column sums to `615`, which is `15` more than the `600` of the reference
+    `sales` column. That's within the relative tolerance of 10% (`60`), so the step passes even
+    though the sums aren't equal.
+
     See Also
     --------
-    The [`col()`](`pointblank.col`) function for referencing columns within the same table.
+    col : Reference columns within the same table.
     """
     return ReferenceColumn(column_name=column_name)
 
@@ -2079,7 +2084,6 @@ def expr_col(column_name: str) -> ColumnExpression:
 
     See Also
     --------
-    The [`conjointly()`](`pointblank.Validate.conjointly`) validation method, which is where this
-    function should be used.
+    Validate.conjointly : The validation step where these expressions are used.
     """
     return ColumnExpression(column_name=column_name)

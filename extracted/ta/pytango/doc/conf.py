@@ -242,7 +242,6 @@ latex_show_urls = "no"
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable", None),
-    "ipython": ("https://ipython.org/ipython-doc/stable", None),
     "pymongo": ("https://pymongo.readthedocs.io/en/stable", None),
     "couchdb": ("https://couchdb-python.readthedocs.io/en/latest", None),
     "pycassa": ("https://pycassa.github.io/pycassa", None),

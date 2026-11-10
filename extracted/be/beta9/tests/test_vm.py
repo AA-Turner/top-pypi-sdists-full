@@ -170,6 +170,9 @@ def test_vm_image_is_deterministic_and_uses_selected_profile():
     assert a.channel is selected.channel
     assert a.gateway_stub is selected.gateway
     assert len(a.build_steps) == len(original) + 1
+    # The worker must see that VM setup owns its apt configuration; otherwise
+    # retained package indexes refer to the temporary build mirror at runtime.
+    assert "/etc/apt/keyrings" in a.build_steps[-1].command
     # The shipped bundle has a fixed gzip header on every client.
     archive = base64.b64decode(a.build_steps[-1].command.split("'")[3])
     assert archive[9] == 255
@@ -319,6 +322,15 @@ def test_template_preserves_unspecified_fields_and_channel():
         "request_id": vm.request_id,
     }
     assert vm._service is selected
+
+
+def test_template_vm_enables_ssh_with_this_machines_key(monkeypatch):
+    monkeypatch.setattr(vm_module, "public_key", lambda: "ssh-ed25519 test")
+    selected = service()
+    selected.http.json.return_value = {"id": "resource", "name": "dev", "status": "starting"}
+    VM("dev", template="public-template", _service=selected).create(wait=False)
+    spec = selected.http.json.call_args.kwargs["json"]["spec"]
+    assert spec == {"ssh": True, "ssh_public_key": "ssh-ed25519 test"}
 
 
 def test_prepare_freezes_request_without_allocating_compute():
@@ -1028,6 +1040,104 @@ def test_cli_reports_ready_once_vm_accepts_commands(cli_service, monkeypatch, ar
     assert result.exit_code == 0, result.output
     assert "✓ VM ready" in result.output
     vm.wait.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "command,options,method,call_args,call_kwargs",
+    [
+        ("start", [], "start", (), {"cold": False}),
+        ("start", ["--cold"], "start", (), {"cold": True}),
+        ("resume", [], "start", (), {"cold": False}),
+        ("resume", ["--cold"], "start", (), {"cold": True}),
+        ("pause", [], "pause", (), {}),
+        ("stop", [], "stop", (False,), {}),
+        ("stop", ["--no-snapshot"], "stop", (True,), {}),
+    ],
+)
+@pytest.mark.parametrize("json_mode", [None, "command", "global", "env"])
+def test_cli_lifecycle_accepts_multiple_vms(
+    cli_service, monkeypatch, command, options, method, call_args, call_kwargs, json_mode
+):
+    names = ["dev", "vm-12ab34cd56ef7890", "staging"]
+    vms = [
+        MagicMock(info={"name": name, "id": f"vm-{index}", "status": "running", "spec": {}})
+        for index, name in enumerate(names)
+    ]
+    for vm in vms:
+        getattr(vm, method).return_value = vm
+    lookup = MagicMock(side_effect=vms)
+    monkeypatch.setattr(vm_cli.VM, "get", lookup)
+    cli = load_cli(check_config=False, settings=SDKSettings(name="Beam"))
+    argv = (["--json"] if json_mode == "global" else []) + ["vm", command, *names]
+    argv.extend(options)
+    if json_mode == "command":
+        argv.append("--json")
+
+    result = CliRunner().invoke(
+        cli.common_group, argv, env={"BETA9_JSON": "1" if json_mode == "env" else "0"}
+    )
+
+    assert result.exit_code == 0, result.output
+    assert [entry.args for entry in lookup.call_args_list] == [(name,) for name in names]
+    assert all(entry.kwargs == {"_service": cli_service} for entry in lookup.call_args_list)
+    for vm in vms:
+        getattr(vm, method).assert_called_once_with(*call_args, **call_kwargs)
+    if json_mode:
+        assert json.loads(result.output) == [vm.info for vm in vms]
+    else:
+        for name in names:
+            assert name in result.output
+
+
+@pytest.mark.parametrize("names", [["dev"], ["dev", "vm-12ab34cd56ef7890", "staging"]])
+def test_cli_rm_accepts_multiple_vms(cli_service, monkeypatch, names):
+    vms = [MagicMock() for _ in names]
+    lookup = MagicMock(side_effect=vms)
+    monkeypatch.setattr(vm_cli.VM, "get", lookup)
+
+    result = CliRunner().invoke(vm_cli.management, ["rm", *names])
+
+    assert result.exit_code == 0, result.output
+    assert [entry.args for entry in lookup.call_args_list] == [(name,) for name in names]
+    for vm in vms:
+        vm.remove.assert_called_once_with()
+    if len(names) > 1:
+        for name in names:
+            assert f"VM removed {name}" in result.output
+
+
+@pytest.mark.parametrize("command", ["start", "resume", "pause", "stop", "rm"])
+def test_cli_lifecycle_requires_a_vm(cli_service, command):
+    result = CliRunner().invoke(vm_cli.management, [command])
+
+    assert result.exit_code == 2
+    assert "Missing argument" in result.output
+    cli_service.http.json.assert_not_called()
+
+
+@pytest.mark.parametrize("command,method", [("start", "start"), ("resume", "start")])
+def test_cli_lifecycle_checks_each_vm_readiness(cli_service, monkeypatch, command, method):
+    vms = [
+        MagicMock(info={"name": name, "id": name, "spec": {"kiosk": {}}})
+        for name in ("dev", "staging", "prod")
+    ]
+    for vm in vms:
+        getattr(vm, method).return_value = vm
+    vms[1].wait.side_effect = TimeoutError("staging did not become ready")
+    lookup = MagicMock(side_effect=vms)
+    monkeypatch.setattr(vm_cli.VM, "get", lookup)
+
+    result = CliRunner().invoke(vm_cli.management, [command, "dev", "staging", "prod"])
+
+    assert result.exit_code == 1
+    assert "Error: staging did not become ready" in result.output
+    assert "✓ VM ready dev" in result.output
+    assert "✓ VM ready staging" not in result.output
+    assert "Traceback" not in result.output
+    vms[0].wait.assert_called_once_with(services=True)
+    vms[1].wait.assert_called_once_with(services=True)
+    assert lookup.call_count == 2
+    getattr(vms[2], method).assert_not_called()
 
 
 def test_cli_new_shows_sync_progress(cli_service, monkeypatch, tmp_path):
@@ -2972,6 +3082,131 @@ def test_setup_vm_emits_one_json_result_after_guest_readiness(
     prepare.assert_called_once()
     assert prepare.call_args.args[2] == name
     assert prepare.call_args.kwargs["desktop"] is desktop
+    assert prepare.call_args.kwargs["template"] is None
+
+
+def test_template_size_and_price_follow_the_template_spec(monkeypatch):
+    from decimal import Decimal
+    from beta9.cli import setup
+
+    assert setup.template_size({"cpu": 2000, "memory": 4096, "disk_size": "100Gi"}) == (
+        {"cpu": Decimal(2), "memory_gib": Decimal(4)},
+        "100 GiB",
+    )
+    assert setup.template_size({}) == ({"cpu": Decimal(4), "memory_gib": Decimal(8)}, "50 GiB")
+    assert setup.template_size({"disk_size": "53687091200"})[1] == "50 GiB"
+
+    response = MagicMock(status_code=200)
+    response.json.return_value = {"vm": {"cpu": "0.0000000011875", "memory": "0.00000000059375"}}
+    monkeypatch.setattr("requests.get", lambda *_, **__: response)
+    context = ConfigContext(api_url="https://api.example/v2")
+    assert setup.vm_hourly_price(context, Decimal(2), Decimal(4)) == Decimal("0.0171")
+
+
+@pytest.mark.parametrize(("args", "desktop"), [([], None), (["--no-desktop"], False)])
+def test_setup_vm_from_template_prices_it_and_keeps_its_settings(
+    tmp_path, monkeypatch, args, desktop
+):
+    from decimal import Decimal
+    from click.testing import CliRunner
+    from beta9.cli import setup
+
+    template_id = "0b6f0f4e-7c1a-4b8e-9f1d-2a3b4c5d6e7f"
+    monkeypatch.setattr(setup, "connect_onboarding", lambda *_: (ConfigContext(), None))
+    monkeypatch.setattr(
+        setup, "get_settings", lambda: SimpleNamespace(config_path=tmp_path / "config")
+    )
+    monkeypatch.setattr(setup, "dashboard_link", lambda *_: None)
+    monkeypatch.setattr("beta9.config.get_config_context", lambda _: ConfigContext())
+    monkeypatch.setattr("beta9.channel.ServiceClient", lambda _: MagicMock())
+    lookup = MagicMock(
+        return_value={
+            "id": template_id,
+            "name": "n8n",
+            "spec": {"cpu": 2000, "memory": 4096, "disk_size": "50Gi"},
+        }
+    )
+    monkeypatch.setattr(onboarding, "vm_template", lookup)
+    price = MagicMock(return_value=Decimal("0.0171"))
+    monkeypatch.setattr(setup, "vm_hourly_price", price)
+    prepare = MagicMock(
+        return_value={
+            "name": "n8n",
+            "id": "vm-id",
+            "terminal_url": "https://terminal.example/",
+            "urls": {"7681": "https://terminal.example/", "5678": "https://n8n.example/"},
+            "spec": {"ports": [5678], "protected_ports": [5678]},
+        }
+    )
+    monkeypatch.setattr(onboarding, "prepare_vm", prepare)
+
+    result = CliRunner().invoke(
+        setup.common,
+        ["setup", "vm", "--template", "n8n", "--name", "n8n", "--skip-agents", *args],
+        input="y\n",
+    )
+    assert result.exit_code == 0, result.output
+    assert lookup.call_args.args[1] == "n8n"
+    assert price.call_args.kwargs == {"cpu": Decimal(2), "memory_gib": Decimal(4)}
+    assert (
+        "Start a VM from template n8n (2 vCPU, 4 GiB RAM, 50 GiB disk, $0.0171/hour" in result.output
+    )
+    assert prepare.call_args.args[2] == "n8n"
+    assert prepare.call_args.kwargs == {"desktop": desktop, "template": template_id}
+    assert "Port 5678 (private)" in result.output
+    assert "https://n8n.example/" in result.output
+    assert "vm open n8n 5678" in result.output
+    assert "vm open n8n 7681" not in result.output
+
+
+def test_declining_a_template_vm_never_prepares_it(monkeypatch):
+    from click.testing import CliRunner
+    from beta9.cli import setup
+
+    monkeypatch.setattr(setup, "connect_onboarding", lambda *_: (ConfigContext(), None))
+    monkeypatch.setattr("beta9.config.get_config_context", lambda _: ConfigContext())
+    monkeypatch.setattr("beta9.channel.ServiceClient", lambda _: MagicMock())
+    monkeypatch.setattr(onboarding, "vm_template", lambda *_: {"id": "tpl", "spec": {}})
+    prepare = MagicMock()
+    monkeypatch.setattr(onboarding, "prepare_vm", prepare)
+    result = CliRunner().invoke(setup.common, ["setup", "vm", "--template", "tpl"], input="n\n")
+    assert result.exit_code == 0, result.output
+    assert "Setup canceled." in result.output
+    prepare.assert_not_called()
+
+
+def test_missing_template_is_a_clear_error(monkeypatch):
+    factory = MagicMock()
+    factory.return_value._api.side_effect = GatewayHTTPError(404, "template not found")
+    monkeypatch.setattr(onboarding, "VM", factory)
+    with pytest.raises(ValueError, match="VM template 'n8n' was not found"):
+        onboarding.vm_template(object(), "n8n")
+    factory.return_value._api.assert_called_once_with("GET", "/artifacts/template/n8n")
+
+
+def test_template_vm_keeps_template_settings_and_its_own_state(tmp_path, monkeypatch):
+    selected = SimpleNamespace(http=SimpleNamespace(workspace_id="workspace"))
+    vm = MagicMock(info={"id": "vm-id"})
+    vm._creation_body = None
+    vm.prepare.side_effect = lambda: setattr(vm, "_creation_body", {"request_id": "original"})
+    vm.process.exec.return_value.wait.return_value = 0
+    vm.process.exec.return_value.stdout.read.return_value = "Linux\n"
+    vm.refresh.return_value.info = {"name": "n8n", "id": "vm-id"}
+    factory = MagicMock(return_value=vm)
+    factory.get.side_effect = GatewayHTTPError(404, "missing")
+    monkeypatch.setattr(onboarding, "VM", factory)
+
+    onboarding.prepare_vm(selected, tmp_path, "n8n", desktop=None, template="tpl-id")
+    kwargs = factory.call_args.kwargs
+    assert (kwargs["template"], kwargs["desktop"], kwargs["docker_enabled"]) == ("tpl-id", None, None)
+    assert kwargs["ssh"] is True
+
+    vm._creation_body = None
+    onboarding.prepare_vm(selected, tmp_path, "n8n")
+    kwargs = factory.call_args.kwargs
+    assert (kwargs["template"], kwargs["desktop"], kwargs["docker_enabled"]) == (None, True, True)
+    assert kwargs["ssh"] is None
+    assert len(list(tmp_path.rglob("*.json"))) == 2
 
 
 def test_setup_vm_does_not_report_success_after_failed_probe(tmp_path, monkeypatch):

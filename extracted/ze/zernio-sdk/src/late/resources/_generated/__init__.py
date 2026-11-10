@@ -16,6 +16,7 @@ from .ad_rules import AdRulesResource
 from .ad_targeting import AdTargetingResource
 from .analytics import AnalyticsResource
 from .api_keys import ApiKeysResource
+from .automations import AutomationsResource
 from .blogs import BlogsResource
 from .branded_calling import BrandedCallingResource
 from .broadcasts import BroadcastsResource
@@ -29,6 +30,7 @@ from .commerce import CommerceResource
 from .connect import ConnectResource
 from .connected_apps import ConnectedAppsResource
 from .contacts import ContactsResource
+from .content_retention import ContentRetentionResource
 from .conversions import ConversionsResource
 from .creator_campaigns import CreatorCampaignsResource
 from .creator_portal import CreatorPortalResource
@@ -96,6 +98,7 @@ __all__ = [
     "AdTargetingResource",
     "AnalyticsResource",
     "ApiKeysResource",
+    "AutomationsResource",
     "BlogsResource",
     "BrandedCallingResource",
     "BroadcastsResource",
@@ -109,6 +112,7 @@ __all__ = [
     "ConnectResource",
     "ConnectedAppsResource",
     "ContactsResource",
+    "ContentRetentionResource",
     "ConversionsResource",
     "CreatorCampaignsResource",
     "CreatorPortalResource",

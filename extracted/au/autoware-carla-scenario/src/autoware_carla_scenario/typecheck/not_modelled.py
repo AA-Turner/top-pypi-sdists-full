@@ -222,7 +222,15 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
             "through)",
         ),
         **_each(
-            "EGO_KEY QUANTITIES WEATHER_INPUTS rule_values",
+            "RESOLVED_QUANTITIES resolve_environment",
+            "works the rules out before a run with openodd (a Rust "
+            "extension), over the config's `environment` as "
+            "`Mapping[str, Any]` (a label for the time of day beside "
+            "numbers), the runner's; a scenario sets numbers "
+            "(EnvironmentAction)",
+        ),
+        **_each(
+            "CARLA_QUANTITIES CAUSE_SETTINGS EGO_KEY QUANTITIES WEATHER_INPUTS rule_values",
             "re-exported from weather_inputs, which the library check "
             "compiles from its source; a scenario sets the weather, not the "
             "rules (weather_rules.codon models what visibility and "
@@ -570,7 +578,8 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
         "forget_lane_change "
         "handshake is_initialized lane_change_finished on_scenario_end "
         "on_scenario_start on_tick release_from_traffic require_microscopic "
-        "requires_goal resume_traffic route_to set_client set_desired_speed "
+        "requires_goal resume_traffic road_users_from_framework route_to "
+        "set_client set_desired_speed "
         "set_emergency set_initial_speeds set_traffic_backend simulation_fidelity "
         "spawn stack_name termination_reason termination_requested "
         "turn_at_junction turn_indicator use_autopilot",
@@ -580,7 +589,7 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
     "CoverageCollector": {"to_dict": _AS_DICT},
     "CoverageReport": {
         **_members(
-            "cases cell_flakiness entries entry flaky_cells odds weighted_outcomes",
+            "assumptions cases cell_flakiness entries entry flaky_cells odds weighted_outcomes",
             _REPORT_ROWS,
         ),
         "to_dict": _AS_DICT,
@@ -612,7 +621,7 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
         "config debug_markers destroy end_route finish_at follow_route forget_lane_change "
         "is_initialized lane_change_finished on_scenario_end on_scenario_start "
         "on_tick release_from_traffic require_microscopic requires_goal "
-        "resume_traffic route_to set_client set_desired_speed set_emergency "
+        "resume_traffic road_users_from_framework route_to set_client set_desired_speed set_emergency "
         "set_initial_speeds simulation_fidelity spawn stack_name termination_reason "
         "termination_requested turn_at_junction use_autopilot",
         "the model declares only what the checked CommunicationLossAction "
@@ -624,7 +633,18 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
     "MapSource": _members(
         "at directory name parse pinned repo_name uri with_path", _MAP_CACHE
     ),
-    "OddAttribute": {"probe": _PROBE},
+    "OddAttribute": {
+        "probe": _PROBE,
+        "concept": (
+            "the taxonomy's description of the attribute's concept "
+            "(`dict[str, Any]`: its kind, primitive, unit type and literals), "
+            "which the taxonomy tools read, not a scenario"
+        ),
+        "defined_by": (
+            "the concepts a derived categorical of the taxonomy is defined by, "
+            "which openodd checks against its backend, not a scenario"
+        ),
+    },
     "OddCondition": {"evaluate": _ODD_RUN_VALUES},
     "OddDefinition": {
         **_members("complete evaluate sample", _ODD_RUN_VALUES),

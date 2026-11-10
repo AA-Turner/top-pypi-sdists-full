@@ -27,7 +27,7 @@ from antsibull_docutils.md_utils import md_escape
         ("* foo", r"\* foo"),
     ],
 )
-def test_md_escape(text, escaped):
+def test_md_escape(text: str, escaped: str) -> None:
     result = md_escape(text)
     print(result)
     print(escaped)

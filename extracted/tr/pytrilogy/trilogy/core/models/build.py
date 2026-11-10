@@ -22,6 +22,7 @@ from trilogy.constants import (
     VIRTUAL_CONCEPT_PREFIX,
     MagicConstants,
 )
+from trilogy.core.casts import cast_introduces_null
 from trilogy.core.constants import ALL_ROWS_ADDRESS
 from trilogy.core.domain_graph import DomainGraph, EdgeScope, assemble_full_graph
 from trilogy.core.enums import (
@@ -99,6 +100,7 @@ from trilogy.core.models.author import (
     UnionSelectLineage,
     WhereClause,
     WindowItem,
+    raw_select_grain,
 )
 from trilogy.core.models.core import (
     CONCRETE_TYPES,
@@ -1203,6 +1205,38 @@ class BuildBetween(DataTyped, BuildOperandArgs, ConstantInlineable):
         return DataType.BOOL
 
 
+def aggregate_filter(
+    argument: object,
+) -> tuple[BuildConcept, BuildWhereClause] | None:
+    """`(x, c)` for an aggregate argument that is `x` where `c` holds and NULL
+    elsewhere: `x ? c`, or `case when c then x [else null] end`, inline or
+    through a concept. Both spellings are one value per row
+    (`Cover.filtered`), so discovery reads either as the pair."""
+    if isinstance(argument, BuildConcept):
+        lineage = argument.lineage
+        if isinstance(lineage, BuildFilterItem) and isinstance(
+            lineage.content, BuildConcept
+        ):
+            return lineage.content, lineage.where
+        argument = lineage
+    if not (
+        isinstance(argument, BuildFunction) and argument.operator == FunctionType.CASE
+    ):
+        return None
+    branches = list(argument.arguments)
+    last = branches[-1] if branches else None
+    if isinstance(last, BuildCaseElse):
+        if last.expr is not None and last.expr != MagicConstants.NULL:
+            return None
+        branches = branches[:-1]
+    when = branches[0] if len(branches) == 1 else None
+    if not isinstance(when, BuildCaseWhen):
+        return None
+    if not isinstance(when.expr, BuildConcept):
+        return None
+    return when.expr, BuildWhereClause(conditional=when.comparison)
+
+
 @dataclass(slots=True)
 class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
     name: str
@@ -1322,6 +1356,16 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
             return None
         if self.lineage.function.operator not in ROLLUP_REAGGREGATES:
             return None
+        arguments = self.lineage.function.arguments
+        # `x ? c` and `case when c then x end` are one argument
+        filtered = aggregate_filter(arguments[0]) if len(arguments) == 1 else None
+        if filtered is not None:
+            content, where = filtered
+            argument = (
+                f"<Filter: {content.canonical_address} where "
+                f"{_canonical_str_for_hash(where)}>"
+            )
+            return self.lineage.function.operator, (argument,)
         return (
             self.lineage.function.operator,
             tuple(
@@ -1339,12 +1383,13 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
     @cached_property
     def filtered_rollup(
         self,
-    ) -> tuple[tuple[FunctionType, tuple[str, ...]], BuildFilterItem] | None:
-        """For `agg(x ? c)`, the signature of the `agg(x)` a summary stores
-        and the filter: `reagg(case when c then agg(x) end)` over its partials
-        is the filtered aggregate wherever `c` is a function of the partial's
-        grain (`Cover.filtered_sum_exact`). Matched only where the partials
-        are re-aggregated, never as the column itself."""
+    ) -> tuple[tuple[FunctionType, tuple[str, ...]], BuildWhereClause] | None:
+        """For `agg(x ? c)`, spelled so or as `agg(case when c then x end)`,
+        the signature of the `agg(x)` a summary stores and `c`:
+        `reagg(case when c then agg(x) end)` over its partials is the filtered
+        aggregate wherever `c` is a function of the partial's grain
+        (`Cover.filtered_sum_exact`). Matched only where the partials are
+        re-aggregated, never as the column itself."""
         lineage = self.lineage
         if not (
             isinstance(lineage, BuildAggregateWrapper)
@@ -1352,16 +1397,11 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
             and len(lineage.function.arguments) == 1
         ):
             return None
-        function = lineage.function
-        argument = function.arguments[0]
-        if not (
-            isinstance(argument, BuildConcept)
-            and isinstance(argument.lineage, BuildFilterItem)
-            and isinstance(argument.lineage.content, BuildConcept)
-        ):
+        filtered = aggregate_filter(lineage.function.arguments[0])
+        if filtered is None:
             return None
-        content = argument.lineage.content
-        return (function.operator, (content.canonical_address,)), argument.lineage
+        content, where = filtered
+        return (lineage.function.operator, (content.canonical_address,)), where
 
     def __str__(self):
         grain = str(self.grain) if self.grain else "Grain<>"
@@ -2294,9 +2334,21 @@ class BuildDatasource:
         if signature is None:
             return None
         for column in self.columns:
-            if column.concept.rollup_signature == signature:
+            if column.concept.rollup_signature == signature and self.holds_partial(
+                column.concept
+            ):
                 return column
         return None
+
+    def holds_partial(self, concept: BuildConcept) -> bool:
+        """A column `by` keys the grain does not fall within holds that value
+        once per row, repeated, not a partial a re-aggregation can sum
+        (`SelectGrain.fixed_value_per_row_double_counts`)."""
+        lineage = concept.lineage
+        if not isinstance(lineage, BuildAggregateWrapper) or not lineage.by:
+            return True
+        by = {c.address for c in lineage.by} | {c.canonical_address for c in lineage.by}
+        return self.grain.components <= by
 
     def filtered_column_for(
         self, concept: BuildConcept
@@ -2306,7 +2358,9 @@ class BuildDatasource:
         if filtered is None:
             return None
         for column in self.columns:
-            if column.concept.rollup_signature == filtered[0]:
+            if column.concept.rollup_signature == filtered[0] and self.holds_partial(
+                column.concept
+            ):
                 return column
         return None
 
@@ -2657,6 +2711,35 @@ def _bare_constant(expr: Any) -> Any:
     ):
         return expr.arguments[0]
     return expr
+
+
+_LITERAL_COMPARISONS: list[tuple[ComparisonOperator, Callable[[Any, Any], bool]]] = [
+    (ComparisonOperator.EQ, lambda a, b: a == b),
+    (ComparisonOperator.NE, lambda a, b: a != b),
+    (ComparisonOperator.LT, lambda a, b: a < b),
+    (ComparisonOperator.LTE, lambda a, b: a <= b),
+    (ComparisonOperator.GT, lambda a, b: a > b),
+    (ComparisonOperator.GTE, lambda a, b: a >= b),
+]
+
+
+def _fold_literal_comparison(
+    left: Any, operator: ComparisonOperator, right: Any
+) -> bool | None:
+    """Two literals compared at build time, as the engine compares them: a
+    NULL operand makes `=` and the orders UNKNOWN, which is left to the engine
+    (formal/Trilogy/Casts.lean, `fold_null_unknown`); None when not folded."""
+    if operator == ComparisonOperator.IS:
+        return left is right
+    if operator == ComparisonOperator.IS_NOT:
+        return left is not right
+    compare = next((f for op, f in _LITERAL_COMPARISONS if op == operator), None)
+    if compare is None or left is None or right is None:
+        return None
+    try:
+        return compare(left, right)
+    except TypeError:
+        return None
 
 
 def is_constant(x):
@@ -3422,6 +3505,9 @@ class Factory:
                 case_args.append(arg)
             if len(case_args) == 1 and isinstance(case_args[0], BuildCaseElse):
                 return _bare_constant(case_args[0].expr)
+            if not case_args:
+                # every WHEN folded false and there is no ELSE
+                return MagicConstants.NULL
             farguments = case_args
 
         new = BuildFunction(
@@ -4075,16 +4161,23 @@ class Factory:
                 out.append(built)
         return out
 
-    def _window_order_by_items(self, order_by: list, anchor: Any) -> list:
-        """Resolve bare (no ``by``) aggregates in a window's ORDER BY.
-
-        Under the select's grouping spec they compute in that single
-        ROLLUP/CUBE/GROUPING SETS pass (inferred-key specs stay bare and pick up
-        the resolved select grain plus the mode in ``__build_concept``);
-        otherwise the window's anchor concept defines the implicit grain.
-        Always copy — the OrderItem may belong to a shared authored definition,
-        and an in-place ``by`` leaks across statements."""
+    def _window_order_by_items(self, order_by: list) -> list:
+        """A bare (no ``by``) aggregate in a window's ORDER BY is at the
+        select's raw grain, like any other (`SelectGrain.bare_is_select_grain`),
+        so it is left bare to resolve there, unless the select grain holds a
+        key computed from such a window (`top_x_by_metric`): that key is read
+        as the window's own keys, or the aggregate would be grouped by itself.
+        Under the select's grouping spec it computes in that single
+        ROLLUP/CUBE/GROUPING SETS pass (inferred-key specs stay bare and pick
+        up the resolved select grain plus the mode in ``__build_concept``).
+        Always copy — the OrderItem may belong to a shared authored
+        definition, and an in-place ``by`` leaks across statements."""
         spec = self.select_grouping
+        if spec is not None and not spec.by:
+            return list(order_by)
+        raw = self._raw_select_grain() if spec is None else None
+        if spec is None and raw is None:
+            return list(order_by)
         out = []
         for x in order_by:
             expr = x.expr
@@ -4093,27 +4186,30 @@ class Factory:
                 and not expr.by
                 and expr.grouping == AggregateGroupingMode.STANDARD
             ):
-                if spec is not None:
-                    if spec.by:
-                        expr = AggregateWrapper(
-                            function=expr.function,
-                            by=list(spec.by),
-                            grouping=spec.mode,
-                            grouping_sets=[list(g) for g in spec.grouping_sets],
-                        )
-                elif anchor is not None:
-                    expr = AggregateWrapper(function=expr.function, by=[anchor])
-            if expr is not x.expr:
-                x = OrderItem(expr=expr, order=x.order)
+                pinned = (
+                    AggregateWrapper(
+                        function=expr.function,
+                        by=list(spec.by),
+                        grouping=spec.mode,
+                        grouping_sets=[list(g) for g in spec.grouping_sets],
+                    )
+                    if spec is not None
+                    else AggregateWrapper(function=expr.function, by=list(raw or []))
+                )
+                x = OrderItem(expr=pinned, order=x.order)
             out.append(x)
         return out
 
+    def _raw_select_grain(self) -> list[ConceptRef] | None:
+        """`raw_select_grain`, when it differs from the select grain."""
+        raw = raw_select_grain(self.grain, self.environment)
+        if raw == list(self.grain.component_order):
+            return None
+        return [c.reference for a in raw if (c := self.environment.concepts.get(a))]
+
     @_build_dispatch.register
     def _(self, base: NumberingWindowItem) -> BuildNumberingWindowItem:
-        # An AggregateWrapper with empty `by` inside the order_by needs an
-        # implicit grain — the rank's argument concepts define the row.
-        anchor = base.arguments[0] if base.arguments else None
-        final_by = self._window_order_by_items(base.order_by, anchor)
+        final_by = self._window_order_by_items(base.order_by)
         return BuildNumberingWindowItem(
             type=base.type,
             arguments=[self._build_concept_ref(x) for x in base.arguments],
@@ -4127,8 +4223,7 @@ class Factory:
         validation = requires_concept_nesting(base.content)
         if validation:
             content, _ = self.instantiate_concept(validation)
-        anchor = content if isinstance(content, (ConceptRef, Concept)) else None
-        final_by = self._window_order_by_items(base.order_by, anchor)
+        final_by = self._window_order_by_items(base.order_by)
         return BuildNavigationWindowItem(
             type=base.type,
             content=self.build(content),
@@ -4237,6 +4332,10 @@ class Factory:
                     and self._null_free_set(array)
                     for arg in member.arguments
                 )
+            if member.operator == FunctionType.CAST and cast_introduces_null(
+                list(member.arguments)
+            ):
+                return False
             return (
                 member.operator == FunctionType.CONSTANT
                 or member.operator in NULL_STRICT_FUNCTIONS
@@ -4378,23 +4477,9 @@ class Factory:
         if is_constant(left) and is_constant(right):
             lval = materialize_constant(left)
             rval = materialize_constant(right)
-            if base.operator == ComparisonOperator.EQ:
-                return lval == rval
-            elif base.operator == ComparisonOperator.NE:
-                return lval != rval
-            elif base.operator == ComparisonOperator.LT:
-                return lval < rval
-            elif base.operator == ComparisonOperator.LTE:
-                return lval <= rval
-            elif base.operator == ComparisonOperator.GT:
-                return lval > rval
-            elif base.operator == ComparisonOperator.GTE:
-                return lval >= rval
-            elif base.operator == ComparisonOperator.IS:
-                return lval is rval
-            elif base.operator == ComparisonOperator.IS_NOT:
-                return lval is not rval
-
+            folded = _fold_literal_comparison(lval, base.operator, rval)
+            if folded is not None:
+                return folded
         return BuildComparison(
             left=left,
             right=right,

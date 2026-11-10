@@ -17,6 +17,7 @@ from instagrapi.exceptions import (
     ClientUnauthorizedError,
     MediaNotFound,
     PrivateError,
+    WrongCursorError,
 )
 from instagrapi.extractors import (
     extract_direct_message,
@@ -35,6 +36,25 @@ from instagrapi.utils.serialization import dumps, json_value
 
 MEDIA_INFO_DOC_ID = "27830990013244856"
 IG_PROFILE_TIMELINE_DOC_ID = "56030350814417327502004290437"
+
+
+_MEDIA_CURSOR_PREFIX = "ig-route:"
+
+
+def _split_media_cursor(cursor):
+    if isinstance(cursor, str) and cursor.startswith(_MEDIA_CURSOR_PREFIX):
+        route, separator, raw = cursor[len(_MEDIA_CURSOR_PREFIX) :].partition(":")
+        if not route or not separator or not raw:
+            raise WrongCursorError("Malformed routed media cursor")
+        return route, raw
+    return "", cursor
+
+
+def _media_page_with_route(page, route):
+    medias, cursor = page
+    if cursor and not cursor.startswith(_MEDIA_CURSOR_PREFIX):
+        cursor = f"{_MEDIA_CURSOR_PREFIX}{route}:{cursor}"
+    return medias, cursor
 
 
 class MediaMixin:
@@ -552,7 +572,7 @@ class MediaMixin:
 
     def media_info_gql(self, media_pk: str) -> Media:
         """
-        Get Media from PK by Public Graphql API
+        Get Media from PK through the modern public GraphQL doc_id query
 
         Parameters
         ----------
@@ -566,51 +586,26 @@ class MediaMixin:
         """
         media_pk = self.media_pk(media_pk)
         shortcode = self.media_code_from_pk(media_pk)
-        """Use Client.media_info
-        """
-        variables = {
-            "shortcode": shortcode,
-            "child_comment_count": 3,
-            "fetch_comment_count": 40,
-            "parent_comment_count": 24,
-            "has_threaded_comments": False,
-        }
-        try:
-            data = self.public_graphql_request(variables, query_hash="477b65a610463740ccdb83135b2014db")
-        except (
-            ClientForbiddenError,
-            ClientGraphqlError,
-            ClientLoginRequired,
-            ClientNotFoundError,
-            ClientUnauthorizedError,
-        ):
-            data = self.public_doc_id_graphql_request(
-                MEDIA_INFO_DOC_ID,
-                {
-                    "shortcode": shortcode,
-                    "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider": False,
-                    "__relay_internal__pv__PolarisMultiCaptionCarouselEnabledrelayprovider": True,
-                },
-                referer=f"https://www.instagram.com/p/{shortcode}/",
-                url=self.GRAPHQL_PUBLIC_WEB_API_URL,
-                include_lsd=True,
-                include_fb_dtsg=True,
-                headers={"X-FB-Friendly-Name": "PolarisPostRootQuery"},
-            )
-            media = data.get("xdt_shortcode_media") or data.get("shortcode_media")
-            if media:
-                return extract_media_gql(media)
-            media_items = json_value(data, "xdt_api__v1__media__shortcode__web_info", "items", default=[])
-            if not media_items:
-                raise MediaNotFound(media_pk=media_pk, **data)
-            return extract_media_v1(self._normalize_xdt_media_info(media_items[0]))
-        if not data.get("shortcode_media"):
+        data = self.public_doc_id_graphql_request(
+            MEDIA_INFO_DOC_ID,
+            {
+                "shortcode": shortcode,
+                "__relay_internal__pv__PolarisShortDramaEnabledrelayprovider": False,
+                "__relay_internal__pv__PolarisMultiCaptionCarouselEnabledrelayprovider": True,
+            },
+            referer=f"https://www.instagram.com/p/{shortcode}/",
+            url=self.GRAPHQL_PUBLIC_WEB_API_URL,
+            include_lsd=True,
+            include_fb_dtsg=True,
+            headers={"X-FB-Friendly-Name": "PolarisPostRootQuery"},
+        )
+        media = data.get("xdt_shortcode_media") or data.get("shortcode_media")
+        if media:
+            return extract_media_gql(media)
+        media_items = json_value(data, "xdt_api__v1__media__shortcode__web_info", "items", default=[])
+        if not media_items:
             raise MediaNotFound(media_pk=media_pk, **data)
-        if data["shortcode_media"]["location"] and self.authorization:
-            data["shortcode_media"]["location"] = self.location_complete(
-                extract_location(data["shortcode_media"]["location"])
-            ).dict()
-        return extract_media_gql(data["shortcode_media"])
+        return extract_media_v1(self._normalize_xdt_media_info(media_items[0]))
 
     def _media_info_public(self, media_pk: str) -> Media:
         try:
@@ -997,7 +992,7 @@ class MediaMixin:
         self, user_id: str, amount: int = 0, sleep: int = 2, end_cursor=None
     ) -> Tuple[List[Media], str]:
         """
-        Get a page of a user's media via private app GraphQL, with public GraphQL fallback on ClientError
+        Get a page of a user's media via private app GraphQL, with anonymous first-page public fallback on endpoint/schema errors
 
         Parameters
         ----------
@@ -1013,11 +1008,22 @@ class MediaMixin:
         Tuple[List[Media], str]
             A tuple containing a list of medias and the next end_cursor value
         """
+        route, end_cursor = _split_media_cursor(end_cursor)
+        if route:
+            if route != "timeline-public" or self._has_private_auth():
+                raise WrongCursorError("Use the same method and authentication for a routed public cursor")
+            return _media_page_with_route(
+                self._user_medias_paginated_public_gql(user_id, int(amount), end_cursor=end_cursor), route
+            )
         amount = int(amount)
         try:
             return self._user_medias_paginated_app_gql(user_id, amount, end_cursor=end_cursor)
-        except ClientError:
-            return self._user_medias_paginated_public_gql(user_id, amount, end_cursor=end_cursor)
+        except ClientError as error:
+            if self._has_private_auth() or end_cursor or not self._can_use_private_graphql_fallback(error):
+                raise
+            return _media_page_with_route(
+                self._user_medias_paginated_public_gql(user_id, amount, end_cursor=end_cursor), "timeline-public"
+            )
 
     def user_medias_chunk_gql(
         self, user_id: str, sleep: int = 2, end_cursor=None, amount: int = 0
@@ -1029,7 +1035,7 @@ class MediaMixin:
 
     def user_medias_gql(self, user_id: str, amount: int = 0, sleep: int = 0) -> List[Media]:
         """
-        Get a user's media via private app GraphQL, with public GraphQL fallback on ClientError
+        Get a user's media via private app GraphQL, with anonymous first-page public fallback on endpoint/schema errors
 
         Parameters
         ----------
@@ -1173,22 +1179,16 @@ class MediaMixin:
         medias = []
         next_max_id = end_cursor
         min_timestamp = None
-        try:
-            items = self.private_request(
-                f"feed/user/{user_id}/",
-                params={
-                    "max_id": next_max_id,
-                    "count": amount,
-                    "min_timestamp": min_timestamp,
-                    "rank_token": self.rank_token,
-                    "ranked_content": "true",
-                },
-            )["items"]
-        except PrivateError as e:
-            raise e
-        except Exception as e:
-            self.logger.exception(e)
-            return [], None
+        items = self.private_request(
+            f"feed/user/{user_id}/",
+            params={
+                "max_id": next_max_id,
+                "count": amount,
+                "min_timestamp": min_timestamp,
+                "rank_token": self.rank_token,
+                "ranked_content": "true",
+            },
+        )["items"]
         medias.extend(items)
         next_max_id = self.last_json.get("next_max_id", "")
         if amount:
@@ -1221,13 +1221,7 @@ class MediaMixin:
         medias = []
         next_max_id = ""
         while True:
-            try:
-                medias_page, next_max_id = self.user_medias_paginated_v1(user_id, amount, end_cursor=next_max_id)
-            except PrivateError as e:
-                raise e
-            except Exception as e:
-                self.logger.exception(e)
-                break
+            medias_page, next_max_id = self.user_medias_paginated_v1(user_id, amount, end_cursor=next_max_id)
             medias.extend(medias_page)
             if not next_max_id:
                 break
@@ -1255,6 +1249,18 @@ class MediaMixin:
             A tuple containing a list of medias and the next end_cursor value
         """
 
+        route, end_cursor = _split_media_cursor(end_cursor)
+        if route:
+            if route == "timeline-app":
+                page = self._user_medias_paginated_app_gql(user_id, int(amount), end_cursor=end_cursor)
+            elif route == "timeline-public" and not self._has_private_auth():
+                page = self._user_medias_paginated_public_gql(user_id, int(amount), end_cursor=end_cursor)
+            elif route == "timeline-v1":
+                page = self.user_medias_paginated_v1(user_id, int(amount), end_cursor=end_cursor)
+            else:
+                raise WrongCursorError("Use the same method and authentication for a routed media cursor")
+            return _media_page_with_route(page, route)
+
         def public_lookup():
             try:
                 medias, next_cursor = self.user_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
@@ -1271,20 +1277,26 @@ class MediaMixin:
             except PrivateError as e:
                 raise e
             except Exception as e:
+                if end_cursor or not self._can_use_private_graphql_fallback(e):
+                    raise
                 if end_cursor_is_v1:
                     raise e
                 if not isinstance(e, ClientError):
                     self.logger.exception(e)
-                medias, end_cursor = public_lookup()
+                medias, end_cursor = _media_page_with_route(public_lookup(), "timeline-app")
         else:
             try:
-                medias, end_cursor = public_lookup()
+                medias, end_cursor = _media_page_with_route(public_lookup(), "timeline-app")
             except PrivateError as e:
                 raise e
             except Exception as e:
+                if end_cursor or not self._can_use_private_graphql_fallback(e):
+                    raise
                 if not isinstance(e, ClientError):
                     self.logger.exception(e)
-                medias, end_cursor = self.user_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
+                medias, end_cursor = _media_page_with_route(
+                    self.user_medias_paginated_v1(user_id, amount, end_cursor=end_cursor), "timeline-v1"
+                )
         return medias, end_cursor
 
     def user_medias_chunk(self, user_id: str, end_cursor: str = "") -> Tuple[List[Media], str]:
@@ -1383,6 +1395,8 @@ class MediaMixin:
             except PrivateError as e:
                 raise e
             except Exception as e:
+                if not self._can_use_private_graphql_fallback(e):
+                    raise
                 if not isinstance(e, ClientError):
                     self.logger.exception(e)
                 medias = public_lookup()
@@ -1392,6 +1406,8 @@ class MediaMixin:
             except PrivateError as e:
                 raise e
             except Exception as e:
+                if not self._can_use_private_graphql_fallback(e):
+                    raise
                 if not isinstance(e, ClientError):
                     self.logger.exception(e)
                 # User may been private, attempt via Private API
@@ -1818,13 +1834,7 @@ class MediaMixin:
         medias = []
         next_max_id = ""
         while True:
-            try:
-                items = self.private_request(f"usertags/{user_id}/feed/", params={"max_id": next_max_id})["items"]
-            except PrivateError as e:
-                raise e
-            except Exception as e:
-                self.logger.exception(e)
-                break
+            items = self.private_request(f"usertags/{user_id}/feed/", params={"max_id": next_max_id})["items"]
             medias.extend(items)
             if not self.last_json.get("more_available"):
                 break
@@ -1852,20 +1862,26 @@ class MediaMixin:
         Tuple[List[Media], str]
             A tuple containing a list of medias and the next end_cursor value
         """
+        route, end_cursor = _split_media_cursor(end_cursor)
+        if route:
+            if route != "tagged-v1":
+                raise WrongCursorError("Use the same method for a routed tagged-media cursor")
+            return _media_page_with_route(
+                self.usertag_medias_paginated_v1(user_id, int(amount), end_cursor=end_cursor), route
+            )
         amount = int(amount)
         user_id = int(user_id)
         if self._has_private_auth():
-            try:
-                medias, end_cursor = self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
-            except Exception as e:
-                if not isinstance(e, ClientError):
-                    self.logger.exception(e)
-                medias, end_cursor = self.usertag_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
+            return self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
         else:
             try:
                 medias, end_cursor = self.usertag_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
-            except ClientError:
-                medias, end_cursor = self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
+            except ClientError as error:
+                if end_cursor or not self._can_use_private_graphql_fallback(error):
+                    raise
+                medias, end_cursor = _media_page_with_route(
+                    self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor), "tagged-v1"
+                )
         return medias, end_cursor
 
     def usertag_medias(self, user_id: str, amount: int = 0) -> List[Media]:
@@ -1886,16 +1902,13 @@ class MediaMixin:
         amount = int(amount)
         user_id = int(user_id)
         if self._has_private_auth():
-            try:
-                medias = self.usertag_medias_v1(user_id, amount)
-            except Exception as e:
-                if not isinstance(e, ClientError):
-                    self.logger.exception(e)
-                medias = self.usertag_medias_gql(user_id, amount)
+            return self.usertag_medias_v1(user_id, amount)
         else:
             try:
                 medias = self.usertag_medias_gql(user_id, amount)
-            except ClientError:
+            except ClientError as error:
+                if not self._can_use_private_graphql_fallback(error):
+                    raise
                 medias = self.usertag_medias_v1(user_id, amount)
         return medias
 

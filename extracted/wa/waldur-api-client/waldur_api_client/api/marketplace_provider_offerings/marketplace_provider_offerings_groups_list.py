@@ -319,7 +319,8 @@ def sync_detailed(
 ) -> Response[list["OfferingGroups"]]:
     """List offerings grouped by provider
 
-     Returns a paginated list of active, shared offerings grouped by their service provider.
+     Returns a paginated list of active, shared offerings grouped by their service provider. Only
+    offerings the caller may see in the public offerings list are included.
 
     Args:
         accessible (Union[Unset, bool]):
@@ -482,7 +483,8 @@ def sync(
 ) -> list["OfferingGroups"]:
     """List offerings grouped by provider
 
-     Returns a paginated list of active, shared offerings grouped by their service provider.
+     Returns a paginated list of active, shared offerings grouped by their service provider. Only
+    offerings the caller may see in the public offerings list are included.
 
     Args:
         accessible (Union[Unset, bool]):
@@ -640,7 +642,8 @@ async def asyncio_detailed(
 ) -> Response[list["OfferingGroups"]]:
     """List offerings grouped by provider
 
-     Returns a paginated list of active, shared offerings grouped by their service provider.
+     Returns a paginated list of active, shared offerings grouped by their service provider. Only
+    offerings the caller may see in the public offerings list are included.
 
     Args:
         accessible (Union[Unset, bool]):
@@ -801,7 +804,8 @@ async def asyncio(
 ) -> list["OfferingGroups"]:
     """List offerings grouped by provider
 
-     Returns a paginated list of active, shared offerings grouped by their service provider.
+     Returns a paginated list of active, shared offerings grouped by their service provider. Only
+    offerings the caller may see in the public offerings list are included.
 
     Args:
         accessible (Union[Unset, bool]):

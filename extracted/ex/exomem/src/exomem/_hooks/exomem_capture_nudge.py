@@ -106,8 +106,6 @@ import shlex
 import sys
 import threading
 import time
-import urllib.error
-import urllib.request
 from functools import lru_cache
 from pathlib import Path
 
@@ -163,6 +161,7 @@ _COLLECTION_WRITES = (
     "connect_memory:accept-relation",
     "connect_memory:create-entity",
     "episode_memory:disposition",
+    "episode_memory:input",
     "episode_memory:prepare",
     "episode_memory:record",
     "episode_memory:resume",
@@ -181,6 +180,7 @@ _COLLECTION_WRITES = (
     "plan_memory:triage",
     "plan_memory:update",
     "record_episode:disposition",
+    "record_episode:input",
     "record_episode:prepare",
     "record_episode:record",
     "record_episode:resume",
@@ -208,9 +208,10 @@ REMINDER_SHORT = (
 
 #: The episode ask. `{key}` is the session's episode key.
 EPISODE_ASK = (
-    "[Exomem episode check] Decision or stopping point? record_episode once: "
-    'operation.kind="record", episode="{key}", subject, summary, short worked_on/decided/open items. '
-    "Otherwise do nothing."
+    "[Exomem episode check] If live policy permits capture at a durable stop, "
+    'record_episode once: operation.kind="record", episode="{key}", subject, summary, '
+    "decided. Compile or dismiss every Decided item before citing it from updated "
+    "compiled notes. Otherwise do nothing."
 )
 #: The candidate-coverage ask (task 4.1), with its own prefix. `{key}` is the
 #: episode whose candidates the session prepared, `{next}` its ledger's next step.
@@ -411,14 +412,25 @@ def _codex_call_output_succeeded(output: object) -> bool:
     return True
 
 
+def _refusal_payload(payload: object) -> bool:
+    """Whether a parsed tool result is a refusal.
+
+    The server answers a refusal with `{"error": {...}}` and no `success`; the old envelope that
+    `response_detail="full"` carries beside it, and REST, say `{"success": false}`.
+    """
+    return isinstance(payload, dict) and (
+        payload.get("success") is False or isinstance(payload.get("error"), dict)
+    )
+
+
 def _refused_with_envelope(content: object) -> bool:
-    """Whether a Claude tool result holds the `{"success": false}` error envelope.
+    """Whether a Claude tool result holds the server's refusal.
 
     MCP answers a coded refusal as normal tool content, so the result carries no
-    `is_error`. Only the parsed envelope shows that the call was refused.
+    `is_error`. Only the parsed payload shows that the call was refused.
     """
     if isinstance(content, dict):
-        return content.get("success") is False
+        return _refusal_payload(content)
     if isinstance(content, str):
         texts = [content]
     elif isinstance(content, list):
@@ -430,7 +442,7 @@ def _refused_with_envelope(content: object) -> bool:
             payload = json.loads(text)
         except (TypeError, ValueError):
             continue
-        if isinstance(payload, dict) and payload.get("success") is False:
+        if _refusal_payload(payload):
             return True
     return False
 
@@ -918,17 +930,6 @@ def _write_episode_state(path: Path, state: dict) -> None:
 _EPISODE_DOOR_TIMEOUT_SECONDS = 2.0
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-def _open_no_redirect(req: urllib.request.Request, timeout: float):
-    return urllib.request.build_opener(
-        urllib.request.ProxyHandler({}), _NoRedirect()
-    ).open(req, timeout=timeout)
-
-
 def _rest_host() -> str:
     """Mirror of the retrieve hook's `_rest_host` — this standalone script
     cannot import it."""
@@ -1031,12 +1032,11 @@ def _episode_door(action: str, key: str) -> dict | None:
         if port is None:
             return None
         body = json.dumps({"action": action, "episode": key}).encode("utf-8")
-        req = lane.request(f"http://{_rest_host()}:{port}/api/episode_memory", body)
         try:
-            with _open_no_redirect(req, timeout=timeout) as resp:
-                if resp.getcode() != 200:
-                    return None
-                payload = json.loads(resp.read().decode("utf-8"))
+            status, raw = lane.post(f"http://{_rest_host()}:{port}/api/episode_memory", body, timeout)
+            if status != 200:
+                return None
+            payload = json.loads(raw.decode("utf-8"))
         except Exception:  # noqa: BLE001 — hook must never break a stop hook
             return None
         if not isinstance(payload, dict) or payload.get("success") is not True:

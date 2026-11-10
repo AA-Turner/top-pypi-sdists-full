@@ -29,14 +29,18 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from airflow._shared.timezones import timezone
 from airflow.api_fastapi.common.parameters import RangeFilter
 from airflow.api_fastapi.core_api.datamodels.ui.calendar import (
+    CalendarDeadlineCollectionResponse,
+    CalendarDeadlineResponse,
     CalendarTimeRangeCollectionResponse,
     CalendarTimeRangeResponse,
 )
 from airflow.models.dagrun import DagRun
+from airflow.models.deadline import Deadline
 from airflow.serialization.definitions.dag import SerializedDAG
 from airflow.timetables._cron import CronMixin
 from airflow.timetables.base import DagRunInfo, DataInterval, TimeRestriction
 from airflow.utils.sqlalchemy import get_dialect_name
+from airflow.utils.types import DagRunType
 
 log = structlog.get_logger(logger_name=__name__)
 
@@ -98,10 +102,16 @@ class CalendarService:
         effective_date = sa.func.coalesce(DagRun.partition_date, DagRun.logical_date)
         time_expression = self._get_time_truncation_expression(effective_date, granularity, dialect)
 
+        is_backfill_expression = sa.case(
+            (DagRun.run_type == DagRunType.BACKFILL_JOB, sa.literal(True)),
+            else_=sa.literal(False),
+        )
+
         select_stmt = (
             sa.select(
                 time_expression.label("datetime"),
                 DagRun.state,
+                is_backfill_expression.label("is_backfill"),
                 sa.func.max(DagRun.data_interval_start).label("data_interval_start"),
                 sa.func.max(DagRun.data_interval_end).label("data_interval_end"),
                 sa.func.max(DagRun.run_after).label("run_after"),
@@ -109,7 +119,7 @@ class CalendarService:
                 sa.func.count("*").label("count"),
             )
             .where(DagRun.dag_id == dag_id)
-            .group_by(time_expression, DagRun.state)
+            .group_by(time_expression, DagRun.state, is_backfill_expression)
             .order_by(time_expression.asc())
         )
 
@@ -122,6 +132,7 @@ class CalendarService:
                 date=ds.datetime,
                 state=ds.state,
                 count=int(ds._mapping["count"]),
+                is_backfill=bool(ds._mapping["is_backfill"]),
             )
             for ds in dag_states
         ]
@@ -359,3 +370,55 @@ class CalendarService:
             return False
 
         return True
+
+    def get_deadline_calendar_data(
+        self,
+        dag_id: str,
+        deadline_time: RangeFilter,
+        granularity: Literal["hourly", "daily"] = "daily",
+        *,
+        session: Session,
+    ) -> CalendarDeadlineCollectionResponse:
+        """
+        Get deadline calendar data for a Dag, aggregated by time bucket and missed status.
+
+        Args:
+            dag_id: The Dag ID
+            session: Database session
+            deadline_time: Date range filter for deadline_time
+            granularity: Time granularity ("hourly" or "daily")
+
+        Returns:
+            Aggregated deadline counts per time bucket, split by missed/pending status
+        """
+        dialect = get_dialect_name(session)
+        time_expression = self._get_time_truncation_expression(Deadline.deadline_time, granularity, dialect)
+
+        select_stmt = (
+            sa.select(
+                time_expression.label("datetime"),
+                Deadline.missed,
+                sa.func.count("*").label("count"),
+            )
+            .join(Deadline.dagrun)
+            .where(DagRun.dag_id == dag_id)
+            .group_by(time_expression, Deadline.missed)
+            .order_by(time_expression.asc(), Deadline.missed.asc())
+        )
+
+        select_stmt = deadline_time.to_orm(select_stmt)
+        rows = session.execute(select_stmt).all()
+
+        results = [
+            CalendarDeadlineResponse(
+                date=row.datetime,
+                missed=row.missed,
+                count=int(row._mapping["count"]),
+            )
+            for row in rows
+        ]
+
+        return CalendarDeadlineCollectionResponse(
+            total_entries=len(results),
+            deadlines=results,
+        )

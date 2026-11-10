@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a293
+Version: 0.1.0a306
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,13 +18,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-transport==0.1.1a119
+Requires-Dist: dreamscale-transport==0.1.1a127
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
 Requires-Dist: packaging<27,>=23
-Requires-Dist: pillow<12,>=10
-Requires-Dist: rich<14,>=13.9
+Requires-Dist: pillow<13,>=10
+Requires-Dist: rich<15,>=13.9
 Requires-Dist: tomli-w<2,>=1.0
 Requires-Dist: typer<0.26,>=0.12
 Requires-Dist: typing-extensions<5,>=4.10
@@ -56,6 +56,7 @@ Requires-Dist: mujoco<=3.9.0,>=3.2; extra == 'sim'
 Requires-Dist: opencv-python<5,>=4.10; extra == 'sim'
 Requires-Dist: pyyaml<7,>=6; extra == 'sim'
 Requires-Dist: robosuite==1.4.1; extra == 'sim'
+Requires-Dist: scipy<2,>=1.11; extra == 'sim'
 Requires-Dist: torch<3,>=2.8; extra == 'sim'
 Requires-Dist: tqdm<5,>=4.66; extra == 'sim'
 Provides-Extra: so101
@@ -87,7 +88,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a293"
+uv add "dreamscale==0.1.0a306"
 ```
 
 Install the CLI as a standalone tool:
@@ -116,11 +117,11 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a293"
-uv add "dreamscale[sim]==0.1.0a293"
-uv add "dreamscale[dreamzero]==0.1.0a293"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a293"
-uv add "dreamscale[hud]==0.1.0a293"
+uv add "dreamscale[so101]==0.1.0a306"
+uv add "dreamscale[sim]==0.1.0a306"
+uv add "dreamscale[dreamzero]==0.1.0a306"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a306"
+uv add "dreamscale[hud]==0.1.0a306"
 ```
 
 The `dreamzero` extra installs the pinned H.264 codec used automatically by
@@ -412,6 +413,23 @@ print(len(result.actions), len(result.actions[0]))
 before adding a motion path.
 
 `dreamscale.connect()` is the canonical SDK entrypoint.
+
+For shared checkpoints that offer multiple regions, select a region with `region="japan"`.
+An explicit region is strict by default. Add `region_fallback=True` to allow the next
+supported region when GPU allocation stalls, or use `region_fallback=False` to prevent
+fallback with automatic selection. `region="auto"` chooses a supported region and allows
+allocation fallback. The model's `regions` in the API lists its supported locations;
+availability depends on the checkpoint. Capacity starts on demand.
+
+```python
+with dreamscale.connect(
+    model="molmoact2-so101", region="japan", region_fallback=True,
+) as policy:
+    actions = policy.predict(observation)
+```
+
+The robot CLI accepts the same choice with `--region japan --region-fallback` or
+`--no-region-fallback`.
 There is no first-class public `connect_libero()` or `connect_franka()`
 entrypoint; use `dreamscale.connect(model="molmoact2-libero")` or select another
 checkpoint with `model=`.

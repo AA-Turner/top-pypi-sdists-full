@@ -2664,7 +2664,72 @@ def _run_real_opencode_work(
             f"NDJSON — likely no usable credentials on this machine. "
             f"stderr={result.stderr[:500]!r}"
         )
+    # An expired/revoked opencode account credential is "no usable credentials
+    # on this machine" just as much as the empty-output case above — it is an
+    # environmental auth problem upstream, not a permission-enforcement result.
+    # The only difference is that opencode reports it as a parseable `error`
+    # NDJSON event (HTTP 401/403 from the inference endpoint) instead of
+    # printing nothing, so it slips past the `not events` guard and would
+    # otherwise fail the positive-path assertions. Per this helper's contract
+    # ("Skips (never fails) ... missing credentials"), skip here too.
+    auth_error = _opencode_auth_error(events)
+    if auth_error is not None:
+        pytest.skip(
+            "opencode account credentials are unusable on this machine "
+            f"(auth error from the inference endpoint): {auth_error}"
+        )
+    unavailable = _provider_unavailable_error(events)
+    if unavailable is not None:
+        pytest.skip(
+            "opencode's model provider refused the run (quota / rate limit / "
+            "overload) — machine account state, not an enforcement or config "
+            f"failure: {unavailable[:300]!r}"
+        )
     return events
+
+
+def _opencode_auth_error(events: list[dict]) -> str | None:
+    """Return a short description of the first credential/auth failure among
+    *events*, or ``None`` when there is none.
+
+    opencode surfaces an unusable account credential (expired, revoked, or
+    otherwise rejected key) as a top-level ``error`` event whose
+    ``error.data.statusCode`` is an HTTP 401/403 from the inference endpoint —
+    e.g. ``api_key_expired`` / ``authentication_error``. That is environmental,
+    not a coord-side enforcement outcome, so callers treat it as skip (not
+    fail) territory."""
+    for event in events:
+        if event.get("type") != "error":
+            continue
+        data = event.get("error", {}).get("data", {})
+        if data.get("statusCode") in (401, 403):
+            message = data.get("message") or data.get("responseBody") or ""
+            return f"HTTP {data.get('statusCode')}: {str(message)[:200]}"
+    return None
+
+
+# Provider-side refusals that say nothing about coord's argv, agent config or
+# permission rules: the free tier's usage cap ("Free usage limit reached"),
+# rate limiting, and upstream overload. Deliberately narrow — a generic API
+# error (e.g. a 400 caused by a bad provider option) is NOT in here, so a
+# config regression still surfaces as a failure.
+_PROVIDER_UNAVAILABLE_PATTERNS = re.compile(
+    r"usage limit|rate[ _-]?limit|quota|too many requests|overloaded"
+    r"|insufficient (?:credit|balance|funds)|\b429\b",
+    re.IGNORECASE,
+)
+
+
+def _provider_unavailable_error(events: list[dict]) -> str | None:
+    """Return the serialized ``error`` event that reports the model provider
+    as unavailable to this machine's account, or None if there is none."""
+    for event in events:
+        if event.get("type") != "error":
+            continue
+        text = json.dumps(event)
+        if _PROVIDER_UNAVAILABLE_PATTERNS.search(text):
+            return text
+    return None
 
 
 def _bash_tool_calls(events: list[dict]) -> list[dict]:
@@ -2712,6 +2777,49 @@ def _require_attempt(events: list[dict], calls: list[dict], expectation: str) ->
         f"the system-prompt advisory preempted it, so permission enforcement "
         f"was not exercised this run; model said: {texts[:300]!r}"
     )
+
+
+def test_opencode_auth_error_detects_expired_key_event() -> None:
+    """An expired opencode account key surfaces as a parseable 401 `error`
+    NDJSON event, which must be classified as a credential problem so
+    `_run_real_opencode_work` skips (per its contract) rather than letting
+    the positive-path assertions fail on an environmental auth failure."""
+    expired = {
+        "type": "error",
+        "error": {
+            "name": "APIError",
+            "data": {
+                "message": "This API key has expired.",
+                "statusCode": 401,
+                "responseBody": '{"error":{"code":"api_key_expired"}}',
+            },
+        },
+    }
+    detail = _opencode_auth_error([expired])
+    assert detail is not None
+    assert "401" in detail
+    assert "expired" in detail.lower()
+
+
+def test_opencode_auth_error_ignores_non_auth_events() -> None:
+    """A normal run (assistant text, tool calls) and a non-auth error (e.g.
+    a 500) are not credential problems, so the helper returns ``None`` and the
+    real run proceeds to its enforcement assertions."""
+    assert _opencode_auth_error([]) is None
+    assert (
+        _opencode_auth_error(
+            [
+                {"type": "text", "part": {"text": "hello"}},
+                {"type": "tool_use", "part": {"tool": "bash"}},
+            ]
+        )
+        is None
+    )
+    server_error = {
+        "type": "error",
+        "error": {"name": "APIError", "data": {"statusCode": 500}},
+    }
+    assert _opencode_auth_error([server_error]) is None
 
 
 @_requires_real_opencode
@@ -2987,6 +3095,45 @@ def test_opencode_routing_pin_inert_without_openrouter_credential_end_to_end(
     error_events = [e for e in events if e.get("type") == "error"]
     assert not error_events, f"routing pin broke a non-OpenRouter run: {error_events}"
     assert any(e.get("type") == "step_finish" for e in events)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "AI_APICallError: Free usage limit reached. Free models work in OpenCode "
+        "(https://opencode.ai); subscribe to OpenCode Go to keep going",
+        "Rate limit exceeded, retry later",
+        "429 Too Many Requests",
+        "Provider is overloaded",
+        "You exceeded your current quota",
+    ],
+)
+def test_opencode_provider_unavailable_error_is_recognised(message: str) -> None:
+    """The real-opencode e2e helper skips, rather than fails, when the free
+    model's provider refuses the run for account reasons — the quota on a
+    shared fleet machine is not something a branch can fix."""
+    events = [
+        {"type": "step_start", "part": {}},
+        {"type": "error", "error": {"name": "APIError", "data": {"message": message}}},
+    ]
+    assert _provider_unavailable_error(events) is not None
+
+
+@pytest.mark.parametrize(
+    "events",
+    [
+        [{"type": "step_finish", "part": {"reason": "stop"}}],
+        # A config/request error is a real regression signal, not an outage.
+        [{"type": "error", "error": {"name": "ConfigInvalidError",
+                                     "data": {"message": "provider.openrouter.options invalid"}}}],
+        [{"type": "error", "error": {"name": "APIError",
+                                     "data": {"message": "400 Bad Request: unknown field"}}}],
+        # Quota wording outside an error event (e.g. model prose) is ignored.
+        [{"type": "text", "part": {"text": "I hit a rate limit once"}}],
+    ],
+)
+def test_opencode_provider_unavailable_error_ignores_other_events(events: list[dict]) -> None:
+    assert _provider_unavailable_error(events) is None
 
 
 def test_opencode_parse_log_records_graphify_query_outcome(tmp_path: Path) -> None:

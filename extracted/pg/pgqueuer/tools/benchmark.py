@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import signal
 import sys
 from contextlib import suppress
 from dataclasses import dataclass, field as dataclass_field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from itertools import count
 from pathlib import Path
 from typing import NoReturn, Protocol
 
+import asyncpg
+import psycopg
 import typer
 import uvloop
 from pydantic import AwareDatetime, BaseModel
@@ -184,27 +185,16 @@ class DrainSettings(BaseModel):
 _shared_inmem: RepositoryPort | None = None
 
 
-def _get_conninfo(driver: DriverEnum) -> str:
-    """Return connection string. Empty means libpq env vars are used."""
-    return ""
-
-
 async def make_queries(driver: DriverEnum, conninfo: str = "") -> RepositoryPort:
-    global _shared_inmem
+    global _shared_inmem  # noqa: PLW0603 - in-memory store shared by producer and consumer
     match driver:
         case "apg":
-            import asyncpg
-
             return Queries(AsyncpgDriver(await asyncpg.connect(dsn=conninfo)))
         case "apgpool":
-            import asyncpg
-
             pool = await asyncpg.create_pool(dsn=conninfo)
             assert pool is not None
             return Queries(AsyncpgPoolDriver(pool))
         case "psy":
-            import psycopg
-
             return Queries(
                 PsycopgDriver(
                     await psycopg.AsyncConnection.connect(conninfo=conninfo, autocommit=True)
@@ -226,7 +216,7 @@ class Consumer:
 
     async def run(self) -> None:
         @self.pgq.entrypoint("fetch")
-        async def fetch(job: Job) -> None:
+        async def fetch(_job: Job) -> None:
             self.bar.update()
 
         await self.pgq.run(batch_size=self.batch_size, mode=self.mode)
@@ -286,16 +276,13 @@ class ThroughputStrategy:
         cnt = count()
         tasks = []
         for _ in range(self.settings.enqueue):
-            q = await make_queries(self.settings.driver, _get_conninfo(self.settings.driver))
+            q = await make_queries(self.settings.driver)
             p = Producer(self.shutdown, q, self.settings.enqueue_batch_size, cnt)
             tasks.append(p.run())
         await asyncio.gather(*tasks)
 
     async def run_dequeuers(self) -> None:
-        queries = [
-            await make_queries(self.settings.driver, _get_conninfo(self.settings.driver))
-            for _ in range(self.settings.dequeue)
-        ]
+        queries = [await make_queries(self.settings.driver) for _ in range(self.settings.dequeue)]
         for q in queries:
             self.pgqs.append(PgQueuer(q.driver, queries=q))
         with job_progress_bar() as bar:
@@ -306,11 +293,9 @@ class ThroughputStrategy:
             self.tqdm_format_dict.update(bar.format_dict)
 
     async def shutdown_timer(self) -> None:
-        with suppress(TimeoutError, asyncio.TimeoutError):
-            await asyncio.wait_for(
-                self.shutdown.wait(),
-                self.settings.timer.total_seconds(),
-            )
+        with suppress(TimeoutError):
+            async with asyncio.timeout(self.settings.timer.total_seconds()):
+                await self.shutdown.wait()
 
         self.graceful_shutdown()
 
@@ -320,7 +305,7 @@ class ThroughputStrategy:
         loop.add_signal_handler(signal.SIGTERM, self.graceful_shutdown)
 
         self.settings.pretty_print()
-        queries = await make_queries(self.settings.driver, _get_conninfo(self.settings.driver))
+        queries = await make_queries(self.settings.driver)
         await queries.clear_statistics_log()
         await queries.clear_queue()
 
@@ -349,11 +334,9 @@ class ThroughputStrategy:
             if not task.cancelled() and (exc := task.exception()):
                 raise exc
 
-        qsize = await (
-            await make_queries(self.settings.driver, _get_conninfo(self.settings.driver))
-        ).queue_size()
+        qsize = await (await make_queries(self.settings.driver)).queue_size()
         return BenchmarkResult(
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             driver=self.settings.driver,
             strategy=StrategyEnum.throughput,
             elapsed=timedelta(seconds=float(self.tqdm_format_dict.get("elapsed", 0))),
@@ -382,7 +365,7 @@ class DrainStrategy:
             loop.add_signal_handler(sig, self.graceful_shutdown)
 
         self.settings.pretty_print()
-        queries = await make_queries(self.settings.driver, _get_conninfo(self.settings.driver))
+        queries = await make_queries(self.settings.driver)
         await queries.clear_statistics_log()
         await queries.clear_queue()
 
@@ -397,14 +380,11 @@ class DrainStrategy:
             qm.shutdown.set()
 
     async def run(self) -> BenchmarkResult:
-        queries = [
-            await make_queries(self.settings.driver, _get_conninfo(self.settings.driver))
-            for _ in range(self.settings.dequeue)
-        ]
+        queries = [await make_queries(self.settings.driver) for _ in range(self.settings.dequeue)]
         for q in queries:
             self.pgqs.append(PgQueuer(q.driver, queries=q))
 
-        start = datetime.now(timezone.utc)
+        start = datetime.now(UTC)
         with job_progress_bar(total=self.settings.jobs) as bar:
             tasks = [
                 Consumer(
@@ -417,9 +397,9 @@ class DrainStrategy:
             ]
             await asyncio.gather(*tasks)
             self.tqdm_format_dict.update(bar.format_dict)
-        elapsed = datetime.now(timezone.utc) - start
+        elapsed = datetime.now(UTC) - start
         return BenchmarkResult(
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             driver=self.settings.driver,
             strategy=StrategyEnum.drain,
             elapsed=elapsed,
@@ -445,8 +425,7 @@ class BenchmarkRunner:
         result = await self.strategy.run()
         await self.strategy.teardown()
         if self.output_json:
-            with open(self.output_json, "w") as f:
-                json.dump(result.model_dump(mode="json"), f)
+            Path(self.output_json).write_text(result.model_dump_json())
         result.pretty_print()
 
 

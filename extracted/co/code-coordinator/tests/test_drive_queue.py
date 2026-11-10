@@ -65,11 +65,23 @@ from coord.drive_queue import (
     plan_tick,
     remaining_fix_rounds,
     render_plan,
+    summarize_drive_queue,
     total_fix_round_budget,
     unreachable_wait_alert,
     validate_enqueue,
 )
-from coord.models import EPIC_DECOMPOSE_TYPE, MERGE_LANDED_MARKER, PREMISE_REFUSAL_MARKER
+from coord.entry_truth import (
+    NEXT_ACTION_ESCALATE,
+    NEXT_ACTION_MARK_DONE,
+    NEXT_ACTION_UNKNOWN,
+    EntryTruth,
+)
+from coord.models import (
+    EPIC_DECOMPOSE_TYPE,
+    MERGE_LANDED_MARKER,
+    NEEDS_DECOMPOSITION_MARKER,
+    PREMISE_REFUSAL_MARKER,
+)
 
 REPO = "claude-coordinator"
 
@@ -130,12 +142,16 @@ def board(
     # shorthand tuple for the common "partial" case.
     partial: tuple[int, ...] = (),
     merge_resolution: dict[int, str] | None = None,
+    # #3931: issues whose `refused_premise` row was specifically the
+    # "already implemented" shape — see `IssueFacts.already_done`.
+    already_done: tuple[int, ...] = (),
 ) -> BoardView:
     facts: dict[str, IssueFacts] = {}
     merge_resolution = merge_resolution or {}
     for issue in {
         *merged, *closed, *open_, *reopened, *active,
         *ci_pending, *ci_pending_live, *ci_absent, *partial, *merge_resolution,
+        *already_done,
     }:
         facts[entry_key(REPO, issue)] = IssueFacts(
             known=True,
@@ -143,6 +159,7 @@ def board(
                 "closed" if issue in closed else ("open" if issue in open_ or issue in reopened else "")
             ),
             merged=issue in merged,
+            already_done=issue in already_done,
             merge_resolution=(
                 merge_resolution.get(issue)
                 or ("partial" if issue in partial else "resolved")
@@ -471,6 +488,99 @@ def test_build_board_view_defaults_merge_resolution_to_resolved():
     facts = view.facts(entry_key(REPO, 1650))
     assert facts.merge_resolution == "resolved"
     assert not facts.merged_partial
+
+
+def test_build_board_view_reads_already_done_off_a_refused_premise_row():
+    # #3931: a `refused_premise` row's own `completion_summary` carries an
+    # explicit `WORK_OUTCOME: already-done` marker — the ONLY way this flag
+    # is ever set True (the #3923 prose heuristic alone classifies the same
+    # finding as `"premise"`, never `"already_done"` — see the negative
+    # case below). Read with no extra `gh` call, same precedent as
+    # `merge_resolution` above.
+    view = build_board_view(
+        {
+            "assignments": [
+                {
+                    "repo_name": REPO, "issue_number": 2256, "type": "work",
+                    "status": "refused_premise",
+                    "completion_summary": (
+                        "RowAlign and FormSpacing::padding are already "
+                        "fully implemented and merged into `develop`.\n"
+                        "WORK_OUTCOME: already-done — see grep output above"
+                    ),
+                },
+            ],
+        },
+        [],
+    )
+    facts = view.facts(entry_key(REPO, 2256))
+    assert facts.already_done
+
+
+def test_build_board_view_does_not_flag_already_done_prose_without_a_marker():
+    """The #3923 prose heuristic alone (no `WORK_OUTCOME:` marker) matches
+    this text as an "already implemented" `refused_premise`
+    (`classify_zero_commit_refusal` → `"premise"`), but
+    `classify_zero_commit_outcome` only ever returns `"already_done"` from
+    an EXPLICIT marker — so this flag stays `False` even though the prose
+    reads exactly like the positive-marker test above. Closes the gap the
+    #3931 review flagged: a comment overclaiming prose coverage here would
+    be masking that every pre-#3931-marker already-done park still fails to
+    release its dependents."""
+    view = build_board_view(
+        {
+            "assignments": [
+                {
+                    "repo_name": REPO, "issue_number": 2258, "type": "work",
+                    "status": "refused_premise",
+                    "completion_summary": (
+                        "RowAlign and FormSpacing::padding are already "
+                        "fully implemented and merged into `develop`."
+                    ),
+                },
+            ],
+        },
+        [],
+    )
+    facts = view.facts(entry_key(REPO, 2258))
+    assert not facts.already_done
+
+
+def test_build_board_view_does_not_flag_a_generic_premise_refusal_as_already_done():
+    view = build_board_view(
+        {
+            "assignments": [
+                {
+                    "repo_name": REPO, "issue_number": 812, "type": "work",
+                    "status": "refused_premise",
+                    "completion_summary": (
+                        "Investigated the stated dependency: it is only "
+                        "about 8% met, so the premise is false — there is "
+                        "nothing correct to build yet."
+                    ),
+                },
+            ],
+        },
+        [],
+    )
+    facts = view.facts(entry_key(REPO, 812))
+    assert not facts.already_done
+
+
+def test_build_board_view_already_done_defaults_false_with_no_summary():
+    view = build_board_view(
+        {
+            "assignments": [
+                {
+                    "repo_name": REPO, "issue_number": 2257, "type": "work",
+                    "status": "refused_premise",
+                },
+            ],
+        },
+        [],
+    )
+    facts = view.facts(entry_key(REPO, 2257))
+    assert not facts.already_done
 
 
 def test_build_board_view_ignores_issue_resolution_marker_for_mock_author():
@@ -4618,6 +4728,161 @@ def test_a_premise_refusal_and_a_policy_refusal_are_never_conflated():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# #3931 item 3: a needs-decomposition leg — a worker that reaped
+# `coord.agent.NEEDS_DECOMPOSITION` (clean exit, 0 commits, its own final
+# message or `WORK_OUTCOME:` marker concludes the issue needs epic
+# decomposition) — parks exactly like a premise refusal above: same
+# no-attempt-spent accounting, same "never auto-resumes" posture. The remedy
+# text differs again: decompose + close/re-scope, no retarget and no
+# `clear-refusal`-style recheck.
+# ═══════════════════════════════════════════════════════════════════════════
+
+NEEDS_DECOMPOSITION_REASON = (
+    "drive exited for quadraui#3922 (exit_code=1): work 70028f73bfbb "
+    "concluded the issue needs epic decomposition rather than one leg of "
+    "work — the worker did the CORRECT thing (#3931). "
+    f"{NEEDS_DECOMPOSITION_MARKER}"
+)
+
+
+def test_a_needs_decomposition_leg_parks_without_spending_an_attempt():
+    entries = [entry(3922, position=3, state=STATE_RUNNING, attempts=0)]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        exit_reasons={entry_key(REPO, 3922): NEEDS_DECOMPOSITION_REASON},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "parked"
+    assert reconcile.updates["state"] == "parked"
+    assert "attempts" not in reconcile.updates
+    assert plan.blocked == ()  # NOT terminal `blocked`
+    assert plan.launch is None  # NOT relaunched — this is item 3's whole point
+    assert NEEDS_DECOMPOSITION_REASON in reconcile.reason
+    assert NEEDS_DECOMPOSITION_REASON in reconcile.updates["last_reason"]
+
+
+def test_a_needs_decomposition_park_reason_names_decomposition_not_retarget_or_recheck():
+    entries = [entry(3922, position=3, state=STATE_RUNNING, attempts=0)]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        exit_reasons={entry_key(REPO, 3922): NEEDS_DECOMPOSITION_REASON},
+    )
+    reason = plan.reconciles[0].reason
+    assert "retarget" not in reason
+    assert "clear-refusal" not in reason
+    assert "decompose" in reason
+
+
+def test_a_parked_needs_decomposition_leg_does_not_auto_resume_next_tick():
+    """Without the #3931 pre-pass check this reads exactly like a cleared
+    CI park and would flip back to `waiting`, relaunching into the identical
+    split proposal every tick — #3922's incident (three legs, ~$0.90, same
+    answer) replayed forever."""
+    entries = [
+        entry(3922, position=3, state="parked", attempts=0,
+              last_reason=NEEDS_DECOMPOSITION_REASON)
+    ]
+    plan = plan_tick(entries, board(), capacity=1)
+    assert plan.reconciles == ()  # left alone — still parked
+    assert plan.launch is None
+
+
+def test_a_parked_needs_decomposition_leg_still_reconciles_to_done_if_it_lands_by_hand():
+    """A human decomposing the issue and merging it out of band must not
+    leave the entry parked forever — the #2055 landed-check still applies."""
+    entries = [entry(3922, position=3, state="parked", attempts=0,
+                      last_reason=NEEDS_DECOMPOSITION_REASON)]
+    plan = plan_tick(entries, board(merged=(3922,)), capacity=1)
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "done"
+    assert reconcile.updates["state"] == STATE_DONE
+
+
+def test_a_needs_decomposition_leg_and_a_premise_refusal_are_never_conflated():
+    entries = [
+        entry(3922, position=1, state=STATE_RUNNING, attempts=0),
+        entry(812, position=2, state=STATE_RUNNING, attempts=0),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=2,
+        exit_reasons={
+            entry_key(REPO, 3922): NEEDS_DECOMPOSITION_REASON,
+            entry_key(REPO, 812): PREMISE_REFUSAL_REASON,
+        },
+    )
+    by_key = {r.key: r for r in plan.reconciles}
+    decomp_reason = by_key[entry_key(REPO, 3922)].reason
+    premise_reason = by_key[entry_key(REPO, 812)].reason
+    assert decomp_reason != premise_reason
+    assert "decompose" in decomp_reason
+    assert "decompose" not in premise_reason
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# #3931 item 4: an `after=` pre-req parked `refused_premise` on the
+# "already implemented" finding satisfies its dependent immediately.
+#
+# Before this, a dependent chained `--after` an already-done park read
+# "waiting on {dep} (queued, parked)" forever — correct that nothing was
+# dispatching the pre-req (an operator's `clear-refusal` is needed before
+# THAT row un-parks), wrong that the dependent had anything left to wait
+# for: the whole reason for the park is that the prerequisite already
+# exists. `IssueFacts.already_done` (set by `build_board_view` off the
+# SAME `completion_summary` column every other board-derived field reads)
+# is what `_resolve_prereqs` now checks alongside `facts.landed`.
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_after_prereq_parked_as_already_done_satisfies_its_dependent():
+    dep_key = entry_key(REPO, 1650)
+    entries = [
+        entry(1650, position=0, state=STATE_PARKED, attempts=0,
+              last_reason=f"already implemented — {PREMISE_REFUSAL_MARKER}"),
+        entry(1654, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    plan = plan_tick(entries, board(already_done=(1650,)), capacity=2)
+    assert plan.launch is not None and plan.launch.issue == 1654
+    # The dependent itself must not show up as blocked/deferred by its
+    # already-done pre-req — nothing to reconcile about it this tick.
+    assert not any(r.key == entry_key(REPO, 1654) for r in plan.reconciles)
+
+
+def test_after_prereq_parked_as_a_generic_premise_refusal_still_waits():
+    """The negative case: a GENERIC premise refusal (prerequisite unmet, not
+    already satisfied) must NOT release a dependent — the dependent
+    genuinely has nothing to build against yet, same as before #3931."""
+    dep_key = entry_key(REPO, 812)
+    entries = [
+        entry(812, position=0, state=STATE_PARKED, attempts=0,
+              last_reason=f"prerequisite unmet — {PREMISE_REFUSAL_MARKER}"),
+        entry(1654, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    plan = plan_tick(entries, board(), capacity=2)
+    assert plan.launch is None
+
+
+def test_after_prereq_parked_as_already_done_then_reopened_does_not_release_dependent():
+    """#3384's `reopened` override, replayed through the #3931 `already_done`
+    door: `already_done` is read off a HISTORICAL `refused_premise` row's
+    `completion_summary` and is never invalidated on its own, so if the
+    issue is later reopened — GitHub's own witness that the earlier finding
+    did not actually finish the work — this must stop releasing the
+    dependent, exactly like `IssueFacts.landed`'s own `reopened` override.
+    Without this, claude-coordinator#3380's incident (every entry gated
+    `--after` it released anyway) replays through the new door."""
+    dep_key = entry_key(REPO, 1650)
+    entries = [
+        entry(1650, position=0, state=STATE_PARKED, attempts=0,
+              last_reason=f"already implemented — {PREMISE_REFUSAL_MARKER}"),
+        entry(1654, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    plan = plan_tick(
+        entries, board(already_done=(1650,), reopened=(1650,)), capacity=2,
+    )
+    assert plan.launch is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # #2977: a throttle-SKIPPED `gh` call — `_gh`'s pre-call guard found a shared
 # GitHub rate-limit backoff (coord.github_throttle) already active and
 # raised `GhRateLimitError(from_cache=True)` WITHOUT ever making a network
@@ -5774,6 +6039,65 @@ def test_a_mass_after_prereq_cascade_is_also_staggered():
     assert "#3536" in staggered_reconcile.reason
 
 
+def test_a_staggered_after_prereq_resume_keeps_its_marker_for_the_next_tick():
+    """#3874: the stagger reconcile must not overwrite `last_reason` for a
+    `resumed` outcome that came from `_reconcile_blocked_after`'s own
+    `after=` resume — `updates` must be entirely empty, so the entry keeps
+    the `is_unsatisfiable_prereq_reason` marker that function needs to
+    recognise it again.
+
+    Writing the "resuming on a later tick" text into `last_reason` here
+    (what `_refresh_only` would do) destroys that marker: the text does not
+    match `is_unsatisfiable_prereq_reason`, so the VERY NEXT tick cannot
+    resume #1656 through `_reconcile_blocked_after` again and the row falls
+    to `_reconcile_blocked`'s merge-gate probe, which has no branch/PR to
+    read for a never-dispatched entry and reports "could not be read"
+    forever (the quadraui#2035 incident). This pins both halves: the
+    stagger write is a true no-op, and a LATER tick with a free slot
+    resumes for real."""
+    import dataclasses
+
+    dep_key = entry_key(REPO, 1650)
+    entries = [entry(1650, position=0, state=STATE_DONE)] + [
+        entry(
+            1654 + i,
+            position=1 + i,
+            after=(dep_key,),
+            state=STATE_BLOCKED,
+            attempts=2,
+            resumes=0,
+            last_reason=f"pre-req {dep_key} is queued but blocked — it will never satisfy",
+        )
+        for i in range(3)
+    ]
+    tick1 = plan_tick(entries, board(merged=(1650,)), capacity=4)
+
+    by_key = {r.key: r for r in tick1.reconciles}
+    staggered_reconcile = by_key[entry_key(REPO, 1656)]
+    assert staggered_reconcile.outcome == "resume_staggered"
+    # The whole point: nothing is written at all, not even `last_reason`.
+    assert staggered_reconcile.updates == {}
+
+    # Tick 2: capacity frees up (the other two rows are no longer `blocked`)
+    # and #1656's `last_reason` is STILL the original marker. Threaded
+    # through `dataclasses.replace` with tick 1's own (empty) `updates`
+    # rather than hand-built fresh — a genuine round trip, so a future
+    # change that goes back to writing the stagger note into `last_reason`
+    # fails here instead of only in the `updates == {}` assertion above.
+    original_1656 = next(e for e in entries if e.issue == 1656)
+    still_blocked = dataclasses.replace(
+        original_1656, position=3, **staggered_reconcile.updates
+    )
+    tick2 = plan_tick(
+        [entry(1650, position=0, state=STATE_DONE), still_blocked],
+        board(merged=(1650,)),
+        capacity=4,
+    )
+    reconcile = next(r for r in tick2.reconciles if r.key == entry_key(REPO, 1656))
+    assert reconcile.outcome == "resumed"
+    assert reconcile.updates["state"] == STATE_WAITING
+
+
 # ── #2935: a never-dispatched after=-blocked entry must never reach the ────
 # merge-gate sweep at all
 #
@@ -6284,6 +6608,281 @@ def test_a_permanently_blocked_entry_is_not_resumed_even_once_its_after_lands():
     plan = plan_tick(entries, board(merged=(1650,)), capacity=1)
     assert plan.reconciles == ()
     assert plan.launch is None
+
+
+# ── #3934: a pre-req's live EntryTruth decides the after= edge, never its ──
+# own queue-row `state` — a stored conclusion that stays put even after a
+# DIFFERENT actor changes the pre-req's reality without rewriting that row.
+# Replays vimcode#2140: pre-req quadraui#2256 sat `blocked`, so
+# `_resolve_prereqs` called the dependent's edge "will never satisfy" — but
+# the feature it named had already shipped upstream, and #2140 itself merged
+# outside the queue while quadraui#2256's row still showed `blocked`.
+
+
+def test_vimcode_2140_blocked_prereq_with_live_truth_mark_done_releases_the_dependent():
+    """A pre-req sitting `blocked` in the queue (matching #2140's incident
+    shape) must release its dependent the instant a live `EntryTruth` for
+    that pre-req reads `mark_done` — whatever the pre-req's OWN row still
+    claims. Mirrors `test_a_dependent_is_released_when_its_prereq_is_
+    blocked_but_live_landed` (#2850's `live_prereq_terminal`), but for the
+    richer EntryTruth read #3934 wires in instead."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        entry(2140, position=0, after=(dep_key,)),
+        entry(2256, position=1, state=STATE_BLOCKED, attempts=2),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO,
+                issue_number=2256,
+                next_action=NEXT_ACTION_MARK_DONE,
+                next_action_reason="PR merged; issue should close",
+            ),
+        },
+    )
+    assert plan.launch is not None
+    assert plan.launch.issue == 2140
+
+
+def test_a_blocked_dependent_resumes_once_its_prereqs_live_truth_says_mark_done():
+    """The #2362 self-heal (`_reconcile_blocked_after`) must ALSO consult a
+    live `EntryTruth`, not just `_resolve_prereqs`'s own launch-walk call —
+    a dependent already `blocked` on the frozen "it will never satisfy"
+    verdict resumes the moment a fresh live truth for the named pre-req
+    reads `mark_done`."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        entry(2256, position=0, state=STATE_BLOCKED, last_reason="blocked: red CI"),
+        entry(
+            2140,
+            position=1,
+            after=(dep_key,),
+            state=STATE_BLOCKED,
+            attempts=2,
+            resumes=0,
+            last_reason=f"pre-req {dep_key} is queued but blocked — it will never satisfy",
+        ),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=2,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO, issue_number=2256, next_action=NEXT_ACTION_MARK_DONE,
+            ),
+        },
+    )
+    reconcile = next(r for r in plan.reconciles if r.key == entry_key(REPO, 2140))
+    assert reconcile.outcome == "resumed"
+    assert reconcile.updates["state"] == STATE_WAITING
+    assert "it will never satisfy" not in reconcile.reason
+
+
+def test_prereq_truth_escalate_blocks_the_dependent_even_though_its_queue_row_reads_waiting():
+    """A pre-req's own queue row can read `waiting` (merely "still queued",
+    an ordinary deferral by `dep_state` alone) while its LIVE truth already
+    knows better — a CONFIRMED fact (here: the pre-req's PR closed without
+    merging, `escalate_probe_failure=False`) says it is genuinely stuck
+    needing an operator. Once a truth is supplied, it is the ONLY thing
+    that decides the edge; the dep's row `state` is display-only (#3934's
+    rule), so this reads unsatisfiable even though `dep_state` alone would
+    merely defer."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        # The dependent sits at position 0 so the main launch walk reaches
+        # IT first, before the pre-req (position 1, itself launchable) can
+        # steal this tick's one launch slot — see `test_a_dependent_is_
+        # released_when_its_queued_but_not_done_prereq_has_live_landed`'s
+        # own comment for why position order matters here.
+        entry(2140, position=0, after=(dep_key,)),
+        entry(2256, position=1, state=STATE_WAITING),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=2,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO,
+                issue_number=2256,
+                next_action=NEXT_ACTION_ESCALATE,
+                next_action_reason="PR closed without merging",
+                escalate_probe_failure=False,
+            ),
+        },
+    )
+    # `plan.launch`, if any, is pre-req 2256 itself (launchable on its own
+    # merits) — never dependent 2140, which the `blocked` assertions below
+    # already carry the test for.
+    assert plan.launch is None or plan.launch.issue == 2256
+    blocked = next(b for b in plan.blocked if b.key == entry_key(REPO, 2140))
+    assert "it will never satisfy without operator action" in blocked.reason
+    assert "PR closed without merging" in blocked.reason
+
+
+def test_prereq_truth_escalate_probe_failure_is_an_ordinary_deferral_not_a_block():
+    """An ESCALATE caused by a FAILED live probe (`escalate_probe_failure`)
+    — the branch head or PR state could not be confirmed — is inconclusive,
+    never a confirmed block: unlike a confirmed escalate (the test above),
+    this must fall through to the dep's own `dep_state` reasoning exactly
+    like `NEXT_ACTION_UNKNOWN` does, so the dependent merely defers and
+    retries next tick instead of latching `blocked` on a transient `gh`
+    read failure."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        entry(2140, position=0, after=(dep_key,)),
+        entry(2256, position=1, state=STATE_WAITING),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=2,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO,
+                issue_number=2256,
+                next_action=NEXT_ACTION_ESCALATE,
+                next_action_reason="branch head could not be read live",
+                escalate_probe_failure=True,
+            ),
+        },
+    )
+    assert plan.blocked == ()
+    deferral = next(d for d in plan.deferrals if d.key == entry_key(REPO, 2140))
+    assert "it will never satisfy" not in deferral.reason
+
+
+def test_prereq_truth_unknown_falls_back_to_the_pre_3934_dep_state_reasoning():
+    """`NEXT_ACTION_UNKNOWN` means no live access was even gathered for the
+    dep this tick — the same "nothing to go on" as the dep being absent from
+    `prereq_truth` at all. The #3368 unconfirmed-probe-failure carve-out
+    (which `EntryTruth` has no equivalent vocabulary for) must still apply
+    unchanged in that case."""
+    dep_key = entry_key(REPO, 1059)
+    dep_reason = (
+        f"{dep_key}'s merge gate could not be read this tick (no PR number "
+        "yet) — this is NOT a confirmed-still-shut gate, only a failed "
+        "probe; #2230's sweep will try again next tick rather than "
+        "guessing (#2806)"
+    )
+    entries = [
+        entry(1059, position=0, state=STATE_BLOCKED, last_reason=dep_reason),
+        entry(1060, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=1,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO, issue_number=1059, next_action=NEXT_ACTION_UNKNOWN,
+            ),
+        },
+    )
+    assert plan.blocked == ()
+    deferral = next(d for d in plan.deferrals if d.key == entry_key(REPO, 1060))
+    assert "it will never satisfy" not in deferral.reason
+    assert "retrying" in deferral.reason
+
+
+def test_summarize_drive_queue_eligible_count_follows_live_truth_not_dep_state():
+    """`summarize_drive_queue`'s `eligible` count (via `_after_satisfied`)
+    must agree with a live tick's own verdict: a `waiting` dependent whose
+    pre-req row still reads `blocked` is NOT eligible by `dep_state` alone,
+    but IS once a live truth for that pre-req reads `mark_done`."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        entry(2256, position=0, state=STATE_BLOCKED),
+        entry(2140, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    without_truth = summarize_drive_queue(entries)
+    assert without_truth.eligible == 0
+    with_truth = summarize_drive_queue(
+        entries,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO, issue_number=2256, next_action=NEXT_ACTION_MARK_DONE,
+            ),
+        },
+    )
+    assert with_truth.eligible == 1
+
+
+def test_prereq_truth_never_shadows_the_already_done_board_signal():
+    """#3931's `already_done` ("premise-refused on the specific 'already
+    implemented' finding") is a board-level signal `EntryTruth` does not
+    yet have its own equivalent of — `_derive_next_action` reads ANY
+    `refused_premise` worker outcome as `escalate`, generic or
+    already-done alike. A live truth reading `escalate` for such a dep
+    must NOT override `facts.already_done`'s own, more-informed
+    "satisfied" verdict — `facts` is consulted first, exactly as it was
+    before #3934."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        entry(2256, position=0, state=STATE_PARKED, attempts=0,
+              last_reason=f"already implemented — {PREMISE_REFUSAL_MARKER}"),
+        entry(2140, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    plan = plan_tick(
+        entries, board(already_done=(2256,)), capacity=2,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO,
+                issue_number=2256,
+                next_action=NEXT_ACTION_ESCALATE,
+                next_action_reason=(
+                    "latest worker leg exited 'refused_premise' — needs "
+                    "operator recovery, not another dispatch"
+                ),
+            ),
+        },
+    )
+    assert plan.launch is not None and plan.launch.issue == 2140
+
+
+def test_after_satisfied_fired_gate_outranks_a_mark_done_truth():
+    """`_after_satisfied`'s `_entry_is_holding` check is consulted BEFORE
+    *prereq_truth* — a pre-req's own `--hold-after` gate having FIRED is a
+    later, stronger fact than a live `mark_done` truth read before that
+    gate fired, and must still hold the dependent regardless of what the
+    truth says."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        held(2256),
+        entry(2140, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    summary = summarize_drive_queue(
+        entries,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO, issue_number=2256, next_action=NEXT_ACTION_MARK_DONE,
+            ),
+        },
+    )
+    assert summary.eligible == 0
+
+
+def test_prereq_truth_never_shadows_a_dep_state_already_done_row():
+    """A pre-req the QUEUE ITSELF confirmed `done` this tick (`dep_state in
+    STATE_DONE_LIKE`) is at least as trustworthy a positive signal as
+    `facts.landed`/`already_done` (see the test above) — it must not be
+    shadowed by a live truth whose own probe happens to fail against that
+    same pre-req. Without this ordering a confirmed merge would
+    permanently block its dependent on nothing more than a flaky `gh`
+    read."""
+    dep_key = entry_key(REPO, 2256)
+    entries = [
+        entry(2256, position=0, state=STATE_DONE),
+        entry(2140, position=1, after=(dep_key,), state=STATE_WAITING),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=2,
+        prereq_truth={
+            dep_key: EntryTruth(
+                repo_name=REPO,
+                issue_number=2256,
+                next_action=NEXT_ACTION_ESCALATE,
+                next_action_reason="PR closed without merging",
+                escalate_probe_failure=False,
+            ),
+        },
+    )
+    assert plan.launch is not None and plan.launch.issue == 2140
 
 
 # ── #2602 recovery half: a live re-check resumes the "unknown pre-req" ────

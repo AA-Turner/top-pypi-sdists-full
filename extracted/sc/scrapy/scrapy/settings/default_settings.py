@@ -43,9 +43,12 @@ __all__ = [
     "CLOSESPIDER_TIMEOUT_NO_ITEM",
     "COMMANDS_MODULE",
     "COMPRESSION_ENABLED",
+    "COMPRESSION_MAX_ENCODINGS",
+    "CONCURRENT_CONNECTIONS_PER_HANDLER",
     "CONCURRENT_ITEMS",
     "CONCURRENT_REQUESTS",
     "CONCURRENT_REQUESTS_PER_DOMAIN",
+    "CONNECTION_KEEPALIVE_TIMEOUT",
     "COOKIES_DEBUG",
     "COOKIES_ENABLED",
     "CRAWLSPIDER_FOLLOW_LINKS",
@@ -65,6 +68,7 @@ __all__ = [
     "DOWNLOADER_CLIENT_TLS_VERBOSE_LOGGING",
     "DOWNLOADER_MIDDLEWARES",
     "DOWNLOADER_MIDDLEWARES_BASE",
+    "DOWNLOADER_MIDDLEWARE_RESPONSE_EXCEPTIONS",
     "DOWNLOADER_STATS",
     "DOWNLOAD_BIND_ADDRESS",
     "DOWNLOAD_DELAY",
@@ -72,6 +76,7 @@ __all__ = [
     "DOWNLOAD_FAIL_ON_DATALOSS",
     "DOWNLOAD_HANDLERS",
     "DOWNLOAD_HANDLERS_BASE",
+    "DOWNLOAD_HANDLERS_BY_NAME",
     "DOWNLOAD_MAXSIZE",
     "DOWNLOAD_SLOTS",
     "DOWNLOAD_TIMEOUT",
@@ -82,6 +87,7 @@ __all__ = [
     "DUPEFILTER_CLASS",
     "DUPEFILTER_DEBUG",
     "EDITOR",
+    "EVENT_LOOP_LAG_THRESHOLD",
     "EXTENSIONS",
     "EXTENSIONS_BASE",
     "FEEDS",
@@ -92,6 +98,7 @@ __all__ = [
     "FEED_EXPORT_FIELDS",
     "FEED_EXPORT_INDENT",
     "FEED_FORMAT",
+    "FEED_MODE",
     "FEED_STORAGES",
     "FEED_STORAGES_BASE",
     "FEED_STORAGE_FTP_ACTIVE",
@@ -124,6 +131,7 @@ __all__ = [
     "HTTPCACHE_IGNORE_RESPONSE_CACHE_CONTROLS",
     "HTTPCACHE_IGNORE_SCHEMES",
     "HTTPCACHE_POLICY",
+    "HTTPCACHE_SCOPE",
     "HTTPCACHE_STORAGE",
     "HTTPERROR_ALLOWED_CODES",
     "HTTPERROR_ALLOW_ALL",
@@ -137,6 +145,8 @@ __all__ = [
     "ITEM_PIPELINES_BASE",
     "ITEM_PROCESSOR",
     "JOBDIR",
+    "JOBDIR_SYNC_EVERY",
+    "JSONVALIDATION_ENABLED",
     "LOGSTATS_INTERVAL",
     "LOG_COLOR",
     "LOG_DATEFORMAT",
@@ -148,6 +158,8 @@ __all__ = [
     "LOG_FORMATTER",
     "LOG_INSTALL_ROOT_HANDLER",
     "LOG_LEVEL",
+    "LOG_LEVELS",
+    "LOG_ROOT_FORMATTER",
     "LOG_SHORT_NAMES",
     "LOG_STDOUT",
     "LOG_VERSIONS",
@@ -158,6 +170,9 @@ __all__ = [
     "MAIL_SSL",
     "MAIL_TLS",
     "MAIL_USER",
+    "MEDIA_CACHE_SIZE",
+    "MEDIA_STORAGES",
+    "MEDIA_STORAGES_BASE",
     "MEMDEBUG_ENABLED",
     "MEMUSAGE_CHECK_INTERVAL_SECONDS",
     "MEMUSAGE_ENABLED",
@@ -167,6 +182,7 @@ __all__ = [
     "METAREFRESH_ENABLED",
     "METAREFRESH_IGNORE_TAGS",
     "METAREFRESH_MAXDELAY",
+    "METAREFRESH_SCRIPTING",
     "NEWSPIDER_MODULE",
     "PERIODIC_LOG_DELTA",
     "PERIODIC_LOG_STATS",
@@ -174,6 +190,7 @@ __all__ = [
     "RANDOMIZE_DOWNLOAD_DELAY",
     "REACTOR_THREADPOOL_MAXSIZE",
     "REDIRECT_ENABLED",
+    "REDIRECT_HTTP_CODES",
     "REDIRECT_MAX_TIMES",
     "REDIRECT_PRIORITY_ADJUST",
     "REFERER_ENABLED",
@@ -186,6 +203,8 @@ __all__ = [
     "REMOTE_CONTROL_TIMEOUT_MAX",
     "REMOTE_CONTROL_TRACEBACK_MAX_BYTES",
     "REQUEST_FINGERPRINTER_CLASS",
+    "RESPONSE_MAX_ACTIVE_SIZE",
+    "RESPONSE_ROUGH_SIZE",
     "RETRY_ENABLED",
     "RETRY_EXCEPTIONS",
     "RETRY_GIVE_UP_LOG_LEVEL",
@@ -213,6 +232,7 @@ __all__ = [
     "STATSMAILER_RCPTS",
     "STATS_CLASS",
     "STATS_DUMP",
+    "STICKY_META_KEYS",
     "TELNETCONSOLE_ENABLED",
     "TELNETCONSOLE_HOST",
     "TELNETCONSOLE_PASSWORD",
@@ -222,6 +242,7 @@ __all__ = [
     "TWISTED_DNS_RESOLVER",
     "TWISTED_REACTOR",
     "TWISTED_REACTOR_ENABLED",
+    "UPLOAD_TIMEOUT",
     "URLLENGTH_LIMIT",
     "USER_AGENT",
     "WARN_ON_GENERATOR_RETURN_VALUE",
@@ -258,11 +279,16 @@ CLOSESPIDER_TIMEOUT_NO_ITEM = 0
 COMMANDS_MODULE = ""
 
 COMPRESSION_ENABLED = True
+COMPRESSION_MAX_ENCODINGS = 1
+
+CONCURRENT_CONNECTIONS_PER_HANDLER = None
 
 CONCURRENT_ITEMS = 100
 
 CONCURRENT_REQUESTS = 16
 CONCURRENT_REQUESTS_PER_DOMAIN = 8
+
+CONNECTION_KEEPALIVE_TIMEOUT = 240.0
 
 COOKIES_ENABLED = True
 COOKIES_DEBUG = False
@@ -303,6 +329,7 @@ DOWNLOAD_HANDLERS_BASE = {
     "s3": "scrapy.core.downloader.handlers.s3.S3DownloadHandler",
     "ftp": "scrapy.core.downloader.handlers.ftp.FTPDownloadHandler",
 }
+DOWNLOAD_HANDLERS_BY_NAME: dict[str, str] = {}
 
 DOWNLOAD_MAXSIZE = 1024 * 1024 * 1024  # 1024m
 DOWNLOAD_WARNSIZE = 32 * 1024 * 1024  # 32m
@@ -328,11 +355,13 @@ DOWNLOADER_MIDDLEWARES_BASE = {
     # Engine side
     "scrapy.downloadermiddlewares.offsite.OffsiteMiddleware": 50,
     "scrapy.downloadermiddlewares.robotstxt.RobotsTxtMiddleware": 100,
+    "scrapy.downloadermiddlewares.uriuserinfo.UriUserInfoMiddleware": 200,
     "scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware": 300,
     "scrapy.downloadermiddlewares.downloadtimeout.DownloadTimeoutMiddleware": 350,
     "scrapy.downloadermiddlewares.defaultheaders.DefaultHeadersMiddleware": 400,
     "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": 500,
     "scrapy.downloadermiddlewares.retry.RetryMiddleware": 550,
+    "scrapy.downloadermiddlewares.jsonvalidation.JsonValidationMiddleware": 560,
     "scrapy.downloadermiddlewares.redirect.MetaRefreshMiddleware": 580,
     "scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware": 590,
     "scrapy.downloadermiddlewares.redirect.RedirectMiddleware": 600,
@@ -342,6 +371,7 @@ DOWNLOADER_MIDDLEWARES_BASE = {
     "scrapy.downloadermiddlewares.httpcache.HttpCacheMiddleware": 900,
     # Downloader side
 }
+DOWNLOADER_MIDDLEWARE_RESPONSE_EXCEPTIONS = False
 
 DOWNLOADER_STATS = True
 
@@ -351,6 +381,8 @@ DUPEFILTER_DEBUG = False
 EDITOR = "vi"
 if sys.platform == "win32":
     EDITOR = "%s -m idlelib.idle"
+
+EVENT_LOOP_LAG_THRESHOLD = 10.0
 
 EXTENSIONS: dict[str, int] = {}
 EXTENSIONS_BASE = {
@@ -365,6 +397,7 @@ EXTENSIONS_BASE = {
     "scrapy.extensions.spiderstate.SpiderState": 0,
     "scrapy.extensions.throttle.AutoThrottle": 0,
     "scrapy.extensions.remote_control.RemoteControl": 0,
+    "scrapy.extensions.event_loop_lag.EventLoopLagMonitor": 0,
 }
 
 FEEDS: dict[str | Path, dict[str, Any]] = {}
@@ -384,6 +417,7 @@ FEED_EXPORTERS_BASE = {
     "pickle": "scrapy.exporters.PickleItemExporter",
 }
 FEED_FORMAT = "jsonlines"
+FEED_MODE = None
 FEED_STORE_EMPTY = True
 FEED_STORAGES: dict[str, str] = {}
 FEED_STORAGES_BASE = {
@@ -431,6 +465,7 @@ HTTPCACHE_IGNORE_MISSING = False
 HTTPCACHE_IGNORE_RESPONSE_CACHE_CONTROLS: list[str] = []
 HTTPCACHE_IGNORE_SCHEMES = ["file"]
 HTTPCACHE_POLICY = "scrapy.extensions.httpcache.DummyPolicy"
+HTTPCACHE_SCOPE = "spider"
 HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
 
 HTTPERROR_ALLOW_ALL = False
@@ -451,6 +486,9 @@ ITEM_PIPELINES_BASE: dict[str, int] = {}
 ITEM_PROCESSOR = "scrapy.pipelines.ItemPipelineManager"
 
 JOBDIR = None
+JOBDIR_SYNC_EVERY = 0
+
+JSONVALIDATION_ENABLED = False
 
 LOG_COLOR = True
 LOG_ENABLED = True
@@ -462,6 +500,8 @@ LOG_FILE_APPEND = True
 LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
 LOG_FORMATTER = "scrapy.logformatter.LogFormatter"
 LOG_LEVEL = "DEBUG"
+LOG_LEVELS: dict[str, str] = {}
+LOG_ROOT_FORMATTER = "scrapy.LogRootFormatter"
 LOG_SHORT_NAMES = False
 LOG_STDOUT = False
 LOG_VERSIONS = [
@@ -487,6 +527,17 @@ MAIL_PASS = None
 MAIL_SSL = False
 MAIL_TLS = False
 
+MEDIA_CACHE_SIZE = -1
+
+MEDIA_STORAGES: dict[str, str] = {}
+MEDIA_STORAGES_BASE = {
+    "": "scrapy.pipelines.files.FSFilesStore",
+    "file": "scrapy.pipelines.files.FSFilesStore",
+    "ftp": "scrapy.pipelines.files.FTPFilesStore",
+    "gs": "scrapy.pipelines.files.GCSFilesStore",
+    "s3": "scrapy.pipelines.files.S3FilesStore",
+}
+
 MEMDEBUG_ENABLED = False  # enable memory debugging
 
 MEMUSAGE_ENABLED = True
@@ -498,6 +549,7 @@ MEMUSAGE_WARNING_MB = 0
 METAREFRESH_ENABLED = True
 METAREFRESH_IGNORE_TAGS = ["noscript"]
 METAREFRESH_MAXDELAY = 100
+METAREFRESH_SCRIPTING = True
 
 NEWSPIDER_MODULE = ""
 
@@ -510,6 +562,7 @@ RANDOMIZE_DOWNLOAD_DELAY = True
 REACTOR_THREADPOOL_MAXSIZE = 10
 
 REDIRECT_ENABLED = True
+REDIRECT_HTTP_CODES = [301, 302, 303, 307, 308]
 REDIRECT_MAX_TIMES = 20  # uses Firefox default setting
 REDIRECT_PRIORITY_ADJUST = +2
 
@@ -529,20 +582,20 @@ REQUEST_FINGERPRINTER_CLASS = "scrapy.utils.request.RequestFingerprinter"
 RETRY_ENABLED = True
 RETRY_EXCEPTIONS = [
     "scrapy.exceptions.CannotResolveHostError",
+    "scrapy.exceptions.DecompressionError",
     "scrapy.exceptions.DownloadConnectionRefusedError",
     "scrapy.exceptions.DownloadFailedError",
     "scrapy.exceptions.DownloadTimeoutError",
     "scrapy.exceptions.ResponseDataLossError",
+    "json.JSONDecodeError",
     "twisted.internet.error.ConnectionDone",
     "twisted.internet.error.ConnectError",
     "twisted.internet.error.ConnectionLost",
-    # OSError is raised by the HttpCompression middleware when trying to
-    # decompress an empty response
     OSError,
     "scrapy.core.downloader.handlers.http11.TunnelError",
 ]
 RETRY_GIVE_UP_LOG_LEVEL = "ERROR"
-RETRY_HTTP_CODES = [500, 502, 503, 504, 522, 524, 408, 429]
+RETRY_HTTP_CODES = [408, 429, 500, 502, 503, 504, 522, 524]
 RETRY_PRIORITY_ADJUST = -1
 RETRY_TIMES = 2  # initial response + 2 retries = 3 requests
 
@@ -558,7 +611,9 @@ SCHEDULER_PRIORITY_QUEUE = "scrapy.pqueues.DownloaderAwarePriorityQueue"
 SCHEDULER_START_DISK_QUEUE = "scrapy.squeues.PickleFifoDiskQueue"
 SCHEDULER_START_MEMORY_QUEUE = "scrapy.squeues.FifoMemoryQueue"
 
-SCRAPER_SLOT_MAX_ACTIVE_SIZE = 5000000
+SCRAPER_SLOT_MAX_ACTIVE_SIZE = 5_000_000
+RESPONSE_MAX_ACTIVE_SIZE = 5_000_000
+RESPONSE_ROUGH_SIZE = None
 
 SPIDER_CONTRACTS: dict[str, int] = {}
 SPIDER_CONTRACTS_BASE = {
@@ -584,7 +639,8 @@ SPIDER_MIDDLEWARES_BASE = {
     "scrapy.spidermiddlewares.referer.RefererMiddleware": 700,
     "scrapy.spidermiddlewares.urllength.UrlLengthMiddleware": 800,
     "scrapy.spidermiddlewares.depth.DepthMiddleware": 900,
-    "scrapy.spidermiddlewares.metacopy.MetaCopyDetectionMiddleware": 1000,
+    "scrapy.spidermiddlewares.metacopy.MetaCopyDetectionMiddleware": 999,
+    "scrapy.spidermiddlewares.stickymeta.StickyMetaParamsMiddleware": 1000,
     # Spider side
 }
 
@@ -594,6 +650,8 @@ STATS_CLASS = "scrapy.statscollectors.MemoryStatsCollector"
 STATS_DUMP = True
 
 STATSMAILER_RCPTS: list[str] = []
+
+STICKY_META_KEYS: list[str] = []
 
 TELNETCONSOLE_ENABLED = 1
 TELNETCONSOLE_HOST = "127.0.0.1"
@@ -607,6 +665,8 @@ TWISTED_DNS_RESOLVER = "scrapy.resolver.CachingThreadedResolver"
 
 TWISTED_REACTOR_ENABLED = True
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+
+UPLOAD_TIMEOUT = None
 
 URLLENGTH_LIMIT = 2083
 

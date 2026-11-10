@@ -22,7 +22,7 @@ _FRAMEWORK_CSS = {
     "bootstrap4": """/* Theme → Bootstrap 4 component overrides */
 
 /* Forms */
-.form-control { color: hsl(var(--foreground)); background-color: hsl(var(--input, var(--card))); border-color: hsl(var(--border)); }
+.form-control { color: hsl(var(--foreground)); background-color: hsl(var(--input-background, var(--card))); border-color: hsl(var(--input, var(--border))); }
 .form-control:focus { border-color: hsl(var(--ring, var(--primary))); box-shadow: 0 0 0 var(--form-focus-ring-width, 0.2rem) hsl(var(--ring, var(--primary)) / var(--form-focus-ring-opacity, 0.25)); }
 .form-control::placeholder { color: hsl(var(--muted-foreground) / 0.6); }
 .form-control:disabled { background-color: hsl(var(--muted) / 0.5); }
@@ -47,10 +47,10 @@ label, .form-label { color: hsl(var(--foreground)); }
 .btn-warning { background-color: hsl(var(--warning)); border-color: hsl(var(--warning)); color: hsl(var(--warning-foreground)); }
 
 /* Alerts */
-.alert-info { background-color: hsl(var(--info) / 0.1); border-color: hsl(var(--info) / 0.3); color: hsl(var(--info)); }
-.alert-success { background-color: hsl(var(--success) / 0.1); border-color: hsl(var(--success) / 0.3); color: hsl(var(--success)); }
-.alert-warning { background-color: hsl(var(--warning) / 0.1); border-color: hsl(var(--warning) / 0.3); color: hsl(var(--warning)); }
-.alert-danger { background-color: hsl(var(--destructive) / 0.1); border-color: hsl(var(--destructive) / 0.3); color: hsl(var(--destructive)); }
+.alert-info { background-color: hsl(var(--info) / 0.1); border-color: hsl(var(--info) / 0.3); color: hsl(var(--info-text)); }
+.alert-success { background-color: hsl(var(--success) / 0.1); border-color: hsl(var(--success) / 0.3); color: hsl(var(--success-text)); }
+.alert-warning { background-color: hsl(var(--warning) / 0.1); border-color: hsl(var(--warning) / 0.3); color: hsl(var(--warning-text)); }
+.alert-danger { background-color: hsl(var(--destructive) / 0.1); border-color: hsl(var(--destructive) / 0.3); color: hsl(var(--destructive-text)); }
 
 /* Cards */
 .card { background-color: hsl(var(--card)); color: hsl(var(--card-foreground)); border-color: hsl(var(--border)); }
@@ -67,10 +67,10 @@ a:hover { color: hsl(var(--link-hover)); }
 
 /* Text utilities */
 .text-muted { color: hsl(var(--muted-foreground)) !important; }
-.text-primary { color: hsl(var(--primary)) !important; }
-.text-danger { color: hsl(var(--destructive)) !important; }
-.text-success { color: hsl(var(--success)) !important; }
-.text-warning { color: hsl(var(--warning)) !important; }
+.text-primary { color: hsl(var(--primary-text)) !important; }
+.text-danger { color: hsl(var(--destructive-text)) !important; }
+.text-success { color: hsl(var(--success-text)) !important; }
+.text-warning { color: hsl(var(--warning-text)) !important; }
 
 /* Borders */
 .border { border-color: hsl(var(--border)) !important; }
@@ -79,10 +79,10 @@ hr { border-color: hsl(var(--border)); }
     "bootstrap5": """/* Theme → Bootstrap 5 component overrides */
 
 /* Forms */
-.form-control { color: hsl(var(--foreground)); background-color: hsl(var(--input, var(--card))); border-color: hsl(var(--border)); }
+.form-control { color: hsl(var(--foreground)); background-color: hsl(var(--input-background, var(--card))); border-color: hsl(var(--input, var(--border))); }
 .form-control:focus { border-color: hsl(var(--ring, var(--primary))); box-shadow: 0 0 0 var(--form-focus-ring-width, 0.25rem) hsl(var(--ring, var(--primary)) / var(--form-focus-ring-opacity, 0.25)); }
 .form-control::placeholder { color: hsl(var(--muted-foreground) / 0.6); }
-.form-select { color: hsl(var(--foreground)); background-color: hsl(var(--input, var(--card))); border-color: hsl(var(--border)); }
+.form-select { color: hsl(var(--foreground)); background-color: hsl(var(--input-background, var(--card))); border-color: hsl(var(--input, var(--border))); }
 .form-select:focus { border-color: hsl(var(--ring, var(--primary))); box-shadow: 0 0 0 0.25rem hsl(var(--ring, var(--primary)) / 0.25); }
 .form-check-input:checked { background-color: hsl(var(--primary)); border-color: hsl(var(--primary)); }
 
@@ -91,10 +91,10 @@ hr { border-color: hsl(var(--border)); }
 .btn-secondary { --bs-btn-bg: hsl(var(--secondary)); --bs-btn-border-color: hsl(var(--border)); --bs-btn-color: hsl(var(--secondary-foreground)); }
 
 /* Alerts */
-.alert-info { background-color: hsl(var(--info) / 0.1); border-color: hsl(var(--info) / 0.3); color: hsl(var(--info)); }
-.alert-success { background-color: hsl(var(--success) / 0.1); border-color: hsl(var(--success) / 0.3); color: hsl(var(--success)); }
-.alert-warning { background-color: hsl(var(--warning) / 0.1); border-color: hsl(var(--warning) / 0.3); color: hsl(var(--warning)); }
-.alert-danger { background-color: hsl(var(--destructive) / 0.1); border-color: hsl(var(--destructive) / 0.3); color: hsl(var(--destructive)); }
+.alert-info { background-color: hsl(var(--info) / 0.1); border-color: hsl(var(--info) / 0.3); color: hsl(var(--info-text)); }
+.alert-success { background-color: hsl(var(--success) / 0.1); border-color: hsl(var(--success) / 0.3); color: hsl(var(--success-text)); }
+.alert-warning { background-color: hsl(var(--warning) / 0.1); border-color: hsl(var(--warning) / 0.3); color: hsl(var(--warning-text)); }
+.alert-danger { background-color: hsl(var(--destructive) / 0.1); border-color: hsl(var(--destructive) / 0.3); color: hsl(var(--destructive-text)); }
 
 /* Cards */
 .card { background-color: hsl(var(--card)); color: hsl(var(--card-foreground)); border-color: hsl(var(--border)); }
@@ -654,7 +654,7 @@ body::before {{
         if interact.link_hover == "underline":
             link_hover = "text-decoration: underline;"
         elif interact.link_hover == "color":
-            link_hover = "color: hsl(var(--primary));"
+            link_hover = "color: hsl(var(--primary-text));"
         elif interact.link_hover == "background":
             link_hover = "background-color: hsla(var(--primary), 0.1);"
 
@@ -687,8 +687,9 @@ body::before {{
         elif interact.focus_style == "glow":
             focus_css = """
 *:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px hsla(var(--ring), 0.3);
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.3);
 }
 """
         elif interact.focus_style == "underline":
@@ -719,6 +720,7 @@ a:hover {{
 
 button, a, .clickable {{
   cursor: pointer;
+  font-family: inherit;
 }}
 """
 

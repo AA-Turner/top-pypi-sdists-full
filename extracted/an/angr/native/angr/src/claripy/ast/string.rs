@@ -11,6 +11,12 @@ pub struct PyAstString {
     pub(crate) inner: AstRef<'static>,
 }
 
+impl AstWrapper for PyAstString {
+    fn inner(&self) -> &AstRef<'static> {
+        &self.inner
+    }
+}
+
 ast_wrapper!(PyAstString, PY_STRING_CACHE, |base, inner| {
     PyClassInitializer::from(base).add_subclass(PyAstString { inner })
 });
@@ -28,25 +34,22 @@ impl PyAstString {
         let inner = match op {
             "StringS" => GLOBAL_CONTEXT.strings(&args[0].extract::<String>(py)?)?,
             "StringV" => GLOBAL_CONTEXT.stringv(&args[0].extract::<String>(py)?)?,
-            "StrConcat" => GLOBAL_CONTEXT.str_concat(
-                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
-            )?,
+            "StrConcat" => GLOBAL_CONTEXT.str_concat(args.asts::<PyAstString>(py)?)?,
             "StrSubstr" => GLOBAL_CONTEXT.str_substr(
-                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].cast_bound::<BV>(py)?.get().inner,
-                &args[2].cast_bound::<BV>(py)?.get().inner,
+                &args.ast::<PyAstString>(py, 0)?,
+                &args.ast::<BV>(py, 1)?,
+                &args.ast::<BV>(py, 2)?,
             )?,
             "StrReplace" => GLOBAL_CONTEXT.str_replace(
-                &args[0].cast_bound::<PyAstString>(py)?.get().inner,
-                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
-                &args[2].cast_bound::<PyAstString>(py)?.get().inner,
+                &args.ast::<PyAstString>(py, 0)?,
+                &args.ast::<PyAstString>(py, 1)?,
+                &args.ast::<PyAstString>(py, 2)?,
             )?,
-            "IntToStr" => GLOBAL_CONTEXT.bv_to_str(&args[0].cast_bound::<BV>(py)?.get().inner)?,
+            "IntToStr" => GLOBAL_CONTEXT.bv_to_str(&args.ast::<BV>(py, 0)?)?,
             "If" => GLOBAL_CONTEXT.ite(
-                &args[0].cast_bound::<Bool>(py)?.get().inner,
-                &args[1].cast_bound::<PyAstString>(py)?.get().inner,
-                &args[2].cast_bound::<PyAstString>(py)?.get().inner,
+                &args.ast::<Bool>(py, 0)?,
+                &args.ast::<PyAstString>(py, 1)?,
+                &args.ast::<PyAstString>(py, 2)?,
             )?,
             _ => return Err(ClaripyError::InvalidOperation(op.to_string())),
         };
@@ -82,7 +85,7 @@ impl PyAstString {
         PyAstString::new(
             py,
             &GLOBAL_CONTEXT
-                .str_concat(&self.inner, &other.get().inner)?
+                .str_concat2(&self.inner, &other.get().inner)?
                 .simplify()?,
         )
     }
@@ -152,25 +155,20 @@ pub fn StrLen<'py>(
     )
 }
 
-#[pyfunction]
+#[pyfunction(signature = (*args))]
 pub fn StrConcat<'py>(
     py: Python<'py>,
-    s1: Bound<'py, PyAstString>,
-    s2: Bound<'py, PyAstString>,
+    args: Vec<Bound<'py, PyAstString>>,
 ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
-    PyAstString::new(
-        py,
-        &GLOBAL_CONTEXT
-            .str_concat(&s1.get().inner, &s2.get().inner)?
-            .simplify()?,
-    )
+    let inner = args.iter().map(|s| s.get().inner.clone());
+    PyAstString::new(py, &GLOBAL_CONTEXT.str_concat(inner)?.simplify()?)
 }
 
 #[pyfunction]
 pub fn StrSubstr<'py>(
     py: Python<'py>,
-    start: CoerceBV<'py>,
-    size: CoerceBV<'py>,
+    start: CoerceBV,
+    size: CoerceBV,
     base: Bound<'py, PyAstString>,
 ) -> Result<Bound<'py, PyAstString>, ClaripyError> {
     PyAstString::new(
@@ -178,8 +176,8 @@ pub fn StrSubstr<'py>(
         &GLOBAL_CONTEXT
             .str_substr(
                 &base.get().inner,
-                &start.unpack(py, 64, false)?.get().inner,
-                &size.unpack(py, 64, false)?.get().inner,
+                &start.unpack(64, false)?,
+                &size.unpack(64, false)?,
             )?
             .simplify()?,
     )
@@ -204,7 +202,7 @@ pub fn StrIndexOf<'py>(
     py: Python<'py>,
     haystack: Bound<'py, PyAstString>,
     needle: Bound<'py, PyAstString>,
-    start: CoerceBV<'py>,
+    start: CoerceBV,
 ) -> Result<Bound<'py, BV>, ClaripyError> {
     BV::new(
         py,
@@ -212,7 +210,7 @@ pub fn StrIndexOf<'py>(
             .str_index_of(
                 &haystack.get().inner,
                 &needle.get().inner,
-                &start.unpack(py, 64, false)?.get().inner,
+                &start.unpack(64, false)?,
             )?
             .simplify_ext(true, true)?,
     )

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import bisect
 import dataclasses
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from types import MappingProxyType
@@ -96,10 +96,78 @@ AMBIGUOUS_ACRONYM_TAG = "vocab:suffix-ambiguous"
 #: (`Lexicon.suffix_words_ambiguous`, rules/S11): the class is the
 #: same, and so is every site that weighs it, but the writing leans the
 #: other way -- lower case in a mixed-case name is the suffix, where an
-#: acronym's capitals are (`_vocab.ambiguous_lean`). `AGNOMEN_TAG`
-#: rides beside both on an agnomen, whose writing leans nowhere.
+#: acronym's capitals are (`_vocab.ambiguous_lean`), but only on a
+#: word written `title_case_is_name` (`fils`, `kc`), which
+#: `TITLE_CASE_NAME_TAG` marks; any other leans nowhere (#1039).
+#: `AGNOMEN_TAG` rides beside both on an agnomen, for its reading's kind.
 AMBIGUOUS_WORD_TAG = "vocab:suffix-word-ambiguous"
 AGNOMEN_TAG = "vocab:agnomen"
+TITLE_CASE_NAME_TAG = "vocab:title-case-name"
+
+#: Beside "vocab:suffix-word" on a word whose shipped reading index
+#: kind is a generation (`jr`), a credential written as a word
+#: (`博士`) or an honorific (`さん`, #326), which the compiled sets do
+#: not record (rules/R8, 3.0's 4b):
+#: written by classify from the word as it reads it, a delimiter glued
+#: on removed (`Jr.;`, rules/C10), and read by `_vocab.suffix_kind`.
+GENERATION_WORD_TAG = "vocab:generation-word"
+CREDENTIAL_WORD_TAG = "vocab:credential-word"
+HONORIFIC_WORD_TAG = "vocab:honorific-word"
+
+#: Beside "particle" on a word the shipped reading index holds as a
+#: patronymic particle (`bin`, `ibn`, `bat`), which the compiled sets
+#: do not record (rules/R9, 3.0's 4c): written by classify, read by
+#: assemble for `Token.reading` and by assign for the reading a report
+#: names, and dropped from the published token like the kind tags above.
+PATRONYMIC_TAG = "vocab:patronymic"
+
+#: On each word of a particle chain opening a family-first name past
+#: the reach of rules/P1's fold (#828), written by post_rules whether or
+#: not the fold cuts the chain there, so assemble can tell where a
+#: report's other reading would land; dropped from the published token
+#: like the kind tags above.
+PAST_REACH_TAG = "chain:past-reach"
+
+
+def reported_suffix_fork(ambiguities: Sequence[PendingAmbiguity],
+                         indices: Iterable[int],
+                         skip: PendingAmbiguity | None = None) -> bool:
+    """rules/P1's question about a chain opening a family-first name
+    that the fold would cut (#828): whether a suffix-or-name report (the
+    trailing read's, or group's on a word the chain took) names a word
+    of `indices`, the words past the fold's reach. Such a word was read
+    against the whole chain, so the chain stands. Asked by the fold in post_rules and, with `skip`
+    the report whose other reading it names, by assemble."""
+    past = set(indices)
+    return any(a is not skip and a.kind is AmbiguityKind.SUFFIX_OR_NAME
+               and not past.isdisjoint(a.indices) for a in ambiguities)
+
+
+#: Beside FOLDED_TAG on the particles rules/P6 attaches to the family
+#: written before them, at either of its sites, so rules/R9 can tell
+#: the attachment from O3's middle fold, which writes FOLDED_TAG alone;
+#: dropped from the published token like the kind tags above.
+ATTACHED_TAG = "vocab:attached"
+
+#: On each word of the second name unit rules/O6 reads a family as,
+#: written where O6 takes its word, and dropped from the published
+#: token like the kind tags above: `Reading.second_surname` carries it
+#: out (rules/R10, 3.0's 4d).
+SECOND_SURNAME_TAG = "vocab:second-surname"
+
+#: Its twin on each word of the FIRST name unit: written where O6 reads
+#: two, on the family O6 found under a family-first order (a particle
+#: P6 attached included) and on the unit it took under the default one,
+#: and where O6 marked none, by O3 on the family it folds middles into,
+#: so a folded middle is in no unit; carried out on
+#: `Reading.first_surname` (rules/R11, #1022).
+FIRST_SURNAME_TAG = "vocab:first-surname"
+
+#: On the second of two listed single surnames that script_segment
+#: divides a Han name's family into (rules/W5, #845), so post_rules
+#: reads it as the family's second unit and marks both units with the
+#: two tags above; dropped from the published token like them.
+SURNAME_PAIR_TAG = "vocab:surname-pair"
 
 #: On a word of `Lexicon.titles_ambiguous` whichever way classify read
 #: it (rules/H9): read as a title it carries "vocab:title" too, read
@@ -107,11 +175,56 @@ AGNOMEN_TAG = "vocab:agnomen"
 #: the fork to report where the word opens the name.
 TITLE_AMBIGUOUS_TAG = "vocab:title-ambiguous"
 
+#: Written by classify on every occurrence of a word of
+#: `Lexicon.titles_ambiguous` whose title reading is written short
+#: (`Lexicon.title_abbreviations`, `maj`), whichever way the phrase
+#: test read it; read by rules/H5's trailing chain
+#: (`_pieces.trailing_titles`, `is_trailing_title_word`), which takes
+#: the word where it wears the abbreviation shape, by `_pieces._weighed`
+#: and by group's P5 decline. Dropped from the published token like
+#: the kind tags above; the published token keeps TITLE_AMBIGUOUS_TAG.
+TRAILING_TITLE_TAG = "vocab:trailing-title"
+
+#: Written by classify on a word of `Lexicon.titles` (not
+#: `titles_ambiguous`), listed whole, whose letters a period joins, a
+#: hyphen beside it or not (`_vocab._JOINED_WORD`: 'Dott.ssa',
+#: 'Priv.-Doz'), and on a word with interior periods every chunk of
+#: which is a title ('Lt.Gov', #1131), never on one read as a title
+#: through some chunk only ('Dr.PhD', 'St.John') nor on one a hyphen
+#: alone joins ('Co-Founder'); read by
+#: rules/H5's trailing chain (`_pieces.trailing_titles`,
+#: `is_trailing_title_word`), which takes it without a final period,
+#: by `_pieces._weighed` and by P13's trailing title (#1104). Dropped
+#: from the published token like the kind tags above.
+JOINED_TITLE_TAG = "vocab:joined-title"
+
 #: On a word of `Lexicon.given_name_abbreviations`, a given name written
 #: short ('Chas.', 'Ma.'): rules/H2's shape test declines a word
 #: carrying it, so the given reading outranks the shape-derived title
 #: (`_pieces.is_leading_title`, `_vocab.is_title_shaped`).
 GIVEN_ABBREVIATION_TAG = "vocab:given-abbreviation"
+
+#: On a word of `Lexicon.shared_names`, a name a community gives every
+#: member (Sikh 'Kaur', 'Singh'): rules/O6 and O7 decline a join that
+#: takes or completes one, and P10 completes none
+#: (`_post_rules._take_second_family_name`, `_take_second_given_name`,
+#: `_given_phrase_middle`).
+#: Dropped from the published token like the kind tags above (#704).
+SHARED_NAME_TAG = "vocab:shared-name"
+
+#: On a word of `Lexicon.particle_given_names`, a given name written
+#: behind a particle as the second of a compound given name ('del
+#: Carmen'): rules/P10 reads the particle run and the word as a
+#: middle name behind a one-word given name, and O6 leaves them there.
+#: Dropped from the published token like the kind tags above (#704).
+PARTICLE_GIVEN_TAG = "vocab:particle-given"
+
+#: On a bound given name whose word and the word after it are a phrase
+#: of `Lexicon.bound_phrases` ('عبد' before 'الله'), which rules/P12
+#: joins past the first name word (`_group._join_bound_phrases`), and
+#: group leaves it only on a pair it joined. Dropped
+#: from the published token like the kind tags above (#694).
+BOUND_PHRASE_TAG = "vocab:bound-phrase"
 
 #: EITHER way a token joins the ambiguous credential class -- the
 #: vocabulary's claim and the writing's. The two emitters that report
@@ -211,10 +324,14 @@ class Beside:
     piece. Where P6 then attached that token to the family
     (`FOLDED_TAG`), which it would not have done with a word behind
     it, `unfolded`, the field the word held when the report was made,
-    stands instead."""
+    stands instead. Where the piece in front is a chain, `last` is its
+    last word: rules/P10 reads a chain's opening phrase as a middle name
+    and leaves its last word the family, where the word would join, so
+    a `last` still in the family names the field (#704)."""
 
     index: int
     unfolded: Role | None = None
+    last: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,10 +385,17 @@ class ParseState:
     SUFFIX/TITLE roles of the run a maiden take gives up (#601), AND
     tail_reads, S2's trailing run read once before its joins (#614);
     assign -> the remaining token roles AND `order`, the effective
-    order it read them under, AND the folded-middle tag on the
-    particles P6's attachment joins after a family comma (#613);
-    post_rules -> roles again (a delimited member S13 settles becomes
-    the suffix, #810), and the ambiguity P6's no-comma attachment
+    order it read them under, AND the folded-middle and attached tags
+    on the particles P6's attachment joins after a family comma (#613);
+    post_rules -> roles again (the TITLE and SUFFIX roles of a clause
+    S1 sets apart, each word's comma trimmed off its text and span,
+    #792; a delimited member S13 settles becomes the suffix, #810),
+    the folded-middle tag on what O3 folds and the
+    no-comma attachment joins, with the attached tag on the latter,
+    the second-surname tag on the words of the family's second unit
+    where O6 reads two or W5 reads a Han surname pair (rules/R10), the
+    first-surname tag on the words of its first unit (rules/R11), and the ambiguity P6's no-comma
+    attachment
     reports (#467) and SUFFIX_OR_NICKNAME on a member it leaves a
     nickname.
     Ambiguities are recorded by every stage that DECIDES one --

@@ -10,6 +10,10 @@ from typing import TYPE_CHECKING, Any, Callable, TypedDict
 from bitfab import subtree
 from bitfab.constants import DEFAULT_SERVICE_URL
 from bitfab.http import HttpClient
+from bitfab.openai_agents_usage import (
+    MODEL_CALL_SPAN_TYPES,
+    add_agents_sdk_usage_context,
+)
 from bitfab.processor_payload import finalize_span_payload, finalize_trace_payload
 from bitfab.serialize import to_json_safe
 from bitfab.span_origin import make_span_origin
@@ -24,8 +28,6 @@ else:
         TracingProcessor = object
 
 logger = logging.getLogger(__name__)
-
-_LLM_SPAN_DATA_TYPES = frozenset({"generation", "response"})
 
 
 class ActiveSpanContext(TypedDict):
@@ -195,7 +197,7 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
                     mapping["trace_id"],
                     span.span_id,
                     records_llm_call=getattr(span.span_data, "type", None)
-                    in _LLM_SPAN_DATA_TYPES,
+                    in MODEL_CALL_SPAN_TYPES,
                 )
                 if entry is not None:
                     self._subtree_entries[span.span_id] = entry
@@ -377,6 +379,7 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
         errors: list[dict[str, str]] = []
         serialized_span = self._export_span(span, errors)
         self._extract_span_input_response(span, serialized_span)
+        add_agents_sdk_usage_context(serialized_span["span_data"])
         self._apply_span_overrides(serialized_span, span.trace_id)
 
         span_payload = self._build_span_payload(serialized_span, errors)

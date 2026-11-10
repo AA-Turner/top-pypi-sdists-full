@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,6 @@
 
 
 import re
-
 
 # Re pattern to catch things inside ` ` in :obj:`thing`.
 _re_obj = re.compile(r":obj:`([^`]+)`")
@@ -401,7 +399,7 @@ def parse_rst_docstring(docstring):
                 if intro.lstrip().startswith(">"):
                     lines[idx] = intro.lstrip()
                 else:
-                    lines[idx] = re.sub(r"^\s*(\S+)(\s)", r"- **\1**\2", intro) + " --" + doc
+                    lines[idx] = re.sub(r"^\s*(\S+)(\s)?", r"- **\1**\2", intro) + " --" + doc
                 idx += 1
                 while idx < len(lines) and (is_empty_line(lines[idx]) or find_indent(lines[idx]) > param_indent):
                     idx += 1
@@ -484,7 +482,9 @@ def remove_indent(text):
     # List of new indents to remember for nested lists
     new_indents = []
     is_inside_code = False
+    # Indent of the opening fence of the current code block, before and after removing indents
     code_indent = 0
+    code_new_indent = 0
     for idx, line in enumerate(lines):
         # Line is an item in a list.
         if _re_list.search(line) is not None:
@@ -520,15 +520,14 @@ def remove_indent(text):
         elif is_empty_line(line):
             lines[idx] = ""
 
-        # Code blocks
-        elif line.lstrip().startswith("```"):
-            is_inside_code = not is_inside_code
-            if is_inside_code:
-                code_indent = find_indent(line)
-            lines[idx] = line[code_indent:]
+        # Code blocks (closing fence included) keep their indent relative to the opening fence
         elif is_inside_code:
-            lines[idx] = line[code_indent:]
+            if line.lstrip().startswith("```"):
+                is_inside_code = False
+            lines[idx] = " " * code_new_indent + line[code_indent:]
 
+        # Other lines, and the opening fence of code blocks: placed like a line of text, so that a code block in
+        # a list item stays in it
         else:
             indent = find_indent(line)
             if len(current_indents) > 0 and indent > current_indents[-1]:
@@ -552,6 +551,11 @@ def remove_indent(text):
                     lines[idx] = line[indent:]
             else:
                 lines[idx] = line[indent:]
+
+            if line.lstrip().startswith("```"):
+                is_inside_code = True
+                code_indent = indent
+                code_new_indent = find_indent(lines[idx])
 
     return "\n".join(lines)
 
@@ -664,6 +668,7 @@ def convert_rst_to_mdx(rst_text, page_info, add_imports=True):
         new_lines = [
             '<script lang="ts">',
             '	import Tip from "$lib/Tip.svelte";',
+            '	import CopyLLMTxtMenu from "$lib/CopyLLMTxtMenu.svelte";',
             '	import Youtube from "$lib/Youtube.svelte";',
             '	import Docstring from "$lib/Docstring.svelte";',
             '	import CodeBlock from "$lib/CodeBlock.svelte";',

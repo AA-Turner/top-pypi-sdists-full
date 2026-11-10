@@ -36,6 +36,8 @@ import os
 import re
 import shutil
 import sys
+import unicodedata
+import warnings
 from dataclasses import fields, replace
 from html import escape, unescape
 from itertools import combinations, pairwise
@@ -46,7 +48,13 @@ import pytest
 from extra_platforms.pytest import skip_windows
 
 from click_extra import SPINNERS, Spinner, Style, style, unstyle
-from click_extra.capture.html import render_html
+from click_extra.capture import svg as capture_svg
+from click_extra.capture.html import (
+    LINE_SPACING,
+    block_css,
+    braille_css,
+    render_html,
+)
 from click_extra.capture.presets import (
     BARE_CHROME,
     CAPTURE_BORDERS,
@@ -88,22 +96,33 @@ from click_extra.capture.screenshot import (
 from click_extra.capture.snippet import render_snippet
 from click_extra.capture.svg import (
     _COLUMN_GAP_RE,
+    _SHAPED_RE,
+    _TILE_RUN,
     AUTO_HOLD,
     AUTO_HOLD_MAX,
     AUTO_HOLD_MIN,
     AUTO_HOLD_SECONDS_PER_LINE,
+    BLOCK_ELEMENTS,
+    BOX_ARMS,
+    BOX_CURVES,
+    BOX_DASHES,
     CELL_BLEED,
     CELL_WIDTH,
     CURSOR_THICKNESS,
+    HIDDEN_GLYPH_ATTRIBUTES,
     LINE_HEIGHT,
     REDUCED_MOTION_QUERY,
-    TILE_RUN,
+    SHADE_DENSITY,
     TITLEBAR_HEIGHT,
     WATERMARK_INSET,
     WATERMARK_URL,
+    _split_arguments,
+    _tile_runs,
     auto_hold,
     blend,
     blink_css,
+    box_strokes,
+    braille_dots,
     column_segments,
     cursor_cell,
     frame_animation_css,
@@ -112,8 +131,8 @@ from click_extra.capture.svg import (
     parse_hold,
     parse_pause,
     render_svg,
+    shape_runs,
     style_rules,
-    tile_runs,
     window_buttons,
 )
 from click_extra.cli_capture import deliver_capture, screenshot_cmd
@@ -499,18 +518,483 @@ def test_tile_runs_never_opens_a_piece_on_padding():
     tile behind it a cell late. The cut is made on character count, which lands
     on a blank whenever a label sits inside a rule.
     """
-    text = TRUNCATION_RULE * TILE_RUN + "[ x ]"
-    assert not any(piece[0] in PADDING for piece, _ in tile_runs(text, 0))
+    text = "─" * (_TILE_RUN - 1) + "[ x ]"
+    assert list(_tile_runs(text, 0)) == [("─" * 7 + "[ ", 0), ("x ]", 9)]
 
 
 def test_tile_runs_keeps_every_piece_on_its_own_column():
-    """Cutting a tiled column apart never moves a glyph off its cell."""
-    text = f"{TRUNCATION_RULE * 9}[ x ]{TRUNCATION_RULE * 9}"
-    rebuilt = ""
-    for piece, column in tile_runs(text, 0):
-        assert column == cell_width(rebuilt)
-        rebuilt += piece
-    assert rebuilt == text
+    """Cutting a tiled column apart never moves a glyph off its cell.
+
+    The cut counts characters and the offset counts cells, which part ways on a
+    wide character.
+    """
+    text = f"{'─' * 9}[ 苹果 ]{'─' * 9}"
+    assert list(_tile_runs(text, 0)) == [
+        ("─" * 8, 0),
+        ("─[ 苹果 ]─", 8),
+        ("─" * 8, 18),
+    ]
+
+
+@pytest.mark.parametrize("tile", ("─", "▀"), ids=("box-drawing", "block"))
+def test_tile_runs_cuts_every_tile_it_was_released_with(tile):
+    """`tile_runs` cuts Block Elements as well as Box Drawing, as `10.1.1` did.
+
+    A capture draws both as shapes, which leaves the deprecated helper no caller
+    in the renderer: its answer stays the released one until it goes. The cut
+    is spelled out, so `TILE_RUN` keeping its released 8 cells is checked too.
+    """
+    assert _TILE_RUN == 8
+    assert list(_tile_runs(tile * 10, 0)) == [(tile * 8, 0), (tile * 2, 8)]
+
+
+@pytest.mark.parametrize(
+    ("name", "private"),
+    (
+        ("tile_runs", "_tile_runs"),
+        ("TILE_RUN", "_TILE_RUN"),
+        ("_TILING_RE", "_TILE_RE"),
+    ),
+)
+def test_tile_helpers_warn_until_their_removal(name, private):
+    """The tile helpers a capture no longer uses still resolve, with a warning."""
+    with pytest.warns(
+        DeprecationWarning,
+        match=(
+            rf"^click_extra\.capture\.svg\.{name} is deprecated and will be "
+            r"removed in click-extra 11\.0\.0: "
+        ),
+    ):
+        value = getattr(capture_svg, name)
+    assert value is getattr(capture_svg, private)
+
+
+def test_svg_module_serves_no_other_missing_name():
+    """A name the module never had stays missing, and sets off no warning."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert not hasattr(capture_svg, "tile_rune")
+
+
+_GRID_RECT_RE = re.compile(
+    r'<rect fill="(?P<fill>#[0-9a-f]{6})" x="(?P<x>[\d.]+)" y="(?P<y>[\d.]+)" '
+    r'width="(?P<width>[\d.]+)" height="(?P<height>[\d.]+)" '
+    r'shape-rendering="crispEdges"/>'
+)
+"""A rectangle drawn on the text grid: a cell's background, a cursor or a block."""
+
+_NAMED_EIGHTHS = {
+    "ONE EIGHTH": 1,
+    "ONE QUARTER": 2,
+    "THREE EIGHTHS": 3,
+    "HALF": 4,
+    "FIVE EIGHTHS": 5,
+    "THREE QUARTERS": 6,
+    "SEVEN EIGHTHS": 7,
+}
+"""Eighths of a cell each fraction in a Block Elements name stands for."""
+
+_NAMED_QUADRANTS = {
+    "UPPER LEFT": (0, 0),
+    "UPPER RIGHT": (4, 0),
+    "LOWER LEFT": (0, 4),
+    "LOWER RIGHT": (4, 4),
+}
+"""Top-left corner, in eighths of a cell, of each quadrant a name lists."""
+
+
+def named_eighths(char: str) -> set[tuple[int, int]]:
+    """The eighths of its cell a Block Elements character fills, read off its name.
+
+    A Unicode name states the shape outright, like `LOWER THREE EIGHTHS BLOCK`
+    or `QUADRANT UPPER LEFT AND LOWER RIGHT`, which makes it a second source to
+    hold {data}`~click_extra.capture.svg.BLOCK_ELEMENTS` against.
+    """
+    name = unicodedata.name(char)
+    if name == "FULL BLOCK" or name.endswith(" SHADE"):
+        return {(x, y) for x in range(8) for y in range(8)}
+    if name.startswith("QUADRANT "):
+        filled: set[tuple[int, int]] = set()
+        for quadrant in name.removeprefix("QUADRANT ").split(" AND "):
+            left, top = _NAMED_QUADRANTS[quadrant]
+            filled |= {
+                (x, y) for x in range(left, left + 4) for y in range(top, top + 4)
+            }
+        return filled
+    side, _, fraction = name.removesuffix(" BLOCK").partition(" ")
+    size = _NAMED_EIGHTHS[fraction]
+    columns, rows = range(8), range(8)
+    match side:
+        case "UPPER":
+            rows = range(size)
+        case "LOWER":
+            rows = range(8 - size, 8)
+        case "LEFT":
+            columns = range(size)
+        case "RIGHT":
+            columns = range(8 - size, 8)
+    return {(x, y) for x in columns for y in rows}
+
+
+def test_block_elements_cover_their_whole_unicode_block():
+    """Every Block Elements character has a shape, and is one cell wide."""
+    block = "".join(chr(code) for code in range(0x2580, 0x25A0))
+    assert "".join(BLOCK_ELEMENTS) == block
+    assert all(cell_width(char) == 1 for char in block)
+    assert list(shape_runs(block, 0)) == [(block, 0, True)]
+    assert {unicodedata.name(char): ink for char, ink in SHADE_DENSITY.items()} == {
+        "LIGHT SHADE": 0.25,
+        "MEDIUM SHADE": 0.5,
+        "DARK SHADE": 0.75,
+    }
+
+
+@pytest.mark.parametrize("char", tuple(BLOCK_ELEMENTS))
+def test_block_element_fills_what_its_name_states(char):
+    """Each Block Elements character fills the part of its cell its name states."""
+    drawn = {
+        (x, y)
+        for left, top, right, bottom in BLOCK_ELEMENTS[char]
+        for x in range(left, right)
+        for y in range(top, bottom)
+    }
+    assert drawn == named_eighths(char)
+
+
+_ZWJ = "\N{ZERO WIDTH JOINER}"
+"""Joins the character after it to the cluster before it, see `_SHAPED_RE`."""
+
+
+@pytest.mark.parametrize(
+    ("text", "column", "expected"),
+    (
+        ("apple", 0, [("apple", 0, False)]),
+        ("▀▄█ apple", 0, [("▀▄█", 0, True), ("apple", 4, False)]),
+        ("kiwi ▒▒", 2, [("kiwi", 2, False), ("▒▒", 7, True)]),
+        ("┌─▄▄─┐", 0, [("┌─▄▄─┐", 0, True)]),
+        ("│ kiwi │", 0, [("│", 0, True), ("kiwi", 2, False), ("│", 7, True)]),
+        ("苹果 ██", 0, [("苹果", 0, False), ("██", 5, True)]),
+        ("⠋ Picking apples", 0, [("⠋", 0, True), ("Picking apples", 2, False)]),
+        ("▀⣿▄ kiwi", 3, [("▀⣿▄", 3, True), ("kiwi", 7, False)]),
+        (f"x{_ZWJ}█ab", 0, [(f"x{_ZWJ}█ab", 0, False)]),
+        (
+            f"x{_ZWJ}██ab",
+            0,
+            [(f"x{_ZWJ}█", 0, False), ("█", 1, True), ("ab", 2, False)],
+        ),
+    ),
+)
+def test_shape_runs_cut_shapes_from_the_text_between(text, column, expected):
+    """Shapes are cut out on their own columns, and nothing else.
+
+    Box Drawing, Block Elements and Braille patterns are drawn as shapes. One
+    following a zero width joiner belongs to the cluster before it, and stays in
+    its text.
+    """
+    assert list(shape_runs(text, column)) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "▀▄█ apple",
+        "│ kiwi │",
+        "苹果 ██",
+        "⠋ Picking apples",
+        f"x{_ZWJ}█ab",
+        f"x{_ZWJ}⣿ kiwi",
+        f"🍑{_ZWJ}─┐ pear",
+        f"█{_ZWJ}█",
+        f"plum {_ZWJ}▀▄",
+    ),
+)
+def test_shape_runs_place_each_piece_where_cell_width_counts_it(text):
+    """Each piece starts on the column `cell_width` counts up to it.
+
+    `cell_width` counts the character after a zero width joiner in the cluster
+    before it. A shape cut out of that cluster would push the text after it a
+    cell past its column, onto the run the grid places next.
+    """
+    pieces = list(shape_runs(text, 0))
+    position = 0
+    for piece, column, _ in pieces:
+        index = text.index(piece, position)
+        assert column == cell_width(text[:index]), piece
+        position = index + len(piece)
+    last_piece, last_column, _ = pieces[-1]
+    assert last_column + cell_width(last_piece) == cell_width(text)
+
+
+_BRAILLE_DOT_PLACES = {
+    1: (0, 0),
+    2: (0, 1),
+    3: (0, 2),
+    4: (1, 0),
+    5: (1, 1),
+    6: (1, 2),
+    7: (0, 3),
+    8: (1, 3),
+}
+"""Where each numbered dot of a Braille cell sits, as the Unicode charts lay it out."""
+
+
+@pytest.mark.parametrize(
+    "code", range(0x2800, 0x2900), ids=lambda code: f"U+{code:04X}"
+)
+def test_braille_dots_match_their_unicode_names(code):
+    """Each Braille pattern raises the dots its Unicode name lists."""
+    char = chr(code)
+    name = unicodedata.name(char)
+    numbers = name.removeprefix("BRAILLE PATTERN DOTS-")
+    if name == "BRAILLE PATTERN BLANK":
+        numbers = ""
+    assert set(braille_dots(char)) == {
+        _BRAILLE_DOT_PLACES[int(number)] for number in numbers
+    }
+    assert list(shape_runs(char, 0)) == [(char, 0, True)]
+    assert cell_width(char) == 1
+
+
+def test_braille_dots_keep_one_pitch_across_cells():
+    """Two stacked rows of full Braille cells plot one even grid of dots.
+
+    The dot positions are rounded to a tenth of a pixel, the precision every
+    coordinate of a capture is written at.
+    """
+    full = chr(0x28FF)
+    # No title bar, whose window buttons are circles too.
+    svg = render_svg(f"{full}{full}\n{full}{full}", columns=4, collapse_titlebar=True)
+    dots = [
+        (float(x), float(y))
+        for x, y in re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)"', svg)
+    ]
+    assert len(dots) == 32
+    for axis, count in ((0, 4), (1, 8)):
+        positions = sorted({dot[axis] for dot in dots})
+        assert len(positions) == count
+        for step in (after - before for before, after in pairwise(positions)):
+            assert step == pytest.approx(CELL_WIDTH / 2, abs=0.11)
+
+
+_BOX_WEIGHTS = {"LIGHT": 1, "SINGLE": 1, "HEAVY": 2, "DOUBLE": 3}
+"""Weight each word of a Box Drawing name stands for, see `BOX_ARMS`."""
+
+_BOX_DIRECTIONS = {
+    "UP": ("up",),
+    "RIGHT": ("right",),
+    "DOWN": ("down",),
+    "LEFT": ("left",),
+    "VERTICAL": ("up", "down"),
+    "HORIZONTAL": ("left", "right"),
+}
+"""Arms each direction word of a Box Drawing name stands for."""
+
+_BOX_DASH_COUNTS = {"DOUBLE": 2, "TRIPLE": 3, "QUADRUPLE": 4}
+"""Dashes each count word of a dashed Box Drawing name stands for."""
+
+
+def named_arms(char: str) -> tuple[int, ...]:
+    """The arms of a Box Drawing line, read off its Unicode name.
+
+    A name states one weight for all its arms, as in `LIGHT DOWN AND RIGHT`, or
+    one per group of arms, as in `DOWN LIGHT AND RIGHT HEAVY`.
+    """
+    name = unicodedata.name(char).removeprefix("BOX DRAWINGS ")
+    groups = [group.split() for group in name.split(" AND ")]
+    shared = next(
+        _BOX_WEIGHTS[word] for group in groups for word in group if word in _BOX_WEIGHTS
+    )
+    arms = dict.fromkeys(("up", "right", "down", "left"), 0)
+    for group in groups:
+        weight = next(
+            (_BOX_WEIGHTS[word] for word in group if word in _BOX_WEIGHTS), shared
+        )
+        for word in group:
+            for arm in _BOX_DIRECTIONS.get(word, ()):
+                arms[arm] = weight
+    return tuple(arms.values())
+
+
+def test_box_drawing_covers_its_whole_unicode_block():
+    """Every Box Drawing character is a line, a dash or a curve, one cell wide."""
+    block = "".join(chr(code) for code in range(0x2500, 0x2580))
+    kinds = (BOX_ARMS, BOX_DASHES, BOX_CURVES)
+    assert sorted(char for kind in kinds for char in kind) == list(block)
+    assert all(cell_width(char) == 1 for char in block)
+    assert list(shape_runs(block, 0)) == [(block, 0, True)]
+    for char in BOX_CURVES:
+        assert {"ARC", "DIAGONAL"} & set(unicodedata.name(char).split())
+
+
+@pytest.mark.parametrize("char", tuple(BOX_ARMS))
+def test_box_arms_match_their_unicode_names(char):
+    """Each Box Drawing line has the arms and weights its Unicode name lists."""
+    assert BOX_ARMS[char] == named_arms(char)
+
+
+@pytest.mark.parametrize("char", tuple(BOX_DASHES))
+def test_box_dashes_match_their_unicode_names(char):
+    """Each dashed line runs the way, weighs and counts what its name says."""
+    words = unicodedata.name(char).split()
+    vertical, weight, dashes = BOX_DASHES[char]
+    assert vertical == ("VERTICAL" in words)
+    assert weight == _BOX_WEIGHTS[words[2]]
+    assert dashes == _BOX_DASH_COUNTS[words[3]]
+
+
+@pytest.mark.parametrize(
+    ("char", "expected"),
+    (
+        pytest.param("─", {(False, 15, 17, 0, 16)}, id="light-horizontal"),
+        pytest.param("┃", {(True, 6, 10, 0, 32)}, id="heavy-vertical"),
+        pytest.param(
+            "┼", {(False, 15, 17, 0, 16), (True, 7, 9, 0, 32)}, id="light-cross"
+        ),
+        pytest.param(
+            "┌", {(False, 15, 17, 7, 16), (True, 7, 9, 15, 32)}, id="light-corner"
+        ),
+        pytest.param(
+            "═", {(False, 13, 15, 0, 16), (False, 17, 19, 0, 16)}, id="double"
+        ),
+        # The outer stroke turns the outer corner, the inner one the inner corner.
+        pytest.param(
+            "╔",
+            {
+                (False, 13, 15, 5, 16),
+                (False, 17, 19, 9, 16),
+                (True, 5, 7, 13, 32),
+                (True, 9, 11, 17, 32),
+            },
+            id="double-corner",
+        ),
+        # The top stroke runs on, the bottom one stops at the gap below it.
+        pytest.param(
+            "╦",
+            {
+                (False, 13, 15, 0, 16),
+                (False, 17, 19, 0, 7),
+                (False, 17, 19, 9, 16),
+                (True, 5, 7, 17, 32),
+                (True, 9, 11, 17, 32),
+            },
+            id="double-tee",
+        ),
+        # A single line ending on a double one stops at its nearer stroke.
+        pytest.param(
+            "╤",
+            {(False, 13, 15, 0, 16), (False, 17, 19, 0, 16), (True, 7, 9, 17, 32)},
+            id="single-on-double",
+        ),
+        # A single line passing through crosses the double line's gap.
+        pytest.param(
+            "╪",
+            {(False, 13, 15, 0, 16), (False, 17, 19, 0, 16), (True, 7, 9, 0, 32)},
+            id="single-through-double",
+        ),
+    ),
+)
+def test_box_strokes_join_as_menlo_draws_them(char, expected):
+    """A line's strokes meet where Menlo `22.0d2e1` joins them."""
+    assert set(box_strokes(char)) == expected
+
+
+def test_double_cross_leaves_its_gaps_open():
+    """No stroke of `╬` crosses into the gaps between its double lines."""
+    for _, low, high, start, end in box_strokes("╬"):
+        assert not (start < 16 < end and low < 8 < high)
+        assert not (start < 8 < end and low < 16 < high)
+
+
+def test_box_rule_is_one_shape_and_its_lines_meet_across_rows():
+    """A rule merges across its cells, and a vertical line runs on into the next row."""
+    svg = render_svg("──────\n│\n│", columns=8, collapse_titlebar=True)
+    rects = sorted(
+        (float(rect["y"]), float(rect["height"]), float(rect["width"]))
+        for rect in _GRID_RECT_RE.finditer(svg)
+    )
+    assert len(rects) == 3
+    (_, _, rule_width), (upper_y, upper_height, _), (lower_y, _, _) = rects
+    assert rule_width == pytest.approx(6 * CELL_WIDTH, abs=0.05)
+    assert upper_y + upper_height >= lower_y
+
+
+def test_blank_braille_draws_nothing_and_keeps_its_text():
+    """The blank pattern raises no dot, and still reads back as itself."""
+    text = f"{chr(0x2800)}apple"
+    svg = render_svg(text, columns=10, collapse_titlebar=True)
+    assert "<circle" not in svg
+    assert svg_to_lines(svg) == [text]
+
+
+def test_stacked_blocks_leave_no_gap():
+    """Two rows of full blocks paint one unbroken column, whatever the font.
+
+    A font draws `█` shorter than a capture's row, so the same picture set as
+    glyphs leaves a band of background between the two rows.
+    """
+    svg = render_svg("█\n█", columns=4)
+    (upper_top, upper_bottom), (lower_top, lower_bottom) = sorted(
+        (float(rect["y"]), float(rect["y"]) + float(rect["height"]))
+        for rect in _GRID_RECT_RE.finditer(svg)
+    )
+    assert upper_bottom >= lower_top
+    assert lower_bottom - upper_top >= 2 * LINE_HEIGHT
+
+
+def test_half_block_splits_its_cell_in_the_middle():
+    """`▀` inks the top half of its cell and leaves the bottom to the background."""
+    svg = render_svg(style("▀", fg=(255, 255, 255), bg=(0, 0, 128)), columns=4)
+    drawn = {rect["fill"]: rect for rect in _GRID_RECT_RE.finditer(svg)}
+    ink, paper = drawn["#ffffff"], drawn["#000080"]
+    assert ink["y"] == paper["y"]
+    assert float(ink["height"]) == pytest.approx(LINE_HEIGHT / 2, abs=0.05)
+    assert float(paper["height"]) == pytest.approx(LINE_HEIGHT + CELL_BLEED, abs=0.05)
+
+
+def test_block_run_is_one_shape():
+    """A bar of `█` is one rectangle, not one per cell."""
+    svg = render_svg("████████", columns=10)
+    (bar,) = _GRID_RECT_RE.finditer(svg)
+    assert float(bar["width"]) == pytest.approx(8 * CELL_WIDTH, abs=0.05)
+
+
+def test_shade_mixes_its_ink_with_the_paper():
+    """`▒` is half ink, mixed into the color behind it."""
+    svg = render_svg(style("▒", fg=(255, 255, 255), bg=(0, 0, 0)), columns=4)
+    assert {rect["fill"] for rect in _GRID_RECT_RE.finditer(svg)} == {
+        "#000000",
+        "#808080",
+    }
+
+
+def test_shapes_stay_in_the_text():
+    """A run drawn as shapes keeps its characters, as text that paints nothing."""
+    text = "▀▄█ apple\n░▒▓  pear\n⠋ plum"
+    svg = render_svg(text, columns=20)
+    assert svg_to_lines(svg) == text.split("\n")
+    for element in _TEXT_ELEMENT_RE.finditer(svg):
+        shaped = bool(_SHAPED_RE.search(unescape(element["content"])))
+        assert shaped == (HIDDEN_GLYPH_ATTRIBUTES in element["attrs"])
+
+
+def test_no_committed_capture_draws_shapes_as_glyphs():
+    """No committed capture draws Box Drawing, Block Elements or Braille as glyphs.
+
+    A capture written before the renderer did still shows a seam at the joins of
+    its box drawing, a band between its stacked rows of block art, or Braille
+    wider than its column. Rewrite it the way its page documents: a recording, by
+    deleting it and building again.
+    """
+    for path in sorted(ASSETS.glob("*.svg")):
+        svg = path.read_text(encoding="UTF-8")
+        if "@generated by" not in svg:
+            continue
+        for element in _TEXT_ELEMENT_RE.finditer(svg):
+            content = unescape(element["content"])
+            if _SHAPED_RE.search(content):
+                assert HIDDEN_GLYPH_ATTRIBUTES in element["attrs"], (
+                    f"{path.name}: {content!r} drawn as glyphs"
+                )
 
 
 @pytest.mark.parametrize(
@@ -2462,6 +2946,116 @@ def test_render_html_quotes_survive_the_style_attribute():
     opening = fragment[: fragment.index(">") + 1]
     assert opening.count('"') == 2, f"unbalanced quoting: {opening}"
     assert "monospace" in opening
+
+
+_SPAN_RE = re.compile(r'<span style="(?P<css>[^"]*)">(?P<text>[^<]*)</span>')
+"""One styled run of an HTML capture, with its inline declarations."""
+
+
+def css_rects(declarations: str) -> set[tuple[int, int, int, int]]:
+    """The rectangles a {func}`~click_extra.capture.html.block_css` box paints.
+
+    Read back off its background layers, in eighths of a cell, the unit of
+    {data}`~click_extra.capture.svg.BLOCK_ELEMENTS`.
+    """
+    css = dict(part.split(": ", 1) for part in declarations.split("; "))
+    layers = zip(
+        _split_arguments(css["background-image"]),
+        _split_arguments(css["background-size"]),
+        _split_arguments(css["background-position"]),
+    )
+    rects = set()
+    for image, size, position in layers:
+        stops = _split_arguments(image.removeprefix("linear-gradient(")[:-1])
+        if stops[0] == "90deg":
+            left = round(float(stops[1].rsplit(" ", 1)[1][:-1]) * 8 / 100)
+            right = round(float(stops[3].rsplit(" ", 1)[1][:-1]) * 8 / 100)
+        else:
+            left, right = 0, 8
+        height = float(size.split()[1].removesuffix("em"))
+        top = float(position.split()[1].removesuffix("em"))
+        upper = round(top / LINE_SPACING * 8)
+        rects.add((left, upper, right, upper + round(height / LINE_SPACING * 8)))
+    return rects
+
+
+@pytest.mark.parametrize("char", tuple(BLOCK_ELEMENTS))
+def test_block_css_paints_the_shape_of_its_character(char):
+    """The CSS of a block element paints the rectangles its shape names."""
+    declarations = block_css(char, 3)
+    assert css_rects(declarations) == set(BLOCK_ELEMENTS[char])
+    assert "width: 3ch" in declarations
+    assert f"height: {LINE_SPACING:g}em" in declarations
+    if char in SHADE_DENSITY:
+        assert f"currentColor {SHADE_DENSITY[char]:.0%}" in declarations
+
+
+def test_render_html_draws_each_box_run_as_one_svg():
+    """A run of Box Drawing is one box holding the run's lines as an SVG.
+
+    One SVG per run rather than a background per cell, so a rule merges into one
+    line, and the characters stay in the text.
+    """
+    text = "┌─┐ kiwi\n└─┘"
+    html = render(
+        text, format=CaptureFormat.HTML, full=False, chrome=Chrome(watermark="")
+    )
+    assert html_to_text(html) == text
+    assert html.count("<svg ") == 2
+    assert html.count("position: relative") == 2
+    assert 'fill="currentColor"' in html
+
+
+@pytest.mark.parametrize("code", (0x2800, 0x2801, 0x280B, 0x28FF))
+def test_braille_css_draws_one_disc_per_dot(code):
+    """The CSS of a Braille pattern paints a disc for each dot it raises."""
+    char = chr(code)
+    declarations = braille_css(char, 2)
+    assert declarations.count("radial-gradient(") == len(braille_dots(char))
+    assert "width: 2ch" in declarations
+    assert f"height: {LINE_SPACING:g}em" in declarations
+
+
+def test_render_html_draws_shapes():
+    """Every shape sits in a box drawing it, whatever its run's style.
+
+    Its glyphs stay in the text, so the capture still reads back as the terminal
+    text, and the run keeps the colors it came with.
+    """
+    text = (
+        "▀▄█ apple\n"
+        + style("▀▀", fg=(255, 255, 255), bg=(0, 0, 128))
+        + style(" pear ░⠋", fg="green")
+    )
+    html = render(
+        text, format=CaptureFormat.HTML, full=False, chrome=Chrome(watermark="")
+    )
+    assert html_to_text(html) == unstyle(text)
+    assert f"line-height: {LINE_SPACING:g};" in html
+    shaped = "".join(
+        span["text"]
+        for span in _SPAN_RE.finditer(html)
+        if "display: inline-block" in span["css"]
+        and "-webkit-text-fill-color: transparent" in span["css"]
+    )
+    assert shaped == "▀▄█▀▀░⠋"
+    (two_tone,) = (span for span in _SPAN_RE.finditer(html) if span["text"] == "▀▀")
+    assert "color: #ffffff; background-color: #000080; " in two_tone["css"]
+
+
+def test_render_html_keeps_a_joined_shape_in_its_cluster():
+    """A shape after a zero width joiner stays in the text, as in an SVG capture."""
+    text = f"x{_ZWJ}█ab ▀"
+    html = render(
+        text, format=CaptureFormat.HTML, full=False, chrome=Chrome(watermark="")
+    )
+    assert html_to_text(html) == text
+    shaped = [
+        span["text"]
+        for span in _SPAN_RE.finditer(html)
+        if "display: inline-block" in span["css"]
+    ]
+    assert shaped == ["▀"]
 
 
 @pytest.mark.parametrize(

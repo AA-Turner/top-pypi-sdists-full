@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from office365.directory.objects.collection import DirectoryObjectCollection
+from office365.directory.policies.stagedfeaturename import StagedFeatureName
 from office365.entity import Entity
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.odata_property import odata
-
-if TYPE_CHECKING:
-    from office365.directory.policies.stagedfeaturename import StagedFeatureName
 
 
 class FeatureRolloutPolicy(Entity):
@@ -25,7 +23,7 @@ class FeatureRolloutPolicy(Entity):
      - Dynamic groups and nested groups are not supported.
     """
 
-    @odata(name="appliesTo")
+    @odata(name="appliesTo", navigation=True)
     @property
     def applies_to(self) -> DirectoryObjectCollection:
         """
@@ -39,28 +37,31 @@ class FeatureRolloutPolicy(Entity):
             ),
         )
 
+    @odata(name="description")
     @property
     def description(self) -> Optional[str]:
         """Gets the description property"""
         return self.properties.get("description", None)
 
+    @odata(name="displayName")
     @property
     def display_name(self) -> Optional[str]:
         """Gets the displayName property"""
         return self.properties.get("displayName", None)
 
+    @odata(name="feature")
     @property
     def feature(self) -> StagedFeatureName:
         """Gets the feature property"""
-        from office365.directory.policies.stagedfeaturename import StagedFeatureName
-
         return self.properties.get("feature", StagedFeatureName.passthroughAuthentication)
 
+    @odata(name="isAppliedToOrganization")
     @property
     def is_applied_to_organization(self) -> Optional[bool]:
         """Gets the isAppliedToOrganization property"""
         return self.properties.get("isAppliedToOrganization", None)
 
+    @odata(name="isEnabled")
     @property
     def is_enabled(self) -> Optional[bool]:
         """Gets the isEnabled property"""

@@ -10,7 +10,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 """
 
-from . import internal, util, qos, core, domain, topic, pub, sub, builtin, dynamic, idl, qos_provider
+from . import internal, util, qos, core, domain, topic, pub, sub, builtin, dynamic, idl, qos_provider, log
 
 __all__ = [
     "internal",
@@ -25,4 +25,5 @@ __all__ = [
     "dynamic",
     "idl",
     "qos_provider",
+    "log",
 ]

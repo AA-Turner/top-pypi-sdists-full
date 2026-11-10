@@ -43,6 +43,7 @@ use std::cell::RefCell;
 use std::sync::{Arc, OnceLock};
 
 use super::automaton::{MAX_STATES, Reached, canonical_order, chain_fits, reaches};
+use super::budget;
 
 /// What `regex-automata` may spend building one pattern's table, in bytes.
 ///
@@ -299,7 +300,6 @@ impl Dfa {
     }
 
     /// Whether this automaton accepts `word`.
-    #[cfg(test)]
     fn holds(&self, word: &[u8]) -> bool {
         let mut state = 0;
         for byte in word {
@@ -326,7 +326,6 @@ impl Dfa {
     }
 
     /// The automaton accepting nothing, over the one-class alphabet.
-    #[cfg(test)]
     fn empty() -> Dfa {
         Dfa {
             classes: vec![0; 256],
@@ -1321,29 +1320,33 @@ struct Product {
 impl Products {
     /// The product of `a` and `b` under `union`, built once a pair while the
     /// memo holds it.
+    ///
+    /// Charged by its table whether built or found, so what a build answers is no
+    /// function of what the thread asked before it: the memo saves the time and
+    /// changes no allowance. A refusal past [`MAX_STATES`] charges nothing, since
+    /// it ends the reading that asked.
     fn of(a: &Arc<Dfa>, b: &Arc<Dfa>, union: bool) -> Option<Arc<Dfa>> {
         let (mine, theirs) = (Arc::as_ptr(a) as usize, Arc::as_ptr(b) as usize);
         let key = (mine.min(theirs), mine.max(theirs), union);
-        if let Some(held) =
-            PRODUCTS.with_borrow(|memo| memo.built.get(&key).map(|held| held.built.clone()))
-        {
-            return held;
-        }
-        let built = if union {
-            a.product(b, |mine, theirs| mine || theirs)
-        } else {
-            a.product(b, |mine, theirs| mine && theirs)
-        }
-        .map(Arc::new);
-        let weight = [a, b]
-            .into_iter()
-            .chain(&built)
-            .map(|table| table.bytes())
-            .sum();
-        PRODUCTS.with_borrow_mut(|memo| {
-            memo.keep(key, [Arc::clone(a), Arc::clone(b)], built.clone(), weight);
+        let held = PRODUCTS.with_borrow(|memo| memo.built.get(&key).map(|held| held.built.clone()));
+        let built = held.unwrap_or_else(|| {
+            let built = if union {
+                a.product(b, |mine, theirs| mine || theirs)
+            } else {
+                a.product(b, |mine, theirs| mine && theirs)
+            }
+            .map(Arc::new);
+            let weight = [a, b]
+                .into_iter()
+                .chain(&built)
+                .map(|table| table.bytes())
+                .sum();
+            PRODUCTS.with_borrow_mut(|memo| {
+                memo.keep(key, [Arc::clone(a), Arc::clone(b)], built.clone(), weight);
+            });
+            built
         });
-        built
+        built.filter(|table| budget::spend_on_a_table(table.transitions.len()))
     }
 
     /// Keep `built` under `key`, starting over where it would pass
@@ -1435,7 +1438,6 @@ pub(crate) struct RegularSet {
 
 impl RegularSet {
     /// The empty set.
-    #[cfg(test)]
     #[must_use]
     pub(crate) fn empty() -> RegularSet {
         RegularSet {
@@ -1691,11 +1693,14 @@ impl RegularSet {
     /// Whether this set holds no word.
     #[must_use]
     pub(crate) fn is_empty(&self) -> bool {
-        self.dfa.is_empty()
+        // Every table here is minimal or the complement of one, so a word reaches
+        // every state, and a language holds a word exactly where a state accepts.
+        let empty = !self.dfa.accepting.contains(&true);
+        debug_assert_eq!(empty, self.dfa.is_empty(), "a state no word reaches");
+        empty
     }
 
     /// Whether this set holds `word`.
-    #[cfg(test)]
     #[must_use]
     pub(crate) fn holds(&self, word: &[u8]) -> bool {
         self.dfa.holds(word)

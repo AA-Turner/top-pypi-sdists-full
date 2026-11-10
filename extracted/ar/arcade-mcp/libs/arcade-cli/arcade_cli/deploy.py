@@ -43,7 +43,9 @@ from arcade_cli.utils import (
     get_auth_headers,
     get_org_scoped_url,
     resolve_engine_base_url,
+    secret_url_path,
     validate_and_get_config,
+    validate_secret_key,
 )
 
 logger = logging.getLogger(__name__)
@@ -395,6 +397,27 @@ def server_already_exists(engine_url: str, server_name: str) -> bool:
     response.raise_for_status()
 
     return cast(bool, response.json().get("managed"))
+
+
+def fetch_oauth_callback_url(engine_url: str, server_name: str) -> str | None:
+    """The OAuth callback URL Arcade gives the server, or None if the Engine has none.
+
+    Read from ``mcp.redirect_uri`` of ``GET /workers/{name}``; the Engine fills it in for a
+    server deployed with an ``oauth_client``. The deploy has already succeeded by the time
+    this runs, so any failure to read it is None rather than an error.
+    """
+    url = get_org_scoped_url(engine_url, f"/workers/{server_name}")
+    try:
+        with httpx.Client(headers=get_auth_headers(), timeout=DEPLOY_TIMEOUT_SECONDS) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            worker = response.json()
+    except (httpx.HTTPError, ValueError):
+        logger.debug("Couldn't read the OAuth callback URL of %s", server_name, exc_info=True)
+        return None
+    mcp = worker.get("mcp") if isinstance(worker, dict) else None
+    redirect_uri = mcp.get("redirect_uri") if isinstance(mcp, dict) else None
+    return redirect_uri if isinstance(redirect_uri, str) and redirect_uri else None
 
 
 def update_deployment(
@@ -767,7 +790,8 @@ def get_required_secrets(
             ):
                 for secret in tool["requirements"]["secrets"]:
                     if secret.get("key"):
-                        required_secrets.add(secret["key"])
+                        # A tool author controls this key, and it ends up in an API path.
+                        required_secrets.add(validate_secret_key(secret["key"]))
 
         console.print(f"✓ Found {len(tools_data)} tools", style="green")
 
@@ -847,6 +871,12 @@ def upsert_secrets_to_engine(
     client = httpx.Client(headers=get_auth_headers())
 
     for secret_key in sorted(secrets):
+        try:
+            secret_path = secret_url_path(secret_key)
+        except ValueError as e:
+            console.print(f"❌ Skipping secret upload: {e}", style="red")
+            continue
+
         secret_value = os.getenv(secret_key)
 
         if secret_value:
@@ -863,7 +893,7 @@ def upsert_secrets_to_engine(
 
         try:
             # Upsert secret to engine
-            url = get_org_scoped_url(engine_url, f"/secrets/{secret_key}")
+            url = get_org_scoped_url(engine_url, secret_path)
             response = client.put(
                 url,
                 json={"description": "Secret set via CLI", "value": secret_value},
@@ -993,7 +1023,7 @@ def deploy_server_logic(
     from arcade_cli.deploy_mcp import deploy_mcp_server, deploys_mcp_server
 
     if deploys_mcp_server(current_dir):
-        _load_env_file()
+        env_file = _load_env_file()
         deploy_mcp_server(
             current_dir,
             engine_url,
@@ -1003,6 +1033,7 @@ def deploy_server_logic(
             secrets=secrets,
             debug=debug,
             provider=provider,
+            env_file=env_file,
         )
         return
     if skip_validate and secrets == "auto":

@@ -6,12 +6,11 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use async_trait::async_trait;
-use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 
 pub use super::net::HeaderMap;
 use super::policy::base_host;
+use super::Boxed;
 use crate::err::{refuse, Code, Refusal, Result};
 
 /// A request about to be sent.
@@ -24,10 +23,10 @@ pub struct Request<'a> {
     pub payload: Option<&'a str>,
 }
 
-#[async_trait]
+/// What authorizes requests: the headers for each one, and whether an answer earns a retry.
 pub trait TokenProvider: Send + Sync {
     /// The headers that authorize `request`.
-    async fn headers(&self, request: &Request<'_>) -> Result<Vec<(String, String)>>;
+    fn headers<'a>(&'a self, request: &'a Request<'a>) -> Boxed<'a, Result<Vec<(String, String)>>>;
 
     /// The answer to `sent` was `status` with `headers`: true asks once more (a DPoP nonce, a
     /// refreshed token).
@@ -38,12 +37,11 @@ pub trait TokenProvider: Send + Sync {
 }
 
 /// `Authorization: Bearer <token>`.
-pub struct Bearer(pub String);
+pub(crate) struct Bearer(pub String);
 
-#[async_trait]
 impl TokenProvider for Bearer {
-    async fn headers(&self, _: &Request<'_>) -> Result<Vec<(String, String)>> {
-        Ok(vec![("authorization".into(), format!("Bearer {}", self.0))])
+    fn headers<'a>(&'a self, _: &'a Request<'a>) -> Boxed<'a, Result<Vec<(String, String)>>> {
+        Box::pin(async move { Ok(vec![("authorization".into(), format!("Bearer {}", self.0))]) })
     }
 }
 
@@ -56,14 +54,14 @@ pub fn bearer(token: impl Into<String>) -> Arc<dyn TokenProvider> {
 const TENSORHUB: &str = "https://tensorhub.com";
 
 /// The endpoint a name resolves against when none is given: `TENSORFS_ENDPOINT`, else Tensorhub.
-pub fn default_endpoint() -> String {
+pub(crate) fn default_endpoint() -> String {
     env("TENSORFS_ENDPOINT").unwrap_or_else(|| TENSORHUB.into())
 }
 
 /// The provider the default chain gives endpoint `url`: `TENSORFS_TOKEN` for the default
 /// endpoint's host, `HF_TOKEN` for huggingface.co, `CIVITAI_TOKEN` for civitai.com, `AWS_*` for
 /// `s3://`; else none (anonymous).
-pub fn default_for(url: &str) -> Option<Arc<dyn TokenProvider>> {
+pub(crate) fn default_for(url: &str) -> Option<Arc<dyn TokenProvider>> {
     if url.starts_with("s3://") {
         return SigV4::from_env().map(|s| Arc::new(s) as Arc<dyn TokenProvider>);
     }
@@ -96,13 +94,13 @@ pub struct SigV4 {
 }
 
 impl SigV4 {
-    pub fn new(access_key: &str, secret: &str, session: Option<String>, region: &str) -> SigV4 {
+    pub(crate) fn new(access_key: &str, secret: &str, session: Option<String>, region: &str) -> SigV4 {
         SigV4 { access_key: access_key.into(), secret: secret.into(), session, region: region.into() }
     }
 
     /// From `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` and `AWS_REGION`
     /// (else `AWS_DEFAULT_REGION`, else `us-east-1`).
-    pub fn from_env() -> Option<SigV4> {
+    pub(crate) fn from_env() -> Option<SigV4> {
         let region = env("AWS_REGION").or_else(|| env("AWS_DEFAULT_REGION")).unwrap_or_else(|| "us-east-1".into());
         Some(SigV4::new(&env("AWS_ACCESS_KEY_ID")?, &env("AWS_SECRET_ACCESS_KEY")?, env("AWS_SESSION_TOKEN"), &region))
     }
@@ -154,19 +152,19 @@ impl SigV4 {
     }
 }
 
-#[async_trait]
 impl TokenProvider for SigV4 {
-    async fn headers(&self, request: &Request<'_>) -> Result<Vec<(String, String)>> {
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_secs());
-        let headers: Vec<_> = request.headers.iter().filter(|(name, _)| !name.eq_ignore_ascii_case("range")).cloned().collect();
-        self.sign(&Request { headers: &headers, ..*request }, now)
+    fn headers<'a>(&'a self, request: &'a Request<'a>) -> Boxed<'a, Result<Vec<(String, String)>>> {
+        Box::pin(async move {
+            let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            let headers: Vec<_> = request.headers.iter().filter(|(name, _)| !name.eq_ignore_ascii_case("range")).cloned().collect();
+            self.sign(&Request { headers: &headers, ..*request }, now)
+        })
     }
 }
 
 fn hmac(key: &[u8], message: &[u8]) -> [u8; 32] {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key).expect("HMAC takes a key of any size");
-    mac.update(message);
-    mac.finalize().into_bytes().into()
+    let tag = aws_lc_rs::hmac::sign(&aws_lc_rs::hmac::Key::new(aws_lc_rs::hmac::HMAC_SHA256, key), message);
+    tag.as_ref().try_into().expect("HMAC-SHA256 is 32 bytes")
 }
 
 /// `YYYYMMDDTHHMMSSZ` for `secs` since the Unix epoch (days to the civil date, proleptic Gregorian).
@@ -224,7 +222,7 @@ fn encode(text: &str) -> String {
 
 /// The HTTP base of `s3://<bucket>[/<prefix>]`, path-style: at `AWS_ENDPOINT_URL_S3`, else
 /// `AWS_ENDPOINT_URL`, else AWS's regional endpoint.
-pub fn s3_base(url: &str) -> Result<String> {
+pub(crate) fn s3_base(url: &str) -> Result<String> {
     let Some(path) = url.strip_prefix("s3://").filter(|p| !p.is_empty() && !p.starts_with('/')) else {
         return refuse(Code::SOURCE_NOT_ALLOWED, format!("{url}: not s3://<bucket>[/<prefix>]"));
     };

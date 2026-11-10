@@ -80,6 +80,7 @@ from ._core.direct import DirectConnection
 from ._core import teleop as _teleop
 from ._core import teleop_robot as _teleop_robot
 from ._core.teleop import Teleop
+from ._core.recorder import Recorder
 from ._core import mock_gate
 from ._core.reporting import INGEST_PATH, Reporter, connect_record, latency_record, run_record
 from .errors import (
@@ -107,6 +108,9 @@ __all__ = [
 
     "teleop",
     "Teleop",
+
+    "record",
+    "Recorder",
 
     "Video",
     "Depth",
@@ -342,6 +346,35 @@ def teleop(policy: str, *, robot: str | None = None, key: str | None = None, ope
     return Teleop(answer, operator=operator, robot=robot, timeout_s=timeout_s or 10.0)
 
 
+def record(policy: str, *, key: str | None = None, base_url: str | None = None,
+           timeout_s: float | None = None) -> Recorder:
+    """
+    Your own recorder of a policy's steps: every step each of its robots runs, straight from the workers that served it,
+    for you to write wherever you keep your data - the platform keeps none of it.
+
+        with sequence_ai.record("pick_user", key=RECORD_KEY_user) as rec_user:
+            for item_user in rec_user.steps():      # one act ("step"), a label, an episode's end, or a gap
+                my_bucket_user.write(item_user)
+
+    policy      the deployment, as connect() names it; record must be on: `seq policy set <name> record=on`
+    key         a record key of the policy (`seq record add --policy <name>`): it reads this policy's steps and opens
+                nothing else; defaults to $SEQUENCES_API_KEY
+    base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
+    timeout_s   how long the platform's answer and each worker's opening may take: 10 s unset
+
+    Each worker keeps its newest minute (60 s, 32 MiB at most) in its memory for you, nothing on disk: a recorder away
+    longer is told how many records it lost (a "gap" item). One that must have no gap keeps capture on as well. Conflict
+    while record is off (details.reason "record_off"); Forbidden for a key that is no record key of the policy.
+    """
+    resolved = _resolve_base_url(base_url)
+    gateway = Transport(api_key=key, base_url=resolved, timeout_s=timeout_s or 10.0)
+    try:
+        return Recorder(gateway, policy, timeout_s=timeout_s or 10.0)
+    except BaseException:
+        gateway.close()
+        raise
+
+
 def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s: float | None,
              startup_timeout_s: float | None, on_warming: Callable[[float, float], None] | None,
              on_queue: Callable[[Any, Any, float, Any], None] | None, teleop: Any = None,
@@ -358,7 +391,7 @@ def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s
 
 
         api_key = api_key or os.environ.get("SEQUENCES_API_KEY") or "mock"
-    gateway = Transport(api_key=api_key, base_url=resolved, timeout_s=timeout_s)
+    gateway = Transport(api_key=api_key, base_url=resolved, timeout_s=timeout_s, robot_of=model)
 
 
 
@@ -467,11 +500,15 @@ def account(*, api_key: str | None = None, base_url: str | None = None) -> dict[
 
     Billing is postpaid: usage is billed at the month's end, the plan's monthly credit spent first, up to the
     plan's monthly limit - and past the credit only with a payment method on the account. So a CI job or control
-    loop can check this before a big run instead of meeting the limit as an `OutOfCredit` mid-way: `balance`
-    holds `period_spent_usd` (this month so far), `credit_usd` and `credit_left_usd`, `month_limit_usd` and
-    `month_left_usd`, and `payment_method` ({"brand", "last4", "exp_month", "exp_year"}, or None). Returns
-    `{"balance": {"period_spent_usd", "month_left_usd", ...}, "usage": {"policies", "benchmarks"}, "limits": {...},
-    "gpus": {"limit", "in_use": {"serving", "eval", "total"}, "available", "waiting_evals": [...]}}` —
+    loop can check this before a big run instead of meeting the limit as an `OutOfCredit` mid-way:
+    `balance["spendable"]` is what the account may spend now - its credits and any payment method's line, at most
+    what this month's limit, where its plan has one, leaves past what was spent and what running workers and evals
+    hold (`held_usd`) - the figure `seq account` says is left to spend and the console's Left to spend; work that
+    would spend past it is refused. `balance` also holds `period_spent_usd` (this month so far), `credit_usd` and `credit_left_usd`,
+    `month_limit_usd` and `month_left_usd` (the limit less this month's spend, before what is held), and
+    `payment_method` ({"brand", "last4", "exp_month", "exp_year"}, or None). Returns
+    `{"balance": {"spendable", "period_spent_usd", "month_left_usd", ...}, "usage": {"policies", "benchmarks"},
+    "limits": {...}, "gpus": {"limit", "in_use": {"serving", "eval", "total"}, "available", "waiting_evals": [...]}}` —
     `limits` only carries the per-account knobs that are configured; in `gpus`, a count the platform
     could not read is None (unknown — never read it as "full"), and `waiting_evals` lists the evals in
     line for GPUs ({eval_id, cards, waited_s, gives_up_at}). Read-only: creating keys and adding a payment
@@ -499,12 +536,14 @@ def gpus(*, base_url: str | None = None) -> dict[str, Any]:
     Returns `{"gpus": [{"gpu", "usd_per_hour", "usd_per_second", "vram_gb", "policy", "benchmark",
     "rt_core", "nvenc"}], "cpu": {"usd_per_core_hour", "serving_usd_per_core_hour"},
     "memory": {"usd_per_gib_hour", "serving_usd_per_gib_hour"}, "storage": {"usd_per_gb_month"},
-    "min_billable_s"}`. `gpu` is the name `gpu=` takes; `usd_per_hour` one card's hour
-    alone; `benchmark` says whether a benchmark's sims may run on it; `cpu` and `memory` what a core and a
-    GiB cost an hour - `serving_*` for a deployed policy's workers, the others for build checks, evals and
-    benchmarks. CPU and memory are billed apart from the card: an hour of a worker is its cards x
-    `usd_per_hour` + its cores x a core's + its GiB x a GiB's - each at the greater of what it requests (0.125 at
-    least) and what it uses - and a worker that declares no GPU pays no card.
+    "policy_machines": {card: {"cpu", "memory_gib"}}, "min_billable_s"}`. `gpu` is the name `gpu=` takes;
+    `usd_per_hour` one card's hour alone; `benchmark` says whether a benchmark's sims may run on it; `cpu` and
+    `memory` what a core and a GiB cost an hour - `serving_*` for a deployed policy's workers, the others for build
+    checks, evals and benchmarks. CPU and memory are billed apart from the card: an hour of a policy's worker is its
+    cards x `usd_per_hour` + its card's standard machine (`policy_machines`), or what it declares where more, at the
+    `serving_*` rates, wherever it runs; a benchmark's machine on a shared machine pays the greater of what it
+    requests (0.125 at least) and what it uses, its request on a machine of its own; and a worker that declares no GPU
+    pays no card.
     `min_billable_s` the seconds a machine's card is billed at least each time it starts - an eval's machines, their CPU
     and memory too; `storage` what a GB of a deployment's
     weights copy, its image or a volume costs a month, billed daily for as long as it is kept

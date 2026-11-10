@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.tenant.administration.onedrives_summary_metrics_by_unlicensed_reason import (
@@ -8,7 +8,6 @@ from office365.sharepoint.tenant.administration.onedrives_summary_metrics_by_unl
 )
 
 
-@dataclass
 class UnlicensedOneDrivesSummaryMetrics(ClientValue):
     agedOverThreshold: OneDrivesSummaryMetricsByUnlicensedReason = field(
         default_factory=OneDrivesSummaryMetricsByUnlicensedReason

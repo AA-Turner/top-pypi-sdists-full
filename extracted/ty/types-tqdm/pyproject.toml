@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-tqdm"
-version = "4.70.0.20261102"
+version = "4.70.0.20261106"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for tqdm"
@@ -25,13 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.91
+* [ty](https://docs.astral.sh/ty/) 0.0.94
 
 It was generated from typeshed commit
-[`272d38680771baf39c7ea503ae5d042c3295e47c`](https://github.com/python/typeshed/commit/272d38680771baf39c7ea503ae5d042c3295e47c).
+[`64c9da7d22492efa44d1ca06b8d82c1bf6aed74f`](https://github.com/python/typeshed/commit/64c9da7d22492efa44d1ca06b8d82c1bf6aed74f).
 
 ## Optional dependencies
 

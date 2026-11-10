@@ -29,7 +29,16 @@ from datamodel_code_generator._fastapi.packages import (
 from datamodel_code_generator._generation_timestamp import current_timestamp
 from datamodel_code_generator._message_text import english_list
 from datamodel_code_generator._module_paths import is_package_init
-from datamodel_code_generator._paths import concrete, concrete_parent, files_under, lexical, overlaps, resolved
+from datamodel_code_generator._paths import (
+    concrete,
+    concrete_parent,
+    file_uri,
+    lexical,
+    output_files,
+    output_layout,
+    overlaps,
+    resolved,
+)
 from datamodel_code_generator._python_syntax import normalize_newlines
 from datamodel_code_generator._target_config import (
     _diagnostic,  # pyright: ignore[reportPrivateUsage]
@@ -57,7 +66,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._target_format import TargetCodeFormatter
     from datamodel_code_generator.config import GenerateConfig
-    from datamodel_code_generator.enums import DataModelType, OpenAPIScope, TargetPydanticVersion
+    from datamodel_code_generator.enums import DataModelType, TargetPydanticVersion
     from datamodel_code_generator.remote_lock import RemoteReferenceLock
 
 _PYTHON_MINIMUM = (3, 11)
@@ -132,7 +141,12 @@ class TargetRequest:
 
     @property
     def unresolved(self) -> str:
-        """Say why an operation reference resolved to nothing, naming the include filter when one is set."""
+        """Say why an operation reference resolved to nothing, naming the include filter when one is set.
+
+        The operations of an AsyncAPI input are its channels.
+        """
+        if self.batch.channels is not None:
+            return "selects no channel"
         if self.model_config.openapi_include_paths:
             return "selects no root path operation that --openapi-include-paths keeps"
         return "selects no root path operation"
@@ -232,7 +246,7 @@ def prepare_target(
             implied="use_missing_sentinel" in implied,
         )
     effective = _prepare_generate_facade_config(model_config)
-    if (requirement := model_requirement(effective.openapi_scopes, generator.selector)) is not None:
+    if (requirement := model_requirement(effective, generator.selector)) is not None:
         raise Error(requirement)
     if (backend := effective.output_model_type) not in generator.backends:
         allowed = english_list(
@@ -340,11 +354,17 @@ def _check_pydantic_target(
         )
 
 
-def model_requirement(scopes: Iterable[OpenAPIScope] | None, selector: str) -> str | None:
-    """Return the "X requires Y" message for the api scope a target needs, or None while the scopes include it."""
-    from datamodel_code_generator.enums import OpenAPIScope  # noqa: PLC0415
+def model_requirement(config: GenerateConfig, selector: str) -> str | None:
+    """Return the "X requires Y" message for the api scope a target needs, or None while the scopes include it.
 
-    if scopes is not None and OpenAPIScope.Api in scopes:
+    An AsyncAPI input, which has no api scope, needs none.
+    """
+    from datamodel_code_generator.enums import InputFileType, OpenAPIScope  # noqa: PLC0415
+
+    scopes = config.openapi_scopes
+    if InputFileType(config.input_file_type) is InputFileType.AsyncAPI or (
+        scopes is not None and OpenAPIScope.Api in scopes
+    ):
         return None
     return f"{selector} requires --openapi-scopes to include api"
 
@@ -362,7 +382,7 @@ def _root_input(input_: _GenerationInput, cwd: Path) -> RootInput:
     match input_:
         case Path():
             path = resolved(input_, cwd)
-            return RootInput(path.as_uri(), path.parent)
+            return RootInput(file_uri(path), path.parent)
         case ParseResult():
             return RootInput(input_.geturl(), cwd)
     return RootInput(ROOT_URN, cwd)
@@ -404,25 +424,36 @@ def _staging(stack: ExitStack, destination: Path, cwd: Path, around: Path | None
 def _staged_models(staged: Path, output: Path, encoding: str) -> tuple[ModelArtifact, ...]:
     from datamodel_code_generator._target_contract import ModelArtifact  # noqa: PLC0415
 
-    if staged.is_file():
-        return (ModelArtifact((output.name,), staged.read_bytes(), encoding),)
-    files = sorted((path.relative_to(staged).parts, path) for path in files_under(staged))
-    return tuple(ModelArtifact(parts, path.read_bytes(), encoding) for parts, path in files)
+    return tuple(
+        ModelArtifact(parts or (output.name,), path.read_bytes(), encoding)
+        for parts, path in sorted(output_files(staged))
+    )
 
 
-def _generate_models(
-    input_: _GenerationInput, config: GenerateConfig, target: TargetConfig, cwd: Path, *, use_output_cwd: bool
+def _generate_models(  # noqa: PLR0913
+    input_: _GenerationInput,
+    config: GenerateConfig,
+    target: TargetConfig,
+    cwd: Path,
+    *,
+    use_output_cwd: bool,
+    compares: bool = False,
 ) -> _Models:
     from datamodel_code_generator import (  # noqa: PLC0415
         _absolute_generation_path,  # pyright: ignore[reportPrivateUsage]
         _default_input_filename,  # pyright: ignore[reportPrivateUsage]
         _output_context_path,  # pyright: ignore[reportPrivateUsage]
         _read_custom_file_header,  # pyright: ignore[reportPrivateUsage]
+        _refuse_output_layout,  # pyright: ignore[reportPrivateUsage]
         _run_generation,  # pyright: ignore[reportPrivateUsage]
         _settings_path_from,  # pyright: ignore[reportPrivateUsage]
     )
     from datamodel_code_generator._openapi_generation import TargetGenerationSession  # noqa: PLC0415
-    from datamodel_code_generator._publication import staged_artifact_path  # noqa: PLC0415
+    from datamodel_code_generator._publication import (  # noqa: PLC0415
+        STAGED_METADATA_NAME,
+        STAGED_OUTPUT_NAME,
+        staged_artifact_path,
+    )
     from datamodel_code_generator._target_binding import MetadataCycleError  # noqa: PLC0415
 
     source = _root_input(input_, cwd)
@@ -435,12 +466,15 @@ def _generate_models(
     settings_path = _settings_path_from(formatter_cwd, prepared.settings_path)
     with ExitStack() as stack:
         staged_output = staged_artifact_path(
-            _staging(stack, output, cwd, target.output), output, "output", make_directory=(cwd / output).is_dir()
+            _staging(stack, output, cwd, target.output),
+            output,
+            STAGED_OUTPUT_NAME,
+            make_directory=(cwd / output).is_dir(),
         )
         updates: dict[str, Any] = {"output": staged_output}
         if (metadata := config.emit_model_metadata) is not None:
             updates["emit_model_metadata"] = staged_artifact_path(
-                _staging(stack, metadata, cwd), metadata, "model-metadata.json", make_directory=False
+                _staging(stack, metadata, cwd), metadata, STAGED_METADATA_NAME, make_directory=False
             )
         staged = prepared.model_copy(update=updates)
         staged._logical_output = output  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
@@ -455,6 +489,7 @@ def _generate_models(
         )
         try:
             _run_generation(input_, staged, cwd, use_output_cwd=use_output_cwd, capture=session)
+            _refuse_output_layout(output_layout(staged_output), cwd / output, compares=compares)
             artifacts = _staged_models(staged_output, output, prepared.encoding)
             metadata_file = None if metadata is None else (metadata, updates["emit_model_metadata"].read_bytes())
             product = session.take_product(artifacts, allow_empty_api=True)
@@ -477,7 +512,7 @@ def _generate_models(
         return _Models(
             product=product,
             artifacts=artifacts,
-            single=staged_output.is_file(),
+            single=output_layout(staged_output) == "module",
             metadata=metadata_file,
             lock=lock,
             source=source,
@@ -673,7 +708,11 @@ class _Planner:
     def project(self) -> GeneratedProject:
         models, config, generator = self.models, self.config, self.generator
         operations = _root_operations(models.product.batch)
-        self.operations = {operation.id.use_site.pointer: operation for operation in operations}
+        handshakes = (channel.handshake for channel in models.product.batch.channels or ())
+        self.operations = {
+            operation.id.use_site.pointer: operation
+            for operation in (*operations, *(handshake for handshake in handshakes if handshake is not None))
+        }
         rendered = generator.render(
             TargetRequest(
                 config=config,
@@ -893,10 +932,10 @@ class _Planner:
         modules, `own`, are staged beside it as they lie beside the package. Ruff reads and writes UTF-8 only, so the
         staged files are UTF-8 whatever encoding the files are written in.
         """
-        from datamodel_code_generator._format_types import Formatter  # noqa: PLC0415
+        from datamodel_code_generator._format_types import RUFF_FORMATTERS  # noqa: PLC0415
         from datamodel_code_generator.format import _RUFF_ENCODING  # noqa: PLC0415
 
-        if not paths or not {Formatter.RUFF_CHECK, Formatter.RUFF_FORMAT}.intersection(formatter.formatters):
+        if not paths or not RUFF_FORMATTERS.intersection(formatter.formatters):
             return
         with ExitStack() as stack:
             staged = _staging(stack, self.config.output, self.cwd) / self.root.name
@@ -1090,16 +1129,18 @@ def _quietly(cleanup: Callable[[], None]) -> None:
         cleanup()
 
 
-def _run_models(input_: _GenerationInput, effective: GenerateConfig, config: TargetConfig) -> _Models:
+def _run_models(
+    input_: _GenerationInput, effective: GenerateConfig, config: TargetConfig, *, compares: bool = False
+) -> _Models:
     from datamodel_code_generator import _uses_legacy_process_state  # noqa: PLC0415  # pyright: ignore[reportPrivateUsage]
     from datamodel_code_generator._process_state import PROCESS_STATE_LOCK  # noqa: PLC0415
 
     if _uses_legacy_process_state(effective):
         with PROCESS_STATE_LOCK:
-            return _generate_models(input_, effective, config, Path.cwd(), use_output_cwd=True)
+            return _generate_models(input_, effective, config, Path.cwd(), use_output_cwd=True, compares=compares)
     with PROCESS_STATE_LOCK:
         cwd = Path.cwd()
-    return _generate_models(input_, effective, config, cwd, use_output_cwd=False)
+    return _generate_models(input_, effective, config, cwd, use_output_cwd=False, compares=compares)
 
 
 def plan_target(  # noqa: PLR0913
@@ -1113,6 +1154,7 @@ def plan_target(  # noqa: PLR0913
     models_module: bool = False,
     shown_root: Path | None = None,
     job: str = "",
+    compares: bool = False,
 ) -> PlannedTarget:
     """Render one target and its models without writing them, for a caller that compares or publishes them later.
 
@@ -1121,7 +1163,8 @@ def plan_target(  # noqa: PLR0913
     published together pass on the `timestamp` of the first, so the models they share carry one generation timestamp;
     without one, the files carry the current time. `models_module` plans models generated as one file as the module
     `<output>.py`, warnings name target paths relative to `shown_root`, or to the working directory without one, and
-    refusals name the batch `job` that plans the target.
+    refusals name the batch `job` that plans the target. A target planned for `compares` against another input reads no
+    destination, so its models are not refused for a layout that cannot replace it.
     """
     effective = prepare_target(input_, model_config, generator)
     config.check_target(effective.target_python_version)
@@ -1136,7 +1179,7 @@ def plan_target(  # noqa: PLR0913
         effective._generation_timestamp = (  # noqa: SLF001
             timestamp or current_timestamp()
         )
-    models = _run_models(input_, effective, config)
+    models = _run_models(input_, effective, config, compares=compares)
     try:
         return _Planner(
             models, effective, config, generator, models_module=models_module, shown_root=shown_root, job=job

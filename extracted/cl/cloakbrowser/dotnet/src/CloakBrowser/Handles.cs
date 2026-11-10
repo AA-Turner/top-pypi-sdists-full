@@ -100,6 +100,14 @@ public sealed class CloakBrowserHandle : IAsyncDisposable
     /// <summary>Whether the humanize layer is enabled for this browser.</summary>
     public bool HumanizeEnabled => _humanize;
 
+    /// <summary>
+    /// Why the license refused this browser (e.g. "session limit reached"), or null. Checks
+    /// now, without a browser call: useful while waiting on something else, like a CDP
+    /// endpoint. Safe to call repeatedly.
+    /// </summary>
+    public CloakBrowserLicenseError? LicenseDenial() =>
+        _denialPath == null ? null : LicenseGuard.DenialError(_denialPath);
+
     /// <summary>Close the browser and stop the underlying Playwright instance.</summary>
     public Task CloseAsync() => CloseAsync(null);
 
@@ -262,6 +270,11 @@ internal class LicenseGuardProxy<T> : DispatchProxy, IGuardedProxy where T : cla
             return value;
         }
 
+        // Never guard teardown (mirrors the Python/JS skip of close): after a denial,
+        // close must still clean up, not throw the license error from a finally block.
+        if (targetMethod.Name is "CloseAsync" or "DisposeAsync")
+            return Forward(targetMethod, args);
+
         var returnType = targetMethod.ReturnType;
 
         if (returnType == typeof(Task))
@@ -411,6 +424,13 @@ public sealed class CloakContextHandle : IAsyncDisposable
 
     /// <summary>Whether the humanize layer is enabled for this context.</summary>
     public bool HumanizeEnabled => _humanize;
+
+    /// <summary>
+    /// Why the license refused this context's browser (e.g. "session limit reached"), or
+    /// null. Checks now, without a browser call. Safe to call repeatedly.
+    /// </summary>
+    public CloakBrowserLicenseError? LicenseDenial() =>
+        _denialPath == null ? null : LicenseGuard.DenialError(_denialPath);
 
     /// <summary>Close the context (and browser, if owned) and stop Playwright.</summary>
     public Task CloseAsync() => CloseAsync(null);

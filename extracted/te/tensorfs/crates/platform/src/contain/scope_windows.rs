@@ -31,6 +31,11 @@ impl Scope {
         Ok(0)
     }
 
+    /// Only Linux tells an OOM kill apart.
+    pub fn oom_killed(&self) -> bool {
+        false
+    }
+
     pub fn cgroup_relative(&self) -> Option<&str> {
         None
     }
@@ -39,14 +44,9 @@ impl Scope {
         None
     }
 
-    pub fn trampoline_args(&self) -> Vec<String> {
-        vec!["--scope-backend".into(), "inherit".into()]
-    }
-
     /// Live processes in the scope.
     pub fn processes(&self) -> Result<usize> {
-        // SAFETY: plain-old-data the call fills.
-        let mut accounting: JOBOBJECT_BASIC_ACCOUNTING_INFORMATION = unsafe { mem::zeroed() };
+        let mut accounting = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION::default();
         self.query(JobObjectBasicAccountingInformation, &mut accounting)
             .map_err(Error::os("count a scope's processes"))?;
         Ok(accounting.ActiveProcesses as usize)
@@ -68,7 +68,7 @@ impl Scope {
         Ok(())
     }
 
-    pub fn kill(&self) -> Result<()> {
+    pub(crate) fn kill(&self) -> Result<()> {
         // SAFETY: a live job handle.
         if unsafe { TerminateJobObject(self.0.as_raw_handle(), 1) } == 0 {
             return Err(Error::os("end a process scope")(io::Error::last_os_error()));
@@ -100,8 +100,7 @@ impl Scope {
             head: JOBOBJECT_BASIC_PROCESS_ID_LIST,
             more: [usize; 255],
         }
-        // SAFETY: plain-old-data the call fills.
-        let mut list: List = unsafe { mem::zeroed() };
+        let mut list = List { head: JOBOBJECT_BASIC_PROCESS_ID_LIST::default(), more: [0; 255] };
         self.query(JobObjectBasicProcessIdList, &mut list)
             .map_err(Error::os("list a scope's processes"))?;
         let count = list.head.NumberOfProcessIdsInList as usize;
@@ -142,4 +141,34 @@ pub fn stuck() -> Vec<super::Stuck> {
 
 pub fn all_stuck(_: &[crate::process::Birth]) -> bool {
     false
+}
+
+/// What a contained machine may use (Linux only).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Budget {
+    pub max: u64,
+    pub reserve: u64,
+    pub used: u64,
+}
+
+/// Only Linux contains a machine in a cgroup of its own.
+pub fn contain(_: &str) -> std::result::Result<std::path::PathBuf, String> {
+    Err("no cgroup v2 on this system".into())
+}
+
+/// What the kernel accounts for a contained machine; never read here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MachineFacts {
+    pub computer: u64,
+    pub outside: u64,
+    pub held: u64,
+    pub own: u64,
+}
+
+pub fn follow(_: impl FnOnce(&MachineFacts) -> (u64, u64)) -> Option<std::io::Result<Budget>> {
+    None
+}
+
+pub fn budget() -> Option<Budget> {
+    None
 }

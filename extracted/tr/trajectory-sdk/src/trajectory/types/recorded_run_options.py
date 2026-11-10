@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Literal
 
 from trajectory._models import BaseModel
-from trajectory.types.training_algorithm import TrainingAlgorithm
+from trajectory.types.priority_aggregation import PriorityAggregation
+from trajectory.types.priority_trait import PriorityTrait
 
 
 class RecordedRunOptions(BaseModel):
@@ -15,7 +16,7 @@ class RecordedRunOptions(BaseModel):
 
   density_aware_training: bool | None = None
 
-  algorithm: TrainingAlgorithm | None = None
+  algorithm: str | None = None
 
   train_on_truncation: bool | None = None
 
@@ -76,6 +77,10 @@ class RecordedRunOptions(BaseModel):
   batch_size: int | None = None
 
   group_size: int | None = None
+
+  priority_trait: PriorityTrait | None = None
+
+  priority_aggregation: PriorityAggregation | None = None
 
   min_trajectories_per_group: int | None = None
 

@@ -37,8 +37,8 @@ classifiers = [
 dependencies = [
     "commonmark>=0.9.1",
     "importlib-metadata",
-    "great-tables>=0.0.0",
-    "narwhals>=2.0.1",
+    "great-tables>=1.1.0",  # 1.1.0 escapes unformatted cells; `fmt_passthrough()` needs 1.0.0+
+    "narwhals>=2.8.0",      # The lowest version tested (the dev group and the `minimum` CI job)
     "typing_extensions>=3.10.0.0",
     "requests>=2.31.0",
     "click>=8.0.0",
@@ -52,7 +52,7 @@ pd = ["pandas>=2.2.3"]
 pl = ["polars>=1.33.0"]
 pyspark = ["pyspark==3.5.6"]
 generate = [
-    "chatlas>=0.3.0",
+    "chatlas>=0.10.0",  # Older chatlas passes the wrong HTTP client to anthropic 0.68+
     "anthropic[bedrock]>=0.68.0",
     "openai>=1.63.0",
     "httpx>=0.28.0",
@@ -62,8 +62,8 @@ generate = [
 # See: https://github.com/posit-dev/pointblank/issues/415
 mcp = ["fastmcp>=2.14.2", "pytest-asyncio>=1.0.0"]
 otel = [
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
+    "opentelemetry-api>=1.23.0",  # 1.22.0 has no `Meter.create_gauge()`
+    "opentelemetry-sdk>=1.23.0",
 ]
 
 excel = ["openpyxl>=3.0.0"]
@@ -75,7 +75,15 @@ cdisc = ["lxml>=4.9.0"]
 cdisc-core = ["pyreadstat>=1.2.0"]
 bigquery = ["ibis-framework[bigquery]>=9.5.0"]
 databricks = ["ibis-framework[databricks]>=9.5.0"]
-duckdb = ["ibis-framework[duckdb]>=9.5.0", "sqlglot>=23.4,<30.18"]  # sqlglot 30.18+ breaks DROP statements
+# ibis 10.x fails on DuckDB 1.4+ (ibis-project/ibis#11621) and Narwhals < 2.8 on DuckDB 1.5+;
+# DuckDB 2.0 breaks ibis's `list_tables()` and Narwhals' DuckDB joins; sqlglot 30.18+ breaks DROP
+# statements
+duckdb = [
+    "ibis-framework[duckdb]>=11.0.0",
+    "duckdb<2",
+    "narwhals>=2.8.0",
+    "sqlglot>=23.4,<30.18",
+]
 mysql = ["ibis-framework[mysql]>=9.5.0"]
 mssql = ["ibis-framework[mssql]>=9.5.0"]
 postgres = ["ibis-framework[postgres]>=9.5.0"]
@@ -85,38 +93,43 @@ docs = [
     "jupyter",
     "nbclient>=0.10.0",
     "nbformat>=5.10.4",
-    "pandas>=2.2.3,<3",  # <3: pandas 3.0's default `str` dtype is unsupported by the pinned duckdb (<1.3.3)
-    "polars>=1.17.1",
+    "pandas>=2.2.3",
+    "polars>=1.33.0",
     "pyspark==3.5.6",
     "openpyxl>=3.0.0",
-    "duckdb>=1.2.0,<1.3.3",                      # Pin to stable versions avoiding 1.4.0+ RecordBatchReader issues
+    "duckdb>=1.2.0,<2",                          # 2.0 breaks ibis's `list_tables()` and Narwhals' joins
     "lxml>=4.9.0",                               # CDISC Define-XML / Controlled Terminology examples
     "pyreadstat>=1.2.0",                         # SAS Transport (XPT) metadata example
+    "opentelemetry-api>=1.23.0",                 # OTelExporter and emit_otel() examples
+    "opentelemetry-sdk>=1.23.0",
 ]
 
 [dependency-groups]
 dev = [
     "anthropic[bedrock]>=0.68.0",                           # Lets the AI provider setup paths run in tests
-    "chatlas>=0.6.1",
-    "duckdb>=1.2.0,<1.3.3",                                # Pin to stable versions avoiding 1.4.0+ RecordBatchReader issues
+    "chatlas>=0.10.0",                                      # Older chatlas passes the wrong HTTP client to anthropic 0.68+
+    "duckdb>=1.2.0,<2",                                     # 2.0 breaks ibis's `list_tables()` and Narwhals' joins
     "hypothesis>=6.129.2",
-    "ibis-framework[duckdb,mysql,postgres,sqlite]>=9.5.0",
+    "ibis-framework[duckdb,mysql,postgres,sqlite]>=11.0.0", # ibis 10.x fails on DuckDB 1.4+
+    "narwhals>=2.8.0",                                      # Older Narwhals fails on DuckDB 1.5+
+    "opentelemetry-api>=1.23.0",                            # So the otel tests run (1.22.0 has no `Meter.create_gauge()`)
+    "opentelemetry-sdk>=1.23.0",
     "sqlglot>=23.4,<30.18",                                 # 30.18+ omits table names in DROP statements (breaks DuckDB/SQLite)
     "jupyter",
     "nbclient>=0.10.0",
     "nbformat>=5.10.4",
-    "pandas>=2.2.3,<3",  # <3: pandas 3.0's default `str` dtype is unsupported by the pinned duckdb (<1.3.3)
-    "polars>=1.17.1",
+    "pandas>=2.2.3",
+    "polars>=1.33.0",
     "pre-commit==2.15.0",
     "pyarrow",
     "pyarrow-stubs>=19.4",
     "pyspark==3.5.6",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.0.0",
-    "pytest-cov",
+    "pytest-cov>=6.0.0",
     "pytest-randomly>=3.16.0",
     "pytest-rerunfailures>=15.0",
-    "pytest-snapshot",
+    "pytest-snapshot>=0.9.0",
     "pytest-xdist>=3.6.1",
     "pyreadstat>=1.2.0",
     "pytz>=2025.2",

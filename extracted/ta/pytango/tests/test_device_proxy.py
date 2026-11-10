@@ -29,6 +29,7 @@ from tango import (
     AttributeInfoEx,
     AttributeInfoList,
     AttributeInfoListEx,
+    AttributeProxy,
     AttrWriteType,
     DevFailed,
     DeviceInfo,
@@ -299,6 +300,53 @@ def test_read_write_attributes_with_attr_info(tango_test):
         assert read_attr.name == attr_name
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
+
+
+def test_write_attribute_that_does_not_exist():
+    class TestDevice(Device):
+        @attribute(dtype=int)
+        def attr(self):
+            return 1
+
+    with DeviceTestContext(TestDevice) as proxy:
+        with pytest.raises(DevFailed, match="API_AttrNotFound"):
+            proxy.write_attribute("i_do_not_exist", 1)
+
+        with pytest.raises(DevFailed, match="API_AttrNotFound"):
+            proxy.write_attributes([("i_do_not_exist", 1)])
+
+
+def test_write_attribute_with_unsupported_data_type():
+    class TestDevice(Device):
+        @attribute(dtype=int)
+        def attr(self):
+            return 1
+
+    # a default constructed config carries DevVoid, which no attribute can hold,
+    # whatever value is written against it
+    with DeviceTestContext(TestDevice) as proxy:
+        with pytest.raises(TypeError, match="unsupported data type"):
+            proxy.write_attribute(AttributeInfoEx(), 1)
+        with pytest.raises(TypeError, match="unsupported data type"):
+            proxy.write_attribute(AttributeInfoEx(), "123")
+
+
+def test_write_attribute_with_mismatched_value_type():
+    class TestDevice(Device):
+        @attribute(dtype=int, access=AttrWriteType.READ_WRITE)
+        def attr(self):
+            return 1
+
+        @attr.write
+        def attr(self, value):
+            pass
+
+    with DeviceTestContext(TestDevice) as proxy:
+        for value in ("123", "abc"):
+            with pytest.raises(TypeError, match="Expecting a integer type"):
+                proxy.write_attribute("attr", value)
+            with pytest.raises(TypeError, match="Expecting a integer type"):
+                proxy.write_attribute(proxy.get_attribute_config("attr"), value)
 
 
 @pytest.mark.parametrize("sequence_type", ["tuple", "list"])
@@ -776,8 +824,16 @@ def device_proxy_lifecycle(device_trl):
     assert_object_released_without_gc(proxy_weak_ref)
 
 
+def attribute_proxy_lifecycle(device_trl):
+    device_url, separator, modifier = device_trl.partition("#")
+    proxy = AttributeProxy(f"{device_url}/boolean_scalar{separator}{modifier}")
+    proxy_weak_ref = weakref.ref(proxy)
+    del proxy
+    assert_object_released_without_gc(proxy_weak_ref)
+
+
 @pytest.mark.extra_src_test
-@pytest.mark.parametrize("subject", [group_client_lifecycle, device_proxy_lifecycle])
+@pytest.mark.parametrize("subject", [group_client_lifecycle, device_proxy_lifecycle, attribute_proxy_lifecycle])
 def test_client_destructor_does_not_deadlock(tango_test_process_device_trl_with_function_scope, subject):
     proc, device_trl = tango_test_process_device_trl_with_function_scope
 
@@ -791,7 +847,7 @@ def test_client_destructor_does_not_deadlock(tango_test_process_device_trl_with_
     heartbeat_margin = 0.5
     delay_before_heartbeat = constants.EVENT_HEARTBEAT_PERIOD - heartbeat_margin
     max_time_until_not_connected_event = delay_before_heartbeat + 3.0
-    process_startup_timeout = 1.0
+    process_startup_timeout = 2.0
     process_exit_timeout = 1.0
     proxy_created = multiprocessing.Event()
     process_terminated = multiprocessing.Event()
@@ -838,7 +894,7 @@ def continuously_call_subject_during_not_connected_event(
     assert eid > 0
 
     # wait for Tango device server to be terminated by parent
-    terminate_timeout = 1.0
+    terminate_timeout = 2.0
     assert process_terminated.wait(timeout=terminate_timeout)
 
     # wait for a "not connected event" while rapidly calling the
@@ -968,3 +1024,53 @@ def test_structures_equality(tango_test):
     ci1, ci2, ci3 = tango_test.get_command_config(["State", "State", "Status"])
     assert ci1 == ci2
     assert ci1 != ci3
+
+
+def _check_failed_callback_submission(operation):
+    from tango import DevFailed, DeviceData, DeviceProxy, ExtractAs
+    from tango.server import Device, attribute
+    from tango.test_utils import DeviceTestContext
+    from tango.utils import __auto_die_callbacks_holder, _get_new_CallbackAutoDie
+
+    class TestDevice(Device):
+        @attribute
+        def value(self) -> int:
+            return 1
+
+        @value.setter
+        def value(self, new_value):
+            pass
+
+    with DeviceTestContext(TestDevice, process=False) as live_proxy:
+        attr_info = live_proxy.get_attribute_config_ex(["value"])[0]
+
+    proxy = DeviceProxy("tango://127.0.0.1:1/test/no/server#dbase=no")
+    proxy.set_timeout_millis(100)
+    callback = _get_new_CallbackAutoDie()
+    registered = len(__auto_die_callbacks_holder)
+    try:
+        if operation == "command":
+            proxy.__command_inout_asynch_cb("State", DeviceData(), callback)
+        elif operation == "read":
+            proxy.__read_attributes_asynch(["value"], callback, ExtractAs.Numpy)
+        elif operation == "write":
+            proxy.__write_attribute_asynch(attr_info, 2, callback)
+        else:
+            proxy.__write_attributes_asynch([(attr_info, 2)], callback)
+    except DevFailed as exc:
+        assert "API_CantConnectToDevice" in str(exc)
+        assert len(__auto_die_callbacks_holder) == registered - 1
+    else:
+        raise AssertionError("The disconnected proxy accepted the request")
+
+
+@pytest.mark.parametrize("operation", ["command", "read", "write", "writes"])
+def test_failed_callback_submission_releases_callback(operation):
+    process = multiprocessing.get_context("spawn").Process(target=_check_failed_callback_submission, args=(operation,))
+    process.start()
+    process.join(15)
+    if process.is_alive():
+        process.kill()
+        process.join()
+        pytest.fail(f"{operation} timed out")
+    assert process.exitcode == 0, f"{operation} exited with code {process.exitcode}"

@@ -2,7 +2,7 @@ import csv
 import json
 import unittest
 from datetime import datetime
-from io import BytesIO, TextIOWrapper
+from io import BytesIO, StringIO, TextIOWrapper
 
 from dateutil.parser import parse
 from dateutil.tz import tzutc
@@ -48,9 +48,9 @@ class MyTestCase(unittest.TestCase):
         self.result_metadata_data = {
             "column_names": ["ct", "TableName"],
             "column_types": ["x", "y"],
-            "row_count": 8,
+            "row_count": 2,
             "result_set_bytes": 194,
-            "total_result_set_bytes": 194,
+            "total_result_set_bytes": 776,
             "total_row_count": 8,
             "datapoint_count": 2,
             "pending_time_millis": 54,
@@ -147,9 +147,12 @@ eth_traces,4474223
             },
         }
         try:
-            ExecutionStatusResponse.from_dict(response)
+            result = ExecutionStatusResponse.from_dict(response)
         except DuneError as err:
             self.fail(f"Unexpected error {err}")
+        assert result.result_metadata is not None
+        assert result.result_metadata.row_count == 18
+        assert result.result_metadata.total_result_set_bytes == 815
 
     def test_parse_status_response_completed(self):
         assert ExecutionStatusResponse(
@@ -191,10 +194,10 @@ eth_traces,4474223
         expected = ResultMetadata(
             column_names=["ct", "TableName"],
             column_types=["x", "y"],
-            row_count=8,
+            row_count=2,
             result_set_bytes=194,
             total_row_count=8,
-            total_result_set_bytes=194,
+            total_result_set_bytes=776,
             datapoint_count=2,
             pending_time_millis=54,
             execution_time_millis=900,
@@ -205,6 +208,14 @@ eth_traces,4474223
         assert expected == ResultMetadata.from_dict(
             self.status_response_data_completed["result_metadata"]
         )
+
+        combined = ResultMetadata.from_dict(self.result_metadata_data) + ResultMetadata.from_dict(
+            dict(self.result_metadata_data, row_count=1, result_set_bytes=80)
+        )
+        assert combined.row_count == 3
+        assert combined.result_set_bytes == 274
+        assert combined.total_row_count == 8
+        assert combined.total_result_set_bytes == 776
 
     def test_parse_execution_result(self):
         expected = ExecutionResult(
@@ -233,6 +244,19 @@ eth_traces,4474223
         )
         assert expected == ResultsResponse.from_dict(self.results_response_data)
 
+    def test_partial_result_rows(self):
+        response = dict(
+            self.results_response_data,
+            state="QUERY_STATE_COMPLETED_PARTIAL",
+        )
+        result = ResultsResponse.from_dict(response)
+
+        assert result.get_rows() == [
+            {"TableName": "eth_blocks", "ct": 6296},
+            {"TableName": "eth_traces", "ct": 4474223},
+        ]
+        assert result.state == ExecutionState.PARTIAL
+
     def test_execution_result_csv(self):
         # document the expected output data from DuneAPI result/csv endpoint
         csv_response = ExecutionResultCSV(data=self.execution_result_csv_data)
@@ -243,6 +267,29 @@ eth_traces,4474223
             ["eth_blocks", "6296"],
             ["eth_traces", "4474223"],
         ]
+
+    def test_execution_result_csv_pagination(self):
+        def page(column_name, row, next_uri=None, next_offset=None):
+            data = StringIO(newline="")
+            csv.writer(data).writerows([["id", column_name], row])
+            return ExecutionResultCSV(
+                data=BytesIO(data.getvalue().encode()),
+                next_uri=next_uri,
+                next_offset=next_offset,
+            )
+
+        for column_name in ("name", 'quoted "na\nme"', "na\r\nme"):
+            with self.subTest(column_name=column_name):
+                result = page(column_name, [1, "first"], "page2", 1) + page(
+                    column_name, [2, "second"]
+                )
+                assert list(csv.reader(TextIOWrapper(result.data, newline=""))) == [
+                    ["id", column_name],
+                    ["1", "first"],
+                    ["2", "second"],
+                ]
+                assert result.next_uri is None
+                assert result.next_offset is None
 
     def test_dune_query_from_dict(self):
         example_response = """{

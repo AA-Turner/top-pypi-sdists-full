@@ -109,7 +109,7 @@ class TestAnalyzeHeader(tws._TestLabeledWrapStruct):
         hdr = hdr_t.copy()
         hdr['sizeof_hdr'] = 1
         with suppress_warnings():
-            assert self._dxer(hdr) == 'sizeof_hdr should be ' + str(self.sizeof_hdr)
+            assert self._dxer(hdr) == f'sizeof_hdr should be {self.sizeof_hdr}'
         hdr = hdr_t.copy()
         hdr['datatype'] = 0
         assert self._dxer(hdr) == 'data code 0 not supported\nbitpix does not match datatype'
@@ -124,6 +124,7 @@ class TestAnalyzeHeader(tws._TestLabeledWrapStruct):
             hdr['pixdim'][i] = -1
             assert self._dxer(hdr) == 'pixdim[1,2,3] should be positive'
 
+    @pytest.mark.thread_unsafe
     def test_log_checks(self):
         # Test logging, fixing, errors for header checking
         HC = self.header_class
@@ -165,6 +166,7 @@ class TestAnalyzeHeader(tws._TestLabeledWrapStruct):
         assert message == 'bitpix does not match datatype; setting bitpix to match datatype'
         pytest.raises(*raiser)
 
+    @pytest.mark.thread_unsafe
     def test_pixdim_log_checks(self):
         # pixdim positive
         HC = self.header_class
@@ -215,6 +217,7 @@ class TestAnalyzeHeader(tws._TestLabeledWrapStruct):
                 hdr['scl_inter'] = inter
             self.assert_no_log_err(hdr)
 
+    @pytest.mark.thread_unsafe
     def test_logger_error(self):
         # Check that we can reset the logger and error level
         HC = self.header_class
@@ -800,6 +803,7 @@ class TestAnalyzeImage(tsi.TestSpatialImage, tsi.MmapImageMixin):
         img_again = img_klass(arr, aff, img.header)
         assert img_again.header.get_data_offset() == 0
 
+    @pytest.mark.thread_unsafe
     def test_big_offset_exts(self):
         # Check writing offset beyond data works for different file extensions
         img_klass = self.image_class
@@ -815,7 +819,7 @@ class TestAnalyzeImage(tsi.TestSpatialImage, tsi.MmapImageMixin):
                 for compressed_ext in compressed_exts:
                     img = img_klass(arr, aff)
                     img.header.set_data_offset(offset)
-                    fname = 'test' + img_ext + compressed_ext
+                    fname = f'test{img_ext}{compressed_ext}'
                     img.to_filename(fname)
                     img_back = img_klass.from_filename(fname)
                     assert_array_equal(arr, img_back.dataobj)
@@ -889,13 +893,14 @@ class TestAnalyzeImage(tsi.TestSpatialImage, tsi.MmapImageMixin):
         img_back = self.image_class.from_file_map(fm)
         assert_array_equal(img_back.dataobj, 0)
 
+    @pytest.mark.thread_unsafe
     def test_dtype_to_filename_arg(self):
         # data_dtype can be set by argument in absence of header
         img_klass = self.image_class
         arr = np.arange(24, dtype=np.int16).reshape((2, 3, 4))
         aff = np.eye(4)
         img = img_klass(arr, aff)
-        fname = 'test' + img_klass.files_types[0][1]
+        fname = f'test{img_klass.files_types[0][1]}'
         with InTemporaryDirectory():
             for dtype in self.supported_np_types:
                 img.to_filename(fname, dtype=dtype)

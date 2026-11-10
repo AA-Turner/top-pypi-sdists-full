@@ -409,27 +409,38 @@ vrna_sc_mod(vrna_fold_compound_t      *fc,
   if ((fc) &&
       (params) &&
       (modification_sites)) {
+    unsigned int        nmods     = 0;
     unsigned int        *sn       = fc->strand_number;
     unsigned int        *ss       = fc->strand_start;
     vrna_md_t           *md       = &(fc->params->model_details);
     char                bases[8]  = "_ACGUTM";
+    char                *modchars = NULL;
     energy_corrections  *diffs;
-
     bases[6]  = params->one_letter_code;
     diffs     = (energy_corrections *)vrna_alloc(sizeof(energy_corrections));
 
     /* copy ptypes */
     memcpy(&(diffs->ptypes[0][0]), &(params->ptypes[0][0]), sizeof(params->ptypes));
 
-    diffs->enc = NULL;
+    /* count number of modification sites */
+    for (nmods = 0; modification_sites[nmods]; nmods++);
+
+    modchars    = (char *)vrna_alloc(sizeof(char) * (nmods + 1));
+    modchars    = memset(modchars, params->fallback, nmods * sizeof(char));
+    diffs->enc  = NULL;
 
      /* store (current) number of strands and prepare per-strand modification site lists */
     diffs->strands = fc->strands;
     vrna_array_init_size(diffs->modification_sites, diffs->strands);
+
+    vrna_array(unsigned int)  modsites_kept;
+    vrna_array_init_size(modsites_kept, nmods);
+
     for (size_t i = 0; i < diffs->strands; i++) {
       vrna_array_make(unsigned int, msites);
       vrna_array_append(diffs->modification_sites, msites);
     }
+
 
     /* store modification sites on a per-strand basis */
     for (size_t i = 0; modification_sites[i]; i++) {
@@ -469,35 +480,70 @@ vrna_sc_mod(vrna_fold_compound_t      *fc,
       }
 
       vrna_array_append(diffs->modification_sites[strand], actual_msite);
+      vrna_array_append(modsites_kept, msite);
 
       /* increase return value per modified base we found */
       ret++;
+    }
 
-      /* allow for all pairing partners specified in the input */
-      for (unsigned int j = 1; j < msite; j++) {
-        if ((sn[msite] != sn[j]) ||
-            ((msite - j - 1) >= (unsigned int)md->min_loop_size)) {
-          for (unsigned int cnt = 0; cnt < params->num_ptypes / 2; cnt++) {
-            unsigned int pp_enc = params->pairing_partners_encoding[cnt];
-            if ((unsigned int)fc->sequence_encoding[j] == pp_enc) {
-              vrna_hc_add_bp(fc,
-                             j,
-                             msite,
-                             VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS | VRNA_CONSTRAINT_CONTEXT_NO_REMOVE);
+    /* mutate the modification sites into the fallback nucleotide */
+    vrna_sequence_mutate(fc, modsites_kept, modchars, ret);
+    vrna_array_free(modsites_kept);
+
+    /* apply hard constraints for those modifications that passed the checks above */
+    for (size_t s = 0; s < diffs->strands; s++) {
+      for (size_t pos = 0; pos < vrna_array_size(diffs->modification_sites[s]); pos++) {
+        unsigned int msite = diffs->modification_sites[s][pos] + ss[s] - 1;
+
+        if (params->num_ptypes > 0) {
+          /* remove all canonical base pairing for the modified base(s) */
+          for (unsigned int j = 1; j < msite; j++) {
+            if ((sn[msite] != sn[j]) ||
+                ((msite - j - 1) >= (unsigned int)md->min_loop_size)) {
+                  vrna_hc_add_bp(fc,
+                                 j,
+                                 msite,
+                                 VRNA_CONSTRAINT_CONTEXT_NONE | VRNA_CONSTRAINT_CONTEXT_NO_REMOVE);
             }
           }
-        }
-      }
-      for (unsigned int j = msite + 1; j <= fc->length; j++) {
-        if ((sn[msite] != sn[j]) ||
-            ((j - msite - 1) >= (unsigned int)md->min_loop_size)) {
-          for (unsigned int cnt = 0; cnt < params->num_ptypes / 2; cnt++) {
-            unsigned int pp_enc = params->pairing_partners_encoding[cnt];
-            if ((unsigned int)fc->sequence_encoding[j] == pp_enc) {
-              vrna_hc_add_bp(fc,
-                             msite,
-                             j,
-                             VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS | VRNA_CONSTRAINT_CONTEXT_NO_REMOVE);
+
+          for (unsigned int j = msite + 1; j <= fc->length; j++) {
+            if ((sn[msite] != sn[j]) ||
+                ((j - msite - 1) >= (unsigned int)md->min_loop_size)) {
+                  vrna_hc_add_bp(fc,
+                                 msite,
+                                 j,
+                                 VRNA_CONSTRAINT_CONTEXT_NONE | VRNA_CONSTRAINT_CONTEXT_NO_REMOVE);
+            }
+          }
+
+          /* allow for all pairing partners specified in the input */
+          for (unsigned int j = 1; j < msite; j++) {
+            if ((sn[msite] != sn[j]) ||
+                ((msite - j - 1) >= (unsigned int)md->min_loop_size)) {
+              for (unsigned int cnt = 0; cnt < params->num_ptypes / 2; cnt++) {
+                unsigned int pp_enc = params->pairing_partners_encoding[cnt];
+                if ((unsigned int)fc->sequence_encoding[j] == pp_enc) {
+                  vrna_hc_add_bp(fc,
+                                 j,
+                                 msite,
+                                 VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS | VRNA_CONSTRAINT_CONTEXT_NO_REMOVE);
+                }
+              }
+            }
+          }
+          for (unsigned int j = msite + 1; j <= fc->length; j++) {
+            if ((sn[msite] != sn[j]) ||
+                ((j - msite - 1) >= (unsigned int)md->min_loop_size)) {
+              for (unsigned int cnt = 0; cnt < params->num_ptypes / 2; cnt++) {
+                unsigned int pp_enc = params->pairing_partners_encoding[cnt];
+                if ((unsigned int)fc->sequence_encoding[j] == pp_enc) {
+                  vrna_hc_add_bp(fc,
+                                 msite,
+                                 j,
+                                 VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS | VRNA_CONSTRAINT_CONTEXT_NO_REMOVE);
+                }
+              }
             }
           }
         }
@@ -742,6 +788,8 @@ vrna_sc_mod(vrna_fold_compound_t      *fc,
                            &free_energy_corrections,
                            VRNA_DECOMP_PAIR_IL);
     }
+
+    free(modchars);
   }
 
   return ret;
@@ -928,12 +976,9 @@ init_mismatches(struct vrna_sc_mod_param_s  *params,
 
             /*
              * take mismatch energies from multiloops as they do not contain anything
-             * but mismatch contributions. Also note, that multiloop mismatches are
-             * stored such that unpaired bases are outside of pair, in contrast to
-             * considering the unpaired bases enclosed. Thus, the pair and 5' and 3'
-             * unpaired bases must be rotatated
+             * but mismatch contributions.
              */
-            diffs->mismatch_diff[i][si][sj] = e - P->mismatchM[pair_enc][sju][siu];
+            diffs->mismatch_diff[i][si][sj] = e - P->mismatchM[pair_enc][siu][sju];
 
             vrna_log_debug("d_mm(%c%c, %c, %c) = %d = %d - %d",
                    bp[0],
@@ -942,7 +987,7 @@ init_mismatches(struct vrna_sc_mod_param_s  *params,
                    nt[sj],
                    diffs->mismatch_diff[i][si][sj],
                    e,
-                   P->mismatchM[pair_enc][sju][siu]);
+                   P->mismatchM[pair_enc][siu][sju]);
           }
         }
       }
@@ -1021,11 +1066,6 @@ init_dangles(struct vrna_sc_mod_param_s *params,
           else
             e = (*dG5)[i][si];
 
-          /*
-           * Note, that dangling ends arestored such that unpaired bases are
-           * outside of pair, in contrast to considering the unpaired bases
-           * enclosed. Thus, the pair must be rotatated
-           */
           diffs->dangle5_diff[i][si] = e - P->dangle5[pair_enc][siu];
 
           vrna_log_debug("d_d5(%c%c, %c) = %d = %d - %d",
@@ -1043,11 +1083,6 @@ init_dangles(struct vrna_sc_mod_param_s *params,
           else
             e = (*dG3)[i][si];
 
-          /*
-           * Note, that dangling ends arestored such that unpaired bases are
-           * outside of pair, in contrast to considering the unpaired bases
-           * enclosed. Thus, the pair must be rotatated
-           */
           diffs->dangle3_diff[i][si] = e - P->dangle3[pair_enc][siu];
 
           vrna_log_debug("d_d3(%c%c, %c) = %d = %d - %d",
@@ -1142,13 +1177,13 @@ mismatch(vrna_fold_compound_t *fc,
   else
     tt += NBPAIRS;
 
-  if (j > 1) {
-    if (i < fc->length)
-      return data->mismatch_diff[tt][enc[i + 1]][enc[j - 1]];
+  if (i > 1) {
+    if (j < fc->length)
+      return data->mismatch_diff[tt][enc[i - 1]][enc[j + 1]];
     else
-      return data->dangle5_diff[tt][enc[j - 1]];
-  } else if (i < fc->length) {
-    return data->dangle3_diff[tt][enc[i + 1]];
+      return data->dangle5_diff[tt][enc[i - 1]];
+  } else if (j < fc->length) {
+    return data->dangle3_diff[tt][enc[j + 1]];
   }
 
   return 0;
@@ -1191,7 +1226,7 @@ sc_PAIR_HP_mismatch(vrna_fold_compound_t  *fc,
                     void                  *d)
 {
   return mismatch(fc,
-                  i, j,
+                  j, i,
                   (energy_corrections *)d);
 }
 
@@ -1218,8 +1253,9 @@ sc_PAIR_IL_stack(vrna_fold_compound_t *fc VRNA_UNUSED,
                  int                  l,
                  void                 *d)
 {
-  if ((i + 1 == k) &&
-      (l == j - 1)) {
+  int u = k - i + j - l - 2;
+
+  if ((u == 0) || (u == 1)) { /* real stacks of 1-nt bulges */
     energy_corrections  *data = (energy_corrections *)d;
     short               *enc  = data->enc;
 
@@ -1247,8 +1283,8 @@ sc_PAIR_IL_terminal(vrna_fold_compound_t  *fc VRNA_UNUSED,
                     int                   l,
                     void                  *d)
 {
-  if ((i + 1 < k) ||
-      (l + 1 < j))
+  if ((i + 2 < k) ||
+      (l + 2 < j))
     return terminal(i, j, (energy_corrections *)d) +
            terminal(l, k, (energy_corrections *)d);
 
@@ -1266,8 +1302,8 @@ sc_PAIR_IL_mismatch(vrna_fold_compound_t  *fc,
 {
   if (((k - i) > 1) &&
       ((j - l) > 1))
-    return mismatch(fc, i, j, (energy_corrections *)d) +
-           mismatch(fc, l, k, (energy_corrections *)d);
+    return mismatch(fc, j, i, (energy_corrections *)d) +
+           mismatch(fc, k, l, (energy_corrections *)d);
 
   return 0;
 }
@@ -1348,7 +1384,7 @@ sc_PAIR_ML_mismatch(vrna_fold_compound_t  *fc,
                     void                  *d)
 {
   return mismatch(fc,
-                  i, j,
+                  j, i,
                   (energy_corrections *)d);
 }
 
@@ -1374,7 +1410,7 @@ sc_STEM_terminal(vrna_fold_compound_t *fc VRNA_UNUSED,
                  int                  l,
                  void                 *d)
 {
-  return terminal(l, k,
+  return terminal(k, l,
                   (energy_corrections *)d);
 }
 
@@ -1388,7 +1424,7 @@ sc_STEM_mismatch(vrna_fold_compound_t *fc,
                  void                 *d)
 {
   return mismatch(fc,
-                  l, k,
+                  k, l,
                   (energy_corrections *)d);
 }
 
@@ -1414,7 +1450,7 @@ sc_EXT_STEM_EXT_terminal(vrna_fold_compound_t *fc VRNA_UNUSED,
                          int                  l VRNA_UNUSED,
                          void                 *d)
 {
-  return terminal(k, i,
+  return terminal(i, k,
                   (energy_corrections *)d);
 }
 
@@ -1428,7 +1464,7 @@ sc_EXT_STEM_EXT_mismatch(vrna_fold_compound_t *fc,
                          void                 *d)
 {
   return mismatch(fc,
-                  k, i,
+                  i, k,
                   (energy_corrections *)d);
 }
 
@@ -1454,7 +1490,7 @@ sc_EXT_EXT_STEM_terminal(vrna_fold_compound_t *fc VRNA_UNUSED,
                          int                  l,
                          void                 *d)
 {
-  return terminal(j, l,
+  return terminal(l, j,
                   (energy_corrections *)d);
 }
 
@@ -1468,7 +1504,7 @@ sc_EXT_EXT_STEM_mismatch(vrna_fold_compound_t *fc,
                          void                 *d)
 {
   return mismatch(fc,
-                  j, l,
+                  l, j,
                   (energy_corrections *)d);
 }
 
@@ -1494,7 +1530,7 @@ sc_EXT_STEM_OUTSIDE_terminal(vrna_fold_compound_t *fc VRNA_UNUSED,
                              int                  l,
                              void                 *d)
 {
-  return terminal(l, k,
+  return terminal(k, l,
                   (energy_corrections *)d);
 }
 
@@ -1508,7 +1544,7 @@ sc_EXT_STEM_OUTSIDE_mismatch(vrna_fold_compound_t *fc,
                              void                 *d)
 {
   return mismatch(fc,
-                  l, k,
+                  k, l,
                   (energy_corrections *)d);
 }
 
@@ -1534,7 +1570,7 @@ sc_ML_ML_STEM_terminal(vrna_fold_compound_t *fc VRNA_UNUSED,
                        int                  l,
                        void                 *d)
 {
-  return terminal(j, l,
+  return terminal(l, j,
                   (energy_corrections *)d);
 }
 
@@ -1548,7 +1584,7 @@ sc_ML_ML_STEM_mismatch(vrna_fold_compound_t *fc,
                        void                 *d)
 {
   return mismatch(fc,
-                  j, l,
+                  l, j,
                   (energy_corrections *)d);
 }
 

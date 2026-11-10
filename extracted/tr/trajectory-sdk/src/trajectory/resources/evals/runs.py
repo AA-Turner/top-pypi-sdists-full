@@ -197,17 +197,36 @@ class Runs(APIResource):
     run_id: str,
     *,
     idempotency_key: str,
-    retry_policy: str | Omit = omit,
+    rerun_timeout: bool | Omit = omit,
+    rerun_error: bool | Omit = omit,
+    rerun_cancelled: bool | Omit = omit,
+    rerun_truncation: bool | Omit = omit,
+    rerun_stale: bool | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> EvalRun:
-    """Resume a failed or cancelled evaluation, preserving its scored results and evaluation
-    ID.
+    """Resume a failed, cancelled, or completed standalone native evaluation, preserving its
+    evaluation ID. The rerun_* flags select which attempts run again, by termination reason;
+    other attempts keep their results. By default, errored, cancelled, and never-started
+    attempts rerun (rerun_error and rerun_cancelled are true; rerun_timeout,
+    rerun_truncation, and rerun_stale are false). To rerun only errored attempts, set
+    rerun_cancelled=false. At least one flag must be true. If cleanup is pending, wait and
+    retry with the same Idempotency-Key.
 
     Args:
       idempotency_key: Required. Reuse the same key when retrying this recovery request.
+
+      rerun_timeout: Rerun attempts terminated by timeout.
+
+      rerun_error: Rerun attempts terminated by error.
+
+      rerun_cancelled: Rerun cancelled and never-started attempts.
+
+      rerun_truncation: Rerun truncated attempts.
+
+      rerun_stale: Rerun stale attempts.
 
       extra_headers: Send extra headers
 
@@ -228,7 +247,11 @@ class Runs(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "retry_policy": retry_policy,
+            "rerun_timeout": rerun_timeout,
+            "rerun_error": rerun_error,
+            "rerun_cancelled": rerun_cancelled,
+            "rerun_truncation": rerun_truncation,
+            "rerun_stale": rerun_stale,
           }
         ),
         headers={

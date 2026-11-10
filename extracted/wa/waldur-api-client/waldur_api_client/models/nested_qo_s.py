@@ -28,6 +28,7 @@ class NestedQoS:
         max_tres_per_node (Union[Unset, str]): Max TRES per node (MaxTRESPerNode)
         max_tres_per_user (Union[Unset, str]): Max TRES per user (MaxTRESPerUser)
         min_tres_per_job (Union[Unset, str]): Min TRES per job (MinTRESPerJob)
+        max_tres_mins_per_job (Union[Unset, str]): Max TRES-minutes per job (MaxTRESMinsPerJob)
         flags (Union[Unset, str]): Comma-separated QOS flags (e.g. DenyOnLimit, OverPartQOS)
     """
 
@@ -45,6 +46,7 @@ class NestedQoS:
     max_tres_per_node: Union[Unset, str] = UNSET
     max_tres_per_user: Union[Unset, str] = UNSET
     min_tres_per_job: Union[Unset, str] = UNSET
+    max_tres_mins_per_job: Union[Unset, str] = UNSET
     flags: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -103,6 +105,8 @@ class NestedQoS:
 
         min_tres_per_job = self.min_tres_per_job
 
+        max_tres_mins_per_job = self.max_tres_mins_per_job
+
         flags = self.flags
 
         field_dict: dict[str, Any] = {}
@@ -136,6 +140,8 @@ class NestedQoS:
             field_dict["max_tres_per_user"] = max_tres_per_user
         if min_tres_per_job is not UNSET:
             field_dict["min_tres_per_job"] = min_tres_per_job
+        if max_tres_mins_per_job is not UNSET:
+            field_dict["max_tres_mins_per_job"] = max_tres_mins_per_job
         if flags is not UNSET:
             field_dict["flags"] = flags
 
@@ -219,6 +225,8 @@ class NestedQoS:
 
         min_tres_per_job = d.pop("min_tres_per_job", UNSET)
 
+        max_tres_mins_per_job = d.pop("max_tres_mins_per_job", UNSET)
+
         flags = d.pop("flags", UNSET)
 
         nested_qo_s = cls(
@@ -236,6 +244,7 @@ class NestedQoS:
             max_tres_per_node=max_tres_per_node,
             max_tres_per_user=max_tres_per_user,
             min_tres_per_job=min_tres_per_job,
+            max_tres_mins_per_job=max_tres_mins_per_job,
             flags=flags,
         )
 

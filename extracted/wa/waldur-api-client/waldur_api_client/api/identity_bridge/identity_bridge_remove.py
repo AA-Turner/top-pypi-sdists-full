@@ -62,7 +62,9 @@ def sync_detailed(
      Signals that a user has been removed from an ISD. Removes the source from active_isds, clears
     attributes owned by that source, and deactivates the user if no ISDs remain (configurable via
     FEDERATED_IDENTITY_DEACTIVATION_POLICY). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller
-    must be staff or an identity manager with the declared source in managed_isds.
+    must be staff or an identity manager with the declared source in managed_isds. Only staff may remove
+    staff, support or identity manager accounts. A user who is not in the source ISD is answered with
+    404 and left unchanged.
 
     Args:
         body (IdentityBridgeRemoveRequest):
@@ -96,7 +98,9 @@ def sync(
      Signals that a user has been removed from an ISD. Removes the source from active_isds, clears
     attributes owned by that source, and deactivates the user if no ISDs remain (configurable via
     FEDERATED_IDENTITY_DEACTIVATION_POLICY). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller
-    must be staff or an identity manager with the declared source in managed_isds.
+    must be staff or an identity manager with the declared source in managed_isds. Only staff may remove
+    staff, support or identity manager accounts. A user who is not in the source ISD is answered with
+    404 and left unchanged.
 
     Args:
         body (IdentityBridgeRemoveRequest):
@@ -125,7 +129,9 @@ async def asyncio_detailed(
      Signals that a user has been removed from an ISD. Removes the source from active_isds, clears
     attributes owned by that source, and deactivates the user if no ISDs remain (configurable via
     FEDERATED_IDENTITY_DEACTIVATION_POLICY). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller
-    must be staff or an identity manager with the declared source in managed_isds.
+    must be staff or an identity manager with the declared source in managed_isds. Only staff may remove
+    staff, support or identity manager accounts. A user who is not in the source ISD is answered with
+    404 and left unchanged.
 
     Args:
         body (IdentityBridgeRemoveRequest):
@@ -157,7 +163,9 @@ async def asyncio(
      Signals that a user has been removed from an ISD. Removes the source from active_isds, clears
     attributes owned by that source, and deactivates the user if no ISDs remain (configurable via
     FEDERATED_IDENTITY_DEACTIVATION_POLICY). Requires FEDERATED_IDENTITY_SYNC_ENABLED to be True. Caller
-    must be staff or an identity manager with the declared source in managed_isds.
+    must be staff or an identity manager with the declared source in managed_isds. Only staff may remove
+    staff, support or identity manager accounts. A user who is not in the source ISD is answered with
+    404 and left unchanged.
 
     Args:
         body (IdentityBridgeRemoveRequest):

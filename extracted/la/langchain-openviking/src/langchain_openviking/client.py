@@ -11,8 +11,7 @@ import json
 import logging
 import threading
 from dataclasses import dataclass
-from importlib import import_module
-from typing import Any, Callable, Iterable, Literal
+from typing import Any, Iterable, Literal
 
 from langchain_openviking._async_client_cache import LoopScopedAsyncClientCache
 
@@ -33,7 +32,6 @@ _RETRYABLE_READ_METHODS = {
     "ls",
     "overview",
     "read",
-    "relations",
     "search",
     "session_exists",
     "stat",
@@ -74,11 +72,11 @@ class OpenVikingConnection:
     user: str | None = None
     user_id: str | None = None
     actor_peer_id: str | None = None
-    path: str | None = None
     timeout: float = 60.0
     extra_headers: dict[str, str] | None = None
     auto_initialize: bool = True
     async_client: Any = None
+    auth_mode: str | None = None
 
     def __deepcopy__(self, memo: dict[int, Any]) -> OpenVikingConnection:
         """Copy configuration while preserving caller-owned client identities."""
@@ -88,11 +86,11 @@ class OpenVikingConnection:
             async_client=self.async_client,
             url=self.url,
             api_key=self.api_key,
+            auth_mode=self.auth_mode,
             account=self.account,
             user=self.user,
             user_id=self.user_id,
             actor_peer_id=self.actor_peer_id,
-            path=self.path,
             timeout=self.timeout,
             extra_headers=copy.deepcopy(self.extra_headers, memo),
             auto_initialize=self.auto_initialize,
@@ -121,7 +119,7 @@ class OpenVikingClientHandle:
     def supports_request_actor_peer(self) -> bool:
         """Return whether this handle supports request-scoped actor peers."""
 
-        return _uses_http_client(self._connection)
+        return True
 
     @property
     def _initialized(self) -> bool:
@@ -223,7 +221,7 @@ class OpenVikingAsyncClientHandle:
     def supports_request_actor_peer(self) -> bool:
         """Return whether this handle supports request-scoped actor peers."""
 
-        return _uses_http_client(self._connection)
+        return True
 
     @property
     def _initialized(self) -> bool:
@@ -231,9 +229,16 @@ class OpenVikingAsyncClientHandle:
         return bool(client is not None and _async_client_is_initialized(client))
 
     async def initialize(self) -> None:
-        """Initialize the underlying client once."""
+        """Initialize the underlying client once.
 
-        await self.get()
+        Creating the client does not initialize it when the connection has
+        ``auto_initialize`` disabled, so an explicit request must run the
+        once-only async initialization itself.
+        """
+
+        client = await self.get()
+        if hasattr(client, "initialize"):
+            await _ainitialize_client(client)
 
     async def close(self) -> None:
         owner_loop = self._loop
@@ -368,12 +373,10 @@ def ensure_client(connection: OpenVikingConnection) -> Any:
 
     client = connection.client
     if client is None:
-        if connection.url or connection.path is None:
-            handle = OpenVikingClientHandle(connection)
-            if connection.auto_initialize:
-                handle.get()
-            return handle
-        return _create_client_from_connection(connection)
+        handle = OpenVikingClientHandle(connection)
+        if connection.auto_initialize:
+            handle.get()
+        return handle
     if connection.auto_initialize and hasattr(client, "initialize"):
         if not getattr(client, "_initialized", False):
             client.initialize()
@@ -384,40 +387,26 @@ async def ensure_async_client(
     connection: OpenVikingConnection,
     *,
     client_cache: LoopScopedAsyncClientCache | None = None,
-    embedded_client_factory: Callable[[], Any] | None = None,
 ) -> Any:
     """Return a client suitable for non-blocking OpenViking calls.
 
     An explicitly supplied async client is preferred. Existing synchronous
     clients remain supported and are dispatched through a worker thread by
     :func:`acall_openviking`. Internally created HTTP handles can be scoped to
-    the running loop with ``client_cache``. Embedded ``path=`` connections
-    intentionally use the synchronous client so their stateful async internals
-    remain on OpenViking's shared background loop.
+    the running loop with ``client_cache``.
     """
 
     client = connection.async_client
     if client is None and connection.client is not None:
         client = connection.client
     if client is None:
-        if _uses_http_client(connection):
-            if client_cache is None:
-                handle = OpenVikingAsyncClientHandle(connection)
-            else:
-                handle = client_cache.get(lambda: OpenVikingAsyncClientHandle(connection))
-            if connection.auto_initialize:
-                await handle.get()
-            return handle
-        if embedded_client_factory is not None:
-            if client_cache is not None:
-                # The thread hop is load-bearing: without a running event loop,
-                # the embedded singleton occupies the cache's shared fallback slot.
-                return await asyncio.to_thread(
-                    client_cache.get,
-                    embedded_client_factory,
-                )
-            return await asyncio.to_thread(embedded_client_factory)
-        return await asyncio.to_thread(_create_client_from_connection, connection)
+        if client_cache is None:
+            handle = OpenVikingAsyncClientHandle(connection)
+        else:
+            handle = client_cache.get(lambda: OpenVikingAsyncClientHandle(connection))
+        if connection.auto_initialize:
+            await handle.get()
+        return handle
     if connection.auto_initialize and hasattr(client, "initialize"):
         await _ainitialize_client(client)
     return client
@@ -545,7 +534,7 @@ async def aapply_commit_policy(
 
 
 def call_openviking(client: Any, method_name: str, /, **kwargs: Any) -> Any:
-    """Call a client method, filtering kwargs unsupported by local/HTTP variants."""
+    """Call a client method, filtering kwargs unsupported by client variants."""
 
     openviking_call = getattr(client, "_openviking_call", None)
     if callable(openviking_call):
@@ -563,32 +552,19 @@ async def acall_openviking(client: Any, method_name: str, /, **kwargs: Any) -> A
 
 
 def _create_client_from_connection(connection: OpenVikingConnection) -> Any:
-    client: Any
-    if connection.url or connection.path is None:
-        from openviking_sdk import SyncHTTPClient
+    from openviking_sdk import SyncHTTPClient
 
-        client = SyncHTTPClient(
-            url=connection.url,
-            api_key=connection.api_key,
-            account=connection.account,
-            user=connection.user,
-            user_id=connection.user_id,
-            actor_peer_id=connection.actor_peer_id,
-            timeout=connection.timeout,
-            extra_headers=connection.extra_headers,
-        )
-    else:
-        try:
-            openviking = import_module("openviking")
-            sync_openviking = openviking.SyncOpenViking
-        except ImportError as exc:
-            raise OptionalDependencyError(
-                "Embedded path= connections require the full openviking package. "
-                'Install it with `pip install "openviking"`, or configure an '
-                "OpenViking server URL for lightweight HTTP usage."
-            ) from exc
-
-        client = sync_openviking(path=connection.path, actor_peer_id=connection.actor_peer_id)
+    client: Any = SyncHTTPClient(
+        url=connection.url,
+        api_key=connection.api_key,
+        account=connection.account,
+        user=connection.user,
+        user_id=connection.user_id,
+        actor_peer_id=connection.actor_peer_id,
+        timeout=connection.timeout,
+        extra_headers=connection.extra_headers,
+        **({"auth_mode": connection.auth_mode} if connection.auth_mode is not None else {}),
+    )
 
     if connection.auto_initialize and hasattr(client, "initialize"):
         if not getattr(client, "_initialized", False):
@@ -597,9 +573,6 @@ def _create_client_from_connection(connection: OpenVikingConnection) -> Any:
 
 
 async def _create_async_client_from_connection(connection: OpenVikingConnection) -> Any:
-    if not _uses_http_client(connection):
-        raise ValueError("Native async clients are created automatically only for HTTP connections")
-
     from openviking_sdk import AsyncHTTPClient
 
     client: Any = AsyncHTTPClient(
@@ -611,6 +584,7 @@ async def _create_async_client_from_connection(connection: OpenVikingConnection)
         actor_peer_id=connection.actor_peer_id,
         timeout=connection.timeout,
         extra_headers=connection.extra_headers,
+        **({"auth_mode": connection.auth_mode} if connection.auth_mode is not None else {}),
     )
 
     try:
@@ -720,12 +694,6 @@ def _async_client_initialization_lock(client: Any) -> asyncio.Lock:
     return locks.get(asyncio.Lock)
 
 
-def _uses_http_client(connection: OpenVikingConnection) -> bool:
-    """Return whether connection settings select the HTTP transport."""
-
-    return bool(connection.url) or connection.path is None
-
-
 def _async_client_is_initialized(client: Any) -> bool:
     for name in ("_initialized", "_http"):
         try:
@@ -757,11 +725,14 @@ def _filter_client_kwargs(method: Any, kwargs: dict[str, Any]) -> dict[str, Any]
     )
     if accepts_kwargs:
         return {key: value for key, value in kwargs.items() if value is not None}
-    return {
-        key: value
-        for key, value in kwargs.items()
-        if value is not None and key in signature.parameters
-    }
+    values = {key: value for key, value in kwargs.items() if value is not None}
+    filtered = {key: value for key, value in values.items() if key in signature.parameters}
+    extra = {key: value for key, value in values.items() if key not in signature.parameters}
+    if "message" in signature.parameters and "message" not in filtered and extra:
+        filtered["message"] = extra
+    elif "options" in signature.parameters and "options" not in filtered and extra:
+        filtered["options"] = extra
+    return filtered
 
 
 def _should_retry_method(method_name: str) -> bool:
@@ -847,7 +818,9 @@ def extract_message_text(content: Any) -> str:
             if isinstance(block, str):
                 chunks.append(block)
             elif isinstance(block, dict):
-                if block.get("type") == "text" and isinstance(block.get("text"), str):
+                if block.get("type") in ("text", "input_text", "output_text") and isinstance(
+                    block.get("text"), str
+                ):
                     chunks.append(block["text"])
                 elif isinstance(block.get("content"), str):
                     chunks.append(block["content"])
@@ -857,15 +830,32 @@ def extract_message_text(content: Any) -> str:
     return str(content)
 
 
+def get_message_role(message: Any) -> str:
+    """Normalize conversation role aliases, preserving typed-message precedence."""
+
+    if isinstance(message, dict):
+        role = message.get("type") or message.get("role")
+    else:
+        role = getattr(message, "type", None) or getattr(message, "role", None)
+    if role in ("chat", "ChatMessageChunk"):
+        role = message.get("role") if isinstance(message, dict) else getattr(message, "role", None)
+    if role in ("human", "user", "HumanMessageChunk"):
+        return "user"
+    if role in ("system", "developer", "SystemMessageChunk"):
+        return "system"
+    if role in ("ai", "assistant", "AIMessageChunk"):
+        return "assistant"
+    return str(role or "")
+
+
 def get_latest_user_text(messages: Iterable[Any]) -> str:
     for message in reversed(list(messages)):
-        role = getattr(message, "type", None) or getattr(message, "role", None)
-        if isinstance(message, dict):
-            role = message.get("type") or message.get("role")
-            content = message.get("content")
-        else:
-            content = getattr(message, "content", "")
-        if role in {"human", "user"}:
+        if get_message_role(message) == "user":
+            content = (
+                message.get("content")
+                if isinstance(message, dict)
+                else getattr(message, "content", "")
+            )
             text = extract_message_text(content).strip()
             if text:
                 return text

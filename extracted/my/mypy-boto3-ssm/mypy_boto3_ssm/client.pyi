@@ -302,6 +302,8 @@ from .type_defs import (
     PutParameterResultTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
+    RegisterDefaultHostManagementConfigurationRequestTypeDef,
+    RegisterDefaultHostManagementConfigurationResultTypeDef,
     RegisterDefaultPatchBaselineRequestTypeDef,
     RegisterDefaultPatchBaselineResultTypeDef,
     RegisterPatchBaselineForPatchGroupRequestTypeDef,
@@ -819,6 +821,15 @@ class SSMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/delete_resource_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#delete_resource_policy)
+        """
+
+    def deregister_default_host_management_configuration(self) -> dict[str, Any]:
+        """
+        Removes the Default Host Management Configuration (DHMC) for an Amazon Web
+        Services account and Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/deregister_default_host_management_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#deregister_default_host_management_configuration)
         """
 
     def deregister_managed_instance(
@@ -1769,6 +1780,17 @@ class SSMClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/put_resource_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#put_resource_policy)
+        """
+
+    def register_default_host_management_configuration(
+        self, **kwargs: Unpack[RegisterDefaultHostManagementConfigurationRequestTypeDef]
+    ) -> RegisterDefaultHostManagementConfigurationResultTypeDef:
+        """
+        Enables Default Host Management Configuration (DHMC) for the current Amazon Web
+        Services account and Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/register_default_host_management_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#register_default_host_management_configuration)
         """
 
     def register_default_patch_baseline(

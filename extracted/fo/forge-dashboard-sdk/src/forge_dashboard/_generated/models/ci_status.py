@@ -1,6 +1,7 @@
 from enum import StrEnum
 
 class CIStatus(StrEnum):
+    CANCELLED = "cancelled"
     FAILURE = "failure"
     NONE = "none"
     PENDING = "pending"

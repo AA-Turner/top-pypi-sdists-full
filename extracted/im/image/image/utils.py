@@ -16,7 +16,47 @@ from image.settings import IMAGE_DEFAULT_QUALITY, IMAGE_DEFAULT_FORMAT
 from image.storage import MEDIA_STORAGE, STATIC_STORAGE, IMAGE_CACHE_STORAGE
 
 INTERNAL_CACHE_ROOT = "%s/_internal/" % settings.IMAGE_CACHE_ROOT
-ALPHA_FORMATS = ["PNG"]
+ALPHA_FORMATS = ["PNG", "WEBP"]
+
+CONTENT_TYPES = {
+    "JPEG": "image/jpeg",
+    "JPG": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+    "GIF": "image/gif",
+    "BMP": "image/bmp",
+    "TIFF": "image/tiff",
+    "TIF": "image/tiff",
+    "ICO": "image/x-icon",
+    "AVIF": "image/avif",
+}
+
+
+def get_content_type(format=None, data=None):
+    if data:
+        try:
+            with pil.open(BytesIO(data)) as img:
+                if img.format:
+                    fmt = img.format.upper()
+                    if fmt in CONTENT_TYPES:
+                        return CONTENT_TYPES[fmt]
+                    if fmt in pil.MIME:
+                        return pil.MIME[fmt]
+        except Exception:
+            pass
+    if format:
+        fmt = format.upper()
+        if fmt in CONTENT_TYPES:
+            return CONTENT_TYPES[fmt]
+        pil.init()
+        if fmt in pil.MIME:
+            return pil.MIME[fmt]
+    return CONTENT_TYPES.get(IMAGE_DEFAULT_FORMAT.upper(), "image/jpeg")
+
+_RESAMPLING = getattr(pil, 'Resampling', pil)
+RESAMPLE_LANCZOS = getattr(_RESAMPLING, 'LANCZOS', getattr(pil, 'ANTIALIAS', None))
+RESAMPLE_NEAREST = getattr(_RESAMPLING, 'NEAREST', getattr(pil, 'NEAREST', None))
+RESAMPLE_BICUBIC = getattr(_RESAMPLING, 'BICUBIC', getattr(pil, 'BICUBIC', None))
 
 
 def power_to_rgb(value):
@@ -82,7 +122,7 @@ def resizeScale(img, width, height, force):
         dst_width = dst_height * src_ratio
 
     # img_width, img_height = img.size
-    img = img.resize((int(dst_width), int(dst_height)), pil.ANTIALIAS)
+    img = img.resize((int(dst_width), int(dst_height)), RESAMPLE_LANCZOS)
 
     return img
 
@@ -92,14 +132,14 @@ def resizeCrop(img, width, height, center, force):
     # Esto no hace nada perceptible
     RATIO = 2
     while img.size[0] / RATIO > width or img.size[1] / RATIO > height:
-        img = img.resize((int(img.size[0]/RATIO), int(img.size[1]/RATIO)), pil.ANTIALIAS)
+        img = img.resize((int(img.size[0]/RATIO), int(img.size[1]/RATIO)), RESAMPLE_LANCZOS)
     """
 
     max_width = width
     max_height = height
 
     if not force:
-        img.thumbnail((max_width, max_height), pil.ANTIALIAS)
+        img.thumbnail((max_width, max_height), RESAMPLE_LANCZOS)
     else:
         src_width, src_height = img.size
         src_ratio = float(src_width) / float(src_height)
@@ -132,7 +172,7 @@ def resizeCrop(img, width, height, center, force):
 
         img = img.crop(
             (int(x_offset), int(y_offset), int(x_offset) + int(crop_width), int(y_offset) + int(crop_height)))
-        img = img.resize((int(dst_width), int(dst_height)), pil.ANTIALIAS)
+        img = img.resize((int(dst_width), int(dst_height)), RESAMPLE_LANCZOS)
 
     return img
 
@@ -273,10 +313,15 @@ def do_overlay(img, overlay_path, overlay_source=None, overlay_tint=None, overla
     if not overlay_path:
         return img
 
+    overlay_source = overlay_source or 'static'
     if overlay_source == 'media':
-        overlay = pil.open(MEDIA_STORAGE.open(overlay_path))
+        with MEDIA_STORAGE.open(overlay_path) as overlay_file:
+            overlay = pil.open(overlay_file)
+            overlay.load()
     else:
-        overlay = pil.open(STATIC_STORAGE.open(overlay_path))
+        with STATIC_STORAGE.open(overlay_path) as overlay_file:
+            overlay = pil.open(overlay_file)
+            overlay.load()
 
     # We want the overlay to fit in the image
     iw, ih = img.size
@@ -401,16 +446,18 @@ def do_mask(img, mask_path, mask_source, mask_mode=None):
         return img
 
     if mask_source == 'media':
-        mask = pil.open(MEDIA_STORAGE.open(mask_path)).convert("RGBA")
+        with MEDIA_STORAGE.open(mask_path) as mask_file:
+            mask = pil.open(mask_file).convert("RGBA")
     else:
-        mask = pil.open(STATIC_STORAGE.open(mask_path)).convert("RGBA")
+        with STATIC_STORAGE.open(mask_path) as mask_file:
+            mask = pil.open(mask_file).convert("RGBA")
 
     # We want the mask to have the same size than the image
     if mask_mode == 'distort':
         iw, ih = img.size
         mw, mh = mask.size
         if mw != iw or mh != ih:
-            mask = mask.resize((iw, ih), pil.ANTIALIAS)
+            mask = mask.resize((iw, ih), RESAMPLE_LANCZOS)
 
     else:
         # We want the overlay to fit in the image
@@ -421,15 +468,17 @@ def do_mask(img, mask_path, mask_source, mask_mode=None):
         if ow > iw:
             ow = iw
             oh = int(float(iw) / overlay_ratio)
+            have_to_scale = True
         if oh > ih:
             ow = int(float(ih) * overlay_ratio)
             oh = ih
+            have_to_scale = True
 
         if ow != iw or oh != ih:
             have_to_scale = True
 
         if have_to_scale:
-            nmask = mask.resize((ow, oh), pil.ANTIALIAS)
+            nmask = mask.resize((ow, oh), RESAMPLE_LANCZOS)
             mask = pil.new('RGBA', (iw, ih))
             # mask.paste(nmask, (int((iw - ow) / 2), int((ih - oh) / 2)), nmask)
             mask = do_paste(mask, nmask, (int((iw - ow) / 2), int((ih - oh) / 2)))
@@ -437,6 +486,7 @@ def do_mask(img, mask_path, mask_source, mask_mode=None):
 
     r, g, b, a = mask.split()
     img.putalpha(a)
+    return img
 
 
 def do_fill(img, fill, width, height):
@@ -472,7 +522,7 @@ def do_padding(img, padding):
         if padding <= 0.0:
             return img
     except ValueError:
-        return
+        return img
 
     iw, ih = img.size
 
@@ -481,7 +531,7 @@ def do_padding(img, padding):
             int(round(float(img.size[0]) * (1.0 - padding))),
             int(round(float(img.size[1]) * (1.0 - padding)))
         ),
-        pil.ANTIALIAS
+        RESAMPLE_LANCZOS
     )
 
     img = do_fill(img, "ffffff00", iw, ih)
@@ -522,9 +572,9 @@ def do_rotate(img, rotation):
         rotation = 0
 
     if rotation % 90 == 0:
-        img = img.rotate(rotation, pil.NEAREST, expand=True)
+        img = img.rotate(rotation, RESAMPLE_NEAREST, expand=True)
     else:
-        img = img.rotate(rotation, pil.BICUBIC, expand=True)
+        img = img.rotate(rotation, RESAMPLE_BICUBIC, expand=True)
 
     return img
 
@@ -570,6 +620,9 @@ def render(data, width, height, force=True, padding=None, overlays=(), overlay_s
 
     tmp = BytesIO()
 
+    if format.upper() == "JPG":
+        format = "JPEG"
+
     if not format.upper() in ALPHA_FORMATS:
         img = img.convert("RGB")
 
@@ -588,7 +641,7 @@ def image_create_token(parameters):
 
 
 def image_tokenize(session, parameters):
-    if session:
+    if session is not None:
         token = None
         for k, v in session.items():
             if v == parameters:
@@ -609,5 +662,6 @@ def image_url(request, parameters, image_field, generate=False):
         autogen = 'autogen=true' in parameters
         image_views.image(request=request, path=str(image_field), token=parameters, autogen=autogen)
 
-    image_path = os.path.join(image_tokenize(request.session, parameters), six.text_type(image_field))
+    session = getattr(request, 'session', None)
+    image_path = os.path.join(image_tokenize(session, parameters), six.text_type(image_field))
     return IMAGE_CACHE_STORAGE.url(image_path)

@@ -136,7 +136,14 @@ static void _push_event(PyEventCallBack *self, OriginalT *ev) {
     // Make a copy of ev in python
     // (the original will be deleted by TangoC++ on return)
     auto ev_copy = new OriginalT(*ev);
-    py::object py_ev = py::cast(ev_copy, py::return_value_policy::take_ownership);
+    py::object py_ev;
+    try {
+        py_ev = py::cast(ev_copy, py::return_value_policy::take_ownership);
+    } catch(...) {
+        // ownership was not transferred to Python, so it is still ours
+        delete ev_copy;
+        throw;
+    }
 
     PyEventCallBack::fill_py_event(ev_copy, py_ev, self->_extract_as);
 

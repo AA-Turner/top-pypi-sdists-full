@@ -1,6 +1,6 @@
 [project]
 name = "twscrape"
-version = "0.20.1"
+version = "0.21.0"
 authors = [{ name = "vladkens", email = "v.pronsky@gmail.com" }]
 description = "Twitter GraphQL and Search API implementation with SNScrape data models"
 readme = "readme.md"
@@ -24,14 +24,11 @@ dependencies = [
   "pyotp>=2.9.0",
   "beautifulsoup4>=4.13.0",
   "py-machineid>=1.0.0",
+  "curl-cffi>=0.9.0",
 ]
-
-[project.optional-dependencies]
-curl = ["curl-cffi>=0.7.0"]
 
 [dependency-groups]
 dev = [
-  "curl-cffi>=0.7.0",
   "pytest-asyncio>=0.23.3",
   "pytest-cov>=4.1.0",
   "pytest-httpx>=0.28.0",
@@ -62,6 +59,8 @@ filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.uv]
 exclude-newer = "7 days"
+# certifi 2026.7.22 has known vulnerabilities, fixed in 2026.10.19
+exclude-newer-package = { certifi = false }
 
 [tool.ruff]
 line-length = 100
@@ -82,3 +81,4 @@ error-on-warning = true
 all = "error"
 missing-type-argument = "ignore"
 missing-override-decorator = "ignore"
+truthiness-test-of-none-union = "ignore"

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from uuid import UUID
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import GuidCollection, StringCollection
 
 
-@dataclass
 class SPDataGovernanceInsightResponse(ClientValue):
     CountOfSitesInReport: int | None = None
     CountOfSitesInReportUserPermissions: int | None = None
@@ -15,6 +14,8 @@ class SPDataGovernanceInsightResponse(ClientValue):
     CountOfSitesInTenantUserPermissions: int | None = None
     CreatedDateTime: str | None = None
     EEEUType: str | None = None
+    EntriesWithNoData: StringCollection = field(default_factory=StringCollection)
+    InvalidEntries: StringCollection = field(default_factory=StringCollection)
     InvalidUserEntries: StringCollection = field(default_factory=StringCollection)
     LabelId: UUID | None = None
     LabelName: str | None = None
@@ -37,6 +38,7 @@ class SPDataGovernanceInsightResponse(ClientValue):
     SitesFoundEEEU: int | None = None
     SitesFoundSharingLink: int | None = None
     Status: str | None = None
+    TargetGroupNames: StringCollection = field(default_factory=StringCollection)
     TemplatesEEEU: StringCollection = field(default_factory=StringCollection)
     TemplatesSitePermissions: StringCollection | None = None
     TriggeredDateTime: str | None = None

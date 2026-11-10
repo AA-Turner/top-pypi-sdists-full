@@ -18,7 +18,7 @@
     - desy
   parallel:
     matrix:
-        - PYTHON_VERSION: ["3.10", "3.11", '3.12', '3.13', '3.14']
+        - PYTHON_VERSION: ["3.10", "3.11", '3.12', '3.13', '3.14', '3.15']
           ARCH: ["Win32", "x64"]
 
 win:build-wheel:
@@ -80,7 +80,7 @@ win:build-wheel:
     # Dump dependency versions (for doc/versions/news.md release table)
     - python cmake\print_dep_versions.py
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /.*windows.*/
+    - if: $CI_COMMIT_BRANCH =~ /.*windows.*/ || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /.*windows.*/
     - !reference [.rules-wheel, rules]
 
 .win-test-wheel:
@@ -118,7 +118,7 @@ win:build-wheel:
         python -m pip uninstall -y pytango
       }
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /.*windows.*/
+    - if: $CI_COMMIT_BRANCH =~ /.*windows.*/ || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /.*windows.*/
     - !reference [.rules-wheel, rules]
 
 # All windows wheels need to be built to trigger those jobs

@@ -25,13 +25,16 @@ import hmac
 import json
 import logging
 import ssl
+import struct
 from dataclasses import dataclass
 from enum import IntEnum
 from http import HTTPStatus
-from typing import Final
-from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Final
 
 from pyrogram.connection.proxy import HTTPS_PORT
+
+if TYPE_CHECKING:
+    from collections.abc import Coroutine
 
 log = logging.getLogger(__name__)
 
@@ -117,29 +120,41 @@ def parse_frames(wire: bytes) -> ParsedFrames:
     frames: list[Frame] = []
     offset = 0
     wire_len = len(wire)
+    # Convert once so each payload slice is already `bytes`; this is a no-op for `bytes` input.
+    #  Input too short for a header is never read, so it is left as is.
+    data = bytes(wire) if wire_len >= FRAME_HEADER_SIZE else wire
+    # The first word packs `type:u8` above `stream_id:u24`; compile its layout once per call.
+    unpack_header = struct.Struct(">II").unpack_from
+    # Local names skip the attribute lookups on every frame.
+    frame_type_of = FrameType._value2member_map_.get
+    append = frames.append
+    # A header fits only while it starts at or before this offset.
+    last_header = wire_len - FRAME_HEADER_SIZE
 
-    while wire_len - offset >= FRAME_HEADER_SIZE:
-        type_byte = wire[offset]
+    while offset <= last_header:
+        head, size = unpack_header(data, offset)
+        type_byte = head >> 24
+        # One map lookup both validates the type and finds its `FrameType` member.
+        frame_type = frame_type_of(type_byte)
 
-        if type_byte not in _KNOWN_FRAME_TYPES:
+        if frame_type is None:
             msg = f"frame: unknown type 0x{type_byte:02x}"
             raise FrameParseError(msg)
 
-        stream_id = (wire[offset + 1] << 16) | (wire[offset + 2] << 8) | wire[offset + 3]
-        size = int.from_bytes(wire[offset + 4 : offset + 8], "big")
+        start = offset + FRAME_HEADER_SIZE
+        end = start + size
 
-        if size > FRAME_MAX_PAYLOAD:
-            msg = f"frame: payload too large ({size} bytes)"
-            raise FrameParseError(msg)
+        # Both rare exits sit behind one test, so a complete legal frame takes a single branch.
+        #  An oversized payload still raises before a truncated one stops the loop.
+        if end > wire_len or size > FRAME_MAX_PAYLOAD:
+            if size > FRAME_MAX_PAYLOAD:
+                msg = f"frame: payload too large ({size} bytes)"
+                raise FrameParseError(msg)
 
-        full = FRAME_HEADER_SIZE + size
-
-        if wire_len - offset < full:
             break
 
-        payload = bytes(wire[offset + FRAME_HEADER_SIZE : offset + full])
-        frames.append(Frame(FrameType(type_byte), stream_id, payload))
-        offset += full
+        append(Frame(frame_type, head & _MAX_STREAM_ID, data[start:end]))
+        offset = end
 
     return ParsedFrames(frames=frames, consumed=offset)
 
@@ -488,11 +503,9 @@ class WebProxyCarrier:
         *,
         secret: bytes,
         port: int = HTTPS_PORT,
-        loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
         self._hostname = hostname
         self._secret = secret
-        self._loop = loop or asyncio.get_event_loop()
 
         # `http/1.1` only: the framing this client speaks is HTTP/1.1, and an
         #  ALPN-negotiated h2 would make every response unparseable.
@@ -556,7 +569,7 @@ class WebProxyCarrier:
 
         # The poll has to be running before HELLO goes out: WELCOME comes back
         #  down the downlink, and nothing would be reading it otherwise.
-        self._poll_task = self._loop.create_task(self._poll_loop())
+        self._poll_task = asyncio.create_task(self._poll_loop())
 
         await self._send_frames(
             [
@@ -650,7 +663,7 @@ class WebProxyCarrier:
             return
 
         if self._grant_flush_task is None:
-            task = self._loop.create_task(self._delayed_grant_flush())
+            task = asyncio.create_task(self._delayed_grant_flush())
             self._grant_flush_task = task
             self._track(task)
 
@@ -708,7 +721,7 @@ class WebProxyCarrier:
         log.debug("WEB proxy: background task failed: %s", exception)
 
     def _track_task(self, coroutine: Coroutine[None, None, None]) -> None:
-        self._track(self._loop.create_task(coroutine))
+        self._track(asyncio.create_task(coroutine))
 
     async def _cancel_tracked(self, task: asyncio.Task) -> None:
         task.cancel()

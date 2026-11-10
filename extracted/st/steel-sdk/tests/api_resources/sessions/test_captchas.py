@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class TestCaptchas:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         captcha = response.parse()
         assert_matches_type(CaptchaSolveResponse, captcha, path=["response"])
 
@@ -55,7 +55,7 @@ class TestCaptchas:
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             captcha = response.parse()
             assert_matches_type(CaptchaSolveResponse, captcha, path=["response"])
@@ -97,7 +97,7 @@ class TestCaptchas:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         captcha = response.parse()
         assert_matches_type(CaptchaSolveImageResponse, captcha, path=["response"])
 
@@ -109,7 +109,7 @@ class TestCaptchas:
             input_x_path="inputXPath",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             captcha = response.parse()
             assert_matches_type(CaptchaSolveImageResponse, captcha, path=["response"])
@@ -139,7 +139,7 @@ class TestCaptchas:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         captcha = response.parse()
         assert_matches_type(CaptchaStatusResponse, captcha, path=["response"])
 
@@ -149,7 +149,7 @@ class TestCaptchas:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             captcha = response.parse()
             assert_matches_type(CaptchaStatusResponse, captcha, path=["response"])
@@ -193,7 +193,7 @@ class TestAsyncCaptchas:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         captcha = await response.parse()
         assert_matches_type(CaptchaSolveResponse, captcha, path=["response"])
 
@@ -203,7 +203,7 @@ class TestAsyncCaptchas:
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             captcha = await response.parse()
             assert_matches_type(CaptchaSolveResponse, captcha, path=["response"])
@@ -245,7 +245,7 @@ class TestAsyncCaptchas:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         captcha = await response.parse()
         assert_matches_type(CaptchaSolveImageResponse, captcha, path=["response"])
 
@@ -257,7 +257,7 @@ class TestAsyncCaptchas:
             input_x_path="inputXPath",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             captcha = await response.parse()
             assert_matches_type(CaptchaSolveImageResponse, captcha, path=["response"])
@@ -287,7 +287,7 @@ class TestAsyncCaptchas:
         )
 
         assert response.is_closed is True
-        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        assert response.http_request.headers.get("X-Steel-Lang") == "python"
         captcha = await response.parse()
         assert_matches_type(CaptchaStatusResponse, captcha, path=["response"])
 
@@ -297,7 +297,7 @@ class TestAsyncCaptchas:
             "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+            assert response.http_request.headers.get("X-Steel-Lang") == "python"
 
             captcha = await response.parse()
             assert_matches_type(CaptchaStatusResponse, captcha, path=["response"])

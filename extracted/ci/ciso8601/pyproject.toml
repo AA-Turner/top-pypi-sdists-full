@@ -10,20 +10,24 @@ recursive = true
 aggressive = 3
 
 [tool.cibuildwheel]
+# Legacy versions are built explicitly in CI and not represented here.
 build = [
-    "cp38-*",
     "cp39-*",
     "cp310-*",
     "cp311-*",
     "cp312-*",
     "cp313-*",
     "cp314-*",
-    "pp38-*",
+    "cp315-*",
     "pp39-*",
     "pp310-*",
     "pp311-*",
+    "pp312-*",
 ]
 enable = ["pypy", "pypy-eol"]
+test-requires = ["pytz"]
+test-sources = ["tests", "generate_test_timestamps.py"]
+test-command = "python -m unittest"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
@@ -34,5 +38,4 @@ environment = { MACOSX_DEPLOYMENT_TARGET="11.0" }
 skip = ["pp*"]
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
-skip = ["pp*-win*", "*-win32"]
+skip = ["pp*-win*", "*-win32", "cp39-win_arm64", "cp310-win_arm64"]

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class IPv4CidrRange(ClientValue):
     cidrAddress: str | None = None
 

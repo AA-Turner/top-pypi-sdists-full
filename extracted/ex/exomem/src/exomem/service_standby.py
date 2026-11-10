@@ -222,7 +222,14 @@ def cutover_components() -> dict[str, str]:
     from . import readiness
 
     with _lock:
-        snapshot_ready = _proved_token is not None
+        # Settled, not adopted, for the reason `semantic_corpus` is below. A
+        # snapshot that this build found unusable, such as one from an older
+        # graph schema, does not become adoptable by waiting. The promoted
+        # worker rebuilds it whether it cut over or cold started. Promotion
+        # records it `unproven` with the decline and carries no graph handoff.
+        snapshot_ready = _proved_token is not None or bool(
+            _adoption is not None and _adoption.conclusive
+        )
         corpus_settled = _corpus_attempted
         catalogue_built = _detached_built
         collections_settled = _collections_settled
@@ -944,6 +951,9 @@ def warm(vault_root: Path) -> None:
 
     vault_root = Path(vault_root)
     started = time.monotonic()
+    # The last warm steps stop here, which leaves the collections pre-import its margin inside the supervisor's budget.
+    optional_deadline = started + standby_warm_budget() - COLLECTIONS_PREIMPORT_MARGIN_SECONDS
+    catalogue_proven = False
     readiness.begin_warm()
     try:
         # Seed this process's recall registry before anything reads it. The
@@ -957,6 +967,7 @@ def warm(vault_root: Path) -> None:
             log.warning("standby recall registry seed failed", exc_info=True)
         if prove_retrieval_catalog(vault_root):
             _warm_proven_catalogue(vault_root)
+            catalogue_proven = True
         elif prepare_detached_catalog(vault_root):
             # No caches are warmed over rows promotion replaces. The build took
             # up to a minute, during which this unwatched registry went stale;
@@ -969,6 +980,7 @@ def warm(vault_root: Path) -> None:
             # A release-change build that ran and failed falls back to the
             # ordinary proof now, not at the next re-proof poll.
             _warm_proven_catalogue(vault_root)
+            catalogue_proven = True
         else:
             log.info(
                 "standby retrieval catalog is not current; awaiting a current "
@@ -984,16 +996,18 @@ def warm(vault_root: Path) -> None:
         # corpus is what the gate that admits it waits for.
         build_semantic_corpus(vault_root)
         _preload_models()
+        # Inside the warm: during it the `collections_migration` component keeps the standby from cutover
+        # readiness, so the old worker serves while it builds. Only over a proven graph snapshot: a declined
+        # proof waits on `reprove_until_promoted`, which starts after `warm()`, and must not wait on this too.
+        if catalogue_proven and cutover_components().get("graph_snapshot") == "ready":
+            warmup.warm_method_unit_statistics(vault_root, deadline=optional_deadline)
     except Exception:  # noqa: BLE001 - a standby warm must never die loudly
         log.warning("standby warm-up crashed", exc_info=True)
     finally:
         try:
             # Last, so its staging is as close to the handoff as the warm allows, and after
             # a crashed warm too, so that its own component always settles.
-            prepare_collections_migration(
-                vault_root,
-                deadline=started + standby_warm_budget() - COLLECTIONS_PREIMPORT_MARGIN_SECONDS,
-            )
+            prepare_collections_migration(vault_root, deadline=optional_deadline)
         finally:
             readiness.finish_warm()
 
@@ -1188,6 +1202,10 @@ def _promote_owned(
     covered_generation: Any = None
     if proved is None:
         record["snapshot"] = "unproven"
+        if adoption is not None and adoption.reason:
+            # Names why: a proved schema change reads differently from a proof
+            # that never finished.
+            record["proof_declined"] = adoption.reason
     elif migrated:
         # The offline migrator is the only writer between the two workers, and
         # it ran. Re-run the whole proof rather than compare a checkpoint pair

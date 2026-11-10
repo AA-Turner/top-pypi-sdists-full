@@ -21,12 +21,13 @@ That was true for any subclass, always.
 which it is not. That is why grepping for ``SimpleLiveView`` found nothing and
 the module read as unused when it was merely unfindable — it went two PRs
 without anyone noticing it was a live render path (#2223). The class is now
-``SimpleLiveView``; ``LiveView`` remains as a module-level alias so any existing
-``from djust.simple_live_view import LiveView`` keeps working.
+``SimpleLiveView``; ``LiveView`` remains as a deprecated module-level alias
+(removed in 2.0) so any existing ``from djust.simple_live_view import LiveView``
+keeps working.
 """
 
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, Optional, Set
 
 from django.http import HttpRequest, HttpResponse
 from django.views import View
@@ -38,6 +39,7 @@ try:
 except ImportError:
     _RUST_AVAILABLE = False
 
+from ._class_snapshot import attribute_names
 from .config import template_auto_call_enabled
 from .render_env import apply_render_env
 from .utils import get_template_dirs
@@ -93,7 +95,7 @@ class SimpleLiveView(View):
         rather than a safety net around one.
         """
         context: Dict[str, Any] = {}
-        for key in dir(self):
+        for key in attribute_names(self):  # dir() races class writes (#3151)
             if key.startswith("_") or key in _VIEW_INTERNALS:
                 continue
             try:
@@ -121,7 +123,9 @@ class SimpleLiveView(View):
                 # so without the shared function it would render every
                 # timestamp in UTC while ``LiveView`` rendered it correctly.
                 apply_render_env()
-                context = self.get_context_data()
+                from .sync_turn import run_sync_step
+
+                context = run_sync_step(self, "render", self.get_context_data)
                 # A framework render path, so the project's auto-call setting
                 # governs rather than the Rust default (#2508).
                 return str(
@@ -133,7 +137,7 @@ class SimpleLiveView(View):
                         template_auto_call_enabled(),
                     )
                 )
-            except Exception:
+            except Exception as exc:
                 # The exception detail goes to the LOG, never to the response
                 # (CodeQL `py/stack-trace-exposure`, alert #2596; CWE-209).
                 #
@@ -161,20 +165,52 @@ class SimpleLiveView(View):
                 # one-line `str(e)` in a div. Nothing is DEBUG-gated any more,
                 # so dev and production return the same static string and there
                 # is no mode-dependent leak to reason about.
-                logger.exception("[SimpleLiveView] template render failed")
+                from ._exposure_diagnostics import log_failure_for
+
+                log_failure_for(
+                    logger, (self,), exc, "[SimpleLiveView] template render failed", traceback=True
+                )
                 return "<div>An error occurred rendering this view.</div>"
         return "<div>Rust backend not available</div>"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         """Handle GET requests."""
-        self.mount(request, **kwargs)
+        from ._view_hooks import call_hook_sync
+
+        call_hook_sync(self.mount, request, **kwargs)
         return HttpResponse(self.render_template())
 
 
-#: Back-compat alias for the pre-#2219 name.
-#:
-#: Kept because the module is importable and someone may have done
-#: ``from djust.simple_live_view import LiveView``. New code should use
-#: ``SimpleLiveView`` — the old name shadows ``djust.LiveView``, which is a
-#: different class with a different lifecycle.
-LiveView = SimpleLiveView
+# ``LiveView`` stays in ``__all__`` so ``from djust.simple_live_view import *``
+# keeps binding the old name; it resolves through the module ``__getattr__``
+# below, so a star import that takes it warns at the importing statement. The
+# TYPE_CHECKING binding tells linters the name exists (no ``noqa: F822``).
+__all__ = ["LiveView", "SimpleLiveView"]
+
+if TYPE_CHECKING:
+    LiveView = SimpleLiveView
+
+
+def __getattr__(name: str) -> Any:  # PEP 562
+    """``LiveView``: the deprecated pre-#2219 name, removed in djust 2.0.
+
+    Kept because the module is importable and someone may have done
+    ``from djust.simple_live_view import LiveView``. New code should use
+    ``SimpleLiveView`` — the old name shadows ``djust.LiveView``, which is a
+    different class with a different lifecycle.
+
+    .. deprecated:: 1.3
+        Use ``djust.simple_live_view.SimpleLiveView``. Removed in djust 2.0.0.
+    """
+    if name == "LiveView":
+        from ._deprecation import warn_deprecated
+
+        warn_deprecated(
+            "djust.simple_live_view.LiveView",
+            since="1.3",
+            removed_in="2.0.0",
+            instead="djust.simple_live_view.SimpleLiveView",
+            stacklevel=3,
+        )
+        return SimpleLiveView
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

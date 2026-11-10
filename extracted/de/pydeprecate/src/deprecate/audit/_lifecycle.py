@@ -10,18 +10,19 @@ Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
 
 import enum
 import importlib
-import importlib.metadata
 import re
 import types
 import warnings
 from collections.abc import Sequence
-from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 if TYPE_CHECKING:
     from packaging.version import Version
 
+from deprecate._frames import _caller_stacklevel
+from deprecate.audit._findings import _Check, _Finding, _make_finding, _Rule
 from deprecate.audit._scan import find_deprecation_wrappers
+from deprecate.audit._version import _resolve_package_version
 from deprecate.audit._wrappers import DeprecationWrapperInfo, _format_subject, validate_deprecation_wrapper
 
 
@@ -250,33 +251,25 @@ def _check_deprecated_wrapper_expiry(func: Union[Callable, types.ModuleType], cu
 
 
 def _get_package_version(package_name: str) -> str:
-    """Auto-detect the installed version of a package.
+    """Auto-detect the version of a package for the audit API, raising when it cannot be determined.
 
-    This private helper function attempts to retrieve the version of an installed package using importlib.metadata,
-    with a fallback to checking the package's ``__version__`` attribute. This is useful for automatically detecting
-    the current version of a package when checking deprecation expiry.
+    Delegates to the resolver the CLI uses (:func:`deprecate.audit._version._resolve_package_version`): installed
+    metadata under the import name, then under the distribution that provides it, then the package's string
+    ``__version__``. No ``pyproject.toml`` is consulted, as the API receives a module name, never a path.
 
     Args:
         package_name: Name of the package to get the version for (e.g., "numpy", "mypackage").
 
     Returns:
-        The version string of the installed package.
+        The version string of the package.
 
     Raises:
-        ImportError: If the package is not installed or version cannot be determined.
+        ImportError: If no source yields a version string.
 
     """
-    # Try importlib.metadata first (standard approach for installed packages)
-    with suppress(Exception):
-        return importlib.metadata.version(package_name)
-
-    # Fall back to checking __version__ attribute
-    with suppress(Exception):
-        module = importlib.import_module(package_name)
-        if hasattr(module, "__version__"):
-            return module.__version__
-
-    # If both methods fail, raise an informative error
+    version = _resolve_package_version(package_name)
+    if version is not None:
+        return version
     raise ImportError(
         f"Could not determine version for package '{package_name}'. "
         f"Ensure the package is installed and has version metadata."
@@ -286,8 +279,8 @@ def _get_package_version(package_name: str) -> str:
 def _check_expiry_for_callables(results: list[DeprecationWrapperInfo], current_version: str) -> list[str]:
     """Apply expiry comparison to pre-scanned wrapper results.
 
-    Shared implementation used by :func:`validate_deprecation_expiry` and the CLI's single-scan path. Keeps the
-    error message format in one place.
+    Shared implementation used by :func:`validate_deprecation_expiry`; the messages are those of
+    :func:`_expiry_findings`, which the CLI gates on.
 
     Args:
         results: Pre-scanned wrapper info list.
@@ -300,8 +293,21 @@ def _check_expiry_for_callables(results: list[DeprecationWrapperInfo], current_v
         ImportError: If the ``packaging`` library is not installed.
 
     """
+    return [finding.message for finding in _expiry_findings(results, current_version)]
+
+
+def _expiry_findings(results: list[DeprecationWrapperInfo], current_version: str) -> list[_Finding]:
+    """Return one ``expired`` finding per wrapper whose ``remove_in`` is at or before *current_version*.
+
+    A wrapper with an unparsable ``remove_in`` is skipped with a warning, so one typo never aborts the batch.
+
+    Raises:
+        ImportError: If the ``packaging`` library is not installed.
+        ValueError: If *current_version* is not a valid PEP 440 version.
+
+    """
     current_ver = _parse_version(current_version)
-    expired = []
+    expired: list[_Finding] = []
     for info in results:
         remove_in = info.deprecated_info.remove_in
         if not remove_in:
@@ -315,14 +321,15 @@ def _check_expiry_for_callables(results: list[DeprecationWrapperInfo], current_v
             warnings.warn(
                 f"{_format_subject(info)} has an unparsable `remove_in` version `{remove_in}`; "
                 "its expiry cannot be checked until the version string is fixed.",
-                stacklevel=2,
+                stacklevel=_caller_stacklevel(),
             )
             continue
         if current_ver >= remove_ver:
-            expired.append(
+            message = (
                 f"{_format_subject(info)} was scheduled for removal in version {remove_in}"
                 f" but still exists in version {current_version}. Please delete this deprecated code."
             )
+            expired.append(_make_finding(info, _Rule.EXPIRED, _Check.EXPIRY, message))
     return expired
 
 
@@ -349,8 +356,9 @@ def validate_deprecation_expiry(
             - Imported module object (e.g., ``import my_package; validate_deprecation_expiry(my_package, "2.0")``)
             - String module path (e.g., ``validate_deprecation_expiry("my_package.submodule", "2.0")``)
         current_version: The current version of your package to compare against removal deadlines (e.g., ``"2.0.0"``).
-            If None, attempts to auto-detect the version using the package name from the module path (e.g.,
-            ``"mypackage"`` extracts ``mypackage`` as package name).
+            If None, auto-detects the version of the top-level package of the module path (e.g. ``"mypackage"``
+            for ``"mypackage.submodule"``) the way the CLI does: installed metadata under the import name, then
+            under the distribution that ships it, then the package's string ``__version__``.
         recursive: If True (default), recursively scan submodules. If False, only scan the top-level module.
         include_members: If True (default), also scan deprecated class members (methods, constructors,
             classmethods, staticmethods, properties) — matching the discovery default of
@@ -367,12 +375,12 @@ def validate_deprecation_expiry(
     Example:
         >>> # Check a specific module with version before any deadlines
         >>> from deprecate import validate_deprecation_expiry
-        >>> expired = validate_deprecation_expiry("tests.collection_deprecate", "0.1", recursive=False)
+        >>> expired = validate_deprecation_expiry("tests.collections.api_deprecated.core", "0.1", recursive=False)
         >>> len(expired)
         0
 
         >>> # Check with version past some removal deadlines
-        >>> expired = validate_deprecation_expiry("tests.collection_deprecate", "0.5", recursive=False)
+        >>> expired = validate_deprecation_expiry("tests.collections.api_deprecated.core", "0.5", recursive=False)
         >>> print(len(expired))  # Some functions and class members have remove_in <= "0.5"
         31
 

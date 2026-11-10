@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import override
 
-from pyrig.core.strings import make_linked_badge_markdown
+from pyrig.core.strings import linked_badge_markdown
 from pyrig.core.subprocesses import Args
 from pyrig.rig.tools.base.tool import Group, Tool
 from pyrig.rig.tools.packages.manager import PackageManager
@@ -104,11 +104,7 @@ class RemoteVersionController(Tool):
             method=method,
         )
 
-    def ci_cd_dir(self) -> Path:
-        """Return the directory containing GitHub Actions workflows."""
-        return self.config_dir() / "workflows"
-
-    def cicd_badge(self, workflow_name: str, label: str) -> str:
+    def ci_cd_badge(self, workflow_name: str, label: str) -> str:
         """Construct a clickable Markdown badge for a GitHub Actions workflow status.
 
         Args:
@@ -116,15 +112,17 @@ class RemoteVersionController(Tool):
             label: Display label shown on the badge (e.g., "CI", "Build").
 
         Returns:
-            Markdown string in the form `[![label](badge_url)](cicd_url)`.
+            Markdown string in the form `[![label](badge_url)](ci_cd_url)`.
         """
-        badge_url = self.cicd_badge_url(workflow_name, label)
-        cicd_url = self.cicd_url(workflow_name)
-        return make_linked_badge_markdown(
-            image_url=badge_url,
-            link_url=cicd_url,
+        return linked_badge_markdown(
+            image_url=self.ci_cd_badge_url(workflow_name, label),
+            link_url=self.ci_cd_url(workflow_name),
             alt_text=label,
         )
+
+    def ci_cd_dir(self) -> Path:
+        """Return the directory containing GitHub Actions workflows."""
+        return self.config_dir() / "workflows"
 
     def create_release_args(
         self,
@@ -156,6 +154,19 @@ class RemoteVersionController(Tool):
     def dependency_bot_path(self) -> Path:
         """Return the configuration file path for dependabot."""
         return self.config_dir() / "dependabot.yml"
+
+    def file_url(self, path: Path) -> str:
+        """Construct the GitHub URL for a file in the repository.
+
+        Args:
+            path: Path to the file relative to the repository root.
+
+        Returns:
+            URL in the format `https://github.com/{owner}/{repo}/blob/{branch}/{path}`.
+        """
+        branch = VersionController.I.default_branch()
+        posix_path = path.as_posix()
+        return f"{self.repo_url()}/blob/{branch}/{posix_path}"
 
     def issues_url(self) -> str:
         """Construct the GitHub issues URL.
@@ -201,7 +212,7 @@ class RemoteVersionController(Tool):
         """
         return self.api_args(f"--method={method}", *args, endpoint=endpoint)
 
-    def cicd_badge_url(self, workflow_name: str, label: str) -> str:
+    def ci_cd_badge_url(self, workflow_name: str, label: str) -> str:
         """Construct a shields.io badge URL for a GitHub Actions workflow status.
 
         Args:
@@ -213,7 +224,7 @@ class RemoteVersionController(Tool):
         """
         return f"https://img.shields.io/github/actions/workflow/status/{self.repository()}/{workflow_name}.yml?label={label}&logo=github"
 
-    def cicd_url(self, workflow_name: str) -> str:
+    def ci_cd_url(self, workflow_name: str) -> str:
         """Construct the GitHub Actions workflow run history URL.
 
         Args:

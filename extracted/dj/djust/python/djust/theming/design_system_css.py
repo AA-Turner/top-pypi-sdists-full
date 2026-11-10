@@ -17,6 +17,7 @@ from .theme_packs import (
     AnimationStyle,
 )
 from .css_generator import ThemeCSSGenerator
+from ._config import _validate_css_prefix
 
 
 class DesignSystemCSSGenerator:
@@ -44,7 +45,8 @@ class DesignSystemCSSGenerator:
         self.color_preset = get_preset(color_preset_name)
         self.include_base_styles = include_base_styles
         self.include_utilities = include_utilities
-        self.css_prefix = css_prefix
+        # Printed into ``--{prefix}-name`` custom-property names; same validator as the config (#3779).
+        self.css_prefix = _validate_css_prefix(css_prefix)
 
         if not self.design_system:
             raise ValueError(f"Design system '{design_system_name}' not found")
@@ -234,6 +236,7 @@ h6 { font-size: 1rem; }"""
 /* Component shapes */
 .btn, button {
   border-radius: var(--radius);
+  font-family: inherit;
 }
 
 .card {
@@ -304,7 +307,7 @@ h6 { font-size: 1rem; }"""
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(var(--primary) / 0.3);
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
 }
 
 /* Respect reduced motion preferences */

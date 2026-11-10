@@ -150,6 +150,21 @@ _SURFACE_ENV = "EXOMEM_SURFACE"
 _HOSTED_CELL_ENV = "EXOMEM_HOSTED_CELL"
 _CONFIG_KEY = "prominence"
 
+#: The learning instruction: the user's own request to recall before a task and to
+#: save what the task establishes. Agents read the server's policy text as
+#: background; the same request changed what they did only when it arrived as the
+#: user's instruction. So it lives in the user's instruction file, never in a server,
+#: bootstrap or hook channel. `exomem setup` offers it for Claude Code and Codex
+#: (`client_config.place_learning_instruction`), the hosted-client guides show it as
+#: paste-in text, and `tests/test_prominence.py` fails when a guide's copy differs.
+LEARNING_INSTRUCTION = (
+    "Use Exomem as the memory for my work. Before you start a task, recall what Exomem "
+    "holds about the systems, projects or topics it touches. As you work, save each "
+    "reusable fact you establish (how something is structured, a pitfall, a method that "
+    "worked) as one concise observation, and update an existing note when one covers it, "
+    "so a later session does not have to find it again."
+)
+
 #: The activation carrier, at `balanced` and `maximal` only.
 #:
 #: Where the host exposes a prompt lifecycle, the retrieve hook injects the
@@ -171,7 +186,7 @@ _CONFIG_KEY = "prominence"
 #: non-ASCII dash costs six JSON bytes) and inside 220.
 ACTIVATION_CARRIER_LINE = (
     "Before a substantive turn with no prior context, call `recall_context` "
-    "with the turn verbatim; on `ambiguous`, call again with `anchor`."
+    "with the turn verbatim. Follow `next_action` when present."
 )
 
 
@@ -182,7 +197,7 @@ ACTIVATION_CARRIER_LINE = (
 #: everywhere `recall_context` is not.
 ASK_MEMORY_CARRIER_LINE = (
     "Before a substantive turn with no prior context, call `search_memory` on the "
-    "turn's topic."
+    "turn's topic. Follow `next_action` when present."
 )
 
 #: The link instruction (`capture-identities-at-write-time` design D2, task
@@ -196,19 +211,56 @@ LINK_NAMED_IDENTITIES_LINE = (
     "even with no page yet."
 )
 
+_GLOBAL_STANCE_CAPTURE = (
+    "Keep sourced global lines in chat, not notes/drafts, until authorized. "
+    "Exact save/promotion/persistent-use requests suffice. Contextual reversal allows "
+    "guarded repair; rejecting an unexecuted offer grants no unrelated write. "
+    "Authorize each promoted unit; keep scoped rules local. "
+)
+
+#: The durable-baseline doctrine that `balanced` and `maximal` share word for word, and the
+#: activation `capture_policy` block repeats. Product doctrine, not vault data: one source, so
+#: bootstrap and the per-turn carrier cannot state different classes or routes.
+_BASELINE_CAPTURE = (
+    "Capture stable preferences, recurring routines, historical baselines, or durable "
+    "affiliations only when stability or recurrence and reusable comparison, interpretation, "
+    "or decision value are clear. Route a uniquely resolved Entity facet or affiliation "
+    "there, else one concise compiled observation; Records only for a compatible existing "
+    "measurement. Before an affiliation facet, check the relation queue: a match the user "
+    "confirms goes to link_acceptance; else save the facet. Fleeting preferences, one-offs, "
+    "incidental associations, trivia, and tentative claims stay quiet."
+)
+
+#: What a generated file is worth as a save, positive rule first. Handing a file to the user is the
+#: trigger: waiting for the agent to notice a selection lost files the user went on to use. The
+#: activation block carries it with the baseline doctrine; the rest stays in bootstrap.
+_ADOPTION_TRIGGER = (
+    "Keep the exact bytes of every generated file you hand the user under proactive_capture: "
+    "Source/Evidence by role, never MIME. Drafts not handed over stay ephemeral."
+)
+
+#: The route for a delivery the user reports: find the receipt the adoption left, then link it.
+#: Shared like the doctrine above, so the block and bootstrap give one route.
+_DELIVERY_CAPTURE = (
+    "Reported delivery: search for the artifact's Evidence receipt, then append one "
+    "delivery Record linking it to the compatible existing collection; no remote byte "
+    "inference."
+)
+
 _ARTIFACT_ADOPTION_CAPTURE = (
-    " Generated draft stays ephemeral. Selected is not write consent: proactive_capture "
-    "keeps exact bytes as Source/Evidence by role, never MIME. No handle: non-committing "
-    "handoff. Delivery needs an Evidence receipt/Record; no remote byte inference. "
-    "Missing collection: structural_suggestions."
+    " "
+    + _ADOPTION_TRIGGER
+    + " No handle: non-committing handoff. "
+    + _DELIVERY_CAPTURE
+    + " Missing collection: structural_suggestions."
 )
 
 #: The episode-completeness pass, appended to `balanced` and `maximal` only.
 #: `light` and `off` capture on request, so asking them to sweep would be asking
 #: them to capture proactively, which is the thing those levels exist to refuse.
 #:
-#: The class list is EXAMPLES and says so twice — "for example" opening it and no
-#: "only" anywhere. An agent reads a closed list inside a capture contract as a
+#: The class list is EXAMPLES: "e.g." introduces it and "not a closed set" keeps
+#: it open. An agent reads a closed list inside a capture contract as a
 #: boundary, so an enumeration here would narrow capture rather than complete it,
 #: which is the opposite of the point.
 #: Cut to the minimum that carries the whole rule, because this text sits inside
@@ -217,11 +269,9 @@ _ARTIFACT_ADOPTION_CAPTURE = (
 #: carries all ten, and a client that receives this contract receives that block
 #: on its next durable write. What must survive here is the rule, not the roster.
 _EPISODE_SWEEP_CAPTURE = (
-    " After any capture, make one bounded episode pass over the recent exchange for "
-    "anything else that would materially improve a later decision, lookup, task, "
-    "comparison or continuation, e.g. an outcome, a preference, a method, an entity "
-    "facet or an operational quirk; examples, not a closed set. Never re-write what "
-    "the response lists as written recently, and stay silent when nothing qualifies."
+    " After capture, make one bounded episode pass over the recent exchange for material "
+    "value in later work or recall, e.g. outcomes; not a closed set. "
+    "Skip what the response lists as written recently; stay silent if nothing qualifies."
 )
 
 _CAPTURE_EFFECTIVE_TEMPLATE = MappingProxyType(
@@ -371,17 +421,15 @@ CONTRACTS: dict[str, ProminenceContract] = {
             "Skip chit-chat, control messages, and context-free fresh tasks."
         ),
         capture=(
-            LINK_NAMED_IDENTITIES_LINE + " "
-            "Capture at a stepping stone: a durable conclusion, central or recurring "
+            LINK_NAMED_IDENTITIES_LINE
+            + " "
+            + _GLOBAL_STANCE_CAPTURE
+            + "Capture at a stepping stone: a durable conclusion, central or recurring "
             "entity with reusable facts, or method that was carried out with a reported "
             "result. Not "
-            "mid-thought exploration, tangents, or unresolved questions. Capture stable "
-            "preferences, recurring routines, historical baselines, or durable affiliations "
-            "only when stability or recurrence and reusable comparison, interpretation, or "
-            "decision value are clear. Route a uniquely resolved Entity facet or affiliation "
-            "there, else one concise compiled observation; Records only for a "
-            "compatible existing measurement. Fleeting preferences, one-offs, incidental "
-            "associations, trivia, and tentative claims stay quiet. A concise observation or "
+            "mid-thought exploration, tangents, or unresolved questions. "
+            + _BASELINE_CAPTURE
+            + " A concise observation or "
             "narrow Entity facet follows proactive_capture. Route stated intent to "
             "Planning and observed outcome to Records. "
             "Transition only on explicit user intent; otherwise leave Planning "
@@ -404,17 +452,15 @@ CONTRACTS: dict[str, ProminenceContract] = {
             "chit-chat and control messages."
         ),
         capture=(
-            LINK_NAMED_IDENTITIES_LINE + " "
-            "Capture at every stepping stone; treat the bar for 'durable' as low: "
+            LINK_NAMED_IDENTITIES_LINE
+            + " "
+            + _GLOBAL_STANCE_CAPTURE
+            + "Capture at every stepping stone; treat the bar for 'durable' as low: "
             "a decision, a resolved problem, a diagnosed failure, a reusable pattern, "
             "a fact about a central or recurring entity, or a method you actually ran and "
-            "how it turned out. Capture stable preferences, recurring routines, historical "
-            "baselines, "
-            "or durable affiliations only when stability or recurrence and reusable comparison, "
-            "interpretation, or decision value are clear. Route a uniquely resolved Entity "
-            "facet or affiliation there, else one concise compiled observation; "
-            "Records only for a compatible existing measurement. Fleeting preferences, one-offs, "
-            "incidental associations, trivia, and tentative claims stay quiet. A concise observation "
+            "how it turned out. "
+            + _BASELINE_CAPTURE
+            + " A concise observation "
             "or narrow Entity facet follows proactive_capture. When torn between "
             "capturing and letting it pass, capture. "
             "Prefer a real page over a mental note; do not wait to be asked. "
@@ -732,6 +778,28 @@ def effective_capture(authored_capture: dict[str, str], prominence_level: str) -
             ),
         }
         for kind in ("durable_intent", "observed_outcomes")
+    }
+
+
+def capture_policy(disposition: str, link_acceptance: str) -> dict[str, str]:
+    """The activation `capture_policy` block: the live capture authority in plain words.
+
+    Branches only on the closed `proactive_capture` range. Under `off` the block is the meaning
+    alone: no class list and no second disposition, so a quiet vault is not handed doctrine it may
+    not act on. The routes are the constants bootstrap serves, so the two carriers cannot drift.
+    `link_acceptance` is required: the queue route is only right for the vault's own setting,
+    never a default.
+    """
+    from . import envelope
+
+    meaning = f"proactive_capture is {disposition}: {envelope.PROACTIVE_CAPTURE_MEANING[disposition]}."
+    if disposition == "off":
+        return {"disposition": disposition, "say": meaning}
+    link = f"link_acceptance is {link_acceptance}: {envelope.LINK_ACCEPTANCE_MEANING[link_acceptance]}."
+    return {
+        "disposition": disposition,
+        "link_acceptance": link_acceptance,
+        "say": f"{meaning} {link} {_BASELINE_CAPTURE} {_ADOPTION_TRIGGER} {_DELIVERY_CAPTURE}",
     }
 
 

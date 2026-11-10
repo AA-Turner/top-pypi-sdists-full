@@ -1,4 +1,5 @@
 import time
+import decimal
 import pathlib
 import sqlite3
 import warnings
@@ -45,6 +46,20 @@ def test_datatypes(tg, datatype):
     db._connection.close()
 
 
+@pytest.mark.parametrize('datatype, values', [
+    ('boolean', [True, False, None]),
+    ('decimal', [decimal.Decimal('1.25'), decimal.Decimal('-2.5'), None]),
+])
+def test_read_preserves_declared_scalar_types(tg, datatype, values):
+    tg.tables[0].tableSchema.columns.append(Column.fromvalue({'datatype': datatype, 'name': 'v'}))
+    db = Database(tg)
+    db.write(data=[{'v': value} for value in values])
+    actual = [row['v'] for row in db.read()['data']]
+    assert actual == values
+    assert [type(value) for value in actual] == [type(value) for value in values]
+    db._connection.close()
+
+
 def test_list_valued(tg, translate):
     tg.tables[0].tableSchema.columns.append(Column.fromvalue({'separator': '#', 'name': 'v'}))
     db = Database(tg, translate=translate)
@@ -67,6 +82,32 @@ def test_list_valued_non_text(tg, translate):
     data = db.read()['data']
     assert data[0]['vv'] == [1, 2, 3]
     assert data[1]['vv'] is None
+    db._connection.close()
+
+
+@pytest.mark.parametrize('reverse_first', [False, True])
+def test_write_row_column_order(tg, reverse_first):
+    tg.tables[0].tableSchema.columns.extend([
+        Column.fromvalue({'name': 'ID'}),
+        Column.fromvalue({'name': 'Form'}),
+    ])
+    rows = [{'ID': '1', 'Form': 'house'}, {'Form': 'water', 'ID': '2'}]
+    if reverse_first:
+        rows.reverse()
+    db = Database(tg)
+    db.write(data=iter(rows))
+    assert db.read()['data'] == rows
+    db._connection.close()
+
+
+@pytest.mark.parametrize('second', [{'ID': '2'}, {'ID': '2', 'Other': 'water'}])
+def test_write_inconsistent_row_columns(tg, second):
+    tg.tables[0].tableSchema.columns.extend([
+        Column.fromvalue({'name': name}) for name in ['ID', 'Form', 'Other']
+    ])
+    db = Database(tg)
+    with pytest.raises(ValueError, match='same columns'):
+        db.write(data=[{'ID': '1', 'Form': 'house'}, second])
     db._connection.close()
 
 
@@ -188,6 +229,35 @@ def test_self_referential_foreign_keys(tg):
     db._connection.close()
 
 
+@pytest.mark.parametrize('columns,reference', [
+    (['left', 'right'], ['zeta', 'alpha']),
+    (['right', 'left'], ['alpha', 'zeta']),
+])
+def test_composite_foreign_key_order(columns, reference):
+    tg = TableGroup.fromvalue({'tables': [
+        {'url': 'parent', 'tableSchema': {
+            'columns': [{'name': 'alpha'}, {'name': 'zeta'}],
+            'primaryKey': ['alpha', 'zeta'],
+        }},
+        {'url': 'child', 'tableSchema': {
+            'columns': [{'name': 'left'}, {'name': 'right'}],
+            'foreignKeys': [{
+                'columnReference': columns,
+                'reference': {'resource': 'parent', 'columnReference': reference},
+            }],
+        }},
+    ]})
+    db = Database(tg)
+    db.write(parent=[{'alpha': 'a', 'zeta': 'z'}], child=[{'left': 'z', 'right': 'a'}])
+    assert db.read()['child'] == [{'left': 'z', 'right': 'a'}]
+    with db.connection() as conn:
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute('INSERT INTO child VALUES (?, ?)', ('a', 'z'))
+        conn.execute('DELETE FROM parent')
+        assert conn.execute('SELECT * FROM child').fetchall() == []
+    db._connection.close()
+
+
 @pytest.fixture
 def tg_with_foreign_keys(tg):
     tg.tables[0].tableSchema.columns.append(Column.fromvalue({'name': 'v'}))
@@ -237,6 +307,36 @@ def test_many_to_many(tg_with_foreign_keys):
     db._connection.close()
 
 
+@pytest.mark.parametrize('translate_context', [False, True])
+@pytest.mark.parametrize('populated', [False, True])
+def test_many_to_many_translated_columns(tg_with_foreign_keys, translate_context, populated):
+    def translate(table, column=None):
+        if column == 'context' and not translate_context:
+            return column
+        return 'c_' + column if column is not None else 't_' + table
+
+    db = Database(tg_with_foreign_keys, translate=translate)
+    values = ['y', 'x'] if populated else []
+    db.write(ref=[{'pk': '1', 'ref1': values, 'ref2': []}], data=[{'v': 'x'}, {'v': 'y'}])
+    assert db.read()['t_ref'] == [{'c_pk': '1', 'c_ref1': values, 'c_ref2': []}]
+    db._connection.close()
+
+
+@pytest.mark.parametrize('keys', [
+    ['New York', 'San Francisco'],
+    ['two\twords', 'line\nbreak'],
+    ['eau de vie', 'New York', 'eau de vie'],
+])
+def test_many_to_many_whitespace(tg_with_foreign_keys, keys):
+    db = Database(tg_with_foreign_keys)
+    db.write(ref=[{'pk': '1', 'ref1': keys, 'ref2': keys[::-1]}],
+             data=[{'v': key} for key in dict.fromkeys(keys)])
+    res = db.read()['ref'][0]
+    assert res['ref1'] == keys
+    assert res['ref2'] == keys[::-1]
+    db._connection.close()
+
+
 def test_many_to_many_2(tg_with_foreign_keys):
     db = Database(tg_with_foreign_keys)
     db.write(
@@ -271,6 +371,22 @@ def test_many_to_many_no_context(tg_with_foreign_keys):
     res = db.read()['ref'][0]
     # The context will then be returned for **each** foreign key column!
     assert res['ref2'] == [('y', '1234'), ('x', '1234')]
+    db._connection.close()
+
+
+def test_many_to_many_context_delimiter(tg_with_foreign_keys):
+    class DatabaseWithoutContext(Database):
+        def association_table_context(self, table, column, fkey):
+            return fkey, 'part1||part2'
+
+        def select_many_to_many(self, db, table, context):
+            return Database.select_many_to_many(self, db, table, None)
+
+    db = DatabaseWithoutContext(tg_with_foreign_keys)
+    db.write(ref=[{'pk': '1', 'ref1': ['New York', 'San Francisco']}],
+             data=[{'v': 'New York'}, {'v': 'San Francisco'}])
+    assert db.read()['ref'][0]['ref1'] == [
+        ('New York', 'part1||part2'), ('San Francisco', 'part1||part2')]
     db._connection.close()
 
 
@@ -318,3 +434,40 @@ def test_write_file_exists(tmp_path):
         time.sleep(0.1)
         db.write(force=True)
         assert target.stat().st_mtime > mtime
+
+
+@pytest.mark.parametrize('reverse', [False, True])
+def test_large_acyclic_table_group(reverse):
+    tables = []
+    items = {}
+    for i in range(103):
+        schema = {'columns': [{'name': 'ID', 'datatype': 'integer'}], 'primaryKey': 'ID'}
+        row = {'ID': i}
+        if i:
+            schema['columns'].append({'name': 'parent', 'datatype': 'integer'})
+            schema['foreignKeys'] = [{
+                'columnReference': 'parent',
+                'reference': {'resource': f't{i - 1}', 'columnReference': 'ID'},
+            }]
+            row['parent'] = i - 1
+        tables.append({'url': f't{i}', 'tableSchema': schema})
+        items[f't{i}'] = [row]
+    if reverse:
+        tables.reverse()
+    db = Database(TableGroup.fromvalue({'tables': tables}))
+    assert [table.name for table in db.tables] == [f't{i}' for i in range(103)]
+    db.write(**items)
+    assert db.read() == items
+    db._connection.close()
+
+
+def test_cyclic_table_group():
+    tables = []
+    for name, target in [('a', 'b'), ('b', 'a')]:
+        tables.append({'url': name, 'tableSchema': {
+            'columns': [{'name': 'ID'}], 'primaryKey': 'ID',
+            'foreignKeys': [{'columnReference': 'ID', 'reference': {
+                'resource': target, 'columnReference': 'ID'}}],
+        }})
+    with pytest.raises(ValueError, match='cyclic dependencies'):
+        Database(TableGroup.fromvalue({'tables': tables}))

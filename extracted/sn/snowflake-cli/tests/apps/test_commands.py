@@ -31,12 +31,11 @@ from snowflake.cli._plugins.apps.commands import (
     _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
-    _requests_event_table_health_monitoring,
     _utf8_output,
     _warn_if_cng_url_cert_missing,
     snowflake_app_events,
 )
-from snowflake.cli._plugins.apps.events import EventStream, parse_lifecycle_records
+from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import _generate_app_yml, _yaml_str
 from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_LABEL,
@@ -624,31 +623,6 @@ class TestIsCngComputeResource:
     )
     def test_predicate(self, value, expected):
         assert _is_cng_compute_resource(value) is expected
-
-
-class TestRequestsEventTableHealthMonitoring:
-    """Event-table health monitoring is metric, lifecycle, and windowed logs."""
-
-    def test_live_log_tail_is_not_event_table(self):
-        assert (
-            _requests_event_table_health_monitoring(EventStream.LOG, None, None)
-            is False
-        )
-
-    @pytest.mark.parametrize(
-        "stream, since, until",
-        [
-            (EventStream.METRIC, None, None),
-            (EventStream.LIFECYCLE, None, None),
-            (EventStream.LOG, "1h", None),
-            (EventStream.LOG, None, "1h"),
-            (EventStream.METRIC, "1h", "now"),
-        ],
-    )
-    def test_metric_lifecycle_and_windowed_logs_use_event_table(
-        self, stream, since, until
-    ):
-        assert _requests_event_table_health_monitoring(stream, since, until) is True
 
 
 class TestServerlessAccountParameters:
@@ -3069,6 +3043,44 @@ class TestSnowflakeAppManager:
             ["DB.SCHEMA.MY_APP", 500, 0],
         )
 
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # Quote immediately after the opening double quote. Single-quoting
+            # this identifier used to end the literal and leave another statement.
+            '"\', 0); select 1; --"',
+            # A backslash before the quote. The connector splitter treats that
+            # as an escaped quote; the bound value must stay the original name.
+            '"x\\\'; select 1; --"',
+            '"foo\'bar"',
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("last", "instance_id", "sql", "bound_tail"),
+        [
+            (None, None, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?)", []),
+            (100, None, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?)", [100]),
+            (None, 0, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)", [500, 0]),
+            (20, 2, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)", [20, 2]),
+        ],
+    )
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
+    def test_get_service_logs_binds_quoted_identifier(
+        self, mock_execute, name, last, instance_id, sql, bound_tail
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("log line",)
+        mock_execute.return_value = cursor
+
+        fqn = app_fqn(database="DB", schema="SC", name=name)
+        logs = SnowflakeAppManager().get_service_logs(
+            fqn, last=last, instance_id=instance_id
+        )
+
+        assert logs == "log line"
+        assert fqn.identifier == f"DB.SC.{name}"
+        mock_execute.assert_called_once_with(sql, [fqn.identifier, *bound_tail])
+
     def test_get_service_logs_rejects_negative_instance(self):
         with pytest.raises(CliError, match="non-negative"):
             snowflake_app_events(
@@ -3139,7 +3151,7 @@ class TestSnowflakeAppManager:
     def test_get_event_table_data_over_cap_pages_via_result_scan(self, mock_execute):
         # Above the inline cap the function is called with its return_uuid flag,
         # then the newest rows are read back via RESULT_SCAN and re-serialized
-        # into the inline JSON tuple layout (oldest-first, epoch timestamps).
+        # into the inline JSON tuple layout (newest-first, epoch timestamps).
         param_cursor = Mock()
         param_cursor.fetchone.return_value = {"value": "500"}
         uuid_cursor = Mock()
@@ -3173,10 +3185,11 @@ class TestSnowflakeAppManager:
         )
 
         rows = json.loads(payload)
-        # Reversed to oldest-first, and the datetime is now an epoch string.
-        assert [r[3] for r in rows] == ["older line", "newer line"]
+        # Same newest-first order as the inline payload; the datetime is now an
+        # epoch string.
+        assert [r[3] for r in rows] == ["newer line", "older line"]
         older_epoch = datetime(2026, 7, 16, 22, 0, 1, tzinfo=timezone.utc).timestamp()
-        assert rows[0][0] == str(older_epoch)
+        assert rows[1][0] == str(older_epoch)
 
     @patch(EXECUTE_QUERY)
     def test_get_event_table_data_over_cap_pages_event_result(self, mock_execute):
@@ -7873,12 +7886,12 @@ class TestEventsCommand:
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
-        # Log payload is oldest-first, as the event table function returns it.
+        # Log payload is newest-first, as the event table function returns it.
         mock_mgr.get_event_table_data.return_value = json.dumps(
             [
-                ["100.0", "0", "runner", "line1", "{}"],
-                ["200.0", "0", "runner", "line2", "{}"],
                 ["300.0", "0", "runner", "line3", "{}"],
+                ["200.0", "0", "runner", "line2", "{}"],
+                ["100.0", "0", "runner", "line1", "{}"],
             ]
         )
 
@@ -7889,8 +7902,7 @@ class TestEventsCommand:
 
         # Only the newest two lines are printed, oldest-first.
         assert "line1" not in result.output
-        assert "line2" in result.output
-        assert "line3" in result.output
+        assert result.output.index("line2") < result.output.index("line3")
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")

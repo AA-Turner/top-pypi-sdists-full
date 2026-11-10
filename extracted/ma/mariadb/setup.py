@@ -30,7 +30,7 @@ PY_MARIADB_AUTHORS = "Georg Richter"
 
 PY_MARIADB_MAJOR_VERSION = 1
 PY_MARIADB_MINOR_VERSION = 1
-PY_MARIADB_PATCH_VERSION = 14
+PY_MARIADB_PATCH_VERSION = 15
 PY_MARIADB_PRE_RELEASE_SEGMENT = None
 PY_MARIADB_PRE_RELEASE_NR = 0
 PY_MARIADB_POST_RELEASE_SEGMENT = None
@@ -40,9 +40,15 @@ PY_MARIADB_VERSION = "%s.%s.%s" % (PY_MARIADB_MAJOR_VERSION,
                                    PY_MARIADB_MINOR_VERSION,
                                    PY_MARIADB_PATCH_VERSION)
 
+# PEP 440: the pre-release segment is attached directly (1.1.15b1), a
+# post-release one after a dot (1.1.15.post1).
+if PY_MARIADB_PRE_RELEASE_SEGMENT:
+    PY_MARIADB_VERSION += "%s%s" % (PY_MARIADB_PRE_RELEASE_SEGMENT,
+                                    PY_MARIADB_PRE_RELEASE_NR)
+
 if PY_MARIADB_POST_RELEASE_SEGMENT:
-    PY_MARIADB_VERSION += ".%s" % (PY_MARIADB_POST_RELEASE_SEGMENT +
-                                   PY_MARIADB_POST_RELEASE_NR)
+    PY_MARIADB_VERSION += ".%s%s" % (PY_MARIADB_POST_RELEASE_SEGMENT,
+                                     PY_MARIADB_POST_RELEASE_NR)
 
 PY_MARIADB_VERSION_INFO = (PY_MARIADB_MAJOR_VERSION,
                            PY_MARIADB_MINOR_VERSION,
@@ -79,7 +85,7 @@ with open("mariadb/release_info.py", "w") as rel_info:
 
 setup(name='mariadb',
       version=PY_MARIADB_VERSION,
-      python_requires='>=3.8',
+      python_requires='>=3.11',
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Environment :: Console',
@@ -89,12 +95,11 @@ setup(name='mariadb',
           ' v2 or later (LGPLv2+)',
           'Programming Language :: C',
           'Programming Language :: Python',
-          'Programming Language :: Python :: 3.9',
-          'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
           'Programming Language :: Python :: 3.12',
           'Programming Language :: Python :: 3.13',
           'Programming Language :: Python :: 3.14',
+          'Programming Language :: Python :: 3.15',
           'Operating System :: Microsoft :: Windows',
           'Operating System :: MacOS',
           'Operating System :: POSIX',

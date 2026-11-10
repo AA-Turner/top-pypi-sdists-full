@@ -10,6 +10,7 @@ use crate::{
         format::{builtin_format, Format},
     },
     paths::Location,
+    regex::{Compiled, LazyRegex, SequenceMatcher},
     retriever::DefaultRetriever,
     Json, Keyword, SerdeJson, ValidationError, Validator,
 };
@@ -17,7 +18,11 @@ use ahash::{AHashMap, AHashSet};
 use email_address::Options as EmailAddressOptions;
 use referencing::{Draft, Retrieve};
 use serde_json::Value;
-use std::{fmt, marker::PhantomData, sync::Arc};
+use std::{
+    fmt,
+    marker::PhantomData,
+    sync::{Arc, Mutex, PoisonError},
+};
 
 /// Configuration options for JSON Schema validation.
 ///
@@ -38,6 +43,7 @@ pub struct ValidationOptions<'i, R = Arc<dyn Retrieve>, F: Json = SerdeJson> {
     keywords: AHashMap<String, Arc<dyn KeywordFactory<F>>>,
     vocabularies: AHashSet<String>,
     pattern_options: PatternEngineOptions,
+    pattern_cache: Option<PatternCache>,
     email_options: Option<EmailAddressOptions>,
     representation: PhantomData<F>,
 }
@@ -61,6 +67,7 @@ impl<R: Clone, F: Json> Clone for ValidationOptions<'_, R, F> {
             keywords: self.keywords.clone(),
             vocabularies: self.vocabularies.clone(),
             pattern_options: self.pattern_options,
+            pattern_cache: self.pattern_cache.clone(),
             email_options: self.email_options,
             representation: PhantomData,
         }
@@ -83,6 +90,7 @@ impl<F: Json> Default for ValidationOptions<'_, Arc<dyn Retrieve>, F> {
             keywords: AHashMap::default(),
             vocabularies: AHashSet::default(),
             pattern_options: PatternEngineOptions::default(),
+            pattern_cache: None,
             email_options: None,
             representation: PhantomData,
         }
@@ -106,6 +114,7 @@ impl<F: Json> Default for ValidationOptions<'_, Arc<dyn referencing::AsyncRetrie
             keywords: AHashMap::default(),
             vocabularies: AHashSet::default(),
             pattern_options: PatternEngineOptions::default(),
+            pattern_cache: None,
             email_options: None,
             representation: PhantomData,
         }
@@ -115,6 +124,10 @@ impl<F: Json> Default for ValidationOptions<'_, Arc<dyn referencing::AsyncRetrie
 impl<'i, R, F: Json> ValidationOptions<'i, R, F> {
     pub(crate) fn compiler_pattern_options(&self) -> PatternEngineOptions {
         self.pattern_options
+    }
+
+    pub(crate) fn compiler_pattern_cache(&self) -> Option<&PatternCache> {
+        self.pattern_cache.as_ref()
     }
 
     pub(crate) fn compiler_email_options(&self) -> Option<&EmailAddressOptions> {
@@ -719,6 +732,31 @@ impl<F: Json> ValidationOptions<'_, Arc<dyn referencing::Retrieve>, F> {
         self
     }
 
+    /// Share compiled regular expressions with every other build given the same [`PatternCache`].
+    ///
+    /// Each build compiles a `pattern` once however often its schema repeats it. Building many
+    /// validators whose schemas share patterns compiles each of them once across all builds.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use serde_json::json;
+    /// use jsonschema::PatternCache;
+    ///
+    /// let cache = PatternCache::new();
+    /// for schema in [json!({"pattern": "^[a-z]+$"}), json!({"items": {"pattern": "^[a-z]+$"}})] {
+    ///     let validator = jsonschema::options()
+    ///         .with_pattern_cache(cache.clone())
+    ///         .build(&schema)
+    ///         .expect("A valid schema");
+    /// }
+    /// ```
+    #[must_use]
+    pub fn with_pattern_cache(mut self, cache: PatternCache) -> Self {
+        self.pattern_cache = Some(cache);
+        self
+    }
+
     /// Set email validation options to customize email format validation behavior.
     ///
     /// # Example
@@ -817,6 +855,7 @@ impl<'i, F: Json> ValidationOptions<'i, Arc<dyn referencing::AsyncRetrieve>, F> 
             keywords: self.keywords,
             vocabularies: self.vocabularies,
             pattern_options: self.pattern_options,
+            pattern_cache: self.pattern_cache,
             email_options: self.email_options,
             representation: PhantomData,
         }
@@ -885,6 +924,132 @@ pub(crate) enum PatternEngineOptions {
         size_limit: Option<usize>,
         dfa_size_limit: Option<usize>,
     },
+}
+
+/// Compiled regular expressions shared between validator builds, see
+/// [`ValidationOptions::with_pattern_cache`].
+///
+/// Clones share one cache. It also remembers patterns that failed to compile, so they fail without
+/// compiling again. Entries are keyed by the pattern and, when a regex engine compiled it, the
+/// [`PatternOptions`] it was compiled with, and live as long as any clone does.
+#[derive(Debug, Clone, Default)]
+pub struct PatternCache {
+    inner: Arc<Mutex<CompiledPatterns>>,
+}
+
+/// Compile results by engine options, then by pattern. `Err` records a failed compile.
+type CompiledByOptions<R> = AHashMap<PatternEngineOptions, AHashMap<Arc<str>, Result<Arc<R>, ()>>>;
+
+#[derive(Debug, Default)]
+struct CompiledPatterns {
+    fancy: CompiledByOptions<Compiled<fancy_regex::Regex>>,
+    standard: CompiledByOptions<Compiled<regex::Regex>>,
+    /// The same for every engine option. `Err` records a pattern that is not a sequence.
+    sequences: AHashMap<Arc<str>, Result<Arc<SequenceMatcher<LazyRegex>>, ()>>,
+}
+
+impl PatternCache {
+    /// Create an empty cache.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, CompiledPatterns> {
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The `fancy-regex` compile of `pattern`, or `None` when it was never compiled.
+    pub(crate) fn fancy(
+        &self,
+        options: PatternEngineOptions,
+        pattern: &str,
+    ) -> Option<Result<Arc<Compiled<fancy_regex::Regex>>, ()>> {
+        self.lock().fancy.get(&options)?.get(pattern).cloned()
+    }
+
+    pub(crate) fn insert_fancy(
+        &self,
+        options: PatternEngineOptions,
+        pattern: &str,
+        regex: Result<Arc<Compiled<fancy_regex::Regex>>, ()>,
+    ) {
+        self.lock()
+            .fancy
+            .entry(options)
+            .or_default()
+            .insert(Arc::from(pattern), regex);
+    }
+
+    /// The `regex` compile of `pattern`, or `None` when it was never compiled.
+    pub(crate) fn standard(
+        &self,
+        options: PatternEngineOptions,
+        pattern: &str,
+    ) -> Option<Result<Arc<Compiled<regex::Regex>>, ()>> {
+        self.lock().standard.get(&options)?.get(pattern).cloned()
+    }
+
+    pub(crate) fn insert_standard(
+        &self,
+        options: PatternEngineOptions,
+        pattern: &str,
+        regex: Result<Arc<Compiled<regex::Regex>>, ()>,
+    ) {
+        self.lock()
+            .standard
+            .entry(options)
+            .or_default()
+            .insert(Arc::from(pattern), regex);
+    }
+
+    /// The sequence compile of `pattern`, or `None` when it was never attempted.
+    pub(crate) fn sequence(
+        &self,
+        pattern: &str,
+    ) -> Option<Result<Arc<SequenceMatcher<LazyRegex>>, ()>> {
+        self.lock().sequences.get(pattern).cloned()
+    }
+
+    pub(crate) fn insert_sequence(
+        &self,
+        pattern: &str,
+        sequence: Result<Arc<SequenceMatcher<LazyRegex>>, ()>,
+    ) {
+        self.lock().sequences.insert(Arc::from(pattern), sequence);
+    }
+
+    /// Engine compiles held, failed ones included.
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
+        let compiled = self.lock();
+        compiled
+            .fancy
+            .values()
+            .map(|patterns| patterns.len())
+            .sum::<usize>()
+            + compiled
+                .standard
+                .values()
+                .map(|patterns| patterns.len())
+                .sum::<usize>()
+    }
+}
+
+impl PatternEngineOptions {
+    pub(crate) fn has_limits(self) -> bool {
+        match self {
+            Self::FancyRegex {
+                backtrack_limit,
+                size_limit,
+                dfa_size_limit,
+            } => backtrack_limit.is_some() || size_limit.is_some() || dfa_size_limit.is_some(),
+            Self::Regex {
+                size_limit,
+                dfa_size_limit,
+            } => size_limit.is_some() || dfa_size_limit.is_some(),
+        }
+    }
 }
 
 /// Marker for using the `fancy-regex` engine that includes advanced features like lookarounds.
@@ -1225,6 +1390,7 @@ mod tests {
     use super::*;
     use referencing::{Registry, Resource, Retrieve, Uri};
     use serde_json::{json, Value};
+    use std::sync::Mutex;
     use test_case::test_case;
 
     fn custom(s: &str) -> bool {
@@ -1357,6 +1523,114 @@ mod tests {
                 Err(format!("unexpected retrieval for {}", uri.as_str()).into())
             }
         }
+    }
+
+    #[derive(Clone, Default)]
+    struct RecordingRetriever(Arc<Mutex<Vec<String>>>);
+
+    impl RecordingRetriever {
+        fn retrieved(&self) -> Vec<String> {
+            self.0.lock().expect("Lock is poisoned").clone()
+        }
+    }
+
+    impl Retrieve for RecordingRetriever {
+        fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            self.0
+                .lock()
+                .expect("Lock is poisoned")
+                .push(uri.as_str().to_string());
+            Ok(json!({"$schema": "https://json-schema.org/draft/2020-12/schema"}))
+        }
+    }
+
+    // A fixed draft makes the `$schema` URI irrelevant, so it is never fetched.
+    #[test_case(Some(Draft::Draft4), &[])]
+    #[test_case(Some(Draft::Draft6), &[])]
+    #[test_case(Some(Draft::Draft7), &[])]
+    #[test_case(Some(Draft::Draft201909), &[])]
+    #[test_case(Some(Draft::Draft202012), &[])]
+    #[test_case(None, &["https://example.com/dialect"])]
+    fn explicit_draft_does_not_retrieve_unknown_meta_schema(
+        draft: Option<Draft>,
+        expected: &[&str],
+    ) {
+        let schema = json!({"$schema": "https://example.com/dialect", "type": "string"});
+        let retriever = RecordingRetriever::default();
+        let mut options = crate::options().with_retriever(retriever.clone());
+        if let Some(draft) = draft {
+            options = options.with_draft(draft);
+        }
+        let validator = options.build(&schema).expect("Validator should build");
+        assert_eq!(retriever.retrieved(), expected);
+        assert!(validator.is_valid(&json!("foo")));
+        assert!(!validator.is_valid(&json!(1)));
+    }
+
+    #[cfg(all(feature = "resolve-async", not(target_family = "wasm")))]
+    #[async_trait::async_trait]
+    impl referencing::AsyncRetrieve for RecordingRetriever {
+        async fn retrieve(
+            &self,
+            uri: &Uri<String>,
+        ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+            Retrieve::retrieve(self, uri)
+        }
+    }
+
+    #[cfg(all(feature = "resolve-async", not(target_family = "wasm")))]
+    #[test_case(Some(Draft::Draft202012), &[])]
+    #[test_case(None, &["https://example.com/dialect"])]
+    #[tokio::test]
+    async fn async_explicit_draft_does_not_retrieve_unknown_meta_schema(
+        draft: Option<Draft>,
+        expected: &[&str],
+    ) {
+        let schema = json!({"$schema": "https://example.com/dialect", "type": "string"});
+        let retriever = RecordingRetriever::default();
+        let mut options = crate::async_options().with_retriever(retriever.clone());
+        if let Some(draft) = draft {
+            options = options.with_draft(draft);
+        }
+        let validator = options
+            .build(&schema)
+            .await
+            .expect("Validator should build");
+        assert_eq!(retriever.retrieved(), expected);
+        assert!(validator.is_valid(&json!("foo")));
+        assert!(!validator.is_valid(&json!(1)));
+    }
+
+    // A meta-schema already in the registry still supplies the vocabularies.
+    #[test]
+    fn explicit_draft_uses_registered_meta_schema_vocabularies() {
+        let registry = Registry::new()
+            .add(
+                "https://example.com/dialect",
+                json!({
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$vocabulary": {
+                        "https://json-schema.org/draft/2020-12/vocab/core": true,
+                        "https://json-schema.org/draft/2020-12/vocab/applicator": true
+                    }
+                }),
+            )
+            .expect("Invalid URI")
+            .prepare()
+            .expect("Registry should prepare");
+        let schema = json!({"$schema": "https://example.com/dialect", "minimum": 10});
+        let retriever = RecordingRetriever::default();
+        let validator = crate::options()
+            .with_draft(Draft::Draft202012)
+            .with_registry(&registry)
+            .with_retriever(retriever.clone())
+            .build(&schema)
+            .expect("Validator should build");
+        assert_eq!(retriever.retrieved(), Vec::<String>::new());
+        assert!(validator.is_valid(&json!(1)));
     }
 
     #[test]

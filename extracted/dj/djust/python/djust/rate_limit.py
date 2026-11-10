@@ -12,6 +12,7 @@ import logging
 from collections import OrderedDict
 from typing import Any, Dict, Optional, Tuple
 
+from ._class_snapshot import namespace
 from ._client_ip import resolve_client_ip
 from .security.log_sanitizer import sanitize_for_log
 
@@ -193,6 +194,11 @@ class IPConnectionTracker:
             else:
                 self._connections[ip] = count - 1
 
+    def in_cooldown(self, ip: str) -> bool:
+        """Whether ``ip`` is barred by a reconnect cooldown right now."""
+        with self._lock:
+            return time.monotonic() < self._cooldowns.get(ip, 0)
+
     def add_cooldown(self, ip: str, seconds: float) -> None:
         with self._lock:
             self._cooldowns[ip] = time.monotonic() + seconds
@@ -329,12 +335,11 @@ def _owner_declares(owner: Any, func: Any) -> bool:
     """
     for cls in _owner_classes(owner):
         for klass in cls.__mro__:
-            # Walk a private copy: iterating ``vars(klass)`` directly can raise
-            # on a free-threaded build when another thread writes a first-use
-            # class cache into that live dict mid-walk. ``mappingproxy.copy()``
-            # copies under the dict's lock (the 1.3 line uses the same copy via
-            # ``djust._class_snapshot.namespace``).
-            for value in klass.__dict__.copy().values():
+            # ``namespace()`` returns a private copy: iterating ``vars(klass)``
+            # directly can raise on a free-threaded build when another thread
+            # writes a first-use class cache into that live dict mid-walk
+            # (#3151). This is the sanctioned helper for exactly that case.
+            for value in namespace(klass).values():
                 if type(value) is staticmethod or type(value) is classmethod:
                     value = value.__func__
                 if value is func:

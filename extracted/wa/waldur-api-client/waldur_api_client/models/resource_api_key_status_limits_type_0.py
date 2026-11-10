@@ -9,7 +9,7 @@ T = TypeVar("T", bound="ResourceApiKeyStatusLimitsType0")
 
 @_attrs_define
 class ResourceApiKeyStatusLimitsType0:
-    """ """
+    """The month limits of spending_limits, per component type, for clients that know only monthly limits."""
 
     additional_properties: dict[str, float] = _attrs_field(init=False, factory=dict)
 

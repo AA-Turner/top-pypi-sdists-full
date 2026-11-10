@@ -1,10 +1,8 @@
-from dataclasses import dataclass
 from typing import Optional
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class SiteScriptActionResult(ClientValue):
     """Represents the result of a site script action execution.
 

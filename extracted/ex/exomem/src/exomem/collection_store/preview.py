@@ -15,7 +15,7 @@ from functools import cache, wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .. import memory_refs, published_admission, state_paths
+from .. import memory_refs, published_admission, request_budget, state_paths
 from .. import structured_collections as collections
 from .connection import CollectionStoreError, WriterConnection
 
@@ -64,6 +64,25 @@ def unbound() -> Iterator[None]:
     take ordinary file authority.
     """
     token = _BOUND.set(None)
+    try:
+        yield
+    finally:
+        _BOUND.reset(token)
+
+
+@contextmanager
+def producing(vault_root: Path, writer: CollectionWriter) -> Iterator[None]:
+    """Bind the producer's ``writer`` in place of the request's while the producer writes.
+
+    Opening the producer's writer retires the one a served request borrowed (``runtime.lent``), so a
+    canonical read nested in the producer's work reads through the producer's writer and transaction.
+    A context bound to no writer for this vault stays unbound.
+    """
+    binding = _BOUND.get()
+    if binding is None or not _bound_to(binding, vault_root):
+        yield
+        return
+    token = _BOUND.set((binding[0], writer, binding[2]))
     try:
         yield
     finally:
@@ -153,9 +172,12 @@ def note_withheld_pages(command_name, result, vault_root):
         warming["components"] = sorted({*warming.get("components", ()), find._STORE_UNAVAILABLE_COMPONENT})
         return {**out, "warming": warming}
     if command_name == "activate_context" and isinstance(result, dict) and isinstance(result.get("generation"), dict):
-        from .. import activation_result
+        from .. import activation_result, context_views
 
-        return {**result, "generation": {**result["generation"], "collection_store": activation_result.UNAVAILABLE}}
+        out = {**result, "generation": {**result["generation"], "collection_store": activation_result.UNAVAILABLE}}
+        if "map" in out and isinstance(out.get("budget"), dict):
+            out["budget"] = {**out["budget"], "serialized_chars": context_views.serialized_chars(out)}
+        return out
     return result
 
 
@@ -272,12 +294,14 @@ class _Decide:
         token = _CHECKED_HASHES.set(checked)
         try:
             for path, (args, kwargs) in self.calls.items():
+                request_budget.checkpoint()
                 try:
                     kind, payload = "value", self.read(self.vault_root, *args, **kwargs)
                 except (CollectionStoreError, OpError) as error:
                     kind, payload = "refused", error
                 except Exception as error:  # noqa: BLE001 - raised again at that page's own turn
                     kind, payload = "raised", error
+                request_budget.checkpoint()
                 answers[path] = (kind, payload, checked.get(path))
         finally:
             _CHECKED_HASHES.reset(token)
@@ -338,6 +362,7 @@ def _decide_through_store(server, read, batch, vault_root, path, args, kwargs):
     if path not in answers:
         calls = {path: ((path,), shared)}
         for other in decisions.pending():
+            request_budget.checkpoint()
             if other == path or other in answers:
                 continue
             try:
@@ -526,7 +551,7 @@ def dispatch(
         if action == "create" and binding[2]:
             from .runtime import served_create
 
-            created = served_create(vault_root, args)
+            created = served_create(vault_root, args, facade_profile=profile)
             if created is not None:
                 return True, created
         if selector is None or selected_writer(vault_root, selector, prove=prove) is None:
@@ -552,21 +577,31 @@ def dispatch(
 
         return True, route.run(writer, args["collection"], args["query"], facade_profile=profile)
     if action == "query":
-        from .. import planning, record_governance
+        from .. import collection_profiles, planning, record_governance
 
         collection = args.pop("collection")
+        # A query that names one row answers that row and its body; Records names the key item_key, Planning plan_id.
+        key = args.pop("item_key", args.pop("plan_id", None))
         with writer.read_collection(collection, facade_profile=profile) as manifest:
+            if key is not None:
+                column = collection_profiles.profile_for(manifest.semantic_profile).item_id_property
+                args["filters"] = [{"column": column, "op": "eq", "value": key}]
+                args["limit"] = 1
             if profile == "planning":
-                return True, planning.query(vault_root, manifest, **args)
-            include_history = args.pop("include_agent_history", False)
-            from .history import agent_history
+                # One named row is found whatever its lifecycle.
+                projected = planning.query(vault_root, manifest, **args, **({"lifecycle": "all"} if key is not None else {}))
+            else:
+                include_history = args.pop("include_agent_history", False)
+                from .history import agent_history
 
-            result = record_governance.query_collection(vault_root, manifest, **args)
-            projected = record_governance.project_query_result(
-                result, manifest, output_format=args.get("output_format", "json"),
-                agent_history=agent_history(writer, manifest) if include_history else None,
-            )
-            projected = writer._operation.query_metadata_evidence(projected, writer, manifest, result)
+                result = record_governance.query_collection(vault_root, manifest, **args)
+                projected = record_governance.project_query_result(
+                    result, manifest, output_format=args.get("output_format", "json"),
+                    agent_history=agent_history(writer, manifest) if include_history else None,
+                )
+                projected = writer._operation.query_metadata_evidence(projected, writer, manifest, result)
+            if key is not None and projected.get("rows"):
+                projected = {**projected, **writer.row_body(manifest.collection_id, key)}
             return True, projected
     if action == "create":
         return True, _mutate(vault_root, writer.create_collection, **args)

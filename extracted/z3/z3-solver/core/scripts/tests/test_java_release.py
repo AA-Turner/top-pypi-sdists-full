@@ -147,6 +147,16 @@ class JavaReleaseTests(unittest.TestCase):
                 verify_release.verify(out, self.root / 'receipts', self.root / 'rejected',
                                       {**self.expected, **change})
 
+    def test_release_gate_requires_each_cache_mode(self):
+        out = self.build()
+        path, original = self.receipt(out)
+        for mode in verify_release.CACHE_MODES:
+            modified = {**original, 'artifacts': {**original['artifacts'], 'all': {
+                **original['artifacts']['all'], 'modes': sorted(verify_release.MODES - {mode})}}}
+            path.write_bytes(package.json_bytes(modified))
+            with self.subTest(mode=mode), self.assertRaisesRegex(ValueError, 'final JAR'):
+                verify_release.verify(out, self.root / 'receipts', self.root / 'rejected', self.expected)
+
     def test_release_gate_rejects_unchecksummed_outputs(self):
         out = self.build()
         self.receipt(out)
@@ -183,6 +193,9 @@ class JavaReleaseWorkflowTests(unittest.TestCase):
                         'UbuntuBuild/native distribution.zip']
             rejected = ['java-assembled-packages/unverified.jar',
                         'java-assembled-packages/z3-5.3.2-java-provenance.json',
+                        'java-maven-test-repository/invalid/z3/prototype/z3/5.3.2/z3-5.3.2.jar',
+                        'java-maven-rehearsal-bundle/maven-rehearsal.zip',
+                        'java-maven-rehearsal-bundle/rehearsal.json',
                         'java-release-smoke-win-x64/receipt.json', 'UbuntuBuild/receipt-linux-x64.json']
             for name in selected + rejected:
                 path = directory / 'tmp' / name

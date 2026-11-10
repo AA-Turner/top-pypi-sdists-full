@@ -36,6 +36,8 @@ class CustomerFieldEnum(str, Enum):
     HOUSEHOLD = "household"
     HOUSE_NR = "house_nr"
     IMAGE = "image"
+    INVOICE_EMAILS = "invoice_emails"
+    IS_PRIVATE_PERSON = "is_private_person"
     IS_SERVICE_PROVIDER = "is_service_provider"
     IS_SERVICE_PROVIDER_MANAGER_ONLY = "is_service_provider_manager_only"
     LATITUDE = "latitude"
@@ -62,10 +64,16 @@ class CustomerFieldEnum(str, Enum):
     URL = "url"
     USERS_COUNT = "users_count"
     USER_AFFILIATIONS = "user_affiliations"
+    USER_ASSURANCE_LEVELS = "user_assurance_levels"
     USER_EMAIL_PATTERNS = "user_email_patterns"
     USER_IDENTITY_SOURCES = "user_identity_sources"
+    USER_NATIONALITIES = "user_nationalities"
+    USER_ORGANIZATION_TYPES = "user_organization_types"
     UUID = "uuid"
     VAT_CODE = "vat_code"
+    VAT_CODE_VERIFIED = "vat_code_verified"
+    VAT_PERCENT = "vat_percent"
+    VAT_RULE = "vat_rule"
 
     def __str__(self) -> str:
         return str(self.value)

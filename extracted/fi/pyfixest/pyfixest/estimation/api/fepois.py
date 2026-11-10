@@ -4,14 +4,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from pyfixest.demeaners import AnyDemeaner
-from pyfixest.estimation.api.utils import _estimation_input_checks
+from pyfixest.estimation.api.feglm import feglm
 from pyfixest.estimation.FixestMulti_ import FixestMulti
-from pyfixest.estimation.internals.demeaner_options import (
-    _resolve_demeaner,
-    _warn_if_deprecated_demeaner_backend,
-    _warn_if_deprecated_solver,
-    _warn_if_experimental_torch_demeaner,
-)
 from pyfixest.estimation.internals.literals import (
     FixedRmOptions,
     SolverOptions,
@@ -21,19 +15,18 @@ from pyfixest.estimation.internals.literals import (
 from pyfixest.estimation.models.feols_ import Feols
 from pyfixest.estimation.models.fepois_ import Fepois
 from pyfixest.utils.dev_utils import DataFrameType
-from pyfixest.utils.utils import capture_context
-from pyfixest.utils.utils import ssc as ssc_func
+from pyfixest.utils.utils import Ssc, capture_context
 
 
 def fepois(
     fml: str,
-    data: DataFrameType,  # type: ignore
+    data: DataFrameType,
     vcov: VcovTypeOptions | dict[str, str] | None = None,
     vcov_kwargs: dict[str, str | int] | None = None,
-    weights: None | str = None,
+    weights: str | None = None,
     weights_type: WeightsTypeOptions = "aweights",
     offset: str | None = None,
-    ssc: dict[str, str | bool] | None = None,
+    ssc: Ssc | Mapping[str, Any] | None = None,
     fixef_rm: FixedRmOptions = "singleton",
     iwls_tol: float = 1e-08,
     iwls_maxiter: int = 25,
@@ -41,9 +34,6 @@ def fepois(
     separation_check: list[str] | None = None,
     solver: SolverOptions = "scipy.linalg.solve",
     demeaner: AnyDemeaner | None = None,
-    demeaner_backend: str | None = None,
-    fixef_tol: float | None = None,
-    fixef_maxiter: int | None = None,
     drop_intercept: bool = False,
     copy_data: bool = True,
     store_data: bool = True,
@@ -51,6 +41,7 @@ def fepois(
     context: int | Mapping[str, Any] | None = None,
     split: str | None = None,
     fsplit: str | None = None,
+    accelerate: bool = True,
 ) -> Feols | Fepois | FixestMulti:
     """
     Estimate Poisson regression model with fixed effects using the `ppmlhdfe` algorithm.
@@ -66,7 +57,8 @@ def fepois(
         - Cumulative stepwise regression (csw, csw0)
         - Multiple dependent variables (Y1 + Y2 ~ X)
         - Interaction of variables (i(X1,X2))
-        - Interacted fixed effects (fe1^fe2)
+        - Interacted fixed effects (fe1:fe2)
+        - Varying slopes (fe1[x], fe1[[x]])
         Compatible with formula parsing via the formulaic module.
 
     data : DataFrameType
@@ -98,12 +90,11 @@ def fepois(
         are useful for compressed count data where identical observations are aggregated.
         For details see this blog post: https://notstatschat.rbind.io/2020/08/04/weights-in-statistics/.
 
-    offset : str, optional
-        Default is None. Name of a numeric column in `data` to use as an offset
-        in the Poisson regression. The offset is added to the linear predictor
-        with its coefficient fixed at 1. This is useful for modeling rates when
-        exposure differs across observations; pass the exposure on the log scale,
-        e.g. `offset="log_population"`.
+    offset : str | None, optional
+        Default is None. Formulaic expression that evaluates to one numeric
+        column in `data`. The offset is added to the linear predictor with its
+        coefficient fixed at 1. This is useful for modeling rates when exposure
+        differs across observations, e.g. `offset="log(population)"`.
 
     ssc : str
         A ssc object specifying the small sample correction for inference.
@@ -129,33 +120,18 @@ def fepois(
 
     solver : SolverOptions, optional.
         The solver to use for the regression. Can be "np.linalg.lstsq",
-        "np.linalg.solve", "scipy.linalg.solve", "scipy.sparse.linalg.lsqr" and "jax".
+        "np.linalg.solve", "scipy.linalg.solve" and "scipy.sparse.linalg.lsqr".
         Defaults to "scipy.linalg.solve".
-
-        .. deprecated::
-            ``solver="jax"`` is deprecated and will be removed in a future
-            release. Use one of the NumPy/SciPy solvers instead; for GPU
-            acceleration, see ``LsmrDemeaner(backend="torch", device="cuda")``.
 
     demeaner : AnyDemeaner | None, optional
         Typed demeaner configuration. Controls the fixed-effects demeaning
         backend, tolerance, and iteration limits. Accepts a `MapDemeaner`
         or `LsmrDemeaner` instance. Defaults to
-        `MapDemeaner()` (Rust MAP algorithm, tol=1e-6, maxiter=10_000).
+        `LsmrDemeaner()` (within LSMR, auto preconditioning, tol=1e-8,
+        maxiter=1_000).
         For other options - including the optional Numba backend and the
         torch-based LSMR backends - see the
         [Demeaner Backends vignette](../../how-to/demeaner-backends.qmd).
-
-        .. deprecated::
-            The ``jax`` MAP backend and the ``cupy`` / ``scipy`` LSMR
-            backends are deprecated and will be removed in a future release.
-            Replacements:
-
-            - JAX MAP on CPU → ``MapDemeaner()`` (the default rust MAP).
-            - JAX MAP / cupy LSMR on GPU →
-              ``LsmrDemeaner(backend="torch", device="cuda")``.
-            - Scipy / cupy LSMR on CPU → ``LsmrDemeaner()``
-              (the default within backend).
 
     drop_intercept : bool, optional
         Whether to drop the intercept from the model, by default False.
@@ -175,12 +151,13 @@ def fepois(
         improve performance and save memory. However, it will no longer be possible
         to access the data via the `data` attribute of the model object. This has
         impact on post-estimation capabilities that rely on the data, e.g. `predict()`
-        or `vcov()`.
+        or `vcov()`. Such methods raise a `MissingModelDataError`.
 
     lean: bool, optional
         False by default. If True, then all large objects are removed from the
         returned result: this will save memory but will block the possibility
-        to use many methods. It is recommended to use the argument vcov
+        to use many methods, which raise `MissingModelDataError` when required
+        attributes were removed. It is recommended to use the argument vcov
         to obtain the appropriate standard-errors at estimation time,
         since obtaining different SEs won't be possible afterwards.
 
@@ -198,11 +175,32 @@ def fepois(
     fsplit: Optional[str]
         This argument is the same as split but also includes the full sample as the first estimation.
 
+    accelerate: Optional[bool]
+        Whether to use acceleration tricks developed in the ppmlhdfe paper (warm start and adaptive fixed effects
+        tolerance). Produces numerically identical results faster, so we recommend to always set it to True.
+
     Returns
     -------
     object
         An instance of the [Fepois](/reference/estimation.models.fepois_.Fepois.qmd) class
         or an instance of class [FixestMulti](/reference/estimation.FixestMulti_.FixestMulti.qmd) for multiple models specified via `fml`.
+
+    Notes
+    -----
+    `Fepois` inherits from
+    [Feglm](/reference/estimation.models.feglm_.Feglm.qmd), which inherits from
+    [Feols](/reference/estimation.models.feols_.Feols.qmd). A Poisson fit
+    therefore supports the same post-estimation methods as an OLS fit, among
+    them `vcov()`, `tidy()`, `coef()`, `confint()`, `predict()`, `fixef()`,
+    `wildboottest()` and `ritest()`. See the Post-Estimation Methods section of
+    the function reference for the full list.
+
+    `predict()` does not support `se_fit=True` for Poisson models.
+
+    Varying slopes such as `f1[X2]` and `f1[[X2]]` are supported with the default
+    `within` demeaner, with the same restrictions as in
+    [feols()](/reference/estimation.api.feols.feols.qmd). A slope-only effect
+    like `f1[[X2]]` keeps the model's intercept.
 
     Examples
     --------
@@ -234,12 +232,10 @@ def fepois(
     data["population"] = np.random.default_rng(123).integers(
         50_000, 500_000, size=len(data)
     )
-    data["log_population"] = np.log(data["population"])
-
     fit_rate = pf.fepois(
         "Y ~ X1 + X2 | f1 + f2",
         data=data,
-        offset="log_population",
+        offset="log(population)",
     )
     fit_rate.tidy()
     ```
@@ -253,86 +249,34 @@ def fepois(
 
     Shared arguments such as `vcov`, `ssc`, `split`, `fsplit`, `context`, and typed demeaners
     are documented in the [feols() reference](/reference/estimation.api.feols.feols.html).
-    For applied examples, see the [Poisson & GLMs tutorial](/tutorials/poisson-glm.html).
     """
-    if separation_check is None:
-        separation_check = ["fe"]
-    if ssc is None:
-        ssc = ssc_func()
+    # Thin wrapper: fepois is exactly feglm(family="poisson"). Capture the
+    # context here, as an integer frame offset passed on to feglm would resolve
+    # relative to this frame rather than the user's.
     context = {} if context is None else capture_context(context)
-    demeaner = _resolve_demeaner(
-        demeaner=demeaner,
-        demeaner_backend=demeaner_backend,
-        fixef_tol=fixef_tol,
-        fixef_maxiter=fixef_maxiter,
-    )
-    _warn_if_experimental_torch_demeaner(demeaner)
-    _warn_if_deprecated_demeaner_backend(demeaner)
-    _warn_if_deprecated_solver(solver)
-
-    _estimation_input_checks(
+    return feglm(
         fml=fml,
         data=data,
+        family="poisson",
         vcov=vcov,
         vcov_kwargs=vcov_kwargs,
         weights=weights,
-        ssc=ssc,
-        fixef_rm=fixef_rm,
-        collin_tol=collin_tol,
-        copy_data=copy_data,
-        store_data=store_data,
-        lean=lean,
         weights_type=weights_type,
-        use_compression=False,
-        reps=None,
-        seed=None,
-        split=split,
-        fsplit=fsplit,
-        separation_check=separation_check,
-    )
-
-    fixest = FixestMulti(
-        data=data,
-        copy_data=copy_data,
-        store_data=store_data,
-        lean=lean,
-        weights_type=weights_type,
-        use_compression=False,
-        reps=None,
-        seed=None,
-        split=split,
-        fsplit=fsplit,
-        context=context,
-    )
-
-    fixest._prepare_estimation(
-        estimation="fepois",
-        fml=fml,
-        vcov=vcov,
-        vcov_kwargs=vcov_kwargs,
-        weights=weights,
-        ssc=ssc,
-        fixef_rm=fixef_rm,
-        drop_intercept=drop_intercept,
         offset=offset,
-    )
-    if fixest._is_iv:
-        raise NotImplementedError(
-            "IV Estimation is not supported for Poisson Regression"
-        )
-
-    fixest._estimate_all_models(
-        vcov=vcov,
-        solver=solver,
-        vcov_kwargs=vcov_kwargs,
+        ssc=ssc,
+        fixef_rm=fixef_rm,
         iwls_tol=iwls_tol,
         iwls_maxiter=iwls_maxiter,
         collin_tol=collin_tol,
         separation_check=separation_check,
+        solver=solver,
         demeaner=demeaner,
+        drop_intercept=drop_intercept,
+        copy_data=copy_data,
+        store_data=store_data,
+        lean=lean,
+        context=context,
+        split=split,
+        fsplit=fsplit,
+        accelerate=accelerate,
     )
-
-    if fixest._is_multiple_estimation:
-        return fixest
-    else:
-        return fixest.fetch_model(0, print_fml=False)

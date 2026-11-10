@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachelib
-Version: 0.17.0
+Version: 0.17.2
 Summary: A collection of cache libraries in the same API interface.
 Maintainer-email: Pallets Ecosystem <contact@palletsprojects.com>
 Requires-Python: >=3.11
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python
 Classifier: Typing :: Typed
 License-File: LICENSE.txt
 Requires-Dist: boto3>=1.43.4 ; extra == "dynamodb"
+Requires-Dist: google-cloud-storage>=3.0.0 ; extra == "google-cloud-storage"
 Requires-Dist: pylibmc>=1.6.3 ; extra == "memcached"
 Requires-Dist: pymongo>=4.11 ; extra == "mongodb"
 Requires-Dist: redis>=6.0.0 ; extra == "redis"
@@ -24,6 +25,7 @@ Project-URL: Documentation, https://cachelib.readthedocs.io
 Project-URL: Donate, https://palletsprojects.com/donate
 Project-URL: Source, https://github.com/pallets-eco/cachelib/
 Provides-Extra: dynamodb
+Provides-Extra: google-cloud-storage
 Provides-Extra: memcached
 Provides-Extra: mongodb
 Provides-Extra: redis
@@ -39,9 +41,14 @@ Supported backends include:
 
 - [DynamoDbCache](./src/cachelib/dynamodb.py) ([DynamoDB](https://aws.amazon.com/dynamodb/))
 - [FileSystemCache](./src/cachelib/file.py) (file based)
+- [GoogleCloudStorageCache](./src/cachelib/googlecloudstorage.py) ([Google Cloud Storage](https://cloud.google.com/storage))
 - [MemcachedCache](./src/cachelib/memcached.py) ([Memcached](https://memcached.org/))
+  - `SASLMemcachedCache` (SASL authentication)
+  - `SpreadSASLMemcachedCache` (SASL, values spread across multiple keys)
 - [MongoDbCache](./src/cachelib/mongodb.py) ([MongoDB](https://www.mongodb.com/))
 - [RedisCache](./src/cachelib/redis.py) ([Redis](https://redis.io/))
+  - `RedisSentinelCache` ([Sentinel](https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/))
+  - `RedisClusterCache` ([Cluster](https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/))
 - [SimpleCache](./src/cachelib/simple.py) (in-memory, single-process)
 - [UWSGICache](./src/cachelib/uwsgi.py) ([uWSGI](https://uwsgi-docs.readthedocs.io/))
 - [ValkeyCache](./src/cachelib/valkey.py) ([Valkey](https://valkey.io/))

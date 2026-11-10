@@ -61,6 +61,8 @@ class LaneStall:
     needs_newer: bool = False
     #: That write's file, which the worker sets aside once the run stalls (`outbox/held`).
     path: "Path | None" = None
+    #: The server answered that another write of this run held its lock (`ops.classify.is_write_busy`).
+    is_busy: bool = False
 
 
 @dataclass

@@ -5,6 +5,55 @@ import quimb as qu
 import quimb.tensor as qtn
 
 
+@pytest.mark.parametrize("fermionic", [False, True])
+@pytest.mark.parametrize(
+    "flat",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.xfail(
+                reason="flat fusing assumes every grouped axis carries all "
+                "charges, so the size-1 reduced bond breaks it",
+                strict=True,
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("where", [(0, 1), (1, 2)])
+def test_symmray_reduce_split_empty_group(fermionic, flat, where):
+    sr = pytest.importorskip("symmray")
+    tn = sr.TN_abelian_from_edges_rand(
+        "Z2",
+        [(0, 1), (1, 2)],
+        bond_dim=4,
+        phys_dim=2,
+        fermionic=fermionic,
+        flat=flat,
+        subsizes="equal",
+        duals="random",
+        site_charge=lambda site: 1,
+        dtype="complex128",
+        seed=42,
+    )
+    gate = sr.utils.get_rand(
+        "Z2",
+        (2, 2, 2, 2),
+        duals=(False, False, True, True),
+        fermionic=fermionic,
+        flat=flat,
+        subsizes="equal",
+        dtype="complex128",
+        seed=43,
+    )
+    exact = tn.gate(gate, where, contract=False)
+    actual = tn.gate(gate, where, contract="reduce-split", cutoff=0.0)
+    # compare amplitudes directly, including the global odd-parity case
+    assert_allclose(
+        actual.to_dense().to_dense(), exact.to_dense().to_dense(), atol=1e-10
+    )
+
+
 @pytest.mark.parametrize(
     "contract",
     (
@@ -17,7 +66,8 @@ import quimb.tensor as qtn
     ),
 )
 @pytest.mark.parametrize("where", [("A", "C"), ("B",)])
-def test_gate_inds(contract, where):
+@pytest.mark.parametrize("mode", [None, "dagger", "transpose"])
+def test_gate_inds(contract, where, mode):
     tn = qtn.TN_from_edges_rand(
         [("A", "B"), ("B", "C"), ("C", "A")],
         D=3,
@@ -32,6 +82,8 @@ def test_gate_inds(contract, where):
         G,
         inds=inds,
         contract=contract,
+        dagger=(mode == "dagger"),
+        transpose=(mode == "transpose"),
         tags="GATE",
     )
     assert "GATE" in tn.tag_map
@@ -51,9 +103,42 @@ def test_gate_inds(contract, where):
     assert tn._outer_inds == oix
 
     pG = tn.to_dense()
-    GIG = qu.pkron(G, [2, 2, 2], list("ABC".index(i) for i in where))
+    GIG = qu.pkron(G, [2, 2, 2], ["ABC".index(i) for i in where])
+    if mode == "dagger":
+        GIG = GIG.H
+    elif mode == "transpose":
+        GIG = GIG.T
     pGx = GIG @ p
     assert_allclose(pG, pGx)
+
+
+@pytest.mark.parametrize("where", [("A", "C"), ("B",)])
+def test_gate_inds_dagger_parametrized(where):
+    tn = qtn.TN_from_edges_rand(
+        [("A", "B"), ("B", "C"), ("C", "A")],
+        D=3,
+        phys_dim=2,
+        dtype=complex,
+    )
+    p = tn.to_dense()
+
+    ng = len(where)
+    params = qu.randn((2,) + (2,) * (2 * ng), seed=42)
+    # the gate is only generated from the params lazily
+    G = qtn.array_ops.PArray(lambda x: x[0] + 1j * x[1], params)
+
+    tn.gate_inds_(
+        G,
+        inds=tuple(tn.site_ind(w) for w in where),
+        contract=False,
+        dagger=True,
+    )
+    # the gate tensor remains parametrized
+    assert sum(isinstance(t, qtn.PTensor) for t in tn) == 1
+
+    Gd = qu.qarray(G.data.reshape(2**ng, 2**ng))
+    GIG = qu.pkron(Gd.H, [2, 2, 2], ["ABC".index(i) for i in where])
+    assert_allclose(tn.to_dense(), GIG @ p)
 
 
 @pytest.mark.parametrize(
@@ -68,7 +153,8 @@ def test_gate_inds(contract, where):
     ),
 )
 @pytest.mark.parametrize("where", [("A", "C"), ("B",)])
-def test_gate_sandwich_inds(contract, where):
+@pytest.mark.parametrize("mode", [None, "dagger", "transpose"])
+def test_gate_sandwich_inds(contract, where, mode):
     tn = qtn.TN_from_edges_rand(
         [("A", "B"), ("B", "C"), ("C", "A")],
         D=3,
@@ -81,8 +167,14 @@ def test_gate_sandwich_inds(contract, where):
     # construct reference by densifying
     A = tn.to_dense()
     G = qu.rand_matrix(2 ** len(where), dtype=complex)
-    IG = qu.pkron(G, [2, 2, 2], list("ABC".index(i) for i in where))
-    GAG = IG @ A @ IG.H
+    IG = qu.pkron(G, [2, 2, 2], ["ABC".index(i) for i in where])
+    if mode == "dagger":
+        GAG = IG.H @ A @ IG
+    elif mode == "transpose":
+        # the sandwich of G^T, whose dagger is conj(G)
+        GAG = IG.T @ A @ IG.conj()
+    else:
+        GAG = IG @ A @ IG.H
 
     # apply gate via tensor network method
     inds_upper = tuple(tn.upper_ind(w) for w in where)
@@ -92,6 +184,8 @@ def test_gate_sandwich_inds(contract, where):
         inds_upper=inds_upper,
         inds_lower=inds_lower,
         contract=contract,
+        dagger=(mode == "dagger"),
+        transpose=(mode == "transpose"),
         tags="GATE",
         tags_upper="KET",
         tags_lower="BRA",

@@ -73,8 +73,11 @@ from xdsl.traits import (
     MemoryWriteEffect,
     NoMemoryEffect,
     Pure,
+    RecursiveMemoryEffect,
     SameOperandsAndResultType,
+    SingleBlockImplicitTerminator,
     SymbolOpInterface,
+    ensure_terminator,
 )
 from xdsl.utils.bitwise_casts import is_power_of_two
 from xdsl.utils.exceptions import VerifyException
@@ -309,6 +312,41 @@ class AllocaScopeOp(IRDLOperation):
 
     scope = region_def()
 
+    traits = lazy_traits_def(
+        lambda: (
+            SingleBlockImplicitTerminator(AllocaScopeReturnOp),
+            RecursiveMemoryEffect(),
+        )
+    )
+
+    @classmethod
+    def parse(cls, parser: Parser) -> Self:
+        result_types: Sequence[Attribute] = ()
+        if parser.parse_optional_punctuation("->"):
+            types = parser.parse_optional_comma_separated_list(
+                parser.Delimiter.PAREN, parser.parse_type
+            )
+            result_types = [parser.parse_type()] if types is None else types
+        region = parser.parse_region()
+        attrs = parser.parse_optional_attr_dict()
+        op = cls(result_types=(result_types,), regions=(region,), attributes=attrs)
+        for trait in op.get_traits_of_type(SingleBlockImplicitTerminator):
+            ensure_terminator(op, trait)
+        return op
+
+    def print(self, printer: Printer):
+        if self.res:
+            printer.print_string(" -> (")
+            printer.print_list(self.res.types, printer.print_attribute)
+            printer.print_string(")")
+        printer.print_string(" ")
+        printer.print_region(
+            self.scope,
+            print_entry_block_args=False,
+            print_block_terminators=bool(self.res),
+        )
+        printer.print_op_attributes(self.attributes)
+
 
 @irdl_op_definition
 class AllocaScopeReturnOp(IRDLOperation):
@@ -317,6 +355,7 @@ class AllocaScopeReturnOp(IRDLOperation):
     ops = var_operand_def()
 
     traits = traits_def(IsTerminator(), HasParent(AllocaScopeOp))
+    assembly_format = "attr-dict ($ops^ `:` type($ops))?"
 
     def verify_(self) -> None:
         parent = cast(AllocaScopeOp, self.parent_op())
@@ -1230,6 +1269,10 @@ class DmaWaitOp(IRDLOperation):
     num_elements = operand_def(IndexType)
 
     traits = traits_def(MemoryWriteEffect(), MemoryReadEffect())
+
+    assembly_format = (
+        "$tag `[` $tag_indices `]` `,` $num_elements attr-dict `:` type($tag)"
+    )
 
     @staticmethod
     def get(

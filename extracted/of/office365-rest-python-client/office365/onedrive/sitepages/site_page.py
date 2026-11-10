@@ -4,7 +4,6 @@ from typing import Optional, cast
 
 from typing_extensions import Self
 
-from office365.directory.permissions.require_permission import require_permission
 from office365.entity_collection import EntityCollection
 from office365.onedrive.lists.list import List
 from office365.onedrive.reactions_facet import ReactionsFacet
@@ -12,6 +11,7 @@ from office365.onedrive.sitepages.base import BaseSitePage
 from office365.onedrive.sitepages.canvas_layout import CanvasLayout
 from office365.onedrive.sitepages.title_area import TitleArea
 from office365.onedrive.sitepages.webparts.web_part import WebPart
+from office365.permissions import require_permission
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
@@ -92,21 +92,25 @@ class SitePage(BaseSitePage):
             raise ValueError("Parent collection is not set")
         return cast(List, self.parent_collection.parent)
 
+    @odata(name="promotionKind")
     @property
     def promotion_kind(self) -> Optional[str]:
         """Indicates the promotion kind of the sitePage."""
         return self.properties.get("promotionKind", None)
 
+    @odata(name="showComments")
     @property
     def show_comments(self) -> Optional[bool]:
         """Determines whether or not to show comments at the bottom of the page."""
         return self.properties.get("showComments", None)
 
+    @odata(name="showRecommendedPages")
     @property
     def show_recommended_pages(self) -> Optional[bool]:
         """Determines whether or not to show recommended pages at the bottom of the page."""
         return self.properties.get("showRecommendedPages", None)
 
+    @odata(name="thumbnailWebUrl")
     @property
     def thumbnail_web_url(self) -> Optional[str]:
         """Indicates the promotion kind of the sitePage."""
@@ -118,7 +122,7 @@ class SitePage(BaseSitePage):
         """Title area on the SharePoint page."""
         return self.properties.get("titleArea", TitleArea())
 
-    @odata(name="canvasLayout")
+    @odata(name="canvasLayout", navigation=True)
     @property
     def canvas_layout(self) -> CanvasLayout:
         """The default termStore under this site."""
@@ -126,14 +130,22 @@ class SitePage(BaseSitePage):
             "canvasLayout", CanvasLayout(self.context, ResourcePath("canvasLayout", self.resource_path))
         )
 
-    @odata(name="webParts")
+    @odata(name="webParts", navigation=True)
     @property
     def web_parts(self) -> EntityCollection[WebPart]:
         """Collection of webparts on the SharePoint page."""
+        # ``webParts`` is declared on the derived ``sitePage``, so a request for it has to
+        # name that type: ``pages/{id}/webParts`` is answered with "Resource not found for
+        # the segment 'webParts'", ``pages/{id}/microsoft.graph.sitePage/webParts`` returns
+        # the collection. ``publish`` below spells the same cast for the same reason.
         return self.properties.get(
-            "webParts", EntityCollection(self.context, WebPart, ResourcePath("webParts", self.resource_path))
+            "webParts",
+            EntityCollection(
+                self.context, WebPart, ResourcePath("microsoft.graph.sitePage/webParts", self.resource_path)
+            ),
         )
 
+    @odata(name="reactions")
     @property
     def reactions(self) -> ReactionsFacet:
         """Gets the reactions property"""

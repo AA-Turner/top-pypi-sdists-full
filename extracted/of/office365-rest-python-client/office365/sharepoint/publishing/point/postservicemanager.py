@@ -3,15 +3,18 @@ from typing_extensions import Self
 from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.files.file import File
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.publishing.point.magazineprops import PointPublishingMagazineProps
 from office365.sharepoint.publishing.point.post import PointPublishingPost
 from office365.sharepoint.publishing.point.user import PointPublishingUser
 
 
 class PointPublishingPostServiceManager(Entity):
+    @odata(name="contributors", navigation=True)
     @property
     def contributors(self) -> EntityCollection[PointPublishingUser]:
         """Gets the contributors property"""
@@ -22,6 +25,7 @@ class PointPublishingPostServiceManager(Entity):
             ),
         )
 
+    @odata(name="creators", navigation=True)
     @property
     def creators(self) -> EntityCollection[PointPublishingUser]:
         """Gets the creators property"""
@@ -32,6 +36,7 @@ class PointPublishingPostServiceManager(Entity):
             ),
         )
 
+    @odata(name="magazineprops", navigation=True)
     @property
     def magazineprops(self) -> PointPublishingMagazineProps:
         """Gets the magazineprops property"""
@@ -40,6 +45,7 @@ class PointPublishingPostServiceManager(Entity):
             PointPublishingMagazineProps(self.context, ResourcePath("magazineprops", self.resource_path)),
         )
 
+    @odata(name="posts", navigation=True)
     @property
     def posts(self) -> EntityCollection[PointPublishingPost]:
         """Gets the posts property"""
@@ -50,6 +56,7 @@ class PointPublishingPostServiceManager(Entity):
             ),
         )
 
+    @odata(name="viewers", navigation=True)
     @property
     def viewers(self) -> EntityCollection[PointPublishingUser]:
         """Gets the viewers property"""
@@ -64,6 +71,7 @@ class PointPublishingPostServiceManager(Entity):
     def entity_type_name(self):
         return "SP.Publishing.PointPublishingPostServiceManager"
 
+    @odata(name="bannerimages", navigation=True)
     @property
     def bannerimages(self) -> EntityCollection[File]:
         """Gets the bannerimages property"""
@@ -71,6 +79,7 @@ class PointPublishingPostServiceManager(Entity):
             "bannerimages", EntityCollection[File](self.context, File, ResourcePath("bannerimages", self.resource_path))
         )
 
+    @site_access(SiteLevel.WRITE)
     def add_banner_image_from_url(self, from_image_url: str) -> ClientResult[str]:
         """AddBannerImageFromUrl operation.
 
@@ -84,6 +93,7 @@ class PointPublishingPostServiceManager(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def delete_magazine(self) -> Self:
         """DeleteMagazine operation."""
         qry = ServiceOperationQuery(self, "DeleteMagazine", None, {}, None, None)

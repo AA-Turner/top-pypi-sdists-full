@@ -1,4 +1,4 @@
-"""The package interface generated from one frozen application.
+"""The package interface: one document per release, read from source by `static_interface`.
 
 Its one identity is SHA-256 over canonical JSON. Creator obtains those exact bytes from
 `cozy-runtime --json describe`; nothing is written into the package repository.
@@ -11,14 +11,13 @@ import os
 import re
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, NoReturn, cast
 
 import msgspec
 
-from cozy_runtime.author import ConformanceError
 from cozy_runtime.author._describe import validate
+from cozy_runtime.author._errors import ConformanceError
 from cozy_runtime.author._markers import (
     AUDIO_PREPARATION_PROFILE,
     IMAGE_PREPARATION_PROFILE,
@@ -32,11 +31,8 @@ from cozy_runtime.author._model import ENCODED_LEAVES
 from cozy_runtime.author._model_defaults import model_default
 from cozy_runtime.author._recipes import DeclaredRecipe
 from cozy_runtime.author._signature import AssetInputValue, Declaration, Slot
-from cozy_runtime.internal import canonical, invocable_interface, memo_implementation, schema
+from cozy_runtime.internal import canonical, invocable_interface, schema
 from cozy_runtime.internal.canonical import Json
-
-if TYPE_CHECKING:
-    from cozy_runtime.internal.discovery import Discovered
 
 SCHEMA = "cozy.package.interface/1"
 DIGEST_KEY = "package_interface_digest"
@@ -46,7 +42,7 @@ TOP_LEVEL_KEYS = frozenset({"format", "application", "entrypoints"})
 
 
 class StalePackageInterface(ConformanceError):
-    """Supplied package-interface bytes are malformed or differ from the installed release."""
+    """Supplied package-interface bytes are malformed."""
 
     default_code = "stale_package_interface"
 
@@ -157,6 +153,26 @@ class WeightsOutputDeclaration(msgspec.Struct, frozen=True, kw_only=True):
     max_bytes: Annotated[int, msgspec.Meta(ge=0, le=(1 << 53) - 1)]
 
 
+class ToolDoc(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """`app.tool`'s own options: this entry point is a box."""
+
+    label: str = ""
+    named: str = ""
+    reserved: tuple[str, ...] = ()
+    ui: str = ""
+
+
+class Call(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """A function this one calls, read from its package at the release this one locked: one
+    placement unit. `gpus`: the widths it runs at; unset, one."""
+
+    package: str
+    function: str
+    accelerator: bool
+    gpus: tuple[Annotated[int, msgspec.Meta(ge=1)], ...] | msgspec.UnsetType = msgspec.UNSET
+    models: tuple[ModelSlot, ...] = ()
+
+
 class CallableDoc(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     name: str
     #: Its docstring's first paragraph, for people choosing a function.
@@ -171,8 +187,8 @@ class CallableDoc(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True)
     publishes: bool = False
     #: written only as false: CPU only. Absent: the machine's GPU when it has one.
     accelerator: bool | msgspec.UnsetType = msgspec.UNSET
-    #: What its box says that its types can't (`author.Node`).
-    node: JsonValue | msgspec.UnsetType = msgspec.UNSET
+    tool: ToolDoc | msgspec.UnsetType = msgspec.UNSET
+    calls: tuple[Call, ...] = ()
     weights_outputs: (
         Annotated[tuple[WeightsOutputDeclaration, ...], msgspec.Meta(min_length=1, max_length=16)]
         | msgspec.UnsetType
@@ -193,20 +209,6 @@ class PackageInterface(msgspec.Struct, frozen=True, kw_only=True):
 # ------------------------------------------------------------------------ the document
 
 
-def build(found: Discovered, *, installed: bool = False) -> dict[str, Json]:
-    """Derive one package interface from the frozen (imported) application."""
-    # A writer's identity keys TensorFS derivation replay, as a memoized one's keys the memo.
-    declared = [
-        replace(surface, identity=memo_implementation.describe(surface.fn))
-        if surface.memoize or surface.weights_outputs
-        else surface
-        for surface in found.surfaces
-        if not surface.hidden
-    ]
-    recipes = [msgspec.to_builtins(recipe) for recipe in found.recipes]
-    return assemble(found.application, declared, installed=installed, recipes=recipes)
-
-
 def assemble(
     application: str,
     declared: Sequence[Declaration],
@@ -214,8 +216,8 @@ def assemble(
     installed: bool = False,
     recipes: Sequence[dict[str, Json]] = (),
 ) -> dict[str, Json]:
-    """One package interface from its callables' records, whichever reader filled them: each
-    passes the one rule set (`validate`), then renders its entry.
+    """One package interface from the static reader's records of its callables: each passes
+    the one rule set (`validate`), then renders its entry.
 
     `installed` describes a published wheel, so it holds that release to the rules it was
     published under."""
@@ -285,8 +287,8 @@ def entry(declared: Declaration) -> dict[str, Json]:
         doc["publishes"] = True
     if not declared.accelerator:
         doc["accelerator"] = False
-    if declared.node is not None:
-        doc["node"] = declared.node.document()
+    if declared.tool is not None:
+        doc["tool"] = declared.tool.document()
     if declared.weights_outputs:
         doc["weights_outputs"] = [
             {
@@ -325,8 +327,8 @@ def model_slot(declared: Declaration, slot: Slot) -> dict[str, Json]:
     """One model slot. The PATH is the binding point, the CLASS carries `encoded_leaves` and
     the precision tolerances, and the per-public-method component sets are the
     ComponentUseContracts. `default` is an unresolved release; the machine resolves it and
-    picks its lane. `components` names the components the callable runs; absent means all. A
-    `weights` slot is raw checkpoint data, so its `components` are checkpoint components."""
+    picks its lane. `components` names the components the slot fetches: the function's own
+    `components=`, else its class's hints (`ModelSpec.selects`); absent means all."""
     spec, parameter = slot.spec, slot.parameter
     doc: dict[str, Json] = {
         "path": f"{declared.name}.models.{parameter}",
@@ -346,6 +348,8 @@ def model_slot(declared: Declaration, slot: Slot) -> dict[str, Json]:
         doc["phase"] = spec.phase
     if uses := declared.model_components.get(parameter):
         doc["components"] = sorted(set(uses))
+    elif not slot.weights and spec.selects:
+        doc["components"] = list(spec.selects)
     if spec.sequence_parallel:
         # The author's opt-in to a group lane (cr-068): the degrees the class's attention
         # shards at. Closed and optional; a slot without it is never sharded.
@@ -357,8 +361,6 @@ def model_slot(declared: Declaration, slot: Slot) -> dict[str, Json]:
         doc["weights"] = True
     if parameter in declared.model_on_demand:
         doc["on_demand"] = True
-    if use := declared.model_prepared_use.get(parameter):
-        doc["prepared_use"] = use
     return doc
 
 
@@ -467,72 +469,6 @@ def descriptor_id(body: Mapping[str, Json], name: str) -> str:
     )
 
 
-#: Facts only the installed environment can state: a memoized callable's operation identity
-#: hashes its installed helpers, so a source reading never carries it.
-INSTALLED_FACTS = frozenset({"operation_identity", "operation_identity_unavailable"})
-
-
-def source_facts(doc: Mapping[str, Json]) -> dict[str, Json]:
-    """The document as a source reading knows it: installed-environment facts removed."""
-
-    def callable_facts(entry: Json) -> Json:
-        if not isinstance(entry, dict) or not isinstance(entry.get("invocable"), dict):
-            return entry
-        invocable = {k: v for k, v in entry["invocable"].items() if k not in INSTALLED_FACTS}
-        return {**entry, "invocable": invocable}
-
-    return {
-        key: [callable_facts(entry) for entry in value]
-        if key == "entrypoints" and isinstance(value, list)
-        else value
-        for key, value in doc.items()
-    }
-
-
-def compare(left: Mapping[str, Json], right: Mapping[str, Json], names: tuple[str, str]) -> None:
-    """Refuse unless two package interfaces have the same content."""
-    if canonical_bytes(left) == canonical_bytes(right):
-        return
-    detail = "; ".join(_differences(left, right)) or "the documents differ"
-    raise StalePackageInterface(
-        f"{names[0]} and {names[1]} are different documents: {detail}",
-        code="stale_package_interface",
-    )
-
-
-def _differences(left: Json, right: Json, path: str = "") -> list[str]:
-    """The first few disagreements, deepest key named — a reviewer needs the FIELD."""
-    if isinstance(left, Mapping) and isinstance(right, Mapping):
-        out: list[str] = []
-        for key in sorted(set(left) | set(right)):
-            if key not in left:
-                out.append(f"{path}.{key} only in the second")
-            elif key not in right:
-                out.append(f"{path}.{key} only in the first")
-            else:
-                out += _differences(left[key], right[key], f"{path}.{key}")
-            if len(out) >= 4:
-                break
-        return out[:4]
-    if (
-        isinstance(left, Sequence)
-        and isinstance(right, Sequence)
-        and not isinstance(left, (str, bytes))
-        and not isinstance(right, (str, bytes))
-    ):
-        if len(left) != len(right):
-            return [f"{path or 'root'}: {len(left)} vs {len(right)} entries"]
-        out = []
-        for index, (a, b) in enumerate(zip(left, right, strict=True)):
-            out += _differences(a, b, f"{path}[{index}]")
-            if len(out) >= 4:
-                break
-        return out[:4]
-    if left != right:
-        return [f"{path or 'root'}: {left!r} vs {right!r}"]
-    return []
-
-
 def parse(raw: bytes, source: str = "package interface") -> PackageInterface:
     """Decode one interface once, refusing a malformed document by the field it names."""
     try:
@@ -629,12 +565,8 @@ def _model_slot(slot: ModelSlot, name: str, source: str, path: str) -> None:
     if slot.components is not msgspec.UNSET and (
         not slot.components
         or len(set(slot.components)) != len(slot.components)
-        or not (
-            slot.weights
-            or set(slot.components) <= {c for names in slot.component_use.values() for c in names}
-        )
     ):
-        _invalid(source, f"{path}.components", "must be non-empty, unique and within component_use")
+        _invalid(source, f"{path}.components", "must be non-empty and unique")
     prefix = f"{name}.models."
     if not slot.path.startswith(prefix) or not slot.path[len(prefix) :]:
         _invalid(source, f"{path}.path", f"must start with {prefix!r}")
@@ -729,10 +661,25 @@ def _schema(value: Json, source: str, path: str, union_tag_field: str | None = N
         return
     if not isinstance(value, dict):
         _invalid(source, path, "must be a scalar or schema object")
-    forms = set(value) & _SCHEMA_FORMS
+    # A media slot's `fields` are its extras, not a struct of its own.
+    forms = set(value) & _SCHEMA_FORMS - ({"fields"} if "media" in value else set())
     if len(forms) != 1:
         _invalid(source, path, "must carry exactly one schema form")
     form = next(iter(forms))
+    if form == "media":
+        if value["media"] not in ("image", "video", "audio"):
+            _invalid(source, f"{path}.media", "must be image, video or audio")
+        _schema({"fields": value.get("fields", [])}, source, path)
+        return
+    if form == "prompt":
+        kinds = value["prompt"]
+        if (
+            not isinstance(kinds, list)
+            or not kinds
+            or not set(kinds) <= {"audio", "image", "video"}
+        ):
+            _invalid(source, f"{path}.prompt", "must name the kinds it takes: audio, image, video")
+        return
     if form == "fields":
         struct = _fields(value, {"fields"}, source, path)
         tag = struct.get("tag")
@@ -807,6 +754,8 @@ def _schema(value: Json, source: str, path: str, union_tag_field: str | None = N
     child = exact[form]
     if form == "list":
         _schema(child, source, f"{path}.list")
+    elif form == "pickup":
+        _schema(child, source, f"{path}.pickup")
     elif form == "map":
         entry = _fields(child, {"key", "value"}, source, f"{path}.map")
         _schema(entry["key"], source, f"{path}.map.key")
@@ -839,8 +788,11 @@ def _invalid(source: str, path: str, detail: str) -> NoReturn:
 
 _SCALARS = frozenset({"bool", "float", "int", "null", "str"})
 _SCHEMA_FORMS = frozenset(
-    {"asset", "fields", "input", "list", "literal", "map", "opaque", "tuple", "union"}
-)
+    {
+        "asset", "fields", "input", "list", "literal", "map", "media", "opaque", "pickup", "prompt",
+        "tuple", "union",
+    }
+)  # fmt: skip
 #: The asset-bound facts this Runtime consumes; a newer writer's additional bounds are ignored.
 ASSET_BOUND_KEYS = frozenset({"max_bytes", "max_decoded_bytes", "media_types"})
 

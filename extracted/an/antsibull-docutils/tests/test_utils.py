@@ -21,21 +21,21 @@ from antsibull_docutils.utils import (
 )
 
 
-def test_get_docutils_publish_settings():
+def test_get_docutils_publish_settings() -> None:
     result = get_docutils_publish_settings()
     assert result["raw_enabled"] is False
     assert result["warning_stream"] is False
 
-    result = get_docutils_publish_settings(warnings_stream="")
+    result = get_docutils_publish_settings(warnings_stream="")  # type: ignore[arg-type]
     assert result["raw_enabled"] is False
     assert result["warning_stream"] is False
 
-    result = get_docutils_publish_settings(warnings_stream="foo")
+    result = get_docutils_publish_settings(warnings_stream="foo")  # type: ignore[arg-type]
     assert result["raw_enabled"] is False
     assert result["warning_stream"] == "foo"
 
 
-def test_get_document_structure():
+def test_get_document_structure() -> None:
     result = get_document_structure(
         r"""Foo Bar :anunknownrole:`foo`
 
@@ -87,13 +87,15 @@ def test_get_document_structure():
         ),
     ],
 )
-def test_ensure_newline_after_last_content(lines, expected):
+def test_ensure_newline_after_last_content(
+    lines: list[str], expected: list[str]
+) -> None:
     lines = lines.copy()
     ensure_newline_after_last_content(lines)
     assert lines == expected
 
 
-def test_parse_document():
+def test_parse_document() -> None:
     def foo_role(role, rawtext, text, lineno, inliner, options=None, content=None):
         return [nodes.Text("hohoho")], []
 

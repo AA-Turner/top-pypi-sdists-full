@@ -13,6 +13,7 @@ import logging
 from functools import partial
 
 import authcaptureproxy
+from authcaptureproxy.examples.amazon_waf import AmazonWAFInterceptor
 from bs4 import BeautifulSoup
 from yarl import URL
 
@@ -34,6 +35,7 @@ class AlexaProxy(authcaptureproxy.AuthCaptureProxy):
 
         """
         super().__init__(URL(base_url), URL(login.start_url))
+        self.interceptors = [AmazonWAFInterceptor()]
         self._login: AlexaLogin = login
         self._config_flow_id = None
         self._callback_url = None

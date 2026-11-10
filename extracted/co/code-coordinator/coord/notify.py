@@ -35,6 +35,7 @@ from coord.comments import (
     EVENT_FAILURE,
     EVENT_LIVENESS_STALL,
     EVENT_NEEDS_ATTENTION,
+    EVENT_NEEDS_DECOMPOSITION,
     EVENT_PLAN,
     EVENT_REFUSED_POLICY,
     EVENT_REFUSED_PREMISE,
@@ -53,6 +54,7 @@ from coord.dispatch import (
     post_advisory,
     post_completion,
     post_failure,
+    post_needs_decomposition,
     post_refused_policy,
     post_refused_premise,
 )
@@ -2102,6 +2104,17 @@ def detect_transitions(config: Config) -> list[tuple[Transition, dict, dict]]:
                 # reasoning, distinct event so the comment prints the
                 # re-scope/close remedy rather than the title-retarget one.
                 event = EVENT_REFUSED_PREMISE
+            elif entry_status == "needs_decomposition":
+                # #3931: a THIRD sibling of the refused_policy/refused_premise
+                # arms above — the worker exited cleanly, pushed 0 commits,
+                # and concluded the issue itself needs epic decomposition
+                # (`coord.agent.NEEDS_DECOMPOSITION`). Without this arm the
+                # event fell into the catch-all `else` below, which drops
+                # everything else — exactly the "no comment at all"
+                # regression #2234's review caught, replayed for this
+                # status: the worker's proposed split never reached the
+                # issue, no `mark_notified`, no completion-summary capture.
+                event = EVENT_NEEDS_DECOMPOSITION
             else:
                 continue
             transitions.append(
@@ -3155,6 +3168,42 @@ _HARNESS_CRASH_REASON = (
     "headless smoke harness crashed: the smoke command exited non-zero with "
     "no output at all — an infra issue, not a test result"
 )
+
+
+def _release_smoke_dispatch_claim_for_leg(leg_assignment_id: str) -> None:
+    """Release the ``smoke_claims`` row a terminal Test-stage leg took when
+    it was dispatched, keyed on the LEG's own assignment id.
+
+    Thin wrapper over :func:`coord.state.release_smoke_claim_if_row_is_smoke_leg`
+    — the ONE "is this row a smoke leg, and if so release its dispatch
+    claim" answer, shared with ``coord.issue_store._update_local_state`` and
+    ``coord.state._mark_notified_local``. It is a no-op for every row that is
+    not a ``type="smoke"`` leg, so both call sites in :func:`post_transition`
+    can invoke it unconditionally on the arm they already know is a smoke
+    terminal event.
+
+    Called from `post_transition` on the smoke COMPLETION and smoke FAILURE
+    arms, immediately after that arm's `mark_notified`. `mark_notified` also
+    reaches the same release (via `_mark_notified_local`), but only as a side
+    effect of writing the notification ledger — a write that routes over HTTP
+    to the `coord serve` daemon whenever `board_service` is configured, and
+    that some callers stub out entirely. Coupling claim release to it means a
+    leg can reach a terminal event with its claim still held and nothing left
+    to release it: `_dispatch_smoke_single_leg` claims under one fixed
+    partition tag per work row, so a single stranded claim silently blocks
+    EVERY future Test dispatch for that row — no leg, no verdict, and a
+    `test_state` that no gate ever resolves. Releasing here derives the
+    release from the terminal transition itself, which is the observation
+    that actually proves the leg is done.
+
+    Idempotent: the underlying delete is a no-op when the claim is already
+    gone, which is the normal case once `mark_notified` has run.
+    """
+    from coord.state import (  # noqa: PLC0415
+        release_smoke_claim_if_row_is_smoke_leg,
+    )
+
+    release_smoke_claim_if_row_is_smoke_leg(leg_assignment_id)
 
 
 def _record_smoke_verdict(
@@ -4636,6 +4685,12 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
                         stuck_summary = parse_progress(log_path).stuck
                     except Exception:  # noqa: BLE001
                         stuck_summary = None
+            # The plain "no marker" case (board/config still None here)
+            # gets no eager load, unlike the three arms above — it's the
+            # overwhelming common case, and a head-unmoved redispatch (the
+            # one thing that would need a board) loads it lazily itself;
+            # see `coord.reconcile._try_ordinary_escalation_after_head_
+            # unmoved`'s docstring.
 
             on_conflict_fix_done(
                 parent_assignment_id=parent_id,
@@ -4652,6 +4707,8 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
                 board=board,
                 config=config,
                 stuck_summary=stuck_summary,
+                fix_log_path=log_path,
+                fix_agent_host=host,
             )
             if semantic and board is not None:
                 try:
@@ -4673,6 +4730,7 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
             transition.event,
             branch=entry.get("branch"),
         )
+        _release_smoke_dispatch_claim_for_leg(transition.assignment_id)
         parent_id = record.get("review_of_assignment_id")
         if parent_id:
             # Guard: only auto-certify when the issue's test-mode is "auto"
@@ -4752,6 +4810,7 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
             failure_reason=_failure_reason,
             exit_code=transition.exit_code,
         )
+        _release_smoke_dispatch_claim_for_leg(transition.assignment_id)
         parent_id = record.get("review_of_assignment_id")
         if parent_id:
             from coord.reconcile import (  # noqa: PLC0415
@@ -4858,6 +4917,22 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
         # catch-all `else` below would silently drop it).
         post_refused_premise(
             reason=entry.get("premise_refusal_reason") or "",
+            **common,
+        )
+        mark_notified(
+            transition.assignment_id,
+            transition.event,
+            branch=entry.get("branch"),
+        )
+    elif transition.event == EVENT_NEEDS_DECOMPOSITION:
+        # #3931: a THIRD sibling of the refused_policy/refused_premise arms
+        # above — 0-commit clean exit whose worker concluded the issue
+        # itself needs epic decomposition. Same reasoning for why this
+        # needs its own arm (the catch-all `else` below would silently
+        # drop it, and Expected item 3 requires the proposed split actually
+        # reach the issue).
+        post_needs_decomposition(
+            reason=entry.get("needs_decomposition_reason") or "",
             **common,
         )
         mark_notified(

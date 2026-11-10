@@ -1,10 +1,11 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
-"""FastAPI application for the GitHub Subscriptions webhook relay service.
+"""FastAPI application for the Agent Message Bus webhook relay service.
 
 This is the main entry point for the Cloud Run service. It exposes:
 - POST /github/webhook — GitHub org-level webhook receiver
 - POST /slack/webhook — Slack Block Kit interaction receiver
 - POST /zendesk/webhook — Zendesk ticket webhook receiver (triage + resolution)
+- POST /devin/stop — Devin Stop hook Hydra handoff wake
 - CRUD /subscriptions/* — Subscription management API
 - GET /health — Health check
 """
@@ -28,7 +29,7 @@ from fastapi import (
     Response,
 )
 
-from agent_message_bus.firestore_client import SubscriptionStore
+from agent_message_bus.firestore_client import StopWakeStore, SubscriptionStore
 from agent_message_bus.github_handler import (
     handle_github_webhook,
     verify_github_signature,
@@ -36,12 +37,14 @@ from agent_message_bus.github_handler import (
 from agent_message_bus.models import (
     CreateSubscriptionRequest,
     DeleteSubscriptionResponse,
+    DevinStopEvent,
     SubscriptionResponse,
 )
 from agent_message_bus.slack_handler import (
     handle_slack_interaction,
     verify_slack_signature,
 )
+from agent_message_bus.stop_wake_handler import handle_stop_event
 from agent_message_bus.zendesk_handler import (
     handle_zendesk_webhook,
     verify_zendesk_signature,
@@ -61,6 +64,7 @@ app = FastAPI(
 
 # Lazily-initialized singleton store
 _store: SubscriptionStore | None = None
+_stop_wake_store: StopWakeStore | None = None
 
 
 def _get_store() -> SubscriptionStore:
@@ -74,6 +78,19 @@ def _get_store() -> SubscriptionStore:
             )
         _store = SubscriptionStore(project=gcp_project)
     return _store
+
+
+def _get_stop_wake_store() -> StopWakeStore:
+    """Get or create the Firestore Stop hook store singleton."""
+    global _stop_wake_store
+    if _stop_wake_store is None:
+        gcp_project = os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        if not gcp_project:
+            raise ValueError(
+                "GCP project is not configured. Set GCP_PROJECT or GOOGLE_CLOUD_PROJECT."
+            )
+        _stop_wake_store = StopWakeStore(project=gcp_project)
+    return _stop_wake_store
 
 
 def _get_github_webhook_secret() -> str:
@@ -92,16 +109,8 @@ def _get_slack_signing_secret() -> str:
     return secret
 
 
-def _get_bearer_token() -> str:
-    """Retrieve the expected bearer token from environment."""
-    token = os.environ.get("SUBSCRIPTION_API_BEARER_TOKEN")
-    if not token:
-        raise ValueError("SUBSCRIPTION_API_BEARER_TOKEN environment variable is not set")
-    return token
-
-
-def _verify_bearer_token(authorization: str | None = Header(default=None)) -> None:
-    """Dependency that verifies the bearer token on subscription endpoints."""
+def _verify_bearer_token(authorization: str | None, env_var_name: str) -> None:
+    """Verify a bearer token using the expected-token environment variable."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
 
@@ -109,10 +118,25 @@ def _verify_bearer_token(authorization: str | None = Header(default=None)) -> No
         raise HTTPException(status_code=401, detail="Invalid Authorization header format")
 
     token = authorization[7:].strip()
-    expected = _get_bearer_token()
-
+    expected = os.environ.get(env_var_name)
+    if not expected:
+        raise ValueError(f"{env_var_name} environment variable is not set")
     if not hmac.compare_digest(token, expected):
         raise HTTPException(status_code=403, detail="Invalid bearer token")
+
+
+def _verify_subscription_bearer_token(
+    authorization: str | None = Header(default=None),
+) -> None:
+    """Dependency that verifies the bearer token on subscription endpoints."""
+    _verify_bearer_token(authorization, "SUBSCRIPTION_API_BEARER_TOKEN")
+
+
+def _verify_stop_hook_bearer_token(
+    authorization: str | None = Header(default=None),
+) -> None:
+    """Dependency that verifies the bearer token on the Devin Stop hook endpoint."""
+    _verify_bearer_token(authorization, "DEVIN_STOP_HOOK_BEARER_TOKEN")
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +344,41 @@ async def zendesk_webhook(request: Request, background_tasks: BackgroundTasks) -
     return {"status": "accepted"}
 
 
+def _process_stop_event(event: DevinStopEvent) -> None:
+    """Process a Devin Stop event in a background task."""
+    try:
+        result = handle_stop_event(event, _get_stop_wake_store())
+    except Exception:
+        session_id = event.session_id.removeprefix("devin-")
+        logger.exception(
+            "Stop hook event background task failed session_id=%s prompt_id=%s",
+            session_id,
+            event.prompt_id,
+        )
+        logger.info(
+            "Stop hook event outcome=error session_id=%s prompt_id=%s pr=(unknown) context={}",
+            session_id,
+            event.prompt_id,
+        )
+        return
+    logger.debug("Stop hook processing result: %s", result)
+
+
+@app.post(
+    "/devin/stop",
+    dependencies=[Depends(_verify_stop_hook_bearer_token)],
+)
+def devin_stop_hook(
+    event: DevinStopEvent,
+    background_tasks: BackgroundTasks,
+) -> dict[str, str]:
+    """Acknowledge Devin Stop events and process Hydra wake candidates."""
+    if event.hook_event_name != "Stop":
+        return {"status": "ignored"}
+    background_tasks.add_task(_process_stop_event, event)
+    return {"status": "accepted"}
+
+
 # ---------------------------------------------------------------------------
 # Subscription CRUD endpoints
 # ---------------------------------------------------------------------------
@@ -328,7 +387,7 @@ async def zendesk_webhook(request: Request, background_tasks: BackgroundTasks) -
 @app.post(
     "/subscriptions",
     response_model=SubscriptionResponse,
-    dependencies=[Depends(_verify_bearer_token)],
+    dependencies=[Depends(_verify_subscription_bearer_token)],
 )
 def create_subscription(
     request: CreateSubscriptionRequest,
@@ -357,7 +416,7 @@ def create_subscription(
 @app.get(
     "/subscriptions",
     response_model=list[SubscriptionResponse],
-    dependencies=[Depends(_verify_bearer_token)],
+    dependencies=[Depends(_verify_subscription_bearer_token)],
 )
 def list_subscriptions(session_url: str) -> list[SubscriptionResponse]:
     """List active subscriptions for a Devin session."""
@@ -383,7 +442,7 @@ def list_subscriptions(session_url: str) -> list[SubscriptionResponse]:
 @app.delete(
     "/subscriptions/{subscription_id}",
     response_model=DeleteSubscriptionResponse,
-    dependencies=[Depends(_verify_bearer_token)],
+    dependencies=[Depends(_verify_subscription_bearer_token)],
 )
 def delete_subscription(subscription_id: str) -> DeleteSubscriptionResponse:
     """Delete a subscription by its ID."""
@@ -399,7 +458,7 @@ def delete_subscription(subscription_id: str) -> DeleteSubscriptionResponse:
 @app.delete(
     "/subscriptions",
     response_model=DeleteSubscriptionResponse,
-    dependencies=[Depends(_verify_bearer_token)],
+    dependencies=[Depends(_verify_subscription_bearer_token)],
 )
 def delete_subscriptions_by_match(
     session_url: str,

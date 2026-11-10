@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: checkout_sdk
-Version: 4.9.0
+Version: 4.9.3
 Summary: Checkout.com Python SDK
 Home-page: https://github.com/checkout/checkout-sdk-python
 Author: Checkout.com
@@ -232,6 +232,11 @@ except CheckoutApiException as err:
     error_type = err.error_type
     error_details = err.error_details
 ```
+
+Identifiers passed to client methods (for example a payment id) are sent as single, percent-encoded path
+segments: pass them unencoded (Enum members are sent by their value). A `CheckoutArgumentException` is raised
+before any request is sent when an identifier is not a string, is `None`, empty, `.` or `..`, cannot be encoded as UTF-8, or contains `/`, `\` or an
+ASCII control character (U+0000 to U+001F, U+007F).
 
 ## Building from source
 

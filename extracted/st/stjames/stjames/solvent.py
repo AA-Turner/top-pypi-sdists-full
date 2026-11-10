@@ -52,6 +52,7 @@ class SolventModel(LowercaseStrEnum):
     COSMO2 = "cosmo2"
     COSMORS = "cosmors"
     GBSA = "gbsa"
+    GBN2 = "gbn2"
     CPCMX = "cpcmx"
     SMD = "smd"
     ANYSOLV = "anysolv"
@@ -109,6 +110,8 @@ CPCMX_SOLVENTS: frozenset[Solvent] = frozenset(
         Solvent.WATER,
     }
 )
+
+FORCEFIELD_SOLVENTS: frozenset[SolventModel] = frozenset({SolventModel.GBN2})
 
 ENERGY_ONLY_SOLVENT_MODELS: frozenset[SolventModel] = frozenset({SolventModel.CPCMX, SolventModel.COSMORS})
 

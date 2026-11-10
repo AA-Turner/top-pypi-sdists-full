@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import datetime
 import json
-from typing import TYPE_CHECKING, Any, Dict, Union
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union, cast
 from uuid import UUID
 
 from typing_extensions import Self
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
-from office365.runtime.converters.scalars import iso_z
+from office365.runtime.converters.scalars import iso_z, parse_enum
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.paths.resource_path import ResourcePath
@@ -16,6 +18,7 @@ from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.paths.v3.entity import EntityPath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.odata_property import AUTHORSHIP, MODERATION, odata
 from office365.sharepoint.attachments.collection import AttachmentCollection
 from office365.sharepoint.changes.collection import ChangeCollection
 from office365.sharepoint.changes.query import ChangeQuery
@@ -32,9 +35,12 @@ from office365.sharepoint.files.system_object_type import FileSystemObjectType
 from office365.sharepoint.likes.liked_by_information import LikedByInformation
 from office365.sharepoint.listitems.compliance_info import ListItemComplianceInfo
 from office365.sharepoint.listitems.form_update_value import ListItemFormUpdateValue
+from office365.sharepoint.listitems.moderation_status import SPModerationStatusType
 from office365.sharepoint.listitems.update_parameters import ListItemUpdateParameters
 from office365.sharepoint.listitems.versions.collection import ListItemVersionCollection
 from office365.sharepoint.lists.templates.type import ListTemplateType
+from office365.sharepoint.permissions import SiteLevel, site_access
+from office365.sharepoint.permissions.base_permissions import BasePermissions
 from office365.sharepoint.permissions.securable_object import SecurableObject
 from office365.sharepoint.policy.dlp_policy_tip import DlpPolicyTip
 from office365.sharepoint.reputationmodel.reputation import Reputation
@@ -46,16 +52,15 @@ from office365.sharepoint.sharing.object_sharing_information import (
     ObjectSharingInformation,
 )
 from office365.sharepoint.sharing.result import SharingResult
+from office365.sharepoint.taxonomy.field import TaxonomyField
 from office365.sharepoint.taxonomy.field_value_col import TaxonomyFieldValueCollection
+from office365.sharepoint.thresholds import Limits, limit
 from office365.sharepoint.types.wopi_action import SPWOPIAction
 from office365.sharepoint.ui.applicationpages.peoplepicker.web_service_interface import (
     ClientPeoplePickerWebServiceInterface,
 )
 
 if TYPE_CHECKING:
-    import datetime
-    from typing import Optional
-
     from office365.sharepoint.approvals.mediaserviceupdateparameters import (
         MediaServiceUpdateParameters,
     )
@@ -67,13 +72,46 @@ if TYPE_CHECKING:
     )
     from office365.sharepoint.listitems.updateresults import ListItemUpdateResults
     from office365.sharepoint.lists.list import List
-    from office365.sharepoint.permissions.base_permissions import BasePermissions
+    from office365.sharepoint.principal.users.user import User
     from office365.sharepoint.webs.spimageitem import SPImageItem
     from office365.sharepoint.workflow.labelaccesscontroldata import (
         LabelAccessControlData,
     )
 
 
+def _system_field_name(name: str) -> str:
+    """The name ``ValidateUpdateListItem`` takes for a field this model declares.
+
+    The moderation columns are declared under their escaped wire name
+    (``OData__ModerationStatus``) and written without the prefix.
+    """
+    return name[len("OData_") :] if name.startswith("OData_") else name
+
+
+def _system_field_value(value: Any) -> Any:
+    """A form value in the shape ``ValidateUpdateListItem`` takes it.
+
+    ``datesInUTC`` reads a date as a ``...Z`` UTC string, a user is its lookup value, a
+    declared enum the number the column stores, and a string is whatever the caller meant.
+    """
+    from office365.sharepoint.fields.lookup_value import FieldLookupValue
+    from office365.sharepoint.fields.user_value import FieldUserValue
+    from office365.sharepoint.principal.users.user import User
+
+    if isinstance(value, datetime.datetime):
+        return iso_z(value)
+    if isinstance(value, Enum):
+        return str(value.value)
+    if isinstance(value, User):
+        return FieldUserValue(value.id, value.login_name)
+    if isinstance(value, FieldLookupValue):
+        return value
+    return str(value)
+
+
+#: What one row may hold. The 300 reserved bytes the published ceiling accounts for are why
+#: this is a boundary on the item, not on a column.
+@limit(Limits.LIST_ROW_BYTES)
 class ListItem(SecurableObject):
     """An individual entry within a SharePoint list. Each list item has a schema that maps to fields in the list
     that contains the item, depending on the content type of the item."""
@@ -88,6 +126,7 @@ class ListItem(SecurableObject):
         if parent_list is not None:
             self.set_property("ParentList", parent_list, False)
 
+    @site_access(SiteLevel.WRITE)
     def archive(self) -> ClientResult[str]:
         """Archives the list item."""
         return_type = ClientResult(self.context, str())
@@ -123,6 +162,7 @@ class ListItem(SecurableObject):
         list_folder.ensure_property("ServerRelativeUrl").after_execute(lambda _: _lock_record_item())
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def share_link(
         self,
         link_kind: int,
@@ -168,6 +208,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.MANAGE)
     def unshare_link(self, link_kind: int, share_id: Optional[str] = None) -> Self:
         """Removes the specified tokenized sharing link of the list item.
 
@@ -181,6 +222,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.MANAGE)
     def delete_link_by_kind(self, link_kind):
         """Removes the specified tokenized sharing link of the list item
 
@@ -290,6 +332,7 @@ class ListItem(SecurableObject):
         self.parent_list.ensure_properties(["Id", "ParentList"]).after_execute(lambda _: _list_item_loaded())
         return return_value
 
+    @site_access(SiteLevel.READ)
     def get_wopi_frame_url(self, action: SPWOPIAction) -> ClientResult[str]:
         """Gets the full URL to the SharePoint frame page that initiates the SPWOPIAction object with the WOPI
         application associated with the list item.
@@ -302,6 +345,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.WRITE)
     def recycle(self, ignore_missing: bool = False) -> ClientResult[str]:
         """Moves the listItem to the Recycle Bin and returns the identifier of the new Recycle Bin item.
 
@@ -316,6 +360,7 @@ class ListItem(SecurableObject):
         self._tolerate_missing(ignore_missing)
         return result
 
+    @site_access(SiteLevel.READ)
     def get_changes(self, query=None) -> ChangeCollection:
         """Returns the collection of changes from the change log that have occurred within the ListItem,
         based on the specified query.
@@ -413,6 +458,74 @@ class ListItem(SecurableObject):
         self.ensure_properties(["Id", "ParentList"]).after_execute(lambda _: _item_resolved())
         return return_type
 
+    @site_access(SiteLevel.WRITE)
+    def set_system_metadata(
+        self, values: Dict[str, Any], new_document_update: bool = False, dates_in_utc: bool = True
+    ) -> ClientResult[ClientValueCollection[ListItemFormUpdateValue]]:
+        """Write system fields of the item in one request.
+
+        ``values`` is keyed by a field name as this model declares it — a ``datetime`` is
+        written as ``...Z`` UTC, a :class:`~office365.sharepoint.principal.users.user.User` as
+        its lookup value, a string as given (a caller holding a local wall-clock value
+        converts it itself). An ``OData_``-escaped name is written without the prefix.
+
+        Every value rides in one request because a system update re-approves the item: a
+        second write would discard the approval state the first one set. ``new_document_update``
+        (the CSOM ``UpdateOverwriteVersion`` path) keeps a document's version count.
+        ``dates_in_utc`` names the grammar the item's form parses: a list item honours it, an
+        item of a document library ignores it and parses the web's locale (see
+        :meth:`restore_fidelity`).
+        """
+        form_values = {
+            _system_field_name(name): _system_field_value(value) for name, value in values.items() if value is not None
+        }
+        if not form_values:
+            return ClientResult(self.context, ClientValueCollection(ListItemFormUpdateValue))
+        return self.validate_update_list_item(
+            form_values, new_document_update=new_document_update, dates_in_utc=dates_in_utc
+        )
+
+    @site_access(SiteLevel.WRITE)
+    def restore_fidelity(
+        self,
+        created: Optional[Union[datetime.datetime, str]] = None,
+        modified: Optional[Union[datetime.datetime, str]] = None,
+        author: Optional["User"] = None,
+        editor: Optional["User"] = None,
+        approval: Optional[Dict[str, Any]] = None,
+        new_document_update: bool = False,
+        web_local_dates: bool = False,
+    ) -> ClientResult[ClientValueCollection[ListItemFormUpdateValue]]:
+        """Write what a copy of this item cannot carry in its payload, in one request.
+
+        ``Created``/``Modified``, ``Author``/``Editor`` and the approval columns reach an
+        item only through ``ValidateUpdateListItem``, and all of them share one request: a
+        system update re-approves the item, so a second write would undo the approval state
+        the first one set. ``approval`` is the approval columns as the source declared them
+        (the status, and the comments beside it) — a dict because the service stores more
+        than the status, merged into the same write so a list item still costs one request.
+        A *document* refuses a moderation change combined with other properties ("You cannot
+        change moderation status and set other item properties at that same time."), so it is
+        written by a call of its own, last.
+
+        ``web_local_dates`` says the timestamps already name the web's wall clock: send them
+        verbatim and let the form read them in its locale. An item of a document library — a
+        file or a folder, live-verified — needs that, because its form ignores ``datesInUTC``
+        and refuses a trailing ``Z`` entirely ("You must specify a valid date within the range
+        of 1/1/1900 and 12/31/8900."); a list item takes the ``...Z`` UTC form and restores the
+        same instant from it.
+
+        The service applies the whole request or none of it: one value it refuses discards
+        the others with it (live-verified — a wrong ``Author`` left ``Created`` at the
+        copy's own stamp), so a rejection means nothing this write carried has landed.
+        """
+        values: Dict[str, Any] = dict(approval or {})
+        values.update({"Created": created, "Modified": modified, "Author": author, "Editor": editor})
+        return self.set_system_metadata(
+            values, new_document_update=new_document_update, dates_in_utc=not web_local_dates
+        )
+
+    @site_access(SiteLevel.WRITE)
     def validate_update_list_item(
         self,
         form_values: Dict,
@@ -453,6 +566,7 @@ class ListItem(SecurableObject):
         super().update()
         return self
 
+    @site_access(SiteLevel.WRITE)
     def update_ex(self, bypass_quota_check: Optional[bool] = None, bypass_shared_lock: Optional[bool] = None):
         """Args:
         bypass_quota_check (bool):
@@ -463,6 +577,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def system_update(self):
         """Update the list item."""
 
@@ -506,12 +621,14 @@ class ListItem(SecurableObject):
         self.parent_list.ensure_properties(["BaseTemplate"]).after_execute(lambda _: _list_loaded())
         return self
 
+    @site_access(SiteLevel.WRITE)
     def update_overwrite_version(self) -> ListItem:
         """Updates the item without creating another version of the item."""
         qry = ServiceOperationQuery(self, "UpdateOverwriteVersion")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_comments_disabled(self, value: bool) -> Self:
         """Sets the value of CommentsDisabled for the item.
 
@@ -522,6 +639,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag_with_hold(self, compliance_tag: str) -> Self:
         """Sets a compliance tag with a hold
 
@@ -533,6 +651,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def get_comments(self) -> CommentCollection:
         """Retrieve ListItem comments"""
         return_type = CommentCollection(self.context, ServiceOperationPath("GetComments", [], self.resource_path))
@@ -544,6 +663,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry).before_execute(_create_request)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def override_policy_tip(self, user_action, justification):
         """Overrides the policy tip on this list item.
 
@@ -557,6 +677,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def parse_and_set_field_value(self, field_name: str, value: str) -> Self:
         """Sets the value of the field (2) for the list item based on an implementation-specific transformation
         of the value.
@@ -570,11 +691,15 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    # Probed live: the CSDL declares these three, yet ``$select`` answers "Value does not
+    # fall within the expected range" / "Invalid field name" -- they are not fields.
+    @odata(name="DisplayName", selectable=False)
     @property
     def display_name(self) -> Optional[str]:
         """Specifies the display name of the list item."""
         return self.properties.get("DisplayName", None)
 
+    @odata(name="ParentList", navigation=True)
     @property
     def parent_list(self) -> List:
         """Get parent List"""
@@ -585,6 +710,7 @@ class ListItem(SecurableObject):
             List(self.context, ResourcePath("ParentList", self.resource_path)),
         )
 
+    @odata(name="File", navigation=True)
     @property
     def file(self) -> File:
         """Get file"""
@@ -592,6 +718,7 @@ class ListItem(SecurableObject):
 
         return self.properties.get("File", File(self.context, ResourcePath("File", self.resource_path)))
 
+    @odata(name="Folder", navigation=True)
     @property
     def folder(self) -> Folder:
         """Get folder"""
@@ -599,6 +726,7 @@ class ListItem(SecurableObject):
 
         return self.properties.get("Folder", Folder(self.context, ResourcePath("Folder", self.resource_path)))
 
+    @odata(name="AttachmentFiles", navigation=True)
     @property
     def attachment_files(self) -> AttachmentCollection:
         """Specifies the collection of attachments that are associated with the list item.<62>"""
@@ -611,6 +739,7 @@ class ListItem(SecurableObject):
             AttachmentCollection(self.context, ResourcePath("AttachmentFiles", self.resource_path), self),
         )
 
+    @odata(name="ContentType", navigation=True)
     @property
     def content_type(self) -> ContentType:
         """Gets a value that specifies the content type of the list item."""
@@ -621,14 +750,14 @@ class ListItem(SecurableObject):
             ContentType(self.context, ResourcePath("ContentType", self.resource_path)),
         )
 
+    @odata(name="EffectiveBasePermissions", readonly=True)
     @property
     def effective_base_permissions(self) -> BasePermissions:
         """Gets a value that specifies the effective permissions on the list item that are assigned
         to the current user."""
-        from office365.sharepoint.permissions.base_permissions import BasePermissions
-
         return self.properties.get("EffectiveBasePermissions", BasePermissions())
 
+    @odata(name="EffectiveBasePermissionsForUI", readonly=True)
     @property
     def effective_base_permissions_for_ui(self) -> BasePermissions:
         """Specifies the effective base permissions for the current user, as they SHOULD be displayed in the user
@@ -636,8 +765,6 @@ class ListItem(SecurableObject):
         MUST be the same as the value of EffectiveBasePermissions (section 3.2.5.87.1.1.2).
         If the list is in read-only UI mode, the value of EffectiveBasePermissionsForUI MUST be a subset of the
         value of EffectiveBasePermissions."""
-        from office365.sharepoint.permissions.base_permissions import BasePermissions
-
         return self.properties.get("EffectiveBasePermissionsForUI", BasePermissions())
 
     @property
@@ -645,16 +772,58 @@ class ListItem(SecurableObject):
         """Gets a collection of key/value pairs containing the names and values for the fields of the list item."""
         return self.properties.get("FieldValues", None)
 
+    @odata(name="CommentsDisabled", beta=True, readonly=True)
     @property
     def comments_disabled(self) -> Optional[bool]:
         """Indicates whether comments for this item are disabled or not."""
         return self.properties.get("CommentsDisabled", None)
 
+    @odata(name="FileSystemObjectType", readonly=True)
     @property
     def file_system_object_type(self) -> Optional[FileSystemObjectType]:
-        """Gets a value that specifies whether the list item is a file or a list folder"""
-        return self.properties.get("FileSystemObjectType", FileSystemObjectType.Invalid)
+        """Whether the row is a file, a folder or a site.
 
+        The declaration has always promised an enum; the wire sends its number, so the
+        getter converts (``parse_enum``) rather than handing the raw integer out.
+        """
+        value = self.properties.get("FileSystemObjectType", FileSystemObjectType.Invalid)
+        if isinstance(value, FileSystemObjectType):
+            return value
+        return cast("FileSystemObjectType", parse_enum(FileSystemObjectType, value))
+
+    @property
+    def is_file(self) -> bool:
+        """Whether this row is a file (its ``FileSystemObjectType`` says so).
+
+        Read from the column, not from whether a ``File`` part happens to be expanded:
+        an unprojected column reads as ``Invalid``, which is neither.
+        """
+        return self.file_system_object_type == FileSystemObjectType.File
+
+    @property
+    def is_folder(self) -> bool:
+        """Whether this row is a folder (its ``FileSystemObjectType`` says so)."""
+        return self.file_system_object_type == FileSystemObjectType.Folder
+
+    @odata(name="FileRef", system=True, readonly=True)
+    @property
+    def file_ref(self) -> Optional[str]:
+        """The server-relative URL of the item, e.g. ``/Documents/Report.docx``.
+
+        An item row spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("FileRef", None)
+
+    @odata(name="FileLeafRef", system=True)
+    @property
+    def file_leaf_ref(self) -> Optional[str]:
+        """The item's name within its parent, e.g. ``Report.docx``.
+
+        An item row spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("FileLeafRef", None)
+
+    @odata(name="IconOverlay", selectable=False)
     @property
     def icon_overlay(self) -> Optional[str]:
         """This is an overlay icon for the item. If the parent list of the item does not already have the IconOverlay
@@ -662,38 +831,99 @@ class ListItem(SecurableObject):
         will not be set for the item."""
         return self.properties.get("IconOverlay", None)
 
+    @odata(name="Id", readonly=True)
     @property
     def id(self) -> Optional[int]:
         """Gets a value that specifies the list item identifier."""
         return self.properties.get("Id", None)
 
+    @odata(name="ID", system=True, readonly=True)
+    @property
+    def id_(self) -> Optional[int]:
+        """The item identifier under the second spelling a read returns.
+
+        An item read sends ``ID`` beside ``Id``: one value, two names.
+        """
+        return self.properties.get("ID", None)
+
+    @odata(name="AuthorId", system=True, readonly=True, facet=AUTHORSHIP)
+    @property
+    def author_id(self) -> Optional[int]:
+        """The site user id of the item's creator.
+
+        An item row spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("AuthorId", None)
+
+    @odata(name="EditorId", system=True, readonly=True, facet=AUTHORSHIP)
+    @property
+    def editor_id(self) -> Optional[int]:
+        """The site user id of whoever last edited the item.
+
+        An item row spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("EditorId", None)
+
+    @odata(name="Created", system=True, readonly=True)
+    @property
+    def created(self) -> Optional[datetime.datetime]:
+        """When the item was created.
+
+        An item row spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("Created", None)
+
+    @odata(name="Modified", system=True, readonly=True)
+    @property
+    def modified(self) -> Optional[datetime.datetime]:
+        """When the item was last edited.
+
+        An item row spells this column; the metadata does not (``system=True``).
+        """
+        return self.properties.get("Modified", None)
+
+    @odata(name="ServerRedirectedEmbedUri", readonly=True)
     @property
     def server_redirected_embed_uri(self) -> Optional[str]:
         """Returns the path for previewing a document in the browser, often in an interactive way, if
         that feature exists."""
         return self.properties.get("ServerRedirectedEmbedUri", None)
 
+    @odata(name="ServerRedirectedEmbedUrl", system=True, readonly=True)
     @property
     def server_redirected_embed_url(self) -> Optional[str]:
         """Returns the URL for previewing a document in the browser, often in an interactive way, if that feature
         exists. This is currently used in the hovering panel of search results and document library.
         """
-        return self.properties.get("ServerRedirectedEmbedUri", None)
+        return self.properties.get("ServerRedirectedEmbedUrl", None)
 
+    # Probed live: a ``ListItem`` serves this column while ``$select`` on a list or a web
+    # answers 400 "Non-SPListItem objects are not supported", so the declaration lives
+    # here rather than on :class:`SecurableObject`.
+    @odata(name="ShieldAddRoleAssignmentPushdown", readonly=True)
+    @property
+    def shield_add_role_assignment_pushdown(self) -> Optional[bool]:
+        """Gets the ShieldAddRoleAssignmentPushdown property"""
+        return self.properties.get("ShieldAddRoleAssignmentPushdown", None)
+
+    @odata(name="Client_Title", selectable=False)
     @property
     def client_title(self) -> Optional[str]:
         """ """
         return self.properties.get("Client_Title", None)
 
+    @odata(name="ComplianceInfo", beta=True)
     @property
     def compliance_info(self) -> ListItemComplianceInfo:
         return self.properties.get("ComplianceInfo", ListItemComplianceInfo())
 
+    @odata(name="CommentsDisabledScope", beta=True)
     @property
     def comments_disabled_scope(self) -> Optional[str]:
         """Indicates at what scope comments are disabled."""
         return self.properties.get("CommentsDisabledScope", None)
 
+    @odata(name="GetDlpPolicyTip", navigation=True)
     @property
     def get_dlp_policy_tip(self) -> DlpPolicyTip:
         """Gets the Data Loss Protection policy tip notification for this item."""
@@ -702,6 +932,7 @@ class ListItem(SecurableObject):
             DlpPolicyTip(self.context, ResourcePath("GetDlpPolicyTip", self.resource_path)),
         )
 
+    @odata(name="FieldValuesAsHtml", navigation=True)
     @property
     def field_values_as_html(self) -> FieldStringValues:
         """Specifies the values for the list item as Hypertext Markup Language (HTML)."""
@@ -710,6 +941,7 @@ class ListItem(SecurableObject):
             FieldStringValues(self.context, ResourcePath("FieldValuesAsHtml", self.resource_path)),
         )
 
+    @odata(name="LikedByInformation", navigation=True, beta=True)
     @property
     def liked_by_information(self) -> LikedByInformation:
         """Gets a value that specifies the list item identifier."""
@@ -718,6 +950,7 @@ class ListItem(SecurableObject):
             LikedByInformation(self.context, ResourcePath("likedByInformation", self.resource_path)),
         )
 
+    @odata(name="Versions", navigation=True)
     @property
     def versions(self) -> ListItemVersionCollection:
         """Gets the collection of item version objects that represent the versions of the item."""
@@ -731,6 +964,7 @@ class ListItem(SecurableObject):
         """Document ID fora document"""
         return self.properties.get("OData__dlc_DocId", None)
 
+    @odata(name="EncodedAbsUrl", system=True, readonly=True)
     @property
     def encoded_abs_url(self) -> Optional[str]:
         """Gets the EncodedAbsUrl property"""
@@ -739,25 +973,31 @@ class ListItem(SecurableObject):
     @property
     def doc_id_url(self) -> Optional[FieldUrlValue]:
         """Document ID fora document"""
-        return self.properties.get("OData__dlc_DocIdUrl", FieldUrlValue())
+        return self.properties.get("OData__dlc_DocIdUrl", None)
+
+    @staticmethod
+    def value_column(name: str) -> str:
+        """The item column a Lookup/Person column's value travels under (``<name>Id``).
+
+        The payload carries a lookup as the foreign item id, and a person as the
+        site-user id, under the field's internal name with ``Id`` appended --
+        live-verified on Lookup, LookupMulti, User and UserMulti columns the collection
+        created. A managed metadata column is the exception: its value goes to the note
+        companion :meth:`_set_taxonomy_field_value` resolves.
+        """
+        return f"{name}Id"
+
+    @staticmethod
+    def string_value_column(name: str) -> str:
+        """The read-only text companion a user column reports (``<name>StringId``).
+
+        Live-verified: a User and a UserMulti column report one, a Lookup column and the
+        built-in ``Author``/``Editor`` do not, and only an *unfiltered* read returns it
+        (a ``$select`` narrows it away, ``TypeSchema.columns`` included). Nothing writes it.
+        """
+        return f"{name}StringId"
 
     def get_property(self, name, default_value=None) -> Any:
-        if default_value is None:
-            property_mapping = {
-                "AttachmentFiles": self.attachment_files,
-                "ContentType": self.content_type,
-                "ComplianceInfo": self.compliance_info,
-                "OData__dlc_DocIdUrl": self.doc_id_url,
-                "EffectiveBasePermissions": self.effective_base_permissions,
-                "EffectiveBasePermissionsForUI": self.effective_base_permissions_for_ui,
-                "GetDlpPolicyTip": self.get_dlp_policy_tip,
-                "FieldValuesAsHtml": self.field_values_as_html,
-                "FileSystemObjectType": self.file_system_object_type,
-                "LikedByInformation": self.liked_by_information,
-                "ParentList": self.parent_list,
-            }
-            default_value = property_mapping.get(name, None)
-
         value = super().get_property(name, default_value)
         if self.is_property_available(name[:-2]):
             lookup_value = super().get_property(name[:-2], default_value)
@@ -775,10 +1015,10 @@ class ListItem(SecurableObject):
                 super().set_property(name, json.dumps(value.to_json()), persist_changes)
             elif isinstance(value, (FieldMultiLookupValue, FieldMultiUserValue)):
                 collection = ClientValueCollection(int, [v.LookupId for v in value])
-                super().set_property(f"{name}Id", collection)
+                super().set_property(self.value_column(name), collection)
                 super().set_property(name, value, False)
             elif isinstance(value, FieldLookupValue):
-                super().set_property(f"{name}Id", value.LookupId)
+                super().set_property(self.value_column(name), value.LookupId)
                 super().set_property(name, value, False)
             else:
                 super().set_property(name, value, persist_changes)
@@ -796,44 +1036,46 @@ class ListItem(SecurableObject):
     def _set_taxonomy_field_value(self, name: str, value: TaxonomyFieldValueCollection) -> None:
         """Sets a multi-value taxonomy column.
 
-        A taxonomy column keeps its value in a hidden note companion column, and
-        the collection must be written there as a ``WssId;#Label|TermGuid`` string.
-        The companion's *item* property is its ``EntityPropertyName`` (==
-        ``InternalName``) — not the field's ``StaticName``, which for a
-        library-created column is a random token (writing it fails with "The
-        property ... does not exist on type"). Because ``update()``/``create()``
-        snapshot the item properties when they are called, the companion name is
-        resolved synchronously here; a deferred lookup would set the property after
-        the payload was already built and silently drop the value.
+        A taxonomy column keeps its value in a hidden note companion column, and the
+        collection must be written there as a ``WssId;#Label|TermGuid`` string. Which
+        column that is is a fact about the column itself (it names its note by id), so the
+        column set is read once and each column answers its own companion. The companion's
+        *item* property is its ``InternalName``, not the field's ``StaticName``, which for a
+        column created through the API is a random token (writing it fails with "The
+        property ... does not exist on type").
+
+        Because ``update()``/``create()`` snapshot the item properties when they are called,
+        the companion is resolved synchronously; a deferred lookup would set the property
+        after the payload was already built and silently drop the value.
+
+        A column set that names no note, or a ``name`` that is not a Managed Metadata column
+        of this list, raises: the value has nowhere to go, and leaving the property unset
+        would report a write that never happened.
 
         Args:
             name (str): Taxonomy field name
             value (TaxonomyFieldValueCollection): Taxonomy field value
         """
-        if self.parent_list is None:
-            return
-        try:
-            tax_field = (
-                self.parent_list.fields.get_by_internal_name_or_title(name).select(["TextField"]).get().execute_query()
-            )
-            text_field_id = tax_field.properties.get("TextField")
-            if not text_field_id:
-                return
-            text_field = (
-                self.parent_list.fields.get_by_id(text_field_id)
-                .select(["EntityPropertyName", "InternalName", "StaticName"])
-                .get()
-                .execute_query()
-            )
-        except Exception:  # noqa: BLE001 — an unresolvable companion leaves the column unset
-            return
-        properties = text_field.properties
-        note_name = (
-            properties.get("EntityPropertyName") or properties.get("InternalName") or properties.get("StaticName")
+        # ``TypeAsString`` is what makes the collection answer a Managed Metadata column
+        # with :class:`TaxonomyField`; without it the columns read back as plain ``Field``
+        # and none of them names its note.
+        fields = (
+            self.parent_list.fields.select(["Id", "InternalName", "Title", "TypeAsString", "TextField"])
+            .get()
+            .execute_query()
         )
-        if note_name:
-            self.set_property(note_name, str(value))
+        note_name = None
+        for field in fields:
+            if isinstance(field, TaxonomyField) and name in (field.internal_name, field.title):
+                note_name = field.text_field_name
+                break
+        if not note_name:
+            raise ValueError(
+                f"{name!r} is not a Managed Metadata column of this list, or it names no note column to carry its value"
+            )
+        self.set_property(note_name, str(value))
 
+    @site_access(SiteLevel.READ)
     def ensure_type_name(self, target_list) -> Self:
         """Determine the metadata type annotation for this list item.
 
@@ -855,6 +1097,7 @@ class ListItem(SecurableObject):
             target_list.context.add_query(DeferredOperationQuery(target_list.context))
         return self
 
+    @odata(name="FieldValuesAsText", navigation=True)
     @property
     def field_values_as_text(self) -> FieldStringValues:
         """Gets the FieldValuesAsText property"""
@@ -864,6 +1107,7 @@ class ListItem(SecurableObject):
             "FieldValuesAsText", FieldStringValues(self.context, ResourcePath("FieldValuesAsText", self.resource_path))
         )
 
+    @odata(name="FieldValuesForEdit", navigation=True)
     @property
     def field_values_for_edit(self) -> FieldStringValues:
         """Gets the FieldValuesForEdit property"""
@@ -873,6 +1117,7 @@ class ListItem(SecurableObject):
             "FieldValuesForEdit", FieldStringValues(self.context, ResourcePath("FieldValuesForEdit", self.resource_path))
         )
 
+    @site_access(SiteLevel.WRITE)
     def add_thumbnail_field_data(
         self, image_stream: bytes, image_name: str, field_internal_name: str, lock_id: str
     ) -> ClientResult[SPImageItem]:
@@ -907,6 +1152,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def delete_with_parameters(self, parameters: ListItemDeleteParameters) -> Self:
         """DeleteWithParameters operation.
 
@@ -918,6 +1164,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ)
     def do_entities_have_access_to_label(
         self, people_picker_input: str
     ) -> ClientResult[ClientValueCollection[LabelAccessControlData]]:
@@ -938,6 +1185,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def folder_archive_progress(self) -> ClientResult[str]:
         """FolderArchiveProgress operation."""
         return_type = ClientResult(self.context, str())
@@ -945,6 +1193,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def folder_unarchive_progress(self) -> ClientResult[str]:
         """FolderUnarchiveProgress operation."""
         return_type = ClientResult(self.context, str())
@@ -952,6 +1201,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def media_service_update(self, parameters: MediaServiceUpdateParameters) -> Self:
         """MediaServiceUpdate operation.
 
@@ -963,6 +1213,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def media_service_update_v2(self, parameters: MediaServiceUpdateParameters, event_firing_enabled: bool) -> Self:
         """MediaServiceUpdateV2 operation.
 
@@ -983,6 +1234,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def recycle_with_parameters(self, parameters: ListItemDeleteParameters) -> ClientResult[UUID]:
         """RecycleWithParameters operation.
 
@@ -995,6 +1247,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ)
     def render_list_item_data_as_stream(self, options: int) -> ClientResult[bytes]:
         """RenderListItemDataAsStream operation.
 
@@ -1007,6 +1260,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag(
         self,
         compliance_tag: str,
@@ -1050,6 +1304,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag_with_explicit_metas_update(
         self,
         compliance_tag: str,
@@ -1085,6 +1340,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag_with_meta_info(
         self,
         compliance_tag: str,
@@ -1132,6 +1388,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag_with_no_hold(self, compliance_tag: str) -> Self:
         """SetComplianceTagWithNoHold operation.
 
@@ -1145,6 +1402,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag_with_record(self, compliance_tag: str) -> Self:
         """SetComplianceTagWithRecord operation.
 
@@ -1158,6 +1416,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.WRITE)
     def unarchive(self) -> ClientResult[str]:
         """Unarchive operation."""
         return_type = ClientResult(self.context, str())
@@ -1165,6 +1424,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def validate_update_fetch_list_item(
         self,
         form_values: ClientValueCollection[ListItemFormUpdateValue],
@@ -1215,6 +1475,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def validate_update_fetch_list_item_in_folder(
         self,
         form_values: ClientValueCollection[ListItemFormUpdateValue],
@@ -1261,6 +1522,7 @@ class ListItem(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.WRITE)
     def set_compliance_tag_v2(
         self,
         compliance_tag: str,
@@ -1307,3 +1569,268 @@ class ListItem(SecurableObject):
         )
         self.context.add_query(qry)
         return self
+
+    @odata(name="ContentTypeId", system=True, readonly=True)
+    @property
+    def content_type_id(self) -> Optional[str]:
+        """Gets the ContentTypeId property"""
+        return self.properties.get("ContentTypeId", None)
+
+    @odata(name="OData__HasCopyDestinations", system=True, readonly=True)
+    @property
+    def has_copy_destinations(self) -> Optional[bool]:
+        """Gets the OData__HasCopyDestinations property"""
+        return self.properties.get("OData__HasCopyDestinations", None)
+
+    @odata(name="OData__CopySource", system=True, readonly=True)
+    @property
+    def copy_source(self) -> Optional[str]:
+        """Gets the OData__CopySource property"""
+        return self.properties.get("OData__CopySource", None)
+
+    @odata(name="OData__ModerationStatus", system=True, readonly=True, facet=MODERATION)
+    @property
+    def moderation_status(self) -> Optional[SPModerationStatusType]:
+        """The item's approval status.
+
+        The column declares its own values (``SPModerationStatusType``); the wire sends
+        the number, so the getter converts rather than handing the raw integer out.
+        """
+        value = self.properties.get("OData__ModerationStatus", None)
+        if value is None or isinstance(value, SPModerationStatusType):
+            return value
+        return cast("Optional[SPModerationStatusType]", parse_enum(SPModerationStatusType, value))
+
+    @odata(name="OData__ModerationComments", system=True, facet=MODERATION)
+    @property
+    def moderation_comments(self) -> Optional[str]:
+        """Gets the OData__ModerationComments property"""
+        return self.properties.get("OData__ModerationComments", None)
+
+    @odata(name="FileDirRef", system=True, readonly=True)
+    @property
+    def file_dir_ref(self) -> Optional[str]:
+        """Gets the FileDirRef property"""
+        return self.properties.get("FileDirRef", None)
+
+    @odata(name="FSObjType", system=True, readonly=True)
+    @property
+    def fs_obj_type(self) -> Optional[int]:
+        """Gets the FSObjType property"""
+        return self.properties.get("FSObjType", None)
+
+    @odata(name="PermMask", system=True, readonly=True)
+    @property
+    def perm_mask(self) -> Optional[str]:
+        """Gets the PermMask property"""
+        return self.properties.get("PermMask", None)
+
+    @odata(name="PrincipalCount", system=True, readonly=True)
+    @property
+    def principal_count(self) -> Optional[str]:
+        """Gets the PrincipalCount property"""
+        return self.properties.get("PrincipalCount", None)
+
+    @odata(name="UniqueId", system=True, readonly=True)
+    @property
+    def unique_id(self) -> Optional[UUID]:
+        """Gets the UniqueId property"""
+        return self.properties.get("UniqueId", None)
+
+    @odata(name="File_x0020_Type", system=True, readonly=True)
+    @property
+    def file_type(self) -> Optional[str]:
+        """Gets the File_x0020_Type property"""
+        return self.properties.get("File_x0020_Type", None)
+
+    @odata(name="HTML_x0020_File_x0020_Type", system=True, readonly=True)
+    @property
+    def html_file_type(self) -> Optional[str]:
+        """Gets the HTML_x0020_File_x0020_Type property"""
+        return self.properties.get("HTML_x0020_File_x0020_Type", None)
+
+    @odata(name="OData__EditMenuTableStart", system=True, readonly=True)
+    @property
+    def edit_menu_table_start(self) -> Optional[str]:
+        """Gets the OData__EditMenuTableStart property"""
+        return self.properties.get("OData__EditMenuTableStart", None)
+
+    @odata(name="OData__EditMenuTableStart2", system=True, readonly=True)
+    @property
+    def edit_menu_table_start2(self) -> Optional[str]:
+        """Gets the OData__EditMenuTableStart2 property"""
+        return self.properties.get("OData__EditMenuTableStart2", None)
+
+    @odata(name="OData__EditMenuTableEnd", system=True, readonly=True)
+    @property
+    def edit_menu_table_end(self) -> Optional[str]:
+        """Gets the OData__EditMenuTableEnd property"""
+        return self.properties.get("OData__EditMenuTableEnd", None)
+
+    @odata(name="LinkFilenameNoMenu", system=True, readonly=True)
+    @property
+    def link_filename_no_menu(self) -> Optional[str]:
+        """Gets the LinkFilenameNoMenu property"""
+        return self.properties.get("LinkFilenameNoMenu", None)
+
+    @odata(name="LinkFilename", system=True, readonly=True)
+    @property
+    def link_filename(self) -> Optional[str]:
+        """Gets the LinkFilename property"""
+        return self.properties.get("LinkFilename", None)
+
+    @odata(name="LinkFilename2", system=True, readonly=True)
+    @property
+    def link_filename2(self) -> Optional[str]:
+        """Gets the LinkFilename2 property"""
+        return self.properties.get("LinkFilename2", None)
+
+    @odata(name="DocIcon", system=True, readonly=True)
+    @property
+    def doc_icon(self) -> Optional[str]:
+        """Gets the DocIcon property"""
+        return self.properties.get("DocIcon", None)
+
+    @odata(name="ServerUrl", system=True, readonly=True)
+    @property
+    def server_url(self) -> Optional[str]:
+        """Gets the ServerUrl property"""
+        return self.properties.get("ServerUrl", None)
+
+    @odata(name="BaseName", system=True, readonly=True)
+    @property
+    def base_name(self) -> Optional[str]:
+        """Gets the BaseName property"""
+        return self.properties.get("BaseName", None)
+
+    @odata(name="OData__Level", system=True, readonly=True)
+    @property
+    def level(self) -> Optional[int]:
+        """Gets the OData__Level property"""
+        return self.properties.get("OData__Level", None)
+
+    @odata(name="OData__IsCurrentVersion", system=True, readonly=True)
+    @property
+    def is_current_version(self) -> Optional[bool]:
+        """Gets the OData__IsCurrentVersion property"""
+        return self.properties.get("OData__IsCurrentVersion", None)
+
+    @odata(name="OData__IsRecord", system=True, readonly=True)
+    @property
+    def is_record(self) -> Optional[str]:
+        """Gets the OData__IsRecord property"""
+        return self.properties.get("OData__IsRecord", None)
+
+    @odata(name="OData__ColorHex", system=True, readonly=True)
+    @property
+    def color_hex(self) -> Optional[str]:
+        """Gets the OData__ColorHex property"""
+        return self.properties.get("OData__ColorHex", None)
+
+    @odata(name="OData__ColorTag", system=True, readonly=True)
+    @property
+    def color_tag(self) -> Optional[str]:
+        """Gets the OData__ColorTag property"""
+        return self.properties.get("OData__ColorTag", None)
+
+    @odata(name="OData__Emoji", system=True, readonly=True)
+    @property
+    def emoji(self) -> Optional[str]:
+        """Gets the OData__Emoji property"""
+        return self.properties.get("OData__Emoji", None)
+
+    @odata(name="MainLinkSettings", system=True, readonly=True)
+    @property
+    def main_link_settings(self) -> Optional[str]:
+        """Gets the MainLinkSettings property"""
+        return self.properties.get("MainLinkSettings", None)
+
+    @odata(name="AppAuthorId", system=True, readonly=True)
+    @property
+    def app_author_id(self) -> Optional[int]:
+        """Gets the AppAuthorId property"""
+        return self.properties.get("AppAuthorId", None)
+
+    @odata(name="AppEditorId", system=True, readonly=True)
+    @property
+    def app_editor_id(self) -> Optional[int]:
+        """Gets the AppEditorId property"""
+        return self.properties.get("AppEditorId", None)
+
+    @odata(name="SelectTitle", system=True, readonly=True)
+    @property
+    def select_title(self) -> Optional[str]:
+        """Gets the SelectTitle property"""
+        return self.properties.get("SelectTitle", None)
+
+    @odata(name="Edit", system=True, readonly=True)
+    @property
+    def edit(self) -> Optional[str]:
+        """Gets the Edit property"""
+        return self.properties.get("Edit", None)
+
+    @odata(name="owshiddenversion", system=True, readonly=True)
+    @property
+    def owshiddenversion(self) -> Optional[int]:
+        """Gets the owshiddenversion property"""
+        return self.properties.get("owshiddenversion", None)
+
+    @odata(name="OData__UIVersion", system=True, readonly=True)
+    @property
+    def ui_version(self) -> Optional[int]:
+        """Gets the OData__UIVersion property"""
+        return self.properties.get("OData__UIVersion", None)
+
+    @odata(name="OData__UIVersionString", system=True, readonly=True)
+    @property
+    def ui_version_string(self) -> Optional[str]:
+        """Gets the OData__UIVersionString property"""
+        return self.properties.get("OData__UIVersionString", None)
+
+    @odata(name="InstanceID", system=True, readonly=True)
+    @property
+    def instance_id(self) -> Optional[int]:
+        """Gets the InstanceID property"""
+        return self.properties.get("InstanceID", None)
+
+    @odata(name="Order", system=True)
+    @property
+    def order(self) -> Optional[float]:
+        """Gets the Order property"""
+        return self.properties.get("Order", None)
+
+    @odata(name="GUID", system=True, readonly=True)
+    @property
+    def guid(self) -> Optional[UUID]:
+        """Gets the GUID property"""
+        return self.properties.get("GUID", None)
+
+    @odata(name="WorkflowVersion", system=True, readonly=True)
+    @property
+    def workflow_version(self) -> Optional[int]:
+        """Gets the WorkflowVersion property"""
+        return self.properties.get("WorkflowVersion", None)
+
+    @odata(name="WorkflowInstanceID", system=True, readonly=True)
+    @property
+    def workflow_instance_id(self) -> Optional[UUID]:
+        """Gets the WorkflowInstanceID property"""
+        return self.properties.get("WorkflowInstanceID", None)
+
+    @odata(name="ComplianceAssetId", system=True, readonly=True)
+    @property
+    def compliance_asset_id(self) -> Optional[str]:
+        """Gets the ComplianceAssetId property"""
+        return self.properties.get("ComplianceAssetId", None)
+
+    @odata(name="Last_x0020_Modified", system=True, readonly=True)
+    @property
+    def last_modified(self) -> Optional[datetime.datetime]:
+        """Gets the Last_x0020_Modified property"""
+        return self.properties.get("Last_x0020_Modified", None)
+
+    @odata(name="Created_x0020_Date", system=True, readonly=True)
+    @property
+    def created_date(self) -> Optional[datetime.datetime]:
+        """Gets the Created_x0020_Date property"""
+        return self.properties.get("Created_x0020_Date", None)

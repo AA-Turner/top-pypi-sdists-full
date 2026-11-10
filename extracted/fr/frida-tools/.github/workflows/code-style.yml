@@ -1,0 +1,16 @@
+name: code-style
+on: [push, pull_request]
+jobs:
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: psf/black@stable
+  isort:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: 3.8
+      - uses: jamescurtin/isort-action@master

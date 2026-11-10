@@ -326,6 +326,7 @@ class FeatrixSphere(HTTPClientMixin):
         time_column: Optional[str] = None,
         priority: Optional[str] = None,
         training_strategy: Optional[str] = None,
+        training_seed: Optional[int] = None,
         **kwargs
     ) -> FoundationalModel:
         """
@@ -395,10 +396,28 @@ class FeatrixSphere(HTTPClientMixin):
                 "stack:featrix_forest_ensemble",
                 "stack:featrix_forest_joined_ensemble", "stack:featrix_forest_tokens",
                 "stack:featrix_forest_masked", "stack:featrix_forest_masked_joined",
-                "stack:simple_forest_neighbors". An
+                "stack:featrix_forest_shadow", "stack:featrix_forest_shadow_joined",
+                "stack:featrix_forest_loss_attention",
+                "stack:featrix_forest_loss_attention_joined",
+                "stack:simple_forest_neighbors", "stack:simple_forest_sets",
+                "stack:simple_forest_wide_codec", "stack:simple_forest_onehot",
+                "stack:simple_forest_rich", "stack:featrix_forest_tuned" or
+                "stack:featrix_forest_joined_tuned". Any of them may end in
+                predictor add-ons "+target_trees", "+forest_residual" (the
+                predictor learns the correction to a target forest),
+                "+forest_distill" (trains on the forest's predictions, then the
+                labels) or "+soft_trees" (the target forest made differentiable
+                and refined), e.g. "stack:simple_forest+soft_trees". An
                 unknown name is rejected by the server (HTTP 400). The model
                 card reports the strategy the model was actually built with
                 (model_identification.training_strategy).
+            training_seed: Pin the random seed training uses (an integer in
+                0..4294967295), so two trainings of the same data on the same
+                build start from the same dice -- e.g. both arms of an A/B.
+                Predictors trained on this foundational model use the same seed.
+                Omitted: the server's default. A non-integer is rejected
+                (HTTP 400). The model card reports it
+                (model_identification.training_seed).
             **kwargs: Additional parameters
 
         Returns:
@@ -445,6 +464,7 @@ class FeatrixSphere(HTTPClientMixin):
                 session_name_prefix=session_name_prefix,
                 priority=priority,
                 training_strategy=training_strategy,
+                training_seed=training_seed,
                 **kwargs
             )
 
@@ -509,6 +529,8 @@ class FeatrixSphere(HTTPClientMixin):
             form_data['priority'] = priority
         if training_strategy:
             form_data['training_strategy'] = training_strategy
+        if training_seed is not None:
+            form_data['training_seed'] = str(training_seed)
 
         # Add any extra kwargs
         for key, value in kwargs.items():
@@ -1148,6 +1170,7 @@ class FeatrixSphere(HTTPClientMixin):
         session_name_prefix: Optional[str] = None,
         priority: Optional[str] = None,
         training_strategy: Optional[str] = None,
+        training_seed: Optional[int] = None,
         **kwargs
     ) -> FoundationalModel:
         """Create foundational model from S3 URL via the create-embedding-space endpoint."""
@@ -1174,6 +1197,8 @@ class FeatrixSphere(HTTPClientMixin):
             data['priority'] = priority
         if training_strategy:
             data['training_strategy'] = training_strategy
+        if training_seed is not None:
+            data['training_seed'] = training_seed
         if self._current_project_id:
             data['project_id'] = self._current_project_id
 

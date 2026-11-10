@@ -10,10 +10,17 @@ from ..core.http_response import AsyncHttpResponse, HttpResponse
 from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
+from ..errors.bad_gateway_error import BadGatewayError
 from ..errors.bad_request_error import BadRequestError
+from ..errors.content_too_large_error import ContentTooLargeError
 from ..errors.forbidden_error import ForbiddenError
+from ..errors.gateway_timeout_error import GatewayTimeoutError
 from ..errors.internal_server_error import InternalServerError
+from ..errors.not_found_error import NotFoundError
+from ..errors.payment_required_error import PaymentRequiredError
+from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.too_many_requests_error import TooManyRequestsError
+from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..requests.chat_completion_request_message import ChatCompletionRequestMessageParams
 from ..requests.chat_completion_tool import ChatCompletionToolParams
@@ -30,6 +37,30 @@ from ..types.v2model_ids import V2ModelIds
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
+
+# /v2/chat/completions is hand-written (see .fernignore), so it maps error statuses to the
+# same typed errors the generated methods raise. Any other status stays a plain ApiError.
+_V2_ERRORS: typing.Dict[int, typing.Callable[..., ApiError]] = {
+    400: BadRequestError,
+    401: UnauthorizedError,
+    402: PaymentRequiredError,
+    403: ForbiddenError,
+    404: NotFoundError,
+    413: ContentTooLargeError,
+    422: UnprocessableEntityError,
+    429: TooManyRequestsError,
+    500: InternalServerError,
+    502: BadGatewayError,
+    503: ServiceUnavailableError,
+    504: GatewayTimeoutError,
+}
+
+
+def _raise_v2_error(status_code: int, headers: typing.Dict[str, str], body: typing.Any) -> typing.NoReturn:
+    error = _V2_ERRORS.get(status_code)
+    if error is not None:
+        raise error(body=body, headers=headers)
+    raise ApiError(status_code=status_code, headers=headers, body=body)
 
 
 class RawChatClient:
@@ -444,8 +475,8 @@ class RawChatClient:
                 return HttpResponse(response=response, data=data)
             response_json = response.json()
         except JSONDecodeError:
-            raise ApiError(status_code=response.status_code, headers=dict(response.headers), body=response.text)
-        raise ApiError(status_code=response.status_code, headers=dict(response.headers), body=response_json)
+            _raise_v2_error(response.status_code, dict(response.headers), response.text)
+        _raise_v2_error(response.status_code, dict(response.headers), response_json)
 
     @staticmethod
     def _completions_v2_body(
@@ -570,7 +601,7 @@ class RawChatClient:
                     body = response.json()
                 except Exception:
                     body = response.text
-                raise ApiError(status_code=response.status_code, headers=dict(response.headers), body=body)
+                _raise_v2_error(response.status_code, dict(response.headers), body)
             for line in response.iter_lines():
                 if not line or not line.startswith("data: "):
                     continue
@@ -1082,8 +1113,8 @@ class AsyncRawChatClient:
                 return AsyncHttpResponse(response=response, data=data)
             response_json = response.json()
         except JSONDecodeError:
-            raise ApiError(status_code=response.status_code, headers=dict(response.headers), body=response.text)
-        raise ApiError(status_code=response.status_code, headers=dict(response.headers), body=response_json)
+            _raise_v2_error(response.status_code, dict(response.headers), response.text)
+        _raise_v2_error(response.status_code, dict(response.headers), response_json)
 
     async def _completions_v2_stream(
         self,
@@ -1147,7 +1178,7 @@ class AsyncRawChatClient:
                     body = response.json()
                 except Exception:
                     body = response.text
-                raise ApiError(status_code=response.status_code, headers=dict(response.headers), body=body)
+                _raise_v2_error(response.status_code, dict(response.headers), body)
             async for line in response.aiter_lines():
                 if not line or not line.startswith("data: "):
                     continue

@@ -7,9 +7,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .const import (
+    CHARGING_CONNECTOR_LOCK_STATE,
     CONNECTOR_FASTENING_STATE,
     DISTANCE_UNITS,
     ENGINE_TYPES,
+    FUEL_ECONOMY_UNITS,
     PRESSURE_UNITS,
     PressureUnit,
 )
@@ -142,6 +144,9 @@ class Vehicle:
 
     _geocode_address: str | None = None
     _geocode_name: str | None = None
+    # Coordinates of the last successful reverse geocode, to skip unchanged lookups.
+    _geocode_latitude: float | None = None
+    _geocode_longitude: float | None = None
 
     car_battery_percentage: int | None = None
     engine_is_running: bool | None = None
@@ -211,8 +216,8 @@ class Vehicle:
 
     # Cached-failure flags for GSPA query endpoints (reset by force refresh).
     # _ota_checked: True after the first OTA check (no re-check until force
-    # refresh); _valet_failed: pessimistic circuit — True while a valet read
-    # is in flight or after a failure, reset to False on success.
+    # refresh); _valet_failed: True after a failed valet read, so later
+    # polls skip it until force refresh resets it.
     _ota_checked: bool = False
     _valet_failed: bool = False
 
@@ -318,7 +323,8 @@ class Vehicle:
     ev_charge_expected_end_time: datetime.time | None = None
 
     # Average fuel economy (Drivetrain.FuelSystem.AverageFuelEconomy);
-    # values raw, Unit enum not translated (differs per powertrain).
+    # values raw, the *_unit properties translate Unit for the DYNAMIC_UNIT
+    # pattern.
     average_fuel_economy_accumulated: float | None = None
     average_fuel_economy_drive: float | None = None
     average_fuel_economy_after_refuel: float | None = None
@@ -431,6 +437,9 @@ class Vehicle:
     # Raw connector-fastening state from the stored status (0 = disconnected,
     # 1 = connected; unknown or unreported = None).
     ev_connector_fastening_state: CONNECTOR_FASTENING_STATE | None = None
+    # Connector lock actuator state; 1 = unlocked says nothing about the
+    # cable, 5 = released and the cable can be pulled (kia_uvo#2069).
+    ev_connector_lock_state: CHARGING_CONNECTOR_LOCK_STATE | None = None
 
     _ev_driving_range: float | None = None
     _ev_driving_range_value: float | None = None
@@ -558,6 +567,18 @@ class Vehicle:
     @property
     def tire_pressure_rear_right_unit(self) -> str | None:
         return self._tire_pressure_unit_label()
+
+    @property
+    def average_fuel_economy_accumulated_unit(self) -> str | None:
+        return FUEL_ECONOMY_UNITS.get(self.average_fuel_economy_unit)
+
+    @property
+    def average_fuel_economy_drive_unit(self) -> str | None:
+        return FUEL_ECONOMY_UNITS.get(self.average_fuel_economy_unit)
+
+    @property
+    def average_fuel_economy_after_refuel_unit(self) -> str | None:
+        return FUEL_ECONOMY_UNITS.get(self.average_fuel_economy_unit)
 
     @property
     def next_service_distance(self) -> float | None:

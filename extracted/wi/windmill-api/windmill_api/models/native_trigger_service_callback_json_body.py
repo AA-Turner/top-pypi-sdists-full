@@ -12,18 +12,15 @@ class NativeTriggerServiceCallbackJsonBody:
     Attributes:
         code (str):
         state (str):
-        redirect_uri (str):
     """
 
     code: str
     state: str
-    redirect_uri: str
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         code = self.code
         state = self.state
-        redirect_uri = self.redirect_uri
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -31,7 +28,6 @@ class NativeTriggerServiceCallbackJsonBody:
             {
                 "code": code,
                 "state": state,
-                "redirect_uri": redirect_uri,
             }
         )
 
@@ -44,12 +40,9 @@ class NativeTriggerServiceCallbackJsonBody:
 
         state = d.pop("state")
 
-        redirect_uri = d.pop("redirect_uri")
-
         native_trigger_service_callback_json_body = cls(
             code=code,
             state=state,
-            redirect_uri=redirect_uri,
         )
 
         native_trigger_service_callback_json_body.additional_properties = d

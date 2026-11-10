@@ -54,6 +54,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
+from datetime import date
 from functools import wraps
 from pathlib import Path
 from typing import Any, NamedTuple, NoReturn
@@ -63,6 +64,7 @@ from . import (
     context_roles,
     freshness,
     lifecycle_statuses,
+    procedure_approval,
     sidecar_store,
     view_lag,
     working_set,
@@ -80,6 +82,7 @@ CACHE_SIZE = 16
 
 _PACKET_WARNING_EMITTED = False
 _SLICE_WARNING_EMITTED = False
+_RELEASED_CORPUS_TASKS_WARNING_EMITTED = False
 
 
 def activation_packet_mode() -> str:
@@ -111,6 +114,26 @@ def activation_turn_slice() -> bool:
             log.warning("invalid EXOMEM_ACTIVATION_TURN_SLICE; using on")
             _SLICE_WARNING_EMITTED = True
     return True
+
+
+def activation_released_corpus_tasks() -> bool:
+    """Whether task discovery may prepare the caller's complete released corpus; `off` is the default.
+
+    Discovery takes that path whenever the raw fast path is unavailable: for a restricted caller, and for every
+    caller on a vault with a file release policy or a bound writer. It prepares the
+    whole corpus on each request, which does not yet meet the activation latency ceiling at scale, so such a
+    request gets an unavailable task context unless the setting is `on`.
+    """
+    global _RELEASED_CORPUS_TASKS_WARNING_EMITTED
+    value = os.environ.get("EXOMEM_ACTIVATION_RELEASED_CORPUS_TASKS", "off")
+    # nosemgrep: ep-word-set -- The activation specification fixes both values of the setting.
+    if value in ("on", "off"):
+        return value == "on"
+    with _CACHE_LOCK:
+        if not _RELEASED_CORPUS_TASKS_WARNING_EMITTED:
+            log.warning("invalid EXOMEM_ACTIVATION_RELEASED_CORPUS_TASKS; using off")
+            _RELEASED_CORPUS_TASKS_WARNING_EMITTED = True
+    return False
 
 
 _DEFERRED_BUILDS: ContextVar[dict[Path, str] | None] = ContextVar(
@@ -304,6 +327,8 @@ def cache_key(
 
     """
     return (
+        # Currency and weak-state ages change at midnight without a vault write.
+        date.today().isoformat(),
         tuple(freshness_key) if isinstance(freshness_key, (list, tuple)) else str(freshness_key),
         int(index_generation),
         str(roles_hash),
@@ -398,6 +423,7 @@ def encode_continuity(
     thread_ns: int | None = None,
     salt: str = "",
     map_generation: str | None = None,
+    method_versions: Sequence[Mapping[str, str]] = (),
 ) -> str:
     """Base64 of the compact JSON payload. No secret, and the refs unsigned.
 
@@ -438,6 +464,8 @@ def encode_continuity(
     }
     if map_generation is not None:
         payload["map_generation"] = str(map_generation)
+    if method_versions:
+        payload["method_versions"] = [dict(item) for item in method_versions]
     if minted_ns is not None:
         payload["minted_ns"] = int(minted_ns)
     if thread:
@@ -453,6 +481,10 @@ def encode_continuity(
         )
         if mac:
             payload["mac"] = mac
+    return _pack(payload)
+
+
+def _pack(payload: Mapping[str, Any]) -> str:
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
     # `surrogatepass`, symmetrically with `decode_continuity`. A vault path reaches
     # Python through filesystem decoding, so a filename with invalid UTF-8 arrives
@@ -463,6 +495,24 @@ def encode_continuity(
     return (
         base64.urlsafe_b64encode(raw.encode("utf-8", "surrogatepass")).decode("ascii").rstrip("=")
     )
+
+
+def with_capture_policy(token: str | None, digest: str) -> str:
+    """`token` with the digest of the capture policy its holder was last handed.
+
+    The caller echoes the token on every call, on any transport, so the digest travels with the
+    conversation and the server keeps no state for it. The digest is unsigned on purpose: a forged
+    digest only withholds advice from its own holder and grants no authority. The signed thread fields are untouched. A
+    token this server did not write, or one the digest would push past `CONTINUITY_MAX_CHARS`,
+    comes back unchanged, and its holder is then owed the policy again.
+    """
+    text = str(token or "").strip()
+    if decode_continuity(text) is None:
+        return text
+    payload = json.loads(base64.urlsafe_b64decode(text + "=" * (-len(text) % 4)).decode("utf-8", "surrogatepass"))
+    payload["capture_policy"] = str(digest)
+    stamped = _pack(payload)
+    return stamped if len(stamped) <= CONTINUITY_MAX_CHARS else text
 
 
 def decode_continuity(token: str | None) -> dict[str, Any] | None:
@@ -543,6 +593,25 @@ def decode_continuity(token: str | None) -> dict[str, Any] | None:
     }
     if isinstance(payload.get("map_generation"), str):
         decoded["map_generation"] = payload["map_generation"]
+    # Optional: a token minted before the capture policy rode the packet names none.
+    if isinstance(payload.get("capture_policy"), str):
+        decoded["capture_policy"] = payload["capture_policy"]
+    methods = payload.get("method_versions")
+    decoded["method_versions"] = []
+    if isinstance(methods, list) and len(methods) + len(refs) <= CONTINUITY_MAX_REFS:
+        # These fixed field names define read hints, never semantic vocabulary or anchor evidence.
+        for item in methods:
+            if isinstance(item, dict) and all(
+                isinstance(item.get(key), str) and item[key] and len(item[key]) <= CONTINUITY_MAX_CHARS
+                for key in ("ref", "source_ref", "source_version")
+            ):
+                hint = {key: item[key] for key in ("ref", "source_ref", "source_version")}
+                # Only `approved` and `stale` ride a hint. A token from before approvals, or one naming a value this
+                # server never writes, carries none, and the absence reads unapproved.
+                held = item.get("approval")
+                if held in (procedure_approval.APPROVED, procedure_approval.STALE):
+                    hint["approval"] = held
+                decoded["method_versions"].append(hint)
     return decoded
 
 
@@ -1157,22 +1226,56 @@ def pin_lexical_checkpoint(
 
 @contextmanager
 def lexical_selection_scope(
-    vault_root: Path, recall_checkpoint: freshness.RecallFreshnessCheckpoint | None
-) -> Iterator[None]:
-    """Retain optional lexical reads while deferring lag repair until activation ends."""
+    vault_root: Path, recall_checkpoint: freshness.RecallFreshnessCheckpoint | None,
+    *, restricted: bool = False, purpose: str | None = None,
+) -> Iterator[freshness.RecallFreshnessCheckpoint | None]:
+    """Retain lexical reads, bridging only changes withheld from the current caller."""
     from . import lexstore
 
     if (
         recall_checkpoint is None or not _managed() or not freshness.event_indexes_enabled()
         or lexstore.backend() == "python"
     ):
-        yield
+        yield recall_checkpoint
         return
     with (
         lexstore.admitted_catalog_scope(vault_root),
-        lexstore.catalog_selection_scope(vault_root, lag_dispatch=_defer_lexical_repair),
+        lexstore.catalog_selection_scope(
+            vault_root, lag_dispatch=_defer_lexical_repair,
+        ) as selection,
     ):
-        yield
+        captured = None if selection is None else selection.checkpoints.get("kb")
+        if not restricted or captured is None or (
+            captured.instance_id == recall_checkpoint.instance_id
+            and captured.generation <= recall_checkpoint.generation
+        ):
+            # Equal or older catalogues keep their existing readiness and partial-lane outcomes.
+            yield recall_checkpoint
+            return
+        from . import find as find_module
+        from .governance import egress, policy
+
+        def prove() -> None:
+            # Re-prove both views on live authority; earlier verdicts cannot authorize a rebase.
+            with policy.outside_request_policy_snapshot():
+                visible = egress.visible_page_filter(
+                    vault_root, purpose=purpose, withheld=frozenset(),
+                )
+                request_held = captured_held = None
+                if visible is not None:
+                    request_held = view_lag.recall_withheld_lag(
+                        vault_root, "kb", recall_checkpoint, visible,
+                    )
+                    captured_held = view_lag.recall_withheld_lag(
+                        vault_root, "kb", captured, visible,
+                    )
+                if (request_held is None or captured_held is None
+                        or not egress.pin_proven_withheld(request_held | captured_held)):
+                    raise find_module.RetrievalIndexWarming(site="catalog_outcome")
+
+        prove()
+        yield captured
+        prove()
 
 
 def lexical_evidence(
@@ -2534,7 +2637,8 @@ def serve(
     """
     status_basis = status_basis or lifecycle_statuses.Basis(vault_root)
     root = Path(vault_root)
-    limit = working_set.clamp_budget(max_chars)
+    # The public leaf clamps requests; internal budgets may already reserve carrier prose.
+    limit = working_set.clamp_budget(max_chars, minimum=0)
     registry = context_roles.load_roles(root)
     conventions_registry = activation_conventions.load_conventions(root)
     stamp = _key_text(freshness_key)

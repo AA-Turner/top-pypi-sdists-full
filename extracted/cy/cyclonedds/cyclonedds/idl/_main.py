@@ -19,7 +19,7 @@ from hashlib import md5
 import threading
 
 from ._support import Buffer, Endianness, CdrKeyVmNamedJumpOp, KeyScanner, KeyScanResult, SerializeKind, DeserializeKind, DataTypeProperties
-from ._type_helper import get_origin, get_args, Annotated
+from ._type_helper import get_origin, get_args, Annotated, get_annotations
 from ._type_normalize import get_idl_annotations, get_idl_field_annotations, get_extended_type_hints
 from ._machinery import Machine
 
@@ -88,10 +88,14 @@ class IDL:
                 self.xcdrv1_head = 0x00
                 self.xcdrv2_head = 0x06
 
+            # Unions start numbering at 1 in XTypes
+            # I would've liked issubclass(..., IdlUnion), IdlUnion hasn't been defined yet
+            isunion = any(base.__name__ == "IdlUnion" for base in self.datatype.__mro__)
+
             if self.member_ids is None:
                 ids = {}
                 is_hash_id = annotations.get("autoid", "sequential") == "hash"
-                idc = 0
+                idc = 1 if isunion else 0
 
                 for name, _ in get_extended_type_hints(self.datatype).items():
                     f_annot = field_annotations.get(name, {})
@@ -155,6 +159,12 @@ class IDL:
             ibuffer.write('b', 1, 0)
             ibuffer.set_align_offset(4)
 
+        # A keyless top-level type has no key object to serialize.  In
+        # particular, appendable and mutable machines must not add their
+        # otherwise mandatory delimiters to a key that does not exist.
+        if serialize_kind != SerializeKind.DataSample and self.keyless:
+            return ibuffer.asbytes()
+
         if use_version_2:
             self.v2_machine.serialize(ibuffer, object, serialize_kind)
         else:
@@ -195,6 +205,12 @@ class IDL:
             else:
                 buffer._align_max = 8
                 machine = self.v1_machine
+
+        # The serialized key of a keyless top-level type has no payload.  The
+        # representation header, when present, was still consumed above so
+        # the usual byte order and XCDR version selection is preserved.
+        if deserialize_kind == DeserializeKind.KeySample and self.keyless:
+            return machine.default_initialize()
 
         return machine.deserialize(buffer, deserialize_kind=deserialize_kind)
 
@@ -283,6 +299,15 @@ class IDL:
             self.fill_type_data()
         return self._xt_data[0].complete.typeid_with_size.type_id
 
+def get_unknown_members(cls: type, bases: tuple[type, ...]) -> set[str]:
+    inherited_field_annotations = {
+        k for base in bases
+        for k in getattr(base, '__idl_field_annotations__', {}).keys()
+    }
+    unknown_members =  cls.__idl_field_annotations__.keys() - inherited_field_annotations - get_annotations(cls).keys()
+    if unknown_members:
+        raise Exception(f'{unknown_members=}')
+    return unknown_members
 
 class IdlMeta(type):
     __idl__: ClassVar['IDL']
@@ -298,7 +323,6 @@ class IdlMeta(type):
             del kwds["typename"]
 
         namespace = super().__prepare__(__name, __bases, **kwds)
-        namespace["__annotations__"] = {}
         namespace["__idl_annotations__"] = {}
         namespace["__idl_field_annotations__"] = {}
         if typename:
@@ -306,7 +330,6 @@ class IdlMeta(type):
 
         for base in __bases:
             if isinstance(base, IdlMeta):
-                namespace["__annotations__"].update(base.__annotations__)
                 namespace["__idl_annotations__"].update(base.__idl_annotations__)
                 namespace["__idl_field_annotations__"].update(base.__idl_field_annotations__)
 
@@ -316,6 +339,10 @@ class IdlMeta(type):
     def __new__(metacls, name, bases, namespace, **kwds):
         IDLNamespaceScope.exit()
         new_cls = super().__new__(metacls, name, bases, dict(**namespace))
+
+        unknown_members = get_unknown_members(cls=new_cls, bases=bases)
+        if unknown_members:
+            raise TypeError(f"Members {unknown_members} for {name} not defined.")
 
         if "__idl_typename__" not in namespace:
             new_cls.__idl_typename__ = name
@@ -400,7 +427,6 @@ class IdlUnionMeta(IdlMeta):
         namespace = cast(Dict[str, Any], super().__prepare__(__name, __bases, **kwds))
         namespace["__idl_discriminator__"] = discriminator
         namespace["__idl_discriminator_is_key__"] = discriminator_is_key
-        namespace["__annotations__"] = {}
         namespace["__idl_annotations__"] = {}
         namespace["__idl_field_annotations__"] = {}
         IDLNamespaceScope.enter(namespace)
@@ -409,6 +435,11 @@ class IdlUnionMeta(IdlMeta):
     def __new__(metacls, name, bases, namespace, **kwds):
         IDLNamespaceScope.exit()
         new_cls = super().__new__(metacls, name, bases, dict(**namespace))
+
+        unknown_members = get_unknown_members(cls=new_cls, bases=bases)
+        if unknown_members:
+            raise TypeError(f"Members {unknown_members} for {name} not defined.")
+
         if not len(bases):
             return new_cls
 
@@ -417,7 +448,7 @@ class IdlUnionMeta(IdlMeta):
         names = set()
 
         # Use RAW annotations here because the type strings can maybe not be resolved yet
-        for name, _type in new_cls.__annotations__.items():
+        for name, _type in get_annotations(new_cls).items():
             if get_origin(_type) != Annotated and len(get_args(_type)) != 2:
                 raise TypeError(f"Fields of a union need to be case or default, '{name}: {_type}' is not.")
             if name in ['value', 'discriminator']:
@@ -470,7 +501,6 @@ class IdlBitmaskMeta(type):
             del kwds["typename"]
 
         namespace = super().__prepare__(__name, __bases, **kwds)
-        namespace["__annotations__"] = {}
         namespace["__idl_annotations__"] = {}
         namespace["__idl_field_annotations__"] = {}
         IDLNamespaceScope.enter(namespace)
@@ -483,6 +513,10 @@ class IdlBitmaskMeta(type):
     def __new__(metacls, name, bases, namespace, **kwds):
         IDLNamespaceScope.exit()
         new_cls = super().__new__(metacls, name, bases, dict(**namespace))
+
+        unknown_members = get_unknown_members(cls=new_cls, bases=bases)
+        if unknown_members:
+            raise TypeError(f"Members {unknown_members} for {name} not defined.")
 
         if "__idl_typename__" not in namespace:
             new_cls.__idl_typename__ = name

@@ -33,6 +33,7 @@ from click.testing import CliRunner
 
 from coord import state
 from coord.audit import query_audit_log
+from coord.board_doctor import CONVERGENCE_LIMIT
 from coord.cli import main
 from coord.models import Assignment
 from tests import backends
@@ -56,9 +57,13 @@ class _Gate:
 
 
 class _GateReport:
-    def __init__(self, branch, decisions):
+    """Mirrors the `coord.gates.GateReport` fields the diagnostician reads;
+    `rows` is empty only for an issue with no assignment on the board at all."""
+
+    def __init__(self, branch, decisions, rows=None):
         self.branch = branch
         self.decisions = decisions
+        self.rows = [] if rows is None else list(rows)
 
 
 def _config_yaml(*, fleet_investigate: bool | None, repo_investigate: bool, max_parallel: int) -> str:
@@ -171,10 +176,11 @@ def gh_world(monkeypatch):
     world: dict[str, Any] = {
         "pr_state": "OPEN",
         "pr": {"number": 77},
-        "mergeable": False,
+        "mergeable": True,
         "checks": [_Check("test", "success")],
         "gates": [_Gate("merge", True)],
         "branch": "issue-branch",
+        "rows": [object()],
     }
     monkeypatch.setattr(
         "coord.github_ops.get_pr_state_for_branch", lambda repo, branch: world["pr_state"],
@@ -190,7 +196,7 @@ def gh_world(monkeypatch):
     )
     monkeypatch.setattr(
         "coord.gates.build_gate_report",
-        lambda *a, **k: _GateReport(world["branch"], world["gates"]),
+        lambda *a, **k: _GateReport(world["branch"], world["gates"], world["rows"]),
     )
     return world
 
@@ -207,6 +213,25 @@ def _stall(issue: int, reason: str, block_log_path: Path) -> None:
         }],
         path=block_log_path,
     )
+
+
+#: A stated block reason in the CI family, so the row's own `block_log`
+#: entry and the live diagnosis below agree on what is wrong with it.
+_CI_RED_REASON = "blocked: CI red, 2/2 attempts"
+
+
+def _ci_red(world: dict) -> None:
+    """Make the live probe read a failing required check on a PR GitHub
+    still calls mergeable — i.e. a `queue_diagnose.CAUSE_CI_RED`
+    diagnosis, which is one of `INVESTIGATE_CAUSES`.
+
+    Deliberately not a merge-conflict world: that cause routes to the
+    mechanical `conflict_fix_dispatch` allow-list action and never reaches
+    `coord.board_doctor_policy._investigate` at all, so it cannot exercise
+    the per-repo investigate opt-in this file is about.
+    """
+    world["checks"] = [_Check("test", "failure")]
+    world["mergeable"] = True
 
 
 def _sweep_json(output: str) -> dict:
@@ -249,27 +274,81 @@ def _dispatched_issues() -> list[int]:
     return sorted(e["issue"] for e in entries)
 
 
-def test_blocked_rows_in_an_opted_in_repo_each_get_a_fixit_leg(
+def test_a_blocked_row_in_an_opted_in_repo_gets_a_real_fixit_leg(
     config_path, cli, seed, gh_world, block_log, fake_dispatch,
 ):
-    """N blocked, eligible rows -> N real fix-it legs dispatched in one
-    sweep (subject to #3770's capacity cap, hence `max_parallel=2` for
-    N=2 rows here)."""
+    """Two blocked, eligible rows -> one real fix-it leg this sweep and
+    the other row deferred, because the investigate tier spends its own
+    dedicated fix-it-leg budget (`FIXIT_LEG_BUDGET_DEFAULT`), not the
+    repo's `max_parallel` throughput ceiling: `max_parallel=2` here buys
+    two concurrent *work* legs, never two concurrent diagnostic ones.
+    Once the dispatched row leaves the stuck set, the next sweep spends
+    the freed budget on the row it deferred."""
     _write_config(config_path, repo_investigate=True, max_parallel=2)
     seed(issues={101: "open", 102: "open"})
     cli("add", REPO, "101")
     cli("add", REPO, "102")
-    _stall(101, "merge blocked: stale test verdict (2/2 attempts)", block_log)
-    _stall(102, "merge blocked: stale test verdict (2/2 attempts)", block_log)
-    gh_world["mergeable"] = False
+    _stall(101, _CI_RED_REASON, block_log)
+    _stall(102, _CI_RED_REASON, block_log)
+    _ci_red(gh_world)
 
     result = cli("sweep", "--json")
     assert result.exit_code == 0, result.output
     payload = _sweep_json(result.output)
-    assert sorted(d["key"] for d in payload["decisions"]) == [f"{REPO}#101", f"{REPO}#102"]
-    assert [d["action"] for d in payload["decisions"]] == ["auto-dispatch", "auto-dispatch"]
+    actions = {d["key"]: d["action"] for d in payload["decisions"]}
+    assert actions == {
+        f"{REPO}#101": "auto-dispatch",
+        f"{REPO}#102": "investigate-deferred",
+    }
+    assert _dispatched_issues() == [101]
+    assert fake_dispatch == [101]
+
+    # The deferred row carries no side effect of its own — it was not
+    # escalated, so the next sweep still sees an ordinary blocked row.
+    assert state.get_drive_escalation(REPO, 102) is None
+
+    # Next sweep: row 101 has since been taken off the queue (its leg did
+    # its job), so the budget is free again and row 102 gets the leg it
+    # was deferred for — not row 101 a second time.
+    assert cli("remove", REPO, "101").exit_code == 0
+    second = cli("sweep", "--json")
+    assert second.exit_code == 0, second.output
+    second_payload = _sweep_json(second.output)
+    assert {d["key"]: d["action"] for d in second_payload["decisions"]} == {
+        f"{REPO}#102": "auto-dispatch",
+    }
     assert _dispatched_issues() == [101, 102]
-    assert sorted(fake_dispatch) == [101, 102]
+    assert fake_dispatch == [101, 102]
+
+
+def test_a_perpetually_deferred_row_escalates_after_convergence_limit(
+    config_path, cli, seed, gh_world, block_log, fake_dispatch,
+):
+    """#3918: unlike the companion test above (where removing row 101
+    frees the budget on the very next sweep), row 201 here is never
+    removed — its own dispatched fix-it leg stays active/pending on the
+    board, so it keeps occupying the repo's one-slot budget sweep over
+    sweep. Row 202 is deferred every time and must still escalate once
+    its own convergence counter reaches `CONVERGENCE_LIMIT`, driven end to
+    end through the real `coord drive-queue sweep` command rather than a
+    synthetic `capacity_check` calling `sweep()` directly."""
+    _write_config(config_path, repo_investigate=True, max_parallel=2)
+    seed(issues={201: "open", 202: "open"})
+    cli("add", REPO, "201")
+    cli("add", REPO, "202")
+    _stall(201, _CI_RED_REASON, block_log)
+    _stall(202, _CI_RED_REASON, block_log)
+    _ci_red(gh_world)
+
+    last_payload = None
+    for _ in range(CONVERGENCE_LIMIT):
+        result = cli("sweep", "--json")
+        assert result.exit_code == 0, result.output
+        last_payload = _sweep_json(result.output)
+
+    actions = {d["key"]: d["action"] for d in last_payload["decisions"]}
+    assert actions[f"{REPO}#202"] == "alert"
+    assert state.get_drive_escalation(REPO, 202) is not None
 
 
 def test_no_blocked_rows_dispatches_nothing(config_path, cli):
@@ -293,8 +372,8 @@ def test_blocked_row_in_a_non_opted_in_repo_falls_back_to_alert(
     _write_config(config_path, repo_investigate=False, max_parallel=2)
     seed(issues={201: "open"})
     cli("add", REPO, "201")
-    _stall(201, "merge blocked: stale test verdict (2/2 attempts)", block_log)
-    gh_world["mergeable"] = False
+    _stall(201, _CI_RED_REASON, block_log)
+    _ci_red(gh_world)
 
     result = cli("sweep", "--json")
     assert result.exit_code == 0, result.output
@@ -315,8 +394,8 @@ def test_opting_in_takes_effect_on_the_very_next_sweep_with_no_restart(
     _write_config(config_path, repo_investigate=False, max_parallel=2)
     seed(issues={301: "open"})
     cli("add", REPO, "301")
-    _stall(301, "merge blocked: stale test verdict (2/2 attempts)", block_log)
-    gh_world["mergeable"] = False
+    _stall(301, _CI_RED_REASON, block_log)
+    _ci_red(gh_world)
 
     first = cli("sweep", "--json")
     assert first.exit_code == 0, first.output
@@ -341,8 +420,8 @@ def test_no_investigate_flag_disarms_the_tier_fleet_wide(
     _write_config(config_path, repo_investigate=True, max_parallel=2)
     seed(issues={401: "open"})
     cli("add", REPO, "401")
-    _stall(401, "merge blocked: stale test verdict (2/2 attempts)", block_log)
-    gh_world["mergeable"] = False
+    _stall(401, _CI_RED_REASON, block_log)
+    _ci_red(gh_world)
 
     result = cli("sweep", "--no-investigate", "--json")
     assert result.exit_code == 0, result.output

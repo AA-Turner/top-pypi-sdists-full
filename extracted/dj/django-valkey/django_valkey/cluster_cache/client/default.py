@@ -1,7 +1,5 @@
-from typing import Dict
-
 from valkey.cluster import ValkeyCluster
-from valkey.typing import KeyT, EncodableT
+from valkey.typing import EncodableT, KeyT
 
 from django_valkey.base_client import BaseClient, ClientCommands, _main_exceptions
 from django_valkey.exceptions import ConnectionInterrupted
@@ -39,7 +37,7 @@ class DefaultClusterClient(ClientCommands, BaseClient[ValkeyCluster]):
 
     def mset(
         self,
-        data: Dict[KeyT, EncodableT],
+        data: dict[KeyT, EncodableT],
         version=None,
         client=None,
         nx=False,
@@ -62,21 +60,19 @@ class DefaultClusterClient(ClientCommands, BaseClient[ValkeyCluster]):
         except _main_exceptions as e:
             raise ConnectionInterrupted(connection=client) from e
 
-    def msetnx(self, data: Dict[KeyT, EncodableT], version=None, client=None) -> bool:
+    def msetnx(self, data: dict[KeyT, EncodableT], version=None, client=None) -> bool:
         try:
             return self.mset(data, version=version, client=client, nx=True)
         except _main_exceptions as e:
             raise ConnectionInterrupted(connection=client) from e
 
     def mset_nonatomic(
-        self, data: Dict[KeyT, EncodableT], version=None, client=None
+        self, data: dict[KeyT, EncodableT], version=None, client=None
     ) -> list[bool]:
         try:
             return self.mset(data, version=version, client=client, atomic=False)
         except _main_exceptions as e:
             raise ConnectionInterrupted(connection=client) from e
-
-    set_many = mset_nonatomic
 
     def mget_nonatomic(self, keys, version=None, client=None):
         client = self._get_client(client=client)
@@ -86,8 +82,9 @@ class DefaultClusterClient(ClientCommands, BaseClient[ValkeyCluster]):
         except _main_exceptions as e:
             raise ConnectionInterrupted(connection=client) from e
 
+        # values line up with map_keys, which drops repeated keys
         recovered_data = {}
-        for key, value in zip(keys, values):
+        for key, value in zip(map_keys.values(), values):
             if value is None:
                 continue
             recovered_data[key] = self.decode(value)

@@ -17,12 +17,12 @@ import traceback
 from django.http import HttpResponse, QueryDict
 from django.http.response import Http404
 from django.utils import timezone
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 
 from image.settings import IMAGE_CACHE_HTTP_EXPIRATION, IMAGE_CACHE_ROOT
 from image.storage import IMAGE_CACHE_STORAGE, MEDIA_STORAGE, STATIC_STORAGE
 from image.utils import IMAGE_DEFAULT_FORMAT, IMAGE_DEFAULT_QUALITY,\
-    image_create_token, render
+    get_content_type, image_create_token, render
 from image.videothumbs import generate_thumb
 
 
@@ -31,7 +31,9 @@ def image(request, path, token, autogen=False):
     original_token = token
     token = original_token.split("-:-")[0]
 
-    has_admin_perm = request.user.has_perm('admin') if request else False
+    has_admin_perm = (
+        getattr(request.user, 'is_staff', False) or request.user.has_perm('admin')
+    ) if (request and hasattr(request, 'user')) else False
     is_admin = False
     if ("is_admin=true" in token and request and has_admin_perm) or autogen:
         parameters = token
@@ -63,8 +65,10 @@ def image(request, path, token, autogen=False):
             f = IMAGE_CACHE_STORAGE.open(cached_image_file, "rb")
         except IOError:
             raise Http404()
-        response.write(f.read())
+        cached_data = f.read()
         f.close()
+        response['Content-type'] = get_content_type(data=cached_data)
+        response.write(cached_data)
 
         try:
             # Django 2.0 support
@@ -93,6 +97,8 @@ def image(request, path, token, autogen=False):
 
     if mask is not None:
         format = "PNG"
+
+    response['Content-type'] = get_content_type(format=format)
 
     fill = qs.get('fill', None)
     background = qs.get('background', None)
@@ -126,8 +132,8 @@ def image(request, path, token, autogen=False):
     grayscale = bool(qs.get('grayscale', False))
 
     if "video" in qs:
-        data, http_response = generate_thumb(file_storage, force_text(path))
-        response.status_code = http_response
+        data, http_response = generate_thumb(file_storage, force_str(path))
+        response.status_code = int(http_response)
     else:
         try:
             try:

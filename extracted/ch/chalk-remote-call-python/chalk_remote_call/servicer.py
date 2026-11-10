@@ -13,7 +13,10 @@ import pyarrow.ipc as ipc
 
 from chalk_remote_call.arrow_utils import decode_ipc_stream, encode_record_batch
 from chalk_remote_call.input_transform import resolve_column_names, transform
-from chalk_remote_call.tracing import remote_function_invocation_span
+from chalk_remote_call.tracing import (
+    _record_queue_wait_spans,
+    remote_function_invocation_span,
+)
 
 _Params = ParamSpec("_Params")
 _Result = TypeVar("_Result")
@@ -181,6 +184,7 @@ def process_batches(
     the returned list is empty. Input batches are decoded incrementally; a
     malformed later batch can raise after earlier handlers/responses have run.
     """
+    _record_queue_wait_spans(context_metadata)
     results: list[bytes] = []
     append_or_emit = results.append if emit is None else emit
 
@@ -241,6 +245,7 @@ def process_batches_coalesced(
         TypeError: Handler is a generator / async generator (not supported in
             coalesced mode — each caller expects exactly one response chunk).
     """
+    _record_queue_wait_spans(context_metadatas)
     if not items_ipc_bytes:
         raise ValueError("process_batches_coalesced called with no items")
     if len(items_ipc_bytes) != len(context_metadatas):
@@ -330,6 +335,7 @@ def process_batches_coalesced_combined(
             in coalesced modes — each caller expects exactly one response
             chunk).
     """
+    _record_queue_wait_spans(context_metadatas)
     if not items_ipc_bytes:
         raise ValueError("process_batches_coalesced_combined called with no items")
     if len(items_ipc_bytes) != len(context_metadatas):

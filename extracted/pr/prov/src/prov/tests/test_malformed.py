@@ -84,9 +84,10 @@ MALFORMED = Path(__file__).parent / "malformed"
         pytest.param(
             # #228 sweep: a non-formal attribute's typed-literal
             # representation is missing its required "$" (value) key.
-            # The fixture's "prefix" block is load-bearing: without it the
-            # attribute name fails qname resolution and raises
-            # ProvExceptionInvalidQualifiedName before the "$" check runs.
+            # The fixture's "prefix" block is needed, because without it the
+            # reader rejects the attribute name with a ProvJSONException
+            # before the "$" check runs, and the test would pass for the
+            # wrong reason.
             "bad_typed_literal.json",
             "json",
             ProvJSONException,
@@ -109,7 +110,9 @@ MALFORMED = Path(__file__).parent / "malformed"
         pytest.param("not_turtle.ttl", "rdf", BadSyntax, id="rdf-not-turtle"),
     ],
 )
-def test_malformed_file_raises(filename, fmt, expected_exc) -> None:
+def test_malformed_file_raises(
+    filename: str, fmt: str, expected_exc: type[Exception]
+) -> None:
     with (MALFORMED / filename).open() as f, pytest.raises(expected_exc):
         ProvDocument.deserialize(f, format=fmt)
 
@@ -164,7 +167,7 @@ def test_xml_childless_foreign_root_parses_to_empty_document() -> None:
     assert list(doc.get_records()) == []
 
 
-def test_read_on_unparseable_content_raises_type_error(tmp_path) -> None:
+def test_read_on_unparseable_content_raises_type_error(tmp_path: Path) -> None:
     """``prov.read()`` on content none of the auto-detected deserializers accept.
 
     With ``format=None``, ``read()`` tries each registered format in turn

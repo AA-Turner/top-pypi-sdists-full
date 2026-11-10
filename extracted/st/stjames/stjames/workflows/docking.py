@@ -68,10 +68,12 @@ class GninaSettings(DockingSettings):
     """Controls how gnina is run.
 
     When both covalent atom indices are provided, gnina runs in covalent docking mode.
-    When neither is provided (the default), gnina runs in standard non-covalent mode
-    with CNN scoring.
+    Both covalent indices must be supplied together, and covalent docking requires `scoring_function="vina"`.
+    When neither is provided, gnina runs in non-covalent mode with the selected scoring function.
 
     Attributes:
+        settings_type: docking-settings discriminator, fixed to `gnina`
+        max_poses: inherited maximum number of poses generated per input molecule
         exhaustiveness: how many times gnina attempts to find a pose
         scoring_function: scoring function to use.
             - `"gnina_cnn"`: `Score.score` is CNNscore (higher is better), and
@@ -127,6 +129,8 @@ class VinaSettings(DockingSettings):
     """Controls how AutoDock Vina is run.
 
     Attributes:
+        settings_type: docking-settings discriminator, fixed to `vina`
+        max_poses: inherited maximum number of poses generated per input molecule
         executable: which Vina implementation is run.
         scoring_function: which scoring function is employed.
         exhaustiveness: how many times Vina attempts to find a pose.

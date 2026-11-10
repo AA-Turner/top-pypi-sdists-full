@@ -22,18 +22,20 @@ from eth_abi.exceptions import DecodingError
 from mpp import Credential, Receipt
 from mpp._defaults import DEFAULT_CONFIRMATION_TIMEOUT, DEFAULT_PAID_RETRY_TIMEOUT, DEFAULT_TIMEOUT
 from mpp._did import parse_pkh_source
+from mpp._replay_store import check_fallback_allowed
 from mpp._typing import is_dict, is_list
 from mpp._validation import Validation
 from mpp.errors import (
     CredentialReplayedError,
     InternalPaymentError,
     PaymentExpiredError,
+    PaymentSimulationError,
     VerificationError,
 )
-from mpp.methods.tempo import _fee_payer, _sponsored_admission
+from mpp.methods.tempo import _fee_payer, _machine_token, _sponsored_admission
 from mpp.methods.tempo import sponsor_budget as _sponsor_budget
 from mpp.methods.tempo._defaults import fee_tokens_for_chain, rpc_url_for_chain
-from mpp.methods.tempo._rpc import _rpc_call, _tip20_balance
+from mpp.methods.tempo._rpc import RpcError, _rpc_call, _tip20_balance
 from mpp.methods.tempo.fee_payer_policy import MIN_REMAINING_VALIDITY_SECONDS, get_policy
 from mpp.methods.tempo.remote_fee_payer import RemoteFeePayer
 from mpp.methods.tempo.schemas import (
@@ -65,8 +67,14 @@ def _fallback_store(method: str) -> MemoryStore:
     """Create the in-memory replay store used when *method* has no store configured.
 
     Replay protection backed by this store only covers the current process, so this
-    logs a warning once per *method* per process.
+    logs a warning once per *method* per process, and raises in production or on a
+    multi-instance platform.
+
+    Raises:
+        RuntimeError: If the runtime looks like production (see
+            :func:`mpp._replay_store.production_runtime`).
     """
+    check_fallback_allowed(method, f"{method}(store=...) or Mpp(store=...)")
     if method not in _warned_fallback_stores:
         _warned_fallback_stores.add(method)
         logger.warning(
@@ -188,11 +196,18 @@ def _raw_transaction_hash(raw_tx: str) -> str:
 
 def _canonical_signature(signature: bytes) -> bytes:
     """Encode secp256k1 recovery IDs as 27/28, including inside keychain signatures."""
+    # Iterative: a client controls the nesting depth of keychain wrappers.
+    prefixes: list[bytes] = []
+    while (
+        not (len(signature) == 65 and signature[64] in (0, 1))
+        and len(signature) > 21
+        and signature[0] in (0x03, 0x04)
+    ):
+        prefixes.append(signature[:21])
+        signature = signature[21:]
     if len(signature) == 65 and signature[64] in (0, 1):
-        return signature[:64] + bytes([signature[64] + 27])
-    if len(signature) > 21 and signature[0] in (0x03, 0x04):
-        return signature[:21] + _canonical_signature(signature[21:])
-    return signature
+        signature = signature[:64] + bytes([signature[64] + 27])
+    return b"".join(prefixes) + signature
 
 
 def _canonical_raw_transaction(raw_tx: str) -> str:
@@ -221,6 +236,30 @@ def _canonical_raw_transaction(raw_tx: str) -> str:
     if canonical == signature:
         return raw_tx
     return "0x" + (b"\x76" + rlp.encode([*fields[:-1], canonical])).hex()
+
+
+def _signed_transaction(raw_tx: str) -> tuple[list[Any], bytes, bytes] | None:
+    """Decode a hex signed Tempo transaction, or None when it is not one."""
+    try:
+        raw = bytes.fromhex(_strip_0x(raw_tx))
+    except ValueError:
+        return None
+    return _decode_signed_transaction(raw)
+
+
+def _pull_transaction_hash(raw_tx: str) -> str | None:
+    """The hash the chain records for an unsponsored signed 0x76 transaction, else None."""
+    if _strip_0x(raw_tx)[:2] != "76" or _signed_transaction(raw_tx) is None:
+        return None
+    return _raw_transaction_hash(_canonical_raw_transaction(raw_tx)).lower()
+
+
+def _sender_recovered(raw_tx: str) -> bool:
+    """Whether a signed transaction's sender signature is a 65-byte secp256k1 signature,
+    the one kind recovered before broadcast. Keychain, multisig, P256 and WebAuthn
+    signatures name their account, which the chain authenticates at settlement."""
+    decoded = _signed_transaction(raw_tx)
+    return decoded is not None and len(decoded[1]) == 65
 
 
 def _decode_signed_transaction(raw: bytes) -> tuple[list[Any], bytes, bytes] | None:
@@ -472,6 +511,20 @@ def _rpc_error_msg(result: dict[str, Any]) -> str:
 _EXECUTION_ERROR_CODES = frozenset({3})
 
 
+class _UnpaddedSponsoredSimulation(dict[str, Any]):
+    """A sponsored ``eth_call`` without the full gas buffer: running out of gas alone passes.
+
+    A hosted signature covers the client's gas limit, and a local fee payer's
+    padding can be clamped by its sponsor policy, so the request may lack gas
+    for the sponsored ``eth_call``'s extra charge; the sender simulation already
+    checked the broadcast limit (see ``_fee_payer.sender_simulation_request``).
+    """
+
+
+_SimulationRequest = dict[str, Any] | Callable[[], dict[str, Any]]
+"""An ``eth_call`` request, or a callable that builds one once earlier simulations passed."""
+
+
 def _is_ambiguous_broadcast_error(
     error: Exception | dict[str, Any], *, resubmitted: bool = False
 ) -> bool:
@@ -719,10 +772,41 @@ def _calls_funding_currency(
     return request.currency
 
 
+def _match_machine_token_route(
+    calls: list[tuple[str, int, str]], request: ChargeRequest
+) -> _machine_token.Route | None:
+    """Return the exact machine-token route ``calls`` pay, when the charge enables one."""
+    details = request.methodDetails
+    if not details.machineTokenEnabled or details.splits:
+        return None
+    try:
+        amount = int(request.amount)
+    except ValueError:
+        return None
+    return _machine_token.match_route(
+        calls,
+        chain_id=details.chainId,
+        currency=request.currency,
+        amount=amount,
+        recipient=request.recipient,
+    )
+
+
+def _settlement_senders(request: ChargeRequest) -> tuple[str, ...]:
+    """Contracts trusted to send a charge's transfer on behalf of the transaction sender."""
+    if not request.methodDetails.machineTokenEnabled:
+        return ()
+    sender = _machine_token.settlement_sender(request.methodDetails.chainId)
+    return () if sender is None else (sender.lower(),)
+
+
 def _validate_normalized_calls(
     calls: list[tuple[str, int, str]], request: ChargeRequest
 ) -> list[MatchedTransferLog]:
     """Validate calls against the expected transfers and return the payment legs."""
+    machine_route = _match_machine_token_route(calls, request)
+    if machine_route is not None:
+        return [MatchedTransferLog(kind="memo", memo=machine_route.memo)]
     prefix_len = _validate_call_scope(calls)
     if prefix_len == 2:
         approve = _decode_static_call_args(
@@ -788,6 +872,16 @@ def _validate_normalized_calls(
     if len(used_calls) != len(payment_calls):
         raise VerificationError("Invalid transaction: contains unauthorized extra calls")
     return legs
+
+
+def _transfer_payer(
+    from_address: str, receipt: dict[str, Any], settlement_senders: tuple[str, ...]
+) -> str:
+    """The account a transfer debits: the transaction sender funds a settlement contract's."""
+    receipt_from = receipt.get("from")
+    if from_address.lower() in settlement_senders and isinstance(receipt_from, str):
+        return receipt_from.lower()
+    return from_address.lower()
 
 
 def _payment_call_leg(call_data_hex: str) -> MatchedTransferLog:
@@ -1034,6 +1128,20 @@ class ChargeIntent:
             differ) and whose ``details`` carry the settlement ``mode`` and,
             in pull mode, the serialized transaction.
 
+            ``details`` also carries:
+
+            - ``payer_verified``: whether ``payer`` is authenticated already, by
+              a recovered secp256k1 sender signature, a zero-amount proof or a
+              confirmed transfer. ``False`` for a pull-mode transaction signed
+              with a keychain, multisig, P256 or WebAuthn key: it only names its
+              account, which the chain authenticates at broadcast.
+            - ``transaction_hash`` (push and pull): the hash the chain records,
+              the same in both modes, so one transfer has one key. ``None`` for a
+              pull-mode transaction a fee payer co-signs, whose final hash is
+              known only once it is broadcast.
+            - ``valid_before`` (pull): the transaction's ``valid_before``
+              Unix timestamp, or ``None`` when it has none.
+
         Raises:
             VerificationError: If the credential is invalid.
             InternalPaymentError: If the credential cannot be checked, e.g.
@@ -1045,7 +1153,7 @@ class ChargeIntent:
             await self._ensure_proof_unused(credential.challenge.id)
             return Validation(
                 credential=credential,
-                details={"mode": "proof"},
+                details={"mode": "proof", "payer_verified": True},
                 intent=self.name,
                 request=dict(request),
                 payer=await self._validate_proof(credential, payload, req),
@@ -1061,7 +1169,11 @@ class ChargeIntent:
                 source=credential.source,
             )
             payer = receipt.payer
-            details: dict[str, Any] = {"mode": "push"}
+            details: dict[str, Any] = {
+                "mode": "push",
+                "payer_verified": payer is not None,
+                "transaction_hash": payload.hash.lower(),
+            }
         else:
             legs = self._validate_transaction_payload(payload.signature, req, strict=True)
             if legs is not None:
@@ -1073,7 +1185,13 @@ class ChargeIntent:
             payer = self._transaction_payer(
                 payload.signature, credential.source, req.methodDetails.chainId
             )
-            details = {"mode": "pull", "serialized_transaction": payload.signature}
+            details = {
+                "mode": "pull",
+                "payer_verified": payer is not None and _sender_recovered(payload.signature),
+                "serialized_transaction": payload.signature,
+                "transaction_hash": _pull_transaction_hash(payload.signature),
+                "valid_before": _transaction_valid_before(payload.signature),
+            }
 
         return Validation(
             credential=credential,
@@ -1349,6 +1467,9 @@ class ChargeIntent:
         expected_sender: str | None,
         source: str | None,
         validate_sender: ValidateSender | None,
+        *,
+        settlement_senders: tuple[str, ...] = (),
+        transaction_sender: object = None,
     ) -> bool:
         """Whether ``from_address`` is an acceptable transfer sender.
 
@@ -1356,6 +1477,14 @@ class ChargeIntent:
         On a mismatch, an optional ``validate_sender`` callback may authorize it.
         """
         if not expected_sender or from_address.lower() == expected_sender.lower():
+            return True
+        # A settlement contract (the machine-token swapper) sends the transfer on behalf of
+        # the transaction sender, which must then be the expected sender (mppx).
+        if (
+            from_address.lower() in settlement_senders
+            and isinstance(transaction_sender, str)
+            and transaction_sender.lower() == expected_sender.lower()
+        ):
             return True
         if validate_sender is None:
             return False
@@ -1614,6 +1743,7 @@ class ChargeIntent:
             validate_sender=validate_sender,
             challenge_id=challenge_id,
             realm=realm,
+            settlement_senders=_settlement_senders(request),
         )
         if not matched_logs:
             raise VerificationError(
@@ -1666,6 +1796,7 @@ class ChargeIntent:
         expected_sender: str | None = None,
         source: str | None = None,
         validate_sender: ValidateSender | None = None,
+        settlement_senders: tuple[str, ...] = (),
     ) -> list[MatchedTransferLog]:
         """Check if receipt contains matching Transfer/TransferWithMemo logs.
 
@@ -1704,11 +1835,20 @@ class ChargeIntent:
                     if log_memo.lower() != expected_memo_hex.lower():
                         continue
                 if not self._sender_authorized(
-                    from_address, expected_sender, source, validate_sender
+                    from_address,
+                    expected_sender,
+                    source,
+                    validate_sender,
+                    settlement_senders=settlement_senders,
+                    transaction_sender=receipt.get("from"),
                 ):
                     continue
                 memo_matches.append(
-                    MatchedTransferLog(kind="memo", memo=log_memo, sender=from_address.lower())
+                    MatchedTransferLog(
+                        kind="memo",
+                        memo=log_memo,
+                        sender=_transfer_payer(from_address, receipt, settlement_senders),
+                    )
                 )
             elif event_topic == TRANSFER_TOPIC:
                 if memo is not None:
@@ -1717,10 +1857,18 @@ class ChargeIntent:
                 if len(data) >= 66:
                     log_amount = int(data, 16)
                     if log_amount == amount and self._sender_authorized(
-                        from_address, expected_sender, source, validate_sender
+                        from_address,
+                        expected_sender,
+                        source,
+                        validate_sender,
+                        settlement_senders=settlement_senders,
+                        transaction_sender=receipt.get("from"),
                     ):
                         transfer_matches.append(
-                            MatchedTransferLog(kind="transfer", sender=from_address.lower())
+                            MatchedTransferLog(
+                                kind="transfer",
+                                sender=_transfer_payer(from_address, receipt, settlement_senders),
+                            )
                         )
 
         return memo_matches + transfer_matches
@@ -1734,6 +1882,7 @@ class ChargeIntent:
         validate_sender: ValidateSender | None = None,
         challenge_id: str | None = None,
         realm: str | None = None,
+        settlement_senders: tuple[str, ...] = (),
     ) -> list[MatchedTransferLog]:
         """Check if receipt contains matching Transfer or TransferWithMemo logs.
 
@@ -1774,6 +1923,7 @@ class ChargeIntent:
                 expected_sender,
                 source,
                 validate_sender,
+                settlement_senders,
             )
             # Prefer legs bound to this challenge over interchangeable logs,
             # e.g. an equal transfer for another challenge in the same batch.
@@ -1877,7 +2027,12 @@ class ChargeIntent:
                         log_amount == transfer.amount
                         and memo_topic.lower() == expected_hex.lower()
                         and self._sender_authorized(
-                            from_addr, expected_sender, source, validate_sender
+                            from_addr,
+                            expected_sender,
+                            source,
+                            validate_sender,
+                            settlement_senders=settlement_senders,
+                            transaction_sender=receipt.get("from"),
                         )
                     ):
                         used_logs.add(log_idx)
@@ -1885,7 +2040,7 @@ class ChargeIntent:
                             MatchedTransferLog(
                                 kind="memo",
                                 memo=memo_topic,
-                                sender=from_addr.lower(),
+                                sender=_transfer_payer(from_addr, receipt, settlement_senders),
                             )
                         )
                         found = True
@@ -1899,12 +2054,19 @@ class ChargeIntent:
                             continue
                         log_amount = int(data[2:66], 16)
                         if log_amount == transfer.amount and self._sender_authorized(
-                            from_addr, expected_sender, source, validate_sender
+                            from_addr,
+                            expected_sender,
+                            source,
+                            validate_sender,
+                            settlement_senders=settlement_senders,
+                            transaction_sender=receipt.get("from"),
                         ):
                             used_logs.add(log_idx)
                             all_matches.append(
                                 MatchedTransferLog(
-                                    kind="memo", memo=topics[3], sender=from_addr.lower()
+                                    kind="memo",
+                                    memo=topics[3],
+                                    sender=_transfer_payer(from_addr, receipt, settlement_senders),
                                 )
                             )
                             found = True
@@ -1914,11 +2076,19 @@ class ChargeIntent:
                             continue
                         log_amount = int(data, 16)
                         if log_amount == transfer.amount and self._sender_authorized(
-                            from_addr, expected_sender, source, validate_sender
+                            from_addr,
+                            expected_sender,
+                            source,
+                            validate_sender,
+                            settlement_senders=settlement_senders,
+                            transaction_sender=receipt.get("from"),
                         ):
                             used_logs.add(log_idx)
                             all_matches.append(
-                                MatchedTransferLog(kind="transfer", sender=from_addr.lower())
+                                MatchedTransferLog(
+                                    kind="transfer",
+                                    sender=_transfer_payer(from_addr, receipt, settlement_senders),
+                                )
                             )
                             found = True
                             break
@@ -1959,7 +2129,7 @@ class ChargeIntent:
         raw_tx = payload.signature
 
         # Simulation payload for the locally co-signed tx, if we sponsor it.
-        simulate_payload: list[dict[str, Any]] | None = None
+        simulate_payload: list[_SimulationRequest] | None = None
         # Outcome marker for a locally sponsored submission, keyed on the
         # client-signed envelope so it is stable across retries of a credential.
         broadcast_key: str | None = None
@@ -2697,13 +2867,14 @@ class ChargeIntent:
         *,
         require_remaining_validity: bool = True,
         allow_expired: bool = False,
-    ) -> tuple[str, list[dict[str, Any]]]:
+    ) -> tuple[str, list[_SimulationRequest]]:
         """Co-sign a client-signed transaction as fee payer.
 
         Deserializes the client's 0x78 fee payer envelope, optionally validates
         the payment calls against ``request``, sets the fee token, and co-signs.
         Returns ``(raw_0x76_hex, simulate_payload)`` where ``simulate_payload``
-        is the ``tempo_simulateV1`` request for the co-signed tx.
+        holds the ``eth_call`` requests for the co-signed tx (see
+        :meth:`_build_simulate_payload`).
 
         With ``require_remaining_validity=False`` only an already expired
         ``valid_before`` is rejected here; the caller must enforce
@@ -2731,40 +2902,44 @@ class ChargeIntent:
 
         return raw_cosigned, self._build_simulate_payload(cosigned, recovered_address)
 
-    def _build_simulate_payload(
-        self, tx: Any, sender: str, fee_payer: str | None = None
-    ) -> list[dict[str, Any]]:
-        """Build the ``eth_call`` requests that check a co-signed 0x76 tx.
+    def _build_simulate_payload(self, tx: Any, sender: str) -> list[_SimulationRequest]:
+        """Build the ``eth_call`` requests that check a locally co-signed 0x76 tx.
 
         Like mppx's ``preflightSponsorship``, the calls are simulated twice:
-        first from the sender with no fee fields, so the sender's fee balance is
-        irrelevant, then as the final sponsored transaction with its concrete
-        fee payer and fee token. ``eth_call`` carries neither signature, and
-        every public Tempo RPC serves it (``tempo_simulateV1`` is refused).
+        first from the sender at the broadcast gas limit with no fee fields, so
+        the sender's fee balance is irrelevant and a gas limit too low for the
+        mined transaction is refused, then as the final sponsored transaction
+        with its concrete fee payer, fee token and fee payer signature. Tempo
+        nodes recover the fee payer of an ``eth_call`` only from that signature
+        and otherwise bill the sender, so the second request is built lazily:
+        the fee payer signs its simulation-only copy (with up to
+        ``_fee_payer.SPONSORED_SIMULATION_GAS_BUFFER`` more gas, within the
+        sponsor policy) only once the sender simulation passed. The sender's
+        signature is never sent, and every public Tempo RPC serves ``eth_call``
+        (``tempo_simulateV1`` is refused).
         """
+        fee_payer = self.fee_payer
         if fee_payer is None:
-            if self.fee_payer is None:
-                raise InternalPaymentError() from RuntimeError("No fee payer to simulate")
-            fee_payer = self.fee_payer.address
-        sponsored = _fee_payer.sponsored_simulation_request(tx, sender, fee_payer)
+            raise InternalPaymentError() from RuntimeError("No fee payer to simulate")
+
+        policy = get_policy(tx.chain_id)
+
+        def sponsored() -> dict[str, Any]:
+            request = _fee_payer.local_sponsored_simulation_request(tx, sender, fee_payer, policy)
+            if int(request["gas"], 16) < tx.gas_limit + _fee_payer.SPONSORED_SIMULATION_GAS_BUFFER:
+                return _UnpaddedSponsoredSimulation(request)
+            return request
+
         return [self._sender_simulation_request(tx, sender), sponsored]
 
     @staticmethod
     def _sender_simulation_request(tx: Any, sender: str) -> dict[str, Any]:
-        """Return the ``eth_call`` request executing ``tx``'s calls as the sender, without fees."""
-        calls = [
-            {
-                "to": "0x" + bytes(c.to).hex(),
-                "value": hex(c.value),
-                "data": "0x" + c.data.hex(),
-            }
-            for c in tx.calls
-        ]
-        return {"type": "0x76", "from": sender, "calls": calls}
+        """The ``eth_call`` executing ``tx`` as the sender at its gas, without fees."""
+        return _fee_payer.sender_simulation_request(tx, sender)
 
     async def _fill_hosted_fee_payer(
         self, client: Any, raw_tx: str, request: ChargeRequest
-    ) -> tuple[str, list[dict[str, Any]], str, int]:
+    ) -> tuple[str, list[_SimulationRequest], str, int]:
         """Have the hosted fee payer co-sign a client's 0x78 envelope.
 
         Mirrors mppx's hosted sponsorship (``preflightSponsorship`` around
@@ -2793,9 +2968,8 @@ class ChargeIntent:
 
         rpc_url = self._get_rpc_url()
         transaction = _fee_payer.envelope_transaction(decoded, key_authorization=key_authorization)
-        await self._simulate_before_broadcast(
-            client, [self._sender_simulation_request(transaction, sender)], rpc_url
-        )
+        sender_request = self._sender_simulation_request(transaction, sender)
+        await self._simulate_before_broadcast(client, [sender_request], rpc_url)
 
         try:
             headers = await remote.resolve_headers()
@@ -2822,29 +2996,52 @@ class ChargeIntent:
                 f"Fee payer signing failed: {_rpc_error_msg(reply)}"
             )
 
-        cosigned, sponsor, fee_token = _fee_payer.complete_hosted_fee_payer_envelope(
-            decoded,
-            sender_signature,
-            reply.get("result"),
-            key_authorization=key_authorization,
-            allowed_fee_tokens=self.allowed_fee_tokens,
+        cosigned, sponsor, fee_token, fee_payer_signature = (
+            _fee_payer.complete_hosted_fee_payer_envelope(
+                decoded,
+                sender_signature,
+                reply.get("result"),
+                key_authorization=key_authorization,
+                allowed_fee_tokens=self.allowed_fee_tokens,
+            )
         )
         sponsored = _fee_payer.envelope_transaction(
             decoded, fee_token=fee_token, key_authorization=key_authorization
         )
-        simulation = self._build_simulate_payload(sponsored, sender, sponsor)[1]
+        # The hosted signature covers the client's gas, so it is simulated as
+        # signed (without it the node would bill the sender's fee token), and
+        # running out of gas alone passes: a sponsored eth_call needs more gas
+        # than mining does, and the sender simulation, which runs first in the
+        # payload, checks the broadcast gas. The payload repeats it so every
+        # pre-broadcast simulation (including the one after a sponsor-budget
+        # wait) rechecks that gas before tolerating out of gas.
+        simulation = _UnpaddedSponsoredSimulation(
+            _fee_payer.sponsored_simulation_request(sponsored, sender, sponsor, fee_payer_signature)
+        )
         max_fee = sponsored.gas_limit * sponsored.max_fee_per_gas
-        return cosigned, [simulation], sponsor, max_fee
+        return cosigned, [sender_request, simulation], sponsor, max_fee
 
     async def _simulate_before_broadcast(
-        self, client: Any, simulate_payload: list[dict[str, Any]], rpc_url: str
+        self, client: Any, simulate_payload: list[_SimulationRequest], rpc_url: str
     ) -> None:
         """Simulate the co-signed tx with ``eth_call`` and raise if it would fail.
 
-        Fails closed: a transport error or an unreadable reply is an internal
-        error; an execution error is a verification failure.
+        The requests run in order, and a lazy request is built only once every
+        earlier one passed, so a local fee payer signs nothing for a
+        transaction whose sender simulation fails. Fails closed: a transport
+        error or an unreadable reply is an internal error; an execution error
+        (a revert or running out of gas) is a :class:`~mpp.errors.PaymentSimulationError`
+        naming the failing phase, with the node's error as its cause. Only a
+        sponsored request without the full gas buffer
+        (``_UnpaddedSponsoredSimulation``: hosted, or local clamped by the
+        sponsor policy) that fails solely by running out of gas passes, matched by the node's
+        message (see
+        ``_fee_payer.is_out_of_gas_error``); its fee-balance and revert errors
+        stay fatal.
         """
-        for request in simulate_payload:
+        for entry in simulate_payload:
+            request = entry() if callable(entry) else entry
+            unpadded = isinstance(request, _UnpaddedSponsoredSimulation)
             try:
                 response = await client.post(
                     rpc_url,
@@ -2872,13 +3069,28 @@ class ChargeIntent:
             error = result.get("error")
             code = error.get("code") if is_dict(error) else None
             message = _rpc_error_msg(result)
-            if code in _EXECUTION_ERROR_CODES or "revert" in message.lower():
-                raise VerificationError(
-                    f"Sponsored transaction would revert in pre-broadcast simulation: {message}"
-                )
-            raise InternalPaymentError() from RuntimeError(
-                f"Pre-broadcast simulation failed: {message}"
+            out_of_gas = _fee_payer.is_out_of_gas_error(error)
+            if unpadded and out_of_gas:
+                continue
+            # Tag every node rejection with its phase like mppx, so callers can tell a
+            # payer's failure from a sponsor's without matching node messages.
+            sponsored = "feePayerSignature" in request
+            execution = code in _EXECUTION_ERROR_CODES or "revert" in message.lower() or out_of_gas
+            simulation = PaymentSimulationError(
+                f"Sponsored transaction would revert in pre-broadcast simulation: {message}"
+                if execution
+                else f"Pre-broadcast simulation failed: {message}",
+                phase="sponsored" if sponsored else "sender",
+                sender=request.get("from"),
+                fee_payer=request.get("feePayer") if sponsored else None,
+                payment_token=_fee_payer.simulation_payment_token(request),
             )
+            if execution:
+                raise simulation from RpcError(result)
+            # Other node errors (such as an insufficient fee token balance) stay an
+            # internal error, as in mppx, with the tagged simulation as its cause.
+            simulation.__cause__ = RpcError(result)
+            raise InternalPaymentError() from simulation
 
     def _validate_calls(self, calls: tuple[Any, ...], request: ChargeRequest) -> None:
         """Validate that calls match all expected transfers."""

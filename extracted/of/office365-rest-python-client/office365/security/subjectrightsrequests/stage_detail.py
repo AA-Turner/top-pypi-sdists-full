@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 
 from office365.directory.privacy.subjectrightsrequeststage import SubjectRightsRequestStage
 from office365.directory.privacy.subjectrightsrequeststagestatus import SubjectRightsRequestStageStatus
@@ -8,7 +8,6 @@ from office365.runtime.client_value import ClientValue
 from office365.runtime.types.public_error import PublicError
 
 
-@dataclass
 class SubjectRightsRequestStageDetail(ClientValue):
     error: PublicError = field(default_factory=PublicError)
     stage: SubjectRightsRequestStage = SubjectRightsRequestStage.contentRetrieval

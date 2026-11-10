@@ -61,6 +61,9 @@ def sync_detailed(
     on the current date.
             - If a usage record for the same resource, component, and billing period already exists, it
     will be updated. Otherwise, a new record is created.
+            - Usage-based components may be reported per UTC date in `daily_usages`. Each date replaces
+    its previous amount, and the month's usage becomes the sum of its days. A month total for a month
+    that has daily amounts is rejected. Day and week spending limits need daily amounts.
 
 
     Args:
@@ -101,6 +104,9 @@ async def asyncio_detailed(
     on the current date.
             - If a usage record for the same resource, component, and billing period already exists, it
     will be updated. Otherwise, a new record is created.
+            - Usage-based components may be reported per UTC date in `daily_usages`. Each date replaces
+    its previous amount, and the month's usage becomes the sum of its days. A month total for a month
+    that has daily amounts is rejected. Day and week spending limits need daily amounts.
 
 
     Args:

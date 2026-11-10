@@ -1,12 +1,9 @@
 import os
-import sys
-
 from importlib.util import find_spec
 
 import dask
-
 from packaging.version import Version, parse
-from bokeh.io.webdriver import webdriver_control
+
 from hvplot.util import _PD_GE_3_0_0
 
 # Examples that are slow to run and/or download large files.
@@ -16,6 +13,7 @@ SLOW_EXAMPLES = [
 
 collect_ignore_glob = [
     'user_guide/Streaming.ipynb',
+    'ref/plotting_options/streaming.ipynb',
 ]
 
 # Slow examples are excluded by default.
@@ -36,7 +34,6 @@ if not find_spec('geoviews'):  # geo examples
         'ref/api/manual/hvplot.hvPlot.vectorfield.ipynb',
         'ref/data_libraries.ipynb',
         'ref/plotting_options/geographic.ipynb',
-        'user_guide/Explorer.ipynb',
         'user_guide/Geographic_Data.ipynb',
         'user_guide/Integrations.ipynb',
     ]
@@ -52,18 +49,13 @@ if not find_spec('datashader'):
         'user_guide/Plotting_with_Plotly.ipynb',
     ]
 
-if not find_spec('streamz') or sys.version_info[:2] >= (3, 14):
-    collect_ignore_glob += [
-        'ref/plotting_options/streaming.ipynb',
-    ]
-
 if _PD_GE_3_0_0:
     # Because of fugue
     collect_ignore_glob += ['ref/data_libraries.ipynb']
 
 try:
-    import ibis
     import duckdb
+    import ibis
 
     # 'Ibis <= 10.8.0 is incompatible with DuckDB >= 1.4')
     if parse(ibis.__version__) <= parse('10.8.0') and parse(duckdb.__version__) >= parse('1.4'):
@@ -71,28 +63,23 @@ try:
 except ImportError:
     pass
 
-if find_spec('selenium'):
-    try:
-        webdriver_control.create()
-    except RuntimeError:
-        # hvplot.save() with bokeh
-        collect_ignore_glob += [
-            'user_guide/Viewing.ipynb',
-            'user_guide/NetworkX.ipynb',
-        ]
-    finally:
-        webdriver_control.cleanup()
+# Bokeh PNG export (hvplot.save) needs Playwright and a browser, which are only
+# installed when building the docs, not when running the examples tests.
+collect_ignore_glob += [
+    'how_to/save_bokeh_plots.ipynb',
+    'user_guide/NetworkX.ipynb',
+]
 
 pygraphviz = None
 
 try:
-    import pygraphviz  # noqa
+    import pygraphviz
 except ImportError:
     pass
 
 pydot = None
 try:
-    import pydot  # noqa
+    import pydot
 except ImportError:
     pass
 

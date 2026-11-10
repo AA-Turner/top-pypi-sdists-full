@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Optional, Union
 
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 
 
-@dataclass
 class ListItemCreationInformationUsingPath(ClientValue):
     """Specifies the properties of the new list item.
 

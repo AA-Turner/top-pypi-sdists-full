@@ -1,5 +1,6 @@
 # coding/coding.pyi — type stubs for the coding C extension.
 from typing import final
+
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
@@ -74,7 +75,7 @@ class ConvEncoder:
         Parameters
         ----------
         x : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
-            Input.
+            n_in unpacked input bits, one per byte.
         out : npt.NDArray[np.uint8] | None
             Receives `n_in * n` unpacked symbols, one per byte.
 
@@ -309,7 +310,8 @@ class Viterbi:
         Parameters
         ----------
         x : npt.NDArray[np.float32]
-            Input.
+            Log-likelihood ratios, one per channel symbol. n_in must be a
+            multiple of the code's `n`.
         out : npt.NDArray[np.uint8] | None
             Receives the decoded information bits, one per byte.
 
@@ -531,7 +533,7 @@ class ReedSolomon:
         Parameters
         ----------
         x : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
-            Input.
+            Exactly `k` information symbols.
         out : npt.NDArray[np.uint8] | None
             Receives `n` symbols; may be in.
 
@@ -633,7 +635,7 @@ class ReedSolomon:
         Parameters
         ----------
         x : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
-            Input.
+            `n` symbols.
         out : npt.NDArray[np.uint8] | None
             Receives `nroots` syndromes.
 
@@ -878,7 +880,7 @@ class Interleaver:
         Parameters
         ----------
         x : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
-            Input.
+            n_in bits, one bit per byte.
         out : npt.NDArray[np.uint8] | None
             Where to write n_in bits; must not overlap in.
 
@@ -949,7 +951,7 @@ class Interleaver:
         Parameters
         ----------
         x : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
-            Input.
+            n_in interleaved bits, one bit per byte.
         out : npt.NDArray[np.uint8] | None
             Where to write n_in bits; must not overlap in.
 
@@ -1024,7 +1026,7 @@ class Interleaver:
         Parameters
         ----------
         x : npt.NDArray[np.float32]
-            Input.
+            n_in soft values, one per interleaved unit-bit.
         out : npt.NDArray[np.float32] | None
             Where to write n_in values; must not overlap in.
 
@@ -1226,7 +1228,7 @@ class Deinterleaver:
         Parameters
         ----------
         x : npt.NDArray[np.uint8] | bytes | bytearray | memoryview
-            Input.
+            n_in interleaved bits, one bit per byte.
         out : npt.NDArray[np.uint8] | None
             Where to write n_in bits; must not overlap in.
 
@@ -1301,7 +1303,7 @@ class Deinterleaver:
         Parameters
         ----------
         x : npt.NDArray[np.float32]
-            Input.
+            n_in soft values, one per interleaved unit-bit.
         out : npt.NDArray[np.float32] | None
             Where to write n_in values; must not overlap in.
 

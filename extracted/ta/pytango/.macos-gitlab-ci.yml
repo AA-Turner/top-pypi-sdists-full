@@ -12,7 +12,7 @@
   parallel:
     matrix:
       - PLATFORM: ["osx-arm64", "osx-64"]
-        PYTHON_VERSION: ["3.10", "3.11", '3.12', '3.13', '3.14']
+        PYTHON_VERSION: ["3.10", "3.11", '3.12', '3.13', '3.14', '3.15']
 
 macos:build-wheel:
   extends: [.matrix-wheel-macos, .build-wheel]

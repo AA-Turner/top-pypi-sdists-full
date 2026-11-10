@@ -219,10 +219,17 @@ class LoomStore:
         # Same hook for Custom Data Points — the compat layer injects a
         # factory that returns the right categorised ``CustomDp*`` class.
         self._cdp_factory: Callable[..., CustomDataPoint] | None = None
-        # Per-device week-profile data point (the compat layer's
-        # ``WeekProfileDp``), registered by the adapter at bootstrap so the
-        # base :class:`Device` can expose it as ``week_profile_data_point``.
-        self._week_profile_dps: dict[str, Any] = {}
+        # Same hook for the device's trigger sources: the compat layer injects a
+        # factory that wraps an event data point in aiohomematic's event twin
+        # (``Device.generic_events``). ``None`` = the bare client has no events.
+        self._generic_event_factory: Callable[..., Any] | None = None
+        # Per-device week-profile data points (the compat layer's
+        # ``WeekProfileDp`` / ``ClimateWeekProfileDp``), registered by the
+        # adapter at bootstrap so the base :class:`Device` can expose them.
+        # Keyed by address, then by kind (``True`` = climate schedule): a
+        # device carries at most one schedule of each kind, as in
+        # aiohomematic's ``Device`` (HmIP-WGT/WGTC carry both).
+        self._week_profile_dps: dict[str, dict[bool, Any]] = {}
 
     # ---- central identity ----
 
@@ -307,6 +314,18 @@ class LoomStore:
         """Return the bound transport, or ``None`` if none is attached yet."""
         return self._transport
 
+    def has_capability(self, *, capability: str) -> bool:
+        """
+        Report whether the daemon behind the bound transport advertises ``capability``.
+
+        The store-side twin of :meth:`LoomClient.has_capability`, for the model
+        objects that reach the daemon through the store and pick an operation
+        by what the daemon understands. ``False`` without a transport or
+        before its handshake: no evidence the feature is there.
+        """
+        info = self._transport.info if self._transport is not None else None
+        return info is not None and capability in (info.capabilities or [])
+
     # ---- operation façades ----
     #
     # The store used to build its own requests. Seventeen of its eighteen path
@@ -383,6 +402,25 @@ class LoomStore:
     def set_custom_data_point_factory(self, *, factory: Callable[..., CustomDataPoint] | None) -> None:
         """Install a factory that builds (subclasses of) :class:`CustomDataPoint`."""
         self._cdp_factory = factory
+
+    def set_generic_event_factory(self, *, factory: Callable[..., Any] | None) -> None:
+        """
+        Install the factory that wraps a device's event data points as events.
+
+        Called as ``factory(data_point=…, kind=…)`` with the daemon-declared
+        event-group flavour (``keypress`` / ``impulse`` / ``device_error``);
+        it returns the event, or ``None`` for a source that is no event.
+        """
+        self._generic_event_factory = factory
+
+    @property
+    def generic_event_factory(self) -> Callable[..., Any] | None:
+        """Return the installed generic-event factory, or ``None``."""
+        return self._generic_event_factory
+
+    def is_calculated_data_point(self, *, address: str, channel: int, parameter: str) -> bool:
+        """Return whether a data point was registered as a daemon-calculated one."""
+        return (address, channel, parameter) in self._calculated_dp_keys
 
     def _build_custom_data_point(
         self,
@@ -572,13 +610,18 @@ class LoomStore:
 
     # ---- week-profile data points ----
 
-    def set_week_profile_data_point(self, *, address: str, data_point: Any) -> None:
-        """Register a device's week-profile data point (built by the compat adapter)."""
-        self._week_profile_dps[address] = data_point
+    def set_week_profile_data_point(self, *, address: str, data_point: Any, climate: bool) -> None:
+        """Register a device's climate or default week-profile data point (built by the compat adapter)."""
+        self._week_profile_dps.setdefault(address, {})[climate] = data_point
 
-    def get_week_profile_data_point(self, *, address: str) -> Any:
-        """Return a device's week-profile data point, or ``None`` if it has none."""
-        return self._week_profile_dps.get(address)
+    def get_week_profile_data_point(self, *, address: str, climate: bool) -> Any:
+        """Return a device's climate or default week-profile data point, or ``None`` if it has none."""
+        return self._week_profile_dps.get(address, {}).get(climate)
+
+    def get_week_profile_data_points(self, *, address: str) -> tuple[Any, ...]:
+        """Return a device's week-profile data points, the default schedule ahead of the climate one."""
+        by_kind = self._week_profile_dps.get(address, {})
+        return tuple(dp for dp in (by_kind.get(False), by_kind.get(True)) if dp is not None)
 
     # ---- programs ----
 
@@ -1201,9 +1244,9 @@ class LoomStore:
         stale_cdps = [cdp_key for cdp_key in self._cdps if cdp_key[0] == addr]
         for cdp_key in stale_cdps:
             self._drop_cdp(key=cdp_key)
-        # The per-device week-profile DP is registered outside the channel
-        # graph, so channel GC never reaches it — drop it explicitly, else
-        # it accrues across unpair events (a slow leak).
+        # The per-device week-profile DPs are registered outside the channel
+        # graph, so channel GC never reaches them — drop them explicitly, else
+        # they accrue across unpair events (a slow leak).
         self._week_profile_dps.pop(addr, None)
 
     def apply_sysvar_changed(self, *, payload: SysvarChangedPayload) -> None:

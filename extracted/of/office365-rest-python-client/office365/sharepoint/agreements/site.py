@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
 from typing import Optional
 
@@ -10,7 +10,6 @@ from office365.sharepoint.sites.template import SiteTemplate
 from office365.sharepoint.viva.resourcevisualization import ResourceVisualization
 
 
-@dataclass
 class SPAgreementsSite(ClientValue):
     CreatedDateTime: datetime = datetime.min
     Description: Optional[str] = None

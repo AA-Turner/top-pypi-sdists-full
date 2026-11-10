@@ -6,12 +6,13 @@ use either::Either;
 use num_bigint::{BigInt, Sign};
 use num_traits::cast::ToPrimitive;
 use pyo3::exceptions::{
-    PyAttributeError, PyOverflowError, PyTypeError, PyValueError, PyZeroDivisionError,
+    PyAttributeError, PyKeyError, PyOverflowError, PyTypeError, PyValueError, PyZeroDivisionError,
 };
 use pyo3::intern;
 use pyo3::prelude::*;
+use pyo3::sync::MutexExt;
 use pyo3::sync::PyOnceLock;
-use pyo3::types::{PyBool, PyDict, PyList, PyNone, PyString, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyNone, PyString, PyTuple};
 
 use crate::parse::Now;
 use crate::render::dateformat::Formatter;
@@ -37,10 +38,14 @@ use crate::template::django_rusty_templates::{
 use crate::utils::PyResultMethods;
 
 static RENDER_FIRSTOF_VALUE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static FIRSTOF_SAFE_STRING: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static QUERY_DICT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static QUERY_SETTINGS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static STRIP_SPACES: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static DEBUG_NODE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static MARK_BLOCK_SAFE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 static CONDITIONAL_ESCAPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+static INCLUSION_VALUES: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
 static BUILTINS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
@@ -947,7 +952,31 @@ impl Render for Tag {
                     ResolveFailures::IgnoreVariableDoesNotExist,
                 )? {
                     let target = target.to_py(py);
-                    if !target.is_none() {
+                    if !target.is_none()
+                        && let Some(lookup) = &group.lookup
+                        && context.formatting_context.is_none()
+                    {
+                        let grouped_result = py
+                            .import("django.template.defaulttags")?
+                            .getattr("GroupedResult")?;
+                        let mut previous: Option<Bound<'_, PyAny>> = None;
+                        let mut items = PyList::empty(py);
+                        for item in target.try_iter()? {
+                            let item = item?;
+                            let key =
+                                super::common::resolve_lookup_path(item.clone(), lookup, context)?;
+                            let same = match &previous {
+                                Some(previous) => key.is(previous) || key.eq(previous)?,
+                                None => false,
+                            };
+                            if !same {
+                                items = PyList::empty(py);
+                                results.append(grouped_result.call1((&key, &items))?)?;
+                                previous = Some(key);
+                            }
+                            items.append(item)?;
+                        }
+                    } else if !target.is_none() {
                         let python_context = context.django_context(py)?;
                         let kwargs = PyDict::new(py);
                         kwargs.set_item("ignore_failures", true)?;
@@ -1113,6 +1142,19 @@ impl Render for Tag {
             Self::QueryString(tag) => {
                 let mut args = build_args(py, template, context, &tag.args)?;
                 let kwargs = build_kwargs(py, template, context, &tag.kwargs)?;
+                if args.is_empty()
+                    && let Some(output) = native_querystring(py, context, kwargs.as_ref())?
+                {
+                    return Ok(if let Some(target) = &tag.target_var {
+                        context.insert(target.clone(), PyString::new(py, &output).into_any())?;
+                        Cow::Borrowed("")
+                    } else if context.autoescape {
+                        // Only `&` in an encoded query string needs escaping.
+                        Cow::Owned(output.replace('&', "&amp;"))
+                    } else {
+                        Cow::Owned(output)
+                    });
+                }
                 let python_context = context.django_context(py)?;
                 if let Some(request) = &context.request {
                     python_context.setattr("request", request.bind(py))?;
@@ -1554,7 +1596,18 @@ impl Include {
                 rendered
             }
             true => {
-                let mut inner_context = HashMap::new();
+                // Django's `Context.new()` starts from the built-in names.
+                let mut inner_context = HashMap::from([
+                    (
+                        "True".to_string(),
+                        PyBool::new(py, true).to_owned().into_any().unbind(),
+                    ),
+                    (
+                        "False".to_string(),
+                        PyBool::new(py, false).to_owned().into_any().unbind(),
+                    ),
+                    ("None".to_string(), py.None()),
+                ]);
                 for (at, element) in &self.kwargs {
                     let key = template.content(*at).to_string();
                     if let Some(value) = element.resolve(
@@ -1630,9 +1683,61 @@ fn call_tag<'py>(
     }
 }
 
-fn build_pycontext<'py>(py: Python<'py>, context: &mut Context) -> PyResult<Bound<'py, PyAny>> {
+/// Spare `PyContext` wrappers, reused so each `takes_context` call doesn't
+/// allocate and free one. A spare holds an empty placeholder `Context`.
+///
+/// Reuse needs proof that Python kept no reference to the wrapper. With the
+/// GIL, a reference count of one is that proof; free-threaded Python can't
+/// give it, so those builds always allocate.
+#[cfg(not(Py_GIL_DISABLED))]
+mod spare_contexts {
+    use std::cell::RefCell;
+
+    use pyo3::prelude::*;
+
+    use super::PyContext;
+
+    /// Enough for nested callbacks; more would only hold memory.
+    const LIMIT: usize = 4;
+
+    thread_local! {
+        static SPARES: RefCell<Vec<Py<PyContext>>> = const { RefCell::new(Vec::new()) };
+    }
+
+    pub fn take() -> Option<Py<PyContext>> {
+        SPARES.with(|spares| spares.borrow_mut().pop())
+    }
+
+    pub fn give_back(wrapper: Py<PyContext>) {
+        SPARES.with(|spares| {
+            let mut spares = spares.borrow_mut();
+            if spares.len() < LIMIT {
+                spares.push(wrapper);
+            }
+        });
+    }
+}
+
+pub(super) fn build_pycontext<'py>(
+    py: Python<'py>,
+    context: &mut Context,
+) -> PyResult<Bound<'py, PyAny>> {
     if let Some(live) = &context.formatting_context {
         return Ok(live.bind(py).clone());
+    }
+    #[cfg(not(Py_GIL_DISABLED))]
+    if let Some(wrapper) = spare_contexts::take() {
+        let wrapper = wrapper.into_bound(py);
+        // The spare's placeholder takes the render's place until the call returns.
+        std::mem::swap(
+            &mut *wrapper
+                .borrow()
+                .context
+                .lock_py_attached(py)
+                .expect("Mutex should not be poisoned"),
+            context,
+        );
+        return Ok(wrapper.into_any());
     }
     // Take ownership of `context` so we can pass it to Python.
     // The `context` variable now points to an empty `Context` instance which will not be
@@ -1643,9 +1748,36 @@ fn build_pycontext<'py>(py: Python<'py>, context: &mut Context) -> PyResult<Boun
     Ok(Bound::new(py, PyContext::new(swapped_context))?.into_any())
 }
 
-fn retrieve_context<'py>(py: Python<'py>, py_context: Bound<'py, PyAny>, context: &mut Context) {
+pub(super) fn retrieve_context<'py>(
+    py: Python<'py>,
+    py_context: Bound<'py, PyAny>,
+    context: &mut Context,
+) {
     if context.formatting_context.is_some() {
         return;
+    }
+    #[cfg(not(Py_GIL_DISABLED))]
+    {
+        let wrapper = py_context
+            .cast::<PyContext>()
+            .expect("The type of py_context should not have changed");
+        // Only this function holds the wrapper, and no block callback holds
+        // its state: swap the render back and keep the wrapper for next time.
+        // SAFETY: `wrapper` is a live object, and reading a reference count is
+        // only a load.
+        let refcount = unsafe { pyo3::ffi::Py_REFCNT(wrapper.as_ptr()) };
+        if refcount == 1 && wrapper.borrow().context.is_sole_native_owner() {
+            std::mem::swap(
+                &mut *wrapper
+                    .borrow()
+                    .context
+                    .lock_py_attached(py)
+                    .expect("Mutex should not be poisoned"),
+                context,
+            );
+            spare_contexts::give_back(wrapper.clone().unbind());
+            return;
+        }
     }
     // Retrieve the PyContext wrapper from Python
     let extracted_context: PyContext = py_context
@@ -1736,6 +1868,164 @@ fn store_target_var_into(
     }
 }
 
+/// The variables `Context.new(values)` gives an inclusion tag's template.
+/// Functions usually return a dict, but may return a context.
+fn inclusion_values<'py>(
+    py: Python<'py>,
+    result: Bound<'py, PyAny>,
+) -> PyResult<HashMap<String, Py<PyAny>>> {
+    if let Ok(values) = result.extract() {
+        return Ok(values);
+    }
+    INCLUSION_VALUES
+        .import(py, "django_rusty_templates.stock", "inclusion_values")?
+        .call1((result,))?
+        .extract()
+}
+
+/// One value for a query string key, or `None` when only Django's
+/// function knows how to handle it.
+fn query_value(value: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
+    if value.is_instance_of::<PyString>()
+        || value.is_exact_instance_of::<PyInt>()
+        || value.is_exact_instance_of::<PyFloat>()
+        || value.is_exact_instance_of::<PyBool>()
+    {
+        Ok(Some(value.str()?.to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Like `urllib.parse.quote_plus` with UTF-8.
+fn quote_plus(text: &str, output: &mut String) {
+    for byte in text.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' | b'.' | b'-' | b'~' => {
+                output.push(char::from(byte));
+            }
+            b' ' => output.push('+'),
+            _ => {
+                const HEX: &[u8; 16] = b"0123456789ABCDEF";
+                output.push('%');
+                output.push(char::from(HEX[usize::from(byte >> 4)]));
+                output.push(char::from(HEX[usize::from(byte & 0xF)]));
+            }
+        }
+    }
+}
+
+fn is_utf8(encoding: &Bound<'_, PyAny>) -> bool {
+    encoding
+        .extract::<String>()
+        .is_ok_and(|name| matches!(name.to_ascii_lowercase().as_str(), "utf-8" | "utf8"))
+}
+
+/// Django's `{% querystring %}` without positional mappings: the request's
+/// `GET` updated with plain keyword values. `None` means Django's function
+/// must handle the call, which it then does with identical semantics.
+fn native_querystring(
+    py: Python<'_>,
+    context: &Context,
+    kwargs: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Option<String>> {
+    if context.formatting_context.is_some() {
+        return Ok(None);
+    }
+    let Some(request) = &context.request else {
+        return Ok(None);
+    };
+    let Ok(get) = request.bind(py).getattr(intern!(py, "GET")) else {
+        return Ok(None);
+    };
+    let query_dict = QUERY_DICT.import(py, "django.http", "QueryDict")?;
+    if !get.get_type().is(query_dict) || !is_utf8(&get.getattr(intern!(py, "encoding"))?) {
+        return Ok(None);
+    }
+    // Django 6.0 builds a fresh QueryDict, which uses DEFAULT_CHARSET and
+    // drops None from lists. Django 5.2 copies `GET` and keeps them.
+    let modern = context.django_series(py)? >= (6, 0);
+    if modern
+        && !is_utf8(
+            &QUERY_SETTINGS
+                .import(py, "django.conf", "settings")?
+                .getattr(intern!(py, "DEFAULT_CHARSET"))?,
+        )
+    {
+        return Ok(None);
+    }
+    let set = |params: &mut Vec<(String, Vec<String>)>, key: String, values: Vec<String>| {
+        if let Some(entry) = params.iter_mut().find(|(name, _)| *name == key) {
+            entry.1 = values;
+        } else {
+            params.push((key, values));
+        }
+    };
+    let list = |value: &Bound<'_, PyAny>| -> PyResult<Option<Vec<String>>> {
+        let mut values = Vec::new();
+        for item in value.try_iter()? {
+            let item = item?;
+            if item.is_none() && modern {
+                continue;
+            }
+            let item = if item.is_none() {
+                "None".to_string()
+            } else if let Some(item) = query_value(&item)? {
+                item
+            } else {
+                return Ok(None);
+            };
+            values.push(item);
+        }
+        Ok(Some(values))
+    };
+    let mut params: Vec<(String, Vec<String>)> = Vec::new();
+    let get_dict = get.cast::<PyDict>()?;
+    for (key, values) in get_dict.iter() {
+        let Ok(key) = key.extract::<String>() else {
+            return Ok(None);
+        };
+        let Some(values) = list(&values)? else {
+            return Ok(None);
+        };
+        set(&mut params, key, values);
+    }
+    let get_empty = params.is_empty();
+    for (key, value) in kwargs.into_iter().flat_map(PyDictMethods::iter) {
+        let key: String = key.extract()?;
+        if value.is_none() {
+            params.retain(|(name, _)| *name != key);
+        } else if value.is_exact_instance_of::<PyList>() || value.is_exact_instance_of::<PyTuple>()
+        {
+            let Some(values) = list(&value)? else {
+                return Ok(None);
+            };
+            set(&mut params, key, values);
+        } else if let Some(value) = query_value(&value)? {
+            set(&mut params, key, vec![value]);
+        } else {
+            return Ok(None);
+        }
+    }
+    if !modern && params.is_empty() && get_empty {
+        return Ok(Some(String::new()));
+    }
+    let mut output = String::from("?");
+    let mut first = true;
+    for (key, values) in &params {
+        for value in values {
+            if !first {
+                output.push('&');
+            }
+            first = false;
+            quote_plus(key, &mut output);
+            output.push('=');
+            quote_plus(value, &mut output);
+        }
+    }
+    Ok(Some(output))
+}
+
 impl InclusionTag {
     fn render_child<'py, T, O>(
         &self,
@@ -1748,19 +2038,21 @@ impl InclusionTag {
     ) -> Result<T, PyRenderError> {
         let mut args = build_args(py, template, context, &self.call.args)?;
         let kwargs = build_kwargs(py, template, context, &self.call.kwargs)?;
-        if self.call.takes_context {
-            let python_context = context.django_context(py)?;
-            if let Some(request) = &context.request {
-                python_context.setattr("request", request.bind(py))?;
-            }
-            args.push_front(python_context);
-        }
-        let values = self
-            .call
-            .func
-            .bind(py)
-            .call(PyTuple::new(py, args)?, kwargs.as_ref())?;
-        let mut values: HashMap<String, Py<PyAny>> = values.extract()?;
+        let func = self.call.func.bind(py);
+        // Django passes the live context, so changes the function makes
+        // reach later nodes.
+        let mut values = if self.call.takes_context {
+            let py_context = build_pycontext(py, context)?;
+            args.push_front(py_context.clone());
+            let result = PyTuple::new(py, args).and_then(|args| func.call(args, kwargs.as_ref()));
+            // Read the values before the context moves back to Rust, in case
+            // the function returned the context itself.
+            let values = result.and_then(|result| inclusion_values(py, result));
+            retrieve_context(py, py_context, context);
+            values?
+        } else {
+            inclusion_values(py, func.call(PyTuple::new(py, args)?, kwargs.as_ref())?)?
+        };
         if let Some(csrf) = context.resolve_root(py, "csrf_token")?
             && !csrf.is_none()
         {
@@ -1789,6 +2081,21 @@ impl InclusionTag {
         child.use_tz = context.use_tz;
         child.format_values = context.format_values;
         child.number_format = context.number_format.clone();
+        if let Some(template_name) = self.admin_template {
+            // `InclusionAdminNode` lets each model or app override the template.
+            let opts = context
+                .resolve_root(py, "opts")?
+                .ok_or_else(|| PyKeyError::new_err("opts"))?;
+            let app_label = opts.getattr("app_label")?.call_method0("lower")?.str()?;
+            let object_name = opts.getattr("model_name")?.str()?;
+            let key = IncludeTemplateKey::Vec(vec![
+                format!("admin/{app_label}/{object_name}/{template_name}"),
+                format!("admin/{app_label}/{template_name}"),
+                format!("admin/{template_name}"),
+            ]);
+            let loaded = context.get_or_insert_include(py, &self.engine, &key, self.id)?;
+            return native(&loaded, &mut child, output);
+        }
         let filename = self.filename.bind(py);
         let filename = filename
             .getattr("template")
@@ -1963,7 +2270,7 @@ impl Render for Now {
             ),
             None => (self.format.as_content(), false),
         };
-        let now = context.date_cache.now(py)?;
+        let now = context.date_cache.borrow_mut().now(py)?;
         let date = DATE_FILTER.import(py, "django.template.defaultfilters", "date")?;
         let formatted = format_localtime(now, Some(format), Formatter::Date, date, context)?;
         let formatted = match formatted {
@@ -2117,9 +2424,19 @@ impl Render for FirstOf {
             )? && content.to_bool().unwrap_or(false)
             {
                 if let Some(asvar) = &self.asvar {
-                    let rendered = RENDER_FIRSTOF_VALUE
-                        .import(py, "django.template.base", "render_value_in_context")?
-                        .call1((content.to_py(py), context.django_context(py)?))?;
+                    // Django stores `render_value_in_context(value)`. With
+                    // autoescape on, that is the escaped output marked safe,
+                    // which the native output path already produces.
+                    let rendered = if context.autoescape && context.formatting_context.is_none() {
+                        let output = content.render(context)?;
+                        FIRSTOF_SAFE_STRING
+                            .import(py, "django.utils.safestring", "SafeString")?
+                            .call1((output.as_ref(),))?
+                    } else {
+                        RENDER_FIRSTOF_VALUE
+                            .import(py, "django.template.base", "render_value_in_context")?
+                            .call1((content.to_py(py), context.django_context(py)?))?
+                    };
                     context.insert(asvar.clone(), rendered)?;
                     return Ok(Cow::Borrowed(""));
                 }

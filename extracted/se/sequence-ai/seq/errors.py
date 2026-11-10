@@ -20,7 +20,8 @@ readable error, never left as a string that blows up when the harness loads it".
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable
+from contextlib import contextmanager
+from typing import Any, Iterable, Iterator
 
 from sequence_ai.errors import AuthError, Conflict, SequencesError, Unavailable, from_response
 
@@ -136,8 +137,8 @@ def no_api_key() -> AuthError:
 
 def build_failed(what: str, error: str | None, *, hint: str | None = None) -> Conflict:
     """A build that ended `failed`. What it built is now in the failed state — what a connect to it reports too
-    (409, `details.state`) — so it is the same Conflict, not a class of its own. A benchmark's registration its owner
-    canceled is said canceled, never failed to build (canceled())."""
+    (409, `details.state`) — so it is the same Conflict, not a class of its own. A build its owner canceled, or stopped
+    at the time they gave it, is said canceled, never failed to build (canceled())."""
     if canceled(error):
         return Conflict(f"{what} was canceled: {str(error).removeprefix(CANCELED)}", details={"state": "failed"},
                         hint=hint)
@@ -151,8 +152,23 @@ CANCELED = "canceled: "
 
 
 def canceled(error: str | None) -> bool:
-    """Whether a failed benchmark's error says its owner canceled its registration (`seq benchmark cancel`)."""
+    """Whether a failed build's error says it ended at its owner's word: `seq benchmark cancel`, or the time a deploy gave
+    it (out_of_time)."""
     return str(error or "").startswith(CANCELED)
+
+
+
+
+TIME_LIMIT = f"{CANCELED}stopped at its time limit"
+
+
+def out_of_time(error: str | None, command: str) -> str | None:
+    """What a build stopped at the time `--timeout` gave it leaves to do, with `command`, what started it; None for any
+    other end."""
+    if not str(error or "").startswith(TIME_LIMIT):
+        return None
+    return (f"the time --timeout gave it ran out: the platform stopped it, its machines have ended and what ran until "
+            f"then is billed; run {command} again with more time, or with no --timeout")
 
 
 def state_said(status: str, error: str | None) -> str:
@@ -161,6 +177,27 @@ def state_said(status: str, error: str | None) -> str:
     
 """
     return "canceled" if status == "failed" and canceled(error) else status
+
+
+class LeftRunning(KeyboardInterrupt):
+    """Ctrl-C while a command followed a build: the command ends and the build does not, running on the platform, billed,
+    whatever this terminal does. Its text is what the command ends in, where "cancelled" told its owner it had stopped.
+    `stop`: what ends it now, said only where a command does without taking more than the build.
+    """
+
+    def __init__(self, what: str, limit_s: float | None, stop: str | None = None) -> None:
+        until = "it ends" if limit_s is None else f"it ends or the {limit_s:.10g} s --timeout gave it run out"
+        super().__init__(f"not canceled: {what} keeps building on the platform, billed, until {until}"
+                         + (f"; {stop}" if stop else ""))
+
+
+@contextmanager
+def following(what: str, limit_s: float | None, stop: str | None = None) -> Iterator[None]:
+    """A command following a build: Ctrl-C in it is LeftRunning."""
+    try:
+        yield
+    except KeyboardInterrupt:
+        raise LeftRunning(what, limit_s, stop) from None
 
 
 def still_building(what: str, follow: str, *, stalled_s: float | None = None) -> Unavailable:

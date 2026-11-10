@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AssignedLabel(ClientValue):
     """
         Represents a sensitivity label assigned to a Microsoft 365 group. Sensitivity labels allow administrators

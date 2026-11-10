@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylink-square
-Version: 2.0.2
+Version: 2.1.0
 Summary: Python interface for SEGGER J-Link.
 Home-page: http://www.github.com/Square/pylink
 Author: Square Embedded Software Team
@@ -10,14 +10,12 @@ Keywords: SEGGER J-Link
 Requires-Python: >=3.0
 License-File: LICENSE.md
 Requires-Dist: psutil>=5.2.2
-Requires-Dist: six
 Provides-Extra: dev
 Requires-Dist: behave==1.2.5; extra == "dev"
 Requires-Dist: coverage==4.4.1; extra == "dev"
 Requires-Dist: psutil>=5.2.2; extra == "dev"
 Requires-Dist: pycodestyle>=2.3.1; extra == "dev"
 Requires-Dist: setuptools>=70.2.0; extra == "dev"
-Requires-Dist: six; extra == "dev"
 Requires-Dist: sphinx==1.4.8; extra == "dev"
 Requires-Dist: sphinx-argparse==0.1.15; extra == "dev"
 Requires-Dist: sphinx_rtd_theme==0.2.4; extra == "dev"
@@ -46,12 +44,12 @@ Python interface for the SEGGER J-Link.
 Requirements
 ------------
 
--  `Python >= 3.7 <https://www.python.org/downloads/>`__
--  `GNU ARM Embedded
-   Toolchain <https://launchpad.net/gcc-arm-embedded>`__ (for functional
-   tests)
--  `SEGGER J-Link Tools >=
-   6.0b <https://www.segger.com/downloads/jlink>`__
+- `Python >= 3.7 <https://www.python.org/downloads/>`__
+- `GNU ARM Embedded
+  Toolchain <https://launchpad.net/gcc-arm-embedded>`__ (for functional
+  tests)
+- `SEGGER J-Link Tools >=
+  6.0b <https://www.segger.com/downloads/jlink>`__
 
 Installation
 ------------

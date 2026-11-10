@@ -1,4 +1,4 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+# File generated from our OpenAPI spec. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
@@ -52,9 +52,11 @@ from .types.scrape_response import ScrapeResponse
 from .types.screenshot_response import ScreenshotResponse
 
 if TYPE_CHECKING:
-    from .resources import files, profiles, sessions, extensions, credentials
+    from .resources import files, api_keys, profiles, projects, sessions, extensions, credentials
     from .resources.files import FilesResource, AsyncFilesResource
+    from .resources.api_keys import APIKeysResource, AsyncAPIKeysResource
     from .resources.profiles import ProfilesResource, AsyncProfilesResource
+    from .resources.projects import ProjectsResource, AsyncProjectsResource
     from .resources.extensions import ExtensionsResource, AsyncExtensionsResource
     from .resources.credentials import CredentialsResource, AsyncCredentialsResource
     from .resources.sessions.sessions import SessionsResource, AsyncSessionsResource
@@ -123,22 +125,17 @@ class Steel(SyncAPIClient):
         )
 
     @cached_property
+    def api_keys(self) -> APIKeysResource:
+        """Create project-scoped API keys using an organization-scoped API key."""
+        from .resources.api_keys import APIKeysResource
+
+        return APIKeysResource(self)
+
+    @cached_property
     def credentials(self) -> CredentialsResource:
         from .resources.credentials import CredentialsResource
 
         return CredentialsResource(self)
-
-    @cached_property
-    def files(self) -> FilesResource:
-        from .resources.files import FilesResource
-
-        return FilesResource(self)
-
-    @cached_property
-    def sessions(self) -> SessionsResource:
-        from .resources.sessions import SessionsResource
-
-        return SessionsResource(self)
 
     @cached_property
     def extensions(self) -> ExtensionsResource:
@@ -147,10 +144,28 @@ class Steel(SyncAPIClient):
         return ExtensionsResource(self)
 
     @cached_property
+    def files(self) -> FilesResource:
+        from .resources.files import FilesResource
+
+        return FilesResource(self)
+
+    @cached_property
     def profiles(self) -> ProfilesResource:
         from .resources.profiles import ProfilesResource
 
         return ProfilesResource(self)
+
+    @cached_property
+    def projects(self) -> ProjectsResource:
+        from .resources.projects import ProjectsResource
+
+        return ProjectsResource(self)
+
+    @cached_property
+    def sessions(self) -> SessionsResource:
+        from .resources.sessions import SessionsResource
+
+        return SessionsResource(self)
 
     @cached_property
     def with_raw_response(self) -> SteelWithRawResponse:
@@ -163,7 +178,7 @@ class Steel(SyncAPIClient):
     @property
     @override
     def qs(self) -> Querystring:
-        return Querystring(array_format="comma")
+        return Querystring(array_format="repeat")
 
     @property
     @override
@@ -178,7 +193,7 @@ class Steel(SyncAPIClient):
     def default_headers(self) -> dict[str, str | Omit]:
         return {
             **super().default_headers,
-            "X-Stainless-Async": "false",
+            "X-Steel-Async": "false",
             **self._custom_headers,
         }
 
@@ -310,7 +325,7 @@ class Steel(SyncAPIClient):
         Extracts content from a specified URL.
 
         Args:
-          url: URL of the webpage to scrape
+          url: URL of the webpage to scrape. A URL without a scheme is fetched over HTTPS.
 
           delay: Delay before scraping (in milliseconds)
 
@@ -509,22 +524,17 @@ class AsyncSteel(AsyncAPIClient):
         )
 
     @cached_property
+    def api_keys(self) -> AsyncAPIKeysResource:
+        """Create project-scoped API keys using an organization-scoped API key."""
+        from .resources.api_keys import AsyncAPIKeysResource
+
+        return AsyncAPIKeysResource(self)
+
+    @cached_property
     def credentials(self) -> AsyncCredentialsResource:
         from .resources.credentials import AsyncCredentialsResource
 
         return AsyncCredentialsResource(self)
-
-    @cached_property
-    def files(self) -> AsyncFilesResource:
-        from .resources.files import AsyncFilesResource
-
-        return AsyncFilesResource(self)
-
-    @cached_property
-    def sessions(self) -> AsyncSessionsResource:
-        from .resources.sessions import AsyncSessionsResource
-
-        return AsyncSessionsResource(self)
 
     @cached_property
     def extensions(self) -> AsyncExtensionsResource:
@@ -533,10 +543,28 @@ class AsyncSteel(AsyncAPIClient):
         return AsyncExtensionsResource(self)
 
     @cached_property
+    def files(self) -> AsyncFilesResource:
+        from .resources.files import AsyncFilesResource
+
+        return AsyncFilesResource(self)
+
+    @cached_property
     def profiles(self) -> AsyncProfilesResource:
         from .resources.profiles import AsyncProfilesResource
 
         return AsyncProfilesResource(self)
+
+    @cached_property
+    def projects(self) -> AsyncProjectsResource:
+        from .resources.projects import AsyncProjectsResource
+
+        return AsyncProjectsResource(self)
+
+    @cached_property
+    def sessions(self) -> AsyncSessionsResource:
+        from .resources.sessions import AsyncSessionsResource
+
+        return AsyncSessionsResource(self)
 
     @cached_property
     def with_raw_response(self) -> AsyncSteelWithRawResponse:
@@ -549,7 +577,7 @@ class AsyncSteel(AsyncAPIClient):
     @property
     @override
     def qs(self) -> Querystring:
-        return Querystring(array_format="comma")
+        return Querystring(array_format="repeat")
 
     @property
     @override
@@ -564,7 +592,7 @@ class AsyncSteel(AsyncAPIClient):
     def default_headers(self) -> dict[str, str | Omit]:
         return {
             **super().default_headers,
-            "X-Stainless-Async": f"async:{get_async_library()}",
+            "X-Steel-Async": f"async:{get_async_library()}",
             **self._custom_headers,
         }
 
@@ -696,7 +724,7 @@ class AsyncSteel(AsyncAPIClient):
         Extracts content from a specified URL.
 
         Args:
-          url: URL of the webpage to scrape
+          url: URL of the webpage to scrape. A URL without a scheme is fetched over HTTPS.
 
           delay: Delay before scraping (in milliseconds)
 
@@ -851,22 +879,17 @@ class SteelWithRawResponse:
         )
 
     @cached_property
+    def api_keys(self) -> api_keys.APIKeysResourceWithRawResponse:
+        """Create project-scoped API keys using an organization-scoped API key."""
+        from .resources.api_keys import APIKeysResourceWithRawResponse
+
+        return APIKeysResourceWithRawResponse(self._client.api_keys)
+
+    @cached_property
     def credentials(self) -> credentials.CredentialsResourceWithRawResponse:
         from .resources.credentials import CredentialsResourceWithRawResponse
 
         return CredentialsResourceWithRawResponse(self._client.credentials)
-
-    @cached_property
-    def files(self) -> files.FilesResourceWithRawResponse:
-        from .resources.files import FilesResourceWithRawResponse
-
-        return FilesResourceWithRawResponse(self._client.files)
-
-    @cached_property
-    def sessions(self) -> sessions.SessionsResourceWithRawResponse:
-        from .resources.sessions import SessionsResourceWithRawResponse
-
-        return SessionsResourceWithRawResponse(self._client.sessions)
 
     @cached_property
     def extensions(self) -> extensions.ExtensionsResourceWithRawResponse:
@@ -875,10 +898,28 @@ class SteelWithRawResponse:
         return ExtensionsResourceWithRawResponse(self._client.extensions)
 
     @cached_property
+    def files(self) -> files.FilesResourceWithRawResponse:
+        from .resources.files import FilesResourceWithRawResponse
+
+        return FilesResourceWithRawResponse(self._client.files)
+
+    @cached_property
     def profiles(self) -> profiles.ProfilesResourceWithRawResponse:
         from .resources.profiles import ProfilesResourceWithRawResponse
 
         return ProfilesResourceWithRawResponse(self._client.profiles)
+
+    @cached_property
+    def projects(self) -> projects.ProjectsResourceWithRawResponse:
+        from .resources.projects import ProjectsResourceWithRawResponse
+
+        return ProjectsResourceWithRawResponse(self._client.projects)
+
+    @cached_property
+    def sessions(self) -> sessions.SessionsResourceWithRawResponse:
+        from .resources.sessions import SessionsResourceWithRawResponse
+
+        return SessionsResourceWithRawResponse(self._client.sessions)
 
 
 class AsyncSteelWithRawResponse:
@@ -898,22 +939,17 @@ class AsyncSteelWithRawResponse:
         )
 
     @cached_property
+    def api_keys(self) -> api_keys.AsyncAPIKeysResourceWithRawResponse:
+        """Create project-scoped API keys using an organization-scoped API key."""
+        from .resources.api_keys import AsyncAPIKeysResourceWithRawResponse
+
+        return AsyncAPIKeysResourceWithRawResponse(self._client.api_keys)
+
+    @cached_property
     def credentials(self) -> credentials.AsyncCredentialsResourceWithRawResponse:
         from .resources.credentials import AsyncCredentialsResourceWithRawResponse
 
         return AsyncCredentialsResourceWithRawResponse(self._client.credentials)
-
-    @cached_property
-    def files(self) -> files.AsyncFilesResourceWithRawResponse:
-        from .resources.files import AsyncFilesResourceWithRawResponse
-
-        return AsyncFilesResourceWithRawResponse(self._client.files)
-
-    @cached_property
-    def sessions(self) -> sessions.AsyncSessionsResourceWithRawResponse:
-        from .resources.sessions import AsyncSessionsResourceWithRawResponse
-
-        return AsyncSessionsResourceWithRawResponse(self._client.sessions)
 
     @cached_property
     def extensions(self) -> extensions.AsyncExtensionsResourceWithRawResponse:
@@ -922,10 +958,28 @@ class AsyncSteelWithRawResponse:
         return AsyncExtensionsResourceWithRawResponse(self._client.extensions)
 
     @cached_property
+    def files(self) -> files.AsyncFilesResourceWithRawResponse:
+        from .resources.files import AsyncFilesResourceWithRawResponse
+
+        return AsyncFilesResourceWithRawResponse(self._client.files)
+
+    @cached_property
     def profiles(self) -> profiles.AsyncProfilesResourceWithRawResponse:
         from .resources.profiles import AsyncProfilesResourceWithRawResponse
 
         return AsyncProfilesResourceWithRawResponse(self._client.profiles)
+
+    @cached_property
+    def projects(self) -> projects.AsyncProjectsResourceWithRawResponse:
+        from .resources.projects import AsyncProjectsResourceWithRawResponse
+
+        return AsyncProjectsResourceWithRawResponse(self._client.projects)
+
+    @cached_property
+    def sessions(self) -> sessions.AsyncSessionsResourceWithRawResponse:
+        from .resources.sessions import AsyncSessionsResourceWithRawResponse
+
+        return AsyncSessionsResourceWithRawResponse(self._client.sessions)
 
 
 class SteelWithStreamedResponse:
@@ -945,22 +999,17 @@ class SteelWithStreamedResponse:
         )
 
     @cached_property
+    def api_keys(self) -> api_keys.APIKeysResourceWithStreamingResponse:
+        """Create project-scoped API keys using an organization-scoped API key."""
+        from .resources.api_keys import APIKeysResourceWithStreamingResponse
+
+        return APIKeysResourceWithStreamingResponse(self._client.api_keys)
+
+    @cached_property
     def credentials(self) -> credentials.CredentialsResourceWithStreamingResponse:
         from .resources.credentials import CredentialsResourceWithStreamingResponse
 
         return CredentialsResourceWithStreamingResponse(self._client.credentials)
-
-    @cached_property
-    def files(self) -> files.FilesResourceWithStreamingResponse:
-        from .resources.files import FilesResourceWithStreamingResponse
-
-        return FilesResourceWithStreamingResponse(self._client.files)
-
-    @cached_property
-    def sessions(self) -> sessions.SessionsResourceWithStreamingResponse:
-        from .resources.sessions import SessionsResourceWithStreamingResponse
-
-        return SessionsResourceWithStreamingResponse(self._client.sessions)
 
     @cached_property
     def extensions(self) -> extensions.ExtensionsResourceWithStreamingResponse:
@@ -969,10 +1018,28 @@ class SteelWithStreamedResponse:
         return ExtensionsResourceWithStreamingResponse(self._client.extensions)
 
     @cached_property
+    def files(self) -> files.FilesResourceWithStreamingResponse:
+        from .resources.files import FilesResourceWithStreamingResponse
+
+        return FilesResourceWithStreamingResponse(self._client.files)
+
+    @cached_property
     def profiles(self) -> profiles.ProfilesResourceWithStreamingResponse:
         from .resources.profiles import ProfilesResourceWithStreamingResponse
 
         return ProfilesResourceWithStreamingResponse(self._client.profiles)
+
+    @cached_property
+    def projects(self) -> projects.ProjectsResourceWithStreamingResponse:
+        from .resources.projects import ProjectsResourceWithStreamingResponse
+
+        return ProjectsResourceWithStreamingResponse(self._client.projects)
+
+    @cached_property
+    def sessions(self) -> sessions.SessionsResourceWithStreamingResponse:
+        from .resources.sessions import SessionsResourceWithStreamingResponse
+
+        return SessionsResourceWithStreamingResponse(self._client.sessions)
 
 
 class AsyncSteelWithStreamedResponse:
@@ -992,22 +1059,17 @@ class AsyncSteelWithStreamedResponse:
         )
 
     @cached_property
+    def api_keys(self) -> api_keys.AsyncAPIKeysResourceWithStreamingResponse:
+        """Create project-scoped API keys using an organization-scoped API key."""
+        from .resources.api_keys import AsyncAPIKeysResourceWithStreamingResponse
+
+        return AsyncAPIKeysResourceWithStreamingResponse(self._client.api_keys)
+
+    @cached_property
     def credentials(self) -> credentials.AsyncCredentialsResourceWithStreamingResponse:
         from .resources.credentials import AsyncCredentialsResourceWithStreamingResponse
 
         return AsyncCredentialsResourceWithStreamingResponse(self._client.credentials)
-
-    @cached_property
-    def files(self) -> files.AsyncFilesResourceWithStreamingResponse:
-        from .resources.files import AsyncFilesResourceWithStreamingResponse
-
-        return AsyncFilesResourceWithStreamingResponse(self._client.files)
-
-    @cached_property
-    def sessions(self) -> sessions.AsyncSessionsResourceWithStreamingResponse:
-        from .resources.sessions import AsyncSessionsResourceWithStreamingResponse
-
-        return AsyncSessionsResourceWithStreamingResponse(self._client.sessions)
 
     @cached_property
     def extensions(self) -> extensions.AsyncExtensionsResourceWithStreamingResponse:
@@ -1016,10 +1078,28 @@ class AsyncSteelWithStreamedResponse:
         return AsyncExtensionsResourceWithStreamingResponse(self._client.extensions)
 
     @cached_property
+    def files(self) -> files.AsyncFilesResourceWithStreamingResponse:
+        from .resources.files import AsyncFilesResourceWithStreamingResponse
+
+        return AsyncFilesResourceWithStreamingResponse(self._client.files)
+
+    @cached_property
     def profiles(self) -> profiles.AsyncProfilesResourceWithStreamingResponse:
         from .resources.profiles import AsyncProfilesResourceWithStreamingResponse
 
         return AsyncProfilesResourceWithStreamingResponse(self._client.profiles)
+
+    @cached_property
+    def projects(self) -> projects.AsyncProjectsResourceWithStreamingResponse:
+        from .resources.projects import AsyncProjectsResourceWithStreamingResponse
+
+        return AsyncProjectsResourceWithStreamingResponse(self._client.projects)
+
+    @cached_property
+    def sessions(self) -> sessions.AsyncSessionsResourceWithStreamingResponse:
+        from .resources.sessions import AsyncSessionsResourceWithStreamingResponse
+
+        return AsyncSessionsResourceWithStreamingResponse(self._client.sessions)
 
 
 Client = Steel

@@ -115,7 +115,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "djust",
-%(theming_app)s    "%(app_name)s",
+%(theming_app)s%(components_app)s    "%(app_name)s",
 ]
 
 MIDDLEWARE = [
@@ -132,7 +132,7 @@ ROOT_URLCONF = "%(app_name)s.urls"
 
 TEMPLATES = [
     {
-        "BACKEND": "djust.template_backend.DjustTemplateBackend",
+        "BACKEND": "djust.template.backend.DjustTemplateBackend",
         "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -182,7 +182,7 @@ LIVEVIEW_ALLOWED_MODULES = [
     "%(app_name)s.views",
     "djust",
 ]
-%(theming_settings)s%(extra_settings)s"""
+%(theming_settings)s%(bare_settings)s%(extra_settings)s"""
 
 # ---------------------------------------------------------------------------
 # Admin opt-in fragments (only emitted when the project ships models)
@@ -207,6 +207,9 @@ ADMIN_APP_ENTRY = '    "django.contrib.admin",\n'
 THEMING_SETTINGS = ""
 # theme.css plus the theme gallery (/theme/gallery/, DEBUG or staff only).
 THEMING_URLS = '    path("theme/", include("djust.theming.urls")),\n'
+COMPONENTS_APP_ENTRY = '    "djust.components",\n'
+BARE_SETTINGS = '\n# --bare skips djust.theming, so do not suggest it on every check run (djust.I002).\nDJUST_CONFIG = {"suppress_checks": ["I002"]}\n'
+
 THEMING_APP_ENTRY = '    "djust.theming",\n'
 THEMING_CONTEXT_PROCESSOR = '                "djust.theming.context_processors.theme_context",\n'
 
@@ -264,15 +267,16 @@ from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler  # noqa: 
 from django.urls import path  # noqa: E402
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
 from channels.auth import AuthMiddlewareStack  # noqa: E402
-from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
+from djust.routing import DjustOriginValidator  # noqa: E402
 from djust.websocket import LiveViewConsumer  # noqa: E402
 
-# CSWSH defense: ``AllowedHostsOriginValidator`` rejects WebSocket
-# handshakes whose Origin header is not in ``settings.ALLOWED_HOSTS``.
+# CSWSH defense: ``DjustOriginValidator`` denies a WebSocket handshake unless
+# its Origin is this site's own origin (scheme, host and port) or listed in
+# DJUST_ALLOWED_ORIGINS (default: CSRF_TRUSTED_ORIGINS).
 application = ProtocolTypeRouter(
     {
         "http": ASGIStaticFilesHandler(django_asgi_app),
-        "websocket": AllowedHostsOriginValidator(
+        "websocket": DjustOriginValidator(
             AuthMiddlewareStack(
                 URLRouter(
                     [
@@ -292,12 +296,9 @@ application = ProtocolTypeRouter(
 # The conditions run inside the user's settings module, so the block is
 # correct for list or tuple settings, apps listed by label or AppConfig path,
 # and projects that configure their own channel layer, without parsing the
-# user's code. TEMPLATES is deliberately untouched: LiveViews read their
-# template source directly, so the project's existing engines keep working
-# as they are. Rewriting a user's TEMPLATES safely (DjustTemplateBackend
-# first, carrying the context processors djust.C016 checks for) is a separate
-# feature (#2884); the admin incompatibility that used to argue against it
-# (#2872) is fixed.
+# user's code. TEMPLATES has its own block, TEMPLATES_BLOCK, because it is
+# only added where the existing setting is recognised (see ``plan_templates``
+# in ``init_project``); every other shape is reported, not rewritten.
 
 SETTINGS_BLOCK = """\
 # --- djust (added by djust init) ---
@@ -319,6 +320,82 @@ if "CHANNEL_LAYERS" not in globals():
         "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
     }
 # --- end djust ---
+"""
+
+# The ``TEMPLATES`` block ``djust init --templates`` appends to a project whose
+# setting has a ``DjangoTemplates`` entry and no djust entry (``djust init``
+# alone never edits TEMPLATES). It puts ``DjustTemplateBackend`` first (the
+# shape ``djust new`` writes and ``djust.C016`` asks for) and leaves the
+# project's own entries in the list, untouched. Django moves to the next
+# engine only when a template does not exist, so the djust engine renders every
+# template it finds (``APP_DIRS`` is on), the admin's included; the Django entry
+# serves templates that live in no app or ``DIRS`` directory. The djust entry
+# mirrors the first ``DjangoTemplates`` entry's ``DIRS`` and the ``OPTIONS``
+# keys ``DjustTemplateBackend`` implements, so context processors, builtins and
+# libraries the project configured keep applying. ``loaders`` and the other
+# Django-only keys stay on the Django entry: the djust backend warns about them.
+# The djust entry becomes ``TEMPLATES[0]``: a later settings module that edits
+# ``TEMPLATES[0]["OPTIONS"]`` now edits it, not the Django entry.
+TEMPLATES_MARKER = "# --- djust templates (added by djust init --templates) ---"
+
+TEMPLATES_BLOCK = """\
+# --- djust templates (added by djust init --templates) ---
+# DjustTemplateBackend first, so djust renders your templates; your own
+# TEMPLATES entries stay after it, unchanged. The djust entry
+# reuses the first DjangoTemplates entry's DIRS and its supported OPTIONS.
+# Reruns of `djust init` detect this block and leave settings unchanged.
+if not any("DjustTemplateBackend" in str(_entry.get("BACKEND")) for _entry in TEMPLATES):
+    _django = next(
+        (
+            _entry
+            for _entry in TEMPLATES
+            if _entry.get("BACKEND") == "django.template.backends.django.DjangoTemplates"
+        ),
+        {},
+    )
+    TEMPLATES = [
+        {
+            "NAME": "djust",
+            "BACKEND": "djust.template.backend.DjustTemplateBackend",
+            "DIRS": list(_django.get("DIRS", [])),
+            "APP_DIRS": True,
+            "OPTIONS": {
+                _key: _value
+                for _key, _value in _django.get("OPTIONS", {}).items()
+                if _key
+                in (
+                    "context_processors",
+                    "string_if_invalid",
+                    "debug",
+                    "autoescape",
+                    "libraries",
+                    "builtins",
+                )
+            },
+        },
+        *TEMPLATES,
+    ]
+    del _django
+# --- end djust templates ---
+"""
+
+# What ``djust init`` prints, and the docs show, for a project whose TEMPLATES
+# it will not edit: the documented shape, added by hand.
+TEMPLATES_ENTRY_SNIPPET = """\
+TEMPLATES.insert(0, {
+    "NAME": "djust",
+    "BACKEND": "djust.template.backend.DjustTemplateBackend",
+    "DIRS": [BASE_DIR / "templates"],
+    "APP_DIRS": True,
+    "OPTIONS": {
+        "context_processors": [
+            "django.template.context_processors.debug",
+            "django.template.context_processors.request",
+            "django.contrib.auth.context_processors.auth",
+            "django.contrib.messages.context_processors.messages",
+        ],
+    },
+})
 """
 
 # ---------------------------------------------------------------------------
@@ -529,7 +606,7 @@ BARE_INDEX_HTML = """\
 # ---------------------------------------------------------------------------
 
 BASE_HTML = """\
-{%% load live_tags theme_tags %%}
+{%% load live_tags theme_tags djust_components %%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -549,11 +626,9 @@ BASE_HTML = """\
         /* Layout only. Colors, type, radii and shadows all come from the
            theme pack, so every pack restyles this page completely. */
         .wrap { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
-        .topbar { border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--card)); }
-        .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: .75rem; padding-bottom: .75rem; flex-wrap: wrap; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .brand { font-weight: var(--font-bold, 700); font-size: 1.1rem; }
         .topbar-links { display: flex; align-items: center; gap: 1rem; }
-        main { padding: 2.5rem 0 4rem; }
         .stack > * + * { margin-top: 2rem; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
         .row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
@@ -575,8 +650,10 @@ BASE_HTML = """\
     {%% load static %%}
 </head>
 <body>
-    <nav class="topbar">
-        <div class="wrap">
+    {# app_shell comes from djust.components; add {%% app_sidebar %%} for a sidebar. #}
+    {%% app_shell %%}
+    {%% app_header %%}
+        <div class="topbar">
             <span class="brand">%(display_name)s</span>
             <div class="topbar-links">
                 <a href="/theme/gallery/">Component gallery</a>
@@ -584,15 +661,18 @@ BASE_HTML = """\
                 {%% theme_panel %%}
             </div>
         </div>
-    </nav>
-    <main class="wrap stack">
-        {%% block content %%}{%% endblock %%}
-    </main>
+    {%% endapp_header %%}
+    {%% app_content %%}
+        <div class="wrap stack">
+            {%% block content %%}{%% endblock %%}
+        </div>
     <footer class="wrap site-footer muted">
         djust {{ djust_version }} &middot;
         <a href="https://docs.djust.org/">Documentation</a> &middot;
         <a href="https://github.com/djust-org/djust">GitHub</a>
     </footer>
+    {%% endapp_content %%}
+    {%% endapp_shell %%}
     {# djust injects the client.js <script> automatically (see <head> note). #}
 </body>
 </html>
@@ -840,7 +920,7 @@ LOGIN_HTML = """\
             {%% csrf_token %%}
             <input type="hidden" name="next" value="{{ next }}">
             {%% if form.errors %%}
-            <p class="muted" style="margin: 0 0 1rem; color: hsl(var(--destructive))">
+            <p class="muted" style="margin: 0 0 1rem; color: hsl(var(--destructive-text, var(--destructive)))">
                 Invalid username or password.
             </p>
             {%% endif %%}
@@ -1163,7 +1243,7 @@ SCHEMA_LIST_HTML = """\
             <button dj-click="delete"
                     data-item_id:int="{{ item.id }}"
                     dj-confirm="Delete this %(model_display_singular_lower)s?"
-                    class="btn btn-ghost" style="color: hsl(var(--destructive))">
+                    class="btn btn-ghost" style="color: hsl(var(--destructive-text, var(--destructive)))">
                 Delete
             </button>
         </div>
@@ -1187,4 +1267,7 @@ Before changing live views, forms, templates or navigation, read:
 Use the documentation/source matching the installed djust release; main may
 contain newer APIs. Prefer native Django/djust behavior and declarative options
 before application wrappers. Keep project-specific instructions in this file.
+
+Before writing templates or views, see what djust already provides: `python manage.py djust_ai suggest "<what you need>"`
+and `python manage.py djust_ai inventory`. Before finishing, run `python manage.py check` and `python manage.py djust_audit --ast`.
 """

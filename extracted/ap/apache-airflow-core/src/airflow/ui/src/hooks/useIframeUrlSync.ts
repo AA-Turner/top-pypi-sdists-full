@@ -17,6 +17,7 @@
  * under the License.
  */
 import { type RefObject, useEffect, useRef } from "react";
+
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 // Resolve a URL-derived candidate and hand back only a same-origin, root-relative path (else null).

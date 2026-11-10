@@ -9,7 +9,11 @@ from typing import Any, cast
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models import Embeddings
-from ibm_watsonx_ai.utils.utils import get_from_json
+from ibm_watsonx_ai.utils.utils import (
+    _parse_model_id_from_mrn,
+    _resolve_gateway_model_name_from_mrn,
+    get_from_json,
+)
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     MissingToolRequiredProperties,
@@ -196,6 +200,18 @@ class _RAGQuery(Tool):
                     },
                     "projectId": {"title": "Project identifier", "type": "string"},
                     "spaceId": {"title": "Space identifier", "type": "string"},
+                    "useGateway": {
+                        "title": "Use Model Gateway to create embeddings",
+                        "type": "boolean",
+                    },
+                    "gatewayProjectId": {
+                        "title": "Project identifier sent to Model Gateway",
+                        "type": "string",
+                    },
+                    "gatewaySpaceId": {
+                        "title": "Space identifier sent to Model Gateway",
+                        "type": "string",
+                    },
                 },
                 "allOf": [
                     {
@@ -220,11 +236,35 @@ class _RAGQuery(Tool):
         :param input: input to be used when running tool
         :type input: str
 
-        :param config: configuration options, must match the config schema for the tool
+        :param config: configuration options, must match the config schema for the tool.
+            If the embedding model of the vector index is stored as a Model Gateway MRN
+            (``mrn:...``), the embeddings are created through Model Gateway, using the plain model id
+            parsed from the MRN. Otherwise classic inference is used, unless ``"useGateway": True``
+            is set to create the embeddings through Model Gateway as well. Model Gateway is supported
+            for the in-memory and watsonx.data vector stores; reranking is not supported by Model Gateway
+            and always uses classic inference. Elasticsearch vector stores create the embeddings themselves,
+            so setting ``"useGateway": True`` for them raises an error.
+            ``projectId`` / ``spaceId`` are only used to read the vector index and are not sent to Model Gateway;
+            set ``gatewayProjectId`` or ``gatewaySpaceId`` to send a project or space id to Model Gateway.
         :type config: dict, optional
 
         :return: the output from running the tool
         :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            rag_query = Toolkit(api_client=api_client).get_tool("RAGQuery")
+            result = rag_query.run(
+                input="What is watsonx?",
+                config={
+                    "vectorIndexId": "<vector index id>",
+                    "projectId": "<project id>",
+                    "useGateway": True,  # optional, MRN model ids always use Model Gateway
+                    "gatewayProjectId": "<project id>",  # optional, sent to Model Gateway
+                },
+            )
 
         """
         self._validate_tool_input(input)
@@ -247,6 +287,9 @@ class _RAGQuery(Tool):
                 'One of ["vectorIndexId", "vectorIndexIds"]', schema_type="config"
             )
 
+        Tool._validate_type(config.get("useGateway"), "config.useGateway", bool, False)
+        use_gateway = config.get("useGateway", False)
+
         page_contents: list[str] = []
         for vector_index_id in vector_index_ids:
             docs = self._process_vector_index(
@@ -254,6 +297,9 @@ class _RAGQuery(Tool):
                 query=input,
                 project_id=config.get("projectId"),
                 space_id=config.get("spaceId"),
+                use_gateway=use_gateway,
+                gateway_project_id=config.get("gatewayProjectId"),
+                gateway_space_id=config.get("gatewaySpaceId"),
             )
             page_contents.extend(docs)
         result = "\n\n".join(page_contents)
@@ -266,6 +312,7 @@ class _RAGQuery(Tool):
         index_details: dict[str, Any],
         query: str,
         index_id: str,
+        gateway_api_client: APIClient | None = None,
     ) -> list:
         from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
 
@@ -293,7 +340,9 @@ class _RAGQuery(Tool):
 
                 vector_store = VectorStore(
                     api_client=api_client,
-                    embeddings=self._prepare_embeddings(api_client, embedding_model_id),
+                    embeddings=self._prepare_embeddings(
+                        api_client, embedding_model_id, gateway_api_client
+                    ),
                     datasource_type="chroma",
                     distance_metric=distance_metric,
                 )
@@ -319,7 +368,7 @@ class _RAGQuery(Tool):
                     connection_id=index_details["store"].get("connection_id"),
                     index_name=index_details["store"].get("index"),
                     distance_metric=distance_metric,
-                    model_id=index_details["settings"]["embedding_model_id"],
+                    model_id=_parse_model_id_from_mrn(embedding_model_id),
                     **es_kwargs,
                 )
 
@@ -332,7 +381,9 @@ class _RAGQuery(Tool):
                 vector_store = VectorStore(
                     api_client=api_client,
                     connection_id=index_details["store"].get("connection_id"),
-                    embeddings=self._prepare_embeddings(api_client, embedding_model_id),
+                    embeddings=self._prepare_embeddings(
+                        api_client, embedding_model_id, gateway_api_client
+                    ),
                     index_name=index_details["store"].get("index"),
                     distance_metric=distance_metric,
                     **milvus_kwargs,
@@ -366,8 +417,10 @@ class _RAGQuery(Tool):
 
         default_reranking_model_id = "intfloat/multilingual-e5-large"
 
-        reranking_model_id = index_details["settings"].get(
-            "reranking_model_id", default_reranking_model_id
+        # reranking is not available in Model Gateway, but the id may be stored as an MRN
+        reranking_model_id = _parse_model_id_from_mrn(
+            index_details["settings"].get("reranking_model_id")
+            or default_reranking_model_id
         )
         reranking_model_spec = cast(
             dict,
@@ -407,6 +460,9 @@ class _RAGQuery(Tool):
         query: str,
         project_id: str | None = None,
         space_id: str | None = None,
+        use_gateway: bool = False,
+        gateway_project_id: str | None = None,
+        gateway_space_id: str | None = None,
     ) -> list[str]:
         api_client = APIClient(
             credentials=self._client.credentials,
@@ -417,8 +473,36 @@ class _RAGQuery(Tool):
         index_details = api_client.data_assets.get_details(vector_index_id)["entity"][
             "vector_index"
         ]
+
+        # The vector index may store the embedding model as a Model Gateway MRN.
+        gateway_api_client = None
+        stores_mrn = (
+            index_details["settings"].get("embedding_model_id") or ""
+        ).startswith("mrn:")
+        if index_details["store"].get("type") == "elasticsearch":
+            # Elasticsearch creates its embeddings inside the vector store, so Model Gateway
+            # cannot be used. Fail instead of silently ignoring an explicit request.
+            if use_gateway:
+                raise WMLClientError(
+                    "'useGateway' is not supported for Elasticsearch vector indexes "
+                    f"(vector index id: {vector_index_id}): Elasticsearch creates the embeddings itself."
+                )
+        elif use_gateway or stores_mrn:
+            # The project/space id is only needed to read the vector index. Model Gateway
+            # providers may live outside of the project's cluster, so the container id
+            # header is sent to the gateway only when explicitly requested.
+            # A shallow copy shares the authentication of `api_client` (no second token request),
+            # only the default project/space differ.
+            gateway_api_client = copy.copy(api_client)
+            gateway_api_client.default_project_id = gateway_project_id
+            gateway_api_client.default_space_id = gateway_space_id
+
         query_results = self._query_vector_store(
-            api_client, index_details, query, vector_index_id
+            api_client,
+            index_details,
+            query,
+            vector_index_id,
+            gateway_api_client,
         )
         docs_content = self._extract_docs_content(query_results)
 
@@ -430,12 +514,28 @@ class _RAGQuery(Tool):
         return docs_content
 
     def _prepare_embeddings(
-        self, api_client: APIClient, embedding_model_id: str
+        self,
+        api_client: APIClient,
+        embedding_model_id: str,
+        gateway_api_client: APIClient | None = None,
     ) -> Embeddings:
+        model_id = _parse_model_id_from_mrn(embedding_model_id)
+
+        if gateway_api_client is not None:
+            from ibm_watsonx_ai.gateway import Gateway
+
+            gateway = Gateway(api_client=gateway_api_client)
+            return Embeddings(
+                model_id=_resolve_gateway_model_name_from_mrn(
+                    gateway, embedding_model_id
+                ),
+                gateway=gateway,
+            )
+
         embedding_model_spec = cast(
             dict,
             api_client.foundation_models.get_model_specs(
-                model_id=embedding_model_id, filters=None
+                model_id=model_id, filters=None
             ),
         )
 
@@ -448,7 +548,7 @@ class _RAGQuery(Tool):
             parameters = {"truncate_input_tokens": max_sequence_length}
 
         return Embeddings(
-            model_id=embedding_model_id,
+            model_id=model_id,
             params=parameters,
             api_client=api_client,
         )

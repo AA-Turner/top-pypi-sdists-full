@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: crackle-codec
-Version: 0.54.0
+Version: 0.55.0
 Summary: Crackle 3D dense segmentation compression codec.
 Home-page: https://github.com/seung-lab/crackle
 Author: William Silversmith

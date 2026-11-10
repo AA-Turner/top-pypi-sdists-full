@@ -2,10 +2,10 @@
 name = "rsconnect_python"
 description = "The Posit Connect command-line interface."
 requires-python = ">=3.8"
-version = "1.32.0"
+version = "1.33.1"
 dependencies = [
     "typing-extensions>=4.8.0",
-    "pip>=10.0.0",
+    "pip>=20.3",
     "uv>=0.9.0",
     "semver>=2.0.0,<4.0.0",
     "pyjwt>=2.4.0; python_version < '3.9'",
@@ -31,7 +31,10 @@ rsconnect = "rsconnect.main:cli"
 
 [project.optional-dependencies]
 keyring = ["keyring>=23.0.0"]
-snowflake = ["snowflake-cli"]
+snowflake = [
+    "snowflake-cli>=2.8.2; python_version < '3.10'",
+    "snowflake-cli>=3.23.0; python_version >= '3.10'",
+]
 
 [project.urls]
 Repository = "http://github.com/posit-dev/rsconnect-python"

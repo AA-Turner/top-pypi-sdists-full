@@ -16,7 +16,7 @@ class TokenizationListParams(TypedDict, total=False):
     """Filters for tokenizations associated with a specific account."""
 
     begin: Annotated[Union[str, date], PropertyInfo(format="iso8601")]
-    """Filter for tokenizations created after this date."""
+    """Filter for tokenizations created on or after this date."""
 
     card_token: str
     """Filters for tokenizations associated with a specific card."""
@@ -40,7 +40,7 @@ class TokenizationListParams(TypedDict, total=False):
     Used to retrieve the next page of results after this item.
     """
 
-    tokenization_channel: Literal["DIGITAL_WALLET", "MERCHANT", "ALL"]
+    tokenization_channel: Literal["DIGITAL_WALLET", "MERCHANT", "AGENT_PAY", "ALL"]
     """Filter for tokenizations by tokenization channel.
 
     If this is not specified, only DIGITAL_WALLET tokenizations will be returned.

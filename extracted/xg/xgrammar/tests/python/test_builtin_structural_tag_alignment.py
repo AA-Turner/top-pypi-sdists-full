@@ -13,7 +13,7 @@ import sys
 from functools import lru_cache
 
 import pytest
-from tokenizer_utils import load_tokenizer
+from tokenizer_utils import load_model_file, load_tokenizer
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -75,7 +75,6 @@ PARALLEL_TOOL_SCENARIOS = [(2, "auto", 2), (2, "required", 2)]
 # (stag_key, model_id, reasoning, template_kwargs)
 # Excluded:
 #   - Llama-4: pythonic tool call format, needs separate structural tag
-#   - gemma_4: tool calls use <|"|> quoting, not JSON
 #   - deepseek_r1 thinking=True: template drops <think> in history rendering,
 #     prompt diff extraction doesn't work
 #   - Kimi-K2-Thinking thinking=False: model always outputs <think></think>,
@@ -124,11 +123,26 @@ MODEL_CONFIGS = [
         False,
         {"skip_think": True, "enable_thinking": False},
     ),
+    ("gemma_4", "google/gemma-4-E2B-it", True, {"enable_thinking": True}),
+    ("gemma_4", "google/gemma-4-E2B-it", False, {"enable_thinking": False}),
+    ("gemma_4", "google/gemma-4-31B-it", True, {"enable_thinking": True}),
+    ("gemma_4", "google/gemma-4-31B-it", False, {"enable_thinking": False}),
 ]
 
 # Models whose renderer cannot produce a turn with an empty reasoning block: the DeepSeek
-# V3.2 encoder rejects it, the other templates drop the block entirely.
-SKIP_EMPTY_REASONING = {"ENCODER:dsv32", "MiniMaxAI/MiniMax-M2.5", "moonshotai/Kimi-K3"}
+# V3.2 encoder rejects it, the other templates (including Gemma-4's) drop the block entirely.
+SKIP_EMPTY_REASONING = {
+    "ENCODER:dsv32",
+    "MiniMaxAI/MiniMax-M2.5",
+    "moonshotai/Kimi-K3",
+    "google/gemma-4-E2B-it",
+    "google/gemma-4-31B-it",
+}
+
+# Templates that pre-render an empty thought block in the generation prompt when thinking
+# is disabled; history rendering omits it, so it is stripped before diffing.
+PRERENDERED_EMPTY_THOUGHT_MODELS = {"google/gemma-4-31B-it"}
+PRERENDERED_EMPTY_THOUGHT = "<|channel>thought\n<channel|>"
 
 # Models where tool call format in template doesn't match structural tag.
 SKIP_TOOLS = set()
@@ -168,6 +182,8 @@ EOS_SUFFIXES = {
     "deepseek_v4_1": ["<｜end▁of▁sentence｜>"],
     "cohere": ["<|END_OF_TURN_TOKEN|>"],
     "exaone": ["[|endofturn|]"],
+    # <|tool_response> is the halt signal the template appends after a tool call.
+    "gemma_4": ["<turn|>", "<|tool_response>"],
 }
 
 
@@ -244,6 +260,9 @@ def extract_output_tokenizer(model_id, stag_key, assistant_msg, tools, template_
         [USER_MSG, assistant_msg], add_generation_prompt=False, **kwargs
     )
 
+    if model_id in PRERENDERED_EMPTY_THOUGHT_MODELS and not full.startswith(prompt):
+        prompt = prompt.removesuffix(PRERENDERED_EMPTY_THOUGHT)
+
     if model_id in STRIP_THINK_MODELS and assistant_msg.get("reasoning_content") is not None:
         if not full.startswith(prompt):
             think_begin, think_end = (
@@ -274,9 +293,7 @@ def extract_output_tokenizer(model_id, stag_key, assistant_msg, tools, template_
 @lru_cache(maxsize=1)
 def load_deepseek_v41_encoder():
     """Load the official, revision-pinned renderer (the release has no Jinja template)."""
-    from huggingface_hub import hf_hub_download
-
-    path = hf_hub_download(
+    path = load_model_file(
         "deepseek-ai/DeepSeek-V4.1-Flash",
         "encoding/encoding.py",
         revision="dba1be0a40aa45a94ad051997016db3960a90277",
@@ -501,6 +518,8 @@ def test_reasoning_stag(case):
         template_kwargs,
         num_tool_calls,
     ) = case
+    if stag_key == "gemma_4":
+        pytest.importorskip("transformers", minversion="5.5")
     tools = make_tools(num_tools)
     tool_choice = make_tool_choice(tool_choice_str, tools or [])
     assistant_msg = make_assistant_msg(stag_key, reasoning_content, num_tool_calls)

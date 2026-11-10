@@ -32,7 +32,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, cast
 
 from cozy_runtime import _kernels
-from cozy_runtime.author.kernels import Launch, TritonEntry, TritonKernels
+from cozy_runtime.accel.kernels import Launch, TritonEntry, TritonKernels
 from cozy_runtime.internal import arch, int8_linear, kernel_ready, prebuilt, verify
 from cozy_runtime.internal.encoding.formats import E2M1_VALUES, NVFP4_BLOCK, Tensor
 
@@ -65,6 +65,8 @@ try:
     import triton
     import triton.language as tl
 except ImportError as _absent:  # pragma: no cover - a CPU-only or non-Linux environment
+    if TYPE_CHECKING:
+        raise
     TRITON_ABSENT = f"triton does not import ({_absent})"
 else:
     TRITON_ABSENT = ""
@@ -255,7 +257,7 @@ def _entries() -> list[TritonEntry]:
     return entries
 
 
-#: Built on every executor's GPUs when it starts (`author.kernels`): a request never compiles.
+#: Built on every executor's GPUs when it starts (`accel.kernels`): a request never compiles.
 KERNELS = TritonKernels("cozy-svdq-nvfp4", _entries())
 #: E2M1's values per device, made outside any graph capture (a host copy would end one).
 _TABLES: dict[object, Tensor] = {}

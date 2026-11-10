@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 
 from office365.outlook.mail.attachments.type import AttachmentType
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class AttachmentItem(ClientValue):
     """Represents attributes of an item to be attached."""
 

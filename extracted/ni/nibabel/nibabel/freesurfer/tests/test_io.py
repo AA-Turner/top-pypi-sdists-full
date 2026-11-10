@@ -47,11 +47,12 @@ freesurfer_test = unittest.skipUnless(
 
 
 @freesurfer_test
+@pytest.mark.thread_unsafe
 def test_geometry():
     """Test IO of .surf"""
     surf_path = pjoin(data_path, 'surf', 'lh.inflated')
     coords, faces = read_geometry(surf_path)
-    assert 0 == faces.min()
+    assert faces.min() == 0
     assert coords.shape[0] == faces.max() + 1
 
     surf_path = pjoin(data_path, 'surf', 'lh.sphere')
@@ -59,9 +60,9 @@ def test_geometry():
         surf_path, read_metadata=True, read_stamp=True
     )
 
-    assert 0 == faces.min()
+    assert faces.min() == 0
     assert coords.shape[0] == faces.max() + 1
-    assert 9 == len(volume_info)
+    assert len(volume_info) == 9
     assert np.array_equal([2, 0, 20], volume_info['head'])
     assert create_stamp == 'created by greve on Thu Jun  8 19:17:51 2006'
 
@@ -114,13 +115,14 @@ def test_geometry():
 
 @freesurfer_test
 @needs_nibabel_data('nitest-freesurfer')
+@pytest.mark.thread_unsafe
 def test_quad_geometry():
     """Test IO of freesurfer quad files."""
     new_quad = pjoin(
         get_nibabel_data(), 'nitest-freesurfer', 'subjects', 'bert', 'surf', 'lh.inflated.nofix'
     )
     coords, faces = read_geometry(new_quad)
-    assert 0 == faces.min()
+    assert faces.min() == 0
     assert coords.shape[0] == (faces.max() + 1)
     with InTemporaryDirectory():
         new_path = 'test'
@@ -131,6 +133,7 @@ def test_quad_geometry():
 
 
 @freesurfer_test
+@pytest.mark.thread_unsafe
 def test_morph_data():
     """Test IO of morphometry data file (eg. curvature)."""
     curv_path = pjoin(data_path, 'surf', 'lh.curv')
@@ -144,6 +147,7 @@ def test_morph_data():
         assert np.array_equal(curv2, curv)
 
 
+@pytest.mark.thread_unsafe
 def test_write_morph_data():
     """Test write_morph_data edge cases"""
     values = np.arange(20, dtype='>f4')
@@ -168,6 +172,7 @@ def test_write_morph_data():
 
 
 @freesurfer_test
+@pytest.mark.thread_unsafe
 def test_annot():
     """Test IO of .annot against freesurfer example data."""
     annots = ['aparc', 'aparc.a2005s']
@@ -211,6 +216,7 @@ def test_annot():
         assert names == names2
 
 
+@pytest.mark.thread_unsafe
 def test_read_write_annot():
     """Test generating .annot file and reading it back."""
     # This annot file will store a LUT for a mesh made of 10 vertices, with
@@ -244,6 +250,7 @@ def test_read_write_annot():
         assert names2 == names
 
 
+@pytest.mark.thread_unsafe
 def test_write_annot_fill_ctab():
     """Test the `fill_ctab` parameter to :func:`.write_annot`."""
     nvertices = 10
@@ -291,6 +298,7 @@ def test_write_annot_fill_ctab():
         assert names2 == names
 
 
+@pytest.mark.thread_unsafe
 def test_read_annot_old_format():
     """Test reading an old-style .annot file."""
 
@@ -353,6 +361,35 @@ def test_label():
     assert len(labels) == len(scalars)
 
 
+@pytest.mark.parametrize('read_scalars', [False, True])
+@pytest.mark.parametrize('n_vertices', [0, 1, 3])
+def test_label_shape(tmp_path, read_scalars, n_vertices):
+    vertices = np.array([123, 7, 42], dtype=int)[:n_vertices]
+    values = np.array([4.0, -2.5, 0.0])[:n_vertices]
+    label_path = tmp_path / 'test.label'
+    rows = ''.join(f'{v} 0.0 0.0 0.0 {s}\n' for v, s in zip(vertices, values))
+    label_path.write_text(f'#!ascii label\n{n_vertices}\n{rows}')
+
+    if n_vertices == 0:
+        with pytest.warns(UserWarning, match='loadtxt: input contained no data'):
+            result = read_label(label_path, read_scalars=read_scalars)
+    else:
+        result = read_label(label_path, read_scalars=read_scalars)
+
+    if read_scalars:
+        labels, scalars = result
+        assert scalars.shape == (n_vertices,)
+        assert scalars.dtype == values.dtype
+        np.testing.assert_array_equal(scalars, values)
+        assert len(labels) == len(scalars)
+    else:
+        labels = result
+    assert labels.shape == (n_vertices,)
+    assert labels.dtype == vertices.dtype
+    np.testing.assert_array_equal(labels, vertices)
+
+
+@pytest.mark.thread_unsafe
 def test_write_annot_maxstruct():
     """Test writing ANNOT files with repeated labels"""
     with InTemporaryDirectory():

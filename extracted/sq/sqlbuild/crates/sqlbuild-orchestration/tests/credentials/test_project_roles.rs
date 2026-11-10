@@ -3,23 +3,31 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::json;
+use uuid::Uuid;
 
+use crate::api::models::GroupRole;
 use crate::authorization::main::compile_roles::compile_roles;
+use crate::authorization::main::list_role_definitions::list_role_definitions;
+use crate::authorization::main::publish_group_roles::publish_group_roles;
+use crate::credentials::main::identities::create_principal::create_principal;
 use crate::credentials::models::{Action, RoleAssignmentRequest, RoleKey};
 use crate::credentials::tests::role_helpers::{
-    SUPPORT_ROLE, assign, authorize_member, developer_grants, member_listings,
-    member_trigger_change, orders_grant, publish_customers_trigger, publish_support_role,
-    role_changes, role_fixture,
+    SUPPORT_ROLE, administrator_trigger_change, assign, authorize_member, developer_grants,
+    member_listings, member_trigger_change, member_trigger_changes, orders_grant,
+    publish_customers_trigger, publish_support_role, role_changes, role_fixture,
 };
 use crate::credentials::tests::test_types::{ProjectRoleTestCase, RolesFileTestCase};
 use crate::declarations::models::TriggerChange;
 use crate::runs::tests::helpers::snapshot;
 use crate::snapshots::main::publish_snapshot::publish_snapshot;
+use crate::store::errors::ControlError;
 use crate::store::main::migrate_store::migrate_store;
+use crate::store::main::{begin::begin, commit::commit, query::query};
+use crate::store::models::{Parameter, TransactionMode};
 use crate::store::tests::store_helpers::{close_test_store, open_test_store, run};
 use crate::store::tests::store_test_types::Backend;
 
-const ADHOC_DENIED: &str = "missing run.adhoc on nodes customers; all requested nodes denied";
+const ADHOC_DENIED: &str = "missing run.adhoc permission for this target";
 
 #[test]
 fn given_published_selector_when_it_matches_more_nodes_then_coverage_grows_on_publish() {
@@ -91,6 +99,88 @@ fn given_published_selector_when_it_matches_more_nodes_then_coverage_grows_on_pu
                 "{}: the new role, the dropped view grant and the grown coverage enter the change feed",
                 test_case.description
             );
+            publish_group_roles(
+                store,
+                &[GroupRole {
+                    group: "support-team".into(),
+                    role: RoleKey::Custom(SUPPORT_ROLE.into()),
+                    location_id: Some(roles.location_id),
+                    target: None,
+                }],
+            )
+            .await
+            .expect("group mapping");
+            let grouped = create_principal(store, &roles.context, "support-lead")
+                .await
+                .expect("group member");
+            for principal in [grouped, roles.member_id] {
+                let transaction = begin(store, TransactionMode::Write)
+                    .await
+                    .expect("group membership");
+                let (transaction, _) = query(
+                    transaction,
+                    "INSERT INTO sqb_person_groups (principal_id,group_name) VALUES ($1,$2)",
+                    vec![
+                        Parameter::Id(principal),
+                        Parameter::Text("support-team".into()),
+                    ],
+                )
+                .await
+                .expect("member of the group");
+                commit(transaction).await.expect("membership committed");
+            }
+            let definitions = list_role_definitions(
+                store,
+                (&roles.context, roles.administrator.identity.principal_id),
+                (roles.location_id, "development"),
+            )
+            .await
+            .expect("role definitions");
+            assert_eq!(
+                definitions
+                    .iter()
+                    .map(|role| (role.key.as_str(), role.builtin, role.holders))
+                    .collect::<Vec<_>>(),
+                [
+                    ("viewer", true, 0),
+                    ("operator", true, 0),
+                    ("developer", true, 0),
+                    ("admin", true, 1),
+                    (SUPPORT_ROLE, false, 2)
+                ],
+                "{}: built-in roles, then the published role, each counting a person once whether assigned directly or through a group",
+                test_case.description
+            );
+            assert_eq!(
+                definitions[0].grants[0].permissions,
+                [Action::View],
+                "a viewer views every node"
+            );
+            let support = &definitions[4];
+            assert_eq!(
+                support.description.as_deref(),
+                Some("Answer order questions")
+            );
+            assert_eq!(
+                support.grants[0].matched,
+                BTreeMap::from([(
+                    "tag:orders".to_owned(),
+                    vec!["customers".to_owned(), "orders".to_owned()]
+                )]),
+                "each selector shows the nodes it matched at the latest publish"
+            );
+            assert!(
+                matches!(
+                    list_role_definitions(
+                        store,
+                        (&roles.context, roles.member_id),
+                        (roles.location_id, "development"),
+                    )
+                    .await,
+                    Err(ControlError::Denied { .. })
+                ),
+                "people without role.assign everywhere cannot read role definitions"
+            );
             close_test_store(fixture).await;
         });
     }
@@ -103,13 +193,13 @@ fn given_selector_resolving_to_no_nodes_when_published_then_it_grants_nothing() 
             description: "SQLite grants nothing for an empty resolution",
             backend: Backend::Sqlite,
             expected_before: Ok(SUPPORT_ROLE),
-            expected_after: Err("missing permission in this scope; all requested nodes denied"),
+            expected_after: Err("missing view permission for this target"),
         },
         ProjectRoleTestCase {
             description: "PostgreSQL grants nothing for an empty resolution",
             backend: Backend::Postgres,
             expected_before: Ok(SUPPORT_ROLE),
-            expected_after: Err("missing permission in this scope; all requested nodes denied"),
+            expected_after: Err("missing view permission for this target"),
         },
     ];
     for test_case in test_cases {
@@ -149,8 +239,8 @@ fn given_selector_resolving_to_no_nodes_when_published_then_it_grants_nothing() 
                     .await
                     .as_deref()
                     .map_err(String::as_str),
-                Err("missing run.adhoc on nodes orders; all requested nodes denied"),
-                "{}: the denial names the uncovered node",
+                Err("missing run.adhoc permission for this target"),
+                "{}: the denial names no node",
                 test_case.description
             );
             close_test_store(fixture).await;
@@ -165,22 +255,14 @@ fn given_grant_outside_a_triggers_job_when_the_member_overrides_it_then_both_tri
         ProjectRoleTestCase {
             description: "SQLite authorizes trigger overrides on the job's write set",
             backend: Backend::Sqlite,
-            expected_before: Err(
-                "missing trigger.toggle on nodes customers; all requested nodes denied",
-            ),
-            expected_after: Err(
-                "missing sensor.reset_cursor on nodes customers; all requested nodes denied",
-            ),
+            expected_before: Err("missing trigger.toggle permission for this target"),
+            expected_after: Err("missing sensor.reset_cursor permission for this target"),
         },
         ProjectRoleTestCase {
             description: "PostgreSQL authorizes trigger overrides on the job's write set",
             backend: Backend::Postgres,
-            expected_before: Err(
-                "missing trigger.toggle on nodes customers; all requested nodes denied",
-            ),
-            expected_after: Err(
-                "missing sensor.reset_cursor on nodes customers; all requested nodes denied",
-            ),
+            expected_before: Err("missing trigger.toggle permission for this target"),
+            expected_after: Err("missing sensor.reset_cursor permission for this target"),
         },
     ];
     for test_case in test_cases {
@@ -238,23 +320,125 @@ fn given_grant_outside_a_triggers_job_when_the_member_overrides_it_then_both_tri
 }
 
 #[test]
+fn given_trigger_overrides_when_a_member_reads_their_history_then_only_full_view_sees_them_newest_first()
+ {
+    let test_cases = [
+        ProjectRoleTestCase {
+            description: "SQLite trigger history needs view on every node",
+            backend: Backend::Sqlite,
+            expected_before: Err("missing view permission for this target"),
+            expected_after: Ok("orders-admin"),
+        },
+        ProjectRoleTestCase {
+            description: "PostgreSQL trigger history needs view on every node",
+            backend: Backend::Postgres,
+            expected_before: Err("missing view permission for this target"),
+            expected_after: Ok("orders-admin"),
+        },
+    ];
+    for test_case in test_cases {
+        run(async {
+            let Some(fixture) = open_test_store(test_case.backend).await else {
+                return;
+            };
+            let store = &fixture.store;
+            migrate_store(store).await.expect("migrate");
+            let roles = role_fixture(store).await;
+            let view = |nodes: &[&str]| json!([orders_grant(json!(["view"]), nodes)]);
+            publish_customers_trigger(store, roles.location_id, (2, view(&["orders"]))).await;
+            let trigger_id = administrator_trigger_change(
+                store,
+                &roles,
+                (
+                    TriggerChange::Pause,
+                    "Hold while postgres://orders:orders-db-pass@warehouse.example.test/orders rotates",
+                ),
+            )
+            .await;
+            administrator_trigger_change(store, &roles, (TriggerChange::Enable, "Rotation done"))
+                .await;
+            assert_eq!(
+                member_trigger_changes(store, &roles, trigger_id)
+                    .await
+                    .map(|_| ()),
+                test_case.expected_before.map(|_| ()).map_err(str::to_owned),
+                "{}: part coverage is denied, not filtered",
+                test_case.description
+            );
+            assert_eq!(
+                member_trigger_changes(store, &roles, Uuid::now_v7())
+                    .await
+                    .map(|_| ()),
+                test_case.expected_before.map(|_| ()).map_err(str::to_owned),
+                "{}: an unknown trigger is refused alike",
+                test_case.description
+            );
+            publish_customers_trigger(
+                store,
+                roles.location_id,
+                (3, view(&["customers", "inventory", "orders", "products"])),
+            )
+            .await;
+            let changes = member_trigger_changes(store, &roles, trigger_id)
+                .await
+                .expect("full coverage reads the history")
+                .expect("published trigger");
+            assert_eq!(
+                changes
+                    .iter()
+                    .map(|change| (
+                        change.change.clone(),
+                        change.actor_name.as_deref(),
+                        change.reason.as_str()
+                    ))
+                    .collect::<Vec<_>>(),
+                [
+                    (
+                        TriggerChange::Enable,
+                        test_case.expected_after.ok(),
+                        "Rotation done"
+                    ),
+                    (
+                        TriggerChange::Pause,
+                        test_case.expected_after.ok(),
+                        "Hold while postgres://orders:[REDACTED]@warehouse.example.test/orders rotates"
+                    ),
+                ],
+                "{}: newest first, with the person's name and a redacted reason",
+                test_case.description
+            );
+            assert!(
+                changes
+                    .iter()
+                    .all(|change| change.actor.starts_with("principal:")),
+                "{}: the audited actor is kept",
+                test_case.description
+            );
+            assert_eq!(
+                member_trigger_changes(store, &roles, Uuid::now_v7()).await,
+                Ok(None),
+                "{}: an unknown trigger is not found once the listing is allowed",
+                test_case.description
+            );
+            close_test_store(fixture).await;
+        });
+    }
+}
+
+#[test]
 fn given_view_grant_on_part_of_the_location_when_listing_then_each_listing_is_denied_until_full_coverage()
  {
     let test_cases = [
         ProjectRoleTestCase {
             description: "SQLite location listings need view on every node",
             backend: Backend::Sqlite,
-            expected_before: Err(
-                "missing view on nodes customers, inventory, products; all requested nodes denied",
-            ),
+            expected_before: Err("missing view permission for this target"),
             expected_after: Ok(SUPPORT_ROLE),
         },
         ProjectRoleTestCase {
             description: "PostgreSQL location listings need view on every node",
             backend: Backend::Postgres,
-            expected_before: Err(
-                "missing view on nodes customers, inventory, products; all requested nodes denied",
-            ),
+            expected_before: Err("missing view permission for this target"),
             expected_after: Ok(SUPPORT_ROLE),
         },
     ];
@@ -302,13 +486,13 @@ fn given_role_removed_from_code_when_its_assignment_remains_then_it_grants_nothi
             description: "SQLite stale assignment grants nothing",
             backend: Backend::Sqlite,
             expected_before: Ok(SUPPORT_ROLE),
-            expected_after: Err("missing run.adhoc on nodes orders; all requested nodes denied"),
+            expected_after: Err("missing run.adhoc permission for this target"),
         },
         ProjectRoleTestCase {
             description: "PostgreSQL stale assignment grants nothing",
             backend: Backend::Postgres,
             expected_before: Ok(SUPPORT_ROLE),
-            expected_after: Err("missing run.adhoc on nodes orders; all requested nodes denied"),
+            expected_after: Err("missing run.adhoc permission for this target"),
         },
     ];
     for test_case in test_cases {
@@ -355,7 +539,7 @@ fn given_role_removed_from_code_when_its_assignment_remains_then_it_grants_nothi
                     .await
                     .as_deref()
                     .map_err(String::as_str),
-                Err("missing permission in this scope; all requested nodes denied"),
+                Err("missing view permission for this target"),
                 "{}: nor location-wide",
                 test_case.description
             );

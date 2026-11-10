@@ -43,6 +43,10 @@ class ProjectRequestForm:
         user_email_patterns (Union[Unset, list[str]]):
         user_affiliations (Union[Unset, list[str]]):
         user_identity_sources (Union[Unset, list[str]]):
+        user_nationalities (Union[Unset, list[str]]): Allowed nationality codes (ISO 3166-1 alpha-2). User must have
+            one.
+        user_organization_types (Union[Unset, list[str]]): Allowed organization type URNs (SCHAC). User must match one.
+        user_assurance_levels (Union[Unset, list[str]]): Required assurance URIs (REFEDS). User must have all of these.
         affiliation_uuid (Union[None, UUID, Unset]):
         science_sub_domain (Union[None, UUID, Unset]):
     """
@@ -64,6 +68,9 @@ class ProjectRequestForm:
     user_email_patterns: Union[Unset, list[str]] = UNSET
     user_affiliations: Union[Unset, list[str]] = UNSET
     user_identity_sources: Union[Unset, list[str]] = UNSET
+    user_nationalities: Union[Unset, list[str]] = UNSET
+    user_organization_types: Union[Unset, list[str]] = UNSET
+    user_assurance_levels: Union[Unset, list[str]] = UNSET
     affiliation_uuid: Union[None, UUID, Unset] = UNSET
     science_sub_domain: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -146,6 +153,18 @@ class ProjectRequestForm:
         if not isinstance(self.user_identity_sources, Unset):
             user_identity_sources = self.user_identity_sources
 
+        user_nationalities: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_nationalities, Unset):
+            user_nationalities = self.user_nationalities
+
+        user_organization_types: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_organization_types, Unset):
+            user_organization_types = self.user_organization_types
+
+        user_assurance_levels: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.user_assurance_levels, Unset):
+            user_assurance_levels = self.user_assurance_levels
+
         affiliation_uuid: Union[None, Unset, str]
         if isinstance(self.affiliation_uuid, Unset):
             affiliation_uuid = UNSET
@@ -200,6 +219,12 @@ class ProjectRequestForm:
             field_dict["user_affiliations"] = user_affiliations
         if user_identity_sources is not UNSET:
             field_dict["user_identity_sources"] = user_identity_sources
+        if user_nationalities is not UNSET:
+            field_dict["user_nationalities"] = user_nationalities
+        if user_organization_types is not UNSET:
+            field_dict["user_organization_types"] = user_organization_types
+        if user_assurance_levels is not UNSET:
+            field_dict["user_assurance_levels"] = user_assurance_levels
         if affiliation_uuid is not UNSET:
             field_dict["affiliation_uuid"] = affiliation_uuid
         if science_sub_domain is not UNSET:
@@ -331,6 +356,12 @@ class ProjectRequestForm:
 
         user_identity_sources = cast(list[str], d.pop("user_identity_sources", UNSET))
 
+        user_nationalities = cast(list[str], d.pop("user_nationalities", UNSET))
+
+        user_organization_types = cast(list[str], d.pop("user_organization_types", UNSET))
+
+        user_assurance_levels = cast(list[str], d.pop("user_assurance_levels", UNSET))
+
         def _parse_affiliation_uuid(data: object) -> Union[None, UUID, Unset]:
             if data is None:
                 return data
@@ -383,6 +414,9 @@ class ProjectRequestForm:
             user_email_patterns=user_email_patterns,
             user_affiliations=user_affiliations,
             user_identity_sources=user_identity_sources,
+            user_nationalities=user_nationalities,
+            user_organization_types=user_organization_types,
+            user_assurance_levels=user_assurance_levels,
             affiliation_uuid=affiliation_uuid,
             science_sub_domain=science_sub_domain,
         )

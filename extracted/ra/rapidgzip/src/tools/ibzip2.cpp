@@ -35,6 +35,8 @@ using namespace rapidgzip;
 using namespace indexed_bzip2;
 
 
+namespace
+{
 /* Check whether the found offsets actually point to BZ2 magic bytes. */
 void
 checkOffsets( const std::string&         filePath,
@@ -478,6 +480,7 @@ ibzip2CLI( int argc, char** argv )
 
     return 1;
 }
+}
 
 
 #ifndef WITH_PYTHON_SUPPORT
@@ -486,7 +489,7 @@ main( int argc, char** argv )
 {
     try {
         return ibzip2CLI( argc, argv );
-    } catch ( const bzip2::BitReader::EndOfFileReached& exception ) {
+    } catch ( const EndOfFileReached& exception ) {
         std::cerr << "Unexpected end of file. Truncated or invalid bzip2?\n";
         return 1;
     } catch ( const std::exception& exception ) {

@@ -16,14 +16,16 @@ from collections import abc
 from pathlib import Path
 
 from .. import home
+from ..audit import events
 from ..log import get_logger
 from ..messages import store as messages
-from ..tasks.briefs import completion
-from . import active_names, archived_channel, frontmatter, identity, store
+from ..tasks.briefs import completion, liveness
+from . import active_names, archived_channel, frontmatter, identity, status, store
 
 _log = get_logger("brief.archive")
 
 _DAY = 24 * 60 * 60
+_WAITING = frozenset({"blocked", "alert", "merge", "approve", "review", "running"})
 
 
 class Idle(ty.NamedTuple):
@@ -124,8 +126,23 @@ def last_used(conn: sqlite3.Connection, path: Path) -> float:
     )
 
 
+def _kept(conn: sqlite3.Connection, path: Path, lemon_id: str) -> bool:
+    """Whether the sweep must leave *path*: its Status waits on someone, or its lemon runs.
+
+    The inbox's attached-session check misses a live harness whose row was archived or
+    attached under another channel, so the harness itself is probed too.
+    """
+    try:
+        if status.split(path.read_text()).status in _WAITING:
+            return True
+    except OSError:
+        return True
+
+    return bool(lemon_id) and liveness.live(conn, lemon_id)
+
+
 def idle(conn: sqlite3.Connection, days: float, now: float) -> list[Idle]:
-    """Oldest first."""
+    """Oldest first; never a brief whose Status waits on someone or whose lemon is live."""
     since = now - days * _DAY
     used = {Path(u.path): u for u in active_names.usage(conn)}
     found = [
@@ -139,7 +156,7 @@ def idle(conn: sqlite3.Connection, days: float, now: float) -> list[Idle]:
         for last in [_last(conn, path, use)]
         if last < since
     ]
-    return sorted(found, key=lambda i: i.last)
+    return sorted((i for i in found if not _kept(conn, i.path, i.lemon_id)), key=lambda i: i.last)
 
 
 def _lemon_id(conn: sqlite3.Connection, path: Path) -> str:
@@ -204,10 +221,13 @@ def archive(
     path: Path,
     last: float,
     closing: abc.Set[str] = frozenset(),
+    *,
+    why: str,
 ) -> Path:
     """Move *path* and its mailbox to the attic and detach it; where the brief went.
 
     *last* names the attic month. Sessions in *closing* are ending and don't hold it.
+    *why* goes into the audit log beside who moved it.
     Raises ValueError when another session still holds it, the attic already has a brief
     of that name, or a home migration is under way.
     """
@@ -234,11 +254,13 @@ def archive(
             month.mkdir(parents=True, exist_ok=True)
             path.rename(target)
             mailbox = messages.mailbox_root() / lemon_id if lemon_id else None
+            mailbox_to = ""
             if mailbox is not None and mailbox.is_dir() and not mailbox.is_symlink():
                 try:
                     kept = month / home.layout.MAILBOX / lemon_id
                     kept.mkdir(parents=True, exist_ok=True)
-                    mailbox.rename(_free(kept))
+                    mailbox_to = str(_free(kept))
+                    mailbox.rename(mailbox_to)
                 except OSError:
                     target.rename(path)
                     raise
@@ -246,19 +268,41 @@ def archive(
             conn.rollback()
             raise
         conn.commit()
+    events.record(
+        "brief-archive",
+        lemon_id or path.name,
+        why,
+        **{"from": str(path), "to": str(target), "mailbox": mailbox_to},
+    )
     return target
 
 
-def revive(conn: sqlite3.Connection, lemon_id: str) -> Path:
+def _attic_brief(name: str, lemon_id: str) -> Path | None:
+    """The one attic file called *name* that carries *lemon_id*; None when none or several do."""
+    found = []
+    for candidate in attic_dir().glob(f"*/{name}"):
+        try:
+            if identity.read(candidate.read_text()) == lemon_id:
+                found.append(candidate)
+        except (OSError, ValueError):
+            continue
+
+    return found[0] if len(found) == 1 else None
+
+
+def revive(conn: sqlite3.Connection, lemon_id: str, *, why: str) -> Path:
     """Move an archived brief and its mailbox back to the briefs directory; where it went.
 
-    It comes back unattached. Raises LookupError when *lemon_id* has no archived brief and
+    It comes back unattached, and the move is audited with *why*. Raises LookupError when *lemon_id* has no archived brief and
     ValueError when the briefs directory already has one of that name or a home migration
     is under way.
     """
     row = conn.execute("SELECT path FROM lemon_identities WHERE lemon_id = ?", (lemon_id,))
     found = row.fetchone()
-    path = Path(found["path"]) if found else None
+    recorded = Path(found["path"]) if found else None
+    path = recorded
+    if recorded is not None and not recorded.exists() and not is_archived(recorded):
+        path = _attic_brief(recorded.name, lemon_id)  # the record never followed the file
     if path is None or not is_archived(path):
         raise LookupError(f"{lemon_id} has no archived brief")
 
@@ -269,7 +313,7 @@ def revive(conn: sqlite3.Connection, lemon_id: str) -> Path:
             if target.exists():
                 raise ValueError(f"{target} already exists")
 
-            _repoint(conn, path, target)
+            _repoint(conn, recorded, target)
             path.rename(target)
         except BaseException:
             conn.rollback()
@@ -281,4 +325,5 @@ def revive(conn: sqlite3.Connection, lemon_id: str) -> Path:
                 _merge_mailbox(archived, messages.mailbox_root() / lemon_id)
             with contextlib.suppress(OSError):
                 kept.rmdir()
+    events.record("brief-revive", lemon_id, why, **{"from": str(path), "to": str(target)})
     return target

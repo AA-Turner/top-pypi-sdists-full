@@ -41,12 +41,15 @@ _SENSITIVE_KEYS = {
     "token",
     "wandb_key",
 }
-#: Tokenizer vocabulary entries, not credentials -- "_token" suffixes that
-#: must SURVIVE scrubbing (an eos_token in a training config is data).
+#: Tokenizer vocabulary entries and token positions, not credentials -- "_token"
+#: suffixes that must SURVIVE scrubbing (an eos_token in a training config is
+#: data; a sample's `generated_by` piece spans `first_token`..`last_token`).
 _MODEL_TOKEN_KEYS = {
     "bos_token",
     "cls_token",
     "eos_token",
+    "first_token",
+    "last_token",
     "mask_token",
     "pad_token",
     "sep_token",

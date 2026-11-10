@@ -1119,6 +1119,9 @@ def _wire_hit(
     rerank_score: float | None = None,
     rerank_raw_score: float | None = None,
     rerank_input_rank: int | None = None,
+    variant: projections.ProjectionVariant | None = None,
+    part: projections.ProjectionPart | None = None,
+    query: str = "",
 ) -> Hit:
     decision = selection.decision
     if decision is None or decision.level != hit.decision_level:
@@ -1165,6 +1168,11 @@ def _wire_hit(
         status=fields.get("status"),
         snapshot_hash=selection.content_hash,
         decision=decision,
+        **(
+            projected_retrieval.matched_passage(variant, part, query, semantic="vector" in ranks)
+            if variant is not None
+            else {}
+        ),
     )
 
 
@@ -1289,12 +1297,8 @@ def _retain_projected_bm25_hits(
         if hit.item_identity in corroborated:
             retained.append(hit)
             continue
-        text = " ".join(
-            hit.search_fields[key]
-            for key in sorted(
-                hit.search_fields,
-                key=lambda value: value.encode("utf-16-be"),
-            )
+        text = (
+            hit.part.text if hit.part is not None else _projected_text(hit.search_fields)
         )
         present, total, content_present = find_policy.stem_word_coverage(
             frozenset(bm25.tokenize(text)),
@@ -1314,6 +1318,20 @@ def _projected_text(search_fields: Mapping[str, str]) -> str:
         search_fields[key]
         for key in sorted(search_fields, key=lambda value: value.encode("utf-16-be"))
     )
+
+
+def _matched_parts(
+    lane_hits: Mapping[str, tuple[projected_retrieval.ProjectedLexicalHit, ...]],
+) -> dict[str, projections.ProjectionPart]:
+    """The further part each item matched: the one BM25 matched, else the one keyword matched.
+
+    An item whose first lexical match is its own fields has no entry.
+    """
+    first: dict[str, projections.ProjectionPart | None] = {}
+    for lane in ("bm25", "keyword"):
+        for hit in lane_hits.get(lane, ()):
+            first.setdefault(hit.item_identity, hit.part)
+    return {identity: part for identity, part in first.items() if part is not None}
 
 
 class _ProjectedTextView:
@@ -1351,13 +1369,18 @@ def _guard_projected_lexical_votes(
     for lane in ("vector", "bm25", "keyword"):
         for hit in lane_hits.get(lane, ()):
             fields.setdefault(hit.item_identity, hit.search_fields)
+    # A lexical vote on a further part is judged on the text of that part, which holds the match.
+    matched_parts = _matched_parts(lane_hits)
     views: dict[str, _ProjectedTextView] = {}
 
     def view_of(identity: str) -> _ProjectedTextView | None:
         if identity not in fields:
             return None
         if identity not in views:
-            views[identity] = _ProjectedTextView(_projected_text(fields[identity]))
+            part = matched_parts.get(identity)
+            views[identity] = _ProjectedTextView(
+                part.text if part is not None else _projected_text(fields[identity])
+            )
         return views[identity]
 
     weights = rank_config.intent_weights(find_policy.classify_intent(query))
@@ -1728,6 +1751,33 @@ def _find_projected_hits_pinned(
             window=candidate_depth,
         )
 
+    knowledge_base_name = kb_dirname()
+    lane_hits = {
+        lane: _retain_projected_scope_lane(
+            hits,
+            scope=scope,
+            candidate_depth=candidate_depth,
+            outside_depth=limit,
+            knowledge_base_name=knowledge_base_name,
+        )
+        for lane, hits in lane_hits.items()
+    }
+    from .egress import container_parent_allows
+
+    # Admit only retained windows before their passages reach graph seeds or scoring.
+    candidate_access = {
+        identity: container_parent_allows(
+            Path(vault_root), identity, policy=runtime.snapshot.policy,
+            principal=principal, purpose=declared_purpose,
+        )
+        for identity in {hit.item_identity for hits in lane_hits.values() for hit in hits}
+    }
+    lane_hits = {
+        lane: tuple(hit for hit in hits if candidate_access[hit.item_identity])
+        for lane, hits in lane_hits.items()
+    }
+    withheld = withheld | frozenset(identity for identity, allowed in candidate_access.items() if not allowed)
+
     graph_degrees: dict[str, int] = {}
     graph_hops: set[str] = set()
     graph_provenance: dict[str, GraphProvenance] = {}
@@ -1772,7 +1822,10 @@ def _find_projected_hits_pinned(
                         if target in primary_set:
                             position += 1
                             continue
-                        tier = 1 if edge.relation_type == "links_to" else 0
+                        # A stored edge carries its canonical key and no parent, so only a core
+                        # plain link ranks last; an extension of one ranks typed (debt: the
+                        # producer would have to store the parent).
+                        tier = 1 if core_relations.has(edge.relation_type, "plain_link") else 0
                         current_tier = best_tier.get(target)
                         if current_tier is None or tier < current_tier:
                             best_tier[target] = tier
@@ -1818,6 +1871,27 @@ def _find_projected_hits_pinned(
                     )
                     for identity in graph_ranking
                 )
+                lane_hits["graph"] = _retain_projected_scope_lane(
+                    lane_hits["graph"],
+                    scope=scope,
+                    candidate_depth=candidate_depth,
+                    outside_depth=limit,
+                    knowledge_base_name=knowledge_base_name,
+                )
+                for hit in lane_hits["graph"]:
+                    target = hit.item_identity
+                    if target not in candidate_access:
+                        candidate_access[target] = container_parent_allows(
+                            Path(vault_root), target, policy=runtime.snapshot.policy,
+                            principal=principal, purpose=declared_purpose,
+                        )
+                lane_hits["graph"] = tuple(
+                    hit for hit in lane_hits["graph"] if candidate_access[hit.item_identity]
+                )
+                graph_degrees = {identity: degree for identity, degree in graph_degrees.items() if candidate_access.get(identity, False)}
+                graph_hops = {identity for identity in graph_hops if candidate_access.get(identity, False)}
+                graph_provenance = {identity: value for identity, value in graph_provenance.items() if candidate_access.get(identity, False)}
+                withheld = withheld | frozenset(identity for identity, allowed in candidate_access.items() if not allowed)
             except projected_retrieval.ProjectedLaneUnavailable:
                 warming.add("graph")
             except projected_retrieval.ProjectedRetrievalUnavailable as error:
@@ -1826,17 +1900,6 @@ def _find_projected_hits_pinned(
                 ) from error
 
     lane_order = ranking_config.LANE_ORDER[:5]
-    knowledge_base_name = kb_dirname()
-    lane_hits = {
-        lane: _retain_projected_scope_lane(
-            hits,
-            scope=scope,
-            candidate_depth=candidate_depth,
-            outside_depth=limit,
-            knowledge_base_name=knowledge_base_name,
-        )
-        for lane, hits in lane_hits.items()
-    }
     active_lanes = [lane for lane in lane_order if lane_hits.get(lane)]
     rankings = [
         [hit.item_identity for hit in lane_hits[lane]] for lane in active_lanes
@@ -1876,6 +1939,7 @@ def _find_projected_hits_pinned(
     ]
     fused.sort(key=lambda item: (-item[1], item[0]))
     ordered_identities = tuple(identity for identity, _score in fused)
+    matched_parts = _matched_parts(lane_hits)
     reranked: tuple[projected_retrieval.ProjectedLexicalHit, ...] | None = None
     rerank_raw_scores: dict[str, float] = {}
     rerank_inputs = {
@@ -1953,6 +2017,9 @@ def _find_projected_hits_pinned(
                 ordered_identities,
                 scorer=score_projected_passages,
                 k=len(ordered_identities),
+                matched_parts={
+                    identity: part.number for identity, part in matched_parts.items()
+                },
             )
             ordered_identities = tuple(hit.item_identity for hit in reranked)
         except projected_retrieval.ProjectedLaneUnavailable:
@@ -2066,6 +2133,9 @@ def _find_projected_hits_pinned(
                     if identity in reranked_by_identity
                     else None
                 ),
+                variant=selected_variants.get(identity),
+                part=matched_parts.get(identity),
+                query=query,
             )
         )
     return ProjectedFindResult(

@@ -18,6 +18,7 @@ from excel_mcp.calc.values import (
     Value,
     check_array_size,
     compare,
+    flush,
     to_number,
     to_text,
 )
@@ -25,6 +26,9 @@ from excel_mcp.calc.values import (
 # Excel snaps the result of a final addition or subtraction to zero when it is only
 # rounding noise: =0.1+0.2-0.3 is 0, while =(0.1+0.2-0.3)*1 is 5.55E-17.
 _SNAP = 2.0**-50
+
+# Excel gives #NUM! for a negative base raised to a whole number this large, whatever the base.
+_INTEGER_POWER_LIMIT = 2**32 - 1
 
 
 def apply_binary(op: str, left: Scalar, right: Scalar) -> Scalar:
@@ -36,6 +40,8 @@ def apply_binary(op: str, left: Scalar, right: Scalar) -> Scalar:
         return _BINARY[op](left, right)
     except FormulaError as error:
         return error.error
+    except OverflowError:
+        return NUM
 
 
 def snap(op: str, left: Scalar, right: Scalar, result: Scalar) -> Scalar:
@@ -53,7 +59,7 @@ def apply_unary(op: str, operand: Scalar) -> Scalar:
     if isinstance(operand, ExcelError) or op == "+":
         return operand
     try:
-        return -to_number(operand)
+        return 0.0 - to_number(operand)
     except FormulaError as error:
         return error.error
 
@@ -62,7 +68,7 @@ def apply_percent(operand: Scalar) -> Scalar:
     if isinstance(operand, ExcelError):
         return operand
     try:
-        return to_number(operand) / 100
+        return flush(to_number(operand) / 100)
     except FormulaError as error:
         return error.error
 
@@ -105,10 +111,14 @@ def _element(value: Value, row: int, col: int) -> Scalar:
     return value.rows[row][col]  # pyright: ignore[reportReturnType]
 
 
-def _arithmetic(function: Callable[[float, float], float]) -> Callable[[Scalar, Scalar], Scalar]:
+def _arithmetic(
+    function: Callable[[float, float], float], *, flushing: bool = True
+) -> Callable[[Scalar, Scalar], Scalar]:
     def apply(left: Scalar, right: Scalar) -> Scalar:
         result = function(to_number(left), to_number(right))
-        return result if math.isfinite(result) else NUM
+        if not math.isfinite(result):
+            return NUM
+        return flush(result) if flushing else result + 0.0
 
     return apply
 
@@ -126,10 +136,9 @@ def _power(left: float, right: float) -> float:
         raise FormulaError(DIV0)
     if left < 0 and right != int(right):
         return _odd_root(left, right)
-    try:
-        return left**right
-    except OverflowError:
-        raise FormulaError(NUM) from None
+    if left < 0 and abs(right) >= _INTEGER_POWER_LIMIT:
+        raise FormulaError(NUM)
+    return left**right
 
 
 def _odd_root(base: float, exponent: float) -> float:
@@ -151,8 +160,8 @@ def _comparison(test: Callable[[int], bool]) -> Callable[[Scalar, Scalar], Scala
 
 
 _BINARY: dict[str, Callable[[Scalar, Scalar], Scalar]] = {
-    "+": _arithmetic(lambda a, b: a + b),
-    "-": _arithmetic(lambda a, b: a - b),
+    "+": _arithmetic(lambda a, b: a + b, flushing=False),
+    "-": _arithmetic(lambda a, b: a - b, flushing=False),
     "*": _arithmetic(lambda a, b: a * b),
     "/": _arithmetic(_divide),
     "^": _arithmetic(_power),

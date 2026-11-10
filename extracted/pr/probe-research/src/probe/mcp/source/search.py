@@ -81,11 +81,12 @@ class SearchReadsMixin:
         sql: str | None = None,
         tables: list[str] | None = None,
         max_rows: int | None = None,
+        source: str | None = None,
     ) -> dict:
         """``POST /v1/sql``. No retry: a query is not idempotent in cost, and a
         refusal (422), timeout (408), overload (429) or plan refusal (402) is an
         answer the agent must read, not a blip to paper over."""
-        return self.client.query_sql(sql=sql, tables=tables, max_rows=max_rows)
+        return self.client.query_sql(sql=sql, tables=tables, max_rows=max_rows, source=source)
 
     # Literature uses the same backend and provider contract as the assistant.
     # Keep filtering and per-mode validation at that shared boundary.

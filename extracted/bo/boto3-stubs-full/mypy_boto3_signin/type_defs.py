@@ -26,6 +26,8 @@ else:
 
 __all__ = (
     "AccessTokenTypeDef",
+    "CreateBearerTokenRequestTypeDef",
+    "CreateBearerTokenResponseTypeDef",
     "CreateOAuth2TokenRequestBodyTypeDef",
     "CreateOAuth2TokenRequestTypeDef",
     "CreateOAuth2TokenResponseBodyTypeDef",
@@ -64,13 +66,10 @@ class AccessTokenTypeDef(TypedDict):
     sessionToken: str
 
 
-class CreateOAuth2TokenRequestBodyTypeDef(TypedDict):
-    clientId: str
+class CreateBearerTokenRequestTypeDef(TypedDict):
     grantType: str
-    code: NotRequired[str]
-    redirectUri: NotRequired[str]
-    codeVerifier: NotRequired[str]
-    refreshToken: NotRequired[str]
+    resource: str
+    durationSeconds: NotRequired[int]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -79,6 +78,15 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class CreateOAuth2TokenRequestBodyTypeDef(TypedDict):
+    clientId: str
+    grantType: str
+    code: NotRequired[str]
+    redirectUri: NotRequired[str]
+    codeVerifier: NotRequired[str]
+    refreshToken: NotRequired[str]
 
 
 class CreateOAuth2TokenWithIAMRequestTypeDef(TypedDict):
@@ -163,8 +171,11 @@ class CreateOAuth2TokenResponseBodyTypeDef(TypedDict):
     idToken: NotRequired[str]
 
 
-class CreateOAuth2TokenRequestTypeDef(TypedDict):
-    tokenInput: CreateOAuth2TokenRequestBodyTypeDef
+class CreateBearerTokenResponseTypeDef(TypedDict):
+    accessToken: str
+    tokenType: str
+    expiresIn: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateOAuth2TokenWithIAMResponseTypeDef(TypedDict):
@@ -224,6 +235,10 @@ class PutConsoleAuthorizationConfigurationOutputTypeDef(TypedDict):
 class PutResourcePermissionStatementOutputTypeDef(TypedDict):
     statementId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateOAuth2TokenRequestTypeDef(TypedDict):
+    tokenInput: CreateOAuth2TokenRequestBodyTypeDef
 
 
 class ListResourcePermissionStatementsInputPaginateTypeDef(TypedDict):

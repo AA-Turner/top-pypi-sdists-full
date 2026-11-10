@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 from twisted.internet.error import CannotListenError
 from twisted.internet.protocol import ServerFactory
 
+from scrapy.exceptions import ScrapyDeprecationWarning
 from scrapy.utils.reactor import (
     _asyncio_reactor_path,
+    _is_asyncio_reactor_installed,
     install_reactor,
     is_asyncio_reactor_installed,
     listen_tcp,
@@ -28,14 +31,21 @@ if TYPE_CHECKING:
 class TestAsyncio:
     @pytest.mark.requires_reactor  # needs a reactor
     def test_is_asyncio_reactor_installed(self, reactor_pytest: str) -> None:
-        # the result should depend only on the pytest --reactor argument
-        assert is_asyncio_reactor_installed() == (reactor_pytest == "asyncio")
+        assert _is_asyncio_reactor_installed() == (reactor_pytest == "asyncio")
+
+    @pytest.mark.requires_reactor  # needs a reactor
+    def test_is_asyncio_reactor_installed_deprecated(self, reactor_pytest: str) -> None:
+        with pytest.warns(
+            ScrapyDeprecationWarning,
+            match=r"is_asyncio_reactor_installed\(\) is deprecated",
+        ):
+            assert is_asyncio_reactor_installed() == (reactor_pytest == "asyncio")
 
     @pytest.mark.requires_reactor  # installs a reactor
     @pytest.mark.only_asyncio
     @coroutine_test
     async def test_set_asyncio_event_loop(self):
-        install_reactor(_asyncio_reactor_path)
+        install_reactor()
         assert set_asyncio_event_loop(None) is asyncio.get_running_loop()
 
 
@@ -98,3 +108,19 @@ class TestListenTcp:
 
         with pytest.raises(CannotListenError):
             listen_tcp([used_number, used_number], "127.0.0.1", ServerFactory())
+
+    def test_port_taken_on_listen(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Another process can bind the same port and call listen() on it
+        first."""
+        from twisted.internet import reactor
+
+        tried: list[int] = []
+
+        def listen(port: int, factory: ServerFactory, interface: str) -> NoReturn:
+            tried.append(port)
+            raise OSError(errno.EADDRINUSE, "Address already in use")
+
+        monkeypatch.setattr(reactor, "listenTCP", listen)
+        with pytest.raises(CannotListenError):
+            listen_tcp([6023, 6024], "127.0.0.1", ServerFactory())
+        assert tried == [6023, 6024]

@@ -35,6 +35,7 @@ __all__ = (
     "FormatType",
     "GeneratedManifestFormatType",
     "GranteeTypeType",
+    "InstanceScopeType",
     "JobManifestFieldNameType",
     "JobManifestFormatType",
     "JobReportFormatType",
@@ -127,6 +128,7 @@ ExpirationStatusType = Literal["Disabled", "Enabled"]
 FormatType = Literal["CSV", "Parquet"]
 GeneratedManifestFormatType = Literal["S3InventoryReport_CSV_20211130"]
 GranteeTypeType = Literal["DIRECTORY_GROUP", "DIRECTORY_USER", "IAM"]
+InstanceScopeType = Literal["ALL", "SELF"]
 JobManifestFieldNameType = Literal["Bucket", "Ignore", "Key", "VersionId"]
 JobManifestFormatType = Literal["S3BatchOperations_CSV_20180820", "S3InventoryReport_CSV_20161130"]
 JobReportFormatType = Literal["Report_CSV_20180820"]
@@ -264,6 +266,7 @@ ServiceName = Literal[
     "accessanalyzer",
     "account",
     "account-access",
+    "account-access-runtime",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -340,6 +343,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -367,6 +371,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -412,12 +417,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -485,6 +490,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -537,6 +543,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -618,6 +625,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -668,7 +676,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

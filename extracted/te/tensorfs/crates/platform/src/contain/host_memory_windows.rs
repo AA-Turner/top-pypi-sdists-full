@@ -14,9 +14,7 @@ use windows_sys::Win32::{
 };
 
 fn status() -> Option<MEMORYSTATUSEX> {
-    // SAFETY: plain-old-data with its length set, as the call requires.
-    let mut status: MEMORYSTATUSEX = unsafe { mem::zeroed() };
-    status.dwLength = mem::size_of::<MEMORYSTATUSEX>() as u32;
+    let mut status = MEMORYSTATUSEX { dwLength: mem::size_of::<MEMORYSTATUSEX>() as u32, ..Default::default() };
     // SAFETY: a writable status of the length given.
     (unsafe { GlobalMemoryStatusEx(&mut status) } != 0).then_some(status)
 }
@@ -26,6 +24,16 @@ pub(super) fn total() -> i64 {
 }
 
 /// No limit below physical memory is read here.
+/// No swap figures read here: the reserve has no swap term.
+pub(super) fn swap() -> (u64, u64) {
+    (0, 0)
+}
+
+/// No PSI here.
+pub(super) fn stall() -> super::Stall {
+    super::Stall::default()
+}
+
 pub(super) fn limit() -> Option<u64> {
     None
 }
@@ -37,14 +45,12 @@ pub(super) fn read() -> HostMemory {
         shmem: 0,
         mem_available: available,
         bound: total(),
+        active: 0,
+        charged: total() - available,
     }
 }
 
 pub(super) fn resident(_: u32) -> io::Result<super::Resident> {
-    Err(io::ErrorKind::Unsupported.into())
-}
-
-pub(super) fn reset_peak(_: u32) -> io::Result<()> {
     Err(io::ErrorKind::Unsupported.into())
 }
 
@@ -54,8 +60,7 @@ pub(super) fn process(pid: u32) -> io::Result<ProcessMemory> {
     if process.is_null() {
         return Err(io::Error::last_os_error());
     }
-    // SAFETY: plain-old-data the call fills, its size passed.
-    let mut counters: PROCESS_MEMORY_COUNTERS_EX = unsafe { mem::zeroed() };
+    let mut counters = PROCESS_MEMORY_COUNTERS_EX::default();
     let size = mem::size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32;
     // SAFETY: a live handle and a counters buffer of `size` bytes.
     let read = unsafe {

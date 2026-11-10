@@ -96,8 +96,6 @@ class DirectoryInputFilter:
 
     def iter_files(self, paths: Iterable[Path], encoding: str) -> Iterator[tuple[Path, bytes | None]]:
         """Retain candidate bytes so recognizing an artifact never rereads a schema."""
-        from datamodel_code_generator._python_syntax import normalize_newlines  # noqa: PLC0415
-
         for path in paths:
             if not path.is_file() or path in self.files:
                 continue
@@ -109,12 +107,21 @@ class DirectoryInputFilter:
                         source_path = Path(source_from_cache(str(path)))
                 if source_path.suffix == ".py" and (source_path == path or source_path.is_file()):
                     source_data = source_path.read_bytes()
-                    text = normalize_newlines(source_data.decode(encoding))
+                    text = input_text(source_path, encoding, source_data)
                     if self._is_generated(text) or (is_package_init(source_path.name) and not text.strip()):
                         continue
                     if source_path == path:
                         data = source_data
             yield path, data
+
+
+def input_text(path: Path, encoding: str, data: bytes | None = None) -> str:
+    """Return the text of an input file as reading it as text does, decoding ``data`` when the file was read already."""
+    if data is None:
+        return path.read_text(encoding=encoding)
+    from datamodel_code_generator._python_syntax import normalize_newlines  # noqa: PLC0415
+
+    return normalize_newlines(data.decode(encoding))
 
 
 def enable_parsed_source_cache() -> Callable[[], None]:
@@ -176,9 +183,9 @@ def _load_pyyaml(text: str) -> YamlValue:
     """Load YAML content with PyYAML."""
     import yaml  # noqa: PLC0415
 
-    from datamodel_code_generator.util import SafeLoader  # noqa: PLC0415
+    from datamodel_code_generator.util import read_yaml_text  # noqa: PLC0415
 
-    return yaml.load(text, Loader=SafeLoader)  # noqa: S506
+    return read_yaml_text(yaml.load, text)
 
 
 def _expect_dict(result: YamlValue) -> dict[str, YamlValue]:
@@ -225,6 +232,18 @@ def _is_json_text(text: str) -> bool:
     return _first_significant_text_char(text) in {"{", "["}
 
 
+def _load_json_document(text: str) -> YamlValue | None:
+    """Return the value of text when it is a JSON document, or None when it is not (it may still be YAML)."""
+    if not _is_json_text(text):
+        return None
+    import json  # noqa: PLC0415
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
 def _is_xml_text(text: str) -> bool:
     """Return whether text starts like XML after whitespace and BOM."""
     return _first_significant_text_char(text) == "<"
@@ -260,13 +279,8 @@ def load_text_data(text: str, *, mapping: bool) -> YamlValue:
     With ``mapping`` (an input document), JSON that is no mapping is read again as YAML, and YAML that is no mapping
     raises TypeError; without it (an MCP tool list), any JSON or YAML value is returned.
     """
-    import json  # noqa: PLC0415
-
-    if _is_json_text(text):
-        with contextlib.suppress(json.JSONDecodeError):
-            result = json.loads(text)
-            if not mapping or isinstance(result, dict):
-                return result
+    if (result := _load_json_document(text)) is not None and (not mapping or isinstance(result, dict)):
+        return result
     return load_yaml_dict(text) if mapping else load_yaml(text)
 
 

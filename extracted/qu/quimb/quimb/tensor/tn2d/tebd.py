@@ -97,6 +97,7 @@ class LocalHam2D(LocalHamGen):
     def build_pepo_propagator_trotterized(
         self,
         x,
+        order=1,
         ordering="sort",
         site_tag_id="I{},{}",
         tags=None,
@@ -107,8 +108,8 @@ class LocalHam2D(LocalHamGen):
         **split_opts,
     ):
         """Build a PEPO representation of ``expm(H * x)``, i.e. the imaginary
-        or real time propagator of this local 2D hamiltonian, using a first
-        order trotterized decomposition.
+        or real time propagator of this local 2D hamiltonian, using a
+        trotterized decomposition.
 
         Parameters
         ----------
@@ -116,6 +117,14 @@ class LocalHam2D(LocalHamGen):
             The time to evolve for. Note this does **not** include the
             imaginary prefactor of the Schrodinger equation, so real ``x``
             corresponds to imaginary time evolution, and vice versa.
+        order : {1, 2, 4}, optional
+            The order of the trotter decomposition, see
+            :meth:`~quimb.tensor.tnag.tebd.LocalHamGen.get_trotter_gates`.
+            Higher orders are more accurate but apply more gates, and so give
+            a larger bond dimension.
+        ordering : str, None or sequence[sequence[tuple[int]]], optional
+            How to group the terms into commuting layers, passed to
+            :meth:`~quimb.tensor.tnag.tebd.LocalHamGen.get_trotter_gates`.
         site_tag_id : str
             A string specifying how to tag the tensors at each site. Should
             contain two ``'{}'`` placeholders for (row, col). It is used to
@@ -155,12 +164,10 @@ class LocalHam2D(LocalHamGen):
             y_tag_id="Y{}",
         )
 
-        if ordering is None or isinstance(ordering, str):
-            ordering = self.get_auto_ordering(ordering)
-
-        for coo_a, coo_b in ordering:
+        for U, (coo_a, coo_b) in self.get_trotter_gates(
+            x, order=order, ordering=ordering
+        ):
             # get a tensor of the local exponentiated term
-            U = self.get_gate_expm((coo_a, coo_b), x)
             d = int(U.shape[0] ** 0.5)
             U = do("reshape", U, (d, d, d, d))
 
@@ -196,6 +203,8 @@ class LocalHam2D(LocalHamGen):
                 st = pepo.site_tag(i, j)
                 if st in pepo.tag_map:
                     pepo ^= st
+            # higher orders gate the same pair twice, leaving multiple bonds
+            pepo.fuse_multibonds_()
 
         if tags is not None:
             pepo.add_tag(tags)
@@ -296,7 +305,7 @@ class LocalHam2D(LocalHamGen):
         for xs, ys, n, lbl_x0, lbl_y0, nrm in data:
             ax.plot(xs, ys, c=colors[n], linewidth=2 * nrm**0.5)
             if show_norm:
-                label = "{:.3f}".format(nrm)
+                label = f"{nrm:.3f}"
                 ax.text(lbl_x0, lbl_y0, label, c=colors[n], fontsize=fontsize)
 
         # create legend
@@ -446,6 +455,32 @@ class TEBD2D(
         attribute.
     plot_every : int, optional
         Whether to plot the energy and energy difference every this many steps.
+    logdir : str or pathlib.Path, optional
+        If given, a directory to write the progress data to, as
+        ``"progress.json"``, so that another process can inspect and plot the
+        run while it is going, see :func:`~quimb.utils_plot.plot_progress_log`.
+        Creating a file called ``"STOP"`` in this directory then stops the run
+        gracefully, after the current sweep.
+    log_every : int or str, optional
+        How often to write the progress data, if ``logdir`` is given. Either
+        a number of sweeps, or a duration such as ``"10mins"``. Each write
+        rewrites the whole file, so raise this for very long runs or when
+        sweeps are very quick.
+    checkpoint_every : int or str, optional
+        Write ``"checkpoint.pkl"`` in ``logdir`` this often. Either a number
+        of sweeps, or a duration such as ``"10mins"``. A final checkpoint is
+        also written when :meth:`evolve` completes.
+    resume : bool, optional
+        Load ``"checkpoint.pkl"`` from ``logdir`` if present. It supplies the
+        state and evolution options. In this case, ``psi0`` and ``ham`` can be
+        omitted (supplying either gives a warning). The current init supplies
+        the callback, plotting, progress, logging, and checkpoint settings. Set
+        ``checkpoint_every`` again to continue checkpointing. If the file does
+        not exist, ``psi0`` and ``ham`` are required.
+    graceful_interrupt : bool, optional
+        Whether to intercept the first interrupt (Ctrl-C) during ``evolve``
+        and treat it as a request to stop after the current sweep. A second
+        interrupt then stops immediately, as usual.
     progbar : bool, optional
         Whether to show a progress bar during evolution.
 
@@ -480,8 +515,8 @@ class TEBD2D(
 
     def __init__(
         self,
-        psi0,
-        ham,
+        psi0=None,
+        ham=None,
         tau=0.01,
         D=None,
         cutoff=1e-10,
@@ -500,8 +535,29 @@ class TEBD2D(
         callback=None,
         keep_best=False,
         plot_every=None,
+        logdir=None,
+        log_every=1,
+        checkpoint_every=None,
+        resume=False,
+        graceful_interrupt=True,
         progbar=True,
     ):
+        if self.setup_session_opts(
+            callback=callback,
+            plot_every=plot_every,
+            logdir=logdir,
+            log_every=log_every,
+            checkpoint_every=checkpoint_every,
+            graceful_interrupt=graceful_interrupt,
+            progbar=progbar,
+            resume=resume,
+            compute_energy_fn=compute_energy_fn,
+            psi0=psi0,
+            ham=ham,
+        ):
+            # the checkpoint supplies the full run state
+            return
+
         self.setup_sweep_opts(
             psi0,
             ham,
@@ -511,10 +567,7 @@ class TEBD2D(
             second_order_reflect=second_order_reflect,
             tol=tol,
             tol_energy_diff=tol_energy_diff,
-            callback=callback,
             keep_best=keep_best,
-            plot_every=plot_every,
-            progbar=progbar,
         )
         self.setup_gate_opts(
             D=D,
@@ -532,7 +585,6 @@ class TEBD2D(
 
 
 def conditioner(tn, value=None, sweeps=2, balance_bonds=True):
-    """ """
     if balance_bonds:
         for _ in range(sweeps - 1):
             tn.balance_bonds_()
@@ -616,6 +668,32 @@ class SimpleUpdate(
         attribute.
     plot_every : int, optional
         Whether to plot the energy and energy difference every this many steps.
+    logdir : str or pathlib.Path, optional
+        If given, a directory to write the progress data to, as
+        ``"progress.json"``, so that another process can inspect and plot the
+        run while it is going, see :func:`~quimb.utils_plot.plot_progress_log`.
+        Creating a file called ``"STOP"`` in this directory then stops the run
+        gracefully, after the current sweep.
+    log_every : int or str, optional
+        How often to write the progress data, if ``logdir`` is given. Either
+        a number of sweeps, or a duration such as ``"10mins"``. Each write
+        rewrites the whole file, so raise this for very long runs or when
+        sweeps are very quick.
+    checkpoint_every : int or str, optional
+        Write ``"checkpoint.pkl"`` in ``logdir`` this often. Either a number
+        of sweeps, or a duration such as ``"10mins"``. A final checkpoint is
+        also written when :meth:`evolve` completes.
+    resume : bool, optional
+        Load ``"checkpoint.pkl"`` from ``logdir`` if present. It supplies the
+        state and evolution options. In this case, ``psi0`` and ``ham`` can be
+        omitted (supplying either gives a warning). This call supplies the
+        callback, plotting, progress, logging, and checkpoint settings. Set
+        ``checkpoint_every`` again to continue checkpointing. If the file does
+        not exist, ``psi0`` and ``ham`` are required.
+    graceful_interrupt : bool, optional
+        Whether to intercept the first interrupt (Ctrl-C) during ``evolve``
+        and treat it as a request to stop after the current sweep. A second
+        interrupt then stops immediately, as usual.
     progbar : bool, optional
         Whether to show a progress bar during evolution.
 
@@ -658,8 +736,8 @@ class SimpleUpdate(
 
     def __init__(
         self,
-        psi0: PEPS,
-        ham: LocalHam2D,
+        psi0: PEPS = None,
+        ham: LocalHam2D = None,
         tau=0.01,
         D=None,
         chi=None,
@@ -684,8 +762,29 @@ class SimpleUpdate(
         callback=None,
         keep_best=False,
         plot_every=None,
+        logdir=None,
+        log_every=1,
+        checkpoint_every=None,
+        resume=False,
+        graceful_interrupt=True,
         progbar=True,
     ):
+        if self.setup_session_opts(
+            callback=callback,
+            plot_every=plot_every,
+            logdir=logdir,
+            log_every=log_every,
+            checkpoint_every=checkpoint_every,
+            graceful_interrupt=graceful_interrupt,
+            progbar=progbar,
+            resume=resume,
+            compute_energy_fn=compute_energy_fn,
+            psi0=psi0,
+            ham=ham,
+        ):
+            # the checkpoint supplies the full run state
+            return
+
         self.setup_sweep_opts(
             psi0,
             ham,
@@ -695,10 +794,7 @@ class SimpleUpdate(
             second_order_reflect=second_order_reflect,
             tol=tol,
             tol_energy_diff=tol_energy_diff,
-            callback=callback,
             keep_best=keep_best,
-            plot_every=plot_every,
-            progbar=progbar,
         )
         self.setup_gate_opts(
             D=D,
@@ -762,8 +858,8 @@ def gate_full_update_als(
     overlap = bra_plq | target
     norm_plq = bra_plq | env | ket_plq
 
-    xs = dict()
-    x_previous = dict()
+    xs = {}
+    x_previous = {}
     previous_cost = None
 
     with contract_strategy(optimize):
@@ -798,9 +894,9 @@ def gate_full_update_als(
                 else:
                     # use scipy sparse linalg solvers
                     if solver in ("lsqr", "lsmr"):
-                        solver_opts = dict(atol=tol, btol=tol)
+                        solver_opts = {"atol": tol, "btol": tol}
                     else:
-                        solver_opts = dict(tol=tol)
+                        solver_opts = {"tol": tol}
 
                     # use current site as initial guess (iterate over site ind)
                     x0 = x_previous.get(site, b)
@@ -1125,7 +1221,7 @@ class FullUpdate(TEBD2D):
         if fit_opts is not None:
             bad_opts = set(fit_opts) - set(self.fit_opts)
             if bad_opts:
-                raise ValueError("Invalid fit option(s): {}".format(bad_opts))
+                raise ValueError(f"Invalid fit option(s): {bad_opts}")
             self.fit_opts.update(fit_opts)
 
         self.pre_normalize = bool(pre_normalize)
@@ -1197,7 +1293,7 @@ class FullUpdate(TEBD2D):
         # useful to store the bra that went into making the norm
         norm, _, self._bra = self._psi.make_norm(return_all=True)
 
-        envs = dict()
+        envs = {}
         for x_bsz, y_bsz in calc_plaquette_sizes(self.ham.terms):
             envs.update(
                 norm.compute_plaquette_environments(
@@ -1262,7 +1358,7 @@ class FullUpdate(TEBD2D):
         return self.state.compute_local_expectation(
             self.ham.terms,
             plaquette_envs=self.plaquette_envs,
-            plaquette_mapping=self.plaquette_mapping,
+            plaquette_map=self.plaquette_mapping,
             **self.compute_energy_opts,
         )
 

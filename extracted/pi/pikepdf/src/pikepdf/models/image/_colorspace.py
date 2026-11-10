@@ -15,7 +15,7 @@ unchanged: the property the function reads is the overridden one.
 from __future__ import annotations
 
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pikepdf.models import _cal_icc
 from pikepdf.models._image_exceptions import UnsupportedImageTypeError
@@ -24,7 +24,7 @@ from pikepdf.models.image._shared import (
     PaletteData,
     _array_list,
 )
-from pikepdf.objects import Dictionary
+from pikepdf.objects import Dictionary, Object
 
 if TYPE_CHECKING:
     from PIL.ImageCms import ImageCmsProfile
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 def decode_array(pim: PdfImageBase) -> DecodeArray:
     """Extract the /Decode array."""
-    decode: list = pim._metadata('Decode', _array_list, [])
+    decode: list[Any] = pim._metadata('Decode', _array_list, [])
     if decode and len(decode) in (2, 6, 8):
         return cast(DecodeArray, tuple(float(value) for value in decode))
 
@@ -57,13 +57,8 @@ def decode_array(pim: PdfImageBase) -> DecodeArray:
     if pim.colorspace == '/ICCBased':
         # The default /Decode is the identity for every channel, so its
         # length is the only thing that matters: it equals the profile's
-        # component count /N (1=gray, 3=RGB/Lab, 4=CMYK). Read /N directly
-        # rather than opening the profile.
-        try:
-            iccstream = cast(Dictionary, pim._colorspaces[1])
-            n = int(iccstream['/N'])
-        except (TypeError, KeyError, ValueError, IndexError):
-            n = 0
+        # component count (1=gray, 3=RGB/Lab, 4=CMYK).
+        n = icc_ncomponents(pim)
         if n in (1, 3, 4):
             return cast(DecodeArray, (0.0, 1.0) * n)
     if pim.image_mask:
@@ -97,7 +92,8 @@ def colorspace(pim: PdfImageBase) -> str | None:
         return None  # Undefined for image masks
     if pim._colorspaces:
         if pim._colorspaces[0] in pim.MAIN_COLORSPACES:
-            return pim._colorspaces[0]
+            main: str = pim._colorspaces[0]
+            return main
         if pim._colorspaces[0] == '/Indexed':
             subspace = pim._colorspaces[1]
             if isinstance(subspace, str) and subspace in pim.MAIN_COLORSPACES:
@@ -109,7 +105,8 @@ def colorspace(pim: PdfImageBase) -> str | None:
                 '/CalRGB',
                 '/Lab',
             ):
-                return subspace[0]
+                base: str = subspace[0]
+                return base
         if pim._colorspaces[0] == '/DeviceN':
             return '/DeviceN'
 
@@ -118,7 +115,7 @@ def colorspace(pim: PdfImageBase) -> str | None:
     )
 
 
-def colorspace_has_name(pim: PdfImageBase, name) -> bool:
+def colorspace_has_name(pim: PdfImageBase, name: str) -> bool:
     """Return True if the (base) colorspace references *name*."""
     try:
         cs = pim._colorspaces
@@ -131,14 +128,43 @@ def colorspace_has_name(pim: PdfImageBase, name) -> bool:
     return False
 
 
+_NCOMPONENTS_FROM_XCOLOR_SPACE = {'GRAY': 1, 'RGB ': 3, 'Lab ': 3, 'CMYK': 4}
+
+
+def icc_ncomponents(pim: PdfImageBase) -> int | None:
+    """Return the number of colour components of an ICCBased colorspace.
+
+    This is the profile stream's /N. /N is required, but some files omit it or
+    give a value that is not an integer; the profile itself records its colour
+    space, so fall back to that. Returns None if neither says.
+    """
+    try:
+        if pim.indexed:
+            icc_profile = pim._colorspaces[1][1]
+        else:
+            icc_profile = pim._colorspaces[1]
+    except (IndexError, TypeError):
+        return None
+    try:
+        return int(icc_profile['/N'])
+    except (KeyError, TypeError, ValueError):
+        pass
+    try:
+        profile = pim.icc
+    except UnsupportedImageTypeError:
+        return None
+    if profile is None:
+        return None
+    # Pillow's stubs omit ImageCmsProfile.profile.
+    xcolor_space = profile.profile.xcolor_space  # type: ignore[attr-defined]
+    return _NCOMPONENTS_FROM_XCOLOR_SPACE.get(xcolor_space)
+
+
 def approx_mode_from_icc(pim: PdfImageBase) -> str:
     """Infer the Pillow mode from an ICCBased colorspace's profile."""
-    if pim.indexed:
-        icc_profile = pim._colorspaces[1][1]
-    else:
-        icc_profile = pim._colorspaces[1]
-    icc_profile_nchannels = int(icc_profile['/N'])
-
+    icc_profile_nchannels = icc_ncomponents(pim)
+    if icc_profile_nchannels is None:
+        return ''
     if icc_profile_nchannels == 1:
         return 'L'
 
@@ -221,13 +247,16 @@ def palette(pim: PdfImageBase) -> PaletteData | None:
     return PaletteData(base, lookup)
 
 
-def iccstream(pim: PdfImage):
+def iccstream(pim: PdfImage) -> Object:
     """Locate the ICC profile stream within an ICCBased colorspace."""
+    stream: Object
     if pim.colorspace == '/ICCBased':
         if not pim.indexed:
-            return pim._colorspaces[1]
+            stream = pim._colorspaces[1]
+            return stream
         assert isinstance(pim._colorspaces[1], list)
-        return pim._colorspaces[1][1]
+        stream = pim._colorspaces[1][1]
+        return stream
     raise NotImplementedError("Don't know how to find ICC stream for image")
 
 
@@ -281,5 +310,5 @@ def synthesize_cal_icc(pim: PdfImage) -> bytes | None:
         gamma_rgb = tuple(float(v) for v in cal.get('/Gamma', [1.0, 1.0, 1.0]))
         matrix = [float(v) for v in cal.get('/Matrix', [1, 0, 0, 0, 1, 0, 0, 0, 1])]
         return _cal_icc.build_calrgb_icc(white_point, gamma_rgb, matrix)
-    except (AttributeError, KeyError, TypeError, ValueError):
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):
         return None

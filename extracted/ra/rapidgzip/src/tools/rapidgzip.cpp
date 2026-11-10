@@ -31,6 +31,8 @@
 using namespace rapidgzip;
 
 
+namespace
+{
 class BrokenPipeException :
     public std::exception
 {};
@@ -831,6 +833,7 @@ rapidgzipCLI( int                  argc,
     }
     return 2;
 }
+}
 
 
 #if !defined( WITH_PYTHON_SUPPORT ) && !defined( WITHOUT_MAIN )
@@ -840,11 +843,8 @@ main( int argc, char** argv )
     try
     {
         return rapidgzipCLI( argc, argv );
-    } catch ( const gzip::BitReader::EndOfFileReached& exception ) {
-        std::cerr << "Unexpected end of file. Truncated or invalid gzip?\n";
-        return 1;
-    } catch ( const bzip2::BitReader::EndOfFileReached& exception ) {
-        std::cerr << "Unexpected end of file. Truncated or invalid bzip2?\n";
+    } catch ( const EndOfFileReached& exception ) {
+        std::cerr << "Unexpected end of file. Truncated or invalid compressed stream?\n";
         return 1;
     } catch ( const std::exception& exception ) {
         const std::string_view message{ exception.what() };

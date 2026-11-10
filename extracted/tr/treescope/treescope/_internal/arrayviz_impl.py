@@ -73,13 +73,13 @@ def html_setup() -> (
         }
         .arrayviz_container .info {
             font-family: monospace;
-            color: #aaaaaa;
+            color: var(--treescope-info-color);
             margin-bottom: 0.25em;
             white-space: pre;
         }
         .arrayviz_container .info input[type="range"] {
             vertical-align: middle;
-            filter: grayscale(1) opacity(0.5);
+            filter: grayscale(1) opacity(var(--treescope-slider-opacity));
         }
         .arrayviz_container .info input[type="range"]:hover {
             filter: grayscale(0.5);
@@ -88,8 +88,8 @@ def html_setup() -> (
             border-radius: 3px;
         }
         .arrayviz_container .info input[type="number"]:not(:focus):not(:hover) {
-            color: #777777;
-            border: 1px solid #777777;
+            color: var(--treescope-input-color);
+            border: 1px solid var(--treescope-input-color);
         }
         .arrayviz_container .info.sliders {
             white-space: pre;
@@ -97,8 +97,9 @@ def html_setup() -> (
         .arrayviz_container .hovertip {
             display: none;
             position: absolute;
-            background-color: white;
-            border: 1px solid black;
+            background-color: var(--treescope-tooltip-bg);
+            color: var(--treescope-tooltip-fg);
+            border: 1px solid var(--treescope-tooltip-border-color);
             padding: 0.25ch;
             pointer-events: none;
             width: fit-content;
@@ -117,7 +118,7 @@ def html_setup() -> (
             white-space: pre;
         }
         .arrayviz_container .loading_message {
-            color: #aaaaaa;
+            color: var(--treescope-info-color);
         }
       """)),
       part_interface.JavaScriptDefn(
@@ -215,31 +216,36 @@ def render_array_data_to_html(
   for axis in slider_axes:
     sliced_axis_specs_arg.append(axis_spec_arg(axis))
 
-  args_json = json.dumps({
-      "info": info,
-      "arrayBase64": base64.b64encode(converted_array_data.tobytes()).decode(
-          "ascii"
-      ),
-      "arrayDtype": array_dtype,
-      "validMaskBase64": base64.b64encode(
-          valid_mask.astype(np.uint8).tobytes()
-      ).decode("ascii"),
-      "dataStrides": strides,
-      "xAxisSpecs": x_axis_specs_arg,
-      "yAxisSpecs": y_axis_specs_arg,
-      "slicedAxisSpecs": sliced_axis_specs_arg,
-      "colormapConfig": {
-          "type": cmap_type,
-          "min": vmin,
-          "max": vmax,
-          "dynamic": dynamic_continuous_cmap,
-          "rawMinAbs": raw_min_abs,
-          "rawMaxAbs": raw_max_abs,
-          "cmapData": cmap_data,
+  # Use allow_nan=False because NaN/Infinity aren't valid JSON, and would cause
+  # `JSON.parse` to fail in the browser (leaving the figure unrendered).
+  args_json = json.dumps(
+      {
+          "info": info,
+          "arrayBase64": base64.b64encode(
+              converted_array_data.tobytes()
+          ).decode("ascii"),
+          "arrayDtype": array_dtype,
+          "validMaskBase64": base64.b64encode(
+              valid_mask.astype(np.uint8).tobytes()
+          ).decode("ascii"),
+          "dataStrides": strides,
+          "xAxisSpecs": x_axis_specs_arg,
+          "yAxisSpecs": y_axis_specs_arg,
+          "slicedAxisSpecs": sliced_axis_specs_arg,
+          "colormapConfig": {
+              "type": cmap_type,
+              "min": vmin,
+              "max": vmax,
+              "dynamic": dynamic_continuous_cmap,
+              "rawMinAbs": raw_min_abs,
+              "rawMaxAbs": raw_max_abs,
+              "cmapData": cmap_data,
+          },
+          "pixelsPerCell": pixels_per_cell,
+          "valueFormattingInstructions": formatting_instructions,
       },
-      "pixelsPerCell": pixels_per_cell,
-      "valueFormattingInstructions": formatting_instructions,
-  })
+      allow_nan=False,
+  )
   # Note: We need to save the parent of the treescope-run-here element first,
   # because it will be removed before the runSoon callback executes.
   inner_fn = html_escaping.without_repeated_whitespace("""
@@ -376,6 +382,19 @@ def infer_vmin_vmax(
   """Infer reasonable lower and upper colormap bounds from an array."""
   inferring_both_bounds = vmax is None and vmin is None
   finite_mask = np.logical_and(np.isfinite(array), mask)
+  if not np.any(finite_mask):
+    # There are no finite values to infer bounds from, so infer any missing
+    # bound from the other one (or use zero). This avoids returning infinite
+    # bounds, which can't be serialized to JSON.
+    if vmin is None and vmax is None:
+      return 0.0, 0.0
+    if vmax is None:
+      assert vmin is not None
+      vmax = -vmin if around_zero else vmin
+    if vmin is None:
+      vmin = -vmax if around_zero else vmax
+    return vmin, vmax
+
   if vmax is None:
     if around_zero:
       if vmin is not None:

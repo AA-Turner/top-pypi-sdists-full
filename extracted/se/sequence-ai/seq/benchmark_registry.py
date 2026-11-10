@@ -493,7 +493,7 @@ def _resolve_gpu(gpu: Any) -> str:
 
 
 def _one_of(names) -> str:
-    """"L4, RTX-PRO-6000, T4 or A100": the cards said as a sentence offers them."""
+    """"L4 or RTX-PRO-6000": the cards said as a sentence offers them."""
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} or {names[-1]}"
 
 

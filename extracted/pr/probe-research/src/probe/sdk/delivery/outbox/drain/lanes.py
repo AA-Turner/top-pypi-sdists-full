@@ -8,6 +8,12 @@ import time
 from typing import Any
 
 
+#: A lane whose run's write lock was busy (another write of the same run held it) retries on this short ladder
+#: (start, ceiling seconds), jittered and at least the server's Retry-After: the server is up and asked for 1-2 s.
+#: On the long ladder a few busy answers in a row parked a verl run's writes for 3 min (T20).
+BUSY_BACKOFF = (1.0, 8.0)
+
+
 def _multipart_pending_count(journal: "Journal") -> int:
     """Multipart ops queued in this journal (names only, no parse)."""
     try:
@@ -60,6 +66,8 @@ class LaneBackoff:
         self._durable = durable
         self._ceiling = ceiling
         self._delays: dict[Any, Any] = {}
+        #: Each lane's busy-lock ladder (`BUSY_BACKOFF`), apart from its failure ladder.
+        self._busy_delays: dict[Any, Any] = {}
         self._until: dict[Any, float] = {}
         #: Each lane's last ladder step, unjittered: what `at_ceiling` reads.
         self._last_step: dict[Any, float] = {}
@@ -83,6 +91,14 @@ class LaneBackoff:
                 if lane not in report.queued_runs:
                     self._forget(lane)
         for lane, stall in report.stalled_runs.items():
+            if stall.is_busy:
+                # Seconds, never the minutes ladder; the failure ladder is left where it was.
+                busy = self._busy_delays.setdefault(lane, self._durable.backoff_delays(None, BUSY_BACKOFF))
+                wait = self._durable.honor_retry_after(
+                    self._durable.pick_jittered_wait(next(busy)), stall.retry_after, ceiling=BUSY_BACKOFF[1]
+                )
+                self._until[lane] = now + wait
+                continue
             delays = self._delays.setdefault(lane, self._durable.backoff_delays(None))
             step = next(delays)
             # Full jitter (I14): 10k runs failing in one second retry spread over the step.
@@ -99,6 +115,7 @@ class LaneBackoff:
     def forget_all(self) -> None:
         """Start every lane over (a sign-in: runs held for a credential are tried now)."""
         self._delays.clear()
+        self._busy_delays.clear()
         self._until.clear()
         self._last_step.clear()
 
@@ -110,6 +127,7 @@ class LaneBackoff:
 
     def _forget(self, lane: Any) -> None:
         self._delays.pop(lane, None)
+        self._busy_delays.pop(lane, None)
         self._until.pop(lane, None)
         self._last_step.pop(lane, None)
 

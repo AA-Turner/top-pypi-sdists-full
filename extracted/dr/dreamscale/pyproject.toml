@@ -1,6 +1,6 @@
 [project]
 name = "dreamscale"
-version = "0.1.0a293"
+version = "0.1.0a306"
 description = "Cloud robot policy inference — one function call."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -21,19 +21,20 @@ classifiers = [
 ]
 keywords = ["robotics", "physical-ai", "inference", "vla"]
 dependencies = [
-  "dreamscale-transport==0.1.1a119",
+  "dreamscale-transport==0.1.1a127",
   "httpx>=0.27,<1",
   "typer>=0.12,<0.26",
   # Click 8.5 resets argument help set by Typer <=0.25.1. Keep the CLI's
   # argument descriptions until Typer forwards help to Click's constructor.
   "click>=8.1.7,<8.5",
-  "rich>=13.9,<14",
+  # rich 14 and Pillow 12 let the SDK install beside dimOS (rich>=14.3, Pillow>=12.2).
+  "rich>=13.9,<15",
   # Isaac Sim 5.0 camera bindings require NumPy 1.x. The SDK wire/runtime code
   # supports 1.26 and 2.x; keep simulator installs from forcing an ABI upgrade.
   "numpy>=1.26,<3",
   "typing-extensions>=4.10,<5",
   "tomli-w>=1.0,<2",
-  "pillow>=10,<12",
+  "pillow>=10,<13",
   "jsonschema>=4.23,<5",
   # Evaluates the platform markers on optional dependencies (dreamscale.extras).
   "packaging>=23,<27",
@@ -124,6 +125,8 @@ sim = [
   # hf-libero's env_wrapper.py imports matplotlib.cm at module level (live
   # E2E finding 2026-06-12) — needed even though we never record video.
   "matplotlib>=3.9,<4",
+  # The Verne V0.5 LIBERO adapter's rotations (upstream's controller: scipy Rotation).
+  "scipy>=1.11,<2",
 ]
 
 [project.urls]

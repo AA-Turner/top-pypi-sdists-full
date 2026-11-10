@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from datamodel_code_generator import (
+    Error,
     GenerateConfig,
     OpenAPIScope,
     _CollapseRootModelsRecursionError,
@@ -53,7 +54,7 @@ class GenerationSessionObserver:
             self.events.append(f"dispose:{frame.f_locals['self'].attempt}")
             return
         if code not in {
-            session.parser_factory.fget.__code__,
+            session.parser_factory.__code__,
             session.__call__.__code__,
             OpenAPIParser.parse.__code__,
             session.freeze_attempt.__code__,
@@ -63,7 +64,7 @@ class GenerationSessionObserver:
         }:
             return
         local = frame.f_locals
-        if code is session.parser_factory.fget.__code__:
+        if code is session.parser_factory.__code__:
             self.factory_reads += 1
         if code is session.__call__.__code__:
             self.events.append(f"construct:{len(self.parsers) + 1}")
@@ -168,7 +169,7 @@ def run_generation_session(
             batch = session.take_accepted_batch()
             accepted = (batch.attempt, observer.hashes[batch.attempt])
             session.close()
-        except (RuntimeError, OSError) as exc:
+        except (RuntimeError, OSError, Error) as exc:
             error = [type(exc).__name__, str(exc) if not isinstance(exc, OSError) else str(exc.errno)]
         finally:
             sys.setprofile(previous)

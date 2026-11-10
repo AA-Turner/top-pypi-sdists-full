@@ -864,27 +864,27 @@ class ScopeModel(BaseModel):
             raise ValueError(reason)
         return self
 
+    def named_usernames(self) -> set[str]:
+        """Everyone in `reviewers` or `alternates`, lowercased because every
+        username comparison here is case-insensitive. A "*" entry is kept as
+        is; it never matches a real username."""
+        return {r.lower() for r in self.reviewers + self.alternates}
+
     def counts_toward(self, username: str) -> bool:
         """Whether this person's review counts for this scope.
 
-        Its named `reviewers` and its `alternates`, plus everybody when
-        `reviewers` holds the wildcard. A wildcard in `alternates` does not
-        count everybody: the wildcard describes the scope's `reviewers`, not
-        its backups.
-
-        Case-insensitive, like every other username comparison here.
+        Everyone it names, plus everybody when `reviewers` holds the
+        wildcard. A wildcard in `alternates` does not count everybody: the
+        wildcard describes the scope's `reviewers`, not its backups.
         """
         if "*" in self.reviewers:
             return True
-        username_lower = username.lower()
-        return any(
-            username_lower == r.lower() for r in self.reviewers + self.alternates
-        )
+        return username.lower() in self.named_usernames()
 
     def author_points(self, author_username: str) -> int:
-        """Author points only count if the author is explicitly listed as a
-        reviewer (a wildcard is not converted to usernames)."""
-        if author_username.lower() in {r.lower() for r in self.reviewers}:
+        """`author_value` if the scope names the author, reviewer or
+        alternate. Being covered by the wildcard earns nothing."""
+        if author_username.lower() in self.named_usernames():
             return self.author_value
         return 0
 
@@ -905,9 +905,7 @@ class ScopeModel(BaseModel):
             return None
 
         # Count eligible reviewers (excluding author who can't self-approve)
-        eligible_reviewers = {r.lower() for r in self.reviewers + self.alternates} - {
-            author_username.lower()
-        }
+        eligible_reviewers = self.named_usernames() - {author_username.lower()}
         max_possible_points = len(eligible_reviewers) + self.author_points(
             author_username
         )

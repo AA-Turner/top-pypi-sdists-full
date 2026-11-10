@@ -22,38 +22,67 @@ class ModuleDot:
 
 
 def _get_grimp_graph(
-    cache: dict[str, grimp.ImportGraph], top_level_package: str
+    cache: dict[tuple[str, ...], grimp.ImportGraph], root_packages: list[str]
 ) -> grimp.ImportGraph:
-    if top_level_package not in cache:
-        logger.info(f"Building grimp graph for '{top_level_package}'...")
-        cache[top_level_package] = grimp.build_graph(top_level_package)
-        logger.info(f"Grimp graph for '{top_level_package}' built.")
-    return cache[top_level_package]
+    # A single graph is built containing all the root packages, so that dependencies between
+    # them are captured.
+    key = tuple(root_packages)
+    if key not in cache:
+        joined = ", ".join(f"'{package}'" for package in root_packages)
+        logger.info(f"Building grimp graph for {joined}...")
+        cache[key] = grimp.build_graph(*root_packages)
+        logger.info(f"Grimp graph for {joined} built.")
+    return cache[key]
 
 
 def generate_dot(
-    cache: dict[str, grimp.ImportGraph],
+    cache: dict[tuple[str, ...], grimp.ImportGraph],
     module: str,
     show_import_totals: bool,
     show_module_counts: bool,
     show_lazy_imports: bool,
     show_cycle_breakers: bool,
+    root_packages: list[str],
+    overview_modules: list[str] | None = None,
 ) -> ModuleDot:
     logger.info(f"Building graph for module '{module}'...")
-    top_level_package = module.split(".")[0]
-    grimp_graph = _get_grimp_graph(cache, top_level_package)
+    grimp_graph = _get_grimp_graph(cache, root_packages)
 
-    dot_graph = build_dot_graph(
-        grimp_graph,
-        module,
-        show_import_totals,
-        show_module_counts,
-        show_lazy_imports,
-        show_cycle_breakers,
-    )
+    # The modules to draw on the top-level overview. These are the exact modules the user supplied,
+    # which may be subpackages (e.g. 'foo.api'), as opposed to the deduplicated root packages used
+    # to build the Grimp graph.
+    overview_modules = list(overview_modules) if overview_modules else list(root_packages)
+
+    if module:
+        dot_graph = build_dot_graph(
+            grimp_graph,
+            module,
+            show_import_totals,
+            show_module_counts,
+            show_lazy_imports,
+            show_cycle_breakers,
+        )
+        child_packages = _get_child_packages(grimp_graph, module)
+    else:
+        # Top-level overview of all the supplied modules together.
+        dot_graph = build_dot_graph(
+            grimp_graph,
+            module,
+            show_import_totals,
+            show_module_counts,
+            show_lazy_imports,
+            show_cycle_breakers,
+            modules=overview_modules,
+        )
+        # On the overview, nodes are identified by their fully qualified name, so that's what the
+        # front end needs to match clickable packages against.
+        child_packages = {
+            overview_module
+            for overview_module in overview_modules
+            if grimp_graph.find_children(overview_module)
+        }
+
     dot_string = dot_graph.render()
-
-    child_packages = _get_child_packages(grimp_graph, module)
 
     logger.info(f"Graph for '{module}' built ({len(child_packages)} packages).")
     return ModuleDot(dot_string=dot_string, module=module, child_packages=child_packages)

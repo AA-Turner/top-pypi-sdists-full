@@ -152,7 +152,7 @@ class EncodingXMLParser(DecodingXMLParser):
     EMIT_DEPTH = 0
     FOREIGN_DTD = False
 
-    def process_string(self, text: str) -> tuple[str, bool, bool]:  # ty:ignore[invalid-method-override]
+    def process_string(self, text: str) -> tuple[str, bool, bool]:  # ty:ignore[lost-keyword-for-regular-parameter]
         return (
             AndroidResourceUnit.escape(text, quote_wrapping_whitespaces=False),
             False,
@@ -212,7 +212,9 @@ class AndroidResourceUnit(base.TranslationUnit):
             self.xmlelement = etree.Element(self.SINGULAR_TAG)
             self._target_markup_mode = self.TARGET_MARKUP_XML
         if source is not None:
-            self.setid(source)
+            # New units initially use their source as a placeholder name.
+            # It may contain spaces until an actual resource name is assigned.
+            self.xmlelement.set("name", source)
         super().__init__(source)
 
     @staticmethod
@@ -470,7 +472,19 @@ class AndroidResourceUnit(base.TranslationUnit):
     def getid(self):
         return self.xmlelement.get("name")
 
-    def setid(self, newid):  # ty:ignore[invalid-method-override]
+    def validate_id(self, value: str) -> None:
+        """Check Android resource entry name syntax and XML representation."""
+        super().validate_id(value)
+        base.validate_xml_id(value)
+        if not value or not (value[0] == "_" or value[0].isidentifier()):
+            raise ValueError("Invalid Android resource name")
+        if any(
+            char not in ".-" and not ("_" + char).isidentifier() for char in value[1:]
+        ):
+            raise ValueError("Invalid Android resource name")
+
+    def setid(self, newid):  # ty:ignore[lost-keyword-for-regular-parameter]
+        self.validate_id(newid)
         self._invalidate_store_indexes()
         return self.xmlelement.set("name", newid)
 
@@ -721,11 +735,13 @@ class AndroidResourceUnit(base.TranslationUnit):
         if self.xmlelement.tag != expected:
             old_id = self.getid()
             newelement = etree.Element(expected)
+            if old_id is not None:
+                newelement.set("name", old_id)
+            self._invalidate_store_indexes()
             parent = self.xmlelement.getparent()
             if parent is not None:
                 parent.replace(self.xmlelement, newelement)
             self.xmlelement = newelement
-            self.setid(old_id)
 
     @target.setter
     def target(self, target: TargetType) -> None:
@@ -743,7 +759,7 @@ class AndroidResourceUnit(base.TranslationUnit):
             plural_target: str | multistring | list[str] = (
                 "" if target is None else target
             )
-            plural_tags = self._store.get_plural_tags(plural_target)  # ty:ignore[unresolved-attribute]
+            plural_tags = self._store.get_plural_tags(plural_target)  # ty:ignore[missing-union-attribute]
             plural_strings = self.sync_plural_count(plural_target, plural_tags)
 
             # Rebuild plurals.
@@ -755,7 +771,7 @@ class AndroidResourceUnit(base.TranslationUnit):
             # Include additional plural for decimal numbers if not present. This is
             # enforced by Android lint but translate-toolkit currently does not support
             # editing this.
-            locale = self._store.get_base_locale_code()  # ty:ignore[unresolved-attribute]
+            locale = self._store.get_base_locale_code()  # ty:ignore[missing-union-attribute]
             if locale in data.DECIMAL_EXTRA_TAGS:
                 for extra in data.DECIMAL_EXTRA_TAGS[locale]:
                     if extra not in plural_tags:
@@ -867,7 +883,7 @@ class AndroidResourceFile(lisa.LISAfile):
         self.body = self.document.getroot()
 
     def parse(self, xml) -> None:
-        """Populates this object from the given xml string."""
+        """Populate from XML, rejecting encodings unsupported by Python."""
         if not hasattr(self, "filename"):
             self.filename = getattr(xml, "name", "")
         if hasattr(xml, "read"):
@@ -876,6 +892,7 @@ class AndroidResourceFile(lisa.LISAfile):
             xml = posrc
         parser = get_safe_xml_parser(strip_cdata=False)
         self.document = etree.fromstring(xml, parser).getroottree()
+        self._validate_xml_encoding(self.document.docinfo.encoding)
         self._remember_utf8_bom(xml)
         self._encoding = self.document.docinfo.encoding
         self.initbody()
@@ -916,7 +933,7 @@ class AndroidResourceFile(lisa.LISAfile):
         do_cleanup = False
         if new:
             # Include any possible new namespaces
-            newns = self.body.nsmap  # ty:ignore[unresolved-attribute]
+            newns = self.body.nsmap  # ty:ignore[missing-union-attribute]
             for ns in unit.xmlelement.nsmap:
                 if ns not in newns:
                     do_cleanup = True

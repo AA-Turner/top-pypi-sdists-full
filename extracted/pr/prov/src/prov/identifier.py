@@ -1,19 +1,15 @@
 from __future__ import annotations  # defer eval: Namespace used before it's defined
 
 import re
-from contextvars import ContextVar
-from typing import Any, Final
-
-from prov._warnings import ProvFutureRejectionWarning, future_rejection_message, warn
+from typing import TYPE_CHECKING, Any, ClassVar, Final, NoReturn
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
 
 # Character classes for the XML 1.0 5th-edition Name productions, minus ':'
 # (NCName). Shared by prov.serializers.provxml (PROV-XML element-tag
-# legality, #289) and prov.serializers.provn_lexer, whose PN_CHARS_BASE/
-# PN_CHARS_U/PN_CHARS ([53]-[55]) are these same ranges, bar '.', which
-# PROV-N's grammar handles positionally rather than as an ordinary name char.
+# legality). The PROV-N character classes and PN_PREFIX are built from
+# these tables here, and prov.serializers.provn_lexer imports them.
 #
 # Every range boundary is spelled as a \xHH/\uHHHH/\UHHHHHHHH escape (never
 # a literal glyph) and annotated with the spec clause it implements, so a
@@ -46,18 +42,27 @@ _NCNAME_CHARS = _NCNAME_START_CHARS + (
 )
 
 # PROV-N metacharacters that must be backslash-escaped anywhere in the local
-# part of a qualified name (grammar production [55] PN_CHARS_ESC, #223).
+# part of a qualified name (grammar production [55] PN_CHARS_ESC).
 _PROVN_LOCAL_METACHARS = "='(),:;[]"
 # PN_CHARS_ESC also lists '-' and '.' as escapable, but PN_LOCAL ([53]) only
 # forbids a *bare* '-' or '.' as the first character, and a bare '.' as the
 # last character; elsewhere both are ordinary PN_CHARS and stay unescaped.
 _PROVN_LOCAL_LEADING_ESCAPE = "-."
-# PN_LOCAL's own character class ([53]), the shared NCName table minus '.'
-# (see the comment on _NCNAME_CHARS above).
+# Every character a backslash may escape: [55] PN_CHARS_ESC. The writer's
+# escaping and the lexer's PN_CHARS_ESC class both read this one table.
+_PN_CHARS_ESC = _PROVN_LOCAL_METACHARS + _PROVN_LOCAL_LEADING_ESCAPE
+# PN_LOCAL's own character class ([53]), the shared NCName table minus '.',
+# which PN_LOCAL places by position.
 _PN_CHARS = _NCNAME_CHARS.replace(".", "")
+# SPARQL's PN_PREFIX, the prefix rule of PROV-N's QUALIFIED_NAME ([52]) and of
+# Turtle: PN_CHARS_BASE ((PN_CHARS | '.')* PN_CHARS)?, so no leading digit or
+# '_' and no trailing '.'. Every match is an NCName, so PROV-XML writes it too.
+_PN_CHARS_BASE = _NCNAME_START_CHARS.replace("_", "")
+_PN_PREFIX = rf"[{_PN_CHARS_BASE}](?:[{_PN_CHARS}.]*[{_PN_CHARS}])?"
+_PN_PREFIX_NAME = re.compile(_PN_PREFIX)
 # The characters in _PN_CHARS that are legal anywhere in PN_LOCAL but, being
-# combining marks rather than letters, cannot start it ([53]'s PN_CHARS_BASE
-# vs. PN_CHARS): the NameChar-only part of _NCNAME_CHARS, minus '-'/'.'
+# combining marks rather than letters, cannot start it (PN_CHARS_U against
+# PN_CHARS in [53]): the NameChar-only part of _NCNAME_CHARS, minus '-'/'.'
 # (handled positionally above) and the digits (PN_LOCAL allows a leading
 # digit). Spelled the same way as _NCNAME_CHARS so a look-alike codepoint
 # stays visible on inspection.
@@ -68,45 +73,47 @@ _PN_LOCAL_BAD_START = re.compile(
     "\u203f-\u2040"  # NameChar: [#x203F-#x2040]
     "]"
 )
-# The remaining characters PN_LOCAL allows unescaped ([54]'s PLX minus '%').
+# The characters of [54] PN_CHARS_OTHERS that are neither PERCENT nor PN_CHARS_ESC.
 _PN_CHARS_OTHER = "/@~&+*?#$!"
-_PROVN_HEX_PAIR = re.compile(r"[0-9A-Fa-f]{2}")
 # Everything PN_LOCAL can spell as-is or via a backslash escape: PN_CHARS,
 # PN_CHARS_OTHER, the backslash-escaped metacharacters, and '-'/'.' (whose
-# escaping is positional, decided in the loop below). Any character outside
-# this set cannot be written at all, even escaped, so it is percent-encoded
-# ([54]'s PERCENT) as its UTF-8 bytes instead -- valid PROV-N, but read back
-# as the literal text "%XX" rather than the original character, a
-# documented, deliberate exclusion (see strategies.py's local_part comment).
-_PROVN_LOCAL_ALLOWED_UNESCAPED = _PN_CHARS + re.escape(
-    _PN_CHARS_OTHER + _PROVN_LOCAL_METACHARS + _PROVN_LOCAL_LEADING_ESCAPE
-)
-_PROVN_LOCAL_NEEDS_PERCENT_ENCODING = re.compile(f"[^{_PROVN_LOCAL_ALLOWED_UNESCAPED}]")
-# Matches any character the escaping loop below treats specially, anywhere
-# in the local part; a local part matching none of these needs no escaping
-# at all, including the leading/trailing '-'/'.' rule and percent-encoding.
-_PROVN_LOCAL_NEEDS_ESCAPE = re.compile(
-    "["
-    + re.escape(_PROVN_LOCAL_METACHARS + _PROVN_LOCAL_LEADING_ESCAPE + "%")
-    + "]"
-    + f"|{_PROVN_LOCAL_NEEDS_PERCENT_ENCODING.pattern}"
+# escaping is positional, decided by _escape_local_char).
+_PROVN_LOCAL_ALLOWED_UNESCAPED = _PN_CHARS + re.escape(_PN_CHARS_OTHER + _PN_CHARS_ESC)
+
+# A local part PROV-N could write only by percent-encoding it, which changes
+# the IRI a reader recovers: a character that cannot start PN_LOCAL in the
+# first place, a '%' that is not an existing escape, or a character PN_LOCAL
+# cannot spell at all. No QualifiedName holds one (#524).
+_PROVN_LOCAL_PERCENT_ENCODED = re.compile(
+    f"^{_PN_LOCAL_BAD_START.pattern}"
+    r"|%(?![0-9A-Fa-f]{2})"
+    f"|[^{_PROVN_LOCAL_ALLOWED_UNESCAPED}%]"
 )
 
-# One search settles the common case in provn_bare_representation(): a local
-# part this does not match is written as it stands, with no warning.
-_PROVN_LOCAL_NOT_PLAIN = re.compile(
-    f"^{_PN_LOCAL_BAD_START.pattern}|{_PROVN_LOCAL_NEEDS_ESCAPE.pattern}"
-)
-# A local part PROV-N writes without percent-encoding. A '%' falls outside it,
-# so a local part holding one goes to _provn_escape_local() to be settled.
-_PROVN_LOCAL_WRITABLE = re.compile(
-    f"(?!{_PN_LOCAL_BAD_START.pattern})[{_PROVN_LOCAL_ALLOWED_UNESCAPED}]*"
-)
+# A metacharacter, or a '-'/'.' whose position may need an escape; a local
+# part matching none of these is written as it stands.
+_PROVN_LOCAL_NEEDS_ESCAPE = re.compile("[" + re.escape(_PN_CHARS_ESC) + "]")
 
-# False while Namespace._adopt() copies a name that was checked when first built.
-_check_local_parts: ContextVar[bool] = ContextVar(
-    "prov_check_local_parts", default=True
-)
+
+def _reject_unwritable_local_part(localpart: str, uri: str, qname: str) -> None:
+    """Raise for a local part PROV-N can write only by percent-encoding it.
+
+    Such a name would read back as a different IRI, so no QualifiedName
+    holds one (#524); ``__init__`` and ``__setstate__`` both check.
+    """
+    # An ASCII identifier, the usual local part, needs no regex.
+    if not (
+        localpart.isascii() and localpart.isidentifier()
+    ) and _PROVN_LOCAL_PERCENT_ENCODED.search(localpart):
+        # Imported here, as provn_bare_representation does: prov.model imports
+        # this module.
+        from prov.model.records import ProvExceptionInvalidQualifiedName
+
+        raise ProvExceptionInvalidQualifiedName(
+            qname,
+            f"the local part {localpart!r} of <{uri}> contains a character PROV-N"
+            " cannot write",
+        )
 
 
 def _slot_state(state: Any) -> dict[str, Any]:
@@ -122,79 +129,30 @@ def _slot_state(state: Any) -> dict[str, Any]:
     return dict(state)
 
 
-def _escape_local_char(
-    localpart: str, i: int, last_index: int, char: str
-) -> tuple[str, bool]:
-    """Return one character's PROV-N spelling and whether it was percent-encoded."""
-    if i == 0 and _PN_LOCAL_BAD_START.match(char):
-        # PN_LOCAL_BAD_START chars are legal PN_CHARS but cannot start a
-        # PN_LOCAL, and there is no backslash escape for "start here";
-        # percent-encoding is the only way to write one first.
-        return "".join(f"%{byte:02X}" for byte in char.encode("utf-8")), True
-    if char == "%":
-        # An existing valid escape (e.g. "%20") is kept verbatim. A bare
-        # '%' not followed by two hex digits is written as "%25", which a
-        # PROV-N reader keeps as that text, so it counts as encoded.
-        if _PROVN_HEX_PAIR.match(localpart, i + 1):
-            return char, False
-        return "%25", True
+def _escape_local_char(i: int, last_index: int, char: str) -> str:
+    """Return one character's PROV-N spelling."""
     if (
         (i == 0 and char in _PROVN_LOCAL_LEADING_ESCAPE)
         or (i == last_index and char == ".")
         or char in _PROVN_LOCAL_METACHARS
     ):
-        return f"\\{char}", False
-    if _PROVN_LOCAL_NEEDS_PERCENT_ENCODING.match(char):
-        # "surrogatepass" lets a lone surrogate (unpaired, e.g. from WTF-8 or
-        # a Windows filename) be percent-encoded from its raw UTF-16 code
-        # unit rather than raising UnicodeEncodeError.
-        encoded = char.encode("utf-8", "surrogatepass")
-        return "".join(f"%{byte:02X}" for byte in encoded), True
-    return char, False
+        return f"\\{char}"
+    return char
 
 
-def _provn_escape_local(localpart: str) -> tuple[str, bool]:
+def _provn_escape_local(localpart: str) -> str:
     """Return ``localpart`` escaped for use in a PROV-N ``PN_LOCAL`` position.
 
-    Returns the escaped text and whether it was percent-encoded anywhere: a
-    backslash escape (a metacharacter, or a leading/trailing ``-``/``.``) is
-    reversible and a PROV-N reader recovers the original text, but a
-    percent-encoded character, or a bare ``%`` written as ``%25``, is not, so
-    the caller warns when it happens.
+    A metacharacter, or a leading or trailing ``-``/``.``, takes a backslash
+    escape, which a PROV-N reader reverses. Every other character a
+    QualifiedName can hold is written as it stands.
     """
-    if not _PROVN_LOCAL_NEEDS_ESCAPE.search(localpart) and not (
-        localpart and _PN_LOCAL_BAD_START.match(localpart[0])
-    ):
-        return localpart, False
+    if not _PROVN_LOCAL_NEEDS_ESCAPE.search(localpart):
+        return localpart
     last_index = len(localpart) - 1
-    parts = []
-    encoded = False
-    for i, char in enumerate(localpart):
-        text, char_was_encoded = _escape_local_char(localpart, i, last_index, char)
-        parts.append(text)
-        encoded = encoded or char_was_encoded
-    return "".join(parts), encoded
-
-
-def _provn_escape_local_and_warn(localpart: str, uri: str) -> str:
-    """Escape ``localpart`` for a PROV-N ``PN_LOCAL`` position, warning if that
-    changes the IRI a PROV-N reader recovers.
-
-    ``uri`` is the identifier's full URI, named in the warning so the caller
-    can find which identifier is affected. Shared by
-    :meth:`QualifiedName.provn_bare_representation` and the bundle-header
-    prefix path in :mod:`prov.model.bundle`, so both raise the same
-    :class:`~prov.model.ProvWarning` for the same reason rather than one of
-    them silently changing the IRI.
-    """
-    escaped, encoded = _provn_escape_local(localpart)
-    if encoded:
-        warn(
-            f"the local part {localpart!r} of <{uri}> contains a character PROV-N "
-            "cannot write; it is percent-encoded, which changes the IRI a PROV-N "
-            "reader recovers"
-        )
-    return escaped
+    return "".join(
+        _escape_local_char(i, last_index, char) for i, char in enumerate(localpart)
+    )
 
 
 def _provn_string_literal(value: str) -> str:
@@ -205,24 +163,53 @@ def _provn_string_literal(value: str) -> str:
     if "\n" in s:
         return f'"""{s}"""'
     else:
-        # STRING_LITERAL2 ([60]) forbids a bare CR in a short string; the
-        # lexer decodes the "\r" escape, so use it rather than emit one raw.
+        # STRING_LITERAL2, which STRING_LITERAL ([58]) takes from SPARQL,
+        # forbids a bare CR in a short string; the lexer decodes the "\r"
+        # escape, so use it rather than emit one raw.
         s = s.replace("\r", "\\r")
         return f'"{s}"'
 
 
-class Identifier:
-    """Base class for all identifiers and also represents xsd:anyURI."""
+_set = object.__setattr__
 
-    # TODO: make Identifier an "abstract" base class and move xsd:anyURI
-    # into a subclass
+
+def _refuse_setattr(self: Any, name: str, value: Any) -> None:
+    """Raise for a field in the class's ``_READ_ONLY``; set any other name."""
+    if name in type(self)._READ_ONLY:
+        raise AttributeError(f"{type(self).__name__}.{name} is read-only")
+    _set(self, name, value)
+
+
+def _refuse_delattr(self: Any, name: str) -> None:
+    """Raise for a field in the class's ``_READ_ONLY``; delete any other name."""
+    if name in type(self)._READ_ONLY:
+        raise AttributeError(f"{type(self).__name__}.{name} is read-only")
+    object.__delattr__(self, name)
+
+
+class Identifier:
+    """Base class for all identifiers.
+
+    Its fields are read-only after construction. Assigning or deleting one
+    raises :class:`AttributeError`, while a subclass may still set attributes
+    of its own.
+    """
 
     __slots__ = ("__weakref__", "_hash", "_uri")
 
-    # This field is assign-once. The hash is computed from it at construction,
-    # and a later reassignment would leave the cached hash stale. #444 tracks
-    # the runtime guard.
-    _uri: Final[str]
+    _READ_ONLY: ClassVar[frozenset[str]] = frozenset(__slots__) - {"__weakref__"}
+
+    # Bound at runtime only, because a visible __setattr__ makes mypy accept
+    # any attribute name.
+    if not TYPE_CHECKING:
+        __setattr__ = _refuse_setattr
+        __delattr__ = _refuse_delattr
+
+    # These fields are assign-once. The hash is computed from the URI at
+    # construction, and __setattr__ refuses a later reassignment that would
+    # leave the cached hash stale.
+    _uri: Final[str]  # type: ignore[misc]
+    _hash: Final[int]  # type: ignore[misc]
 
     def __init__(self, uri: str):
         """Create an identifier for the given URI.
@@ -231,8 +218,8 @@ class Identifier:
             uri: URI string for the identifier. Converted to ``str`` if not
                 already one.
         """
-        self._uri = str(uri)  # Ensure this is a unicode string
-        self._hash = self._compute_hash()
+        _set(self, "_uri", str(uri))  # coerce a str subclass or other value to str
+        _set(self, "_hash", self._compute_hash())
 
     def _compute_hash(self) -> int:
         """Hash by URI alone, so equal identifiers hash equal whatever their
@@ -248,8 +235,8 @@ class Identifier:
         # Also accepts the __dict__ state of 3.1.1 pickles and the
         # (dict_state, slot_state) tuple of 3.2.0 pickles.
         state = _slot_state(state)
-        object.__setattr__(self, "_uri", state["_uri"])
-        object.__setattr__(self, "_hash", self._compute_hash())
+        _set(self, "_uri", state["_uri"])
+        _set(self, "_hash", self._compute_hash())
 
     @property
     def uri(self) -> str:
@@ -279,19 +266,21 @@ class QualifiedName(Identifier):
     which combines a namespace and a local part for use in identifying entities in a
     namespace-aware context.
 
-    This class facilitates handling and manipulation of qualified names, which
-    combine a namespace and a local identifier. It supports string representation,
-    hashing, and retrieval of individual components (namespace or local part).
+    Its fields are read-only after construction. Assigning or deleting one
+    raises :class:`AttributeError`, while a subclass may still set attributes
+    of its own.
     """
 
     __slots__ = ("_localpart", "_namespace", "_str")
 
+    _READ_ONLY: ClassVar[frozenset[str]] = Identifier._READ_ONLY | frozenset(__slots__)
+
     # These fields are assign-once. The hash is computed from them at
-    # construction, and a later reassignment would leave the cached hash
-    # stale. #444 tracks the runtime guard.
-    _namespace: Final[Namespace]
-    _localpart: Final[str]
-    _str: Final[str]
+    # construction, and __setattr__ refuses a later reassignment that would
+    # leave the cached hash stale.
+    _namespace: Final[Namespace]  # type: ignore[misc]
+    _localpart: Final[str]  # type: ignore[misc]
+    _str: Final[str]  # type: ignore[misc]
 
     def __init__(self, namespace: Namespace, localpart: str):
         """
@@ -304,29 +293,18 @@ class QualifiedName(Identifier):
                 prefix associated with this qualified name.
             localpart (str): The local part of the qualified name. One that
                 PROV-N cannot write without changing the IRI, such as
-                ``"a b"``, emits a :class:`~prov.model.ProvFutureRejectionWarning`.
+                ``"a b"``, raises
+                :class:`~prov.model.ProvExceptionInvalidQualifiedName`.
         """
         Identifier.__init__(self, "".join([namespace.uri, localpart]))
-        self._namespace = namespace
-        self._localpart = localpart
-        self._str = (
-            ":".join([namespace.prefix, localpart]) if namespace.prefix else localpart
+        _set(self, "_namespace", namespace)
+        _set(self, "_localpart", localpart)
+        _set(
+            self,
+            "_str",
+            ":".join([namespace.prefix, localpart]) if namespace.prefix else localpart,
         )
-        # An ASCII identifier, the usual local part, needs no regex.
-        if (
-            not (localpart.isascii() and localpart.isidentifier())
-            and not _PROVN_LOCAL_WRITABLE.fullmatch(localpart)
-            and _check_local_parts.get()
-            and _provn_escape_local(localpart)[1]
-        ):
-            warn(
-                future_rejection_message(
-                    f"the local part {localpart!r} of <{self._uri}> contains a "
-                    "character PROV-N cannot write",
-                    issue=524,
-                ),
-                ProvFutureRejectionWarning,
-            )
+        _reject_unwritable_local_part(localpart, self._uri, self._str)
 
     def _compute_hash(self) -> int:
         """Hash by URI alone, as the base class does; kept explicit because
@@ -343,10 +321,11 @@ class QualifiedName(Identifier):
 
     def __setstate__(self, state: Any) -> None:
         state = _slot_state(state)
-        object.__setattr__(self, "_namespace", state["_namespace"])
-        object.__setattr__(self, "_localpart", state["_localpart"])
-        object.__setattr__(self, "_str", state["_str"])
+        _set(self, "_namespace", state["_namespace"])
+        _set(self, "_localpart", state["_localpart"])
+        _set(self, "_str", state["_str"])
         Identifier.__setstate__(self, state)
+        _reject_unwritable_local_part(self._localpart, self._uri, self._str)
 
     @property
     def namespace(self) -> Namespace:
@@ -368,12 +347,9 @@ class QualifiedName(Identifier):
         """Return the ``prefix:local`` PROV-N form used at IDENTIFIER positions.
 
         The local part's PROV-N metacharacters (``= ' ( ) , : ; [ ]``) are
-        backslash-escaped per grammar production [55] ``PN_CHARS_ESC`` (#223),
-        as are a leading ``-``/``.`` and a trailing ``.`` (forbidden bare by
-        [53]/[54]); a character PN_LOCAL cannot express at all, or cannot
-        start it, is percent-encoded instead, which changes the IRI a PROV-N
-        reader recovers, so that emits a :class:`~prov.model.ProvWarning`.
-        The prefix is never escaped, as it cannot contain these characters.
+        backslash-escaped, as are a leading ``-`` or ``.`` and a trailing
+        ``.``, which PROV-N does not allow bare. The prefix is never escaped,
+        as it cannot contain these characters.
 
         Raises:
             ProvException: If the local part is empty and the namespace has no
@@ -389,9 +365,7 @@ class QualifiedName(Identifier):
                 "namespace with no prefix, which PROV-N cannot write; give the "
                 "namespace a prefix"
             )
-        localpart = self._localpart
-        if _PROVN_LOCAL_NOT_PLAIN.search(localpart):
-            localpart = _provn_escape_local_and_warn(localpart, self._uri)
+        localpart = _provn_escape_local(self._localpart)
         prefix = self._namespace.prefix
         return f"{prefix}:{localpart}" if prefix else localpart
 
@@ -400,32 +374,106 @@ class QualifiedName(Identifier):
         return f"'{self.provn_bare_representation()}'"
 
 
+def _raise_value_error(message: str) -> NoReturn:
+    # Imported here, as _reject_unwritable_local_part does: prov.model imports
+    # this module.
+    from prov.model.records import ProvValueError
+
+    raise ProvValueError(message)
+
+
+def _reject_unwritable_prefix(prefix: str) -> None:
+    """Raise ``ProvValueError`` unless ``prefix`` is a ``PN_PREFIX``."""
+    # An ASCII identifier that does not start with '_' needs no regex.
+    if isinstance(prefix, str) and (
+        (prefix.isascii() and prefix.isidentifier() and prefix[0] != "_")
+        or _PN_PREFIX_NAME.fullmatch(prefix)
+    ):
+        return
+    _raise_value_error(
+        f"the prefix {prefix!r} is not a PN_PREFIX, so no format can write it"
+    )
+
+
+def _check_namespace_uri(uri: str) -> None:
+    """Raise ``ProvValueError`` if ``uri`` is not a string, is blank or starts
+    with ``@``."""
+    if not isinstance(uri, str):
+        _raise_value_error(f"the namespace IRI {uri!r} is not a string")
+    if not uri or uri.isspace():
+        _raise_value_error("Not a valid URI to create a namespace.")
+    if uri[0] == "@":
+        _raise_value_error(f"the namespace IRI {uri!r} cannot start with '@'")
+
+
 class Namespace:
-    """PROV Namespace."""
+    """PROV Namespace.
+
+    A prefix is a SPARQL ``PN_PREFIX``: it starts with a letter, and holds
+    letters, digits, ``-``, ``_``, ``.``, U+00B7 and the combining marks, but
+    does not end with ``.``.
+
+    Its fields are read-only after construction. Assigning or deleting one
+    raises :class:`AttributeError`, while a subclass may still set attributes
+    of its own.
+    """
 
     __slots__ = ("__weakref__", "_cache", "_prefix", "_uri")
 
-    # These fields are assign-once. They take part in equality and hashing,
-    # so reassigning one after the object has been used as a set member or
-    # dict key corrupts that container. #444 tracks the runtime guard.
-    _prefix: Final[str]
-    _uri: Final[str]
+    _READ_ONLY: ClassVar[frozenset[str]] = frozenset(__slots__) - {"__weakref__"}
+
+    # _cache holds at most this many names. A lookup that misses when
+    # _cache is full clears it, then stores the new name.
+    _CACHE_LIMIT: ClassVar[int] = 10_000
+
+    # Bound at runtime only, because a visible __setattr__ makes mypy accept
+    # any attribute name.
+    if not TYPE_CHECKING:
+        __setattr__ = _refuse_setattr
+        __delattr__ = _refuse_delattr
+
+    # _prefix and _uri take part in equality and hashing, so reassigning one
+    # would corrupt any set or dict holding the namespace, and __setattr__
+    # refuses it. _cache is assigned once and only its contents change.
+    _prefix: Final[str]  # type: ignore[misc]
+    _uri: Final[str]  # type: ignore[misc]
+    _cache: Final[dict[str, QualifiedName]]  # type: ignore[misc]
 
     def __init__(self, prefix: str, uri: str):
         """Create a namespace with the given prefix and URI.
 
         Args:
-            prefix: Short-hand prefix for the namespace.
+            prefix: Short-hand prefix for the namespace; required. A default
+                namespace is declared with ``set_default_namespace()``.
             uri: URI string for the namespace (cannot be blank).
 
         Raises:
-            ValueError: If ``uri`` is empty or contains only whitespace.
+            ProvValueError: If ``prefix`` is empty or is not a ``PN_PREFIX``,
+                or if ``uri`` is not a string, is empty, contains only
+                whitespace or starts with ``@`` (PROV-JSONLD cannot read such
+                an IRI back).
         """
-        if not uri or uri.isspace():
-            raise ValueError("Not a valid URI to create a namespace.")
-        self._prefix = prefix
-        self._uri = uri
-        self._cache: dict[str, QualifiedName] = {}
+        if not prefix:
+            _raise_value_error(
+                "a namespace needs a prefix; a default namespace is set with "
+                "set_default_namespace()"
+            )
+        _check_namespace_uri(uri)
+        _reject_unwritable_prefix(prefix)
+        _set(self, "_prefix", prefix)
+        _set(self, "_uri", uri)
+        _set(self, "_cache", {})
+
+    @classmethod
+    def _default(cls, uri: str) -> Namespace:
+        """The prefix-less namespace a scope's default declaration is held as;
+        built only by ``NamespaceManager.set_default_namespace``."""
+        _check_namespace_uri(uri)
+        namespace = cls.__new__(cls)
+        _set(namespace, "_prefix", "")
+        _set(namespace, "_uri", uri)
+        _set(namespace, "_cache", {})
+        return namespace
 
     @property
     def uri(self) -> str:
@@ -496,29 +544,16 @@ class Namespace:
         # (dict_state, slot_state) tuple of 3.2.0 pickles; either way any
         # cache carried in the state is discarded and rebuilt lazily.
         state = _slot_state(state)
-        object.__setattr__(self, "_prefix", state["_prefix"])
-        object.__setattr__(self, "_uri", state["_uri"])
-        object.__setattr__(self, "_cache", {})
-
-    def _adopt(self, qname: QualifiedName) -> QualifiedName:
-        """Return ``qname``'s local part in this namespace, without a second check.
-
-        ``qname`` was checked when it was built, so the copy a bundle makes in
-        its own namespace does not repeat the warning.
-        """
-        localpart = qname.localpart
-        if localpart in self._cache:
-            return self._cache[localpart]
-        token = _check_local_parts.set(False)
-        try:
-            return self[localpart]
-        finally:
-            _check_local_parts.reset(token)
+        _set(self, "_prefix", state["_prefix"])
+        _set(self, "_uri", state["_uri"])
+        _set(self, "_cache", {})
 
     def __getitem__(self, localpart: str) -> QualifiedName:
-        if localpart in self._cache:
-            return self._cache[localpart]
-        else:
+        cache = self._cache
+        qname = cache.get(localpart)
+        if qname is None:
             qname = QualifiedName(self, localpart)
-            self._cache[localpart] = qname
-            return qname
+            if len(cache) >= self._CACHE_LIMIT:
+                cache.clear()
+            cache[localpart] = qname
+        return qname

@@ -23,12 +23,12 @@ import contextlib
 import time
 import typing
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from restate.agents import _signals
-from restate.agents._api import Turn
+from restate.agents._api import Answering, Published, Steer
 from restate.agents._calls import settle
-from restate.agents._common import refusal_of
+from restate.agents._common import BUDGET, WINDOW, CompactHistory, Summarize, Window, refusal_of
 from restate.exceptions import TerminalError
 from restate.sessions import SessionContext
 from restate.sessions._link import Link
@@ -121,10 +121,23 @@ def stop_signal_of(ctx: SessionContext) -> Stop | None:
 
 @dataclass(frozen=True)
 class AgentInfo:
-    """An agent's settings: whether it works unwatched (``background``), and what its ``clear`` also empties."""
+    """An agent's settings: whether it works unwatched (``background``), what its ``clear`` also empties, and how
+    much of the conversation its model sees (``window`` and ``budget``, see ``_conversation.py``)."""
 
     background: bool = False
     clear: Callable[[SessionContext], Awaitable[None]] | None = None
+    window: Window = WINDOW
+    budget: int = BUDGET
+    summarize: Summarize | None = None
+    """How the agent summarizes the turns before the window, past ``budget``: without, they are only trimmed."""
+    snapshots: bool = False
+    """Whether the agent takes its history from snapshots (see ``Snapshot``): ``window``, ``budget`` and
+    ``summarize`` then do not apply."""
+    compact_history: CompactHistory | None = None
+    """With ``snapshots``, how the agent compacts its history between turns, when a turn asks for it."""
+    steers: bool = False
+    """Whether the agent's framework takes steered messages at a turn's steps (``take_steers``): without, each
+    message steered to the agent is answered as a turn of its own. A background agent takes none."""
 
 
 AGENT: Link[AgentInfo] = Link("an agent")
@@ -134,6 +147,11 @@ AGENT: Link[AgentInfo] = Link("an agent")
 def _agent_of(ctx: SessionContext) -> AgentInfo | None:
     definition = definition_of(ctx)
     return AGENT.of(definition) if definition is not None else None
+
+
+def settings_of(ctx: SessionContext) -> AgentInfo:
+    """Return the settings of the agent of ``ctx``: the defaults, for a session object that is no agent."""
+    return _agent_of(ctx) or AgentInfo()
 
 
 async def cleared(ctx: SessionContext) -> None:
@@ -147,6 +165,37 @@ def _unfollowed(ctx: SessionContext) -> bool:
     """Return whether the agent of ``ctx`` runs in the background, publishing only when a turn ends."""
     agent = _agent_of(ctx)
     return agent is not None and agent.background
+
+
+@dataclass
+class Inbox:
+    """The messages steered to a ``chat`` turn that it has not taken yet, as the companion last published them.
+
+    The companion returns them from every ``publish``, which a turn makes at
+    each tool call's start and end: so the turn knows of them without a call
+    of its own, and finds them at its next step (``take_steers``). The
+    newest revision wins, as tool calls that run at once publish at once.
+    """
+
+    revision: int = -1
+    messages: list[Steer] = field(default_factory=list[Steer])
+
+    def saw(self, published: Published | None) -> None:
+        """Keep what ``publish`` returned, if it is newer than what is kept."""
+        if not isinstance(published, dict):
+            return
+        revision = published.get("revision", -1)
+        if revision > self.revision:
+            self.revision = revision
+            self.messages = list(published.get("steering", []))
+
+
+_INBOX: ScopeKey[Inbox] = ScopeKey("inbox")
+
+
+def inbox_of(ctx: SessionContext) -> Inbox | None:
+    """Return the inbox of the ``chat`` turn running on ``ctx``, if it takes steered messages: ``None`` outside one."""
+    return _INBOX.get(ctx)
 
 
 _ANSWERING: ScopeKey[Stored] = ScopeKey("answering")
@@ -180,7 +229,10 @@ async def publish(ctx: SessionContext) -> None:
     stored = _ANSWERING.get(ctx)
     if stored is not None:
         await _settled(ctx, stored)
-    await ctx.call(_signals.publish, key=_signals.signals_of(ctx))
+    published = await ctx.call(_signals.publish, key=_signals.signals_of(ctx))
+    inbox = _INBOX.get(ctx)
+    if inbox is not None:
+        inbox.saw(typing.cast(Published | None, published))
 
 
 async def stepped(ctx: SessionContext) -> None:
@@ -257,12 +309,28 @@ async def chat_turn(ctx: SessionContext, text: str, answer: Callable[[SessionCon
     cancellation. If the attempt ends first, the turn stops with
     ``AttemptEnded`` and the next attempt carries on. The turn publishes when
     it starts and when it ends.
+
+    An error ends the turn for good if it is a ``TerminalError``, or a model
+    provider's refusal (``refusal_of``), as a 424. Any other error fails the
+    attempt, and Restate retries the turn. So each integration raises a
+    ``TerminalError`` for its framework's errors that a retry would meet
+    again: OpenAI's ``MaxTurnsExceeded``, guardrail tripwires, setup errors
+    and runs stopped for approvals, ADK's model error codes and limit of model
+    calls, LangGraph's recursion limit and invalid updates, Pydantic
+    AI's usage limits, retries that ran out and setup errors.
     """
     invocation_id = ctx.request.id
     companion = _signals.signals_of(ctx)
-    turn: Turn = {"invocationId": invocation_id, "since": _now()}
+    turn: Answering = {"invocationId": invocation_id, "since": _now()}
+    settings = settings_of(ctx)
+    steers = settings.steers and not settings.background
+    if steers:
+        # Before the first publish, which may return messages steered to the turn already.
+        _INBOX.set(ctx, Inbox())
     # From here until the turn closes, the companion knows about it: `status` and `stop` ask it.
-    await ctx.call(_signals.start, turn, key=companion)
+    # The agent has ``settle`` (``chat()`` adds it), so the companion may send it this turn once it is gone.
+    started: _signals.Started = {**turn, "settles": True, "steers": steers}
+    await ctx.call(_signals.start, started, key=companion)
     await stepped(ctx)
 
     async def end() -> None:

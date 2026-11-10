@@ -33,23 +33,27 @@ class PermissionCheckResponse(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'allowed': 'bool'
+        'allowed': 'bool',
+        'enforced': 'bool'
     }
 
     attribute_map = {
-        'allowed': 'allowed'
+        'allowed': 'allowed',
+        'enforced': 'enforced'
     }
 
-    def __init__(self, allowed=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, allowed=None, enforced=None, local_vars_configuration=None):  # noqa: E501
         """PermissionCheckResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._allowed = None
+        self._enforced = None
         self.discriminator = None
 
         self.allowed = allowed
+        self.enforced = enforced
 
     @property
     def allowed(self):
@@ -75,6 +79,31 @@ class PermissionCheckResponse(object):
             raise ValueError("Invalid value for `allowed`, must not be `None`")  # noqa: E501
 
         self._allowed = allowed
+
+    @property
+    def enforced(self):
+        """Gets the enforced of this PermissionCheckResponse.  # noqa: E501
+
+        Whether the API enforces this permission with the same check that produced `allowed`. When false, the API decides the request with another check, so `allowed` may not match its answer.  # noqa: E501
+
+        :return: The enforced of this PermissionCheckResponse.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enforced
+
+    @enforced.setter
+    def enforced(self, enforced):
+        """Sets the enforced of this PermissionCheckResponse.
+
+        Whether the API enforces this permission with the same check that produced `allowed`. When false, the API decides the request with another check, so `allowed` may not match its answer.  # noqa: E501
+
+        :param enforced: The enforced of this PermissionCheckResponse.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and enforced is None:  # noqa: E501
+            raise ValueError("Invalid value for `enforced`, must not be `None`")  # noqa: E501
+
+        self._enforced = enforced
 
     def to_dict(self):
         """Returns the model properties as a dict"""

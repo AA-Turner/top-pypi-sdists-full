@@ -8,15 +8,19 @@ reusable, reactive components with automatic performance optimization.
 import html as _html
 import json as _json
 import logging
+import threading
 import re
 import types
-from typing import Callable, Dict, Any, List, Optional, Tuple, Type, cast
+from typing import Callable, ClassVar, Dict, Any, List, Optional, Tuple, Type, cast
 from abc import ABC
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeString, mark_safe
 
+from djust._html import attr_name
+from djust._include_guard import include_guard_scope
 from djust._template_guards import TemplateMutatorGuard, alters_data
 from djust.decorators import is_event_handler
 
+from ._hybrid_attrs import harden_context
 from .assigns import (
     Assign,
     AssignValidationError,
@@ -85,7 +89,26 @@ def _render_template_with_fallback(template_str: str, context: Dict[str, Any]) -
 
         template = Template(template_str)
         django_context = Context(context)
-        return cast(str, template.render(django_context))
+        with include_guard_scope():  # Django's engine renders this fallback (#3880)
+            return cast(str, template.render(django_context))
+
+
+def _render_inline_template(template_str: str, context: Dict[str, Any], owner: str = "") -> str:
+    """Render a component's INLINE ``template`` string: the one place it is done (#3900, #3913).
+
+    ``Component`` (the hybrid path), ``LiveComponent`` and ``BoundComponent`` all draw their
+    ``template`` here. The template is first read once for the slots that decide what lands in the
+    page (``djust.components._hybrid_attrs``): the attribute slots are escaped whatever the value
+    is marked as and a URL is checked against the scheme allowlist, and the text of a raw-text
+    element (``<textarea>``, ``<title>``, ``<script>`` ...) is escaped because the text there can
+    end the element. Every other text slot keeps a marked-safe value's markup.
+
+    ``owner`` is the component's class name, for the warning about what could not be made safe.
+    Not applied: a ``template_name`` file (loaded by the project's loaders, with ``{% include %}``
+    and ``{% extends %}``) and a LiveView's own template.
+    """
+    template_str, context = harden_context(template_str, context, owner)
+    return _render_template_with_fallback(template_str, context)
 
 
 def _load_template_source(template_name: str) -> Optional[str]:
@@ -150,7 +173,7 @@ def _render_template_name_with_markers(
     from ..config import template_auto_call_enabled
     from ..mixins.rust_bridge import _collect_safe_keys
     from ..render_env import apply_render_env_once
-    from ..serialization import build_render_sidecar, normalize_django_value
+    from ..serialization import build_render_sidecar, normalize_django_value, without_form_values
     from ..utils import get_template_dirs
 
     apply_render_env_once()
@@ -166,9 +189,12 @@ def _render_template_name_with_markers(
     namespace = _dj_if_id_namespace(context.get("component_id"))
     if namespace and hasattr(rust_view, "set_dj_if_id_namespace"):
         rust_view.set_dj_if_id_namespace(namespace)
-    rust_view.update_state(normalize_django_value(context))
+    # #3767: a form (or a container holding one) is not state; the sidecar built from the
+    # same context below answers for it, so the flattened copy must not be found first.
+    state_context = without_form_values(context)
+    rust_view.update_state(normalize_django_value(state_context))
     safe_keys: List[str] = []
-    for key, value in context.items():
+    for key, value in state_context.items():
         safe_keys.extend(_collect_safe_keys(value, key))
     if safe_keys:
         rust_view.mark_safe_keys(safe_keys)
@@ -206,6 +232,9 @@ def _declares_name(cls: type) -> bool:
                 continue
         _DECLARES_NAME[cls] = cached
     return cached
+
+
+_COMPONENT_COUNTER_LOCK = threading.Lock()
 
 
 class Component(TemplateMutatorGuard, ABC):
@@ -302,6 +331,16 @@ class Component(TemplateMutatorGuard, ABC):
     #: data declare theirs so a click never pays a ten-thousand-row walk.
     fingerprint_fields: Optional[Tuple[str, ...]] = None
 
+    #: Names of declared third-party assets this component needs (ADR-040).
+    #: Check djust.B007 fails when a name is not declared in any manifest.
+    requires_assets: ClassVar[Tuple[str, ...]] = ()
+
+    def asset_tags(self, variant: Optional[str] = None) -> SafeString:
+        """Tags for every asset in ``requires_assets``, for the component's template."""
+        from djust.assets.tags import asset_tags
+
+        return mark_safe("\n".join(asset_tags(name, variant) for name in self.requires_assets))
+
     def _create_rust_instance(self, **props: Any) -> None:
         """
         Create a Rust instance with fallback for missing framework parameter.
@@ -386,9 +425,14 @@ class Component(TemplateMutatorGuard, ABC):
         if _component_key is not None:
             self._component_key = _component_key
         else:
-            # Auto-generate key based on component type + counter
-            Component._component_counter += 1
-            self._component_key = f"{self.__class__.__name__}_{Component._component_counter}"
+            # Auto-generate key based on component type + counter. Locked
+            # (#3074): components are built in sync code, which can run on
+            # several threads at once, and an unlocked `+=` then re-read
+            # could hand two components the same key.
+            with _COMPONENT_COUNTER_LOCK:
+                Component._component_counter += 1
+                counter = Component._component_counter
+            self._component_key = f"{self.__class__.__name__}_{counter}"
 
         # Try to create Rust instance if implementation exists
         self._create_rust_instance(**kwargs)
@@ -418,7 +462,7 @@ class Component(TemplateMutatorGuard, ABC):
         """
         if not event:
             return ""
-        parts = [f'dj-{trigger}="{_html.escape(str(event), quote=True)}"']
+        parts = [f'{attr_name("dj-" + str(trigger))}="{_html.escape(str(event), quote=True)}"']
         instance_name = self.__dict__.get("_identity")
         if instance_name and "name" not in params:
             params["name"] = instance_name
@@ -440,7 +484,7 @@ class Component(TemplateMutatorGuard, ABC):
                 # rendered before — untyped, so the handler receives the string
                 # it always did (review 🔴3).
                 suffix, text = "", str(value)
-            attr = "dj-value-" + str(key).replace("_", "-")
+            attr = attr_name("dj-value-" + str(key).replace("_", "-"))
             parts.append(f'{attr}{suffix}="{_html.escape(text, quote=True)}"')
         return " ".join(parts)
 
@@ -585,7 +629,13 @@ class Component(TemplateMutatorGuard, ABC):
             # admits.
             context["component_key"] = self._component_key
             context["_component_key"] = self._component_key
-            return cast(str, mark_safe(_render_template_with_fallback(self.template, context)))
+            # #3900: the attribute slots of this template follow the rule the Rust instance
+            # and `_render_custom()` follow (escaped whatever the value is marked as; a URL
+            # checked against the scheme allowlist). See `_render_inline_template`.
+            return cast(
+                str,
+                mark_safe(_render_inline_template(self.template, context, type(self).__name__)),
+            )
 
         # 3. Fall back to custom Python rendering (flexible)
         return cast(str, mark_safe(self._render_custom()))
@@ -844,14 +894,17 @@ class BoundComponent:
         context = dict(state)
         context["component_id"] = self.component_id
         if template:
-            html: Optional[str] = _render_template_with_fallback(template, context)
+            html: Optional[str] = _render_inline_template(
+                template, context, type(self._descriptor).__name__
+            )
         else:
             assert template_name is not None
             html = _render_template_name_with_markers(template_name, context)
             if html is None:
                 from django.template.loader import render_to_string
 
-                html = render_to_string(template_name, context)
+                with include_guard_scope():
+                    html = render_to_string(template_name, context)
         wrapped = cast(
             str,
             format_html('<div data-component-id="{}">{}</div>', self.component_id, mark_safe(html)),
@@ -984,10 +1037,17 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
         except AssignValidationError as exc:
             if _is_debug_mode():
                 raise
-            logger.warning(
+            from .._exposure_diagnostics import log_failure
+
+            # The error names the offending value ("Cannot coerce %r ..."), so
+            # inside a nonlegacy view's turn the line must be value-free.
+            log_failure(
+                logger,
+                exc,
                 "Component %s assign validation failed: %s",
                 type(self).__name__,
                 exc,
+                level="warning",
             )
             self._validated_assigns = dict(kwargs)
             return kwargs
@@ -1082,8 +1142,13 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
 
         state_cls = getattr(self.__class__, "State", None)
         if state_cls is None:
-            # No State inner class — legacy component, return self
-            return self
+            from .._exposure import uses_legacy_exposure
+
+            if uses_legacy_exposure(obj):
+                # No State inner class — legacy component, return self
+                return self
+            # ADR-038 E2-7: never hand a nonlegacy view the shared declaration.
+            return self._bind_stateless(obj)
 
         slot = obj.__dict__.get(self._descriptor_storage_key)
         if isinstance(slot, BoundComponent):
@@ -1097,6 +1162,49 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
         else:
             return slot
         return self._bind(obj, state)
+
+    #: Per-view wiring that a State-less binding must not inherit from its
+    #: declaration (set when a legacy view registered the declaration).
+    _STATELESS_UNSHARED = frozenset(
+        {
+            "_parent",
+            "_parent_callback",
+            "_parent_attr",
+            "_djust_context_parent",
+            "_djust_context_providers",
+        }
+    )
+
+    def _bind_stateless(self, obj: Any) -> Any:
+        """This view's own copy of a State-less class-level component.
+
+        Nonlegacy views only (ADR-038 E2-7). The declaration mounted once,
+        from the class body; each view gets an independent deep copy of that
+        mounted component, keyed by the attribute name, stored in the view's
+        ``_component_<name>`` slot and registered in ``view._components``.
+        The declaration itself is never registered or mutated.
+        """
+        from .._exposure import ExposureError
+
+        name, key = self._descriptor_attr_name, self._descriptor_storage_key
+        if name is None or key is None:
+            raise ExposureError("Explicit views require class-level component declarations")
+        slot = obj.__dict__.get(key)
+        if slot is not None and slot is not self:
+            return slot
+        import copy
+
+        bound = object.__new__(type(self))
+        state = {k: v for k, v in self.__dict__.items() if k not in self._STATELESS_UNSHARED}
+        bound.__dict__.update(copy.deepcopy(state))
+        bound.component_id = name
+        bound._parent = None
+        bound._parent_callback = None
+        obj.__dict__[key] = bound
+        register = getattr(obj, "_register_component", None)
+        if callable(register):
+            register(bound, attr_name=name)
+        return bound
 
     def _bind(self, obj: Any, state: Any) -> "BoundComponent":
         """Wrap ``state`` for ``obj``, store it in the slot and register it."""
@@ -1143,6 +1251,10 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
         before any view attribute is read, so an alias cannot drive a component
         of another type or evaluate an arbitrary view attribute (#3078). An
         unknown or foreign id is ignored, as an unresolved id always was.
+
+        The alias is pinned to the legacy parameter policy: its ``component_id``
+        is a reserved framework name and ``value`` is untyped, so it cannot be a
+        strict contract, and a project-wide strict policy must not break it.
         """
         import inspect
 
@@ -1181,7 +1293,7 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
         try:
             from djust.decorators import event_handler as eh_decorator
 
-            handler = eh_decorator(handler)
+            handler = eh_decorator(parameter_policy="legacy")(handler)
         except ImportError:
             # @event_handler is optional here; skip decoration if decorators module isn't available.
             pass
@@ -1249,7 +1361,7 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
         if self.template:
             from django.utils.html import format_html
 
-            html = _render_template_with_fallback(self.template, context)
+            html = _render_inline_template(self.template, context, type(self).__name__)
             # Wrap with component ID for LiveComponent tracking (html is already safe from template engine)
             return cast(
                 str,
@@ -1270,7 +1382,8 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
                 return cast(str, mark_safe(engine_html))
             from django.template.loader import render_to_string
 
-            return cast(str, mark_safe(render_to_string(self.template_name, context)))
+            with include_guard_scope():
+                return cast(str, mark_safe(render_to_string(self.template_name, context)))
 
         raise ValueError(
             f"{self.__class__.__name__} must define 'template' attribute or set 'template_name'"
@@ -1399,3 +1512,18 @@ class LiveComponent(TemplateMutatorGuard, ContextProviderMixin):
 #: (``_save_components_to_session`` and both ``_restore_component_state``
 #: callers). One tuple so the gates cannot drift apart (ADR-031 D7).
 SESSION_COMPONENT_TYPES = (Component, LiveComponent, BoundComponent)
+
+
+def is_session_component(value: Any) -> bool:
+    """A value the session component paths save and restore by its view key.
+
+    ``SESSION_COMPONENT_TYPES``, plus ADR-034's keyed interactive collections,
+    which persist as one record. Test ``is not None`` first at call sites: an
+    empty collection is falsy.
+    """
+    return isinstance(value, SESSION_COMPONENT_TYPES) or is_component_collection(value)
+
+
+def is_component_collection(value: Any) -> bool:
+    """An ADR-034 keyed interactive collection (rendered, never session state)."""
+    return bool(getattr(type(value), "_djust_component_collection", False))

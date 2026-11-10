@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from office365.runtime.client_value import ClientValue
 
 
-@dataclass
 class DeviceGeoLocation(ClientValue):
     altitude: float | None = None
     heading: float | None = None

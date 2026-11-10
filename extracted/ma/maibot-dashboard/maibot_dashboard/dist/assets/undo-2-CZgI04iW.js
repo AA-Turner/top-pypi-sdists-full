@@ -1,1 +1,0 @@
-import{ax as c}from"./index-BFTvGJgo.js";const o=[["path",{d:"M12 6v6h4",key:"135r8i"}],["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}]],s=c("clock-3",o);const a=[["path",{d:"M9 14 4 9l5-5",key:"102s5s"}],["path",{d:"M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11",key:"f3b9sd"}]],t=c("undo-2",a);export{s as C,t as U};

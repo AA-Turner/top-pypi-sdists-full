@@ -51,6 +51,9 @@ class Calibrator:
             calibrator = Calibrator(session)
             calibrator.run()
 
+    .. note::
+        This feature is experimental and subject to change without notice.
+
     Args:
         mode: The execution mode used to make the primitive query. It can be:
 
@@ -76,7 +79,7 @@ class Calibrator:
 
     def __init__(
         self,
-        mode: BackendV2 | Session | Batch | str | None = None,
+        mode: BackendV2 | Session | Batch | None = None,
         options: CalibratorOptions | dict | None = None,
     ):
         # Coerced to `CalibratorOptions` via `__setattr__()`.

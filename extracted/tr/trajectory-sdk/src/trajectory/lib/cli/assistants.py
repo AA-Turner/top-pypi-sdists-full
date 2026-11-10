@@ -12,6 +12,8 @@ from trajectory.lib.auth.credentials import CredentialStore
 from trajectory.lib.cli.benchmark_source import BenchmarkSource
 from trajectory.lib.cli.cookbook_prompt import EXAMPLES
 from trajectory.lib.cli.guides import GuideLinks
+from trajectory.lib.cli.project import Project
+from trajectory.lib.cli.setup_prompt import SetupPrompt
 
 ASSISTANTS = {
   "claude": ("Claude Code", "https://code.claude.com/docs/en/setup"),
@@ -71,6 +73,7 @@ def handoff(
   interactive: bool,
   cookbook: str | None = None,
   repo: str | None = None,
+  organization_key: str | None = None,
 ) -> dict[str, Any]:
   credential = CredentialStore.resolve(base_url=base_url, profile=profile)
   origin = CredentialStore.validate_login_url(credential.base_url)
@@ -78,6 +81,8 @@ def handoff(
   if credential.profile:
     command.extend(["--profile", credential.profile])
   prefix = subprocess.list2cmdline(command) if os.name == "nt" else shlex.join(command)
+  if organization_key is None and credential.organization:
+    organization_key = credential.organization["key"]
   tasks = {
     "benchmark": "Inspect this repository's benchmark, task loader, harness, tools, and native grader. Adapt it for Trajectory while preserving its behavior and scores.",
     "connect": "Inspect this repository's existing agent and integrate Trajectory capture where supported. Check the production-traces guide and account availability before assuming private-beta capture is enabled.",
@@ -90,24 +95,30 @@ def handoff(
     f"{guide['title']}: {guide['url']}"
     for guide in GuideLinks.for_setup(template, EXAMPLES[cookbook].can_train if cookbook else True)
   )
-  scope = (
-    "Follow the cookbook sequence above. Honor approval already given for the agreed remote workflow; ask again only if its scope or budget changes."
-    if cookbook
-    else "For benchmark setup, guide me through ingestion, a small diagnostic, and my first eval; confirm the remote workflow with me once before submission, honoring approval already given for that scope and budget. Do not start training or deployment as part of setup. For agent capture, verify one captured trace rather than inventing a benchmark."
+  workflow = (
+    "Connect this repository's existing agent to Trajectory production traces. Verify one captured trace rather than inventing a benchmark. Do not start evaluation, training, or deployment as part of agent capture."
+    if template == "connect"
+    else SetupPrompt.benchmark(organization_key, Project(directory).load().get("agent_id"))
   )
-  prompt = f"""Help me finish Trajectory onboarding in {directory}.
+  prompt = f"""{workflow}
+
+{SetupPrompt.sdk_instructions(organization_key)}
+
+Project: {directory}
+Selected benchmark context (reuse these choices rather than asking again):
 
 {task}
 Read trajectory.toml and existing repository instructions first. Use the bundled Trajectory skill below.
 Inspect the code before asking questions; ask only for missing decisions. Reuse existing project files.
-Validate representative samples locally. {scope}
+Validate representative samples locally. Honor approval already given for the agreed remote workflow; ask again only if its scope or budget changes.
 Report what was actually verified and the next command to run. Link the relevant guide when explaining each stage:
 {guides}
 
 Use this installed CLI for every Trajectory command (even if tj is not on PATH):
 {prefix}
 Append commands such as whoami --json, schema --json, or docs --topic onboarding --json.
-The API origin is {origin}; the selected profile is {credential.profile or "the environment/default credentials"}.
+API environment: TRAJECTORY_BASE_URL={origin}
+The selected profile is {credential.profile or "the environment/default credentials"}.
 Use the existing saved credentials through the CLI/SDK. Never print credentials or put them in generated code or prompts. If authentication is missing, ask me to run tj login; do not wait for interactive login in an agent shell command.
 
 Bundled Trajectory integration skill:
@@ -125,8 +136,8 @@ Bundled Trajectory integration skill:
   if assistant == "gemini":
     args.append("--prompt-interactive")
   args.append(prompt)
-  if sys.platform == "darwin" and assistant == "claude":
-    # Bun can reject inherited terminal descriptors with kqueue EINVAL on macOS.
+  if sys.platform == "darwin" and assistant in {"claude", "codex"}:
+    # kqueue can reject /dev/tty inherited from curl | sh; give the agent a fresh PTY.
     args = ["/usr/bin/script", "-q", "/dev/null", *args]
   environment = os.environ.copy()
   environment["TRAJECTORY_BASE_URL"] = origin

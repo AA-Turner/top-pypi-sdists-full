@@ -94,6 +94,12 @@ struct ChunkData :
     using SharedWindow = std::shared_ptr<const Window>;
     using WindowView = VectorView<uint8_t>;
 
+    [[nodiscard]] size_t
+    currentDecodedSize() const
+    {
+        return size();
+    }
+
     struct Configuration
     {
         size_t splitChunkSize{ std::numeric_limits<size_t>::max() };
@@ -864,8 +870,14 @@ struct ChunkDataCounter final :
     ChunkDataCounter& operator=( ChunkDataCounter&& ) = default;
     ChunkDataCounter& operator=( const ChunkDataCounter& ) = delete;
 
+    [[nodiscard]] size_t
+    currentDecodedSize() const
+    {
+        return decodedSizeInBytes;
+    }
+
     void
-    append( deflate::DecodedVector&& toAppend )
+    append( const deflate::DecodedVector& toAppend )
     {
         decodedSizeInBytes += toAppend.size();
     }

@@ -8,6 +8,7 @@ from uuid import UUID
 
 from typing_extensions import Self
 
+from office365.permissions import DirectoryRole
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
@@ -15,9 +16,15 @@ from office365.runtime.paths.v3.static import StaticPath
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import GuidCollection, StringCollection
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.administration.archiving.file_size_metric import (
     ArchiveFileSizeMetric,
 )
+from office365.sharepoint.administration.unlicensedodbtenantmetrics import UnlicensedOdbTenantMetrics
+from office365.sharepoint.authpolicy.baseline_security_mode_third_party_app_hpa_setting import (  # noqa: E501
+    BaselineSecurityModeThirdPartyAppHPASetting,
+)
+from office365.sharepoint.authpolicy.spjitdlppolicydata import SPJitDlpPolicyData
 from office365.sharepoint.directory.tenant_service_info_value import (
     TenantServiceInfoValue,
 )
@@ -30,6 +37,7 @@ from office365.sharepoint.lists.render_data_parameters import RenderListDataPara
 from office365.sharepoint.lists.render_override_parameters import (
     RenderListDataOverrideParameters,
 )
+from office365.sharepoint.permissions import SiteLevel, site_access
 from office365.sharepoint.portal.hub_sites_utility import SPHubSitesUtility
 from office365.sharepoint.publishing.portalhealth.status import PortalHealthStatus
 from office365.sharepoint.sites.home.details import HomeSitesDetails
@@ -59,6 +67,7 @@ from office365.sharepoint.tenant.administration.insights.top_files_sharing impor
     TopFilesSharingInsights,
 )
 from office365.sharepoint.tenant.administration.jobs.spo_operation import SpoOperation
+from office365.sharepoint.tenant.administration.onedrives_summary_metrics import OneDrivesSummaryMetrics
 from office365.sharepoint.tenant.administration.policies.app_billing_properties import (
     SPOAppBillingProperties,
 )
@@ -108,12 +117,16 @@ from office365.sharepoint.tenant.administration.sites.properties_collection impo
 from office365.sharepoint.tenant.administration.sites.properties_enumerable_filter import (
     SitePropertiesEnumerableFilter,
 )
+from office365.sharepoint.tenant.administration.spofileversionfiletypepolicysettings import (  # noqa: E501
+    SPOFileVersionFileTypePolicySettings,
+)
 from office365.sharepoint.tenant.administration.syntex.billing_context import (
     SyntexBillingContext,
 )
 from office365.sharepoint.tenant.administration.syntex.power_apps import (
     SyntexPowerAppsEnvironmentsContext,
 )
+from office365.sharepoint.tenant.administration.syntex.premiumfeaturesettings import SyntexPremiumFeatureSettings
 from office365.sharepoint.tenant.administration.updategroupsitepropertiesparameters import (
     UpdateGroupSitePropertiesParameters,
 )
@@ -121,19 +134,13 @@ from office365.sharepoint.tenant.administration.webs.templates.collection import
     SPOTenantWebTemplateCollection,
 )
 from office365.sharepoint.tenant.settings import TenantSettings
+from office365.sharepoint.viva.syntexcustommodelsetting import SyntexCustomModelSetting
 
 if TYPE_CHECKING:
     from office365.sharepoint.administration.filerequestbrandingassetconfig import (
         FileRequestBrandingAssetConfig,
     )
     from office365.sharepoint.administration.orgassets.org_assets import OrgAssets
-    from office365.sharepoint.administration.unlicensedodbtenantmetrics import (
-        UnlicensedOdbTenantMetrics,
-    )
-    from office365.sharepoint.authpolicy.baseline_security_mode_third_party_app_hpa_setting import (
-        BaselineSecurityModeThirdPartyAppHPASetting,
-    )
-    from office365.sharepoint.authpolicy.spjitdlppolicydata import SPJitDlpPolicyData
     from office365.sharepoint.brandcenter.configuration import BrandCenterConfiguration
     from office365.sharepoint.brandcenter.orgassetslibraryconfigparam import (
         OrgAssetsLibraryConfigParam,
@@ -214,9 +221,6 @@ if TYPE_CHECKING:
     from office365.sharepoint.tenant.administration.listitemcolumnvalue import (
         TenantAdminListItemColumnValue,
     )
-    from office365.sharepoint.tenant.administration.onedrives_summary_metrics import (
-        OneDrivesSummaryMetrics,
-    )
     from office365.sharepoint.tenant.administration.policies.list_parameters import (
         SPOListParameters,
     )
@@ -271,9 +275,6 @@ if TYPE_CHECKING:
     from office365.sharepoint.tenant.administration.spofileversionexpirationreportjobprogress import (
         SPOFileVersionExpirationReportJobProgress,
     )
-    from office365.sharepoint.tenant.administration.spofileversionfiletypepolicysettings import (
-        SPOFileVersionFileTypePolicySettings,
-    )
     from office365.sharepoint.tenant.administration.sposerviceprioritizationappregistrations import (
         SPOServicePrioritizationAppRegistrations,
     )
@@ -288,9 +289,6 @@ if TYPE_CHECKING:
     )
     from office365.sharepoint.tenant.administration.syntex.applicationproperties import (
         SPSyntexApplicationProperties,
-    )
-    from office365.sharepoint.tenant.administration.syntex.premiumfeaturesettings import (
-        SyntexPremiumFeatureSettings,
     )
     from office365.sharepoint.tenant.administration.tenant_data_loss_prevention_quarantine_settings import (
         TenantDataLossPreventionQuarantineSettings,
@@ -313,10 +311,13 @@ if TYPE_CHECKING:
     from office365.sharepoint.tenantadministration.spo_file_archive_policy_site_info import (
         SPOFileArchivePolicySiteInfo,
     )
-    from office365.sharepoint.viva.connections.license import VivaConnectionsLicense
-    from office365.sharepoint.viva.syntexcustommodelsetting import (
-        SyntexCustomModelSetting,
+    from office365.sharepoint.tenantadministration.spo_restricted_app_access_control_site_policy import (
+        SPORestrictedAppAccessControlSitePolicy,
     )
+    from office365.sharepoint.tenantadministration.spo_restricted_app_access_control_tenant_policy import (
+        SPORestrictedAppAccessControlTenantPolicy,
+    )
+    from office365.sharepoint.viva.connections.license import VivaConnectionsLicense
     from office365.sharepoint.viva.targetedsitedetails import TargetedSiteDetails
 
 
@@ -326,6 +327,7 @@ class Tenant(Entity):
     def __init__(self, context):
         super().__init__(context, StaticPath("Microsoft.Online.SharePoint.TenantAdministration.Tenant"))
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def accept_syntex_repository_terms_of_service(self) -> Self:
         """
         Used to accept the Microsoft Syntex repository terms of service for your organization.
@@ -336,6 +338,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def activate_application_billing_policy(self, billing_policy_id: str) -> ClientResult[SPOAppBillingProperties]:
         """ """
         payload = {"billingPolicyId": billing_policy_id}
@@ -344,6 +347,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_recent_admin_action_report(self) -> ClientResult[RecentAdminActionReport]:
         """Logs recent administrative actions within a SharePoint Online tenant"""
         return_type = ClientResult(self.context, RecentAdminActionReport())
@@ -371,6 +375,7 @@ class Tenant(Entity):
         settings.ensure_property("CorporateCatalogUrl").after_execute(lambda _: _settings_loaded())
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_chat_gpt_response(self) -> ClientResult[ChatGptRequestOptions]:
         """"""
         return_type = ClientResult(self.context)
@@ -379,6 +384,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_copilot_promo_usage_statistics(self) -> ClientResult[SPOCopilotPromoUsage]:
         """ """
         return_type = ClientResult(self.context, SPOCopilotPromoUsage())
@@ -386,6 +392,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete_policy_definition(self, item_id: int) -> Self:
         """Deletes a policy definition from a Microsoft 365 tenant.
         Policy definitions may refer to specific settings related to compliance, security,
@@ -398,6 +405,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete_recent_admin_action_report(self, report_id: int):
         """Args:
         report_id (int):
@@ -406,6 +414,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_tenant_all_web_templates(self) -> SPOTenantWebTemplateCollection:
         """ """
         return_type = SPOTenantWebTemplateCollection(self.context)
@@ -413,6 +422,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_onedrive_site_sharing_insights(self, query_mode):
         """Retrieves insights or reports related to OneDrive for Business site sharing activities"""
         return_type = ClientResult(self.context, OneDriveSiteSharingInsights())
@@ -421,6 +431,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_collaboration_insights_data(self):
         """"""
         return_type = ClientResult[CollaborationInsightsData](self.context, CollaborationInsightsData())
@@ -428,6 +439,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_collaboration_insights_overview(self) -> ClientResult[CollaborationInsightsOverview]:
         """"""
         return_type = ClientResult(self.context, CollaborationInsightsOverview())
@@ -435,6 +447,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_recent_admin_actions(self) -> ClientResult[bytes]:
         """ """
         return_type = ClientResult(self.context, bytes())
@@ -443,6 +456,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_content_security_policy(self) -> SPOContentSecurityPolicyConfiguration:
         """"""
         return_type = SPOContentSecurityPolicyConfiguration(self.context)
@@ -450,6 +464,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_app_billing_policies(self):
         """ """
         return_type = ClientResult(self.context, ClientValueCollection(SPOAppBillingProperties))
@@ -457,6 +472,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_top_files_sharing_insights(self, query_mode=None):
         """Retrieves a report or data about the most shared files within a SharePoint Online tenant
 
@@ -469,6 +485,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_thumbnail_logo(self, site_url: str) -> ClientResult[AnyStr]:
         """Args:
         site_url (str):
@@ -479,6 +496,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_home_site_url(self) -> ClientResult[str]:
         """ """
         return_type = ClientResult(self.context)
@@ -486,6 +504,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_home_sites(self) -> ClientResult[ClientValueCollection[HomeSitesDetails]]:
         """Retrieves the Home Site that has been designated for your Microsoft 365 tenant."""
         return_type = ClientResult(self.context, ClientValueCollection(HomeSitesDetails))
@@ -493,6 +512,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_home_sites_details(self):
         """Retrieves detailed information about the Home Sites configured in a SharePoint Online tenant."""
         return_type = ClientResult(self.context, ClientValueCollection(HomeSitesDetails))
@@ -500,6 +520,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_home_site(self, home_site_url: str) -> Self:
         """Remove home site
 
@@ -511,6 +532,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def has_valid_education_license(self) -> ClientResult[bool]:
         """"""
         return_type = ClientResult(self.context, bool())
@@ -518,18 +540,21 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def is_request_content_management_assessment_eligible(self) -> ClientResult[bool]:
         return_type = ClientResult(self.context, bool())
         qry = ServiceOperationQuery(self, "IsRequestContentManagementAssessmentEligible", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def is_syntex_repository_terms_of_service_accepted(self) -> ClientResult[bool]:
         return_type = ClientResult(self.context, bool())
         qry = ServiceOperationQuery(self, "IsSyntexRepositoryTermsOfServiceAccepted", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def export_to_csv(
         self,
         view_xml: Optional[str] = None,
@@ -551,6 +576,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_policy_report(self) -> ClientResult[bytes]:
         """"""
         return_type = ClientResult(self.context, bytes())
@@ -582,6 +608,7 @@ class Tenant(Entity):
         """
         return SPHubSitesUtility(self.context).get_hub_sites()
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_power_apps_environments(self):
         """ """
         return_type = ClientResult(self.context, ClientValueCollection(PowerAppsEnvironment))
@@ -589,6 +616,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ransomware_activities(self) -> ClientResult[bytes]:
         """ """
         return_type = ClientResult(self.context, bytes())
@@ -597,6 +625,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ransomware_events_overview(self) -> ClientResult[bytes]:
         """ """
         return_type = ClientResult(self.context, bytes())
@@ -604,6 +633,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_root_site_url(self) -> ClientResult[str]:
         """ """
         return_type = ClientResult(self.context, str())
@@ -611,6 +641,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_authorization_code_for_migration(self, endpoint_url: str) -> ClientResult[str]:
         return_type = ClientResult(self.context, str())
         payload = {"endpointUrl": endpoint_url}
@@ -618,12 +649,20 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
-    def get_site_subscription_id(self):
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
+    def get_site_subscription_id(self) -> ClientResult[str]:
+        """Returns the site subscription identifier.
+
+        CSOM only: the tenant administration REST endpoint answers
+        ``System.NotSupportedException`` ("Specified method is not supported."), so
+        this operation has no live equivalent to test against.
+        """
         return_type = ClientResult(self.context, str())
         qry = ServiceOperationQuery(self, "GetSiteSubscriptionId", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sp_list_item_count(self, list_name: str) -> ClientResult[int]:
         """ """
         return_type = ClientResult(self.context, int())
@@ -632,6 +671,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sp_list_root_folder_properties(self, list_name: str) -> ClientResult[dict]:
         """ """
         return_type = ClientResult(self.context, dict())
@@ -640,6 +680,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_all_web_templates(
         self, culture_name: Optional[str] = None, compatibility_level: Optional[int] = None
     ) -> SPOTenantWebTemplateCollection:
@@ -650,6 +691,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def check_tenant_intune_license(self) -> ClientResult[bool]:
         """Checks whether a tenant has the Intune license."""
         return_type = ClientResult(self.context, bool())
@@ -657,6 +699,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def check_tenant_licenses(self, licenses: List[str]) -> ClientResult[bool]:
         """Checks whether a tenant has the specified licenses.
 
@@ -672,6 +715,7 @@ class Tenant(Entity):
     def get_site(self, site_url: str) -> ListItem:
         return self._aggregated_site_collections_list.items.single(f"SiteUrl eq '{site_url.rstrip('/')}'").get()
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sites_by_state(self, states: Optional[List[int]] = None):
         """Args:
         states (list[int]):
@@ -695,6 +739,7 @@ class Tenant(Entity):
 
         self.get_sites_by_state(states).after_execute(_after, execute_first=True)
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_health_status(self, source_url: str) -> ClientResult[PortalHealthStatus]:
         """Checks the sitehealth of a specific SharePoint site or site collection in their tenant
 
@@ -707,6 +752,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return result
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_administrators(
         self, site_id: str, return_type: Optional[ClientResult[ClientValueCollection[SiteAdministratorsInfo]]] = None
     ):
@@ -736,6 +782,7 @@ class Tenant(Entity):
         self.get_site_properties_by_url(site_url).after_execute(_get_site_administrators_by_site_url)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_secondary_administrators(
         self,
         site_id: str,
@@ -765,6 +812,7 @@ class Tenant(Entity):
         self.get_site_properties_by_url(site_url).after_execute(_get_site_secondary_administrators_by_site_url)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_site_secondary_administrators(
         self, site_id: str, emails: Optional[List[str]] = None, names: Optional[List[str]] = None
     ) -> Self:
@@ -802,6 +850,7 @@ class Tenant(Entity):
         self.get_site_properties_by_url(site_url).after_execute(_clear_site_secondary_administrators)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def register_hub_site(self, site_url: str) -> HubSiteProperties:
         """Registers an existing site as a hub site."""
         return_type = HubSiteProperties(self.context)
@@ -810,6 +859,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def unregister_hub_site(self, site_url: str) -> Self:
         """Unregisters a hub site so that it is no longer a hub site."""
         payload = {"siteUrl": site_url}
@@ -817,6 +867,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_policy_definition(self) -> ClientResult[TenantAdminPolicyDefinition]:
         """ """
         return_type = ClientResult(self.context, TenantAdminPolicyDefinition())
@@ -825,6 +876,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_site(self, url: str, owner: str, title: Optional[str] = None) -> SpoOperation:
         """Queues a site collection for creation with the specified properties.
 
@@ -857,6 +909,7 @@ class Tenant(Entity):
         self.create_site(url, owner, title).after_execute(_ensure_status)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_site(self, site_url: str) -> SpoOperation:
         """Deletes the site with the specified URL
 
@@ -877,6 +930,7 @@ class Tenant(Entity):
         self.remove_site(site_url).after_execute(_remove_site_sync)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_deleted_site(self, site_url: str) -> SpoOperation:
         """Permanently removes the specified deleted site from the recycle bin.
 
@@ -902,6 +956,7 @@ class Tenant(Entity):
         _remove_next_deleted_site()
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def reorder_home_sites(
         self, home_sites_site_ids: List[str]
     ) -> ClientResult[ClientValueCollection[HomeSitesDetails]]:
@@ -916,6 +971,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def restore_deleted_site(self, site_url: str):
         """Restores deleted site with the specified URL
 
@@ -927,6 +983,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def restore_deleted_site_by_id(self, site_id: str):
         """Restores deleted site with the specified URL
 
@@ -938,6 +995,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_version_policy_for_library(self, site_url: str, list_params=None):
         """ """
         return_type = ClientResult(self.context, SPOFileVersionPolicySettings())
@@ -946,6 +1004,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_version_batch_delete_job_progress_for_library(self, site_url, list_params):
         """Gets the progress of the file version batch delete job for the specified site and list parameters."""
         return_type = ClientResult(self.context, SPOFileVersionBatchDeleteJobProgress())
@@ -956,6 +1015,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_properties_by_site_id(self, site_id: str, include_detail: bool = False) -> SiteProperties:
         """Gets the site properties for the specified site ID.
 
@@ -971,6 +1031,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_properties_by_url(self, url: str, include_detail: bool = False) -> SiteProperties:
         """Gets the site properties for the specified URL.
 
@@ -986,6 +1047,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_properties_from_sharepoint(
         self, start_index: Optional[str] = None, include_detail: bool = False
     ) -> SitePropertiesCollection:
@@ -996,6 +1058,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_properties_from_sharepoint_by_filters(
         self, filter_text: Optional[str] = None, start_index: Optional[str] = None, include_detail: bool = False
     ) -> SitePropertiesCollection:
@@ -1006,6 +1069,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_deleted_site_properties(self, start_index: Optional[int] = None) -> EntityCollection[DeletedSiteProperties]:
         """ """
         return_type = EntityCollection(self.context, DeletedSiteProperties)
@@ -1014,6 +1078,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_billing_policy_id_for_app(self, application_id: str) -> ClientResult[str]:
         """ """
         return_type = ClientResult(self.context)
@@ -1022,6 +1087,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def connect_site_to_hub_site_by_id(self, site_url: str, hub_site_id: str) -> Self:
         """Connects Site to Hub Site
 
@@ -1034,12 +1100,14 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def ensure_brand_center_feature(self):
         """Ensures that the Brand Center feature is enabled"""
         qry = ServiceOperationQuery(self, "EnsureBrandCenterFeature")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def export_unlicensed_one_drive_for_business_list_to_csv(self):
         """Exports a list of OneDrive for Business sites that are associated with unlicensed users into a CSV file"""
         return_type = ClientResult(self.context, str())
@@ -1047,6 +1115,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def send_email(self, site_url: str, activity_event_json: str) -> ClientResult[bool]:
         """Send Email"""
         return_type = ClientResult(self.context, bool())
@@ -1055,6 +1124,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_copilot_promo_optin_status(self, copilot_promo_optin_enabled: bool) -> Self:
         """ """
         payload = {"copilotPromoOptInEnabled": copilot_promo_optin_enabled}
@@ -1062,6 +1132,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_default_view(self, view_id: str, list_name: str) -> Self:
         """ """
         payload = {"viewId": view_id, "listName": list_name}
@@ -1078,6 +1149,7 @@ class Tenant(Entity):
         self.ensure_property("FileVersionPolicyXml").after_execute(lambda _: _get_file_version_policy())
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_file_version_policy(
         self, is_auto_trim_enabled: bool, major_version_limit: int, expire_versions_after_days: int
     ) -> Self:
@@ -1104,12 +1176,14 @@ class Tenant(Entity):
         self.update()
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_site_activity_data(self) -> Self:
         """ """
         qry = ServiceOperationQuery(self, "UpdateSiteActivityData")
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_group_site_properties(
         self,
         group_id: str,
@@ -1167,11 +1241,13 @@ class Tenant(Entity):
 
         return MultiGeoServices(self.context)
 
+    @odata(name="AIBuilderEnabled")
     @property
     def ai_builder_enabled(self) -> Optional[str]:
         """Gets the value if the AIBuilder settings should be shown in the tenant"""
         return self.properties.get("AIBuilderEnabled", None)
 
+    @odata(name="AIBuilderSiteInfoList")
     @property
     def ai_builder_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """"""
@@ -1182,6 +1258,7 @@ class Tenant(Entity):
         """ """
         return self.context.web.lists.get_by_title("DO_NOT_DELETE_SPLIST_TENANTADMIN_AGGREGATED_SITECOLLECTIONS")
 
+    @odata(name="AllowCommentsTextOnEmailEnabled")
     @property
     def allow_comments_text_on_email_enabled(self) -> Optional[bool]:
         """
@@ -1190,6 +1267,7 @@ class Tenant(Entity):
         """
         return self.properties.get("AllowCommentsTextOnEmailEnabled", None)
 
+    @odata(name="AllowEveryoneExceptExternalUsersClaimInPrivateSite")
     @property
     def allow_everyone_except_external_users_claim_in_private_site(self) -> Optional[bool]:
         """
@@ -1198,6 +1276,7 @@ class Tenant(Entity):
         """
         return self.properties.get("AllowEveryoneExceptExternalUsersClaimInPrivateSite", None)
 
+    @odata(name="AllowEditing")
     @property
     def allow_editing(self) -> Optional[bool]:
         """
@@ -1206,26 +1285,31 @@ class Tenant(Entity):
         """
         return self.properties.get("AllowEditing", None)
 
+    @odata(name="DefaultContentCenterSite")
     @property
     def default_content_center_site(self) -> SiteInfoForSitePicker:
         """"""
         return self.properties.get("DefaultContentCenterSite", SiteInfoForSitePicker())
 
+    @odata(name="FileVersionPolicyXml")
     @property
     def file_version_policy_xml(self) -> Optional[str]:
         """ """
         return self.properties.get("FileVersionPolicyXml", None)
 
+    @odata(name="InformationBarriersSuspension")
     @property
     def information_barriers_suspension(self) -> Optional[bool]:
         """Gets information barriers in SharePoint and OneDrive in your organization"""
         return self.properties.get("InformationBarriersSuspension", None)
 
+    @odata(name="IPAddressAllowList")
     @property
     def ip_address_allow_list(self) -> Optional[str]:
         """Configures multiple IP addresses or IP address ranges (IPv4 or IPv6), that are recognized as trusted."""
         return self.properties.get("IPAddressAllowList", None)
 
+    @odata(name="IPAddressEnforcement")
     @property
     def ip_address_enforcement(self) -> Optional[bool]:
         """Determines whether access from network locations that are defined by an administrator is allowed."""
@@ -1240,21 +1324,25 @@ class Tenant(Entity):
         """
         self.set_property("IPAddressEnforcement", value)
 
+    @odata(name="NoAccessRedirectUrl")
     @property
     def no_access_redirect_url(self) -> Optional[bool]:
         """Specifies the URL of the redirected site for those site collections which have the locked state "NoAccess"""
         return self.properties.get("NoAccessRedirectUrl", None)
 
+    @odata(name="LegacyAuthProtocolsEnabled")
     @property
     def legacy_auth_protocols_enabled(self) -> Optional[bool]:
         """Gets legacy authentication protocols on the tenant"""
         return self.properties.get("LegacyAuthProtocolsEnabled", None)
 
+    @odata(name="NotificationsInSharePointEnabled")
     @property
     def notifications_in_share_point_enabled(self) -> Optional[bool]:
         """Enables or disables notifications in SharePoint."""
         return self.properties.get("NotificationsInSharePointEnabled", None)
 
+    @odata(name="NotifyOwnersWhenInvitationsAccepted")
     @property
     def notify_owners_when_invitations_accepted(self) -> Optional[bool]:
         """When this parameter is set to true and when an external user accepts an invitation to a resource
@@ -1262,12 +1350,14 @@ class Tenant(Entity):
         """
         return self.properties.get("NotifyOwnersWhenInvitationsAccepted", None)
 
+    @odata(name="OneDriveStorageQuota")
     @property
     def one_drive_storage_quota(self) -> Optional[int]:
         """Gets a default OneDrive for Business storage quota for the tenant. It will be used for new OneDrive
         for Business sites created."""
         return self.properties.get("OneDriveStorageQuota", None)
 
+    @odata(name="NotifyOwnersWhenItemsReshared")
     @property
     def notify_owners_when_items_reshared(self) -> Optional[bool]:
         """When is set to true and another user re-shares a document from a
@@ -1275,23 +1365,27 @@ class Tenant(Entity):
         """
         return self.properties.get("NotifyOwnersWhenItemsReshared", None)
 
+    @odata(name="OneDriveDefaultLinkToExistingAccess", beta=True)
     @property
     def one_drive_default_link_to_existing_access(self) -> Optional[str]:
         """ """
         return self.properties.get("OneDriveDefaultLinkToExistingAccess", None)
 
+    @odata(name="RootSiteUrl")
     @property
     def root_site_url(self) -> Optional[str]:
         """The tenant's root site url"""
         return self.properties.get("RootSiteUrl", None)
 
+    @odata(name="Sites", navigation=True)
     @property
     def sites(self) -> SitePropertiesCollection:
         """Gets a collection of sites."""
         return self.properties.get(
-            "sites", SitePropertiesCollection(self.context, ResourcePath("sites", self.resource_path))
+            "Sites", SitePropertiesCollection(self.context, ResourcePath("Sites", self.resource_path))
         )
 
+    @odata(name="TotalTenantArchiveFileSizeAggregation", navigation=True)
     @property
     def total_tenant_archive_file_size_aggregation(self) -> ArchiveFileSizeMetric:
         """ """
@@ -1302,11 +1396,13 @@ class Tenant(Entity):
             ),
         )
 
+    @odata(name="SyntexPowerAppsEnvironmentsContext", beta=True)
     @property
     def syntex_power_apps_environments_context(self) -> SyntexPowerAppsEnvironmentsContext:
         """ """
         return self.properties.get("SyntexPowerAppsEnvironmentsContext", SyntexPowerAppsEnvironmentsContext())
 
+    @odata(name="TaxonomyTaggingEnabled")
     @property
     def taxonomy_tagging_enabled(self) -> Optional[bool]:
         """ """
@@ -1328,6 +1424,7 @@ class Tenant(Entity):
 
         return TenantCrawlVersionsInfoProvider(self.context)
 
+    @odata(name="SyntexBillingSubscriptionSettings", beta=True)
     @property
     def syntex_billing_subscription_settings(self) -> SyntexBillingContext:
         """
@@ -1348,21 +1445,25 @@ class Tenant(Entity):
     def entity_type_name(self):
         return "Microsoft.Online.SharePoint.TenantAdministration.Tenant"
 
+    @odata(name="displayName", system=True)
     @property
     def display_name(self) -> Optional[str]:
         """Gets the displayName property"""
         return self.properties.get("displayName", None)
 
+    @odata(name="id", system=True)
     @property
     def id_(self) -> Optional[UUID]:
         """Gets the id property"""
         return self.properties.get("id", None)
 
+    @odata(name="serviceInfo", system=True)
     @property
     def service_info(self) -> ClientValueCollection[TenantServiceInfoValue]:
         """Gets the serviceInfo property"""
         return self.properties.get("serviceInfo", ClientValueCollection[TenantServiceInfoValue](TenantServiceInfoValue))
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_service_info(self, request_body: dict) -> Self:
         """CreateServiceInfo operation.
 
@@ -1373,188 +1474,220 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @odata(name="AddressbarLinkPermission", beta=True)
     @property
     def addressbar_link_permission(self) -> Optional[int]:
         """Gets the AddressbarLinkPermission property"""
         return self.properties.get("AddressbarLinkPermission", None)
 
+    @odata(name="AIBuilderDefaultPowerAppsEnvironment")
     @property
     def ai_builder_default_power_apps_environment(self) -> Optional[str]:
         """Gets the AIBuilderDefaultPowerAppsEnvironment property"""
         return self.properties.get("AIBuilderDefaultPowerAppsEnvironment", None)
 
+    @odata(name="AIBuilderEnabledInContentCenter")
     @property
     def ai_builder_enabled_in_content_center(self) -> Optional[int]:
         """Gets the AIBuilderEnabledInContentCenter property"""
         return self.properties.get("AIBuilderEnabledInContentCenter", None)
 
+    @odata(name="AIBuilderSiteList")
     @property
     def ai_builder_site_list(self) -> GuidCollection:
         """Gets the AIBuilderSiteList property"""
         return self.properties.get("AIBuilderSiteList", GuidCollection())
 
+    @odata(name="AIBuilderSiteListFileName")
     @property
     def ai_builder_site_list_file_name(self) -> Optional[str]:
         """Gets the AIBuilderSiteListFileName property"""
         return self.properties.get("AIBuilderSiteListFileName", None)
 
+    @odata(name="AllOrganizationSecurityGroupId")
     @property
     def all_organization_security_group_id(self) -> Optional[UUID]:
         """Gets the AllOrganizationSecurityGroupId property"""
         return self.properties.get("AllOrganizationSecurityGroupId", None)
 
+    @odata(name="AllowAnonymousMeetingParticipantsToAccessWhiteboards", beta=True)
     @property
     def allow_anonymous_meeting_participants_to_access_whiteboards(self) -> Optional[int]:
         """Gets the AllowAnonymousMeetingParticipantsToAccessWhiteboards property"""
         return self.properties.get("AllowAnonymousMeetingParticipantsToAccessWhiteboards", None)
 
+    @odata(name="AllowAppsBypassOfUnmanagedDevicePolicy")
     @property
     def allow_apps_bypass_of_unmanaged_device_policy(self) -> Optional[bool]:
         """Gets the AllowAppsBypassOfUnmanagedDevicePolicy property"""
         return self.properties.get("AllowAppsBypassOfUnmanagedDevicePolicy", None)
 
+    @odata(name="AllowClassicPublishingSiteCreation")
     @property
     def allow_classic_publishing_site_creation(self) -> Optional[bool]:
         """Gets the AllowClassicPublishingSiteCreation property"""
         return self.properties.get("AllowClassicPublishingSiteCreation", None)
 
+    @odata(name="AllowDownloadingNonWebViewableFiles")
     @property
     def allow_downloading_non_web_viewable_files(self) -> Optional[bool]:
         """Gets the AllowDownloadingNonWebViewableFiles property"""
         return self.properties.get("AllowDownloadingNonWebViewableFiles", None)
 
+    @odata(name="AllowedDomainListForSyncClient")
     @property
     def allowed_domain_list_for_sync_client(self) -> GuidCollection:
         """Gets the AllowedDomainListForSyncClient property"""
         return self.properties.get("AllowedDomainListForSyncClient", GuidCollection())
 
+    @odata(name="AllowFileArchive")
     @property
     def allow_file_archive(self) -> Optional[bool]:
         """Gets the AllowFileArchive property"""
         return self.properties.get("AllowFileArchive", None)
 
+    @odata(name="AllowFileArchiveOnNewSitesByDefault")
     @property
     def allow_file_archive_on_new_sites_by_default(self) -> Optional[bool]:
         """Gets the AllowFileArchiveOnNewSitesByDefault property"""
         return self.properties.get("AllowFileArchiveOnNewSitesByDefault", None)
 
+    @odata(name="AllowGuestUserShareToUsersNotInSiteCollection")
     @property
     def allow_guest_user_share_to_users_not_in_site_collection(self) -> Optional[bool]:
         """Gets the AllowGuestUserShareToUsersNotInSiteCollection property"""
         return self.properties.get("AllowGuestUserShareToUsersNotInSiteCollection", None)
 
+    @odata(name="AllowLegacyAuthProtocolsEnabledSetting")
     @property
     def allow_legacy_auth_protocols_enabled_setting(self) -> Optional[bool]:
         """Gets the AllowLegacyAuthProtocolsEnabledSetting property"""
         return self.properties.get("AllowLegacyAuthProtocolsEnabledSetting", None)
 
+    @odata(name="AllowLegacyBrowserAuthProtocolsEnabledSetting")
     @property
     def allow_legacy_browser_auth_protocols_enabled_setting(self) -> Optional[bool]:
         """Gets the AllowLegacyBrowserAuthProtocolsEnabledSetting property"""
         return self.properties.get("AllowLegacyBrowserAuthProtocolsEnabledSetting", None)
 
+    @odata(name="AllowLimitedAccessOnUnmanagedDevices")
     @property
     def allow_limited_access_on_unmanaged_devices(self) -> Optional[bool]:
         """Gets the AllowLimitedAccessOnUnmanagedDevices property"""
         return self.properties.get("AllowLimitedAccessOnUnmanagedDevices", None)
 
+    @odata(name="AllowOverrideForBlockUserInfoVisibility")
     @property
     def allow_override_for_block_user_info_visibility(self) -> Optional[bool]:
         """Gets the AllowOverrideForBlockUserInfoVisibility property"""
         return self.properties.get("AllowOverrideForBlockUserInfoVisibility", None)
 
+    @odata(name="AllowSelectSecurityGroupsInSPSitesList")
     @property
     def allow_select_security_groups_in_sp_sites_list(self) -> StringCollection:
         """Gets the AllowSelectSecurityGroupsInSPSitesList property"""
         return self.properties.get("AllowSelectSecurityGroupsInSPSitesList", StringCollection())
 
+    @odata(name="AllowSelectSGsInODBListInTenant")
     @property
     def allow_select_sgs_in_odb_list_in_tenant(self) -> StringCollection:
         """Gets the AllowSelectSGsInODBListInTenant property"""
         return self.properties.get("AllowSelectSGsInODBListInTenant", StringCollection())
 
+    @odata(name="AllowSensitivityLabelOnRecords")
     @property
     def allow_sensitivity_label_on_records(self) -> Optional[bool]:
         """Gets the AllowSensitivityLabelOnRecords property"""
         return self.properties.get("AllowSensitivityLabelOnRecords", None)
 
+    @odata(name="AllowSharingOutsideRestrictedAccessControlGroups")
     @property
     def allow_sharing_outside_restricted_access_control_groups(self) -> Optional[bool]:
         """Gets the AllowSharingOutsideRestrictedAccessControlGroups property"""
         return self.properties.get("AllowSharingOutsideRestrictedAccessControlGroups", None)
 
+    @odata(name="AllowWebPropertyBagUpdateWhenDenyAddAndCustomizePagesIsEnabled")
     @property
     def allow_web_property_bag_update_when_deny_add_and_customize_pages_is_enabled(self) -> Optional[bool]:
         """Gets the AllowWebPropertyBagUpdateWhenDenyAddAndCustomizePagesIsEnabled property"""
         return self.properties.get("AllowWebPropertyBagUpdateWhenDenyAddAndCustomizePagesIsEnabled", None)
 
+    @odata(name="AmplifyAdminSettings")
     @property
     def amplify_admin_settings(self) -> Optional[str]:
         """Gets the AmplifyAdminSettings property"""
         return self.properties.get("AmplifyAdminSettings", None)
 
+    @odata(name="AnyoneLinkTrackUsers", beta=True)
     @property
     def anyone_link_track_users(self) -> Optional[bool]:
         """Gets the AnyoneLinkTrackUsers property"""
         return self.properties.get("AnyoneLinkTrackUsers", None)
 
+    @odata(name="AppAccessInformationBarriersAllowList")
     @property
     def app_access_information_barriers_allow_list(self) -> GuidCollection:
         """Gets the AppAccessInformationBarriersAllowList property"""
         return self.properties.get("AppAccessInformationBarriersAllowList", GuidCollection())
 
+    @odata(name="AppBypassInformationBarriers")
     @property
     def app_bypass_information_barriers(self) -> Optional[bool]:
         """Gets the AppBypassInformationBarriers property"""
         return self.properties.get("AppBypassInformationBarriers", None)
 
+    @odata(name="ApplyAppEnforcedRestrictionsToAdHocRecipients")
     @property
     def apply_app_enforced_restrictions_to_ad_hoc_recipients(self) -> Optional[bool]:
         """Gets the ApplyAppEnforcedRestrictionsToAdHocRecipients property"""
         return self.properties.get("ApplyAppEnforcedRestrictionsToAdHocRecipients", None)
 
+    @odata(name="AppOnlyBypassPeoplePickerPolicies")
     @property
     def app_only_bypass_people_picker_policies(self) -> Optional[bool]:
         """Gets the AppOnlyBypassPeoplePickerPolicies property"""
         return self.properties.get("AppOnlyBypassPeoplePickerPolicies", None)
 
+    @odata(name="ArchivedFileStorageUsageMB")
     @property
     def archived_file_storage_usage_mb(self) -> Optional[int]:
         """Gets the ArchivedFileStorageUsageMB property"""
         return self.properties.get("ArchivedFileStorageUsageMB", None)
 
+    @odata(name="ArchiveRedirectUrl")
     @property
     def archive_redirect_url(self) -> Optional[str]:
         """Gets the ArchiveRedirectUrl property"""
         return self.properties.get("ArchiveRedirectUrl", None)
 
+    @odata(name="AuthContextResilienceMode")
     @property
     def auth_context_resilience_mode(self) -> Optional[int]:
         """Gets the AuthContextResilienceMode property"""
         return self.properties.get("AuthContextResilienceMode", None)
 
+    @odata(name="AutofillColumnsCustomModelEnabled")
     @property
     def autofill_columns_custom_model_enabled(self) -> Optional[bool]:
         """Gets the AutofillColumnsCustomModelEnabled property"""
         return self.properties.get("AutofillColumnsCustomModelEnabled", None)
 
+    @odata(name="AutofillColumnsCustomModelSettings")
     @property
     def autofill_columns_custom_model_settings(self) -> ClientValueCollection[SyntexCustomModelSetting]:
         """Gets the AutofillColumnsCustomModelSettings property"""
-        from office365.sharepoint.viva.syntexcustommodelsetting import (
-            SyntexCustomModelSetting,
-        )
-
         return self.properties.get(
             "AutofillColumnsCustomModelSettings",
             ClientValueCollection[SyntexCustomModelSetting](SyntexCustomModelSetting),
         )
 
+    @odata(name="AutofillColumnsEnabled")
     @property
     def autofill_columns_enabled(self) -> Optional[bool]:
         """Gets the AutofillColumnsEnabled property"""
         return self.properties.get("AutofillColumnsEnabled", None)
 
+    @odata(name="AutofillColumnsSiteInfoList")
     @property
     def autofill_columns_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the AutofillColumnsSiteInfoList property"""
@@ -1566,415 +1699,493 @@ class Tenant(Entity):
             "AutofillColumnsSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="AutofillColumnsSiteList")
     @property
     def autofill_columns_site_list(self) -> GuidCollection:
         """Gets the AutofillColumnsSiteList property"""
         return self.properties.get("AutofillColumnsSiteList", GuidCollection())
 
+    @odata(name="AutofillColumnsSiteListFileName")
     @property
     def autofill_columns_site_list_file_name(self) -> Optional[str]:
         """Gets the AutofillColumnsSiteListFileName property"""
         return self.properties.get("AutofillColumnsSiteListFileName", None)
 
+    @odata(name="BaselineSecurityModeThirdPartyAppHPA")
     @property
     def baseline_security_mode_third_party_app_hpa(self) -> BaselineSecurityModeThirdPartyAppHPASetting:
         """Gets the BaselineSecurityModeThirdPartyAppHPA property"""
-        from office365.sharepoint.authpolicy.baseline_security_mode_third_party_app_hpa_setting import (
-            BaselineSecurityModeThirdPartyAppHPASetting,
-        )
-
         return self.properties.get("BaselineSecurityModeThirdPartyAppHPA", BaselineSecurityModeThirdPartyAppHPASetting())
 
+    @odata(name="BccExternalSharingInvitations")
     @property
     def bcc_external_sharing_invitations(self) -> Optional[bool]:
         """Gets the BccExternalSharingInvitations property"""
         return self.properties.get("BccExternalSharingInvitations", None)
 
+    @odata(name="BccExternalSharingInvitationsList")
     @property
     def bcc_external_sharing_invitations_list(self) -> Optional[str]:
         """Gets the BccExternalSharingInvitationsList property"""
         return self.properties.get("BccExternalSharingInvitationsList", None)
 
+    @odata(name="BlockAccessOnUnmanagedDevices")
     @property
     def block_access_on_unmanaged_devices(self) -> Optional[bool]:
         """Gets the BlockAccessOnUnmanagedDevices property"""
         return self.properties.get("BlockAccessOnUnmanagedDevices", None)
 
+    @odata(name="BlockAppAccessWithAuthenticationContext")
     @property
     def block_app_access_with_authentication_context(self) -> Optional[bool]:
         """Gets the BlockAppAccessWithAuthenticationContext property"""
         return self.properties.get("BlockAppAccessWithAuthenticationContext", None)
 
+    @odata(name="BlockDownloadFileTypeIds")
     @property
     def block_download_file_type_ids(self) -> ClientValueCollection:
         """Gets the BlockDownloadFileTypeIds property"""
         return self.properties.get("BlockDownloadFileTypeIds", ClientValueCollection(int))
 
+    @odata(name="BlockDownloadFileTypePolicy")
     @property
     def block_download_file_type_policy(self) -> Optional[bool]:
         """Gets the BlockDownloadFileTypePolicy property"""
         return self.properties.get("BlockDownloadFileTypePolicy", None)
 
+    @odata(name="BlockDownloadLinksFileType")
     @property
     def block_download_links_file_type(self) -> Optional[int]:
         """Gets the BlockDownloadLinksFileType property"""
         return self.properties.get("BlockDownloadLinksFileType", None)
 
+    @odata(name="BlockDownloadOfAllFilesForGuests")
     @property
     def block_download_of_all_files_for_guests(self) -> Optional[bool]:
         """Gets the BlockDownloadOfAllFilesForGuests property"""
         return self.properties.get("BlockDownloadOfAllFilesForGuests", None)
 
+    @odata(name="BlockDownloadOfAllFilesOnUnmanagedDevices")
     @property
     def block_download_of_all_files_on_unmanaged_devices(self) -> Optional[bool]:
         """Gets the BlockDownloadOfAllFilesOnUnmanagedDevices property"""
         return self.properties.get("BlockDownloadOfAllFilesOnUnmanagedDevices", None)
 
+    @odata(name="BlockDownloadOfViewableFilesForGuests")
     @property
     def block_download_of_viewable_files_for_guests(self) -> Optional[bool]:
         """Gets the BlockDownloadOfViewableFilesForGuests property"""
         return self.properties.get("BlockDownloadOfViewableFilesForGuests", None)
 
+    @odata(name="BlockDownloadOfViewableFilesOnUnmanagedDevices")
     @property
     def block_download_of_viewable_files_on_unmanaged_devices(self) -> Optional[bool]:
         """Gets the BlockDownloadOfViewableFilesOnUnmanagedDevices property"""
         return self.properties.get("BlockDownloadOfViewableFilesOnUnmanagedDevices", None)
 
+    @odata(name="BlockMacSync")
     @property
     def block_mac_sync(self) -> Optional[bool]:
         """Gets the BlockMacSync property"""
         return self.properties.get("BlockMacSync", None)
 
+    @odata(name="BlockSendLabelMismatchEmail")
     @property
     def block_send_label_mismatch_email(self) -> Optional[bool]:
         """Gets the BlockSendLabelMismatchEmail property"""
         return self.properties.get("BlockSendLabelMismatchEmail", None)
 
+    @odata(name="BlockUserInfoVisibility")
     @property
     def block_user_info_visibility(self) -> Optional[str]:
         """Gets the BlockUserInfoVisibility property"""
         return self.properties.get("BlockUserInfoVisibility", None)
 
+    @odata(name="BlockUserInfoVisibilityInOneDrive")
     @property
     def block_user_info_visibility_in_onedrive(self) -> Optional[int]:
         """Gets the BlockUserInfoVisibilityInOneDrive property"""
         return self.properties.get("BlockUserInfoVisibilityInOneDrive", None)
 
+    @odata(name="BlockUserInfoVisibilityInSharePoint")
     @property
     def block_user_info_visibility_in_sharepoint(self) -> Optional[int]:
         """Gets the BlockUserInfoVisibilityInSharePoint property"""
         return self.properties.get("BlockUserInfoVisibilityInSharePoint", None)
 
+    @odata(name="BonusStorageQuotaMB")
     @property
     def bonus_storage_quota_mb(self) -> Optional[int]:
         """Gets the BonusStorageQuotaMB property"""
         return self.properties.get("BonusStorageQuotaMB", None)
 
+    @odata(name="BusinessConnectivityServiceDisabled")
     @property
     def business_connectivity_service_disabled(self) -> Optional[bool]:
         """Gets the BusinessConnectivityServiceDisabled property"""
         return self.properties.get("BusinessConnectivityServiceDisabled", None)
 
+    @odata(name="ClassicPagesRestrictMode")
     @property
     def classic_pages_restrict_mode(self) -> Optional[bool]:
         """Gets the ClassicPagesRestrictMode property"""
         return self.properties.get("ClassicPagesRestrictMode", None)
 
+    @odata(name="CommentsOnFilesDisabled")
     @property
     def comments_on_files_disabled(self) -> Optional[bool]:
         """Gets the CommentsOnFilesDisabled property"""
         return self.properties.get("CommentsOnFilesDisabled", None)
 
+    @odata(name="CommentsOnListItemsDisabled")
     @property
     def comments_on_list_items_disabled(self) -> Optional[bool]:
         """Gets the CommentsOnListItemsDisabled property"""
         return self.properties.get("CommentsOnListItemsDisabled", None)
 
+    @odata(name="CommentsOnSitePagesDisabled")
     @property
     def comments_on_site_pages_disabled(self) -> Optional[bool]:
         """Gets the CommentsOnSitePagesDisabled property"""
         return self.properties.get("CommentsOnSitePagesDisabled", None)
 
+    @odata(name="CompatibilityRange")
     @property
     def compatibility_range(self) -> Optional[str]:
         """Gets the CompatibilityRange property"""
         return self.properties.get("CompatibilityRange", None)
 
+    @odata(name="ConditionalAccessPolicy")
     @property
     def conditional_access_policy(self) -> Optional[int]:
         """Gets the ConditionalAccessPolicy property"""
         return self.properties.get("ConditionalAccessPolicy", None)
 
+    @odata(name="ConditionalAccessPolicyErrorHelpLink")
     @property
     def conditional_access_policy_error_help_link(self) -> Optional[str]:
         """Gets the ConditionalAccessPolicyErrorHelpLink property"""
         return self.properties.get("ConditionalAccessPolicyErrorHelpLink", None)
 
+    @odata(name="ContentSecurityPolicyConfigSynced", beta=True)
     @property
     def content_security_policy_config_synced(self) -> Optional[bool]:
         """Gets the ContentSecurityPolicyConfigSynced property"""
         return self.properties.get("ContentSecurityPolicyConfigSynced", None)
 
+    @odata(name="ContentSecurityPolicyEnforcement", beta=True)
     @property
     def content_security_policy_enforcement(self) -> Optional[bool]:
         """Gets the ContentSecurityPolicyEnforcement property"""
         return self.properties.get("ContentSecurityPolicyEnforcement", None)
 
+    @odata(name="ContentTypeSyncSiteTemplatesList")
     @property
     def content_type_sync_site_templates_list(self) -> StringCollection:
         """Gets the ContentTypeSyncSiteTemplatesList property"""
         return self.properties.get("ContentTypeSyncSiteTemplatesList", StringCollection())
 
+    @odata(name="CopilotSearchOptIn")
     @property
     def copilot_search_opt_in(self) -> Optional[bool]:
         """Gets the CopilotSearchOptIn property"""
         return self.properties.get("CopilotSearchOptIn", None)
 
+    @odata(name="CoreAnyoneSharingLinkMaxExpirationInDays")
     @property
     def core_anyone_sharing_link_max_expiration_in_days(self) -> Optional[int]:
         """Gets the CoreAnyoneSharingLinkMaxExpirationInDays property"""
         return self.properties.get("CoreAnyoneSharingLinkMaxExpirationInDays", None)
 
+    @odata(name="CoreAnyoneSharingLinkRecommendedExpirationInDays")
     @property
     def core_anyone_sharing_link_recommended_expiration_in_days(self) -> Optional[int]:
         """Gets the CoreAnyoneSharingLinkRecommendedExpirationInDays property"""
         return self.properties.get("CoreAnyoneSharingLinkRecommendedExpirationInDays", None)
 
+    @odata(name="CoreBlockGuestsAsSiteAdmin", beta=True)
     @property
     def core_block_guests_as_site_admin(self) -> Optional[int]:
         """Gets the CoreBlockGuestsAsSiteAdmin property"""
         return self.properties.get("CoreBlockGuestsAsSiteAdmin", None)
 
+    @odata(name="CoreDefaultLinkToExistingAccess", beta=True)
     @property
     def core_default_link_to_existing_access(self) -> Optional[bool]:
         """Gets the CoreDefaultLinkToExistingAccess property"""
         return self.properties.get("CoreDefaultLinkToExistingAccess", None)
 
+    @odata(name="CoreDefaultShareLinkRole", beta=True)
     @property
     def core_default_share_link_role(self) -> Optional[int]:
         """Gets the CoreDefaultShareLinkRole property"""
         return self.properties.get("CoreDefaultShareLinkRole", None)
 
+    @odata(name="CoreDefaultShareLinkScope", beta=True)
     @property
     def core_default_share_link_scope(self) -> Optional[int]:
         """Gets the CoreDefaultShareLinkScope property"""
         return self.properties.get("CoreDefaultShareLinkScope", None)
 
+    @odata(name="CoreLoopDefaultSharingLinkRole", beta=True)
     @property
     def core_loop_default_sharing_link_role(self) -> Optional[int]:
         """Gets the CoreLoopDefaultSharingLinkRole property"""
         return self.properties.get("CoreLoopDefaultSharingLinkRole", None)
 
+    @odata(name="CoreLoopDefaultSharingLinkScope", beta=True)
     @property
     def core_loop_default_sharing_link_scope(self) -> Optional[int]:
         """Gets the CoreLoopDefaultSharingLinkScope property"""
         return self.properties.get("CoreLoopDefaultSharingLinkScope", None)
 
+    @odata(name="CoreLoopSharingCapability", beta=True)
     @property
     def core_loop_sharing_capability(self) -> Optional[int]:
         """Gets the CoreLoopSharingCapability property"""
         return self.properties.get("CoreLoopSharingCapability", None)
 
+    @odata(name="CoreOrganizationSharingLinkMaxExpirationInDays")
     @property
     def core_organization_sharing_link_max_expiration_in_days(self) -> Optional[int]:
         """Gets the CoreOrganizationSharingLinkMaxExpirationInDays property"""
         return self.properties.get("CoreOrganizationSharingLinkMaxExpirationInDays", None)
 
+    @odata(name="CoreOrganizationSharingLinkRecommendedExpirationInDays")
     @property
     def core_organization_sharing_link_recommended_expiration_in_days(self) -> Optional[int]:
         """Gets the CoreOrganizationSharingLinkRecommendedExpirationInDays property"""
         return self.properties.get("CoreOrganizationSharingLinkRecommendedExpirationInDays", None)
 
+    @odata(name="CoreRequestFilesLinkEnabled", beta=True)
     @property
     def core_request_files_link_enabled(self) -> Optional[bool]:
         """Gets the CoreRequestFilesLinkEnabled property"""
         return self.properties.get("CoreRequestFilesLinkEnabled", None)
 
+    @odata(name="CoreRequestFilesLinkExpirationInDays", beta=True)
     @property
     def core_request_files_link_expiration_in_days(self) -> Optional[int]:
         """Gets the CoreRequestFilesLinkExpirationInDays property"""
         return self.properties.get("CoreRequestFilesLinkExpirationInDays", None)
 
+    @odata(name="CoreSharingCapability", beta=True)
     @property
     def core_sharing_capability(self) -> Optional[int]:
         """Gets the CoreSharingCapability property"""
         return self.properties.get("CoreSharingCapability", None)
 
+    @odata(name="CustomizedExternalSharingServiceUrl")
     @property
     def customized_external_sharing_service_url(self) -> Optional[str]:
         """Gets the CustomizedExternalSharingServiceUrl property"""
         return self.properties.get("CustomizedExternalSharingServiceUrl", None)
 
+    @odata(name="CustomScriptsRestrictMode")
     @property
     def custom_scripts_restrict_mode(self) -> Optional[bool]:
         """Gets the CustomScriptsRestrictMode property"""
         return self.properties.get("CustomScriptsRestrictMode", None)
 
+    @odata(name="DataverseUsageConsentEnabled")
     @property
     def dataverse_usage_consent_enabled(self) -> Optional[bool]:
         """Gets the DataverseUsageConsentEnabled property"""
         return self.properties.get("DataverseUsageConsentEnabled", None)
 
+    @odata(name="DefaultLanguageForSiteCreation")
     @property
     def default_language_for_site_creation(self) -> Optional[str]:
         """Gets the DefaultLanguageForSiteCreation property"""
         return self.properties.get("DefaultLanguageForSiteCreation", None)
 
+    @odata(name="DefaultLinkPermission")
     @property
     def default_link_permission(self) -> Optional[int]:
         """Gets the DefaultLinkPermission property"""
         return self.properties.get("DefaultLinkPermission", None)
 
+    @odata(name="DefaultODBMode")
     @property
     def default_odb_mode(self) -> Optional[str]:
         """Gets the DefaultODBMode property"""
         return self.properties.get("DefaultODBMode", None)
 
+    @odata(name="DefaultSharingLinkType")
     @property
     def default_sharing_link_type(self) -> Optional[int]:
         """Gets the DefaultSharingLinkType property"""
         return self.properties.get("DefaultSharingLinkType", None)
 
+    @odata(name="DelayContentSecurityPolicyEnforcement", beta=True)
     @property
     def delay_content_security_policy_enforcement(self) -> Optional[bool]:
         """Gets the DelayContentSecurityPolicyEnforcement property"""
         return self.properties.get("DelayContentSecurityPolicyEnforcement", None)
 
+    @odata(name="DelayDenyAddAndCustomizePagesEnforcement")
     @property
     def delay_deny_add_and_customize_pages_enforcement(self) -> Optional[bool]:
         """Gets the DelayDenyAddAndCustomizePagesEnforcement property"""
         return self.properties.get("DelayDenyAddAndCustomizePagesEnforcement", None)
 
+    @odata(name="DelayDenyAddAndCustomizePagesEnforcementOnClassicPublishingSites")
     @property
     def delay_deny_add_and_customize_pages_enforcement_on_classic_publishing_sites(self) -> Optional[bool]:
         """Gets the DelayDenyAddAndCustomizePagesEnforcementOnClassicPublishingSites property"""
         return self.properties.get("DelayDenyAddAndCustomizePagesEnforcementOnClassicPublishingSites", None)
 
+    @odata(name="DelegateRestrictedAccessControlConfiguration")
     @property
     def delegate_restricted_access_control_configuration(self) -> Optional[bool]:
         """Gets the DelegateRestrictedAccessControlConfiguration property"""
         return self.properties.get("DelegateRestrictedAccessControlConfiguration", None)
 
+    @odata(name="DelegateRestrictedContentDiscoveryConfiguration")
     @property
     def delegate_restricted_content_discovery_configuration(self) -> Optional[bool]:
         """Gets the DelegateRestrictedContentDiscoveryConfiguration property"""
         return self.properties.get("DelegateRestrictedContentDiscoveryConfiguration", None)
 
+    @odata(name="DenySelectSecurityGroupsInSPSitesList")
     @property
     def deny_select_security_groups_in_sp_sites_list(self) -> StringCollection:
         """Gets the DenySelectSecurityGroupsInSPSitesList property"""
         return self.properties.get("DenySelectSecurityGroupsInSPSitesList", StringCollection())
 
+    @odata(name="DenySelectSGsInODBListInTenant")
     @property
     def deny_select_sgs_in_odb_list_in_tenant(self) -> StringCollection:
         """Gets the DenySelectSGsInODBListInTenant property"""
         return self.properties.get("DenySelectSGsInODBListInTenant", StringCollection())
 
+    @odata(name="DisableAddToOneDrive")
     @property
     def disable_add_to_onedrive(self) -> Optional[bool]:
         """Gets the DisableAddToOneDrive property"""
         return self.properties.get("DisableAddToOneDrive", None)
 
+    @odata(name="DisableBackToClassic")
     @property
     def disable_back_to_classic(self) -> Optional[bool]:
         """Gets the DisableBackToClassic property"""
         return self.properties.get("DisableBackToClassic", None)
 
+    @odata(name="DisableCustomAppAuthentication")
     @property
     def disable_custom_app_authentication(self) -> Optional[bool]:
         """Gets the DisableCustomAppAuthentication property"""
         return self.properties.get("DisableCustomAppAuthentication", None)
 
+    @odata(name="DisabledAdaptiveCardExtensionIds")
     @property
     def disabled_adaptive_card_extension_ids(self) -> GuidCollection:
         """Gets the DisabledAdaptiveCardExtensionIds property"""
         return self.properties.get("DisabledAdaptiveCardExtensionIds", GuidCollection())
 
+    @odata(name="DisabledModernListTemplateIds")
     @property
     def disabled_modern_list_template_ids(self) -> GuidCollection:
         """Gets the DisabledModernListTemplateIds property"""
         return self.properties.get("DisabledModernListTemplateIds", GuidCollection())
 
+    @odata(name="DisableDocumentLibraryDefaultLabeling")
     @property
     def disable_document_library_default_labeling(self) -> Optional[bool]:
         """Gets the DisableDocumentLibraryDefaultLabeling property"""
         return self.properties.get("DisableDocumentLibraryDefaultLabeling", None)
 
+    @odata(name="DisabledWebPartIds")
     @property
     def disabled_web_part_ids(self) -> GuidCollection:
         """Gets the DisabledWebPartIds property"""
         return self.properties.get("DisabledWebPartIds", GuidCollection())
 
+    @odata(name="DisableOutlookPSTVersionTrimming")
     @property
     def disable_outlook_pst_version_trimming(self) -> Optional[bool]:
         """Gets the DisableOutlookPSTVersionTrimming property"""
         return self.properties.get("DisableOutlookPSTVersionTrimming", None)
 
+    @odata(name="DisablePersonalListCreation")
     @property
     def disable_personal_list_creation(self) -> Optional[bool]:
         """Gets the DisablePersonalListCreation property"""
         return self.properties.get("DisablePersonalListCreation", None)
 
+    @odata(name="DisableReportProblemDialog")
     @property
     def disable_report_problem_dialog(self) -> Optional[bool]:
         """Gets the DisableReportProblemDialog property"""
         return self.properties.get("DisableReportProblemDialog", None)
 
+    @odata(name="DisableSharePointStoreAccess")
     @property
     def disable_sharepoint_store_access(self) -> Optional[bool]:
         """Gets the DisableSharePointStoreAccess property"""
         return self.properties.get("DisableSharePointStoreAccess", None)
 
+    @odata(name="DisableSpacesActivation")
     @property
     def disable_spaces_activation(self) -> Optional[bool]:
         """Gets the DisableSpacesActivation property"""
         return self.properties.get("DisableSpacesActivation", None)
 
+    @odata(name="DisableSpfxTopBottomPlaceholdersInElevatedContent")
     @property
     def disable_spfx_top_bottom_placeholders_in_elevated_content(self) -> Optional[bool]:
         """Gets the DisableSpfxTopBottomPlaceholdersInElevatedContent property"""
         return self.properties.get("DisableSpfxTopBottomPlaceholdersInElevatedContent", None)
 
+    @odata(name="DisableTeamsMeetingRecordingDeletedNotification")
     @property
     def disable_teams_meeting_recording_deleted_notification(self) -> Optional[bool]:
         """Gets the DisableTeamsMeetingRecordingDeletedNotification property"""
         return self.properties.get("DisableTeamsMeetingRecordingDeletedNotification", None)
 
+    @odata(name="DisableVivaConnectionsAnalytics")
     @property
     def disable_viva_connections_analytics(self) -> Optional[bool]:
         """Gets the DisableVivaConnectionsAnalytics property"""
         return self.properties.get("DisableVivaConnectionsAnalytics", None)
 
+    @odata(name="DisallowInfectedFileDownload")
     @property
     def disallow_infected_file_download(self) -> Optional[bool]:
         """Gets the DisallowInfectedFileDownload property"""
         return self.properties.get("DisallowInfectedFileDownload", None)
 
+    @odata(name="DisplayNamesOfFileViewers")
     @property
     def display_names_of_file_viewers(self) -> Optional[bool]:
         """Gets the DisplayNamesOfFileViewers property"""
         return self.properties.get("DisplayNamesOfFileViewers", None)
 
+    @odata(name="DisplayNamesOfFileViewersInSpo")
     @property
     def display_names_of_file_viewers_in_spo(self) -> Optional[bool]:
         """Gets the DisplayNamesOfFileViewersInSpo property"""
         return self.properties.get("DisplayNamesOfFileViewersInSpo", None)
 
+    @odata(name="DisplayStartASiteOption")
     @property
     def display_start_a_site_option(self) -> Optional[bool]:
         """Gets the DisplayStartASiteOption property"""
         return self.properties.get("DisplayStartASiteOption", None)
 
+    @odata(name="DocumentUnderstandingEnabled")
     @property
     def document_understanding_enabled(self) -> Optional[bool]:
         """Gets the DocumentUnderstandingEnabled property"""
         return self.properties.get("DocumentUnderstandingEnabled", None)
 
+    @odata(name="DocumentUnderstandingEnabledInContentCenter")
     @property
     def document_understanding_enabled_in_content_center(self) -> Optional[int]:
         """Gets the DocumentUnderstandingEnabledInContentCenter property"""
         return self.properties.get("DocumentUnderstandingEnabledInContentCenter", None)
 
+    @odata(name="DocumentUnderstandingSiteInfoList")
     @property
     def document_understanding_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the DocumentUnderstandingSiteInfoList property"""
@@ -1986,146 +2197,175 @@ class Tenant(Entity):
             "DocumentUnderstandingSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="DocumentUnderstandingSiteList")
     @property
     def document_understanding_site_list(self) -> GuidCollection:
         """Gets the DocumentUnderstandingSiteList property"""
         return self.properties.get("DocumentUnderstandingSiteList", GuidCollection())
 
+    @odata(name="DocumentUnderstandingSiteListFileName")
     @property
     def document_understanding_site_list_file_name(self) -> Optional[str]:
         """Gets the DocumentUnderstandingSiteListFileName property"""
         return self.properties.get("DocumentUnderstandingSiteListFileName", None)
 
+    @odata(name="EmailAttestationEnabled")
     @property
     def email_attestation_enabled(self) -> Optional[bool]:
         """Gets the EmailAttestationEnabled property"""
         return self.properties.get("EmailAttestationEnabled", None)
 
+    @odata(name="EmailAttestationReAuthDays")
     @property
     def email_attestation_re_auth_days(self) -> Optional[int]:
         """Gets the EmailAttestationReAuthDays property"""
         return self.properties.get("EmailAttestationReAuthDays", None)
 
+    @odata(name="EmailAttestationRequired")
     @property
     def email_attestation_required(self) -> Optional[bool]:
         """Gets the EmailAttestationRequired property"""
         return self.properties.get("EmailAttestationRequired", None)
 
+    @odata(name="EnableAgentWorkerSharingDisclaimer")
     @property
     def enable_agent_worker_sharing_disclaimer(self) -> Optional[bool]:
         """Gets the EnableAgentWorkerSharingDisclaimer property"""
         return self.properties.get("EnableAgentWorkerSharingDisclaimer", None)
 
+    @odata(name="EnableAIPIntegration")
     @property
     def enable_aip_integration(self) -> Optional[bool]:
         """Gets the EnableAIPIntegration property"""
         return self.properties.get("EnableAIPIntegration", None)
 
+    @odata(name="EnableAutoExpirationVersionTrim")
     @property
     def enable_auto_expiration_version_trim(self) -> Optional[bool]:
         """Gets the EnableAutoExpirationVersionTrim property"""
         return self.properties.get("EnableAutoExpirationVersionTrim", None)
 
+    @odata(name="EnableAutoNewsDigest")
     @property
     def enable_auto_news_digest(self) -> Optional[bool]:
         """Gets the EnableAutoNewsDigest property"""
         return self.properties.get("EnableAutoNewsDigest", None)
 
+    @odata(name="EnableAzureADB2BIntegration")
     @property
     def enable_azure_adb2_b_integration(self) -> Optional[bool]:
         """Gets the EnableAzureADB2BIntegration property"""
         return self.properties.get("EnableAzureADB2BIntegration", None)
 
+    @odata(name="EnabledFlightAllowAADB2BSkipCheckingOTP")
     @property
     def enabled_flight_allow_aadb2_b_skip_checking_otp(self) -> Optional[bool]:
         """Gets the EnabledFlightAllowAADB2BSkipCheckingOTP property"""
         return self.properties.get("EnabledFlightAllowAADB2BSkipCheckingOTP", None)
 
+    @odata(name="EnableDirectToCustomerBilling")
     @property
     def enable_direct_to_customer_billing(self) -> Optional[bool]:
         """Gets the EnableDirectToCustomerBilling property"""
         return self.properties.get("EnableDirectToCustomerBilling", None)
 
+    @odata(name="EnableDiscoverableByOrganizationForVideos")
     @property
     def enable_discoverable_by_organization_for_videos(self) -> Optional[bool]:
         """Gets the EnableDiscoverableByOrganizationForVideos property"""
         return self.properties.get("EnableDiscoverableByOrganizationForVideos", None)
 
+    @odata(name="EnableGuestSignInAcceleration")
     @property
     def enable_guest_sign_in_acceleration(self) -> Optional[bool]:
         """Gets the EnableGuestSignInAcceleration property"""
         return self.properties.get("EnableGuestSignInAcceleration", None)
 
+    @odata(name="EnableMediaReactions")
     @property
     def enable_media_reactions(self) -> Optional[bool]:
         """Gets the EnableMediaReactions property"""
         return self.properties.get("EnableMediaReactions", None)
 
+    @odata(name="EnableMinimumVersionRequirement")
     @property
     def enable_minimum_version_requirement(self) -> Optional[bool]:
         """Gets the EnableMinimumVersionRequirement property"""
         return self.properties.get("EnableMinimumVersionRequirement", None)
 
+    @odata(name="EnableMipSiteLabel")
     @property
     def enable_mip_site_label(self) -> Optional[bool]:
         """Gets the EnableMipSiteLabel property"""
         return self.properties.get("EnableMipSiteLabel", None)
 
+    @odata(name="EnableNotificationsSubscriptions")
     @property
     def enable_notifications_subscriptions(self) -> Optional[bool]:
         """Gets the EnableNotificationsSubscriptions property"""
         return self.properties.get("EnableNotificationsSubscriptions", None)
 
+    @odata(name="EnablePromotedFileHandlers")
     @property
     def enable_promoted_file_handlers(self) -> Optional[bool]:
         """Gets the EnablePromotedFileHandlers property"""
         return self.properties.get("EnablePromotedFileHandlers", None)
 
+    @odata(name="EnableRestrictedAccessControl")
     @property
     def enable_restricted_access_control(self) -> Optional[bool]:
         """Gets the EnableRestrictedAccessControl property"""
         return self.properties.get("EnableRestrictedAccessControl", None)
 
+    @odata(name="EnableSensitivityLabelForOneNote")
     @property
     def enable_sensitivity_label_for_onenote(self) -> Optional[bool]:
         """Gets the EnableSensitivityLabelForOneNote property"""
         return self.properties.get("EnableSensitivityLabelForOneNote", None)
 
+    @odata(name="EnableSensitivityLabelForPDF")
     @property
     def enable_sensitivity_label_for_pdf(self) -> Optional[bool]:
         """Gets the EnableSensitivityLabelForPDF property"""
         return self.properties.get("EnableSensitivityLabelForPDF", None)
 
+    @odata(name="EnableSensitivityLabelForVideoFiles")
     @property
     def enable_sensitivity_label_for_video_files(self) -> Optional[bool]:
         """Gets the EnableSensitivityLabelForVideoFiles property"""
         return self.properties.get("EnableSensitivityLabelForVideoFiles", None)
 
+    @odata(name="EnableSiteArchive")
     @property
     def enable_site_archive(self) -> Optional[bool]:
         """Gets the EnableSiteArchive property"""
         return self.properties.get("EnableSiteArchive", None)
 
+    @odata(name="EnableTenantRestrictionsInsights")
     @property
     def enable_tenant_restrictions_insights(self) -> Optional[bool]:
         """Gets the EnableTenantRestrictionsInsights property"""
         return self.properties.get("EnableTenantRestrictionsInsights", None)
 
+    @odata(name="EnforceRequestDigest")
     @property
     def enforce_request_digest(self) -> Optional[bool]:
         """Gets the EnforceRequestDigest property"""
         return self.properties.get("EnforceRequestDigest", None)
 
+    @odata(name="ESignatureAppList")
     @property
     def e_signature_app_list(self) -> StringCollection:
         """Gets the ESignatureAppList property"""
         return self.properties.get("ESignatureAppList", StringCollection())
 
+    @odata(name="ESignatureEnabled")
     @property
     def e_signature_enabled(self) -> Optional[bool]:
         """Gets the ESignatureEnabled property"""
         return self.properties.get("ESignatureEnabled", None)
 
+    @odata(name="ESignatureSiteInfoList")
     @property
     def e_signature_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the ESignatureSiteInfoList property"""
@@ -2137,151 +2377,181 @@ class Tenant(Entity):
             "ESignatureSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="ESignatureSiteList")
     @property
     def e_signature_site_list(self) -> GuidCollection:
         """Gets the ESignatureSiteList property"""
         return self.properties.get("ESignatureSiteList", GuidCollection())
 
+    @odata(name="ESignatureSiteListFileName")
     @property
     def e_signature_site_list_file_name(self) -> Optional[str]:
         """Gets the ESignatureSiteListFileName property"""
         return self.properties.get("ESignatureSiteListFileName", None)
 
+    @odata(name="ESignatureThirdPartyProviderInfoList")
     @property
     def e_signature_third_party_provider_info_list(self) -> StringCollection:
         """Gets the ESignatureThirdPartyProviderInfoList property"""
         return self.properties.get("ESignatureThirdPartyProviderInfoList", StringCollection())
 
+    @odata(name="ESignatureThirdPartyProviderList")
     @property
     def e_signature_third_party_provider_list(self) -> StringCollection:
         """Gets the ESignatureThirdPartyProviderList property"""
         return self.properties.get("ESignatureThirdPartyProviderList", StringCollection())
 
+    @odata(name="ESignatureThirdPartyProviderListFileName")
     @property
     def e_signature_third_party_provider_list_file_name(self) -> Optional[str]:
         """Gets the ESignatureThirdPartyProviderListFileName property"""
         return self.properties.get("ESignatureThirdPartyProviderListFileName", None)
 
+    @odata(name="ExcludedBlockDownloadGroupIds")
     @property
     def excluded_block_download_group_ids(self) -> GuidCollection:
         """Gets the ExcludedBlockDownloadGroupIds property"""
         return self.properties.get("ExcludedBlockDownloadGroupIds", GuidCollection())
 
+    @odata(name="ExcludedFileExtensionsForSyncClient")
     @property
     def excluded_file_extensions_for_sync_client(self) -> StringCollection:
         """Gets the ExcludedFileExtensionsForSyncClient property"""
         return self.properties.get("ExcludedFileExtensionsForSyncClient", StringCollection())
 
+    @odata(name="ExemptNativeUsersFromTenantLevelRestricedAccessControl")
     @property
     def exempt_native_users_from_tenant_level_restriced_access_control(self) -> Optional[bool]:
         """Gets the ExemptNativeUsersFromTenantLevelRestricedAccessControl property"""
         return self.properties.get("ExemptNativeUsersFromTenantLevelRestricedAccessControl", None)
 
+    @odata(name="ExpireVersionsAfterDays")
     @property
     def expire_versions_after_days(self) -> Optional[int]:
         """Gets the ExpireVersionsAfterDays property"""
         return self.properties.get("ExpireVersionsAfterDays", None)
 
+    @odata(name="ExtendPermissionsToUnprotectedFiles")
     @property
     def extend_permissions_to_unprotected_files(self) -> Optional[bool]:
         """Gets the ExtendPermissionsToUnprotectedFiles property"""
         return self.properties.get("ExtendPermissionsToUnprotectedFiles", None)
 
+    @odata(name="ExternalServicesEnabled")
     @property
     def external_services_enabled(self) -> Optional[bool]:
         """Gets the ExternalServicesEnabled property"""
         return self.properties.get("ExternalServicesEnabled", None)
 
+    @odata(name="ExternalUserExpirationRequired")
     @property
     def external_user_expiration_required(self) -> Optional[bool]:
         """Gets the ExternalUserExpirationRequired property"""
         return self.properties.get("ExternalUserExpirationRequired", None)
 
+    @odata(name="ExternalUserExpireInDays")
     @property
     def external_user_expire_in_days(self) -> Optional[int]:
         """Gets the ExternalUserExpireInDays property"""
         return self.properties.get("ExternalUserExpireInDays", None)
 
+    @odata(name="FileAnonymousLinkType")
     @property
     def file_anonymous_link_type(self) -> Optional[int]:
         """Gets the FileAnonymousLinkType property"""
         return self.properties.get("FileAnonymousLinkType", None)
 
+    @odata(name="FilePickerExternalImageSearchEnabled")
     @property
     def file_picker_external_image_search_enabled(self) -> Optional[bool]:
         """Gets the FilePickerExternalImageSearchEnabled property"""
         return self.properties.get("FilePickerExternalImageSearchEnabled", None)
 
+    @odata(name="FilePreviewAllowedDomainList")
     @property
     def file_preview_allowed_domain_list(self) -> Optional[str]:
         """Gets the FilePreviewAllowedDomainList property"""
         return self.properties.get("FilePreviewAllowedDomainList", None)
 
+    @odata(name="FolderAnonymousLinkType")
     @property
     def folder_anonymous_link_type(self) -> Optional[int]:
         """Gets the FolderAnonymousLinkType property"""
         return self.properties.get("FolderAnonymousLinkType", None)
 
+    @odata(name="GuestSharingGroupAllowListInTenant")
     @property
     def guest_sharing_group_allow_list_in_tenant(self) -> Optional[str]:
         """Gets the GuestSharingGroupAllowListInTenant property"""
         return self.properties.get("GuestSharingGroupAllowListInTenant", None)
 
+    @odata(name="GuestSharingGroupAllowListInTenantByGroupId", beta=True)
     @property
     def guest_sharing_group_allow_list_in_tenant_by_group_id(self) -> StringCollection:
         """Gets the GuestSharingGroupAllowListInTenantByGroupId property"""
         return self.properties.get("GuestSharingGroupAllowListInTenantByGroupId", StringCollection())
 
+    @odata(name="GuestSharingGroupAllowListInTenantByPrincipalIdentity", beta=True)
     @property
     def guest_sharing_group_allow_list_in_tenant_by_principal_identity(self) -> StringCollection:
         """Gets the GuestSharingGroupAllowListInTenantByPrincipalIdentity property"""
         return self.properties.get("GuestSharingGroupAllowListInTenantByPrincipalIdentity", StringCollection())
 
+    @odata(name="HardDeprecationRPSEnabled")
     @property
     def hard_deprecation_rps_enabled(self) -> Optional[bool]:
         """Gets the HardDeprecationRPSEnabled property"""
         return self.properties.get("HardDeprecationRPSEnabled", None)
 
+    @odata(name="HasAdminCompletedCUConfiguration")
     @property
     def has_admin_completed_cu_configuration(self) -> Optional[bool]:
         """Gets the HasAdminCompletedCUConfiguration property"""
         return self.properties.get("HasAdminCompletedCUConfiguration", None)
 
+    @odata(name="HasIntelligentContentServicesCapability")
     @property
     def has_intelligent_content_services_capability(self) -> Optional[bool]:
         """Gets the HasIntelligentContentServicesCapability property"""
         return self.properties.get("HasIntelligentContentServicesCapability", None)
 
+    @odata(name="HasTopicExperiencesCapability")
     @property
     def has_topic_experiences_capability(self) -> Optional[bool]:
         """Gets the HasTopicExperiencesCapability property"""
         return self.properties.get("HasTopicExperiencesCapability", None)
 
+    @odata(name="HideDefaultThemes")
     @property
     def hide_default_themes(self) -> Optional[bool]:
         """Gets the HideDefaultThemes property"""
         return self.properties.get("HideDefaultThemes", None)
 
+    @odata(name="HideSyncButtonOnDocLib")
     @property
     def hide_sync_button_on_doc_lib(self) -> Optional[bool]:
         """Gets the HideSyncButtonOnDocLib property"""
         return self.properties.get("HideSyncButtonOnDocLib", None)
 
+    @odata(name="HideSyncButtonOnODB")
     @property
     def hide_sync_button_on_odb(self) -> Optional[bool]:
         """Gets the HideSyncButtonOnODB property"""
         return self.properties.get("HideSyncButtonOnODB", None)
 
+    @odata(name="IBImplicitGroupBased")
     @property
     def ib_implicit_group_based(self) -> Optional[bool]:
         """Gets the IBImplicitGroupBased property"""
         return self.properties.get("IBImplicitGroupBased", None)
 
+    @odata(name="ImageTaggingOption")
     @property
     def image_tagging_option(self) -> Optional[int]:
         """Gets the ImageTaggingOption property"""
         return self.properties.get("ImageTaggingOption", None)
 
+    @odata(name="ImageTaggingSiteInfoList")
     @property
     def image_tagging_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the ImageTaggingSiteInfoList property"""
@@ -2293,131 +2563,157 @@ class Tenant(Entity):
             "ImageTaggingSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="ImageTaggingSiteList")
     @property
     def image_tagging_site_list(self) -> GuidCollection:
         """Gets the ImageTaggingSiteList property"""
         return self.properties.get("ImageTaggingSiteList", GuidCollection())
 
+    @odata(name="ImageTaggingSiteListFileName")
     @property
     def image_tagging_site_list_file_name(self) -> Optional[str]:
         """Gets the ImageTaggingSiteListFileName property"""
         return self.properties.get("ImageTaggingSiteListFileName", None)
 
+    @odata(name="IncludeAtAGlanceInShareEmails")
     @property
     def include_at_a_glance_in_share_emails(self) -> Optional[bool]:
         """Gets the IncludeAtAGlanceInShareEmails property"""
         return self.properties.get("IncludeAtAGlanceInShareEmails", None)
 
+    @odata(name="IPAddressWACTokenLifetime")
     @property
     def ip_address_wac_token_lifetime(self) -> Optional[int]:
         """Gets the IPAddressWACTokenLifetime property"""
         return self.properties.get("IPAddressWACTokenLifetime", None)
 
+    @odata(name="IsAppBarTemporarilyDisabled")
     @property
     def is_app_bar_temporarily_disabled(self) -> Optional[bool]:
         """Gets the IsAppBarTemporarilyDisabled property"""
         return self.properties.get("IsAppBarTemporarilyDisabled", None)
 
+    @odata(name="IsCollabMeetingNotesFluidEnabled")
     @property
     def is_collab_meeting_notes_fluid_enabled(self) -> Optional[bool]:
         """Gets the IsCollabMeetingNotesFluidEnabled property"""
         return self.properties.get("IsCollabMeetingNotesFluidEnabled", None)
 
+    @odata(name="IsDataAccessInCardDesignerEnabled")
     @property
     def is_data_access_in_card_designer_enabled(self) -> Optional[bool]:
         """Gets the IsDataAccessInCardDesignerEnabled property"""
         return self.properties.get("IsDataAccessInCardDesignerEnabled", None)
 
+    @odata(name="IsEnableAppAuthPopUpEnabled")
     @property
     def is_enable_app_auth_pop_up_enabled(self) -> Optional[bool]:
         """Gets the IsEnableAppAuthPopUpEnabled property"""
         return self.properties.get("IsEnableAppAuthPopUpEnabled", None)
 
+    @odata(name="IsFilePreviewDomainRestrictionEnabled")
     @property
     def is_file_preview_domain_restriction_enabled(self) -> Optional[bool]:
         """Gets the IsFilePreviewDomainRestrictionEnabled property"""
         return self.properties.get("IsFilePreviewDomainRestrictionEnabled", None)
 
+    @odata(name="IsFluidEnabled")
     @property
     def is_fluid_enabled(self) -> Optional[bool]:
         """Gets the IsFluidEnabled property"""
         return self.properties.get("IsFluidEnabled", None)
 
+    @odata(name="IsHubSitesMultiGeoFlightEnabled")
     @property
     def is_hub_sites_multi_geo_flight_enabled(self) -> Optional[bool]:
         """Gets the IsHubSitesMultiGeoFlightEnabled property"""
         return self.properties.get("IsHubSitesMultiGeoFlightEnabled", None)
 
+    @odata(name="IsLoopEnabled")
     @property
     def is_loop_enabled(self) -> Optional[bool]:
         """Gets the IsLoopEnabled property"""
         return self.properties.get("IsLoopEnabled", None)
 
+    @odata(name="IsMnAFlightEnabled")
     @property
     def is_mn_a_flight_enabled(self) -> Optional[bool]:
         """Gets the IsMnAFlightEnabled property"""
         return self.properties.get("IsMnAFlightEnabled", None)
 
+    @odata(name="IsMultiGeo")
     @property
     def is_multi_geo(self) -> Optional[bool]:
         """Gets the IsMultiGeo property"""
         return self.properties.get("IsMultiGeo", None)
 
+    @odata(name="IsMultipleHomeSitesFlightEnabled", beta=True)
     @property
     def is_multiple_home_sites_flight_enabled(self) -> Optional[bool]:
         """Gets the IsMultipleHomeSitesFlightEnabled property"""
         return self.properties.get("IsMultipleHomeSitesFlightEnabled", None)
 
+    @odata(name="IsMultipleVivaConnectionsFlightEnabled", beta=True)
     @property
     def is_multiple_viva_connections_flight_enabled(self) -> Optional[bool]:
         """Gets the IsMultipleVivaConnectionsFlightEnabled property"""
         return self.properties.get("IsMultipleVivaConnectionsFlightEnabled", None)
 
+    @odata(name="IsOnlyCertifiedAppsAllowed")
     @property
     def is_only_certified_apps_allowed(self) -> Optional[bool]:
         """Gets the IsOnlyCertifiedAppsAllowed property"""
         return self.properties.get("IsOnlyCertifiedAppsAllowed", None)
 
+    @odata(name="IsSelfServiceContainerTypeManagementEnabled")
     @property
     def is_self_service_container_type_management_enabled(self) -> Optional[bool]:
         """Gets the IsSelfServiceContainerTypeManagementEnabled property"""
         return self.properties.get("IsSelfServiceContainerTypeManagementEnabled", None)
 
+    @odata(name="IsUnmanagedSyncClientForTenantRestricted")
     @property
     def is_unmanaged_sync_client_for_tenant_restricted(self) -> Optional[bool]:
         """Gets the IsUnmanagedSyncClientForTenantRestricted property"""
         return self.properties.get("IsUnmanagedSyncClientForTenantRestricted", None)
 
+    @odata(name="IsUnmanagedSyncClientRestrictionFlightEnabled")
     @property
     def is_unmanaged_sync_client_restriction_flight_enabled(self) -> Optional[bool]:
         """Gets the IsUnmanagedSyncClientRestrictionFlightEnabled property"""
         return self.properties.get("IsUnmanagedSyncClientRestrictionFlightEnabled", None)
 
+    @odata(name="IsVivaHomeFlightEnabled", beta=True)
     @property
     def is_viva_home_flight_enabled(self) -> Optional[bool]:
         """Gets the IsVivaHomeFlightEnabled property"""
         return self.properties.get("IsVivaHomeFlightEnabled", None)
 
+    @odata(name="IsVivaHomeGAFlightEnabled", beta=True)
     @property
     def is_viva_home_ga_flight_enabled(self) -> Optional[bool]:
         """Gets the IsVivaHomeGAFlightEnabled property"""
         return self.properties.get("IsVivaHomeGAFlightEnabled", None)
 
+    @odata(name="IsWBFluidEnabled")
     @property
     def is_wb_fluid_enabled(self) -> Optional[bool]:
         """Gets the IsWBFluidEnabled property"""
         return self.properties.get("IsWBFluidEnabled", None)
 
+    @odata(name="KnowledgeAgentEnabled")
     @property
     def knowledge_agent_enabled(self) -> Optional[bool]:
         """Gets the KnowledgeAgentEnabled property"""
         return self.properties.get("KnowledgeAgentEnabled", None)
 
+    @odata(name="KnowledgeAgentScopeMode")
     @property
     def knowledge_agent_scope_mode(self) -> Optional[int]:
         """Gets the KnowledgeAgentScopeMode property"""
         return self.properties.get("KnowledgeAgentScopeMode", None)
 
+    @odata(name="KnowledgeAgentSiteInfoList")
     @property
     def knowledge_agent_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the KnowledgeAgentSiteInfoList property"""
@@ -2429,126 +2725,151 @@ class Tenant(Entity):
             "KnowledgeAgentSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="KnowledgeAgentSiteList")
     @property
     def knowledge_agent_site_list(self) -> GuidCollection:
         """Gets the KnowledgeAgentSiteList property"""
         return self.properties.get("KnowledgeAgentSiteList", GuidCollection())
 
+    @odata(name="KnowledgeAgentSiteListFileName")
     @property
     def knowledge_agent_site_list_file_name(self) -> Optional[str]:
         """Gets the KnowledgeAgentSiteListFileName property"""
         return self.properties.get("KnowledgeAgentSiteListFileName", None)
 
+    @odata(name="LabelMismatchEmailHelpLink")
     @property
     def label_mismatch_email_help_link(self) -> Optional[str]:
         """Gets the LabelMismatchEmailHelpLink property"""
         return self.properties.get("LabelMismatchEmailHelpLink", None)
 
+    @odata(name="LegacyBrowserAuthProtocolsEnabled")
     @property
     def legacy_browser_auth_protocols_enabled(self) -> Optional[bool]:
         """Gets the LegacyBrowserAuthProtocolsEnabled property"""
         return self.properties.get("LegacyBrowserAuthProtocolsEnabled", None)
 
+    @odata(name="LimitedAccessFileType")
     @property
     def limited_access_file_type(self) -> Optional[int]:
         """Gets the LimitedAccessFileType property"""
         return self.properties.get("LimitedAccessFileType", None)
 
+    @odata(name="M365AdditionalStorageSPOEnabled")
     @property
     def m365_additional_storage_spo_enabled(self) -> Optional[bool]:
         """Gets the M365AdditionalStorageSPOEnabled property"""
         return self.properties.get("M365AdditionalStorageSPOEnabled", None)
 
+    @odata(name="M365SharePointStorageEnabled")
     @property
     def m365_sharepoint_storage_enabled(self) -> Optional[bool]:
         """Gets the M365SharePointStorageEnabled property"""
         return self.properties.get("M365SharePointStorageEnabled", None)
 
+    @odata(name="MachineLearningCaptureEnabled")
     @property
     def machine_learning_capture_enabled(self) -> Optional[bool]:
         """Gets the MachineLearningCaptureEnabled property"""
         return self.properties.get("MachineLearningCaptureEnabled", None)
 
+    @odata(name="MajorVersionLimit")
     @property
     def major_version_limit(self) -> Optional[int]:
         """Gets the MajorVersionLimit property"""
         return self.properties.get("MajorVersionLimit", None)
 
+    @odata(name="ManagedPathsForSiteCreation")
     @property
     def managed_paths_for_site_creation(self) -> StringCollection:
         """Gets the ManagedPathsForSiteCreation property"""
         return self.properties.get("ManagedPathsForSiteCreation", StringCollection())
 
+    @odata(name="MarkAllFilesAsSensitiveByDefault")
     @property
     def mark_all_files_as_sensitive_by_default(self) -> Optional[bool]:
         """Gets the MarkAllFilesAsSensitiveByDefault property"""
         return self.properties.get("MarkAllFilesAsSensitiveByDefault", None)
 
+    @odata(name="MarkNewFilesSensitiveByDefault")
     @property
     def mark_new_files_sensitive_by_default(self) -> Optional[int]:
         """Gets the MarkNewFilesSensitiveByDefault property"""
         return self.properties.get("MarkNewFilesSensitiveByDefault", None)
 
+    @odata(name="MassDeleteNotificationDisabled")
     @property
     def mass_delete_notification_disabled(self) -> Optional[bool]:
         """Gets the MassDeleteNotificationDisabled property"""
         return self.properties.get("MassDeleteNotificationDisabled", None)
 
+    @odata(name="MassDeleteNotificationDisabledForODB")
     @property
     def mass_delete_notification_disabled_for_odb(self) -> Optional[bool]:
         """Gets the MassDeleteNotificationDisabledForODB property"""
         return self.properties.get("MassDeleteNotificationDisabledForODB", None)
 
+    @odata(name="MassDeleteNotificationDisabledForSPO")
     @property
     def mass_delete_notification_disabled_for_spo(self) -> Optional[bool]:
         """Gets the MassDeleteNotificationDisabledForSPO property"""
         return self.properties.get("MassDeleteNotificationDisabledForSPO", None)
 
+    @odata(name="MaxSiteStorageQuotaMB")
     @property
     def max_site_storage_quota_mb(self) -> Optional[int]:
         """Gets the MaxSiteStorageQuotaMB property"""
         return self.properties.get("MaxSiteStorageQuotaMB", None)
 
+    @odata(name="MediaTranscription")
     @property
     def media_transcription(self) -> Optional[int]:
         """Gets the MediaTranscription property"""
         return self.properties.get("MediaTranscription", None)
 
+    @odata(name="MediaTranscriptionAutomaticFeatures")
     @property
     def media_transcription_automatic_features(self) -> Optional[int]:
         """Gets the MediaTranscriptionAutomaticFeatures property"""
         return self.properties.get("MediaTranscriptionAutomaticFeatures", None)
 
+    @odata(name="MobileFriendlyUrlEnabledInTenant")
     @property
     def mobile_friendly_url_enabled_in_tenant(self) -> Optional[bool]:
         """Gets the MobileFriendlyUrlEnabledInTenant property"""
         return self.properties.get("MobileFriendlyUrlEnabledInTenant", None)
 
+    @odata(name="NewSharePointExperienceOptIn")
     @property
     def new_sharepoint_experience_opt_in(self) -> Optional[bool]:
         """Gets the NewSharePointExperienceOptIn property"""
         return self.properties.get("NewSharePointExperienceOptIn", None)
 
+    @odata(name="NotificationsInOneDriveForBusinessEnabled")
     @property
     def notifications_in_onedrive_for_business_enabled(self) -> Optional[bool]:
         """Gets the NotificationsInOneDriveForBusinessEnabled property"""
         return self.properties.get("NotificationsInOneDriveForBusinessEnabled", None)
 
+    @odata(name="NotificationsInSharePointEnabled")
     @property
     def notifications_in_sharepoint_enabled(self) -> Optional[bool]:
         """Gets the NotificationsInSharePointEnabled property"""
         return self.properties.get("NotificationsInSharePointEnabled", None)
 
+    @odata(name="OCRAdminODBGroupList")
     @property
     def ocr_admin_odb_group_list(self) -> GuidCollection:
         """Gets the OCRAdminODBGroupList property"""
         return self.properties.get("OCRAdminODBGroupList", GuidCollection())
 
+    @odata(name="OCRAdminODBUserList")
     @property
     def ocr_admin_odb_user_list(self) -> GuidCollection:
         """Gets the OCRAdminODBUserList property"""
         return self.properties.get("OCRAdminODBUserList", GuidCollection())
 
+    @odata(name="OCRAdminSiteInfoList")
     @property
     def ocr_admin_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the OCRAdminSiteInfoList property"""
@@ -2560,26 +2881,31 @@ class Tenant(Entity):
             "OCRAdminSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="OCRAdminSiteList")
     @property
     def ocr_admin_site_list(self) -> GuidCollection:
         """Gets the OCRAdminSiteList property"""
         return self.properties.get("OCRAdminSiteList", GuidCollection())
 
+    @odata(name="OCRAdminSiteListFileName")
     @property
     def ocr_admin_site_list_file_name(self) -> Optional[str]:
         """Gets the OCRAdminSiteListFileName property"""
         return self.properties.get("OCRAdminSiteListFileName", None)
 
+    @odata(name="OCRComplianceODBGroupList")
     @property
     def ocr_compliance_odb_group_list(self) -> GuidCollection:
         """Gets the OCRComplianceODBGroupList property"""
         return self.properties.get("OCRComplianceODBGroupList", GuidCollection())
 
+    @odata(name="OCRComplianceODBUserList")
     @property
     def ocr_compliance_odb_user_list(self) -> GuidCollection:
         """Gets the OCRComplianceODBUserList property"""
         return self.properties.get("OCRComplianceODBUserList", GuidCollection())
 
+    @odata(name="OCRComplianceSiteInfoList")
     @property
     def ocr_compliance_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the OCRComplianceSiteInfoList property"""
@@ -2591,181 +2917,217 @@ class Tenant(Entity):
             "OCRComplianceSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="OCRComplianceSiteList")
     @property
     def ocr_compliance_site_list(self) -> GuidCollection:
         """Gets the OCRComplianceSiteList property"""
         return self.properties.get("OCRComplianceSiteList", GuidCollection())
 
+    @odata(name="OCRComplianceSiteListFileName")
     @property
     def ocr_compliance_site_list_file_name(self) -> Optional[str]:
         """Gets the OCRComplianceSiteListFileName property"""
         return self.properties.get("OCRComplianceSiteListFileName", None)
 
+    @odata(name="OCRModeForAdminODBs")
     @property
     def ocr_mode_for_admin_odbs(self) -> Optional[int]:
         """Gets the OCRModeForAdminODBs property"""
         return self.properties.get("OCRModeForAdminODBs", None)
 
+    @odata(name="OCRModeForAdminSites")
     @property
     def ocr_mode_for_admin_sites(self) -> Optional[int]:
         """Gets the OCRModeForAdminSites property"""
         return self.properties.get("OCRModeForAdminSites", None)
 
+    @odata(name="OCRModeForComplianceODBs")
     @property
     def ocr_mode_for_compliance_odbs(self) -> Optional[int]:
         """Gets the OCRModeForComplianceODBs property"""
         return self.properties.get("OCRModeForComplianceODBs", None)
 
+    @odata(name="OCRModeForComplianceSites")
     @property
     def ocr_mode_for_compliance_sites(self) -> Optional[int]:
         """Gets the OCRModeForComplianceSites property"""
         return self.properties.get("OCRModeForComplianceSites", None)
 
+    @odata(name="ODBAccessRequests")
     @property
     def odb_access_requests(self) -> Optional[int]:
         """Gets the ODBAccessRequests property"""
         return self.properties.get("ODBAccessRequests", None)
 
+    @odata(name="ODBMembersCanShare")
     @property
     def odb_members_can_share(self) -> Optional[int]:
         """Gets the ODBMembersCanShare property"""
         return self.properties.get("ODBMembersCanShare", None)
 
+    @odata(name="ODBSensitivityRefreshWindowInHours")
     @property
     def odb_sensitivity_refresh_window_in_hours(self) -> Optional[int]:
         """Gets the ODBSensitivityRefreshWindowInHours property"""
         return self.properties.get("ODBSensitivityRefreshWindowInHours", None)
 
+    @odata(name="ODBSharingCapability")
     @property
     def odb_sharing_capability(self) -> Optional[int]:
         """Gets the ODBSharingCapability property"""
         return self.properties.get("ODBSharingCapability", None)
 
+    @odata(name="ODBTranslationEnabled")
     @property
     def odb_translation_enabled(self) -> Optional[bool]:
         """Gets the ODBTranslationEnabled property"""
         return self.properties.get("ODBTranslationEnabled", None)
 
+    @odata(name="OfficeClientADALDisabled")
     @property
     def office_client_adal_disabled(self) -> Optional[bool]:
         """Gets the OfficeClientADALDisabled property"""
         return self.properties.get("OfficeClientADALDisabled", None)
 
+    @odata(name="OneDriveAnyoneSharingLinkMaxExpirationInDays")
     @property
     def onedrive_anyone_sharing_link_max_expiration_in_days(self) -> Optional[int]:
         """Gets the OneDriveAnyoneSharingLinkMaxExpirationInDays property"""
         return self.properties.get("OneDriveAnyoneSharingLinkMaxExpirationInDays", None)
 
+    @odata(name="OneDriveAnyoneSharingLinkRecommendedExpirationInDays")
     @property
     def onedrive_anyone_sharing_link_recommended_expiration_in_days(self) -> Optional[int]:
         """Gets the OneDriveAnyoneSharingLinkRecommendedExpirationInDays property"""
         return self.properties.get("OneDriveAnyoneSharingLinkRecommendedExpirationInDays", None)
 
+    @odata(name="OneDriveBlockGuestsAsSiteAdmin", beta=True)
     @property
     def onedrive_block_guests_as_site_admin(self) -> Optional[int]:
         """Gets the OneDriveBlockGuestsAsSiteAdmin property"""
         return self.properties.get("OneDriveBlockGuestsAsSiteAdmin", None)
 
+    @odata(name="OneDriveDefaultLinkToExistingAccess", beta=True)
     @property
     def onedrive_default_link_to_existing_access(self) -> Optional[bool]:
         """Gets the OneDriveDefaultLinkToExistingAccess property"""
         return self.properties.get("OneDriveDefaultLinkToExistingAccess", None)
 
+    @odata(name="OneDriveDefaultShareLinkRole", beta=True)
     @property
     def onedrive_default_share_link_role(self) -> Optional[int]:
         """Gets the OneDriveDefaultShareLinkRole property"""
         return self.properties.get("OneDriveDefaultShareLinkRole", None)
 
+    @odata(name="OneDriveDefaultShareLinkScope", beta=True)
     @property
     def onedrive_default_share_link_scope(self) -> Optional[int]:
         """Gets the OneDriveDefaultShareLinkScope property"""
         return self.properties.get("OneDriveDefaultShareLinkScope", None)
 
+    @odata(name="OneDriveForGuestsEnabled")
     @property
     def onedrive_for_guests_enabled(self) -> Optional[bool]:
         """Gets the OneDriveForGuestsEnabled property"""
         return self.properties.get("OneDriveForGuestsEnabled", None)
 
+    @odata(name="OneDriveLoopDefaultSharingLinkRole", beta=True)
     @property
     def onedrive_loop_default_sharing_link_role(self) -> Optional[int]:
         """Gets the OneDriveLoopDefaultSharingLinkRole property"""
         return self.properties.get("OneDriveLoopDefaultSharingLinkRole", None)
 
+    @odata(name="OneDriveLoopDefaultSharingLinkScope", beta=True)
     @property
     def onedrive_loop_default_sharing_link_scope(self) -> Optional[int]:
         """Gets the OneDriveLoopDefaultSharingLinkScope property"""
         return self.properties.get("OneDriveLoopDefaultSharingLinkScope", None)
 
+    @odata(name="OneDriveLoopSharingCapability", beta=True)
     @property
     def onedrive_loop_sharing_capability(self) -> Optional[int]:
         """Gets the OneDriveLoopSharingCapability property"""
         return self.properties.get("OneDriveLoopSharingCapability", None)
 
+    @odata(name="OneDriveOrganizationSharingLinkMaxExpirationInDays")
     @property
     def onedrive_organization_sharing_link_max_expiration_in_days(self) -> Optional[int]:
         """Gets the OneDriveOrganizationSharingLinkMaxExpirationInDays property"""
         return self.properties.get("OneDriveOrganizationSharingLinkMaxExpirationInDays", None)
 
+    @odata(name="OneDriveOrganizationSharingLinkRecommendedExpirationInDays")
     @property
     def onedrive_organization_sharing_link_recommended_expiration_in_days(self) -> Optional[int]:
         """Gets the OneDriveOrganizationSharingLinkRecommendedExpirationInDays property"""
         return self.properties.get("OneDriveOrganizationSharingLinkRecommendedExpirationInDays", None)
 
+    @odata(name="OneDriveRequestFilesLinkEnabled", beta=True)
     @property
     def onedrive_request_files_link_enabled(self) -> Optional[bool]:
         """Gets the OneDriveRequestFilesLinkEnabled property"""
         return self.properties.get("OneDriveRequestFilesLinkEnabled", None)
 
+    @odata(name="OneDriveRequestFilesLinkExpirationInDays", beta=True)
     @property
     def onedrive_request_files_link_expiration_in_days(self) -> Optional[int]:
         """Gets the OneDriveRequestFilesLinkExpirationInDays property"""
         return self.properties.get("OneDriveRequestFilesLinkExpirationInDays", None)
 
+    @odata(name="OneDriveStorageQuota")
     @property
     def onedrive_storage_quota(self) -> Optional[int]:
         """Gets the OneDriveStorageQuota property"""
         return self.properties.get("OneDriveStorageQuota", None)
 
+    @odata(name="OptOutOfGrooveBlock")
     @property
     def opt_out_of_groove_block(self) -> Optional[bool]:
         """Gets the OptOutOfGrooveBlock property"""
         return self.properties.get("OptOutOfGrooveBlock", None)
 
+    @odata(name="OptOutOfGrooveSoftBlock")
     @property
     def opt_out_of_groove_soft_block(self) -> Optional[bool]:
         """Gets the OptOutOfGrooveSoftBlock property"""
         return self.properties.get("OptOutOfGrooveSoftBlock", None)
 
+    @odata(name="OrgNewsSiteUrl")
     @property
     def org_news_site_url(self) -> Optional[str]:
         """Gets the OrgNewsSiteUrl property"""
         return self.properties.get("OrgNewsSiteUrl", None)
 
+    @odata(name="OrphanedPersonalSitesRetentionPeriod")
     @property
     def orphaned_personal_sites_retention_period(self) -> Optional[int]:
         """Gets the OrphanedPersonalSitesRetentionPeriod property"""
         return self.properties.get("OrphanedPersonalSitesRetentionPeriod", None)
 
+    @odata(name="OwnerAnonymousNotification")
     @property
     def owner_anonymous_notification(self) -> Optional[bool]:
         """Gets the OwnerAnonymousNotification property"""
         return self.properties.get("OwnerAnonymousNotification", None)
 
+    @odata(name="PermissiveBrowserFileHandlingOverride")
     @property
     def permissive_browser_file_handling_override(self) -> Optional[bool]:
         """Gets the PermissiveBrowserFileHandlingOverride property"""
         return self.properties.get("PermissiveBrowserFileHandlingOverride", None)
 
+    @odata(name="PrebuiltEnabled")
     @property
     def prebuilt_enabled(self) -> Optional[bool]:
         """Gets the PrebuiltEnabled property"""
         return self.properties.get("PrebuiltEnabled", None)
 
+    @odata(name="PrebuiltEnabledInContentCenter")
     @property
     def prebuilt_enabled_in_content_center(self) -> Optional[int]:
         """Gets the PrebuiltEnabledInContentCenter property"""
         return self.properties.get("PrebuiltEnabledInContentCenter", None)
 
+    @odata(name="PrebuiltSiteInfoList")
     @property
     def prebuilt_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the PrebuiltSiteInfoList property"""
@@ -2777,293 +3139,337 @@ class Tenant(Entity):
             "PrebuiltSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="PrebuiltSiteList")
     @property
     def prebuilt_site_list(self) -> GuidCollection:
         """Gets the PrebuiltSiteList property"""
         return self.properties.get("PrebuiltSiteList", GuidCollection())
 
+    @odata(name="PrebuiltSiteListFileName")
     @property
     def prebuilt_site_list_file_name(self) -> Optional[str]:
         """Gets the PrebuiltSiteListFileName property"""
         return self.properties.get("PrebuiltSiteListFileName", None)
 
+    @odata(name="PreventExternalUsersFromResharing")
     @property
     def prevent_external_users_from_resharing(self) -> Optional[bool]:
         """Gets the PreventExternalUsersFromResharing property"""
         return self.properties.get("PreventExternalUsersFromResharing", None)
 
+    @odata(name="ProvisionSharedWithEveryoneFolder")
     @property
     def provision_shared_with_everyone_folder(self) -> Optional[bool]:
         """Gets the ProvisionSharedWithEveryoneFolder property"""
         return self.properties.get("ProvisionSharedWithEveryoneFolder", None)
 
+    @odata(name="PublicCdnAllowedFileTypes")
     @property
     def public_cdn_allowed_file_types(self) -> Optional[str]:
         """Gets the PublicCdnAllowedFileTypes property"""
         return self.properties.get("PublicCdnAllowedFileTypes", None)
 
+    @odata(name="PublicCdnEnabled")
     @property
     def public_cdn_enabled(self) -> Optional[bool]:
         """Gets the PublicCdnEnabled property"""
         return self.properties.get("PublicCdnEnabled", None)
 
+    @odata(name="PublicCdnOrigins")
     @property
     def public_cdn_origins(self) -> StringCollection:
         """Gets the PublicCdnOrigins property"""
         return self.properties.get("PublicCdnOrigins", StringCollection())
 
+    @odata(name="ReactivationCost")
     @property
     def reactivation_cost(self) -> Optional[float]:
         """Gets the ReactivationCost property"""
         return self.properties.get("ReactivationCost", None)
 
+    @odata(name="RecycleBinRetentionPeriod")
     @property
     def recycle_bin_retention_period(self) -> Optional[int]:
         """Gets the RecycleBinRetentionPeriod property"""
         return self.properties.get("RecycleBinRetentionPeriod", None)
 
+    @odata(name="ReduceTempTokenLifetimeEnabled")
     @property
     def reduce_temp_token_lifetime_enabled(self) -> Optional[bool]:
         """Gets the ReduceTempTokenLifetimeEnabled property"""
         return self.properties.get("ReduceTempTokenLifetimeEnabled", None)
 
+    @odata(name="ReduceTempTokenLifetimeValue")
     @property
     def reduce_temp_token_lifetime_value(self) -> Optional[int]:
         """Gets the ReduceTempTokenLifetimeValue property"""
         return self.properties.get("ReduceTempTokenLifetimeValue", None)
 
+    @odata(name="RequireAcceptingAccountMatchInvitedAccount")
     @property
     def require_accepting_account_match_invited_account(self) -> Optional[bool]:
         """Gets the RequireAcceptingAccountMatchInvitedAccount property"""
         return self.properties.get("RequireAcceptingAccountMatchInvitedAccount", None)
 
+    @odata(name="RequireAnonymousLinksExpireInDays")
     @property
     def require_anonymous_links_expire_in_days(self) -> Optional[int]:
         """Gets the RequireAnonymousLinksExpireInDays property"""
         return self.properties.get("RequireAnonymousLinksExpireInDays", None)
 
+    @odata(name="ResourceQuota")
     @property
     def resource_quota(self) -> Optional[float]:
         """Gets the ResourceQuota property"""
         return self.properties.get("ResourceQuota", None)
 
+    @odata(name="ResourceQuotaAllocated")
     @property
     def resource_quota_allocated(self) -> Optional[float]:
         """Gets the ResourceQuotaAllocated property"""
         return self.properties.get("ResourceQuotaAllocated", None)
 
+    @odata(name="RestrictedAccessControlForOneDriveErrorHelpLink")
     @property
     def restricted_access_control_for_onedrive_error_help_link(self) -> Optional[str]:
         """Gets the RestrictedAccessControlForOneDriveErrorHelpLink property"""
         return self.properties.get("RestrictedAccessControlForOneDriveErrorHelpLink", None)
 
+    @odata(name="RestrictedAccessControlforSitesErrorHelpLink")
     @property
     def restricted_access_controlfor_sites_error_help_link(self) -> Optional[str]:
         """Gets the RestrictedAccessControlforSitesErrorHelpLink property"""
         return self.properties.get("RestrictedAccessControlforSitesErrorHelpLink", None)
 
+    @odata(name="RestrictedOneDriveLicense")
     @property
     def restricted_onedrive_license(self) -> Optional[bool]:
         """Gets the RestrictedOneDriveLicense property"""
         return self.properties.get("RestrictedOneDriveLicense", None)
 
+    @odata(name="RestrictedSharePointLicense")
     @property
     def restricted_sharepoint_license(self) -> Optional[bool]:
         """Gets the RestrictedSharePointLicense property"""
         return self.properties.get("RestrictedSharePointLicense", None)
 
+    @odata(name="RestrictExternalSharing")
     @property
     def restrict_external_sharing(self) -> GuidCollection:
         """Gets the RestrictExternalSharing property"""
         return self.properties.get("RestrictExternalSharing", GuidCollection())
 
+    @odata(name="RestrictExternalSharingForAgents")
     @property
     def restrict_external_sharing_for_agents(self) -> Optional[bool]:
         """Gets the RestrictExternalSharingForAgents property"""
         return self.properties.get("RestrictExternalSharingForAgents", None)
 
+    @odata(name="RestrictResourceAccountAccess")
     @property
     def restrict_resource_account_access(self) -> Optional[bool]:
         """Gets the RestrictResourceAccountAccess property"""
         return self.properties.get("RestrictResourceAccountAccess", None)
 
+    @odata(name="SearchResolveExactEmailOrUPN")
     @property
     def search_resolve_exact_email_or_upn(self) -> Optional[bool]:
         """Gets the SearchResolveExactEmailOrUPN property"""
         return self.properties.get("SearchResolveExactEmailOrUPN", None)
 
+    @odata(name="SelfServiceSiteCreationDisabled")
     @property
     def self_service_site_creation_disabled(self) -> Optional[bool]:
         """Gets the SelfServiceSiteCreationDisabled property"""
         return self.properties.get("SelfServiceSiteCreationDisabled", None)
 
+    @odata(name="SharePointAddInsBlocked")
     @property
     def sharepoint_add_ins_blocked(self) -> Optional[bool]:
         """Gets the SharePointAddInsBlocked property"""
         return self.properties.get("SharePointAddInsBlocked", None)
 
+    @odata(name="SharePointAddInsDisabled")
     @property
     def sharepoint_add_ins_disabled(self) -> Optional[bool]:
         """Gets the SharePointAddInsDisabled property"""
         return self.properties.get("SharePointAddInsDisabled", None)
 
+    @odata(name="SharingAllowedDomainList")
     @property
     def sharing_allowed_domain_list(self) -> Optional[str]:
         """Gets the SharingAllowedDomainList property"""
         return self.properties.get("SharingAllowedDomainList", None)
 
+    @odata(name="SharingBlockedDomainList")
     @property
     def sharing_blocked_domain_list(self) -> Optional[str]:
         """Gets the SharingBlockedDomainList property"""
         return self.properties.get("SharingBlockedDomainList", None)
 
+    @odata(name="SharingCapability")
     @property
     def sharing_capability(self) -> Optional[int]:
         """Gets the SharingCapability property"""
         return self.properties.get("SharingCapability", None)
 
+    @odata(name="SharingDomainRestrictionMode")
     @property
     def sharing_domain_restriction_mode(self) -> Optional[int]:
         """Gets the SharingDomainRestrictionMode property"""
         return self.properties.get("SharingDomainRestrictionMode", None)
 
+    @odata(name="ShowAllUsersClaim")
     @property
     def show_all_users_claim(self) -> Optional[bool]:
         """Gets the ShowAllUsersClaim property"""
         return self.properties.get("ShowAllUsersClaim", None)
 
+    @odata(name="ShowEveryoneClaim")
     @property
     def show_everyone_claim(self) -> Optional[bool]:
         """Gets the ShowEveryoneClaim property"""
         return self.properties.get("ShowEveryoneClaim", None)
 
+    @odata(name="ShowEveryoneExceptExternalUsersClaim")
     @property
     def show_everyone_except_external_users_claim(self) -> Optional[bool]:
         """Gets the ShowEveryoneExceptExternalUsersClaim property"""
         return self.properties.get("ShowEveryoneExceptExternalUsersClaim", None)
 
+    @odata(name="ShowNGSCDialogForSyncOnODB")
     @property
     def show_ngsc_dialog_for_sync_on_odb(self) -> Optional[bool]:
         """Gets the ShowNGSCDialogForSyncOnODB property"""
         return self.properties.get("ShowNGSCDialogForSyncOnODB", None)
 
+    @odata(name="ShowOpenInDesktopOptionForSyncedFiles")
     @property
     def show_open_in_desktop_option_for_synced_files(self) -> Optional[bool]:
         """Gets the ShowOpenInDesktopOptionForSyncedFiles property"""
         return self.properties.get("ShowOpenInDesktopOptionForSyncedFiles", None)
 
+    @odata(name="ShowPeoplePickerGroupSuggestionsForIB")
     @property
     def show_people_picker_group_suggestions_for_ib(self) -> Optional[bool]:
         """Gets the ShowPeoplePickerGroupSuggestionsForIB property"""
         return self.properties.get("ShowPeoplePickerGroupSuggestionsForIB", None)
 
+    @odata(name="ShowPeoplePickerSuggestionsForGuestUsers")
     @property
     def show_people_picker_suggestions_for_guest_users(self) -> Optional[bool]:
         """Gets the ShowPeoplePickerSuggestionsForGuestUsers property"""
         return self.properties.get("ShowPeoplePickerSuggestionsForGuestUsers", None)
 
+    @odata(name="SignInAccelerationDomain")
     @property
     def sign_in_acceleration_domain(self) -> Optional[str]:
         """Gets the SignInAccelerationDomain property"""
         return self.properties.get("SignInAccelerationDomain", None)
 
+    @odata(name="SiteOwnerManageLegacyServicePrincipalEnabled")
     @property
     def site_owner_manage_legacy_service_principal_enabled(self) -> Optional[bool]:
         """Gets the SiteOwnerManageLegacyServicePrincipalEnabled property"""
         return self.properties.get("SiteOwnerManageLegacyServicePrincipalEnabled", None)
 
+    @odata(name="SiteOwnersCanAccessMissingContent")
     @property
     def site_owners_can_access_missing_content(self) -> Optional[bool]:
         """Gets the SiteOwnersCanAccessMissingContent property"""
         return self.properties.get("SiteOwnersCanAccessMissingContent", None)
 
+    @odata(name="SocialBarOnSitePagesDisabled")
     @property
     def social_bar_on_site_pages_disabled(self) -> Optional[bool]:
         """Gets the SocialBarOnSitePagesDisabled property"""
         return self.properties.get("SocialBarOnSitePagesDisabled", None)
 
+    @odata(name="SpecialCharactersStateInFileFolderNames")
     @property
     def special_characters_state_in_file_folder_names(self) -> Optional[int]:
         """Gets the SpecialCharactersStateInFileFolderNames property"""
         return self.properties.get("SpecialCharactersStateInFileFolderNames", None)
 
+    @odata(name="SPJitDlpPolicyData")
     @property
     def sp_jit_dlp_policy_data(self) -> SPJitDlpPolicyData:
         """Gets the SPJitDlpPolicyData property"""
-        from office365.sharepoint.authpolicy.spjitdlppolicydata import (
-            SPJitDlpPolicyData,
-        )
-
         return self.properties.get("SPJitDlpPolicyData", SPJitDlpPolicyData())
 
+    @odata(name="StartASiteFormUrl")
     @property
     def start_a_site_form_url(self) -> Optional[str]:
         """Gets the StartASiteFormUrl property"""
         return self.properties.get("StartASiteFormUrl", None)
 
+    @odata(name="StopAlerts")
     @property
     def stop_alerts(self) -> Optional[bool]:
         """Gets the StopAlerts property"""
         return self.properties.get("StopAlerts", None)
 
+    @odata(name="StopNew2010Workflows")
     @property
     def stop_new2010_workflows(self) -> Optional[bool]:
         """Gets the StopNew2010Workflows property"""
         return self.properties.get("StopNew2010Workflows", None)
 
+    @odata(name="StopNew2013Workflows")
     @property
     def stop_new2013_workflows(self) -> Optional[bool]:
         """Gets the StopNew2013Workflows property"""
         return self.properties.get("StopNew2013Workflows", None)
 
+    @odata(name="StorageQuota")
     @property
     def storage_quota(self) -> Optional[int]:
         """Gets the StorageQuota property"""
         return self.properties.get("StorageQuota", None)
 
+    @odata(name="StorageQuotaAllocated")
     @property
     def storage_quota_allocated(self) -> Optional[int]:
         """Gets the StorageQuotaAllocated property"""
         return self.properties.get("StorageQuotaAllocated", None)
 
+    @odata(name="StreamLaunchConfig")
     @property
     def stream_launch_config(self) -> Optional[int]:
         """Gets the StreamLaunchConfig property"""
         return self.properties.get("StreamLaunchConfig", None)
 
+    @odata(name="StreamLaunchConfigLastUpdated")
     @property
     def stream_launch_config_last_updated(self) -> Optional[datetime]:
         """Gets the StreamLaunchConfigLastUpdated property"""
         return self.properties.get("StreamLaunchConfigLastUpdated", datetime.min)
 
+    @odata(name="StreamLaunchConfigUpdateCount")
     @property
     def stream_launch_config_update_count(self) -> Optional[int]:
         """Gets the StreamLaunchConfigUpdateCount property"""
         return self.properties.get("StreamLaunchConfigUpdateCount", None)
 
+    @odata(name="SyncPrivacyProfileProperties")
     @property
     def sync_privacy_profile_properties(self) -> Optional[bool]:
         """Gets the SyncPrivacyProfileProperties property"""
         return self.properties.get("SyncPrivacyProfileProperties", None)
 
+    @odata(name="SyntexMediaAnalyticsSettings")
     @property
     def syntex_media_analytics_settings(self) -> SyntexPremiumFeatureSettings:
         """Gets the SyntexMediaAnalyticsSettings property"""
-        from office365.sharepoint.tenant.administration.syntex.premiumfeaturesettings import (
-            SyntexPremiumFeatureSettings,
-        )
-
         return self.properties.get("SyntexMediaAnalyticsSettings", SyntexPremiumFeatureSettings())
 
+    @odata(name="SyntexPlaybackTranscriptTranslationSettings")
     @property
     def syntex_playback_transcript_translation_settings(self) -> SyntexPremiumFeatureSettings:
         """Gets the SyntexPlaybackTranscriptTranslationSettings property"""
-        from office365.sharepoint.tenant.administration.syntex.premiumfeaturesettings import (
-            SyntexPremiumFeatureSettings,
-        )
-
         return self.properties.get("SyntexPlaybackTranscriptTranslationSettings", SyntexPremiumFeatureSettings())
 
+    @odata(name="TaxonomyTaggingSiteInfoList")
     @property
     def taxonomy_tagging_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the TaxonomyTaggingSiteInfoList property"""
@@ -3075,26 +3481,31 @@ class Tenant(Entity):
             "TaxonomyTaggingSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="TaxonomyTaggingSiteList")
     @property
     def taxonomy_tagging_site_list(self) -> GuidCollection:
         """Gets the TaxonomyTaggingSiteList property"""
         return self.properties.get("TaxonomyTaggingSiteList", GuidCollection())
 
+    @odata(name="TaxonomyTaggingSiteListFileName")
     @property
     def taxonomy_tagging_site_list_file_name(self) -> Optional[str]:
         """Gets the TaxonomyTaggingSiteListFileName property"""
         return self.properties.get("TaxonomyTaggingSiteListFileName", None)
 
+    @odata(name="TlsTokenBindingPolicyValue")
     @property
     def tls_token_binding_policy_value(self) -> Optional[int]:
         """Gets the TlsTokenBindingPolicyValue property"""
         return self.properties.get("TlsTokenBindingPolicyValue", None)
 
+    @odata(name="TranslationEnabled")
     @property
     def translation_enabled(self) -> Optional[bool]:
         """Gets the TranslationEnabled property"""
         return self.properties.get("TranslationEnabled", None)
 
+    @odata(name="TranslationSiteInfoList")
     @property
     def translation_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the TranslationSiteInfoList property"""
@@ -3106,102 +3517,112 @@ class Tenant(Entity):
             "TranslationSiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="TranslationSiteList")
     @property
     def translation_site_list(self) -> GuidCollection:
         """Gets the TranslationSiteList property"""
         return self.properties.get("TranslationSiteList", GuidCollection())
 
+    @odata(name="TranslationSiteListFileName")
     @property
     def translation_site_list_file_name(self) -> Optional[str]:
         """Gets the TranslationSiteListFileName property"""
         return self.properties.get("TranslationSiteListFileName", None)
 
+    @odata(name="UniversalAnnotationDisabled")
     @property
     def universal_annotation_disabled(self) -> Optional[bool]:
         """Gets the UniversalAnnotationDisabled property"""
         return self.properties.get("UniversalAnnotationDisabled", None)
 
+    @odata(name="UnlicensedOdbActiveStorageRetentionPeriod")
     @property
     def unlicensed_odb_active_storage_retention_period(self) -> Optional[int]:
         """Gets the UnlicensedOdbActiveStorageRetentionPeriod property"""
         return self.properties.get("UnlicensedOdbActiveStorageRetentionPeriod", None)
 
+    @odata(name="UnlicensedOdbStorageBillingMode")
     @property
     def unlicensed_odb_storage_billing_mode(self) -> Optional[int]:
         """Gets the UnlicensedOdbStorageBillingMode property"""
         return self.properties.get("UnlicensedOdbStorageBillingMode", None)
 
+    @odata(name="UnlicensedOdbSyntexBillingEnabled")
     @property
     def unlicensed_odb_syntex_billing_enabled(self) -> Optional[bool]:
         """Gets the UnlicensedOdbSyntexBillingEnabled property"""
         return self.properties.get("UnlicensedOdbSyntexBillingEnabled", None)
 
+    @odata(name="UnlicensedOneDriveForBusinessTenantMetricsData")
     @property
     def unlicensed_onedrive_for_business_tenant_metrics_data(self) -> UnlicensedOdbTenantMetrics:
         """Gets the UnlicensedOneDriveForBusinessTenantMetricsData property"""
-        from office365.sharepoint.administration.unlicensedodbtenantmetrics import (
-            UnlicensedOdbTenantMetrics,
-        )
-
         return self.properties.get("UnlicensedOneDriveForBusinessTenantMetricsData", UnlicensedOdbTenantMetrics())
 
+    @odata(name="UseFindPeopleInPeoplePicker")
     @property
     def use_find_people_in_people_picker(self) -> Optional[bool]:
         """Gets the UseFindPeopleInPeoplePicker property"""
         return self.properties.get("UseFindPeopleInPeoplePicker", None)
 
+    @odata(name="UsePersistentCookiesForExplorerView")
     @property
     def use_persistent_cookies_for_explorer_view(self) -> Optional[bool]:
         """Gets the UsePersistentCookiesForExplorerView property"""
         return self.properties.get("UsePersistentCookiesForExplorerView", None)
 
+    @odata(name="VersionPolicyFileTypeOverride")
     @property
     def version_policy_file_type_override(self) -> ClientValueCollection[SPOFileVersionFileTypePolicySettings]:
         """Gets the VersionPolicyFileTypeOverride property"""
-        from office365.sharepoint.tenant.administration.spofileversionfiletypepolicysettings import (
-            SPOFileVersionFileTypePolicySettings,
-        )
-
         return self.properties.get(
             "VersionPolicyFileTypeOverride",
             ClientValueCollection[SPOFileVersionFileTypePolicySettings](SPOFileVersionFileTypePolicySettings),
         )
 
+    @odata(name="ViewersCanCommentOnMediaDisabled")
     @property
     def viewers_can_comment_on_media_disabled(self) -> Optional[bool]:
         """Gets the ViewersCanCommentOnMediaDisabled property"""
         return self.properties.get("ViewersCanCommentOnMediaDisabled", None)
 
+    @odata(name="ViewInFileExplorerEnabled")
     @property
     def view_in_file_explorer_enabled(self) -> Optional[bool]:
         """Gets the ViewInFileExplorerEnabled property"""
         return self.properties.get("ViewInFileExplorerEnabled", None)
 
+    @odata(name="WhoCanShareAllowListInTenant")
     @property
     def who_can_share_allow_list_in_tenant(self) -> Optional[str]:
         """Gets the WhoCanShareAllowListInTenant property"""
         return self.properties.get("WhoCanShareAllowListInTenant", None)
 
+    @odata(name="WhoCanShareAllowListInTenantByGroupId", beta=True)
     @property
     def who_can_share_allow_list_in_tenant_by_group_id(self) -> StringCollection:
         """Gets the WhoCanShareAllowListInTenantByGroupId property"""
         return self.properties.get("WhoCanShareAllowListInTenantByGroupId", StringCollection())
 
+    @odata(name="WhoCanShareAllowListInTenantByPrincipalIdentity", beta=True)
     @property
     def who_can_share_allow_list_in_tenant_by_principal_identity(self) -> StringCollection:
         """Gets the WhoCanShareAllowListInTenantByPrincipalIdentity property"""
         return self.properties.get("WhoCanShareAllowListInTenantByPrincipalIdentity", StringCollection())
 
+    @odata(name="Workflow2010Disabled")
     @property
     def workflow2010_disabled(self) -> Optional[bool]:
         """Gets the Workflow2010Disabled property"""
         return self.properties.get("Workflow2010Disabled", None)
 
+    @odata(name="Workflows2013State")
     @property
     def workflows2013_state(self) -> Optional[int]:
         """Gets the Workflows2013State property"""
         return self.properties.get("Workflows2013State", None)
 
+    @odata(name="CatalogManagement", navigation=True, beta=True)
     @property
     def catalog_management(self) -> CatalogManagementCollection:
         """Gets the CatalogManagement property"""
@@ -3214,6 +3635,7 @@ class Tenant(Entity):
             CatalogManagementCollection(self.context, ResourcePath("CatalogManagement", self.resource_path)),
         )
 
+    @odata(name="CatalogManagementCustomProperties", navigation=True, beta=True)
     @property
     def catalog_management_custom_properties(self) -> CatalogManagementCustomPropertiesCollection:
         """Gets the CatalogManagementCustomProperties property"""
@@ -3228,6 +3650,7 @@ class Tenant(Entity):
             ),
         )
 
+    @odata(name="CatalogManagementRestrictedContentDiscovery", navigation=True, beta=True)
     @property
     def catalog_management_restricted_content_discovery(self) -> CatalogManagementRestrictedContentDiscoveryCollection:
         """Gets the CatalogManagementRestrictedContentDiscovery property"""
@@ -3242,6 +3665,7 @@ class Tenant(Entity):
             ),
         )
 
+    @odata(name="TenantDataLossPreventionQuarantineSettings", navigation=True)
     @property
     def tenant_data_loss_prevention_quarantine_settings(self) -> TenantDataLossPreventionQuarantineSettings:
         """Gets the TenantDataLossPreventionQuarantineSettings property"""
@@ -3256,6 +3680,7 @@ class Tenant(Entity):
             ),
         )
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_company_home_site(
         self, home_site_url: str, order: int, audiences: list[UUID]
     ) -> ClientResult[TargetedSiteDetails]:
@@ -3283,6 +3708,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_home_site(self, home_site_url: str, order: int, audiences: list[UUID]) -> ClientResult[TargetedSiteDetails]:
         """AddHomeSite operation.
 
@@ -3308,6 +3734,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_pre_auth_allow_deny_list_item_setting(self, allow_pre_auth: bool, new_setting: str) -> Self:
         """AddPreAuthAllowDenyListItemSetting operation.
 
@@ -3328,6 +3755,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_recent_admin_action(self, payload: TenantAdminRecentActionPayload) -> ClientResult[TenantAdminRecentAction]:
         """AddRecentAdminAction operation.
 
@@ -3344,6 +3772,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_recent_admin_actions(
         self, payload: ClientValueCollection[TenantAdminRecentActionPayload]
     ) -> ClientResult[ClientValueCollection[TenantAdminRecentAction]]:
@@ -3362,6 +3791,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_site_to_file_archive_policy(self, policy_id: UUID, site_url: str, is_excluded: bool) -> Self:
         """AddSiteToFileArchivePolicy operation.
 
@@ -3384,6 +3814,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_spo_container_user_role(self, container_id: str, login_name: str, role: str) -> Self:
         """AddSPOContainerUserRole operation.
 
@@ -3406,6 +3837,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_spo_restricted_search_allowed_list(self, site_urls: list[str]) -> Self:
         """AddSPORestrictedSearchAllowedList operation.
 
@@ -3419,6 +3851,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_spo_service_prioritization_app_registration(
         self, app_id: UUID, policy_id: UUID, quota_multiplier: int
     ) -> Self:
@@ -3443,6 +3876,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_syntex_custom_model_setting(self, model_setting: SyntexCustomModelSetting, scenario: int) -> Self:
         """AddSyntexCustomModelSetting operation.
 
@@ -3458,6 +3892,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_to_org_assets_lib_and_cdn_v2(
         self, cdn_type: int, lib_url: str, thumbnail_url: str, org_asset_type: int, default_origin_added: bool
     ) -> Self:
@@ -3492,6 +3927,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_to_org_assets_lib_and_cdn_with_type(
         self, cdn_type: int, lib_url: str, thumbnail_url: str, org_asset_type: int
     ) -> Self:
@@ -3518,6 +3954,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def add_to_org_assets_lib_with_config(
         self,
         cdn_type: int,
@@ -3561,6 +3998,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def archive_container(self, container_id: str) -> Self:
         """ArchiveContainer operation.
 
@@ -3572,6 +4010,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def bootstrap_policy_automation_resources(self) -> ClientResult[bool]:
         """BootstrapPolicyAutomationResources operation."""
         return_type = ClientResult(self.context, bool())
@@ -3579,6 +4018,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def bulk_remove_resource_as_authoritative(
         self, site_ids: list[UUID]
     ) -> ClientResult[ClientValueCollection[BulkInsertOperationResult]]:
@@ -3599,6 +4039,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def bulk_set_resource_as_authoritative(
         self, site_ids: list[UUID]
     ) -> ClientResult[ClientValueCollection[BulkInsertOperationResult]]:
@@ -3619,6 +4060,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def clear_pre_auth_allow_deny_list_settings(self, should_clear_allow_list: bool) -> Self:
         """ClearPreAuthAllowDenyListSettings operation.
 
@@ -3637,18 +4079,21 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def clear_restricted_access_control_onedrive(self) -> Self:
         """ClearRestrictedAccessControlOneDrive operation."""
         qry = ServiceOperationQuery(self, "ClearRestrictedAccessControlOneDrive", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def clear_restricted_access_control_sharepoint(self) -> Self:
         """ClearRestrictedAccessControlSharePoint operation."""
         qry = ServiceOperationQuery(self, "ClearRestrictedAccessControlSharePoint", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_application_billing_policy_validation(self, application_id: str) -> ClientResult[bool]:
         """CreateApplicationBillingPolicyValidation operation.
 
@@ -3663,6 +4108,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def create_file_archive_policy(
         self,
         policy_name: str,
@@ -3711,6 +4157,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete_spo_service_prioritization_app_registration(self, app_id: UUID) -> Self:
         """DeleteSPOServicePrioritizationAppRegistration operation.
 
@@ -3724,6 +4171,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete_spo_service_prioritization_app_registrations_by_policy(self, policy_id: UUID) -> ClientResult[int]:
         """DeleteSPOServicePrioritizationAppRegistrationsByPolicy operation.
 
@@ -3743,6 +4191,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def delete_syntex_custom_model_setting(self, unique_id: str, scenario: int) -> Self:
         """DeleteSyntexCustomModelSetting operation.
 
@@ -3758,6 +4207,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def download_high_volume_component_impacted_assets_report(self, category: int, document_key: str) -> Self:
         """DownloadHighVolumeComponentImpactedAssetsReport operation.
 
@@ -3771,6 +4221,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def download_ransomware_impacted_assets_report(self, drive_id: str, file_name: str, report_name_type: int) -> Self:
         """DownloadRansomwareImpactedAssetsReport operation.
 
@@ -3788,6 +4239,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def download_spo_containers(self, active: bool) -> Self:
         """DownloadSPOContainers operation.
 
@@ -3799,12 +4251,14 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def enable_brand_center_public_cdn(self) -> Self:
         """EnableBrandCenterPublicCdn operation."""
         qry = ServiceOperationQuery(self, "EnableBrandCenterPublicCdn", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def enqueue_insights(
         self, insights_scenario: int, report_id: str, report_data_file: str, report_creation_time: datetime
     ) -> ClientResult[InsightsQueueItem]:
@@ -3841,6 +4295,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def execute_transpiler_request(self, payload: CopilotTranspilerPayload) -> ClientResult[CopilotTranspilerResponse]:
         """ExecuteTranspilerRequest operation.
 
@@ -3857,6 +4312,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def export_admin_list_to_csv(self, view_xml: str, list_name: str) -> ClientResult[str]:
         """ExportAdminListToCSV operation.
 
@@ -3873,6 +4329,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def export_containers_to_csv(self) -> ClientResult[str]:
         """ExportContainersToCSV operation."""
         return_type = ClientResult(self.context, str())
@@ -3880,6 +4337,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def export_csv_file(self, time_zone_id: int) -> ClientResult[str]:
         """ExportCSVFile operation.
 
@@ -3892,6 +4350,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def export_unlicensed_onedrive_for_business_list_to_csv(self) -> ClientResult[str]:
         """ExportUnlicensedOneDriveForBusinessListToCSV operation."""
         return_type = ClientResult(self.context, str())
@@ -3899,6 +4358,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_admin_report_data(
         self, feature_id: str, dataset_metadata: ClientValueCollection[DatasetMetadataRequestInfo], query: str
     ) -> ClientResult[bytes]:
@@ -3924,6 +4384,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_admin_report_data_json(
         self,
         feature_id: str,
@@ -3959,6 +4420,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_admin_report_metadata(self, dataset: list[str]) -> ClientResult[DatasetMetadataResponse]:
         """GetAdminReportMetadata operation.
 
@@ -3977,6 +4439,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_all_spo_containers_from_admin_list(
         self, query_params: SPOContainerQueryParams
     ) -> ClientResult[SPContainerCollection]:
@@ -3997,6 +4460,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_archivable_container_types(self) -> ClientResult[ClientValueCollection[SPContainerTypeStatus]]:
         """GetArchivableContainerTypes operation."""
         from office365.sharepoint.tenant.administration.container.type.status import (
@@ -4008,6 +4472,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_authoritative_resources(self) -> ClientResult[ClientValueCollection[AuthoritativeResourceProperties]]:
         """GetAuthoritativeResources operation."""
         from office365.sharepoint.tenant.administration.authoritative_resource_properties import (
@@ -4019,6 +4484,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_baseline_security_mode_pre_auth_settings(self) -> ClientResult[str]:
         """GetBaselineSecurityModePreAuthSettings operation."""
         return_type = ClientResult(self.context, str())
@@ -4026,6 +4492,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_brand_center_configuration(self) -> ClientResult[BrandCenterConfiguration]:
         """GetBrandCenterConfiguration operation."""
         from office365.sharepoint.brandcenter.configuration import (
@@ -4037,6 +4504,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_catalog_management_schema(self) -> ClientResult[CatalogManagementSchema]:
         """GetCatalogManagementSchema operation."""
         from office365.sharepoint.tenant.administration.catalog_management_schema import (
@@ -4048,6 +4516,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_catalog_management_settings(self) -> ClientResult[CatalogManagementSettings]:
         """GetCatalogManagementSettings operation."""
         from office365.sharepoint.tenant.administration.catalog_management_settings import (
@@ -4059,6 +4528,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_catalog_management_status(self) -> ClientResult[CatalogManagementStatus]:
         """GetCatalogManagementStatus operation."""
         from office365.sharepoint.tenant.administration.catalog_management_status import (
@@ -4070,6 +4540,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_container_type_exists(self, billing_type: int) -> ClientResult[bool]:
         """GetContainerTypeExists operation.
 
@@ -4084,6 +4555,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_content_management_assessment_results(self) -> ClientResult[ContentManagementAssessmentResults]:
         """GetContentManagementAssessmentResults operation."""
         from office365.sharepoint.tenant.administration.contentmanagementassessmentresults import (
@@ -4095,6 +4567,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_copilot_promo_opt_in_status(self) -> ClientResult[bool]:
         """GetCopilotPromoOptInStatus operation."""
         return_type = ClientResult(self.context, bool())
@@ -4102,6 +4575,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_archive_policies(
         self, policy_id: UUID
     ) -> ClientResult[ClientValueCollection[SPOFileArchivePolicyInfo]]:
@@ -4120,6 +4594,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_archive_policy_reports(
         self, policy_id: UUID
     ) -> ClientResult[ClientValueCollection[SPOFileArchivePolicyReportInfo]]:
@@ -4140,6 +4615,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_archive_policy_sites(
         self, policy_id: UUID
     ) -> ClientResult[ClientValueCollection[SPOFileArchivePolicySiteInfo]]:
@@ -4158,6 +4634,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_request_branding_profiles(self) -> ClientResult[FileRequestBrandingAssetConfig]:
         """GetFileRequestBrandingProfiles operation."""
         from office365.sharepoint.administration.filerequestbrandingassetconfig import (
@@ -4169,6 +4646,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_version_batch_delete_job_progress(self, site_url: str) -> ClientResult[str]:
         """GetFileVersionBatchDeleteJobProgress operation.
 
@@ -4183,6 +4661,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_version_expiration_report_job_progress(self, site_url: str, report_url: str) -> ClientResult[str]:
         """GetFileVersionExpirationReportJobProgress operation.
 
@@ -4204,6 +4683,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_file_version_expiration_report_job_progress_for_library(
         self, site_url: str, list_params: SPOListParameters, report_url: str
     ) -> ClientResult[SPOFileVersionExpirationReportJobProgress]:
@@ -4233,6 +4713,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_generated_insights_summary(
         self, insights_scenario: int, data_file_name: str, page_index: int
     ) -> ClientResult[InsightsSummaryResponse]:
@@ -4262,6 +4743,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ib_version_for_tenant(self) -> ClientResult[str]:
         """GetIBVersionForTenant operation."""
         return_type = ClientResult(self.context, str())
@@ -4269,6 +4751,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_idle_session_sign_out_for_unmanaged_devices(self) -> ClientResult[str]:
         """GetIdleSessionSignOutForUnmanagedDevices operation."""
         return_type = ClientResult(self.context, str())
@@ -4276,6 +4759,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_insights_summary(
         self,
         insights_scenario: int,
@@ -4328,6 +4812,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_manage_version_policy_job_progress(self, site_url: str) -> ClientResult[str]:
         """GetManageVersionPolicyJobProgress operation.
 
@@ -4342,6 +4827,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_org_assets(self) -> ClientResult[OrgAssets]:
         """GetOrgAssets operation."""
         from office365.sharepoint.administration.orgassets.org_assets import OrgAssets
@@ -4351,6 +4837,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_pre_auth_settings(self) -> ClientResult[str]:
         """GetPreAuthSettings operation."""
         return_type = ClientResult(self.context, str())
@@ -4358,6 +4845,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ransomware_activities_overview(self, event_id: str) -> ClientResult[TenantAdminRansomwareActivitiesOverview]:
         """GetRansomwareActivitiesOverview operation.
 
@@ -4376,6 +4864,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ransomware_events(self, parameters: RenderListDataParameters) -> ClientResult[bytes]:
         """GetRansomwareEvents operation.
 
@@ -4388,6 +4877,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_ransomware_site_restore_points(self, parameters: RenderListDataParameters) -> ClientResult[bytes]:
         """GetRansomwareSiteRestorePoints operation.
 
@@ -4402,6 +4892,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sharepoint_setting_data(self, category: int) -> ClientResult[ClientValueCollection[SettingDataProperty]]:
         """GetSharePointSettingData operation.
 
@@ -4418,6 +4909,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_site_cohorts_summary(self, view: str) -> ClientResult[SiteCohortsSummary]:
         """GetSiteCohortsSummary operation.
 
@@ -4434,6 +4926,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sites_from_substrate(self, search_text: str) -> ClientResult[str]:
         """GetSitesFromSubstrate operation.
 
@@ -4446,6 +4939,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sorted_spo_containers_by_application_id(
         self, owning_application_id: UUID, ascending: bool, paged: bool, paging_token: str, archive_status: int
     ) -> ClientResult[SPContainerCollection]:
@@ -4485,6 +4979,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_sph_site_url(self) -> ClientResult[str]:
         """GetSPHSiteUrl operation."""
         return_type = ClientResult(self.context, str())
@@ -4492,6 +4987,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_by_container_id(self, container_id: str) -> ClientResult[SPContainerProperties]:
         """GetSPOContainerByContainerId operation.
 
@@ -4510,6 +5006,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_by_container_site_url(self, container_site_url: str) -> ClientResult[SPContainerProperties]:
         """GetSPOContainerByContainerSiteUrl operation.
 
@@ -4528,6 +5025,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_containers_by_application_id(
         self, owning_application_id: UUID, paged: bool, paging_token: str, archive_status: int
     ) -> ClientResult[SPContainerCollection]:
@@ -4564,6 +5062,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_type_by_id(
         self, container_type_id: UUID, container_tenant_type: int
     ) -> ClientResult[SPContainerTypeProperties]:
@@ -4591,6 +5090,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_type_configuration_by_container_type_id(
         self, container_type_id: UUID
     ) -> ClientResult[SPContainerTypeConfigurationProperties]:
@@ -4616,6 +5116,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_types(
         self, container_tenant_type: int
     ) -> ClientResult[ClientValueCollection[SPContainerTypeProperties]]:
@@ -4636,6 +5137,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_deleted_containers(self) -> ClientResult[ClientValueCollection[SPDeletedContainerProperties]]:
         """GetSPODeletedContainers operation."""
         from office365.sharepoint.tenant.administration.spdeletedcontainerproperties import (
@@ -4647,6 +5149,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_restricted_search_allowed_list(self) -> ClientResult[StringCollection]:
         """GetSPORestrictedSearchAllowedList operation."""
         return_type = ClientResult(self.context, StringCollection())
@@ -4654,6 +5157,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_restricted_search_mode(self) -> ClientResult[int]:
         """GetSPORestrictedSearchMode operation."""
         return_type = ClientResult(self.context, int())
@@ -4661,6 +5165,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_service_prioritization_app_registrations(self) -> ClientResult[SPOServicePrioritizationAppRegistrations]:
         """GetSPOServicePrioritizationAppRegistrations operation."""
         from office365.sharepoint.tenant.administration.sposerviceprioritizationappregistrations import (
@@ -4672,6 +5177,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_service_prioritization_app_registrations_by_policy(
         self, policy_id: UUID
     ) -> ClientResult[SPOServicePrioritizationAppRegistrations]:
@@ -4692,6 +5198,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_service_prioritization_billing_payload(
         self,
         billing_policy_id: str,
@@ -4736,6 +5243,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_service_prioritization_billing_policies(
         self,
     ) -> ClientResult[ClientValueCollection[SPOServicePrioritizationPolicyFromTenantStore]]:
@@ -4749,6 +5257,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_site_creation_sources(self) -> ClientResult[ClientValueCollection[SPOSiteCreationSource]]:
         """GetSPOSiteCreationSources operation."""
         from office365.sharepoint.tenant.administration.spositecreationsource import (
@@ -4760,6 +5269,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_syntex_applications(self) -> ClientResult[ClientValueCollection[SPSyntexApplicationProperties]]:
         """GetSPOSyntexApplications operation."""
         from office365.sharepoint.tenant.administration.syntex.applicationproperties import (
@@ -4771,6 +5281,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_syntex_consuming_applications(
         self, owning_application_id: UUID, application_id: UUID
     ) -> ClientResult[SPSyntexApplicationProperties]:
@@ -4798,6 +5309,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_syntex_custom_model_settings(
         self, scenario: int
     ) -> ClientResult[ClientValueCollection[SyntexCustomModelSetting]]:
@@ -4816,6 +5328,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_targeted_sites_details(self) -> ClientResult[ClientValueCollection[TargetedSiteDetails]]:
         """GetTargetedSitesDetails operation."""
         from office365.sharepoint.viva.targetedsitedetails import TargetedSiteDetails
@@ -4825,6 +5338,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_targeted_sites_details_by_user_id(
         self, user_id: str
     ) -> ClientResult[ClientValueCollection[TargetedSiteDetails]]:
@@ -4841,6 +5355,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_tenant_all_or_compatible_ib_segments(
         self, segments: list[UUID]
     ) -> ClientResult[ClientValueCollection[IBSegmentInfo]]:
@@ -4859,6 +5374,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_tenant_apply_file_version_policy_job_progress(self) -> ClientResult[str]:
         """GetTenantApplyFileVersionPolicyJobProgress operation."""
         return_type = ClientResult(self.context, str())
@@ -4866,6 +5382,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_tenant_send_from_address(self) -> ClientResult[str]:
         """GetTenantSendFromAddress operation."""
         return_type = ClientResult(self.context, str())
@@ -4873,6 +5390,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_tenant_site_creation_source(self) -> ClientResult[SiteCreationSource]:
         """GetTenantSiteCreationSource operation."""
         from office365.sharepoint.tenant.administration.sites.creation_source import (
@@ -4884,6 +5402,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_track_view_feature_always_visible(self) -> ClientResult[bool]:
         """GetTrackViewFeatureAlwaysVisible operation."""
         return_type = ClientResult(self.context, bool())
@@ -4891,6 +5410,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_use_graph_url_settings(self) -> ClientResult[str]:
         """GetUseGraphUrlSettings operation."""
         return_type = ClientResult(self.context, str())
@@ -4898,6 +5418,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_version_policy_for_doc_libs_job_progress(self, site_url: str) -> ClientResult[str]:
         """GetVersionPolicyForDocLibsJobProgress operation.
 
@@ -4912,6 +5433,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_version_policy_impact(
         self, version_policy: SPOFileVersionPolicySettings
     ) -> ClientResult[SPOTenantVersionPolicyImpact]:
@@ -4932,6 +5454,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_viva_connections_license(self) -> ClientResult[VivaConnectionsLicense]:
         """GetVivaConnectionsLicense operation."""
         from office365.sharepoint.viva.connections.license import VivaConnectionsLicense
@@ -4941,6 +5464,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def log_sharepoint_embedded_client_log(self, log_properties: SharePointEmbeddedClientLogProperties) -> Self:
         """LogSharePointEmbeddedClientLog operation.
 
@@ -4954,6 +5478,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def new_spo_container_type(
         self, container_type_properties: SPContainerTypeProperties
     ) -> ClientResult[SPContainerTypeProperties]:
@@ -4974,6 +5499,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def purge_container(self, container_id: str) -> Self:
         """PurgeContainer operation.
 
@@ -4985,6 +5511,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def purge_spo_deleted_container_by_container_id(self, container_id: str) -> ClientResult[bool]:
         """PurgeSPODeletedContainerByContainerId operation.
 
@@ -4999,6 +5526,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def purge_spo_deleted_container_by_container_site_url(self, container_site_url: str) -> ClientResult[bool]:
         """PurgeSPODeletedContainerByContainerSiteUrl operation.
 
@@ -5018,6 +5546,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def recent_admin_action_report_is_audit_enabled(self) -> ClientResult[bool]:
         """RecentAdminActionReportIsAuditEnabled operation."""
         return_type = ClientResult(self.context, bool())
@@ -5025,6 +5554,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_container(self, container_id: str) -> Self:
         """RemoveContainer operation.
 
@@ -5036,6 +5566,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_file_archive_policy(self, policy_id: UUID) -> Self:
         """RemoveFileArchivePolicy operation.
 
@@ -5047,6 +5578,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_file_request_branding_profile(self, profile_type: int) -> Self:
         """RemoveFileRequestBrandingProfile operation.
 
@@ -5060,6 +5592,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_file_type_version_policy(self, file_types: list[str]) -> Self:
         """RemoveFileTypeVersionPolicy operation.
 
@@ -5073,6 +5606,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_from_org_assets(self, lib_url: str, list_id: UUID) -> Self:
         """RemoveFromOrgAssets operation.
 
@@ -5088,6 +5622,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_pre_auth_allow_deny_list_item_setting(self, item_id: str) -> Self:
         """RemovePreAuthAllowDenyListItemSetting operation.
 
@@ -5099,6 +5634,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_resource_as_authoritative(self, site_id: UUID) -> Self:
         """RemoveResourceAsAuthoritative operation.
 
@@ -5110,6 +5646,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_site_from_file_archive_policy(self, policy_id: UUID, site_url: str) -> Self:
         """RemoveSiteFromFileArchivePolicy operation.
 
@@ -5125,6 +5662,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_sph_site(self) -> ClientResult[str]:
         """RemoveSPHSite operation."""
         return_type = ClientResult(self.context, str())
@@ -5132,6 +5670,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_sp_list_item(self, list_item_id: int, list_name: str) -> Self:
         """RemoveSPListItem operation.
 
@@ -5147,6 +5686,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_spo_container_by_container_id(self, container_id: str) -> Self:
         """RemoveSPOContainerByContainerId operation.
 
@@ -5160,6 +5700,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_spo_container_by_container_site_url(self, container_site_url: str) -> Self:
         """RemoveSPOContainerByContainerSiteUrl operation.
 
@@ -5173,6 +5714,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_spo_container_type(self, sp_deleted_container_type_properties: SPDeletedContainerTypeProperties) -> Self:
         """RemoveSPOContainerType operation.
 
@@ -5191,6 +5733,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_spo_container_user_role(self, container_id: str, login_name: str, role: str) -> Self:
         """RemoveSPOContainerUserRole operation.
 
@@ -5213,6 +5756,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_spo_restricted_search_allowed_list(self, site_urls: list[str]) -> Self:
         """RemoveSPORestrictedSearchAllowedList operation.
 
@@ -5226,6 +5770,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_targeted_site(self, site_id: UUID) -> Self:
         """RemoveTargetedSite operation.
 
@@ -5237,6 +5782,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def remove_tenant_admin_list_view(self, view_id: str) -> Self:
         """RemoveTenantAdminListView operation.
 
@@ -5248,6 +5794,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_active_containers(self, container_id: str, view_xml: str) -> ClientResult[bytes]:
         """RenderActiveContainers operation.
 
@@ -5264,6 +5811,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_admin_list_data(
         self, parameters: RenderListDataParameters, override_parameters: RenderListDataOverrideParameters, list_name: str
     ) -> ClientResult[bytes]:
@@ -5289,6 +5837,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_containers_admin_applications_data(
         self,
     ) -> ClientResult[ClientValueCollection[SPContainerApplicationProperties]]:
@@ -5302,6 +5851,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_containers_admin_list_data(
         self,
         order_by_columns_list: ClientValueCollection[SPContainerSortOrder],
@@ -5346,6 +5896,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_deleted_containers(self, view_xml: str) -> ClientResult[bytes]:
         """RenderDeletedContainers operation.
 
@@ -5358,6 +5909,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_filtered_admin_list_data(
         self, parameters: RenderListFilterDataParameters, list_name: str
     ) -> ClientResult[bytes]:
@@ -5381,6 +5933,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_filtered_admin_list_data_by_group_id(self, group_id: UUID) -> ClientResult[bytes]:
         """RenderFilteredAdminListDataByGroupId operation.
 
@@ -5395,6 +5948,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_governance_hub_sp_list(
         self, parameters: RenderListDataParameters, override_parameters: RenderListDataOverrideParameters
     ) -> ClientResult[bytes]:
@@ -5418,6 +5972,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_ib_segment_list_filter_data(self, parameters: RenderListFilterDataParameters) -> ClientResult[bytes]:
         """RenderIBSegmentListFilterData operation.
 
@@ -5430,6 +5985,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_ownership_policy_storage_sp_list(
         self, parameters: RenderListDataParameters, override_parameters: RenderListDataOverrideParameters
     ) -> ClientResult[bytes]:
@@ -5453,6 +6009,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_policy_definition_list(
         self, parameters: RenderListDataParameters, override_parameters: RenderListDataOverrideParameters
     ) -> ClientResult[bytes]:
@@ -5476,6 +6033,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_policy_executions_history(
         self, parameters: RenderListDataParameters, override_parameters: RenderListDataOverrideParameters
     ) -> ClientResult[bytes]:
@@ -5498,6 +6056,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def render_recent_admin_action_report(
         self, parameters: RenderListDataParameters, override_parameters: RenderListDataOverrideParameters
     ) -> ClientResult[bytes]:
@@ -5521,6 +6080,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def reorder_targeted_sites(self, site_ids: list[UUID]) -> ClientResult[ClientValueCollection[TargetedSiteDetails]]:
         """ReorderTargetedSites operation.
 
@@ -5537,6 +6097,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def request_content_management_assessment(self) -> ClientResult[ContentManagementAssessmentOperationResult]:
         """RequestContentManagementAssessment operation."""
         from office365.sharepoint.tenant.administration.contentmanagementassessmentoperationresult import (
@@ -5548,6 +6109,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def restore_container(self, container_id: str) -> Self:
         """RestoreContainer operation.
 
@@ -5559,6 +6121,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def restore_spo_deleted_container_by_container_id(self, container_id: str) -> ClientResult[bool]:
         """RestoreSPODeletedContainerByContainerId operation.
 
@@ -5573,6 +6136,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def restore_spo_deleted_container_by_container_site_url(self, container_site_url: str) -> ClientResult[bool]:
         """RestoreSPODeletedContainerByContainerSiteUrl operation.
 
@@ -5592,12 +6156,14 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def run_admin_home_post_load_tasks(self) -> Self:
         """RunAdminHomePostLoadTasks operation."""
         qry = ServiceOperationQuery(self, "RunAdminHomePostLoadTasks", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def save_file_request_branding_asset_config(
         self, asset_library_url: str, logo_file_url: str, background_file_url: str, profile_type: int
     ) -> Self:
@@ -5629,6 +6195,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_baseline_security_mode_pre_auth_settings(self, is_disabled: bool, allow_list: list[str]) -> Self:
         """SetBaselineSecurityModePreAuthSettings operation.
 
@@ -5649,6 +6216,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_catalog_management_type_display_name(
         self, property_type: int, display_name: str
     ) -> ClientResult[CatalogManagementSettings]:
@@ -5676,6 +6244,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_catalog_management_value_display_name(
         self, id_: UUID, display_name: str
     ) -> ClientResult[CatalogManagementSettings]:
@@ -5703,6 +6272,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_copilot_promo_opt_in_status(self, copilot_promo_opt_in_enabled: bool) -> Self:
         """SetCopilotPromoOptInStatus operation.
 
@@ -5721,6 +6291,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_file_archive_policy(
         self,
         policy_id: UUID,
@@ -5785,6 +6356,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_file_type_version_policy(
         self,
         file_types: list[str],
@@ -5820,6 +6392,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_ib_segments_on_site(self, site_id: UUID, segments: list[UUID], ib_mode: str) -> ClientResult[str]:
         """SetIBSegmentsOnSite operation.
 
@@ -5843,6 +6416,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_idle_session_sign_out_for_unmanaged_devices(
         self, enabled: bool, warn_after: _dt.time, sign_out_after: _dt.time
     ) -> ClientResult[bool]:
@@ -5868,6 +6442,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_jit_dlp_policy_data(
         self,
         mark_all_files_as_sensitive_by_default: bool,
@@ -5899,6 +6474,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_org_assets_with_config(
         self, lib_url: str, thumbnail_url: str, org_asset_type: int, config_param: OrgAssetsLibraryConfigParam
     ) -> Self:
@@ -5930,6 +6506,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_org_assets_with_type(self, lib_url: str, thumbnail_url: str, org_asset_type: int) -> Self:
         """SetOrgAssetsWithType operation.
 
@@ -5952,6 +6529,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_pre_auth_is_disabled_setting(self, is_disabled: bool) -> Self:
         """SetPreAuthIsDisabledSetting operation.
 
@@ -5963,6 +6541,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_resource_as_authoritative(self, site_id: UUID) -> ClientResult[AuthoritativeResourceProperties]:
         """SetResourceAsAuthoritative operation.
 
@@ -5979,6 +6558,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_sensitivity_label_container(self, container_id: str, sensitivity_label: UUID) -> Self:
         """SetSensitivityLabelContainer operation.
 
@@ -5999,6 +6579,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_site_administrators(self, site_administrators_fields_data: SiteAdministratorsFieldsData) -> Self:
         """SetSiteAdministrators operation.
 
@@ -6017,6 +6598,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_site_user_groups(self, site_user_groups_data: SiteUserGroupsData) -> Self:
         """SetSiteUserGroups operation.
 
@@ -6030,6 +6612,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_sp_embedded_application_permissions(
         self, sp_syntex_application_properties: SPSyntexApplicationProperties
     ) -> ClientResult[SPSyntexApplicationProperties]:
@@ -6055,6 +6638,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_sp_embedded_application_properties(
         self, sp_syntex_application_properties: SPSyntexApplicationProperties
     ) -> ClientResult[SPSyntexApplicationProperties]:
@@ -6080,6 +6664,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_sph_site(self, sph_site_url: str) -> ClientResult[str]:
         """SetSPHSite operation.
 
@@ -6092,6 +6677,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_sph_site_with_configuration(
         self, sph_site_url: str, configuration: HomeSiteConfigurationParam
     ) -> ClientResult[str]:
@@ -6115,6 +6701,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_container_properties(self, sp_container_properties: SPContainerProperties) -> Self:
         """SetSPOContainerProperties operation.
 
@@ -6128,6 +6715,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_container_type(
         self, container_type_properties: SPContainerTypeProperties
     ) -> ClientResult[SPContainerTypeProperties]:
@@ -6148,6 +6736,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_container_type_configuration(
         self, sp_container_type_configuration_properties: SPContainerTypeConfigurationProperties
     ) -> ClientResult[SPContainerTypeConfigurationProperties]:
@@ -6173,6 +6762,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_restricted_search_mode(self, mode: int) -> Self:
         """SetSPORestrictedSearchMode operation.
 
@@ -6184,6 +6774,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_service_prioritization_app_registration(
         self,
         app_id: UUID,
@@ -6223,6 +6814,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_syntex_applications_clear_override_sharing_capability(self, owning_application_id: UUID) -> Self:
         """SetSPOSyntexApplicationsClearOverrideSharingCapability operation.
 
@@ -6241,6 +6833,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_spo_syntex_applications_sharing_capability(
         self, owning_application_id: UUID, sharing_capability: int, override_tenant_sharing_capability: bool
     ) -> Self:
@@ -6269,6 +6862,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_storage_maximum_level_container(self, container_id: str, storage_maximum_level: int) -> Self:
         """SetStorageMaximumLevelContainer operation.
 
@@ -6289,6 +6883,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_syntex_payg_feature_activation(self, feature_name: str, activation_status: str) -> Self:
         """SetSyntexPaygFeatureActivation operation.
 
@@ -6309,6 +6904,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_tenant_data_loss_prevention_quarantine_settings(self, serialized_value: str) -> Self:
         """SetTenantDataLossPreventionQuarantineSettings operation.
 
@@ -6327,6 +6923,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_track_view_feature_always_visible(self) -> ClientResult[bool]:
         """SetTrackViewFeatureAlwaysVisible operation."""
         return_type = ClientResult(self.context, bool())
@@ -6334,6 +6931,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_use_graph_url_apps_list_setting(self, use_graph_url_apps_list: str) -> Self:
         """SetUseGraphUrlAppsListSetting operation.
 
@@ -6347,6 +6945,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_use_graph_url_is_enabled_setting(self, use_graph_url_is_enabled: bool) -> Self:
         """SetUseGraphUrlIsEnabledSetting operation.
 
@@ -6360,6 +6959,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_use_graph_url_settings(self, use_graph_url_is_enabled: bool, use_graph_url_apps_list: str) -> Self:
         """SetUseGraphUrlSettings operation.
 
@@ -6380,12 +6980,14 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def switch_file_request_branding_profiles(self) -> Self:
         """SwitchFileRequestBrandingProfiles operation."""
         qry = ServiceOperationQuery(self, "SwitchFileRequestBrandingProfiles", None, {}, None, None)
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def test_check_if_file_exists_in_adls(
         self, upload_to_adls_type: str, upload_to_adls_subtype: str
     ) -> ClientResult[bool]:
@@ -6409,6 +7011,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def test_generate_report_insights(
         self, insights_scenario: int, report_url: str, model_name: str
     ) -> ClientResult[str]:
@@ -6427,6 +7030,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def test_get_insight_generation_response_async(
         self, job_id: str, report_url: str, model_name: str
     ) -> ClientResult[str]:
@@ -6445,6 +7049,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def test_get_insight_generation_status_async(
         self, job_id: str, report_url: str, model_name: str
     ) -> ClientResult[str]:
@@ -6463,6 +7068,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def test_queue_insight_generation_async(
         self, insights_scenario: int, report_url: str, model_name: str, max_token_size: int
     ) -> ClientResult[str]:
@@ -6488,6 +7094,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def test_resync_to_adls(self, skip_validation: bool) -> Self:
         """TestResyncToADLS operation.
 
@@ -6499,6 +7106,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def test_upload_file_to_adls(self, upload_to_adls_type: str, upload_to_adls_subtype: str) -> Self:
         """TestUploadFileToADLS operation.
 
@@ -6519,6 +7127,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def test_upload_test_report_file_to_adls(
         self, file_url: str, upload_to_adls_type: str, upload_to_adls_subtype: str
     ) -> Self:
@@ -6547,6 +7156,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def transfer_container_principal_owner(self, container_id: str, new_principal_owner_upn: str) -> Self:
         """TransferContainerPrincipalOwner operation.
 
@@ -6567,6 +7177,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def trigger_owner_odb_provisioning(self, user_object_id: UUID) -> ClientResult[int]:
         """TriggerOwnerOdbProvisioning operation.
 
@@ -6581,6 +7192,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def un_archive_container(self, container_id: str) -> Self:
         """UnArchiveContainer operation.
 
@@ -6592,6 +7204,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def unarchive_odb_by_id(self, site_id: UUID, keep_unarchived_until: datetime) -> Self:
         """UnarchiveOdbById operation.
 
@@ -6607,6 +7220,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def unlock_sensitivity_label_encrypted_file(self, file_url: str, justification_text: str) -> Self:
         """UnlockSensitivityLabelEncryptedFile operation.
 
@@ -6627,6 +7241,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_file_search_visibility(self, url: str, is_hidden: bool) -> ClientResult[bool]:
         """UpdateFileSearchVisibility operation.
 
@@ -6643,6 +7258,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_jobs_work_items(self, job_ids: list[UUID]) -> Self:
         """UpdateJobsWorkItems operation.
 
@@ -6654,6 +7270,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_policy_definition(
         self, item_id: int, policy_input_parameters: CreatePolicyRequest, policy_operation: str
     ) -> Self:
@@ -6678,6 +7295,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_ransomware_activity(
         self, list_item_id: int, column_values: ClientValueCollection[TenantAdminListItemColumnValue], category: int
     ) -> ClientResult[TenantAdminRansomwareActivity]:
@@ -6707,6 +7325,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_ransomware_event(
         self,
         list_item_id: int,
@@ -6747,6 +7366,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_spo_container_user_role(self, container_id: str, login_name: str, role: str) -> Self:
         """UpdateSPOContainerUserRole operation.
 
@@ -6769,6 +7389,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_syntex_custom_model_setting(self, model_setting: SyntexCustomModelSetting, scenario: int) -> Self:
         """UpdateSyntexCustomModelSetting operation.
 
@@ -6789,6 +7410,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_targeted_site(
         self, site_url: str, configuration_param: HomeSiteConfigurationParam
     ) -> ClientResult[TargetedSiteDetails]:
@@ -6814,6 +7436,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_tenant_admin_list_item(
         self, list_item_id: int, column_values: ClientValueCollection[TenantAdminListItemColumnValue], list_name: str
     ) -> Self:
@@ -6838,6 +7461,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_tenant_admin_list_view(self, view_id: str, view_xml: str) -> Self:
         """UpdateTenantAdminListView operation.
 
@@ -6853,6 +7477,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def update_unlicensed_odb_active_storage_date_by_id(self, site_id: UUID, keep_unarchived_until: datetime) -> Self:
         """UpdateUnlicensedOdbActiveStorageDateById operation.
 
@@ -6873,6 +7498,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def validate_home_site(self, validation_action_type: int, site_url: str) -> Self:
         """ValidateHomeSite operation.
 
@@ -6893,6 +7519,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def validate_multiple_home_sites_parameter_exists(self, has_parameters: bool) -> Self:
         """ValidateMultipleHomeSitesParameterExists operation.
 
@@ -6911,11 +7538,13 @@ class Tenant(Entity):
         """Gets the OneDrivesSummaryMetricsData property"""
         return self.properties.get("OneDrivesSummaryMetricsData", None)
 
+    @odata(name="SmartWikiEntryScope")
     @property
     def smart_wiki_entry_scope(self) -> Optional[int]:
         """Gets the SmartWikiEntryScope property"""
         return self.properties.get("SmartWikiEntryScope", None)
 
+    @odata(name="SmartWikiEntrySiteInfoList")
     @property
     def smart_wiki_entry_site_info_list(self) -> ClientValueCollection[SiteInfoForSitePicker]:
         """Gets the SmartWikiEntrySiteInfoList property"""
@@ -6927,11 +7556,13 @@ class Tenant(Entity):
             "SmartWikiEntrySiteInfoList", ClientValueCollection[SiteInfoForSitePicker](SiteInfoForSitePicker)
         )
 
+    @odata(name="SmartWikiEntrySiteList")
     @property
     def smart_wiki_entry_site_list(self) -> GuidCollection:
         """Gets the SmartWikiEntrySiteList property"""
         return self.properties.get("SmartWikiEntrySiteList", GuidCollection())
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_onedrives_summary_metrics_data(self) -> ClientResult[OneDrivesSummaryMetrics]:
         """GetOneDrivesSummaryMetricsData operation."""
         from office365.sharepoint.tenant.administration.onedrives_summary_metrics import (
@@ -6943,6 +7574,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_type_file_version_policy_job_impact(
         self, container_type_id: UUID, version_policy: SPOFileVersionPolicySettings
     ) -> ClientResult[SPOTenantVersionPolicyImpact]:
@@ -6970,6 +7602,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
     def get_spo_container_type_file_version_policy_job_progress(self, container_type_id: UUID) -> ClientResult[str]:
         """GetSPOContainerTypeFileVersionPolicyJobProgress operation.
 
@@ -6989,6 +7622,7 @@ class Tenant(Entity):
         self.context.add_query(qry)
         return return_type
 
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
     def set_smart_wiki_entry_settings(self, scope: int, site_ids: list[UUID]) -> Self:
         """SetSmartWikiEntrySettings operation.
 
@@ -7000,6 +7634,192 @@ class Tenant(Entity):
         """
         qry = ServiceOperationQuery(
             self, "SetSmartWikiEntrySettings", None, {"scope": scope, "siteIds": GuidCollection(site_ids)}, None, None
+        )
+        self.context.add_query(qry)
+        return self
+
+    @odata(name="IsTenantAdminReadOnlyAdvanceNoticeEnabled")
+    @property
+    def is_tenant_admin_read_only_advance_notice_enabled(self) -> Optional[bool]:
+        """Gets the IsTenantAdminReadOnlyAdvanceNoticeEnabled property"""
+        return self.properties.get("IsTenantAdminReadOnlyAdvanceNoticeEnabled", None)
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
+    def clear_restricted_app_access_control_site_policy_by_site_id(self, site_id: UUID) -> Self:
+        """ClearRestrictedAppAccessControlSitePolicyBySiteId operation.
+
+        Args:
+            site_id (UUID):
+                siteId parameter
+        """
+        qry = ServiceOperationQuery(
+            self, "ClearRestrictedAppAccessControlSitePolicyBySiteId", None, {"siteId": site_id}, None, None
+        )
+        self.context.add_query(qry)
+        return self
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
+    def clear_restricted_app_access_control_site_policy_by_url(self, site_url: str) -> Self:
+        """ClearRestrictedAppAccessControlSitePolicyByUrl operation.
+
+        Args:
+            site_url (str):
+                siteUrl parameter
+        """
+        qry = ServiceOperationQuery(
+            self, "ClearRestrictedAppAccessControlSitePolicyByUrl", None, {"siteUrl": site_url}, None, None
+        )
+        self.context.add_query(qry)
+        return self
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
+    def clear_restricted_app_access_control_tenant_policy(self) -> Self:
+        """ClearRestrictedAppAccessControlTenantPolicy operation."""
+        qry = ServiceOperationQuery(self, "ClearRestrictedAppAccessControlTenantPolicy", None, {}, None, None)
+        self.context.add_query(qry)
+        return self
+
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
+    def get_restricted_app_access_control_site_policy_by_site_id(
+        self, site_id: UUID
+    ) -> ClientResult[SPORestrictedAppAccessControlSitePolicy]:
+        """GetRestrictedAppAccessControlSitePolicyBySiteId operation.
+
+        Args:
+            site_id (UUID):
+                siteId parameter
+        """
+        from office365.sharepoint.tenantadministration.spo_restricted_app_access_control_site_policy import (
+            SPORestrictedAppAccessControlSitePolicy,
+        )
+
+        return_type = ClientResult(self.context, SPORestrictedAppAccessControlSitePolicy())
+        qry = ServiceOperationQuery(
+            self, "GetRestrictedAppAccessControlSitePolicyBySiteId", None, {"siteId": site_id}, None, return_type
+        )
+        self.context.add_query(qry)
+        return return_type
+
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
+    def get_restricted_app_access_control_site_policy_by_url(
+        self, site_url: str
+    ) -> ClientResult[SPORestrictedAppAccessControlSitePolicy]:
+        """GetRestrictedAppAccessControlSitePolicyByUrl operation.
+
+        Args:
+            site_url (str):
+                siteUrl parameter
+        """
+        from office365.sharepoint.tenantadministration.spo_restricted_app_access_control_site_policy import (
+            SPORestrictedAppAccessControlSitePolicy,
+        )
+
+        return_type = ClientResult(self.context, SPORestrictedAppAccessControlSitePolicy())
+        qry = ServiceOperationQuery(
+            self, "GetRestrictedAppAccessControlSitePolicyByUrl", None, {"siteUrl": site_url}, None, return_type
+        )
+        self.context.add_query(qry)
+        return return_type
+
+    @site_access(SiteLevel.READ, role=DirectoryRole.SharePointAdministrator)
+    def get_restricted_app_access_control_tenant_policy(self) -> ClientResult[SPORestrictedAppAccessControlTenantPolicy]:
+        """GetRestrictedAppAccessControlTenantPolicy operation."""
+        from office365.sharepoint.tenantadministration.spo_restricted_app_access_control_tenant_policy import (
+            SPORestrictedAppAccessControlTenantPolicy,
+        )
+
+        return_type = ClientResult(self.context, SPORestrictedAppAccessControlTenantPolicy())
+        qry = ServiceOperationQuery(self, "GetRestrictedAppAccessControlTenantPolicy", None, {}, None, return_type)
+        self.context.add_query(qry)
+        return return_type
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
+    def set_restricted_app_access_control_site_policy_by_site_id(
+        self, site_id: UUID, enabled: bool, active_mode: str, allow_list: list[UUID], deny_list: list[UUID]
+    ) -> Self:
+        """SetRestrictedAppAccessControlSitePolicyBySiteId operation.
+
+        Args:
+            site_id (UUID):
+                siteId parameter
+            enabled (bool):
+                enabled parameter
+            active_mode (str):
+                activeMode parameter
+            allow_list (list[UUID]):
+                allowList parameter
+            deny_list (list[UUID]):
+                denyList parameter
+        """
+        qry = ServiceOperationQuery(
+            self,
+            "SetRestrictedAppAccessControlSitePolicyBySiteId",
+            None,
+            {
+                "siteId": site_id,
+                "enabled": enabled,
+                "activeMode": active_mode,
+                "allowList": GuidCollection(allow_list),
+                "denyList": GuidCollection(deny_list),
+            },
+            None,
+            None,
+        )
+        self.context.add_query(qry)
+        return self
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
+    def set_restricted_app_access_control_site_policy_by_url(
+        self, site_url: str, enabled: bool, active_mode: str, allow_list: list[UUID], deny_list: list[UUID]
+    ) -> Self:
+        """SetRestrictedAppAccessControlSitePolicyByUrl operation.
+
+        Args:
+            site_url (str):
+                siteUrl parameter
+            enabled (bool):
+                enabled parameter
+            active_mode (str):
+                activeMode parameter
+            allow_list (list[UUID]):
+                allowList parameter
+            deny_list (list[UUID]):
+                denyList parameter
+        """
+        qry = ServiceOperationQuery(
+            self,
+            "SetRestrictedAppAccessControlSitePolicyByUrl",
+            None,
+            {
+                "siteUrl": site_url,
+                "enabled": enabled,
+                "activeMode": active_mode,
+                "allowList": GuidCollection(allow_list),
+                "denyList": GuidCollection(deny_list),
+            },
+            None,
+            None,
+        )
+        self.context.add_query(qry)
+        return self
+
+    @site_access(SiteLevel.FULL_CONTROL, role=DirectoryRole.SharePointAdministrator)
+    def set_restricted_app_access_control_tenant_policy(self, enabled: bool, restricted_app_ids: list[UUID]) -> Self:
+        """SetRestrictedAppAccessControlTenantPolicy operation.
+
+        Args:
+            enabled (bool):
+                enabled parameter
+            restricted_app_ids (list[UUID]):
+                restrictedAppIds parameter
+        """
+        qry = ServiceOperationQuery(
+            self,
+            "SetRestrictedAppAccessControlTenantPolicy",
+            None,
+            {"enabled": enabled, "restrictedAppIds": GuidCollection(restricted_app_ids)},
+            None,
+            None,
         )
         self.context.add_query(qry)
         return self

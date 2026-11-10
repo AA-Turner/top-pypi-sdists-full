@@ -6,16 +6,16 @@ from pydantic.version import VERSION as PYDANTIC_VERSION
 DEFAULT_API_VERSION = "2021-01-01"
 BASIC_HEADERS = {"X-API-VERSION": DEFAULT_API_VERSION}
 
-# Before pydantic 2.12, `x: Annotated[str, Field(min_length=1)]` takes its constraints from the Field() that Cadwyn
-# passes as the default of the field in older versions, so field().had() changes them there, as in Cadwyn 7.4.0.
-# Since pydantic 2.12, the Field() in the annotation wins
-HAD_CHANGES_CONSTRAINTS_OF_FIELD_IN_ANNOTATED = tuple(int(part) for part in PYDANTIC_VERSION.split(".")[:2]) < (2, 12)
+_PYDANTIC_VERSION = tuple(map(int, re.findall(r"\d+", PYDANTIC_VERSION)[:3]))
+# Before pydantic 2.14.3, deepcopying a model or a TypeAdapter that couldn't be built because of an unresolved
+# annotation raises RecursionError (https://github.com/pydantic/pydantic/pull/14115).
+# Once the lock has pydantic 2.14.3 or later, main CI no longer covers Cadwyn's handling of this RecursionError,
+# so that handling needs a test that doesn't depend on the version of pydantic
+PYDANTIC_RAISES_RECURSION_ERROR_ON_DEEPCOPY = _PYDANTIC_VERSION < (2, 14, 3)
 
 # Like Cadwyn, we only take the numbers, so that pre-releases such as 0.163.0rc1 parse too
 _FASTAPI_VERSION = tuple(map(int, re.findall(r"\d+", fastapi.__version__)[:3]))
 _FASTAPI_MINOR_VERSION = _FASTAPI_VERSION[:2]
-# FastAPI 0.145.0 removed the `openapi_prefix` parameter
-FASTAPI_ACCEPTS_OPENAPI_PREFIX = _FASTAPI_MINOR_VERSION < (0, 145)
 # Before FastAPI 0.148.0, FastAPI validates the defaults of omitted query, header, cookie, and form params.
 # Since FastAPI 0.148.0, it only validates them when they set `validate_default=True`
 FASTAPI_VALIDATES_DEFAULTS_OF_OMITTED_PARAMS = _FASTAPI_MINOR_VERSION < (0, 148)
@@ -34,3 +34,5 @@ FASTAPI_LOOKS_UP_FORM_MODELS_BY_ALIAS = FASTAPI_SUPPORTS_OPTIONAL_FORM_MODELS
 FASTAPI_SUPPORTS_FORM_MODEL_UNIONS = _FASTAPI_MINOR_VERSION >= (0, 161)
 # Since FastAPI 0.153.0, FastAPI validates every model of a union of form models from the body as if it were form data
 FASTAPI_VALIDATES_FORM_MODEL_UNIONS_AS_FORM_DATA = _FASTAPI_MINOR_VERSION >= (0, 153)
+# Since FastAPI 0.157.0, a form field takes the first of its aliases that has a value, not the values of all of them
+FASTAPI_TAKES_FIRST_ALIAS_OF_FORM_FIELDS_WITH_VALUE = _FASTAPI_MINOR_VERSION >= (0, 157)

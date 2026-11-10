@@ -450,7 +450,8 @@ class SubmissionUpload:
       problems.append(
         f"{count:,} files exceeds the {MAX_RUNTIME_CONTEXT_FILES:,}-file limit. "
         "Keep only this runtime's required files in its Dockerfile directory. If it still has "
-        "too many, archive them, COPY the archive, and unpack it in a RUN step"
+        "too many, archive them, COPY the archive, and unpack it in a RUN step: "
+        "`mkdir -p <dest> && tar -xf <archive> -C <dest>`"
       )
     if size > MAX_FILE_SIZE_BYTES:
       problems.append(

@@ -135,15 +135,20 @@ void mariadb_exception_connection_gone(PyObject *exception_type,
   {
     PyErr_SetString(PyExc_RuntimeError,
                     "Failed to create exception");
+    Py_XDECREF(ErrorMsg);
+    Py_XDECREF(ErrorNo);
+    Py_XDECREF(SqlState);
     return;
   }
 
-  PyObject_SetAttr(Exception, PyUnicode_FromString("sqlstate"), SqlState);
-  PyObject_SetAttr(Exception, PyUnicode_FromString("errno"), ErrorNo);
-  PyObject_SetAttr(Exception, PyUnicode_FromString("errmsg"), ErrorMsg);
+  PyObject_SetAttrString(Exception, "sqlstate", SqlState);
+  PyObject_SetAttrString(Exception, "errno", ErrorNo);
+  PyObject_SetAttrString(Exception, "errmsg", ErrorMsg);
   /* For MySQL Connector/Python compatibility */
-  PyObject_SetAttr(Exception, PyUnicode_FromString("msg"), ErrorMsg);
+  PyObject_SetAttrString(Exception, "msg", ErrorMsg);
   PyErr_SetObject(exception_type, Exception);
+  /* PyErr_SetObject holds its own reference */
+  Py_XDECREF(Exception);
   Py_XDECREF(ErrorMsg);
   Py_XDECREF(ErrorNo);
   Py_XDECREF(SqlState);
@@ -177,6 +182,9 @@ void mariadb_throw_exception(void *handle,
   PyObject *SqlState= 0;
   PyObject *Exception= 0;
 
+  if (PyErr_Occurred())
+    return;
+
   if (message)
   {
     ErrorNo= PyLong_FromLong(CR_UNKNOWN_ERROR);
@@ -203,15 +211,20 @@ void mariadb_throw_exception(void *handle,
   {
     PyErr_SetString(PyExc_RuntimeError,
                     "Failed to create exception");
+    Py_XDECREF(ErrorMsg);
+    Py_XDECREF(ErrorNo);
+    Py_XDECREF(SqlState);
     return;
   }
 
-  PyObject_SetAttr(Exception, PyUnicode_FromString("sqlstate"), SqlState);
-  PyObject_SetAttr(Exception, PyUnicode_FromString("errno"), ErrorNo);
-  PyObject_SetAttr(Exception, PyUnicode_FromString("errmsg"), ErrorMsg);
+  PyObject_SetAttrString(Exception, "sqlstate", SqlState);
+  PyObject_SetAttrString(Exception, "errno", ErrorNo);
+  PyObject_SetAttrString(Exception, "errmsg", ErrorMsg);
   /* For MySQL Connector/Python compatibility */
-  PyObject_SetAttr(Exception, PyUnicode_FromString("msg"), ErrorMsg);
+  PyObject_SetAttrString(Exception, "msg", ErrorMsg);
   PyErr_SetObject(exception_type, Exception);
+  /* PyErr_SetObject holds its own reference */
+  Py_XDECREF(Exception);
   Py_XDECREF(ErrorMsg);
   Py_XDECREF(ErrorNo);
   Py_XDECREF(SqlState);
